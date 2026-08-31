@@ -460,16 +460,22 @@
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
     });
-    /* 🎙 목소리 선택 — 여자(asteria)/남자(orion)/번갈아(메시지마다 교대). localStorage 로 기억. */
+    /* 🎙 목소리 선택 — 여자(delia)/남자(aries)/번갈아(메시지마다 교대). localStorage 로 기억.
+       🧒 (2026-08-31) 웜업과 같은 지시로 성인 톤(asteria·orion)에서 20세 안팎 톤으로 교체.
+          두 화면이 같은 친구(Emma·Jake)를 쓰므로 목소리도 같은 것으로 맞춥니다.
+       🔴 아래 charForSpeaker() 는 «남자 화자의 이름» 을 그대로 비교해 얼굴을 고릅니다 —
+          화자 이름만 바꾸고 그 비교를 안 고치면 «남자를 골랐는데 얼굴은 여자» 가 되고
+          에러는 안 납니다. 그래서 이름을 상수 한 곳으로 모아 둡니다. */
+    const FEMALE_SPEAKER = 'delia', MALE_SPEAKER = 'aries';
     let currentVoice = (function(){ try { const v = localStorage.getItem('mangoi_aifriend_voice'); return ['female','male','mix'].includes(v) ? v : 'female'; } catch(e){ return 'female'; } })();
     let _mixTurn = 0;
     function speakerFor() {
-      if (currentVoice === 'male') return 'orion';
-      if (currentVoice === 'mix') return (_mixTurn++ % 2 === 0) ? 'asteria' : 'orion';
-      return 'asteria';
+      if (currentVoice === 'male') return MALE_SPEAKER;
+      if (currentVoice === 'mix') return (_mixTurn++ % 2 === 0) ? FEMALE_SPEAKER : MALE_SPEAKER;
+      return FEMALE_SPEAKER;
     }
-    // 👩‍🏫👨 목소리(TTS 화자) ↔ 아바타 얼굴 매핑 — orion(남) 이면 히어로(슈퍼맨풍), 그 외엔 강사(여).
-    function charForSpeaker(speaker) { return speaker === 'orion' ? 'male' : 'female'; }
+    // 👩‍🏫👨 목소리(TTS 화자) ↔ 아바타 얼굴 매핑 — 남자 화자면 히어로(슈퍼맨풍), 그 외엔 강사(여).
+    function charForSpeaker(speaker) { return speaker === MALE_SPEAKER ? 'male' : 'female'; }
     // 🔄 아바타를 지금 선택된 목소리에 맞춰 즉시 반영 — MangoAvatar 가 아직 준비 전이면(스텁) 조용히 무시되고,
     //    build() 완료 후 다음 setCharacter 호출(버튼 클릭·첫 답변 재생)에서 정상 반영된다.
     function syncAvatarToVoice() {

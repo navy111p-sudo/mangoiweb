@@ -682,12 +682,29 @@ var _enVoice = null, _speechOn = true, _audioUnlocked = false;
 var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
 /* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-2)의 speaker 지정.
-   여자=Emma(asteria) / 남자=Jake(apollo·자연스러운 미국 남성) / 번갈아=한 마디씩 남녀 교대. */
+   여자=Emma(delia) / 남자=Jake(aries) / 번갈아=한 마디씩 남녀 교대.
+   🧒 (2026-08-31) 「아바타를 더 어리게」 지시로 성인 톤(asteria·apollo)에서 20세 안팎 톤으로 교체.
+      ⚠️ Deepgram 의 화자별 «나이대» 설명은 이 작업 환경에서 프록시에 막혀 읽지 못했습니다
+         (developers.deepgram.com·deepgram.com 둘 다 403). 그러니 delia·aries 는
+         «귀로 확인해야 할 후보» 이지 측정된 값이 아닙니다 — 사장님이 들어보고 정하세요.
+      ✅ 그래서 주소 뒤에 ?vf=·?vm= 을 붙이면 배포 없이 그 자리에서 다른 화자로 들어볼 수 있습니다
+         (예: /warmup.html?vf=amalthea&vm=atlas → 목소리 버튼을 한 번 누르면 그 화자가 인사합니다).
+      ⛔ 아래 두 목록을 «자유 문자열 허용» 으로 바꾸지 마세요 — 이 값은 그대로 TTS 요청 본문의
+         speaker 로 실립니다. 목록의 이름은 전부 서버 허용목록(src/api-games.ts 의 AURA2)에 있는 것들이고,
+         거기 없는 이름을 보내면 서버가 조용히 여성 기본값(asteria)으로 떨어뜨립니다. */
+var VOICE_TRY_F = { delia:1, amalthea:1, thalia:1, aurora:1, cora:1, phoebe:1, andromeda:1, asteria:1 };
+var VOICE_TRY_M = { aries:1, atlas:1, hermes:1, orion:1, arcas:1, apollo:1 };
 var VOICE_MODES = {
-  female: { label:'👩 여자',  speaker:'asteria' },
-  male:   { label:'👨 남자',  speaker:'apollo'  },
+  female: { label:'👩 여자',  speaker:'delia' },
+  male:   { label:'👨 남자',  speaker:'aries' },
   mix:    { label:'🔀 번갈아' }
 };
+try{
+  var _vq = new URLSearchParams(location.search);
+  var _vfTry = String(_vq.get('vf')||'').toLowerCase(), _vmTry = String(_vq.get('vm')||'').toLowerCase();
+  if(VOICE_TRY_F[_vfTry]) VOICE_MODES.female.speaker = _vfTry;
+  if(VOICE_TRY_M[_vmTry]) VOICE_MODES.male.speaker   = _vmTry;
+}catch(e){}
 var _voiceMode = 'female', _mixNext = 'female';
 try{ var _sv = localStorage.getItem('mangoi_warmup_voice'); if(VOICE_MODES[_sv]) _voiceMode = _sv; }catch(e){}
 function _voiceGender(){ return _voiceMode==='mix' ? _mixNext : _voiceMode; }
