@@ -19,6 +19,8 @@
 //
 // 실행: node test-harness/substitute_assign_harness.mjs
 import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +31,8 @@ const CF = resolve(__dir, '..', 'cloudflare-deploy');
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const enroll = rd('../cloudflare-deploy/src/enroll-ops.ts');
+const auth = rd('../cloudflare-deploy/src/auth-admin.ts');
+const todayJs = rd('../cloudflare-deploy/public/js/adm-today-classes.js');
 const admin = rd('../cloudflare-deploy/src/api-admin.ts');
 const teacher = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mango = rd('../cloudflare-deploy/src/api-mango.ts');
@@ -38,6 +42,29 @@ const check = (name, ok, extra) => {
   if (ok) { PASS++; console.log('  ✅ ' + name); }
   else { FAIL++; FAILS.push(name); console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
 };
+
+/** 부정 검사(«이 글자가 없어야 한다»)는 반드시 주석을 벗겨 낸 사본으로 — 안 그러면
+ *  「왜 그렇게 안 했는지」 적어 둔 설명이 자기 검사에 걸린다(CLAUDE.md 2장).
+ *  ⚠️ 블록주석을 정규식 한 줄로 지우지 말 것 — 문자열 안의 «/*» 하나에 그 뒤가 통째로
+ *     사라진다(같은 장). 줄 단위로 «지금 블록주석 안인가» 를 추적한다. */
+function stripComments(src) {
+  const out = [];
+  let inBlock = false;
+  for (let line of String(src).split('\n')) {
+    let res = '';
+    for (let i = 0; i < line.length; i++) {
+      if (inBlock) {
+        if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i++; }
+        continue;
+      }
+      if (line[i] === '/' && line[i + 1] === '*') { inBlock = true; i++; continue; }
+      if (line[i] === '/' && line[i + 1] === '/') break;
+      res += line[i];
+    }
+    out.push(res);
+  }
+  return out.join('\n');
+}
 
 /** 중괄호 짝으로 블록을 자른다 — 길이(slice(i, i+N))로 자르면 옆 함수가 딸려 들어와
  *  「대상 지정이 방 전체로 샌다」 같은 거짓 FAIL 이 난다(CLAUDE.md 2장). */
@@ -137,6 +164,124 @@ for (const [label, anchor] of [
 }
 check('강사 차단이 checkAdminSession «만» 에 기대지 않는다',
   /getAdminActor/.test(blockAt(enroll, "path === '/api/pay/enroll/admin/substitute'")));
+
+/* ══ ②-2 지사·대리점·지사본사는 «자기 소속 수업만» (2026-08-30 사장님 지시 2차) ═════
+   처음엔 통째로 막았다가(차단), 사장님 지시로 «스코프로 자르기» 로 바꿨다.
+   🔴 여기가 「오늘 수업」 표(`/api/admin/classes/today`)의 판정과 어긋나면 두 가지 사고가 난다 —
+      더 좁으면 «화면엔 있는데 눌러도 안 되는 버튼», 더 넓으면 «남의 학원 수업을 바꿈».
+      그래서 **같은 함수(scopeStudentCond)** 를 쓰는지 대조하고, 실제 SQLite 로 돌려 본다. */
+console.log('\n②-2 조직 계정(지사·대리점·지사본사) — 자기 소속 수업만');
+{
+  const roleFn = blockAt(auth, 'export function isOrgScopedRole');
+  check('isOrgScopedRole 판정이 auth-admin 에 있다', roleFn.length > 40);
+  check("판정이 branch·agency·franchise 셋을 모두 본다",
+    /'branch'/.test(roleFn) && /'agency'/.test(roleFn) && /'franchise'/.test(roleFn), roleFn.slice(0, 120));
+  if (esbuildApi && roleFn) {
+    const js2 = esbuildApi.transformSync(roleFn.replace('export ', '') + '\nexport { isOrgScopedRole };',
+      { loader: 'ts', format: 'esm' }).code;
+    const m2 = await import('data:text/javascript;base64,' + Buffer.from(js2).toString('base64'));
+    for (const [role, want] of [['branch', true], ['agency', true], ['franchise', true],
+      ['hq', false], ['none', false], ['staff', false], ['teacher', false], ['', false], [null, false]]) {
+      check('isOrgScopedRole(' + JSON.stringify(role) + ')', m2.isOrgScopedRole(role) === want);
+    }
+  }
+
+  const scopeFn = blockAt(enroll, 'async function subScopeDenied');
+  check('스코프 판정 헬퍼(subScopeDenied)가 있다', scopeFn.length > 200);
+  check('판정을 scope.ts 의 scopeStudentCond 로 한다(「오늘 수업」 표와 같은 함수)',
+    /scopeStudentCond/.test(scopeFn) && /scopeStudentCond/.test(admin));
+  check('본사·내부직원은 그대로 통과한다(조직 계정일 때만 자른다)',
+    /if \(!isOrgScopedRole\(actorRole\)\) return null/.test(scopeFn));
+  check('⛔ 조건이 비면 막는 쪽으로 실패한다(스코프 미상 = 전국이 열리면 안 된다)',
+    /if \(!c\.cond\) return deny\(\)/.test(scopeFn));
+  check('학생이 안 붙은 행도 막는다', /if \(!uid\) return deny\(\)/.test(scopeFn));
+  check('판정 자체가 실패해도(catch) 막는 쪽으로', /catch[\s\S]{0,160}return deny\(\)/.test(scopeFn));
+  check('⛔ 강사 차단을 이 안으로 옮기지 않았다(강사는 스코프가 none 이라 통과해 버린다)',
+    !/isTeacher/.test(scopeFn));
+
+  for (const [label, anchor, writeKeys] of [
+    ['후보 조회(GET)', "path === '/api/pay/enroll/admin/substitute-candidates'", []],
+    ['배정·취소(POST)', "path === '/api/pay/enroll/admin/substitute'", ['INSERT INTO class_substitutions', 'UPDATE class_substitutions', 'UPDATE class_schedules']],
+  ]) {
+    const blk = blockAt(enroll, anchor);
+    const teacherAt = blk.indexOf('isTeacher');
+    const scopeAt = blk.indexOf('subScopeDenied');
+    check(label + ' — 강사 403 가드가 있다', teacherAt > 0 && /forbidden_teacher/.test(blk));
+    check(label + ' — 조직 계정 스코프 검사를 부른다', scopeAt > 0);
+    check(label + ' — 스코프 검사에 그 수업의 학생(user_id)을 넘긴다', /subScopeDenied\(env, request, actor\.role, row\.user_id\)/.test(blk));
+    // 쓰기보다 «앞» 에 와야 한다 — 뒤에 있으면 이미 바꾼 뒤에 거절하는 꼴이다
+    for (const k of writeKeys) {
+      const w = blk.indexOf(k);
+      check(label + ' — 스코프 검사가 «' + k.split(' ')[0] + ' ' + k.split(' ').pop() + '» 보다 앞에 온다',
+        w < 0 || (scopeAt > 0 && scopeAt < w), { scopeAt, w });
+    }
+    check(label + ' — 강사 가드는 DB 접근보다 앞(스코프 검사 안으로 안 들어갔다)',
+      teacherAt > 0 && (scopeAt < 0 || teacherAt < scopeAt));
+  }
+
+  /* 실제로 돌려 본다 — 대리점·지사·지사본사 조건이 «자기 학생만» 고르는가 (메모리 SQLite) */
+  if (esbuildApi) {
+    const out = join(mkdtempSync(join(tmpdir(), 'subscope-')), 'scope.mjs');
+    let bundled = true;
+    try {
+      esbuildApi.buildSync({ entryPoints: [join(CF, 'src', 'scope.ts')], bundle: true, format: 'esm',
+        platform: 'neutral', outfile: out, logLevel: 'silent' });
+    } catch { bundled = false; }
+    check('scope.ts 를 번들해 실제로 돌릴 수 있다', bundled);
+    if (bundled) {
+      const { scopeStudentCond } = await import('file://' + out.replace(/\\/g, '/'));
+      const db = new DatabaseSync(':memory:');
+      db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, shop_name TEXT, franchise TEXT)`);
+      for (const [u, shop, fr] of [
+        ['stu_a', '강남학원', '서울지사'], ['stu_b', '분당학원', '경기지사'],
+        ['stu_c', '강남학원', '서울지사'], ['stu_d', '부산학원', '부산지사'],
+      ]) db.prepare(`INSERT INTO students_erp VALUES (?,?,?)`).run(u, shop, fr);
+
+      // enroll-ops 가 쓰는 그 SQL 을 소스에서 오려 낸다 — 문장을 베껴 쓰면 갈린다
+      const sqlM = scopeFn.match(/SELECT 1 AS ok FROM students_erp se WHERE se\.user_id = \? AND \(\$\{c\.cond\}\) LIMIT 1/);
+      check('스코프 확인 SQL 을 소스에서 찾았다', !!sqlM);
+      const run = (scope, uid) => {
+        const c = scopeStudentCond(scope, 'se');
+        const sql = `SELECT 1 AS ok FROM students_erp se WHERE se.user_id = ? AND (${c.cond}) LIMIT 1`;
+        return !!db.prepare(sql).get(uid, ...c.binds);
+      };
+      const AGENCY = { type: 'agency', value: '강남학원', label: '' };
+      const BRANCH = { type: 'branch', value: '서울', label: '' };
+      const FRAN = { type: 'franchise', value: '서울지사,경기지사', label: '' };
+      check('대리점: 우리 학원 학생은 통과', run(AGENCY, 'stu_a') === true);
+      check('대리점: 남의 학원 학생은 막힘', run(AGENCY, 'stu_b') === false);
+      check('대리점: 없는 학생은 막힘', run(AGENCY, 'stu_zzz') === false);
+      check('지사: 우리 지사 학생은 통과', run(BRANCH, 'stu_c') === true);
+      check('지사: 다른 지사 학생은 막힘', run(BRANCH, 'stu_d') === false);
+      check('지사본사: 소유 지사 학생은 통과', run(FRAN, 'stu_b') === true);
+      check('지사본사: 소유 밖 학생은 막힘', run(FRAN, 'stu_d') === false);
+      // 본사·내부직원은 조건이 비어 있어야 한다(= 자르지 않는다)
+      for (const t of ['hq', 'none']) {
+        check(`${t} 는 조건이 비어 있다(전체)`, scopeStudentCond({ type: t, value: null, label: '' }, 'se').cond === '');
+      }
+      db.close();
+    }
+  }
+}
+
+/* ══ ②-3 화면 — 강사에게만 감추고, 조직 계정에는 보인다(목록이 이미 잘려 있다) ══════ */
+console.log('\n②-3 관리자 화면의 버튼 노출 판정');
+{
+  check('버튼을 그리기 전에 역할을 본다(subAllowed)',
+    /subAllowed\(\)/.test(todayJs) && /tc-sub-act/.test(todayJs));
+  const fn = blockAt(todayJs, 'function subAllowed');
+  check('강사에게는 안 그린다', /role !== 'teacher'/.test(fn), fn.slice(0, 140));
+  check('조직 계정에는 그린다(차단 목록이 남아 있지 않다)',
+    !/'branch'|'agency'|'franchise'/.test(stripComments(fn)), fn.slice(0, 200));
+  check('신원을 모를 때는 막지 않는다(서버가 최종 판정)', /if \(!role\) return true/.test(fn));
+  check('신원 정본은 서버가 확인한 window.__ADM_ME 다', /__ADM_ME/.test(fn));
+  check("신원이 도착하면 다시 그린다 — document 에서 듣는다(발행처가 document)",
+    /document\.addEventListener\('mangoi:identity'/.test(todayJs));
+  check('⛔ 상주 감시(MutationObserver·setInterval)를 쓰지 않는다',
+    !/MutationObserver|setInterval/.test(stripComments(todayJs)));
+  check('안내 문구가 «우리 소속 학생의 수업만» 이라고 말한다',
+    /우리 소속 학생의 수업만/.test(rd('../cloudflare-deploy/public/admin.html')));
+}
 
 /* ══ ③ CREATE 두 벌이 같은 표를 만드는가 (진짜 SQLite) ════════════════════════ */
 console.log('\n③ class_substitutions — CREATE 두 벌이 같은 표를 만든다');

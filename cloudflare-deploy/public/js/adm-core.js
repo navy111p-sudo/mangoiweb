@@ -2200,6 +2200,72 @@ function updateEvalPreview() {
   document.getElementById('ev-weighted-preview').textContent = w.toFixed(2);
   document.getElementById('ev-grade-preview').textContent = frontClassifyGrade(w);
 }
+/* 🤖 LMS 기록으로 평가 5항목 «채워 주기» — 2026-08-30
+   [무엇] GET /api/admin/payroll/auto-evaluate 가 계산한 «제안» 을 모달 입력칸에 넣는다.
+   ⛔ 저장하지 않는다 — 사람이 확인하고 [저장] 을 눌러야 반영된다(이 점수는 급여로 이어진다).
+   ⛔ 잴 수 없는 항목을 0 이나 3 으로 채우지 않는다 — 빈칸으로 두고 **왜 비었는지** 를 적는다.
+      (CLAUDE.md 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」) */
+async function autoFillEvalFromLms() {
+  const _L = adminLang === 'en';
+  const bg = document.getElementById('eval-modal-bg');
+  const box = document.getElementById('ev-auto-basis');
+  const btn = document.getElementById('ev-auto-btn');
+  if (!bg || !box) return;
+  const teacherId = parseInt(bg.dataset.teacherId, 10);
+  const year  = parseInt(bg.dataset.year, 10);
+  const month = parseInt(bg.dataset.month, 10);
+  if (!teacherId || !year || !month) return;
+  const was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = _L ? '⏳ Reading…' : '⏳ 기록을 읽는 중…'; }
+  try {
+    const r = await fetch(`/api/admin/payroll/auto-evaluate?year=${year}&month=${month}`,
+                          { credentials: 'include', cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    /* 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 한다 —
+       404 본문에는 ok 칸이 아예 없어 `d.ok === false` 는 그냥 통과한다(CLAUDE.md 2장). */
+    if (!(r.ok && d && d.ok === true && Array.isArray(d.teachers))) {
+      throw new Error((d && (d.message || d.error)) || ('HTTP ' + r.status));
+    }
+    const row = d.teachers.filter(function (t) { return Number(t.teacher_id) === teacherId; })[0];
+    if (!row) throw new Error(_L ? 'This teacher is not in the active roster.' : '재직 강사 명부에서 이 강사를 찾지 못했습니다.');
+
+    let filled = 0;
+    const put = function (id, v) {
+      const el = document.getElementById(id);
+      if (!el || v == null) return;
+      el.value = v; filled++;
+    };
+    put('ev-instruction', row.suggested.score_instruction);
+    put('ev-admin',       row.suggested.score_admin);
+    if (typeof updateEvalPreview === 'function') { try { updateEvalPreview(); } catch (e) {} }
+
+    const b = row.basis || {};
+    let h = '<b>' + (_L ? 'Filled from LMS records' : 'LMS 기록으로 채운 항목') + ': ' + filled + '</b><br>';
+    h += (_L ? 'Student ratings: ' : '학생 별점: ')
+       + (b.rating_n ? (b.rating_avg + ' (' + b.rating_n + (_L ? ' ratings)' : '건)')) : (_L ? 'none' : '없음'))
+       + ' · ' + (_L ? 'Lesson logs: ' : '수업일지: ')
+       + b.lesson_log_n + '/' + b.lesson_count
+       + (b.lesson_log_rate == null ? '' : ' (' + b.lesson_log_rate + '%)') + '<br>';
+    const un = (row.unmeasured || []);
+    if (un.length) {
+      h += '<span style="color:#b45309">' + (_L ? 'Left blank on purpose:' : '일부러 비워 둔 항목:') + '</span><ul style="margin:4px 0 0 16px;padding:0">';
+      un.forEach(function (u) {
+        h += '<li>' + String(_L ? u.reason_en : u.reason).replace(/[<>&]/g, '') + '</li>';
+      });
+      h += '</ul>';
+    }
+    box.innerHTML = h;
+    box.style.display = 'block';
+  } catch (e) {
+    box.innerHTML = '<span style="color:#b91c1c">'
+      + (_L ? 'Could not read LMS records: ' : 'LMS 기록을 읽지 못했습니다: ')
+      + String(e && e.message ? e.message : e).replace(/[<>&]/g, '') + '</span>';
+    box.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = was; }
+  }
+}
+
 async function saveEvalAndClasses() {
   const _L = adminLang === 'en';
   const bg = document.getElementById('eval-modal-bg');
@@ -9914,6 +9980,7 @@ async function seedDemoTeachers() {
   const e = id => document.getElementById(id);
   if (e('payroll-calc-btn'))     e('payroll-calc-btn').addEventListener('click', calcPayrollAll);
   if (e('payroll-csv-btn'))      e('payroll-csv-btn').addEventListener('click', downloadPayrollCSV);
+  if (e('ev-auto-btn'))          e('ev-auto-btn').addEventListener('click', autoFillEvalFromLms);   // 🤖 LMS 기록으로 평가 채우기
   if (e('payroll-finalize-btn')) e('payroll-finalize-btn').addEventListener('click', finalizePayroll);
   if (e('payroll-charts-btn'))   e('payroll-charts-btn').addEventListener('click', togglePayrollCharts);
   if (e('payroll-seed-btn'))     e('payroll-seed-btn').addEventListener('click', seedDemoTeachers);

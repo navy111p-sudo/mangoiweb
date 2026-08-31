@@ -86,6 +86,24 @@
     } catch (e) {}
   };
 
+  /* 🔒 (2026-08-30 사장님 지시 2차) 대체강사 배정은 **강사만** 못 한다.
+     처음엔 지사·대리점도 통째로 막았는데, 사장님 지시로 «차단» 이 아니라 «자기 소속 수업만»
+     으로 바꿨다 — 「우리 학원 강사가 병가」일 때 본사에 매번 요청하지 않아도 된다.
+     ⚠️ 그래서 이 화면은 조직 계정에게도 버튼을 그린다. 안전한 이유는 **이 표 자체가 이미
+        잘려 있기** 때문이다 — `/api/admin/classes/today` 가 `scopeStudentCond()` 로 자기 학생의
+        수업만 내려준다. 서버도 회차마다 같은 조건으로 다시 확인한다(enroll-ops.ts `subScopeDenied`).
+        두 판정이 어긋나면 «화면엔 있는데 눌러도 안 되는 버튼» 이 되므로 같은 함수를 쓴다.
+     ⚠️ 신원은 서버가 확인해 주는 window.__ADM_ME(js/adm-identity.js)가 정본이다. 아직 안 왔으면
+        «막지 않는다» — 그 사이 눌러도 서버가 거절한다. 신원이 도착하면 `mangoi:identity` 로
+        다시 그린다(발행처가 document 라 거기서 듣는다 — CLAUDE.md 2장). */
+  function subAllowed() {
+    var me = null;
+    try { me = window.__ADM_ME || (typeof window.admIdentity === 'function' ? window.admIdentity() : null); } catch (e) {}
+    var role = (me && me.role) ? String(me.role) : '';
+    if (!role) return true;                       // 아직 모름 — 서버가 최종 판정
+    return role !== 'teacher';
+  }
+
   /* 🔗 초대 링크 (2026-08-30 v4 제안서 16)
      [왜] 「화상강의실 초대 관리」가 사이드바에 독립 메뉴로 따로 있었다. 그 화면에서 하는 일은
        «방 번호를 손으로 적고 학생 아이디를 적는 것» 뿐인데, 그 두 값은 바로 이 목록에 이미 있다.
@@ -331,7 +349,7 @@
                 `button.tc-act:not(…)×6` (0,7,1) 을 이겨 이 버튼만 «흰 버튼» 이 된다(실측:
                 background #ffffff · color #344054 — 옆 참관 칩은 보라). 그 파일 9503·9710·9737 행에
                 같은 경고가 세 번 적혀 있다. 그래서 `tc-sub-act` 다. */
-          if (!isC24 && s.schedule_id) {
+          if (!isC24 && s.schedule_id && subAllowed()) {
             teacher += '<button type="button" class="tc-act tc-sub-act" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
               + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
           }
@@ -381,6 +399,13 @@
     }
   };
 
+  /* 안내 문구도 함께 — 버튼이 없는데 「[🔄] 버튼 = 대체강사 배정」이라고 적혀 있으면
+     그게 곧 「내 화면에는 없는 것이 남의 화면에는 있다」 제보가 된다(CLAUDE.md 2장). */
+  function syncSubHelp() {
+    var h = $('tc-sub-help');
+    if (h) h.style.display = subAllowed() ? '' : 'none';
+  }
+
   function bind() {
     var b = $('tc-load');
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
@@ -402,4 +427,9 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
+  syncSubHelp();
+  /* 신원은 나중에 온다 — 그때 버튼·안내를 다시 맞춘다. ⛔ 상주 감시(MutationObserver·
+     setInterval)는 쓰지 않는다(홈을 통째로 멎게 한 전력 — CLAUDE.md 2장). */
+  document.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
 })();

@@ -24,7 +24,11 @@ import {
   DEFAULT_LONG_CLASS_DAILY_CAP,  // 🪑 긴 수업 하루 정원 기본값 (0 = 무제한)
   isLongClass, longClassCapReached,
 } from './class-policy';
-import { checkAdminSession, getAdminActor } from './auth-admin';
+import { checkAdminSession, getAdminActor, isOrgScopedRole } from './auth-admin';
+/* 🔒 스코프 격리는 scope.ts 한 곳에서만 판정한다(CLAUDE.md 「지사·대리점에게 관리자 API 를
+   열었는데 남의 자료가 보임」). 이 파일 머리말의 «다른 도메인 import 금지» 는 수강신청 «규칙» 을
+   딴 도메인에서 끌어오지 말라는 뜻이고, 인증·격리 같은 공용 가드는 예외다(api-pay-refund.ts 도 같다). */
+import { getScope, scopeStudentCond } from './scope';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 
 /** 🔑 수강신청·자동결제용 로그인 판정 — 학생 토큰이 우선, 없으면 «관리자 세션 쿠키» 를
@@ -124,6 +128,37 @@ function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): numbe
     return enrollDowList(dayOfWeek).includes(targetDow) ? targetDow : null;
   }
   return null;
+}
+
+/** 🔒 (2026-08-30 사장님 지시) 지사·대리점·지사본사는 **자기 소속 학생의 수업만** 대체 배정한다.
+ *  차단이 아니라 «스코프로 자르기» 다 — 「우리 학원 강사가 병가」일 때 본사에 매번 요청하지 않아도 된다.
+ *
+ *  ⚠️ 이 API 는 `/api/pay/enroll/admin/*` 이라 `src/index.ts` 의 스코프 차단(`forbidden_scope`)
+ *     **밖**이다(그 미들웨어는 `/api/admin/` 접두사에만 걸린다). 그래서 여기서 직접 자른다.
+ *  ⚠️ 판정 기준은 「오늘 수업」 표(`/api/admin/classes/today`)와 **같아야 한다** — 그 화면은
+ *     `scopeStudentCond(scope,'se')` 로 자른 목록을 보여 준다. 여기가 더 좁으면 «화면엔 있는데
+ *     눌러도 안 되는 버튼» 이 되고, 더 넓으면 남의 학원 수업을 바꿀 수 있다.
+ *  ⛔ 조건이 비면(스코프를 못 구했으면) **막는 쪽으로 실패한다** — 모르는 채로 열면 전국이 열린다.
+ *  ℹ️ 본사(hq)·내부직원(none)은 `null` 을 돌려받아 그대로 통과한다. 강사는 이 함수 앞에서
+ *     `actor.isTeacher` 로 이미 막혀 있다(그 가드를 이 안으로 옮기지 말 것 — 강사는 스코프가
+ *     'none' 이라 여기서는 통과해 버린다. CLAUDE.md 「canEditOrg 로는 강사를 못 막는다」와 같은 뿌리). */
+async function subScopeDenied(env: any, request: Request, actorRole: string, scheduleUserId: any): Promise<Response | null> {
+  if (!isOrgScopedRole(actorRole)) return null;
+  const deny = () => json({ ok: false, error: 'forbidden_scope', message: '우리 소속 학생의 수업만 대체 배정할 수 있습니다.' }, 403);
+  try {
+    const scope = await getScope(env, request);
+    const c = scopeStudentCond(scope, 'se');
+    if (!c.cond) return deny();                       // 조직 계정인데 조건이 비면 = 스코프 미상
+    const uid = String(scheduleUserId || '').trim();
+    if (!uid) return deny();                          // 학생이 안 붙은 행(자리표시 등)은 대상 아님
+    const hit = await env.DB.prepare(
+      `SELECT 1 AS ok FROM students_erp se WHERE se.user_id = ? AND (${c.cond}) LIMIT 1`
+    ).bind(uid, ...c.binds).first();
+    return hit ? null : deny();
+  } catch (e) {
+    console.warn('[enroll] subScopeDenied:', (e as any)?.message);
+    return deny();                                    // 판정 자체가 실패해도 막는 쪽으로
+  }
 }
 
 /** 🔄 (2026-08-28 trap-check 지적으로 추가) 대체강사가 "같은 날짜에 이미 다른 회차의
@@ -1231,13 +1266,16 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const date = String(url.searchParams.get('date') || '').trim();
     if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ ok: false, error: 'bad_params' }, 400);
     const row: any = await env.DB.prepare(
-      `SELECT cs.id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date,
+      `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date,
               cs.start_time, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status,
               t.name AS teacher_name
          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
         WHERE cs.id = ? LIMIT 1`
     ).bind(scheduleId).first();
     if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    /* 🔒 지사·대리점·지사본사는 «자기 소속 학생의 수업» 만 — 남의 학원 수업의 강사·학생 이름이
+       여기서 나가면 안 된다(읽기 전용이라도 막는다). 본사·내부직원은 그대로 통과. */
+    { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
     const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
     if (dow === null) return json({ ok: false, error: 'not_on_that_date', message: '이 수업은 그 날짜에 열리지 않습니다.' }, 400);
     const startMin = enrollTimeToMin(String(row.start_time || ''));
@@ -1308,6 +1346,10 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     ).bind(scheduleId).first();
     if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
     if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
+    /* 🔒 지사·대리점·지사본사는 «자기 소속 학생의 수업» 만 바꿀 수 있다 — 어떤 쓰기보다 앞에 온다.
+       되돌리기(원래 강사 복귀)도 같은 조건으로 허용한다(2026-08-30 사장님 결정 — 자기가 배정한
+       대체를 자기가 취소하지 못하면 본사에 매번 요청해야 한다). */
+    { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
     const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
     if (dow === null) return json({ ok: false, error: 'not_on_that_date' }, 400);
 

@@ -6,7 +6,10 @@
  *   `students_erp` 는 **카페24가 정본**이다. 매일 밤 03:00 KST 에
  *   `importCafe24Students()` 가 이렇게 한다:
  *       DELETE FROM students_erp WHERE created_at = CAFE24_STUDENT_SENTINEL   ← 전부 지우고
- *       INSERT OR REPLACE INTO students_erp (...)                             ← 카페24로 다시 채운다
+ *       UPSERT(ON CONFLICT DO UPDATE) INTO students_erp (...)                             ← 카페24로 다시 채운다
+ *      ⚠️ (2026-08-28) 그 UPSERT 는 이제 «카페24 칸만» 덮는다 — password_hash·parent_user_id·
+ *         eval_band 가 든 행은 DELETE 도 비켜 간다. 그래도 korean_name 은 카페24가 덮으므로
+ *         이 파일(지정 재적용)이 여전히 필요하다.
  *   그래서 **D1 에서 손으로 고친 이름·지운 행은 하룻밤이면 사라진다.**
  *   (CLAUDE.md 2장 「대리점의 지사 소속을 D1에서 고쳤는데 다음날 원복됨」과 같은 성질)
  *
