@@ -2611,6 +2611,7 @@ const worker = {
         } catch (err) {
           console.error('[c24-mirror] nightly error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'c24-mirror');
 
         // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
         //   이상 발견 시에만 사장님 SMS (정상일 땐 조용).
