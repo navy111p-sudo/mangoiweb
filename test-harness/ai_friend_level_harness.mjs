@@ -321,6 +321,24 @@ check('웜업 CEFR == 서버 AI_FRIEND_CEFR (순서까지)',
 // ⛔ CEFR 이 ko·lv 를 «대체» 하지 않았는가 — 교재 Lv 표기가 그대로 남아 있어야 한다
 check('웜업이 교재 Lv 구간 칸을 CEFR 로 갈아 끼우지 않았다',
   /lv:\s*'Lv 1-4'/.test(wCat) && /lv:\s*'Lv 31-34'/.test(wCat), wCat.slice(0, 120));
+/* 🔴 «지금 몇 단계인가» 를 화면 두 곳이 서로 다르게 말하면 안 된다.
+   ⋮ 설정 패널의 첫 표시 글자가 HTML 에 «손으로» 박혀 있어서, 눈금을 손볼 때마다
+   그 한 줄만 옛 값으로 남는다(실제로 「3단계 · 초급+」 이 남아 설정 화면과 달랐다).
+   JS 가 곧 덮지만 ① 덮기 전에 한 번 보이고 ② JS 가 죽으면 그대로 남는다. */
+{
+  const names = [...wCat.matchAll(/ko:\s*'([^']+)'/g)].map((m) => m[1]);
+  const DEF = 3;   // 기본 단계 — 서버 AI_FRIEND_DEFAULT_LEVEL(S3)·웜업 _warmLevel 과 같은 칸
+  const want = `${DEF}단계 · ${names[DEF - 1]} · ${wCefr[DEF - 1]}`;
+  const got = (WHTML.match(/id="lvlVal"[^>]*>([^<]*)</) || [])[1] || '';
+  check(`⋮ 패널 첫 표시가 목록과 같은 말을 한다 (${want})`, got.trim() === want,
+    { html: got.trim(), 목록: want });
+  // 이름을 «손으로» 조립하는 자리가 남아 있으면 또 어긋난다 — levelLabel() 한 곳으로 모은다
+  check('단계 이름을 손으로 조립하지 않는다(levelLabel 로 모음)',
+    !/'단계 · ' \+ LEVEL_NAMES\[|단계\(' \+ LEVEL_NAMES\[/.test(WHTML),
+    'LEVEL_NAMES 를 직접 이어 붙이면 CEFR 이 빠진 채로 굳는다');
+  check('그 한 곳(levelLabel)이 실재한다', /function levelLabel\(/.test(WHTML));
+}
+
 // 화면 버튼의 <i> 라벨도 같은 이름이어야 한다(학생이 보는 글자)
 const btnCefr = [...HTML.matchAll(/data-level="(S\d)"[^>]*>\s*\d<i>([^<]+)<\/i>/g)].map((m) => [m[1], m[2].trim()]);
 check('AI 영어친구 버튼 여덟 개에 CEFR 이름이 붙어 있다', btnCefr.length === 8, btnCefr);

@@ -438,7 +438,7 @@
 
         <!-- 📊 대화 난이도: 1(기초) ~ 8(최고) — 눈금에서 골라 AI 눈높이를 맞춤 -->
         <div class="menu-group">
-          <div class="menu-label"><span>📊 대화 레벨</span><span class="ls-now" id="lvlVal">3단계 · 초급+</span></div>
+          <div class="menu-label"><span>📊 대화 레벨</span><span class="ls-now" id="lvlVal">3단계 · 초급 · A2+</span></div>
           <div class="ls-btns" id="lvlBtns" role="radiogroup" aria-label="대화 난이도 선택"></div>
           <div class="ls-ends"><span>🌱 기초</span><span>최고 🚀</span></div>
         </div>
@@ -931,6 +931,13 @@ var LEVEL_CATALOG = [
    s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.'}
 ];
 var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
+/* 🏷️ 「4단계 · 초중급 · B1」처럼 CEFR 까지 붙인 한 줄. ⋮ 설정 패널·안내 문구가 함께 씁니다.
+   ⛔ 이름을 손으로 적지 마세요 — 여기 한 곳에서만 만들어야 설정 화면과 어긋나지 않습니다
+      (실제로 «3단계 · 초급+» 이 HTML 에 박혀 있어 설정 화면과 다른 말을 하고 있었습니다). */
+function levelLabel(n){
+  var b = LEVEL_CATALOG[Math.max(1,Math.min(8,parseInt(n,10)||3)) - 1];
+  return b ? (b.n + '단계 · ' + b.ko + ' · ' + b.cefr) : (n + '단계');
+}
 var _warmLevel = 3;
 try{
   var savedLvl = parseInt((Q.get('diff')||localStorage.getItem('mangoi_warmup_level')||'3'),10);
@@ -944,8 +951,8 @@ try{
       var b=document.createElement('button');
       b.type='button'; b.textContent=String(n);
       b.setAttribute('role','radio');
-      b.title = n + '단계 · ' + LEVEL_NAMES[n];
-      b.setAttribute('aria-label', n + '단계 ' + LEVEL_NAMES[n]);
+      b.title = levelLabel(n);
+      b.setAttribute('aria-label', levelLabel(n));
       b.onclick=function(){ setLevel(n, true); };
       box.appendChild(b);
     })(i);
@@ -961,10 +968,10 @@ function setLevel(lv, announce){
   if(box){ var bs=box.querySelectorAll('button');
     for(var i=0;i<bs.length;i++){ var on=(i+1===lv);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
-  var v=document.getElementById('lvlVal'); if(v) v.textContent = lv + '단계 · ' + LEVEL_NAMES[lv];
+  var v=document.getElementById('lvlVal'); if(v) v.textContent = levelLabel(lv);
   // 사용자가 직접 바꾸면 안내 한 줄(다음 대화부터 이 레벨로 반영됨)
   if(announce && changed && typeof addMsg==='function'){
-    addMsg('📊 대화 레벨을 ' + lv + '단계(' + LEVEL_NAMES[lv] + ')로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
+    addMsg('📊 대화 레벨을 ' + levelLabel(lv) + ' 로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
   }
 }
 setLevel(_warmLevel);   // 저장된 레벨로 눈금/표시 초기화
@@ -1186,7 +1193,7 @@ function startWarmup(){
   closeSetup();
   if(_warmStarted){
     if(typeof addMsg==='function'){
-      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + _warmLevel + '단계(' + LEVEL_NAMES[_warmLevel] + ')로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
+      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + levelLabel(_warmLevel) + ' 로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
     }
     return;
   }
