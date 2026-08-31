@@ -34,6 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { peelLearnLead, joinLearnLead, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -2290,10 +2291,13 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
-      // 🗣️ (2026-08-24) mode='learn' — 웜업·AI친구 «뜻 보기» 전용. AI 튜터의 영어 문장을
+      // 🗣️ (2026-08-24) mode='learn' — 학생 화면의 «뜻 보기» 전용(웜업·AI친구·음성코치·게임). AI 튜터의 영어 문장을
       //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
       //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
       //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      //   🔴 (2026-08-31) 「Good job!」 → 「훌륭한 직업!」 제보 — 뿌리가 둘이었다.
+      //      ① ai-friend.html 이 이 모드를 «안 쓰고» 있었다(웜업만 고쳐져 있었다) → 화면 쪽 수리.
+      //      ② 모드를 켜도 확률이라, 말머리 칭찬 상투구는 src/learn-phrase-ko.ts 로 «결정론» 처리한다.
       const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
@@ -2415,7 +2419,8 @@ ${numbered}`;
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
       //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
-      const cacheKey = (t: string) => (learnMode ? 'trl1:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl2: learn 모드 «말머리 상투구 결정론 + 직역금지 예시»(2026-08-31) — 「훌륭한 직업!」이 담긴 trl1 캐시와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl2:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -2447,14 +2452,16 @@ ${numbered}`;
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
       // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
       //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
-      const learnSys = 'You translate what an AI English tutor said in a fun pre-class warm-up chat, '
+      const learnSys = 'You translate what an AI English tutor or an English practice app said, '
         + 'so a young Korean student (elementary or middle school) can understand what the English means. '
         + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
-        + 'For example, "Let\'s warm up before class" means having a light practice chat, not making anything warm. '
+        + 'Cheers, greetings and set phrases must be translated as what a Korean teacher would actually say, '
+        + 'NOT by translating each word: ' + LEARN_GLOSS_HINT + ' '
         + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
         + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Never translate a question as 「~습니까?」 — a child reads this. Use 「~예요?」 / 「~해요?」. '
+        + 'Never write 「당신」 for "you" — Korean drops it. "Do you have a pet?" is 「반려동물 키워요?」, not 「당신은 애완동물이 있습니까?」. '
         + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
-        + 'In a school context "숙제" is school homework, never housework or a job. '
         + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
@@ -2511,15 +2518,29 @@ ${numbered}`;
       if (need.length && ai) {
         for (const t of need) {
           try {
+            /* 🗣️ learn 모드 — 말머리 칭찬 상투구는 «모델에게 맡기지 않고» 여기서 떼어 낸다.
+               「Good job!」을 m2m100 이 「훌륭한 직업!」으로 옮긴 제보(2026-08-31)가 출발점이고,
+               언어모델로 바꿔도 확률이라 자주 나오는 상투구는 결정론으로 못 박는다.
+               정본 표: src/learn-phrase-ko.ts. 종결부호가 없으면 떼지 않으므로
+               「Good job on your sentence」 같은 진짜 문장은 그대로 통째로 번역된다. */
+            const lead = (learnMode && target === 'ko') ? peelLearnLead(t) : { leadKo: '', rest: t };
+            const src = lead.rest;
+            // 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다
+            const needsMt = /[A-Za-z\u3131-\uD79D\u4E00-\u9FFF]/.test(src);
             let out = '';
+            if (!needsMt) {
+              out = joinLearnLead(lead.leadKo, src);
+            } else {
             if (chatMode || learnMode) {
-              try { out = await chatTranslate(t); }
+              try { out = await chatTranslate(src); }
               catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
             }
             if (!out) {
-              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
+              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
               if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
-              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : src;
+            }
+            out = joinLearnLead(lead.leadKo, out);
             }
             map[t] = out;
             if (kv && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
