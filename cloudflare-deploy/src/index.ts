@@ -2549,6 +2549,25 @@ const worker = {
         }
       }
 
+      /* 🪞 카페24 → 망고아이 시간표 미러 «좁은 창» (오늘~+2일) — 2026-08-31 사장님 지시
+         카페24 예약은 당일에도 채워진다(실측: Ana 의 8/31 11건 대 9월 이후 4건).
+         하루 한 번만 돌면 그날 오후에 들어온 수업을 놓치므로 15분 트리거를 함께 탄다.
+         ⛔ 새 cron 을 못 만든다 — 계정 한도 5/5 가 이미 꽉 찼다(wrangler.toml).
+         ⛔ hour 비교를 쓰지 않는다. isWatchdogTick 하나로만 가른다.
+         ✅ 끄는 스위치는 c24_mirror_config.mode='off' 하나 — 그러면 카페24를 부르지도 않는다.
+         ⚠️ runMirrorSweep 은 스스로 예외를 삼킨다(감시견을 같이 죽이면 안 된다). */
+      if (isWatchdogTick) {
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 2, label: 'watchdog' });
+          if (!mr.skipped) console.log('[c24-mirror] watchdog', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] watchdog error', err);
+        }
+      }
+
       // ── UTC 18:00 — retention purge
       if (cronIs('0 18 * * *')) {
         try {
@@ -2566,6 +2585,20 @@ const worker = {
           console.log('[cafe24-sync] nightly done', JSON.stringify(syncOut));
         } catch (err) {
           console.error('[cafe24-sync] nightly error', err);
+        }
+
+        /* 🪞 카페24 → 망고아이 시간표 미러 «넓은 창» (오늘~+14일)
+           위 좁은 창(15분)이 당일치를 따라잡고, 여기서 멀리 있는 예약까지 맞춘다.
+           동기화 «뒤» 에 두는 이유: 이 미러는 Neo4j 를 직접 읽지만, 학생 계정 확인은
+           D1(students_erp)을 보므로 그날 새로 들어온 학생이 먼저 채워져 있어야 한다. */
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 14, label: 'nightly' });
+          console.log('[c24-mirror] nightly', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] nightly error', err);
         }
 
         // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
