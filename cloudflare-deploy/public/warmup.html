@@ -192,8 +192,12 @@
     color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
   .ls-ends{display:flex;justify-content:space-between;margin-top:8px;
     font-size:12px;font-weight:700;color:var(--text2)}
-  /* 🎙️ AI 목소리 선택 (여자/남자/번갈아) — 레벨 버튼과 같은 톤 */
-  .voice-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  /* 🎙️ AI 친구 고르기 (Emma·Jake·Lily·Noah + 번갈아) — 레벨 버튼과 같은 톤.
+     (2026-08-31) 둘 → 넷이 되면서 3열로는 이름이 잘려서 2열 + «번갈아» 만 한 줄 전체로 둔다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning·admin_lazyload 하니스가
+        <style> 안의 그 글자를 «한자 폰트 983KB 를 받는 화면» 으로 판정한다(실제로 밟았다). */
+  .voice-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .voice-btns button[data-v="mix"]{grid-column:1/-1}
   .voice-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
     padding:10px 0;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
     color:var(--text2);font-size:14px;font-weight:800;transition:transform .08s,background .15s,color .15s}
@@ -361,7 +365,7 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=13" defer></script>
+<script src="/js/mango-avatar.js?v=15" defer></script>
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
@@ -440,12 +444,15 @@
           <div class="age-btns" id="ageBtns" role="radiogroup" aria-label="연령대 선택"></div>
         </div>
 
-        <!-- 🎙️ AI 목소리: 여자/남자 원어민 선택 + 번갈아(둘 다 섞어서) -->
+        <!-- 🎙️ AI 친구: 네 명 중 고르기 + 번갈아(네 명이 돌아가며).
+             고르면 «목소리와 얼굴이 함께» 바뀐다 — 그래서 이름표가 「목소리」가 아니라 「친구」다. -->
         <div class="menu-group">
-          <div class="menu-label"><span>🎙️ AI 목소리</span><span class="ls-now" id="voiceVal">👩 여자</span></div>
-          <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 목소리 선택">
-            <button type="button" data-v="female" onclick="setVoiceMode('female',true)">👩 여자</button>
-            <button type="button" data-v="male" onclick="setVoiceMode('male',true)">👨 남자</button>
+          <div class="menu-label"><span>🎙️ AI 친구 (목소리·얼굴)</span><span class="ls-now" id="voiceVal">👩 Emma</span></div>
+          <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 친구 선택">
+            <button type="button" data-v="emma" onclick="setVoiceMode('emma',true)">👩 Emma</button>
+            <button type="button" data-v="jake" onclick="setVoiceMode('jake',true)">🦸 Jake</button>
+            <button type="button" data-v="lily" onclick="setVoiceMode('lily',true)">👧 Lily</button>
+            <button type="button" data-v="noah" onclick="setVoiceMode('noah',true)">👦 Noah</button>
             <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
           </div>
         </div>
@@ -472,8 +479,10 @@
       <div id="tavatar-ring">
         <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
         <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-          <source src="/img/teacher-avatar.webm" type="video/webm">
-          <source src="/img/teacher-avatar.mp4" type="video/mp4">
+          <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
+               장착하므로(mountCharacter) 여기 적어 두면 JS 가 돌기 전에 브라우저가 teacher-avatar.webm
+               942KB 를 먼저 받기 시작합니다(실측: 206 요청 1건). 지금 기본 얼굴은 이미지라 그 영상은
+               폴백일 때만 필요합니다. ⛔ 「비어 있으니 채우자」 하고 되살리지 마세요. -->
         </video>
       </div>
       <div id="tavatar-status">
@@ -681,40 +690,74 @@ function renderMsg(s){
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
 var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
-/* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-2)의 speaker 지정.
-   여자=Emma(asteria) / 남자=Jake(apollo·자연스러운 미국 남성) / 번갈아=한 마디씩 남녀 교대. */
+/* 🎙️ AI 친구 고르기 — 고르면 «목소리(서버 Aura-2 speaker)와 얼굴(아바타)» 이 함께 바뀝니다.
+   (2026-08-31) 사장님 지시로 «여자·남자» 둘에서 «네 명» 으로 넓혔습니다.
+     Emma·Jake = 지금까지 쓰던 성인 얼굴·목소리 — 그대로 둡니다(쓰던 학생이 안 바뀌게).
+     Lily·Noah = 새로 만든 19세 얼굴·목소리.
+     mix       = 네 명이 한 마디씩 돌아가며.
+   ⚠️ Deepgram 의 화자별 「나이대」 설명은 이 작업 환경에서 프록시에 막혀 읽지 못했습니다
+      (developers.deepgram.com·deepgram.com 둘 다 403). 그러니 delia·aries 는
+      «귀로 확인해야 할 후보» 이지 측정된 값이 아닙니다.
+   ✅ 주소 뒤에 ?vf=·?vm= 을 붙이면 배포 없이 그 자리에서 다른 화자로 들어볼 수 있습니다
+      (vf=Lily, vm=Noah 의 화자를 갈아 끼웁니다 — 예: /warmup.html?vf=amalthea&vm=atlas).
+   ⛔ 아래 두 목록을 «자유 문자열 허용» 으로 바꾸지 마세요 — 이 값은 그대로 TTS 요청 본문의
+      speaker 로 실립니다. 목록의 이름은 전부 서버 허용목록(src/api-games.ts 의 AURA2)에 있고,
+      거기 없는 이름을 보내면 서버가 조용히 여성 기본값(asteria)으로 떨어뜨립니다.
+   🔴 char 는 아바타 캐릭터 이름(js/mango-avatar.js)과 «짝» 입니다 — 한쪽만 고치면
+      「Lily 를 골랐는데 Emma 얼굴이 나온다」가 되고 에러는 안 납니다. */
+var VOICE_TRY_F = { delia:1, amalthea:1, thalia:1, aurora:1, cora:1, phoebe:1, andromeda:1, asteria:1 };
+var VOICE_TRY_M = { aries:1, atlas:1, hermes:1, orion:1, arcas:1, apollo:1 };
+var VOICE_PEOPLE = ['emma','jake','lily','noah'];      // 「번갈아」가 도는 순서
 var VOICE_MODES = {
-  female: { label:'👩 여자',  speaker:'asteria' },
-  male:   { label:'👨 남자',  speaker:'apollo'  },
-  mix:    { label:'🔀 번갈아' }
+  emma: { label:'👩 Emma', speaker:'asteria', g:'female', char:'emma',
+          hi:"Hi! I'm Emma. Nice to meet you!" },
+  jake: { label:'🦸 Jake', speaker:'apollo',  g:'male',   char:'jake',
+          hi:"Hey! I'm Jake. Let's talk!" },
+  lily: { label:'👧 Lily', speaker:'delia',   g:'female', char:'lily',
+          hi:"Hi! I'm Lily. Nice to meet you!" },
+  noah: { label:'👦 Noah', speaker:'aries',   g:'male',   char:'noah',
+          hi:"Hey! I'm Noah. Let's talk!" },
+  mix:  { label:'🔀 번갈아',
+          hi:"Cool! We will take turns talking to you!" }
 };
-var _voiceMode = 'female', _mixNext = 'female';
-try{ var _sv = localStorage.getItem('mangoi_warmup_voice'); if(VOICE_MODES[_sv]) _voiceMode = _sv; }catch(e){}
-function _voiceGender(){ return _voiceMode==='mix' ? _mixNext : _voiceMode; }
+try{
+  var _vq = new URLSearchParams(location.search);
+  var _vfTry = String(_vq.get('vf')||'').toLowerCase(), _vmTry = String(_vq.get('vm')||'').toLowerCase();
+  if(VOICE_TRY_F[_vfTry]) VOICE_MODES.lily.speaker = _vfTry;
+  if(VOICE_TRY_M[_vmTry]) VOICE_MODES.noah.speaker = _vmTry;
+}catch(e){}
+var _voiceMode = 'emma', _mixIdx = 0;
+try{
+  var _sv = localStorage.getItem('mangoi_warmup_voice');
+  // 옛 저장값 이어받기 — 「여자」를 쓰던 학생은 Emma, 「남자」는 Jake 로 그대로 간다.
+  if(_sv === 'female') _sv = 'emma'; else if(_sv === 'male') _sv = 'jake';
+  if(VOICE_MODES[_sv]) _voiceMode = _sv;
+}catch(e){}
+// 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
+function _voicePerson(){ return _voiceMode==='mix' ? VOICE_PEOPLE[_mixIdx % VOICE_PEOPLE.length] : _voiceMode; }
+// ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
+function _voiceGender(){ return (VOICE_MODES[_voicePerson()] || VOICE_MODES.emma).g; }
 function nextSpeaker(){
-  var g = _voiceGender();
-  if(_voiceMode==='mix') _mixNext = (_mixNext==='female') ? 'male' : 'female';
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(g); }catch(e){}  // 👨‍🦸 번갈아 모드는 턴마다 성별에 맞춰 얼굴도 교체
-  return VOICE_MODES[g].speaker;
+  var p = _voicePerson();
+  if(_voiceMode==='mix') _mixIdx = (_mixIdx + 1) % VOICE_PEOPLE.length;   // 다음 차례로
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[p].char); }catch(e){}  // 얼굴도 그 사람으로
+  return VOICE_MODES[p].speaker;
 }
 function setVoiceMode(m, announce){
-  if(!VOICE_MODES[m]) m = 'female';
+  if(!VOICE_MODES[m]) m = 'emma';
   var changed = (m !== _voiceMode);
-  _voiceMode = m; _mixNext = 'female';
+  _voiceMode = m; _mixIdx = 0;
   try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){}
   var box = document.getElementById('voiceBtns');
   if(box){ var bs = box.querySelectorAll('button');
     for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
   var v = document.getElementById('voiceVal'); if(v) v.textContent = VOICE_MODES[m].label;
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m==='mix' ? _mixNext : m); }catch(e){}  // 👨‍🦸 남자=히어로 아바타로 즉시 교체
+  // 고른 사람의 얼굴로 즉시 교체(다음 답변까지 기다리지 않게). 번갈아면 첫 차례 사람.
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[_voicePerson()].char); }catch(e){}
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
-  // 바꾸자마자 새 목소리가 직접 인사 → 어떤 목소리인지 바로 들어볼 수 있게
-  if(announce && changed){
-    speak(m==='male' ? "Hi! I'm Jake, your new voice. Let's talk!"
-        : m==='female' ? "Hi! I'm Emma. Nice to meet you!"
-        : "Cool! Now we'll take turns talking to you!");
-  }
+  // 바꾸자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
+  if(announce && changed) speak(VOICE_MODES[m].hi);
 }
 
 /* ══ 👁 자막 3단계 (2026-08-07) ══

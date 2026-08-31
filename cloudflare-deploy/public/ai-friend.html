@@ -159,7 +159,7 @@
     /* 🧑 친구(캐릭터) 고르기 카드 — 2026-08-07.
        주제 카드(.topic-card)와 같은 모양이되 «지금 고른 친구» 는 테두리로 확실히 표시한다.
        고른 게 안 보이면 카드를 눌러도 고른 느낌이 안 난다. */
-    .friends { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px;
+    .friends { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,140px),1fr)); gap: 9px;
       max-width: 560px; margin: 10px auto 0; }
     @media (max-width: 420px) { .friends { grid-template-columns: 1fr; } }
     .friend-card { padding: 12px 8px 10px; border-radius: 14px; cursor: pointer;
@@ -283,7 +283,7 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=13" defer></script>
+<script src="/js/mango-avatar.js?v=15" defer></script>
 </head>
 <body>
   <div class="top">
@@ -322,9 +322,11 @@
          목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
          학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🧑 <span data-ko="친구:" data-en="Friend:">친구:</span></span>
-    <button class="opt" data-voice="female" data-ko="👩 Emma" data-en="👩 Emma">👩 Emma</button>
-    <button class="opt" data-voice="male" data-ko="🦸 Jake" data-en="🦸 Jake">🦸 Jake</button>
-    <button class="opt" data-voice="mix" data-ko="🔀 둘 다" data-en="🔀 Both">🔀 둘 다</button>
+    <button class="opt" data-voice="emma" data-ko="👩 Emma" data-en="👩 Emma">👩 Emma</button>
+    <button class="opt" data-voice="jake" data-ko="🦸 Jake" data-en="🦸 Jake">🦸 Jake</button>
+    <button class="opt" data-voice="lily" data-ko="👧 Lily" data-en="👧 Lily">👧 Lily</button>
+    <button class="opt" data-voice="noah" data-ko="👦 Noah" data-en="👦 Noah">👦 Noah</button>
+    <button class="opt" data-voice="mix" data-ko="🔀 번갈아" data-en="🔀 All four">🔀 번갈아</button>
     <!-- 👁 자막 3단계 (2026-08-07) — 「가리기」가 핵심. 안 들려도 탭 한 번이면 확인하고 계속 간다 -->
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">👁 <span data-ko="자막:" data-en="Subtitles:">자막:</span></span>
     <button class="opt active" data-sub="on" data-ko="보이기" data-en="Show">보이기</button>
@@ -365,8 +367,10 @@
     <div id="tavatar-ring">
       <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-        <source src="/img/teacher-avatar.webm" type="video/webm">
-        <source src="/img/teacher-avatar.mp4" type="video/mp4">
+        <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
+             장착하므로(mountCharacter) 여기 적어 두면 JS 가 돌기 전에 브라우저가 teacher-avatar.webm
+             942KB 를 먼저 받기 시작합니다(실측: 206 요청 1건). 지금 기본 얼굴은 이미지라 그 영상은
+             폴백일 때만 필요합니다. ⛔ 「비어 있으니 채우자」 하고 되살리지 마세요. -->
       </video>
     </div>
     <div id="tavatar-status">
@@ -460,22 +464,42 @@
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
     });
-    /* 🎙 목소리 선택 — 여자(asteria)/남자(orion)/번갈아(메시지마다 교대). localStorage 로 기억. */
-    let currentVoice = (function(){ try { const v = localStorage.getItem('mangoi_aifriend_voice'); return ['female','male','mix'].includes(v) ? v : 'female'; } catch(e){ return 'female'; } })();
+    /* 🎙 친구 고르기 — 고르면 목소리(Aura-2 speaker)와 얼굴(아바타)이 함께 바뀐다. localStorage 로 기억.
+       🧑 (2026-08-31) 사장님 지시로 «둘» 에서 «넷» 으로. 웜업과 같은 네 명·같은 화자를 씁니다 —
+          두 화면에서 같은 이름이 다른 목소리로 말하면 그때부터 «화면마다 답이 다른» 사고가 시작됩니다.
+       🔴 얼굴은 이제 화자 이름이 아니라 «사람 이름» 으로 고릅니다(PEOPLE[].char) —
+          예전에는 charForSpeaker() 가 화자 문자열을 비교해서, 화자만 바꾸면
+          «남자를 골랐는데 얼굴은 여자» 가 되고 에러도 안 났습니다. */
+    const PEOPLE = {
+      emma: { speaker:'asteria', char:'emma' },
+      jake: { speaker:'apollo',  char:'jake' },
+      lily: { speaker:'delia',   char:'lily' },
+      noah: { speaker:'aries',   char:'noah' },
+    };
+    const PEOPLE_ORDER = ['emma','jake','lily','noah'];   // 「번갈아」가 도는 순서
+    let currentVoice = (function(){
+      try {
+        let v = localStorage.getItem('mangoi_aifriend_voice');
+        if (v === 'female') v = 'emma'; else if (v === 'male') v = 'jake';   // 옛 저장값 이어받기
+        return (v === 'mix' || PEOPLE[v]) ? v : 'emma';
+      } catch(e){ return 'emma'; }
+    })();
     let _mixTurn = 0;
+    // 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
+    function personNow() { return currentVoice === 'mix' ? PEOPLE_ORDER[_mixTurn % PEOPLE_ORDER.length] : currentVoice; }
     function speakerFor() {
-      if (currentVoice === 'male') return 'orion';
-      if (currentVoice === 'mix') return (_mixTurn++ % 2 === 0) ? 'asteria' : 'orion';
-      return 'asteria';
+      const p = personNow();
+      if (currentVoice === 'mix') _mixTurn++;
+      return (PEOPLE[p] || PEOPLE.emma).speaker;
     }
-    // 👩‍🏫👨 목소리(TTS 화자) ↔ 아바타 얼굴 매핑 — orion(남) 이면 히어로(슈퍼맨풍), 그 외엔 강사(여).
-    function charForSpeaker(speaker) { return speaker === 'orion' ? 'male' : 'female'; }
+    // 👤 사람 ↔ 아바타 얼굴 매핑 (js/mango-avatar.js 의 캐릭터 이름과 «짝»)
+    function charForPerson(p) { return (PEOPLE[p] || PEOPLE.emma).char; }
     // 🔄 아바타를 지금 선택된 목소리에 맞춰 즉시 반영 — MangoAvatar 가 아직 준비 전이면(스텁) 조용히 무시되고,
     //    build() 완료 후 다음 setCharacter 호출(버튼 클릭·첫 답변 재생)에서 정상 반영된다.
     function syncAvatarToVoice() {
       try {
         window.MangoAvatar && MangoAvatar.setCharacter &&
-          MangoAvatar.setCharacter(currentVoice === 'male' ? 'male' : 'female');
+          MangoAvatar.setCharacter(charForPerson(personNow()));
       } catch(e){}
     }
     syncAvatarToVoice();
@@ -502,17 +526,25 @@
        ⚠️ 아바타 얼굴은 실제로 2개(female/male)뿐이다. 있지도 않은 얼굴로 캐릭터를 늘리지 않는다 —
           이름만 다른 같은 얼굴은 «고른 느낌» 이 아니라 «속은 느낌» 이 된다. */
     const FRIENDS = [
-      { v: 'female', emoji: '👩', name: 'Emma',
+      { v: 'emma', emoji: '👩', name: 'Emma',
         ko: '엠마', en: 'Emma', persona: 'friendly',
         d_ko: '다정하게 이야기해요', d_en: 'Warm and friendly',
         hi: "Hi! I'm Emma. What do you want to talk about today?" },
-      { v: 'male', emoji: '🦸', name: 'Jake',
+      { v: 'jake', emoji: '🦸', name: 'Jake',
         ko: '제이크', en: 'Jake', persona: 'playful',
         d_ko: '장난도 치고 농담도 해요', d_en: 'Playful and funny',
         hi: "Hey! I'm Jake. Ready for some fun English?" },
-      { v: 'mix', emoji: '🔀', name: 'Emma & Jake',
-        ko: '둘 다', en: 'Both', persona: 'friendly',
-        d_ko: '두 친구가 번갈아 이야기해요', d_en: 'They take turns',
+      { v: 'lily', emoji: '👧', name: 'Lily',
+        ko: '릴리', en: 'Lily', persona: 'friendly',
+        d_ko: '또래 언니처럼 이야기해요', d_en: 'Like an older sister',
+        hi: "Hi! I'm Lily. What do you like to do?" },
+      { v: 'noah', emoji: '👦', name: 'Noah',
+        ko: '노아', en: 'Noah', persona: 'playful',
+        d_ko: '또래 형처럼 이야기해요', d_en: 'Like an older brother',
+        hi: "Hey! I'm Noah. What do you like to do?" },
+      { v: 'mix', emoji: '🔀', name: 'All four',
+        ko: '번갈아', en: 'All four', persona: 'friendly',
+        d_ko: '네 친구가 돌아가며 이야기해요', d_en: 'All four take turns',
         hi: "Hi! We'll take turns talking with you!" },
     ];
     const friendOf = (v) => FRIENDS.find(f => f.v === v) || FRIENDS[0];
@@ -919,9 +951,10 @@
       try {
         // ⚠️ speakerFor() 는 '번갈아' 모드에서 호출마다 순번(_mixTurn)이 넘어가므로 반드시 1회만 불러
         //   변수에 담아 재사용한다 — 두 번 부르면(화자용 1번+아바타용 1번) 매 턴 건너뛰며 어긋난다.
+        const _personNow = personNow();          // ⚠️ speakerFor() 가 번갈아 순번을 넘기므로 «먼저» 읽는다
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
-        try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForSpeaker(_speaker)); } catch(e){}
+        try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
         MangoiTTS.speak(clean, currentRate, done);
       } catch(e){ done(); }
     }
