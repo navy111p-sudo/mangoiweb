@@ -41,7 +41,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* 실제 얼굴 PNG 가 아직 저장소에 없을 수도 있다(사장님이 Higgsfield 에서 내려받아 넣는 파일).
    없으면 «같은 비율의 더미» 를 잠깐 만들어 이미지 경로를 확인하고 반드시 지운다. */
-const FRAMES = ['emma19-closed', 'emma19-mid', 'emma19-wide', 'jake19-closed', 'jake19-mid', 'jake19-wide'];
+const FRAMES = ['lily-closed', 'lily-mid', 'lily-wide', 'noah-closed', 'noah-mid', 'noah-wide'];
 const realPresent = FRAMES.every(n => existsSync(join(PUB, 'img', n + '.png')));
 function dummyPng(path, w, h, rgb) {
   const rows = [];
@@ -94,6 +94,12 @@ async function run(pagePath, mode) {
   await send('Page.navigate', { url }); await sleep(6000);
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
 
+  /* ⏳ «고정 대기» 로 재면 파이썬 http.server 가 한 번에 하나씩만 응답하는 탓에
+        942KB 영상이 늦어져 «안 그려졌다» 는 거짓 실패가 난다(실제로 한 번 밟았다).
+        그려질 때까지 재보고, 그래도 안 되면 그때 실패로 본다. */
+  const painted = async () => (await ev(`(function(){var c=document.getElementById('tavatar-canvas');if(!c)return 0;try{var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;var n=0;for(var i=0;i<d.length;i+=4)if(d[i+3]>200)n++;return +(n/(d.length/4)).toFixed(3);}catch(e){return 0;}})()`)) || 0;
+  for (let t = 0; t < 12 && (await painted()) <= 0.05; t++) await sleep(700);
+
   const probe = await ev(`(function(){
     var c=document.getElementById('tavatar-canvas'); if(!c) return {err:'no-canvas'};
     var d; try{ d=c.getContext('2d').getImageData(0,0,c.width,c.height).data; }catch(e){ return {err:'no-pixels'}; }
@@ -104,32 +110,67 @@ async function run(pagePath, mode) {
              ready: typeof window.MangoAvatar==='object' && !!window.MangoAvatar.setCharacter };
   })()`);
   const asked = u => net.filter(([x]) => x.includes(u));
-  const emma = asked('emma19-'), classic = asked('teacher-avatar.'), good = s => s === 200 || s === 304;
+  const emma0 = asked('lily-'), classic = asked('teacher-avatar.'), good = st => st === 200 || st === 304;
 
   console.log(`\n── ${pagePath} (${mode}) ──`);
   console.log('   캔버스:', JSON.stringify(probe));
   ok(probe && probe.ready, 'MangoAvatar 가 만들어졌다');
-  ok(emma.length === 3, `입모양 3장을 모두 요청했다 (${emma.length}건)`);
-  ok(classic.filter(([, s]) => s === 206).length === 0,
+  ok(classic.filter(([, st]) => st === 206).length === 0,
     'HTML 이 옛 영상을 «미리» 받지 않는다 (206 부분요청 없음 — <source> 를 되살리면 여기서 걸린다)');
 
+  /* 기본 친구는 Emma(성인 영상)다. 「어린 쪽을 기본으로」 바꾸면 이 줄이 먼저 걸리므로,
+     그때는 여기 기대값도 함께 고쳐야 한다(고치는 것을 잊으면 조용히 지나간다). */
+  ok(classic.length > 0, '첫 화면 기본 얼굴이 Emma(성인)다');
+  ok(emma0.length === 0, '기본이 Emma 라서 Lily 그림은 아직 안 받는다 (첫 화면 낭비 없음)');
+  ok(probe.opaque > 0.05, `기본 얼굴이 실제로 그려졌다 (불투명 ${probe.opaque})`);
+
+  /* 👧 Lily 로 바꿔 «이미지 캐릭터» 경로를 확인 */
+  await ev("window.MangoAvatar.setCharacter('lily')"); await sleep(2200);
+  const lily = asked('lily-');
+  const p2 = await ev(`(function(){var c=document.getElementById('tavatar-canvas');var x=c.getContext('2d');var d=x.getImageData(0,0,c.width,c.height).data;var n=0;for(var i=0;i<d.length;i+=4)if(d[i+3]>200)n++;var r=document.getElementById('tavatar-ring'),rb=r&&r.getBoundingClientRect();return {op:+(n/(d.length/4)).toFixed(3),aspect:+(c.width/c.height).toFixed(3),ringW:rb&&Math.round(rb.width),ringH:rb&&Math.round(rb.height)};})()`);
+  ok(lily.length === 3, `Lily 를 고르면 입모양 3장을 요청한다 (${lily.length}건)`);
+  console.log('   Lily 전환 후:', JSON.stringify(p2));
+
   if (mode === 'images') {
-    ok(emma.every(([, s]) => good(s)), `3장 모두 정상으로 받았다 (${emma.map(x => x[1]).join(',')})`);
-    ok(classic.length === 0, '옛 영상으로 폴백하지 않았다');
-    ok(probe.opaque > 0.05, `캔버스에 실제로 그려졌다 (불투명 ${probe.opaque})`);
-    ok(probe.opaque < 0.98, '투명한 부분이 살아 있다 — 크로마키를 건너뛰어도 알파가 보존된다');
-    ok(probe.ringH > 0 && Math.abs(probe.ringW / probe.ringH - probe.aspect) < 0.05,
-      `보이는 카드 상자가 캔버스와 같은 비율이다 (${probe.ringW}x${probe.ringH} vs ${probe.aspect})`);
-    await ev("window.MangoAvatar.setCharacter('male')"); await sleep(2000);
-    const jake = asked('jake19-');
-    ok(jake.length === 3 && jake.every(([, s]) => good(s)), `남자로 바꾸면 jake19 3장을 받는다 (${jake.map(x => x[1]).join(',')})`);
-    const p2 = await ev(`(function(){var c=document.getElementById('tavatar-canvas');var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;var n=0;for(var i=0;i<d.length;i+=4)if(d[i+3]>200)n++;return +(n/(d.length/4)).toFixed(3);})()`);
-    ok(p2 > 0.05, `남자 얼굴도 실제로 그려졌다 (불투명 ${p2})`);
+    ok(lily.every(([, st]) => good(st)), `3장 모두 정상으로 받았다 (${lily.map(x => x[1]).join(',')})`);
+    ok(p2.op > 0.05, `Lily 얼굴이 실제로 그려졌다 (불투명 ${p2.op})`);
+    ok(p2.op < 0.98, '투명한 부분이 살아 있다 — 크로마키를 건너뛰어도 알파가 보존된다');
+    ok(Math.abs(p2.aspect - 0.806) < 0.01,
+      `카드 화면비를 «선언값 0.8» 이 아니라 «이미지 실측» 으로 다시 맞췄다 (${p2.aspect})`);
+    ok(p2.ringH > 0 && Math.abs(p2.ringW / p2.ringH - p2.aspect) < 0.05,
+      `보이는 카드 상자도 같은 비율이다 (${p2.ringW}x${p2.ringH})`);
+    await ev("window.MangoAvatar.setCharacter('noah')"); await sleep(2000);
+    const noah = asked('noah-');
+    ok(noah.length === 3 && noah.every(([, st]) => good(st)),
+      `Noah 로 바꾸면 noah 3장을 받는다 (${noah.map(x => x[1]).join(',')})`);
   } else {
-    ok(emma.every(([, s]) => s === 404), '3장 모두 404 (파일이 없는 상황)');
-    ok(classic.length > 0, '옛 아바타로 되돌아갔다 — 빈 카드로 안 남는다');
-    ok(probe.opaque > 0.05, `폴백 얼굴이 실제로 그려졌다 (불투명 ${probe.opaque})`);
+    ok(lily.every(([, st]) => st === 404), '3장 모두 404 (파일이 없는 상황)');
+    ok(asked('teacher-avatar.').length > 0, 'Emma 로 되돌아갔다 — 빈 카드로 안 남는다');
+    ok(p2.op > 0.05, `폴백 얼굴이 실제로 그려졌다 (불투명 ${p2.op})`);
   }
+
+  /* 👥 네 친구 고르기 — 화면에서 실제로 눌러 «얼굴·이름표가 그 사람으로 바뀌는가» 를 본다.
+     ⚠️ 문자열 하니스가 못 보는 부분이다: 표는 맞는데 «버튼이 그 표를 안 부르는» 경우가 있다. */
+  if (mode === 'images' && pagePath.startsWith('/warmup')) {
+    const WANT = { emma: 'teacher-avatar.', jake: 'hero-avatar', lily: 'lily-', noah: 'noah-' };
+    for (const who of ['emma', 'jake', 'lily', 'noah']) {
+      const r = await ev(`(function(){
+        var b=document.querySelector('#voiceBtns button[data-v="${who}"]'); if(!b) return {err:'no-button'};
+        b.click();
+        return { label:(document.getElementById('voiceVal')||{}).textContent, on:b.classList.contains('on') };
+      })()`);
+      await sleep(1800);
+      ok(r && !r.err && r.on, `버튼 「${who}」 이 있고 눌리면 선택 표시가 켜진다`);
+      ok(!!r && typeof r.label === 'string' && r.label.toLowerCase().includes(who),
+        `이름표가 그 친구로 바뀐다 (${r && r.label})`);
+      ok(net.filter(([u]) => u.includes(WANT[who])).length > 0,
+        `「${who}」 을 고르면 그 사람의 얼굴 파일을 받는다 (${WANT[who]})`,
+        '표는 맞는데 버튼이 setCharacter 를 안 부르면 여기서 걸린다');
+    }
+    const p3 = await ev(`(function(){var c=document.getElementById('tavatar-canvas');var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;var n=0;for(var i=0;i<d.length;i+=4)if(d[i+3]>200)n++;return +(n/(d.length/4)).toFixed(3);})()`);
+    ok(p3 > 0.05, `네 명을 다 거친 뒤에도 얼굴이 그려져 있다 (불투명 ${p3})`);
+  }
+
   ws.close();
 }
 

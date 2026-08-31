@@ -51,8 +51,9 @@ if (CH) {
   const imgChars = Object.keys(CH).filter(k => CH[k].frames);
   const vidChars = Object.keys(CH).filter(k => CH[k].sources);
   ok(imgChars.length >= 2, `이미지 캐릭터가 있다 (${imgChars.join(', ') || '없음'})`);
-  ok(CH.female && CH.male, '화면이 부르는 이름 female·male 이 표에 있다',
-    'warmup.html·ai-friend.html 은 setCharacter(\'female\'|\'male\') 로만 부른다');
+  ok(['emma', 'jake', 'lily', 'noah'].every(k => CH[k]),
+    '네 친구(emma·jake·lily·noah)가 모두 표에 있다',
+    '화면은 setCharacter(사람이름) 으로 부른다 — 하나라도 없으면 그 친구만 얼굴이 안 바뀐다');
 
   for (const k of imgChars) {
     const c = CH[k];
@@ -68,12 +69,22 @@ if (CH) {
     ok(c.still === c.frames.closed, `${k}: 정지 얼굴이 «입 다문 장» 과 같다`);
   }
 
-  /* ③ 옛 영상 캐릭터 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
-  ok(vidChars.includes('female_classic') && vidChars.includes('male_classic'),
-    '옛 영상 캐릭터(female_classic·male_classic)가 그대로 남아 있다',
-    '⛔ 지우지 말 것 — 폴백이고, playClip 의 미리 만든 립싱크 클립이 옛 얼굴과 짝이다');
-  ok(typeof (CH.female_classic || {}).poses?.closed === 'number',
-    '옛 영상 캐릭터의 입모양 타임스탬프(poses)가 남아 있다');
+  /* ③ 성인 얼굴 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
+  ok(vidChars.includes('emma') && vidChars.includes('jake'),
+    '성인 얼굴(emma·jake)이 영상 캐릭터로 그대로 남아 있다',
+    '⛔ 지우지 말 것 — Lily·Noah 의 폴백이고, playClip 의 립싱크 클립이 Emma 얼굴과 짝이다');
+  ok(typeof (CH.emma || {}).poses?.closed === 'number',
+    'Emma 의 입모양 타임스탬프(poses)가 남아 있다');
+}
+
+/* 옛 이름으로 부르는 코드가 남아 있어도 죽지 않게 */
+{
+  const al = AV.match(/var CHAR_ALIAS = \{[^}]*\}/);
+  ok(!!al && /female\s*:\s*'emma'/.test(al[0]) && /male\s*:\s*'jake'/.test(al[0]),
+    "옛 이름('female'|'male')을 풀어 주는 CHAR_ALIAS 가 있다",
+    '지우면 옛 호출이 «아무 일도 안 일어남» 이 된다 — 에러도 안 난다');
+  ok(/setCharacter: function\(name\)\{\s*\n?\s*name = CHAR_ALIAS\[name\] \|\| name;/.test(AV),
+    'setCharacter 가 이름을 먼저 풀어 준다');
 }
 
 /* ② 투명 PNG 유령 방지 + 키잉 건너뛰기 */
@@ -107,8 +118,57 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   }
   const m = H.match(AVV);
   ok(!!m && Number(m[1]) >= 14,
-    `${f}: mango-avatar.js 의 ?v= 가 14 이상이다 (${m ? m[1] : '없음'})`,
+    `${f}: mango-avatar.js 의 ?v= 가 15 이상이다 (${m ? m[1] : '없음'})`,
     'v6 로 고쳤으므로 옛 파일이 immutable 캐시에 남으면 안 된다');
+}
+
+/* ⑥ 「여러 곳이 서로 같은 말을 하는가」 — 이름·얼굴·목소리가 세 파일에 흩어져 있다.
+      한쪽만 고치면 «Lily 를 골랐는데 Emma 얼굴/목소리» 가 되고 에러는 안 난다. */
+{
+  const WU = readFileSync(join(PUB, 'warmup.html'), 'utf8');
+  const AF = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
+
+  // 웜업의 VOICE_MODES 를 실제로 평가해서 사람→(화자, 얼굴) 을 손에 쥔다
+  const wuSrc = WU.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
+  let WUV = null;
+  if (wuSrc) { try { WUV = new Function(wuSrc[0].replace(/^var /, 'const ') + ' return VOICE_MODES;')(); } catch {} }
+  ok(!!WUV, 'warmup.html 의 VOICE_MODES 를 읽을 수 있다');
+
+  const afSrc = AF.match(/const PEOPLE = \{[\s\S]*?\n    \};/);
+  let AFP = null;
+  if (afSrc) { try { AFP = new Function(afSrc[0] + ' return PEOPLE;')(); } catch {} }
+  ok(!!AFP, 'ai-friend.html 의 PEOPLE 을 읽을 수 있다');
+
+  if (WUV && AFP && CH) {
+    const people = ['emma', 'jake', 'lily', 'noah'];
+    for (const k of people) {
+      ok(!!WUV[k] && !!AFP[k], `${k}: 두 화면 모두에 있다`);
+      if (!WUV[k] || !AFP[k]) continue;
+      ok(WUV[k].speaker === AFP[k].speaker,
+        `${k}: 두 화면의 목소리가 같다 (${WUV[k].speaker} / ${AFP[k].speaker})`,
+        '같은 이름이 화면마다 다른 목소리로 말하면 그때부터 «화면마다 답이 다른» 사고가 시작된다');
+      ok(WUV[k].char === AFP[k].char && !!CH[WUV[k].char],
+        `${k}: 두 화면이 같은 얼굴을 가리키고 그 얼굴이 실재한다 (${WUV[k].char})`,
+        '한쪽만 고치면 「그 친구를 골랐는데 딴 얼굴」이 되고 에러는 안 난다');
+    }
+    // 네 사람의 목소리가 서로 겹치면 «누가 말하는지» 를 귀로 구분할 수 없다
+    const spk = people.map(k => WUV[k] && WUV[k].speaker);
+    ok(new Set(spk).size === people.length, `네 친구의 목소리가 서로 다르다 (${spk.join(', ')})`);
+    const faces = people.map(k => WUV[k] && WUV[k].char);
+    ok(new Set(faces).size === people.length, `네 친구의 얼굴이 서로 다르다 (${faces.join(', ')})`);
+    // 「번갈아」가 도는 순서에 네 사람이 다 들어 있는가
+    const ord = WU.match(/var VOICE_PEOPLE = \[([^\]]+)\]/);
+    const ordList = ord ? ord[1].split(',').map(x => x.trim().replace(/'/g, '')) : [];
+    ok(people.every(k => ordList.includes(k)),
+      `「번갈아」 순서에 네 명이 다 있다 (${ordList.join(', ') || '없음'})`);
+    // 화면 버튼과 표가 어긋나지 않는가 — 버튼만 늘리면 조용히 기본값으로 떨어진다
+    const btns = [...WU.matchAll(/data-v="(\w+)"/g)].map(m => m[1]);
+    ok(people.concat('mix').every(k => btns.includes(k)),
+      `웜업 버튼이 다섯 개다 (${btns.join(', ')})`);
+    const afBtns = [...AF.matchAll(/data-voice="(\w+)"/g)].map(m => m[1]);
+    ok(people.concat('mix').every(k => afBtns.includes(k)),
+      `AI 영어친구 버튼이 다섯 개다 (${afBtns.join(', ')})`);
+  }
 }
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
