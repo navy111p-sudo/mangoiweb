@@ -2329,17 +2329,27 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           // v3: CF 발신 Google TTS 가 깨진 오디오를 반환하던 시기의 zh 캐시본 오염 제거(2026-07-18)
           //     ⚠️ zh 는 현재 서버 정상 경로 없음(Google=CF발 오염·MeloTTS zh=잡음) → 프론트가
           //     앱 네이티브 TTS/브라우저 음성을 우선하도록 정리됨. 서버 zh 는 최후 폴백일 뿐.
-          const enc = new TextEncoder().encode('v3|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          // v4: Aura-1 폴백 음성이 «요청 화자» 키로 저장되던 오염 제거(2026-08-31).
+          //     Lily(delia)가 한 번 폴백하면 그 문장은 영영 Emma 목소리(asteria)로 재생됐다.
+          const enc = new TextEncoder().encode('v4|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
         if (cacheKey && r2) {
           try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
         }
-        const putCache = async (bytes: ArrayBuffer | Uint8Array) => {
-          if (!cacheKey || !r2) return;
-          try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
+           «실제로 쓴 화자» 키로 저장해야 하기 때문이다(아래 폴백 블록 주석 참고). */
+        const ttsKey = async (spk: string) => {
+          const e = new TextEncoder().encode('v4|' + lang + '|' + spk + '|' + text);
+          const d = await crypto.subtle.digest('SHA-256', e);
+          return 'tts/' + [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         };
+        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array) => {
+          if (!key || !r2) return;
+          try { await r2.put(key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        };
+        const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes);
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
         // MeloTTS — base64 MP3 반환 (en/zh 지원)
         //   ⚠️ 캐시 금지: Aura 일시 장애 때 만들어진 기계음이 Aura 화자 키에 저장되면
@@ -2414,19 +2424,40 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const AURA2_MALE = new Set(['apollo','arcas','aries','atlas','draco','hermes','hyperion','janus','jupiter','mars','neptune','odysseus','orion','orpheus','pluto','saturn','zeus']);
         const AURA1 = new Set(['angus','asteria','arcas','orion','orpheus','athena','luna','zeus','perseus','helios','hera','stella']);
         try {
-          const buf = await auraRun('@cf/deepgram/aura-2-en', AURA2.has(requested) ? requested : 'asteria');
+          const spk2 = AURA2.has(requested) ? requested : 'asteria';
+          const buf = await auraRun('@cf/deepgram/aura-2-en', spk2);
           await putCache(buf);
-          return new Response(buf, { headers: audioHeaders });
+          // 진단 헤더 — 「고른 목소리가 아닌 소리가 난다」 제보를 코드가 아니라 응답으로 가른다
+          return new Response(buf, { headers: { ...audioHeaders, 'X-TTS-Engine': 'aura-2', 'X-TTS-Speaker': spk2 } });
         } catch (a2Err: any) {
           if (isQuota(a2Err?.message)) quota = true;
           console.warn('[voice/tts] aura-2 failed, fallback aura-1:', a2Err?.message);
         }
         try {
-          // Aura-1 폴백: 요청 화자가 Aura-1 에 없으면 성별만 맞춰 대체 (남=orion / 여=asteria)
-          const spk1 = AURA1.has(requested) ? requested : (AURA2_MALE.has(requested) ? 'orion' : 'asteria');
+          /* Aura-1 폴백 — 요청 화자가 Aura-1 목록에 없으면 성별을 맞춰 대체한다.
+             ⛔ 여자 대체를 'asteria' 로 하면 안 된다 — 그것은 화면의 «Emma» 전용 목소리라,
+                Lily(delia)가 한 번 폴백하는 순간 «Lily 를 골랐는데 Emma 목소리» 가 된다.
+                2026-08-31 사장님 제보가 정확히 이것이었다(「번갈아를 안 눌렀는데 Emma 로 바뀜」).
+             ✅ 그래서 사람마다 다른 목소리로 떨어지게 두고, 화면이 쓰는 네 친구의 기본 화자는
+                폴백해도 서로 겹치지 않아야 한다(voice_fallback_harness 가 그것을 검사한다). */
+          const AURA1_SUB: Record<string, string> = {
+            // 여자 (Emma=asteria 는 대체값으로 쓰지 않는다)
+            delia: 'luna', amalthea: 'athena', thalia: 'hera', aurora: 'luna',
+            cora: 'athena', phoebe: 'hera', andromeda: 'stella',
+            // 남자
+            aries: 'orion', atlas: 'zeus', hermes: 'orpheus', apollo: 'perseus',
+          };
+          const spk1 = AURA1.has(requested)
+            ? requested
+            : (AURA1_SUB[requested] || (AURA2_MALE.has(requested) ? 'orion' : 'luna'));
           const buf = await auraRun('@cf/deepgram/aura-1', spk1);
-          await putCache(buf);
-          return new Response(buf, { headers: audioHeaders });
+          /* ⚠️ «요청 화자» 키로 저장하면 안 된다 — 일시 장애가 영구가 된다.
+             바로 아래 melotts 주석이 같은 이유로 «캐시 금지» 를 못 박고 있었는데
+             이 한 단계만 빠져 있었다. 실제로 쓴 화자(spk1) 키로 저장하면
+             ① 요청 화자 키는 비어 있어 다음에 Aura-2 가 살아나면 제대로 만들고
+             ② 그 화자를 진짜로 고른 사람은 이 캐시를 정상적으로 재사용한다. */
+          await putCacheAs(await ttsKey(spk1), buf);
+          return new Response(buf, { headers: { ...audioHeaders, 'X-TTS-Engine': 'aura-1', 'X-TTS-Speaker': spk1 } });
         } catch (auraErr: any) {
           if (isQuota(auraErr?.message)) quota = true;
           console.warn('[voice/tts] aura-1 failed, fallback melotts:', auraErr?.message);

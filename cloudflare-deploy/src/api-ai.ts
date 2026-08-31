@@ -10,6 +10,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
+import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -590,11 +591,15 @@ Student text: """${text}"""`;
       ]);
       const history = (recent.results || []).reverse();
 
+      /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
+         화면이 "Hi! I'm Lily." 라고 인사해 놓고 학생이 이름을 물으면 AI 가 다른 이름을 댔다
+         (2026-08-31 사장님 제보). ⛔ 화면이 보낸 문자열을 그대로 넣지 말 것 — 정본 표를 거친다. */
+      const friendName = resolveFriendName(b.friend);
       const personaMap: any = {
-        friendly: 'a warm, cheerful mango-shaped English friend named Mango who loves cheering kids on',
-        playful: 'a silly, joke-loving mango buddy named Mango who makes English feel like a game',
-        serious: 'a calm, kind English study partner named Mango who explains things clearly',
-        tutor: 'a supportive English tutor named Mango who gently corrects mistakes and celebrates progress',
+        friendly: `a warm, cheerful English friend named ${friendName} who loves cheering kids on`,
+        playful: `a silly, joke-loving English buddy named ${friendName} who makes English feel like a game`,
+        serious: `a calm, kind English study partner named ${friendName} who explains things clearly`,
+        tutor: `a supportive English tutor named ${friendName} who gently corrects mistakes and celebrates progress`,
       };
       // 🎓 개인화(26-07-21) — 그 학생의 이름·교재·약점 단어를 아는 친구 (웜업 엔진과 동일 데이터 재사용).
       //    실패하면 조용히 일반 친구로 동작 — 채팅 흐름에 절대 영향 금지.
@@ -617,6 +622,7 @@ Student text: """${text}"""`;
         : '';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
+- Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
 - Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
 - When the student writes in English, start with a short cheer like "Nice sentence!" or "Great try!".
