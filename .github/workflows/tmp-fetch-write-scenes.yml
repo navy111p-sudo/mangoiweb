@@ -29,9 +29,7 @@ jobs:
           mkdir -p "$OUT" raw
           # 파일이름:생성물이름
           LIST="
-          snow:hf_20260831_025634_b172d34a-eb36-4614-8ec7-d92e6af0ff4c.png
-          sportsday:hf_20260831_025634_9a095fb3-6861-4107-9ce3-45995fc3e0ce.png
-          airport:hf_20260831_025634_f4d93565-252e-4f83-b40c-88bb8428700f.png
+          airport:hf_20260831_025936_d193660a-0af3-4bf4-9f61-03eb1cc49c4d.png
           "
           for row in $LIST; do
             name="${row%%:*}"; src="${row##*:}"
