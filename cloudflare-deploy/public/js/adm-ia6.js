@@ -56,7 +56,28 @@
            ⛔ card-room-invite 를 목록에서 빼지 말 것 — 이 카드를 맡은 사이드바 항목이
               여기 하나뿐이라, 빼면 토큰 발급·회수 화면 자체가 메뉴에서 사라진다
               (CLAUDE.md 2장 — card-inquiry-mgmt 에서 같은 사고가 있었다). */
-        { ko: '오늘의 수업', en: "Today's classes", cards: ['card-active-rooms', 'card-room-invite'] },
+        /* 🚪🔴 (2026-09-01 사장님 「오늘수업과 오늘의 수업이 헷갈려. 찾기도 어려워」 — B안)
+           [무엇이 문제였나] 이름이 «의» 한 글자 차이인데 서로 다른 화면이었고,
+             「오늘 수업 (바로 입장)」은 이 그룹에 **아예 없었다** — 학생 관리 카드 «안의 칸»
+             (sm-today-classes)이라 손자 메뉴나 ⚡자주 쓰는 기능으로만 닿았다.
+           [무엇을 했나] 이름을 뜻대로 갈라 「오늘」 맨 위에 나란히 놓는다.
+             · 오늘 수업 (전체)   = 오늘 예약된 모든 수업, 시간순      ← 학생 카드 안의 칸
+             · 지금 수업 (실시간) = 지금 망고아이 화상방에 붙어 있는 것
+           ⚠️ 두 화면은 «다른 기능» 이 아니라 «같은 목록의 두 가지 보기» 다 — 실시간 카드의
+              왼쪽 숫자(「지금 수업 N」)도 예약 기준이라 뿌리가 같다. 다음 단계(A안)에서
+              탭 한 겹으로 합칠 예정이라, 지금은 카드를 옮기지 않고 «가리키는 곳» 만 바꾼다.
+           ⛔ 이름을 되돌리지 말 것 — 「오늘의 수업」으로 돌아가면 카드 제목과 다시 부딪힌다.
+              이름을 또 바꿀 때는 아래 RENAMED 이사표에 한 줄을 함께 적을 것. */
+        /* ⚠️ 이름에 «설명 괄호» 를 넣지 말 것 — 설명은 tip 으로 간다(2026-08-19 규칙,
+             sidebar_three_level_harness ⑧). 그리고 한 항목은 «한 줄» 로 시작해야 한다 —
+             그 하니스가 줄 단위로 읽어 cards/href 가 없으면 «갈 곳 없는 항목» 으로 FAIL 낸다.
+             처음에 「오늘 수업 (전체)」·「지금 수업 (실시간)」로 적었다가 둘 다 걸렸다. */
+        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt'], openSub: 'sm-today-classes',
+          tip: '🚪 오늘 예약된 «모든» 수업을 시간순으로 — 줄마다 입장·참관·초대 링크',
+          tipEn: '🚪 Every class booked today, in time order - join, observe, invite on each row' },
+        { ko: '지금 수업', en: 'Live now', cards: ['card-active-rooms'],
+          tip: '🔴 «지금» 망고아이 화상방에 붙어 있는 수업 — 종료·연장·참관',
+          tipEn: '🔴 Classes live in a Mangoi room right now - end, extend, observe' },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
@@ -296,6 +317,14 @@
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
           tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
+        /* 🔐 (2026-09-01 B안) 「오늘의 수업」 항목에 함께 묶여 있던 카드를 여기로 뗐다.
+           토큰 발급·회수는 «오늘 할 일» 이 아니라 접근 권한 쪽 일이고, 「지금 수업(실시간)」
+           목록과는 성격이 다르다(2026-08-30 에 묶었던 것을 이름 정리와 함께 되돌린다).
+           ⛔ 이 항목을 지우지 말 것 — card-room-invite 를 맡은 사이드바 항목이 여기 하나뿐이라,
+              빼면 토큰 발급·회수 화면 자체가 메뉴에서 사라진다. */
+        { ko: '화상강의실 초대', en: 'Classroom invites', cards: ['card-room-invite'],
+          tip: '🔐 무설치 입장 토큰(JWT) 발급·회수',
+          tipEn: '🔐 Issue and revoke JWT room-entry tokens' },
         { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
         /* 🐞 (2026-08-24 사장님) 「오늘」에서 옮겨옴 — 버그·피드백은 «오늘 할 일» 이 아니라
            운영 전반에 걸쳐 쌓이는 신고함이라 시스템 쪽이 맞다는 지적. cards/카드 자체는
@@ -1132,7 +1161,10 @@
       'money:매출 대시보드': 'money:회계',
       /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
          이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
-      'teacher:수강 운영(배율·정원)': 'teacher:수강 운영'
+      'teacher:수강 운영(배율·정원)': 'teacher:수강 운영',
+      /* 🔴 (2026-09-01 B안) 「오늘의 수업」 → 「지금 수업 (실시간)」.
+         그 항목이 보여 주던 것이 실시간 카드였으므로 그쪽으로 잇는다. */
+      'today:오늘의 수업': 'today:지금 수업'
     };
     if (want && RENAMED[want]) {
       want = RENAMED[want];

@@ -258,7 +258,7 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   check(`많이 쓴 「문의 · 신규상담」이 그 다음이다 (실제: "${ls[1]}")`, ls[1] === '문의 · 신규상담');
   check(`그 다음이 「평가서」다 (실제: "${ls[2]}")`, ls[2] === '평가서');
   check('기록 없는 나머지는 기본 순서를 그대로 지킨다 (동점 → 기본 순서)',
-    ls[3] === '오늘 수업 (바로 입장)' && ls[4] === '수업 관찰');
+    ls[3] === '오늘 수업' && ls[4] === '수업 관찰');
 }
 {
   // 30일이 지난 기록은 잊는다 — 안 그러면 반년 전 습관에 순서가 묶인다
@@ -266,7 +266,7 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, old);
   check('30일보다 오래된 기록은 순서에 영향을 주지 않는다',
-    labelsOf(dom.box.innerHTML)[1] === '오늘 수업 (바로 입장)');
+    labelsOf(dom.box.innerHTML)[1] === '오늘 수업');
 }
 {
   // 「기본 순서」로 고정하면 사용기록을 무시한다 — 아무도 순서에 갇히지 않게
@@ -277,7 +277,7 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, fixed);
   check('기본 순서 모드에서는 사용기록을 무시한다',
-    labelsOf(dom.box.innerHTML)[1] === '오늘 수업 (바로 입장)');
+    labelsOf(dom.box.innerHTML)[1] === '오늘 수업');
 }
 check('망가진 사용기록(JSON 아님)에도 죽지 않는다', (() => {
   try {

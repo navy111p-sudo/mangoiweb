@@ -64,7 +64,10 @@
       card: null, sub: null, href: '/work', pin: true,
       ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
 
-    { key: '오늘수업',   ko: '오늘 수업 (바로 입장)',   en: "Today's classes (join)",
+    /* 🚪 (2026-09-01 B안) 이름을 사이드바·카드와 «같은 말» 로 맞춘다.
+       ⚠️ key 는 '오늘수업' 그대로 둔다 — 사용기록(mangoi_qa_use)이 그 키로 쌓여 있어서
+          바꾸면 사람이 쌓아 둔 순서가 통째로 초기화된다. */
+    { key: '오늘수업',   ko: '오늘 수업',   en: "Today's classes",
       card: 'card-students-mgmt', sub: 'sm-today-classes',
       ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
 
