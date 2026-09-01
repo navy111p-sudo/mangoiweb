@@ -904,6 +904,12 @@ async function loadRecordings() {
       blobKey: matchedKey,
       blobUrl: matchedBlob ? matchedBlob.url : null,
       originalName: matchedBlob ? matchedBlob.originalName : null,
+      /* 📼 2026-09-01 — 서버(/api/recordings)가 «저장 전용» 통로와 공유 링크를 만들어 준다.
+         화면이 조립하지 않는 이유는 그쪽 주석 참고(파일이 정말 있는지를 화면은 모른다).
+         ⛔ 없을 때 화면이 대신 만들어 넣지 말 것 — 404 나는 버튼이 생긴다. */
+      dl_url: r.dl_url || null,
+      share_url: r.share_url || null,
+      share_expires_at: r.share_expires_at || 0,
       // 학생별 참여도 점수 — API(/api/recordings) 가 D1 attendance 집계 결과로 채워줌.
       // gaze_score 는 시선 추적 데이터가 아직 없어 NULL 로 옴 → UI 에서 "—" 로 표시.
       gaze_score: r.gaze_score,         // 0~100 또는 null
@@ -1100,10 +1106,32 @@ function renderRecordingsTable() {
         + (d ? '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
              + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') : ''))
         .replace(/[\\/:*?"<>|\s]/g, '-') + '.webm';
-      playBtn += '<a href="' + playUrl + '" download="' + dlName + '" title="'
+      /* 🔴 2026-09-01 수리 (사장님 «카카오에 저장도 안돼») — 여기가 옛 blob 통로를 쓰고 있었다.
+         그 통로는 Range 를 그대로 존중해 206 을 돌려주는데, 갤럭시가 저장 요청에
+         `Range: bytes=0-` 를 끼워 넣으면 안드로이드 DownloadManager 가 사유 없이
+         «다운로드에 실패했습니다» 만 반복한다. 서버에는 그것을 위해 만든 «저장 전용» 통로가
+         2026-08-15 부터 있었고(Range 무시·200 전체 본문 + Content-Disposition + 쿠키 없는
+         다운로드 관리자용 &sig=), 강사 화면(flow.js)은 그것을 쓰는데 이 관리자 목록만
+         빠져 있었다. ⛔ 다시 blob 통로로 되돌리지 말 것.
+         ℹ️ dl_url 이 없으면(=서버가 «재생 가능» 으로 못 푼 행) 옛 통로로 폴백한다 — 지금
+            받아지던 것을 잃지 않기 위해서다. 감시: recording_download_link_harness */
+      var saveUrl = r.dl_url || playUrl;
+      playBtn += '<a href="' + saveUrl + '" download="' + dlName + '" title="'
         + (adminLang === 'en' ? 'Save this recording to my device' : '이 녹화 영상을 내 PC·휴대폰에 저장합니다')
         + '" style="display:inline-block;background:#fff;color:#2563eb;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid #93c5fd;margin-left:6px;text-decoration:none;vertical-align:middle;">⬇ '
         + (adminLang === 'en' ? 'Save' : '저장') + '</a>';
+      /* 🔗 링크 (2026-09-01 사장님) — 카톡으로 «파일» 을 옮기는 대신 «링크» 를 보낸다.
+         [왜] 녹화는 webm 이고 한 건이 수백 MB 다. 카카오톡·아이폰은 webm 을 다루지 못하고
+           용량도 걸린다 → 파일을 옮기는 길은 계속 막힌다. 링크는 그 둘을 통째로 비켜 간다.
+         [안전] 주소에 실린 서명은 «이 녹화 id 하나» 전용이고 6시간 뒤 만료된다(auth-token.ts).
+           그래서 버튼이 만료 시각을 사람에게 **말해 준다** — 조용히 죽는 링크를 보내면
+           「보냈는데 안 열린대요」가 된다. ⛔ 유효기간을 화면에서 감추지 말 것. */
+      if (r.share_url) {
+        playBtn += '<button onclick="shareRecordingLink(' + r.id + ')" title="'
+          + (adminLang === 'en' ? 'Send a link instead of the file (KakaoTalk, SMS...)' : '파일 대신 링크로 보냅니다 (카카오톡·문자 등)')
+          + '" style="background:#fff;color:#7c3aed;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #c4b5fd;margin-left:6px;vertical-align:middle;">🔗 '
+          + (adminLang === 'en' ? 'Link' : '링크') + '</button>';
+      }
     } else {
       /* 🔴 2026-08-28 수리 — 여기는 오래도록 «재생할 파일이 없다 + 녹화중이 아니다» 단 하나로
          판정해, 성격이 전혀 다른 것들에 전부 「업로드 대기」를 붙였다. 그런데 그중 어느 것도
@@ -11023,6 +11051,61 @@ async function setRecordingStatus(id, nextStatus) {
     loadRecordings();
   } catch (e) {
     alert((_L ? 'Network error: ' : '네트워크 에러: ') + e.message);
+  }
+}
+
+/* 🔗 녹화 «링크로 보내기» (2026-09-01 사장님 «카카오에 저장도 안돼»)
+   ─────────────────────────────────────────────────────────────────────────
+   [왜 파일이 아니라 링크인가] 녹화는 webm(vp8+opus)이고 21분짜리가 195MB 다. 카카오톡·
+     아이폰·안드로이드 갤러리는 mp4 를 전제로 하므로 webm 파일은 첨부 목록에 아예 안 뜨거나
+     «지원하지 않는 형식» 이 된다. 링크를 보내면 형식·용량 제약을 통째로 비켜 간다.
+   [안전] 주소에 실린 서명(&sig=)은 «이 녹화 id 하나» 전용이고 6시간 뒤 만료된다
+     (auth-token.ts signRecDlSig). 계정 토큰이 아니라 권한이 넓어지는 지점이 없다.
+   ⛔ 유효기간을 화면에서 감추지 말 것 — 조용히 죽는 링크를 보내면 「보냈는데 안 열린대요」가
+      된다. 그래서 공유 문구와 안내에 만료 시각을 함께 적는다.
+   ⛔ window.open 을 쓰지 말 것 — 카톡·문자앱 인앱 브라우저는 새 창을 못 열고 **예외도 안 던진
+      채 null 만** 돌려준다(CLAUDE.md 2장). 여기서는 공유 시트/클립보드만 쓴다.
+   ⚠️ 미성년자 수업 영상이다. 받는 사람을 확인하고 보내라는 안내를 함께 띄운다. */
+async function shareRecordingLink(id) {
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const row = (_unifiedRecRows || []).filter(function (x) { return String(x.id) === String(id); })[0];
+  const url = row && row.share_url;
+  if (!url) {
+    alert(_L ? 'This recording has no shareable link (the video file was not found).'
+             : '이 녹화는 공유 링크를 만들 수 없습니다 (영상 파일을 찾지 못했습니다).');
+    return;
+  }
+  const until = row.share_expires_at ? new Date(row.share_expires_at) : null;
+  const untilTxt = until ? until.toLocaleString(_L ? 'en-US' : 'ko-KR') : '';
+  const label = (_L ? 'Mangoi class recording' : '망고아이 수업 녹화')
+    + (row.room_id ? ' · ' + row.room_id : '');
+  const body = label + (untilTxt ? (_L ? '\n(link expires ' + untilTxt + ')'
+                                       : '\n(이 링크는 ' + untilTxt + ' 까지 열립니다)') : '');
+
+  // 📱 휴대폰에서는 공유 시트 — 여기에 카카오톡이 뜬다. PC 는 윈도우 공유 시트에 카톡이
+  //    없는 경우가 많아 «복사» 가 더 확실하므로 터치 기기에서만 시트를 쓴다.
+  const isTouch = (navigator.maxTouchPoints || 0) > 0;
+  if (isTouch && navigator.share) {
+    try {
+      await navigator.share({ title: label, text: body, url: url });
+      return;
+    } catch (e) {
+      // 사용자가 시트를 닫은 것은 «실패» 가 아니다 — 조용히 끝낸다.
+      if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return;
+      // 그 밖의 오류는 아래 복사 경로로 떨어진다.
+    }
+  }
+
+  const done = _L
+    ? 'Link copied. Paste it into KakaoTalk or a text message.\n\n' + body
+    : '링크를 복사했습니다. 카카오톡·문자에 붙여넣어 보내세요.\n\n' + body
+      + '\n\n⚠️ 미성년자 수업 영상입니다. 받는 사람을 확인하고 보내 주세요.';
+  try {
+    await navigator.clipboard.writeText(url);
+    alert(done);
+  } catch (e) {
+    // 클립보드가 막힌 환경(구형 WebView 등) — 사람이 직접 복사할 수 있게 보여 준다.
+    prompt(_L ? 'Copy this link:' : '이 링크를 복사하세요:', url);
   }
 }
 
