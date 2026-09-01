@@ -150,10 +150,40 @@ check("index.ts 게이트에 '/api/translate' 가 등록돼 있다", /path === '
 //   서버 learn 모드(언어모델 의역)와 화면의 mode:'learn' 은 짝이다 — 한쪽만 지우면 직역으로 돌아간다.
 const mango = read(P('src', 'api-mango.ts'));
 check("warmup: 뜻 보기를 mode:'learn' 으로 묻는다", /mode:\s*['"]learn['"]/.test(wup));
-check('warmup: 고정 인사말은 손질한 의역을 쓴다(curatedMeaning)',
-  /curatedMeaning/.test(wup) && /입을 풀어/.test(wup));
+/* 🗣️ (2026-09-01) 고정 인사말의 의역 정본이 «서버» 로 옮겨졌다 — 화면(warmup.html)에도
+   같은 정규식이 한 벌 있어서 「같은 판정이 두 곳」이던 것을 한 곳으로 모았다.
+   ⛔ 이 검사를 다시 화면 쪽 `curatedMeaning` 으로 되돌리지 말 것. */
+check('warmup: 고정 인사말은 손질한 의역을 쓴다 (정본은 서버 learn-phrase-ko.ts)',
+  /export function curatedLearnMeaning/.test(read(P('src', 'learn-phrase-ko.ts')))
+  && /입을 풀어/.test(read(P('src', 'learn-phrase-ko.ts')))
+  && /curatedLearnMeaning\(t\)/.test(mango));
+check('warmup: 화면이 «자기가 쓴 한국어» 는 미리 넣어 번역 요청 자체를 없앤다',
+  /_koCache\[gEn\] = gKo/.test(wup));
 check("서버: /api/translate 가 mode='learn' 을 안다", /b\.mode === 'learn'/.test(mango));
-check('서버: learn 모드 캐시 접두사가 따로 있다(옛 직역 캐시와 안 섞임)', /trl1:/.test(mango));
+/* 🪤 (2026-09-01) 이 검사는 원래 `/trl1:/` 이었는데, 접두사를 trl2 로 올린 뒤에도
+   «옛 접두사를 설명하는 주석» 의 글자에 걸려 계속 초록이었다 — 아무것도 보장하지 않는 상태였다.
+   ✅ 주석을 벗겨 낸 «살아 있는 코드» 에서, learn 접두사가 기본(tr:)·chat(trc*) 과 다른지를 본다.
+      번호는 앞으로도 올라가므로 숫자를 못 박지 않는다. */
+const noComment = (t) => {
+  let inBlock = false;
+  return t.split('\n').map((l) => {
+    let out = '', i = 0;
+    while (i < l.length) {
+      if (inBlock) { const e = l.indexOf('*/', i); if (e < 0) { i = l.length; } else { inBlock = false; i = e + 2; } continue; }
+      const b = l.indexOf('/*', i), ln = l.indexOf('//', i);
+      if (ln >= 0 && (b < 0 || ln < b)) { out += l.slice(i, ln); break; }
+      if (b >= 0) { out += l.slice(i, b); inBlock = true; i = b + 2; continue; }
+      out += l.slice(i); break;
+    }
+    return out;
+  }).join('\n');
+};
+{
+  const live = noComment(mango);
+  const m = live.match(/learnMode \? '(tr[a-z]*\d*:)'/);
+  check('서버: learn 모드 캐시 접두사가 «살아 있는 코드» 에 있고 기본·chat 과 다르다',
+    !!m && m[1] !== 'tr:' && !m[1].startsWith('trc'), m ? `실제: ${m[1]}` : '못 찾음');
+}
 
 /* ─────────────────────────────────────────────────────────────
    6. speech-coach — 여긴 자막을 가리면 안 된다

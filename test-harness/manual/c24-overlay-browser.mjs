@@ -56,6 +56,10 @@ const k = new Date(Date.now() + KST);
 const monday = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()) - ((k.getUTCDay() + 6) % 7) * 86400000);
 const iso = (d) => d.toISOString().slice(0, 10);
 const TUE = iso(new Date(monday.getTime() + 86400000));
+/* 🔴 (2026-09-01) «지난 수업» 이 「미러를 켜면 만들어집니다」 라고 말하던 것을 막는다.
+   이번 주 월요일이 오늘이면 지난 날짜가 이번 주에 없으므로, 그때만 어제를 쓴다. */
+const TODAY = iso(new Date(Date.now() + KST));
+const PAST = iso(new Date(monday.getTime())) < TODAY ? iso(new Date(monday.getTime())) : null;
 
 /* 망고아이에 «이미 있는» 진짜 수업 하나 (드래그 가능해야 한다) */
 const SCHED = [{ id: 901, teacher_id: '24', date: TUE, start_time: '21:00', type: '1on1', duration_min: 20,
@@ -74,7 +78,8 @@ const MIRROR = {
     { class_id: 'c4', date: TUE, start_time: '21:00', duration_min: 20, class_state: 1, teacher_id: '24', teacher_name: 'HANNAH', student_uid: 'stu_kys', student_name: '김연숙', verdict: 'conflict' },
     { class_id: 'c5', date: TUE, start_time: '19:00', duration_min: 20, class_state: 1, teacher_id: '24', teacher_name: 'HANNAH', student_uid: 'aaa',  student_name: 'AAA',  verdict: 'already' },
     { class_id: 'c6', date: TUE, start_time: '11:00', duration_min: 20, class_state: 1, teacher_id: null, teacher_name: null,     student_uid: 'bbb',  student_name: 'BBB',  verdict: 'not_whitelisted' },
-  ],
+  ].concat(PAST ? [{ class_id: 'c7', date: PAST, start_time: '10:00', duration_min: 20, class_state: 1,
+                     teacher_id: '24', teacher_name: 'HANNAH', student_uid: 'past1', student_name: '지난학생', verdict: 'ok' }] : []),
 };
 
 async function open(browser, opt = {}) {
@@ -146,9 +151,15 @@ const parseRgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Numbe
     });
 
     console.log('\n[ ①② 그려지는가 · 사실을 말하는가 ]');
-    check('카페24 카드가 3장 그려졌다 (ok·not_whitelisted·no_student)', info.n === 3, info.n);
+    // 앞으로 것 3장(ok·not_whitelisted·no_student) + 지난 것 1장(넣었을 때만)
+    check('카페24 카드가 «앞으로 3장 + 겹침 1장 + 지난 것» 만큼 그려졌다',
+      info.n === 4 + (PAST ? 1 : 0), info.n);
     check('카드에 «카페24» 배지가 있다', info.texts.every((t) => t.includes('카페24')), info.texts);
-    check('카드가 «카페24에만 있음» 이라고 말한다', info.texts.every((t) => t.includes('카페24에만 있음')), info.texts);
+    /* ⚠️ 문구가 «지난 것» 과 «앞으로 것» 으로 갈렸으므로 전부 같은 말을 기대하면 안 된다.
+       앞으로 것만 «카페24에만 있음» 이고, 지난 것은 ⑩절에서 따로 본다. */
+    const ahead = info.texts.filter((t) => !t.includes('지난 수업') && !t.includes('같은 시각 다른 수업'));
+    check('앞으로 것은 «카페24에만 있음» 이라고 말한다',
+      ahead.length === 3 && ahead.every((t) => t.includes('카페24에만 있음')), ahead);
     check('학생 이름이 보인다 (Zee·Kes)', info.texts.join(' ').includes('Zee') && info.texts.join(' ').includes('Kes'));
     check('카드가 실제로 크기를 가진다 (숨겨져 있지 않다)', info.boxes.every((b) => b.w > 20 && b.h >= 20), info.boxes);
 
@@ -158,11 +169,33 @@ const parseRgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Numbe
     check('카페24 카드에 data-block 이 없다(누르면 삭제되지 않는다)', info.blk.every((d) => d === null), info.blk);
     check('진짜 수업 카드는 그대로 드래그된다', info.realN >= 1 && info.realDrag.some((d) => d === 'true'), { realN: info.realN, realDrag: info.realDrag });
 
-    console.log('\n[ ⑤ 두 번 보이지 않는다 ]');
-    check('이미 있는 수업(already·conflict)은 겹쳐 그리지 않는다',
-      !info.texts.join(' ').includes('김연숙') && !info.texts.join(' ').includes('AAA'), info.texts);
+    console.log('\n[ ⑤ 두 번 보이지 않는다 · 겹침은 «보여야» 한다 ]');
+    /* 🔴 (2026-09-01) conflict 는 이제 «그린다» — 강사 필터를 걸면 그 진짜 카드는
+       다른 강사 것이라 화면에 없어서, 안 그리면 아무 데도 안 보였다(Mariane 30 → 28 실측). */
+    check('already 는 겹쳐 그리지 않는다(같은 카드가 이미 있다)', !info.texts.join(' ').includes('AAA'), info.texts);
+    check('🔴 conflict 는 그린다(사람이 확인해야 하는 것이다)', info.texts.join(' ').includes('김연숙'), info.texts);
+    check('conflict 카드가 «같은 시각 다른 수업» 이라고 말한다',
+      /같은 시각 다른 수업/.test(info.texts.join(' ')), info.texts);
     check('강사를 못 이은 것(BBB)은 아무 칸에나 놓지 않는다', !info.texts.join(' ').includes('BBB'), info.texts);
     check('범례가 카페24 건수를 따로 센다', /카페24/.test(info.legend), info.legend.slice(0, 200));
+
+    console.log('\n[ ⑩ 지난 수업은 «만들어집니다» 라고 말하지 않는다 ]');
+    if (!PAST) {
+      console.log('  --   오늘이 이번 주 월요일이라 «지난 날짜» 가 이번 주에 없다 — 건너뜀');
+    } else {
+      const past = await page.evaluate(() => {
+        const c = Array.from(document.querySelectorAll('#ph54-sched-wrap .ph54-c24'))
+          .find((x) => /지난학생/.test(x.textContent));
+        return c ? { text: c.textContent.replace(/\s+/g, ' ').trim(), title: c.getAttribute('title') || '' } : null;
+      });
+      check('⑩ 지난 카드가 그려진다(감추지 않는다)', !!past, past);
+      check('🔴 ⑩ 「미러를 켜면 만들어집니다」 가 없다', !!past && !/만들어집니다/.test(past.title), past && past.title);
+      check('⑩ 「지난 수업 (카페24 기록)」 이라고 말한다', !!past && /지난 수업 \(카페24 기록\)/.test(past.text), past && past.text);
+      check('⑩ 왜 안 생기는지 이유를 적는다', !!past && /오늘부터만 만들므로/.test(past.title), past && past.title);
+      const legend = await page.evaluate(() => (document.querySelector('#ph54-sched-wrap .ph54-legend') || {}).textContent || '');
+      check('🔴 ⑩ 건수를 «대기» 와 «지난 기록» 으로 갈라 센다',
+        /카페24 대기/.test(legend) && /지난 카페24 기록/.test(legend), legend.slice(-160));
+    }
 
     console.log('\n[ ⑨ 글자가 읽히는가 (WCAG 4.5:1) ]');
     {

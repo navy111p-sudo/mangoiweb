@@ -95,6 +95,7 @@ td.acts button{ padding:5px 9px; font-size:12px; margin:1px 2px 1px 0; }
 .sig-warn{ color:var(--warn); font-weight:700; }
 .sig-bad{ color:var(--crit); font-weight:800; }
 .acts .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
+.acts .go2{ background:var(--violet-bg); border-color:var(--violet); color:var(--violet); }
 .acts .enter{ background:#fff7ed; border-color:#f0c48a; color:var(--warn); }
 .acts .kill{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
 .sec{ margin-top:22px; }
@@ -370,10 +371,14 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
 
     $('ft').innerHTML = L(
       '👁 참관은 학생·강사에게 보이지 않고 방당 동시 2명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
+      + '💬 귓속말은 참관 화면의 채팅칸이 곧 귓속말입니다 — 학생에게는 보이지 않고 강사에게만 갑니다(이름 칩을 고르면 그 사람에게만). '
+      + '🎧 소리만은 영상을 아예 받지 않아 회선을 아낍니다 — 도중에 영상으로 바꾸려면 그 화면의 [영상도 보기] 로 다시 엽니다. '
       + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다. '
       + '🛑 강제 종료는 그 수업의 모든 참가자 연결을 즉시 끊습니다. '
       + '🔁 순회 참관은 창 하나가 정해진 초마다 방을 옮겨 다닙니다 — 옮길 때마다 수업 화면을 새로 여느라 몇 초가 걸리므로 15초보다 짧게 두지 않았습니다.',
       '👁 Observation is invisible to students/teachers (max 2 observers per room); every observation is auto-recorded in the audit log. '
+      + '💬 Whisper: the chat box on the observe screen IS the whisper box - students never see it. '
+      + '🎧 Audio-only receives no video at all; use [Show video] there to switch. '
       + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students. '
       + '🛑 Force end disconnects everyone in that class immediately. '
       + '🔁 Rotating observation moves one window from room to room; each hop reloads the class screen, so the shortest step is 15s.');
@@ -439,6 +444,14 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       + '<td class="n">' + sigHtml(rid) + '</td>'
       + '<td class="acts">'
       +   '<button type="button" class="go" data-act="observe">' + L('👁 참관', '👁 Observe') + '</button>'
+      +   '<button type="button" class="go2" data-act="observe-whisper" title="'
+      +     L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
+              'Observe and whisper to the teacher only - invisible to students') + '">'
+      +     L('💬 귓속말', '💬 Whisper') + '</button>'
+      +   '<button type="button" class="go2" data-act="observe-audio" title="'
+      +     L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
+              'Receives no video at all - audio only (saves bandwidth)') + '">'
+      +     L('🎧 소리만', '🎧 Audio') + '</button>'
       +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
       +   '<button type="button" class="kill" data-act="end">' + L('🛑 종료', '🛑 End') + '</button>'
       + '</td></tr>';
@@ -475,9 +488,20 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
         body: JSON.stringify({ admin_uid:uid, room_id:roomId, reason:reason }) }).catch(function(){});
     } catch(e){}
   }
-  function observe(roomId){
-    logObserve(roomId, L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall'));
-    openTab(location.origin + '/?observe=' + encodeURIComponent(roomId));
+  /* 👁 참관 세 갈래 — 셋 다 «학생·강사에게 보이지 않는» 같은 참관이고, 여는 방식만 다르다.
+     · ''       보통 참관 (영상 + 소리)
+     · whisper  참관하면서 강사에게만 귓속말 — 채팅칸을 열어 준다(보다의 «관리용 모니터링»)
+     · audio    소리만 — 영상 자체를 안 받는다(회선 절약). 수업 화면 쪽 ⑦절이 처리한다.
+     ⚠️ 사유를 모드마다 다르게 남긴다 — 감사 로그만 보고도 «무엇을 하려던 참관인지» 가 남는다. */
+  function observe(roomId, mode){
+    var reason = mode === 'whisper'
+        ? L('관제탑에서 참관 + 귓속말 (monitor-wall)', 'Observe with whisper from monitor-wall')
+      : mode === 'audio'
+        ? L('관제탑에서 소리만 참관 (monitor-wall)', 'Audio-only observe from monitor-wall')
+        : L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall');
+    logObserve(roomId, reason);
+    var q = mode === 'whisper' ? '&whisper=1' : mode === 'audio' ? '&audio=1' : '';
+    openTab(location.origin + '/?observe=' + encodeURIComponent(roomId) + q);
   }
   function enterRoom(roomId){
     if (!confirm(L('수업 "' + roomId + '" 에 직접 입장할까요?\n\n· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n· 카메라는 꺼진 채로 입장합니다.',
@@ -512,7 +536,9 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     var rid = holder ? holder.getAttribute('data-room') : '';
     if (!rid) return;
     var act = btn.getAttribute('data-act');
-    if (act === 'observe') observe(rid);
+    if (act === 'observe') observe(rid, '');
+    else if (act === 'observe-whisper') observe(rid, 'whisper');
+    else if (act === 'observe-audio') observe(rid, 'audio');
     else if (act === 'enter') enterRoom(rid);
     else if (act === 'end') endRoom(rid);
   });

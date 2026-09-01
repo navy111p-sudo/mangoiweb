@@ -14,6 +14,7 @@ import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
+import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -34,6 +35,8 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
+import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -155,11 +158,32 @@ export async function handleMangoApi(
                 SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
                 (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
           try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+          /* 📥 (2026-09-01 class-1015 「화면이 흐리고 소리가 끊긴다」) «받는 쪽» 지표.
+             그전까지 이 표는 sender.getStats() 만 담았다 = «내가 보내는 것» 뿐이었다.
+             그런데 제보는 전부 «내가 받는 화면·소리» 였고, 그 숫자가 아예 없어서
+             매번 추측으로 끝났다(js/idx-vc-qlog.js 머리말 [원인 ②]).
+               · rx_loss/rx_aloss — 받은 영상·오디오 손실률(%)
+               · rx_conceal       — 소리가 끊겨 브라우저가 «메꾼» 비율(%). 「소리 끊김」의 직접 지표
+               · rx_freeze        — 받은 영상이 멈춘 횟수
+               · p95_loss         — 보내는 쪽 손실의 상위 5%. 평균이 가리는 스파이크를 남긴다
+               · peers            — 그 1분 동안 동시에 붙어 있던 상대 수(유령 연결 판별)
+             ⚠️ «모름» 은 -1 이다. 0 으로 적으면 «표본이 없는 사람» 이 «제일 좋은 사람» 이 된다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts 에 한 벌 더
+                있고 IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다(위 novideo 주석과 같은 사정). */
+          for (const c of ['rx_loss REAL DEFAULT -1', 'rx_aloss REAL DEFAULT -1', 'rx_conceal REAL DEFAULT -1',
+                           'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
+           화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
+        const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
-            Number(b.novideo) || 0).run();
+            Number(b.novideo) || 0,
+            num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0)).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
@@ -482,6 +506,12 @@ export async function handleMangoApi(
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      /* 🚪 이 요청을 «받은 워커» 가 자기 DO 네임스페이스 지문을 이 도메인 이름으로 적어 둔다.
+         두 워커는 D1·KV 를 공유하지만 DO 만 갈리므로, 도메인이 서로 다른 워커에 붙으면
+         같은 방 번호로도 서로 못 만난다(2026-08-19·08-25·08-27·09-01 네 번 사고).
+         15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
+         ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
+      try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
@@ -2290,10 +2320,13 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
-      // 🗣️ (2026-08-24) mode='learn' — 웜업·AI친구 «뜻 보기» 전용. AI 튜터의 영어 문장을
+      // 🗣️ (2026-08-24) mode='learn' — 학생 화면의 «뜻 보기» 전용(웜업·AI친구·음성코치·게임). AI 튜터의 영어 문장을
       //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
       //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
       //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      //   🔴 (2026-08-31) 「Good job!」 → 「훌륭한 직업!」 제보 — 뿌리가 둘이었다.
+      //      ① ai-friend.html 이 이 모드를 «안 쓰고» 있었다(웜업만 고쳐져 있었다) → 화면 쪽 수리.
+      //      ② 모드를 켜도 확률이라, 말머리 칭찬 상투구는 src/learn-phrase-ko.ts 로 «결정론» 처리한다.
       const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
@@ -2415,7 +2448,8 @@ ${numbered}`;
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
       //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
-      const cacheKey = (t: string) => (learnMode ? 'trl1:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl2: learn 모드 «말머리 상투구 결정론 + 직역금지 예시»(2026-08-31) — 「훌륭한 직업!」이 담긴 trl1 캐시와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl2:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -2447,14 +2481,16 @@ ${numbered}`;
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
       // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
       //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
-      const learnSys = 'You translate what an AI English tutor said in a fun pre-class warm-up chat, '
+      const learnSys = 'You translate what an AI English tutor or an English practice app said, '
         + 'so a young Korean student (elementary or middle school) can understand what the English means. '
         + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
-        + 'For example, "Let\'s warm up before class" means having a light practice chat, not making anything warm. '
+        + 'Cheers, greetings and set phrases must be translated as what a Korean teacher would actually say, '
+        + 'NOT by translating each word: ' + LEARN_GLOSS_HINT + ' '
         + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
         + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Never translate a question as 「~습니까?」 — a child reads this. Use 「~예요?」 / 「~해요?」. '
+        + 'Never write 「당신」 for "you" — Korean drops it. "Do you have a pet?" is 「반려동물 키워요?」, not 「당신은 애완동물이 있습니까?」. '
         + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
-        + 'In a school context "숙제" is school homework, never housework or a job. '
         + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
@@ -2508,23 +2544,76 @@ ${numbered}`;
         return out;
       }
 
+      /* ⏱ (2026-09-01) 여러 문장을 «동시에» 번역한다 — 순차로는 배치 호출이 못 쓴다.
+         [왜] 우주몬스터 게임은 게임 시작을 막고 한 번에 최대 50문장을 물어보는데, 이 루프가
+              문장마다 모델을 하나씩 기다렸다. 그래서 그 화면만 「뜻」 의역(mode:'learn')을
+              못 켜고 직역으로 남아 «같은 영어가 화면마다 다른 한국어» 가 되고 있었다.
+         [무엇을 바꿨나] 호출 «횟수» 는 그대로다. 바뀐 것은 «동시에 몇 개를 기다리는가» 뿐이다.
+         ⛔ 상한을 크게 올리지 말 것 — Workers AI 는 뉴런이 소진되면 429 를 주고, 이 루프는
+            실패를 재시도하지 않고 원문으로 떨어뜨린다(그러면 그 문장은 게임에서 빠진다).
+         ℹ️ 각 반복은 서로 독립이다 — `map` 은 문장마다 다른 키에 쓰고, KV 키도 문장마다 다르다.
+            `dbg` 만 마지막 것이 남는데 그건 ?debug=1 전용이라 무해하다. */
+      const TRANSLATE_CONCURRENCY = 4;
       if (need.length && ai) {
-        for (const t of need) {
+        const queue = need.slice();
+        const runOne = async (t: string) => {
           try {
-            let out = '';
-            if (chatMode || learnMode) {
-              try { out = await chatTranslate(t); }
-              catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+            /* 🗣️ learn 모드 — 말머리 칭찬 상투구는 «모델에게 맡기지 않고» 여기서 떼어 낸다.
+               「Good job!」을 m2m100 이 「훌륭한 직업!」으로 옮긴 제보(2026-08-31)가 출발점이고,
+               언어모델로 바꿔도 확률이라 자주 나오는 상투구는 결정론으로 못 박는다.
+               정본 표: src/learn-phrase-ko.ts. 종결부호가 없으면 떼지 않으므로
+               「Good job on your sentence」 같은 진짜 문장은 그대로 통째로 번역된다. */
+            /* 고정 인사말은 손으로 다듬은 의역이 정본이다(learn-phrase-ko.ts).
+               ⛔ 이 판정을 화면 쪽에 다시 만들지 말 것 — 2026-09-01 에 warmup.html 의
+                  같은 정규식(curatedMeaning)을 지우고 여기 한 곳으로 모았다. */
+            if (learnMode && target === 'ko') {
+              const greet = curatedLearnMeaning(t);
+              if (greet) {
+                map[t] = greet;
+                if (kv) { try { await kv.put(cacheKey(t), greet, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+                return;   // 이 문장은 여기서 끝 — 번역을 부르지 않는다
+              }
             }
-            if (!out) {
-              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
-              if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
-              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+            const lead = (learnMode && target === 'ko') ? peelLearnLead(t) : { leadKo: '', rest: t };
+            const src = lead.rest;
+            /* 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다.
+               ⚠️ 말머리를 «실제로 뗀» 경우에만 이 지름길을 쓴다. 조건을 넓히면 기본·chat 경로까지
+                  바뀌어, 이 글자범위에 없는 언어(가나·키릴 등)가 번역 없이 원문 그대로 나간다. */
+            const needsMt = !lead.leadKo || /[A-Za-z\u3131-\uD79D\u4E00-\u9FFF]/.test(src);
+            let out = '';
+            /* 🔴 번역이 «실제로» 나왔는가 — 캐시(180일) 판정에 쓴다.
+               예전에는 실패하면 out = t(원문)라서 `out !== t` 가 거짓이 되어 저절로 캐시를 비켜 갔다.
+               말머리를 떼면 실패해도 「잘했어요! Do you have a pet animal?」처럼 t 와 «달라져서»
+               그 반쪽짜리가 180일 굳는다. 같은 사고 전례: 폴백 음성을 «요청 화자» 키로 캐시해
+               그 문장이 영원히 다른 목소리가 됐던 건(CLAUDE.md 2장). 실패는 캐시하지 않는다. */
+            let mtOk = true;
+            if (!needsMt) {
+              out = joinLearnLead(lead.leadKo, src);
+            } else {
+              let mt = '';
+              if (chatMode || learnMode) {
+                try { mt = await chatTranslate(src); }
+                catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+              }
+              if (!mt) {
+                const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
+                if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
+                mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
+              }
+              mtOk = !!mt;
+              // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
+              // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
+              out = joinLearnLead(lead.leadKo, mt || src);
             }
             map[t] = out;
-            if (kv && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            if (kv && mtOk && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
           } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
-        }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(TRANSLATE_CONCURRENCY, queue.length) }, async () => {
+            for (;;) { const t = queue.shift(); if (t === undefined) return; await runOne(t); }
+          }),
+        );
       } else if (need.length) { for (const c of need) map[c] = c; }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });
@@ -3917,8 +4006,54 @@ ${numbered}`;
       const listBinds = [...whereBinds, limit, offset];
       const rs = await env.DB.prepare(q).bind(...listBinds).all();
 
+      /* 📼 저장·링크 URL 동봉 (2026-09-01 사장님 «카카오에 저장도 안돼»)
+         [무엇이 문제였나] 관리자 목록의 ⬇저장이 `/api/recordings/blob/<키>` + <a download> 였다.
+           그 통로는 Range 를 그대로 존중해 **206** 을 돌려주는데, 갤럭시 일부 기기가
+           저장 요청에 `Range: bytes=0-` 를 끼워 넣는다 → 안드로이드 DownloadManager 가
+           사유 없이 «다운로드에 실패했습니다» 만 반복한다. 이건 2026-08-15 에 이미 진단돼
+           `/api/recording/play?…&dl=1` 쪽에만 고쳐져 있었고(=Range 무시·200 전체 본문 +
+           Content-Disposition), 강사 화면(flow.js)은 그것을 쓰는데 **관리자 목록만** 옛
+           통로에 남아 있었다.
+         [왜 화면이 아니라 서버가 URL 을 만드나] 화면은 «그 녹화가 정말 재생되는가» 를 모른다.
+           play 엔드포인트는 file_url/filename 으로 키를 풀고 status·storage·만료까지 보고
+           404 를 낸다. 같은 판정을 여기서 한 번 해서, 풀리지 않으면 아예 안 준다 —
+           화면은 그때만 옛 blob 통로로 폴백한다(지금 되는 것을 잃지 않는다).
+         [sig 를 왜 동봉하나] 교사·관리자는 쿠키로만 인증되는데 카톡 인앱 브라우저·안드로이드
+           WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
+           범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
+           (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
+         ⚠️ 이 API 는 **관리자 전용**이다(index.ts isAdminOnlyApi 에 `/api/recordings` GET 등록).
+            «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
+         감시: test-harness/recording_download_link_harness.mjs */
+      const _nowMs = Date.now();
+      const _recItems = await Promise.all(((rs.results || []) as any[]).map(async (row: any) => {
+        // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
+        let key = String(row.file_url || '');
+        if (!key && row.filename) {
+          const fn = String(row.filename);
+          key = (fn.startsWith('rec/') || fn.startsWith('recordings/')) ? fn : 'recordings/' + fn;
+        }
+        const st = String(row.storage || '');
+        const playable = !!key && !/^https?:\/\//.test(key)
+          && row.status !== 'deleted' && row.status !== 'upload_failed'
+          && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
+          && !(row.expires_at && Number(row.expires_at) < _nowMs);
+        if (!playable) return row;
+        const sig = await signRecDlSig(row.id, env);
+        const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
+        return {
+          ...row,
+          // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
+          dl_url: '/api/recording/play' + qs + '&dl=1',
+          // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
+          share_url: siteUrl('/api/recording/play' + qs),
+          // 서명은 "만료ms.서명" 형식 — TTL 을 또 적지 않고 그 값을 그대로 읽는다(두 벌이면 어긋난다)
+          share_expires_at: parseInt(String(sig).split('.')[0], 10) || 0,
+        };
+      }));
+
       // 응답 본문은 배열 그대로 유지 (하위 호환성). 페이지네이션 메타는 헤더로 전달.
-      return new Response(JSON.stringify(rs.results || []), {
+      return new Response(JSON.stringify(_recItems), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',

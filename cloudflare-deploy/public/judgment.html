@@ -321,8 +321,14 @@
   <div class="top">
     <!-- ← 뒤로 / 🏠 홈 — micro-quiz.html 등 다른 학습 페이지와 같은 순서·동작으로 맞춤.
          뒤로가기는 방문 이력이 없을 때(앱에서 바로 열린 경우) 홈으로 떨어진다. -->
+    <!-- ⬅ 뒤로 판정은 정본 window.mangoiGoBack(js/back-nav.js) 하나만 쓴다 (2026-09-01 사장님 지시
+         「나머지 5개도 정본으로 모아줘」). 그전에는 화면마다 같은 판정을 복제해 두어, 한 곳을
+         고쳐도 나머지가 옛 동작으로 남았다(정본에는 «히스토리가 없으면 같은 오리진 referrer» 가
+         있는데 복제본에는 없었다 — 즉 복제본이 더 나빴다).
+         ⚠️ else 는 «판정» 이 아니라 안전망이다 — 그 파일이 아직 안 왔거나(defer) 캐시에 옛
+            사본이 남았을 때 «어딘가로는 보낸다». 여기에 판정을 다시 적으면 복제가 되살아난다. -->
     <button type="button" class="top-nav-btn" id="backBtn"
-            onclick="if(history.length>1){history.back()}else{location.href='/'}">←</button>
+            onclick="if(window.mangoiGoBack){window.mangoiGoBack()}else{location.href='/'}">←</button>
     <a href="/" class="top-nav-btn" id="homeBtn">🏠</a>
     <img src="/img/mango-char.png" alt="Mangoi" onerror="this.style.display='none'" loading="lazy" decoding="async">
     <div style="flex:1;min-width:200px">
@@ -1541,5 +1547,8 @@
 </script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
+<!-- ⬅ 뒤로 판정 정본. 이 화면의 ← 버튼이 window.mangoiGoBack 을 부른다.
+     ⚠️ 화면에 보이는 ← 가 이미 있으면 이 파일은 자기 동그란 ← 를 안 넣는다(hasVisibleBack). -->
+<script defer src="/js/back-nav.js"></script>
 </body>
 </html>

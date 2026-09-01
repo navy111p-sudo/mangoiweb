@@ -425,13 +425,14 @@
         <div class="menu-caret"></div>
         <div class="menu-head">⚙️ 웜업 설정</div>
 
-        <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(천천히) ~ 5(빠르게) -->
+        <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(아주 느리게) ~ 5(아주 빠르게) -->
         <div class="menu-group">
-          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">2 · 천천히</span></div>
+          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">2 · 느리게 (0.8배)</span></div>
           <div class="rate-row">
             <span class="rate-side">🐢</span>
-            <input id="rateSlider" type="range" min="1" max="5" step="1" value="2"
-              oninput="setRate(this.value)" title="선생님 음성 속도 (1 천천히 ~ 5 빠르게)" />
+            <input id="rateSlider" type="range" min="1" max="5" step="1" value="2" list="rateTicks"
+              oninput="setRate(this.value)" title="선생님 음성 속도 (1 아주 느리게 ~ 5 아주 빠르게)" />
+            <datalist id="rateTicks"><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option></datalist>
             <span class="rate-side">🐇</span>
           </div>
         </div>
@@ -820,25 +821,17 @@ function setSubMode(m, announce){
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
-/* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
-   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24).
-   ⚠️ 이제 인사말에 «고른 친구 이름» 이 들어가서 패턴으로는 못 맞춘다 — 만드는 쪽에서
-      _koCache 에 의역을 미리 넣는다(여덟 단계 인사·안전망 둘 다). 이 함수는 옛 문장이
-      어딘가에 남아 있을 때를 위한 안전망으로만 둔다. */
-function curatedMeaning(text){
-  var m = String(text||'').trim().match(
-    /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
-  if(m) return '안녕하세요! 저는 망고아이 AI 친구예요 🥭 '
-    + (m[1] ? ('오늘의 주제는 "' + m[1] + '"예요. ') : '')
-    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
-  return '';
-}
+/* 🗣️ 고정 인사말의 의역은 «서버 정본» 이 갖고 있다 — `src/learn-phrase-ko.ts` 의
+   `curatedLearnMeaning()`. 2026-09-01 까지 여기에도 같은 정규식(`curatedMeaning`)이
+   한 벌 더 있었는데, 이번 수리의 뿌리 진단이 바로 「같은 판정이 두 곳에 있으면
+   한쪽만 고쳐진다」라 그 형태를 남겨 둘 수 없어 지웠습니다.
+   ⛔ 여기에 다시 만들지 마세요. 서버 표를 고치면 모든 화면이 함께 고쳐집니다.
+   ℹ️ 아래 `_koCache` 미리 넣기(`fallbackGreeting`)는 «중복이 아닙니다» — 그건 판정이 아니라
+      «그린 쪽이 방금 자기가 쓴 한국어» 라, 번역 요청 자체를 없애는 빠른 길입니다. */
 function fetchMeaning(text){
   var key = String(text||'').trim();
   if(!key) return Promise.resolve('');
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
-  var cur = curatedMeaning(key);
-  if(cur){ _koCache[key] = cur; return Promise.resolve(cur); }
   return fetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
     // mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역.
@@ -868,14 +861,22 @@ function toggleMeaning(text, btn, bubble){
   });
 }
 
-/* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
-var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
-/* 서버 TTS(오디오 파일) 전용 배속 — playbackRate 시간늘리기는 배속이 1에서 멀수록
-   "뚜벅뚜벅" 왜곡(특히 저음 남자 목소리)이 커진다. 3단계는 정확히 1.0(무가공 원음),
-   천천히 쪽도 왜곡이 덜한 완만한 값으로. */
-var AUDIO_RATE = { 1:0.72, 2:0.85, 3:1.0, 4:1.15, 5:1.35 };
-var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
-/* 🐢 (2026-07-23) 들어올 때는 항상 2단계(천천히)에서 시작한다.
+/* 🐢🐇 듣기 속도 — 다섯 칸이 «귀로 구별되게» (2026-08-31 사장님 「지금은 속도 구별이 잘 안돼」)
+   ⚠️ 예전 값은 서버 TTS 쪽이 0.72·0.85·1.0·1.15·1.35 로 칸 사이가 15~18% 뿐이었다.
+      사람 귀는 재생속도 차이를 «비율» 로 듣는데 그 폭은 한 칸 옮겨도 티가 잘 안 난다.
+      지금은 한 칸이 최소 20%(0.6→0.8 은 33%)라 눌러 보면 바로 다르다.
+   📌 예전에는 표가 «둘» 이었다(브라우저 음성용·서버 오디오용). 값이 서로 달라 어느 쪽으로
+      소리가 났느냐에 따라 같은 칸이 다른 속도로 들렸다 — 한 표로 합쳤다.
+   ⚠️ 맞바꾼 것: playbackRate 시간늘리기는 1에서 멀수록 «뚜벅뚜벅» 왜곡이 커진다(특히 저음
+      남자 목소리). 그래도 넓힌 이유는 «왜곡» 보다 «구별이 안 되는 것» 이 더 큰 문제이기 때문이다.
+      3단계는 여전히 정확히 1.0(무가공 원음)이다.
+   ⛔ 0.5 미만·2.0 초과로 넓히지 마세요 — 그 밖은 브라우저가 무음으로 만들거나 잘라 냅니다.
+   🔗 AI 영어친구(ai-friend.html)의 속도 버튼과 «같은 다섯 값» 이어야 합니다.
+      화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 됩니다. */
+var RATE_STEPS = { 1:0.6, 2:0.8, 3:1.0, 4:1.25, 5:1.5 };
+var AUDIO_RATE = RATE_STEPS;   // 같은 표를 쓴다(두 벌로 갈라지지 않게)
+var RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
+/* 🐢 (2026-07-23) 들어올 때는 항상 2단계(느리게)에서 시작한다.
    처음 듣는 학생이 못 알아듣는 일이 없게, 지난번에 올려둔 속도를 이어받지 않는다.
    (수업 중 슬라이더로 올리는 건 그대로 되고, 다음에 다시 들어오면 또 2부터.) */
 var WARMUP_START_RATE = 2;
@@ -885,9 +886,11 @@ function setRate(lv){
   _rateLevel = lv;
   /* 이 화면은 매번 2단계로 시작하므로 속도는 저장하지 않는다(저장해도 읽지 않음). */
   var s=document.getElementById('rateSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
-  var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
+  // 이름 옆에 «몇 배» 를 함께 적는다 — 눈으로도 «정확히 얼마나» 달라졌는지 보이게
+  var v=document.getElementById('rateVal');
+  if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv] + ' (' + RATE_STEPS[lv].toFixed(2).replace(/0$/,'') + '배)';
 }
-setRate(_rateLevel);   // 시작 속도(2단계 · 천천히)로 슬라이더/표시 초기화
+setRate(_rateLevel);   // 시작 속도(2단계 · 느리게)로 슬라이더/표시 초기화
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
    그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
 function maybeAdjustRate(text){
@@ -1080,9 +1083,12 @@ function openSetup(fromMenu){
    ⚠️ history.back() 만 쓰면 밖에서 바로 들어온 사람(카톡 링크·주소 입력)은 아무 데도 못 간다.
       그런 경우가 «아무 일도 안 일어난다» 로 보이므로 홈으로 보내는 쪽이 맞다. */
 function goBackOrHome(){
-  var same = false;
-  try{ same = !!document.referrer && new URL(document.referrer).origin === location.origin; }catch(e){}
-  if(same && history.length > 1){ history.back(); return; }
+  /* 판정은 정본 하나만 쓴다 — js/back-nav.js 의 window.mangoiGoBack (2026-09-01).
+     ⚠️ 이 화면의 «정책» 은 보존한다: sameOriginOnly=true 는 「앞 화면이 우리 사이트일 때만
+        되돌아가고, 아니면 홈」이라는 뜻이다(밖에서 들어온 사람을 밖으로 되돌려보내지 않는다).
+        그 정책을 여기서 다시 구현하지 않고 «정본에 인자로» 넘긴다.
+     ⚠️ 아래 한 줄은 판정이 아니라 안전망이다(그 파일이 아직 안 왔거나 캐시에 옛 사본이 남을 때). */
+  if (window.mangoiGoBack) { window.mangoiGoBack('/', { sameOriginOnly: true }); return; }
   location.href = '/';
 }
 /* 설정 화면의 «← 뒤로» — 어디에서 왔느냐에 따라 돌아갈 곳이 다르다.
@@ -1598,8 +1604,9 @@ function _startSttSession(){
    「3~5단어·현재시제」로 못 박아 두었는데, 이 자리의 인사는 레벨과 무관한 15단어
    («Let's warm up before class» — 관용구까지 들어 있다)였다. 즉 AI 가 눈높이를
    못 맞춘 게 아니라, 첫 문장이 «AI 를 거치지 않는» 자리였다.
-   그 문장이 어렵다는 증거는 이미 이 파일에 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로
-   직역해서 curatedMeaning() 에 손으로 의역을 박아 두었다(2026-08-24).
+   그 문장이 어렵다는 증거는 이미 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로 직역해서
+   손으로 의역을 박아 두었다(2026-08-24). 그 의역은 2026-09-01 에 서버 정본으로 옮겼다
+   (`src/learn-phrase-ko.ts` 의 curatedLearnMeaning — 같은 판정이 두 곳이던 것을 한 곳으로).
 
    ⚠️ 여기를 LLM 생성으로 바꾸지 마세요. 낮은 단계에서 단어 수를 조이면 모델이 to·is·a 를
       떨어뜨립니다 — 판단력 훈련이 「선택지 5단어 이하」 상한 때문에 «Want play with me»(비문)를

@@ -5060,12 +5060,21 @@ function vcArmFullscreenRetry() {
                 if (dSent + dLost < 25) { try { vcQualityAcc(-1, rtt); } catch (_) {} return; }  // 표본 부족(영상 꺼짐/죽음) — 화질 판단은 보류, 기록은 «영상 없음» 으로 남긴다(js/idx-vc-qlog.js)
                 const lossPct = 100 * dLost / (dSent + dLost);
                 let step = pc.__qStep || 0;
+                /* 📉 (2026-09-01 class-1015 「처음과 뒷부분은 계속 흐리고 중간에 잠깐 좋았다」)
+                   [무엇이 문제였나] 내려가는 데 최대 16초(4틱), 올라오는 데 12초(3틱)였다.
+                     그런데 그 수업의 실측은 «1분에 한 번꼴로 20~27% 스파이크» 였다(D1 vc_quality 20건,
+                     20분 중 17분이 최대손실 16%↑, 최악 60.6%). 그래서 내려가다 올라오기를 반복하는
+                     «진동» 이 됐고, 사람 눈에는 「흐렸다 잠깐 좋았다 다시 흐림」으로 보였다.
+                     1분 평균은 1.9% 라 어느 화면에서도 «양호» 였다 — 평균이 사고를 가린 것이다.
+                   [고침] 회복을 «오래 조용했을 때만» 허용한다 — 연속 8틱(32초) + 마지막 스파이크로부터 30초.
+                     ⛔ 내려가는 쪽은 그대로 둔다(빠르게 내려가는 것은 옳다).
+                     ⛔ 숫자를 더 키우지 말 것 — 회선이 정말 좋아졌는데도 흐린 채로 남는다. */
                 if (lossPct > 6 || rtt > 450) {
-                    pc.__qGood = 0;
+                    pc.__qGood = 0; pc.__qBadAt = Date.now();
                     if (step < STEPS.length - 1) step++;
                 } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
                     pc.__qGood = (pc.__qGood || 0) + 1;
-                    if (pc.__qGood >= 3 && step > 0) { step--; pc.__qGood = 0; }
+                    if (pc.__qGood >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && step > 0) { step--; pc.__qGood = 0; }
                 } else {
                     pc.__qGood = 0;
                 }
@@ -5077,7 +5086,14 @@ function vcArmFullscreenRetry() {
                 /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
                    기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
-                try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
+                /* 🔊 (2026-09-01) 「소리가 끊긴다」에 이 줄이 직접 걸린다.
+                   기준이 «지금 이 4초가 좋다» 였다. 그런데 RTT 가 52~210ms 로 요동치는 회선에서는
+                   스파이크 사이의 조용한 4초마다 이 값이 켜졌다 꺼졌다 한다 — 위 tuneReceiveLatency
+                   주석이 스스로 경고하는 «불필요한 재설정 = 소리 튐» 이 1분에 몇 번씩 일어난 것이다.
+                   ✅ 이제 화질 회복과 «같은 근거» 를 쓴다: 32초 연속 양호 + 스파이크 후 30초 + RTT 150ms 미만.
+                      그만큼 조용한 적이 없는 회선에서는 아예 안 켜지고 브라우저의 적응 버퍼가 그대로 쓰인다
+                      — 그게 손실 있는 회선에서 옳은 기본값이다(같은 주석의 «지연보다 끊김이 우선»). */
+                try { tuneReceiveLatency(pc, step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && (rtt === 0 || rtt < 150)); } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});
 
@@ -5096,7 +5112,11 @@ function vcArmFullscreenRetry() {
                     if (adp + adl < 8) return;                              // 표본 부족(무음/DTX 등) → 판단 보류
                     const alp = 100 * adl / (adp + adl);
                     const A = window.__vcAAO || (window.__vcAAO = { active: false, sev: 0, good: 0 });
-                    if (alp > 12 || art > 600) { A.sev++; A.good = 0; }     // 오디오 12%↑ 손실/RTT 600ms↑ = 망 붕괴
+                    /* 🔊 (2026-09-01) 문턱 12% → 8%. class-1015 실측에서 이 구제장치가 20분 내내 «0회» 였다.
+                       소리가 끊겨 말을 못 알아듣는데도 영상을 계속 보내고 있었다는 뜻이다.
+                       ⛔ 더 낮추지 말 것 — 필리핀·중국 회선에서 멀쩡한 수업의 영상이 자꾸 꺼진다.
+                          진입은 여전히 sev 3틱(12초) 연속이라 스파이크 한 번으로는 안 걸린다. */
+                    if (alp > 8 || art > 600) { A.sev++; A.good = 0; }      // 오디오 8%↑ 손실/RTT 600ms↑ = 망 붕괴
                     else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
                     else { A.good = 0; }
                     /* 📉 두 판정이 같은 4초 주기라, 급격한 붕괴에선 AAO(3틱)가 최저 화질(4틱)보다

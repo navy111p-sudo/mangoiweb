@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>카페24 시간표 미러 — 망고아이</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
+<!--
+  🪞 카페24 → 망고아이 시간표 미러 — 강사 켜기/끄기 화면 (2026-09-01)
+
+  [왜 만들었나]
+  docs/작업기록/260831_카페24_시간표미러_1단계_그림자.md 가 남긴 「남은 것」에 매번 같은 줄이
+  있었다 — 「관리자 화면 — 모드 스위치 · 강사 켜기/끄기 · 성적표 · 되돌리기 버튼. 지금은 D1 로만
+  조작한다.」 지금까지는 강사를 한 명 켤 때마다 사람이 wrangler d1 execute 로 직접 넣었는데,
+  이 작업 세션에는 그 권한이 없다(프록시가 mangoi.ai 를 막고 wrangler 인증도 없다).
+  → 그래서 「강사를 하나씩 가져와 보자」를 계속하려면 이 화면이 있어야 한다.
+
+  [설계 원칙 — monitor-wall.html 과 같은 정신]
+  · admin.html(1.3MB) 에 얹지 않고 별도 초경량 한 파일.
+  · /admin/ 밑은 default-deny 라 로그인 게이트가 자동으로 걸린다(index.ts 무수정).
+    ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙 → 전부 인라인.
+  · 새 서버 API 0개 — 이미 있는 GET /api/admin/reports/c24-mirror 와
+    POST /api/admin/reports/c24-mirror/{mode,teacher,apply} 를 그대로 쓴다
+    (2026-08-31 PR #638 에서 게이트 둘 다 걸어 둔 것 — 강사·지사대리점 차단).
+  · 「같은 시각 여러 건(유령 의심)」 판정은 화면에서 다시 만들지 않는다 — 서버가 준 rows 를
+    그대로 훑어 «강사+날짜+시각» 이 겹치는 것만 센다(CLAUDE.md 「화면에서 «중복인지» 를
+    다시 판정」 금지와 같은 이유 — 판정이 두 벌이 되면 서버 성적표와 갈라진다).
+  · 강사를 «켜는 것»(whitelist 등록)과 «실제로 만드는 것»(apply)을 분리해 둔다.
+    켜기만 해서는 아무 것도 안 만들어진다 — cron 이 15분/야간에 자동으로 채우거나,
+    이 화면에서 미리보기 → 실행을 눌러야 한다. 미리보기 없이 바로 실행은 막는다.
+  · mode='all' 은 전환일 스위치라 사고 반경이 전원이다 — 이름을 타이핑해야 넘어가는
+    이중 확인을 둔다. whitelist/off 전환은 보통 확인창 하나로 충분하다.
+-->
+<style>
+/* comments in this block stay ASCII or « » - CJK corner brackets here trip the hanzi-font harness */
+:root{
+  --paper:#f5f6fa; --card:#ffffff; --ink:#101828; --sub:#475467; --muted:#667085;
+  --line:#e4e7ec; --accent:#b45309; --violet:#6d28d9; --violet-bg:#f3eefe;
+  --ok:#15803d; --ok-bg:#e8f5ec; --warn:#b45309; --warn-bg:#fdf3e2;
+  --crit:#b91c1c; --crit-bg:#fdecea; --mono:Consolas,"Courier New",monospace;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--paper); color:var(--ink);
+      font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:14px; line-height:1.6; }
+.wrap{ max-width:1180px; margin:0 auto; padding:18px 16px 60px; }
+header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+h1{ font-size:19px; margin:0; }
+h2{ font-size:14.5px; margin:22px 0 8px; }
+.hd-note{ font-size:12px; color:var(--muted); }
+.hd-right{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+a.back{ font-size:12.5px; color:var(--violet); text-decoration:none; font-weight:700; }
+button, .btn{ font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink); padding:6px 12px; font-size:12.5px; font-weight:700; }
+button:disabled{ opacity:.45; cursor:not-allowed; }
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
+button.primary{ background:var(--violet); border-color:var(--violet); color:#fff; }
+button.danger{ background:var(--crit); border-color:var(--crit); color:#fff; }
+button.ghost{ background:var(--card); }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.chips{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+.chip{ background:var(--card); border:1px solid var(--line); border-radius:999px;
+  padding:5px 14px; font-size:12.5px; font-weight:700; color:var(--sub); }
+.chip b{ font-size:15px; margin-left:4px; font-variant-numeric:tabular-nums; }
+.chip.st-bad{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
+.chip.st-good{ background:var(--ok-bg); border-color:var(--ok); color:var(--ok); }
+.chip.st-warn{ background:var(--warn-bg); border-color:var(--warn); color:var(--warn); }
+.tools input[type=date]{ font:inherit; font-size:12.5px; padding:6px 9px; border-radius:8px; border:1px solid var(--line); }
+.tools .lbl{ font-size:12px; color:var(--muted); }
+[hidden]{ display:none !important; }
+.tablewrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+table{ border-collapse:collapse; width:100%; min-width:760px; }
+th, td{ text-align:left; padding:8px 10px; border-top:1px solid var(--line); vertical-align:top; font-size:12.8px; }
+thead th{ border-top:0; background:#f8f9fc; color:var(--sub); font-size:11.8px; white-space:nowrap; }
+tbody tr.ghost-row td{ background:var(--warn-bg); }
+.badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800; }
+.badge.on{ background:var(--ok-bg); color:var(--ok); }
+.badge.off{ background:#eef0f4; color:var(--muted); }
+.badge.blocked{ background:var(--crit-bg); color:var(--crit); }
+.mode-btn{ padding:7px 16px; }
+.mode-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.mono{ font-family:var(--mono); }
+.small{ font-size:11.5px; color:var(--muted); }
+.warnbox{ background:var(--warn-bg); border:1px solid var(--warn); color:#7c4a03; border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0; }
+.errbox{ background:var(--crit-bg); border:1px solid var(--crit); color:var(--crit); border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0; }
+.detail-rows{ margin-top:6px; }
+.detail-rows table{ min-width:0; }
+.status-line{ font-size:12px; color:var(--muted); margin-top:4px; }
+.status-line.ok{ color:var(--ok); }
+.status-line.bad{ color:var(--crit); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🪞 카페24 → 망고아이 시간표 미러</h1>
+      <div class="hd-note">강사를 하나씩 켜서 실제로 만들어 보는 화면입니다 · <a class="back" href="/admin.html">← 관리자 홈</a></div>
+    </div>
+    <div class="hd-right">
+      <span class="lbl">창</span>
+      <input type="date" id="since-in">
+      <span>~</span>
+      <input type="date" id="until-in">
+      <button id="refresh-btn" class="primary">새로고침</button>
+    </div>
+  </header>
+
+  <div id="load-err" class="errbox" hidden></div>
+
+  <div class="card">
+    <div class="row">
+      <b style="font-size:13px">모드</b>
+      <button type="button" class="btn mode-btn" data-mode="off">off · 그림자(안전)</button>
+      <button type="button" class="btn mode-btn" data-mode="whitelist">whitelist · 켠 강사만</button>
+      <button type="button" class="btn mode-btn" data-mode="all">all · 전원(전환일)</button>
+      <span id="mode-now" class="small"></span>
+    </div>
+    <div class="warnbox">
+      ⚠️ <b>off</b> 는 계산만 하고 아무것도 안 씁니다. <b>whitelist</b> 는 아래에서 켠 강사만 만듭니다.
+      <b>all</b> 은 전환일에 쓰는 스위치입니다 — 켜는 순간 <b>막지 않은</b> 강사 전원의 예약이 만들어집니다.
+      끈 강사(퇴사 등)는 all 에서도 안 만들어집니다.
+    </div>
+    <div id="last-runs" class="status-line"></div>
+  </div>
+
+  <div class="chips" id="summary-chips"></div>
+
+  <details class="card">
+    <summary style="cursor:pointer;font-weight:800;font-size:13px">카페24 원본 상태값 분포 (class_state) — 유령 수업 판별용</summary>
+    <div class="small" style="margin:8px 0">
+      값이 한 가지뿐이면 이 창에서는 취소·변경 여부를 상태값으로 못 가릅니다. 그때는 «같은 강사·같은 시각에
+      여러 건» 표시(아래 강사별 표의 노란 줄)로만 유령 수업을 의심할 수 있습니다.
+    </div>
+    <div id="state-dist" class="small mono"></div>
+  </details>
+
+  <h2>강사별 — 하나씩 켜 보기</h2>
+  <div class="small" style="margin-bottom:8px">
+    이 창(<span id="win-label"></span>)에 카페24 수업이 있는 강사만 나옵니다. «켜기» 는 화이트리스트에 이름만
+    올릴 뿐 아무것도 만들지 않습니다 — 실제로 만들려면 그 강사 줄에서 «미리보기» 로 먼저 확인하세요.
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>강사</th><th>번호</th><th>이 창 수업</th><th>판정</th><th>같은 시각 겹침</th><th>상태</th><th>동작</th>
+      </tr></thead>
+      <tbody id="teacher-tbody"></tbody>
+    </table>
+  </div>
+
+  <details class="card" id="no-teacher-card" style="margin-top:16px" hidden>
+    <summary style="cursor:pointer;font-weight:800;font-size:13px">강사를 못 이은 것 <span id="no-teacher-count"></span></summary>
+    <div class="small" style="margin:8px 0">
+      원부에 없거나 후보가 둘 이상이라 못 이었습니다 — 추측해서 잇지 않습니다. 등록이 필요한 강사인지,
+      퇴사자 잔재인지 detail 을 보고 판단하세요.
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>카페24 번호</th><th>판정</th><th>사유</th><th>건수</th></tr></thead>
+      <tbody id="no-teacher-tbody"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { report: null, teachers: {} };
+
+  function todayKst(offsetDays){
+    var d = new Date(Date.now() + 9*3600*1000 + (offsetDays||0)*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  $('since-in').value = todayKst(0);
+  $('until-in').value = todayKst(14);
+
+  function api(path, opt){
+    opt = opt || {};
+    return fetch('/api/admin/reports/' + path, Object.assign({ credentials:'include' }, opt))
+      .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'HTTP ' + r.status }; }).then(function(d){ return { status:r.status, body:d }; }); });
+  }
+
+  function post(path, body){
+    return api(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) });
+  }
+
+  var VERDICT_LABEL = {
+    ok:'만들 수 있음', already:'이미 있음(동일)', update:'값 바뀜(고쳐야함)',
+    manual_locked:'사람이 손댐', diverged:'사람 손과 어긋남',
+    no_teacher:'강사 못 이음', no_teacher_left:'퇴사 강사 잔재', no_student:'학생 없음',
+    not_whitelisted:'안 켠 강사', conflict:'다른 수업과 겹침',
+    student_hidden:'명부에서 숨긴 계정',
+    /* ⚠️ 이 화면에는 «유령 의심» 이 두 가지 뜻으로 있습니다 — 아래 강사별 표의 노란 줄은
+       「같은 강사·같은 날·같은 시각이 2건 이상」(시간 겹침)이고, 이 판정은 「그 학생의 그 자리가
+       카페24 이력에서 되풀이되지 않음」입니다. 2026-09-01 실사고는 **겹치지 않아서** 앞의
+       것이 못 잡았습니다. 그래서 이름표를 서로 다르게 씁니다. */
+    suspect_dup:'⚠ 되풀이 안 되는 자리(안 만듦)'
+  };
+
+  /* 「같은 강사 + 같은 날짜 + 같은 시각」 이 두 건 이상이면 유령 의심 —
+     서버 rows 를 그대로 훑을 뿐, 판정을 새로 만들지 않는다. */
+  function buildTeacherStats(rows){
+    var byTeacher = {};
+    var noTeacherRows = [];
+    rows.forEach(function(r){
+      if (!r.teacher_id) { noTeacherRows.push(r); return; }
+      var g = byTeacher[r.teacher_id];
+      if (!g) { g = byTeacher[r.teacher_id] = { teacher_id: r.teacher_id, teacher_name: r.teacher_name, c24_ids: {}, rows: [], verdicts: {} }; }
+      if (r.c24_teacher_id) g.c24_ids[r.c24_teacher_id] = true;
+      g.rows.push(r);
+      g.verdicts[r.verdict] = (g.verdicts[r.verdict] || 0) + 1;
+    });
+    Object.keys(byTeacher).forEach(function(tid){
+      var g = byTeacher[tid];
+      var slot = {};
+      g.rows.forEach(function(r){
+        var k = r.date + ' ' + r.start_time;
+        (slot[k] = slot[k] || []).push(r);
+      });
+      var ghost = [];
+      Object.keys(slot).forEach(function(k){ if (slot[k].length > 1) ghost.push({ slot:k, rows: slot[k] }); });
+      ghost.sort(function(a,b){ return a.slot < b.slot ? -1 : 1; });
+      g.ghost = ghost;
+    });
+    return { byTeacher: byTeacher, noTeacherRows: noTeacherRows };
+  }
+
+  function renderSummary(r){
+    var chips = [];
+    chips.push({ label:'전체', v:r.total });
+    var s = r.summary || {};
+    chips.push({ label:VERDICT_LABEL.ok, v:s.ok||0, cls:'st-good' });
+    chips.push({ label:VERDICT_LABEL.already, v:s.already||0, cls:'st-good' });
+    chips.push({ label:VERDICT_LABEL.update, v:s.update||0, cls:'st-warn' });
+    chips.push({ label:VERDICT_LABEL.conflict, v:s.conflict||0, cls:(s.conflict?'st-bad':'') });
+    /* ⚠️ (2026-09-01) 「강사 변경 잔재 의심」 — 사람이 카페24에서 확인해 줘야 하는 줄이다.
+       ⛔ 0건이어도 감추지 않는다: 안 보이면 아무도 확인하지 않는다. */
+    chips.push({ label:VERDICT_LABEL.suspect_dup, v:s.suspect_dup||0, cls:(s.suspect_dup?'st-bad':'') });
+    chips.push({ label:VERDICT_LABEL.diverged, v:s.diverged||0, cls:(s.diverged?'st-warn':'') });
+    chips.push({ label:VERDICT_LABEL.manual_locked, v:s.manual_locked||0 });
+    chips.push({ label:VERDICT_LABEL.no_teacher, v:s.no_teacher||0, cls:(s.no_teacher?'st-bad':'') });
+    chips.push({ label:VERDICT_LABEL.no_teacher_left, v:s.no_teacher_left||0 });
+    chips.push({ label:VERDICT_LABEL.no_student, v:s.no_student||0, cls:(s.no_student?'st-bad':'') });
+    chips.push({ label:VERDICT_LABEL.not_whitelisted, v:s.not_whitelisted||0 });
+    $('summary-chips').innerHTML = chips.map(function(c){
+      return '<span class="chip ' + (c.cls||'') + '">' + c.label + '<b>' + c.v + '</b></span>';
+    }).join('');
+  }
+
+  function renderStateDist(r){
+    var by = r.by_state || {};
+    var keys = Object.keys(by);
+    var box = $('state-dist');
+    if (!keys.length) { box.textContent = '(이 창에 수업이 없습니다)'; return; }
+    var line = keys.sort().map(function(k){ return 'class_state=' + k + ' → ' + by[k] + '건'; }).join('  ·  ');
+
+    /* 🔎 (2026-09-01) 카페24 :Class 가 실제로 들고 있는 속성 «이름» 목록.
+       왜 화면에 그리나 — class_state 는 잔재와 진짜가 같은 값이라 못 가른다. 우리가 안 읽고 있는
+       칸이 답을 들고 있을 수 있어서 «카페24에 무엇을 물어볼지» 의 근거로 싣는다.
+       ⛔ 이 값으로 판정하지 않는다(뜻이 확인된 뒤가 순서다).
+       ⚠️ 서버가 내려주는데 화면이 안 그리면 아무도 안 본다 — 주석이 «성적표에 싣는다» 고
+          약속해 놓고 그리지 않던 것을 trap-check 가 잡았다. */
+    var pk = r.prop_keys || [];
+    if (pk.length) {
+      line += '\n\n:Class 속성 이름 ' + pk.length + '개 — ' + pk.join(', ')
+            + '\n(취소·변경을 어떻게 표시하는지 카페24에 물어볼 때 이 목록을 쓰세요. 판정에는 안 씁니다.)';
+    }
+    /* 「강사 변경 잔재」 판정이 꺼져 있으면 화면이 그렇게 말해야 한다. */
+    if (r.dup_guard === false) {
+      line += '\n\n⚠ 「되풀이 안 되는 자리」 판정이 꺼져 있습니다 (c24_mirror_config.dup_guard=off)'
+            + ' — 강사 변경 잔재가 그대로 만들어집니다.';
+    }
+    box.textContent = line;
+    box.style.whiteSpace = 'pre-wrap';
+  }
+
+  function renderLastRuns(r){
+    var lr = r.last_runs || {};
+    var keys = Object.keys(lr);
+    if (!keys.length) { $('last-runs').textContent = '자동 실행 기록 없음 — 아직 한 번도 안 돌았거나 모드가 off 입니다.'; return; }
+    $('last-runs').innerHTML = keys.map(function(k){
+      var it = lr[k];
+      var when = it.at ? new Date(it.at).toLocaleString('ko-KR', { timeZone:'Asia/Seoul' }) + ' KST' : '?';
+      var res = it.result || {};
+      var extra = res.skipped ? ('건너뜀(' + res.skipped + ')')
+        : (res.applied ? ('생성 ' + res.applied.created + ' · 고침 ' + res.applied.updated + ' · 취소 ' + res.applied.cancelled) : '');
+      return '<div>· <b>' + k + '</b> — ' + when + ' — ' + extra + (res.errors && res.errors.length ? ' <span style="color:var(--crit)">(에러 ' + res.errors.length + ')</span>' : '') + '</div>';
+    }).join('');
+  }
+
+  function setModeButtons(mode){
+    document.querySelectorAll('.mode-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    $('mode-now').textContent = '지금: ' + mode;
+  }
+
+  function teacherStatus(tid){
+    var r = state.report;
+    if (!r) return 'off';
+    if ((r.blocked_teachers||[]).indexOf(String(tid)) >= 0) return 'blocked';
+    if ((r.enabled_teachers||[]).indexOf(String(tid)) >= 0) return 'on';
+    return 'off';
+  }
+
+  function renderTeacherRow(g){
+    var tid = g.teacher_id;
+    var st = teacherStatus(tid);
+    var badge = st === 'blocked' ? '<span class="badge blocked">막힘</span>'
+      : st === 'on' ? '<span class="badge on">켜짐</span>' : '<span class="badge off">꺼짐</span>';
+    var vparts = Object.keys(g.verdicts).map(function(v){ return (VERDICT_LABEL[v]||v) + ' ' + g.verdicts[v]; }).join(' · ');
+    var ghostLabel = g.ghost.length ? ('⚠️ ' + g.ghost.length + '건') : '없음';
+    var tr = document.createElement('tr');
+    if (g.ghost.length) tr.classList.add('ghost-row');
+    tr.innerHTML =
+      '<td><b>' + escapeHtml(g.teacher_name || '(이름 없음)') + '</b></td>' +
+      '<td class="mono small">원부 ' + tid + ' · 카페24 ' + Object.keys(g.c24_ids).join(',') + '</td>' +
+      '<td>' + g.rows.length + '건</td>' +
+      '<td class="small">' + vparts + '</td>' +
+      '<td>' + ghostLabel + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td></td>';
+    var actionsTd = tr.lastElementChild;
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button'; toggleBtn.className = 'btn';
+    toggleBtn.textContent = st === 'on' ? '끄기' : '켜기';
+    toggleBtn.disabled = st === 'blocked';
+    toggleBtn.onclick = function(){ toggleTeacher(g, st !== 'on'); };
+    var previewBtn = document.createElement('button');
+    previewBtn.type = 'button'; previewBtn.className = 'btn'; previewBtn.style.marginLeft = '4px';
+    previewBtn.textContent = '미리보기';
+    previewBtn.onclick = function(){ runApply(g, true, tr); };
+    actionsTd.appendChild(toggleBtn);
+    actionsTd.appendChild(previewBtn);
+
+    var detailTr = document.createElement('tr');
+    detailTr.hidden = true;
+    var detailTd = document.createElement('td');
+    detailTd.colSpan = 7;
+    detailTd.className = 'detail-rows';
+    detailTr.appendChild(detailTd);
+
+    if (g.ghost.length) {
+      var ghostBtn = document.createElement('button');
+      ghostBtn.type = 'button'; ghostBtn.className = 'btn'; ghostBtn.style.marginLeft = '4px';
+      ghostBtn.textContent = '겹침 보기';
+      ghostBtn.onclick = function(){
+        detailTr.hidden = !detailTr.hidden;
+        if (!detailTr.hidden) {
+          detailTd.innerHTML = '<div class="small" style="margin-bottom:6px">같은 강사·같은 날짜·같은 시각에 두 건 이상 — 실제로는 한 건만 진짜일 수 있습니다. 학생·수업 번호를 대조해 판단하세요.</div>' +
+            '<table><thead><tr><th>날짜/시각</th><th>학생</th><th>길이</th><th>카페24 번호</th><th>판정</th></tr></thead><tbody>' +
+            g.ghost.map(function(gr){
+              return gr.rows.map(function(r, i){
+                return '<tr>' + (i===0 ? '<td rowspan="'+gr.rows.length+'" class="mono">'+gr.slot+'</td>' : '') +
+                  '<td>' + escapeHtml(r.student_name || r.student_uid) + '</td>' +
+                  '<td>' + r.duration_min + '분</td>' +
+                  '<td class="mono">' + r.class_id + '</td>' +
+                  '<td>' + (VERDICT_LABEL[r.verdict]||r.verdict) + '</td></tr>';
+              }).join('');
+            }).join('') + '</tbody></table>';
+        }
+      };
+      actionsTd.appendChild(ghostBtn);
+    }
+
+    var resultDiv = document.createElement('div');
+    resultDiv.className = 'status-line'; resultDiv.style.marginTop='4px';
+    detailTd.appendChild(resultDiv);
+    g._resultDiv = resultDiv;
+    g._previewedOk = false;
+
+    return [tr, detailTr];
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function toggleTeacher(g, enabled){
+    var msg = enabled
+      ? ('«' + (g.teacher_name || g.teacher_id) + '»(원부 ' + g.teacher_id + ') 을 화이트리스트에 켭니다.\n' +
+         '켜는 것만으로는 아무 것도 안 만들어집니다 — 자동 실행(15분/야간)이나 이 화면의 «미리보기 → 실행» 을 거쳐야 실제로 만들어집니다.\n\n계속할까요?')
+      : ('«' + (g.teacher_name || g.teacher_id) + '» 을 끕니다. 이미 만든 수업은 지워지지 않습니다(그대로 남습니다).\n\n계속할까요?');
+    if (!confirm(msg)) return;
+    post('c24-mirror/teacher', { teacher_id: g.teacher_id, enabled: enabled }).then(function(res){
+      if (res.status === 200 && res.body && res.body.ok) { load(); }
+      else alert('실패: ' + (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status)));
+    });
+  }
+
+  function runApply(g, dryRun, tr){
+    var since = $('since-in').value, until = $('until-in').value;
+    if (!dryRun) {
+      var typed = prompt('«' + g.teacher_name + '» 강사의 수업을 실제로 만듭니다(다른 강사는 건드리지 않습니다).\n' +
+        '되돌리려면 사람이 확인해야 합니다. 계속하려면 강사 이름을 그대로 입력하세요:', '');
+      if (!typed || typed.trim() !== g.teacher_name) { g._resultDiv.className = 'status-line bad'; g._resultDiv.textContent = '이름이 일치하지 않아 취소했습니다.'; return; }
+    }
+    g._resultDiv.className = 'status-line'; g._resultDiv.textContent = (dryRun ? '미리보기' : '실행') + ' 중…';
+    post('c24-mirror/apply', { since: since, until: until, only_teacher_id: g.teacher_id, dry_run: dryRun }).then(function(res){
+      if (!(res.status === 200 && res.body && res.body.ok)) {
+        g._resultDiv.className = 'status-line bad';
+        g._resultDiv.textContent = '실패: ' + (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status));
+        return;
+      }
+      var b = res.body;
+      var p = b.planned || {}, a = b.applied || {};
+      var line = dryRun
+        ? ('미리보기 — 만들 것 ' + p.create + ' · 고칠 것 ' + p.update + ' · 취소할 것 ' + p.cancel +
+           (b.cancel_skipped ? ' (취소 단계 건너뜀: ' + b.cancel_skipped + ')' : ''))
+        : ('실행됨 — 생성 ' + a.created + ' · 고침 ' + a.updated + ' · 취소 ' + a.cancelled);
+      if (b.errors && b.errors.length) line += ' — 에러 ' + b.errors.length + '건: ' + b.errors.slice(0,3).join('; ');
+      g._resultDiv.className = 'status-line ' + (b.errors && b.errors.length ? 'bad' : 'ok');
+      g._resultDiv.textContent = line;
+      if (dryRun && p.create + p.update + p.cancel > 0) {
+        g._previewedOk = true;
+        if (!tr.querySelector('.exec-btn')) {
+          var execBtn = document.createElement('button');
+          execBtn.type = 'button'; execBtn.className = 'btn danger exec-btn'; execBtn.style.marginLeft = '4px';
+          execBtn.textContent = '실제로 만들기';
+          execBtn.onclick = function(){ runApply(g, false, tr); };
+          tr.lastElementChild.appendChild(execBtn);
+        }
+      }
+      if (!dryRun) load();
+    });
+  }
+
+  function renderTeachers(stats){
+    var tbody = $('teacher-tbody');
+    tbody.innerHTML = '';
+    var list = Object.keys(stats.byTeacher).map(function(k){ return stats.byTeacher[k]; });
+    list.sort(function(a,b){ return b.rows.length - a.rows.length; });
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="small">이 창에 카페24 수업이 없습니다(또는 카페24를 못 읽었습니다).</td></tr>';
+    }
+    list.forEach(function(g){
+      renderTeacherRow(g).forEach(function(el){ tbody.appendChild(el); });
+    });
+
+    var ntCard = $('no-teacher-card');
+    var ntBody = $('no-teacher-tbody');
+    if (!stats.noTeacherRows.length) { ntCard.hidden = true; return; }
+    ntCard.hidden = false;
+    var byKey = {};
+    stats.noTeacherRows.forEach(function(r){
+      var k = (r.c24_teacher_id || '?') + '|' + r.verdict + '|' + (r.detail || '');
+      byKey[k] = byKey[k] || { c24: r.c24_teacher_id || '?', verdict: r.verdict, detail: r.detail || '', n: 0 };
+      byKey[k].n++;
+    });
+    $('no-teacher-count').textContent = '(' + stats.noTeacherRows.length + '건)';
+    ntBody.innerHTML = Object.keys(byKey).map(function(k){
+      var it = byKey[k];
+      return '<tr><td class="mono">' + escapeHtml(it.c24) + '</td><td>' + (VERDICT_LABEL[it.verdict]||it.verdict) + '</td>' +
+        '<td class="small">' + escapeHtml(it.detail) + '</td><td>' + it.n + '</td></tr>';
+    }).join('');
+  }
+
+  function load(){
+    $('load-err').hidden = true;
+    var since = $('since-in').value, until = $('until-in').value;
+    $('win-label').textContent = since + ' ~ ' + until;
+    $('refresh-btn').disabled = true;
+    api('c24-mirror?since=' + since + '&until=' + until).then(function(res){
+      $('refresh-btn').disabled = false;
+      if (!(res.status === 200 && res.body && res.body.ok)) {
+        $('load-err').hidden = false;
+        $('load-err').textContent = '리포트를 못 받았습니다 (' +
+          (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status)) +
+          ') — 0건이 아니라 «못 냈다» 는 뜻입니다.';
+        return;
+      }
+      state.report = res.body;
+      setModeButtons(res.body.mode);
+      renderSummary(res.body);
+      renderStateDist(res.body);
+      renderLastRuns(res.body);
+      renderTeachers(buildTeacherStats(res.body.rows || []));
+    }).catch(function(e){
+      $('refresh-btn').disabled = false;
+      $('load-err').hidden = false;
+      $('load-err').textContent = '요청 실패: ' + (e && e.message || e);
+    });
+  }
+
+  $('refresh-btn').onclick = load;
+
+  document.querySelectorAll('.mode-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var m = b.dataset.mode;
+      if (state.report && m === state.report.mode) return;
+      var msg;
+      if (m === 'all') {
+        var typed = prompt('mode=all 은 전환일 스위치입니다 — 막지 않은 강사 전원의 예약이 자동 실행 때 만들어집니다.\n' +
+          '계속하려면 ALL 을 입력하세요:', '');
+        if (typed !== 'ALL') return;
+      } else {
+        msg = '모드를 «' + m + '» 로 바꿉니다. 계속할까요?';
+        if (!confirm(msg)) return;
+      }
+      post('c24-mirror/mode', { mode: m }).then(function(res){
+        if (res.status === 200 && res.body && res.body.ok) load();
+        else alert('실패: ' + (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status)));
+      });
+    });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

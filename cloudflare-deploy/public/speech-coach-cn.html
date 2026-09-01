@@ -52,6 +52,38 @@ header.hero .sub{margin-top:6px;font-size:13.5px;color:rgba(255,255,255,0.92);fo
 header.hero .home{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none;transition:background .15s}
 header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
+/* 🏠 홈 버튼 (2026-09-01 사장님 지시) — 왼쪽 위 ← 오른쪽에 붙는다.
+   📜 2026-08-04 에 «← 바로 앞이 곧 홈» 이라 뺐던 것을 한국어판(speech-coach.html,
+      2026-08-31)에 이어 이 화면에도 되살린다. 이 화면으로 오는 길이 여럿이라
+      (홈 첫화면·전체메뉴·한국어판 코치에서 «중국어» 로 건너오기) ← 한 번이 홈이 아니고,
+      앱·카톡 인앱은 주소창도 뒤로 버튼도 없어 나갈 문이 ← 하나뿐이었다.
+   ⚠️ 옛 `header.hero .home`(위 두 줄, hero 안 우상단)을 되살리지 않은 이유: 그 자리는
+      문서 흐름 안이라 **스크롤하면 사라진다.** 이 화면은 레벨·단원 목록이 길어서 정작
+      «나가고 싶을 때» 화면 밖이다. 한국어판과 모양·자리도 달라진다.
+   ⚠️ 모양은 back-nav.js 의 ← 와 «같게» 맞춘다 — 나란히 놓이는 두 버튼이 서로 다르게
+      생기면 하나는 «다른 기능» 으로 읽힌다.
+   ⚠️ 자리(top/left/height)는 파일 끝 스크립트가 ← 를 재서 덮어쓴다. 여기 값은 그 스크립트가
+      못 돌 때의 폴백이다.
+   ℹ️ 제목이 왼쪽 정렬이고 hero 가 폰에서 y=50 부터 시작하므로(2026-09-01 실측) 이 버튼과
+      겹치지 않는다 — 한국어판처럼 제목 폭을 비워 줄 필요가 없다. */
+#sc-home-btn{position:fixed;top:14px;left:58px;z-index:99999;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  height:38px;padding:0 13px;border-radius:99px;
+  font-family:inherit;font-size:13px;font-weight:800;white-space:nowrap;
+  text-decoration:none;cursor:pointer;
+  background:rgba(20,33,59,0.92);color:#fbbf24;
+  border:1px solid rgba(251,191,36,0.50);
+  box-shadow:0 6px 18px -2px rgba(0,0,0,0.4);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  -webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+#sc-home-btn:hover{background:rgba(251,191,36,0.22);color:#fff}
+#sc-home-btn:active{transform:scale(.96)}
+@media (max-width:480px){
+  /* back-nav.js 의 ← 가 34px 로 작아지는 폭(innerWidth<=480)에 맞춘다. 글자는 남긴다 —
+     폰에는 hover 가 없어 title 만으로는 아무것도 안 보인다. */
+  #sc-home-btn{top:8px;left:48px;height:34px;padding:0 10px;font-size:12px;gap:4px}
+}
+
 /* 레벨 선택 카드 */
 .lvl-section{margin-bottom:18px}
 .lvl-section h2{font-size:14px;font-weight:700;color:var(--accent-2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -191,10 +223,10 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <div class="wrap">
 
 <header class="hero">
-  <!-- 🏠 홈 버튼 제거 (2026-08-04 사장님 지시, 한국어판 speech-coach.html 과 동일) —
-       ← 로 나가면 바로 앞이 곧 홈이라 같은 일을 하는 버튼이 둘이었다.
-       ↳ 되살리려면 이 자리에 <a class="home" href="/">🏠 홈</a> 을 다시 넣으면 된다
-         (header.hero .home 스타일은 그대로 남겨 뒀다). -->
+  <!-- 🏠 홈 버튼은 여기(hero 안 우상단)가 아니라 «왼쪽 위 ← 옆» 에 있다 — 파일 끝 #sc-home-btn.
+       ⛔ `class="home"` 으로 이 자리에 되살리지 말 것: 문서 흐름이라 스크롤하면 사라지고
+          (이 화면은 목록이 길다) 한국어판 speech-coach.html 과 모양·자리가 달라진다.
+       📜 2026-08-04 에 「← 바로 앞이 곧 홈」이라 뺐다가 2026-09-01 사장님 지시로 되살린 것이다. -->
   <h1><span class="ico">🇨🇳</span>중국어 발음 교정</h1>
   <p class="sub">중국어 마스터 + Lv 1~20 · AI 음성 인식 + 원어민 비교</p>
 </header>
@@ -1454,7 +1486,36 @@ if ('speechSynthesis' in window) speechSynthesis.getVoices();
 console.log('[speech-coach-cn] 중국어 발음 교정 활성 — 다락원 마스터 + Lv 1~20 · 반복듣기 v2');
 </script>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🏠 홈 — 처음 화면으로. ← (back-nav.js, 직전 페이지)와 짝이다.
+     ℹ️ 이 화면은 공용 i18n 엔진을 «싣지 않는다» → data-ko/data-en 은 동작하지 않으므로
+        달지 않는다. 화면 글자가 한국어(「중국어 발음 교정」·「단원 선택」)이므로 라벨도 한국어. -->
+<a id="sc-home-btn" href="/" aria-label="홈으로 가기" title="처음 화면으로 (首页)">🏠 홈</a>
 <script defer src="/js/back-nav.js"></script>
+<script>
+/* 🏠 홈 버튼을 back-nav.js 가 넣은 ← «오른쪽» 에 붙인다 (2026-09-01).
+   한국어판 speech-coach.html 과 같은 방식이다 — 왜 숫자를 박지 않고 재나:
+     · back-nav.js 는 자기 좌표·크기를 innerWidth<=480 으로 가르는데 이 화면 CSS 의 모바일
+       기준은 640px(@media max-width:640px)이라 서로 다르다.
+     · ← 의 크기·자리가 그쪽에서 바뀌면 여기도 함께 깨진다(에러는 안 난다).
+   ⚠️ 한국어판과 달리 제목 폭을 비워 주는 코드는 없다 — 이 화면 제목은 왼쪽 정렬이고
+      hero 가 이 버튼 «아래» 에서 시작해 겹치지 않는다(2026-09-01 실측).
+   ⛔ 상주 MutationObserver·setInterval 금지 — 홈 화면을 통째로 멎게 한 전례가 있다. */
+(function () {
+  'use strict';
+  var GAP = 6, t = null;
+  function place() {
+    var home = document.getElementById('sc-home-btn'); if (!home) return;
+    var back = document.getElementById('mangoi-back-btn'); if (!back) return;
+    var r = back.getBoundingClientRect(); if (!r.width) return;
+    home.style.top = Math.round(r.top) + 'px';
+    home.style.left = Math.round(r.right + GAP) + 'px';
+    home.style.height = Math.round(r.height) + 'px';
+  }
+  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(place, 120); });
+  /* back-nav.js 는 DOMContentLoaded + 350ms 에 ← 를 넣는다 — 그 뒤에 재야 한다. */
+  [0, 420, 900].forEach(function (ms) { setTimeout(place, ms); });
+})();
+</script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js?v=21"></script>
 </body>

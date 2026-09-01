@@ -171,12 +171,30 @@
   var PH54_C24_TTL = 120000;   // 같은 주를 다시 그릴 때 2분은 다시 안 묻는다(Neo4j 왕복)
   /* 그릴 것 = «망고아이 시간표에 아직 그 행이 없는» 것뿐.
      already·update·manual_locked·diverged·conflict 는 이미 진짜 카드로 그려지므로 겹치면 두 번 보인다. */
-  var PH54_C24_SHOW = { ok:1, not_whitelisted:1, no_student:1 };
+  /* 🔴 (2026-09-01) conflict 를 «안 그리던» 것을 되살렸다.
+     안 그린 이유는 「이미 진짜 카드로 그려지므로 두 번 보인다」였는데, **강사 필터를 걸면
+     그 진짜 카드는 «다른 강사» 것이라 이 화면에 없다** — 결과적으로 아무 데도 안 보였다.
+     실측: Mariane 30건 중 화면에 28건만 떴다(Ana 로 이미 만든 9/1 17:00·21:40 이 사라짐).
+     하필 사장님이 「이 강사 수업이 진짜인가」를 카페24와 대조하려던 바로 그 건들이었다.
+     ✅ 그리되 «겹친다» 고 말한다 — 두 번 보이는 것보다 안 보이는 것이 나쁘다. */
+  var PH54_C24_SHOW = { ok:1, not_whitelisted:1, no_student:1, conflict:1 };
   var PH54_C24_WHY = {
     ok:              { ko:'✅ 미러를 켜면 이 수업이 망고아이에도 만들어집니다.', en:'✅ Will be created in Mangoi once the mirror is on.' },
     not_whitelisted: { ko:'⏸ 아직 미러를 켜지 않은 강사입니다 (그림자 단계).',   en:'⏸ Mirror is not enabled for this instructor yet (shadow stage).' },
-    no_student:      { ko:'⚠️ 이 학생 계정이 망고아이에 없습니다 — 그대로는 만들 수 없습니다.', en:'⚠️ This student account does not exist in Mangoi.' }
+    no_student:      { ko:'⚠️ 이 학생 계정이 망고아이에 없습니다 — 그대로는 만들 수 없습니다.', en:'⚠️ This student account does not exist in Mangoi.' },
+    conflict:        { ko:'⚠️ 그 학생은 같은 시각에 다른 수업이 이미 있습니다 — 둘 중 하나는 잘못된 예약입니다. 카페24에서 확인이 필요합니다.',
+                       en:'⚠️ That student already has another class at the same time — one of the two is wrong. Check Cafe24.' }
   };
+  /* 🔴 (2026-09-01 사장님 화면 확인) 지난 주를 열면 「수업 0개 · 카페24 58개」 가 뜨고
+     카드마다 「미러를 켜면 만들어집니다」 라고 적혀 있었다. **거짓말이다** —
+     미러 창은 «오늘부터» 라서 지난 수업은 영영 안 만들어진다.
+     매니저에게는 「58건이 빠졌다」 로 읽힌다.
+     ⛔ 그렇다고 지난 카드를 «감추면» 안 된다 — 그러면 「지난주에 수업이 하나도 없었다」 는
+        반대쪽 거짓말이 된다(카페24에는 실제로 58건이 있었다).
+     ✅ 그래서 «지우지 말고 다른 말을 하게» 한다 — 지난 것은 «기록», 앞으로 것만 «대기». */
+  function ph54TodayKst(){
+    return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  }
 
   async function ph54LoadC24(){
     if (!ph54State.c24On){ ph54State.c24 = []; ph54State.c24Msg = ''; return; }
@@ -197,7 +215,14 @@
         msg = ph54T('카페24 수업을 읽지 못했습니다', 'Could not read Cafe24 classes')
             + ' (' + ((j && (j.error || j.message)) || ('HTTP ' + r.status)) + ')';
       } else {
-        rows = (Array.isArray(j.rows) ? j.rows : []).filter(function(x){ return x && PH54_C24_SHOW[x.verdict]; });
+        /* 🔴 (2026-09-01) 그리는 것과 «세는 것» 을 갈랐다.
+             예전에는 여기서 PH54_C24_SHOW 가 아닌 판정을 통째로 버렸다. 그래서 아래 범례의
+             「강사 못 이음 N개」가 **영원히 0** 인 죽은 코드였다 — 세려는 행이 이미 없었다.
+             사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+             «말없이» 사라진 것이 그 때문이다(카드도 없고 숫자도 없고 경고도 없었다).
+           ✅ 그리지 않는 판단은 그대로 둔다(누구 칸에 놓을지 모르는 것을 아무 데나 놓지 않는다).
+              대신 «몇 건이 왜 안 그려졌는지» 는 남겨서 범례가 말하게 한다. */
+        rows = (Array.isArray(j.rows) ? j.rows : []);
       }
     } catch(e){
       msg = ph54T('카페24 수업을 읽지 못했습니다 (네트워크)', 'Could not read Cafe24 classes (network)');
@@ -358,10 +383,15 @@
     var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);
     var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + ph54T('분', 'm');
     var who      = s.student_name || s.student_uid || ph54T('학생 미확인', 'unknown student');
-    var why      = PH54_C24_WHY[s.verdict];
+    // 🔴 지난 날짜는 미러 대상이 아니다 — «만들어집니다» 라고 말하면 거짓이 된다
+    var isPast   = String(s.date || '') < ph54TodayKst();
+    var why      = isPast ? null : PH54_C24_WHY[s.verdict];
     var tip = timeTxt + ' · ' + ph54T('카페24 수업', 'Cafe24 class') + ' · ' + who + '\n'
-      + ph54T('카페24에 잡혀 있는 수업입니다. 망고아이 시간표에는 아직 만들어지지 않았습니다 (보기 전용 — 옮기거나 지울 수 없습니다).',
-              'This class is scheduled in Cafe24. It has not been created in the Mangoi timetable yet (view only — cannot be moved or deleted).')
+      + (isPast
+          ? ph54T('카페24에 남아 있는 «지난» 수업 기록입니다. 미러는 오늘부터만 만들므로 이 수업은 망고아이에 생기지 않습니다 (보기 전용).',
+                  'A past class recorded in Cafe24. The mirror only creates from today onward, so this one will not appear in Mangoi (view only).')
+          : ph54T('카페24에 잡혀 있는 수업입니다. 망고아이 시간표에는 아직 만들어지지 않았습니다 (보기 전용 — 옮기거나 지울 수 없습니다).',
+                  'This class is scheduled in Cafe24. It has not been created in the Mangoi timetable yet (view only — cannot be moved or deleted).'))
       + (why ? ('\n' + ph54T(why.ko, why.en)) : '');
     /* 인라인 색은 background-color 로 쓴다 — `background:linear-gradient(135deg` 를 노리는
        admin-inline-c.css 의 옛 규칙과 adm-s13 페인터에 안 걸리는 형태다(CLAUDE.md 2장). */
@@ -373,7 +403,10 @@
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
       +     '<span class="ph54-ev-tag" style="background:#1d4ed8">'+ph54T('카페24','C24')+'</span></div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(who)+'</div>'
-      +   '<div class="ph54-ev-type">'+ph54Esc(ph54T('카페24에만 있음','Cafe24 only'))+'</div>'
+      +   '<div class="ph54-ev-type">'+ph54Esc(
+              isPast                    ? ph54T('지난 수업 (카페24 기록)','Past class (Cafe24 record)')
+            : s.verdict === 'conflict'  ? ph54T('⚠️ 같은 시각 다른 수업','⚠️ Clashes with another class')
+                                        : ph54T('카페24에만 있음','Cafe24 only'))+'</div>'
       + '</div>';
   }
 
@@ -403,12 +436,28 @@
     /* 🪞 카페24 수업(보기 전용) — 강사가 이어진 것만 그린다.
        강사를 못 이은 것(no_teacher)은 «누구 칸에» 놓아야 할지 모르므로 그리지 않고 아래에서 건수만 알린다.
        ⛔ 모르는 것을 아무 칸에나 놓지 않는다 — 모르는 것보다 틀린 것이 나쁘다. */
-    var c24Events = [], c24NoTeacher = 0;
+    var c24Events = [], c24NoTeacher = 0, c24Left = 0, c24Hidden = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
+    var c24Today = ph54TodayKst();
     (ph54State.c24 || []).forEach(function(r){
       if (!r || !(r.date in dateToCol)) return;
+      /* 🚪 퇴사 강사의 잔재 — 할 일이 «없다». 회색으로 건수만 알린다.
+         ⛔ 이것을 아래 «원부에 없는 강사» 와 한 숫자로 합치지 말 것. 둘은 해야 할 일이 정반대다
+            (하나는 그냥 두면 되고, 하나는 사람이 원부에 등록해야 한다). 합치면 늘 켜져 있는
+            경고가 되어 정작 손봐야 할 것이 파묻힌다 — 녹화 목록에서 실제로 그랬다. */
+      if (r.verdict === 'no_teacher_left'){ c24Left++; return; }
+      /* 🙈 명부에서 숨긴 계정(시험용 등) — «일부러» 뺀 것이라 경고색을 쓰지 않는다.
+         ⛔ 「원부에 없는 강사」와 한 숫자로 합치지 말 것: 저쪽은 사람이 등록해야 하고
+            이쪽은 할 일이 없다. 합치면 늘 켜져 있는 경고가 되어 진짜가 파묻힌다. */
+      if (r.verdict === 'student_hidden'){ c24Hidden++; return; }
       if (!r.teacher_id){ c24NoTeacher++; return; }
+      if (!PH54_C24_SHOW[r.verdict]) return;
       if (filterId && String(r.teacher_id) !== String(filterId)) return;
       c24Events.push({ rec: r, col: dateToCol[r.date] });
+      /* 🔴 «지난 것» 과 «앞으로 것» 을 한 숫자로 합치면 안 된다 — 지난 주를 열었을 때
+         「카페24 58개」가 «망고아이에 58건이 빠졌다» 로 읽힌다(2026-09-01 실제 화면). */
+      if (String(r.date) < c24Today) c24Past++;
+      else if (r.verdict === 'conflict') c24Clash++;
+      else c24Ahead++;
     });
 
     // ── 컨트롤 바
@@ -498,15 +547,23 @@
       +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'
       +   (ph54State.c24On
             ? '<span><i style="background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(15,23,42,.2) 3px,rgba(15,23,42,.2) 6px);border:1px dashed #2563eb;box-sizing:border-box"></i>'
-              + ph54T('카페24 수업 (망고아이엔 아직 없음)','Cafe24 class (not in Mangoi yet)')+'</span>'
+              + ph54T('카페24 수업 (지난 것은 기록, 앞으로 것만 대기)','Cafe24 class (past = record, upcoming = pending)')+'</span>'
             : '')
       +   '<span class="ph54-legend-count">'
       +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
       +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
-      +     (ph54State.c24On && c24Events.length
-              ? ' · '+ph54T('카페24 ','Cafe24 ')+c24Events.length+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Ahead
+              ? ' · '+ph54T('카페24 대기 ','Cafe24 pending ')+c24Ahead+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Clash
+              ? '<b class="ph54-count-warn"> · '+ph54T('겹침 확인필요 ','Clashes to check ')+c24Clash+ph54T('개','')+'</b>' : '')
+      +     (ph54State.c24On && c24Past
+              ? ' · '+ph54T('지난 카페24 기록 ','Past Cafe24 records ')+c24Past+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Left
+              ? ' · '+ph54T('퇴사 강사 잔재 ','Departed instructors ')+c24Left+ph54T('개 (안 그림)',' (not drawn)') : '')
+      +     (ph54State.c24On && c24Hidden
+              ? ' · '+ph54T('숨긴 계정 ','Hidden accounts ')+c24Hidden+ph54T('개 (안 그림)',' (not drawn)') : '')
       +     (ph54State.c24On && c24NoTeacher
-              ? '<b class="ph54-count-warn"> · '+ph54T('카페24 강사 못 이음 ','Cafe24 unmatched instructor ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
+              ? '<b class="ph54-count-warn"> · '+ph54T('⚠️ 원부에 없는 강사 ','⚠️ Not in the roster ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
       +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')
       +   '</span>'
       + '</div>';
