@@ -466,3 +466,36 @@ PW_DIR=/tmp/pw node test-harness/manual/ghostview-whisper-browser.mjs
 ```
 node test-harness/manual/today-classes-filter-browser.mjs
 ```
+
+---
+
+## game-standalone-exit-browser.mjs — 게임을 «허브 밖에서» 열었을 때 나가는 문 (45건)
+
+학생 게임 16개는 게임 허브(`student-games.html`)가 **iframe** 으로 감싸 열고, 나가는 문은
+허브 좌상단의 「← 게임 선택」이다. 그래서 **게임 주소로 직접** 열면(북마크·카톡 링크·관리자
+사이트 구성표) 나갈 길이 없다. `js/game-standalone-exit.js` 가 그때만 동그란 ← 를 띄운다.
+
+**언제 부르나** — `js/game-standalone-exit.js` 를 고쳤을 때, 그리고 **게임 화면의 상단 UI**
+(점수 바·제목·시작 오버레이·좌상단 버튼)를 건드렸을 때. 상단 배치가 바뀌면 나가는 문이
+그 자리를 덮게 되고, 그건 좌표 문제라 문자열 하니스로는 보이지 않는다.
+
+실제로 재는 것:
+
+- 허브 안(iframe)에서는 **스크립트가 실렸는데도 주입하지 않는가**, 그리고 허브의
+  「← 게임 선택」이 여전히 **맨 위인가**(`elementsFromPoint` — 「있다」와 「눌린다」는 다르다)
+- 직접 열면 문이 생기고, **누를 수 있는 것 0 · 글자 0** 인가 (폰 390 · PC 1280 두 폭)
+- 자기 문이 이미 있는 3개(`shooter`·`p38-3d`·`battle-3d`)에는 **안 넣는가**(문이 둘이 되면 안 된다)
+- 눌러서 실제로 `/student-games.html` 로 가는가, `href` 가 `#` 이 아닌 실제 주소인가
+- EN 이면 `title`·`aria` 가 영어이고 **본문 글자는 «←» 하나인가**
+  (아이콘 버튼에 `data-ko`/`data-en` 을 달면 34px 상자에 문장이 들어앉는다 — CLAUDE.md 2장)
+
+🔴 **판정은 요소 «상자» 가 아니라 텍스트 노드의 `Range.getClientRects()` 로 한다.**
+가운데정렬 글자는 상자가 폭 전체라도 글자는 가운데에만 있다(`space-monster` 문장 상자는
+`x=12..378` 인데 실제 글자는 `x=137..253`). 상자로 재면 덮지도 않은 것을 «덮었다» 로 읽고,
+반대로 «상자 왼쪽 한 줄만» 찍으면 오른쪽 글자를 통째로 놓친다 — 실제로 그 상태에서
+5개 게임이 글자를 덮은 채 **13/13 초록**이었다. 이 자와 정본(`blockedBottom`)은 **같은 규칙**이라
+한쪽만 고치면 검사가 헛돈다.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/game-standalone-exit-browser.mjs
+```
