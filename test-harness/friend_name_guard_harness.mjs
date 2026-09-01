@@ -55,6 +55,21 @@ for (const [sent, want] of CAUGHT) {
   ok(got === want, `잡는다: ${JSON.stringify(sent.slice(0, 40))}`, got);
 }
 
+/* ②ⓑ 학생이 «이름» 을 물은 턴 — 그때는 「I'm X」도 이름으로 본다.
+   ⚠️ 한국어로 묻는 학생이 훨씬 많다. 영어만 보면 이 신호가 거의 안 켜진다. */
+console.log('\n[ ①-2 학생이 이름을 물었을 때 ]');
+for (const q of ["What's your name?", 'what is your name', 'Who are you?',
+                 '이름이 뭐야?', '너 이름 뭐니', '넌 누구야?']) {
+  ok(F.askedOwnName(q) === true, `이름을 물은 것으로 본다: ${JSON.stringify(q)}`);
+}
+for (const q of ['Do you like cats?', 'I like red', '오늘 뭐 했어?', 'My name is Minsu.']) {
+  ok(F.askedOwnName(q) === false, `이름 질문이 아니다: ${JSON.stringify(q)}`, F.askedOwnName(q));
+}
+ok(F.wrongSelfName("I'm Louie.", 'Lily', { askedName: true }) === 'Louie',
+  '이름을 물었으면 「I\'m Louie.」를 잡는다');
+ok(F.wrongSelfName("I'm Louie.", 'Lily') === '',
+  '안 물었고 뒷받침도 없으면 «모르는 것» 으로 둔다(지어내지 않는다)');
+
 /* ── ② 거짓경보 0 — 이 절이 이 하니스의 핵심 ────────────────────────────
    🔴 ①을 넓힌 대가가 여기서 드러납니다. 멀쩡한 답을 버리면 학생은 자기 질문에 대한 답 대신
       «이름 정정» 을 받습니다 — 이름 한 번 틀린 것보다 나쁩니다.
@@ -101,6 +116,29 @@ const GOOD = [
   'I am Lily. What is your name?',
   'Lily here! Ready to practice?',
   'Great try! Do you have a dog?',
+  /* 🔴 2026-09-01 함정 대조가 실측한 거짓경보 갈래 — 이 줄들을 빼면 그 사고가 안 보이게 된다.
+     ⚠️ 「I'm Taiwanese.」는 「I'm Louie.」와 문장 구조가 «완전히 같다» — 낱말을 모르면 못 가른다.
+        그래서 판정은 허용목록이 아니라 «뒷받침»(아는 이름·이름 질문·인사말·동격)으로 한다. */
+  "I'm Taiwanese.", "I'm Singaporean.", "I'm Malaysian.", "I'm Indonesian.",
+  "I'm Cebuano.", "I'm Bisaya.", "I'm Ilocano.", "I'm Tagalog.",
+  "I'm Turkish.", "I'm Dutch.", "I'm Irish.", "I'm Portuguese.", "I'm Nigerian.",
+  "I'm Vietnamese, and I love teaching!",
+  /* 종교 — 국적과 같은 자리에 같은 모양으로 온다 */
+  "I'm Christian.", "I'm Catholic.", "I'm Buddhist.", "I'm Muslim.", "I'm Jewish.",
+  /* 소유격 */
+  "I'm Mangoi's English friend!", "I'm Mom's helper!", "I'm Monday's biggest fan!",
+  /* 전부 대문자 강조 */
+  "I'm SLEEPY.", "I'm COOL!", 'WOW! I’m AMAZED!',
+  /* 고유명사가 «꾸미는 말» 로 온 자리 — 뒤에 말이 이어지면 이름이 아니다 */
+  "I'm Seoul born!", "I'm Zoom ready!", "I'm January born!", "I'm Disney crazy!",
+  /* 🔴 위 갈래를 «인사말이 함께 있는» 문장으로 다시 한 번 — 뒷받침 관문이 열린 상태에서도
+     소유격·전부대문자·꾸미는 말 거름망이 살아 있어야 한다. 이 줄들이 없으면 그 셋을 지워도
+     하니스가 초록이다(2026-09-01 되돌리기 검증에서 실제로 그랬다). */
+  "Hi! I'm Mangoi's English friend!",
+  "Hello! I'm Mom's helper today.",
+  "Hey! I'm SLEEPY.",
+  "Hi! I'm Seoul born!",
+  "Hello! I'm Zoom ready!",
 ];
 let falseAlarm = 0;
 for (const s of GOOD) {
@@ -164,7 +202,8 @@ ok(/wrongSelfName[\s\S]{0,900}env\.AI\.run/.test(warm),
   '웜업: 이름을 어기면 «다시 뽑는다»(그냥 버리지 않는다)');
 
 /* ── ⑦ 구조적 원인 — 모델이 «자기가 한 인사» 를 보는가 ────────────────────
-   🔴 2026-09-01 실측. 화면 인사(BEGINNER_GREETINGS)는 여덟 칸 전부 "Hi! I'm {name}." 인데
+   🔴 2026-09-01 실측. 화면 인사(BEGINNER_GREETINGS)는 여덟 칸 중 «다섯 칸» 이 "Hi! I'm {name}." 이고
+      나머지 셋은 "Hey, I'm {name}!"(6단계)·"{name} here."(7·8단계) 다 — 이름은 어느 쪽이든 같다.
       그것은 «화면에서만» 그려지고 KV 히스토리에는 안 들어간다. 그래서 모델은 자기가 이름을
       말한 적이 없는 상태에서 첫 답을 만들고, 학생이 이름을 물으면 그 자리에서 지어냈다.
       위 ①의 판정은 «안전망» 이고, 이 절이 «원인» 이다 — 둘 다 있어야 한다. */

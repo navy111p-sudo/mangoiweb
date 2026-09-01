@@ -22,7 +22,7 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
-import { resolveFriendName, wrongSelfName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
+import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -4074,11 +4074,16 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
-    /* 🏷️ 첫 턴에는 «학생이 화면에서 본 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
+    /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
+       ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
+          이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
        화면 인사(BEGINNER_GREETINGS)는 "Hi! I'm Lily." 인데 그것은 «화면에서만» 그려지고
        히스토리에는 안 들어간다. 그래서 모델은 자기가 이름을 말한 적이 없는 상태에서
        첫 답을 만들고, 학생이 이름을 물으면 그 자리에서 지어낸다(사장님 「계속 루이라고 말해」).
-       ⛔ 지어내는 것이 아니다 — 학생이 실제로 본 문장 그대로다. 앞뒤가 맞아지는 쪽이다.
+       ⚠️ «학생이 본 문장 그대로» 인 것은 fallbackGreeting 경로뿐이다. 교재가 잡힌 학생은
+          kickoff 로 들어와 그 인사를 화면에서 «본 적이 없고», 7·8단계 인사는 모양이 다르다
+          ("{name} here."). 즉 어느 경로에서나 같은 것은 «이름» 이고 문장은 아니다 —
+          여기서 필요한 것도 이름이므로 그대로 두지만, 단정해 적지 않는다.
        ⚠️ 첫 턴에만 넣는다. 둘째 턴부터는 진짜 히스토리에 이름이 이미 들어 있다. */
     const messages = [{ role: 'system', content: sys }]
       .concat(history.length ? history : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
@@ -4128,7 +4133,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          화면 이름을 바꿔 맞추는 것은 움직이는 과녁을 쫓는 일이다.
          ⛔ 이름만 갈아 끼우지 않는다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있다. 다시 뽑게만 한다.
          ⚠️ 두 번째도 어기면 «그냥 내보낸다» — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫다. */
-      const badName = aiText ? wrongSelfName(aiText, ctxFriend) : '';
+      const badName = aiText ? wrongSelfName(aiText, ctxFriend, { askedName: askedOwnName(studentInput) }) : '';
       if (badName) {
         console.warn('[warmup] wrong self-name:', badName, 'expected=' + ctxFriend);
         try {

@@ -13,7 +13,7 @@ import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤�
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
-import { resolveFriendName, wrongSelfName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
+import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -745,7 +745,7 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
          (루이 → 로이). 매번 지어내는 것이라 화면 이름을 바꿔 맞추는 것은 과녁을 쫓는 일입니다.
          ⛔ 이름만 갈아 끼우지 않습니다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있습니다.
          ⚠️ 두 번째도 어기면 그냥 내보냅니다 — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫습니다. */
-      const badName = wrongSelfName(reply, friendName);
+      const badName = wrongSelfName(reply, friendName, { askedName: askedOwnName(msg) });
       if (badName && usedModel) {
         console.warn('[chat-friend] wrong self-name:', badName, 'expected=' + friendName);
         try {
