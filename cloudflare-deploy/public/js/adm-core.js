@@ -1432,14 +1432,16 @@ function _renderRoomsSummary(counts, liveRooms, _L) {
 function _schedRowsHtml(list, _L, roomsEmpty) {
   if (!list || !list.length) return '';
   const head = '<tr><td colspan="6" style="background-color:#f8fafc;padding:8px 12px;line-height:1.6">'
-    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment' : '📅 예약 기준 지금 수업') + '</b>'
     + (roomsEmpty
         ? '<div style="font-size:12px;color:#6b7280">'
           /* 📌 (2026-08-21) «참관» 을 함께 적는다 — 필리핀 매니저가 참관 버튼을 찾다가 이 표를 보고
              «버튼이 없어졌다» 로 읽었다. 종료·연장만 적혀 있으면 참관을 찾는 사람에게는 답이 안 된다.
-             그리고 아래 카페24 줄에 버튼이 «원래» 없다는 것까지 적어야 다시 안 묻는다. */
-          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end, extend or observe in this table. The classes below are running on cafe24 — "No connection record" is normal, and they have no observe button.'
-                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장·참관할 대상은 없습니다. 아래 수업들은 카페24에서 돌고 있어 «접속 기록 없음» 으로 나오는 것이 정상이고, 참관 버튼도 생기지 않습니다.')
+             📌 (2026-09-01) 그때는 이 표가 카페24 수업만 받아서 「참관 버튼이 생기지 않습니다」가
+                사실이었다. 지금은 수강신청 수업(망고아이 방이 있는 수업)도 함께 오므로 그쪽에는
+                참관 버튼이 «있다» — 옛 문장을 그대로 두면 화면과 안내가 어긋난다. */
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table. «enrolment» classes below can still be observed (their room exists before anyone joins); «cafe24» classes have no Mango-i room, so "No connection record" is normal and they have no observe button.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다. 다만 아래 «수강신청» 수업은 아무도 안 들어와도 참관할 수 있습니다. «카페24» 수업은 망고아이 방이 없어 «접속 기록 없음» 이 정상이고 참관 버튼도 생기지 않습니다.')
           + '</div>'
         : '')
     + '</td></tr>';
@@ -1450,15 +1452,32 @@ function _schedRowsHtml(list, _L, roomsEmpty) {
     const conn = c.connected
       ? '<span class="badge ok">✅ ' + (_L ? 'Connected' : '접속 확인') + '</span>'
       : '<span style="color:#b45309 !important;font-weight:700;font-size:12px">' + (_L ? 'No connection record' : '접속 기록 없음') + '</span>';
-    return '<tr data-sched="1">'
+    /* 👁 참관할 «방» 이 있는가 — 수강신청 수업은 방 번호가 결정론적이라 아무도 안 붙어도 있다.
+       ⛔ 카페24 줄에는 절대 달지 않는다: `c24-…` 는 망고아이 방 번호 체계가 아니라
+          눌러도 못 들어간다(그래서 판정은 live_room 이 아니라 observable 이다).
+       ⛔ live_room 으로 가르지 말 것 — 시작 직전 «아무도 안 붙은» 그 순간에 버튼이 사라진다.
+          정작 그때가 「왜 아직 아무도 안 들어왔지」 하고 봐야 할 시각이다. */
+    const obsRoom = c.observable ? (c.room_id || '') : '';
+    const srcTag = c.observable
+      ? '<span style="color:#6d28d9 !important;font-weight:700;font-size:11px">' + (_L ? 'enrolment' : '수강신청') + '</span>'
+      : '<span style="color:#9ca3af;font-size:11px">' + (_L ? 'cafe24' : '카페24') + '</span>';
+    /* 🔘 버튼은 위 «화상방» 줄과 **같은 방식**으로 만든다 — class 는 rm-act(색 규칙이 이미 있다),
+       동작은 표 전체 위임(`#active-rooms-table [data-act]` → tr 의 data-room).
+       ⛔ 인라인 onclick + 새 class 로 만들지 말 것: `details.menu-card button` 전역 규칙이
+          !important 로 파란 알약(padding 9px 18px)을 씌워 좁은 칸을 밀어낸다(CLAUDE.md 2장). */
+    return '<tr data-sched="1"' + (obsRoom ? ' data-room="' + _esc(obsRoom) + '"' : '') + '>'
       + '<td><b>' + _esc(c.start_kst || '') + '~' + _esc(c.end_kst || '') + '</b>'
       +   '<div style="font-size:11px;color:#9ca3af">' + _esc(c.room_id || '') + '</div></td>'
-      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span></td>'
+      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span>'
+      +   '<div>' + srcTag + '</div></td>'
       + '<td>' + _esc(c.student_name || (_L ? '(unknown)' : '(학생 미상)'))
       +   ' <span style="color:#9ca3af">·</span> ' + _esc(c.teacher_name || (_L ? '(teacher unknown)' : '(강사 미상)')) + '</td>'
       + '<td>-</td><td>-</td>'
       + '<td>' + conn
-      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '') + '</td>'
+      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '')
+      +   (obsRoom ? '<div style="margin-top:4px"><button type="button" data-act="observe"'
+                   + ' class="rm-act rm-act-observe">' + (_L ? '👁 Ghost' : '👁 GHOST 참관') + '</button></div>' : '')
+      +   '</td>'
       + '</tr>';
   }).join('');
 }

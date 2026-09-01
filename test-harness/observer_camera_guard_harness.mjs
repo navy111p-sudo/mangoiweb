@@ -226,27 +226,43 @@ console.log('\n▶ G. 참관 대상이 없을 때의 안내문');
 {
   const ghostView = read('cloudflare-deploy/public/admin/ghost-view.html');
 
+  /* 📌 (2026-09-01 갱신) 예전에는 이 목록에 카페24 수업만 와서 「참관 버튼이 생기지 않습니다」가
+     사실이었다. 지금은 수강신청 수업(망고아이 방이 있는 수업)도 함께 오므로 그쪽에는 버튼이 «있다».
+     ⛔ 그래서 옛 문장을 글자 그대로 못 박지 않는다 — 물어야 할 것은 «두 갈래를 갈라 말하는가» 다
+        (CLAUDE.md 2장 「검사가 옛 숫자·옛 식을 못 박아 두면 보장을 강화한 수리에 FAIL 이 난다」). */
   check('「지금 수업」 표 안내가 «참관» 도 함께 말한다',
-        /종료·연장·참관할 대상은 없습니다/.test(admCore), 'adm-core.js _schedRowsHtml');
+        /참관할 수 있습니다/.test(admCore), 'adm-core.js _schedRowsHtml');
   check('그 안내가 «카페24 줄엔 참관 버튼이 없다» 까지 적는다',
         /참관 버튼도 생기지 않습니다/.test(admCore));
   check('영어 화면도 같은 뜻이다',
-        /nothing to end, extend or observe/.test(admCore) && /no observe button/.test(admCore));
+        /can still be observed/.test(admCore) && /no observe button/.test(admCore));
 
-  check('「수업 관찰」 화면도 «지금은 참관할 수업이 없다» 고 말한다',
-        /참관할 수업이 없다는 뜻입니다/.test(ghostView), 'ghost-view.html ghdLoadPicker');
-  check('그 화면도 «카페24는 참관 버튼이 없다 · 고장이 아니다» 를 적는다',
-        /참관 버튼이 없습니다/.test(ghostView) && /고장이 아닙니다/.test(ghostView));
+  check('「수업 관찰」 화면이 «화상방이 비었을 때 무엇을 보라» 고 말한다',
+        /아래 «예약 기준 지금 수업» 을 보세요/.test(ghostView), 'ghost-view.html ghdLoadPicker');
+  check('그 화면도 «수강신청은 참관 가능 · 카페24는 버튼 없음 · 고장이 아니다» 를 적는다',
+        /수강신청 수업은 아무도 안 들어와도 방이 있어 참관 버튼이 있고/.test(ghostView)
+        && /참관 버튼이 없습니다/.test(ghostView) && /고장이 아닙니다/.test(ghostView));
   check('영어 화면도 같은 뜻이다',
-        /no class to observe/.test(ghostView) && /not a fault/.test(ghostView));
+        /enrolment classes have an observe button/.test(ghostView) && /not a fault/.test(ghostView));
 
-  // 안내와 화면이 어긋나지 않게 — 카페24 줄에는 실제로 버튼을 그리지 않아야 한다
+  // 안내와 화면이 어긋나지 않게 — «카페24» 줄에는 실제로 버튼을 그리지 않아야 한다
   const sched = admCore.slice(admCore.indexOf('function _schedRowsHtml'),
                               admCore.indexOf('async function loadActiveRooms'));
-  check('카페24 줄에는 실제로 버튼을 그리지 않는다(안내와 화면 일치)',
-        !/<button/.test(sched), '_schedRowsHtml');
-  check('카페24 방 번호로 참관 링크를 만들지 않는다(번호 체계가 다르다)',
-        !/observe=/.test(sched) && !/observeRoom\(/.test(sched));
+  check('참관 버튼은 observable(=망고아이 방이 있는 수업)일 때만 그린다',
+        /c\.observable\s*\?\s*\(c\.room_id/.test(sched), '_schedRowsHtml');
+  check('카페24 줄에는 참관할 방을 주지 않는다(빈 문자열 → 버튼 없음)',
+        /c\.observable\s*\?\s*\(c\.room_id \|\| ''\)\s*:\s*''/.test(sched));
+  /* 카페24 줄의 «접속이 잡힌 방»(live_room)으로도 참관 링크를 만들지 않는다 —
+     그 값은 우리 방 번호가 맞지만, 이 표에서 참관 대상은 observable 하나로만 정한다.
+     ⛔ 이 검사를 «빈 문자열을 재는» 식으로 쓰지 말 것(늘 통과한다 — 실제로 한 번 그렇게 썼다). */
+  check('참관 대상을 live_room 으로 정하지 않는다',
+        !/observeRoom\([^)]*live_room/.test(sched), '_schedRowsHtml');
+  /* 🔘 버튼은 «화상방» 줄과 같은 방식이어야 한다 — 인라인 onclick + 새 class 로 만들면
+     `details.menu-card button` 전역 !important 가 파란 알약을 씌워 칸을 밀어낸다(CLAUDE.md 2장). */
+  check('참관 버튼이 표 위임(data-act="observe")과 rm-act 색 규칙을 쓴다',
+        /data-act="observe"/.test(sched) && /rm-act-observe/.test(sched));
+  check('그 줄에 data-room 을 실어 위임이 방 번호를 읽을 수 있다',
+        /data-room="' \+ _esc\(obsRoom\)/.test(sched));
 }
 
 /* ═══ G절 · STEP 2 — 🎧 소리만 참관 · 💬 귓속말 패널 (2026-08-31) ═══════════
