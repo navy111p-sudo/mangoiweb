@@ -436,3 +436,33 @@ PW_DIR=/tmp/pw node test-harness/manual/observer-no-recording-browser.mjs
 ```
 PW_DIR=/tmp/pw node test-harness/manual/ghostview-whisper-browser.mjs
 ```
+
+---
+
+## today-classes-filter-browser.mjs — 「🚪 오늘 수업」 출처 고르기 + 검색창 (30건)
+
+**언제 부르나** — `js/adm-today-classes.js` 의 `render()`·`srcFilter()`·`rowText()`·`bind()` 나
+`admin.html` 의 그 툴바(`#tc-source`·`#tc-q`·`#tc-only-live`·`#tc-date`)를 건드렸을 때.
+
+**왜 손으로 만들었나** — 여기서 틀릴 수 있는 것은 «누른 뒤 표에 무엇이 남는가» 와
+«0건일 때 이유를 말하는가» 뿐이다. 문자열 하니스는 함수도 값도 전부 «있다» 고 보고 통과한다.
+실제로 재는 것:
+
+- 출처 = 서버가 실어 준 `source`('mangoi'/'cafe24')로 가르는가 (방 번호로 짐작하지 않는가)
+- 검색이 학생·강사·강의실·교재를 다 훑는가 (방 번호를 옮겨 적을 일이 없게)
+- 출처·검색이 **서버를 다시 부르지 않는가** (한 글자마다 요청이 나가면 안 된다)
+- 0건일 때 «무엇으로 걸렀는지 + 전체 몇 건인지» 를 말하는가
+  (특히 「카페24 + 지금 입장가능만」 = 0건이 **정상**이다 — 카페24 줄은 `join_open` 이 항상 false)
+- 다시 그린 뒤에도 검색창에 커서가 남는가 (입력칸이 `#tc-body` 밖이어야 한다)
+- 390px 폰 폭에서 툴바가 줄로 접히는가 (가로로 안 밀리는가)
+
+⚠️ **카드를 먼저 열어야 한다.** 관리자 카드는 IA6 가 «한 번에 한 장»(`.ia6-hide`)만 보여 주므로
+그냥 재면 표는 DOM 에 있는데 상자가 `display:none` 이라 «보인다·눌린다» 검사가 전부 헛돈다
+(실측: `offsetParent=null`·폭 0). 이 검사는 `jumpToMenu('card-students-mgmt')` 로 먼저 연다.
+
+⚠️ **헤드리스 창은 포커스가 없어 `el.focus()` 가 안 먹는다** — `Emulation.setFocusEmulationEnabled`
+를 켜 두었다. 안 켜면 멀쩡한 화면이 「커서가 날아간다」는 거짓 실패를 낸다.
+
+```
+node test-harness/manual/today-classes-filter-browser.mjs
+```
