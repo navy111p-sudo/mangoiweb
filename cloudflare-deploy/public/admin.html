@@ -11470,6 +11470,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span>🗓 통합 시간표 ⭐신규</span></summary>
   <div class="menu-body">
     <div class="pl-info">💡 <b>강사·학생·강의실 통합 시간표</b> — 충돌 감지 + 드래그&드롭 배정.</div>
+    <!-- 🪞 (2026-09-01) 카페24 미러 — 「강사를 하나씩 가져와 보자」를 화면에서 할 수 있게.
+         monitor-wall 링크와 같은 방식: background-color: 로 준다(admin-inline-c.css 의
+         옛 다크 규칙이 background:linear-gradient(…) 는 !important 로 덮는다. CLAUDE.md 2장). -->
+    <a href="/admin/c24-mirror.html" target="_blank" rel="noopener"
+       style="display:inline-block;margin-bottom:10px;padding:7px 14px;font-size:12.5px;font-weight:800;text-decoration:none;border-radius:8px;background-color:#f3eefe;border:1px solid #c9b6f5;color:#6d28d9"
+       data-ko="🪞 카페24 시간표 미러 열기 (강사 켜기/끄기, 새 탭)"
+       data-en="🪞 Open Cafe24 schedule mirror (enable/disable teachers, new tab)">🪞 카페24 시간표 미러 열기 (강사 켜기/끄기, 새 탭)</a>
     <!-- 🧪 (2026-07-27 강사 피드백 3차 #6) "오늘 수업이 없어 교재·영상·퀴즈·리포트가 어떻게 보이는지 확인할 수 없다"
          → 서버에 seed-demo 엔드포인트는 이미 있었으나 화면에 실행 버튼이 없었다(연결 누락).
          🔴 실제 운영 DB에 수업이 생기므로: 확인창 + 데모 학생 계정(user_id=student) 고정으로 실학생 오염 방지. -->
