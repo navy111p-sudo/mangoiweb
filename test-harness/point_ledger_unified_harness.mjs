@@ -18,15 +18,18 @@
      · 정책의 `GAME_QUIZ_RULES` 에 **`vocab_review`·`review_quiz_done` 이 이미 적혀 있는데**
        실제 적립 경로는 그 이름을 한 번도 안 썼습니다 — 이름만 있고 연결이 없었습니다.
 
-   🔴 [이 하니스가 «고치지 않은 것» 을 분명히 해 둡니다]
-     이 수리는 **금액을 한 푼도 바꾸지 않습니다.** 기록만 남깁니다.
-     실효 상한은 여전히 **하루 최대 1,050점**입니다
-     (단어장 400 + 단어장 미션 50 + 복습퀴즈 500 + 총량 100 — 미션은 400점 상한 «밖» 입니다).
-     정책은 하루 100점인데 10배입니다 — 그걸 100점으로 통일하는 것은 **보상 정책 변경**이라
-     사장님이 정할 일이고, `CAP_UNCOUNTED_RULES` 를 비우면 그날로 적용됩니다.
+   ✅ [2026-09-01 후속 — 사장님 결정으로 상한을 100점으로 통일했습니다]
+     원장 통합(이 하니스가 처음 지키던 것)은 **금액을 한 푼도 안 바꾸는** 수리였고,
+     그때 실효 상한은 **하루 1,050점**이었습니다(단어장 400 + 미션 50 + 복습퀴즈 500 + 총량 100).
+     정책이 「하루 100점」이라고 적혀 있는데 열 배가 나가고 있었습니다.
+     이제 `CAP_UNCOUNTED_RULES` 는 **비어 있고**, 적립하는 쪽도 `dailyAllowance()` 로
+     남은 예산만큼만 줍니다. ⛔ 그 목록을 다시 채우면 그 경로만 상한 밖으로 빠져나갑니다.
+
+   ⚠️ 실측 영향(2026-09-01, D1): 지금까지 학생-일 14건 중 **7건이 100점을 넘었고**,
+     누적 1,956점 → 상한 후 **1,150점**(−41%). 하루 최대는 500점이었습니다.
 
    [검사 방법] 문자열만 보지 않는다 — 상한 계산 함수를 컴파일해 **가짜 D1 로 실제로 돌려**
-   「원장에 기록이 남아도 상한이 안 조여진다」를 확인한다.
+   「상한이 진짜로 걸리는가」·「경계에서 맞는가」를 확인한다.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, mkdtempSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -95,24 +98,34 @@ console.log('\n[ A. 잔액을 «직접» 올리지 않고 원장을 거친다 ]'
   }
 }
 
-console.log('\n[ B. 금액이 바뀌지 않는다 — 이 수리는 «기록만» 이다 ]');
+console.log('\n[ B. 적립하는 옆에 상한이 둘 — 자기 표 상한과 총량 예산 ]');
 {
-  /* 원래 상한(단어장 400 · 복습퀴즈 500)이 그대로 있는지. 이게 사라지면 «기록만» 이 거짓이 된다. */
+  /* 자기 표 상한(단어장 400 · 복습퀴즈 500)은 **그대로 둔다.**
+     2026-09-01 에 총량 100점이 앞에 걸렸으니 이제 이 둘은 거의 안 닿는다. 그래도 지우지 않는다 —
+     한 판에 수백 점이 걸리는 경로라, 총량 계산이 어떤 이유로든 «막지 않는 쪽» 으로 실패했을 때
+     받아 주는 두 번째 그물이다. */
   check('단어장 하루 400점 상한이 그대로다', /400 - \(s\?\.t \|\| 0\)/.test(games),
     '상한이 사라지면 금액이 바뀐 것이다');
   check('복습퀴즈 하루 500점 상한이 그대로다', /500 - \(Number\(used\?\.t\) \|\| 0\)/.test(games),
     '상한이 사라지면 금액이 바뀐 것이다');
-  /* 적립 «전» 에 총량 게이트를 새로 걸지 않았는지 — 걸면 금액이 줄어든다(정책 변경). */
-  /* ⚠️ 파일 전체에 «그 이름이 없다» 로 두면, 나중에 **다른** 게임 보상이 정당하게 총량 게이트를
-     쓸 때 이 두 경로를 안 건드려도 FAIL 난다. 두 적립 호출 부근만 잘라서 본다. */
-  const nearGate = [];
+  /* 🔀 (2026-09-01 사장님 결정) 여기가 뒤집힌 자리다. 원래 이 검사는
+     「이 두 경로에 총량 게이트를 **걸지 않았다**」였다 — 그때는 «금액을 안 바꾸는» 수리였고,
+     100점으로 통일하는 것은 정책 변경이라 사장님이 정할 일이라고 적어 두었다. 결정이 났으므로
+     이제 **반대로** 「총량 예산을 지나는가」를 지킨다.
+     ⚠️ `checkEarnAllowed`(0 아니면 전부)가 아니라 `dailyAllowance`(남은 만큼 깎아서)를 쓴다 —
+        한 판을 다 풀고 0점을 받는 쪽이 더 나쁘고, 이 경로는 원래부터 깎아서 주던 곳이다. */
+  const gated = [];
   for (const m of games.matchAll(/applyPointTransaction\(/g)) {
-    const seg = games.slice(Math.max(0, m.index - 1200), m.index);
-    if (/checkEarnAllowed\(/.test(seg)) nearGate.push(games.slice(0, m.index).split('\n').length);
+    const seg = games.slice(Math.max(0, m.index - 1600), m.index);
+    if (/dailyAllowance\(/.test(seg)) gated.push(games.slice(0, m.index).split('\n').length);
   }
-  check('이 두 경로에 총량 게이트(checkEarnAllowed)를 걸지 않았다', nearGate.length === 0,
-    '걸린 줄: ' + nearGate.join(', ')
-    + '\n       → 걸면 보상이 최대 10분의 1로 줄어든다. 그건 사장님이 정할 일이다');
+  check('이 두 경로가 총량 예산(dailyAllowance)을 지난다', gated.length >= 2,
+    '지나는 곳 ' + gated.length + '군데(줄: ' + gated.join(', ') + ')'
+    + '\n       → 안 지나면 남의 예산만 깎아먹고 자기는 안 막히는 최악의 상태가 된다');
+  check('  · «막기» 가 아니라 «깎기» 로 건다(Math.min)',
+    /amount = Math\.min\(amount, allow\)/.test(games)
+      && /Math\.min\(amount, await dailyAllowance\(/.test(games),
+    '0 아니면 전부로 바꾸면 한 판을 다 풀고 0점을 받는다');
 
   /* 🔴 금액 말고 **이름 칸**도 바뀌면 안 된다 — 이게 이번에 가장 위험했던 회귀다.
      정본은 `student_name = COALESCE(?, student_name)` 이라 빈 값 대신 uid 를 넘기면
@@ -132,61 +145,79 @@ console.log('\n[ B. 금액이 바뀌지 않는다 — 이 수리는 «기록만�
     + '\n         진짜 이름이 없으면 undefined 를 넘겨 기존 값을 그대로 두어야 한다.');
 }
 
-console.log('\n[ C. 상한 계산을 실제로 돌려 본다 — 기록이 남아도 안 조여지는가 ]');
+console.log('\n[ C. 상한 계산을 실제로 돌려 본다 — 100점에서 진짜 막히는가 ]');
 {
   /* ⚠️ esbuild 는 bin/ 경로를 node 로 직행하면 OS 마다 깨진다(Win=JS심·Linux=ELF) → JS API 를 쓴다. */
   const { buildSync } = await import(pathToFileURL(
     join(ROOT, 'cloudflare-deploy', 'node_modules', 'esbuild', 'lib', 'main.js')).href);
-  const dir = mkdtempSync(join(tmpdir(), 'ledger-'));
-  const out = join(dir, 'p.mjs');
+  const out = join(mkdtempSync(join(tmpdir(), 'pol-')), 'pol.mjs');
   buildSync({ entryPoints: [join(SRC, 'point-policy.ts')], bundle: true, format: 'esm',
     outfile: out, platform: 'neutral', logLevel: 'silent' });
   const M = await import(pathToFileURL(out).href);
 
-  /** 질의문에 실린 rule_code 목록을 그대로 돌려주는 가짜 D1.
+  /** 오늘 이미 번 점수를 `used` 로 고정해 돌려주는 가짜 D1.
    *  ⚠️ 두 층(prepare / prepare().bind()) 모두에 first 를 둔다 — 한 층만 두면 정본이
    *     예외로 빠져 «늘 0» 이 되고, 상한 검사가 헛돌며 통과한다(다른 하니스에서 실측). */
-  /* ⚠️ 질의문과 무관하게 늘 같은 값을 돌려주면 **시나리오가 한 번도 만들어지지 않는다** —
-     처음엔 그래서 「단어장 400점을 받은 날에도…」 검사가 수리를 되돌려도 통과했다(실측).
-     제외가 실제로 걸렸는지를 질의문에서 읽어 답을 바꾼다. */
   const seen = [];
-  const mkEnv = (sum, uncountedSum = 0) => {
-    const api = (q, args) => ({ first: async () => {
-      seen.push({ q, args });
-      // 제외 조건이 실제로 걸려 있으면 «빼고 센 값», 아니면 «다 센 값» 을 돌려준다
-      const excludes = /NOT IN/.test(q) && (args || []).includes('vocab_review');
-      return { s: excludes ? sum : sum + uncountedSum };
-    } });
+  const mkEnv = (used) => {
+    const api = (q, args) => ({ first: async () => { seen.push({ q, args }); return { s: used }; } });
     return { DB: { prepare: (q) => ({ ...api(q, []), bind: (...a) => api(q, a) }) } };
   };
 
-  check('CAP_UNCOUNTED_RULES 가 두 규칙을 담고 있다',
-    M.CAP_UNCOUNTED_RULES.includes('vocab_review') && M.CAP_UNCOUNTED_RULES.includes('review_quiz_done'),
-    '담은 것: ' + JSON.stringify(M.CAP_UNCOUNTED_RULES));
+  /* 🔴 이 검사가 이 하니스의 핵심이다 — «목록이 비었는가» 를 문자열로 보면 안 된다.
+     주석에 규칙 이름이 남아 있으면 그대로 초록불이 난다(2026-09-01 실제로 겪었다:
+     point_daily_cap_harness 가 목록을 비운 뒤에도 24/24 로 통과했다). 값을 직접 본다. */
+  check('CAP_UNCOUNTED_RULES 가 비어 있다(상한 100점 통일)',
+    Array.isArray(M.CAP_UNCOUNTED_RULES) && M.CAP_UNCOUNTED_RULES.length === 0,
+    '담긴 것: ' + JSON.stringify(M.CAP_UNCOUNTED_RULES)
+    + '\n       → 여기에 규칙이 있으면 그 경로만 상한 밖으로 빠져나간다');
 
   seen.length = 0;
   await M.earnedToday(mkEnv(0), 'u');
   const q1 = seen[0] || {};
-  check('«오늘 번 점수» 계산이 그 두 규칙을 제외한다',
-    /NOT IN/.test(q1.q || '') && (q1.args || []).includes('vocab_review'),
-    'SQL: ' + String(q1.q).replace(/\s+/g, ' ').slice(0, 140)
-    + '\n       → 제외하지 않으면 단어장 400점을 받은 학생이 그날 다른 적립을 통째로 못 받는다');
+  check('«오늘 번 점수» 가 단어장·복습퀴즈를 «센다»',
+    !(q1.args || []).includes('vocab_review') && !(q1.args || []).includes('review_quiz_done'),
+    '제외 목록: ' + JSON.stringify(q1.args)
+    + '\n       → 여기서 빼면 그 둘은 하루 수백 점을 받고도 상한에 안 걸린다');
+  check('  · 그래도 «다시 오지 않는» 마디 보상은 여전히 뺀다',
+    (q1.args || []).includes('ai_writing_streak'),
+    '제외 목록: ' + JSON.stringify(q1.args)
+    + '\n       → 7일 스트릭은 그날 막히면 영영 안 돌아온다(CAP_EXEMPT_RULES)');
 
-  seen.length = 0;
-  await M.earnedTodayForGames(mkEnv(0), 'u');
-  const q2 = seen[0] || {};
-  check('«게임 묶음» 계산에서도 그 두 규칙을 뺀다',
-    !(q2.args || []).includes('vocab_review') && !(q2.args || []).includes('review_quiz_done'),
-    '바인드: ' + JSON.stringify(q2.args)
-    + '\n       → GAME_QUIZ_RULES 에 들어 있어서, 안 빼면 게임 30점 상한이 갑자기 조여진다');
-  check('  · 그래도 다른 게임 규칙은 그대로 센다', (q2.args || []).includes('rescue_sentence'),
-    '바인드: ' + JSON.stringify(q2.args) + ' — 다 빼 버리면 게임 상한이 통째로 죽는다');
+  /* 실제 시나리오 — 경계에서 맞는지 «양쪽» 을 다 본다. 한쪽만 보면 늘 막거나 늘 통과해도 통과한다. */
+  const r90 = await M.checkEarnAllowed(mkEnv(90), 'u', 'attendance', 10);
+  const r100 = await M.checkEarnAllowed(mkEnv(100), 'u', 'attendance', 10);
+  check('90점 받은 날 출석 10점은 통과(정확히 100까지)', r90.ok === true, JSON.stringify(r90));
+  check('100점을 채운 날 출석 10점은 막힌다', r100.ok === false && r100.error === 'daily_total_cap_reached',
+    JSON.stringify(r100) + '\n       → 막히지 않으면 «통일했다» 는 말이 거짓이 된다');
 
-  /* 실제 시나리오: 단어장으로 400점을 받은 학생이 그날 출석 10점을 또 받을 수 있어야 한다
-     (기록은 남지만 상한에는 안 들어가므로). */
-  const r = await M.checkEarnAllowed(mkEnv(0, 400), 'u', 'attendance', 10);
-  check('단어장 400점을 받은 날에도 출석 10점이 통과한다(= 금액 무변경)', r.ok === true,
-    JSON.stringify(r) + ' — 막히면 이 수리가 «기록만» 이 아니라 보상을 깎은 것이다');
+  /* 🧢 dailyAllowance — 단어장·복습퀴즈가 쓰는 «남은 만큼» 계산.
+     ⚠️ 「0 아니면 전부」가 아니라 «깎아서 준다» 는 것이 이 함수의 존재 이유다. */
+  check('남은 예산을 «남은 만큼» 돌려준다(70점 썼으면 30)',
+    (await M.dailyAllowance(mkEnv(70), 'u', 'vocab_review')) === 30,
+    '값: ' + (await M.dailyAllowance(mkEnv(70), 'u', 'vocab_review')));
+  check('  · 다 쓴 날은 0', (await M.dailyAllowance(mkEnv(100), 'u', 'vocab_review')) === 0);
+  check('  · 넘겨 쓴 날도 음수가 아니라 0',
+    (await M.dailyAllowance(mkEnv(500), 'u', 'vocab_review')) === 0,
+    '음수가 나가면 Math.min 이 금액을 음수로 만든다');
+  check('  · 마디 보상은 상한을 안 지난다',
+    (await M.dailyAllowance(mkEnv(100), 'u', 'ai_writing_streak')) > 0,
+    '0이면 7일 스트릭이 상한에 걸려 영영 사라진다');
+
+  /* ⚠️ 조회가 실패할 때 «막는 쪽» 으로 실패하면, 통신 한 번 흔들린 학생이 점수를 잃는다. */
+  const boom = { DB: { prepare: () => { throw new Error('db down'); } } };
+  check('상한 조회가 실패하면 «막지 않는다»(전액 허용)',
+    (await M.dailyAllowance(boom, 'u', 'vocab_review')) === 100,
+    '조회 실패로 학생이 점수를 잃는 쪽이 더 나쁘다');
+
+  /* 적립하는 쪽이 실제로 그 함수를 지나는지 — 안 지나면 위 계산은 아무 데도 안 쓰인다. */
+  const games = readFileSync(join(SRC, 'api-games.ts'), 'utf8');
+  check('단어장 적립이 dailyAllowance 를 지난다',
+    /dailyAllowance\(env as any, uid, 'vocab_review'\)/.test(games),
+    '안 지나면 남의 예산만 깎아먹고 자기는 안 막히는 최악이 된다');
+  check('복습퀴즈 적립이 dailyAllowance 를 지난다',
+    /dailyAllowance\(env as any, userId, 'review_quiz_done'\)/.test(games),
+    '안 지나면 남의 예산만 깎아먹고 자기는 안 막히는 최악이 된다');
 }
 
 console.log('\n[ D. 「아직 안 고친 것」을 분명히 적어 두었다 ]');
@@ -196,14 +227,14 @@ console.log('\n[ D. 「아직 안 고친 것」을 분명히 적어 두었다 ]'
   const raw = readFileSync(join(SRC, 'point-policy.ts'), 'utf8');
   /* ⚠️ 숫자를 정규식으로 못 박으면 그 숫자를 바로잡는 순간 FAIL 난다(실제로 1,000 → 1,050 이었다).
      «근거가 적혀 있는가» 로 본다. */
-  check('실효 상한의 «근거» 가 적혀 있다(어느 상한이 얼마씩인지)',
-    /단어장 400/.test(raw) && /복습퀴즈 500/.test(raw) && /총량 100/.test(raw),
-    '「상한이 이미 100점이다」로 읽히면 다음 사람이 이 구멍을 다시 안 본다');
+  check('«전에는 1,050점이었다» 는 내력이 남아 있다',
+    /단어장 400/.test(raw) && /복습퀴즈 500/.test(raw) && /1,050/.test(raw),
+    '내력을 지우면 「원래 100점이었다」로 읽혀, 왜 이 계산이 여기 있는지 알 수 없게 된다');
   check('아직 남은 원장 밖 경로도 적어 두었다', /api-admin.ts/.test(raw) && /이탈관리|컴백/.test(raw),
     '이 수리가 «다 고쳤다» 로 읽히면 남은 두 곳을 아무도 안 본다');
-  check('통일하는 방법과 «사장님 결정» 이라는 것이 적혀 있다',
-    /목록을 비우면/.test(raw) && /사장님/.test(raw),
-    '고치는 방법을 안 적으면 그 결정이 영영 안 내려진다');
+  check('⛔ 목록을 다시 채우지 말라고 적어 두었다',
+    /다시 넣지 마세요|다시 채우지/.test(raw),
+    '비워 둔 이유를 안 적으면 다음 사람이 「이 경로만 예외로」 하며 되돌린다');
 }
 
 console.log('\n────────────────────────────────');
