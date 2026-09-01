@@ -1528,13 +1528,15 @@
       const need = items.filter(s => !s.ko).map(s => s.en);
       if (!need.length) return items;
       try {
-        /* ⚠️ 여기만 mode:'learn'(의역)을 «안» 쓴다 — 이 호출은 한 번에 최대 50문장이고
-           서버 learn/chat 모드는 문장마다 언어모델을 순차로 부른다(api-mango.ts 의 need 루프).
-           게임 시작을 막고 기다리는 자리라 50번 순차 호출이면 학생이 못 기다린다.
-           의역이 필요해지면 «서버가 배치를 한 번에 처리하게» 고치는 것이 먼저다(별건). */
+        /* 🗣️ mode:'learn' — 학생이 보고 푸는 «뜻» 이라 직역(m2m100)이 아니라 의역이어야 한다.
+           📜 2026-08-31 에는 여기만 일부러 기본 경로로 남겼었다 — 한 번에 최대 50문장인데
+              서버가 문장마다 모델을 «순차로» 불러 게임 시작이 한참 막혔기 때문이다.
+              2026-09-01 에 서버 쪽을 동시 4개로 고쳐(api-mango.ts 의 TRANSLATE_CONCURRENCY)
+              그 이유가 없어졌고, 남겨 두면 «같은 영어가 화면마다 다른 한국어» 가 된다.
+           ⚠️ 여기서 상한(50)을 올리지 말 것 — 서버가 문장마다 모델을 한 번씩 부른다. */
         const r = await fetch('/api/translate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ texts: need.slice(0, 50), target: 'ko' })
+          body: JSON.stringify({ texts: need.slice(0, 50), target: 'ko', mode: 'learn' })
         });
         const d = await r.json();
         const map = (d && d.map) || {};

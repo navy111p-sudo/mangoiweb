@@ -34,7 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
-import { peelLearnLead, joinLearnLead, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
+import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -2515,14 +2515,36 @@ ${numbered}`;
         return out;
       }
 
+      /* ⏱ (2026-09-01) 여러 문장을 «동시에» 번역한다 — 순차로는 배치 호출이 못 쓴다.
+         [왜] 우주몬스터 게임은 게임 시작을 막고 한 번에 최대 50문장을 물어보는데, 이 루프가
+              문장마다 모델을 하나씩 기다렸다. 그래서 그 화면만 「뜻」 의역(mode:'learn')을
+              못 켜고 직역으로 남아 «같은 영어가 화면마다 다른 한국어» 가 되고 있었다.
+         [무엇을 바꿨나] 호출 «횟수» 는 그대로다. 바뀐 것은 «동시에 몇 개를 기다리는가» 뿐이다.
+         ⛔ 상한을 크게 올리지 말 것 — Workers AI 는 뉴런이 소진되면 429 를 주고, 이 루프는
+            실패를 재시도하지 않고 원문으로 떨어뜨린다(그러면 그 문장은 게임에서 빠진다).
+         ℹ️ 각 반복은 서로 독립이다 — `map` 은 문장마다 다른 키에 쓰고, KV 키도 문장마다 다르다.
+            `dbg` 만 마지막 것이 남는데 그건 ?debug=1 전용이라 무해하다. */
+      const TRANSLATE_CONCURRENCY = 4;
       if (need.length && ai) {
-        for (const t of need) {
+        const queue = need.slice();
+        const runOne = async (t: string) => {
           try {
             /* 🗣️ learn 모드 — 말머리 칭찬 상투구는 «모델에게 맡기지 않고» 여기서 떼어 낸다.
                「Good job!」을 m2m100 이 「훌륭한 직업!」으로 옮긴 제보(2026-08-31)가 출발점이고,
                언어모델로 바꿔도 확률이라 자주 나오는 상투구는 결정론으로 못 박는다.
                정본 표: src/learn-phrase-ko.ts. 종결부호가 없으면 떼지 않으므로
                「Good job on your sentence」 같은 진짜 문장은 그대로 통째로 번역된다. */
+            /* 고정 인사말은 손으로 다듬은 의역이 정본이다(learn-phrase-ko.ts).
+               ⛔ 이 판정을 화면 쪽에 다시 만들지 말 것 — 2026-09-01 에 warmup.html 의
+                  같은 정규식(curatedMeaning)을 지우고 여기 한 곳으로 모았다. */
+            if (learnMode && target === 'ko') {
+              const greet = curatedLearnMeaning(t);
+              if (greet) {
+                map[t] = greet;
+                if (kv) { try { await kv.put(cacheKey(t), greet, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+                return;   // 이 문장은 여기서 끝 — 번역을 부르지 않는다
+              }
+            }
             const lead = (learnMode && target === 'ko') ? peelLearnLead(t) : { leadKo: '', rest: t };
             const src = lead.rest;
             /* 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다.
@@ -2557,7 +2579,12 @@ ${numbered}`;
             map[t] = out;
             if (kv && mtOk && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
           } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
-        }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(TRANSLATE_CONCURRENCY, queue.length) }, async () => {
+            for (;;) { const t = queue.shift(); if (t === undefined) return; await runOne(t); }
+          }),
+        );
       } else if (need.length) { for (const c of need) map[c] = c; }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });

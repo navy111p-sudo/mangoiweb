@@ -50,6 +50,13 @@ const noComment = (t) => {
 };
 
 const LIVE = noComment(MANGO);   // 주석을 벗긴 «살아 있는» api-mango.ts
+/* 번역 루프만 잘라 낸다 — ⛔ 길이로 자르지 말 것(같은 모양의 루프가 이 파일에 두 벌 있다).
+   learn 모드 캐시키 선언에서 시작해 그 «다음» 루프까지로 좁힌다. */
+const loopSrc = () => {
+  const at = MANGO.indexOf("const cacheKey = (t: string) => (learnMode");
+  const s0 = MANGO.indexOf('if (need.length && ai) {', at);
+  return MANGO.slice(s0, MANGO.indexOf('} else if (need.length) {', s0));
+};
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -159,6 +166,28 @@ console.log('\n[ C-2. 표 전수 — 모든 상투구가 실제로 떼어지고,
     Object.keys(T).every((k) => !/직업/.test(peel(k[0].toUpperCase() + k.slice(1) + '! Hello.').leadKo)));
 }
 
+console.log('\n[ C-3. 고정 인사말 의역이 «서버 한 곳» 에 있다 ]');
+{
+  const G = (name, topic) => `Hi! I'm ${name}${name === 'your Mangoi AI friend' ? '' : '.'} \u{1F96D} `
+    + (topic ? `Today's topic is "${topic}". ` : '') + `Let's warm up before class. How are you today?`;
+  const ok = (s) => P.curatedLearnMeaning(s);
+  check('옛 인사말(이름이 박혀 있던 것)을 받는다',
+    /망고아이 AI 친구/.test(ok(G('your Mangoi AI friend'))) && /입을 풀어/.test(ok(G('your Mangoi AI friend'))));
+  check('«고른 친구 이름» 이 들어간 새 인사말도 받는다 — 옛 정규식은 이걸 못 맞췄다',
+    /저는 Lily 예요/.test(ok(G('Lily'))) && /저는 Noah 예요/.test(ok(G('Noah'))));
+  check('오늘의 주제가 있으면 그대로 싣는다', /오늘의 주제는 "Animals"예요/.test(ok(G('Lily', 'Animals'))));
+  check('⛔ 인사말이 아니면 빈 값 — 일반 번역 경로로 넘어간다',
+    ok("Hi! I'm Lily. \u{1F96D} What is your name?") === '' && ok('Good job!') === '' && ok('') === '');
+  // 배선 — 서버가 번역보다 «먼저» 이것을 보고, 화면에는 같은 판정이 남아 있지 않아야 한다
+  check('서버가 번역 전에 고정 인사말을 먼저 본다',
+    /curatedLearnMeaning\(t\)/.test(loopSrc()) &&
+    loopSrc().indexOf('curatedLearnMeaning(t)') < loopSrc().indexOf('peelLearnLead(t)'));
+  check('⛔ warmup.html 에 같은 판정이 남아 있지 않다 (정본은 서버 한 곳)',
+    !/function\s+curatedMeaning\s*\(/.test(noComment(PUB('warmup.html'))));
+  check('warmup 의 «자기가 쓴 한국어 미리 넣기» 는 그대로다 — 그건 판정이 아니라 빠른 길',
+    /_koCache\[gEn\] = gKo/.test(PUB('warmup.html')));
+}
+
 console.log('\n[ D. 서버 배선 — api-mango.ts learn 모드 ]');
 {
   check('learn-phrase-ko 정본을 import 한다 (규칙을 복사하지 않는다)',
@@ -175,14 +204,9 @@ console.log('\n[ D. 서버 배선 — api-mango.ts learn 모드 ]');
     /Never write 「당신」/.test(MANGO) && /Never translate a question as 「~습니까\?」/.test(MANGO));
   // ⚠️ 여기가 핵심 — 떼어 낸 «나머지(src)» 를 번역에 넘겨야 한다.
   //    누가 다시 t 로 되돌리면 뗀 한국어가 버려지고 사고가 그대로 재현된다.
-  /* ⚠️ 앵커를 «본문 글자» 로 잡으면 안 된다 — 같은 모양의 루프가 이 파일에 두 벌 있어
-     indexOf 가 앞의 무관한 블록을 잘라 온다(실제로 밟았습니다).
-     learn 모드의 캐시키 선언에서 시작해 그 «다음» 루프까지로 좁힙니다. */
-  const at = MANGO.indexOf("const cacheKey = (t: string) => (learnMode");
-  const s0 = MANGO.indexOf('if (need.length && ai) {', at);
-  const loop = MANGO.slice(s0, MANGO.indexOf('} else if (need.length) {', s0));
+  const loop = loopSrc();
   const loopLive = noComment(loop);   // 부정 검사는 주석을 벗긴 사본으로
-  check('learn 모드 번역 루프를 찾았다', at > 0 && s0 > at && loop.length > 200, `len=${loop.length}`);
+  check('learn 모드 번역 루프를 찾았다', loop.length > 200, `len=${loop.length}`);
   check('번역 루프가 말머리를 먼저 떼어 낸다', /peelLearnLead\(t\)/.test(loop));
   check('언어모델에 «뗀 나머지» 를 넘긴다', /chatTranslate\(src\)/.test(loopLive) && !/chatTranslate\(t\)/.test(loopLive));
   check('m2m100 폴백에도 «뗀 나머지» 를 넘긴다',
@@ -225,9 +249,21 @@ console.log('\n[ E. 화면 배선 — 학생이 읽는 «뜻» 은 전부 mode:\
   check('english-mastery-suite.html 목표 문장 「뜻」',
     callsLearn(PUB('english-mastery-suite.html'), "texts:[s], target:'ko'") === true);
   // 낱말 팝업(사전 뜻)과 space-monster 배치는 «일부러» 기본 경로 그대로 — 이유가 적혀 있어야 한다
-  check('space-monster 배치는 기본 경로이고 «왜» 가 적혀 있다', (() => {
-    const h = PUB('student-game-space-monster.html');
-    return /여기만 mode:'learn'\(의역\)을 «안» 쓴다/.test(h) && /50/.test(h);
+  check('student-game-space-monster.html 배치도 의역이다 — 화면마다 답이 갈리지 않는다',
+    callsLearn(PUB('student-game-space-monster.html'), "texts: need.slice(0, 50)") === true);
+  /* 그 배치를 켤 수 있게 된 근거 — 서버가 문장을 «동시에» 번역한다.
+     이 상한이 사라지면 게임 시작이 50번 순차 호출만큼 막힌다. */
+  check('서버가 번역을 동시에 돌린다 (배치가 순차로 막히지 않는다)',
+    /const TRANSLATE_CONCURRENCY = \d+/.test(LIVE) && /queue\.shift\(\)/.test(LIVE));
+  check('⛔ 동시 상한이 과하지 않다 (뉴런 소진 429 방어)', (() => {
+    const m = LIVE.match(/const TRANSLATE_CONCURRENCY = (\d+)/);
+    return !!m && Number(m[1]) >= 2 && Number(m[1]) <= 6;
+  })());
+  // 낱말 팝업(사전 뜻)은 «일부러» 기본 경로 그대로 — 낱말 하나는 직역이 정답이다
+  check('낱말 팝업은 기본 경로 그대로', (() => {
+    const h = PUB('student-game-shooter.html');
+    const line = h.split('\n').find((l) => l.includes("texts:[key], target:'ko'"));
+    return line != null && !/mode:\s*'learn'/.test(line);
   })());
 }
 

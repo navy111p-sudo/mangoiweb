@@ -167,3 +167,30 @@ export const LEARN_GLOSS_HINT =
   + '"Great try!" means 좋은 시도예요, "Nice sentence!" means 문장 잘 만들었어요, '
   + '"Let\'s warm up" means having a light practice chat (never making anything warm). '
   + 'In a school context "숙제" is school homework, never housework or a job.';
+
+/* ── 고정 인사말 의역 (정본) ────────────────────────────────────────────
+ *  [왜 여기로 옮겼나] 2026-09-01 — 이 판정이 «두 곳» 이었습니다.
+ *    ① `warmup.html` 의 `curatedMeaning()` (클라이언트 정규식 — 옛 인사 전용 안전망)
+ *    ② 서버는 아무것도 몰라서, 다른 화면이 같은 문장을 물으면 직역이 나왔습니다.
+ *  이번 수리의 뿌리 진단이 바로 「같은 판정이 두 곳에 있으면 한쪽만 고쳐진다」라,
+ *  그 형태를 그대로 남겨 둘 수 없어 **서버 한 곳**으로 모았습니다.
+ *
+ *  ℹ️ 「그린 쪽이 자기가 쓴 한국어를 알고 있는」 경우(`warmup.html` 의 `_koCache` 미리 넣기)는
+ *     중복이 아닙니다 — 그건 «판정» 이 아니라 «자기가 방금 쓴 값» 이고, 번역 요청 자체를 없앱니다.
+ *     여기 있는 것은 그 값을 못 가진 채 옛 문장이 서버까지 온 경우의 안전망입니다.
+ *
+ *  ⚠️ 인사말에 «고른 친구 이름» 이 들어갑니다(Lily·Noah…). 옛 문장은 "your Mangoi AI friend"
+ *     로 박혀 있었으므로 둘 다 받습니다. 못 맞추면 빈 문자열 — 일반 경로로 넘어갑니다.
+ */
+const GREETING_RE =
+  /^Hi! I'm (your Mangoi AI friend|[A-Za-z][A-Za-z .'-]{0,29}?)\.?\s*🥭\s*(?:Today's topic is "([\s\S]{1,80}?)"\.\s*)?Let's warm up before class\. How are you today\?$/;
+
+/** 고정 인사말이면 손으로 다듬은 의역을 준다. 아니면 '' (일반 번역 경로로 넘어간다) */
+export function curatedLearnMeaning(text: string): string {
+  const m = String(text || '').trim().match(GREETING_RE);
+  if (!m) return '';
+  const who = m[1] === 'your Mangoi AI friend' ? '망고아이 AI 친구' : m[1].trim();
+  return '안녕하세요! 저는 ' + who + ' 예요 🥭 '
+    + (m[2] ? ('오늘의 주제는 "' + m[2] + '"예요. ') : '')
+    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
+}
