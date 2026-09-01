@@ -9866,9 +9866,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-ko="녹화 목록 보기"
          data-en="View Recordings">녹화 목록 보기</div>
     <div style="font-size:12px;color:#a3b3d1;line-height:1.6;max-width:480px;margin:0 auto"
-         data-ko="🔍 검색 도구를 열어 날짜·방 ID·교사 이름으로 찾거나, 🔓 전체 목록을 한꺼번에 보세요."
-         data-en="🔍 Open search tools to find by date / room ID / teacher, or 🔓 view the entire list at once.">
-      🔍 검색 도구를 열어 날짜·방 ID·교사 이름으로 찾거나, 🔓 전체 목록을 한꺼번에 보세요.
+         data-ko="🔍 검색 도구를 열어 날짜·방 ID·교사/학생 이름으로 찾거나, 🔓 전체 목록을 한꺼번에 보세요."
+         data-en="🔍 Open search tools to find by date / room ID / teacher / student, or 🔓 view the entire list at once.">
+      🔍 검색 도구를 열어 날짜·방 ID·교사/학생 이름으로 찾거나, 🔓 전체 목록을 한꺼번에 보세요.
     </div>
     <div style="margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button onclick="vcRecordingsToolsOpen()" style="padding:8px 20px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer"
@@ -9894,6 +9894,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <tr>
         <th class="rec-sort-th" data-sk="room" data-ar="⇅" onclick="recSortBy('room')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="방" data-en="Room">방</th>
         <th class="rec-sort-th" data-sk="teacher" data-ar="⇅" onclick="recSortBy('teacher')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="교사" data-en="Teacher">교사</th>
+        <!-- 🎓 2026-09-01 — 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정이 그대로 올라온다.
+             누가 학생인지는 예약·학생명부를 봐야 알 수 있어 서버가 풀어 준다(src/recording-students.ts). -->
+        <th class="rec-sort-th" data-sk="student" data-ar="⇅" onclick="recSortBy('student')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="학생" data-en="Student">학생</th>
         <th class="rec-sort-th" data-sk="start" data-ar="⇅" onclick="recSortBy('start')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="시작" data-en="Start">시작</th>
         <th class="rec-sort-th" data-sk="dur" data-ar="⇅" onclick="recSortBy('dur')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="시간" data-en="Duration">시간</th>
         <th class="rec-sort-th" data-sk="size" data-ar="⇅" onclick="recSortBy('size')" title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-ko-title="누르면 정렬 — 올림순 ▲ / 내림순 ▼ / 원래 순서" data-en-title="Click to sort — asc / desc / original order" data-ko="크기" data-en="Size">크기</th>
@@ -9953,11 +9956,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=193" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
-   · v=193: 2026-09-01 「🔴 실시간 수업 현황」의 예약 줄에 수강신청 수업도 함께 뜬다.
+<script src="/js/adm-core.js?v=194" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=194: 2026-09-01 「🔴 실시간 수업 현황」의 예약 줄에 수강신청 수업도 함께 뜬다.
      참관 버튼은 live_room 이 아니라 observable 로 가른다 — 망고아이 방은 결정론적이라
      아무도 안 붙어도 참관된다(카페24 줄은 방이 없어 그대로 버튼 없음). 판정 정본은
-     src/classes-now.ts. v=192 는 main 이 191 을 먼저 써서 비켜 간 번호(배포된 적 없음)
+     src/classes-now.ts. v=192·193 은 병렬 작업과 번호가 겹쳐 비켜 간 것(배포된 적 없음)
+   · v=192: 2026-09-01 녹화 목록에 「학생」 칸 — 「교사」 칸에는 «방을 먼저 켠 사람» 이 찍혀
+     학생 계정(heyst·cys01)이 그대로 올라온다. 누가 학생인지는 서버가 예약·학생명부에서
+     «계정 완전일치» 로 풀어 준다(src/recording-students.ts). ⛔ participant_names 로 짓지 말 것
    · v=191: 2026-09-01 녹화 목록 표에 «표 안 필터»(참여도·시간·크기·참가자·재생 가능)와
      머리글 정렬(▲▼) 추가. 서버 검색(위 줄)과 달리 «지금 불러온 쪽» 안에서만 좁히므로
      화면이 「이 쪽 N건 중 M건」을 직접 말한다. 총 참여도 계산 정본은 _recPartScore 하나

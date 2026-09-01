@@ -187,7 +187,10 @@ async function main() {
   console.log('\n── ⑤ 화면 숫자와 정렬이 같은 값을 쓰는가 ────────────');
   /* 총 참여도는 _recPartScore 하나로만 센다. 그린 숫자와 정렬 순서가 어긋나면
      「정렬해 보니 순서가 이상하다」가 된다. */
-  const drawn = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>(t.children[9]||{}).textContent.trim()).join(",")');
+  /* ⚠️ 칸 번호를 손으로 세지 않는다 — 2026-09-01 에 「학생」 칸이 들어오면서 9 → 10 으로
+     밀렸고, 그때 이 검사만 조용히 엉뚱한 칸을 읽었다. 머리글에서 자리를 «찾아» 쓴다. */
+  const partIdx = await ev('[...document.querySelectorAll("#rec-table-wrap thead th")].findIndex(e=>e.getAttribute("data-sk")==="part")');
+  const drawn = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>(t.children[' + partIdx + ']||{}).textContent.trim()).join(",")');
   check('그린 값이 내림차순으로 읽힌다 (90.0,70.0,60.0,25.0,—,—)', drawn === '90.0%,70.0%,60.0%,25.0%,—,—', drawn);
 
   console.log('\n── ⑥ 초기화 / 정렬 표시 / 언어 ─────────────────────');
