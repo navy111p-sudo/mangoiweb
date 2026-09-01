@@ -301,7 +301,17 @@
 </head>
 <body>
   <div class="top">
-    <a href="/">←</a>
+    <!-- ⬅ 화살표는 «직전 페이지» 로 (2026-09-01 사장님 지시 「화살표는 뒤로가기로 고쳐줘」).
+         📜 그전에는 이 화살표가 `href="/"` 라 «홈» 이었고, 우상단 공용 [🏠 홈] 과 합쳐 홈이
+            두 개인데 정작 «뒤로» 가 없었다. 2026-08-03 지시: ← 는 직전 페이지, 홈은 처음 화면.
+         ⚠️ 판정(히스토리 → 같은 오리진 referrer → 홈)은 복제하지 않고 back-nav.js 의 정본을
+            부른다. 그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이 있으면 `href="/"` 가
+            폴백이라 «홈으로는 간다» — 무반응이 되지 않는다.
+         ℹ️ 홈으로 가는 문은 우상단 공용 바 [🏠 홈](mango-i18n.js)이 이미 넣어 준다. -->
+    <a href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}"
+       aria-label="뒤로 가기" title="뒤로 가기"
+       style="padding:8px 10px;margin:-8px -10px"><!-- 눌림 영역만 넓힌다(14x21 → 34x37).
+         음수 margin 이 그만큼 되돌려 주므로 옆 요소는 제자리다 — 실측으로 확인. -->←</a>
     <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>
     <!-- 🧑 (2026-08-07) 이름을 누르면 친구를 다시 고를 수 있다.
          고른 친구가 누구인지 늘 여기 떠 있어야 «내가 골랐다» 는 느낌이 남는다. -->
