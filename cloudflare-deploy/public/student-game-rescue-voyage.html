@@ -368,6 +368,14 @@
      MangoiMemory.log 를 감싸 자동으로 POST /api/games/shadow 로 보낸다 — 채점 코드는 안 건드린다.
      ⚠️ 반드시 mangoi-memory.js **다음에** 실을 것. -->
 <script src="/js/mangoi-shadow-sync.js?v=1"></script>
+<!-- 🎮 게임을 «허브 밖에서» 열었을 때만 나가는 문을 띄운다 (2026-09-01).
+     허브(student-games.html)가 iframe 으로 감싸 열면 아무것도 하지 않는다 — 그쪽에
+     이미 「← 게임 선택」이 있다. 판정은 그 파일 하나에만 있다(16개에 복제하지 않는다).
+     ⚠️ 이 태그는 «마지막 인라인 script 태그 앞» 에 둔다(그 이름을 여기에 꺾쇠로 적으면
+        하니스 정규식이 주석에서부터 잘라 깨진다 — 2026-09-01 실측). `body` 닫기 직전에
+        두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
+        내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
+<script defer src="/js/game-standalone-exit.js?v=4"></script>
   <script>
   (function(){
     'use strict';
