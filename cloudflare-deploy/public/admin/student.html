@@ -811,6 +811,7 @@ const T = {
   consentKakao:{ko:'💬 카카오', en:'💬 KakaoTalk'},
   consentYes:{ko:'동의', en:'Agreed'},
   consentNo:{ko:'미동의', en:'Declined'},
+  consentUnknown:{ko:'안 물어봄', en:'Not asked'},
   consentDate:{ko:'동의일', en:'Consented'},
   // 보상 카드
   ovRewards:{ko:'최근 보상', en:'Recent Rewards'},
@@ -1089,14 +1090,22 @@ function renderOverview(){
   const c = _state.full.consent;
   const yes = '<span class="badge green">'+t('consentYes')+'</span>';
   const no  = '<span class="badge red">'+t('consentNo')+'</span>';
+  /* 🔐 (2026-09-01) «안 물어봄»(NULL)을 «아니오»(빨강)라고 말하지 않는다.
+     동의 화면은 녹화·출석만 묻고 음성분석·보상·카카오는 키 자체를 안 보낸다 —
+     그런데 이 자리가 빨간 배지를 띄워 **직원에게 「학부모가 거절했다」로** 읽혔다.
+     ⚠️ 2026-09-01 이전 기록은 그 셋도 0 이라 여전히 «아니오» 로 나온다(고칠 수 없는 과거값). */
+  /* «—» 만 두면 직원이 무엇으로 읽을지 모른다 — 이유를 함께 적는다(규칙서: 못 채웠을 때는 «—» 와 이유).
+     .badge.gray 는 이 파일에 이미 있는 색이라 새 색을 만들지 않는다. */
+  const nask = '<span class="badge gray">— '+t('consentUnknown')+'</span>';
+  const ask = (v) => (v === null || v === undefined) ? nask : (v ? yes : no);
   $('overviewConsent').innerHTML = !c
     ? '<div class="empty">'+t('emptyConsent')+'</div>'
     : '<div style="font-size:13px;line-height:1.7">'+
       `<div>${t('consentRec')}: ${c.recording_consent?yes:no}</div>`+
-      `<div>${t('consentVoice')}: ${c.voice_analysis_consent?yes:no}</div>`+
+      `<div>${t('consentVoice')}: ${ask(c.voice_analysis_consent)}</div>`+
       `<div>${t('consentAttend')}: ${c.attendance_consent?yes:no}</div>`+
-      `<div>${t('consentReward')}: ${c.reward_consent?yes:no}</div>`+
-      `<div>${t('consentKakao')}: ${c.kakao_consent?yes:no}</div>`+
+      `<div>${t('consentReward')}: ${ask(c.reward_consent)}</div>`+
+      `<div>${t('consentKakao')}: ${ask(c.kakao_consent)}</div>`+
       `<div style="margin-top:6px;color:var(--mut);font-size:11px">${t('consentDate')}: ${fmtDate(c.consented_at)} (v${esc(c.consent_version)})</div>`+
       '</div>';
 }
