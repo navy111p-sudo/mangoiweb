@@ -25,8 +25,14 @@
      이제 `CAP_UNCOUNTED_RULES` 는 **비어 있고**, 적립하는 쪽도 `dailyAllowance()` 로
      남은 예산만큼만 줍니다. ⛔ 그 목록을 다시 채우면 그 경로만 상한 밖으로 빠져나갑니다.
 
-   ⚠️ 실측 영향(2026-09-01, D1): 지금까지 학생-일 14건 중 **7건이 100점을 넘었고**,
-     누적 1,956점 → 상한 후 **1,150점**(−41%). 하루 최대는 500점이었습니다.
+   🎮 [같은 날 2차 결정 — 게임 하위 상한(하루 30점)도 적용]
+     처음에는 «총량 100» 만 걸고 「게임 30점까지 조이는 것은 요청받지 않았다」고 남겨 두었는데,
+     사장님이 「게임 30점 상한도 적용해줘」로 정하셨습니다.
+     ⟹ `vocab_review`·`review_quiz_done` 의 실효 상한은 **100이 아니라 30**입니다.
+     ⚠️ 그 통은 다른 게임과 **나눠 씁니다** — 단어장을 먼저 하면 그날 게임은 0점입니다.
+
+   ⚠️ 실측 영향(2026-09-01, D1): 학생-일 14건 — 100점 상한이면 7건이 걸리고 1,956 → 1,150점,
+     **30점 상한이면 14건 전부**가 걸려 **420점(−79%)** 입니다(하루 최소가 40점이었습니다).
 
    [검사 방법] 문자열만 보지 않는다 — 상한 계산 함수를 컴파일해 **가짜 D1 로 실제로 돌려**
    「상한이 진짜로 걸리는가」·「경계에서 맞는가」를 확인한다.
@@ -159,8 +165,16 @@ console.log('\n[ C. 상한 계산을 실제로 돌려 본다 — 100점에서 �
    *  ⚠️ 두 층(prepare / prepare().bind()) 모두에 first 를 둔다 — 한 층만 두면 정본이
    *     예외로 빠져 «늘 0» 이 되고, 상한 검사가 헛돌며 통과한다(다른 하니스에서 실측). */
   const seen = [];
-  const mkEnv = (used) => {
-    const api = (q, args) => ({ first: async () => { seen.push({ q, args }); return { s: used }; } });
+  /* ⚠️ 질의문과 무관하게 늘 같은 값을 돌려주면 «총량» 과 «게임» 을 못 가른다 —
+        그러면 게임 상한을 지웠는데도 검사가 통과한다. 두 질의를 실제로 구분한다:
+          · 총량(earnedToday)      … `rule_code NOT IN (...)`
+          · 게임(earnedTodayForGames) … `rule_code IN (...)`  (NOT 없음) */
+  const isGameQ = (q) => /rule_code IN \(/.test(q) && !/NOT IN/.test(q);
+  const mkEnv = (used, usedGames = 0) => {
+    const api = (q, args) => ({ first: async () => {
+      seen.push({ q, args });
+      return { s: isGameQ(q) ? usedGames : used };
+    } });
     return { DB: { prepare: (q) => ({ ...api(q, []), bind: (...a) => api(q, a) }) } };
   };
 
@@ -193,21 +207,39 @@ console.log('\n[ C. 상한 계산을 실제로 돌려 본다 — 100점에서 �
 
   /* 🧢 dailyAllowance — 단어장·복습퀴즈가 쓰는 «남은 만큼» 계산.
      ⚠️ 「0 아니면 전부」가 아니라 «깎아서 준다» 는 것이 이 함수의 존재 이유다. */
-  check('남은 예산을 «남은 만큼» 돌려준다(70점 썼으면 30)',
-    (await M.dailyAllowance(mkEnv(70), 'u', 'vocab_review')) === 30,
-    '값: ' + (await M.dailyAllowance(mkEnv(70), 'u', 'vocab_review')));
-  check('  · 다 쓴 날은 0', (await M.dailyAllowance(mkEnv(100), 'u', 'vocab_review')) === 0);
+  /* 🎮 (2026-09-01 사장님 2차 결정) 게임 하위 상한(하루 30점)도 함께 건다.
+     ⟹ 단어장·복습퀴즈의 실효 상한은 **100이 아니라 30**이다. 둘 중 «작은 쪽» 을 쓴다. */
+  check('게임 규칙은 게임 상한(30)이 먼저 걸린다',
+    (await M.dailyAllowance(mkEnv(0, 0), 'u', 'vocab_review')) === 30,
+    '값: ' + (await M.dailyAllowance(mkEnv(0, 0), 'u', 'vocab_review'))
+    + '\n       → 100이 나오면 게임 상한을 안 보고 있는 것이다');
+  check('  · 게임으로 20점 썼으면 10만 남는다',
+    (await M.dailyAllowance(mkEnv(20, 20), 'u', 'vocab_review')) === 10,
+    '값: ' + (await M.dailyAllowance(mkEnv(20, 20), 'u', 'vocab_review')));
+  check('  · 총량이 더 빡빡하면 «총량» 이 이긴다(95점 썼으면 5)',
+    (await M.dailyAllowance(mkEnv(95, 0), 'u', 'vocab_review')) === 5,
+    '값: ' + (await M.dailyAllowance(mkEnv(95, 0), 'u', 'vocab_review'))
+    + '\n       → 큰 쪽을 쓰면 총량 100이 뚫린다');
+  check('  · 게임이 아닌 규칙은 총량만 본다(70점 썼으면 30)',
+    (await M.dailyAllowance(mkEnv(70, 0), 'u', 'attendance')) === 30,
+    '값: ' + (await M.dailyAllowance(mkEnv(70, 0), 'u', 'attendance'))
+    + '\n       → 출석·칭찬까지 30점 통에 넣으면 아무도 요청하지 않은 변경이 된다');
+  check('  · 다 쓴 날은 0', (await M.dailyAllowance(mkEnv(100, 100), 'u', 'vocab_review')) === 0);
   check('  · 넘겨 쓴 날도 음수가 아니라 0',
-    (await M.dailyAllowance(mkEnv(500), 'u', 'vocab_review')) === 0,
+    (await M.dailyAllowance(mkEnv(500, 500), 'u', 'vocab_review')) === 0,
     '음수가 나가면 Math.min 이 금액을 음수로 만든다');
   check('  · 마디 보상은 상한을 안 지난다',
-    (await M.dailyAllowance(mkEnv(100), 'u', 'ai_writing_streak')) > 0,
+    (await M.dailyAllowance(mkEnv(100, 100), 'u', 'ai_writing_streak')) > 0,
     '0이면 7일 스트릭이 상한에 걸려 영영 사라진다');
 
-  /* ⚠️ 조회가 실패할 때 «막는 쪽» 으로 실패하면, 통신 한 번 흔들린 학생이 점수를 잃는다. */
+  /* ⚠️ 조회가 실패할 때 «막는 쪽» 으로 실패하면, 통신 한 번 흔들린 학생이 점수를 잃는다.
+     ⚠️ 다만 «전액» 의 뜻이 규칙마다 다르다 — 게임 규칙은 그래도 게임 상한(30)까지다. */
   const boom = { DB: { prepare: () => { throw new Error('db down'); } } };
-  check('상한 조회가 실패하면 «막지 않는다»(전액 허용)',
-    (await M.dailyAllowance(boom, 'u', 'vocab_review')) === 100,
+  check('상한 조회가 실패해도 막지 않는다 — 게임 규칙은 30까지',
+    (await M.dailyAllowance(boom, 'u', 'vocab_review')) === 30,
+    '값: ' + (await M.dailyAllowance(boom, 'u', 'vocab_review')));
+  check('  · 게임이 아닌 규칙은 전액(100)',
+    (await M.dailyAllowance(boom, 'u', 'attendance')) === 100,
     '조회 실패로 학생이 점수를 잃는 쪽이 더 나쁘다');
 
   /* 적립하는 쪽이 실제로 그 함수를 지나는지 — 안 지나면 위 계산은 아무 데도 안 쓰인다. */
