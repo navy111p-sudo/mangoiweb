@@ -1315,8 +1315,9 @@
     if(!speakKoEl.textContent){
       var s = targetSentence;
       speakKoEl.textContent = '…';
+      // 🗣️ mode:'learn' — 학생이 읽는 «뜻» 이라 의역(2026-08-31). 낱말 팝업은 사전 뜻이라 기본 경로 그대로.
       fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ texts:[s], target:'ko' }) })
+        body: JSON.stringify({ texts:[s], target:'ko', mode:'learn' }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
           var t = d && d.map && d.map[s];

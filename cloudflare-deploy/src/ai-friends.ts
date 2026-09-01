@@ -59,59 +59,148 @@ export function resolveFriendName(raw: unknown): string {
    ⛔ 문장을 고쳐 쓰지 않습니다 — 이름만 바꿔치기하면 「제 이름은 Lily 예요」 뒤에
       이어지는 말과 앞뒤가 안 맞을 수 있습니다. 다시 뽑게만 합니다.
 
-   ⚠️ 거짓경보가 이 검사의 진짜 위험입니다. 멀쩡한 답을 버리면 대화가 그 자리에서
-      끊깁니다. 그래서 두 단계로 나눴습니다.
-        ① 확실한 자리 — "my name is X" · "call me X" 뒤에는 사실상 이름만 옵니다.
-           여기서는 «대문자로 시작하는 낱말» 이면 잡습니다.
-        ② 애매한 자리 — "I'm X" 는 "I'm happy" · "I'm a teacher" 가 훨씬 흔합니다.
-           그래서 X 가 «우리 친구 넷 중 다른 이름» 일 때만 잡습니다.
-      ⛔ ②를 ①처럼 넓히지 마세요. 초보 대화에서 "I'm ~" 이 얼마나 흔한지 생각하면
-         멀쩡한 답을 무더기로 버리게 됩니다.
+   🔴 거짓경보가 이 검사의 진짜 위험입니다. 멀쩡한 답을 버리면 학생은 자기 질문에 대한 답
+      대신 «이름 정정» 을 받습니다 — 이름 한 번 틀린 것보다 나쁩니다.
+
+   📜 2026-09-01 에 여기서 두 번 틀렸습니다.
+      1차(8/31) — 「I'm X」 자리를 통째로 포기했다가 사장님이 보시는 형태를 못 잡았습니다.
+      2차(9/1)  — 반대로 「I'm + 대문자면 이름」으로 넓혔다가, 함정 대조가 정상 문장 98종에서
+                  거짓경보 71건을 실측했습니다. 「I'm Taiwanese.」·「I'm Catholic.」 은
+                  «I'm Louie.» 와 문장 구조가 «완전히 같아» 낱말을 모르면 절대 못 가릅니다.
+                  허용목록을 키우는 길은 끝이 없고, 키우면 진짜 이름(Grace·May·Joy)이 샙니다.
+
+   ⟹ 그래서 «구조로 가를 수 있는 것» 과 «없는 것» 을 갈라 놓았습니다.
+      ① 이름만 오는 자리(my name is X · call me X · X is my name) — 거짓경보가 사실상 없습니다.
+         여기서는 대문자이기만 하면 잡습니다.
+      ② 「I'm X」 — 구조로는 못 가릅니다. 그래서 «뒷받침» 이 있을 때만 잡습니다:
+           ⓐ X 가 우리가 아는 이름(네 친구 + 기본값 Mango) 이거나
+           ⓑ 학생이 방금 이름을 물었거나(askedName)
+           ⓒ 그 답이 인사말 모양이거나(Hi/Hello/Hey/Nice to meet you).
+         셋 다 아니면 «모르는 것» 으로 두고 넘어갑니다 — 지어내지 않는 쪽입니다.
+      ③ this is X · X here — 아는 이름일 때만(「This is a dog」·「Come here」가 흔합니다).
+
+   ⛔ NOT_A_NAME 을 «흔한 영어 낱말 사전» 으로 키우지 마세요. 담는 것은 «닫힌 범주» 뿐입니다 —
+      국적·언어, 종교, 한정사·부사, 호칭. 상태 형용사는 대문자로 올 일이 드물어 최소만 둡니다.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/** 우리가 아는 친구 이름들(소문자). 「나는 Emma 야」 같은 «남의 이름» 판정에 쓴다. */
+/** 우리가 아는 친구 이름들(소문자).
+ *  ⚠️ 기본 이름(Mango)도 넣는다 — Lily 를 골랐는데 「I'm Mango」라고 하면 그것도 «어긴 것» 이다. */
 function knownNamesLower(): string[] {
-  return Object.keys(AI_FRIEND_NAMES).map((k) => String(AI_FRIEND_NAMES[k] || '').toLowerCase());
+  return Object.keys(AI_FRIEND_NAMES)
+    .map((k) => String(AI_FRIEND_NAMES[k] || '').toLowerCase())
+    .concat([AI_FRIEND_DEFAULT.toLowerCase()]);
 }
 
-/** «이름 자리에 왔지만 이름이 아닌» 낱말. 「My name is NOT Roy」의 NOT 이 그것이다.
- *  ⚠️ 이름 후보를 대문자로만 가르면 안 된다 — 강조하려고 전부 대문자로 쓰는 경우가 있다. */
-const NOT_A_NAME = new Set(['not', 'no', 'never', 'still', 'also', 'actually', 'really',
-  'just', 'always', 'only', 'the', 'a', 'an', 'your', 'my', 'his', 'her', 'their']);
+/** 「I'm X」 자리에 대문자로 오지만 이름이 아닌 것 — «닫힌 범주» 만 담는다(위 ⛔).
+ *  이것은 ②의 «뒷받침» 규칙을 보조하는 값싼 1차 거름망일 뿐, 그 자체가 방어선이 아니다. */
+const NOT_A_NAME = new Set([
+  /* 한정사·부사 — 「My name is NOT Roy」의 NOT 이 여기서 걸린다 */
+  'not', 'no', 'never', 'still', 'also', 'actually', 'really', 'just', 'always', 'only',
+  'the', 'a', 'an', 'your', 'my', 'his', 'her', 'their', 'so', 'very', 'super', 'too',
+  /* 국적·언어 — 「I'm Korean」류. 이 서비스는 필리핀 강사·중국 학생이 있어 실제로 나온다 */
+  'korean', 'american', 'filipino', 'filipina', 'english', 'chinese', 'japanese', 'spanish',
+  'french', 'british', 'canadian', 'australian', 'indian', 'german', 'italian', 'mexican',
+  'brazilian', 'russian', 'vietnamese', 'thai', 'asian', 'european', 'african', 'latino',
+  'taiwanese', 'singaporean', 'malaysian', 'indonesian', 'cebuano', 'bisaya', 'visayan',
+  'ilocano', 'tagalog', 'turkish', 'dutch', 'irish', 'scottish', 'swedish', 'polish',
+  'greek', 'portuguese', 'egyptian', 'nigerian', 'kenyan', 'danish', 'norwegian', 'finnish',
+  'swiss', 'belgian', 'austrian', 'czech', 'hungarian', 'romanian', 'ukrainian', 'peruvian',
+  'argentine', 'chilean', 'colombian', 'cuban', 'cambodian', 'burmese', 'nepali',
+  'pakistani', 'bangladeshi', 'mongolian', 'lao', 'khmer',
+  /* 종교 — 국적과 같은 자리에 같은 모양으로 온다 */
+  'christian', 'catholic', 'buddhist', 'muslim', 'jewish', 'hindu', 'protestant',
+  /* 호칭 — 「I'm Teacher Lily」의 Teacher (이 문장은 아래 «같은 문장에 기대 이름» 으로도 걸러진다) */
+  'teacher', 'student', 'friend', 'miss', 'mister', 'mr', 'ms', 'mrs',
+  /* 상태 — 대문자로 강조해 쓰는 것 중 흔한 것만 */
+  'ok', 'okay', 'sorry', 'here', 'from',
+]);
+
+/** 학생이 «이름» 을 물었는가. ②ⓑ 의 뒷받침 신호.
+ *  ⚠️ 한국어로 묻는 학생이 훨씬 많다 — 영어만 보면 이 신호가 거의 안 켜진다. */
+export function askedOwnName(studentInput: unknown): boolean {
+  const t = String(studentInput || '');
+  if (/이름|누구세[요야]|누구야|넌 누구/.test(t)) return true;
+  return /\b(?:what(?:'s| is| s)?\s+(?:your|ur)\s+name|who\s+are\s+you|your\s+name|call\s+you)\b/i.test(t);
+}
+
+export interface SelfNameOpts {
+  /** 학생이 방금 이름을 물었나 — 켜지면 「I'm X」도 이름으로 본다(②ⓑ) */
+  askedName?: boolean;
+}
 
 /**
  * AI 답변이 «기대한 이름이 아닌 다른 이름» 으로 자기를 소개했으면 그 이름을 돌려준다.
  * 멀쩡하면 빈 문자열.
+ *
+ * ✅ 판정은 «문장 단위» 다. 같은 문장에 기대 이름이 함께 있으면 어긴 것이 아니다 —
+ *    「I'm Teacher Lily.」·「My name is not Emma, my name is Lily!」가 그래서 통과한다.
+ *    ⚠️ 대가: 「I'm Louie, but everyone calls me Lily.」처럼 한 문장에 둘 다 있으면 통과한다.
+ * ⚠️ 곱슬 따옴표(’)를 먼저 편다 — 모델이 자주 쓰는데, 안 펴면 「I’m Louie」를 통째로 놓친다.
  */
-export function wrongSelfName(reply: unknown, expected: string): string {
-  const t = String(reply || '');
+export function wrongSelfName(reply: unknown, expected: string, opts?: SelfNameOpts): string {
+  const t = String(reply || '').replace(/[\u2018\u2019\u02BC\u00B4`]/g, "'");
   const want = String(expected || '').trim().toLowerCase();
   if (!t || !want) return '';
   const known = knownNamesLower();
+  const askedName = !!(opts && opts.askedName);
+  /* ②ⓒ 인사말 모양인가 — «답 전체» 로 본다. "Hi!" 와 "I'm Louie." 는 다른 문장이기 때문이다. */
+  const greeting = /\b(?:hi|hello|hey|nice to meet you|good to meet you)\b/i.test(t);
+
   /* ⚠️ 앞말은 대소문자를 가리지 않아야 한다("My name is" 는 문장 첫머리라 대문자로 온다).
      그래서 i 플래그를 쓰고, «이름처럼 생겼는가» 는 코드에서 따로 본다 —
-     정규식에 [A-Z] 만 적으면 i 플래그가 그것까지 풀어 버린다(실제로 그렇게 짰다가
+     정규식에 [A-Z] 만 적으면 i 플래그가 그것까지 풀어 버린다(2026-08-31 에 그렇게 짰다가
      실사고 문장을 하나도 못 잡았다). */
-  const looksName = (w: string) => !!w && /^[A-Za-z][A-Za-z'-]*$/.test(w)
-    && /^[A-Z]/.test(w) && !NOT_A_NAME.has(w.toLowerCase());
+  const looksName = (w: string): boolean => {
+    if (!w || !/^[A-Za-z][A-Za-z'-]*$/.test(w)) return false;
+    if (!/^[A-Z]/.test(w)) return false;
+    if (/'s$/i.test(w)) return false;                       // 소유격 — 「I'm Mangoi's friend」
+    if (w.length > 1 && w === w.toUpperCase()) return false; // 전부 대문자 강조 — 「I'm SLEEPY」
+    return !NOT_A_NAME.has(w.toLowerCase());
+  };
+  /* 이름은 «절» 이 끝나는 자리에 온다. 「I'm Seoul born」·「I'm Zoom ready」처럼 뒤에 말이
+     이어지면 그것은 이름이 아니라 꾸미는 말이다. */
+  const atClauseEnd = (rest: string) => /^\s*(?:[.,!?;:\u2014-]|$|and\b|but\b|or\b|so\b)/i.test(rest);
 
-  /* ① 확실한 자리 — 이 뒤에는 사실상 이름만 온다 */
-  const strong = /\b(?:my name(?:'s| is)|call me|you can call me)\s+([A-Za-z][A-Za-z'-]{1,19})/gi;
-  let m: RegExpExecArray | null;
-  while ((m = strong.exec(t))) {
-    const got = m[1];
-    if (!looksName(got)) continue;
-    if (got.toLowerCase() !== want) return got;
-  }
+  const wantRe = new RegExp('\\b' + want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+  const TOK = "([A-Za-z][A-Za-z'-]{1,19})";
 
-  /* ② 애매한 자리 — «우리 친구 넷 중 다른 이름» 일 때만 */
-  const weak = /\b(?:i'm|i am|this is)\s+([A-Za-z][A-Za-z'-]{1,19})|\b([A-Za-z][A-Za-z'-]{1,19})\s+here\b/gi;
-  while ((m = weak.exec(t))) {
-    const got = m[1] || m[2] || '';
-    if (!looksName(got)) continue;
-    const low = got.toLowerCase();
-    if (low === want) continue;
-    if (known.indexOf(low) >= 0) return got;
+  for (const sent of t.split(/(?<=[.!?])\s+|\n+/)) {
+    if (wantRe.test(sent)) continue;   // 같은 문장이 기대 이름을 함께 말하고 있다
+    let m: RegExpExecArray | null;
+
+    /* ① 이름만 오는 자리 — 거짓경보가 사실상 없어 대문자이기만 하면 잡는다 */
+    const strong = new RegExp("\\b(?:my name(?:'s| is)|call me|you can call me)\\s+" + TOK
+      + "|\\b" + TOK + '\\s+is my name\\b', 'gi');
+    while ((m = strong.exec(sent))) {
+      const got = m[1] || m[2] || '';
+      if (!looksName(got)) continue;
+      if (got.toLowerCase() !== want) return got;
+    }
+
+    /* ② 「I'm X」 — 구조로는 「I'm Taiwanese.」와 못 가른다. 뒷받침이 있을 때만 잡는다. */
+    const im = new RegExp("\\b(?:i'm|i am)\\s+" + TOK, 'gi');
+    while ((m = im.exec(sent))) {
+      const got = m[1] || '';
+      if (!looksName(got)) continue;
+      if (!atClauseEnd(sent.slice(m.index + m[0].length))) continue;
+      const low = got.toLowerCase();
+      if (low === want) continue;
+      /* ⓓ 동격 — 「I'm Louie, your English friend.」 처럼 뒤에 «역할» 이 붙으면 이름이다.
+         국적·종교는 그 자리에 «, and …» 로 이어지지 «, your/the …» 로 이어지지 않는다. */
+      const appositive = /^\s*,\s*(?:your|the)\b/i.test(sent.slice(m.index + m[0].length));
+      if (known.indexOf(low) >= 0 || askedName || greeting || appositive) return got;
+    }
+
+    /* ③ 애매한 자리 — 아는 이름일 때만.
+       ⛔ 여기를 ①처럼 넓히지 말 것: 「This is a dog.」·「Come here!」·「Right here!」가 흔하다. */
+    const weak = new RegExp('\\b(?:this is)\\s+' + TOK + '|\\b' + TOK + '\\s+here\\b', 'gi');
+    while ((m = weak.exec(sent))) {
+      const got = m[1] || m[2] || '';
+      if (!looksName(got)) continue;
+      const low = got.toLowerCase();
+      if (low === want) continue;
+      if (known.indexOf(low) >= 0) return got;
+    }
   }
 
   return '';
