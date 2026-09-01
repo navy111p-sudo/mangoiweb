@@ -30,6 +30,27 @@ const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/' + f), 'ut
 const MANGO = SRC('src/api-mango.ts');
 const PUB = (f) => SRC('public/' + f);
 
+/* 🧹 주석을 벗긴 «살아 있는 코드» — 부정 검사(「이 글자가 없어야 한다」)는 반드시 이것으로 합니다.
+   설명 주석에 「예전엔 chatTranslate(t) 였다」 한 줄만 적어도 거짓 FAIL 이 납니다.
+   ⛔ 정규식 한 줄(/\/\*[\s\S]*?\*\//g)로 지우지 마세요 — 짝 없는 «별표+슬래시» 하나에
+      뒷부분이 통째로 사라집니다(이 저장소가 실제로 두 번 밟았습니다). 줄 단위로 추적합니다. */
+const noComment = (t) => {
+  let inBlock = false;
+  return t.split('\n').map((l) => {
+    let out = '', i = 0;
+    while (i < l.length) {
+      if (inBlock) { const e = l.indexOf('*/', i); if (e < 0) { i = l.length; } else { inBlock = false; i = e + 2; } continue; }
+      const b = l.indexOf('/*', i), ln = l.indexOf('//', i);
+      if (ln >= 0 && (b < 0 || ln < b)) { out += l.slice(i, ln); break; }
+      if (b >= 0) { out += l.slice(i, b); inBlock = true; i = b + 2; continue; }
+      out += l.slice(i); break;
+    }
+    return out;
+  }).join('\n');
+};
+
+const LIVE = noComment(MANGO);   // 주석을 벗긴 «살아 있는» api-mango.ts
+
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
   if (cond) PASS++; else { FAIL++; FAILS.push(name + (extra ? ` — ${extra}` : '')); }
@@ -143,9 +164,13 @@ console.log('\n[ D. 서버 배선 — api-mango.ts learn 모드 ]');
   check('learn-phrase-ko 정본을 import 한다 (규칙을 복사하지 않는다)',
     /import \{[^}]*peelLearnLead[^}]*\} from '\.\/learn-phrase-ko'/.test(MANGO));
   check('캐시 접두사가 trl2 로 올라갔다 — 「훌륭한 직업!」이 담긴 trl1 캐시와 안 섞인다',
-    /learnMode \? 'trl2:'/.test(MANGO) && !/learnMode \? 'trl1:'/.test(MANGO));
-  check('learn 프롬프트가 정본 예시(LEARN_GLOSS_HINT)를 주입한다',
-    /LEARN_GLOSS_HINT/.test(MANGO.slice(MANGO.indexOf('const learnSys'), MANGO.indexOf('const learnSys') + 1600)));
+    /learnMode \? 'trl2:'/.test(LIVE) && !/learnMode \? 'trl1:'/.test(LIVE));
+  /* ⛔ 검사 범위를 «길이» 로 자르지 마세요 — 프롬프트에 줄만 더해도 보장은 그대로인데
+     검사만 깨집니다. 「그 선언의 끝」(다음 선언)까지로 자릅니다. */
+  const p0 = MANGO.indexOf('const learnSys');
+  const learnSysBlock = MANGO.slice(p0, MANGO.indexOf('async function chatTranslate', p0));
+  check('learn 프롬프트 선언을 찾았다', p0 > 0 && learnSysBlock.length > 300, `len=${learnSysBlock.length}`);
+  check('learn 프롬프트가 정본 예시(LEARN_GLOSS_HINT)를 주입한다', /LEARN_GLOSS_HINT/.test(learnSysBlock));
   check('learn 프롬프트가 「당신」·「~습니까」를 금지한다',
     /Never write 「당신」/.test(MANGO) && /Never translate a question as 「~습니까\?」/.test(MANGO));
   // ⚠️ 여기가 핵심 — 떼어 낸 «나머지(src)» 를 번역에 넘겨야 한다.
@@ -156,23 +181,38 @@ console.log('\n[ D. 서버 배선 — api-mango.ts learn 모드 ]');
   const at = MANGO.indexOf("const cacheKey = (t: string) => (learnMode");
   const s0 = MANGO.indexOf('if (need.length && ai) {', at);
   const loop = MANGO.slice(s0, MANGO.indexOf('} else if (need.length) {', s0));
+  const loopLive = noComment(loop);   // 부정 검사는 주석을 벗긴 사본으로
   check('learn 모드 번역 루프를 찾았다', at > 0 && s0 > at && loop.length > 200, `len=${loop.length}`);
   check('번역 루프가 말머리를 먼저 떼어 낸다', /peelLearnLead\(t\)/.test(loop));
-  check('언어모델에 «뗀 나머지» 를 넘긴다', /chatTranslate\(src\)/.test(loop) && !/chatTranslate\(t\)/.test(loop));
+  check('언어모델에 «뗀 나머지» 를 넘긴다', /chatTranslate\(src\)/.test(loopLive) && !/chatTranslate\(t\)/.test(loopLive));
   check('m2m100 폴백에도 «뗀 나머지» 를 넘긴다',
-    /text: src, source_lang: srcOf\(src\)/.test(loop) && !/text: t, source_lang: srcOf\(t\)/.test(loop));
-  check('번역 뒤 다시 잇는다', /joinLearnLead\(lead\.leadKo, out\)/.test(loop));
-  check('남은 것이 이모지·부호뿐이면 번역하지 않는다', /const needsMt =/.test(loop) && /if \(!needsMt\)/.test(loop));
+    /text: src, source_lang: srcOf\(src\)/.test(loopLive) && !/text: t, source_lang: srcOf\(t\)/.test(loopLive));
+  check('어느 갈래로 가든 뗀 말머리를 다시 잇는다',
+    (loopLive.match(/joinLearnLead\(lead\.leadKo,/g) || []).length >= 2);
+  /* 🔴 여기가 이번 수리에서 «내가 만든» 결함이었습니다(trap-check 가 잡았습니다).
+     고치기 전에는 번역 실패 시 out = t(원문)라서 `out !== t` 가 거짓이 되어 저절로 캐시를 비켜 갔는데,
+     말머리를 떼면 실패해도 「잘했어요! Do you have a pet animal?」처럼 t 와 «달라져서»
+     그 반쪽짜리가 KV 에 180일 굳습니다. 실패는 캐시하면 안 됩니다. */
+  check('⛔ 번역 실패는 KV 에 캐시하지 않는다 (mtOk 로 가른다)',
+    /mtOk = !!mt/.test(loopLive) && /if \(kv && mtOk &&/.test(loopLive));
+  check('실패해도 원문을 붙여 보여는 준다 (mt || src)', /joinLearnLead\(lead\.leadKo, mt \|\| src\)/.test(loopLive));
+  check('남은 것이 이모지·부호뿐이면 번역하지 않는다', /const needsMt =/.test(loopLive) && /if \(!needsMt\)/.test(loopLive));
+  // ⛔ 그 지름길이 learn 밖(기본·chat)으로 새면, 이 글자범위에 없는 언어(가나·키릴)가 번역 없이 나간다
+  check('⛔ 지름길은 «말머리를 실제로 뗀» 경우에만 — 기본·chat 경로는 예전 그대로',
+    /const needsMt = !lead\.leadKo \|\|/.test(loopLive));
   check('⛔ learn 모드는 target=ko 일 때만 떼어 낸다', /learnMode && target === 'ko'/.test(loop));
 }
 
 console.log('\n[ E. 화면 배선 — 학생이 읽는 «뜻» 은 전부 mode:\'learn\' ]');
 {
   // 「/api/translate 를 부르는 그 fetch 블록 안에 mode:'learn' 이 있는가」 를 봅니다.
+  /* ⛔ 길이(i+400)로 자르지 마세요 — 그 자리에 줄만 더해도 검사가 깨집니다.
+     이 저장소의 호출은 `body: JSON.stringify({ texts:…, target:'ko', mode:'learn' })` 가
+     «한 줄» 이므로, 그 표식이 있는 «그 줄» 하나만 봅니다(구조적으로 정확합니다). */
   const callsLearn = (html, near) => {
-    const i = html.indexOf(near);
-    if (i < 0) return null;
-    return /mode:\s*'learn'/.test(html.slice(i, i + 400));
+    const line = html.split('\n').find((l) => l.includes(near));
+    if (line == null) return null;
+    return /mode:\s*'learn'/.test(line);
   };
   check('ai-friend.html 「뜻」 — 이번 제보의 당사자',
     callsLearn(PUB('ai-friend.html'), "texts: [key], target: 'ko'") === true);

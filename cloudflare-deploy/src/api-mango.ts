@@ -2525,25 +2525,37 @@ ${numbered}`;
                「Good job on your sentence」 같은 진짜 문장은 그대로 통째로 번역된다. */
             const lead = (learnMode && target === 'ko') ? peelLearnLead(t) : { leadKo: '', rest: t };
             const src = lead.rest;
-            // 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다
-            const needsMt = /[A-Za-z\u3131-\uD79D\u4E00-\u9FFF]/.test(src);
+            /* 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다.
+               ⚠️ 말머리를 «실제로 뗀» 경우에만 이 지름길을 쓴다. 조건을 넓히면 기본·chat 경로까지
+                  바뀌어, 이 글자범위에 없는 언어(가나·키릴 등)가 번역 없이 원문 그대로 나간다. */
+            const needsMt = !lead.leadKo || /[A-Za-z\u3131-\uD79D\u4E00-\u9FFF]/.test(src);
             let out = '';
+            /* 🔴 번역이 «실제로» 나왔는가 — 캐시(180일) 판정에 쓴다.
+               예전에는 실패하면 out = t(원문)라서 `out !== t` 가 거짓이 되어 저절로 캐시를 비켜 갔다.
+               말머리를 떼면 실패해도 「잘했어요! Do you have a pet animal?」처럼 t 와 «달라져서»
+               그 반쪽짜리가 180일 굳는다. 같은 사고 전례: 폴백 음성을 «요청 화자» 키로 캐시해
+               그 문장이 영원히 다른 목소리가 됐던 건(CLAUDE.md 2장). 실패는 캐시하지 않는다. */
+            let mtOk = true;
             if (!needsMt) {
               out = joinLearnLead(lead.leadKo, src);
             } else {
-            if (chatMode || learnMode) {
-              try { out = await chatTranslate(src); }
-              catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
-            }
-            if (!out) {
-              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
-              if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
-              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : src;
-            }
-            out = joinLearnLead(lead.leadKo, out);
+              let mt = '';
+              if (chatMode || learnMode) {
+                try { mt = await chatTranslate(src); }
+                catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+              }
+              if (!mt) {
+                const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
+                if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
+                mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
+              }
+              mtOk = !!mt;
+              // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
+              // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
+              out = joinLearnLead(lead.leadKo, mt || src);
             }
             map[t] = out;
-            if (kv && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            if (kv && mtOk && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
           } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
         }
       } else if (need.length) { for (const c of need) map[c] = c; }
