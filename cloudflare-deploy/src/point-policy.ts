@@ -127,15 +127,25 @@ export async function earnedTodayForGames(env: any, userId: string): Promise<num
  * ⚠️ 못 세면 **막지 않는다**(0이 아니라 상한 전액을 돌려준다). 조회 한 번 실패로 학생이
  *    받아야 할 점수를 잃는 쪽이, 조금 더 나가는 쪽보다 나쁘다 — `earnedToday` 와 같은 태도다.
  *
- * ⚠️ 게임 하위 상한(하루 30점)은 **여기서 안 본다.** 2026-09-01 지시는 «총량 100점 통일» 이지
- *    «단어장·복습퀴즈를 게임 30점 안으로» 가 아니다. 그 둘은 `GAME_QUIZ_RULES` 에 이름이
- *    올라 있지만 지금껏 한 번도 그 상한을 지난 적이 없다 — 지금 넣으면 100이 아니라 30이 된다.
- *    ⟹ 그렇게 바꾸려면 이 함수가 `earnedTodayForGames` 도 함께 보게 하면 된다(한 줄).
+ * 🎮 **게임 하위 상한(하루 30점)도 함께 본다** — 2026-09-01 사장님 2차 결정.
+ *    처음 통일할 때는 «총량 100» 만 걸었다. 그때 이 자리에 「게임 30점은 여기서 안 본다,
+ *    바꾸려면 한 줄」이라고 적어 두었고, 사장님이 「게임 30점 상한도 적용해줘」로 정하셨다.
+ *    ⚠️ 그래서 `vocab_review`·`review_quiz_done` 의 실효 상한은 **100이 아니라 30**이다.
+ *    ⚠️ 그 30점 통은 **다른 게임과 나눠 쓴다**(`rescue_sentence`·`micro_quiz_done`·
+ *       `speech_master`·`game_score`·`ai_writing_rewrite`). 단어장을 먼저 하면 그날 게임은 0이다.
+ *       실측(2026-09-01)으로는 그쪽 적립이 워낙 적어(speech_master 80점·rescue_sentence 15점)
+ *       당장 눈에 띄지 않지만, 게임이 늘면 «게임을 했는데 0점» 제보가 여기서 나온다.
+ *    ⛔ 둘 중 작은 쪽을 쓴다 — 합치거나 큰 쪽을 쓰면 상한이 뚫린다.
  */
 export async function dailyAllowance(env: any, userId: string, ruleCode: string): Promise<number> {
   if (CAP_EXEMPT_RULES.includes(ruleCode)) return POINT_POLICY.DAILY_TOTAL_CAP;
   const used = await earnedToday(env, userId);
-  return Math.max(0, POINT_POLICY.DAILY_TOTAL_CAP - used);
+  let left = Math.max(0, POINT_POLICY.DAILY_TOTAL_CAP - used);
+  if (GAME_QUIZ_RULES.includes(ruleCode)) {
+    const g = await earnedTodayForGames(env, userId);
+    left = Math.min(left, Math.max(0, POINT_POLICY.EARN.game_quiz_daily - g));
+  }
+  return left;
 }
 
 /**
