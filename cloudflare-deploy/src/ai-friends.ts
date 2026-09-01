@@ -69,22 +69,53 @@ export function resolveFriendName(raw: unknown): string {
          멀쩡한 답을 무더기로 버리게 됩니다.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/** 우리가 아는 친구 이름들(소문자). 「나는 Emma 야」 같은 «남의 이름» 판정에 쓴다. */
+/** 우리가 아는 친구 이름들(소문자). 「나는 Emma 야」 같은 «남의 이름» 판정에 쓴다.
+ *  ⚠️ 기본 이름(Mango)도 넣는다 — Lily 를 골랐는데 「I'm Mango」라고 하면 그것도 «어긴 것» 이다. */
 function knownNamesLower(): string[] {
-  return Object.keys(AI_FRIEND_NAMES).map((k) => String(AI_FRIEND_NAMES[k] || '').toLowerCase());
+  return Object.keys(AI_FRIEND_NAMES)
+    .map((k) => String(AI_FRIEND_NAMES[k] || '').toLowerCase())
+    .concat([AI_FRIEND_DEFAULT.toLowerCase()]);
 }
 
-/** «이름 자리에 왔지만 이름이 아닌» 낱말. 「My name is NOT Roy」의 NOT 이 그것이다.
- *  ⚠️ 이름 후보를 대문자로만 가르면 안 된다 — 강조하려고 전부 대문자로 쓰는 경우가 있다. */
-const NOT_A_NAME = new Set(['not', 'no', 'never', 'still', 'also', 'actually', 'really',
-  'just', 'always', 'only', 'the', 'a', 'an', 'your', 'my', 'his', 'her', 'their']);
+/** «이름 자리에 왔지만 이름이 아닌» 낱말.
+ *
+ *  🔴 2026-09-01 실측 — 첫 판(2026-08-31)은 열 가지 자기소개 모양 중 «두 가지» 만 잡았다.
+ *     사장님이 계속 보시던 「Hi! I'm Louie.」가 정확히 제가 «일부러 안 잡는다» 고 해 둔 자리였다.
+ *     그때 근거는 「"I'm happy" · "I'm a teacher" 가 훨씬 흔하다」였는데, 그 예들은 전부
+ *     «소문자» 다. 영어에서 I'm 뒤에 «대문자» 낱말이 오면 사실상 고유명사다.
+ *     그래서 판정을 «대문자인가» 로 바꾸고, 대문자로 올 수 있는 «이름 아닌 것» 만 여기 모은다.
+ *
+ *  ⛔ 이 목록을 «흔한 영어 낱말 사전» 으로 키우지 말 것 — 그러면 진짜 사람 이름(Grace·May·
+ *     Summer·Joy)까지 통과시킨다. 여기 담는 것은 ① 국적·언어 ② 상태를 강조해 대문자로
+ *     쓰는 낱말 ③ 이름 앞에 붙는 호칭, 셋뿐이다. */
+const NOT_A_NAME = new Set([
+  /* 한정사·부사 — 「My name is NOT Roy」의 NOT 이 여기서 걸린다 */
+  'not', 'no', 'never', 'still', 'also', 'actually', 'really', 'just', 'always', 'only',
+  'the', 'a', 'an', 'your', 'my', 'his', 'her', 'their', 'so', 'very', 'super', 'too',
+  /* 국적·언어 — 「I'm Korean」이 가장 흔한 거짓경보다 */
+  'korean', 'american', 'filipino', 'filipina', 'english', 'chinese', 'japanese', 'spanish',
+  'french', 'british', 'canadian', 'australian', 'indian', 'german', 'italian', 'mexican',
+  'brazilian', 'russian', 'vietnamese', 'thai', 'asian', 'european', 'african', 'latino',
+  /* 상태·감정 — 강조하려고 대문자로 쓰는 경우 */
+  'ok', 'okay', 'fine', 'good', 'great', 'happy', 'sad', 'sorry', 'ready', 'excited',
+  'glad', 'sure', 'tired', 'hungry', 'busy', 'fun', 'nice', 'proud', 'fantastic',
+  'awesome', 'wonderful', 'curious', 'here', 'back', 'done', 'new', 'young', 'old',
+  'from', 'going', 'learning', 'thinking', 'listening', 'waiting', 'looking',
+  /* 호칭 — 「I'm Teacher Lily」의 Teacher. (이 문장은 아래 «같은 문장에 기대 이름» 규칙으로도 걸러진다) */
+  'teacher', 'student', 'friend', 'miss', 'mister', 'mr', 'ms', 'mrs',
+]);
 
 /**
  * AI 답변이 «기대한 이름이 아닌 다른 이름» 으로 자기를 소개했으면 그 이름을 돌려준다.
  * 멀쩡하면 빈 문자열.
+ *
+ * ✅ 판정은 «문장 단위» 다. 같은 문장에 기대 이름이 함께 있으면 자기소개를 어긴 것이 아니다 —
+ *    「I'm Teacher Lily.」·「My name is not Emma, my name is Lily!」가 그래서 통과한다.
+ * ⚠️ 곱슬 따옴표(’)를 먼저 편다 — 모델이 자주 쓰는데, 안 펴면 「I’m Louie」를 통째로 놓친다.
  */
 export function wrongSelfName(reply: unknown, expected: string): string {
-  const t = String(reply || '');
+  /* 곱슬 따옴표 정규화 — I’m · name’s */
+  const t = String(reply || '').replace(/[\u2018\u2019\u02BC\u00B4`]/g, "'");
   const want = String(expected || '').trim().toLowerCase();
   if (!t || !want) return '';
   const known = knownNamesLower();
@@ -94,24 +125,33 @@ export function wrongSelfName(reply: unknown, expected: string): string {
      실사고 문장을 하나도 못 잡았다). */
   const looksName = (w: string) => !!w && /^[A-Za-z][A-Za-z'-]*$/.test(w)
     && /^[A-Z]/.test(w) && !NOT_A_NAME.has(w.toLowerCase());
+  const wantRe = new RegExp('\\b' + want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
 
-  /* ① 확실한 자리 — 이 뒤에는 사실상 이름만 온다 */
-  const strong = /\b(?:my name(?:'s| is)|call me|you can call me)\s+([A-Za-z][A-Za-z'-]{1,19})/gi;
-  let m: RegExpExecArray | null;
-  while ((m = strong.exec(t))) {
-    const got = m[1];
-    if (!looksName(got)) continue;
-    if (got.toLowerCase() !== want) return got;
-  }
+  for (const sent of t.split(/(?<=[.!?])\s+|\n+/)) {
+    /* 같은 문장이 기대 이름을 함께 말하고 있으면 어긴 것이 아니다 */
+    if (wantRe.test(sent)) continue;
+    let m: RegExpExecArray | null;
 
-  /* ② 애매한 자리 — «우리 친구 넷 중 다른 이름» 일 때만 */
-  const weak = /\b(?:i'm|i am|this is)\s+([A-Za-z][A-Za-z'-]{1,19})|\b([A-Za-z][A-Za-z'-]{1,19})\s+here\b/gi;
-  while ((m = weak.exec(t))) {
-    const got = m[1] || m[2] || '';
-    if (!looksName(got)) continue;
-    const low = got.toLowerCase();
-    if (low === want) continue;
-    if (known.indexOf(low) >= 0) return got;
+    /* ① 이름만 오는 자리 — 대문자면 이름 후보로 본다.
+       「I'm X」를 여기 넣은 것이 2026-09-01 수리의 핵심이다(위 주석). */
+    const strong = /\b(?:my name(?:'s| is)|call me|you can call me|i'm|i am)\s+([A-Za-z][A-Za-z'-]{1,19})|\b([A-Za-z][A-Za-z'-]{1,19})\s+is my name\b/gi;
+    while ((m = strong.exec(sent))) {
+      const got = m[1] || m[2] || '';
+      if (!looksName(got)) continue;
+      if (got.toLowerCase() !== want) return got;
+    }
+
+    /* ② 애매한 자리 — «우리 친구 이름(+기본값 Mango)» 일 때만.
+       ⛔ 여기를 ①처럼 넓히지 말 것: 「This is a dog.」·「Come here!」 처럼 이름이 아닌 것이
+          그 자리에 흔히 오고, 학생 이름을 부르는 말(「This is Minsu's book」)까지 잡는다. */
+    const weak = /\b(?:this is)\s+([A-Za-z][A-Za-z'-]{1,19})|\b([A-Za-z][A-Za-z'-]{1,19})\s+here\b/gi;
+    while ((m = weak.exec(sent))) {
+      const got = m[1] || m[2] || '';
+      if (!looksName(got)) continue;
+      const low = got.toLowerCase();
+      if (low === want) continue;
+      if (known.indexOf(low) >= 0) return got;
+    }
   }
 
   return '';

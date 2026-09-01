@@ -4074,8 +4074,14 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    /* 🏷️ 첫 턴에는 «학생이 화면에서 본 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
+       화면 인사(BEGINNER_GREETINGS)는 "Hi! I'm Lily." 인데 그것은 «화면에서만» 그려지고
+       히스토리에는 안 들어간다. 그래서 모델은 자기가 이름을 말한 적이 없는 상태에서
+       첫 답을 만들고, 학생이 이름을 물으면 그 자리에서 지어낸다(사장님 「계속 루이라고 말해」).
+       ⛔ 지어내는 것이 아니다 — 학생이 실제로 본 문장 그대로다. 앞뒤가 맞아지는 쪽이다.
+       ⚠️ 첫 턴에만 넣는다. 둘째 턴부터는 진짜 히스토리에 이름이 이미 들어 있다. */
     const messages = [{ role: 'system', content: sys }]
-      .concat(history)
+      .concat(history.length ? history : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
       .concat([{ role: 'user', content: studentInput }]);
 
     // ── Workers AI 호출 ──
