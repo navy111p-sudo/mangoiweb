@@ -305,6 +305,77 @@ console.log('\n════════ ⑨ 관리자 목록 — 누구인지 �
      '화면이 «문자를 못 보낸다» 는 사실을 말한다 — 안 적으면 매니저가 문자를 찾는다');
 }
 
+console.log('\n════════ ⑩ 유령 연결 — «패킷이 오는가» 로 죽은 상대를 가린다 ════════');
+{
+  /* 🔴 2026-09-01 실사고 재현 — class-1070-20260901 은 출석이 학생1·강사1(2명)뿐인데
+     학생 브라우저의 연결 수가 26분간 1→9 로 늘었다(8개가 유령). 원인은 화면 청소기가
+     `track.readyState === 'live'` 로 판정한 것 — 원격 트랙은 상대가 사라져도 'live' 다.
+     그래서 여기서는 «패킷이 실제로 오는가» 를 **실제로 돌려서** 확인한다. */
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  function rxRig() {
+    const t = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+    const pk = { video: 0, audio: 0 };
+    const mkRecv = (kind) => ({
+      track: { kind },
+      getStats: () => Promise.resolve([{ type: 'inbound-rtp', packetsLost: 0, packetsReceived: pk[kind],
+                                         freezeCount: 0, concealedSamples: 0, totalSamplesReceived: 0 }]),
+    });
+    t.win.vcPeerConnections = { ghost1: { getReceivers: () => [mkRecv('video'), mkRecv('audio')] } };
+    t.win.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() };
+    return { t, pk };
+  }
+
+  const { t, pk } = rxRig();
+  const nm = () => t.win.vcPeerNoMedia('ghost1');
+  ok(nm() === 0, '모르는 상대는 «침묵 0초» 다(«죽었다» 고 하지 않는다)');
+
+  pk.video = 100; pk.audio = 100;
+  await t.api.rx(); await flush();
+  ok(nm() === 0, '첫 틱은 기준값이 없어 세지 않는다 — 막 붙은 상대가 죽은 것이 되면 안 된다');
+
+  /* 패킷이 멎었다 — 15틱(60초) */
+  for (let i = 0; i < 15; i++) { await t.api.rx(); await flush(); }
+  ok(nm() >= 60, `패킷이 멎으면 침묵 시간이 쌓인다 (${nm()}초)`);
+
+  /* 다시 오기 시작하면 0 으로 되돌아간다 */
+  pk.video += 50; pk.audio += 50;
+  await t.api.rx(); await flush();
+  ok(nm() === 0, '패킷이 다시 오면 곧바로 0 으로 돌아간다');
+
+  /* 🎥 카메라만 끈 사람 — 영상은 멎어도 오디오가 흐르면 죽은 것이 아니다 */
+  const { t: t2, pk: pk2 } = rxRig();
+  pk2.video = 10; pk2.audio = 10;
+  await t2.api.rx(); await flush();
+  for (let i = 0; i < 20; i++) { pk2.audio += 50; await t2.api.rx(); await flush(); }
+  ok(t2.win.vcPeerNoMedia('ghost1') === 0,
+     '⛔ 카메라만 끈 사람을 «죽었다» 고 하지 않는다(오디오가 흐르면 살아 있다)');
+
+  /* 🎤 반대 경우 — 마이크만 끈 사람. 위 시험만 두면 «둘 중 작은 값» 이 아니라
+     «마지막에 본 값» 을 쓰는 실수를 못 잡는다(변이시험에서 실제로 안 잡혔다). */
+  const { t: t3, pk: pk3 } = rxRig();
+  pk3.video = 10; pk3.audio = 10;
+  await t3.api.rx(); await flush();
+  for (let i = 0; i < 20; i++) { pk3.video += 50; await t3.api.rx(); await flush(); }
+  ok(t3.win.vcPeerNoMedia('ghost1') === 0,
+     '⛔ 마이크만 끈 사람도 «죽었다» 고 하지 않는다(영상이 흐르면 살아 있다)');
+
+  /* 청소기 쪽 배선 */
+  const dg = readFileSync(join(PUB, 'js', 'idx-vc-dupghost.js'), 'utf8');
+  ok(/window\.vcPeerNoMedia/.test(dg) && /SILENT_MS/.test(dg),
+     '청소기가 «패킷이 오는가» 를 함께 본다');
+  ok(/deadPc\(userId\) \|\| noMediaMs\(userId\) >= SILENT_MS/.test(dg),
+     '연결 상태(failed/closed) 「또는」 60초 침묵이면 죽은 것으로 본다');
+  ok(/typeof window\.vcPeerNoMedia !== 'function'\) return 0/.test(dg),
+     '⛔ 그 함수가 아직 없으면 0 을 돌려 «옛 동작 그대로» 안전하다(defer 로드 순서)');
+  ok(/if \(mine && it\.name === mine\)/.test(dg) && /if \(liveByName\[it\.name\]\)/.test(dg),
+     '⛔ 비대칭 확인(내 이름 / 같은 이름이 정상 수신 중)은 그대로 — 혼자 있는 상대는 절대 안 지운다');
+
+  const m = dg.match(/var SILENT_MS = (\d+);/);
+  ok(!!m && Number(m[1]) >= 30000,
+     `침묵 임계값이 30초 이상이다 (${m ? m[1] : '?'}ms) — 짧게 잡으면 잠깐 끊긴 사람을 지운다`);
+}
+
 console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으로 뒤집지 않는다 ════════');
 {
   const api = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
