@@ -58,7 +58,9 @@
     return false;
   }
   /* 태그가 아니라 «클래스» 로 빼야 하는 것 — 색이 뜻을 지고 가는 요소. */
-  var KEEP_SEL = '.tp-st-badge';
+  /* 색이 «뜻» 을 지고 가는 배지들 — 여기를 지나면 darken() 이 hue 를 유지한 채 명도만 낮춰
+     빨강이 어두운 파랑처럼 보이는 일이 생긴다(2026-09-01 실측 전례). */
+  var KEEP_SEL = '.tp-st-badge,.tr-st-badge';
   var SKIP = { SCRIPT:1, STYLE:1, IFRAME:1, CANVAS:1, VIDEO:1, IMG:1, SVG:1, PATH:1, SELECT:1, OPTION:1, INPUT:1, TEXTAREA:1 };
 
   // ⚡ (2026-07-27 직원 피드백 "클릭하면 화면이 아주 느리다") 이 함수가 관리자 화면 버벅임의 최대 원인이었다.
