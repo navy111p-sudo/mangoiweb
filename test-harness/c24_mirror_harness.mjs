@@ -247,8 +247,15 @@ console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
     /카페24에만 있음/.test(cardFn) && /Cafe24 only/.test(cardFn));
   // 이미 망고아이에 행이 있는 판정은 그리지 않는다 — 그리면 같은 수업이 두 번 보인다
   const show = (Q6.match(/var PH54_C24_SHOW = \{[^}]*\}/) || [''])[0];
-  check('이미 행이 있는 판정(already/update/conflict/manual_locked/diverged)은 안 그린다',
-    !!show && !/already|update|conflict|manual_locked|diverged/.test(show));
+  /* 🔴 (2026-09-01) conflict 는 «그린다» 로 바뀌었다 — 강사 필터를 걸면 그 «진짜 카드» 는
+     다른 강사 것이라 화면에 없어서, 안 그리면 아무 데도 안 보였다(실측 Mariane 30 → 28). */
+  check('이미 같은 카드로 그려지는 판정(already/update/manual_locked/diverged)은 안 그린다',
+    !!show && !/already|update|manual_locked|diverged/.test(show));
+  check('🔴 conflict 는 그린다(강사 필터에서 통째로 사라지던 것)', !!show && /conflict\s*:\s*1/.test(show));
+  check('conflict 카드는 «같은 시각 다른 수업» 이라고 말한다',
+    /⚠️ 같은 시각 다른 수업/.test(Q6) && /Clashes with another class/.test(Q6));
+  check('conflict 는 «확인필요» 로 따로 센다(대기 건수에 섞지 않는다)',
+    /else if \(r\.verdict === 'conflict'\) c24Clash\+\+/.test(Q6) && /겹침 확인필요/.test(Q6));
   check('그릴 것은 «망고아이에 아직 없는» 것뿐', /ok\s*:\s*1/.test(show) && /not_whitelisted\s*:\s*1/.test(show));
   // 강사를 못 이은 것은 «아무 칸에나» 놓지 않는다
   check('강사를 못 이으면 그리지 않고 건수만 알린다', /if \(!r\.teacher_id\)\{ c24NoTeacher\+\+; return; \}/.test(Q6));
@@ -260,8 +267,24 @@ console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
   check('권한 없음(403/401)은 «고장» 으로 알리지 않는다', /r\.status === 403 \|\| r\.status === 401/.test(Q6));
   check('성공은 «ok === true» 로만 판정한다(404 본문에는 ok 칸이 없다)', /j\.ok !== true/.test(Q6));
   // 캐시 무효화 — 파일이 바뀌었으면 ?v= 도 올라가야 한다(asset_version_harness 와 같은 계약)
+  /* 🔴 (2026-09-01 사장님 화면 확인) 지난 주를 열면 「수업 0개 · 카페24 58개」 가 뜨고
+     카드마다 「미러를 켜면 만들어집니다」 라고 적혀 있었다. 미러 창은 «오늘부터» 라
+     지난 수업은 영영 안 만들어지므로 **거짓말**이었고, 「58건이 빠졌다」 로 읽힌다.
+     ⛔ 감추는 것도 답이 아니다 — 그러면 「지난주에 수업이 없었다」 는 반대쪽 거짓이 된다. */
+  check('🔴 I⑩ 지난 날짜인지 판정한다', /var isPast\s*=\s*String\(s\.date \|\| ''\) < ph54TodayKst\(\)/.test(Q6));
+  check('🔴 I⑩ 지난 카드에는 «만들어집니다» 를 붙이지 않는다',
+    /var why\s*=\s*isPast \? null : PH54_C24_WHY\[s\.verdict\]/.test(Q6));
+  check('I⑩ 지난 카드는 «지난 수업 (카페24 기록)» 이라고 말한다',
+    /지난 수업 \(카페24 기록\)/.test(Q6) && /Past class \(Cafe24 record\)/.test(Q6));
+  check('I⑩ 지난 것을 감추지 않는다(그리기는 그대로)',
+    /c24Events\.push\(\{ rec: r, col: dateToCol\[r\.date\] \}\);/.test(Q6));
+  check('🔴 I⑪ 건수를 «지난 것 / 겹침 / 앞으로 것» 으로 갈라 센다',
+    /c24Past\+\+;/.test(Q6) && /c24Clash\+\+;/.test(Q6) && /c24Ahead\+\+;/.test(Q6)
+    && /카페24 대기/.test(Q6) && /지난 카페24 기록/.test(Q6) && /겹침 확인필요/.test(Q6));
+  check('I⑪ 한 숫자로 합친 옛 표기가 남아 있지 않다', !/카페24 수업 \(망고아이엔 아직 없음\)/.test(Q6));
+
   const v = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('admin.html 의 adm-q6.js ?v= 가 9 이상', v >= 9, `v=${v}`);
+  check('admin.html 의 adm-q6.js ?v= 가 11 이상', v >= 11, `v=${v}`);
 }
 
 
@@ -284,6 +307,9 @@ console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인)
     const sqls = [];
     const pick = (sql) => {
       if (/FROM c24_mirror_config/.test(sql)) return { first: { v: scn.mode } };
+      /* ⚠️ enabled=1(켠 강사)과 enabled=0(막은 강사)은 **같은 표**를 본다.
+         표 이름으로만 가르면 둘이 같은 답을 받아 «켠 강사가 곧 막힌 강사» 가 된다(실제로 밟음). */
+      if (/FROM c24_mirror_teachers WHERE enabled = 0/.test(sql)) return { all: (scn.blocked || []).map((t) => ({ teacher_id: t })) };
       if (/FROM c24_mirror_teachers/.test(sql)) return { all: (scn.enabled || []).map((t) => ({ teacher_id: t })) };
       if (/FROM teachers WHERE active/.test(sql)) return { all: scn.roster || [] };
       if (/FROM teacher_payroll_auto/.test(sql)) return { all: scn.payroll || [] };
@@ -520,6 +546,9 @@ console.log('\n[ K. 자동 실행 (cron) ]');
     const sqls = [];
     const pick = (sql) => {
       if (/FROM c24_mirror_config WHERE k='mode'/.test(sql)) return { first: { v: scn.mode } };
+      /* ⚠️ enabled=1(켠 강사)과 enabled=0(막은 강사)은 **같은 표**를 본다.
+         표 이름으로만 가르면 둘이 같은 답을 받아 «켠 강사가 곧 막힌 강사» 가 된다(실제로 밟음). */
+      if (/FROM c24_mirror_teachers WHERE enabled = 0/.test(sql)) return { all: (scn.blocked || []).map((t) => ({ teacher_id: t })) };
       if (/FROM c24_mirror_teachers/.test(sql)) return { all: (scn.enabled || []).map((t) => ({ teacher_id: t })) };
       if (/FROM c24_mirror_config WHERE k LIKE/.test(sql)) return { all: [] };
       if (/FROM teachers WHERE active/.test(sql)) return { all: [{ id: 7, name: 'ANA' }] };
@@ -597,6 +626,20 @@ console.log('\n[ K. 자동 실행 (cron) ]');
     check("K⑨ 그 인덱스는 미러 행에만 걸린다(사람 수업은 안 건드린다)",
       /idx_c24_mirror_class[\s\S]{0,120}WHERE source='c24-mirror'/.test(MIRROR_TS));
   }
+  /* 🔴 K⑫ (2026-09-01 사장님 「마리안은 그만 두었어」) 퇴사 강사의 잔재가 전환일에 살아나면 안 된다.
+     화이트리스트는 «적혀 있으면 켠다» 라 «없는 강사» 는 mode='all' 에서 전부 만들어진다.
+     그래서 enabled=0 은 «아직 안 켬» 이 아니라 «켜지 마라» 여야 하고 'all' 도 이겨야 한다. */
+  {
+    // ⚠️ K 절은 J 절과 다른 블록이라 그쪽 헬퍼가 안 보인다 — K 자신의 cypher 를 쓴다
+    const dbAll = makeDb({ mode: 'all', enabled: [], blocked: ['7'] });
+    const r = await M.applyMirror({ DB: dbAll }, cypher, { dry_run: false });
+    check('🔴 K⑫ 명시적으로 끈 강사는 mode=\'all\' 에서도 안 만든다',
+      r.applied.created === 0 && dbAll.sqls.length === 0, { applied: r.applied, sqls: dbAll.sqls });
+    check('K⑫ 결과에 «막은 강사» 가 실린다', Array.isArray(r.blocked_teachers) && r.blocked_teachers.includes('7'), r.blocked_teachers);
+  }
+  check('🔴 K⑫ 막기 검사가 mode 검사 «앞» 에 있다',
+    MIRROR_TS.indexOf('if (blocked.has(tid)) return false;') < MIRROR_TS.indexOf("return mode === 'all' || enabled.has(tid);"));
+
   // 성적표가 「자동으로 도는가」를 함께 보여 준다
   check('K⑩ 성적표에 마지막 자동 실행이 실린다', /last_runs: lastRuns/.test(MIRROR_TS));
 }
