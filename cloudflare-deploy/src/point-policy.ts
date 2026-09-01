@@ -46,13 +46,29 @@ export function kstDayStart(now = Date.now()): number {
   return Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
 }
 
-/** 오늘 이 학생이 «적립» 으로 받은 점수 합계. 차감(spend)·회수는 세지 않는다. */
+/** 🎖 «오늘 다시 오지 않는» 마디 보상은 하루 총량 상한에서 뺀다.
+ *
+ *  [왜] 7일 연속 영작 보너스는 `wStreak % 7 === 0` 인 날에만 발화한다. 그날 상한에 걸려
+ *    막히면 기록이 안 남고 다음 날은 wStreak=8 이라 조건이 거짓 — **그 마디는 영영 돌아오지
+ *    않는다.** 50점은 상한의 절반이라 칭찬을 스무 번 받은 날이면 바로 걸린다.
+ *    재시도할 자리가 없는 보상에 총량 상한을 걸면 «막는 것» 이 아니라 «빼앗는 것» 이 된다.
+ *  ⛔ 여기에 «반복되는» 적립을 넣지 말 것 — 그 순간 상한이 뚫린다.
+ *     들어올 자격은 「하루에 많아야 한 번 + 놓치면 다시 안 옴」 둘 다 만족할 때뿐이다. */
+export const CAP_EXEMPT_RULES = ['ai_writing_streak', 'attendance_streak'];
+
+/** 오늘 이 학생이 «적립» 으로 받은 점수 합계.
+ *  ⚠️ 차감(spend)·회수만 빼는 게 아니라 **환불·관리자 지급도 뺀다** — 그 둘은 «오늘 벌었다» 가
+ *     아니다. 3,000P 기프티콘 환불 한 건이 그날 적립을 통째로 막아 버리기 때문이다
+ *     (applyPointTransaction 의 isCredit 이 refund·admin_grant 도 양수로 적는다). */
 export async function earnedToday(env: any, userId: string): Promise<number> {
   try {
+    const marks = CAP_EXEMPT_RULES.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
-        WHERE user_id = ? AND amount > 0 AND created_at >= ?`
-    ).bind(userId, kstDayStart()).first();
+        WHERE user_id = ? AND amount > 0 AND created_at >= ?
+          AND type = 'earn'
+          AND (rule_code IS NULL OR rule_code NOT IN (${marks}))`
+    ).bind(userId, kstDayStart(), ...CAP_EXEMPT_RULES).first();
     return Number(row?.s || 0);
   } catch { return 0; }   // 못 세면 막지 않는다 — 적립이 조회 실패로 죽으면 안 된다
 }
@@ -76,6 +92,8 @@ export async function earnedTodayForGames(env: any, userId: string): Promise<num
 export async function checkEarnAllowed(
   env: any, userId: string, ruleCode: string, amount: number
 ): Promise<{ ok: boolean; error?: string; cap?: number; used?: number }> {
+  // 🎖 다시 오지 않는 마디 보상은 상한을 지나지 않는다(위 CAP_EXEMPT_RULES 주석 참고)
+  if (CAP_EXEMPT_RULES.includes(ruleCode)) return { ok: true };
   const today = await earnedToday(env, userId);
   if (today + amount > POINT_POLICY.DAILY_TOTAL_CAP) {
     return { ok: false, error: 'daily_total_cap_reached', cap: POINT_POLICY.DAILY_TOTAL_CAP, used: today };
