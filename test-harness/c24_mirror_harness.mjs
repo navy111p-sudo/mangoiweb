@@ -990,36 +990,98 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
   check('O-7 강사번호가 없으면 빈 칸으로 센다', K('a', null, '17:40') === 'a||17:40');
   check('O-7 summarize 에 suspect_dup 칸이 있다', M.summarize([]).suspect_dup === 0);
 
-  // ── O-8 이력 SQL 을 «진짜 SQLite» 에 돌린다 (문자열 검사로는 오타를 못 잡는다) ──
+  // ── O-8 🔴 «정본 함수를 진짜 SQLite 에 물려» 돌린다 ──────────────────────────
+  /* ⚠️ 처음에는 SQL 을 손으로 «베껴» 돌렸는데, 그러면 정본을 한 번도 실행하지 않는다.
+       trap-check 가 그 상태에서 정본만 망가뜨려 보고 잡았다 — slotKey 인자를 뒤바꿔도,
+       COUNT(*) 를 1 로 바꿔도 하니스는 246/0 초록이었다. 두 변이 모두 실서비스에서는
+       «모든 자리가 1건» 이 되어 하루 2건인 날의 수업을 무더기로 차단한다.
+     ✅ 그래서 진짜 SQLite 를 D1 모양으로 감싸 정본 loadSlotHistory 를 그대로 부른다.
+        (같은 저장소의 본보기: 위 N⑥·N⑦ 이 loadHiddenStudents 를 가짜 DB 로 실제로 돌린다) */
   {
     const db = new DatabaseSync(':memory:');
     db.exec(`CREATE TABLE attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL,
              user_id TEXT NOT NULL, joined_at INTEGER NOT NULL, teacher_uid TEXT)`);
-    // 21:30 두 번 + 17:40 한 번 + 다른 학생 한 번(섞이면 안 된다)
     const ins = db.prepare(`INSERT INTO attendance (room_id, user_id, joined_at, teacher_uid) VALUES (?,?,?,?)`);
     ins.run('c24-512025', 'hya1897', KST('2026-09-01', '21:30'), '192');
     ins.run('c24-512028', 'hya1897', KST('2026-09-02', '21:30'), '192');
-    ins.run('c24-511745', 'hya1897', KST('2026-09-01', '17:40'), '192');
-    ins.run('c24-999', 'other', KST('2026-09-01', '21:30'), '192');
-    ins.run('class-1-20260901', 'hya1897', KST('2026-09-01', '21:30'), '192');   // 망고아이 방 — 세면 안 된다
-    const sql = `SELECT user_id, teacher_uid,
-                        strftime('%H:%M', joined_at/1000, 'unixepoch', '+9 hours') AS hm,
-                        COUNT(*) AS n
-                   FROM attendance
-                  WHERE room_id LIKE 'c24-%' AND user_id IN ('hya1897')
-                  GROUP BY user_id, teacher_uid, hm`;
-    const got = Object.fromEntries(db.prepare(sql).all().map(r => [r.hm, Number(r.n)]));
-    check('🔴 O-8 이력 SQL 이 실제 SQLite 에서 돈다 (KST 로 시각을 읽는다)',
-      got['21:30'] === 2 && got['17:40'] === 1, JSON.stringify(got));
-    check('🔴 O-8 망고아이 방(class-*)은 이력에 안 센다 — 자기가 만든 행이 자기를 «진짜» 로 만든다',
-      got['21:30'] === 2, JSON.stringify(got));
+    ins.run('c24-511745', 'hya1897', KST('2026-09-01', '17:40'), '192');   // 유령 — 한 번뿐
+    ins.run('c24-511746', 'hya1897', KST('2026-09-01', '17:00'), '35');    // 다른 강사
+    ins.run('c24-999', 'other',   KST('2026-09-01', '21:30'), '192');      // 다른 학생 — 섞이면 안 된다
+    ins.run('class-1-20260901', 'hya1897', KST('2026-09-01', '21:30'), '192'); // 망고아이 방 — 세면 안 된다
+
+    // D1 모양 얇은 껍데기 (prepare → bind → all)
+    const d1 = {
+      prepare(sql) {
+        const st = {
+          _b: [],
+          bind(...a) { st._b = a; return st; },
+          async all() { return { results: db.prepare(sql).all(...st._b) }; },
+          async first() { return db.prepare(sql).get(...st._b) ?? null; },
+          async run() { return {}; },
+        };
+        return st;
+      },
+      exec: async () => {},
+    };
+
+    const seen = await M.loadSlotHistory({ DB: d1 }, ['hya1897', 'nobody']);
+    const K2 = M.slotKey;
+    check('🔴 O-8 정본이 되풀이되는 자리를 «제대로 센다»(2건)',
+      seen.get(K2('hya1897', '192', '21:30')) === 2, JSON.stringify([...seen]));
+    check('🔴 O-8 정본이 유령 자리를 «1건» 으로 센다',
+      seen.get(K2('hya1897', '192', '17:40')) === 1, JSON.stringify([...seen]));
+    check('🔴 O-8 학생·강사를 뒤바꾸지 않는다 (다른 강사는 다른 열쇠)',
+      seen.get(K2('hya1897', '35', '17:00')) === 1
+      && seen.get(K2('hya1897', '192', '17:00')) === undefined, JSON.stringify([...seen]));
+    check('🔴 O-8 다른 학생은 안 섞인다', !seen.has(K2('other', '192', '21:30')));
+    check('🔴 O-8 망고아이 방(class-*)은 안 센다 — 자기가 만든 행이 자기를 «진짜» 로 만든다',
+      seen.get(K2('hya1897', '192', '21:30')) === 2);
+
+    /* 그 Map 을 그대로 planMirror 에 물려 «끝에서 끝까지» 한 번 더 확인한다 */
+    const e2e = runO([co('511745', '2026-09-01', '17:40', '192'),
+                      co('512025', '2026-09-01', '21:30', '192')], seen);
+    check('🔴 O-8 정본 이력으로 돌려도 유령만 막힌다(끝에서 끝까지)',
+      vmap(e2e)['511745'] === 'suspect_dup' && vmap(e2e)['512025'] === 'ok', JSON.stringify(vmap(e2e)));
     db.close();
-    // 정본 SQL 과 위 문장이 «같은 말» 인가 — 한쪽만 고치면 이 검사가 무의미해진다
-    const srcSql = (MIRROR_TS.match(/export async function loadSlotHistory[\s\S]*?\n}/) || [''])[0];
-    check('O-8 정본이 c24- 방만 센다', /room_id LIKE 'c24-%'/.test(srcSql));
-    check('O-8 정본이 KST 로 시각을 읽는다', /'\+9 hours'/.test(srcSql));
-    check('O-8 정본이 (학생·강사·시각)으로 묶는다', /GROUP BY user_id, teacher_uid, hm/.test(srcSql));
-    check('O-8 정본이 IN 목록을 공용 헬퍼로 자른다', /selectInChunks/.test(srcSql));
+  }
+
+  // ── O-8b 부분 실패는 «불완전한 Map» 이 아니라 «빈 Map» 이어야 한다 ──
+  /* 🔴 청크 하나가 실패했는데 나머지를 이어 붙이면 size>0 게이트를 통과해 그 학생들의
+       이력이 0으로 읽힌다 ⟹ 멀쩡한 수업이 차단된다(trap-check 지적). 던지지도 않아야 한다. */
+  {
+    /* ⚠️ 성공한 청크가 «빈 결과» 면 이 검사가 헛돈다 — 올바른 코드도 망가진 코드도 똑같이
+         빈 Map 이 나오기 때문이다(실제로 처음에 그렇게 짜서 변이가 안 잡혔다).
+         그래서 **첫 청크는 진짜 행을 돌려주고** 두 번째만 실패시킨다. */
+    let n = 0;
+    const flaky = {
+      exec: async () => {},
+      prepare() {
+        const st = { bind: () => st, first: async () => null, run: async () => ({}),
+          all: async () => {
+            n++;
+            if (n === 2) throw new Error('D1_ERROR');
+            return { results: [{ user_id: 'u1', teacher_uid: '192', hm: '21:30', n: 7 }] };
+          } };
+        return st;
+      },
+    };
+    const many = Array.from({ length: 200 }, (_, i) => 'u' + i);   // 90개씩 → 청크 3개
+    let threw = false, got = null;
+    try { got = await M.loadSlotHistory({ DB: flaky }, many); } catch { threw = true; }
+    check('🔴 O-8b 한 청크가 실패해도 던지지 않는다', !threw);
+    check('🔴 O-8b 그때는 «빈 Map»(판정 건너뜀) — 불완전한 Map 을 흘리지 않는다',
+      !!got && got.size === 0, got && JSON.stringify([...got]));
+    check('🔴 O-8b (헛돎 방지 짝 검사) 다 성공하면 그 행들이 실제로 담긴다',
+      (await M.loadSlotHistory({ DB: {
+        exec: async () => {},
+        prepare() { const st = { bind: () => st, first: async () => null, run: async () => ({}),
+          all: async () => ({ results: [{ user_id: 'u1', teacher_uid: '192', hm: '21:30', n: 7 }] }) };
+          return st; },
+      } }, ['u1'])).get(M.slotKey('u1', '192', '21:30')) === 7);
+    const boom = { exec: async () => {}, prepare() { throw new Error('no such table: attendance'); } };
+    let threw2 = false, got2 = null;
+    try { got2 = await M.loadSlotHistory({ DB: boom }, ['a']); } catch { threw2 = true; }
+    check('🔴 O-8b 표가 아예 없어도 던지지 않고 빈 Map', !threw2 && !!got2 && got2.size === 0);
   }
 
   // ── O-9 배선 — 두 호출부가 모두 이력을 넘긴다(한쪽만 넘기면 쓰기 경로가 그대로 뚫린다) ──
@@ -1040,6 +1102,10 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
   // ── O-11 카페24에 물어볼 근거 — 속성 이름을 성적표에 싣는다(판정에는 쓰지 않는다) ──
   check('O-11 :Class 속성 이름을 읽어 온다', /UNWIND keys\(c\) AS k/.test(MIRROR_TS));
   check('O-11 성적표가 그것을 내려준다', /prop_keys: await fetchC24ClassPropKeys\(/.test(MIRROR_TS));
+  /* 🔴 «내려준다» 와 «사람이 본다» 는 다르다 — 주석이 「성적표에 싣는다」고 약속해 놓고
+       화면이 안 그리던 것을 trap-check 가 잡았다. 그리는지까지 검사한다. */
+  check('🔴 O-11 화면이 그 목록을 실제로 그린다', /r\.prop_keys/.test(MIRROR_HTML));
+  check('🔴 O-11 스위치가 꺼져 있으면 화면이 그렇게 말한다', /r\.dup_guard === false/.test(MIRROR_HTML));
   /* ⛔ 부정 검사는 주석을 벗겨 낸 사본으로 — 위 주석들이 그 이름을 «설명» 하고 있다(CLAUDE.md 2장) */
   const bare = MIRROR_TS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   check('🔴 O-11 그 속성으로 «판정» 하지 않는다 — 뜻을 확인하기 전까지는 보여 주기만 한다',

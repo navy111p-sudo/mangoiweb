@@ -541,26 +541,37 @@ export async function loadExisting(env: MirrorEnv, since: string, until: string)
  * ℹ️ 왜 Neo4j 가 아니라 `attendance` 인가 — 그 표에는 야간 동기화가 카페24 :Class 를
  *    **-60일 ~ +180일** 로 이미 넣어 두었다(`importCafe24Attendance`). 미러의 창(3일·14일)보다
  *    훨씬 넓어서 「되풀이되는 자리인가」를 제대로 셀 수 있고, Neo4j 를 한 번 더 부르지 않는다.
- * ⚠️ 그래서 «오늘 카페24에 새로 잡힌 수업» 은 야간 동기화 전까지 이력이 0건이다. 그때는
- *    (그날 2건 이상일 때만) 하루 보류됐다가 다음 날 저절로 만들어진다 — 안전한 방향의 실패다.
+ * 🔴 **한 번짜리 수업(보강 등)은 «하루» 가 아니라 «그 자리가 두 번째로 잡힐 때까지» 보류된다.**
+ *    처음에 「하루 보류됐다가 다음 날 저절로 만들어진다」고 적었는데 **사실이 아니었다**(trap-check
+ *    지적 → 정본 함수를 실제로 돌려 확인). 야간 동기화가 돌면 그 수업 «자신» 이 이력 1건이 되지만
+ *    임계값이 `< 2` 라 여전히 걸린다. 즉 「정규수업이 있는 날에 한 번만 추가되는 보강」은
+ *    **미러가 만들지 않는다.** 성적표에 `suspect_dup` 으로 뜨므로 사람이 보고 손으로 넣으면 된다.
+ *    ⚠️ 이것이 이 판정이 치르는 **진짜 값**이다. 「안전한 방향의 실패」라고 뭉뚱그리지 말 것 —
+ *       그렇게 적으면 다음 사람이 「보강이 왜 안 뜨지」를 처음부터 다시 파게 된다.
  * ⛔ status 로 거르지 않는다 — 하는 일이 «세기» 라 넓게 잡는 쪽이 맞다(좁히면 유령이 샌다).
- * ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도). swallowErrors — 표가 없으면
- *    빈 Map 이 되고, 빈 Map 은 «판정을 건너뛴다» 는 뜻이라 옛 동작 그대로가 된다.
+ * ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도).
+ * 🔴 **한 청크라도 실패하면 «통째로» 빈 Map 을 돌려준다.** 처음에 `swallowErrors` 로 두었는데,
+ *    그러면 5청크 중 2청크가 실패했을 때 Map 이 «비지는 않았지만 불완전» 해지고 `slotSeen.size > 0`
+ *    게이트를 **통과**한다 ⟹ 그 학생들의 이력이 0으로 읽혀 **멀쩡한 수업이 차단**된다(trap-check 지적).
+ *    빈 Map 은 «판정을 건너뛴다» 는 뜻이라, 표가 없는 옛 DB 에서도 옛 동작 그대로가 된다.
+ *    ⚠️ 「0건이었다」와 「못 읽었다」를 구분하지 못하는 값은 **판정에 쓰면 안 된다**.
  */
 export async function loadSlotHistory(env: MirrorEnv, uids: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   const want = Array.from(new Set(uids.filter(Boolean)));
   if (!want.length) return out;
-  const rows = await selectInChunks<any>(
-    env.DB, want,
-    (ph) => `SELECT user_id, teacher_uid,
-                    strftime('%H:%M', joined_at/1000, 'unixepoch', '+9 hours') AS hm,
-                    COUNT(*) AS n
-               FROM attendance
-              WHERE room_id LIKE 'c24-%' AND user_id IN (${ph})
-              GROUP BY user_id, teacher_uid, hm`,
-    { swallowErrors: true },
-  );
+  let rows: any[];
+  try {
+    rows = await selectInChunks<any>(
+      env.DB, want,
+      (ph) => `SELECT user_id, teacher_uid,
+                      strftime('%H:%M', joined_at/1000, 'unixepoch', '+9 hours') AS hm,
+                      COUNT(*) AS n
+                 FROM attendance
+                WHERE room_id LIKE 'c24-%' AND user_id IN (${ph})
+                GROUP BY user_id, teacher_uid, hm`,
+    );   // ⛔ swallowErrors 를 켜지 말 것 — 부분 실패가 «불완전한 Map» 으로 새어 나간다(위 주석)
+  } catch { return new Map(); }
   for (const r of rows) {
     out.set(
       slotKey(String(r.user_id || ''), r.teacher_uid == null ? null : String(r.teacher_uid), String(r.hm || '')),
