@@ -215,7 +215,14 @@
         msg = ph54T('카페24 수업을 읽지 못했습니다', 'Could not read Cafe24 classes')
             + ' (' + ((j && (j.error || j.message)) || ('HTTP ' + r.status)) + ')';
       } else {
-        rows = (Array.isArray(j.rows) ? j.rows : []).filter(function(x){ return x && PH54_C24_SHOW[x.verdict]; });
+        /* 🔴 (2026-09-01) 그리는 것과 «세는 것» 을 갈랐다.
+             예전에는 여기서 PH54_C24_SHOW 가 아닌 판정을 통째로 버렸다. 그래서 아래 범례의
+             「강사 못 이음 N개」가 **영원히 0** 인 죽은 코드였다 — 세려는 행이 이미 없었다.
+             사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+             «말없이» 사라진 것이 그 때문이다(카드도 없고 숫자도 없고 경고도 없었다).
+           ✅ 그리지 않는 판단은 그대로 둔다(누구 칸에 놓을지 모르는 것을 아무 데나 놓지 않는다).
+              대신 «몇 건이 왜 안 그려졌는지» 는 남겨서 범례가 말하게 한다. */
+        rows = (Array.isArray(j.rows) ? j.rows : []);
       }
     } catch(e){
       msg = ph54T('카페24 수업을 읽지 못했습니다 (네트워크)', 'Could not read Cafe24 classes (network)');
@@ -429,11 +436,17 @@
     /* 🪞 카페24 수업(보기 전용) — 강사가 이어진 것만 그린다.
        강사를 못 이은 것(no_teacher)은 «누구 칸에» 놓아야 할지 모르므로 그리지 않고 아래에서 건수만 알린다.
        ⛔ 모르는 것을 아무 칸에나 놓지 않는다 — 모르는 것보다 틀린 것이 나쁘다. */
-    var c24Events = [], c24NoTeacher = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
+    var c24Events = [], c24NoTeacher = 0, c24Left = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
     var c24Today = ph54TodayKst();
     (ph54State.c24 || []).forEach(function(r){
       if (!r || !(r.date in dateToCol)) return;
+      /* 🚪 퇴사 강사의 잔재 — 할 일이 «없다». 회색으로 건수만 알린다.
+         ⛔ 이것을 아래 «원부에 없는 강사» 와 한 숫자로 합치지 말 것. 둘은 해야 할 일이 정반대다
+            (하나는 그냥 두면 되고, 하나는 사람이 원부에 등록해야 한다). 합치면 늘 켜져 있는
+            경고가 되어 정작 손봐야 할 것이 파묻힌다 — 녹화 목록에서 실제로 그랬다. */
+      if (r.verdict === 'no_teacher_left'){ c24Left++; return; }
       if (!r.teacher_id){ c24NoTeacher++; return; }
+      if (!PH54_C24_SHOW[r.verdict]) return;
       if (filterId && String(r.teacher_id) !== String(filterId)) return;
       c24Events.push({ rec: r, col: dateToCol[r.date] });
       /* 🔴 «지난 것» 과 «앞으로 것» 을 한 숫자로 합치면 안 된다 — 지난 주를 열었을 때
@@ -541,8 +554,10 @@
               ? '<b class="ph54-count-warn"> · '+ph54T('겹침 확인필요 ','Clashes to check ')+c24Clash+ph54T('개','')+'</b>' : '')
       +     (ph54State.c24On && c24Past
               ? ' · '+ph54T('지난 카페24 기록 ','Past Cafe24 records ')+c24Past+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Left
+              ? ' · '+ph54T('퇴사 강사 잔재 ','Departed instructors ')+c24Left+ph54T('개 (안 그림)',' (not drawn)') : '')
       +     (ph54State.c24On && c24NoTeacher
-              ? '<b class="ph54-count-warn"> · '+ph54T('카페24 강사 못 이음 ','Cafe24 unmatched instructor ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
+              ? '<b class="ph54-count-warn"> · '+ph54T('⚠️ 원부에 없는 강사 ','⚠️ Not in the roster ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
       +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')
       +   '</span>'
       + '</div>';

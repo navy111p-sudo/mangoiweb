@@ -82,7 +82,19 @@ export interface ExistingRow {
 }
 
 /** 카페24 강사번호 → 이름·원부번호 */
-export interface TeacherLink { name: string | null; teacherId: string | null; }
+export interface TeacherLink {
+  name: string | null;
+  teacherId: string | null;
+  /* 🔴 (2026-09-01) 재직 원부에서 못 찾았을 때 «퇴사자 명부» 에서는 찾았는가.
+       발단: 사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+       **말없이 사라졌다** — 판정이 no_teacher 가 되는데 화면은 그것을 그리지도 세지도 않았다.
+     ⚠️ 「강사 못 이음」 하나로 뭉치면 안 된다. 둘은 할 일이 정반대다:
+          퇴사자 잔재 → 할 일 없음(카페24에서 정리되면 사라진다)
+          원부에 없음 → **사람이 등록해야 한다**. 전환일에 이게 안 보이면 그 강사 수업이
+                        통째로 안 만들어지는데 아무도 모른다(실측 전례: Teacher Ness 13건).
+     ⛔ 이 번호로 수업을 만들지 않는다 — 오직 «왜 못 이었는지» 를 말하기 위한 것이다. */
+  leftTeacherId?: string | null;
+}
 
 export type Verdict =
   | 'ok'               // 그대로 만들면 됨
@@ -90,7 +102,8 @@ export type Verdict =
   | 'update'           // 미러 행은 있는데 카페24 쪽이 바뀜 → 고쳐야 함
   | 'manual_locked'    // 사람이 손댐 — 건드리지 않는다
   | 'diverged'         // 사람이 손댄 값과 카페24 값이 다름 → 사람이 판단할 일
-  | 'no_teacher'       // 강사를 못 이음
+  | 'no_teacher'       // 강사를 못 이음 — 원부에 그런 사람이 없다(등록이 필요할 수 있다)
+  | 'no_teacher_left'  // 퇴사한 강사의 잔재 — 카페24에만 남아 있다(할 일 없음)
   | 'no_student'       // 학생을 못 찾음
   | 'not_whitelisted'  // 아직 안 켠 강사
   | 'conflict';        // 그 시간에 다른 출처(파일럿·수동) 수업이 이미 있음
@@ -232,6 +245,11 @@ export function planMirror(
     if (!uid || !students.has(uid)) { push('no_student', uid ? `학생 계정 ${uid} 없음` : '학생 없음'); continue; }
     if (!c24tid) { push('no_teacher', '카페24에 강사 번호가 없음'); continue; }
     if (!teacherId) {
+      /* 🚪 퇴사자인가 — 같은 «못 이음» 이라도 사람이 할 일이 정반대라 갈라서 말한다. */
+      if (link?.leftTeacherId) {
+        push('no_teacher_left', `«${teacherName}»(카페24 ${c24tid}) 은 퇴사한 강사입니다 — 카페24에만 남은 잔재`);
+        continue;
+      }
       push('no_teacher', teacherName
         ? `«${teacherName}»(카페24 ${c24tid}) 이 강사 원부와 안 이어짐`
         : `카페24 ${c24tid} 번 이름을 찾지 못함`);
@@ -274,7 +292,7 @@ export function planMirror(
 export function summarize(rows: PlanRow[]): Record<Verdict, number> {
   const z: Record<Verdict, number> = {
     ok: 0, already: 0, update: 0, manual_locked: 0, diverged: 0,
-    no_teacher: 0, no_student: 0, not_whitelisted: 0, conflict: 0,
+    no_teacher: 0, no_teacher_left: 0, no_student: 0, not_whitelisted: 0, conflict: 0,
   };
   for (const r of rows) z[r.verdict]++;
   return z;
@@ -368,6 +386,16 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
   } catch { /* 원부가 없으면 이름만 준다 */ }
   const resolveRoster = buildRosterResolver(roster);
 
+  /* 🚪 퇴사자 명부 — «못 이었다» 와 «퇴사해서 안 잇는다» 를 가르기 위한 것뿐이다.
+     ⛔ 이 결과로 수업을 만들지 않는다(만드는 것은 verdict 'ok' 뿐이고 퇴사자는 절대 ok 가 안 된다).
+     ⚠️ 실패해도 그냥 넘어간다 — 못 읽으면 예전처럼 «원부에 없음» 으로 보일 뿐, 더 안전한 쪽이다. */
+  let leftRoster: { id: any; name: any }[] = [];
+  try {
+    const rs: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 0`).all();
+    leftRoster = (rs.results || []) as any[];
+  } catch { /* 없으면 가르지 않는다 */ }
+  const resolveLeft = buildRosterResolver(leftRoster);
+
   try {
     // 오름차순 — 같은 번호가 여러 달 있으면 «최근 달 이름» 이 남는다(개명 반영)
     const rs: any = await env.DB.prepare(
@@ -378,7 +406,13 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
       const c24 = String(r.c24 || '');
       if (!want.has(c24)) continue;
       const nm = String(r.teacher_name || '').trim();
-      out.set(c24, { name: nm || null, teacherId: resolveRoster(nm) });
+      const tid = resolveRoster(nm);
+      out.set(c24, {
+        name: nm || null,
+        teacherId: tid,
+        // 재직 원부에서 못 찾았을 때만 퇴사자 명부를 본다(재직이 언제나 이긴다)
+        leftTeacherId: tid ? null : resolveLeft(nm),
+      });
     }
   } catch { /* 급여 표가 없으면 이름 없이 진행 */ }
   return out;
@@ -481,7 +515,8 @@ export async function c24MirrorReport(
     const d = byDate.get(r.date) || { date: r.date, total: 0, ok: 0, blocked: 0 };
     d.total++;
     if (r.verdict === 'ok' || r.verdict === 'already') d.ok++;
-    if (r.verdict === 'no_teacher' || r.verdict === 'no_student' || r.verdict === 'conflict') d.blocked++;
+    if (r.verdict === 'no_teacher' || r.verdict === 'no_teacher_left'
+        || r.verdict === 'no_student' || r.verdict === 'conflict') d.blocked++;
     byDate.set(r.date, d);
   }
 

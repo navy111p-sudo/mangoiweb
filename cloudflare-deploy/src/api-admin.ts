@@ -3784,6 +3784,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                                    WHERE CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
                                    ORDER BY COALESCE(tal.linked_at, 0) DESC, tal.username ASC
                                    LIMIT 1) AS login_username`;
+    /* 🔴 (2026-09-01) 원부(teachers.active)를 «함께» 내려준다 — 두 표가 어긋나는 것을 화면이 알아채게.
+         발단: 사장님이 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 따로 있어서였다 —
+           · teachers.active      (0/1)  … 스케줄·배정·카페24 미러가 본다
+           · teacher_profiles.status(글자) … 이 명부 화면이 본다
+         한쪽만 바꿔도 에러가 안 나므로 «명부에선 사라졌는데 수업은 계속 잡히는» 상태가 조용히 생긴다.
+         실제로 그날 양쪽 방향으로 다 났다 — 내가 원부만 내려 명부에 남았고(Mariane·Jinette),
+         사장님이 화면에서 명부만 내려 원부에 남았다(Rica·FAYE, 11:00~11:01 실측).
+       ⛔ 여기서 «자동으로 맞추지» 않는다. 읽는 곳에서 고치면 어느 쪽이 정본인지 알 수 없다.
+          맞추는 것은 쓰는 곳(PATCH) 한 곳이고, 여기는 **다르다는 사실만** 보여 준다.
+       ⚠️ 조인이 아니라 서브쿼리다 — 위 login_username 과 같은 이유(조인은 행을 늘린다). */
+    const ROSTER_ACTIVE = `(SELECT t.active FROM teachers t
+                              WHERE t.id = tp.linked_teacher_id LIMIT 1) AS roster_active`;
+    const ROSTER_NAME = `(SELECT t.name FROM teachers t
+                            WHERE t.id = tp.linked_teacher_id LIMIT 1) AS roster_name`;
     /* 연결이 두 개 이상이면 화면이 그 사실을 말해야 한다 — 골라 보여 주고 «감추지» 않는다. */
     const LOGIN_LINK_COUNT = `(SELECT COUNT(*) FROM teacher_account_links tal2
                                 WHERE CAST(tal2.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)) AS login_link_count`;
@@ -3861,13 +3875,33 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             화면이 「연결 2개」라고 말하게 한다(감추면 아무도 정리하지 않는다). */
       const sql = `SELECT tp.*,
                           ${PICK_LOGIN_USERNAME},
-                          ${LOGIN_LINK_COUNT}
+                          ${LOGIN_LINK_COUNT},
+                          ${ROSTER_ACTIVE},
+                          ${ROSTER_NAME}
                    FROM teacher_profiles tp
                    ${where.length ? ' WHERE ' + where.join(' AND ') : ''}
                    ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
         const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
-        return json({ ok: true, items: rs.results || [] });
+        const items = rs.results || [];
+        /* 🔎 어긋난 행을 «세어서» 함께 내려준다. 화면은 이 숫자로 한 줄 경고를 띄운다.
+           ⚠️ 연결이 없는 프로필(linked_teacher_id NULL)은 어긋남이 아니다 — 셀 대상이 아니라
+              «아직 안 이어진» 것이고, 그건 별도 항목으로 이미 보인다. */
+        const mismatch = items.filter((r: any) => {
+          if (r == null || r.linked_teacher_id == null) return false;
+          if (r.roster_active == null) return false;            // 원부에 그 번호가 없다 → 연결이 깨진 것(아래에서 따로)
+          const live = String(r.status || '') === '활동중';
+          return live !== (Number(r.roster_active) === 1);
+        }).map((r: any) => ({
+          id: r.id, name: r.korean_name || r.english_name || null,
+          status: r.status || null, roster_name: r.roster_name || null,
+          roster_active: Number(r.roster_active) === 1 ? 1 : 0,
+        }));
+        /* 연결 번호는 있는데 원부에 그 행이 없는 경우 — 끊어진 연결. 이것도 조용하면 안 된다. */
+        const brokenLink = items.filter((r: any) =>
+          r && r.linked_teacher_id != null && r.roster_active == null
+        ).map((r: any) => ({ id: r.id, name: r.korean_name || r.english_name || null }));
+        return json({ ok: true, items, roster_mismatch: mismatch, roster_broken_link: brokenLink });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
       }
@@ -4167,7 +4201,65 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               ).run();
             } catch (e: any) { console.error('[teacher-status] audit:', e?.message); }
           }
-          return json({ ok: true, id });
+
+          /* 🔴 (2026-09-01) 재직 여부를 «원부에도» 함께 반영한다 — 두 표가 갈리는 것을 여기서 막는다.
+               발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 있다 —
+                 · teacher_profiles.status … 이 명부 화면이 본다
+                 · teachers.active        … 스케줄·배정·카페24 미러가 본다
+               한쪽만 바꿔도 에러가 안 나서, 같은 날 **양쪽 방향으로 다** 어긋났다:
+                 내가 원부만 내려 명부에 남았고(Mariane·Jinette),
+                 사장님이 화면에서 명부만 내려 원부에 남았다(Rica·FAYE — 11:00~11:01 실측).
+               그래서 «쓰는 곳 한 군데» 에서 맞춘다. 읽는 곳에서 맞추면 어느 쪽이 정본인지 사라진다.
+             ⚠️ status 를 «보냈을 때만» 손댄다 — 전화번호만 고치는 요청이 원부를 건드리면 안 된다.
+             ⚠️ 「안보임」(list_hidden)은 다른 축이라 여기서 손대지 않는다 — 감추는 것은 재직 여부가 아니다.
+             ⚠️ 연결이 없으면(linked_teacher_id NULL) 할 일이 없다. 이름으로 추측해 잇지 않는다
+                (번호·이름 추측으로 남의 일정·급여가 붙은 사고가 이 저장소에 세 번 있다).
+             ⚠️ 실패해도 프로필 저장은 성공으로 둔다 — 사람이 방금 누른 저장을 되돌리는 것이 더 나쁘고,
+                어긋남은 목록의 roster_mismatch 가 계속 알려 준다. 대신 무엇이 안 됐는지 응답에 싣는다. */
+          let rosterSync: any = null;
+          if (b.hasOwnProperty('status')) {
+            const wantLive = String(b.status || '') === '활동중';
+            try {
+              const prof: any = await env.DB.prepare(
+                `SELECT linked_teacher_id FROM teacher_profiles WHERE id = ?`
+              ).bind(id).first();
+              const tid = prof && prof.linked_teacher_id != null ? Number(prof.linked_teacher_id) : 0;
+              if (!tid) {
+                rosterSync = { changed: 0, reason: 'not_linked' };
+              } else {
+                const r: any = await env.DB.prepare(
+                  `UPDATE teachers SET active = ?, updated_at = ? WHERE id = ? AND active <> ?`
+                ).bind(wantLive ? 1 : 0, Date.now(), tid, wantLive ? 1 : 0).run();
+                rosterSync = { changed: Number(r?.meta?.changes || 0), teacher_id: tid, active: wantLive ? 1 : 0 };
+
+                /* 🪞 내릴 때는 카페24 미러도 함께 막는다.
+                     화이트리스트는 «적혀 있으면 켠다» 라, 안 적어 두면 전환일(mode='all')에
+                     그 강사의 잔재 예약이 전부 만들어진다(실측: 퇴사한 Mariane 앞으로 30건).
+                   ⛔ 반대로 «되살릴» 때는 자동으로 켜지 않는다 — 미러를 켜는 것은 사람이 정할 일이고,
+                      한 번 막힌 강사가 복직으로 조용히 다시 켜지는 쪽이 더 위험하다. */
+                if (!wantLive) {
+                  try {
+                    await env.DB.exec(`CREATE TABLE IF NOT EXISTS c24_mirror_teachers (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, note TEXT, updated_by TEXT, updated_at INTEGER);`);
+                    await env.DB.prepare(
+                      `INSERT INTO c24_mirror_teachers (teacher_id, enabled, note, updated_by, updated_at)
+                       VALUES (?, 0, ?, ?, ?)
+                       ON CONFLICT(teacher_id) DO UPDATE SET enabled = 0, note = excluded.note,
+                         updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+                    ).bind(
+                      String(tid),
+                      '명부에서 «' + String(b.status || '') + '» 으로 내려 자동 차단 — 전환일(mode=all)에도 만들지 않는다',
+                      String(_tpiActor.username || _tpiActor.name || 'profile-status'),
+                      Date.now()
+                    ).run();
+                    rosterSync.mirror_blocked = true;
+                  } catch (e2: any) { rosterSync.mirror_error = String(e2?.message || e2); }
+                }
+              }
+            } catch (e1: any) {
+              rosterSync = { changed: 0, error: String(e1?.message || e1) };
+            }
+          }
+          return json({ ok: true, id, roster_sync: rosterSync });
         } catch (e: any) {
           return json({ ok: false, error: String(e?.message || e) }, 500);
         }
