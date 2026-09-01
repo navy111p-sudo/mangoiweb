@@ -610,13 +610,33 @@ export async function handleAdminApi(
         }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;
-        const rs: any = await env.DB.prepare(
-          `SELECT uid, MAX(name) AS name, role, COUNT(*) AS windows,
+        const BASE = `uid, MAX(name) AS name, role, COUNT(*) AS windows,
                   ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
-                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen
-           FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
-        ).bind(since).all();
-        return json({ ok: true, days, rows: rs.results || [] });
+                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen`;
+        /* 📥 (2026-09-01) «받는 쪽» 지표를 함께 낸다 — 이 화면이 여태 «내가 보내는 것» 만 보여 줬다.
+           ⚠️ «모름» 은 -1 로 들어온다. 그대로 평균 내면 모름이 «손실 -1%» 로 섞여 숫자가 뒤집히므로
+              0 이상인 행만 센다(CASE WHEN). 표본이 하나도 없으면 NULL 이고 화면은 «—» 로 그린다.
+           ⚠️ 이 칸들은 ALTER 로 붙는다 — 첫 로그가 들어와야 생긴다(novideo·attendance.host 와 같은 사정).
+              그래서 없는 DB(개발용·복구본)에서는 이 질의가 `no such column` 으로 죽는다.
+              그때는 옛 질의로 떨어진다. ⛔ 화면 전체가 «조회 실패» 가 되게 두지 말 것. */
+        const RICH = `${BASE},
+                  ROUND(AVG(CASE WHEN p95_loss >= 0 THEN p95_loss END), 1) AS p95_loss,
+                  ROUND(AVG(CASE WHEN rx_loss   >= 0 THEN rx_loss   END), 1) AS rx_loss,
+                  ROUND(AVG(CASE WHEN rx_aloss  >= 0 THEN rx_aloss  END), 1) AS rx_aloss,
+                  ROUND(AVG(CASE WHEN rx_conceal >= 0 THEN rx_conceal END), 2) AS rx_conceal,
+                  SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, MAX(COALESCE(peers, 0)) AS peers`;
+        let rs: any = null, rx_ready = true;
+        try {
+          rs = await env.DB.prepare(
+            `SELECT ${RICH} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        } catch {
+          rx_ready = false;
+          rs = await env.DB.prepare(
+            `SELECT ${BASE} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        }
+        return json({ ok: true, days, rx_ready, rows: rs.results || [] });
       } catch (e: any) { return json({ ok: false, error: e?.message || 'vc_quality_failed' }, 500); }
     }
 

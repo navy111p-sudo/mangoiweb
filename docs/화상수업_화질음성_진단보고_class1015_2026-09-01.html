@@ -102,7 +102,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   <table class="step">
     <tr><th style="width:15%">단계</th><th style="width:47%">무엇을</th><th>왜 / 결과</th></tr>
     <tr>
-      <td>1단계<br><span style="font-weight:400;color:#667085">오늘 · 통화 경로<br>안 건드림</span></td>
+      <td>1단계 <span style="color:#047857">✅적용</span><br><span style="font-weight:400;color:#667085">통화 경로<br>안 건드림</span></td>
       <td>① <b>강사 로그 아이디 폴백</b>(관리자 세션에서 아이디를 가져오게) — 3줄<br>
           ② <b>«받는 쪽» 계측 추가</b> — 수신 손실·지터·<b>영상 멈춘 횟수</b>·<b>소리 메워진 비율</b><br>
           ③ 평균 옆에 <b>상위 5% 손실(p95)</b> 함께 기록·표시</td>
@@ -110,7 +110,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
           지금은 이것이 없어서 매번 추측으로 끝났습니다. <b>이 단계가 사실상 이번 문제의 핵심</b>입니다.</td>
     </tr>
     <tr>
-      <td>2단계<br><span style="font-weight:400;color:#667085">1단계 숫자 확인 후<br>· 승인 필요</span></td>
+      <td>2단계 <span style="color:#047857">✅적용</span><br><span style="font-weight:400;color:#667085">사장님 지시<br>2026-09-01</span></td>
       <td>④ 화질 회복 조건을 <b>12초 → 30초 연속 양호</b>로 (스파이크 직후 홀드) — 진동 제거<br>
           ⑤ 음성전용 구제 문턱을 <b>실측에 맞게 낮춤</b>(오디오 8%·2틱, 영상 스파이크 지속도 조건에 포함)<br>
           ⑥ <b>유령 연결 정리</b> 강화 — 강사 재접속 때 남는 옛 연결 차단</td>
@@ -128,9 +128,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   </table>
 
   <div class="note">
-    <b>왜 이번엔 다를 것인가.</b> 이 문제가 반복된 이유는 «고칠 곳을 못 찾아서»가 아니라 <b>«어디가 나쁜지 잴 수단이 없어서»</b>였습니다(원인 ④).
-    1단계는 통화 경로를 한 줄도 건드리지 않는 계측 보강이라 위험이 없고, <b>다음 수업 한 번이면 강사·학생 어느 쪽 회선이 문제인지 숫자로 확정</b>됩니다. 그 뒤 2단계는 추측이 아니라 근거로 고칩니다.
-  </div>
+    <b>지금 상태.</b> <b>1·2단계는 코드에 적용해 브랜치에 올렸습니다</b>(검증: 전용 검사 38건 전부 통과 — 옛 문턱으로 되돌리면 진동이 <b>38회</b>로 늘고 지금은 <b>4회</b>입니다. 회귀 하니스 247건 통과). <b>배포 뒤 다음 수업 한 번</b>이면 「강사 회선품질」 화면에 강사 줄과 «받는 쪽» 숫자가 처음으로 남습니다 — 그때 원인이 강사 회선인지, 학생 회선인지, 중계서버인지 <b>숫자로 확정</b>됩니다. <b>3단계(중계서버 확인·강사 회선 점검)는 사람이 해 주셔야 하는 부분</b>으로 남아 있습니다.</div>
 
   <div class="foot">
     <span>망고아이 · 화상수업 품질 진단 — class-1015-20260901</span>

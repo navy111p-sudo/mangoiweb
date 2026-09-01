@@ -7829,7 +7829,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div style="background:linear-gradient(135deg,#e0f2fe,#eff6ff);border:1px solid #0ea5e9;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#075985;line-height:1.7"
          data-ko="💡 화상수업 중 강사·학생의 실시간 손실률·지연(RTT)을 30초마다 자동 수집합니다. 손실률이 높은 강사가 인터넷이 나쁜 것이니, 그 회선을 개선(유선 랜·회선 업그레이드)하면 수업 품질이 좋아집니다. AAO=인터넷이 나빠 자동으로 '음성만' 전송된 횟수."
          data-en="💡 Real-time packet loss / RTT of teachers & students during class, sampled every 30s. High loss = that teacher's internet is bad. AAO = times auto audio-only kicked in.">
-      💡 화상수업 중 <b>손실률·지연(RTT)</b>을 30초마다 자동 수집합니다. <b>손실률 높은 강사 = 인터넷 나쁨</b> → 그 회선을 개선(유선 랜 등)하면 수업 품질↑. <b>AAO</b>=자동 음성전용 전환 횟수.
+      💡 화상수업 중 <b>손실률·지연(RTT)</b>을 1분마다 자동 수집합니다. <b>손실률 높은 강사 = 인터넷 나쁨</b> → 그 회선을 개선(유선 랜 등)하면 수업 품질↑. <b>AAO</b>=자동 음성전용 전환 횟수.<br>
+      📥 <b>받는 쪽</b>(2026-09-01 추가) — 「화면이 흐리다·소리가 끊긴다」는 <b>내가 받는 것</b> 이야기라 보내는 쪽 숫자로는 알 수 없었습니다. <b>수신손실</b>·<b>소리메움</b>(끊겨서 브라우저가 메꾼 비율 — 소리 끊김의 직접 지표)·<b>영상멈춤</b> 횟수를 함께 봅니다. <b>p95</b>는 평균이 가리는 스파이크입니다. <b>—</b> 는 «아직 표본 없음»이지 «문제 없음»이 아닙니다.
     </div>
     <div data-gc="🔎 기간 선택" data-gc-en="Period" style="margin-bottom:10px">
       <label style="font-size:12px;color:#475569">기간
@@ -7847,7 +7848,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var days=(document.getElementById('vcq-days')||{}).value||'7';
     body.innerHTML='불러오는 중…';
     function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
-    function color(l){ return l>=6?'#dc2626':(l>=3?'#d97706':'#16a34a'); }
+    function color(l){ if(l==null) return '#94a3b8'; return l>=6?'#dc2626':(l>=3?'#d97706':'#16a34a'); }
+    /* ⛔ «표본 없음» 을 0% 로 그리지 말 것 — 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다.
+       서버는 표본이 없으면 NULL 을 준다(모름이 -1 로 들어온 행을 평균에서 뺐기 때문). */
+    function pctOrDash(v){ return (v==null)?'—':(v+'%'); }
     try{
       var r=await fetch('/api/admin/vc/quality?days='+encodeURIComponent(days),{credentials:'include'});
       var d=await r.json().catch(function(){return {};});
@@ -7855,15 +7859,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       var rows=d.rows||[];
       if(!rows.length){ body.innerHTML='<span style="color:#94a3b8">아직 수집된 회선품질 데이터가 없습니다. (화상수업이 진행되면 자동으로 쌓입니다)</span>'; return; }
       var h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
-        '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">이름</th><th>역할</th><th>평균손실</th><th>최악손실</th><th>평균RTT</th><th>AAO</th><th>표본</th><th>마지막</th></tr>';
+        '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">이름</th><th>역할</th><th>평균손실</th><th>p95</th><th>최악손실</th><th>평균RTT</th><th title="받은 영상 손실">📥수신손실</th><th title="끊겨서 브라우저가 메꾼 소리 비율 — 소리 끊김의 직접 지표">📥소리메움</th><th title="받은 영상이 멈춘 횟수">📥영상멈춤</th><th>AAO</th><th>표본</th><th>마지막</th></tr>';
       rows.forEach(function(x){
         var when=x.last_seen?new Date(x.last_seen).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
         h+='<tr style="border-bottom:1px solid #e2e8f0">'+
           '<td style="padding:6px 8px;font-weight:700">'+esc(x.name||'—')+'</td>'+
           '<td>'+(x.role==='teacher'?'👩‍🏫 강사':'🧑‍🎓 학생')+'</td>'+
           '<td style="font-weight:800;color:'+color(x.avg_loss)+'">'+x.avg_loss+'%</td>'+
+          '<td style="color:'+color(x.p95_loss)+'">'+pctOrDash(x.p95_loss)+'</td>'+
           '<td style="color:'+color(x.worst_loss)+'">'+x.worst_loss+'%</td>'+
           '<td>'+x.avg_rtt+'ms</td>'+
+          '<td style="font-weight:700;color:'+color(x.rx_loss)+'">'+pctOrDash(x.rx_loss)+'</td>'+
+          '<td style="font-weight:700;color:'+(x.rx_conceal==null?'#94a3b8':(x.rx_conceal>=5?'#dc2626':(x.rx_conceal>=2?'#d97706':'#16a34a')))+'">'+pctOrDash(x.rx_conceal)+'</td>'+
+          '<td>'+((x.rx_freeze==null)?'—':(x.rx_freeze>0?'⚠ '+x.rx_freeze:'0'))+'</td>'+
           '<td>'+((x.aao_events||0)>0?'⚠ '+x.aao_events:'0')+'</td>'+
           '<td style="color:#94a3b8">'+x.windows+'</td>'+
           '<td style="color:#94a3b8">'+when+'</td></tr>';

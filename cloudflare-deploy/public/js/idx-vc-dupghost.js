@@ -53,6 +53,22 @@
     return normName(el && el.textContent);
   }
 
+  /* 💀 (2026-09-01 class-1015) «한 번은 붙었다가 죽은» 연결 — 강사 재접속 때 남는 옛 연결이 이것이다.
+     지금까지 이 파일은 «한 번도 못 받은» 타일만 유령으로 봤다. 그래서 붙었다가 죽은 연결은
+     명단에도 화면에도 그대로 남았고, mesh 라 **내 업로드가 죽은 상대에게도 계속 나갔다.**
+     ⚠️ 'disconnected' 는 넣지 않는다 — 필리핀·중국 회선에서 몇 초씩 흔한 «잠깐» 상태이고
+        대개 스스로 돌아온다. 여기서 지우면 멀쩡한 수업이 끊긴다. 되돌아올 수 없는 상태만 본다.
+     ⚠️ 그리고 이 판정만으로 지우지 않는다 — 아래 sweep 의 «비대칭 확인»(내 이름이거나,
+        같은 이름의 다른 타일이 실제로 수신 중)을 그대로 통과해야 지운다. */
+  function deadPc(userId) {
+    try {
+      var pc = (window.vcPeerConnections || {})[userId];
+      if (!pc) return false;
+      return pc.connectionState === 'failed' || pc.connectionState === 'closed'
+          || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed';
+    } catch (e) { return false; }
+  }
+
   /** 이 피어에게서 지금 실제로 무언가 도착하고 있나 */
   function hasLiveTrack(userId) {
     try {
@@ -166,11 +182,17 @@
       var userId = box.id.slice('vc-video-'.length);
       var name = labelOf(box);
       var noHint = !box.querySelector('.vc-connecting-hint');
-      var ok = noHint || hasLiveTrack(userId);
+      var dead = deadPc(userId);                              // 💀 붙었다가 죽은 연결(위 helper)
+      if (dead) { if (!box.__vcDeadSince) box.__vcDeadSince = now; }
+      else box.__vcDeadSince = 0;
+      var ok = (noHint || hasLiveTrack(userId)) && !dead;
       if (!box.__vcFirstSeen) box.__vcFirstSeen = now;
       if (ok) liveByName[name] = true;
       muteFalseAudioAlarm(box, userId, ok);   // 🎤 붙은 적 없는 상대에게 마이크 탓을 하지 않는다
-      return { box: box, userId: userId, name: name, ok: ok, age: now - box.__vcFirstSeen };
+      /* 죽은 연결은 «죽은 뒤로» 시간을 센다. 처음 본 시각으로 세면 수업 10분째에 죽자마자
+         지워져서 «잠깐 흔들린 것» 과 구분이 안 된다. */
+      var since = dead ? box.__vcDeadSince : box.__vcFirstSeen;
+      return { box: box, userId: userId, name: name, ok: ok, age: now - since };
     });
 
     info.forEach(function (it) {
