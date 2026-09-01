@@ -24,10 +24,25 @@
     return false;
   }
 
-  function goBack() {
-    var fallback = (p.indexOf('/admin') === 0) ? '/admin.html' : '/';
+  /* @param {string} [fallbackUrl] 히스토리도 referrer 도 없을 때 갈 곳. 안 주면 홈(/admin* 은 /admin.html).
+       화면마다 «돌아갈 곳» 이 다르기 때문이다 — 게임 안 학습화면은 홈이 아니라 게임 허브로 가야 한다.
+     @param {{sameOriginOnly?:boolean}} [opts] true 면 «앞 화면이 우리 사이트일 때만» 뒤로 간다
+       (밖에서 들어온 사람을 밖으로 되돌려보내지 않고 홈으로 보낸다 — 웜업이 그 정책이었다). */
+  function goBack(fallbackUrl, opts) {
+    /* ⚠️ 첫 인자로 Event 가 올 수 있다 — 이 파일 안에 `b.onclick = goBack` 자리가 있고,
+          리스너의 첫 인자는 Event 라 «항상 truthy» 다(이 저장소가 이미 밟은 함정).
+          그래서 «문자열일 때만» 폴백으로 인정한다. */
+    var fallback = (typeof fallbackUrl === 'string' && fallbackUrl)
+      ? fallbackUrl
+      : ((p.indexOf('/admin') === 0) ? '/admin.html' : '/');
+    var sameOriginOnly = !!(opts && opts.sameOriginOnly);
+    var sameRef = false;
     try {
-      if (history.length > 1) { history.back(); return; }
+      var r0 = document.referrer || '';
+      sameRef = r0.indexOf(location.origin + '/') === 0;
+    } catch (e) {}
+    try {
+      if (history.length > 1 && (!sameOriginOnly || sameRef)) { history.back(); return; }
     } catch (e) {}
     /* (2026-08-03) 히스토리가 없는 진입 — 앱/PWA 첫 화면, 카톡·문자 링크, target=_blank 새 탭 —
        에서는 back() 이 아무 데도 못 간다. 여기서 곧장 홈으로 보내면 ← 가 [🏠 홈] 버튼과

@@ -1083,9 +1083,12 @@ function openSetup(fromMenu){
    ⚠️ history.back() 만 쓰면 밖에서 바로 들어온 사람(카톡 링크·주소 입력)은 아무 데도 못 간다.
       그런 경우가 «아무 일도 안 일어난다» 로 보이므로 홈으로 보내는 쪽이 맞다. */
 function goBackOrHome(){
-  var same = false;
-  try{ same = !!document.referrer && new URL(document.referrer).origin === location.origin; }catch(e){}
-  if(same && history.length > 1){ history.back(); return; }
+  /* 판정은 정본 하나만 쓴다 — js/back-nav.js 의 window.mangoiGoBack (2026-09-01).
+     ⚠️ 이 화면의 «정책» 은 보존한다: sameOriginOnly=true 는 「앞 화면이 우리 사이트일 때만
+        되돌아가고, 아니면 홈」이라는 뜻이다(밖에서 들어온 사람을 밖으로 되돌려보내지 않는다).
+        그 정책을 여기서 다시 구현하지 않고 «정본에 인자로» 넘긴다.
+     ⚠️ 아래 한 줄은 판정이 아니라 안전망이다(그 파일이 아직 안 왔거나 캐시에 옛 사본이 남을 때). */
+  if (window.mangoiGoBack) { window.mangoiGoBack('/', { sameOriginOnly: true }); return; }
   location.href = '/';
 }
 /* 설정 화면의 «← 뒤로» — 어디에서 왔느냐에 따라 돌아갈 곳이 다르다.
