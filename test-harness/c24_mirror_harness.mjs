@@ -27,6 +27,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/src/' + f), 'utf8');
 const PUB = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/public/' + f), 'utf8');
@@ -890,9 +892,11 @@ console.log('\n[ N. 숨긴 학생 제외 ]');
   }
 
   // ⑧ 배선 — 두 호출부가 숨김 목록을 넘긴다
-  const calls = [...MIRROR_TS.matchAll(/planMirror\(classes, links, students, existing, mode, enabled(, hidden)?\)/g)];
+  /* ⚠️ 인자를 하나 늘렸다고 깨지는 «모양» 검사로 못 박지 않는다 — 뜻으로 본다(CLAUDE.md 2장).
+     실제로 2026-09-01 에 slotSeen 을 더하면서 옛 정규식이 통째로 안 맞아 거짓 FAIL 이 났다. */
+  const calls = [...MIRROR_TS.matchAll(/planMirror\(classes, links, students, existing, mode, enabled([^)]*)\)/g)];
   check('N⑧ planMirror 호출 두 곳이 모두 숨김 목록을 넘긴다',
-    calls.length === 2 && calls.every(m => m[1]), calls.map(m => m[0]));
+    calls.length === 2 && calls.every(m => /\bhidden\b/.test(m[1])), calls.map(m => m[0]));
   check('N⑧ 숨김 목록을 실제로 읽어 온다', /await loadHiddenStudents\(/.test(MIRROR_TS));
 
   // ⑨ 표를 지우지 않는다 — 숨김은 «안 보여주는 것» 이지 «지우는 것» 이 아니다
@@ -910,6 +914,136 @@ console.log('\n[ N. 숨긴 학생 제외 ]');
 
   // ⑪ 머리말의 «읽는 쪽» 목록에 미러가 등재됐다(한쪽만 고치면 불일치가 난다고 적힌 그 목록)
   check('N⑪ student-override.ts 머리말에 미러가 등재됐다', /c24-mirror\.ts\s+planMirror/.test(OVR));
+}
+
+console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (재발 방지) ]');
+{
+  /* 📜 실사고: Zee 를 켠 날 강사 화면에 «없는 수업» 이 떴다 — 9/1 17:40 허윤아(카페24 511745).
+       카페24가 강사를 바꿀 때 옛 예약을 안 지우고 남기는데 미러가 그대로 만들었다.
+     아래 이력 숫자는 그날 운영 D1 에서 **실제로 잰 값** 그대로다.
+     ⛔ 「같은 학생·같은 날 2건이면 막는다」로 고치면 안 된다 — 허윤아는 진짜로 하루 두 번
+        (17:00·21:30) 수업한다. 그래서 O-2 가 «막으면 안 되는 쪽» 을 함께 못 박는다. */
+  const LINKS_O = new Map([['192', { name: 'Teacher Zee', teacherId: '9' }],
+                           ['35',  { name: 'Teacher Far', teacherId: '5' }]]);
+  const STU_O = new Map([['hya1897', '허윤아']]);
+  const K = M.slotKey;
+  const co = (id, date, time, tid, dur = 30) => ({
+    class_id: id, user_id: 'hya1897', date, start_ms: KST(date, time),
+    end_ms: KST(date, time) + dur * 60000, class_state: 1, teacher_id: tid,
+  });
+  const runO = (list, seen, existing = []) =>
+    M.planMirror(list, LINKS_O, STU_O, existing, 'whitelist', new Set(['9', '5']), new Set(), seen);
+  const vmap = (rows) => Object.fromEntries(rows.map(r => [r.class_id, r.verdict]));
+
+  // 2026-09-01 D1 실측 이력 (attendance 의 c24-* 행을 (학생·강사·시각)으로 센 값)
+  const SEEN = new Map([
+    [K('hya1897', '192', '21:30'), 4],   // 8/31·9/1·9/2·9/4 — 진짜 자리
+    [K('hya1897', '192', '17:40'), 1],   // 그 유령 자신뿐   — 잔재
+    [K('hya1897', '192', '17:00'), 3],   // 9/2·9/3·9/4      — 진짜 자리
+    [K('hya1897', '35',  '17:00'), 2],   // 8/27·9/1
+  ]);
+
+  // ── O-1 그날의 실제 배치 — 유령«만» 막힌다 ──
+  const day1 = [co('511745', '2026-09-01', '17:40', '192'),
+                co('512025', '2026-09-01', '21:30', '192'),
+                co('511746', '2026-09-01', '17:00', '35')];
+  const v1 = vmap(runO(day1, SEEN));
+  check('🔴 O-1 유령(17:40 · 이력 1건)은 만들지 않는다', v1['511745'] === 'suspect_dup', JSON.stringify(v1));
+  check('O-1 같은 날 진짜 수업(21:30 · 이력 4건)은 그대로 만든다', v1['512025'] === 'ok', JSON.stringify(v1));
+  check('O-1 그날 다른 강사 수업(17:00 Far)도 그대로 만든다', v1['511746'] === 'ok', JSON.stringify(v1));
+
+  // ── O-2 ⛔ 진짜로 하루 두 번 수업하는 날은 «한 건도» 막으면 안 된다 ──
+  const day2 = [co('512026', '2026-09-02', '17:00', '192'),
+                co('512028', '2026-09-02', '21:30', '192')];
+  const v2 = vmap(runO(day2, SEEN));
+  check('🔴 O-2 하루 두 번이어도 둘 다 되풀이되는 자리면 둘 다 만든다',
+    v2['512026'] === 'ok' && v2['512028'] === 'ok', JSON.stringify(v2));
+
+  // ── O-3 입구 조건 — 그날 한 건뿐이면 이력이 없어도 막지 않는다(새 주간 수업이 전멸한다) ──
+  const v3 = vmap(runO([co('999001', '2026-09-05', '11:11', '192')], SEEN));
+  check('🔴 O-3 그날 한 건뿐이면 이력이 0건이어도 만든다', v3['999001'] === 'ok', JSON.stringify(v3));
+
+  // ── O-4 이력을 «못 읽었을 때» 는 판정을 통째로 건너뛴다(0건과 «안 봤다»는 다르다) ──
+  const v4 = vmap(runO(day1, new Map()));
+  check('🔴 O-4 이력이 비면 잔재 판정을 건너뛴다 — 옛 동작 그대로',
+    v4['511745'] === 'ok' && v4['512025'] === 'ok', JSON.stringify(v4));
+
+  // ── O-5 이미 만들어진 행은 건드리지 않는다(지난 일을 되짚어 지우지 않는다) ──
+  const had = [{ id: 1045, user_id: 'hya1897', teacher_id: '9', scheduled_date: '2026-09-01',
+                 start_time: '17:40', duration_min: 30, source: 'c24-mirror', status: 'active',
+                 notes: 'c24:511745' }];
+  check('🔴 O-5 이미 있는 행은 already 로 남는다 — 잔재 판정이 덮지 않는다',
+    vmap(runO(day1, SEEN, had))['511745'] === 'already');
+  const stamped = [{ ...had[0], source: 'c24-mirror:manual', status: 'cancelled' }];
+  check('🔴 O-5 사람이 내린 행(도장)은 다시 만들지 않는다',
+    runO([day1[0]], SEEN, stamped)[0].verdict !== 'ok');
+
+  // ── O-6 안 켠 강사의 집계는 흐트러뜨리지 않되, 켜기 전에 볼 수 있게 한 줄 남긴다 ──
+  const notOn = M.planMirror(day1, LINKS_O, STU_O, [], 'whitelist', new Set(['5']), new Set(), SEEN);
+  const ghost = notOn.find(r => r.class_id === '511745');
+  check('O-6 안 켠 강사는 판정이 not_whitelisted 그대로다', ghost.verdict === 'not_whitelisted');
+  check('🔴 O-6 그래도 «잔재 의심» 을 detail 에 알려 준다 — 다음 강사를 켤 때 보라고',
+    /잔재/.test(String(ghost.detail || '')), ghost.detail);
+
+  // ── O-7 열쇠 모양 + 집계 칸 ──
+  check('O-7 slotKey 는 (학생|강사|시각)', K('a', '1', '17:40') === 'a|1|17:40');
+  check('O-7 강사번호가 없으면 빈 칸으로 센다', K('a', null, '17:40') === 'a||17:40');
+  check('O-7 summarize 에 suspect_dup 칸이 있다', M.summarize([]).suspect_dup === 0);
+
+  // ── O-8 이력 SQL 을 «진짜 SQLite» 에 돌린다 (문자열 검사로는 오타를 못 잡는다) ──
+  {
+    const db = new DatabaseSync(':memory:');
+    db.exec(`CREATE TABLE attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL,
+             user_id TEXT NOT NULL, joined_at INTEGER NOT NULL, teacher_uid TEXT)`);
+    // 21:30 두 번 + 17:40 한 번 + 다른 학생 한 번(섞이면 안 된다)
+    const ins = db.prepare(`INSERT INTO attendance (room_id, user_id, joined_at, teacher_uid) VALUES (?,?,?,?)`);
+    ins.run('c24-512025', 'hya1897', KST('2026-09-01', '21:30'), '192');
+    ins.run('c24-512028', 'hya1897', KST('2026-09-02', '21:30'), '192');
+    ins.run('c24-511745', 'hya1897', KST('2026-09-01', '17:40'), '192');
+    ins.run('c24-999', 'other', KST('2026-09-01', '21:30'), '192');
+    ins.run('class-1-20260901', 'hya1897', KST('2026-09-01', '21:30'), '192');   // 망고아이 방 — 세면 안 된다
+    const sql = `SELECT user_id, teacher_uid,
+                        strftime('%H:%M', joined_at/1000, 'unixepoch', '+9 hours') AS hm,
+                        COUNT(*) AS n
+                   FROM attendance
+                  WHERE room_id LIKE 'c24-%' AND user_id IN ('hya1897')
+                  GROUP BY user_id, teacher_uid, hm`;
+    const got = Object.fromEntries(db.prepare(sql).all().map(r => [r.hm, Number(r.n)]));
+    check('🔴 O-8 이력 SQL 이 실제 SQLite 에서 돈다 (KST 로 시각을 읽는다)',
+      got['21:30'] === 2 && got['17:40'] === 1, JSON.stringify(got));
+    check('🔴 O-8 망고아이 방(class-*)은 이력에 안 센다 — 자기가 만든 행이 자기를 «진짜» 로 만든다',
+      got['21:30'] === 2, JSON.stringify(got));
+    db.close();
+    // 정본 SQL 과 위 문장이 «같은 말» 인가 — 한쪽만 고치면 이 검사가 무의미해진다
+    const srcSql = (MIRROR_TS.match(/export async function loadSlotHistory[\s\S]*?\n}/) || [''])[0];
+    check('O-8 정본이 c24- 방만 센다', /room_id LIKE 'c24-%'/.test(srcSql));
+    check('O-8 정본이 KST 로 시각을 읽는다', /'\+9 hours'/.test(srcSql));
+    check('O-8 정본이 (학생·강사·시각)으로 묶는다', /GROUP BY user_id, teacher_uid, hm/.test(srcSql));
+    check('O-8 정본이 IN 목록을 공용 헬퍼로 자른다', /selectInChunks/.test(srcSql));
+  }
+
+  // ── O-9 배선 — 두 호출부가 모두 이력을 넘긴다(한쪽만 넘기면 쓰기 경로가 그대로 뚫린다) ──
+  /* ⚠️ «칸을 하나 늘리면 깨지는» 정규식으로 못 박지 않는다(CLAUDE.md 2장) — 뜻으로 검사한다. */
+  const callsO = [...MIRROR_TS.matchAll(/planMirror\(classes, links, students, existing, mode, enabled([^)]*)\)/g)];
+  check('🔴 O-9 planMirror 호출 두 곳이 모두 이력을 넘긴다',
+    callsO.length === 2 && callsO.every(m => /\bslotSeen\b/.test(m[1])), callsO.map(m => m[0]));
+  check('O-9 스위치가 꺼지면 빈 Map 을 넘긴다(판정 건너뜀)',
+    /dupGuard \? await loadSlotHistory\([\s\S]{0,80}: new Map<string, number>\(\)/.test(MIRROR_TS));
+  check('O-9 스위치 정본은 c24_mirror_config.dup_guard', /k='dup_guard'/.test(MIRROR_TS));
+  check('O-9 스위치 기본값은 «켬»', /String\(r\?\.v \?\? 'on'\) !== 'off'/.test(MIRROR_TS));
+
+  // ── O-10 화면이 이 줄을 말한다 (안 보이면 아무도 확인하지 않는다) ──
+  const MIRROR_HTML = PUB('admin/c24-mirror.html');
+  check('O-10 성적표에 «잔재 의심» 이름표가 있다', /suspect_dup:/.test(MIRROR_HTML));
+  check('🔴 O-10 0건이어도 감추지 않는다', /VERDICT_LABEL\.suspect_dup, v:s\.suspect_dup\|\|0/.test(MIRROR_HTML));
+
+  // ── O-11 카페24에 물어볼 근거 — 속성 이름을 성적표에 싣는다(판정에는 쓰지 않는다) ──
+  check('O-11 :Class 속성 이름을 읽어 온다', /UNWIND keys\(c\) AS k/.test(MIRROR_TS));
+  check('O-11 성적표가 그것을 내려준다', /prop_keys: await fetchC24ClassPropKeys\(/.test(MIRROR_TS));
+  /* ⛔ 부정 검사는 주석을 벗겨 낸 사본으로 — 위 주석들이 그 이름을 «설명» 하고 있다(CLAUDE.md 2장) */
+  const bare = MIRROR_TS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('🔴 O-11 그 속성으로 «판정» 하지 않는다 — 뜻을 확인하기 전까지는 보여 주기만 한다',
+    !/prop_keys[\s\S]{0,200}(verdict|push\()/.test(bare));
 }
 
 console.log(`\n${'─'.repeat(52)}`);

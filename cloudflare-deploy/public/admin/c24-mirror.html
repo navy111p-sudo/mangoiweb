@@ -189,7 +189,8 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     ok:'만들 수 있음', already:'이미 있음(동일)', update:'값 바뀜(고쳐야함)',
     manual_locked:'사람이 손댐', diverged:'사람 손과 어긋남',
     no_teacher:'강사 못 이음', no_teacher_left:'퇴사 강사 잔재', no_student:'학생 없음',
-    not_whitelisted:'안 켠 강사', conflict:'다른 수업과 겹침'
+    not_whitelisted:'안 켠 강사', conflict:'다른 수업과 겹침',
+    student_hidden:'명부에서 숨긴 계정', suspect_dup:'⚠ 강사 변경 잔재 의심(안 만듦)'
   };
 
   /* 「같은 강사 + 같은 날짜 + 같은 시각」 이 두 건 이상이면 유령 의심 —
@@ -228,6 +229,9 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     chips.push({ label:VERDICT_LABEL.already, v:s.already||0, cls:'st-good' });
     chips.push({ label:VERDICT_LABEL.update, v:s.update||0, cls:'st-warn' });
     chips.push({ label:VERDICT_LABEL.conflict, v:s.conflict||0, cls:(s.conflict?'st-bad':'') });
+    /* ⚠️ (2026-09-01) 「강사 변경 잔재 의심」 — 사람이 카페24에서 확인해 줘야 하는 줄이다.
+       ⛔ 0건이어도 감추지 않는다: 안 보이면 아무도 확인하지 않는다. */
+    chips.push({ label:VERDICT_LABEL.suspect_dup, v:s.suspect_dup||0, cls:(s.suspect_dup?'st-bad':'') });
     chips.push({ label:VERDICT_LABEL.diverged, v:s.diverged||0, cls:(s.diverged?'st-warn':'') });
     chips.push({ label:VERDICT_LABEL.manual_locked, v:s.manual_locked||0 });
     chips.push({ label:VERDICT_LABEL.no_teacher, v:s.no_teacher||0, cls:(s.no_teacher?'st-bad':'') });

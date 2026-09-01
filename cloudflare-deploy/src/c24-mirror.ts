@@ -108,6 +108,7 @@ export type Verdict =
   | 'no_student'       // 학생을 못 찾음
   | 'student_hidden'    // 명부에서 «숨긴» 계정 — 일부러 뺀 것이라 만들지 않는다(고쳐야 할 것이 아님)
   | 'not_whitelisted'  // 아직 안 켠 강사
+  | 'suspect_dup'      // 강사 변경 잔재로 의심 — 사람이 확인할 때까지 만들지 않는다
   | 'conflict';        // 그 시간에 다른 출처(파일럿·수동) 수업이 이미 있음
 
 export interface PlanRow {
@@ -196,6 +197,14 @@ export function buildRosterResolver(
   };
 }
 
+/**
+ * 🕰️ «슬롯» 열쇠 — (학생, 카페24 강사번호, 시작시각). 이력에서 «이 자리가 몇 번 잡혔나» 를 셀 때 쓴다.
+ *   ⚠️ 날짜는 일부러 뺀다. 묻는 것이 「이 시각이 그 학생·그 강사에게 «되풀이되는 자리» 인가」이기 때문이다.
+ */
+export function slotKey(uid: string, c24tid: string | null, hm: string): string {
+  return `${uid}|${c24tid == null ? '' : c24tid}|${hm}`;
+}
+
 /** 같은 수업인가 — 학생·날짜·시작시각이 모두 같으면 같은 수업으로 본다. */
 function sameSlot(a: { user_id: string; date: string; time: string }, b: ExistingRow): boolean {
   return String(b.user_id || '') === a.user_id
@@ -229,8 +238,22 @@ export function planMirror(
         «고쳐야 할 것» 으로 읽힌다. 일부러 뺀 것은 그렇게 말해야 한다.
      ⚠️ 기본값은 빈 집합이다(옛 호출부·하니스가 그대로 돈다). */
   hiddenStudents: Set<string> = new Set(),
+  /* 🕰️ (2026-09-01) 카페24 이력에서 «그 슬롯이 지금까지 몇 번 잡혔나» — slotKey() 로 센 값.
+       아래 «강사 변경 잔재» 판정이 이것 하나로 갈린다.
+     ⚠️ 비어 있으면(=이력을 못 읽었거나 스위치를 껐으면) 그 판정을 **통째로 건너뛴다**.
+        「0건이었다」와 「안 봤다」를 구분하지 못하면 멀쩡한 수업이 무더기로 막힌다
+        (같은 방어가 이 파일의 «취소 단계 건너뛰기» 에도 있다).
+     ⚠️ 기본값은 빈 Map 이다 — 옛 호출부·하니스가 그대로 돈다. */
+  slotSeen: Map<string, number> = new Map(),
 ): PlanRow[] {
   const out: PlanRow[] = [];
+
+  /* 같은 학생·같은 날에 카페24가 몇 건을 들고 있나. 잔재 판정의 «입구» 조건이다. */
+  const perDay = new Map<string, number>();
+  for (const c of classes) {
+    const k = `${String(c.user_id || '')}|${String(c.date || '')}`;
+    perDay.set(k, (perDay.get(k) || 0) + 1);
+  }
 
   for (const c of classes) {
     const date = String(c.date || '');
@@ -295,9 +318,57 @@ export function planMirror(
     const other = mine.find(e => String(e.source || '') !== MIRROR_SOURCE);
     if (other) { push('conflict', `그 시간에 이미 수업이 있습니다 (${other.source || '출처 미상'})`); continue; }
 
+    /* ── 2-b) 🔴 «강사 변경 잔재» 막기 (2026-09-01 실사고) ────────────────────
+       발단: Zee 를 켠 날, 강사 화면에 **없는 수업**이 떴다 — 9/1 17:40 허윤아(카페24 511745).
+             카페24가 강사를 바꿀 때 옛 예약을 지우지 않고 남기는데, 미러는 카페24를 정본으로
+             삼으므로 그것을 그대로 만든다. 강사는 20분을 헛기다렸고 학생 노쇼까지 찍혔다.
+
+       ⛔ 「같은 학생·같은 날 2건이면 잔재」로 막으면 **안 된다** — 허윤아는 진짜로 하루 두 번
+          (17:00·21:30) 수업한다. 그렇게 막았으면 멀쩡한 수업이 사라졌다.
+       ✅ 실제로 가르는 신호는 **«그 자리가 되풀이되는가»** 하나뿐이다. 실측(2026-09-01):
+            허윤아·Zee 21:30 → 이력 4건(8/31·9/1·9/2·9/4)  = 진짜
+            허윤아·Zee 17:40 → 이력 **1건**(그 유령 자신뿐) = 잔재
+            한채아·Belle 15:10 → 2건(8/25 실제 수업 포함)   = 진짜
+       ⚠️ 그래서 조건이 **둘 다** 맞아야 한다 — ① 그날 그 학생에게 카페24 수업이 2건 이상이고
+          ② 그중 이 자리가 이력에 한 번뿐. ①이 없으면 «새로 생긴 주간 수업» 이 전부 막힌다.
+       ⛔ 이미 만들어진 행은 건드리지 않는다(위 already/update/conflict 가 먼저 continue 한다).
+          이 판정은 «새로 만드는 것» 만 막는 예방책이지, 지난 일을 되짚어 지우지 않는다.
+       ✅ 실패 방향은 «안 만드는 쪽» 이다 — 진짜 수업이 하루 늦게 뜨는 것보다, 없는 수업을
+          기다리게 하는 쪽이 나쁘다(파일럿이라 강사는 카페24로 들어갈 수 있다).
+
+       ✅ **켜기 전에 «지금 살아 있는 행 전부» 에 돌려 봤다**(2026-09-01, 운영 D1 실측).
+            미러가 만들어 둔 active 48건 중 **47건은 그대로 통과**했고 걸린 것은 **1건뿐**인데,
+            그 1건(한채아·Belle 9/1 21:00)은 사람이 따로 의심해 두었던 바로 그 건이었다.
+            ⟹ 오검출 0건. 하루 두 번 수업하는 학생(허윤아 17:00/21:30, 손현규, 이다연, 이선우)도
+               전부 통과했다. **새 판정을 넣을 때는 이렇게 «지금 맞는 것을 깨지 않는가» 를 먼저 재라.**
+
+       ⚠️ **이 판정은 완전하지 않다 — 그렇게 적어 둔다.** 카페24가 «같은 자리» 에 잔재를 둘 이상
+          남기면 이력이 2건이 되어 그냥 통과한다. 실제로 그런 모양이 있다: 허윤아·Far 17:00 은
+          8/27·9/1 두 건인데 8/27 에 실제로 있었던 수업은 17:20 이었다(그 17:00 도 잔재로 보인다).
+          ⟹ 근본 해결은 **카페24가 취소·변경을 어떻게 표시하는지 확인해 그것으로 거르는 것**이다.
+             그 답을 찾으려고 성적표에 `prop_keys`(:Class 속성 이름)를 함께 싣는다. 그때까지
+             이 판정은 «자주 나는 한 유형» 만 막는 임시 방어다. */
+    const dayCount = perDay.get(`${uid}|${date}`) || 0;
+    const suspect = slotSeen.size > 0
+      && dayCount > 1
+      && (slotSeen.get(slotKey(uid, c24tid, time)) || 0) < 2;
+
     // ── 3) 만들 수 있다. 모드에 따라 실제로 만들지가 갈린다 ──
-    if (mode === 'all' || (mode === 'whitelist' && enabled.has(teacherId))) push('ok');
-    else push('not_whitelisted', mode === 'off' ? '그림자 단계 — 아직 만들지 않습니다' : '아직 켜지 않은 강사');
+    if (!(mode === 'all' || (mode === 'whitelist' && enabled.has(teacherId)))) {
+      /* ⚠️ 아직 안 켠 강사는 판정을 바꾸지 않는다(집계가 흐트러진다). 대신 «켜기 전에 볼 것» 을
+         한 줄 덧붙인다 — 이 신호가 성적표에 안 보이면 다음 강사를 켤 때 같은 사고가 난다. */
+      push('not_whitelisted',
+        (mode === 'off' ? '그림자 단계 — 아직 만들지 않습니다' : '아직 켜지 않은 강사')
+        + (suspect ? ' ⚠ 이 자리는 «강사 변경 잔재» 로 의심됩니다 — 켜기 전에 카페24에서 확인하세요' : ''));
+      continue;
+    }
+    if (suspect) {
+      push('suspect_dup',
+        `그날 이 학생의 카페24 수업이 ${dayCount}건인데, 그중 이 ${time} 자리는 이력에 한 번뿐입니다`
+        + ' — 강사 변경 잔재로 의심되어 만들지 않았습니다. 카페24에서 확인해 주세요');
+      continue;
+    }
+    push('ok');
   }
 
   return out;
@@ -307,7 +378,8 @@ export function planMirror(
 export function summarize(rows: PlanRow[]): Record<Verdict, number> {
   const z: Record<Verdict, number> = {
     ok: 0, already: 0, update: 0, manual_locked: 0, diverged: 0,
-    no_teacher: 0, no_teacher_left: 0, no_student: 0, student_hidden: 0, not_whitelisted: 0, conflict: 0,
+    no_teacher: 0, no_teacher_left: 0, no_student: 0, student_hidden: 0, not_whitelisted: 0,
+    suspect_dup: 0, conflict: 0,
   };
   for (const r of rows) z[r.verdict]++;
   return z;
@@ -462,6 +534,75 @@ export async function loadExisting(env: MirrorEnv, since: string, until: string)
   } catch { return []; }
 }
 
+/**
+ * 🕰️ 카페24 «슬롯 이력» — (학생, 강사, 시각) 조합이 지금까지 몇 번 잡혔나.
+ *   「강사 변경 잔재」 판정의 유일한 근거다(planMirror 의 suspect_dup 주석 참고).
+ *
+ * ℹ️ 왜 Neo4j 가 아니라 `attendance` 인가 — 그 표에는 야간 동기화가 카페24 :Class 를
+ *    **-60일 ~ +180일** 로 이미 넣어 두었다(`importCafe24Attendance`). 미러의 창(3일·14일)보다
+ *    훨씬 넓어서 「되풀이되는 자리인가」를 제대로 셀 수 있고, Neo4j 를 한 번 더 부르지 않는다.
+ * ⚠️ 그래서 «오늘 카페24에 새로 잡힌 수업» 은 야간 동기화 전까지 이력이 0건이다. 그때는
+ *    (그날 2건 이상일 때만) 하루 보류됐다가 다음 날 저절로 만들어진다 — 안전한 방향의 실패다.
+ * ⛔ status 로 거르지 않는다 — 하는 일이 «세기» 라 넓게 잡는 쪽이 맞다(좁히면 유령이 샌다).
+ * ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도). swallowErrors — 표가 없으면
+ *    빈 Map 이 되고, 빈 Map 은 «판정을 건너뛴다» 는 뜻이라 옛 동작 그대로가 된다.
+ */
+export async function loadSlotHistory(env: MirrorEnv, uids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const want = Array.from(new Set(uids.filter(Boolean)));
+  if (!want.length) return out;
+  const rows = await selectInChunks<any>(
+    env.DB, want,
+    (ph) => `SELECT user_id, teacher_uid,
+                    strftime('%H:%M', joined_at/1000, 'unixepoch', '+9 hours') AS hm,
+                    COUNT(*) AS n
+               FROM attendance
+              WHERE room_id LIKE 'c24-%' AND user_id IN (${ph})
+              GROUP BY user_id, teacher_uid, hm`,
+    { swallowErrors: true },
+  );
+  for (const r of rows) {
+    out.set(
+      slotKey(String(r.user_id || ''), r.teacher_uid == null ? null : String(r.teacher_uid), String(r.hm || '')),
+      Number(r.n) || 0,
+    );
+  }
+  return out;
+}
+
+/** 🔌 「강사 변경 잔재」 판정 스위치. 기본은 켬 — `c24_mirror_config` 에 `dup_guard='off'` 면 끈다.
+ *  ⚠️ 끄면 잔재가 그대로 만들어진다. 전환일에 이 판정이 헛돌 때의 **되돌리는 길**로만 둔 것이다. */
+export async function getDupGuard(env: MirrorEnv): Promise<boolean> {
+  try {
+    const r: any = await env.DB.prepare(`SELECT v FROM c24_mirror_config WHERE k='dup_guard' LIMIT 1`).first();
+    return String(r?.v ?? 'on') !== 'off';
+  } catch { return true; }
+}
+
+/**
+ * 🔎 카페24 :Class 가 실제로 들고 있는 속성 «이름» 목록 (값은 안 가져온다).
+ *   왜 — 「카페24는 취소를 어떻게 표시하나」를 아직 모른다. `class_state` 는 잔재와 진짜가
+ *   같은 값(1)이라 못 가른다. 우리가 안 읽고 있는 칸이 답을 들고 있을 수 있으므로 **이름만**
+ *   성적표에 실어 카페24에 물어볼 근거로 삼는다(선례: `c24-expense-filter.ts` 의 prop_keys).
+ * ⛔ 이 값으로 판정하지 말 것 — 뜻이 확인된 뒤에 거르는 것이 순서다.
+ * ⚠️ 리포트(읽기)에서만 부른다. 쓰기 경로(applyMirror)는 건드리지 않는다.
+ */
+export async function fetchC24ClassPropKeys(
+  env: MirrorEnv,
+  runCypher: (env: any, q: string, p: Record<string, unknown>, m: 'READ' | 'WRITE') => Promise<{ fields: string[]; values: any[][] }>,
+  since: string, until: string,
+): Promise<string[]> {
+  try {
+    const { fields, values } = await runCypher(env,
+      `MATCH (c:Class) WHERE c.date >= $since AND c.date <= $until
+        UNWIND keys(c) AS k
+        RETURN DISTINCT k AS k ORDER BY k LIMIT 200`,
+      { since, until }, 'READ');
+    const i = Math.max(0, fields.indexOf('k'));
+    return values.map(v => String(v[i]));
+  } catch { return []; }
+}
+
 /** 카페24 :Class 읽기 — importCafe24Attendance 와 «같은 모양» 으로 뽑는다 */
 export async function fetchC24Classes(
   env: MirrorEnv,
@@ -506,6 +647,11 @@ export async function c24MirrorReport(
   last_runs: Record<string, any>;
   by_date: { date: string; total: number; ok: number; blocked: number }[];
   rows: PlanRow[];
+  /* 🔎 (2026-09-01) 카페24 :Class 의 속성 «이름» 목록. 「취소를 어떻게 표시하나」를
+     카페24에 물어볼 근거다 — 값이 아니라 이름만이고, 판정에는 쓰지 않는다. */
+  prop_keys: string[];
+  /** 「강사 변경 잔재」 판정이 켜져 있나 (dup_guard). 꺼져 있으면 성적표가 그렇게 말해야 한다. */
+  dup_guard: boolean;
   /* 🖥️ (2026-09-01) 관리자 화면에서 «지금 켠/막은 강사» 를 보여 주려고 더했다.
      읽기만 추가한 것이라 기존 호출자는 그대로다(하니스가 이 필드를 요구하지 않는다). */
   enabled_teachers: string[];
@@ -516,8 +662,8 @@ export async function c24MirrorReport(
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled, blocked, lastRuns] = await Promise.all([
-    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getMirrorLastRuns(env),
+  const [mode, enabled, blocked, lastRuns, dupGuard] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getMirrorLastRuns(env), getDupGuard(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
@@ -527,7 +673,8 @@ export async function c24MirrorReport(
   ]);
 
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
+  const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
   const summary = summarize(rows);
 
   const byDate = new Map<string, { date: string; total: number; ok: number; blocked: number }>();
@@ -536,7 +683,8 @@ export async function c24MirrorReport(
     d.total++;
     if (r.verdict === 'ok' || r.verdict === 'already') d.ok++;
     if (r.verdict === 'no_teacher' || r.verdict === 'no_teacher_left'
-        || r.verdict === 'no_student' || r.verdict === 'conflict') d.blocked++;
+        || r.verdict === 'no_student' || r.verdict === 'conflict'
+        || r.verdict === 'suspect_dup') d.blocked++;
     byDate.set(r.date, d);
   }
 
@@ -550,6 +698,8 @@ export async function c24MirrorReport(
     total: rows.length, summary, by_state: byState, last_runs: lastRuns,
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
+    prop_keys: await fetchC24ClassPropKeys(env, runCypher, since, until),
+    dup_guard: dupGuard,
     enabled_teachers: Array.from(enabled).sort(),
     blocked_teachers: Array.from(blocked).sort(),
   };
@@ -608,8 +758,8 @@ export async function applyMirror(
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled, blocked] = await Promise.all([
-    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env),
+  const [mode, enabled, blocked, dupGuard] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getDupGuard(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
@@ -619,7 +769,9 @@ export async function applyMirror(
   ]);
 
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
+  /* 🕰️ 「강사 변경 잔재」 판정의 근거. 못 읽으면 빈 Map 이고, 빈 Map 은 «그 판정을 건너뛴다» 다. */
+  const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
   const summary = summarize(rows);
   const byState: Record<string, number> = {};
   for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
