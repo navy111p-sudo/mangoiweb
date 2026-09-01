@@ -13,11 +13,15 @@
 <title>AI 음성 코칭 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
-<!-- ⬅ (2026-08-04 사장님 지시) 이 화면 상단은 뒤로가기 화살표 하나만.
-     mango-i18n.js 가 우상단에 자동으로 붙이는 [🏠 홈] + [🌐 EN] 묶음을 이 meta 로 끈다
-     (mango-i18n.js 의 공식 opt-out — CSS 로 숨기지 말 것. 숨기면 자리만 차지한다).
-     홈 버튼을 왜 빼나: ← 로 나가면 바로 앞이 곧 홈이라 같은 일을 하는 버튼이 둘이 된다.
-     ↳ 되살리려면 이 meta 한 줄만 지우면 된다. -->
+<!-- ⬅🏠 (2026-08-31 사장님 지시 «뒤로가기 화살표와 홈버튼 만들어줘»)
+     이 화면의 «나가는 문» 은 왼쪽 위 [←][🏠 홈] 두 개다. ← 는 back-nav.js(직전 페이지),
+     🏠 는 처음 화면(/). 2026-08-04 에는 «← 바로 앞이 곧 홈» 이라 홈을 뺐었지만, 그 뒤
+     이 화면으로 들어오는 길이 늘어(수업 화면·게임 허브·카톡 링크) ← 한 번이 홈이 아닌
+     경우가 흔해져 되살린다.
+     ⚠️ 이 meta 는 그대로 켜 둔다 — mango-i18n.js 가 «우상단» 에 붙이는 [🏠 홈]+[🌐 EN] 묶음은
+        2026-08-31 에 그 자리를 차지한 ☰(AI 친구 고르기, right:12px)와 겹치고, 홈 버튼이
+        두 개가 된다. 그래서 홈은 우상단이 아니라 ← 옆(왼쪽 위)에 우리가 직접 둔다.
+        (mango-i18n.js 의 공식 opt-out — CSS 로 숨기지 말 것. 숨기면 자리만 차지한다) -->
 <meta name="mangoi-no-global-bar" content="1">
 <script src="/js/mango-i18n.js" defer></script>
 <script src="/js/session-guard.js" defer></script>
@@ -165,7 +169,15 @@
     .brand { margin-bottom: 6px; }
     .brand-sub, .brand-rule, .brand-hint { display: none; }
     .brand-eyebrow { margin-bottom: 4px; }
-    .brand-logo { font-size: 20px; }
+    /* 제목은 «남은 폭» 에 맞춘다. 왜 숫자로 안 두나: 20px 고정이면 좌우 클러스터
+       ([←][🏠 홈] · ☰)를 비운 뒤 남는 폭보다 넓어져 두 줄로 쪼개진다(360x740 실측).
+       두 줄이 되면 이 화면의 대전제인 «폰에서 스크롤 없이 한 화면» 이 깨진다.
+       나눗수 11.4 의 근거: 이 제목("Mangoi · AI Voice Coach")은 20px 에서 219px 이라
+       글자크기 1px 당 약 10.95px 이고, 여기에 4% 안전분을 더한 값이다(실측 2026-08-31).
+       ⚠️ 100vw 를 쓰지 말 것 — 100vw 는 «세로 스크롤바 폭까지» 포함해서 실제 배치 폭보다
+          크게 잡힌다(320px 창 실측: 100vw=320 인데 제목 상자는 138px) → 계산이 커져 두 줄로
+          쪼개진다. 그래서 아래 스크립트가 실제로 «잰» 폭(--sc-logo-avail)을 쓴다. */
+    .brand-logo { font-size: clamp(12px, calc(var(--sc-logo-avail, 196px) / 11.4), 20px); }
 
     /* ⬅ 뒤로가기 화살표 자리 (2026-08-04 사장님 지시: "화살표하고 망고아이 겹치지 않게")
        back-nav.js 의 ← 는 position:fixed(왼쪽 8px, 34px 원형)라 문서 흐름을 밀지 못해
@@ -175,7 +187,11 @@
        그래서 세로를 쓰지 않고 제목 줄 왼쪽에 화살표 몫(46px = 8+34+여백4)만 비우고,
        제목은 남은 오른쪽 폭에서 가운데 정렬한다. 세로 손실 0, 겹침 0.
        우상단 [🏠][🌐] 은 meta 로 껐으므로 오른쪽은 비어 있다. */
-    .brand { padding-left: 46px; }
+    /* ⚠️ 46px 은 «← 하나» 시절의 값이다. 2026-08-31 에 [🏠 홈] 이 옆에 붙었으므로 폭이
+       늘었는데, 그 폭을 여기 숫자로 박으면 버튼 글자·크기가 바뀔 때 조용히 어긋난다
+       (같은 이유로 back-nav.js 의 좌표도 복사하지 않는다 — 아래 sc-home-btn 스크립트가
+       실제로 재서 --sc-nav-w 로 알려 준다. 스크립트가 못 돌면 46px 로 예전과 같아진다). */
+    .brand { padding-left: var(--sc-brand-padl, 46px); padding-right: var(--sc-brand-padr, 60px); }
     /* 결과를 볼 때는 .brand 가 통째로 숨으므로(아래 m-showing-result) 화살표 아래에
        문장 카드가 들어온다 — 그때만 세로로 자리를 낸다. */
 
@@ -247,7 +263,9 @@
      녹음 전 화면도 스크롤 없이 들어가게 */
   @media (max-width: 640px) and (max-height: 700px) {
     .brand-eyebrow { display: none; }
-    .brand-logo { font-size: 17px; }
+    /* ⚠️ 상한만 17px 로 낮추고 «남은 폭에 맞추기» 는 그대로 둔다 — 여기서 17px 로
+       못 박으면 좁은 폰(320x568 실측)에서 다시 두 줄로 쪼개진다. */
+    .brand-logo { font-size: clamp(12px, calc(var(--sc-logo-avail, 196px) / 11.4), 17px); }
     #tavatar-ring { width: 92px; height: 115px; }
     #tavatar-wrap { margin: 0 0 6px; gap: 5px; }
     #tavatar-status { font-size: 9.5px; padding: 2px 9px; }
@@ -257,6 +275,30 @@
     .recorder { padding: 10px; }
     .rec-btn { width: 64px; height: 64px; font-size: 22px; }
     .rec-status { font-size: 10.5px; margin-top: 8px; }
+  }
+
+  /* 🏠 홈 버튼 (2026-08-31 사장님 지시) — 왼쪽 위 ← 오른쪽에 붙는다.
+     ⛔ `.home-btn`(이 파일 위쪽, 우상단 노란 알약)을 되살리지 말 것 — 그 자리는 ☰ 가 쓴다.
+     ⚠️ 모양은 back-nav.js 의 ← 와 «같게» 맞춘다(남색 알약·앰버 글자·같은 테두리) — 나란히
+        놓이는 두 버튼이 서로 다르게 생기면 하나는 «다른 기능» 으로 읽힌다.
+     ⚠️ 자리(top/left/height)는 스크립트가 ← 를 재서 덮어쓴다. 여기 값은 스크립트가 못 돌
+        때의 폴백이다. */
+  #sc-home-btn { position: fixed; top: 14px; left: 58px; z-index: 99999;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    height: 38px; padding: 0 13px; border-radius: 99px;
+    font-family: inherit; font-size: 13px; font-weight: 800; white-space: nowrap;
+    text-decoration: none; cursor: pointer;
+    background: rgba(20,33,59,0.92); color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.50);
+    box-shadow: 0 6px 18px -2px rgba(0,0,0,0.4);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    -webkit-tap-highlight-color: transparent; transition: background .15s, color .15s; }
+  #sc-home-btn:hover { background: rgba(251,191,36,0.22); color: #fff; }
+  #sc-home-btn:active { transform: scale(.96); }
+  @media (max-width: 480px) {
+    /* back-nav.js 의 ← 가 34px 로 작아지는 폭(innerWidth<=480)에 맞춘다. 글자는 남긴다 —
+       폰에는 hover 가 없어 title 만으로는 아무것도 안 보인다. */
+    #sc-home-btn { top: 8px; left: 48px; height: 34px; padding: 0 10px; font-size: 12px; gap: 4px; }
   }
 
   /* ☰ AI 친구 고르기 (2026-08-31) — 이 화면엔 설정 UI 가 없어서 우상단 햄버거로 연다.
@@ -305,8 +347,16 @@
   <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)">🦸 Jake</button>
 </div>
 
-<!-- 🏠 자체 홈 버튼도 제거 (2026-08-04) — ← 바로 앞이 홈이라 같은 일을 하는 버튼이 둘이었다.
-     .home-btn 스타일/숨김 규칙은 남겨 둔다(되살릴 때 이 자리에 <a class="home-btn" href="/"> 만 넣으면 됨). -->
+<!-- 🏠 홈 — 처음 화면으로. ← (back-nav.js, 직전 페이지)와 짝이다.
+     ⚠️ 글자가 있는 버튼이므로 번역은 data-ko/data-en 이 맞다(아이콘 전용 버튼에 그 둘을 달면
+        i18n 엔진이 textContent 를 통째로 갈아끼워 상자에 문장이 들어앉는다 — ☰ 가 그래서
+        title/aria 속성만 쓴다). 이모지는 값 안에 함께 넣어야 지워지지 않는다.
+     ⛔ class="home-btn" 을 쓰지 말 것 — 이 파일 맨 아래 `.home-btn{display:none}` 안전망에
+        걸려 «넣었는데 안 보이는» 상태가 된다. -->
+<a id="sc-home-btn" href="/" aria-label="홈으로 가기" title="처음 화면으로"
+   data-ko-aria="홈으로 가기" data-en-aria="Go to home"
+   data-ko-title="처음 화면으로" data-en-title="Go to the home screen"
+   data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</a>
 
 <div class="wrap">
   <div class="brand">
@@ -1469,14 +1519,67 @@ if (typeof window.speechSynthesis !== 'undefined') {
      스크립트(2026-07-28)를 제거 — 커리큘럼이 이 페이지로 통합돼(PR #55) pages.dev 링크가
      더는 없고, 링크 장식·auth postMessage 모두 죽은 코드였다.
      · 2026-08-03 사장님 지시(그대로 유효): ← 는 항상 back-nav.js 의 history.back()(=직전
-       페이지), 처음 페이지로 나가는 문은 우상단 [🏠 홈] 버튼 하나. -->
+       페이지), 처음 페이지로 나가는 문은 [🏠 홈] 버튼 하나.
+     · 2026-08-31 변경: 그 [🏠 홈] 의 «자리» 만 우상단 → 왼쪽 위 ← 옆으로 옮겼다(우상단은
+       ☰ AI 친구 고르기가 쓴다). 역할 분담은 그대로다. -->
 
 <style id="mb-tidy2-2026-07-11">
-/* 자체 홈 버튼 숨김. (2026-08-04) 공용 홈/EN 바도 meta 로 껐으므로 이 화면에는 홈 버튼이
-   아예 없다 — ← 바로 앞이 홈이라 사장님 지시로 뺐다. 규칙은 안전망으로 남겨 둔다. */
+/* 옛 «우상단 노란 알약» 홈 버튼(.home-btn) 숨김. 2026-08-31 부터 이 화면의 홈 버튼은
+   왼쪽 위 #sc-home-btn 이다 — 우상단은 ☰(AI 친구)가 쓰므로 그 자리에 다시 알약을 띄우면
+   겹친다. 그래서 이 규칙은 그대로 둔다(#sc-home-btn 은 class 가 달라 영향 없음). */
 .home-btn{display:none}
 </style>
 <script defer src="/js/back-nav.js"></script>
+<script>
+/* 🏠 홈 버튼을 back-nav.js 가 넣은 ← «오른쪽» 에 붙이고, 제목이 비워 둘 폭을 알려 준다.
+   왜 숫자를 박지 않고 재나:
+     · back-nav.js 는 자기 좌표·크기를 innerWidth<=480 으로 가르는데 이 화면 CSS 의 모바일
+       기준은 640px 이라 서로 다르다 → 숫자를 복사하면 480~640px 구간에서 조용히 어긋난다.
+     · ← 의 크기·자리가 그쪽에서 바뀌면 여기도 함께 깨진다(에러는 안 난다).
+   ⛔ 상주 MutationObserver·setInterval 금지 — body class 감시로 홈 화면을 통째로 멎게 한
+      전례가 있다. 처음 몇 번과 resize 때만 잰다. */
+(function () {
+  'use strict';
+  var GAP = 6;                       // ← 와 🏠 사이 간격
+  var t = null;
+  function place() {
+    var home = document.getElementById('sc-home-btn');
+    if (!home) return;
+    var back = document.getElementById('mangoi-back-btn');
+    if (back) {
+      var r = back.getBoundingClientRect();
+      if (r.width) {
+        home.style.top = Math.round(r.top) + 'px';
+        home.style.left = Math.round(r.right + GAP) + 'px';
+        home.style.height = Math.round(r.height) + 'px';
+      }
+    }
+    /* 모바일에서 제목("Mangoi · AI Voice Coach")이 왼쪽 [←][🏠] 밑으로도, 오른쪽 ☰ 밑으로도
+       들어가지 않게 «양쪽» 을 비운다. ⚠️ 한쪽만 비우면 제목의 가운데정렬이 반대쪽으로 밀려
+       그쪽에서 겹친다 — 실제로 왼쪽만 비웠을 때 ☰ 가 제목 글자 위에 얹혔다(390px 실측). */
+    var hr = home.getBoundingClientRect();
+    if (!hr.width) return;
+    var hamb = document.getElementById('sc-friend-btn');
+    /* ⚠️ innerWidth·100vw 가 아니라 clientWidth — 스크롤바를 뺀 «실제 배치 폭» 이다. */
+    var vw = document.documentElement.clientWidth;
+    var leftReserve = hr.right + GAP;
+    var rightReserve = hamb ? (vw - hamb.getBoundingClientRect().left + GAP) : 0;
+    var wrap = document.querySelector('.wrap');
+    var cs = wrap ? getComputedStyle(wrap) : null;
+    var wl = cs ? parseFloat(cs.paddingLeft) || 0 : 0;
+    var wr = cs ? parseFloat(cs.paddingRight) || 0 : 0;
+    var root = document.documentElement.style;
+    root.setProperty('--sc-brand-padl', Math.max(0, Math.ceil(leftReserve - wl)) + 'px');
+    root.setProperty('--sc-brand-padr', Math.max(0, Math.ceil(rightReserve - wr)) + 'px');
+    /* 제목 상자에 남는 실제 폭 = 배치폭 - (좌+우 예약). 그 값으로 글자크기를 맞춘다.
+       (좌우 padding 이 «예약 - wrap padding» 이므로 wrap padding 은 여기서 다시 빼지 않는다) */
+    root.setProperty('--sc-logo-avail', Math.max(80, Math.floor(vw - leftReserve - rightReserve)) + 'px');
+  }
+  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(place, 120); });
+  /* back-nav.js 는 DOMContentLoaded + 350ms 에 ← 를 넣는다 — 그 뒤에 재야 한다. */
+  [0, 420, 900].forEach(function (ms) { setTimeout(place, ms); });
+})();
+</script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js?v=21"></script>
 </body>
