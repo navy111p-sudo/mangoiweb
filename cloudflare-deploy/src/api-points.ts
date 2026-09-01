@@ -149,6 +149,34 @@ export async function handlePointsApi(
       await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('teacher_praise_point','선생님 칭찬 포인트',1,1,100,1,'실시간 수업 중 선생님이 잘한 답변에 즉석 지급',?) ON CONFLICT(code) DO UPDATE SET cooldown_sec=1, daily_cap=100, enabled=1`).bind(now).run();
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code='teacher_praise_point' AND enabled=1`).first();
       const amount = rule?.amount || 1;
+      /* ⚛ (2026-09-01) 상한 검사는 반드시 아래 «멱등 claim» 보다 **앞** 이어야 한다.
+         뒤에 두면 막힌 별이 claim 을 먹고, 짝이 되는 다른 경로(강사 award-praise / 학생
+         earn-by-rule 이 별 하나에 둘 다 뜁니다)가 { ok:true, already:true, amount:5 } 를 받아
+         **화면에만** 포인트가 생긴다 — 실제 적립은 0이다.
+         ⚠️ 전에는 상한이 «100회» 라 사실상 닿지 않아 티가 안 났다. 지금은 5점×20번이면 닿는다. */
+      // 일일 한도 (KST 자정 기준) — 규칙별 «횟수» 상한
+      if (rule?.daily_cap) {
+        const KST_OFF = 9 * 3600 * 1000;
+        const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='teacher_praise_point' AND triggered_at>=?`).bind(accountUid, todayMs).first();
+        if ((cnt?.c || 0) >= rule.daily_cap) return { ok: false, error: 'daily_cap_reached', cap: rule.daily_cap };
+      }
+      /* 🪙 (2026-09-01) 하루 전체 상한(100점)도 함께 본다 — 정본은 checkEarnAllowed 하나다.
+         [왜] 규칙표의 daily_cap 은 «점수» 가 아니라 **«횟수»** 다. 칭찬 금액이 1점 → 5점으로
+           바뀌었는데(POINT_POLICY.EARN.praise, syncApprovedRuleAmounts 가 금액만 맞춘다)
+           횟수 상한 100 은 그대로여서 이 규칙 하나로 **하루 500점**이 나갈 수 있었다.
+           1포인트 = 1원이고(gift_catalog: 3,000원 상품권 = 3,000점) 이 경로는 강사가 누른다.
+         [잰 것 2026-09-01] 실제 하루 최대 적립은 80점이라 **아직 넘긴 적은 없다**(6/4 시드 제외).
+           즉 지금 새고 있는 게 아니라, 금액을 한 번 더 올리면 조용히 5배로 나가는 상태였다.
+         ⛔ 깎아서 주지 않고 막는다 — 반쪽 적립은 «왜 5점만 들어왔지?» 라는 더 큰 혼란이 된다. */
+      const praiseAllow = await checkEarnAllowed(env, accountUid, 'teacher_praise_point', amount);
+      if (!praiseAllow.ok) {
+        /* ⚠️ 강사 화면(js/idx-main.js)은 'daily_cap_reached' 만 알고, 모르는 값은
+           「전달 실패 :(」 로 그린다 — 한도인데 고장으로 읽혀 강사가 계속 다시 누른다.
+           그래서 화면이 아는 코드로 돌려주고, 자세한 사유는 따로 싣는다.
+           (첫 화면 예산이 빠듯한 blocking 파일을 안 건드리는 쪽이기도 하다.) */
+        return { ok: false, error: 'daily_cap_reached', detail: praiseAllow.error, cap: praiseAllow.cap, used: praiseAllow.used };
+      }
       // ⚛ 멱등 claim — awardId 있을 때만. 이미 적립됐으면 그대로 성공 반환(중복 적립 안 함).
       if (opts.awardId) {
         const claim = await env.DB.prepare(`INSERT OR IGNORE INTO point_awards (award_id, user_id, room_id, credited_at) VALUES (?,?,?,?)`)
@@ -157,13 +185,6 @@ export async function handlePointsApi(
           const b: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(accountUid).first();
           return { ok: true, already: true, amount, newBalance: b?.balance ?? null };
         }
-      }
-      // 일일 한도 (KST 자정 기준)
-      if (rule?.daily_cap) {
-        const KST_OFF = 9 * 3600 * 1000;
-        const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
-        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='teacher_praise_point' AND triggered_at>=?`).bind(accountUid, todayMs).first();
-        if ((cnt?.c || 0) >= rule.daily_cap) return { ok: false, error: 'daily_cap_reached', cap: rule.daily_cap };
       }
       const r = await applyPointTransaction(env, {
         userId: accountUid, studentName: opts.studentName || undefined, type: 'earn',
@@ -465,7 +486,10 @@ export async function handlePointsApi(
         if (rule) {
           const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
           const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='class_rating' AND triggered_at>=?`).bind(studentUid, startOfDay.getTime()).first();
-          if (!rule.daily_cap || (cnt?.c || 0) < rule.daily_cap) {
+          // 🪙 (2026-09-01) 하루 전체 상한(100점)도 함께 본다 — 정본 checkEarnAllowed
+          const rateAllow = await checkEarnAllowed(env, studentUid, 'class_rating', Number(rule.amount) || 0);
+          if (!rateAllow.ok) { /* 넘치면 평가는 그대로 저장하고 포인트만 건너뛴다 */ }
+          else if (!rule.daily_cap || (cnt?.c || 0) < rule.daily_cap) {
             const r = await applyPointTransaction(env, { userId: studentUid, studentName: body.student_name, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: 'class_rating', meta: { room_id: roomId, score } });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
               .bind(studentUid, 'class_rating', rule.amount, now, r.txnId, JSON.stringify({ room_id: roomId })).run();

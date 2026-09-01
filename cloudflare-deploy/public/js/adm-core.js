@@ -821,6 +821,130 @@ var _recLimit  = 50;
 var _recTotal  = 0;
 var _recBlobTruncated = false;   // R2 목록이 상한에 걸려 «잘렸는가» — 잘렸으면 「영상 없음」이 거짓일 수 있다
 
+/* 🔢 표 안 필터·머리글 정렬 (2026-09-01)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] 이 표에는 서버 검색(방·교사·날짜·상태)만 있었고, 정작 화면에 있는 시간·크기·
+        참가자·시선/말하기/총 참여도 칸으로는 좁힐 수도 정렬할 수도 없었다.
+        「참여도 낮은 수업만 보자」·「길게 찍힌 것부터 보자」를 눈으로 훑어야 했다.
+   [범위] 여기서 거르고 정렬하는 것은 «지금 불러온 쪽»(기본 50건)뿐이다. 서버가
+        페이지로 잘라 주기 때문이다. ⛔ 그래서 화면이 «N건 중 M건» 을 반드시 말한다 —
+        감추면 「전체를 걸렀다」로 읽혀 없는 결론을 내리게 된다.
+   ⚠️ 점수 계산(총 참여도)은 여기 _recPartScore 하나뿐이다. 그리는 쪽도 이것을 쓴다 —
+      같은 판정을 두 곳에 복사하면 한쪽만 고쳐진다(CLAUDE.md 2장). */
+var _recColF = { text: '', part: 'all', dur: 'all', size: 'all', users: 'all', play: 'all' };
+var _recSort = { key: '', dir: 0 };   // dir: 1=올림순 ▲ / -1=내림순 ▼ / 0=원래 순서(서버가 준 최신순)
+
+/* 총 참여도 — 시선·말하기의 평균. 한쪽만 있으면 그쪽 값. 둘 다 없으면 null. */
+function _recPartScore(r) {
+  var g = (r.gaze_score     === null || r.gaze_score     === undefined || isNaN(Number(r.gaze_score)))     ? null : Number(r.gaze_score);
+  var sp= (r.speaking_score === null || r.speaking_score === undefined || isNaN(Number(r.speaking_score))) ? null : Number(r.speaking_score);
+  if (g === null && sp === null) return null;
+  if (g === null) return sp;
+  if (sp === null) return g;
+  return (g + sp) / 2;
+}
+/* 참가자 수 — participant_names 는 JSON 문자열이고 고아 blob 은 아예 없다. */
+function _recUserCount(r) {
+  if (r.source === 'orphan') return null;
+  try { var a = JSON.parse(r.participant_names || '[]'); return Array.isArray(a) ? a.length : 0; } catch (_) { return 0; }
+}
+
+/* 표 안 필터 한 줄 판정 — 참이면 남긴다. */
+function _recPassColF(r) {
+  var F = _recColF;
+  if (F.text) {
+    var hay = String(r.room_id || '') + ' ' + String(r.teacher || '');
+    if (hay.toLowerCase().indexOf(F.text.toLowerCase()) < 0) return false;
+  }
+  if (F.part !== 'all') {
+    var p = _recPartScore(r);
+    if (F.part === 'na')   { if (p !== null) return false; }
+    else if (p === null)   { return false; }
+    else if (F.part === 'high') { if (p < 80) return false; }
+    else if (F.part === 'mid')  { if (p < 50 || p >= 80) return false; }
+    else if (F.part === 'low')  { if (p >= 50) return false; }
+  }
+  if (F.dur !== 'all') {
+    var m = (Number(r.duration_ms) || 0) / 60000;
+    if (F.dur === 'lt1'   && !(m <  1))            return false;
+    if (F.dur === '1-10'  && !(m >= 1  && m < 10)) return false;
+    if (F.dur === '10-30' && !(m >= 10 && m < 30)) return false;
+    if (F.dur === 'gte30' && !(m >= 30))           return false;
+  }
+  if (F.size !== 'all') {
+    var mb = (Number(r.size_bytes) || 0) / (1024 * 1024);
+    if (F.size === 'zero'   && !(mb === 0))              return false;
+    if (F.size === 'lt10'   && !(mb >  0  && mb < 10))   return false;
+    if (F.size === '10-100' && !(mb >= 10 && mb < 100))  return false;
+    if (F.size === 'gte100' && !(mb >= 100))             return false;
+  }
+  if (F.users !== 'all') {
+    var n = _recUserCount(r);
+    if (n === null) return false;               // 고아 blob 은 참가자를 «모른다» — 숫자 조건에서 뺀다
+    if (F.users === '0'     && n !== 0) return false;
+    if (F.users === '1'     && n !== 1) return false;
+    if (F.users === '2plus' && n <   2) return false;
+  }
+  if (F.play === 'yes' && !r.blobKey) return false;
+  if (F.play === 'no'  &&  r.blobKey) return false;
+  return true;
+}
+
+/* 정렬 값 — 숫자면 숫자로, 아니면 문자열로. 값이 없으면 null(항상 뒤로 보낸다). */
+function _recSortVal(r, key) {
+  if (key === 'room')    return String(r.room_id || '');
+  if (key === 'teacher') return String(r.teacher || '');
+  if (key === 'status')  return String(r.status  || '');
+  if (key === 'storage') return String(r.source  || '');
+  if (key === 'start')   return Number(r.startedAt)   || 0;
+  if (key === 'dur')     return Number(r.duration_ms) || 0;
+  if (key === 'size')    return Number(r.size_bytes)  || 0;
+  if (key === 'users')   return _recUserCount(r);
+  if (key === 'gaze')    return (r.gaze_score     === null || r.gaze_score     === undefined || isNaN(Number(r.gaze_score)))     ? null : Number(r.gaze_score);
+  if (key === 'speak')   return (r.speaking_score === null || r.speaking_score === undefined || isNaN(Number(r.speaking_score))) ? null : Number(r.speaking_score);
+  if (key === 'part')    return _recPartScore(r);
+  return null;
+}
+
+/* ⛔ 원본 배열을 제자리에서 뒤집지 말 것 — «원래 순서» 로 못 돌아온다. slice() 로 사본. */
+function _recApplySort(rows) {
+  if (!_recSort.key || !_recSort.dir) return rows;
+  var key = _recSort.key, dir = _recSort.dir;
+  return rows.slice().sort(function (a, b) {
+    var va = _recSortVal(a, key), vb = _recSortVal(b, key);
+    // 값 없음(—)은 방향과 무관하게 항상 뒤로 — 안 그러면 «점수 없음» 이 맨 위를 덮는다
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir;
+    }
+    return (va - vb) * dir;
+  });
+}
+
+/* 머리글 화살표 — 자식 요소가 아니라 data-ar 속성으로 그린다(CSS ::after).
+   i18n 엔진이 [data-ko] 요소의 textContent 를 통째로 덮어써서 자식 span 은 사라진다. */
+function _recSyncSortHead() {
+  var ths = document.querySelectorAll('#card-recording-storage th.rec-sort-th');
+  for (var i = 0; i < ths.length; i++) {
+    var th = ths[i], on = (th.getAttribute('data-sk') === _recSort.key && _recSort.dir !== 0);
+    th.setAttribute('data-ar', on ? (_recSort.dir > 0 ? '▲' : '▼') : '⇅');
+    // ⚠️ classList 는 «바뀔 때만» 쓴다 — 이 저장소는 무의미한 class 쓰기로 홈이 두 번 멎었다
+    if (on !== th.classList.contains('rec-sort-on')) th.classList.toggle('rec-sort-on', on);
+  }
+}
+
+/* 머리글 누르기 — 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다. */
+window.recSortBy = function (key) {
+  if (_recSort.key !== key) { _recSort.key = key; _recSort.dir = 1; }
+  else if (_recSort.dir === 1)  { _recSort.dir = -1; }
+  else if (_recSort.dir === -1) { _recSort.dir = 0; _recSort.key = ''; }
+  else { _recSort.dir = 1; }
+  _recSyncSortHead();
+  renderRecordingsTable();
+};
+
 function _buildRecordingsURL() {
   const p = new URLSearchParams();
   if (_recQuery.q)         p.set('q',         _recQuery.q);
@@ -959,10 +1083,12 @@ async function loadRecordings() {
     var promptEl = document.getElementById('rec-prompt-empty');
     var bar = document.getElementById('rec-search-bar');
     var filters = document.getElementById('rec-filters');
+    var colf = document.getElementById('rec-colfilter');
     var tableWrap = document.getElementById('rec-table-wrap');
     if (promptEl) promptEl.style.display = 'none';
     if (bar) bar.style.display = 'flex';
     if (filters) filters.style.display = 'flex';
+    if (colf) colf.style.display = 'flex';
     if (tableWrap) tableWrap.style.display = '';
   } catch(e){}
 }
@@ -972,10 +1098,12 @@ window.vcRecordingsToolsOpen = function() {
   var promptEl = document.getElementById('rec-prompt-empty');
   var bar = document.getElementById('rec-search-bar');
   var filters = document.getElementById('rec-filters');
+  var colf = document.getElementById('rec-colfilter');
   var tableWrap = document.getElementById('rec-table-wrap');
   if (promptEl) promptEl.style.display = 'none';
   if (bar) bar.style.display = 'flex';
   if (filters) filters.style.display = 'flex';
+  if (colf) colf.style.display = 'flex';
   if (tableWrap) tableWrap.style.display = '';
   // 검색 도구만 열고 데이터는 비워둠 — 사용자가 검색 클릭하면 로드
 };
@@ -985,10 +1113,12 @@ window.vcRecordingsShow = function() {
   var promptEl = document.getElementById('rec-prompt-empty');
   var bar = document.getElementById('rec-search-bar');
   var filters = document.getElementById('rec-filters');
+  var colf = document.getElementById('rec-colfilter');
   var tableWrap = document.getElementById('rec-table-wrap');
   if (promptEl) promptEl.style.display = 'none';
   if (bar) bar.style.display = 'flex';
   if (filters) filters.style.display = 'flex';
+  if (colf) colf.style.display = 'flex';
   if (tableWrap) tableWrap.style.display = '';
   if (typeof loadRecordings === 'function') loadRecordings();
 };
@@ -1012,6 +1142,11 @@ function renderRecordingsTable() {
   const rows = _unifiedRecRows || [];
   const filter = _currentRecFilter || 'all';
   const filtered = filter === 'all' ? rows : rows.filter(r => r.source === filter);
+
+  /* 🔢 표 안 필터 + 머리글 정렬 — «지금 불러온 쪽» 안에서만 좁힌다(위 정본 주석 참고).
+     ⛔ 아래 카운트 배지(rec-counts)는 «거르기 전» rows 를 세는 그대로 둔다 —
+        그 줄은 «이 쪽에 무엇이 있나» 를 말하는 자리라 필터로 흔들리면 안 된다. */
+  const viewRows = _recApplySort(filtered.filter(_recPassColF));
 
   // 카운트 배지 업데이트
   const cBoth = rows.filter(r => r.source === 'both').length;
@@ -1040,13 +1175,30 @@ function renderRecordingsTable() {
     }
   }
 
-  if (!filtered.length) {
-    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/시작/시간/크기/참가자/시선/말하기/총참여도/상태/스토리지/재생 = 12)
-    tb.innerHTML = '<tr><td colspan="12" class="empty">'+(adminLang==='en'?'No recordings':'녹화 기록 없음')+'</td></tr>';
+  /* 「N건 중 M건」 — 표 안 필터가 «이 쪽» 안에서만 도는 것을 화면이 직접 말한다.
+     ⛔ 감추지 말 것: 감추면 「전체에서 걸렀다」로 읽혀 없는 결론을 내리게 된다. */
+  const cntEl = document.getElementById('recf-count');
+  if (cntEl) {
+    const narrowed = viewRows.length !== filtered.length;
+    cntEl.textContent = adminLang === 'en'
+      ? ('This page: ' + viewRows.length + ' of ' + filtered.length + (narrowed ? ' (filtered)' : ''))
+      : ('이 쪽 ' + filtered.length + '건 중 ' + viewRows.length + '건' + (narrowed ? ' (걸러짐)' : ''));
+    cntEl.style.color = narrowed ? '#b45309' : '';
+  }
+
+  if (!viewRows.length) {
+    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/시작/시간/크기/참가자/상태/시선/말하기/총참여도/스토리지/재생 = 12)
+    /* «없다» 와 «걸러서 안 보인다» 는 다른 사실이다 — 한 문장으로 뭉치면
+       필터를 켜 둔 것을 잊고 「녹화가 없다」로 읽는다. */
+    const msg = filtered.length
+      ? (adminLang === 'en' ? 'No rows match the in-table filter (' + filtered.length + ' on this page)'
+                            : '표 안 필터에 맞는 녹화가 없습니다 (이 쪽에 ' + filtered.length + '건 있음)')
+      : (adminLang === 'en' ? 'No recordings' : '녹화 기록 없음');
+    tb.innerHTML = '<tr><td colspan="12" class="empty">' + msg + '</td></tr>';
     return;
   }
 
-  tb.innerHTML = filtered.map(r => {
+  tb.innerHTML = viewRows.map(r => {
     const d = r.startedAt ? new Date(r.startedAt) : null;
     const dur = r.duration_ms ? Math.round(r.duration_ms / 1000) : 0;
     const dm = dur ? (String(Math.floor(dur/60)).padStart(2,'0') + ':' + String(dur%60).padStart(2,'0')) : '-';
@@ -1207,14 +1359,8 @@ function renderRecordingsTable() {
       if (r.speaking_zero_count > 0) return '참여자 ' + r.speaking_zero_count + '명이 마이크 OFF 또는 무발화 (임계값 미만)';
       return '집계 대기 중';
     }
-    function calcParticipation(g, s) {
-      const gn = (g === null || g === undefined || isNaN(Number(g))) ? null : Number(g);
-      const sn = (s === null || s === undefined || isNaN(Number(s))) ? null : Number(s);
-      if (gn === null && sn === null) return null;
-      if (gn === null) return sn;
-      if (sn === null) return gn;
-      return (gn + sn) / 2;
-    }
+    /* 총 참여도 계산 정본은 _recPartScore 하나뿐이다 — 정렬·필터와 같은 값을 써야
+       「정렬해 보니 순서가 화면 숫자와 다르다」가 안 생긴다. ⛔ 여기에 다시 만들지 말 것. */
     function partCell(p) {
       if (p === null) return '<td class="score-cell score-na">—</td>';
       // 80 이상=녹색, 50~79=노랑, 그 미만=빨강
@@ -1225,7 +1371,7 @@ function renderRecordingsTable() {
     const speakTooltip = (r.speaking_score === null || r.speaking_score === undefined) ? speakingNullReason(r) : null;
     const gazeCell    = '<td class="score-cell">' + fmtScore(r.gaze_score, gazeTooltip) + '</td>';
     const speakCell   = '<td class="score-cell">' + fmtScore(r.speaking_score, speakTooltip) + '</td>';
-    const partValue   = calcParticipation(r.gaze_score, r.speaking_score);
+    const partValue   = _recPartScore(r);
     const partCellHtml = partCell(partValue);
 
     return '<tr>'
@@ -1341,6 +1487,53 @@ document.addEventListener('click', function(ev) {
       loadRecordings();
     }
   });
+})();
+
+/* 🔢 표 안 필터 바인딩 (2026-09-01)
+   ⚠️ 서버를 다시 부르지 않는다 — 이미 받아 온 «이 쪽» 을 다시 그릴 뿐이라 즉시 반응한다.
+   ⚠️ 초기화는 정렬(_recSort)까지 함께 지운다. 필터만 지우면 «왜 순서가 이상하지» 가 남는다. */
+(function bindRecColFilter() {
+  const ids = { text: 'recf-text', part: 'recf-part', dur: 'recf-dur',
+                size: 'recf-size', users: 'recf-users', play: 'recf-play' };
+  function pull() {
+    Object.keys(ids).forEach(function (k) {
+      const el = document.getElementById(ids[k]);
+      if (!el) return;
+      _recColF[k] = (k === 'text') ? String(el.value || '').trim() : (el.value || 'all');
+    });
+    renderRecordingsTable();
+  }
+  Object.keys(ids).forEach(function (k) {
+    const el = document.getElementById(ids[k]);
+    if (!el) return;
+    el.addEventListener(k === 'text' ? 'input' : 'change', pull);
+  });
+
+  const resetBtn = document.getElementById('recf-reset');
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    Object.keys(ids).forEach(function (k) {
+      const el = document.getElementById(ids[k]);
+      if (el) el.value = (k === 'text') ? '' : 'all';
+      _recColF[k] = (k === 'text') ? '' : 'all';
+    });
+    _recSort.key = ''; _recSort.dir = 0;
+    _recSyncSortHead();
+    renderRecordingsTable();
+  });
+
+  /* 🌐 언어 토글 — 「이 쪽 N건 중 M건」과 빈 표 안내는 JS 가 그린 글자라
+     data-ko/data-en 루프가 못 고친다. 다시 그려서 따라오게 한다.
+     ⚠️ 관리자 화면의 그 이벤트는 window 가 아니라 document 에서 발행된다(CLAUDE.md 2장).
+        발행처가 화면마다 달라서 둘 다 듣는다 — 중복 호출은 다시 그리기뿐이라 무해하다. */
+  function onLang() {
+    if (!_unifiedRecRows || !_unifiedRecRows.length) return;
+    const wrap = document.getElementById('rec-table-wrap');
+    if (!wrap || wrap.style.display === 'none') return;
+    _recSyncSortHead();
+    renderRecordingsTable();
+  }
+  document.addEventListener('mangoi:lang-changed', onLang);
+  window.addEventListener('mangoi:lang-changed', onLang);
 })();
 
 async function loadRetention() {

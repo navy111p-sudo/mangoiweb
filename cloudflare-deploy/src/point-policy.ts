@@ -46,7 +46,16 @@ export function kstDayStart(now = Date.now()): number {
   return Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
 }
 
-/** 오늘 이 학생이 «적립» 으로 받은 점수 합계. 차감(spend)·회수는 세지 않는다. */
+/** 🎖 «오늘 다시 오지 않는» 마디 보상은 하루 총량 상한에서 뺀다.
+ *
+ *  [왜] 7일 연속 영작 보너스는 `wStreak % 7 === 0` 인 날에만 발화한다. 그날 상한에 걸려
+ *    막히면 기록이 안 남고 다음 날은 wStreak=8 이라 조건이 거짓 — **그 마디는 영영 돌아오지
+ *    않는다.** 50점은 상한의 절반이라 칭찬을 스무 번 받은 날이면 바로 걸린다.
+ *    재시도할 자리가 없는 보상에 총량 상한을 걸면 «막는 것» 이 아니라 «빼앗는 것» 이 된다.
+ *  ⛔ 여기에 «반복되는» 적립을 넣지 말 것 — 그 순간 상한이 뚫린다.
+ *     들어올 자격은 「하루에 많아야 한 번 + 놓치면 다시 안 옴」 둘 다 만족할 때뿐이다. */
+export const CAP_EXEMPT_RULES = ['ai_writing_streak', 'attendance_streak'];
+
 /**
  * 🧾 «원장에는 남기되, 상한 계산에는 넣지 않는» 규칙.
  *
@@ -70,14 +79,28 @@ export function kstDayStart(now = Date.now()): number {
  */
 export const CAP_UNCOUNTED_RULES = ['vocab_review', 'review_quiz_done'];
 
+/** 오늘 이 학생이 «적립» 으로 받은 점수 합계.
+ *  ⚠️ 차감(spend)·회수만 빼는 게 아니라 **환불·관리자 지급도 뺀다** — 그 둘은 «오늘 벌었다» 가
+ *     아니다. 3,000P 기프티콘 환불 한 건이 그날 적립을 통째로 막아 버리기 때문이다
+ *     (applyPointTransaction 의 isCredit 이 refund·admin_grant 도 양수로 적는다).
+ *
+ *  🔀 (2026-09-01 병합) **여기서 빼는 목록이 «둘» 이고 뜻이 다르다.** 한 줄로 합쳐 놓으면
+ *     다음 사람이 하나로 알고 한쪽을 지운다:
+ *       · `CAP_EXEMPT_RULES`  = 다시 오지 않는 마디 보상 → 세지도 않고 **막지도 않는다**
+ *                               (`checkEarnAllowed` 가 첫 줄에서 그대로 통과시킨다)
+ *       · `CAP_UNCOUNTED_RULES` = 자기 표에서 이미 상한을 받는 적립 → **막기는 하되** 여기서 안 센다
+ *     ⛔ 그래서 두 배열을 하나로 합치지 말 것 — 합치는 순간 단어장·복습퀴즈가 총량 상한을
+ *        통째로 지나가거나(면제로 오해), 마디 보상이 영영 사라진다(미집계로 오해). */
 export async function earnedToday(env: any, userId: string): Promise<number> {
   try {
-    const marks = CAP_UNCOUNTED_RULES.map(() => '?').join(',');
+    const skip = [...CAP_EXEMPT_RULES, ...CAP_UNCOUNTED_RULES];
+    const marks = skip.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
         WHERE user_id = ? AND amount > 0 AND created_at >= ?
+          AND type = 'earn'
           AND (rule_code IS NULL OR rule_code NOT IN (${marks}))`
-    ).bind(userId, kstDayStart(), ...CAP_UNCOUNTED_RULES).first();
+    ).bind(userId, kstDayStart(), ...skip).first();
     return Number(row?.s || 0);
   } catch { return 0; }   // 못 세면 막지 않는다 — 적립이 조회 실패로 죽으면 안 된다
 }
@@ -105,6 +128,8 @@ export async function earnedTodayForGames(env: any, userId: string): Promise<num
 export async function checkEarnAllowed(
   env: any, userId: string, ruleCode: string, amount: number
 ): Promise<{ ok: boolean; error?: string; cap?: number; used?: number }> {
+  // 🎖 다시 오지 않는 마디 보상은 상한을 지나지 않는다(위 CAP_EXEMPT_RULES 주석 참고)
+  if (CAP_EXEMPT_RULES.includes(ruleCode)) return { ok: true };
   const today = await earnedToday(env, userId);
   if (today + amount > POINT_POLICY.DAILY_TOTAL_CAP) {
     return { ok: false, error: 'daily_total_cap_reached', cap: POINT_POLICY.DAILY_TOTAL_CAP, used: today };
