@@ -11,7 +11,7 @@
  *
  * [무엇을 확인하나]
  *   ① 오늘 수업 표 — 🔄 대체강사 버튼: 크기(알약 아님)·맨 위에서 눌림·대체 표시·모달 동작
- *   ② test.mangoi.co.kr 안내 배너 — 그 호스트에서만 뜸·상단 요소와 안 겹침·닫으면 영구히 안 뜸
+ *   ② test.mangoi.co.kr 안내 배너 — 그 호스트에서만 뜸·정중앙·큰 글자·닫으면 영구히 안 뜸
  *   ③ 수업 종료 평가 모달 — 📝 파일럿 피드백 버튼: 별점 버튼을 안 가림·클릭 시 폼으로 감
  *
  * [돌리는 법]  README 규약 그대로 — 게이트는 이 파일을 물어 가지 않는다(사람이 부른다).
@@ -332,7 +332,7 @@ async function sectionAdmin(browser) {
 
 async function sectionNotice(browser) {
   console.log('\n② test.mangoi.co.kr 안내 배너 (index.html)');
-  for (const vp of [{ width: 1280, height: 800, label: 'PC 1280' }, { width: 390, height: 844, label: '폰 390' }]) {
+  for (const vp of [{ width: 1280, height: 800, label: 'PC 1280' }, { width: 390, height: 844, label: '폰 세로 390' }, { width: 844, height: 390, label: '폰 가로 844' }]) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
     const page = await ctx.newPage();
     await page.route('**/api/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));
@@ -347,29 +347,56 @@ async function sectionNotice(browser) {
       const xr = x.getBoundingClientRect();
       const topAt = document.elementsFromPoint(bb.left + bb.width / 2, bb.top + 8);
       const xAt = document.elementsFromPoint(xr.left + xr.width / 2, xr.top + xr.height / 2);
-      const covered = [];
-      for (let px = bb.left + 6; px < bb.right; px += 40) {
-        for (let py = bb.top + 6; py < bb.bottom; py += 20) {
-          for (const el of document.elementsFromPoint(px, py)) {
-            if (el === b || b.contains(el)) continue;
-            const t = el.tagName;
-            if (t === 'BUTTON' || t === 'A' || t === 'INPUT' || t === 'SELECT') {
-              const cs = getComputedStyle(el);
-              if (cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none') {
-                covered.push((el.id || el.className || t).toString().slice(0, 40));
-              }
-            }
-            break;
-          }
+      /* 📣 (2026-08-31) 배너가 «화면 정중앙 · 크게» 로 바뀌었다 — 가운데라 본문 위를 덮는 것이
+         이제는 «의도» 다. 그래서 「아무것도 안 덮는다」 대신 «원래 걱정하던 그 줄»
+         (우상단 칩 #ph50-chip-row: 밝기·포인트·EN·관리자)을 안 덮는지로 판정한다. */
+      const CHIPS = ['#ph50-chip-row', '#home-theme-toggle', '#points-chip', '#lang-toggle', '#admin-shortcut-chip', '#topUserBtn'];
+      const chipsCovered = [];
+      for (const sel of CHIPS) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        if (r.right > bb.left && bb.right > r.left && r.bottom > bb.top && bb.bottom > r.top) chipsCovered.push(sel);
+      }
+      /* 🔎 (2026-08-31) 반대 방향도 본다 — «배너 위» 를 남이 덮고 있지 않은가.
+         폰 가로(844x390)에서 세로용 크기 그대로 두면 A.i 상담사 위젯(z=2147483000)·
+         ➕ FAB(2147483200) 밑에 깔린다(그 둘은 이 배너보다 위에 있어야 하는 것들이라
+         z-index 로 이길 수 없다 — 비켜서는 쪽이 배너다). ⚠️ 모서리는 border-radius 로
+         비어 있으니 24px 안쪽만 훑는다(안 그러면 둥근 귀퉁이가 «가려짐» 으로 잡힌다). */
+      const selfBlocked = [];
+      for (let px = bb.left + 24; px < bb.right - 24; px += 24) {
+        for (let py = bb.top + 24; py < bb.bottom - 24; py += 18) {
+          const st = document.elementsFromPoint(px, py);
+          if (st[0] && st[0] !== b && !b.contains(st[0])) selfBlocked.push((st[0].id || st[0].className || st[0].tagName).toString().slice(0, 30));
         }
       }
-      const title = b.querySelector('div > div > div');
+      const title = b.querySelector('#mg-legacy-domain-notice-title');
       return {
         shown: true,
         inViewport: bb.left >= 0 && bb.top >= 0 && bb.right <= innerWidth && bb.bottom <= innerHeight,
         onTop: topAt[0] === b || b.contains(topAt[0]),
         closeOnTop: xAt[0] === x,
-        covered: [...new Set(covered)],
+        chipsCovered,
+        selfBlocked: [...new Set(selfBlocked)],
+        /* ⚠️ 「화면 한가운데」를 innerWidth 나 documentElement.clientWidth 로 재지 말 것 —
+           둘 다 «세로 스크롤바 폭(15px)» 만큼 어긋나 정중앙인데도 FAIL 이 난다
+           (2026-08-31 실측: 1280 창에서 배너 중심 632.5 = (1280-15)/2 인데 clientWidth 는 1280).
+           position:fixed 요소의 기준은 «초기 컨테이닝 블록» 이므로, 같은 조건의 자를
+           그 자리에 잠깐 놓아 재고 곧바로 치운다. */
+        centered: (() => {
+          const ruler = document.createElement('div');
+          ruler.setAttribute('style', 'position:fixed;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden');
+          document.body.appendChild(ruler);
+          const rr = ruler.getBoundingClientRect();
+          ruler.remove();
+          return Math.abs((bb.left + bb.width / 2) - (rr.left + rr.width / 2)) <= 2
+            && Math.abs((bb.top + bb.height / 2) - (rr.top + rr.height / 2)) <= 2;
+        })(),
+        titlePx: title ? parseFloat(getComputedStyle(title).fontSize) : 0,
+        bodyPx: title && title.nextElementSibling ? parseFloat(getComputedStyle(title.nextElementSibling).fontSize) : 0,
         contrast: (${CONTRAST_FN})(title),
         noLink: b.querySelectorAll('a[href],[onclick]').length === 0,
       };
@@ -380,7 +407,14 @@ async function sectionNotice(browser) {
       check(`[${vp.label}] 배너가 화면 안에 들어온다`, r.inViewport === true, r);
       check(`[${vp.label}] 배너가 맨 위에 있어 가려지지 않는다`, r.onTop === true);
       check(`[${vp.label}] 닫기 ✕ 가 맨 위에서 실제로 눌린다`, r.closeOnTop === true);
-      check(`[${vp.label}] 배너가 다른 «누를 수 있는» 요소를 덮지 않는다`, (r.covered || []).length === 0, r.covered);
+      check(`[${vp.label}] 배너가 화면 «정중앙» 에 있다(2026-08-31 사장님 지시)`, r.centered === true, r);
+      check(`[${vp.label}] 우상단 칩 줄(밝기·포인트·EN·관리자)을 덮지 않는다`, (r.chipsCovered || []).length === 0, r.chipsCovered);
+      check(`[${vp.label}] 배너 위를 남이 덮지 않는다(A.i 위젯·FAB 밑에 깔리지 않음)`, (r.selfBlocked || []).length === 0, r.selfBlocked);
+      /* 세로가 짧은 화면(폰 가로)은 «일부러» 한 단계 줄인다 — 안 줄이면 상자가 화면을
+         거의 다 채워 A.i 위젯·FAB 밑에 깔린다(위 selfBlocked). 그래도 옛 13px/12px 보다는 크다. */
+      const minT = vp.height <= 520 ? 19 : 21, minB = vp.height <= 520 ? 13 : 15;
+      check(`[${vp.label}] 제목이 «크게» 보인다(≥${minT}px, 옛 13px 보다 큼)`, r.titlePx >= minT, r.titlePx);
+      check(`[${vp.label}] 본문도 «크게» 보인다(≥${minB}px, 옛 12px 보다 큼)`, r.bodyPx >= minB, r.bodyPx);
       check(`[${vp.label}] 제목 글자 대비비 ≥ 4.5`, r.contrast && r.contrast.ratio >= 4.5, r.contrast);
       check(`[${vp.label}] 「바로가기」 링크가 없다(사장님 결정)`, r.noLink === true);
     }
