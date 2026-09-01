@@ -122,6 +122,13 @@ function vcqRxTick() {
                     var lost = s.packetsLost || 0, rec = s.packetsReceived || 0;
                     var dl = Math.max(0, lost - ((prev && prev.lost) || 0));
                     var dr = Math.max(0, rec - ((prev && prev.rec) || 0));
+                    /* 💀 이 종류(영상/오디오)가 «조용한» 틱을 센다(위 vcPeerNoMedia 참고).
+                       ⚠️ 첫 틱은 기준값이 없어 세지 않는다 — 안 그러면 막 붙은 상대가 죽은 것이 된다. */
+                    if (prev) {
+                        var SIL = window.__vcPeerSilence || (window.__vcPeerSilence = {});
+                        var sp = SIL[id] || (SIL[id] = {});
+                        sp[kind] = (dr > 0) ? 0 : (sp[kind] || 0) + 1;
+                    }
                     if (kind === 'video') {
                         var fz = s.freezeCount || 0;
                         if (prev) {
@@ -161,13 +168,38 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {};
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
         }, 4000);
     } catch (_) {}
 }
+
+/* 💀 (2026-09-01 유령 연결 실사고) «이 상대에게서 패킷이 아예 안 온 시간(초)».
+   [왜 이게 필요한가] 화면 쪽 유령 청소기는 여태 `track.readyState === 'live'` 로 «살아 있나» 를
+     판정했다. 그런데 **원격 트랙은 상대가 사라져도 계속 'live' 다**(ended 는 트랙을 실제로 끝낼 때만).
+     그래서 «한 번 붙었다가 신호가 끊긴» 상대는 영원히 «정상» 으로 보였고, 아무도 못 치웠다.
+   [실측] class-1070-20260901(2026-09-01) — 출석은 학생1·강사1 두 명뿐인데 학생 브라우저의
+     연결 수가 26분에 걸쳐 1→9 로 단조 증가했다(그중 8개가 유령). 학생이 같은 영상을 최대 9벌로
+     올리느라 업링크가 포화돼 손실 스파이크가 났다. 그날 저녁 7개 방 중 5개가 같은 모양이었다.
+     ⟹ 「학생 인터넷이 나쁘다」로 보이던 것이 실은 우리 코드였다.
+   [판정] 오직 «패킷이 오는가» 만 믿는다. 오디오·영상 **둘 다** 조용할 때만 센다 —
+     카메라만 끈 사람은 오디오가 흐르므로 죽은 것이 아니다.
+   ⚠️ 이 값만으로 지우지 않는다. 지우는 것은 idx-vc-dupghost.js 이고, 거기서
+      «같은 이름의 다른 타일이 실제로 받고 있다» 는 비대칭 확인을 그대로 통과해야 한다. */
+function vcPeerNoMedia(id) {
+    try {
+        var S = window.__vcPeerSilence && window.__vcPeerSilence[id];
+        if (!S) return 0;
+        var ks = Object.keys(S);
+        if (!ks.length) return 0;
+        var min = Infinity;
+        for (var i = 0; i < ks.length; i++) if (S[ks[i]] < min) min = S[ks[i]];
+        return (min === Infinity) ? 0 : min * 4;      // 틱 한 번이 4초
+    } catch (_) { return 0; }
+}
+window.vcPeerNoMedia = vcPeerNoMedia;
 
 /* 🔔 안내 토스트 — idx-main.js 의 vcAAONotify 와 «같은 모양, 다른 상자» 다.
    ⛔ 같은 id 를 쓰면 음성전용 안내와 서로 덮어쓴다(둘은 다른 사실을 말한다). */

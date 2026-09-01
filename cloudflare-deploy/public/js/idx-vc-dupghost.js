@@ -69,6 +69,21 @@
     } catch (e) { return false; }
   }
 
+  /* 🔴 (2026-09-01 유령 연결 실사고) 아래 hasLiveTrack 은 **죽은 상대를 못 가립니다.**
+     원격 트랙의 readyState 는 상대가 사라져도 계속 'live' 다(ended 는 트랙을 실제로 끝낼 때만).
+     그래서 «한 번 붙었다가 신호가 끊긴» 상대가 영원히 «정상» 으로 판정돼 아무도 못 치웠다.
+     실측: class-1070-20260901 에서 실제 인원 2명인데 연결이 26분간 1→9 로 늘었다(8개가 유령).
+     ✅ 그래서 «패킷이 실제로 오는가» 를 함께 본다 — 정본은 js/idx-vc-qlog.js 의 vcPeerNoMedia().
+     ⚠️ 그 파일이 아직 안 왔거나 수업 밖이면 0 을 돌려주므로 **옛 동작 그대로** 안전하다.
+     ⚠️ 임계값 60초는 넉넉하게 잡은 것이다 — 짧게 잡으면 잠깐 끊긴 사람을 지운다. */
+  var SILENT_MS = 60000;
+  function noMediaMs(userId) {
+    try {
+      if (typeof window.vcPeerNoMedia !== 'function') return 0;
+      return (window.vcPeerNoMedia(userId) || 0) * 1000;
+    } catch (e) { return 0; }
+  }
+
   /** 이 피어에게서 지금 실제로 무언가 도착하고 있나 */
   function hasLiveTrack(userId) {
     try {
@@ -182,7 +197,10 @@
       var userId = box.id.slice('vc-video-'.length);
       var name = labelOf(box);
       var noHint = !box.querySelector('.vc-connecting-hint');
-      var dead = deadPc(userId);                              // 💀 붙었다가 죽은 연결(위 helper)
+      /* 💀 붙었다가 죽은 연결 — 두 가지 신호를 OR 로 본다.
+         ① 연결 상태가 되돌아올 수 없음(failed/closed)
+         ② 60초 넘게 오디오·영상 **둘 다** 패킷이 한 개도 안 옴(위 noMediaMs) */
+      var dead = deadPc(userId) || noMediaMs(userId) >= SILENT_MS;
       if (dead) { if (!box.__vcDeadSince) box.__vcDeadSince = now; }
       else box.__vcDeadSince = 0;
       var ok = (noHint || hasLiveTrack(userId)) && !dead;
