@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
@@ -622,13 +623,38 @@ export async function handleGamesApi(
       const ins = await env.DB.prepare(`INSERT OR IGNORE INTO vocab_rewards (award_id, user_id, kind, amount, created_at) VALUES (?,?,?,?,?)`)
         .bind(awardId, uid, kind, amount, now).run();
       if (!ins.meta || (ins.meta as any).changes === 0) return json({ ok: true, awarded: 0, duplicate: true });
-      // 학생 전체 포인트(student_points → 기프트콘 경제)에 적립
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
-      const sname = String(b.student_name || '').trim() || uid;
-      await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
-        .bind(uid, sname, amount, amount, now, now, amount, amount, now, now).run();
-      const bal: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id = ?`).bind(uid).first();
-      return json({ ok: true, awarded: amount, kind, balance: bal?.balance || amount });
+      /* 🧾 (2026-09-01) 잔액만 올리던 것을 **원장(point_transactions)을 거치도록** 바꾼다.
+         [왜] 그 전에는 이 적립이 원장에 한 줄도 안 남아서, **학생 본인의 포인트 내역**
+           (최근 30건)·**학부모 대시보드**(최근 10건)·**관리자 월간 합계** 어디에도 안 보였다.
+           잔액만 늘고 «왜 늘었는지» 가 없었다(실측: 원장 밖 적립 2,746점).
+         ⚠️ 금액은 한 푼도 안 바뀐다 — 위의 하루 400점 상한이 이미 먼저 걸렸고,
+            applyPointTransaction 자체는 상한을 걸지 않는다. 총량 상한 계산에서도 빼 둔다
+            (point-policy.ts 의 CAP_UNCOUNTED_RULES — 넣고 빼는 것은 사장님 결정).
+         ⚠️ rule_code 는 정책이 **이미 이름 붙여 둔 것**을 쓴다(GAME_QUIZ_RULES 의 'vocab_review').
+            그동안 그 이름이 «적혀만 있고 아무도 안 쓰던» 상태였다. */
+      /* 🔴 이름은 «진짜 이름이 있을 때만» 넘긴다 — 정본은 `student_name = COALESCE(?, student_name)`
+         이라 빈 값 대신 uid 를 넘기면 **기존에 들어 있던 진짜 이름이 아이디로 바뀐다.**
+         그 칸은 무인증 공개 리더보드가 그대로 내보내는데, 이 저장소는 「이름이 없을 때 아이디로
+         폴백하지 말 것」을 명시적으로 못 박아 두었다(2026-08-28 무인증 수리) —
+         비밀번호가 설정된 학생이 0명이라 **아이디를 아는 것이 곧 로그인**이기 때문이다.
+         ⚠️ 2026-09-01 실측: student_points 88행 중 이미 12행이 이름 칸에 아이디를 갖고 있다.
+            여기서 uid 를 넘기면 그 상태를 굳히게 된다. */
+      const sname = String(b.student_name || '').trim();
+      let rp: any = null;
+      try {
+        rp = await applyPointTransaction(env as any, {
+          userId: uid, studentName: sname || undefined, type: 'earn', amount,
+          reason: '단어장 학습 보상', ruleCode: 'vocab_review', meta: { kind, awardId },
+        });
+      } catch (e: any) {
+        /* ⚠️ 옛 직접 UPSERT 는 «논리적 실패» 가 없었는데 정본에는 있다(잔액 조건·동시 첫 INSERT).
+           여기서 던지면 요청이 통째로 500 이 된다 — 보상 하나 때문에 화면을 깨뜨리지 않는다.
+           ⚠️ 다만 원장 INSERT 단계에서 실패하면 **잔액은 이미 올라간 뒤**라 고치려던 상태가
+              그대로 재생산된다. 그래서 조용히 넘기지 않고 크게 남긴다. */
+        console.error('[vocab-reward] 원장 적립 실패(잔액만 올랐을 수 있음):', uid, amount, e?.message);
+      }
+      const balRow: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id = ?`).bind(uid).first().catch(() => null);
+      return json({ ok: true, awarded: amount, kind, balance: rp?.newBalance ?? (balRow?.balance ?? amount) });
     }
 
     // ── GET /api/vocab/stats?uid=X — 게임 대시보드 (스트릭/미션/성장/오늘포인트) ──
@@ -1645,9 +1671,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           const ins2: any = await env.DB.prepare(`INSERT OR IGNORE INTO review_quiz_rewards (award_id, user_id, amount, created_at) VALUES (?,?,?,?)`)
             .bind(`rq:${quizId}:${userId}:${resultId}`, userId, amount, now).run();
           if (ins2 && ins2.meta && (ins2.meta as any).changes > 0) {
-            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
-            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
-              .bind(userId, userName || userId, amount, amount, now, now, amount, amount, now, now).run();
+            /* 🧾 (2026-09-01) 단어장 보상과 같은 이유로 원장을 거친다 — 위 주석 참고.
+               금액은 그대로(하루 500점 상한이 이미 위에서 걸렸다). */
+            /* 🔴 이름은 진짜 이름이 있을 때만 — uid 를 넘기면 공개 리더보드에 아이디가 샌다
+               (위 단어장 보상 주석 참고). 여기는 바깥 try/catch 가 이미 감싸고 있다. */
+            await applyPointTransaction(env as any, {
+              userId, studentName: userName || undefined, type: 'earn', amount,
+              reason: '복습퀴즈 보상', ruleCode: 'review_quiz_done',
+              meta: { quiz_id: quizId, score, percent, first_clear: firstClear },
+            });
             awarded = amount;
           }
         }
