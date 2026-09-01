@@ -53,9 +53,9 @@
         /* 🔐 (2026-08-30 v4 제안서 16) 「방 초대」 독립 항목을 없애고 이 항목에 함께 묶었었다.
            그 화면이 하는 일(방 번호·학생 아이디 입력)은 오늘의 수업 목록에 이미 있는 값이라
            «같은 것 둘» 이라는 판단이었고, 목록 각 줄의 [🔗 초대 링크] 버튼이 그 자리를 대신한다.
-           📌 (2026-09-01 B안) 그 «함께 묶기» 만 되돌렸다 — 「지금 수업」은 지금 붙어 있는
-              사람을 보는 화면이고 토큰 발급·회수는 접근 권한 쪽 일이라 성격이 다르다.
-              카드는 「시스템 › 화상강의실 초대」가 맡는다(아래 ops 그룹).
+           📌 (2026-09-01) B안에서 「시스템」으로 뗐다가, 사장님 지시로 **도로 묶었다**
+              (「지금 수업 쪽에 도로 묶어줘」). 그래서 이 항목이 그 카드도 함께 맡는다 —
+              탭에서는 「🎥 화상방 접속」과 한 짝으로 움직인다(js/adm-today-tabs.js).
            ⛔ card-room-invite 를 **어느 항목도 안 맡는 상태로 두지 말 것** — 그러면 토큰
               발급·회수 화면 자체가 메뉴에서 사라진다(card-inquiry-mgmt 에서 같은 사고가 있었다).
               today_menu_split_harness ④ 가 «맡은 항목이 정확히 하나» 인지 센다. */
@@ -89,7 +89,7 @@
            ⚠️ card-students-mgmt 의 «주인» 은 여전히 「학생 명부」다 — 이 항목은 openSub 이 있는
               «잎» 이라 ia6OwnerBtn 이 주인을 먼저 고른다.
            ⛔ 이름을 「오늘의 수업」으로 되돌리지 말 것 — 카드 제목과 다시 부딪힌다. */
-        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms'], openSub: 'sm-today-classes',
+        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms', 'card-room-invite'], openSub: 'sm-today-classes',
           tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
           tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
@@ -331,14 +331,6 @@
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
           tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        /* 🔐 (2026-09-01 B안) 「오늘의 수업」 항목에 함께 묶여 있던 카드를 여기로 뗐다.
-           토큰 발급·회수는 «오늘 할 일» 이 아니라 접근 권한 쪽 일이고, 「지금 수업(실시간)」
-           목록과는 성격이 다르다(2026-08-30 에 묶었던 것을 이름 정리와 함께 되돌린다).
-           ⛔ 이 항목을 지우지 말 것 — card-room-invite 를 맡은 사이드바 항목이 여기 하나뿐이라,
-              빼면 토큰 발급·회수 화면 자체가 메뉴에서 사라진다. */
-        { ko: '화상강의실 초대', en: 'Classroom invites', cards: ['card-room-invite'],
-          tip: '🔐 무설치 입장 토큰(JWT) 발급·회수',
-          tipEn: '🔐 Issue and revoke JWT room-entry tokens' },
         { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
         /* 🐞 (2026-08-24 사장님) 「오늘」에서 옮겨옴 — 버그·피드백은 «오늘 할 일» 이 아니라
            운영 전반에 걸쳐 쌓이는 신고함이라 시스템 쪽이 맞다는 지적. cards/카드 자체는
@@ -384,7 +376,10 @@
     'today:오늘의 수업': 'today:오늘 수업',
     /* 📌 (2026-09-01 A안) B안에서 잠깐 있었던 「지금 수업」 항목은 「오늘 수업」에 합쳐졌다.
        그 사이에 그 항목을 마지막으로 보던 사람·⭐로 고정한 사람이 있을 수 있으므로 이어 준다. */
-    'today:지금 수업': 'today:오늘 수업'
+    'today:지금 수업': 'today:오늘 수업',
+    /* 📌 (2026-09-01) 「시스템 › 화상강의실 초대」를 「오늘 수업」에 도로 묶었다(사장님 지시).
+       그 항목을 마지막으로 보던 사람·⭐로 고정한 사람을 이어 준다. */
+    'ops:화상강의실 초대': 'today:오늘 수업'
   };
 
   /* 🔴 (2026-09-01) 카드의 «주인» 항목 찾기.

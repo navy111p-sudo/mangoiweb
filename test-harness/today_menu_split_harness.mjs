@@ -97,8 +97,11 @@ if (today) {
   console.log('\n[ ③ 「지금 수업」이 실시간 카드를 가리키는가 ]');
   check('card-active-rooms 도 함께 편다', !!l && Array.isArray(l.cards) && l.cards.includes('card-active-rooms'),
     l && JSON.stringify(l.cards));
-  check('⛔ 성격이 다른 초대 카드는 함께 묶지 않는다 (그건 「시스템」이 맡는다)',
-    !!l && !l.cards.includes('card-room-invite'), l && JSON.stringify(l.cards));
+  /* 📌 (2026-09-01 사장님 「지금 수업 쪽에 도로 묶어줘」) 초대(JWT 토큰) 카드는
+     B안에서 「시스템」으로 뗐다가 지시로 되돌렸다. 이 항목이 그 카드도 함께 맡고,
+     탭에서는 「화상방 접속」과 한 짝으로 움직인다. */
+  check('초대 카드도 이 항목이 맡는다 (「화상방 접속」과 한 짝)',
+    !!l && l.cards.includes('card-room-invite'), l && JSON.stringify(l.cards));
 
   console.log('\n[ ④ 🔴 떼어 낸 카드가 «갈 곳» 을 잃지 않았는가 ]');
   /* card-room-invite 를 맡은 항목이 0개가 되면 토큰 발급·회수 화면이 메뉴에서 통째로 사라진다
@@ -159,7 +162,10 @@ check(`구성표에 「${ALL}」 항목이 있다`, docA.includes(`t: "${ALL}"`)
 check(`⛔ 구성표에 「${LIVE}」이 «항목» 으로 남아 있지 않다 (합쳐졌다)`, !docA.includes(`t: "${LIVE}"`));
 check(`⛔ 구성표에 옛 항목 이름 「${OLD}」이 없다`, !docA.includes(`t: "${OLD}"`));
 check(`⛔ 지도에도 옛 이름이 없다`, !docM.includes(`>${OLD}<`));
-check('구성표에 「화상강의실 초대」 항목이 있다', docA.includes('t: "화상강의실 초대"'));
+check('⛔ 구성표에 「화상강의실 초대」가 «항목» 으로 남아 있지 않다 (도로 묶었다)',
+  !docA.includes('t: "화상강의실 초대"'));
+check('대신 「오늘 수업」 밑의 카드로 적혀 있다',
+  /t: "오늘 수업"[\s\S]{0,400}card-room-invite/.test(docA));
 
 console.log('\n[ ⑩ 손자 메뉴 앵커가 그대로 살아 있는가 ]');
 const r25 = rd('../cloudflare-deploy/public/js/adm-r25.js');
@@ -282,6 +288,10 @@ console.log('\n[ ⑭ A안 — 한 항목 안에서 탭으로 가르는가 ]');
     !/ko: '🔴 진행 중'/.test(tabsCode));
   check('⛔ 탭 버튼에 data-ko/data-en 을 달지 않았다 (숫자 칸이 함께 든 상자다)',
     !/setAttribute\('data-(ko|en)'/.test(tabsCode));
+  /* 🔐 초대 카드는 「화상방 접속」의 짝이다 — 다른 탭에서는 접는다(감추지 않는다). */
+  check('초대 카드를 다른 탭에서 접는다', /INV_CARD/.test(tabsCode) && /inv\.open = false/.test(tabsCode));
+  check('⛔ 그 탭이라고 «펴지도» 않는다 (가끔 쓰는 도구다)',
+    !/inv\.open = true/.test(tabsCode));
   /* 고른 탭을 저장하면 「오늘 수업」을 눌렀는데 화상방이 뜬다 */
   check('⛔ 고른 탭을 localStorage 에 저장하지 않는다', !/localStorage\.setItem/.test(tabsCode));
 }
