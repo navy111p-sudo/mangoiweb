@@ -4,11 +4,15 @@
 #   v3.2 (2026-08-12): [0b] 라이브 되감김 게이트 추가
 #       이 스크립트는 로컬 public 폴더를 통째로 올린다. 그 사이 남이 배포한 것이
 #       내 폴더에 없으면 라이브에서 조용히 사라진다 — 하루에 세 번 겪고 넣었다.
+#   v3.3 (2026-09-01): [0c] 수업 시간대 배포 보류 게이트 추가
+#       배포하면 화상수업 DO 가 재시작되어 진행 중인 «모든» 수업이 끊긴다.
+#       실측: 21:43:57 배포 8초 뒤 class-1070, 37초 뒤 class-1078 강사가 동시에 끊겼다.
 #   급할 때 게이트 우회: powershell -File deploy.ps1 -SkipSmoke
 #   되감김 게이트만 우회:  powershell -File deploy.ps1 -SkipLiveDrift
-#     ⚠️ -SkipSmoke 는 되감김 게이트를 끄지 않는다. 급할수록 남의 작업을 지우기 쉽다.
+#   수업 시간대에도 지금:  powershell -File deploy.ps1 -ForceNow
+#     ⚠️ -SkipSmoke 는 되감김·수업시간 게이트를 끄지 않는다. 급할수록 크게 터진다.
 # ============================================================
-param([switch]$SkipSmoke, [switch]$SkipLiveDrift)
+param([switch]$SkipSmoke, [switch]$SkipLiveDrift, [switch]$ForceNow)
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $ErrorActionPreference = 'Continue'
@@ -138,6 +142,59 @@ if (-not $SkipLiveDrift) {
             Write-Host "  [!] 내 트리가 origin/main 보다 $behind 커밋 뒤처져 있습니다 (참고)" -ForegroundColor Yellow
         }
     } catch { Write-Host "  (git 비교 생략)" -ForegroundColor DarkGray }
+}
+
+# ============================================================================
+# [0c] 수업 시간대 배포 보류 게이트 — "지금 올리면 수업이 끊긴다"
+# ----------------------------------------------------------------------------
+#   왜 필요한가 (2026-09-01):
+#     배포하면 화상수업 Durable Object(VideoCallRoom)가 재시작되어 **진행 중인
+#     «모든» 수업의 WebSocket 이 끊긴다.** 그날 19:33~22:06 에만 운영 워커가 22번
+#     재배포됐고, 21:43:57 배포 8초 뒤 class-1070 강사, 37초 뒤 class-1078 강사
+#     (김선우 학생 수업)가 동시에 끊겼다. class-996 은 강사가 10분 사이 네 번 끊겨
+#     녹화가 4:03 / 3:18 / 0:18 로 토막났다.
+#     사람에게는 「인터넷이 나쁘다」로만 보인다 — 에러가 안 나기 때문이다.
+#
+#   ⛔ 판정을 여기에 PowerShell 로 다시 적지 않는다. 정본은
+#      .github\scripts\class-window.mjs 하나이고, CI(deploy.yml)도 그것을 부른다.
+#      같은 판정이 두 곳에 있으면 한쪽만 고쳐진다 — 이 저장소가 반복해 밟은 함정이다.
+#      종료코드: 0 = 배포해도 됨 · 2 = 수업 시간대 · 그 외 = 판정 실패
+#
+#   ⚠️ CI 와 다르게 «보류하고 나중에» 가 없다. 여기서는 사람이 서 있으므로 멈추고
+#      알려 주는 것이 맞다. 창이 끝난 뒤 다시 돌리거나 -ForceNow 로 넘긴다.
+#
+#   우회: powershell -File deploy.ps1 -ForceNow
+#     ⚠️ -SkipSmoke 로는 안 꺼진다. 이 게이트가 막는 것은 "느린 배포" 가 아니라
+#        "지금 수업 중인 학생·강사의 연결" 이다.
+# ============================================================================
+if (-not $ForceNow) {
+    Write-Step "0c/7" "수업 시간대 배포 보류 게이트 (우회: -ForceNow)"
+    & node (Join-Path $scriptDir ".github\scripts\class-window.mjs") --exit-on-hold
+    $cwCode = $LASTEXITCODE
+    if ($cwCode -eq 2) {
+        Write-Host ""
+        Write-Host "  [X] 지금은 수업 시간대입니다 — 배포 중단." -ForegroundColor Red
+        Write-Host "      지금 올리면 진행 중인 모든 수업의 화상 연결이 한 번에 끊깁니다." -ForegroundColor Red
+        Write-Host "      (2026-09-01 실측: 배포 8~37초 뒤 서로 다른 두 방의 강사가 동시에 끊김)" -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "      · 수업이 끝난 뒤(01:20 KST 이후) 다시 실행하세요." -ForegroundColor Yellow
+        Write-Host "      · 지금 꼭 나가야 하면:  powershell -File deploy.ps1 -ForceNow" -ForegroundColor Yellow
+        Write-Host "      · 급하지 않으면 main 에 push 만 해 두세요 — CI 가 01:30 KST 에 몰아서 배포합니다." -ForegroundColor Yellow
+        exit 1
+    }
+    if ($cwCode -ne 0) {
+        # 판정 자체가 실패했다(파일 없음·깨짐). 여기서 통과시키면 게이트가 «있는 척» 만 한다.
+        #   node 가 아예 안 도는 경우는 위 [0a] 에서 이미 멈췄으므로, 여기 오면 이 파일 문제다.
+        Write-Host ""
+        Write-Host "  [X] 수업 시간대 판정에 실패했습니다 (종료코드 $cwCode) — 배포 중단." -ForegroundColor Red
+        Write-Host "      .github\scripts\class-window.mjs 가 있는지 확인하세요." -ForegroundColor Yellow
+        Write-Host "      확인이 어려우면:  powershell -File deploy.ps1 -ForceNow" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "  수업 시간대 아님 — 배포 진행" -ForegroundColor Green
+} else {
+    Write-Step "0c/7" "수업 시간대 게이트 건너뜀 (-ForceNow)"
+    Write-Host "  [!] 수업 중이면 진행 중인 모든 수업의 화상 연결이 끊깁니다." -ForegroundColor Yellow
 }
 
 # [0] 배포 전 안전 게이트 — 실패하면 파일 하나 안 건드리고 여기서 중단 (REFACTOR_PLAN 5단계)
