@@ -25,38 +25,250 @@
            0 으로 넣으면 «영상이 죽은 사람» 이 «회선이 제일 좋은 사람» 으로 보인다.
         ✅ 대신 표본이 하나도 없어도(novideo 만 있어도) 요약은 보낸다. 그게 핵심이다.
 
+   [🔴 왜 또 고쳤나 — 2026-09-01 class-1015 「화면이 흐리고 소리가 끊긴다」]
+     이 파일 머리말은 «강사 회선이 대체로 어떤가» 를 보는 용도라고 적혀 있는데,
+     운영 D1 실측 결과 **vc_quality 742건이 전부 학생(8명)이고 강사는 0건**이었다.
+     관리자 메뉴 「📶 강사 회선품질」 화면은 개설 이래 강사 데이터가 한 건도 없다.
+
+     [원인 ①] 아이디를 `getCurrentUser()` 로만 만들었다. 그 함수는 학생 전용 키
+       (`mangoi_logged_user`)를 읽는데, **강사·본사는 쿠키 세션**이라 늘 null 이다
+       (CLAUDE.md 2장 「로그인했는데 또 로그인하래요」와 같은 뿌리).
+       그래서 uid 가 빈 문자열이 되고, 서버가 `if (!b.uid) return` 으로 조용히 버렸다.
+       ✅ 이제 `mangoi_admin_session`(관리자 쿠키 세션의 화면쪽 사본) → 화면 이름표
+          순으로 떨어진다. ⛔ 그렇다고 학생 키를 강사에게 만들어 주면 안 된다
+          (학생 전용 기능이 통째로 열린다 — CLAUDE.md 1장). 여기서는 «로그에 적을
+          이름» 만 가져온다.
+
+     [원인 ②] 적응 루프도 이 파일도 `sender.getStats()` 만 본다 = **«내가 보내는 것»**
+       만 잰다. 그런데 「화면이 흐리다」·「소리가 끊긴다」는 전부 **«내가 받는 것»**
+       이야기다. 그 숫자가 데이터에 아예 없어서 매번 추측으로 끝났다.
+       ✅ 이제 수신(receiver) 통계도 함께 잰다 — 받은 영상 손실·오디오 손실·
+          **영상이 멈춘 횟수(freezeCount)**·**소리가 메워진 비율(concealedSamples)**.
+          concealed 는 «끊겨서 브라우저가 메꾼 소리» 라 「소리가 끊긴다」의 직접 지표다.
+     [원인 ③] 평균만 남겼다. 1분 평균 1.9% 는 «양호» 로 보이는데 그 안에 20~27%
+       스파이크가 들어 있었다. ✅ p95(상위 5%)를 함께 남긴다.
+     [원인 ④] 동시에 붙어 있던 상대 수를 안 남겼다. 표본 수가 두 배로 나오는데
+       그것이 «유령 연결» 인지 «진짜 두 명» 인지 가릴 수가 없었다. ✅ peers 로 남긴다.
+
    ⚠️ `vcRoomId` 는 **bare 식별자로만** 읽는다. idx-main.js 의 `let vcRoomId` 라
       `window.vcRoomId` 는 영원히 undefined 다(CLAUDE.md 2장 — 한 달간 방 번호가
       99.7% 비어 있던 사고의 원인). classic script 끼리는 전역 어휘 바인딩을 공유한다.
 
+   ⚠️ 수신 계측 타이머는 **수업 중에만** 산다. 첫 vcQualityAcc() 호출(=수업 중)에서
+      켜지고, `body.vc-in-call` 이 사라지면 스스로 꺼진다.
+      ⛔ 상주 setInterval 도, body class MutationObserver 도 쓰지 않는다 —
+         둘 다 이 저장소에서 홈 전체를 멎게 한 전력이 있다(CLAUDE.md 2장).
+
+   [🔔 2026-09-01 «사람에게 알려 주기» — 사장님 「박주형 학생 회선 문제는 어떻게 알려주지?」]
+     🔴 자동 문자·알림톡은 **구조적으로 불가능**하다. D1 실측(2026-09-01): 학생 29,461명 전원
+        `student_phone`·`phone`·`parent_phone`·`kakao_id`·`parent_kakao_id` 가 **전부 0건**이고
+        학부모 계정 연결(`parent_user_id`)도 0건이다. 번호는 카페24 원본에만 있다.
+        ⛔ 「번호가 없으니 0명에게 보냈다」를 성공으로 보고하지 말 것(CLAUDE.md 2장).
+     ✅ 그래서 **연락처 없이 바로 닿는 유일한 길 = 화면**이다. 두 가지를 여기서 한다:
+        ① 내 회선이 나쁘면 **나에게** 안내 토스트(학생·강사 공통)
+        ② 상대 회선이 나쁘면 **강사에게만** 그 타일에 표시(강사가 말을 천천히 하거나
+           카메라를 끄게 안내할 수 있다. 학생 화면에는 안 띄운다 — 어린 학생에게
+           「상대가 문제」는 도움이 안 되고 서로 탓하게 된다)
+     ⚠️ 이 파일은 defer 라 첫 화면 예산(blocking)에 잡히지 않는다. idx-main.js 에 넣지 말 것.
+     ⛔ 자주 띄우면 아무도 안 읽는다 — 지속(연속 4틱=16초) + 재공지 간격(3분) 을 둔다.
+
    🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 «강사 회선이 대체로 어떤가» 를 보는
       용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 🪪 로그에 적을 «누구» — 학생 키 → 관리자 세션 → 화면 이름표 순으로 떨어진다.
+   ⚠️ 셋 다 실패하면 uid 가 비고 서버가 그 로그를 버린다. 그게 8/26~9/1 의 사각지대였다. */
+function vcqWho() {
+    var out = { uid: '', name: '', role: '' };
+    try {
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid), role: String(u.role || '') };
+    } catch (_) {}
+    try {
+        var a = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null');
+        if (a && a.uid) return { uid: String(a.uid), name: String(a.name || a.uid), role: String(a.role || a.server_role || '') };
+    } catch (_) {}
+    /* 마지막 수단 — 화면 이름표. 아이디가 아니라 표시 이름이라 집계는 거칠지만,
+       «아무 기록도 안 남는» 것보다는 낫다. 이름만 있는 행은 uid 와 name 이 같다. */
+    try {
+        var el = document.getElementById('vc-local-label');
+        var nm = (el && el.textContent || '').replace(/\s*\((?:나|Me)\)\s*$/i, '').trim();
+        if (nm) return { uid: nm, name: nm, role: '' };
+    } catch (_) {}
+    return out;
+}
+
+/* 📥 수신 통계 — «내가 받는 화면·소리» 를 잰다(원인 ② 참고).
+   ⚠️ 델타 기준값(__vcRxPrev)은 60초 전송으로 초기화되는 Q 와 따로 둔다.
+      Q 안에 두면 전송 직후 한 틱이 통째로 버려진다. */
+function vcqRxTick() {
+    var Q = window.__vcQ; if (!Q) return;
+    var pcs = window.vcPeerConnections || {};
+    var ids = Object.keys(pcs);
+    Q.p.push(ids.length);
+    var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    ids.forEach(function (id) {
+        var pc = pcs[id];
+        if (!pc || !pc.getReceivers) return;
+        pc.getReceivers().forEach(function (r) {
+            if (!r || !r.track || !r.getStats) return;
+            var kind = r.track.kind;
+            if (kind !== 'video' && kind !== 'audio') return;
+            r.getStats().then(function (st) {
+                st.forEach(function (s) {
+                    if (s.type !== 'inbound-rtp') return;
+                    var key = id + ':' + kind;
+                    var prev = prevAll[key];
+                    var lost = s.packetsLost || 0, rec = s.packetsReceived || 0;
+                    var dl = Math.max(0, lost - ((prev && prev.lost) || 0));
+                    var dr = Math.max(0, rec - ((prev && prev.rec) || 0));
+                    if (kind === 'video') {
+                        var fz = s.freezeCount || 0;
+                        if (prev) {
+                            if (dl + dr >= 25) {
+                                var lp = 100 * dl / (dl + dr);
+                                Q.rxv.push(lp);
+                                /* 🔔 이 상대에게서 오는 영상이 계속 깨지면 = 그 사람 업링크가 나쁘다.
+                                   연속 3번(약 12초) 이어질 때만 표시하고, 회복되면 곧바로 뗀다. */
+                                var B = window.__vcRxBad || (window.__vcRxBad = {});
+                                B[id] = (lp >= 8) ? (B[id] || 0) + 1 : 0;
+                                vcNetPeerMark(id, (B[id] || 0) >= 3);
+                            }
+                            Q.rxf += Math.max(0, fz - (prev.fz || 0));
+                        }
+                        prevAll[key] = { lost: lost, rec: rec, fz: fz };
+                    } else {
+                        var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
+                        if (prev) {
+                            if (dl + dr >= 8) Q.rxa.push(100 * dl / (dl + dr));
+                            var dcs = Math.max(0, cs - (prev.cs || 0)), dts = Math.max(0, ts - (prev.ts || 0));
+                            /* 메워진 소리 비율 — «끊겨서 브라우저가 만들어 낸 소리» 다.
+                               표본이 너무 적으면(무음·DTX) 비율이 튀므로 버린다. */
+                            if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
+                        }
+                        prevAll[key] = { lost: lost, rec: rec, cs: cs, ts: ts };
+                    }
+                });
+            }).catch(function () {});
+        });
+    });
+}
+
+/* 수업 중에만 사는 타이머. 첫 vcQualityAcc() 에서 켜지고 수업이 끝나면 스스로 꺼진다. */
+function vcqRxStart() {
+    if (window.__vcRxT) return;
+    try {
+        window.__vcRxT = setInterval(function () {
+            if (!document.body || !document.body.classList.contains('vc-in-call')) {
+                try { clearInterval(window.__vcRxT); } catch (_) {}
+                window.__vcRxT = null; window.__vcRxPrev = {};
+                return;
+            }
+            try { vcqRxTick(); } catch (_) {}
+        }, 4000);
+    } catch (_) {}
+}
+
+/* 🔔 안내 토스트 — idx-main.js 의 vcAAONotify 와 «같은 모양, 다른 상자» 다.
+   ⛔ 같은 id 를 쓰면 음성전용 안내와 서로 덮어쓴다(둘은 다른 사실을 말한다). */
+var __vcNetToastT = null;
+function vcNetNotify(html) {
+    try {
+        var el = document.getElementById('vc-netlow-toast');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'vc-netlow-toast';
+            el.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:99999;max-width:86vw;' +
+                'background:rgba(120,53,15,.95);color:#fff7ed;border:1px solid rgba(251,191,36,.55);border-radius:12px;' +
+                'padding:10px 16px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5);text-align:center;' +
+                'opacity:0;transition:opacity .2s;pointer-events:none';
+            document.body.appendChild(el);
+        }
+        el.innerHTML = html; el.style.opacity = '1';
+        if (__vcNetToastT) clearTimeout(__vcNetToastT);
+        __vcNetToastT = setTimeout(function () { el.style.opacity = '0'; }, 6000);
+    } catch (_) {}
+}
+
+/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다
+   (그게 곧 내 업링크다). ⛔ loss === -1 은 «영상 표본 없음» 이라 판정에 쓰지 않는다. */
+function vcNetSelfWatch(loss, rtt) {
+    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0 });
+    if (loss === -1) return;                                  // 표본 없음 → 판단 보류
+    var bad = (typeof loss === 'number' && loss >= 8) || (typeof rtt === 'number' && rtt >= 400);
+    if (!bad) { W.bad = 0; return; }
+    W.bad++;
+    if (W.bad < 4) return;                                    // 연속 4틱(약 16초) — 스파이크 한 번으로는 안 띄운다
+    if (Date.now() - (W.notifiedAt || 0) < 180000) return;    // 3분에 한 번만
+    W.notifiedAt = Date.now(); W.bad = 0;
+    vcNetNotify('📶 <b>인터넷 연결이 불안정합니다.</b><br>' +
+        '<span style="font-weight:500">공유기 가까이 가거나, 유선(랜선)으로 연결하면 좋아집니다.</span><br>' +
+        '<span style="font-size:12px;opacity:.85">Your internet looks unstable — move closer to the router or use a cable.</span>');
+}
+
+/* ② 상대 회선이 나쁘다 — **강사 화면에만** 그 사람 타일에 띄운다(위 머리말 참고).
+   ⚠️ 타일 id 는 `vc-video-<userId>` 다. 유령 타일(`vcghost-…`)에는 안 붙는다. */
+function vcNetPeerMark(userId, bad) {
+    try {
+        if (!(typeof vcIsTeacherRole === 'function' && vcIsTeacherRole())) return;
+        var box = document.getElementById('vc-video-' + userId);
+        if (!box) return;
+        var hint = box.querySelector('.vc-netlow-hint');
+        if (!bad) { if (hint) hint.remove(); return; }
+        if (hint) return;
+        hint = document.createElement('div');
+        hint.className = 'vc-netlow-hint';
+        /* ⚠️ 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom:8px) 와 겹치지 않게 위쪽에 둔다 */
+        hint.textContent = '📶 이 학생 인터넷이 불안정해요 / Weak connection';
+        hint.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:9;'
+            + 'background:rgba(180,83,9,.9);color:#fff;font-size:11.5px;font-weight:700;'
+            + 'padding:4px 10px;border-radius:999px;white-space:nowrap;pointer-events:none;';
+        box.style.position = 'relative';
+        box.appendChild(hint);
+    } catch (_) {}
+}
+
 function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, sentAt: Date.now() });
+    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() });
+    vcqRxStart();
+    try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
     if (loss === -1) Q.n = (Q.n || 0) + 1;
     else if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
     if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
-    /* ⚠️ 예전엔 `!Q.s.length` 였다 = 영상 표본이 없으면 영영 안 보냄. 그게 사각지대였다. */
-    if (Date.now() - Q.sentAt < 60000 || !(Q.s.length || Q.n)) return;
+    /* ⚠️ 예전엔 `!Q.s.length` 였다 = 영상 표본이 없으면 영영 안 보냄. 그게 사각지대였다.
+       이제 «받는 쪽» 표본만 있어도 보낸다 — 내 카메라가 꺼져 있어도 남의 영상은 받고 있다. */
+    if (Date.now() - Q.sentAt < 60000 || !(Q.s.length || Q.n || Q.rxv.length || Q.rxa.length)) return;
     try {
         var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        /* p95 — 평균이 가리는 스파이크를 남긴다. 표본이 적을 땐 그냥 최댓값에 가깝게 나온다. */
+        var pct = function (a, q) {
+            if (!a.length) return 0;
+            var b = a.slice().sort(function (x, y) { return x - y; });
+            return b[Math.min(b.length - 1, Math.floor(q * b.length))];
+        };
+        var w = vcqWho();
         var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
         var A = window.__vcAAO || {};
         var body = JSON.stringify({
             room: (vcRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
+            uid: w.uid, name: w.name,
+            role: isT ? 'teacher' : (w.role || 'student'),
             /* ⚠️ Math.max.apply(null, []) 는 -Infinity 이고 JSON 에서 null 이 된다.
                표본이 없을 때는 계산하지 않는다(«최대 손실 0%» 라는 거짓말도 하지 않게 novideo 와 함께 읽는다). */
             avg_loss: +avg(Q.s).toFixed(1), max_loss: Q.s.length ? +Math.max.apply(null, Q.s).toFixed(1) : 0,
+            p95_loss: Q.s.length ? +pct(Q.s, 0.95).toFixed(1) : 0,
             avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0,
-            samples: Q.s.length, novideo: (Q.n || 0)
+            samples: Q.s.length, novideo: (Q.n || 0),
+            /* 📥 받는 쪽 — 여기가 「흐리다·끊긴다」의 실제 지표다. 표본이 없으면 -1(= «모름»).
+               ⛔ 0 으로 적지 말 것. 표본이 없는 것과 «손실 0%» 는 다른 사실이다. */
+            rx_loss: Q.rxv.length ? +avg(Q.rxv).toFixed(1) : -1,
+            rx_aloss: Q.rxa.length ? +avg(Q.rxa).toFixed(1) : -1,
+            rx_conceal: Q.rxc.length ? +avg(Q.rxc).toFixed(2) : -1,
+            rx_freeze: (Q.rxf || 0),
+            peers: Q.p.length ? Math.max.apply(null, Q.p) : 0
         });
         if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
-    window.__vcQ = { s: [], r: [], n: 0, sentAt: Date.now() };
+    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() };
 }

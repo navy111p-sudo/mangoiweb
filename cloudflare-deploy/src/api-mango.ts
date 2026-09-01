@@ -158,11 +158,32 @@ export async function handleMangoApi(
                 SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
                 (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
           try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+          /* 📥 (2026-09-01 class-1015 「화면이 흐리고 소리가 끊긴다」) «받는 쪽» 지표.
+             그전까지 이 표는 sender.getStats() 만 담았다 = «내가 보내는 것» 뿐이었다.
+             그런데 제보는 전부 «내가 받는 화면·소리» 였고, 그 숫자가 아예 없어서
+             매번 추측으로 끝났다(js/idx-vc-qlog.js 머리말 [원인 ②]).
+               · rx_loss/rx_aloss — 받은 영상·오디오 손실률(%)
+               · rx_conceal       — 소리가 끊겨 브라우저가 «메꾼» 비율(%). 「소리 끊김」의 직접 지표
+               · rx_freeze        — 받은 영상이 멈춘 횟수
+               · p95_loss         — 보내는 쪽 손실의 상위 5%. 평균이 가리는 스파이크를 남긴다
+               · peers            — 그 1분 동안 동시에 붙어 있던 상대 수(유령 연결 판별)
+             ⚠️ «모름» 은 -1 이다. 0 으로 적으면 «표본이 없는 사람» 이 «제일 좋은 사람» 이 된다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts 에 한 벌 더
+                있고 IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다(위 novideo 주석과 같은 사정). */
+          for (const c of ['rx_loss REAL DEFAULT -1', 'rx_aloss REAL DEFAULT -1', 'rx_conceal REAL DEFAULT -1',
+                           'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
+           화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
+        const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
-            Number(b.novideo) || 0).run();
+            Number(b.novideo) || 0,
+            num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0)).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
@@ -4079,7 +4100,27 @@ ${numbered}`;
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.user_id, b.username || null, b.role || 'student', b.consent_version || 'v1.0',
-        b.recording ? 1 : 0, b.voice_analysis ? 1 : 0, b.attendance ? 1 : 0, b.reward ? 1 : 0, b.kakao ? 1 : 0,
+        /* 🔐 (2026-09-01) 「안 물어봤다」와 「거절했다」를 갈라 적는다.
+           그 전에는 둘 다 **0** 이었다. 그런데 동의 화면(js/mango-consent.js)은 recording·attendance
+           만 묻고 voice_analysis·reward·kakao 는 **키 자체를 안 보낸다** → 그 셋은 구조적으로 늘 0.
+           [잰 것] 2026-09-01 D1: consents 11행 — 녹화 7 · 출석 7 · **음성분석 0 · 보상 0 · 카카오 0**.
+           그 0 을 읽는 쪽들이 「거절」로 읽고 있었다:
+             · admin/student.html 이 빨간 «미동의» 배지를 띄워 **묻지도 않은 것을 거절했다고** 직원에게 말했다
+             · retention.ts 가 그 값으로 kakao_ids 를 파기한다(매일 밤 도는 크론이다).
+           [거기서 내린 판단 — 측정 아님] 카카오를 연결한 학생이 수업에 한 번 들어가 동의를 남기는
+             순간(동의는 입장 때 자동으로 남는다) 그날 밤 연결이 지워졌을 것이다.
+             ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+                2026-09-01 현재 kakao_ids(50행)와 consents(11행) 사이에 겹치는 계정이 없다는 것까지가 잰 것이다.
+           ⛔ 없는 값을 0 으로 채우지 말 것 — 이 저장소가 가장 오래 속은 방식이다(규칙서 2장).
+           ⚠️ 화면이 그 항목을 묻기 시작해도 **이미 동의 행이 있는 사람에게는 다시 안 묻는다** —
+              js/mango-consent.js 의 askedBefore() 가 행이 있으면 즉시 반환하고 consent_version 을
+              비교하지 않는다. 그 사람들의 칸은 계속 NULL 로 남는다(다시 묻게 하려면 그쪽을 함께 고쳐야 한다). */
+        b.recording ? 1 : 0,
+        /* «== null» 은 undefined 와 명시적 null 을 함께 잡는다 — 둘 다 «모름» 이다. */
+        b.voice_analysis == null ? null : (b.voice_analysis ? 1 : 0),
+        b.attendance ? 1 : 0,
+        b.reward == null ? null : (b.reward ? 1 : 0),
+        b.kakao == null ? null : (b.kakao ? 1 : 0),
         b.guardian_required ? 1 : 0, b.guardian_status || (b.guardian_required ? 'pending' : 'not_required'), b.guardian_contact || null,
         ip, ua, now, JSON.stringify(b)
       ).run();
