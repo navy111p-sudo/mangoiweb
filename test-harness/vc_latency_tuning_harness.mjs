@@ -36,9 +36,21 @@ console.log('\n════════ 수업 실시간성 (지연 · 끊김 ·
 console.log('▶ 1. 받는 쪽 지연');
 check('수신 지연 조절 함수가 있다', /function tuneReceiveLatency\(pc, good\)/.test(js),
       '없으면 브라우저 지터버퍼가 잡은 지연을 그대로 물고 간다');
-check('적응 루프가 «측정값» 으로 호출한다 (임의 상수 아님)',
-      /tuneReceiveLatency\(pc, step === 0 && lossPct < [\d.]+ && \(rtt === 0 \|\| rtt < \d+\)\)/.test(js),
-      '손실률·RTT 를 보고 결정해야 한다');
+/* ⚠️ (2026-09-01) 예전엔 이 검사가 옛 식을 «글자 그대로» 못 박고 있었다.
+   그래서 class-1015 수리(「지금 이 4초가 좋다」 → 「32초 연속 양호 + 스파이크 후 30초」)에
+   빨간불이 났다 — 보장은 오히려 세졌는데 검사만 깨진 것이다.
+   ✅ 이제 «뜻» 으로 본다: 손실률과 RTT 를 «측정해서» 정하는가 + 단계 0 일 때만인가.
+      그리고 «지속 확인이 있는가»(__qGood)까지 요구한다 — 한 틱만 보고 켜면
+      RTT 가 요동치는 회선에서 켜졌다 꺼졌다 하며 소리가 튄다(그게 그 사고였다). */
+{
+  const call = (js.match(/tuneReceiveLatency\(pc,([^;]+)\);/) || [])[1] || '';
+  check('적응 루프가 «측정값» 으로 호출한다 (임의 상수 아님)',
+        /step === 0/.test(call) && /lossPct < [\d.]+/.test(call) && /rtt < \d+/.test(call),
+        '손실률·RTT 를 보고 결정해야 한다');
+  check('한 틱이 아니라 «지속» 을 보고 켠다 (소리 튐 방지)',
+        /__qGood/.test(call),
+        '2026-09-01 class-1015 — 스파이크 사이 조용한 4초마다 켜졌다 꺼져 소리가 튀었다');
+}
 check('두 API 모두 기능 감지 후 쓴다 (미지원 브라우저 안전)',
       /'jitterBufferTarget' in r/.test(js) && /'playoutDelayHint' in r/.test(js));
 check('같은 상태면 다시 쓰지 않는다', /pc\.__rxLowLat === good/.test(js));
