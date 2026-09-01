@@ -256,9 +256,16 @@
         → 우리가 감춤을 되돌리지 않는다(인라인 style 로는 !important 를 못 이긴다).
           대신 **그 항목의 사이드바 버튼을 대신 눌러 준다.** ia6 자신의 로직이 그대로 돈다.
         버튼은 한글 이름이 아니라 data-card 로 찾는다 — 항목 이름이 바뀌어도 안 깨지게. */
+  /* 🔴 (2026-09-01) 같은 카드를 가리키는 항목이 둘 이상일 수 있다 — querySelector 는
+     **첫 매치**라 DOM 에서 앞선 그룹이 그 카드를 통째로 가져간다. `openSub`(data-ia6-sub)이
+     달린 항목은 카드 «안의 한 칸» 을 가리키는 **잎**이지 그 카드의 주인이 아니므로 뒤로 미룬다.
+     실측: 「오늘 수업」이 card-students-mgmt 를 가리키게 되자 ⚡「학생 목록」이 «오늘 수업» 칸으로
+           끌려가 학생 명부가 화면 위로 밀려났다(카드 top −546).
+     ⚠️ 같은 판정이 js/adm-ia6.js 의 ia6OwnerBtn 에도 있다 — 한쪽만 고치면 그쪽만 옛 동작이다. */
   function ia6Btn(cardId) {
     try {
-      return document.querySelector('#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]');
+      var q = '#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]';
+      return document.querySelector(q + ':not([data-ia6-sub])') || document.querySelector(q);
     } catch (e) { return null; }
   }
 

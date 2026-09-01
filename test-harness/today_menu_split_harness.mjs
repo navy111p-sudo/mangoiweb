@@ -11,8 +11,8 @@
 //          손자 메뉴나 ⚡자주 쓰는 기능으로만 닿았다
 //
 //     B안(사장님 선택): 이름을 뜻대로 갈라 「오늘」 맨 위에 나란히 둔다.
-//       · 오늘 수업 (전체)   … 오늘 예약된 모든 수업(시간순)
-//       · 지금 수업 (실시간) … 지금 망고아이 화상방에 붙어 있는 것
+//       · 오늘 수업 … 오늘 예약된 모든 수업(시간순)
+//       · 지금 수업 … 지금 망고아이 화상방에 붙어 있는 것
 //
 //   이 하니스가 못 박는 것 — «다섯 곳이 서로 같은 말을 하는가»
 //     사이드바(adm-ia6.js) · 카드 제목(admin.html) · ⚡자주 쓰는 기능 ·
@@ -72,7 +72,7 @@ if (today) {
   const a = today.items.find((it) => it.ko === ALL);
   const l = today.items.find((it) => it.ko === LIVE);
 
-  console.log('\n[ ② 「오늘 수업 (전체)」가 «그 칸» 을 가리키는가 ]');
+  console.log('\n[ ② 「오늘 수업」이 «그 칸» 을 가리키는가 ]');
   check('카드 안의 칸을 openSub 으로 가리킨다', !!a && a.openSub === 'sm-today-classes',
     a && String(a.openSub));
   check('그 앵커가 admin.html 에 실제로 있다 (없으면 카드 맨 위만 열린다)',
@@ -82,7 +82,7 @@ if (today) {
     a && JSON.stringify(a.cards));
   check('그 카드가 admin.html 에 있다', /id="card-students-mgmt"/.test(html));
 
-  console.log('\n[ ③ 「지금 수업 (실시간)」이 실시간 카드를 가리키는가 ]');
+  console.log('\n[ ③ 「지금 수업」이 실시간 카드를 가리키는가 ]');
   check('card-active-rooms 를 편다', !!l && Array.isArray(l.cards) && l.cards[0] === 'card-active-rooms',
     l && JSON.stringify(l.cards));
   check('⛔ 성격이 다른 초대 카드를 함께 묶지 않았다 (같은 것 둘이 되던 자리)',
@@ -153,6 +153,63 @@ console.log('\n[ ⑩ 손자 메뉴 앵커가 그대로 살아 있는가 ]');
 const r25 = rd('../cloudflare-deploy/public/js/adm-r25.js');
 check('학생 명부 카드의 손자에 「🚪 오늘 수업」 앵커가 있다 (다른 길로도 닿는다)',
   /anchor:'sm-today-classes'/.test(r25));
+
+console.log('\n[ ⑪ 🔴 같은 카드를 가리키는 항목이 둘일 때 «주인» 을 고르는가 ]');
+/* 밖에서 카드로 오는 점프(⚡자주 쓰는 기능 · #card-… 딥링크 · ?smq= 검색 · 허브 · 홈 전체메뉴 ·
+   AI 명령)는 전부 data-card 로 항목을 찾아 «대신 눌러» 준다. querySelector 는 **첫 매치**라,
+   DOM 에서 앞선 그룹이 그 카드를 통째로 가져간다.
+   2026-09-01 실측: 「오늘 수업」(오늘 그룹 = 맨 앞)이 card-students-mgmt 를 가리키게 되자
+   「학생 목록」을 눌러도 «오늘 수업» 칸이 맨 위에 오고 학생 명부가 화면 위로 밀려났다(top −546).
+   ✅ openSub(data-ia6-sub) 항목은 카드 «안의 칸» 을 가리키는 잎이지 주인이 아니다 — 뒤로 미룬다. */
+{
+  const ia6Code = strip(ia6);
+  const qaCode  = strip(qa);
+  check('adm-ia6.js 가 :not([data-ia6-sub]) 를 «먼저» 찾는다',
+    /querySelector\(q \+ ':not\(\[data-ia6-sub\]\)'\) \|\| document\.querySelector\(q\)/.test(ia6Code));
+  check('adm-quick-access.js 도 같은 순서로 찾는다',
+    /querySelector\(q \+ ':not\(\[data-ia6-sub\]\)'\) \|\| document\.querySelector\(q\)/.test(qaCode));
+  check('⛔ 「주인 아무거나 첫 매치」로 되돌아가지 않았다',
+    !/querySelector\('#ph85-sidebar \[data-ia6-item\]\[data-card="' \+ card\.id \+ '"\]'\)/.test(ia6Code));
+  /* 같은 카드를 둘 이상이 가리키는 자리를 세어 둔다 — 늘어나면 이 규칙이 더 중요해진다. */
+  const owners = {};
+  (G || []).forEach((g) => g.items.forEach((it) => {
+    (it.cards || []).slice(0, 1).forEach((c) => { (owners[c] = owners[c] || []).push({ k: g.key + ':' + it.ko, sub: !!it.openSub }); });
+  }));
+  const shared = Object.entries(owners).filter(([, v]) => v.length > 1);
+  check(`대표 카드를 여럿이 가리키는 곳: ${shared.map(([c, v]) => c + '×' + v.length).join(', ') || '없음'}`, true);
+  /* 항목이 «전부» 잎(openSub)인 카드는 주인이 없다 — 그때는 첫 매치로 떨어지고, 그게 옛 동작이라
+     안전하다. 다만 «새로» 그런 카드가 생기면 알아채야 하므로 아는 것만 통과시킨다.
+     card-franchises: 대표지사·지사·대리점·본사 관리 넷이 한 카드의 서로 다른 칸을 가리킨다(2026-08-18). */
+  const ALLOW_NO_OWNER = new Set(['card-franchises']);
+  const noOwner = shared.filter(([c, v]) => v.every((x) => x.sub) && !ALLOW_NO_OWNER.has(c));
+  check(`«주인» 이 없는 카드가 새로 생기지 않았다${noOwner.length ? ' — ' + noOwner.map(([c]) => c).join(', ') : ''}`,
+    noOwner.length === 0);
+  /* 🔴 그리고 이번 사고의 형태 — 주인이 «있는데» 잎이 앞에 서서 가로채는 상태. 선택자가 막지만,
+     그 선택자를 되돌리면 곧바로 재현되므로 어느 카드가 그 상태인지 적어 둔다. */
+  const risky = shared.filter(([, v]) => v.some((x) => x.sub) && v.some((x) => !x.sub))
+    .map(([c, v]) => c + '(' + v.map((x) => (x.sub ? '잎 ' : '주인 ') + x.k).join(' · ') + ')');
+  check(`주인과 잎이 같은 카드를 가리키는 곳을 알고 있다: ${risky.join(' / ') || '없음'}`, true);
+}
+
+/* \U0001f501 이사표가 «마지막으로 보던 항목» 말고 다른 저장소에도 닿는가 —
+   ⭐고정(adm-quickfav)·최근 본 메뉴(adm-recent-menus)가 같은 꼴의 키를 따로 저장한다.
+   안 닿으면 이름을 바꾼 순간 ⭐이 말없이 사라지고, 최근 칩은 눌러도 아무 데도 안 간다. */
+console.log('\n[ ⑫ 이사표가 ⭐고정·최근 본 메뉴에도 닿는가 ]');
+check('adm-ia6.js 가 renameKey 를 내보낸다', /renameKey:\s*function/.test(ia6));
+check('⭐고정이 그것을 거쳐 항목을 찾는다',
+  /mangoiIA6\.renameKey/.test(rd('../cloudflare-deploy/public/js/adm-quickfav.js')));
+check('최근 본 메뉴도 그것을 거친다',
+  /mangoiIA6\.renameKey/.test(rd('../cloudflare-deploy/public/js/adm-recent-menus.js')));
+
+console.log('\n[ ⑬ 강사에게 403 이 «고장» 으로 보이지 않는가 ]');
+/* 「오늘 수업」이 «오늘» 그룹 첫 항목 = 저장값이 없는 첫 방문의 기본 착지 지점이 됐다.
+   그 칸은 열리자마자 /api/admin/classes/today 를 부르는데, 그 경로는 강사 차단(403)이다. */
+{
+  const tc = rd('../cloudflare-deploy/public/js/adm-today-classes.js');
+  check('403 이면 «권한» 이라고 사실대로 말하고 끝낸다', /r\.status === 403/.test(strip(tc)));
+  check('그때 빨간 «불러오기 실패» 상자를 그리지 않는다',
+    /r\.status === 403[\s\S]{0,400}본사 관리자/.test(strip(tc)));
+}
 
 console.log('\n──────────────────────────────────────────');
 console.log(`PASS ${pass} / FAIL ${fail}`);

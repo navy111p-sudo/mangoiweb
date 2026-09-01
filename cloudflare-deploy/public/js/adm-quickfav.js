@@ -44,8 +44,14 @@
     return t.replace(/\s+/g, ' ').trim();
   }
 
+  /* 🔁 (2026-09-01) 저장된 키는 «그룹키:한글이름» 이라 **항목 이름을 바꾸면 미아**가 된다.
+     그러면 사람이 고정해 둔 ⭐이 목록에서 «말없이» 빠진다(usable() 이 null 을 걸러 낸다).
+     그래서 사이드바가 들고 있는 이사표(adm-ia6.js 의 RENAMED)를 거쳐서 찾는다.
+     ⚠️ 그 파일이 아직 안 실렸을 수 있으므로 없으면 원래 키 그대로 — 옛 동작으로 안전하게 떨어진다. */
   function itemByKey(bar, key){
-    return bar.querySelector('.ph85-sub[data-ia6-item="' + (key || '').replace(/"/g, '') + '"]');
+    var k = (key || '').replace(/"/g, '');
+    try { if (window.mangoiIA6 && window.mangoiIA6.renameKey) k = window.mangoiIA6.renameKey(k); } catch (e) {}
+    return bar.querySelector('.ph85-sub[data-ia6-item="' + k + '"]');
   }
 
   /* 역할에 따라 감춰진 항목은 목록에도 넣지 않는다 —

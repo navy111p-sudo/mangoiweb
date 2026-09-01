@@ -59,7 +59,7 @@ async function open(browser, width, height) {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('mangoi_admin_welcome_v1_done', '1');
-      localStorage.removeItem('mangoi_ia6_item');     // «마지막으로 보던 항목» 을 지우고 시작
+      localStorage.removeItem('mangoi_admin_ia6');    // «마지막으로 보던 항목» 을 지우고 시작 (adm-ia6.js 의 LS_KEY)
     } catch (e) { /* 시크릿 */ }
   });
   await ctx.route('**/api/**', route =>
@@ -161,6 +161,44 @@ async function clickItem(page, key) {
     });
     check('초대 카드가 보인다', inv.shown, JSON.stringify(inv));
     check('화면 안으로 왔다', inv.top !== null && inv.top > -40 && inv.top < inv.vh, JSON.stringify(inv));
+
+    /* 🔴 (trap-check 가 잡은 것) 「오늘 수업」이 card-students-mgmt 를 가리키게 되면서
+       그 카드를 가리키는 항목이 «둘» 이 됐다. 밖에서 오는 점프는 data-card 로 항목을 찾아
+       대신 눌러 주는데 querySelector 는 **첫 매치** 라, 「학생 목록」을 눌러도 «오늘 수업» 칸이
+       맨 위에 오고 학생 명부가 화면 위로 밀려났다(실측 카드 top −546).
+       ✅ openSub(data-ia6-sub) 항목은 «잎» 이라 뒤로 미룬다 — 그게 실제로 먹는지 여기서 잰다. */
+    console.log('\n[ ⑥ 🔴 밖에서 학생 카드로 오는 점프가 «학생 명부» 로 가는가 ]');
+    await page.evaluate(() => { try { localStorage.removeItem('mangoi_admin_ia6'); } catch (e) {} });
+    const jump = await page.evaluate(() => {
+      if (typeof window.ph161Go !== 'function') return { err: 'ph161Go 없음' };
+      window.ph161Go('card-students-mgmt', null);
+      return null;
+    });
+    check('⚡자주 쓰는 기능의 점프 함수가 있다', jump === null, JSON.stringify(jump));
+    await page.waitForTimeout(2400);
+    const land = await page.evaluate(() => {
+      const on = document.querySelector('#ph85-sidebar .ia6-on');
+      const card = document.getElementById('card-students-mgmt');
+      const sec = document.getElementById('sm-today-classes');
+      let key = null;
+      try { key = localStorage.getItem('mangoi_admin_ia6'); } catch (e) {}
+      return {
+        onItem: on ? on.getAttribute('data-ia6-item') : null,
+        cardTop: card ? Math.round(card.getBoundingClientRect().top) : null,
+        todayOpen: !!(sec && sec.open), saved: key, vh: window.innerHeight,
+      };
+    });
+    check('강조되는 항목이 「학생 명부」다 (「오늘 수업」에 뺏기지 않았다)',
+      land.onItem === 'student:학생 명부', JSON.stringify(land));
+    check('학생 관리 카드가 화면 위로 밀려나지 않았다 (top ≥ −40)',
+      land.cardTop !== null && land.cardTop > -40 && land.cardTop < land.vh, JSON.stringify(land));
+    /* ℹ️ `todayOpen` 은 «점프» 가 편 것이 아니라 **첫 착지**(저장값이 없으면 「오늘」 첫 항목 =
+       「오늘 수업」)가 열어 둔 것이다. origin/main 은 첫 항목이 「오늘의 수업」(실시간 카드)이라
+       닫혀 있었다 — 그 차이를 «점프가 망가졌다» 로 읽지 않도록 값만 적어 둔다.
+       ⛔ 검사로 만들지 말 것: B안에서는 열려 있는 것이 정상이다. */
+    console.log('     (참고 — sm-today-classes open=' + land.todayOpen + ' : 첫 착지가 연 것)');
+    check('저장된 «마지막으로 보던 항목» 도 학생 명부다',
+      land.saved === 'student:학생 명부', JSON.stringify(land));
 
     console.log('\n[ ⑤ 폰 390×844 — 좁은 화면에서도 두 칸이 보이는가 ]');
     await page.context().close();
