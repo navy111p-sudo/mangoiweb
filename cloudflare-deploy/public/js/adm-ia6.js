@@ -80,11 +80,16 @@
              «같은 목록의 두 가지 보기» 라서, 안에서 탭으로 가른다 — js/adm-today-tabs.js.
                전체 / 🔴 진행 중 → card-students-mgmt 의 sm-today-classes 칸
                🎥 화상방 접속    → card-active-rooms
-           ⚠️ cards[0](= data-card)를 card-active-rooms 로 둔다 — 그래야 «#card-active-rooms»
-              딥링크가 갈 곳을 잃지 않는다. card-students-mgmt 의 «주인» 은 「학생 명부」다
-              (openSub 항목은 잎이라 ia6OwnerBtn 이 주인을 먼저 고른다).
+           🔴 cards[0] 은 **card-students-mgmt** 다. showOnly 가 대표 카드에 open=true 를 박기
+              때문에, 실시간 카드를 앞에 두면 항목을 누를 때마다 그 카드가 펴지고 탭이 «화상방» 으로
+              시작한다(실측으로 잡음). 기본은 「전체」여야 한다.
+           ⚠️ 그래서 card-active-rooms 를 대표로 삼는 항목이 없다 — 그쪽으로 오는 점프
+              (#card-active-rooms 딥링크 · ⚡「수업 종료 / 연장」)는 quick-access 의 폴백 경로가
+              카드를 직접 펴 준다. 그때 탭은 그 카드의 toggle 을 보고 «따라간다»(adm-today-tabs.js).
+           ⚠️ card-students-mgmt 의 «주인» 은 여전히 「학생 명부」다 — 이 항목은 openSub 이 있는
+              «잎» 이라 ia6OwnerBtn 이 주인을 먼저 고른다.
            ⛔ 이름을 「오늘의 수업」으로 되돌리지 말 것 — 카드 제목과 다시 부딪힌다. */
-        { ko: '오늘 수업', en: "Today's classes", cards: ['card-active-rooms', 'card-students-mgmt'], openSub: 'sm-today-classes',
+        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms'], openSub: 'sm-today-classes',
           tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
           tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },

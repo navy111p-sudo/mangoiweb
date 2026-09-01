@@ -132,66 +132,86 @@ async function clickItem(page, key) {
       String(all.title || '').indexOf('오늘 수업 (전체 · 바로 입장)') >= 0, String(all.title));
 
     console.log('\n[ ③ A안 — 한 항목 안에서 탭으로 가르는가 ]');
-    const t0 = await page.evaluate(() => {
+    /* ⚠️ «감춘다» 가 아니라 «접는다» 로 만들었다(trap-check 지적) — 그래서 여기서 재는 것은
+       display 가 아니라 details.open 이다. 카드는 어느 경우에도 화면에서 사라지지 않는다. */
+    const seen = () => page.evaluate(() => {
       const bar = document.getElementById('tdt-tabs');
+      const vis = (el) => !!el && getComputedStyle(el).display !== 'none' && !!el.offsetParent;
       const list = document.getElementById('card-students-mgmt');
       const live = document.getElementById('card-active-rooms');
-      const vis = (el) => !!el && getComputedStyle(el).display !== 'none' && !!el.offsetParent;
+      const onBtn = bar && bar.querySelector('.tdt-tab.on');
       return {
-        bar: !!bar, barShown: vis(bar),
+        barShown: vis(bar),
         tabs: bar ? [...bar.querySelectorAll('.tdt-tab')].map(b => b.getAttribute('data-tdt')) : null,
         labels: bar ? [...bar.querySelectorAll('.tdt-tab')].map(b => b.textContent.trim()) : null,
-        on: bar ? (bar.querySelector('.tdt-tab.on') || {}).getAttribute && bar.querySelector('.tdt-tab.on').getAttribute('data-tdt') : null,
-        listShown: vis(list), liveShown: vis(live),
+        on: onBtn ? onBtn.getAttribute('data-tdt') : null,
+        listOpen: !!(list && list.open), liveOpen: !!(live && live.open),
+        listThere: vis(list), liveThere: vis(live),
+        onlyLive: !!(document.getElementById('tc-only-live') || {}).checked,
       };
     });
+
+    const t0 = await seen();
     check('탭 줄이 보인다', t0.barShown, JSON.stringify(t0));
-    check('탭이 셋이다 (전체 · 진행 중 · 화상방 접속)',
-      JSON.stringify(t0.tabs) === JSON.stringify(['all', 'live', 'rooms']), JSON.stringify(t0.tabs));
+    check('탭이 셋이다', JSON.stringify(t0.tabs) === JSON.stringify(['all', 'live', 'rooms']), JSON.stringify(t0.tabs));
     check('기본은 「전체」다', t0.on === 'all', JSON.stringify(t0));
-    check('「전체」에서는 오늘 목록만 보인다 (실시간 카드는 숨는다)',
-      t0.listShown === true && t0.liveShown === false, JSON.stringify(t0));
+    check('「전체」에서 오늘 목록 카드가 펴진다', t0.listOpen === true, JSON.stringify(t0));
+    check('실시간 카드는 «접힐» 뿐 사라지지 않는다',
+      t0.liveOpen === false && t0.liveThere === true, JSON.stringify(t0));
     console.log('     (탭 글자 — ' + JSON.stringify(t0.labels) + ')');
 
-    const t1 = await page.evaluate(() => {
-      document.querySelector('#tdt-tabs [data-tdt="live"]').click();
-      const chk = document.getElementById('tc-only-live');
-      return { onlyLive: !!(chk && chk.checked),
-               on: (document.querySelector('#tdt-tabs .tdt-tab.on') || {}).getAttribute('data-tdt') };
-    });
-    check('「🔴 진행 중」을 누르면 «지금 들어갈 수 있는 것만» 이 켜진다 (목록을 두 벌로 그리지 않는다)',
+    await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="live"]').click());
+    await page.waitForTimeout(200);
+    const t1 = await seen();
+    check('「🚪 지금 입장 가능」을 누르면 그 칸의 체크박스가 켜진다 (목록을 두 벌로 안 그린다)',
       t1.onlyLive === true && t1.on === 'live', JSON.stringify(t1));
 
-    const t2 = await page.evaluate(() => {
-      document.querySelector('#tdt-tabs [data-tdt="rooms"]').click();
-      const vis = (id) => { const el = document.getElementById(id);
-        return !!el && getComputedStyle(el).display !== 'none' && !!el.offsetParent; };
-      const chk = document.getElementById('tc-only-live');
-      return { list: vis('card-students-mgmt'), live: vis('card-active-rooms'), onlyLive: !!(chk && chk.checked) };
-    });
-    check('「🎥 화상방 접속」을 누르면 실시간 카드로 바뀐다',
-      t2.live === true && t2.list === false, JSON.stringify(t2));
+    await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="rooms"]').click());
+    await page.waitForTimeout(200);
+    const t2 = await seen();
+    check('「🎥 화상방 접속」을 누르면 실시간 카드가 펴진다',
+      t2.liveOpen === true && t2.listOpen === false, JSON.stringify(t2));
+    check('그때도 오늘 목록 카드는 화면에서 사라지지 않는다 (접혔을 뿐)',
+      t2.listThere === true, JSON.stringify(t2));
 
     await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="all"]').click());
-    await page.waitForTimeout(150);
-    const t3 = await page.evaluate(() => {
-      const chk = document.getElementById('tc-only-live');
-      return { onlyLive: !!(chk && chk.checked) };
-    });
-    check('「전체」로 돌아오면 «지금 들어갈 수 있는 것만» 이 꺼진다', t3.onlyLive === false, JSON.stringify(t3));
+    await page.waitForTimeout(200);
+    const t3 = await seen();
+    check('「전체」로 돌아오면 체크박스가 꺼진다', t3.onlyLive === false, JSON.stringify(t3));
 
-    console.log('\n[ ③-2 🔴 다른 메뉴로 가면 우리 숨김을 되돌리는가 ]');
-    /* 안 되돌리면 그 카드가 «어느 메뉴에서도 안 보이는» 상태로 남는다 — 조용한 실종이다. */
-    await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="rooms"]').click());
+    console.log('\n[ ③-2 🔴 밖에서 카드를 열면 탭이 따라오는가 ]');
+    /* 딥링크(#card-active-rooms) · ⚡「수업 종료 / 연장」 · 허브 · AI 명령이 전부 이 경로다.
+       예전 설계(display:none)에서는 우리가 60ms 뒤 그 카드를 다시 감춰 버렸다. */
+    await page.evaluate(() => {
+      const live = document.getElementById('card-active-rooms');
+      if (live) live.open = true;                     // 밖에서 연 것처럼
+    });
+    await page.waitForTimeout(250);
+    const t4 = await seen();
+    check('실시간 카드를 밖에서 열면 탭이 「화상방 접속」으로 따라온다', t4.on === 'rooms', JSON.stringify(t4));
+    check('⛔ 우리가 그 카드를 다시 닫지 않는다', t4.liveOpen === true, JSON.stringify(t4));
+
+    console.log('\n[ ③-3 🔴 다른 메뉴로 가도 카드가 «사라지지» 않는가 ]');
     check('출결 항목을 눌렀다', await clickItem(page, 'today:출결'));
     const away = await page.evaluate(() => {
       const bar = document.getElementById('tdt-tabs');
-      const list = document.getElementById('card-students-mgmt');
       return { barShown: !!bar && getComputedStyle(bar).display !== 'none' && !!bar.offsetParent,
-               listHasHide: !!list && list.classList.contains('tdt-hide') };
+               anyOurHide: document.querySelectorAll('.tdt-hide').length };
     });
     check('탭 줄이 숨는다 (다른 메뉴에서는 남의 화면이다)', away.barShown === false, JSON.stringify(away));
-    check('⛔ 우리 숨김이 카드에 남아 있지 않다', away.listHasHide === false, JSON.stringify(away));
+    check('⛔ 우리 숨김 클래스가 화면 어디에도 없다', away.anyOurHide === 0, JSON.stringify(away));
+
+    console.log('\n[ ③-4 🏠 홈(전체 보기)에서 두 카드가 다 보이는가 ]');
+    await page.evaluate(() => { try { window.mangoiIA6.showAll(); } catch (e) {} });
+    await page.waitForTimeout(400);
+    const home = await page.evaluate(() => {
+      const vis = (id) => { const el = document.getElementById(id);
+        return !!el && getComputedStyle(el).display !== 'none' && !!el.offsetParent; };
+      return { list: vis('card-students-mgmt'), live: vis('card-active-rooms') };
+    });
+    check('전체 보기에서 오늘 목록 카드가 보인다', home.list === true, JSON.stringify(home));
+    check('전체 보기에서 실시간 카드도 보인다 (우리가 감춘 채로 두지 않는다)',
+      home.live === true, JSON.stringify(home));
     check('「오늘 수업」으로 돌아왔다', await clickItem(page, 'today:오늘 수업'));
 
     console.log('\n[ ④ 떼어 낸 초대 카드가 «갈 곳» 을 잃지 않았는가 ]');

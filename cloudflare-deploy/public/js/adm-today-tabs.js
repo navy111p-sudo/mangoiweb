@@ -10,20 +10,28 @@
 //
 //   [무엇을 하나] 두 카드는 admin.html 에서 **바로 옆에 붙은 형제**다
 //     (card-active-rooms 1762행 → card-students-mgmt 1794행, 사이에 다른 카드 없음).
-//     그래서 그 «앞» 에 탭 줄을 한 줄 끼우고, 어느 카드를 보일지만 정한다.
-//       · 전체 / 🔴 진행 중 → 오늘 목록(card-students-mgmt 의 sm-today-classes 칸)
-//                              «진행 중» 은 그 칸에 이미 있는 「지금 들어갈 수 있는 것만」을 켠다
-//       · 🎥 화상방 접속    → 실시간 카드(card-active-rooms)
+//     그 «앞» 에 탭 줄을 한 줄 끼우고, **어느 카드를 «펴 둘지»** 만 정한다.
 //
-//   ⛔ 카드를 DOM 째로 옮기지 않는다 — admin.html 은 1.3MB 이고, 옮기면 사고 반경이 커진다.
-//   ⛔ .ia6-hide 를 재사용하지 않는다 — 그건 사이드바 showOnly 전용이라, 항목을 한 번 누르면
-//      우리 숨김이 통째로 풀린다(CLAUDE.md 2장). 우리 클래스 .tdt-hide 를 쓴다.
+//   🔴 [처음에 display:none 으로 만들었다가 되돌린 이유] — trap-check 가 다섯 군데를 짚었다.
+//     우리 클래스로 카드를 «감추면» 그 사실을 이 화면의 다른 코드가 전혀 모른다:
+//       ① 🏠 홈·메뉴 검색은 ia6-hide 만 풀어서 **우리 숨김이 남는다**(대시보드에서도 안 보임)
+//       ② adm-ia6 의 cardOf() 는 ia6-hide 만 보므로 `#card-active-rooms` 딥링크가
+//          숨은 카드로 가서 **에러 없이 아무 일도 안 일어난다**
+//       ③ ⚡「수업 종료 / 연장」이 그 카드로 오는데 우리가 60ms 뒤 다시 감췄다
+//       ④ adm-core 의 _activeRoomsVisible() 도 ia6-hide 만 보므로 **안 보이는 카드에 15초 폴링**이 돈다
+//       ⑤ 대리점 계정은 그 카드가 rbac-hide 라 🎥 탭이 **빈 화면**이 된다
+//     ⟹ **감추지 않는다. `<details>` 를 접었다 편다.** 그러면
+//        · 최악이어도 «접혀 있다» 이지 «없다» 가 아니다(제목이 보이고 한 번 누르면 열린다)
+//        · `_activeRoomsVisible()` 이 `!c.open` 으로 이미 걸러 준다 → 폴링 문제도 함께 사라진다
+//        · 딥링크·⚡·허브가 카드를 열면 그 `toggle` 이벤트를 보고 **우리가 탭을 따라간다**
+//        · 역할로 감춰진 카드는 그 탭을 아예 안 그린다
+//
+//   ⛔ .ia6-hide 를 «붙이지» 않는다 — 그건 사이드바 showOnly 전용이라, 항목을 한 번 누르면
+//      우리 조작이 통째로 풀린다(CLAUDE.md 2장). 읽기만 한다.
 //   ⛔ 상주 MutationObserver·setInterval 을 두지 않는다(홈을 두 번 멎게 한 전력).
-//      «언제 다시 볼까» 는 사이드바 클릭·해시 변경·처음 몇 번으로 끝이 있다.
+//      듣는 것은 «그 두 카드의 toggle» 과 «몇 개의 클릭·입력» 뿐이고 끝이 있다.
 //   ⚠️ 사이드바 클릭은 **window 캡처**로 듣는다 — #ph85-sidebar 클릭을 가로채는 캡처 핸들러가
 //      둘 있어서(adm-s11 ph97 · adm-ia6 wireDelegate) 사이드바에 직접 달면 안 불린다.
-//   ⚠️ 숨김 CSS 는 id 를 앞에 붙여 센 선택자로 쓴다 — `#legacy-cards details{display:block!important}`
-//      (≥1024px)가 인라인·약한 클래스를 이긴다(CLAUDE.md 2장, 실측된 사고).
 //
 //   감시: test-harness/today_menu_split_harness.mjs · manual/today-menu-split-browser.mjs
 // ═══════════════════════════════════════════════════════════════════════════
@@ -33,18 +41,19 @@
   var LIST_CARD = 'card-students-mgmt';   // 오늘 목록이 든 카드
   var LIVE_CARD = 'card-active-rooms';    // 실시간(화상방 접속) 카드
   var SEC       = 'sm-today-classes';     // 그 카드 «안» 의 오늘 목록 칸
-  var HIDE      = 'tdt-hide';
   var BAR       = 'tdt-tabs';
-  var TAB_KEY   = 'mangoi_today_tab';     // 마지막으로 보던 탭 (전체가 기본)
 
+  /* ⚠️ 「진행 중」이라고 쓰지 않는다 — 세는 값은 join_open 이고, 그건 «들어갈 수 있는 시간대» 이지
+     «실제로 접속해 있다» 가 아니다(CLAUDE.md 2장). 원래 체크박스 라벨이 정확했다. */
   var TABS = [
-    { id: 'all',   ko: '전체',          en: 'All' },
-    { id: 'live',  ko: '🔴 진행 중',    en: '🔴 In class' },
-    { id: 'rooms', ko: '🎥 화상방 접속', en: '🎥 In a room' }
+    { id: 'all',   ko: '전체',            en: 'All' },
+    { id: 'live',  ko: '🚪 지금 입장 가능', en: '🚪 Joinable now' },
+    { id: 'rooms', ko: '🎥 화상방 접속',   en: '🎥 In a room' }
   ];
 
   var counts = { total: null, live: null, rooms: null };
-  var cur = 'all';
+  var cur = 'all';                       // ⛔ 저장하지 않는다 — 「오늘 수업」을 눌렀는데 화상방이 뜨면 안 된다
+  var busy = false;                      // toggle 이벤트가 우리 조작을 다시 부르지 않게
 
   function $(id) { return document.getElementById(id); }
   function isEn() {
@@ -52,13 +61,19 @@
     try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
 
+  /** 역할·필터로 «화면에서 사라진» 카드인가. 그런 카드의 탭은 아예 안 그린다. */
+  function usable(id) {
+    var el = $(id);
+    if (!el) return false;
+    if (el.classList.contains('rbac-hide') || el.classList.contains('ia6-hide')) return false;
+    try { return getComputedStyle(el).display !== 'none'; } catch (e) { return true; }
+  }
+
   function css() {
     if ($('tdt-css')) return;
     var st = document.createElement('style');
     st.id = 'tdt-css';
     st.textContent =
-      /* ⚠️ id 를 앞에 붙여 `#legacy-cards details{display:block!important}` 를 이긴다 */
-      '#legacy-cards .' + HIDE + ',#legacy-cards details.' + HIDE + ',.' + HIDE + '{display:none !important}' +
       '#' + BAR + '{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px}' +
       '#' + BAR + '[hidden]{display:none !important}' +
       '#' + BAR + ' button.tdt-tab{' +
@@ -66,8 +81,8 @@
         'border:1px solid #d8dee9 !important;border-radius:999px !important;' +
         'background:#ffffff !important;background-image:none !important;color:#475467 !important;' +
         /* ⚠️ line-height 를 못 박는다 — 안 정하면 바깥에서 1.5~1.7 을 상속받아 한 줄짜리 알약이
-         쓸데없이 높아진다(CLAUDE.md 2장 「한 줄로 바꿨는데 높이가 그만큼 안 줄어듦」). */
-      'line-height:1.25 !important;cursor:pointer;white-space:nowrap;box-shadow:none !important;margin:0 !important}' +
+           쓸데없이 높아진다(CLAUDE.md 2장 「한 줄로 바꿨는데 높이가 그만큼 안 줄어듦」). */
+        'line-height:1.25 !important;cursor:pointer;white-space:nowrap;box-shadow:none !important;margin:0 !important}' +
       '#' + BAR + ' button.tdt-tab:hover{border-color:#b8c2d0 !important}' +
       '#' + BAR + ' button.tdt-tab:focus-visible{outline:2px solid #b45309 !important;outline-offset:1px}' +
       '#' + BAR + ' button.tdt-tab.on{' +
@@ -78,7 +93,7 @@
     (document.body || document.documentElement).appendChild(st);
   }
 
-  /** 「오늘 수업」 항목이 골라져 있는가 = 두 카드가 «둘 다» 안 감춰져 있는가. */
+  /** 「오늘 수업」 항목을 보고 있는가 = 두 카드가 «둘 다» ia6 에 안 감춰져 있는가. */
   function bothShown() {
     var a = $(LIST_CARD), b = $(LIVE_CARD);
     if (!a || !b) return false;
@@ -97,33 +112,67 @@
     TABS.forEach(function (t) {
       var b = bar.querySelector('[data-tdt="' + t.id + '"]');
       if (!b) return;
+      /* 🔐 역할로 감춰진 카드의 탭은 그리지 않는다 — 안 그러면 눌렀을 때 «빈 화면» 이 된다
+         (대리점 계정은 card-active-rooms 가 rbac-hide 다). */
+      var ok = (t.id === 'rooms') ? usable(LIVE_CARD) : usable(LIST_CARD);
+      if (b.hidden !== !ok) b.hidden = !ok;
       b.innerHTML = label(t);
       b.classList.toggle('on', t.id === cur);
       b.setAttribute('aria-selected', t.id === cur ? 'true' : 'false');
     });
   }
 
-  function apply(tab) {
-    cur = tab;
-    try { localStorage.setItem(TAB_KEY, tab); } catch (e) { /* 시크릿 */ }
-    var list = $(LIST_CARD), live = $(LIVE_CARD), sec = $(SEC);
+  /** 탭을 고른다. `byUser` 면 그 칸을 펴고 화면을 맞춘다(스스로 따라갈 때는 건드리지 않는다). */
+  function apply(tab, byUser) {
+    var list = $(LIST_CARD), live = $(LIVE_CARD);
     if (!list || !live) return;
-    var showList = (tab !== 'rooms');
-    /* ⚠️ toggle(클래스, 상태) 로 «상태를 지정» 한다 — add/remove 를 조건 없이 부르면
-       속성을 매번 다시 써서 이 화면의 관찰자들을 헛되이 깨운다(CLAUDE.md 2장). */
-    list.classList.toggle(HIDE, !showList);
-    live.classList.toggle(HIDE, showList);
+    if (tab === 'rooms' && !usable(LIVE_CARD)) tab = 'all';    // 못 보는 카드의 탭으로 가지 않는다
+    cur = tab;
+    var wantList = (tab !== 'rooms');
 
-    if (showList && sec) {
-      if (!sec.open) sec.open = true;      // 이미 열려 있으면 건드리지 않는다
-      var chk = $('tc-only-live');
-      if (chk && chk.checked !== (tab === 'live')) {
-        chk.checked = (tab === 'live');
-        /* 그 칸의 필터는 change 로 다시 그린다 — 우리가 목록을 다시 그리지 않는다(정본은 그쪽). */
-        try { chk.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+    busy = true;
+    try {
+      /* ⚠️ 감추지 않는다 — «편다/접는다» 다. 접혀 있어도 제목은 보이고 한 번 누르면 열린다.
+         그리고 접힌 카드는 adm-core 의 _activeRoomsVisible() 이 이미 걸러 준다(폴링 정지). */
+      if (list.open !== wantList) list.open = wantList;
+      if (live.open === wantList) live.open = !wantList;
+
+      if (wantList) {
+        var sec = $(SEC);
+        /* 사람이 직접 탭을 누른 때만 그 칸을 편다 — sync() 가 부를 때마다 펴면
+           사용자가 접어 둔 것을 계속 되돌리게 된다. */
+        if (sec && byUser && !sec.open) sec.open = true;
+        var chk = $('tc-only-live');
+        if (chk && chk.checked !== (tab === 'live')) {
+          chk.checked = (tab === 'live');
+          /* 그 칸의 필터는 change 로 다시 그린다 — 우리가 목록을 다시 그리지 않는다(정본은 그쪽). */
+          try { chk.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+        }
       }
+      if (byUser) {
+        var goal = wantList ? ($(SEC) || list) : live;
+        try { goal.scrollIntoView({ block: 'start', behavior: 'auto' }); } catch (e) {}
+      }
+    } finally {
+      /* ⚠️ details 의 `toggle` 은 **비동기**로 날아온다 — 여기서 곧바로 busy 를 내리면
+         우리가 만든 toggle 을 «밖에서 연 것» 으로 오해해 탭이 도로 돌아간다(실측으로 잡음).
+         큐 순서상 toggle 태스크가 이 setTimeout(0) 보다 먼저 돌므로 이렇게 내린다. */
+      setTimeout(function () { busy = false; }, 0);
     }
     paint();
+  }
+
+  /** 밖에서 카드를 열면(딥링크 · ⚡자주 쓰는 기능 · 허브 · AI 명령) 탭이 «따라간다». */
+  function onCardToggle(which) {
+    if (busy) return;
+    var el = $(which === 'rooms' ? LIVE_CARD : LIST_CARD);
+    if (!el || !el.open) return;
+    var want = (which === 'rooms') ? 'rooms' : 'all';
+    if (cur === want) return;
+    cur = want;
+    paint();
+    /* ⛔ 여기서 반대쪽을 접지 않는다 — 남이 연 것을 우리가 다시 닫으면
+       「눌렀는데 아무 일도 안 일어남」이 된다. 표시만 따라간다. */
   }
 
   function build() {
@@ -144,48 +193,62 @@
       /* 🌐 JS 로 그린 글자는 🌐 를 눌러도 안 따라온다 — 다시 그려서 맞춘다(아래 lang 이벤트).
          ⛔ data-ko/data-en 은 달지 않는다: 숫자 칸(<span>)이 함께 든 상자라
             i18n 엔진이 textContent 를 통째로 갈아끼우면 숫자가 사라진다(CLAUDE.md 2장). */
-      b.addEventListener('click', function (e) { e.preventDefault(); apply(t.id); });
+      b.addEventListener('click', function (e) { e.preventDefault(); apply(t.id, true); });
       bar.appendChild(b);
     });
     live.parentNode.insertBefore(bar, live);
+
+    // 밖에서 연 카드를 따라가려고 그 두 카드의 toggle 만 듣는다(상주 감시자가 아니다)
+    var l = $(LIST_CARD);
+    if (l && !l.__tdt) { l.__tdt = 1; l.addEventListener('toggle', function () { onCardToggle('list'); }); }
+    if (!live.__tdt) { live.__tdt = 1; live.addEventListener('toggle', function () { onCardToggle('rooms'); }); }
+
     paint();
     return bar;
   }
 
-  /** 「오늘 수업」을 보고 있을 때만 탭 줄을 띄우고, 아니면 우리 숨김을 전부 되돌린다. */
+  /** 「오늘 수업」을 보고 있을 때만 탭 줄을 띄운다. 카드는 «감추지 않으므로» 되돌릴 것이 없다. */
+  var wasOn = false;
   function sync() {
     var bar = build();
     if (!bar) return;
     var on = bothShown();
-    if (bar.hidden === on) bar.hidden = !on;      // 상태가 같으면 안 쓴다
-    if (!on) {
-      /* 다른 메뉴로 갔다 — 우리가 감춘 것을 반드시 풀어 준다.
-         안 풀면 그 카드가 «어느 메뉴에서도 안 보이는» 상태로 남는다. */
-      [$(LIST_CARD), $(LIVE_CARD)].forEach(function (el) {
-        if (el && el.classList.contains(HIDE)) el.classList.remove(HIDE);
-      });
-      return;
+    /* 🔴 «들어올 때» 는 항상 「전체」다. IA6 의 showOnly 가 대표 카드(cards[0] = 실시간)에
+       open=true 를 박는데, 그 toggle 을 우리가 «밖에서 열었다» 로 읽어 화상방 탭으로 시작하던
+       것을 여기서 되돌린다(실측으로 잡음). ⛔ 고른 탭을 저장하지 않는 이유도 같다 —
+       「오늘 수업」을 눌렀는데 화상방이 뜨면 이름과 첫 화면이 어긋난다.
+       다만 `#card-active-rooms` 로 «곧바로» 온 경우(사이트 지도 링크)는 그 탭으로 시작한다. */
+    if (on && !wasOn) {
+      cur = (location.hash === '#' + LIVE_CARD) ? 'rooms' : 'all';
     }
-    apply(cur);
+    wasOn = on;
+    if (bar.hidden === on) bar.hidden = !on;
+    if (on) apply(cur, false);
   }
 
-  function boot() {
-    try { cur = localStorage.getItem(TAB_KEY) || 'all'; } catch (e) { cur = 'all'; }
-    if (!TABS.some(function (t) { return t.id === cur; })) cur = 'all';
+  function later() { setTimeout(sync, 60); setTimeout(sync, 400); }
 
+  function boot() {
     /* ⚠️ 사이드바 클릭은 window 캡처로 듣는다 — 사이드바에 직접 달면 ph97 의 stopPropagation 에
-       삼켜져 영원히 안 불린다(CLAUDE.md 2장). 클릭 «뒤» 에 봐야 하므로 한 틱 미룬다. */
+       삼켜져 영원히 안 불린다(CLAUDE.md 2장). 클릭 «뒤» 에 봐야 하므로 한 틱 미룬다.
+       🏠 경로 줄(#mi-crumb)은 <body> 직속이라 사이드바 안이 아니다 — 따로 받는다. */
     window.addEventListener('click', function (e) {
       var t = e && e.target;
       if (!t || !t.closest) return;
-      if (!t.closest('#ph85-sidebar') && !t.closest('#ph161-quick')) return;
-      setTimeout(sync, 60);
-      setTimeout(sync, 400);          // IA6 가 늦게 그리는 경우까지 (끝이 있는 확인이다)
+      if (t.closest('#ph85-sidebar') || t.closest('#ph161-quick') || t.closest('#mi-crumb')) later();
+    }, true);
+    // 사이드바 메뉴 검색은 click 이 아니라 input 으로 showAll() 한다
+    window.addEventListener('input', function (e) {
+      var t = e && e.target;
+      if (t && t.id === 'ph85-search') later();
     }, true);
     window.addEventListener('hashchange', function () { setTimeout(sync, 60); });
     /* 🌐 KO/EN — 관리자 화면은 document 에서 쏘고, 다른 화면은 window 에서 쏜다. 둘 다 듣는다. */
     document.addEventListener('mangoi:lang-changed', paint);
     window.addEventListener('mangoi:lang-changed', paint);
+    // 🔐 역할이 늦게 오면 탭 구성이 달라진다(대리점은 🎥 탭이 없다)
+    document.addEventListener('mangoi:menu-visibility', paint);
+    document.addEventListener('mangoi:identity', paint);
 
     /* 숫자 — 세는 곳이 정본이다. 우리는 받아 적기만 한다(같은 계산을 두 벌 두지 않는다). */
     document.addEventListener('mangoi:today-counts', function (e) {
