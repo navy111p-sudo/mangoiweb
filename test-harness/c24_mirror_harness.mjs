@@ -18,6 +18,7 @@
 //     G. 창(window)은 양쪽 경계가 있다 — 상한 없이 지우면 미래 예약이 전멸한다
 //     H. Neo4j 가 안 되면 «0건(깨끗함)» 이 아니라 «못 냈다» 고 말한다
 //     J. 2단계 «실제로 만든다» — applyMirror 를 가짜 D1 에 물려 실제로 돌린다
+//     K. 자동 실행(cron) — 새 cron 을 안 만들고, 끄는 스위치가 실제로 먹는지 돌려서 확인
 //     I. 화면 겹쳐 그리기 — 카페24 수업을 «보기 전용» 으로만 그린다(class_schedules 를 안 만든다)
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -259,8 +260,23 @@ console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
   check('권한 없음(403/401)은 «고장» 으로 알리지 않는다', /r\.status === 403 \|\| r\.status === 401/.test(Q6));
   check('성공은 «ok === true» 로만 판정한다(404 본문에는 ok 칸이 없다)', /j\.ok !== true/.test(Q6));
   // 캐시 무효화 — 파일이 바뀌었으면 ?v= 도 올라가야 한다(asset_version_harness 와 같은 계약)
+  /* 🔴 (2026-09-01 사장님 화면 확인) 지난 주를 열면 「수업 0개 · 카페24 58개」 가 뜨고
+     카드마다 「미러를 켜면 만들어집니다」 라고 적혀 있었다. 미러 창은 «오늘부터» 라
+     지난 수업은 영영 안 만들어지므로 **거짓말**이었고, 「58건이 빠졌다」 로 읽힌다.
+     ⛔ 감추는 것도 답이 아니다 — 그러면 「지난주에 수업이 없었다」 는 반대쪽 거짓이 된다. */
+  check('🔴 I⑩ 지난 날짜인지 판정한다', /var isPast\s*=\s*String\(s\.date \|\| ''\) < ph54TodayKst\(\)/.test(Q6));
+  check('🔴 I⑩ 지난 카드에는 «만들어집니다» 를 붙이지 않는다',
+    /var why\s*=\s*isPast \? null : PH54_C24_WHY\[s\.verdict\]/.test(Q6));
+  check('I⑩ 지난 카드는 «지난 수업 (카페24 기록)» 이라고 말한다',
+    /지난 수업 \(카페24 기록\)/.test(Q6) && /Past class \(Cafe24 record\)/.test(Q6));
+  check('I⑩ 지난 것을 감추지 않는다(그리기는 그대로)',
+    /c24Events\.push\(\{ rec: r, col: dateToCol\[r\.date\] \}\);/.test(Q6));
+  check('🔴 I⑪ 건수를 «지난 것 / 앞으로 것» 으로 갈라 센다',
+    /c24Past\+\+; else c24Ahead\+\+/.test(Q6) && /카페24 대기/.test(Q6) && /지난 카페24 기록/.test(Q6));
+  check('I⑪ 한 숫자로 합친 옛 표기가 남아 있지 않다', !/카페24 수업 \(망고아이엔 아직 없음\)/.test(Q6));
+
   const v = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('admin.html 의 adm-q6.js ?v= 가 9 이상', v >= 9, `v=${v}`);
+  check('admin.html 의 adm-q6.js ?v= 가 10 이상', v >= 10, `v=${v}`);
 }
 
 
@@ -459,6 +475,145 @@ console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인)
     check('⑫ canEditOrg 로 막지 않는다(그 함수는 교사에게도 true)', !/canEditOrg/.test(blk));
     check('⑫ dry_run 은 «false 일 때만» 실행', /dry_run: body\?\.dry_run === false \? false : true/.test(blk));
   }
+}
+
+
+/* ═══ K. 자동 실행 (cron) — 배선과 «끄는 스위치» 를 실제로 돌려서 확인 ═══
+   2026-08-31 사장님 지시: 「자동 실행도 넣어줘」.
+
+   ⛔ 이 절이 지키는 것
+     · 새 cron 을 만들지 않는다 — 계정 한도 5/5 가 꽉 찼다(늘리면 배포가 code 10072 로 거절)
+     · «시(hour)» 로 가르지 않는다 — 15분 트리거 때문에 하루 네 번 + 정각 동시 2회가 된다
+     · 끄는 스위치는 mode='off' 하나 — 그때는 **카페24를 부르지도 않는다**
+     · cron 이 부르는 함수는 **절대 던지지 않는다** — 던지면 사이트 감시견까지 함께 죽는다
+*/
+console.log('\n[ K. 자동 실행 (cron) ]');
+{
+  const IDX = SRC('index.ts');
+  const TOML = readFileSync(resolve(__dir, '../cloudflare-deploy/wrangler.toml'), 'utf8');
+
+  // ── 크론 표는 그대로여야 한다 (한도 5/5)
+  const cm = TOML.match(/^crons\s*=\s*\[([^\]]*)\]/m);
+  const crons = cm ? [...cm[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : [];
+  check('K① 크론 표를 읽었다', crons.length > 0, crons);
+  check('🔴 K① 새 cron 을 만들지 않았다 (한도 5개)', crons.length <= 5, `${crons.length}개 — 6번째는 배포가 code 10072 로 거절된다`);
+
+  // ── 배선: 두 갈래가 서로 다른 트리거를 탄다
+  const blockAt = (src, marker) => {
+    const i = src.indexOf(marker); if (i < 0) return '';
+    let j = src.indexOf('{', i); if (j < 0) return '';
+    let d = 0;
+    for (let k = j; k < src.length; k++) {
+      if (src[k] === '{') d++;
+      else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
+    }
+    return src.slice(i);
+  };
+  const wd = blockAt(IDX, 'if (isWatchdogTick) {');
+  check('K② 15분 트리거로 도는 «좁은 창» 이 있다', /runMirrorSweep/.test(wd), wd.slice(0, 120));
+  check('K② 좁은 창은 2일이다', /days: 2/.test(wd));
+  check("K② 라벨이 'watchdog' 이다", /label: 'watchdog'/.test(wd));
+  check('🔴 K② 예외를 삼킨다(감시견을 같이 죽이면 안 된다)', /try \{[\s\S]*?catch/.test(wd));
+
+  const nightlyIdx = IDX.indexOf("cronIs('0 18 * * *')");
+  const nightly = nightlyIdx >= 0 ? blockAt(IDX.slice(nightlyIdx), "cronIs('0 18 * * *')") : '';
+  check('K③ 야간 cron 으로 도는 «넓은 창» 이 있다', /runMirrorSweep/.test(nightly));
+  check('K③ 넓은 창은 14일이다', /days: 14/.test(nightly));
+  check("K③ 라벨이 'nightly' 이다", /label: 'nightly'/.test(nightly));
+  check('🔴 K③ 야간은 «어느 cron 인가» 로 가른다(hour 비교 아님)', nightlyIdx >= 0);
+
+  // ⛔ 미러 호출이 hour 비교 안에 들어가면 하루 네 번 돈다 — 그 형태를 못 박아 막는다
+  /* ⚠️ «이름이 몇 번 나오나» 로 세면 import 구조분해까지 함께 세어진다(실제로 밟음).
+     세야 하는 것은 «부르는 자리» 뿐이다 — await 호출만 센다. */
+  const sweepCalls = [...IDX.matchAll(/await runMirrorSweep\(/g)].length;
+  check('K④ 미러 자동 실행 «호출» 은 정확히 두 곳(좁은 창·넓은 창)', sweepCalls === 2, `${sweepCalls}곳`);
+  check('🔴 K④ hour 비교 안에서 부르지 않는다',
+    !/hour === \d+[\s\S]{0,400}?runMirrorSweep/.test(IDX));
+
+  // ── 「끄는 스위치」를 실제로 돌려서 확인
+  const makeDb = (scn) => {
+    const sqls = [];
+    const pick = (sql) => {
+      if (/FROM c24_mirror_config WHERE k='mode'/.test(sql)) return { first: { v: scn.mode } };
+      if (/FROM c24_mirror_teachers/.test(sql)) return { all: (scn.enabled || []).map((t) => ({ teacher_id: t })) };
+      if (/FROM c24_mirror_config WHERE k LIKE/.test(sql)) return { all: [] };
+      if (/FROM teachers WHERE active/.test(sql)) return { all: [{ id: 7, name: 'ANA' }] };
+      if (/FROM teacher_payroll_auto/.test(sql)) return { all: [{ c24: '182', teacher_name: 'Teacher Ana' }] };
+      if (/FROM students_erp/.test(sql)) return { all: [{ user_id: 'stu1', korean_name: '이다연' }] };
+      if (/FROM class_schedules/.test(sql)) return { all: [] };
+      return { all: [], first: null };
+    };
+    return {
+      sqls, exec: async () => {},
+      prepare(sql) {
+        const r = pick(sql);
+        const st = {
+          bind: (...b) => { st._b = b; return st; },
+          all: async () => ({ results: r.all || [] }),
+          first: async () => r.first ?? null,
+          run: async () => { sqls.push(sql.replace(/\s+/g, ' ').trim()); return {}; },
+        };
+        return st;
+      },
+    };
+  };
+  let cypherCalls = 0;
+  const cypher = async () => {
+    cypherCalls++;
+    const s = Date.UTC(2026, 8, 1, 6, 0);
+    return { fields: ['class_id', 'user_id', 'start_ms', 'end_ms', 'date', 'class_state', 'teacher_id'],
+             values: [['c1', 'stu1', s, s + 1200000, '2026-09-01', 1, '182']] };
+  };
+
+  // mode='off' → 카페24를 부르지도 않는다
+  {
+    cypherCalls = 0;
+    const db = makeDb({ mode: 'off' });
+    const r = await M.runMirrorSweep({ DB: db }, cypher, { days: 2, label: 'watchdog' });
+    check("🔴 K⑤ mode='off' 면 카페24를 부르지 않는다", cypherCalls === 0, `${cypherCalls}회 불렀다`);
+    check("K⑤ 건너뛴 이유를 남긴다", r.skipped === 'mode_off', r);
+    check('K⑤ 아무것도 쓰지 않는다', db.sqls.length === 0, db.sqls);
+  }
+  // whitelist 인데 켠 강사가 0명 → 역시 안 부른다
+  {
+    cypherCalls = 0;
+    const db = makeDb({ mode: 'whitelist', enabled: [] });
+    const r = await M.runMirrorSweep({ DB: db }, cypher, { days: 2, label: 'watchdog' });
+    check('K⑥ 켠 강사가 없으면 조회를 아낀다', cypherCalls === 0 && r.skipped === 'no_teacher_enabled', r);
+  }
+  // 켠 강사가 있으면 실제로 만든다 + 마지막 실행을 남긴다
+  {
+    cypherCalls = 0;
+    const db = makeDb({ mode: 'whitelist', enabled: ['7'] });
+    const r = await M.runMirrorSweep({ DB: db }, cypher, { days: 2, label: 'watchdog' });
+    check('K⑦ 켠 강사가 있으면 실제로 만든다', r.applied && r.applied.created === 1, r.applied);
+    check('K⑦ 마지막 실행을 기록한다', db.sqls.some((q) => /INSERT INTO c24_mirror_config/.test(q)), db.sqls);
+  }
+  // 🔴 던지지 않는다 — 카페24가 죽어도 감시견은 살아야 한다
+  {
+    const db = makeDb({ mode: 'whitelist', enabled: ['7'] });
+    const boom = async () => { throw new Error('neo4j down'); };
+    let threw = false;
+    let r = null;
+    try { r = await M.runMirrorSweep({ DB: db }, boom, { days: 2, label: 'watchdog' }); }
+    catch { threw = true; }
+    check('🔴 K⑧ 카페24가 죽어도 던지지 않는다', !threw);
+    check('K⑧ 대신 «못 돌았다» 를 이유와 함께 남긴다',
+      !!r && Array.isArray(r.errors) && /neo4j down/.test(r.errors.join(' ')), r && r.errors);
+  }
+  /* 🔴 K⑨ 18:00 UTC 정각에는 15분 트리거와 야간 cron 이 «동시에» 운다.
+     두 호출이 각각 «아직 없네» 로 읽고 나란히 INSERT 하면 같은 수업이 두 벌 생긴다.
+     코드로는 못 막으므로 DB 가 보증해야 한다(부분 유니크 인덱스). */
+  {
+    const bothFireAt18 = crons.some((c) => c.startsWith('*')) && crons.includes('0 18 * * *');
+    check('K⑨ 두 트리거가 18:00 에 겹치는 것이 사실이다(그래서 아래 보증이 필요하다)', bothFireAt18, crons);
+    check('🔴 K⑨ 같은 카페24 수업이 두 벌 생기지 않게 DB 가 막는다',
+      /CREATE UNIQUE INDEX IF NOT EXISTS idx_c24_mirror_class ON class_schedules\(notes\)/.test(MIRROR_TS));
+    check("K⑨ 그 인덱스는 미러 행에만 걸린다(사람 수업은 안 건드린다)",
+      /idx_c24_mirror_class[\s\S]{0,120}WHERE source='c24-mirror'/.test(MIRROR_TS));
+  }
+  // 성적표가 「자동으로 도는가」를 함께 보여 준다
+  check('K⑩ 성적표에 마지막 자동 실행이 실린다', /last_runs: lastRuns/.test(MIRROR_TS));
 }
 
 console.log(`\n${'─'.repeat(52)}`);
