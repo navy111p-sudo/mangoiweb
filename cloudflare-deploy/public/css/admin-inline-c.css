@@ -9839,3 +9839,83 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
   color: #b45309 !important; font-weight: 700 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🟢⏸️🚪 강사 명부 — 상태를 «그 자리에서» 바꾸기  (2026-09-01, 사장님 A안)
+   ═══════════════════════════════════════════════════════════════════════
+   [왜 파일 맨 끝인가] 이 파일 3279행 전역 룰이
+     details.menu-card button { background: 인디고 그라데이션 !important; padding: 9px 18px !important }
+   라서, 카드 «안» 의 버튼은 인라인 style 을 줘도 큰 파란 알약이 됩니다.
+   그래서 위 #tp-list-table td button.tp-act-btn 선례와 똑같이 **ID 접두**로 되살립니다.
+   ⛔ 전역 룰 자체를 고쳐서 풀지 마세요 — 관리자 화면 버튼 전체 모양이 걸립니다.
+
+   [메뉴·토스트는 왜 여기 규칙이 단순한가] 그 둘은 document.body 에 띄웁니다.
+   위 전역 룰은 조상에 details.menu-card 를 요구하므로 **아예 안 걸립니다.**
+   대신 밝기 페인터(js/adm-light-surfaces.js)의 'body' 훑기에는 걸리므로
+   그쪽 SKIP_SEL 에 #tp-st-menu·#tp-st-toast 를 등재해 두었습니다 — 짝입니다.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 표 안 트리거 버튼(배지를 감싼다) ── */
+#tp-list-table td button.tp-st-btn {
+  display: inline-flex !important; align-items: center !important; gap: 4px !important;
+  padding: 2px 6px !important; margin: 0 !important;
+  background: transparent !important; background-image: none !important;
+  border: 1px solid transparent !important; border-radius: 999px !important;
+  box-shadow: none !important; cursor: pointer !important; line-height: 1.5 !important;
+  font-size: 11px !important; color: #101828 !important;
+  box-sizing: border-box !important; max-width: 100% !important;
+}
+#tp-list-table td button.tp-st-btn:hover { border-color: #cbd5e1 !important; background: #f8fafc !important; }
+#tp-list-table td button.tp-st-btn:focus-visible { outline: 2px solid #b45309 !important; outline-offset: 1px !important; }
+#tp-list-table td button.tp-st-btn .tp-st-caret { font-size: 8.5px !important; color: #94a3b8 !important; }
+#tp-list-table td button.tp-st-btn .tp-st-hidden {
+  background: #e2e8f0 !important; color: #334155 !important;
+  padding: 2px 7px !important; border-radius: 999px !important; font-weight: 600 !important;
+}
+/* 🙈 숨긴 강사 행 — 「안보임」 필터로 볼 때만 화면에 나옵니다. 지워진 것이 아님을 흐리게 알립니다. */
+#tp-list-body tr[data-hidden="1"] td { opacity: .62 !important; }
+#tp-list-body tr[data-hidden="1"] td button.tp-st-btn { opacity: 1 !important; }
+
+/* ── 떠 있는 상태 메뉴 (document.body 자식) ── */
+#tp-st-menu {
+  position: fixed; z-index: 100002;          /* 모바일 드로어(#ph85-sidebar 100001) 위 */
+  min-width: 186px; padding: 5px;
+  background: #ffffff; color: #101828;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .18);
+  font-size: 12.5px; font-family: inherit;
+}
+#tp-st-menu .tp-st-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+}
+#tp-st-menu .tp-st-item:hover,
+#tp-st-menu .tp-st-item:focus-visible { background: #f1f5f9; outline: none; }
+#tp-st-menu .tp-st-item.on { background: #f8fafc; font-weight: 700; }
+#tp-st-menu .tp-st-chk { margin-left: auto; color: #b45309; font-weight: 700; }
+#tp-st-menu .tp-st-sep { height: 1px; margin: 5px 4px; background: #e2e8f0; }
+
+/* ── 되돌리기 토스트 (document.body 자식) ──
+   ⚠️ 어두운 배경으로 만들지 않습니다 — 밝기 페인터가 «안 읽히는 글자» 로 보고
+      인라인 !important 로 다시 칠하는 자리라, 처음부터 밝게 둡니다. */
+#tp-st-toast {
+  position: fixed; z-index: 100002;
+  left: 50%; transform: translateX(-50%); bottom: 26px;
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(92vw, 520px); padding: 11px 16px;
+  background: #ffffff; color: #101828;
+  border: 1px solid #cbd5e1; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .22);
+  font-size: 13px; line-height: 1.5;
+}
+#tp-st-toast .tp-st-toast-msg { min-width: 0; }
+#tp-st-toast button.tp-st-undo {
+  flex: 0 0 auto;
+  padding: 4px 12px !important; margin: 0 !important;
+  background: #b45309 !important; background-image: none !important; color: #ffffff !important;
+  border: 0 !important; border-radius: 7px !important;
+  font-size: 12.5px !important; font-weight: 700 !important; cursor: pointer !important;
+  box-shadow: none !important;
+}
+#tp-st-toast button.tp-st-undo:hover { filter: brightness(1.1); }
+#tp-st-toast button.tp-st-undo:focus-visible { outline: 2px solid #101828 !important; outline-offset: 2px !important; }
