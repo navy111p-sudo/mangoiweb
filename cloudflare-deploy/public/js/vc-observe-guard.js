@@ -630,3 +630,87 @@
     }, 2200);
   }
 })();
+
+/* ============================================================================
+   ⑩ 참관자는 «얼굴 칸» 도 만들지 않는다        (2026-09-01 사장님 지시로 수리)
+   ----------------------------------------------------------------------------
+   [제보] 「이거 수업 관찰 할 때 참가자가 안 보이게 할 수 있어?」 — 강사(Krystel) 화면
+     왼쪽 얼굴 열에 이름표가 「참가자」인 **온통 검은 칸**이 하나 더 있었다.
+
+   [뿌리] 참관은 «투명 유령» 설계다 — src/video-call-room.ts 의 handleJoinObserve 가
+     joined:false 로 붙이고 방송을 하나도 하지 않는다. 그래서 인원수에도, 입퇴장에도,
+     로스터(existing-users·user-joined)에도 안 나온다. 그런데 참관자는 영상을 받으려고
+     **recvonly offer 를 직접 보내고**, 그 offer 를 중계하던 handleOffer 가
+     `this.usernameOf(userId) || '참가자'` 로 **이름을 지어내고 있었다**(usernameOf 는
+     joined 인 사람만 이름을 준다 → 참관자는 항상 null → 항상 «참가자»).
+     받는 쪽(js/idx-main.js vcHandleOffer)은 그 이름으로 피어를 만들고, 그 이름이 그대로
+     얼굴 칸 이름표가 된다(`escHtml(username || '참가자')`).
+
+   [무엇을 고쳤나] 서버가 그 offer 에 `fromObserver:true` 를 실어 준다(위 handleOffer).
+     여기서는 그 표시를 받은 id 에 대해서만 **칸을 만드는 세 경로를 전부** 막는다.
+   ⛔ 이름이 «참가자» 인 칸을 지우는 식으로 풀지 말 것 — 이름이 아직 안 붙은 진짜 학생의
+      칸까지 지운다. 판정 근거는 **서버가 참관자라고 말한 id** 하나뿐이다.
+   ⛔ vcRemovePeer(id, 'left') 로 지우지 말 것 — index.html 이 'left' 를 «수업 종료» 로
+      읽어 학생 화면에 「수업이 끝났어요」가 뜬다(CLAUDE.md 2장). DOM 칸만 걷어낸다.
+   ⛔ 상주 setInterval·body class MutationObserver 로 감시하지 말 것(홈 전체가 멎은 전력).
+      offer 를 받은 그 순간부터 «끝이 있는» 몇 번의 확인만 한다.
+
+   [왜 이 파일인가] js/idx-main.js 는 849KB blocking 이고 첫 화면 예산 여유가 100바이트대라
+     한 줄도 못 넣는다. 이 파일은 defer 라 예산 밖이고, 이미 window 함수를 감싸는 방식을 쓴다.
+     ⚠️ 이 절은 «참관자» 가 아니라 **참관을 당하는 쪽(강사·학생)** 에서 돌아야 한다.
+        그래서 위 ⑦⑧ 처럼 `?observe=` 로 걸러서는 안 된다.
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__vcObserverTileGuard) return;
+  window.__vcObserverTileGuard = true;
+
+  /* 서버가 «참관자» 라고 말해 준 peer id 들. 추측으로는 절대 채우지 않는다. */
+  var OBS = (window.__vcObserverPeers = window.__vcObserverPeers || {});
+
+  function dropBox(userId) {
+    try {
+      var box = document.getElementById('vc-video-' + userId);
+      if (box && box.parentNode) box.parentNode.removeChild(box);
+      if (typeof window.vcUpdateGridCount === 'function') window.vcUpdateGridCount();
+      if (typeof window.vcRefreshChatTargets === 'function') window.vcRefreshChatTargets();
+    } catch (_) {}
+  }
+
+  /* (가) offer 에 실려 온 표시를 기억한다. 원래 처리는 그대로 이어서 한다 —
+     answer 는 보내야 참관자가 영상을 받는다(참관 자체를 막는 것이 아니다). */
+  var _offer = window.vcHandleOffer;
+  if (typeof _offer === 'function') {
+    window.vcHandleOffer = function (data) {
+      try {
+        if (data && data.fromObserver && data.fromUserId) {
+          OBS[data.fromUserId] = true;
+          /* 이미 만들어져 있으면 걷어낸다. 끝이 있는 확인만 한다(상주 감시 금지). */
+          [0, 400, 1500, 4000].forEach(function (ms) {
+            setTimeout(function () { dropBox(data.fromUserId); }, ms);
+          });
+        }
+      } catch (_) {}
+      return _offer.apply(this, arguments);
+    };
+  }
+
+  /* (나) 칸을 «만드는» 두 곳에서 참관자면 만들지 않는다.
+     둘 다 idx-main.js 최상위 function 선언이라 window 속성이고, 호출부도 같은 바인딩을
+     본다(classic script) → 여기서 덮으면 호출부가 이 함수를 부른다. */
+  var _ensure = window.vcEnsureParticipantBox;
+  if (typeof _ensure === 'function') {
+    window.vcEnsureParticipantBox = function (userId) {
+      if (userId && OBS[userId]) return null;
+      return _ensure.apply(this, arguments);
+    };
+  }
+
+  var _add = window.vcAddRemoteVideo;
+  if (typeof _add === 'function') {
+    window.vcAddRemoteVideo = function (userId) {
+      if (userId && OBS[userId]) { dropBox(userId); return; }
+      return _add.apply(this, arguments);
+    };
+  }
+})();
