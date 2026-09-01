@@ -2896,6 +2896,15 @@ async function loadTeacherProfiles() {
     });
   }
   if (cnt) cnt.textContent = items.length + '명';
+  /* 🔴 (2026-09-01) 명부와 원부가 어긋나면 화면이 말한다.
+       발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 있다 —
+         · teacher_profiles.status … 이 명부
+         · teachers.active        … 스케줄·배정·카페24 미러
+       같은 날 양쪽 방향으로 다 어긋났다(원부만 내린 것 2명 · 명부만 내린 것 2명).
+       이제 저장할 때 서버가 함께 맞추지만, 그건 «앞으로» 만 막는다 — 이미 어긋나 있는 것과
+       다른 경로(야간 동기화 등)로 또 생기는 것은 이 줄이 잡는다.
+     ⛔ 화면이 자동으로 고치지 않는다 — 어느 쪽이 맞는지는 사람이 안다. 말해 주기만 한다. */
+  try { _tpRenderRosterMismatch(res); } catch (e) {}
   if (items.length === 0) {
     tbody.innerHTML = '<tr><td colspan="15" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
@@ -3023,6 +3032,48 @@ function _tpNormName(v) {
 window.tpLiveOnly = false;
 
 /* 지금 수업 현황을 한 번에 읽어 온다. 강사 수만큼 부르지 않는다(표당 1회). */
+/* 🔎 명부 ↔ 원부 어긋남 알림 — 목록 조회가 함께 준 숫자를 한 줄로 그린다.
+   ⚠️ 최상위 선언이다. 다른 함수 «안» 에 넣으면 그 밖의 호출부가 전부 ReferenceError 인데
+      문자열 검사는 「선언도 있고 호출도 있다」로 통과한다(CLAUDE.md 2장). */
+function _tpRenderRosterMismatch(res) {
+  var host = document.getElementById('tp-list-body');
+  if (!host || !host.parentNode) return;
+  var box = document.getElementById('tp-roster-mismatch');
+  var bad = (res && Array.isArray(res.roster_mismatch)) ? res.roster_mismatch : [];
+  var broken = (res && Array.isArray(res.roster_broken_link)) ? res.roster_broken_link : [];
+  var en = (typeof window.adminLang !== 'undefined' && window.adminLang === 'en');
+  if (!bad.length && !broken.length) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'tp-roster-mismatch';
+    box.style.cssText = 'margin:8px 0;padding:10px 12px;border:1px solid #fca5a5;'
+      + 'background-color:#fef2f2;border-radius:8px;font-size:12px;line-height:1.6;color:#7f1d1d';
+    var tbl = host.closest ? host.closest('table') : null;
+    var anchor = tbl && tbl.parentNode ? tbl : host.parentNode;
+    anchor.parentNode.insertBefore(box, anchor);
+  }
+  var lines = [];
+  if (bad.length) {
+    lines.push('<b>' + (en ? '⚠️ Roster mismatch: ' : '⚠️ 명부와 원부가 다릅니다: ')
+      + bad.length + (en ? '' : '명') + '</b>');
+    lines.push(bad.map(function (x) {
+      var side = (String(x.status || '') === '활동중')
+        ? (en ? 'listed active, roster resigned' : '명부 활동중 · 원부 퇴사')
+        : (en ? 'listed ' + (x.status || '-') + ', roster active' : '명부 ' + (x.status || '-') + ' · 원부 재직');
+      return '· ' + (x.name || ('#' + x.id)) + ' (' + side + ')';
+    }).join('<br>'));
+    lines.push(en
+      ? 'Open the profile and save the status again — the roster is updated together.'
+      : '해당 강사를 열어 상태를 다시 저장하면 원부까지 함께 맞춰집니다.');
+  }
+  if (broken.length) {
+    lines.push('<b>' + (en ? '⚠️ Broken roster link: ' : '⚠️ 원부 연결이 끊어졌습니다: ')
+      + broken.length + (en ? '' : '건') + '</b> '
+      + broken.map(function (x) { return (x.name || ('#' + x.id)); }).join(', '));
+  }
+  box.innerHTML = lines.join('<br>');
+}
+
 window.tpLoadLiveNow = async function () {
   if (_TP_LIVE.off) { _tpPaintLive(); return; }
   var cr = null, ar = null;

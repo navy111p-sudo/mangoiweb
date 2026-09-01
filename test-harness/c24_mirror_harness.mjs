@@ -20,6 +20,8 @@
 //     J. 2단계 «실제로 만든다» — applyMirror 를 가짜 D1 에 물려 실제로 돌린다
 //     K. 자동 실행(cron) — 새 cron 을 안 만들고, 끄는 스위치가 실제로 먹는지 돌려서 확인
 //     I. 화면 겹쳐 그리기 — 카페24 수업을 «보기 전용» 으로만 그린다(class_schedules 를 안 만든다)
+//     L. 퇴사 강사 «잔재» 와 «원부에 없는 사람» 을 가른다 — 할 일이 정반대라 한 숫자로 못 합친다
+//     M. 재직 여부가 두 표(teachers.active · teacher_profiles.status)에 있다 — 쓰는 곳에서 맞춘다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -642,6 +644,163 @@ console.log('\n[ K. 자동 실행 (cron) ]');
 
   // 성적표가 「자동으로 도는가」를 함께 보여 준다
   check('K⑩ 성적표에 마지막 자동 실행이 실린다', /last_runs: lastRuns/.test(MIRROR_TS));
+}
+
+
+/* ═══ L. 퇴사 강사 — «잔재» 와 «원부에 없는 사람» 을 가른다 (2026-09-01) ═══
+   발단: 사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+   **말없이** 사라졌다 — 판정이 no_teacher 가 되는데 화면은 그리지도 세지도 않았다.
+   (그리고 「강사 못 이음 N개」 경고는 세려는 행이 이미 걸러진 뒤라 **영원히 0** 인 죽은 코드였다.)
+
+   ⛔ 이 절이 지키는 것
+     · 둘을 한 숫자로 합치지 않는다 — 할 일이 정반대다(잔재=그냥 둠 / 원부에 없음=등록 필요)
+     · 퇴사자는 어떤 모드에서도 만들어지지 않는다 (mode='all' 포함)
+     · 재직이 언제나 이긴다 — 같은 이름이 양쪽에 있으면 재직 쪽으로 잇는다
+     · 화면은 «그리지 않는» 것과 «세지 않는» 것을 구분한다
+*/
+console.log('\n[ L. 퇴사 강사 잔재 vs 원부에 없는 강사 ]');
+{
+  const Q6 = PUB('js/adm-q6.js');
+
+  // ── ① 판정: 퇴사자 링크가 있으면 no_teacher_left 로 간다
+  const linksLeft = new Map([['24', { name: 'Teacher Mariane', teacherId: null, leftTeacherId: '11' }]]);
+  const rLeft = M.planMirror([cls({ tid: '24' })], linksLeft, STUDENTS, [], 'all', new Set())[0];
+  check('L① 퇴사 강사는 no_teacher_left 로 가른다', rLeft.verdict === 'no_teacher_left', rLeft.verdict);
+  check('L① 이유에 «퇴사» 라고 적는다', /퇴사/.test(rLeft.detail || ''), rLeft.detail);
+
+  // ── ② 🔴 퇴사자는 mode='all'(전환일) 에서도 절대 만들어지지 않는다
+  for (const mode of ['off', 'whitelist', 'all']) {
+    const r = M.planMirror([cls({ tid: '24' })], linksLeft, STUDENTS, [], mode, new Set(['11']))[0];
+    check(`🔴 L② mode='${mode}' 에서도 퇴사자는 ok 가 안 된다`, r.verdict !== 'ok', r.verdict);
+  }
+
+  // ── ③ 원부에 «아예 없는» 사람은 그대로 no_teacher (경고 대상이라 뭉치면 안 된다)
+  const rGhost = M.planMirror([cls({ tid: '99' })], LINKS, STUDENTS, [], 'all', new Set())[0];
+  check('L③ 원부에 없는 사람은 no_teacher 그대로', rGhost.verdict === 'no_teacher', rGhost.verdict);
+  check('🔴 L③ 그래서 둘은 서로 다른 판정이다', rGhost.verdict !== rLeft.verdict);
+
+  // ── ④ summarize 가 둘을 따로 센다
+  const sum = M.summarize([rLeft, rGhost]);
+  check('L④ summarize 에 no_teacher_left 칸이 있다', typeof sum.no_teacher_left === 'number', Object.keys(sum));
+  check('L④ 둘을 따로 센다', sum.no_teacher_left === 1 && sum.no_teacher === 1, sum);
+
+  // ── ⑤ 링크 만들 때 «재직이 이긴다» — 같은 이름이 양쪽에 있으면 재직 쪽
+  const dbBoth = {
+    exec: async () => {},
+    prepare(sql) {
+      const pick = () => {
+        if (/FROM teachers WHERE active = 1/.test(sql)) return [{ id: 7, name: 'ANA' }];
+        if (/FROM teachers WHERE active = 0/.test(sql)) return [{ id: 99, name: 'ANA' }];   // 동명 퇴사자
+        if (/FROM teacher_payroll_auto/.test(sql)) return [{ c24: '182', teacher_name: 'Teacher Ana' }];
+        return [];
+      };
+      const st = { bind: () => st, all: async () => ({ results: pick() }), first: async () => null, run: async () => ({}) };
+      return st;
+    },
+  };
+  const linksBoth = await M.loadTeacherLinks({ DB: dbBoth }, ['182']);
+  check('🔴 L⑤ 같은 이름이 양쪽에 있으면 «재직» 으로 잇는다',
+    linksBoth.get('182')?.teacherId === '7', linksBoth.get('182'));
+  check('L⑤ 그때는 퇴사자 번호를 달지 않는다', !linksBoth.get('182')?.leftTeacherId, linksBoth.get('182'));
+
+  // ── ⑥ 퇴사자만 있을 때는 leftTeacherId 가 채워진다 (실제로 돌려서 확인)
+  const dbLeftOnly = {
+    exec: async () => {},
+    prepare(sql) {
+      const pick = () => {
+        if (/FROM teachers WHERE active = 1/.test(sql)) return [];
+        if (/FROM teachers WHERE active = 0/.test(sql)) return [{ id: 11, name: 'MARIANE' }];
+        if (/FROM teacher_payroll_auto/.test(sql)) return [{ c24: '24', teacher_name: 'Teacher Mariane' }];
+        return [];
+      };
+      const st = { bind: () => st, all: async () => ({ results: pick() }), first: async () => null, run: async () => ({}) };
+      return st;
+    },
+  };
+  const linksOnlyLeft = await M.loadTeacherLinks({ DB: dbLeftOnly }, ['24']);
+  check('L⑥ 퇴사자 명부에서 찾으면 leftTeacherId 를 단다',
+    linksOnlyLeft.get('24')?.leftTeacherId === '11', linksOnlyLeft.get('24'));
+  check('🔴 L⑥ 그래도 teacherId 는 비어 있다(만들면 안 되므로)',
+    linksOnlyLeft.get('24')?.teacherId === null, linksOnlyLeft.get('24'));
+
+  // ── ⑦ 화면: 로드 단계에서 «세기 전에» 버리지 않는다
+  check('🔴 L⑦ 로드가 판정으로 통째로 거르지 않는다',
+    !/filter\(function\(x\)\{ return x && PH54_C24_SHOW\[x\.verdict\]; \}\)/.test(Q6),
+    '거르면 「원부에 없는 강사 N개」가 영원히 0 이 된다(죽은 코드였다)');
+  check('L⑦ 그리는 판정은 여전히 PH54_C24_SHOW 로 고른다', /if \(!PH54_C24_SHOW\[r\.verdict\]\) return;/.test(Q6));
+
+  // ── ⑧ 화면: 두 숫자를 따로 센다 · 따로 그린다
+  check('L⑧ 퇴사 잔재를 따로 센다', /c24Left\+\+/.test(Q6));
+  check('L⑧ 원부에 없는 강사를 따로 센다', /c24NoTeacher\+\+/.test(Q6));
+  check('🔴 L⑧ 범례가 둘을 다른 줄로 말한다',
+    /퇴사 강사 잔재/.test(Q6) && /원부에 없는 강사/.test(Q6));
+  check('🔴 L⑧ 경고색은 «원부에 없는 강사» 에만 쓴다(잔재는 늘 켜져 있어 경고가 무뎌진다)',
+    /ph54-count-warn[^]{0,120}원부에 없는 강사/.test(Q6));
+  check('L⑧ 퇴사 잔재는 «안 그림» 이라고 밝힌다', /안 그림/.test(Q6));
+}
+
+/* ═══ M. 재직 여부가 두 표에 있다 — 쓰는 곳 한 군데에서 맞춘다 (2026-09-01) ═══
+   발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」.
+     · teacher_profiles.status … 명부 화면
+     · teachers.active        … 스케줄·배정·카페24 미러
+   같은 날 **양쪽 방향으로** 어긋났다(원부만 내린 것 2명 · 화면에서 명부만 내린 것 2명).
+*/
+console.log('\n[ M. 명부 ↔ 원부 재직 여부 맞추기 ]');
+{
+  const CORE = PUB('js/adm-core.js');
+  /* 검사 범위는 길이가 아니라 «중괄호 짝» 으로 자른다 — 길이로 자르면 옆 핸들러가 딸려 온다
+     (CLAUDE.md 2장: 「검사 범위를 길이로 자르지 마세요」). */
+  const blockAt = (src, marker) => {
+    const i = src.indexOf(marker); if (i < 0) return '';
+    let j = src.indexOf('{', i); if (j < 0) return '';
+    let d = 0;
+    for (let k = j; k < src.length; k++) {
+      if (src[k] === '{') d++;
+      else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
+    }
+    return src.slice(i);
+  };
+  const patch = blockAt(ADMIN, "if (method === 'PATCH') {");
+  check('M① 프로필 PATCH 블록을 찾았다', patch.length > 200, patch.length);
+  /* ⚠️ 이 검사는 한 번 헛돌았다 — 같은 파일에 `b.hasOwnProperty('status')` 가 세 곳 있어서
+       (감사로그·before 담기) 내 동기화를 통째로 지워도 통과했다. 그래서 «그 줄이 있는가» 가
+       아니라 «동기화 코드가 그 가드 «안» 에 있는가» 를 위치로 판정한다(CLAUDE.md 2장). */
+  const _mSync = patch.indexOf("const wantLive = String(b.status");
+  check('M① 원부 동기화 코드가 있다', _mSync > 0, _mSync);
+  check('🔴 M① status 를 보냈을 때만 원부를 건드린다',
+    _mSync > 0 && /hasOwnProperty\('status'\)/.test(patch.slice(Math.max(0, _mSync - 200), _mSync)),
+    '동기화가 status 가드 밖에 있으면 전화번호만 고쳐도 원부가 바뀐다');
+  check('M① 원부의 active 를 실제로 고친다',
+    /UPDATE teachers SET active = \?/.test(patch));
+  check('🔴 M② 연결이 없으면 «추측해서» 잇지 않는다',
+    /not_linked/.test(patch) && !/LIKE '%' \+/.test(patch));
+  check('🔴 M③ 내릴 때는 카페24 미러도 함께 막는다',
+    /c24_mirror_teachers[^]{0,400}enabled = 0/.test(patch));
+  check('🔴 M③ 되살릴 때는 자동으로 켜지 않는다',
+    /if \(!wantLive\) \{/.test(patch) && !/enabled = 1/.test(patch));
+  check('🔴 M④ 원부 반영이 실패해도 프로필 저장을 실패로 만들지 않는다',
+    /rosterSync = \{ changed: 0, error:/.test(patch));
+  check('M④ 무엇이 됐는지 응답에 싣는다', /roster_sync: rosterSync/.test(patch));
+  check('🔴 M⑤ 「안보임」(list_hidden)은 재직 여부가 아니라 손대지 않는다',
+    !/list_hidden[^]{0,200}UPDATE teachers/.test(patch));
+
+  // 읽는 쪽 — «다르다는 사실» 만 보여 준다(자동으로 고치지 않는다)
+  check('M⑥ 목록이 원부 상태를 함께 내려준다', /ROSTER_ACTIVE/.test(ADMIN) && /roster_active/.test(ADMIN));
+  check('M⑥ 어긋난 건수를 세어 함께 준다', /roster_mismatch/.test(ADMIN));
+  check('M⑥ 끊어진 연결도 따로 알린다', /roster_broken_link/.test(ADMIN));
+  check('🔴 M⑥ 읽는 곳에서 «자동으로 맞추지» 않는다',
+    !/roster_mismatch[^]{0,300}UPDATE (teachers|teacher_profiles)/.test(ADMIN));
+  check('M⑥ 조인이 아니라 서브쿼리다(조인은 행을 늘린다)',
+    /\(SELECT t\.active FROM teachers t/.test(ADMIN));
+
+  // 화면 — 최상위 선언이어야 다른 곳에서 부를 수 있다
+  check('M⑦ 명부가 어긋남을 그린다', /_tpRenderRosterMismatch/.test(CORE));
+  check('🔴 M⑦ 그 함수는 «최상위» 선언이다',
+    /^function _tpRenderRosterMismatch\(/m.test(CORE),
+    '다른 함수 안에 넣으면 호출부가 전부 ReferenceError 인데 문자열 검사는 통과한다');
+  check('M⑦ 어긋남이 없으면 상자를 지운다', /box\.remove\(\)/.test(CORE));
+  check('🔴 M⑦ 화면이 자동으로 고치지 않는다(사람에게 알리기만)',
+    !/_tpRenderRosterMismatch[^]{0,800}fetch\([^)]*method:\s*'PATCH'/.test(CORE));
 }
 
 console.log(`\n${'─'.repeat(52)}`);
