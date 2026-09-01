@@ -40,6 +40,7 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
+import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
@@ -3883,7 +3884,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                    ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
         const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
-        const items = rs.results || [];
+        let items = rs.results || [];
+        /* 🌏 (2026-09-01) 구분(필리핀·북미·중국) — 판정은 src/teacher-region.ts 한 곳뿐이고,
+           그 결과를 행에 실어 내려준다. ⛔ 화면이나 SQL 에서 다시 판정하지 말 것(두 벌이 되면 어긋난다).
+           ⚠️ SQL WHERE 가 아니라 «읽은 뒤 거르기» 인 이유 — 판정이 nationality 뿐 아니라
+              origin_region·active_region·group_name 글자까지 보기 때문이다. 같은 규칙을 SQL 로
+              옮겨 적으면 그 순간 정본이 두 벌이 된다. 이 목록은 쪽나눔이 없어(전체 33행) 안전하다. */
+        for (const r of items as any[]) { if (r) r.region = resolveTeacherRegion(r); }
+        const fRegion = url.searchParams.get('region') || '';
+        if (fRegion) items = items.filter((r: any) => teacherRegionMatches(fRegion, (r && r.region) || ''));
         /* 🔎 어긋난 행을 «세어서» 함께 내려준다. 화면은 이 숫자로 한 줄 경고를 띄운다.
            ⚠️ 연결이 없는 프로필(linked_teacher_id NULL)은 어긋남이 아니다 — 셀 대상이 아니라
               «아직 안 이어진» 것이고, 그건 별도 항목으로 이미 보인다. */
@@ -4259,7 +4268,21 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               rosterSync = { changed: 0, error: String(e1?.message || e1) };
             }
           }
-          return json({ ok: true, id, roster_sync: rosterSync });
+          /* 🌏 (2026-09-01) 구분은 서버만 판정한다(src/teacher-region.ts).
+               국적을 바꿨으면 «바뀐 구분» 을 응답에 실어 준다 — 화면이 같은 판정을 한 벌 더
+               갖지 않게 하려는 것이다(두 벌이 되면 반드시 어긋난다).
+             ⚠️ 다시 읽는 이유: 구분은 국적만이 아니라 출신·활동 지역 글자도 본다.
+             ⚠️ 실패해도 저장은 성공으로 둔다 — 화면은 region 이 없으면 목록을 다시 읽는다. */
+          let regionAfter: string | undefined;
+          if (b.hasOwnProperty('nationality')) {
+            try {
+              const rowAfter: any = await env.DB.prepare(
+                `SELECT nationality, origin_region, active_region, group_name FROM teacher_profiles WHERE id = ?`
+              ).bind(id).first();
+              regionAfter = resolveTeacherRegion(rowAfter);
+            } catch (e: any) { console.error('[teacher-region] after:', e?.message); }
+          }
+          return json({ ok: true, id, roster_sync: rosterSync, region: regionAfter });
         } catch (e: any) {
           return json({ ok: false, error: String(e?.message || e) }, 500);
         }

@@ -50,13 +50,48 @@
       key: 'today', ko: '오늘', en: 'Today',
       ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
       items: [
-        /* 🔐 (2026-08-30 v4 제안서 16) 「방 초대」 독립 항목을 없애고 이 항목에 함께 묶었다.
+        /* 🔐 (2026-08-30 v4 제안서 16) 「방 초대」 독립 항목을 없애고 이 항목에 함께 묶었었다.
            그 화면이 하는 일(방 번호·학생 아이디 입력)은 오늘의 수업 목록에 이미 있는 값이라
-           «같은 것 둘» 이었다. 목록 각 줄의 [🔗 초대 링크] 버튼이 그 자리를 대신한다.
-           ⛔ card-room-invite 를 목록에서 빼지 말 것 — 이 카드를 맡은 사이드바 항목이
-              여기 하나뿐이라, 빼면 토큰 발급·회수 화면 자체가 메뉴에서 사라진다
-              (CLAUDE.md 2장 — card-inquiry-mgmt 에서 같은 사고가 있었다). */
-        { ko: '오늘의 수업', en: "Today's classes", cards: ['card-active-rooms', 'card-room-invite'] },
+           «같은 것 둘» 이라는 판단이었고, 목록 각 줄의 [🔗 초대 링크] 버튼이 그 자리를 대신한다.
+           📌 (2026-09-01) B안에서 「시스템」으로 뗐다가, 사장님 지시로 **도로 묶었다**
+              (「지금 수업 쪽에 도로 묶어줘」). 그래서 이 항목이 그 카드도 함께 맡는다 —
+              탭에서는 「🎥 화상방 접속」과 한 짝으로 움직인다(js/adm-today-tabs.js).
+           ⛔ card-room-invite 를 **어느 항목도 안 맡는 상태로 두지 말 것** — 그러면 토큰
+              발급·회수 화면 자체가 메뉴에서 사라진다(card-inquiry-mgmt 에서 같은 사고가 있었다).
+              today_menu_split_harness ④ 가 «맡은 항목이 정확히 하나» 인지 센다. */
+        /* 🚪🔴 (2026-09-01 사장님 「오늘수업과 오늘의 수업이 헷갈려. 찾기도 어려워」 — B안)
+           [무엇이 문제였나] 이름이 «의» 한 글자 차이인데 서로 다른 화면이었고,
+             「오늘 수업 (바로 입장)」은 이 그룹에 **아예 없었다** — 학생 관리 카드 «안의 칸»
+             (sm-today-classes)이라 손자 메뉴나 ⚡자주 쓰는 기능으로만 닿았다.
+           [무엇을 했나] 이름을 뜻대로 갈라 「오늘」 맨 위에 나란히 놓는다.
+             · 오늘 수업 = 오늘 예약된 모든 수업, 시간순   ← 학생 카드 «안의 칸»(openSub)
+             · 지금 수업 = 지금 망고아이 화상방에 붙어 있는 것
+           ⚠️ 두 화면은 «다른 기능» 이 아니라 «같은 목록의 두 가지 보기» 다 — 실시간 카드의
+              왼쪽 숫자(「지금 수업 N」)도 예약 기준이라 뿌리가 같다. 다음 단계(A안)에서
+              탭 한 겹으로 합칠 예정이라, 지금은 카드를 옮기지 않고 «가리키는 곳» 만 바꾼다.
+           ⛔ 이름을 되돌리지 말 것 — 「오늘의 수업」으로 돌아가면 카드 제목과 다시 부딪힌다.
+              이름을 또 바꿀 때는 아래 RENAMED 이사표에 한 줄을 함께 적을 것. */
+        /* ⚠️ 이름에 «설명 괄호» 를 넣지 말 것 — 설명은 tip 으로 간다(2026-08-19 규칙,
+             sidebar_three_level_harness ⑧). 그리고 한 항목은 «한 줄» 로 시작해야 한다 —
+             그 하니스가 줄 단위로 읽어 cards/href 가 없으면 «갈 곳 없는 항목» 으로 FAIL 낸다.
+             처음에 「오늘 수업 (전체)」·「지금 수업 (실시간)」로 적었다가 둘 다 걸렸다. */
+        /* 📌 (2026-09-01 A안) B안에서 갈라 놓았던 「오늘 수업」·「지금 수업」을 **한 항목**으로
+             합쳤다(사장님 「같은 메뉴에 넣으면 어떨까」). 두 화면은 «다른 기능» 이 아니라
+             «같은 목록의 두 가지 보기» 라서, 안에서 탭으로 가른다 — js/adm-today-tabs.js.
+               전체 / 🔴 진행 중 → card-students-mgmt 의 sm-today-classes 칸
+               🎥 화상방 접속    → card-active-rooms
+           🔴 cards[0] 은 **card-students-mgmt** 다. showOnly 가 대표 카드에 open=true 를 박기
+              때문에, 실시간 카드를 앞에 두면 항목을 누를 때마다 그 카드가 펴지고 탭이 «화상방» 으로
+              시작한다(실측으로 잡음). 기본은 「전체」여야 한다.
+           ⚠️ 그래서 card-active-rooms 를 대표로 삼는 항목이 없다 — 그쪽으로 오는 점프
+              (#card-active-rooms 딥링크 · ⚡「수업 종료 / 연장」)는 quick-access 의 폴백 경로가
+              카드를 직접 펴 준다. 그때 탭은 그 카드의 toggle 을 보고 «따라간다»(adm-today-tabs.js).
+           ⚠️ card-students-mgmt 의 «주인» 은 여전히 「학생 명부」다 — 이 항목은 openSub 이 있는
+              «잎» 이라 ia6OwnerBtn 이 주인을 먼저 고른다.
+           ⛔ 이름을 「오늘의 수업」으로 되돌리지 말 것 — 카드 제목과 다시 부딪힌다. */
+        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms', 'card-room-invite'], openSub: 'sm-today-classes',
+          tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
+          tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
@@ -318,6 +353,52 @@
   function isEn() {
     if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
     try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
+  }
+
+  /* 🔁 항목 «이사표» — 이름이 곧 키다(`그룹키:한글이름`). 이름을 바꾸면 저장된 값이
+     미아가 되고, 쓰던 사람은 어제 보던 화면이 아침에 딴 데 가 있게 된다.
+     🔴 (2026-09-01) init() 안에 갇혀 있던 것을 여기로 올렸다 — 같은 꼴의 키를 **따로**
+        저장하는 곳이 둘 더 있는데(⭐고정 adm-quickfav.js · 최근 본 메뉴 adm-recent-menus.js)
+        이사표가 안 닿아, 이름을 바꾸면 ⭐이 **말없이 사라지고** 최근 칩은 **눌러도 아무 데도
+        안 갔다**(trap-check 지적). 이제 window.mangoiIA6.renameKey 로 셋이 같은 표를 본다. */
+  var RENAMED = {
+    'today:문의·버그': 'today:신규상담',
+    // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
+    'money:조직 (지사·대리점)': 'org:대표지사',
+    // 🗑 (2026-08-18) 없앤 두 항목을 잇는다. 안 이으면 어제 보던 화면이 「오늘의 수업」으로 튄다.
+    'org:조직 (지사·대리점)': 'org:대표지사',
+    'money:매출 대시보드': 'money:회계',
+    /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
+       이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
+    'teacher:수강 운영(배율·정원)': 'teacher:수강 운영',
+    /* 🔴 (2026-09-01 B안) 「오늘의 수업」 → 「지금 수업」.
+       그 항목이 보여 주던 것이 실시간 카드였으므로 그쪽으로 잇는다. */
+    'today:오늘의 수업': 'today:오늘 수업',
+    /* 📌 (2026-09-01 A안) B안에서 잠깐 있었던 「지금 수업」 항목은 「오늘 수업」에 합쳐졌다.
+       그 사이에 그 항목을 마지막으로 보던 사람·⭐로 고정한 사람이 있을 수 있으므로 이어 준다. */
+    'today:지금 수업': 'today:오늘 수업',
+    /* 📌 (2026-09-01) 「시스템 › 화상강의실 초대」를 「오늘 수업」에 도로 묶었다(사장님 지시).
+       그 항목을 마지막으로 보던 사람·⭐로 고정한 사람을 이어 준다. */
+    'ops:화상강의실 초대': 'today:오늘 수업'
+  };
+
+  /* 🔴 (2026-09-01) 카드의 «주인» 항목 찾기.
+     [왜] 같은 카드를 가리키는 항목이 둘 이상일 수 있다. 그런데 밖에서 카드로 오는 점프
+       (⚡자주 쓰는 기능 · #card-… 딥링크 · ?smq= 검색 · 허브 버튼 · 홈 전체메뉴 · AI 명령)는
+       전부 `data-card` 로 항목을 찾아 «대신 눌러» 준다. querySelector 는 **첫 매치**라,
+       DOM 에서 앞선 그룹의 항목이 그 카드를 통째로 가져간다.
+     [실제로 밟은 것] 2026-09-01 「오늘 수업」(오늘 그룹 = GROUPS[0])이 card-students-mgmt 를
+       가리키게 되자, 「학생 목록」을 눌러도 «오늘 수업» 칸이 화면 맨 위에 오고 학생 명부가
+       위로 밀려났다(실측 카드 top −546). 기존 주인에게서 우선권을 빼앗은 것이다.
+     [규칙] `openSub`(= data-ia6-sub)이 있는 항목은 카드 «안의 한 칸» 을 가리키는 **잎**이지
+       그 카드의 주인이 아니다. 주인을 먼저 찾고, 없을 때만 아무거나 쓴다.
+     ⚠️ 같은 판정이 js/adm-quick-access.js 의 ia6Btn 에도 있다 — 한쪽만 고치면 그쪽만 옛 동작이다.
+     감시: test-harness/today_menu_split_harness.mjs ⑪ */
+  function ia6OwnerBtn(cardId) {
+    if (!cardId) return null;
+    var q = '#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]';
+    try { return document.querySelector(q + ':not([data-ia6-sub])') || document.querySelector(q); }
+    catch (e) { return null; }
   }
 
   // ── 카드 감추기 ──────────────────────────────────────────────────────────
@@ -1123,17 +1204,7 @@
        어제 보던 화면이 아침에 딴 데 가 있는 것이라 «메뉴가 없어졌다» 로 신고가 들어온다.
        그래서 옛 키를 새 키로 옮겨 준다. 옛 「문의·버그」는 신규상담 카드를 먼저 펼치던
        항목이었으므로(cards[0] = card-inquiry-mgmt) 그쪽으로 잇는다. */
-    var RENAMED = {
-      'today:문의·버그': 'today:신규상담',
-      // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
-      'money:조직 (지사·대리점)': 'org:대표지사',
-      // 🗑 (2026-08-18) 없앤 두 항목을 잇는다. 안 이으면 어제 보던 화면이 「오늘의 수업」으로 튄다.
-      'org:조직 (지사·대리점)': 'org:대표지사',
-      'money:매출 대시보드': 'money:회계',
-      /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
-         이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
-      'teacher:수강 운영(배율·정원)': 'teacher:수강 운영'
-    };
+
     if (want && RENAMED[want]) {
       want = RENAMED[want];
       try { localStorage.setItem(LS_KEY, want); } catch (e) { /* 무시 */ }
@@ -1194,9 +1265,8 @@
           if (card) {
             busy = true;
             try {
-              var btn = document.querySelector(
-                '#ph85-sidebar [data-ia6-item][data-card="' + card.id + '"]');
               // 🔑 한글 항목명이 아니라 data-card 로 찾는다 — 이름이 바뀌어도 안 깨진다.
+              var btn = ia6OwnerBtn(card.id);
               if (btn) btn.click();
               else showAll();               // 어느 항목도 안 맡은 카드 → 필터를 푼다(갇히지 않게)
             } finally { busy = false; }
@@ -1242,5 +1312,6 @@
   wireRevealOnJump();   // init 성공 여부와 무관하게 건다(감춘 게 없으면 cardOf 가 늘 null)
 
   // 다른 코드가 필요할 때 쓰도록 최소한만 노출
-  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS, applyRoleFilter: applyRoleFilter };
+  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS, applyRoleFilter: applyRoleFilter,
+                       renameKey: function (k) { return (k && RENAMED[k]) || k; } };
 })();

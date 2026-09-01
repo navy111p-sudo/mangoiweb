@@ -9894,6 +9894,13 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #tp-st-menu .tp-st-item.on { background: #f8fafc; font-weight: 700; }
 #tp-st-menu .tp-st-chk { margin-left: auto; color: #b45309; font-weight: 700; }
 #tp-st-menu .tp-st-sep { height: 1px; margin: 5px 4px; background: #e2e8f0; }
+/* 🌏 (2026-09-01) 구분 메뉴의 «지금 어디서 읽고 있는지» 한 줄.
+   국적이 비어 있어 지역 «글자» 로 읽는 강사가 실측 32명이라, 안 적으면
+   「고르지도 않았는데 필리핀이라고 나온다」가 된다. 눌리는 항목이 아니다. */
+#tp-st-menu .tp-st-note {
+  padding: 7px 10px 5px; font-size: 11px; line-height: 1.45; color: #64748b;
+  max-width: 240px; white-space: normal;
+}
 
 /* ── 되돌리기 토스트 (document.body 자식) ──
    ⚠️ 어두운 배경으로 만들지 않습니다 — 밝기 페인터가 «안 읽히는 글자» 로 보고

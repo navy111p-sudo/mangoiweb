@@ -47,12 +47,37 @@ export function kstDayStart(now = Date.now()): number {
 }
 
 /** 오늘 이 학생이 «적립» 으로 받은 점수 합계. 차감(spend)·회수는 세지 않는다. */
+/**
+ * 🧾 «원장에는 남기되, 상한 계산에는 넣지 않는» 규칙.
+ *
+ * [왜 필요한가] 단어장·복습퀴즈 보상은 **자기 표에서 이미 상한을 받습니다**
+ *   (`vocab_rewards` 하루 400점 · `review_quiz_rewards` 하루 500점).
+ *   그런데 그동안 `point_transactions` 를 아예 안 거쳐서 **학생 본인의 포인트 내역**·
+ *   **학부모 대시보드**·**관리자 월간 합계** 어디에도 한 줄이 안 남았습니다.
+ *   잔액만 늘고 «왜 늘었는지» 가 없었습니다(2026-09-01 실측: 원장 밖 적립 2,746점).
+ *
+ * ✅ 원장에 «기록» 은 남깁니다 — 금액을 바꾸지 않는 순수한 개선입니다.
+ * ⛔ 다만 그 값을 상한 계산에 **넣지는 않습니다.** 넣는 순간 학생이 받던 보상이
+ *    최대 10분의 1로 줄어듭니다(400+500+100 → 100). 그건 «버그 수리» 가 아니라
+ *    **보상 정책 변경**이라 사장님이 정할 일입니다.
+ *
+ * 📌 [사장님 결정 대기] 이 목록을 비우면 그날로 정책이 하루 100점으로 통일됩니다.
+ *    지금 실효 상한은 **단어장 400 + 단어장 미션 50 + 복습퀴즈 500 + 총량 100 = 하루 1,050점**입니다
+ *    (= 1,050원. 미션은 `kind !== 'mission'` 조건 때문에 400점 상한 «밖» 이고 하루 1회 멱등입니다).
+ *
+ * ⚠️ 이 수리로도 **원장 밖 적립이 다 없어진 것은 아닙니다** — `api-admin.ts` 의
+ *    이탈관리 🎁 기프트·컴백 번들이 아직 `student_points.balance` 를 직접 올립니다(A 담당 영역).
+ */
+export const CAP_UNCOUNTED_RULES = ['vocab_review', 'review_quiz_done'];
+
 export async function earnedToday(env: any, userId: string): Promise<number> {
   try {
+    const marks = CAP_UNCOUNTED_RULES.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
-        WHERE user_id = ? AND amount > 0 AND created_at >= ?`
-    ).bind(userId, kstDayStart()).first();
+        WHERE user_id = ? AND amount > 0 AND created_at >= ?
+          AND (rule_code IS NULL OR rule_code NOT IN (${marks}))`
+    ).bind(userId, kstDayStart(), ...CAP_UNCOUNTED_RULES).first();
     return Number(row?.s || 0);
   } catch { return 0; }   // 못 세면 막지 않는다 — 적립이 조회 실패로 죽으면 안 된다
 }
@@ -60,11 +85,15 @@ export async function earnedToday(env: any, userId: string): Promise<number> {
 /** 게임·퀴즈 묶음으로 오늘 받은 점수 합계 (하루 30점 상한용). */
 export async function earnedTodayForGames(env: any, userId: string): Promise<number> {
   try {
-    const marks = GAME_QUIZ_RULES.map(() => '?').join(',');
+    /* ⚠️ 여기서도 빼야 한다 — GAME_QUIZ_RULES 에 vocab_review·review_quiz_done 이 들어 있어서,
+       원장에 기록을 남기기 시작하면 게임 묶음 상한(하루 30점)이 갑자기 조여진다.
+       기록은 남기되 상한은 그대로 — 위 CAP_UNCOUNTED_RULES 주석 참고. */
+    const counted = GAME_QUIZ_RULES.filter((r) => !CAP_UNCOUNTED_RULES.includes(r));
+    const marks = counted.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
         WHERE user_id = ? AND amount > 0 AND created_at >= ? AND rule_code IN (${marks})`
-    ).bind(userId, kstDayStart(), ...GAME_QUIZ_RULES).first();
+    ).bind(userId, kstDayStart(), ...counted).first();
     return Number(row?.s || 0);
   } catch { return 0; }
 }

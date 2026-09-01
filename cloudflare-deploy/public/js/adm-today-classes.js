@@ -8,6 +8,8 @@
  * - [🚪 입장] = 참관이 아니라 '실제 참가자'로 새 창 입장 (강사 대체 목적)
  * - [👁 참관] = 학생·강사 모르게 보기 (기존 수업 관찰 카드로 넘김)
  * - 진행 중인 수업이 위로 오도록 정렬해, 급할 때 맨 위만 보면 되게 한다.
+ * - (2026-09-01) 출처 고르기 + 검색창 — 카페24 수업과 «새로 넣은 수업» 을 갈라 본다.
+ *   가르는 근거는 서버가 실어 준 `source` 하나다(방 번호로 짐작하지 않는다). 아래 srcFilter 참고.
  */
 (function () {
   'use strict';
@@ -111,7 +113,7 @@
      [무엇] 이 줄의 방 번호로 입장 링크를 만들어 클립보드에 넣는다. 링크 자체는 서버 토큰이 아니라
        **입장 주소**다 — 실제 입장 인증은 /api/class/verify-room 이 한다(그 게이트는 안 건드린다).
      ⛔ JWT 토큰을 여기서 발급해 링크에 박지 않는다 — 5분짜리라 카톡으로 보내면 대개 이미 만료다.
-        토큰 발급·회수가 필요하면 「방 초대」 카드가 그대로 남아 있다(오늘의 수업 항목에 함께 묶었다).
+        토큰 발급·회수가 필요하면 「방 초대」 카드가 그대로 남아 있다(2026-09-01 부터 「시스템 › 화상강의실 초대」).
      ⚠️ 클립보드는 https·사용자 제스처 안에서만 된다. 실패하면 링크를 그대로 보여 준다
         (조용히 실패하면 「눌렀는데 아무 일도 안 일어난다」가 된다). */
   window.tcInviteLink = function (roomId, studentUid) {
@@ -240,17 +242,75 @@
 
   var _rows = [];
 
+  /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
+     [왜] 오늘 목록 166건 중 142건이 카페24라, 새로 넣은 수업이 그 안에 파묻혀 눈으로 못 찾았다.
+     [무엇으로 가르나] **서버가 실어 준 `source`** 하나다('mangoi' | 'cafe24' — api-admin.ts).
+       ⛔ 방 번호 접두사(`c24-`)로 짐작하지 말 것 — 판정이 두 벌이 되면 언젠가 어긋난다.
+     ⚠️ 카페24 줄은 `join_open` 이 **항상 false** 다(망고아이 방이 없다). 그래서
+        「지금 들어갈 수 있는 것만」 + 「카페24」 조합은 0건이 정상이고, 그때 화면이 «왜 비었는지»
+        를 말해 줘야 한다(아니면 「검색이 고장났다」로 읽힌다). */
+  function srcFilter() {
+    var el = $('tc-source');
+    var v = el ? String(el.value || '') : '';
+    return (v === 'mangoi' || v === 'cafe24') ? v : '';
+  }
+  function qFilter() {
+    var el = $('tc-q');
+    return el ? String(el.value || '').trim().toLowerCase() : '';
+  }
+  /* 한 줄에서 검색이 훑는 칸 — 학생·강사·강의실·교재·레벨. 옮겨 적은 방 번호로 찾는 일이 잦아
+     room_id 를 반드시 포함한다(예: 「c24-512074」·「class-1015-20260901」). */
+  function rowText(s) {
+    return [
+      s.student_name, s.student_uid, s.teacher_name, s.substituted_from,
+      s.room_id, s.textbook, s.level, s.start_time
+    ].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄이 숫자를 그린다 — 세는 곳은 여기 하나뿐이고
+     탭은 받아 적기만 한다(같은 계산을 두 벌 두면 반드시 어긋난다).
+     ⚠️ 관리자 화면의 이벤트는 document 에서 쏜다(adm-core 의 lang 이벤트와 같은 자리).
+     ⚠️ 던지면 안 된다 — 이 함수는 목록을 그리는 길목이다. */
+  function announceCounts(shown) {
+    try {
+      document.dispatchEvent(new CustomEvent('mangoi:today-counts', { detail: {
+        total: _rows.length,
+        live: _rows.filter(function (s) { return s.join_open; }).length,
+        shown: shown
+      } }));
+    } catch (e) { /* 무시 */ }
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
     var onlyLive = !!($('tc-only-live') && $('tc-only-live').checked);
-    var rows = onlyLive ? _rows.filter(function (s) { return s.join_open; }) : _rows;
+    var src = srcFilter(), q = qFilter();
+    var rows = _rows.filter(function (s) {
+      if (onlyLive && !s.join_open) return false;
+      if (src && (s.source === 'cafe24' ? 'cafe24' : 'mangoi') !== src) return false;
+      if (q && rowText(s).indexOf(q) < 0) return false;
+      return true;
+    });
+    var filtering = !!(src || q);
 
     if (!rows.length) {
-      box.innerHTML = '<div class="empty">' + (onlyLive
-        ? T('지금 들어갈 수 있는 수업이 없습니다.', 'No classes are joinable right now.')
-        : T('오늘 예정된 수업이 없습니다.', 'No classes scheduled today.')) + '</div>';
-      if (cntEl) cntEl.textContent = '';
+      /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
+      var why;
+      if (filtering) {
+        why = T('조건에 맞는 수업이 없습니다', 'No classes match the filter')
+          + ' (' + (src === 'cafe24' ? T('카페24', 'cafe24') : src === 'mangoi' ? T('망고아이', 'Mangoi') : T('전체', 'All'))
+          + (q ? ' · "' + esc(q) + '"' : '')
+          + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
+          + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
+      } else {
+        why = onlyLive
+          ? T('지금 들어갈 수 있는 수업이 없습니다.', 'No classes are joinable right now.')
+          : T('오늘 예정된 수업이 없습니다.', 'No classes scheduled today.');
+      }
+      box.innerHTML = '<div class="empty">' + why + '</div>';
+      if (cntEl) cntEl.textContent = filtering ? T('0건 표시', '0 shown') : '';
+      announceCounts(0);
       return;
     }
     if (cntEl) {
@@ -262,10 +322,17 @@
       /* 🏷 (2026-08-25) 카페24 건수를 «따로» 센다. 합계만 보여 주면 「목록엔 많은데 왜 다 입장이 안 되나」가 된다 —
          숫자가 갈려 있어야 «들어갈 수 있는 것»과 «카페24에서 도는 것»이 다르다는 게 먼저 읽힌다. */
       var c24 = _rows.filter(function (s) { return s.source === 'cafe24'; }).length;
+      /* 🔎 거르는 중이면 «몇 건이 보이는지» 를 맨 앞에 둔다 — 합계만 보이면 「검색했는데 숫자가
+         안 변한다」가 되고, 반대로 합계를 지우면 「수업이 사라졌다」로 읽힌다. 둘 다 보여 준다. */
+      var shown = filtering ? T('표시 ' + rows.length + '건 / 전체 ', rows.length + ' shown / ') : '';
+      /* 🥭 새로 넣은 수업 건수도 함께 — 사장님이 찾는 것이 대개 이쪽이다(카페24 142건에 파묻힌다) */
+      var mg = _rows.length - c24;
       cntEl.textContent = T(
-        _rows.length + '건 · 지금 입장가능 ' + live + '건' + (c24 ? ' · 카페24 ' + c24 + '건' : '')
+        shown + _rows.length + '건 · 지금 입장가능 ' + live + '건' + (c24 ? ' · 카페24 ' + c24 + '건' : '')
+          + (mg ? ' · 망고아이 ' + mg + '건' : '')
           + (lt ? ' · 레벨테스트 ' + lt + '건' : ''),
-        _rows.length + ' total · ' + live + ' joinable now' + (c24 ? ' · ' + c24 + ' on cafe24' : '')
+        shown + _rows.length + ' total · ' + live + ' joinable now' + (c24 ? ' · ' + c24 + ' on cafe24' : '')
+          + (mg ? ' · ' + mg + ' on Mangoi' : '')
           + (lt ? ' · ' + lt + ' level test' : '')
       );
     }
@@ -364,6 +431,7 @@
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
+    announceCounts(rows.length);
   }
 
   window.tcLoadToday = async function () {
@@ -383,6 +451,17 @@
          `d.sessions || []` 가 빈 배열이 되어 **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다.
          그래서 이 카드는 2026-07-23 신설 이래 줄곧 404 였는데 아무도 «고장» 으로 신고하지 않았다.
          ✅ 판정은 «성공이라고 말했는가»(`ok === true` + 목록이 배열) 로 한다 — «실패라고 말했는가» 가 아니라. */
+      /* 🔒 (2026-09-01) 403 은 «고장» 이 아니라 «권한» 이다 — 사실대로 말하고 끝낸다.
+         [왜 생겼나] 이 칸이 사이드바 「오늘 › 오늘 수업」의 목적지가 되면서, 저장값이 없는
+           첫 방문은 여기에 착지한다. 그런데 /api/admin/classes/today 는 강사 차단 경로라
+           강사 계정에는 「⚠ 불러오기 실패: HTTP 403」이라는 **빨간 오류 상자**가 떴다.
+           쓰는 사람은 그것을 «화면이 깨졌다» 로 읽는다. */
+      if (r.status === 403) {
+        box.innerHTML = '<div class="empty" style="color:#6b7280;line-height:1.7">🔒 '
+          + T('이 목록은 본사 관리자·매니저만 볼 수 있습니다.',
+              'This list is visible to HQ managers only.') + '</div>';
+        return;
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status + (d && d.error ? ' · ' + d.error : ''));
       if (!d || d.ok !== true || !Array.isArray(d.sessions)) {
         throw new Error((d && d.error) || 'load_failed');
@@ -411,6 +490,19 @@
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
     var c = $('tc-only-live');
     if (c && !c._tcBound) { c._tcBound = true; c.addEventListener('change', render); }
+    /* 🔎 출처·검색은 **화면 안에서만** 거른다 — 서버를 다시 부르지 않는다(이미 받아 둔 목록이라
+       한 글자 칠 때마다 요청이 나갈 이유가 없다). 날짜만 서버를 다시 부른다(아래).
+       ⚠️ 입력칸은 #tc-body «밖» 이라 다시 그려도 포커스·커서가 그대로다 — 안에 두면 한 글자마다
+          포커스가 날아가 「한 글자만 쳐진다」가 된다. */
+    var sf = $('tc-source');
+    if (sf && !sf._tcBound) { sf._tcBound = true; sf.addEventListener('change', render); }
+    var qf = $('tc-q');
+    if (qf && !qf._tcBound) {
+      qf._tcBound = true;
+      qf.addEventListener('input', render);
+      /* type=search 의 ✕ 는 브라우저마다 input 대신 search 만 쏘는 경우가 있어 둘 다 듣는다 */
+      qf.addEventListener('search', render);
+    }
     /* 📆 날짜를 바꾸면 곧바로 다시 불러온다 — 「바꿨는데 표가 그대로」 를 만들지 않는다.
        ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
     var dt = $('tc-date');

@@ -506,14 +506,18 @@ export async function c24MirrorReport(
   last_runs: Record<string, any>;
   by_date: { date: string; total: number; ok: number; blocked: number }[];
   rows: PlanRow[];
+  /* 🖥️ (2026-09-01) 관리자 화면에서 «지금 켠/막은 강사» 를 보여 주려고 더했다.
+     읽기만 추가한 것이라 기존 호출자는 그대로다(하니스가 이 필드를 요구하지 않는다). */
+  enabled_teachers: string[];
+  blocked_teachers: string[];
 }> {
   await ensureMirrorTables(env);
   const kstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled, lastRuns] = await Promise.all([
-    getMirrorMode(env), getMirrorTeachers(env), getMirrorLastRuns(env),
+  const [mode, enabled, blocked, lastRuns] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getMirrorLastRuns(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
@@ -546,6 +550,8 @@ export async function c24MirrorReport(
     total: rows.length, summary, by_state: byState, last_runs: lastRuns,
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
+    enabled_teachers: Array.from(enabled).sort(),
+    blocked_teachers: Array.from(blocked).sort(),
   };
 }
 
