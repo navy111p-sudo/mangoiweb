@@ -46,9 +46,12 @@
 // ⛔ 이 판정을 deploy.yml 안에 다시 적지 말 것. 이 저장소는 «같은 판정이 두 곳에 있으면
 //    한쪽만 고쳐진다» 를 반복해서 밟았다(CLAUDE.md 2장). 정본은 이 파일 하나다.
 //
-// 실행(CLI): node .github/scripts/class-window.mjs
+// 실행(CLI): node .github/scripts/class-window.mjs [--exit-on-hold]
 //   읽는 환경변수 — FORCE_NOW('true' 면 우회) · COMMIT_MESSAGE · NOW_ISO(시험용)
 //   쓰는 곳 — $GITHUB_OUTPUT(hold/reason/kst) · $GITHUB_STEP_SUMMARY
+//   `--exit-on-hold` — 보류면 종료코드 **2**. 로컬 `deploy.ps1` 이 이걸로 읽는다.
+//     ⛔ 기본은 항상 0 이다 — GitHub Actions 의 판정 step 은 «실패» 가 아니라
+//        «보류» 를 알리는 자리이고, 거기서 죽으면 뒤의 배포 게이트가 통째로 안 돈다.
 
 /** 수업 시간대(KST). «끝» 은 포함하지 않는다 — 01:20 은 창 밖이다.
  *  ⚠️ 자정을 넘는다(13:00 → 다음날 01:20). isClassWindow 가 그 되감김을 처리한다. */
@@ -147,4 +150,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
             ];
         appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n\n');
     }
+
+    /* 종료코드로 알려 달라는 호출자(=deploy.ps1)에게만 2 를 준다.
+       ⚠️ 「판정 실패」와 「보류」가 같은 코드가 되면 안 된다 — 2 는 오직 보류다.
+          그래서 예외(파일 깨짐 등)로 죽으면 1 이 되고, 부르는 쪽이 갈라 읽는다. */
+    if (process.argv.includes('--exit-on-hold')) process.exit(d.hold ? 2 : 0);
 }

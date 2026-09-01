@@ -17,6 +17,8 @@
 //   ⑥ 보류가 배포 게이트(tsc·회귀 하니스·?v=)까지 끄지 않는다
 //   ⑦ 판정이 deploy.yml 안에 복제돼 있지 않다 (정본은 class-window.mjs 하나)
 //   ⑧ 우회 입력이 워크플로에 실제로 배선돼 있다
+//   ⑨ 종료코드 계약 — `--exit-on-hold` 면 보류=2, 없으면 «항상 0»(CI 가 죽으면 안 된다)
+//   ⑩ 로컬 `deploy.ps1` 도 같은 판정을 «불러서» 쓴다 (PowerShell 로 복제하지 않는다)
 //
 // ⚠️ ③을 «그 글자가 파일에 있나» 로 검사하면 안 된다 — 배포 요약 step 도 워커 주소를
 //    갖고 있어서 거짓 FAIL 이 난다. step 블록을 `- name:` 경계로 잘라 **그 안에서** 본다
@@ -25,12 +27,15 @@
 // 실행: node test-harness/deploy_class_window_harness.mjs
 
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const YML_PATH = join(__dir, '../.github/workflows/deploy.yml');
 const YML = readFileSync(YML_PATH, 'utf8');
+const CLI_PATH = join(__dir, '../.github/scripts/class-window.mjs');
+const PS1 = readFileSync(join(__dir, '../deploy.ps1'), 'utf8');
 
 const W = await import(join(__dir, '../.github/scripts/class-window.mjs'));
 const { decideHold, isClassWindow, CLASS_WINDOW_KST, OVERRIDE_TAG } = W;
@@ -158,6 +163,50 @@ ok('판정 step 에 커밋 메시지가 넘어간다',
 /* ⛔ 커밋 메시지를 run: 안에 ${{ }} 로 펼치면 셸 주입이 된다. env 로만 넘긴다. */
 ok('커밋 메시지를 run: 안에서 펼치지 않는다 (셸 주입 방지)',
    !/run:[\s\S]{0,400}\$\{\{\s*github\.event\.head_commit\.message\s*\}\}/.test(YML));
+
+console.log('\n── ⑨ 종료코드 계약 (node 를 실제로 띄워서) ──');
+/* 🔴 두 호출자가 «같은 판정, 다른 신호» 를 원한다.
+     · deploy.ps1 — 보류면 «멈춰야» 하므로 종료코드 2 가 필요하다
+     · deploy.yml — 판정 step 이 죽으면 뒤의 배포 게이트가 통째로 안 돈다. 항상 0 이어야 한다
+   이 둘이 어긋나면 한쪽이 조용히 망가진다. */
+const runCli = (iso, args = [], env = {}) =>
+    spawnSync(process.execPath, [CLI_PATH, ...args],
+        { env: { ...process.env, NOW_ISO: iso, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', ...env }, encoding: 'utf8' });
+
+const IN_WINDOW = '2026-09-01T12:43:57Z';   // 21:43 KST — 실사고 배포 시각
+const OUT_WINDOW = '2026-09-01T16:30:00Z';  // 01:30 KST — 몰아 배포 시각
+ok('--exit-on-hold: 수업 시간대면 종료코드 2', runCli(IN_WINDOW, ['--exit-on-hold']).status === 2);
+ok('--exit-on-hold: 수업 시간대가 아니면 종료코드 0', runCli(OUT_WINDOW, ['--exit-on-hold']).status === 0);
+ok('--exit-on-hold + FORCE_NOW: 우회하면 종료코드 0',
+   runCli(IN_WINDOW, ['--exit-on-hold'], { FORCE_NOW: 'true' }).status === 0);
+/* ⛔ 플래그가 없으면(=CI) 보류여도 0 이어야 한다. 여기서 죽으면 배포 게이트가 안 돈다. */
+ok('🔴 플래그 없이 부르면 보류여도 종료코드 0 (CI 를 죽이지 않는다)',
+   runCli(IN_WINDOW).status === 0 && runCli(OUT_WINDOW).status === 0);
+
+console.log('\n── ⑩ 로컬 deploy.ps1 도 같은 판정을 쓴다 ──');
+/* ⚠️ CI 만 막으면 반쪽이다 — deploy.ps1 은 로컬 폴더를 통째로 올리는 «진짜» 배포다. */
+ok('deploy.ps1 이 판정 정본을 부른다', /class-window\.mjs/.test(PS1));
+ok('deploy.ps1 이 --exit-on-hold 로 부른다', /--exit-on-hold/.test(PS1));
+ok('deploy.ps1 이 «보류»(2) 에서 멈춘다',
+   /\$cwCode\s+-eq\s+2[\s\S]{0,900}?exit 1/.test(PS1));
+ok('deploy.ps1 이 «판정 실패»(0·2 아님) 에서도 멈춘다',
+   /\$cwCode\s+-ne\s+0[\s\S]{0,700}?exit 1/.test(PS1));
+ok('deploy.ps1 에 우회 스위치 -ForceNow 가 선언돼 있다',
+   /param\([^)]*\$ForceNow/.test(PS1));
+/* ⛔ -SkipSmoke 로 꺼지면 안 된다 — 급할수록 크게 터지는 게이트다(0b 와 같은 판단). */
+ok('게이트가 -ForceNow 만 보고, -SkipSmoke 로는 안 꺼진다',
+   /if \(-not \$ForceNow\) \{/.test(PS1));
+/* ⛔ 판정을 PowerShell 로 복제하면 «한쪽만 고쳐지는» 그 함정이 그대로 재현된다.
+   ⚠️ 이 검사를 「'13:00' 이 파일에 없다」로 쓰면 안 된다 — 안내 문구가 시각을 말한다.
+      그래서 «시각을 재서 비교하는가» 로 묻는다. */
+ok('deploy.ps1 이 스스로 시각을 재서 판정하지 않는다',
+   !/\.Hour\b/.test(PS1) && !/Get-Date[^\n]*-Format\s*'HH'/.test(PS1));
+/* 게이트는 파일을 건드리거나 push 하기 «전» 에 와야 한다. */
+const psGate = PS1.indexOf('--exit-on-hold');
+const psPush = PS1.indexOf('git commit');
+const psDeploy = PS1.indexOf('wrangler deploy');
+ok('게이트가 git commit·배포보다 앞에 있다',
+   psGate > 0 && (psPush < 0 || psGate < psPush) && (psDeploy < 0 || psGate < psDeploy));
 
 console.log(`\n  ${fail ? '❌' : '🎉'} ${pass} PASS / ${fail} FAIL`);
 process.exit(fail ? 1 : 0);
