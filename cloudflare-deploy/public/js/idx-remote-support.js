@@ -47,7 +47,7 @@
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'rs-overlay';
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:2147483001;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
       ov.addEventListener('click', function(e){ if (e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeRemoteSupportModal(); });   /* QA#4 */
       document.body.appendChild(ov);
     }
@@ -213,5 +213,82 @@
     var o = (window._rsOptions||[])[idx];
     if (o && o.action) o.action();
   };
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     🛠 원격 도움받기 — «가는 길» (2026-09-01 사장님 지시)
+     ───────────────────────────────────────────────────────────────────────
+     [왜] 이 모달은 멀쩡히 동작하는데 화면에서 찾을 길이 없었다. 2026-09-01 실측:
+       · 그리드 메뉴의 💻 PC원격지원 타일 → index.html 의 fix-v19 가 #grid-menu 를
+         display:none !important 로 통째로 감춘다(계산값으로 확인).
+       · 카테고리 모달 카드 → 모달이 DOM 에 붙지 않아 a[href="/remote.html"] 가 0개.
+       · 전체메뉴 오버레이 → 보이는 항목 71개 중 원격 0건.
+       ⟹ 남은 길은 «검색창에 「원격」 을 정확히 치는 것» 하나뿐이었다.
+          컴퓨터가 안 되는 학생에게 검색을 요구하는 구조라 입구를 만든다.
+     [어디] 홈 ➕(#mg-fab-wrap) 세 번째 항목. 이미 «새로고침 · 카카오 상담» 이
+       들어 있는 «문제 생겼을 때 누르는 묶음» 이라 자리를 새로 외울 필요가 없다.
+     ⛔ index.html 은 공동 금지구역이라 여기서 밖에서 끼워 넣는다. 그래서 첫 화면
+        예산에도 영향이 없다(이 파일은 defer).
+     ⛔ 상주 MutationObserver·setInterval 로 지키지 말 것 — 홈을 통째로 멎게 한 전력.
+     ⚠️ 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — 두 i18n 엔진이 textContent 를
+        통째로 갈아끼워 44px 동그라미 안에 문장이 들어앉는다. 설명은 *-title/*-aria 로.
+     ═══════════════════════════════════════════════════════════════════════ */
+  function rsFabItem(){
+    var wrap = document.getElementById('mg-fab-wrap');
+    if (!wrap || wrap.querySelector('[data-act="remotehelp"]')) return;
+    var items = wrap.querySelector('.mg-fab-items');
+    if (!items) return;
+
+    var row = document.createElement('div');
+    row.className = 'mg-fab-item';
+    /* 앞의 두 항목은 .mg-fab-item:nth-child(1)(2) 로 등장 지연이 CSS 에 있는데
+       3번째 규칙은 없다. 인라인 longhand 로 준다(class 의 transition 단축속성은
+       delay 를 0 으로 되돌리지만, 인라인 longhand 가 이긴다). */
+    row.style.transitionDelay = '.12s';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mg-mini';
+    btn.setAttribute('data-act', 'remotehelp');   // 래퍼의 위임 핸들러가 이 클릭에 메뉴를 닫는다
+    btn.style.background = '#fbbf24';
+    btn.style.color = '#241804';
+    btn.textContent = '🛠';
+    btn.setAttribute('aria-label', '원격 도움받기');
+    btn.setAttribute('data-ko-aria', '원격 도움받기');
+    btn.setAttribute('data-en-aria', 'Remote help');
+    btn.setAttribute('title', '원격 도움받기');
+    btn.setAttribute('data-ko-title', '원격 도움받기');
+    btn.setAttribute('data-en-title', 'Remote help');
+
+    var lb = document.createElement('span');
+    lb.className = 'mg-lb';
+    lb.textContent = '원격 도움받기';
+    lb.setAttribute('data-ko', '원격 도움받기');
+    lb.setAttribute('data-en', 'Remote help');
+
+    row.appendChild(btn); row.appendChild(lb);
+    /* 맨 아래(＋ 버튼에 제일 가까운 자리)에 붙인다 — 급할 때 엄지가 먼저 닿는 칸. */
+    items.appendChild(row);
+
+    /* 래퍼 위임 핸들러는 kakao·refresh 만 알고 있어 remotehelp 는 «메뉴 닫기» 까지만
+       한다. 여는 것은 여기서 직접 — 버튼에 건 리스너가 위임보다 먼저 발화한다. */
+    row.addEventListener('click', function(e){
+      e.preventDefault();
+      window.openRemoteSupportModal();
+    });
+  }
+
+  /* 🔗 주소로 바로 열기 — /?menu=remote
+     [왜] 「어디에 있어요?」 를 카톡으로 물어 오는 학생에게 링크 하나로 답할 수 있어야 하고,
+          전체메뉴 타일의 href 폴백(자바스크립트가 죽어도 닿는 길)도 이것이다. */
+  function rsFromUrl(){
+    try {
+      if (new URLSearchParams(location.search).get('menu') !== 'remote') return;
+    } catch (e) { return; }
+    window.openRemoteSupportModal();
+  }
+
+  function rsBoot(){ try { rsFabItem(); } catch (e) {} try { rsFromUrl(); } catch (e) {} }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rsBoot);
+  else rsBoot();
 })();
 

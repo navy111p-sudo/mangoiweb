@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
+import { dailyAllowance } from './point-policy';        // 🧢 하루 총량 상한(100점)을 이 경로도 지난다
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
@@ -617,6 +618,17 @@ export async function handleGamesApi(
         const s: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM vocab_rewards WHERE user_id = ? AND created_at >= ? AND kind != 'mission'`).bind(uid, dayStart).first();
         const remain = Math.max(0, 400 - (s?.t || 0));
         amount = Math.min(amount, remain);
+        if (amount <= 0) return json({ ok: true, awarded: 0, daily_cap: true });
+      }
+      /* 🧢 (2026-09-01 사장님 결정) 하루 총량 100점을 **이 경로도 지난다.**
+         그전에는 이 표의 자기 상한(단어장 400 · 복습퀴즈 500)만 걸려서, 정책이 「하루 100점」
+         이라고 적혀 있는데 실제로는 열 배가 나가고 있었다(실효 1,050점).
+         ⚠️ 막지 않고 «남은 만큼 깎아서» 준다 — 이 경로는 원래부터 그렇게 동작했고,
+            한 판을 다 풀고 0점을 받는 쪽이 더 나쁘다.
+         ⚠️ 상한 조회가 실패하면 전액을 돌려주므로 «조회 실패로 점수를 잃는» 일은 없다. */
+      {
+        const allow = await dailyAllowance(env as any, uid, 'vocab_review');
+        amount = Math.min(amount, allow);
         if (amount <= 0) return json({ ok: true, awarded: 0, daily_cap: true });
       }
       // 멱등: 같은 award_id 는 1회만
@@ -1667,6 +1679,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let amount = score * 10 + (percent === 100 ? 50 : 0) + (firstClear ? 30 : 0);
         const used: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM review_quiz_rewards WHERE user_id = ? AND created_at >= ?`).bind(userId, dayStart).first();
         amount = Math.max(0, Math.min(amount, 500 - (Number(used?.t) || 0)));
+      /* 🧢 (2026-09-01 사장님 결정) 하루 총량 100점을 **이 경로도 지난다.**
+         그전에는 이 표의 자기 상한(단어장 400 · 복습퀴즈 500)만 걸려서, 정책이 「하루 100점」
+         이라고 적혀 있는데 실제로는 열 배가 나가고 있었다(실효 1,050점).
+         ⚠️ 막지 않고 «남은 만큼 깎아서» 준다 — 이 경로는 원래부터 그렇게 동작했고,
+            한 판을 다 풀고 0점을 받는 쪽이 더 나쁘다.
+         ⚠️ 상한 조회가 실패하면 전액을 돌려주므로 «조회 실패로 점수를 잃는» 일은 없다. */
+        amount = Math.min(amount, await dailyAllowance(env as any, userId, 'review_quiz_done'));
         if (amount > 0) {
           const ins2: any = await env.DB.prepare(`INSERT OR IGNORE INTO review_quiz_rewards (award_id, user_id, amount, created_at) VALUES (?,?,?,?)`)
             .bind(`rq:${quizId}:${userId}:${resultId}`, userId, amount, now).run();

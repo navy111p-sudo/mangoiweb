@@ -207,7 +207,10 @@ export class VideoCallRoom {
 
        [여기서 하는 일] 방에 붙어 있는 소켓 중 **staff(교사·관리자)에게만** 한 줄 보낸다.
        ⛔ 학생 소켓에는 절대 보내지 않는다 — 학생이 관리자 지시를 보면 안 된다.
-          판정은 소켓 attachment 의 role 로 한다(클라이언트가 보내는 값이 아니다).
+          판정은 소켓 attachment 의 role 로 한다.
+       🔴 (2026-09-01 정정) 그 role 은 **클라이언트가 join-room 에 실어 보낸 값**입니다 —
+          여기 「클라이언트가 보내는 값이 아니다」라고 적혀 있던 것은 사실이 아니었습니다.
+          학생이 role:'teacher' 로 접속하면 이 귓속말도 받습니다. 자세한 것은 isStaffAtt 주석.
        ⚠️ 방을 깨우거나 상태를 바꾸지 않는다. 지금 붙어 있는 사람에게 전달만 하고,
           아무도 없으면 delivered:0 으로 정직하게 답한다(«보낸 척» 하지 않는다). */
     if (url.pathname === '/whisper' && request.method === 'POST') {
@@ -757,7 +760,9 @@ export class VideoCallRoom {
   }
 
   // 🔒 수업 통제 잠금 공통 처리 — 배경 변경(bg-lock)/전체 음소거(mic-lock)/집중 모드(focus-lock)
-  //   학생이 위조 전송해도 무시: 소켓 attachment 의 role 로만 판정한다.
+  //   판정은 소켓 attachment 의 role 로 한다.
+  //   🔴 (2026-09-01 정정) 「학생이 위조 전송해도 무시」라고 적혀 있었지만 **사실이 아닙니다** —
+  //      그 role 자체가 클라이언트가 보낸 값입니다(정본 설명은 isStaffAtt 주석).
   private handleClassLock(userId: string, att: VcAttachment, type: string, data: any): void {
     const key = VideoCallRoom.LOCK_KEYS[type];
     if (!key) return;
@@ -893,7 +898,9 @@ export class VideoCallRoom {
 
   /* ✋ (2026-08-10) 필기 잠금 중에는 학생이 칠판을 «지우는» 것도 막는다.
      클라이언트 게이트만으로는 콘솔에서 wbClear() 를 부르면 그만이다 —
-     잠금 3종과 같은 이유로 판정은 소켓 attachment 의 role 로 한다. */
+     잠금 3종과 같은 이유로 판정은 소켓 attachment 의 role 로 한다.
+     🔴 (2026-09-01) 다만 그 role 은 클라이언트가 보낸 값이라 위조를 막지는 못합니다 —
+        콘솔에서 wbClear() 를 부르는 것보다는 낫다는 정도입니다(isStaffAtt 주석 참고). */
   private handleWhiteboardClear(userId: string, att: VcAttachment): void {
     if (!this.isJoined(userId)) return;
     if (this.lockState.drawLock && !this.isStaffAtt(att)) return;
@@ -901,7 +908,28 @@ export class VideoCallRoom {
     this.broadcast(userId, { type: 'whiteboard-clear' });
   }
 
-  /** 소켓 attachment 기준 강사·관리자 판정 — 학생이 위조 전송해도 통하지 않는다. */
+  /**
+   * 소켓 attachment 기준 강사·관리자 판정.
+   *
+   * 🔴 (2026-09-01 정정) **이 값은 위조를 막지 못합니다.**
+   *    오래도록 이 자리에 「학생이 위조 전송해도 통하지 않는다」고 적혀 있었는데 **사실이 아닙니다.**
+   *    `att.role` 은 클라이언트가 보낸 `join-room` 메시지의 `data.role` 을 그대로 넣은 값입니다
+   *    (handleJoinRoom 의 `role: role || 'student'`). WebSocket 업그레이드 시점(fetch)의
+   *    attachment 에는 role 이 아예 없고, 서버가 그 값을 **검증하는 곳이 없습니다.**
+   *    즉 학생이 `role:'teacher'` 로 접속하면 이 함수는 true 를 돌려줍니다.
+   *
+   * ⚠️ 그래서 «클라이언트 가드보다는 낫다» 까지가 이 판정의 정확한 값어치입니다 —
+   *    화면 버튼을 감추는 것보다는 낫지만, **권한 검사로 믿으면 안 됩니다.**
+   *    이 값 하나로 열리는 것: 교재 공유·중단·페이지 넘김, 잠금 4종, 필기 잠금 중 칠판 지우기.
+   *
+   * ⛔ 이 주석을 «안전하다» 로 되돌리지 마세요. 거짓 주석이 남아 있던 동안 아무도 여기를
+   *    다시 보지 않았습니다(규칙서 2장 「문서에 «고쳤다» 고 적혀 있는데 같은 사고가 또 남」).
+   *
+   * ✅ 제대로 막으려면 **WS 입장에서 신원을 확인하고 역할을 서버가 붙여야** 합니다
+   *    (예약 class_schedules 의 강사·학생과 대조). 그건 「수업이 절대 안 끊김」과 정면으로
+   *    부딪히는 변경이라, 막기 전에 «지금 누가 어떤 자격증명으로 들어오는지» 를 로그로
+   *    먼저 세어 봐야 합니다. 📄 docs/화상수업DO_점검보고_2026-09-01.md
+   */
   private isStaffAtt(att: VcAttachment): boolean {
     const r = (att?.role || '').toLowerCase();
     return r === 'teacher' || r === 'admin';
@@ -912,7 +940,15 @@ export class VideoCallRoom {
    *  그때까지 그려진 것이 하나도 가지 않는다. 교재(pdfState)는 이미 이렇게 재전송하고 있는데
    *  칠판만 빠져 있었다. 강사가 학생보다 늦게 들어오면(=신고 상황) 학생 판서가 통째로 안 보인다.
    *  ⚠️ storage 에 넣지 않는다 — 획은 수천 개까지 늘어나고, 수업이 끝나면 값어치가 없다.
-   *     DO 가 잠들면 사라지는 것이 맞다(그때는 방도 비어 있다).
+   *  🔴 (2026-09-01 정정) 「DO 가 잠들면 사라지는 것이 맞다(그때는 방도 비어 있다)」고
+   *     적혀 있었는데 **뒷말이 사실이 아닙니다.** 이 DO 는 WebSocket Hibernation 을 쓰고
+   *     (생성자의 setWebSocketAutoResponse, webSocketMessage/Close 핸들러), Hibernation 의
+   *     요점이 바로 **소켓이 붙어 있는 채로 인스턴스를 내리는 것**입니다.
+   *     즉 방이 비지 않아도 잠들 수 있고, 깨어나면 이 버퍼는 빈 상태입니다
+   *     (생성자가 복원하는 것은 pdfState·videoState·mediaAt·emptyAt·잠금 4종뿐).
+   *     ⟹ 수업 중에 학생이 새로고침하거나 늦게 들어오면 그때까지 그려진 것이 안 갑니다 —
+   *        2026-08-08 에 고치려던 그 증상이 «잠들었다 깨어난 뒤» 에는 다시 납니다.
+   *     ⚠️ 얼마나 자주 잠드는지는 측정하지 못했습니다(Cloudflare 가 정하고 로그로만 보입니다).
    */
   private recordWb(type: string, data: any): void {
     try {
@@ -971,7 +1007,8 @@ export class VideoCallRoom {
   }
 
   // 📖 교재 페이지 이동 — 수업 전체에 방송되고 DO 에 저장되므로 '강사/관리자만'.
-  //   클라이언트 가드(화살표 키)는 우회 가능하므로 권한 판정은 소켓 attachment 의 role 로만 한다.
+  //   클라이언트 가드(화살표 키)는 우회 가능하므로 권한 판정은 소켓 attachment 의 role 로 한다.
+  //   🔴 (2026-09-01) 그 role 도 클라이언트가 보낸 값이라 위조는 못 막습니다(isStaffAtt 주석 참고).
   //   (handleClassLock 과 동일한 패턴)
   private async handlePdfPageChange(userId: string, att: VcAttachment, data: any): Promise<void> {
     const senderRole = (att.role || '').toLowerCase();
@@ -1024,7 +1061,28 @@ export class VideoCallRoom {
     const target = data?.targetUserId || data?.to;
     const sdp = data?.sdp || data?.offer;
     if (!target || !sdp) return;
-    this.sendTo(target, { type: 'offer', data: { fromUserId: userId, fromUsername: this.usernameOf(userId) || '참가자', sdp } });
+    /* 👁 (2026-09-01 사장님 「수업 관찰 할 때 참가자가 안 보이게」) 참관자의 offer 임을 표시한다.
+       [무엇이 잘못돼 있었나] usernameOf() 는 «입장한(joined) 사람» 만 이름을 돌려주는데,
+       참관자는 handleJoinObserve 가 **일부러** joined:false 로 붙인다(«투명 유령» 설계).
+       그래서 참관자가 보내는 recvonly offer 가 여기서 이름이 «참가자» 로 **지어져** 나갔고,
+       받는 화면(js/idx-main.js vcHandleOffer)이 그 이름 그대로 피어를 만들었다
+       → 강사 화면에 이름표가 「참가자」인 검은 칸이 생겼다. 인원수·입퇴장에는 안 나오는데
+         얼굴 칸에만 나오니, 유령 설계가 «화면에서만» 깨진 상태였다.
+       ⛔ 다른 이름(«관찰자» 등)으로 바꿔서 풀지 말 것 — 참관자는 이름이 «있으면» 안 된다.
+       ⚠️ 이 표시를 지우면 화면 쪽 가드(js/vc-observe-guard.js ⑩절)가 판정 근거를 잃는다.
+          그 가드는 추측하지 않고 **서버가 참관자라고 말한 id 만** 거른다. */
+    const ws = this.wsOf(userId);
+    const att = ws ? this.attOf(ws) : null;
+    const fromObserver = String((att && att.role) || '').toLowerCase() === 'observer';
+    this.sendTo(target, {
+      type: 'offer',
+      data: {
+        fromUserId: userId,
+        fromUsername: fromObserver ? '' : (this.usernameOf(userId) || '참가자'),
+        fromObserver,
+        sdp,
+      },
+    });
   }
 
   private handleAnswer(userId: string, data: any): void {

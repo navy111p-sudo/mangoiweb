@@ -37,7 +37,8 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
-import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond } from './student-override';
+import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3872,9 +3873,15 @@ ${numbered}`;
       if (teacherId) { whereParts.push('r.teacher_id = ?'); whereBinds.push(teacherId); }
       if (roomId)    { whereParts.push('r.room_id = ?');    whereBinds.push(roomId); }
       if (qSearch) {
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?)");
+        /* 🎓 2026-09-01 — 「학생」 칸을 만들면서 검색도 함께 넓힌다.
+           안 넓히면 화면에 학생 이름이 보이는데 그 이름으로 검색하면 0건이 나온다
+           (「검색했는데 아무것도 없다」로 읽힌다 — CLAUDE.md 2장 「전용 검색창」 항목과 같은 뿌리).
+           ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
+              여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
+              걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
+        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ? OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?)");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p);
+        whereBinds.push(p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -4026,7 +4033,16 @@ ${numbered}`;
             «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
          감시: test-harness/recording_download_link_harness.mjs */
       const _nowMs = Date.now();
-      const _recItems = await Promise.all(((rs.results || []) as any[]).map(async (row: any) => {
+      /* 🎓 「학생」 칸 (2026-09-01 사장님 «여기에 학생 목록도 넣어줄 수 있어?»)
+         [왜 서버가 푸나] 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정이 그대로 올라온다
+           (실측: heyst·cys01·mby1…). 누가 학생인지는 예약(class_schedules)과 학생 명부
+           (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
+         ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
+         판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      const _recRows = ((rs.results || []) as any[]);
+      const _recStudents = await resolveRecordingStudents(env as any, _recRows);
+      const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
+        const students = _recStudents[_si] || [];
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
         let key = String(row.file_url || '');
         if (!key && row.filename) {
@@ -4038,11 +4054,12 @@ ${numbered}`;
           && row.status !== 'deleted' && row.status !== 'upload_failed'
           && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
           && !(row.expires_at && Number(row.expires_at) < _nowMs);
-        if (!playable) return row;
+        if (!playable) return { ...row, students };
         const sig = await signRecDlSig(row.id, env);
         const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
         return {
           ...row,
+          students,
           // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
           dl_url: '/api/recording/play' + qs + '&dl=1',
           // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
@@ -4100,7 +4117,27 @@ ${numbered}`;
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.user_id, b.username || null, b.role || 'student', b.consent_version || 'v1.0',
-        b.recording ? 1 : 0, b.voice_analysis ? 1 : 0, b.attendance ? 1 : 0, b.reward ? 1 : 0, b.kakao ? 1 : 0,
+        /* 🔐 (2026-09-01) 「안 물어봤다」와 「거절했다」를 갈라 적는다.
+           그 전에는 둘 다 **0** 이었다. 그런데 동의 화면(js/mango-consent.js)은 recording·attendance
+           만 묻고 voice_analysis·reward·kakao 는 **키 자체를 안 보낸다** → 그 셋은 구조적으로 늘 0.
+           [잰 것] 2026-09-01 D1: consents 11행 — 녹화 7 · 출석 7 · **음성분석 0 · 보상 0 · 카카오 0**.
+           그 0 을 읽는 쪽들이 「거절」로 읽고 있었다:
+             · admin/student.html 이 빨간 «미동의» 배지를 띄워 **묻지도 않은 것을 거절했다고** 직원에게 말했다
+             · retention.ts 가 그 값으로 kakao_ids 를 파기한다(매일 밤 도는 크론이다).
+           [거기서 내린 판단 — 측정 아님] 카카오를 연결한 학생이 수업에 한 번 들어가 동의를 남기는
+             순간(동의는 입장 때 자동으로 남는다) 그날 밤 연결이 지워졌을 것이다.
+             ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+                2026-09-01 현재 kakao_ids(50행)와 consents(11행) 사이에 겹치는 계정이 없다는 것까지가 잰 것이다.
+           ⛔ 없는 값을 0 으로 채우지 말 것 — 이 저장소가 가장 오래 속은 방식이다(규칙서 2장).
+           ⚠️ 화면이 그 항목을 묻기 시작해도 **이미 동의 행이 있는 사람에게는 다시 안 묻는다** —
+              js/mango-consent.js 의 askedBefore() 가 행이 있으면 즉시 반환하고 consent_version 을
+              비교하지 않는다. 그 사람들의 칸은 계속 NULL 로 남는다(다시 묻게 하려면 그쪽을 함께 고쳐야 한다). */
+        b.recording ? 1 : 0,
+        /* «== null» 은 undefined 와 명시적 null 을 함께 잡는다 — 둘 다 «모름» 이다. */
+        b.voice_analysis == null ? null : (b.voice_analysis ? 1 : 0),
+        b.attendance ? 1 : 0,
+        b.reward == null ? null : (b.reward ? 1 : 0),
+        b.kakao == null ? null : (b.kakao ? 1 : 0),
         b.guardian_required ? 1 : 0, b.guardian_status || (b.guardian_required ? 'pending' : 'not_required'), b.guardian_contact || null,
         ip, ua, now, JSON.stringify(b)
       ).run();

@@ -60,6 +60,9 @@ check('② 상한에 걸리면 한/영 두 벌로 알려 준다',
     console,
     POINT_POLICY: { DAILY_TOTAL_CAP: 100, EARN: { game_quiz_daily: 30 } },
     GAME_QUIZ_RULES: ['rescue_sentence'],
+    /* 🎖 (2026-09-01) «다시 오지 않는» 마디 보상은 상한을 지나지 않는다 —
+       그 목록도 문맥에 넣어야 오려 낸 함수가 돈다(정본 point-policy.ts 의 CAP_EXEMPT_RULES). */
+    CAP_EXEMPT_RULES: ['ai_writing_streak', 'attendance_streak'],
     earnedToday: async () => ctx.__today,
     earnedTodayForGames: async () => ctx.__game,
     __today: 0, __game: 0,
