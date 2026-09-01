@@ -1364,6 +1364,13 @@ function _ensureRoomEnhCss(){
       `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
       (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
 function _renderRoomsSummary(counts, liveRooms, _L) {
+  /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄의 «화상방 접속» 숫자 — 세는 곳은 여기 하나뿐이고
+     탭은 받아 적기만 한다. ⚠️ 통째로 try/catch — 이 함수는 카드를 그리는 길목이라 던지면 안 된다. */
+  try {
+    document.dispatchEvent(new CustomEvent('mangoi:rooms-counts', {
+      detail: { rooms: Number(liveRooms) || 0, now: (counts && counts.now) || 0 }
+    }));
+  } catch (e) { /* 무시 */ }
   const box = document.getElementById('rooms-now-summary');
   if (!box) return;
   if (!counts) { box.style.display = 'none'; box.innerHTML = ''; return; }

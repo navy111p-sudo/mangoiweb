@@ -65,27 +65,39 @@ const today = Array.isArray(G) ? G.find((g) => g.key === 'today') : null;
 check('「오늘」 그룹이 있다', !!today);
 if (today) {
   const names = today.items.map((it) => it.ko);
-  check(`맨 위 두 칸이 「${ALL}」·「${LIVE}」다 (실제: ${names.slice(0, 2).join(' · ')})`,
-    names[0] === ALL && names[1] === LIVE, names.join(' · '));
+  check(`맨 위 칸이 「${ALL}」다 (실제: ${names[0]})`, names[0] === ALL, names.join(' · '));
   check(`⛔ 옛 이름 「${OLD}」이 항목으로 남아 있지 않다`, !names.includes(OLD), names.join(' · '));
+  /* 📌 A안 — B안에서 잠깐 갈라 두었던 「지금 수업」은 「오늘 수업」에 «합쳐졌다».
+     항목이 둘로 되돌아가면 사장님 지시(「같은 메뉴에 넣으면」)에서 멀어진다. */
+  check(`⛔ 「${LIVE}」이 별도 항목으로 남아 있지 않다 (탭으로 합쳤다)`,
+    !names.includes(LIVE), names.join(' · '));
 
   const a = today.items.find((it) => it.ko === ALL);
-  const l = today.items.find((it) => it.ko === LIVE);
+  const l = a;                       // A안에서는 같은 항목이 둘 다 맡는다
 
   console.log('\n[ ② 「오늘 수업」이 «그 칸» 을 가리키는가 ]');
   check('카드 안의 칸을 openSub 으로 가리킨다', !!a && a.openSub === 'sm-today-classes',
     a && String(a.openSub));
   check('그 앵커가 admin.html 에 실제로 있다 (없으면 카드 맨 위만 열린다)',
     /id="sm-today-classes"/.test(html));
-  check('그 칸을 품은 카드를 편다 (card-students-mgmt)',
-    !!a && Array.isArray(a.cards) && a.cards[0] === 'card-students-mgmt',
+  check('그 칸을 품은 카드를 함께 편다 (card-students-mgmt)',
+    !!a && Array.isArray(a.cards) && a.cards.includes('card-students-mgmt'),
     a && JSON.stringify(a.cards));
+  /* 🔴 cards[0] 은 card-students-mgmt 여야 한다 — showOnly 가 대표 카드에 open=true 를
+     박으므로, 실시간 카드를 앞에 두면 항목을 누를 때마다 탭이 «화상방» 으로 시작한다(실측).
+     기본은 「전체」다. */
+  check('대표 카드(data-card)가 card-students-mgmt 다 — 기본 탭이 「전체」로 열리게',
+    !!a && a.cards[0] === 'card-students-mgmt', a && JSON.stringify(a.cards));
+  /* ⚠️ 그래서 card-active-rooms 를 «대표» 로 삼는 항목이 없다. 그쪽으로 오는 점프는
+     quick-access 의 폴백(②)이 카드를 직접 펴 준다 — 그 폴백이 살아 있어야 한다. */
+  check('⚡ 폴백이 살아 있다 (대표 항목이 없을 때 카드를 직접 편다)',
+    /var c = document\.getElementById\(cardId\)[\s\S]{0,600}c\.open = true/.test(strip(qa)));
   check('그 카드가 admin.html 에 있다', /id="card-students-mgmt"/.test(html));
 
   console.log('\n[ ③ 「지금 수업」이 실시간 카드를 가리키는가 ]');
-  check('card-active-rooms 를 편다', !!l && Array.isArray(l.cards) && l.cards[0] === 'card-active-rooms',
+  check('card-active-rooms 도 함께 편다', !!l && Array.isArray(l.cards) && l.cards.includes('card-active-rooms'),
     l && JSON.stringify(l.cards));
-  check('⛔ 성격이 다른 초대 카드를 함께 묶지 않았다 (같은 것 둘이 되던 자리)',
+  check('⛔ 성격이 다른 초대 카드는 함께 묶지 않는다 (그건 「시스템」이 맡는다)',
     !!l && !l.cards.includes('card-room-invite'), l && JSON.stringify(l.cards));
 
   console.log('\n[ ④ 🔴 떼어 낸 카드가 «갈 곳» 을 잃지 않았는가 ]');
@@ -143,8 +155,8 @@ check('⛔ key 는 그대로다 (사용기록이 그 키로 쌓여 있다)', /ke
 console.log('\n[ ⑨ 문서(구성표·지도)에 옛 이름이 남아 있지 않은가 ]');
 /* 구성표는 사이드바를 손으로 옮겨 적은 문서다 — 낡으면 사람이 그 문서를 믿고 헤맨다.
    (개수·이름 대조 자체는 admin_site_structure_sync_harness 가 한다) */
-check(`구성표에 「${ALL}」·「${LIVE}」가 둘 다 있다`,
-  docA.includes(`"${ALL}"`) && docA.includes(`"${LIVE}"`));
+check(`구성표에 「${ALL}」 항목이 있다`, docA.includes(`t: "${ALL}"`));
+check(`⛔ 구성표에 「${LIVE}」이 «항목» 으로 남아 있지 않다 (합쳐졌다)`, !docA.includes(`t: "${LIVE}"`));
 check(`⛔ 구성표에 옛 항목 이름 「${OLD}」이 없다`, !docA.includes(`t: "${OLD}"`));
 check(`⛔ 지도에도 옛 이름이 없다`, !docM.includes(`>${OLD}<`));
 check('구성표에 「화상강의실 초대」 항목이 있다', docA.includes('t: "화상강의실 초대"'));
@@ -209,6 +221,69 @@ console.log('\n[ ⑬ 강사에게 403 이 «고장» 으로 보이지 않는가 
   check('403 이면 «권한» 이라고 사실대로 말하고 끝낸다', /r\.status === 403/.test(strip(tc)));
   check('그때 빨간 «불러오기 실패» 상자를 그리지 않는다',
     /r\.status === 403[\s\S]{0,400}본사 관리자/.test(strip(tc)));
+}
+
+console.log('\n[ ⑭ A안 — 한 항목 안에서 탭으로 가르는가 ]');
+{
+  const tabs = rd('../cloudflare-deploy/public/js/adm-today-tabs.js');
+  const tabsCode = strip(tabs);
+  check('js/adm-today-tabs.js 가 있다', tabs.length > 0);
+  check('탭이 셋이다 — 전체 · 지금 입장 가능 · 화상방 접속',
+    /id: 'all'/.test(tabsCode) && /id: 'live'/.test(tabsCode) && /id: 'rooms'/.test(tabsCode));
+  check('admin.html 이 그 파일을 싣는다', /adm-today-tabs\.js\?v=\d+/.test(html));
+  /* ⛔ .ia6-hide 재사용 금지 — 그건 사이드바 showOnly 전용이라 항목 클릭 한 번에 우리 조작이 풀린다 */
+  check('⛔ .ia6-hide 를 «붙이지» 않는다 (읽기만 한다)',
+    !/classList\.(add|toggle)\('ia6-hide'/.test(tabsCode));
+
+  /* 🔴 (trap-check) 카드를 «감추면» 그 사실을 이 화면의 다른 코드가 모른다 —
+     홈·메뉴 검색이 안 풀어 주고, cardOf()·_activeRoomsVisible() 도 못 본다.
+     그래서 감추지 않고 <details> 를 접었다 편다. 최악이어도 «접힘» 이지 «없음» 이 아니다. */
+  check('⛔ 카드를 display:none 으로 감추지 않는다 (우리 숨김 클래스가 없다)',
+    !/tdt-hide/.test(tabsCode));
+  check('대신 <details> 를 접었다 편다', /\.open = wantList/.test(tabsCode) && /\.open = !wantList/.test(tabsCode));
+  /* 접힌 카드는 adm-core 의 «보일 때만 폴링» 가드가 이미 걸러 준다 — 그 전제를 못 박는다 */
+  check('adm-core 의 폴링 가드가 «접힘» 을 본다 (!c.open)',
+    /_activeRoomsVisible[\s\S]{0,300}!c\.open/.test(strip(rd('../cloudflare-deploy/public/js/adm-core.js'))));
+
+  /* 밖에서 카드를 연 경우(딥링크·⚡·허브·AI 명령) 탭이 따라가야 한다 */
+  check('카드의 toggle 을 듣고 탭이 «따라간다»',
+    /addEventListener\('toggle'/.test(tabsCode) && /function onCardToggle/.test(tabsCode));
+  check('⛔ 따라갈 때 반대쪽을 다시 닫지 않는다 (남이 연 것을 되돌리지 않는다)',
+    /onCardToggle[\s\S]{0,600}paint\(\);/.test(tabsCode) &&
+    !/onCardToggle[\s\S]{0,600}\.open = false/.test(tabsCode));
+
+  /* 🔐 역할로 감춰진 카드의 탭은 아예 안 그린다 — 안 그러면 눌렀을 때 «빈 화면» 이다 */
+  check('역할로 감춰진 카드(rbac-hide)의 탭은 그리지 않는다',
+    /rbac-hide/.test(tabsCode) && /b\.hidden !== !ok/.test(tabsCode));
+
+  /* ⛔ 상주 감시자 금지 — 홈을 두 번 멎게 한 전력 */
+  check('⛔ 상주 MutationObserver·setInterval 이 없다',
+    !/MutationObserver/.test(tabsCode) && !/setInterval/.test(tabsCode));
+  /* 사이드바 클릭은 window 캡처로 들어야 한다 — ph97 의 stopPropagation 이 삼킨다 */
+  check('사이드바 클릭을 window 캡처로 듣는다',
+    /window\.addEventListener\('click',[\s\S]{0,500}, true\)/.test(tabsCode));
+  /* 🏠 홈(경로 줄)과 메뉴 검색도 ia6 감춤을 푼다 — 그 둘도 봐야 탭 줄이 남지 않는다 */
+  check('🏠 경로 줄(#mi-crumb)도 본다', /#mi-crumb/.test(tabsCode));
+  check('메뉴 검색은 click 이 아니라 input 이다 — 그것도 듣는다',
+    /'input'/.test(tabsCode) && /ph85-search/.test(tabsCode));
+
+  /* 숫자는 «세는 곳» 이 정본이고 탭은 받아 적기만 한다 */
+  check('탭이 숫자를 스스로 세지 않는다 (이벤트로 받는다)',
+    /mangoi:today-counts/.test(tabsCode) && /mangoi:rooms-counts/.test(tabsCode));
+  check('오늘 목록이 그 숫자를 알린다',
+    /mangoi:today-counts/.test(strip(rd('../cloudflare-deploy/public/js/adm-today-classes.js'))));
+  check('실시간 카드도 알린다',
+    /mangoi:rooms-counts/.test(strip(rd('../cloudflare-deploy/public/js/adm-core.js'))));
+  /* 「지금 입장 가능」 은 그 칸에 이미 있는 체크박스를 켠다 — 목록을 두 벌로 그리지 않는다 */
+  check('그 탭은 기존 체크박스(tc-only-live)를 켜서 정본이 다시 그리게 한다',
+    /tc-only-live/.test(tabsCode) && /dispatchEvent\(new Event\('change'/.test(tabsCode));
+  /* ⚠️ join_open 은 «들어갈 수 있는 시간대» 이지 «접속 중» 이 아니다 — 이름이 세면 거짓말이 된다 */
+  check('⛔ 그 탭을 「진행 중」이라고 부르지 않는다 (join_open 은 접속 중이 아니다)',
+    !/ko: '🔴 진행 중'/.test(tabsCode));
+  check('⛔ 탭 버튼에 data-ko/data-en 을 달지 않았다 (숫자 칸이 함께 든 상자다)',
+    !/setAttribute\('data-(ko|en)'/.test(tabsCode));
+  /* 고른 탭을 저장하면 「오늘 수업」을 눌렀는데 화상방이 뜬다 */
+  check('⛔ 고른 탭을 localStorage 에 저장하지 않는다', !/localStorage\.setItem/.test(tabsCode));
 }
 
 console.log('\n──────────────────────────────────────────');
