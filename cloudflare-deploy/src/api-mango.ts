@@ -37,7 +37,8 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
-import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond } from './student-override';
+import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3872,9 +3873,15 @@ ${numbered}`;
       if (teacherId) { whereParts.push('r.teacher_id = ?'); whereBinds.push(teacherId); }
       if (roomId)    { whereParts.push('r.room_id = ?');    whereBinds.push(roomId); }
       if (qSearch) {
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?)");
+        /* 🎓 2026-09-01 — 「학생」 칸을 만들면서 검색도 함께 넓힌다.
+           안 넓히면 화면에 학생 이름이 보이는데 그 이름으로 검색하면 0건이 나온다
+           (「검색했는데 아무것도 없다」로 읽힌다 — CLAUDE.md 2장 「전용 검색창」 항목과 같은 뿌리).
+           ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
+              여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
+              걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
+        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ? OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?)");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p);
+        whereBinds.push(p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -4026,7 +4033,16 @@ ${numbered}`;
             «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
          감시: test-harness/recording_download_link_harness.mjs */
       const _nowMs = Date.now();
-      const _recItems = await Promise.all(((rs.results || []) as any[]).map(async (row: any) => {
+      /* 🎓 「학생」 칸 (2026-09-01 사장님 «여기에 학생 목록도 넣어줄 수 있어?»)
+         [왜 서버가 푸나] 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정이 그대로 올라온다
+           (실측: heyst·cys01·mby1…). 누가 학생인지는 예약(class_schedules)과 학생 명부
+           (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
+         ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
+         판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      const _recRows = ((rs.results || []) as any[]);
+      const _recStudents = await resolveRecordingStudents(env as any, _recRows);
+      const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
+        const students = _recStudents[_si] || [];
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
         let key = String(row.file_url || '');
         if (!key && row.filename) {
@@ -4038,11 +4054,12 @@ ${numbered}`;
           && row.status !== 'deleted' && row.status !== 'upload_failed'
           && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
           && !(row.expires_at && Number(row.expires_at) < _nowMs);
-        if (!playable) return row;
+        if (!playable) return { ...row, students };
         const sig = await signRecDlSig(row.id, env);
         const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
         return {
           ...row,
+          students,
           // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
           dl_url: '/api/recording/play' + qs + '&dl=1',
           // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
