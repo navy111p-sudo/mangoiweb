@@ -896,6 +896,10 @@ async function loadRecordings() {
       startedAt: r.started_at || 0,
       room_id: r.room_id,
       teacher: r.teacher_name || r.teacher_id || '-',
+      /* 🎓 학생 칸 (2026-09-01) — 서버(/api/recordings)가 예약·학생명부에서 «계정 완전일치» 로
+         풀어 준다. ⛔ 화면이 participant_names 로 대신 만들지 말 것 — 그 배열에는 교사
+         표시이름과 임시 접속번호가 섞여 있다(정본·근거: src/recording-students.ts). */
+      students: Array.isArray(r.students) ? r.students : [],
       duration_ms: r.duration_ms || 0,
       size_bytes: r.size_bytes || (matchedBlob ? matchedBlob.size : 0),
       participant_names: r.participant_names,
@@ -931,6 +935,7 @@ async function loadRecordings() {
       startedAt: b.uploaded ? new Date(b.uploaded).getTime() : 0,
       room_id: roomId,
       teacher: '-',
+      students: [],   // 고아 blob 은 D1 메타가 없어 학생을 알 길이 없다
       duration_ms: 0,
       size_bytes: b.size || 0,
       participant_names: '[]',
@@ -1041,8 +1046,8 @@ function renderRecordingsTable() {
   }
 
   if (!filtered.length) {
-    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/시작/시간/크기/참가자/시선/말하기/총참여도/상태/스토리지/재생 = 12)
-    tb.innerHTML = '<tr><td colspan="12" class="empty">'+(adminLang==='en'?'No recordings':'녹화 기록 없음')+'</td></tr>';
+    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/학생/시작/시간/크기/참가자/상태/시선/말하기/총참여도/스토리지/재생 = 13)
+    tb.innerHTML = '<tr><td colspan="13" class="empty">'+(adminLang==='en'?'No recordings':'녹화 기록 없음')+'</td></tr>';
     return;
   }
 
@@ -1179,6 +1184,35 @@ function renderRecordingsTable() {
 
     const roomCell   = r.room_id || '-';
     const teacherCell = r.teacher || '-';
+    /* 🎓 학생 칸 — 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정(heyst·cys01…)이 그대로
+       올라온다. 그래서 목록만 보고는 어느 학생 수업인지 알 수 없었다(2026-09-01 사장님).
+       ⚠️ 못 찾았을 때 「—」 와 «왜 비었는지» 를 함께 말한다 — 빈칸으로 두면 고장으로 읽힌다. */
+    const studentCell = (function () {
+      if (r.source === 'orphan') return '<span class="score-na" title="'
+        + (adminLang === 'en' ? 'No record for this file, so the student is unknown.' : '이 파일에 대한 기록이 없어 학생을 알 수 없습니다.')
+        + '">—</span>';
+      const studs = Array.isArray(r.students) ? r.students : [];
+      if (!studs.length) return '<span class="score-na" title="'
+        + (adminLang === 'en' ? 'No student account is recorded for this recording (open room, or the student joined without logging in).' : '이 녹화에 학생 계정이 적혀 있지 않습니다 (공용방이거나, 학생이 로그인하지 않고 들어온 경우).')
+        + '">—</span>';
+      const shown = studs.slice(0, 3);
+      var html = shown.map(function (st) {
+        var nm = String(st && st.name || '').trim();
+        var uid = String(st && st.uid || '').trim();
+        var label = nm || uid || '-';
+        var tip = (adminLang === 'en' ? 'Account: ' : '계정: ') + (uid || '-')
+          + (st && st.scheduled ? (adminLang === 'en' ? ' (student on this class schedule)' : ' (이 수업 예약의 학생)') : '');
+        return '<span title="' + _esc(tip) + '"'
+          + (st && st.scheduled ? ' style="font-weight:700"' : '') + '>' + _esc(label) + '</span>';
+      }).join(', ');
+      if (studs.length > shown.length) {
+        var restN = studs.length - shown.length;
+        var restTip = studs.slice(shown.length).map(function (st) { return String(st && (st.name || st.uid) || ''); }).join(', ');
+        html += ' <span style="color:#667085" title="' + _esc(restTip) + '">'
+          + (adminLang === 'en' ? '+' + restN : '외 ' + restN + '명') + '</span>';
+      }
+      return html;
+    })();
     const startCell  = d ? d.toLocaleString(adminLang==='en'?'en-US':'ko-KR') : '-';
     const usersCell  = (r.source === 'orphan')
       ? '-'
@@ -1231,6 +1265,7 @@ function renderRecordingsTable() {
     return '<tr>'
       + '<td>' + roomCell + '</td>'
       + '<td>' + teacherCell + '</td>'
+      + '<td>' + studentCell + '</td>'
       + '<td>' + startCell + '</td>'
       + '<td>' + dm + '</td>'
       + '<td>' + sz + '</td>'
