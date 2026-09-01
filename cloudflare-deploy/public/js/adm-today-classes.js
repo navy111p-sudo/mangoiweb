@@ -267,6 +267,20 @@
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
+  /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄이 숫자를 그린다 — 세는 곳은 여기 하나뿐이고
+     탭은 받아 적기만 한다(같은 계산을 두 벌 두면 반드시 어긋난다).
+     ⚠️ 관리자 화면의 이벤트는 document 에서 쏜다(adm-core 의 lang 이벤트와 같은 자리).
+     ⚠️ 던지면 안 된다 — 이 함수는 목록을 그리는 길목이다. */
+  function announceCounts(shown) {
+    try {
+      document.dispatchEvent(new CustomEvent('mangoi:today-counts', { detail: {
+        total: _rows.length,
+        live: _rows.filter(function (s) { return s.join_open; }).length,
+        shown: shown
+      } }));
+    } catch (e) { /* 무시 */ }
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
@@ -296,6 +310,7 @@
       }
       box.innerHTML = '<div class="empty">' + why + '</div>';
       if (cntEl) cntEl.textContent = filtering ? T('0건 표시', '0 shown') : '';
+      announceCounts(0);
       return;
     }
     if (cntEl) {
@@ -416,6 +431,7 @@
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
+    announceCounts(rows.length);
   }
 
   window.tcLoadToday = async function () {

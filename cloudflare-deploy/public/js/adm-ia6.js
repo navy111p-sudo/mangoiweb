@@ -75,12 +75,18 @@
              sidebar_three_level_harness ⑧). 그리고 한 항목은 «한 줄» 로 시작해야 한다 —
              그 하니스가 줄 단위로 읽어 cards/href 가 없으면 «갈 곳 없는 항목» 으로 FAIL 낸다.
              처음에 「오늘 수업 (전체)」·「지금 수업 (실시간)」로 적었다가 둘 다 걸렸다. */
-        { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt'], openSub: 'sm-today-classes',
-          tip: '🚪 오늘 예약된 «모든» 수업을 시간순으로 — 줄마다 입장·참관·초대 링크',
-          tipEn: '🚪 Every class booked today, in time order - join, observe, invite on each row' },
-        { ko: '지금 수업', en: 'Live now', cards: ['card-active-rooms'],
-          tip: '🔴 «지금» 망고아이 화상방에 붙어 있는 수업 — 종료·연장·참관',
-          tipEn: '🔴 Classes live in a Mangoi room right now - end, extend, observe' },
+        /* 📌 (2026-09-01 A안) B안에서 갈라 놓았던 「오늘 수업」·「지금 수업」을 **한 항목**으로
+             합쳤다(사장님 「같은 메뉴에 넣으면 어떨까」). 두 화면은 «다른 기능» 이 아니라
+             «같은 목록의 두 가지 보기» 라서, 안에서 탭으로 가른다 — js/adm-today-tabs.js.
+               전체 / 🔴 진행 중 → card-students-mgmt 의 sm-today-classes 칸
+               🎥 화상방 접속    → card-active-rooms
+           ⚠️ cards[0](= data-card)를 card-active-rooms 로 둔다 — 그래야 «#card-active-rooms»
+              딥링크가 갈 곳을 잃지 않는다. card-students-mgmt 의 «주인» 은 「학생 명부」다
+              (openSub 항목은 잎이라 ia6OwnerBtn 이 주인을 먼저 고른다).
+           ⛔ 이름을 「오늘의 수업」으로 되돌리지 말 것 — 카드 제목과 다시 부딪힌다. */
+        { ko: '오늘 수업', en: "Today's classes", cards: ['card-active-rooms', 'card-students-mgmt'], openSub: 'sm-today-classes',
+          tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
+          tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
@@ -370,7 +376,10 @@
     'teacher:수강 운영(배율·정원)': 'teacher:수강 운영',
     /* 🔴 (2026-09-01 B안) 「오늘의 수업」 → 「지금 수업」.
        그 항목이 보여 주던 것이 실시간 카드였으므로 그쪽으로 잇는다. */
-    'today:오늘의 수업': 'today:지금 수업'
+    'today:오늘의 수업': 'today:오늘 수업',
+    /* 📌 (2026-09-01 A안) B안에서 잠깐 있었던 「지금 수업」 항목은 「오늘 수업」에 합쳐졌다.
+       그 사이에 그 항목을 마지막으로 보던 사람·⭐로 고정한 사람이 있을 수 있으므로 이어 준다. */
+    'today:지금 수업': 'today:오늘 수업'
   };
 
   /* 🔴 (2026-09-01) 카드의 «주인» 항목 찾기.
