@@ -5,6 +5,7 @@
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
 import { ensurePointTables, applyPointTransaction } from './api-points';
+import { checkEarnAllowed } from './point-policy';   // 🪙 하루 상한 정본(복제 금지)
 import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
@@ -215,6 +216,10 @@ Student text: """${text}"""`;
               const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
               if ((cnt?.c || 0) >= rule.daily_cap) return { capped: true, cap: rule.daily_cap };
             }
+            /* 🪙 (2026-09-01) 하루 전체 상한(100점)·게임묶음 상한(30점)도 함께 본다.
+               정본은 checkEarnAllowed 하나이고, 그 전에는 이 경로가 통째로 건너뛰고 있었다. */
+            const allow = await checkEarnAllowed(env, uid, code, Number(rule.amount) || 0);
+            if (!allow.ok) return { capped: true, cap: allow.cap, used: allow.used };
             const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: code, meta: { score, level } });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
               .bind(uid, code, rule.amount, now, r.txnId, JSON.stringify({ score, level })).run();
@@ -846,8 +851,17 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
           //   레이스로 한쪽 적립이 유실될 수 있다 — 반드시 순서대로. "오늘 이미 썼나" 조회만
           //   서로 무관한 읽기라 한꺼번에 보낸다.
           const logAward = async (code: string, amount: number, label: string) => {
+            /* 🪙 (2026-09-01) 하루 전체 상한(100점)을 여기서도 본다 — 정본 checkEarnAllowed.
+               ⚠️ **«줬는지» 를 반드시 돌려준다.** 처음엔 조용히 return 했는데, 부르는 쪽이
+                  그 뒤에서 무조건 gam.awarded = 2 를 써서 **적립 0인데 학생 화면이 «+5P»** 라고
+                  말했다(ai-friend.html 이 그 값으로 축하 토스트를 그린다). 없는 포인트를 지어내는
+                  것은 상한을 넘기는 것보다 나쁘다 — 규칙서 2장 「⛔ 지어내지 마세요」.
+               ⚠️ 여기서 던지지는 않는다 — 포인트가 대화를 막으면 안 된다. */
+            const allow = await checkEarnAllowed(env, uid, code, amount);
+            if (!allow.ok) { console.log('[ai-friend] 포인트 상한 — 적립 건너뜀:', code, allow.error); return false; }
             const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
+            return true;
           };
           const wod = gam.word;
           const wantWord = !!(wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg));
@@ -864,10 +878,12 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
             wantVoice ? usedToday('ai_friend_voice') : Promise.resolve(Infinity),
             wantListen ? usedToday('ai_friend_listen') : Promise.resolve(Infinity),
           ]);
-          if (chatUsed < 10) { await logAward('ai_friend_chat', 2, '망고와 영어 수다'); gam.awarded = 2; }
-          if (wantWord && wordUsed < 1) { await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`); gam.word_bonus = 5; }
-          if (wantVoice && voiceUsed < 5) { await logAward('ai_friend_voice', 1, '영어로 말하기'); gam.voice_bonus = 1; }
-          if (wantListen && listenUsed < 5) { await logAward('ai_friend_listen', 1, '자막 없이 듣기'); gam.listen_bonus = 1; }
+          /* ⚠️ 화면 값은 «실제로 줬을 때만» 쓴다 — logAward 가 false 면 그 자리는 비운다.
+             안 그러면 적립 0인데 학생 화면이 «+5P» 라고 축하한다(2026-09-01 실측 경로). */
+          if (chatUsed < 10 && await logAward('ai_friend_chat', 2, '망고와 영어 수다')) gam.awarded = 2;
+          if (wantWord && wordUsed < 1 && await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`)) gam.word_bonus = 5;
+          if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기')) gam.voice_bonus = 1;
+          if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기')) gam.listen_bonus = 1;
         }
       } catch (e: any) {
         console.error('[chat-friend] gamification failed:', e?.message || e);

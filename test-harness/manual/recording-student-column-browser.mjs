@@ -140,6 +140,18 @@ async function main() {
   const all = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent).join(" ")');
   check('임시 접속번호가 학생 칸에 새지 않는다', !/[a-z0-9]{18,}/.test(all), all);
 
+  console.log('\n── ③-2 머리글 정렬이 학생 칸에도 먹는가 ───────────');
+  /* 2026-09-01 에 머리글 정렬(▲▼)이 들어오면서 모든 칸이 정렬 가능해졌다.
+     학생 칸만 «누르면 아무 일도 안 일어나는» 칸으로 남으면 그것이 고장으로 읽힌다. */
+  await ev('typeof recSortBy === "function" ? recSortBy("student") : Promise.reject("recSortBy 없음")');
+  await sleep(200);
+  const sorted = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent.trim()).join("|")');
+  check('학생 이름 올림순으로 정렬된다 (모르는 행은 뒤로)', sorted === '김선우, 김사랑|최윤서|—', sorted);
+  await ev('recSortBy("student"); recSortBy("student")');   // ▼ → 원래 순서
+  await sleep(200);
+  const back = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent.trim()).join("|")');
+  check('세 번 누르면 원래 순서로 돌아온다', back === '최윤서|김선우, 김사랑|—', back);
+
   console.log('\n── ④ 칸을 하나 늘려도 화면이 안 밀리는가 ────────────');
   const o = JSON.parse(await ev('JSON.stringify({s:document.documentElement.scrollWidth,w:window.innerWidth})'));
   check('문서가 가로로 넘치지 않는다', o.s <= o.w + 1, JSON.stringify(o));
