@@ -821,25 +821,17 @@ function setSubMode(m, announce){
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
-/* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
-   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24).
-   ⚠️ 이제 인사말에 «고른 친구 이름» 이 들어가서 패턴으로는 못 맞춘다 — 만드는 쪽에서
-      _koCache 에 의역을 미리 넣는다(여덟 단계 인사·안전망 둘 다). 이 함수는 옛 문장이
-      어딘가에 남아 있을 때를 위한 안전망으로만 둔다. */
-function curatedMeaning(text){
-  var m = String(text||'').trim().match(
-    /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
-  if(m) return '안녕하세요! 저는 망고아이 AI 친구예요 🥭 '
-    + (m[1] ? ('오늘의 주제는 "' + m[1] + '"예요. ') : '')
-    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
-  return '';
-}
+/* 🗣️ 고정 인사말의 의역은 «서버 정본» 이 갖고 있다 — `src/learn-phrase-ko.ts` 의
+   `curatedLearnMeaning()`. 2026-09-01 까지 여기에도 같은 정규식(`curatedMeaning`)이
+   한 벌 더 있었는데, 이번 수리의 뿌리 진단이 바로 「같은 판정이 두 곳에 있으면
+   한쪽만 고쳐진다」라 그 형태를 남겨 둘 수 없어 지웠습니다.
+   ⛔ 여기에 다시 만들지 마세요. 서버 표를 고치면 모든 화면이 함께 고쳐집니다.
+   ℹ️ 아래 `_koCache` 미리 넣기(`fallbackGreeting`)는 «중복이 아닙니다» — 그건 판정이 아니라
+      «그린 쪽이 방금 자기가 쓴 한국어» 라, 번역 요청 자체를 없애는 빠른 길입니다. */
 function fetchMeaning(text){
   var key = String(text||'').trim();
   if(!key) return Promise.resolve('');
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
-  var cur = curatedMeaning(key);
-  if(cur){ _koCache[key] = cur; return Promise.resolve(cur); }
   return fetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
     // mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역.
@@ -1609,8 +1601,9 @@ function _startSttSession(){
    「3~5단어·현재시제」로 못 박아 두었는데, 이 자리의 인사는 레벨과 무관한 15단어
    («Let's warm up before class» — 관용구까지 들어 있다)였다. 즉 AI 가 눈높이를
    못 맞춘 게 아니라, 첫 문장이 «AI 를 거치지 않는» 자리였다.
-   그 문장이 어렵다는 증거는 이미 이 파일에 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로
-   직역해서 curatedMeaning() 에 손으로 의역을 박아 두었다(2026-08-24).
+   그 문장이 어렵다는 증거는 이미 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로 직역해서
+   손으로 의역을 박아 두었다(2026-08-24). 그 의역은 2026-09-01 에 서버 정본으로 옮겼다
+   (`src/learn-phrase-ko.ts` 의 curatedLearnMeaning — 같은 판정이 두 곳이던 것을 한 곳으로).
 
    ⚠️ 여기를 LLM 생성으로 바꾸지 마세요. 낮은 단계에서 단어 수를 조이면 모델이 to·is·a 를
       떨어뜨립니다 — 판단력 훈련이 「선택지 5단어 이하」 상한 때문에 «Want play with me»(비문)를

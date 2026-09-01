@@ -696,8 +696,11 @@
       if (!key) return '';
       if (_koCache.has(key)) return _koCache.get(key);
       const r = await fetch('/api/translate', {
+        // 🗣️ mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역이라
+        //    「Good job!」이 「훌륭한 직업!」으로 나갔다(2026-08-31 제보). 웜업은 2026-08-24 에 이미 이 모드다.
+        //    ⛔ 이 한 낱말을 지우면 그 사고가 그대로 재현된다(캐시 접두사도 trl2: → tr: 로 갈린다).
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: [key], target: 'ko' })
+        body: JSON.stringify({ texts: [key], target: 'ko', mode: 'learn' })
       });
       const d = await r.json();
       const out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
