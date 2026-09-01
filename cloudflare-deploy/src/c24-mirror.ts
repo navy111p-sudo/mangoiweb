@@ -324,6 +324,26 @@ export async function getMirrorTeachers(env: MirrorEnv): Promise<Set<string>> {
   return s;
 }
 
+/**
+ * ⛔ **명시적으로 «끈» 강사**(c24_mirror_teachers.enabled = 0).
+ *
+ * 🔴 왜 «없음» 과 다른가 — 화이트리스트는 «적혀 있으면 켠다» 이므로 «없는 강사» 는
+ *    whitelist 모드에서만 안 만들어지고 **mode='all' 에서는 전부 만들어진다.**
+ *    그런데 전환일에는 반드시 'all' 로 올린다. 그때 **퇴사 강사의 잔재까지 함께 만들어진다.**
+ *    2026-09-01 실측: 퇴사한 Teacher Mariane(카페24 24)의 카페24 예약이 앞으로 30건 남아 있고,
+ *    그중 6건은 «다른 강사와 같은 학생·같은 시각» 이었다(사장님 확인 — 그만두어 수업 안 함).
+ *    'all' 로 올리는 순간 그 30건이 학생 시간표에 생긴다.
+ * ✅ 그래서 enabled=0 은 «아직 안 켬» 이 아니라 **«켜지 마라»** 는 뜻이고, 'all' 도 이깁니다.
+ */
+export async function getMirrorBlocked(env: MirrorEnv): Promise<Set<string>> {
+  const s = new Set<string>();
+  try {
+    const rs: any = await env.DB.prepare(`SELECT teacher_id FROM c24_mirror_teachers WHERE enabled = 0`).all();
+    for (const r of (rs.results || [])) s.add(String(r.teacher_id));
+  } catch { /* 표 없음 = 막은 강사 없음 */ }
+  return s;
+}
+
 /** 카페24 강사번호 → 이름·원부번호 (파일 머리말의 «강사 번호» 규칙 그대로) */
 export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]): Promise<Map<string, TeacherLink>> {
   const out = new Map<string, TeacherLink>();
@@ -498,6 +518,8 @@ export interface MirrorApplyResult {
   since: string;
   until: string;
   enabled_teachers: string[];
+  /** ⛔ 명시적으로 끈 강사 — mode='all' 에서도 안 만든다(퇴사자 잔재 방지) */
+  blocked_teachers: string[];
   planned: { create: number; update: number; cancel: number };
   applied: { created: number; updated: number; cancelled: number };
   summary: Record<Verdict, number>;
@@ -529,7 +551,9 @@ export async function applyMirror(
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled] = await Promise.all([getMirrorMode(env), getMirrorTeachers(env)]);
+  const [mode, enabled, blocked] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env),
+  ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
     loadTeacherLinks(env, classes.map(c => c.teacher_id)),
@@ -546,6 +570,9 @@ export async function applyMirror(
      ⛔ only_teacher_id 를 준다고 화이트리스트를 건너뛰지 않는다(둘 다 만족해야 함). */
   const touch = (tid: string | null): boolean => {
     if (!tid) return false;
+    /* ⛔ 명시적으로 «끈» 강사는 mode='all' 도 이긴다 — 퇴사자의 잔재를 전환일에 만들지 않는다.
+       ⚠️ 이 줄을 mode 검사 «뒤» 로 옮기면 보호가 통째로 풀린다. 반드시 맨 앞. */
+    if (blocked.has(tid)) return false;
     if (opt.only_teacher_id && String(opt.only_teacher_id) !== tid) return false;
     return mode === 'all' || enabled.has(tid);
   };
@@ -574,6 +601,7 @@ export async function applyMirror(
   const result: MirrorApplyResult = {
     ok: true, dry_run: dryRun, mode, since, until,
     enabled_teachers: Array.from(enabled).sort(),
+    blocked_teachers: Array.from(blocked).sort(),
     planned: { create: creates.length, update: updates.length, cancel: cancels.length },
     applied: { created: 0, updated: 0, cancelled: 0 },
     summary, by_state: byState, changes: [], errors: [],

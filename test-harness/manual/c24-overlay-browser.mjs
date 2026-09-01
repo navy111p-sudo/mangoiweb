@@ -152,11 +152,12 @@ const parseRgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Numbe
 
     console.log('\n[ ①② 그려지는가 · 사실을 말하는가 ]');
     // 앞으로 것 3장(ok·not_whitelisted·no_student) + 지난 것 1장(넣었을 때만)
-    check('카페24 카드가 «앞으로 3장 + 지난 것» 만큼 그려졌다', info.n === 3 + (PAST ? 1 : 0), info.n);
+    check('카페24 카드가 «앞으로 3장 + 겹침 1장 + 지난 것» 만큼 그려졌다',
+      info.n === 4 + (PAST ? 1 : 0), info.n);
     check('카드에 «카페24» 배지가 있다', info.texts.every((t) => t.includes('카페24')), info.texts);
     /* ⚠️ 문구가 «지난 것» 과 «앞으로 것» 으로 갈렸으므로 전부 같은 말을 기대하면 안 된다.
        앞으로 것만 «카페24에만 있음» 이고, 지난 것은 ⑩절에서 따로 본다. */
-    const ahead = info.texts.filter((t) => !t.includes('지난 수업'));
+    const ahead = info.texts.filter((t) => !t.includes('지난 수업') && !t.includes('같은 시각 다른 수업'));
     check('앞으로 것은 «카페24에만 있음» 이라고 말한다',
       ahead.length === 3 && ahead.every((t) => t.includes('카페24에만 있음')), ahead);
     check('학생 이름이 보인다 (Zee·Kes)', info.texts.join(' ').includes('Zee') && info.texts.join(' ').includes('Kes'));
@@ -168,9 +169,13 @@ const parseRgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Numbe
     check('카페24 카드에 data-block 이 없다(누르면 삭제되지 않는다)', info.blk.every((d) => d === null), info.blk);
     check('진짜 수업 카드는 그대로 드래그된다', info.realN >= 1 && info.realDrag.some((d) => d === 'true'), { realN: info.realN, realDrag: info.realDrag });
 
-    console.log('\n[ ⑤ 두 번 보이지 않는다 ]');
-    check('이미 있는 수업(already·conflict)은 겹쳐 그리지 않는다',
-      !info.texts.join(' ').includes('김연숙') && !info.texts.join(' ').includes('AAA'), info.texts);
+    console.log('\n[ ⑤ 두 번 보이지 않는다 · 겹침은 «보여야» 한다 ]');
+    /* 🔴 (2026-09-01) conflict 는 이제 «그린다» — 강사 필터를 걸면 그 진짜 카드는
+       다른 강사 것이라 화면에 없어서, 안 그리면 아무 데도 안 보였다(Mariane 30 → 28 실측). */
+    check('already 는 겹쳐 그리지 않는다(같은 카드가 이미 있다)', !info.texts.join(' ').includes('AAA'), info.texts);
+    check('🔴 conflict 는 그린다(사람이 확인해야 하는 것이다)', info.texts.join(' ').includes('김연숙'), info.texts);
+    check('conflict 카드가 «같은 시각 다른 수업» 이라고 말한다',
+      /같은 시각 다른 수업/.test(info.texts.join(' ')), info.texts);
     check('강사를 못 이은 것(BBB)은 아무 칸에나 놓지 않는다', !info.texts.join(' ').includes('BBB'), info.texts);
     check('범례가 카페24 건수를 따로 센다', /카페24/.test(info.legend), info.legend.slice(0, 200));
 
