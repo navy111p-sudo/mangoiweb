@@ -38,6 +38,7 @@ import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
+import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
@@ -3788,6 +3789,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          자동 조인이 불가능함을 확인(잘못 매칭하면 다른 강사 사진이 나가는 사고가 됨).
          그래서 사람이 직접 확인하며 연결하는 컬럼을 둔다 — 관리자 화면 "강사 사진 연결" 탭에서 채움. */
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`); } catch {}
+      /* 🙈 (2026-09-01 사장님 「활동, 비활동, 그리고 안보임」) 명부에서 감출지 — status 와 «다른 축».
+         ⛔ 「안보임」을 status 값으로 만들면 «퇴사했지만 정산이 남아 명부에 남길 사람» 과
+            «활동중인데 감추고 싶은 행»(실측: 테스트강사·파라테스트)을 동시에 표현할 수 없다.
+         ⚠️ 지연 ALTER 라 첫 목록 조회가 돌아야 칸이 생긴다 — 배포 직후 SQL 에
+            `no such column: list_hidden` 이 나오는 것은 배포 실패가 아니다
+            (attendance.host·vc_quality.novideo 와 같은 방식). 읽는 쪽은 COALESCE 로 버틴다. */
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN list_hidden INTEGER DEFAULT 0`); } catch {}
       // 🔑 (2026-08-24) 로그인 아이디를 강사 프로필 화면에서 보여주려면 이 표가 있어야 한다 —
       //   teacher_account_links(admin_account.username ↔ teachers.id, "강사 계정 연결" 카드가 채움)가
       //   아직 한 번도 안 열렸으면 없을 수 있어 여기서도 보강한다.
@@ -3808,6 +3816,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (!_tpActor.name) return json({ ok: true, items: [] });
         where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
         binds.push(_tpActor.name, _tpActor.name);
+      }
+      /* 🙈 (2026-09-01) 명부 숨김 — status 와 «다른 축» 이라 조건도 따로 건다.
+           (없음)            → 보이는 행만        ← 기본
+           ?hidden=1         → 숨긴 행만          ← 화면 필터의 「🙈 안보임」
+           ?include_hidden=1 → 전부
+         ⚠️ 숨김은 «삭제» 가 아니다. 위 ensureTeacherProfilesSchema() 가 먼저 돌아
+            칸을 만들어 두므로 여기서 COALESCE 로 읽어도 안전하다. */
+      const fHidden = url.searchParams.get('hidden') || '';
+      if (fHidden === '1') where.push(`COALESCE(tp.list_hidden, 0) = 1`);
+      /* ⚠️ 강사 본인 조회에는 걸지 않는다 — 위에서 이미 «자기 행 하나» 로 좁혔으므로,
+         관리자가 그 강사를 명부에서 숨긴 순간 본인 화면이 빈손이 된다. 숨김은
+         «관리자 목록에서 안 보이게» 하려는 것이지 본인에게 감추려는 것이 아니다. */
+      else if (!_tpActor.isTeacher && (url.searchParams.get('include_hidden') || '') !== '1') {
+        where.push(teacherVisibleSql('tp'));
       }
       // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
       //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
@@ -3957,8 +3979,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         for (const c of UPD_COLS) { const val = clean(raw[c]); if (val !== undefined) fields[c] = val; }
         if (clean(raw.name) && !fields.english_name) fields.english_name = clean(raw.name);
         if (mbti) fields.mbti = mbti;
+        /* 🧑‍🏫 (2026-09-01) 상태는 «아는 값» 만 받는다 — UPD_COLS 에 'status' 가 있어서
+           구글시트에 적힌 문자열이 그대로 들어가고 있었다. 「휴직」·「Active」 같은 값이
+           저장되면 그 강사는 배정 후보·급여·순위 어디에도 안 잡힌다(전부 '활동중' 으로 거른다).
+           ⛔ 한 행 때문에 임포트 전체를 400 으로 막지는 않는다 — 붙여넣기 작업이라 나머지가
+              멀쩡하면 넣는 편이 낫다. 대신 **그 칸만 빼고, 뺐다는 사실을 화면에 돌려준다.**
+              (조용히 넣지도, 조용히 버리지도 않는다) */
+        let statusIgnored: string | null = null;
+        if (fields.status !== undefined) {
+          const _canon = canonTeacherStatus(fields.status);
+          if (_canon) fields.status = _canon;
+          else { statusIgnored = String(fields.status); delete fields.status; }
+        }
         if (dryRun) {
-          results.push({ name, action: match ? 'update' : 'create', id: match ? match.id : null, fields: Object.keys(fields), mbti: mbti || null });
+          results.push({ name, action: match ? 'update' : 'create', id: match ? match.id : null, fields: Object.keys(fields), mbti: mbti || null, status_ignored: statusIgnored });
           if (match) updated++; else created++;
           continue;
         }
@@ -3972,7 +4006,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               await env.DB.prepare(`UPDATE teacher_profiles SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
             }
             tid = match.id; updated++;
-            results.push({ name, action: 'update', id: tid, changed: keys });
+            results.push({ name, action: 'update', id: tid, changed: keys, status_ignored: statusIgnored });
           } else {
             const kn = fields.korean_name || fields.english_name || name;
             const en = fields.english_name || name;
@@ -3983,7 +4017,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                    fields.available_days||null, fields.available_hours||null, fields.fee_per_10min||null, fields.active_region||null, fields.notes||null, fields.mbti||null, now, now).run();
             tid = Number(r.meta?.last_row_id || 0); created++;
             byName.set(name.toLowerCase(), { id: tid, korean_name: kn, english_name: en });
-            results.push({ name, action: 'create', id: tid });
+            results.push({ name, action: 'create', id: tid, status_ignored: statusIgnored });
           }
           if (mbti && tid) {
             try {
@@ -4034,11 +4068,39 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           'image_url','intro_video_url','active_region','origin_region','fee_per_10min',
           'group_name','status','join_date','leave_date','education','career','certifications',
           'available_days','available_hours','bank_name','bank_account','mbti','nationality','notes',
-          'linked_teacher_id'];   // 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers.id 와 수동 연결
+          'linked_teacher_id',   // 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers.id 와 수동 연결
+          'list_hidden'];        // 🙈 (2026-09-01) 명부에서 감출지 (0/1) — status 와 다른 축
+        /* 🧑‍🏫 (2026-09-01) 상태는 «아는 값» 만 저장한다.
+           전에는 어떤 문자열이든 그대로 들어가서, 오타 하나가 조용히 저장되면 그 강사가
+           어느 목록에도 안 잡혔다(배정 후보·급여·순위가 전부 '활동중' 으로 거른다).
+           ⛔ 모르는 값을 조용히 null 로 눕히지 않는다 — 그러면 「화면에서 골랐는데 그 값만
+              저장이 안 됨」(CLAUDE.md 2장)이 된다. 400 으로 되돌려 화면이 말하게 한다.
+           ℹ️ 빈 값('')은 종전대로 «미지정»(=활동중으로 읽힘)이라 허용한다. */
+        if (b.hasOwnProperty('status')) {
+          const _stRaw = b.status;
+          const _stEmpty = (_stRaw === null || _stRaw === undefined || String(_stRaw).trim() === '');
+          if (!_stEmpty && !isTeacherStatus(_stRaw)) {
+            return json({ ok: false, error: 'bad_status',
+              message: '모르는 상태값입니다: "' + String(_stRaw) + '" (허용: ' + TEACHER_STATUSES.join(' · ') + ')' }, 400);
+          }
+          if (!_stEmpty) b.status = canonTeacherStatus(_stRaw);   // '재직' 같은 옛 별칭을 정본으로 눕힌다
+        }
+        /* 📜 상태·숨김 변경은 배정·급여·학생 홈 노출까지 흔든다 — 바꾸기 «전» 값을 먼저 읽어 둔다.
+           ⚠️ 실패해도 수정 자체는 진행한다(기록이 본 작업을 막으면 안 된다). */
+        const _tpLogged = b.hasOwnProperty('status') || b.hasOwnProperty('list_hidden');
+        let _tpBefore: any = null;
+        if (_tpLogged) {
+          try {
+            _tpBefore = await env.DB.prepare(
+              `SELECT korean_name, status, list_hidden FROM teacher_profiles WHERE id = ?`
+            ).bind(id).first<any>();
+          } catch (e: any) { console.error('[teacher-status] before:', e?.message); }
+        }
         const sets: string[] = []; const binds: any[] = [];
         allowed.forEach(k => {
           if (b.hasOwnProperty(k)) {
             let v = b[k] === '' ? null : b[k];
+            if (k === 'list_hidden') v = toTeacherListHidden(b[k]);   // 화면 체크 → 0/1
             if (k === 'mbti' && v) v = String(v).toUpperCase().slice(0, 4);   // 표준화 (예: intj → INTJ)
             // 🌏 국적 — ISO 2글자 대문자로 표준화(예: ph → PH). 이 값이 화면 언어를 정한다.
             if (k === 'nationality' && v) v = String(v).toUpperCase().trim().slice(0, 2);
@@ -4053,6 +4115,29 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           await env.DB.prepare(
             `UPDATE teacher_profiles SET ${sets.join(', ')} WHERE id = ?`
           ).bind(...binds).run();
+          /* 📜 「내가 안 바꿨는데?」에 답할 수 있게 한 줄 남긴다. 표는 관리자 통제 로그와 공용.
+             ⚠️ 통째로 try/catch — 기록이 던지면 방금 성공한 수정이 실패로 보인다. */
+          if (_tpLogged) {
+            try {
+              await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+              await env.DB.prepare(
+                `INSERT INTO admin_audit_logs (admin_uid, action, target_user, meta, created_at) VALUES (?,?,?,?,?)`
+              ).bind(
+                String(_tpiActor.username || _tpiActor.name || 'unknown'),
+                'teacher_status_change',
+                String((_tpBefore && _tpBefore.korean_name) || ('#' + id)),
+                JSON.stringify({
+                  teacher_profile_id: id,
+                  before: { status: (_tpBefore && _tpBefore.status) || null, list_hidden: Number((_tpBefore && _tpBefore.list_hidden) || 0) },
+                  after:  {
+                    status: b.hasOwnProperty('status') ? (b.status || null) : undefined,
+                    list_hidden: b.hasOwnProperty('list_hidden') ? toTeacherListHidden(b.list_hidden) : undefined,
+                  },
+                }),
+                Date.now()
+              ).run();
+            } catch (e: any) { console.error('[teacher-status] audit:', e?.message); }
+          }
           return json({ ok: true, id });
         } catch (e: any) {
           return json({ ok: false, error: String(e?.message || e) }, 500);
