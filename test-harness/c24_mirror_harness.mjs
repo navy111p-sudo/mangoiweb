@@ -260,8 +260,23 @@ console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
   check('권한 없음(403/401)은 «고장» 으로 알리지 않는다', /r\.status === 403 \|\| r\.status === 401/.test(Q6));
   check('성공은 «ok === true» 로만 판정한다(404 본문에는 ok 칸이 없다)', /j\.ok !== true/.test(Q6));
   // 캐시 무효화 — 파일이 바뀌었으면 ?v= 도 올라가야 한다(asset_version_harness 와 같은 계약)
+  /* 🔴 (2026-09-01 사장님 화면 확인) 지난 주를 열면 「수업 0개 · 카페24 58개」 가 뜨고
+     카드마다 「미러를 켜면 만들어집니다」 라고 적혀 있었다. 미러 창은 «오늘부터» 라
+     지난 수업은 영영 안 만들어지므로 **거짓말**이었고, 「58건이 빠졌다」 로 읽힌다.
+     ⛔ 감추는 것도 답이 아니다 — 그러면 「지난주에 수업이 없었다」 는 반대쪽 거짓이 된다. */
+  check('🔴 I⑩ 지난 날짜인지 판정한다', /var isPast\s*=\s*String\(s\.date \|\| ''\) < ph54TodayKst\(\)/.test(Q6));
+  check('🔴 I⑩ 지난 카드에는 «만들어집니다» 를 붙이지 않는다',
+    /var why\s*=\s*isPast \? null : PH54_C24_WHY\[s\.verdict\]/.test(Q6));
+  check('I⑩ 지난 카드는 «지난 수업 (카페24 기록)» 이라고 말한다',
+    /지난 수업 \(카페24 기록\)/.test(Q6) && /Past class \(Cafe24 record\)/.test(Q6));
+  check('I⑩ 지난 것을 감추지 않는다(그리기는 그대로)',
+    /c24Events\.push\(\{ rec: r, col: dateToCol\[r\.date\] \}\);/.test(Q6));
+  check('🔴 I⑪ 건수를 «지난 것 / 앞으로 것» 으로 갈라 센다',
+    /c24Past\+\+; else c24Ahead\+\+/.test(Q6) && /카페24 대기/.test(Q6) && /지난 카페24 기록/.test(Q6));
+  check('I⑪ 한 숫자로 합친 옛 표기가 남아 있지 않다', !/카페24 수업 \(망고아이엔 아직 없음\)/.test(Q6));
+
   const v = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('admin.html 의 adm-q6.js ?v= 가 9 이상', v >= 9, `v=${v}`);
+  check('admin.html 의 adm-q6.js ?v= 가 10 이상', v >= 10, `v=${v}`);
 }
 
 
