@@ -2935,7 +2935,11 @@ async function loadTeacherProfiles() {
     return '<tr data-tid="' + t.id + '" data-hidden="' + (Number(t.list_hidden||0) === 1 ? '1' : '0') + '">' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
-        (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') + '</td>' +
+        (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') +
+        /* ⚠️ (2026-09-01) 계정 연결이 두 개 이상 — 전에는 조인이 행을 늘려 «같은 강사가 두 줄» 로
+           보였다(사장님 「왜 Len 이 두 명이나 있지?」). 지금은 한 줄로 그리되, 그 사실을 감추지
+           않는다 — 감추면 아무도 정리하지 않는다. 대개 대소문자만 다른 계정이 두 벌 생긴 것이다. */
+        (Number(t.login_link_count || 0) > 1 ? _tpLinkDupChip(t) : '') + '</td>' +
       /* 🟢⏸️🚪 상태 — 누르면 그 자리에서 바꾼다(아래 «상태를 명부에서 그 자리에 바꾸기» 절) */
       '<td id="tpstc-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _tpStatusCell(t) + '</td>' +
       /* 🟢 «지금» — 이 강사가 지금 수업 중인가. 표를 그린 뒤 tpLoadLiveNow() 가 비동기로 채운다
@@ -4137,6 +4141,25 @@ function _tpStZoom() {
 }
 
 function _tpStIsEn() { return (typeof adminLang !== 'undefined' && adminLang === 'en'); }
+
+/** ⚠️ 계정 연결이 두 개 이상인 강사에 붙는 표시. 이름 아래 한 줄.
+ *  ⚠️ 배경은 background-color 로 준다 — `background:#f…` 는 admin-inline-c.css 의 옛 규칙에
+ *     !important 로 먹혀 투명해진다(같은 파일 상태 배지에서 실측). */
+function _tpLinkDupChip(t) {
+  var L = _tpStIsEn();
+  var n = Number(t.login_link_count || 0);
+  var ko = '⚠ 계정 연결 ' + n + '개';
+  var en = '⚠ ' + n + ' linked accounts';
+  var tipKo = '이 강사에게 로그인 계정이 ' + n + '개 연결돼 있습니다(대개 대소문자만 다른 계정). '
+            + '지금 보이는 아이디는 «가장 최근에 연결한» 것입니다. 정리는 강사 계정 연결 카드에서 하세요.';
+  var tipEn = n + ' login accounts are linked to this teacher (usually the same id in different letter case). '
+            + 'The id shown is the most recently linked one.';
+  return '<br><span class="tp-link-dup" data-ko="' + ko + '" data-en="' + en + '" ' +
+    'title="' + (L ? tipEn : tipKo) + '" data-ko-title="' + tipKo + '" data-en-title="' + tipEn + '" ' +
+    'style="display:inline-block;margin-top:3px;background-color:#fef3c7;color:#854d0e;' +
+    'padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">' +
+    (L ? en : ko) + '</span>';
+}
 
 /** 명부 상태 칸 — 배지를 «누를 수 있는» 버튼으로 감싼다.
  *  ⛔ 이 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로

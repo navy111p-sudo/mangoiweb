@@ -3778,6 +3778,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   PATCH  /api/admin/teacher-profiles/:id      (수정)
     //   DELETE /api/admin/teacher-profiles/:id      (제거)
     // ════════════════════════════════════════════════════════════
+    /* 🔑 강사 → 로그인 아이디 (2026-09-01) — 목록 조회와 단건 조회가 «같은 계정» 을 고르도록
+       문장을 한 곳에 둔다. 조인이 아니라 서브쿼리라 링크가 몇 개든 행이 늘지 않는다. */
+    const PICK_LOGIN_USERNAME = `(SELECT tal.username FROM teacher_account_links tal
+                                   WHERE CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+                                   ORDER BY COALESCE(tal.linked_at, 0) DESC, tal.username ASC
+                                   LIMIT 1) AS login_username`;
+    /* 연결이 두 개 이상이면 화면이 그 사실을 말해야 한다 — 골라 보여 주고 «감추지» 않는다. */
+    const LOGIN_LINK_COUNT = `(SELECT COUNT(*) FROM teacher_account_links tal2
+                                WHERE CAST(tal2.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)) AS login_link_count`;
+
     // ⚠ env.DB.exec() 는 단일 라인 SQL 만 허용 — 여러 줄 쓰면 SQL_STATEMENT_ERROR
     const ensureTeacherProfilesSchema = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, mbti TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
@@ -3833,12 +3843,26 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       else if (!_tpActor.isTeacher && (url.searchParams.get('include_hidden') || '') !== '1') {
         where.push(teacherVisibleSql('tp'));
       }
-      // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
-      //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
-      //   두 표에 같은 컬럼명이 없어 where 절은 그대로 써도 모호해지지 않는다.
-      const sql = `SELECT tp.*, tal.username AS login_username
+      /* 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 그 강사의 실제
+         로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
+
+         🔴 (2026-09-01) LEFT JOIN 이 아니라 «서브쿼리» 인 이유 — 조인은 행을 늘린다.
+            teacher_account_links 에 같은 teacher_id 가 두 줄이면 프로필 하나가
+            **두 줄로 그려진다.** 사장님 제보 「왜 Len 이 두 명이나 있지?」가 그것이었다:
+            원부 18번(LEN)에 `mangoi_168` 과 `Mangoi_168`(대문자 M) 두 링크가 걸려 있었고
+            — 뿌리는 CLAUDE.md 의 「대소문자만 다른 계정이 두 벌 생긴다」 함정 —
+            명부에 사진·전화·MBTI 까지 똑같은 줄이 나란히 나왔다.
+            ⛔ 「연결 카드에서 둘 다 연결하지 마세요」라는 경고만으로는 못 막는다.
+               조인 자체가 행을 못 늘리게 하는 것이 근본이다.
+         ⚠️ 어느 계정을 고르나 — «가장 최근에 연결한 것». 실측(2026-09-01)에서도 그쪽이
+            실제로 쓰는 계정이었다(Mangoi_168 로그인 26회 대 mangoi_168 3회).
+            동점이면 username 으로 갈라 **결과가 매번 같게** 한다.
+         ✅ 그렇다고 중복을 «감추지» 는 않는다 — login_link_count 를 함께 내려
+            화면이 「연결 2개」라고 말하게 한다(감추면 아무도 정리하지 않는다). */
+      const sql = `SELECT tp.*,
+                          ${PICK_LOGIN_USERNAME},
+                          ${LOGIN_LINK_COUNT}
                    FROM teacher_profiles tp
-                   LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
                    ${where.length ? ' WHERE ' + where.join(' AND ') : ''}
                    ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
@@ -4050,11 +4074,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
       }
       if (method === 'GET') {
-        // 🔑 (2026-08-24) login_username — 위 목록 조회와 같은 조인(추측 아닌 명시적 연결만)
+        /* 🔑 login_username — 목록 조회와 **똑같은 문장**을 쓴다(위 주석 참고).
+           ⚠️ 여기만 LEFT JOIN 으로 두면 명부와 수정 모달이 «서로 다른 계정» 을 보여 준다
+              (.first() 는 둘 중 아무거나 집는다). 고르는 규칙이 한 곳이어야 한다. */
         const row = await env.DB.prepare(
-          `SELECT tp.*, tal.username AS login_username
+          `SELECT tp.*,
+                  ${PICK_LOGIN_USERNAME},
+                  ${LOGIN_LINK_COUNT}
              FROM teacher_profiles tp
-             LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
             WHERE tp.id = ?`
         ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
