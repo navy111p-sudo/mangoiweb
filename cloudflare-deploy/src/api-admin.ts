@@ -619,7 +619,18 @@ export async function handleAdminApi(
            ⚠️ 이 칸들은 ALTER 로 붙는다 — 첫 로그가 들어와야 생긴다(novideo·attendance.host 와 같은 사정).
               그래서 없는 DB(개발용·복구본)에서는 이 질의가 `no such column` 으로 죽는다.
               그때는 옛 질의로 떨어진다. ⛔ 화면 전체가 «조회 실패» 가 되게 두지 말 것. */
-        const RICH = `${BASE},
+        /* 🔔 (2026-09-01 사장님 「박주형 학생 회선 문제는 어떻게 알려주지?」)
+           이 화면이 uid 만 보여 줘서 «juju5731» 이 누구인지 알 수 없었다 — 연락하려면 사람 이름이 필요하다.
+           ⚠️ 자동 문자·알림톡은 불가능하다(학생 29,461명 전원 번호 0건, D1 실측). 그래서 이 화면이
+              «사람이 보고 연락하는» 유일한 자리다. 실명과 소속 매장을 함께 낸다.
+           ⚠️ students_erp 에는 `id` 칸이 없다 — PRIMARY KEY 는 user_id 다(CLAUDE.md 2장).
+           ⚠️ LOWER() 로 맞추지 말 것 — 그러면 인덱스를 못 타 200행 × 29,461행 전수 스캔이 된다
+              (같은 실수로 4.3초 / 2,348만 행을 읽던 자리가 있었다). 정확일치로 두고, 못 찾으면 빈 값이다.
+           ⚠️ 서브쿼리로 붙인다 — LEFT JOIN 은 짝이 둘이면 행이 늘어난다(강사 명부에서 실제로 밟은 사고). */
+        const WHO = `(SELECT e.korean_name FROM students_erp e WHERE e.user_id = q.uid) AS student_name,
+                  (SELECT e.shop_name  FROM students_erp e WHERE e.user_id = q.uid) AS shop_name,
+                  COUNT(DISTINCT CASE WHEN avg_loss >= 3 THEN date(ts/1000, 'unixepoch', '+9 hours') END) AS bad_days`;
+        const RICH = `${BASE}, ${WHO},
                   ROUND(AVG(CASE WHEN p95_loss >= 0 THEN p95_loss END), 1) AS p95_loss,
                   ROUND(AVG(CASE WHEN rx_loss   >= 0 THEN rx_loss   END), 1) AS rx_loss,
                   ROUND(AVG(CASE WHEN rx_aloss  >= 0 THEN rx_aloss  END), 1) AS rx_aloss,
@@ -628,12 +639,12 @@ export async function handleAdminApi(
         let rs: any = null, rx_ready = true;
         try {
           rs = await env.DB.prepare(
-            `SELECT ${RICH} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+            `SELECT ${RICH} FROM vc_quality q WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
           ).bind(since).all();
         } catch {
           rx_ready = false;
           rs = await env.DB.prepare(
-            `SELECT ${BASE} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+            `SELECT ${BASE}, ${WHO} FROM vc_quality q WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
           ).bind(since).all();
         }
         return json({ ok: true, days, rx_ready, rows: rs.results || [] });
