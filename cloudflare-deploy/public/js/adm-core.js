@@ -2792,7 +2792,11 @@ window._tpMbtiBadge = _tpMbtiBadge;
       var d = await r.json();
       if (!d.ok){ st.textContent = '⚠ ' + (d.message||d.error||'실패'); applyBtn.disabled = false; return; }
       var s = d.summary;
-      st.innerHTML = '✅ 완료 — 신규 '+s.created+' · 갱신 '+s.updated+' · 건너뜀 '+s.skipped;
+      /* ⚠️ 「모르는 상태값이라 반영하지 않았다」는 미리보기에만 있으면 «반영했다» 화면에서 사라진다.
+         조용히 버리지 않기로 한 것이니 이쪽에도 남긴다. */
+      var ign = (d.results || []).filter(function(x){ return x && x.status_ignored; }).length;
+      st.innerHTML = '✅ 완료 — 신규 '+s.created+' · 갱신 '+s.updated+' · 건너뜀 '+s.skipped
+        + (ign ? ' <span style="color:#b45309;font-weight:700">· ⚠ 상태값 무시 '+ign+'건 (활동중 · 비활동 · 퇴사 만 저장됩니다)</span>' : '');
       _lastRows = null;
       if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
     }catch(e){ st.textContent = '⚠ ' + e; applyBtn.disabled = false; }
@@ -4218,8 +4222,10 @@ window.tpOpenStatusMenu = function (id, btn) {
             (s === cur ? '<span class="tp-st-chk" aria-hidden="true">✓</span>' : '') + '</div>';
   });
   html += '<div class="tp-st-sep"></div>';
+  var hideTipKo = '명부와 관리자 화면의 강사 후보 목록에서 빠집니다. 지워지지 않고 「🙈 안보임」 필터에서 볼 수 있습니다';
+  var hideTipEn = 'Removed from the roster and admin teacher pickers. Not deleted — find it under the “Hidden” filter';
   html += '<div class="tp-st-item" role="menuitem" tabindex="0" data-act="hidden" data-val="' +
-          (hidden ? '0' : '1') + '">' +
+          (hidden ? '0' : '1') + '" title="' + (L ? hideTipEn : hideTipKo) + '">' +
           (hidden ? (L ? '👁 Show in roster' : '👁 명부에 다시 보이기')
                   : (L ? '🙈 Hide from roster' : '🙈 명부에서 숨기기')) + '</div>';
   m.innerHTML = html;
@@ -4333,24 +4339,37 @@ window.tpSetTeacherStatus = async function (id, next, _isUndo) {
 };
 
 /** 🙈 명부에서 숨기기 / 👁 다시 보이기 — status 와 «다른 축» 이다. 지우는 것이 아니다. */
-window.tpSetTeacherHidden = async function (id, hide, _isUndo) {
+/* 🙈 명부에서 숨기기 / 👁 다시 보이기 — status 와 «다른 축» 이다. 지우는 것이 아니다.
+   🔴 «되돌리기» 는 행 캐시(window._tpRowById)에 기대면 안 된다 —
+      이 함수는 끝에서 loadTeacherProfiles() 를 부르고, 그 함수가 캐시를 통째로 비운 뒤
+      **응답에 온 행만** 다시 채운다. 방금 숨긴 행은 기본 조회에서 빠지므로
+      5초 뒤 사람이 「되돌리기」를 눌러도 `if (!t) return` 에서 **조용히 사라졌다**
+      (2026-09-01 trap-check 가 잡음. 에러도 안 나서 「눌러도 아무 일 없음」으로만 보인다).
+      「🙈 안보임」 필터에서 되살릴 때도 대칭으로 같다(그 조회는 숨긴 행«만» 준다).
+   ✅ 그래서 되돌리기에 필요한 것(이름·되돌릴 값)을 **닫힘(closure)으로 넘긴다.**
+      캐시는 «있으면 쓰고 없으면 없는 대로» 간다. */
+window.tpSetTeacherHidden = async function (id, hide, _isUndo, _name) {
   var t = (window._tpRowById || {})[id];
-  if (!t) return;
-  var prev = Number(t.list_hidden || 0) === 1;
-  if (prev === !!hide) return;
-  t.list_hidden = hide ? 1 : 0; _tpStRepaint(id);
+  var who = _name || (t && (t.korean_name || t.english_name)) || ('#' + id);
+  if (t) {
+    if ((Number(t.list_hidden || 0) === 1) === !!hide) return;   // 이미 그 값이면 아무것도 안 한다
+    t.list_hidden = hide ? 1 : 0; _tpStRepaint(id);              // 화면 먼저(캐시가 있을 때만)
+  }
 
   var res = await _tpStPatch(id, { list_hidden: hide ? 1 : 0 });
   if (!res.ok) {
-    t.list_hidden = prev ? 1 : 0; _tpStRepaint(id);
+    if (t) { t.list_hidden = hide ? 0 : 1; _tpStRepaint(id); }   // 실패하면 «고치기 전» 으로
     alert((_tpStIsEn() ? 'Could not change visibility: ' : '명부 노출을 바꾸지 못했습니다: ') + res.msg);
     return;
   }
-  var who = t.korean_name || t.english_name || ('#' + id);
   if (!_isUndo) {
-    _tpStToast(who + (hide ? ' — 명부에서 숨겼습니다 (지워진 것이 아닙니다)' : ' — 명부에 다시 보입니다'),
-               who + (hide ? ' — hidden from the roster (not deleted)' : ' — visible in the roster again'),
-               function () { window.tpSetTeacherHidden(id, !hide, true); });
+    /* ⚠️ 「명부에서」라고만 적으면 사실보다 좁다 — 같은 목록 API 를 쓰는 관리자 화면
+       (레벨테스트 강사 배정 후보 등)에서도 함께 빠진다. 화면이 그걸 말하게 한다. */
+    _tpStToast(who + (hide ? ' — 명부와 강사 후보 목록에서 숨겼습니다 (지워진 것이 아닙니다)'
+                           : ' — 명부에 다시 보입니다'),
+               who + (hide ? ' — hidden from the roster and teacher pickers (not deleted)'
+                           : ' — visible in the roster again'),
+               function () { window.tpSetTeacherHidden(id, !hide, true, who); });
   }
   /* 숨김은 «지금 보고 있는 목록에 그 행이 속하는가» 를 바꾼다 → 목록을 다시 읽는다.
      (상태 변경과 달리 칸만 칠해서는 건수(N명)가 거짓말을 한다) */

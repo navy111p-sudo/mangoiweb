@@ -122,6 +122,17 @@ check('tpOpenStatusMenu · tpSetTeacherStatus · tpSetTeacherHidden 이 전역�
   /window\.tpSetTeacherHidden\s*=/.test(coreSrc));
 check('되돌리기 토스트가 있다 (손이 스쳐도 되돌릴 수 있어야 한다)',
   /_tpStToast/.test(coreCode) && /tp-st-undo/.test(coreCode));
+/* 🔴 숨김의 «되돌리기» 는 행 캐시(_tpRowById)에 기대면 안 된다 — 숨긴 직후 목록을 다시 읽으면
+   그 행이 기본 조회에서 빠져 캐시에서도 사라지고, 5초 뒤 되돌리기가 조용히 무동작이 된다
+   (2026-09-01 trap-check 가 잡음. 에러가 안 나서 「눌러도 아무 일 없음」으로만 보인다). */
+check('숨김 되돌리기는 이름을 «닫힘으로» 넘겨 캐시 없이도 돈다',
+  /tpSetTeacherHidden\(id, !hide, true, who\)/.test(coreCode));
+check('⛔ tpSetTeacherHidden 이 캐시가 없다고 첫 줄에서 빠져나가지 않는다',
+  !/tpSetTeacherHidden = async function \([^)]*\) \{\s*var t = \(window\._tpRowById \|\| \{\}\)\[id\];\s*if \(!t\) return;/.test(coreCode));
+check('강사 본인 조회에는 숨김 조건을 걸지 않는다 (관리자가 숨기면 본인 화면이 빈손)',
+  /!_tpActor\.isTeacher && \(url\.searchParams\.get\('include_hidden'\)/.test(adminCode));
+check('임포트 «반영» 화면에도 무시된 상태값 건수가 남는다 (미리보기에만 있으면 사라진다)',
+  /status_ignored; \}\)\.length/.test(coreCode) && /상태값 무시/.test(coreSrc));
 check('필터 「🙈 안보임」은 status 가 아니라 ?hidden=1 로 보낸다',
   /params\.set\('hidden', '1'\)/.test(coreCode) &&
   /status === TP_STATUS_HIDDEN_FILTER/.test(coreCode));

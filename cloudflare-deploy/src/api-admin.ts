@@ -3810,6 +3810,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const where: string[] = []; const binds: any[] = [];
       if (fStatus) { where.push('status = ?'); binds.push(fStatus); }
       if (fGroup)  { where.push('group_name = ?'); binds.push(fGroup); }
+      // 🔐 강사 로그인 시엔 본인 프로필만(타 강사 계좌·연락처·단가 노출 방지)
+      const _tpActor = await getAdminActor(request, env as any);
+      if (_tpActor.isTeacher) {
+        if (!_tpActor.name) return json({ ok: true, items: [] });
+        where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
+        binds.push(_tpActor.name, _tpActor.name);
+      }
       /* 🙈 (2026-09-01) 명부 숨김 — status 와 «다른 축» 이라 조건도 따로 건다.
            (없음)            → 보이는 행만        ← 기본
            ?hidden=1         → 숨긴 행만          ← 화면 필터의 「🙈 안보임」
@@ -3818,13 +3825,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             칸을 만들어 두므로 여기서 COALESCE 로 읽어도 안전하다. */
       const fHidden = url.searchParams.get('hidden') || '';
       if (fHidden === '1') where.push(`COALESCE(tp.list_hidden, 0) = 1`);
-      else if ((url.searchParams.get('include_hidden') || '') !== '1') where.push(teacherVisibleSql('tp'));
-      // 🔐 강사 로그인 시엔 본인 프로필만(타 강사 계좌·연락처·단가 노출 방지)
-      const _tpActor = await getAdminActor(request, env as any);
-      if (_tpActor.isTeacher) {
-        if (!_tpActor.name) return json({ ok: true, items: [] });
-        where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
-        binds.push(_tpActor.name, _tpActor.name);
+      /* ⚠️ 강사 본인 조회에는 걸지 않는다 — 위에서 이미 «자기 행 하나» 로 좁혔으므로,
+         관리자가 그 강사를 명부에서 숨긴 순간 본인 화면이 빈손이 된다. 숨김은
+         «관리자 목록에서 안 보이게» 하려는 것이지 본인에게 감추려는 것이 아니다. */
+      else if (!_tpActor.isTeacher && (url.searchParams.get('include_hidden') || '') !== '1') {
+        where.push(teacherVisibleSql('tp'));
       }
       // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
       //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).

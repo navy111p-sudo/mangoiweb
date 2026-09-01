@@ -76,12 +76,19 @@ async function open(browser, width, height) {
   await ctx.route('**/api/**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"items":[]}' }));
 
+  /* 🪤 스텁이 «무엇을 숨기든 같은 목록» 을 돌려주면 검사가 조용히 헛돈다 —
+     실제 서버는 숨긴 행을 기본 목록에서 빼므로, 그 행이 화면 캐시에서 사라진 뒤
+     「되돌리기」가 눌리는 상황이 재현되지 않는다(2026-09-01 실제로 그 버그를 놓쳤다).
+     그래서 PATCH 를 반영하는 **상태 있는 스텁**으로 둔다. */
+  const rows = [...SEED, ...HIDDEN_SEED].map(r => ({ ...r }));
+  ctx.__rows = rows;
   await ctx.route('**/api/admin/teacher-profiles?**', async route => {
     const u = new URL(route.request().url());
     await page.evaluate(u2 => { (window.__tpGets = window.__tpGets || []).push(u2); }, u.search).catch(() => {});
     const hiddenOnly = u.searchParams.get('hidden') === '1';
+    const items = rows.filter(r => (Number(r.list_hidden || 0) === 1) === hiddenOnly);
     return route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify({ ok: true, items: hiddenOnly ? HIDDEN_SEED : SEED }) });
+      body: JSON.stringify({ ok: true, items }) });
   });
 
   /* PATCH — «화면만 바뀌고 서버에는 안 갔다»(시연 껍데기)를 잡으려고 나간 요청을 적어 둔다. */
@@ -92,6 +99,13 @@ async function open(browser, width, height) {
     try { body = JSON.parse(req.postData() || '{}'); } catch { /* 무시 */ }
     await page.evaluate(rec => { (window.__tpPatches = window.__tpPatches || []).push(rec); },
       { url: req.url(), body }).catch(() => {});
+    // 스텁도 «저장» 한다 — 그래야 다음 조회가 실제 서버처럼 달라진다
+    const rid = Number((req.url().match(/teacher-profiles\/(\d+)/) || [])[1]);
+    const row = rows.find(r => r.id === rid);
+    if (row && body) {
+      if (Object.prototype.hasOwnProperty.call(body, 'status')) row.status = body.status;
+      if (Object.prototype.hasOwnProperty.call(body, 'list_hidden')) row.list_hidden = Number(body.list_hidden) === 1 ? 1 : 0;
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
 
@@ -328,6 +342,30 @@ function contrastOf(el) {
       /지워진 것이 아닙니다/.test(hid.toastText), hid.toastText.trim());
     check('⛔ 숨기기가 DELETE 를 부르지 않는다',
       hid.patches.every(p => /teacher-profiles\/\d+$/.test(p.url)));
+    /* 🔴 여기가 이번에 죽어 있던 자리 — 숨기면 그 행이 기본 목록에서 빠지고, 목록을 다시 읽으며
+       화면 캐시(_tpRowById)에서도 사라진다. 되돌리기가 캐시에 기대면 «눌러도 아무 일 없음» 이 된다.
+       ⚠️ 반드시 «행이 실제로 사라진 뒤» 눌러야 재현된다(스텁이 상태를 들고 있어야 하는 이유). */
+    await page.waitForFunction(() => !document.querySelector('#tp-list-body tr[data-tid="101"]'),
+      { timeout: 8000 }).catch(() => {});
+    const goneBefore = await page.evaluate(() => ({
+      row: !!document.querySelector('#tp-list-body tr[data-tid="101"]'),
+      cached: !!(window._tpRowById || {})[101],
+      toast: !!document.querySelector('#tp-st-toast .tp-st-undo'),
+    }));
+    check('숨긴 뒤 그 행이 목록에서 빠진다', !goneBefore.row);
+    check('그리고 화면 캐시에서도 사라진다 (되돌리기가 캐시에 기대면 죽는 조건)', !goneBefore.cached);
+    check('그래도 되돌리기 버튼은 아직 떠 있다', goneBefore.toast);
+    await page.click('#tp-st-toast .tp-st-undo');
+    await page.waitForTimeout(900);
+    const undoHid = await page.evaluate(() => ({
+      patches: window.__tpPatches || [],
+      row: !!document.querySelector('#tp-list-body tr[data-tid="101"]'),
+    }));
+    check('🔴 숨김 되돌리기가 «실제로» 서버로 나간다 ({list_hidden:0})',
+      undoHid.patches.length === 4 && undoHid.patches[3].body &&
+      undoHid.patches[3].body.list_hidden === 0,
+      JSON.stringify(undoHid.patches[3] && undoHid.patches[3].body));
+    check('되돌린 강사가 명부에 다시 나타난다', undoHid.row);
 
     console.log('\n[ ⑧ 「🙈 안보임」 필터가 status 가 아니라 hidden=1 로 나간다 ]');
     await page.evaluate(() => {
@@ -348,6 +386,8 @@ function contrastOf(el) {
       return { hiddenAttr: tr.getAttribute('data-hidden'), text: td ? td.textContent.trim() : '' };
     });
     check('숨긴 강사가 그 필터에서는 보인다 (지워지지 않았음을 화면이 증명한다)', !!hiddenRow);
+    check('되돌린 강사(101)는 「안보임」 목록에 없다 (되돌리기가 진짜로 반영됐다)',
+      await page.evaluate(() => !document.querySelector('#tp-list-body tr[data-tid="101"]')));
     check('그 행에 «안보임» 표시가 붙는다',
       !!hiddenRow && hiddenRow.hiddenAttr === '1' && /안보임/.test(hiddenRow.text),
       hiddenRow && hiddenRow.text);
