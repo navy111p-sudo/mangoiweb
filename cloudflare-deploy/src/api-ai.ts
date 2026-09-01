@@ -14,6 +14,7 @@ import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
+import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -657,6 +658,7 @@ Rules:
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
 - The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
+- NEVER translate your own English into Korean. Do not add a Korean version of your sentence in brackets, quotes or guillemets. The student has a separate button for the meaning — showing Korean next to the English stops them from reading the English at all. The ONLY Korean allowed is the one grammar tip above.
 ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 - A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
@@ -738,6 +740,13 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
+      /* KR 모델이 «친절하게» 덧붙인 한국어 번역을 뗀다 (2026-09-01 사장님 제보).
+         프롬프트에 금지를 적었지만 이 저장소의 반복 실측이 「지시만으로는 안 지켜진다」라
+         만든 뒤 확인하는 단계를 함께 둔다. 바로 위 한자 제거와 같은 자리·같은 방식이다. */
+      if (hasAddedKorean(reply)) {
+        console.warn('[chat-friend] stripped added Korean, len=' + reply.length);
+        reply = stripAddedKorean(reply) || reply;
+      }
 
       /* 🏷️ 이름을 어기면 다시 뽑는다 (2026-08-31 사장님 지시).
          바로 위 프롬프트가 「Your name is ${friendName} … never invent a different name」라고
