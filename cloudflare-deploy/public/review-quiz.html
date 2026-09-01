@@ -173,7 +173,14 @@
 </head>
 <body>
   <div class="top">
-    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
+    <!-- ⬅ 화살표는 «직전 페이지» 로 (2026-09-01 사장님 지시 「화살표는 뒤로가기로 고쳐줘」).
+         📜 그전에는 이 화살표가 `href="/"` 라 «홈» 이었고, 우상단 공용 [🏠 홈] 과 합쳐 홈이
+            두 개인데 정작 «뒤로» 가 없었다. 2026-08-03 지시: ← 는 직전 페이지, 홈은 처음 화면.
+         ⚠️ 판정(히스토리 → 같은 오리진 referrer → 홈)은 복제하지 않고 back-nav.js 의 정본을
+            부른다. 그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이 있으면 `href="/"` 가
+            폴백이라 «홈으로는 간다» — 무반응이 되지 않는다.
+         ℹ️ 홈으로 가는 문은 우상단 공용 바 [🏠 홈](mango-i18n.js)이 이미 넣어 준다. -->
+    <a href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">← <span data-ko="뒤로" data-en="Back">뒤로</span></a>
     <h1>🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></h1>
   </div>
   <div class="wrap">

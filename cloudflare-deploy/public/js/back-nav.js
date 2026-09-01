@@ -43,6 +43,15 @@
     location.href = fallback;
   }
 
+  /* 🔗 (2026-09-01) 다른 화면이 «자기 헤더에 이미 있는 ←» 에 이 판정을 붙일 수 있게 내보낸다.
+     왜 내보내나: 「직전 페이지로 가되, 히스토리가 없으면 같은 오리진 referrer, 그것도 없으면
+     홈」이라는 판정을 화면마다 복제하면 한쪽만 고쳐진다(이 저장소가 반복해서 밟은 형태).
+     ⚠️ 이 파일은 홈 화면(/, /index.html, /admin.html, /admin)에서 맨 위에서 곧바로 return 하므로
+        그 화면에는 이 함수가 «없다» — 부르는 쪽은 반드시 「있으면 쓴다」로 감싸고, 없을 때를
+        위해 `href` 를 남겨 두세요(그러면 최악이어도 홈으로는 갑니다).
+     ⚠️ 이 파일은 `?v=` 없이 실려 캐시에 옛 사본이 남을 수 있다 — 그때도 위 폴백으로 버팁니다. */
+  window.mangoiGoBack = goBack;
+
   function inject() {
     if (document.getElementById('mangoi-back-btn')) return;
     if (hasVisibleBack()) return; // 이미 뒤로가기 표시가 있는 페이지는 생략
