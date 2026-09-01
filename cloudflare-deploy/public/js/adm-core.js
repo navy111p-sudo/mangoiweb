@@ -2853,7 +2853,11 @@ async function loadTeacherProfiles() {
   _tpLoadTeacherOptions();
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
+  /* 🌏 (2026-09-01) 구분(필리핀·북미·중국) — 판정이 국적 코드 + 지역 «글자» 를 함께 보므로
+     서버가 거른다(SQL 로 옮겨 적으면 정본이 두 벌이 된다). 화면은 고른 값을 그대로 보낸다. */
+  const region = document.getElementById('tp-filter-region')?.value || '';
   const params = new URLSearchParams();
+  if (region) params.set('region', region);
   /* 🙈 (2026-09-01) 「안보임」은 status 값이 아니라 «다른 축» 이라 다른 파라미터로 보낸다.
      ⛔ 이 값을 status 로 보내면 서버가 모르는 상태값이라 400 을 준다(그게 맞다). */
   if (status === TP_STATUS_HIDDEN_FILTER) params.set('hidden', '1');
@@ -2872,7 +2876,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="15" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -2906,7 +2910,7 @@ async function loadTeacherProfiles() {
      ⛔ 화면이 자동으로 고치지 않는다 — 어느 쪽이 맞는지는 사람이 안다. 말해 주기만 한다. */
   try { _tpRenderRosterMismatch(res); } catch (e) {}
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="15" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -2954,6 +2958,8 @@ async function loadTeacherProfiles() {
       /* 🟢 «지금» — 이 강사가 지금 수업 중인가. 표를 그린 뒤 tpLoadLiveNow() 가 비동기로 채운다
          (인사평가 점수와 같은 방식). 여기서 값을 그리지 않는 이유: 목록 API 에 그 정보가 없다. */
       '<td class="tp-now-col" id="tpnow-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap"><span style="color:#d1d5db">…</span></td>' +
+      /* 🌏 구분 — 값은 서버가 판정해 t.region 으로 내려준다(여기서 다시 판정하지 않는다) */
+      '<td id="tprgc-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _tpRegionCell(t) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpGroupBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpWorkplaceBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
@@ -4353,7 +4359,7 @@ async function _tpStPatch(id, patch) {
     if (!r.ok || d.ok !== true) {
       return { ok: false, msg: d.message || d.error || ('HTTP ' + r.status) };
     }
-    return { ok: true };
+    return { ok: true, data: d };
   } catch (e) {
     return { ok: false, msg: String(e) };
   }
@@ -4448,6 +4454,177 @@ window.tpSetTeacherHidden = async function (id, hide, _isUndo, _name) {
   /* 숨김은 «지금 보고 있는 목록에 그 행이 속하는가» 를 바꾼다 → 목록을 다시 읽는다.
      (상태 변경과 달리 칸만 칠해서는 건수(N명)가 거짓말을 한다) */
   if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+};
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🌏 구분(국가권) — 필리핀 · 북미 · 중국          (2026-09-01 사장님 지시)
+   ──────────────────────────────────────────────────────────────────────────────
+   「국가 추가해서 필리핀, 북미, 중국, 이렇게도 나눠줘 / 구분칸 추가해줘」
+
+   ⛔ 여기서 «무슨 구분인지» 를 판정하지 않는다. 판정 정본은 서버 src/teacher-region.ts
+      하나뿐이고, 목록 API 가 행마다 t.region 을 실어 준다. 저장한 뒤의 값도 서버가
+      다시 판정해 PATCH 응답의 region 으로 돌려준다.
+      ⚠️ 판정을 화면에도 한 벌 두면 반드시 어긋난다(이 저장소의 반복 사고).
+
+   ⚠️ 바꾸는 것은 «국적(nationality)» 이고 보이는 것은 «구분» 이다 — 북미는 미국·캐나다를
+      묶은 칸이라 «북미» 라는 코드를 저장하지 않는다(어느 나라인지 모르면서 아는 척하게 된다).
+      그래서 메뉴에는 나라를 늘어놓고, 표에는 묶음을 그린다.
+
+   ⚠️ 실측(2026-09-01 운영 D1 33행): nationality 가 채워진 행은 1개뿐이고 나머지는
+      출신·활동 지역 글자로 읽힌다. 그래서 「지금은 지역 글자로 읽고 있습니다」를 메뉴가 말한다.
+   감시: test-harness/teacher_region_harness.mjs */
+
+/** 서버 src/teacher-region.ts 의 목록과 «같아야» 한다(하니스가 대조). */
+var TP_REGION_LABEL = {
+  PH:  { ko: '필리핀',    en: 'Philippines',    bg: '#e0f2fe', color: '#075985' },
+  NA:  { ko: '북미',      en: 'North America',  bg: '#ede9fe', color: '#5b21b6' },
+  CN:  { ko: '중국',      en: 'China',          bg: '#ffe4e6', color: '#9f1239' },
+  ETC: { ko: '기타 국가', en: 'Other',          bg: '#f1f5f9', color: '#334155' }
+};
+/** 메뉴에 늘어놓는 나라. value 는 admin.html #tp-nationality 와 같은 ISO 2글자다. */
+var TP_REGION_PICK = [
+  { code: 'PH', ko: '필리핀',        en: 'Philippines' },
+  { code: 'US', ko: '미국 (북미)',   en: 'United States (N. America)' },
+  { code: 'CA', ko: '캐나다 (북미)', en: 'Canada (N. America)' },
+  { code: 'CN', ko: '중국',          en: 'China' },
+  { code: 'ZZ', ko: '기타 국가',     en: 'Other country' },
+  { code: '',   ko: '— 미지정으로 비우기', en: '— Clear (unset)' }
+];
+
+/** 구분 배지. ⚠️ class 에 tp-st-badge 를 함께 단다 — 글자색을 인라인 !important 로 덮는
+ *  페인터 셋(adm-s12·adm-s13·adm-light-surfaces)이 그 선택자만 비켜 가기 때문이다.
+ *  ⚠️ 배경은 background-color 로 준다(`background:#f…` 는 옛 다크 규칙에 먹혀 투명해진다). */
+function _tpRegionBadge(region) {
+  var L = _tpStIsEn();
+  var r = TP_REGION_LABEL[region];
+  if (!r) {
+    return '<span class="tp-st-badge tp-rg-badge" data-ko="— 미지정" data-en="— Unset" ' +
+      'style="background-color:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:999px;' +
+      'font-size:11px;font-weight:600;white-space:nowrap">' + (L ? '— Unset' : '— 미지정') + '</span>';
+  }
+  return '<span class="tp-st-badge tp-rg-badge" data-ko="' + r.ko + '" data-en="' + r.en + '" ' +
+    'style="background-color:' + r.bg + ';color:' + r.color + ';padding:2px 8px;border-radius:999px;' +
+    'font-size:11px;font-weight:600;white-space:nowrap">' + (L ? r.en : r.ko) + '</span>';
+}
+
+/** 구분 칸 — 상태 칸과 같은 방식으로 «누를 수 있는» 버튼이다.
+ *  ⛔ 이 버튼에 data-ko/data-en 을 달지 말 것(i18n 이 textContent 를 통째로 갈아끼운다). */
+function _tpRegionCell(t) {
+  var L = _tpStIsEn();
+  var tipKo = '눌러서 국가를 바꿉니다 — 필리핀 · 미국 · 캐나다 · 중국 (5초 안에 되돌리기 가능)';
+  var tipEn = 'Click to change country — PH · US · CA · CN (undo within 5s)';
+  return '<button type="button" class="tp-st-btn" id="tprgb-' + t.id + '" aria-haspopup="menu" ' +
+    'onclick="window.tpOpenRegionMenu && window.tpOpenRegionMenu(' + t.id + ',this)" ' +
+    'title="' + (L ? tipEn : tipKo) + '" data-ko-title="' + tipKo + '" data-en-title="' + tipEn + '">' +
+      _tpRegionBadge(t.region) +
+      '<span class="tp-st-caret" aria-hidden="true">▾</span>' +
+    '</button>';
+}
+
+/** 구분 칸 하나만 다시 그린다(표 전체를 다시 그리지 않는다 — 상태 칸과 같은 이유). */
+function _tpRgRepaint(id) {
+  var t = (window._tpRowById || {})[id];
+  var td = document.getElementById('tprgc-' + id);
+  if (!t || !td) return;
+  td.innerHTML = _tpRegionCell(t);
+}
+
+window.tpOpenRegionMenu = function (id, btn) {
+  /* ⚠️ data-tid 앞에 'rg:' 를 붙인다 — 상태 메뉴와 같은 상자(#tp-st-menu)를 쓰므로,
+     접두사가 없으면 같은 행에서 상태→구분으로 옮겨 누를 때 «같은 메뉴» 로 보고 닫기만 한다. */
+  var key = 'rg:' + id;
+  var already = _tpStMenu && _tpStMenu.getAttribute('data-tid') === key;
+  _tpStCloseMenu();
+  if (already) return;
+  var t = (window._tpRowById || {})[id] || {};
+  var L = _tpStIsEn();
+  var cur = String(t.nationality || '').toUpperCase();
+
+  var m = document.createElement('div');
+  m.id = 'tp-st-menu'; m.setAttribute('role', 'menu'); m.setAttribute('data-tid', key);
+  var html = '';
+  /* ⚠️ 국적이 비어 있는데 구분이 잡혀 있으면 «어디서 읽었는지» 를 말해 준다.
+     안 말하면 「분명 안 골랐는데 필리핀이라고 나온다」가 된다(실측: 32명이 이 상태). */
+  if (!cur && t.region) {
+    html += '<div class="tp-st-note">' +
+      (L ? 'Now read from the region text — pick a country to fix it'
+         : '지금은 출신·활동 지역 «글자» 로 읽고 있습니다 — 나라를 고르면 그 값이 정본이 됩니다') +
+      '</div><div class="tp-st-sep"></div>';
+  }
+  TP_REGION_PICK.forEach(function (o, i) {
+    if (o.code === '' && i > 0) html += '<div class="tp-st-sep"></div>';
+    var on = (o.code === cur);
+    html += '<div class="tp-st-item' + (on ? ' on' : '') + '" role="menuitem" tabindex="0" ' +
+            'data-act="region" data-val="' + o.code + '">' + (L ? o.en : o.ko) +
+            (on ? '<span class="tp-st-chk" aria-hidden="true">✓</span>' : '') + '</div>';
+  });
+  m.innerHTML = html;
+  document.body.appendChild(m);
+
+  var pick = function (el) {
+    if (!el) return;
+    var val = el.getAttribute('data-val');
+    _tpStCloseMenu();
+    window.tpSetTeacherRegion(id, val);
+  };
+  m.addEventListener('click', function (e) {
+    var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+    if (it) { e.stopPropagation(); pick(it); }
+  });
+  m.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+      if (it) { e.preventDefault(); pick(it); }
+    }
+  });
+
+  _tpStPlace(m, btn);
+  _tpStMenu = m;
+  setTimeout(function () {
+    document.addEventListener('click', function once(ev) {
+      if (_tpStMenu && _tpStMenu.contains(ev.target)) return;
+      document.removeEventListener('click', once, true);
+      _tpStCloseMenu();
+    }, true);
+  }, 0);
+  document.addEventListener('keydown', _tpStOnKey, true);
+  window.addEventListener('scroll', _tpStFollow, true);
+  window.addEventListener('resize', _tpStFollow);
+};
+
+/** 🌏 국적 바꾸기. 저장한 «뒤» 에 그린다 — 보이는 값(구분)은 서버가 판정하기 때문이다.
+ *  🔴 되돌리기에 필요한 것(이름·되돌릴 코드)은 «닫힘» 으로 넘긴다 — 구분 필터가 걸려 있으면
+ *     저장 뒤 그 행이 목록에서 빠지고, 행 캐시(window._tpRowById)에서도 사라져
+ *     「되돌리기」가 조용히 아무 일도 안 하게 된다(2026-09-01 숨기기에서 실제로 밟은 함정). */
+window.tpSetTeacherRegion = async function (id, code, _isUndo, _name, _prev) {
+  var t = (window._tpRowById || {})[id];
+  var who = _name || (t && (t.korean_name || t.english_name)) || ('#' + id);
+  var prev = (_prev !== undefined) ? _prev : ((t && t.nationality) || '');
+  var next = String(code || '').toUpperCase();
+  if (String(prev || '').toUpperCase() === next) return;      // 같은 값이면 아무것도 안 한다
+
+  var res = await _tpStPatch(id, { nationality: next || null });
+  if (!res.ok) {
+    alert((_tpStIsEn() ? 'Could not change country: ' : '국가를 바꾸지 못했습니다: ') + res.msg);
+    return;
+  }
+  if (t) {
+    t.nationality = next || null;
+    /* 구분은 서버가 판정한 값만 쓴다. 안 왔으면 화면이 지어내지 않고 목록을 다시 읽는다. */
+    if (res.data && typeof res.data.region === 'string') { t.region = res.data.region; _tpRgRepaint(id); }
+    else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
+  } else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
+
+  if (_isUndo) return;
+  var lab = (res.data && res.data.region && TP_REGION_LABEL[res.data.region])
+    ? (_tpStIsEn() ? TP_REGION_LABEL[res.data.region].en : TP_REGION_LABEL[res.data.region].ko)
+    : (_tpStIsEn() ? 'Unset' : '미지정');
+  _tpStToast(who + ' — ' + lab + ' 으로 바꿨습니다',
+             who + ' — changed to ' + lab,
+             function () { window.tpSetTeacherRegion(id, prev, true, who, next); });
+  /* 구분 필터가 걸려 있으면 «이 행이 지금 목록에 속하는가» 가 바뀐다 → 건수가 거짓말하지 않게 다시 읽는다. */
+  var rf = document.getElementById('tp-filter-region');
+  if (rf && rf.value && typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
 };
 
 async function removeTeacherProfile(id, name, btn) {
@@ -10528,6 +10705,9 @@ window.bulkCopyContacts = function() {
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
   if (e('tp-filter-group'))     e('tp-filter-group').addEventListener('change', loadTeacherProfiles);
+  /* 🌏 (2026-09-01) 구분 필터 — 이 한 줄을 빠뜨리면 «골라도 아무 일도 안 일어난다»
+     (에러도 안 난다. 새 필터를 만들 때 제일 자주 빠지는 자리다). */
+  if (e('tp-filter-region'))    e('tp-filter-region').addEventListener('change', loadTeacherProfiles);
   if (e('tp-search')) {
     var _tpSearchTimer = null;
     e('tp-search').addEventListener('input', function(){
