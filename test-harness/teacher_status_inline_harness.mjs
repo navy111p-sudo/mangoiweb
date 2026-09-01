@@ -144,6 +144,18 @@ check('기본 목록은 숨긴 행을 뺀다 (teacherVisibleSql 사용)',
   /where\.push\(teacherVisibleSql\('tp'\)\)/.test(adminCode));
 check('상태만 바꿀 때는 표를 다시 그리지 않고 «칸만» 칠한다', /_tpStRepaint/.test(coreCode));
 
+console.log('\n[ ⑤-2 계정 연결이 두 개인 강사가 «두 줄» 로 보이던 것 ]');
+check('목록 조회에 teacher_account_links LEFT JOIN 이 남아 있지 않다',
+  !/LEFT JOIN teacher_account_links/.test(adminCode));
+check('목록·단건이 «같은» 조각(PICK_LOGIN_USERNAME)을 쓴다 — 서로 다른 계정을 보여 주지 않게',
+  (adminCode.match(/\$\{PICK_LOGIN_USERNAME\}/g) || []).length === 2);
+check('연결 개수(login_link_count)를 함께 내려준다',
+  /LOGIN_LINK_COUNT/.test(adminCode) && /login_link_count/.test(adminCode));
+check('화면이 그 사실을 말한다 (연결 N개 표시)',
+  /_tpLinkDupChip/.test(coreCode) && /login_link_count \|\| 0\) > 1/.test(coreCode));
+check('그 표시도 background-color 로 쓴다 (background: 는 옛 규칙에 먹힌다)',
+  /tp-link-dup[\s\S]{0,400}background-color:#fef3c7/.test(coreSrc));
+
 console.log('\n[ ⑥ 이 저장소가 실제로 밟은 함정을 피했는가 ]');
 check('전역 button !important 를 ID 접두로 되살렸다 (#tp-list-table td button.tp-st-btn)',
   /#tp-list-table td button\.tp-st-btn \{/.test(cssSrc));
@@ -290,6 +302,58 @@ if (!DatabaseSync) {
     `SELECT korean_name AS n FROM teacher_profiles ORDER BY status='활동중' DESC, korean_name ASC`
   ).all().map(r => r.n);
   check('정렬은 종전대로 «활동중 먼저» 다', ordered[0] === '활동강사');
+
+  /* ═══ 🔴 계정 연결이 두 개여도 «한 줄» 이어야 한다 (2026-09-01 사장님 「왜 Len 이 두 명이나?」)
+     LEFT JOIN 이던 시절에는 링크가 두 줄이면 프로필 하나가 두 행으로 그려졌다.
+     ⚠️ 이건 «문자열로 조인이 없나» 를 보는 것으로는 못 박을 수 없다 — 진짜로 돌려서 행 수를 센다. */
+  db.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER);`);
+  db.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`);
+  const lenId = ins.run('Teacher Len', '활동중', now).lastInsertRowid;
+  db.prepare(`UPDATE teacher_profiles SET linked_teacher_id = 18 WHERE id = ?`).run(lenId);
+  // 운영 D1 실측 그대로 — 대소문자만 다른 계정 두 개가 같은 원부 18번에 걸려 있었다
+  const insL = db.prepare(`INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_at) VALUES (?,?,?,?)`);
+  insL.run('mangoi_168', '18', 'LEN', 1756200038000);   // 2026-08-26 20:20 연결 · 로그인 3회
+  insL.run('Mangoi_168', '18', 'LEN', 1756285346000);   // 2026-08-27 18:02 연결 · 로그인 26회(실사용)
+
+  // 소스에서 «실제로 쓰는» 두 조각을 오려 낸다 — 하니스가 따로 적으면 어긋난다
+  const pickM = adminSrc.match(/const PICK_LOGIN_USERNAME = `([\s\S]*?)`;/);
+  const cntM  = adminSrc.match(/const LOGIN_LINK_COUNT = `([\s\S]*?)`;/);
+  check('소스에서 login_username 서브쿼리를 오려 냈다', !!pickM && !!cntM);
+  if (pickM && cntM) {
+    const rows = db.prepare(
+      `SELECT tp.id, tp.korean_name AS n, ${pickM[1]}, ${cntM[1]} FROM teacher_profiles tp WHERE tp.id = ?`
+    ).all(lenId);
+    check('🔴 링크가 두 개여도 «한 줄» 이다 (LEFT JOIN 이면 두 줄이 된다)', rows.length === 1,
+      rows.length + '줄');
+    check('고르는 계정은 «가장 최근에 연결한» 것이다 (실측상 실사용 계정과 같다)',
+      rows[0] && rows[0].login_username === 'Mangoi_168', rows[0] && rows[0].login_username);
+    check('⛔ 중복을 감추지 않는다 — 몇 개인지 함께 내려준다',
+      rows[0] && rows[0].login_link_count === 2, rows[0] && rows[0].login_link_count);
+    // 링크가 하나뿐인 평범한 강사도 그대로여야 한다
+    db.prepare(`DELETE FROM teacher_account_links WHERE username = ?`).run('mangoi_168');
+    const one = db.prepare(
+      `SELECT tp.id, ${pickM[1]}, ${cntM[1]} FROM teacher_profiles tp WHERE tp.id = ?`
+    ).all(lenId);
+    check('링크가 하나면 그 아이디를 그대로 준다', one.length === 1 && one[0].login_username === 'Mangoi_168');
+    check('링크가 하나면 «연결 N개» 표시가 안 뜬다 (count === 1)', one[0].login_link_count === 1);
+    // 연결이 아예 없는 강사는 NULL (추측하지 않는다)
+    const none = db.prepare(
+      `SELECT ${pickM[1]}, ${cntM[1]} FROM teacher_profiles tp WHERE tp.korean_name = '활동강사'`
+    ).all();
+    check('연결이 없으면 NULL 이다 (아이디를 지어내지 않는다)',
+      none[0] && none[0].login_username === null && none[0].login_link_count === 0);
+  }
+
+  /* 🔴 «LEFT JOIN 으로 되돌리면 두 줄이 된다» 를 이 자리에서 증명한다 —
+     그래야 이 검사가 헛돌지 않는다는 것이 눈에 보인다. */
+  insL.run('mangoi_168', '18', 'LEN', 1756200038000);
+  const joined = db.prepare(
+    `SELECT tp.id FROM teacher_profiles tp
+       LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+      WHERE tp.id = ?`
+  ).all(lenId);
+  check('(대조) 옛 LEFT JOIN 은 실제로 두 줄을 만든다 — 그래서 바꾼 것이다', joined.length === 2,
+    joined.length + '줄');
   db.close();
 }
 
