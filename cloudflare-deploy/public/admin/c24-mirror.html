@@ -189,7 +189,13 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     ok:'만들 수 있음', already:'이미 있음(동일)', update:'값 바뀜(고쳐야함)',
     manual_locked:'사람이 손댐', diverged:'사람 손과 어긋남',
     no_teacher:'강사 못 이음', no_teacher_left:'퇴사 강사 잔재', no_student:'학생 없음',
-    not_whitelisted:'안 켠 강사', conflict:'다른 수업과 겹침'
+    not_whitelisted:'안 켠 강사', conflict:'다른 수업과 겹침',
+    student_hidden:'명부에서 숨긴 계정',
+    /* ⚠️ 이 화면에는 «유령 의심» 이 두 가지 뜻으로 있습니다 — 아래 강사별 표의 노란 줄은
+       「같은 강사·같은 날·같은 시각이 2건 이상」(시간 겹침)이고, 이 판정은 「그 학생의 그 자리가
+       카페24 이력에서 되풀이되지 않음」입니다. 2026-09-01 실사고는 **겹치지 않아서** 앞의
+       것이 못 잡았습니다. 그래서 이름표를 서로 다르게 씁니다. */
+    suspect_dup:'⚠ 되풀이 안 되는 자리(안 만듦)'
   };
 
   /* 「같은 강사 + 같은 날짜 + 같은 시각」 이 두 건 이상이면 유령 의심 —
@@ -228,6 +234,9 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     chips.push({ label:VERDICT_LABEL.already, v:s.already||0, cls:'st-good' });
     chips.push({ label:VERDICT_LABEL.update, v:s.update||0, cls:'st-warn' });
     chips.push({ label:VERDICT_LABEL.conflict, v:s.conflict||0, cls:(s.conflict?'st-bad':'') });
+    /* ⚠️ (2026-09-01) 「강사 변경 잔재 의심」 — 사람이 카페24에서 확인해 줘야 하는 줄이다.
+       ⛔ 0건이어도 감추지 않는다: 안 보이면 아무도 확인하지 않는다. */
+    chips.push({ label:VERDICT_LABEL.suspect_dup, v:s.suspect_dup||0, cls:(s.suspect_dup?'st-bad':'') });
     chips.push({ label:VERDICT_LABEL.diverged, v:s.diverged||0, cls:(s.diverged?'st-warn':'') });
     chips.push({ label:VERDICT_LABEL.manual_locked, v:s.manual_locked||0 });
     chips.push({ label:VERDICT_LABEL.no_teacher, v:s.no_teacher||0, cls:(s.no_teacher?'st-bad':'') });
@@ -242,8 +251,28 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
   function renderStateDist(r){
     var by = r.by_state || {};
     var keys = Object.keys(by);
-    if (!keys.length) { $('state-dist').textContent = '(이 창에 수업이 없습니다)'; return; }
-    $('state-dist').textContent = keys.sort().map(function(k){ return 'class_state=' + k + ' → ' + by[k] + '건'; }).join('  ·  ');
+    var box = $('state-dist');
+    if (!keys.length) { box.textContent = '(이 창에 수업이 없습니다)'; return; }
+    var line = keys.sort().map(function(k){ return 'class_state=' + k + ' → ' + by[k] + '건'; }).join('  ·  ');
+
+    /* 🔎 (2026-09-01) 카페24 :Class 가 실제로 들고 있는 속성 «이름» 목록.
+       왜 화면에 그리나 — class_state 는 잔재와 진짜가 같은 값이라 못 가른다. 우리가 안 읽고 있는
+       칸이 답을 들고 있을 수 있어서 «카페24에 무엇을 물어볼지» 의 근거로 싣는다.
+       ⛔ 이 값으로 판정하지 않는다(뜻이 확인된 뒤가 순서다).
+       ⚠️ 서버가 내려주는데 화면이 안 그리면 아무도 안 본다 — 주석이 «성적표에 싣는다» 고
+          약속해 놓고 그리지 않던 것을 trap-check 가 잡았다. */
+    var pk = r.prop_keys || [];
+    if (pk.length) {
+      line += '\n\n:Class 속성 이름 ' + pk.length + '개 — ' + pk.join(', ')
+            + '\n(취소·변경을 어떻게 표시하는지 카페24에 물어볼 때 이 목록을 쓰세요. 판정에는 안 씁니다.)';
+    }
+    /* 「강사 변경 잔재」 판정이 꺼져 있으면 화면이 그렇게 말해야 한다. */
+    if (r.dup_guard === false) {
+      line += '\n\n⚠ 「되풀이 안 되는 자리」 판정이 꺼져 있습니다 (c24_mirror_config.dup_guard=off)'
+            + ' — 강사 변경 잔재가 그대로 만들어집니다.';
+    }
+    box.textContent = line;
+    box.style.whiteSpace = 'pre-wrap';
   }
 
   function renderLastRuns(r){

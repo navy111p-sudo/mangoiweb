@@ -462,3 +462,171 @@
     }, 80);
   }
 })();
+
+/* ============================================================================
+   ⑦ 🎧 소리만 참관 · ⑧ 💬 귓속말 패널 자동 열기   (2026-08-31 STEP 2 — 사장님 지시)
+   ----------------------------------------------------------------------------
+   [무엇을 푸는가]
+   · 「보다」의 «관리용 모니터링»(보면서 지시) 과 «회선 부담 없이 수업이 도는지만 확인».
+   · 귓속말 «기능» 은 2026-08-26 부터 이미 있었다(참관 화면 채팅칸이 곧 귓속말).
+     빠져 있던 것은 «그 칸이 열려 있지 않다» 는 것뿐이라, 여기서는 열어 주기만 한다.
+
+   [소리만 참관이 진짜로 회선을 아끼는 이유 — 화면만 끄는 것이 아니다]
+   참관자는 자기가 **offer 를 만드는 쪽**이고(idx-main.js vcCreatePeerAndOffer),
+   그 offer 의 m-line 은 vcCreatePeer 가 넣는 recvonly transceiver 두 개다(video·audio).
+   그래서 **offer 를 만들기 전에** 비디오 transceiver 를 inactive 로 돌리면 상대(강사)가
+   아예 영상을 «보내지 않는다» — 받아 놓고 숨기는 것이 아니라 오지 않는다.
+   ⚠️ 그래서 이 선택은 «입장할 때» 정해진다. 도중에 바꾸려면 재협상이 필요한데 이 앱에는
+      자동 재협상이 없다 → 배너의 [영상도 보기] 는 파라미터를 빼고 **다시 여는** 방식이다
+      (순회 참관이 20초마다 하는 것과 같은 길이라 새로운 위험이 아니다).
+
+   ⛔ 영상 미수신 감시를 반드시 먼저 꺼야 한다 — 안 끄면 소리만 참관이 «고장» 으로 오인돼
+      ① 「영상이 안 옵니다」 배너가 뜨고 ② vcObserverRetryStalled 가 TURN 릴레이를 강제하며
+      모든 피어에 offer 를 다시 던진다(강사 업로드에 부담). 기존 플래그를 그대로 세운다.
+
+   [왜 여기인가] idx-main.js(850KB blocking, 첫 화면 예산)를 안 고치려고 window 의 함수를
+     감싼다 — 이 파일이 이미 쓰는 방식 그대로다. index.html 은 ?v= 한 글자만 바뀐다.
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__vcObserveExt) return;
+  window.__vcObserveExt = true;
+
+  var qs;
+  try { qs = new URLSearchParams(location.search); } catch (_) { return; }
+  if (!qs.get('observe')) return;                 // 참관 화면에서만 동작한다
+
+  var observeRoom = qs.get('observe');
+  var audioOnly = qs.get('audio') === '1';
+  var wantWhisper = qs.get('whisper') === '1';
+
+  /* ── ⑨ 참관 중에는 주소에 «?room=» 을 남기지 않는다  (2026-08-31 브라우저 검사로 발견) ──
+     [무엇이 위험한가] index.html 의 «수업 중 새로고침 = 그 수업으로 되돌아오기» 블록이
+     수업 중이면 history.replaceState 로 ?room=<방> 을 주소에 붙인다. 그런데 그 블록의
+     currentRoom() 은 «수업 관찰 중» 이라는 제목까지 벗겨 내므로 **참관 화면에서도 붙는다.**
+     그리고 ?room= 은 다른 블록이 700ms 뒤 mangoiJoinClass(room) 으로 **실제 참가자 입장**에
+     쓴다 — 저장된 아이디·비밀번호가 있으면 그대로 vcJoinRoom() 까지 간다.
+     ⟹ 참관 중 F5(또는 그 주소를 다시 열기) = «참관하려다 카메라 켜고 수업에 등장».
+     이 파일이 막으려고 만들어진 바로 그 사고다(머리말 ②·③).
+     [왜 이렇게 고치나] index.html 은 공동 금지구역이고, 그 블록의 mark() 는 닫힌 스코프라
+     window 로 덮을 수도 없다. 그래서 «주소를 쓰는 문» 하나만 참관 중에 좁힌다.
+     ⛔ 상주 setInterval 로 지우지 않는다(홈을 멎게 한 전력 — CLAUDE.md 2장). */
+  if (observeRoom) {
+    try {
+      var _origRS = history.replaceState;
+      history.replaceState = function (a, b, url) {
+        try {
+          if (typeof url === 'string' && /[?&]room=/.test(url)) {
+            var u = new URL(url, location.href);
+            u.searchParams.delete('room');
+            url = u.pathname + (u.search === '?' ? '' : u.search) + u.hash;
+          }
+        } catch (_) {}
+        return _origRS.apply(history, [a, b, url]);
+      };
+      if (/[?&]room=/.test(location.search)) {
+        var u0 = new URL(location.href);
+        u0.searchParams.delete('room');
+        _origRS.call(history, null, '', u0.pathname + (u0.search === '?' ? '' : u0.search) + u0.hash);
+      }
+    } catch (_) {}
+  }
+
+  if (!audioOnly && !wantWhisper) return;
+
+  function en() {
+    try {
+      var g = (typeof window.getLang === 'function') ? window.getLang()
+            : (localStorage.getItem('mangoi_lang') || 'ko');
+      return String(g).toLowerCase() === 'en';
+    } catch (_) { return false; }
+  }
+  function L(ko, e) { return en() ? e : ko; }
+
+  /* ── ⑦ 소리만 참관 ────────────────────────────────────────────────────── */
+  if (audioOnly) {
+    /* 이 두 플래그는 idx-main.js 의 감시 함수가 «맨 앞에서 보고 그냥 돌아가는» 값이다.
+       (vcObserverMediaWatch / vcObserverRetryStalled) — 새 코드를 넣지 않고 끄는 방법. */
+    window.__vcObserveMediaWatching = true;
+    window.__vcObserveRetried = true;
+
+    var origCreatePeer = window.vcCreatePeer;
+    if (typeof origCreatePeer === 'function') {
+      window.vcCreatePeer = function () {
+        var pc = origCreatePeer.apply(this, arguments);
+        try {
+          var n = 0;
+          (pc.getTransceivers() || []).forEach(function (t) {
+            var kind = '';
+            try { kind = (t && t.receiver && t.receiver.track && t.receiver.track.kind) || ''; } catch (_) {}
+            if (kind === 'video') { t.direction = 'inactive'; n++; }
+          });
+          if (n) { window.__vcAudioOnlyOn = true; showAudioNote(); }
+        } catch (e) {
+          /* 못 껐으면 «고치기 전» 그대로 — 영상이 오고, 배너도 뜨지 않는다(거짓말하지 않는다) */
+          console.warn('[vc-observe-ext] 소리만 적용 실패(참관은 계속):', e);
+        }
+        return pc;
+      };
+    }
+  }
+
+  /* 배너 — 실제로 «껐을 때만» 그린다. 못 껐는데 «소리만 받는 중» 이라고 적으면 거짓말이 된다. */
+  function showAudioNote() {
+    if (document.getElementById('vc-audio-only-note')) return;
+    try {
+      var st = document.createElement('style');
+      st.textContent = '#vc-audio-only-note{position:fixed;top:104px;left:50%;transform:translateX(-50%);'
+        + 'z-index:2147482990;width:max-content;max-width:min(92vw,520px);'
+        + 'padding:8px 14px;border-radius:99px;background:#1e1b4b;color:#ddd6fe;'
+        + 'border:1px solid #6d28d9;font-size:12.5px;font-weight:800;line-height:1.5;'
+        + 'display:flex;gap:10px;align-items:center;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}'
+        + '#vc-audio-only-note button{font:inherit;font-size:12px;cursor:pointer;border-radius:8px;'
+        + 'padding:4px 10px;background:#6d28d9;color:#fff;border:0}';
+      (document.head || document.documentElement).appendChild(st);
+      var box = document.createElement('div');
+      box.id = 'vc-audio-only-note';
+      box.innerHTML = '<span>' + L('🎧 소리만 참관 중 — 영상은 받지 않습니다 (회선 절약)',
+                                   '🎧 Audio-only — video is not being received (saves bandwidth)') + '</span>';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = L('🎥 영상도 보기', '🎥 Show video');
+      btn.addEventListener('click', function () {
+        /* 도중 전환은 재협상이 필요하고 이 앱에는 그것이 없다 → 다시 연다.
+           ⚠️ 지금 주소를 «물려받지» 않는다 — 화면이 그 사이에 ?room= 을 붙여 놓으면
+              그 주소로 다시 여는 순간 «실제 참가자» 로도 입장한다(⑨절 참고).
+              필요한 것만 손으로 조립한다. */
+        try {
+          var q = '?observe=' + encodeURIComponent(observeRoom || '');
+          if (wantWhisper) q += '&whisper=1';
+          location.href = location.origin + location.pathname + q;
+        } catch (_) { location.reload(); }
+      });
+      box.appendChild(btn);
+      document.body.appendChild(box);
+    } catch (_) {}
+  }
+
+  /* ── ⑧ 귓속말 패널 자동 열기 ──────────────────────────────────────────────
+     참관 입장은 DOMContentLoaded + 500ms 뒤에 시작한다(idx-main.js). 그보다 뒤에 연다.
+     ⚠️ vcToggleChat 이 아니라 vcOpenChat 을 쓴다 — 토글이면 두 번째 호출이 도로 닫는다. */
+  if (wantWhisper) {
+    [1600, 3600].forEach(function (ms) {
+      setTimeout(function () {
+        try {
+          var panel = document.getElementById('vc-chat-panel');
+          if (panel && panel.classList.contains('open')) return;
+          if (typeof window.vcOpenChat === 'function') window.vcOpenChat();
+        } catch (_) {}
+      }, ms);
+    });
+    setTimeout(function () {
+      try {
+        if (typeof window.vcAddChatSystem === 'function') {
+          window.vcAddChatSystem(L('💬 여기에 쓰면 학생에게는 보이지 않고 강사에게만 갑니다. 이름 칩을 고르면 그 사람에게만 갑니다.',
+                                   '💬 What you type here is invisible to students and goes to the teacher only. Pick a name chip to send to one person.'));
+        }
+      } catch (_) {}
+    }, 2200);
+  }
+})();

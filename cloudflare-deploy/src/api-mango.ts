@@ -14,6 +14,7 @@ import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
+import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -34,6 +35,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
@@ -504,6 +506,12 @@ export async function handleMangoApi(
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      /* 🚪 이 요청을 «받은 워커» 가 자기 DO 네임스페이스 지문을 이 도메인 이름으로 적어 둔다.
+         두 워커는 D1·KV 를 공유하지만 DO 만 갈리므로, 도메인이 서로 다른 워커에 붙으면
+         같은 방 번호로도 서로 못 만난다(2026-08-19·08-25·08-27·09-01 네 번 사고).
+         15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
+         ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
+      try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
@@ -3998,8 +4006,54 @@ ${numbered}`;
       const listBinds = [...whereBinds, limit, offset];
       const rs = await env.DB.prepare(q).bind(...listBinds).all();
 
+      /* 📼 저장·링크 URL 동봉 (2026-09-01 사장님 «카카오에 저장도 안돼»)
+         [무엇이 문제였나] 관리자 목록의 ⬇저장이 `/api/recordings/blob/<키>` + <a download> 였다.
+           그 통로는 Range 를 그대로 존중해 **206** 을 돌려주는데, 갤럭시 일부 기기가
+           저장 요청에 `Range: bytes=0-` 를 끼워 넣는다 → 안드로이드 DownloadManager 가
+           사유 없이 «다운로드에 실패했습니다» 만 반복한다. 이건 2026-08-15 에 이미 진단돼
+           `/api/recording/play?…&dl=1` 쪽에만 고쳐져 있었고(=Range 무시·200 전체 본문 +
+           Content-Disposition), 강사 화면(flow.js)은 그것을 쓰는데 **관리자 목록만** 옛
+           통로에 남아 있었다.
+         [왜 화면이 아니라 서버가 URL 을 만드나] 화면은 «그 녹화가 정말 재생되는가» 를 모른다.
+           play 엔드포인트는 file_url/filename 으로 키를 풀고 status·storage·만료까지 보고
+           404 를 낸다. 같은 판정을 여기서 한 번 해서, 풀리지 않으면 아예 안 준다 —
+           화면은 그때만 옛 blob 통로로 폴백한다(지금 되는 것을 잃지 않는다).
+         [sig 를 왜 동봉하나] 교사·관리자는 쿠키로만 인증되는데 카톡 인앱 브라우저·안드로이드
+           WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
+           범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
+           (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
+         ⚠️ 이 API 는 **관리자 전용**이다(index.ts isAdminOnlyApi 에 `/api/recordings` GET 등록).
+            «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
+         감시: test-harness/recording_download_link_harness.mjs */
+      const _nowMs = Date.now();
+      const _recItems = await Promise.all(((rs.results || []) as any[]).map(async (row: any) => {
+        // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
+        let key = String(row.file_url || '');
+        if (!key && row.filename) {
+          const fn = String(row.filename);
+          key = (fn.startsWith('rec/') || fn.startsWith('recordings/')) ? fn : 'recordings/' + fn;
+        }
+        const st = String(row.storage || '');
+        const playable = !!key && !/^https?:\/\//.test(key)
+          && row.status !== 'deleted' && row.status !== 'upload_failed'
+          && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
+          && !(row.expires_at && Number(row.expires_at) < _nowMs);
+        if (!playable) return row;
+        const sig = await signRecDlSig(row.id, env);
+        const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
+        return {
+          ...row,
+          // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
+          dl_url: '/api/recording/play' + qs + '&dl=1',
+          // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
+          share_url: siteUrl('/api/recording/play' + qs),
+          // 서명은 "만료ms.서명" 형식 — TTL 을 또 적지 않고 그 값을 그대로 읽는다(두 벌이면 어긋난다)
+          share_expires_at: parseInt(String(sig).split('.')[0], 10) || 0,
+        };
+      }));
+
       // 응답 본문은 배열 그대로 유지 (하위 호환성). 페이지네이션 메타는 헤더로 전달.
-      return new Response(JSON.stringify(rs.results || []), {
+      return new Response(JSON.stringify(_recItems), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
