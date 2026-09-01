@@ -1061,7 +1061,28 @@ export class VideoCallRoom {
     const target = data?.targetUserId || data?.to;
     const sdp = data?.sdp || data?.offer;
     if (!target || !sdp) return;
-    this.sendTo(target, { type: 'offer', data: { fromUserId: userId, fromUsername: this.usernameOf(userId) || '참가자', sdp } });
+    /* 👁 (2026-09-01 사장님 「수업 관찰 할 때 참가자가 안 보이게」) 참관자의 offer 임을 표시한다.
+       [무엇이 잘못돼 있었나] usernameOf() 는 «입장한(joined) 사람» 만 이름을 돌려주는데,
+       참관자는 handleJoinObserve 가 **일부러** joined:false 로 붙인다(«투명 유령» 설계).
+       그래서 참관자가 보내는 recvonly offer 가 여기서 이름이 «참가자» 로 **지어져** 나갔고,
+       받는 화면(js/idx-main.js vcHandleOffer)이 그 이름 그대로 피어를 만들었다
+       → 강사 화면에 이름표가 「참가자」인 검은 칸이 생겼다. 인원수·입퇴장에는 안 나오는데
+         얼굴 칸에만 나오니, 유령 설계가 «화면에서만» 깨진 상태였다.
+       ⛔ 다른 이름(«관찰자» 등)으로 바꿔서 풀지 말 것 — 참관자는 이름이 «있으면» 안 된다.
+       ⚠️ 이 표시를 지우면 화면 쪽 가드(js/vc-observe-guard.js ⑩절)가 판정 근거를 잃는다.
+          그 가드는 추측하지 않고 **서버가 참관자라고 말한 id 만** 거른다. */
+    const ws = this.wsOf(userId);
+    const att = ws ? this.attOf(ws) : null;
+    const fromObserver = String((att && att.role) || '').toLowerCase() === 'observer';
+    this.sendTo(target, {
+      type: 'offer',
+      data: {
+        fromUserId: userId,
+        fromUsername: fromObserver ? '' : (this.usernameOf(userId) || '참가자'),
+        fromObserver,
+        sdp,
+      },
+    });
   }
 
   private handleAnswer(userId: string, data: any): void {

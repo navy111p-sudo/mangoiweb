@@ -1812,6 +1812,26 @@
             <span id="rsc-status" style="font-size:11.5px;color:#6b7280"></span>
           </div>
           <div id="rsc-pin" style="font-family:MangoiHanSC,Consolas,monospace;font-size:30px;font-weight:800;letter-spacing:7px;color:#b45309"></div>
+          <!-- 📮 (2026-09-01) 접속 코드 날라다 주기 — 학생이 PIN 을 넣으면 잠금이 풀린다.
+               [왜] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 하는 구조라, 전화로 불러 주고
+                 받아 적는 자리가 제일 자주 깨졌다. 여기에 붙여넣으면 학생 화면에 크게 뜬다.
+               ⛔ 우리 서버가 화면을 조작하는 것이 아니다 — 코드를 나르기만 한다. -->
+          <div id="rsc-relay" style="display:none;margin-top:12px;padding-top:11px;border-top:1px dashed #d1d5db">
+            <div style="font-size:11.5px;color:#6b7280;line-height:1.65;margin-bottom:7px" data-ko="이제 Quick Assist 를 열어 「다른 사람 지원」 → 보안 코드를 만든 뒤, 그 숫자를 아래에 붙여넣으세요. 학생 화면에 크게 뜹니다." data-en="Now open Quick Assist → “Assist another person”, create a security code, and paste those digits below. It appears in large type on the student's screen.">이제 Quick Assist 를 열어 「다른 사람 지원」 → 보안 코드를 만든 뒤, 그 숫자를 아래에 붙여넣으세요. 학생 화면에 크게 뜹니다.</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <select id="rsc-tool" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box">
+                <option value="quickassist">Quick Assist (Windows)</option>
+                <option value="chromeremote" data-ko="Chrome 원격 데스크톱" data-en="Chrome Remote Desktop">Chrome 원격 데스크톱</option>
+                <option value="anydesk">AnyDesk</option>
+              </select>
+              <input id="rsc-code" type="text" inputmode="numeric" autocomplete="off" placeholder="접속 코드 (숫자)" data-ko-ph="접속 코드 (숫자)" data-en-ph="Access code (digits)" style="padding:6px 11px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;min-width:150px;box-sizing:border-box" />
+              <button type="button" id="rsc-send" class="primary" style="padding:6px 14px;font-size:12.5px" data-ko="📮 학생 화면에 보내기" data-en="📮 Send to student">📮 학생 화면에 보내기</button>
+            </div>
+            <div id="rsc-relay-state" style="font-size:11.5px;color:#6b7280;margin-top:6px"></div>
+            <!-- ⬅️ (2026-09-01) 반대 방향 — 휴대폰(AnyDesk 등)은 학생이 번호를 만들고 직원이 접속한다.
+                 학생이 보내면 여기에 뜬다. background-color 로 써야 옛 다크 규칙에 안 걸린다(CLAUDE.md). -->
+            <div id="rsc-student-code" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;background-color:#eff6ff;border:1px solid #bfdbfe"></div>
+          </div>
         </div>
       </details>
 
@@ -4590,7 +4610,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s1.js?v=8" defer></script><!-- 분할추출:adm-s1 --><!-- v=8: 언어 판정이 죽은 키 'adminLang' 을 읽던 것을 정본으로 교체 (2026-08-27) -->
+<script src="/js/adm-s1.js?v=9" defer></script><!-- 분할추출:adm-s1 --><!-- v=9: 예약 목록에 수강신청 수업도 함께 — 참관 버튼을 live_room 이 아니라 observable 로 가름 (2026-09-01) -->
 
 <!-- 🔐 Phase RT-2 — 화상강의실 초대 관리 (JWT 입장 토큰) -->
 <details class="table-card menu-card" id="card-room-invite">
@@ -6706,7 +6726,7 @@ window.__admSettleRun = function(fn){
 </details>
 <script type="text/lazy-js" data-src="/js/adm-longabsent.js?v=2" data-card="card-long-absent" data-globals="laLoad,laExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 <!-- 🛠 (2026-08-30 v4 제안서 07) 원격 수리·점검 PIN 발급. 학생관리 카드 안에서 쓰므로 지연로드가 아니라 defer 다. -->
-<script defer src="/js/adm-remote-pin.js?v=1"></script>
+<script defer src="/js/adm-remote-pin.js?v=3"></script>
 
 <!-- 📺 «비디오 자막 + 사전» 카드 삭제 (2026-08-10, 사장님 결정)
      자막·사전 API 가 전부 라이브 404/미구현이었다(반쪽 배선):
@@ -9956,7 +9976,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=192" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=194" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=194: 2026-09-01 「🔴 실시간 수업 현황」의 예약 줄에 수강신청 수업도 함께 뜬다.
+     참관 버튼은 live_room 이 아니라 observable 로 가른다 — 망고아이 방은 결정론적이라
+     아무도 안 붙어도 참관된다(카페24 줄은 방이 없어 그대로 버튼 없음). 판정 정본은
+     src/classes-now.ts. v=192·193 은 병렬 작업과 번호가 겹쳐 비켜 간 것(배포된 적 없음)
    · v=192: 2026-09-01 녹화 목록에 「학생」 칸 — 「교사」 칸에는 «방을 먼저 켠 사람» 이 찍혀
      학생 계정(heyst·cys01)이 그대로 올라온다. 누가 학생인지는 서버가 예약·학생명부에서
      «계정 완전일치» 로 풀어 준다(src/recording-students.ts). ⛔ participant_names 로 짓지 말 것

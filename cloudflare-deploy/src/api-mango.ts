@@ -1853,9 +1853,18 @@ export async function handleMangoApi(
        [무엇] 관리자·강사가 6자리 PIN 을 만들고, 학생이 그 PIN 을 자기 화면에 넣으면
          «원격 지원을 허용했다» 는 사실이 서버에 남는다. 그 다음 실제 화면 제어는
          **Quick Assist / Chrome 원격 데스크톱**(index.html 의 원격 지원 안내)이 한다.
-       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 여기서 PIN 이 하는 일은
-          «누가 언제 허락했는가» 를 남기는 것뿐이고, 그게 이 기능에 필요한 전부다.
+       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 브라우저에는 «남의 기기를
+          조작하는» API 가 아예 없다(보안상 일부러 없다). 실제 조작은 Quick Assist·Chrome 원격
+          데스크톱이 하고, 우리는 ① «누가 언제 허락했는가» 를 남기고 ② 직원이 만든 **접속 코드를
+          학생 화면까지 날라다 준다**. 그 둘이 이 기능의 전부다.
           (허락 기록이 없으면 「누가 내 컴퓨터를 봤나」에 답할 수가 없다.)
+
+       📞 (2026-09-01 사장님 지시 «직원이 원격으로 들어가서 수리») 왜 코드를 날라다 주나 —
+          Quick Assist 는 **도우미(직원)가 6자리 보안코드를 만들고 학생이 그것을 입력**하는 구조다.
+          그 코드를 전화로 불러 주고 받아 적게 하는 것이 이 흐름에서 제일 자주 깨지는 자리였다
+          (아이 · 한국어를 못 읽는 필리핀 강사). 직원이 붙여넣으면 학생 화면에 크게 뜬다.
+       ⚠️ 학생 쪽 조회는 PIN 이 아니라 claim 때 받은 **세션 토큰**으로 한다 — PIN(6자리)으로
+          조회를 열면 그 경로로 번호를 무제한 찍어 볼 수 있다(claim 의 5회 제한을 우회한다).
 
        [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅에 **이미** 올라와 있어
          공동 금지구역을 한 줄도 안 건드린다. 대신 라우팅과 인증은 다른 것이므로
@@ -1866,12 +1875,23 @@ export async function handleMangoApi(
           그래서 무인증이지만 ① 6자리 · ② 10분 만료 · ③ 시도 5회 제한 · ④ 1회용으로 좁힌다.
        ⛔ 응답에 학생 이름·연락처를 넣지 말 것 — 무인증 경로다. «맞다/틀리다» 까지만 말한다.
        ═══════════════════════════════════════════════════════════════════════ */
+    /* 표는 이미 운영에 있으므로 CREATE 만으로는 새 칸이 안 생긴다 — 지연 ALTER 로 붙인다
+       (attendance.host·vc_quality.novideo 와 같은 방식). ⚠️ 읽는 쪽보다 «먼저» 돌아야 하므로
+       세 경로가 전부 이 함수를 부른다. 키를 v2 로 바꿔 배포 뒤 한 번은 반드시 돌게 한다. */
+    const ensureRemoteSupportSchema = async () => {
+      await ensureSchemaOnce('remote_support_pins_v2', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
+        for (const col of ['session TEXT', 'helper_code TEXT', 'helper_tool TEXT', 'helper_at INTEGER',
+                           'student_code TEXT', 'student_tool TEXT', 'student_code_at INTEGER']) {
+          try { await env.DB.exec(`ALTER TABLE remote_support_pins ADD COLUMN ${col}`); } catch { /* 이미 있음 */ }
+        }
+      });
+    };
+
     if (path === '/api/class/remote-support/issue' && method === 'POST') {
       const rsSess: any = await checkAdminSession(request, env as any);
       if (!rsSess || !rsSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
-      await ensureSchemaOnce('remote_support_pins', async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
-      });
+      await ensureRemoteSupportSchema();
       const rsBody: any = await request.json().catch(() => ({}));
       const now = Date.now();
       const TTL_MS = 10 * 60 * 1000;
@@ -1898,6 +1918,7 @@ export async function handleMangoApi(
     }
 
     if (path === '/api/class/remote-support/claim' && method === 'POST') {
+      await ensureRemoteSupportSchema();
       const rcBody: any = await request.json().catch(() => ({}));
       const rcPin = String(rcBody.pin || '').replace(/\D/g, '');
       if (rcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
@@ -1922,14 +1943,118 @@ export async function handleMangoApi(
         try { await env.DB.prepare(`UPDATE remote_support_pins SET attempts = attempts + 1 WHERE pin = ?`).bind(rcPin).run(); } catch {}
         return json({ ok: false, error: 'uid_mismatch' }, 403);
       }
+      /* 🎫 세션 토큰 — 이 뒤로 학생 화면은 PIN 이 아니라 이것으로 조회한다(머리말 ⚠️ 참고). */
+      const rcSession = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
       try {
-        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1 WHERE pin = ?`).bind(now2, rcPin).run();
+        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1, session = ? WHERE pin = ?`).bind(now2, rcSession, rcPin).run();
       } catch (e: any) {
         /* 🔴 «허락했다» 는 기록을 못 남기면 이 기능의 존재 이유가 사라진다 — 조용히 넘기지 않는다.
-           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과. */
+           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과.
+           ⚠️ 다만 이때는 세션이 저장되지 않았으므로 코드 받기도 안 된다 — 학생 화면이
+              «기다리는 중» 에서 안 넘어가는 것이 조용히 틀린 코드를 보여 주는 것보다 낫다. */
         console.warn('[remote-support] claim 기록 실패:', (e as any)?.message);
       }
-      return json({ ok: true, claimed_at: now2 });
+      return json({ ok: true, claimed_at: now2, session: rcSession, expires_at: Number(row.expires_at) });
+    }
+
+    /* 📮 직원 → 학생 : 접속 코드 보내기 (관리자 세션 필요)
+       ⛔ 라우팅과 인증은 다른 것이다 — /api/class/ 는 라우팅만 열려 있으므로 여기서 직접 확인한다. */
+    if (path === '/api/class/remote-support/helper-code' && method === 'POST') {
+      const hcSess: any = await checkAdminSession(request, env as any);
+      if (!hcSess || !hcSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const hcBody: any = await request.json().catch(() => ({}));
+      const hcPin = String(hcBody.pin || '').replace(/\D/g, '');
+      /* 숫자만 받는다. Quick Assist 6자리 · Chrome 원격 데스크톱 12자리 · AnyDesk 9~10자리를 덮는다.
+         ⛔ 자유 문자열로 받지 말 것 — 이 값은 학생 화면에 그대로 그려진다. */
+      const hcCode = String(hcBody.code || '').replace(/\D/g, '');
+      const hcTool = ['quickassist', 'chromeremote', 'anydesk'].includes(String(hcBody.tool || ''))
+        ? String(hcBody.tool) : 'quickassist';
+      if (hcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      if (hcCode.length < 4 || hcCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let hcRow: any = null;
+      try {
+        hcRow = await env.DB.prepare(`SELECT pin, expires_at, claimed_at FROM remote_support_pins WHERE pin = ?`).bind(hcPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!hcRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(hcRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      /* ⚠️ 학생이 아직 번호를 안 넣었으면 보낼 곳이 없다 — «보냈다» 고 답하면 직원이 기다리기만 한다. */
+      if (!hcRow.claimed_at) return json({ ok: false, error: 'not_claimed' }, 409);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET helper_code = ?, helper_tool = ?, helper_at = ? WHERE pin = ?`)
+          .bind(hcCode, hcTool, Date.now(), hcPin).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 👀 직원 화면이 «학생이 번호를 넣었나» 를 본다 (관리자 세션 필요).
+       이게 없으면 직원은 전화로 계속 물어봐야 한다. */
+    if (path === '/api/class/remote-support/pin-status' && method === 'GET') {
+      const psSess: any = await checkAdminSession(request, env as any);
+      if (!psSess || !psSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const psPin = String(url.searchParams.get('pin') || '').replace(/\D/g, '');
+      if (psPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      let psRow: any = null;
+      try {
+        psRow = await env.DB.prepare(`SELECT claimed_at, expires_at, helper_at, student_code, student_tool, student_code_at FROM remote_support_pins WHERE pin = ?`).bind(psPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!psRow) return json({ ok: false, error: 'not_found' }, 404);
+      return json({ ok: true, claimed: !!psRow.claimed_at, claimed_at: Number(psRow.claimed_at) || null,
+                    code_sent: !!psRow.helper_at, expires_at: Number(psRow.expires_at) || null,
+                    /* ⬅️ 반대 방향 — 모바일(AnyDesk 등)은 «학생이 번호를 만들고 직원이 접속» 한다 */
+                    student_code: psRow.student_code || null, student_tool: psRow.student_tool || null,
+                    student_code_at: Number(psRow.student_code_at) || null });
+    }
+
+    /* ⬅️ 학생 → 직원 : 내 접속 번호 알려주기 (무인증, 세션 토큰 필요)
+       [왜 반대 방향이 필요한가] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 이지만,
+         **모바일에서 쓰는 도구(AnyDesk 등)는 정반대**다 — 학생 기기가 9~10자리 ID 를 갖고 있고
+         직원이 그 번호로 «접속» 한다. 사장님 지시가 «모바일에도 들어가서 수리» 라 이 방향이 있어야
+         폰을 덮는다. 지금까지는 그 번호를 카톡으로 불러 주게 안내하고 있었다.
+       ⛔ PIN 이 아니라 세션 토큰으로 받는다 — PIN 으로 열면 6자리를 찍어 볼 수 있다.
+       ⛔ 자유 문자열 금지 — 이 값은 직원 화면에 그대로 그려진다. 숫자만 받는다. */
+    if (path === '/api/class/remote-support/student-code' && method === 'POST') {
+      await ensureRemoteSupportSchema();
+      const scBody: any = await request.json().catch(() => ({}));
+      const scSession = String(scBody.session || '').trim();
+      const scCode = String(scBody.code || '').replace(/\D/g, '');
+      const scTool = ['anydesk', 'quickassist', 'chromeremote'].includes(String(scBody.tool || ''))
+        ? String(scBody.tool) : 'anydesk';
+      if (!/^[0-9a-f]{32}$/.test(scSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      if (scCode.length < 4 || scCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let scRow: any = null;
+      try {
+        scRow = await env.DB.prepare(`SELECT pin, expires_at FROM remote_support_pins WHERE session = ?`).bind(scSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!scRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(scRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET student_code = ?, student_tool = ?, student_code_at = ? WHERE session = ?`)
+          .bind(scCode, scTool, Date.now(), scSession).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 📥 학생 화면이 «직원이 코드를 보냈나» 를 본다 — 무인증이지만 세션 토큰이 있어야 한다.
+       ⛔ PIN 으로 조회할 수 있게 만들지 말 것(6자리를 찍어 볼 수 있게 된다 — 머리말 ⚠️). */
+    if (path === '/api/class/remote-support/status' && method === 'GET') {
+      await ensureRemoteSupportSchema();
+      const stSession = String(url.searchParams.get('session') || '').trim();
+      if (!/^[0-9a-f]{32}$/.test(stSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      let stRow: any = null;
+      try {
+        stRow = await env.DB.prepare(`SELECT expires_at, helper_code, helper_tool, helper_at FROM remote_support_pins WHERE session = ?`).bind(stSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!stRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(stRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      return json({ ok: true, code: stRow.helper_code || null, tool: stRow.helper_tool || null,
+                    sent_at: Number(stRow.helper_at) || null, expires_at: Number(stRow.expires_at) || null });
     }
 
     if (method === 'GET' && path === '/api/class/schedule/mine') {

@@ -98,6 +98,17 @@
   .reco li.warn { color: #fbbf24; }
   .reco li.bad { color: #f87171; }
   .reco:empty { display: none; }
+  /* 🛠 (2026-09-01) 진단이 실패했을 때만 나오는 «도움받기» 줄.
+     [왜] 이 페이지는 무엇이 잘못됐는지 정확히 짚어 주면서, 정작 도움으로 가는 버튼이
+       한 개도 없었다(751줄에 원격 링크 0건). 문제가 확인된 바로 그 자리가 제일 맞다. */
+  .reco-help { margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--border);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .reco-help .rh-t { font-size: 12.5px; color: var(--muted); margin-right: 2px; }
+  .reco-help a { flex: 1 1 150px; text-align: center; text-decoration: none; font-size: 13px;
+    font-weight: 700; padding: 10px 12px; border-radius: 10px; box-sizing: border-box;
+    border: 1px solid var(--border); color: var(--muted); }
+  .reco-help a.hot { background: #fbbf24; border-color: #fbbf24; color: #241804; }
+  .reco-help a:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
 
   footer { margin: 28px 0 12px; text-align: center; font-size: 11.5px; color: #475569; line-height: 1.6; }
   footer a { color: var(--accent-light); text-decoration: none; }
@@ -423,7 +434,28 @@ function buildRecommendations(){
   let html = '<h3>💡 <span data-ko="권장사항" data-en="Recommendations">' + (curLang==='ko'?'권장사항':'Recommendations') + '</span></h3><ul>';
   recos.forEach(r => { html += '<li class="' + r.lv + '">' + (curLang==='ko' ? r.ko : r.en) + '</li>'; });
   html += '</ul>';
+  /* 🛠 (2026-09-01) 실제로 문제가 잡혔을 때만 도움 줄을 붙인다.
+     ⛔ 'ok'(잘 되고 있을 때의 팁)만 있는 경우엔 붙이지 않는다 — 멀쩡한 학생에게
+        «뭔가 잘못됐나» 하는 인상을 주면 안 된다. */
+  if (recos.some(r => r.lv === 'bad' || r.lv === 'warn')) {
+    html += '<div class="reco-help">'
+      + '<span class="rh-t" data-ko="혼자 해결이 어려우면" data-en="Need a hand?">'
+      + (curLang==='ko' ? '혼자 해결이 어려우면' : 'Need a hand?') + '</span>'
+      + '<a href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" data-ko="💬 카톡으로 물어보기" data-en="💬 Ask on KakaoTalk">'
+      + (curLang==='ko' ? '💬 카톡으로 물어보기' : '💬 Ask on KakaoTalk') + '</a>'
+      + '<a class="hot" href="/?menu=remote" id="reco-remote" data-ko="🛠 원격 도움받기" data-en="🛠 Remote help">'
+      + (curLang==='ko' ? '🛠 원격 도움받기' : '🛠 Remote help') + '</a>'
+      + '</div>';
+  }
   panel.innerHTML = html;
+  /* 이 페이지를 떠나지 않고 그 자리에서 연다 — 진단 결과를 보면서 도구를 고를 수 있어야 한다.
+     ⚠️ 모달 스크립트가 아직 안 왔으면 가로채지 않는다. href(/?menu=remote)가 폴백이다. */
+  const rb = document.getElementById('reco-remote');
+  if (rb) rb.addEventListener('click', function(ev){
+    if (typeof window.openRemoteSupportModal !== 'function') return;
+    ev.preventDefault();
+    window.openRemoteSupportModal();
+  });
 }
 
 // ─────────── 1. HTTPS ───────────
@@ -747,5 +779,15 @@ window.addEventListener('load', () => {
 </script>
 <script src="/js/i18n-sweep.js?v=22"></script>
 <script defer src="/js/mg-sidebar.js"></script>
+<!-- 🛠 (2026-09-01) 원격 도움받기 모달 — 진단이 실패했을 때 이 페이지에서 바로 연다.
+     ⚠️ 이 모달은 window.getLang() 으로 한/영을 가른다. 이 페이지의 정본은 curLang 이라
+        다리를 놓아 준다 — 최상위 let 은 classic script 끼리 어휘 바인딩을 공유하므로
+        (window.curLang 은 없다) bare 이름으로 읽는다. -->
+<script>
+  if (typeof window.getLang !== 'function') {
+    window.getLang = function(){ try { return curLang; } catch (e) { return 'ko'; } };
+  }
+</script>
+<script defer src="/js/idx-remote-support.js?v=5"></script>
 </body>
 </html>

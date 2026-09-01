@@ -637,6 +637,16 @@
         '<div class="sg-row"><label data-ko="언어" data-en="Language">언어</label><div class="sg-seg" id="sg-lang"><button data-l="ko">한국어</button><button data-l="en">EN</button></div></div>' +
         '<div class="sg-row"><label data-ko="테마" data-en="Theme">테마</label><div class="sg-seg" id="sg-theme"><button data-t="light" data-ko="라이트" data-en="Light">라이트</button><button data-t="dark" data-ko="다크" data-en="Dark">다크</button></div></div>' +
         '<div class="sg-row"><label data-ko="전체화면" data-en="Fullscreen">전체화면</label><div class="sg-sw" data-act="full"></div></div>' +
+      '</div>' +
+      /* 🛠 (2026-09-01) 도움받기 — 바로 위 «장치» 그룹에 마이크 테스트·소리 확인이 있다.
+         스스로 확인해 봤는데도 안 되면 여기서 사람에게 넘어간다.
+         ⛔ 독에 8번째 버튼으로 만들지 말 것 — 독은 폭이 꽉 차 있어 좁은 폰에서 줄이 넘친다.
+         ⚠️ 수업 «중» 에 원격지원을 시작하면 프로그램을 깔고 코드를 주고받느라 수업이 더 끊긴다.
+            그래서 눈에 띄는 자리가 아니라 이 조용한 뒷자리에 둔다(2026-09-01 사장님 확인). */
+      '<div class="sg-group" style="margin-bottom:2px;">' +
+        '<div class="sg-gtitle" data-ko="도움받기" data-en="Get help">도움받기</div>' +
+        '<div class="sg-row"><label data-ko="계속 안 될 때" data-en="Still not working">계속 안 될 때</label>' +
+          '<button class="sg-test" data-act="remotehelp" data-ko="🛠 원격 도움받기" data-en="🛠 Remote help">🛠 원격 도움받기</button></div>' +
       '</div>';
     setPop.addEventListener('click', function(e){ e.stopPropagation(); });
 
@@ -671,6 +681,18 @@
       b.onclick = function(){ setTheme(b.getAttribute('data-t')==='light'); setTimeout(refreshSettings, 20); };
     });
     setPop.querySelector('[data-act="full"]').onclick = function(){ toggleFullscreen(); setTimeout(refreshSettings, 80); };
+    /* 🛠 도움받기 — 모달을 여는 함수가 없으면 그 줄을 아예 감춘다.
+       ⚠️ «보이는데 눌러도 아무 일 없는 버튼» 이 이 저장소가 반복해서 밟은 함정이다. */
+    (function(){
+      var rh = setPop.querySelector('[data-act="remotehelp"]');
+      if (!rh) return;
+      if (typeof window.openRemoteSupportModal !== 'function') {
+        var row = rh.closest ? rh.closest('.sg-group') : null;
+        if (row) row.style.display = 'none';
+        return;
+      }
+      rh.onclick = function(){ closeSettings(); window.openRemoteSupportModal(); };
+    })();
 
     document.body.appendChild(setPop);
     // 현재 언어(EN/KO)를 즉시 반영 — MutationObserver 폴백 없이도 바로 번역
