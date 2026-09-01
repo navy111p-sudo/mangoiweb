@@ -59,6 +59,19 @@
       ⛔ 상주 setInterval 도, body class MutationObserver 도 쓰지 않는다 —
          둘 다 이 저장소에서 홈 전체를 멎게 한 전력이 있다(CLAUDE.md 2장).
 
+   [🔔 2026-09-01 «사람에게 알려 주기» — 사장님 「박주형 학생 회선 문제는 어떻게 알려주지?」]
+     🔴 자동 문자·알림톡은 **구조적으로 불가능**하다. D1 실측(2026-09-01): 학생 29,461명 전원
+        `student_phone`·`phone`·`parent_phone`·`kakao_id`·`parent_kakao_id` 가 **전부 0건**이고
+        학부모 계정 연결(`parent_user_id`)도 0건이다. 번호는 카페24 원본에만 있다.
+        ⛔ 「번호가 없으니 0명에게 보냈다」를 성공으로 보고하지 말 것(CLAUDE.md 2장).
+     ✅ 그래서 **연락처 없이 바로 닿는 유일한 길 = 화면**이다. 두 가지를 여기서 한다:
+        ① 내 회선이 나쁘면 **나에게** 안내 토스트(학생·강사 공통)
+        ② 상대 회선이 나쁘면 **강사에게만** 그 타일에 표시(강사가 말을 천천히 하거나
+           카메라를 끄게 안내할 수 있다. 학생 화면에는 안 띄운다 — 어린 학생에게
+           「상대가 문제」는 도움이 안 되고 서로 탓하게 된다)
+     ⚠️ 이 파일은 defer 라 첫 화면 예산(blocking)에 잡히지 않는다. idx-main.js 에 넣지 말 것.
+     ⛔ 자주 띄우면 아무도 안 읽는다 — 지속(연속 4틱=16초) + 재공지 간격(3분) 을 둔다.
+
    🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 «강사 회선이 대체로 어떤가» 를 보는
       용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -112,7 +125,15 @@ function vcqRxTick() {
                     if (kind === 'video') {
                         var fz = s.freezeCount || 0;
                         if (prev) {
-                            if (dl + dr >= 25) Q.rxv.push(100 * dl / (dl + dr));
+                            if (dl + dr >= 25) {
+                                var lp = 100 * dl / (dl + dr);
+                                Q.rxv.push(lp);
+                                /* 🔔 이 상대에게서 오는 영상이 계속 깨지면 = 그 사람 업링크가 나쁘다.
+                                   연속 3번(약 12초) 이어질 때만 표시하고, 회복되면 곧바로 뗀다. */
+                                var B = window.__vcRxBad || (window.__vcRxBad = {});
+                                B[id] = (lp >= 8) ? (B[id] || 0) + 1 : 0;
+                                vcNetPeerMark(id, (B[id] || 0) >= 3);
+                            }
                             Q.rxf += Math.max(0, fz - (prev.fz || 0));
                         }
                         prevAll[key] = { lost: lost, rec: rec, fz: fz };
@@ -148,9 +169,68 @@ function vcqRxStart() {
     } catch (_) {}
 }
 
+/* 🔔 안내 토스트 — idx-main.js 의 vcAAONotify 와 «같은 모양, 다른 상자» 다.
+   ⛔ 같은 id 를 쓰면 음성전용 안내와 서로 덮어쓴다(둘은 다른 사실을 말한다). */
+var __vcNetToastT = null;
+function vcNetNotify(html) {
+    try {
+        var el = document.getElementById('vc-netlow-toast');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'vc-netlow-toast';
+            el.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:99999;max-width:86vw;' +
+                'background:rgba(120,53,15,.95);color:#fff7ed;border:1px solid rgba(251,191,36,.55);border-radius:12px;' +
+                'padding:10px 16px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5);text-align:center;' +
+                'opacity:0;transition:opacity .2s;pointer-events:none';
+            document.body.appendChild(el);
+        }
+        el.innerHTML = html; el.style.opacity = '1';
+        if (__vcNetToastT) clearTimeout(__vcNetToastT);
+        __vcNetToastT = setTimeout(function () { el.style.opacity = '0'; }, 6000);
+    } catch (_) {}
+}
+
+/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다
+   (그게 곧 내 업링크다). ⛔ loss === -1 은 «영상 표본 없음» 이라 판정에 쓰지 않는다. */
+function vcNetSelfWatch(loss, rtt) {
+    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0 });
+    if (loss === -1) return;                                  // 표본 없음 → 판단 보류
+    var bad = (typeof loss === 'number' && loss >= 8) || (typeof rtt === 'number' && rtt >= 400);
+    if (!bad) { W.bad = 0; return; }
+    W.bad++;
+    if (W.bad < 4) return;                                    // 연속 4틱(약 16초) — 스파이크 한 번으로는 안 띄운다
+    if (Date.now() - (W.notifiedAt || 0) < 180000) return;    // 3분에 한 번만
+    W.notifiedAt = Date.now(); W.bad = 0;
+    vcNetNotify('📶 <b>인터넷 연결이 불안정합니다.</b><br>' +
+        '<span style="font-weight:500">공유기 가까이 가거나, 유선(랜선)으로 연결하면 좋아집니다.</span><br>' +
+        '<span style="font-size:12px;opacity:.85">Your internet looks unstable — move closer to the router or use a cable.</span>');
+}
+
+/* ② 상대 회선이 나쁘다 — **강사 화면에만** 그 사람 타일에 띄운다(위 머리말 참고).
+   ⚠️ 타일 id 는 `vc-video-<userId>` 다. 유령 타일(`vcghost-…`)에는 안 붙는다. */
+function vcNetPeerMark(userId, bad) {
+    try {
+        if (!(typeof vcIsTeacherRole === 'function' && vcIsTeacherRole())) return;
+        var box = document.getElementById('vc-video-' + userId);
+        if (!box) return;
+        var hint = box.querySelector('.vc-netlow-hint');
+        if (!bad) { if (hint) hint.remove(); return; }
+        if (hint) return;
+        hint = document.createElement('div');
+        hint.className = 'vc-netlow-hint';
+        /* ⚠️ 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom:8px) 와 겹치지 않게 위쪽에 둔다 */
+        hint.textContent = '📶 이 학생 인터넷이 불안정해요 / Weak connection';
+        hint.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:9;'
+            + 'background:rgba(180,83,9,.9);color:#fff;font-size:11.5px;font-weight:700;'
+            + 'padding:4px 10px;border-radius:999px;white-space:nowrap;pointer-events:none;';
+        box.style.position = 'relative';
+        box.appendChild(hint);
+    } catch (_) {}
+}
+
 function vcQualityAcc(loss, rtt) {
     var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() });
     vcqRxStart();
+    try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
     if (loss === -1) Q.n = (Q.n || 0) + 1;
     else if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);

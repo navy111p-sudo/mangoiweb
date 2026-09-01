@@ -41,10 +41,31 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   const sent = [];
   const store = {};
   if (admin) store['mangoi_admin_session'] = JSON.stringify(admin);
-  const doc = {
-    body: { classList: { contains: (c) => inCall && c === 'vc-in-call' } },
-    getElementById: (id) => (id === 'vc-local-label' && label) ? { textContent: label } : null,
+  /* 가짜 DOM — 안내 토스트·타일 표시까지 검사하려면 만들기/붙이기가 필요하다.
+     ⚠️ 최소한만 만든다. 진짜 브라우저 검사는 manual/ 쪽 몫이다. */
+  const made = [];
+  const mkEl = (tag) => {
+    const el = {
+      tagName: tag, id: '', className: '', textContent: '', innerHTML: '',
+      style: { cssText: '', setProperty() {}, removeProperty() {} },
+      children: [],
+      appendChild(c) { this.children.push(c); c.__parent = this; return c; },
+      remove() { const p = this.__parent; if (p) p.children = p.children.filter(x => x !== this); },
+      querySelector(sel) { return this.children.find(c => '.' + c.className === sel) || null; },
+    };
+    made.push(el); return el;
   };
+  const boxes = {};
+  const doc = {
+    body: Object.assign(mkEl('body'), { classList: { contains: (c) => inCall && c === 'vc-in-call' } }),
+    createElement: mkEl,
+    getElementById: (id) => {
+      if (id === 'vc-local-label' && label) return { textContent: label };
+      if (boxes[id]) return boxes[id];
+      return made.find(e => e.id === id) || null;
+    },
+  };
+  doc.__addBox = (userId) => { const b = mkEl('div'); b.id = 'vc-video-' + userId; boxes[b.id] = b; return b; };
   const win = {
     localStorage: { getItem: (k) => (k in store ? store[k] : null) },
     document: doc,
@@ -66,9 +87,10 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
     vcRoomId: 'class-1015-20260901',
   };
   const fn = new Function(...Object.keys(sandbox),
-    qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart };');
+    qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart,'
+         + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify };');
   const api = fn(...Object.values(sandbox));
-  return { api, sent, win };
+  return { api, sent, win, doc };
 }
 
 {
@@ -201,6 +223,86 @@ console.log('\n════════ ⑥ 유령 연결 — 붙었다가 죽�
      '죽은 뒤로 20초를 센다(처음 본 시각으로 세면 죽자마자 지워진다)');
   ok(/if \(mine && it\.name === mine\)/.test(dg) && /if \(liveByName\[it\.name\]\)/.test(dg),
      '⛔ 지우는 조건(내 이름 / 같은 이름이 정상 수신 중)은 그대로 — 비대칭 확인 없이는 안 지운다');
+}
+
+console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 사람에게 «그 자리에서» 알린다 ════════');
+{
+  /* 🔔 자동 문자·알림톡이 불가능하므로(학생 전원 번호 0건) 이 안내가 유일하게 바로 닿는 길이다.
+     그래서 «뜨는가» 만이 아니라 «함부로 안 뜨는가» 도 함께 못 박는다. */
+  const t = runQlog({ student: { uid: 'juju5731', name: '박주형', role: 'student' } });
+  const shown = () => t.doc.getElementById('vc-netlow-toast');
+
+  t.api.selfWatch(2, 100); t.api.selfWatch(2, 100);
+  ok(!shown(), '회선이 멀쩡하면 안 뜬다');
+
+  for (let i = 0; i < 3; i++) t.api.selfWatch(20, 300);
+  ok(!shown(), '스파이크 3틱(12초)까지는 안 뜬다 — 잠깐 흔들린 것으로 본다');
+  t.api.selfWatch(20, 300);
+  ok(!!shown(), '4틱(약 16초) 이어지면 뜬다');
+  ok(/인터넷/.test(shown().innerHTML) && /internet/i.test(shown().innerHTML),
+     '한국어와 영어를 함께 적는다(필리핀 강사도 본다)');
+
+  const before = shown().innerHTML;
+  shown().innerHTML = '(지워짐)';
+  for (let i = 0; i < 6; i++) t.api.selfWatch(20, 300);
+  ok(shown().innerHTML === '(지워짐)', '3분 안에는 다시 안 띄운다 — 자주 뜨면 아무도 안 읽는다');
+  ok(before.length > 0, '안내 문구가 비어 있지 않다');
+
+  /* «표본 없음»(-1) 은 판정에 쓰지 않는다 — 카메라를 끈 사람이 «회선 나쁨» 이 되면 안 된다 */
+  const t2 = runQlog({ student: { uid: 'x', name: 'x', role: 'student' } });
+  for (let i = 0; i < 8; i++) t2.api.selfWatch(-1, 0);
+  ok(!t2.doc.getElementById('vc-netlow-toast'), '⛔ 영상 표본이 없는 틱(-1)은 «회선 나쁨» 으로 세지 않는다');
+
+  /* 상대 타일 표시 — 강사에게만 */
+  const stu = runQlog({ student: { uid: 's1', name: '학생', role: 'student' } });
+  stu.doc.__addBox('peerA');
+  stu.api.peerMark('peerA', true);
+  ok(!stu.doc.getElementById('vc-video-peerA').querySelector('.vc-netlow-hint'),
+     '⛔ 학생 화면에는 «상대 회선 나쁨» 을 안 띄운다(서로 탓하게 된다)');
+
+  const tea = runQlog({ admin: { uid: 'mangoi_167', name: 'Teacher - Hannah', role: 'teacher' } });
+  const box = tea.doc.__addBox('peerB');
+  tea.api.peerMark('peerB', true);
+  ok(!!box.querySelector('.vc-netlow-hint'), '강사 화면에는 그 학생 타일에 표시한다');
+  tea.api.peerMark('peerB', true);
+  ok(box.children.filter(c => c.className === 'vc-netlow-hint').length === 1,
+     '두 번 불러도 하나만 붙는다(깜빡임 방지)');
+  tea.api.peerMark('peerB', false);
+  ok(!box.querySelector('.vc-netlow-hint'), '회복되면 곧바로 뗀다');
+  tea.api.peerMark('없는피어', true);
+  ok(true, '타일이 없는 상대에게 불러도 죽지 않는다');
+
+  const bare2 = qlog.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok(/top:8px/.test(bare2) && !/vc-netlow-hint[\s\S]{0,400}bottom:8px/.test(bare2),
+     '「상대 소리가 안 와요」(bottom:8px) 와 자리가 겹치지 않는다');
+  ok(!/vc-aao-toast/.test(bare2),
+     '⛔ 음성전용 안내와 같은 상자를 쓰지 않는다(둘은 다른 사실을 말한다)');
+}
+
+console.log('\n════════ ⑨ 관리자 목록 — 누구인지 알 수 있나 ════════');
+{
+  const adm = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  ok(/e\.korean_name FROM students_erp e WHERE e\.user_id = q\.uid/.test(adm),
+     '실명을 붙인다 — 예전엔 «juju5731» 만 나와 누구인지 알 수 없었다');
+  ok(/e\.shop_name/.test(adm), '소속 매장도 함께 낸다(대리점 경유 연락용)');
+  ok(/bad_days/.test(adm), '«손실 3% 넘은 날 수» 를 센다 — 하루치로 단정하지 않기 위해');
+  ok(!/LOWER\(e\.user_id\)|LOWER\(q\.uid\)/.test(adm),
+     '⛔ LOWER() 로 맞추지 않는다 — 인덱스를 못 타 전수 스캔이 된다(4.3초 사고 전례)');
+  /* ⚠️ 부정 검사를 파일 전체에 걸면 **무관한 다른 코드**를 잡는다 — 이 파일 딴 곳에 멀쩡한
+     `LEFT JOIN students_erp` 가 있어서 실제로 거짓 FAIL 이 났다(CLAUDE.md 2장 「부정 검사를
+     «그 이름이 파일에 없다» 로 썼는데 멀쩡한 코드가 FAIL」). 그 상수 하나만 잘라서 본다. */
+  const who = (adm.match(/const WHO = `[\s\S]*?`;/) || [''])[0];
+  ok(who.length > 50, 'WHO 조각을 찾았다');
+  ok(!/LEFT JOIN/.test(who),
+     '⛔ LEFT JOIN 이 아니라 서브쿼리다 — 짝이 둘이면 행이 늘어난다');
+  ok(!/students_erp[^)]*\be\.id\b/.test(adm),
+     '⛔ students_erp 에는 id 칸이 없다 — user_id 를 쓴다');
+
+  const html = readFileSync(join(PUB, 'admin.html'), 'utf8');
+  ok(/x\.student_name\|\|x\.name/.test(html), '화면이 실명을 먼저 그린다');
+  ok(/x\.bad_days/.test(html), '화면에 «나쁜날» 이 나온다');
+  ok(/자동 문자·알림톡은 보낼 수 없습니다/.test(html),
+     '화면이 «문자를 못 보낸다» 는 사실을 말한다 — 안 적으면 매니저가 문자를 찾는다');
 }
 
 console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으로 뒤집지 않는다 ════════');
