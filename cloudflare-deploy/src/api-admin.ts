@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
@@ -38,6 +39,8 @@ import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
+import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
+import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
@@ -607,13 +610,33 @@ export async function handleAdminApi(
         }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;
-        const rs: any = await env.DB.prepare(
-          `SELECT uid, MAX(name) AS name, role, COUNT(*) AS windows,
+        const BASE = `uid, MAX(name) AS name, role, COUNT(*) AS windows,
                   ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
-                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen
-           FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
-        ).bind(since).all();
-        return json({ ok: true, days, rows: rs.results || [] });
+                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen`;
+        /* 📥 (2026-09-01) «받는 쪽» 지표를 함께 낸다 — 이 화면이 여태 «내가 보내는 것» 만 보여 줬다.
+           ⚠️ «모름» 은 -1 로 들어온다. 그대로 평균 내면 모름이 «손실 -1%» 로 섞여 숫자가 뒤집히므로
+              0 이상인 행만 센다(CASE WHEN). 표본이 하나도 없으면 NULL 이고 화면은 «—» 로 그린다.
+           ⚠️ 이 칸들은 ALTER 로 붙는다 — 첫 로그가 들어와야 생긴다(novideo·attendance.host 와 같은 사정).
+              그래서 없는 DB(개발용·복구본)에서는 이 질의가 `no such column` 으로 죽는다.
+              그때는 옛 질의로 떨어진다. ⛔ 화면 전체가 «조회 실패» 가 되게 두지 말 것. */
+        const RICH = `${BASE},
+                  ROUND(AVG(CASE WHEN p95_loss >= 0 THEN p95_loss END), 1) AS p95_loss,
+                  ROUND(AVG(CASE WHEN rx_loss   >= 0 THEN rx_loss   END), 1) AS rx_loss,
+                  ROUND(AVG(CASE WHEN rx_aloss  >= 0 THEN rx_aloss  END), 1) AS rx_aloss,
+                  ROUND(AVG(CASE WHEN rx_conceal >= 0 THEN rx_conceal END), 2) AS rx_conceal,
+                  SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, MAX(COALESCE(peers, 0)) AS peers`;
+        let rs: any = null, rx_ready = true;
+        try {
+          rs = await env.DB.prepare(
+            `SELECT ${RICH} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        } catch {
+          rx_ready = false;
+          rs = await env.DB.prepare(
+            `SELECT ${BASE} FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        }
+        return json({ ok: true, days, rx_ready, rows: rs.results || [] });
       } catch (e: any) { return json({ ok: false, error: e?.message || 'vc_quality_failed' }, 500); }
     }
 
@@ -3478,8 +3501,9 @@ export async function handleAdminApi(
           const s: any = await env.DB.prepare(`SELECT total_active_ms FROM attendance WHERE room_id=? AND role='student' ORDER BY joined_at DESC LIMIT 1`).bind(l.room_id).first();
           const tA = Number(t?.total_active_ms) || 0, sA = Number(s?.total_active_ms) || 0;
           if (tA + sA > 0) talkRatio = Math.round((sA / (tA + sA)) * 100); // 학부모용은 '아이 발화 비율'
-          const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + l.room_id + '"%').first();
-          praiseCount = Number(p?.c) || 0;
+          // ⭐ 칭찬 횟수는 정본 하나로 — 그 전에는 이 쿼리가 두 파일에 복사돼 있었고 «둘 다» 키가 틀려
+          //    (쓰기는 room, 읽기는 room_id) 모든 방에서 늘 0 이었다(point-policy.ts 주석 참고).
+          praiseCount = await praiseCountForRoom(env, l.room_id);
           const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(l.room_id).first();
           if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 300); }
         } catch {}
@@ -3775,6 +3799,30 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   PATCH  /api/admin/teacher-profiles/:id      (수정)
     //   DELETE /api/admin/teacher-profiles/:id      (제거)
     // ════════════════════════════════════════════════════════════
+    /* 🔑 강사 → 로그인 아이디 (2026-09-01) — 목록 조회와 단건 조회가 «같은 계정» 을 고르도록
+       문장을 한 곳에 둔다. 조인이 아니라 서브쿼리라 링크가 몇 개든 행이 늘지 않는다. */
+    const PICK_LOGIN_USERNAME = `(SELECT tal.username FROM teacher_account_links tal
+                                   WHERE CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+                                   ORDER BY COALESCE(tal.linked_at, 0) DESC, tal.username ASC
+                                   LIMIT 1) AS login_username`;
+    /* 🔴 (2026-09-01) 원부(teachers.active)를 «함께» 내려준다 — 두 표가 어긋나는 것을 화면이 알아채게.
+         발단: 사장님이 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 따로 있어서였다 —
+           · teachers.active      (0/1)  … 스케줄·배정·카페24 미러가 본다
+           · teacher_profiles.status(글자) … 이 명부 화면이 본다
+         한쪽만 바꿔도 에러가 안 나므로 «명부에선 사라졌는데 수업은 계속 잡히는» 상태가 조용히 생긴다.
+         실제로 그날 양쪽 방향으로 다 났다 — 내가 원부만 내려 명부에 남았고(Mariane·Jinette),
+         사장님이 화면에서 명부만 내려 원부에 남았다(Rica·FAYE, 11:00~11:01 실측).
+       ⛔ 여기서 «자동으로 맞추지» 않는다. 읽는 곳에서 고치면 어느 쪽이 정본인지 알 수 없다.
+          맞추는 것은 쓰는 곳(PATCH) 한 곳이고, 여기는 **다르다는 사실만** 보여 준다.
+       ⚠️ 조인이 아니라 서브쿼리다 — 위 login_username 과 같은 이유(조인은 행을 늘린다). */
+    const ROSTER_ACTIVE = `(SELECT t.active FROM teachers t
+                              WHERE t.id = tp.linked_teacher_id LIMIT 1) AS roster_active`;
+    const ROSTER_NAME = `(SELECT t.name FROM teachers t
+                            WHERE t.id = tp.linked_teacher_id LIMIT 1) AS roster_name`;
+    /* 연결이 두 개 이상이면 화면이 그 사실을 말해야 한다 — 골라 보여 주고 «감추지» 않는다. */
+    const LOGIN_LINK_COUNT = `(SELECT COUNT(*) FROM teacher_account_links tal2
+                                WHERE CAST(tal2.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)) AS login_link_count`;
+
     // ⚠ env.DB.exec() 는 단일 라인 SQL 만 허용 — 여러 줄 쓰면 SQL_STATEMENT_ERROR
     const ensureTeacherProfilesSchema = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, mbti TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
@@ -3788,6 +3836,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          자동 조인이 불가능함을 확인(잘못 매칭하면 다른 강사 사진이 나가는 사고가 됨).
          그래서 사람이 직접 확인하며 연결하는 컬럼을 둔다 — 관리자 화면 "강사 사진 연결" 탭에서 채움. */
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`); } catch {}
+      /* 🙈 (2026-09-01 사장님 「활동, 비활동, 그리고 안보임」) 명부에서 감출지 — status 와 «다른 축».
+         ⛔ 「안보임」을 status 값으로 만들면 «퇴사했지만 정산이 남아 명부에 남길 사람» 과
+            «활동중인데 감추고 싶은 행»(실측: 테스트강사·파라테스트)을 동시에 표현할 수 없다.
+         ⚠️ 지연 ALTER 라 첫 목록 조회가 돌아야 칸이 생긴다 — 배포 직후 SQL 에
+            `no such column: list_hidden` 이 나오는 것은 배포 실패가 아니다
+            (attendance.host·vc_quality.novideo 와 같은 방식). 읽는 쪽은 COALESCE 로 버틴다. */
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN list_hidden INTEGER DEFAULT 0`); } catch {}
       // 🔑 (2026-08-24) 로그인 아이디를 강사 프로필 화면에서 보여주려면 이 표가 있어야 한다 —
       //   teacher_account_links(admin_account.username ↔ teachers.id, "강사 계정 연결" 카드가 채움)가
       //   아직 한 번도 안 열렸으면 없을 수 있어 여기서도 보강한다.
@@ -3809,17 +3864,73 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
         binds.push(_tpActor.name, _tpActor.name);
       }
-      // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
-      //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
-      //   두 표에 같은 컬럼명이 없어 where 절은 그대로 써도 모호해지지 않는다.
-      const sql = `SELECT tp.*, tal.username AS login_username
+      /* 🙈 (2026-09-01) 명부 숨김 — status 와 «다른 축» 이라 조건도 따로 건다.
+           (없음)            → 보이는 행만        ← 기본
+           ?hidden=1         → 숨긴 행만          ← 화면 필터의 「🙈 안보임」
+           ?include_hidden=1 → 전부
+         ⚠️ 숨김은 «삭제» 가 아니다. 위 ensureTeacherProfilesSchema() 가 먼저 돌아
+            칸을 만들어 두므로 여기서 COALESCE 로 읽어도 안전하다. */
+      const fHidden = url.searchParams.get('hidden') || '';
+      if (fHidden === '1') where.push(`COALESCE(tp.list_hidden, 0) = 1`);
+      /* ⚠️ 강사 본인 조회에는 걸지 않는다 — 위에서 이미 «자기 행 하나» 로 좁혔으므로,
+         관리자가 그 강사를 명부에서 숨긴 순간 본인 화면이 빈손이 된다. 숨김은
+         «관리자 목록에서 안 보이게» 하려는 것이지 본인에게 감추려는 것이 아니다. */
+      else if (!_tpActor.isTeacher && (url.searchParams.get('include_hidden') || '') !== '1') {
+        where.push(teacherVisibleSql('tp'));
+      }
+      /* 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 그 강사의 실제
+         로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
+
+         🔴 (2026-09-01) LEFT JOIN 이 아니라 «서브쿼리» 인 이유 — 조인은 행을 늘린다.
+            teacher_account_links 에 같은 teacher_id 가 두 줄이면 프로필 하나가
+            **두 줄로 그려진다.** 사장님 제보 「왜 Len 이 두 명이나 있지?」가 그것이었다:
+            원부 18번(LEN)에 `mangoi_168` 과 `Mangoi_168`(대문자 M) 두 링크가 걸려 있었고
+            — 뿌리는 CLAUDE.md 의 「대소문자만 다른 계정이 두 벌 생긴다」 함정 —
+            명부에 사진·전화·MBTI 까지 똑같은 줄이 나란히 나왔다.
+            ⛔ 「연결 카드에서 둘 다 연결하지 마세요」라는 경고만으로는 못 막는다.
+               조인 자체가 행을 못 늘리게 하는 것이 근본이다.
+         ⚠️ 어느 계정을 고르나 — «가장 최근에 연결한 것». 실측(2026-09-01)에서도 그쪽이
+            실제로 쓰는 계정이었다(Mangoi_168 로그인 26회 대 mangoi_168 3회).
+            동점이면 username 으로 갈라 **결과가 매번 같게** 한다.
+         ✅ 그렇다고 중복을 «감추지» 는 않는다 — login_link_count 를 함께 내려
+            화면이 「연결 2개」라고 말하게 한다(감추면 아무도 정리하지 않는다). */
+      const sql = `SELECT tp.*,
+                          ${PICK_LOGIN_USERNAME},
+                          ${LOGIN_LINK_COUNT},
+                          ${ROSTER_ACTIVE},
+                          ${ROSTER_NAME}
                    FROM teacher_profiles tp
-                   LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
                    ${where.length ? ' WHERE ' + where.join(' AND ') : ''}
                    ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
         const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
-        return json({ ok: true, items: rs.results || [] });
+        let items = rs.results || [];
+        /* 🌏 (2026-09-01) 구분(필리핀·북미·중국) — 판정은 src/teacher-region.ts 한 곳뿐이고,
+           그 결과를 행에 실어 내려준다. ⛔ 화면이나 SQL 에서 다시 판정하지 말 것(두 벌이 되면 어긋난다).
+           ⚠️ SQL WHERE 가 아니라 «읽은 뒤 거르기» 인 이유 — 판정이 nationality 뿐 아니라
+              origin_region·active_region·group_name 글자까지 보기 때문이다. 같은 규칙을 SQL 로
+              옮겨 적으면 그 순간 정본이 두 벌이 된다. 이 목록은 쪽나눔이 없어(전체 33행) 안전하다. */
+        for (const r of items as any[]) { if (r) r.region = resolveTeacherRegion(r); }
+        const fRegion = url.searchParams.get('region') || '';
+        if (fRegion) items = items.filter((r: any) => teacherRegionMatches(fRegion, (r && r.region) || ''));
+        /* 🔎 어긋난 행을 «세어서» 함께 내려준다. 화면은 이 숫자로 한 줄 경고를 띄운다.
+           ⚠️ 연결이 없는 프로필(linked_teacher_id NULL)은 어긋남이 아니다 — 셀 대상이 아니라
+              «아직 안 이어진» 것이고, 그건 별도 항목으로 이미 보인다. */
+        const mismatch = items.filter((r: any) => {
+          if (r == null || r.linked_teacher_id == null) return false;
+          if (r.roster_active == null) return false;            // 원부에 그 번호가 없다 → 연결이 깨진 것(아래에서 따로)
+          const live = String(r.status || '') === '활동중';
+          return live !== (Number(r.roster_active) === 1);
+        }).map((r: any) => ({
+          id: r.id, name: r.korean_name || r.english_name || null,
+          status: r.status || null, roster_name: r.roster_name || null,
+          roster_active: Number(r.roster_active) === 1 ? 1 : 0,
+        }));
+        /* 연결 번호는 있는데 원부에 그 행이 없는 경우 — 끊어진 연결. 이것도 조용하면 안 된다. */
+        const brokenLink = items.filter((r: any) =>
+          r && r.linked_teacher_id != null && r.roster_active == null
+        ).map((r: any) => ({ id: r.id, name: r.korean_name || r.english_name || null }));
+        return json({ ok: true, items, roster_mismatch: mismatch, roster_broken_link: brokenLink });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
       }
@@ -3957,8 +4068,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         for (const c of UPD_COLS) { const val = clean(raw[c]); if (val !== undefined) fields[c] = val; }
         if (clean(raw.name) && !fields.english_name) fields.english_name = clean(raw.name);
         if (mbti) fields.mbti = mbti;
+        /* 🧑‍🏫 (2026-09-01) 상태는 «아는 값» 만 받는다 — UPD_COLS 에 'status' 가 있어서
+           구글시트에 적힌 문자열이 그대로 들어가고 있었다. 「휴직」·「Active」 같은 값이
+           저장되면 그 강사는 배정 후보·급여·순위 어디에도 안 잡힌다(전부 '활동중' 으로 거른다).
+           ⛔ 한 행 때문에 임포트 전체를 400 으로 막지는 않는다 — 붙여넣기 작업이라 나머지가
+              멀쩡하면 넣는 편이 낫다. 대신 **그 칸만 빼고, 뺐다는 사실을 화면에 돌려준다.**
+              (조용히 넣지도, 조용히 버리지도 않는다) */
+        let statusIgnored: string | null = null;
+        if (fields.status !== undefined) {
+          const _canon = canonTeacherStatus(fields.status);
+          if (_canon) fields.status = _canon;
+          else { statusIgnored = String(fields.status); delete fields.status; }
+        }
         if (dryRun) {
-          results.push({ name, action: match ? 'update' : 'create', id: match ? match.id : null, fields: Object.keys(fields), mbti: mbti || null });
+          results.push({ name, action: match ? 'update' : 'create', id: match ? match.id : null, fields: Object.keys(fields), mbti: mbti || null, status_ignored: statusIgnored });
           if (match) updated++; else created++;
           continue;
         }
@@ -3972,7 +4095,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               await env.DB.prepare(`UPDATE teacher_profiles SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
             }
             tid = match.id; updated++;
-            results.push({ name, action: 'update', id: tid, changed: keys });
+            results.push({ name, action: 'update', id: tid, changed: keys, status_ignored: statusIgnored });
           } else {
             const kn = fields.korean_name || fields.english_name || name;
             const en = fields.english_name || name;
@@ -3983,7 +4106,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                    fields.available_days||null, fields.available_hours||null, fields.fee_per_10min||null, fields.active_region||null, fields.notes||null, fields.mbti||null, now, now).run();
             tid = Number(r.meta?.last_row_id || 0); created++;
             byName.set(name.toLowerCase(), { id: tid, korean_name: kn, english_name: en });
-            results.push({ name, action: 'create', id: tid });
+            results.push({ name, action: 'create', id: tid, status_ignored: statusIgnored });
           }
           if (mbti && tid) {
             try {
@@ -4014,11 +4137,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
       }
       if (method === 'GET') {
-        // 🔑 (2026-08-24) login_username — 위 목록 조회와 같은 조인(추측 아닌 명시적 연결만)
+        /* 🔑 login_username — 목록 조회와 **똑같은 문장**을 쓴다(위 주석 참고).
+           ⚠️ 여기만 LEFT JOIN 으로 두면 명부와 수정 모달이 «서로 다른 계정» 을 보여 준다
+              (.first() 는 둘 중 아무거나 집는다). 고르는 규칙이 한 곳이어야 한다. */
         const row = await env.DB.prepare(
-          `SELECT tp.*, tal.username AS login_username
+          `SELECT tp.*,
+                  ${PICK_LOGIN_USERNAME},
+                  ${LOGIN_LINK_COUNT}
              FROM teacher_profiles tp
-             LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
             WHERE tp.id = ?`
         ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
@@ -4034,11 +4160,39 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           'image_url','intro_video_url','active_region','origin_region','fee_per_10min',
           'group_name','status','join_date','leave_date','education','career','certifications',
           'available_days','available_hours','bank_name','bank_account','mbti','nationality','notes',
-          'linked_teacher_id'];   // 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers.id 와 수동 연결
+          'linked_teacher_id',   // 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers.id 와 수동 연결
+          'list_hidden'];        // 🙈 (2026-09-01) 명부에서 감출지 (0/1) — status 와 다른 축
+        /* 🧑‍🏫 (2026-09-01) 상태는 «아는 값» 만 저장한다.
+           전에는 어떤 문자열이든 그대로 들어가서, 오타 하나가 조용히 저장되면 그 강사가
+           어느 목록에도 안 잡혔다(배정 후보·급여·순위가 전부 '활동중' 으로 거른다).
+           ⛔ 모르는 값을 조용히 null 로 눕히지 않는다 — 그러면 「화면에서 골랐는데 그 값만
+              저장이 안 됨」(CLAUDE.md 2장)이 된다. 400 으로 되돌려 화면이 말하게 한다.
+           ℹ️ 빈 값('')은 종전대로 «미지정»(=활동중으로 읽힘)이라 허용한다. */
+        if (b.hasOwnProperty('status')) {
+          const _stRaw = b.status;
+          const _stEmpty = (_stRaw === null || _stRaw === undefined || String(_stRaw).trim() === '');
+          if (!_stEmpty && !isTeacherStatus(_stRaw)) {
+            return json({ ok: false, error: 'bad_status',
+              message: '모르는 상태값입니다: "' + String(_stRaw) + '" (허용: ' + TEACHER_STATUSES.join(' · ') + ')' }, 400);
+          }
+          if (!_stEmpty) b.status = canonTeacherStatus(_stRaw);   // '재직' 같은 옛 별칭을 정본으로 눕힌다
+        }
+        /* 📜 상태·숨김 변경은 배정·급여·학생 홈 노출까지 흔든다 — 바꾸기 «전» 값을 먼저 읽어 둔다.
+           ⚠️ 실패해도 수정 자체는 진행한다(기록이 본 작업을 막으면 안 된다). */
+        const _tpLogged = b.hasOwnProperty('status') || b.hasOwnProperty('list_hidden');
+        let _tpBefore: any = null;
+        if (_tpLogged) {
+          try {
+            _tpBefore = await env.DB.prepare(
+              `SELECT korean_name, status, list_hidden FROM teacher_profiles WHERE id = ?`
+            ).bind(id).first<any>();
+          } catch (e: any) { console.error('[teacher-status] before:', e?.message); }
+        }
         const sets: string[] = []; const binds: any[] = [];
         allowed.forEach(k => {
           if (b.hasOwnProperty(k)) {
             let v = b[k] === '' ? null : b[k];
+            if (k === 'list_hidden') v = toTeacherListHidden(b[k]);   // 화면 체크 → 0/1
             if (k === 'mbti' && v) v = String(v).toUpperCase().slice(0, 4);   // 표준화 (예: intj → INTJ)
             // 🌏 국적 — ISO 2글자 대문자로 표준화(예: ph → PH). 이 값이 화면 언어를 정한다.
             if (k === 'nationality' && v) v = String(v).toUpperCase().trim().slice(0, 2);
@@ -4053,7 +4207,102 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           await env.DB.prepare(
             `UPDATE teacher_profiles SET ${sets.join(', ')} WHERE id = ?`
           ).bind(...binds).run();
-          return json({ ok: true, id });
+          /* 📜 「내가 안 바꿨는데?」에 답할 수 있게 한 줄 남긴다. 표는 관리자 통제 로그와 공용.
+             ⚠️ 통째로 try/catch — 기록이 던지면 방금 성공한 수정이 실패로 보인다. */
+          if (_tpLogged) {
+            try {
+              await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+              await env.DB.prepare(
+                `INSERT INTO admin_audit_logs (admin_uid, action, target_user, meta, created_at) VALUES (?,?,?,?,?)`
+              ).bind(
+                String(_tpiActor.username || _tpiActor.name || 'unknown'),
+                'teacher_status_change',
+                String((_tpBefore && _tpBefore.korean_name) || ('#' + id)),
+                JSON.stringify({
+                  teacher_profile_id: id,
+                  before: { status: (_tpBefore && _tpBefore.status) || null, list_hidden: Number((_tpBefore && _tpBefore.list_hidden) || 0) },
+                  after:  {
+                    status: b.hasOwnProperty('status') ? (b.status || null) : undefined,
+                    list_hidden: b.hasOwnProperty('list_hidden') ? toTeacherListHidden(b.list_hidden) : undefined,
+                  },
+                }),
+                Date.now()
+              ).run();
+            } catch (e: any) { console.error('[teacher-status] audit:', e?.message); }
+          }
+
+          /* 🔴 (2026-09-01) 재직 여부를 «원부에도» 함께 반영한다 — 두 표가 갈리는 것을 여기서 막는다.
+               발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 있다 —
+                 · teacher_profiles.status … 이 명부 화면이 본다
+                 · teachers.active        … 스케줄·배정·카페24 미러가 본다
+               한쪽만 바꿔도 에러가 안 나서, 같은 날 **양쪽 방향으로 다** 어긋났다:
+                 내가 원부만 내려 명부에 남았고(Mariane·Jinette),
+                 사장님이 화면에서 명부만 내려 원부에 남았다(Rica·FAYE — 11:00~11:01 실측).
+               그래서 «쓰는 곳 한 군데» 에서 맞춘다. 읽는 곳에서 맞추면 어느 쪽이 정본인지 사라진다.
+             ⚠️ status 를 «보냈을 때만» 손댄다 — 전화번호만 고치는 요청이 원부를 건드리면 안 된다.
+             ⚠️ 「안보임」(list_hidden)은 다른 축이라 여기서 손대지 않는다 — 감추는 것은 재직 여부가 아니다.
+             ⚠️ 연결이 없으면(linked_teacher_id NULL) 할 일이 없다. 이름으로 추측해 잇지 않는다
+                (번호·이름 추측으로 남의 일정·급여가 붙은 사고가 이 저장소에 세 번 있다).
+             ⚠️ 실패해도 프로필 저장은 성공으로 둔다 — 사람이 방금 누른 저장을 되돌리는 것이 더 나쁘고,
+                어긋남은 목록의 roster_mismatch 가 계속 알려 준다. 대신 무엇이 안 됐는지 응답에 싣는다. */
+          let rosterSync: any = null;
+          if (b.hasOwnProperty('status')) {
+            const wantLive = String(b.status || '') === '활동중';
+            try {
+              const prof: any = await env.DB.prepare(
+                `SELECT linked_teacher_id FROM teacher_profiles WHERE id = ?`
+              ).bind(id).first();
+              const tid = prof && prof.linked_teacher_id != null ? Number(prof.linked_teacher_id) : 0;
+              if (!tid) {
+                rosterSync = { changed: 0, reason: 'not_linked' };
+              } else {
+                const r: any = await env.DB.prepare(
+                  `UPDATE teachers SET active = ?, updated_at = ? WHERE id = ? AND active <> ?`
+                ).bind(wantLive ? 1 : 0, Date.now(), tid, wantLive ? 1 : 0).run();
+                rosterSync = { changed: Number(r?.meta?.changes || 0), teacher_id: tid, active: wantLive ? 1 : 0 };
+
+                /* 🪞 내릴 때는 카페24 미러도 함께 막는다.
+                     화이트리스트는 «적혀 있으면 켠다» 라, 안 적어 두면 전환일(mode='all')에
+                     그 강사의 잔재 예약이 전부 만들어진다(실측: 퇴사한 Mariane 앞으로 30건).
+                   ⛔ 반대로 «되살릴» 때는 자동으로 켜지 않는다 — 미러를 켜는 것은 사람이 정할 일이고,
+                      한 번 막힌 강사가 복직으로 조용히 다시 켜지는 쪽이 더 위험하다. */
+                if (!wantLive) {
+                  try {
+                    await env.DB.exec(`CREATE TABLE IF NOT EXISTS c24_mirror_teachers (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0, note TEXT, updated_by TEXT, updated_at INTEGER);`);
+                    await env.DB.prepare(
+                      `INSERT INTO c24_mirror_teachers (teacher_id, enabled, note, updated_by, updated_at)
+                       VALUES (?, 0, ?, ?, ?)
+                       ON CONFLICT(teacher_id) DO UPDATE SET enabled = 0, note = excluded.note,
+                         updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+                    ).bind(
+                      String(tid),
+                      '명부에서 «' + String(b.status || '') + '» 으로 내려 자동 차단 — 전환일(mode=all)에도 만들지 않는다',
+                      String(_tpiActor.username || _tpiActor.name || 'profile-status'),
+                      Date.now()
+                    ).run();
+                    rosterSync.mirror_blocked = true;
+                  } catch (e2: any) { rosterSync.mirror_error = String(e2?.message || e2); }
+                }
+              }
+            } catch (e1: any) {
+              rosterSync = { changed: 0, error: String(e1?.message || e1) };
+            }
+          }
+          /* 🌏 (2026-09-01) 구분은 서버만 판정한다(src/teacher-region.ts).
+               국적을 바꿨으면 «바뀐 구분» 을 응답에 실어 준다 — 화면이 같은 판정을 한 벌 더
+               갖지 않게 하려는 것이다(두 벌이 되면 반드시 어긋난다).
+             ⚠️ 다시 읽는 이유: 구분은 국적만이 아니라 출신·활동 지역 글자도 본다.
+             ⚠️ 실패해도 저장은 성공으로 둔다 — 화면은 region 이 없으면 목록을 다시 읽는다. */
+          let regionAfter: string | undefined;
+          if (b.hasOwnProperty('nationality')) {
+            try {
+              const rowAfter: any = await env.DB.prepare(
+                `SELECT nationality, origin_region, active_region, group_name FROM teacher_profiles WHERE id = ?`
+              ).bind(id).first();
+              regionAfter = resolveTeacherRegion(rowAfter);
+            } catch (e: any) { console.error('[teacher-region] after:', e?.message); }
+          }
+          return json({ ok: true, id, roster_sync: rosterSync, region: regionAfter });
         } catch (e: any) {
           return json({ ok: false, error: String(e?.message || e) }, 500);
         }

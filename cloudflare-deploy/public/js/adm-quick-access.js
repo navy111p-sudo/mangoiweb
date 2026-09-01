@@ -64,7 +64,10 @@
       card: null, sub: null, href: '/work', pin: true,
       ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
 
-    { key: '오늘수업',   ko: '오늘 수업 (바로 입장)',   en: "Today's classes (join)",
+    /* 🚪 (2026-09-01 B안) 이름을 사이드바·카드와 «같은 말» 로 맞춘다.
+       ⚠️ key 는 '오늘수업' 그대로 둔다 — 사용기록(mangoi_qa_use)이 그 키로 쌓여 있어서
+          바꾸면 사람이 쌓아 둔 순서가 통째로 초기화된다. */
+    { key: '오늘수업',   ko: '오늘 수업',   en: "Today's classes",
       card: 'card-students-mgmt', sub: 'sm-today-classes',
       ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
 
@@ -253,9 +256,16 @@
         → 우리가 감춤을 되돌리지 않는다(인라인 style 로는 !important 를 못 이긴다).
           대신 **그 항목의 사이드바 버튼을 대신 눌러 준다.** ia6 자신의 로직이 그대로 돈다.
         버튼은 한글 이름이 아니라 data-card 로 찾는다 — 항목 이름이 바뀌어도 안 깨지게. */
+  /* 🔴 (2026-09-01) 같은 카드를 가리키는 항목이 둘 이상일 수 있다 — querySelector 는
+     **첫 매치**라 DOM 에서 앞선 그룹이 그 카드를 통째로 가져간다. `openSub`(data-ia6-sub)이
+     달린 항목은 카드 «안의 한 칸» 을 가리키는 **잎**이지 그 카드의 주인이 아니므로 뒤로 미룬다.
+     실측: 「오늘 수업」이 card-students-mgmt 를 가리키게 되자 ⚡「학생 목록」이 «오늘 수업» 칸으로
+           끌려가 학생 명부가 화면 위로 밀려났다(카드 top −546).
+     ⚠️ 같은 판정이 js/adm-ia6.js 의 ia6OwnerBtn 에도 있다 — 한쪽만 고치면 그쪽만 옛 동작이다. */
   function ia6Btn(cardId) {
     try {
-      return document.querySelector('#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]');
+      var q = '#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]';
+      return document.querySelector(q + ':not([data-ia6-sub])') || document.querySelector(q);
     } catch (e) { return null; }
   }
 

@@ -56,19 +56,51 @@ export function kstDayStart(now = Date.now()): number {
  *     들어올 자격은 「하루에 많아야 한 번 + 놓치면 다시 안 옴」 둘 다 만족할 때뿐이다. */
 export const CAP_EXEMPT_RULES = ['ai_writing_streak', 'attendance_streak'];
 
+/**
+ * 🧾 «원장에는 남기되, 상한 계산에는 넣지 않는» 규칙.
+ *
+ * [왜 필요한가] 단어장·복습퀴즈 보상은 **자기 표에서 이미 상한을 받습니다**
+ *   (`vocab_rewards` 하루 400점 · `review_quiz_rewards` 하루 500점).
+ *   그런데 그동안 `point_transactions` 를 아예 안 거쳐서 **학생 본인의 포인트 내역**·
+ *   **학부모 대시보드**·**관리자 월간 합계** 어디에도 한 줄이 안 남았습니다.
+ *   잔액만 늘고 «왜 늘었는지» 가 없었습니다(2026-09-01 실측: 원장 밖 적립 2,746점).
+ *
+ * ✅ 원장에 «기록» 은 남깁니다 — 금액을 바꾸지 않는 순수한 개선입니다.
+ * ⛔ 다만 그 값을 상한 계산에 **넣지는 않습니다.** 넣는 순간 학생이 받던 보상이
+ *    최대 10분의 1로 줄어듭니다(400+500+100 → 100). 그건 «버그 수리» 가 아니라
+ *    **보상 정책 변경**이라 사장님이 정할 일입니다.
+ *
+ * 📌 [사장님 결정 대기] 이 목록을 비우면 그날로 정책이 하루 100점으로 통일됩니다.
+ *    지금 실효 상한은 **단어장 400 + 단어장 미션 50 + 복습퀴즈 500 + 총량 100 = 하루 1,050점**입니다
+ *    (= 1,050원. 미션은 `kind !== 'mission'` 조건 때문에 400점 상한 «밖» 이고 하루 1회 멱등입니다).
+ *
+ * ⚠️ 이 수리로도 **원장 밖 적립이 다 없어진 것은 아닙니다** — `api-admin.ts` 의
+ *    이탈관리 🎁 기프트·컴백 번들이 아직 `student_points.balance` 를 직접 올립니다(A 담당 영역).
+ */
+export const CAP_UNCOUNTED_RULES = ['vocab_review', 'review_quiz_done'];
+
 /** 오늘 이 학생이 «적립» 으로 받은 점수 합계.
  *  ⚠️ 차감(spend)·회수만 빼는 게 아니라 **환불·관리자 지급도 뺀다** — 그 둘은 «오늘 벌었다» 가
  *     아니다. 3,000P 기프티콘 환불 한 건이 그날 적립을 통째로 막아 버리기 때문이다
- *     (applyPointTransaction 의 isCredit 이 refund·admin_grant 도 양수로 적는다). */
+ *     (applyPointTransaction 의 isCredit 이 refund·admin_grant 도 양수로 적는다).
+ *
+ *  🔀 (2026-09-01 병합) **여기서 빼는 목록이 «둘» 이고 뜻이 다르다.** 한 줄로 합쳐 놓으면
+ *     다음 사람이 하나로 알고 한쪽을 지운다:
+ *       · `CAP_EXEMPT_RULES`  = 다시 오지 않는 마디 보상 → 세지도 않고 **막지도 않는다**
+ *                               (`checkEarnAllowed` 가 첫 줄에서 그대로 통과시킨다)
+ *       · `CAP_UNCOUNTED_RULES` = 자기 표에서 이미 상한을 받는 적립 → **막기는 하되** 여기서 안 센다
+ *     ⛔ 그래서 두 배열을 하나로 합치지 말 것 — 합치는 순간 단어장·복습퀴즈가 총량 상한을
+ *        통째로 지나가거나(면제로 오해), 마디 보상이 영영 사라진다(미집계로 오해). */
 export async function earnedToday(env: any, userId: string): Promise<number> {
   try {
-    const marks = CAP_EXEMPT_RULES.map(() => '?').join(',');
+    const skip = [...CAP_EXEMPT_RULES, ...CAP_UNCOUNTED_RULES];
+    const marks = skip.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
         WHERE user_id = ? AND amount > 0 AND created_at >= ?
           AND type = 'earn'
           AND (rule_code IS NULL OR rule_code NOT IN (${marks}))`
-    ).bind(userId, kstDayStart(), ...CAP_EXEMPT_RULES).first();
+    ).bind(userId, kstDayStart(), ...skip).first();
     return Number(row?.s || 0);
   } catch { return 0; }   // 못 세면 막지 않는다 — 적립이 조회 실패로 죽으면 안 된다
 }
@@ -76,11 +108,15 @@ export async function earnedToday(env: any, userId: string): Promise<number> {
 /** 게임·퀴즈 묶음으로 오늘 받은 점수 합계 (하루 30점 상한용). */
 export async function earnedTodayForGames(env: any, userId: string): Promise<number> {
   try {
-    const marks = GAME_QUIZ_RULES.map(() => '?').join(',');
+    /* ⚠️ 여기서도 빼야 한다 — GAME_QUIZ_RULES 에 vocab_review·review_quiz_done 이 들어 있어서,
+       원장에 기록을 남기기 시작하면 게임 묶음 상한(하루 30점)이 갑자기 조여진다.
+       기록은 남기되 상한은 그대로 — 위 CAP_UNCOUNTED_RULES 주석 참고. */
+    const counted = GAME_QUIZ_RULES.filter((r) => !CAP_UNCOUNTED_RULES.includes(r));
+    const marks = counted.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
         WHERE user_id = ? AND amount > 0 AND created_at >= ? AND rule_code IN (${marks})`
-    ).bind(userId, kstDayStart(), ...GAME_QUIZ_RULES).first();
+    ).bind(userId, kstDayStart(), ...counted).first();
     return Number(row?.s || 0);
   } catch { return 0; }
 }
@@ -237,5 +273,62 @@ export async function clawbackClassPoints(
     return { ok: true, clawed };
   } catch (e: any) {
     return { ok: false, clawed: 0, reason: String(e?.message || e) };
+  }
+}
+
+// ── ⭐ 수업 중 «칭찬» 횟수 ────────────────────────────────────────────
+/**
+ * 그 방에서 강사가 준 칭찬(⭐) 횟수. **정본은 이 함수 하나다.**
+ *
+ * [무엇이 잘못돼 있었나] 쓰는 쪽과 읽는 쪽의 키 이름이 어긋나 있었다 —
+ *   · 쓰기(`api-points.ts` creditPraisePoint): `JSON.stringify({ room: …, awardId: … })` → **`room`**
+ *   · 읽기(`api-admin.ts`·`api-points.ts` 두 곳): `meta LIKE '%"room_id":"…"%'` → **`room_id`**
+ *   그래서 **모든 방에서 늘 0** 이었다(2026-09-01 D1 실측: 칭찬 76건 전부 `room`, `room_id` 0건).
+ *
+ * ⚠️ 그냥 «통계가 비는» 문제가 아니다. 이 값이 0이면 학부모·강사용 AI 문구가
+ *    「칭찬이 거의 없었는데…」("There was little praise —")로 **강사를 지적**한다.
+ *
+ *    🔴 [잰 것 — 2026-09-01] **이미 일어난 사고다.** 그 문구가 저장되는 표는
+ *    `teacher_class_feedback` 인데(api-points.ts 의 강사 코칭 피드백), **32행 전부**에
+ *    「칭찬이 거의 없었는데…」가 적혀 있다(2026-07-27 ~ 08-28).
+ *    그중 실제로 칭찬이 있었던 방은 **2건** — `mangoi-class`(칭찬 **73회**, mangoi_033)와
+ *    `class-1007-20260827`(1회, Hannah). 이 둘은 **부당한 지적**이다.
+ *    나머지 30건은 실제로 0이라 문구가 사실과 맞았다.
+ *    ⚠️ 처음에 나는 `feedback_drafts`·`teacher_feedbacks` 를 세고 「발송 0건」이라 적었는데
+ *       **그 문구가 없는 쪽 경로의 표**였다(trap-check 지적). 세는 표를 틀리면 심각도가 통째로 뒤집힌다.
+ *    ⛔ 이미 쌓인 32행은 소급되지 않는다 — `ON CONFLICT(room_id) DO UPDATE` 라 그 방을 다시
+ *       만들 때만 바뀐다. 지우거나 고치는 것은 사람이 판단할 일이다(운영 DB).
+ *
+ * ✅ 두 키를 모두 받는다 — 그래야 이미 쌓인 76건이 오늘 바로 보이고, 나중에 누가
+ *    `room_id` 로 적더라도 조용히 0으로 돌아가지 않는다.
+ * ⛔ 같은 쿼리를 다시 복사하지 말 것 — 복사돼 있었기 때문에 두 곳이 함께 틀려 있었다.
+ * ⚠️ `LIKE '%"room":"…"%'` 대신 `json_extract` 를 쓴다(부분일치 사고 방지).
+ *    meta 가 JSON 이 아닌 행이 섞여도 죽지 않도록 `json_valid` 로 먼저 거른다.
+ *    (선례: api-admin.ts 의 judgment-bands 가 `json_extract` 를 이미 운영에서 쓰고 있다.)
+ *
+ * ⚠️ **조회에 실패하면 0을 돌려준다 — «모름» 이 아니다.** 이 저장소의 다른 정본들은 모르면
+ *    «모름» 으로 두는데(no-show-truth), 여기서는 그렇게 못 한다: 문구를 고르는 자리가
+ *    `praiseCount ? '…회 해 주신 점은…' : '칭찬이 거의 없었는데…'` 라 **null 도 0과 똑같이**
+ *    지적 문구로 떨어지기 때문이다. 즉 지금 구조에는 «모름» 자리가 없다.
+ *    ⟹ 제대로 하려면 그 문구를 **세 갈래**(있음/없음/모름)로 나눠야 한다 — 별건이다.
+ *    지금은 옛 코드(`Number(p?.c) || 0`)와 같은 방향이라 «고치기 전보다 나빠지지는» 않는다.
+ * ⚠️ `api-students.ts` 에 `point_rule_log` 를 **meta 칸 없이** 만드는 CREATE 가 한 벌 더 있다.
+ *    운영 DB 는 meta 가 있는 쪽이 이겼지만(76건이 읽히는 것이 그 증거), 새 DB 에서 순서가
+ *    뒤집히면 `json_valid(meta)` 가 던지고 catch 가 삼켜 **영원히 0** 이 된다.
+ */
+export async function praiseCountForRoom(env: any, roomId: string): Promise<number> {
+  const rid = String(roomId || '').trim();
+  if (!rid || !env?.DB) return 0;
+  try {
+    const r: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM point_rule_log
+        WHERE rule_code = 'teacher_praise_point'
+          AND json_valid(meta)
+          AND COALESCE(json_extract(meta, '$.room'), json_extract(meta, '$.room_id')) = ?`,
+    ).bind(rid).first();
+    return Number(r?.c) || 0;
+  } catch (e: any) {
+    console.warn('[praise-count] 조회 실패:', e?.message);
+    return 0;
   }
 }

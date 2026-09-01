@@ -122,6 +122,10 @@
 
   /* ── 다시 가기 — 사이드바 원본을 눌러 준다 ───────────────────────────────── */
   function go(k) {
+    /* 🔁 (2026-09-01) 항목 이름을 바꾸면 저장된 키가 미아가 되어 **눌러도 아무 데도 안 가고
+       칩만 지워졌다.** 사이드바의 이사표(adm-ia6.js 의 RENAMED)를 거쳐 찾는다.
+       ⚠️ 아직 안 실렸으면 원래 키 그대로 — 옛 동작으로 안전하게 떨어진다. */
+    try { if (window.mangoiIA6 && window.mangoiIA6.renameKey) k = window.mangoiIA6.renameKey(k); } catch (e) {}
     var el = document.querySelector('#ph85-sidebar [data-ia6-item="' + k.replace(/"/g, '\\"') + '"]');
     if (el) { el.click(); return; }
     /* 항목이 사라졌다면(권한 변경·메뉴 개편) 조용히 목록에서 지운다.

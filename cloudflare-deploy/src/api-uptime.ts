@@ -8,6 +8,7 @@
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { SITE_HOSTS } from './site-url';        // 🔗 사람에게 나가는 링크는 한 곳에서
 import { sendPlainSms, getSolapiMode } from './solapi-client';
+import { checkRoomSplit } from './room-split-guard';   // 🚪 도메인이 다른 워커에 붙었는지(방 갈림)
 import type { MangoEnv } from './api-mango';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -71,7 +72,7 @@ async function dbAlive(env: MangoEnv): Promise<boolean> {
 export async function runSiteWatchdog(
   env: MangoEnv,
   opts?: { simulate?: 'up' | 'down' }
-): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string; layer2?: any }> {
+): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string; layer2?: any; roomSplit?: any }> {
   const kv: any = (env as any).SESSION_STATE;
 
   // 핵심 의존성(D1 데이터베이스)이 살아있는지 직접 확인.
@@ -117,7 +118,13 @@ export async function runSiteWatchdog(
   // 🔁 역감시 — 2층이 조용해지면 그 사실 자체를 알린다(감시가 한 겹으로 줄었다는 뜻).
   const layer2 = await checkLayer2(env).catch(() => undefined);
 
-  return { prev, cur, changed: cur !== prev, smsSent, detail, layer2 };
+  /* 🚪 «같은 방 번호인데 다른 교실» 감시 — 도메인이 서로 다른 워커에 붙으면 DO 가 갈려
+     같은 방 번호로도 서로 못 만난다(2026-08-19·08-25·08-27·09-01 네 번 사고).
+     규칙서에 「고쳤다」고 적어 두는 방식은 두 번 실패했으므로 여기서 «측정» 한다.
+     ⚠️ layer2 와 같이 .catch 로 감싼다 — 이게 던지면 감시견 전체가 멈춘다. */
+  const roomSplit = await checkRoomSplit(env).catch(() => undefined);
+
+  return { prev, cur, changed: cur !== prev, smsSent, detail, layer2, roomSplit };
 }
 
 export async function handleUptimeApi(

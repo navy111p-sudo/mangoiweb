@@ -1066,13 +1066,52 @@ ${MANGOI_KNOWLEDGE}`;
             .bind(userId, name || userId, '신규', now).run();
         } catch {}
 
+        /* 🔐 (2026-09-01) uid 서명 토큰(mango_token)을 여기서도 발급한다.
+           [왜] 이 저장소의 학생 로그인은 **두 벌이 짝**이다 — 화면 표시용
+             `mangoi_logged_user` 와, 서버가 «본인인지» 가리는 `mango_token`.
+             그런데 이 콜백은 앞의 것만 저장하고 토큰을 안 줬다. 그러면 헤더에는
+             로그인한 것처럼 보이는데 본인 확인이 필요한 API(포인트·단어장·판단력·동의 등)가
+             전부 «남» 으로 판정한다 — 규칙서 2장 「로그인했는데 또 로그인하래요」와 같은 뿌리다.
+           ⚠️ 2026-09-01 에 그 API 들의 소유자 게이트를 조였으므로(PR #581 — 포인트·단어장·판단력
+             무인증 노출 차단) 이 구멍은 앞으로 더 아프게 드러난다.
+           [잰 것 — 2026-09-01] `/api/oauth/status` 가 kakao·naver·google **전부 false**
+             (클라이언트 ID 미등록) · D1 에 `oauth_users` 표가 **아직 없다** ·
+             `students_erp` 의 social 접두 계정 52개(google 30·kakao 22)는 전부
+             **카페24 센티넬**(created_at 1751500000000)이라 이 경로가 만든 것이 아니다.
+           [거기서 내린 판단 — 측정 아님] 그러므로 지금 이 경로를 밟는 사람은 없고,
+             클라이언트 ID 를 등록하는 순간 터지는 자리다. 등록 전에 막아 둔다.
+           ⛔ 토큰 발급이 실패해도 로그인을 막지는 않는다 — 그 경우 예전과 똑같이
+             «화면만 로그인» 상태가 되지만, 여기서 던지면 로그인 자체가 통째로 깨진다. */
+        let _oauthToken = '';
+        try {
+          const _sid = await startSession(userId, env as any);
+          _oauthToken = await signUidToken(userId, env as any, undefined, _sid);
+        } catch (e: any) {
+          console.error('[oauth] 토큰 발급 실패(로그인은 계속):', e?.message);
+        }
+
         // 클라이언트로 결과 전달 + localStorage 자동 저장
-        const userPayload = JSON.stringify({ user_id: userId, user_name: name, role: 'student', email, profile_image: profileImage, provider });
+        /* 🔐 이 JSON 은 아래 <script> 안에 그대로 박힌다. 이름·이메일은 **프로바이더가 준 값**이라
+           우리가 못 믿는다 — JSON.stringify 는 «작다» 기호를 안 막으므로 이름에
+           «스크립트 종료 태그» 를 넣으면 그 자리에서 탈출해 남의 코드가 돈다(실측 확인).
+           위에서 토큰을 이 페이지에 싣기 시작했으니 그 구멍은 이제 **토큰 탈취** 통로가 된다.
+           ⟹ 여는 꺾쇠를 유니코드로 바꾼다. JSON 값은 그대로 살아난다(파싱 결과 동일). */
+        const userPayload = JSON.stringify({ user_id: userId, user_name: name, role: 'student', email, profile_image: profileImage, provider, token: _oauthToken })
+          .replace(/</g, '\\u003c');
+        /* 🔐 (2026-09-01) 이 페이지에는 이제 **토큰이 실린다.** 그러니 프로바이더가 준 값이
+           HTML 로 들어가는 자리를 **하나도 빠짐없이** 막아야 한다.
+           ⚠️ 처음엔 아래 payload 한 곳만 막았는데, 그 위 <p> 의 이름은 그대로였다.
+              그 <p> 는 <script> «위» 라 파싱 중 먼저 도므로, 이름에 스크립트 종료 태그를 넣으면
+              그 자리에서 localStorage 의 토큰을 그대로 읽어 갈 수 있었다(trap-check 실측).
+              sink 가 둘이면 한 곳만 막는 것은 «안 막은 것» 이다. */
+        const esc = (v: any) => String(v ?? '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const html = `<!doctype html><html><head><meta charset="utf-8"><title>로그인 완료</title></head><body style="margin:0;font-family:'Noto Sans KR',sans-serif;background:#0a1530;color:#e6ecff;display:flex;align-items:center;justify-content:center;min-height:100vh">
           <div style="text-align:center;padding:32px">
             <div style="font-size:48px;margin-bottom:12px">✅</div>
-            <h2 style="color:#fbbf24;margin-bottom:8px">${provider.toUpperCase()} 로그인 완료</h2>
-            <p style="color:#a3b3d1;margin-bottom:18px">${name ? name + '님 환영합니다!' : '잠시만 기다려주세요...'}</p>
+            <h2 style="color:#fbbf24;margin-bottom:8px">${esc(provider).toUpperCase()} 로그인 완료</h2>
+            <p style="color:#a3b3d1;margin-bottom:18px">${name ? esc(name) + '님 환영합니다!' : '잠시만 기다려주세요...'}</p>
             <a href="/" style="color:#fbbf24">홈으로 이동</a>
           </div>
           <script>
@@ -1084,13 +1123,30 @@ ${MANGOI_KNOWLEDGE}`;
               localStorage.setItem('mangoi_logged_user', JSON.stringify(lu));
               if (lu.uid) localStorage.setItem('mangoi_uid', lu.uid);
               if (lu.name) localStorage.setItem('mangoi_vc_uid', lu.name);
+              // 🔐 본인 확인용 토큰 — 이게 없으면 «화면만 로그인» 이 된다(위 주석 참고)
+              if (u.token) localStorage.setItem('mango_token', u.token);
+              else localStorage.removeItem('mango_token');   // 남의 옛 토큰이 남아 있으면 더 나쁘다
             } catch(e){}
             setTimeout(() => { location.href = '/'; }, 1500);
           </script>
           </body></html>`;
-        return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        /* ⚠️ 본문에 30일짜리 토큰이 들어 있다 — 공유 캐시에 한 사람 응답이 남으면
+           **다른 사람에게 그대로 나간다.** 지금 CF 기본값은 /api/ 를 캐시하지 않지만,
+           누가 «Cache Everything» 규칙을 걸면 그날로 사고가 된다. */
+        return new Response(html, { headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'private, no-store, max-age=0',
+        } });
       } catch (err: any) {
-        return new Response(`<html><body><script>alert("OAuth 실패: ${err?.message?.replace(/"/g,'')||'unknown'}");location.href="/";</script></body></html>`, { headers: { 'Content-Type': 'text/html' } });
+        /* ⚠️ 이 문자열도 프로바이더 응답에서 온다(no_access_token 에 응답 본문이 붙는다).
+           큰따옴표만 지우면 «작다» 기호로 그대로 탈출한다 — 위와 같은 전제를 여기도 적용한다.
+           ⛔ 사유를 화면에 그대로 뿌리지 않는다: 자세한 것은 로그로 보내고 사람에게는 짧게 알린다. */
+        console.error('[oauth] 콜백 실패:', provider, err?.message);
+        const safeMsg = String(err?.message || 'unknown').replace(/[^\w .:_-]/g, '').slice(0, 80);
+        return new Response(
+          `<!doctype html><html><head><meta charset="utf-8"></head><body><script>` +
+          `alert("OAuth 실패: ${safeMsg}");location.href="/";</script></body></html>`,
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' } });
       }
     }
 

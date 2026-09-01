@@ -44,6 +44,16 @@
     //   실측: 등재 전에는 파랑 #2563eb 가 흰 버튼(rgb 255,255,255)으로 눌렸다.
     //   글자 대비는 admin-inline-c.css 맨 끝 button.tp-login-pw 블록이 함께 정한다.
     '.tp-login-pw', '.tp-login-pw *',
+    /* 🟢⏸️🚪 (2026-09-01) 강사 상태 인라인 메뉴·되돌리기 토스트 — 위 .rm-act 와 같은 이유로
+       «색이 구분 정보» 다(초록 활동중 · 노랑 비활동 · 빨강 퇴사). 이 둘은 document.body 에
+       띄우므로 이 페인터의 'body' 훑기에 그대로 걸린다. 대비는 admin-inline-c.css 맨 끝
+       #tp-st-menu / #tp-st-toast 블록이 함께 정한다. */
+    '#tp-st-menu', '#tp-st-menu *', '#tp-st-toast', '#tp-st-toast *',
+    /* 🟢⏸️🚪 강사 상태 배지 — 초록 활동중 · 노랑 비활동 · 빨강 퇴사가 «구분 정보» 다.
+       실측(2026-09-01 PC 1440): 등재 전에는 퇴사 배지 글자 #991b1b 가 rgb(55,92,129)
+       (파란 회색)으로 눌려, 빨강이 화면에서 사라지고 있었다. 배지는 자기 배경(#fee2e2)을
+       함께 들고 다녀 대비가 이미 7:1 이라 이 페인터의 구제가 필요 없다. */
+    '.tp-st-badge', '.tp-st-badge *',
     'canvas', 'svg', 'svg *', 'video', 'iframe'
   ].join(',');
 
