@@ -39,11 +39,14 @@ import { selectInChunks } from './d1-chunk';
 
 export interface RecStudentEnv { DB: D1Database; [k: string]: any }
 
-/** 녹화 목록에서 이 세 칸만 본다(테스트에서 가짜 행을 만들기 쉽게 최소로 잡는다). */
+/** 녹화 목록에서 이 칸들만 본다(테스트에서 가짜 행을 만들기 쉽게 최소로 잡는다). */
 export interface RecRowLike {
   room_id?: string | null;
   participant_ids?: string | null;
   consented_user_ids?: string | null;
+  /** ⚠️ 「교사」 칸이지만 실제로는 «방을 먼저 켠 사람» 이다 — 학생 계정이 그대로 들어온다. */
+  teacher_name?: string | null;
+  teacher_id?: string | null;
 }
 
 /** 화면이 그리는 한 사람 — 계정(uid)과 이름. 이름을 못 찾으면 uid 를 그대로 쓴다. */
@@ -88,7 +91,15 @@ export async function resolveRecordingStudents(
     // ── ① 후보 모으기 ───────────────────────────────────────────────
     const schedIds = new Set<number>();
     const candidates: string[][] = rows.map(r => {
-      const ids = parseIdList(r.participant_ids).concat(parseIdList(r.consented_user_ids));
+      /* ⚠️ teacher_name·teacher_id 도 후보에 넣는다 — 그 칸은 «방을 먼저 켠 사람» 이라
+         공용방(`mangoi-class`)에서는 **학생 계정이 그대로** 들어 있다(실측: teacher_name='heyst').
+         공용방은 예약이 없고 participant_ids 가 임시번호뿐인 경우가 많아, 이걸 안 보면
+         86%(2026-08 실측)를 차지하는 공용방 녹화의 학생 칸이 늘 «—» 가 된다.
+         ⛔ 그렇다고 그 값을 «이름» 으로 쓰지 않는다 — 아래에서 `students_erp` 에
+            **계정이 완전일치할 때만** 학생으로 인정한다(교사 표시이름 「교사 Teacher Kaye」는
+            어떤 user_id 와도 같지 않아 저절로 걸러진다). */
+      const ids = parseIdList(r.participant_ids).concat(parseIdList(r.consented_user_ids))
+        .concat([String(r.teacher_name || '').trim(), String(r.teacher_id || '').trim()].filter(Boolean));
       const seen = new Set<string>();
       return ids.filter(id => (seen.has(id) ? false : (seen.add(id), true)));
     });

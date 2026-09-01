@@ -147,6 +147,18 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
     r4[0].length === 1 && r4[0][0].uid === 'heyst' && r4[0][0].name === '김사랑', JSON.stringify(r4[0]));
   check('공용방 학생에는 예약 표시가 없다', !r4[0][0].scheduled);
 
+  /* 공용방은 예약이 없고 participant_ids 가 임시번호뿐인 경우가 많다. 그때 「교사」 칸에
+     학생 계정이 그대로 들어 있으므로(실측 teacher_name='heyst') 거기서도 찾는다.
+     ⛔ 그 값을 «이름» 으로 쓰지는 않는다 — 계정 완전일치일 때만 학생으로 인정한다. */
+  const r4b = await run([{ room_id: 'mangoi-class', participant_ids: '["7abboovkyqyiobuetou9gq"]',
+    consented_user_ids: '[]', teacher_name: 'heyst', teacher_id: 'u_2isn9t7uxk' }]);
+  check('공용방에서 「교사」 칸에 든 학생 계정도 찾는다',
+    r4b[0].length === 1 && r4b[0][0].uid === 'heyst' && r4b[0][0].name === '김사랑', JSON.stringify(r4b[0]));
+  const r4c = await run([{ room_id: 'class-1086-20260901', participant_ids: '[]', consented_user_ids: '[]',
+    teacher_name: '교사 Teacher Kaye', teacher_id: 'u_8ahppoavg5' }]);
+  check('교사 표시이름은 계정이 아니라서 학생으로 붙지 않는다',
+    r4c[0].length === 1 && r4c[0][0].uid === 'cys01', JSON.stringify(r4c[0]));
+
   const r5 = await run([{ room_id: 'mangoi-class', participant_ids: '["Kim"]', consented_user_ids: '[]' }]);
   check('대소문자가 다르면 붙이지 않는다(Kim ≠ kim — 남의 이름 방지)',
     r5[0].length === 0, JSON.stringify(r5[0]));
