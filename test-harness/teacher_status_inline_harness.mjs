@@ -190,8 +190,15 @@ check('배지가 밝기 페인터 SKIP_SEL 에 등재됐다', /'\.tp-st-badge'/.
    CSS 로는 못 이긴다(인라인 !important) — 그래서 세 곳 «모두» 에 등재하는 것이 짝이다. */
 const s12Src = read('cloudflare-deploy/public/js/adm-s12.js');
 const s13Src = read('cloudflare-deploy/public/js/adm-s13.js');
-check('adm-s12(darken)도 배지를 건너뛴다', /KEEP_SEL = '\.tp-st-badge'/.test(s12Src) && /el\.matches\(KEEP_SEL\)/.test(s12Src));
-check('adm-s13(fixTextOnDark)도 배지를 건너뛴다', /TX_KEEP = '\.tp-st-badge'/.test(s13Src) && /t\.matches\(TX_KEEP\)/.test(s13Src));
+/* ⚠️ 목록을 «정확한 문자열» 로 못 박지 않는다 — 다른 배지를 한 항목 더해도 FAIL 이 나서,
+      보장은 오히려 세지는데 검사만 깨진다(2026-09-01 .tr-st-badge 를 더하다 실제로 밟음).
+      물어야 할 것은 «그 목록에 우리 배지가 들어 있는가» 이고, 목록을 잘라서 본다. */
+const keepList = (s12Src.match(/KEEP_SEL\s*=\s*'([^']*)'/) || [, ''])[1];
+check('adm-s12(darken)도 배지를 건너뛴다',
+  keepList.split(',').map(x => x.trim()).includes('.tp-st-badge') && /el\.matches\(KEEP_SEL\)/.test(s12Src));
+const txList = (s13Src.match(/TX_KEEP\s*=\s*'([^']*)'/) || [, ''])[1];
+check('adm-s13(fixTextOnDark)도 배지를 건너뛴다',
+  txList.split(',').map(x => x.trim()).includes('.tp-st-badge') && /t\.matches\(TX_KEEP\)/.test(s13Src));
 /* 🔴 `background:#f…` 로 쓰면 admin-inline-c.css 의 옛 다크 규칙이 !important 로 덮어
    **배경이 투명**해진다(실측 rgba(0,0,0,0) — 세 상태가 화면에서 구분되지 않았다). */
 check('배지 배경은 background-color 로 쓴다 (background: 는 옛 규칙에 먹힌다)',
@@ -356,6 +363,44 @@ if (!DatabaseSync) {
     joined.length + '줄');
   db.close();
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ⑩ 「강사 명부 (실데이터)」 상태 배지 — 색이 «구분 정보» 다
+   ══════════════════════════════════════════════════════════════
+   [왜] 이 배지는 인라인 style 로 색을 갖고 있어서, 카드 «안» 에서는 테마 규칙
+        html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .sub-body :is(span…)
+        의 color:#101828 !important 에 눌려 **재직·퇴사·미확인 세 상태가 전부 검정**이었다
+        (2026-09-01 브라우저 실측: 셋 다 rgb(16,24,40) — 색으로 가릴 수 없었다).
+   ⚠️ 문자열 하니스가 못 잡던 종류다 — 함수도 값도 다 «있고» 틀린 것은 «무슨 색으로 그려지는가»
+      뿐이라 수리 전에도 --fast 가 전부 초록이었다. 그래서 여기서는 «배선» 만 못 박고,
+      실제 색·대비는 브라우저로 잰다(manual/teacher-status-inline-browser.mjs).
+   ⛔ 인라인 색으로 되돌리지 말 것. ⛔ background 단축(`background:`)으로 쓰지 말 것. */
+const p7Src   = read('cloudflare-deploy/public/js/adm-p7.js');
+const trCss   = read('cloudflare-deploy/public/css/admin-inline-c.css');
+
+check('실데이터 명부 배지가 클래스를 쓴다 (인라인 색은 테마 규칙에 눌린다)',
+  /class="'\s*\+\s*stCls\s*\+\s*'"/.test(p7Src) && /tr-st-badge tr-st-/.test(p7Src));
+check('그 자리에 인라인 색이 남아 있지 않다',
+  !/font-weight:700;background:'\s*\+\s*stStyle\s*\+\s*'">'\s*\+\s*_trStatLabel/.test(p7Src));
+
+/* 조상 id 를 앞에 붙여야 테마 규칙(!important, id 0개)을 이긴다 — 클래스만 쌓으면 진다. */
+const trRules = (trCss.match(/^#card-teacher-mgmt \.tr-st-badge[^\n]*$/gm) || []);
+check('CSS 가 조상 id(#card-teacher-mgmt)로 되살린다', trRules.length >= 4, trRules.length + '줄');
+for (const st of ['active', 'inactive', 'unknown']) {
+  const rule = trRules.find(r => r.includes('.tr-st-' + st));
+  check(`  ${st} 상태에 색이 정해져 있다`, !!rule && /color:\s*#[0-9a-f]{6}\s*!important/i.test(rule));
+  check(`  ${st} 배경은 background-color 로 쓴다`, !!rule && /background-color:/.test(rule));
+}
+/* 세 상태가 «서로 다른» 색이어야 구분이 산다 — 같은 색이면 클래스만 붙이고 뜻은 그대로다. */
+const trColors = trRules.map(r => (r.match(/[^-]color:\s*(#[0-9a-f]{6})/i) || [, ''])[1]).filter(Boolean);
+check('세 상태의 글자색이 서로 다르다', new Set(trColors).size === 3, trColors.join(' '));
+
+/* 글자색을 인라인 !important 로 덮는 페인터 셋에 «모두» 등재돼야 한다(한 곳만 하면 나머지가 덮는다). */
+check('실데이터 배지도 밝기 페인터 SKIP_SEL 에 등재됐다', /'\.tr-st-badge'/.test(paintSrc));
+check('실데이터 배지도 adm-s12 KEEP_SEL 에 등재됐다',
+  keepList.split(',').map(x => x.trim()).includes('.tr-st-badge'));
+check('실데이터 배지도 adm-s13 TX_KEEP 에 등재됐다',
+  txList.split(',').map(x => x.trim()).includes('.tr-st-badge'));
 
 console.log('\n──────────────────────────────');
 console.log(`  PASS ${pass} / FAIL ${fail}` + (skip ? ` / SKIP ${skip}` : ''));

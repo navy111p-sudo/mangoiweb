@@ -9926,3 +9926,33 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 }
 #tp-st-toast button.tp-st-undo:hover { filter: brightness(1.1); }
 #tp-st-toast button.tp-st-undo:focus-visible { outline: 2px solid #101828 !important; outline-offset: 2px !important; }
+
+/* ════════════════════════════════════════════════════════════
+   🟢🚪❓ 「강사 명부 (실데이터)」 상태 배지 — 색이 «구분 정보» 다
+   ════════════════════════════════════════════════════════════
+   [왜] 이 배지는 인라인 style 로 색을 갖고 있었는데, 카드 «안» 에서는
+        html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .sub-body :is(span…)
+        가 color:#101828 !important 로 이겨 **재직·퇴사·미확인 세 상태가 전부 검정**이었다
+        (2026-09-01 브라우저 실측: 셋 다 rgb(16,24,40)). 배경도 인라인 background:#fef3c7 가
+        [style*="background:#fef3c7"] 규칙에 걸려 rgba(250,204,21,.12) 로 바뀌고 있었다.
+        ⟹ 화면에서 「이 강사가 재직인지 퇴사인지」를 색으로 가릴 수 없었다.
+   [어떻게] 조상 id 를 앞에 붙여 (1,2,0) 으로 만든다 — 테마 규칙은 id 가 0개라
+        !important 끼리 붙어도 ID 개수에서 진다. `.tp-st-badge` 와 같은 팔레트를 쓴다
+        (같은 카드 안 두 표가 서로 다른 색으로 「퇴사」를 말하면 그것이 더 헷갈린다).
+   ⛔ background 는 단축(`background:`)이 아니라 background-color 로 쓴다 —
+      `[style*="background:#…"]` 를 노리는 옛 다크 규칙에 다시 걸린다(CLAUDE.md 2장).
+   ⛔ 이 배지를 글자색 페인터 셋에서 빼는 등재도 함께 있어야 한다(한 곳만 하면 나머지가 덮는다):
+      adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP.
+   ⚠️ 배지가 자기 배경을 들고 다녀 대비는 스스로 만족한다(실측 5.6~7.4:1). */
+#card-teacher-mgmt .tr-st-badge {
+  display: inline-block !important;
+  padding: 2px 8px !important;
+  border-radius: 99px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.5 !important;      /* 한 줄짜리라 못 박는다 — 상속값(1.5~1.7)이면 칸 높이가 들쭉날쭉하다 */
+  white-space: nowrap !important;   /* 좁은 칸에서 「미확인」이 «미 / 확 / 인» 으로 쪼개지는 것을 막는다 */
+}
+#card-teacher-mgmt .tr-st-badge.tr-st-active   { background-color: #dcfce7 !important; color: #166534 !important; }
+#card-teacher-mgmt .tr-st-badge.tr-st-inactive { background-color: #fee2e2 !important; color: #991b1b !important; }
+#card-teacher-mgmt .tr-st-badge.tr-st-unknown  { background-color: #fef3c7 !important; color: #854d0e !important; }
