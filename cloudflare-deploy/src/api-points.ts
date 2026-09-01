@@ -10,7 +10,7 @@ import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admi
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
-import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts } from './point-policy';
+import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
 import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
@@ -522,8 +522,8 @@ export async function handlePointsApi(
           if (tActive + sActive > 0) talkRatio = Math.round((tActive / (tActive + sActive)) * 100);
         }
         if (praiseCount === null) {
-          const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + roomId + '"%').first();
-          praiseCount = Number(p?.c) || 0;
+          // ⭐ 칭찬 횟수는 정본 하나로 — point-policy.ts 의 praiseCountForRoom 주석 참고
+          praiseCount = await praiseCountForRoom(env, roomId);
         }
         const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(roomId).first();
         if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 400); }

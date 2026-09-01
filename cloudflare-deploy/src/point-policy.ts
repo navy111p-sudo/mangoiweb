@@ -221,3 +221,60 @@ export async function clawbackClassPoints(
     return { ok: false, clawed: 0, reason: String(e?.message || e) };
   }
 }
+
+// ── ⭐ 수업 중 «칭찬» 횟수 ────────────────────────────────────────────
+/**
+ * 그 방에서 강사가 준 칭찬(⭐) 횟수. **정본은 이 함수 하나다.**
+ *
+ * [무엇이 잘못돼 있었나] 쓰는 쪽과 읽는 쪽의 키 이름이 어긋나 있었다 —
+ *   · 쓰기(`api-points.ts` creditPraisePoint): `JSON.stringify({ room: …, awardId: … })` → **`room`**
+ *   · 읽기(`api-admin.ts`·`api-points.ts` 두 곳): `meta LIKE '%"room_id":"…"%'` → **`room_id`**
+ *   그래서 **모든 방에서 늘 0** 이었다(2026-09-01 D1 실측: 칭찬 76건 전부 `room`, `room_id` 0건).
+ *
+ * ⚠️ 그냥 «통계가 비는» 문제가 아니다. 이 값이 0이면 학부모·강사용 AI 문구가
+ *    「칭찬이 거의 없었는데…」("There was little praise —")로 **강사를 지적**한다.
+ *
+ *    🔴 [잰 것 — 2026-09-01] **이미 일어난 사고다.** 그 문구가 저장되는 표는
+ *    `teacher_class_feedback` 인데(api-points.ts 의 강사 코칭 피드백), **32행 전부**에
+ *    「칭찬이 거의 없었는데…」가 적혀 있다(2026-07-27 ~ 08-28).
+ *    그중 실제로 칭찬이 있었던 방은 **2건** — `mangoi-class`(칭찬 **73회**, mangoi_033)와
+ *    `class-1007-20260827`(1회, Hannah). 이 둘은 **부당한 지적**이다.
+ *    나머지 30건은 실제로 0이라 문구가 사실과 맞았다.
+ *    ⚠️ 처음에 나는 `feedback_drafts`·`teacher_feedbacks` 를 세고 「발송 0건」이라 적었는데
+ *       **그 문구가 없는 쪽 경로의 표**였다(trap-check 지적). 세는 표를 틀리면 심각도가 통째로 뒤집힌다.
+ *    ⛔ 이미 쌓인 32행은 소급되지 않는다 — `ON CONFLICT(room_id) DO UPDATE` 라 그 방을 다시
+ *       만들 때만 바뀐다. 지우거나 고치는 것은 사람이 판단할 일이다(운영 DB).
+ *
+ * ✅ 두 키를 모두 받는다 — 그래야 이미 쌓인 76건이 오늘 바로 보이고, 나중에 누가
+ *    `room_id` 로 적더라도 조용히 0으로 돌아가지 않는다.
+ * ⛔ 같은 쿼리를 다시 복사하지 말 것 — 복사돼 있었기 때문에 두 곳이 함께 틀려 있었다.
+ * ⚠️ `LIKE '%"room":"…"%'` 대신 `json_extract` 를 쓴다(부분일치 사고 방지).
+ *    meta 가 JSON 이 아닌 행이 섞여도 죽지 않도록 `json_valid` 로 먼저 거른다.
+ *    (선례: api-admin.ts 의 judgment-bands 가 `json_extract` 를 이미 운영에서 쓰고 있다.)
+ *
+ * ⚠️ **조회에 실패하면 0을 돌려준다 — «모름» 이 아니다.** 이 저장소의 다른 정본들은 모르면
+ *    «모름» 으로 두는데(no-show-truth), 여기서는 그렇게 못 한다: 문구를 고르는 자리가
+ *    `praiseCount ? '…회 해 주신 점은…' : '칭찬이 거의 없었는데…'` 라 **null 도 0과 똑같이**
+ *    지적 문구로 떨어지기 때문이다. 즉 지금 구조에는 «모름» 자리가 없다.
+ *    ⟹ 제대로 하려면 그 문구를 **세 갈래**(있음/없음/모름)로 나눠야 한다 — 별건이다.
+ *    지금은 옛 코드(`Number(p?.c) || 0`)와 같은 방향이라 «고치기 전보다 나빠지지는» 않는다.
+ * ⚠️ `api-students.ts` 에 `point_rule_log` 를 **meta 칸 없이** 만드는 CREATE 가 한 벌 더 있다.
+ *    운영 DB 는 meta 가 있는 쪽이 이겼지만(76건이 읽히는 것이 그 증거), 새 DB 에서 순서가
+ *    뒤집히면 `json_valid(meta)` 가 던지고 catch 가 삼켜 **영원히 0** 이 된다.
+ */
+export async function praiseCountForRoom(env: any, roomId: string): Promise<number> {
+  const rid = String(roomId || '').trim();
+  if (!rid || !env?.DB) return 0;
+  try {
+    const r: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM point_rule_log
+        WHERE rule_code = 'teacher_praise_point'
+          AND json_valid(meta)
+          AND COALESCE(json_extract(meta, '$.room'), json_extract(meta, '$.room_id')) = ?`,
+    ).bind(rid).first();
+    return Number(r?.c) || 0;
+  } catch (e: any) {
+    console.warn('[praise-count] 조회 실패:', e?.message);
+    return 0;
+  }
+}
