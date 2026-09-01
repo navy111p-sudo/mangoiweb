@@ -425,13 +425,14 @@
         <div class="menu-caret"></div>
         <div class="menu-head">⚙️ 웜업 설정</div>
 
-        <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(천천히) ~ 5(빠르게) -->
+        <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(아주 느리게) ~ 5(아주 빠르게) -->
         <div class="menu-group">
-          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">2 · 천천히</span></div>
+          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">2 · 느리게 (0.8배)</span></div>
           <div class="rate-row">
             <span class="rate-side">🐢</span>
-            <input id="rateSlider" type="range" min="1" max="5" step="1" value="2"
-              oninput="setRate(this.value)" title="선생님 음성 속도 (1 천천히 ~ 5 빠르게)" />
+            <input id="rateSlider" type="range" min="1" max="5" step="1" value="2" list="rateTicks"
+              oninput="setRate(this.value)" title="선생님 음성 속도 (1 아주 느리게 ~ 5 아주 빠르게)" />
+            <datalist id="rateTicks"><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option></datalist>
             <span class="rate-side">🐇</span>
           </div>
         </div>
@@ -868,14 +869,22 @@ function toggleMeaning(text, btn, bubble){
   });
 }
 
-/* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
-var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
-/* 서버 TTS(오디오 파일) 전용 배속 — playbackRate 시간늘리기는 배속이 1에서 멀수록
-   "뚜벅뚜벅" 왜곡(특히 저음 남자 목소리)이 커진다. 3단계는 정확히 1.0(무가공 원음),
-   천천히 쪽도 왜곡이 덜한 완만한 값으로. */
-var AUDIO_RATE = { 1:0.72, 2:0.85, 3:1.0, 4:1.15, 5:1.35 };
-var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
-/* 🐢 (2026-07-23) 들어올 때는 항상 2단계(천천히)에서 시작한다.
+/* 🐢🐇 듣기 속도 — 다섯 칸이 «귀로 구별되게» (2026-08-31 사장님 「지금은 속도 구별이 잘 안돼」)
+   ⚠️ 예전 값은 서버 TTS 쪽이 0.72·0.85·1.0·1.15·1.35 로 칸 사이가 15~18% 뿐이었다.
+      사람 귀는 재생속도 차이를 «비율» 로 듣는데 그 폭은 한 칸 옮겨도 티가 잘 안 난다.
+      지금은 한 칸이 최소 20%(0.6→0.8 은 33%)라 눌러 보면 바로 다르다.
+   📌 예전에는 표가 «둘» 이었다(브라우저 음성용·서버 오디오용). 값이 서로 달라 어느 쪽으로
+      소리가 났느냐에 따라 같은 칸이 다른 속도로 들렸다 — 한 표로 합쳤다.
+   ⚠️ 맞바꾼 것: playbackRate 시간늘리기는 1에서 멀수록 «뚜벅뚜벅» 왜곡이 커진다(특히 저음
+      남자 목소리). 그래도 넓힌 이유는 «왜곡» 보다 «구별이 안 되는 것» 이 더 큰 문제이기 때문이다.
+      3단계는 여전히 정확히 1.0(무가공 원음)이다.
+   ⛔ 0.5 미만·2.0 초과로 넓히지 마세요 — 그 밖은 브라우저가 무음으로 만들거나 잘라 냅니다.
+   🔗 AI 영어친구(ai-friend.html)의 속도 버튼과 «같은 다섯 값» 이어야 합니다.
+      화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 됩니다. */
+var RATE_STEPS = { 1:0.6, 2:0.8, 3:1.0, 4:1.25, 5:1.5 };
+var AUDIO_RATE = RATE_STEPS;   // 같은 표를 쓴다(두 벌로 갈라지지 않게)
+var RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
+/* 🐢 (2026-07-23) 들어올 때는 항상 2단계(느리게)에서 시작한다.
    처음 듣는 학생이 못 알아듣는 일이 없게, 지난번에 올려둔 속도를 이어받지 않는다.
    (수업 중 슬라이더로 올리는 건 그대로 되고, 다음에 다시 들어오면 또 2부터.) */
 var WARMUP_START_RATE = 2;
@@ -885,9 +894,11 @@ function setRate(lv){
   _rateLevel = lv;
   /* 이 화면은 매번 2단계로 시작하므로 속도는 저장하지 않는다(저장해도 읽지 않음). */
   var s=document.getElementById('rateSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
-  var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
+  // 이름 옆에 «몇 배» 를 함께 적는다 — 눈으로도 «정확히 얼마나» 달라졌는지 보이게
+  var v=document.getElementById('rateVal');
+  if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv] + ' (' + RATE_STEPS[lv].toFixed(2).replace(/0$/,'') + '배)';
 }
-setRate(_rateLevel);   // 시작 속도(2단계 · 천천히)로 슬라이더/표시 초기화
+setRate(_rateLevel);   // 시작 속도(2단계 · 느리게)로 슬라이더/표시 초기화
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
    그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
 function maybeAdjustRate(text){
