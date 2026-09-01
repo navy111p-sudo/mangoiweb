@@ -216,7 +216,7 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
 
     <div class="tally">
       <div><b class="num">7</b><span>대분류 (그룹)</span></div>
-      <div><b class="num">45</b><span>중분류 (메뉴)</span></div>
+      <div><b class="num">47</b><span>중분류 (메뉴)</span></div>
       <div><b class="num">96</b><span>소분류 (펼쳐지는 카드)</span></div>
       <div><b class="num">0</b><span>확인 필요</span></div>
     </div>
@@ -299,16 +299,22 @@ var DATA = [
   en: "Today",
   k: [
    {
-    t: "오늘의 수업",
+    t: "오늘 수업",
     en: "Today's classes",
     g: [
      {
-      t: "실시간 수업 현황",
-      id: "card-active-rooms"
-     },
+      t: "오늘 수업 (전체 · 바로 입장)",
+      id: "card-students-mgmt"
+     }
+    ]
+   },
+   {
+    t: "지금 수업",
+    en: "Live now",
+    g: [
      {
-      t: "화상강의실 초대 관리 (JWT 입장)",
-      id: "card-room-invite"
+      t: "지금 수업 (실시간)",
+      id: "card-active-rooms"
      }
     ]
    },
@@ -964,6 +970,16 @@ var DATA = [
      {
       t: "카페24 명부 (직원·교재)",
       id: "card-cafe24-lists"
+     }
+    ]
+   },
+   {
+    t: "화상강의실 초대",
+    en: "Classroom invites",
+    g: [
+     {
+      t: "화상강의실 초대 관리 (JWT 입장)",
+      id: "card-room-invite"
      }
     ]
    },
