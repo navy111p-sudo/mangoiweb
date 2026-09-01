@@ -20,12 +20,15 @@
    [판단 — 측정 아님] 지금 새고 있는 게 아니라, 금액을 한 번 더 올리면 조용히 배로 나가는 상태였다.
 
    🔴 [이 상한은 아직 «전체» 가 아니다 — 알고 쓸 것]
-     `checkEarnAllowed` 는 `point_transactions` 를 센다. 그런데 **그 표를 거치지 않고
-     `student_points.balance` 를 직접 올리는 적립이 따로 있다**(2026-09-01 trap-check 지적):
-       · api-games.ts 단어장 보상(하루 400점) · 복습퀴즈 보상(하루 500점)
-       · api-admin.ts 이탈관리 🎁 기프트 · 컴백 번들(각 100~500점)
-     그래서 이 하니스가 지키는 것은 **«applyPointTransaction 을 지나는 적립 경로»** 뿐이다.
-     ⛔ 「하루 100점이 전부 막힌다」고 읽지 말 것. 그 경로들을 원장으로 합치는 것은 별건이다.
+     `checkEarnAllowed` 는 `point_transactions` 를 센다. 그 표를 거치지 않는 적립이 아직 있다.
+     🔀 (2026-09-01 갱신 — PR #670 이 병합되며 «사실» 이 바뀌었다)
+       · api-games.ts 단어장·복습퀴즈 보상 — **원장으로 합쳐졌다**(잔액 직접올림 0곳).
+         다만 `CAP_UNCOUNTED_RULES` 에 있어 **총량 상한에는 여전히 안 센다.** 그건 버그가
+         아니라 «금액을 바꾸지 않으려고» 둔 의도된 보류이고, 비우는 것은 사장님 결정이다.
+         (실효 상한: 단어장 400 + 미션 50 + 복습퀴즈 500 + 총량 100 = **하루 1,050점**)
+       · api-admin.ts 이탈관리 🎁 기프트 · 컴백 번들 — **아직 잔액을 직접 올린다**(A 담당 영역).
+     그래서 이 하니스가 지키는 것은 **«applyPointTransaction 을 지나고 CAP_UNCOUNTED_RULES 에
+     없는 적립 경로»** 뿐이다. ⛔ 「하루 100점이 전부 막힌다」고 읽지 말 것.
 
    [검사 방법] 문자열만 보지 않는다 — 정본 게이트를 컴파일해 가짜 D1 로 **실제로 돌리고**,
    적립 경로마다 그 게이트를 지나는지 «중괄호 짝» 으로 자른 블록 안에서 확인한다.
@@ -201,24 +204,39 @@ console.log('\n[ C. 게이트를 실제로 돌려 본다 — 가짜 D1 ]');
 
 console.log('\n[ D. 이 상한이 «전체» 가 아니라는 것을 알고 있다 ]');
 {
-  /* 🔴 원장(point_transactions)을 거치지 않고 student_points.balance 를 직접 올리는 적립이
-     따로 있다 — 그것들은 이 상한이 못 본다. 지금 고치는 범위가 아니지만, «전부 막았다» 고
-     오해하지 않도록 그 사실을 검사로 못 박아 둔다. 숫자가 0이 되면(=원장으로 합쳐지면)
-     이 검사가 FAIL 하므로 그때 이 주석과 머리말을 함께 고치면 된다. */
+  /* 🔀 (2026-09-01 갱신) 이 절은 원래 「api-games.ts 가 원장 밖에서 적립한다」는 **그때의 사실**을
+     못 박고 있었고, 「0곳이 되면 이 검사가 FAIL 하니 그때 이 주석과 머리말을 함께 고치라」고
+     적어 두었다. PR #670 이 실제로 0곳으로 만들었으므로 **약속대로 뒤집는다.**
+     ⛔ 「빨간불이 났으니 되돌리자」로 가면 안 되는 자리였다 — 사실이 좋아진 것이지 깨진 게 아니다. */
   /* ⚠️ 「UPDATE student_points」로 찾으면 0곳이 나온다 — 실제 형태는
      `INSERT … ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?` 다.
      문장 «모양» 이 아니라 «잔액을 더한다» 는 뜻으로 찾는다. */
   const games = strip(readFileSync(join(SRC, 'api-games.ts'), 'utf8'));
-  const outside = (games.match(/balance\s*=\s*balance\s*\+/g) || []).length;
-  check(`원장 밖 적립이 아직 ${outside}곳 남아 있다(api-games.ts)`, outside > 0,
-    '0곳이 됐다면 원장으로 합쳐진 것이다 — 머리말의 «전체가 아니다» 를 함께 고칠 것');
-  check('그 적립들은 원장(point_transactions)에 안 남는다',
-    !/point_transactions/.test(games),
-    'api-games.ts 가 원장을 쓰기 시작했다면 상한이 그것도 보게 된 것이다 — 머리말을 함께 고칠 것');
+  const admin = strip(readFileSync(join(SRC, 'api-admin.ts'), 'utf8'));
+  const RE_DIRECT = /balance\s*=\s*balance\s*\+/g;
+  const gOut = (games.match(RE_DIRECT) || []).length;
+  const aOut = (admin.match(RE_DIRECT) || []).length;
+
+  check('api-games.ts 는 원장을 지난다(잔액 직접올림 0곳)', gOut === 0,
+    '아직 ' + gOut + '곳 — 원장 밖으로 되돌아가면 학생 내역·학부모 화면에서 다시 사라진다');
+  check('그 적립이 원장에 실제로 남는다', /applyPointTransaction/.test(games),
+    '기록이 없으면 잔액만 늘고 «왜 늘었는지» 가 없다(2026-09-01 실측 원장 밖 2,746점)');
+
+  /* 🔑 이 절의 핵심 — «원장에 남는다» 와 «상한이 본다» 는 **다른 말**이다.
+     기록은 남기되 금액은 그대로 두려고 일부러 상한 계산에서 뺐다. 그 사실을 못 박아 두지 않으면
+     다음 사람이 「원장으로 합쳤으니 이제 하루 100점이 전부 막힌다」고 잘못 읽는다. */
+  check('그래도 총량 상한은 그 둘을 세지 않는다(의도된 보류)',
+    /CAP_UNCOUNTED_RULES/.test(policy) && /vocab_review/.test(policy)
+      && /review_quiz_done/.test(policy),
+    '이 목록을 비우면 보상이 최대 10분의 1로 준다 — 버그 수리가 아니라 «정책 변경»이라 사장님이 정한다');
+
+  check('api-admin.ts 에는 아직 원장 밖 적립이 남아 있다(' + aOut + '곳)', aOut > 0,
+    '0곳이 됐다면 그쪽도 합쳐진 것이다 — 머리말의 «전체가 아니다» 를 함께 고칠 것');
   check('그래서 이 하니스는 «전체» 라고 말하지 않는다',
     /전체» 가 아니다/.test(readFileSync(new URL(import.meta.url)).toString()),
     '머리말에서 그 한계를 지우면 다음 사람이 «다 막혔다» 고 읽는다');
 }
+
 console.log('\n[ E. 규칙표의 daily_cap 이 «횟수» 라는 것을 코드가 알고 있다 ]');
 {
   /* 이 사고의 뿌리는 「daily_cap 을 점수 예산으로 착각」이다. 세는 쿼리가 COUNT(*) 인지
