@@ -249,6 +249,52 @@ console.log('\n▶ G. 참관 대상이 없을 때의 안내문');
         !/observe=/.test(sched) && !/observeRoom\(/.test(sched));
 }
 
+/* ═══ G절 · STEP 2 — 🎧 소리만 참관 · 💬 귓속말 패널 (2026-08-31) ═══════════
+   이 둘은 «화면을 가리는» 기능이 아니라 «협상과 순서» 를 건드리는 기능이라,
+   문자열이 다 맞아도 조용히 헛돌 수 있다. 그 조용한 실패 지점만 못 박는다. */
+{
+  const guard = read(join(PUB, 'js', 'vc-observe-guard.js'));
+  const g = strip(guard);
+
+  check('G① 소리만은 «영상 미수신 감시» 를 먼저 끈다 (안 끄면 릴레이 강제 + offer 재전송)',
+        /__vcObserveMediaWatching = true/.test(g) && /__vcObserveRetried = true/.test(g),
+        'vc-observe-guard.js ⑦절');
+  check('G② offer 를 만들기 «전» 에 끈다 — vcCreatePeer 를 감싸 video 트랜시버를 inactive 로',
+        /window\.vcCreatePeer = function/.test(g) && /direction = 'inactive'/.test(g));
+  check('G③ 실제로 껐을 때만 «소리만» 이라고 말한다 (못 껐으면 배너를 안 그린다)',
+        /if \(n\) \{[^}]*__vcAudioOnlyOn = true;[^}]*showAudioNote\(\)/.test(g));
+  /* ⚠️ 검사는 «그 글자가 있는가» 가 아니라 «뜻» 으로 — 되돌리기 주소를 어떻게 만들든,
+     audio 를 다시 싣지 않고 observe 는 유지하면 맞는 것이다(G⑭ 가 조립 방식을 본다). */
+  check('G④ 도중 전환은 재협상 대신 «audio 없이 다시 열기» (이 앱에는 자동 재협상이 없다)',
+        /'\?observe=' \+ encodeURIComponent\(observeRoom/.test(g) && !/q \+= '&audio=1'/.test(g));
+  check('G⑤ 귓속말 패널은 vcOpenChat 으로 연다 (vcToggleChat 이면 두 번째 호출이 도로 닫는다)',
+        /vcOpenChat\(\)/.test(g) && !/vcToggleChat\(\)/.test(g));
+  check('G⑥ 참관 화면(?observe=)에서만 동작한다',
+        /qs\.get\('observe'\)/.test(g));
+  check('G⑦ index.html 이 그 파일을 새 ?v= 로 부른다 (안 올리면 옛 파일이 캐시에서 나온다)',
+        /vc-observe-guard\.js\?v=([89]|[1-9][0-9])/.test(indexHtml));
+
+  /* ⑨ 참관 주소에 ?room= 이 남으면 새로고침이 «실제 참가자» 로 입장시킨다 (2026-08-31 실측) */
+  check('G⑫ 참관 중에는 주소에 ?room= 을 쓰지 못하게 막는다 (F5 = 카메라 켜고 등장 방지)',
+        /history\.replaceState = function/.test(g) && /searchParams\.delete\('room'\)/.test(g));
+  check('G⑬ 상주 setInterval 로 지우지 않는다 (홈을 멎게 한 전력)',
+        !/setInterval\([^)]*room/.test(g));
+  check('G⑭ «영상도 보기» 는 지금 주소를 물려받지 않고 새로 조립한다 (?room= 을 딸려 보내지 않게)',
+        /location\.origin \+ location\.pathname \+ q/.test(g));
+
+  /* 관제탑 — 세 갈래가 «같은 참관» 이고 기록 사유만 다르다 */
+  const wall = read(join(PUB, 'admin', 'monitor-wall.html'));
+  const w = strip(wall);
+  check('G⑧ 관제탑에 귓속말·소리만 버튼이 있다',
+        /data-act="observe-whisper"/.test(w) && /data-act="observe-audio"/.test(w));
+  check('G⑨ 각각 &whisper=1 · &audio=1 로 연다',
+        /'&whisper=1'/.test(w) && /'&audio=1'/.test(w));
+  check('G⑩ 모드마다 감사 기록 사유가 다르다 (로그만 보고 무엇을 하려던 참관인지 남는다)',
+        /참관 \+ 귓속말/.test(w) && /소리만 참관/.test(w) && /logObserve\(roomId, reason\)/.test(w));
+  check('G⑪ 참관 계열 버튼은 보라 계열 — 입장(주황)·종료(빨강)와 섞이지 않는다',
+        /\.acts \.go2\{[^}]*var\(--violet\)/.test(wall));
+}
+
 console.log('\n' + '═'.repeat(64));
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
 if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }
