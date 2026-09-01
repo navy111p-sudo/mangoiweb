@@ -22,6 +22,8 @@
  * [그래서 하는 일 — 두 가지뿐]
  *   ① 이름 덮어쓰기 : 동기화가 끝난 «직후» 우리 값을 다시 입힌다 (`applyStudentErpOverrides`)
  *   ② 명부에서 숨김 : students_erp 를 건드리지 않고 **읽는 쪽에서 거른다** (`hiddenExcludeCond`)
+ *                     ⚠️ (2026-09-01) 카페24 미러도 읽는 쪽에 합류했다. 다만 «거르기» 가 아니라
+ *                        «숨긴 목록을 받아»(`loadHiddenStudents`) 사실대로 말한다 — 그 이유는 아래 함수 주석.
  *
  *   ⛔ 숨김을 `DELETE` 로 구현하지 말 것. 오늘 밤 되살아나고, 그 사이 붙어 있던
  *      출석·포인트 기록만 주인을 잃는다. 숨김은 «보여주지 않는 것» 이지 «지우는 것» 이 아니다.
@@ -32,12 +34,15 @@
  *          api-mango.ts  `/api/admin/students/erp-list`  (여러 화면이 공유하는 명부)
  *          api-mango.ts  `/api/admin/omnisearch`         (상단 통합검색)
  *          api-students.ts `/api/student/login`          (숨긴 계정은 로그인도 막는다)
+ *          c24-mirror.ts   planMirror()                  (숨긴 계정의 카페24 수업은 안 만든다)
  *   한쪽만 고치면 「사이드바엔 없는데 본문엔 있는」 류의 불일치가 난다.
  *
  * ⚠️ 새 /api 경로는 만들지 않는다 — `src/index.ts` 는 공동 금지구역이라
  *    라우팅·인증 게이트를 건드려야 하는 신설 경로를 여기서 만들 수 없다.
  *    지정은 D1 에 직접 넣는다(건수가 적고 자주 바뀌지 않는다).
  */
+
+import { selectInChunks } from './d1-chunk';
 
 export interface OverrideEnv { DB: D1Database; [k: string]: any }
 
@@ -114,4 +119,33 @@ export async function applyStudentErpOverrides(env: OverrideEnv): Promise<number
   } catch {
     return -1;
   }
+}
+
+/**
+ * 🪞 (2026-09-01) 넘긴 계정들 중 «명부에서 숨긴» 것만 골라 돌려준다.
+ *
+ * [왜 조건절(hiddenExcludeCond)이 아니라 목록인가]
+ *   조건절로 거르면 숨긴 학생이 조회에서 그냥 «없는 학생» 이 된다.
+ *   카페24 미러에서 그러면 판정이 no_student(「학생 계정이 없습니다」)가 되는데 그것은 **거짓**이고,
+ *   화면에 빨간 경고로 떠서 «고쳐야 할 것» 처럼 보인다. 실제로는 «일부러 뺀 것» 이다.
+ *   그래서 목록으로 받아 부르는 쪽이 «숨긴 것» 이라고 사실대로 말할 수 있게 한다.
+ *
+ * ⚠️ fail-open — 표가 없거나 조회가 실패하면 «숨긴 사람 없음»(빈 집합)으로 돌려준다.
+ *    이 값은 «빼는» 데 쓰이므로, 못 읽었을 때 아무도 안 빠지는 쪽이 안전하다
+ *    (거꾸로 전원을 뺐다가는 시간표가 통째로 안 만들어진다).
+ * ⚠️ IN 목록은 손으로 자르지 않는다 — D1 바인드 100개 한도는 공용 헬퍼가 센다(CLAUDE.md 2장).
+ */
+export async function loadHiddenStudents(env: OverrideEnv, uids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  const want = Array.from(new Set(uids.filter(Boolean)));
+  if (!want.length) return out;
+  try {
+    const rows = await selectInChunks<any>(
+      env.DB, want,
+      (ph) => `SELECT user_id FROM student_erp_override WHERE hidden = 1 AND user_id IN (${ph})`,
+      { swallowErrors: true },
+    );
+    for (const r of rows) if (r && r.user_id) out.add(String(r.user_id));
+  } catch { /* fail-open */ }
+  return out;
 }

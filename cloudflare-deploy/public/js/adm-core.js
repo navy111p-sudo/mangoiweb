@@ -1364,6 +1364,13 @@ function _ensureRoomEnhCss(){
       `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
       (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
 function _renderRoomsSummary(counts, liveRooms, _L) {
+  /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄의 «화상방 접속» 숫자 — 세는 곳은 여기 하나뿐이고
+     탭은 받아 적기만 한다. ⚠️ 통째로 try/catch — 이 함수는 카드를 그리는 길목이라 던지면 안 된다. */
+  try {
+    document.dispatchEvent(new CustomEvent('mangoi:rooms-counts', {
+      detail: { rooms: Number(liveRooms) || 0, now: (counts && counts.now) || 0 }
+    }));
+  } catch (e) { /* 무시 */ }
   const box = document.getElementById('rooms-now-summary');
   if (!box) return;
   if (!counts) { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -2615,7 +2622,18 @@ function _tpStatusBadge(status) {
     '퇴사':   { bg:'#fee2e2', color:'#991b1b', emoji:'🚪', ko:'퇴사',   en:'Resigned' }
   };
   const s = map[status]; if (!s) return _aiEsc(status||'');
-  return '<span style="background:' + s.bg + ';color:' + s.color + ';padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600">' +
+  /* JS 로 그린 글자는 🌐 를 눌러도 안 따라온다 — 그릴 때 data-ko/data-en 을 함께 박는다.
+     ⚠️ 이 span 은 «라벨만» 담으므로 textContent 를 갈아끼워도 안전하다
+        (아이콘이 함께 든 상자에는 절대 달지 말 것 — CLAUDE.md 2장). */
+  /* ⚠️ white-space:nowrap 이 없으면 좁은 상태 칸에서 「🚪 퇴사」가 «🚪 / 퇴 / 사» 로 쪼개진다
+     (실측 2026-09-01 PC 1440: 배지 높이 48px → nowrap 뒤 24px).
+     class 는 밝기 페인터 SKIP_SEL 과 짝 — 초록/노랑/빨강이 «구분 정보» 라 눌리면 안 된다. */
+  return '<span class="tp-st-badge" data-ko="' + s.emoji + ' ' + s.ko + '" data-en="' + s.emoji + ' ' + s.en + '" ' +
+    /* ⚠️ background-color 로 쓴다 — `background:#f…` 로 쓰면 admin-inline-c.css 의 옛 다크 규칙
+       (`details.menu-card [style*="background:#f"]` 류)이 !important 로 덮어 **배경이 투명**해진다.
+       실측(2026-09-01): background: 로 두었더니 computed backgroundColor 가 rgba(0,0,0,0) 이 되고
+       세 상태가 화면에서 구분되지 않았다(CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+    'style="background-color:' + s.bg + ';color:' + s.color + ';padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap">' +
     s.emoji + ' ' + (L ? s.en : s.ko) + '</span>';
 }
 function _tpGroupBadge(group) {
@@ -2758,9 +2776,14 @@ window._tpMbtiBadge = _tpMbtiBadge;
         var color = x.action==='create'?'#059669':(x.action==='update'?'#2563eb':'#9ca3af');
         var badge = x.action==='create'?'신규':(x.action==='update'?'갱신':(x.action==='skip'?'건너뜀':x.action));
         var detail = (x.fields && x.fields.length) ? x.fields.join(', ') : (x.mbti ? ('MBTI '+x.mbti) : '');
+        /* ⚠️ (2026-09-01) 서버가 모르는 상태값을 «그 칸만» 빼고 넣었다면 반드시 화면에 말한다 —
+           조용히 버리면 「상태를 적었는데 안 바뀐다」가 되고 아무도 이유를 모른다. */
+        var warn = x.status_ignored
+          ? '<div style="color:#b45309;font-weight:600">⚠ 상태값 «'+_aiEsc(x.status_ignored)+'» 은(는) 모르는 값이라 반영하지 않았습니다 (활동중 · 비활동 · 퇴사)</div>'
+          : '';
         return '<tr><td style="padding:2px 6px;border-bottom:1px solid #f0f0f0"><b>'+_aiEsc(x.name||'—')+'</b></td>'+
                '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;color:'+color+';font-weight:700;white-space:nowrap">'+badge+'</td>'+
-               '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;color:#6b7280">'+_aiEsc(detail)+'</td></tr>';
+               '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;color:#6b7280">'+_aiEsc(detail)+warn+'</td></tr>';
       }).join('') + '</table>';
       applyBtn.disabled = false;
       applyBtn.style.cssText = 'padding:6px 16px;font-size:12px;background:#059669;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800';
@@ -2776,7 +2799,11 @@ window._tpMbtiBadge = _tpMbtiBadge;
       var d = await r.json();
       if (!d.ok){ st.textContent = '⚠ ' + (d.message||d.error||'실패'); applyBtn.disabled = false; return; }
       var s = d.summary;
-      st.innerHTML = '✅ 완료 — 신규 '+s.created+' · 갱신 '+s.updated+' · 건너뜀 '+s.skipped;
+      /* ⚠️ 「모르는 상태값이라 반영하지 않았다」는 미리보기에만 있으면 «반영했다» 화면에서 사라진다.
+         조용히 버리지 않기로 한 것이니 이쪽에도 남긴다. */
+      var ign = (d.results || []).filter(function(x){ return x && x.status_ignored; }).length;
+      st.innerHTML = '✅ 완료 — 신규 '+s.created+' · 갱신 '+s.updated+' · 건너뜀 '+s.skipped
+        + (ign ? ' <span style="color:#b45309;font-weight:700">· ⚠ 상태값 무시 '+ign+'건 (활동중 · 비활동 · 퇴사 만 저장됩니다)</span>' : '');
       _lastRows = null;
       if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
     }catch(e){ st.textContent = '⚠ ' + e; applyBtn.disabled = false; }
@@ -2833,8 +2860,15 @@ async function loadTeacherProfiles() {
   _tpLoadTeacherOptions();
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
+  /* 🌏 (2026-09-01) 구분(필리핀·북미·중국) — 판정이 국적 코드 + 지역 «글자» 를 함께 보므로
+     서버가 거른다(SQL 로 옮겨 적으면 정본이 두 벌이 된다). 화면은 고른 값을 그대로 보낸다. */
+  const region = document.getElementById('tp-filter-region')?.value || '';
   const params = new URLSearchParams();
-  if (status) params.set('status', status);
+  if (region) params.set('region', region);
+  /* 🙈 (2026-09-01) 「안보임」은 status 값이 아니라 «다른 축» 이라 다른 파라미터로 보낸다.
+     ⛔ 이 값을 status 로 보내면 서버가 모르는 상태값이라 400 을 준다(그게 맞다). */
+  if (status === TP_STATUS_HIDDEN_FILTER) params.set('hidden', '1');
+  else if (status) params.set('status', status);
   // ⚠️ group(home/office) 필터는 서버가 'home'/'office' 정확매칭이라 'Home-based'/'Office Teacher' 를 못 거름 → 클라이언트에서 부분일치 처리(아래)
   let res;
   try {
@@ -2849,7 +2883,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="15" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -2873,8 +2907,17 @@ async function loadTeacherProfiles() {
     });
   }
   if (cnt) cnt.textContent = items.length + '명';
+  /* 🔴 (2026-09-01) 명부와 원부가 어긋나면 화면이 말한다.
+       발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 있다 —
+         · teacher_profiles.status … 이 명부
+         · teachers.active        … 스케줄·배정·카페24 미러
+       같은 날 양쪽 방향으로 다 어긋났다(원부만 내린 것 2명 · 명부만 내린 것 2명).
+       이제 저장할 때 서버가 함께 맞추지만, 그건 «앞으로» 만 막는다 — 이미 어긋나 있는 것과
+       다른 경로(야간 동기화 등)로 또 생기는 것은 이 줄이 잡는다.
+     ⛔ 화면이 자동으로 고치지 않는다 — 어느 쪽이 맞는지는 사람이 안다. 말해 주기만 한다. */
+  try { _tpRenderRosterMismatch(res); } catch (e) {}
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="15" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -2909,14 +2952,21 @@ async function loadTeacherProfiles() {
         'title="카카오ID 복사" aria-label="카카오ID 복사" ' +
         'style="margin-left:5px;padding:0 5px;font-size:10px;line-height:17px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer">📋</button>'
       : '<span style="color:#9ca3af">—</span>';
-    return '<tr data-tid="' + t.id + '">' +
+    return '<tr data-tid="' + t.id + '" data-hidden="' + (Number(t.list_hidden||0) === 1 ? '1' : '0') + '">' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
-        (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') + '</td>' +
-      '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpStatusBadge(t.status)) + '</td>' +
+        (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') +
+        /* ⚠️ (2026-09-01) 계정 연결이 두 개 이상 — 전에는 조인이 행을 늘려 «같은 강사가 두 줄» 로
+           보였다(사장님 「왜 Len 이 두 명이나 있지?」). 지금은 한 줄로 그리되, 그 사실을 감추지
+           않는다 — 감추면 아무도 정리하지 않는다. 대개 대소문자만 다른 계정이 두 벌 생긴 것이다. */
+        (Number(t.login_link_count || 0) > 1 ? _tpLinkDupChip(t) : '') + '</td>' +
+      /* 🟢⏸️🚪 상태 — 누르면 그 자리에서 바꾼다(아래 «상태를 명부에서 그 자리에 바꾸기» 절) */
+      '<td id="tpstc-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _tpStatusCell(t) + '</td>' +
       /* 🟢 «지금» — 이 강사가 지금 수업 중인가. 표를 그린 뒤 tpLoadLiveNow() 가 비동기로 채운다
          (인사평가 점수와 같은 방식). 여기서 값을 그리지 않는 이유: 목록 API 에 그 정보가 없다. */
       '<td class="tp-now-col" id="tpnow-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap"><span style="color:#d1d5db">…</span></td>' +
+      /* 🌏 구분 — 값은 서버가 판정해 t.region 으로 내려준다(여기서 다시 판정하지 않는다) */
+      '<td id="tprgc-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _tpRegionCell(t) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpGroupBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpWorkplaceBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
@@ -2995,6 +3045,48 @@ function _tpNormName(v) {
 window.tpLiveOnly = false;
 
 /* 지금 수업 현황을 한 번에 읽어 온다. 강사 수만큼 부르지 않는다(표당 1회). */
+/* 🔎 명부 ↔ 원부 어긋남 알림 — 목록 조회가 함께 준 숫자를 한 줄로 그린다.
+   ⚠️ 최상위 선언이다. 다른 함수 «안» 에 넣으면 그 밖의 호출부가 전부 ReferenceError 인데
+      문자열 검사는 「선언도 있고 호출도 있다」로 통과한다(CLAUDE.md 2장). */
+function _tpRenderRosterMismatch(res) {
+  var host = document.getElementById('tp-list-body');
+  if (!host || !host.parentNode) return;
+  var box = document.getElementById('tp-roster-mismatch');
+  var bad = (res && Array.isArray(res.roster_mismatch)) ? res.roster_mismatch : [];
+  var broken = (res && Array.isArray(res.roster_broken_link)) ? res.roster_broken_link : [];
+  var en = (typeof window.adminLang !== 'undefined' && window.adminLang === 'en');
+  if (!bad.length && !broken.length) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'tp-roster-mismatch';
+    box.style.cssText = 'margin:8px 0;padding:10px 12px;border:1px solid #fca5a5;'
+      + 'background-color:#fef2f2;border-radius:8px;font-size:12px;line-height:1.6;color:#7f1d1d';
+    var tbl = host.closest ? host.closest('table') : null;
+    var anchor = tbl && tbl.parentNode ? tbl : host.parentNode;
+    anchor.parentNode.insertBefore(box, anchor);
+  }
+  var lines = [];
+  if (bad.length) {
+    lines.push('<b>' + (en ? '⚠️ Roster mismatch: ' : '⚠️ 명부와 원부가 다릅니다: ')
+      + bad.length + (en ? '' : '명') + '</b>');
+    lines.push(bad.map(function (x) {
+      var side = (String(x.status || '') === '활동중')
+        ? (en ? 'listed active, roster resigned' : '명부 활동중 · 원부 퇴사')
+        : (en ? 'listed ' + (x.status || '-') + ', roster active' : '명부 ' + (x.status || '-') + ' · 원부 재직');
+      return '· ' + (x.name || ('#' + x.id)) + ' (' + side + ')';
+    }).join('<br>'));
+    lines.push(en
+      ? 'Open the profile and save the status again — the roster is updated together.'
+      : '해당 강사를 열어 상태를 다시 저장하면 원부까지 함께 맞춰집니다.');
+  }
+  if (broken.length) {
+    lines.push('<b>' + (en ? '⚠️ Broken roster link: ' : '⚠️ 원부 연결이 끊어졌습니다: ')
+      + broken.length + (en ? '' : '건') + '</b> '
+      + broken.map(function (x) { return (x.name || ('#' + x.id)); }).join(', '));
+  }
+  box.innerHTML = lines.join('<br>');
+}
+
 window.tpLoadLiveNow = async function () {
   if (_TP_LIVE.off) { _tpPaintLive(); return; }
   var cr = null, ar = null;
@@ -4064,6 +4156,516 @@ function _tpDisarmDel(btn) {
   btn.classList.remove('tp-act--del-armed');
   btn.title = '제거';
 }
+/* 🟢⏸️🚪 강사 «상태» 를 명부에서 그 자리에 바꾸기 — 샘플 A안 (2026-09-01 사장님 지시)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] 「퇴사한 강사를 비활동으로 바꾸고 싶다 — 안보임이 아니라 비활동으로.
+       즉 활동, 비활동, 그리고 안보임.」
+
+       상태 세 값은 원래도 있었다(수정 모달·필터·배지·PATCH 까지). 그런데
+       2026-09-01 운영 D1 실측으로 33행 중 «비활동 0건» 이었다. 바꾸는 길이
+       멀었기 때문이다 — ✏️ 수정 → 모달 → 스크롤 → 드롭다운 → 저장.
+       그래서 명부에서 사람을 빼는 실제 수단이 🗑 «영구 삭제» 뿐이었다.
+       이 절이 하는 일은 그 길을 «배지 클릭 두 번» 으로 줄이는 것이다.
+
+   [두 축] status(활동중·비활동·퇴사) 와 list_hidden(명부 노출)은 **다른 축**이다.
+       판정 정본은 서버 src/teacher-status.ts. ⛔ 「안보임」을 status 값으로
+       만들지 말 것 — 그러면 «퇴사했지만 정산이 남아 명부에 남길 사람» 과
+       «활동중인데 감추고 싶은 행»(실측: 테스트강사·파라테스트)을 함께 못 적는다.
+
+   [함정 세 개를 피해 만들었다]
+     ① 전역 룰 `details.menu-card button{background:인디고!important; padding:9px 18px!important}`
+        이 카드 «안» 의 모든 버튼을 뭉갠다. 그래서 ⓐ 트리거 버튼은
+        `#tp-list-table td button.tp-st-btn` (ID 접두)로 되살리고
+        ⓑ 메뉴 자체는 `document.body` 에 띄워 그 선택자에 아예 안 걸리게 했다.
+     ② 표가 `overflow-x:auto` 상자 안이라(admin.html 3984행) 셀 안에 절대배치하면
+        세로로 잘린다. 그래서 body + position:fixed 다.
+     ③ ⚠️ PC 관리자 화면은 `body{zoom:1.3}`(+JS 미세조정)이다. getBoundingClientRect()
+        는 zoom 이 «곱해진» 화면 좌표인데, body 안의 fixed 요소는 zoom «안쪽»
+        좌표계를 쓴다. 그래서 좌표를 배율로 나눈다(_tpStZoom). 나누지 않으면
+        배율이 커질수록 메뉴가 오른쪽 아래로 밀려난다.
+   ⛔ 상주 MutationObserver·setInterval 로 위치를 지키지 말 것(홈을 통째로 멎게 한 전력).
+      스크롤·리사이즈에서는 그냥 닫는다.
+   감시: test-harness/teacher_status_inline_harness.mjs */
+
+/** 서버 src/teacher-status.ts 의 TEACHER_STATUSES 와 «같은 목록» 이어야 한다(하니스가 대조). */
+var TP_STATUS_LIST = ['활동중', '비활동', '퇴사'];
+/** 필터 드롭다운에서 「🙈 안보임」이 쓰는 값. 이 값은 서버로 status 로 가지 않는다. */
+var TP_STATUS_HIDDEN_FILTER = '__hidden__';
+
+var _tpStMenu = null;      // 열려 있는 메뉴 element
+var _tpStUndoT = null;     // 되돌리기 토스트 타이머
+
+/** body{zoom:1.3} 보정 — 위 함정 ③. 모바일(zoom 없음)에서는 1 이라 무해하다. */
+function _tpStZoom() {
+  try {
+    var inline = document.body && document.body.style && document.body.style.zoom;
+    var z = parseFloat(inline || (window.getComputedStyle(document.body).zoom || '1'));
+    return (z && isFinite(z) && z > 0) ? z : 1;
+  } catch (e) { return 1; }
+}
+
+function _tpStIsEn() { return (typeof adminLang !== 'undefined' && adminLang === 'en'); }
+
+/** ⚠️ 계정 연결이 두 개 이상인 강사에 붙는 표시. 이름 아래 한 줄.
+ *  ⚠️ 배경은 background-color 로 준다 — `background:#f…` 는 admin-inline-c.css 의 옛 규칙에
+ *     !important 로 먹혀 투명해진다(같은 파일 상태 배지에서 실측). */
+function _tpLinkDupChip(t) {
+  var L = _tpStIsEn();
+  var n = Number(t.login_link_count || 0);
+  var ko = '⚠ 계정 연결 ' + n + '개';
+  var en = '⚠ ' + n + ' linked accounts';
+  var tipKo = '이 강사에게 로그인 계정이 ' + n + '개 연결돼 있습니다(대개 대소문자만 다른 계정). '
+            + '지금 보이는 아이디는 «가장 최근에 연결한» 것입니다. 정리는 강사 계정 연결 카드에서 하세요.';
+  var tipEn = n + ' login accounts are linked to this teacher (usually the same id in different letter case). '
+            + 'The id shown is the most recently linked one.';
+  return '<br><span class="tp-link-dup" data-ko="' + ko + '" data-en="' + en + '" ' +
+    'title="' + (L ? tipEn : tipKo) + '" data-ko-title="' + tipKo + '" data-en-title="' + tipEn + '" ' +
+    'style="display:inline-block;margin-top:3px;background-color:#fef3c7;color:#854d0e;' +
+    'padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap">' +
+    (L ? en : ko) + '</span>';
+}
+
+/** 명부 상태 칸 — 배지를 «누를 수 있는» 버튼으로 감싼다.
+ *  ⛔ 이 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
+ *     갈아끼워 배지가 사라지고 문장이 들어앉는다(CLAUDE.md 2장 「아이콘 버튼에…」).
+ *     설명은 data-ko-title/data-en-title 로만 단다. */
+function _tpStatusCell(t) {
+  var L = _tpStIsEn();
+  var hidden = Number((t && t.list_hidden) || 0) === 1;
+  var tipKo = '눌러서 상태를 바꿉니다 — 활동중 · 비활동 · 퇴사 (5초 안에 되돌리기 가능)';
+  var tipEn = 'Click to change status — Active · Inactive · Resigned (undo within 5s)';
+  return '<button type="button" class="tp-st-btn" id="tpstb-' + t.id + '" aria-haspopup="menu" ' +
+    'onclick="window.tpOpenStatusMenu && window.tpOpenStatusMenu(' + t.id + ',this)" ' +
+    'title="' + (L ? tipEn : tipKo) + '" data-ko-title="' + tipKo + '" data-en-title="' + tipEn + '">' +
+      _tpStatusBadge(t.status) +
+      (hidden ? '<span class="tp-st-hidden" data-ko="🙈 안보임" data-en="🙈 Hidden">' +
+                (L ? '🙈 Hidden' : '🙈 안보임') + '</span>' : '') +
+      '<span class="tp-st-caret" aria-hidden="true">▾</span>' +
+    '</button>';
+}
+
+/** 상태 칸 하나만 다시 그린다. ⛔ 표 전체를 다시 그리지 않는다 —
+ *  행을 갈아치우면 조준하고 있던 버튼이 마우스 아래에서 움직인다(2026-08-12 방 목록 사고). */
+function _tpStRepaint(id) {
+  var t = (window._tpRowById || {})[id];
+  var td = document.getElementById('tpstc-' + id);
+  if (!t || !td) return;
+  td.innerHTML = _tpStatusCell(t);
+  var tr = td.closest ? td.closest('tr') : null;
+  if (tr) tr.setAttribute('data-hidden', Number(t.list_hidden || 0) === 1 ? '1' : '0');
+}
+
+function _tpStCloseMenu() {
+  if (_tpStMenu && _tpStMenu.parentNode) _tpStMenu.parentNode.removeChild(_tpStMenu);
+  _tpStMenu = null;
+  document.removeEventListener('keydown', _tpStOnKey, true);
+  window.removeEventListener('scroll', _tpStFollow, true);
+  window.removeEventListener('resize', _tpStFollow);
+}
+
+/** 메뉴를 버튼 아래에 놓는다. 화면 좌표(rect)를 배율로 나눠 zoom «안쪽» 좌표계로 옮긴다. */
+function _tpStPlace(m, btn) {
+  var z = _tpStZoom();
+  var r = btn.getBoundingClientRect();
+  var vw = window.innerWidth / z, vh = window.innerHeight / z;
+  var mw = m.offsetWidth, mh = m.offsetHeight;
+  var left = r.left / z;
+  var top  = r.bottom / z + 4;
+  if (left + mw > vw - 8) left = Math.max(8, vw - mw - 8);         // 오른쪽으로 넘치면 당긴다
+  if (top + mh > vh - 8) top = Math.max(8, r.top / z - mh - 4);    // 아래가 좁으면 위로 편다
+  m.style.left = left + 'px';
+  m.style.top  = top + 'px';
+}
+
+/* 🪤 스크롤에 «닫으면» 안 된다 — 버튼을 누르면 포커스가 가면서 브라우저가 스스로 스크롤하고,
+     그 scroll 이 여는 클릭 직후에 도착해 **열리자마자 닫힌다**(2026-09-01 브라우저 실측으로 잡음).
+     그래서 닫지 말고 «따라가게» 한다. 버튼이 화면 밖으로 나가면 그때만 닫는다.
+   ⛔ 상주 리스너가 아니다 — 메뉴가 열려 있는 동안만 살고 _tpStCloseMenu 가 뗀다. */
+function _tpStFollow() {
+  if (!_tpStMenu) return;
+  /* 🔴 (2026-09-01) 버튼을 «id 를 조립해» 찾지 말 것 — 이 상자는 상태 메뉴와 구분 메뉴가
+     함께 쓰는데 열쇠 모양이 다르다(101 대 rg:101). 조립하면 구분 메뉴에서 tpstb-rg:101 = null 이
+     되어 **스크롤 한 번에 무조건 닫혔다**(trap-check 가 잡음: 열린 뒤 20px 만 굴려도 사라짐).
+     열 때 붙여 둔 «그 버튼» 을 그대로 쓰고, 조립은 옛 메뉴를 위한 폴백으로만 남긴다. */
+  var btn = _tpStMenu.__btn ||
+            document.getElementById('tpstb-' + _tpStMenu.getAttribute('data-tid'));
+  if (!btn || !document.body.contains(btn)) { _tpStCloseMenu(); return; }
+  var r = btn.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > window.innerHeight) { _tpStCloseMenu(); return; }
+  _tpStPlace(_tpStMenu, btn);
+}
+function _tpStOnKey(e) { if (e && e.key === 'Escape') { _tpStCloseMenu(); } }
+
+window.tpOpenStatusMenu = function (id, btn) {
+  var already = _tpStMenu && _tpStMenu.getAttribute('data-tid') === String(id);
+  _tpStCloseMenu();
+  if (already) return;                       // 같은 버튼을 다시 누르면 닫기
+  var t = (window._tpRowById || {})[id] || {};
+  var L = _tpStIsEn();
+  var cur = (t.status || '활동중');
+  var hidden = Number(t.list_hidden || 0) === 1;
+
+  var m = document.createElement('div');
+  m.id = 'tp-st-menu'; m.setAttribute('role', 'menu'); m.setAttribute('data-tid', String(id));
+  var html = '';
+  TP_STATUS_LIST.forEach(function (s) {
+    html += '<div class="tp-st-item' + (s === cur ? ' on' : '') + '" role="menuitem" tabindex="0" ' +
+            'data-act="status" data-val="' + s + '">' + _tpStatusBadge(s) +
+            (s === cur ? '<span class="tp-st-chk" aria-hidden="true">✓</span>' : '') + '</div>';
+  });
+  html += '<div class="tp-st-sep"></div>';
+  var hideTipKo = '명부와 관리자 화면의 강사 후보 목록에서 빠집니다. 지워지지 않고 「🙈 안보임」 필터에서 볼 수 있습니다';
+  var hideTipEn = 'Removed from the roster and admin teacher pickers. Not deleted — find it under the “Hidden” filter';
+  html += '<div class="tp-st-item" role="menuitem" tabindex="0" data-act="hidden" data-val="' +
+          (hidden ? '0' : '1') + '" title="' + (L ? hideTipEn : hideTipKo) + '">' +
+          (hidden ? (L ? '👁 Show in roster' : '👁 명부에 다시 보이기')
+                  : (L ? '🙈 Hide from roster' : '🙈 명부에서 숨기기')) + '</div>';
+  m.innerHTML = html;
+  document.body.appendChild(m);
+
+  var pick = function (el) {
+    if (!el) return;
+    var act = el.getAttribute('data-act'), val = el.getAttribute('data-val');
+    _tpStCloseMenu();
+    if (act === 'status') window.tpSetTeacherStatus(id, val);
+    else if (act === 'hidden') window.tpSetTeacherHidden(id, val === '1');
+  };
+  m.addEventListener('click', function (e) {
+    var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+    if (it) { e.stopPropagation(); pick(it); }
+  });
+  m.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+      if (it) { e.preventDefault(); pick(it); }
+    }
+  });
+
+  _tpStPlace(m, btn);          // 자리 잡기(함정 ③ — zoom 보정은 그 함수 안에)
+  m.__btn = btn;               // 스크롤 때 «따라갈» 버튼 (id 조립 금지 — _tpStFollow 주석)
+  _tpStMenu = m;
+
+  setTimeout(function () {
+    document.addEventListener('click', function once(ev) {
+      if (_tpStMenu && _tpStMenu.contains(ev.target)) return;
+      document.removeEventListener('click', once, true);
+      _tpStCloseMenu();
+    }, true);
+  }, 0);
+  document.addEventListener('keydown', _tpStOnKey, true);
+  window.addEventListener('scroll', _tpStFollow, true);
+  window.addEventListener('resize', _tpStFollow);
+};
+
+/** 한 칸만 저장한다. 실패하면 «고치기 전» 으로 되돌려 놓고 사실대로 알린다. */
+async function _tpStPatch(id, patch) {
+  try {
+    var r = await fetch('/api/admin/teacher-profiles/' + id, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    });
+    var d = await r.json().catch(function () { return {}; });
+    /* ✅ «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 판정한다 —
+       종단 404 본문에는 ok 칸이 아예 없어 `d.ok === false` 는 그냥 통과한다
+       (CLAUDE.md 2장 「404 는 Not Found 로 안 보일 수 있다」). */
+    if (!r.ok || d.ok !== true) {
+      return { ok: false, msg: d.message || d.error || ('HTTP ' + r.status) };
+    }
+    return { ok: true, data: d };
+  } catch (e) {
+    return { ok: false, msg: String(e) };
+  }
+}
+
+/** 되돌리기 토스트. 5초 뒤 사라진다. */
+function _tpStToast(ko, en, undoFn) {
+  var L = _tpStIsEn();
+  var olds = document.querySelectorAll('#tp-st-toast');
+  for (var i = 0; i < olds.length; i++) olds[i].parentNode.removeChild(olds[i]);   // 겹쳐 쌓이지 않게 전부
+  clearTimeout(_tpStUndoT);
+
+  var box = document.createElement('div');
+  box.id = 'tp-st-toast'; box.setAttribute('role', 'status');
+  var msg = document.createElement('span');
+  msg.className = 'tp-st-toast-msg';
+  msg.setAttribute('data-ko', ko); msg.setAttribute('data-en', en);
+  msg.textContent = L ? en : ko;
+  box.appendChild(msg);
+  if (undoFn) {
+    var u = document.createElement('button');
+    u.type = 'button'; u.className = 'tp-st-undo';
+    u.setAttribute('data-ko', '되돌리기'); u.setAttribute('data-en', 'Undo');
+    u.textContent = L ? 'Undo' : '되돌리기';
+    u.addEventListener('click', function () {
+      box.parentNode && box.parentNode.removeChild(box);
+      clearTimeout(_tpStUndoT);
+      undoFn();
+    });
+    box.appendChild(u);
+  }
+  document.body.appendChild(box);
+  _tpStUndoT = setTimeout(function () {
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }, 5000);
+}
+
+/** 🟢⏸️🚪 상태 바꾸기 — 화면을 먼저 바꾸고 저장한다(실패하면 되돌린다). */
+window.tpSetTeacherStatus = async function (id, next, _isUndo) {
+  var t = (window._tpRowById || {})[id];
+  if (!t) return;
+  var prev = t.status || null;
+  if (String(prev || '') === String(next)) return;               // 같은 값이면 아무것도 안 한다
+  t.status = next; _tpStRepaint(id);
+
+  var res = await _tpStPatch(id, { status: next });
+  if (!res.ok) {
+    t.status = prev; _tpStRepaint(id);
+    alert((_tpStIsEn() ? 'Could not change status: ' : '상태를 바꾸지 못했습니다: ') + res.msg);
+    return;
+  }
+  if (_isUndo) return;                                            // 되돌리기까지 되돌리지는 않는다
+  var who = t.korean_name || t.english_name || ('#' + id);
+  _tpStToast(who + ' — ' + next + ' 으로 바꿨습니다',
+             who + ' — changed to ' + next,
+             function () { window.tpSetTeacherStatus(id, prev, true); });
+};
+
+/** 🙈 명부에서 숨기기 / 👁 다시 보이기 — status 와 «다른 축» 이다. 지우는 것이 아니다. */
+/* 🙈 명부에서 숨기기 / 👁 다시 보이기 — status 와 «다른 축» 이다. 지우는 것이 아니다.
+   🔴 «되돌리기» 는 행 캐시(window._tpRowById)에 기대면 안 된다 —
+      이 함수는 끝에서 loadTeacherProfiles() 를 부르고, 그 함수가 캐시를 통째로 비운 뒤
+      **응답에 온 행만** 다시 채운다. 방금 숨긴 행은 기본 조회에서 빠지므로
+      5초 뒤 사람이 「되돌리기」를 눌러도 `if (!t) return` 에서 **조용히 사라졌다**
+      (2026-09-01 trap-check 가 잡음. 에러도 안 나서 「눌러도 아무 일 없음」으로만 보인다).
+      「🙈 안보임」 필터에서 되살릴 때도 대칭으로 같다(그 조회는 숨긴 행«만» 준다).
+   ✅ 그래서 되돌리기에 필요한 것(이름·되돌릴 값)을 **닫힘(closure)으로 넘긴다.**
+      캐시는 «있으면 쓰고 없으면 없는 대로» 간다. */
+window.tpSetTeacherHidden = async function (id, hide, _isUndo, _name) {
+  var t = (window._tpRowById || {})[id];
+  var who = _name || (t && (t.korean_name || t.english_name)) || ('#' + id);
+  if (t) {
+    if ((Number(t.list_hidden || 0) === 1) === !!hide) return;   // 이미 그 값이면 아무것도 안 한다
+    t.list_hidden = hide ? 1 : 0; _tpStRepaint(id);              // 화면 먼저(캐시가 있을 때만)
+  }
+
+  var res = await _tpStPatch(id, { list_hidden: hide ? 1 : 0 });
+  if (!res.ok) {
+    if (t) { t.list_hidden = hide ? 0 : 1; _tpStRepaint(id); }   // 실패하면 «고치기 전» 으로
+    alert((_tpStIsEn() ? 'Could not change visibility: ' : '명부 노출을 바꾸지 못했습니다: ') + res.msg);
+    return;
+  }
+  if (!_isUndo) {
+    /* ⚠️ 「명부에서」라고만 적으면 사실보다 좁다 — 같은 목록 API 를 쓰는 관리자 화면
+       (레벨테스트 강사 배정 후보 등)에서도 함께 빠진다. 화면이 그걸 말하게 한다. */
+    _tpStToast(who + (hide ? ' — 명부와 강사 후보 목록에서 숨겼습니다 (지워진 것이 아닙니다)'
+                           : ' — 명부에 다시 보입니다'),
+               who + (hide ? ' — hidden from the roster and teacher pickers (not deleted)'
+                           : ' — visible in the roster again'),
+               function () { window.tpSetTeacherHidden(id, !hide, true, who); });
+  }
+  /* 숨김은 «지금 보고 있는 목록에 그 행이 속하는가» 를 바꾼다 → 목록을 다시 읽는다.
+     (상태 변경과 달리 칸만 칠해서는 건수(N명)가 거짓말을 한다) */
+  if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+};
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   🌏 구분(국가권) — 필리핀 · 북미 · 중국          (2026-09-01 사장님 지시)
+   ──────────────────────────────────────────────────────────────────────────────
+   「국가 추가해서 필리핀, 북미, 중국, 이렇게도 나눠줘 / 구분칸 추가해줘」
+
+   ⛔ 여기서 «무슨 구분인지» 를 판정하지 않는다. 판정 정본은 서버 src/teacher-region.ts
+      하나뿐이고, 목록 API 가 행마다 t.region 을 실어 준다. 저장한 뒤의 값도 서버가
+      다시 판정해 PATCH 응답의 region 으로 돌려준다.
+      ⚠️ 판정을 화면에도 한 벌 두면 반드시 어긋난다(이 저장소의 반복 사고).
+
+   ⚠️ 바꾸는 것은 «국적(nationality)» 이고 보이는 것은 «구분» 이다 — 북미는 미국·캐나다를
+      묶은 칸이라 «북미» 라는 코드를 저장하지 않는다(어느 나라인지 모르면서 아는 척하게 된다).
+      그래서 메뉴에는 나라를 늘어놓고, 표에는 묶음을 그린다.
+
+   ⚠️ 실측(2026-09-01 운영 D1 33행): nationality 가 채워진 행은 1개뿐이고 나머지는
+      출신·활동 지역 글자로 읽힌다. 그래서 「지금은 지역 글자로 읽고 있습니다」를 메뉴가 말한다.
+   감시: test-harness/teacher_region_harness.mjs */
+
+/** 서버 src/teacher-region.ts 의 목록과 «같아야» 한다(하니스가 대조). */
+var TP_REGION_LABEL = {
+  PH:  { ko: '필리핀',    en: 'Philippines',    bg: '#e0f2fe', color: '#075985' },
+  NA:  { ko: '북미',      en: 'North America',  bg: '#ede9fe', color: '#5b21b6' },
+  CN:  { ko: '중국',      en: 'China',          bg: '#ffe4e6', color: '#9f1239' },
+  ETC: { ko: '기타 국가', en: 'Other',          bg: '#f1f5f9', color: '#334155' }
+};
+/** 메뉴에 늘어놓는 나라. value 는 admin.html #tp-nationality 와 같은 ISO 2글자다. */
+var TP_REGION_PICK = [
+  { code: 'PH', ko: '필리핀',        en: 'Philippines' },
+  { code: 'US', ko: '미국 (북미)',   en: 'United States (N. America)' },
+  { code: 'CA', ko: '캐나다 (북미)', en: 'Canada (N. America)' },
+  { code: 'CN', ko: '중국',          en: 'China' },
+  { code: 'ZZ', ko: '기타 국가',     en: 'Other country' },
+  { code: '',   ko: '— 미지정으로 비우기', en: '— Clear (unset)' }
+];
+
+/** 구분 배지. ⚠️ class 에 tp-st-badge 를 함께 단다 — 글자색을 인라인 !important 로 덮는
+ *  페인터 셋(adm-s12·adm-s13·adm-light-surfaces)이 그 선택자만 비켜 가기 때문이다.
+ *  ⚠️ 배경은 background-color 로 준다(`background:#f…` 는 옛 다크 규칙에 먹혀 투명해진다). */
+function _tpRegionBadge(region) {
+  var L = _tpStIsEn();
+  var r = TP_REGION_LABEL[region];
+  if (!r) {
+    return '<span class="tp-st-badge tp-rg-badge" data-ko="— 미지정" data-en="— Unset" ' +
+      /* ⚠️ #6b7280 은 이 배경에서 대비 4.39 로 AA(4.5) 아래였다(trap-check 실측).
+         이 배지는 글자색 페인터 예외라 «자동 구제» 도 안 받는다 — 색을 직접 어둡게 둔다. */
+      'style="background-color:#f3f4f6;color:#4b5563;padding:2px 8px;border-radius:999px;' +
+      'font-size:11px;font-weight:600;white-space:nowrap">' + (L ? '— Unset' : '— 미지정') + '</span>';
+  }
+  return '<span class="tp-st-badge tp-rg-badge" data-ko="' + r.ko + '" data-en="' + r.en + '" ' +
+    'style="background-color:' + r.bg + ';color:' + r.color + ';padding:2px 8px;border-radius:999px;' +
+    'font-size:11px;font-weight:600;white-space:nowrap">' + (L ? r.en : r.ko) + '</span>';
+}
+
+/** 구분 칸 — 상태 칸과 같은 방식으로 «누를 수 있는» 버튼이다.
+ *  ⛔ 이 버튼에 data-ko/data-en 을 달지 말 것(i18n 이 textContent 를 통째로 갈아끼운다). */
+function _tpRegionCell(t) {
+  var L = _tpStIsEn();
+  var tipKo = '눌러서 국가를 바꿉니다 — 필리핀 · 미국 · 캐나다 · 중국 (5초 안에 되돌리기 가능)';
+  var tipEn = 'Click to change country — PH · US · CA · CN (undo within 5s)';
+  return '<button type="button" class="tp-st-btn" id="tprgb-' + t.id + '" aria-haspopup="menu" ' +
+    'onclick="window.tpOpenRegionMenu && window.tpOpenRegionMenu(' + t.id + ',this)" ' +
+    'title="' + (L ? tipEn : tipKo) + '" data-ko-title="' + tipKo + '" data-en-title="' + tipEn + '">' +
+      _tpRegionBadge(t.region) +
+      '<span class="tp-st-caret" aria-hidden="true">▾</span>' +
+    '</button>';
+}
+
+/** 구분 칸 하나만 다시 그린다(표 전체를 다시 그리지 않는다 — 상태 칸과 같은 이유). */
+function _tpRgRepaint(id) {
+  var t = (window._tpRowById || {})[id];
+  var td = document.getElementById('tprgc-' + id);
+  if (!t || !td) return;
+  td.innerHTML = _tpRegionCell(t);
+}
+
+window.tpOpenRegionMenu = function (id, btn) {
+  /* ⚠️ data-tid 앞에 'rg:' 를 붙인다 — 상태 메뉴와 같은 상자(#tp-st-menu)를 쓰므로,
+     접두사가 없으면 같은 행에서 상태→구분으로 옮겨 누를 때 «같은 메뉴» 로 보고 닫기만 한다. */
+  var key = 'rg:' + id;
+  var already = _tpStMenu && _tpStMenu.getAttribute('data-tid') === key;
+  _tpStCloseMenu();
+  if (already) return;
+  var t = (window._tpRowById || {})[id] || {};
+  var L = _tpStIsEn();
+  var cur = String(t.nationality || '').toUpperCase();
+
+  var m = document.createElement('div');
+  m.id = 'tp-st-menu'; m.setAttribute('role', 'menu'); m.setAttribute('data-tid', key);
+  var html = '';
+  /* ⚠️ 국적이 비어 있는데 구분이 잡혀 있으면 «어디서 읽었는지» 를 말해 준다.
+     안 말하면 「분명 안 골랐는데 필리핀이라고 나온다」가 된다(실측: 32명이 이 상태). */
+  if (!cur && t.region) {
+    html += '<div class="tp-st-note">' +
+      (L ? 'Now read from the region text — pick a country to fix it'
+         : '지금은 출신·활동 지역 «글자» 로 읽고 있습니다 — 나라를 고르면 그 값이 정본이 됩니다') +
+      '</div><div class="tp-st-sep"></div>';
+  }
+  /* ⚠️ 목록에 없는 나라(GB·AU·VN·KR…)를 이미 갖고 있을 수 있다. 그대로 두면 ✓ 가 아무 데도
+     안 붙고, 사람이 「기타 국가」를 누르는 순간 **영국이 ZZ 로 덮인다**(정보 소실 — trap-check 지적).
+     그래서 «지금 값» 을 항목으로 함께 놓아, 무엇인지 보이고 되돌아올 수 있게 한다. */
+  var known = TP_REGION_PICK.map(function (o) { return o.code; });
+  var picks = TP_REGION_PICK.slice();
+  if (cur && known.indexOf(cur) < 0) {
+    picks.unshift({ code: cur, ko: cur + ' (지금 값)', en: cur + ' (current)' });
+  }
+  picks.forEach(function (o, i) {
+    if (o.code === '' && i > 0) html += '<div class="tp-st-sep"></div>';
+    var on = (o.code === cur);
+    html += '<div class="tp-st-item' + (on ? ' on' : '') + '" role="menuitem" tabindex="0" ' +
+            'data-act="region" data-val="' + o.code + '">' + (L ? o.en : o.ko) +
+            (on ? '<span class="tp-st-chk" aria-hidden="true">✓</span>' : '') + '</div>';
+  });
+  m.innerHTML = html;
+  document.body.appendChild(m);
+
+  var pick = function (el) {
+    if (!el) return;
+    var val = el.getAttribute('data-val');
+    _tpStCloseMenu();
+    window.tpSetTeacherRegion(id, val);
+  };
+  m.addEventListener('click', function (e) {
+    var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+    if (it) { e.stopPropagation(); pick(it); }
+  });
+  m.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
+      if (it) { e.preventDefault(); pick(it); }
+    }
+  });
+
+  _tpStPlace(m, btn);
+  m.__btn = btn;               // 스크롤 때 «따라갈» 버튼 (id 조립 금지 — _tpStFollow 주석)
+  _tpStMenu = m;
+  setTimeout(function () {
+    document.addEventListener('click', function once(ev) {
+      if (_tpStMenu && _tpStMenu.contains(ev.target)) return;
+      document.removeEventListener('click', once, true);
+      _tpStCloseMenu();
+    }, true);
+  }, 0);
+  document.addEventListener('keydown', _tpStOnKey, true);
+  window.addEventListener('scroll', _tpStFollow, true);
+  window.addEventListener('resize', _tpStFollow);
+};
+
+/** 🌏 국적 바꾸기. 저장한 «뒤» 에 그린다 — 보이는 값(구분)은 서버가 판정하기 때문이다.
+ *  🔴 되돌리기에 필요한 것(이름·되돌릴 코드)은 «닫힘» 으로 넘긴다 — 구분 필터가 걸려 있으면
+ *     저장 뒤 그 행이 목록에서 빠지고, 행 캐시(window._tpRowById)에서도 사라져
+ *     「되돌리기」가 조용히 아무 일도 안 하게 된다(2026-09-01 숨기기에서 실제로 밟은 함정). */
+window.tpSetTeacherRegion = async function (id, code, _isUndo, _name, _prev) {
+  var t = (window._tpRowById || {})[id];
+  var who = _name || (t && (t.korean_name || t.english_name)) || ('#' + id);
+  var prev = (_prev !== undefined) ? _prev : ((t && t.nationality) || '');
+  var next = String(code || '').toUpperCase();
+  if (String(prev || '').toUpperCase() === next) return;      // 같은 값이면 아무것도 안 한다
+
+  var res = await _tpStPatch(id, { nationality: next || null });
+  if (!res.ok) {
+    alert((_tpStIsEn() ? 'Could not change country: ' : '국가를 바꾸지 못했습니다: ') + res.msg);
+    return;
+  }
+  if (t) {
+    t.nationality = next || null;
+    /* 구분은 서버가 판정한 값만 쓴다. 안 왔으면 화면이 지어내지 않고 목록을 다시 읽는다. */
+    if (res.data && typeof res.data.region === 'string') { t.region = res.data.region; _tpRgRepaint(id); }
+    else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
+  } else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
+
+  /* 구분 필터가 걸려 있으면 «이 행이 지금 목록에 속하는가» 가 바뀐다 → 건수가 거짓말하지 않게 다시 읽는다.
+     ⚠️ 되돌리기에서도 «똑같이» 해야 한다 — 전에는 `if (_isUndo) return` 뒤에 있어서, 캐시가 남아
+        있는 경로에서는 되돌린 뒤 건수가 옛 숫자로 남았을 것이다(trap-check 지적: 지금 맞는 것은
+        캐시가 마침 비어 있어 위쪽 else 가지가 다시 읽어 준 «우연» 이었다). */
+  var rf = document.getElementById('tp-filter-region');
+  if (rf && rf.value && typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+
+  if (_isUndo) return;
+  /* ⚠️ 라벨을 «부를 때의 언어» 하나로 계산해 두 문장에 똑같이 박으면, 토스트가 떠 있는 동안
+     🌐 를 눌렀을 때 「changed to 필리핀」이 된다. 한국어·영어를 따로 만든다. */
+  var rg = (res.data && typeof res.data.region === 'string') ? res.data.region : '';
+  var labKo = (rg && TP_REGION_LABEL[rg]) ? TP_REGION_LABEL[rg].ko : '미지정';
+  var labEn = (rg && TP_REGION_LABEL[rg]) ? TP_REGION_LABEL[rg].en : 'Unset';
+  _tpStToast(who + ' — ' + labKo + _tpEuroRo(labKo) + ' 바꿨습니다',
+             who + ' — changed to ' + labEn,
+             function () { window.tpSetTeacherRegion(id, prev, true, who, next); });
+};
+
+/** 「…으로 / …로」 — 받침을 보고 고른다. 「북미 으로」처럼 적히면 사람이 읽다 걸린다. */
+function _tpEuroRo(word) {
+  var w = String(word || '');
+  var c = w.charCodeAt(w.length - 1);
+  if (!(c >= 0xac00 && c <= 0xd7a3)) return '(으)로';   // 한글이 아니면 단정하지 않는다
+  var jong = (c - 0xac00) % 28;
+  return (jong === 0 || jong === 8) ? '로' : '으로';     // 받침 없음·ㄹ 받침 → 「로」
+}
+
 async function removeTeacherProfile(id, name, btn) {
   // ── 1차 클릭: 무장 (실수 삭제 방지 — 한 번 더 눌러야 확인창) ──
   if (btn && btn.dataset && btn.dataset.armed !== '1') {
@@ -10142,6 +10744,9 @@ window.bulkCopyContacts = function() {
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
   if (e('tp-filter-group'))     e('tp-filter-group').addEventListener('change', loadTeacherProfiles);
+  /* 🌏 (2026-09-01) 구분 필터 — 이 한 줄을 빠뜨리면 «골라도 아무 일도 안 일어난다»
+     (에러도 안 난다. 새 필터를 만들 때 제일 자주 빠지는 자리다). */
+  if (e('tp-filter-region'))    e('tp-filter-region').addEventListener('change', loadTeacherProfiles);
   if (e('tp-search')) {
     var _tpSearchTimer = null;
     e('tp-search').addEventListener('input', function(){

@@ -966,8 +966,9 @@ async function toggleTargetMeaning() {
     let out = _koCacheSC[t];
     if (out == null) {
       const r = await fetch('/api/translate', {
+        // 🗣️ mode:'learn' — 학생이 읽는 «뜻» 이라 직역(m2m100)이 아니라 의역이어야 한다(2026-08-31)
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: [t], target: 'ko' })
+        body: JSON.stringify({ texts: [t], target: 'ko', mode: 'learn' })
       });
       const d = await r.json();
       out = (d && d.ok && d.map && d.map[t]) ? String(d.map[t]) : '';

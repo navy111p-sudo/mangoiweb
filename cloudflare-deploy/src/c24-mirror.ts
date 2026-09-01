@@ -38,6 +38,7 @@
  */
 
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
+import { loadHiddenStudents } from './student-override';   // 🙈 명부에서 숨긴 학생은 안 만든다
 
 /** 미러 동작 단계 */
 export type MirrorMode = 'off' | 'whitelist' | 'all';
@@ -82,7 +83,19 @@ export interface ExistingRow {
 }
 
 /** 카페24 강사번호 → 이름·원부번호 */
-export interface TeacherLink { name: string | null; teacherId: string | null; }
+export interface TeacherLink {
+  name: string | null;
+  teacherId: string | null;
+  /* 🔴 (2026-09-01) 재직 원부에서 못 찾았을 때 «퇴사자 명부» 에서는 찾았는가.
+       발단: 사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+       **말없이 사라졌다** — 판정이 no_teacher 가 되는데 화면은 그것을 그리지도 세지도 않았다.
+     ⚠️ 「강사 못 이음」 하나로 뭉치면 안 된다. 둘은 할 일이 정반대다:
+          퇴사자 잔재 → 할 일 없음(카페24에서 정리되면 사라진다)
+          원부에 없음 → **사람이 등록해야 한다**. 전환일에 이게 안 보이면 그 강사 수업이
+                        통째로 안 만들어지는데 아무도 모른다(실측 전례: Teacher Ness 13건).
+     ⛔ 이 번호로 수업을 만들지 않는다 — 오직 «왜 못 이었는지» 를 말하기 위한 것이다. */
+  leftTeacherId?: string | null;
+}
 
 export type Verdict =
   | 'ok'               // 그대로 만들면 됨
@@ -90,8 +103,10 @@ export type Verdict =
   | 'update'           // 미러 행은 있는데 카페24 쪽이 바뀜 → 고쳐야 함
   | 'manual_locked'    // 사람이 손댐 — 건드리지 않는다
   | 'diverged'         // 사람이 손댄 값과 카페24 값이 다름 → 사람이 판단할 일
-  | 'no_teacher'       // 강사를 못 이음
+  | 'no_teacher'       // 강사를 못 이음 — 원부에 그런 사람이 없다(등록이 필요할 수 있다)
+  | 'no_teacher_left'  // 퇴사한 강사의 잔재 — 카페24에만 남아 있다(할 일 없음)
   | 'no_student'       // 학생을 못 찾음
+  | 'student_hidden'    // 명부에서 «숨긴» 계정 — 일부러 뺀 것이라 만들지 않는다(고쳐야 할 것이 아님)
   | 'not_whitelisted'  // 아직 안 켠 강사
   | 'conflict';        // 그 시간에 다른 출처(파일럿·수동) 수업이 이미 있음
 
@@ -206,6 +221,14 @@ export function planMirror(
   existing: ExistingRow[],
   mode: MirrorMode,
   enabled: Set<string>,
+  /* 🪞 (2026-09-01) 명부에서 숨긴 학생 — 이 계정의 수업은 만들지 않는다.
+       발단: 사장님 확인 「MANGO AI는 테스트 계정이야, 미러에서 빼줘」.
+       카페24에는 그 계정으로 앞으로 10건이 잡혀 있고, 그중 3자리는 여러 강사가
+       같은 시각에 겹쳐 있었다(시험용이라 그렇다).
+     ⛔ no_student 로 뭉뚱그리지 않는다 — 그건 「계정이 없다」는 거짓이고 화면에 경고로 떠서
+        «고쳐야 할 것» 으로 읽힌다. 일부러 뺀 것은 그렇게 말해야 한다.
+     ⚠️ 기본값은 빈 집합이다(옛 호출부·하니스가 그대로 돈다). */
+  hiddenStudents: Set<string> = new Set(),
 ): PlanRow[] {
   const out: PlanRow[] = [];
 
@@ -230,8 +253,18 @@ export function planMirror(
 
     // ── 1) 만들 수 없는 것부터 걸러 낸다. ⛔ 추측해서 잇지 않는다 ──
     if (!uid || !students.has(uid)) { push('no_student', uid ? `학생 계정 ${uid} 없음` : '학생 없음'); continue; }
+    /* 🙈 명부에서 숨긴 계정(시험용 등)은 «일부러» 만들지 않는다 — 사실대로 말한다. */
+    if (hiddenStudents.has(uid)) {
+      push('student_hidden', `«${students.get(uid) || uid}»(${uid}) 은 명부에서 숨긴 계정입니다 — 일부러 만들지 않습니다`);
+      continue;
+    }
     if (!c24tid) { push('no_teacher', '카페24에 강사 번호가 없음'); continue; }
     if (!teacherId) {
+      /* 🚪 퇴사자인가 — 같은 «못 이음» 이라도 사람이 할 일이 정반대라 갈라서 말한다. */
+      if (link?.leftTeacherId) {
+        push('no_teacher_left', `«${teacherName}»(카페24 ${c24tid}) 은 퇴사한 강사입니다 — 카페24에만 남은 잔재`);
+        continue;
+      }
       push('no_teacher', teacherName
         ? `«${teacherName}»(카페24 ${c24tid}) 이 강사 원부와 안 이어짐`
         : `카페24 ${c24tid} 번 이름을 찾지 못함`);
@@ -274,7 +307,7 @@ export function planMirror(
 export function summarize(rows: PlanRow[]): Record<Verdict, number> {
   const z: Record<Verdict, number> = {
     ok: 0, already: 0, update: 0, manual_locked: 0, diverged: 0,
-    no_teacher: 0, no_student: 0, not_whitelisted: 0, conflict: 0,
+    no_teacher: 0, no_teacher_left: 0, no_student: 0, student_hidden: 0, not_whitelisted: 0, conflict: 0,
   };
   for (const r of rows) z[r.verdict]++;
   return z;
@@ -324,6 +357,26 @@ export async function getMirrorTeachers(env: MirrorEnv): Promise<Set<string>> {
   return s;
 }
 
+/**
+ * ⛔ **명시적으로 «끈» 강사**(c24_mirror_teachers.enabled = 0).
+ *
+ * 🔴 왜 «없음» 과 다른가 — 화이트리스트는 «적혀 있으면 켠다» 이므로 «없는 강사» 는
+ *    whitelist 모드에서만 안 만들어지고 **mode='all' 에서는 전부 만들어진다.**
+ *    그런데 전환일에는 반드시 'all' 로 올린다. 그때 **퇴사 강사의 잔재까지 함께 만들어진다.**
+ *    2026-09-01 실측: 퇴사한 Teacher Mariane(카페24 24)의 카페24 예약이 앞으로 30건 남아 있고,
+ *    그중 6건은 «다른 강사와 같은 학생·같은 시각» 이었다(사장님 확인 — 그만두어 수업 안 함).
+ *    'all' 로 올리는 순간 그 30건이 학생 시간표에 생긴다.
+ * ✅ 그래서 enabled=0 은 «아직 안 켬» 이 아니라 **«켜지 마라»** 는 뜻이고, 'all' 도 이깁니다.
+ */
+export async function getMirrorBlocked(env: MirrorEnv): Promise<Set<string>> {
+  const s = new Set<string>();
+  try {
+    const rs: any = await env.DB.prepare(`SELECT teacher_id FROM c24_mirror_teachers WHERE enabled = 0`).all();
+    for (const r of (rs.results || [])) s.add(String(r.teacher_id));
+  } catch { /* 표 없음 = 막은 강사 없음 */ }
+  return s;
+}
+
 /** 카페24 강사번호 → 이름·원부번호 (파일 머리말의 «강사 번호» 규칙 그대로) */
 export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]): Promise<Map<string, TeacherLink>> {
   const out = new Map<string, TeacherLink>();
@@ -348,6 +401,16 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
   } catch { /* 원부가 없으면 이름만 준다 */ }
   const resolveRoster = buildRosterResolver(roster);
 
+  /* 🚪 퇴사자 명부 — «못 이었다» 와 «퇴사해서 안 잇는다» 를 가르기 위한 것뿐이다.
+     ⛔ 이 결과로 수업을 만들지 않는다(만드는 것은 verdict 'ok' 뿐이고 퇴사자는 절대 ok 가 안 된다).
+     ⚠️ 실패해도 그냥 넘어간다 — 못 읽으면 예전처럼 «원부에 없음» 으로 보일 뿐, 더 안전한 쪽이다. */
+  let leftRoster: { id: any; name: any }[] = [];
+  try {
+    const rs: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 0`).all();
+    leftRoster = (rs.results || []) as any[];
+  } catch { /* 없으면 가르지 않는다 */ }
+  const resolveLeft = buildRosterResolver(leftRoster);
+
   try {
     // 오름차순 — 같은 번호가 여러 달 있으면 «최근 달 이름» 이 남는다(개명 반영)
     const rs: any = await env.DB.prepare(
@@ -358,7 +421,13 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
       const c24 = String(r.c24 || '');
       if (!want.has(c24)) continue;
       const nm = String(r.teacher_name || '').trim();
-      out.set(c24, { name: nm || null, teacherId: resolveRoster(nm) });
+      const tid = resolveRoster(nm);
+      out.set(c24, {
+        name: nm || null,
+        teacherId: tid,
+        // 재직 원부에서 못 찾았을 때만 퇴사자 명부를 본다(재직이 언제나 이긴다)
+        leftTeacherId: tid ? null : resolveLeft(nm),
+      });
     }
   } catch { /* 급여 표가 없으면 이름 없이 진행 */ }
   return out;
@@ -437,14 +506,18 @@ export async function c24MirrorReport(
   last_runs: Record<string, any>;
   by_date: { date: string; total: number; ok: number; blocked: number }[];
   rows: PlanRow[];
+  /* 🖥️ (2026-09-01) 관리자 화면에서 «지금 켠/막은 강사» 를 보여 주려고 더했다.
+     읽기만 추가한 것이라 기존 호출자는 그대로다(하니스가 이 필드를 요구하지 않는다). */
+  enabled_teachers: string[];
+  blocked_teachers: string[];
 }> {
   await ensureMirrorTables(env);
   const kstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled, lastRuns] = await Promise.all([
-    getMirrorMode(env), getMirrorTeachers(env), getMirrorLastRuns(env),
+  const [mode, enabled, blocked, lastRuns] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getMirrorLastRuns(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
@@ -453,7 +526,8 @@ export async function c24MirrorReport(
     loadExisting(env, since, until),
   ]);
 
-  const rows = planMirror(classes, links, students, existing, mode, enabled);
+  const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
   const summary = summarize(rows);
 
   const byDate = new Map<string, { date: string; total: number; ok: number; blocked: number }>();
@@ -461,7 +535,8 @@ export async function c24MirrorReport(
     const d = byDate.get(r.date) || { date: r.date, total: 0, ok: 0, blocked: 0 };
     d.total++;
     if (r.verdict === 'ok' || r.verdict === 'already') d.ok++;
-    if (r.verdict === 'no_teacher' || r.verdict === 'no_student' || r.verdict === 'conflict') d.blocked++;
+    if (r.verdict === 'no_teacher' || r.verdict === 'no_teacher_left'
+        || r.verdict === 'no_student' || r.verdict === 'conflict') d.blocked++;
     byDate.set(r.date, d);
   }
 
@@ -475,6 +550,8 @@ export async function c24MirrorReport(
     total: rows.length, summary, by_state: byState, last_runs: lastRuns,
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
+    enabled_teachers: Array.from(enabled).sort(),
+    blocked_teachers: Array.from(blocked).sort(),
   };
 }
 
@@ -498,6 +575,8 @@ export interface MirrorApplyResult {
   since: string;
   until: string;
   enabled_teachers: string[];
+  /** ⛔ 명시적으로 끈 강사 — mode='all' 에서도 안 만든다(퇴사자 잔재 방지) */
+  blocked_teachers: string[];
   planned: { create: number; update: number; cancel: number };
   applied: { created: number; updated: number; cancelled: number };
   summary: Record<Verdict, number>;
@@ -529,7 +608,9 @@ export async function applyMirror(
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled] = await Promise.all([getMirrorMode(env), getMirrorTeachers(env)]);
+  const [mode, enabled, blocked] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env),
+  ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
     loadTeacherLinks(env, classes.map(c => c.teacher_id)),
@@ -537,7 +618,8 @@ export async function applyMirror(
     loadExisting(env, since, until),
   ]);
 
-  const rows = planMirror(classes, links, students, existing, mode, enabled);
+  const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
   const summary = summarize(rows);
   const byState: Record<string, number> = {};
   for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
@@ -546,6 +628,9 @@ export async function applyMirror(
      ⛔ only_teacher_id 를 준다고 화이트리스트를 건너뛰지 않는다(둘 다 만족해야 함). */
   const touch = (tid: string | null): boolean => {
     if (!tid) return false;
+    /* ⛔ 명시적으로 «끈» 강사는 mode='all' 도 이긴다 — 퇴사자의 잔재를 전환일에 만들지 않는다.
+       ⚠️ 이 줄을 mode 검사 «뒤» 로 옮기면 보호가 통째로 풀린다. 반드시 맨 앞. */
+    if (blocked.has(tid)) return false;
     if (opt.only_teacher_id && String(opt.only_teacher_id) !== tid) return false;
     return mode === 'all' || enabled.has(tid);
   };
@@ -574,6 +659,7 @@ export async function applyMirror(
   const result: MirrorApplyResult = {
     ok: true, dry_run: dryRun, mode, since, until,
     enabled_teachers: Array.from(enabled).sort(),
+    blocked_teachers: Array.from(blocked).sort(),
     planned: { create: creates.length, update: updates.length, cancel: cancels.length },
     applied: { created: 0, updated: 0, cancelled: 0 },
     summary, by_state: byState, changes: [], errors: [],

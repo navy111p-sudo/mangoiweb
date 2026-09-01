@@ -338,7 +338,8 @@
     <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
     <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
     <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
-    <button class="opt" data-rate="1.2" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button>
+    <button class="opt" data-rate="1.25" data-ko="빠르게" data-en="Fast">빠르게</button>
+    <button class="opt" data-rate="1.5" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
     <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
          목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
          학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
@@ -500,7 +501,14 @@
     let currentPersona = 'friendly';
     // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
     let currentRate = (function(){
-      try { const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate')); return (r >= 0.5 && r <= 1.5) ? r : 1; } catch(e){ return 1; }
+      try {
+        const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate'));
+        if (!(r >= 0.5 && r <= 1.5)) return 1;
+        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값(1.2)은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
+           상태가 된다 — 화면은 「보통」처럼 보이는데 실제로는 1.2배로 읽는다(에러 없음).
+           그래서 가장 가까운 칸으로 맞춰서 시작한다. */
+        return [0.6, 0.8, 1, 1.25, 1.5].reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, 1);
+      } catch(e){ return 1; }
     })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
@@ -688,8 +696,11 @@
       if (!key) return '';
       if (_koCache.has(key)) return _koCache.get(key);
       const r = await fetch('/api/translate', {
+        // 🗣️ mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역이라
+        //    「Good job!」이 「훌륭한 직업!」으로 나갔다(2026-08-31 제보). 웜업은 2026-08-24 에 이미 이 모드다.
+        //    ⛔ 이 한 낱말을 지우면 그 사고가 그대로 재현된다(캐시 접두사도 trl2: → tr: 로 갈린다).
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: [key], target: 'ko' })
+        body: JSON.stringify({ texts: [key], target: 'ko', mode: 'learn' })
       });
       const d = await r.json();
       const out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
@@ -734,7 +745,10 @@
     /* 🐢 (2026-07-23) "천천히 말해줘" 를 말이나 글로 부탁하면 실제로 음성 속도를 한 단계 낮춘다.
        그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
        (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
-    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.2];
+    /* 🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
+       화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
+       (2026-08-31 사장님 「속도 구별이 잘 안돼」로 칸 사이를 20% 이상으로 넓혔다) */
+    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.25, 1.5];
     function applyRate(v) {
       currentRate = v;
       try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
