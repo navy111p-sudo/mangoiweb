@@ -22,6 +22,7 @@
 //     I. 화면 겹쳐 그리기 — 카페24 수업을 «보기 전용» 으로만 그린다(class_schedules 를 안 만든다)
 //     L. 퇴사 강사 «잔재» 와 «원부에 없는 사람» 을 가른다 — 할 일이 정반대라 한 숫자로 못 합친다
 //     M. 재직 여부가 두 표(teachers.active · teacher_profiles.status)에 있다 — 쓰는 곳에서 맞춘다
+//     N. 명부에서 «숨긴» 학생(시험용 계정 등)의 카페24 수업은 만들지 않는다 — 사실대로 말한다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -35,11 +36,26 @@ const PUB = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/public/' + 
    ESM 규칙상 못 찾는다. 그래서 그 한 줄만 절대경로로 바꾼 사본을 임시로 만들어 import 한다.
    ⛔ 로직은 한 글자도 안 바꾼다 — 바꾸면 «검사한 코드»와 «배포될 코드»가 달라진다. */
 const srcDir = resolve(__dir, '../cloudflare-deploy/src');
-const tmpFile = resolve(tmpdir(), `c24-mirror.harness.${process.pid}.ts`);
-writeFileSync(tmpFile, SRC('c24-mirror.ts').replace(
-  /from '\.\/([\w-]+)'/g, (_m, n) => `from '${pathToFileURL(resolve(srcDir, n + '.ts')).href}'`));
-let M;
-try { M = await import(pathToFileURL(tmpFile).href); } finally { try { rmSync(tmpFile); } catch {} }
+const _tmps = [], _made = new Map();
+/* ⚠️ .ts 를 그냥 import 하면 확장자 없는 상대 import(`./d1-chunk`)가 ESM 규칙상 안 풀린다.
+     그러면 그 줄이 «예외» 가 되고, 부르는 쪽이 try/catch 로 삼키면 **검사가 헛돈다**
+     (실제로 밟음: loadHiddenStudents 가 늘 빈 집합을 돌려줘 「못 찾는다」 검사만 통과했다).
+   ✅ 그래서 상대 import 를 «사본의 절대경로» 로 바꾼 임시 사본을 만든다 — 사본이 가리키는
+      모듈도 사본이어야 하므로 **재귀**로 만든다(원본을 가리키면 그 안의 import 가 또 안 풀린다).
+   ⛔ 로직은 한 글자도 안 바꾼다 — 바꾸면 «검사한 코드»와 «배포될 코드»가 달라진다. */
+const mkCopy = (name) => {
+  if (_made.has(name)) return _made.get(name);
+  const f = resolve(tmpdir(), `${name}.harness.${process.pid}.ts`);
+  _made.set(name, f); _tmps.push(f);            // 순환 import 대비: 경로를 먼저 등록
+  writeFileSync(f, SRC(name + '.ts').replace(
+    /from '\.\/([\w-]+)'/g, (_m, n) => `from '${pathToFileURL(mkCopy(n)).href}'`));
+  return f;
+};
+const loadTs = (name) => import(pathToFileURL(mkCopy(name)).href);
+/* ⚠️ 사본은 «실행이 끝날 때» 지운다 — 곧바로 지우면 뒤쪽 절(N)에서 다시 부를 때
+     이미 만든 것으로 기억(memo)하고 파일은 없어 ERR_MODULE_NOT_FOUND 가 난다(실제로 밟음). */
+process.on('exit', () => { for (const f of _tmps) { try { rmSync(f); } catch {} } });
+const M = await loadTs('c24-mirror');
 const MIRROR_TS = SRC('c24-mirror.ts');
 const REPORTS = SRC('accounting-reports.ts');
 const ADMIN = SRC('api-admin.ts');
@@ -801,6 +817,99 @@ console.log('\n[ M. 명부 ↔ 원부 재직 여부 맞추기 ]');
   check('M⑦ 어긋남이 없으면 상자를 지운다', /box\.remove\(\)/.test(CORE));
   check('🔴 M⑦ 화면이 자동으로 고치지 않는다(사람에게 알리기만)',
     !/_tpRenderRosterMismatch[^]{0,800}fetch\([^)]*method:\s*'PATCH'/.test(CORE));
+}
+
+
+/* ═══ N. 명부에서 «숨긴» 학생은 미러가 만들지 않는다 (2026-09-01) ═══
+   발단: 사장님 확인 「MANGO AI는 테스트 계정이야, 미러에서 빼줘」.
+   카페24에 그 계정으로 앞으로 10건이 있고, 그중 3자리는 여러 강사가 같은 시각에 겹쳐 있었다.
+
+   ⛔ 이 절이 지키는 것
+     · no_student(「계정이 없다」)로 뭉뚱그리지 않는다 — 거짓이고 화면에 경고로 뜬다
+     · 숨긴 학생은 어떤 모드에서도(전환일 포함) 만들어지지 않는다
+     · 못 읽으면 «아무도 안 뺀다»(fail-open) — 거꾸로 전원을 빼면 시간표가 통째로 안 생긴다
+*/
+console.log('\n[ N. 숨긴 학생 제외 ]');
+{
+  const Q6 = PUB('js/adm-q6.js');
+  const OVR = SRC('student-override.ts');
+  const hid = new Set(['stu2']);
+
+  // ① 숨긴 학생은 student_hidden 으로 «사실대로»
+  const rH = M.planMirror([cls({ uid: 'stu2' })], LINKS, STUDENTS, [], 'all', new Set(), hid)[0];
+  check('N① 숨긴 학생은 student_hidden 으로 가른다', rH.verdict === 'student_hidden', rH.verdict);
+  check('🔴 N① no_student(거짓)로 뭉뚱그리지 않는다', rH.verdict !== 'no_student');
+  check('N① 이유에 «숨긴» 이라고 적는다', /숨긴/.test(rH.detail || ''), rH.detail);
+
+  // ② 어떤 모드에서도 안 만든다
+  for (const mode of ['off', 'whitelist', 'all']) {
+    const r = M.planMirror([cls({ uid: 'stu2' })], LINKS, STUDENTS, [], mode, new Set(['28']), hid)[0];
+    check(`🔴 N② mode='${mode}' 에서도 숨긴 학생은 ok 가 안 된다`, r.verdict !== 'ok', r.verdict);
+  }
+
+  // ③ 안 숨긴 학생은 그대로 만들어진다 (헛돌이 방지 — «못 만든다» 검사만 있으면 늘 통과한다)
+  const rOk = M.planMirror([cls({ uid: 'stu1' })], LINKS, STUDENTS, [], 'all', new Set(), hid)[0];
+  check('🔴 N③ 숨기지 «않은» 학생은 그대로 만든다', rOk.verdict === 'ok', rOk.verdict);
+
+  // ④ 기본값 — 인자를 안 넘겨도 옛 동작 그대로
+  const rDef = M.planMirror([cls({ uid: 'stu2' })], LINKS, STUDENTS, [], 'all', new Set())[0];
+  check('N④ 숨김 목록을 안 넘기면 아무도 안 빠진다', rDef.verdict === 'ok', rDef.verdict);
+
+  // ⑤ summarize 에 칸이 있다
+  check('N⑤ summarize 에 student_hidden 칸이 있다',
+    typeof M.summarize([rH]).student_hidden === 'number');
+  check('N⑤ 따로 센다', M.summarize([rH, rOk]).student_hidden === 1);
+
+  // ⑥ 헬퍼가 fail-open — 표가 없어도 던지지 않고 «아무도 안 숨김»
+  {
+    const boomDb = { prepare() { throw new Error('no such table'); }, exec: async () => {} };
+    const mod = await loadTs('student-override');
+    let threw = false, got = null;
+    try { got = await mod.loadHiddenStudents({ DB: boomDb }, ['a', 'b']); } catch { threw = true; }
+    check('🔴 N⑥ 표가 없어도 던지지 않는다', !threw);
+    check('🔴 N⑥ 그때는 «아무도 안 숨김»(빈 집합)', !!got && got.size === 0, got && got.size);
+  }
+
+  // ⑦ 진짜로 «숨긴 사람만» 골라 온다 (헛돌이 방지 짝 검사)
+  {
+    const db = {
+      exec: async () => {},
+      prepare(sql) {
+        const st = {
+          bind: () => st,
+          all: async () => ({ results: /hidden = 1/.test(sql) ? [{ user_id: 'mangoai1' }] : [] }),
+          first: async () => null, run: async () => ({}),
+        };
+        return st;
+      },
+    };
+    const mod = await loadTs('student-override');
+    const got = await mod.loadHiddenStudents({ DB: db }, ['mangoai1', 'jeong']);
+    check('N⑦ 숨긴 계정을 실제로 찾아온다', got.has('mangoai1'), Array.from(got));
+    check('N⑦ 안 숨긴 계정은 안 담는다', !got.has('jeong'));
+  }
+
+  // ⑧ 배선 — 두 호출부가 숨김 목록을 넘긴다
+  const calls = [...MIRROR_TS.matchAll(/planMirror\(classes, links, students, existing, mode, enabled(, hidden)?\)/g)];
+  check('N⑧ planMirror 호출 두 곳이 모두 숨김 목록을 넘긴다',
+    calls.length === 2 && calls.every(m => m[1]), calls.map(m => m[0]));
+  check('N⑧ 숨김 목록을 실제로 읽어 온다', /await loadHiddenStudents\(/.test(MIRROR_TS));
+
+  // ⑨ 표를 지우지 않는다 — 숨김은 «안 보여주는 것» 이지 «지우는 것» 이 아니다
+  /* ⚠️ 부정 검사는 «주석을 벗겨 낸 사본» 으로 판정한다 — 이 파일 머리말이 야간 동기화의
+       DELETE 문을 «설명» 하고 있어서, 원본으로 검사하면 자기 주석을 잡는다(CLAUDE.md 2장). */
+  const ovrCode = OVR.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('🔴 N⑨ 숨김 처리에 DELETE 를 쓰지 않는다',
+    !/DELETE\s+FROM\s+students_erp/i.test(ovrCode));
+
+  // ⑩ 화면 — 경고색이 아니라 회색으로, 따로 센다
+  check('N⑩ 화면이 숨긴 계정을 따로 센다', /c24Hidden\+\+/.test(Q6));
+  check('N⑩ 범례가 «숨긴 계정» 이라고 말한다', /숨긴 계정/.test(Q6));
+  check('🔴 N⑩ 경고색을 쓰지 않는다(할 일이 없다)',
+    !/ph54-count-warn[^]{0,100}숨긴 계정/.test(Q6));
+
+  // ⑪ 머리말의 «읽는 쪽» 목록에 미러가 등재됐다(한쪽만 고치면 불일치가 난다고 적힌 그 목록)
+  check('N⑪ student-override.ts 머리말에 미러가 등재됐다', /c24-mirror\.ts\s+planMirror/.test(OVR));
 }
 
 console.log(`\n${'─'.repeat(52)}`);

@@ -142,7 +142,12 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
      이유는 위 teacher-match 와 정반대다 — 껍데기로 바꾸면 「동기화가 이름을 덮은 뒤
      우리 지정을 다시 입히는가」를 검사할 수 없다. 그게 이 모듈의 존재 이유다.
      Neo4j 로 나가지 않는 순수 D1 코드라 그대로 돌려도 된다. */
-  writeFileSync(join(tmp, 'student-override.ts'), readFileSync(join(SRC, 'student-override.ts'), 'utf8'));
+  /* ⚠️ (2026-09-01) student-override.ts 가 d1-chunk 를 «정적으로» 가져온다(loadHiddenStudents).
+       그 의존까지 같이 복사하고 상대 import 에 확장자를 붙이지 않으면 여기서 모듈을 못 찾는다. */
+  writeFileSync(join(tmp, 'd1-chunk.ts'), readFileSync(join(SRC, 'd1-chunk.ts'), 'utf8'));
+  writeFileSync(join(tmp, 'student-override.ts'),
+    readFileSync(join(SRC, 'student-override.ts'), 'utf8')
+      .replace(/from '\.\/d1-chunk'/, "from './d1-chunk.ts'"));
   // 확장자 없는 상대 import 는 node 가 못 찾는다 — 사본에서만 .ts 를 붙인다
   writeFileSync(join(tmp, 'cafe24-sync.ts'), txt
     .replace(/from '\.\/teacher-match'/, "from './teacher-match.ts'")

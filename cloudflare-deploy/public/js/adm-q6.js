@@ -436,7 +436,7 @@
     /* 🪞 카페24 수업(보기 전용) — 강사가 이어진 것만 그린다.
        강사를 못 이은 것(no_teacher)은 «누구 칸에» 놓아야 할지 모르므로 그리지 않고 아래에서 건수만 알린다.
        ⛔ 모르는 것을 아무 칸에나 놓지 않는다 — 모르는 것보다 틀린 것이 나쁘다. */
-    var c24Events = [], c24NoTeacher = 0, c24Left = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
+    var c24Events = [], c24NoTeacher = 0, c24Left = 0, c24Hidden = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
     var c24Today = ph54TodayKst();
     (ph54State.c24 || []).forEach(function(r){
       if (!r || !(r.date in dateToCol)) return;
@@ -445,6 +445,10 @@
             (하나는 그냥 두면 되고, 하나는 사람이 원부에 등록해야 한다). 합치면 늘 켜져 있는
             경고가 되어 정작 손봐야 할 것이 파묻힌다 — 녹화 목록에서 실제로 그랬다. */
       if (r.verdict === 'no_teacher_left'){ c24Left++; return; }
+      /* 🙈 명부에서 숨긴 계정(시험용 등) — «일부러» 뺀 것이라 경고색을 쓰지 않는다.
+         ⛔ 「원부에 없는 강사」와 한 숫자로 합치지 말 것: 저쪽은 사람이 등록해야 하고
+            이쪽은 할 일이 없다. 합치면 늘 켜져 있는 경고가 되어 진짜가 파묻힌다. */
+      if (r.verdict === 'student_hidden'){ c24Hidden++; return; }
       if (!r.teacher_id){ c24NoTeacher++; return; }
       if (!PH54_C24_SHOW[r.verdict]) return;
       if (filterId && String(r.teacher_id) !== String(filterId)) return;
@@ -556,6 +560,8 @@
               ? ' · '+ph54T('지난 카페24 기록 ','Past Cafe24 records ')+c24Past+ph54T('개','') : '')
       +     (ph54State.c24On && c24Left
               ? ' · '+ph54T('퇴사 강사 잔재 ','Departed instructors ')+c24Left+ph54T('개 (안 그림)',' (not drawn)') : '')
+      +     (ph54State.c24On && c24Hidden
+              ? ' · '+ph54T('숨긴 계정 ','Hidden accounts ')+c24Hidden+ph54T('개 (안 그림)',' (not drawn)') : '')
       +     (ph54State.c24On && c24NoTeacher
               ? '<b class="ph54-count-warn"> · '+ph54T('⚠️ 원부에 없는 강사 ','⚠️ Not in the roster ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
       +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')

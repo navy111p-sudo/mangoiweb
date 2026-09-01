@@ -38,6 +38,7 @@
  */
 
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
+import { loadHiddenStudents } from './student-override';   // 🙈 명부에서 숨긴 학생은 안 만든다
 
 /** 미러 동작 단계 */
 export type MirrorMode = 'off' | 'whitelist' | 'all';
@@ -105,6 +106,7 @@ export type Verdict =
   | 'no_teacher'       // 강사를 못 이음 — 원부에 그런 사람이 없다(등록이 필요할 수 있다)
   | 'no_teacher_left'  // 퇴사한 강사의 잔재 — 카페24에만 남아 있다(할 일 없음)
   | 'no_student'       // 학생을 못 찾음
+  | 'student_hidden'    // 명부에서 «숨긴» 계정 — 일부러 뺀 것이라 만들지 않는다(고쳐야 할 것이 아님)
   | 'not_whitelisted'  // 아직 안 켠 강사
   | 'conflict';        // 그 시간에 다른 출처(파일럿·수동) 수업이 이미 있음
 
@@ -219,6 +221,14 @@ export function planMirror(
   existing: ExistingRow[],
   mode: MirrorMode,
   enabled: Set<string>,
+  /* 🪞 (2026-09-01) 명부에서 숨긴 학생 — 이 계정의 수업은 만들지 않는다.
+       발단: 사장님 확인 「MANGO AI는 테스트 계정이야, 미러에서 빼줘」.
+       카페24에는 그 계정으로 앞으로 10건이 잡혀 있고, 그중 3자리는 여러 강사가
+       같은 시각에 겹쳐 있었다(시험용이라 그렇다).
+     ⛔ no_student 로 뭉뚱그리지 않는다 — 그건 「계정이 없다」는 거짓이고 화면에 경고로 떠서
+        «고쳐야 할 것» 으로 읽힌다. 일부러 뺀 것은 그렇게 말해야 한다.
+     ⚠️ 기본값은 빈 집합이다(옛 호출부·하니스가 그대로 돈다). */
+  hiddenStudents: Set<string> = new Set(),
 ): PlanRow[] {
   const out: PlanRow[] = [];
 
@@ -243,6 +253,11 @@ export function planMirror(
 
     // ── 1) 만들 수 없는 것부터 걸러 낸다. ⛔ 추측해서 잇지 않는다 ──
     if (!uid || !students.has(uid)) { push('no_student', uid ? `학생 계정 ${uid} 없음` : '학생 없음'); continue; }
+    /* 🙈 명부에서 숨긴 계정(시험용 등)은 «일부러» 만들지 않는다 — 사실대로 말한다. */
+    if (hiddenStudents.has(uid)) {
+      push('student_hidden', `«${students.get(uid) || uid}»(${uid}) 은 명부에서 숨긴 계정입니다 — 일부러 만들지 않습니다`);
+      continue;
+    }
     if (!c24tid) { push('no_teacher', '카페24에 강사 번호가 없음'); continue; }
     if (!teacherId) {
       /* 🚪 퇴사자인가 — 같은 «못 이음» 이라도 사람이 할 일이 정반대라 갈라서 말한다. */
@@ -292,7 +307,7 @@ export function planMirror(
 export function summarize(rows: PlanRow[]): Record<Verdict, number> {
   const z: Record<Verdict, number> = {
     ok: 0, already: 0, update: 0, manual_locked: 0, diverged: 0,
-    no_teacher: 0, no_teacher_left: 0, no_student: 0, not_whitelisted: 0, conflict: 0,
+    no_teacher: 0, no_teacher_left: 0, no_student: 0, student_hidden: 0, not_whitelisted: 0, conflict: 0,
   };
   for (const r of rows) z[r.verdict]++;
   return z;
@@ -507,7 +522,8 @@ export async function c24MirrorReport(
     loadExisting(env, since, until),
   ]);
 
-  const rows = planMirror(classes, links, students, existing, mode, enabled);
+  const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
   const summary = summarize(rows);
 
   const byDate = new Map<string, { date: string; total: number; ok: number; blocked: number }>();
@@ -596,7 +612,8 @@ export async function applyMirror(
     loadExisting(env, since, until),
   ]);
 
-  const rows = planMirror(classes, links, students, existing, mode, enabled);
+  const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden);
   const summary = summarize(rows);
   const byState: Record<string, number> = {};
   for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
