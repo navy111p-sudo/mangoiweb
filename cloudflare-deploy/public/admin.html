@@ -1812,6 +1812,26 @@
             <span id="rsc-status" style="font-size:11.5px;color:#6b7280"></span>
           </div>
           <div id="rsc-pin" style="font-family:MangoiHanSC,Consolas,monospace;font-size:30px;font-weight:800;letter-spacing:7px;color:#b45309"></div>
+          <!-- 📮 (2026-09-01) 접속 코드 날라다 주기 — 학생이 PIN 을 넣으면 잠금이 풀린다.
+               [왜] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 하는 구조라, 전화로 불러 주고
+                 받아 적는 자리가 제일 자주 깨졌다. 여기에 붙여넣으면 학생 화면에 크게 뜬다.
+               ⛔ 우리 서버가 화면을 조작하는 것이 아니다 — 코드를 나르기만 한다. -->
+          <div id="rsc-relay" style="display:none;margin-top:12px;padding-top:11px;border-top:1px dashed #d1d5db">
+            <div style="font-size:11.5px;color:#6b7280;line-height:1.65;margin-bottom:7px" data-ko="이제 Quick Assist 를 열어 「다른 사람 지원」 → 보안 코드를 만든 뒤, 그 숫자를 아래에 붙여넣으세요. 학생 화면에 크게 뜹니다." data-en="Now open Quick Assist → “Assist another person”, create a security code, and paste those digits below. It appears in large type on the student's screen.">이제 Quick Assist 를 열어 「다른 사람 지원」 → 보안 코드를 만든 뒤, 그 숫자를 아래에 붙여넣으세요. 학생 화면에 크게 뜹니다.</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <select id="rsc-tool" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box">
+                <option value="quickassist">Quick Assist (Windows)</option>
+                <option value="chromeremote" data-ko="Chrome 원격 데스크톱" data-en="Chrome Remote Desktop">Chrome 원격 데스크톱</option>
+                <option value="anydesk">AnyDesk</option>
+              </select>
+              <input id="rsc-code" type="text" inputmode="numeric" autocomplete="off" placeholder="접속 코드 (숫자)" data-ko-ph="접속 코드 (숫자)" data-en-ph="Access code (digits)" style="padding:6px 11px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;min-width:150px;box-sizing:border-box" />
+              <button type="button" id="rsc-send" class="primary" style="padding:6px 14px;font-size:12.5px" data-ko="📮 학생 화면에 보내기" data-en="📮 Send to student">📮 학생 화면에 보내기</button>
+            </div>
+            <div id="rsc-relay-state" style="font-size:11.5px;color:#6b7280;margin-top:6px"></div>
+            <!-- ⬅️ (2026-09-01) 반대 방향 — 휴대폰(AnyDesk 등)은 학생이 번호를 만들고 직원이 접속한다.
+                 학생이 보내면 여기에 뜬다. background-color 로 써야 옛 다크 규칙에 안 걸린다(CLAUDE.md). -->
+            <div id="rsc-student-code" style="display:none;margin-top:10px;padding:10px 12px;border-radius:8px;background-color:#eff6ff;border:1px solid #bfdbfe"></div>
+          </div>
         </div>
       </details>
 
@@ -6706,7 +6726,7 @@ window.__admSettleRun = function(fn){
 </details>
 <script type="text/lazy-js" data-src="/js/adm-longabsent.js?v=2" data-card="card-long-absent" data-globals="laLoad,laExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 <!-- 🛠 (2026-08-30 v4 제안서 07) 원격 수리·점검 PIN 발급. 학생관리 카드 안에서 쓰므로 지연로드가 아니라 defer 다. -->
-<script defer src="/js/adm-remote-pin.js?v=1"></script>
+<script defer src="/js/adm-remote-pin.js?v=3"></script>
 
 <!-- 📺 «비디오 자막 + 사전» 카드 삭제 (2026-08-10, 사장님 결정)
      자막·사전 API 가 전부 라이브 404/미구현이었다(반쪽 배선):
