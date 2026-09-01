@@ -41,6 +41,10 @@
   var LIST_CARD = 'card-students-mgmt';   // 오늘 목록이 든 카드
   var LIVE_CARD = 'card-active-rooms';    // 실시간(화상방 접속) 카드
   var SEC       = 'sm-today-classes';     // 그 카드 «안» 의 오늘 목록 칸
+  /* 🔐 (2026-09-01 사장님 「지금 수업 쪽에 도로 묶어줘」) 초대(JWT 토큰) 카드는
+     «화상방 접속» 과 한 짝이다. 다른 탭에서는 접어 두고, 그 탭에서만 자리에 남긴다.
+     ⛔ 감추지 않는다 — 접기만 한다(위 머리말의 다섯 가지 이유). */
+  var INV_CARD  = 'card-room-invite';
   var BAR       = 'tdt-tabs';
 
   /* ⚠️ 「진행 중」이라고 쓰지 않는다 — 세는 값은 join_open 이고, 그건 «들어갈 수 있는 시간대» 이지
@@ -136,6 +140,10 @@
          그리고 접힌 카드는 adm-core 의 _activeRoomsVisible() 이 이미 걸러 준다(폴링 정지). */
       if (list.open !== wantList) list.open = wantList;
       if (live.open === wantList) live.open = !wantList;
+      /* 초대 카드는 «화상방 접속» 탭의 짝이다. 다른 탭에서는 접는다.
+         ⛔ 그 탭이라고 «펴지도» 않는다 — 토큰 발급은 가끔 쓰는 도구라 필요할 때 사람이 편다. */
+      var inv = $(INV_CARD);
+      if (inv && wantList && inv.open) inv.open = false;
 
       if (wantList) {
         var sec = $(SEC);

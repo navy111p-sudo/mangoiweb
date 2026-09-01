@@ -214,22 +214,30 @@ async function clickItem(page, key) {
       home.live === true, JSON.stringify(home));
     check('「오늘 수업」으로 돌아왔다', await clickItem(page, 'today:오늘 수업'));
 
-    console.log('\n[ ④ 떼어 낸 초대 카드가 «갈 곳» 을 잃지 않았는가 ]');
-    check('시스템 › 화상강의실 초대 항목을 눌렀다', await clickItem(page, 'ops:화상강의실 초대'));
-    const inv = await page.evaluate(() => {
+    console.log('\n[ ④ 🔐 초대 카드가 「화상방 접속」의 짝으로 움직이는가 ]');
+    /* 사장님 「지금 수업 쪽에 도로 묶어줘」 — B안에서 「시스템」으로 뗐던 것을 되돌렸다.
+       ⛔ 감추지 않는다. 다른 탭에서는 «접기» 만 한다. */
+    await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="rooms"]').click());
+    await page.waitForTimeout(250);
+    const inv1 = await page.evaluate(() => {
       const c = document.getElementById('card-room-invite');
-      const r = c ? c.getBoundingClientRect() : null;
-      return { shown: !!c && getComputedStyle(c).display !== 'none' && !!c.offsetParent,
-               top: r ? Math.round(r.top) : null, vh: window.innerHeight };
+      return { there: !!c && getComputedStyle(c).display !== 'none' && !!c.offsetParent,
+               open: !!(c && c.open) };
     });
-    check('초대 카드가 보인다', inv.shown, JSON.stringify(inv));
-    check('화면 안으로 왔다', inv.top !== null && inv.top > -40 && inv.top < inv.vh, JSON.stringify(inv));
+    check('「화상방 접속」에서 초대 카드가 화면에 있다', inv1.there === true, JSON.stringify(inv1));
 
-    /* 🔴 (trap-check 가 잡은 것) 「오늘 수업」이 card-students-mgmt 를 가리키게 되면서
-       그 카드를 가리키는 항목이 «둘» 이 됐다. 밖에서 오는 점프는 data-card 로 항목을 찾아
-       대신 눌러 주는데 querySelector 는 **첫 매치** 라, 「학생 목록」을 눌러도 «오늘 수업» 칸이
-       맨 위에 오고 학생 명부가 화면 위로 밀려났다(실측 카드 top −546).
-       ✅ openSub(data-ia6-sub) 항목은 «잎» 이라 뒤로 미룬다 — 그게 실제로 먹는지 여기서 잰다. */
+    // 사람이 열어 둔 상태에서 다른 탭으로 가면 접힌다
+    await page.evaluate(() => { const c = document.getElementById('card-room-invite'); if (c) c.open = true; });
+    await page.evaluate(() => document.querySelector('#tdt-tabs [data-tdt="all"]').click());
+    await page.waitForTimeout(250);
+    const inv2 = await page.evaluate(() => {
+      const c = document.getElementById('card-room-invite');
+      return { there: !!c && getComputedStyle(c).display !== 'none' && !!c.offsetParent,
+               open: !!(c && c.open) };
+    });
+    check('「전체」로 가면 접힌다', inv2.open === false, JSON.stringify(inv2));
+    check('⛔ 그래도 화면에서 사라지지는 않는다 (접힘 ≠ 없음)', inv2.there === true, JSON.stringify(inv2));
+
     console.log('\n[ ⑥ 🔴 밖에서 학생 카드로 오는 점프가 «학생 명부» 로 가는가 ]');
     await page.evaluate(() => { try { localStorage.removeItem('mangoi_admin_ia6'); } catch (e) {} });
     const jump = await page.evaluate(() => {
