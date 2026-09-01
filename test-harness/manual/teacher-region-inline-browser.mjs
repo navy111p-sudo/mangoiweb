@@ -43,6 +43,10 @@ const SEED = [
     group_name: '중국어 강사', nationality: null, origin_region: '중국', active_region: '중국' },
   { id: 104, korean_name: 'JED', english_name: 'JED', status: '활동중', list_hidden: 0,
     group_name: null, nationality: null, origin_region: null, active_region: null },
+  /* ⚠️ 메뉴 목록에 «없는» 나라. 그대로 두면 ✓ 가 아무 데도 안 붙고, 「기타 국가」를 누르는 순간
+     영국이 ZZ 로 덮인다(정보 소실). 그 자리를 재려고 일부러 넣는다. */
+  { id: 105, korean_name: 'Teacher Gb', english_name: 'Teacher Gb', status: '활동중', list_hidden: 0,
+    group_name: null, nationality: 'GB', origin_region: null, active_region: null },
 ];
 
 /* 🔴 서버 판정을 그대로 흉내 낸다 — 스텁이 «아무 값이나» 주면 화면이 무엇을 그리든 통과한다.
@@ -132,7 +136,7 @@ async function open(browser, width, height) {
   });
   await page.waitForTimeout(600);
   await page.evaluate(() => { if (typeof window.loadTeacherProfiles === 'function') window.loadTeacherProfiles(); });
-  await page.waitForFunction(() => document.querySelectorAll('#tp-list-body tr[data-tid]').length >= 4,
+  await page.waitForFunction(() => document.querySelectorAll('#tp-list-body tr[data-tid]').length >= 5,
     { timeout: 20000 });
   await page.waitForTimeout(400);
   return { ctx, page };
@@ -149,6 +153,43 @@ async function openMenu(page, btnId) {
   await page.waitForTimeout(150);
   await page.evaluate(i => document.getElementById(i).click(), btnId);
   await page.waitForSelector('#tp-st-menu', { timeout: 5000 });
+}
+
+/** WCAG 대비 — 반투명·그라데이션 배경을 아래에서 위로 «합성해» 실제로 깔린 색을 찾는다.
+ *  ⚠️ 첫 조상 색에서 멈추면 얇은 층을 배경으로 읽어 멀쩡한 글자가 실패로 나온다(CLAUDE.md 2장). */
+function contrastOf(el) {
+  const parse = (c) => {
+    const m = String(c || '').match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const p = m[1].split(',').map(v => parseFloat(v));
+    if (p.length < 3 || p.some(isNaN)) return null;
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  };
+  const layers = [];
+  let n = el;
+  while (n && n.nodeType === 1) {
+    const cs = getComputedStyle(n);
+    let c = parse(cs.backgroundColor);
+    if ((!c || c.a === 0) && cs.backgroundImage && cs.backgroundImage !== 'none') {
+      const g = String(cs.backgroundImage).match(/rgba?\([^)]+\)/);
+      if (g) c = parse(g[0]);
+    }
+    if (c && c.a > 0) { layers.push(c); if (c.a >= 1) break; }
+    n = n.parentElement;
+  }
+  if (!layers.length || layers[layers.length - 1].a < 1) layers.push({ r: 255, g: 255, b: 255, a: 1 });
+  let bg = layers[layers.length - 1];
+  for (let i = layers.length - 2; i >= 0; i--) {
+    const c = layers[i];
+    bg = { r: c.r * c.a + bg.r * (1 - c.a), g: c.g * c.a + bg.g * (1 - c.a), b: c.b * c.a + bg.b * (1 - c.a), a: 1 };
+  }
+  const fg = parse(getComputedStyle(el).color) || { r: 0, g: 0, b: 0, a: 1 };
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+  const L1 = lum(fg), L2 = lum(bg);
+  return Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100;
 }
 
 (async () => {
@@ -210,6 +251,21 @@ async function openMenu(page, btnId) {
     }));
     check('네 칸의 색이 전부 다르다', new Set(colors).size === 4, colors.join('  '));
 
+    /* 🪤 「무슨 색인가」와 「읽히는가」는 다른 검사다 — 색이 다 달라도 안 읽힐 수 있다.
+       실제로 「— 미지정」이 4.39 로 AA 아래였고(trap-check 실측) 그래서 색을 어둡게 고쳤다. */
+    const ratios = await page.evaluate(fn => {
+      const f = new Function('return ' + fn)();
+      return ['101', '102', '103', '104'].map(i => f(document.querySelector('#tprgc-' + i + ' .tp-rg-badge')));
+    }, contrastOf.toString());
+    console.log('     (실측 대비 — PH·NA·CN·미지정: ' + ratios.join(' · ') + ')');
+    const shades = await page.evaluate(() => ['101', '102', '103', '104'].map(i => {
+      const el = document.querySelector('#tprgc-' + i + ' .tp-rg-badge');
+      const cs = getComputedStyle(el);
+      return cs.color + ' on ' + cs.backgroundColor;
+    }));
+    console.log('     (실측 색 — ' + shades.join(' / ') + ')');
+    check('네 배지가 전부 WCAG AA(4.5) 이상으로 읽힌다', ratios.every(r => r >= 4.5), ratios.join(' · '));
+
     console.log('\n[ ③ 눌러서 바꾸기 — 메뉴가 뜨고, 맨 위이고, 버튼 근처인가 ]');
     await openMenu(page, 'tprgb-104');
     /* ⚠️ 버튼과 메뉴 «둘 다» getBoundingClientRect 라 같은 좌표계다 — 여기서 배율로 나누면
@@ -232,6 +288,21 @@ async function openMenu(page, btnId) {
     check('나라 목록이 PH·US·CA·CN·ZZ + 비우기(빈값) 이다',
       JSON.stringify(geo.items) === JSON.stringify(['PH', 'US', 'CA', 'CN', 'ZZ', '']), JSON.stringify(geo.items));
 
+    /* 🔴 (trap-check 가 잡은 것) 열어 둔 채 스크롤하면 메뉴가 «무조건» 닫히던 자리.
+       상태 메뉴와 같은 상자를 쓰는데 열쇠 모양이 달라 버튼을 못 찾았고, 못 찾으면 닫는다. */
+    console.log('\n[ ③-3 열어 둔 채 스크롤해도 «따라오는가» (닫히면 안 된다) ]');
+    await page.evaluate(() => window.scrollBy(0, 20));
+    await page.waitForTimeout(200);
+    const alive = await page.evaluate(() => {
+      const m = document.getElementById('tp-st-menu');
+      if (!m) return { open: false };
+      const b = document.getElementById('tprgb-104').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      return { open: true, dx: Math.round(Math.abs(r.left - b.left)), dy: Math.round(r.top - b.bottom) };
+    });
+    check('구분 메뉴가 스크롤 뒤에도 살아 있다', alive.open === true, JSON.stringify(alive));
+    check('그리고 버튼을 «따라간다»', alive.open && alive.dx <= 14 && alive.dy <= 24, JSON.stringify(alive));
+
     console.log('\n[ ③-2 국적이 비어 있으면 «어디서 읽었는지» 를 말해 주는가 ]');
     await page.evaluate(() => document.body.click());
     await openMenu(page, 'tprgb-101');
@@ -240,6 +311,20 @@ async function openMenu(page, btnId) {
       return n ? n.textContent.trim() : null;
     });
     check('지역 글자로 읽고 있다는 안내가 있다', !!note && note.includes('글자'), String(note));
+
+    console.log('\n[ ③-4 목록에 «없는» 나라(GB)를 갖고 있어도 그 값이 보이는가 ]');
+    await page.evaluate(() => document.body.click());
+    await openMenu(page, 'tprgb-105');
+    const gb = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('#tp-st-menu .tp-st-item')];
+      const on = items.filter(e => e.classList.contains('on')).map(e => e.getAttribute('data-val'));
+      return { vals: items.map(e => e.getAttribute('data-val')), on,
+               label: (document.getElementById('tprgc-105') || {}).textContent };
+    });
+    check('배지는 「기타 국가」로 뜬다', String(gb.label).replace(/▾/g, '').trim() === '기타 국가', String(gb.label));
+    check('메뉴에 지금 값(GB)이 함께 나온다', gb.vals.includes('GB'), JSON.stringify(gb.vals));
+    check('✓ 가 «지금 값» 에 붙는다 (아무 데도 안 붙으면 ZZ 로 덮게 된다)',
+      JSON.stringify(gb.on) === JSON.stringify(['GB']), JSON.stringify(gb.on));
 
     console.log('\n[ ④ 고르면 «서버에 실제로» 가는가 (시연 껍데기가 아닌가) ]');
     await page.evaluate(() => { window.__tpPatches = []; });
@@ -261,6 +346,12 @@ async function openMenu(page, btnId) {
       return b ? b.textContent.trim() : null;
     });
     check('되돌리기 버튼이 떠 있다', !!undo, String(undo));
+    const toastKo = await page.evaluate(() => {
+      const m = document.querySelector('#tp-st-toast .tp-st-toast-msg');
+      return m ? m.textContent.trim() : '';
+    });
+    check('토스트 조사가 「북미로」다 (「북미 으로」가 아니다)',
+      toastKo.includes('북미로 바꿨습니다'), toastKo);
     await page.evaluate(() => { window.__tpPatches = []; });
     await page.evaluate(() => document.querySelector('#tp-st-toast button.tp-st-undo').click());
     await page.waitForTimeout(700);
@@ -305,7 +396,7 @@ async function openMenu(page, btnId) {
     await page.selectOption('#tp-filter-region', '');
     await page.waitForTimeout(900);
     const all = await page.evaluate(() => document.querySelectorAll('#tp-list-body tr[data-tid]').length);
-    check('「전체 구분」으로 되돌리면 네 명이 다 보인다', all === 4, String(all));
+    check('「전체 구분」으로 되돌리면 다섯 명이 다 보인다', all === 5, String(all));
 
     console.log('\n[ ⑧ 폰 390×844 — 문서가 가로로 넘치지 않는가 ]');
     await page.context().close();

@@ -4276,8 +4276,13 @@ function _tpStPlace(m, btn) {
    ⛔ 상주 리스너가 아니다 — 메뉴가 열려 있는 동안만 살고 _tpStCloseMenu 가 뗀다. */
 function _tpStFollow() {
   if (!_tpStMenu) return;
-  var btn = document.getElementById('tpstb-' + _tpStMenu.getAttribute('data-tid'));
-  if (!btn) { _tpStCloseMenu(); return; }
+  /* 🔴 (2026-09-01) 버튼을 «id 를 조립해» 찾지 말 것 — 이 상자는 상태 메뉴와 구분 메뉴가
+     함께 쓰는데 열쇠 모양이 다르다(101 대 rg:101). 조립하면 구분 메뉴에서 tpstb-rg:101 = null 이
+     되어 **스크롤 한 번에 무조건 닫혔다**(trap-check 가 잡음: 열린 뒤 20px 만 굴려도 사라짐).
+     열 때 붙여 둔 «그 버튼» 을 그대로 쓰고, 조립은 옛 메뉴를 위한 폴백으로만 남긴다. */
+  var btn = _tpStMenu.__btn ||
+            document.getElementById('tpstb-' + _tpStMenu.getAttribute('data-tid'));
+  if (!btn || !document.body.contains(btn)) { _tpStCloseMenu(); return; }
   var r = btn.getBoundingClientRect();
   if (r.bottom < 0 || r.top > window.innerHeight) { _tpStCloseMenu(); return; }
   _tpStPlace(_tpStMenu, btn);
@@ -4330,6 +4335,7 @@ window.tpOpenStatusMenu = function (id, btn) {
   });
 
   _tpStPlace(m, btn);          // 자리 잡기(함정 ③ — zoom 보정은 그 함수 안에)
+  m.__btn = btn;               // 스크롤 때 «따라갈» 버튼 (id 조립 금지 — _tpStFollow 주석)
   _tpStMenu = m;
 
   setTimeout(function () {
@@ -4499,7 +4505,9 @@ function _tpRegionBadge(region) {
   var r = TP_REGION_LABEL[region];
   if (!r) {
     return '<span class="tp-st-badge tp-rg-badge" data-ko="— 미지정" data-en="— Unset" ' +
-      'style="background-color:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:999px;' +
+      /* ⚠️ #6b7280 은 이 배경에서 대비 4.39 로 AA(4.5) 아래였다(trap-check 실측).
+         이 배지는 글자색 페인터 예외라 «자동 구제» 도 안 받는다 — 색을 직접 어둡게 둔다. */
+      'style="background-color:#f3f4f6;color:#4b5563;padding:2px 8px;border-radius:999px;' +
       'font-size:11px;font-weight:600;white-space:nowrap">' + (L ? '— Unset' : '— 미지정') + '</span>';
   }
   return '<span class="tp-st-badge tp-rg-badge" data-ko="' + r.ko + '" data-en="' + r.en + '" ' +
@@ -4551,7 +4559,15 @@ window.tpOpenRegionMenu = function (id, btn) {
          : '지금은 출신·활동 지역 «글자» 로 읽고 있습니다 — 나라를 고르면 그 값이 정본이 됩니다') +
       '</div><div class="tp-st-sep"></div>';
   }
-  TP_REGION_PICK.forEach(function (o, i) {
+  /* ⚠️ 목록에 없는 나라(GB·AU·VN·KR…)를 이미 갖고 있을 수 있다. 그대로 두면 ✓ 가 아무 데도
+     안 붙고, 사람이 「기타 국가」를 누르는 순간 **영국이 ZZ 로 덮인다**(정보 소실 — trap-check 지적).
+     그래서 «지금 값» 을 항목으로 함께 놓아, 무엇인지 보이고 되돌아올 수 있게 한다. */
+  var known = TP_REGION_PICK.map(function (o) { return o.code; });
+  var picks = TP_REGION_PICK.slice();
+  if (cur && known.indexOf(cur) < 0) {
+    picks.unshift({ code: cur, ko: cur + ' (지금 값)', en: cur + ' (current)' });
+  }
+  picks.forEach(function (o, i) {
     if (o.code === '' && i > 0) html += '<div class="tp-st-sep"></div>';
     var on = (o.code === cur);
     html += '<div class="tp-st-item' + (on ? ' on' : '') + '" role="menuitem" tabindex="0" ' +
@@ -4579,6 +4595,7 @@ window.tpOpenRegionMenu = function (id, btn) {
   });
 
   _tpStPlace(m, btn);
+  m.__btn = btn;               // 스크롤 때 «따라갈» 버튼 (id 조립 금지 — _tpStFollow 주석)
   _tpStMenu = m;
   setTimeout(function () {
     document.addEventListener('click', function once(ev) {
@@ -4615,17 +4632,32 @@ window.tpSetTeacherRegion = async function (id, code, _isUndo, _name, _prev) {
     else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
   } else if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
 
-  if (_isUndo) return;
-  var lab = (res.data && res.data.region && TP_REGION_LABEL[res.data.region])
-    ? (_tpStIsEn() ? TP_REGION_LABEL[res.data.region].en : TP_REGION_LABEL[res.data.region].ko)
-    : (_tpStIsEn() ? 'Unset' : '미지정');
-  _tpStToast(who + ' — ' + lab + ' 으로 바꿨습니다',
-             who + ' — changed to ' + lab,
-             function () { window.tpSetTeacherRegion(id, prev, true, who, next); });
-  /* 구분 필터가 걸려 있으면 «이 행이 지금 목록에 속하는가» 가 바뀐다 → 건수가 거짓말하지 않게 다시 읽는다. */
+  /* 구분 필터가 걸려 있으면 «이 행이 지금 목록에 속하는가» 가 바뀐다 → 건수가 거짓말하지 않게 다시 읽는다.
+     ⚠️ 되돌리기에서도 «똑같이» 해야 한다 — 전에는 `if (_isUndo) return` 뒤에 있어서, 캐시가 남아
+        있는 경로에서는 되돌린 뒤 건수가 옛 숫자로 남았을 것이다(trap-check 지적: 지금 맞는 것은
+        캐시가 마침 비어 있어 위쪽 else 가지가 다시 읽어 준 «우연» 이었다). */
   var rf = document.getElementById('tp-filter-region');
   if (rf && rf.value && typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+
+  if (_isUndo) return;
+  /* ⚠️ 라벨을 «부를 때의 언어» 하나로 계산해 두 문장에 똑같이 박으면, 토스트가 떠 있는 동안
+     🌐 를 눌렀을 때 「changed to 필리핀」이 된다. 한국어·영어를 따로 만든다. */
+  var rg = (res.data && typeof res.data.region === 'string') ? res.data.region : '';
+  var labKo = (rg && TP_REGION_LABEL[rg]) ? TP_REGION_LABEL[rg].ko : '미지정';
+  var labEn = (rg && TP_REGION_LABEL[rg]) ? TP_REGION_LABEL[rg].en : 'Unset';
+  _tpStToast(who + ' — ' + labKo + _tpEuroRo(labKo) + ' 바꿨습니다',
+             who + ' — changed to ' + labEn,
+             function () { window.tpSetTeacherRegion(id, prev, true, who, next); });
 };
+
+/** 「…으로 / …로」 — 받침을 보고 고른다. 「북미 으로」처럼 적히면 사람이 읽다 걸린다. */
+function _tpEuroRo(word) {
+  var w = String(word || '');
+  var c = w.charCodeAt(w.length - 1);
+  if (!(c >= 0xac00 && c <= 0xd7a3)) return '(으)로';   // 한글이 아니면 단정하지 않는다
+  var jong = (c - 0xac00) % 28;
+  return (jong === 0 || jong === 8) ? '로' : '으로';     // 받침 없음·ㄹ 받침 → 「로」
+}
 
 async function removeTeacherProfile(id, name, btn) {
   // ── 1차 클릭: 무장 (실수 삭제 방지 — 한 번 더 눌러야 확인창) ──
