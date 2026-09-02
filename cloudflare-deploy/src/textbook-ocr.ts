@@ -2,16 +2,20 @@
  * textbook-ocr.ts — 교재 이미지에서 «영어 본문» 을 뽑을 수 있는가 (판정 정본)
  *
  * [왜 생겼나] 2026-09-02. 복습퀴즈·웜업·판단력 훈련의 원료가 될 «교재 본문» 이
- *   이 저장소에 **한 글자도 없다.** `textbook_files` 12,000여 장이 전부 이미지이고
- *   `description` 도 전부 NULL 이다. 그래서 AI 가 만드는 문항이 교재와 무관하다.
+ *   이 저장소에 **한 글자도 없다.** `textbook_files` 는 **활성 17,246행 중 이미지 17,199장**
+ *   이고 `description` 이 채워진 행은 **0건**이다(2026-09-02 D1 실측 — 전체 행은 38,998이고
+ *   절반 넘게 숨김 처리돼 있다). 그래서 AI 가 만드는 문항이 교재와 무관하다.
  *
  * ⚠️ 이 파일은 «본격 추출» 이 아니라 **«될지 안 될지 재 보는 시험»** 이다.
  *   결과를 D1 에 쓰지 않는다 — 되는 것이 확인된 뒤에 저장을 설계하는 것이 순서다.
  *   (기능은 만들어 놓고 실사용이 0인 채로 방치되는 것이 이 저장소의 반복 사고다.)
  *
  * 🔴 «비전 모델이 이 계정에서 도는지» 는 아직 아무도 모른다 (2026-09-02 실측).
- *   저장소에 비전 호출이 두 곳 있지만(`api-approval.ts` 영수증 · `index.ts` 칠판)
- *   결재는 2건뿐이고 **파일 첨부가 0건** 이라 그 경로는 한 번도 돌아 본 적이 없다.
+ *   [잰 것] `approval_requests` 는 2건이고 **파일 첨부가 0건**이다(2026-09-02 D1 실측).
+ *   [거기서 내린 판단] ⟹ **영수증 OCR 경로**(`api-approval.ts`)는 한 번도 돌아 본 적이 없다.
+ *   ⚠️ 칠판 OCR(`index.ts handleWbOcr`)은 **이 근거로 말할 수 없다** — 흔적을 남기지 않고,
+ *      게다가 CLOVA 가 설정돼 있으면 비전 모델을 아예 안 탄다. 즉 「비전 모델이 도는가」는
+ *      **어느 쪽으로도 확인되지 않았다.**
  *   그래서 이 시험의 첫 항목이 「어느 엔진이 도는가」이고, 그래서 엔진을 **하나만
  *   고르지 않고 여러 개를 같은 장에 나란히** 돌린다. 하나가 죽어도 나머지 답이 남는다.
  *
@@ -86,27 +90,52 @@ export const OCR_PROMPT =
  *     설명문으로 본다. 애매하면 **설명문이 아닌 쪽으로** 실패한다 —
  *     그때는 원문이 화면에 그대로 보이므로 사람이 눈으로 가릴 수 있다.
  *  ⚠️ 첫 줄만 본다. 교재 페이지는 여러 줄이고, 설명문은 첫 줄에서 정체가 드러난다. */
-const MEDIA = '(image|picture|photo|screenshot|page|document|text)';
+/* 🔴 «강한 신호» 만 잡는다 — 약한 낱말(picture·photo·page·text)은 교재 본문에 흔하다.
+ *    함정 대조 검사가 실측으로 잡아 준 것들(전부 초등 교재에 실제로 나오는 문장):
+ *      "I can see a picture." · "The picture shows a dog." · "The photo shows my family."
+ *      "Here is the page number." · "I cannot read the sign."
+ *    처음 판이 이것들을 전부 «설명문» 으로 판정했고, `judgeOcrText` 는 설명문이면
+ *    **그 장의 본문을 통째로 버리므로**(lines=[]) 첫 줄 하나에 한 페이지가 날아갔다.
+ *    그 값이 곧 화면의 「영어 낱말 평균」= 이 시험의 유일한 결론 지표다. */
+const STRONG = '(?:image|screenshot|transcription|transcript)';   // 교재 본문에 거의 안 나온다
+const WEAK   = '(?:picture|photo|page|document)';                 // 교재에도 흔하다 — 단독으로는 신호가 못 된다
+const META_OBJ = '(?:text|words|sentences|worksheet|page|image|writing|content|paragraph)';
+
 const PROSE_HEAD = new RegExp(
   '^(?:'
-  // 「The image shows…」·「This picture contains…」 — 이미지를 «가리키고» 무엇을 한다
-  + '(?:the|this)\\s+' + MEDIA + '\\s+(?:shows|contains|displays|depicts|appears|seems|looks\\s+like)\\b'
-  // 「It appears to be a worksheet」 — 「It looks good」(교재 문장)과 갈린다
-  + '|it\\s+(?:appears|seems)\\s+to\\s+be\\b'
-  // 「Here is the text from the image」 — 「Here is my book」(교재 문장)과 갈린다
-  + '|here(?:\'s| is)\\s+(?:the\\s+)?(?:' + MEDIA + '|transcription|transcribed|content|what)\\b'
-  // 「I can see a page with…」 — 「I can see a bird」(교재 문장)과 갈린다
-  + '|i\\s+(?:can\\s+)?see\\s+(?:a|an|the)?\\s*' + MEDIA + '\\b'
-  + '|i\\s+(?:cannot|can\'t|am unable to)\\s+(?:read|see|make out)\\b'
-  // 「Sure! Here is…」 — 「Sure!」 한 마디(교재 대화)와 갈린다
-  + '|(?:sure|of\\s+course|certainly)[,!.]?\\s+(?:here(?:\'s|\\s+is)|the\\s+' + MEDIA + ')\\b'
+  // 「The image shows…」 — 강한 낱말은 그 자체로 «이미지를 가리킨다»
+  + '(?:the|this)\\s+' + STRONG + '\\b'
+  // 「This picture shows a worksheet」 — 약한 낱말은 «메타 목적어» 가 함께 있을 때만.
+  //   ⛔ 「The picture shows a dog.」(교재)는 여기서 걸리지 않는다
+  + '|(?:the|this)\\s+' + WEAK + '\\s+(?:shows|contains|displays|depicts)\\s+(?:a\\s+|an\\s+|the\\s+|\\d+\\s+)?(?:\\w+\\s+){0,2}' + META_OBJ + '\\b'
+  // 「It appears to be a worksheet」 — 「It looks good.」(교재)와 갈린다
+  + '|it\\s+(?:appears|seems)\\s+to\\s+be\\s+(?:a|an|the)\\s+(?:\\w+\\s+){0,2}(?:image|picture|photo|page|worksheet|document|screenshot|scan)\\b'
+  // 「Here is the transcription:」 — 「Here is the page number.」(교재)와 갈린다
+  + '|here(?:\'s|\\s+is)\\s+(?:the\\s+)?(?:transcription|transcript|text|content|what)\\b'
+  // 「Transcription:」·「The text reads:」 — 콜론으로 끝나는 머리말
+  + '|(?:transcription|transcribed\\s+text|the\\s+text\\s+reads?)\\s*:'
+  // 「I can see a page with the words…」 — 「I can see a picture.」(교재)와 갈린다
+  + '|i\\s+(?:can\\s+)?see\\s+(?:the\\s+)?text\\b'
+  + '|i\\s+(?:can\\s+)?see\\s+[^.!?]{0,40}?(?:with\\s+the\\s+words|that\\s+says|of\\s+text|in\\s+the\\s+image|on\\s+the\\s+page)\\b'
+  // 「I cannot read the text in this image」 — 「I cannot read the sign.」(교재)와 갈린다
+  + '|i\\s+(?:cannot|can\'t|am\\s+unable\\s+to)\\s+(?:read|see|make\\s+out)\\s+(?:the\\s+)?(?:text|words|anything|this|it)\\b'
+  // 「Sure! Here is…」 — 「Of course, I will help you.」(교재)와 갈린다
+  //   ⛔ 여기에 「i'll|i will」 을 넣지 말 것 — 바로 그 교재 문장이 걸린다
+  + '|(?:sure|of\\s+course|certainly)[,!.]?\\s+(?:here(?:\'s|\\s+is)|the\\s+text)\\b'
   + ')', 'i');
 
 export function looksLikeProse(raw: unknown): boolean {
   const s = String(raw == null ? '' : raw).trim();
   if (!s) return false;
   return PROSE_HEAD.test(s.split(/\r?\n/)[0].trim());
+
 }
+
+/** 교재 한 줄의 길이 상한.
+ *  ⚠️ 웜업 80·게임 90·단어장 30 과 **통일하지 말 것** — 자리마다 다르다는 것이
+ *     `english-only.ts` 의 명시된 규칙이다. 여기는 「교재 한 문단이 한 줄로 올 수
+ *     있다」를 감안해 넉넉히 잡고, 그래도 넘친 줄은 세어서 화면에 알린다. */
+export const LINE_MAX = 400;
 
 /** OCR 결과에서 «쓸 수 있는 영어 줄» 만 골라낸다.
  *  ⚠️ `isEnglishText` 를 결과 «전체» 에 걸면 안 된다 — 그 함수는 ASCII 인쇄가능
@@ -114,16 +143,32 @@ export function looksLikeProse(raw: unknown): boolean {
  *     그리고 줄 단위로 보는 것이 뜻에도 맞다(교재 한 줄 = 문장 하나).
  *  ⚠️ 상한 200 은 교재 한 줄 기준이다. 웜업 80·게임 90·단어장 30 과 «통일하지 말 것» —
  *     자리마다 다르다는 것이 english-only.ts 의 명시된 규칙이다. */
-export function englishLines(raw: unknown, maxLen = 200): string[] {
+export function englishLines(raw: unknown, maxLen = LINE_MAX): string[] {
+  return splitEnglishLines(raw, maxLen).lines;
+}
+
+/** 위와 같은 일을 하되 «왜 버렸는지» 를 함께 돌려준다.
+ *  ⚠️ 길이 상한은 이 시험의 가설과 **반대 방향으로 위험하다** —
+ *     사장님 정보가 「높은 레벨은 글자가 많다」이고, `OCR_PROMPT` 가 원래 줄바꿈을
+ *     지키라고 하므로 지문 한 문단이 **한 줄로** 올 수 있다. 그 줄이 상한을 넘으면
+ *     통째로 사라져 **글자가 많을수록 더 많이 깎인다** ⟹ 「높은 권도 낱말이 적네」라는
+ *     정반대 결론이 난다. 그래서 상한에 걸린 줄 수를 세어 화면이 말하게 한다.
+ *  ⛔ 이 숫자를 «오류» 로 그리지 말 것 — 사실을 알려 주는 것이지 실패가 아니다. */
+export function splitEnglishLines(raw: unknown, maxLen = LINE_MAX): { lines: string[]; tooLong: number } {
   const s = String(raw == null ? '' : raw);
   const out: string[] = [];
+  let tooLong = 0;
   for (const line of s.split(/\r?\n/)) {
     const t = line.trim();
     if (!t) continue;
-    if (!isEnglishText(t, maxLen)) continue;
+    if (!isEnglishText(t, maxLen)) {
+      // 「길어서」 떨어진 것과 「영어가 아니라서」 떨어진 것을 가른다
+      if (t.length > maxLen && isEnglishText(t.slice(0, maxLen), maxLen)) tooLong++;
+      continue;
+    }
     out.push(t);
   }
-  return out;
+  return { lines: out, tooLong };
 }
 
 /** 영어 낱말 수 — 사장님 정보(레벨별 글자 양)를 숫자로 확인하는 핵심 지표. */
@@ -147,6 +192,8 @@ export type OcrProbeResult = {
   words: number;
   /** 날것의 줄 수 대비 영어로 인정된 줄 수 — 「한글·잡음이 얼마나 섞였나」 */
   line_total: number;
+  /** 영어인데 «너무 길어» 버린 줄 수 — 조용히 사라지면 높은 권을 과소평가한다 */
+  too_long: number;
   prose: boolean;
   ms: number;
   error: string;
@@ -159,7 +206,8 @@ export function judgeOcrText(engine: OcrEngine, raw: unknown, ms: number, error 
   const isNone = /^none$/i.test(text);
   const prose = looksLikeProse(text);
   // 설명문이면 그 «내용» 을 본문으로 세지 않는다 — 세면 「OCR 이 된다」가 거짓이 된다.
-  const lines = (prose || isNone) ? [] : englishLines(text);
+  const split = (prose || isNone) ? { lines: [] as string[], tooLong: 0 } : splitEnglishLines(text);
+  const lines = split.lines;
   const lineTotal = text ? text.split(/\r?\n/).filter(l => l.trim()).length : 0;
   return {
     engine: engine.id,
@@ -169,6 +217,7 @@ export function judgeOcrText(engine: OcrEngine, raw: unknown, ms: number, error 
     lines,
     words: countEnglishWords(lines),
     line_total: lineTotal,
+    too_long: split.tooLong,
     prose,
     ms,
     error: error || '',
@@ -251,10 +300,58 @@ export function bytesToBase64(bytes: Uint8Array): string {
 export async function probeImage(
   AI: AnyAI, kv: any, bytes: Uint8Array, mime: string, engineIds?: string[],
 ): Promise<OcrProbeResult[]> {
+  /* 🔴 비용 상한은 «부르는 쪽» 이 아니라 **정본이** 든다.
+   *    `ocrEngineById` 가 모르는 id 는 걸러 내지만 **같은 id 를 여러 번** 넣는 것은
+   *    안 걸렀다 — 실측(함정 대조 검사): `engines` 에 같은 id 500개를 넣으니
+   *    모델을 **500번** 불렀다. 화면의 「장 수 ≤ 20」 클램프는 클라이언트 전용이라
+   *    근거가 못 되고, 라우트 주석의 「한 요청 = 엔진 수만큼」 약속이 본문 한 줄로 깨진다.
+   *    ⇒ 중복을 없애고 엔진 목록 길이로 자른다(그보다 많을 수가 없다). */
   const list = (engineIds && engineIds.length)
-    ? engineIds.map(ocrEngineById).filter(Boolean) as OcrEngine[]
+    ? ([...new Set(engineIds.map(String))]
+        .map(ocrEngineById).filter(Boolean) as OcrEngine[]).slice(0, OCR_ENGINES.length)
     : OCR_ENGINES;
   const out: OcrProbeResult[] = [];
   for (const e of list) out.push(await runOcrEngine(AI, kv, e, bytes, mime));
   return out;
+}
+
+/* ── 입구 게이트 ─────────────────────────────────────────────────
+ * 🔴 **순수 함수로 뺀 이유**: 이 판정들이 라우트 안에만 있으면 하니스가 «문자열로»
+ *    검사하게 되고, 그러면 조건을 `!==` → `===` 로 뒤집어도 그 글자가 그대로 남아
+ *    **통과한다**(함정 대조 검사가 실제로 그 헛돎을 지적했다). 하필 그 자리가
+ *    **비용을 지키는 자리**다 — 여기서 새면 모델 호출이 그대로 돈이 된다.
+ *    ⟹ 라우트는 이 함수를 «부르기만» 하고, 하니스는 이 함수를 **실제로 돌린다.** */
+
+export type OcrGateInput = {
+  action: unknown;
+  mime: unknown;
+  ext: unknown;
+  /** D1 의 size_bytes. ⚠️ NOT NULL 이 아니라 **NULL 일 수 있다** */
+  sizeBytes: unknown;
+  /** R2 에서 실제로 받은 바이트 길이. 있으면 이것도 함께 본다 */
+  actualBytes?: number;
+};
+
+/** 3MB. 교재 이미지 실측 평균 167KB(2026-09-02 D1) 인데 PDF 는 6MB 를 넘는다. */
+export const OCR_MAX_BYTES = 3_000_000;
+
+/** 통과면 null, 막으면 {error, message, status}. */
+export function ocrGate(inp: OcrGateInput): { error: string; message: string; status: number } | null {
+  if (String(inp.action == null ? '' : inp.action) !== 'ocr_probe') {
+    return { error: 'unknown_action', message: 'action 은 ocr_probe 여야 합니다.', status: 400 };
+  }
+  const mime = String(inp.mime == null ? '' : inp.mime);
+  const ext = String(inp.ext == null ? '' : inp.ext).toLowerCase();
+  if (!/^image\//.test(mime) && !/^(jpg|jpeg|png|webp|gif)$/.test(ext)) {
+    return { error: 'not_an_image', message: '이미지 파일만 시험할 수 있습니다(PDF 는 제외).', status: 400 };
+  }
+  /* ⚠️ `size_bytes` 가 NULL 이면 이 검사를 그냥 통과한다(스키마상 NOT NULL 이 아니다).
+   *    그래서 R2 에서 «실제로 받은» 길이도 함께 본다 — 둘 중 큰 쪽으로 판정한다. */
+  const declared = Number(inp.sizeBytes || 0);
+  const actual = Number(inp.actualBytes || 0);
+  const size = Math.max(isFinite(declared) ? declared : 0, isFinite(actual) ? actual : 0);
+  if (size > OCR_MAX_BYTES) {
+    return { error: 'too_large', message: '3MB 를 넘는 파일은 시험하지 않습니다.', status: 413 };
+  }
+  return null;
 }

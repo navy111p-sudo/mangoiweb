@@ -25,8 +25,8 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { applyPlacementLevel, loadTextbookChoices } from './student-placement';
-import { probeImage } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
+import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
+import { probeImage, ocrGate } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -13158,8 +13158,9 @@ LIMIT $limit`;
 
     /* 🔬 POST /api/admin/textbook-files/:id — 교재 한 장을 OCR 해 본다 (시험)
      * ═══════════════════════════════════════════════════════════════════════
-     * [왜] 복습퀴즈·웜업이 쓸 «교재 본문» 이 이 저장소에 한 글자도 없다. 12,000여 장이
-     *      전부 이미지이고 description 도 전부 NULL 이라, AI 가 만드는 문항이 교재와 무관하다.
+     * [왜] 복습퀴즈·웜업이 쓸 «교재 본문» 이 이 저장소에 한 글자도 없다. `textbook_files` 는
+     *      활성 17,246행 중 이미지가 17,199장이고 description 이 채워진 행은 0건이다
+     *      (2026-09-02 D1 실측) ⟹ AI 가 만드는 문항이 교재와 무관하다.
      *      OCR 로 본문을 뽑을 수 있는지 **먼저 재 보는 것** 이 이 경로다.
      *
      * ⚠️ 시험이다 — 결과를 **D1 에 쓰지 않는다.** 되는 것이 확인된 뒤에 저장을 설계한다.
@@ -13184,7 +13185,6 @@ LIMIT $limit`;
       if (isOrgScopedRole((_ocrActor as any).role)) return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 실행할 수 있습니다.' }, 403);
 
       const b = await parseJsonBody(request) || {};
-      if (String(b.action || '') !== 'ocr_probe') return json({ ok: false, error: 'unknown_action', message: 'action 은 ocr_probe 여야 합니다.' }, 400);
 
       const AI = (env as any).AI;
       if (!AI) return json({ ok: false, error: 'ai_binding_missing', message: 'Workers AI 바인딩이 없습니다.' }, 503);
@@ -13194,20 +13194,21 @@ LIMIT $limit`;
       const row: any = await env.DB.prepare(`SELECT id, name, mime, ext, size_bytes, r2_key FROM textbook_files WHERE id = ? AND active = 1`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
 
-      /* ⚠️ 큰 파일은 아예 받지 않는다 — 교재 이미지는 실측 평균 144KB·최대 1.7MB 인데,
-       *    PDF(62개)가 6MB 를 넘는다. 그것을 통째로 모델에 넣으면 시간·비용만 쓰고 실패한다. */
+      /* 🔬 입구 게이트 — 판정 정본은 `ocrGate()` 하나다(라우트에 조건을 다시 적지 말 것).
+       *    라우트 안에만 두면 하니스가 문자열로 검사하게 되고, 조건을 뒤집어도 그 글자가
+       *    남아 통과한다 — 하필 «비용을 지키는» 자리다. */
       const ext = String(row.ext || '').toLowerCase();
       const mime = String(row.mime || '');
-      if (!/^image\//.test(mime) && !/^(jpg|jpeg|png|webp|gif)$/.test(ext)) {
-        return json({ ok: false, error: 'not_an_image', message: '이미지 파일만 시험할 수 있습니다(PDF 는 제외).' }, 400);
-      }
-      if (Number(row.size_bytes || 0) > 3_000_000) {
-        return json({ ok: false, error: 'too_large', message: '3MB 를 넘는 파일은 시험하지 않습니다.' }, 413);
-      }
+      const gate1 = ocrGate({ action: b.action, mime, ext, sizeBytes: row.size_bytes });
+      if (gate1) return json({ ok: false, error: gate1.error, message: gate1.message }, gate1.status as any);
 
       const obj = await (env as any).RECORDINGS.get(row.r2_key);
       if (!obj) return json({ ok: false, error: 'r2_missing', message: '이미지 실물을 찾지 못했습니다.' }, 404);
       const bytes = new Uint8Array(await obj.arrayBuffer());
+      /* ⚠️ `size_bytes` 는 NULL 일 수 있어(스키마상 NOT NULL 아님) 위 검사를 그냥 통과한다.
+       *    R2 에서 «실제로 받은» 길이로 한 번 더 본다 — 받는 것까지는 값이 싸다. */
+      const gate2 = ocrGate({ action: b.action, mime, ext, sizeBytes: row.size_bytes, actualBytes: bytes.length });
+      if (gate2) return json({ ok: false, error: gate2.error, message: gate2.message }, gate2.status as any);
 
       const engines = Array.isArray(b.engines) ? b.engines.map((x: any) => String(x)) : undefined;
       const results = await probeImage(AI, (env as any).SESSION_STATE, bytes, mime || `image/${ext || 'jpeg'}`, engines);

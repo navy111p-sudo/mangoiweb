@@ -2,7 +2,7 @@
 // 🧪 textbook_ocr_probe_harness — 교재 본문 추출 시험 (src/textbook-ocr.ts)
 //
 // [무엇을 지키는가 — 2026-09-02]
-//   교재 12,000여 장이 전부 이미지라 복습퀴즈·웜업이 쓸 «본문» 이 한 글자도 없다.
+//   교재가 활성 17,246행 중 17,199장이 이미지라(2026-09-02 D1 실측) 복습퀴즈·웜업이 쓸 «본문» 이 한 글자도 없다.
 //   OCR 로 뽑을 수 있는지 재 보는 것이 그 파일이고, 이 하네스가 그 «판정» 을 지킨다.
 //
 //   🔴 이 시험에서 제일 위험한 결함은 «못 읽는 것» 이 아니라
@@ -114,6 +114,19 @@ if (M) {
     'Here is my book.',                          // 짝: 'Here is the text from the image:'
     'Here is the ball.',                         // 짝: 'Here is the transcription:'
     'This is my school.\nMy school is big.',    // 짝: 'This image contains...'
+    /* 🔴 함정 대조 검사가 실측으로 잡아 준 것들 — 처음 판이 이것들을 전부 설명문으로
+       판정했고, 설명문이면 그 장의 본문이 통째로 버려진다(judgeOcrText 가 lines=[]).
+       주석에 «짝» 만 적어 두고 정작 그 문장을 안 넣어서 하니스가 못 잡았다. */
+    'I can see a picture.',                      // 짝: 'I can see a page with the words…'
+    'I can see a picture of a cat.',
+    'I see a picture.',
+    'I can see a photo.',
+    'The picture shows a dog.',                  // 짝: 'This picture shows a worksheet.'
+    'The photo shows my family.',
+    'Here is the page number.',                  // 짝: 'Here is the transcription:'
+    'I cannot read the sign.',                   // 짝: 'I cannot read the text in this image.'
+    'The document is on the desk.',
+    'I can see a page.',
     'The page is white.',                        // 「The page」로 시작하지만 동사가 다르다
     'Hello. My name is Mina.',
     'It is sunny today.',
@@ -213,6 +226,43 @@ if (M) {
   catch (e) { /* 위 검사가 이미 «던지면 안 된다» 를 잡는다 */ }
   check('엔진을 지정하면 그것만 부른다', !!only && only.length === 1 && only[0].engine === M.OCR_ENGINES[0].id);
 
+  /* 🔴 비용 — 함정 대조 검사가 실측으로 잡은 자리.
+     `ocrEngineById` 는 «모르는 id» 만 걸렀고 **같은 id 를 여러 번 넣는 것** 은 안 걸렀다.
+     실측: 같은 id 500개 → 모델 호출 500회. 라우트 주석의 「한 요청 = 엔진 수만큼」이
+     본문 한 줄로 깨진다. 상한은 «부르는 쪽» 이 아니라 **정본이** 들어야 한다.
+     ⚠️ `ocrEngineById` 만 시험하면 이 결함이 안 잡힌다 — `probeImage` 를 돌려야 한다. */
+  {
+    let n = 0;
+    const countAI = { run: async () => { n++; return { response: 'Hello.' }; } };
+    const many = new Array(500).fill(M.OCR_ENGINES[0].id);
+    let rs = null;
+    try { rs = await M.probeImage(countAI, null, new Uint8Array([1]), 'image/jpeg', many); } catch {}
+    check(`같은 엔진을 500번 넣어도 호출은 엔진 수 이하다 (실제 호출 ${n}회)`,
+      n > 0 && n <= M.OCR_ENGINES.length);
+    check('결과 줄도 엔진 수를 넘지 않는다', !!rs && rs.length <= M.OCR_ENGINES.length, `${rs && rs.length}줄`);
+
+    n = 0;
+    const mixed = [...new Array(50).fill(M.OCR_ENGINES[0].id), '@cf/nope/nope'];
+    try { await M.probeImage(countAI, null, new Uint8Array([1]), 'image/jpeg', mixed); } catch {}
+    check(`모르는 id 를 섞어도 상한이 유지된다 (실제 호출 ${n}회)`, n > 0 && n <= M.OCR_ENGINES.length);
+  }
+
+  /* 🟡 길이 상한에 걸려 «조용히 사라지는» 줄 — 이 시험의 가설과 반대 방향으로 위험하다.
+     사장님 정보가 「높은 레벨은 글자가 많다」인데, 글자가 많을수록 더 많이 깎이면
+     「높은 권도 낱말이 적네」라는 정반대 결론이 난다. 화면이 그 사실을 말해야 한다. */
+  {
+    const longLine = 'The quick brown fox jumps over the lazy dog. '.repeat(20).trim();  // 880자
+    const j = M.judgeOcrText(ENG, 'Unit 5\n' + longLine, 100);
+    check('길어서 버린 줄을 세어 남긴다 (조용히 사라지면 높은 권을 과소평가한다)',
+      j.too_long >= 1, `too_long=${j.too_long}`);
+    check('길어서 버려도 나머지 줄은 살아 있다', j.lines.length >= 1);
+    const j2 = M.judgeOcrText(ENG, 'Unit 5\nI like apples.', 100);
+    check('짧은 줄만 있으면 too_long 은 0 이다', j2.too_long === 0);
+    /* 한국어 줄은 «길어서» 가 아니라 «영어가 아니라서» 떨어진 것 — 섞어 세면 안 된다 */
+    const j3 = M.judgeOcrText(ENG, '이번 과의 목표는 인사말을 배우는 것입니다', 50);
+    check('영어가 아니라 떨어진 줄을 «길어서» 로 세지 않는다', j3.too_long === 0, `too_long=${j3.too_long}`);
+  }
+
   /* base64 — 큰 이미지에서 btoa 가 «인자 너무 많음» 으로 죽던 자리 */
   if (typeof globalThis.btoa === 'function') {
     const big = new Uint8Array(200000).fill(65);
@@ -258,11 +308,28 @@ console.log('\n[ E. 배선 ]');
     bc.indexOf('isOrgScopedRole') >= 0 && bc.indexOf('RECORDINGS') >= 0
       && bc.indexOf('isOrgScopedRole') < bc.indexOf('RECORDINGS'));
 
-  check('모르는 action 은 거절한다 (이 경로에 다른 뜻을 넣을 때 조용히 OCR 로 흘러 비용이 나가면 안 된다)',
-    /unknown_action/.test(bc) && /ocr_probe/.test(bc));
-  check('이미지가 아니면 거절한다 (PDF 6MB 를 모델에 넣으면 시간·비용만 쓴다)',
-    /not_an_image/.test(bc));
-  check('큰 파일을 거절한다', /too_large/.test(bc) && /3_000_000|3000000/.test(bc));
+  /* 🔴 여기는 «비용을 지키는» 자리라 문자열로 검사하면 안 된다 —
+     조건을 `!==` → `===` 로 뒤집어도 그 글자가 그대로 남아 통과한다(함정 대조 검사 지적).
+     ⟹ 판정을 정본 `ocrGate()` 로 빼고, 라우트는 그것을 «부르기만» 하는지 본다. */
+  check('입구 판정을 라우트에 다시 적지 않고 정본 ocrGate() 를 부른다',
+    /ocrGate\(/.test(bc) && !/!==\s*'ocr_probe'/.test(bc));
+  if (M) {
+    const G = (o) => M.ocrGate(o);
+    const OK = { action: 'ocr_probe', mime: 'image/jpeg', ext: 'jpg', sizeBytes: 90000 };
+    check('정상 요청은 통과한다 (막기만 하는 게이트도 초록불이 된다 — 짝으로 본다)', G(OK) === null);
+    check('모르는 action 은 거절한다 (다른 뜻을 넣을 때 조용히 OCR 로 흘러 비용이 나가면 안 된다)',
+      G({ ...OK, action: 'something' })?.error === 'unknown_action');
+    check('action 이 없으면 거절한다', G({ ...OK, action: undefined })?.error === 'unknown_action');
+    check('PDF 는 거절한다 (6MB 를 모델에 넣으면 시간·비용만 쓴다)',
+      G({ ...OK, mime: 'application/pdf', ext: 'pdf' })?.error === 'not_an_image');
+    check('mime 이 비어도 확장자로 이미지면 통과한다', G({ ...OK, mime: '' }) === null);
+    check('큰 파일을 거절한다', G({ ...OK, sizeBytes: 5_000_000 })?.error === 'too_large');
+    /* ⚠️ `size_bytes` 는 스키마상 NOT NULL 이 아니다 — NULL 이면 옛 검사를 그냥 통과했다 */
+    check('size_bytes 가 NULL 이어도 «실제 받은 길이» 로 막는다 (스키마상 NOT NULL 이 아니다)',
+      G({ ...OK, sizeBytes: null, actualBytes: 5_000_000 })?.error === 'too_large');
+    check('size_bytes 가 NULL 이고 실물도 작으면 통과한다',
+      G({ ...OK, sizeBytes: null, actualBytes: 90000 }) === null);
+  }
 
   /* ⚠️ «시험이라 저장하지 않는다» — 이것이 이 단계의 약속이다.
      저장을 붙이려면 «무엇을 어디에» 를 먼저 설계해야 하고, 그때 이 검사를 함께 고친다. */
