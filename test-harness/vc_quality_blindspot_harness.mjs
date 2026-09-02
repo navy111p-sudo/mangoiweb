@@ -389,6 +389,42 @@ console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 �
        '국내 회선(기준 130ms)은 410ms 가 이어지면 예전처럼 뜬다');
   }
 
+  /* 🔴 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 되면 안 된다.
+     기준을 매 틱 올리면 16틱(약 64초) 만에 문턱이 410 위로 올라가, 3분 쿨다운이 끝날 무렵엔
+     이미 «정상» 이라 두 번째 토스트가 영영 안 뜬다 — 옛 절대값(400) 때는 3분마다 반복했으니
+     그건 «되던 것» 을 깨는 것이다. ⇒ 기준은 «나쁘지 않은 틱» 에서만 위로 따라간다. */
+  {
+    const t6 = runQlog({ student: { uid: 'heys', name: '이수현', role: 'student' } });
+    for (let i = 0; i < 5; i++) t6.api.selfWatch(0.3, 130);        // 평소 130ms
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);        // 나빠짐 → 1회차
+    ok(!!t6.doc.getElementById('vc-netlow-toast'), '지속 불량 — 첫 토스트가 뜬다');
+    t6.doc.getElementById('vc-netlow-toast').innerHTML = '(1회차)';
+    /* 3분(쿨다운)이 지나도록 계속 나쁜 상태를 유지한다 — 45틱 = 180초 */
+    for (let i = 0; i < 45; i++) t6.api.selfWatch(0.3, 410);
+    t6.win.__vcNetSelf.notifiedAt = 0;                              // 쿨다운만 지난 것으로 둔다
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);
+    ok(t6.doc.getElementById('vc-netlow-toast').innerHTML !== '(1회차)',
+       '🔴 3분 뒤에도 여전히 나쁘면 다시 뜬다 — 기준이 나쁜 값을 «평소» 로 학습하면 안 된다');
+  }
+
+  /* ⛔ 앞 수업의 기준 RTT·연속카운트가 다음 수업으로 넘어가면 안 된다.
+     ⚠️ 정리는 4초 인터벌 콜백 «안» 에서 일어나 가짜 DOM 으로는 못 돌린다 —
+     그래서 바로 아래 `__vcLowQ` 검사와 같은 방식으로 «그 자리에 있는가» 로 본다(같은 한계). */
+  {
+    const startFn = qlog.slice(qlog.indexOf('function vcqRxStart'));
+    ok(/__vcNetSelf = null/.test(startFn),
+       '수업이 끝나면 회선 경고 상태(__vcNetSelf)도 함께 비운다 — 안 비우면 앞 수업 기준값이 넘어간다');
+  }
+
+  /* ⚠️ 그룹수업 — __vcNetSelf 는 전역 하나인데 vcQualityAcc 는 상대마다 불린다(소스 주석 참고).
+     가까운 상대와 먼 상대가 번갈아 들어와도 4틱 연속 조건이 완충한다. */
+  {
+    const t8 = runQlog({ student: { uid: 'g', name: 'g', role: 'student' } });
+    for (let i = 0; i < 30; i++) { t8.api.selfWatch(0.3, 80); t8.api.selfWatch(0.3, 400); }
+    ok(!t8.doc.getElementById('vc-netlow-toast'),
+       '⛔ 상대가 둘이고 한쪽만 멀면(80ms·400ms 번갈아) 안 뜬다 — 번갈아 오는 값으로 오경보하지 않는다');
+  }
+
   /* 상대 타일 표시 — 강사에게만 */
   const stu = runQlog({ student: { uid: 's1', name: '학생', role: 'student' } });
   stu.doc.__addBox('peerA');
