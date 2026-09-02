@@ -30,7 +30,10 @@ const mod = rd('../cloudflare-deploy/src/classes-now.ts');
 const s1 = rd('../cloudflare-deploy/public/js/adm-s1.js');
 const core = rd('../cloudflare-deploy/public/js/adm-core.js');
 const ghost = rd('../cloudflare-deploy/public/admin/ghost-view.html');
-const wall = rd('../cloudflare-deploy/public/admin/monitor-wall.html');
+/* 📦 (2026-09-02) 관제탑의 화면 코드는 인라인이 아니라 /js/monitor-wall.js 에 있다.
+   한쪽만 읽으면 이 검사가 통째로 헛돈다(함수도 값도 «없다» 로 보인다) — 두 파일을 합쳐서 본다. */
+const wall = rd('../cloudflare-deploy/public/admin/monitor-wall.html')
+           + '\n' + rd('../cloudflare-deploy/public/js/monitor-wall.js');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 const check = (name, ok, extra) => {
