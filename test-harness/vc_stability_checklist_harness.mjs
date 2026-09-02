@@ -46,7 +46,13 @@ ok('Opus 인밴드 FEC(패킷손실 음성복원) SDP 튜닝', has('useinbandfec
 ok('오디오 비트레이트 여유(maxaveragebitrate=40000)', has('maxaveragebitrate=40000'));
 ok('오디오 네트워크 우선순위 high(소리 우선 생존)', has(".networkPriority = 'high'"));
 ok('적응 화질 조절기 존재(vcAdaptiveQuality)', has('vcAdaptiveQuality'));
-ok('  · 하향 조건: 손실 >6% 또는 RTT >450ms', has(/lossPct > 6 \|\| rtt > 450/));
+/* (2026-09-02) RTT 문턱이 «절대값 450/250» 에서 «그 연결의 기준 RTT 대비» 로 바뀌었다(class-849 강선생님 —
+   중국 회선은 기준이 360ms 라 «250 미만» 회복이 영영 안 맞았다). 글자 «450» 을 못 박지 말고 «상한이 있는가» 로 본다.
+   ⛔ Math.max(450, …) 의 450 을 내리면 낮은 회선에서 옛 동작이 바뀐다 — 그래서 그 숫자는 그대로 못 박는다. */
+ok('  · 하향 조건: 손실 >6% 또는 RTT > 기준대비 문턱(rttDown, 바닥 450ms)',
+   has(/lossPct > 6 \|\| rtt > rttDown/) && has(/rttDown = Math\.max\(450, /));
+ok('  · 상향 RTT 문턱도 기준대비(rttUp, 바닥 250ms) — 회복이 «영영 안 맞는» 회선이 없게',
+   has(/rtt < rttUp\)/) && has(/rttUp = Math\.max\(250, /));
 /* ⚠️ (2026-09-01) 숫자 3 을 못 박아 두어, 진동을 더 세게 막은 수리에 오히려 FAIL 이 났다.
    물어야 할 것은 «몇 틱인가» 가 아니라 «진동 방지 장치가 있는가» 다.
    class-1015 실측(1분마다 20%대 스파이크)에서 3틱(12초)은 너무 짧아 오르내림이 반복됐고,
