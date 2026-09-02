@@ -185,6 +185,39 @@ export function repeatRatio(lines: string[]): number {
   return Math.round((1 - seen.size / lines.length) * 100) / 100;
 }
 
+/* ── 머리말·저작권 걸러내기 ──────────────────────────────────────
+ * 🔴 **저작권 푸터가 낱말 수를 지배합니다.** 2026-09-02 첫 실행 실측:
+ *    교재 «모든» 장에 「January 2019 Mangoi.com. Do not reproduce or distribute. Page N」
+ *    이 있고 그것만 10~11낱말입니다. BTS 34 표지는 17낱말 중 11이 그것이라
+ *    **실제 본문은 6낱말**이었습니다.
+ *    ⟹ 그대로 세면 「낮은 권 26 · 높은 권 31」로 비슷해 보이는데, 푸터를 빼면
+ *       「10 대 50」으로 **5배** 차이가 납니다. 이 시험이 답하려는 질문
+ *       (사장님: 「레벨이 낮으면 글자가 적고 높으면 많다」)이 푸터에 가려집니다.
+ *
+ * ⛔ **넓게 잡지 않습니다** — 애매하면 «본문 쪽» 으로 둡니다. 여기서 진짜 본문을
+ *    버리면 「이 교재는 쓸 게 없다」는 반대 거짓이 나고, 그것이 더 나쁩니다.
+ *    · 뺍니다: 저작권 문구 · 줄 전체가 페이지 번호 · 줄 전체가 URL · 「Scan me」
+ *    · **안 뺍니다**: 교재·과 표시(`BTS 2 Unit 3 009`·`Level 8 Bubble Tea 34 Unit 2`)
+ *      — 「Unit」으로 거르려다 단원 제목(`Taking Risks`·`Possibilities`·`34 REVIEW`)을
+ *      함께 버릴 위험이 있고, 그 제목들은 실제로 쓸 수 있는 본문입니다.
+ *      대신 그것도 «본문» 으로 세니 이 숫자는 여전히 **조금 넉넉한** 쪽입니다. */
+const BOILER_LINE_RE: RegExp[] = [
+  /mangoi\.com/i,                       // 「January 2019 Mangoi.com …」
+  /\bdo not (reproduce|distribute)/i,   // 「Do not reproduce or distribute」
+  /\ball rights reserved\b/i,
+  /^\s*(copyright\b|©)/i,   // ⚠️ © 뒤에 \b 를 두면 안 된다 — 비단어 문자라 경계가 안 생긴다
+  /^\s*page\s*\d+\s*\.?\s*$/i,       // 줄 전체가 「Page 8」 (⛔ 「Turn to page 5.」는 안 걸립니다)
+  /^\s*scan\s+me\s*\.?\s*$/i,         // QR 안내
+  /^\s*https?:\/\/\S+\s*$/i,          // 줄 전체가 주소 (⛔ 문장 안의 주소는 안 걸립니다)
+];
+
+/** 그 줄이 «교재 본문이 아닌 것»(저작권·페이지번호·QR·주소)인가. */
+export function isBoilerplateLine(line: unknown): boolean {
+  const t = String(line == null ? '' : line).trim();
+  if (!t) return false;
+  return BOILER_LINE_RE.some(re => re.test(t));
+}
+
 /** 영어 낱말 수 — 사장님 정보(레벨별 글자 양)를 숫자로 확인하는 핵심 지표. */
 export function countEnglishWords(lines: string[]): number {
   let n = 0;
@@ -210,8 +243,11 @@ export type OcrProbeResult = {
   too_long: number;
   /** 같은 줄이 되풀이된 비율 — 높으면 «못 읽고 반복해 토한» 것이다 */
   repeat: number;
-  /** 되풀이를 걷어낸 낱말 수 — 평균은 이 값으로 세야 부풀려지지 않는다 */
+  /** **쓸 수 있는 본문** 낱말 수 — 되풀이와 «저작권·머리말» 을 걷어낸 값.
+   *  화면의 「영어 낱말 평균」은 이것을 씁니다(날것을 세면 푸터가 지배합니다). */
   unique_words: number;
+  /** 저작권·페이지번호·QR·주소로 뺀 낱말 수 — 화면이 그 사실을 말합니다 */
+  boiler_words: number;
   prose: boolean;
   ms: number;
   error: string;
@@ -227,6 +263,7 @@ export function judgeOcrText(engine: OcrEngine, raw: unknown, ms: number, error 
   const split = (prose || isNone) ? { lines: [] as string[], tooLong: 0 } : splitEnglishLines(text);
   const lines = split.lines;
   const lineTotal = text ? text.split(/\r?\n/).filter(l => l.trim()).length : 0;
+  const uniq = [...new Set(lines.map(l => l.trim()))];
   return {
     engine: engine.id,
     label: engine.label,
@@ -237,8 +274,11 @@ export function judgeOcrText(engine: OcrEngine, raw: unknown, ms: number, error 
     line_total: lineTotal,
     too_long: split.tooLong,
     repeat: repeatRatio(lines),
-    /* 화면의 「영어 낱말 평균」은 이 값을 쓴다 — 반복을 그대로 세면 못 읽은 엔진이 이긴다 */
-    unique_words: countEnglishWords([...new Set(lines.map(l => l.trim()))]),
+    /* 화면의 「영어 낱말 평균」은 이 값을 쓴다 —
+     *   · 반복을 그대로 세면 «못 읽고 토한» 엔진이 이기고
+     *   · 저작권 푸터를 그대로 세면 «모든 장이 비슷해» 보인다(실측: 5배 차이가 가려졌다) */
+    unique_words: countEnglishWords(uniq.filter(l => !isBoilerplateLine(l))),
+    boiler_words: countEnglishWords(uniq.filter(isBoilerplateLine)),
     prose,
     ms,
     error: error || '',

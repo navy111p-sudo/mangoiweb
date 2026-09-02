@@ -272,6 +272,81 @@ if (M) {
     check('짧은 글은 반복으로 보지 않는다', M.repeatRatio(['A', 'A']) === 0);
   }
 
+  /* 🔴 저작권 푸터가 낱말 수를 지배한다 — 2026-09-02 첫 실행 실측.
+     교재 «모든» 장에 「January 2019 Mangoi.com. Do not reproduce or distribute. Page N」
+     이 있고 그것만 10~11낱말이다. 그대로 세면 낮은 권 26 · 높은 권 31 로 «비슷해» 보이는데,
+     빼면 10 대 50 으로 **5배** 차이가 난다 — 이 시험이 답하려는 질문이 푸터에 가려진다.
+     ⚠️ 아래 문장들은 사장님 화면에 **실제로 나온 것** 을 그대로 넣었다. */
+  {
+    const boiler = [
+      'January 2019 Mangoi.com . Do not reproduce or distribute.',
+      'January 2019 Mangoi.com. Do not reproduce or distribute',
+      'January 2019 Mangoi.com. Do not reproduce or distribute page 1',
+      'Page 1', 'Page 8', 'page 18',
+      'Scan me',
+      'https://www.youtube.com/watch?v=fCG5hKZWlU8t-7J8',
+      'All rights reserved.',
+      '© 2019 Mangoi',
+    ];
+    for (const b of boiler) {
+      check(`저작권·머리말로 본다 — ${b.slice(0, 42)}`, M.isBoilerplateLine(b) === true);
+    }
+
+    /* 🔴 짝 검사 — 여기서 진짜 본문을 버리면 「이 교재는 쓸 게 없다」는 반대 거짓이 난다.
+       아래는 사장님 화면에 나온 **진짜 교재 본문** 이다. */
+    const body = [
+      'Warm Up', 'The Shape Song', "I'm a square", 'You can see me everywhere',
+      'People and Adjectives', 'Talk about the people!', 'Picture Talk!',
+      'Possibilities', 'What do you think?', 'Taking Risks',
+      'Steve Irwin: The Crocodile Hunter', '34 REVIEW', 'Hopes and Dreams',
+      'USE THE WORD/PHRASE IN A SENTENCE.', 'LIFESTYLE', 'POTENTIAL',
+      'Think about some fiction stories. Which one\'s are realistic?',
+      'Do you think your dreams are realistic?',
+      'Who was Steve Irwin? Do you think he had an exciting life?',
+      'Level 8 Bubble Tea 34 Unit 2',      // 과 표시 — 애매해서 «본문 쪽» 으로 둔다
+      'BTS 2 Unit 3 009',
+      'Turn to page 5.',                    // ⛔ 「page」가 들어 있지만 본문이다
+      'I can see a page.',
+      'Visit https://mangoi.ai for more.',  // ⛔ 주소가 들어 있지만 문장이다
+      'Scan me with your phone and answer.',
+    ];
+    for (const b of body) {
+      check(`본문으로 남긴다 — ${b.slice(0, 42)}`, M.isBoilerplateLine(b) === false);
+    }
+
+    /* 실제로 세어 본다 — 사장님 화면의 그 장 그대로 */
+    const page = [
+      'BTS 2 Unit 3 008',
+      'People and Adjectives',
+      'Talk about the people!',
+      'Picture Talk!',
+      'January 2019 Mangoi.com . Do not reproduce or distribute.',
+      'Page 8',
+    ].join('\n');
+    const j = M.judgeOcrText(ENG, page, 100);
+    check('저작권으로 뺀 낱말 수를 따로 준다 (화면이 그 사실을 말해야 한다)',
+      j.boiler_words >= 8, `boiler=${j.boiler_words}`);
+    check('본문 낱말이 날것보다 적다 (푸터를 빼면 레벨 차이가 드러난다)',
+      j.unique_words < j.words, `unique=${j.unique_words} words=${j.words}`);
+    check('본문은 남는다 (People and Adjectives / Talk about the people! / Picture Talk!)',
+      j.unique_words >= 8, `unique=${j.unique_words}`);
+
+    /* 🔴 이 시험의 결론 — 푸터를 빼야 낮은 권과 높은 권이 갈린다 */
+    const high = [
+      'Level 8 Bubble Tea 34 Unit 2',
+      'Possibilities',
+      'What do you think?',
+      "1. Think about some fiction stories. Which one's are realistic? Which one's aren't?",
+      '2. Do you think your dreams are realistic?',
+      'January 2019 Mangoi.com. Do not reproduce or distribute page 10',
+    ].join('\n');
+    const jh = M.judgeOcrText(ENG, high, 100);
+    check(`푸터를 빼면 높은 권이 낮은 권보다 본문이 많다 (${j.unique_words} 대 ${jh.unique_words})`,
+      jh.unique_words > j.unique_words * 2);
+    check(`푸터를 안 빼면 그 차이가 가려진다 (날것 ${j.words} 대 ${jh.words})`,
+      jh.words / Math.max(1, j.words) < jh.unique_words / Math.max(1, j.unique_words));
+  }
+
   /* 🟡 길이 상한에 걸려 «조용히 사라지는» 줄 — 이 시험의 가설과 반대 방향으로 위험하다.
      사장님 정보가 「높은 레벨은 글자가 많다」인데, 글자가 많을수록 더 많이 깎이면
      「높은 권도 낱말이 적네」라는 정반대 결론이 난다. 화면이 그 사실을 말해야 한다. */
@@ -418,6 +493,9 @@ console.log('\n[ F. 화면 ]');
       bestLines.join(' | ').slice(0, 200));
   }
   check('같은 줄 반복을 화면이 말한다', /r\.repeat/.test(h));
+  check('저작권으로 뺀 낱말 수를 화면이 말한다 (숫자가 조용히 바뀌면 아무도 이유를 모른다)',
+    /r\.boiler_words/.test(h));
+  check('낱말 라벨이 «본문» 임을 밝힌다', /본문 낱말/.test(h));
   check('엔진별로 나눠 보여 준다 («어느 엔진이 되는가» 가 이 시험의 첫 질문이다)',
     /s-eng/.test(h) && /stats\.eng/.test(h));
   check('비용이 든다고 말한다', /비용/.test(h));
