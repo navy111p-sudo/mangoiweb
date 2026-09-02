@@ -347,6 +347,60 @@ if (M) {
       jh.words / Math.max(1, j.words) < jh.unique_words / Math.max(1, j.unique_words));
   }
 
+  /* 🔴 불릿이 든 줄이 통째로 버려지던 것 — 2026-09-02 두 번째 실행 실측.
+     `isEnglishText` 는 ASCII 만 통과시키는데 «•»(U+2022)가 그 밖이라, 교재의 핵심 문장
+     (질문 목록)이 한 글자 때문에 «영어가 아님» 으로 떨어졌다.
+     ⚠️ 그래서 «모델 실력 차이» 로 보였다 — 같은 페이지를 Vision 은 36낱말, Scout 은 8낱말.
+        실력이 아니라 **필터**가 만든 차이였다. 아래는 그 두 장을 그대로 넣은 것이다. */
+  {
+    const scoutMusic = `Level 8 Bubble Tea 34 Unit 3
+
+Starter Questions
+• Do you listen to some tracks from other countries? If yes, why do you like them?
+• Do you know any traditional music from your country? How unique is it?
+
+Mango.i
+January 2019 Mangoi.com. Do not reproduce or distribute
+page 6`;
+    const j1 = M.judgeOcrText(ENG, scoutMusic, 100);
+    check(`불릿 줄이 살아난다 — BTS 34 제007과 (고치기 전 8낱말 → ${j1.unique_words})`,
+      j1.unique_words >= 30, `unique=${j1.unique_words} lines=${j1.lines.length}/${j1.line_total}`);
+    check('그 장의 모든 줄이 영어로 인정된다', j1.lines.length === j1.line_total,
+      `${j1.lines.length}/${j1.line_total}`);
+
+    const scoutAdj = `BTS 2 Unit 2 006
+
+Adjectives
+Match it!
+
+• black and white
+• yellow
+• big
+• tall
+
+January 2019 Mangoi.com . Do not reproduce or distribute.
+Page 12`;
+    const j2 = M.judgeOcrText(ENG, scoutAdj, 100);
+    check(`불릿 낱말 목록이 살아난다 — BTS 2 Slide12 (고치기 전 5낱말 → ${j2.unique_words})`,
+      j2.unique_words >= 10, `unique=${j2.unique_words} lines=${j2.lines.length}/${j2.line_total}`);
+
+    /* 벗기는 것은 «줄머리만» */
+    for (const [raw, want] of [
+      ['• black and white', 'black and white'],
+      ['· yellow', 'yellow'],
+      ['- item one', 'item one'],
+      ['* star', 'star'],
+      ['1. Think about some fiction stories.', '1. Think about some fiction stories.'],  // 숫자는 안 벗긴다
+      ['-5 degrees today', '-5 degrees today'],   // ⛔ 뒤에 공백이 없으면 안 벗긴다
+      ['A-B-C song', 'A-B-C song'],
+      ['I go round and round', 'I go round and round'],
+    ]) {
+      check(`줄머리만 벗긴다 — ${raw.slice(0, 34)}`, M.stripLeadMark(raw) === want, M.stripLeadMark(raw));
+    }
+    check('줄 «안» 의 문자는 안 건드린다',
+      M.stripLeadMark('Use the word/phrase • in a sentence') === 'Use the word/phrase • in a sentence');
+  }
+
   /* 🟡 길이 상한에 걸려 «조용히 사라지는» 줄 — 이 시험의 가설과 반대 방향으로 위험하다.
      사장님 정보가 「높은 레벨은 글자가 많다」인데, 글자가 많을수록 더 많이 깎이면
      「높은 권도 낱말이 적네」라는 정반대 결론이 난다. 화면이 그 사실을 말해야 한다. */
