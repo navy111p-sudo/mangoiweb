@@ -904,8 +904,12 @@
       } catch (err) {
         console.error('[mango-rec] R2 complete 에러:', err);
       }
-      if (!res || !res.ok) {
-        await new Promise(r => setTimeout(r, 1500));
+      /* ⏱ 이 재시도는 «수업 나가기» 를 그만큼 늦춘다 — stopRecording() 의 Promise 를
+         vcLeaveRoom() 이 기다린다(idx-main.js). 그래서 ① 서버 안 재시도(300ms)를 덮을 만큼만
+         짧게 잡고(900ms) ② 페이지가 이미 숨겨졌으면(탭 닫힘·앱 전환) 건너뛴다 —
+         그 경우는 beforeunload 비콘 경로가 맡는다. */
+      if ((!res || !res.ok) && document.visibilityState !== 'hidden') {
+        await new Promise(r => setTimeout(r, 900));
         try {
           res = await sendComplete();
           console.log('[mango-rec] R2 complete 재시도:', res);

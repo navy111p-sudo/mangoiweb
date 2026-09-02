@@ -158,9 +158,17 @@ check('저장소 상태도 버킷 전체를 훑지 않는다',
    «값이 지워지는가» 를 알 수 없다. 진짜 SQLite 에 돌려서 확인한다. */
 console.log('\n⑧ 업로드 실패도 «잃은 크기» 를 남기는가 (진짜 SQLite)');
 {
-  const failIdx = recR2.indexOf("upload/complete 실패 recording_id");
+  /* ⚠️ 범위를 «길이» 로 자르지 않는다 — 옆 UPDATE 가 딸려 들어온다(같은 파일 ⑩절과 같은 규칙).
+     `if (failReason) {` 의 여는 중괄호부터 짝을 맞춰 그 블록만 잘라 낸다. */
+  const failIdx = recR2.indexOf('if (failReason) {');
   check('upload/complete 실패 분기가 있다', failIdx > 0);
-  const failBlock = recR2.slice(failIdx, failIdx + 1800);
+  let fo = recR2.indexOf('{', failIdx), fd = 0, fe = fo;
+  for (let i = fo; i < recR2.length; i++) {
+    const ch = recR2[i];
+    if (ch === '{') fd++;
+    else if (ch === '}') { fd--; if (fd === 0) { fe = i; break; } }
+  }
+  const failBlock = recR2.slice(failIdx, fe + 1);
   const m = /`(UPDATE recordings[\s\S]*?WHERE id = \? AND status NOT IN \('completed','deleted'\))`/.exec(failBlock);
   check('그 분기의 UPDATE 문을 오려 냈다', !!m);
   if (m) {
@@ -198,6 +206,16 @@ console.log('\n⑧ 업로드 실패도 «잃은 크기» 를 남기는가 (진�
     check('늦게 온 0 짜리 중복 요청이 이미 적힌 크기를 지우지 않는다',
       Number(b2.size_bytes) === 4537345, 'size=' + b2.size_bytes);
 
+    /* 🔴 (2026-09-02 trap-check 지적) MAX() 보호는 «숫자» 일 때만 성립한다 —
+       SQLite 스칼라 MAX() 는 타입 우선순위(TEXT > 숫자)로 비교하므로 문자열 "0" 하나면
+       613000 을 0 으로 지운다. 이 엔드포인트들은 소유권 검사가 없는 공개 POST 라
+       본문이 무엇이든 올 수 있다 → 서버가 Number 로 강제하는지 «돌려서» 확인한다. */
+    const e2 = runFail('upload_failed', 613000, 4537345, '0', '0');
+    check(`전제 확인: SQL 만으로는 못 막는다 — 문자열 "0" 은 MAX() 를 뚫는다 (실측 duration=${e2.duration_ms})`,
+      Number(e2.duration_ms) === 0);
+    check('그래서 «바인드 전에» Number 로 강제한다 (recordings-r2.ts)',
+      /\.bind\(now, Math\.max\(0, Number\(b\.duration_ms\) \|\| 0\), Math\.max\(0, Number\(b\.size_bytes\) \|\| 0\), b\.recording_id\)/.test(failBlock));
+
     // 이미 완료·삭제된 행은 건드리지 않는다
     const c2 = runFail('completed', 613000, 4537345, 0, 0);
     check('이미 «완료» 인 행은 실패로 강등하지 않는다', c2.status === 'completed');
@@ -215,11 +233,32 @@ console.log('\n⑨ «없던 일» 판정이 클라이언트 말만 믿지 않는
 check('/stop 이 그 행의 size_bytes·duration_ms 도 함께 읽는다',
   /SELECT file_url, status, size_bytes, duration_ms FROM recordings/.test(stopBlock));
 check('판정이 «보낸 값» 과 «이미 적힌 값» 중 큰 쪽을 본다',
-  /Math\.max\(Number\(b\.size_bytes\)[\s\S]{0,80}?cur\?\.size_bytes/.test(stopBlock) &&
-  /Math\.max\(Number\(b\.duration_ms\)[\s\S]{0,80}?cur\?\.duration_ms/.test(stopBlock));
+  /Math\.max\(stopSizeB, Number\(cur\?\.size_bytes\)/.test(stopBlock) &&
+  /Math\.max\(stopDurMs, Number\(cur\?\.duration_ms\)/.test(stopBlock));
 check('/stop 의 UPDATE 도 이미 적힌 길이·크기를 0 으로 덮지 않는다',
   /duration_ms = MAX\(COALESCE\(duration_ms, 0\), \?\)/.test(SQL) &&
   /size_bytes = MAX\(COALESCE\(size_bytes, 0\), \?\)/.test(SQL));
+/* 🔴 그 MAX() 보호는 «숫자 바인드» 일 때만 성립한다 — `b.duration_ms || 0` 로 되돌리면
+   문자열 "0"(truthy)이 그대로 통과해 이미 적힌 값을 지운다. 실제로 SQLite 로 재 보면 그렇다. */
+check('/stop 이 본문 값을 Number 로 «강제» 해서 바인드한다 (문자열 "0" 방어)',
+  /const stopDurMs = Math\.max\(0, Number\(b\.duration_ms\) \|\| 0\)/.test(stopBlock) &&
+  /const stopSizeB = Math\.max\(0, Number\(b\.size_bytes\) \|\| 0\)/.test(stopBlock) &&
+  /\.bind\(now, stopDurMs, stopSizeB,/.test(stopBlock));
+{
+  /* «정말 그런가» 를 SQLite 로 한 번 보여 준다 — 이 두 줄이 없으면 위 검사가 왜 필요한지
+     다음 사람이 모르고 되돌린다. */
+  const dbT = new DatabaseSync(':memory:');
+  dbT.exec(`CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)`);
+  dbT.prepare(`INSERT INTO t VALUES (1, 613000)`).run();
+  dbT.prepare(`UPDATE t SET v = MAX(COALESCE(v,0), ?) WHERE id=1`).run('0');
+  const bad = dbT.prepare(`SELECT v FROM t WHERE id=1`).get().v;
+  dbT.prepare(`UPDATE t SET v = 613000 WHERE id=1`).run();
+  dbT.prepare(`UPDATE t SET v = MAX(COALESCE(v,0), ?) WHERE id=1`).run(0);
+  const good = dbT.prepare(`SELECT v FROM t WHERE id=1`).get().v;
+  dbT.close();
+  check(`전제 확인: 문자열 "0" 은 MAX() 를 뚫고(→${bad}) 숫자 0 은 못 뚫는다(→${good})`,
+    Number(bad) === 0 && Number(good) === 613000);
+}
 
 /* ── ⑩ 마무리 요청을 한 번은 다시 물어보는가 ────────────────────────────────
    서버는 complete 가 실패해도 head() 로 실물이 있으면 «성공» 으로 자가복구한다.
@@ -242,7 +281,7 @@ console.log('\n⑩ 마무리(complete)를 한 번은 다시 물어보는가');
   }
   const cblock = mangoRec.slice(ci, end + 1);
   check('실패하면 잠깐 기다렸다 한 번 더 보낸다',
-    /!res \|\| !res\.ok/.test(cblock) && /setTimeout\(r, 1500\)/.test(cblock));
+    /!res \|\| !res\.ok/.test(cblock) && /setTimeout\(r, 900\)/.test(cblock));
   const sends = (cblock.match(/\/api\/recordings\/upload\/complete/g) || []).length;
   const calls = (cblock.match(/await sendComplete\(\)/g) || []).length;
   check(`재시도는 «한 번» 이다 — 무한 루프가 아니다 (요청 자리 ${sends}곳 · 호출 ${calls}회)`,

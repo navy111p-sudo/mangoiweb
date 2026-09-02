@@ -31,6 +31,15 @@
      · 엔드포인트   POST sessions/new · POST sessions/{id}/tracks/new
                    PUT  sessions/{id}/tracks/close · PUT sessions/{id}/renegotiate
      · 요금        egress $0.05/GB · 월 1,000GB 무료(TURN 과 합산 한 줄) · 인그레스 무료
+
+   [🔴 켜기 «전에» 사람이 정해야 할 것 — 지금은 꺼져 있어 위험이 아니지만, 켜면 바로 걸린다]
+     ① **«그 방의 사람인가» 는 아직 안 봅니다.** ④는 room_id 가 비어 있지 않은지만 보고,
+        세션 소유권(⑤)은 «내가 만든 세션인가» 만 지킵니다 — 로그인한 학생이 남의 수업 방
+        문자열로 자기 세션을 만드는 것은 막지 않습니다. 같은 저장소에 이미
+        `/api/class/verify-room`(예약 대조)이 있으니 켤 때 그것을 태울지 정하세요.
+     ② **속도 제한이 없습니다.** session-new 는 유료 egress 를 여는 자리라 계정 하나로
+        반복 호출이 가능합니다(KV 카운터가 이 저장소에 이미 쓰이는 방식입니다).
+     ⛔ 둘 다 «켤 때» 함께 해야 합니다 — 켜 놓고 나중에 하면 그 사이가 그대로 구멍입니다.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export const SFU_BASE = 'https://rtc.live.cloudflare.com/v1';
@@ -83,11 +92,14 @@ export async function sfuProxy(
   sessionId: string | null,
   payload: unknown,
 ): Promise<SfuResult> {
-  /* ① 시크릿이 없으면 «꺼짐» — 네트워크를 건드리지 않는다. 서비스 동작이 안 바뀐다. */
-  if (!sfuConfigured(d)) return J(200, { ok: true, enabled: false, reason: 'no_secrets' });
+  /* ① 신원 «먼저» 본다. 이 API 는 «내 대신 유료 서비스를 부르는» 자리다.
+     ⚠️ 순서가 중요하다 — 시크릿 검사를 앞에 두면 로그인하지 않은 사람도
+        { enabled:false } 를 받아 «이 계정에 SFU 가 켜졌나» 를 알아낼 수 있다(인프라 상태 노출).
+        경미하지만 공짜로 막을 수 있는 것은 막는다. */
+  if (!d.identity || !d.identity.uid) return J(401, { ok: false, error: 'unauthorized' });
 
-  /* ② 신원 없이는 안 된다. 이 API 는 «내 대신 유료 서비스를 부르는» 자리다. */
-  if (!d.identity || !d.identity.uid) return J(401, { ok: false, enabled: true, error: 'unauthorized' });
+  /* ② 시크릿이 없으면 «꺼짐» — 네트워크를 건드리지 않는다. 서비스 동작이 안 바뀐다. */
+  if (!sfuConfigured(d)) return J(200, { ok: true, enabled: false, reason: 'no_secrets' });
 
   /* ③ 아는 op 만. */
   const spec = SFU_OPS[op];

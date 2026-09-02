@@ -3283,7 +3283,7 @@ if (!window.__tpLiveLangBound) {
    ⚠️ 강사↔수업 매칭은 **이름 완전일치** 로만 한다. 강사 번호는 세 벌(카페24·원부·프로필)이고
       겹치는 자리에서 서로 다른 사람이라 번호로 이으면 조용히 남의 수업을 연다(CLAUDE.md 2장).
       후보가 둘 이상이면 고르게 하고, 못 찾으면 «없다» 고 말한다 — 아무 방이나 열지 않는다.
-   ⚠️ 동시 참관은 서버가 2명까지만 받는다. 자리가 없으면 그쪽에서 거절한다. */
+   ⚠️ 동시 참관은 서버가 4명까지만 받는다(정본 video-call-room.ts 의 OBSERVER_MAX). 자리가 없으면 그쪽에서 거절한다. */
 window.tpGhostObserve = async function (teacherId) {
   const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
   const T = (ko, en) => (_L ? en : ko);

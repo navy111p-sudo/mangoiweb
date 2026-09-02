@@ -37,6 +37,33 @@ const modSrc = read('cloudflare-deploy/src/realtime-sfu.ts');
 const apiMango = read('cloudflare-deploy/src/api-mango.ts');
 const indexTs = read('cloudflare-deploy/src/index.ts');
 
+/* ⚠️ 부정 검사(«이 글자가 없어야 한다»)는 반드시 주석을 벗긴 사본으로 판정한다.
+   안 그러면 누가 「sfu 는 api-mango 에 있다」고 주석 한 줄만 적어도 거짓 FAIL 이 난다
+   (CLAUDE.md 2장 「부정 검사가 자기 주석을 잡는다」). ⛔ 블록주석을 정규식 한 줄로 지우면
+   문자열 안의 짝 없는 «슬래시+별표» 에 뒷부분이 통째로 날아간다 — 줄 단위로 «지금 블록 안인가» 를 추적한다. */
+function stripComments(t) {
+  const out = [];
+  let inBlock = false;
+  for (const line of t.split('\n')) {
+    let l = line;
+    if (inBlock) {
+      const e = l.indexOf('*/');
+      if (e < 0) { out.push(''); continue; }
+      l = l.slice(e + 2); inBlock = false;
+    }
+    for (;;) {
+      const b = l.indexOf('/*');
+      if (b < 0) break;
+      const e = l.indexOf('*/', b + 2);
+      if (e < 0) { l = l.slice(0, b); inBlock = true; break; }
+      l = l.slice(0, b) + l.slice(e + 2);
+    }
+    out.push(l.replace(/^[ \t]*\/\/.*$/, ''));
+  }
+  return out.join('\n');
+}
+const indexBare = stripComments(indexTs);
+
 /* ── ① 배선 — 새 API 가 «이미 열린» 접두사 밑에 있는가 ─────────────────────
    src/index.ts 는 공동 금지구역이다. /api/class/ 는 라우팅 허용목록에 이미 있으므로
    그 밑에 두면 금지구역을 한 줄도 안 고쳐도 된다(CLAUDE.md 「새 API 관문 셋」). */
@@ -46,7 +73,7 @@ check('/api/class/ 접두사가 라우팅 허용목록에 이미 있다',
 check('새 엔드포인트가 그 접두사 밑이다 (/api/class/sfu/)',
   /path\.startsWith\('\/api\/class\/sfu\/'\)/.test(apiMango));
 check('index.ts 에 sfu 전용 라우팅을 새로 만들지 않았다 (금지구역 무수정)',
-  !/api\/class\/sfu/.test(indexTs));
+  !/api\/class\/sfu/.test(indexBare));
 
 /* ── ② 모듈을 컴파일해 실제로 돌린다 ──────────────────────────────────── */
 console.log('\n② 판정 모듈을 컴파일해 «진짜로» 돌려 본다');
@@ -99,6 +126,15 @@ if (!mod) {
     const r = await mod.sfuProxy({ appId: APPID, appToken: '', kv: mkKv(), fetchImpl: f, identity: ADMIN },
       'session-new', 'class-1-20260902', null, {});
     check('한쪽만 있어도 꺼짐이다 (둘 다 있어야 켜진다)', r.body.enabled === false && f.calls.length === 0);
+  }
+  {
+    /* 🔴 순서 — 시크릿 검사를 앞에 두면 «미로그인 호출자» 가 enabled:false 로
+       인프라 상태를 알아낼 수 있다. 신원을 먼저 본다. */
+    const f = mkFetch({});
+    const r = await mod.sfuProxy({ appId: '', appToken: '', kv: mkKv(), fetchImpl: f, identity: null },
+      'session-new', 'class-1-20260902', null, {});
+    check('시크릿이 없어도 «미로그인» 이면 401 이다 (인프라 상태를 안 알려 준다)',
+      r.status === 401 && f.calls.length === 0, JSON.stringify(r.body));
   }
 
   /* ②-2 신원 없으면 401, 그리고 fetch 안 함 */
@@ -211,7 +247,7 @@ if (!mod) {
    검증 못 한 WebRTC 가 수업 경로에 올라간 것이다(이 저장소 최악 사고 유형). */
 console.log('\n③ 아직 «켜지» 않았다 — 브라우저 쪽 코드가 없는지 확인');
 {
-  const pub = read('cloudflare-deploy/public/index.html');
+  const pub = stripComments(read('cloudflare-deploy/public/index.html').replace(/<!--[\s\S]*?-->/g, ''));
   check('index.html 이 SFU 를 부르지 않는다 (수업 경로 무변경)',
     !/api\/class\/sfu\//.test(pub));
   check('서버 모듈이 시크릿 «두 개» 를 모두 요구한다 (한쪽만으로 켜지지 않는다)',

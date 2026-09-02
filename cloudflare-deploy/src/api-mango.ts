@@ -2010,9 +2010,8 @@ export async function handleMangoApi(
       const op = path.slice('/api/class/sfu/'.length);
       const appId = (env as any).REALTIME_APP_ID as string | undefined;
       const appToken = (env as any).REALTIME_APP_TOKEN as string | undefined;
-      if (!sfuConfigured({ appId, appToken })) {
-        return json({ ok: true, enabled: false, reason: 'no_secrets' });
-      }
+      /* ⚠️ 시크릿 검사를 여기서 «먼저» 하지 않는다 — 미로그인 호출자가 { enabled:false } 로
+         인프라 상태를 알아내지 못하게, 신원 확인 뒤 sfuProxy 안에서 판정한다(모듈 ①②). */
       if (!Object.prototype.hasOwnProperty.call(SFU_OPS, op)) {
         return json({ ok: false, enabled: true, error: 'unknown_op' }, 400);
       }
@@ -3840,21 +3839,31 @@ ${numbered}`;
          멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
       const provenMissing = headChecked && !headProven;
       const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
+      /* 🔢 본문 값은 «숫자로 강제» 해서만 쓴다 — 아래 SQL 의 MAX() 보호가 숫자일 때만
+         성립하기 때문이다(자세한 이유는 UPDATE 문 위 주석). */
+      const stopDurMs = Math.max(0, Number(b.duration_ms) || 0);
+      const stopSizeB = Math.max(0, Number(b.size_bytes) || 0);
+
       /* 🔴 (2026-09-02) «없던 일(aborted)» 판정은 클라이언트가 보낸 값만으로 하면 안 된다.
          탭을 닫고 나가면 onstop 이 안 돌아 이 요청은 duration 0 · size 0 으로 온다.
          그런데 그 사이 조각 업로드가 이미 size_bytes 를 적어 뒀을 수 있다(recordings-r2.ts
          «업로드 중 size_bytes 갱신»). 그걸 안 보면 **진짜 찍힌 수업이 «없던 일» 로 분류되고**
          목록이 «aborted + size 0» 을 통째로 감추므로 화면에서 사라진다.
          → DB 에 이미 적힌 값도 함께 본다. 하나라도 0 보다 크면 «없던 일» 이 아니다. */
-      const recordedBytes = Math.max(Number(b.size_bytes) || 0, Number(cur?.size_bytes) || 0);
-      const recordedMs = Math.max(Number(b.duration_ms) || 0, Number(cur?.duration_ms) || 0);
+      const recordedBytes = Math.max(stopSizeB, Number(cur?.size_bytes) || 0);
+      const recordedMs = Math.max(stopDurMs, Number(cur?.duration_ms) || 0);
       const nothingRecorded = !(recordedMs > 0) && !(recordedBytes > 0);
       const fallbackStatus = (provenMissing || clientSaysFailed)
         ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
         : 'completed';
 
       /* ⚠️ duration_ms·size_bytes 를 «덮어쓰지» 않는다(MAX) — 이 요청이 0 으로 와도
-         조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다. */
+         조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다.
+         🔴 그런데 그 보호는 **바인드가 «숫자» 일 때만** 성립한다. SQLite 의 스칼라 MAX() 는
+            타입 우선순위(TEXT > 숫자)로 비교하므로 문자열 "0" 하나면 613000 을 0 으로 지운다
+            (2026-09-02 node:sqlite 로 실측). 이 엔드포인트는 소유권 검사가 없는 공개 POST 라
+            본문이 무엇이든 올 수 있다 → **Number 로 강제**한다(형제 파일 recordings-r2.ts 와 같은 방식).
+         ⛔ `b.duration_ms || 0` 로 되돌리지 말 것 — "0" 은 truthy 라 그대로 통과한다. */
       await env.DB.prepare(
         `UPDATE recordings
             SET ended_at = ?, duration_ms = MAX(COALESCE(duration_ms, 0), ?), size_bytes = MAX(COALESCE(size_bytes, 0), ?),
@@ -3866,7 +3875,7 @@ ${numbered}`;
                 END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0,
+      ).bind(now, stopDurMs, stopSizeB,
              headProven ? 1 : 0, fallbackStatus,
              b.file_url || null, b.storage || null, b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
