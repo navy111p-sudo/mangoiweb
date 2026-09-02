@@ -430,11 +430,21 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     var badges = '';
     if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
     if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
-    if (rm.observerCount > 0) badges += ' <span class="badge obs">' + L('관찰 ', 'obs ') + rm.observerCount + '</span>';
+    /* 👁 참관 정원 — 서버 OBSERVER_MAX 와 짝. 참관자 한 명 = 방 안 «각자»의 업로드 한 갈래라
+       붐빌수록 강사 회선이 상합니다. 그래서 «들어가기 전에» 여기서 고르게 합니다.
+       ⚠️ 소리만/영상은 «입장할 때» 정해집니다(재협상이 없음) — 들어간 뒤에는 못 바꿉니다. */
+    var obs = rm.observerCount || 0, OBS_MAX = 4, obsFull = obs >= OBS_MAX, obsBusy = obs >= 2;
+    if (obs > 0) badges += ' <span class="badge ' + (obsBusy ? 'alone' : 'obs') + '">'
+      + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + '</span>';
     var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 ? '⚠' : '🟢'));
     /* ⏱ 시각은 «예약» 에서 온다 — 화상방 자체는 시작 시각을 알려 주지 않는다.
        모르면 «—» 로 둔다(방이 열린 시각을 추측해서 적지 않는다). */
     var when = sc.start_time ? esc(sc.start_time) : '—';
+    var obsOff = obsFull ? ' disabled' : '';
+    var fullTip = L('참관 정원 ' + OBS_MAX + '명이 찼습니다 — 보고 있는 사람이 나가야 들어갈 수 있습니다',
+                    'Observer limit ' + OBS_MAX + ' reached - someone must leave first');
+    var busyTip = L('이미 ' + obs + '명이 보고 있습니다 — 강사 회선을 아끼려면 🎧 소리만 을 권합니다',
+                    obs + ' already watching - prefer 🎧 Audio to spare the teacher\'s uplink');
     return '<tr class="' + cls + '" data-room="' + esc(rid) + '">'
       + '<td>' + stateTxt + '</td>'
       + '<td class="t">' + when + '</td>'
@@ -443,14 +453,15 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       + '<td class="n">' + (rm.userCount || 0) + '</td>'
       + '<td class="n">' + sigHtml(rid) + '</td>'
       + '<td class="acts">'
-      +   '<button type="button" class="go" data-act="observe">' + L('👁 참관', '👁 Observe') + '</button>'
-      +   '<button type="button" class="go2" data-act="observe-whisper" title="'
-      +     L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
-              'Observe and whisper to the teacher only - invisible to students') + '">'
+      +   '<button type="button" class="' + (obsBusy ? 'go2' : 'go') + '" data-act="observe"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : obsBusy ? busyTip : '') + '">' + L('👁 참관', '👁 Observe') + '</button>'
+      +   '<button type="button" class="go2" data-act="observe-whisper"' + obsOff + ' title="'
+      +     (obsFull ? fullTip : L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
+              'Observe and whisper to the teacher only - invisible to students')) + '">'
       +     L('💬 귓속말', '💬 Whisper') + '</button>'
-      +   '<button type="button" class="go2" data-act="observe-audio" title="'
-      +     L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
-              'Receives no video at all - audio only (saves bandwidth)') + '">'
+      +   '<button type="button" class="' + (obsBusy ? 'go' : 'go2') + '" data-act="observe-audio"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
+              'Receives no video at all - audio only (saves bandwidth)')) + '">'
       +     L('🎧 소리만', '🎧 Audio') + '</button>'
       +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
       +   '<button type="button" class="kill" data-act="end">' + L('🛑 종료', '🛑 End') + '</button>'

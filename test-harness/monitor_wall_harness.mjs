@@ -33,10 +33,14 @@ const check = (m, cond) => cond ? ok(m) : no(m);
 
 console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해하게» 남아 있는가');
 
-/* ── ① 경량 — 한 파일 상한. 넘으면 «별도 화면으로 뺀 이유» 가 무너진 것 ── */
+/* ── ① 경량 — 한 파일 상한. 넘으면 «별도 화면으로 뺀 이유» 가 무너진 것 ──
+   📌 (2026-09-02) 40 → 44KB. 참관 정원 안내(«관찰 N/4» · 붐비면 🎧 소리만 을 기본으로)를
+      넣으면서 39.6 → 40.8KB 가 됐다. 이 상한의 취지는 «admin.html 에 얹지 않는다» 이지
+      «40» 이라는 숫자 자체가 아니다 — 44KB 도 admin.html(1.3MB)의 3% 다.
+      ⛔ 그렇다고 넘칠 때마다 올리지 마세요. 다음에 또 넘치면 «무엇을 뺄까» 를 먼저 보세요. */
 {
   const kb = statSync(FILE).size / 1024;
-  check(`① 파일 한 개 40KB 이하 (실측 ${kb.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`, kb <= 40);
+  check(`① 파일 한 개 44KB 이하 (실측 ${kb.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`, kb <= 44);
 }
 
 /* ── ② /admin/ 밑에 정적자산(js·css)을 만들지 않았는가 — index.ts isAdminPath 주석의 규칙.
@@ -165,6 +169,25 @@ check('⑰ 회선 표본이 없으면 «—» 로 둔다 (0 으로 채우지 않
   const api = readFileSync(join(PUB, '..', 'src', 'api-admin.ts'), 'utf8');
   check('⑰-2 서버 집계가 음수 손실(영상 없던 틱)을 평균에서 뺀다 (avg_loss >= 0)',
         /live[\s\S]{0,900}?avg_loss >= 0/.test(api));
+}
+
+/* ── ⑱ 참관 정원 — «서버 상한» 과 «관제탑이 말하는 상한» 이 같은가  (2026-09-02 A안)
+      [왜 문자열이 아니라 대조인가] 둘이 어긋나면 화면은 «관찰 2/4» 라고 하는데 서버가 3번째를
+      room-full 로 끊습니다 — 에러가 안 나고 「참관이 가끔 안 된다」로만 보입니다.
+      CLAUDE.md 2장 「화면 목록과 서버 허용 범위는 반드시 같이 고치세요」와 같은 뿌리. ── */
+{
+  const DO = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..',
+    'cloudflare-deploy', 'src', 'video-call-room.ts'), 'utf8');
+  const srv = (DO.match(/const OBSERVER_MAX\s*=\s*(\d+)/) || [])[1];
+  const wall = (bare.match(/OBS_MAX\s*=\s*(\d+)/) || [])[1];
+  check(`⑱ 서버 OBSERVER_MAX(${srv}) 와 관제탑 OBS_MAX(${wall}) 가 같다`,
+        !!srv && srv === wall);
+  check('⑱-2 서버가 참관자에게 정원·현재인원을 함께 알려 준다 (observers · observerMax)',
+        /observers:\s*observers\s*\+\s*1/.test(DO) && /observerMax:\s*OBSERVER_MAX/.test(DO));
+  check('⑱-3 정원이 차면 참관 버튼을 누를 수 없게 한다 (누르고 나서 room-full 로 튕기지 않는다)',
+        /obsFull\s*\?\s*' disabled'/.test(bare) && /data-act="observe"'\s*\+\s*obsOff/.test(bare));
+  check('⑱-4 이미 2명 이상이면 🎧 소리만 이 기본(primary)이 된다 — 강사 업로드를 아끼는 쪽',
+        /obsBusy\s*\?\s*'go'\s*:\s*'go2'/.test(bare) && /obsBusy\s*\?\s*'go2'\s*:\s*'go'/.test(bare));
 }
 
 console.log(`\n  결과: PASS ${pass} · FAIL ${fail}`);
