@@ -2345,6 +2345,25 @@ button.chip:hover,
   #tp-list-table td button.tp-act--del   { background: #ef4444 !important; }
   #tp-list-table td button.tp-act--cal   { background: #8b5cf6 !important; }
   #tp-list-table td button.tp-act-btn:hover { filter: brightness(1.15) !important; }
+  /* 🚪 (2026-09-02) 퇴사·비활동 강사의 «수업입장 🎥 · 수업관찰 👁» — 할 일이 없으니 흐리게.
+     [왜] 사장님 「퇴사시켰는데 왜 파란 불이 그대로 켜져 있나」. 실측(2026-09-02)상
+          활동중·비활동·퇴사 세 행의 버튼 색이 **완전히 같아서**, 퇴사 처리를 해도 그 줄에서
+          눈에 달라지는 것이 하나도 없었다.
+     ⛔ 버튼을 없애지 않는다(지난 수업 확인이 걸려 있고, 감추면 아무도 정리하지 않는다).
+     ⛔ disabled 로 만들지 않는다 — 「보이는데 안 눌린다」가 되면 그것대로 고장으로 읽힌다.
+        눌리면 기존 안내가 사실대로 답한다. 이유는 툴팁에 적어 둔다.
+     ⚠️ opacity 는 이 화면의 글자색 페인터 셋(인라인 !important)이 건드리지 않는 속성이라
+        color 를 바꾸는 방식보다 안전하다. */
+  #tp-list-table td button.tp-act-btn.tp-act--dim {
+    opacity: .32 !important;
+    filter: grayscale(.55) !important;
+    box-shadow: none !important;
+  }
+  /* 마우스를 올리면 «눌러도 된다» 는 것이 보여야 한다 — 죽은 버튼이 아니다. */
+  #tp-list-table td button.tp-act-btn.tp-act--dim:hover {
+    opacity: .72 !important;
+    filter: grayscale(.2) !important;
+  }
   /* 삭제 무장 상태(1차 클릭 후 2차 대기) — 진한 빨강 + 맥동 */
   #tp-list-table td button.tp-act--del-armed { background: #b91c1c !important; animation: tpDelPulse .9s ease-in-out infinite; }
   @keyframes tpDelPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.55) } 50%{ box-shadow:0 0 0 5px rgba(239,68,68,0) } }

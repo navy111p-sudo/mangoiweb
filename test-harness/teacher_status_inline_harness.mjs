@@ -402,6 +402,63 @@ check('실데이터 배지도 adm-s12 KEEP_SEL 에 등재됐다',
 check('실데이터 배지도 adm-s13 TX_KEEP 에 등재됐다',
   txList.split(',').map(x => x.trim()).includes('.tr-st-badge'));
 
+/* ══════════════════════════════════════════════════════════════
+   ⑪ 퇴사·비활동 강사의 «수업입장 🎥 · 수업관찰 👁» 은 흐리게
+   ══════════════════════════════════════════════════════════════
+   [왜] 사장님 「퇴사시켰는데 왜 파란 불이 그대로 켜져 있나」(2026-09-02).
+        브라우저 실측상 활동중·비활동·퇴사 세 행의 액션 버튼 색이 **완전히 같아서**,
+        퇴사 처리를 해도 그 줄에서 눈에 달라지는 것이 하나도 없었다.
+   ⛔ 버튼을 없애거나 disabled 로 만들지 않는다 — 지난 수업 확인이 걸려 있고,
+      「보이는데 안 눌린다」는 그것대로 고장으로 읽힌다. 흐리게 + 툴팁으로 이유를 말한다.
+   ⚠️ 판정을 화면에 다시 적으면(`t.status === '퇴사'`) «비활동» 이 빠지거나 NULL 처리가
+      어긋난다 — 그래서 정본과 «같은 답» 인지 아래에서 실제로 돌려 대조한다. */
+const coreSrc2 = read('cloudflare-deploy/public/js/adm-core.js');
+const cssSrc2  = read('cloudflare-deploy/public/css/admin-inline-c.css');
+
+check('화면 판정 헬퍼 _tpIsWorking 이 있다', /function _tpIsWorking\s*\(/.test(coreSrc2));
+check('흐리게 하는 두 버튼에만 클래스가 붙는다', (() => {
+  // 버튼을 그리는 줄만 잘라 «어느 버튼이 _tpDimCls 를 받는가» 를 센다.
+  const lines = coreSrc2.split('\n').filter(l => /class="tp-act-btn tp-act--/.test(l));
+  const dimmed = lines.filter(l => l.includes('_tpDimCls')).map(l => (l.match(/tp-act--(\w+)/) || [])[1]);
+  const plain  = lines.filter(l => !l.includes('_tpDimCls')).map(l => (l.match(/tp-act--(\w+)/) || [])[1]);
+  return dimmed.sort().join(',') === 'ghost,video'
+      && !plain.some(k => k === 'ghost' || k === 'video');
+})());
+check('상세보기·수정·제거는 흐려지지 않는다 (지난 수업 확인이 걸려 있다)', (() => {
+  const lines = coreSrc2.split('\n').filter(l => /class="tp-act-btn tp-act--(view|edit|del)/.test(l));
+  return lines.length >= 3 && lines.every(l => !l.includes('_tpDimCls'));
+})());
+check('CSS 가 opacity 로 흐리게 한다 (글자색 페인터가 안 건드리는 속성)',
+  /#tp-list-table td button\.tp-act-btn\.tp-act--dim\s*\{[^}]*opacity:\s*\.?\d/.test(cssSrc2));
+check('disabled 로 막지 않는다 (눌리면 기존 안내가 사실대로 답한다)',
+  !/tp-act--dim[^\n]*disabled/.test(coreSrc2));
+/* 🔴 행을 다시 그린 «뒤» 에 도는 _tpPaintLive 가 👁 툴팁을 덮어쓴다 —
+      거기서도 같은 사유를 말해야 그리는 쪽이 붙인 설명이 조용히 사라지지 않는다. */
+check('나중에 도는 _tpPaintLive 도 퇴사·비활동 사유를 유지한다',
+  /dataset\.working === '0'/.test(coreSrc2) && /_notWorking \?/.test(coreSrc2));
+check('행이 data-working 을 싣는다 (_tpPaintLive 가 읽는 근거)',
+  /data-working="' \+ \(_tpWorking \? '1' : '0'\)/.test(coreSrc2));
+
+/* 🔬 정본과 «같은 답» 인가 — 문자열이 아니라 두 함수를 나란히 돌려 대조한다. */
+if (mod && mod.isActiveTeacherStatus) {
+  const m = coreSrc2.match(/function _tpIsWorking\s*\([\s\S]*?\n\}/);
+  if (!m) {
+    check('화면 판정 함수를 오려 낼 수 있다', false);
+  } else {
+    const fn = new Function(m[0] + '; return _tpIsWorking;')();
+    const cases = ['활동중', '비활동', '퇴사', '재직', '  퇴사 ', '', '  ', 'hidden', '비활둥'];
+    const diff = cases.filter(c => fn(c) !== mod.isActiveTeacherStatus(c));
+    check('화면 판정이 서버 정본과 같은 답을 낸다 (NULL·빈 값 포함)',
+      diff.length === 0 && fn(null) === mod.isActiveTeacherStatus(null)
+                        && fn(undefined) === mod.isActiveTeacherStatus(undefined),
+      diff.length ? '어긋남: ' + diff.join(' ') : '');
+    check('  상태를 한 번도 안 만진 옛 행(NULL)은 흐려지지 않는다', fn(null) === true && fn('') === true);
+    check('  퇴사·비활동만 흐려진다', fn('퇴사') === false && fn('비활동') === false && fn('활동중') === true);
+  }
+} else {
+  skipIt('typescript 없음 — 정본 대조 건너뜀');
+}
+
 console.log('\n──────────────────────────────');
 console.log(`  PASS ${pass} / FAIL ${fail}` + (skip ? ` / SKIP ${skip}` : ''));
 if (fail > 0) { console.log('  ❌ 실패가 있습니다.'); process.exit(1); }
