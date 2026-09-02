@@ -350,6 +350,45 @@ console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 �
   for (let i = 0; i < 8; i++) t2.api.selfWatch(-1, 0);
   ok(!t2.doc.getElementById('vc-netlow-toast'), '⛔ 영상 표본이 없는 틱(-1)은 «회선 나쁨» 으로 세지 않는다');
 
+  /* 🔴 2026-09-02 class-849 — 사장님이 19분 내내 토스트를 못 보셨다. 조건 미달이 아니라
+     «제일 나쁜 틱» 이 판정에서 통째로 빠져 있었다. loss === -1 은 «손실을 모른다» 일 뿐
+     «RTT 를 모른다» 가 아닌데, 옛 코드는 첫 줄에서 return 했다.
+     실측: RTT 가 제일 높았던 두 창이 novideo 13/15 · 11/15 였다 = 그 틱들이 전부 -1.
+     ⚠️ 이 검사는 «-1 은 세지 않는다»(바로 위) 와 짝이다 — 한쪽만 두면 반대로 무너진다. */
+  {
+    const t3 = runQlog({ student: { uid: 'y', name: 'y', role: 'student' } });
+    for (let i = 0; i < 3; i++) t3.api.selfWatch(0.5, 130);      // 기준 RTT 를 130 으로 만든다
+    ok(!t3.doc.getElementById('vc-netlow-toast'), '기준 RTT 를 잡는 동안에는 안 뜬다');
+    for (let i = 0; i < 4; i++) t3.api.selfWatch(-1, 500);       // 영상은 죽었고 RTT 만 살아 있다
+    ok(!!t3.doc.getElementById('vc-netlow-toast'),
+       '🔴 영상 표본이 없어도(-1) RTT 가 계속 높으면 뜬다 — 옛 코드는 여기서 통째로 건너뛰었다');
+  }
+
+  /* 🌏 문턱은 «이 회선의 기준값» 대비다(#771 이 화질 회복 문턱에 쓴 것과 같은 방식).
+     중국 강사 회선은 평소가 360~440ms 라(같은 수업 실측) 절대값 400 이면 정상 통화 중에
+     «공유기 가까이 가세요» 가 뜬다 — 지리적 거리는 사람이 못 고치므로 틀린 안내다. */
+  {
+    const t4 = runQlog({ admin: { uid: 'hq_t_kang', name: '교사 강선생님', role: 'teacher' } });
+    for (let i = 0; i < 20; i++) t4.api.selfWatch(0.2, 360);     // 중국 회선의 «평소»
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준이 높은 회선(중국 360ms)은 평소 값으로 안 뜬다 — 옛 절대값 400 은 여기서 오경보였다');
+    for (let i = 0; i < 6; i++) t4.api.selfWatch(0.2, 430);      // 실측에서 나온 스파이크 폭
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준 대비 +70ms 스파이크로도 안 뜬다(실측 430ms)');
+    for (let i = 0; i < 4; i++) t4.api.selfWatch(0.2, 620);      // 기준 대비 +260 = 진짜 막힘
+    ok(!!t4.doc.getElementById('vc-netlow-toast'),
+       '기준보다 200ms 넘게 막히면 그때는 뜬다');
+  }
+
+  /* ⛔ 기준이 낮은 국내 회선은 예전 숫자(400) 그대로다 — 이번 변경으로 더 둔해지면 안 된다 */
+  {
+    const t5 = runQlog({ student: { uid: 'z', name: 'z', role: 'student' } });
+    for (let i = 0; i < 5; i++) t5.api.selfWatch(0.3, 130);
+    for (let i = 0; i < 4; i++) t5.api.selfWatch(0.3, 410);
+    ok(!!t5.doc.getElementById('vc-netlow-toast'),
+       '국내 회선(기준 130ms)은 410ms 가 이어지면 예전처럼 뜬다');
+  }
+
   /* 상대 타일 표시 — 강사에게만 */
   const stu = runQlog({ student: { uid: 's1', name: '학생', role: 'student' } });
   stu.doc.__addBox('peerA');
