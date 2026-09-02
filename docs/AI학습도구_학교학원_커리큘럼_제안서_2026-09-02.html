@@ -1,0 +1,1053 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 AI 학습도구 도입 제안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* ============================================================
+   망고아이 — 학교·학원 AI 학습도구 도입 제안서
+   ⚠ 이 컨테이너는 프록시가 구글폰트를 막을 수 있어 폴백을 실제 설치 폰트로 맞춤
+      (NanumMyeongjo / NanumBarunGothic / Noto Sans CJK KR)
+   ============================================================ */
+:root{
+  --ink:#16232B; --ink-2:#33454E; --muted:#5E7178; --faint:#8B9BA0;
+  --paper:#F4F6F5; --card:#FFFFFF; --card-2:#FAFBFA;
+  --line:#DCE4E3; --line-2:#EDF1F0;
+  --accent:#C2410C; --accent-soft:#FBEAE0;
+  --mango:#D97706;
+  --teal:#0F5E5C; --teal-soft:#E2EFEE;
+  --good:#15803D; --warn:#A16207; --risk:#9F1239;
+  --rail:#0F5E5C;
+  --serif:'Gowun Batang','Nanum Myeongjo',NanumMyeongjo,'Noto Serif CJK KR',serif;
+  --sans:'Noto Sans KR',NanumBarunGothic,'Noto Sans CJK KR',NanumGothic,sans-serif;
+  --mono:'IBM Plex Mono',NanumGothicCoding,'Noto Sans Mono CJK KR',monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8EDEC; --ink-2:#C3CFCD; --muted:#93A5A6; --faint:#6F8285;
+    --paper:#0E1618; --card:#16211F; --card-2:#1B2726;
+    --line:#2C3B39; --line-2:#233230;
+    --accent:#F97316; --accent-soft:#331B10;
+    --mango:#FBBF24; --teal:#5EC8C0; --teal-soft:#122A29;
+    --good:#4ADE80; --warn:#FBBF24; --risk:#FB7185; --rail:#5EC8C0;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8EDEC; --ink-2:#C3CFCD; --muted:#93A5A6; --faint:#6F8285;
+  --paper:#0E1618; --card:#16211F; --card-2:#1B2726;
+  --line:#2C3B39; --line-2:#233230;
+  --accent:#F97316; --accent-soft:#331B10;
+  --mango:#FBBF24; --teal:#5EC8C0; --teal-soft:#122A29;
+  --good:#4ADE80; --warn:#FBBF24; --risk:#FB7185; --rail:#5EC8C0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+     font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.doc{max-width:920px;margin:0 auto;padding:36px 20px 80px}
+
+/* ── 종이 한 장 ───────────────────────────────── */
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:3px;
+       padding:44px 48px;margin-bottom:22px;position:relative;
+       box-shadow:0 1px 2px rgba(22,35,43,.05)}
+@media(max-width:640px){.doc{padding:16px 10px 48px}.sheet{padding:26px 20px}}
+
+/* ── 섹션 번호 레일: 목차 순서가 실제 진행 순서라 번호가 정보다 ── */
+.rail{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--ink);
+      padding-bottom:10px;margin-bottom:26px}
+.rail .no{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--rail);
+          letter-spacing:.08em;flex:0 0 auto;padding-top:4px}
+.rail h2{font-family:var(--serif);font-size:27px;font-weight:700;margin:0;
+         letter-spacing:-.01em;text-wrap:balance;line-height:1.3}
+.rail .tag{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);
+           letter-spacing:.1em;text-transform:uppercase;flex:0 0 auto}
+
+h3{font-family:var(--serif);font-size:19px;font-weight:700;margin:34px 0 10px;
+   letter-spacing:-.01em;text-wrap:balance}
+h4{font-size:14px;font-weight:700;margin:22px 0 7px;color:var(--ink);letter-spacing:-.005em}
+p{margin:0 0 13px;max-width:66ch}
+.lead{font-size:16.5px;line-height:1.8;color:var(--ink-2);max-width:64ch}
+strong{font-weight:700;color:var(--ink)}
+em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent-soft) 62%);
+   font-weight:500;padding:0 1px}
+small{font-size:12.5px;color:var(--muted);line-height:1.65}
+a{color:var(--teal)}
+ul,ol{margin:0 0 14px;padding-left:20px;max-width:66ch}
+li{margin-bottom:6px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;
+         text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:8px}
+
+/* ── 표지 ─────────────────────────────────────── */
+.cover{background:var(--ink);color:#F4F6F5;border:none;padding:60px 48px 44px}
+:root[data-theme="dark"] .cover,
+:root:not([data-theme="light"]) .cover{background:#0A1113}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cover{background:#0A1113}}
+.cover .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+               color:var(--mango);text-transform:uppercase;margin-bottom:22px}
+.cover h1{font-family:var(--serif);font-size:41px;line-height:1.28;margin:0 0 18px;
+          font-weight:700;letter-spacing:-.02em;color:#FFF;text-wrap:balance}
+.cover .sub{font-size:16px;line-height:1.75;color:#AFC0C1;max-width:52ch;margin:0}
+.cover .meta{display:flex;flex-wrap:wrap;gap:10px 30px;margin-top:34px;padding-top:20px;
+             border-top:1px solid #33454E;font-family:var(--mono);font-size:11.5px;color:#8FA3A4}
+.cover .meta b{color:#F4F6F5;font-weight:600}
+@media(max-width:640px){.cover{padding:34px 20px}.cover h1{font-size:29px}}
+
+/* ── 데이터 타일 ──────────────────────────────── */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+       gap:1px;background:var(--line);border:1px solid var(--line);margin:22px 0}
+.tile{background:var(--card);padding:16px 18px}
+.tile .n{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--teal);
+         line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile .n span{font-size:13px;color:var(--muted);font-weight:400}
+.tile .l{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+/* ── 표 ───────────────────────────────────────── */
+.tw{overflow-x:auto;margin:18px 0;border:1px solid var(--line);background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{background:var(--card-2);text-align:left;padding:10px 12px;font-weight:700;
+   border-bottom:1.5px solid var(--line);font-size:12px;color:var(--ink);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top;
+   color:var(--ink-2);line-height:1.6}
+tr:last-child td{border-bottom:none}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pick td{background:var(--teal-soft)}
+:root[data-theme="dark"] .pick td{background:#122A29}
+
+/* ── 칩·배지 ──────────────────────────────────── */
+.chip{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;
+      border-radius:2px;letter-spacing:.04em;white-space:nowrap;font-weight:600}
+.c-good{background:#DCFCE7;color:#14532D}
+.c-warn{background:#FEF3C7;color:#78350F}
+.c-risk{background:#FFE4E6;color:#881337}
+.c-teal{background:var(--teal-soft);color:var(--teal)}
+:root[data-theme="dark"] .c-good{background:#0F2E1B;color:#4ADE80}
+:root[data-theme="dark"] .c-warn{background:#2E230A;color:#FBBF24}
+:root[data-theme="dark"] .c-risk{background:#2E1119;color:#FB7185}
+
+/* ── 안내 상자 ────────────────────────────────── */
+.note{border-left:3px solid var(--teal);background:var(--card-2);padding:14px 18px;
+      margin:18px 0;font-size:13.5px;line-height:1.7;color:var(--ink-2)}
+.note b{color:var(--ink)}
+.note.warn{border-left-color:var(--accent)}
+.note.pick{border-left-color:var(--mango);background:var(--accent-soft)}
+:root[data-theme="dark"] .note.pick{background:#2A1A0E}
+
+/* ── 방안 카드 ────────────────────────────────── */
+.plan{border:1px solid var(--line);margin:20px 0;background:var(--card)}
+.plan-h{display:flex;align-items:center;gap:14px;padding:15px 20px;
+        border-bottom:1px solid var(--line);background:var(--card-2)}
+.plan-h .letter{font-family:var(--mono);font-size:19px;font-weight:600;color:#FFF;
+        background:var(--teal);width:34px;height:34px;display:flex;align-items:center;
+        justify-content:center;border-radius:2px;flex:0 0 auto}
+.plan-h .t{font-family:var(--serif);font-size:19px;font-weight:700;line-height:1.35}
+.plan-h .t small{display:block;font-family:var(--sans);font-size:11.5px;
+        color:var(--muted);margin-top:2px;letter-spacing:.02em}
+.plan-b{padding:18px 20px}
+.plan-b p{max-width:none}
+.plan.rec{border:2px solid var(--mango)}
+.plan.rec .plan-h{background:var(--accent-soft)}
+.plan.rec .plan-h .letter{background:var(--accent)}
+:root[data-theme="dark"] .plan.rec .plan-h{background:#2A1A0E}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:6px 14px;font-size:13px;margin:12px 0}
+.kv dt{font-weight:700;color:var(--muted);font-size:12px;padding-top:1px}
+.kv dd{margin:0;color:var(--ink-2);line-height:1.65}
+@media(max-width:560px){.kv{grid-template-columns:1fr;gap:2px 0}.kv dd{margin-bottom:8px}}
+
+/* ── 그림 ─────────────────────────────────────── */
+figure{margin:26px 0}
+figure svg{width:100%;height:auto;display:block}
+figcaption{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.6;
+           border-top:1px solid var(--line-2);padding-top:7px}
+figcaption b{color:var(--ink-2);font-weight:600}
+.svg-wrap{overflow-x:auto;background:var(--card-2);border:1px solid var(--line);padding:16px}
+
+/* SVG 안 글자 — 테마 토큰을 따라가게 */
+svg text{font-family:var(--sans)}
+.s-ink{fill:var(--ink)} .s-mut{fill:var(--muted)} .s-fnt{fill:var(--faint)}
+.s-lbl{font-size:11px;fill:var(--muted)}
+.s-num{font-family:var(--mono);font-size:11px;fill:var(--ink-2)}
+.s-ttl{font-size:12.5px;font-weight:700;fill:var(--ink)}
+.s-grid{stroke:var(--line);stroke-width:1}
+.s-axis{stroke:var(--muted);stroke-width:1}
+
+/* ── 목차 ─────────────────────────────────────── */
+.toc{columns:2;column-gap:36px;font-size:13.5px;margin-top:6px}
+.toc a{display:flex;gap:10px;text-decoration:none;color:var(--ink-2);padding:5px 0;
+       border-bottom:1px dotted var(--line);break-inside:avoid}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--mono);font-size:11px;color:var(--rail);flex:0 0 22px;padding-top:2px}
+@media(max-width:640px){.toc{columns:1}}
+
+/* ── 시간표 ───────────────────────────────────── */
+.tt td:first-child{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.tt .ai{background:var(--teal-soft)}
+.tt .cls{background:var(--accent-soft)}
+:root[data-theme="dark"] .tt .ai{background:#122A29}
+:root[data-theme="dark"] .tt .cls{background:#2A1A0E}
+
+hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+.foot{text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);
+      padding:26px 0;letter-spacing:.06em}
+
+/* ── 인쇄 / PDF ───────────────────────────────── */
+@page{size:A4;margin:13mm 12mm}
+@media print{
+  body{background:#FFF;font-size:10.5pt;line-height:1.65}
+  .doc{max-width:none;padding:0}
+  .sheet{border:none;box-shadow:none;padding:0 0 6mm;margin:0;
+         break-after:page;page-break-after:always}
+  .sheet:last-child{break-after:auto;page-break-after:auto}
+  .cover{background:#16232B !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;
+         padding:26mm 16mm;margin:-13mm -12mm 0;min-height:150mm}
+  .rail h2{font-size:18pt} h3{font-size:13pt} .cover h1{font-size:28pt}
+  .tiles,.tw,.plan,figure,.note,table,tr{break-inside:avoid;page-break-inside:avoid}
+  h3,h4{break-after:avoid;page-break-after:avoid}
+  .svg-wrap{overflow:visible}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .noprint{display:none}
+}
+</style>
+
+<div class="doc">
+
+<!-- ══════════════════ 표지 ══════════════════ -->
+<section class="sheet cover">
+  <div class="kicker">Mangoi · 도입 제안서</div>
+  <h1>교실은 그대로 두고,<br>부족한 연습만 AI가 채웁니다</h1>
+  <p class="sub">학교·학원의 전체 수업을 바꾸지 않으면서 학생 한 명 한 명의
+     말하기·쓰기 연습량을 늘리는 네 가지 운영안과, 그중 우리가 권하는 한 가지.</p>
+  <div class="meta">
+    <div>대상 <b>학교 영어부 · 학원 원장 / 교육팀</b></div>
+    <div>작성 <b>망고아이 (Mangoi)</b></div>
+    <div>일자 <b>2026-09-02</b></div>
+    <div>문서 <b>v1.0</b></div>
+  </div>
+</section>
+
+<!-- ══════════════════ 0. 목차 + 요약 ══════════════════ -->
+<section class="sheet" id="s0">
+  <div class="rail"><span class="no">00</span><h2>한 장 요약</h2><span class="tag">Executive Summary</span></div>
+
+  <p class="lead">지금 교실에서 부족한 것은 <em>설명</em>이 아니라 <em>연습</em>입니다.
+  선생님의 설명은 이미 충분히 좋습니다. 다만 20명이 함께 있는 50분 수업에서
+  학생 한 명이 실제로 영어로 말하는 시간은 산술적으로 <strong>1분 남짓</strong>입니다.
+  망고아이 AI 학습도구 8종은 그 1분을 <strong>15분</strong>으로 바꾸는 데 씁니다.
+  교사를 대체하지 않고, 교재를 바꾸지 않고, 수업 앞뒤에 붙습니다.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="n">8<span>종</span></div><div class="l">AI 학습도구<br>(웜업·대화·발음·작문·퀴즈·판단력·단어·게임)</div></div>
+    <div class="tile"><div class="n">8<span>단계</span></div><div class="l">전 도구 공통 CEFR 눈금<br>A1 → C1</div></div>
+    <div class="tile"><div class="n">×15<span>배</span></div><div class="l">1인 발화시간 산술 추정<br>1분 → 15분</div></div>
+    <div class="tile"><div class="n">0<span>원</span></div><div class="l">교재 교체 비용<br>쓰던 교재에 그대로 연동</div></div>
+  </div>
+
+  <h3>네 가지 안과 결론</h3>
+  <div class="tw"><table>
+    <thead><tr><th style="width:52px">안</th><th>이름</th><th>한 줄 정의</th><th style="width:92px">도입 난이도</th><th style="width:78px">적합</th></tr></thead>
+    <tbody>
+      <tr class="pick"><td class="num"><b>A</b></td><td><b>수업 샌드위치형</b></td>
+        <td>수업 앞 10분 웜업 + 뒤 10분 복습. 수업 자체는 손대지 않음</td>
+        <td><span class="chip c-good">낮음</span></td><td>학원</td></tr>
+      <tr><td class="num"><b>B</b></td><td>개인 트랙형</td>
+        <td>교실은 그대로, 학생마다 다른 AI 숙제를 레벨별로 배정</td>
+        <td><span class="chip c-warn">중간</span></td><td>학원·공부방</td></tr>
+      <tr><td class="num"><b>C</b></td><td>표현 영역 집중형</td>
+        <td>말하기·쓰기(2022 개정 «표현» 영역)만 AI로 분리 운영</td>
+        <td><span class="chip c-warn">중간</span></td><td>학교 방과후</td></tr>
+      <tr><td class="num"><b>D</b></td><td>스테이션 로테이션형</td>
+        <td>한 교실을 4모둠으로 나눠 15분씩 순환. 교실 구조 자체를 재설계</td>
+        <td><span class="chip c-risk">높음</span></td><td>학교 정규</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note pick">
+    <b>추천 — A안으로 시작해 8주 뒤 B안으로 확장.</b>
+    A안은 시간표·교재·교사 업무를 하나도 바꾸지 않고 오늘 시작할 수 있는 유일한 안입니다.
+    8주면 학생별 레벨 데이터가 쌓이고, 그 데이터가 있어야 B안(개인 트랙)이 추측이 아닌 근거로 굴러갑니다.
+    <strong>순서를 뒤집으면 실패합니다</strong> — 데이터 없이 개인 배정을 시작하면 전원이 같은 레벨을 받습니다.
+    자세한 이유는 <a href="#s7">07장</a>.
+  </div>
+
+  <h3>목차</h3>
+  <nav class="toc">
+    <a href="#s1"><span class="n">01</span><span>지금 교실에서 무엇이 부족한가</span></a>
+    <a href="#s2"><span class="n">02</span><span>도구 8종과 교육과정 매핑</span></a>
+    <a href="#s3"><span class="n">03</span><span>설계 원칙 세 가지</span></a>
+    <a href="#s4"><span class="n">04</span><span>A안 · 수업 샌드위치형</span></a>
+    <a href="#s5"><span class="n">05</span><span>B · C · D안</span></a>
+    <a href="#s6"><span class="n">06</span><span>네 안 비교</span></a>
+    <a href="#s7"><span class="n">07</span><span>추천안과 그 이유</span></a>
+    <a href="#s8"><span class="n">08</span><span>주간 커리큘럼 샘플</span></a>
+    <a href="#s9"><span class="n">09</span><span>12주 도입 로드맵</span></a>
+    <a href="#s10"><span class="n">10</span><span>성과를 무엇으로 확인하나</span></a>
+    <a href="#s11"><span class="n">11</span><span>도입 전 확인 사항</span></a>
+    <a href="#s12"><span class="n">12</span><span>부록 · 타 서비스와의 차이</span></a>
+  </nav>
+</section>
+
+<!-- ══════════════════ 01. 진단 ══════════════════ -->
+<section class="sheet" id="s1">
+  <div class="rail"><span class="no">01</span><h2>지금 교실에서 무엇이 부족한가</h2><span class="tag">Problem</span></div>
+
+  <div class="eyebrow">첫 번째 — 연습량</div>
+  <h3>학생 한 명이 영어로 말하는 시간은 하루 1분입니다</h3>
+  <p>추측이 아니라 나눗셈입니다. 20명 학급, 50분 수업. 선생님의 설명·판서·진도에
+  30분이 쓰입니다. 남은 20분을 20명이 나누면 한 사람 몫은 <strong>60초</strong>입니다.
+  주 2회 다녀도 일주일에 2분입니다. <em>이 시간으로는 어떤 교수법도 말하기를 늘릴 수 없습니다.</em>
+  선생님이 부족한 것이 아니라, 구조가 그렇습니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 236" role="img" aria-label="학생 1인당 실제 영어 발화 시간 비교 막대그래프">
+      <text x="0" y="15" class="s-ttl">학생 1인당 실제 발화 시간 · 1회 수업 기준</text>
+      <line x1="140" y1="188" x2="700" y2="188" class="s-axis"/>
+      <g class="s-grid">
+        <line x1="320" y1="40" x2="320" y2="188"/><line x1="500" y1="40" x2="500" y2="188"/>
+        <line x1="680" y1="40" x2="680" y2="188"/>
+      </g>
+      <g class="s-num" text-anchor="middle">
+        <text x="140" y="205">0분</text><text x="320" y="205">5분</text>
+        <text x="500" y="205">10분</text><text x="680" y="205">15분</text>
+      </g>
+      <text x="125" y="70" class="s-lbl" text-anchor="end" font-weight="700" fill="currentColor">지금</text>
+      <text x="125" y="86" class="s-lbl" text-anchor="end">교실 수업만</text>
+      <rect x="140" y="52" width="36" height="40" fill="#8B9BA0"/>
+      <text x="186" y="77" class="s-num" font-weight="600">약 1분</text>
+      <text x="125" y="140" class="s-lbl" text-anchor="end" font-weight="700" fill="currentColor">AI 병행</text>
+      <text x="125" y="156" class="s-lbl" text-anchor="end">같은 수업 + 앞뒤</text>
+      <rect x="140" y="122" width="252" height="40" fill="#0F5E5C"/>
+      <rect x="392" y="122" width="36"  height="40" fill="#C2410C"/>
+      <rect x="428" y="122" width="252" height="40" fill="#D97706"/>
+      <g fill="#FFFFFF" font-size="11" text-anchor="middle" font-weight="600">
+        <text x="266" y="147">수업 전 웜업 7분</text>
+        <text x="554" y="147">수업 후 복습·대화 7분</text>
+      </g>
+      <text x="410" y="112" class="s-num" text-anchor="middle" fill="#C2410C" font-weight="600">교실 1분</text>
+      <text x="690" y="147" class="s-num" font-weight="600">약 15분</text>
+    </svg>
+    </div>
+    <figcaption><b>산술 추정.</b> 20명 학급·50분 수업·교사 설명 30분을 전제로 한 나눗셈입니다.
+    실제 측정치가 아니라 구조를 보이기 위한 계산이며, 학급 인원과 수업 설계에 따라 달라집니다.
+    AI 구간은 1인 전용이므로 대기 시간이 없습니다.</figcaption>
+  </figure>
+
+  <div class="eyebrow">두 번째 — 레벨 격차</div>
+  <h3>한 반 안에 CEFR 여섯 단계가 섞여 있습니다</h3>
+  <p>같은 반, 같은 교재라도 실력은 한 줄로 서지 않습니다. 선생님은 한 번에 한 난이도로만
+  말할 수 있으므로 대개 중간에 맞춥니다. 그러면 <strong>아래쪽은 못 알아듣고 위쪽은 지루합니다.</strong>
+  두 무리 모두 그 시간에 배우는 것이 거의 없습니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 268" role="img" aria-label="한 학급 내 CEFR 레벨 분포 막대그래프">
+      <text x="0" y="15" class="s-ttl">한 학급(20명) 안의 실력 분포 — 예시 분포</text>
+      <rect x="250" y="40" width="150" height="160" fill="var(--accent-soft)"/>
+      <text x="325" y="34" class="s-num" text-anchor="middle" fill="#C2410C" font-weight="600">수업이 겨냥하는 구간</text>
+      <line x1="90" y1="200" x2="700" y2="200" class="s-axis"/>
+      <g class="s-grid"><line x1="90" y1="140" x2="700" y2="140"/><line x1="90" y1="80" x2="700" y2="80"/></g>
+      <g class="s-num" text-anchor="end"><text x="82" y="204">0</text><text x="82" y="144">2</text><text x="82" y="84">4</text></g>
+      <text x="30" y="120" class="s-lbl" transform="rotate(-90 30 120)" text-anchor="middle">학생 수(명)</text>
+      <g>
+        <rect x="100" y="170" width="60" height="30"  fill="#8B9BA0"/>
+        <rect x="175" y="110" width="60" height="90"  fill="#8B9BA0"/>
+        <rect x="250" y="50"  width="60" height="150" fill="#0F5E5C"/>
+        <rect x="325" y="80"  width="60" height="120" fill="#0F5E5C"/>
+        <rect x="400" y="110" width="60" height="90"  fill="#8B9BA0"/>
+        <rect x="475" y="140" width="60" height="60"  fill="#8B9BA0"/>
+        <rect x="550" y="170" width="60" height="30"  fill="#8B9BA0"/>
+        <rect x="625" y="170" width="60" height="30"  fill="#8B9BA0"/>
+      </g>
+      <g class="s-num" text-anchor="middle" font-weight="600">
+        <text x="130" y="165">1</text><text x="205" y="105">3</text><text x="280" y="45">5</text>
+        <text x="355" y="75">4</text><text x="430" y="105">3</text><text x="505" y="135">2</text>
+        <text x="580" y="165">1</text><text x="655" y="165">1</text>
+      </g>
+      <g class="s-lbl" text-anchor="middle">
+        <text x="130" y="219">S1</text><text x="205" y="219">S2</text><text x="280" y="219">S3</text>
+        <text x="355" y="219">S4</text><text x="430" y="219">S5</text><text x="505" y="219">S6</text>
+        <text x="580" y="219">S7</text><text x="655" y="219">S8</text>
+      </g>
+      <g class="s-fnt" text-anchor="middle" font-size="10">
+        <text x="130" y="234">A1</text><text x="205" y="234">A2</text><text x="280" y="234">A2+</text>
+        <text x="355" y="234">B1</text><text x="430" y="234">B1+</text><text x="505" y="234">B2</text>
+        <text x="580" y="234">B2+</text><text x="655" y="234">C1</text>
+      </g>
+      <line x1="100" y1="250" x2="235" y2="250" stroke="#9F1239" stroke-width="2.5"/>
+      <line x1="400" y1="250" x2="685" y2="250" stroke="#9F1239" stroke-width="2.5"/>
+      <text x="167" y="264" class="s-num" text-anchor="middle" fill="#9F1239">4명 — 너무 어렵다</text>
+      <text x="542" y="264" class="s-num" text-anchor="middle" fill="#9F1239">7명 — 너무 쉽다</text>
+    </svg>
+    </div>
+    <figcaption><b>예시 분포입니다</b> — 특정 학원의 실측이 아니라, 레벨테스트를 돌리면
+    대체로 이런 모양이 나온다는 것을 보이기 위한 그림입니다. 실제 분포는 도입 첫 주
+    레벨 진단으로 그 학원의 값을 그대로 그려 드립니다.</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>그래서 무엇을 바꾸나.</b> 이 두 가지는 교사의 역량이나 교재의 문제가 아니라
+    «한 명이 여럿을 동시에 상대한다»는 구조에서 나옵니다. 구조가 원인이므로
+    <b>더 열심히 가르치는 것으로는 풀리지 않습니다.</b> 1:1로만 되는 부분(발화 반복,
+    개인별 난이도, 즉시 교정)을 떼어내 AI에게 맡기고, 사람만 할 수 있는 것(동기 부여,
+    맥락 설명, 관계)은 선생님께 남깁니다.
+  </div>
+</section>
+
+<!-- ══════════════════ 02. 도구 매핑 ══════════════════ -->
+<section class="sheet" id="s2">
+  <div class="rail"><span class="no">02</span><h2>도구 8종과 교육과정 매핑</h2><span class="tag">Toolkit</span></div>
+
+  <p class="lead">2022 개정 영어과 교육과정은 2026년부터 적용되며, 기존 4대 영역을
+  <strong>«이해»(듣기·읽기·보기)</strong>와 <strong>«표현»(말하기·쓰기)</strong> 두 축으로 재편했습니다.
+  학교라면 이 축에, 학원이라면 기존 4영역에 그대로 대응합니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 356" role="img" aria-label="AI 도구 8종과 영어 학습 영역 매핑 표">
+      <text x="0" y="14" class="s-ttl">도구별 담당 영역 — ● 주력 · ○ 보조</text>
+      <g class="s-lbl" text-anchor="middle" font-weight="600">
+        <text x="330" y="44">듣기</text><text x="410" y="44">읽기</text>
+        <text x="490" y="44">말하기</text><text x="570" y="44">쓰기</text><text x="650" y="44">어휘·문법</text>
+      </g>
+      <line x1="292" y1="52" x2="690" y2="52" class="s-axis"/>
+      <rect x="450" y="30" width="160" height="316" fill="var(--accent-soft)" opacity=".55"/>
+      <text x="530" y="24" class="s-num" text-anchor="middle" fill="#C2410C" font-weight="600">가장 부족한 영역</text>
+      <g class="s-lbl" text-anchor="end" fill="currentColor">
+        <text x="284" y="76">🗣️ 수업 전 AI 웜업</text>
+        <text x="284" y="112">💬 AI 친구 대화</text>
+        <text x="284" y="148">🎤 AI 음성코치</text>
+        <text x="284" y="184">✍️ AI 글쓰기 첨삭</text>
+        <text x="284" y="220">🧠 복습퀴즈</text>
+        <text x="284" y="256">⚡ AI 단어 퀴즈</text>
+        <text x="284" y="292">🧭 판단력 훈련</text>
+        <text x="284" y="328">🎮 학생게임 13종</text>
+      </g>
+      <g class="s-grid">
+        <line x1="292" y1="88" x2="690" y2="88"/><line x1="292" y1="124" x2="690" y2="124"/>
+        <line x1="292" y1="160" x2="690" y2="160"/><line x1="292" y1="196" x2="690" y2="196"/>
+        <line x1="292" y1="232" x2="690" y2="232"/><line x1="292" y1="268" x2="690" y2="268"/>
+        <line x1="292" y1="304" x2="690" y2="304"/><line x1="292" y1="340" x2="690" y2="340"/>
+      </g>
+      <g fill="#0F5E5C">
+        <circle cx="330" cy="72" r="7"/><circle cx="490" cy="72" r="7"/>
+        <circle cx="330" cy="108" r="7"/><circle cx="490" cy="108" r="7"/>
+        <circle cx="490" cy="144" r="7"/>
+        <circle cx="570" cy="180" r="7"/>
+        <circle cx="330" cy="216" r="7"/><circle cx="650" cy="216" r="7"/>
+        <circle cx="650" cy="252" r="7"/>
+        <circle cx="410" cy="288" r="7"/><circle cx="570" cy="288" r="7"/>
+        <circle cx="650" cy="324" r="7"/>
+      </g>
+      <g fill="none" stroke="#8B9BA0" stroke-width="1.6">
+        <circle cx="650" cy="72" r="6"/>
+        <circle cx="570" cy="108" r="6"/><circle cx="650" cy="108" r="6"/>
+        <circle cx="330" cy="144" r="6"/>
+        <circle cx="410" cy="180" r="6"/><circle cx="650" cy="180" r="6"/>
+        <circle cx="410" cy="216" r="6"/>
+        <circle cx="330" cy="252" r="6"/><circle cx="490" cy="252" r="6"/>
+        <circle cx="490" cy="288" r="6"/>
+        <circle cx="330" cy="324" r="6"/><circle cx="490" cy="324" r="6"/>
+      </g>
+      <line x1="292" y1="30" x2="292" y2="346" class="s-axis"/>
+    </svg>
+    </div>
+    <figcaption>말하기·쓰기(표현 영역)에 <b>여섯 개 도구가 몰려 있습니다</b> — 우리가 채우려는 곳이
+    정확히 교실에서 가장 안 되는 곳이기 때문입니다.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr><th style="width:150px">도구</th><th>학생이 하는 일</th><th style="width:96px">1회 소요</th><th>수업에서의 자리</th></tr></thead>
+    <tbody>
+      <tr><td><b>🗣️ 수업 전 AI 웜업</b></td><td>오늘 배울 교재 내용으로 AI와 영어 대화. 대답 보기 칩이 떠서 초보도 말할 수 있음</td><td class="num">8~10분</td><td>수업 직전</td></tr>
+      <tr><td><b>💬 AI 친구 대화</b></td><td>레벨에 맞춘 자유 대화. 문법 팁·오늘의 단어·최근 틀린 단어를 대화에 섞어 줌</td><td class="num">10~15분</td><td>수업 후 · 집</td></tr>
+      <tr><td><b>🎤 AI 음성코치</b></td><td>문장을 따라 읽고 발음 교정을 받음. 한국어·중국어 화면 지원</td><td class="num">5~10분</td><td>수업 후 · 집</td></tr>
+      <tr><td><b>✍️ AI 글쓰기 첨삭</b></td><td>6하원칙 질문에 답하면 뼈대가 만들어지고, 쓴 글을 AI가 첨삭·어휘 업그레이드</td><td class="num">15~20분</td><td>주 1회 과제</td></tr>
+      <tr><td><b>🧠 복습퀴즈</b></td><td>그날 나간 교재·과에 붙은 문제를 풀며 복습</td><td class="num">5~8분</td><td>수업 직후</td></tr>
+      <tr><td><b>⚡ AI 단어 퀴즈</b></td><td>내 단어장에서 짧은 퀴즈. 틀린 단어가 다음 대화에 다시 나옴</td><td class="num">3~5분</td><td>매일 짧게</td></tr>
+      <tr><td><b>🧭 판단력 훈련</b></td><td>상황을 읽고 판단한 뒤 «왜 그렇게 생각했는지»를 영어로 설명</td><td class="num">8~12분</td><td>주 2회</td></tr>
+      <tr><td><b>🎮 학생게임 13종</b></td><td>어휘·문법·듣기를 게임으로. 포인트·배지·연속 출석으로 습관 유지</td><td class="num">자율</td><td>보상 · 집</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <b>왜 «단계»가 아니라 «눈금»이 중요한가.</b> 이 8종은 서로 다른 화면이지만
+    <b>레벨 눈금 하나를 공유합니다</b>(S1 A1 → S8 C1). 학생이 웜업에서 S3이면 AI 친구 대화도,
+    판단력 훈련도 S3로 말합니다. 도구마다 «초급»의 뜻이 다르면 학생은 매번 다른 난이도를
+    만나고, 그 순간 개인별 커리큘럼은 성립하지 않습니다.
+  </div>
+</section>
+
+<!-- ══════════════════ 03. 설계 원칙 ══════════════════ -->
+<section class="sheet" id="s3">
+  <div class="rail"><span class="no">03</span><h2>설계 원칙 세 가지</h2><span class="tag">Principles</span></div>
+  <p class="lead">네 가지 안 모두 아래 세 원칙 위에 서 있습니다. 원칙이 흔들리면
+  어떤 안을 골라도 «앱만 깔아 두고 아무도 안 쓰는» 결말로 갑니다.</p>
+
+  <h3>원칙 1 · AI는 교사를 대체하지 않고, 교사가 못 하는 시간을 맡습니다</h3>
+  <p>학원가에서 AI 도입이 실패하는 가장 흔한 이유는 «수업 시간을 AI에게 내주는 것»입니다.
+  학부모는 사람 선생님에게 돈을 냅니다. 그래서 우리는 <em>수업 시간을 한 분도 가져오지 않습니다.</em>
+  AI는 <strong>수업 전 10분과 수업 후 10분</strong>, 그리고 <strong>집에서의 시간</strong>만 씁니다.
+  선생님의 자리는 오히려 강해집니다 — 학생이 이미 입을 풀고 들어오니 수업 밀도가 올라갑니다.</p>
+
+  <h3>원칙 2 · 쓰던 교재에 붙습니다. 커리큘럼을 갈아엎지 않습니다</h3>
+  <p>대부분의 AI 영어 앱은 자체 커리큘럼을 가지고 있어서, 학원 교재와 <strong>따로 놉니다</strong>.
+  학생은 두 개의 진도를 짊어지고, 선생님은 앱 진도를 관리할 이유가 없습니다.
+  망고아이는 <b>교재명과 과(Lesson) 번호를 그대로 받아</b> 그날 배운 문장으로 웜업·복습퀴즈를 만듭니다.
+  선생님이 교재를 넘기면 그 페이지가 학생의 오늘 연습 재료가 됩니다.</p>
+
+  <h3>원칙 3 · 난이도는 사람이 매번 정하지 않고, 정답률이 정합니다</h3>
+  <p>판단력 훈련은 최근 6문항의 정답률을 보고 스스로 단계를 올리고 내립니다.
+  기준은 <strong>정답률 85%</strong> — Wilson 등이 <i>Nature Communications</i>(2019)에서
+  「학습이 가장 빠른 지점은 정답률 약 85%」임을 보인 결과를 그대로 씁니다.
+  너무 쉬우면 배울 것이 없고, 너무 어려우면 포기합니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 252" role="img" aria-label="정답률에 따른 학습 속도 곡선, 85퍼센트에서 최대">
+      <text x="0" y="14" class="s-ttl">정답률과 학습 속도 — 85% 규칙</text>
+      <path d="M100,196 C160,190 210,168 260,148 C330,120 400,86 480,66 C520,57 560,50 593,49 C620,52 645,105 668,192 L668,200 L100,200 Z"
+            fill="#0F5E5C" opacity=".13"/>
+      <path d="M100,196 C160,190 210,168 260,148 C330,120 400,86 480,66 C520,57 560,50 593,49 C620,52 645,105 668,192"
+            fill="none" stroke="#0F5E5C" stroke-width="2.5"/>
+      <line x1="593" y1="49" x2="593" y2="200" stroke="#C2410C" stroke-width="1.8" stroke-dasharray="4 3"/>
+      <circle cx="593" cy="49" r="5.5" fill="#C2410C"/>
+      <text x="593" y="38" class="s-num" text-anchor="middle" fill="#C2410C" font-weight="600">85% · 가장 빠름</text>
+      <line x1="100" y1="200" x2="700" y2="200" class="s-axis"/>
+      <line x1="100" y1="40" x2="100" y2="200" class="s-axis"/>
+      <g class="s-num" text-anchor="middle">
+        <text x="100" y="217">0%</text><text x="245" y="217">25%</text>
+        <text x="390" y="217">50%</text><text x="535" y="217">75%</text><text x="680" y="217">100%</text>
+      </g>
+      <text x="390" y="236" class="s-lbl" text-anchor="middle">학생의 정답률</text>
+      <text x="26" y="120" class="s-lbl" transform="rotate(-90 26 120)" text-anchor="middle">학습 속도</text>
+      <text x="150" y="180" class="s-lbl" fill="#9F1239">너무 어려움 — 포기</text>
+      <text x="700" y="150" class="s-lbl" text-anchor="end" fill="#9F1239">너무 쉬움 — 안 늚</text>
+    </svg>
+    </div>
+    <figcaption>망고아이 판단력 훈련의 실제 판정 규칙: 6문항 중 <b>6개 정답이면 한 단계 올리고,
+    5개는 그대로 두며(83.3% — 목표점에 앉아 있게), 3개 이하면 한 단계 내립니다.</b>
+    선생님이 학생마다 난이도를 손으로 조정할 필요가 없습니다.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════ 04. A안 ══════════════════ -->
+<section class="sheet" id="s4">
+  <div class="rail"><span class="no">04</span><h2>A안 · 수업 샌드위치형</h2><span class="tag">Plan A</span></div>
+
+  <div class="plan rec">
+    <div class="plan-h"><div class="letter">A</div>
+      <div class="t">수업 샌드위치형<small>수업 앞뒤 10분씩만 씁니다 · 시간표를 바꾸지 않습니다</small></div></div>
+    <div class="plan-b">
+      <p>학생이 학원에 도착하면 수업 시작까지 <strong>앞 10분</strong> 동안 태블릿·휴대폰으로 AI 웜업을 합니다.
+      오늘 나갈 교재 내용으로 AI가 말을 걸고, 학생은 대답 보기를 눌러 가며 영어로 답합니다.
+      수업이 끝나면 <strong>뒤 10분</strong> 동안 그날 배운 문장으로 복습퀴즈와 단어 퀴즈를 풉니다.
+      집에서는 AI 친구 대화·음성코치를 <strong>하루 10분</strong> 숙제로 합니다.</p>
+      <dl class="kv">
+        <dt>대상</dt><dd>모든 학원 · 공부방. 특히 <b>지금 당장 무언가 시작해야 하는 곳</b></dd>
+        <dt>준비물</dt><dd>대기실·교실 뒤편에 태블릿 3~5대(또는 학생 개인 휴대폰) · 이어폰 · 와이파이</dd>
+        <dt>교사 부담</dt><dd><b>거의 없음.</b> 교재명과 과 번호만 관리자 화면에서 지정하면 나머지는 자동</dd>
+        <dt>바뀌는 것</dt><dd>없음. 시간표·교재·수업 방식 그대로</dd>
+        <dt>기대 효과</dt><dd>1인 발화시간 <b>1분 → 15분</b> · 수업 시작 시점의 준비도 상승</dd>
+        <dt>한계</dt><dd>학생마다 다른 과제를 주지는 못함(전원 같은 교재 기준) → 8주 뒤 B안으로 확장</dd>
+      </dl>
+    </div>
+  </div>
+
+  <h3>하루가 이렇게 흘러갑니다</h3>
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 216" role="img" aria-label="A안 하루 운영 흐름도">
+      <text x="0" y="14" class="s-ttl">A안 · 수업 하루 흐름</text>
+      <g stroke="#DCE4E3" stroke-width="2"><line x1="70" y1="96" x2="700" y2="96"/></g>
+      <g>
+        <rect x="40" y="62" width="132" height="68" rx="2" fill="#E2EFEE" stroke="#0F5E5C" stroke-width="1.5"/>
+        <text x="106" y="86" text-anchor="middle" class="s-num" fill="#0F5E5C" font-weight="600">도착 ~ 시작</text>
+        <text x="106" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="#0F5E5C">🗣️ AI 웜업</text>
+        <text x="106" y="120" text-anchor="middle" class="s-lbl">10분 · 대기실</text>
+      </g>
+      <g>
+        <rect x="196" y="46" width="200" height="100" rx="2" fill="#FBEAE0" stroke="#C2410C" stroke-width="2"/>
+        <text x="296" y="72" text-anchor="middle" class="s-num" fill="#C2410C" font-weight="600">정규 수업</text>
+        <text x="296" y="94" text-anchor="middle" font-size="14" font-weight="700" fill="#C2410C">선생님 수업</text>
+        <text x="296" y="112" text-anchor="middle" class="s-lbl">50분 · 손대지 않음</text>
+        <text x="296" y="130" text-anchor="middle" class="s-lbl">교재 그대로</text>
+      </g>
+      <g>
+        <rect x="420" y="62" width="132" height="68" rx="2" fill="#E2EFEE" stroke="#0F5E5C" stroke-width="1.5"/>
+        <text x="486" y="86" text-anchor="middle" class="s-num" fill="#0F5E5C" font-weight="600">종료 직후</text>
+        <text x="486" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="#0F5E5C">🧠 복습퀴즈</text>
+        <text x="486" y="120" text-anchor="middle" class="s-lbl">10분 · 그날 진도</text>
+      </g>
+      <g>
+        <rect x="576" y="62" width="146" height="68" rx="2" fill="#FEF6E7" stroke="#D97706" stroke-width="1.5"/>
+        <text x="649" y="86" text-anchor="middle" class="s-num" fill="#A16207" font-weight="600">집에서</text>
+        <text x="649" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="#A16207">💬 AI 친구 · 🎤 발음</text>
+        <text x="649" y="120" text-anchor="middle" class="s-lbl">10분 · 매일</text>
+      </g>
+      <g fill="#8B9BA0">
+        <path d="M176,96 l0,-5 10,5 -10,5 z"/><path d="M400,96 l0,-5 10,5 -10,5 z"/><path d="M556,96 l0,-5 10,5 -10,5 z"/>
+      </g>
+      <line x1="40" y1="168" x2="722" y2="168" stroke="#0F5E5C" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="381" y="188" text-anchor="middle" class="s-lbl">학생의 레벨·틀린 단어·발음 기록이 이 선을 따라 계속 이어집니다</text>
+      <text x="381" y="206" text-anchor="middle" class="s-num" fill="#0F5E5C">→ 학부모 리포트 · 강사 대시보드로 자동 집계</text>
+    </svg>
+    </div>
+    <figcaption>파란 칸이 AI, 주황 칸이 선생님입니다. <b>주황 칸의 폭과 내용은 도입 전과 완전히 같습니다.</b></figcaption>
+  </figure>
+
+  <div class="note">
+    <b>대기 시간이 학습 시간이 됩니다.</b> 학원 대기실에서 학생들이 휴대폰을 보는 10분은
+    지금도 이미 존재합니다. A안은 새 시간을 요구하는 것이 아니라, <b>이미 버려지고 있는 시간의
+    용도를 바꿉니다.</b> 학부모에게도 «수업이 10분 늘었다»가 아니라 «대기 시간에 영어를 말하고
+    들어간다»로 설명됩니다 — 추가 비용 논쟁이 생기지 않습니다.
+  </div>
+</section>
+
+<!-- ══════════════════ 05. B·C·D안 ══════════════════ -->
+<section class="sheet" id="s5">
+  <div class="rail"><span class="no">05</span><h2>B · C · D안</h2><span class="tag">Plans B–D</span></div>
+
+  <div class="plan">
+    <div class="plan-h"><div class="letter">B</div>
+      <div class="t">개인 트랙형<small>교실은 그대로, 숙제만 학생마다 다르게</small></div></div>
+    <div class="plan-b">
+      <p>교실 수업은 A안과 같이 그대로 둡니다. 달라지는 것은 <strong>숙제</strong>입니다.
+      레벨 진단 결과에 따라 학생을 3~4개 트랙(예: 기초 S1–S2 / 표준 S3–S4 / 심화 S5+)으로 나누고,
+      트랙별로 다른 AI 과제를 배정합니다. 기초 트랙은 웜업·발음 반복에, 심화 트랙은
+      판단력 훈련·글쓰기에 시간을 더 씁니다. 난이도는 정답률을 보고 <strong>매주 자동으로 조정</strong>됩니다.</p>
+      <dl class="kv">
+        <dt>대상</dt><dd>반 편성을 바꾸기 어렵지만 격차가 큰 학원 · 소수정예 공부방</dd>
+        <dt>선행 조건</dt><dd><b>레벨 진단 데이터가 먼저 있어야 합니다</b> — A안 8주 운영이 그 데이터를 만듭니다</dd>
+        <dt>교사 부담</dt><dd>주 1회 15분: 트랙별 배정 확인 및 조정(대부분 자동 제안을 승인하는 수준)</dd>
+        <dt>기대 효과</dt><dd>상위권 이탈 방지 · 하위권 «수업을 못 알아듣는» 상태 해소</dd>
+        <dt>한계</dt><dd>트랙이 3개를 넘으면 관리 부담이 급증합니다. 3개로 시작하기를 권합니다</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="plan">
+    <div class="plan-h"><div class="letter">C</div>
+      <div class="t">표현 영역 집중형<small>말하기·쓰기만 떼어 AI 전담 시간으로</small></div></div>
+    <div class="plan-b">
+      <p>2022 개정 교육과정의 <strong>«표현» 영역</strong>(말하기·쓰기)을 별도 시간으로 분리해
+      주 1~2회 40분을 통째로 AI 연습에 씁니다. 앞 20분은 AI 음성코치·AI 친구 대화로 말하기,
+      뒤 20분은 AI 글쓰기 첨삭으로 쓰기입니다. 교사는 순회하며 개별 지도하고,
+      마지막 10분에 대표 사례 2~3개를 뽑아 전체 피드백을 줍니다.</p>
+      <dl class="kv">
+        <dt>대상</dt><dd><b>학교 방과후·영어캠프·특강.</b> 정규 수업을 건드리지 않고 별도 편성 가능</dd>
+        <dt>준비물</dt><dd>1인 1기기 · 이어폰 <b>필수</b>(말하기 동시 진행 시 소음) · 조용한 교실</dd>
+        <dt>교사 역할</dt><dd>진행자가 아니라 <b>순회 코치</b>. AI가 못 잡는 «왜 그렇게 말했는지»를 다룹니다</dd>
+        <dt>기대 효과</dt><dd>표현 영역 성취기준에 정면 대응 · 수행평가 자료로 산출물 축적</dd>
+        <dt>한계</dt><dd>기기와 이어폰이 학생 수만큼 필요합니다. 여기가 실무상 가장 큰 문턱입니다</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="plan">
+    <div class="plan-h"><div class="letter">D</div>
+      <div class="t">스테이션 로테이션형<small>한 교실을 네 구역으로 나눠 15분씩 순환</small></div></div>
+    <div class="plan-b">
+      <p>블렌디드 러닝의 정석 모델입니다. 한 반을 4모둠으로 나누고 교실에 네 개의 «스테이션»을 둡니다.
+      ① 교사 직접지도(소그룹 5명) ② AI 말하기(웜업·음성코치) ③ AI 읽기·쓰기(글쓰기·판단력)
+      ④ 협동 활동(짝 활동·게임). 15분마다 모둠이 이동해 <strong>한 시간에 모든 학생이 네 가지를 다 겪습니다.</strong>
+      교사는 매 15분 <strong>5명만</strong> 상대하므로, 사실상 소그룹 과외를 하게 됩니다.</p>
+      <dl class="kv">
+        <dt>대상</dt><dd><b>학교 정규 수업.</b> 교실을 재설계할 권한과 의지가 있는 곳</dd>
+        <dt>준비물</dt><dd>모둠 책상 배치 · 기기 1/2인당 1대 · 이어폰 · 스테이션 안내판</dd>
+        <dt>교사 부담</dt><dd><b>초기에 큼.</b> 첫 3~4주는 동선·신호·규칙을 잡는 데 수업 시간이 소모됩니다</dd>
+        <dt>기대 효과</dt><dd>가장 큽니다. 교사 1인당 실질 학생 수가 20명 → <b>5명</b>이 됩니다</dd>
+        <dt>한계</dt><dd>교실 소음, 기기 대수, 교사 훈련. <b>학원에서 이 안으로 시작하면 거의 실패합니다</b></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 06. 비교 ══════════════════ -->
+<section class="sheet" id="s6">
+  <div class="rail"><span class="no">06</span><h2>네 안 비교</h2><span class="tag">Comparison</span></div>
+
+  <p class="lead">효과가 큰 안일수록 준비가 무겁습니다. 중요한 것은
+  <strong>«가장 좋은 안»이 아니라 «우리가 다음 주에 실제로 시작할 수 있는 안»</strong>입니다.
+  시작하지 못한 안의 기대 효과는 0입니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 372" role="img" aria-label="네 가지 안의 도입 난이도와 기대 효과 포지셔닝 맵">
+      <text x="0" y="14" class="s-ttl">도입 난이도 ↔ 기대 효과 · 원 크기 = 필요한 기기 수</text>
+      <rect x="100" y="46" width="580" height="256" fill="var(--card)" stroke="var(--line)"/>
+      <g class="s-grid">
+        <line x1="245" y1="46" x2="245" y2="302"/><line x1="390" y1="46" x2="390" y2="302"/>
+        <line x1="535" y1="46" x2="535" y2="302"/>
+        <line x1="100" y1="110" x2="680" y2="110"/><line x1="100" y1="174" x2="680" y2="174"/>
+        <line x1="100" y1="238" x2="680" y2="238"/>
+      </g>
+      <rect x="100" y="110" width="145" height="128" fill="#0F5E5C" opacity=".07"/>
+      <text x="172" y="128" text-anchor="middle" class="s-num" fill="#0F5E5C" opacity=".85">지금 시작 가능</text>
+
+      <circle cx="172" cy="186" r="19" fill="#C2410C" opacity=".9"/>
+      <text x="172" y="192" text-anchor="middle" fill="#FFF" font-size="15" font-weight="700" font-family="var(--mono)">A</text>
+      <circle cx="330" cy="140" r="24" fill="#0F5E5C" opacity=".82"/>
+      <text x="330" y="147" text-anchor="middle" fill="#FFF" font-size="15" font-weight="700" font-family="var(--mono)">B</text>
+      <circle cx="452" cy="152" r="33" fill="#0F5E5C" opacity=".62"/>
+      <text x="452" y="159" text-anchor="middle" fill="#FFF" font-size="15" font-weight="700" font-family="var(--mono)">C</text>
+      <circle cx="606" cy="86" r="39" fill="#0F5E5C" opacity=".48"/>
+      <text x="606" y="93" text-anchor="middle" fill="#FFF" font-size="15" font-weight="700" font-family="var(--mono)">D</text>
+
+      <g class="s-lbl" text-anchor="middle">
+        <text x="172" y="222">샌드위치</text>
+        <text x="330" y="180">개인 트랙</text>
+        <text x="452" y="199">표현 집중</text>
+        <text x="606" y="139">스테이션</text>
+      </g>
+      <text x="172" y="236" class="s-num" text-anchor="middle" fill="#C2410C" font-weight="600">← 추천</text>
+
+      <line x1="100" y1="302" x2="680" y2="302" class="s-axis"/>
+      <line x1="100" y1="46" x2="100" y2="302" class="s-axis"/>
+      <g class="s-lbl" text-anchor="middle">
+        <text x="145" y="320">아주 낮음</text><text x="317" y="320">보통</text><text x="640" y="320">아주 높음</text>
+      </g>
+      <text x="390" y="342" text-anchor="middle" class="s-lbl" font-weight="600">도입 난이도 · 준비 부담 →</text>
+      <text x="34" y="174" class="s-lbl" transform="rotate(-90 34 174)" text-anchor="middle" font-weight="600">기대 효과 →</text>
+      <text x="70" y="366" class="s-fnt" font-size="10">기기 수: A 3~5대 · B 5~8대 · C 1인 1대 · D 1~2인당 1대</text>
+    </svg>
+    </div>
+    <figcaption>D안의 효과가 가장 크지만, <b>원의 크기(기기)와 가로축(준비 부담)이 함께 커집니다.</b>
+    학원에서 D안으로 시작하면 대개 3주 안에 중단됩니다.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr>
+      <th style="width:118px">기준</th><th style="width:24%">A · 샌드위치</th><th style="width:24%">B · 개인 트랙</th>
+      <th style="width:24%">C · 표현 집중</th><th>D · 스테이션</th></tr></thead>
+    <tbody>
+      <tr><td><b>수업 시간 변경</b></td><td><span class="chip c-good">없음</span></td><td><span class="chip c-good">없음</span></td><td><span class="chip c-warn">별도 편성</span></td><td><span class="chip c-risk">전면 재설계</span></td></tr>
+      <tr><td><b>필요 기기</b></td><td class="num">3~5대 공용</td><td class="num">5~8대 공용</td><td class="num">1인 1대</td><td class="num">1~2인당 1대</td></tr>
+      <tr><td><b>이어폰</b></td><td>권장</td><td>권장</td><td><b>필수</b></td><td><b>필수</b></td></tr>
+      <tr><td><b>교사 사전 교육</b></td><td class="num">30분</td><td class="num">1시간</td><td class="num">2시간</td><td class="num">4시간 + 참관</td></tr>
+      <tr><td><b>첫 성과까지</b></td><td class="num">2주</td><td class="num">6주</td><td class="num">4주</td><td class="num">8주</td></tr>
+      <tr><td><b>레벨 격차 해소</b></td><td><span class="chip c-warn">부분</span></td><td><span class="chip c-good">강함</span></td><td><span class="chip c-warn">부분</span></td><td><span class="chip c-good">가장 강함</span></td></tr>
+      <tr><td><b>말하기 시간</b></td><td class="num">주 30분+</td><td class="num">주 30~50분</td><td class="num">주 40분</td><td class="num">주 45분+</td></tr>
+      <tr><td><b>학부모 설명</b></td><td><span class="chip c-good">쉬움</span></td><td><span class="chip c-good">쉬움</span></td><td><span class="chip c-warn">보통</span></td><td><span class="chip c-risk">설명 필요</span></td></tr>
+      <tr><td><b>중단 위험</b></td><td><span class="chip c-good">낮음</span></td><td><span class="chip c-warn">보통</span></td><td><span class="chip c-warn">보통</span></td><td><span class="chip c-risk">높음</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════ 07. 추천 ══════════════════ -->
+<section class="sheet" id="s7">
+  <div class="rail"><span class="no">07</span><h2>추천안과 그 이유</h2><span class="tag">Recommendation</span></div>
+
+  <div class="note pick">
+    <b>A안(수업 샌드위치형)으로 시작해, 8주 뒤 B안(개인 트랙형)으로 확장하십시오.</b><br>
+    학교 정규 수업으로 도입하는 경우에만 C안을 1순위로 두고, D안은 <b>C안을 한 학기 운영한 뒤에</b>
+    검토할 것을 권합니다.
+  </div>
+
+  <h3>첫째 — 시작할 수 있기 때문입니다</h3>
+  <p>A안은 시간표·교재·수업 방식·반 편성 중 <strong>아무것도 바꾸지 않습니다.</strong>
+  선생님께 드리는 부담은 관리자 화면에서 «이 반은 이 교재 몇 과» 를 지정하는 것뿐입니다.
+  결정에서 첫 수업까지 <strong>일주일</strong>이면 충분합니다. 나머지 세 안은 최소 한 달의
+  준비(기기 조달, 교사 교육, 학부모 안내)가 필요합니다.</p>
+
+  <h3>둘째 — B안이 필요로 하는 데이터를 A안이 만들어 주기 때문입니다</h3>
+  <p>이것이 순서를 뒤집으면 안 되는 진짜 이유입니다. B안의 핵심은 «학생마다 다른 과제»인데,
+  그러려면 <strong>학생별 레벨이 실제로 측정되어 있어야</strong> 합니다.
+  지금 학생 명부에는 학년·레벨 칸이 대부분 비어 있습니다 — 이 값들은 그동안 아무도 채운 적이 없어서
+  <em>지금 B안을 먼저 시작하면 전원이 같은 기본 레벨을 받습니다.</em>
+  A안을 8주 돌리면 학생 한 명당 웜업·퀴즈·판단력 훈련 기록이 수십 건 쌓이고,
+  그 기록이 트랙 배정의 근거가 됩니다. <strong>A안은 B안의 준비 단계이기도 합니다.</strong></p>
+
+  <h3>셋째 — 실패했을 때 잃는 것이 가장 적습니다</h3>
+  <p>A안이 잘 안 되면 그냥 웜업을 안 하면 됩니다. 수업은 그대로이므로 <strong>되돌릴 것이 없습니다.</strong>
+  반면 D안은 교실 배치와 수업 설계를 바꾼 뒤라 중단 비용이 큽니다.
+  새 방식을 도입할 때 «잘 되면 얻는 것»만큼 «안 되면 잃는 것»을 봐야 합니다.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th style="width:88px">시점</th><th>무엇을 하나</th><th>이때 확인할 것</th></tr></thead>
+    <tbody>
+      <tr><td class="num"><b>1~2주</b></td><td>한 반(파일럿)만 A안 시작 · 교재 연동 확인</td><td>학생이 실제로 웜업을 하는가(참여율)</td></tr>
+      <tr><td class="num"><b>3~8주</b></td><td>전 반 확대 · 집 숙제(AI 친구·음성코치) 추가</td><td>레벨 데이터가 학생별로 쌓이는가</td></tr>
+      <tr class="pick"><td class="num"><b>9주</b></td><td><b>판단 지점</b> — 쌓인 레벨 분포를 보고 트랙 3개 설계</td><td>격차가 실제로 존재하는가 · 몇 개 트랙이 맞는가</td></tr>
+      <tr><td class="num"><b>9~16주</b></td><td>B안 전환 · 트랙별 과제 배정</td><td>하위 트랙 이탈이 줄었는가 · 상위 트랙이 덜 지루한가</td></tr>
+      <tr><td class="num"><b>17주~</b></td><td>C안 검토(표현 특강 개설) 또는 현 상태 유지</td><td>학부모가 «말하기가 늘었다»고 느끼는가</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════ 08. 샘플 ══════════════════ -->
+<section class="sheet" id="s8">
+  <div class="rail"><span class="no">08</span><h2>주간 커리큘럼 샘플</h2><span class="tag">Sample</span></div>
+
+  <p class="lead">그대로 복사해 쓰실 수 있게 두 가지를 실제 시간 단위로 적었습니다.
+  하나는 학원 A안, 하나는 학교 방과후 C안입니다.</p>
+
+  <h3>샘플 1 · 학원 · 초등 고학년 중급반(S3~S4) · 주 2회 · A안</h3>
+  <div class="tw"><table class="tt">
+    <thead><tr><th style="width:64px">요일</th><th style="width:96px">학원에서</th><th>내용</th><th style="width:110px">집에서 (10분)</th><th style="width:60px">누적</th></tr></thead>
+    <tbody>
+      <tr><td><b>월</b></td><td>—</td><td>수업 없음</td><td class="ai">💬 AI 친구 대화 <small>(자유 주제)</small></td><td class="num">10분</td></tr>
+      <tr><td><b>화</b></td><td class="ai">18:50 웜업</td><td class="cls">19:00 <b>정규 수업 50분</b> — Lesson 7 · 교재 진도 그대로<br><span style="color:var(--muted);font-size:12px">18:50~19:00 🗣️ 웜업(Lesson 7 문장) · 19:50~20:00 🧠 복습퀴즈(Lesson 7)</span></td><td class="ai">⚡ 단어 퀴즈 <small>(오늘 틀린 단어)</small></td><td class="num">30분</td></tr>
+      <tr><td><b>수</b></td><td>—</td><td>수업 없음</td><td class="ai">🎤 음성코치 <small>(Lesson 7 문장 5개)</small></td><td class="num">10분</td></tr>
+      <tr><td><b>목</b></td><td class="ai">18:50 웜업</td><td class="cls">19:00 <b>정규 수업 50분</b> — Lesson 8<br><span style="color:var(--muted);font-size:12px">18:50~19:00 🗣️ 웜업(Lesson 8) · 19:50~20:00 🧠 복습퀴즈(Lesson 8)</span></td><td class="ai">🧭 판단력 훈련 <small>(자동 난이도)</small></td><td class="num">30분</td></tr>
+      <tr><td><b>금</b></td><td>—</td><td>수업 없음</td><td class="ai">✍️ AI 글쓰기 <small>(주 1회 과제 · 20분)</small></td><td class="num">20분</td></tr>
+      <tr><td><b>토·일</b></td><td>—</td><td>—</td><td class="ai">🎮 학생게임 <small>(자율 · 포인트)</small></td><td class="num">자율</td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="4" style="text-align:right;font-weight:700;padding:11px 12px">주간 AI 학습시간 합계</td>
+      <td class="num" style="font-weight:700;color:var(--teal);padding:11px 12px">100분</td></tr></tfoot>
+  </table></div>
+  <p><small>수업 시간(주 100분)은 그대로이고, <b>AI로 주 100분이 더해집니다.</b>
+  그중 학원에서 쓰는 시간은 주 40분(대기·정리 시간)이고 나머지 60분은 집에서 하루 10~20분씩입니다.
+  집 숙제는 단원 진도와 자동으로 연결되므로 «무엇을 시킬지» 고민이 필요 없습니다.</small></p>
+
+  <h3>샘플 2 · 학교 방과후 · 40분 1교시 · C안(표현 집중)</h3>
+  <div class="tw"><table class="tt">
+    <thead><tr><th style="width:74px">시간</th><th style="width:130px">활동</th><th>학생이 하는 일</th><th style="width:150px">교사의 자리</th></tr></thead>
+    <tbody>
+      <tr><td>00–05</td><td>도입</td><td>오늘의 주제 확인 · 기기 준비</td><td>주제 제시 · 예시 1개 시범</td></tr>
+      <tr><td class="num">05–15</td><td class="ai"><b>🗣️ 말하기 ①</b></td><td>AI 웜업 — 오늘 주제로 AI와 대화. 대답 보기 칩 사용</td><td><b>순회</b> — 못 따라오는 학생 옆에 앉기</td></tr>
+      <tr><td class="num">15–25</td><td class="ai"><b>🎤 말하기 ②</b></td><td>AI 음성코치 — 핵심 문장 5개 발음 교정 반복</td><td><b>순회</b> — 발음 점수 낮은 학생 개별 지도</td></tr>
+      <tr><td class="num">25–35</td><td class="ai"><b>✍️ 쓰기</b></td><td>AI 글쓰기 — 6하원칙 질문에 답해 뼈대를 만들고 3~5문장 작성 후 첨삭</td><td><b>순회</b> — 첨삭 결과를 함께 읽기</td></tr>
+      <tr><td>35–40</td><td class="cls">전체 공유</td><td>잘 쓴 글 2~3개를 화면에 띄워 함께 읽기</td><td><b>전체 피드백</b> — AI가 못 잡는 «왜»를 다룸</td></tr>
+    </tbody>
+  </table></div>
+  <p><small>학생 산출물(작문·발음 기록)이 자동 저장되므로 <b>수행평가 자료</b>로 그대로 쓸 수 있습니다.
+  교사는 40분 내내 «진행»이 아니라 «개별 코치»로 움직입니다 — 이 시간이
+  전체 수업에서는 구조적으로 만들 수 없는 시간입니다.</small></p>
+
+  <div class="note warn">
+    <b>이어폰은 협상 대상이 아닙니다.</b> 스무 명이 동시에 영어로 말하는 교실에서
+    이어폰이 없으면 AI 음성인식이 옆 학생 목소리를 잡습니다. 그러면 발음 점수가 엉뚱하게 나오고,
+    학생은 «이거 고장났어요»라고 합니다. C·D안을 하실 경우 <b>이어폰 확보를 1순위 준비물</b>로 잡아 주십시오.
+  </div>
+</section>
+
+<!-- ══════════════════ 09. 로드맵 ══════════════════ -->
+<section class="sheet" id="s9">
+  <div class="rail"><span class="no">09</span><h2>12주 도입 로드맵</h2><span class="tag">Roadmap</span></div>
+  <p class="lead">전 학년을 한꺼번에 시작하지 않습니다. <strong>한 반으로 2주</strong> 돌려 보고
+  거기서 나온 문제를 고친 뒤 확대합니다. 이 순서를 지키면 실패해도 한 반에서 끝납니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 336" role="img" aria-label="12주 도입 일정 간트 차트">
+      <text x="0" y="14" class="s-ttl">도입 일정 · 주 단위</text>
+      <g class="s-num" text-anchor="middle" fill="var(--muted)">
+        <text x="215" y="40">1주</text><text x="340" y="40">4주</text>
+        <text x="465" y="40">8주</text><text x="590" y="40">12주</text><text x="694" y="40">16주</text>
+      </g>
+      <g class="s-grid">
+        <line x1="215" y1="48" x2="215" y2="296"/><line x1="340" y1="48" x2="340" y2="296"/>
+        <line x1="465" y1="48" x2="465" y2="296"/><line x1="590" y1="48" x2="590" y2="296"/>
+        <line x1="694" y1="48" x2="694" y2="296"/>
+      </g>
+      <line x1="196" y1="48" x2="196" y2="296" class="s-axis"/>
+      <g class="s-lbl" text-anchor="end" fill="currentColor">
+        <text x="188" y="68">사전 점검 · 계정 준비</text>
+        <text x="188" y="98">교사 교육 (30분)</text>
+        <text x="188" y="128">파일럿 1개 반 · A안</text>
+        <text x="188" y="158">학부모 안내문 발송</text>
+        <text x="188" y="188">전 반 확대</text>
+        <text x="188" y="218">집 숙제 추가</text>
+        <text x="188" y="248">레벨 분포 분석</text>
+        <text x="188" y="278">B안 전환 · 트랙 배정</text>
+      </g>
+      <g>
+        <rect x="196" y="58" width="62"  height="14" rx="2" fill="#8B9BA0"/>
+        <rect x="215" y="88" width="42"  height="14" rx="2" fill="#8B9BA0"/>
+        <rect x="215" y="118" width="125" height="14" rx="2" fill="#C2410C"/>
+        <rect x="257" y="148" width="42"  height="14" rx="2" fill="#8B9BA0"/>
+        <rect x="340" y="178" width="167" height="14" rx="2" fill="#C2410C"/>
+        <rect x="382" y="208" width="312" height="14" rx="2" fill="#D97706"/>
+        <rect x="465" y="238" width="42"  height="14" rx="2" fill="#0F5E5C"/>
+        <rect x="507" y="268" width="187" height="14" rx="2" fill="#0F5E5C"/>
+      </g>
+      <line x1="507" y1="48" x2="507" y2="296" stroke="#9F1239" stroke-width="1.8" stroke-dasharray="4 3"/>
+      <circle cx="507" cy="48" r="4.5" fill="#9F1239"/>
+      <text x="513" y="60" class="s-num" fill="#9F1239" font-weight="600">9주 · 판단 지점</text>
+      <g class="s-num" fill="var(--muted)" font-size="10">
+        <text x="264" y="69">2주</text><text x="263" y="99">1회</text>
+        <text x="346" y="129">2주 운영</text><text x="305" y="159">1주</text>
+        <text x="513" y="189">6주</text><text x="700" y="219">계속</text>
+      </g>
+      <rect x="196" y="308" width="311" height="4" fill="#C2410C" opacity=".3"/>
+      <rect x="507" y="308" width="187" height="4" fill="#0F5E5C" opacity=".3"/>
+      <text x="350" y="328" text-anchor="middle" class="s-num" fill="#C2410C">1단계 · A안</text>
+      <text x="600" y="328" text-anchor="middle" class="s-num" fill="#0F5E5C">2단계 · B안</text>
+    </svg>
+    </div>
+    <figcaption><b>9주차가 결정 지점입니다.</b> 그때까지 쌓인 레벨 데이터를 함께 보고
+    B안으로 갈지, A안을 유지할지 정합니다. 데이터가 «격차가 크지 않다»고 말하면
+    B안으로 가지 않는 것도 정답입니다.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════ 10. KPI ══════════════════ -->
+<section class="sheet" id="s10">
+  <div class="rail"><span class="no">10</span><h2>성과를 무엇으로 확인하나</h2><span class="tag">Metrics</span></div>
+
+  <p class="lead">«영어가 늘었다»는 말로는 다음 학기 재계약을 설득하지 못합니다.
+  숫자로 보이는 것 네 가지를 정하고, 관리자 화면에서 매주 그 넷만 봅니다.</p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 760 216" role="img" aria-label="주간 확인 지표 대시보드 예시">
+      <text x="0" y="14" class="s-ttl">주간 확인 지표 — 화면 예시 (아래 숫자는 실제 값이 아닌 예시입니다)</text>
+      <g>
+        <rect x="0" y="28" width="178" height="112" fill="var(--card)" stroke="var(--line)"/>
+        <text x="16" y="50" class="s-lbl">① 참여율</text>
+        <text x="16" y="84" font-family="var(--mono)" font-size="30" font-weight="600" fill="#0F5E5C">82%</text>
+        <text x="16" y="102" class="s-fnt" font-size="10.5">웜업을 실제로 한 학생 비율</text>
+        <polyline points="16,128 38,124 60,126 82,118 104,114 126,110 148,106 162,104"
+                  fill="none" stroke="#0F5E5C" stroke-width="2"/>
+        <circle cx="162" cy="104" r="3.5" fill="#0F5E5C"/>
+      </g>
+      <g>
+        <rect x="194" y="28" width="178" height="112" fill="var(--card)" stroke="var(--line)"/>
+        <text x="210" y="50" class="s-lbl">② 1인 주간 발화시간</text>
+        <text x="210" y="84" font-family="var(--mono)" font-size="30" font-weight="600" fill="#0F5E5C">54<tspan font-size="15" fill="var(--muted)">분</tspan></text>
+        <text x="210" y="102" class="s-fnt" font-size="10.5">도입 전 주 2분 → 27배</text>
+        <polyline points="210,132 232,130 254,124 276,118 298,112 320,106 342,100 356,96"
+                  fill="none" stroke="#0F5E5C" stroke-width="2"/>
+        <circle cx="356" cy="96" r="3.5" fill="#0F5E5C"/>
+      </g>
+      <g>
+        <rect x="388" y="28" width="178" height="112" fill="var(--card)" stroke="var(--line)"/>
+        <text x="404" y="50" class="s-lbl">③ 레벨 상승 학생</text>
+        <text x="404" y="84" font-family="var(--mono)" font-size="30" font-weight="600" fill="#C2410C">7<tspan font-size="15" fill="var(--muted)">/20명</tspan></text>
+        <text x="404" y="102" class="s-fnt" font-size="10.5">8주간 한 단계 이상 상승</text>
+        <g fill="#C2410C">
+          <rect x="404" y="122" width="12" height="10"/><rect x="420" y="118" width="12" height="14"/>
+          <rect x="436" y="112" width="12" height="20"/><rect x="452" y="120" width="12" height="12"/>
+          <rect x="468" y="108" width="12" height="24"/><rect x="484" y="104" width="12" height="28"/>
+          <rect x="500" y="110" width="12" height="22"/><rect x="516" y="100" width="12" height="32"/>
+        </g>
+      </g>
+      <g>
+        <rect x="582" y="28" width="178" height="112" fill="var(--card)" stroke="var(--line)"/>
+        <text x="598" y="50" class="s-lbl">④ 연속 학습일 중앙값</text>
+        <text x="598" y="84" font-family="var(--mono)" font-size="30" font-weight="600" fill="#D97706">11<tspan font-size="15" fill="var(--muted)">일</tspan></text>
+        <text x="598" y="102" class="s-fnt" font-size="10.5">습관이 붙었는지를 봅니다</text>
+        <polyline points="598,130 620,126 642,128 664,120 686,116 708,112 730,108 744,106"
+                  fill="none" stroke="#D97706" stroke-width="2"/>
+        <circle cx="744" cy="106" r="3.5" fill="#D97706"/>
+      </g>
+      <rect x="0" y="156" width="760" height="52" fill="var(--card-2)" stroke="var(--line)"/>
+      <text x="16" y="178" class="s-lbl" font-weight="700" fill="currentColor">주의 신호</text>
+      <text x="16" y="197" class="s-lbl">참여율이 60% 아래로 두 주 연속 떨어지면 — 기기 부족이거나 안내가 안 된 것입니다. 콘텐츠 문제가 아닙니다.</text>
+    </svg>
+    </div>
+    <figcaption><b>위 숫자는 화면 구성을 보이기 위한 예시 값입니다</b> — 특정 학원의 실적이 아닙니다.
+    도입 후에는 이 자리에 그 학원의 실제 값이 들어갑니다.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr><th style="width:150px">지표</th><th>무엇을 말해 주나</th><th style="width:104px">지금 측정</th><th style="width:88px">확인 주기</th></tr></thead>
+    <tbody>
+      <tr><td><b>① 참여율</b></td><td>도입이 «작동하고 있는가». 이 값이 낮으면 나머지 셋은 볼 필요가 없습니다</td><td><span class="chip c-good">바로 가능</span></td><td>주 1회</td></tr>
+      <tr><td><b>② 1인 발화시간</b></td><td>학부모에게 보여 줄 가장 강한 숫자. 도입 전후 비교가 명확합니다</td><td><span class="chip c-good">바로 가능</span></td><td>주 1회</td></tr>
+      <tr><td><b>③ 레벨 상승</b></td><td>실제로 늘었는가. 8주 이상 쌓여야 의미가 생깁니다</td><td><span class="chip c-good">바로 가능</span></td><td>월 1회</td></tr>
+      <tr><td><b>④ 연속 학습일</b></td><td>습관화 여부. 이 값이 떨어지면 몇 주 뒤 참여율이 따라 떨어집니다</td><td><span class="chip c-good">바로 가능</span></td><td>주 1회</td></tr>
+      <tr><td>재원 유지율</td><td>최종 성과. 다만 AI 도입만의 효과로 분리하기는 어렵습니다</td><td><span class="chip c-warn">해석 주의</span></td><td>분기</td></tr>
+      <tr><td>학교 성적</td><td>학부모가 가장 궁금해하지만, 내신은 변수가 너무 많습니다</td><td><span class="chip c-risk">인과 불가</span></td><td>학기</td></tr>
+    </tbody>
+  </table></div>
+  <p><small><b>마지막 두 줄을 성과 지표로 약속하지 마십시오.</b> 재원율과 내신은 AI 도입 말고도
+  담임 교체·시험 난이도·가정 사정에 함께 흔들립니다. 「AI 덕분에 성적이 올랐다」는 주장은
+  증명할 수 없고, 한 번 어긋나면 나머지 신뢰까지 함께 잃습니다.
+  <b>①~④만 약속하고, 그 넷은 확실히 지키는 편이 낫습니다.</b></small></p>
+</section>
+
+<!-- ══════════════════ 11. 확인 사항 ══════════════════ -->
+<section class="sheet" id="s11">
+  <div class="rail"><span class="no">11</span><h2>도입 전 확인 사항</h2><span class="tag">Checklist</span></div>
+
+  <p class="lead">제안서에 좋은 이야기만 적으면 도입 첫 주에 문제가 터집니다.
+  <strong>지금 상태에서 준비가 필요한 것</strong>을 먼저 적습니다.</p>
+
+  <h3>학원·학교에서 준비하실 것</h3>
+  <div class="tw"><table>
+    <thead><tr><th style="width:130px">항목</th><th>왜 필요한가</th><th style="width:126px">언제까지</th></tr></thead>
+    <tbody>
+      <tr><td><b>기기와 이어폰</b></td><td>A안은 공용 3~5대로 충분하지만, C·D안은 1인 1대와 <b>이어폰</b>이 필요합니다. 이어폰 없이 여럿이 동시에 말하면 음성인식이 옆 사람을 잡습니다</td><td>시작 1주 전</td></tr>
+      <tr><td><b>와이파이</b></td><td>AI 대화는 실시간 통신입니다. 교실 뒤편까지 신호가 닿는지 <b>학생이 앉는 자리에서</b> 확인해 주십시오</td><td>시작 1주 전</td></tr>
+      <tr><td><b>학생 명부</b></td><td>이름·아이디·반. 교재와 진도(과 번호)를 함께 주시면 웜업·복습퀴즈가 그 교재로 붙습니다</td><td>시작 2주 전</td></tr>
+      <tr><td><b>레벨 진단</b></td><td>명부의 학년·레벨 칸은 지금 대부분 비어 있습니다. <b>첫 주에 레벨테스트를 한 번 돌려야</b> 개인별 난이도가 시작점을 잡습니다</td><td>1주차</td></tr>
+      <tr><td><b>보호자 동의</b></td><td>음성 인식과 수업 녹화를 쓰는 경우 개인정보 동의가 필요합니다. 안내문 양식은 저희가 드립니다</td><td>시작 전</td></tr>
+      <tr><td><b>학부모 연락처</b></td><td>주간 리포트를 문자로 보내려면 보호자 번호가 필요합니다. 없으면 <b>발송이 조용히 0건이 됩니다</b></td><td>2주차</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>저희가 준비할 것</h3>
+  <div class="tw"><table>
+    <thead><tr><th style="width:130px">항목</th><th>내용</th><th style="width:126px">시점</th></tr></thead>
+    <tbody>
+      <tr><td><b>계정 발급</b></td><td>학생·강사·관리자 계정 일괄 생성. 반 편성 반영</td><td>시작 1주 전</td></tr>
+      <tr><td><b>교재 연동</b></td><td>쓰시는 교재를 시스템에 등록하고 과 단위로 문제은행을 연결</td><td>시작 1주 전</td></tr>
+      <tr><td><b>교사 교육</b></td><td>A안 기준 <b>30분</b>이면 충분합니다(관리자 화면에서 교재·과 지정, 참여율 보는 법)</td><td>1주차</td></tr>
+      <tr><td><b>안내문</b></td><td>학부모용 안내문·동의서 양식(한국어)</td><td>시작 전</td></tr>
+      <tr><td><b>주간 리포트</b></td><td>반별·학생별 학습 현황. 관리자 화면에서 상시 확인 + 학부모 발송</td><td>2주차~</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note warn">
+    <b>계정 보안은 도입 전에 정하고 시작해야 합니다.</b> 현재 학생 계정은 비밀번호 없이
+    아이디만으로 로그인하도록 운영돼 왔습니다(어린 학생이 많아 편의를 우선한 결과입니다).
+    학교나 규모 있는 학원에 도입하실 때는 <b>학생 비밀번호를 필수로 할지</b> 먼저 정해 주십시오 —
+    나중에 바꾸면 이미 쓰고 있는 학생 전원이 재설정을 해야 합니다.
+    저희 쪽 작업은 어렵지 않으나, <b>정책은 기관이 정하실 일</b>입니다.
+  </div>
+
+  <div class="note">
+    <b>안 되는 것도 미리 말씀드립니다.</b> ① 학생 명부만으로 학년·레벨을 자동 배정할 수 없습니다
+    (그 값이 비어 있어서, 진단을 한 번 돌려야 합니다). ② 숙제 제출·채점 기능은 아직 없습니다 —
+    AI 과제 수행 기록으로 대신 확인하십시오. ③ 수업 녹화는 3개월 보관 후 목록에서 내려갑니다.
+    더 길게 보관하려면 별도 협의가 필요합니다.
+  </div>
+</section>
+
+<!-- ══════════════════ 12. 부록 ══════════════════ -->
+<section class="sheet" id="s12">
+  <div class="rail"><span class="no">12</span><h2>부록 · 타 서비스와의 차이</h2><span class="tag">Appendix</span></div>
+
+  <p class="lead">학원에서 AI 영어 앱을 검토하실 때 함께 놓고 보시게 됩니다.
+  결론부터 말씀드리면, 개인 학습용으로는 훌륭하지만 <strong>«학원 교실에 끼워 넣는 일»</strong>에는
+  구조가 맞지 않습니다.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th style="width:130px">기준</th><th style="width:26%">개인용 회화 앱<br><small style="font-weight:400">Speak · ELSA 등</small></th><th style="width:26%">글로벌 AI 튜터<br><small style="font-weight:400">Khanmigo · Duolingo Max 등</small></th><th>망고아이</th></tr></thead>
+    <tbody>
+      <tr><td><b>커리큘럼</b></td><td>자체 커리큘럼 고정</td><td>자체 커리큘럼 고정</td><td><b>학원 교재·과에 연동</b></td></tr>
+      <tr><td><b>교실과의 관계</b></td><td>교실과 별개로 돌아감</td><td>교사 대시보드 있음(영어)</td><td><b>수업 앞뒤에 붙도록 설계</b></td></tr>
+      <tr><td><b>화면 언어</b></td><td>한국어 지원</td><td>주로 영어</td><td><b>한국어·영어 전환</b></td></tr>
+      <tr><td><b>원어민 강사 대응</b></td><td>해당 없음</td><td>해당 없음</td><td><b>강사 화면 영어 지원</b></td></tr>
+      <tr><td><b>화상수업</b></td><td>없음</td><td>없음</td><td><b>같은 플랫폼 안에 있음</b></td></tr>
+      <tr><td><b>출석·결제·리포트</b></td><td>없음</td><td>학교용 일부</td><td><b>학원 운영 기능 포함</b></td></tr>
+      <tr><td><b>난이도 조절</b></td><td>서비스마다 다름</td><td>서비스마다 다름</td><td><b>정답률 85% 규칙 자동</b></td></tr>
+      <tr><td><b>강점</b></td><td>발음 교정 정밀도가 높음</td><td>콘텐츠 규모가 크고 검증됨</td><td>교실 운영에 붙는 구조</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <b>정직하게 —</b> 발음 교정 하나만 놓고 보면 전문 서비스가 더 정밀할 수 있고,
+    콘텐츠 양은 글로벌 서비스가 압도적입니다. 저희의 강점은 «가장 좋은 AI»가 아니라
+    <b>«학원이 지금 쓰는 교재·시간표·강사 구조에 그대로 얹힌다»</b>는 점입니다.
+    도입 실패의 대부분은 AI 성능이 아니라 운영이 안 붙어서 생깁니다.
+  </div>
+
+  <hr>
+  <h4>참고 자료</h4>
+  <p><small>
+  · 2022 개정 영어과 교육과정 — 듣기·읽기를 «이해», 말하기·쓰기를 «표현» 영역으로 통합, 2026년부터 적용<br>
+  · R. C. Wilson et al., <i>The Eighty Five Percent Rule for Optimal Learning</i>, Nature Communications (2019) — 학습 최적 정답률 약 85%<br>
+  · Khan Academy Khanmigo 학교 도입 현황(2025–26학년도) 및 교사 업무 절감 사례<br>
+  · 도구 8종의 기능·레벨 규격은 망고아이 운영 시스템의 실제 구현을 기준으로 작성했습니다.
+  </small></p>
+
+  <hr>
+  <h4>다음 단계</h4>
+  <p>이 제안서를 검토하신 뒤 <strong>한 개 반을 골라 2주 파일럿</strong>을 제안드립니다.
+  준비물은 태블릿 3대와 학생 명부뿐이고, 결과가 마음에 들지 않으면 그 자리에서 멈추시면 됩니다.
+  되돌릴 것이 없다는 점이 A안의 가장 큰 장점입니다.</p>
+</section>
+
+<div class="foot">Mangoi · mangoi.ai — 학교·학원 AI 학습도구 도입 제안서 v1.0 · 2026-09-02</div>
+</div>
