@@ -1279,7 +1279,8 @@
     kakao:       () => { closeGrid();
                          if (window.openKakao) return window.openKakao();
                          const u = 'https://pf.kakao.com/_xlqnSxd';
-                         if (!window.open(u, '_blank', 'noopener')) location.href = u; },
+                         var _w = null; try { _w = window.open(u, '_blank'); } catch (e) {}
+                         if (_w) { try { _w.opener = null; } catch (e) {} } else location.href = u; },
     remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },

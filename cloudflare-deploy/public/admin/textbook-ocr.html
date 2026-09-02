@@ -110,6 +110,7 @@ select,input[type=number]{
 .tag.ok{ background:#ecfdf5; color:var(--ok); border:1px solid #a7f3d0; }
 .tag.bad{ background:#fef3f2; color:var(--bad); border:1px solid #fecdca; }
 .tag.warn{ background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.eng-sum{ font-size:12px; color:var(--tx2); margin:6px 0 8px; display:grid; gap:2px; }
 .log{ font-family:var(--mono); font-size:12px; color:var(--tx2); white-space:pre-wrap; word-break:break-word; }
 @media (max-width:640px){ .page .pb{ grid-template-columns:1fr; } }
 </style>
@@ -138,7 +139,9 @@ select,input[type=number]{
   <div class="note" style="background:#eff6ff;border-color:#bfdbfe;border-left-color:#1d4ed8;color:#1e3a5f">
     <b>낮은 권과 높은 권을 함께 보세요.</b> BTS 교재는 레벨이 낮을수록 글자가 적고 높을수록 많습니다.
     한쪽만 보면 «추출해도 쓸 게 없다»는 잘못된 결론이 납니다. 아래 두 칸에 서로 다른 권을 골라
-    각각 시험한 뒤, <b>영어 낱말 수</b>를 비교하세요.
+    각각 시험한 뒤, <b>본문 낱말 수</b>를 비교하세요.<br>
+    <span style="font-size:12.5px">※ «본문 낱말»은 <b>저작권 푸터·페이지 번호·QR 주소를 뺀</b> 값입니다 —
+    그 문구가 매 장에 있고 10~11낱말이라, 빼지 않으면 모든 장이 비슷해 보여 레벨 차이가 가려집니다.</span>
   </div>
 
   <div class="cols" id="cols">
@@ -155,10 +158,11 @@ select,input[type=number]{
       </div>
       <div class="stat">
         <div>돌린 장<b data-role="s-pages">—</b></div>
-        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>본문 낱말 평균<b data-role="s-words">—</b></div>
         <div>성공한 장<b data-role="s-ok">—</b></div>
         <div>모델 호출<b data-role="s-calls">—</b></div>
       </div>
+      <div class="eng-sum" data-role="s-eng"></div>
       <div class="log" data-role="log"></div>
       <div data-role="pages"></div>
     </div>
@@ -176,10 +180,11 @@ select,input[type=number]{
       </div>
       <div class="stat">
         <div>돌린 장<b data-role="s-pages">—</b></div>
-        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>본문 낱말 평균<b data-role="s-words">—</b></div>
         <div>성공한 장<b data-role="s-ok">—</b></div>
         <div>모델 호출<b data-role="s-calls">—</b></div>
       </div>
+      <div class="eng-sum" data-role="s-eng"></div>
       <div class="log" data-role="log"></div>
       <div data-role="pages"></div>
     </div>
@@ -265,21 +270,33 @@ select,input[type=number]{
     var elPages = root.querySelector('[data-role=pages]');
     var btnRun  = root.querySelector('[data-role=run]');
     var btnStop = root.querySelector('[data-role=stop]');
-    var stats = { pages: 0, ok: 0, words: 0, calls: 0 };
+    var stats = { pages: 0, ok: 0, words: 0, calls: 0, eng: {} };
 
     function paint() {
       root.querySelector('[data-role=s-pages]').textContent = stats.pages || '—';
       root.querySelector('[data-role=s-ok]').textContent    = stats.pages ? (stats.ok + ' / ' + stats.pages) : '—';
       root.querySelector('[data-role=s-words]').textContent = stats.pages ? Math.round(stats.words / stats.pages) : '—';
       root.querySelector('[data-role=s-calls]').textContent = stats.calls || '—';
+      /* 엔진별 — 「어느 엔진이 되는가」를 한눈에. 하나가 죽어도 나머지가 보입니다. */
+      var eb = root.querySelector('[data-role=s-eng]');
+      var names = Object.keys(stats.eng);
+      eb.innerHTML = names.length ? names.map(function (k) {
+        var e = stats.eng[k];
+        return '<div style="display:flex;gap:8px;align-items:baseline">'
+             + '<span style="min-width:130px">' + esc(k) + '</span>'
+             + '<b style="font-family:var(--mono);font-size:14px">' + Math.round(e.w / e.n) + '</b>'
+             + '<span>낱말 · 성공 ' + e.ok + '/' + e.n + '</span></div>';
+      }).join('') : '';
     }
     function log(s) { elLog.textContent = s; }
 
     function drawPage(d) {
       var box = document.createElement('div');
       box.className = 'page';
+      /* ⚠️ `words` 가 아니라 `unique_words` 로 고릅니다 — 반복해 토한 엔진이
+         「제일 많이 뽑았다」로 이기면 평균이 부풀려집니다(많이 뽑았다 ≠ 잘 읽었다). */
       var best = 0;
-      (d.results || []).forEach(function (r) { if (r.words > best) best = r.words; });
+      (d.results || []).forEach(function (r) { var w = (r.unique_words != null ? r.unique_words : r.words); if (w > best) best = w; });
       box.innerHTML =
         '<div class="ph"><b>' + esc(d.name || ('#' + d.id)) + '</b>'
         + '<span>' + Math.round((d.size_bytes || 0) / 1024) + 'KB</span>'
@@ -288,11 +305,18 @@ select,input[type=number]{
         + (d.results || []).map(function (r) {
             var tag = r.error ? '<span class="tag bad">실패</span>'
                     : r.prose ? '<span class="tag warn">설명문을 토함</span>'
-                    : r.ok    ? '<span class="tag ok">낱말 ' + r.words + ' · 영어 줄 ' + r.lines.length + '/' + r.line_total + '</span>'
+                    : r.ok    ? '<span class="tag ok">본문 낱말 ' + (r.unique_words != null ? r.unique_words : r.words) + ' · 영어 줄 ' + r.lines.length + '/' + r.line_total + '</span>'
                               : '<span class="tag bad">쓸 수 있는 영어 줄 0</span>';
             /* ⚠️ 길어서 버린 줄은 «오류» 가 아니라 «사실» 이다 — 조용히 사라지면
                글자가 많은 높은 권일수록 더 깎여 정반대 결론이 난다. */
             if (r.too_long > 0) tag += ' <span class="tag warn">너무 길어 뺀 줄 ' + r.too_long + '</span>';
+            /* 🔴 못 읽으면 «같은 문장을 계속 토합니다» — 그것을 성공으로 세면
+               「이 교재는 글자가 많다」는 거짓 결론이 납니다(실측: 84줄 중 대부분이 반복). */
+            if (r.repeat >= 0.3) tag += ' <span class="tag warn">같은 줄 반복 ' + Math.round(r.repeat * 100) + '%</span>';
+            /* 🔴 저작권 푸터가 낱말 수를 지배합니다 — 매 장에 「January 2019 Mangoi.com.
+               Do not reproduce or distribute. Page N」이 있고 그것만 10~11낱말입니다.
+               빼지 않으면 낮은 권과 높은 권이 «비슷해» 보여 이 시험의 답이 가려집니다. */
+            if (r.boiler_words > 0) tag += ' <span class="tag">저작권·머리말 ' + r.boiler_words + '낱말 제외</span>';
             return '<div class="eng"><div class="en">' + esc(r.label) + ' — ' + tag
                  + ' <span style="color:var(--tx3)">' + (r.ms || 0) + 'ms</span></div>'
                  + '<pre>' + esc(r.error ? ('오류: ' + r.error) : (r.raw || '(빈 응답)')) + '</pre></div>';
@@ -311,7 +335,7 @@ select,input[type=number]{
       busy = true; stop = false;
       btnRun.disabled = true; btnStop.disabled = false;
       elPages.innerHTML = '';
-      stats = { pages: 0, ok: 0, words: 0, calls: 0 }; paint();
+      stats = { pages: 0, ok: 0, words: 0, calls: 0, eng: {} }; paint();
       log('교재 목록을 받는 중…');
 
       api('/api/admin/textbook-files?book=' + encodeURIComponent(book) + '&limit=2000').then(function (d) {
@@ -355,7 +379,13 @@ select,input[type=number]{
           } else {
             stats.pages++; stats.calls += (d.calls || 0);
             var best = 0, anyOk = false;
-            (d.results || []).forEach(function (r) { if (r.words > best) best = r.words; if (r.ok) anyOk = true; });
+            (d.results || []).forEach(function (r) {
+            var w = (r.unique_words != null ? r.unique_words : r.words);
+            if (w > best) best = w; if (r.ok) anyOk = true;
+            /* 엔진별로 따로 셉니다 — 「어느 엔진이 되는가」가 이 시험의 첫 질문입니다 */
+            if (!stats.eng[r.label]) stats.eng[r.label] = { w: 0, ok: 0, n: 0 };
+            var e = stats.eng[r.label]; e.n++; e.w += w; if (r.ok) e.ok++;
+          });
             stats.words += best; if (anyOk) stats.ok++;
             drawPage(d);
           }

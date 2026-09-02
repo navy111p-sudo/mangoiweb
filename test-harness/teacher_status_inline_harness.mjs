@@ -391,9 +391,17 @@ for (const st of ['active', 'inactive', 'unknown']) {
   check(`  ${st} 상태에 색이 정해져 있다`, !!rule && /color:\s*#[0-9a-f]{6}\s*!important/i.test(rule));
   check(`  ${st} 배경은 background-color 로 쓴다`, !!rule && /background-color:/.test(rule));
 }
-/* 세 상태가 «서로 다른» 색이어야 구분이 산다 — 같은 색이면 클래스만 붙이고 뜻은 그대로다. */
-const trColors = trRules.map(r => (r.match(/[^-]color:\s*(#[0-9a-f]{6})/i) || [, ''])[1]).filter(Boolean);
-check('세 상태의 글자색이 서로 다르다', new Set(trColors).size === 3, trColors.join(' '));
+/* 세 상태가 «서로 다른» 색이어야 구분이 산다 — 같은 색이면 클래스만 붙이고 뜻은 그대로다.
+   ⚠️ 규칙 «개수» 로 세지 않는다 — 배지 종류가 하나 늘면(교재 «중지» .tr-st-off) 보장은 그대로인데
+      검사만 깨진다. 실제로 2026-09-02 에 그렇게 FAIL 이 났다. 물어야 할 것은 «이 세 상태가
+      서로 다른가» 이므로 그 셋만 골라서 본다. */
+const trColorOf = (mod) => {
+  const rule = trRules.find(r => r.includes('.tr-st-' + mod)) || '';
+  return (rule.match(/[^-]color:\s*(#[0-9a-f]{6})/i) || [, ''])[1];
+};
+const trColors = ['active', 'inactive', 'unknown'].map(trColorOf);
+check('세 상태의 글자색이 서로 다르다',
+  trColors.every(Boolean) && new Set(trColors).size === 3, trColors.join(' '));
 
 /* 글자색을 인라인 !important 로 덮는 페인터 셋에 «모두» 등재돼야 한다(한 곳만 하면 나머지가 덮는다). */
 check('실데이터 배지도 밝기 페인터 SKIP_SEL 에 등재됐다', /'\.tr-st-badge'/.test(paintSrc));
@@ -401,6 +409,19 @@ check('실데이터 배지도 adm-s12 KEEP_SEL 에 등재됐다',
   keepList.split(',').map(x => x.trim()).includes('.tr-st-badge'));
 check('실데이터 배지도 adm-s13 TX_KEEP 에 등재됐다',
   txList.split(',').map(x => x.trim()).includes('.tr-st-badge'));
+
+/* 🟢🚪❓ (2026-09-02 사장님 지시) 같은 카드 안 «직원 명부»·«교재 명부» 배지도 같은 사정이었다 —
+   인라인 색이라 테마 규칙에 눌려 상태가 색으로 안 갈렸다. 같은 클래스를 쓰므로 페인터 등재는
+   위에서 이미 끝나고, 여기서는 «인라인 색이 남아 있지 않은가» 와 «중지는 빨강이 아닌가» 를 본다. */
+check('직원 명부 배지도 클래스를 쓴다', /var stCls = 'tr-st-badge tr-st-' \+/.test(p7Src));
+check('교재 명부 배지도 클래스를 쓴다', /class="tr-st-badge '\s*\+\s*\(a\?'tr-st-active':'tr-st-off'\)/.test(p7Src));
+check('세 표 어디에도 옛 인라인 배지 색이 남아 있지 않다',
+  !/border-radius:99px;font-size:11px;font-weight:700;background:'\s*\+/.test(p7Src)
+  && !/#f1f5f9;color:#94a3b8/.test(p7Src));
+/* ⛔ 「중지」에 빨강을 쓰지 않는다 — 문제가 아니라 «지금 안 쓰는 것» 이라 정리 대상처럼 읽힌다. */
+const offRule = trRules.find(r => r.includes('.tr-st-off')) || '';
+check('교재 「중지」는 회색이다 (빨강 아님)',
+  /background-color:\s*#e5e7eb/.test(offRule) && !/#fee2e2/.test(offRule), offRule.slice(0, 60));
 
 /* ══════════════════════════════════════════════════════════════
    ⑪ 퇴사·비활동 강사의 «수업입장 🎥 · 수업관찰 👁» 은 흐리게

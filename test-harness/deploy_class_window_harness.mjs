@@ -106,6 +106,23 @@ ok('우회 사유가 요약에 남는다 (reason 이 갈린다)',
    decideHold({ now: inWindow, commitMessage: OVERRIDE_TAG }).reason === 'commit-override' &&
    decideHold({ now: inWindow }).reason === 'class-window');
 
+console.log('\n── ②-2 창 밖이어도 «지금 사람이 있으면» 보류한다 ──');
+/* 🔴 요일을 화·목으로 좁힌 대가(수·금·월이 창 밖)를 메우는 짝이다.
+   ⛔ 이 판정을 빼면 수·금·월은 «창도 없고 실접속 판정도 없는» 상태가 된다.
+   (자세한 검사는 test-harness/deploy_class_guard_harness.mjs — SQL 을 진짜 SQLite 에,
+    D1 조회를 가짜 fetch 로 돌린다. 여기서는 «창과 어떻게 맞물리는가» 만 못 박는다.) */
+const wedOut = new Date(Date.UTC(2026, 8, 2, 6, 0));   // 수요일 15:00 KST = 창 밖
+ok('수요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
+ok('수요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
+ok('그때 사유가 live-class 로 갈린다', decideHold({ now: wedOut, live: 2 }).reason === 'live-class');
+ok('창 안이면 실접속과 무관하게 class-window 가 이긴다',
+   decideHold({ now: inWindow, live: 5 }).reason === 'class-window');
+ok('강행은 실접속보다도 먼저다', decideHold({ now: wedOut, live: 5, force: 'true' }).hold === false);
+/* ⚠️ 조회를 못 하면 live=0 으로 온다 = 「수업 없음」이 아니라 「모름」. 그래도 막지 않는다
+   (고장 난 감시견이 모든 배포를 영구히 막는 쪽이 더 나쁘다). 대신 조용히 넘기지 않는다. */
+ok('조회 실패(live=0)에는 막지 않는다 — fail-open 이 유지된다',
+   decideHold({ now: wedOut, live: 0 }).reason === 'outside-window');
+
 console.log('\n── ③ 배포·검증 step 이 전부 그 판정에 걸려 있다 ──');
 const HOLD_GATE = "steps.class_window.outputs.hold != 'true'";
 /* step 블록을 `- name:` 경계로 자른다 — 길이로 자르면 옆 step 이 딸려 들어온다. */
@@ -170,6 +187,45 @@ ok('크론이 서로 90분 이상 떨어져 있다 (한 시간대가 통째로 �
 const lastGap = openLen - pos[pos.length - 1];
 ok(`창이 열리기(${CLASS_WINDOW_KST.start}) 전 마지막 크론이 30분 이상 여유를 둔다`,
    lastGap >= 30, `여유 ${lastGap}분`);
+
+/* 🔴 «창 밖» 이라고 «수업이 없다» 는 뜻이 아니다 — 창은 화·목만 막는다(사장님 결정).
+   그래서 크론 시각은 «창 밖» 만으로는 안전하지 않고, 창 밖에 실재하는 수업과도
+   떨어져 있어야 한다. 2026-09-02 실측에서 13:23 크론이 월 13:00~13:20 수업이 끝난
+   **3분 뒤** 였다 — 이 게이트가 막으려던 바로 그 사고를 크론이 스스로 냈을 것이다.
+   ⚠️ 이 표는 «그때 잰 것» 이다. D1 을 읽지 않으므로 새 수업이 생기면 여기 손으로 더해야
+      한다 — 그래서 «완전하지 않다». 그래도 손으로 옮기다 되돌리는 것은 막는다.
+   ⛔ 「창 밖이니 괜찮다」로 이 절을 지우지 마세요. */
+const OUT_WINDOW_CLASSES = [
+    // [설명, 시작 KST, 끝 KST]
+    // ── 예약표(class_schedules active, LMS·시드 제외) — 2026-09-02 실측
+    ['월 13:00 장지웅 (adm-enroll:85)', '13:00', '13:20'],
+    ['22:40 c24-mirror (화·목 밖에서는 무방비)', '22:40', '23:00'],
+    // ── 야간 실접속(attendance, last_seen_at 있는 행) — 이 저장소가 이미 적어 둔 구간.
+    //    🔴 처음에 이 두 줄을 빠뜨려 23:17 크론이 통과했다(2026-09-02). deploy.yml 의
+    //       「📜 처음에 23:35 로 잡았다가 물렸다」 주석이 그 시간대를 이미 말하고 있었는데,
+    //       내가 만든 표가 그것을 안 보고 있었다 — «이미 아는 것» 을 빠뜨린 검사였다.
+    //    ⚠️ 자정을 넘으므로 두 줄로 나눈다(아래 assert 가 강제한다).
+    ['야간 접속 23:20~ (실측)', '23:20', '23:59'],
+    ['야간 접속 ~01:20 (실측)', '00:00', '01:20'],
+];
+const CLASS_MARGIN_MIN = 15;   // 배포는 2분 30초쯤 걸린다 — 앞뒤로 이만큼은 비운다
+
+/* ⛔ 표를 비우면 검사가 통째로 사라지는데 «초록» 이다 — 이 저장소가 이미 밟은 모양
+   (CLAUDE.md 「목록을 비운 뒤에도 초록」). 그래서 «비어 있지 않다» 를 먼저 못 박는다. */
+ok('창 밖 수업 표가 비어 있지 않다 (비우면 이 절이 통째로 사라진다)',
+   OUT_WINDOW_CLASSES.length >= 4, `${OUT_WINDOW_CLASSES.length}줄`);
+
+for (const [label, st, en] of OUT_WINDOW_CLASSES) {
+    const a = hm(st), b = hm(en);
+    /* ⛔ 자정을 넘는 구간을 한 줄로 넣으면 아래 분 비교가 조용히 헛돈다
+       (실측: ['23:30','00:20'] 을 넣으면 13분 전인 크론도 통과했다). 두 줄로 나눌 것. */
+    ok(`«${label}» 이 자정을 넘지 않는다 (넘으면 두 줄로 나눌 것)`, b > a, `${st}~${en}`);
+    for (const m of kstMin) {
+        const clear = (m <= a - CLASS_MARGIN_MIN) || (m >= b + CLASS_MARGIN_MIN);
+        ok(`크론 ${pad(m)} 이 «${label}» 과 ${CLASS_MARGIN_MIN}분 이상 떨어져 있다`,
+           clear, `수업 ${st}~${en} · 크론 ${pad(m)}`);
+    }
+}
 
 /* ⛔ 시각을 안내 문구에 베껴 적으면 크론만 옮겼을 때 «언제 나가는지» 를 거짓으로 말한다
    (2026-09-01 #721 에서 실제로 그랬다). 정본은 deploy.yml 의 schedule 목록 하나뿐이다.

@@ -1,9 +1,19 @@
 /**
  * retention.ts — 보관기간 만료 데이터 자동 파기
  * 명세서 §3.2 보관기간:
- *  - 녹화본: 3개월 (2026-08-06 사장님 결정. 그 전 명세는 1개월)
- *    🔴 아래 «1) 녹화» 가 하는 일은 D1 행에 status='deleted' 를 다는 것뿐이다.
- *       R2 의 실제 영상 파일은 이 경로로 지워지지 않는다. 상세는 그 자리 주석 참조.
+ *  - 녹화본: **6개월** (2026-09-02 사장님 결정. 그 전은 3개월, 더 전은 1개월)
+ *    ⚠️ 이 기간은 «앞으로 만들어질» 녹화에만 붙는다 — `expires_at` 은 행을 만들 때 박히므로
+ *       명세를 바꿔도 이미 있는 행은 안 따라온다. 그래서 한동안 3개월짜리와 6개월짜리가 섞여 있다.
+ *       기존 2,098건은 학부모가 «3개월» 로 안내받고 동의한 것이라 **소급하지 않는다**(동의 범위).
+ *       그래서 동의 화면 문구(js/mango-consent.js)를 먼저 6개월로 바꾸고 기간을 올렸다.
+ *       🔴 다만 그것으로 «6개월 안내를 본 사람만 180일» 이 되지는 **않는다** — 동의 행이 이미
+ *          있으면 다시 묻지 않기 때문(CONSENT_VERSION 을 비교하지 않는다). 옛 동의자의
+ *          «앞으로 찍힐» 녹화에도 180일이 붙는다. 그 틈을 닫을지는 사람이 정할 문제(2026-09-02 미결).
+ *       기간을 정하는 정본은 `src/api-mango.ts` 의 `RETENTION_MS` 한 곳.
+ *    ✅ 2026-09-02 사장님 승인으로 **실제 파기를 켰다** — D1 표시 + R2 실물 삭제.
+ *       그때 옛 30일 값이 박혀 있던 1,483행의 expires_at 을 «수업일+90일» 로 소급 재계산했다
+ *       (안 하면 켜는 순간 6~7월 녹화 1,313건 10.46GB 가 한꺼번에 사라진다 — 그건 «늘린» 것이
+ *        아니라 동의 문구가 이미 3개월이었던 것에 **맞춘** 것이다).
  *  - 출결 기록: 수강 종료 후 3년
  *  - 보상 내역: 5년 (전자상거래법)
  *  - 카카오 ID: 탈퇴(동의 철회) 시 즉시
@@ -16,6 +26,17 @@
 export interface PurgeEnv {
   DB: D1Database;
   SESSION_STATE?: KVNamespace;
+  /** 녹화 R2 버킷. ⚠️ 옵셔널 — 바인딩이 없는 환경에서는 R2 삭제를 건너뛰고 D1 표시만 한다
+      (파기가 «안 되는» 것이 파기가 «잘못 되는» 것보다 안전하다). */
+  RECORDINGS?: R2Bucket;
+}
+
+/** 파기 옵션 */
+export interface PurgeOptions {
+  /** true 면 아무것도 지우지 않고 «몇 건이 지워질지» 만 센다 */
+  dryRun?: boolean;
+  /** 한 번에 R2 에서 지울 최대 개수. Worker 실행시간 보호용(기본 200). 나머지는 다음 실행에서 */
+  maxRecordingDeletes?: number;
 }
 
 export interface PurgeResult {
@@ -29,9 +50,17 @@ export interface PurgeResult {
   consents_masked: number;
   ai_writing: number;
   errors: string[];
+  /** R2 에서 실제로 지운 영상 파일 수 */
+  recording_files_deleted?: number;
+  /** R2 삭제에 실패해 다음 실행으로 미룬 수 (file_url 이 남아 다시 시도된다) */
+  recording_files_failed?: number;
+  /** 이번 실행에서 처리하지 못하고 남은 만료 건수(상한에 걸림) */
+  recording_files_remaining?: number;
+  /** dryRun 이었는가 */
+  dry_run?: boolean;
 }
 
-export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
+export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Promise<PurgeResult> {
   const now = Date.now();
   const DAY = 24 * 3600 * 1000;
   const result: PurgeResult = {
@@ -44,26 +73,84 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
     emergency_events: 0,
     consents_masked: 0,
     ai_writing: 0,
-    errors: []
+    errors: [],
+    recording_files_deleted: 0,
+    recording_files_failed: 0,
+    recording_files_remaining: 0,
+    dry_run: !!opts.dryRun
   };
 
-  // 1) 녹화: expires_at 지난 것 (3개월)
-  //
-  // 🔴 여기는 «파기» 가 아니다 — D1 행에 status='deleted' 표시만 한다.
-  //    R2 의 실제 영상 파일(webrtc-class-recordings)은 그대로 남는다.
-  //    게다가 이 행은 UPDATE 라 계속 남아 있고 file_url 도 그대로여서,
-  //    고아 청소기(recordings-cleanup.ts)가 «D1 에 기록이 있는 살아있는 파일» 로 보고
-  //    보호한다 → 만료된 아동 화상수업 영상이 사실상 무기한 보관된다.
-  //
-  //    실제 파기를 켜려면 (1) 여기서 file_url 로 env.RECORDINGS.delete 호출
-  //    (2) 고아 청소기의 보호 목록에서 status='deleted' 행 제외 — 두 가지가 함께 필요하다.
-  //    되돌릴 수 없는 대량 삭제라 사장님 승인 + dryRun 선행 없이는 켜지 않는다.
+  /* 1) 녹화 파기 — 만료된 영상의 R2 실물을 지우고 D1 에 반영한다.
+        (2026-09-02 사장님 승인으로 켜짐. 그전에는 D1 에 표시만 하고 파일은 남겼다)
+
+     ⚠️ 순서가 중요하다: **D1 표시가 먼저, R2 삭제가 나중.**
+        반대로 하면 삭제 도중에 죽었을 때 «목록엔 완료인데 영상이 없는» 상태가 된다 —
+        2026-08-26 에 실제로 났던 사고다. 이 순서면 최악이어도 «표시는 만료인데 파일이 남은»
+        상태로 끝나고, 그건 파기 전과 같으므로 다음 실행이 다시 지운다.
+
+     ⚠️ 조회 조건에 status 를 넣지 않는다. D1 표시 뒤 R2 삭제가 실패하면 그 행은 이미
+        'deleted' 라서, status 로 거르면 **영영 재시도되지 않는다.** 판정 기준은
+        «아직 키가 남아 있는가»(file_url) 이고, 그래서 삭제에 성공했을 때만 그 칸을 비운다.
+        그 칸은 고아 청소기(recordings-cleanup.ts)가 보호 목록을 만들 때 읽는 값이기도 해서,
+        비우는 순간 «보호할 이유»도 함께 사라진다.
+
+     ⛔ 되돌릴 수 없다. 옵션 dryRun 으로 먼저 건수를 확인할 것. */
   try {
-    const r = await env.DB.prepare(
-      `UPDATE recordings SET status = 'deleted'
-       WHERE expires_at IS NOT NULL AND expires_at < ? AND status != 'deleted'`
-    ).bind(now).run();
-    result.recordings = r.meta.changes || 0;
+    const LIMIT = Math.max(1, Math.min(1000, opts.maxRecordingDeletes ?? 200));
+
+    /* ⚠️ `file_url` 이 R2 키가 아닌 행이 있다 — 그 칸은 실패 진단에도 쓰인다:
+          `DEBUG:`+업로드 로그 · `FATAL:`+예외 · 외부 녹화의 `https://…`
+          (src/index.ts 의 `_saveDebug` 경로, api-mango.ts 의 외부 URL 분기).
+       R2 `delete()` 는 **없는 키에도 예외를 던지지 않고 성공**하므로, 그대로 넘기면
+       「지웠다」로 세고 그 칸을 비워 **저장 실패의 원자료를 영구히 잃는다.**
+       그래서 진짜 R2 키(`rec/`)만 고른다 — 못 고른 것은 «안 지우는» 쪽으로 실패한다.
+       [잰 것 — 2026-09-02 운영 D1] file_url 분포: `rec/` 2,071건 · 빈 값 27건 ·
+       DEBUG/FATAL/외부주소 0건. 지금 반경은 0이지만 위 경로들이 살아 있어 구조적으로 생길 수 있다. */
+    const KEY_COND = `file_url IS NOT NULL AND file_url LIKE 'rec/%'`;
+
+    /* 남은 건수는 «따로» 센다. LIMIT 로 잘린 배열 길이로는 몇 건이 남았는지 알 수 없고
+       (LIMIT+1 로 재면 언제나 «1건 남음» 이 된다), dryRun 이 세야 할 «전체 건수» 도 잘린다. */
+    const cnt = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM recordings
+        WHERE expires_at IS NOT NULL AND expires_at < ? AND ${KEY_COND}`
+    ).bind(now).first<{ n: number }>();
+    const totalExpired = Number(cnt?.n || 0);
+
+    const rs = await env.DB.prepare(
+      `SELECT id, file_url FROM recordings
+        WHERE expires_at IS NOT NULL AND expires_at < ? AND ${KEY_COND}
+        ORDER BY expires_at ASC LIMIT ?`
+    ).bind(now, LIMIT).all<{ id: number; file_url: string }>();
+
+    const rows = (rs.results || []).slice();
+    result.recording_files_remaining = Math.max(0, totalExpired - rows.length);
+
+    if (opts.dryRun) {
+      result.recordings = totalExpired;          // 상한에 잘리지 않은 «진짜 건수»
+    } else {
+      const upd = await env.DB.prepare(
+        `UPDATE recordings SET status = 'deleted'
+         WHERE expires_at IS NOT NULL AND expires_at < ? AND status != 'deleted'`
+      ).bind(now).run();
+      result.recordings = upd.meta.changes || 0;
+
+      for (const row of rows) {
+        const key = String(row.file_url || '').trim();
+        if (!key) continue;
+        if (!env.RECORDINGS) {                 // 바인딩이 없는 환경 — 지우지 않고 미룬다
+          result.recording_files_failed = (result.recording_files_failed || 0) + 1;
+          continue;
+        }
+        try {
+          await env.RECORDINGS.delete(key);
+          await env.DB.prepare(`UPDATE recordings SET file_url = NULL WHERE id = ?`).bind(row.id).run();
+          result.recording_files_deleted = (result.recording_files_deleted || 0) + 1;
+        } catch {
+          // 키를 남겨 둔다 → 다음 실행에서 다시 시도된다
+          result.recording_files_failed = (result.recording_files_failed || 0) + 1;
+        }
+      }
+    }
   } catch (e: any) { result.errors.push('recordings: ' + e.message); }
 
   // 2) 출결: left_at으로부터 3년 지난 것 (left_at 없으면 joined_at 기준)

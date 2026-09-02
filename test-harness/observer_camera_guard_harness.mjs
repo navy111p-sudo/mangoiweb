@@ -299,7 +299,9 @@ console.log('\n▶ G. 참관 대상이 없을 때의 안내문');
         /location\.origin \+ location\.pathname \+ q/.test(g));
 
   /* 관제탑 — 세 갈래가 «같은 참관» 이고 기록 사유만 다르다 */
-  const wall = read(join(PUB, 'admin', 'monitor-wall.html'));
+  /* 📦 (2026-09-02) 관제탑 화면 코드는 /js/monitor-wall.js 로 나갔다 — 두 파일을 합쳐서 본다. */
+  const wall = read(join(PUB, 'admin', 'monitor-wall.html'))
+             + '\n' + read(join(PUB, 'js', 'monitor-wall.js'));
   const w = strip(wall);
   check('G⑧ 관제탑에 귓속말·소리만 버튼이 있다',
         /data-act="observe-whisper"/.test(w) && /data-act="observe-audio"/.test(w));

@@ -255,6 +255,17 @@ export function planMirror(
     perDay.set(k, (perDay.get(k) || 0) + 1);
   }
 
+  /* 🔴 «같은 자리 경합» (2026-09-02 최검 실사고) — 같은 학생·같은 날·같은 시각을 카페24가
+       «둘 이상의 강사» 로 들고 있는가. 그 자리에 한 강사가 잡혀 있어도 강사가 다르면 «잔재» 다.
+       아래 1-b) 절이 이 표와 slotSeen 으로 «누가 진짜인가» 를 정한다. */
+  const perSlot = new Map<string, Set<string>>();
+  for (const c of classes) {
+    const k = `${String(c.user_id || '')}|${String(c.date || '')}|${msToKstHm(c.start_ms)}`;
+    const set = perSlot.get(k) || new Set<string>();
+    set.add(c.teacher_id == null || c.teacher_id === '' ? '' : String(c.teacher_id));
+    perSlot.set(k, set);
+  }
+
   for (const c of classes) {
     const date = String(c.date || '');
     const time = msToKstHm(c.start_ms);
@@ -294,6 +305,44 @@ export function planMirror(
       continue;
     }
 
+    /* ── 1-b) 🔴 같은 자리 경합 — «이력이 많은 쪽» 이 진짜다 (2026-09-02 최검 실사고) ──
+       발단: 최검 9/2 18:20 이 카페24에 두 건이었다 — Win 512215(그 자리 이력 11건) · Len 512222(이력 2건,
+             7/8 한 번 + 오늘). 2-b) 잔재 판정은 이력이 2건이면 통과시키므로 Len 쪽이 먼저 만들어졌고,
+             그 뒤 Win 을 만들 때 같은 자리라 «강사 변경(update)» 으로 Win 에게 넘어갔다 — 거기까지는 맞았다.
+             그런데 다음 감시견(17:15)이 Len 512222 를 다시 읽고 «강사 변경 → Len» 으로 되돌렸다.
+             ⟹ 같은 자리에 두 강사가 있으면 **돌 때마다 강사가 번갈아 바뀐다** — 옛 코드는 «행을 아직 안 가진 쪽» 이
+             매 회차 update 를 얻는 구조라 읽는 순서와 무관하게 뒤집힌다(운영 D1 실측: 행 1230 의 teacher_id 가
+             17:06:22 → 19(Win) · 17:15:52 → 18(Len) · 17:30:48 → 19(Win). 행 1282 이경록도 8 → 18 → 8).
+             이경록 9/2 16:50(Kaye ↔ Len)도 같은 모양이었다. 에러는 안 나고 강사 화면만 매 15분 뒤집힌다.
+       ✅ 판정을 «순서» 가 아니라 «이력» 으로 고정한다 — 그 자리를 그 강사가 지금까지 몇 번 가르쳤는가.
+          많은 쪽이 진짜, 나머지는 잔재(suspect_dup). 이력이 같으면(예: 신입 학생, 둘 다 1건) 아무도
+          못 이기고 둘 다 보류 — 사람이 카페24에서 정한다. ⚠️ 동률은 «저절로 풀리지 않는다» — 야간 동기화가
+          두 예약을 똑같이 세어 이력이 나란히 늘어난다. 기다리지 말고 카페24에서 하나를 지워야 한다.
+       ⛔ 진 쪽이 «이미 있는 행» 을 가리키고 있어도 update 로 덮어쓰지 않는다 — 그것이 진동의 원인이었다.
+          **길이만 다른 경우도 마찬가지다** — applyMirror 의 UPDATE 는 teacher_id 까지 통째로 쓰므로 «수업 길이
+          20→30» 이라는 update 하나가 강사까지 진 쪽으로 되돌린다(trap-check 가 잡음 — 잔재는 30/20 짝이 흔하다).
+          같은 강사·같은 길이로 이미 있으면 그대로 already(O-5 규칙: 지난 일을 되짚지 않는다).
+       ⚠️ 이력이 비어 있으면(slotSeen 이 빈 Map) 2-b) 와 같은 이유로 통째로 건너뛴다.
+       감시: test-harness/c24_mirror_harness.mjs O-12(순서를 바꿔 두 번 돌려 같은 답이 나오는지). */
+    const rivals = perSlot.get(`${uid}|${date}|${time}`);
+    let contestLoser = false;
+    let contestDetail = '';
+    if (slotSeen.size > 0 && rivals && rivals.size > 1) {
+      const myN = slotSeen.get(slotKey(uid, c24tid, time)) || 0;
+      let best = -1; let bestTid = ''; let holders = 0;
+      for (const t of rivals) {
+        const n = slotSeen.get(slotKey(uid, t || null, time)) || 0;
+        if (n > best) { best = n; bestTid = t; holders = 1; } else if (n === best) holders++;
+      }
+      if (myN < best || holders > 1) {
+        contestLoser = true;
+        const who = links.get(bestTid)?.name || (bestTid ? `카페24 ${bestTid}` : '강사 미상');
+        contestDetail = holders > 1 && myN === best
+          ? `같은 ${time} 자리에 카페24 수업이 ${rivals.size}건(강사 ${rivals.size}명)인데 이력이 모두 ${myN}회라 어느 쪽이 진짜인지 정할 수 없습니다 — 카페24에서 확인해 주세요`
+          : `같은 ${time} 자리에 카페24 수업이 ${rivals.size}건 — 이력 ${best}회인 «${who}» 를 진짜로 보고, 이 쪽(${myN}회)은 강사 변경 잔재로 보아 만들지 않았습니다`;
+      }
+    }
+
     // ── 2) 이미 있는 행과 맞춰 본다 ──
     const mine = existing.filter(e => String(e.status || '') !== 'cancelled' && sameSlot({ user_id: uid, date, time }, e));
     const manual = existing.find(e =>
@@ -312,6 +361,7 @@ export function planMirror(
       const sameTeacher = String(mirrored.teacher_id || '') === teacherId;
       const sameDur = Number(mirrored.duration_min || 0) === dur;
       if (sameTeacher && sameDur) push('already', undefined, mirrored.id);
+      else if (contestLoser) push('suspect_dup', contestDetail + ' (이미 있는 행을 덮어쓰지 않음)', mirrored.id);
       else push('update', sameTeacher ? `수업 길이 ${mirrored.duration_min}분 → ${dur}분` : `강사 변경 → ${teacherName}`, mirrored.id);
       continue;
     }
@@ -359,9 +409,10 @@ export function planMirror(
          한 줄 덧붙인다 — 이 신호가 성적표에 안 보이면 다음 강사를 켤 때 같은 사고가 난다. */
       push('not_whitelisted',
         (mode === 'off' ? '그림자 단계 — 아직 만들지 않습니다' : '아직 켜지 않은 강사')
-        + (suspect ? ' ⚠ 이 자리는 «강사 변경 잔재» 로 의심됩니다 — 켜기 전에 카페24에서 확인하세요' : ''));
+        + (suspect || contestLoser ? ' ⚠ 이 자리는 «강사 변경 잔재» 로 의심됩니다 — 켜기 전에 카페24에서 확인하세요' : ''));
       continue;
     }
+    if (contestLoser) { push('suspect_dup', contestDetail); continue; }
     if (suspect) {
       push('suspect_dup',
         `그날 이 학생의 카페24 수업이 ${dayCount}건인데, 그중 이 ${time} 자리는 이력에 한 번뿐입니다`
@@ -889,7 +940,29 @@ export async function setMirrorMode(env: MirrorEnv, mode: MirrorMode): Promise<v
   ).bind(mode, Date.now()).run();
 }
 
-/** 강사 한 명 켜기/끄기 (원부번호 기준) */
+/* 🔴 (2026-09-02) «켜짐 / 꺼짐 / 막힘» 은 «세» 가지다 — 두 가지로 뭉치면 되돌릴 길이 사라진다.
+     발단: 사장님이 CINDY 를 켠 뒤 화면의 «끄기» 를 누르셨는데, 그 버튼이 `enabled = 0`
+     을 썼다. 그런데 이 파일에서 `enabled = 0` 은 «아직 안 켬» 이 아니라 **«켜지 마라»**
+     (퇴사 강사용, 2026-09-01 9-2절)라서, CINDY 가 퇴사자와 같은 «막힘» 칸으로 들어갔고
+     화면은 막힌 줄의 켜기 버튼을 비활성으로 그리므로 **되돌릴 방법이 화면에 없었다.**
+       · 행 없음        = 꺼짐 (아직 안 켬 — 언제든 켤 수 있다)
+       · enabled = 1    = 켜짐
+       · enabled = 0    = 막힘 (전환일 mode='all' 에서도 안 만든다)
+     ⛔ 이 뜻을 바꾸지 말 것 — `getMirrorTeachers()`·`getMirrorBlocked()` 와 짝이고,
+        명부에서 «퇴사» 로 내릴 때 자동 차단하는 코드(api-admin.ts)도 이 뜻에 기댄다. */
+
+/** 화이트리스트에서 «빼기» — 행을 지워 «꺼짐»(아직 안 켬)으로 되돌린다.
+    ⚠️ «막기»(enabled = 0)와 다르다. 끄기는 이쪽이고, 막기는 setMirrorTeacher(…, false) 다. */
+export async function clearMirrorTeacher(env: MirrorEnv, teacherId: string): Promise<number> {
+  await ensureMirrorTables(env);
+  const r: any = await env.DB.prepare(
+    `DELETE FROM c24_mirror_teachers WHERE teacher_id = ?`
+  ).bind(String(teacherId)).run();
+  return Number(r?.meta?.changes || 0);
+}
+
+/** 강사 한 명 켜기(true) / **막기**(false) — 원부번호 기준.
+    ⚠️ false 는 «끄기» 가 아니라 «막기» 다. 끄려면 clearMirrorTeacher() 를 쓸 것. */
 export async function setMirrorTeacher(
   env: MirrorEnv, teacherId: string, enabled: boolean, actor?: string, note?: string,
 ): Promise<void> {

@@ -72,8 +72,15 @@ check('만들어지는 팝업은 꺼진 상태다', /enabled:\s*false/.test(setu
 check('만들기 전에 외부 주소를 막는다', /charAt\(1\)\s*===\s*'\/'/.test(setupBare));
 check('이미 있으면 사람에게 묻는다(두 번 눌러 두 벌 생기는 것 방지)',
   /confirm\(/.test(setupBare) && /indexOf\(PAGE\)\s*===\s*0/.test(setupBare));
+/* 🔴 (2026-09-02) 이 검사를 «식 모양»(`if (!w) location.href`)으로 못 박아 두었더니, 보장은
+   그대로인데 검사만 깨졌다(`if (w) {…} else location.href`). 뜻으로 묻는다 —
+   ① 'noopener' 를 기능 문자열로 주지 않는다(주면 탭이 열려도 반환이 null 이라 «늘 폴백» 한다)
+   ② 진짜로 못 열었을 때 같은 창으로 간다  ③ noopener 를 뺀 만큼 opener 는 손으로 끊는다 */
 check('미리보기가 새 창을 못 열면 같은 창으로 연다',
-  /window\.open\(/.test(setupBare) && /if\s*\(!w\)\s*location\.href/.test(setupBare),
+  /window\.open\(/.test(setupBare)
+  && !/window\.open\([^)]*noopener/.test(setupBare)
+  && /location\.href\s*=\s*url/.test(setupBare)
+  && /\.opener\s*=\s*null/.test(setupBare),
   '카톡 인앱 브라우저는 새 창을 못 열고 null 만 돌려준다 (CLAUDE.md 2장)');
 check('상태 문구가 색 말고 기호로도 뜻을 지고 간다', /'⚠️ '/.test(setupBare) && /'✅ '/.test(setupBare),
   '카드 안 글자를 #101828 !important 로 덮는 전역 규칙이 있다');

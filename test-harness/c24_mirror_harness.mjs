@@ -990,6 +990,65 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
   check('O-7 강사번호가 없으면 빈 칸으로 센다', K('a', null, '17:40') === 'a||17:40');
   check('O-7 summarize 에 suspect_dup 칸이 있다', M.summarize([]).suspect_dup === 0);
 
+  // ── O-12 🔴 «같은 자리 경합» — 2026-09-02 최검 실사고: 돌 때마다 강사가 번갈아 바뀌던 것 ──
+  /* 실측: 최검 9/2 18:20 이 카페24에 두 건 — Win 512215(그 자리 이력 11회) · Len 512222(이력 2회).
+     17:06 Win 만들기 → 행이 Win 으로(update) · 17:15 감시견 → 다시 Len 으로(update) … 15분마다 뒤집힘.
+     고침: 이력이 많은 쪽이 진짜. 진 쪽은 «이미 있는 행» 이 있어도 덮어쓰지 않는다. 순서와 무관해야 한다. */
+  {
+    const LINKS_9 = new Map([['181', { name: 'Teacher Win', teacherId: '19' }],
+                             ['190', { name: 'Teacher Len', teacherId: '18' }]]);
+    const STU_9 = new Map([['jy1s016', '최검']]);
+    const c9 = (id, tid, uid = 'jy1s016', time = '18:20') => ({
+      class_id: id, user_id: uid, date: '2026-09-02', start_ms: KST('2026-09-02', time),
+      end_ms: KST('2026-09-02', time) + 20 * 60000, class_state: 1, teacher_id: tid,
+    });
+    const SEEN_9 = new Map([[K('jy1s016', '181', '18:20'), 11], [K('jy1s016', '190', '18:20'), 2]]);
+    const run9 = (list, existing = [], seen = SEEN_9) =>
+      vmap(M.planMirror(list, LINKS_9, STU_9, existing, 'whitelist', new Set(['19', '18']), new Set(), seen));
+    const WIN = c9('512215', '181'), LEN = c9('512222', '190');
+    const row = (tid) => [{ id: 1230, user_id: 'jy1s016', teacher_id: tid, scheduled_date: '2026-09-02',
+      start_time: '18:20', duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:512222' }];
+
+    const a = run9([WIN, LEN]), b = run9([LEN, WIN]);
+    check('🔴 O-12 행이 없을 때: 이력 11회(Win)만 만들고 2회(Len)는 잔재', a['512215'] === 'ok' && a['512222'] === 'suspect_dup', JSON.stringify(a));
+    check('🔴 O-12 순서를 바꿔도 같은 답', JSON.stringify(a) === JSON.stringify(b), JSON.stringify(b));
+
+    const c = run9([WIN, LEN], row('18')), d = run9([LEN, WIN], row('18'));
+    check('🔴 O-12 행이 Len 으로 있으면: Win 은 «강사 변경», Len 은 already(자기 행)', c['512215'] === 'update' && c['512222'] === 'already', JSON.stringify(c));
+    check('🔴 O-12 (순서 바꿔도)', JSON.stringify(c) === JSON.stringify(d), JSON.stringify(d));
+
+    const e = run9([WIN, LEN], row('19')), f = run9([LEN, WIN], row('19'));
+    check('🔴 O-12 행이 Win 으로 있으면: Win 은 already, Len 은 «덮어쓰지 않음»(update 가 아니다 — 여기가 진동이었다)',
+      e['512215'] === 'already' && e['512222'] === 'suspect_dup', JSON.stringify(e));
+    check('🔴 O-12 (순서 바꿔도 되돌아가지 않는다)', JSON.stringify(e) === JSON.stringify(f), JSON.stringify(f));
+    const eRow = M.planMirror([WIN, LEN], LINKS_9, STU_9, row('19'), 'whitelist', new Set(['19', '18']), new Set(), SEEN_9).find(r => r.class_id === '512222');
+    check('O-12 덮어쓰지 않은 판정은 그 행 id 와 이유를 함께 준다', eRow.existing_id === 1230 && /잔재/.test(String(eRow.detail || '')), JSON.stringify(eRow));
+
+    // 이력이 같으면(신입 학생 — 이준영 9/3 20:30 Far 1 · Wan 1) 아무도 못 이긴다 → 둘 다 보류
+    const TIE = new Map([[K('jy1s016', '181', '18:20'), 1], [K('jy1s016', '190', '18:20'), 1]]);
+    const t = run9([WIN, LEN], [], TIE);
+    check('🔴 O-12 이력이 같으면 둘 다 보류(사람이 정한다)', t['512215'] === 'suspect_dup' && t['512222'] === 'suspect_dup', JSON.stringify(t));
+    const tRow = M.planMirror([WIN, LEN], LINKS_9, STU_9, row('18'), 'whitelist', new Set(['19', '18']), new Set(), TIE).find(r => r.class_id === '512215');
+    check('🔴 O-12 이력이 같을 때도 이미 있는 행(다른 강사)을 덮어쓰지 않는다', tRow.verdict === 'suspect_dup', JSON.stringify(tRow));
+
+    // 경합이 아니면(그 자리에 강사 하나) 진짜 강사 변경은 그대로 update 다
+    const g = run9([WIN], row('18'));
+    check('O-12 경합이 아닌 진짜 강사 변경은 그대로 update', g['512215'] === 'update', JSON.stringify(g));
+    // 이력을 못 읽었으면 판정을 건너뛴다(O-4 와 같은 이유)
+    const h = run9([WIN, LEN], [], new Map());
+    check('O-12 이력이 비면 경합 판정도 건너뛴다', h['512215'] === 'ok' && h['512222'] === 'ok', JSON.stringify(h));
+    // 안 켠 강사에게도 «켜기 전에 볼 것» 한 줄
+    const n9 = M.planMirror([WIN, LEN], LINKS_9, STU_9, [], 'whitelist', new Set(['19']), new Set(), SEEN_9).find(r => r.class_id === '512222');
+    check('O-12 안 켠 강사의 잔재도 detail 로 알려 준다', n9.verdict === 'not_whitelisted' && /잔재/.test(String(n9.detail || '')), JSON.stringify(n9));
+    // 🔴 trap-check 지적: 진 쪽이 «같은 강사인데 길이만 다르면» update(길이) 로 흘러 teacher_id 까지 되돌렸다
+    const LEN30 = { ...c9('512222', '190'), end_ms: KST('2026-09-02', '18:20') + 30 * 60000 };
+    const w = M.planMirror([WIN, LEN30], LINKS_9, STU_9, row('18'), 'whitelist', new Set(['19', '18']), new Set(), SEEN_9);
+    const wv = Object.fromEntries(w.map(r => [r.class_id, r.verdict]));
+    check('🔴 O-12 진 쪽이 같은 강사·다른 길이여도 update 가 아니다(길이 update 가 강사까지 되돌린다)',
+      wv['512215'] === 'update' && wv['512222'] === 'suspect_dup', JSON.stringify(wv));
+    check('🔴 O-12 한 회차에 같은 행으로 update 가 두 건 나가지 않는다', w.filter(r => r.verdict === 'update').length === 1);
+  }
+
   // ── O-8 🔴 «정본 함수를 진짜 SQLite 에 물려» 돌린다 ──────────────────────────
   /* ⚠️ 처음에는 SQL 을 손으로 «베껴» 돌렸는데, 그러면 정본을 한 번도 실행하지 않는다.
        trap-check 가 그 상태에서 정본만 망가뜨려 보고 잡았다 — slotKey 인자를 뒤바꿔도,
@@ -1110,6 +1169,104 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
   const bare = MIRROR_TS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   check('🔴 O-11 그 속성으로 «판정» 하지 않는다 — 뜻을 확인하기 전까지는 보여 주기만 한다',
     !/prop_keys[\s\S]{0,200}(verdict|push\()/.test(bare));
+}
+
+
+/* ═══════════════ P. «켜짐 / 꺼짐 / 막힘» 세 상태 (2026-09-02) ═══════════════
+   발단 — 사장님이 CINDY 를 켠 직후 화면의 «끄기» 를 누르셨는데, 그 버튼이 `enabled = 0`
+   을 보냈다. 그런데 이 저장소에서 `enabled = 0` 은 «아직 안 켬» 이 아니라 **«켜지 마라»**
+   (퇴사 강사용)라, CINDY 가 퇴사자와 같은 «막힘» 칸으로 들어갔고 화면은 막힌 줄의 버튼을
+   비활성으로 그리므로 **되돌릴 길이 화면에 없었다**(D1 을 직접 손대야 했다).
+   ⚠️ 문자열 검사로는 못 잡힌다 — 함수도 값도 다 «있고» 틀린 것은 «무슨 뜻인가» 뿐이다.
+   ✅ 그래서 진짜 SQLite 를 D1 모양으로 감싸 정본을 **실제로 돌려** 세 상태를 확인한다. */
+{
+  console.log('\nP. 켜짐/꺼짐/막힘 세 상태');
+
+  const db = new DatabaseSync(':memory:');
+  const d1 = {
+    prepare(sql) {
+      const st = {
+        _b: [],
+        bind(...a) { st._b = a; return st; },
+        async all() { return { results: db.prepare(sql).all(...st._b) }; },
+        async first() { return db.prepare(sql).get(...st._b) ?? null; },
+        async run() { const r = db.prepare(sql).run(...st._b); return { meta: { changes: Number(r.changes || 0) } }; },
+      };
+      return st;
+    },
+    async exec(sql) { db.exec(sql); },
+  };
+  /* class_schedules 가 없으면 ensureMirrorTables 의 부분 유니크 인덱스가 던지는데,
+     정본이 그것을 try 로 삼키므로 표만 있으면 된다 — 없어도 나머지는 그대로 돈다. */
+  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, notes TEXT, source TEXT)`);
+  const env = { DB: d1 };
+
+  await M.setMirrorTeacher(env, '5', true, 'harness');
+  await M.setMirrorTeacher(env, '11', false, 'harness');       // 퇴사 = 막힘
+  let on = await M.getMirrorTeachers(env), blocked = await M.getMirrorBlocked(env);
+  check('P① 켜기는 «켜짐»', on.has('5') && !blocked.has('5'));
+  check('P② setMirrorTeacher(false) 는 «막힘»(전환일에도 안 만듦)', blocked.has('11') && !on.has('11'));
+
+  const removed = await M.clearMirrorTeacher(env, '5');
+  on = await M.getMirrorTeachers(env); blocked = await M.getMirrorBlocked(env);
+  check('P③ 🔴 끄기(clearMirrorTeacher)는 행을 «지운다»', removed === 1);
+  check('P④ 🔴 그래서 «꺼짐» 이다 — 켜짐도 막힘도 아니다',
+    !on.has('5') && !blocked.has('5'), JSON.stringify([[...on], [...blocked]]));
+  await M.setMirrorTeacher(env, '5', true, 'harness');
+  on = await M.getMirrorTeachers(env);
+  check('P⑤ 🔴 끈 뒤에 다시 켤 수 있다 (되돌릴 길이 있다)', on.has('5'));
+  /* 헛돎 방지 짝 검사 — «지운다» 만 보면 아무 id 나 지워도 통과한다 */
+  check('P⑥ 남의 행을 지우지 않는다', (await M.clearMirrorTeacher(env, '9999')) === 0 && (await M.getMirrorBlocked(env)).has('11'));
+
+  /* ── 라우트 계약 (accounting-reports.ts) ──
+     ⛔ 검사 범위를 «길이» 로 자르지 않는다 — 처음에 {0,900} 으로 뒀는데 그 블록이 이미 837자라
+        주석 두어 줄만 더해도 매치가 통째로 실패해 네 건이 한꺼번에 거짓 FAIL 났다(CLAUDE.md 2장).
+        중괄호 짝으로 자른다. */
+  const blockAt = (txt, anchor) => {
+    const i = txt.indexOf(anchor); if (i < 0) return '';
+    const j = txt.indexOf('{', i); if (j < 0) return '';
+    let d = 0;
+    for (let k = j; k < txt.length; k++) {
+      if (txt[k] === '{') d++;
+      else if (txt[k] === '}' && --d === 0) return txt.slice(i, k + 1);
+    }
+    return txt.slice(i);
+  };
+  const RT = blockAt(REPORTS, "if (p === 'c24-mirror/teacher')");
+  check('P⑦-0 라우트 블록을 중괄호 짝으로 잘랐다 (길이로 자르지 않는다)', RT.length > 200 && RT.trim().endsWith('}'), RT.length);
+  check('P⑦ 라우트가 action 으로 갈라 받는다', /body\?\.action/.test(RT) && /'block'/.test(RT), RT ? '' : 'block 못 찾음');
+  check("P⑧ 🔴 action:'off' 는 clearMirrorTeacher 를 부른다", /act === 'off'[\s\S]{0,160}clearMirrorTeacher\(/.test(RT));
+  /* ⚠️ 식을 통째로 못 박지 않는다 — 뜻이 같은 재작성(=== false → !== true)에 거짓 FAIL 난다.
+       물어야 할 것은 «옛 불리언이 block 이 아니라 off 로 가는가» 다. */
+  const oldContract = RT.match(/body\?\.enabled[^\n]*\?[^\n]*:[^\n]*/);
+  check("P⑨ 🔴 옛 계약 { enabled:false } 는 «막힘» 이 아니라 «꺼짐» 으로 떨어진다",
+    !!oldContract && /'off'/.test(oldContract[0]) && !/'block'/.test(oldContract[0]),
+    oldContract ? oldContract[0] : '옛 계약 분기 없음');
+  check("P⑩ setMirrorTeacher 로 켜고/막는 것은 'on'·'block' 일 때만",
+    /setMirrorTeacher\(env as any, tid, act === 'on'/.test(RT));
+
+  // ── 화면 (되돌릴 길이 화면에 있어야 한다) ──
+  const H = PUB('admin/c24-mirror.html');
+  check('P⑪ 🔴 «끄기» 는 action:off 를 보낸다', /action: enabled \? 'on' : 'off'/.test(H));
+  check('P⑫ 🔴 막힌 줄에 «막힘 풀기» 버튼이 있다', /막힘 풀기/.test(H) && /unblockTeacher\(g\)/.test(H));
+  /* ⛔ 부정 검사는 주석을 벗겨 낸 사본으로(위 주석들이 그 이름을 «설명» 한다) —
+       그리고 «그 한 줄» 이 아니라 «어떤 형태로든 비활성으로 두는가» 를 본다. */
+  const bareH = H.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('P⑬ 🔴 막힌 줄의 버튼을 비활성으로 두지 않는다 (그러면 화면에서 못 푼다)',
+    !/toggleBtn\.disabled\s*=/.test(bareH));
+  /* ⚠️ 길이로 자르면 창이 다음 함수(runApply)로 흘러든다 — 함수 블록만 중괄호 짝으로 자른다. */
+  const UNB = blockAt(H, 'function unblockTeacher');
+  check('P⑭ 막힘 풀기는 강사 이름을 그대로 입력받는다 (퇴사자 오해제 방지)',
+    /typed\.trim\(\) !== nm/.test(UNB), UNB.length);
+  check("P⑮ 🔴 풀어도 곧바로 켜지지 않는다 — 'off'(꺼짐)까지만",
+    /action: 'off'/.test(UNB) && !/action: 'on'/.test(UNB));
+  check('P⑯ «끄기» 안내가 «다시 켤 수 있다» 고 말한다', /다시 켤 수 있습니다/.test(H));
+  /* 🔴 「풀어도 수업이 안 생긴다」는 mode='all' 에서 거짓이다(touch() 가 mode==='all' 이면 만든다).
+       화면이 그 말을 하는지까지 본다 — trap-check 가 잡은 거짓 단정이다. */
+  check("P⑰ 🔴 확인창이 «전환일(all)에는 꺼짐도 만들어진다» 를 말한다",
+    /전환일/.test(UNB) && /all/.test(UNB));
+  check('P⑱ 확인창이 «메모도 함께 지워진다» 를 말한다 (되돌릴 수 없다)',
+    /메모도 함께 지워집니다/.test(UNB));
 }
 
 console.log(`\n${'─'.repeat(52)}`);

@@ -15,7 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const PUB = join(dirname(fileURLToPath(import.meta.url)), '..', 'cloudflare-deploy', 'public');
 const FILE = join(PUB, 'admin', 'monitor-wall.html');
+/* 📦 (2026-09-02) 화면 코드는 «인라인» 이 아니라 /js/monitor-wall.js 에 있다.
+   ⚠️ 그래서 내용 검사는 «두 파일을 합쳐서» 해야 한다 — 한쪽만 읽으면 이 하니스가
+      통째로 헛돈다(그 함정을 안 만들려고 아래 bare 를 합본으로 둔다). */
+const JSFILE = join(PUB, 'js', 'monitor-wall.js');
 const html = readFileSync(FILE, 'utf8');
+const wallJs = readFileSync(JSFILE, 'utf8');
 const adminHtml = readFileSync(join(PUB, 'admin.html'), 'utf8');
 
 /* 주석 제거 사본 — HTML 주석 + JS 블록/줄 주석 */
@@ -24,7 +29,7 @@ const strip = t => t
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/^[ \t]*\/\/.*$/gm, '')
   .replace(/^[ \t]*\/\* .*$/gm, '');
-const bare = strip(html);
+const bare = strip(html + '\n' + wallJs);
 
 let pass = 0, fail = 0;
 const ok = (m) => { pass++; console.log(`  ✅ ${m}`); };
@@ -33,14 +38,29 @@ const check = (m, cond) => cond ? ok(m) : no(m);
 
 console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해하게» 남아 있는가');
 
-/* ── ① 경량 — 한 파일 상한. 넘으면 «별도 화면으로 뺀 이유» 가 무너진 것 ──
-   📌 (2026-09-02) 40 → 44KB. 참관 정원 안내(«관찰 N/4» · 붐비면 🎧 소리만 을 기본으로)를
-      넣으면서 39.6 → 40.8KB 가 됐다. 이 상한의 취지는 «admin.html 에 얹지 않는다» 이지
-      «40» 이라는 숫자 자체가 아니다 — 44KB 도 admin.html(1.3MB)의 3% 다.
-      ⛔ 그렇다고 넘칠 때마다 올리지 마세요. 다음에 또 넘치면 «무엇을 뺄까» 를 먼저 보세요. */
+/* ── ① 경량 — 넘으면 «별도 화면으로 뺀 이유» 가 무너진 것 ──
+   📜 이력: 40KB(한 파일) → 44KB(2026-09-02 참관 정원 안내) → **두 숫자**(2026-09-02 JS 분리)
+
+   [왜 «한 숫자» 를 «두 숫자» 로 바꿨나]
+   화면 코드 33.7KB 를 HTML 이 이고 있어서 여유가 1.4KB 였다. 그것을 /js/monitor-wall.js 로
+   옮기면서, 원래 상한이 재던 것이 사실은 «성격이 다른 둘» 이었다는 것이 드러났다 —
+     ㉠ **HTML** : 매번 새로 받는 부분(캐시 안 됨). 여기가 진짜로 작아야 한다.
+     ㉡ **HTML + JS** : 화면 전체 무게. 「admin.html 에 얹지 않는다」가 지키려던 것.
+   ⛔ JS 를 밖으로 뺐다고 상한이 «사라지면» 그건 게이트 우회다(CLAUDE.md 4-1-1). 그래서
+      ㉡을 그대로 유지한다. 50KB 도 admin.html(1.3MB)의 **4%** 다.
+   ⛔ 넘칠 때마다 올리지 마세요 — 다음에 넘치면 «무엇을 뺄까» 를 먼저 보세요.
+      후보는 이미 재 뒀습니다: 카페24 예약 목록(~2KB, 다른 4곳에 있음) · 강제 종료(~2.5KB,
+      adm-core.js 에 같은 API). ⛔ 순회 참관(4.2KB)·회선 신호등은 여기에만 있습니다. */
 {
-  const kb = statSync(FILE).size / 1024;
-  check(`① 파일 한 개 44KB 이하 (실측 ${kb.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`, kb <= 44);
+  const kbHtml = statSync(FILE).size / 1024;
+  const kbAll = (statSync(FILE).size + statSync(JSFILE).size) / 1024;
+  check(`① HTML 12KB 이하 (실측 ${kbHtml.toFixed(1)}KB) — 매번 새로 받는 부분`, kbHtml <= 12);
+  check(`①-2 HTML + JS 합계 50KB 이하 (실측 ${kbAll.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`,
+        kbAll <= 50);
+  check('①-3 화면이 그 JS 를 «?v= 를 달아» 부른다 (안 달면 immutable 캐시에 옛 파일이 남는다)',
+        /<script src="\/js\/monitor-wall\.js\?v=\d+"/.test(html));
+  check('①-4 인라인 <script> 로 되돌아가지 않았다 (되돌리면 위 두 숫자가 뜻을 잃는다)',
+        !/<script>[\s\S]*?<\/script>/.test(html));
 }
 
 /* ── ② /admin/ 밑에 정적자산(js·css)을 만들지 않았는가 — index.ts isAdminPath 주석의 규칙.
