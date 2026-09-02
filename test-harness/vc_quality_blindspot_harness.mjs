@@ -88,7 +88,8 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   };
   const fn = new Function(...Object.keys(sandbox),
     qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart,'
-         + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify };');
+         + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify,'
+         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote };');
   const api = fn(...Object.values(sandbox));
   return { api, sent, win, doc };
 }
@@ -492,6 +493,102 @@ console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으�
      '집계에서 «모름»(-1) 행을 평균에 섞지 않는다');
   ok(/rx_ready = false/.test(adm),
      '칸이 아직 없는 DB 에서는 옛 질의로 떨어진다(화면 전체가 «조회 실패» 가 되지 않는다)');
+}
+
+console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지» 를 타일에 적는다(크기는 안 건드린다) ════════');
+{
+  const t = runQlog({ student: { uid: 'jeong', name: 'jeong', role: 'student' } });
+  const local = t.doc.createElement('div'); local.id = 'vc-local-box';
+  const badge = (box) => box.querySelector('.vc-lowq-hint');
+
+  /* 보내는 쪽 — 상대 하나라도 3단계 이상이면 내 타일에 */
+  t.win.vcPeerConnections = { a: { __qStep: 2 }, b: { __qStep: 0 } };
+  t.api.lowqSelf(); t.api.lowqSelf();
+  ok(!badge(local), '2단계(해상도 1/2)까지는 안 붙는다');
+  t.win.vcPeerConnections = { a: { __qStep: 4 }, b: { __qStep: 0 } };
+  t.api.lowqSelf();
+  ok(!badge(local), '한 틱(4초)만으로는 안 붙는다 — 흔들림 한 번에 깜빡이지 않게');
+  t.api.lowqSelf();
+  ok(!!badge(local), '2틱(8초) 이어지면 내 타일에 «저화질로 보내는 중» 이 붙는다');
+  ok(/저화질/.test(badge(local).textContent) && /low quality/i.test(badge(local).textContent), '한국어·영어를 함께 적는다');
+  t.api.lowqSelf();
+  ok(local.children.filter(c => c.className === 'vc-lowq-hint').length === 1, '계속 저화질이어도 하나만 붙는다(깜빡임 방지)');
+  ok(!local.style.width && !local.style.height && !local.style.transform && local.style.position === 'relative'
+     && /^position:absolute/.test(badge(local).style.cssText) && !/transform:\s*scale/.test(badge(local).style.cssText),
+     '⛔ 배지는 타일 크기를 건드리지 않는다(자동 축소 없음) — 타일에는 position:relative 만, 배지는 absolute 로 얹는다');
+  t.win.vcPeerConnections = { a: { __qStep: 0 } };
+  t.api.lowqSelf();
+  ok(!badge(local), '회복되면 곧바로 뗀다');
+
+  /* 받는 쪽 — 오는 영상의 가로폭으로. 모든 화면에(문구가 상대를 탓하지 않는다) */
+  const box = t.doc.__addBox('p1');
+  t.api.lowqRemote('p1', 1280, true);                        // PC 카메라의 «정상» 폭을 먼저 본다
+  t.api.lowqRemote('p1', 320, true);
+  ok(!badge(box), '받는 쪽도 한 틱만으로는 안 붙는다');
+  t.api.lowqRemote('p1', 320, true);
+  ok(!!badge(box), '1280 을 보던 상대가 320px(1/4) 로 2틱 이어지면 그 타일에 «저화질로 받는 중» 이 붙는다');
+  ok(!/학생|상대|불안정/.test(badge(box).textContent), '⛔ 학생 화면에도 뜨므로 «상대 탓» 하는 말을 쓰지 않는다');
+  t.api.lowqRemote('p1', 640, true);
+  ok(!badge(box), '가로폭이 돌아오면 곧바로 뗀다');
+  t.api.lowqRemote('p1', 320, false); t.api.lowqRemote('p1', 320, false); t.api.lowqRemote('p1', 320, false);
+  ok(!badge(box), '⛔ 영상 패킷이 안 오면(카메라 끔·음성전용) «저화질» 로 세지 않는다 — 모름은 뗀다');
+  t.api.lowqRemote('p1', 0, true); t.api.lowqRemote('p1', 0, true);
+  ok(!badge(box), '가로폭 0(통계 없음)도 «모름» — 안 붙는다');
+  t.api.lowqRemote('없는피어', 320, true);
+  ok(true, '타일이 없는 상대에게 불러도 죽지 않는다');
+  /* 폰 송신자(640) — 함정 대조 검사 지적: 절대값 430 이면 폰은 1단계(427)부터 걸린다 */
+  const ph = t.doc.__addBox('phone');
+  t.api.lowqRemote('phone', 640, true);
+  t.api.lowqRemote('phone', 427, true); t.api.lowqRemote('phone', 427, true); t.api.lowqRemote('phone', 427, true);
+  ok(!badge(ph), '⛔ 폰(640) 이 1단계(427px) 로 보내는 것은 «저화질» 이 아니다');
+  t.api.lowqRemote('phone', 320, true); t.api.lowqRemote('phone', 320, true);
+  ok(!badge(ph), '폰 2단계(320px, 1/2)도 아직 아니다 — PC 2단계(640)와 같은 기준');
+  t.api.lowqRemote('phone', 213, true); t.api.lowqRemote('phone', 213, true);
+  ok(!!badge(ph), '폰 3단계(213px, 1/3) 부터 붙는다 — PC 와 같은 «단계» 기준');
+  /* PC 2단계(640)는 안 붙는다 */
+  const pc2 = t.doc.__addBox('pc2');
+  t.api.lowqRemote('pc2', 1280, true); t.api.lowqRemote('pc2', 640, true); t.api.lowqRemote('pc2', 640, true); t.api.lowqRemote('pc2', 640, true);
+  ok(!badge(pc2), 'PC 2단계(640px, 1/2)는 안 붙는다');
+  /* 최대 폭을 못 본 상대(처음부터 바닥) — 절대 하한으로 잡는다 */
+  const cold = t.doc.__addBox('cold');
+  t.api.lowqRemote('cold', 213, true); t.api.lowqRemote('cold', 213, true);
+  ok(!!badge(cold), '정상 폭을 본 적 없어도 213px 이면 붙는다(절대 하한)');
+  const cold2 = t.doc.__addBox('cold2');
+  t.api.lowqRemote('cold2', 320, true); t.api.lowqRemote('cold2', 320, true);
+  ok(!badge(cold2), '정상 폭을 본 적 없는 320px 는 «모름» — 폰 정상(480 세로)과 못 가르므로 안 붙는다');
+  /* 음성전용 중에는 «보내는 중» 을 안 붙인다 */
+  const aaoT = runQlog({ student: { uid: 'a', name: 'a', role: 'student' } });
+  const aaoLocal = aaoT.doc.createElement('div'); aaoLocal.id = 'vc-local-box';
+  aaoT.win.vcPeerConnections = { x: { __qStep: 4 } };
+  aaoT.win.__vcAAO = { active: true };
+  aaoT.api.lowqSelf(); aaoT.api.lowqSelf(); aaoT.api.lowqSelf();
+  ok(!badge(aaoLocal), '⛔ 음성전용(AAO) 중에는 «저화질로 보내는 중» 을 안 붙인다 — 영상을 안 보내는 것이지 저화질이 아니다');
+  aaoT.win.__vcAAO = { active: false };
+  aaoT.api.lowqSelf(); aaoT.api.lowqSelf();
+  ok(!!badge(aaoLocal), 'AAO 가 풀리고 단계가 그대로 바닥이면 그때 붙는다');
+
+  /* 문턱이 idx-main.js 의 실제 단계표와 맞는가 — 3단계는 해상도 1/3·비트레이트 20% 라 «흐림» 이 보이는 첫 단계 */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const steps = main.match(/const STEPS = \[([^\]]+)\]/);
+  const scale = main.match(/const SCALE = \[([^\]]+)\]/);
+  const stepIdx = Number((qlog.match(/var VC_LOWQ_STEP = (\d+)/) || [])[1]);
+  const ratio = Number((qlog.match(/var VC_LOWQ_RATIO = ([\d.]+)/) || [])[1]);
+  const absW = Number((qlog.match(/var VC_LOWQ_ABS = (\d+)/) || [])[1]);
+  ok(steps && scale && stepIdx >= 1, `배지 단계 문턱(${stepIdx})과 STEPS·SCALE 표를 찾았다`);
+  const mult = steps ? Number(steps[1].split(',')[stepIdx]) : 1;
+  const div = scale ? Number(scale[1].split(',')[stepIdx]) : 1;
+  ok(mult <= 0.25 && div >= 3, `그 단계는 비트레이트 ${mult * 100}%·해상도 1/${div} — 흐림이 보이는 단계다`);
+  const prevDiv = scale ? Number(scale[1].split(',')[stepIdx - 1]) : 1;
+  ok(ratio > prevDiv && ratio <= div,
+     `받는 쪽 비율 문턱 1/${ratio} 는 그 단계(1/${div})부터 잡고 앞 단계(1/${prevDiv})는 안 잡는다 — PC·폰 공통`);
+  ok(absW < 640 / prevDiv && absW >= 640 / div - 1,
+     `절대 하한 ${absW}px 는 폰(640) 앞 단계(${Math.round(640 / prevDiv)}px)는 안 잡고 그 단계(${Math.round(640 / div)}px)는 잡는다`);
+  /* 배선 — 틱에서 실제로 부르는가. ⚠️ 주석을 벗긴 사본으로 본다(주석 처리해도 통과하던 구멍 — 함정 대조 검사 지적) */
+  const bare = qlog.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\/[^\n]*$/gm, '');
+  const tick = bare.slice(bare.indexOf('function vcqRxTick'), bare.indexOf('function vcqRxStart'));
+  ok(/vcqLowQSelf\(\)/.test(tick) && /vcLowQRemote\(id, s\.frameWidth \|\| 0, dr > 0\)/.test(tick),
+     '4초 틱이 보내는 쪽·받는 쪽 배지를 둘 다 부르고, 받는 쪽에 «패킷이 오는가»(dr > 0)를 넘긴다');
+  ok(/__vcLowQ = \{\}/.test(qlog.slice(qlog.indexOf('function vcqRxStart'))), '수업이 끝나면 배지 상태를 비운다');
 }
 
 console.log('\n' + '═'.repeat(60));
