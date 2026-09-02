@@ -36,6 +36,7 @@ const YML_PATH = join(__dir, '../.github/workflows/deploy.yml');
 const YML = readFileSync(YML_PATH, 'utf8');
 const CLI_PATH = join(__dir, '../.github/scripts/class-window.mjs');
 const PS1 = readFileSync(join(__dir, '../deploy.ps1'), 'utf8');
+const CW = readFileSync(CLI_PATH, 'utf8');
 
 const W = await import(join(__dir, '../.github/scripts/class-window.mjs'));
 const { decideHold, isClassWindow, CLASS_WINDOW_KST, OVERRIDE_TAG } = W;
@@ -46,36 +47,45 @@ const ok = (name, cond, detail = '') => {
     else { fail++; console.log(`  ❌ ${name}${detail ? '  — ' + detail : ''}`); }
 };
 
-/** KST 'HH:MM' → 그 시각의 UTC Date (한국은 DST 없음). */
-const atKst = (hhmm) => {
+/** KST 'HH:MM' → 그 시각의 UTC Date (한국은 DST 없음).
+ *  기본 날짜는 2026-09-01 = **화요일**(실사고가 난 날). day 로 다른 요일을 고른다. */
+const DOW = { 화: 1, 수: 2, 목: 3, 금: 4, 토: 5, 일: 6, 월: 7 };   // 2026-09-01 이 화요일
+const atKst = (hhmm, day = '화') => {
     const [h, m] = hhmm.split(':').map(Number);
-    return new Date(Date.UTC(2026, 8, 1, h - 9, m, 0));
+    return new Date(Date.UTC(2026, 8, DOW[day], h - 9, m, 0));
 };
 
 console.log('\n── ① 수업 시간대 판정 (판정 모듈을 실제로 실행) ──');
-/* 실측 근거(2026-09-01, 최근 30일 attendance 를 분 단위로): 13:00 부터 늘어 21시가
-   정점, 그리고 **23:30–23:50 · 00:00–00:20 · 00:40–01:10 수업이 실재**한다.
-   ⛔ 예약표(class_schedules 최대 22:40)만 보고 끝을 잡으면 그 수업들이 통째로 빠진다. */
+/* 실측 근거 — 2026-09-02 사장님 지시(화·목 14:00~23:00)와 class_schedules 실측.
+   시간대는 실측과 맞고(화·목 수업 시작 14:00~21:50, 가장 늦게 끝나는 것 22:50),
+   요일은 사장님이 실측을 보고 «화·목만» 으로 정하셨다(수 40건은 보호 대상에서 뺀다). */
 const CASES = [
-    ['01:20', false], ['02:00', false], ['06:00', false], ['11:00', false], ['12:59', false],
-    ['13:00', true],  ['14:00', true],  ['17:20', true],  ['21:20', true],
-    ['21:43', true],  ['22:40', true],  ['23:20', true],  ['23:35', true],
-    ['23:50', true],  ['00:00', true],  ['00:20', true],  ['01:10', true], ['01:19', true],
+    ['화', '13:59', false], ['화', '14:00', true],  ['화', '17:20', true],
+    ['화', '21:20', true],  ['화', '22:59', true],  ['화', '23:00', false],
+    ['화', '02:00', false], ['화', '11:00', false],
+    ['목', '14:00', true],  ['목', '19:30', true],  ['목', '22:59', true], ['목', '23:00', false],
 ];
-for (const [hhmm, want] of CASES) {
-    ok(`${hhmm} KST → ${want ? '보류' : '배포'}`, isClassWindow(atKst(hhmm)) === want);
+for (const [day, hhmm, want] of CASES) {
+    ok(`${day} ${hhmm} KST → ${want ? '보류' : '배포'}`, isClassWindow(atKst(hhmm, day)) === want);
 }
 ok(`창의 시작은 포함, 끝은 제외한다 (${CLASS_WINDOW_KST.start} 보류 · ${CLASS_WINDOW_KST.end} 배포)`,
    isClassWindow(atKst(CLASS_WINDOW_KST.start)) === true &&
    isClassWindow(atKst(CLASS_WINDOW_KST.end)) === false);
-/* 🔴 창이 자정을 넘는다. `start <= m < end` 로 두면 00:00~01:20 수업이 통째로 빠진다
-   (실측 00:00–00:20 만 22건). 되감기가 살아 있는지 여기서 못 박는다. */
-ok('🔴 자정을 넘는 창을 되감아 판정한다 (00:00~01:10 도 보류)',
-   ['00:00', '00:10', '00:20', '00:50', '01:10'].every(t => isClassWindow(atKst(t)) === true));
 
-/* 🔴 실사고 시각 그대로 — 이 네 번이 김선우 학생 수업(21:15~21:50) 안에서 나갔다. */
+/* 🔴 요일이 아니면 하루 종일 창 밖이다. 수·금·월에도 수업이 «있지만» 보호하지 않는 것이
+   2026-09-02 의 결정이다 — 이 검사는 그 결정이 코드와 일치하는지만 본다. */
+for (const day of ['수', '금', '토', '일', '월']) {
+    ok(`${day}요일은 한창때(19:30)에도 배포한다 (보호 대상 아님 — 사장님 결정)`,
+       isClassWindow(atKst('19:30', day)) === false);
+}
+ok('막는 요일이 정확히 화·목 두 개다',
+   Array.isArray(CLASS_WINDOW_KST.days) && CLASS_WINDOW_KST.days.length === 2 &&
+   CLASS_WINDOW_KST.days.includes(2) && CLASS_WINDOW_KST.days.includes(4),
+   JSON.stringify(CLASS_WINDOW_KST.days));
+
+/* 🔴 실사고 시각 그대로 — 2026-09-01 은 화요일이라 이 넷은 여전히 보류돼야 한다. */
 for (const t of ['21:38', '21:40', '21:43', '21:46']) {
-    ok(`🔴 2026-09-01 실사고 배포 ${t} 이 이제 보류된다`,
+    ok(`🔴 2026-09-01(화) 실사고 배포 ${t} 이 이제 보류된다`,
        decideHold({ now: atKst(t) }).hold === true);
 }
 
@@ -124,13 +134,52 @@ for (const b of outward) {
 
 console.log('\n── ④ 🔴 몰아 배포 크론이 창 «밖» 인가 (자기잠금 방지) ──');
 const crons = [...YML.matchAll(/^\s*-\s*cron:\s*'([^']+)'/gm)].map(m => m[1]);
-ok('몰아 배포 크론이 있다', crons.length >= 1, JSON.stringify(crons));
+/* 🔴 하나에만 기대면 안 된다 — 2026-09-02 실측: 첫날 회차가 **177분 늦게** 왔고 그동안
+   main 커밋 21건이 라이브에 안 나간 채였다. GitHub schedule 은 지연되거나 아예 누락된다. */
+ok('몰아 배포 크론이 3개 이상이다 (하나가 누락돼도 다음이 잡는다)',
+   crons.length >= 3, `${crons.length}개 — ${JSON.stringify(crons)}`);
 for (const c of crons) {
     const [mm, hh] = c.split(/\s+/);
     ok(`크론 '${c}' 은 수업 시간대가 아니다 (판정을 그 시각으로 실제로 돌림)`,
        /^\d+$/.test(mm) && /^\d+$/.test(hh) &&
        decideHold({ now: new Date(Date.UTC(2026, 8, 1, Number(hh), Number(mm))) }).hold === false,
        '창 안이면 보류된 배포가 영영 안 나간다');
+}
+
+/* 크론 KST 분(하루 중). 창 밖 구간은 [창끝, 창시작) 하나로 이어져 있다. */
+const hm = (t) => Number(t.split(':')[0]) * 60 + Number(t.split(':')[1]);
+const winStartMin = hm(CLASS_WINDOW_KST.start), winEndMin = hm(CLASS_WINDOW_KST.end);
+const pad = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+/* ⚠️ «창 끝에서 얼마나 지났나» 로 줄 세운다 — 그냥 분으로 정렬하면 자정을 넘는 구간의
+   간격을 놓친다(23:17 과 02:41 은 실제로 204분 차이인데 분으로는 1236분 차이로 보인다). */
+const openLen = (winStartMin - winEndMin + 1440) % 1440;
+const kstMin = crons.map(c => {
+    const [mm, hh] = c.split(/\s+/).map(Number);
+    return (hh * 60 + mm + 540) % 1440;
+});
+const pos = kstMin.map(m => (m - winEndMin + 1440) % 1440).sort((a, b) => a - b);
+
+/* ⛔ 한자리에 몰아 두면 세 개여도 «한 번» 과 같다 — 그 시간대가 통째로 밀리면 다 놓친다. */
+let minGap = Infinity;
+for (let i = 1; i < pos.length; i++) minGap = Math.min(minGap, pos[i] - pos[i - 1]);
+ok('크론이 서로 90분 이상 떨어져 있다 (한 시간대가 통째로 밀려도 다음이 남는다)',
+   pos.length < 2 || minGap >= 90,
+   `가장 좁은 간격 ${minGap}분 — ${kstMin.slice().sort((a,b)=>a-b).map(pad).join(' · ')}`);
+
+/* ⚠️ 창이 «열리기» 전 마지막 기회가 있어야, 그 직전에 병합한 것이 창 안으로 안 밀린다. */
+const lastGap = openLen - pos[pos.length - 1];
+ok(`창이 열리기(${CLASS_WINDOW_KST.start}) 전 마지막 크론이 30분 이상 여유를 둔다`,
+   lastGap >= 30, `여유 ${lastGap}분`);
+
+/* ⛔ 시각을 안내 문구에 베껴 적으면 크론만 옮겼을 때 «언제 나가는지» 를 거짓으로 말한다
+   (2026-09-01 #721 에서 실제로 그랬다). 정본은 deploy.yml 의 schedule 목록 하나뿐이다.
+   ⚠️ deploy.yml 전체로 검사하면 크론 옆 주석이 걸려 거짓 FAIL 이 난다 — 사람에게 «보여 주는»
+      자리(배포 요약 step · 판정 모듈 · deploy.ps1)로만 좁힌다. */
+const cronLabels = kstMin.map(pad);
+const summaryBlock = (blocks.find(b => b.name === 'Deploy summary') || { body: '' }).body;
+for (const [what, text] of [['배포 요약 step', summaryBlock], ['class-window.mjs', CW], ['deploy.ps1', PS1]]) {
+    const hit = cronLabels.filter(t => text.includes(t));
+    ok(`${what} 이 몰아 배포 «시각» 을 베껴 적지 않았다`, hit.length === 0, hit.join(' · '));
 }
 
 console.log('\n── ⑤ 판정이 배포보다 «먼저» 돈다 ──');

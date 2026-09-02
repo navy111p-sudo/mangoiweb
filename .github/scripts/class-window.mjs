@@ -22,40 +22,64 @@
 //    시각이 30초 안팎으로 겹친 것은 실측이지만, 그 배포가 그 유령을 만들었다는 것을
 //    로그로 직접 잇지는 못했다. 완료형으로 적지 말 것(CLAUDE.md 2장).
 //
-// ── 창을 왜 13:00–01:20 으로 잡았나 (2026-09-01 D1 실측, 최근 30일 attendance) ──
-//   접속 건수(KST 시): 13시 45 · 14시 197 · 15시 426 · 16시 487 · 17시 502 · 18시 366
-//                     19시 546 · 20시 704 · 21시 774 · 22시 281 · 23시 48 · 0시 35
-//   ⚠️ **끝을 예약표(class_schedules 최대 22:40)로 잡으면 틀린다.** 실제 접속을 분(分)
-//      단위로 세니 수업이 훨씬 늦게까지 있었다 —
-//        23:00–23:20(28) · 23:10–23:30(4) · 23:20–23:40(10) · 23:30–23:50(4)
-//        **00:00–00:20(22)** · 00:40–01:10(3)
-//      처음에 23:30 을 끝으로 잡았다가, 그러면 몰아 배포(23:35)가 23:20–23:40 수업
-//      **한복판**에 떨어진다는 것을 이 실측으로 알았다. 고치려던 사고를 그대로 재현할
-//      뻔했다. ⛔ 예약표만 보고 창을 정하지 말 것 — 접속을 분 단위로 셀 것.
-//   ⟹ 진짜 수업(카페24 예약)은 1시 이후 **0건**이다(1~5시 접속은 전부 연습방·데모).
-//      마지막 수업이 01:10 에 끝나므로 여유 10분을 두어 01:20 을 끝으로 잡았다.
-//   ⟹ 배포 가능 시간이 하루 11시간 40분(01:20~13:00) 남는다.
+// ── 창을 왜 «화·목 14:00–23:00» 으로 잡았나 ──────────────────────────────
+// 2026-09-02 사장님 지시: 「배포가 안 나가는 건 화요일과 목요일만 오후 2시부터 11시까지.
+// 이때만 우리가 테스트 수업을 해.」
 //
-// ⚠️ 이 숫자는 **오늘 기준**이다. 수업 시간대가 바뀌면 아래 상수 한 줄만 고치면 되고,
-//    그때 몰아 배포 크론(deploy.yml 의 schedule)도 함께 봐야 한다 — 아래 ⛔ 참고.
+// ✅ 시간대(14:00~23:00)는 실측과 맞는다 — 앞으로 잡힌 수업(class_schedules, 2026-09-02~)의
+//    시작 시각이 화 14:00~21:50 · 목 14:00~21:50 이고, 가장 늦게 끝나는 것이 22:50 이다.
+//
+// 🔴 **요일은 실측과 다르다. 그래도 화·목으로 둔다 — 사장님이 확인하고 정하셨다.**
+//    같은 실측에서 앞으로 잡힌 수업은 목 45 · **수 40** · 화 30 · 금 7 · 월 5 건이고,
+//    토·일만 0건이다. 수요일 40건은 전부 `source='c24-mirror'` — 카페24 미러를 켜면서
+//    카페24 수업이 망고아이 화상방으로 들어온 것이고, 미러 수업에 실제 접속이 남은 것도
+//    확인했다(2026-09-01 `class-1046`).
+//    ⟹ **수·금·월 수업은 이 게이트가 보호하지 않는다.** 그날 배포하면 진행 중인 수업이
+//       끊긴다. 「다른 날은 수업이 없다」가 아니라 「그날 끊겨도 감수한다」가 지금의 결정이다.
+//    ⛔ 이 사실을 «수업이 없다» 로 바꿔 적지 말 것. 나중에 이 줄을 읽고 «그럼 안전하겠네» 로
+//       넘어가면, 수요일에 수업이 끊긴 이유를 아무도 못 찾는다.
+//
+// 📜 처음(2026-09-01)에는 «매일 13:00~01:20» 이었다. 그때는 카페24 예약(`c24-*`)까지 함께
+//    세어 창을 잡았는데, 그 방들은 우리 워커의 DO 를 안 쓴다(CLAUDE.md 0장). 요일·시간을
+//    좁히면서 배포 가능한 시간이 하루 11시간 40분 → 주 5일 전면 + 화·목도 15시간으로 늘었다.
+//
+// ⚠️ 요일은 **KST 기준**이다(UTC 로 재면 하루가 밀린다).
+//
+// ⚠️ 창을 바꾸면 **deploy.yml 의 schedule 도 함께** 봐야 한다 — 아래 ⛔ 참고.
 //
 // ⛔ **몰아 배포 크론은 반드시 이 창 «밖» 이어야 한다.** 창 안이면 보류된 배포를 내보내려던
 //    그 실행마저 스스로 보류해 **배포가 영영 안 나간다.** 그 계약은
 //    test-harness/deploy_class_window_harness.mjs ④ 가 실제로 돌려서 못 박는다.
+//    ⚠️ 크론은 매일 도니 «요일» 은 상관없다 — 시각만 창 밖이면 된다.
 //
 // ⛔ 이 판정을 deploy.yml 안에 다시 적지 말 것. 이 저장소는 «같은 판정이 두 곳에 있으면
 //    한쪽만 고쳐진다» 를 반복해서 밟았다(CLAUDE.md 2장). 정본은 이 파일 하나다.
 //
+// ⛔ 같은 이유로 **몰아 배포 «시각» 과 창 «시각» 을 안내 문구에 베껴 적지 말 것.**
+//    그 목록의 정본은 deploy.yml 의 schedule 하나, 창의 정본은 이 파일의 상수 하나다.
+//    2026-09-01 에 크론만 옮기고 안내 문구가 옛 시각으로 남아 «언제 나가는지» 를 거짓으로
+//    말한 적이 있다(#721). 사람에게 보여 주는 글은 「창이 닫힌 뒤」까지만 말한다.
+
+// ⛔ 예약표(class_schedules)만 보고 창을 정하지 말 것 — 2026-09-01 에 그렇게 잡았다가
+//    실제 접속을 분 단위로 세어 보니 예약표에 없는 늦은 수업이 실재했다(CLAUDE.md 2장).
+//
 // 실행(CLI): node .github/scripts/class-window.mjs [--exit-on-hold]
 //   읽는 환경변수 — FORCE_NOW('true' 면 우회) · COMMIT_MESSAGE · NOW_ISO(시험용)
 //   쓰는 곳 — $GITHUB_OUTPUT(hold/reason/kst) · $GITHUB_STEP_SUMMARY
-//   `--exit-on-hold` — 보류면 종료코드 **2**. 로컬 `deploy.ps1` 이 이걸로 읽는다.
+//   `--exit-on-hold` — 보류면 종료코드 **2**. 로컬 deploy.ps1 이 이걸로 읽는다.
 //     ⛔ 기본은 항상 0 이다 — GitHub Actions 의 판정 step 은 «실패» 가 아니라
 //        «보류» 를 알리는 자리이고, 거기서 죽으면 뒤의 배포 게이트가 통째로 안 돈다.
+//     ⚠️ 「판정 실패」와 「보류」가 같은 코드가 되면 안 된다 — 2 는 오직 보류다.
+//        예외로 죽으면 1 이 되고, 부르는 쪽(deploy.ps1)이 그 둘을 갈라 읽는다.
 
-/** 수업 시간대(KST). «끝» 은 포함하지 않는다 — 01:20 은 창 밖이다.
- *  ⚠️ 자정을 넘는다(13:00 → 다음날 01:20). isClassWindow 가 그 되감김을 처리한다. */
-export const CLASS_WINDOW_KST = Object.freeze({ start: '13:00', end: '01:20' });
+/** 수업 시간대(KST). «끝» 은 포함하지 않는다 — 23:00 은 창 밖이다.
+ *  `days` 는 KST 요일(0=일 … 6=토). 그 요일이 아니면 하루 종일 창 밖이다. */
+export const CLASS_WINDOW_KST = Object.freeze({
+    start: '14:00',
+    end: '23:00',
+    days: Object.freeze([2, 4]),   // 화 · 목
+    daysLabel: '화·목',
+});
 
 /** 긴급 배포 우회 표시. 커밋 메시지(=PR 제목)에 이 글자가 있으면 창 안이어도 나간다. */
 export const OVERRIDE_TAG = '[deploy-now]';
@@ -65,23 +89,35 @@ const toMin = (hhmm) => {
     return h * 60 + m;
 };
 
-/** UTC Date → 그 순간의 KST «하루 중 분». ⚠️ 러너의 TZ 설정에 기대지 않는다(한국은 DST 없음). */
+/** UTC Date → KST 로 옮긴 Date. ⚠️ 러너의 TZ 설정에 기대지 않는다(한국은 DST 없음). */
+const toKst = (date) => new Date(date.getTime() + 9 * 3600 * 1000);
+
+/** UTC Date → 그 순간의 KST «하루 중 분». */
 export function kstMinutes(date) {
-    const d = new Date(date.getTime() + 9 * 3600 * 1000);
+    const d = toKst(date);
     return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+/** UTC Date → 그 순간의 KST 요일(0=일 … 6=토). */
+export function kstDay(date) {
+    return toKst(date).getUTCDay();
 }
 
 /** 사람이 읽을 KST 시각 문자열. */
 export function kstLabel(date) {
-    const d = new Date(date.getTime() + 9 * 3600 * 1000);
+    const d = toKst(date);
     const p = (n) => String(n).padStart(2, '0');
     return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} KST`;
 }
 
-/** 지금이 수업 시간대인가. 요일은 가르지 않는다 — 카페24 예약은 주말에도 있다.
- *  ⚠️ 창이 자정을 넘으므로(끝 < 시작) 되감아 판정한다. 단순 `start <= m < end` 로
- *     두면 13:00~24:00 만 걸리고 **00:00~01:20 수업이 통째로 빠진다**(실측 22건+). */
+/** 지금이 수업 시간대인가.
+ *  ⚠️ 요일부터 본다 — 화·목이 아니면 하루 종일 창 밖이다.
+ *  ⚠️ 되감김(끝 < 시작)도 그대로 남겨 둔다. 지금 창은 자정을 안 넘지만, 나중에 시간대를
+ *     넓혔을 때 `start <= m < end` 만 두면 자정 뒤가 통째로 빠진다(2026-09-01 에 실제로
+ *     그 실수를 했다 — 00:00~00:20 수업이 22건 있었다). ⚠️ 다만 자정을 넘기게 바꾸면
+ *     «어느 요일로 세느냐» 가 새로 생긴다 — 지금은 «시작 시각의 요일» 기준이다. */
 export function isClassWindow(date) {
+    if (!CLASS_WINDOW_KST.days.includes(kstDay(date))) return false;
     const m = kstMinutes(date);
     const a = toMin(CLASS_WINDOW_KST.start), b = toMin(CLASS_WINDOW_KST.end);
     return (a <= b) ? (m >= a && m < b) : (m >= a || m < b);
@@ -104,7 +140,7 @@ export function decideHold({ now = new Date(), force = false, commitMessage = ''
         return {
             hold: true,
             reason: 'class-window',
-            why: `수업 시간대(${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)입니다`,
+            why: `수업 시간대(${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)입니다`,
             kst,
         };
     }
@@ -131,9 +167,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
             ? [
                 '### ⏸ 수업 시간대라 배포를 보류했습니다',
                 '',
-                `- 지금: **${d.kst}** · 수업 시간대 **${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST**`,
+                `- 지금: **${d.kst}** · 수업 시간대 **${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST**`,
                 '- 게이트(tsc·회귀 하니스·?v=)는 **그대로 돌았습니다.** 건너뛴 것은 Cloudflare 배포뿐입니다.',
-                `- 이 커밋은 **다음 01:30 KST 몰아 배포**에 자동으로 실려 나갑니다. 따로 하실 일은 없습니다.`,
+                '- 이 커밋은 **창이 끝난 뒤 몰아 배포**(새벽~오전에 네 번 시도)에 자동으로 실려 나갑니다. 따로 하실 일은 없습니다.',
                 '',
                 '**왜 막나** — 배포하면 화상수업 Durable Object 가 재시작되어 진행 중인 수업의 연결이 끊깁니다.',
                 '2026-09-01 실측: 21:43:57 배포 **8초 뒤** `class-1070` 강사, **37초 뒤** `class-1078` 강사(Krystel)가 동시에 끊겼습니다.',
@@ -146,7 +182,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
             : [
                 '### ✅ 배포 시간대 확인',
                 '',
-                `- 지금: **${d.kst}** — ${d.why} (수업 시간대는 ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)`,
+                `- 지금: **${d.kst}** — ${d.why} (수업 시간대는 ${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)`,
             ];
         appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n\n');
     }
