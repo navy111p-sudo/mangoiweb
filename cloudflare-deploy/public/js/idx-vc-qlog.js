@@ -267,14 +267,20 @@ function vcNetPeerMark(userId, bad) {
      P2P 라 받는 쪽 타일 크기는 인코더에 안 가고(대역폭 0바이트 절감), 자동 축소는 수업 중 화면만 움직인다.
      그래서 **크기는 손대지 않고** 이유만 적는다(CLAUDE.md 2장 「화질이 한번 흐려지면」 줄).
    [보내는 쪽] 적응 루프 단계(pc.__qStep, idx-main.js STEPS) 가 3 이상인 상대가 하나라도 있으면 내 타일에.
-   [받는 쪽] inbound-rtp frameWidth 가 430px 이하(PC 1280 의 1/3 = 3단계 이상)면 그 타일에.
+   [받는 쪽] inbound-rtp frameWidth 로. ⚠️ 절대값 하나로는 안 된다 — PC 는 1280 으로, 폰은 640 으로 보내므로
+     «430 이하» 로 두면 폰은 1단계(640/1.5=427)부터 걸린다(함정 대조 검사 지적). 그래서 «이 상대에게서 본 최대 폭»
+     대비 1/2.5 이하(=SCALE 3 이상)일 때만 «저화질» 로 보고, 최대 폭을 아직 못 본 경우를 위해 240px 이하는 절대값으로 잡는다
+     (어느 카메라도 그보다 좁게 «정상» 으로 보내지 않는다).
      모든 화면에 띄운다 — 문구가 «저화질로 받는 중» 이라 상대를 탓하지 않는다
      (위 ② 의 «이 학생 인터넷이 불안정» 은 탓하는 말이라 강사에게만 — 다른 이유다).
    ⚠️ 2틱(8초) 이어질 때만 붙이고 회복되면 곧바로 뗀다. DOM 은 «바뀔 때만» 만진다(깜빡임·관찰자 발화 방지).
-   ⚠️ 위치는 bottom 34px — 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom 8px)·이름표와 안 겹친다.
-   ⛔ 타일 크기·레이아웃은 건드리지 않는다. 감시: vc_quality_blindspot_harness ⑨ */
+   ⚠️ 음성전용(AAO) 중에는 «보내는 중» 배지를 안 붙인다 — 영상을 아예 안 보내는데 «저화질» 이라 말하면 거짓이고, AAO 는 자기 안내가 있다.
+   ⚠️ 위치는 bottom 58px — 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom 8px)·「🔇 소리 없음·눌러서 고치기」(.vc-nosound-badge,
+      bottom 34px, 강사에게는 버튼)·이름표 «위» 다. CSS 로 읽어 정한 값이고 브라우저 실측은 아직 없다(elementsFromPoint 로 사람이 잴 것).
+   ⛔ 타일 크기·레이아웃은 건드리지 않는다. 감시: vc_quality_blindspot_harness ⑪ */
 var VC_LOWQ_STEP = 3;    // idx-main.js STEPS[3] = 0.2 — 여기부터 사람 눈에 «흐림» 이 보인다(하니스가 STEPS 와 대조)
-var VC_LOWQ_W = 430;     // 받는 영상 가로폭(px) 상한
+var VC_LOWQ_RATIO = 2.5; // 받는 영상 가로폭이 «본 최대 폭» 의 1/2.5 이하 = SCALE[3]=3 부터(2단계 1/2 는 안 잡음)
+var VC_LOWQ_ABS = 240;   // 최대 폭을 아직 못 봤을 때의 절대 하한(px)
 function vcLowQMark(box, on, text) {
     try {
         if (!box) return;
@@ -284,7 +290,7 @@ function vcLowQMark(box, on, text) {
         el = document.createElement('div');
         el.className = 'vc-lowq-hint';
         el.textContent = text;
-        el.style.cssText = 'position:absolute;left:50%;bottom:34px;transform:translateX(-50%);z-index:9;'
+        el.style.cssText = 'position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:9;'
             + 'background:rgba(15,23,42,.78);color:#fde68a;font-size:11px;font-weight:700;line-height:1.2;'
             + 'padding:3px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;max-width:92%;overflow:hidden;text-overflow:ellipsis;';
         box.style.position = 'relative';
@@ -295,12 +301,16 @@ function vcqLowQSelf() {
     var pcs = window.vcPeerConnections || {}, worst = 0;
     Object.keys(pcs).forEach(function (id) { var st = pcs[id] && pcs[id].__qStep; if (typeof st === 'number' && st > worst) worst = st; });
     var L = window.__vcLowQ || (window.__vcLowQ = {});
-    L.self = (worst >= VC_LOWQ_STEP) ? (L.self || 0) + 1 : 0;
+    var aao = !!(window.__vcAAO && window.__vcAAO.active);   // 음성전용 중 = 영상을 안 보냄 → «저화질» 이 아니다
+    L.self = (worst >= VC_LOWQ_STEP && !aao) ? (L.self || 0) + 1 : 0;
     vcLowQMark(document.getElementById('vc-local-box'), L.self >= 2, '📶 저화질로 보내는 중 · Sending low quality');
 }
 function vcLowQRemote(id, frameWidth, flowing) {
     var L = window.__vcLowQ || (window.__vcLowQ = {});
-    var low = !!flowing && frameWidth > 0 && frameWidth <= VC_LOWQ_W;   // 영상이 안 오면(카메라 끔·AAO) «모름» → 뗀다
+    var M = L.max || (L.max = {});
+    if (flowing && frameWidth > (M[id] || 0)) M[id] = frameWidth;        // 이 상대에게서 본 최대 폭 = 그 카메라의 «정상»
+    var low = !!flowing && frameWidth > 0
+        && (frameWidth * VC_LOWQ_RATIO <= (M[id] || 0) || frameWidth <= VC_LOWQ_ABS);   // 영상이 안 오면(카메라 끔·AAO) «모름» → 뗀다
     L[id] = low ? (L[id] || 0) + 1 : 0;
     vcLowQMark(document.getElementById('vc-video-' + id), L[id] >= 2, '📶 저화질로 받는 중 · Receiving low quality');
 }
