@@ -149,7 +149,7 @@ td.mono2{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums
 <header class="head">
   <span class="eyebrow">D1 recordings · 2026-09-02 실측</span>
   <h1>6월 녹화 423건 — 파기 전 판정</h1>
-  <p class="sub">보관기간을 6개월로 늘렸지만 <b>이미 쌓인 녹화는 소급하지 않기로</b> 했습니다(안내받은 대로 3개월). 그래서 6월분 423건은 9월 3일부터 순차로 지워집니다. 그 안에 지켜야 할 수업이 있는지 전수로 확인한 결과입니다.</p>
+  <p class="sub">보관기간을 6개월로 늘렸지만 <b>이미 쌓인 녹화는 소급하지 않기로</b> 했습니다(안내받은 대로 3개월). 그래서 6월분 423건은 <b>9월 4일 새벽부터</b> 순차로 지워집니다. 그 안에 지켜야 할 수업이 있는지 전수로 확인한 결과입니다.</p>
 </header>
 
 <div class="verdict">
@@ -168,8 +168,8 @@ td.mono2{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums
 </div>
 
 <section>
-  <div class="sechead"><h2>파기 일정</h2><span class="note">수업일 + 90일. 각 날짜 새벽 배치가 그날 만료분을 지웁니다</span></div>
-  <p class="lead">막대 길이는 그날 지워질 건수, 진한 부분은 <b>영상 파일이 실제로 있는</b> 건수입니다. 나머지는 0바이트 빈 기록이라 지워도 없어지는 파일이 없습니다.</p>
+  <div class="sechead"><h2>파기 일정</h2><span class="note">수업일 + 90일에 만료 — 지우는 것은 그 <b>다음</b> 새벽 03:00 배치입니다</span></div>
+  <p class="lead">아래 날짜는 <b>만료되는 날</b>입니다. 실제 삭제는 그 다음 새벽 03:00 배치가 합니다(만료 시각이 대개 저녁이라 그날 새벽 배치에는 아직 안 걸립니다). 막대 길이는 그 건수, 진한 부분은 <b>영상 파일이 실제로 있는</b> 건수입니다. 나머지는 0바이트 빈 기록이라 지워도 없어지는 파일이 없습니다.</p>
   <div class="tl" id="tl"></div>
   <div class="tlkey">
     <span><i class="sw" style="background:var(--warn)"></i> 영상 있음</span>
@@ -218,6 +218,7 @@ td.mono2{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums
 <section class="method">
   <h2>어떻게 확인했나</h2>
   <dl>
+    <dt>파기 방법</dt><dd>매일 <b>03:00 KST</b>(cron <code>0 18 * * *</code>) 야간 배치가 <code>expires_at</code> 이 지난 행을 골라 D1 표시를 먼저 바꾸고 R2 파일을 지웁니다. 한 번에 200건까지 — 이 저장소에서 제일 몰리는 밤이 93건이라 밀릴 일은 없습니다.</dd>
     <dt>대상</dt><dd><code>recordings</code> 에서 수업 시각(KST)이 2026년 6월인 행 — 423건. 전부 <code>status='deleted'</code> 라 관리자 목록에서는 이미 안 보입니다(옛 30일 만료로 내려간 뒤 9/2에 90일로 소급한 행들).</dd>
     <dt>방 구분</dt><dd><code>room_id</code> 로 갈랐습니다. 예약 수업은 <code>class-{예약id}-{날짜}</code>, 카페24는 <code>c24-…</code>, 공용 데모방은 <code>mangoi-class</code>. 6월분은 <b>423/423 전부</b> 데모방이었습니다.</dd>
     <dt>이름 대조</dt><dd>홍길동·김민수·박서연·이지민을 <code>students_erp</code> 29,463행에서 찾아 <b>0건</b>. 나머지는 내부 계정(jang·lee·jeong·lemuel·장지웅·이병엽·정우영)입니다.</dd>
