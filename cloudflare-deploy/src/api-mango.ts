@@ -36,6 +36,7 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1994,6 +1995,57 @@ export async function handleMangoApi(
         .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
 
       return json({ ok: true, matched_by: msMatchedBy, schedules });
+    }
+
+    /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══
+       [무엇] 참관 팬아웃을 서버(SFU)가 하게 만들려면 브라우저가 SFU 를 불러야 하는데,
+              앱 시크릿을 브라우저에 주면 안 된다. 그래서 워커가 신원·방을 확인하고 대신 부른다.
+       [지금 상태] ⛔ REALTIME_APP_ID · REALTIME_APP_TOKEN 시크릿이 없으면
+              { ok:true, enabled:false } 만 돌려주고 **바깥으로 요청을 한 번도 보내지 않는다.**
+              즉 켜기 전까지 서비스 동작은 그대로다. 브라우저 쪽 코드는 아직 없다(검증 불가).
+       [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅 허용목록에 **이미** 있다
+              (1271행 startsWith). 공동 금지구역을 한 줄도 안 고쳐도 된다.
+       ⚠️ 인증은 라우팅과 다른 것이다 — 여기서 «직접» 확인한다(CLAUDE.md 2장). */
+    if (method === 'POST' && path.startsWith('/api/class/sfu/')) {
+      const op = path.slice('/api/class/sfu/'.length);
+      const appId = (env as any).REALTIME_APP_ID as string | undefined;
+      const appToken = (env as any).REALTIME_APP_TOKEN as string | undefined;
+      if (!sfuConfigured({ appId, appToken })) {
+        return json({ ok: true, enabled: false, reason: 'no_secrets' });
+      }
+      if (!Object.prototype.hasOwnProperty.call(SFU_OPS, op)) {
+        return json({ ok: false, enabled: true, error: 'unknown_op' }, 400);
+      }
+      const body = await request.json().catch(() => null) as any;
+      if (!body) return json({ ok: false, enabled: true, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰(mango_token) 또는 관리자 세션 쿠키. 둘 다 없으면 401.
+         ⛔ 본문에 적힌 uid 를 믿지 않는다(CLAUDE.md 2장 「본문 값을 그대로 쓰는 API」). */
+      let identity: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const tokUid = await authUidGlobal(request, new URL(request.url), env as any, body);
+        if (tokUid) identity = { uid: String(tokUid), kind: 'student' };
+      } catch {}
+      if (!identity) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) identity = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+
+      const r = await sfuProxy(
+        {
+          appId, appToken,
+          kv: (env as any).SESSION_STATE || null,
+          fetchImpl: (u, init) => fetch(u, init) as any,
+          identity,
+        },
+        op,
+        String(body.room_id || ''),
+        body.session_id ? String(body.session_id) : null,
+        body.payload,
+      );
+      return json(r.body, r.status);
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
