@@ -1240,7 +1240,7 @@ function renderRecordingsTable() {
          이유가 «사고» 인지 «규정대로 지운 것» 인지 가리지 않아, 보관만료분까지 경고색으로
          떴다(실측 1,236건). 상태로 갈라 준다 — ⛔ 다시 하나로 합치지 말 것. */
       if (r.status === 'deleted')
-        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다 — 여기서는 R2 목록에서 이 녹화의 파일을 찾지 못했다는 것까지입니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
+        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 다만 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
       else if (r.status === 'upload_failed')
         storageBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다. 다시 올라오지 않습니다.">'+(adminLang==='en'?'⚠ Save failed':'⚠ 저장 실패')+'</span>';
       else if (r.status === 'recording')
@@ -1311,7 +1311,7 @@ function renderRecordingsTable() {
                  h: _pL ? 'Upload failed - the video is not in the cloud and will NOT arrive later. There is nothing to wait for.' : '업로드가 실패해 클라우드에 영상이 없습니다. 나중에도 올라오지 않습니다 — 기다릴 것이 없습니다.' };
       else if (r.status === 'deleted')
         pend = { t: _pL ? 'Retention expired' : '보관기간 만료', c: '#667085',
-                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. (Whether the file itself was purged is a separate matter - see retention.ts)' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다(실제 파기는 아직 켜지 않은 별건입니다 — retention.ts).' };
+                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. Since 2026-09-02 expired recordings are purged from storage as well - but files taken off the list before that date may still exist.' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.' };
       else if (r.status === 'aborted')
         pend = { t: _pL ? 'Nothing recorded' : '녹화 없음', c: '#98a2b3',
                  h: _pL ? 'Joined and left before anything was recorded. No video was lost.' : '찍힌 것이 없습니다(들어왔다 바로 나감). 잃은 영상은 없습니다.' };
@@ -1594,7 +1594,9 @@ async function loadRetention() {
   } catch(e) { document.getElementById('retention-status').textContent = (adminLang==='en'?'Query failed: ':'조회 실패: ') + e.message; }
 }
 document.getElementById('retention-run').onclick = async () => {
-  if (!confirm(adminLang==='en'?'Delete expired data now?':'지금 보관기간 만료 데이터를 파기하시겠습니까?')) return;
+  if (!confirm(adminLang==='en'
+    ? 'Purge expired data now?\n\nExpired recordings are deleted from storage as well. This cannot be undone.'
+    : '지금 보관기간 만료 데이터를 파기하시겠습니까?\n\n만료된 녹화는 영상 파일까지 지워집니다. 되돌릴 수 없습니다.')) return;
   const btn = document.getElementById('retention-run');
   btn.disabled = true; btn.textContent = adminLang==='en'?'Running...':'실행 중...';
   try {
