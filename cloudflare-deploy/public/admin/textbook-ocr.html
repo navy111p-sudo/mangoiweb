@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교재 본문 추출 시험 — 망고아이</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
+<!--
+  🔬 교재 본문 추출 «시험» (textbook-ocr) — 2026-09-02
+
+  [왜 만들었나]
+  복습퀴즈·웜업·판단력 훈련이 쓸 «교재 본문» 이 이 저장소에 한 글자도 없다.
+  textbook_files 는 **활성 17,246행 중 이미지가 17,199장**이고 `description` 은 **0건**이다
+ *   (2026-09-02 D1 실측 — 전체 행은 38,998이고 절반 넘게 숨김 처리돼 있다).
+  그래서 AI 가 만드는 문항이 교재와 무관하다. OCR 로 본문을 뽑을 수 있는지
+  **먼저 재 보는 것** 이 이 화면이다.
+
+  ⚠️ «시험» 이다 — 결과를 D1 에 저장하지 않는다. 되는 것이 확인된 뒤에 저장을 설계한다.
+     (기능만 만들어 두고 실사용 0으로 방치되는 것이 이 저장소의 반복 사고다.)
+
+  📌 사장님 정보(2026-09-02) — 「BTS 교재는 레벨에 따라 글자 수가 다르다.
+     낮은 레벨은 적고 높은 레벨은 많다.」
+     ⟹ 낮은 권 하나로만 시험하면 「OCR 해도 소용없다」는 **잘못된 결론** 이 난다.
+        그래서 이 화면은 처음부터 **두 권을 나란히** 놓고, 영어 낱말 수를 재서
+        그 차이가 숫자로 보이게 한다. 그것이 이 화면의 존재 이유다.
+
+  🔴 비전 모델이 이 계정에서 도는지는 아직 아무도 모른다(2026-09-02 실측 — 저장소에
+     비전 호출이 두 곳 있지만 결재 파일 첨부가 0건이라 한 번도 돌아 본 적이 없다).
+     그래서 엔진을 하나만 고르지 않고 **여러 개를 같은 장에 나란히** 돌리고,
+     실패도 «실패한 이유» 를 그대로 화면에 적는다.
+
+  [설계 원칙]
+  · admin.html(1.3MB) 에 얹지 않고 별도 초경량 한 파일 — monitor-wall.html 과 같은 정신.
+  · /admin/ 밑은 default-deny 라 로그인 게이트가 자동으로 걸린다(index.ts 무수정).
+    ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙 → CSS·JS 전부 인라인.
+  · 새 서버 API 0개 — 목록은 기존 ?group=1 · ?book= 을 그대로 쓰고,
+    OCR 은 비어 있던 POST /api/admin/textbook-files/:id 에 얹었다.
+  · ⛔ 다크로 만들지 않는다 — adm-light-theme.css 가 body 만 밝게 덮어
+    «어두운 카드 + 검은 글자» 가 되는 사고가 있었다(2026-08-25 환불 화면).
+-->
+<style>
+/* « 밝은 값으로 처음부터 » — adm-light-theme.css 가 admin.html 에서 실측해 둔 값 */
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --line:#e4e7ec;
+  --tx:#101828; --tx2:#475467; --tx3:#667085;
+  --accent:#b45309; --ok:#047857; --bad:#b42318;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  font-size:14px; line-height:1.6;
+}
+a{ color:#1d4ed8; }
+.wrap{ max-width:1400px; margin:0 auto; padding:14px; }
+
+/* « 머리 » — 왼쪽 나가는 문 · 오른쪽 도구. 가운데정렬을 쓰지 않아 한쪽만 늘어도 제목이 안 밀린다 */
+header{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:10px 14px; background:var(--card); border-bottom:1px solid var(--line);
+  position:sticky; top:0; z-index:10;
+}
+header h1{ font-size:16px; margin:0; line-height:1.2; white-space:nowrap; }
+header .sp{ margin-left:auto; }
+.btn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:7px 12px; border:1px solid var(--line); border-radius:8px;
+  background:var(--card); color:var(--tx); cursor:pointer; font-size:13px;
+  line-height:1.2; text-decoration:none;
+}
+.btn:hover{ background:#eef2f7; }
+.btn.primary{ background:#1d4ed8; border-color:#1d4ed8; color:#ffffff; }
+.btn.primary:hover{ background:#1a43bb; }
+.btn[disabled]{ opacity:.5; cursor:default; }
+
+.note{
+  background:#fffbeb; border:1px solid #fde68a; border-left:4px solid var(--accent);
+  border-radius:8px; padding:10px 12px; margin:12px 0; color:#7c2d12;
+}
+.note b{ color:#7c2d12; }
+
+.cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)); gap:14px; }
+.col{ min-width:0; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+.col h2{ font-size:14px; margin:0 0 4px; line-height:1.3; }
+.col .sub{ color:var(--tx3); font-size:12px; margin-bottom:8px; line-height:1.4; }
+select,input[type=number]{
+  font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:7px;
+  background:var(--card); color:var(--tx); max-width:100%;
+}
+.row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+.stat{ display:flex; gap:14px; flex-wrap:wrap; padding:8px 0; border-top:1px solid var(--line); margin-top:8px; }
+.stat div{ font-size:12px; color:var(--tx2); }
+.stat b{ display:block; font-size:18px; color:var(--tx); font-family:var(--mono); line-height:1.2; }
+
+.page{ border:1px solid var(--line); border-radius:8px; margin-top:10px; overflow:hidden; }
+.page .ph{ display:flex; gap:8px; align-items:center; padding:6px 10px; background:#f8fafc; border-bottom:1px solid var(--line); font-size:12px; color:var(--tx2); }
+.page .pb{ display:grid; grid-template-columns:150px 1fr; gap:10px; padding:10px; }
+.page img{ width:100%; height:auto; border:1px solid var(--line); border-radius:6px; display:block; }
+.eng{ border-top:1px dashed var(--line); padding-top:6px; margin-top:6px; }
+.eng:first-child{ border-top:0; padding-top:0; margin-top:0; }
+.eng .en{ font-size:12px; color:var(--tx2); margin-bottom:2px; }
+.eng pre{
+  margin:0; padding:6px 8px; background:#f8fafc; border:1px solid var(--line); border-radius:6px;
+  font-family:var(--mono); font-size:12px; white-space:pre-wrap; word-break:break-word;
+  max-height:220px; overflow:auto;
+}
+.tag{ display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px; line-height:1.7; }
+.tag.ok{ background:#ecfdf5; color:var(--ok); border:1px solid #a7f3d0; }
+.tag.bad{ background:#fef3f2; color:var(--bad); border:1px solid #fecdca; }
+.tag.warn{ background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.log{ font-family:var(--mono); font-size:12px; color:var(--tx2); white-space:pre-wrap; word-break:break-word; }
+@media (max-width:640px){ .page .pb{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <!-- « 나가는 문 » — href 를 남겨 폴백으로 쓴다(back-nav.js 가 없거나 캐시에 옛 사본이 남을 수 있다) -->
+  <a class="btn" href="/admin.html" id="lnk-back">← 관리자 홈</a>
+  <h1>교재 본문 추출 시험</h1>
+  <span class="sp"></span>
+  <button class="btn" id="btn-copy" type="button">결과 복사</button>
+</header>
+
+<div class="wrap">
+
+  <div class="note">
+    <b>이것은 «시험» 입니다 — 결과를 저장하지 않습니다.</b><br>
+    교재에서 영어 본문을 뽑을 수 있는지 재 보는 화면입니다. 여기서 나온 글자는 어디에도 저장되지
+    않고, 화면을 닫으면 사라집니다. «된다»가 확인된 뒤에 본격 추출을 설계합니다.<br>
+    <span id="cost-note">모델을 부를 때마다 비용이 듭니다. 한 장에 엔진 수만큼 호출됩니다.</span><br>
+    <b>본사 계정만 실행됩니다.</b> 강사·지사·대리점 계정으로 누르면 서버가 거절합니다
+    (이 화면은 로그인만 확인하고 역할은 서버가 가릅니다).
+  </div>
+
+  <div class="note" style="background:#eff6ff;border-color:#bfdbfe;border-left-color:#1d4ed8;color:#1e3a5f">
+    <b>낮은 권과 높은 권을 함께 보세요.</b> BTS 교재는 레벨이 낮을수록 글자가 적고 높을수록 많습니다.
+    한쪽만 보면 «추출해도 쓸 게 없다»는 잘못된 결론이 납니다. 아래 두 칸에 서로 다른 권을 골라
+    각각 시험한 뒤, <b>영어 낱말 수</b>를 비교하세요.
+  </div>
+
+  <div class="cols" id="cols">
+    <div class="col" data-slot="A">
+      <h2>왼쪽 — 낮은 레벨 권</h2>
+      <div class="sub">예: BTS 2 · BTS 5 처럼 앞쪽 권</div>
+      <div class="row">
+        <select data-role="book" style="flex:1 1 240px"><option>불러오는 중…</option></select>
+      </div>
+      <div class="row">
+        <label>장 수 <input type="number" data-role="n" value="6" min="1" max="20" style="width:70px"></label>
+        <button class="btn primary" data-role="run" type="button">시험 시작</button>
+        <button class="btn" data-role="stop" type="button" disabled>멈춤</button>
+      </div>
+      <div class="stat">
+        <div>돌린 장<b data-role="s-pages">—</b></div>
+        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>성공한 장<b data-role="s-ok">—</b></div>
+        <div>모델 호출<b data-role="s-calls">—</b></div>
+      </div>
+      <div class="log" data-role="log"></div>
+      <div data-role="pages"></div>
+    </div>
+
+    <div class="col" data-slot="B">
+      <h2>오른쪽 — 높은 레벨 권</h2>
+      <div class="sub">예: BTS 28 · BTS 34 처럼 뒤쪽 권</div>
+      <div class="row">
+        <select data-role="book" style="flex:1 1 240px"><option>불러오는 중…</option></select>
+      </div>
+      <div class="row">
+        <label>장 수 <input type="number" data-role="n" value="6" min="1" max="20" style="width:70px"></label>
+        <button class="btn primary" data-role="run" type="button">시험 시작</button>
+        <button class="btn" data-role="stop" type="button" disabled>멈춤</button>
+      </div>
+      <div class="stat">
+        <div>돌린 장<b data-role="s-pages">—</b></div>
+        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>성공한 장<b data-role="s-ok">—</b></div>
+        <div>모델 호출<b data-role="s-calls">—</b></div>
+      </div>
+      <div class="log" data-role="log"></div>
+      <div data-role="pages"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var esc = function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
+  /* « 나가는 문 » — 판정 정본은 back-nav.js 의 window.mangoiGoBack 하나다.
+     여기에 판정을 다시 적으면 그 순간 복제가 된다. 없으면 href 가 폴백으로 동작한다. */
+  var back = document.getElementById('lnk-back');
+  if (back) back.addEventListener('click', function (e) {
+    if (window.mangoiGoBack) { e.preventDefault(); window.mangoiGoBack('/admin.html'); }
+  });
+
+  var BOOKS = [];
+
+  function api(path, opts) {
+    return fetch(path, Object.assign({ credentials: 'include' }, opts || {}))
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'bad_json', status: r.status }; }); });
+  }
+
+  /* 권 목록 — 기존 ?group=1 을 그대로 쓴다(새 API 를 만들지 않는다) */
+  function loadBooks() {
+    return api('/api/admin/textbook-files?group=1').then(function (d) {
+      /* ⚠️ 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 한다 —
+         종단 404 본문에는 ok 칸이 없어 `d.ok === false` 는 그냥 통과한다. */
+      if (d.ok !== true || !Array.isArray(d.groups)) {
+        setAll('불러오지 못했습니다 — ' + esc(d.message || d.error || '알 수 없는 오류'));
+        return;
+      }
+      BOOKS = d.groups.filter(function (g) { return (g.files || 0) > 0; });
+      /* BTS 는 권 번호 순으로, 나머지는 이름순으로 — 낮은 권/높은 권을 고르기 쉽게 */
+      BOOKS.sort(function (a, b) {
+        var na = btsNo(a.book), nb = btsNo(b.book);
+        if (na != null && nb != null) return na - nb;
+        if (na != null) return -1;
+        if (nb != null) return 1;
+        return String(a.book).localeCompare(String(b.book));
+      });
+      document.querySelectorAll('[data-role=book]').forEach(function (sel) {
+        sel.innerHTML = BOOKS.map(function (g) {
+          return '<option value="' + esc(g.book) + '">' + esc(g.book) + ' (' + (g.files || 0) + '장)</option>';
+        }).join('');
+      });
+      /* 기본값 — 앞쪽 권과 뒤쪽 권을 각각 미리 골라 둔다(사장님 정보 반영) */
+      var bts = BOOKS.filter(function (g) { return btsNo(g.book) != null && (g.files || 0) >= 30; });
+      if (bts.length >= 2) {
+        pick('A', bts[0].book);
+        pick('B', bts[bts.length - 1].book);
+      }
+    }).catch(function (e) { setAll('불러오지 못했습니다 — ' + esc(e && e.message)); });
+  }
+  function btsNo(name) {
+    var m = /^BTS\s+(\d+)\b/.exec(String(name || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function pick(slot, book) {
+    var sel = document.querySelector('[data-slot=' + slot + '] [data-role=book]');
+    if (sel) sel.value = book;
+  }
+  function setAll(msg) {
+    document.querySelectorAll('[data-role=book]').forEach(function (sel) {
+      sel.innerHTML = '<option>' + esc(msg) + '</option>';
+    });
+  }
+
+  /* ── 한 칸(권 하나)의 시험 ─────────────────────────────────────
+     ⚠️ 한 장씩 «차례로» 부른다. 한꺼번에 보내면 뉴런 소진(429)을 몰아 맞아
+        어느 엔진이 되는지 못 가리고, 멈출 수도 없다. */
+  function makeRunner(root) {
+    var busy = false, stop = false;
+    var elLog   = root.querySelector('[data-role=log]');
+    var elPages = root.querySelector('[data-role=pages]');
+    var btnRun  = root.querySelector('[data-role=run]');
+    var btnStop = root.querySelector('[data-role=stop]');
+    var stats = { pages: 0, ok: 0, words: 0, calls: 0 };
+
+    function paint() {
+      root.querySelector('[data-role=s-pages]').textContent = stats.pages || '—';
+      root.querySelector('[data-role=s-ok]').textContent    = stats.pages ? (stats.ok + ' / ' + stats.pages) : '—';
+      root.querySelector('[data-role=s-words]').textContent = stats.pages ? Math.round(stats.words / stats.pages) : '—';
+      root.querySelector('[data-role=s-calls]').textContent = stats.calls || '—';
+    }
+    function log(s) { elLog.textContent = s; }
+
+    function drawPage(d) {
+      var box = document.createElement('div');
+      box.className = 'page';
+      var best = 0;
+      (d.results || []).forEach(function (r) { if (r.words > best) best = r.words; });
+      box.innerHTML =
+        '<div class="ph"><b>' + esc(d.name || ('#' + d.id)) + '</b>'
+        + '<span>' + Math.round((d.size_bytes || 0) / 1024) + 'KB</span>'
+        + '<span class="tag ' + (best > 0 ? 'ok' : 'bad') + '">영어 낱말 ' + best + '</span></div>'
+        + '<div class="pb"><div><img loading="lazy" alt="" src="' + esc(d.url) + '"></div><div>'
+        + (d.results || []).map(function (r) {
+            var tag = r.error ? '<span class="tag bad">실패</span>'
+                    : r.prose ? '<span class="tag warn">설명문을 토함</span>'
+                    : r.ok    ? '<span class="tag ok">낱말 ' + r.words + ' · 영어 줄 ' + r.lines.length + '/' + r.line_total + '</span>'
+                              : '<span class="tag bad">쓸 수 있는 영어 줄 0</span>';
+            /* ⚠️ 길어서 버린 줄은 «오류» 가 아니라 «사실» 이다 — 조용히 사라지면
+               글자가 많은 높은 권일수록 더 깎여 정반대 결론이 난다. */
+            if (r.too_long > 0) tag += ' <span class="tag warn">너무 길어 뺀 줄 ' + r.too_long + '</span>';
+            return '<div class="eng"><div class="en">' + esc(r.label) + ' — ' + tag
+                 + ' <span style="color:var(--tx3)">' + (r.ms || 0) + 'ms</span></div>'
+                 + '<pre>' + esc(r.error ? ('오류: ' + r.error) : (r.raw || '(빈 응답)')) + '</pre></div>';
+          }).join('')
+        + '</div></div>';
+      elPages.appendChild(box);
+    }
+
+    btnStop.addEventListener('click', function () { stop = true; log('멈추는 중…'); });
+
+    btnRun.addEventListener('click', function () {
+      if (busy) return;
+      var book = root.querySelector('[data-role=book]').value;
+      var n = Math.max(1, Math.min(20, parseInt(root.querySelector('[data-role=n]').value, 10) || 6));
+      if (!book) return;
+      busy = true; stop = false;
+      btnRun.disabled = true; btnStop.disabled = false;
+      elPages.innerHTML = '';
+      stats = { pages: 0, ok: 0, words: 0, calls: 0 }; paint();
+      log('교재 목록을 받는 중…');
+
+      api('/api/admin/textbook-files?book=' + encodeURIComponent(book) + '&limit=2000').then(function (d) {
+        if (d.ok !== true || !Array.isArray(d.items)) throw new Error(d.message || d.error || '목록을 받지 못했습니다');
+        /* 이미지만 · 3MB 이하 — 서버가 거절하는 것을 미리 걸러 헛호출을 없앤다 */
+        var items = d.items.filter(function (it) {
+          var ext = String(it.ext || '').toLowerCase();
+          var okType = /^image\//.test(String(it.mime || '')) || /^(jpg|jpeg|png|webp|gif)$/.test(ext);
+          return okType && Number(it.size_bytes || 0) <= 3000000;
+        });
+        if (!items.length) throw new Error('이 교재에는 시험할 이미지가 없습니다(PDF 만 있거나 파일이 너무 큽니다)');
+        /* 앞쪽만 보면 표지·목차만 보게 된다 — 고르게 흩어 뽑는다 */
+        items.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { numeric: true }); });
+        var step = Math.max(1, Math.floor(items.length / n));
+        var picked = [];
+        for (var i = 0; i < items.length && picked.length < n; i += step) picked.push(items[i]);
+        return next(picked, 0);
+      }).catch(function (e) {
+        log('실패 — ' + (e && e.message ? e.message : e));
+      }).then(function () {
+        busy = false; btnRun.disabled = false; btnStop.disabled = true;
+      });
+
+      function next(list, i) {
+        if (stop || i >= list.length) {
+          log(stop ? ('멈췄습니다 — ' + stats.pages + '장까지 했습니다.') : ('끝났습니다 — ' + stats.pages + '장, 모델 호출 ' + stats.calls + '회.'));
+          return;
+        }
+        log((i + 1) + ' / ' + list.length + '장 읽는 중… (' + list[i].name + ')');
+        return api('/api/admin/textbook-files/' + list[i].id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'ocr_probe' }),
+        }).then(function (d) {
+          if (d.ok !== true) {
+            /* ⚠️ 실패도 «왜» 를 그대로 적는다 — 「안 된다」만으로는 다음에 무엇을 고칠지 모른다 */
+            elPages.insertAdjacentHTML('beforeend',
+              '<div class="page"><div class="ph"><b>' + esc(list[i].name) + '</b>'
+              + '<span class="tag bad">' + esc(d.error || 'failed') + '</span>'
+              + '<span>' + esc(d.message || '') + '</span></div></div>');
+          } else {
+            stats.pages++; stats.calls += (d.calls || 0);
+            var best = 0, anyOk = false;
+            (d.results || []).forEach(function (r) { if (r.words > best) best = r.words; if (r.ok) anyOk = true; });
+            stats.words += best; if (anyOk) stats.ok++;
+            drawPage(d);
+          }
+          paint();
+          return next(list, i + 1);
+        });
+      }
+    });
+  }
+
+  document.querySelectorAll('.col').forEach(makeRunner);
+
+  /* « 결과 복사 » — 사장님이 나에게 붙여넣을 수 있어야 판단 근거가 된다.
+     ⚠️ 인앱 브라우저는 클립보드가 막힐 수 있어 실패하면 그렇게 말한다. */
+  document.getElementById('btn-copy').addEventListener('click', function () {
+    var out = ['# 교재 본문 추출 시험 결과 — ' + new Date().toLocaleString('ko-KR')];
+    document.querySelectorAll('.col').forEach(function (col) {
+      var book = col.querySelector('[data-role=book]');
+      out.push('', '## ' + (book ? book.value : '?'));
+      out.push('- 돌린 장: ' + col.querySelector('[data-role=s-pages]').textContent);
+      out.push('- 영어 낱말 평균: ' + col.querySelector('[data-role=s-words]').textContent);
+      out.push('- 성공한 장: ' + col.querySelector('[data-role=s-ok]').textContent);
+      out.push('- 모델 호출: ' + col.querySelector('[data-role=s-calls]').textContent);
+      col.querySelectorAll('.page').forEach(function (p) {
+        var h = p.querySelector('.ph');
+        out.push('', '### ' + (h ? h.textContent.replace(/\s+/g, ' ').trim() : ''));
+        p.querySelectorAll('.eng').forEach(function (e) {
+          var en = e.querySelector('.en'), pre = e.querySelector('pre');
+          out.push('- ' + (en ? en.textContent.replace(/\s+/g, ' ').trim() : ''));
+          if (pre) out.push('```', pre.textContent, '```');
+        });
+      });
+    });
+    var text = out.join('\n');
+    var done = function () { alert('복사했습니다. 클로드에게 그대로 붙여넣어 주세요.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else fallback();
+    function fallback() {
+      /* 클립보드가 막힌 경우 — 「복사했다」고 거짓말하지 않는다 */
+      window.prompt('아래 글을 직접 복사해 주세요 (Ctrl+C)', text);
+    }
+  });
+
+  loadBooks();
+})();
+</script>
+<script src="/js/back-nav.js" defer></script>
+</body>
+</html>
