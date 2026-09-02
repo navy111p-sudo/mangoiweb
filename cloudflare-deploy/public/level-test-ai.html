@@ -123,6 +123,7 @@
       <div style="font-size:13.5px;color:#d1fae5;line-height:1.7">
         📚 추천 교재: <b id="ai-book" style="color:#fff">—</b><br>
         🎯 추천 코스: <b id="ai-track" style="color:#fff">—</b><br>
+        <span id="ai-placement" style="display:none"></span>
         선생님 1:1 평가 후 <b>최종 레벨·확정 교재</b>가 학부모님 문자로 안내됩니다.<br>
         정규 수업 시작을 원하시면 아래 채널로 상담해 주세요.
       </div>
@@ -277,6 +278,19 @@
     if (bookEl) bookEl.textContent = (BOOK_BY_LEVEL[level] || '선생님 평가 후 안내') + ' (참고용)';
     var trackEl = $('ai-track');
     if (trackEl) trackEl.textContent = TRACK_BY_LEVEL[level] || '상담 시 안내';
+    /* 🎯 (2026-09-02) 이 결과가 «AI 학습도구에 반영됐는지» 를 학생에게 말해 준다.
+       [왜] 서버가 students_erp.level 을 채우기 시작했는데(1단계 배선) 화면이 아무 말도
+            안 하면 아무도 모른다 — 이 저장소가 반복해서 밟은 사고다.
+       ⚠️ «했다» 를 지어내지 않는다. 로그인 안 한 상태(no_uid)이거나 이미 레벨이 있으면
+          그 사실을 그대로 말한다. placement 는 서버가 판단해 실어 준 값이다. */
+    var pl = d.placement, plEl = $('ai-placement');
+    if (plEl && pl && pl.level) {
+      var msg = '';
+      if (pl.applied) msg = '✅ 학습 수준이 <b style="color:#fff">' + esc(pl.level) + '</b> 로 저장됐어요 — 웜업·복습퀴즈가 이 수준으로 맞춰집니다.';
+      else if (pl.reason === 'already_set') msg = 'ℹ️ 이미 배정된 학습 수준이 있어 그대로 두었어요 (변경은 선생님께 문의).';
+      else if (pl.reason === 'no_uid') msg = 'ℹ️ 로그인하면 이 결과가 학습 수준(' + esc(pl.level) + ')으로 저장돼요.';
+      if (msg) { plEl.innerHTML = msg + '<br>'; plEl.style.display = ''; }
+    }
     var bk = d.breakdown || [];
     $('ai-breakdown').innerHTML = bk.map(function(r){
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;

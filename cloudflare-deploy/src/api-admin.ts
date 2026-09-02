@@ -25,6 +25,7 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -10472,7 +10473,24 @@ LIMIT $limit`;
         ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, ai_score, level, now, now).run();
         appId = ins.meta.last_row_id as number;
       }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId });
+      /* 🎯 (2026-09-02) 채점 결과를 «학생 명부» 에도 적는다 — 1단계 배선.
+         [왜] 이 결과는 지금까지 leveltest_applications 에만 남고 students_erp.level 로
+              흘러가지 않았다. 그런데 웜업·복습퀴즈·판단력이 읽는 칸은 그쪽이라,
+              레벨테스트를 봐도 AI 학습도구는 그 학생 수준을 영영 몰랐다
+              (2026-09-02 D1 실측: 학생 29,462명 중 level 채워진 사람 0명).
+         [🔒 본문 uid 를 믿지 않는다] 이 경로는 무인증 공개다. 본문의 student_uid 를
+              그대로 쓰면 아무나 남의 학생 레벨을 바꿀 수 있다(CLAUDE.md 「인증 없는 API 가
+              본문에 적힌 «누구에게» 를 그대로 쓴다」). 그래서 **토큰으로 확인된 uid 로만**
+              적는다. 화면(level-test-ai.html)은 이미 token 을 함께 보내고 있다.
+              ⛔ authedUid 가 없을 때 uid 로 폴백하지 말 것 — 폴백하면 구멍이 그대로 남는다.
+         ⚠️ 이미 레벨이 있으면 덮어쓰지 않는다(사람 손이 이긴다). 정본: student-placement.ts
+         ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 학생이 시험을 다 보고 결과를 못 받으면 안 된다. */
+      let placement: any = null;
+      try {
+        const authedUid = await authUidGlobal(request, url, env, b);
+        if (authedUid) placement = await applyPlacementLevel(env as any, authedUid, level);
+      } catch (e: any) { console.warn('[leveltest] placement skip:', e && e.message); }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
@@ -10686,7 +10704,20 @@ LIMIT $limit`;
       for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
       if (method === 'GET') {
         const rs = await env.DB.prepare(`SELECT * FROM textbooks ORDER BY active DESC, level ASC, title ASC`).all();
-        return json({ ok: true, items: rs.results || [] });
+        const payload: any = { ok: true, items: rs.results || [] };
+        /* 📚 (2026-09-02) ?library=1 일 때만 «실재하는» 교재 이름을 함께 준다 — 1단계 배선.
+           [왜] `textbooks` 표에는 「BTS」·「다락원」 2행뿐인데, AI 학습도구가 매칭에 쓰는 이름은
+                「BTS 1 001 (Welcome to school)」 같은 실제 콘텐츠 이름이다. 그래서 이 목록에서
+                고른 이름으로 배정하면 **에러 없이** 아무것도 안 맞았다(실측: textbook 채운 학생 0명).
+           ⚠️ 기존 `items` 는 한 글자도 안 바꾼다 — 이 API 를 쓰는 화면이 다섯 곳이다
+              (adm-core.js 4곳·admin/health.html). 응답 모양을 바꾸면 그쪽이 조용히 깨진다.
+           ⚠️ 기본으로 계산하지 않는 이유도 같다 — textbook_files 전수 GROUP BY 라
+              교재 목록만 필요한 호출에까지 비용을 얹을 이유가 없다. */
+        if (url.searchParams.get('library') === '1') {
+          try { payload.library = await loadTextbookChoices(env as any); }
+          catch (e: any) { console.warn('[textbooks] library skip:', e && e.message); }
+        }
+        return json(payload);
       }
       const b = await parseJsonBody(request);
       if (!b || !b.title) return invalidBody(['title']);
