@@ -106,6 +106,23 @@ ok('우회 사유가 요약에 남는다 (reason 이 갈린다)',
    decideHold({ now: inWindow, commitMessage: OVERRIDE_TAG }).reason === 'commit-override' &&
    decideHold({ now: inWindow }).reason === 'class-window');
 
+console.log('\n── ②-2 창 밖이어도 «지금 사람이 있으면» 보류한다 ──');
+/* 🔴 요일을 화·목으로 좁힌 대가(수·금·월이 창 밖)를 메우는 짝이다.
+   ⛔ 이 판정을 빼면 수·금·월은 «창도 없고 실접속 판정도 없는» 상태가 된다.
+   (자세한 검사는 test-harness/deploy_class_guard_harness.mjs — SQL 을 진짜 SQLite 에,
+    D1 조회를 가짜 fetch 로 돌린다. 여기서는 «창과 어떻게 맞물리는가» 만 못 박는다.) */
+const wedOut = new Date(Date.UTC(2026, 8, 2, 6, 0));   // 수요일 15:00 KST = 창 밖
+ok('수요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
+ok('수요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
+ok('그때 사유가 live-class 로 갈린다', decideHold({ now: wedOut, live: 2 }).reason === 'live-class');
+ok('창 안이면 실접속과 무관하게 class-window 가 이긴다',
+   decideHold({ now: inWindow, live: 5 }).reason === 'class-window');
+ok('강행은 실접속보다도 먼저다', decideHold({ now: wedOut, live: 5, force: 'true' }).hold === false);
+/* ⚠️ 조회를 못 하면 live=0 으로 온다 = 「수업 없음」이 아니라 「모름」. 그래도 막지 않는다
+   (고장 난 감시견이 모든 배포를 영구히 막는 쪽이 더 나쁘다). 대신 조용히 넘기지 않는다. */
+ok('조회 실패(live=0)에는 막지 않는다 — fail-open 이 유지된다',
+   decideHold({ now: wedOut, live: 0 }).reason === 'outside-window');
+
 console.log('\n── ③ 배포·검증 step 이 전부 그 판정에 걸려 있다 ──');
 const HOLD_GATE = "steps.class_window.outputs.hold != 'true'";
 /* step 블록을 `- name:` 경계로 자른다 — 길이로 자르면 옆 step 이 딸려 들어온다. */
