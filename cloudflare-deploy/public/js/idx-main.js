@@ -5084,8 +5084,8 @@ function vcArmFullscreenRetry() {
                 } else if (lossPct < 1.5 && (rtt === 0 || rtt < rttUp)) {
                     pc.__qGood = (pc.__qGood || 0) + 1;
                     if (pc.__qGood >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && step > 0) { step--; pc.__qGood = 0; }
-                } else {
-                    pc.__qGood = 0;
+                } else if (lossPct >= 1.5) {
+                    pc.__qGood = 0;   // 손실이 있으면 «조용함» 을 처음부터 다시 센다. 손실 없이 RTT 만 애매(rttUp~rttDown)하면 지우지 않고 멈춘다 — 28초마다 흔들리는 회선이 영영 못 올라오던 것(④-2)
                 }
                 if (step !== (pc.__qStep || 0)) {
                     console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms(기준 ' + Math.round(rb) + ') → 단계', pc.__qStep || 0, '→', step);
@@ -5093,7 +5093,7 @@ function vcArmFullscreenRetry() {
                     applyStep(pc, step);
                 }
                 /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
-                   기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
+                   기준은 손실 1.5% 미만 + RTT 150ms 미만(절대값 — «정말 좋은 회선» 판정이라 기준 대비로 안 잰다).
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
                 /* 🔊 (2026-09-01) 「소리가 끊긴다」에 이 줄이 직접 걸린다.
                    기준이 «지금 이 4초가 좋다» 였다. 그런데 RTT 가 52~210ms 로 요동치는 회선에서는

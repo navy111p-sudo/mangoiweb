@@ -245,6 +245,45 @@ console.log('\n════════ ④-2 높은 기준 RTT 회선 — 내�
   const lowNow = run(block, low), lowOld = run(oldSrc, low);
   ok(lowNow.worst === lowOld.worst && lowNow.end === lowOld.end,
      `기준 RTT 가 낮은 회선에서는 옛 판정과 같은 답 (최저 ${lowNow.worst} / 끝 ${lowNow.end})`);
+
+  /* ── (2026-09-02 함정 대조 검사 지적) 아래 셋은 처음 ④-2 가 못 잡던 것 — 상한 제거·드리프트 10배·28초 주기 흔들림 ── */
+
+  /* ㉠ 기준 상한 500 — 손실 없이 RTT 만 800ms 로 «지속 혼잡» 인 회선은 회복시키지 않는다(상한을 풀면 기준이 800 까지 따라 올라가 도로 올라온다) */
+  const jam = [];
+  for (let k = 0; k < 20; k++) jam.push([0.3, 360]);
+  jam.push([0.3, 620]);
+  for (let k = 0; k < 120; k++) jam.push([0.3, 800]);
+  const jamNow = run(block, jam);
+  ok(jamNow.worst >= 1 && jamNow.end >= 1, `RTT 800ms 지속 혼잡에서는 올라오지 않는다 (끝 단계 ${jamNow.end}, 기준 ${Math.round(jamNow.base)} ≤ 500 상한)`);
+  const noCap = block.replace(/Math\.min\(pc\.__qRttBase \|\| 0, 500\)/, '(pc.__qRttBase || 0)');
+  ok(noCap !== block, '되돌림 시험용(상한 제거) 블록을 만들었다');
+  const jamNoCap = run(noCap, jam);
+  ok(jamNoCap.end === 0, `상한을 풀면 800ms 인 채로 도로 올라온다 (끝 단계 ${jamNoCap.end}) — 상한 검사가 헛돌지 않는다`);
+
+  /* ㉡ 기준은 위로는 «천천히» 만 따라간다 — 첫 표본이 비정상 저값이어도 15틱(1분) 안에 기준이 실제값으로 뛰어오르지 않는다 */
+  const drift = [[0.3, 100]]; for (let k = 0; k < 15; k++) drift.push([0.3, 360]);
+  const dNow = run(block, drift);
+  ok(dNow.base > 100 && dNow.base <= 250, `기준이 1분 동안 100 → ${Math.round(dNow.base)} 로만 올라왔다(틱당 2%)`);
+  const fastDrift = block.replace('(rtt - b) * 0.02', '(rtt - b) * 0.2');
+  ok(fastDrift !== block, '되돌림 시험용(드리프트 10배) 블록을 만들었다');
+  ok(run(fastDrift, drift).base > 250, '드리프트를 10배로 키우면 1분 안에 실제값에 붙는다 — 드리프트 검사가 헛돌지 않는다');
+
+  /* ㉢ 28초마다 흔들리는 회선(기준+110 스파이크가 7틱 주기) — «8틱 연속 양호» 를 매번 끊지 않아야 올라온다.
+        손실 없이 RTT 만 애매한 틱은 진행을 «지우지» 말고 «멈추기» 만 한다(손실이 있으면 옛대로 지운다). */
+  const jitter = [];
+  for (let k = 0; k < 300; k++) jitter.push([0.3, k === 50 ? 620 : (k % 7 === 3 ? 470 : 360)]);
+  const jNow = run(block, jitter);
+  ok(jNow.worst >= 1 && jNow.end === 0 && jNow.recoveredAt > 50,
+     `28초 주기 흔들림에서도 올라온다 (끝 단계 ${jNow.end}, ${jNow.recoveredAt > 0 ? Math.round((jNow.recoveredAt - 50) * 4 / 60) + '분 만에 회복' : '회복 없음'})`);
+  const resetAll = block.replace('} else if (lossPct >= 1.5) {', '} else {');
+  ok(resetAll !== block, '되돌림 시험용(애매 틱마다 리셋) 블록을 만들었다');
+  const jOld = run(resetAll, jitter);
+  ok(jOld.end >= 1 && jOld.recoveredAt < 0, `애매 틱마다 지우면 영영 못 올라온다 (끝 단계 ${jOld.end}) — 검사가 헛돌지 않는다`);
+  /* 손실이 있는 틱은 여전히 지운다 — 손실 2% 가 7틱마다 오면 옛대로 안 올라온다 */
+  const lossy = [];
+  for (let k = 0; k < 300; k++) lossy.push([k % 7 === 3 ? 2.0 : 0.3, k === 50 ? 620 : 360]);
+  const lNow = run(block, lossy);
+  ok(lNow.worst >= 1 && lNow.recoveredAt < 0, `손실 2% 가 28초마다 오면 «조용함» 을 매번 다시 센다 (끝 단계 ${lNow.end}, 회복 없음)`);
 }
 
 console.log('\n════════ ⑤ 소리 — 수신 지연 재설정과 음성전용 문턱 ════════');
