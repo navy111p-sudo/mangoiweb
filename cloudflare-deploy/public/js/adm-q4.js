@@ -135,7 +135,13 @@
       if (document.getElementById('rq-ai-replace').checked) document.getElementById('rq-qlist').innerHTML='';
       qs.forEach(function(qq){ rqAddQ(qq); });
       rqRenum();
-      msg.style.color='#059669'; msg.textContent='✅ '+qs.length+'개 문항이 추가됐어요. 내용을 검토·수정 후 저장하세요.';
+      /* 🧪 (2026-09-02) 검사에서 걸러진 문항이 있으면 «몇 개를 왜» 를 함께 보여준다.
+         감추면 「AI 가 4개만 만들었네」로 읽혀 프롬프트·레벨을 고칠 기회를 잃는다.
+         서버 정본: src/quiz-quality.ts */
+      var dropN = (r.raw_count && r.raw_count > qs.length) ? (r.raw_count - qs.length) : ((r.dropped||[]).length);
+      msg.style.color='#059669';
+      msg.textContent = '✅ '+qs.length+'개 문항이 추가됐어요. 내용을 검토·수정 후 저장하세요.'
+        + (dropN ? '  (검사에서 '+dropN+'개 제외' + (r.dropped_summary ? ' — '+r.dropped_summary : '') + ')' : '');
     } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 생성 실패: '+e.message+' (Workers AI 응답 문제일 수 있어요. 다시 시도하거나 수동 입력하세요.)'; }
   };
   // 🏗️ 전체 교재 40문제 은행 자동 생성 (교재 목록을 돌며 배치 생성)
@@ -157,10 +163,10 @@
       books = (g.groups||[]).filter(function(b){ return b.book && b.book!=='(기타)'; });
     } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 교재 목록 로드 실패: '+e.message; startBtn.disabled=false; stopBtn.style.display='none'; return; }
     if (!books.length){ msg.textContent='⚠️ 교재가 없습니다.'; startBtn.disabled=false; stopBtn.style.display='none'; return; }
-    var total = books.length, doneBooks = 0, okBooks = 0, failedBooks = 0, madeQ = 0, aborted = false;
+    var total = books.length, doneBooks = 0, okBooks = 0, failedBooks = 0, madeQ = 0, aborted = false, droppedAll = 0;
     // 한 교재 은행 생성 — HTTP 상태/JSON을 정직하게 파싱
     async function buildOne(bk, lvl){
-      var size = 0, guard = 0, lastErr = '';
+      var size = 0, guard = 0, lastErr = '', droppedHere = 0;
       while (size < 40 && guard < 6){
         if (window.__rqBankStop) break;
         guard++;
@@ -175,9 +181,10 @@
         if (status === 404 || status === 405 || (data === null && status !== 200)){ return { size:0, fatal:true, status:status }; }
         if (!data || data.ok !== true){ lastErr = (data && data.error) || ('http '+status); await sleep(700); break; }
         size = data.bank_size || 0;
+        droppedHere += Number(data.dropped) || 0;   // 🧪 검사에서 걸러진 문항 수
         if (data.done) break;
       }
-      return { size:size, fatal:false, err:lastErr };
+      return { size:size, fatal:false, err:lastErr, dropped:droppedHere };
     }
     for (var bi=0; bi<books.length; bi++){
       if (window.__rqBankStop){ aborted=true; break; }
@@ -185,11 +192,12 @@
       var res = await buildOne(bk, lvl);
       if (res.fatal){
         msg.style.color='#b91c1c';
-        msg.innerHTML='❌ 생성 엔드포인트가 라이브에 없습니다 (HTTP '+res.status+'). <b>아직 배포되지 않았어요.</b><br>먼저 <b>mangoiweb(last) 폴더에서 deploy.bat 실행</b> 후 다시 시도하세요. (지금까지 실제로 저장된 은행: '+okBooks+'개)';
+        msg.innerHTML='❌ 생성 엔드포인트가 라이브에 없습니다 (HTTP '+res.status+'). <b>아직 배포되지 않았어요.</b><br>먼저 <b>배포(deploy.ps1 또는 main 병합)</b> 후 다시 시도하세요. (지금까지 실제로 저장된 은행: '+okBooks+'개)';
         startBtn.disabled=false; stopBtn.style.display='none';
         return;
       }
       doneBooks++;
+      droppedAll += (res.dropped || 0);
       if (res.size >= 10) okBooks++; else failedBooks++;
       var pct = Math.round(doneBooks/total*100);
       bar.style.width = pct+'%';
@@ -205,7 +213,8 @@
       bar.style.width='100%';
       if (failedBooks === 0){
         msg.style.color='#047857';
-        msg.textContent='✅ 완료: '+okBooks+'/'+total+' 교재 은행 생성. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.';
+        msg.textContent='✅ 완료: '+okBooks+'/'+total+' 교재 은행 생성. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.'
+          + (droppedAll ? '  (검사에서 '+droppedAll+'개 제외 — 문법·정답 오류)' : '');
       } else {
         msg.style.color='#b45309';
         msg.textContent='⚠️ 완료: 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 실패분은 버튼을 다시 눌러 재시도하세요 (이미 된 교재는 건너뜀).';

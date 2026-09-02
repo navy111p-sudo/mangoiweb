@@ -24,6 +24,7 @@ import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 // 🈶 중국어 교재 이름 해석 정본 — 라이브러리(「다락원 중국어 마스터 3」)와 콘텐츠(「다락원」)의
 //    표기가 달라 매칭이 영영 안 되던 것을 잇습니다. 표시 이름은 「중국어 마스터」(2026-08-26 사장님).
 import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
+import { filterQuizQuestions, summarizeRejects } from './quiz-quality';  // 🧪 AI 문항 검사(2026-09-02)
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1575,7 +1576,18 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         try { arr = JSON.parse(m[0]); } catch { return { ok: false as const, error: 'ai_bad_json' }; }
         const parsed = rqParseQuestions(arr);
         if (!parsed.ok || !parsed.list || !parsed.list.length) return { ok: false as const, error: parsed.error || 'ai_invalid_questions' };
-        return { ok: true as const, questions: parsed.list };
+        /* 🧪 (2026-09-02) 만든 것을 «실제로 검사한다» — 지금까지 영어 갈래는 프롬프트로
+           지시만 하고 결과를 한 번도 확인하지 않았다. 이 저장소의 반복 실측이
+           「지시만으로는 안 지켜진다」이고(판단력 「Want play with me」·AI친구 전보문),
+           복습퀴즈는 학생이 **정답으로 외우는** 문장이라 더 나쁘다. 정본: quiz-quality.ts
+           ⛔ 중국어에는 걸지 않는다 — 검사기는 영어용이라(isEnglishQuestion) 전부 떨어진다.
+              중국어는 이미 zh_vocab 그라운딩으로 «목록 밖 글자 금지» 가 걸려 있다.
+           ⚠️ 여기서는 «거르기만» 하고 정책은 부르는 쪽이 정한다 — 학생이 기다리는 즉석 출제와
+              관리자 은행 생성은 «다 떨어졌을 때» 해야 할 일이 다르다. */
+        if (isZh) return { ok: true as const, questions: parsed.list, dropped: [] as any[] };
+        const f = filterQuizQuestions(parsed.list, o.level);
+        if (f.dropped.length) console.warn('[rqAiGenerate] 문항 거름:', f.dropped.length, '/', parsed.list.length, '—', summarizeRejects(f.dropped));
+        return { ok: true as const, questions: f.kept, dropped: f.dropped, raw_count: parsed.list.length };
       } catch (e: any) {
         return { ok: false as const, error: 'ai_failed: ' + (e?.message || 'unknown') };
       }
@@ -1949,8 +1961,30 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 본문이 아예 없는 교재/레벨이면(향후 커리큘럼 확장 대비) zh_vocab 그라운딩 AI로 폴백.
       }
       // 🤖 매칭 퀴즈가 없으면 AI 가 교재/레벨/레슨에 맞춰 즉석 출제 → 저장 (관리자 페이지에서 확인·조정 가능)
-      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, lang, counts: lang === 'zh' ? { choice: 4, write: 4 } : { listen: 2, write: 2, speak: 2 } });
+      let gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, lang, counts: lang === 'zh' ? { choice: 4, write: 4 } : { listen: 2, write: 2, speak: 2 } });
+      /* 🧪 (2026-09-02) 검사에서 다 떨어지면 학생이 «빈손» 이 된다 — 한 번만 더 뽑아 본다.
+         ⛔ 떨어진 문항을 «그래도 낸다» 로 되돌리지 말 것: 여기서 걸러지는 것은
+            «정답이 보기에 없는 문항»·«문법이 깨진 문장» 이라, 내보내면 학생이 그것을
+            정답으로 외운다. 못 주는 것보다 나쁘다.
+         ⚠️ 재시도는 한 번뿐이다 — 학생이 기다리는 경로라 왕복을 늘리면 그게 또 사고다. */
+      if (gen.ok && (!gen.questions || !gen.questions.length)) {
+        console.warn('[review-quiz/auto] 검사 통과 문항 0 — 한 번 더 출제');
+        gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, lang, counts: lang === 'zh' ? { choice: 4, write: 4 } : { listen: 2, write: 2, speak: 2 } });
+      }
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+      /* ⚠️ 검사에서 다 떨어졌을 때 «화면이 뭐라고 말하는가» 가 중요하다.
+         [왜 502 가 아닌가] 502 + error 코드를 주면 학생 화면(js/idx-x8.js)이 그 코드를
+           그대로 그린다 — 'quiz_quality_failed' 는 학생에게 아무 뜻이 없고 「고장」으로 읽힌다
+           (CLAUDE.md 「상한·검증을 새로 걸 때 화면이 그 실패를 뭐라고 말하는지」).
+         [지금] `{ok:true, quiz:null}` 로 답한다. 그 화면은 이 모양을 **이미** 알고
+           「맞춤 퀴즈가 아직 없어요. 전체 목록을 보여드릴게요」로 그린 뒤 목록으로 데려간다.
+           ⟹ 학생 화면(공동 금지구역인 index.html 의 blocking 스크립트)을 한 글자도 안 고치고
+              사람이 읽을 수 있는 안내가 된다.
+         ⚠️ quality_blocked 는 «기록용» 이다 — 화면은 안 쓰고 로그·하니스가 본다. */
+      if (!gen.questions || !gen.questions.length) {
+        console.warn('[review-quiz/auto] 검사 통과 문항 0 — 목록으로 보냄:', textbook || level);
+        return json({ ok: true, matched: false, quiz: null, quality_blocked: true, ...meta });
+      }
       const title = `[AI] ${textbook || level || '오늘의 수업'}${lessonNo ? ` Lesson ${lessonNo}` : ''} 복습퀴즈`;
       const desc = lang === 'zh'
         ? `AI 자동 출제 (객관식/쓰기, 다락원 어휘 기반) — ${new Date().toISOString().slice(0, 10)}`
@@ -1975,7 +2009,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         counts: b.counts || { listen: 2, write: 2, speak: 2, choice: 2 },
       });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
-      return json({ ok: true, questions: gen.questions });
+      /* 🧪 떨어진 문항도 «왜» 와 함께 돌려준다 — 감추면 관리자는 「왜 4개만 나왔지」만 보고
+         AI 가 이상하다고 생각한다. 무엇이 걸렸는지 보여야 프롬프트·레벨을 고칠 수 있다. */
+      return json({
+        ok: true, questions: gen.questions,
+        dropped: (gen as any).dropped || [], raw_count: (gen as any).raw_count,
+        dropped_summary: summarizeRejects(((gen as any).dropped) || []),
+      });
     }
 
     // ── POST /api/admin/review-quiz/build-bank — 관리자: 교재(또는 레벨)별 40문제 은행 점진 생성 ──
@@ -1996,18 +2036,24 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (qs.length >= target) return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: true });
       const gen = await rqAiGenerate({ level, textbook, lesson_no: null, topic, counts: { listen: 4, write: 3, speak: 3, choice: 0 } });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+      /* 🧪 검사 통과분만 은행에 쌓는다. 한 배치가 통째로 떨어질 수 있는데(레벨이 낮은 교재에서
+         모델이 긴 문장을 내는 경우) 그건 실패가 아니라 «이번엔 못 건졌다» 이다 —
+         부르는 쪽이 반복 호출하므로 다음 배치에서 채워진다. 화면에 그 수를 알린다. */
+      const dropped = ((gen as any).dropped || []) as any[];
       qs = qs.concat(gen.questions);
       if (qs.length > target) qs = qs.slice(0, target);
       const drawJson = JSON.stringify({ listen: 4, write: 3, speak: 3 });
       const now = Date.now();
       if (existing) {
         await env.DB.prepare(`UPDATE review_quizzes SET questions=?, draw=?, active=1, updated_at=? WHERE id=?`).bind(JSON.stringify(qs), drawJson, now, existing.id).run();
-        return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: qs.length >= target });
+        return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: qs.length >= target,
+                      dropped: dropped.length, dropped_summary: summarizeRejects(dropped) });
       }
       const title = textbook ? `\u{1F4DA} ${textbook}` : `\u{1F3F7}\uFE0F ${level}`;
       const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, draw, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'bank',?,?,?)`)
         .bind(title, '교재 은행에서 듣기4·쓰기3·말하기3 랜덤 10출제', JSON.stringify(qs), level || null, textbook || null, null, drawJson, now, now).run();
-      return json({ ok: true, id: (ins as any).meta?.last_row_id, bank_size: qs.length, target, done: qs.length >= target });
+      return json({ ok: true, id: (ins as any).meta?.last_row_id, bank_size: qs.length, target, done: qs.length >= target,
+                    dropped: dropped.length, dropped_summary: summarizeRejects(dropped) });
     }
 
     // ── GET /api/admin/review-quiz/list — 관리자: 전체 퀴즈 (정답 포함 + 응시수) ──
