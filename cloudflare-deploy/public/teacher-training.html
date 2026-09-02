@@ -56,7 +56,24 @@
         /* ── 뼈대 ────────────────────────────────────────────── */
         .tt-wrap{max-width:1120px; margin:0 auto; padding:0 16px}
         .tt-head{position:sticky; top:0; z-index:40; background:#fff; border-bottom:1px solid var(--tt-line)}
-        .tt-head-in{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:64px; flex-wrap:wrap; padding:8px 0}
+        /* ⚠️ space-between → flex-start + tools 를 margin-left:auto 로 (2026-09-01).
+           왼쪽 위에 [← 뒤로][🏠 홈] 을 더하면서 필요해졌다. space-between 그대로 두면 항목이
+           셋(나가는문·브랜드·도구)이 되어 브랜드가 가운데로 밀린다.
+           (이 저장소는 flex 에서 space-between 이 라벨을 미는 사고를 이미 겪었다 — CLAUDE.md 2장) */
+        .tt-head-in{display:flex; align-items:center; justify-content:flex-start; gap:12px; min-height:64px; flex-wrap:wrap; padding:8px 0}
+        .tt-head-tools{margin-left:auto}
+        /* ⬅🏠 나가는 문 — 이 화면은 강사·매니저가 teacher.html·관리자 화면에서 들어오는데
+           그전에는 뒤로도 홈도 없어 «나갈 길이 하나도 없는» 화면이었다(2026-09-01 사장님 지시).
+           ℹ️ 헤더가 `tt-no-print` 라 인쇄물에는 안 나온다 — 그래서 화면에 떠 있는 고정 버튼이
+              아니라 «헤더 안» 에 두는 것이 이 화면에 맞다(인쇄 매뉴얼이다). */
+        .tt-nav{display:inline-flex; align-items:center; gap:6px; flex:0 0 auto}
+        .tt-nav a, .tt-nav button{display:inline-flex; align-items:center; gap:5px;
+            min-height:34px; padding:0 11px; border-radius:11px; cursor:pointer;
+            font-family:inherit; font-size:12.5px; font-weight:800; white-space:nowrap;
+            text-decoration:none; background:#f1f5f9; color:var(--tt-body);
+            border:1px solid var(--tt-line)}
+        .tt-nav a:hover, .tt-nav button:hover{background:var(--tt-o-l); color:var(--tt-o-d); border-color:var(--tt-o-b)}
+        .tt-nav a:active, .tt-nav button:active{transform:scale(.97)}
         .tt-brand{display:flex; align-items:center; gap:10px; min-width:0}
         .tt-brand img{width:42px; height:42px; object-fit:contain; flex:0 0 auto}
         .tt-brand h1{margin:0; font-size:17px; font-weight:800; color:var(--tt-ink); letter-spacing:-.2px; line-height:1.25}
@@ -250,6 +267,20 @@
         [id^="sec-"]{scroll-margin-top:88px}
 
         /* ── 인쇄 ────────────────────────────────────────────── */
+        /* ⬅🏠 좁은·중간 폭에서는 나가는 문의 «글자» 를 접는다 (2026-09-01 실측).
+           왜 700px 이 아니라 1024px 인가: 768px 에서 라벨을 켜 두면 헤더 항목 셋
+           (나가는문 136 + 브랜드 250 + 도구 413)이 한 줄에 안 들어가 도구가 두 번째 줄로
+           밀리고, sticky 헤더가 64 → 112px 로 커진다(그만큼 본문이 늘 가려진다).
+           ⚠️ 기호(←·🏠)는 남긴다 — 터치 기기에는 hover 가 없어 title 만으로는 아무것도
+              안 보인다. 그래서 «글자만» 접고 기호는 그대로 둔다. */
+        @media (max-width:1024px){
+            .tt-nav .tt-nav-txt{display:none}
+            /* 여기서 «한 줄» 을 지키려면 16px 이 부족했다(실측 768px: 82+250+413+간격24 = 769 > 753).
+               나가는 문과 헤더 간격만 조금 줄여 맞춘다 — 브랜드·도구는 건드리지 않는다. */
+            .tt-nav{gap:4px}
+            .tt-nav a, .tt-nav button{padding:0 7px}
+            .tt-head-in{gap:8px}
+        }
         @media print{
             .tt-no-print{display:none !important}
             body{background:#fff}
@@ -263,6 +294,7 @@
             /* 붙어 있는 머리줄이 화면을 너무 많이 먹지 않게 — 390px 에서 163px → 약 90px.
                두 토글은 «줄바꿈» 대신 «가로 스크롤» 로 한 줄에 둔다(줄이 늘면 그만큼 본문이 밀린다). */
             .tt-head-in{min-height:0; padding:7px 0; gap:7px}
+            .tt-nav a, .tt-nav button{padding:0 9px; min-height:32px}
             .tt-brand img{width:34px; height:34px}
             .tt-brand h1{font-size:14.5px}
             .tt-brand p{display:none}
@@ -288,6 +320,16 @@
 <!-- ═══ 상단 바 ═══ -->
 <header class="tt-head tt-no-print">
     <div class="tt-wrap tt-head-in">
+        <!-- ⬅🏠 나가는 문 (2026-09-01 사장님 지시) — ← 는 직전 페이지, 🏠 는 처음 화면.
+             ⚠️ 뒤로 판정은 복제하지 않고 정본 window.mangoiGoBack(js/back-nav.js)을 부른다.
+                그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이면 else 로 «홈으로는 간다».
+             ⚠️ 이 화면은 자체 사전(T.ko/T.en) + renderAll() 로 글자를 그린다(data-ko/data-en 사전이
+                아니다) → 라벨은 renderAll 에서 navBack·navHome 으로 갱신한다. -->
+        <nav class="tt-nav tt-no-print" aria-label="이동">
+            <button type="button" id="nav-back" title="뒤로 가기 (이전 페이지)" aria-label="뒤로 가기"
+                    onclick="if(window.mangoiGoBack){window.mangoiGoBack()}else{location.href='/'}">←<span class="tt-nav-txt" id="nav-back-txt">뒤로</span></button>
+            <a id="nav-home" href="/" title="처음 화면으로" aria-label="홈으로 가기">🏠<span class="tt-nav-txt" id="nav-home-txt">홈</span></a>
+        </nav>
         <div class="tt-brand">
             <img src="/img/mango-char.png" alt="Mr.Mango" decoding="async">
             <div>
@@ -333,6 +375,7 @@ var T = {};
 
 /* ─────────────────────────── 한국어 ─────────────────────────── */
 T.ko = {
+  navBack: '뒤로', navHome: '홈',
   navTitle: '망고아이 강사 교육 매뉴얼',
   navSub: 'Teacher Playbook v3.0',
   tabGuide: '교육 매뉴얼',
@@ -654,6 +697,7 @@ T.ko = {
 
 /* ─────────────────────────── English ─────────────────────────── */
 T.en = {
+  navBack: 'Back', navHome: 'Home',
   navTitle: 'Mangoi Teacher Playbook',
   navSub: 'Teacher Playbook v3.0',
   tabGuide: 'Playbook',
@@ -1533,6 +1577,10 @@ function setLanguage(lang) {
 function renderAll() {
   var d = T[LANG];
   document.documentElement.setAttribute('lang', LANG);
+  /* 나가는 문 라벨도 함께 그린다 — 이 화면은 data-ko/data-en 사전을 쓰지 않으므로
+     여기서 안 그리면 언어를 바꿔도 한국어로 남는다(CLAUDE.md 「JS 로 그린 라벨」). */
+  var _nb = document.getElementById('nav-back-txt'); if (_nb) _nb.textContent = d.navBack;
+  var _nh = document.getElementById('nav-home-txt'); if (_nh) _nh.textContent = d.navHome;
   document.getElementById('nav-title').textContent = d.navTitle;
   document.getElementById('nav-sub').textContent = d.navSub;
   document.getElementById('tab-guide-txt').textContent = d.tabGuide;
@@ -1645,5 +1693,8 @@ function exportSheet() {
 })();
 </script>
 <!-- BUILD:20260813015745 -->
+<!-- ⬅ 뒤로 판정 정본. 위 헤더의 ← 버튼이 window.mangoiGoBack 을 부른다.
+     ⚠️ 헤더에 보이는 ← 가 있으므로 이 파일은 자기 동그란 ← 를 «넣지 않는다»(hasVisibleBack). -->
+<script defer src="/js/back-nav.js"></script>
 </body>
 </html>

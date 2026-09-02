@@ -14,6 +14,7 @@ import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
+import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -34,8 +35,10 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -157,11 +160,32 @@ export async function handleMangoApi(
                 SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
                 (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
           try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+          /* 📥 (2026-09-01 class-1015 「화면이 흐리고 소리가 끊긴다」) «받는 쪽» 지표.
+             그전까지 이 표는 sender.getStats() 만 담았다 = «내가 보내는 것» 뿐이었다.
+             그런데 제보는 전부 «내가 받는 화면·소리» 였고, 그 숫자가 아예 없어서
+             매번 추측으로 끝났다(js/idx-vc-qlog.js 머리말 [원인 ②]).
+               · rx_loss/rx_aloss — 받은 영상·오디오 손실률(%)
+               · rx_conceal       — 소리가 끊겨 브라우저가 «메꾼» 비율(%). 「소리 끊김」의 직접 지표
+               · rx_freeze        — 받은 영상이 멈춘 횟수
+               · p95_loss         — 보내는 쪽 손실의 상위 5%. 평균이 가리는 스파이크를 남긴다
+               · peers            — 그 1분 동안 동시에 붙어 있던 상대 수(유령 연결 판별)
+             ⚠️ «모름» 은 -1 이다. 0 으로 적으면 «표본이 없는 사람» 이 «제일 좋은 사람» 이 된다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts 에 한 벌 더
+                있고 IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다(위 novideo 주석과 같은 사정). */
+          for (const c of ['rx_loss REAL DEFAULT -1', 'rx_aloss REAL DEFAULT -1', 'rx_conceal REAL DEFAULT -1',
+                           'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
+           화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
+        const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
-            Number(b.novideo) || 0).run();
+            Number(b.novideo) || 0,
+            num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0)).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
@@ -484,6 +508,12 @@ export async function handleMangoApi(
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      /* 🚪 이 요청을 «받은 워커» 가 자기 DO 네임스페이스 지문을 이 도메인 이름으로 적어 둔다.
+         두 워커는 D1·KV 를 공유하지만 DO 만 갈리므로, 도메인이 서로 다른 워커에 붙으면
+         같은 방 번호로도 서로 못 만난다(2026-08-19·08-25·08-27·09-01 네 번 사고).
+         15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
+         ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
+      try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
@@ -1824,9 +1854,18 @@ export async function handleMangoApi(
        [무엇] 관리자·강사가 6자리 PIN 을 만들고, 학생이 그 PIN 을 자기 화면에 넣으면
          «원격 지원을 허용했다» 는 사실이 서버에 남는다. 그 다음 실제 화면 제어는
          **Quick Assist / Chrome 원격 데스크톱**(index.html 의 원격 지원 안내)이 한다.
-       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 여기서 PIN 이 하는 일은
-          «누가 언제 허락했는가» 를 남기는 것뿐이고, 그게 이 기능에 필요한 전부다.
+       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 브라우저에는 «남의 기기를
+          조작하는» API 가 아예 없다(보안상 일부러 없다). 실제 조작은 Quick Assist·Chrome 원격
+          데스크톱이 하고, 우리는 ① «누가 언제 허락했는가» 를 남기고 ② 직원이 만든 **접속 코드를
+          학생 화면까지 날라다 준다**. 그 둘이 이 기능의 전부다.
           (허락 기록이 없으면 「누가 내 컴퓨터를 봤나」에 답할 수가 없다.)
+
+       📞 (2026-09-01 사장님 지시 «직원이 원격으로 들어가서 수리») 왜 코드를 날라다 주나 —
+          Quick Assist 는 **도우미(직원)가 6자리 보안코드를 만들고 학생이 그것을 입력**하는 구조다.
+          그 코드를 전화로 불러 주고 받아 적게 하는 것이 이 흐름에서 제일 자주 깨지는 자리였다
+          (아이 · 한국어를 못 읽는 필리핀 강사). 직원이 붙여넣으면 학생 화면에 크게 뜬다.
+       ⚠️ 학생 쪽 조회는 PIN 이 아니라 claim 때 받은 **세션 토큰**으로 한다 — PIN(6자리)으로
+          조회를 열면 그 경로로 번호를 무제한 찍어 볼 수 있다(claim 의 5회 제한을 우회한다).
 
        [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅에 **이미** 올라와 있어
          공동 금지구역을 한 줄도 안 건드린다. 대신 라우팅과 인증은 다른 것이므로
@@ -1837,12 +1876,23 @@ export async function handleMangoApi(
           그래서 무인증이지만 ① 6자리 · ② 10분 만료 · ③ 시도 5회 제한 · ④ 1회용으로 좁힌다.
        ⛔ 응답에 학생 이름·연락처를 넣지 말 것 — 무인증 경로다. «맞다/틀리다» 까지만 말한다.
        ═══════════════════════════════════════════════════════════════════════ */
+    /* 표는 이미 운영에 있으므로 CREATE 만으로는 새 칸이 안 생긴다 — 지연 ALTER 로 붙인다
+       (attendance.host·vc_quality.novideo 와 같은 방식). ⚠️ 읽는 쪽보다 «먼저» 돌아야 하므로
+       세 경로가 전부 이 함수를 부른다. 키를 v2 로 바꿔 배포 뒤 한 번은 반드시 돌게 한다. */
+    const ensureRemoteSupportSchema = async () => {
+      await ensureSchemaOnce('remote_support_pins_v2', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
+        for (const col of ['session TEXT', 'helper_code TEXT', 'helper_tool TEXT', 'helper_at INTEGER',
+                           'student_code TEXT', 'student_tool TEXT', 'student_code_at INTEGER']) {
+          try { await env.DB.exec(`ALTER TABLE remote_support_pins ADD COLUMN ${col}`); } catch { /* 이미 있음 */ }
+        }
+      });
+    };
+
     if (path === '/api/class/remote-support/issue' && method === 'POST') {
       const rsSess: any = await checkAdminSession(request, env as any);
       if (!rsSess || !rsSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
-      await ensureSchemaOnce('remote_support_pins', async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
-      });
+      await ensureRemoteSupportSchema();
       const rsBody: any = await request.json().catch(() => ({}));
       const now = Date.now();
       const TTL_MS = 10 * 60 * 1000;
@@ -1869,6 +1919,7 @@ export async function handleMangoApi(
     }
 
     if (path === '/api/class/remote-support/claim' && method === 'POST') {
+      await ensureRemoteSupportSchema();
       const rcBody: any = await request.json().catch(() => ({}));
       const rcPin = String(rcBody.pin || '').replace(/\D/g, '');
       if (rcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
@@ -1893,14 +1944,118 @@ export async function handleMangoApi(
         try { await env.DB.prepare(`UPDATE remote_support_pins SET attempts = attempts + 1 WHERE pin = ?`).bind(rcPin).run(); } catch {}
         return json({ ok: false, error: 'uid_mismatch' }, 403);
       }
+      /* 🎫 세션 토큰 — 이 뒤로 학생 화면은 PIN 이 아니라 이것으로 조회한다(머리말 ⚠️ 참고). */
+      const rcSession = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
       try {
-        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1 WHERE pin = ?`).bind(now2, rcPin).run();
+        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1, session = ? WHERE pin = ?`).bind(now2, rcSession, rcPin).run();
       } catch (e: any) {
         /* 🔴 «허락했다» 는 기록을 못 남기면 이 기능의 존재 이유가 사라진다 — 조용히 넘기지 않는다.
-           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과. */
+           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과.
+           ⚠️ 다만 이때는 세션이 저장되지 않았으므로 코드 받기도 안 된다 — 학생 화면이
+              «기다리는 중» 에서 안 넘어가는 것이 조용히 틀린 코드를 보여 주는 것보다 낫다. */
         console.warn('[remote-support] claim 기록 실패:', (e as any)?.message);
       }
-      return json({ ok: true, claimed_at: now2 });
+      return json({ ok: true, claimed_at: now2, session: rcSession, expires_at: Number(row.expires_at) });
+    }
+
+    /* 📮 직원 → 학생 : 접속 코드 보내기 (관리자 세션 필요)
+       ⛔ 라우팅과 인증은 다른 것이다 — /api/class/ 는 라우팅만 열려 있으므로 여기서 직접 확인한다. */
+    if (path === '/api/class/remote-support/helper-code' && method === 'POST') {
+      const hcSess: any = await checkAdminSession(request, env as any);
+      if (!hcSess || !hcSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const hcBody: any = await request.json().catch(() => ({}));
+      const hcPin = String(hcBody.pin || '').replace(/\D/g, '');
+      /* 숫자만 받는다. Quick Assist 6자리 · Chrome 원격 데스크톱 12자리 · AnyDesk 9~10자리를 덮는다.
+         ⛔ 자유 문자열로 받지 말 것 — 이 값은 학생 화면에 그대로 그려진다. */
+      const hcCode = String(hcBody.code || '').replace(/\D/g, '');
+      const hcTool = ['quickassist', 'chromeremote', 'anydesk'].includes(String(hcBody.tool || ''))
+        ? String(hcBody.tool) : 'quickassist';
+      if (hcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      if (hcCode.length < 4 || hcCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let hcRow: any = null;
+      try {
+        hcRow = await env.DB.prepare(`SELECT pin, expires_at, claimed_at FROM remote_support_pins WHERE pin = ?`).bind(hcPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!hcRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(hcRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      /* ⚠️ 학생이 아직 번호를 안 넣었으면 보낼 곳이 없다 — «보냈다» 고 답하면 직원이 기다리기만 한다. */
+      if (!hcRow.claimed_at) return json({ ok: false, error: 'not_claimed' }, 409);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET helper_code = ?, helper_tool = ?, helper_at = ? WHERE pin = ?`)
+          .bind(hcCode, hcTool, Date.now(), hcPin).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 👀 직원 화면이 «학생이 번호를 넣었나» 를 본다 (관리자 세션 필요).
+       이게 없으면 직원은 전화로 계속 물어봐야 한다. */
+    if (path === '/api/class/remote-support/pin-status' && method === 'GET') {
+      const psSess: any = await checkAdminSession(request, env as any);
+      if (!psSess || !psSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const psPin = String(url.searchParams.get('pin') || '').replace(/\D/g, '');
+      if (psPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      let psRow: any = null;
+      try {
+        psRow = await env.DB.prepare(`SELECT claimed_at, expires_at, helper_at, student_code, student_tool, student_code_at FROM remote_support_pins WHERE pin = ?`).bind(psPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!psRow) return json({ ok: false, error: 'not_found' }, 404);
+      return json({ ok: true, claimed: !!psRow.claimed_at, claimed_at: Number(psRow.claimed_at) || null,
+                    code_sent: !!psRow.helper_at, expires_at: Number(psRow.expires_at) || null,
+                    /* ⬅️ 반대 방향 — 모바일(AnyDesk 등)은 «학생이 번호를 만들고 직원이 접속» 한다 */
+                    student_code: psRow.student_code || null, student_tool: psRow.student_tool || null,
+                    student_code_at: Number(psRow.student_code_at) || null });
+    }
+
+    /* ⬅️ 학생 → 직원 : 내 접속 번호 알려주기 (무인증, 세션 토큰 필요)
+       [왜 반대 방향이 필요한가] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 이지만,
+         **모바일에서 쓰는 도구(AnyDesk 등)는 정반대**다 — 학생 기기가 9~10자리 ID 를 갖고 있고
+         직원이 그 번호로 «접속» 한다. 사장님 지시가 «모바일에도 들어가서 수리» 라 이 방향이 있어야
+         폰을 덮는다. 지금까지는 그 번호를 카톡으로 불러 주게 안내하고 있었다.
+       ⛔ PIN 이 아니라 세션 토큰으로 받는다 — PIN 으로 열면 6자리를 찍어 볼 수 있다.
+       ⛔ 자유 문자열 금지 — 이 값은 직원 화면에 그대로 그려진다. 숫자만 받는다. */
+    if (path === '/api/class/remote-support/student-code' && method === 'POST') {
+      await ensureRemoteSupportSchema();
+      const scBody: any = await request.json().catch(() => ({}));
+      const scSession = String(scBody.session || '').trim();
+      const scCode = String(scBody.code || '').replace(/\D/g, '');
+      const scTool = ['anydesk', 'quickassist', 'chromeremote'].includes(String(scBody.tool || ''))
+        ? String(scBody.tool) : 'anydesk';
+      if (!/^[0-9a-f]{32}$/.test(scSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      if (scCode.length < 4 || scCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let scRow: any = null;
+      try {
+        scRow = await env.DB.prepare(`SELECT pin, expires_at FROM remote_support_pins WHERE session = ?`).bind(scSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!scRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(scRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET student_code = ?, student_tool = ?, student_code_at = ? WHERE session = ?`)
+          .bind(scCode, scTool, Date.now(), scSession).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 📥 학생 화면이 «직원이 코드를 보냈나» 를 본다 — 무인증이지만 세션 토큰이 있어야 한다.
+       ⛔ PIN 으로 조회할 수 있게 만들지 말 것(6자리를 찍어 볼 수 있게 된다 — 머리말 ⚠️). */
+    if (path === '/api/class/remote-support/status' && method === 'GET') {
+      await ensureRemoteSupportSchema();
+      const stSession = String(url.searchParams.get('session') || '').trim();
+      if (!/^[0-9a-f]{32}$/.test(stSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      let stRow: any = null;
+      try {
+        stRow = await env.DB.prepare(`SELECT expires_at, helper_code, helper_tool, helper_at FROM remote_support_pins WHERE session = ?`).bind(stSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!stRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(stRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      return json({ ok: true, code: stRow.helper_code || null, tool: stRow.helper_tool || null,
+                    sent_at: Number(stRow.helper_at) || null, expires_at: Number(stRow.expires_at) || null });
     }
 
     if (method === 'GET' && path === '/api/class/schedule/mine') {
@@ -3914,9 +4069,15 @@ ${numbered}`;
       if (teacherId) { whereParts.push('r.teacher_id = ?'); whereBinds.push(teacherId); }
       if (roomId)    { whereParts.push('r.room_id = ?');    whereBinds.push(roomId); }
       if (qSearch) {
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?)");
+        /* 🎓 2026-09-01 — 「학생」 칸을 만들면서 검색도 함께 넓힌다.
+           안 넓히면 화면에 학생 이름이 보이는데 그 이름으로 검색하면 0건이 나온다
+           (「검색했는데 아무것도 없다」로 읽힌다 — CLAUDE.md 2장 「전용 검색창」 항목과 같은 뿌리).
+           ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
+              여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
+              걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
+        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ? OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?)");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p);
+        whereBinds.push(p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -4048,8 +4209,64 @@ ${numbered}`;
       const listBinds = [...whereBinds, limit, offset];
       const rs = await env.DB.prepare(q).bind(...listBinds).all();
 
+      /* 📼 저장·링크 URL 동봉 (2026-09-01 사장님 «카카오에 저장도 안돼»)
+         [무엇이 문제였나] 관리자 목록의 ⬇저장이 `/api/recordings/blob/<키>` + <a download> 였다.
+           그 통로는 Range 를 그대로 존중해 **206** 을 돌려주는데, 갤럭시 일부 기기가
+           저장 요청에 `Range: bytes=0-` 를 끼워 넣는다 → 안드로이드 DownloadManager 가
+           사유 없이 «다운로드에 실패했습니다» 만 반복한다. 이건 2026-08-15 에 이미 진단돼
+           `/api/recording/play?…&dl=1` 쪽에만 고쳐져 있었고(=Range 무시·200 전체 본문 +
+           Content-Disposition), 강사 화면(flow.js)은 그것을 쓰는데 **관리자 목록만** 옛
+           통로에 남아 있었다.
+         [왜 화면이 아니라 서버가 URL 을 만드나] 화면은 «그 녹화가 정말 재생되는가» 를 모른다.
+           play 엔드포인트는 file_url/filename 으로 키를 풀고 status·storage·만료까지 보고
+           404 를 낸다. 같은 판정을 여기서 한 번 해서, 풀리지 않으면 아예 안 준다 —
+           화면은 그때만 옛 blob 통로로 폴백한다(지금 되는 것을 잃지 않는다).
+         [sig 를 왜 동봉하나] 교사·관리자는 쿠키로만 인증되는데 카톡 인앱 브라우저·안드로이드
+           WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
+           범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
+           (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
+         ⚠️ 이 API 는 **관리자 전용**이다(index.ts isAdminOnlyApi 에 `/api/recordings` GET 등록).
+            «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
+         감시: test-harness/recording_download_link_harness.mjs */
+      const _nowMs = Date.now();
+      /* 🎓 「학생」 칸 (2026-09-01 사장님 «여기에 학생 목록도 넣어줄 수 있어?»)
+         [왜 서버가 푸나] 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정이 그대로 올라온다
+           (실측: heyst·cys01·mby1…). 누가 학생인지는 예약(class_schedules)과 학생 명부
+           (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
+         ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
+         판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      const _recRows = ((rs.results || []) as any[]);
+      const _recStudents = await resolveRecordingStudents(env as any, _recRows);
+      const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
+        const students = _recStudents[_si] || [];
+        // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
+        let key = String(row.file_url || '');
+        if (!key && row.filename) {
+          const fn = String(row.filename);
+          key = (fn.startsWith('rec/') || fn.startsWith('recordings/')) ? fn : 'recordings/' + fn;
+        }
+        const st = String(row.storage || '');
+        const playable = !!key && !/^https?:\/\//.test(key)
+          && row.status !== 'deleted' && row.status !== 'upload_failed'
+          && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
+          && !(row.expires_at && Number(row.expires_at) < _nowMs);
+        if (!playable) return { ...row, students };
+        const sig = await signRecDlSig(row.id, env);
+        const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
+        return {
+          ...row,
+          students,
+          // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
+          dl_url: '/api/recording/play' + qs + '&dl=1',
+          // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
+          share_url: siteUrl('/api/recording/play' + qs),
+          // 서명은 "만료ms.서명" 형식 — TTL 을 또 적지 않고 그 값을 그대로 읽는다(두 벌이면 어긋난다)
+          share_expires_at: parseInt(String(sig).split('.')[0], 10) || 0,
+        };
+      }));
+
       // 응답 본문은 배열 그대로 유지 (하위 호환성). 페이지네이션 메타는 헤더로 전달.
-      return new Response(JSON.stringify(rs.results || []), {
+      return new Response(JSON.stringify(_recItems), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -4096,7 +4313,27 @@ ${numbered}`;
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.user_id, b.username || null, b.role || 'student', b.consent_version || 'v1.0',
-        b.recording ? 1 : 0, b.voice_analysis ? 1 : 0, b.attendance ? 1 : 0, b.reward ? 1 : 0, b.kakao ? 1 : 0,
+        /* 🔐 (2026-09-01) 「안 물어봤다」와 「거절했다」를 갈라 적는다.
+           그 전에는 둘 다 **0** 이었다. 그런데 동의 화면(js/mango-consent.js)은 recording·attendance
+           만 묻고 voice_analysis·reward·kakao 는 **키 자체를 안 보낸다** → 그 셋은 구조적으로 늘 0.
+           [잰 것] 2026-09-01 D1: consents 11행 — 녹화 7 · 출석 7 · **음성분석 0 · 보상 0 · 카카오 0**.
+           그 0 을 읽는 쪽들이 「거절」로 읽고 있었다:
+             · admin/student.html 이 빨간 «미동의» 배지를 띄워 **묻지도 않은 것을 거절했다고** 직원에게 말했다
+             · retention.ts 가 그 값으로 kakao_ids 를 파기한다(매일 밤 도는 크론이다).
+           [거기서 내린 판단 — 측정 아님] 카카오를 연결한 학생이 수업에 한 번 들어가 동의를 남기는
+             순간(동의는 입장 때 자동으로 남는다) 그날 밤 연결이 지워졌을 것이다.
+             ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+                2026-09-01 현재 kakao_ids(50행)와 consents(11행) 사이에 겹치는 계정이 없다는 것까지가 잰 것이다.
+           ⛔ 없는 값을 0 으로 채우지 말 것 — 이 저장소가 가장 오래 속은 방식이다(규칙서 2장).
+           ⚠️ 화면이 그 항목을 묻기 시작해도 **이미 동의 행이 있는 사람에게는 다시 안 묻는다** —
+              js/mango-consent.js 의 askedBefore() 가 행이 있으면 즉시 반환하고 consent_version 을
+              비교하지 않는다. 그 사람들의 칸은 계속 NULL 로 남는다(다시 묻게 하려면 그쪽을 함께 고쳐야 한다). */
+        b.recording ? 1 : 0,
+        /* «== null» 은 undefined 와 명시적 null 을 함께 잡는다 — 둘 다 «모름» 이다. */
+        b.voice_analysis == null ? null : (b.voice_analysis ? 1 : 0),
+        b.attendance ? 1 : 0,
+        b.reward == null ? null : (b.reward ? 1 : 0),
+        b.kakao == null ? null : (b.kakao ? 1 : 0),
         b.guardian_required ? 1 : 0, b.guardian_status || (b.guardian_required ? 'pending' : 'not_required'), b.guardian_contact || null,
         ip, ua, now, JSON.stringify(b)
       ).run();

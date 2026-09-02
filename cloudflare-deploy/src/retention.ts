@@ -86,7 +86,25 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
     result.rewards = r.meta.changes || 0;
   } catch (e: any) { result.errors.push('rewards: ' + e.message); }
 
-  // 4) 카카오 ID: 동의 철회한 사용자 즉시 파기
+  /* 4) 카카오 ID: 동의를 «철회» 했거나 카카오를 «거절» 한 사용자 즉시 파기
+     ⚠️ (2026-09-01) 두 번째 조건의 `kakao_consent = 0` 은 **「거절했다」** 는 뜻이어야 한다.
+        그런데 동의 화면(js/mango-consent.js)은 카카오를 **묻지 않는다** — 키 자체를 안 보낸다.
+        그래서 그 전에는 「안 물어봄」도 0 이 되어, **동의를 남긴 모든 사용자**가 파기 대상이었다.
+
+        [잰 것] 2026-09-01 D1: consents 11행의 kakao_consent 가 전부 0 · kakao_ids 50행은
+          전부 2026-06-04 00:46:33 에 일괄로 들어왔고(`*_mgo…` 아이디, 전화 `010-00****`,
+          명부에 있는 계정 1명) **동의 기록이 하나도 없다** ⟹ 두 집합의 교집합이 **0**이다.
+        ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+          (마지막 1회분만 `GET /api/retention/status` 의 retention:last_run 에서 볼 수 있다.)
+
+        ✅ 막는 방법을 **둘** 두었다. 하나만으로는 이미 쌓인 행을 못 지킨다:
+          ① 앞으로 들어올 행 — 「안 물어봄」이 **NULL** 로 저장된다(api-mango.ts POST /api/consents).
+          ② 이미 쌓인 행 — `raw_payload` 에 그때 보낸 본문이 그대로 남아 있으므로,
+             거기에 "kakao" 라는 키가 **실제로 실려 있었을 때만** 「거절」로 본다.
+             ⚠️ raw_payload 가 NULL 이면 LIKE 결과도 NULL 이라 그 행은 파기 대상에서 빠진다 —
+                «모르면 안 지운다» 는 안전한 방향이라 그대로 둔다.
+          ⛔ ②를 지우면 2026-09-01 이전 11행이 다시 «거절» 이 되어, 그 학생이 나중에 카카오를
+             연결하는 순간 그날 밤 지워진다. */
   try {
     const r = await env.DB.prepare(
       `DELETE FROM kakao_ids
@@ -96,6 +114,7 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
        )
        OR user_id IN (
          SELECT c.user_id FROM consents c WHERE c.kakao_consent = 0 AND c.withdrawn_at IS NULL
+         AND c.raw_payload LIKE '%"kakao"%'
          AND NOT EXISTS (SELECT 1 FROM consents c2 WHERE c2.user_id = c.user_id AND c2.consented_at > c.consented_at AND c2.kakao_consent = 1 AND c2.withdrawn_at IS NULL)
        )`
     ).run();

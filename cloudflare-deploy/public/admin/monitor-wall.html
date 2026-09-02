@@ -361,13 +361,12 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
                     'No one is connected to a Mango-i video room right now.')))
         + '</td></tr>';
 
-    /* 카페24 예약 줄 — 참관할 «방» 이 없으니 버튼이 없는 것이 정상.
-       «접속 기록 없음» 을 «미접속» 이라고 단정하지 않는다. */
-    $('sched-title').textContent = L('📅 예약 기준 지금 수업 (카페24)', '📅 Booked classes for this moment (cafe24)');
-    $('sched-note').textContent = L('카페24에서 도는 수업이라 망고아이 방이 없어 영상 참관이 불가능합니다. «접속 기록 없음» 은 정상입니다.',
-      'These run on cafe24, not in a Mango-i room, so video observation is not possible. «No connection record» is normal.');
+    /* 예약 줄 — 수강신청(참관 가능) + 카페24(방이 없어 불가). «접속 기록 없음» ≠ «미접속». */
+    $('sched-title').textContent = L('📅 예약 기준 지금 수업', '📅 Booked classes for this moment');
+    $('sched-note').textContent = L('«수강신청» 은 아무도 안 들어와도 참관할 수 있고, «카페24» 는 망고아이 방이 없어 참관 버튼이 없습니다(«접속 기록 없음» 이 정상).',
+      '«enrolment» can be observed even before anyone joins; «cafe24» has no Mango-i room, so no observe button («no connection record» is normal).');
     $('sched').innerHTML = state.sched.length ? state.sched.map(schedHtml).join('')
-      : '<div class="empty">' + L('이 시각에 예약된 카페24 수업이 없습니다.', 'No cafe24 class is booked for this moment.') + '</div>';
+      : '<div class="empty">' + L('이 시각에 예약된 수업이 없습니다.', 'No class is booked for this moment.') + '</div>';
 
     $('ft').innerHTML = L(
       '👁 참관은 학생·강사에게 보이지 않고 방당 동시 ' + OBS_MAX + '명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
@@ -479,10 +478,13 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     var conn = c.connected
       ? '<span class="st" style="color:var(--ok)">✅ ' + L('접속 확인', 'connected') + '</span>'
       : '<span class="st" style="color:var(--warn)">' + L('접속 기록 없음', 'no connection record') + '</span>';
-    var btn = c.live_room
-      ? ' <button type="button" class="go" data-act="observe" data-room="' + esc(c.live_room) + '">' + L('👁 참관', '👁 Observe') + '</button>' : '';
+    /* 👁 수강신청은 접속 전에도 방이 있다(observable). 카페24는 접속이 잡혔을 때만. */
+    var obsRoom = c.observable ? (c.room_id || '') : (c.live_room || '');
+    var btn = obsRoom
+      ? ' <button type="button" class="go" data-act="observe" data-room="' + esc(obsRoom) + '">' + L('👁 참관', '👁 Observe') + '</button>' : '';
+    var src = c.observable ? L('수강신청', 'enrolment') : L('카페24', 'cafe24');
     return '<div class="row"><span class="t">' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '') + '</span>'
-      + '<span>' + esc(ph) + '</span>'
+      + '<span>' + esc(ph) + ' · ' + esc(src) + '</span>'
       + '<span>' + esc(c.student_name || L('(학생 미상)', '(unknown)')) + ' · ' + esc(c.teacher_name || L('(강사 미상)', '(unknown)')) + '</span>'
       + conn + btn + '</div>';
   }

@@ -46,38 +46,56 @@ export function kstDayStart(now = Date.now()): number {
   return Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
 }
 
-/** 오늘 이 학생이 «적립» 으로 받은 점수 합계. 차감(spend)·회수는 세지 않는다. */
+/** 🎖 «오늘 다시 오지 않는» 마디 보상은 하루 총량 상한에서 뺀다.
+ *
+ *  [왜] 7일 연속 영작 보너스는 `wStreak % 7 === 0` 인 날에만 발화한다. 그날 상한에 걸려
+ *    막히면 기록이 안 남고 다음 날은 wStreak=8 이라 조건이 거짓 — **그 마디는 영영 돌아오지
+ *    않는다.** 50점은 상한의 절반이라 칭찬을 스무 번 받은 날이면 바로 걸린다.
+ *    재시도할 자리가 없는 보상에 총량 상한을 걸면 «막는 것» 이 아니라 «빼앗는 것» 이 된다.
+ *  ⛔ 여기에 «반복되는» 적립을 넣지 말 것 — 그 순간 상한이 뚫린다.
+ *     들어올 자격은 「하루에 많아야 한 번 + 놓치면 다시 안 옴」 둘 다 만족할 때뿐이다. */
+export const CAP_EXEMPT_RULES = ['ai_writing_streak', 'attendance_streak'];
+
 /**
  * 🧾 «원장에는 남기되, 상한 계산에는 넣지 않는» 규칙.
  *
- * [왜 필요한가] 단어장·복습퀴즈 보상은 **자기 표에서 이미 상한을 받습니다**
- *   (`vocab_rewards` 하루 400점 · `review_quiz_rewards` 하루 500점).
- *   그런데 그동안 `point_transactions` 를 아예 안 거쳐서 **학생 본인의 포인트 내역**·
- *   **학부모 대시보드**·**관리자 월간 합계** 어디에도 한 줄이 안 남았습니다.
- *   잔액만 늘고 «왜 늘었는지» 가 없었습니다(2026-09-01 실측: 원장 밖 적립 2,746점).
+ * ✅ **(2026-09-01 사장님 결정) 이 목록은 비웠습니다 — 하루 상한을 100점으로 통일합니다.**
+ *    그전에는 단어장 400 + 미션 50 + 복습퀴즈 500 + 총량 100 = **실효 1,050점**이었습니다.
+ *    표마다 따로 상한을 들고 있어서, 정책이 「하루 100점」이라고 적어 두고도 실제로는
+ *    열 배가 나가고 있었습니다. 이제 그 둘도 `earnedToday` 가 세고, 적립하는 쪽도
+ *    `dailyAllowance()` 로 남은 예산만큼만 줍니다.
  *
- * ✅ 원장에 «기록» 은 남깁니다 — 금액을 바꾸지 않는 순수한 개선입니다.
- * ⛔ 다만 그 값을 상한 계산에 **넣지는 않습니다.** 넣는 순간 학생이 받던 보상이
- *    최대 10분의 1로 줄어듭니다(400+500+100 → 100). 그건 «버그 수리» 가 아니라
- *    **보상 정책 변경**이라 사장님이 정할 일입니다.
+ * ⛔ **여기에 규칙을 다시 넣지 마세요.** 넣는 순간 그 경로만 상한 밖으로 빠져나가고,
+ *    화면·문서는 여전히 「하루 100점」이라고 말합니다 — 그 어긋남이 이 사고의 뿌리였습니다.
+ *    정말 예외가 필요하면 `CAP_EXEMPT_RULES`(다시 오지 않는 마디 보상) 쪽을 보세요.
  *
- * 📌 [사장님 결정 대기] 이 목록을 비우면 그날로 정책이 하루 100점으로 통일됩니다.
- *    지금 실효 상한은 **단어장 400 + 단어장 미션 50 + 복습퀴즈 500 + 총량 100 = 하루 1,050점**입니다
- *    (= 1,050원. 미션은 `kind !== 'mission'` 조건 때문에 400점 상한 «밖» 이고 하루 1회 멱등입니다).
- *
- * ⚠️ 이 수리로도 **원장 밖 적립이 다 없어진 것은 아닙니다** — `api-admin.ts` 의
- *    이탈관리 🎁 기프트·컴백 번들이 아직 `student_points.balance` 를 직접 올립니다(A 담당 영역).
+ * ℹ️ 남아 있는 «원장 밖» 적립: `api-admin.ts` 의 이탈관리 🎁 기프트·컴백 번들(A 담당 영역).
+ *    그 둘은 아직 `student_points.balance` 를 직접 올려서 이 상한이 못 봅니다.
  */
-export const CAP_UNCOUNTED_RULES = ['vocab_review', 'review_quiz_done'];
+export const CAP_UNCOUNTED_RULES: string[] = [];
 
+/** 오늘 이 학생이 «적립» 으로 받은 점수 합계.
+ *  ⚠️ 차감(spend)·회수만 빼는 게 아니라 **환불·관리자 지급도 뺀다** — 그 둘은 «오늘 벌었다» 가
+ *     아니다. 3,000P 기프티콘 환불 한 건이 그날 적립을 통째로 막아 버리기 때문이다
+ *     (applyPointTransaction 의 isCredit 이 refund·admin_grant 도 양수로 적는다).
+ *
+ *  🔀 여기서 빼는 목록이 «둘» 이고 뜻이 다르다. 한 줄로 합쳐 놓으면 다음 사람이 하나로 알고
+ *     한쪽을 지운다:
+ *       · `CAP_EXEMPT_RULES`  = 다시 오지 않는 마디 보상 → 세지도 않고 **막지도 않는다**
+ *                               (`checkEarnAllowed` 가 첫 줄에서 그대로 통과시킨다)
+ *       · `CAP_UNCOUNTED_RULES` = **지금은 비어 있다**(2026-09-01 상한 100점 통일).
+ *                               다시 채우지 말 것 — 위 주석 참고
+ *     ⛔ 두 배열을 하나로 합치지 말 것 — 뜻이 다르다. */
 export async function earnedToday(env: any, userId: string): Promise<number> {
   try {
-    const marks = CAP_UNCOUNTED_RULES.map(() => '?').join(',');
+    const skip = [...CAP_EXEMPT_RULES, ...CAP_UNCOUNTED_RULES];
+    const marks = skip.map(() => '?').join(',');
     const row: any = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount),0) AS s FROM point_transactions
         WHERE user_id = ? AND amount > 0 AND created_at >= ?
+          AND type = 'earn'
           AND (rule_code IS NULL OR rule_code NOT IN (${marks}))`
-    ).bind(userId, kstDayStart(), ...CAP_UNCOUNTED_RULES).first();
+    ).bind(userId, kstDayStart(), ...skip).first();
     return Number(row?.s || 0);
   } catch { return 0; }   // 못 세면 막지 않는다 — 적립이 조회 실패로 죽으면 안 된다
 }
@@ -99,12 +117,46 @@ export async function earnedTodayForGames(env: any, userId: string): Promise<num
 }
 
 /**
+ * 🧢 오늘 이 학생이 «총량 상한» 안에서 아직 받을 수 있는 점수.
+ *
+ * [왜 checkEarnAllowed 말고 이게 필요한가] 그 함수는 «준다/안 준다» 만 답한다. 그런데 단어장·
+ *   복습퀴즈는 한 번에 수백 점이 걸리고, 원래부터 **자기 표 상한에 맞춰 «깎아서» 주던** 경로다
+ *   (`amount = Math.min(amount, remain)`). 거기서 갑자기 «0 아니면 전부» 로 바꾸면 한 판을
+ *   다 풀고도 0점을 받는다 — 그게 더 나쁘다. 그래서 이 경로들만 «남은 만큼» 을 물어본다.
+ *
+ * ⚠️ 못 세면 **막지 않는다**(0이 아니라 상한 전액을 돌려준다). 조회 한 번 실패로 학생이
+ *    받아야 할 점수를 잃는 쪽이, 조금 더 나가는 쪽보다 나쁘다 — `earnedToday` 와 같은 태도다.
+ *
+ * 🎮 **게임 하위 상한(하루 30점)도 함께 본다** — 2026-09-01 사장님 2차 결정.
+ *    처음 통일할 때는 «총량 100» 만 걸었다. 그때 이 자리에 「게임 30점은 여기서 안 본다,
+ *    바꾸려면 한 줄」이라고 적어 두었고, 사장님이 「게임 30점 상한도 적용해줘」로 정하셨다.
+ *    ⚠️ 그래서 `vocab_review`·`review_quiz_done` 의 실효 상한은 **100이 아니라 30**이다.
+ *    ⚠️ 그 30점 통은 **다른 게임과 나눠 쓴다**(`rescue_sentence`·`micro_quiz_done`·
+ *       `speech_master`·`game_score`·`ai_writing_rewrite`). 단어장을 먼저 하면 그날 게임은 0이다.
+ *       실측(2026-09-01)으로는 그쪽 적립이 워낙 적어(speech_master 80점·rescue_sentence 15점)
+ *       당장 눈에 띄지 않지만, 게임이 늘면 «게임을 했는데 0점» 제보가 여기서 나온다.
+ *    ⛔ 둘 중 작은 쪽을 쓴다 — 합치거나 큰 쪽을 쓰면 상한이 뚫린다.
+ */
+export async function dailyAllowance(env: any, userId: string, ruleCode: string): Promise<number> {
+  if (CAP_EXEMPT_RULES.includes(ruleCode)) return POINT_POLICY.DAILY_TOTAL_CAP;
+  const used = await earnedToday(env, userId);
+  let left = Math.max(0, POINT_POLICY.DAILY_TOTAL_CAP - used);
+  if (GAME_QUIZ_RULES.includes(ruleCode)) {
+    const g = await earnedTodayForGames(env, userId);
+    left = Math.min(left, Math.max(0, POINT_POLICY.EARN.game_quiz_daily - g));
+  }
+  return left;
+}
+
+/**
  * 적립해도 되는지 판정. 넘치면 «깎아서라도» 주지 않고 그냥 막는다 —
  * 반쪽 적립은 학생에게 «왜 5점만 들어왔지?» 라는 더 큰 혼란이 된다.
  */
 export async function checkEarnAllowed(
   env: any, userId: string, ruleCode: string, amount: number
 ): Promise<{ ok: boolean; error?: string; cap?: number; used?: number }> {
+  // 🎖 다시 오지 않는 마디 보상은 상한을 지나지 않는다(위 CAP_EXEMPT_RULES 주석 참고)
+  if (CAP_EXEMPT_RULES.includes(ruleCode)) return { ok: true };
   const today = await earnedToday(env, userId);
   if (today + amount > POINT_POLICY.DAILY_TOTAL_CAP) {
     return { ok: false, error: 'daily_total_cap_reached', cap: POINT_POLICY.DAILY_TOTAL_CAP, used: today };

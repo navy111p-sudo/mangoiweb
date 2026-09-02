@@ -26,6 +26,14 @@
        ⛔ /admin/ 밑으로 되돌리지 말 것 — 그 순간 같은 사고가 그대로 재현된다. */
     {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/my-schedule.html'},
     {emoji:'💬', img:'/img/menu/contact.webp', name:'카카오 상담', url:'https://pf.kakao.com/_xlqnSxd'},  // 2026-08-14 피드백 ⑤: 문의 페이지 폐지 → 카카오 채널 하나로
+    /* 🛠 (2026-09-01) 카카오 상담은 있는데 원격 도움만 빠져 있었다 — 실측으로 이 메뉴에
+       원격 항목이 0건이었고, 그래서 메뉴로 찾는 사람에겐 닿는 길이 없었다.
+       • img 를 일부러 비운다 — 전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다
+         (없는 파일 주소를 적으면 메뉴를 열 때마다 404 가 난다).
+       • url 은 폴백이다 — 평소엔 아래 wire 가 가로채 그 자리에서 모달만 열고,
+         자바스크립트가 죽어도 그 주소로 가면 모달이 열린다(idx-remote-support.js 의 rsFromUrl).
+         ⛔ '#' 으로 두지 말 것 — 그러면 실패 시 «눌러도 아무 일도 없음» 이 된다. */
+    {emoji:'🛠', img:'', name:'원격 도움받기', url:'/?menu=remote', remoteHelp:true},
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
     {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
@@ -155,7 +163,7 @@
         : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
       // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
       // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
-      h += '<a href="' + m.url + '"' + (m.adminPortal ? ' data-admin-portal="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+      h += '<a href="' + m.url + '"' + (m.adminPortal ? ' data-admin-portal="1"' : '') + (m.remoteHelp ? ' data-remote-help="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
         + ico + '<span>' + m.name + '</span></a>';
     });
     h += '</div></div>';
@@ -239,6 +247,19 @@
             go((d && d.ok === true) ? '/admin.html' : '/admin/login?next=%2Fadmin.html');
           })
           .catch(function(){ if (!t) return; clearTimeout(t); t = 0; go('/admin.html'); });
+      });
+    });
+
+    /* 🛠 (2026-09-01) 원격 도움받기 — 페이지를 떠나지 않고 그 자리에서 모달로 열고,
+       메뉴 오버레이는 닫는다(모달이 메뉴 위에 쌓이면 닫는 버튼이 헷갈린다).
+       ⚠️ 모달을 여는 함수가 없으면 가로채지 않는다 — href 가 그대로 살아 /?menu=remote 로
+          간다. «눌렀는데 아무 일도 없음» 이 제일 나쁘다. */
+    ov.querySelectorAll('a[data-remote-help]').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        if (typeof window.openRemoteSupportModal !== 'function') return;   // href 폴백
+        ev.preventDefault();
+        closeAllMenuOverlay();
+        window.openRemoteSupportModal();
       });
     });
 

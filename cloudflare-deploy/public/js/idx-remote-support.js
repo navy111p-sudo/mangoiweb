@@ -47,7 +47,7 @@
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'rs-overlay';
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:2147483001;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
       ov.addEventListener('click', function(e){ if (e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeRemoteSupportModal(); });   /* QA#4 */
       document.body.appendChild(ov);
     }
@@ -149,6 +149,12 @@
             '<span id="rs-pin-msg" style="font-size:11.5px;color:#94a3b8"></span>'+
           '</div>'+
         '</div>'+
+        /* 📥 선생님이 보낸 접속 코드가 들어올 자리 — 올 때까지는 비어 있다(빈 상자를 그리지 않는다) */
+        '<div id="rs-code-box" style="display:none;background:rgba(251,191,36,.10);border:1px solid rgba(251,191,36,.45);border-radius:10px;padding:13px 14px;margin-bottom:12px"></div>'+
+        /* ⬅️ 휴대폰용 — AnyDesk 같은 모바일 도구는 «내 기기가 번호를 갖고 직원이 접속» 하는
+           반대 방향이다. 그 번호를 카톡으로 불러 주지 않아도 되게 여기서 보낸다.
+           PIN 을 확인해야 열린다(보낼 곳이 있어야 하므로). */
+        '<div id="rs-mycode-box" style="display:none;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.32);border-radius:10px;padding:11px 14px;margin-bottom:12px"></div>'+
         cards +
         '<div style="margin-top:14px;text-align:center;font-size:11.5px;color:#94a3b8">'+
           (isKo?'어떤 방법이든 연결 후엔 카카오상담 또는 1:1 채팅으로 강사와 연락하세요':'After connecting, message your teacher via KakaoTalk or 1:1 chat')+
@@ -165,6 +171,7 @@
     if (ov) ov.style.display = 'none';
     document.body.style.overflow = '';
     stopRsGreeting();    // 모달 닫으면 음성 즉시 정지
+    if (window.rsStopWaiting) window.rsStopWaiting();   // 📥 코드 기다리기도 함께 멈춘다
   };
   /* 🔑 PIN 확인 (2026-08-30 v4 제안서 07)
      ⚠️ 실패 사유를 «사실대로» 말한다 — 만료·이미 사용됨·틀림은 다음 행동이 서로 다르다
@@ -190,8 +197,12 @@
       var d = await r.json().catch(function(){ return null; });
       if (d && d.ok === true) {
         msg.style.color = '#86efac';
-        msg.textContent = isKo ? '✅ 확인됐어요. 아래에서 방법을 고르세요.' : '✅ Confirmed. Now pick a tool below.';
+        msg.textContent = isKo ? '✅ 확인됐어요. 선생님이 코드를 보내면 여기에 뜹니다.'
+                               : '✅ Confirmed. Your teacher\'s code will appear here.';
         if (el) el.disabled = true;
+        /* 📥 (2026-09-01) 직원이 보내는 접속 코드를 기다린다. 세션 토큰이 없으면 기다릴 수 없다
+           (claim 기록이 실패한 경우) — 그때는 조용히 넘어가고 도구 안내만 남는다. */
+        if (d.session) rsWaitForCode(String(d.session), Number(d.expires_at) || (Date.now() + 600000));
         return;
       }
       var e2 = (d && d.error) || 'failed';
@@ -213,5 +224,227 @@
     var o = (window._rsOptions||[])[idx];
     if (o && o.action) o.action();
   };
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     🛠 원격 도움받기 — «가는 길» (2026-09-01 사장님 지시)
+     ───────────────────────────────────────────────────────────────────────
+     [왜] 이 모달은 멀쩡히 동작하는데 화면에서 찾을 길이 없었다. 2026-09-01 실측:
+       · 그리드 메뉴의 💻 PC원격지원 타일 → index.html 의 fix-v19 가 #grid-menu 를
+         display:none !important 로 통째로 감춘다(계산값으로 확인).
+       · 카테고리 모달 카드 → 모달이 DOM 에 붙지 않아 a[href="/remote.html"] 가 0개.
+       · 전체메뉴 오버레이 → 보이는 항목 71개 중 원격 0건.
+       ⟹ 남은 길은 «검색창에 「원격」 을 정확히 치는 것» 하나뿐이었다.
+          컴퓨터가 안 되는 학생에게 검색을 요구하는 구조라 입구를 만든다.
+     [어디] 홈 ➕(#mg-fab-wrap) 세 번째 항목. 이미 «새로고침 · 카카오 상담» 이
+       들어 있는 «문제 생겼을 때 누르는 묶음» 이라 자리를 새로 외울 필요가 없다.
+     ⛔ index.html 은 공동 금지구역이라 여기서 밖에서 끼워 넣는다. 그래서 첫 화면
+        예산에도 영향이 없다(이 파일은 defer).
+     ⛔ 상주 MutationObserver·setInterval 로 지키지 말 것 — 홈을 통째로 멎게 한 전력.
+     ⚠️ 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — 두 i18n 엔진이 textContent 를
+        통째로 갈아끼워 44px 동그라미 안에 문장이 들어앉는다. 설명은 *-title/*-aria 로.
+     ═══════════════════════════════════════════════════════════════════════ */
+  function rsFabItem(){
+    var wrap = document.getElementById('mg-fab-wrap');
+    if (!wrap || wrap.querySelector('[data-act="remotehelp"]')) return;
+    var items = wrap.querySelector('.mg-fab-items');
+    if (!items) return;
+
+    var row = document.createElement('div');
+    row.className = 'mg-fab-item';
+    /* 앞의 두 항목은 .mg-fab-item:nth-child(1)(2) 로 등장 지연이 CSS 에 있는데
+       3번째 규칙은 없다. 인라인 longhand 로 준다(class 의 transition 단축속성은
+       delay 를 0 으로 되돌리지만, 인라인 longhand 가 이긴다). */
+    row.style.transitionDelay = '.12s';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mg-mini';
+    btn.setAttribute('data-act', 'remotehelp');   // 래퍼의 위임 핸들러가 이 클릭에 메뉴를 닫는다
+    btn.style.background = '#fbbf24';
+    btn.style.color = '#241804';
+    btn.textContent = '🛠';
+    btn.setAttribute('aria-label', '원격 도움받기');
+    btn.setAttribute('data-ko-aria', '원격 도움받기');
+    btn.setAttribute('data-en-aria', 'Remote help');
+    btn.setAttribute('title', '원격 도움받기');
+    btn.setAttribute('data-ko-title', '원격 도움받기');
+    btn.setAttribute('data-en-title', 'Remote help');
+
+    var lb = document.createElement('span');
+    lb.className = 'mg-lb';
+    lb.textContent = '원격 도움받기';
+    lb.setAttribute('data-ko', '원격 도움받기');
+    lb.setAttribute('data-en', 'Remote help');
+
+    row.appendChild(btn); row.appendChild(lb);
+    /* 맨 아래(＋ 버튼에 제일 가까운 자리)에 붙인다 — 급할 때 엄지가 먼저 닿는 칸. */
+    items.appendChild(row);
+
+    /* 래퍼 위임 핸들러는 kakao·refresh 만 알고 있어 remotehelp 는 «메뉴 닫기» 까지만
+       한다. 여는 것은 여기서 직접 — 버튼에 건 리스너가 위임보다 먼저 발화한다. */
+    row.addEventListener('click', function(e){
+      e.preventDefault();
+      window.openRemoteSupportModal();
+    });
+  }
+
+  /* 🔗 주소로 바로 열기 — /?menu=remote
+     [왜] 「어디에 있어요?」 를 카톡으로 물어 오는 학생에게 링크 하나로 답할 수 있어야 하고,
+          전체메뉴 타일의 href 폴백(자바스크립트가 죽어도 닿는 길)도 이것이다. */
+  function rsFromUrl(){
+    try {
+      if (new URLSearchParams(location.search).get('menu') !== 'remote') return;
+    } catch (e) { return; }
+    window.openRemoteSupportModal();
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     📥 선생님이 보낸 접속 코드 받기 (2026-09-01 사장님 지시 «직원이 원격으로 들어가서 수리»)
+     ───────────────────────────────────────────────────────────────────────
+     [왜] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 하는 구조다. 그 코드를 전화로
+       불러 주고 받아 적는 자리가 제일 자주 깨졌다 — 아이도, 한국어를 못 읽는 강사도 어렵다.
+       여기서는 직원이 보내면 화면에 크게 뜨고 [복사] 한 번이면 끝난다.
+     ⛔ 우리가 학생 화면을 조작하는 것이 아니다 — 코드를 받아 «보여 주기» 만 한다.
+     ⛔ 상주 setInterval 금지(홈을 멎게 한 전력) — 이 폴링은 끝이 있다:
+        PIN 이 만료되거나 코드가 오거나 모달을 닫으면 스스로 멈춘다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  var rsPoll = null;
+  window.rsStopWaiting = function(){ if (rsPoll) { clearInterval(rsPoll); rsPoll = null; } };
+
+  /* ⬅️ 휴대폰용 — 내 접속 번호를 직원에게 보낸다.
+     [왜] Quick Assist(PC)는 직원이 코드를 만들지만, AnyDesk 같은 모바일 도구는 정반대로
+       «내 기기의 번호» 를 직원에게 알려 줘야 한다. 지금까지는 카톡으로 불러 주게 안내했다.
+     ⛔ 세션 토큰이 있어야 보낸다 — PIN 을 확인한 사람만 보낼 수 있다. */
+  function rsMyCodeBox(session){
+    var isKo = L();
+    var box = document.getElementById('rs-mycode-box');
+    if (!box) return;
+    box.style.display = 'block';
+    box.innerHTML =
+      '<div style="font-size:12px;color:#bfdbfe;font-weight:700;margin-bottom:6px">'
+        + (isKo ? '📱 휴대폰이면 — 내 번호를 선생님께 보내기' : '📱 On a phone — send your ID to the teacher') + '</div>'
+      + '<div style="font-size:11.5px;color:#94a3b8;line-height:1.6;margin-bottom:7px">'
+        + (isKo ? 'AnyDesk 앱을 열면 나오는 9~10자리 숫자를 넣어 주세요.'
+                : 'Open the AnyDesk app and enter the 9-10 digit number it shows.') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+        + '<input id="rs-mycode-input" type="text" inputmode="numeric" maxlength="14" autocomplete="off" '
+          + 'autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="000 000 000" '
+          + 'style="flex:1 1 130px;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid rgba(96,165,250,.45);background:#0f1626;color:#dbeafe;font-size:15px;letter-spacing:2px;text-align:center;font-family:MangoiHanSC,Consolas,monospace">'
+        + '<button type="button" onclick="rsSendMyCode(' + JSON.stringify(session) + ')" '
+          + 'style="padding:9px 14px;border-radius:8px;border:0;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer">'
+          + (isKo ? '보내기' : 'Send') + '</button>'
+      + '</div>'
+      + '<div id="rs-mycode-msg" style="font-size:11.5px;color:#94a3b8;margin-top:6px"></div>';
+  }
+
+  window.rsSendMyCode = async function(session){
+    var isKo = L();
+    var el = document.getElementById('rs-mycode-input');
+    var msg = document.getElementById('rs-mycode-msg');
+    var code = ((el && el.value) || '').replace(/\D/g, '');
+    if (!msg) return;
+    if (code.length < 4 || code.length > 12) {
+      msg.style.color = '#fca5a5';
+      msg.textContent = isKo ? '숫자만 넣어 주세요 (4~12자리).' : 'Digits only (4-12).';
+      return;
+    }
+    msg.style.color = '#94a3b8';
+    msg.textContent = isKo ? '보내는 중…' : 'Sending…';
+    try {
+      var r = await fetch('/api/class/remote-support/student-code', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: session, code: code, tool: 'anydesk' })
+      });
+      var d = await r.json().catch(function(){ return null; });
+      /* 판정은 «성공이라고 말했는가» 로 — 종단 404 본문에는 ok 칸이 없다 */
+      if (r.ok && d && d.ok === true) {
+        msg.style.color = '#86efac';
+        msg.textContent = isKo ? '✅ 보냈어요. 선생님이 접속할 때까지 앱을 켜 두세요.'
+                               : '✅ Sent. Keep the app open until your teacher connects.';
+        return;
+      }
+      var e2 = (d && d.error) || 'failed';
+      var ko = { expired: '시간이 지났어요. 새 번호를 받아 주세요.', bad_code: '숫자만 넣어 주세요 (4~12자리).',
+                 not_found: '다시 «확인» 을 눌러 주세요.' }[e2] || '보내지 못했어요.';
+      var enTxt = { expired: 'This session expired — ask for a new PIN.', bad_code: 'Digits only (4-12).',
+                 not_found: 'Please verify the PIN again.' }[e2] || 'Could not send.';
+      msg.style.color = '#fca5a5';
+      msg.textContent = isKo ? ko : enTxt;
+    } catch (e) {
+      msg.style.color = '#fca5a5';
+      msg.textContent = isKo ? '네트워크 오류입니다.' : 'Network error.';
+    }
+  };
+
+  function rsWaitForCode(session, until){
+    window.rsStopWaiting();
+    var box = document.getElementById('rs-code-box');
+    if (box) box.style.display = 'block';
+    try { rsMyCodeBox(session); } catch (e) {}
+    rsPoll = setInterval(async function(){
+      if (Date.now() > until) { window.rsStopWaiting(); return; }
+      /* 모달이 닫혔으면 멈춘다 — 화면에 없는 것을 계속 물어볼 이유가 없다 */
+      var ov = document.getElementById('rs-overlay');
+      if (!ov || ov.style.display !== 'block') { window.rsStopWaiting(); return; }
+      try {
+        var r = await fetch('/api/class/remote-support/status?session=' + encodeURIComponent(session));
+        var d = await r.json().catch(function(){ return null; });
+        /* 판정은 «성공이라고 말했는가» 로 — 종단 404 본문에는 ok 칸이 없다(CLAUDE.md 2장) */
+        if (!r.ok || !d || d.ok !== true) return;
+        if (d.code) { window.rsStopWaiting(); rsShowCode(String(d.code), String(d.tool || 'quickassist')); }
+      } catch (e) { /* 통신이 흔들려도 계속 — 다음 회차에 다시 본다 */ }
+    }, 3000);
+  }
+
+  function rsShowCode(code, tool){
+    var isKo = L();
+    var box = document.getElementById('rs-code-box');
+    if (!box) return;
+    var TOOL = { quickassist: 'Quick Assist', chromeremote: isKo ? 'Chrome 원격 데스크톱' : 'Chrome Remote Desktop', anydesk: 'AnyDesk' };
+    box.innerHTML =
+      '<div style="font-size:12.5px;color:#fde68a;font-weight:800;margin-bottom:8px">'
+        + (isKo ? '📮 선생님이 보낸 코드예요 — ' : '📮 Code from your teacher — ') + (TOOL[tool] || TOOL.quickassist) + '</div>'
+      /* 숫자를 «크게». 이 화면은 컴퓨터가 고장 난 학생이 보는 자리라 작으면 못 읽는다.
+         세 자리씩 띄워 읽기 쉽게 — 붙여넣는 값은 띄어쓰기 없는 원본을 쓴다. */
+      + '<div id="rs-code-num" style="font-family:MangoiHanSC,Consolas,monospace;font-size:38px;font-weight:800;'
+        + 'letter-spacing:6px;color:#fde68a;text-align:center;line-height:1.2;word-break:break-all">'
+        + code.replace(/(\d{3})(?=\d)/g, '$1 ') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'
+        + '<button type="button" onclick="rsCopyCode(' + JSON.stringify(code) + ')" '
+          + 'style="flex:1 1 120px;padding:10px;border-radius:9px;border:0;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1206;font-weight:800;font-size:13px;cursor:pointer">'
+          + (isKo ? '📋 코드 복사' : '📋 Copy code') + '</button>'
+        + (tool === 'quickassist'
+            ? '<button type="button" onclick="rsRun(0)" style="flex:1 1 120px;padding:10px;border-radius:9px;border:1px solid rgba(251,191,36,.5);background:transparent;color:#fde68a;font-weight:800;font-size:13px;cursor:pointer">'
+              + (isKo ? '⚡ Quick Assist 열기' : '⚡ Open Quick Assist') + '</button>'
+            : '')
+      + '</div>'
+      + '<div id="rs-code-msg" style="font-size:11.5px;color:#94a3b8;margin-top:7px">'
+        + (isKo ? '이 번호를 프로그램에 넣으면 선생님이 화면을 봐 드려요.'
+                : 'Enter this code in the tool and your teacher can help on your screen.') + '</div>';
+  }
+
+  window.rsCopyCode = function(code){
+    var isKo = L();
+    var msg = document.getElementById('rs-code-msg');
+    var done = function(okay){
+      if (!msg) return;
+      msg.style.color = okay ? '#86efac' : '#fca5a5';
+      msg.textContent = okay ? (isKo ? '✅ 복사했어요. 프로그램에 붙여넣으세요.' : '✅ Copied — paste it into the tool.')
+                             : (isKo ? '복사가 안 됐어요. 위 숫자를 그대로 넣어 주세요.' : 'Copy failed — type the digits above.');
+    };
+    /* ⚠️ clipboard API 는 https·사용자 제스처가 있어야 하고 인앱 브라우저에서 자주 막힌다.
+       실패해도 숫자는 화면에 그대로 있으니 «직접 넣어 주세요» 로 정직하게 안내한다. */
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function(){ done(true); }).catch(function(){ done(false); });
+        return;
+      }
+    } catch (e) {}
+    done(false);
+  };
+
+  function rsBoot(){ try { rsFabItem(); } catch (e) {} try { rsFromUrl(); } catch (e) {} }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rsBoot);
+  else rsBoot();
 })();
 

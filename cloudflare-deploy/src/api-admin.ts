@@ -34,6 +34,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
+import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
@@ -610,13 +611,44 @@ export async function handleAdminApi(
         }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;
-        const rs: any = await env.DB.prepare(
-          `SELECT uid, MAX(name) AS name, role, COUNT(*) AS windows,
+        const BASE = `uid, MAX(name) AS name, role, COUNT(*) AS windows,
                   ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
-                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen
-           FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
-        ).bind(since).all();
-        return json({ ok: true, days, rows: rs.results || [] });
+                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen`;
+        /* 📥 (2026-09-01) «받는 쪽» 지표를 함께 낸다 — 이 화면이 여태 «내가 보내는 것» 만 보여 줬다.
+           ⚠️ «모름» 은 -1 로 들어온다. 그대로 평균 내면 모름이 «손실 -1%» 로 섞여 숫자가 뒤집히므로
+              0 이상인 행만 센다(CASE WHEN). 표본이 하나도 없으면 NULL 이고 화면은 «—» 로 그린다.
+           ⚠️ 이 칸들은 ALTER 로 붙는다 — 첫 로그가 들어와야 생긴다(novideo·attendance.host 와 같은 사정).
+              그래서 없는 DB(개발용·복구본)에서는 이 질의가 `no such column` 으로 죽는다.
+              그때는 옛 질의로 떨어진다. ⛔ 화면 전체가 «조회 실패» 가 되게 두지 말 것. */
+        /* 🔔 (2026-09-01 사장님 「박주형 학생 회선 문제는 어떻게 알려주지?」)
+           이 화면이 uid 만 보여 줘서 «juju5731» 이 누구인지 알 수 없었다 — 연락하려면 사람 이름이 필요하다.
+           ⚠️ 자동 문자·알림톡은 불가능하다(학생 29,461명 전원 번호 0건, D1 실측). 그래서 이 화면이
+              «사람이 보고 연락하는» 유일한 자리다. 실명과 소속 매장을 함께 낸다.
+           ⚠️ students_erp 에는 `id` 칸이 없다 — PRIMARY KEY 는 user_id 다(CLAUDE.md 2장).
+           ⚠️ LOWER() 로 맞추지 말 것 — 그러면 인덱스를 못 타 200행 × 29,461행 전수 스캔이 된다
+              (같은 실수로 4.3초 / 2,348만 행을 읽던 자리가 있었다). 정확일치로 두고, 못 찾으면 빈 값이다.
+           ⚠️ 서브쿼리로 붙인다 — LEFT JOIN 은 짝이 둘이면 행이 늘어난다(강사 명부에서 실제로 밟은 사고). */
+        const WHO = `(SELECT e.korean_name FROM students_erp e WHERE e.user_id = q.uid) AS student_name,
+                  (SELECT e.shop_name  FROM students_erp e WHERE e.user_id = q.uid) AS shop_name,
+                  COUNT(DISTINCT CASE WHEN avg_loss >= 3 THEN date(ts/1000, 'unixepoch', '+9 hours') END) AS bad_days`;
+        const RICH = `${BASE}, ${WHO},
+                  ROUND(AVG(CASE WHEN p95_loss >= 0 THEN p95_loss END), 1) AS p95_loss,
+                  ROUND(AVG(CASE WHEN rx_loss   >= 0 THEN rx_loss   END), 1) AS rx_loss,
+                  ROUND(AVG(CASE WHEN rx_aloss  >= 0 THEN rx_aloss  END), 1) AS rx_aloss,
+                  ROUND(AVG(CASE WHEN rx_conceal >= 0 THEN rx_conceal END), 2) AS rx_conceal,
+                  SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, MAX(COALESCE(peers, 0)) AS peers`;
+        let rs: any = null, rx_ready = true;
+        try {
+          rs = await env.DB.prepare(
+            `SELECT ${RICH} FROM vc_quality q WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        } catch {
+          rx_ready = false;
+          rs = await env.DB.prepare(
+            `SELECT ${BASE}, ${WHO} FROM vc_quality q WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(since).all();
+        }
+        return json({ ok: true, days, rx_ready, rows: rs.results || [] });
       } catch (e: any) { return json({ ok: false, error: e?.message || 'vc_quality_failed' }, 500); }
     }
 
@@ -12786,23 +12818,21 @@ LIMIT $limit`;
 
         const tmap = await loadCafe24TeacherMap(env as any, rows.map(r => r.teacher_uid));
 
-        const classes = rows.map(r => {
+        const overlaps = (lr: any, start: number, end: number) => liveOverlaps(lr, start, end, GRACE_MS);
+
+        /* ── ① 카페24 예약 수업 (attendance 의 `c24-{class_id}` 씨앗) ───────────────── */
+        const c24Classes = rows.map(r => {
           const start = Number(r.joined_at) || 0;
           const end = Number(r.left_at) || (start + DEFAULT_LEN_MS);
           const student = r.stu_ko || r.username || r.stu_en || null;
           // 접속 대조 — ① 계정 완전일치 ② 이름 완전일치(유일할 때만). 겹치는 시간대만 인정한다.
-          const overlaps = (lr: any) => {
-            const ls = Number(lr.joined_at) || 0;
-            const le = Number(lr.left_at) || Number(lr.last_seen_at) || ls;
-            return ls <= end + GRACE_MS && le >= start - GRACE_MS;
-          };
           let hit: any = null;
           for (const lr of liveRows) {
-            if (String(lr.user_id || '') === String(r.user_id || '') && overlaps(lr)) { hit = lr; break; }
+            if (String(lr.user_id || '') === String(r.user_id || '') && overlaps(lr, start, end)) { hit = lr; break; }
           }
           if (!hit && student) {
             const cand = liveByName.get(normName(student));
-            if (cand && overlaps(cand)) hit = cand;
+            if (cand && overlaps(cand, start, end)) hit = cand;
           }
           return {
             room_id: r.room_id,
@@ -12812,11 +12842,60 @@ LIMIT $limit`;
             // 못 이었으면 비운다 — 모르는 것보다 틀린 이름이 나쁘다
             teacher_name: (tmap.get(String(r.teacher_uid || '')) || {}).name || null,
             cafe24_status: r.status || null,
-            phase: start > now ? 'soon' : (end < now ? 'ended' : 'now'),
+            phase: (start > now ? 'soon' : (end < now ? 'ended' : 'now')) as 'soon' | 'now' | 'ended',
             connected: !!hit,
             live_room: hit ? String(hit.room_id || '') : null,
+            /* 🏷 카페24 수업은 망고아이 방을 안 거친다 → 참관할 «방» 자체가 없다. */
+            source: 'cafe24' as const,
+            observable: false,
+            schedule_id: null,
           };
         });
+
+        /* ── ② 망고아이 예약 수업 (class_schedules) ──────────────────────────────────
+           (2026-09-01 사장님 「수강신청 수업도 같이 뜨게 고쳐줘」)
+           판정 정본은 `src/classes-now.ts` — 요일 표기·자정 넘김·미러 중복처럼
+           **문자열 검사로는 안 보이는** 것들이라, 하니스가 실제로 돌려 볼 수 있게 뺐다.
+           🔒 스코프(지사·대리점)와 강사 차단은 ①과 같은 것을 그대로 쓴다. */
+        const scanDates = classesNowScanDates({ now, graceMs: GRACE_MS, aheadMs: AHEAD_MS });
+
+        let schedRows: any[] = [];
+        try {
+          const rs2: any = await env.DB.prepare(
+            `SELECT cs.id, cs.user_id, cs.student_name, cs.class_type, cs.source, cs.notes,
+                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id,
+                    t.name AS t_name, se.korean_name AS stu_ko, se.english_name AS stu_en
+               FROM class_schedules cs
+               LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+               LEFT JOIN students_erp se ON se.user_id = cs.user_id
+              WHERE COALESCE(cs.status,'active') != 'cancelled'
+                ${stu.cond ? `AND (${stu.cond})` : ''}`
+          ).bind(...stu.binds).all();
+          schedRows = (rs2.results || []) as any[];
+        } catch (e: any) { console.warn('[classes-now] mangoi rows:', e?.message); }
+
+        /* 🔄 그 날짜의 1회성 대체강사 — recurring 행의 teacher_id 는 원래 강사 그대로라
+           화면에 보일 이름만 여기서 덮는다(`classes/today` 와 같은 방식).
+           표가 없거나 조회가 깨져도 목록은 그대로 뜬다(이름만 원래 강사). */
+        const subBy = new Map<string, string | null>();
+        try {
+          const ph = scanDates.map(() => '?').join(',');
+          const sr: any = await env.DB.prepare(
+            `SELECT cs2.sub_date, cs2.schedule_id, t2.name AS sub_name
+               FROM class_substitutions cs2
+               LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+              WHERE cs2.sub_date IN (${ph}) AND cs2.status = 'active'`
+          ).bind(...scanDates).all();
+          for (const r of ((sr?.results as any[]) || [])) subBy.set(`${r.sub_date}|${r.schedule_id}`, r.sub_name || null);
+        } catch (e: any) { console.warn('[classes-now] substitution overlay:', e?.message); }
+
+        const mgClasses = buildMangoiClassesNow(schedRows, { now, graceMs: GRACE_MS, aheadMs: AHEAD_MS }, {
+          dowMatches: admDowMatches,
+          subName: (d, id) => subBy.has(`${d}|${id}`) ? (subBy.get(`${d}|${id}`) ?? null) : undefined,
+          liveRows,
+        });
+
+        const classes = mergeClassesNow(c24Classes as any, mgClasses);
 
         return json({
           ok: true,
@@ -12826,6 +12905,9 @@ LIMIT $limit`;
             soon: classes.filter(c => c.phase === 'soon').length,
             ended: classes.filter(c => c.phase === 'ended').length,
             connected: classes.filter(c => c.connected).length,
+            // 🏷 출처별 건수 — 「카페24가 0건」과 「수업이 0건」은 다른 사실이다
+            mangoi: classes.filter(c => c.source === 'mangoi').length,
+            cafe24: classes.filter(c => c.source === 'cafe24').length,
           },
           classes,
         });

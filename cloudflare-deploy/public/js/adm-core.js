@@ -821,6 +821,133 @@ var _recLimit  = 50;
 var _recTotal  = 0;
 var _recBlobTruncated = false;   // R2 목록이 상한에 걸려 «잘렸는가» — 잘렸으면 「영상 없음」이 거짓일 수 있다
 
+/* 🔢 표 안 필터·머리글 정렬 (2026-09-01)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] 이 표에는 서버 검색(방·교사·날짜·상태)만 있었고, 정작 화면에 있는 시간·크기·
+        참가자·시선/말하기/총 참여도 칸으로는 좁힐 수도 정렬할 수도 없었다.
+        「참여도 낮은 수업만 보자」·「길게 찍힌 것부터 보자」를 눈으로 훑어야 했다.
+   [범위] 여기서 거르고 정렬하는 것은 «지금 불러온 쪽»(기본 50건)뿐이다. 서버가
+        페이지로 잘라 주기 때문이다. ⛔ 그래서 화면이 «N건 중 M건» 을 반드시 말한다 —
+        감추면 「전체를 걸렀다」로 읽혀 없는 결론을 내리게 된다.
+   ⚠️ 점수 계산(총 참여도)은 여기 _recPartScore 하나뿐이다. 그리는 쪽도 이것을 쓴다 —
+      같은 판정을 두 곳에 복사하면 한쪽만 고쳐진다(CLAUDE.md 2장). */
+var _recColF = { text: '', part: 'all', dur: 'all', size: 'all', users: 'all', play: 'all' };
+var _recSort = { key: '', dir: 0 };   // dir: 1=올림순 ▲ / -1=내림순 ▼ / 0=원래 순서(서버가 준 최신순)
+
+/* 총 참여도 — 시선·말하기의 평균. 한쪽만 있으면 그쪽 값. 둘 다 없으면 null. */
+function _recPartScore(r) {
+  var g = (r.gaze_score     === null || r.gaze_score     === undefined || isNaN(Number(r.gaze_score)))     ? null : Number(r.gaze_score);
+  var sp= (r.speaking_score === null || r.speaking_score === undefined || isNaN(Number(r.speaking_score))) ? null : Number(r.speaking_score);
+  if (g === null && sp === null) return null;
+  if (g === null) return sp;
+  if (sp === null) return g;
+  return (g + sp) / 2;
+}
+/* 참가자 수 — participant_names 는 JSON 문자열이고 고아 blob 은 아예 없다. */
+function _recUserCount(r) {
+  if (r.source === 'orphan') return null;
+  try { var a = JSON.parse(r.participant_names || '[]'); return Array.isArray(a) ? a.length : 0; } catch (_) { return 0; }
+}
+
+/* 표 안 필터 한 줄 판정 — 참이면 남긴다. */
+function _recPassColF(r) {
+  var F = _recColF;
+  if (F.text) {
+    var hay = String(r.room_id || '') + ' ' + String(r.teacher || '');
+    if (hay.toLowerCase().indexOf(F.text.toLowerCase()) < 0) return false;
+  }
+  if (F.part !== 'all') {
+    var p = _recPartScore(r);
+    if (F.part === 'na')   { if (p !== null) return false; }
+    else if (p === null)   { return false; }
+    else if (F.part === 'high') { if (p < 80) return false; }
+    else if (F.part === 'mid')  { if (p < 50 || p >= 80) return false; }
+    else if (F.part === 'low')  { if (p >= 50) return false; }
+  }
+  if (F.dur !== 'all') {
+    var m = (Number(r.duration_ms) || 0) / 60000;
+    if (F.dur === 'lt1'   && !(m <  1))            return false;
+    if (F.dur === '1-10'  && !(m >= 1  && m < 10)) return false;
+    if (F.dur === '10-30' && !(m >= 10 && m < 30)) return false;
+    if (F.dur === 'gte30' && !(m >= 30))           return false;
+  }
+  if (F.size !== 'all') {
+    var mb = (Number(r.size_bytes) || 0) / (1024 * 1024);
+    if (F.size === 'zero'   && !(mb === 0))              return false;
+    if (F.size === 'lt10'   && !(mb >  0  && mb < 10))   return false;
+    if (F.size === '10-100' && !(mb >= 10 && mb < 100))  return false;
+    if (F.size === 'gte100' && !(mb >= 100))             return false;
+  }
+  if (F.users !== 'all') {
+    var n = _recUserCount(r);
+    if (n === null) return false;               // 고아 blob 은 참가자를 «모른다» — 숫자 조건에서 뺀다
+    if (F.users === '0'     && n !== 0) return false;
+    if (F.users === '1'     && n !== 1) return false;
+    if (F.users === '2plus' && n <   2) return false;
+  }
+  if (F.play === 'yes' && !r.blobKey) return false;
+  if (F.play === 'no'  &&  r.blobKey) return false;
+  return true;
+}
+
+/* 정렬 값 — 숫자면 숫자로, 아니면 문자열로. 값이 없으면 null(항상 뒤로 보낸다). */
+function _recSortVal(r, key) {
+  if (key === 'room')    return String(r.room_id || '');
+  if (key === 'teacher') return String(r.teacher || '');
+  /* 🎓 학생 — 맨 앞(예약의 학생) 이름으로 정렬한다. 아무도 못 찾았으면 null 이라 뒤로 간다
+     («모른다» 가 맨 위를 덮지 않는다 — 아래 «값 없음은 항상 뒤로» 규칙). */
+  if (key === 'student')  { var _s0 = (r.students || [])[0]; return _s0 ? String(_s0.name || _s0.uid || '') : null; }
+  if (key === 'status')  return String(r.status  || '');
+  if (key === 'storage') return String(r.source  || '');
+  if (key === 'start')   return Number(r.startedAt)   || 0;
+  if (key === 'dur')     return Number(r.duration_ms) || 0;
+  if (key === 'size')    return Number(r.size_bytes)  || 0;
+  if (key === 'users')   return _recUserCount(r);
+  if (key === 'gaze')    return (r.gaze_score     === null || r.gaze_score     === undefined || isNaN(Number(r.gaze_score)))     ? null : Number(r.gaze_score);
+  if (key === 'speak')   return (r.speaking_score === null || r.speaking_score === undefined || isNaN(Number(r.speaking_score))) ? null : Number(r.speaking_score);
+  if (key === 'part')    return _recPartScore(r);
+  return null;
+}
+
+/* ⛔ 원본 배열을 제자리에서 뒤집지 말 것 — «원래 순서» 로 못 돌아온다. slice() 로 사본. */
+function _recApplySort(rows) {
+  if (!_recSort.key || !_recSort.dir) return rows;
+  var key = _recSort.key, dir = _recSort.dir;
+  return rows.slice().sort(function (a, b) {
+    var va = _recSortVal(a, key), vb = _recSortVal(b, key);
+    // 값 없음(—)은 방향과 무관하게 항상 뒤로 — 안 그러면 «점수 없음» 이 맨 위를 덮는다
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir;
+    }
+    return (va - vb) * dir;
+  });
+}
+
+/* 머리글 화살표 — 자식 요소가 아니라 data-ar 속성으로 그린다(CSS ::after).
+   i18n 엔진이 [data-ko] 요소의 textContent 를 통째로 덮어써서 자식 span 은 사라진다. */
+function _recSyncSortHead() {
+  var ths = document.querySelectorAll('#card-recording-storage th.rec-sort-th');
+  for (var i = 0; i < ths.length; i++) {
+    var th = ths[i], on = (th.getAttribute('data-sk') === _recSort.key && _recSort.dir !== 0);
+    th.setAttribute('data-ar', on ? (_recSort.dir > 0 ? '▲' : '▼') : '⇅');
+    // ⚠️ classList 는 «바뀔 때만» 쓴다 — 이 저장소는 무의미한 class 쓰기로 홈이 두 번 멎었다
+    if (on !== th.classList.contains('rec-sort-on')) th.classList.toggle('rec-sort-on', on);
+  }
+}
+
+/* 머리글 누르기 — 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다. */
+window.recSortBy = function (key) {
+  if (_recSort.key !== key) { _recSort.key = key; _recSort.dir = 1; }
+  else if (_recSort.dir === 1)  { _recSort.dir = -1; }
+  else if (_recSort.dir === -1) { _recSort.dir = 0; _recSort.key = ''; }
+  else { _recSort.dir = 1; }
+  _recSyncSortHead();
+  renderRecordingsTable();
+};
+
 function _buildRecordingsURL() {
   const p = new URLSearchParams();
   if (_recQuery.q)         p.set('q',         _recQuery.q);
@@ -896,6 +1023,10 @@ async function loadRecordings() {
       startedAt: r.started_at || 0,
       room_id: r.room_id,
       teacher: r.teacher_name || r.teacher_id || '-',
+      /* 🎓 학생 칸 (2026-09-01) — 서버(/api/recordings)가 예약·학생명부에서 «계정 완전일치» 로
+         풀어 준다. ⛔ 화면이 participant_names 로 대신 만들지 말 것 — 그 배열에는 교사
+         표시이름과 임시 접속번호가 섞여 있다(정본·근거: src/recording-students.ts). */
+      students: Array.isArray(r.students) ? r.students : [],
       duration_ms: r.duration_ms || 0,
       size_bytes: r.size_bytes || (matchedBlob ? matchedBlob.size : 0),
       participant_names: r.participant_names,
@@ -904,6 +1035,12 @@ async function loadRecordings() {
       blobKey: matchedKey,
       blobUrl: matchedBlob ? matchedBlob.url : null,
       originalName: matchedBlob ? matchedBlob.originalName : null,
+      /* 📼 2026-09-01 — 서버(/api/recordings)가 «저장 전용» 통로와 공유 링크를 만들어 준다.
+         화면이 조립하지 않는 이유는 그쪽 주석 참고(파일이 정말 있는지를 화면은 모른다).
+         ⛔ 없을 때 화면이 대신 만들어 넣지 말 것 — 404 나는 버튼이 생긴다. */
+      dl_url: r.dl_url || null,
+      share_url: r.share_url || null,
+      share_expires_at: r.share_expires_at || 0,
       // 학생별 참여도 점수 — API(/api/recordings) 가 D1 attendance 집계 결과로 채워줌.
       // gaze_score 는 시선 추적 데이터가 아직 없어 NULL 로 옴 → UI 에서 "—" 로 표시.
       gaze_score: r.gaze_score,         // 0~100 또는 null
@@ -925,6 +1062,7 @@ async function loadRecordings() {
       startedAt: b.uploaded ? new Date(b.uploaded).getTime() : 0,
       room_id: roomId,
       teacher: '-',
+      students: [],   // 고아 blob 은 D1 메타가 없어 학생을 알 길이 없다
       duration_ms: 0,
       size_bytes: b.size || 0,
       participant_names: '[]',
@@ -953,10 +1091,12 @@ async function loadRecordings() {
     var promptEl = document.getElementById('rec-prompt-empty');
     var bar = document.getElementById('rec-search-bar');
     var filters = document.getElementById('rec-filters');
+    var colf = document.getElementById('rec-colfilter');
     var tableWrap = document.getElementById('rec-table-wrap');
     if (promptEl) promptEl.style.display = 'none';
     if (bar) bar.style.display = 'flex';
     if (filters) filters.style.display = 'flex';
+    if (colf) colf.style.display = 'flex';
     if (tableWrap) tableWrap.style.display = '';
   } catch(e){}
 }
@@ -966,10 +1106,12 @@ window.vcRecordingsToolsOpen = function() {
   var promptEl = document.getElementById('rec-prompt-empty');
   var bar = document.getElementById('rec-search-bar');
   var filters = document.getElementById('rec-filters');
+  var colf = document.getElementById('rec-colfilter');
   var tableWrap = document.getElementById('rec-table-wrap');
   if (promptEl) promptEl.style.display = 'none';
   if (bar) bar.style.display = 'flex';
   if (filters) filters.style.display = 'flex';
+  if (colf) colf.style.display = 'flex';
   if (tableWrap) tableWrap.style.display = '';
   // 검색 도구만 열고 데이터는 비워둠 — 사용자가 검색 클릭하면 로드
 };
@@ -979,10 +1121,12 @@ window.vcRecordingsShow = function() {
   var promptEl = document.getElementById('rec-prompt-empty');
   var bar = document.getElementById('rec-search-bar');
   var filters = document.getElementById('rec-filters');
+  var colf = document.getElementById('rec-colfilter');
   var tableWrap = document.getElementById('rec-table-wrap');
   if (promptEl) promptEl.style.display = 'none';
   if (bar) bar.style.display = 'flex';
   if (filters) filters.style.display = 'flex';
+  if (colf) colf.style.display = 'flex';
   if (tableWrap) tableWrap.style.display = '';
   if (typeof loadRecordings === 'function') loadRecordings();
 };
@@ -1006,6 +1150,11 @@ function renderRecordingsTable() {
   const rows = _unifiedRecRows || [];
   const filter = _currentRecFilter || 'all';
   const filtered = filter === 'all' ? rows : rows.filter(r => r.source === filter);
+
+  /* 🔢 표 안 필터 + 머리글 정렬 — «지금 불러온 쪽» 안에서만 좁힌다(위 정본 주석 참고).
+     ⛔ 아래 카운트 배지(rec-counts)는 «거르기 전» rows 를 세는 그대로 둔다 —
+        그 줄은 «이 쪽에 무엇이 있나» 를 말하는 자리라 필터로 흔들리면 안 된다. */
+  const viewRows = _recApplySort(filtered.filter(_recPassColF));
 
   // 카운트 배지 업데이트
   const cBoth = rows.filter(r => r.source === 'both').length;
@@ -1034,13 +1183,30 @@ function renderRecordingsTable() {
     }
   }
 
-  if (!filtered.length) {
-    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/시작/시간/크기/참가자/시선/말하기/총참여도/상태/스토리지/재생 = 12)
-    tb.innerHTML = '<tr><td colspan="12" class="empty">'+(adminLang==='en'?'No recordings':'녹화 기록 없음')+'</td></tr>';
+  /* 「N건 중 M건」 — 표 안 필터가 «이 쪽» 안에서만 도는 것을 화면이 직접 말한다.
+     ⛔ 감추지 말 것: 감추면 「전체에서 걸렀다」로 읽혀 없는 결론을 내리게 된다. */
+  const cntEl = document.getElementById('recf-count');
+  if (cntEl) {
+    const narrowed = viewRows.length !== filtered.length;
+    cntEl.textContent = adminLang === 'en'
+      ? ('This page: ' + viewRows.length + ' of ' + filtered.length + (narrowed ? ' (filtered)' : ''))
+      : ('이 쪽 ' + filtered.length + '건 중 ' + viewRows.length + '건' + (narrowed ? ' (걸러짐)' : ''));
+    cntEl.style.color = narrowed ? '#b45309' : '';
+  }
+
+  if (!viewRows.length) {
+    // colspan 은 thead 의 컬럼 수와 같아야 함 (방/교사/학생/시작/시간/크기/참가자/상태/시선/말하기/총참여도/스토리지/재생 = 13)
+    /* «없다» 와 «걸러서 안 보인다» 는 다른 사실이다 — 한 문장으로 뭉치면
+       필터를 켜 둔 것을 잊고 「녹화가 없다」로 읽는다. */
+    const msg = filtered.length
+      ? (adminLang === 'en' ? 'No rows match the in-table filter (' + filtered.length + ' on this page)'
+                            : '표 안 필터에 맞는 녹화가 없습니다 (이 쪽에 ' + filtered.length + '건 있음)')
+      : (adminLang === 'en' ? 'No recordings' : '녹화 기록 없음');
+    tb.innerHTML = '<tr><td colspan="13" class="empty">' + msg + '</td></tr>';
     return;
   }
 
-  tb.innerHTML = filtered.map(r => {
+  tb.innerHTML = viewRows.map(r => {
     const d = r.startedAt ? new Date(r.startedAt) : null;
     const dur = r.duration_ms ? Math.round(r.duration_ms / 1000) : 0;
     const dm = dur ? (String(Math.floor(dur/60)).padStart(2,'0') + ':' + String(dur%60).padStart(2,'0')) : '-';
@@ -1100,10 +1266,32 @@ function renderRecordingsTable() {
         + (d ? '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
              + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') : ''))
         .replace(/[\\/:*?"<>|\s]/g, '-') + '.webm';
-      playBtn += '<a href="' + playUrl + '" download="' + dlName + '" title="'
+      /* 🔴 2026-09-01 수리 (사장님 «카카오에 저장도 안돼») — 여기가 옛 blob 통로를 쓰고 있었다.
+         그 통로는 Range 를 그대로 존중해 206 을 돌려주는데, 갤럭시가 저장 요청에
+         `Range: bytes=0-` 를 끼워 넣으면 안드로이드 DownloadManager 가 사유 없이
+         «다운로드에 실패했습니다» 만 반복한다. 서버에는 그것을 위해 만든 «저장 전용» 통로가
+         2026-08-15 부터 있었고(Range 무시·200 전체 본문 + Content-Disposition + 쿠키 없는
+         다운로드 관리자용 &sig=), 강사 화면(flow.js)은 그것을 쓰는데 이 관리자 목록만
+         빠져 있었다. ⛔ 다시 blob 통로로 되돌리지 말 것.
+         ℹ️ dl_url 이 없으면(=서버가 «재생 가능» 으로 못 푼 행) 옛 통로로 폴백한다 — 지금
+            받아지던 것을 잃지 않기 위해서다. 감시: recording_download_link_harness */
+      var saveUrl = r.dl_url || playUrl;
+      playBtn += '<a href="' + saveUrl + '" download="' + dlName + '" title="'
         + (adminLang === 'en' ? 'Save this recording to my device' : '이 녹화 영상을 내 PC·휴대폰에 저장합니다')
         + '" style="display:inline-block;background:#fff;color:#2563eb;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid #93c5fd;margin-left:6px;text-decoration:none;vertical-align:middle;">⬇ '
         + (adminLang === 'en' ? 'Save' : '저장') + '</a>';
+      /* 🔗 링크 (2026-09-01 사장님) — 카톡으로 «파일» 을 옮기는 대신 «링크» 를 보낸다.
+         [왜] 녹화는 webm 이고 한 건이 수백 MB 다. 카카오톡·아이폰은 webm 을 다루지 못하고
+           용량도 걸린다 → 파일을 옮기는 길은 계속 막힌다. 링크는 그 둘을 통째로 비켜 간다.
+         [안전] 주소에 실린 서명은 «이 녹화 id 하나» 전용이고 6시간 뒤 만료된다(auth-token.ts).
+           그래서 버튼이 만료 시각을 사람에게 **말해 준다** — 조용히 죽는 링크를 보내면
+           「보냈는데 안 열린대요」가 된다. ⛔ 유효기간을 화면에서 감추지 말 것. */
+      if (r.share_url) {
+        playBtn += '<button onclick="shareRecordingLink(' + r.id + ')" title="'
+          + (adminLang === 'en' ? 'Send a link instead of the file (KakaoTalk, SMS...)' : '파일 대신 링크로 보냅니다 (카카오톡·문자 등)')
+          + '" style="background:#fff;color:#7c3aed;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #c4b5fd;margin-left:6px;vertical-align:middle;">🔗 '
+          + (adminLang === 'en' ? 'Link' : '링크') + '</button>';
+      }
     } else {
       /* 🔴 2026-08-28 수리 — 여기는 오래도록 «재생할 파일이 없다 + 녹화중이 아니다» 단 하나로
          판정해, 성격이 전혀 다른 것들에 전부 「업로드 대기」를 붙였다. 그런데 그중 어느 것도
@@ -1151,6 +1339,35 @@ function renderRecordingsTable() {
 
     const roomCell   = r.room_id || '-';
     const teacherCell = r.teacher || '-';
+    /* 🎓 학생 칸 — 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정(heyst·cys01…)이 그대로
+       올라온다. 그래서 목록만 보고는 어느 학생 수업인지 알 수 없었다(2026-09-01 사장님).
+       ⚠️ 못 찾았을 때 「—」 와 «왜 비었는지» 를 함께 말한다 — 빈칸으로 두면 고장으로 읽힌다. */
+    const studentCell = (function () {
+      if (r.source === 'orphan') return '<span class="score-na" title="'
+        + (adminLang === 'en' ? 'No record for this file, so the student is unknown.' : '이 파일에 대한 기록이 없어 학생을 알 수 없습니다.')
+        + '">—</span>';
+      const studs = Array.isArray(r.students) ? r.students : [];
+      if (!studs.length) return '<span class="score-na" title="'
+        + (adminLang === 'en' ? 'No student account is recorded for this recording (open room, or the student joined without logging in).' : '이 녹화에 학생 계정이 적혀 있지 않습니다 (공용방이거나, 학생이 로그인하지 않고 들어온 경우).')
+        + '">—</span>';
+      const shown = studs.slice(0, 3);
+      var html = shown.map(function (st) {
+        var nm = String(st && st.name || '').trim();
+        var uid = String(st && st.uid || '').trim();
+        var label = nm || uid || '-';
+        var tip = (adminLang === 'en' ? 'Account: ' : '계정: ') + (uid || '-')
+          + (st && st.scheduled ? (adminLang === 'en' ? ' (student on this class schedule)' : ' (이 수업 예약의 학생)') : '');
+        return '<span title="' + _esc(tip) + '"'
+          + (st && st.scheduled ? ' style="font-weight:700"' : '') + '>' + _esc(label) + '</span>';
+      }).join(', ');
+      if (studs.length > shown.length) {
+        var restN = studs.length - shown.length;
+        var restTip = studs.slice(shown.length).map(function (st) { return String(st && (st.name || st.uid) || ''); }).join(', ');
+        html += ' <span style="color:#667085" title="' + _esc(restTip) + '">'
+          + (adminLang === 'en' ? '+' + restN : '외 ' + restN + '명') + '</span>';
+      }
+      return html;
+    })();
     const startCell  = d ? d.toLocaleString(adminLang==='en'?'en-US':'ko-KR') : '-';
     const usersCell  = (r.source === 'orphan')
       ? '-'
@@ -1179,14 +1396,8 @@ function renderRecordingsTable() {
       if (r.speaking_zero_count > 0) return '참여자 ' + r.speaking_zero_count + '명이 마이크 OFF 또는 무발화 (임계값 미만)';
       return '집계 대기 중';
     }
-    function calcParticipation(g, s) {
-      const gn = (g === null || g === undefined || isNaN(Number(g))) ? null : Number(g);
-      const sn = (s === null || s === undefined || isNaN(Number(s))) ? null : Number(s);
-      if (gn === null && sn === null) return null;
-      if (gn === null) return sn;
-      if (sn === null) return gn;
-      return (gn + sn) / 2;
-    }
+    /* 총 참여도 계산 정본은 _recPartScore 하나뿐이다 — 정렬·필터와 같은 값을 써야
+       「정렬해 보니 순서가 화면 숫자와 다르다」가 안 생긴다. ⛔ 여기에 다시 만들지 말 것. */
     function partCell(p) {
       if (p === null) return '<td class="score-cell score-na">—</td>';
       // 80 이상=녹색, 50~79=노랑, 그 미만=빨강
@@ -1197,12 +1408,13 @@ function renderRecordingsTable() {
     const speakTooltip = (r.speaking_score === null || r.speaking_score === undefined) ? speakingNullReason(r) : null;
     const gazeCell    = '<td class="score-cell">' + fmtScore(r.gaze_score, gazeTooltip) + '</td>';
     const speakCell   = '<td class="score-cell">' + fmtScore(r.speaking_score, speakTooltip) + '</td>';
-    const partValue   = calcParticipation(r.gaze_score, r.speaking_score);
+    const partValue   = _recPartScore(r);
     const partCellHtml = partCell(partValue);
 
     return '<tr>'
       + '<td>' + roomCell + '</td>'
       + '<td>' + teacherCell + '</td>'
+      + '<td>' + studentCell + '</td>'
       + '<td>' + startCell + '</td>'
       + '<td>' + dm + '</td>'
       + '<td>' + sz + '</td>'
@@ -1315,6 +1527,53 @@ document.addEventListener('click', function(ev) {
   });
 })();
 
+/* 🔢 표 안 필터 바인딩 (2026-09-01)
+   ⚠️ 서버를 다시 부르지 않는다 — 이미 받아 온 «이 쪽» 을 다시 그릴 뿐이라 즉시 반응한다.
+   ⚠️ 초기화는 정렬(_recSort)까지 함께 지운다. 필터만 지우면 «왜 순서가 이상하지» 가 남는다. */
+(function bindRecColFilter() {
+  const ids = { text: 'recf-text', part: 'recf-part', dur: 'recf-dur',
+                size: 'recf-size', users: 'recf-users', play: 'recf-play' };
+  function pull() {
+    Object.keys(ids).forEach(function (k) {
+      const el = document.getElementById(ids[k]);
+      if (!el) return;
+      _recColF[k] = (k === 'text') ? String(el.value || '').trim() : (el.value || 'all');
+    });
+    renderRecordingsTable();
+  }
+  Object.keys(ids).forEach(function (k) {
+    const el = document.getElementById(ids[k]);
+    if (!el) return;
+    el.addEventListener(k === 'text' ? 'input' : 'change', pull);
+  });
+
+  const resetBtn = document.getElementById('recf-reset');
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    Object.keys(ids).forEach(function (k) {
+      const el = document.getElementById(ids[k]);
+      if (el) el.value = (k === 'text') ? '' : 'all';
+      _recColF[k] = (k === 'text') ? '' : 'all';
+    });
+    _recSort.key = ''; _recSort.dir = 0;
+    _recSyncSortHead();
+    renderRecordingsTable();
+  });
+
+  /* 🌐 언어 토글 — 「이 쪽 N건 중 M건」과 빈 표 안내는 JS 가 그린 글자라
+     data-ko/data-en 루프가 못 고친다. 다시 그려서 따라오게 한다.
+     ⚠️ 관리자 화면의 그 이벤트는 window 가 아니라 document 에서 발행된다(CLAUDE.md 2장).
+        발행처가 화면마다 달라서 둘 다 듣는다 — 중복 호출은 다시 그리기뿐이라 무해하다. */
+  function onLang() {
+    if (!_unifiedRecRows || !_unifiedRecRows.length) return;
+    const wrap = document.getElementById('rec-table-wrap');
+    if (!wrap || wrap.style.display === 'none') return;
+    _recSyncSortHead();
+    renderRecordingsTable();
+  }
+  document.addEventListener('mangoi:lang-changed', onLang);
+  window.addEventListener('mangoi:lang-changed', onLang);
+})();
+
 async function loadRetention() {
   try {
     const r = await fetch('/api/retention/status');
@@ -1404,14 +1663,16 @@ function _renderRoomsSummary(counts, liveRooms, _L) {
 function _schedRowsHtml(list, _L, roomsEmpty) {
   if (!list || !list.length) return '';
   const head = '<tr><td colspan="6" style="background-color:#f8fafc;padding:8px 12px;line-height:1.6">'
-    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment' : '📅 예약 기준 지금 수업') + '</b>'
     + (roomsEmpty
         ? '<div style="font-size:12px;color:#6b7280">'
           /* 📌 (2026-08-21) «참관» 을 함께 적는다 — 필리핀 매니저가 참관 버튼을 찾다가 이 표를 보고
              «버튼이 없어졌다» 로 읽었다. 종료·연장만 적혀 있으면 참관을 찾는 사람에게는 답이 안 된다.
-             그리고 아래 카페24 줄에 버튼이 «원래» 없다는 것까지 적어야 다시 안 묻는다. */
-          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end, extend or observe in this table. The classes below are running on cafe24 — "No connection record" is normal, and they have no observe button.'
-                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장·참관할 대상은 없습니다. 아래 수업들은 카페24에서 돌고 있어 «접속 기록 없음» 으로 나오는 것이 정상이고, 참관 버튼도 생기지 않습니다.')
+             📌 (2026-09-01) 그때는 이 표가 카페24 수업만 받아서 「참관 버튼이 생기지 않습니다」가
+                사실이었다. 지금은 수강신청 수업(망고아이 방이 있는 수업)도 함께 오므로 그쪽에는
+                참관 버튼이 «있다» — 옛 문장을 그대로 두면 화면과 안내가 어긋난다. */
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table. «enrolment» classes below can still be observed (their room exists before anyone joins); «cafe24» classes have no Mango-i room, so "No connection record" is normal and they have no observe button.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다. 다만 아래 «수강신청» 수업은 아무도 안 들어와도 참관할 수 있습니다. «카페24» 수업은 망고아이 방이 없어 «접속 기록 없음» 이 정상이고 참관 버튼도 생기지 않습니다.')
           + '</div>'
         : '')
     + '</td></tr>';
@@ -1422,15 +1683,32 @@ function _schedRowsHtml(list, _L, roomsEmpty) {
     const conn = c.connected
       ? '<span class="badge ok">✅ ' + (_L ? 'Connected' : '접속 확인') + '</span>'
       : '<span style="color:#b45309 !important;font-weight:700;font-size:12px">' + (_L ? 'No connection record' : '접속 기록 없음') + '</span>';
-    return '<tr data-sched="1">'
+    /* 👁 참관할 «방» 이 있는가 — 수강신청 수업은 방 번호가 결정론적이라 아무도 안 붙어도 있다.
+       ⛔ 카페24 줄에는 절대 달지 않는다: `c24-…` 는 망고아이 방 번호 체계가 아니라
+          눌러도 못 들어간다(그래서 판정은 live_room 이 아니라 observable 이다).
+       ⛔ live_room 으로 가르지 말 것 — 시작 직전 «아무도 안 붙은» 그 순간에 버튼이 사라진다.
+          정작 그때가 「왜 아직 아무도 안 들어왔지」 하고 봐야 할 시각이다. */
+    const obsRoom = c.observable ? (c.room_id || '') : '';
+    const srcTag = c.observable
+      ? '<span style="color:#6d28d9 !important;font-weight:700;font-size:11px">' + (_L ? 'enrolment' : '수강신청') + '</span>'
+      : '<span style="color:#9ca3af;font-size:11px">' + (_L ? 'cafe24' : '카페24') + '</span>';
+    /* 🔘 버튼은 위 «화상방» 줄과 **같은 방식**으로 만든다 — class 는 rm-act(색 규칙이 이미 있다),
+       동작은 표 전체 위임(`#active-rooms-table [data-act]` → tr 의 data-room).
+       ⛔ 인라인 onclick + 새 class 로 만들지 말 것: `details.menu-card button` 전역 규칙이
+          !important 로 파란 알약(padding 9px 18px)을 씌워 좁은 칸을 밀어낸다(CLAUDE.md 2장). */
+    return '<tr data-sched="1"' + (obsRoom ? ' data-room="' + _esc(obsRoom) + '"' : '') + '>'
       + '<td><b>' + _esc(c.start_kst || '') + '~' + _esc(c.end_kst || '') + '</b>'
       +   '<div style="font-size:11px;color:#9ca3af">' + _esc(c.room_id || '') + '</div></td>'
-      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span></td>'
+      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span>'
+      +   '<div>' + srcTag + '</div></td>'
       + '<td>' + _esc(c.student_name || (_L ? '(unknown)' : '(학생 미상)'))
       +   ' <span style="color:#9ca3af">·</span> ' + _esc(c.teacher_name || (_L ? '(teacher unknown)' : '(강사 미상)')) + '</td>'
       + '<td>-</td><td>-</td>'
       + '<td>' + conn
-      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '') + '</td>'
+      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '')
+      +   (obsRoom ? '<div style="margin-top:4px"><button type="button" data-act="observe"'
+                   + ' class="rm-act rm-act-observe">' + (_L ? '👁 Ghost' : '👁 GHOST 참관') + '</button></div>' : '')
+      +   '</td>'
       + '</tr>';
   }).join('');
 }
@@ -11023,6 +11301,61 @@ async function setRecordingStatus(id, nextStatus) {
     loadRecordings();
   } catch (e) {
     alert((_L ? 'Network error: ' : '네트워크 에러: ') + e.message);
+  }
+}
+
+/* 🔗 녹화 «링크로 보내기» (2026-09-01 사장님 «카카오에 저장도 안돼»)
+   ─────────────────────────────────────────────────────────────────────────
+   [왜 파일이 아니라 링크인가] 녹화는 webm(vp8+opus)이고 21분짜리가 195MB 다. 카카오톡·
+     아이폰·안드로이드 갤러리는 mp4 를 전제로 하므로 webm 파일은 첨부 목록에 아예 안 뜨거나
+     «지원하지 않는 형식» 이 된다. 링크를 보내면 형식·용량 제약을 통째로 비켜 간다.
+   [안전] 주소에 실린 서명(&sig=)은 «이 녹화 id 하나» 전용이고 6시간 뒤 만료된다
+     (auth-token.ts signRecDlSig). 계정 토큰이 아니라 권한이 넓어지는 지점이 없다.
+   ⛔ 유효기간을 화면에서 감추지 말 것 — 조용히 죽는 링크를 보내면 「보냈는데 안 열린대요」가
+      된다. 그래서 공유 문구와 안내에 만료 시각을 함께 적는다.
+   ⛔ window.open 을 쓰지 말 것 — 카톡·문자앱 인앱 브라우저는 새 창을 못 열고 **예외도 안 던진
+      채 null 만** 돌려준다(CLAUDE.md 2장). 여기서는 공유 시트/클립보드만 쓴다.
+   ⚠️ 미성년자 수업 영상이다. 받는 사람을 확인하고 보내라는 안내를 함께 띄운다. */
+async function shareRecordingLink(id) {
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const row = (_unifiedRecRows || []).filter(function (x) { return String(x.id) === String(id); })[0];
+  const url = row && row.share_url;
+  if (!url) {
+    alert(_L ? 'This recording has no shareable link (the video file was not found).'
+             : '이 녹화는 공유 링크를 만들 수 없습니다 (영상 파일을 찾지 못했습니다).');
+    return;
+  }
+  const until = row.share_expires_at ? new Date(row.share_expires_at) : null;
+  const untilTxt = until ? until.toLocaleString(_L ? 'en-US' : 'ko-KR') : '';
+  const label = (_L ? 'Mangoi class recording' : '망고아이 수업 녹화')
+    + (row.room_id ? ' · ' + row.room_id : '');
+  const body = label + (untilTxt ? (_L ? '\n(link expires ' + untilTxt + ')'
+                                       : '\n(이 링크는 ' + untilTxt + ' 까지 열립니다)') : '');
+
+  // 📱 휴대폰에서는 공유 시트 — 여기에 카카오톡이 뜬다. PC 는 윈도우 공유 시트에 카톡이
+  //    없는 경우가 많아 «복사» 가 더 확실하므로 터치 기기에서만 시트를 쓴다.
+  const isTouch = (navigator.maxTouchPoints || 0) > 0;
+  if (isTouch && navigator.share) {
+    try {
+      await navigator.share({ title: label, text: body, url: url });
+      return;
+    } catch (e) {
+      // 사용자가 시트를 닫은 것은 «실패» 가 아니다 — 조용히 끝낸다.
+      if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return;
+      // 그 밖의 오류는 아래 복사 경로로 떨어진다.
+    }
+  }
+
+  const done = _L
+    ? 'Link copied. Paste it into KakaoTalk or a text message.\n\n' + body
+    : '링크를 복사했습니다. 카카오톡·문자에 붙여넣어 보내세요.\n\n' + body
+      + '\n\n⚠️ 미성년자 수업 영상입니다. 받는 사람을 확인하고 보내 주세요.';
+  try {
+    await navigator.clipboard.writeText(url);
+    alert(done);
+  } catch (e) {
+    // 클립보드가 막힌 환경(구형 WebView 등) — 사람이 직접 복사할 수 있게 보여 준다.
+    prompt(_L ? 'Copy this link:' : '이 링크를 복사하세요:', url);
   }
 }
 

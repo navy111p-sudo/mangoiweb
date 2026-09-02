@@ -163,8 +163,21 @@ console.log('\n[ ③ 🎧 자막 덤 — 끈 쪽에 덤이지 켠 쪽에 벌점�
 check('화면이 지금 자막 단계를 서버로 보낸다', /sub: currentSub/.test(aif));
 check('서버가 blur/off 일 때만 덤을 준다',
   /const wantListen = \['blur', 'off'\]\.includes\(String\(b\.sub \|\| ''\)\)/.test(apiAi));
+/* ⚠️ (2026-09-01) 이 부정 검사는 **주석을 벗긴 사본**으로 해야 한다 — 원본으로 보면
+   근처 주석에 적힌 날짜(2026-09-01)의 «빼기+숫자» 가 걸려 거짓 FAIL 이 난다. 실제로 그렇게 났다.
+   규칙서 2장 「부정 검사는 반드시 주석을 벗겨 낸 사본으로 판정하세요」. */
+const apiAiCode = (() => {
+  const OPEN = String.fromCharCode(47, 42), CLOSE = String.fromCharCode(42, 47), LINE = String.fromCharCode(47, 47);
+  let inBlk = false;
+  return apiAi.split(/\r?\n/).filter((raw) => {
+    const t = raw.trim();
+    if (inBlk) { if (t.includes(CLOSE)) inBlk = false; return false; }
+    if (t.startsWith(OPEN)) { if (!t.includes(CLOSE)) inBlk = true; return false; }
+    return !t.startsWith(LINE);
+  }).join('\n');
+})();
 check('«on»(자막 켬)에는 감점이 없다 — 코드에 감점 자체가 없다',
-  !/ai_friend_listen[\s\S]{0,200}?-\d/.test(apiAi) && !/penalt/i.test(apiAi));
+  !/ai_friend_listen[\s\S]{0,200}?-\d/.test(apiAiCode) && !/penalt/i.test(apiAiCode));
 check('하루 5회로 묶여 있다(무한 적립 방지)', /wantListen && listenUsed < 5/.test(apiAi));
 check('덤은 1P 다(과보상 방지)', /logAward\('ai_friend_listen', 1,/.test(apiAi));
 check('안 쓸 땐 조회조차 안 한다(불필요한 D1 읽기 방지)',

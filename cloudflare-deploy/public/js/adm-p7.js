@@ -421,7 +421,16 @@
       const hours = (t.start_hour && t.end_hour) ? (esc(t.start_hour)+'~'+esc(t.end_hour)) : '—';
       const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
       const stKey = _trStatKey(t.status);
-      const stStyle = stKey==='active' ? '#dcfce7;color:#15803d' : (stKey==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
+      /* 🟢🚪❓ 상태 배지 — 색이 «구분 정보» 다(초록 재직 · 빨강 퇴사 · 노랑 미확인).
+         ⛔ 인라인 색으로 쓰면 안 된다: 카드 안에서는 테마 규칙
+            html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .sub-body :is(span…)
+            가 color:#101828 !important 로 이겨 **세 상태가 전부 검정**이 된다(2026-09-01 브라우저 실측).
+            게다가 background:#fef3c7 인라인은 [style*="background:#fef3c7"] 규칙에 걸려
+            rgba(250,204,21,.12) 로 바뀌고 있었다.
+         ✅ 클래스로 달고 admin-inline-c.css 맨 끝에서 조상 id(#card-teacher-mgmt)로 되살린다.
+            글자색을 인라인 !important 로 덮는 페인터 셋에도 함께 등재해야 한다
+            (adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP) — CLAUDE.md 2장. */
+      const stCls = 'tr-st-badge tr-st-' + stKey;
       // 이름: 없으면 닉네임→"(이름 미등록·#id)" 폴백 + 아바타(이니셜) + 닉네임 2단
       const _rawName = (t.name && String(t.name).trim()) || (t.nickname && String(t.nickname).trim()) || '';
       const _dispName = _rawName ? esc(_rawName) : ((_en?'(No name · #':'(이름 미등록 · #')+esc(t.teacher_id!=null?t.teacher_id:'?')+')');
@@ -437,7 +446,7 @@
         + '<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">'+num(t.work_days)+'</td>'
         + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
         + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
-        + '<td style="padding:8px 10px;text-align:left"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+_trStatLabel(stKey,_en)+'</span></td>'
+        + '<td style="padding:8px 10px;text-align:left"><span class="'+stCls+'">'+_trStatLabel(stKey,_en)+'</span></td>'
         + '</tr>';
     }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers match the filter':'해당 필터에 맞는 강사 없음')+'</td></tr>';
   }

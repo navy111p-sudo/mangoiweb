@@ -187,29 +187,40 @@
     }
   };
 
-  /* 📅 예약 기준 «지금 수업» 줄들 — 카페24에서 도는 수업. 망고아이 방이 아니어서 참관할
-     «방» 자체가 없다 → 참관 버튼이 생기지 않는 것이 정상. 접속이 확인돼 방이 잡힌 줄
-     (live_room)에만 바로 참관을 단다.
+  /* 📅 예약 기준 «지금 수업» 줄들 — 두 갈래가 함께 온다.
+     · source='mangoi'  = 수강신청으로 만든 우리 수업. 방이 결정론적으로 있어
+       **아무도 안 들어와도 참관할 수 있다**(observable) → 시작 직전에도 버튼이 있다.
+     · source='cafe24'  = 카페24에서 도는 수업. 망고아이 방이 아예 없어 참관할 «방» 이 없다.
+       접속이 확인돼 방이 잡힌 줄(live_room)에만 참관을 단다.
+     ⛔ 참관 버튼을 live_room 하나로 가르지 말 것 — 2026-09-01 까지 그랬는데, 수강신청 수업이
+        이 목록에 아예 안 왔고(서버가 카페24 행만 읽었다) 위쪽 «화상방» 목록은 사람이 붙어야
+        떠서, 21:20 수업이 강사가 들어온 21:23 까지 어느 목록에도 없었다.
      ⛔ «접속 기록 없음» 을 «미접속» 이라고 쓰지 않는다 — 우리가 아는 것은 «기록이 없다» 까지다. */
   function _ghSchedHtml(list, en){
     if (!list || !list.length) return '';
     return '<div style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
-      + '<b style="font-size:12.5px;color:#94a3b8">' + (en ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+      + '<b style="font-size:12.5px;color:#94a3b8">' + (en ? '📅 Booked classes for this moment' : '📅 예약 기준 지금 수업') + '</b>'
       + '<div style="font-size:11.5px;color:#64748b;margin:2px 0 6px">'
-      + (en ? 'These run on cafe24, not in a Mango-i room — there is no room to observe. «No connection record» is normal.'
-            : '카페24에서 도는 수업이라 망고아이 방이 없어 참관 버튼이 생기지 않습니다. «접속 기록 없음» 은 정상입니다.')
+      + (en ? '«enrolment» classes have a Mango-i room, so you can observe even before anyone joins. «cafe24» classes do not go through a Mango-i room — «no connection record» is normal there.'
+            : '«수강신청» 수업은 망고아이 방이 있어 아무도 안 들어와도 참관할 수 있습니다. «카페24» 수업은 망고아이 방을 거치지 않아 참관 버튼이 없고, «접속 기록 없음» 이 정상입니다.')
       + '</div>'
       + list.map(function(c){
           const ph = c.phase === 'soon' ? (en ? 'Starts soon' : '곧 시작')
                    : c.phase === 'ended' ? (en ? 'Just ended' : '방금 끝남')
                    : (en ? 'In progress' : '진행 중');
-          const obsBtn = c.live_room
-            ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + encodeURIComponent(c.live_room) + '\'))">'
+          /* 👁 참관할 방 — 망고아이 수업은 접속 전에도 방이 있다(observable),
+             카페24 수업은 실제 접속이 잡혔을 때만 방이 생긴다(live_room). */
+          const obsRoom = c.observable ? (c.room_id || '') : (c.live_room || '');
+          const obsBtn = obsRoom
+            ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + encodeURIComponent(obsRoom) + '\'))">'
               + (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
             : '';
+          const src = c.observable
+            ? ' <span style="color:#c4b5fd;font-weight:700">' + (en ? 'enrolment' : '수강신청') + '</span>'
+            : ' <span style="color:#64748b">' + (en ? 'cafe24' : '카페24') + '</span>';
           return '<div style="padding:4px 0;font-size:12.5px;color:#cbd5e1">'
             + '<b>' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '') + '</b>'
-            + ' <span style="color:#94a3b8">' + esc(ph) + '</span> · '
+            + ' <span style="color:#94a3b8">' + esc(ph) + '</span>' + src + ' · '
             + esc(c.student_name || (en ? '(unknown)' : '(학생 미상)'))
             + ' <span style="color:#64748b">·</span> '
             + esc(c.teacher_name || (en ? '(teacher unknown)' : '(강사 미상)'))

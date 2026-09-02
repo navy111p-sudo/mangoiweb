@@ -25,8 +25,24 @@ name: Deploy WebRTC Unified Platform (Cloudflare Workers)
 on:
   push:
     branches: [main]
+  # ⏰ 수업 시간대에 «보류» 된 배포를 창이 끝난 뒤 한 번에 내보낸다 (2026-09-01).
+  #   ⛔ 이 시각은 반드시 수업 시간대 «밖» 이어야 한다 — 창 안이면 보류를 풀러 오는
+  #      이 실행마저 스스로 보류해 배포가 영영 안 나간다. 창의 정본은
+  #      .github/scripts/class-window.mjs 이고, 둘이 어긋나면
+  #      test-harness/deploy_class_window_harness.mjs ④ 가 FAIL 낸다.
+  #   ⚠️ 바뀐 것이 없어도 매일 한 번 재배포된다. 그 시각(01:30 KST) 카페24 예약 수업은
+  #      30일간 0건이라 무해하고, 「나갔어야 할 게 조용히 안 나가는」 쪽이 훨씬 위험하다
+  #      (이 파일 2026-08-07 주석과 같은 판단).
+  #   📜 처음에 23:35 KST 로 잡았다가 물렸다 — 실측하니 23:20~23:40 · 23:30~23:50 ·
+  #      00:00~00:20 수업이 실재해서, 몰아 배포가 수업 한복판에 떨어질 뻔했다.
+  schedule:
+    - cron: '30 16 * * *'   # 16:30 UTC = 01:30 KST
   workflow_dispatch:
     inputs:
+      force_now:
+        description: '수업 시간대여도 지금 배포 (장애 수정 등 급할 때만)'
+        required: false
+        default: 'false'
       skip_base:
         description: 'base Worker 배포 건너뜀'
         required: false
@@ -69,6 +85,30 @@ jobs:
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
+
+      # ─── ⏸ 수업 시간대 배포 보류 판정 (2026-09-01) ───────────────────────
+      #  🔴 배포하면 화상수업 Durable Object(VideoCallRoom)가 재시작되어 **진행 중인
+      #     수업의 WebSocket 이 전부 끊긴다.** 2026-09-01 실측: 21:43:57 배포 8초 뒤
+      #     class-1070 강사, 37초 뒤 class-1078 강사(Krystel)가 동시에 끊겼고,
+      #     class-996 은 강사가 10분 사이 네 번 끊겨 녹화가 4:03/3:18/0:18 로 토막났다.
+      #     그날 19:33~22:06 에만 배포가 22번 나갔다.
+      #  ⛔ 판정을 여기에 적지 않는다 — 정본은 `.github/scripts/class-window.mjs`
+      #     하나다(사고 서술·창을 그 시각으로 정한 실측 근거도 거기 있다).
+      #     여기서 다시 적으면 «한쪽만 고쳐지는» 그 함정이 그대로 재현된다.
+      #  ⚠️ 보류해도 이 실행은 **초록불로 끝난다.** 아래 배포 게이트는 그대로 돌아
+      #     main 이 배포 가능한 상태인지 계속 확인하고, 건너뛰는 것은 Cloudflare 배포뿐이다.
+      #     보류된 커밋은 위 schedule(cron '30 16 * * *' = 01:30 KST)이 몰아서 내보낸다.
+      #     ⚠️ 여기에 시각을 «숫자로» 적어 두면 크론을 옮길 때 한쪽만 고쳐진다 —
+      #        2026-09-01 에 실제로 그랬다(창을 01:20 까지 늘리며 크론을 23:35 → 01:30 으로
+      #        옮겼는데 이 줄만 23:35 로 남아, 보류된 배포가 언제 나가는지 거짓으로 말했다).
+      #        고칠 일이 생기면 **위 schedule 한 곳만** 고치고 이 줄은 그것을 가리키게 둔다.
+      - name: 수업 시간대 배포 보류 판정
+        id: class_window
+        working-directory: .
+        env:
+          FORCE_NOW: ${{ github.event.inputs.force_now }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: node .github/scripts/class-window.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -134,7 +174,7 @@ jobs:
 
       # ─── 1) base Worker 배포 (webrtc-unified-platform) ───
       - name: Deploy base Worker
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_base != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -148,7 +188,7 @@ jobs:
       # Wrangler 4부터 [env.production] 은 top-level 바인딩을 자동 상속하지 않으므로
       # wrangler.toml 에 production 블록이 재선언되어 있어야 함 (이미 되어 있음).
       - name: Deploy production Worker
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_prod != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -159,7 +199,7 @@ jobs:
 
       # ─── 3) 배포 후 헬스체크 ───
       - name: Health check — base
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_base != 'true'
         run: |
           URL="https://webrtc-unified-platform.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -169,7 +209,7 @@ jobs:
           fi
 
       - name: Health check — production
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_prod != 'true'
         run: |
           URL="https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -194,7 +234,7 @@ jobs:
       #  ⚠️ 워커가 «두 벌» 이라 둘 다 본다 — 하나만 넣으면 한쪽 도메인 사용자만 고쳐진다
       #     (CLAUDE.md 0장: test.mangoi.co.kr = 기본 워커, mangoi.ai = -prod).
       - name: TURN 경로 점검 (X-Turn-Source)
-        if: always() && steps.check_secrets.outputs.secrets_present == 'true'
+        if: always() && steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true'
         run: |
           {
             echo "### 📶 TURN 경로 점검"
@@ -279,7 +319,13 @@ jobs:
         if: always()
         run: |
           {
-            if [ "${{ steps.check_secrets.outputs.secrets_present }}" = "true" ]; then
+            # ⏸ 보류는 «배포 성공» 이 아니다 — 요약이 그렇게 말하면 다음 사람이
+            #   「나갔다」고 읽는다(CLAUDE.md 2장: 못 한 것은 못 했다고 적을 것).
+            if [ "${{ steps.class_window.outputs.hold }}" = "true" ]; then
+              echo "### ⏸ 배포하지 않았습니다 — 수업 시간대"
+              echo ""
+              echo "커밋 \`${{ github.sha }}\` 은 **다음 01:30 KST 몰아 배포**에 실려 나갑니다."
+            elif [ "${{ steps.check_secrets.outputs.secrets_present }}" = "true" ]; then
               echo "### 🚀 Cloudflare Workers 배포 요약"
               echo ""
               echo "| Worker | URL |"
