@@ -298,9 +298,17 @@
     background:rgba(10,18,26,.72);color:#dbe9f7;font-size:16px;cursor:pointer;
     display:flex;align-items:center;justify-content:center}
   .tb:active{transform:scale(.92)}
+  /* 🚪 나가기 버튼 — 허브 «밖» 에서 주입되는 나가는 문(js/game-standalone-exit.js)의
+     34px 에 맞춘다(2026-09-02 사장님 지시).
+     ⛔ 정사각으로 만들지 않는다 — 이 화면의 버튼은 아이콘이 아니라 «← 나가기» 글자를
+        달고 있어서, 34px 정사각으로 조이면 글자가 낱글자로 쪼개진다. 맞추는 것은 «높이» 다.
+     ℹ️ 이 파일은 *{box-sizing:border-box} 라 34px 안에 여백·테두리가 포함된다 —
+        content-box 였다면 34+16+2 = 52px 이 됐다.
+     실측(2026-09-02 수리 전): PC 83.6x36(이미 34 이상) · 폰 73.3x31 → 폰만 34 로 올라간다. */
   #backBtn{position:absolute;top:8px;left:10px;z-index:12;padding:8px 13px;border-radius:10px;
     border:1px solid rgba(255,255,255,.22);background:rgba(10,18,26,.72);color:#dbe9f7;
-    font-size:13px;font-weight:800;cursor:pointer}
+    font-size:13px;font-weight:800;cursor:pointer;min-height:34px;
+    display:inline-flex;align-items:center}
 
   /* ───────── 조작(모바일) ───────── */
   #fireBtn{position:absolute;right:4%;bottom:20%;z-index:11;width:88px;height:88px;border-radius:50%;

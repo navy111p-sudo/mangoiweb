@@ -27,8 +27,21 @@
   .topmid{position:absolute;top:47px;left:50%;transform:translateX(-50%);z-index:6;text-align:center;pointer-events:none;max-width:78vw;background:rgba(8,14,30,.5);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 12px;backdrop-filter:blur(4px);display:inline-flex;flex-direction:column;align-items:center;line-height:1.25}
   .topmid .lesson{font-size:13px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74vw}
   .topmid .score{font-size:12.5px;color:#9fb3d6;font-weight:700;margin-top:1px;white-space:nowrap}
-  .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:30px;height:30px;font-size:14px;cursor:pointer}
+  .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:34px;height:34px;font-size:17px;cursor:pointer}
   .iconbtn:active{transform:scale(.94)}
+  /* 🚪 이 모서리 아이콘 버튼 둘(🔊 음소거 · ← 나가기)을 34px 정사각으로 맞춘다 —
+     허브 «밖» 에서 주입되는 나가는 문(js/game-standalone-exit.js)과 같은 크기다
+     (2026-09-02 사장님 지시: 먼저 나가기만, 이어서 음소거도).
+     실측(수리 전): 둘 다 30x30 → 34x34.
+     ⚠️ 이 클래스를 쓰는 것은 그 둘뿐임을 확인하고 클래스 자체를 키웠다(위 .iconbtn).
+        셋째 버튼이 생기면 그것도 34px 가 된다 — 아이콘 버튼이면 그게 맞다.
+     🔴 두 버튼은 right:8px 로 오른쪽을 맞춰 «세로로 쌓입니다» — 그래서 아래 버튼의
+        top 은 위 버튼의 «높이에 딸린 값» 이다. 30px 시절 inline `top:37px` 은
+        3 + 30 + 4(간격) 로 나온 숫자였고, 34px 로 키우면 3 + 34 + 4 = 41 이 된다.
+        ⛔ 34 로 키우면서 37 을 그대로 두면 두 버튼이 «붙어» 버린다(간격 0).
+        ⛔ 그 숫자를 HTML inline 으로 두지 않는다 — 크기를 바꿀 때 같이 고쳐야 하는
+           값이 CSS 밖에 있으면 이번처럼 어긋난다. 계산 근거를 여기 적고 CSS 가 든다. */
+  #backBtn.iconbtn{top:41px}
   /* ⚡ 게임 속도(답변 제한시간) 5단계 선택 */
   .speedrow{display:flex;gap:6px;margin:0 0 12px}
   .speedrow button{flex:1;font-family:inherit;font-size:11px;font-weight:800;color:#9fb3d6;background:rgba(255,255,255,.06);
@@ -133,7 +146,7 @@
     </div>
     <div class="topmid"><div class="lesson" id="lessonTxt">레슨</div><div class="score" id="scoreTxt">점수 0 · 콤보 0</div></div>
     <button class="iconbtn" id="muteBtn" title="음소거">🔊</button>
-    <button class="iconbtn" id="backBtn" title="뒤로 가기" style="top:37px">←</button>
+    <button class="iconbtn" id="backBtn" title="뒤로 가기">←</button>
     <div id="toast"></div>
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
 
