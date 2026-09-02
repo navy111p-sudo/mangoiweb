@@ -13573,8 +13573,12 @@ LIMIT $limit`;
           if (checked && !proven) {
             return json({
               ok: false, error: 'file_gone',
-              message: '영상 파일이 이미 지워져 복원할 수 없습니다(보관기간 3개월 경과). 기록만 남아 있습니다.',
-              message_en: 'The video file is already deleted (3-month retention passed), so it cannot be restored.',
+              /* ⛔ 사유를 단정하지 않는다 — 여기서 잰 것은 «R2 에 그 키가 없다» 까지다.
+                 보관기간 만료일 수도, 애초에 업로드가 실패했던 것일 수도 있다.
+                 게다가 2026-09-02 부터 보관기간이 3개월(기존분)과 6개월(신규분)로 섞여 있어
+                 한 숫자로 사유를 적으면 어느 쪽이든 거짓이 된다. */
+              message: '영상 파일이 남아 있지 않아 복원할 수 없습니다. 기록만 남아 있습니다.',
+              message_en: 'No video file remains for this recording, so it cannot be restored. Only the record is left.',
             }, 409);
           }
         }

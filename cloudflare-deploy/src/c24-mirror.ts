@@ -889,7 +889,29 @@ export async function setMirrorMode(env: MirrorEnv, mode: MirrorMode): Promise<v
   ).bind(mode, Date.now()).run();
 }
 
-/** 강사 한 명 켜기/끄기 (원부번호 기준) */
+/* 🔴 (2026-09-02) «켜짐 / 꺼짐 / 막힘» 은 «세» 가지다 — 두 가지로 뭉치면 되돌릴 길이 사라진다.
+     발단: 사장님이 CINDY 를 켠 뒤 화면의 «끄기» 를 누르셨는데, 그 버튼이 `enabled = 0`
+     을 썼다. 그런데 이 파일에서 `enabled = 0` 은 «아직 안 켬» 이 아니라 **«켜지 마라»**
+     (퇴사 강사용, 2026-09-01 9-2절)라서, CINDY 가 퇴사자와 같은 «막힘» 칸으로 들어갔고
+     화면은 막힌 줄의 켜기 버튼을 비활성으로 그리므로 **되돌릴 방법이 화면에 없었다.**
+       · 행 없음        = 꺼짐 (아직 안 켬 — 언제든 켤 수 있다)
+       · enabled = 1    = 켜짐
+       · enabled = 0    = 막힘 (전환일 mode='all' 에서도 안 만든다)
+     ⛔ 이 뜻을 바꾸지 말 것 — `getMirrorTeachers()`·`getMirrorBlocked()` 와 짝이고,
+        명부에서 «퇴사» 로 내릴 때 자동 차단하는 코드(api-admin.ts)도 이 뜻에 기댄다. */
+
+/** 화이트리스트에서 «빼기» — 행을 지워 «꺼짐»(아직 안 켬)으로 되돌린다.
+    ⚠️ «막기»(enabled = 0)와 다르다. 끄기는 이쪽이고, 막기는 setMirrorTeacher(…, false) 다. */
+export async function clearMirrorTeacher(env: MirrorEnv, teacherId: string): Promise<number> {
+  await ensureMirrorTables(env);
+  const r: any = await env.DB.prepare(
+    `DELETE FROM c24_mirror_teachers WHERE teacher_id = ?`
+  ).bind(String(teacherId)).run();
+  return Number(r?.meta?.changes || 0);
+}
+
+/** 강사 한 명 켜기(true) / **막기**(false) — 원부번호 기준.
+    ⚠️ false 는 «끄기» 가 아니라 «막기» 다. 끄려면 clearMirrorTeacher() 를 쓸 것. */
 export async function setMirrorTeacher(
   env: MirrorEnv, teacherId: string, enabled: boolean, actor?: string, note?: string,
 ): Promise<void> {

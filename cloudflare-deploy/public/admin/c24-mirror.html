@@ -119,7 +119,7 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     <div class="warnbox">
       ⚠️ <b>off</b> 는 계산만 하고 아무것도 안 씁니다. <b>whitelist</b> 는 아래에서 켠 강사만 만듭니다.
       <b>all</b> 은 전환일에 쓰는 스위치입니다 — 켜는 순간 <b>막지 않은</b> 강사 전원의 예약이 만들어집니다.
-      끈 강사(퇴사 등)는 all 에서도 안 만들어집니다.
+      <b>막은</b> 강사(퇴사 등)는 all 에서도 안 만들어집니다 — «끈» 강사(꺼짐)와는 다릅니다.
     </div>
     <div id="last-runs" class="status-line"></div>
   </div>
@@ -139,6 +139,9 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
   <div class="small" style="margin-bottom:8px">
     이 창(<span id="win-label"></span>)에 카페24 수업이 있는 강사만 나옵니다. «켜기» 는 화이트리스트에 이름만
     올릴 뿐 아무것도 만들지 않습니다 — 실제로 만들려면 그 강사 줄에서 «미리보기» 로 먼저 확인하세요.
+    <br>상태는 <b>셋</b>입니다 — <b>꺼짐</b>(아직 안 켬 · 언제든 켤 수 있음) · <b>켜짐</b> ·
+    <b>막힘</b>(퇴사 등으로 «켜지 마라» 표시 — 전환일 <code>all</code> 에서도 안 만듭니다).
+    «끄기» 는 <b>꺼짐</b>으로 보내는 것이지 «막기» 가 아닙니다.
   </div>
   <div class="tablewrap">
     <table>
@@ -324,9 +327,23 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     var actionsTd = tr.lastElementChild;
     var toggleBtn = document.createElement('button');
     toggleBtn.type = 'button'; toggleBtn.className = 'btn';
-    toggleBtn.textContent = st === 'on' ? '끄기' : '켜기';
-    toggleBtn.disabled = st === 'blocked';
-    toggleBtn.onclick = function(){ toggleTeacher(g, st !== 'on'); };
+    if (st === 'blocked') {
+      /* 🔴 (2026-09-02) 막힌 줄에도 «되돌릴 길» 을 둔다.
+           예전에는 이 버튼이 비활성이라 화면에서 푸는 방법이 아예 없었다 — 사장님이
+           켠 직후 «끄기» 를 누르자 CINDY 가 퇴사자와 같은 «막힘» 칸으로 들어갔고,
+           고치려면 D1 을 직접 손대는 수밖에 없었다.
+         ⛔ 풀어도 곧바로 «켜짐» 으로 만들지 않는다 — «꺼짐» 까지만 되돌리고,
+            켜는 것은 사람이 한 번 더 누르게 한다.
+         🔴 그렇다고 «안전» 한 것은 아니다 — 전환일(mode='all')에서는 `touch()` 가
+            `mode === 'all' || enabled.has(tid)` 라 **«꺼짐» 도 만들어진다**(c24-mirror.ts).
+            즉 이 버튼은 지금 모드(whitelist)에서만 무해하고, **전환일 보호는 실제로 끈다.**
+            그래서 확인창이 그 말을 하고 이름 입력을 받는다. */
+      toggleBtn.textContent = '막힘 풀기';
+      toggleBtn.onclick = function(){ unblockTeacher(g); };
+    } else {
+      toggleBtn.textContent = st === 'on' ? '끄기' : '켜기';
+      toggleBtn.onclick = function(){ toggleTeacher(g, st !== 'on'); };
+    }
     var previewBtn = document.createElement('button');
     previewBtn.type = 'button'; previewBtn.className = 'btn'; previewBtn.style.marginLeft = '4px';
     previewBtn.textContent = '미리보기';
@@ -383,9 +400,31 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
     var msg = enabled
       ? ('«' + (g.teacher_name || g.teacher_id) + '»(원부 ' + g.teacher_id + ') 을 화이트리스트에 켭니다.\n' +
          '켜는 것만으로는 아무 것도 안 만들어집니다 — 자동 실행(15분/야간)이나 이 화면의 «미리보기 → 실행» 을 거쳐야 실제로 만들어집니다.\n\n계속할까요?')
-      : ('«' + (g.teacher_name || g.teacher_id) + '» 을 끕니다. 이미 만든 수업은 지워지지 않습니다(그대로 남습니다).\n\n계속할까요?');
+      /* ⚠️ «끄기» 는 «막기» 가 아니다 — 명단에서 빼는 것뿐이고 언제든 다시 켤 수 있다.
+           그 말을 안 적어 두면 «막힘» 과 헷갈린다(2026-09-02 CINDY 사고). */
+      : ('«' + (g.teacher_name || g.teacher_id) + '» 을 화이트리스트에서 뺍니다(꺼짐).\n' +
+         '이미 만든 수업은 지워지지 않습니다(그대로 남습니다).\n' +
+         '나중에 이 화면에서 다시 켤 수 있습니다.\n\n계속할까요?');
     if (!confirm(msg)) return;
-    post('c24-mirror/teacher', { teacher_id: g.teacher_id, enabled: enabled }).then(function(res){
+    /* 🔴 action 으로 보낸다 — 예전의 { enabled:false } 는 서버에서 «막힘»(전환일에도 안 만듦)이었다. */
+    post('c24-mirror/teacher', { teacher_id: g.teacher_id, action: enabled ? 'on' : 'off' }).then(function(res){
+      if (res.status === 200 && res.body && res.body.ok) { load(); }
+      else alert('실패: ' + (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status)));
+    });
+  }
+
+  /* 🔓 «막힘» 풀기 — 꺼짐(아직 안 켬)으로 되돌린다.
+       ⛔ 퇴사 강사를 실수로 푸는 것을 막으려고 «실제로 만들기» 와 같은 이름 입력을 받는다. */
+  function unblockTeacher(g){
+    var nm = String(g.teacher_name || g.teacher_id);
+    var typed = prompt('«' + nm + '» 의 «막힘» 을 풉니다.\n' +
+      '⚠️ 퇴사 등으로 일부러 막아 둔 강사일 수 있습니다 — 강사 명부에서 재직 여부를 먼저 확인하세요.\n' +
+      '⛔ 전환일(모드 all)에는 «꺼짐» 도 수업이 만들어집니다 — 퇴사 강사라면 풀지 말고 그대로 두세요.\n' +
+      '지금 모드(whitelist)에서는 풀어도 수업이 안 생깁니다(«꺼짐» 이 됩니다. 켜려면 한 번 더 누르셔야 합니다).\n' +
+      '⚠️ 왜 막혔는지 적어 둔 메모도 함께 지워집니다(되돌릴 수 없습니다).\n\n' +
+      '계속하려면 강사 이름을 그대로 입력하세요:', '');
+    if (!typed || typed.trim() !== nm) { alert('이름이 일치하지 않아 취소했습니다.'); return; }
+    post('c24-mirror/teacher', { teacher_id: g.teacher_id, action: 'off' }).then(function(res){
       if (res.status === 200 && res.body && res.body.ok) { load(); }
       else alert('실패: ' + (res.body && (res.body.error || res.body.message) || ('HTTP ' + res.status)));
     });

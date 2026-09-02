@@ -1281,8 +1281,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                    + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'))) return false;
     var url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(room);
     var w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
-    if (!w) location.href = url;
+    /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
+    try { w = window.open(url, '_blank'); } catch (e) { w = null; }
+    if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
     return false;
   };
 
