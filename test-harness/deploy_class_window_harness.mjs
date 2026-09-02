@@ -111,9 +111,17 @@ console.log('\n── ②-2 창 밖이어도 «지금 사람이 있으면» 보�
    ⛔ 이 판정을 빼면 수·금·월은 «창도 없고 실접속 판정도 없는» 상태가 된다.
    (자세한 검사는 test-harness/deploy_class_guard_harness.mjs — SQL 을 진짜 SQLite 에,
     D1 조회를 가짜 fetch 로 돌린다. 여기서는 «창과 어떻게 맞물리는가» 만 못 박는다.) */
-const wedOut = new Date(Date.UTC(2026, 8, 2, 6, 0));   // 수요일 15:00 KST = 창 밖
-ok('수요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
-ok('수요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
+/* 🪤 본보기를 «토요일» 로 둔다. 2026-09-02 에 수요일이 창에 들어왔다가(#761) 다시
+   빠졌는데(#768), 들어와 있던 동안 이 세 줄이 «수요일 = 창 밖» 을 전제로 하고 있어
+   3건이 FAIL 났다. FAIL 이 난 것 자체는 좋았지만 — 반대 방향이 더 위험하다:
+   여기서 «보류된다» 가 창 때문인지 실접속 때문인지 구별하지 못한 채 초록이 될 수 있다.
+   그래서 요일이 또 바뀌어도 흔들리지 않는 날로 두고, 아래 한 줄을 짝으로 둔다.
+   ⛔ 이 시각을 평일로 되돌리지 말 것. */
+const wedOut = new Date(Date.UTC(2026, 8, 5, 6, 0));   // 토요일 15:00 KST = 창 밖
+ok('그 시각이 실제로 창 밖이다 (이 줄이 없으면 아래 두 줄이 조용히 헛돈다)',
+   isClassWindow(wedOut) === false);
+ok('창 밖 요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
+ok('창 밖 요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
 ok('그때 사유가 live-class 로 갈린다', decideHold({ now: wedOut, live: 2 }).reason === 'live-class');
 ok('창 안이면 실접속과 무관하게 class-window 가 이긴다',
    decideHold({ now: inWindow, live: 5 }).reason === 'class-window');

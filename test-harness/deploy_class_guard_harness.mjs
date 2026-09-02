@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const W = await import(join(ROOT, '.github/scripts/class-window.mjs'));
-const { LIVE_CLASS_SQL, LIVE_WINDOW_MS, probeLiveClass, readCfIds, decideHold } = W;
+const { LIVE_CLASS_SQL, LIVE_WINDOW_MS, probeLiveClass, readCfIds, decideHold, isClassWindow } = W;
 const MANGO = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
 const YML   = readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8');
 const PS1   = readFileSync(join(ROOT, 'deploy.ps1'), 'utf8');
@@ -148,8 +148,11 @@ const inWin = runCli('2026-09-01T06:00:00Z');
 ok('창 안이면 보류로 끝난다', /hold=true/.test(inWin.stdout));
 ok('창 안에서는 실접속을 물어보지 않는다 (조회 실패 문구가 없다)',
    !/실접속 확인 실패/.test(inWin.stdout));
-/* 2026-09-02 는 수요일 — 창 «밖» 이라 물어보고, 자격증명이 반쪽이라 실패해야 한다 */
-const outWin = runCli('2026-09-02T06:00:00Z');
+/* 2026-09-05 는 토요일 — 창 «밖» 이라 물어보고, 자격증명이 반쪽이라 실패해야 한다.
+   ⛔ 여기를 평일로 되돌리지 말 것 — 그 요일이 창에 들어오는 순간 «물어보지도 않고
+      보류로 끝나» 이 절이 통째로 헛돈다. 2026-09-02 에 수요일로 두었다가 실제로 밟았다
+      (그날 수요일이 창에 들어왔다 다시 빠졌다 — #761 · #768). */
+const outWin = runCli('2026-09-05T06:00:00Z');
 ok('🧬 창 밖에서는 실제로 물어본다 (그래서 실패 문구가 나온다 — 검사가 헛돌지 않는다)',
    /실접속 확인 실패/.test(outWin.stdout));
 ok('그래도 막지 않는다 (fail-open)', /hold=false/.test(outWin.stdout));
@@ -178,7 +181,10 @@ ok('deploy.yml 이 정본 스크립트를 부른다', /class-window\.mjs/.test(Y
 /* ⛔ 조회 실패를 조용히 넘기지 않는다 — 「모름」을 「수업 없음」으로 읽으면 안 된다. */
 ok('조회 실패를 사람에게 알린다', /실접속 확인 실패/.test(SRC));
 /* 🔴 요일을 좁힌 대가를 메우는 짝이므로, 이 판정이 decideHold 에 실제로 걸려 있어야 한다. */
-const wed = new Date(Date.UTC(2026, 8, 2, 6, 0));   // 수요일 15:00 KST = 창 밖
+const wed = new Date(Date.UTC(2026, 8, 5, 6, 0));   // 토요일 15:00 KST = 창 밖
+/* ⛔ 그 시각이 «정말» 창 밖인지부터 확인한다 — 창이 넓어지면 아래 두 줄이 조용히 헛돌아
+      «보류된다» 가 창 때문인지 실접속 때문인지 구별하지 못한 채 초록이 된다. */
+ok('그 시각이 실제로 창 밖이다 (헛돌지 않는다)', isClassWindow(wed) === false);
 ok('🔴 창 밖 + 사람 있음 → 보류된다 (이게 빠지면 월·수·금이 무방비)',
    decideHold({ now: wed, live: 1 }).hold === true);
 ok('창 밖 + 아무도 없음 → 배포한다', decideHold({ now: wed, live: 0 }).hold === false);
