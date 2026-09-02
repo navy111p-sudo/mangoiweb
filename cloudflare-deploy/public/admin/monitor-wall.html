@@ -369,13 +369,15 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       : '<div class="empty">' + L('이 시각에 예약된 수업이 없습니다.', 'No class is booked for this moment.') + '</div>';
 
     $('ft').innerHTML = L(
-      '👁 참관은 학생·강사에게 보이지 않고 방당 동시 2명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
+      '👁 참관은 학생·강사에게 보이지 않고 방당 동시 ' + OBS_MAX + '명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
+      + '참관자 한 명당 방 안 «각자»의 업로드가 한 갈래씩 늘어나므로, 이미 ' + OBS_BUSY + '명 이상이 보고 있으면 🎧 소리만 을 권합니다(순회 참관도 그때는 소리만으로 붙습니다). '
       + '💬 귓속말은 참관 화면의 채팅칸이 곧 귓속말입니다 — 학생에게는 보이지 않고 강사에게만 갑니다(이름 칩을 고르면 그 사람에게만). '
       + '🎧 소리만은 영상을 아예 받지 않아 회선을 아낍니다 — 도중에 영상으로 바꾸려면 그 화면의 [영상도 보기] 로 다시 엽니다. '
       + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다. '
       + '🛑 강제 종료는 그 수업의 모든 참가자 연결을 즉시 끊습니다. '
       + '🔁 순회 참관은 창 하나가 정해진 초마다 방을 옮겨 다닙니다 — 옮길 때마다 수업 화면을 새로 여느라 몇 초가 걸리므로 15초보다 짧게 두지 않았습니다.',
-      '👁 Observation is invisible to students/teachers (max 2 observers per room); every observation is auto-recorded in the audit log. '
+      '👁 Observation is invisible to students/teachers (max ' + OBS_MAX + ' per room); every observation is auto-recorded in the audit log. '
+      + 'Each observer adds one upload branch for everyone in the room, so once ' + OBS_BUSY + '+ are watching prefer 🎧 Audio (rotation switches to audio too). '
       + '💬 Whisper: the chat box on the observe screen IS the whisper box - students never see it. '
       + '🎧 Audio-only receives no video at all; use [Show video] there to switch. '
       + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students. '
@@ -415,6 +417,10 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       + (rtt != null ? (rtt + 'ms') : '—') + ' · ' + (loss != null ? (loss + '%') : '—') + '</span>';
   }
 
+  /* 👁 참관 정원 — 서버 src/video-call-room.ts 의 OBSERVER_MAX 와 «짝» 입니다.
+     ⚠️ 숫자를 여기 한 곳에만 둡니다 — 배지·툴팁·아래 안내 문장이 전부 이 값을 읽습니다.
+     한 화면이 서로 다른 말을 하면 사람은 어느 쪽을 믿을지 모릅니다(CLAUDE.md 2장). */
+  var OBS_MAX = 4, OBS_BUSY = 2;
   function rowHtml(rm){
     var rid = String(rm.roomId == null ? '' : rm.roomId);
     var al = state.alerts[rid];
@@ -429,11 +435,21 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     var badges = '';
     if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
     if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
-    if (rm.observerCount > 0) badges += ' <span class="badge obs">' + L('관찰 ', 'obs ') + rm.observerCount + '</span>';
+    /* 👁 참관 정원 — 서버 OBSERVER_MAX 와 짝. 참관자 한 명 = 방 안 «각자»의 업로드 한 갈래라
+       붐빌수록 강사 회선이 상합니다. 그래서 «들어가기 전에» 여기서 고르게 합니다.
+       ⚠️ 소리만/영상은 «입장할 때» 정해집니다(재협상이 없음) — 들어간 뒤에는 못 바꿉니다. */
+    var obs = rm.observerCount || 0, obsFull = obs >= OBS_MAX, obsBusy = obs >= OBS_BUSY;
+    if (obs > 0) badges += ' <span class="badge ' + (obsBusy ? 'alone' : 'obs') + '">'
+      + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (obsFull ? L(' 정원 참', ' full') : '') + '</span>';
     var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 ? '⚠' : '🟢'));
     /* ⏱ 시각은 «예약» 에서 온다 — 화상방 자체는 시작 시각을 알려 주지 않는다.
        모르면 «—» 로 둔다(방이 열린 시각을 추측해서 적지 않는다). */
     var when = sc.start_time ? esc(sc.start_time) : '—';
+    var obsOff = obsFull ? ' disabled' : '';
+    var fullTip = L('참관 정원 ' + OBS_MAX + '명이 찼습니다 — 보고 있는 사람이 나가야 들어갈 수 있습니다',
+                    'Observer limit ' + OBS_MAX + ' reached - someone must leave first');
+    var busyTip = L('이미 ' + obs + '명이 보고 있습니다 — 강사 회선을 아끼려면 🎧 소리만 을 권합니다',
+                    obs + ' already watching - prefer 🎧 Audio to spare the teacher\'s uplink');
     return '<tr class="' + cls + '" data-room="' + esc(rid) + '">'
       + '<td>' + stateTxt + '</td>'
       + '<td class="t">' + when + '</td>'
@@ -442,14 +458,15 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       + '<td class="n">' + (rm.userCount || 0) + '</td>'
       + '<td class="n">' + sigHtml(rid) + '</td>'
       + '<td class="acts">'
-      +   '<button type="button" class="go" data-act="observe">' + L('👁 참관', '👁 Observe') + '</button>'
-      +   '<button type="button" class="go2" data-act="observe-whisper" title="'
-      +     L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
-              'Observe and whisper to the teacher only - invisible to students') + '">'
+      +   '<button type="button" class="' + (obsBusy ? 'go2' : 'go') + '" data-act="observe"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : obsBusy ? busyTip : '') + '">' + L('👁 참관', '👁 Observe') + '</button>'
+      +   '<button type="button" class="go2" data-act="observe-whisper"' + obsOff + ' title="'
+      +     (obsFull ? fullTip : L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
+              'Observe and whisper to the teacher only - invisible to students')) + '">'
       +     L('💬 귓속말', '💬 Whisper') + '</button>'
-      +   '<button type="button" class="go2" data-act="observe-audio" title="'
-      +     L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
-              'Receives no video at all - audio only (saves bandwidth)') + '">'
+      +   '<button type="button" class="' + (obsBusy ? 'go' : 'go2') + '" data-act="observe-audio"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
+              'Receives no video at all - audio only (saves bandwidth)')) + '">'
       +     L('🎧 소리만', '🎧 Audio') + '</button>'
       +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
       +   '<button type="button" class="kill" data-act="end">' + L('🛑 종료', '🛑 End') + '</button>'
@@ -590,8 +607,16 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     if (i < 0) i = list.length - 1;
     if (i >= list.length) i = 0;
     rot.idx = i; rot.room = list[i]; rot.left = dwellSec();
-    logObserve(rot.room, L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)'));
-    try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(rot.room); }
+    /* 🎧 (2026-09-02) 이미 붐비는 방에는 «소리만» 으로 붙는다.
+       순회 창도 참관자 한 명이고, 정원을 4로 올린 뒤에는 «순회 1 + 사람 3» 이 실제로 생긴다.
+       그때 넷 다 영상이면 강사 업로드가 +4.8Mbps — 필리핀 회선에서는 그 자체가 수업을 깬다.
+       ⚠️ 소리만/영상은 «열 때» 정해진다(자동 재협상 없음). 그래서 여기서 고른다. */
+    var rotRm = (state.rooms || []).filter(function(x){ return String(x.roomId) === rot.room; })[0];
+    var rotBusy = ((rotRm && rotRm.observerCount) || 0) >= OBS_BUSY;
+    logObserve(rot.room, rotBusy
+      ? L('순회 참관 · 소리만 (관제탑)', 'Rotating observation, audio-only (monitor-wall)')
+      : L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)'));
+    try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(rot.room) + (rotBusy ? '&audio=1' : ''); }
     catch(e){ rotStop(); return; }
     renderRotBar();
   }
