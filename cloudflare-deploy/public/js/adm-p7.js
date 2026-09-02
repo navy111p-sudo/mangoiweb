@@ -275,14 +275,17 @@
       tb.innerHTML = rows.length ? rows.map(function(s){
         // 상태 3분류: active=재직 / inactive=퇴사 / 그 외(null)=미확인. (강사 명부와 동일 — null 을 퇴사로 찍던 버그 수정)
         var st = s.status;
-        var stStyle = st==='active' ? '#dcfce7;color:#15803d' : (st==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
+        /* 🟢🚪❓ 강사 명부와 «같은 세 상태» 라 같은 클래스를 쓴다 — 한 카드 안 두 표가 서로 다른
+           색으로 「퇴사」를 말하면 그것이 더 헷갈린다. 색은 admin-inline-c.css 맨 끝
+           #card-teacher-mgmt .tr-st-badge 블록 하나가 정한다(인라인 색은 테마 규칙에 눌린다). */
+        var stCls = 'tr-st-badge tr-st-' + (st==='active' ? 'active' : (st==='inactive' ? 'inactive' : 'unknown'));
         var stLabel = st==='active' ? (_en?'Active':'재직') : (st==='inactive' ? (_en?'Inactive':'퇴사') : (_en?'Unknown':'미확인'));
         // 매니저 배지: is_manager 코드 대신 공용 이름 명단으로 판정(Maimai·Melca 는 직원으로 등록돼 이 표에 있음)
         var mgr = isManagerName(s.name, s.nickname) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
         return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(s.name)+'</b>'+(s.nickname && s.nickname!==s.name ?' <span style="color:#94a3b8">('+esc(s.nickname)+')</span>':'')+mgr+'</td>'
           +'<td style="padding:8px 10px;color:#475569">'+esc(s.email||'—')+'</td>'
           +'<td style="padding:8px 10px;color:#64748b;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(s.intro)+'">'+esc(s.intro||'—')+'</td>'
-          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+stLabel+'</span></td></tr>';
+          +'<td style="padding:8px 10px;text-align:center"><span class="'+stCls+'">'+stLabel+'</span></td></tr>';
       }).join('') : '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No staff':'직원 없음')+'</td></tr>';
     } catch(e){ tb.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
   };
@@ -299,9 +302,12 @@
       const rows = d.books||[];
       if (cnt) cnt.textContent = '총 '+rows.length+'권';
       tb.innerHTML = rows.length ? rows.map(function(b){ var a=b.status==='active';
+        /* 🟢⏹ 사용/중지 — 위 두 명부와 같은 배지 틀을 쓰되 «중지» 는 회색이다.
+           ⛔ 빨강(tr-st-inactive)을 쓰지 않는다 — 중지는 «문제» 가 아니라 «지금 안 쓰는 것» 이라
+              빨강을 쓰면 정리해야 할 일처럼 읽힌다. */
         return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(b.name)+'</b></td>'
           +'<td style="padding:8px 10px;color:#64748b;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(b.memo)+'">'+esc(b.memo||'—')+'</td>'
-          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(a?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(a?'사용':'중지')+'</span></td></tr>';
+          +'<td style="padding:8px 10px;text-align:center"><span class="tr-st-badge '+(a?'tr-st-active':'tr-st-off')+'">'+(a?'사용':'중지')+'</span></td></tr>';
       }).join('') : '<tr><td colspan="3" style="padding:24px;text-align:center;color:#9ca3af">교재 없음</td></tr>';
     } catch(e){ tb.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
   };
