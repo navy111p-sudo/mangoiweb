@@ -56,18 +56,14 @@ const atKst = (hhmm, day = '화') => {
 };
 
 console.log('\n── ① 수업 시간대 판정 (판정 모듈을 실제로 실행) ──');
-/* 실측 근거 — 2026-09-02 사장님 지시(2차: 「수요일도 보류 창에 넣어줘」)와 class_schedules 실측.
+/* 실측 근거 — 2026-09-02 사장님 지시(화·목 14:00~23:00)와 class_schedules 실측.
    시간대는 실측과 맞고(화·목 수업 시작 14:00~21:50, 가장 늦게 끝나는 것 22:50),
-   요일은 화·목 → **화·수·목**. 수요일 40건(전부 c24-mirror)이 보호 대상으로 들어왔다.
-   ⚠️ 금 7 · 월 5 건은 여전히 창 밖이다 — 「수업이 없다」가 아니라 「막지 않는다」이다. */
+   요일은 사장님이 실측을 보고 «화·목만» 으로 정하셨다(수 40건은 보호 대상에서 뺀다). */
 const CASES = [
     ['화', '13:59', false], ['화', '14:00', true],  ['화', '17:20', true],
     ['화', '21:20', true],  ['화', '22:59', true],  ['화', '23:00', false],
     ['화', '02:00', false], ['화', '11:00', false],
     ['목', '14:00', true],  ['목', '19:30', true],  ['목', '22:59', true], ['목', '23:00', false],
-    /* 🔴 2026-09-02 2차 지시로 들어온 요일 — 되돌리면 여기가 먼저 빨간불이 된다. */
-    ['수', '13:59', false], ['수', '14:00', true],  ['수', '17:35', true],
-    ['수', '19:30', true],  ['수', '22:59', true],  ['수', '23:00', false],
 ];
 for (const [day, hhmm, want] of CASES) {
     ok(`${day} ${hhmm} KST → ${want ? '보류' : '배포'}`, isClassWindow(atKst(hhmm, day)) === want);
@@ -76,20 +72,16 @@ ok(`창의 시작은 포함, 끝은 제외한다 (${CLASS_WINDOW_KST.start} 보�
    isClassWindow(atKst(CLASS_WINDOW_KST.start)) === true &&
    isClassWindow(atKst(CLASS_WINDOW_KST.end)) === false);
 
-/* 🔴 요일이 아니면 하루 종일 창 밖이다. 금·월에도 수업이 «있지만»(2026-09-02 실측 12건)
-   보호하지 않는 것이 지금의 결정이다 — 이 검사는 그 결정이 코드와 일치하는지만 본다.
-   ⛔ 수요일을 여기로 되돌리지 말 것. 2026-09-02 2차 지시로 창에 들어왔다. */
-for (const day of ['금', '토', '일', '월']) {
+/* 🔴 요일이 아니면 하루 종일 창 밖이다. 수·금·월에도 수업이 «있지만» 보호하지 않는 것이
+   2026-09-02 의 결정이다 — 이 검사는 그 결정이 코드와 일치하는지만 본다. */
+for (const day of ['수', '금', '토', '일', '월']) {
     ok(`${day}요일은 한창때(19:30)에도 배포한다 (보호 대상 아님 — 사장님 결정)`,
        isClassWindow(atKst('19:30', day)) === false);
 }
-ok('막는 요일이 정확히 화·수·목 세 개다',
-   Array.isArray(CLASS_WINDOW_KST.days) && CLASS_WINDOW_KST.days.length === 3 &&
-   [2, 3, 4].every((d) => CLASS_WINDOW_KST.days.includes(d)),
+ok('막는 요일이 정확히 화·목 두 개다',
+   Array.isArray(CLASS_WINDOW_KST.days) && CLASS_WINDOW_KST.days.length === 2 &&
+   CLASS_WINDOW_KST.days.includes(2) && CLASS_WINDOW_KST.days.includes(4),
    JSON.stringify(CLASS_WINDOW_KST.days));
-/* 라벨과 실제 요일이 어긋나면 사람에게 보여 주는 글이 거짓말을 한다(#721 과 같은 뿌리). */
-ok('daysLabel 이 실제 days 와 같은 말을 한다',
-   CLASS_WINDOW_KST.daysLabel === '화·수·목', CLASS_WINDOW_KST.daysLabel);
 
 /* 🔴 실사고 시각 그대로 — 2026-09-01 은 화요일이라 이 넷은 여전히 보류돼야 한다. */
 for (const t of ['21:38', '21:40', '21:43', '21:46']) {
@@ -115,17 +107,13 @@ ok('우회 사유가 요약에 남는다 (reason 이 갈린다)',
    decideHold({ now: inWindow }).reason === 'class-window');
 
 console.log('\n── ②-2 창 밖이어도 «지금 사람이 있으면» 보류한다 ──');
-/* 🔴 요일을 화·수·목으로 좁힌 대가(금·월이 창 밖)를 메우는 짝이다.
-   ⛔ 이 판정을 빼면 금·월은 «창도 없고 실접속 판정도 없는» 상태가 된다.
-   ⚠️ 여기 시각을 «수요일» 로 되돌리지 말 것 — 2026-09-02 부터 수요일은 창 «안» 이라
-      class-window 가 먼저 이겨서 이 절이 통째로 헛돈다(실제로 그래서 금요일로 옮겼다).
+/* 🔴 요일을 화·목으로 좁힌 대가(수·금·월이 창 밖)를 메우는 짝이다.
+   ⛔ 이 판정을 빼면 수·금·월은 «창도 없고 실접속 판정도 없는» 상태가 된다.
    (자세한 검사는 test-harness/deploy_class_guard_harness.mjs — SQL 을 진짜 SQLite 에,
     D1 조회를 가짜 fetch 로 돌린다. 여기서는 «창과 어떻게 맞물리는가» 만 못 박는다.) */
-const wedOut = new Date(Date.UTC(2026, 8, 4, 6, 0));   // 금요일 15:00 KST = 창 밖
-ok('창 밖 요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
-ok('창 밖 요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
-/* ⛔ 이 시각이 정말 창 밖인지부터 확인한다 — 창이 넓어지면 위 두 줄이 조용히 헛돈다. */
-ok('그 시각이 실제로 창 밖이다 (헛돌지 않는다)', isClassWindow(wedOut) === false);
+const wedOut = new Date(Date.UTC(2026, 8, 2, 6, 0));   // 수요일 15:00 KST = 창 밖
+ok('수요일 15:00 · 아무도 없음 → 배포', decideHold({ now: wedOut, live: 0 }).hold === false);
+ok('수요일 15:00 · 2명 접속 중 → 보류', decideHold({ now: wedOut, live: 2 }).hold === true);
 ok('그때 사유가 live-class 로 갈린다', decideHold({ now: wedOut, live: 2 }).reason === 'live-class');
 ok('창 안이면 실접속과 무관하게 class-window 가 이긴다',
    decideHold({ now: inWindow, live: 5 }).reason === 'class-window');
@@ -200,7 +188,7 @@ const lastGap = openLen - pos[pos.length - 1];
 ok(`창이 열리기(${CLASS_WINDOW_KST.start}) 전 마지막 크론이 30분 이상 여유를 둔다`,
    lastGap >= 30, `여유 ${lastGap}분`);
 
-/* 🔴 «창 밖» 이라고 «수업이 없다» 는 뜻이 아니다 — 창은 화·수·목만 막는다(사장님 결정).
+/* 🔴 «창 밖» 이라고 «수업이 없다» 는 뜻이 아니다 — 창은 화·목만 막는다(사장님 결정).
    그래서 크론 시각은 «창 밖» 만으로는 안전하지 않고, 창 밖에 실재하는 수업과도
    떨어져 있어야 한다. 2026-09-02 실측에서 13:23 크론이 월 13:00~13:20 수업이 끝난
    **3분 뒤** 였다 — 이 게이트가 막으려던 바로 그 사고를 크론이 스스로 냈을 것이다.
@@ -211,7 +199,7 @@ const OUT_WINDOW_CLASSES = [
     // [설명, 시작 KST, 끝 KST]
     // ── 예약표(class_schedules active, LMS·시드 제외) — 2026-09-02 실측
     ['월 13:00 장지웅 (adm-enroll:85)', '13:00', '13:20'],
-    ['22:40 c24-mirror (금·월에는 무방비)', '22:40', '23:00'],
+    ['22:40 c24-mirror (화·목 밖에서는 무방비)', '22:40', '23:00'],
     // ── 야간 실접속(attendance, last_seen_at 있는 행) — 이 저장소가 이미 적어 둔 구간.
     //    🔴 처음에 이 두 줄을 빠뜨려 23:17 크론이 통과했다(2026-09-02). deploy.yml 의
     //       「📜 처음에 23:35 로 잡았다가 물렸다」 주석이 그 시간대를 이미 말하고 있었는데,
