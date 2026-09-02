@@ -39,6 +39,7 @@ const indexTs = read('cloudflare-deploy/src/index.ts');
 const mangoRec = read('cloudflare-deploy/public/js/mango-rec.js');
 const recorderJs = read('cloudflare-deploy/public/video-call/js/recorder.js');
 const admCore = read('cloudflare-deploy/public/js/adm-core.js');
+const recR2 = read('cloudflare-deploy/src/recordings-r2.ts');
 
 /* ── ① 소스에서 그 UPDATE 문을 오려 낸다 ───────────────────────────────── */
 console.log('① /api/recordings/stop 의 UPDATE 문을 소스에서 찾는다');
@@ -143,6 +144,110 @@ check('저장소 상태도 접두사만 센다 (교재 17.8GB 가 「녹화 파�
   /for \(const prefix of REC_LIST_PREFIXES\)/.test(statsBlock));
 check('저장소 상태도 버킷 전체를 훑지 않는다',
   !/\.list\(\{\s*limit:\s*1000,\s*cursor\s*\}\)/.test(statsBlock), 'prefix 없는 list 호출이 남아 있다');
+
+/* ── ⑧ 실패한 녹화도 «무엇을 얼마나 잃었는지» 를 남기는가  (2026-09-02 B안) ──────
+   [무엇이 문제였나] upload/complete 실패 분기가 status·storage «만» 적었다.
+   D1 실측(2026-09-02): upload_failed 73건이 **전부** duration_ms = 0 이었고,
+   그중 여럿은 size_bytes 가 수 MB 였다(조각은 올라갔는데 마무리가 실패한 것).
+   그러면 두 가지가 함께 망가진다 —
+     ① 관리자 화면이 «몇 분짜리 수업을 잃었는지» 를 말할 수 없다.
+     ② duration_ms 가 0 이라 나중에 오는 /stop 의 nothingRecorded 판정이 «없던 일(aborted)»
+        쪽으로 기울고, 목록은 «aborted + size 0» 을 통째로 감추므로 **진짜 잃은 수업이
+        «정상 정리분» 에 파묻힌다**(CLAUDE.md 2장 「정상 정리분에 진짜 실패가 파묻힌다」).
+   [왜 문자열이 아니라 실행인가] MAX/COALESCE 가 붙은 UPDATE 라 «그 줄이 있는가» 로는
+   «값이 지워지는가» 를 알 수 없다. 진짜 SQLite 에 돌려서 확인한다. */
+console.log('\n⑧ 업로드 실패도 «잃은 크기» 를 남기는가 (진짜 SQLite)');
+{
+  const failIdx = recR2.indexOf("upload/complete 실패 recording_id");
+  check('upload/complete 실패 분기가 있다', failIdx > 0);
+  const failBlock = recR2.slice(failIdx, failIdx + 1800);
+  const m = /`(UPDATE recordings[\s\S]*?WHERE id = \? AND status NOT IN \('completed','deleted'\))`/.exec(failBlock);
+  check('그 분기의 UPDATE 문을 오려 냈다', !!m);
+  if (m) {
+    const FSQL = m[1];
+    const db2 = new DatabaseSync(':memory:');
+    db2.exec(`CREATE TABLE recordings (
+      id INTEGER PRIMARY KEY, file_url TEXT, size_bytes INTEGER,
+      duration_ms INTEGER, ended_at INTEGER, status TEXT, storage TEXT)`);
+    // 바인드 순서: ended_at, duration_ms, size_bytes, id
+    /* ⚠️ 되돌리면 이 SQL 은 «바인드 자리가 1개» 가 되어 run() 이 던진다.
+       그때 하니스가 «크래시» 하면 스택트레이스만 남아 무엇이 깨졌는지 안 보인다 —
+       깔끔한 FAIL 로 떨어뜨린다(되돌림 시험에서 실제로 크래시를 한 번 봤다). */
+    const runFail = (before, prevDur, prevSize, sentDur, sentSize) => {
+      try {
+        db2.exec(`DELETE FROM recordings`);
+        db2.prepare(`INSERT INTO recordings (id, file_url, status, storage, duration_ms, size_bytes)
+                     VALUES (1,'rec/r/1.webm',?, 'r2', ?, ?)`).run(before, prevDur, prevSize);
+        db2.prepare(FSQL).run(1757000000000, sentDur, sentSize, 1);
+        return db2.prepare(`SELECT status, ended_at, duration_ms, size_bytes FROM recordings WHERE id = 1`).get();
+      } catch (e) {
+        return { status: 'SQL_ERR:' + (e && e.message), ended_at: 0, duration_ms: -1, size_bytes: -1 };
+      }
+    };
+
+    const a = runFail('recording', 0, 0, 613000, 4537345);
+    check('실패해도 «언제 끝났는지» 를 남긴다 (ended_at)', Number(a.ended_at) > 0, 'ended_at=' + a.ended_at);
+    check('실패해도 «얼마나 길었는지» 를 남긴다 (duration_ms)', Number(a.duration_ms) === 613000, 'duration=' + a.duration_ms);
+    check('실패해도 «얼마나 찍혔는지» 를 남긴다 (size_bytes)', Number(a.size_bytes) === 4537345, 'size=' + a.size_bytes);
+    check('상태는 실패 그대로다', a.status === 'upload_failed');
+
+    // 늦게 도착한 중복 요청(0 으로 온다)이 이미 적힌 값을 지우면 안 된다
+    const b2 = runFail('upload_failed', 613000, 4537345, 0, 0);
+    check('늦게 온 0 짜리 중복 요청이 이미 적힌 길이를 지우지 않는다',
+      Number(b2.duration_ms) === 613000, 'duration=' + b2.duration_ms);
+    check('늦게 온 0 짜리 중복 요청이 이미 적힌 크기를 지우지 않는다',
+      Number(b2.size_bytes) === 4537345, 'size=' + b2.size_bytes);
+
+    // 이미 완료·삭제된 행은 건드리지 않는다
+    const c2 = runFail('completed', 613000, 4537345, 0, 0);
+    check('이미 «완료» 인 행은 실패로 강등하지 않는다', c2.status === 'completed');
+    const d2 = runFail('deleted', 1, 1, 0, 0);
+    check('이미 «삭제» 인 행은 건드리지 않는다', d2.status === 'deleted');
+    db2.close();
+  }
+}
+
+/* ── ⑨ «없던 일(aborted)» 판정이 DB 에 이미 적힌 값도 보는가 ────────────────
+   탭을 닫고 나가면 onstop 이 안 돌아 /stop 은 duration 0 · size 0 으로 온다.
+   그런데 조각 업로드가 이미 size_bytes 를 적어 뒀을 수 있다 — 그걸 안 보면
+   «진짜 찍힌 수업» 이 «없던 일» 로 분류되고, 목록이 그걸 통째로 감춘다. */
+console.log('\n⑨ «없던 일» 판정이 클라이언트 말만 믿지 않는가');
+check('/stop 이 그 행의 size_bytes·duration_ms 도 함께 읽는다',
+  /SELECT file_url, status, size_bytes, duration_ms FROM recordings/.test(stopBlock));
+check('판정이 «보낸 값» 과 «이미 적힌 값» 중 큰 쪽을 본다',
+  /Math\.max\(Number\(b\.size_bytes\)[\s\S]{0,80}?cur\?\.size_bytes/.test(stopBlock) &&
+  /Math\.max\(Number\(b\.duration_ms\)[\s\S]{0,80}?cur\?\.duration_ms/.test(stopBlock));
+check('/stop 의 UPDATE 도 이미 적힌 길이·크기를 0 으로 덮지 않는다',
+  /duration_ms = MAX\(COALESCE\(duration_ms, 0\), \?\)/.test(SQL) &&
+  /size_bytes = MAX\(COALESCE\(size_bytes, 0\), \?\)/.test(SQL));
+
+/* ── ⑩ 마무리 요청을 한 번은 다시 물어보는가 ────────────────────────────────
+   서버는 complete 가 실패해도 head() 로 실물이 있으면 «성공» 으로 자가복구한다.
+   multipart 완료 직후 잠깐 안 보이는 구간이 서버 안 300ms 재시도보다 길면 그대로 실패로
+   찍힌다 — 클라이언트가 한 번만 더 물어보면 그 자리에서 완료로 돌아온다.
+   ⛔ 무한 재시도는 금지(수업이 끝날 때마다 도는 자리다). */
+console.log('\n⑩ 마무리(complete)를 한 번은 다시 물어보는가');
+{
+  /* ⚠️ 범위를 «길이» 로 자르면 옆 함수(onBeforeUnload)의 같은 URL 이 딸려 들어온다 —
+     실제로 그래서 한 번 거짓 FAIL 이 났다. 중괄호 짝으로 그 함수만 잘라 낸다
+     (CLAUDE.md 2장 「검사 범위를 길이로 자르지 마세요」). */
+  const ci = mangoRec.indexOf('async function completeR2Upload');
+  check('completeR2Upload 가 있다', ci > 0);
+  const open = mangoRec.indexOf('{', ci);
+  let depth = 0, end = open;
+  for (let i = open; i < mangoRec.length; i++) {
+    const ch = mangoRec[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  const cblock = mangoRec.slice(ci, end + 1);
+  check('실패하면 잠깐 기다렸다 한 번 더 보낸다',
+    /!res \|\| !res\.ok/.test(cblock) && /setTimeout\(r, 1500\)/.test(cblock));
+  const sends = (cblock.match(/\/api\/recordings\/upload\/complete/g) || []).length;
+  const calls = (cblock.match(/await sendComplete\(\)/g) || []).length;
+  check(`재시도는 «한 번» 이다 — 무한 루프가 아니다 (요청 자리 ${sends}곳 · 호출 ${calls}회)`,
+    sends === 1 && calls === 2 && !/while\s*\(/.test(cblock) && !/for\s*\(\s*let\s+i/.test(cblock));
+}
 
 console.log(`\n${FAIL ? '💥' : '🎉'} PASS ${PASS} / FAIL ${FAIL}\n`);
 process.exit(FAIL ? 1 : 0);

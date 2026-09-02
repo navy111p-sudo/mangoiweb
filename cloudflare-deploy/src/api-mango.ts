@@ -3769,8 +3769,8 @@ ${numbered}`;
          아무도 «안 올라갔다» 는 것을 알 수 없었다.
          → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
       const cur = await env.DB.prepare(
-        `SELECT file_url, status FROM recordings WHERE id = ?`
-      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+        `SELECT file_url, status, size_bytes, duration_ms FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null; size_bytes: number | null; duration_ms: number | null }>();
 
       // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
       // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
@@ -3788,14 +3788,24 @@ ${numbered}`;
          멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
       const provenMissing = headChecked && !headProven;
       const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
-      const nothingRecorded = !(Number(b.duration_ms) > 0) && !(Number(b.size_bytes) > 0);
+      /* 🔴 (2026-09-02) «없던 일(aborted)» 판정은 클라이언트가 보낸 값만으로 하면 안 된다.
+         탭을 닫고 나가면 onstop 이 안 돌아 이 요청은 duration 0 · size 0 으로 온다.
+         그런데 그 사이 조각 업로드가 이미 size_bytes 를 적어 뒀을 수 있다(recordings-r2.ts
+         «업로드 중 size_bytes 갱신»). 그걸 안 보면 **진짜 찍힌 수업이 «없던 일» 로 분류되고**
+         목록이 «aborted + size 0» 을 통째로 감추므로 화면에서 사라진다.
+         → DB 에 이미 적힌 값도 함께 본다. 하나라도 0 보다 크면 «없던 일» 이 아니다. */
+      const recordedBytes = Math.max(Number(b.size_bytes) || 0, Number(cur?.size_bytes) || 0);
+      const recordedMs = Math.max(Number(b.duration_ms) || 0, Number(cur?.duration_ms) || 0);
+      const nothingRecorded = !(recordedMs > 0) && !(recordedBytes > 0);
       const fallbackStatus = (provenMissing || clientSaysFailed)
         ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
         : 'completed';
 
+      /* ⚠️ duration_ms·size_bytes 를 «덮어쓰지» 않는다(MAX) — 이 요청이 0 으로 와도
+         조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다. */
       await env.DB.prepare(
         `UPDATE recordings
-            SET ended_at = ?, duration_ms = ?, size_bytes = ?,
+            SET ended_at = ?, duration_ms = MAX(COALESCE(duration_ms, 0), ?), size_bytes = MAX(COALESCE(size_bytes, 0), ?),
                 status = CASE
                   WHEN status = 'deleted'       THEN status
                   WHEN ? = 1                    THEN 'completed'

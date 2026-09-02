@@ -874,7 +874,15 @@
     if (r2Parts.length > 0 && r2Key && r2UploadId) {
       r2Parts.sort((a, b) => a.partNumber - b.partNumber);
       r2CompleteSent = true;   // beforeunload 쪽 중복 전송 차단
-      try {
+      /* 🔁 (2026-09-02) 한 번 더 물어본다.
+         서버는 complete 가 실패해도 head() 로 실물을 확인해 «있으면 성공» 으로 자가복구한다
+         (recordings-r2.ts 2026-08-04 주석). 그런데 multipart 완료 직후 잠깐 안 보이는 구간이
+         있어서 서버 안의 300ms 재시도로 못 덮는 경우가 있다 — 그때 클라이언트가 한 번만 더
+         물어보면 그 자리에서 «완료» 로 돌아온다.
+         ⚠️ 서버는 이 재요청에 안전하다: 이미 completed 면 (a) 가드가 그대로 성공을 돌려주고,
+            upload_failed 면 일부러 통과시켜 자가복구를 노린다.
+         ⛔ 무한 재시도는 하지 않는다 — 이 경로는 수업이 끝날 때마다 도는 자리다. */
+      const sendComplete = async () => {
         const res = await fetch('/api/recordings/upload/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -887,12 +895,26 @@
             size_bytes: r2TotalBytes
           })
         }).then(r => r.json());
+        return res;
+      };
+      let res = null;
+      try {
+        res = await sendComplete();
         console.log('[mango-rec] R2 complete:', res);
-        return res.ok;
       } catch (err) {
         console.error('[mango-rec] R2 complete 에러:', err);
-        return false;
       }
+      if (!res || !res.ok) {
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          res = await sendComplete();
+          console.log('[mango-rec] R2 complete 재시도:', res);
+        } catch (err2) {
+          console.error('[mango-rec] R2 complete 재시도 에러:', err2);
+          return false;
+        }
+      }
+      return !!(res && res.ok);
     }
     return false;
   }
