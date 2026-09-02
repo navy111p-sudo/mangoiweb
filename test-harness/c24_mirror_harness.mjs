@@ -1047,6 +1047,21 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
     check('🔴 O-12 진 쪽이 같은 강사·다른 길이여도 update 가 아니다(길이 update 가 강사까지 되돌린다)',
       wv['512215'] === 'update' && wv['512222'] === 'suspect_dup', JSON.stringify(wv));
     check('🔴 O-12 한 회차에 같은 행으로 update 가 두 건 나가지 않는다', w.filter(r => r.verdict === 'update').length === 1);
+
+    // 🔴 2026-09-02 18:00 실측: 퇴사 강사의 잔재가 이력이 제일 많아 «이기면» 진짜까지 진다(이경록 16:50)
+    {
+      const LINKS_L = new Map([...LINKS_9, ['24', { name: 'Teacher Mariane', teacherId: null, leftTeacherId: '11' }],
+                               ['999', { name: 'Teacher Kaye', teacherId: '8' }]]);
+      const SEEN_L = new Map([[K('jy1s016', '24', '18:20'), 4], [K('jy1s016', '999', '18:20'), 2], [K('jy1s016', '190', '18:20'), 1]]);
+      const MAR = c9('511558', '24'), KAYE = c9('512263', '999'), LEN1 = c9('512210', '190');
+      const runL = (existing) => Object.fromEntries(M.planMirror([MAR, KAYE, LEN1], LINKS_L, STU_9, existing, 'whitelist', new Set(['19', '18', '8']), new Set(), SEEN_L).map(r => [r.class_id, r.verdict]));
+      const l1 = runL(row('18'));
+      check('🔴 O-12 퇴사 강사 잔재는 경합에서 빠진다 — 진짜(Kaye 2회)가 이겨 행을 넘겨받는다',
+        l1['511558'] === 'no_teacher_left' && l1['512263'] === 'update' && l1['512210'] === 'already', JSON.stringify(l1));
+      const l2 = runL([{ ...row('8')[0], notes: 'c24:512263' }]);
+      check('🔴 O-12 그 뒤에는 Len 잔재가 행(Kaye)을 덮어쓰지 않는다',
+        l2['512263'] === 'already' && l2['512210'] === 'suspect_dup', JSON.stringify(l2));
+    }
   }
 
   // ── O-8 🔴 «정본 함수를 진짜 SQLite 에 물려» 돌린다 ──────────────────────────
