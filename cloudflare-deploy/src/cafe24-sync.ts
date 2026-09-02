@@ -142,11 +142,21 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT`); } catch {}
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN parent_user_id TEXT`); } catch {}
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN eval_band TEXT`); } catch {}
+    /* 🎯 (2026-09-02) level·textbook 도 같은 이유로 보존한다 — 아래 DELETE 조건이 이 둘을 읽는다.
+       [왜 늘었나] 화상수업 없이 AI 학습도구만 쓰는 학생을 받으면서 그 두 칸이 «학습의 축» 이 됐다.
+            레벨테스트 결과(src/student-placement.ts)와 관리자 「📚 일괄 교재 배정」이 여기에 적고,
+            웜업·복습퀴즈·판단력이 그것을 읽어 학생 수준에 맞는 문장을 고른다.
+       ⚠️ 이 둘은 위 세 칸과 달리 **INSERT 컬럼 목록에도 없다.** 그래서 보존 조건을 안 걸면
+          카페24 학생(=29,462명 전부)은 DELETE 로 사라진 뒤 새 행으로 다시 들어와 NULL 이 된다
+          — 낮에는 멀쩡히 보이고 다음 날 조용히 «미배정» 으로 돌아온다(에러 없음). */
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN level TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN textbook TEXT`); } catch {}
     /* 🔒 (2026-08-28) «우리가 D1 에서만 관리하는 값» 이 든 행은 지우지 않는다.
        [왜] 이 DELETE 는 카페24 학생 전원(현재 29,428행)을 매일 밤 지우고 다시 넣는다.
             아래 INSERT 컬럼 목록에 없는 칸은 그때 전부 사라진다 — 그 목록에 없는 칸이 25개고
-            그중 password_hash·parent_user_id·eval_band 는 **카페24가 아니라 우리 코드가 쓰는 값**이다
-            (/api/student/set-password · /api/parent/link-child · 수업평가 밴드).
+            그중 password_hash·parent_user_id·eval_band·level·textbook 은 **카페24가 아니라
+            우리 코드가 쓰는 값**이다 (/api/student/set-password · /api/parent/link-child ·
+            수업평가 밴드 · 레벨테스트 배정 · 교재 일괄배정).
             즉 학생이 오늘 비밀번호를 정해도 오늘 밤 사라진다 → 학생 비밀번호를 도입할 수 없다.
        [지금 피해가 없는 이유] 2026-08-28 실측으로 그 세 칸이 모두 0건이다. 잃을 것이 아직 없다.
             바꿔 말하면 «앞으로 쓰기 시작하는 순간» 사고가 된다 — 그래서 지금 막는다.
@@ -160,7 +170,9 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
         WHERE created_at = ?
           AND (password_hash  IS NULL OR TRIM(password_hash)  = '')
           AND (parent_user_id IS NULL OR TRIM(parent_user_id) = '')
-          AND (eval_band      IS NULL OR TRIM(eval_band)      = '')`
+          AND (eval_band      IS NULL OR TRIM(eval_band)      = '')
+          AND (level          IS NULL OR TRIM(level)          = '')
+          AND (textbook       IS NULL OR TRIM(textbook)       = '')`
     ).bind(CAFE24_STUDENT_SENTINEL).run();
   }
   /* 📞 (2026-08-18 사장님) 학부모·학생 전화번호를 함께 가져온다.
