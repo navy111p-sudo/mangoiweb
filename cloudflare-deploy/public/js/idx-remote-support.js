@@ -129,6 +129,7 @@
         '<button onclick="closeRemoteSupportModal()" style="background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer">✕</button>'+
       '</div>'+
       '<div style="padding:16px 18px;max-height:75vh;overflow-y:auto">'+
+        rsNavBar(isKo)+
         '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-left:4px solid #60a5fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#bfdbfe;line-height:1.6">'+
           (isKo?'💡 <b>Windows 사용자는 Quick Assist 가장 권장</b> — 설치도 필요 없고 가장 안전합니다. AnyDesk는 한 번 써본 학생만 추천.':'💡 <b>Windows users: Quick Assist recommended</b> — no install needed, safest.')+
         '</div>'+
@@ -166,6 +167,64 @@
     // 🆕 안내 음성 자동 재생 (모달 그려진 후 0.2초 뒤)
     setTimeout(playRsGreeting, 200);
   };
+  /* ═══════════════════════════════════════════════════════════════════════
+     ← 뒤로 · 🏠 홈 (2026-09-02 사장님 지시 «뒤로, 홈버튼 도 만들어줘»)
+     ───────────────────────────────────────────────────────────────────────
+     [왜 여기서 판정하나] 정본 window.mangoiGoBack 을 부르고 싶지만 **없습니다** —
+       index.html 은 js/back-nav.js 를 아예 안 싣고, 실어도 그 파일이 홈(`/`)에서는
+       맨 위에서 return 합니다(「홈 화면에서는 뒤로 갈 곳이 없으므로」). 그렇다고
+       그 판정을 여기에 복제하면 이 저장소가 2026-09-01 에 한 곳으로 모은 것이
+       그날로 다시 갈라집니다(CLAUDE.md 2장).
+     [그래서 뜻을 바꿉니다] 이건 «페이지» 가 아니라 «오버레이» 입니다. 오버레이에서
+       뒤로 = 덮은 것을 걷기, 즉 뒤에 있던 화면으로 돌아가기입니다. 이 모달이 뜨는
+       자리는 셋뿐이고 전부 그 뜻이 맞습니다 — 홈(index.html) · 수업 진단
+       (precheck.html) · 수업 중 ⚙️ 설정 시트. 히스토리를 볼 일이 없습니다.
+     ⚠️ 그래서 [홈] 은 수업 중에 숨깁니다 — 수업 중에 «/» 로 나가면 그 자리에서
+        수업이 끊깁니다(상대 화면에는 「수업이 끝났어요」까지 뜹니다).
+     ═══════════════════════════════════════════════════════════════════════ */
+  function rsInCall(){
+    try { return document.body.classList.contains('vc-in-call'); } catch (e) { return false; }
+  }
+
+  function rsNavBar(isKo){
+    var btn = 'display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;'
+            + 'background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);'
+            + 'color:#e2e8f0;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;'
+            + 'font-family:inherit;letter-spacing:-.2px';
+    /* ⛔ 아이콘만 두고 title 로 설명하지 않습니다 — 폰에는 hover 가 없어 아무것도 안 보입니다.
+       ⛔ data-ko/data-en 도 안 답니다 — 두 i18n 엔진이 textContent 를 통째로 갈아끼웁니다.
+          이 모달은 그릴 때 isKo 로 글자를 정하므로 그것으로 충분합니다. */
+    return '<div style="position:sticky;top:0;z-index:2;display:flex;gap:8px;flex-wrap:wrap;'
+         + 'margin:-16px -18px 12px;padding:12px 18px;background:#161c2c;'
+         + 'border-bottom:1px solid rgba(255,255,255,.08)">'
+         + '<button type="button" onclick="rsGoBack()" style="' + btn + '">'
+         +   '<span aria-hidden="true">←</span>' + (isKo ? '뒤로' : 'Back') + '</button>'
+         + (rsInCall() ? '' :
+             '<button type="button" onclick="rsGoHome()" style="' + btn + '">'
+           +   '<span aria-hidden="true">🏠</span>' + (isKo ? '홈' : 'Home') + '</button>')
+         + '</div>';
+  }
+
+  /* ← 뒤로 = 모달을 걷어 뒤에 있던 화면으로. 주소로 열고 들어온 경우(?menu=remote)에는
+     그 자리에 남으면 새로고침할 때 또 열리므로 menu 만 지웁니다.
+     ⛔ 주소를 통째로 갈아치우지 마세요 — index.html 은 ?room= 으로 수업에 되돌아옵니다
+        (참관에서 ?room= 이 새던 그 함정의 뒷면입니다). */
+  window.rsGoBack = function(){
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.get('menu') === 'remote') {
+        u.searchParams.delete('menu');
+        history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || ''));
+      }
+    } catch (e) {}
+    window.closeRemoteSupportModal();
+  };
+
+  window.rsGoHome = function(){
+    if (rsInCall()) { window.closeRemoteSupportModal(); return; }  /* 안전망 — 수업 중엔 안 나갑니다 */
+    location.href = '/';
+  };
+
   window.closeRemoteSupportModal = function(){
     var ov = document.getElementById('rs-overlay');
     if (ov) ov.style.display = 'none';
