@@ -356,7 +356,8 @@
       cluster.push(it); maxEnd = Math.max(maxEnd, it.st + it.du);
     });
     if (cluster.length) flush();
-    // 겹침 표시 — 실제로 시간이 겹치는 짝만(군집이 같아도 안 겹칠 수 있다)
+    // 겹침 표시 — 짝마다 시간이 겹치는지 본다. 군집은 «앞 카드가 끝나기 전에 시작한 카드» 로만 자라므로
+    //   둘 이상인 군집의 구성원은 반드시 누군가와 겹친다(= 군집 크기>1 과 같은 뜻. 짝 검사는 그 사실을 그대로 적은 것)
     for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++){
       if (list[i].st < list[j].st + list[j].du && list[j].st < list[i].st + list[i].du){ list[i].dup = true; list[j].dup = true; }
     }
@@ -381,7 +382,9 @@
       + ph54T('빈 ' + g.du + '분', g.du + 'm free') + '</div>';
   }
   /* 접힌 요일의 밀도 — 20분 칸마다 «그 시간에 걸친 카드 수» 를 보라 농도로. div 수십 개가 아니라
-     그라데이션 «한 장» 이다(요소 수를 늘리지 않는다). 모든 칸에 stop 을 두어야 사이가 번지지 않는다. */
+     그라데이션 «한 장» 이다(요소 수를 늘리지 않는다). 모든 칸에 stop 을 두어야 사이가 번지지 않는다.
+     ⚠️ 색은 #a78bfa(휘도 0.34) — `js/adm-light-surfaces.js` 가 그라데이션 색의 **최대 휘도가 0.16 미만이면
+        통째로 옅은 불투명색으로 다시 써서**(!important) 농도 차이가 사라진다. #7c3aed(0.13) 로 두면 걸린다(trap-check 지적). */
   function ph54FoldGradient(items){
     var stops = [], slot = 20, px = slot / 60 * PH54_HOUR_PX;
     for (var m = PH54_START_H*60; m < PH54_END_H*60; m += slot){
@@ -389,7 +392,7 @@
       for (var i = 0; i < items.length; i++){ if (items[i].st < m + slot && items[i].st + items[i].du > m) n++; }
       var y0 = (m - PH54_START_H*60) / 60 * PH54_HOUR_PX, y1 = y0 + px;
       var a = n ? Math.min(0.14 + n * 0.12, 0.9) : 0;
-      stops.push('rgba(124,58,237,' + a.toFixed(2) + ') ' + y0 + 'px ' + (y1 - 1) + 'px, transparent ' + (y1 - 1) + 'px ' + y1 + 'px');
+      stops.push('rgba(167,139,250,' + a.toFixed(2) + ') ' + y0 + 'px ' + (y1 - 1) + 'px, transparent ' + (y1 - 1) + 'px ' + y1 + 'px');
     }
     return 'background-image:linear-gradient(to bottom,' + stops.join(',') + ');';
   }
@@ -981,13 +984,15 @@
         var newTime = ph54FmtMin(newMin);
         rec.date = newDate; rec.start_time = newTime; rec.hour = Math.floor(newMin/60); rec.day_of_week = dowKeyByIdx[newCol];
         if (col.classList.contains('ph54-cal-fold')) ph54State.openDay = newCol;   // 접힌 요일에 놓았으면 그 요일을 펼쳐 결과를 보여 준다
+        /* 다른 강사 열에 놓았을 때의 안내는 «저장» 토스트에 덧붙인다 — 토스트는 요소 하나라 따로 띄우면
+           바로 다음 줄의 '💾 저장 중…' 이 0ms 뒤 덮어쓴다(trap-check 지적 — 2장 「«완료» 메시지가 곧바로 사라짐」). */
         var otherTeacher = col.dataset.teacher && String(rec.teacher_id) !== String(col.dataset.teacher);
+        var keepNote = otherTeacher ? ph54T(' · 강사는 그대로(요일·시각만 옮김)', ' · instructor unchanged (day/time only)') : '';
         ph54Render();   // 즉시 다시 그리기(낙관적 업데이트)
-        if (otherTeacher) ph54Toast(ph54T('ℹ️ 강사는 바뀌지 않습니다 — 다른 강사 열에 놓아도 요일·시각만 옮깁니다', 'ℹ️ The instructor stays the same — dropping on another column only moves the day/time'));
         console.log('[ph54] 일정 이동 →', { id: rec.id, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
         // 🔒 서버에 영구 저장(PATCH /api/admin/class-schedules/:id). id 없으면 화면 이동만.
         if (rec.id != null) {
-          ph54Toast('💾 저장 중… ' + dayLabel[newCol] + '요일 ' + newTime);
+          ph54Toast('💾 저장 중… ' + dayLabel[newCol] + '요일 ' + newTime + keepNote);
           fetch('/api/admin/class-schedules/' + rec.id, {
             method: 'PATCH', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -995,12 +1000,12 @@
           })
           .then(function(r){ return r.json().catch(function(){ return {}; }); })
           .then(function(res){
-            if (res && res.ok) ph54Toast('✅ 저장됨: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)');
+            if (res && res.ok) ph54Toast('✅ 저장됨: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)' + keepNote);
             else ph54Toast('⚠️ 저장 실패(화면만 이동): ' + ((res && res.error) || '서버 오류'));
           })
           .catch(function(){ ph54Toast('⚠️ 저장 실패(네트워크). 화면만 이동됨'); });
         } else {
-          ph54Toast('📌 이동(임시): ' + dayLabel[newCol] + '요일 ' + newTime + ' — 저장 불가(id 없음)');
+          ph54Toast('📌 이동(임시): ' + dayLabel[newCol] + '요일 ' + newTime + ' — 저장 불가(id 없음)' + keepNote);
         }
       });
     }

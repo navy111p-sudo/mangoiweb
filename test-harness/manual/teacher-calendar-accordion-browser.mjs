@@ -108,13 +108,18 @@ const measure = () => {
   });
   const hourLbl = document.querySelector('#ph54-cal-track .ph54-cal-hourlabel');
   const hourInfo = hourLbl ? { text: hourLbl.textContent.trim(), color: getComputedStyle(hourLbl).color, vis: getComputedStyle(hourLbl).visibility, w: hourLbl.getBoundingClientRect().width } : null;
+  /* 접힌 띠의 밀도 그라데이션 — adm-light-surfaces 페인터(그라데이션 최대 휘도<0.16 이면 통째로 옅게)를 거친 «계산값» 에
+     서로 다른 알파가 둘 이상 남아 있어야 «언제 몰리는지» 가 보인다 */
+  const foldBg = (() => { const f = document.querySelector('#ph54-cal-track .ph54-cal-fold[data-day="' + ((new Date().getDay() + 6) % 7 + 1) % 7 + '"]'); if (!f) return null;
+    const bi = getComputedStyle(f).backgroundImage; const alphas = new Set((bi.match(/rgba\(167, 139, 250, ([\d.]+)\)/g) || []).map((m) => m.match(/, ([\d.]+)\)/)[1]));
+    return { n: alphas.size, alphas: Array.from(alphas).slice(0, 5), important: f.style.getPropertyPriority('background-image') }; })();
   const openHead = document.querySelector('#ph54-cal-head .ph54-cal-dayhead.ph54-open');
   return {
     folds: document.querySelectorAll('#ph54-cal-track .ph54-cal-fold').length,
     foldHeads: document.querySelectorAll('#ph54-cal-head .ph54-cal-dayhead.ph54-cal-fold-head').length,
     cols: cols.length, teacherCols: cols.filter((c) => c.dataset.teacher).length,
     teacherHeads: Array.from(document.querySelectorAll('#ph54-cal-head .ph54-cal-subhead[data-teacher]')).map((h) => h.querySelector('b').textContent.trim()),
-    openHead: openHead ? openHead.textContent.trim() : '',
+    openHead: openHead ? openHead.textContent.trim() : '', foldBg,
     cross, pairs, dup, gaps,
     cards: document.querySelectorAll('#ph54-cal-track .ph54-ev').length,
     c24: Array.from(document.querySelectorAll('#ph54-cal-track .ph54-c24')).map((e) => ({ draggable: e.getAttribute('draggable'), col: e.parentElement.dataset.teacher })),
@@ -143,6 +148,7 @@ const measure = () => {
     console.log(`  ℹ️ 캘린더 안쪽 폭 ${m.innerW}px / 보이는 폭 ${m.bodyW}px (강사 ${m.teacherCols}열 · 최소 58px) — 넘치면 가로 스크롤`);
     check('시간 눈금(거터) 글자가 있고 보인다', !!m.hourInfo && /\d\d:00/.test(m.hourInfo.text) && m.hourInfo.vis === 'visible' && m.hourInfo.w > 20, JSON.stringify(m.hourInfo));
     check('카드 = 수업 12 + 카페24 1', m.cards === 13, `cards=${m.cards}`);
+    check('🔴 접힌 띠(내일)의 밀도 그라데이션이 페인터를 거친 뒤에도 남아 있다(알파 2종 이상 · 인라인 !important 덮임 없음)', !!m.foldBg && m.foldBg.n >= 2 && m.foldBg.important !== 'important', JSON.stringify(m.foldBg));
     console.log('\n[ ② 🔴 화면에서 겹치는 카드가 없다 ]');
     check('같은 열 안 카드 상자 교차 0건', m.cross === 0, m.pairs.join(' | '));
     console.log('\n[ ③ 같은 강사·같은 시각 둘 ]');

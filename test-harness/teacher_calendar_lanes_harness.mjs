@@ -55,10 +55,12 @@ let L;
   // ③ 셋이 겹치면 셋으로
   r = L.ph54LayoutItems([it(1200, 40, 'a'), it(1210, 20, 'b'), it(1220, 20, 'c')]);
   check('③ 셋이 겹치면 lanes=3', r.items.every((v) => v.lanes === 3));
-  // ④ 사슬(a-b 겹침, b-c 겹침, a-c 안 겹침) — 군집은 하나, dup 는 실제로 겹친 짝만
+  // ④ 사슬(a-b 겹침, b-c 겹침, a-c 안 겹침) — 군집은 하나(lanes 2 로 충분: a·c 는 같은 lane 을 쓸 수 있다)
+  //    ⚠️ 군집은 «앞 카드가 끝나기 전에 시작한 카드» 로만 자라므로 둘 이상인 군집의 구성원은 반드시 겹친다
+  //       — 그래서 «군집이면 전부 dup» 과 «짝마다 겹침» 은 같은 답을 낸다(trap-check 지적으로 설명을 바로잡음).
   r = L.ph54LayoutItems([it(1200, 30, 'a'), it(1220, 30, 'b'), it(1240, 20, 'c')]);
-  check('④ 사슬 군집 = 한 군집(lanes 같음)', new Set(r.items.map((v) => v.lanes)).size === 1);
-  check('④ dup 는 실제로 시간이 겹치는 카드에만', r.items.every((v) => v.dup === true) === true); // a-b, b-c 가 겹치므로 셋 다 참
+  check('④ 사슬 군집 = 한 군집 · lane 은 2 개면 충분(a 와 c 가 같은 lane)', new Set(r.items.map((v) => v.lanes)).size === 1 && r.items[0].lanes === 2, JSON.stringify(r.items.map((v) => [v.k, v.lane, v.lanes])));
+  check('④ 사슬 구성원은 전부 dup(각자 누군가와 겹친다)', r.items.every((v) => v.dup === true));
 
   // ⑤ 빈 자리 — 문턱 이상만
   r = L.ph54LayoutItems([it(840, 20, 'a'), it(870, 20, 'b'), it(930, 20, 'c')]);
@@ -71,8 +73,9 @@ let L;
 
   // ⑥ 접힌 요일 밀도 — 그라데이션 «한 장», 모든 칸에 stop
   const g = L.ph54FoldGradient([it(840, 20), it(840, 20), it(1200, 40)]);
-  const stops = (g.match(/rgba\(124,58,237,([\d.]+)\)/g) || []).map((m) => Number(m.match(/,([\d.]+)\)/)[1]));
+  const stops = (g.match(/rgba\(167,139,250,([\d.]+)\)/g) || []).map((m) => Number(m.match(/,([\d.]+)\)/)[1]));
   check('⑥ 20분 칸마다 stop 이 하나씩(사이가 번지지 않는다)', stops.length === (24 - 6) * 3, `stops=${stops.length}`);
+  check('🔴 ⑥ 밀도 색의 휘도가 0.16 이상(adm-light-surfaces 가 통째로 옅게 다시 쓰는 문턱) — #a78bfa', /rgba\(167,139,250,/.test(g) && !/rgba\(124,58,237,/.test(g));
   check('⑥ 수업이 없는 칸은 투명(0), 둘이 겹친 칸은 하나보다 진하다',
     stops[0] === 0 && stops[(840 - 360) / 20] > stops[(1200 - 360) / 20] && stops[(1200 - 360) / 20] > 0, JSON.stringify([stops[0], stops[24], stops[42]]));
   check('⑥ div 를 늘리지 않는다(background-image 한 줄)', /^background-image:linear-gradient\(to bottom,/.test(g) && !/<div/.test(g));
@@ -109,7 +112,9 @@ console.log('\n[ B. 렌더 배선 — 함수가 «있는가» 가 아니라 «�
   check('다시 그려도 스크롤 위치를 지킨다', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) calBody\.scrollTop = keepTop;/.test(render));
   check('드롭 자리에 접힌 띠도 포함(.ph54-cal-col, .ph54-cal-fold)', /var PH54_DROP_SEL = '\.ph54-cal-col, \.ph54-cal-fold';/.test(render) && (render.match(/closest\(PH54_DROP_SEL\)/g) || []).length >= 4);
   check('접힌 띠에 놓으면 그 요일을 펼친다', /if \(col\.classList\.contains\('ph54-cal-fold'\)\) ph54State\.openDay = newCol;/.test(render));
-  check('다른 강사 열에 놓아도 강사는 안 바뀐다고 말한다(PATCH 는 요일·시각만)', /강사는 바뀌지 않습니다/.test(render) && /body: JSON\.stringify\(\{ day_of_week: dowKeyByIdx\[newCol\], start_time: newTime \}\)/.test(render));
+  check('다른 강사 열에 놓아도 강사는 안 바뀐다고 «저장 토스트에 덧붙여» 말한다(따로 띄우면 0ms 뒤 덮인다)',
+    /var keepNote = otherTeacher \? ph54T\(' · 강사는 그대로/.test(render) && /'✅ 저장됨: '[^\n]*\+ keepNote\);/.test(render)
+    && !/if \(otherTeacher\) ph54Toast\(/.test(render) && /body: JSON\.stringify\(\{ day_of_week: dowKeyByIdx\[newCol\], start_time: newTime \}\)/.test(render));
   check('주를 옮기면 펼친 요일을 다시 정한다(3곳)', (render.match(/ph54State\.openDay = null;/g) || []).length === 3);
   check('안내문이 새 조작(요일 접기·강사 이름)을 한/영으로 말한다', /강사별 열<\/b>로 펼쳐져요/.test(render) && /one column per instructor/.test(render));
   check('범례에 빈 자리·겹침이 있다', /ph54-legend-gap/.test(render) && /ph54-legend-dup/.test(render));
