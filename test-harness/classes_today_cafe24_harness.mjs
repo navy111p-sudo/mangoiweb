@@ -159,9 +159,18 @@ check('㉔ [Refresh] 를 누르면 다시 받는다', /c-today:loadTodayAll/.tes
 /* 이 화면의 설계는 «외부 요청 최소화» — 외부 리소스가 늘면 필리핀 회선에서 RTT 가 붙는다 */
 const ext = (MGR.match(/<(?:script|link)[^>]*(?:src|href)="/g) || []).length;
 check(`㉕ 외부 리소스가 1개 그대로다  [현재 ${ext}개]`, ext === 1);
-/* 카톡·문자앱 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다 (CLAUDE.md 2장) */
-check('㉖ 입장이 window.open 실패 시 같은 창으로 폴백한다',
-  /window\.open\([\s\S]{0,200}if \(!w\) location\.href = url/.test(mgrCode));
+/* 카톡·문자앱 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다 (CLAUDE.md 2장).
+   🔴 (2026-09-02) 이 검사를 «식 모양» 으로 못 박아 두었더니, 보장은 그대로인데 검사만 깨졌다
+      (`if (!w) location.href` → `if (w) {…} else location.href`). 뜻으로 묻는다 —
+      ① 'noopener' 를 기능 문자열로 주지 않는다(주면 탭이 열려도 반환이 null 이라 늘 폴백한다)
+      ② 진짜로 못 열었을 때 같은 창으로 간다  ③ opener 는 손으로 끊는다 */
+{
+  const oi = mgrCode.indexOf('window.open(');
+  const blk = oi < 0 ? '' : mgrCode.slice(Math.max(0, oi - 200), oi + 400);
+  check('㉖ 입장이 window.open 실패 시 같은 창으로 폴백한다',
+    oi > 0 && !/window\.open\([^)]*noopener/.test(blk)
+    && /location\.href = url/.test(blk) && /\.opener\s*=\s*null/.test(blk));
+}
 check('㉗ 실패해도 로그인 화면으로 튕기지 않는다 (quietGet)',
   /quietGet\('\/api\/admin\/classes\/today'/.test(mgrCode));
 
