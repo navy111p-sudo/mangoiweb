@@ -190,6 +190,63 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
   ok(oldFlips > now.flips, `옛 문턱으로 되돌리면 진동이 실제로 늘어난다 (옛 ${oldFlips}회 > 지금 ${now.flips}회) — 검사가 헛돌지 않는다`);
 }
 
+console.log('\n════════ ④-2 높은 기준 RTT 회선 — 내려간 화질이 «돌아오는가» (2026-09-02 class-849 실측) ════════');
+{
+  /* [잰 것] 강선생님(중국) ↔ jeong: D1 vc_quality 19분 내내 RTT 360~435ms, 손실 1% 미만.
+     [옛 코드] 회복 조건이 «rtt < 250» 절대값이라 이 회선에서는 한 번 내려가면 수업 끝까지 바닥.
+     [지금]   기준 RTT(그 연결의 최소값) 대비로 재므로 조용해지면 올라온다.
+     ⚠️ ④ 와 달리 시계를 «가짜로 흘려» 준다 — 홀드(30초)가 실제 시간이라 동기 루프에서는 회복이 영영 안 온다. */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const i = main.indexOf('let step = pc.__qStep || 0;');
+  const j = main.indexOf('if (step !== (pc.__qStep || 0))', i);
+  const block = main.slice(i, j);
+  ok(/__qRttBase/.test(block) && /rttUp/.test(block) && /rttDown/.test(block),
+     '판정 블록이 기준 RTT(__qRttBase)·상대 문턱(rttUp/rttDown)을 쓴다');
+
+  function run(src, series) {
+    let t = 0;
+    const FakeDate = { now: () => t };
+    const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS', 'Date', src + '\n;return step;');
+    const pc = { __qStep: 0, __qGood: 0, __qBadAt: 0 };
+    let worst = 0, recoveredAt = -1;
+    series.forEach(([loss, rtt], k) => {
+      t += 4000;
+      const next = decide(pc, loss, rtt, [1, .6, .35, .2, .08], FakeDate);
+      if (pc.__qStep > 0 && next === 0 && recoveredAt < 0) recoveredAt = k;
+      pc.__qStep = next; worst = Math.max(worst, next);
+    });
+    return { worst, end: pc.__qStep, recoveredAt, base: pc.__qRttBase };
+  }
+  /* 19분: 기준 365ms, 1분에 한 번 470ms 스파이크(옛 450 문턱을 넘음), 4분째에 «진짜 막힘» 620ms 한 번 */
+  const series = [];
+  for (let m = 0; m < 19; m++) for (let k = 0; k < 15; k++) {
+    const spike = k === 7;
+    series.push([spike ? 1.2 : 0.3, m === 3 && spike ? 620 : (spike ? 470 : 360 + (k % 3) * 5)]);
+  }
+  const now = run(block, series);
+  ok(now.worst >= 1, `«진짜 막힘»(620ms) 에는 여전히 내려간다 (최저 단계 ${now.worst})`);
+  ok(now.end === 0 && now.recoveredAt > 0,
+     `조용해지면 «올라온다» — 끝 단계 ${now.end}, ${now.recoveredAt >= 0 ? Math.round(now.recoveredAt * 4 / 60) + '분째 회복' : '회복 없음'}`);
+  ok(now.base >= 355 && now.base <= 375, `기준 RTT 가 그 회선의 최소값 근처로 잡혔다 (${Math.round(now.base)}ms)`);
+  /* 470ms 스파이크(기준+110)는 «막힘» 이 아니라 그 회선의 흔들림 — 그것만으로 내려가면 안 된다 */
+  const calm = series.filter((_, k) => Math.floor(k / 15) !== 3);
+  const noBig = run(block, calm);
+  ok(noBig.worst === 0, `기준+110ms 흔들림만으로는 내려가지 않는다 (최저 단계 ${noBig.worst})`);
+
+  /* 되돌림 — 옛 절대값으로 바꾸면 «영영 바닥» 이 실제로 재현돼야 한다(안 그러면 이 검사는 헛돈다) */
+  const oldSrc = block.replace(/const rttDown = [^;]+;/, 'const rttDown = 450, rttUp = 250;');
+  ok(oldSrc !== block, '되돌림 시험용 옛 블록을 만들었다');
+  const old = run(oldSrc, series);
+  ok(old.worst >= 1 && old.end >= 1 && old.recoveredAt < 0,
+     `옛 절대 문턱으로 되돌리면 실제로 바닥에 굳는다 (끝 단계 ${old.end}, 회복 없음) — 검사가 헛돌지 않는다`);
+
+  /* 낮은 회선(기준 90ms)에서는 옛 동작과 같아야 한다 — 문턱이 450/250 으로 떨어진다 */
+  const low = []; for (let k = 0; k < 40; k++) low.push([0.3, k === 10 ? 480 : 90]);
+  const lowNow = run(block, low), lowOld = run(oldSrc, low);
+  ok(lowNow.worst === lowOld.worst && lowNow.end === lowOld.end,
+     `기준 RTT 가 낮은 회선에서는 옛 판정과 같은 답 (최저 ${lowNow.worst} / 끝 ${lowNow.end})`);
+}
+
 console.log('\n════════ ⑤ 소리 — 수신 지연 재설정과 음성전용 문턱 ════════');
 {
   const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
