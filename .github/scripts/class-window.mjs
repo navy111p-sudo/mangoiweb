@@ -34,13 +34,25 @@
 //    토·일만 0건이다. 수요일 40건은 전부 `source='c24-mirror'` — 카페24 미러를 켜면서
 //    카페24 수업이 망고아이 화상방으로 들어온 것이고, 미러 수업에 실제 접속이 남은 것도
 //    확인했다(2026-09-01 `class-1046`).
-//    ⟹ **수·금·월 수업은 이 게이트가 보호하지 않는다.** 그날 배포하면 진행 중인 수업이
-//       끊긴다. 「다른 날은 수업이 없다」가 아니라 「그날 끊겨도 감수한다」가 지금의 결정이다.
+//    ⟹ **수·금·월 수업은 이 «창» 이 보호하지 않는다.** 「다른 날은 수업이 없다」가 아니라
+//       「그날은 창으로 막지 않는다」가 지금의 결정이다.
 //    ⛔ 이 사실을 «수업이 없다» 로 바꿔 적지 말 것. 나중에 이 줄을 읽고 «그럼 안전하겠네» 로
 //       넘어가면, 수요일에 수업이 끊긴 이유를 아무도 못 찾는다.
+//    ✅ **다만 그 구멍은 아래 «실접속 판정»(reason: live-class)이 메운다** (2026-09-02 추가) —
+//       요일·시각과 무관하게 «지금 화상방에 사람이 들어와 있으면» 보류한다. 그래서 수요일
+//       수업도 **접속이 시작된 뒤에는** 막힌다. ⚠️ 못 막는 것은 «곧 시작될 예정인데 아직
+//       아무도 안 들어온» 구간뿐이다(배포에 2분 남짓).
+//    ⛔ 그러니 실접속 판정을 끄면 수·금·월이 **창도 없고 실접속 판정도 없는** 상태가 된다.
+//       그 둘은 짝이다.
 //
 // 📜 처음(2026-09-01)에는 «매일 13:00~01:20» 이었다. 그때는 카페24 예약(`c24-*`)까지 함께
-//    세어 창을 잡았는데, 그 방들은 우리 워커의 DO 를 안 쓴다(CLAUDE.md 0장). 요일·시간을
+//    세어 창을 잡았는데, 그 방들은 우리 워커의 DO 를 안 쓴다(CLAUDE.md 0장).
+//    🔢 그 차이를 숫자로 재 두면(2026-09-02, 최근 30일 attendance): 전체 4,666행 중
+//       **3,747행이 씨앗**(`last_seen_at` 이 빈 예약 껍데기 = 화상방에 접속한 적 없음)이다.
+//       실접속만 세면 13시 **10**건(씨앗 포함 46) · 23시 **4**건(51) · 0시 **13**건(34) 뿐이라,
+//       옛 창의 «끝을 01:20 까지» 는 실제보다 넓었다.
+//    ⛔ 창을 다시 넓히려고 접속을 셀 때는 **반드시 `WHERE last_seen_at > 0`** 을 걸 것.
+//       그것이 이 저장소가 못 박아 둔 «씨앗과 실접속을 가르는 유일하게 확실한 표시» 다. 요일·시간을
 //    좁히면서 배포 가능한 시간이 하루 11시간 40분 → 주 5일 전면 + 화·목도 15시간으로 늘었다.
 //
 // ⚠️ 요일은 **KST 기준**이다(UTC 로 재면 하루가 밀린다).
@@ -123,12 +135,91 @@ export function isClassWindow(date) {
     return (a <= b) ? (m >= a && m < b) : (m >= a || m < b);
 }
 
+/* ── 지금 화상방에 «사람이 있나» (실접속 판정) ──────────────────────────────
+ *  🔴 창(화·목 14:00~23:00)만으로는 월·수·금 수업 449건이 배포에 노출된다.
+ *     그 구멍을 메우는 것이 이 판정이다 — 요일·시각과 무관하게 «지금 방에 사람이
+ *     들어와 있으면» 보류한다. 사장님이 말씀하신 「mangoi.ai 에서 테스트 수업할 때」가
+ *     정확히 이 자리다(테스트 수업은 오전에도 한다).
+ *
+ *  [무엇을 근거로 «지금 수업 중» 이라 하나]
+ *    `attendance.last_seen_at` = **서버 시각 하트비트**. 화상방에 들어와 있는 브라우저가
+ *    30초마다 /api/speaking-time 을 보내고(js/mango-attendance.js), 서버가 그 요청이
+ *    «도착한 시각» 을 찍는다(src/api-mango.ts). 클라이언트가 보내는 값이 아니라
+ *    서버 시각이라 위조도 과다계상도 안 된다.
+ *  ⛔ 카페24 예약(class_schedules)이나 카페24가 밀어넣은 attendance 씨앗으로 판정하지
+ *     말 것 — 그건 «오늘 수업이 잡혀 있다» 이지 «지금 사람이 들어와 있다» 가 아니다.
+ *     씨앗 행은 last_seen_at 이 비어 있고(30일 4,666행 중 3,747행), 이 저장소는 이미
+ *     「last_seen_at > 0 이 씨앗과 실접속을 가르는 유일하게 확실한 표시」라고 못 박아
+ *     두었다(src/api-admin.ts). 카페24 수업은 우리 DO 를 안 거치니 배포해도 안 끊긴다.
+ *  ⚠️ 3분 창을 쓰는 이유: 하트비트가 30초 주기라 한두 번 놓쳐도 잡히게. 좁히면
+ *     «수업 중인데 통과» 가 나고, 넓히면 «끝난 수업이 계속 막는다».
+ *  ⚠️ left_at 이 찍힌 행은 «정상 퇴장» 이라 뺀다. 반대로 left_at 이 비었는데 하트비트가
+ *     싱싱하면 «아직 앉아 있다» 로 본다 — 휴대폰은 끊길 때 leave 를 못 보내므로
+ *     모르는 쪽은 «있다» 로 세는 것이 안전한 방향이다.
+ */
+
+/** 하트비트를 «싱싱하다» 고 볼 시간(ms). 하트비트 주기(30초)의 여섯 배. */
+export const LIVE_WINDOW_MS = 3 * 60 * 1000;
+
+/** 지금 화상방에 붙어 있는 사람 수. `?1` 은 «이 시각 이후» 커트라인(ms). */
+export const LIVE_CLASS_SQL =
+    'SELECT COUNT(*) AS live, COUNT(DISTINCT room_id) AS rooms FROM attendance ' +
+    'WHERE left_at IS NULL AND last_seen_at >= CAST(?1 AS INTEGER)';
+/* ⚠️ CAST 를 빼지 말 것 — 파라미터가 문자열로 실려도 «문자열 대 정수» 비교가 되지
+   않게 못 박는다. 이 한 줄이 없으면 어떤 경로에서는 조용히 0명이 나온다. */
+
+/** wrangler.toml 에서 account_id · mango-db 의 database_id 를 읽는다.
+ *  ⛔ 여기에 숫자를 복사해 두지 말 것 — 정본은 wrangler.toml 하나다. */
+export function readCfIds(tomlText) {
+    const account = (tomlText.match(/^\s*account_id\s*=\s*"([^"]+)"/m) || [])[1] || '';
+    const block = tomlText.match(/database_name\s*=\s*"mango-db"[\s\S]{0,200}?database_id\s*=\s*"([^"]+)"/)
+        || tomlText.match(/database_id\s*=\s*"([^"]+)"[\s\S]{0,200}?database_name\s*=\s*"mango-db"/);
+    return { accountId: account, databaseId: (block || [])[1] || '' };
+}
+
+/**
+ * D1 에 «지금 몇 명이 붙어 있나» 를 물어본다.
+ * ⚠️ **막지 않는 쪽으로 실패한다.** 토큰이 없거나·권한이 없거나·D1 이 흔들리면
+ *    `{ ok:false, live:0 }` 을 돌려준다. 「수업 없음」이 아니라 「모름」이고,
+ *    고장 난 감시견이 모든 배포를 영구히 막는 쪽이 더 나쁘다(급한 수정도 못 나간다).
+ *    ⛔ 그 «통과» 를 조용히 하지 말 것 — 부르는 쪽이 반드시 크게 남긴다.
+ * ⚠️ 그리고 **배포를 «멎게» 하면 안 된다** — 타임아웃을 반드시 건다.
+ */
+export async function probeLiveClass({
+    now = new Date(), token = '', accountId = '', databaseId = '',
+    fetchImpl = globalThis.fetch, timeoutMs = 8000,
+} = {}) {
+    if (!token || !accountId || !databaseId) {
+        return { ok: false, live: 0, rooms: 0, error: 'no-credentials' };
+    }
+    const cutoff = now.getTime() - LIVE_WINDOW_MS;
+    try {
+        const res = await fetchImpl(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ sql: LIVE_CLASS_SQL, params: [String(cutoff)] }),
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+        if (!res.ok) return { ok: false, live: 0, rooms: 0, error: `http-${res.status}` };
+        const body = await res.json();
+        const row = body?.result?.[0]?.results?.[0];
+        if (!row || typeof row.live !== 'number') {
+            return { ok: false, live: 0, rooms: 0, error: 'unexpected-shape' };
+        }
+        return { ok: true, live: row.live, rooms: row.rooms || 0, error: '' };
+    } catch (e) {
+        return { ok: false, live: 0, rooms: 0, error: String(e && e.name || e) };
+    }
+}
+
 /**
  * 배포를 보류할지 판정한다.
  * ⚠️ 우회를 «먼저» 본다 — 급한 수정은 언제든 나가야 한다.
  * @returns {{hold:boolean, reason:string, why:string, kst:string}}
  */
-export function decideHold({ now = new Date(), force = false, commitMessage = '' } = {}) {
+export function decideHold({ now = new Date(), force = false, commitMessage = '', live = 0 } = {}) {
     const kst = kstLabel(now);
     if (force === true || String(force).toLowerCase() === 'true') {
         return { hold: false, reason: 'forced', why: '수동 실행에서 force_now 를 켰습니다', kst };
@@ -144,26 +235,81 @@ export function decideHold({ now = new Date(), force = false, commitMessage = ''
             kst,
         };
     }
+    /* 🔴 창 밖이어도 «지금 방에 사람이 있으면» 막는다.
+       요일을 화·목으로 좁힌 대가를 메우는 자리다(위 «실접속 판정» 블록). */
+    if (Number(live) > 0) {
+        return {
+            hold: true,
+            reason: 'live-class',
+            why: `수업 시간대는 아니지만 지금 화상방에 ${live}명이 들어와 있습니다`,
+            kst,
+        };
+    }
     return { hold: false, reason: 'outside-window', why: '수업 시간대가 아닙니다', kst };
 }
 
 /* ── CLI ─────────────────────────────────────────────────────────────────── */
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-    const { appendFileSync } = await import('node:fs');
+    const { appendFileSync, readFileSync } = await import('node:fs');
     const now = process.env.NOW_ISO ? new Date(process.env.NOW_ISO) : new Date();
+
+    /* 실접속은 «창이 이미 막고 있지 않을 때» 만 물어본다.
+       ⚠️ 순서를 뒤집지 말 것 — 창 안이면 어차피 보류라 D1 을 부를 이유가 없고,
+          부르면 배포마다 쓸데없는 왕복이 생긴다. 그리고 우회(force/커밋표시)는
+          decideHold 가 «맨 먼저» 보므로, 급한 배포가 이 조회를 기다리지 않는다. */
+    let probe = { ok: false, live: 0, rooms: 0, error: 'skipped' };
+    const forced = String(process.env.FORCE_NOW || '').toLowerCase() === 'true'
+        || String(process.env.COMMIT_MESSAGE || '').includes(OVERRIDE_TAG);
+    if (!forced && !isClassWindow(now) && process.env.SKIP_LIVE_PROBE !== '1') {
+        let ids = { accountId: '', databaseId: '' };
+        try {
+            ids = readCfIds(readFileSync(new URL('../../cloudflare-deploy/wrangler.toml', import.meta.url), 'utf8'));
+        } catch (e) { ids = { accountId: '', databaseId: '' }; }
+        probe = await probeLiveClass({
+            now,
+            token: process.env.CLOUDFLARE_API_TOKEN || '',
+            accountId: process.env.CLOUDFLARE_ACCOUNT_ID || ids.accountId,
+            databaseId: ids.databaseId,
+        });
+    }
+
     const d = decideHold({
         now,
         force: process.env.FORCE_NOW,
         commitMessage: process.env.COMMIT_MESSAGE || '',
+        live: probe.live,
     });
 
     console.log(`${d.kst} → hold=${d.hold} (${d.reason}) — ${d.why}`);
+    if (probe.error && probe.error !== 'skipped') {
+        /* ⛔ 조용히 넘기지 않는다 — 「수업 없음」이 아니라 「모름」이다. */
+        console.log(`⚠️ 실접속 확인 실패(${probe.error}) — 막지 않고 진행합니다. 지금 수업이 있었다면 그 수업은 끊깁니다.`);
+        if (process.env.GITHUB_STEP_SUMMARY) {
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+                `> ⚠️ 화상방 실접속을 확인하지 못했습니다(\`${probe.error}\`). 시간대 판정만으로 진행합니다.\n\n`);
+        }
+    }
+
 
     if (process.env.GITHUB_OUTPUT) {
         appendFileSync(process.env.GITHUB_OUTPUT, `hold=${d.hold}\nreason=${d.reason}\nkst=${d.kst}\n`);
     }
     if (process.env.GITHUB_STEP_SUMMARY) {
-        const lines = d.hold
+        const lines = (d.hold && d.reason === 'live-class')
+            ? [
+                '### ⏸ 지금 화상방에 사람이 있어 배포를 보류했습니다',
+                '',
+                `- 지금: **${d.kst}** — 수업 시간대(${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)는 아니지만 **${probe.live}명**이 ${probe.rooms}개 방에 들어와 있습니다.`,
+                '- 게이트(tsc·회귀 하니스·?v=)는 **그대로 돌았습니다.** 건너뛴 것은 Cloudflare 배포뿐입니다.',
+                '- 이 커밋은 **다음 몰아 배포**에 자동으로 실려 나갑니다.',
+                '',
+                '**왜 막나** — 배포하면 화상수업 Durable Object 가 재시작되어 그 방들의 연결이 끊깁니다.',
+                '판정 근거는 `attendance.last_seen_at`(화상방 브라우저가 30초마다 보내는 서버 시각 하트비트)이고,',
+                '카페24 예약 씨앗은 세지 않습니다 — 그 수업은 우리 화상방을 안 거칩니다.',
+                '',
+                '**지금 당장 내보내야 하면** — `force_now` 수동 실행 또는 커밋 메시지에 `' + OVERRIDE_TAG + '`',
+            ]
+            : d.hold
             ? [
                 '### ⏸ 수업 시간대라 배포를 보류했습니다',
                 '',
@@ -183,6 +329,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
                 '### ✅ 배포 시간대 확인',
                 '',
                 `- 지금: **${d.kst}** — ${d.why} (수업 시간대는 ${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)`,
+                `- 화상방 실접속: ${probe.ok ? `**${probe.live}명**` : '확인 안 함/못 함'}`,
             ];
         appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n\n');
     }
