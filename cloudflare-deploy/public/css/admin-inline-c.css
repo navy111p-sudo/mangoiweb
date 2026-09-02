@@ -2422,6 +2422,32 @@ button.chip:hover,
   /* 학생 이름 — 시간보다 약간 큰 굵은 글씨, 길면 말줄임(...) 처리 */
   .ph54-ev-name { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ph54-ev-type { font-size:9px; font-weight:600; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* 🗂 (2026-09-02 사장님 선택 — B-1 «요일 접기 + 강사별 열» + B-3 «빈 시간»)
+     전체 보기에서 같은 시각 카드가 한 자리에 쌓이던 문제(위 .ph54-ev 의 left:3px;right:3px)의 수리.
+     배치 계산은 adm-q6.js ph54LayoutItems — 둘은 한 몸(카드 폭은 그쪽이 인라인으로 준다).
+     샘플·비교: docs/강사캘린더_강사별열_B안_세갈래_2026-09-02.html */
+  .ph54-cal-dayhead.ph54-open { background:#334155; color:#fff; text-align:left; padding-left:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-cnt { font-size:10px; font-weight:600; color:#cbd5e1; }
+  .ph54-cal-fold-head { cursor:pointer; user-select:none; }
+  .ph54-cal-fold-head:hover { background:rgba(59,130,246,.22); }
+  .ph54-cal-subhead { font-size:10px; font-weight:700; color:#cbd5e1; text-align:center; padding:3px 3px 4px; border-left:1px solid #1e293b; border-top:1px solid #334155; background:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-subhead[data-teacher] { cursor:pointer; }
+  .ph54-cal-subhead[data-teacher]:hover { background:rgba(59,130,246,.22); }
+  .ph54-cal-subhead b { display:block; font-size:11px; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-subhead small { display:block; font-size:9px; font-weight:500; color:#94a3b8; }
+  .ph54-cal-subhead.ph54-dup-head b { color:#fca5a5; }
+  .ph54-load { display:block; height:3px; margin-top:3px; border-radius:2px; background:#334155; overflow:hidden; }
+  .ph54-load span { display:block; height:100%; background:#a78bfa; }
+  .ph54-daysep { border-left:2px solid #475569; }
+  /* 접힌 요일 띠 — 밀도는 adm-q6.js 가 그라데이션 한 장으로 인라인에 준다 */
+  .ph54-cal-fold { position:relative; border-left:2px solid #475569; cursor:pointer; background-color:rgba(148,163,184,.06); background-repeat:no-repeat; }
+  .ph54-cal-fold:hover, .ph54-cal-fold.ph54-col-over { background-color:rgba(59,130,246,.18); }
+  /* 수업 사이 빈 자리 — 카드 아래에 깔리고 클릭·드롭은 열로 그대로 통과한다 */
+  .ph54-gap { position:absolute; left:3px; right:3px; border:1px dashed rgba(148,163,184,.55); border-radius:5px; font-size:9px; color:#94a3b8; display:flex; align-items:center; justify-content:center; pointer-events:none; box-sizing:border-box; overflow:hidden; }
+  /* 같은 강사 · 같은 시각 — outline 은 자리를 안 밀고 lite 모드의 box-shadow:none 에도 살아남는다 */
+  .ph54-ev.ph54-dup { outline:2px solid #ef4444; outline-offset:-1px; }
+  .ph54-legend i.ph54-legend-gap { background:transparent; border:1px dashed #94a3b8; box-sizing:border-box; }
+  .ph54-legend i.ph54-legend-dup { background:#bcaef0; outline:2px solid #ef4444; outline-offset:-1px; }
   .ph54-hint { margin:8px 0; padding:8px 12px; background:rgba(59,130,246,.10); border:1px solid rgba(59,130,246,.3); border-radius:8px; color:#bfdbfe; font-size:12px; }
   .ph54-legend { margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11px; color:#94a3b8; }
   .ph54-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:middle; }
