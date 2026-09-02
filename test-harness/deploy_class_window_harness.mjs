@@ -171,6 +171,29 @@ const lastGap = openLen - pos[pos.length - 1];
 ok(`창이 열리기(${CLASS_WINDOW_KST.start}) 전 마지막 크론이 30분 이상 여유를 둔다`,
    lastGap >= 30, `여유 ${lastGap}분`);
 
+/* 🔴 «창 밖» 이라고 «수업이 없다» 는 뜻이 아니다 — 창은 화·목만 막는다(사장님 결정).
+   그래서 크론 시각은 «창 밖» 만으로는 안전하지 않고, 창 밖에 실재하는 수업과도
+   떨어져 있어야 한다. 2026-09-02 실측에서 13:23 크론이 월 13:00~13:20 수업이 끝난
+   **3분 뒤** 였다 — 이 게이트가 막으려던 바로 그 사고를 크론이 스스로 냈을 것이다.
+   ⚠️ 이 표는 «그때 잰 것» 이다. D1 을 읽지 않으므로 새 수업이 생기면 여기 손으로 더해야
+      한다 — 그래서 «완전하지 않다». 그래도 손으로 옮기다 되돌리는 것은 막는다.
+   ⛔ 「창 밖이니 괜찮다」로 이 절을 지우지 마세요. */
+const OUT_WINDOW_CLASSES = [
+    // [설명, 시작 KST, 끝 KST]  — class_schedules active, LMS·시드 제외 (2026-09-02 실측)
+    ['월 13:00 장지웅 (adm-enroll:85)', '13:00', '13:20'],
+    ['22:40 c24-mirror (화·목 밖에서는 무방비)', '22:40', '23:00'],
+];
+const CLASS_MARGIN_MIN = 15;   // 배포는 2분 30초쯤 걸린다 — 앞뒤로 이만큼은 비운다
+for (const [label, st, en] of OUT_WINDOW_CLASSES) {
+    const a = hm(st), b = hm(en);
+    for (const m of kstMin) {
+        /* 자정을 넘지 않는 구간들이라 분 비교로 충분하다. */
+        const clear = (m <= a - CLASS_MARGIN_MIN) || (m >= b + CLASS_MARGIN_MIN);
+        ok(`크론 ${pad(m)} 이 «${label}» 과 ${CLASS_MARGIN_MIN}분 이상 떨어져 있다`,
+           clear, `수업 ${st}~${en} · 크론 ${pad(m)}`);
+    }
+}
+
 /* ⛔ 시각을 안내 문구에 베껴 적으면 크론만 옮겼을 때 «언제 나가는지» 를 거짓으로 말한다
    (2026-09-01 #721 에서 실제로 그랬다). 정본은 deploy.yml 의 schedule 목록 하나뿐이다.
    ⚠️ deploy.yml 전체로 검사하면 크론 옆 주석이 걸려 거짓 FAIL 이 난다 — 사람에게 «보여 주는»
