@@ -990,7 +990,7 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
   check('O-7 강사번호가 없으면 빈 칸으로 센다', K('a', null, '17:40') === 'a||17:40');
   check('O-7 summarize 에 suspect_dup 칸이 있다', M.summarize([]).suspect_dup === 0);
 
-  // ── O-10 🔴 «같은 자리 경합» — 2026-09-02 최검 실사고: 돌 때마다 강사가 번갈아 바뀌던 것 ──
+  // ── O-12 🔴 «같은 자리 경합» — 2026-09-02 최검 실사고: 돌 때마다 강사가 번갈아 바뀌던 것 ──
   /* 실측: 최검 9/2 18:20 이 카페24에 두 건 — Win 512215(그 자리 이력 11회) · Len 512222(이력 2회).
      17:06 Win 만들기 → 행이 Win 으로(update) · 17:15 감시견 → 다시 Len 으로(update) … 15분마다 뒤집힘.
      고침: 이력이 많은 쪽이 진짜. 진 쪽은 «이미 있는 행» 이 있어도 덮어쓰지 않는다. 순서와 무관해야 한다. */
@@ -1010,36 +1010,43 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
       start_time: '18:20', duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:512222' }];
 
     const a = run9([WIN, LEN]), b = run9([LEN, WIN]);
-    check('🔴 O-10 행이 없을 때: 이력 11회(Win)만 만들고 2회(Len)는 잔재', a['512215'] === 'ok' && a['512222'] === 'suspect_dup', JSON.stringify(a));
-    check('🔴 O-10 순서를 바꿔도 같은 답', JSON.stringify(a) === JSON.stringify(b), JSON.stringify(b));
+    check('🔴 O-12 행이 없을 때: 이력 11회(Win)만 만들고 2회(Len)는 잔재', a['512215'] === 'ok' && a['512222'] === 'suspect_dup', JSON.stringify(a));
+    check('🔴 O-12 순서를 바꿔도 같은 답', JSON.stringify(a) === JSON.stringify(b), JSON.stringify(b));
 
     const c = run9([WIN, LEN], row('18')), d = run9([LEN, WIN], row('18'));
-    check('🔴 O-10 행이 Len 으로 있으면: Win 은 «강사 변경», Len 은 already(자기 행)', c['512215'] === 'update' && c['512222'] === 'already', JSON.stringify(c));
-    check('🔴 O-10 (순서 바꿔도)', JSON.stringify(c) === JSON.stringify(d), JSON.stringify(d));
+    check('🔴 O-12 행이 Len 으로 있으면: Win 은 «강사 변경», Len 은 already(자기 행)', c['512215'] === 'update' && c['512222'] === 'already', JSON.stringify(c));
+    check('🔴 O-12 (순서 바꿔도)', JSON.stringify(c) === JSON.stringify(d), JSON.stringify(d));
 
     const e = run9([WIN, LEN], row('19')), f = run9([LEN, WIN], row('19'));
-    check('🔴 O-10 행이 Win 으로 있으면: Win 은 already, Len 은 «덮어쓰지 않음»(update 가 아니다 — 여기가 진동이었다)',
+    check('🔴 O-12 행이 Win 으로 있으면: Win 은 already, Len 은 «덮어쓰지 않음»(update 가 아니다 — 여기가 진동이었다)',
       e['512215'] === 'already' && e['512222'] === 'suspect_dup', JSON.stringify(e));
-    check('🔴 O-10 (순서 바꿔도 되돌아가지 않는다)', JSON.stringify(e) === JSON.stringify(f), JSON.stringify(f));
+    check('🔴 O-12 (순서 바꿔도 되돌아가지 않는다)', JSON.stringify(e) === JSON.stringify(f), JSON.stringify(f));
     const eRow = M.planMirror([WIN, LEN], LINKS_9, STU_9, row('19'), 'whitelist', new Set(['19', '18']), new Set(), SEEN_9).find(r => r.class_id === '512222');
-    check('O-10 덮어쓰지 않은 판정은 그 행 id 와 이유를 함께 준다', eRow.existing_id === 1230 && /잔재/.test(String(eRow.detail || '')), JSON.stringify(eRow));
+    check('O-12 덮어쓰지 않은 판정은 그 행 id 와 이유를 함께 준다', eRow.existing_id === 1230 && /잔재/.test(String(eRow.detail || '')), JSON.stringify(eRow));
 
     // 이력이 같으면(신입 학생 — 이준영 9/3 20:30 Far 1 · Wan 1) 아무도 못 이긴다 → 둘 다 보류
     const TIE = new Map([[K('jy1s016', '181', '18:20'), 1], [K('jy1s016', '190', '18:20'), 1]]);
     const t = run9([WIN, LEN], [], TIE);
-    check('🔴 O-10 이력이 같으면 둘 다 보류(사람이 정한다)', t['512215'] === 'suspect_dup' && t['512222'] === 'suspect_dup', JSON.stringify(t));
+    check('🔴 O-12 이력이 같으면 둘 다 보류(사람이 정한다)', t['512215'] === 'suspect_dup' && t['512222'] === 'suspect_dup', JSON.stringify(t));
     const tRow = M.planMirror([WIN, LEN], LINKS_9, STU_9, row('18'), 'whitelist', new Set(['19', '18']), new Set(), TIE).find(r => r.class_id === '512215');
-    check('🔴 O-10 이력이 같을 때도 이미 있는 행(다른 강사)을 덮어쓰지 않는다', tRow.verdict === 'suspect_dup', JSON.stringify(tRow));
+    check('🔴 O-12 이력이 같을 때도 이미 있는 행(다른 강사)을 덮어쓰지 않는다', tRow.verdict === 'suspect_dup', JSON.stringify(tRow));
 
     // 경합이 아니면(그 자리에 강사 하나) 진짜 강사 변경은 그대로 update 다
     const g = run9([WIN], row('18'));
-    check('O-10 경합이 아닌 진짜 강사 변경은 그대로 update', g['512215'] === 'update', JSON.stringify(g));
+    check('O-12 경합이 아닌 진짜 강사 변경은 그대로 update', g['512215'] === 'update', JSON.stringify(g));
     // 이력을 못 읽었으면 판정을 건너뛴다(O-4 와 같은 이유)
     const h = run9([WIN, LEN], [], new Map());
-    check('O-10 이력이 비면 경합 판정도 건너뛴다', h['512215'] === 'ok' && h['512222'] === 'ok', JSON.stringify(h));
+    check('O-12 이력이 비면 경합 판정도 건너뛴다', h['512215'] === 'ok' && h['512222'] === 'ok', JSON.stringify(h));
     // 안 켠 강사에게도 «켜기 전에 볼 것» 한 줄
     const n9 = M.planMirror([WIN, LEN], LINKS_9, STU_9, [], 'whitelist', new Set(['19']), new Set(), SEEN_9).find(r => r.class_id === '512222');
-    check('O-10 안 켠 강사의 잔재도 detail 로 알려 준다', n9.verdict === 'not_whitelisted' && /잔재/.test(String(n9.detail || '')), JSON.stringify(n9));
+    check('O-12 안 켠 강사의 잔재도 detail 로 알려 준다', n9.verdict === 'not_whitelisted' && /잔재/.test(String(n9.detail || '')), JSON.stringify(n9));
+    // 🔴 trap-check 지적: 진 쪽이 «같은 강사인데 길이만 다르면» update(길이) 로 흘러 teacher_id 까지 되돌렸다
+    const LEN30 = { ...c9('512222', '190'), end_ms: KST('2026-09-02', '18:20') + 30 * 60000 };
+    const w = M.planMirror([WIN, LEN30], LINKS_9, STU_9, row('18'), 'whitelist', new Set(['19', '18']), new Set(), SEEN_9);
+    const wv = Object.fromEntries(w.map(r => [r.class_id, r.verdict]));
+    check('🔴 O-12 진 쪽이 같은 강사·다른 길이여도 update 가 아니다(길이 update 가 강사까지 되돌린다)',
+      wv['512215'] === 'update' && wv['512222'] === 'suspect_dup', JSON.stringify(wv));
+    check('🔴 O-12 한 회차에 같은 행으로 update 가 두 건 나가지 않는다', w.filter(r => r.verdict === 'update').length === 1);
   }
 
   // ── O-8 🔴 «정본 함수를 진짜 SQLite 에 물려» 돌린다 ──────────────────────────

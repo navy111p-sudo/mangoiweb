@@ -310,15 +310,20 @@ export function planMirror(
              7/8 한 번 + 오늘). 2-b) 잔재 판정은 이력이 2건이면 통과시키므로 Len 쪽이 먼저 만들어졌고,
              그 뒤 Win 을 만들 때 같은 자리라 «강사 변경(update)» 으로 Win 에게 넘어갔다 — 거기까지는 맞았다.
              그런데 다음 감시견(17:15)이 Len 512222 를 다시 읽고 «강사 변경 → Len» 으로 되돌렸다.
-             ⟹ 같은 자리에 두 강사가 있으면 **돌 때마다 강사가 번갈아 바뀐다**(마지막에 읽힌 쪽이 이긴다).
+             ⟹ 같은 자리에 두 강사가 있으면 **돌 때마다 강사가 번갈아 바뀐다** — 옛 코드는 «행을 아직 안 가진 쪽» 이
+             매 회차 update 를 얻는 구조라 읽는 순서와 무관하게 뒤집힌다(운영 D1 실측: 행 1230 의 teacher_id 가
+             17:06:22 → 19(Win) · 17:15:52 → 18(Len) · 17:30:48 → 19(Win). 행 1282 이경록도 8 → 18 → 8).
              이경록 9/2 16:50(Kaye ↔ Len)도 같은 모양이었다. 에러는 안 나고 강사 화면만 매 15분 뒤집힌다.
        ✅ 판정을 «순서» 가 아니라 «이력» 으로 고정한다 — 그 자리를 그 강사가 지금까지 몇 번 가르쳤는가.
           많은 쪽이 진짜, 나머지는 잔재(suspect_dup). 이력이 같으면(예: 신입 학생, 둘 다 1건) 아무도
-          못 이기고 둘 다 보류 — 사람이 카페24에서 정한다.
+          못 이기고 둘 다 보류 — 사람이 카페24에서 정한다. ⚠️ 동률은 «저절로 풀리지 않는다» — 야간 동기화가
+          두 예약을 똑같이 세어 이력이 나란히 늘어난다. 기다리지 말고 카페24에서 하나를 지워야 한다.
        ⛔ 진 쪽이 «이미 있는 행» 을 가리키고 있어도 update 로 덮어쓰지 않는다 — 그것이 진동의 원인이었다.
-          같은 강사로 이미 있으면 그대로 already(O-5 규칙: 지난 일을 되짚지 않는다).
+          **길이만 다른 경우도 마찬가지다** — applyMirror 의 UPDATE 는 teacher_id 까지 통째로 쓰므로 «수업 길이
+          20→30» 이라는 update 하나가 강사까지 진 쪽으로 되돌린다(trap-check 가 잡음 — 잔재는 30/20 짝이 흔하다).
+          같은 강사·같은 길이로 이미 있으면 그대로 already(O-5 규칙: 지난 일을 되짚지 않는다).
        ⚠️ 이력이 비어 있으면(slotSeen 이 빈 Map) 2-b) 와 같은 이유로 통째로 건너뛴다.
-       감시: test-harness/c24_mirror_harness.mjs O-9(순서를 바꿔 두 번 돌려 같은 답이 나오는지). */
+       감시: test-harness/c24_mirror_harness.mjs O-12(순서를 바꿔 두 번 돌려 같은 답이 나오는지). */
     const rivals = perSlot.get(`${uid}|${date}|${time}`);
     let contestLoser = false;
     let contestDetail = '';
@@ -356,7 +361,7 @@ export function planMirror(
       const sameTeacher = String(mirrored.teacher_id || '') === teacherId;
       const sameDur = Number(mirrored.duration_min || 0) === dur;
       if (sameTeacher && sameDur) push('already', undefined, mirrored.id);
-      else if (!sameTeacher && contestLoser) push('suspect_dup', contestDetail + ' (이미 있는 행을 덮어쓰지 않음)', mirrored.id);
+      else if (contestLoser) push('suspect_dup', contestDetail + ' (이미 있는 행을 덮어쓰지 않음)', mirrored.id);
       else push('update', sameTeacher ? `수업 길이 ${mirrored.duration_min}분 → ${dur}분` : `강사 변경 → ${teacherName}`, mirrored.id);
       continue;
     }
