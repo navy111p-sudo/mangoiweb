@@ -1,0 +1,525 @@
+/**
+ * monitor-wall.js — 🗼 수업 관제탑(/admin/monitor-wall.html)의 화면 코드  (2026-09-02 인라인에서 분리)
+ *
+ * [왜 «/admin/» 밖인가] `public/admin/` 밑에 js·css 를 두면 isAdminPath 의 default-deny 가
+ *   그 «자산 요청까지» 로그인 게이트로 삼켜 화면이 조용히 반쪽이 된다. 규칙은 「인라인으로 넣거나
+ *   /js·/css 루트에 두라」이고 이 파일이 그 루트 쪽이다 — 같은 화면이 이미 /css/mangoi-han.css 를
+ *   그렇게 쓰고, admin.html 의 JS 도 전부 공개 /js/ 에 있다(adm-core.js 등). 새로운 노출이 아니다.
+ *
+ * [왜 뺐나] HTML 이 33.7KB 를 이고 있어 상한에 여유가 1.4KB 였다. 빼면 HTML 은 10KB 가 되고,
+ *   덤으로 이 파일은 ?v= 로 «캐시된다»(전에는 새로고침마다 33KB 재수신).
+ *
+ * ⛔ 상한이 «사라진» 것이 아니다 — 그건 게이트 우회다. monitor_wall_harness ①이
+ *    **HTML + 이 파일을 합쳐서** 잰다. 내용 검사도 두 파일을 함께 읽어 판정한다.
+ * ⚠️ 이 파일을 고치면 monitor-wall.html 의 ?v= 를 함께 올릴 것(asset_version_harness).
+ */
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  /* 언어: 저장 정본은 localStorage «mangoi_lang» (adm-core.js 가 저장하는 공통 키).
+     ⛔ 'adminLang' 키를 읽거나 쓰지 말 것 — 그 키는 아무도 저장하지 않는 죽은 키인데
+        읽는 코드가 10곳 잠들어 있어, 한 번이라도 쓰면 그 10곳만 깨어나 반쪽 언어가 된다
+        (2026-08-27 trap-check 실측). 이 화면의 토글은 «화면 안에서만» 바꾸고 저장하지 않는다. */
+  var EN = false;
+  try { EN = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
+  var L = function(ko, en){ return EN ? en : ko; };
+  /* 세션은 클릭 «시점» 에 읽는다 — 페이지가 세션보다 먼저 열려 있어도 기록이 빠지지 않게 */
+  function myUid(){
+    try { return String((JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid||'').trim(); }
+    catch(e){ return ''; }
+  }
+  /* 화면 설정(주기·정렬·순회 간격)은 이 브라우저에만 남는 편의값이다 — 서버에 올리지 않는다.
+     읽기·쓰기를 전부 try 로 감싼다(시크릿 창·저장 차단에서 예외가 난다). */
+  function pref(k, v){
+    try {
+      if (v === undefined) return localStorage.getItem('mangoi_mw_' + k);
+      localStorage.setItem('mangoi_mw_' + k, v);
+    } catch(e){}
+    return null;
+  }
+
+  var state = { rooms:[], sched:[], counts:null, alerts:{}, names:{}, quality:{},
+                turn:'', authFail:false, forbidden:false, lastAt:0, turnAt:0 };
+  var hoverGrid = false;   /* 마우스가 표 위에 있는 동안 재렌더 금지 — 오클릭 방지 */
+  var pendingRender = false;
+
+  function pollMs(){ return (parseInt($('sel-poll').value, 10) || 0) * 1000; }
+  function dwellSec(){ return parseInt($('sel-dwell').value, 10) || 20; }
+
+  /* ── 데이터 수집 — 실패는 각자 조용히, 있는 것만 그린다 ───────────── */
+  function load(){
+    var pAR = fetch('/api/active-rooms', { credentials:'include' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var pCN = fetch('/api/admin/classes-now', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var pAL = fetch('/api/admin/alerts', { credentials:'include' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    /* 📶 방 단위 회선 신호 — 최근 5분. 실패하면 신호등만 «—» 로 두고 표는 그대로 그린다 */
+    var pQ = fetch('/api/admin/vc/quality?live=1&mins=5', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    loadTurn();
+    return Promise.all([pAR, pCN, pAL, pQ]).then(function(res){
+      var rooms = Array.isArray(res[0]) ? res[0] : [];
+      /* 판정은 «성공이라고 말했는가»(d.ok === true) — 404 위장 함정 회피 */
+      var cn = res[1];
+      state.authFail = !(cn && cn.ok === true);
+      /* 🚷 강사 계정 — 서버가 이름으로 거절한다. 목록 자체를 그리지 않는다(아래 render) */
+      state.forbidden = !!(cn && cn.ok === false && cn.error === 'forbidden_teacher');
+      state.sched  = (cn && cn.ok === true && Array.isArray(cn.classes)) ? cn.classes : [];
+      state.counts = (cn && cn.ok === true) ? (cn.counts || null) : null;
+      var alerts = {};
+      var al = res[2];
+      if (al && al.ok !== false && Array.isArray(al.items)) al.items.forEach(function(it){
+        if (!it.acknowledged_at) alerts[String(it.room_id)] = it;
+      });
+      state.alerts = alerts;
+      var q = {};
+      var qj = res[3];
+      if (qj && qj.ok === true && Array.isArray(qj.rooms)) qj.rooms.forEach(function(r){
+        if (r && r.room) q[String(r.room)] = r;
+      });
+      state.quality = q;
+      state.rooms = state.forbidden ? [] : rooms;
+      state.lastAt = Date.now();
+      /* 예약된 강사·학생 이름 — 실패해도 줄은 이름 없이 그린다 */
+      var ids = state.rooms.map(function(r){ return r.roomId; }).filter(Boolean);
+      if (!ids.length) { state.names = {}; return; }
+      return fetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')), { credentials:'include' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ state.names = (d && d.ok && d.rooms) ? d.rooms : {}; })
+        .catch(function(){ state.names = {}; });
+    }).then(render).catch(function(){ render(); });
+  }
+
+  /* 📡 영상 중계(TURN) 상태 — 응답 «헤더» 만 본다(본문에는 자격증명이 들어 있다).
+     public-fallback 이면 모든 수업이 무료 공개 TURN 으로 흐르는 상태다(CLAUDE.md 2장).
+     ⚠️ 이 조회는 서버에서 자격증명 발급 경로를 건드리므로 폴링마다 부르지 않는다 — 5분에 한 번. */
+  function loadTurn(){
+    if (state.turnAt && Date.now() - state.turnAt < 300000) return;
+    state.turnAt = Date.now();
+    fetch('/api/turn-config', { credentials:'include', cache:'no-store' }).then(function(r){
+      var src = r.headers.get('x-turn-source') || '';
+      var det = r.headers.get('x-turn-detail') || '';
+      state.turn = src + (det ? (' · ' + det) : '');
+      renderChips();
+    }).catch(function(){ /* 조용히 — 상태등만 비워 둔다 */ });
+  }
+
+  /* ── 검색·정렬 ───────────────────────────────────────────────────── */
+  function roomText(rm){
+    var sc = state.names[String(rm.roomId)] || {};
+    return [rm.roomId, sc.teacher_name, sc.student_name,
+            (rm.users || []).map(function(u){ return u.username; }).join(' ')].join(' ').toLowerCase();
+  }
+  function severity(rm){
+    var rid = String(rm.roomId);
+    if (state.alerts[rid]) return 3;
+    var q = state.quality[rid];
+    if (q && (q.avg_loss >= 5 || q.avg_rtt >= 400)) return 2;
+    if (rm.userCount === 1) return 1;
+    return 0;
+  }
+  function visibleRooms(){
+    var kw = ($('q').value || '').trim().toLowerCase();
+    var list = state.rooms.filter(function(rm){ return !kw || roomText(rm).indexOf(kw) >= 0; });
+    var mode = $('sel-sort').value;
+    var startOf = function(rm){
+      var sc = state.names[String(rm.roomId)] || {};
+      return sc.start_time || '';
+    };
+    var nameOf = function(rm){
+      var sc = state.names[String(rm.roomId)] || {};
+      return (sc.teacher_name || sc.student_name || String(rm.roomId)).toLowerCase();
+    };
+    return list.sort(function(a, b){
+      if (mode === 'time')   return String(startOf(a)).localeCompare(String(startOf(b)));
+      if (mode === 'people') return (b.userCount || 0) - (a.userCount || 0);
+      if (mode === 'name')   return nameOf(a).localeCompare(nameOf(b));
+      return severity(b) - severity(a);   /* 기본 — 심각한 것부터 */
+    });
+  }
+
+  /* ── 그리기 ──────────────────────────────────────────────────────── */
+  function renderChips(){
+    var alertCount = Object.keys(state.alerts).length;
+    var chips = [];
+    if (state.counts) chips.push('<span class="chip">' + L('📅 예약 기준 지금 수업', '📅 Booked now')
+      + '<b>' + (state.counts.now || 0) + '</b></span>');
+    chips.push('<span class="chip">' + L('🎥 화상방', '🎥 Mango-i rooms') + '<b>' + state.rooms.length + '</b></span>');
+    chips.push('<span class="chip' + (alertCount ? ' st-bad' : '') + '">' + L('🚨 이상 알림', '🚨 Alerts')
+      + '<b>' + alertCount + '</b></span>');
+    var alone = state.rooms.filter(function(r){ return r.userCount === 1; }).length;
+    if (alone) chips.push('<span class="chip st-bad">' + L('⚠ 혼자 대기', '⚠ Waiting alone') + '<b>' + alone + '</b></span>');
+    if (state.turn) {
+      var bad = state.turn.indexOf('public-fallback') === 0;
+      chips.push('<span class="chip ' + (bad ? 'st-bad' : 'st-good') + '" title="' + esc(state.turn) + '">'
+        + (bad ? L('📡 영상 중계 이상', '📡 Relay degraded') : L('📡 영상 중계 정상', '📡 Relay OK')) + '</span>');
+    }
+    $('chips').innerHTML = chips.join('');
+  }
+
+  function render(){
+    if (hoverGrid) { pendingRender = true; return; }   /* 다음 틱에 그린다 */
+    pendingRender = false;
+    document.title = L('수업 관제탑 — 망고아이', 'Class Control Tower — Mangoi');
+    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Control Tower');
+    $('hd-note').textContent = pollMs()
+      ? L('자동 갱신 · 탭을 내려놓으면 일시정지', 'Auto refresh · pauses when tab is hidden')
+      : L('자동 갱신 꺼짐 — 🔄 로 새로고침', 'Auto refresh off - use 🔄');
+    $('btn-lang').textContent = EN ? 'KO' : 'EN';
+    $('lnk-admin').textContent = L('← 관리자 홈', '← Admin home');
+    $('hd-updated').textContent = state.lastAt
+      ? (L('갱신 ', 'updated ') + new Date(state.lastAt).toLocaleTimeString(EN ? 'en-US' : 'ko-KR')) : '';
+    renderTools();
+    renderChips();
+
+    $('auth-warn').innerHTML = state.forbidden
+      ? '<div class="err">' + L('이 화면은 본사·매니저 전용입니다. 강사 계정으로는 볼 수 없습니다.',
+                                'This screen is for HQ and managers only. Teacher accounts cannot view it.') + '</div>'
+      : (state.authFail
+        ? '<div class="err">' + L('관리자 로그인이 필요하거나 예약 정보를 불러오지 못했습니다. 화상방 목록만 표시 중 — ',
+                                  'Admin login required, or booked-class info failed to load. Showing video rooms only — ')
+          + '<a href="/admin/login.html">' + L('로그인 화면', 'Log in') + '</a></div>'
+        : '');
+
+    $('thead-row').innerHTML = [
+      L('상태', 'State'), L('시각', 'Time'), L('수업', 'Class'), L('강의실', 'Room'),
+      L('인원', 'People'), L('회선', 'Line'), L('액션', 'Actions')
+    ].map(function(h){ return '<th>' + h + '</th>'; }).join('');
+
+    var list = visibleRooms();
+    $('rooms').innerHTML = list.length ? list.map(rowHtml).join('')
+      : '<tr><td colspan="7" class="empty">'
+        + (state.forbidden
+            ? L('권한이 없어 목록을 표시하지 않습니다.', 'Not shown - no permission.')
+            : (state.rooms.length
+                ? L('검색어와 맞는 수업이 없습니다.', 'No class matches your search.')
+                : L('지금 망고아이 화상방에 접속해 있는 수업이 없습니다.',
+                    'No one is connected to a Mango-i video room right now.')))
+        + '</td></tr>';
+
+    /* 예약 줄 — 수강신청(참관 가능) + 카페24(방이 없어 불가). «접속 기록 없음» ≠ «미접속». */
+    $('sched-title').textContent = L('📅 예약 기준 지금 수업', '📅 Booked classes for this moment');
+    $('sched-note').textContent = L('«수강신청» 은 아무도 안 들어와도 참관할 수 있고, «카페24» 는 망고아이 방이 없어 참관 버튼이 없습니다(«접속 기록 없음» 이 정상).',
+      '«enrolment» can be observed even before anyone joins; «cafe24» has no Mango-i room, so no observe button («no connection record» is normal).');
+    $('sched').innerHTML = state.sched.length ? state.sched.map(schedHtml).join('')
+      : '<div class="empty">' + L('이 시각에 예약된 수업이 없습니다.', 'No class is booked for this moment.') + '</div>';
+
+    $('ft').innerHTML = L(
+      '👁 참관은 학생·강사에게 보이지 않고 방당 동시 ' + OBS_MAX + '명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
+      + '참관자 한 명당 방 안 «각자»의 업로드가 한 갈래씩 늘어나므로, 이미 ' + OBS_BUSY + '명 이상이 보고 있으면 🎧 소리만 을 권합니다(순회 참관도 그때는 소리만으로 붙습니다). '
+      + '💬 귓속말은 참관 화면의 채팅칸이 곧 귓속말입니다 — 학생에게는 보이지 않고 강사에게만 갑니다(이름 칩을 고르면 그 사람에게만). '
+      + '🎧 소리만은 영상을 아예 받지 않아 회선을 아낍니다 — 도중에 영상으로 바꾸려면 그 화면의 [영상도 보기] 로 다시 엽니다. '
+      + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다. '
+      + '🛑 강제 종료는 그 수업의 모든 참가자 연결을 즉시 끊습니다. '
+      + '🔁 순회 참관은 창 하나가 정해진 초마다 방을 옮겨 다닙니다 — 옮길 때마다 수업 화면을 새로 여느라 몇 초가 걸리므로 15초보다 짧게 두지 않았습니다.',
+      '👁 Observation is invisible to students/teachers (max ' + OBS_MAX + ' per room); every observation is auto-recorded in the audit log. '
+      + 'Each observer adds one upload branch for everyone in the room, so once ' + OBS_BUSY + '+ are watching prefer 🎧 Audio (rotation switches to audio too). '
+      + '💬 Whisper: the chat box on the observe screen IS the whisper box - students never see it. '
+      + '🎧 Audio-only receives no video at all; use [Show video] there to switch. '
+      + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students. '
+      + '🛑 Force end disconnects everyone in that class immediately. '
+      + '🔁 Rotating observation moves one window from room to room; each hop reloads the class screen, so the shortest step is 15s.');
+    renderRotBar();
+  }
+
+  function renderTools(){
+    $('q').placeholder = L('🔎 강사 · 학생 · 방 번호 검색', '🔎 Search teacher / student / room');
+    $('lb-sort').textContent = L('정렬', 'Sort');
+    $('lb-poll').textContent = L('자동 새로고침', 'Auto refresh');
+    var so = $('sel-sort').options;
+    so[0].textContent = L('심각한 것부터', 'Most urgent first');
+    so[1].textContent = L('시작 시각', 'Start time');
+    so[2].textContent = L('인원', 'People');
+    so[3].textContent = L('강사·학생 이름', 'Teacher / student');
+    var po = $('sel-poll').options;
+    po[0].textContent = L('안함', 'Off');
+    for (var i = 1; i < po.length; i++) po[i].textContent = po[i].value + L('초', 's');
+    var d = $('sel-dwell').options;
+    for (var j = 0; j < d.length; j++) d[j].textContent = d[j].value + L('초씩', 's each');
+    $('btn-rot').textContent = rot.on ? L('⏹ 순회 정지', '⏹ Stop rotation') : L('🔁 순회 참관', '🔁 Rotate');
+  }
+
+  /* 📶 회선 신호등 — 최근 5분 평균. 표본이 없으면 «—» 로 둔다(0% 로 적지 않는다:
+     표본 없음과 손실 0% 는 다른 사실이고, 0 으로 적으면 영상이 죽은 방이 «제일 좋은 방» 이 된다). */
+  function sigHtml(rid){
+    var q = state.quality[String(rid)];
+    if (!q) return '<span style="color:var(--muted)">—</span>';
+    var loss = (q.avg_loss == null) ? null : Number(q.avg_loss);
+    var rtt  = (q.avg_rtt == null) ? null : Number(q.avg_rtt);
+    var cls = 'sig-ok', dot = '🟢';
+    if ((loss != null && loss >= 5) || (rtt != null && rtt >= 400)) { cls = 'sig-bad'; dot = '🔴'; }
+    else if ((loss != null && loss >= 2) || (rtt != null && rtt >= 250)) { cls = 'sig-warn'; dot = '🟡'; }
+    return '<span class="' + cls + '">' + dot + ' '
+      + (rtt != null ? (rtt + 'ms') : '—') + ' · ' + (loss != null ? (loss + '%') : '—') + '</span>';
+  }
+
+  /* 👁 참관 정원 — 서버 src/video-call-room.ts 의 OBSERVER_MAX 와 «짝» 입니다.
+     ⚠️ 숫자를 여기 한 곳에만 둡니다 — 배지·툴팁·아래 안내 문장이 전부 이 값을 읽습니다.
+     한 화면이 서로 다른 말을 하면 사람은 어느 쪽을 믿을지 모릅니다(CLAUDE.md 2장). */
+  var OBS_MAX = 4, OBS_BUSY = 2;
+  function rowHtml(rm){
+    var rid = String(rm.roomId == null ? '' : rm.roomId);
+    var al = state.alerts[rid];
+    var sev = severity(rm);
+    var cls = al ? 'st-alert' : (sev === 2 ? 'st-alert' : (rm.userCount === 1 ? 'st-alone' : 'st-ok'));
+    if (rot.on && rot.room === rid) cls += ' st-rot';
+    var sc = state.names[rid] || {};
+    var who = (sc.teacher_name || sc.student_name)
+      ? '<b>' + esc(sc.teacher_name || '') + '</b>'
+        + (sc.teacher_name && sc.student_name ? ' · ' : '') + esc(sc.student_name || '')
+      : esc((rm.users || []).map(function(u){ return u.username; }).join(', ')) || L('(이름 미상)', '(unknown)');
+    var badges = '';
+    if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
+    if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
+    /* 👁 참관 정원 — 서버 OBSERVER_MAX 와 짝. 참관자 한 명 = 방 안 «각자»의 업로드 한 갈래라
+       붐빌수록 강사 회선이 상합니다. 그래서 «들어가기 전에» 여기서 고르게 합니다.
+       ⚠️ 소리만/영상은 «입장할 때» 정해집니다(재협상이 없음) — 들어간 뒤에는 못 바꿉니다. */
+    var obs = rm.observerCount || 0, obsFull = obs >= OBS_MAX, obsBusy = obs >= OBS_BUSY;
+    if (obs > 0) badges += ' <span class="badge ' + (obsBusy ? 'alone' : 'obs') + '">'
+      + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (obsFull ? L(' 정원 참', ' full') : '') + '</span>';
+    var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 ? '⚠' : '🟢'));
+    /* ⏱ 시각은 «예약» 에서 온다 — 화상방 자체는 시작 시각을 알려 주지 않는다.
+       모르면 «—» 로 둔다(방이 열린 시각을 추측해서 적지 않는다). */
+    var when = sc.start_time ? esc(sc.start_time) : '—';
+    var obsOff = obsFull ? ' disabled' : '';
+    var fullTip = L('참관 정원 ' + OBS_MAX + '명이 찼습니다 — 보고 있는 사람이 나가야 들어갈 수 있습니다',
+                    'Observer limit ' + OBS_MAX + ' reached - someone must leave first');
+    var busyTip = L('이미 ' + obs + '명이 보고 있습니다 — 강사 회선을 아끼려면 🎧 소리만 을 권합니다',
+                    obs + ' already watching - prefer 🎧 Audio to spare the teacher\'s uplink');
+    return '<tr class="' + cls + '" data-room="' + esc(rid) + '">'
+      + '<td>' + stateTxt + '</td>'
+      + '<td class="t">' + when + '</td>'
+      + '<td class="who">' + who + badges + '</td>'
+      + '<td class="rid">' + esc(rid) + '</td>'
+      + '<td class="n">' + (rm.userCount || 0) + '</td>'
+      + '<td class="n">' + sigHtml(rid) + '</td>'
+      + '<td class="acts">'
+      +   '<button type="button" class="' + (obsBusy ? 'go2' : 'go') + '" data-act="observe"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : obsBusy ? busyTip : '') + '">' + L('👁 참관', '👁 Observe') + '</button>'
+      +   '<button type="button" class="go2" data-act="observe-whisper"' + obsOff + ' title="'
+      +     (obsFull ? fullTip : L('참관하면서 강사에게만 귓속말 — 학생에게는 보이지 않습니다',
+              'Observe and whisper to the teacher only - invisible to students')) + '">'
+      +     L('💬 귓속말', '💬 Whisper') + '</button>'
+      +   '<button type="button" class="' + (obsBusy ? 'go' : 'go2') + '" data-act="observe-audio"' + obsOff
+      +     ' title="' + (obsFull ? fullTip : L('영상을 아예 받지 않고 소리만 듣습니다 (회선 절약)',
+              'Receives no video at all - audio only (saves bandwidth)')) + '">'
+      +     L('🎧 소리만', '🎧 Audio') + '</button>'
+      +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
+      +   '<button type="button" class="kill" data-act="end">' + L('🛑 종료', '🛑 End') + '</button>'
+      + '</td></tr>';
+  }
+
+  function schedHtml(c){
+    var ph = c.phase === 'soon' ? L('곧 시작', 'soon') : c.phase === 'ended' ? L('방금 끝남', 'ended') : L('진행 중', 'live');
+    var conn = c.connected
+      ? '<span class="st" style="color:var(--ok)">✅ ' + L('접속 확인', 'connected') + '</span>'
+      : '<span class="st" style="color:var(--warn)">' + L('접속 기록 없음', 'no connection record') + '</span>';
+    /* 👁 수강신청은 접속 전에도 방이 있다(observable). 카페24는 접속이 잡혔을 때만. */
+    var obsRoom = c.observable ? (c.room_id || '') : (c.live_room || '');
+    var btn = obsRoom
+      ? ' <button type="button" class="go" data-act="observe" data-room="' + esc(obsRoom) + '">' + L('👁 참관', '👁 Observe') + '</button>' : '';
+    var src = c.observable ? L('수강신청', 'enrolment') : L('카페24', 'cafe24');
+    return '<div class="row"><span class="t">' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '') + '</span>'
+      + '<span>' + esc(ph) + ' · ' + esc(src) + '</span>'
+      + '<span>' + esc(c.student_name || L('(학생 미상)', '(unknown)')) + ' · ' + esc(c.teacher_name || L('(강사 미상)', '(unknown)')) + '</span>'
+      + conn + btn + '</div>';
+  }
+
+  /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
+  function openTab(url){
+    var w = null;
+    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
+    if (!w) alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
+                    'Your browser blocked the new window. Please allow pop-ups for this site.'));
+    return w;
+  }
+  /* 📜 참관 기록 — 사유와 함께 감사 로그에 남긴다. 기록이 실패해도 참관은 막지 않는다
+     (수업 대응이 먼저 — adm-core observeRoom·adm-s1 ghQuickObserve 와 같은 판단). */
+  function logObserve(roomId, reason){
+    try {
+      var uid = myUid();
+      if (uid) fetch('/api/admin/ghost/start', { method:'POST', credentials:'include',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ admin_uid:uid, room_id:roomId, reason:reason }) }).catch(function(){});
+    } catch(e){}
+  }
+  /* 👁 참관 세 갈래 — 셋 다 «학생·강사에게 보이지 않는» 같은 참관이고, 여는 방식만 다르다.
+     · ''       보통 참관 (영상 + 소리)
+     · whisper  참관하면서 강사에게만 귓속말 — 채팅칸을 열어 준다(보다의 «관리용 모니터링»)
+     · audio    소리만 — 영상 자체를 안 받는다(회선 절약). 수업 화면 쪽 ⑦절이 처리한다.
+     ⚠️ 사유를 모드마다 다르게 남긴다 — 감사 로그만 보고도 «무엇을 하려던 참관인지» 가 남는다. */
+  function observe(roomId, mode){
+    var reason = mode === 'whisper'
+        ? L('관제탑에서 참관 + 귓속말 (monitor-wall)', 'Observe with whisper from monitor-wall')
+      : mode === 'audio'
+        ? L('관제탑에서 소리만 참관 (monitor-wall)', 'Audio-only observe from monitor-wall')
+        : L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall');
+    logObserve(roomId, reason);
+    var q = mode === 'whisper' ? '&whisper=1' : mode === 'audio' ? '&audio=1' : '';
+    openTab(location.origin + '/?observe=' + encodeURIComponent(roomId) + q);
+  }
+  function enterRoom(roomId){
+    if (!confirm(L('수업 "' + roomId + '" 에 직접 입장할까요?\n\n· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n· 카메라는 꺼진 채로 입장합니다.',
+                   'Enter class "' + roomId + '" as a participant?\n\n· NOT observation — students and the teacher see you.\n· Camera starts OFF.'))) return;
+    openTab(location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId));
+  }
+  /* 🛑 강제 종료 — 되돌릴 수 없다. 확인창 + 사유 두 단계를 거친다(admin.html 과 같은 절차·같은 API). */
+  function endRoom(roomId){
+    var sc = state.names[String(roomId)] || {};
+    var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ');
+    if (!confirm(L('수업 "' + roomId + '"' + (who ? ' — ' + who : '') + ' 을 강제 종료할까요?\n모든 참가자 연결이 즉시 해제됩니다.',
+                   'Force-end class "' + roomId + '"' + (who ? ' - ' + who : '') + '?\nAll participants are disconnected immediately.'))) return;
+    var reason = (prompt(L('종료 사유 (선택 — 참가자에게 표시됩니다):', 'Reason (optional, shown to participants):'), '') || '').trim();
+    fetch('/api/admin/room/' + encodeURIComponent(roomId) + '/force-end', {
+      method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(reason ? { reason:reason } : {})
+    }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return { r:r, b:b }; }); })
+      .then(function(x){
+        if (!x.r.ok || x.b.ok === false) {
+          alert(L('실패: ', 'Failed: ') + (x.b.error || ('HTTP ' + x.r.status)));
+          return;
+        }
+        alert(L('강제 종료 완료. ' + (x.b.notified || 0) + '명에게 알림을 보냈습니다.',
+                'Ended. Notified ' + (x.b.notified || 0) + ' participants.'));
+        load();
+      }).catch(function(e){ alert(L('네트워크 오류: ', 'Network error: ') + e.message); });
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn) return;
+    var holder = btn.hasAttribute('data-room') ? btn : btn.closest('[data-room]');
+    var rid = holder ? holder.getAttribute('data-room') : '';
+    if (!rid) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'observe') observe(rid, '');
+    else if (act === 'observe-whisper') observe(rid, 'whisper');
+    else if (act === 'observe-audio') observe(rid, 'audio');
+    else if (act === 'enter') enterRoom(rid);
+    else if (act === 'end') endRoom(rid);
+  });
+
+  /* ── 🔁 순회 참관 ────────────────────────────────────────────────────
+     [무엇을 푸는가] 「방 번호를 하나하나 넣지 않고 빨리빨리 확인하고 싶다」.
+        탭을 여러 개 여는 대신 **창 하나가 방을 옮겨 다닌다**. 10개 반이면 20초씩 3분 20초에 한 바퀴.
+     [왜 창을 다시 여는 방식인가] 수업 화면(index.html)은 공동 금지구역이고 첫 화면 예산이
+        수백 바이트뿐이라 «방 갈아타기» 코드를 그쪽에 넣을 수 없다. 대신 우리가 연 창의 주소만
+        바꾼다 — 같은 오리진이라 팝업 차단에 걸리지 않고(창은 사람이 누른 그 순간에 연다),
+        수업 화면은 한 줄도 고치지 않는다.
+     ⚠️ 옮길 때마다 수업 화면을 새로 여느라 몇 초 걸린다 → 최소 간격을 15초로 뒀다.
+     ⚠️ 방마다 참관 기록을 그대로 남긴다(기록 없이 들어가는 길은 만들지 않는다). */
+  var rot = { on:false, win:null, room:'', idx:-1, left:0, paused:false, timer:null };
+
+  function rotStart(){
+    var list = visibleRooms();
+    if (!list.length) {
+      alert(L('지금 참관할 수 있는 화상방이 없습니다.', 'There is no room to observe right now.'));
+      return;
+    }
+    /* 창은 «사람이 누른 이 순간» 에 연다 — 타이머 안에서 열면 팝업 차단에 걸린다.
+       ⚠️ 여기서는 noopener 를 쓰지 않는다 — 그 옵션을 주면 window.open 이 **null 을 돌려주도록**
+          정해져 있어서(웹 표준), 창은 열리는데 우리가 주소를 바꿀 손잡이가 없어진다.
+          이름을 주어 같은 창을 계속 재사용한다. */
+    try { rot.win = window.open('about:blank', 'mangoiObserveRotate'); } catch(e){ rot.win = null; }
+    if (!rot.win) {
+      alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
+              'Your browser blocked the new window. Please allow pop-ups for this site.'));
+      return;
+    }
+    rot.on = true; rot.idx = -1; rot.room = ''; rot.paused = false;
+    rotHop(1);
+    if (!rot.timer) rot.timer = setInterval(rotTick, 1000);
+    renderTools(); renderRotBar();
+  }
+  function rotStop(){
+    rot.on = false; rot.paused = false; rot.room = '';
+    if (rot.timer) { clearInterval(rot.timer); rot.timer = null; }
+    renderTools(); renderRotBar();
+  }
+  function rotHop(step){
+    var list = visibleRooms().map(function(r){ return String(r.roomId); });
+    if (!list.length) { rotStop(); return; }
+    var cur = list.indexOf(rot.room);
+    var i = (cur >= 0 ? cur : rot.idx) + step;
+    if (i < 0) i = list.length - 1;
+    if (i >= list.length) i = 0;
+    rot.idx = i; rot.room = list[i]; rot.left = dwellSec();
+    /* 🎧 (2026-09-02) 이미 붐비는 방에는 «소리만» 으로 붙는다.
+       순회 창도 참관자 한 명이고, 정원을 4로 올린 뒤에는 «순회 1 + 사람 3» 이 실제로 생긴다.
+       그때 넷 다 영상이면 강사 업로드가 +4.8Mbps — 필리핀 회선에서는 그 자체가 수업을 깬다.
+       ⚠️ 소리만/영상은 «열 때» 정해진다(자동 재협상 없음). 그래서 여기서 고른다. */
+    var rotRm = (state.rooms || []).filter(function(x){ return String(x.roomId) === rot.room; })[0];
+    var rotBusy = ((rotRm && rotRm.observerCount) || 0) >= OBS_BUSY;
+    logObserve(rot.room, rotBusy
+      ? L('순회 참관 · 소리만 (관제탑)', 'Rotating observation, audio-only (monitor-wall)')
+      : L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)'));
+    try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(rot.room) + (rotBusy ? '&audio=1' : ''); }
+    catch(e){ rotStop(); return; }
+    renderRotBar();
+  }
+  function rotTick(){
+    if (!rot.on) return;
+    /* 사람이 그 창을 닫으면 순회도 끝난다 */
+    if (!rot.win || rot.win.closed) { rotStop(); return; }
+    if (rot.paused) return;
+    rot.left--;
+    if (rot.left <= 0) rotHop(1);
+    else renderRotBar();
+  }
+  function renderRotBar(){
+    var bar = $('rotbar');
+    if (!rot.on) { bar.hidden = true; bar.innerHTML = ''; return; }
+    var list = visibleRooms().map(function(r){ return String(r.roomId); });
+    var pos = list.indexOf(rot.room);
+    var sc = state.names[rot.room] || {};
+    var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ');
+    bar.hidden = false;
+    bar.innerHTML = '<span>' + L('🔁 순회 참관 중', '🔁 Rotating') + '</span>'
+      + '<span>' + (pos >= 0 ? (pos + 1) : '-') + ' / ' + list.length + '</span>'
+      + '<span class="rb-now">' + esc(who || rot.room) + '</span>'
+      + '<span class="rb-left">' + (rot.paused ? L('머무는 중', 'holding') : (L('다음 ', 'next in ') + Math.max(0, rot.left) + L('초', 's'))) + '</span>'
+      + '<button type="button" id="rb-hold">' + (rot.paused ? L('▶ 순회 재개', '▶ Resume') : L('⏸ 이 방에 머물기', '⏸ Hold here')) + '</button>'
+      + '<button type="button" id="rb-next">' + L('⏭ 다음 방', '⏭ Next room') + '</button>'
+      + '<button type="button" id="rb-stop">' + L('⏹ 정지', '⏹ Stop') + '</button>';
+    $('rb-hold').addEventListener('click', function(){ rot.paused = !rot.paused; renderRotBar(); });
+    $('rb-next').addEventListener('click', function(){ rotHop(1); });
+    $('rb-stop').addEventListener('click', rotStop);
+  }
+
+  /* ── 폴링 — 탭이 숨겨지면 멈추고, 돌아오면 즉시 갱신 ─────────────── */
+  var timer = null;
+  function tick(){ if (!document.hidden) load(); }
+  function startPoll(){
+    if (timer) { clearInterval(timer); timer = null; }
+    var ms = pollMs();
+    if (ms) timer = setInterval(tick, ms);
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+  var grid = $('rooms');
+  grid.addEventListener('pointerenter', function(){ hoverGrid = true; });
+  grid.addEventListener('pointerleave', function(){ hoverGrid = false; if (pendingRender) render(); });
+  $('btn-refresh').addEventListener('click', load);
+  $('btn-lang').addEventListener('click', function(){
+    EN = !EN;   /* 저장하지 않는다 — 정본(mangoi_lang) 저장은 admin.html 의 🌐 담당 */
+    render();
+  });
+  $('q').addEventListener('input', render);
+  $('sel-sort').addEventListener('change', function(){ pref('sort', this.value); render(); });
+  $('sel-poll').addEventListener('change', function(){ pref('poll', this.value); startPoll(); render(); });
+  $('sel-dwell').addEventListener('change', function(){ pref('dwell', this.value); renderRotBar(); });
+  $('btn-rot').addEventListener('click', function(){ rot.on ? rotStop() : rotStart(); });
+
+  /* 지난번에 고른 값 되살리기 — 없으면 기본값 그대로 */
+  (function restore(){
+    var s = pref('sort'), p = pref('poll'), d = pref('dwell');
+    if (s) $('sel-sort').value = s;
+    if (p !== null && p !== undefined && p !== '') $('sel-poll').value = p;
+    if (d) $('sel-dwell').value = d;
+  })();
+
+  render();   /* 뼈대 문구 먼저 */
+  load();
+  startPoll();
+})();
