@@ -1240,7 +1240,7 @@ function renderRecordingsTable() {
          이유가 «사고» 인지 «규정대로 지운 것» 인지 가리지 않아, 보관만료분까지 경고색으로
          떴다(실측 1,236건). 상태로 갈라 준다 — ⛔ 다시 하나로 합치지 말 것. */
       if (r.status === 'deleted')
-        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다 — 여기서는 R2 목록에서 이 녹화의 파일을 찾지 못했다는 것까지입니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
+        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 다만 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
       else if (r.status === 'upload_failed')
         storageBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다. 다시 올라오지 않습니다.">'+(adminLang==='en'?'⚠ Save failed':'⚠ 저장 실패')+'</span>';
       else if (r.status === 'recording')
@@ -1311,7 +1311,7 @@ function renderRecordingsTable() {
                  h: _pL ? 'Upload failed - the video is not in the cloud and will NOT arrive later. There is nothing to wait for.' : '업로드가 실패해 클라우드에 영상이 없습니다. 나중에도 올라오지 않습니다 — 기다릴 것이 없습니다.' };
       else if (r.status === 'deleted')
         pend = { t: _pL ? 'Retention expired' : '보관기간 만료', c: '#667085',
-                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. (Whether the file itself was purged is a separate matter - see retention.ts)' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다(실제 파기는 아직 켜지 않은 별건입니다 — retention.ts).' };
+                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. Since 2026-09-02 expired recordings are purged from storage as well - but files taken off the list before that date may still exist.' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.' };
       else if (r.status === 'aborted')
         pend = { t: _pL ? 'Nothing recorded' : '녹화 없음', c: '#98a2b3',
                  h: _pL ? 'Joined and left before anything was recorded. No video was lost.' : '찍힌 것이 없습니다(들어왔다 바로 나감). 잃은 영상은 없습니다.' };
@@ -1594,7 +1594,9 @@ async function loadRetention() {
   } catch(e) { document.getElementById('retention-status').textContent = (adminLang==='en'?'Query failed: ':'조회 실패: ') + e.message; }
 }
 document.getElementById('retention-run').onclick = async () => {
-  if (!confirm(adminLang==='en'?'Delete expired data now?':'지금 보관기간 만료 데이터를 파기하시겠습니까?')) return;
+  if (!confirm(adminLang==='en'
+    ? 'Purge expired data now?\n\nExpired recordings are deleted from storage as well. This cannot be undone.'
+    : '지금 보관기간 만료 데이터를 파기하시겠습니까?\n\n만료된 녹화는 영상 파일까지 지워집니다. 되돌릴 수 없습니다.')) return;
   const btn = document.getElementById('retention-run');
   btn.disabled = true; btn.textContent = adminLang==='en'?'Running...':'실행 중...';
   try {
@@ -17379,3 +17381,105 @@ window.rebuildGlobalSearchIndex = function() {
   };
 })();
 
+/* ══════════════════════════════════════════════════════════════════════
+   ⏮ 보관기간이 «남았는데» 삭제됨으로 내려간 녹화 되살리기 (2026-09-02)
+
+   왜 필요한가 — 보관기간을 1개월 → 3개월로 늘리기 «전» 에 만들어진 녹화는
+   옛 30일 값이 `expires_at` 에 박혀 있어 이미 만료로 내려가 있었다.
+   2026-09-02 에 그 값을 90일로 소급했으므로, 이제 «만료가 아닌데 목록에서
+   안 보이는» 행이 남는다(그날 실측 1,329건 — 6월 423 · 7월 902 · 8월 4).
+
+   ⚠️ 판정을 여기서 다시 하지 않는다. 서버의 단건 복원
+      (PATCH /api/recordings/:id/status)이 R2 head() 로 실물을 «봤을 때만»
+      완료로 올리고, 조회가 실패하면 막지 않는다(fail-open). 이 함수는
+      그것을 여러 번 부를 뿐이다 — 판정을 복제하면 두 곳이 어긋난다.
+
+   ⚠️ 「파일 없음」(409 file_gone)은 실패가 아니라 «사실» 이다. 그대로 둔다.
+   ⛔ 새 일괄 API 를 만들지 않았다 — 그러면 판정이 두 벌이 되고
+      src/index.ts(공동 금지구역)의 관문 등록도 필요해진다.
+   ══════════════════════════════════════════════════════════════════════ */
+window.recRestoreExpiredBulk = async function recRestoreExpiredBulk() {
+  var EN = (window.adminLang === 'en');
+  var btn = document.getElementById('rec-restore-bulk');
+  var bar = document.getElementById('rec-search-bar');
+  if (!bar) return;
+  var box = document.getElementById('rec-restore-result');
+  if (!box) { box = document.createElement('div'); box.id = 'rec-restore-result'; bar.appendChild(box); }
+  var say = function (html) { box.innerHTML = html; };
+
+  if (btn) btn.disabled = true;
+  try {
+    /* ── 1) 대상 모으기 — «만료가 아직 안 된» deleted 행만 ── */
+    say(EN ? 'Looking for recordings still in retention…' : '보관기간이 남은 녹화를 찾는 중…');
+    var now = Date.now(), targets = [], offset = 0, guard = 0;
+    while (guard++ < 40) {
+      var lr = await fetch('/api/recordings?status=deleted&limit=200&offset=' + offset, { credentials: 'include' });
+      var ld = await lr.json().catch(function () { return null; });
+      /* ⚠️ «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 판정한다 —
+         404 본문에는 ok 칸이 없어 `ok === false` 검사는 그냥 통과한다(2장 함정). */
+      if (!ld || ld.ok !== true || !Array.isArray(ld.items)) break;
+      for (var i = 0; i < ld.items.length; i++) {
+        var it = ld.items[i];
+        if (Number(it.expires_at) > now) targets.push(it);
+      }
+      if (ld.items.length < 200) break;
+      offset += 200;
+    }
+
+    if (!targets.length) {
+      say(EN ? 'Nothing to restore — no recording is still within its retention window.'
+             : '되살릴 것이 없습니다 — 보관기간이 남았는데 내려간 녹화가 없습니다.');
+      return;
+    }
+
+    var msg = EN
+      ? targets.length + ' recording(s) are still within the 3-month retention window but were taken off the list.\n\n'
+        + 'Restore them? Only recordings whose video file actually exists will come back.'
+      : '보관기간(3개월)이 아직 남았는데 목록에서 내려간 녹화가 ' + targets.length + '건 있습니다.\n\n'
+        + '되살릴까요? 영상 파일이 실제로 남아 있는 것만 되살아납니다.';
+    if (!confirm(msg)) { say(''); return; }
+
+    /* ── 2) 서버 단건 복원을 동시 5개로 ── */
+    var idx = 0, restored = 0, gone = 0, failed = 0;
+    var render = function () {
+      var done = restored + gone + failed;
+      say((EN ? 'Restoring… ' : '되살리는 중… ') + done + ' / ' + targets.length
+        + ' · ' + (EN ? 'restored ' : '복원 ') + restored
+        + ' · ' + (EN ? 'file already gone ' : '파일 없음 ') + gone
+        + (failed ? (' · ' + (EN ? 'failed ' : '실패 ') + failed) : ''));
+    };
+    var worker = async function () {
+      while (idx < targets.length) {
+        var t = targets[idx++];
+        try {
+          var pr = await fetch('/api/recordings/' + t.id + '/status', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'completed' })
+          });
+          var pd = await pr.json().catch(function () { return null; });
+          if (pd && pd.ok === true) restored++;
+          else if (pd && pd.error === 'file_gone') gone++;   // 실패가 아니라 «사실»
+          else failed++;
+        } catch (e) { failed++; }
+        if ((restored + gone + failed) % 10 === 0) render();
+      }
+    };
+    render();
+    await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+
+    say('<b>' + (EN ? 'Done.' : '완료했습니다.') + '</b> '
+      + (EN ? 'Restored ' : '되살림 ') + '<b>' + restored + '</b>'
+      + ' · ' + (EN ? 'file already gone ' : '파일이 이미 없음 ') + gone
+      + (failed ? (' · ' + (EN ? 'failed ' : '실패 ') + failed) : '')
+      + '<br><span style="color:#6b7280">'
+      + (EN ? 'Recordings whose file was already gone stay off the list — that is the truth, not an error.'
+            : '파일이 이미 없는 녹화는 그대로 둡니다 — 고장이 아니라 사실입니다.')
+      + '</span>');
+
+    /* ⚠️ 목록을 다시 읽되 결과 문구는 남긴다(재조회가 «완료» 를 지우던 사고가 있었다). */
+    if (typeof loadRecordings === 'function') loadRecordings();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
