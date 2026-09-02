@@ -13131,7 +13131,12 @@ LIMIT $limit`;
       if (tb) { where.push('textbook_id = ?'); binds.push(Number(tb)); }
       if (kd) { where.push('kind = ?');        binds.push(kd); }
       if (q)  { where.push('name LIKE ?');     binds.push(`%${q}%`); }
-      if (book) { where.push('name LIKE ?');   binds.push(`[${book}]%`); }   // 특정 교재의 파일만
+      /* 🔴 LIKE 를 쓰지 않는다 — **D1 의 LIKE 패턴 한도는 50자**다(2026-09-02 실측:
+       *    50자 통과·51자에서 `LIKE or GLOB pattern too complex`). 교재 이름이 긴 13개
+       *    (BTS 33·17·30·34·32·20·5·24·22 …)는 `[이름]%` 가 50자를 넘어 **조회 자체가
+       *    통째로 실패**했다. 화면에는 「D1_ERROR」가 그대로 떠서 교재가 없는 것처럼 보인다.
+       *    ⚠️ 덤으로 LIKE 는 이름 속 `%`·`_` 를 와일드카드로 읽는다 — instr 는 그것도 없다. */
+      if (book) { where.push('instr(name, ?) = 1'); binds.push(`[${book}]`); }   // 특정 교재의 파일만
 
       // fix (2026-06-02) — 그룹 집계 모드(?group=1): 교재명([book])별 파일 수를 한 번에.
       //   38,000+ 파일이 있어도 모든 교재가 항상 표에 보이게 (limit 500 에 가려지던 문제 해결).
@@ -13211,7 +13216,13 @@ LIMIT $limit`;
       if (gate2) return json({ ok: false, error: gate2.error, message: gate2.message }, gate2.status as any);
 
       const engines = Array.isArray(b.engines) ? b.engines.map((x: any) => String(x)) : undefined;
-      const results = await probeImage(AI, (env as any).SESSION_STATE, bytes, mime || `image/${ext || 'jpeg'}`, engines);
+      /* 🔴 `mime` 을 그대로 믿으면 안 된다 — 업로더가 `application/octet-stream` 으로 저장한
+       *    파일이 실제로 대부분이다(2026-09-02 D1 실측: BTS 2 의 246장 전부). 그것을 그대로
+       *    data: URI 에 넣으면 신형 모델이 «expected image/* MIME type» 으로 전부 거절한다
+       *    (실측: Llama 4 Scout 6장 6실패). 이미지 mime 이 아니면 **확장자로 만들어** 넘긴다. */
+      const EXT2MIME: Record<string, string> = { jpg: 'jpeg', jpeg: 'jpeg', png: 'png', webp: 'webp', gif: 'gif' };
+      const safeMime = /^image\//.test(mime) ? mime : `image/${EXT2MIME[ext] || 'jpeg'}`;
+      const results = await probeImage(AI, (env as any).SESSION_STATE, bytes, safeMime, engines);
 
       return json({
         ok: true,
@@ -13352,7 +13363,8 @@ LIMIT $limit`;
       const where: string[] = ['active = 1'];
       const binds: any[] = [];
       if (lv) { where.push('level = ?'); binds.push(lv); }
-      if (book) { where.push('name LIKE ?'); binds.push(`[${book}]%`); }   // 특정 교재의 파일만(시퀀스 로딩용)
+      // ⚠️ LIKE 금지 — D1 패턴 한도 50자(위 목록 조회의 주석 참고). 긴 교재 이름이 통째로 실패한다.
+      if (book) { where.push('instr(name, ?) = 1'); binds.push(`[${book}]`); }   // 특정 교재의 파일만(시퀀스 로딩용)
 
       // fix (2026-06-02) — 그룹 집계 모드(?group=1): 라이브러리 트리/칩이 모든 교재를 한눈에 (limit 무관)
       if (url.searchParams.get('group') === '1') {
