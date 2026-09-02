@@ -24,7 +24,8 @@ import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 // 🈶 중국어 교재 이름 해석 정본 — 라이브러리(「다락원 중국어 마스터 3」)와 콘텐츠(「다락원」)의
 //    표기가 달라 매칭이 영영 안 되던 것을 잇습니다. 표시 이름은 「중국어 마스터」(2026-08-26 사장님).
 import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
-import { filterQuizQuestions, summarizeRejects } from './quiz-quality';  // 🧪 AI 문항 검사(2026-09-02)
+import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
+import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1503,6 +1504,16 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       return qs;
     };
     // 🤖 AI 자동 출제 — 교재/레벨/레슨 기반 (Workers AI llama-3.3-70b)
+    /* 📏 (2026-09-02) 생성기에게 «검사기가 실제로 쓰는 상한» 을 알려 준다.
+       [왜] 예전에는 레벨과 무관하게 「max 8 words」 고정이었는데 검사기는 레벨별
+            상한(BAND_SPECS)을 쓴다. 두 곳이 다른 말을 하면, 높은 레벨에서는 모델이
+            쓸데없이 짧게 쓰고 낮은 레벨에서는 검사에 걸린다(CLAUDE.md 「여러 곳이
+            서로 같은 말을 하는가」). 레벨을 모르면 예전 값(8)을 그대로 쓴다. */
+    const maxWordsForPrompt = (level?: string) => {
+      const band = bandFromTextbookLevel(level);
+      const spec = band ? BAND_SPECS[band - 1] : null;
+      return spec ? spec.maxWords : 8;
+    };
     const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any; lang?: string }) => {
       const ai = (env as any).AI;
       if (!ai) return { ok: false as const, error: 'workers_ai_not_bound' };
@@ -1555,7 +1566,7 @@ Make exactly:
 - ${nWrite} "write" questions: {"type":"write","q":"<Korean prompt, e.g. 다음 뜻의 영어 문장을 쓰세요: ...>","answer_text":"<correct English sentence>","accept":["<acceptable variation>"],"explain":"<Korean>"}
 - ${nSpeak} "speak" questions: {"type":"speak","q":"🎤 아래 문장을 또박또박 읽어보세요.","answer_text":"<short English sentence to read aloud>","explain":"<Korean>"}
 
-Rules: English sentences max 8 words. Korean for instructions/explanations. Vocabulary must fit the textbook/lesson. The "listen" options must include the audio sentence itself as the correct option.
+Rules: English sentences max ${maxWordsForPrompt(o.level)} words. Korean for instructions/explanations. Vocabulary must fit the textbook/lesson. The "listen" options must include the audio sentence itself as the correct option.
 Reply with a JSON array ONLY. No markdown, no commentary.`;
       }
       try {

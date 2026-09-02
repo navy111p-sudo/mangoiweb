@@ -131,6 +131,18 @@
         }) }).then(function(x){return x.json();});
       if (!r.ok) throw new Error(r.error||'ai_fail');
       var qs = r.questions||[];
+      /* 🧪 (2026-09-02) 통과 문항이 0일 때 «AI 가 실패한 것» 과 «검사기가 전부 떨어뜨린 것» 은
+         전혀 다른 일이다. 가르지 않으면 아래 catch 가 「Workers AI 응답 문제」라고 말하는데
+         그건 **거짓 원인**이다 — AI 는 정상 응답했고 우리 검사기가 떨어뜨린 것이다.
+         (CLAUDE.md 「상한·검증을 새로 걸 때 화면이 그 실패를 뭐라고 말하는지」 —
+          「막는 코드만 넣고 끝내면 「한도」가 「고장」으로 읽힙니다」) */
+      if (!qs.length && r.raw_count > 0) {
+        msg.style.color='#b45309';
+        msg.textContent = '⚠️ AI 가 '+r.raw_count+'개를 만들었지만 검사에서 전부 제외됐어요'
+          + (r.dropped_summary ? ' — '+r.dropped_summary : '')
+          + '. 레벨·교재를 확인하거나 문항 수를 줄여 다시 시도해 보세요.';
+        return;
+      }
       if (!qs.length) throw new Error('생성된 문항 없음');
       if (document.getElementById('rq-ai-replace').checked) document.getElementById('rq-qlist').innerHTML='';
       qs.forEach(function(qq){ rqAddQ(qq); });
@@ -206,18 +218,21 @@
       msg.textContent='🏗️ '+doneBooks+'/'+total+' 교재 ('+pct+'%) · 성공 '+okBooks+' · 실패 '+failedBooks+' — 최근: '+bk.book+' ('+res.size+'/40)';
       await sleep(120);
     }
+    /* 🧪 검사에서 걸러진 수는 «모든 분기» 에 붙인다 — 은행이 안 차는 상황이 바로
+       failedBooks>0 인데, 그때 감추면 「다시 눌러 재시도하세요」만 보이고 다시 눌러도
+       같은 이유로 또 떨어진다. 무엇이 걸렸는지 보여야 사람이 고칠 수 있다. */
+    var dropNote = droppedAll ? '  (검사에서 '+droppedAll+'개 제외 — 문법·정답 오류)' : '';
     if (aborted){
       msg.style.color='#b45309';
-      msg.textContent='⏹ 중단됨 — 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 다시 시작하면 이어서 진행돼요.';
+      msg.textContent='⏹ 중단됨 — 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 다시 시작하면 이어서 진행돼요.'+dropNote;
     } else {
       bar.style.width='100%';
       if (failedBooks === 0){
         msg.style.color='#047857';
-        msg.textContent='✅ 완료: '+okBooks+'/'+total+' 교재 은행 생성. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.'
-          + (droppedAll ? '  (검사에서 '+droppedAll+'개 제외 — 문법·정답 오류)' : '');
+        msg.textContent='✅ 완료: '+okBooks+'/'+total+' 교재 은행 생성. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.'+dropNote;
       } else {
         msg.style.color='#b45309';
-        msg.textContent='⚠️ 완료: 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 실패분은 버튼을 다시 눌러 재시도하세요 (이미 된 교재는 건너뜀).';
+        msg.textContent='⚠️ 완료: 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 실패분은 버튼을 다시 눌러 재시도하세요 (이미 된 교재는 건너뜀).'+dropNote;
       }
     }
     startBtn.disabled=false; stopBtn.style.display='none';

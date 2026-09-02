@@ -187,7 +187,28 @@ const autoStart = games.indexOf("path === '/api/review-quiz/auto'");
 const autoEnd = games.indexOf("/api/admin/review-quiz/ai-generate", autoStart);
 const autoBody = autoStart > 0 && autoEnd > autoStart ? games.slice(autoStart, autoEnd) : '';
 check('학생 즉석 출제 핸들러를 찾았다', autoBody.length > 500);
-check('  통과 문항이 0이면 한 번 더 출제한다', /검사 통과 문항 0/.test(autoBody) && /gen = await rqAiGenerate/.test(autoBody));
+/* 🔴 이 검사는 처음에 «헛돌았다» — 앵커 두 개가 모두 다른 곳에 걸려, 재시도 블록을
+   통째로 지워도 초록불이었다(함정 대조 검사가 변이로 증명).
+     · /검사 통과 문항 0/      → 아래 quality_blocked 분기의 warn 문구에 걸림
+     · /gen = await rqAiGenerate/ → 재시도가 아니라 **최초 선언** `let gen = await …` 에 걸림
+   ⇒ CLAUDE.md 「감시는 «있는가» 가 아니라 «어디에 있는가» 를 세서」.
+      조건식을 앵커로 잡고 **중괄호 짝**으로 그 블록만 잘라 그 «안» 을 본다. */
+function blockAfter(src, anchor) {
+  const i = src.indexOf(anchor);
+  if (i < 0) return '';
+  const open = src.indexOf('{', i + anchor.length - 1);
+  if (open < 0) return '';
+  let depth = 0;
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') depth++;
+    else if (src[j] === '}') { depth--; if (depth === 0) return src.slice(open + 1, j); }
+  }
+  return '';
+}
+const RETRY_COND = 'if (gen.ok && (!gen.questions || !gen.questions.length))';
+const retryBlock = blockAfter(autoBody, RETRY_COND);
+check('  통과 문항이 0이면 한 번 더 출제한다 — 그 조건 블록 «안» 에 재출제가 있다',
+  retryBlock.length > 0 && /gen = await rqAiGenerate\(/.test(retryBlock), retryBlock.slice(0, 200) || '(블록을 못 찾음)');
 check('  그래도 0이면 «퀴즈 없음»(ok:true, quiz:null)으로 답한다 — 화면이 이미 아는 모양',
   /quality_blocked: true/.test(autoBody) && /quiz: null/.test(autoBody));
 const autoCode = autoBody ? stripComments(autoBody) : '';
@@ -204,6 +225,36 @@ const q4 = rd('cloudflare-deploy/public/js/adm-q4.js');
 check('관리자 화면이 «검사에서 N개 제외» 를 보여준다', /검사에서 .*개 제외/.test(q4));
 check('  은행 생성도 탈락 수를 누적해 보여준다', /droppedAll/.test(q4) && /data\.dropped/.test(q4));
 check('  낡은 배포 안내(deploy.bat)를 고쳤다', !/deploy\.bat/.test(q4));
+
+/* 🧪 «전부 떨어졌을 때» 관리자 화면이 진짜 원인을 말하는가.
+   AI 는 정상 응답했는데 「Workers AI 응답 문제」라고 말하면 거짓 원인이다. */
+check('관리자 미리보기가 «검사에서 전부 제외» 를 AI 실패와 갈라 말한다',
+  /raw_count > 0/.test(q4) && /검사에서 전부 제외/.test(q4));
+check('  탈락 수를 «모든 분기» 에 붙인다 (실패가 있을 때가 정작 알아야 할 때)',
+  /var dropNote =/.test(q4) && (q4.match(/\+dropNote/g) || []).length >= 3);
+
+/* 📏 생성기와 검사기가 같은 말을 하는가 — 프롬프트가 레벨 상한을 모르면
+   높은 레벨에서 쓸데없이 짧게 쓰고 낮은 레벨에서 검사에 걸린다. */
+check('프롬프트가 레벨별 상한을 주입한다 (8단어 고정이 아니다)',
+  /maxWordsForPrompt\(o\.level\)/.test(gamesCode) && !/max 8 words/.test(gamesCode));
+check('  그 상한은 BAND_SPECS 정본에서 읽는다', /BAND_SPECS\[band - 1\]/.test(gamesCode));
+
+/* 🔤 listen 비교가 채점 정본(rqNorm)과 «같은 말» 을 하는가.
+   완전일치로 견주면 종결부호 차이만으로 멀쩡한 문항이 떨어진다. */
+if (M) {
+  const withBang = M.checkQuizQuestion({ type: 'listen', q: '들으세요', audio_text: 'I like apples!',
+    opts: ['I like apples.', 'She is tall.', 'We run.', 'He is kind.'], answer: 0 }, MID);
+  check('종결부호가 서로 달라도 정답으로 인정한다 (「!」 대 「.」)', withBang.length === 0, withBang.join(' / '));
+  const stillBad = M.checkQuizQuestion({ type: 'listen', q: '들으세요', audio_text: 'I like apples.',
+    opts: ['I like bananas.', 'She is tall.', 'We run.', 'He is kind.'], answer: 0 }, MID);
+  check('  ⛔ 그렇다고 «진짜 다른 문장» 까지 통과시키지는 않는다',
+    stillBad.some((r) => r.indexOf('보기에 없습니다') >= 0), stillBad.join(' / '));
+}
+const qq = rd('cloudflare-deploy/src/quiz-quality.ts');
+check('그 정규화가 채점 정본과 같은 말을 한다고 적어 두었다',
+  /rqNorm/.test(qq) && /normSentence/.test(qq));
+check('⚠️ 수동 저장은 이 검사를 안 지난다는 것을 못 박았다',
+  /review-quiz\/save/.test(qq) && /성립하지 않는다/.test(qq));
 
 /* 🗂️ 공동 금지구역을 안 건드렸는가 — 학생 화면은 index.html 의 blocking 스크립트다 */
 check('⛔ index.html·idx-x8.js 를 건드리지 않았다 (공동 금지구역·첫 화면 예산)',

@@ -59,6 +59,19 @@ function maxWordsFor(level: any): number {
 
 const str = (v: any) => String(v == null ? '' : v).trim();
 
+/* 🔤 문장 비교용 정규화 — 구두점·대소문자·공백을 무시한다.
+   [왜] listen 문항의 「들려준 문장」과 「보기」를 완전일치로 견주면, 둘이 서로 다른
+        종결부호를 달고 온 것만으로(「I like apples!」대 「I like apples.」) 멀쩡한 문항이
+        «정답이 보기에 없습니다» 로 떨어진다.
+   ⚠️ 이것은 채점 정본 `rqNorm`(api-games.ts)과 **같은 말을 해야 한다** — 그쪽은 핸들러 안의
+      지역 함수라 import 할 수 없어 같은 방식을 여기에 둔다. 두 곳이 어긋나면
+      「검사는 통과했는데 채점에서 틀리는」 문항이 생긴다. 하니스가 둘을 대조한다. */
+const normSentence = (v: any) =>
+  String(v == null ? '' : v).toLowerCase()
+    .replace(/[^a-z0-9가-힣\s']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 /** 그 문항이 학생에게 보여 줄 «영어 문장» 들 — 길이·문법 검사의 대상 */
 function englishPartsOf(q: any): string[] {
   const out: string[] = [];
@@ -107,8 +120,8 @@ export function checkQuizQuestion(q: any, level?: any): string[] {
       const audio = str(q.audio_text);
       if (!audio) bad.push('들려줄 문장(audio_text)이 없습니다');
       else {
-        const at = audio.toLowerCase();
-        const hit = opts.findIndex((o) => o.toLowerCase() === at);
+        const at = normSentence(audio);
+        const hit = opts.findIndex((o) => normSentence(o) === at);
         if (hit < 0) bad.push('들려준 문장이 보기에 없습니다 (정답이 없는 문항)');
         else if (Number(q.answer) !== hit) bad.push('정답 번호가 들려준 문장을 가리키지 않습니다');
       }
@@ -175,6 +188,11 @@ export function filterQuizQuestions(questions: any, level?: any): QuizFilterResu
 }
 
 /** 관리자 화면·로그에 한 줄로 보여 줄 요약 */
+/* ⚠️ 이 검사기를 지나지 않는 길이 하나 있다 — 관리자 «수동 저장»
+   (`POST /api/admin/review-quiz/save`)은 `rqParseQuestions` 만 거친다.
+   사람이 쓴 문항을 기계가 막지 않는 것은 타당하지만, 그래서
+   **「은행에 있는 문항은 전부 이 검사를 통과했다」는 전제는 성립하지 않는다.**
+   나중에 그 전제로 무언가를 판단하지 말 것. */
 export function summarizeRejects(dropped: QuizReject[]): string {
   if (!dropped.length) return '';
   const tally = new Map<string, number>();
