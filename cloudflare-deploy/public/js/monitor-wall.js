@@ -330,8 +330,15 @@
 
   /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
   function openTab(url){
+    /* 🔴 (2026-09-02) 'noopener' 를 «기능 문자열» 로 주면 표준상 **탭은 열리는데 반환값이 null** 이다.
+       그래서 반환값으로 «막혔나» 를 판정하면 **언제나 «막혔다»** 가 된다 — 실측(크로미움):
+         window.open(u,'_blank','noopener') → null · 탭 1→2 (열림)
+         window.open(u,'_blank')            → object · 탭 2→3 (열림)
+       → 반환값이 필요하면 기능 문자열에서 빼고 **w.opener = null** 로 같은 보호를 건다.
+       ⚠️ 반환값을 안 쓰는 자리는 'noopener' 를 그대로 둬도 무해하다. */
     var w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
+    try { w = window.open(url, '_blank'); } catch(e){}
+    if (w) { try { w.opener = null; } catch(e){} }
     if (!w) alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
                     'Your browser blocked the new window. Please allow pop-ups for this site.'));
     return w;

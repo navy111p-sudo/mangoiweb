@@ -247,6 +247,31 @@ if (M) {
     check(`모르는 id 를 섞어도 상한이 유지된다 (실제 호출 ${n}회)`, n > 0 && n <= M.OCR_ENGINES.length);
   }
 
+  /* 🔴 «많이 뽑았다 ≠ 잘 읽었다» — 2026-09-02 실사고.
+     LLaVA 가 한 장에서 84줄·647낱말을 64초 동안 뱉었는데 내용은 몇 줄의 반복이었고,
+     화면이 그것을 «제일 많이 뽑은 엔진» 으로 세어 낱말 평균이 179 로 부풀려졌다.
+     그 숫자가 이 시험의 결론 지표(「이 교재는 글자가 많은가」)다. */
+  {
+    const rep = ['I am a square.', 'I go round and round.', 'I am a square.', 'I go round and round.',
+                 'I am a square.', 'I go round and round.', 'I am a square.', 'I go round and round.'];
+    check('같은 줄이 되풀이되면 그 비율을 잰다', M.repeatRatio(rep) >= 0.7, `ratio=${M.repeatRatio(rep)}`);
+    const j = M.judgeOcrText(ENG, rep.join('\n'), 100);
+    check('반복을 걷어낸 낱말 수를 따로 준다 (평균은 이 값으로 세야 부풀려지지 않는다)',
+      j.unique_words < j.words, `unique=${j.unique_words} words=${j.words}`);
+    check('반복 비율을 결과에 실어 화면이 말할 수 있다', j.repeat >= 0.7);
+
+    /* ⚠️ 짝 검사 — 교재에는 «일부러 반복되는» 줄이 실제로 있다(노래 후렴).
+       반복이 있다고 실패로 만들면 멀쩡한 교재를 버린다. */
+    const song = ['Warm Up', 'The Shape Song', 'I am a square', 'You can see me everywhere',
+                  'I have four sides', 'I am a circle', 'I go round and round', 'I have only one side'];
+    check('되풀이가 없는 본문은 비율이 0 이다', M.repeatRatio(song) === 0);
+    const js = M.judgeOcrText(ENG, song.join('\n'), 100);
+    check('되풀이가 없으면 낱말 수가 깎이지 않는다', js.unique_words === js.words);
+    check('반복이 있어도 실패로 만들지는 않는다 (사람이 원문을 보고 판단한다)',
+      M.judgeOcrText(ENG, rep.join('\n'), 100).ok === true);
+    check('짧은 글은 반복으로 보지 않는다', M.repeatRatio(['A', 'A']) === 0);
+  }
+
   /* 🟡 길이 상한에 걸려 «조용히 사라지는» 줄 — 이 시험의 가설과 반대 방향으로 위험하다.
      사장님 정보가 「높은 레벨은 글자가 많다」인데, 글자가 많을수록 더 많이 깎이면
      「높은 권도 낱말이 적네」라는 정반대 결론이 난다. 화면이 그 사실을 말해야 한다. */
@@ -331,6 +356,30 @@ console.log('\n[ E. 배선 ]');
       G({ ...OK, sizeBytes: null, actualBytes: 90000 }) === null);
   }
 
+  /* 🔴 D1 의 LIKE 패턴 한도는 **50자** 다(2026-09-02 실측: 50자 통과·51자에서
+     `LIKE or GLOB pattern too complex`). 교재 이름이 긴 13개는 `[이름]%` 가 그 한도를
+     넘어 **조회 자체가 통째로 실패**했고, 화면에는 D1_ERROR 가 그대로 떴다.
+     ⚠️ 문자열로 「instr 가 있는가」만 보면 옆 라우트의 것이 걸린다 — 교재 목록 조회에
+        LIKE 가 «남아 있지 않은지» 를 함께 본다. */
+  {
+    const bookLike = api.match(/if \(book\) \{[^}]*\}/g) || [];
+    check(`교재 이름 필터가 LIKE 를 쓰지 않는다 (D1 패턴 한도 50자 — 긴 이름 13개가 통째로 실패했다) — ${bookLike.length}곳`,
+      bookLike.length >= 2 && bookLike.every((b) => /instr\(name, \?\) = 1/.test(b) && !/LIKE/.test(b)),
+      bookLike.join(' | ').slice(0, 200));
+  }
+
+  /* 🔴 `mime` 을 그대로 믿으면 신형 모델이 전부 거절한다 —
+     업로더가 `application/octet-stream` 으로 저장한 파일이 대부분이다(실측 246/246). */
+  check('mime 이 이미지가 아니면 확장자로 만들어 넘긴다 (실측: Llama 4 Scout 6장 6실패의 원인)',
+    /\/\^image\\\/\/\.test\(mime\)\s*\?\s*mime\s*:/.test(bc) || /safeMime/.test(bc));
+  /* ⚠️ `[^)]*` 로 자르지 말 것 — 인자에 `(env as any)` 가 있어 그 괄호에서 멈춘다
+     (멀쩡한 코드가 FAIL 났다). 줄 전체를 잡아서 본다. */
+  {
+    const call = (bc.match(/^.*probeImage\(.*$/m) || [''])[0];
+    check('모델에 넘기는 것은 날것 mime 이 아니라 그 값이다',
+      /safeMime/.test(call) && !/,\s*mime\s*[,)]/.test(call), call.trim().slice(0, 160));
+  }
+
   /* ⚠️ «시험이라 저장하지 않는다» — 이것이 이 단계의 약속이다.
      저장을 붙이려면 «무엇을 어디에» 를 먼저 설계해야 하고, 그때 이 검사를 함께 고친다. */
   check('시험 결과를 D1 에 쓰지 않는다',
@@ -358,6 +407,19 @@ console.log('\n[ F. 화면 ]');
   check('영어 낱말 수를 보여 준다 (레벨별 글자 양을 숫자로 비교하는 자리)',
     /s-words/.test(h));
   check('«저장하지 않는다» 고 화면이 말한다', /저장하지 않습니다|저장하지 않는/.test(h));
+  /* ⚠️ 「파일에 그 글자가 있는가」로 검사하면 주석에 걸려 헛돈다 —
+     변이시험에서 실제로 그 상태로 통과했다. **평균을 정하는 그 줄** 을 본다.
+     `best` 를 갱신하는 줄이 전부 unique_words 를 거쳐야 한다. */
+  {
+    const bestLines = (h.match(/^.*best\s*=\s*[\w.]+\s*;.*$/gm) || [])
+      .filter((l) => !/var best = 0/.test(l));
+    check(`낱말 평균을 unique_words 로 센다 (반복해 토한 엔진이 이기면 결론이 거짓이 된다) — ${bestLines.length}곳`,
+      bestLines.length >= 2 && bestLines.every((l) => /\bw\b/.test(l)) && /unique_words != null/.test(h),
+      bestLines.join(' | ').slice(0, 200));
+  }
+  check('같은 줄 반복을 화면이 말한다', /r\.repeat/.test(h));
+  check('엔진별로 나눠 보여 준다 («어느 엔진이 되는가» 가 이 시험의 첫 질문이다)',
+    /s-eng/.test(h) && /stats\.eng/.test(h));
   check('비용이 든다고 말한다', /비용/.test(h));
 
   /* ⛔ /admin/ 밑에는 js·css 자산을 두지 않는다 — 로그인 게이트가 그 요청까지 삼켜

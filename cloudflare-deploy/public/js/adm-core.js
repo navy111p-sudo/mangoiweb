@@ -1240,7 +1240,7 @@ function renderRecordingsTable() {
          이유가 «사고» 인지 «규정대로 지운 것» 인지 가리지 않아, 보관만료분까지 경고색으로
          떴다(실측 1,236건). 상태로 갈라 준다 — ⛔ 다시 하나로 합치지 말 것. */
       if (r.status === 'deleted')
-        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 다만 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
+        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 다만 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
       else if (r.status === 'upload_failed')
         storageBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다. 다시 올라오지 않습니다.">'+(adminLang==='en'?'⚠ Save failed':'⚠ 저장 실패')+'</span>';
       else if (r.status === 'recording')
@@ -1311,7 +1311,7 @@ function renderRecordingsTable() {
                  h: _pL ? 'Upload failed - the video is not in the cloud and will NOT arrive later. There is nothing to wait for.' : '업로드가 실패해 클라우드에 영상이 없습니다. 나중에도 올라오지 않습니다 — 기다릴 것이 없습니다.' };
       else if (r.status === 'deleted')
         pend = { t: _pL ? 'Retention expired' : '보관기간 만료', c: '#667085',
-                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. Since 2026-09-02 expired recordings are purged from storage as well - but files taken off the list before that date may still exist.' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.' };
+                 h: _pL ? 'Past its retention window, so it was taken off the list. No video file was found for it here. Since 2026-09-02 expired recordings are purged from storage as well - but files taken off the list before that date may still exist.' : '보관기간이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. 2026-09-02부터 만료분은 영상 파일도 함께 파기됩니다 — 그 전에 내려간 녹화는 파일이 남아 있을 수 있습니다.' };
       else if (r.status === 'aborted')
         pend = { t: _pL ? 'Nothing recorded' : '녹화 없음', c: '#98a2b3',
                  h: _pL ? 'Joined and left before anything was recorded. No video was lost.' : '찍힌 것이 없습니다(들어왔다 바로 나감). 잃은 영상은 없습니다.' };
@@ -1889,8 +1889,14 @@ function interveneRoom(roomId){
    매니저 쪽에서는 "눌러도 아무 일도 안 일어난다"로 보였다(실제 제보).
    → 크기 지정을 빼서 '일반 새 탭'으로 열고, 그래도 막히면 눌러서 들어갈 링크를 띄운다. */
 function mangoiOpenTab(url, title) {
+  /* 🔴 (2026-09-02) 'noopener' 를 «기능 문자열» 로 주면 표준상 **탭은 열리는데 반환값이 null** 이다.
+     그래서 반환값으로 «막혔나» 를 판정하면 **언제나 «막혔다»** 가 된다 — 실측(크로미움):
+       window.open(u,'_blank','noopener') → null · 탭 1→2 (열림)
+       window.open(u,'_blank')            → object · 탭 2→3 (열림)
+     → 반환값이 필요하면 기능 문자열에서 빼고 **w.opener = null** 로 같은 보호를 건다.
+     ⚠️ 반환값을 안 쓰는 자리는 'noopener' 를 그대로 둬도 무해하다. */
   let w = null;
-  try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+  try { w = window.open(url, '_blank'); } catch (e) { w = null; }
   if (w) { try { w.opener = null; } catch (e) {} return true; }
 
   // 차단됨 → 조용히 실패하지 말고 클릭 가능한 링크를 보여준다
@@ -3639,7 +3645,8 @@ window.tpGhostObserve = async function (teacherId) {
   const url = location.origin + '/?observe=' + encodeURIComponent(room);
   /* 팝업이 막히면 조용히 실패한다(window.open 은 예외 없이 null 만 준다 — CLAUDE.md 2장) */
   if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업관찰', 'Observe'));
-  else if (!window.open(url, '_blank', 'noopener')) location.href = url;
+  else { let _w = null; try { _w = window.open(url, '_blank'); } catch (e) {} 
+         if (_w) { try { _w.opener = null; } catch (e) {} } else location.href = url; }
 };
 
 // ═══ 🔑 강사 비밀번호 재설정 (2026-07-23) ═══════════════════════════════
@@ -11470,7 +11477,10 @@ window.refreshStorageStats = async function () {
       if (fv) fv.style.color = (d.d1.failed > 0) ? '#b91c1c' : '';
 
       _rsPut('rs-rec-expiring', n(d.d1.expiring30d));
-      var eKo = '건 · 보관 3개월', eEn = 'rows · 90-day retention';
+      /* ⚠️ 이 타일은 «아직 만료 안 됐고 30일 안에 만료될» 건수다(src/index.ts 의 expiring 집계).
+   «이미 만료» 로 적으면 라벨(30일 내 만료)과 정반대를 말하게 된다.
+   그리고 보관기간이 기존 3개월·신규 6개월로 섞여 있어 숫자를 적으면 어느 쪽이든 거짓이다. */
+      var eKo = '건 · 곧 만료', eEn = 'rows · expiring soon';
       _rsPut('rs-rec-expiring-u', en ? eEn : eKo, eKo, eEn);
     } else {
       ['rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
@@ -12626,7 +12636,9 @@ async function askAI(command) {
       // 자동 팝업도 시도 (허용된 경우 즉시 열림)
       setTimeout(() => {
         try {
-          const w = window.open(res.external_url, '_blank', 'noopener');
+          /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
+          const w = window.open(res.external_url, '_blank');
+          if (w) { try { w.opener = null; } catch (e) {} }
           // 자동 열기 성공하면 패널의 버튼은 그대로 두 (사용자가 닫고 다시 열 수 있게)
           if (!w) console.info('[ai-navigate] popup blocked — fallback button shown');
         } catch (e) {
@@ -17433,9 +17445,9 @@ window.recRestoreExpiredBulk = async function recRestoreExpiredBulk() {
     }
 
     var msg = EN
-      ? targets.length + ' recording(s) are still within the 3-month retention window but were taken off the list.\n\n'
+      ? targets.length + ' recording(s) are still within their retention window but were taken off the list.\n\n'
         + 'Restore them? Only recordings whose video file actually exists will come back.'
-      : '보관기간(3개월)이 아직 남았는데 목록에서 내려간 녹화가 ' + targets.length + '건 있습니다.\n\n'
+      : '보관기간이 아직 남았는데 목록에서 내려간 녹화가 ' + targets.length + '건 있습니다.\n\n'
         + '되살릴까요? 영상 파일이 실제로 남아 있는 것만 되살아납니다.';
     if (!confirm(msg)) { say(''); return; }
 

@@ -171,6 +171,20 @@ export function splitEnglishLines(raw: unknown, maxLen = LINE_MAX): { lines: str
   return { lines: out, tooLong };
 }
 
+/** 같은 줄이 되풀이된 비율 (0~1).
+ *  🔴 **비전 모델은 못 읽으면 «같은 문장을 계속 토합니다».** 2026-09-02 실측:
+ *     LLaVA 가 한 장에서 84줄·647낱말을 64초 동안 뱉었는데 내용은 몇 줄의 반복이었다.
+ *     그것을 그대로 세면 «제일 많이 뽑은 엔진» 이 되어 **낱말 평균이 부풀려지고**,
+ *     「이 교재는 글자가 많다」는 거짓 결론이 난다 — 이 시험의 결론 지표가 바로 그 숫자다.
+ *  ⚠️ 교재에는 «일부러 반복되는» 줄이 실제로 있다(노래 가사의 후렴).
+ *     그래서 «반복이 있으면 실패» 로 판정하지 않고 **비율을 재서 화면이 말하게** 한다 —
+ *     사람이 원문과 나란히 보고 판단하는 것이 이 시험의 방식이다. */
+export function repeatRatio(lines: string[]): number {
+  if (lines.length < 4) return 0;   // 짧으면 반복이 의미 없다
+  const seen = new Set(lines.map(l => l.trim().toLowerCase()));
+  return Math.round((1 - seen.size / lines.length) * 100) / 100;
+}
+
 /** 영어 낱말 수 — 사장님 정보(레벨별 글자 양)를 숫자로 확인하는 핵심 지표. */
 export function countEnglishWords(lines: string[]): number {
   let n = 0;
@@ -194,6 +208,10 @@ export type OcrProbeResult = {
   line_total: number;
   /** 영어인데 «너무 길어» 버린 줄 수 — 조용히 사라지면 높은 권을 과소평가한다 */
   too_long: number;
+  /** 같은 줄이 되풀이된 비율 — 높으면 «못 읽고 반복해 토한» 것이다 */
+  repeat: number;
+  /** 되풀이를 걷어낸 낱말 수 — 평균은 이 값으로 세야 부풀려지지 않는다 */
+  unique_words: number;
   prose: boolean;
   ms: number;
   error: string;
@@ -218,6 +236,9 @@ export function judgeOcrText(engine: OcrEngine, raw: unknown, ms: number, error 
     words: countEnglishWords(lines),
     line_total: lineTotal,
     too_long: split.tooLong,
+    repeat: repeatRatio(lines),
+    /* 화면의 「영어 낱말 평균」은 이 값을 쓴다 — 반복을 그대로 세면 못 읽은 엔진이 이긴다 */
+    unique_words: countEnglishWords([...new Set(lines.map(l => l.trim()))]),
     prose,
     ms,
     error: error || '',

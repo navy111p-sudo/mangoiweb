@@ -9975,6 +9975,11 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #card-teacher-mgmt .tr-st-badge.tr-st-active   { background-color: #dcfce7 !important; color: #166534 !important; }
 #card-teacher-mgmt .tr-st-badge.tr-st-inactive { background-color: #fee2e2 !important; color: #991b1b !important; }
 #card-teacher-mgmt .tr-st-badge.tr-st-unknown  { background-color: #fef3c7 !important; color: #854d0e !important; }
+/* ⏹ 교재 명부의 «중지» — 회색이다.
+   ⛔ 빨강(.tr-st-inactive)을 쓰지 않는다: 중지는 «문제» 가 아니라 «지금 안 쓰는 것» 이라
+      빨강이면 정리해야 할 일처럼 읽힌다. 그렇다고 옛 #94a3b8 로 되돌리지도 말 것 —
+      흰 카드 위에서 대비 2.0 이라 «배지가 없는 것» 처럼 보였다(그래서 고친 것이다). */
+#card-teacher-mgmt .tr-st-badge.tr-st-off      { background-color: #e5e7eb !important; color: #374151 !important; }
 
 
 /* ⏮ 녹화 일괄 복원 버튼 (2026-09-02)

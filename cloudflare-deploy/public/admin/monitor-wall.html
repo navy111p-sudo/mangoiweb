@@ -18,7 +18,7 @@
   · /admin/ 밑은 default-deny 라 이 화면도 자동으로 로그인 게이트가 걸린다(index.ts 무수정).
     ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙(index.ts isAdminPath 주석) — 그 규칙은
        «public/admin/ 디렉터리» 에만 걸린다. 그래서 CSS 는 인라인, 화면 코드는 **/js 루트**에 둔다
-       (2026-09-02 분리: /js/monitor-wall.js?v=1). /js·/css 루트는 게이트 밖이라
+       (2026-09-02 분리: /js/monitor-wall.js?v=2). /js·/css 루트는 게이트 밖이라
        이 화면이 이미 /css/mangoi-han.css 를 그렇게 쓰고 있고 admin.html 의 JS 도 전부 거기에 있다.
        ⛔ 뺐다고 «가벼움» 상한이 사라진 것이 아니다 — monitor_wall_harness ①이 HTML 을 따로,
           HTML+JS 를 합쳐서 두 번 잰다(둘 중 하나만 재면 게이트 우회가 된다).
@@ -178,6 +178,6 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
   <footer id="ft"></footer>
 </div>
 
-<script src="/js/monitor-wall.js?v=1" defer></script>
+<script src="/js/monitor-wall.js?v=2" defer></script>
 </body>
 </html>

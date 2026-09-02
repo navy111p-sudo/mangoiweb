@@ -117,9 +117,9 @@
       var title = en ? 'Recording consent' : '수업 녹화 동의';
       var body = en
         ? 'Your class may be recorded so you and your guardian can review it later. ' +
-          'Recordings are kept for 3 months and then deleted automatically.<br><br>' +
+          'Recordings are kept for 6 months and then deleted automatically.<br><br>' +
           'You can join the class either way. If you do not agree, <b>the class will simply not be recorded</b>.'
-        : '복습을 위해 수업이 녹화될 수 있습니다. 녹화본은 <b>3개월</b> 보관 후 자동으로 지워집니다.<br><br>' +
+        : '복습을 위해 수업이 녹화될 수 있습니다. 녹화본은 <b>6개월</b> 보관 후 자동으로 지워집니다.<br><br>' +
           '동의하지 않아도 <b>수업은 그대로 들어갑니다</b>. 녹화만 하지 않습니다.';
       var guardianNote = en
         ? 'If you are under 14, please check with your guardian before agreeing.'

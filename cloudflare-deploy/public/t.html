@@ -316,7 +316,9 @@
     if (!kh) return;
     kh.addEventListener('click', function(e){
       var url = this.href, w = null;
-      try { w = window.open(url, '_blank', 'noopener'); } catch(_){}
+      /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
+      try { w = window.open(url, '_blank'); } catch(_){}
+      if (w) { try { w.opener = null; } catch(_){} }
       if (!w) { e.preventDefault(); location.href = url; }   // 팝업차단·인앱: 같은 창으로
       else e.preventDefault();                               // 새 창이 떴으면 중복 이동 방지
     });

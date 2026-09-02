@@ -814,7 +814,8 @@
     bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings();
       if (window.openKakao) return window.openKakao();
       var u='https://pf.kakao.com/_xlqnSxd';
-      if(!window.open(u,'_blank','noopener')) location.href=u; };   // 새 창이 막히면 같은 창으로
+      var _w=null; try{ _w=window.open(u,'_blank'); }catch(e){}
+      if(_w){ try{ _w.opener=null; }catch(e){} } else location.href=u; };   // 새 창이 «진짜로» 막히면 같은 창으로
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 
