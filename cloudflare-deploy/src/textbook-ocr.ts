@@ -159,7 +159,7 @@ export function splitEnglishLines(raw: unknown, maxLen = LINE_MAX): { lines: str
   const out: string[] = [];
   let tooLong = 0;
   for (const line of s.split(/\r?\n/)) {
-    const t = line.trim();
+    const t = stripLeadMark(line.trim());
     if (!t) continue;
     if (!isEnglishText(t, maxLen)) {
       // 「길어서」 떨어진 것과 「영어가 아니라서」 떨어진 것을 가른다
@@ -210,6 +210,27 @@ const BOILER_LINE_RE: RegExp[] = [
   /^\s*scan\s+me\s*\.?\s*$/i,         // QR 안내
   /^\s*https?:\/\/\S+\s*$/i,          // 줄 전체가 주소 (⛔ 문장 안의 주소는 안 걸립니다)
 ];
+
+/* ── 줄머리 불릿 벗기기 ─────────────────────────────────────────
+ * 🔴 **불릿이 든 줄이 통째로 버려지고 있었습니다.** 2026-09-02 두 번째 실행 실측:
+ *    `isEnglishText` 는 ASCII 인쇄가능 문자만 통과시키는데 `•`(U+2022)는 그 밖이라,
+ *    「• Do you listen to some tracks from other countries?」 같은 **교재의 핵심 문장**이
+ *    한 글자 때문에 «영어가 아님» 으로 떨어졌습니다.
+ *    ⚠️ 그래서 «모델 실력 차이» 로 보였습니다 — 같은 페이지를 Llama 3.2 Vision 은
+ *       불릿 없이 읽어 36낱말, Llama 4 Scout 은 불릿을 살려 읽어 **8낱말**(줄 5/7).
+ *       BTS 2 Slide12 도 같은 모양(12낱말 대 5낱말·줄 5/9).
+ *    ⟹ 실력이 아니라 **제 필터**가 만든 차이였습니다.
+ *
+ * ⛔ `english-only.ts` 의 `isEnglishText` 를 고치지 않습니다 — 웜업·게임·단어장이 함께 쓰는
+ *    정본이고, 거기서 불릿을 허용하면 그 화면들의 전제가 바뀝니다. 여기서만 «벗겨서» 넣습니다.
+ * ⚠️ **줄머리만** 벗깁니다. 줄 안의 문자는 그대로 둡니다.
+ * ⛔ `-`·`*` 는 **뒤에 공백이 있을 때만** 벗깁니다 — 「-5 degrees」 를 깨뜨리지 않으려고. */
+const LEAD_MARK_RE = /^\s*(?:[\u2022\u00b7\u25cf\u25cb\u25aa\u25a0\u2023\u2043\u25e6\u2219\u00ba]+|[-*\u2013\u2014](?=\s))\s*/;
+
+/** 줄머리의 불릿 표시를 벗긴다(교재 목록 문장을 살리기 위해). */
+export function stripLeadMark(line: unknown): string {
+  return String(line == null ? '' : line).replace(LEAD_MARK_RE, '').trim();
+}
 
 /** 그 줄이 «교재 본문이 아닌 것»(저작권·페이지번호·QR·주소)인가. */
 export function isBoilerplateLine(line: unknown): boolean {
