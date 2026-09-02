@@ -25,6 +25,8 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
+import { probeImage, ocrGate } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -45,7 +47,7 @@ import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';  
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
@@ -10472,7 +10474,24 @@ LIMIT $limit`;
         ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, ai_score, level, now, now).run();
         appId = ins.meta.last_row_id as number;
       }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId });
+      /* 🎯 (2026-09-02) 채점 결과를 «학생 명부» 에도 적는다 — 1단계 배선.
+         [왜] 이 결과는 지금까지 leveltest_applications 에만 남고 students_erp.level 로
+              흘러가지 않았다. 그런데 웜업·복습퀴즈·판단력이 읽는 칸은 그쪽이라,
+              레벨테스트를 봐도 AI 학습도구는 그 학생 수준을 영영 몰랐다
+              (2026-09-02 D1 실측: 학생 29,462명 중 level 채워진 사람 0명).
+         [🔒 본문 uid 를 믿지 않는다] 이 경로는 무인증 공개다. 본문의 student_uid 를
+              그대로 쓰면 아무나 남의 학생 레벨을 바꿀 수 있다(CLAUDE.md 「인증 없는 API 가
+              본문에 적힌 «누구에게» 를 그대로 쓴다」). 그래서 **토큰으로 확인된 uid 로만**
+              적는다. 화면(level-test-ai.html)은 이미 token 을 함께 보내고 있다.
+              ⛔ authedUid 가 없을 때 uid 로 폴백하지 말 것 — 폴백하면 구멍이 그대로 남는다.
+         ⚠️ 이미 레벨이 있으면 덮어쓰지 않는다(사람 손이 이긴다). 정본: student-placement.ts
+         ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 학생이 시험을 다 보고 결과를 못 받으면 안 된다. */
+      let placement: any = null;
+      try {
+        const authedUid = await authUidGlobal(request, url, env, b);
+        if (authedUid) placement = await applyPlacementLevel(env as any, authedUid, level);
+      } catch (e: any) { console.warn('[leveltest] placement skip:', e && e.message); }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
@@ -10686,7 +10705,20 @@ LIMIT $limit`;
       for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
       if (method === 'GET') {
         const rs = await env.DB.prepare(`SELECT * FROM textbooks ORDER BY active DESC, level ASC, title ASC`).all();
-        return json({ ok: true, items: rs.results || [] });
+        const payload: any = { ok: true, items: rs.results || [] };
+        /* 📚 (2026-09-02) ?library=1 일 때만 «실재하는» 교재 이름을 함께 준다 — 1단계 배선.
+           [왜] `textbooks` 표에는 「BTS」·「다락원」 2행뿐인데, AI 학습도구가 매칭에 쓰는 이름은
+                「BTS 1 001 (Welcome to school)」 같은 실제 콘텐츠 이름이다. 그래서 이 목록에서
+                고른 이름으로 배정하면 **에러 없이** 아무것도 안 맞았다(실측: textbook 채운 학생 0명).
+           ⚠️ 기존 `items` 는 한 글자도 안 바꾼다 — 이 API 를 쓰는 화면이 다섯 곳이다
+              (adm-core.js 4곳·admin/health.html). 응답 모양을 바꾸면 그쪽이 조용히 깨진다.
+           ⚠️ 기본으로 계산하지 않는 이유도 같다 — textbook_files 전수 GROUP BY 라
+              교재 목록만 필요한 호출에까지 비용을 얹을 이유가 없다. */
+        if (url.searchParams.get('library') === '1') {
+          try { payload.library = await loadTextbookChoices(env as any); }
+          catch (e: any) { console.warn('[textbooks] library skip:', e && e.message); }
+        }
+        return json(payload);
       }
       const b = await parseJsonBody(request);
       if (!b || !b.title) return invalidBody(['title']);
@@ -13122,6 +13154,75 @@ LIMIT $limit`;
         url: `/api/textbook-files/${it.id}/raw`,
       }));
       return json({ ok: true, items });
+    }
+
+    /* 🔬 POST /api/admin/textbook-files/:id — 교재 한 장을 OCR 해 본다 (시험)
+     * ═══════════════════════════════════════════════════════════════════════
+     * [왜] 복습퀴즈·웜업이 쓸 «교재 본문» 이 이 저장소에 한 글자도 없다. `textbook_files` 는
+     *      활성 17,246행 중 이미지가 17,199장이고 description 이 채워진 행은 0건이다
+     *      (2026-09-02 D1 실측) ⟹ AI 가 만드는 문항이 교재와 무관하다.
+     *      OCR 로 본문을 뽑을 수 있는지 **먼저 재 보는 것** 이 이 경로다.
+     *
+     * ⚠️ 시험이다 — 결과를 **D1 에 쓰지 않는다.** 되는 것이 확인된 뒤에 저장을 설계한다.
+     *    (기능만 만들어 두고 실사용 0으로 방치되는 것이 이 저장소의 반복 사고다.)
+     *
+     * ⚠️ 왜 하필 POST /:id 인가 — 새 하위 경로(`.../ocr-probe`)를 만들면 라우팅
+     *    허용목록(src/index.ts 1239행대)에 한 줄을 넣어야 하는데 그 파일은 «공동 금지구역»
+     *    이다. 이 경로는 이미 정규식 `/\d+$/` 로 ②에, `startsWith` 로 ③(api-mango 위임
+     *    가드)에 등록돼 있고 **POST 만 비어 있었다.** 그래서 금지구역을 한 줄도 안 건드린다.
+     *    ⛔ 그래서 본문의 `action` 을 반드시 확인한다 — 나중에 이 경로에 다른 뜻을 넣을
+     *       때 «모르는 요청» 이 조용히 OCR 로 흘러 비용이 나가면 안 된다.
+     *
+     * 🔐 본사만. 비용이 나가는 호출이라 강사·조직계정을 각각 따로 막는다
+     *    (⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'=내부직원·교사에 true 다).
+     *
+     * 💰 비용 통제: 한 요청 = 한 장. 화면이 장마다 따로 부르므로 중간에 멈출 수 있고
+     *    「몇 장 돌렸나」가 화면에 그대로 보인다. 엔진 수만큼 호출되므로 그것도 응답에 싣는다.
+     */
+    if (method === 'POST' && /^\/api\/admin\/textbook-files\/\d+$/.test(path)) {
+      const _ocrActor = await getAdminActor(request, env as any);
+      if (_ocrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 이 시험을 실행할 수 없습니다.' }, 403);
+      if (isOrgScopedRole((_ocrActor as any).role)) return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 실행할 수 있습니다.' }, 403);
+
+      const b = await parseJsonBody(request) || {};
+
+      const AI = (env as any).AI;
+      if (!AI) return json({ ok: false, error: 'ai_binding_missing', message: 'Workers AI 바인딩이 없습니다.' }, 503);
+
+      await ensureTextbookFilesTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const row: any = await env.DB.prepare(`SELECT id, name, mime, ext, size_bytes, r2_key FROM textbook_files WHERE id = ? AND active = 1`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+
+      /* 🔬 입구 게이트 — 판정 정본은 `ocrGate()` 하나다(라우트에 조건을 다시 적지 말 것).
+       *    라우트 안에만 두면 하니스가 문자열로 검사하게 되고, 조건을 뒤집어도 그 글자가
+       *    남아 통과한다 — 하필 «비용을 지키는» 자리다. */
+      const ext = String(row.ext || '').toLowerCase();
+      const mime = String(row.mime || '');
+      const gate1 = ocrGate({ action: b.action, mime, ext, sizeBytes: row.size_bytes });
+      if (gate1) return json({ ok: false, error: gate1.error, message: gate1.message }, gate1.status as any);
+
+      const obj = await (env as any).RECORDINGS.get(row.r2_key);
+      if (!obj) return json({ ok: false, error: 'r2_missing', message: '이미지 실물을 찾지 못했습니다.' }, 404);
+      const bytes = new Uint8Array(await obj.arrayBuffer());
+      /* ⚠️ `size_bytes` 는 NULL 일 수 있어(스키마상 NOT NULL 아님) 위 검사를 그냥 통과한다.
+       *    R2 에서 «실제로 받은» 길이로 한 번 더 본다 — 받는 것까지는 값이 싸다. */
+      const gate2 = ocrGate({ action: b.action, mime, ext, sizeBytes: row.size_bytes, actualBytes: bytes.length });
+      if (gate2) return json({ ok: false, error: gate2.error, message: gate2.message }, gate2.status as any);
+
+      const engines = Array.isArray(b.engines) ? b.engines.map((x: any) => String(x)) : undefined;
+      const results = await probeImage(AI, (env as any).SESSION_STATE, bytes, mime || `image/${ext || 'jpeg'}`, engines);
+
+      return json({
+        ok: true,
+        id: row.id,
+        name: row.name,
+        size_bytes: Number(row.size_bytes || 0),
+        url: `/api/textbook-files/${row.id}/raw`,
+        calls: results.length,       // 이번 요청이 모델을 몇 번 불렀는가 (비용)
+        results,
+        saved: false,                // ⚠️ 시험이라 저장하지 않는다 — 화면이 그렇게 말해야 한다
+      });
     }
 
     // PATCH /api/admin/textbook-files/:id

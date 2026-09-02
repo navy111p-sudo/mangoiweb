@@ -3232,7 +3232,17 @@ async function loadTeacherProfiles() {
         'title="카카오ID 복사" aria-label="카카오ID 복사" ' +
         'style="margin-left:5px;padding:0 5px;font-size:10px;line-height:17px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer">📋</button>'
       : '<span style="color:#9ca3af">—</span>';
-    return '<tr data-tid="' + t.id + '" data-hidden="' + (Number(t.list_hidden||0) === 1 ? '1' : '0') + '">' +
+    /* 🚪 퇴사·비활동이면 «수업입장·수업관찰» 을 흐리게 한다(2026-09-02 사장님 지시).
+       판정은 서버 정본 isActiveTeacherStatus 와 같은 규칙인 _tpIsWorking 하나로 한다 —
+       여기서 `t.status === '퇴사'` 처럼 다시 적으면 «비활동» 이 빠지거나 NULL 처리가 어긋난다. */
+    const _tpWorking = _tpIsWorking(t.status);
+    const _tpDimCls  = _tpWorking ? '' : ' tp-act--dim';
+    const _tpDimWhy  = _tpWorking ? ''
+      : (window.adminLang === 'en'
+          ? '\n\n(This teacher is ' + (String(t.status || '').trim() === '퇴사' ? 'resigned' : 'inactive') + ' — no class to join or observe.)'
+          : '\n\n(' + _aiEsc(String(t.status || '').trim()) + ' 강사입니다 — 들어갈 수업이 없습니다.)');
+    return '<tr data-tid="' + t.id + '" data-hidden="' + (Number(t.list_hidden||0) === 1 ? '1' : '0') + '"'
+      + ' data-working="' + (_tpWorking ? '1' : '0') + '">' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
         (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') +
@@ -3267,12 +3277,19 @@ async function loadTeacherProfiles() {
           : '<span style="color:#9ca3af;font-size:11px">—</span>') +
       '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
-        '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
+        /* 🚪 (2026-09-02 사장님 지시) 퇴사·비활동 강사에게는 «수업입장»·«수업관찰» 이 할 일이 없다.
+           사장님 「퇴사시켰는데 왜 파란 불이 그대로 켜져 있나」 — 실측상 세 상태 행의 버튼이 전부 같은 색이라
+           퇴사 처리를 해도 그 줄에서 달라지는 것이 하나도 없었다.
+           ⛔ 버튼을 «없애지» 않는다 — 지난 수업 확인이 걸려 있고, 이 저장소는 「감추면 아무도 정리하지 않는다」를
+              반복해서 밟았다. 흐리게 하고 «왜» 를 툴팁에 적는다.
+           ⛔ disabled 로 만들지도 않는다 — 「보이는데 안 눌린다」가 되면 그것대로 고장으로 읽힌다.
+              눌리면 기존 안내(「지금 진행 중인 수업이 없습니다」)가 사실대로 답한다. */
+        '<button class="tp-act-btn tp-act--video' + _tpDimCls + '" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)' + _tpDimWhy + '" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
         // 💬 (2026-08-13) 이 강사에게 바로 메시지 — 카카오톡(원클릭 붙여넣기) + 문자(자동발송)
         '<button class="tp-act-btn tp-act--kakao" onclick="window.tkOpenSend && window.tkOpenSend(' + t.id + ')" title="카카오·문자로 메시지 보내기" data-en-title="Message by KakaoTalk / SMS" style="' + _TP_ACT_BTN + 'background:#fee500;color:#191919" aria-label="카카오·문자 전달">' + _TP_IC.chat + '</button>' +
         /* 👁 (2026-08-30 v4 제안서 09) 수업관찰 «즉시 입장» — 이 강사의 지금 수업으로 바로 들어간다.
            ⚠️ 학생·강사에게 보이지 않는 «참관» 이다. 실제 참가자로 들어가는 🎥 버튼과 색을 갈라 둔다. */
-        '<button class="tp-act-btn tp-act--ghost" id="tpobs-' + t.id + '" onclick="window.tpGhostObserve && window.tpGhostObserve(' + t.id + ')" title="수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)" data-en-title="Observe this teacher\'s live class (hidden from the participant list)" style="' + _TP_ACT_BTN + '" aria-label="수업관찰">👁</button>' +
+        '<button class="tp-act-btn tp-act--ghost' + _tpDimCls + '" id="tpobs-' + t.id + '" onclick="window.tpGhostObserve && window.tpGhostObserve(' + t.id + ')" title="수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)' + _tpDimWhy + '" data-en-title="Observe this teacher\'s live class (hidden from the participant list)" style="' + _TP_ACT_BTN + '" aria-label="수업관찰">👁</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
@@ -3464,11 +3481,18 @@ function _tpPaintLive() {
       btn.disabled = dim;
       btn.style.opacity = dim ? '0.32' : '1';
       btn.style.cursor = dim ? 'not-allowed' : 'pointer';
-      var tipKo = !_TP_LIVE.loaded || _TP_LIVE.off ? '수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)'
+      /* 🚪 (2026-09-02) 퇴사·비활동 강사는 «오늘 수업이 없다» 가 아니라 «앞으로도 없다» 이다.
+         두 가지를 같은 문구로 말하면 사장님이 「오늘만 없는 건가?」로 읽는다.
+         ⚠️ 이 함수는 행을 다시 그린 «뒤» 에 돌아 title 을 덮어쓴다 — 그래서 여기서도
+            같은 사유를 다시 적어야 한다(안 그러면 그리는 쪽에서 붙인 설명이 조용히 사라진다). */
+      var _notWorking = tr && tr.dataset && tr.dataset.working === '0';
+      var tipKo = _notWorking ? '퇴사·비활동 강사입니다 — 들어갈 수업이 없습니다'
+                : !_TP_LIVE.loaded || _TP_LIVE.off ? '수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)'
                 : can ? '수업관찰 — 지금 하고 있는 수업으로 바로 들어갑니다 (참여자 목록에 안 뜹니다)'
                 : hit ? '카페24에서 도는 수업이라 참관할 망고아이 화상방이 없습니다'
                       : '지금 진행 중인 수업이 없습니다';
-      var tipEn = !_TP_LIVE.loaded || _TP_LIVE.off ? 'Observe this teacher’s live class (hidden from the participant list)'
+      var tipEn = _notWorking ? 'This teacher has resigned or is inactive — no class to observe'
+                : !_TP_LIVE.loaded || _TP_LIVE.off ? 'Observe this teacher’s live class (hidden from the participant list)'
                 : can ? 'Observe the class this teacher is running right now (hidden from the participant list)'
                 : hit ? 'This class runs on cafe24, so there is no Mango-i room to observe'
                       : 'No class is in progress right now';
@@ -4471,6 +4495,23 @@ function _tpDisarmDel(btn) {
 var TP_STATUS_LIST = ['활동중', '비활동', '퇴사'];
 /** 필터 드롭다운에서 「🙈 안보임」이 쓰는 값. 이 값은 서버로 status 로 가지 않는다. */
 var TP_STATUS_HIDDEN_FILTER = '__hidden__';
+
+/** 「지금 수업을 맡을 수 있는 강사인가」 — 서버 정본 `isActiveTeacherStatus`(src/teacher-status.ts)와
+ *  **같은 규칙**이어야 한다(하니스가 두 함수를 나란히 돌려 대조한다).
+ *  ⚠️ NULL·빈 값은 «활동중» 이다 — 옛 행에는 상태 칸이 아예 없어서, 모르면 «막지 않는» 쪽으로 실패한다.
+ *     여기서 false 로 떨어뜨리면 상태를 한 번도 안 만진 강사 전원의 버튼이 흐려진다. */
+function _tpIsWorking(status) {
+  if (status === null || status === undefined) return true;
+  var s = String(status).trim();
+  if (!s) return true;
+  /* ⚠️ 옛 별칭을 빠뜨리면 «재직» 으로 저장된 강사가 통째로 흐려진다 —
+     정본 TEACHER_STATUS_ALIAS 와 같은 표다(하니스가 두 함수를 돌려 대조한다). */
+  var alias = { '재직': '활동중', 'active': '활동중', 'inactive': '비활동', 'resigned': '퇴사' };
+  var canon = (s === '활동중' || s === '비활동' || s === '퇴사') ? s
+            : (alias[s] || alias[s.toLowerCase()] || '');
+  return canon === '활동중';
+}
+window._tpIsWorking = _tpIsWorking;
 
 var _tpStMenu = null;      // 열려 있는 메뉴 element
 var _tpStUndoT = null;     // 되돌리기 토스트 타이머

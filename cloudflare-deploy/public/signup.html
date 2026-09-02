@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 학습 시작하기 — 망고아이</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#0a1530" />
+<!--
+  🎓 학생 자가가입 — AI 학습도구만 쓰는 학생의 입구 (2026-09-02, 1단계 배선)
+
+  [왜 이 화면이 생겼나]
+    자가가입 API(`POST /api/student/register`)는 오래전부터 완성돼 있었는데
+    **그것을 부르는 화면이 저장소에 한 곳도 없었다.** 그래서 실제 가입자가 0명이었고
+    (2026-09-02 D1 실측: source='self_signup' 학생 0명), 화상수업을 안 하는 학생은
+    아이디를 받을 길이 아예 없었다. 이 화면이 그 입구다.
+
+  [⛔ 새 로그인 규칙을 만들지 않는다]
+    검증(아이디 4~20자·영숫자/언더바, 비번 4자 이상)은 서버가 정본이고 여기는
+    같은 말을 미리 보여 줄 뿐이다. 최종 판정은 언제나 서버다.
+    성공하면 로그인과 «똑같은» 모양({ok, token, user})이 오므로 저장도 똑같이 한다
+    — localStorage `mangoi_logged_user` + `mango_token`.
+
+  [⚠️ 비밀번호를 반드시 받는다]
+    이 서비스는 학생 29,462명 중 비밀번호가 설정된 사람이 1명뿐이라, 지금은 사실상
+    「아이디를 아는 것 = 로그인」이다. 밖에서 누구나 가입하는 문을 여는 이상
+    여기서 만든 계정만큼은 비밀번호가 있어야 한다(서버도 필수로 받는다).
+
+  [⚠️ 아이디 칸의 세 속성은 장식이 아니다]
+    autocapitalize/autocorrect/spellcheck 를 끄지 않으면 폰 키보드가 첫 글자를
+    대문자로 바꾸고 자동고침이 아예 딴 낱말로 바꿔 놓는다(CLAUDE.md 로그인 함정).
+-->
+<style>
+  :root{ --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
+         --accent:#fbbf24; --good:#34d399; --bad:#f87171; --border:rgba(251,191,36,.22); }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+  .top{display:flex;align-items:center;gap:10px;padding:14px 18px;background:rgba(20,33,59,.95);
+    position:sticky;top:0;z-index:10;border-bottom:1px solid var(--border)}
+  .top a.back{color:var(--text);text-decoration:none;font-weight:800;font-size:15px;
+    padding:6px 12px;border:1px solid var(--border);border-radius:999px;line-height:1.2;white-space:nowrap}
+  /* ⚠️ min-width 를 두면 좁은 폭에서 그 값이 이겨 아래 padding-right 예약을 넘어간다
+     (320px 에서 제목 글자가 전역바 밑으로 847px² 뻗었다 — 2026-09-02 실측).
+     0 으로 두면 두 줄로 접힐 뿐 가려지지 않는다. */
+  .top h1{margin:0;font-size:17px;font-weight:900;flex:1 1 auto;min-width:0;line-height:1.3}
+  /* 🏠 공용 전역바(#mangoi-global-bar)가 오른쪽 위에 겹쳐 뜬다. 제목이 flex:1 이라 그 밑까지
+     뻗어 좁은 폭에서 글자가 가려졌다(실측 320px KO · 390px EN). 그만큼 자리를 비워 둔다.
+     ⛔ 숫자를 박지 않는다 — 바 내용이 바뀌면 그대로 어긋난다. 아래 JS 가 재서 넣는다. */
+  .top{padding-right:calc(18px + var(--gbar-w, 96px))}
+  .wrap{max-width:520px;margin:0 auto;padding:20px 16px 60px}
+  .lead{font-size:14.5px;color:var(--text2);line-height:1.65;margin:0 0 18px}
+  .lead .hi{color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 20px}
+  label{display:block;font-size:13px;font-weight:800;margin:14px 0 6px;color:var(--text)}
+  label:first-of-type{margin-top:0}
+  .hint{font-weight:600;color:var(--text2);font-size:12px;margin-left:4px}
+  input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+    border-radius:10px;color:var(--text);padding:12px 14px;font-size:16px;font-family:inherit;outline:none;line-height:1.3}
+  input:focus{border-color:var(--accent)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row>div{min-width:0}
+  @media (max-width:430px){ .row{grid-template-columns:1fr} }
+  button.go{width:100%;margin-top:20px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3b2708;
+    border:0;border-radius:12px;padding:15px;font-size:16.5px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1.3}
+  button.go:disabled{opacity:.55;cursor:default}
+  .msg{min-height:22px;margin-top:12px;font-size:13.5px;font-weight:700;line-height:1.55}
+  .msg.err{color:var(--bad)}
+  .msg.ok{color:var(--good)}
+  .foot{margin-top:18px;font-size:13px;color:var(--text2);text-align:center;line-height:1.7}
+  .foot a{color:var(--accent);font-weight:800}
+  .done{display:none;text-align:center;padding:8px 0 4px}
+  .done .big{font-size:19px;font-weight:900;margin-bottom:8px;line-height:1.4}
+  .done .lv{display:inline-block;margin:10px 0 4px;padding:8px 16px;border-radius:999px;
+    background:rgba(251,191,36,.14);border:1px solid var(--border);font-weight:900;font-size:15px}
+</style>
+</head>
+<body>
+<div class="top">
+  <!-- ⬅️ 판정은 back-nav.js 의 정본(window.mangoiGoBack)을 쓴다. href 는 그것이 아직
+       안 실렸을 때의 폴백이다 — href="#" 로 두면 무반응 = 「버튼이 고장났다」가 된다. -->
+  <a class="back" href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack('/');}"
+     data-ko="← 뒤로" data-en="← Back">← 뒤로</a>
+  <h1 data-ko="AI 학습 시작하기" data-en="Start AI Learning">AI 학습 시작하기</h1>
+</div>
+
+<div class="wrap">
+  <!-- ⛔ data-ko/data-en 안에 태그를 넣지 말 것 — i18n 엔진이 그 요소의 textContent 를
+       통째로 갈아끼우므로 «<b>» 가 글자 그대로 화면에 드러난다(2026-09-02 실측으로 잡음).
+       강조가 필요하면 그 조각을 «별도 요소» 로 떼고 각자 data-ko/data-en 을 단다. -->
+  <p class="lead">
+    <b class="hi" data-ko="AI 학습 도구" data-en="AI learning tools">AI 학습 도구</b><span id="sg-lead" data-ko="만 쓰는 계정을 만듭니다 — 화상수업은 없어도 됩니다. 웜업 대화·판단력 훈련·음성코치·AI 글쓰기·복습퀴즈를 바로 쓸 수 있어요." data-en=" only — no video class needed. Warm-up chat, decision training, voice coach, AI writing and review quizzes are ready right away.">만 쓰는 계정을 만듭니다 — 화상수업은 없어도 됩니다. 웜업 대화·판단력 훈련·음성코치·AI 글쓰기·복습퀴즈를 바로 쓸 수 있어요.</span>
+  </p>
+
+  <div class="card" id="sg-form">
+    <label for="sg-uid" data-ko="아이디" data-en="Username">아이디</label>
+    <input id="sg-uid" type="text" inputmode="latin" autocomplete="username"
+           autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="20" />
+    <div class="hint" id="sg-uid-hint" data-ko="영문·숫자·밑줄(_) 4~20자" data-en="Letters, numbers, underscore — 4 to 20 characters">영문·숫자·밑줄(_) 4~20자</div>
+
+    <label for="sg-pw" data-ko="비밀번호" data-en="Password">비밀번호</label>
+    <input id="sg-pw" type="password" autocomplete="new-password" maxlength="64" />
+    <div class="hint" id="sg-pw-hint" data-ko="4자 이상" data-en="At least 4 characters">4자 이상</div>
+
+    <label for="sg-pw2" data-ko="비밀번호 확인" data-en="Confirm password">비밀번호 확인</label>
+    <input id="sg-pw2" type="password" autocomplete="new-password" maxlength="64" />
+
+    <label for="sg-name" data-ko="학생 이름" data-en="Student name">학생 이름</label>
+    <input id="sg-name" type="text" autocomplete="name" maxlength="40" />
+
+    <div class="row">
+      <div>
+        <label for="sg-phone" data-ko="학부모 연락처 (선택)" data-en="Guardian phone (optional)">학부모 연락처 (선택)</label>
+        <input id="sg-phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" />
+      </div>
+      <div>
+        <label for="sg-age" data-ko="나이 (선택)" data-en="Age (optional)">나이 (선택)</label>
+        <input id="sg-age" type="text" inputmode="numeric" maxlength="3" />
+      </div>
+    </div>
+
+    <label for="sg-email" data-ko="이메일 (선택)" data-en="Email (optional)">이메일 (선택)</label>
+    <input id="sg-email" type="email" autocomplete="email" maxlength="120" />
+
+    <button class="go" id="sg-go" type="button" data-ko="가입하고 시작하기" data-en="Sign up and start">가입하고 시작하기</button>
+    <div class="msg" id="sg-msg" role="status" aria-live="polite"></div>
+  </div>
+
+  <div class="card done" id="sg-done">
+    <div class="big" id="sg-done-title" data-ko="🎉 가입이 끝났어요!" data-en="🎉 You're all set!">🎉 가입이 끝났어요!</div>
+    <div class="lead" id="sg-done-lead" data-ko="이제 레벨테스트를 보면 학습 수준에 맞는 문장으로 연습할 수 있어요." data-en="Take the level test so the AI tools can match sentences to your level.">이제 레벨테스트를 보면 학습 수준에 맞는 문장으로 연습할 수 있어요.</div>
+    <button class="go" id="sg-lt" type="button" data-ko="🎯 레벨테스트 보러 가기" data-en="🎯 Take the level test">🎯 레벨테스트 보러 가기</button>
+    <div class="foot"><a href="/" data-ko="나중에 할래요 — 홈으로" data-en="Later — go home">나중에 할래요 — 홈으로</a></div>
+  </div>
+
+  <div class="foot" id="sg-foot" data-ko="이미 아이디가 있나요? 홈에서 로그인하세요." data-en="Already have an account? Log in from the home screen.">이미 아이디가 있나요? 홈에서 로그인하세요.</div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  function $(id){ return document.getElementById(id); }
+  function isEn(){ try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){ return false; } }
+  function T(ko, en){ return isEn() ? en : ko; }
+
+  /* placeholder 는 data-ko/data-en 으로 못 바꾼다 — 그 두 속성은 «본문(textContent) 갈아끼우기» 라
+     input 에 달면 안 되고, 달아도 placeholder 는 안 건드린다. 그래서 여기서 직접 칠한다. */
+  function paintPlaceholders(){
+    $('sg-uid').placeholder   = T('예: mango123', 'e.g. mango123');
+    $('sg-pw').placeholder    = T('4자 이상', 'At least 4 characters');
+    $('sg-pw2').placeholder   = T('한 번 더', 'Type it again');
+    $('sg-name').placeholder  = T('예: 김망고', 'e.g. Mango Kim');
+    $('sg-phone').placeholder = T('010-0000-0000', '010-0000-0000');
+    $('sg-age').placeholder   = T('예: 10', 'e.g. 10');
+    $('sg-email').placeholder = T('선택 입력', 'Optional');
+  }
+  paintPlaceholders();
+  /* 🌐 이 이벤트는 화면마다 발행처가 다르다(관리자는 document, 공용 엔진은 window).
+     둘 다 듣는다 — 중복 호출은 다시 칠하기만 하므로 무해하다. */
+  window.addEventListener('mangoi:lang-changed', paintPlaceholders);
+  document.addEventListener('mangoi:lang-changed', paintPlaceholders);
+
+  function say(text, kind){
+    var m = $('sg-msg');
+    m.textContent = text || '';
+    m.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  /* 서버와 «같은 말» 을 미리 보여 준다. 최종 판정은 서버다 —
+     여기서 통과해도 서버가 거절하면 그 메시지를 그대로 보여 준다. */
+  function localCheck(v){
+    if (!v.uid || v.uid.length < 4 || v.uid.length > 20) return T('아이디는 4~20자여야 합니다.', 'Username must be 4-20 characters.');
+    if (!/^[a-zA-Z0-9_]+$/.test(v.uid)) return T('아이디는 영문·숫자·밑줄(_)만 쓸 수 있습니다.', 'Username can only contain letters, numbers and underscore.');
+    if (!v.pwd || v.pwd.length < 4) return T('비밀번호는 4자 이상이어야 합니다.', 'Password must be at least 4 characters.');
+    if (v.pwd !== v.pwd2) return T('비밀번호가 서로 다릅니다.', 'The two passwords do not match.');
+    if (!v.name) return T('학생 이름을 입력해 주세요.', 'Please enter the student name.');
+    return '';
+  }
+
+  function submit(){
+    var v = {
+      uid: ($('sg-uid').value || '').trim(),
+      pwd: ($('sg-pw').value || '').trim(),
+      pwd2: ($('sg-pw2').value || '').trim(),
+      name: ($('sg-name').value || '').trim(),
+      phone: ($('sg-phone').value || '').trim(),
+      email: ($('sg-email').value || '').trim(),
+      age: ($('sg-age').value || '').trim()
+    };
+    var bad = localCheck(v);
+    if (bad) { say(bad, 'err'); return; }
+
+    var btn = $('sg-go');
+    btn.disabled = true;
+    say(T('가입하는 중…', 'Signing up…'), '');
+
+    fetch('/api/student/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: v.uid, password: v.pwd, name: v.name, phone: v.phone, email: v.email, age: v.age })
+    })
+    .then(function(r){ return r.json().catch(function(){ return {}; }); })
+    .then(function(d){
+      /* ⚠️ 「실패라고 말했는가」가 아니라 «성공이라고 말했는가» 로 판정한다.
+         관문이 빠지면 종단 404 본문에 ok 칸이 아예 없어서(`{error:'Not Found'}`)
+         `d.ok === false` 검사는 그냥 통과해 버린다(CLAUDE.md 「새 API 추가」 함정). */
+      if (d && d.ok === true && d.token) {
+        try { localStorage.setItem('mango_token', d.token); } catch(e){}
+        try {
+          var u = (d.user || {});
+          localStorage.setItem('mangoi_logged_user', JSON.stringify({
+            uid: u.user_id || v.uid, name: u.user_name || v.name, role: 'student'
+          }));
+        } catch(e){}
+        $('sg-form').style.display = 'none';
+        $('sg-foot').style.display = 'none';
+        $('sg-done').style.display = 'block';
+        return;
+      }
+      btn.disabled = false;
+      say((d && d.message) || T('가입하지 못했습니다. 잠시 뒤 다시 시도해 주세요.', 'Sign-up failed. Please try again in a moment.'), 'err');
+    })
+    .catch(function(){
+      btn.disabled = false;
+      say(T('연결이 끊겼어요. 인터넷을 확인하고 다시 시도해 주세요.', 'Connection failed. Check your internet and try again.'), 'err');
+    });
+  }
+
+  $('sg-go').addEventListener('click', submit);
+  /* 엔터로도 보낼 수 있게 — 폰에서 «완료» 를 눌렀는데 아무 일도 안 일어나면 고장으로 읽힌다. */
+  ['sg-uid','sg-pw','sg-pw2','sg-name','sg-phone','sg-age','sg-email'].forEach(function(id){
+    $(id).addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  });
+  $('sg-lt').addEventListener('click', function(){ location.href = '/level-test-ai.html'; });
+
+  /* 🏠 전역바 폭을 재서 제목이 그 밑으로 뻗지 않게 한다.
+     ⚠️ 그 바는 mango-i18n.js(defer)가 «나중에» 만든다 — 지금 재고, 잠시 뒤 한 번 더 잰다.
+     ⛔ 상주 MutationObserver·setInterval 금지(홈을 통째로 멎게 한 전력). 끝이 있는 확인만. */
+  function fitGlobalBar(){
+    var bar = document.getElementById('mangoi-global-bar');
+    if (!bar) return;
+    var w = Math.round(bar.getBoundingClientRect().width);
+    if (w > 0) document.documentElement.style.setProperty('--gbar-w', w + 'px');
+  }
+  fitGlobalBar();
+  [300, 900, 1800].forEach(function(ms){ setTimeout(fitGlobalBar, ms); });
+  window.addEventListener('resize', fitGlobalBar);
+})();
+</script>
+<script defer src="/js/back-nav.js"></script>
+<script src="/js/mango-i18n.js" defer></script>
+</body>
+</html>
