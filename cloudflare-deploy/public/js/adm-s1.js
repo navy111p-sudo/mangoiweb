@@ -41,7 +41,7 @@
      한 번 클릭으로 참관. UID 는 로그인 세션에서, 사유는 사유 칸에 글이 있으면 그 글로,
      비어 있으면 자동 문구로 감사 로그에 남긴다(기록 없이 들어가지 않는다 — 학생 사생활 보호 정책 그대로).
      기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선 — adm-core observeRoom 과 같은 판단).
-     새 탭으로 열리므로 여러 수업을 동시에 참관할 수 있다(방마다 참관 동시 2명 제한은 서버 그대로). */
+     새 탭으로 열리므로 여러 수업을 동시에 참관할 수 있다(방마다 참관 동시 4명 제한은 서버 그대로 — 정본은 video-call-room.ts 의 OBSERVER_MAX). */
   window.ghQuickObserve = function(roomId){
     const en = _ghIsEn();
     const uid = _ghMyUid();

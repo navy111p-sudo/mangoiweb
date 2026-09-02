@@ -687,12 +687,29 @@ export class VideoCallRoom {
        offer/answer/ice 릴레이는 joined 를 요구하지 않는다(실측). 참가자 화면에는 타일이
        생기지 않는다(참관자가 트랙을 안 보내 ontrack 이 안 불림).
      · 수신 전용이라도 mesh 라 참가자(특히 필리핀 강사)의 «업로드»가 참관자 수만큼 늘어난다
-       → 동시 참관 2명까지만 받는다(초과는 room-full).
+       → 동시 참관 인원에 상한을 둔다(초과는 room-full).
+     📌 (2026-09-02) 2 → 4 로 올렸다 — 그날 사장님이 대화로 「A > B > C 순서대로 모두」를 지시.
+        ⚠️ 그 승인은 «저장소 밖» 사실이라 여기서 확인할 방법이 없다. 근거는 그 대화와 제안서뿐이다.
+        근거와 안전장치를 함께 적는다.
+        [왜 2 가 모자랐나] 관제탑(수업 관제탑 · 순회 참관)이 생기면서 «사장님 + 한국 매니저 +
+          필리핀 매니저» 가 동시에 보는 자리가 실제로 생겼고, 죽은 참관 소켓 하나가 2자리 중
+          한 자리를 먹으면 그 순간 실질 1명이 된다(그래서 아래 liveness 청소가 붙어 있다).
+        [왜 무한이 아닌가] 참관자 한 명 = 방 안 «각자»의 업로드 한 갈래다. PC 상한 1,200kbps
+          기준으로 참관자 4명이면 강사 업로드가 최대 4.8Mbps 늘어난다 — 필리핀 회선에서는
+          그 자체가 수업을 깬다. 무한 참관은 mesh 로 풀 수 없고 SFU 가 필요하다(C 안).
+        [무엇으로 안전을 «실제로» 벌었나 — 과장하지 않는다]
+          ① 관제탑이 «관찰 N/4» 를 본문 글자로 보여 주고, 정원이 차면 참관 버튼을 아예 못 누르게 한다.
+          ② 이미 2명 이상이면 🎧 소리만 을 **권한다** — 버튼 강조가 바뀌는 것이지 누르는 동작이
+             저절로 바뀌지는 않는다(사람이 여전히 «👁 참관» 을 고를 수 있다).
+          ③ **순회 참관 창만은 자동으로** 소리만(`&audio=1`)으로 붙는다 — 그건 사람이 고르는
+             자리가 아니라 창 하나가 계속 도는 것이라 우리가 정해도 된다.
+          소리만 참관자는 video transceiver 가 inactive 라(영상이 «오지 않는다») 업로드를 거의 안 늘린다.
+          ⚠️ 그 선택은 «입장할 때» 정해진다(재협상이 없다) — 그래서 관제탑에서 고른다.
      ⚠️ role 은 클라이언트 신고값이라 보안 경계가 아니다 — join-room 과 같은 전제.
         (감사 기록은 관리자 화면이 /api/admin/ghost/start 로 별도 남긴다.
          강화하려면 ghost/start 가 발급한 단기 토큰을 여기서 검증하는 구조가 필요) */
   private handleJoinObserve(ws: WebSocket, userId: string, data: any): void {
-    const OBSERVER_MAX = 2;
+    const OBSERVER_MAX = 4;   // ⚠️ 올릴 때는 위 주석의 «업로드 한 갈래» 계산을 다시 하세요
     // 정원 판정과 관리자 표의 «(관찰 N)» 이 같은 셈법을 쓰도록 helper 하나로 모았다.
     const observers = this.observerCount(ws);
     if (observers >= OBSERVER_MAX) {
@@ -709,7 +726,10 @@ export class VideoCallRoom {
 
     // 참가자 입장(join-room)과 같은 회신 묶음 — 단, 방송은 하나도 하지 않는다(유령).
     const users = this.joinedUsers();
-    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true } });
+    /* 👁 observers / observerMax — 참관 화면이 «지금 몇 명이 보고 있나» 를 알 수 있게 함께 보낸다.
+       (2026-09-02) 상한을 4 로 올리면서 붙였다. 화면은 이 값으로 «회선 부담» 을 안내할 수 있고,
+       관제탑은 /api/active-rooms 의 observerCount 로 «들어가기 전에» 같은 것을 판단한다. */
+    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
     this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
     if (this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
     if (this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });

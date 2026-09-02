@@ -53,6 +53,7 @@ npx wrangler@latest secret put 이름 --env production
 | 주소 | `PUBLIC_BASE_URL` | 외부 콜백용 기본 URL | |
 | LiveKit | `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` `LIVEKIT_URL` | LiveKit 화상 (보조) | |
 | TURN | `TURN_KEY_ID` `TURN_KEY_API_TOKEN` | Cloudflare TURN (화상 연결 중계) | ✅ **`-prod` 에 둘 다 등록 확인**(2026-08-26 대시보드 실측). 그런데도 24시간 넘게 발급이 실패한 구간이 있었습니다 → 아래 「TURN 경로 확인」 |
+| SFU | `REALTIME_APP_ID` `REALTIME_APP_TOKEN` | Cloudflare Realtime SFU (참관 팬아웃 — C안) | ⛔ **아직 등록하지 않았습니다(2026-09-02).** 없으면 `/api/class/sfu/*` 가 `{ok:true,enabled:false}` 만 돌려주고 **바깥으로 요청을 한 번도 안 보냅니다** — 서비스 동작이 안 바뀝니다. 켜는 절차는 아래 「Realtime SFU」 |
 | 알림톡 | `SOLAPI_API_KEY` `SOLAPI_API_SECRET` `SOLAPI_FROM_PHONE` `SOLAPI_PFID` | SOLAPI 카카오 알림톡/SMS | |
 | 알림톡 | `SOLAPI_TEST_MODE` `AUTO_ALIMTALK` `ALIMTALK_TRACK` | 발송 on/off 스위치 | 미발송 시 1순위 확인 |
 | 알림톡 템플릿 | `SOLAPI_TEMPLATE_ABSENCE` `_ATTENDANCE_RISK` `_CHAT_SUMMARY` `_LESSON_END` `_LESSON_START` `_MENTION` `_PAYMENT_OVERDUE` | 승인된 템플릿 ID 7종 | |
@@ -216,6 +217,59 @@ npx wrangler secret put TURN_KEY_API_TOKEN --env production
 `.env` 파일(서버에만 존재, git에 없음): `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `INGEST_TOKEN` 등. 상세는 [instructor-dashboard-api/README.md](../instructor-dashboard-api/README.md).
 
 ---
+
+## Realtime SFU (참관 팬아웃 — C안, 2026-09-02 현재 **꺼짐**)
+
+### 지금 상태
+
+서버 쪽 «자격증명 경계» 만 들어가 있습니다(`src/realtime-sfu.ts` · `POST /api/class/sfu/*`).
+**시크릿이 없으면 아무 일도 일어나지 않습니다** — `{ ok:true, enabled:false }` 를 돌려주고
+`rtc.live.cloudflare.com` 을 한 번도 부르지 않습니다(`realtime_sfu_gate_harness` 가 못 박습니다).
+브라우저 쪽 코드는 **아직 없습니다.**
+
+### ⚠️ 켜기 전에 알아야 할 것 — 지금 켜도 달라지는 것이 없습니다
+
+브라우저가 SFU 에 연결하는 코드를 아직 쓰지 않았습니다. 일부러 그랬습니다 —
+이 환경은 프록시가 `rtc.live.cloudflare.com` 을 막고 시크릿도 없어서 **실제 SFU 와
+한 번도 맞춰 보지 못했습니다.** 검증 못 한 WebRTC 코드를 수업 경로에 올리는 것은
+이 저장소가 겪은 최악의 사고 유형입니다(홈 전체 정지 2회).
+
+### 켜는 절차 (사람이 합니다)
+
+1. Cloudflare 대시보드 → **Realtime** → SFU 앱 생성 → `App ID` 와 `App Token` 확보
+2. **워커 두 벌 모두**에 넣습니다 (`wrangler.toml` 이 두 벌을 배포합니다):
+
+```bash
+npx wrangler secret put REALTIME_APP_ID
+npx wrangler secret put REALTIME_APP_TOKEN
+npx wrangler secret put REALTIME_APP_ID     --env production
+npx wrangler secret put REALTIME_APP_TOKEN  --env production
+```
+
+3. 켜졌는지 확인 — 관리자 세션으로:
+
+```bash
+curl -sS -X POST https://mangoi.ai/api/class/sfu/session-new \
+  -H 'Content-Type: application/json' --cookie 'mangoi_admin_session=...' \
+  -d '{"room_id":"demo-1","payload":{}}'
+```
+
+`{"ok":true,"enabled":false,...}` 면 아직 꺼진 것이고, `enabled:true` 면 켜진 것입니다.
+
+### 요금 (2026-09-02 Cloudflare 문서 확인)
+
+- SFU egress **$0.05/GB**, 월 **1,000GB 무료**, 클라이언트→CF 인그레스 **무료**
+- **TURN 과 합산해 한 줄로 청구**됩니다 — 지금 쓰고 있는 TURN 사용량이 그 1,000GB 를
+  이미 얼마나 쓰고 있는지는 **대시보드에서만 보입니다**(이 환경에서 못 쟀습니다)
+
+### ⛔ 착각하기 쉬운 것 — SFU 는 «녹화» 를 하지 않습니다
+
+Cloudflare 문서가 세 곳에서 명시합니다: WebRTC(WHIP) 방송은 녹화되지 않습니다
+(「WebRTC broadcasts cannot currently be recorded」·「Recording and live HLS playback are
+not yet supported」). Realtime SFU 에도 녹화 기능이 없습니다 — WebSocket 어댑터가
+PCM 오디오·JPEG 프레임을 흘려 줄 뿐이라 인코딩은 우리가 해야 하는데 Worker 에서는 불가입니다.
+합성 녹화가 있는 것은 **RealtimeKit** 이고, 그건 화상수업 스택 전체를 그 SDK 로
+갈아 끼우는 일입니다(제안서의 D안).
 
 ## 새 시크릿을 추가할 때 규칙
 

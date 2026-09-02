@@ -4610,7 +4610,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s1.js?v=9" defer></script><!-- 분할추출:adm-s1 --><!-- v=9: 예약 목록에 수강신청 수업도 함께 — 참관 버튼을 live_room 이 아니라 observable 로 가름 (2026-09-01) -->
+<script src="/js/adm-s1.js?v=10" defer></script><!-- 분할추출:adm-s1 --><!-- v=10: 참관 정원 2 → 4 (주석 정정, 2026-09-02) --><!-- v=9: 예약 목록에 수강신청 수업도 함께 — 참관 버튼을 live_room 이 아니라 observable 로 가름 (2026-09-01) -->
 
 <!-- 🔐 Phase RT-2 — 화상강의실 초대 관리 (JWT 입장 토큰) -->
 <details class="table-card menu-card" id="card-room-invite">
@@ -9976,7 +9976,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=195" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=196" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=196: 2026-09-02 퇴사·비활동 강사의 «수업입장 🎥 · 수업관찰 👁» 을 흐리게(.tp-act--dim).
+     판정은 서버 정본 isActiveTeacherStatus 와 같은 규칙인 _tpIsWorking 하나 — 별칭 「재직」까지 맞춘다.
+     ⚠️ 병렬 작업이 같은 v=195 를 «다른 내용» 으로 먼저 썼기 때문에 번호를 비켜 간 것이다
+        (같은 번호에 두 내용이 실리면 immutable 캐시에 옛 파일이 남는다)
+   · v=195: 2026-09-02 참관 정원 2 → 4 (주석 정정). 병렬 작업과 번호가 겹쳐 190 을 비켜 갔다(배포된 적 없음)
    · v=194: 2026-09-01 「🔴 실시간 수업 현황」의 예약 줄에 수강신청 수업도 함께 뜬다.
      참관 버튼은 live_room 이 아니라 observable 로 가른다 — 망고아이 방은 결정론적이라
      아무도 안 붙어도 참관된다(카페24 줄은 방이 없어 그대로 버튼 없음). 판정 정본은
