@@ -324,7 +324,11 @@ export function planMirror(
           같은 강사·같은 길이로 이미 있으면 그대로 already(O-5 규칙: 지난 일을 되짚지 않는다).
        ⚠️ 이력이 비어 있으면(slotSeen 이 빈 Map) 2-b) 와 같은 이유로 통째로 건너뛴다.
        감시: test-harness/c24_mirror_harness.mjs O-12(순서를 바꿔 두 번 돌려 같은 답이 나오는지). */
-    const rivals = perSlot.get(`${uid}|${date}|${time}`);
+    /* 🚪 퇴사 강사(leftTeacherId)의 예약은 경합에서 뺀다 — 그 예약은 정의상 잔재인데 이력이 제일 많다.
+       2026-09-02 18:00 실측: 이경록 16:50 = Mariane(퇴사, 4회) · Kaye(2회) · Len(1회) 에서 Mariane 이 «이겨»
+       진짜(Kaye)까지 져서 행이 Len 에 남았다(trap-check 가 아니라 배포 뒤 첫 회차가 잡음). */
+    const rivalsAll = perSlot.get(`${uid}|${date}|${time}`);
+    const rivals = rivalsAll ? new Set([...rivalsAll].filter(t => !links.get(t)?.leftTeacherId)) : undefined;
     let contestLoser = false;
     let contestDetail = '';
     if (slotSeen.size > 0 && rivals && rivals.size > 1) {
