@@ -11470,7 +11470,10 @@ window.refreshStorageStats = async function () {
       if (fv) fv.style.color = (d.d1.failed > 0) ? '#b91c1c' : '';
 
       _rsPut('rs-rec-expiring', n(d.d1.expiring30d));
-      var eKo = '건 · 보관기간 만료', eEn = 'rows · retention expired';
+      /* ⚠️ 이 타일은 «아직 만료 안 됐고 30일 안에 만료될» 건수다(src/index.ts 의 expiring 집계).
+   «이미 만료» 로 적으면 라벨(30일 내 만료)과 정반대를 말하게 된다.
+   그리고 보관기간이 기존 3개월·신규 6개월로 섞여 있어 숫자를 적으면 어느 쪽이든 거짓이다. */
+      var eKo = '건 · 곧 만료', eEn = 'rows · expiring soon';
       _rsPut('rs-rec-expiring-u', en ? eEn : eKo, eKo, eEn);
     } else {
       ['rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
