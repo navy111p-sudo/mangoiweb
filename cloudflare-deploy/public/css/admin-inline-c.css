@@ -9956,3 +9956,18 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #card-teacher-mgmt .tr-st-badge.tr-st-active   { background-color: #dcfce7 !important; color: #166534 !important; }
 #card-teacher-mgmt .tr-st-badge.tr-st-inactive { background-color: #fee2e2 !important; color: #991b1b !important; }
 #card-teacher-mgmt .tr-st-badge.tr-st-unknown  { background-color: #fef3c7 !important; color: #854d0e !important; }
+
+
+/* ⏮ 녹화 일괄 복원 버튼 (2026-09-02)
+   ⚠️ `details.menu-card button{...!important}` 전역 룰이 인라인 style 을 이기므로
+      조상 id 를 앞에 붙여 되살린다(이 파일의 #tp-list-table·#en-multi-table 선례와 같은 방식).
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙에 다시 걸린다. */
+#rec-search-bar button.rec-restore-bulk{
+  background:#fff7ed !important; background-image:none !important;
+  color:#9a3412 !important; border:1px solid #fdba74 !important;
+  padding:6px 12px !important; font-size:13px !important; font-weight:700 !important;
+  border-radius:6px !important; box-sizing:border-box; cursor:pointer;
+}
+#rec-search-bar button.rec-restore-bulk:hover{ background:#ffedd5 !important; }
+#rec-search-bar button.rec-restore-bulk[disabled]{ opacity:.6; cursor:default; }
+#rec-restore-result{ width:100%; font-size:12.5px; line-height:1.6; color:#374151; }

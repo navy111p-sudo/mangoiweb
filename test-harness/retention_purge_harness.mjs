@@ -194,6 +194,27 @@ console.log('\n⑩ /api/retention/run 게이트 — 되돌릴 수 없는 삭제�
   ok('isOrgScopedRole 이 import 되어 있다', /import \{[^}]*isOrgScopedRole[^}]*\} from '\.\/auth-admin'/.test(IDX));
 }
 
+console.log('\n⑪ 일괄 «되살리기» — 판정을 복제하지 않고 서버 단건 복원을 부른다');
+{
+  const CORE = readFileSync('cloudflare-deploy/public/js/adm-core.js', 'utf8');
+  const i = CORE.indexOf('recRestoreExpiredBulk');
+  const fn = i >= 0 ? CORE.slice(i, CORE.indexOf('\n};', i) + 3) : '';
+  ok('함수가 최상위에 선언되어 있다', /window\.recRestoreExpiredBulk\s*=/.test(CORE),
+     '다른 함수 안에 넣으면 onclick 에서 ReferenceError 다');
+  ok('서버 단건 복원을 부른다', /\/api\/recordings\/' \+ t\.id \+ '\/status/.test(fn) && /'PATCH'/.test(fn));
+  ok('화면에서 R2 실물 판정을 다시 하지 않는다',
+     !/\.head\(/.test(fn) && !/RECORDINGS/.test(fn),
+     '판정이 두 벌이 되면 서버와 어긋난다');
+  ok('«성공이라고 말했는가» 로 판정한다 (ok === true)',
+     /ld\.ok !== true/.test(fn) && /pd\.ok === true/.test(fn),
+     '404 본문에는 ok 칸이 없어 ok === false 검사는 그냥 통과한다');
+  ok('만료가 남은 행만 대상으로 삼는다', /expires_at\) > now/.test(fn));
+  ok('file_gone 을 «실패» 로 세지 않는다', /'file_gone'\) gone\+\+/.test(fn.replace(/\s/g, m => m === '\n' ? '\n' : ' ')) || /file_gone/.test(fn) && /gone\+\+/.test(fn));
+  ok('버튼이 화면에 있고 그 함수를 가리킨다',
+     /id="rec-restore-bulk"/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')) &&
+     /recRestoreExpiredBulk\(\)/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')));
+}
+
 console.log('\n⑨ 정본 밖에서 R2 를 지우지 않는다');
 {
   const others = ['cloudflare-deploy/src/recordings-cleanup.ts'];
