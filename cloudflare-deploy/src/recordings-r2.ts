@@ -337,11 +337,25 @@ export async function handleRecordingUpload(
 
     if (failReason) {
       console.error(`[recordings-r2] upload/complete 실패 recording_id=${b.recording_id} key=${b.key}: ${failReason}`);
-      // 이미 '완료'로 확정된 행은 절대 실패로 강등하지 않는다(늦게 도착한 중복 요청 방어)
+      /* 🔴 (2026-09-02) 예전엔 여기서 status·storage «만» 적었다. 그래서 실패한 녹화는
+         ended_at 이 비고 duration_ms 가 0 으로 남았다 — D1 실측 73건 중 «전부» 가 그랬다.
+         두 가지가 함께 망가진다:
+         ① 관리자 화면이 «몇 분짜리 수업을 잃었는지» 를 말할 수 없다(잃은 크기를 모른다).
+         ② duration_ms 가 0 이면 나중에 도착하는 /api/recordings/stop 의 nothingRecorded
+            판정이 «없던 일(aborted)» 쪽으로 기울고, 목록은 «aborted + size 0» 을 통째로
+            감추므로 **진짜 잃어버린 수업이 «정상 정리분» 에 파묻힌다.**
+            (CLAUDE.md 2장 「정상 정리분 66% 에 진짜 저장 실패 76건이 파묻혔다」와 같은 뿌리)
+         → 실패해도 «무엇을 얼마나 잃었는지» 는 남긴다. 상태만 실패로 둔다.
+         ⚠️ 값을 «덮어쓰지» 않는다(COALESCE·MAX) — 이 경로는 beforeunload 비콘으로도 오고
+            늦게 도착한 중복 요청이 이미 적힌 값을 0 으로 지우면 안 된다. */
       await env.DB.prepare(
-        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
+        `UPDATE recordings
+            SET status = 'upload_failed', storage = 'r2_failed',
+                ended_at    = COALESCE(ended_at, ?),
+                duration_ms = MAX(COALESCE(duration_ms, 0), ?),
+                size_bytes  = MAX(COALESCE(size_bytes, 0), ?)
           WHERE id = ? AND status NOT IN ('completed','deleted')`
-      ).bind(b.recording_id).run();
+      ).bind(now, Math.max(0, Number(b.duration_ms) || 0), Math.max(0, Number(b.size_bytes) || 0), b.recording_id).run();
       // 🧹 이 행은 'upload_failed' 라 어느 경로도 스냅샷을 되살리지 않는다(되살리면 «앞부분만
       //   담긴 파일» 을 완성본인 척 내놓게 된다). 그러니 남겨 둘 이유가 없다 — 지운다.
       await dropSnapshot(env, b.key);

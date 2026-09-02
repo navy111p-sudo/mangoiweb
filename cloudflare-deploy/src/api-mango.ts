@@ -37,8 +37,9 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
-import { hiddenExcludeCond } from './student-override';
-import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
+import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -2151,6 +2152,56 @@ export async function handleMangoApi(
       return json({ ok: true, matched_by: msMatchedBy, schedules });
     }
 
+    /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══
+       [무엇] 참관 팬아웃을 서버(SFU)가 하게 만들려면 브라우저가 SFU 를 불러야 하는데,
+              앱 시크릿을 브라우저에 주면 안 된다. 그래서 워커가 신원·방을 확인하고 대신 부른다.
+       [지금 상태] ⛔ REALTIME_APP_ID · REALTIME_APP_TOKEN 시크릿이 없으면
+              { ok:true, enabled:false } 만 돌려주고 **바깥으로 요청을 한 번도 보내지 않는다.**
+              즉 켜기 전까지 서비스 동작은 그대로다. 브라우저 쪽 코드는 아직 없다(검증 불가).
+       [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅 허용목록에 **이미** 있다
+              (1271행 startsWith). 공동 금지구역을 한 줄도 안 고쳐도 된다.
+       ⚠️ 인증은 라우팅과 다른 것이다 — 여기서 «직접» 확인한다(CLAUDE.md 2장). */
+    if (method === 'POST' && path.startsWith('/api/class/sfu/')) {
+      const op = path.slice('/api/class/sfu/'.length);
+      const appId = (env as any).REALTIME_APP_ID as string | undefined;
+      const appToken = (env as any).REALTIME_APP_TOKEN as string | undefined;
+      /* ⚠️ 시크릿 검사를 여기서 «먼저» 하지 않는다 — 미로그인 호출자가 { enabled:false } 로
+         인프라 상태를 알아내지 못하게, 신원 확인 뒤 sfuProxy 안에서 판정한다(모듈 ①②). */
+      if (!Object.prototype.hasOwnProperty.call(SFU_OPS, op)) {
+        return json({ ok: false, enabled: true, error: 'unknown_op' }, 400);
+      }
+      const body = await request.json().catch(() => null) as any;
+      if (!body) return json({ ok: false, enabled: true, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰(mango_token) 또는 관리자 세션 쿠키. 둘 다 없으면 401.
+         ⛔ 본문에 적힌 uid 를 믿지 않는다(CLAUDE.md 2장 「본문 값을 그대로 쓰는 API」). */
+      let identity: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const tokUid = await authUidGlobal(request, new URL(request.url), env as any, body);
+        if (tokUid) identity = { uid: String(tokUid), kind: 'student' };
+      } catch {}
+      if (!identity) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) identity = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+
+      const r = await sfuProxy(
+        {
+          appId, appToken,
+          kv: (env as any).SESSION_STATE || null,
+          fetchImpl: (u, init) => fetch(u, init) as any,
+          identity,
+        },
+        op,
+        String(body.room_id || ''),
+        body.session_id ? String(body.session_id) : null,
+        body.payload,
+      );
+      return json(r.body, r.status);
+    }
+
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
     //   예약제 방(class-{id}-{YYYYMMDD})에 '남의 방'으로 잘못 입장하는 것을 서버가 검증.
     //   ▸ 정상 예약자(학생)·담당 교사·관리자는 통과. 예약을 못 찾거나 신원 불명이면 fail-open(통과)로 정상수업 방해 금지.
@@ -3924,8 +3975,8 @@ ${numbered}`;
          아무도 «안 올라갔다» 는 것을 알 수 없었다.
          → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
       const cur = await env.DB.prepare(
-        `SELECT file_url, status FROM recordings WHERE id = ?`
-      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+        `SELECT file_url, status, size_bytes, duration_ms FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null; size_bytes: number | null; duration_ms: number | null }>();
 
       // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
       // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
@@ -3943,14 +3994,34 @@ ${numbered}`;
          멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
       const provenMissing = headChecked && !headProven;
       const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
-      const nothingRecorded = !(Number(b.duration_ms) > 0) && !(Number(b.size_bytes) > 0);
+      /* 🔢 본문 값은 «숫자로 강제» 해서만 쓴다 — 아래 SQL 의 MAX() 보호가 숫자일 때만
+         성립하기 때문이다(자세한 이유는 UPDATE 문 위 주석). */
+      const stopDurMs = Math.max(0, Number(b.duration_ms) || 0);
+      const stopSizeB = Math.max(0, Number(b.size_bytes) || 0);
+
+      /* 🔴 (2026-09-02) «없던 일(aborted)» 판정은 클라이언트가 보낸 값만으로 하면 안 된다.
+         탭을 닫고 나가면 onstop 이 안 돌아 이 요청은 duration 0 · size 0 으로 온다.
+         그런데 그 사이 조각 업로드가 이미 size_bytes 를 적어 뒀을 수 있다(recordings-r2.ts
+         «업로드 중 size_bytes 갱신»). 그걸 안 보면 **진짜 찍힌 수업이 «없던 일» 로 분류되고**
+         목록이 «aborted + size 0» 을 통째로 감추므로 화면에서 사라진다.
+         → DB 에 이미 적힌 값도 함께 본다. 하나라도 0 보다 크면 «없던 일» 이 아니다. */
+      const recordedBytes = Math.max(stopSizeB, Number(cur?.size_bytes) || 0);
+      const recordedMs = Math.max(stopDurMs, Number(cur?.duration_ms) || 0);
+      const nothingRecorded = !(recordedMs > 0) && !(recordedBytes > 0);
       const fallbackStatus = (provenMissing || clientSaysFailed)
         ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
         : 'completed';
 
+      /* ⚠️ duration_ms·size_bytes 를 «덮어쓰지» 않는다(MAX) — 이 요청이 0 으로 와도
+         조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다.
+         🔴 그런데 그 보호는 **바인드가 «숫자» 일 때만** 성립한다. SQLite 의 스칼라 MAX() 는
+            타입 우선순위(TEXT > 숫자)로 비교하므로 문자열 "0" 하나면 613000 을 0 으로 지운다
+            (2026-09-02 node:sqlite 로 실측). 이 엔드포인트는 소유권 검사가 없는 공개 POST 라
+            본문이 무엇이든 올 수 있다 → **Number 로 강제**한다(형제 파일 recordings-r2.ts 와 같은 방식).
+         ⛔ `b.duration_ms || 0` 로 되돌리지 말 것 — "0" 은 truthy 라 그대로 통과한다. */
       await env.DB.prepare(
         `UPDATE recordings
-            SET ended_at = ?, duration_ms = ?, size_bytes = ?,
+            SET ended_at = ?, duration_ms = MAX(COALESCE(duration_ms, 0), ?), size_bytes = MAX(COALESCE(size_bytes, 0), ?),
                 status = CASE
                   WHEN status = 'deleted'       THEN status
                   WHEN ? = 1                    THEN 'completed'
@@ -3959,7 +4030,7 @@ ${numbered}`;
                 END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0,
+      ).bind(now, stopDurMs, stopSizeB,
              headProven ? 1 : 0, fallbackStatus,
              b.file_url || null, b.storage || null, b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
