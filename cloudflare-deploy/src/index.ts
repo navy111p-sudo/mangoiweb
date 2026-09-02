@@ -29,7 +29,7 @@ import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
-import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
+import { handleAdminAuthApi, checkAdminSession, getAdminActor, isOrgScopedRole, PH_MANAGERS } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleSalesHrApi } from './api-sales-hr';   // 🚗 영업담당자 실적·인사평가·보상
@@ -711,9 +711,24 @@ const worker = {
       return await handleFileShareDownload(path, env);
     }
 
-    // 보관기간 자동 파기: 수동 실행/상태 조회
+    /* 보관기간 자동 파기: 수동 실행/상태 조회
+       ⛔ 2026-09-02 부터 이 경로는 R2 영상 파일을 «실제로» 지운다 — 되돌릴 수 없다.
+          그전에는 D1 에 표시만 해서 되돌릴 수 있었기에 게이트가 «로그인했는가» 뿐이었는데,
+          그 상태로 실삭제를 켜면 **강사·지사·대리점 계정이 전체 녹화를 파기**할 수 있다.
+          스코프 차단(forbidden_scope)과 TEACHER_BLOCKED_PREFIXES 는 `/api/admin/` 접두사에만
+          걸려서 이 경로에는 오지 않는다(2장 「관리자 API 를 만들었는데 지사·대리점이 그대로 씁니다」).
+       ⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'(내부직원·**교사**)에 true 라 강사를 못 막는다.
+          두 가드를 «따로» 둔다: 강사(isTeacher) · 조직 계정(isOrgScopedRole).
+       ✅ `?dry_run=1` 이면 아무것도 지우지 않고 건수만 센다. 켜기 전 확인용이며
+          `retention.ts` 주석이 요구하는 «dryRun 선행» 을 실제로 부를 수 있는 유일한 통로다. */
     if (path === '/api/retention/run' && request.method === 'POST') {
-      const result = await purgeExpired(env);
+      const _retActor = await getAdminActor(request, env as any);
+      if (!_retActor.ok || _retActor.isTeacher || isOrgScopedRole(_retActor.role)) {
+        return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
+          status: 403, headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const result = await purgeExpired(env, { dryRun: url.searchParams.get('dry_run') === '1' });
       return new Response(JSON.stringify(result), {
         status: 200, headers: { 'Content-Type': 'application/json' }
       });

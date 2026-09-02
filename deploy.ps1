@@ -177,9 +177,9 @@ if (-not $ForceNow) {
         Write-Host "      지금 올리면 진행 중인 모든 수업의 화상 연결이 한 번에 끊깁니다." -ForegroundColor Red
         Write-Host "      (2026-09-01 실측: 배포 8~37초 뒤 서로 다른 두 방의 강사가 동시에 끊김)" -ForegroundColor DarkGray
         Write-Host ""
-        Write-Host "      · 수업이 끝난 뒤(01:20 KST 이후) 다시 실행하세요." -ForegroundColor Yellow
+        Write-Host "      · 위에 적힌 수업 시간대가 지난 뒤 다시 실행하세요." -ForegroundColor Yellow
         Write-Host "      · 지금 꼭 나가야 하면:  powershell -File deploy.ps1 -ForceNow" -ForegroundColor Yellow
-        Write-Host "      · 급하지 않으면 main 에 push 만 해 두세요 — CI 가 01:30 KST 에 몰아서 배포합니다." -ForegroundColor Yellow
+        Write-Host "      · 급하지 않으면 main 에 push 만 해 두세요 — 창이 닫힌 뒤 CI 가 몰아서 배포합니다(하루 네 번)." -ForegroundColor Yellow
         exit 1
     }
     if ($cwCode -ne 0) {
