@@ -29,7 +29,7 @@ import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬�
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
-import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
+import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher, clearMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
 import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
 import { runCypher } from './teacher-match';        //    ↑ 가 쓰는 Neo4j 조회기 — 주입해서 넘긴다(테스트에서 갈아끼우려고)
 
@@ -668,7 +668,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     /* 🔧 미러 «실행» (쓰기) — 2026-08-31 사장님 승인 「Ana 한 사람만 켜서 실제로 만들어 보자」
          POST /api/admin/reports/c24-mirror/apply     { dry_run?, since?, until?, only_teacher_id? }
          POST /api/admin/reports/c24-mirror/mode      { mode: 'off'|'whitelist'|'all' }
-         POST /api/admin/reports/c24-mirror/teacher   { teacher_id, enabled, note? }
+         POST /api/admin/reports/c24-mirror/teacher   { teacher_id, action:'on'|'off'|'block', note? }
 
        🔐 게이트가 **둘**이다. 하나로 뭉치면 반드시 새어 나간다(CLAUDE.md 2장):
          · 강사      — getAdminActor().isTeacher
@@ -687,12 +687,26 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
         await setMirrorMode(env as any, m);
         return json({ ok: true, mode: m });
       }
+      /* 🔴 (2026-09-02) 상태가 «세» 가지다 — action 으로 갈라 받는다.
+           'on'    = 켜짐 (enabled = 1)
+           'off'   = 꺼짐 (행 삭제 — 아직 안 켬. 언제든 다시 켤 수 있다)
+           'block' = 막힘 (enabled = 0 — 전환일 mode='all' 에서도 안 만든다)
+         ⚠️ 옛 계약 호환: `{ enabled: false }` 는 **'off'(꺼짐)** 로 받는다.
+            화면의 «끄기» 버튼이 그 몸짓이었고, 사람이 기대한 뜻도 «명단에서 빼기» 였다.
+            그것을 «막힘» 으로 받았다가 화면에 되돌릴 길이 없어진 것이 이 수리의 발단이다.
+            «막기» 는 action:'block' 이라고 **명시할 때만** 한다. */
       if (p === 'c24-mirror/teacher') {
         const tid = String(body?.teacher_id ?? '').trim();
         if (!tid) return json({ ok: false, error: 'teacher_id_required' }, 400);
-        await setMirrorTeacher(env as any, tid, body?.enabled !== false, actor.name || 'admin',
+        const act = String(body?.action ?? (body?.enabled === false ? 'off' : 'on')).toLowerCase();
+        if (act !== 'on' && act !== 'off' && act !== 'block') return json({ ok: false, error: 'invalid_action' }, 400);
+        if (act === 'off') {
+          const removed = await clearMirrorTeacher(env as any, tid);
+          return json({ ok: true, teacher_id: tid, action: 'off', removed });
+        }
+        await setMirrorTeacher(env as any, tid, act === 'on', actor.name || 'admin',
           body?.note == null ? undefined : String(body.note).slice(0, 200));
-        return json({ ok: true, teacher_id: tid, enabled: body?.enabled !== false });
+        return json({ ok: true, teacher_id: tid, action: act, enabled: act === 'on' });
       }
       if (p === 'c24-mirror/apply') {
         try {
