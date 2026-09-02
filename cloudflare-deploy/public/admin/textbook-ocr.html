@@ -139,7 +139,9 @@ select,input[type=number]{
   <div class="note" style="background:#eff6ff;border-color:#bfdbfe;border-left-color:#1d4ed8;color:#1e3a5f">
     <b>낮은 권과 높은 권을 함께 보세요.</b> BTS 교재는 레벨이 낮을수록 글자가 적고 높을수록 많습니다.
     한쪽만 보면 «추출해도 쓸 게 없다»는 잘못된 결론이 납니다. 아래 두 칸에 서로 다른 권을 골라
-    각각 시험한 뒤, <b>영어 낱말 수</b>를 비교하세요.
+    각각 시험한 뒤, <b>본문 낱말 수</b>를 비교하세요.<br>
+    <span style="font-size:12.5px">※ «본문 낱말»은 <b>저작권 푸터·페이지 번호·QR 주소를 뺀</b> 값입니다 —
+    그 문구가 매 장에 있고 10~11낱말이라, 빼지 않으면 모든 장이 비슷해 보여 레벨 차이가 가려집니다.</span>
   </div>
 
   <div class="cols" id="cols">
@@ -156,7 +158,7 @@ select,input[type=number]{
       </div>
       <div class="stat">
         <div>돌린 장<b data-role="s-pages">—</b></div>
-        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>본문 낱말 평균<b data-role="s-words">—</b></div>
         <div>성공한 장<b data-role="s-ok">—</b></div>
         <div>모델 호출<b data-role="s-calls">—</b></div>
       </div>
@@ -178,7 +180,7 @@ select,input[type=number]{
       </div>
       <div class="stat">
         <div>돌린 장<b data-role="s-pages">—</b></div>
-        <div>영어 낱말 평균<b data-role="s-words">—</b></div>
+        <div>본문 낱말 평균<b data-role="s-words">—</b></div>
         <div>성공한 장<b data-role="s-ok">—</b></div>
         <div>모델 호출<b data-role="s-calls">—</b></div>
       </div>
@@ -303,7 +305,7 @@ select,input[type=number]{
         + (d.results || []).map(function (r) {
             var tag = r.error ? '<span class="tag bad">실패</span>'
                     : r.prose ? '<span class="tag warn">설명문을 토함</span>'
-                    : r.ok    ? '<span class="tag ok">낱말 ' + r.words + ' · 영어 줄 ' + r.lines.length + '/' + r.line_total + '</span>'
+                    : r.ok    ? '<span class="tag ok">본문 낱말 ' + (r.unique_words != null ? r.unique_words : r.words) + ' · 영어 줄 ' + r.lines.length + '/' + r.line_total + '</span>'
                               : '<span class="tag bad">쓸 수 있는 영어 줄 0</span>';
             /* ⚠️ 길어서 버린 줄은 «오류» 가 아니라 «사실» 이다 — 조용히 사라지면
                글자가 많은 높은 권일수록 더 깎여 정반대 결론이 난다. */
@@ -311,6 +313,10 @@ select,input[type=number]{
             /* 🔴 못 읽으면 «같은 문장을 계속 토합니다» — 그것을 성공으로 세면
                「이 교재는 글자가 많다」는 거짓 결론이 납니다(실측: 84줄 중 대부분이 반복). */
             if (r.repeat >= 0.3) tag += ' <span class="tag warn">같은 줄 반복 ' + Math.round(r.repeat * 100) + '%</span>';
+            /* 🔴 저작권 푸터가 낱말 수를 지배합니다 — 매 장에 「January 2019 Mangoi.com.
+               Do not reproduce or distribute. Page N」이 있고 그것만 10~11낱말입니다.
+               빼지 않으면 낮은 권과 높은 권이 «비슷해» 보여 이 시험의 답이 가려집니다. */
+            if (r.boiler_words > 0) tag += ' <span class="tag">저작권·머리말 ' + r.boiler_words + '낱말 제외</span>';
             return '<div class="eng"><div class="en">' + esc(r.label) + ' — ' + tag
                  + ' <span style="color:var(--tx3)">' + (r.ms || 0) + 'ms</span></div>'
                  + '<pre>' + esc(r.error ? ('오류: ' + r.error) : (r.raw || '(빈 응답)')) + '</pre></div>';
