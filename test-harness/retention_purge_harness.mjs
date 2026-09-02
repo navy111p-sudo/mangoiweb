@@ -224,5 +224,49 @@ console.log('\n⑨ 정본 밖에서 R2 를 지우지 않는다');
      '이 칸이 비워지는 것이 곧 «보호 해제» 라 이 조회가 정본이다');
 }
 
+console.log('\n⑩ 보관기간을 «여러 곳이 서로 같은 말을 하는가»');
+/* 왜 이 절이 있나 — 2026-09-02 에 3개월 → 6개월로 올리면서, 기간을 정하는 코드와
+   학부모가 읽는 동의 문구가 «따로» 라는 것이 드러났다. 한쪽만 바뀌면 조용히 어긋나고
+   그건 곧 «안내한 것보다 오래 갖고 있는» 상태다 — 검사가 없으면 아무도 모른다.
+   ⛔ 「6개월이라는 글자가 있는가」로 쓰지 말 것. 값을 «읽어서» 서로 대조한다. */
+{
+  const MANGO   = readFileSync('cloudflare-deploy/src/api-mango.ts', 'utf8');
+  const CONSENT = readFileSync('cloudflare-deploy/public/js/mango-consent.js', 'utf8');
+
+  const m = MANGO.match(/const RETENTION_MS = (\d+)\s*\*\s*24\s*\*\s*3600\s*\*\s*1000/);
+  ok('기간 정본(RETENTION_MS)을 «일수» 로 읽을 수 있다', !!m, '모양이 바뀌면 대조가 헛돈다');
+  const days = m ? Number(m[1]) : -1;
+  ok('일수가 30일 배수다 (달 단위 안내와 맞물린다)', days > 0 && days % 30 === 0, String(days));
+  const months = days / 30;
+
+  const koM = CONSENT.match(/<b>(\d+)개월<\/b>\s*보관/);
+  const enM = CONSENT.match(/kept for (\d+) months?/i);
+  ok('동의 화면 한국어 문구에서 개월수를 읽을 수 있다', !!koM, '문구 모양이 바뀌었다');
+  ok('동의 화면 영어 문구에서 개월수를 읽을 수 있다', !!enM, '문구 모양이 바뀌었다');
+  ok(`동의 문구(KO ${koM ? koM[1] : '?'}개월)와 RETENTION_MS(${months}개월)가 같은 말을 한다`,
+     !!koM && Number(koM[1]) === months,
+     '기간만 올리고 안내를 안 바꾸면 «안내한 것보다 오래 보관» 이 된다');
+  ok(`영어 문구(${enM ? enM[1] : '?'}개월)도 같다`, !!enM && Number(enM[1]) === months);
+
+  /* 🔴 «옛 동의자는 다시 묻지 않는다» 는 사실을 코드가 계속 그대로인지 확인한다.
+        이 전제가 바뀌면(=버전 비교가 생기면) 위 주석들의 «미결» 문장을 사람이 다시 판단해야 한다. */
+  const compares = /CONSENT_VERSION/.test(CONSENT) &&
+                   /consent_version[\s\S]{0,80}(!==|===|!=|==)/.test(CONSENT);
+  ok('동의 버전 비교가 «아직 없다» 는 전제를 주석이 함께 적어 두었다',
+     compares || (/CONSENT_VERSION 을 비교하지 않는다/.test(MANGO) && /사람이 정할 문제/.test(MANGO)),
+     '비교를 넣었으면 api-mango.ts·retention.ts·CLAUDE.md 의 «미결» 문장을 갱신할 것');
+
+  /* 화면 문구는 숫자를 말하지 않는다 — 기존 3개월분과 신규 6개월분이 섞여 있다 */
+  const CORE2 = readFileSync('cloudflare-deploy/public/js/adm-core.js', 'utf8');
+  const recPart = CORE2.slice(0, CORE2.indexOf('avg3m') > 0 ? CORE2.indexOf('avg3m') : CORE2.length);
+  ok('녹화 화면 문구가 보관 개월수를 단정하지 않는다',
+     !/보관\s*기?간?\s*3개월/.test(recPart) && !/\d+-month retention/.test(recPart) && !/\d+-day retention/.test(recPart),
+     '한 숫자로 말하면 3개월분·6개월분 중 어느 쪽이든 거짓이 된다');
+  const ADMIN_TS = readFileSync('cloudflare-deploy/src/api-admin.ts', 'utf8');
+  ok('복원 거절 사유도 개월수를 단정하지 않는다',
+     !/보관기간 3개월 경과/.test(ADMIN_TS) && !/3-month retention passed/.test(ADMIN_TS),
+     '잰 것은 «R2 에 키가 없다» 까지다 — 사유는 만료일 수도 업로드 실패일 수도 있다');
+}
+
 console.log(`\n${'─'.repeat(46)}\n retention_purge_harness — PASS ${pass} / FAIL ${fail}\n`);
 process.exit(fail ? 1 : 0);
