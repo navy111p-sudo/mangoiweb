@@ -107,6 +107,7 @@ function vcqRxTick() {
     var ids = Object.keys(pcs);
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     ids.forEach(function (id) {
         var pc = pcs[id];
         if (!pc || !pc.getReceivers) return;
@@ -130,6 +131,7 @@ function vcqRxTick() {
                         sp[kind] = (dr > 0) ? 0 : (sp[kind] || 0) + 1;
                     }
                     if (kind === 'video') {
+                        try { vcLowQRemote(id, s.frameWidth || 0, dr > 0); } catch (_) {}   // 📶 저화질로 받는 중이면 그 타일에 배지
                         var fz = s.freezeCount || 0;
                         if (prev) {
                             if (dl + dr >= 25) {
@@ -168,7 +170,7 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {};
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
@@ -257,6 +259,50 @@ function vcNetPeerMark(userId, bad) {
         box.style.position = 'relative';
         box.appendChild(hint);
     } catch (_) {}
+}
+
+/* ③ 저화질 배지 — «왜 흐린지» 를 그 타일에 적는다(2026-09-02 사장님 「2번 배지도 만들어줘」).
+   [배경] class-849: 화질이 최저 단계(해상도 1/4·5fps)에 굳어 교사 얼굴이 흐렸는데 화면은 아무 말도 안 했다.
+     사장님이 「화면이 커서 그런가」·「연결 나쁘면 자동으로 작게」를 물으셨고, 둘 다 아니다 —
+     P2P 라 받는 쪽 타일 크기는 인코더에 안 가고(대역폭 0바이트 절감), 자동 축소는 수업 중 화면만 움직인다.
+     그래서 **크기는 손대지 않고** 이유만 적는다(CLAUDE.md 2장 「화질이 한번 흐려지면」 줄).
+   [보내는 쪽] 적응 루프 단계(pc.__qStep, idx-main.js STEPS) 가 3 이상인 상대가 하나라도 있으면 내 타일에.
+   [받는 쪽] inbound-rtp frameWidth 가 430px 이하(PC 1280 의 1/3 = 3단계 이상)면 그 타일에.
+     모든 화면에 띄운다 — 문구가 «저화질로 받는 중» 이라 상대를 탓하지 않는다
+     (위 ② 의 «이 학생 인터넷이 불안정» 은 탓하는 말이라 강사에게만 — 다른 이유다).
+   ⚠️ 2틱(8초) 이어질 때만 붙이고 회복되면 곧바로 뗀다. DOM 은 «바뀔 때만» 만진다(깜빡임·관찰자 발화 방지).
+   ⚠️ 위치는 bottom 34px — 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom 8px)·이름표와 안 겹친다.
+   ⛔ 타일 크기·레이아웃은 건드리지 않는다. 감시: vc_quality_blindspot_harness ⑨ */
+var VC_LOWQ_STEP = 3;    // idx-main.js STEPS[3] = 0.2 — 여기부터 사람 눈에 «흐림» 이 보인다(하니스가 STEPS 와 대조)
+var VC_LOWQ_W = 430;     // 받는 영상 가로폭(px) 상한
+function vcLowQMark(box, on, text) {
+    try {
+        if (!box) return;
+        var el = box.querySelector('.vc-lowq-hint');
+        if (!on) { if (el) el.remove(); return; }
+        if (el) return;
+        el = document.createElement('div');
+        el.className = 'vc-lowq-hint';
+        el.textContent = text;
+        el.style.cssText = 'position:absolute;left:50%;bottom:34px;transform:translateX(-50%);z-index:9;'
+            + 'background:rgba(15,23,42,.78);color:#fde68a;font-size:11px;font-weight:700;line-height:1.2;'
+            + 'padding:3px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;max-width:92%;overflow:hidden;text-overflow:ellipsis;';
+        box.style.position = 'relative';
+        box.appendChild(el);
+    } catch (_) {}
+}
+function vcqLowQSelf() {
+    var pcs = window.vcPeerConnections || {}, worst = 0;
+    Object.keys(pcs).forEach(function (id) { var st = pcs[id] && pcs[id].__qStep; if (typeof st === 'number' && st > worst) worst = st; });
+    var L = window.__vcLowQ || (window.__vcLowQ = {});
+    L.self = (worst >= VC_LOWQ_STEP) ? (L.self || 0) + 1 : 0;
+    vcLowQMark(document.getElementById('vc-local-box'), L.self >= 2, '📶 저화질로 보내는 중 · Sending low quality');
+}
+function vcLowQRemote(id, frameWidth, flowing) {
+    var L = window.__vcLowQ || (window.__vcLowQ = {});
+    var low = !!flowing && frameWidth > 0 && frameWidth <= VC_LOWQ_W;   // 영상이 안 오면(카메라 끔·AAO) «모름» → 뗀다
+    L[id] = low ? (L[id] || 0) + 1 : 0;
+    vcLowQMark(document.getElementById('vc-video-' + id), L[id] >= 2, '📶 저화질로 받는 중 · Receiving low quality');
 }
 
 function vcQualityAcc(loss, rtt) {
