@@ -29,6 +29,15 @@
   .topmid .score{font-size:12.5px;color:#9fb3d6;font-weight:700;margin-top:1px;white-space:nowrap}
   .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:30px;height:30px;font-size:14px;cursor:pointer}
   .iconbtn:active{transform:scale(.94)}
+  /* 🚪 나가기 화살표만 34px 정사각 — 허브 «밖» 에서 주입되는 나가는 문
+     (js/game-standalone-exit.js)과 같은 크기로 맞춘다(2026-09-02 사장님 지시).
+     실측(2026-09-02 수리 전): 30x30.
+     ⚠️ `.iconbtn` 을 직접 키우지 않는다 — 이 클래스는 🔊 음소거(#muteBtn)도 쓴다.
+        사장님 지시는 «나가기 화살표» 였으므로 그것만 키운다.
+     ⚠️ 두 버튼은 right:8px 로 오른쪽을 맞춰 세로로 쌓인다(음소거 top:3px h30 →
+        아래끝 33px, 나가기 inline top:37px). 나가기가 34px 로 커져도 그 위치는
+        그대로라 겹치지 않는다 — 대신 왼쪽 끝이 4px 차이 난다(실측으로 확인). */
+  #backBtn.iconbtn{width:34px;height:34px;font-size:17px}
   /* ⚡ 게임 속도(답변 제한시간) 5단계 선택 */
   .speedrow{display:flex;gap:6px;margin:0 0 12px}
   .speedrow button{flex:1;font-family:inherit;font-size:11px;font-weight:800;color:#9fb3d6;background:rgba(255,255,255,.06);
