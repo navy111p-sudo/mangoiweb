@@ -56,9 +56,15 @@
       var url = PAGE + (u ? '?src=' + encodeURIComponent(u) : '');
       // ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 못 연다. 예외를 던지지 않고 null 만 돌려주므로
       //    try/catch 로는 못 잡는다(CLAUDE.md 2장). 반환값이 비면 같은 창에서 연다.
+      /* 🔴 (2026-09-02) 'noopener' 를 «기능 문자열» 로 주면 표준상 **탭은 열리는데 반환값이 null** 이다.
+         그래서 반환값으로 «막혔나» 를 판정하면 **언제나 «막혔다»** 가 된다 — 실측(크로미움):
+           window.open(u,'_blank','noopener') → null · 탭 1→2 (열림)
+           window.open(u,'_blank')            → object · 탭 2→3 (열림)
+         → 반환값이 필요하면 기능 문자열에서 빼고 **w.opener = null** 로 같은 보호를 건다.
+         ⚠️ 반환값을 안 쓰는 자리는 'noopener' 를 그대로 둬도 무해하다. */
       var w = null;
-      try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
-      if (!w) location.href = url;
+      try { w = window.open(url, '_blank'); } catch (e) { w = null; }
+      if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
     });
   }
 

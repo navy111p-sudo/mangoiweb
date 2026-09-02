@@ -1889,8 +1889,14 @@ function interveneRoom(roomId){
    매니저 쪽에서는 "눌러도 아무 일도 안 일어난다"로 보였다(실제 제보).
    → 크기 지정을 빼서 '일반 새 탭'으로 열고, 그래도 막히면 눌러서 들어갈 링크를 띄운다. */
 function mangoiOpenTab(url, title) {
+  /* 🔴 (2026-09-02) 'noopener' 를 «기능 문자열» 로 주면 표준상 **탭은 열리는데 반환값이 null** 이다.
+     그래서 반환값으로 «막혔나» 를 판정하면 **언제나 «막혔다»** 가 된다 — 실측(크로미움):
+       window.open(u,'_blank','noopener') → null · 탭 1→2 (열림)
+       window.open(u,'_blank')            → object · 탭 2→3 (열림)
+     → 반환값이 필요하면 기능 문자열에서 빼고 **w.opener = null** 로 같은 보호를 건다.
+     ⚠️ 반환값을 안 쓰는 자리는 'noopener' 를 그대로 둬도 무해하다. */
   let w = null;
-  try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+  try { w = window.open(url, '_blank'); } catch (e) { w = null; }
   if (w) { try { w.opener = null; } catch (e) {} return true; }
 
   // 차단됨 → 조용히 실패하지 말고 클릭 가능한 링크를 보여준다
@@ -3639,7 +3645,8 @@ window.tpGhostObserve = async function (teacherId) {
   const url = location.origin + '/?observe=' + encodeURIComponent(room);
   /* 팝업이 막히면 조용히 실패한다(window.open 은 예외 없이 null 만 준다 — CLAUDE.md 2장) */
   if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업관찰', 'Observe'));
-  else if (!window.open(url, '_blank', 'noopener')) location.href = url;
+  else { let _w = null; try { _w = window.open(url, '_blank'); } catch (e) {} 
+         if (_w) { try { _w.opener = null; } catch (e) {} } else location.href = url; }
 };
 
 // ═══ 🔑 강사 비밀번호 재설정 (2026-07-23) ═══════════════════════════════
@@ -12629,7 +12636,9 @@ async function askAI(command) {
       // 자동 팝업도 시도 (허용된 경우 즉시 열림)
       setTimeout(() => {
         try {
-          const w = window.open(res.external_url, '_blank', 'noopener');
+          /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
+          const w = window.open(res.external_url, '_blank');
+          if (w) { try { w.opener = null; } catch (e) {} }
           // 자동 열기 성공하면 패널의 버튼은 그대로 두 (사용자가 닫고 다시 열 수 있게)
           if (!w) console.info('[ai-navigate] popup blocked — fallback button shown');
         } catch (e) {
