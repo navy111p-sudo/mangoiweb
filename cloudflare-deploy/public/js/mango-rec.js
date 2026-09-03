@@ -53,6 +53,30 @@
      크론이 12시간 뒤에야 정리한다. 같은 수업을 두세 벌 찍는 셈이라 저장 비용도 는다.
      ⚠️ 판정 근거는 vc-observe-guard.js 의 observing() 과 «같은 것» 을 쓴다. 이름(「관찰자」)
         으로 가르지 않는다 — 그건 사람이 바꿀 수 있는 표시일 뿐이다. */
+  /* 🇵🇭 (2026-09-02 사장님 지시 「필리핀 선생님의 음성과 화면에 모든 걸 집중」)
+     강사 브라우저는 «자동» 녹화를 하지 않는다.
+
+     왜 — 그전에는 수업에 들어온 «모든 사람» 이 각자 녹화했다. D1 실측(최근 2주, class-* 방):
+       class-1008 교사 224.5MB/24.3분 + 학생 265MB/27.6분 · class-988 교사 235.2MB/26.0분 + 학생 210MB/22.5분
+       class-967 교사 191.9MB/23.1분 + 학생 218.8MB/23.1분 · class-1070 교사 166.7MB/26.7분 + 학생 246.3MB/26.6분
+     두 파일은 **내용이 같다**(둘 다 화면 전체를 합성해 찍는다). 그런데 그 한 벌이 강사 노트북에서
+       · 1920×1080 @15fps 소프트웨어 VP8 인코딩 · 지정 2.5Mbps (CPU — WebRTC 영상 인코더와 같은 CPU 를 쓴다)
+       · 약 200MB/24분 ≈ 1.1Mbps 를 **수업 중에** R2 로 업로드 (5MB 조각 = 36초마다 몰아 쏨)
+     를 하고 있었다. 학생에게 보내는 실시간 영상이 최대 1.2Mbps 이니 녹화가 강사 업로드를 거의 두 배로 만든다.
+     필리핀 회선에서는 그 5MB 버스트마다 실시간 영상·소리가 뒤로 밀린다.
+
+     ⚠️ «그것 때문이다» 를 직접 재지는 못했다 — 상관이지 증명이 아니다(9/1 저녁 실측 freeze 140~165회).
+     ⛔ 막지는 않는다 — 상단 배지를 누르면 강사도 손으로 시작할 수 있다(안전판).
+     ⚠️ 그래서 **강사끼리만 있는 방은 자동 녹화가 0개**가 된다(사장님 시험 수업 class-849 등).
+        판정이 «모르면 false» 로 떨어지므로(vcIsTeacherRole) 학생은 언제나 찍는다 = 안전한 방향의 실패.
+     ⛔ 이 판정을 이름 추측으로 넓히지 말 것 — 아이디에 teacher 가 든 학생의 녹화가 통째로 사라진다. */
+  function isStaffSkipRecording() {
+    try {
+      if (window.__mangoRecStaffAuto === true) return false;   // 되돌리는 스위치(콘솔에서 켤 수 있다)
+      return (typeof window.vcIsTeacherRole === 'function') ? !!window.vcIsTeacherRole() : false;
+    } catch (_) { return false; }                               // 모르면 «찍는다» 쪽으로 실패한다
+  }
+
   function isObserverNow() {
     try {
       if (window._vcObserverMode === true) return true;
@@ -256,15 +280,20 @@
  
   function startCanvasCompose() {
     composeCanvas = document.createElement('canvas');
-    composeCanvas.width = 1920;
-    composeCanvas.height = 1080;
+    /* 🇵🇭 (2026-09-02 사장님 결정) 1920×1080 → 1280×720, 2.5Mbps → 1.2Mbps.
+       픽셀 수가 55% 줄어 소프트웨어 VP8 인코딩 CPU 와 업로드가 함께 내려간다.
+       그 CPU·업로드는 WebRTC 실시간 영상과 «같은» 것을 나눠 쓴다 — 특히 필리핀 강사 회선.
+       ⚠️ 아래 배치는 전부 width/height 에 «비례» 하므로 숫자만 바꾸면 된다(고정 픽셀 금지).
+       ⛔ 다시 1080p 로 올릴 거면 강사 쪽 업로드부터 재 보고 올릴 것. */
+    composeCanvas.width = 1280;
+    composeCanvas.height = 720;
     composeCtx = composeCanvas.getContext('2d');
  
     // 레이아웃 상수: 좌측(비디오) 30%, 우측(콘텐츠) 70%
-    const VID_W = Math.floor(composeCanvas.width * 0.3);   // 576px
+    const VID_W = Math.floor(composeCanvas.width * 0.3);   // 384px (1280 기준)
     const CONTENT_X = VID_W;
-    const CONTENT_W = composeCanvas.width - VID_W;          // 1344px
-    const H = composeCanvas.height;                          // 1080px
+    const CONTENT_W = composeCanvas.width - VID_W;          // 896px
+    const H = composeCanvas.height;                          // 720px
  
     function getActiveTab() {
       // 현재 활성 탭 판별
@@ -1091,7 +1120,7 @@
  
     let mime = 'video/webm;codecs=vp8,opus';
     if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
-    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 1_200_000 });
  
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -1278,7 +1307,8 @@
       try { _isDemoRoom = /^demo-\d+$/i.test(String(typeof vcRoomId !== 'undefined' ? vcRoomId : '')); } catch (_) {}
       // 수업 뷰에 있고, 아직 녹화 안 했으면 자동 시작
       var _observing = isObserverNow();   // 👁 참관 중이면 자동녹화도, «켜는 배지» 도 없다
-      if (inCall && !_isDemoRoom && !_observing && !isRecording && !autoRecStarted && !autoRecPending) {
+      var _staffSkip = isStaffSkipRecording();
+      if (inCall && !_isDemoRoom && !_observing && !_staffSkip && !isRecording && !autoRecStarted && !autoRecPending) {
         autoRecPending = true;
         // 미디어 스트림 안정화를 위해 3초 대기 후 시작
         setTimeout(async () => {
