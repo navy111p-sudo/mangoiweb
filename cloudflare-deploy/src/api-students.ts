@@ -499,10 +499,12 @@ ${MANGOI_KNOWLEDGE}`;
         cnt(`SELECT COUNT(*) n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?`, exactUid, d0),
         /* 망고아이 시간표 — 정기(요일)와 날짜지정 둘 다. LMS·시드 자리표시는 뺀다(2026-08-24 결정). */
+        /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
+           (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
         env.DB.prepare(
           `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind
              FROM class_schedules
-            WHERE user_id = ? COLLATE NOCASE AND status = 'active'
+            WHERE user_id = ? AND status = 'active'
               AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
               AND (schedule_kind = 'recurring' OR (scheduled_date BETWEEN ? AND ?))
             LIMIT 80`
