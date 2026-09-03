@@ -327,7 +327,10 @@ check('웜업이 교재 Lv 구간 칸을 CEFR 로 갈아 끼우지 않았다',
    JS 가 곧 덮지만 ① 덮기 전에 한 번 보이고 ② JS 가 죽으면 그대로 남는다. */
 {
   const names = [...wCat.matchAll(/ko:\s*'([^']+)'/g)].map((m) => m[1]);
-  const DEF = 3;   // 기본 단계 — 서버 AI_FRIEND_DEFAULT_LEVEL(S3)·웜업 _warmLevel 과 같은 칸
+  /* 웜업 화면(warmup.html)의 기본 단계 _warmLevel 과 «같은 칸» 이다.
+     ⚠️ AI 영어친구의 기본값과는 다르다 — 2026-09-03 에 그쪽만 S3 → S4 로 올렸다.
+        눈금 여덟 칸은 그대로이고 «시작 칸» 만 다르다. 여기 숫자는 웜업 것이다. */
+  const DEF = 3;
   const want = `${DEF}단계 · ${names[DEF - 1]} · ${wCefr[DEF - 1]}`;
   const got = (WHTML.match(/id="lvlVal"[^>]*>([^<]*)</) || [])[1] || '';
   check(`⋮ 패널 첫 표시가 목록과 같은 말을 한다 (${want})`, got.trim() === want,
