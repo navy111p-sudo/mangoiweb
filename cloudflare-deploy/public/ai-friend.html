@@ -333,8 +333,8 @@
          ⚠️ 옛 값(A1…C1)은 학생 브라우저에 남아 있어 계속 받는다(AIF_LEGACY). -->
     <button class="opt" data-level="S1">1<i>A1</i></button>
     <button class="opt" data-level="S2">2<i>A2</i></button>
-    <button class="opt active" data-level="S3">3<i>A2+</i></button>
-    <button class="opt" data-level="S4">4<i>B1</i></button>
+    <button class="opt" data-level="S3">3<i>A2+</i></button>
+    <button class="opt active" data-level="S4">4<i>B1</i></button>
     <button class="opt" data-level="S5">5<i>B1+</i></button>
     <button class="opt" data-level="S6">6<i>B2</i></button>
     <button class="opt" data-level="S7">7<i>B2+</i></button>
@@ -499,7 +499,7 @@
        지우면 지금까지 고른 레벨이 전부 리셋된다(친구 이름을 넷으로 늘릴 때
        female → emma 로 이어받은 것과 같은 처리다). */
     const AIF_LEGACY = { A1:'S1', A2:'S2', B1:'S4', B2:'S6', C1:'S8' };
-    const AIF_DEFAULT = 'S3';                       // 서버 AI_FRIEND_DEFAULT_LEVEL 과 같아야 한다
+    const AIF_DEFAULT = 'S4';                       // 서버 AI_FRIEND_DEFAULT_LEVEL 과 같아야 한다
     const AIF_LEVEL_KEY = 'mangoi_aifriend_level';
     let currentLevel = (function(){
       try {
