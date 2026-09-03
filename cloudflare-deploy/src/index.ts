@@ -1506,6 +1506,7 @@ const worker = {
         //   (핸들러 안에서 uid 일치를 검사한다. api-students.ts 참고)
         path === '/api/student/focus-history' ||
         path === '/api/student/full' ||
+        path === '/api/student/today' ||        // 📅 «오늘의 학습» — 본인 토큰/관리자 세션 (핸들러 안 resolveOwnerScope, api-students.ts)
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
         // 🔒 (2026-08-08) 세션 상태 조회 — 401 을 받았을 때 «왜» 인지 화면에 알려주기 위한 것.

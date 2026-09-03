@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 AI 학습 계획표 — 학원용 · 가정용 (2026-09-03)</title>
+<!--
+  📅 AI 학습도구 학습 계획표 (2026-09-03)
+  · 학생 화면 /today.html 이 «살아 있는» 계획표이고, 이 문서는 사람이 읽고 인쇄하는 판이다.
+  · 규칙의 정본은 cloudflare-deploy/src/today-plan.ts (HOME_WEEK · CLASS_DAY · TOOLS).
+    이 문서의 표는 그 파일에서 옮겨 적은 것이다 — 그 파일이 바뀌면 이 문서도 함께 고칠 것.
+  · 근거 문서: AI학습도구_학교학원_커리큘럼_제안서_2026-09-02 (A안 수업 샌드위치)
+  · 인쇄: A4 세로. 화면용 CSS 와 print CSS 를 함께 둔다 — height 를 mm 로 못 박지 않는다
+    (CLAUDE.md 2장 «A4 인쇄용 HTML 을 화면으로 내보냈더니 아래가 잘림»).
+-->
+<style>
+  :root { --ink:#101828; --ink2:#475467; --mute:#667085; --line:#e4e7ec; --amber:#b45309; --amber2:#fef3c7;
+          --blue:#1d4ed8; --blue2:#dbeafe; --green:#047857; --green2:#d1fae5; --violet:#6d28d9; --violet2:#ede9fe; --bg:#f8fafc; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family:'Noto Sans KR','Nanum Gothic','Malgun Gothic','Apple SD Gothic Neo','Pretendard',sans-serif; line-height:1.55; font-size:14px; }
+  .page { max-width:860px; margin:0 auto; padding:28px 24px 60px; background:#fff; }
+  h1 { font-size:26px; margin:0 0 4px; letter-spacing:-.02em; }
+  h1 small { display:block; font-size:14px; color:var(--ink2); font-weight:500; margin-top:4px; }
+  h2 { font-size:18px; margin:34px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--amber); letter-spacing:-.01em; }
+  h2 .no { display:inline-block; min-width:26px; height:26px; line-height:26px; text-align:center; border-radius:50%; background:var(--amber); color:#fff; font-size:13px; margin-right:8px; }
+  h3 { font-size:15px; margin:18px 0 6px; color:var(--ink); }
+  p { margin:6px 0; }
+  .lead { font-size:15px; color:var(--ink2); }
+  .kicker { display:inline-block; background:var(--amber2); color:var(--amber); font-weight:800; padding:4px 10px; border-radius:999px; font-size:12.5px; margin-bottom:10px; }
+  table { border-collapse:collapse; width:100%; margin:8px 0 12px; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:7px 8px; vertical-align:top; text-align:left; }
+  th { background:#f2f4f7; font-weight:800; }
+  td.c, th.c { text-align:center; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:6px; font-size:11.5px; font-weight:800; white-space:nowrap; }
+  .t-ai { background:var(--blue2); color:var(--blue); }
+  .t-cls { background:var(--amber2); color:var(--amber); }
+  .t-home { background:var(--green2); color:var(--green); }
+  .t-free { background:var(--violet2); color:var(--violet); }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:12px; }
+  .grid2 > * { min-width:0; }
+  .box { border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fff; }
+  .box.warn { border-color:#fecaca; background:#fff7f7; }
+  .box.note { border-color:#bfdbfe; background:#f5f9ff; }
+  .box h4 { margin:0 0 6px; font-size:14px; }
+  ul { margin:4px 0 8px 18px; padding:0; } li { margin:3px 0; }
+  .flow { border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin:10px 0; background:#fff; }
+  .flow .seg { display:inline-block; padding:8px 12px; border-radius:10px; margin:4px 6px 4px 0; font-weight:800; font-size:13px; }
+  .flow .arrow { display:inline-block; color:var(--mute); margin:0 2px; }
+  .check td:first-child { width:28px; text-align:center; font-size:16px; }
+  .sig { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .sig > div { flex:1 1 200px; border-bottom:1px solid var(--ink2); padding:22px 4px 4px; color:var(--ink2); font-size:12.5px; }
+  .foot { color:var(--mute); font-size:12px; margin-top:26px; border-top:1px solid var(--line); padding-top:8px; }
+  .small { font-size:12.5px; color:var(--ink2); }
+  code { background:#f2f4f7; padding:1px 5px; border-radius:4px; font-size:12px; font-family:Consolas,Menlo,monospace; }
+  @media print {
+    body { background:#fff; font-size:12.5px; }
+    .page { max-width:none; padding:0; }
+    h2 { break-after:avoid; }
+    table, .box, .flow { break-inside:avoid; }
+    .pb { break-before:page; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<span class="kicker">망고아이 AI 학습도구 · 학습 계획표</span>
+<h1>수업 전 10분 · 수업 후 10분 · 그리고 매일
+  <small>학원용 주간 계획 · 가정용 매일 계획 · 레벨별 도구표 · 4주 진도 — 2026년 9월 3일</small></h1>
+<p class="lead">이 계획표는 학생 화면 <b>「📅 오늘의 학습」</b>(<code>mangoi.ai/today.html</code>)이 매일 자동으로 보여 주는 것과 <b>같은 규칙</b>입니다.
+학생은 화면을 열면 오늘 할 일이 순서대로 나오고, 원장님·강사님·학부모님은 이 문서로 그 규칙을 한눈에 보시면 됩니다.</p>
+
+<div class="grid2">
+  <div class="box"><h4>🏫 수업이 있는 날</h4><p>수업 <b>전 10분</b> 웜업 → 정규수업(그대로) → 수업 <b>후 10분</b> 복습퀴즈 → 집에서 5분 단어 퀴즈</p></div>
+  <div class="box"><h4>🏠 수업이 없는 날</h4><p>하루 <b>15분</b>. 말하기 하나 + 복습 하나 + 요일 특별 하나. 요일마다 묶음이 정해져 있어 고를 필요가 없습니다.</p></div>
+  <div class="box"><h4>🎯 레벨이 아직 없는 학생</h4><p><b>레벨테스트</b>가 1번. 그 뒤로는 모든 도구가 그 레벨의 문장으로 맞춰집니다.</p></div>
+</div>
+
+<h2><span class="no">1</span>왜 이 순서인가 — 세 줄 근거</h2>
+<ul>
+  <li><b>낱말 하나를 익히려면 8~10번 만나야 합니다</b> (Nation &amp; Wang 1999 · Webb 2007 · Pigada &amp; Schmitt 2006). 주 100분 수업만으로는 그 횟수가 안 나옵니다.</li>
+  <li><b>같은 횟수라도 며칠에 나눌 때 훨씬 오래 남습니다</b> (Cepeda 외 2006 — 184편 논문 317개 실험 메타분석). 그래서 «매일 조금» 이 기본 단위입니다.</li>
+  <li><b>수업 직전·직후가 가장 잘 남는 시간</b>입니다. 대기실에서 휴대폰을 보던 10분을 그대로 학습 시간으로 바꿉니다 — 새 시간을 요구하지 않습니다.</li>
+</ul>
+
+<h2><span class="no">2</span>도구 8종 — 무엇을, 몇 분, 언제</h2>
+<table>
+  <tr><th>도구</th><th>무엇을 하나</th><th class="c">권장</th><th>언제</th><th>포인트</th></tr>
+  <tr><td>🗣️ 수업 전 AI 웜업</td><td>그날 교재 문장으로 AI 와 짧게 말하기. 낮은 단계는 예/아니오 질문부터</td><td class="c">10분</td><td><span class="tag t-cls">수업 전</span></td><td class="small">출석·칭찬 규칙</td></tr>
+  <tr><td>🧠 복습퀴즈</td><td>오늘 배운 내용을 바로 묻기. 틀린 문장은 며칠 뒤 웜업에 다시 나옴</td><td class="c">10분</td><td><span class="tag t-cls">수업 후</span> <span class="tag t-home">화·목</span></td><td class="small">퀴즈 완료</td></tr>
+  <tr><td>⚡ AI 단어 퀴즈</td><td>내 레벨 단어로 AI 가 즉석 출제. 지난 수업에서 틀린 단어 재등장</td><td class="c">5분</td><td><span class="tag t-home">집 · 거의 매일</span></td><td class="small">퀴즈 완료</td></tr>
+  <tr><td>🤖 AI 친구 대화</td><td>레벨에 맞는 길이로 영어 수다. 한 문장 단어 수가 레벨마다 정해져 있음</td><td class="c">7분</td><td><span class="tag t-home">월·수·일</span></td><td class="small">—</td></tr>
+  <tr><td>🎤 AI 음성코치</td><td>문장을 따라 읽고 발음·유창성 점수. 교재 문장 사용</td><td class="c">7분</td><td><span class="tag t-home">화·목·금·토</span></td><td class="small">발음 규칙</td></tr>
+  <tr><td>🧭 판단력 훈련</td><td>상황을 읽고 고른 뒤 이유 말하기. 정답률이 난이도를 정함(85% 규칙)</td><td class="c">5분</td><td><span class="tag t-home">월·수</span></td><td class="small">—</td></tr>
+  <tr><td>✍️ AI 글쓰기</td><td>6하원칙 질문 → 뼈대 → 첨삭. <b>초급(3단계) 이상</b>에서 권장</td><td class="c">15분</td><td><span class="tag t-home">금 (주 1회)</span></td><td class="small">첨삭 규칙</td></tr>
+  <tr><td>🎮 학생게임</td><td>단어·문장 게임 16종. 자율</td><td class="c">10분</td><td><span class="tag t-free">토·일 자율</span></td><td class="small">하루 30점 상한</td></tr>
+</table>
+<p class="small">📖 단어장은 어느 날이든 곁들이는 도구입니다(단어 퀴즈에서 틀린 낱말이 자동으로 모입니다). 포인트는 1P = 1원, 하루 총 상한 100P(<code>point_transactions</code> 기준).</p>
+
+<h2><span class="no">3</span>학원용 주간 계획표 — 주 2회(화·목) 수업 기준</h2>
+<p class="small">수업 요일이 다르면 🏫 칸만 옮기면 됩니다. 학생 화면은 실제 시간표(망고아이 예약 + 카페24 예약)를 읽어 <b>자동으로</b> 그 요일을 수업일로 표시합니다.</p>
+<table>
+  <tr><th class="c">요일</th><th>학원에서</th><th>집에서</th><th class="c">합계</th></tr>
+  <tr><td class="c">월</td><td class="small">—</td><td>🤖 AI 친구 7분 → ⚡ 단어 퀴즈 5분 → 🧭 판단력 5분</td><td class="c">17분</td></tr>
+  <tr><td class="c"><b>화</b> 🏫</td><td><span class="tag t-cls">수업 전</span> 🗣️ 웜업 10분(오늘 교재 문장)<br><span class="tag t-cls">수업 후</span> 🧠 복습퀴즈 10분(오늘 진도)</td><td>⚡ 단어 퀴즈 5분(오늘 틀린 단어)</td><td class="c">25분</td></tr>
+  <tr><td class="c">수</td><td class="small">—</td><td>🤖 AI 친구 7분 → ⚡ 단어 퀴즈 5분 → 🧭 판단력 5분</td><td class="c">17분</td></tr>
+  <tr><td class="c"><b>목</b> 🏫</td><td><span class="tag t-cls">수업 전</span> 🗣️ 웜업 10분<br><span class="tag t-cls">수업 후</span> 🧠 복습퀴즈 10분</td><td>⚡ 단어 퀴즈 5분</td><td class="c">25분</td></tr>
+  <tr><td class="c">금</td><td class="small">—</td><td>🎤 음성코치 7분 → ✍️ AI 글쓰기 15분(초급 이상 · 그 아래는 🤖 AI 친구)</td><td class="c">22분</td></tr>
+  <tr><td class="c">토</td><td class="small">—</td><td>🎤 음성코치 7분 → 🎮 게임 자율</td><td class="c">7분+</td></tr>
+  <tr><td class="c">일</td><td class="small">—</td><td>🤖 AI 친구 7분 → 🎮 게임 자율</td><td class="c">7분+</td></tr>
+  <tr><th colspan="3">주간 AI 학습 합계 (게임 제외)</th><th class="c">약 120분</th></tr>
+</table>
+<div class="flow">
+  <b>화·목 하루 흐름</b><br>
+  <span class="seg" style="background:var(--blue2);color:var(--blue)">도착 → 🗣️ 웜업 10분 (대기실)</span><span class="arrow">▶</span>
+  <span class="seg" style="background:var(--amber2);color:var(--amber)">정규수업 — 손대지 않음</span><span class="arrow">▶</span>
+  <span class="seg" style="background:var(--blue2);color:var(--blue)">종료 직후 → 🧠 복습퀴즈 10분</span><span class="arrow">▶</span>
+  <span class="seg" style="background:var(--green2);color:var(--green)">집 → ⚡ 단어 퀴즈 5분</span>
+</div>
+
+<h2><span class="no">4</span>가정용 매일 계획표 — 수업 없이 AI 도구만 쓰는 학생</h2>
+<p class="small">화상수업을 듣지 않는 학생(자가가입 <code>/signup.html</code>)은 매일 이 묶음입니다. 하루 15분 안팎이고, 요일마다 «말하기 하나 + 복습 하나 + 요일 특별 하나» 입니다.</p>
+<table>
+  <tr><th class="c">요일</th><th>말하기</th><th>복습</th><th>요일 특별</th><th class="c">합계</th></tr>
+  <tr><td class="c">월</td><td>🤖 AI 친구 7분</td><td>⚡ 단어 퀴즈 5분</td><td>🧭 판단력 5분</td><td class="c">17분</td></tr>
+  <tr><td class="c">화</td><td>🎤 음성코치 7분</td><td>🧠 복습퀴즈 10분</td><td>⚡ 단어 퀴즈 5분</td><td class="c">22분</td></tr>
+  <tr><td class="c">수</td><td>🤖 AI 친구 7분</td><td>⚡ 단어 퀴즈 5분</td><td>🧭 판단력 5분</td><td class="c">17분</td></tr>
+  <tr><td class="c">목</td><td>🎤 음성코치 7분</td><td>🧠 복습퀴즈 10분</td><td>⚡ 단어 퀴즈 5분</td><td class="c">22분</td></tr>
+  <tr><td class="c">금</td><td>🎤 음성코치 7분</td><td class="small">—</td><td>✍️ AI 글쓰기 15분 <span class="small">(초급 이상 · 그 아래는 🤖 AI 친구)</span></td><td class="c">22분</td></tr>
+  <tr><td class="c">토</td><td>🎤 음성코치 7분</td><td class="small">—</td><td>🎮 게임 자율</td><td class="c">7분+</td></tr>
+  <tr><td class="c">일</td><td>🤖 AI 친구 7분</td><td class="small">—</td><td>🎮 게임 자율</td><td class="c">7분+</td></tr>
+</table>
+<div class="box note"><h4>집에서 학부모님이 해 주실 것 — 딱 두 가지</h4>
+  <ul><li>정해진 시간에 <b>「📅 오늘의 학습」</b>을 열어 주기 (홈 왼쪽 메뉴 ▸ AI 학습 도구, 또는 <code>mangoi.ai/today.html</code>). 무엇을 할지는 화면이 정합니다.</li>
+      <li>끝나면 화면의 <b>🔥 연속일</b>과 <b>⭐ 오늘 포인트</b>를 함께 보기. 칭찬은 여기서 하시면 됩니다.</li></ul></div>
+
+<h2 class="pb"><span class="no">5</span>레벨 8단계 × 도구 — 무엇이 달라지나</h2>
+<p class="small">레벨은 레벨테스트(CEFR)가 정하고 명부에 기록됩니다. 웜업·AI 친구·판단력·복습퀴즈가 <b>같은 눈금</b>을 씁니다 (웜업 1~8 = AI 친구 S1~S8 = 밴드 1~8).</p>
+<table>
+  <tr><th class="c">단계</th><th>이름 · CEFR</th><th>한 문장 길이</th><th>문법</th><th>권장 도구</th></tr>
+  <tr><td class="c">1</td><td>첫걸음 · A1</td><td>3~5단어</td><td>현재형만 · 가장 흔한 낱말</td><td>웜업(예/아니오 질문) · 단어 퀴즈 · 음성코치 · 게임</td></tr>
+  <tr><td class="c">2</td><td>기초 · A2</td><td>5~7단어</td><td>현재형 + can</td><td>위 + AI 친구(양자택일 질문)</td></tr>
+  <tr><td class="c">3</td><td>초급 · A2+</td><td>7~9단어</td><td>현재·과거</td><td>위 + 판단력 훈련 + <b>AI 글쓰기 시작</b></td></tr>
+  <tr><td class="c">4</td><td>초중급 · B1</td><td>9~12단어</td><td>미래형 · 접속사 하나</td><td>8종 전부</td></tr>
+  <tr><td class="c">5</td><td>중급 · B1+</td><td>12~15단어</td><td>복문 · 구동사</td><td>8종 전부 · 글쓰기 주 1회 고정</td></tr>
+  <tr><td class="c">6</td><td>중고급 · B2</td><td>15~18단어</td><td>관계절 · 가정법</td><td>8종 전부</td></tr>
+  <tr><td class="c">7</td><td>고급 · B2+</td><td>16~22단어</td><td>관용구 · 문체 변화</td><td>8종 전부</td></tr>
+  <tr><td class="c">8</td><td>최고급 · C1</td><td>제한 없음</td><td>자연스러운 표현</td><td>8종 전부</td></tr>
+</table>
+<p class="small">교재 배정은 별도입니다 — 시험 점수가 «어느 교재» 를 정하지는 않습니다. 관리자 › 학생 관리 › <b>📚 일괄 교재 배정</b>에서 정합니다(Starter→Phonics · A1~B1→BTS · B2~C1→SIU 가 2026-07-22 에 정한 기준표).</p>
+
+<h2><span class="no">6</span>4주 진도 샘플 — 시작하는 반</h2>
+<table>
+  <tr><th class="c">주</th><th>목표</th><th>학원에서</th><th>집에서</th><th>확인할 것</th></tr>
+  <tr><td class="c">1주</td><td><b>적응</b> — 화면에 익숙해지기</td><td>첫 수업 전 레벨테스트(10분) → 교재 배정. 수업 전·후 10분은 강사가 같이 열어 줌</td><td>「오늘의 학습」 한 번 열어 보기(무엇이든 1개)</td><td>레벨·교재가 명부에 들어갔나 · 로그인이 되나</td></tr>
+  <tr><td class="c">2주</td><td><b>습관</b> — 매일 열기</td><td>수업 전·후 10분을 학생이 스스로 시작</td><td>매일 15분 묶음 그대로</td><td>🔥 연속일이 5일 넘는 학생 수</td></tr>
+  <tr><td class="c">3주</td><td><b>확장</b> — 도구 3종 이상</td><td>복습퀴즈에 «지난주 틀린 문장» 이 다시 나오는지 학생과 확인</td><td>금요일 글쓰기 시작(초급 이상)</td><td>한 주에 3개 이상 도구를 쓴 학생 수</td></tr>
+  <tr><td class="c">4주</td><td><b>확인</b> — 한 달 결과</td><td>월간 AI 학습 리포트 함께 보기</td><td>학부모와 리포트 보기</td><td>웜업 첫 답변까지 걸린 시간 · 단어 퀴즈 정답률 변화</td></tr>
+</table>
+
+<h2><span class="no">7</span>학원에서 시작하는 절차 — 세 단계</h2>
+<div class="flow">
+  <span class="seg" style="background:var(--amber2);color:var(--amber)">① 레벨테스트</span><span class="arrow">▶</span>
+  <span class="seg" style="background:var(--amber2);color:var(--amber)">② 교재 배정 (관리자)</span><span class="arrow">▶</span>
+  <span class="seg" style="background:var(--green2);color:var(--green)">③ 학생에게 「오늘의 학습」 주소 안내</span>
+</div>
+<ul>
+  <li><b>①</b> 학생이 <code>mangoi.ai/level-test-ai.html</code> 을 봅니다(10분). 결과 CEFR 이 명부 레벨로 자동 기록됩니다. 이미 레벨이 있으면 덮어쓰지 않습니다(사람 손이 이깁니다).</li>
+  <li><b>②</b> 관리자 › 학생 관리 › <b>📚 일괄 교재 배정</b>. 교재 이름은 라이브러리 표기 그대로(예: <code>BTS 3 Korea (My family)</code>).</li>
+  <li><b>③</b> 카톡 안내 문구 예: <span class="small">「매일 이 주소를 열면 오늘 할 일이 나와요 — https://mangoi.ai/today.html (로그인 필요). 수업 있는 날은 수업 앞뒤 10분, 없는 날은 15분이면 됩니다.」</span></li>
+  <li>화상수업 없이 AI 만 쓰는 학생은 <code>mangoi.ai/signup.html</code> 에서 스스로 가입합니다(비밀번호 필수).</li>
+</ul>
+
+<h2><span class="no">8</span>주간 확인표 — 강사·학부모용</h2>
+<table class="check">
+  <tr><th></th><th>확인 항목</th><th>어디서 보나</th></tr>
+  <tr><td>☐</td><td>이번 주 🔥 연속일이 끊기지 않았다</td><td>학생 「오늘의 학습」 상단 칩</td></tr>
+  <tr><td>☐</td><td>수업일마다 웜업(전)·복습퀴즈(후)가 «완료» 로 찍혔다</td><td>「오늘의 학습」 단계 카드의 ✓</td></tr>
+  <tr><td>☐</td><td>한 주에 도구 3종 이상을 썼다</td><td>「이번 주」 표</td></tr>
+  <tr><td>☐</td><td>복습퀴즈에 지난주 틀린 문장이 다시 나왔다</td><td>학생과 함께 열어서 확인</td></tr>
+  <tr><td>☐</td><td>⭐ 포인트가 쌓이고 있다(하루 상한 100P)</td><td>홈 ▸ 포인트 상점</td></tr>
+</table>
+<div class="sig"><div>학생 이름</div><div>강사 확인</div><div>학부모 확인</div><div>주간 (월 / 일 ~ )</div></div>
+
+<h2><span class="no">9</span>아직 못 하는 것 — 솔직하게</h2>
+<div class="box warn">
+  <ul>
+    <li><b>«했나» 만 봅니다, «몇 분 했나» 는 재지 않습니다.</b> 도구마다 «끝» 의 정의가 달라 시간을 지어내지 않습니다. 완료 표시는 «오늘 그 도구 기록이 한 건이라도 있는가» 입니다.</li>
+    <li><b>2026-09-03 현재 명부에 레벨·교재가 있는 학생은 0명입니다.</b> 레벨테스트를 본 뒤부터 채워집니다. 그 전에는 「오늘의 학습」이 레벨테스트를 1번으로 보여 줍니다.</li>
+    <li><b>영어 복습퀴즈 문항이 아직 얇습니다</b>(활성 14건). 교재별 문항을 채우는 일(AI 초안 → 사람 승인)이 병목입니다. 문항이 없는 교재는 AI 즉석 출제로 대신합니다.</li>
+    <li><b>학부모 화면(parent.html)에는 아직 AI 활동이 안 보입니다.</b> 월간 리포트에는 들어갑니다. 학부모용 주간 카드는 다음 단계입니다.</li>
+    <li>카페24 예약 수업은 시각만 알고 길이를 모릅니다 — 20분으로 봅니다.</li>
+  </ul>
+</div>
+
+<div class="foot">망고아이 AI 학습도구 학습 계획표 · 2026-09-03 · 규칙 정본은 <code>src/today-plan.ts</code>, 학생 화면은 <code>/today.html</code>. 근거 문서: AI학습도구_학교학원_커리큘럼_제안서_2026-09-02. 화면은 계속 나아집니다 — 이 문서와 다른 점이 보이면 알려 주세요.</div>
+</div>
+</body>
+</html>
