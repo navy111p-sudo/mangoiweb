@@ -350,6 +350,81 @@ console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 �
   for (let i = 0; i < 8; i++) t2.api.selfWatch(-1, 0);
   ok(!t2.doc.getElementById('vc-netlow-toast'), '⛔ 영상 표본이 없는 틱(-1)은 «회선 나쁨» 으로 세지 않는다');
 
+  /* 🔴 2026-09-02 class-849 — 사장님이 19분 내내 토스트를 못 보셨다. 조건 미달이 아니라
+     «제일 나쁜 틱» 이 판정에서 통째로 빠져 있었다. loss === -1 은 «손실을 모른다» 일 뿐
+     «RTT 를 모른다» 가 아닌데, 옛 코드는 첫 줄에서 return 했다.
+     실측: RTT 가 제일 높았던 두 창이 novideo 13/15 · 11/15 였다 = 그 틱들이 전부 -1.
+     ⚠️ 이 검사는 «-1 은 세지 않는다»(바로 위) 와 짝이다 — 한쪽만 두면 반대로 무너진다. */
+  {
+    const t3 = runQlog({ student: { uid: 'y', name: 'y', role: 'student' } });
+    for (let i = 0; i < 3; i++) t3.api.selfWatch(0.5, 130);      // 기준 RTT 를 130 으로 만든다
+    ok(!t3.doc.getElementById('vc-netlow-toast'), '기준 RTT 를 잡는 동안에는 안 뜬다');
+    for (let i = 0; i < 4; i++) t3.api.selfWatch(-1, 500);       // 영상은 죽었고 RTT 만 살아 있다
+    ok(!!t3.doc.getElementById('vc-netlow-toast'),
+       '🔴 영상 표본이 없어도(-1) RTT 가 계속 높으면 뜬다 — 옛 코드는 여기서 통째로 건너뛰었다');
+  }
+
+  /* 🌏 문턱은 «이 회선의 기준값» 대비다(#771 이 화질 회복 문턱에 쓴 것과 같은 방식).
+     중국 강사 회선은 평소가 360~440ms 라(같은 수업 실측) 절대값 400 이면 정상 통화 중에
+     «공유기 가까이 가세요» 가 뜬다 — 지리적 거리는 사람이 못 고치므로 틀린 안내다. */
+  {
+    const t4 = runQlog({ admin: { uid: 'hq_t_kang', name: '교사 강선생님', role: 'teacher' } });
+    for (let i = 0; i < 20; i++) t4.api.selfWatch(0.2, 360);     // 중국 회선의 «평소»
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준이 높은 회선(중국 360ms)은 평소 값으로 안 뜬다 — 옛 절대값 400 은 여기서 오경보였다');
+    for (let i = 0; i < 6; i++) t4.api.selfWatch(0.2, 430);      // 실측에서 나온 스파이크 폭
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준 대비 +70ms 스파이크로도 안 뜬다(실측 430ms)');
+    for (let i = 0; i < 4; i++) t4.api.selfWatch(0.2, 620);      // 기준 대비 +260 = 진짜 막힘
+    ok(!!t4.doc.getElementById('vc-netlow-toast'),
+       '기준보다 200ms 넘게 막히면 그때는 뜬다');
+  }
+
+  /* ⛔ 기준이 낮은 국내 회선은 예전 숫자(400) 그대로다 — 이번 변경으로 더 둔해지면 안 된다 */
+  {
+    const t5 = runQlog({ student: { uid: 'z', name: 'z', role: 'student' } });
+    for (let i = 0; i < 5; i++) t5.api.selfWatch(0.3, 130);
+    for (let i = 0; i < 4; i++) t5.api.selfWatch(0.3, 410);
+    ok(!!t5.doc.getElementById('vc-netlow-toast'),
+       '국내 회선(기준 130ms)은 410ms 가 이어지면 예전처럼 뜬다');
+  }
+
+  /* 🔴 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 되면 안 된다.
+     기준을 매 틱 올리면 16틱(약 64초) 만에 문턱이 410 위로 올라가, 3분 쿨다운이 끝날 무렵엔
+     이미 «정상» 이라 두 번째 토스트가 영영 안 뜬다 — 옛 절대값(400) 때는 3분마다 반복했으니
+     그건 «되던 것» 을 깨는 것이다. ⇒ 기준은 «나쁘지 않은 틱» 에서만 위로 따라간다. */
+  {
+    const t6 = runQlog({ student: { uid: 'heys', name: '이수현', role: 'student' } });
+    for (let i = 0; i < 5; i++) t6.api.selfWatch(0.3, 130);        // 평소 130ms
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);        // 나빠짐 → 1회차
+    ok(!!t6.doc.getElementById('vc-netlow-toast'), '지속 불량 — 첫 토스트가 뜬다');
+    t6.doc.getElementById('vc-netlow-toast').innerHTML = '(1회차)';
+    /* 3분(쿨다운)이 지나도록 계속 나쁜 상태를 유지한다 — 45틱 = 180초 */
+    for (let i = 0; i < 45; i++) t6.api.selfWatch(0.3, 410);
+    t6.win.__vcNetSelf.notifiedAt = 0;                              // 쿨다운만 지난 것으로 둔다
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);
+    ok(t6.doc.getElementById('vc-netlow-toast').innerHTML !== '(1회차)',
+       '🔴 3분 뒤에도 여전히 나쁘면 다시 뜬다 — 기준이 나쁜 값을 «평소» 로 학습하면 안 된다');
+  }
+
+  /* ⛔ 앞 수업의 기준 RTT·연속카운트가 다음 수업으로 넘어가면 안 된다.
+     ⚠️ 정리는 4초 인터벌 콜백 «안» 에서 일어나 가짜 DOM 으로는 못 돌린다 —
+     그래서 바로 아래 `__vcLowQ` 검사와 같은 방식으로 «그 자리에 있는가» 로 본다(같은 한계). */
+  {
+    const startFn = qlog.slice(qlog.indexOf('function vcqRxStart'));
+    ok(/__vcNetSelf = null/.test(startFn),
+       '수업이 끝나면 회선 경고 상태(__vcNetSelf)도 함께 비운다 — 안 비우면 앞 수업 기준값이 넘어간다');
+  }
+
+  /* ⚠️ 그룹수업 — __vcNetSelf 는 전역 하나인데 vcQualityAcc 는 상대마다 불린다(소스 주석 참고).
+     가까운 상대와 먼 상대가 번갈아 들어와도 4틱 연속 조건이 완충한다. */
+  {
+    const t8 = runQlog({ student: { uid: 'g', name: 'g', role: 'student' } });
+    for (let i = 0; i < 30; i++) { t8.api.selfWatch(0.3, 80); t8.api.selfWatch(0.3, 400); }
+    ok(!t8.doc.getElementById('vc-netlow-toast'),
+       '⛔ 상대가 둘이고 한쪽만 멀면(80ms·400ms 번갈아) 안 뜬다 — 번갈아 오는 값으로 오경보하지 않는다');
+  }
+
   /* 상대 타일 표시 — 강사에게만 */
   const stu = runQlog({ student: { uid: 's1', name: '학생', role: 'student' } });
   stu.doc.__addBox('peerA');
