@@ -189,15 +189,23 @@ console.log('\n[ ④ API — 소유자 판정 + 허용목록 ]');
 }
 
 console.log('\n[ ⑤ 도구 화면 8종이 «돌아가기» 알약을 싣는다 ]');
-for (const f of ['warmup', 'ai-friend', 'judgment', 'vocab', 'micro-quiz', 'review-quiz', 'ai-write', 'speech-coach']) {
-  const h = rd(join(PUB, f + '.html'));
-  check(`⑤ ${f}.html 에 today-bar.js`, /<script[^>]*src="\/js\/today-bar\.js\?v=\d+"/.test(h));
+/* ⚠️ 8종을 손으로 적지 않는다 — 계획이 «가리키는» 모든 화면(중국어 갈래·게임·레벨테스트 포함)에서
+   센다. 2026-09-03 함정 대조 검사가 잡은 누락: review-quiz-cn·speech-coach-cn·student-games·level-test-ai. */
+{
+  const urls = new Set(['/level-test-ai.html']);
+  if (mod) for (const t of Object.values(mod.TOOLS)) { urls.add(t.url); if (t.urlZh) urls.add(t.urlZh); }
+  for (const u of [...urls].sort()) {
+    const h = rd(join(PUB, u.replace(/^\//, '')));
+    check(`⑤ ${u} 에 today-bar.js`, /<script[^>]*src="\/js\/today-bar\.js\?v=\d+"/.test(h));
+  }
+  check('⑤ 검사한 화면이 12개 이상이다(목록이 비어 헛돌지 않는다)', urls.size >= 12, urls.size);
 }
 {
   const bar = strip(rd(join(PUB, 'js', 'today-bar.js')));
   check('⑤ today-bar 는 from=today 일 때만 그린다', /get\('from'\) === 'today'/.test(bar));
   check('⑤ today-bar 에 상주 MutationObserver·setInterval 이 없다(홈을 멎게 한 전력)', !/MutationObserver|setInterval/.test(bar));
   check('⑤ today-bar z-index 가 수업 독(99993)보다 아래', /z-index:99990/.test(bar));
+  check('⑤ today-bar 가 «무엇을 덮는가» 를 재서 비켜선다(elementFromPoint · 조작 요소)', /elementFromPoint/.test(bar) && /button|a\[href\]|input/.test(bar) && /function\s+covers/.test(bar));
 }
 
 console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
