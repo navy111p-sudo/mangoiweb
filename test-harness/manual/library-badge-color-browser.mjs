@@ -22,7 +22,7 @@
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { loadPlaywright, findChromium } from './_pw.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -31,6 +31,12 @@ const CSS = join(PUBLIC, 'css', 'admin-inline-c.css');
 const PORT = 8947;                       // 다른 검사와 겹치지 않게
 const BASE = `http://127.0.0.1:${PORT}`;
 const BLUE = 'rgb(37, 99, 235)';         // #2563eb
+// ②의 변이시험은 CSS 를 «잠깐 잘랐다 되돌린다». finally 로 되돌리지만
+// **강제 종료(SIGKILL·컨테이너 재시작)에는 finally 가 안 돈다** — 그러면 잘린 CSS 가 남고,
+// 다음 실행이 그것을 «원본» 으로 읽어 수리를 영영 잃는다(2026-09-03 이 세션에서 실제로
+// 하위 작업이 두 번 강제 종료됐다). 그래서 자르기 «전»에 옆에 사본을 두고,
+// 다음 실행이 그 사본을 먼저 되돌린다.
+const BAK = CSS + '.harness-bak';
 
 let pass = 0, fail = 0;
 const check = (n, ok, extra) => {
@@ -43,6 +49,13 @@ if (!pw || !exe) {
   console.log('⏭  건너뜀 — playwright-core 또는 Chromium 이 없습니다.');
   console.log('   mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core');
   process.exit(0);
+}
+
+// 지난 실행이 중간에 죽었으면 먼저 되돌린다 (조용히 넘어가지 않고 말한다)
+if (existsSync(BAK)) {
+  writeFileSync(CSS, readFileSync(BAK, 'utf8'), 'utf8');
+  unlinkSync(BAK);
+  console.log('⚠️  지난 실행이 중간에 죽어 CSS 가 잘린 채였습니다 — 사본에서 되돌렸습니다.');
 }
 
 const srv = spawn('python3', ['-m', 'http.server', String(PORT)], { cwd: PUBLIC, stdio: 'ignore' });
@@ -124,6 +137,7 @@ try {
   check('꼬리 규칙이 CSS 에 있다', idx > 0);
   if (idx > 0) {
     try {
+      writeFileSync(BAK, orig, 'utf8');                     // ⚠️ 자르기 «전»에 사본부터
       writeFileSync(CSS, orig.slice(0, idx), 'utf8');       // 꼬리를 통째로 잘라 «고치기 전» 으로
       const before = (await measure(browser)).filter(b => b.visible);
       check('되돌리면 파랑이 아니게 된다 (= 이 검사가 진짜로 무언가를 지킨다)',
@@ -131,8 +145,10 @@ try {
         [...new Set(before.map(b => b.color))].join(' · '));
     } finally {
       writeFileSync(CSS, orig, 'utf8');                      // ⚠️ 반드시 되돌린다
+      if (existsSync(BAK)) unlinkSync(BAK);
     }
     check('CSS 를 원래대로 되돌렸다', readFileSync(CSS, 'utf8') === orig);
+    check('되돌리기용 사본(.harness-bak)을 남기지 않았다', !existsSync(BAK));
   }
 } finally {
   await browser.close();
