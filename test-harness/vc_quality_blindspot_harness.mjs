@@ -88,7 +88,8 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   };
   const fn = new Function(...Object.keys(sandbox),
     qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart,'
-         + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify };');
+         + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify,'
+         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote };');
   const api = fn(...Object.values(sandbox));
   return { api, sent, win, doc };
 }
@@ -190,6 +191,102 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
   ok(oldFlips > now.flips, `옛 문턱으로 되돌리면 진동이 실제로 늘어난다 (옛 ${oldFlips}회 > 지금 ${now.flips}회) — 검사가 헛돌지 않는다`);
 }
 
+console.log('\n════════ ④-2 높은 기준 RTT 회선 — 내려간 화질이 «돌아오는가» (2026-09-02 class-849 실측) ════════');
+{
+  /* [잰 것] 강선생님(중국) ↔ jeong: D1 vc_quality 19분 내내 RTT 360~435ms, 손실 1% 미만.
+     [옛 코드] 회복 조건이 «rtt < 250» 절대값이라 이 회선에서는 한 번 내려가면 수업 끝까지 바닥.
+     [지금]   기준 RTT(그 연결의 최소값) 대비로 재므로 조용해지면 올라온다.
+     ⚠️ ④ 와 달리 시계를 «가짜로 흘려» 준다 — 홀드(30초)가 실제 시간이라 동기 루프에서는 회복이 영영 안 온다. */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const i = main.indexOf('let step = pc.__qStep || 0;');
+  const j = main.indexOf('if (step !== (pc.__qStep || 0))', i);
+  const block = main.slice(i, j);
+  ok(/__qRttBase/.test(block) && /rttUp/.test(block) && /rttDown/.test(block),
+     '판정 블록이 기준 RTT(__qRttBase)·상대 문턱(rttUp/rttDown)을 쓴다');
+
+  function run(src, series) {
+    let t = 0;
+    const FakeDate = { now: () => t };
+    const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS', 'Date', src + '\n;return step;');
+    const pc = { __qStep: 0, __qGood: 0, __qBadAt: 0 };
+    let worst = 0, recoveredAt = -1;
+    series.forEach(([loss, rtt], k) => {
+      t += 4000;
+      const next = decide(pc, loss, rtt, [1, .6, .35, .2, .08], FakeDate);
+      if (pc.__qStep > 0 && next === 0 && recoveredAt < 0) recoveredAt = k;
+      pc.__qStep = next; worst = Math.max(worst, next);
+    });
+    return { worst, end: pc.__qStep, recoveredAt, base: pc.__qRttBase };
+  }
+  /* 19분: 기준 365ms, 1분에 한 번 470ms 스파이크(옛 450 문턱을 넘음), 4분째에 «진짜 막힘» 620ms 한 번 */
+  const series = [];
+  for (let m = 0; m < 19; m++) for (let k = 0; k < 15; k++) {
+    const spike = k === 7;
+    series.push([spike ? 1.2 : 0.3, m === 3 && spike ? 620 : (spike ? 470 : 360 + (k % 3) * 5)]);
+  }
+  const now = run(block, series);
+  ok(now.worst >= 1, `«진짜 막힘»(620ms) 에는 여전히 내려간다 (최저 단계 ${now.worst})`);
+  ok(now.end === 0 && now.recoveredAt > 0,
+     `조용해지면 «올라온다» — 끝 단계 ${now.end}, ${now.recoveredAt >= 0 ? Math.round(now.recoveredAt * 4 / 60) + '분째 회복' : '회복 없음'}`);
+  ok(now.base >= 355 && now.base <= 375, `기준 RTT 가 그 회선의 최소값 근처로 잡혔다 (${Math.round(now.base)}ms)`);
+  /* 470ms 스파이크(기준+110)는 «막힘» 이 아니라 그 회선의 흔들림 — 그것만으로 내려가면 안 된다 */
+  const calm = series.filter((_, k) => Math.floor(k / 15) !== 3);
+  const noBig = run(block, calm);
+  ok(noBig.worst === 0, `기준+110ms 흔들림만으로는 내려가지 않는다 (최저 단계 ${noBig.worst})`);
+
+  /* 되돌림 — 옛 절대값으로 바꾸면 «영영 바닥» 이 실제로 재현돼야 한다(안 그러면 이 검사는 헛돈다) */
+  const oldSrc = block.replace(/const rttDown = [^;]+;/, 'const rttDown = 450, rttUp = 250;');
+  ok(oldSrc !== block, '되돌림 시험용 옛 블록을 만들었다');
+  const old = run(oldSrc, series);
+  ok(old.worst >= 1 && old.end >= 1 && old.recoveredAt < 0,
+     `옛 절대 문턱으로 되돌리면 실제로 바닥에 굳는다 (끝 단계 ${old.end}, 회복 없음) — 검사가 헛돌지 않는다`);
+
+  /* 낮은 회선(기준 90ms)에서는 옛 동작과 같아야 한다 — 문턱이 450/250 으로 떨어진다 */
+  const low = []; for (let k = 0; k < 40; k++) low.push([0.3, k === 10 ? 480 : 90]);
+  const lowNow = run(block, low), lowOld = run(oldSrc, low);
+  ok(lowNow.worst === lowOld.worst && lowNow.end === lowOld.end,
+     `기준 RTT 가 낮은 회선에서는 옛 판정과 같은 답 (최저 ${lowNow.worst} / 끝 ${lowNow.end})`);
+
+  /* ── (2026-09-02 함정 대조 검사 지적) 아래 셋은 처음 ④-2 가 못 잡던 것 — 상한 제거·드리프트 10배·28초 주기 흔들림 ── */
+
+  /* ㉠ 기준 상한 500 — 손실 없이 RTT 만 800ms 로 «지속 혼잡» 인 회선은 회복시키지 않는다(상한을 풀면 기준이 800 까지 따라 올라가 도로 올라온다) */
+  const jam = [];
+  for (let k = 0; k < 20; k++) jam.push([0.3, 360]);
+  jam.push([0.3, 620]);
+  for (let k = 0; k < 120; k++) jam.push([0.3, 800]);
+  const jamNow = run(block, jam);
+  ok(jamNow.worst >= 1 && jamNow.end >= 1, `RTT 800ms 지속 혼잡에서는 올라오지 않는다 (끝 단계 ${jamNow.end}, 기준 ${Math.round(jamNow.base)} ≤ 500 상한)`);
+  const noCap = block.replace(/Math\.min\(pc\.__qRttBase \|\| 0, 500\)/, '(pc.__qRttBase || 0)');
+  ok(noCap !== block, '되돌림 시험용(상한 제거) 블록을 만들었다');
+  const jamNoCap = run(noCap, jam);
+  ok(jamNoCap.end === 0, `상한을 풀면 800ms 인 채로 도로 올라온다 (끝 단계 ${jamNoCap.end}) — 상한 검사가 헛돌지 않는다`);
+
+  /* ㉡ 기준은 위로는 «천천히» 만 따라간다 — 첫 표본이 비정상 저값이어도 15틱(1분) 안에 기준이 실제값으로 뛰어오르지 않는다 */
+  const drift = [[0.3, 100]]; for (let k = 0; k < 15; k++) drift.push([0.3, 360]);
+  const dNow = run(block, drift);
+  ok(dNow.base > 100 && dNow.base <= 250, `기준이 1분 동안 100 → ${Math.round(dNow.base)} 로만 올라왔다(틱당 2%)`);
+  const fastDrift = block.replace('(rtt - b) * 0.02', '(rtt - b) * 0.2');
+  ok(fastDrift !== block, '되돌림 시험용(드리프트 10배) 블록을 만들었다');
+  ok(run(fastDrift, drift).base > 250, '드리프트를 10배로 키우면 1분 안에 실제값에 붙는다 — 드리프트 검사가 헛돌지 않는다');
+
+  /* ㉢ 28초마다 흔들리는 회선(기준+110 스파이크가 7틱 주기) — «8틱 연속 양호» 를 매번 끊지 않아야 올라온다.
+        손실 없이 RTT 만 애매한 틱은 진행을 «지우지» 말고 «멈추기» 만 한다(손실이 있으면 옛대로 지운다). */
+  const jitter = [];
+  for (let k = 0; k < 300; k++) jitter.push([0.3, k === 50 ? 620 : (k % 7 === 3 ? 470 : 360)]);
+  const jNow = run(block, jitter);
+  ok(jNow.worst >= 1 && jNow.end === 0 && jNow.recoveredAt > 50,
+     `28초 주기 흔들림에서도 올라온다 (끝 단계 ${jNow.end}, ${jNow.recoveredAt > 0 ? Math.round((jNow.recoveredAt - 50) * 4 / 60) + '분 만에 회복' : '회복 없음'})`);
+  const resetAll = block.replace('} else if (lossPct >= 1.5) {', '} else {');
+  ok(resetAll !== block, '되돌림 시험용(애매 틱마다 리셋) 블록을 만들었다');
+  const jOld = run(resetAll, jitter);
+  ok(jOld.end >= 1 && jOld.recoveredAt < 0, `애매 틱마다 지우면 영영 못 올라온다 (끝 단계 ${jOld.end}) — 검사가 헛돌지 않는다`);
+  /* 손실이 있는 틱은 여전히 지운다 — 손실 2% 가 7틱마다 오면 옛대로 안 올라온다 */
+  const lossy = [];
+  for (let k = 0; k < 300; k++) lossy.push([k % 7 === 3 ? 2.0 : 0.3, k === 50 ? 620 : 360]);
+  const lNow = run(block, lossy);
+  ok(lNow.worst >= 1 && lNow.recoveredAt < 0, `손실 2% 가 28초마다 오면 «조용함» 을 매번 다시 센다 (끝 단계 ${lNow.end}, 회복 없음)`);
+}
+
 console.log('\n════════ ⑤ 소리 — 수신 지연 재설정과 음성전용 문턱 ════════');
 {
   const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
@@ -252,6 +349,81 @@ console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 �
   const t2 = runQlog({ student: { uid: 'x', name: 'x', role: 'student' } });
   for (let i = 0; i < 8; i++) t2.api.selfWatch(-1, 0);
   ok(!t2.doc.getElementById('vc-netlow-toast'), '⛔ 영상 표본이 없는 틱(-1)은 «회선 나쁨» 으로 세지 않는다');
+
+  /* 🔴 2026-09-02 class-849 — 사장님이 19분 내내 토스트를 못 보셨다. 조건 미달이 아니라
+     «제일 나쁜 틱» 이 판정에서 통째로 빠져 있었다. loss === -1 은 «손실을 모른다» 일 뿐
+     «RTT 를 모른다» 가 아닌데, 옛 코드는 첫 줄에서 return 했다.
+     실측: RTT 가 제일 높았던 두 창이 novideo 13/15 · 11/15 였다 = 그 틱들이 전부 -1.
+     ⚠️ 이 검사는 «-1 은 세지 않는다»(바로 위) 와 짝이다 — 한쪽만 두면 반대로 무너진다. */
+  {
+    const t3 = runQlog({ student: { uid: 'y', name: 'y', role: 'student' } });
+    for (let i = 0; i < 3; i++) t3.api.selfWatch(0.5, 130);      // 기준 RTT 를 130 으로 만든다
+    ok(!t3.doc.getElementById('vc-netlow-toast'), '기준 RTT 를 잡는 동안에는 안 뜬다');
+    for (let i = 0; i < 4; i++) t3.api.selfWatch(-1, 500);       // 영상은 죽었고 RTT 만 살아 있다
+    ok(!!t3.doc.getElementById('vc-netlow-toast'),
+       '🔴 영상 표본이 없어도(-1) RTT 가 계속 높으면 뜬다 — 옛 코드는 여기서 통째로 건너뛰었다');
+  }
+
+  /* 🌏 문턱은 «이 회선의 기준값» 대비다(#771 이 화질 회복 문턱에 쓴 것과 같은 방식).
+     중국 강사 회선은 평소가 360~440ms 라(같은 수업 실측) 절대값 400 이면 정상 통화 중에
+     «공유기 가까이 가세요» 가 뜬다 — 지리적 거리는 사람이 못 고치므로 틀린 안내다. */
+  {
+    const t4 = runQlog({ admin: { uid: 'hq_t_kang', name: '교사 강선생님', role: 'teacher' } });
+    for (let i = 0; i < 20; i++) t4.api.selfWatch(0.2, 360);     // 중국 회선의 «평소»
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준이 높은 회선(중국 360ms)은 평소 값으로 안 뜬다 — 옛 절대값 400 은 여기서 오경보였다');
+    for (let i = 0; i < 6; i++) t4.api.selfWatch(0.2, 430);      // 실측에서 나온 스파이크 폭
+    ok(!t4.doc.getElementById('vc-netlow-toast'),
+       '⛔ 기준 대비 +70ms 스파이크로도 안 뜬다(실측 430ms)');
+    for (let i = 0; i < 4; i++) t4.api.selfWatch(0.2, 620);      // 기준 대비 +260 = 진짜 막힘
+    ok(!!t4.doc.getElementById('vc-netlow-toast'),
+       '기준보다 200ms 넘게 막히면 그때는 뜬다');
+  }
+
+  /* ⛔ 기준이 낮은 국내 회선은 예전 숫자(400) 그대로다 — 이번 변경으로 더 둔해지면 안 된다 */
+  {
+    const t5 = runQlog({ student: { uid: 'z', name: 'z', role: 'student' } });
+    for (let i = 0; i < 5; i++) t5.api.selfWatch(0.3, 130);
+    for (let i = 0; i < 4; i++) t5.api.selfWatch(0.3, 410);
+    ok(!!t5.doc.getElementById('vc-netlow-toast'),
+       '국내 회선(기준 130ms)은 410ms 가 이어지면 예전처럼 뜬다');
+  }
+
+  /* 🔴 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 되면 안 된다.
+     기준을 매 틱 올리면 16틱(약 64초) 만에 문턱이 410 위로 올라가, 3분 쿨다운이 끝날 무렵엔
+     이미 «정상» 이라 두 번째 토스트가 영영 안 뜬다 — 옛 절대값(400) 때는 3분마다 반복했으니
+     그건 «되던 것» 을 깨는 것이다. ⇒ 기준은 «나쁘지 않은 틱» 에서만 위로 따라간다. */
+  {
+    const t6 = runQlog({ student: { uid: 'heys', name: '이수현', role: 'student' } });
+    for (let i = 0; i < 5; i++) t6.api.selfWatch(0.3, 130);        // 평소 130ms
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);        // 나빠짐 → 1회차
+    ok(!!t6.doc.getElementById('vc-netlow-toast'), '지속 불량 — 첫 토스트가 뜬다');
+    t6.doc.getElementById('vc-netlow-toast').innerHTML = '(1회차)';
+    /* 3분(쿨다운)이 지나도록 계속 나쁜 상태를 유지한다 — 45틱 = 180초 */
+    for (let i = 0; i < 45; i++) t6.api.selfWatch(0.3, 410);
+    t6.win.__vcNetSelf.notifiedAt = 0;                              // 쿨다운만 지난 것으로 둔다
+    for (let i = 0; i < 4; i++) t6.api.selfWatch(0.3, 410);
+    ok(t6.doc.getElementById('vc-netlow-toast').innerHTML !== '(1회차)',
+       '🔴 3분 뒤에도 여전히 나쁘면 다시 뜬다 — 기준이 나쁜 값을 «평소» 로 학습하면 안 된다');
+  }
+
+  /* ⛔ 앞 수업의 기준 RTT·연속카운트가 다음 수업으로 넘어가면 안 된다.
+     ⚠️ 정리는 4초 인터벌 콜백 «안» 에서 일어나 가짜 DOM 으로는 못 돌린다 —
+     그래서 바로 아래 `__vcLowQ` 검사와 같은 방식으로 «그 자리에 있는가» 로 본다(같은 한계). */
+  {
+    const startFn = qlog.slice(qlog.indexOf('function vcqRxStart'));
+    ok(/__vcNetSelf = null/.test(startFn),
+       '수업이 끝나면 회선 경고 상태(__vcNetSelf)도 함께 비운다 — 안 비우면 앞 수업 기준값이 넘어간다');
+  }
+
+  /* ⚠️ 그룹수업 — __vcNetSelf 는 전역 하나인데 vcQualityAcc 는 상대마다 불린다(소스 주석 참고).
+     가까운 상대와 먼 상대가 번갈아 들어와도 4틱 연속 조건이 완충한다. */
+  {
+    const t8 = runQlog({ student: { uid: 'g', name: 'g', role: 'student' } });
+    for (let i = 0; i < 30; i++) { t8.api.selfWatch(0.3, 80); t8.api.selfWatch(0.3, 400); }
+    ok(!t8.doc.getElementById('vc-netlow-toast'),
+       '⛔ 상대가 둘이고 한쪽만 멀면(80ms·400ms 번갈아) 안 뜬다 — 번갈아 오는 값으로 오경보하지 않는다');
+  }
 
   /* 상대 타일 표시 — 강사에게만 */
   const stu = runQlog({ student: { uid: 's1', name: '학생', role: 'student' } });
@@ -396,6 +568,102 @@ console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으�
      '집계에서 «모름»(-1) 행을 평균에 섞지 않는다');
   ok(/rx_ready = false/.test(adm),
      '칸이 아직 없는 DB 에서는 옛 질의로 떨어진다(화면 전체가 «조회 실패» 가 되지 않는다)');
+}
+
+console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지» 를 타일에 적는다(크기는 안 건드린다) ════════');
+{
+  const t = runQlog({ student: { uid: 'jeong', name: 'jeong', role: 'student' } });
+  const local = t.doc.createElement('div'); local.id = 'vc-local-box';
+  const badge = (box) => box.querySelector('.vc-lowq-hint');
+
+  /* 보내는 쪽 — 상대 하나라도 3단계 이상이면 내 타일에 */
+  t.win.vcPeerConnections = { a: { __qStep: 2 }, b: { __qStep: 0 } };
+  t.api.lowqSelf(); t.api.lowqSelf();
+  ok(!badge(local), '2단계(해상도 1/2)까지는 안 붙는다');
+  t.win.vcPeerConnections = { a: { __qStep: 4 }, b: { __qStep: 0 } };
+  t.api.lowqSelf();
+  ok(!badge(local), '한 틱(4초)만으로는 안 붙는다 — 흔들림 한 번에 깜빡이지 않게');
+  t.api.lowqSelf();
+  ok(!!badge(local), '2틱(8초) 이어지면 내 타일에 «저화질로 보내는 중» 이 붙는다');
+  ok(/저화질/.test(badge(local).textContent) && /low quality/i.test(badge(local).textContent), '한국어·영어를 함께 적는다');
+  t.api.lowqSelf();
+  ok(local.children.filter(c => c.className === 'vc-lowq-hint').length === 1, '계속 저화질이어도 하나만 붙는다(깜빡임 방지)');
+  ok(!local.style.width && !local.style.height && !local.style.transform && local.style.position === 'relative'
+     && /^position:absolute/.test(badge(local).style.cssText) && !/transform:\s*scale/.test(badge(local).style.cssText),
+     '⛔ 배지는 타일 크기를 건드리지 않는다(자동 축소 없음) — 타일에는 position:relative 만, 배지는 absolute 로 얹는다');
+  t.win.vcPeerConnections = { a: { __qStep: 0 } };
+  t.api.lowqSelf();
+  ok(!badge(local), '회복되면 곧바로 뗀다');
+
+  /* 받는 쪽 — 오는 영상의 가로폭으로. 모든 화면에(문구가 상대를 탓하지 않는다) */
+  const box = t.doc.__addBox('p1');
+  t.api.lowqRemote('p1', 1280, true);                        // PC 카메라의 «정상» 폭을 먼저 본다
+  t.api.lowqRemote('p1', 320, true);
+  ok(!badge(box), '받는 쪽도 한 틱만으로는 안 붙는다');
+  t.api.lowqRemote('p1', 320, true);
+  ok(!!badge(box), '1280 을 보던 상대가 320px(1/4) 로 2틱 이어지면 그 타일에 «저화질로 받는 중» 이 붙는다');
+  ok(!/학생|상대|불안정/.test(badge(box).textContent), '⛔ 학생 화면에도 뜨므로 «상대 탓» 하는 말을 쓰지 않는다');
+  t.api.lowqRemote('p1', 640, true);
+  ok(!badge(box), '가로폭이 돌아오면 곧바로 뗀다');
+  t.api.lowqRemote('p1', 320, false); t.api.lowqRemote('p1', 320, false); t.api.lowqRemote('p1', 320, false);
+  ok(!badge(box), '⛔ 영상 패킷이 안 오면(카메라 끔·음성전용) «저화질» 로 세지 않는다 — 모름은 뗀다');
+  t.api.lowqRemote('p1', 0, true); t.api.lowqRemote('p1', 0, true);
+  ok(!badge(box), '가로폭 0(통계 없음)도 «모름» — 안 붙는다');
+  t.api.lowqRemote('없는피어', 320, true);
+  ok(true, '타일이 없는 상대에게 불러도 죽지 않는다');
+  /* 폰 송신자(640) — 함정 대조 검사 지적: 절대값 430 이면 폰은 1단계(427)부터 걸린다 */
+  const ph = t.doc.__addBox('phone');
+  t.api.lowqRemote('phone', 640, true);
+  t.api.lowqRemote('phone', 427, true); t.api.lowqRemote('phone', 427, true); t.api.lowqRemote('phone', 427, true);
+  ok(!badge(ph), '⛔ 폰(640) 이 1단계(427px) 로 보내는 것은 «저화질» 이 아니다');
+  t.api.lowqRemote('phone', 320, true); t.api.lowqRemote('phone', 320, true);
+  ok(!badge(ph), '폰 2단계(320px, 1/2)도 아직 아니다 — PC 2단계(640)와 같은 기준');
+  t.api.lowqRemote('phone', 213, true); t.api.lowqRemote('phone', 213, true);
+  ok(!!badge(ph), '폰 3단계(213px, 1/3) 부터 붙는다 — PC 와 같은 «단계» 기준');
+  /* PC 2단계(640)는 안 붙는다 */
+  const pc2 = t.doc.__addBox('pc2');
+  t.api.lowqRemote('pc2', 1280, true); t.api.lowqRemote('pc2', 640, true); t.api.lowqRemote('pc2', 640, true); t.api.lowqRemote('pc2', 640, true);
+  ok(!badge(pc2), 'PC 2단계(640px, 1/2)는 안 붙는다');
+  /* 최대 폭을 못 본 상대(처음부터 바닥) — 절대 하한으로 잡는다 */
+  const cold = t.doc.__addBox('cold');
+  t.api.lowqRemote('cold', 213, true); t.api.lowqRemote('cold', 213, true);
+  ok(!!badge(cold), '정상 폭을 본 적 없어도 213px 이면 붙는다(절대 하한)');
+  const cold2 = t.doc.__addBox('cold2');
+  t.api.lowqRemote('cold2', 320, true); t.api.lowqRemote('cold2', 320, true);
+  ok(!badge(cold2), '정상 폭을 본 적 없는 320px 는 «모름» — 폰 정상(480 세로)과 못 가르므로 안 붙는다');
+  /* 음성전용 중에는 «보내는 중» 을 안 붙인다 */
+  const aaoT = runQlog({ student: { uid: 'a', name: 'a', role: 'student' } });
+  const aaoLocal = aaoT.doc.createElement('div'); aaoLocal.id = 'vc-local-box';
+  aaoT.win.vcPeerConnections = { x: { __qStep: 4 } };
+  aaoT.win.__vcAAO = { active: true };
+  aaoT.api.lowqSelf(); aaoT.api.lowqSelf(); aaoT.api.lowqSelf();
+  ok(!badge(aaoLocal), '⛔ 음성전용(AAO) 중에는 «저화질로 보내는 중» 을 안 붙인다 — 영상을 안 보내는 것이지 저화질이 아니다');
+  aaoT.win.__vcAAO = { active: false };
+  aaoT.api.lowqSelf(); aaoT.api.lowqSelf();
+  ok(!!badge(aaoLocal), 'AAO 가 풀리고 단계가 그대로 바닥이면 그때 붙는다');
+
+  /* 문턱이 idx-main.js 의 실제 단계표와 맞는가 — 3단계는 해상도 1/3·비트레이트 20% 라 «흐림» 이 보이는 첫 단계 */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const steps = main.match(/const STEPS = \[([^\]]+)\]/);
+  const scale = main.match(/const SCALE = \[([^\]]+)\]/);
+  const stepIdx = Number((qlog.match(/var VC_LOWQ_STEP = (\d+)/) || [])[1]);
+  const ratio = Number((qlog.match(/var VC_LOWQ_RATIO = ([\d.]+)/) || [])[1]);
+  const absW = Number((qlog.match(/var VC_LOWQ_ABS = (\d+)/) || [])[1]);
+  ok(steps && scale && stepIdx >= 1, `배지 단계 문턱(${stepIdx})과 STEPS·SCALE 표를 찾았다`);
+  const mult = steps ? Number(steps[1].split(',')[stepIdx]) : 1;
+  const div = scale ? Number(scale[1].split(',')[stepIdx]) : 1;
+  ok(mult <= 0.25 && div >= 3, `그 단계는 비트레이트 ${mult * 100}%·해상도 1/${div} — 흐림이 보이는 단계다`);
+  const prevDiv = scale ? Number(scale[1].split(',')[stepIdx - 1]) : 1;
+  ok(ratio > prevDiv && ratio <= div,
+     `받는 쪽 비율 문턱 1/${ratio} 는 그 단계(1/${div})부터 잡고 앞 단계(1/${prevDiv})는 안 잡는다 — PC·폰 공통`);
+  ok(absW < 640 / prevDiv && absW >= 640 / div - 1,
+     `절대 하한 ${absW}px 는 폰(640) 앞 단계(${Math.round(640 / prevDiv)}px)는 안 잡고 그 단계(${Math.round(640 / div)}px)는 잡는다`);
+  /* 배선 — 틱에서 실제로 부르는가. ⚠️ 주석을 벗긴 사본으로 본다(주석 처리해도 통과하던 구멍 — 함정 대조 검사 지적) */
+  const bare = qlog.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\/[^\n]*$/gm, '');
+  const tick = bare.slice(bare.indexOf('function vcqRxTick'), bare.indexOf('function vcqRxStart'));
+  ok(/vcqLowQSelf\(\)/.test(tick) && /vcLowQRemote\(id, s\.frameWidth \|\| 0, dr > 0\)/.test(tick),
+     '4초 틱이 보내는 쪽·받는 쪽 배지를 둘 다 부르고, 받는 쪽에 «패킷이 오는가»(dr > 0)를 넘긴다');
+  ok(/__vcLowQ = \{\}/.test(qlog.slice(qlog.indexOf('function vcqRxStart'))), '수업이 끝나면 배지 상태를 비운다');
 }
 
 console.log('\n' + '═'.repeat(60));

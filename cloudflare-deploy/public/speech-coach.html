@@ -1019,17 +1019,44 @@ function renderWordMap(words) {
   }).join('');
 
   // 🌟 희망 톤 — «가장 아쉬운 한 곳»만 짚어 준다. 여러 개를 늘어놓으면 의욕이 꺾인다.
-  let hint;
-  const ww = weakest ? esc(weakest.word) : '';
-  if (weakest && weakest.sc < 60) {
-    hint = en ? `Try <b>${ww}</b> once more — you're close!`
-              : `<b>${ww}</b> 하나만 다시 해볼까요? 거의 다 왔어요!`;
-  } else if (weakest && weakest.sc < 80) {
-    hint = en ? `Nice! Polish <b>${ww}</b> and it's perfect.`
-              : `좋아요! <b>${ww}</b> 만 다듬으면 완벽해요.`;
-  } else {
-    hint = en ? 'Every word came out clearly. Great job!' : '모든 단어가 또렷했어요. 아주 잘했어요!';
+  /* 🎉 격려 문구 — 단계마다 «한 가지» 만 두면 연습할 때마다 똑같은 말이 나온다.
+     2026-09-03 벨잉글리시 원장님 제보 «정해진 문장 안에서만 한다» 의 «음성 코칭» 판이다.
+     ⚠️ 이 화면에는 AI 가 말을 만드는 자리가 없다(문장은 고정 세트, 채점은 Azure 음소 분석).
+        그래서 고칠 곳은 프롬프트가 아니라 «손으로 쓴 이 문구» 이고, 가짓수를 늘려 돌려 쓴다.
+     ⚠️ {w} 자리에는 이미 esc() 를 거친 단어가 들어간다 — 새 문구에도 {w} 만 쓸 것.
+     ⛔ 이 문구를 «따라 말할 예문» 으로 만들지 말 것. 점수 옆에 붙는 격려문이다. */
+  const SC_HINTS = {
+    low: en
+      ? ["Try <b>{w}</b> once more — you're close!", "Almost! One more go at <b>{w}</b>.",
+         "<b>{w}</b> is the tricky one. Try it again!", "So close! Say <b>{w}</b> one more time."]
+      : ["<b>{w}</b> 하나만 다시 해볼까요? 거의 다 왔어요!", "<b>{w}</b> 만 한 번 더! 거의 됐어요.",
+         "<b>{w}</b> 가 조금 어려웠나 봐요. 다시 해볼까요?", "아깝다! <b>{w}</b> 한 번만 더 해봐요."],
+    mid: en
+      ? ["Nice! Polish <b>{w}</b> and it's perfect.", "Good one! Just <b>{w}</b> to smooth out.",
+         "Almost perfect — <b>{w}</b> is the last bit.", "Well done! Tidy up <b>{w}</b> and you're there."]
+      : ["좋아요! <b>{w}</b> 만 다듬으면 완벽해요.", "잘했어요! <b>{w}</b> 하나만 더 또렷하게요.",
+         "거의 완벽! <b>{w}</b> 만 남았어요.", "훌륭해요! <b>{w}</b> 만 조금 더 또렷하게 해볼까요?"],
+    top: en
+      ? ['Every word came out clearly. Great job!', 'Perfect! All the words were clear.',
+         'Wow — clear from start to finish!', 'Excellent! Not one word slipped.']
+      : ['모든 단어가 또렷했어요. 아주 잘했어요!', '완벽해요! 전부 또렷하게 들렸어요.',
+         '와! 처음부터 끝까지 깨끗했어요.', '훌륭해요! 하나도 안 뭉갰어요.']
+  };
+  window._scHintLast = window._scHintLast || {};
+  /* ℹ️ 이 헬퍼는 이 함수 «안» 에서만 쓴다(밖에서 부르지 않는다) — 밖에서 쓸 일이 생기면
+     최상위로 옮길 것. 함수 선언 호이스팅은 그 함수 스코프까지만 올라간다. */
+  function scHint(tier, w) {
+    var arr = SC_HINTS[tier], n = arr.length, last = window._scHintLast[tier];
+    var i = Math.floor(Math.random() * n);
+    if (n > 1 && i === last) i = (i + 1) % n;      // 직전에 쓴 문구는 연달아 쓰지 않는다
+    window._scHintLast[tier] = i;
+    return arr[i].replace('{w}', w);
   }
+
+  const ww = weakest ? esc(weakest.word) : '';
+  const hint = (weakest && weakest.sc < 60) ? scHint('low', ww)
+             : (weakest && weakest.sc < 80) ? scHint('mid', ww)
+             : scHint('top', ww);
 
   box.innerHTML =
     `<div class="wordmap-title">${en ? '🎯 Word-by-word pronunciation' : '🎯 단어별 발음'}</div>` +
@@ -1583,5 +1610,6 @@ if (typeof window.speechSynthesis !== 'undefined') {
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js?v=21"></script>
+<script defer src="/js/today-bar.js?v=2"></script><!-- 📅 오늘의 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>

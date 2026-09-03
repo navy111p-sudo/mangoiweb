@@ -5069,22 +5069,31 @@ function vcArmFullscreenRetry() {
                    [고침] 회복을 «오래 조용했을 때만» 허용한다 — 연속 8틱(32초) + 마지막 스파이크로부터 30초.
                      ⛔ 내려가는 쪽은 그대로 둔다(빠르게 내려가는 것은 옳다).
                      ⛔ 숫자를 더 키우지 말 것 — 회선이 정말 좋아졌는데도 흐린 채로 남는다. */
-                if (lossPct > 6 || rtt > 450) {
+                /* 🌏 (2026-09-02 class-849 강선생님 「흐려진 뒤 안 돌아온다」) RTT 문턱은 «이 연결의 기준값» 에 상대로 잰다.
+                   중국 회선은 RTT 가 늘 360ms 안팎이라(D1 vc_quality 19분 내내 360~435ms, 손실 1% 미만) «250 미만» 회복
+                   조건이 영영 안 맞았고, 450 초과 스파이크 한 번에 내려간 화질이 수업 끝까지 바닥에 남았다.
+                   기준값 = 그 연결에서 본 최소 RTT(위로는 틱당 2% 씩만 따라감). 기준 150 미만 회선은 옛 숫자 그대로다.
+                   ⛔ 손실 문턱은 안 건드린다 — «나쁜» 신호는 손실, RTT 는 «막힌» 신호라 기준 대비 증가분이 맞다.
+                   ⛔ 기준 상한 500 을 풀지 말 것 — 풀면 어떤 회선이든 «막힘» 을 영영 못 본다. 감시: vc_quality_blindspot_harness ④-2 */
+                if (rtt > 0) { const b = pc.__qRttBase; pc.__qRttBase = (b == null || rtt < b) ? rtt : b + (rtt - b) * 0.02; }
+                const rb = Math.min(pc.__qRttBase || 0, 500);
+                const rttDown = Math.max(450, rb + 200), rttUp = Math.max(250, rb + 100);
+                if (lossPct > 6 || rtt > rttDown) {
                     pc.__qGood = 0; pc.__qBadAt = Date.now();
                     if (step < STEPS.length - 1) step++;
-                } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
+                } else if (lossPct < 1.5 && (rtt === 0 || rtt < rttUp)) {
                     pc.__qGood = (pc.__qGood || 0) + 1;
                     if (pc.__qGood >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && step > 0) { step--; pc.__qGood = 0; }
-                } else {
-                    pc.__qGood = 0;
+                } else if (lossPct >= 1.5) {
+                    pc.__qGood = 0;   // 손실이 있으면 «조용함» 을 처음부터 다시 센다. 손실 없이 RTT 만 애매(rttUp~rttDown)하면 지우지 않고 멈춘다 — 28초마다 흔들리는 회선이 영영 못 올라오던 것(④-2)
                 }
                 if (step !== (pc.__qStep || 0)) {
-                    console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms → 단계', pc.__qStep || 0, '→', step);
+                    console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms(기준 ' + Math.round(rb) + ') → 단계', pc.__qStep || 0, '→', step);
                     pc.__qStep = step;
                     applyStep(pc, step);
                 }
                 /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
-                   기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
+                   기준은 손실 1.5% 미만 + RTT 150ms 미만(절대값 — «정말 좋은 회선» 판정이라 기준 대비로 안 잰다).
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
                 /* 🔊 (2026-09-01) 「소리가 끊긴다」에 이 줄이 직접 걸린다.
                    기준이 «지금 이 4초가 좋다» 였다. 그런데 RTT 가 52~210ms 로 요동치는 회선에서는

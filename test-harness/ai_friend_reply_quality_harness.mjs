@@ -134,9 +134,22 @@ check('프롬프트에 속도 요청 응대 규칙', /asks you to slow down/.tes
 // 2026-07-29 제보 — 되묻기가 연달아 나오면 학생이 포기한다
 check('두 번 연속 되묻기 금지 배선', /aiFriendJustAskedAgain\(history\)/.test(ts));
 check('프롬프트에도 연속 되묻기 금지', /NEVER ask twice in a row/.test(ts));
-// 2026-07-29 제보 — "영화 주제로 들어왔는데 동물 얘기를 물어봤어요"
+/* 🗺 주제 규칙 — 방향이 «반대» 인 제보 둘을 동시에 지켜야 한다. 한쪽만 보면 다른 쪽이 재발한다.
+     2026-07-29 「영화 주제로 들어왔는데 동물 얘기를 물어봤어요」
+       → AI 가 «스스로» 딴 주제로 갈아타면 안 된다.
+     2026-09-03 「대화가 매끄럽게 이어지지 않고, 정해진 문장 안에서만 하는 느낌」(벨잉글리시 원장님)
+       → 학생이 꺼낸 얘기는 «따라가야» 한다. 옛 문구는 금지 세 겹이라 이쪽이 통째로 막혔다.
+   ⛔ 옛 문구(Stay on THIS topic / Do NOT switch)로 되돌리지 말 것.
+   ⚠️ 검사를 «그 영어 문장이 있는가» 로 쓰면 문구만 다듬어도 FAIL 난다 — 그래서 topicCtx 블록을
+      잘라 내 «무엇을 시키는가» 로 묻는다. */
 check('주제(topic)를 요청에서 받는다', /b\.topic/.test(ts));
-check('주제를 시스템 프롬프트에 고정', /Stay on THIS topic for the whole chat/.test(ts));
+const topicCtxSrc = (ts.match(/const topicCtx = topic[\s\S]*?: '';/) || [''])[0];
+check('주제를 시스템 프롬프트에 싣는다', /\$\{topic\}/.test(topicCtxSrc), topicCtxSrc.slice(0, 80));
+check('학생이 다른 얘기를 꺼내면 따라간다', /FOLLOW THE STUDENT/i.test(topicCtxSrc));
+check('AI 가 스스로 갈아타지는 않는다(대화가 멈췄을 때만 주제로 되돌아간다)',
+  /Only steer back/i.test(topicCtxSrc));
+check('옛 «주제 감옥» 문구로 되돌아가지 않았다',
+  !/Stay on THIS topic|Do NOT switch to another subject/.test(topicCtxSrc));
 check('재미난 사실 예시에서 animals 고정 제거', !/fun facts kids enjoy \(animals/.test(ts));
 
 /* ══ 5. 한자 섞임 정리 (2026-07-27 사장님 신고 "한국말 팁에 중국어") ══ */

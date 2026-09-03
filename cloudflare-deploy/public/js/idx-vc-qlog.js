@@ -107,6 +107,7 @@ function vcqRxTick() {
     var ids = Object.keys(pcs);
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     ids.forEach(function (id) {
         var pc = pcs[id];
         if (!pc || !pc.getReceivers) return;
@@ -130,6 +131,7 @@ function vcqRxTick() {
                         sp[kind] = (dr > 0) ? 0 : (sp[kind] || 0) + 1;
                     }
                     if (kind === 'video') {
+                        try { vcLowQRemote(id, s.frameWidth || 0, dr > 0); } catch (_) {}   // 📶 저화질로 받는 중이면 그 타일에 배지
                         var fz = s.freezeCount || 0;
                         if (prev) {
                             if (dl + dr >= 25) {
@@ -168,7 +170,10 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {};
+                /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
+                   다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
+                window.__vcNetSelf = null;
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
@@ -221,12 +226,44 @@ function vcNetNotify(html) {
     } catch (_) {}
 }
 
-/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다
-   (그게 곧 내 업링크다). ⛔ loss === -1 은 «영상 표본 없음» 이라 판정에 쓰지 않는다. */
+/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다(그게 곧 내 업링크다).
+
+   🔴 2026-09-02 class-849 실측 — 이 함수가 «제일 나쁜 틱» 을 통째로 건너뛰고 있었다.
+   사장님이 19분 수업 내내 토스트를 한 번도 못 보셨고, 원인이 둘이었다.
+   ① `if (loss === -1) return;` 이 첫 줄이었다. loss === -1 은 «영상 표본이 없던 4초» 이지
+      «RTT 를 모른다» 가 아니다 — idx-main.js 는 그 틱에도 `vcQualityAcc(-1, rtt)` 로
+      **측정된 RTT 를 그대로 넘긴다**(5060행). 그런데 RTT 가 제일 높았던 두 창이
+      19:30:44 RTT 440(novideo 13/15) · 19:34:37 RTT 435(novideo 11/15) 로, 틱의 대부분이
+      바로 그 건너뛰는 틱이었다. ⇒ 손실만 보류하고 RTT 는 계속 본다.
+   ② 문턱이 절대값 400ms 였다. 중국 회선은 평소가 360~440ms 라(같은 수업 실측)
+      떴더라도 «공유기 가까이 가세요» 라는 **틀린 안내**가 된다(지리적 거리는 사람이 못 고친다).
+      거꾸로 기준이 130ms 인 국내 학생은 400 이 너무 느슨해 진짜 막힘을 놓친다.
+      ⇒ idx-main.js 가 #771 에서 쓴 것과 **같은 방식**으로 «이 회선의 기준값» 대비로 잰다.
+         기준값 = 그동안 본 최소 RTT(위로는 틱당 2% 씩만 따라감), 상한 500.
+   ⛔ 손실 문턱(8%)은 안 건드린다 — 손실은 «나쁜» 신호라 절대값이 맞고,
+      RTT 는 «막힌» 신호라 기준 대비 증가분이 맞다(#771 주석과 같은 구분).
+   ⚠️ 기준값은 여기서 따로 잰다 — idx-main.js 는 blocking 849KB 라 첫 화면 예산 때문에
+      인자를 늘리지 않았다. 상대가 여럿이면 틱마다 다른 상대의 RTT 가 섞여 들어오는데,
+      그건 이 함수가 이미 loss·rtt 를 단일값으로 받던 것과 같은 성질이다(1:1 이 정상 사용). */
 function vcNetSelfWatch(loss, rtt) {
-    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0 });
-    if (loss === -1) return;                                  // 표본 없음 → 판단 보류
-    var bad = (typeof loss === 'number' && loss >= 8) || (typeof rtt === 'number' && rtt >= 400);
+    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0, rttBase: null });
+    var rb = Math.min(W.rttBase || 0, 500);
+    var rttBad = Math.max(400, rb + 200);                     // 기준 200 미만 회선은 예전 숫자 그대로
+    /* ⛔ loss === -1 은 «손실을 모른다» 일 뿐이다. RTT 판정은 그대로 진행한다. */
+    var lossBad = (loss !== -1) && (typeof loss === 'number' && loss >= 8);
+    var bad = lossBad || (typeof rtt === 'number' && rtt >= rttBad);
+    /* 🔴 기준 RTT 는 «나쁘지 않은 틱» 에서만 위로 따라간다.
+       그냥 매 틱 올리면 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 된다 —
+       실측(기준 130ms 회선이 410ms 에 계속 머무는 경우): 16틱(약 64초) 만에 문턱이 410 위로 올라가
+       **토스트가 사실상 1회만 뜨고 만다**(3분 쿨다운이 끝날 무렵엔 이미 «정상» 이라 두 번째가 없다).
+       옛 절대값(400) 때는 3분마다 반복해서 알렸으니 그건 «되던 것» 을 깨는 것이다.
+       ⚠️ 여기가 #771(화질 회복)과 갈리는 자리다 — 그쪽은 지연이 높은 회선도 «언젠가 화질을 올려야»
+       하므로 계속 따라가는 것이 맞지만, 이쪽은 «네 평소보다 나쁘다» 를 사람에게 말하는 것이라
+       평소는 «좋았던 때» 에서만 배워야 한다. ⛔ 이 조건을 지우면 위 1회 문제가 그대로 돌아온다. */
+    if (typeof rtt === 'number' && rtt > 0) {
+        if (W.rttBase == null || rtt < W.rttBase) W.rttBase = rtt;      // 내려가는 쪽은 언제나 따라간다
+        else if (!bad) W.rttBase = W.rttBase + (rtt - W.rttBase) * 0.02; // 올라가는 쪽은 «괜찮은 틱» 에서만
+    }
     if (!bad) { W.bad = 0; return; }
     W.bad++;
     if (W.bad < 4) return;                                    // 연속 4틱(약 16초) — 스파이크 한 번으로는 안 띄운다
@@ -257,6 +294,60 @@ function vcNetPeerMark(userId, bad) {
         box.style.position = 'relative';
         box.appendChild(hint);
     } catch (_) {}
+}
+
+/* ③ 저화질 배지 — «왜 흐린지» 를 그 타일에 적는다(2026-09-02 사장님 「2번 배지도 만들어줘」).
+   [배경] class-849: 화질이 최저 단계(해상도 1/4·5fps)에 굳어 교사 얼굴이 흐렸는데 화면은 아무 말도 안 했다.
+     사장님이 「화면이 커서 그런가」·「연결 나쁘면 자동으로 작게」를 물으셨고, 둘 다 아니다 —
+     P2P 라 받는 쪽 타일 크기는 인코더에 안 가고(대역폭 0바이트 절감), 자동 축소는 수업 중 화면만 움직인다.
+     그래서 **크기는 손대지 않고** 이유만 적는다(CLAUDE.md 2장 「화질이 한번 흐려지면」 줄).
+   [보내는 쪽] 적응 루프 단계(pc.__qStep, idx-main.js STEPS) 가 3 이상인 상대가 하나라도 있으면 내 타일에.
+   [받는 쪽] inbound-rtp frameWidth 로. ⚠️ 절대값 하나로는 안 된다 — PC 는 1280 으로, 폰은 640 으로 보내므로
+     «430 이하» 로 두면 폰은 1단계(640/1.5=427)부터 걸린다(함정 대조 검사 지적). 그래서 «이 상대에게서 본 최대 폭»
+     대비 1/2.5 이하(=SCALE 3 이상)일 때만 «저화질» 로 보고, 최대 폭을 아직 못 본 경우를 위해 240px 이하는 절대값으로 잡는다
+     (어느 카메라도 그보다 좁게 «정상» 으로 보내지 않는다).
+     모든 화면에 띄운다 — 문구가 «저화질로 받는 중» 이라 상대를 탓하지 않는다
+     (위 ② 의 «이 학생 인터넷이 불안정» 은 탓하는 말이라 강사에게만 — 다른 이유다).
+   ⚠️ 2틱(8초) 이어질 때만 붙이고 회복되면 곧바로 뗀다. DOM 은 «바뀔 때만» 만진다(깜빡임·관찰자 발화 방지).
+   ⚠️ 음성전용(AAO) 중에는 «보내는 중» 배지를 안 붙인다 — 영상을 아예 안 보내는데 «저화질» 이라 말하면 거짓이고, AAO 는 자기 안내가 있다.
+   ⚠️ 위치는 bottom 58px — 「상대 소리가 안 와요」(.vc-noaudio-hint, bottom 8px)·「🔇 소리 없음·눌러서 고치기」(.vc-nosound-badge,
+      bottom 34px, 강사에게는 버튼)·이름표 «위» 다. CSS 로 읽어 정한 값이고 브라우저 실측은 아직 없다(elementsFromPoint 로 사람이 잴 것).
+   ⛔ 타일 크기·레이아웃은 건드리지 않는다. 감시: vc_quality_blindspot_harness ⑪ */
+var VC_LOWQ_STEP = 3;    // idx-main.js STEPS[3] = 0.2 — 여기부터 사람 눈에 «흐림» 이 보인다(하니스가 STEPS 와 대조)
+var VC_LOWQ_RATIO = 2.5; // 받는 영상 가로폭이 «본 최대 폭» 의 1/2.5 이하 = SCALE[3]=3 부터(2단계 1/2 는 안 잡음)
+var VC_LOWQ_ABS = 240;   // 최대 폭을 아직 못 봤을 때의 절대 하한(px)
+function vcLowQMark(box, on, text) {
+    try {
+        if (!box) return;
+        var el = box.querySelector('.vc-lowq-hint');
+        if (!on) { if (el) el.remove(); return; }
+        if (el) return;
+        el = document.createElement('div');
+        el.className = 'vc-lowq-hint';
+        el.textContent = text;
+        el.style.cssText = 'position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:9;'
+            + 'background:rgba(15,23,42,.78);color:#fde68a;font-size:11px;font-weight:700;line-height:1.2;'
+            + 'padding:3px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;max-width:92%;overflow:hidden;text-overflow:ellipsis;';
+        box.style.position = 'relative';
+        box.appendChild(el);
+    } catch (_) {}
+}
+function vcqLowQSelf() {
+    var pcs = window.vcPeerConnections || {}, worst = 0;
+    Object.keys(pcs).forEach(function (id) { var st = pcs[id] && pcs[id].__qStep; if (typeof st === 'number' && st > worst) worst = st; });
+    var L = window.__vcLowQ || (window.__vcLowQ = {});
+    var aao = !!(window.__vcAAO && window.__vcAAO.active);   // 음성전용 중 = 영상을 안 보냄 → «저화질» 이 아니다
+    L.self = (worst >= VC_LOWQ_STEP && !aao) ? (L.self || 0) + 1 : 0;
+    vcLowQMark(document.getElementById('vc-local-box'), L.self >= 2, '📶 저화질로 보내는 중 · Sending low quality');
+}
+function vcLowQRemote(id, frameWidth, flowing) {
+    var L = window.__vcLowQ || (window.__vcLowQ = {});
+    var M = L.max || (L.max = {});
+    if (flowing && frameWidth > (M[id] || 0)) M[id] = frameWidth;        // 이 상대에게서 본 최대 폭 = 그 카메라의 «정상»
+    var low = !!flowing && frameWidth > 0
+        && (frameWidth * VC_LOWQ_RATIO <= (M[id] || 0) || frameWidth <= VC_LOWQ_ABS);   // 영상이 안 오면(카메라 끔·AAO) «모름» → 뗀다
+    L[id] = low ? (L[id] || 0) + 1 : 0;
+    vcLowQMark(document.getElementById('vc-video-' + id), L[id] >= 2, '📶 저화질로 받는 중 · Receiving low quality');
 }
 
 function vcQualityAcc(loss, rtt) {
