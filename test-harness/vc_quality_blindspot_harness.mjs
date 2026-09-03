@@ -666,6 +666,80 @@ console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지
   ok(/__vcLowQ = \{\}/.test(qlog.slice(qlog.indexOf('function vcqRxStart'))), '수업이 끝나면 배지 상태를 비운다');
 }
 
+console.log('\n════════ ⑫ 음성전용(AAO) — «켜졌다 꺼졌다» 깜빡임 (2026-09-03 class-1016 Farrah↔ysyt01 실측) ════════');
+{
+  /* [근거] 운영 D1 vc_quality, room=class-1016-20260903 — 21분 동안 aao 칸이 0/1 을 6번 오갔다
+       (강사·학생 각각). RTT 600~1,200ms · 끊긴 소리 30~44%. 사장님 「화면이 나왔다 안 나왔다 on/off」.
+     [뿌리] 복구가 good>=2(8초)라 회선이 계속 흔들리면 «끔 → 8초 뒤 켬 → 다시 끔» 이 됐다.
+     [검사] 판정 3줄과 vcAAOApply 를 소스에서 오려 내 실제로 돌린다. 문자열로 «>= 8» 을 찾지 않는다. */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const ji = main.indexOf('if (alp > 8 || art > 600)');
+  const jEndS = 'else { A.good = 0; }';
+  const jj = main.indexOf(jEndS, ji);
+  ok(ji > 0 && jj > ji, 'AAO 판정 3줄(손실↑ / 회복 / 애매)을 소스에서 찾았다');
+  const judge = main.slice(ji, jj + jEndS.length);
+  const blockAt = (src, start) => {
+    const o = src.indexOf('{', start); let d = 0;
+    for (let k = o; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (d === 0) return src.slice(start, k + 1); } }
+    return '';
+  };
+  const fi = main.indexOf('function vcAAOApply()');
+  const applySrc = blockAt(main, fi);
+  ok(fi > 0 && applySrc.length > 300, 'vcAAOApply 를 중괄호 짝으로 오려 냈다');
+
+  /** 판정 + 적용을 4초 틱으로 돌린다. series = [[오디오 손실%, RTT], …]. floor = 화질이 이미 바닥(진입 조건) */
+  function simulate(series, src = applySrc) {
+    const A = { active: false, sev: 0, good: 0, floor: true };
+    const track = { enabled: true };
+    const win = { __vcAAO: A, vcLocalStream: { getVideoTracks: () => [track] }, vcBg: null };
+    const env = { window: win, vcCamOn: true, vcAAONotify() {}, vcBroadcastCamState() {},
+                  console: { warn() {} }, vcLocalStream: win.vcLocalStream, vcBg: null };
+    const apply = new Function(...Object.keys(env), src + '\n;return vcAAOApply;')(...Object.values(env));
+    const judgeFn = new Function('alp', 'art', 'A', judge);
+    let flips = 0, prev = false; const trace = [];
+    for (const [alp, art] of series) {
+      judgeFn(alp, art, A); apply();
+      if (A.active !== prev) { flips++; prev = A.active; }
+      trace.push(A.active ? 1 : 0);
+    }
+    return { flips, active: A.active, trace, track };
+  }
+  const rep = (n, v) => Array.from({ length: n }, () => v);
+  const BAD = [15, 700], GOOD = [1, 500];
+
+  /* class-1016 모양 — «나쁨 4틱(16초) → 조용 6틱(24초)» 이 6번. 옛 코드는 매번 켜졌다 꺼졌다. */
+  const shaky = [];
+  for (let c = 0; c < 6; c++) shaky.push(...rep(4, BAD), ...rep(6, GOOD));
+  const now = simulate(shaky);
+  ok(now.flips === 1 && now.active === true,
+     `흔들리는 4분 동안 음성전용에 한 번 들어가 «그대로 머문다» (전환 ${now.flips}회, 옛 8초 복구면 매 주기 켜짐)`);
+  ok(now.track.enabled === false, '머무는 동안 내 영상 트랙은 꺼져 있다(대역폭을 실제로 아낀다)');
+
+  /* 진짜 조용해지면 돌아온다 — 8틱(32초) 연속 손실 3% 미만 */
+  const calm = simulate([...rep(4, BAD), ...rep(8, GOOD)]);
+  ok(calm.active === false && calm.track.enabled === true, '32초(8틱) 연속 조용하면 영상이 돌아온다');
+  const almost = simulate([...rep(4, BAD), ...rep(7, GOOD)]);
+  ok(almost.active === true, '28초(7틱)로는 아직 안 돌아온다 — 회복은 «32초 연속 조용함»');
+  const relapse = simulate([...rep(4, BAD), ...rep(7, GOOD), [5, 500], ...rep(7, GOOD)]);
+  ok(relapse.active === true, '중간에 3~8% 애매한 틱이 한 번 끼면 처음부터 다시 센다(옛 화질 회복과 같은 규칙)');
+
+  /* ⛔ 진입은 그대로 — 3틱(12초) 연속이어야 끄고, 조용한 회선은 영영 안 끈다 */
+  const two = simulate(rep(2, BAD));
+  ok(two.active === false, '나쁜 틱 2번(8초)으로는 안 끈다');
+  const three = simulate(rep(3, BAD));
+  ok(three.active === true && three.trace.indexOf(1) === 2, '나쁜 틱 3번째(12초)에 끈다 — 진입 시점은 안 바뀌었다');
+  const quiet = simulate(rep(40, GOOD));
+  ok(quiet.flips === 0, '조용한 회선(40틱)에서는 한 번도 안 끈다');
+  ok(/A\.active = true; A\.good = 0;/.test(applySrc), '진입할 때 «조용함» 카운트를 0 부터 다시 센다');
+
+  /* 되돌림 시험 — 복구를 옛 good>=2 로 바꾸면 같은 패턴에서 실제로 깜빡여야 한다. 안 늘면 이 검사는 헛도는 것이다. */
+  const oldSrc = applySrc.replace('A.active && A.good >= 8', 'A.active && A.good >= 2');
+  ok(oldSrc !== applySrc, '되돌림 사본을 만들었다(복구 문턱 문자열을 찾았다)');
+  const old = simulate(shaky, oldSrc);
+  ok(old.flips >= 8 && old.flips > now.flips,
+     `옛 복구(8초)로 되돌리면 같은 4분에 ${old.flips}회 켜졌다 꺼졌다 — 검사가 헛돌지 않는다`);
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})`);
 if (fail) process.exit(1);

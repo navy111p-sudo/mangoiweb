@@ -5142,12 +5142,16 @@ function vcArmFullscreenRetry() {
 })();
 
 /* 📶 저대역 자동 음성전용(AAO) 적용/복구 — vcLocalStream 영상트랙 enabled 토글(재협상 없음, vcBackgroundThrottle 와 동일 안전패턴).
-   사용자가 수동으로 카메라를 꺼둔 경우(vcCamOn===false)엔 관여하지 않는다. sev>=3(≈12초)에서 진입, good>=2(≈8초)에서 복구. */
+   사용자가 수동으로 카메라를 꺼둔 경우(vcCamOn===false)엔 관여하지 않는다. sev>=3(≈12초)에서 진입, good>=8(≈32초)에서 복구.
+   🔁 (2026-09-03 class-1016 Farrah↔ysyt01 「화면이 나왔다 안 나왔다」) 복구가 good>=2(8초)라 회선이 계속 흔들리는
+      수업에서 «끔 → 8초 뒤 켬 → 다시 끔» 을 되풀이했다(D1 vc_quality 21분에 aao 0/1 이 6번 교차, RTT 600~1,200ms).
+      복구는 화질 회복(위 __qGood>=8)과 같은 «32초 연속 조용함» 으로 — 한 번 음성만으로 갔으면 안정될 때까지 머문다.
+      ⛔ 진입(sev>=3)은 그대로 — 더 빠르게 끄면 스파이크 한 번에 영상이 꺼진다. 감시: vc_quality_blindspot_harness ⑫ */
 function vcAAOApply() {
     const A = window.__vcAAO; if (!A) return;
     if (typeof vcCamOn === 'undefined') return;
     if (!A.active && A.sev >= 3 && (A.floor || A.sev >= 5) && vcCamOn !== false) {
-        A.active = true;
+        A.active = true; A.good = 0;
         try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
         /* 🌐 (2026-08-08 Ness ③ 「카메라가 갑자기 꺼진다」) 강사 다수가 필리핀이다.
@@ -5158,7 +5162,7 @@ function vcAAOApply() {
         // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
         vcBroadcastCamState(false, 'aao');
         console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
-    } else if (A.active && A.good >= 2) {
+    } else if (A.active && A.good >= 8) {
         A.active = false; A.sev = 0;
         try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
