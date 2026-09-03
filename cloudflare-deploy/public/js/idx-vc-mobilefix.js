@@ -863,6 +863,9 @@
   (function () {
     var LS_LESSON = 'mangoi_current_lesson';   // idx-x8.js 의 ctx() 가 읽는 바로 그 칸
     var probed = false, meta = null, autoSwitched = false;
+    /* 🔓 (2026-09-02) 교재가 «나중에» 도착하면 probe 를 다시 하게 푼다 — ⑬절이 부른다.
+       ⛔ autoSwitched 는 리셋하지 않는다 — rqvToggleLang 은 토글이라 두 번 부르면 도로 영어가 된다. */
+    window.__rqvResetProbe = function () { probed = false; meta = null; };
 
     function body() { return document.getElementById('rqv-body'); }
     function curLesson() {
@@ -1524,5 +1527,70 @@
     else put();
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑬ 📚 «공유받은» 교재의 이름을 학생 화면도 알게 한다
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] 복습퀴즈가 «이 수업이 무슨 교재·무슨 언어인가» 를 읽는 자리는
+       window.__mangoiCurrentBookId 하나인데(js/idx-x8.js 의 ctx), 그 값을 채우는 곳이
+       저장소 전체에 **딱 두 곳뿐이고 둘 다 js/idx-x3.js = 「내가 교재 라이브러리에서 직접 고를 때」**
+       였다. 교재 공유를 **받는** 쪽(pdf-share 수신 → vcApplySharedPdf)에는 채우는 코드가 0곳.
+       ⟹ 교재를 고르는 사람(강사)은 복습퀴즈를 안 풀고, 푸는 사람(학생)은 교재 이름을 가진 적이 없다.
+       그래서 학생 화면에서는 늘 textbook='' 이 되어
+         · ⑩절 probe 가 `if (!c.textbook && !c.level) return null` 에서 즉시 돌아가고
+           → 자동 中文 전환도, 「📖 진도」 줄도 **영영 안 나타났다**
+         · rqvAuto 가 {textbook:'', lang:'en'} 을 보내 서버의 zh 승격(api-games.ts:1889,
+           2026-08-26 수리)이 **발동할 근거를 못 받아** 「맞춤 퀴즈가 아직 없어요」 → 영어 목록.
+       즉 그 서버 수리는 라이브에서 한 번도 닿지 못하고 있었다(2026-09-02 사장님 제보
+       「중국어 수업인데 중국어 복습퀴즈가 안 나온다」의 뿌리).
+     [고침] 교재를 받을 때 파일 이름 앞의 「[교재명]」을 그 전역에 채운다.
+       업로더가 「[교재명] 레슨명 / 파일명」 으로 만들므로(js/idx-x3.js buildBookSequence)
+       js/idx-x3.js:86 이 쓰는 것과 **같은 규칙**이다 — 여기서 새로 추정하지 않는다.
+     ⛔ 못 뽑으면 건드리지 않는다 — 틀린 교재명은 «엉뚱한 과의 퀴즈» 가 되어 빈 값보다 나쁘다.
+     ⛔ url·R2 키에서 짐작하지 않는다(난수라 단서가 한 글자도 없다).
+     ⚠️ 이 파일에 두는 이유: idx-main.js 는 blocking 849KB 라 첫 화면 예산을 먹는다.
+        여기는 defer 라 첫 그림에 0바이트를 더한다(CLAUDE.md 「blocking 파일을 못 고칠 때」).
+     ⚠️ 감싸는 vcApplySharedPdf 는 «교사가 지금 공유(pdf-share)» 와 «학생이 입장할 때 폴링
+        (pdfState)» 두 경로가 모두 지나는 한 곳이다(js/idx-main.js 554·650·4392행).
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    /* 「[다락원 중국어 마스터 3] 미분류 레슨 / Slide7.JPG」 → 「다락원 중국어 마스터 3」
+       ⚠️ 「[…]」 만 보면 넓다 — 「[중요] 공지.pdf」 같은 «교재가 아닌» 파일이 교재명 「중요」로
+          잡혀 **이미 맞게 잡혀 있던 교재를 덮어쓴다.** 업로더가 만드는 이름은 반드시
+          「[교재명] 레슨명 / 파일명」 이라 슬래시를 포함하므로(js/idx-x3.js buildBookSequence)
+          그것까지 있을 때만 교재로 인정한다 — 모르면 안 붙이는 쪽으로 실패한다.
+       ⚠️ js/idx-x3.js:86 은 같은 대괄호를 «앵커 없이»(/\[([^\]]+)\]/) 뽑는다. 둘이 같은 칸
+          (__mangoiCurrentBookId)에 쓰므로 «같은 규칙» 이라고 적으면 안 된다 — 이쪽이 더 좁다. */
+    function bookOf(name) {
+      var s = String(name || '');
+      var m = /^\s*\[([^\]]+)\]([^\]]*)$/.exec(s);
+      if (!m || m[2].indexOf('/') < 0) return '';
+      return String(m[1]).trim();
+    }
+    var _apply = window.vcApplySharedPdf;
+    if (typeof _apply !== 'function') return;      // 원본이 없으면 조용히 건너뛴다(예전과 동일)
+    window.vcApplySharedPdf = function (sUrl, sKind, currentPage, sPid, sName) {
+      var r;
+      try { r = _apply.apply(this, arguments); }
+      finally {
+        try {
+          var bk = bookOf(sName);
+          /* 바뀌었을 때만 손댄다 — 같은 교재를 다시 받을 때마다 probe 를 풀면
+             학생이 손으로 고른 中文·과 선택이 계속 되돌아간다. */
+          if (bk && bk !== window.__mangoiCurrentBookId) {
+            window.__mangoiCurrentBookId = bk;
+            if (typeof window.__rqvResetProbe === 'function') window.__rqvResetProbe();
+            /* 새 교재의 과를 ⑪절에 알린다 — 판정은 그쪽이 갖고 있다.
+               ⚠️ «앞 교재의 과를 반드시 지운다» 는 뜻이 아니다: ⑪ record() 는
+                  `if (n === lastAuto) return` 이라 **과 번호가 실제로 달라졌을 때만** 쓴다.
+                  새 교재도 과를 모르면(둘 다 0) 학생이 고른 과가 그대로 남는다. */
+            if (typeof window.__mgRecordLesson === 'function') window.__mgRecordLesson(sName);
+            try { console.log('[mobilefix ⑬] 공유 교재: ' + bk); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      return r;
+    };
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 준비됨'); } catch (e) {}
 })();
