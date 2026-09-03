@@ -15,6 +15,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
+import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
   request: Request,
@@ -444,6 +445,143 @@ ${MANGOI_KNOWLEDGE}`;
     //      «다른 기기에서 로그인되었습니다» 를 정확히 띄운다.
     //   ⚠️ 개인정보를 돌려주지 않는다 — uid 는 요청자가 이미 토큰으로 갖고 있는 값이고,
     //      DB 조회도 하지 않는다(서명 + KV 대조뿐). 그래서 인증 게이트 없이 열어도 안전하다.
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 (2026-09-03) GET /api/student/today?uid=&token=  — «오늘의 학습»
+    //   학생 한 명의 레벨·교재·오늘 수업(망고아이 + 카페24)·도구별 «오늘 했나» 를 모아
+    //   정본 buildTodayPlan(src/today-plan.ts) 에 넘긴다. 판정은 전부 그 함수 안에 있고
+    //   여기는 «재료를 모으는 곳» 이다 — 규칙을 여기에 다시 적지 말 것.
+    //   🔐 본인(토큰) 또는 관리자·교사 세션만(resolveOwnerScope). 게스트는 거절한다 —
+    //      이 응답에는 학생 이름·수업 시각이 실린다.
+    //   ⚠️ 각 조회는 실패해도 «0·없음» 으로 떨어진다 — 표 하나가 없다고(새 DB) 화면이
+    //      통째로 비면 안 된다. 단 students_erp 조회 실패는 그대로 500 이 맞다(기본 재료).
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/student/today') {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const scope = await resolveOwnerScope(request, url, env as any, uid);
+      if (scope !== 'self' && scope !== 'admin') {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 계획만 볼 수 있습니다.' }, 401);
+      }
+      const nowMs = Date.now();
+      const k = kstParts(nowMs);
+      // 이번 주(일~토) 범위 — 주간표의 «수업 있는 요일» 용
+      const weekStartMs = k.dayStartMs - k.dow * 86400000;
+      const weekEndMs = weekStartMs + 7 * 86400000;
+      const ymdOf = (ms: number) => kstParts(ms).ymd;
+      const weekStartYmd = ymdOf(weekStartMs), weekEndYmd = ymdOf(weekEndMs - 1);
+      const since60 = nowMs - 60 * 86400000;
+      const empty = { results: [] as any[] };
+
+      /* ⚠️ 정확일치 우선 — `Kim`/`kim` 처럼 대소문자만 다른 행이 실재한다(CLAUDE.md 2장).
+         NOCASE 하나로만 찾으면 «둘 중 아무거나» 를 집는다. */
+      const stu: any = await env.DB.prepare(
+        `SELECT user_id, student_name, korean_name, level, textbook FROM students_erp
+          WHERE user_id = ? COLLATE NOCASE ORDER BY (user_id = ?) DESC LIMIT 1`
+      ).bind(uid, uid).first();
+      if (!stu) return json({ ok: false, error: 'not_found' }, 404);
+      const exactUid = String(stu.user_id || uid);
+
+      // 오늘 도구별 활동 — «한 번이라도 썼나» 만 본다(분 단위는 재지 못하므로 지어내지 않는다)
+      const cnt = async (sql: string, ...args: any[]): Promise<number> => {
+        try { const r: any = await env.DB.prepare(sql).bind(...args).first(); return Number(r?.n || 0); }
+        catch { return 0; }
+      };
+      const d0 = k.dayStartMs;
+      const [doneWarmup, doneReview, doneFriend, doneSpeech, doneMicro, doneVocab, doneJudg, doneWrite, doneGames,
+             clsRs, c24Rs, ptRow, ...dateRs] = await Promise.all([
+        cnt(`SELECT COUNT(*) n FROM warmup_session_log WHERE user_id = ? AND started_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM review_quiz_results WHERE user_id = ? AND created_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM ai_friend_chats WHERE student_uid = ? AND role = 'user' AND created_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM voice_coaching WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM vocab_quizzes WHERE user_id = ? AND completed = 1 AND completed_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM judgment_events WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
+        cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?`, exactUid, d0),
+        /* 망고아이 시간표 — 정기(요일)와 날짜지정 둘 다. LMS·시드 자리표시는 뺀다(2026-08-24 결정). */
+        env.DB.prepare(
+          `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind
+             FROM class_schedules
+            WHERE user_id = ? COLLATE NOCASE AND status = 'active'
+              AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
+              AND (schedule_kind = 'recurring' OR (scheduled_date BETWEEN ? AND ?))
+            LIMIT 80`
+        ).bind(exactUid, weekStartYmd, weekEndYmd).all<any>().catch(() => empty),
+        /* 카페24 예약 씨앗 — joined_at 이 «예약 시각» 이다(2026-09-03 D1 실측). 카페24 수업은
+           우리 방을 안 거치지만 «그날 학원 수업이 있다» 는 사실은 계획에 그대로 쓴다. */
+        env.DB.prepare(
+          `SELECT date, joined_at FROM attendance
+            WHERE user_id = ? AND room_id LIKE 'c24-%' AND date BETWEEN ? AND ? LIMIT 40`
+        ).bind(exactUid, weekStartYmd, weekEndYmd).all<any>().catch(() => empty),
+        env.DB.prepare(
+          `SELECT COALESCE(SUM(amount),0) s FROM point_transactions WHERE user_id = ? AND type = 'earn' AND created_at >= ?`
+        ).bind(exactUid, d0).first<any>().catch(() => null),
+        // AI 활동 연속일 — 60일치 KST 날짜 집합(도구 9종 합집합)
+        ...([
+          [`warmup_session_log`, `user_id`, `started_at`],
+          [`review_quiz_results`, `user_id`, `created_at`],
+          [`ai_friend_chats`, `student_uid`, `created_at`],
+          [`voice_coaching`, `student_uid`, `created_at`],
+          [`vocab_quizzes`, `user_id`, `completed_at`],
+          [`judgment_events`, `student_uid`, `created_at`],
+          [`ai_writing_corrections`, `student_uid`, `created_at`],
+          [`game_sessions`, `uid`, `created_at`],
+        ] as [string, string, string][]).map(([tb, col, ts]) =>
+          env.DB.prepare(
+            `SELECT DISTINCT date(${ts}/1000,'unixepoch','+9 hours') d FROM ${tb} WHERE ${col} = ? AND ${ts} >= ?`
+          ).bind(exactUid, since60).all<any>().catch(() => empty)),
+      ]);
+
+      // 오늘 수업 + 이번 주 수업 요일
+      const classes: ClassToday[] = [];
+      const weekDows = new Set<number>();
+      for (const r of (clsRs?.results || [])) {
+        const mins = Number(r.duration_min || 20) || 20;
+        if (String(r.schedule_kind) === 'recurring') {
+          for (let d = 0; d <= 6; d++) if (dowMatches(r.day_of_week, d)) weekDows.add(d);
+          if (dowMatches(r.day_of_week, k.dow) && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
+        } else if (r.scheduled_date) {
+          const dd = kstParts(Date.parse(String(r.scheduled_date) + 'T12:00:00+09:00')).dow;
+          weekDows.add(dd);
+          if (String(r.scheduled_date) === k.ymd && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
+        }
+      }
+      for (const r of (c24Rs?.results || [])) {
+        const j = Number(r.joined_at || 0);
+        if (!j) continue;
+        const kp = kstParts(j);
+        weekDows.add(kp.dow);
+        if (String(r.date) === k.ymd) {
+          const hh = String(Math.floor(kp.min / 60)).padStart(2, '0'), mm = String(kp.min % 60).padStart(2, '0');
+          classes.push({ start: `${hh}:${mm}`, minutes: 20, source: 'cafe24' });
+        }
+      }
+
+      const textbook = String(stu.textbook || '').trim() || null;
+      const zh = !!textbook && /다락원|중국어/.test(textbook);
+      const done: Partial<Record<ToolKey, number>> = {
+        warmup: doneWarmup, review: doneReview, friend: doneFriend, speech: doneSpeech,
+        micro: doneMicro, vocab: doneVocab, judgment: doneJudg, write: doneWrite, games: doneGames,
+      };
+      const plan = buildTodayPlan({
+        band: bandFromLevelCell(stu.level), textbook, zh,
+        dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], done,
+      });
+      const dates: string[] = [];
+      for (const rs of dateRs) for (const r of ((rs as any)?.results || [])) if (r?.d) dates.push(String(r.d));
+      const res = json({
+        ok: true,
+        uid: exactUid,
+        name: String(stu.student_name || stu.korean_name || '').trim(),
+        today: k.ymd,
+        points_today: Number(ptRow?.s || 0),
+        ai_streak: aiStreak(dates, k.ymd),
+        plan,
+      });
+      res.headers.set('Cache-Control', 'private, no-store');   // 이름·수업 시각이 실린 응답 — 캐시 금지
+      return res;
+    }
+
     if (method === 'GET' && path === '/api/student/session-status') {
       const h = request.headers.get('Authorization') || '';
       const tok = (h.startsWith('Bearer ') ? h.slice(7) : '').trim() || String(url.searchParams.get('token') || '').trim();
