@@ -26,18 +26,18 @@
        ⛔ /admin/ 밑으로 되돌리지 말 것 — 그 순간 같은 사고가 그대로 재현된다. */
     {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/my-schedule.html'},
     {emoji:'💬', img:'/img/menu/contact.webp', name:'카카오 상담', url:'https://pf.kakao.com/_xlqnSxd'},  // 2026-08-14 피드백 ⑤: 문의 페이지 폐지 → 카카오 채널 하나로
-    /* 🛠 (2026-09-01) 카카오 상담은 있는데 원격 도움만 빠져 있었다 — 실측으로 이 메뉴에
-       원격 항목이 0건이었고, 그래서 메뉴로 찾는 사람에겐 닿는 길이 없었다.
-       • img 를 일부러 비운다 — 전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다
-         (없는 파일 주소를 적으면 메뉴를 열 때마다 404 가 난다).
-       • url 은 폴백이다 — 평소엔 아래 wire 가 가로채 그 자리에서 모달만 열고,
-         자바스크립트가 죽어도 그 주소로 가면 모달이 열린다(idx-remote-support.js 의 rsFromUrl).
-         ⛔ '#' 으로 두지 말 것 — 그러면 실패 시 «눌러도 아무 일도 없음» 이 된다. */
-    {emoji:'🛠', img:'', name:'원격 도움받기', url:'/?menu=remote', remoteHelp:true},
+    /* 🛠 (2026-09-01 신설 → 2026-09-03 «별도» 로 옮김) 원격 도움받기 타일은 여기 없다.
+       스무 칸짜리 그리드에 섞여 있어서, 정작 «컴퓨터가 안 될 때» 그것을 찾는 사람이 못 봤다.
+       사장님 지시로 그리드 «위» 에 전폭 강조 카드로 따로 뺐다(아래 renderRemoteHelpCard).
+       ⛔ 여기에 같은 항목을 되살리지 말 것 — 한 화면에 같은 것이 둘이 된다.
+          그 카드가 href·data-remote-help·모달 배선을 그대로 들고 있다. */
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
     {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
     {emoji:'📊', img:'/img/menu/report.webp', name:'리포트', url:'/report.html'},
+    /* 📅 (2026-09-03) 오늘의 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
+       (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
+    {emoji:'📅', img:'', name:'오늘의 학습', url:'/today.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
@@ -93,6 +93,17 @@
     try{ return !!localStorage.getItem('mangoi_admin_session'); }catch(e){ return true; }
   }
 
+  /* 🌐 이 오버레이는 열 때 글자를 «그려서» 만든다 — 그리는 순간의 언어를 봐야 한다.
+   *   ⚠️ index.html 은 i18n 엔진이 둘이라 인라인 전역 currentLang 을 직접 읽으면 안 된다.
+   *      나중에 로드되는 js/mango-i18n.js 가 getLang() 을 덮어쓰므로 그것이 정본(CLAUDE.md 2장).
+   *   ⚠️ 그리고 나서 라벨에 data-ko/data-en 도 함께 달아 둔다 — 메뉴를 열어 둔 채로
+   *      🌐 를 눌러도 두 엔진 중 어느 쪽이 훑든 따라오게. */
+  function allmenuIsEn(){
+    try{ if(typeof window.getLang === 'function') return String(window.getLang()||'').toLowerCase().indexOf('en') === 0; }catch(e){}
+    try{ return (localStorage.getItem('mangoi_lang')||'') === 'en'; }catch(e){}
+    return false;
+  }
+
   function mangoiZhLearner(){
     try{
       if((localStorage.getItem('mangoi_lang')||'')==='zh') return true;
@@ -123,7 +134,7 @@
     ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.75) 0%,rgba(5,7,16,0.95) 100%),#050714;font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
-    var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
+    var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}@keyframes mgamRemoteGlow{0%,100%{box-shadow:0 14px 34px -14px rgba(245,158,11,.60),inset 0 1px 0 rgba(255,255,255,.18),0 0 0 0 rgba(245,158,11,.34)}50%{box-shadow:0 14px 34px -14px rgba(245,158,11,.72),inset 0 1px 0 rgba(255,255,255,.18),0 0 0 9px rgba(245,158,11,0)}}#mgam-remote:hover{transform:translateY(-2px);border-color:rgba(251,191,36,.95)}#mgam-remote:active{transform:translateY(0)}@media(max-width:560px){#mgam-remote{padding:16px 15px!important;gap:13px!important}#mgam-remote .mgam-rh-ico{font-size:34px!important}#mgam-remote .mgam-rh-t{font-size:18px!important}#mgam-remote .mgam-rh-s{font-size:12.5px!important}#mgam-remote .mgam-rh-go{font-size:0!important;padding:9px 11px!important}#mgam-remote .mgam-rh-go::after{content:"\\2192";font-size:19px;font-weight:800}}</style>'
 ;
     sf += '<div id="mgam-stars" style="position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden">';
     for (var i=0;i<46;i++){
@@ -150,6 +161,43 @@
 
     // 카드 그리드 (스크롤 영역)
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
+
+    /* 🛠 (2026-09-03 사장님 지시 «가장 먼저 · 별도 · 강조») 원격 도움받기.
+       · 왜 그리드에서 뺐나 — 스무 칸 사이에 같은 크기로 섞여 있어서, 정작 컴퓨터가 안 될 때
+         그것을 찾는 사람이 못 봤다(2026-09-01 에도 «입구는 있는데 아무도 못 찾는» 사고가 있었다).
+       · href 는 폴백이다 — 평소엔 아래 wire 가 가로채 그 자리에서 모달만 열고,
+         자바스크립트가 죽어도 그 주소로 가면 모달이 열린다(idx-remote-support.js 의 rsFromUrl).
+         ⛔ '#' 으로 두지 말 것 — 실패 시 «눌러도 아무 일도 없음» 이 된다.
+       · data-remote-help 는 아래 모달 배선과 짝이다. 이름을 바꾸면 조용히 href 로 페이지가 넘어간다.
+       ⚠️ 글자를 담은 span 에만 data-ko/data-en 을 단다 — 아이콘(🛠)이나 이 <a> 자신에 달면
+          i18n 엔진이 textContent 를 통째로 갈아끼워 카드 속이 문장 하나로 뭉개진다(CLAUDE.md 2장).
+       ⚠️ 부제는 flex 아이템이 아니라 «흐르는 글» 이어야 한다(block) — flex 로 감싸면 좁은 폰에서
+          낱글자로 쪼개진다(CLAUDE.md 2장 「짧은 라벨에 display:flex」). */
+    var _en = allmenuIsEn();
+    var _rhT = _en ? 'Remote help'  : '원격 도움받기';
+    var _rhS = _en ? 'PC or phone trouble? Our staff will help.'
+                   : '컴퓨터·휴대폰이 안 될 때 — 직원이 도와드립니다';
+    var _rhG = _en ? 'Get help now' : '지금 도움받기';
+    h += '<a href="/?menu=remote" id="mgam-remote" data-remote-help="1"'
+      + ' style="display:flex;align-items:center;gap:16px;margin:0 0 20px;padding:19px 20px;'
+      + 'background:linear-gradient(135deg,rgba(245,158,11,0.30),rgba(180,83,9,0.20) 55%,rgba(8,10,20,0.70));'
+      + 'border:2px solid rgba(251,191,36,0.78);border-radius:18px;color:#FFF7ED;text-decoration:none;'
+      + 'box-shadow:0 14px 34px -14px rgba(245,158,11,.60),inset 0 1px 0 rgba(255,255,255,.18);'
+      + 'animation:mgamRemoteGlow 2.6s ease-in-out infinite;transition:transform .15s,border-color .15s;'
+      + '-webkit-tap-highlight-color:rgba(245,158,11,0.35)">'
+      +   '<span class="mgam-rh-ico" aria-hidden="true" style="flex:0 0 auto;font-size:42px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.55))">🛠</span>'
+      +   '<span style="flex:1 1 auto;min-width:0">'
+      +     '<span class="mgam-rh-t" data-ko="원격 도움받기" data-en="Remote help"'
+      +       ' style="display:block;font-size:21px;font-weight:800;letter-spacing:.2px;word-break:keep-all;text-shadow:0 1px 6px rgba(0,0,0,.6)">' + _rhT + '</span>'
+      +     '<span class="mgam-rh-s" data-ko="컴퓨터·휴대폰이 안 될 때 — 직원이 도와드립니다"'
+      +       ' data-en="PC or phone trouble? Our staff will help."'
+      +       ' style="display:block;margin-top:4px;font-size:13.5px;font-weight:600;line-height:1.45;word-break:keep-all;color:#FDE68A;text-shadow:0 1px 5px rgba(0,0,0,.6)">' + _rhS + '</span>'
+      +   '</span>'
+      +   '<span class="mgam-rh-go" data-ko="지금 도움받기 →" data-en="Get help now →"'
+      +     ' style="flex:0 0 auto;padding:9px 14px;border-radius:11px;background:rgba(251,191,36,0.95);color:#1F1300;'
+      +     'font-size:14px;font-weight:800;white-space:nowrap">' + _rhG + ' \u2192</span>'
+      + '</a>';
+
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
     var _zhOk = mangoiZhLearner();
     var _staff = mangoiIsStaff();

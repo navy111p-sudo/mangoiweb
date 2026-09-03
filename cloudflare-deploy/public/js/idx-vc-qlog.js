@@ -171,6 +171,9 @@ function vcqRxStart() {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
                 window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {};
+                /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
+                   다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
+                window.__vcNetSelf = null;
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
@@ -223,12 +226,44 @@ function vcNetNotify(html) {
     } catch (_) {}
 }
 
-/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다
-   (그게 곧 내 업링크다). ⛔ loss === -1 은 «영상 표본 없음» 이라 판정에 쓰지 않는다. */
+/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다(그게 곧 내 업링크다).
+
+   🔴 2026-09-02 class-849 실측 — 이 함수가 «제일 나쁜 틱» 을 통째로 건너뛰고 있었다.
+   사장님이 19분 수업 내내 토스트를 한 번도 못 보셨고, 원인이 둘이었다.
+   ① `if (loss === -1) return;` 이 첫 줄이었다. loss === -1 은 «영상 표본이 없던 4초» 이지
+      «RTT 를 모른다» 가 아니다 — idx-main.js 는 그 틱에도 `vcQualityAcc(-1, rtt)` 로
+      **측정된 RTT 를 그대로 넘긴다**(5060행). 그런데 RTT 가 제일 높았던 두 창이
+      19:30:44 RTT 440(novideo 13/15) · 19:34:37 RTT 435(novideo 11/15) 로, 틱의 대부분이
+      바로 그 건너뛰는 틱이었다. ⇒ 손실만 보류하고 RTT 는 계속 본다.
+   ② 문턱이 절대값 400ms 였다. 중국 회선은 평소가 360~440ms 라(같은 수업 실측)
+      떴더라도 «공유기 가까이 가세요» 라는 **틀린 안내**가 된다(지리적 거리는 사람이 못 고친다).
+      거꾸로 기준이 130ms 인 국내 학생은 400 이 너무 느슨해 진짜 막힘을 놓친다.
+      ⇒ idx-main.js 가 #771 에서 쓴 것과 **같은 방식**으로 «이 회선의 기준값» 대비로 잰다.
+         기준값 = 그동안 본 최소 RTT(위로는 틱당 2% 씩만 따라감), 상한 500.
+   ⛔ 손실 문턱(8%)은 안 건드린다 — 손실은 «나쁜» 신호라 절대값이 맞고,
+      RTT 는 «막힌» 신호라 기준 대비 증가분이 맞다(#771 주석과 같은 구분).
+   ⚠️ 기준값은 여기서 따로 잰다 — idx-main.js 는 blocking 849KB 라 첫 화면 예산 때문에
+      인자를 늘리지 않았다. 상대가 여럿이면 틱마다 다른 상대의 RTT 가 섞여 들어오는데,
+      그건 이 함수가 이미 loss·rtt 를 단일값으로 받던 것과 같은 성질이다(1:1 이 정상 사용). */
 function vcNetSelfWatch(loss, rtt) {
-    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0 });
-    if (loss === -1) return;                                  // 표본 없음 → 판단 보류
-    var bad = (typeof loss === 'number' && loss >= 8) || (typeof rtt === 'number' && rtt >= 400);
+    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0, rttBase: null });
+    var rb = Math.min(W.rttBase || 0, 500);
+    var rttBad = Math.max(400, rb + 200);                     // 기준 200 미만 회선은 예전 숫자 그대로
+    /* ⛔ loss === -1 은 «손실을 모른다» 일 뿐이다. RTT 판정은 그대로 진행한다. */
+    var lossBad = (loss !== -1) && (typeof loss === 'number' && loss >= 8);
+    var bad = lossBad || (typeof rtt === 'number' && rtt >= rttBad);
+    /* 🔴 기준 RTT 는 «나쁘지 않은 틱» 에서만 위로 따라간다.
+       그냥 매 틱 올리면 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 된다 —
+       실측(기준 130ms 회선이 410ms 에 계속 머무는 경우): 16틱(약 64초) 만에 문턱이 410 위로 올라가
+       **토스트가 사실상 1회만 뜨고 만다**(3분 쿨다운이 끝날 무렵엔 이미 «정상» 이라 두 번째가 없다).
+       옛 절대값(400) 때는 3분마다 반복해서 알렸으니 그건 «되던 것» 을 깨는 것이다.
+       ⚠️ 여기가 #771(화질 회복)과 갈리는 자리다 — 그쪽은 지연이 높은 회선도 «언젠가 화질을 올려야»
+       하므로 계속 따라가는 것이 맞지만, 이쪽은 «네 평소보다 나쁘다» 를 사람에게 말하는 것이라
+       평소는 «좋았던 때» 에서만 배워야 한다. ⛔ 이 조건을 지우면 위 1회 문제가 그대로 돌아온다. */
+    if (typeof rtt === 'number' && rtt > 0) {
+        if (W.rttBase == null || rtt < W.rttBase) W.rttBase = rtt;      // 내려가는 쪽은 언제나 따라간다
+        else if (!bad) W.rttBase = W.rttBase + (rtt - W.rttBase) * 0.02; // 올라가는 쪽은 «괜찮은 틱» 에서만
+    }
     if (!bad) { W.bad = 0; return; }
     W.bad++;
     if (W.bad < 4) return;                                    // 연속 4틱(약 16초) — 스파이크 한 번으로는 안 띄운다
