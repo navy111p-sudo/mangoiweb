@@ -232,6 +232,39 @@ console.log('\n════════ ⑤ 녹화 부담이 실제로 내려갔
       /VID_W\s*=\s*Math\.floor\(composeCanvas\.width\s*\*/.test(REC));
 }
 
+console.log('\n════════ ⑥ 배지가 «왜 안 찍는지» 를 본문 글자로 말한다 ════════');
+{
+  /* ⛔ 여기서 «눌러서 시작» 이라고만 쓰면, 걷어낸 CPU·업로드 부하를 화면이 다시 켜라고 권유하는 꼴이 된다.
+     ⛔ 사유를 title(툴팁)에만 두면 폰에서는 영영 안 보인다 — 툴팁은 마우스 전용이다. */
+  const r = makeRun({ teacher: true });
+  r.body.classList.add('vc-in-call');
+  await r.advance(2000); await r.advance(4000); await r.advance(2500);
+  const b = r.badge();
+  const txt = b ? (b.querySelectorAll('.mango-rec-time-text')[0] || {}).textContent || '' : '';
+  chk('강사 배지가 «꺼짐 · 눌러서 시작» 이라고 말하지 않는다', !/눌러서 시작/.test(txt), `본문: "${txt}"`);
+  chk('본문 글자가 «안 찍는 이유» 를 말한다(툴팁이 아니라 본문)', /회선|bandwidth/i.test(txt), `본문: "${txt}"`);
+  chk('그래도 툴팁에는 손으로 켜는 길이 남아 있다(안전판)',
+      !!b && /눌러|Tap/i.test(String(b.title || '')));
+  /* ⛔ «학생이 녹화 중» 이라고 본문에서 단정하지 않는다 — 이 기기에서 확인할 수 없는 사실이다 */
+  chk('⛔ 본문이 «학생이 녹화 중» 이라고 단정하지 않는다', !/학생.*녹화 중|student.*is recording/i.test(txt));
+}
+
+console.log('\n════════ ⑦ 스냅샷 사각지대 — 비트레이트를 내리면 함께 봐야 한다 ════════');
+{
+  /* 첫 5MiB 파트가 생기기 전에는 서버에 아무것도 없다. 그 구간을 스냅샷이 덮는다.
+     비트레이트를 내리면 그 구간이 «길어지므로» 스냅샷 간격도 함께 줄여야 한다. */
+  const b = /videoBitsPerSecond:\s*([\d_]+)/.exec(REC);
+  const first = /SNAP_FIRST_MS\s*=\s*(\d+)/.exec(REC);
+  const every = /SNAP_EVERY_MS\s*=\s*(\d+)/.exec(REC);
+  const bps = Number(String(b[1]).replace(/_/g, ''));
+  const gapMs = (5 * 1024 * 1024 * 8) / bps * 1000;        // 5MiB 를 채우는 데 걸리는 시간
+  const snaps = 1 + Math.floor((gapMs - Number(first[1])) / Number(every[1]));
+  chk('첫 파트가 생기기 전 구간을 스냅샷이 두 번 이상 덮는다',
+      snaps >= 2, `구간 ${Math.round(gapMs / 1000)}초 · 스냅샷 ${snaps}회 (첫 ${first[1]}ms · 간격 ${every[1]}ms)`);
+  const worstSec = Math.round(Number(every[1]) / 1000);
+  chk('탭이 갑자기 닫혔을 때 최악 손실이 15초를 넘지 않는다', worstSec <= 15, `최악 ${worstSec}초`);
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`  ${fail === 0 ? '✅' : '❌'} ${fail === 0 ? '전부 통과' : 'FAIL ' + fail + '건'}`);
 process.exit(fail ? 1 : 0);

@@ -69,7 +69,11 @@
      ⛔ 막지는 않는다 — 상단 배지를 누르면 강사도 손으로 시작할 수 있다(안전판).
      ⚠️ 그래서 **강사끼리만 있는 방은 자동 녹화가 0개**가 된다(사장님 시험 수업 class-849 등).
         판정이 «모르면 false» 로 떨어지므로(vcIsTeacherRole) 학생은 언제나 찍는다 = 안전한 방향의 실패.
-     ⛔ 이 판정을 이름 추측으로 넓히지 말 것 — 아이디에 teacher 가 든 학생의 녹화가 통째로 사라진다. */
+     ⚠️ 정본 vcIsTeacherRole 에는 **이미 이름 휴리스틱이 있다** — 로그인이 아예 없을 때만
+        (idx-main.js `if (_u0) return false;` 뒤) 표시이름의 교사/강사/선생님/teacher/tutor 를 본다.
+        즉 비로그인으로 들어온 사람의 이름에 그 낱말이 있으면 그 사람은 자동 녹화를 안 한다.
+        ⛔ 그 휴리스틱을 «로그인한 사람» 에게까지 넓히지 말 것 — 아이디에 teacher 가 든
+           학생의 녹화가 통째로 사라진다(그 파일 주석이 같은 이유로 이미 막아 두었다). */
   function isStaffSkipRecording() {
     try {
       if (window.__mangoRecStaffAuto === true) return false;   // 되돌리는 스위치(콘솔에서 켤 수 있다)
@@ -108,7 +112,11 @@
   let chunkBuffer = [];
   let chunkBufferSize = 0;
   // 🛟 스냅샷 — «아직 조각이 하나도 안 올라간» 구간의 안전망 (2026-08-25)
-  //   R2 는 비마지막 파트가 5MiB 이상이어야 해서, 2.5Mbps 기준 첫 ~17초는 서버에 아무것도 없다.
+  //   R2 는 비마지막 파트가 5MiB 이상이어야 해서, 그 전에는 서버에 아무것도 없다.
+  //   ⚠️ 2026-09-02 에 비트레이트를 2.5 → 1.2Mbps 로 내리면서 그 구간이 «~17초 → 약 35초» 로 늘었다
+  //      (5MiB ÷ 약 150KB/s). 그래서 SNAP_EVERY_MS 도 30초 → 12초로 함께 줄였다 — 안 줄이면
+  //      스냅샷이 9초 한 번뿐이라 최악 손실이 ~7초 → ~22초가 된다.
+  //   ⛔ 비트레이트를 다시 바꿀 때는 이 두 상수를 함께 보라(rec_teacher_skip_harness ⑥).
   //   그 사이 탭이 닫히면 abort 가 나가고 영상이 통째로 사라졌다(2026-08-25 실측 6건).
   //   → 그 구간 동안만 «지금까지의 버퍼 전체» 를 통짜 파일로 한 번씩 올려 둔다.
   //   서버는 `<키>.snap` 에 저장하고, multipart 가 끝나면(complete) 지운다.
@@ -116,7 +124,7 @@
   let snapCount = 0;       // 이번 녹화에서 올린 스냅샷 수
   let snapInFlight = false;
   const SNAP_FIRST_MS = 9000;    // 첫 스냅샷 — 파트가 생기기 한참 전
-  const SNAP_EVERY_MS = 30000;   // 그 뒤 30초마다 (저대역폭 수업은 5MiB 채우는 데 오래 걸린다)
+  const SNAP_EVERY_MS = 12000;   // 그 뒤 12초마다 — 첫 파트가 생기기까지 약 35초를 세 번 덮는다
   const SNAP_MAX = 15;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
   //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
@@ -283,7 +291,10 @@
     /* 🇵🇭 (2026-09-02 사장님 결정) 1920×1080 → 1280×720, 2.5Mbps → 1.2Mbps.
        픽셀 수가 55% 줄어 소프트웨어 VP8 인코딩 CPU 와 업로드가 함께 내려간다.
        그 CPU·업로드는 WebRTC 실시간 영상과 «같은» 것을 나눠 쓴다 — 특히 필리핀 강사 회선.
-       ⚠️ 아래 배치는 전부 width/height 에 «비례» 하므로 숫자만 바꾸면 된다(고정 픽셀 금지).
+       ⚠️ 칸 «폭·높이» 는 width/height 에 비례하지만, 글꼴(13~20px)·탭바 32px·REC 배지(190×32)·
+          미니플레이어(240×135)는 **고정 픽셀**이다 — 해상도를 낮추면 그만큼 상대적으로 커진다.
+          1280×720 에서는 전부 캔버스 안에 들어가고 겹치지 않는 것을 확인했다(산술).
+          ⛔ 더 낮출 거면 그 고정값들부터 다시 재라 — «전부 비례» 가 아니다.
        ⛔ 다시 1080p 로 올릴 거면 강사 쪽 업로드부터 재 보고 올릴 것. */
     composeCanvas.width = 1280;
     composeCanvas.height = 720;
@@ -638,6 +649,11 @@
         ? '⛔ Recording is blocked — the student (or parent) has not agreed to recording. It starts once they accept the consent popup. Tap to retry.'
         : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화할 수 없습니다. 학생이 동의 팝업을 수락하면 시작됩니다 — 눌러서 다시 시도';
     }
+    if (!isRecording && isStaffSkipRecording()) {
+      return en
+        ? 'This device does not auto-record — it would compete with your live video and audio. The class is recorded on the student side. Tap only if you really need a copy from here.'
+        : '이 기기는 자동 녹화를 하지 않습니다 — 녹화가 실시간 영상·소리와 같은 회선과 CPU 를 나눠 쓰기 때문입니다. 수업은 학생 기기에서 녹화됩니다. 꼭 여기서도 남겨야 할 때만 눌러 주세요.';
+    }
     if (!isRecording) return en ? 'Recording is OFF — tap to start again' : '녹화가 꺼져 있습니다 — 눌러서 다시 시작';
     if (isStalled)    return en ? '⚠ Nothing is being recorded — bring this class window to the front'
                                 : '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요';
@@ -677,9 +693,16 @@
     const stopEl = recBadge.querySelector('.mango-rec-stop');
     if (!isRecording) {
       recBadge.classList.remove('mango-rec-expanded');
+      /* 🇵🇭 강사 기기는 «일부러» 안 찍는다 — 그 사유를 본문 글자로 말한다.
+         ⛔ 여기서 '눌러서 시작' 이라고만 쓰면, 이 PR 이 걷어낸 CPU·업로드 부하를
+            화면이 다시 켜라고 «권유» 하는 꼴이 된다(함정 대조 지적).
+         ⛔ 「학생이 녹화 중」 이라고 단정하지 않는다 — 이 기기에서 확인할 수 없다.
+            말할 수 있는 사실은 «이 기기는 안 찍는다» 와 «왜» 까지다. */
       if (timeEl) timeEl.textContent = consentBlocked
         ? (en ? '⛔ No student consent — REC blocked' : '⛔ 녹화불가 · 학생 미동의')
-        : (en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작');
+        : isStaffSkipRecording()
+          ? (en ? '📵 REC off · saving bandwidth' : '📵 녹화 안 함 · 회선 보호')
+          : (en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작');
       if (stopEl) stopEl.textContent = '▶';
     } else {
       if (stopEl) stopEl.textContent = '⏹';
