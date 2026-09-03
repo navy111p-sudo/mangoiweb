@@ -608,7 +608,7 @@ Student text: """${text}"""`;
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
       const [recent, st, wk]: any[] = await Promise.all([
-        env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 10`).bind(uid).all(),
+        env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
       ]);
@@ -643,22 +643,36 @@ Student text: """${text}"""`;
 
       const wodNow = aiFriendWordOfDay();
       // 🗺 학생이 고른 주제 — 대화 내내 이 주제 안에서 논다. 학생이 스스로 다른 얘기를 꺼내면 따라간다.
+      /* 🔴 2026-09-03 수리 — 주제는 «울타리» 가 아니라 «시작점» 이다.
+         옛 문구는 「Stay on THIS topic / every question must be about it / Do NOT switch」
+         세 겹 금지였고, 「학생이 딴 얘기를 꺼내면 따라가라」는 괄호로만 붙어 있어 모델이
+         강한 금지 쪽을 따랐다. 벨잉글리시 원장님 제보 「대화가 매끄럽게 이어지지 않고,
+         정해진 문장 안에서만 하는 느낌」의 1순위 원인.
+         ⛔ 다시 «금지» 로 되돌리지 말 것 — 주제는 «대화가 멈췄을 때만» 꺼낸다.
+         ℹ️ 문장 길이·난이도는 이 줄과 무관하게 lvSpec 이 그대로 강제하므로 기초 학생도 안전하다. */
       const topicCtx = topic
-        ? `\nThe student chose the topic "${topic}". Stay on THIS topic for the whole chat — every question you ask must be about "${topic}". Do NOT switch to another subject on your own. (If the student clearly starts a different subject, follow them.)`
+        ? `\nThe student picked "${topic}" as a starting point. Open there, then FOLLOW THE STUDENT: if they bring up anything else — their dog, their day, a game, a feeling — get curious about THAT and stay with it. Only steer back to "${topic}" when the chat stalls and they have nothing to say.`
         : '';
       /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
          재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
          A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
          위 stuCtx 에서 함께 껐습니다. ⛔ 대신 «오늘의 단어» 는 남깁니다 — 그건 학생이 쓰면
          포인트를 받는 퀘스트라, 빼면 기초 학생만 그 퀘스트를 못 깨게 됩니다. */
+      /* ❓ 2026-09-03 — 되묻기 강제를 «상급에서만» 완화한다.
+         기초(plain)에서는 그대로 둔다: 기초 학생은 스스로 말을 못 꺼내서 질문이 없으면
+         대화가 그 자리에서 끝난다. 반대로 상급에서는 매 턴 질문이 «취조» 처럼 느껴져
+         「정해진 문장 안에서만 한다」의 2순위 원인이 됐다(원장님 제보).
+         ⛔ 기초 쪽을 함께 풀지 말 것. */
+      const askRule = lvSpec.plain
+        ? '- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.\n'
+        : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
-- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.
-- When the student writes in English, start with a short cheer like "Nice sentence!" or "Great try!".
+${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
