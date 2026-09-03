@@ -60,9 +60,16 @@ const HAS_NOOPENER = /window\.open\s*\([^)]*['"]noopener['"]\s*\)/;
       수업 중이면 그것이 곧 «수업에서 나가기» 다.
    ⛔ 고쳤으면 이 목록에서 지우세요. 목록에 남겨 두는 것은 «봐준다» 가 아니라
       «사람 결정을 기다리는 중» 이라는 뜻입니다. */
-const PENDING = new Set([
-  'cloudflare-deploy/public/index.html:9220',    // toKakao()
-  'cloudflare-deploy/public/index.html:14121',   // window.openKakao()
+/* 🪤 (2026-09-02 정정) 예전엔 «파일:줄번호» 로 못 박아 두었는데, 그 파일 위쪽에 줄이
+   몇 줄만 늘어도 아래가 통째로 밀려 **뜻은 그대로인데 검사만 깨졌다**(실제로 밟음 —
+   index.html 4330행에 주석 8줄이 들어가자 9220→9228 · 14121→14129 로 밀려
+   등록분이 «새 자리» 로 잡히고 pending 은 0건이 됐다).
+   ⟹ 줄번호로 세지 않고 **«그 파일에 몇 건 남아 있는가»** 로 센다. 줄이 밀려도 안 깨지고,
+      그 파일에 새 자리가 생기면 건수가 늘어 그대로 FAIL 이 난다.
+   ⚠️ 맞바꾼 것: 같은 파일에서 하나를 고치고 동시에 하나를 새로 만들면 건수가 같아 못 잡는다.
+      줄번호 방식도 밀리는 순간 무력해지므로 이쪽이 실용적으로 낫다고 보았다. */
+const PENDING_FILES = new Map([
+  ['cloudflare-deploy/public/index.html', 2],    // toKakao() · window.openKakao()
 ]);
 
 const offenders = [];
@@ -72,8 +79,9 @@ for (const p of walk(PUB)) {
   src.split('\n').forEach((line, i) => {
     if (!HAS_NOOPENER.test(line)) return;
     if (!USES_RETURN.test(line)) return;          // 그냥 열기만 하는 자리는 무해
-    const at = `${relative(ROOT, p)}:${i + 1}`;
-    (PENDING.has(at) ? pending : offenders).push(`${at}  ${line.trim().slice(0, 120)}`);
+    const rel = relative(ROOT, p).split('\\').join('/');
+    const at = `${rel}:${i + 1}`;
+    (PENDING_FILES.has(rel) ? pending : offenders).push(`${at}  ${line.trim().slice(0, 120)}`);
   });
 }
 
@@ -87,8 +95,12 @@ if (pending.length) {
   console.log('      🔴 window.openKakao — 지금은 «카톡 탭이 열리고 + 보던 화면까지 카톡으로 이동» 합니다.');
   console.log('         수업 중 「상담」을 누르면 그것이 곧 «수업에서 나가기» 입니다.');
 }
-check(`①-2 못 고친 자리가 «목록에 적힌 그것들뿐» 이다 (실측 ${pending.length}건 / 등록 ${PENDING.size}건)`,
-  pending.length === PENDING.size);
+const PENDING_TOTAL = [...PENDING_FILES.values()].reduce((a, b) => a + b, 0);
+check(`①-2 못 고친 자리가 «목록에 적힌 그만큼뿐» 이다 (실측 ${pending.length}건 / 등록 ${PENDING_TOTAL}건)`,
+  pending.length === PENDING_TOTAL,
+  pending.length < PENDING_TOTAL
+    ? '      · 고쳤다면 PENDING_FILES 의 건수를 줄이세요(0이면 그 줄 자체를 지웁니다)'
+    : '      · 그 파일에 «새» 자리가 생겼습니다 — 아래 목록을 보세요');
 
 /* ── ② 고친 자리들이 «보호를 잃지 않았는가» — noopener 를 뺐으면 opener 를 끊어야 한다 ── */
 const GUARDED = [
