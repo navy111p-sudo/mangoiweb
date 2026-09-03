@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오늘의 학습 — 망고아이</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#0a1530" />
+<!--
+  📅 오늘의 학습 — AI 학습도구 8종을 «오늘 할 순서» 로 이어 주는 화면 (2026-09-03)
+
+  [왜 있나]
+    도구는 8종이 다 돌지만 서로 이어져 있지 않았다. 2026-09-03 D1 실측: 최근 30일 AI 도구를
+    쓴 학생 60명 중 2개 이상 도구를 쓴 학생 7명. 학생은 목록 8칸 앞에서 하나를 고르고 거기서 끝난다.
+    이 화면은 「오늘 무엇을, 어떤 순서로」 를 서버 정본(src/today-plan.ts)에서 받아 그린다.
+
+  [무엇을 하나]
+    · 🏫 수업일: 수업 «전» 10분 웜업 → 정규수업 → 수업 «후» 10분 복습퀴즈 → 집에서 5분 단어퀴즈
+    · 🏠 수업 없는 날: 요일별 15분 묶음(말하기 하나 + 복습 하나 + 요일 특별)
+    · 🎯 레벨 미배정: 레벨테스트가 1번
+    · 도구를 열 때 서버 레벨을 웜업·AI 친구의 localStorage 키에 «비어 있을 때만» 심는다
+      → 세 화면이 같은 레벨에서 시작한다. 학생이 이미 고른 값은 덮지 않는다.
+
+  [규칙]
+    · 판정은 이 파일에 없다 — 서버가 준 plan 을 그리기만 한다. 규칙을 여기 다시 적지 말 것.
+    · 「했나」 는 서버가 «오늘 그 도구 기록이 있는가» 로 판정한다. 화면이 짐작하지 않는다.
+    · 짧은 문장 줄에 display:flex 를 쓰지 않는다(낱글자로 쪼개진다 — CLAUDE.md 2장).
+    · 아이콘 버튼에 data-ko/data-en 을 달지 않는다(textContent 를 갈아 끼운다).
+    · 상주 MutationObserver·setInterval 없음. 돌아왔을 때(pageshow·visibilitychange)만 다시 읽는다.
+-->
+<script src="/js/mango-i18n.js" defer></script>
+<script src="/js/session-guard.js" defer></script>
+<script defer src="/js/back-nav.js"></script>
+<style>
+  :root { --bg:#0a1530; --card:#14213b; --card2:#1a2a4a; --text:#e6ecff; --text2:#a3b3d1; --muted:#7f8fb0;
+          --gold:#fbbf24; --gold2:#f59e0b; --ok:#34d399; --line:rgba(251,191,36,.18); --blue:#60a5fa; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: MangoiHanSC,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif; line-height:1.55; }
+  a { color:inherit; }
+  /* 상단 — 오른쪽 위는 공용 바(홈·EN 칩)가 차지하므로 비워 둔다 */
+  .top { position:sticky; top:0; z-index:50; background:rgba(20,33,59,.96); border-bottom:1px solid var(--line);
+         padding:12px 120px 12px 14px; }
+  .top a.back { display:inline-block; width:34px; height:34px; line-height:34px; text-align:center; border-radius:50%;
+         background:rgba(255,255,255,.06); text-decoration:none; font-size:18px; vertical-align:middle; }
+  .top .t { display:inline-block; vertical-align:middle; margin-left:10px; font-weight:900; font-size:18px; letter-spacing:-.02em; }
+  .wrap { max-width:720px; margin:0 auto; padding:14px 14px 90px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+  .hello { font-size:20px; font-weight:900; letter-spacing:-.02em; margin:0 0 6px; }
+  .sub { color:var(--text2); font-size:14px; margin:0; }
+  .chips { margin-top:12px; }
+  .chip { display:inline-block; margin:0 6px 6px 0; padding:5px 10px; border-radius:999px; font-size:12.5px; font-weight:700;
+          background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); white-space:nowrap; }
+  .chip.mode { background:rgba(251,191,36,.14); border-color:rgba(251,191,36,.4); color:var(--gold); }
+  .chip.streak { color:#fca5a5; }
+  .chip.pts { color:var(--ok); }
+  .prog { height:8px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; margin-top:12px; }
+  .prog > i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--gold2),var(--gold)); transition:width .4s; }
+  .prog-t { color:var(--text2); font-size:12.5px; margin-top:6px; }
+  .h { font-size:15px; font-weight:900; color:var(--gold); margin:18px 2px 8px; letter-spacing:-.01em; }
+  .step { position:relative; padding:14px 14px 14px 56px; }
+  .step .no { position:absolute; left:14px; top:14px; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px;
+              font-weight:900; background:rgba(251,191,36,.16); color:var(--gold); }
+  .step.done .no { background:rgba(52,211,153,.18); color:var(--ok); }
+  .step .slot { display:inline-block; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:999px;
+                background:rgba(96,165,250,.15); color:var(--blue); margin-bottom:6px; }
+  .step .slot.after { background:rgba(167,139,250,.15); color:#c4b5fd; }
+  .step .slot.home  { background:rgba(52,211,153,.14); color:var(--ok); }
+  .step .slot.first { background:rgba(251,191,36,.16); color:var(--gold); }
+  .step .name { font-size:16.5px; font-weight:900; margin:0; }
+  .step .why { color:var(--text2); font-size:13.5px; margin:4px 0 10px; }
+  .step .min { color:var(--muted); font-size:12.5px; }
+  .step .go { display:inline-block; margin-top:2px; padding:9px 16px; border-radius:12px; border:0; cursor:pointer;
+              background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; font-weight:900; font-size:14px; text-decoration:none; }
+  .step.done .go { background:rgba(255,255,255,.08); color:var(--text2); }
+  .step .ok { position:absolute; right:14px; top:14px; color:var(--ok); font-weight:900; font-size:12.5px; }
+  /* 주간표 — 칸 7개. 글자가 흐르는 문장이 아니라 아이콘 묶음이라 grid 를 써도 된다 */
+  .week { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .day { background:var(--card2); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:8px 4px; text-align:center; min-width:0; }
+  .day.today { border-color:rgba(251,191,36,.6); box-shadow:0 0 0 1px rgba(251,191,36,.35) inset; }
+  .day .d { font-weight:900; font-size:13px; }
+  .day.cls .d { color:var(--blue); }
+  .day .ic { font-size:15px; line-height:1.4; margin-top:2px; word-break:break-all; }
+  .day .tag { font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .legend { color:var(--muted); font-size:12px; margin-top:8px; }
+  .note { color:var(--text2); font-size:13px; }
+  .login .go { display:inline-block; margin:6px 8px 0 0; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:900;
+               background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; }
+  .login .alt { display:inline-block; margin-top:6px; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:800;
+                background:rgba(255,255,255,.08); color:var(--text); }
+  .err { color:#fca5a5; }
+  [hidden] { display:none !important; }
+  .foot { color:var(--muted); font-size:12px; text-align:center; margin-top:18px; }
+  .foot a { color:var(--text2); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="/" aria-label="뒤로" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack('/');}">←</a>
+  <span class="t" data-ko="📅 오늘의 학습" data-en="📅 Today's Plan">📅 오늘의 학습</span>
+</div>
+
+<div class="wrap">
+  <!-- 로그인 전 -->
+  <div class="card login" id="td-login" hidden>
+    <p class="hello" data-ko="로그인하면 오늘 할 일이 보여요" data-en="Log in to see today's plan">로그인하면 오늘 할 일이 보여요</p>
+    <p class="sub" data-ko="수업이 있는 날은 수업 앞뒤 10분, 없는 날은 15분. 매일 조금씩이 제일 오래 남아요." data-en="10 minutes before and after class on class days, 15 minutes on other days. A little every day sticks best.">수업이 있는 날은 수업 앞뒤 10분, 없는 날은 15분. 매일 조금씩이 제일 오래 남아요.</p>
+    <div class="chips">
+      <a class="go" href="/" data-ko="🏠 홈에서 로그인" data-en="🏠 Log in from home">🏠 홈에서 로그인</a>
+      <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
+    </div>
+  </div>
+
+  <!-- 읽는 중 / 오류 -->
+  <div class="card" id="td-status" hidden><p class="note" id="td-status-t"></p></div>
+
+  <!-- 본문 -->
+  <div id="td-main" hidden>
+    <div class="card">
+      <p class="hello" id="td-hello"></p>
+      <p class="sub" id="td-sub"></p>
+      <div class="chips" id="td-chips"></div>
+      <div class="prog"><i id="td-prog"></i></div>
+      <div class="prog-t" id="td-prog-t"></div>
+    </div>
+
+    <div class="h" id="td-h-steps"></div>
+    <div id="td-steps"></div>
+
+    <div class="h" data-ko="이번 주" data-en="This week">이번 주</div>
+    <div class="card">
+      <div class="week" id="td-week"></div>
+      <div class="legend" id="td-legend"></div>
+    </div>
+
+    <div class="foot">
+      <span data-ko="도구를 전부 보려면 홈 왼쪽 메뉴 ▸ AI 학습 도구" data-en="All tools: home ▸ left menu ▸ AI learning tools">도구를 전부 보려면 홈 왼쪽 메뉴 ▸ AI 학습 도구</span>
+    </div>
+  </div>
+</div>
+
+<script defer src="/js/today-page.js?v=1"></script>
+</body>
+</html>

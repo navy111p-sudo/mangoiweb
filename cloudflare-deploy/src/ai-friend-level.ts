@@ -135,7 +135,7 @@ export const AI_FRIEND_CEFR: Record<string, string> = {
  *    서로 달라서, 화면이 안 보내면 조용히 다른 레벨이 됐습니다.
  * ⚠️ 웜업 화면의 기본값(_warmLevel = 3)과도 같은 칸입니다 — 두 화면이 같은 눈금이니까요.
  */
-export const AI_FRIEND_DEFAULT_LEVEL = 'S3';
+export const AI_FRIEND_DEFAULT_LEVEL = 'S4';
 
 /**
  * 화면·저장소에서 온 값을 «아는 칸» 으로 바꿉니다.

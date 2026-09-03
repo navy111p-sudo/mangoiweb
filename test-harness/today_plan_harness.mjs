@@ -1,0 +1,222 @@
+// 📅 «오늘의 학습» 회귀 감시 (2026-09-03)
+//
+//   왜 필요한가 —
+//     AI 학습도구 8종이 각각은 돌지만 서로 이어져 있지 않았다(2026-09-03 D1 실측: 최근 30일
+//     AI 도구를 쓴 학생 60명 중 2개 이상 도구를 쓴 학생 7명). 그래서 «오늘 할 순서» 를 정하는
+//     정본(src/today-plan.ts)과 그것을 부르는 API(/api/student/today)·화면(today.html)·
+//     도구 화면의 «돌아가기» 알약(js/today-bar.js)을 한 줄로 이었다.
+//
+//   이 하니스가 못 박는 것 —
+//     ① 🔴 정본을 esbuild 로 번들해 **실제로 돌린다** — 수업일/집/미배정/완료 상태별 답.
+//        문자열 검사는 「함수가 있는가」만 볼 뿐 「무슨 답이 나오는가」는 못 본다(CLAUDE.md 2장).
+//     ② 레벨 눈금이 한 벌이다 — 밴드 n ↔ 웜업 'n' ↔ AI 친구 'Sn' (세 화면이 같은 레벨에서 시작)
+//     ③ 요일 파서가 정본 admDowMatches(api-admin.ts) 와 같은 답을 낸다 — '목'·'Thu'·'1,3,5'
+//     ④ API 핸들러 «중괄호 안» 에 소유자 판정(resolveOwnerScope)이 있고, index.ts 허용목록에 올라 있다
+//     ⑤ 도구 화면 8종 전부에 today-bar.js 가 실려 있다 — 하나만 빠져도 그 도구에서 흐름이 끊긴다
+//     ⑥ 계획이 가리키는 화면(url)이 저장소에 실제로 있다 — 없는 화면으로 보내면 «눌러도 홈» 이 된다
+//     ⑦ today.html 이 사이트 구성표에 있고 한자 글꼴 CSS 를 싣는다
+//
+//   변이시험(수동 확인, 2026-09-03): levelKeys 의 'S' 접두를 지우면 ②, 미배정에 레벨테스트를
+//   빼면 ①-3, 수업일 웜업을 빼면 ①-1, dowMatches 의 한글 표를 지우면 ③ 이 실제로 FAIL 난다.
+//
+//   실행: node test-harness/today_plan_harness.mjs
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { tmpdir } from 'node:os';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dir, '..');
+const CF = join(ROOT, 'cloudflare-deploy');
+const PUB = join(CF, 'public');
+const rd = (p) => readFileSync(p, 'utf8');
+
+let PASS = 0, FAIL = 0;
+const check = (name, ok, extra) => {
+  if (ok) { PASS++; console.log('  ✅ ' + name); }
+  else { FAIL++; console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
+};
+/** 부정 검사는 주석을 벗긴 사본으로 — 블록주석은 줄 단위로 «지금 주석 안인가» 를 추적한다 */
+function strip(src) {
+  const out = []; let inBlock = false;
+  for (const line of String(src).split('\n')) {
+    let res = '';
+    for (let i = 0; i < line.length; i++) {
+      if (inBlock) { if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i++; } continue; }
+      if (line[i] === '/' && line[i + 1] === '*') { inBlock = true; i++; continue; }
+      if (line[i] === '/' && line[i + 1] === '/') break;
+      res += line[i];
+    }
+    out.push(res);
+  }
+  return out.join('\n');
+}
+/** `needle` 이 나오는 if 문의 본문을 중괄호 짝으로 잘라 낸다 */
+function handlerBlock(src, needle) {
+  const at = src.indexOf(needle); if (at < 0) return null;
+  const open = src.indexOf('{', at); if (open < 0) return null;
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(open, i + 1); }
+  }
+  return null;
+}
+
+// ═══ 0) 정본 번들 ═══
+const RUN_ESBUILD = (args) => (process.platform === 'win32'
+  ? execFileSync(process.execPath, [join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'), ...args])
+  : execFileSync(join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'), args));
+const tmp = mkdtempSync(join(tmpdir(), 'today-plan-'));
+const out = join(tmp, 'today-plan.mjs');
+let mod;
+try {
+  RUN_ESBUILD([join(CF, 'src', 'today-plan.ts'), '--bundle', '--format=esm', '--platform=neutral', `--outfile=${out}`, '--log-level=error']);
+  mod = await import(pathToFileURL(out).href);
+} catch (e) {
+  console.log('  ❌ esbuild 번들 실패 — ' + (e && e.message));
+  FAIL++;
+}
+
+if (mod) {
+  const { buildTodayPlan, TOOLS, HOME_WEEK, CLASS_DAY, dowMatches, dowList, aiStreak, hhmmToMin, bandFromLevelCell } = mod;
+  const base = { band: 3, textbook: 'BTS 3 Korea (My family)', dow: 4, nowMin: 10 * 60, classes: [], weekClassDows: [2, 4], done: {} };
+
+  console.log('\n[ ① 정본을 실제로 돌린다 ]');
+  {
+    // ①-1 수업일 — 웜업(전) → 복습퀴즈(후) → 집
+    const p = buildTodayPlan({ ...base, classes: [{ start: '19:00', minutes: 50, source: 'mangoi' }] });
+    check('①-1 수업일이면 mode=class · 첫 단계가 웜업(전)', p.mode === 'class' && p.steps[0].key === 'warmup' && p.steps[0].slot === 'before', p.steps.map(s => s.key + '/' + s.slot));
+    check('①-1 두 번째가 복습퀴즈(후) · 세 번째가 집', p.steps[1].key === 'review' && p.steps[1].slot === 'after' && p.steps[2].slot === 'home');
+    check('①-1 10시에는 phase=before', p.phase === 'before', p.phase);
+    const p2 = buildTodayPlan({ ...base, nowMin: 21 * 60, classes: [{ start: '19:00', minutes: 50, source: 'mangoi' }] });
+    check('①-1 수업 끝난 뒤에는 phase=after', p2.phase === 'after', p2.phase);
+    const p3 = buildTodayPlan({ ...base, nowMin: 19 * 60 + 20, classes: [{ start: '19:00', minutes: 50, source: 'mangoi' }] });
+    check('①-1 수업 도중에는 phase=in_class', p3.phase === 'in_class', p3.phase);
+    // ①-2 집 — 요일 묶음. 화요일(2)은 말하기(음성코치)+복습+단어
+    const h = buildTodayPlan({ ...base, dow: 2 });
+    check('①-2 수업 없는 화요일: mode=home · HOME_WEEK[2] 그대로', h.mode === 'home' && JSON.stringify(h.steps.map(s => s.key)) === JSON.stringify(HOME_WEEK[2]), h.steps.map(s => s.key));
+    check('①-2 집 묶음에는 말하기 하나가 반드시 있다(친구 또는 음성코치)', [0, 1, 2, 3, 4, 5, 6].every(d => (HOME_WEEK[d] || []).some(k => k === 'friend' || k === 'speech')));
+    // ①-3 미배정 — 레벨테스트가 1번
+    const u = buildTodayPlan({ ...base, band: null });
+    check('①-3 레벨 미배정이면 mode=unassigned · 1번이 레벨테스트', u.mode === 'unassigned' && u.steps[0].key === 'leveltest' && u.steps[0].url === '/level-test-ai.html', u.steps.map(s => s.key));
+    check('①-3 미배정에서는 levelKeys 가 비어 있다(지어내지 않는다)', u.levelKeys.warmup === null && u.levelKeys.aifriend === null);
+    // ①-4 완료 — done 은 «오늘 그 도구 기록이 있는가»
+    const d = buildTodayPlan({ ...base, dow: 2, done: { speech: 2, review: 1 } });
+    check('①-4 기록이 있는 단계만 done · doneCount 가 맞다', d.steps.filter(s => s.done).map(s => s.key).join(',') === 'speech,review' && d.doneCount === 2);
+    // ①-5 글쓰기는 밴드 3 미만이면 AI 친구로
+    const lo = buildTodayPlan({ ...base, band: 1, dow: 5 });
+    check('①-5 밴드 1 금요일: 글쓰기 대신 AI 친구', !lo.steps.some(s => s.key === 'write') && lo.steps.some(s => s.key === 'friend'), lo.steps.map(s => s.key));
+    const hi = buildTodayPlan({ ...base, band: 5, dow: 5 });
+    check('①-5 밴드 5 금요일: 글쓰기 그대로', hi.steps.some(s => s.key === 'write'));
+    // ①-6 중국어 교재 — 복습퀴즈·음성코치가 중국어 화면으로
+    const zh = buildTodayPlan({ ...base, dow: 2, zh: true, textbook: '다락원' });
+    check('①-6 중국어 교재면 복습퀴즈가 /review-quiz-cn.html', zh.steps.find(s => s.key === 'review')?.url === '/review-quiz-cn.html');
+    check('①-6 중국어 교재면 음성코치가 /speech-coach-cn.html', zh.steps.find(s => s.key === 'speech')?.url === '/speech-coach-cn.html');
+    // ①-7 주간표 — 수업 요일에는 수업일 묶음, 아니면 요일 묶음, 오늘 표시 하나
+    check('①-7 주간표 7칸 · 오늘 표시 정확히 1칸 · 수업 요일 2칸', h.week.length === 7 && h.week.filter(w => w.isToday).length === 1 && h.week.filter(w => w.isClass).length === 2);
+    check('①-7 수업 요일 칸은 웜업→복습→단어', h.week.find(w => w.isClass)?.tools.join(',') === [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home].join(','));
+    // ①-8 두 수업 — 첫 수업 전·마지막 수업 뒤
+    const two = buildTodayPlan({ ...base, nowMin: 18 * 60, classes: [{ start: '20:00', minutes: 20, source: 'cafe24' }, { start: '17:00', minutes: 20, source: 'cafe24' }] });
+    check('①-8 수업이 둘이면 표시는 첫 수업(17:00) · 18시는 두 수업 사이라 in_class', two.cls?.start === '17:00' && two.phase === 'in_class', [two.cls, two.phase]);
+    // ①-9 시간 파서
+    check('①-9 hhmmToMin: 19:05→1145 · 잘못된 값→null', hhmmToMin('19:05') === 1145 && hhmmToMin('25:00') === null && hhmmToMin('') === null);
+  }
+
+  console.log('\n[ ② 레벨 눈금은 한 벌 ]');
+  for (const b of [1, 3, 8]) {
+    const p = buildTodayPlan({ ...base, band: b });
+    check(`② 밴드 ${b} → 웜업 '${b}' · AI 친구 'S${b}'`, p.levelKeys.warmup === String(b) && p.levelKeys.aifriend === 'S' + b, p.levelKeys);
+  }
+  {
+    const p9 = buildTodayPlan({ ...base, band: 9 });
+    check('② 범위 밖(9)은 미배정으로 — 지어내지 않는다', p9.mode === 'unassigned' && p9.band === null);
+    check('② students_erp.level 칸 → 밴드 (정본 bandFromTextbookLevel): "Lv 9"→3 · "Lv 1"→1 · 빈 값→null',
+      bandFromLevelCell('Lv 9') === 3 && bandFromLevelCell('Lv 1') === 1 && bandFromLevelCell('') === null && bandFromLevelCell(null) === null);
+    const p = buildTodayPlan({ ...base, band: 3 });
+    check('② 밴드 이름·CEFR 이 정본 표에서 온다 (3 = 초급 · A2+)', p.bandKo === '초급' && p.cefr === 'A2+', [p.bandKo, p.cefr]);
+  }
+
+  console.log('\n[ ③ 요일 파서가 정본과 같은 답을 낸다 ]');
+  {
+    // api-admin.ts 의 admDowMatches 를 오려 내 함께 돌린다 — 두 함수가 같은 입력에 같은 답
+    const adminSrc = rd(join(CF, 'src', 'api-admin.ts'));
+    const mapAt = adminSrc.indexOf('const ADM_DOW_MAP');
+    const fnAt = adminSrc.indexOf('function admDowMatches');
+    const fnEnd = adminSrc.indexOf('\n}\n', fnAt) + 3;
+    let ref = null;
+    try { ref = new Function(adminSrc.slice(mapAt, fnEnd).replace(/: Record<string, number>/, '').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + '\nreturn admDowMatches;')(); }
+    catch (e) { check('③ 정본 admDowMatches 를 오려 낼 수 있다', false, e.message); }
+    if (ref) {
+      const cases = ['4', 'Thu', 'thu', '목', '목요일', '1,3,5', 'Mon,Thu', 'Tue/Thu', '', null, 'Fri 5', '0', 'sunday'];
+      let same = true; const diff = [];
+      for (const c of cases) for (let d = 0; d <= 6; d++) if (dowMatches(c, d) !== ref(c, d)) { same = false; diff.push([c, d]); }
+      check('③ 13가지 표기 × 7요일 전부 정본과 같은 답', same, diff.slice(0, 5));
+      check('③ dowList("1,3,5") → [1,3,5] · "목" → [4]', dowList('1,3,5').join() === '1,3,5' && dowList('목').join() === '4');
+    }
+  }
+
+  console.log('\n[ ④ 연속일 계산 ]');
+  {
+    check('④ 오늘 포함 3일 연속', aiStreak(['2026-09-01', '2026-09-02', '2026-09-03'], '2026-09-03') === 3);
+    check('④ 오늘 아직 안 했으면 어제까지로 센다(끊긴 것이 아니다)', aiStreak(['2026-09-01', '2026-09-02'], '2026-09-03') === 2);
+    check('④ 그제까지만 있으면 0', aiStreak(['2026-09-01'], '2026-09-03') === 0);
+    check('④ 중복 날짜는 한 번만', aiStreak(['2026-09-03', '2026-09-03', '2026-09-02'], '2026-09-03') === 2);
+  }
+
+  console.log('\n[ ⑥ 계획이 가리키는 화면이 실재한다 ]');
+  for (const t of Object.values(TOOLS)) {
+    check(`⑥ ${t.key} → ${t.url}`, existsSync(join(PUB, t.url.replace(/^\//, ''))));
+    if (t.urlZh) check(`⑥ ${t.key}(중국어) → ${t.urlZh}`, existsSync(join(PUB, t.urlZh.replace(/^\//, ''))));
+  }
+  check('⑥ 레벨테스트 화면 /level-test-ai.html', existsSync(join(PUB, 'level-test-ai.html')));
+}
+
+console.log('\n[ ④ API — 소유자 판정 + 허용목록 ]');
+{
+  const students = rd(join(CF, 'src', 'api-students.ts'));
+  const blk = handlerBlock(students, `path === '/api/student/today'`);
+  check('④ /api/student/today 핸들러가 있다', !!blk);
+  check('④ 그 핸들러 «안» 에 resolveOwnerScope 가 있고 self·admin 만 통과한다',
+    !!blk && /resolveOwnerScope\s*\(/.test(strip(blk)) && /scope !== 'self' && scope !== 'admin'/.test(strip(blk)),
+    '무인증으로 남의 아이 이름·수업 시각이 나간다');
+  check('④ 핸들러가 정본 buildTodayPlan 을 «부른다» (규칙을 다시 적지 않는다)', !!blk && /buildTodayPlan\s*\(/.test(strip(blk)) && !/HOME_WEEK/.test(strip(blk)));
+  check('④ 응답에 Cache-Control: private, no-store', !!blk && /private, no-store/.test(blk));
+  check('④ 자리표시(lms·type_seed)를 오늘 수업에서 뺀다', !!blk && /NOT IN \('lms','type_seed'\)/.test(blk));
+  const idx = rd(join(CF, 'src', 'index.ts'));
+  check('④ index.ts 허용목록에 /api/student/today 가 있다 (없으면 404 「Not Found」)', /path === '\/api\/student\/today'/.test(strip(idx)));
+}
+
+console.log('\n[ ⑤ 도구 화면 8종이 «돌아가기» 알약을 싣는다 ]');
+for (const f of ['warmup', 'ai-friend', 'judgment', 'vocab', 'micro-quiz', 'review-quiz', 'ai-write', 'speech-coach']) {
+  const h = rd(join(PUB, f + '.html'));
+  check(`⑤ ${f}.html 에 today-bar.js`, /<script[^>]*src="\/js\/today-bar\.js\?v=\d+"/.test(h));
+}
+{
+  const bar = strip(rd(join(PUB, 'js', 'today-bar.js')));
+  check('⑤ today-bar 는 from=today 일 때만 그린다', /get\('from'\) === 'today'/.test(bar));
+  check('⑤ today-bar 에 상주 MutationObserver·setInterval 이 없다(홈을 멎게 한 전력)', !/MutationObserver|setInterval/.test(bar));
+  check('⑤ today-bar z-index 가 수업 독(99993)보다 아래', /z-index:99990/.test(bar));
+}
+
+console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
+{
+  const html = rd(join(PUB, 'today.html'));
+  const map = rd(join(PUB, 'admin', 'site-structure-map.html'));
+  check('⑦ 사이트 구성표에 /today.html 이 있다', /href="\/today\.html"/.test(map));
+  check('⑦ today.html 이 mangoi-han.css 를 싣는다', /\/css\/mangoi-han\.css/.test(html));
+  check('⑦ today.html 이 today-page.js 를 싣는다 (판정은 서버·그리기는 이 파일)', /\/js\/today-page\.js\?v=\d+/.test(html));
+  const page = strip(rd(join(PUB, 'js', 'today-page.js')));
+  check('⑦ 화면이 «성공이라고 말했는가»(ok === true) 로 판정한다', /d\.ok === true && d\.plan/.test(page));
+  check('⑦ 서버 레벨은 도구 키에 «비어 있을 때만» 심는다', /!localStorage\.getItem\('mangoi_warmup_level'\)/.test(page) && /!localStorage\.getItem\('mangoi_aifriend_level'\)/.test(page));
+  check('⑦ 화면에 상주 MutationObserver·setInterval 이 없다', !/MutationObserver|setInterval/.test(page));
+  const menu = strip(rd(join(PUB, 'js', 'idx-allmenu.js')));
+  const home = strip(rd(join(PUB, 'js', 'idx-ai-home.js')));
+  const signup = rd(join(PUB, 'signup.html'));
+  check('⑦ 입구 셋 — 전체메뉴 · 홈 검색 · 가입 완료 카드', /url:'\/today\.html'/.test(menu) && /location\.href='\/today\.html'/.test(home) && /href="\/today\.html"/.test(signup));
+}
+
+try { rmSync(tmp, { recursive: true, force: true }); } catch {}
+console.log(`\n📅 today_plan_harness — PASS ${PASS} / FAIL ${FAIL}`);
+process.exit(FAIL ? 1 : 0);
