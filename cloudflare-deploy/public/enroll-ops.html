@@ -12,6 +12,14 @@
   body { font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕',sans-serif; margin:0; background:#faf7f0; color:#1f2430; }
   @media (min-width:1024px) { body { zoom:1.3; } } /* 관리자 서브페이지 공통 PC 확대 */
   .wrap { max-width:900px; margin:0 auto; padding:16px 14px 50px; }
+  /* « 나가는 문 » (2026-09-03 사장님 지시 «뒤로가기 화살표, 홈버튼 만들어줘»)
+     ⚠️ 이 style 안 주석에는 홑낫표를 쓰지 말 것 — admin_lazyload ②-3 이 «한자 폰트 장식 문자» 로 셉니다.
+     이 화면은 공용 [🏠][🌐] 바(mango-i18n.js)도 back-nav.js 도 안 싣고 있어 나갈 길이 하나도 없었다.
+     ⛔ 아이콘만 두고 title 로 설명하지 말 것 — 폰에는 hover 가 없다(CLAUDE.md 2장). 글자를 함께 그린다. */
+  .nav { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .nav a { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border:1.5px solid #e5d9bd; border-radius:999px;
+           background:#fff; color:#92400e; font-size:13px; font-weight:700; text-decoration:none; line-height:1.2; white-space:nowrap; }
+  .nav a:hover { background:#fff7e8; border-color:#f59e0b; }
   h1 { font-size:20px; color:#b45309; margin:6px 0 2px; }
   .sub { color:#6b7280; font-size:12.5px; margin-bottom:12px; line-height:1.6; }
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
@@ -42,6 +50,13 @@
 </head>
 <body>
 <div class="wrap">
+  <!-- « 나가는 문 » — ← 는 직전 페이지(판정 정본 back-nav.js 의 window.mangoiGoBack), 🏠 는 관리자 홈.
+       href 는 폴백으로 남긴다(back-nav.js 가 없거나 캐시에 옛 사본이 남아도 최악이어도 관리자 홈으로는 간다).
+       ⚠️ 글자가 ← 로 시작해야 back-nav.js 가 «보이는 ← 가 이미 있다» 고 보고 자기 동그란 ← 를 안 넣는다(화살표 두 개 방지). -->
+  <nav class="nav" aria-label="화면 이동">
+    <a href="/admin.html" id="lnk-back" data-ko="← 뒤로" data-en="← Back" title="이전 화면으로">← 뒤로</a>
+    <a href="/admin.html" id="lnk-home" data-ko="🏠 관리자 홈" data-en="🏠 Admin home" title="관리자 홈으로">🏠 관리자 홈</a>
+  </nav>
   <h1>📚 수강 운영 관리</h1>
   <div class="sub">결제→수업 자동 배정의 운영 설정입니다. 규칙 원천 = 결제규칙 정리본(2026-07-22, 장지웅 부장) + 확인질문 5답.</div>
   <div class="tabs">
@@ -284,7 +299,25 @@ window.addEventListener('hashchange', function(){ if (applyHashTab()) render(); 
 
 applyHashTab();
 render();
+
+/* « 나가는 문 » — 판정 정본은 back-nav.js 의 window.mangoiGoBack 하나다(히스토리 → 같은 오리진 referrer → 폴백).
+   여기에 판정을 다시 적으면 그 순간 복제가 된다. 함수가 없으면 href(/admin.html)가 폴백으로 동작한다. */
+(function(){
+  var back = $('lnk-back');
+  if (back) back.addEventListener('click', function(e){
+    if (window.mangoiGoBack) { e.preventDefault(); window.mangoiGoBack('/admin.html'); }
+  });
+  /* EN/KO — 이 화면은 adm-lang-boot.js 를 안 싣는 독립 페이지라 localStorage 정본 키 `mangoi_lang` 을 직접 읽는다
+     (⛔ 'adminLang' 키는 어디에서도 쓰지 않는 죽은 키 — CLAUDE.md 2장). */
+  var en = false;
+  try { en = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
+  if (en) {
+    var els = document.querySelectorAll('.nav [data-en]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = els[i].getAttribute('data-en');
+  }
+})();
 </script>
+<script src="/js/back-nav.js" defer></script>
 <!-- BUILD:20260813015745 -->
 </body>
 </html>
