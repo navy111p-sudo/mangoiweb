@@ -2694,11 +2694,18 @@ const worker = {
         await markNightlyStep(env as any, _nightly, 'finance-snapshot');
 
         /* 🎓 학습 인사이트 스냅샷은 **여기 없습니다** — 2026-09-04 에 `0 0 * * *`(KST 09:00)로 옮겼습니다.
-           ⚠️ 되돌리기 전에 읽으세요: 이 블록이 **사흘 만에 8분 48초 → 12분 27초**로 늘어
-              cron 벽시계 상한 15분까지 2분 33초밖에 안 남았습니다(실측 09-01·09-02·09-03).
-              넘으면 격리가 죽어 **뒤 작업이 조용히 잘립니다** — 미러가 3번째라 함께 잘립니다.
-              learning-snapshot 이 203,845ms(전체의 27%)라 이것 하나로 3분 24초를 벌었습니다.
-           ℹ️ 순서 의존은 «더 좋아졌습니다» — 이 작업은 attendance·students_erp 를 읽는데,
+           ⚠️ 되돌리기 전에 읽으세요.
+           [잰 값] `corpcard_meta` 의 `nightly:0 18 * * *:last_ok` 를 사흘 연속 조회:
+              09-01 8분 48초(527,969ms) · 09-02 10분 07초(606,993ms) · 09-03 12분 27초(746,707ms).
+              그중 learning-snapshot 이 144,928 → 168,660 → **203,845ms**(전체의 27%).
+           [판단] 세 점이 같은 방향이고 상한 15분까지 2분 33초였다. 넘으면 격리가 죽고
+              **꼬리부터 조용히 잘린다** — 먼저 잘리는 것은 decision-graph-sync·growth-snapshot·
+              auto-schedule 이다. ⚠️ 미러는 3번째라 «가장 늦게까지 안전한 축» 이지만,
+              체인이 더 늘면 그 절단점이 앞으로 당겨져 결국 미러까지 닿는다.
+              (처음 이 주석에 「미러가 3번째라 함께 잘립니다」라고 적었다가 고쳤다 —
+               심각도를 부풀린 문장이 규칙서에 박히면 다음 사람이 엉뚱한 것을 고친다.)
+           ℹ️ 순서 의존은 «없다» 가 아니라 «좋아졌다» — 이 작업은 attendance·students_erp·
+              student_evaluations·voice_coaching 과 ai_student_analysis·churn-graph 를 읽는데,
               옮긴 자리(KST 09:00)는 이 블록의 카페24 동기화(KST 03:00) **6시간 뒤**라
               같은 날 갱신된 자료를 봅니다. */
 
@@ -2836,8 +2843,11 @@ const worker = {
         /* 🎓 학습 인사이트 — 당월 위험도 스냅샷 (KST 09:00 · 2026-09-04 에 `0 18` 에서 옮겨옴)
            learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
            ⚠️ 옮긴 이유는 `0 18` 블록의 그 자리 주석에 적혀 있습니다(체인이 15분 상한에 근접).
-           ℹ️ 읽는 것은 attendance·students_erp·student_evaluations·voice_coaching 이고,
+           ℹ️ 읽는 것은 attendance·students_erp·student_evaluations·voice_coaching 과
+              ai_student_analysis·churn-graph 이고(정본 `buildSegments`),
               카페24 동기화(KST 03:00) 6시간 뒤라 같은 날 갱신분을 봅니다.
+           ⛔ 이 블록의 순서(billing → briefing → snapshot)를 바꾸지 마세요 — 잘려도
+              «돈이 나가는 쪽» 이 아니라 꼬리가 잘리도록 일부러 이렇게 두었습니다.
            ⚠️ period 는 여기서도 KST 로 계산합니다 — 매월 1일에 «당월» 이 되어야 합니다. */
         try {
           const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
