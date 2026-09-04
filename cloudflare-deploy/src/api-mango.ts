@@ -132,6 +132,28 @@ async function ensureSchemaOnce(key: string, run: () => Promise<void>): Promise<
   catch { /* 다음 요청에서 다시 시도 — 일부러 빗장을 걸지 않는다 */ }
 }
 
+/* 📡 SFU 를 켤 수 있는 방인가 — «그 수업의 사람» 인지 본다. (2026-09-04)
+   [왜 필요한가] 위 sfu-peers 주석 참고. 소유권 기록만으로는 아무나 아무 방으로 세션을 만든다.
+   [규칙] · `class-{예약id}-{YYYYMMDD}` 예약방 → 관리자·강사 세션은 통과, 학생은 그 예약의 학생일 때만
+          · 그 밖의 방(공용 연습방 `mangoi-class`·`demo-*`·`meet-*`) → 통과.
+            그 방들은 mesh 도 누구나 들어가므로 SFU 만 좁히면 «되던 것» 이 깨진다.
+   ⛔ 못 찾으면 **막는다**(false). verify-room 은 수업을 막지 않으려고 fail-open 이지만,
+      여기서 막히는 것은 SFU 하나뿐이라 반대 방향이 맞다.
+   ⚠️ 대소문자는 정확일치 먼저 — `Kim`/`kim` 처럼 대소문자만 다른 계정이 실재한다(CLAUDE.md 2장). */
+async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind: 'admin' | 'student' }): Promise<boolean> {
+  const m = /^class-(\d+)-\d{8}$/.exec(room);
+  if (!m) return true;                       // 예약방이 아니면 mesh 와 같은 문턱
+  if (ident.kind === 'admin') return true;    // 강사·본사 — 참관·수업이 이 경로로 온다
+  try {
+    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first<any>();
+    if (!row) return false;
+    const mine = String(ident.uid || '');
+    const owner = String(row.user_id || '');
+    if (!owner || !mine) return false;
+    return owner === mine || owner.toLowerCase() === mine.toLowerCase();
+  } catch { return false; }                   // 조회 실패 = 모름 = 막는다(SFU 만 안 켜진다)
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
@@ -2258,6 +2280,10 @@ export async function handleMangoApi(
         } catch {}
       }
 
+      /* 🔒 방 소속 — sfuProxy 에 닿기 «전» 에 본다(위 sfuRoomAllowed 주석). */
+      if (identity && !(await sfuRoomAllowed(env as any, String(body.room_id || ''), identity))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
       const r = await sfuProxy(
         {
           appId, appToken,
@@ -2283,8 +2309,15 @@ export async function handleMangoApi(
               (KV 는 읽기-수정-쓰기 경합에서 한쪽 announce 가 조용히 사라질 수 있습니다).
        [왜 /api/class/ 밑인가] 그 접두사는 라우팅 허용목록에 **이미** 있습니다(src/index.ts).
        ⚠️ 인증은 라우팅과 다른 것이라 여기서 «직접» 봅니다(CLAUDE.md 2장).
-       ⛔ 명단을 아무에게나 주지 않습니다 — 이 방에 «내 세션» 을 실제로 만든 사람만 봅니다
-          (sfuProxy 가 적어 둔 소유권 기록 `sfu:sess:<sid>` 을 그대로 재사용합니다). */
+       🔴 [게이트가 «둘» 인 이유 — 하나만으로는 남의 수업이 열립니다]
+          `sfu:sess:<sid>` 소유권 기록만 보면 «내가 만든 세션인가» 까지만 지켜집니다. 그런데
+          `session-new` 는 방 번호가 비었는지만 보므로(realtime-sfu.ts ④) **아무나 아무 방으로
+          세션을 만들 수 있습니다.** 방 번호는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이고,
+          학생 비밀번호는 29,417명 중 0명이 설정돼 있습니다(CLAUDE.md 2장) — 즉 소유권 검사
+          «하나만» 두면 로그인만 하면 남의 수업 세션 id·트랙 이름을 받아 그 반의 영상·소리를
+          끌어갈 수 있습니다(미성년자 수업입니다). 그래서 `sfuRoomAllowed()` 를 함께 봅니다.
+          ⚠️ 여기는 **막는 쪽으로 실패**합니다 — 막혀도 수업은 mesh 로 그대로 돌아가고
+             SFU 만 안 켜지므로, verify-room 의 fail-open 과 균형이 다릅니다. */
     if (method === 'POST' && path === '/api/class/sfu-peers') {
       const b = await request.json().catch(() => null) as any;
       if (!b) return json({ ok: false, error: 'invalid_body' }, 400);
@@ -2320,6 +2353,9 @@ export async function handleMangoApi(
       try { own = JSON.parse((await kv.get(`sfu:sess:${sid}`)) || 'null'); } catch { own = null; }
       if (!own || own.uid !== ident.uid || own.room !== room) {
         return json({ ok: false, enabled: true, error: 'not_your_session' }, 403);
+      }
+      if (!(await sfuRoomAllowed(env as any, room, ident))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
       }
 
       await ensureSchemaOnce('sfu_peers', async () => {

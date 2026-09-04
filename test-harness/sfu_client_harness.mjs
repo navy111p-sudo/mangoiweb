@@ -61,6 +61,7 @@ function makeEnv(opts = {}) {
   const calls = [];                 // 나간 요청 전부 { url, body }
   const painted = [];               // vcAddRemoteVideo(userId, name, stream)
   const replaced = [];              // sender.replaceTrack(x)
+  const params = [];                // sender.setParameters(...) — mesh 끄기·되돌리기가 여기로 온다
   const timers = [];
   const log = [];
 
@@ -77,8 +78,10 @@ function makeEnv(opts = {}) {
     addTrack(t) { this._t.push(t); }
   }
   class FakeSender {
-    constructor(track) { this.track = track; }
+    constructor(track) { this.track = track; this._p = { encodings: [{ active: true, maxBitrate: 1200000 }] }; }
     replaceTrack(t) { replaced.push({ from: this.track && this.track.id, to: t && t.id ? t.id : null }); this.track = t; return Promise.resolve(); }
+    getParameters() { return JSON.parse(JSON.stringify(this._p)); }
+    setParameters(p) { this._p = JSON.parse(JSON.stringify(p)); params.push({ track: this.track && this.track.id, active: p.encodings.map(e => e.active) }); return Promise.resolve(); }
   }
   class FakeReceiver {
     constructor(track, frames) { this.track = track; this._f = frames; }
@@ -165,7 +168,7 @@ function makeEnv(opts = {}) {
   };
 
   const env = {
-    calls, painted, replaced, timers, log, server, pcs,
+    calls, painted, replaced, params, timers, log, server, pcs,
     camTrack, micTrack, localStream, meshPc, meshStream,
     fireTracks(n) { for (let i = 0; i < n; i++) { const tr = new FakeTrack(i === 0 ? 'audio' : 'video', 'sfu-t' + i); if (trackFire) trackFire({ transceiver: { mid: 'r' + i }, track: tr }); } },
     setFrames(f) { frames = f; },
@@ -246,7 +249,7 @@ await (async () => {
   ok(env.calls.length === 0, '안 켰으면 요청 0건 (실제 ' + env.calls.length + '건)');
   ok(env.window.__vcSfu.state === 'off', 'state=off');
   ok(env.window.__vcSfu.why === 'not_enabled', '이유를 적어 둔다(not_enabled)');
-  ok(env.replaced.length === 0, 'mesh 송신을 안 건드린다');
+  ok(env.params.length === 0, 'mesh 송신을 안 건드린다');
 })();
 
 await (async () => {
@@ -265,7 +268,7 @@ await (async () => {
   await sleep(80);
   ok(env.calls.length === 1, 'session-new 한 번만 부르고 멈춘다 (실제 ' + env.calls.length + '건)');
   ok(env.window.__vcSfu.state === 'off', 'state=off');
-  ok(env.replaced.length === 0, 'mesh 송신을 안 건드린다');
+  ok(env.params.length === 0, 'mesh 송신을 안 건드린다');
   ok(env.painted.length === 0, '화면도 안 건드린다');
 })();
 
@@ -352,10 +355,15 @@ await (async () => {
 
 sec('⑧ mesh 영상 송신은 «도착한 뒤에만» 끈다 — 그리고 소리는 안 끈다');
 await (async () => {
-  const r = subEnv.replaced;
-  ok(r.length > 0, 'mesh 영상 sender 를 replaceTrack(null) 한다');
-  ok(r.every(x => x.to === null), '되돌릴 수 있게 null 로만 바꾼다');
-  ok(r.every(x => x.from === 'cam-1'), '영상만 끈다 (소리 mic-1 은 그대로)');
+  const P = subEnv.params;
+  ok(P.length > 0, 'mesh 영상 송신을 끈다');
+  ok(P.every(x => x.active.every(a => a === false)), '인코딩을 active:false 로 끈다');
+  ok(P.every(x => x.track === 'cam-1'), '영상만 끈다 (소리 mic-1 은 그대로)');
+  /* 🔴 함정 대조 검사가 잡은 실제 결함 — track 을 null 로 만들면 idx-main.js 의
+     `find(s => s.track && s.track.kind === 'video')` 9곳(화면공유·가상배경·적응화질)이 조용히 헛돈다. */
+  ok(subEnv.replaced.length === 0, "⛔ replaceTrack(null) 을 쓰지 않는다 — idx-main.js 의 sender 찾기 9곳이 죽는다");
+  ok(!/replaceTrack\(null\)/.test(clientBare), '소스에도 replaceTrack(null) 이 없다');
+  ok(subEnv.meshPc.getSenders().every(s => s.track), 'mesh sender 의 track 이 그대로 살아 있다');
   ok(!subEnv.meshPc.closed, 'mesh PeerConnection 은 닫지 않는다(되돌아갈 길)');
   /* 순서 — «타일에 붙이기» 가 «mesh 끄기» 보다 먼저여야 영상 공백이 안 생긴다 */
   /* ⚠️ indexOf('cutMeshVideo()') 로 세지 말 것 — 함수 «선언» 이 먼저 걸려 늘 통과한다.
@@ -393,7 +401,7 @@ await (async () => {
   w.vcCreatePeer('u_them', 'Farrah');
   await sleep(120);
   ok(env.window.__vcSfu.state === 'off', '올리기 자체가 실패하면 조용히 off');
-  ok(env.replaced.length === 0, '아직 mesh 를 안 껐으므로 되돌릴 것도 없다');
+  ok(env.params.length === 0, '아직 mesh 를 안 껐으므로 되돌릴 것도 없다');
   ok(env.painted.length === 0, '화면을 건드리지 않았다');
 })();
 
@@ -407,7 +415,7 @@ await (async () => {
   env.bumpFrames();
   await sleep(120);
   ok(env.window.__vcSfu.meshCut === true, '먼저 SFU 가 켜졌다(mesh 영상 송신 꺼짐)');
-  const cutCount = env.replaced.length;
+  const cutCount = env.params.length;
   /* 화면공유·가상배경·장치교체 — 카메라 트랙이 «바뀌면» 우리가 올린 것과 어긋난다 */
   env.localStream._t = env.localStream._t.filter(t => t.kind !== 'video');
   env.localStream._t.push({ kind: 'video', id: 'screen-1', readyState: 'live', enabled: true });
@@ -416,8 +424,8 @@ await (async () => {
   ok(S.state === 'fallback', '트랙이 바뀌면 손을 뗀다 (실제 ' + S.state + ')');
   ok(S.why === 'local_track_changed', '이유를 적어 둔다 (실제 ' + S.why + ')');
   ok(S.meshCut === false, 'mesh 영상 송신이 «실제로» 복구되었다');
-  ok(env.replaced.length > cutCount && env.replaced.slice(cutCount).some(x => x.to === 'cam-1'),
-     '원래 카메라 트랙을 되돌려 놓는다');
+  ok(env.params.length > cutCount && env.params.slice(cutCount).some(x => x.active.every(a => a !== false)),
+     '원래 인코딩(active)을 되돌려 놓는다');
   const last = env.painted[env.painted.length - 1];
   ok(last && last.stream === env.meshStream, '타일도 원래 mesh 스트림으로 되돌린다');
 })();
@@ -476,11 +484,29 @@ sec('⑭ 서버 «명단» 계약 — 아무나 남의 방을 들여다볼 수 �
   const t = fs.readFileSync(APIMANGO, 'utf8');
   const i = t.indexOf("path === '/api/class/sfu-peers'");
   ok(i > 0, '/api/class/sfu-peers 핸들러가 있다');
-  const blk = i > 0 ? t.slice(i, i + 6000) : '';
+  /* ⛔ 범위를 «길이» 로 자르지 말 것 — 옆 핸들러(verify-room)가 딸려 들어와, 그쪽이 자라면
+     조용히 거짓 통과가 된다(CLAUDE.md 2장). 중괄호 짝으로 그 블록만 잘라 낸다. */
+  function blockFrom(text, from) {
+    const open = text.indexOf('{', from); if (open < 0) return '';
+    let d = 0;
+    for (let k = open; k < text.length; k++) {
+      const c = text[k];
+      if (c === '{') d++;
+      else if (c === '}') { d--; if (d === 0) return text.slice(from, k + 1); }
+    }
+    return '';
+  }
+  const blk = i > 0 ? blockFrom(t, i) : '';
+  ok(blk.length > 200 && blk.length < 6000, '핸들러 블록만 잘라 냈다 (' + blk.length + '자)');
+  ok(blk.indexOf('verify-room') < 0, '옆 핸들러가 딸려 들어오지 않았다');
   ok(/authUidGlobal/.test(blk) && /checkAdminSession/.test(blk), '신원을 «직접» 확인한다(라우팅과 인증은 다르다)');
   ok(/unauthorized/.test(blk), '신원이 없으면 401');
   ok(/sfu:sess:/.test(blk) && /not_your_session/.test(blk),
-     '«이 방에 내 세션을 만든 사람» 만 명단을 본다(소유권 기록 재사용)');
+     '내가 만든 세션인지 본다(소유권 기록 재사용)');
+  /* 🔴 소유권 «하나만» 으로는 못 막는다 — session-new 가 방 번호를 안 가리므로 아무나 아무 방으로
+     세션을 만든다. 방 소속 게이트가 «함께» 있어야 남의 수업이 안 열린다(미성년자 영상). */
+  ok(/sfuRoomAllowed\(/.test(blk) && /not_your_room/.test(blk),
+     '그 수업의 사람인지도 본다(sfuRoomAllowed) — 소유권만으로는 남의 방이 열린다');
   ok(/sfuConfigured/.test(blk) && /no_secrets/.test(blk), '시크릿이 없으면 표도 안 만들고 꺼짐을 돌려준다');
   ok(/peer_id <> \?/.test(blk), '내 줄은 빼고 준다');
   ok(/updated_at > \?/.test(blk), '오래된(죽은 탭) 줄은 주지 않는다');
@@ -511,7 +537,7 @@ await (async () => {
   w.vcCreatePeer('u_them', 'Farrah');
   await sleep(200);
   ok(changed, '변이2 를 실제로 만들었다(문자열이 바뀌었다)');
-  ok(changed ? env.replaced.length > 0 : true, '변이2 → 도착 전에 mesh 가 꺼진다(⑧이 잡는 상태)');
+  ok(changed ? env.params.length > 0 : true, '변이2 → 도착 전에 mesh 가 꺼진다(⑧이 잡는 상태)');
 })();
 await (async () => {
   /* 변이 3 — 되돌리기에서 복구를 빼면? */
@@ -535,6 +561,94 @@ sec('⑯ 시간 상수 — 사람이 쓸 만한 값인가 (위 ⑨-2 는 줄인 
   ok(poll >= 2000 && poll <= 10000, '명단 확인 주기 2~10초 (실제 ' + poll + 'ms) — 더 짧으면 D1 쓰기가 는다');
   ok(stall >= 4000, '멈춤 판정 4초 이상 (실제 ' + stall + 'ms) — 짧으면 잠깐 끊긴 사람을 버린다');
   ok(grace >= stall, '붙는 데 주는 시간이 멈춤 문턱보다 길다 (' + grace + ' >= ' + stall + ')');
+}
+
+sec('⑰ 방 소속 게이트 — 정본을 오려 내 «실제로» 돌린다');
+await (async () => {
+  const t = fs.readFileSync(APIMANGO, 'utf8');
+  const i = t.indexOf('async function sfuRoomAllowed');
+  ok(i > 0, 'sfuRoomAllowed 정본이 있다');
+  let src = '';
+  if (i > 0) {
+    /* ⛔ `indexOf('{', i)` 로 시작하면 **파라미터의 타입 리터럴**(`ident: { uid: string; … }`)을
+       본문으로 착각해 시그니처만 잘라 낸다(실제로 밟았다). 반환 타입 «뒤» 의 여는 중괄호부터 센다. */
+    const open = t.indexOf('Promise<boolean> {', i) + 'Promise<boolean> '.length;
+    let d = 0, end = -1;
+    for (let k = open; k < t.length; k++) { const c = t[k]; if (c === '{') d++; else if (c === '}') { d--; if (d === 0) { end = k + 1; break; } } }
+    src = t.slice(i, end);
+    /* node 로 돌리려고 «타입만» 벗긴다 — 논리는 한 글자도 안 고친다. */
+    src = src.replace(/^async function sfuRoomAllowed\([\s\S]*?\)\s*:\s*Promise<boolean>\s*\{/,
+                      'async function sfuRoomAllowed(env, room, ident) {')
+             .replace(/<any>/g, '').replace(/\bas any\b/g, '');
+  }
+  /* ⚠️ 정본은 `env.DB.prepare` 를 부른다 — 가짜를 `env` 자리에 그냥 주면 예외가 나고
+     catch 가 false 를 돌려준다. 그러면 «막는다» 검사만 초록이 되어 헛돈다(CLAUDE.md 2장
+     「가짜 DB 로 하니스를 돌렸는데 검사가 헛돌며 통과」). 그래서 «제대로 찾는다» 를 짝으로 둔다. */
+  const mk = (rows) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => rows.shift() }) }) } });
+  let f = null;
+  try { f = new Function('return (' + src + ')')(); } catch (e) { ok(false, '오려 낸 함수를 못 돌림: ' + e.message); }
+  if (f) {
+    ok(await f(mk([]), 'mangoi-class', { uid: 'anyone', kind: 'student' }) === true,
+       '공용 연습방은 통과 — mesh 도 누구나 들어가는 방이라 SFU 만 좁히면 «되던 것» 이 깨진다');
+    ok(await f(mk([]), 'demo-1', { uid: 'anyone', kind: 'student' }) === true, 'demo 방도 통과');
+    ok(await f(mk([]), 'class-1079-20260904', { uid: 'anyone', kind: 'admin' }) === true,
+       '예약방 + 관리자·강사 세션 → 통과');
+    ok(await f(mk([{ user_id: 'jye46712' }]), 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === true,
+       '예약방 + 그 예약의 학생 → 통과');
+    ok(await f(mk([{ user_id: 'jye46712' }]), 'class-1079-20260904', { uid: 'someoneelse', kind: 'student' }) === false,
+       '🔴 예약방 + 남의 학생 → 막는다 (이게 없으면 남의 수업 영상·소리가 열린다)');
+    ok(await f(mk([{ user_id: 'Kim' }]), 'class-1079-20260904', { uid: 'kim', kind: 'student' }) === true,
+       '대소문자만 다른 계정도 통과 (Kim/kim 이 실재한다)');
+    ok(await f(mk([]), 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === false,
+       '예약을 못 찾으면 «막는다» — 여기서 막혀도 수업은 mesh 로 그대로 간다');
+    const boom = { DB: { prepare: () => { throw new Error('d1 down'); } } };
+    ok(await f(boom, 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === false,
+       '조회가 실패해도 막는 쪽으로 실패한다');
+  }
+  /* 두 경로가 «같은 것» 을 보는가 — 한쪽만 걸면 그쪽으로 새 나간다 */
+  const nUse = (t.match(/await sfuRoomAllowed\(/g) || []).length;
+  ok(nUse >= 2, 'sfu 프록시와 명단 «둘 다» 이 게이트를 지난다 (실제 ' + nUse + '곳)');
+  const pi = t.indexOf("path.startsWith('/api/class/sfu/')");
+  const seg = pi > 0 ? t.slice(pi, t.indexOf('const r = await sfuProxy', pi)) : '';
+  ok(/sfuRoomAllowed\(/.test(seg) && /not_your_room/.test(seg), '게이트가 sfuProxy «앞» 에 있다');
+})();
+
+sec('⑱ 화면공유·가상배경이 끼어들면 손을 뗀다 (sender 의 track 이 바뀐다)');
+await (async () => {
+  const env = makeEnv({ peers: [{ peer_id: 'u_them', session_id: 'sess-them-xxxxxxxx', audio_track: 'their-a', video_track: 'their-v', name: 'Farrah' }] });
+  const w = runClient(env, fastSrc());
+  w.vcCreatePeer('u_them', 'Farrah');
+  await sleep(120); env.fireTracks(2); env.bumpFrames(); await sleep(120);
+  ok(env.window.__vcSfu.meshCut === true, '먼저 SFU 가 켜졌다');
+  /* idx-main.js 의 화면공유가 하는 것과 같은 모양 — sender.replaceTrack(새 트랙) */
+  env.meshPc.getSenders().forEach(s => { if (s.track && s.track.kind === 'video') s.replaceTrack({ kind: 'video', id: 'screen-1', readyState: 'live' }); });
+  await sleep(200);
+  ok(env.window.__vcSfu.state === 'fallback', 'sender 가 바뀌면 손을 뗀다 (실제 ' + env.window.__vcSfu.state + ')');
+  ok(env.window.__vcSfu.why === 'mesh_sender_changed', '이유를 적어 둔다 (실제 ' + env.window.__vcSfu.why + ')');
+  ok(env.window.__vcSfu.meshCut === false, '인코딩을 되돌려 화면공유가 상대에게 간다');
+  ok(!/vcShareScreen|vcStopShare/.test(clientBare), '⛔ 함수 «이름» 을 감시하지 않는다(전역이 아니면 조용히 헛돈다)');
+})();
+
+sec('⑲ 첫 틱의 KV 최종일관성 — 한 번의 403 으로 영구히 손을 떼지 않는다');
+await (async () => {
+  const env = makeEnv({ peers: [], failOn: 'peers' });
+  const w = runClient(env, fastSrc());
+  w.vcCreatePeer('u_them', 'Farrah');
+  await sleep(400);
+  const asked = env.calls.filter(c => c.url === '/api/class/sfu-peers').length;
+  ok(asked >= 3, '포기하기 전에 세 번은 물어본다 (실제 ' + asked + '번)');
+  ok(env.window.__vcSfu.state === 'fallback', '계속 실패하면 결국 mesh 로 (실제 ' + env.window.__vcSfu.state + ')');
+  ok(/S\.peerFail\s*>=\s*3/.test(clientBare), '연속 3회일 때만 손을 뗀다');
+  ok(/S\.peerFail = 0/.test(clientBare), '한 번 성공하면 셈을 되돌린다(누적되어 끊기지 않게)');
+})();
+
+sec('⑳ 효과를 «무엇으로» 재는가 — vc_quality 로는 못 잰다');
+{
+  ok(/S\.stats\s*=\s*function/.test(clientBare), '콘솔에서 부를 측정 헬퍼(__vcSfu.stats)가 있다');
+  ok(/freezeCount/.test(clientBare) && /concealedSamples/.test(clientBare),
+     'SFU 로 «실제로 받은» 멈춤·끊긴 소리를 잰다');
+  ok(/vc_quality/.test(clientSrc) && /못 잽니다|안 봅니다/.test(clientSrc),
+     'vc_quality 로는 못 잰다는 것을 파일이 «말한다»(novideo 로 찍힌다)');
 }
 
 console.log('\n' + '═'.repeat(60));

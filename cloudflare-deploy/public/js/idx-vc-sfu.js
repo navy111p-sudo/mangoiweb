@@ -281,6 +281,13 @@
          죽는 순간 수업이 통째로 끊긴다. 옮기는 것은 «문제가 난 쪽» 뿐이다.
        [왜 replaceTrack(null)] 재협상이 필요 없다 — 되돌리기가 한 줄이고 즉시다.
        ⛔ PeerConnection 을 닫지 않는다. 닫으면 되돌아갈 길이 없어진다. */
+    /* 🔴 ⛔ `replaceTrack(null)` 로 끄지 말 것 — 함정 대조 검사가 잡은 실제 결함이다.
+       `idx-main.js` 는 영상 sender 를 **전부** `getSenders().find(s => s.track && s.track.kind === 'video')`
+       로 찾는다(화면공유 시작·중지 · 가상배경 · 카메라 재시도·교체 · applyStep · vcAdaptiveQuality 등 9곳).
+       track 을 null 로 만들면 그 find 가 `undefined` 가 되어 **적응 화질이 통째로 멈추고
+       화면공유가 상대에게 안 간다 — 그런데 에러가 안 난다.**
+       ✅ 대신 «인코딩만» 끈다(`encodings[].active=false`). track 은 그대로라 그 9곳이 계속 동작하고,
+          되돌리기는 저장해 둔 파라미터를 다시 넣는 것뿐이다. */
     function cutMeshVideo() {
         if (S.meshCut) return;
         var pcs = null;
@@ -289,22 +296,46 @@
         Object.keys(pcs).forEach(function (id) {
             var pc = pcs[id]; if (!pc || !pc.getSenders) return;
             pc.getSenders().forEach(function (s) {
-                if (!s || !s.track || s.track.kind !== 'video') return;
-                S.meshSaved.push({ sender: s, track: s.track });
-                try { s.replaceTrack(null); } catch (_) {}
+                if (!s || !s.track || s.track.kind !== 'video' || !s.getParameters) return;
+                var prm;
+                try { prm = s.getParameters(); } catch (_) { return; }
+                if (!prm || !prm.encodings || !prm.encodings.length) return;
+                var before = prm.encodings.map(function (e) { return { active: e.active }; });
+                S.meshSaved.push({ sender: s, track: s.track, before: before });
+                try {
+                    prm.encodings.forEach(function (e) { e.active = false; });
+                    s.setParameters(prm);
+                } catch (_) {}
             });
         });
+        if (!S.meshSaved.length) return;               // 끌 것이 없으면 «껐다» 고 적지 않는다
         S.meshCut = true;
-        log('mesh 영상 송신 중단 — 올려 보내는 갈래 ' + S.meshSaved.length + '개');
+        log('mesh 영상 송신 중단(인코딩 끔) — 갈래 ' + S.meshSaved.length + '개');
     }
     function restoreMeshVideo() {
         if (!S.meshCut) return;
         S.meshSaved.forEach(function (x) {
-            try { if (x.track && x.track.readyState === 'live') x.sender.replaceTrack(x.track); } catch (_) {}
+            try {
+                var prm = x.sender.getParameters();
+                if (prm && prm.encodings) {
+                    prm.encodings.forEach(function (e, i) { e.active = x.before[i] ? x.before[i].active !== false : true; });
+                    x.sender.setParameters(prm);
+                }
+            } catch (_) {}
         });
         S.meshSaved = [];
         S.meshCut = false;
         log('mesh 영상 송신 복구');
+    }
+    /* 우리가 끈 sender 의 트랙이 «바뀌었다» = 화면공유·가상배경·장치교체가 일어났다.
+       그쪽이 주인공이 되어야 하므로 SFU 는 손을 뗀다. ⛔ 함수 «이름» 을 감시하지 않는다 —
+       그 이름들이 전역이 아니라 조용히 헛돌 수 있다. sender 를 직접 본다. */
+    function meshSenderChanged() {
+        for (var i = 0; i < S.meshSaved.length; i++) {
+            var x = S.meshSaved[i];
+            try { if (x.sender.track !== x.track) return true; } catch (_) {}
+        }
+        return false;
     }
 
     /* ═══ 5) 되돌리기 — 어디서 실패하든 여기로 온다 ══════════════════════════════ */
@@ -364,6 +395,7 @@
     async function tick() {
         if (!inCall()) { fallback('left_call'); return; }
         if (trackChanged()) { fallback('local_track_changed'); return; }
+        if (meshSenderChanged()) { fallback('mesh_sender_changed'); return; }   // 화면공유·가상배경 등
 
         var r;
         try {
@@ -374,7 +406,15 @@
                 role: (function () { try { return window.vcMyRole || ''; } catch (_) { return ''; } })()
             });
         } catch (e) { return; }                       // 한 번 실패는 넘긴다(다음 틱에 다시)
-        if (!r || r.ok === false || r.enabled === false) { fallback('peers_' + ((r && r.error) || 'off')); return; }
+        /* ⚠️ 첫 틱은 KV 최종일관성 때문에 `not_your_session` 403 이 날 수 있다(세션을 만든 직후 읽는다).
+           한 번의 실패로 영구히 손을 떼면 「켰는데 아무 일도 안 일어난다」가 된다 — 연속 3회일 때만. */
+        if (!r || r.ok === false || r.enabled === false) {
+            S.peerFail = (S.peerFail || 0) + 1;
+            if (r && r.enabled === false) { fallback('peers_off'); return; }
+            if (S.peerFail >= 3) { fallback('peers_' + ((r && r.error) || 'off')); }
+            return;
+        }
+        S.peerFail = 0;
 
         var list = r.peers || [];
         for (var i = 0; i < list.length; i++) {
@@ -448,6 +488,30 @@
         if (window.__vcSfuWrapped || tries++ > 20) return;
         setTimeout(arm, 300);
     })();
+
+    /* 📏 효과 측정 — ⚠️ `vc_quality` 로는 못 잽니다.
+       mesh 영상 인코딩을 끄면 보내는 표본이 0이 되어 그 표에는 «영상 없음(novideo)» 으로 찍히고,
+       받는 쪽 통계(rx_freeze·concealed)는 mesh PC 에만 붙어 있어 SFU 로 온 것을 안 봅니다.
+       그래서 시험할 때는 콘솔에서 `__vcSfu.stats()` 를 부르세요 — SFU 로 «실제로» 받은
+       멈춤 횟수·끊긴 소리 비율을 그 자리에서 찍습니다. (mesh 와 나란히 놓고 비교하는 것은 별건) */
+    S.stats = function () {
+        if (!S.subPc || !S.subPc.getReceivers) { log('SFU 수신 없음 — state=' + S.state + ' why=' + S.why); return; }
+        S.subPc.getReceivers().forEach(function (r) {
+            if (!r || !r.track || !r.getStats) return;
+            r.getStats().then(function (st) {
+                st.forEach(function (x) {
+                    if (x.type !== 'inbound-rtp') return;
+                    if (r.track.kind === 'video') {
+                        log('📹 SFU 영상 — 프레임', x.framesDecoded, '· 멈춤', x.freezeCount,
+                            '· 폭', x.frameWidth, '· 손실', x.packetsLost);
+                    } else {
+                        var c = x.concealedSamples || 0, t = x.totalSamplesReceived || 0;
+                        log('🔊 SFU 소리 — 끊긴 비율', t ? (100 * c / t).toFixed(2) + '%' : '모름', '· 손실', x.packetsLost);
+                    }
+                });
+            }).catch(function () {});
+        });
+    };
 
     /* 수업을 나갈 때 명단에서 내 줄을 지운다(남이 죽은 세션을 끌어가지 않게). */
     window.addEventListener('pagehide', function (ev) {
