@@ -159,7 +159,31 @@ check('화면은 서버가 준 목록을 그린다 (D.categories)',
 /* ⛔ 화면이 자기 목록을 들고 있으면 서버와 갈린다 —
    「화면에서는 골랐는데 저장이 안 되는」 사고(CLAUDE.md 2장 duration_months)의 뿌리다.
    ⚠️ 주석에 예시로 적힌 한국어는 세지 않는다 — 주석을 벗긴 사본으로 판정한다. */
-const workJs = work.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+/* ⚠️ 블록주석을 정규식 한 줄(`/\*[\s\S]*?\*\/`)로 지우지 않는다 — 문자열 안의 짝 없는
+   «슬래시+별표» 하나에 그 뒤가 통째로 사라져 검사가 조용히 헛돈다(CLAUDE.md 2장).
+   줄 단위로 «지금 블록주석 안인가» 를 추적하고, `//` 줄주석도 함께 벗긴다
+   (안 벗기면 나중에 설명 줄주석에 적은 이름을 자기가 잡아 거짓 FAIL 이 난다). */
+function stripComments(src) {
+  const out = [];
+  let inBlock = false;
+  for (let line of src.split('\n')) {
+    let keep = '';
+    for (let i = 0; i < line.length; i++) {
+      if (inBlock) {
+        if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i++; }
+        continue;
+      }
+      if (line[i] === '/' && line[i + 1] === '*') { inBlock = true; i++; continue; }
+      if (line[i] === '/' && line[i + 1] === '/') break;          // 줄주석
+      keep += line[i];
+    }
+    out.push(keep);
+  }
+  return out.join('\n');
+}
+const workJs = stripComments(work.replace(/<!--[\s\S]*?-->/g, ''));
+check('주석 벗기기가 코드를 통째로 먹지 않았다 (전제 — 먹으면 아래가 헛돈다)',
+  workJs.length > work.length * 0.6, workJs.length + ' / ' + work.length);
 const hardcoded = CATEGORIES.filter((c) => workJs.indexOf("'" + c.key + "'") >= 0
                                         || workJs.indexOf('"' + c.key + '"') >= 0);
 check('화면에 항목 목록을 손으로 적어 두지 않았다',
@@ -184,8 +208,36 @@ check('서버가 wants_category 를 내려준다', /wants_category:\s*!!t\.wants
 
 check('읽을 때 이름을 붙여 준다 (화면이 key 를 그대로 보여 주지 않게)',
   /category_ko:/.test(api) && /categorySpec\(r\.category\)/.test(api));
+/* ⚠️ 두 칸이 «붙어 있는가» 로 못 박지 않는다 — 사이에 다른 칸을 끼우면 보장은 그대로인데
+   FAIL 난다. 머리글 목록을 오려 내 «그 안에 들어 있는가» 로 묻는다. */
+const headM = api.match(/const head = \[([\s\S]*?)\];/);
+const HEAD = headM ? [...headM[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
+check('엑셀 머리글을 실제로 읽었다 (전제)', HEAD.length >= 10, HEAD.length + '칸');
+/* 🔴 머리글 칸 수 == 한 줄이 그리는 칸 수. 하나만 고치면 엑셀이 **한 칸씩 밀려**
+   「금액」 자리에 통화가 들어가는데 파일은 열리므로 아무도 못 알아챕니다. */
+const rowStart = api.indexOf('lines.push([', headM ? headM.index : 0);
+let rowCells = -1;
+if (rowStart >= 0) {
+  /* ⚠️ «쉼표 수 + 1» 로 세면 **끝의 쉼표**(`(r.body || ''),`) 때문에 한 칸 더 세어
+     멀쩡한 코드가 FAIL 난다(실측). 조각으로 갈라 «빈 조각» 을 빼고 센다. */
+  let i = api.indexOf('[', rowStart), d = 0, end = -1;
+  const parts = []; let cur = '';
+  for (; i < api.length; i++) {
+    const ch = api[i];
+    if (ch === '[' || ch === '(' || ch === '{') { d++; if (d === 1) continue; }
+    else if (ch === ']' || ch === ')' || ch === '}') { d--; if (d === 0) { end = i; break; } }
+    else if (ch === ',' && d === 1) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  parts.push(cur);
+  if (end > 0) rowCells = parts.filter((x) => x.trim() !== '').length;
+}
+check('엑셀 머리글 칸 수와 한 줄의 칸 수가 같다 (하나만 고치면 값이 한 칸씩 밀린다)',
+  rowCells === HEAD.length, '머리글 ' + HEAD.length + '칸 · 줄 ' + rowCells + '칸');
+
 check('엑셀에 지출 항목·회계 계정 칸이 있다',
-  /'지출 항목', '회계 계정'/.test(api) && /r\.category_ko \|\| ''/.test(api));
+  HEAD.indexOf('지출 항목') >= 0 && HEAD.indexOf('회계 계정') >= 0 && /r\.category_ko \|\| ''/.test(api),
+  HEAD.join('|'));
 check('「지난번과 같이」가 항목을 물려준다 (매달 같은 돈이 매번 비지 않게)',
   /category: r\.category \|\| null/.test(api) && /if \(r\.category\) setVal\('f_cat'/.test(work));
 check('보낼 때 실제로 실어 보낸다 (buildFD)',
@@ -194,8 +246,12 @@ check('초안에 항목이 함께 저장된다 (쓰다 만 것을 되살릴 때 
   /cat: getVal\('f_cat'\)/.test(work) && /setVal\('f_cat', d\.cat/.test(work));
 check('다시 그릴 때 고른 항목이 안 날아간다 (keep)',
   /c: getVal\('f_cat'\)/.test(work) && /setVal\('f_cat', keep\.c\)/.test(work));
+/* ⚠️ «a5 인가» 로 못 박지 않는다 — 다음에 칸을 더하는 사람이 a6 으로 올리는 것이
+   «옳은 일» 인데 그 순간 이 검사가 FAIL 난다(보장은 세졌는데 검사만 깨지는 형태).
+   물어야 할 것은 «지출 항목을 넣기 전(a4)보다 올랐는가» 다. */
+const etagM = api.match(/W\/"a(\d+)-/);
 check('응답 모양이 바뀌었으니 ETag 를 올렸다 (옛 화면이 304 로 남지 않게)',
-  /W\/"a5-/.test(api));
+  !!etagM && Number(etagM[1]) >= 5, etagM ? ('지금 a' + etagM[1]) : '못 찾음');
 
 console.log('\n──────────────────────────────────────');
 if (FAIL) {

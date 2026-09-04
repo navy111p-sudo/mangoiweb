@@ -1199,7 +1199,9 @@ export async function handleApprovalApi(
     const q      = String(url.searchParams.get('q') || '').trim().slice(0, 60);
     const fType  = String(url.searchParams.get('type') || '').trim();
     const fStat  = String(url.searchParams.get('status') || '').trim();
-    const fCat   = String(url.searchParams.get('category') || '').trim();
+    // 형제인 q 와 같이 길이를 자른다 — 정본 목록 대조라 주입은 안 되지만, 아주 긴 값이
+    // 조건 조립까지 흘러가지 않게 입구에서 막는다(항목 key 는 길어야 열 몇 자다).
+    const fCat   = String(url.searchParams.get('category') || '').trim().slice(0, 60);
     const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
     const to     = String(url.searchParams.get('to') || '').trim();
     const csv    = url.searchParams.get('format') === 'csv';
