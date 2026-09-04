@@ -30,6 +30,8 @@
  *      이 목차에 빠져 있어 병합하며 함께 채웠다).
  *   ⑭ 「👥 학생 제어」 이름표가 세로폰 ☰ 기능 메뉴에서 «죽은 버튼» 처럼 보이던 것 —
  *      그 메뉴에서만 한 줄짜리 소제목으로 그린다(2026-08-28 사장님 확인 요청).
+ *   ⑮ ◀▶ 가 «지금 보는 교재와 다른 책» 으로 튀지 않게 — 옛 라이브러리 목록이 남아 있어
+ *      중국어 수업에 BTS 교재가 나타나던 것(2026-09-04 사장님 class-851 제보).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -46,6 +48,22 @@
       .toLowerCase().indexOf('zh') >= 0; } catch (e) { return false; }
   }
   function zhLine(msg, zh) { return isZh() ? (msg + '\n' + zh) : msg; }
+
+  /* 📚 파일 이름에서 «교재명» 뽑기 — ⑬(공유 교재 이름 잇기)·⑮(화살표) 정본.
+     「[다락원 중국어 마스터 3] 미분류 레슨 / Slide7.JPG」 → 「다락원 중국어 마스터 3」
+     ⚠️ 「[…]」 만 보면 넓다 — 「[중요] 공지.pdf」 같은 «교재가 아닌» 파일이 교재명 「중요」로
+        잡혀 **이미 맞게 잡혀 있던 교재를 덮어쓴다.** 업로더가 만드는 이름은 반드시
+        「[교재명] 레슨명 / 파일명」 이라 슬래시를 포함하므로(js/idx-x3.js buildBookSequence)
+        그것까지 있을 때만 교재로 인정한다 — 모르면 안 붙이는 쪽으로 실패한다.
+     ⚠️ js/idx-x3.js:86 은 같은 대괄호를 «앵커 없이»(/\[([^\]]+)\]/) 뽑는다. 둘이 같은 칸
+        (__mangoiCurrentBookId)에 쓰므로 «같은 규칙» 이라고 적으면 안 된다 — 이쪽이 더 좁다.
+     ⛔ 두 절이 각자 갖지 않는다 — 규칙이 갈리면 «한쪽만 고쳐지는» 사고가 그대로 재현된다. */
+  function tbBookOf(name) {
+    var s = String(name || '');
+    var m = /^\s*\[([^\]]+)\]([^\]]*)$/.exec(s);
+    if (!m || m[2].indexOf('/') < 0) return '';
+    return String(m[1]).trim();
+  }
   function toast(msg) {
     try { if (typeof window.mangoToast === 'function') return window.mangoToast(msg); } catch (e) {}
     try { if (typeof window._pdfToast === 'function') return window._pdfToast(msg); } catch (e) {}
@@ -1553,19 +1571,7 @@
         (pdfState)» 두 경로가 모두 지나는 한 곳이다(js/idx-main.js 554·650·4392행).
      ══════════════════════════════════════════════════════════════ */
   (function () {
-    /* 「[다락원 중국어 마스터 3] 미분류 레슨 / Slide7.JPG」 → 「다락원 중국어 마스터 3」
-       ⚠️ 「[…]」 만 보면 넓다 — 「[중요] 공지.pdf」 같은 «교재가 아닌» 파일이 교재명 「중요」로
-          잡혀 **이미 맞게 잡혀 있던 교재를 덮어쓴다.** 업로더가 만드는 이름은 반드시
-          「[교재명] 레슨명 / 파일명」 이라 슬래시를 포함하므로(js/idx-x3.js buildBookSequence)
-          그것까지 있을 때만 교재로 인정한다 — 모르면 안 붙이는 쪽으로 실패한다.
-       ⚠️ js/idx-x3.js:86 은 같은 대괄호를 «앵커 없이»(/\[([^\]]+)\]/) 뽑는다. 둘이 같은 칸
-          (__mangoiCurrentBookId)에 쓰므로 «같은 규칙» 이라고 적으면 안 된다 — 이쪽이 더 좁다. */
-    function bookOf(name) {
-      var s = String(name || '');
-      var m = /^\s*\[([^\]]+)\]([^\]]*)$/.exec(s);
-      if (!m || m[2].indexOf('/') < 0) return '';
-      return String(m[1]).trim();
-    }
+    var bookOf = tbBookOf;                          // 판정 정본은 파일 상단 한 곳(⑮절도 같은 것을 쓴다)
     var _apply = window.vcApplySharedPdf;
     if (typeof _apply !== 'function') return;      // 원본이 없으면 조용히 건너뛴다(예전과 동일)
     window.vcApplySharedPdf = function (sUrl, sKind, currentPage, sPid, sName) {
@@ -1592,5 +1598,66 @@
     };
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑮ ◀▶ 가 «지금 보는 교재와 다른 책» 으로 튀지 않게
+     ──────────────────────────────────────────────────────────────
+     [신고] 2026-09-04 사장님 중국어 수업(class-851) — 「처음에 교사가 중국어 교재를 올릴 수
+        없었고, 나중에 BTS 교재가 나타났다」. 화면에 뜬 것은 D1 에 실재하는
+        「BTS 1 007 (My classroom)」(27장, Lv 1) 묶음의 한 장이었다.
+     [원인] 화살표가 쓰는 파일 목록(window._libSequence)은 «라이브러리를 한 번 연 흔적» 인데
+        ① 수업에 다시 들어가도 ② 강사가 다른 교재를 공유해도 **지워지지 않는다**
+        (공유 수신 js/idx-main.js:579 는 이름만 갱신하고 목록은 그대로 둔다).
+        그런데 pdfPrevPage/pdfNextPage 는 «그 목록이 지금 보는 책의 것인가» 를 확인하지 않는다 —
+        `_libSequence.length > 1` 이면 pdfEnsureSequence()(서버에서 그 책으로 재구성)를
+        **부르지도 않고** 옛 목록의 다음 파일을 연다. 게다가 이미지 교재는 넘길 페이지가 없어
+        («1/1») 한 번만 눌러도 곧바로 «파일 통째 교체» 이고, _pdfGoSeqFile 이 vcShareTextbook 까지
+        쏘므로 **반 전체 교재가 옛 책으로 갈아치워진다.**
+        ⟹ 교재가 아직 하나도 안 열린 상태에서 화살표를 눌러도 옛 목록이 튀어나온다.
+           그것이 이번 「교재가 안 올라가더니 엉뚱한 BTS 가 나타난」 순서와 맞는다.
+     [고침] 화살표를 부르기 «전» 에 두 가지만 본다.
+        ㉠ 화면에 교재가 하나도 없으면 → 옛 목록을 버리고 «아직 교재가 없어요» 만 알린다.
+        ㉡ 지금 보는 책과 목록의 책이 다르면 → 목록을 버린다.
+           비우면 원본이 pdfEnsureSequence() 로 **지금 그 책** 을 서버에서 다시 만든다.
+     ⛔ 화살표 기능 자체를 막지 않는다 — 목록이 맞을 때는 예전 그대로 넘어간다.
+     ⛔ 책 이름을 못 뽑으면(내 PC 에서 올린 파일 등 「[교재명] …/…」 형식이 아닌 것) 건드리지
+        않는다 — 그 경우 목록은 방금 올린 그 묶음이라 맞다. 모르면 그대로 두는 쪽으로 실패한다.
+     ⚠️ 이 파일에 두는 이유: idx-main.js 는 blocking 849KB 라 첫 화면 예산을 먹는다(⑬과 같다).
+     ⚠️ 감싸는 두 함수는 화면 양옆 ‹ ›·교재도구 팝오버 ◀▶·폰 스와이프·←→ 키가 모두 지나는 곳이다.
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    /* 목록이 «어느 책의 것인가» — 지금 가리키는 항목으로 본다(한 목록은 한 책이다). */
+    function seqBook() {
+      var s = window._libSequence;
+      if (!s || !s.length) return '';
+      var i = window._libSeqIdx | 0;
+      if (i < 0) i = 0; if (i > s.length - 1) i = s.length - 1;
+      return tbBookOf(s[i] && s[i].name);
+    }
+    function dropSeq() { window._libSequence = []; window._libSeqIdx = 0; }
+
+    ['pdfPrevPage', 'pdfNextPage'].forEach(function (fn) {
+      var orig = window[fn];
+      if (typeof orig !== 'function') return;       // 원본이 없으면 조용히 건너뛴다
+      window[fn] = function () {
+        try {
+          // ㉠ 교재가 하나도 없다 — 옛 목록으로 «엉뚱한 책» 을 열지 않는다
+          if (!window._vcCurrentPdfUrl && !window._vcShownPdfUrl) {
+            if (window._libSequence && window._libSequence.length) dropSeq();
+            toast(zhLine('📚 아직 교재가 없어요 · No textbook yet', '还没有教材'));
+            return;
+          }
+          // ㉡ 지금 보는 책 ≠ 목록의 책 — 목록을 버리면 원본이 서버에서 이 책으로 다시 만든다
+          var cur = tbBookOf(window._vcShownPdfName);
+          var sb = seqBook();
+          if (cur && sb && cur !== sb) {
+            try { console.log('[mobilefix ⑮] 옛 화살표 목록 버림: ' + sb + ' → ' + cur); } catch (e) {}
+            dropSeq();
+          }
+        } catch (e) {}
+        return orig.apply(this, arguments);
+      };
+    });
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화살표 책맞춤 준비됨'); } catch (e) {}
 })();

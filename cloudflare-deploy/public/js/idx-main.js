@@ -11563,7 +11563,7 @@ window.fileShareNotice = fileShareNotice;
 window.fileShareShowInViewer = fileShareShowInViewer;
 
 // 📥 드래그앤드롭 — 교재 도구 영역에 파일을 끌어다 놓으면 자동 업로드/공유
-//    PDF·JPG·PNG → 교재 뷰어로 로드, 그 외(워드·엑셀·PPT·한글·ZIP 등) → 파일 공유(다운로드)
+//    PDF·JPG·PNG·WEBP → 교재 뷰어로 로드, 그 외(워드·엑셀·PPT·한글·ZIP 등) → 파일 공유(다운로드)
 (function initPdfDropzone(){
   function setup(){
     var zone = document.querySelector('#tab-pdf .pdf-container') || document.getElementById('tab-pdf');
@@ -11577,7 +11577,7 @@ window.fileShareShowInViewer = fileShareShowInViewer;
       /* 📚 (2026-08-12 Melca 8번) 끌어다 놓기도 붙여넣기와 같은 입구다 — 같이 막는다. */
       if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
       var ln = (f.name||'').toLowerCase();
-      if (/\.(pdf|jpe?g|png)$/.test(ln)) { try { pdfUpload({ files:[f], value:'' }); } catch(_){} }
+      if (/\.(pdf|jpe?g|png|webp)$/.test(ln)) { try { pdfUpload({ files:[f], value:'' }); } catch(_){} }
       else { try { fileShareUpload({ files:[f], value:'' }); } catch(_){} }
     });
   }
