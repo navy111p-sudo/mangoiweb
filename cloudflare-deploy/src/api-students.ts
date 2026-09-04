@@ -537,14 +537,22 @@ ${MANGOI_KNOWLEDGE}`;
       // 오늘 수업 + 이번 주 수업 요일
       const classes: ClassToday[] = [];
       const weekDows = new Set<number>();
+      /* 요일 → 그날 «가장 이른» 수업 시각. 주간표에 적을 라벨일 뿐이고 «수업일인가» 는 weekDows 가 정한다 */
+      const weekTimes: Record<number, string> = {};
+      const noteTime = (d: number, hhmm: string) => {
+        const t = String(hhmm || '').slice(0, 5);
+        if (!/^\d{2}:\d{2}$/.test(t)) return;
+        if (!weekTimes[d] || t < weekTimes[d]) weekTimes[d] = t;
+      };
       for (const r of (clsRs?.results || [])) {
         const mins = Number(r.duration_min || 20) || 20;
         if (String(r.schedule_kind) === 'recurring') {
-          for (let d = 0; d <= 6; d++) if (dowMatches(r.day_of_week, d)) weekDows.add(d);
+          for (let d = 0; d <= 6; d++) if (dowMatches(r.day_of_week, d)) { weekDows.add(d); if (r.start_time) noteTime(d, String(r.start_time)); }
           if (dowMatches(r.day_of_week, k.dow) && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
         } else if (r.scheduled_date) {
           const dd = kstParts(Date.parse(String(r.scheduled_date) + 'T12:00:00+09:00')).dow;
           weekDows.add(dd);
+          if (r.start_time) noteTime(dd, String(r.start_time));
           if (String(r.scheduled_date) === k.ymd && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
         }
       }
@@ -553,6 +561,7 @@ ${MANGOI_KNOWLEDGE}`;
         if (!j) continue;
         const kp = kstParts(j);
         weekDows.add(kp.dow);
+        noteTime(kp.dow, String(Math.floor(kp.min / 60)).padStart(2, '0') + ':' + String(kp.min % 60).padStart(2, '0'));
         if (String(r.date) === k.ymd) {
           const hh = String(Math.floor(kp.min / 60)).padStart(2, '0'), mm = String(kp.min % 60).padStart(2, '0');
           classes.push({ start: `${hh}:${mm}`, minutes: 20, source: 'cafe24' });
@@ -567,7 +576,7 @@ ${MANGOI_KNOWLEDGE}`;
       };
       const plan = buildTodayPlan({
         band: bandFromLevelCell(stu.level), textbook, zh,
-        dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], done,
+        dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], weekClassTimes: weekTimes, done,
       });
       const dates: string[] = [];
       for (const rs of dateRs) for (const r of ((rs as any)?.results || [])) if (r?.d) dates.push(String(r.d));

@@ -98,8 +98,14 @@ export interface PlanInput {
   nowMin: number;
   /** 오늘 잡힌 수업(망고아이 + 카페24). 없으면 [] */
   classes: ClassToday[];
-  /** 이번 주 수업 요일(정기 + 날짜지정) — 주간표용 */
+  /** 이번 주 수업 요일(정기 + 날짜지정) — 주간표용. «수업일인가» 의 정본은 이것 하나다 */
   weekClassDows: number[];
+  /**
+   * 요일 → 그날 첫 수업 시각 'HH:MM' (주간표에 «19:00» 을 적기 위한 «라벨» 일 뿐).
+   * ⛔ 이 값으로 «수업일인가» 를 판정하지 않는다 — weekClassDows 에 없는 요일의 값은 버린다.
+   *    (정본을 두 벌로 두면 둘이 어긋나는 날 화면이 조용히 거짓말한다.)
+   */
+  weekClassTimes?: Record<number, string>;
   /** 오늘 도구별 활동 횟수(0 이면 안 함). 없는 키는 0 */
   done: Partial<Record<ToolKey, number>>;
 }
@@ -127,6 +133,10 @@ export interface WeekDay {
   isClass: boolean;
   isToday: boolean;
   tools: ToolKey[];
+  /** 수업일이면 그날 첫 수업 시각 'HH:MM'. 모르면 null (수업일이 아니면 언제나 null) */
+  start: string | null;
+  /** 그날 AI 도구에 드는 분 — tools 의 TOOLS[k].minutes 합. 지어낸 값이 아니라 계획의 합계다 */
+  minutes: number;
 }
 
 export interface TodayPlan {
@@ -246,13 +256,17 @@ function lastClass(classes: ClassToday[]): ClassToday | null {
 /** 이번 주 요일표 — 화면이 그대로 그린다 */
 export function buildWeek(inp: PlanInput): WeekDay[] {
   const set = new Set(inp.weekClassDows || []);
+  const times = inp.weekClassTimes || {};
   const week: WeekDay[] = [];
   for (let d = 0; d <= 6; d++) {
     const isClass = set.has(d);
     const tools = isClass
       ? [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home]
       : fitToBand(HOME_WEEK[d] || ['friend', 'micro'], inp.band);
-    week.push({ dow: d, ko: DOW_KO[d], en: DOW_EN[d], isClass, isToday: d === inp.dow, tools });
+    /* 시각은 «수업일인 날» 에만 붙인다 — times 가 넓어도 판정은 weekClassDows 하나뿐 */
+    const start = isClass && hhmmToMin(times[d]) != null ? String(times[d]).slice(0, 5) : null;
+    const minutes = tools.reduce((n, k) => n + (TOOLS[k] ? TOOLS[k].minutes : 0), 0);
+    week.push({ dow: d, ko: DOW_KO[d], en: DOW_EN[d], isClass, isToday: d === inp.dow, tools, start, minutes });
   }
   return week;
 }
