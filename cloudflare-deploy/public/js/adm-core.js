@@ -906,7 +906,13 @@ function _recSortVal(r, key) {
   if (key === 'teacherid') return String(r.teacher_uid || '') || null;
   /* 🎓 학생 — 맨 앞(예약의 학생) 이름으로 정렬한다. 아무도 못 찾았으면 null 이라 뒤로 간다
      («모른다» 가 맨 위를 덮지 않는다 — 아래 «값 없음은 항상 뒤로» 규칙). */
-  if (key === 'student')  { var _s0 = (r.students || [])[0]; return _s0 ? String(_s0.name || _s0.uid || '') : null; }
+  if (key === 'student')   { var _s0 = (r.students || [])[0];
+    /* 이름을 모르면(서버가 계정을 name 에 넣어 준 경우) «모름» 으로 둔다 — 화면이 «—» 를
+       그리는데 정렬만 아이디로 하면 「왜 여기 있지」가 된다. 화면과 같은 판정을 쓴다. */
+    if (!_s0) return null;
+    var _n0 = String(_s0.name || '').trim(), _u0 = String(_s0.uid || '').trim();
+    return (_n0 && _n0 !== _u0) ? _n0 : null; }
+  if (key === 'studentid') { var _s1 = (r.students || [])[0]; return _s1 ? (String(_s1.uid || '') || null) : null; }
   if (key === 'status')  return String(r.status  || '');
   if (key === 'storage') return String(r.source  || '');
   if (key === 'start')   return Number(r.startedAt)   || 0;
@@ -1216,7 +1222,7 @@ function renderRecordingsTable() {
 
   if (!viewRows.length) {
     /* colspan 은 thead 의 컬럼 수와 같아야 함
-       (방/교사 이름/교사 아이디/학생/시작/시간/크기/참가자/상태/시선/말하기/총참여도/스토리지/재생 = 14)
+       (방/교사 이름/교사 아이디/학생 이름/학생 아이디/시작/시간/크기/참가자/상태/시선/말하기/총참여도/스토리지/재생 = 15)
        ⚠️ 칸을 늘리면 여기 숫자도 함께 — 안 고치면 「녹화 기록 없음」 줄만 폭이 어긋난다. */
     /* «없다» 와 «걸러서 안 보인다» 는 다른 사실이다 — 한 문장으로 뭉치면
        필터를 켜 둔 것을 잊고 「녹화가 없다」로 읽는다. */
@@ -1224,7 +1230,7 @@ function renderRecordingsTable() {
       ? (adminLang === 'en' ? 'No rows match the in-table filter (' + filtered.length + ' on this page)'
                             : '표 안 필터에 맞는 녹화가 없습니다 (이 쪽에 ' + filtered.length + '건 있음)')
       : (adminLang === 'en' ? 'No recordings' : '녹화 기록 없음');
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + msg + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + msg + '</td></tr>';
     return;
   }
 
@@ -1398,35 +1404,68 @@ function renderRecordingsTable() {
       : '<span class="score-na" title="' + _esc(r.teacher
           ? (adminLang === 'en' ? 'This teacher has no linked login account.' : '이 강사에 연결된 로그인 계정이 없습니다.')
           : _tNoneTip) + '">—</span>';
-    /* 🎓 학생 칸 — 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정(heyst·cys01…)이 그대로
-       올라온다. 그래서 목록만 보고는 어느 학생 수업인지 알 수 없었다(2026-09-01 사장님).
-       ⚠️ 못 찾았을 때 「—」 와 «왜 비었는지» 를 함께 말한다 — 빈칸으로 두면 고장으로 읽힌다. */
-    const studentCell = (function () {
-      if (r.source === 'orphan') return '<span class="score-na" title="'
-        + (adminLang === 'en' ? 'No record for this file, so the student is unknown.' : '이 파일에 대한 기록이 없어 학생을 알 수 없습니다.')
-        + '">—</span>';
-      const studs = Array.isArray(r.students) ? r.students : [];
-      if (!studs.length) return '<span class="score-na" title="'
-        + (adminLang === 'en' ? 'No student account is recorded for this recording (open room, or the student joined without logging in).' : '이 녹화에 학생 계정이 적혀 있지 않습니다 (공용방이거나, 학생이 로그인하지 않고 들어온 경우).')
-        + '">—</span>';
-      const shown = studs.slice(0, 3);
-      var html = shown.map(function (st) {
-        var nm = String(st && st.name || '').trim();
-        var uid = String(st && st.uid || '').trim();
-        var label = nm || uid || '-';
-        var tip = (adminLang === 'en' ? 'Account: ' : '계정: ') + (uid || '-')
-          + (st && st.scheduled ? (adminLang === 'en' ? ' (student on this class schedule)' : ' (이 수업 예약의 학생)') : '');
-        return '<span title="' + _esc(tip) + '"'
-          + (st && st.scheduled ? ' style="font-weight:700"' : '') + '>' + _esc(label) + '</span>';
-      }).join(', ');
+    /* 🎓 학생 이름·아이디 두 칸 (2026-09-04 사장님 «학생도 학생아이디 목록을 만들어줘»)
+       바로 위 교사 칸과 같은 이유·같은 규칙이다. 한 칸에 「이름 아니면 계정」을 그리면
+       이름을 모르는 학생 줄에서 **아이디가 이름 자리에** 앉는다.
+       ⚠️ 서버(src/recording-students.ts)는 이름을 못 찾으면 **계정을 그대로 `name` 에**
+          넣는다(그 칸이 하나였을 때는 「계정이라도 보여 준다」가 맞았다). 칸이 갈린 지금
+          그대로 그리면 고치려던 사고가 학생 쪽에 그대로 남는다 — `name === uid` 면
+          «이름 모름» 으로 보고 «—» 와 이유를 적는다. 아이디는 옆 칸에 그대로 남는다.
+       ⚠️ 두 칸은 **같은 사람을 같은 차례로** 그린다(3명까지 + «외 N명»). 한쪽만 자르면
+          이름과 아이디가 어긋나 남의 계정처럼 읽힌다. */
+    const _stCells = (function () {
+      var L = (adminLang === 'en');
+      var na = function (tip) { return '<span class="score-na" title="' + _esc(tip) + '">—</span>'; };
+      if (r.source === 'orphan') {
+        var t0 = L ? 'No record for this file, so the student is unknown.'
+                   : '이 파일에 대한 기록이 없어 학생을 알 수 없습니다.';
+        return { name: na(t0), uid: na(t0) };
+      }
+      var studs = Array.isArray(r.students) ? r.students : [];
+      if (!studs.length) {
+        var t1 = L ? 'No student account is recorded for this recording (open room, or the student joined without logging in).'
+                   : '이 녹화에 학생 계정이 적혀 있지 않습니다 (공용방이거나, 학생이 로그인하지 않고 들어온 경우).';
+        return { name: na(t1), uid: na(t1) };
+      }
+      var shown = studs.slice(0, 3);
+      /* «외 N명» 은 두 칸에 똑같이 붙인다 — 한쪽에만 붙으면 줄이 어긋나 보인다. */
+      var more = '';
       if (studs.length > shown.length) {
         var restN = studs.length - shown.length;
-        var restTip = studs.slice(shown.length).map(function (st) { return String(st && (st.name || st.uid) || ''); }).join(', ');
-        html += ' <span style="color:#667085" title="' + _esc(restTip) + '">'
-          + (adminLang === 'en' ? '+' + restN : '외 ' + restN + '명') + '</span>';
+        var restTip = studs.slice(shown.length).map(function (st) {
+          return String(st && (st.name || st.uid) || '');
+        }).join(', ');
+        more = ' <span style="color:#667085" title="' + _esc(restTip) + '">'
+             + (L ? '+' + restN : '외 ' + restN + '명') + '</span>';
       }
-      return html;
+      var sched = function (st) { return !!(st && st.scheduled); };
+      var schedTip = function (st) {
+        return sched(st) ? (L ? ' (student on this class schedule)' : ' (이 수업 예약의 학생)') : '';
+      };
+      var nameHtml = shown.map(function (st) {
+        var uid = String(st && st.uid || '').trim();
+        var nm  = String(st && st.name || '').trim();
+        if (nm && nm === uid) nm = '';          // 서버 폴백(계정을 이름 자리에) 되돌리기
+        if (!nm) {
+          return na((L ? 'Not in the student roster — only the account is known: ' : '학생 명부에 이름이 없습니다 — 계정만 압니다: ')
+            + (uid || '-') + schedTip(st));
+        }
+        var tip = (L ? 'Account: ' : '계정: ') + (uid || '-') + schedTip(st);
+        return '<span title="' + _esc(tip) + '"'
+          + (sched(st) ? ' style="font-weight:700"' : '') + '>' + _esc(nm) + '</span>';
+      }).join(', ') + more;
+      /* ⛔ 아이디 칸에 `font-family` 를 적지 말 것 — 한자 글꼴 통일 가드가 FAIL 낸다. */
+      var uidHtml = shown.map(function (st) {
+        var uid = String(st && st.uid || '').trim();
+        if (!uid) return na(L ? 'This student has no account recorded.' : '이 학생은 계정이 적혀 있지 않습니다.');
+        var tip = (L ? 'Student login account.' : '학생 로그인 아이디입니다.') + schedTip(st);
+        return '<span style="letter-spacing:.2px' + (sched(st) ? ';font-weight:700' : '') + '" title="'
+          + _esc(tip) + '">' + _esc(uid) + '</span>';
+      }).join(', ') + more;
+      return { name: nameHtml, uid: uidHtml };
     })();
+    const studentCell   = _stCells.name;
+    const studentIdCell = _stCells.uid;
     const startCell  = d ? d.toLocaleString(adminLang==='en'?'en-US':'ko-KR') : '-';
     const usersCell  = (r.source === 'orphan')
       ? '-'
@@ -1475,6 +1514,7 @@ function renderRecordingsTable() {
       + '<td>' + teacherCell + '</td>'
       + '<td>' + teacherIdCell + '</td>'
       + '<td>' + studentCell + '</td>'
+      + '<td>' + studentIdCell + '</td>'
       + '<td>' + startCell + '</td>'
       + '<td>' + dm + '</td>'
       + '<td>' + sz + '</td>'
