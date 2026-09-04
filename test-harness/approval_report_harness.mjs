@@ -128,6 +128,32 @@ check('영수증이 필요 없는 분류는 안 센다',
   summarizeApprovals([{ req_type: 'doc', status: 'approved', file_key: null, created_at: 1 }])
     .no_file === 0);
 
+/* 🔴 반려는 세지 않는다 — 아래 by_category 가 반려를 빼므로, 세면 화면이
+   「항목 없음 1건 — 위 「항목 없음」 줄이 그것입니다」라고 하는데 **그 줄이 없다.**
+   사람이 없는 줄을 찾게 된다(2026-09-04 함정 대조 지적). */
+const rej = summarizeApprovals([
+  { req_type: 'expense', status: 'rejected', category: null, amount: null, file_key: null, created_at: 1 },
+]);
+check('반려는 «항목 없음» 으로 세지 않는다 (가리킬 줄이 없다)', rej.no_category === 0, rej.no_category + '건');
+check('반려는 «금액 없음» 으로도 세지 않는다', rej.no_amount === 0, rej.no_amount + '건');
+check('반려는 «영수증 없음» 으로도 세지 않는다', rej.no_file === 0, rej.no_file + '건');
+check('그래도 반려 건수는 센다 (없던 일이 아니다)', rej.by_status.rejected === 1);
+/* 짝 검사 — 승인·대기는 실제로 센다(전부 안 세는 코드가 통과하지 않게) */
+check('짝 검사 — 대기 중인 건은 «모르는 것» 으로 센다', (() => {
+  const r = summarizeApprovals([{ req_type: 'expense', status: 'pending', category: null,
+                                  amount: null, file_key: null, created_at: 1 }]);
+  return r.no_category === 1 && r.no_amount === 1 && r.no_file === 1;
+})());
+/* 「모르는 것」 이 가리키는 줄이 실제로 있는가 — 세는 쪽과 그리는 쪽이 어긋나지 않게 */
+check('«항목 없음» 을 셌으면 항목별에도 그 줄이 있다 (세는 쪽과 그리는 쪽이 짝)', (() => {
+  const r = summarizeApprovals([
+    { req_type: 'expense', status: 'approved', category: null, amount: 10, created_at: 1 },
+    { req_type: 'expense', status: 'rejected', category: null, amount: 20, created_at: 1 },
+  ]);
+  const hasNone = r.by_category.some((c) => c.key === null);
+  return (r.no_category > 0) === hasNone && r.no_category === 1;
+})());
+
 // ══ ④ 항목별 ═════════════════════════════════════════════════════════════
 console.log('\n[④] 항목별');
 
@@ -234,7 +260,7 @@ check('항목별은 «항목 없음» 한 줄뿐 (오늘의 사실 그대로)',
 console.log('\n[⑧] 배선 — 새 경로를 안 만들고 화면이 제대로 부르는가');
 
 check('새 API 경로를 안 만들었다 (기존 목록 경로에 view=report 만)',
-  /view'\) === 'report'/.test(api) && /summarizeApprovals\(page/.test(api));
+  /view'\) === 'report'/.test(api) && /summarizeApprovals\(/.test(api));
 check('화면이 view=report 로 부른다', /view=report/.test(work));
 check('상한이 있고 넘으면 «잘렸다» 고 내려준다',
   /REPORT_MAX/.test(api) && /truncated:\s*hasMore/.test(api));
@@ -260,10 +286,26 @@ if (routeAt >= 0) {
 }
 check('목록 라우트를 실제로 잘라 냈다 (전제 — 못 자르면 아래가 헛돈다)',
   route.length > 500 && route.indexOf('summarizeApprovals') > 0, route.length + '자');
-const iView = route.indexOf('if (!canView(actor');
-const iSum  = route.indexOf('summarizeApprovals(page');
-check('합계는 canView 로 거른 뒤에 낸다 (인사·급여가 안 섞이게)',
-  iView > 0 && iSum > 0 && iView < iSum, `canView@${iView} · sum@${iSum}`);
+/* 🔴 «위치» 만으로는 못 잡습니다 — 2026-09-04 에 실제로 `page`(거르기 «전»)를 넘기고도
+   이 검사가 통과했고, 인사·급여 750,000 이 남의 합계에 섞였습니다(함정 대조가 잡음).
+   ✅ 물어야 할 것은 「거른 «결과» 를 쓰는가」입니다 — canView 루프가 채우는 그 변수를
+      소스에서 **읽어서** 대조합니다. */
+const pushM = route.match(/if \(!canView\(actor[\s\S]{0,300}?\n\s*(\w+)\.push\(rowOf\(/);
+const filtered = pushM ? pushM[1] : null;
+check('canView 가 채우는 변수를 찾았다 (전제 — 못 찾으면 아래가 헛돈다)',
+  !!filtered, String(filtered));
+const sumArgM = route.match(/summarizeApprovals\(\s*(\w+)/);
+const sumArg = sumArgM ? sumArgM[1] : null;
+check('합계를 «거른 결과» 로 낸다 — canView 가 채운 바로 그 변수',
+  !!filtered && sumArg === filtered, `canView→${filtered} · summarize(${sumArg})`);
+check('⛔ 거르기 «전» 행(page)을 넘기지 않는다 — 인사·급여가 합계로 샌다',
+  !/summarizeApprovals\(\s*page\b/.test(route));
+/* 엑셀과 리포트가 «같은 행» 을 봐야 한다 — 하나만 걸러지면 파일과 화면이 어긋난다. */
+const csvArgM = route.match(/csvResponse\(\s*(\w+)/);
+check('엑셀도 같은 행을 본다 (화면과 파일이 어긋나지 않게)',
+  !!csvArgM && csvArgM[1] === sumArg, `csv(${csvArgM && csvArgM[1]}) · summarize(${sumArg})`);
+check('report 는 offset 을 무시한다 («중간만» 센 합계가 나오지 않게)',
+  /const offset = report \? 0 :/.test(route));
 
 /* ⛔ 화면이 스스로 통화를 더하면 서버 규칙이 무의미해진다. */
 const workJs = work.replace(/<!--[\s\S]*?-->/g, '');

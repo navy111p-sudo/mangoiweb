@@ -112,7 +112,7 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
 > 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
 
-## approval-report-browser.mjs — 결재 «지출 정리» (34건)
+## approval-report-browser.mjs — 결재 «지출 정리» (36건)
 
 1. **첫 화면 예산** — 접혀 있는 동안은 서버를 안 부르고, 닫았다 다시 열어도 또 안 부른다.
 2. **통화가 «따로» 보이는가** — PHP 와 KRW 를 나란히. ⛔ 더한 숫자가 화면에 없어야 한다
@@ -130,9 +130,14 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > ⚠️ 합계를 **손으로 적지 않는다** — 정본 `summarizeApprovals` 를 실제로 돌려 그 결과를
 > 스텁으로 쓴다. 손으로 적으면 정본을 되돌려도 검사가 통과한다.
 >
-> ⚠️ 변이 6종 실제 FAIL 확인 — 통화를 하나만 그리면 1건, 「말하지 않는 것」을 늘 그리면 1건,
+> ⛔ **「말하지 않는 것」 상자에 «늘 있는 사실» 을 넣지 마세요** — 달 눈금 안내를 거기 넣었더니
+> 상자가 **언제나 뜨게** 되어 그 상자를 아무도 안 읽게 됩니다(이 검사의 짝 검사가 잡았습니다).
+> 그런 사실은 그 표 옆의 작은 주석(`.repnote`) 자리입니다.
+>
+> ⚠️ 변이 7종 실제 FAIL 확인 — 통화를 하나만 그리면 1건, 「말하지 않는 것」을 늘 그리면 1건,
 > 열 때마다 부르면 1건, 기본 기간을 없애면 1건, 회계 계정을 안 그리면 1건,
-> 반려를 승인에 더하면 1건. 정본 쪽 나머지는 `approval_report_harness`(자동)가 잡는다.
+> 반려를 승인에 더하면 1건, 달 눈금 주석을 지우면 2건.
+> 정본 쪽 나머지는 `approval_report_harness`(자동)가 잡는다.
 
 ## approval-category-browser.mjs — 결재 «지출 항목» (37건)
 

@@ -680,12 +680,18 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
 
     /* 금액은 «돈이 나가는 분류» 에서만 뜻이 있다 — 긴급·불만에 금액이 없는 것은
        빠뜨린 것이 아니라 원래 없는 것이다. 그것까지 「금액 없음」으로 세면
-       화면이 멀쩡한 결재를 «덜 채워진 것» 처럼 말한다. */
+       화면이 멀쩡한 결재를 «덜 채워진 것» 처럼 말한다.
+
+       🔴 그리고 **반려는 세지 않는다** — 아래 by_category 가 반려를 빼기 때문에,
+          반려까지 세면 화면이 「항목 없음 1건 — 위 「항목 없음」 줄이 그것입니다」라고
+          하는데 그 줄이 **없다.** 사람이 없는 줄을 찾게 된다(2026-09-04 함정 대조 지적).
+          이 상자는 «이 합계» 가 말하지 않는 것을 적는 자리이고, 그 합계는 승인·대기다. */
     const isSpend = !!spec.wantsCategory;
-    if (isSpend && amt == null) out.no_amount++;
-    if (isSpend && !String(r.category || '').trim()) out.no_category++;
+    const counted = (st === 'approved' || st === 'pending');
+    if (counted && isSpend && amt == null) out.no_amount++;
+    if (counted && isSpend && !String(r.category || '').trim()) out.no_category++;
     const hasFile = (r.has_file != null) ? !!r.has_file : !!r.file_key;
-    if (spec.requiresFile && !hasFile) out.no_file++;
+    if (counted && spec.requiresFile && !hasFile) out.no_file++;
 
     if (st === 'approved') addMoney(out.approved_money, cur, amt);
     else if (st === 'pending') addMoney(out.pending_money, cur, amt);

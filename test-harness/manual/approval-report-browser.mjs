@@ -192,6 +192,11 @@ function check(name, cond, extra) {
   check('짝 검사 — 다 채워진 달에는 그 상자가 안 뜬다 (늘 뜨는 코드는 여기서 걸린다)',
     t2.indexOf('말하지 않는 것') < 0, JSON.stringify(t2.slice(-300)));
   check('그래도 합계는 보인다', /100/.test(t2), JSON.stringify(t2.slice(0, 150)));
+  /* ⛔ 「늘 있는 사실」(기간·달 눈금이 다르다)을 그 상자에 넣으면 상자가 언제나 떠서
+     아무도 안 읽게 된다 — 그것은 달별 표 옆의 작은 주석 자리다. */
+  check('달 눈금 안내는 표 옆 주석으로 따로 있다 (상자를 늘 띄우지 않으려고)',
+    (await page.evaluate(() => !!document.querySelector('#repResult .repnote'))) === true);
+  check('그 주석이 두 눈금이 다르다는 사실을 말한다', /올린 날/.test(t2), JSON.stringify(t2.slice(-200)));
 
   /* ── ⑥ 언어 ────────────────────────────────────────────────────────── */
   console.log('\n[6] 언어를 바꾸면 따라오는가');

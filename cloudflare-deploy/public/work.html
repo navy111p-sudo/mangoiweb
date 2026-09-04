@@ -181,6 +181,8 @@ html.dark .reptbl .rm{color:#e8eef5}
   background:#fff8e6;border:1px solid #f0d9a0;color:#5c4708
 }
 html.dark .repgap{background:#2a2109;border-color:#5c4708;color:#f0d9a0}
+.repnote{font-size:11.5px;color:#7b8794;margin-top:4px;line-height:1.5}
+html.dark .repnote{color:#8b98a8}
 .repgap b{display:block;margin-bottom:3px}
 .repgap div{margin-top:2px}
 .findrow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
@@ -1014,6 +1016,15 @@ function paintRep(){
            '<td class="rm">' + esc(repMoney(m.money)) + '</td></tr>';
     }
     h += '</tbody></table>';
+    /* 🔴 기간은 «올린 날» 로 자르는데 달 묶음은 «지출일» 을 먼저 봅니다 — 두 축이 다릅니다.
+       그래서 이달 1일~ 로 열어도 지난달 줄이 나올 수 있고, 지난달에 올린 이달 지출은 빠집니다.
+       ⛔ 감추지 말고 그 표 «옆» 에서 말합니다. 축을 맞추는 것은 buildFindQuery 를
+          바꾸는 일이라 별건입니다.
+       ⛔ 이 줄을 「말하지 않는 것」 상자에 넣지 마세요 — 그 상자는 «이번 기간에 빈 곳» 을
+          적는 자리라, 늘 있는 사실을 넣으면 상자가 언제나 떠서 아무도 안 읽게 됩니다. */
+    h += '<div class="repnote">' + esc(EN()
+      ? 'Period is filtered by the date submitted; months use the date spent when it is filled in.'
+      : '기간은 «올린 날» 로 자르고, 달은 지출일이 있으면 그것으로 잡습니다.') + '</div>';
   }
 
   /* ④ 🔴 화면이 «모르는 것» 을 말한다 — 이것이 이 화면의 핵심이다.
@@ -1034,6 +1045,14 @@ function paintRep(){
   if (REP.truncated) gaps.push(EN()
     ? ('Only the first ' + REP.max + ' requests were counted. Narrow the period.')
     : ('앞 ' + REP.max + '건만 셌습니다. 기간을 좁혀 주세요.'));
+  /* 엑셀은 500건까지라 그보다 많으면 화면 합계와 파일이 어긋납니다. */
+  if (REP.csv_max && s.counted > REP.csv_max) gaps.push(EN()
+    ? ('The Excel file holds only ' + REP.csv_max + ' rows, so it will not match this total.')
+    : ('엑셀은 ' + REP.csv_max + '건까지만 담기므로 이 합계와 어긋납니다.'));
+  /* 결재선을 하나도 못 읽으면 chain 열람 건이 조용히 빠져 총액이 줄어듭니다. */
+  if (REP.steps_missing) gaps.push(EN()
+    ? 'Approval steps could not be read, so some requests may be missing from this total.'
+    : '결재 단계를 읽지 못해 일부 건이 이 합계에서 빠졌을 수 있습니다.');
 
   if (gaps.length) {
     h += '<div class="repgap"><b>' + esc(T('What this total does not include',

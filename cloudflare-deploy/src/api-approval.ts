@@ -1216,7 +1216,9 @@ export async function handleApprovalApi(
     const report = url.searchParams.get('view') === 'report';
     const limit  = report ? REPORT_MAX
                           : (csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20)));
-    const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+    /* ⚠️ report 는 offset 을 무시한다 — 주소로 넣으면 «앞부분» 이 아니라 «중간만» 센
+       합계가 나오는데 truncated 는 그 사실을 말하지 못한다. */
+    const offset = report ? 0 : Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
     if ((scope === 'pending' || scope === 'all') && !approver) {
       return json({ ok: false, error: 'forbidden_scope' }, 403);
@@ -1250,22 +1252,34 @@ export async function handleApprovalApi(
       items.push(rowOf(r, steps, !csv));
     }
 
-    if (csv) return csvResponse(items);
-
     /* 📊 합계는 **행을 읽어서 코드로** 낸다.
        ⛔ SQL GROUP BY 로 하면 canView 를 못 걸어 인사·급여가 합계에 섞인다.
-       ⚠️ 그래서 상한이 있다 — 넘으면 «잘렸다» 고 말한다. 잘린 줄 모르고 보는
-          합계가 「모른다」보다 나쁘다. */
+       🔴 그래서 **반드시 `items`**(canView 를 지난 것) 를 넘긴다 — 바로 위 CSV 와 같은 값이다.
+          2026-09-04 에 여기에 `page`(거르기 «전»)를 넘겼다가 함정 대조 검사가 잡았다.
+          그때 실측: 경영진이 아닌 본사 계정이 scope=all 로 열면 인사·급여 750,000 이
+          승인 합계에, 900,000 이 대기 합계에 그대로 섞였다. **에러는 안 났다.**
+       ⚠️ 상한이 있다 — 넘으면 «잘렸다» 고 말한다. 잘린 줄 모르고 보는 합계가 「모른다」보다 나쁘다. */
     if (report) {
+      /* ⚠️ 단계 조회(stepsByRequest)는 swallowErrors 다 — 목록에서는 맞는 판단이지만
+         (「단계를 못 읽었다고 결재함이 안 뜨면 안 된다」), **합계에서는** 청크 하나가
+         실패하면 결재선이 빈 것으로 보여 chain 열람 행이 canView 에서 떨어지고
+         **총액이 말없이 줄어든다.** 그래서 «단계를 하나도 못 읽었는가» 를 함께 내려보내
+         화면이 그 사실을 말하게 한다. */
+      const stepsMissing = page.length > 0 && Object.keys(stepMap).length === 0;
       return json({
         ok: true,
-        summary: summarizeApprovals(page as any[]),
+        summary: summarizeApprovals(items),
         // page 는 상한까지 읽은 것 — 그보다 더 있으면 이 합계는 그 앞부분만 센 것이다
         truncated: hasMore,
         max: REPORT_MAX,
+        // 엑셀은 500건까지라 그보다 많으면 화면 합계와 파일이 어긋난다 — 화면이 말해야 한다
+        csv_max: 500,
+        steps_missing: stepsMissing,
         scope, from, to,
       });
     }
+
+    if (csv) return csvResponse(items);
 
     let pending = 0;
     if (approver) {
