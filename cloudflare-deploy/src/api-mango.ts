@@ -39,6 +39,7 @@ import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메�
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
+import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -4145,9 +4146,25 @@ ${numbered}`;
            ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
               여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
               걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ? OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?)");
+        /* 🧑‍🏫 2026-09-04 — 「교사」·「아이디」 칸을 «예약에 배정된 강사» 로 바꾸면서 검색도 넓힌다.
+           그 칸의 값(예: 방 class-1079 의 교사 「KRYSTEL」·아이디 「mangoi_169」)은 recordings
+           어느 칸에도 없다 — 안 넓히면 **화면에 보이는 이름으로 검색하면 0건**이 나온다.
+           ⚠️ `cs.id` 는 PK 라 상관 서브쿼리라도 한 건 조회다. 방 번호에서 예약 id 를 떼는 식은
+              `class-1079-20260903` → `1079` (SUBSTR 7 부터 다음 «-» 앞까지). */
+        whereParts.push(
+          "(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?"
+          + " OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?"
+          + " OR EXISTS (SELECT 1 FROM class_schedules cs"
+          + "             WHERE r.room_id LIKE 'class-%'"
+          + "               AND cs.id = CAST(SUBSTR(r.room_id, 7, INSTR(SUBSTR(r.room_id, 7), '-') - 1) AS INTEGER)"
+          + "               AND (EXISTS (SELECT 1 FROM teachers t"
+          + "                             WHERE CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(t.name,'') LIKE ?)"
+          + "                 OR EXISTS (SELECT 1 FROM teacher_account_links tal"
+          + "                             WHERE CAST(tal.teacher_id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(tal.username,'') LIKE ?))))");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p, p, p);
+        whereBinds.push(p, p, p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -4305,10 +4322,17 @@ ${numbered}`;
            (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
          ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
          판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      /* 🧑‍🏫 「교사」·「아이디」 칸 (2026-09-04 사장님 «교사 이름에 아이디가 나와»)
+         [왜 서버가 푸나] 이 표의 `teacher_name` 은 «방을 먼저 켠 사람» 이고 `teacher_id` 는
+           **DO 임시번호**(`u_…`, 실측 99.2%)다 — 둘 다 교사도 아이디도 아니다. 진짜 교사는
+           예약(class_schedules)→원부(teachers)→계정(teacher_account_links)을 타야 나온다.
+         판정 정본·근거는 src/recording-teacher.ts. 실패해도 목록은 그대로 뜬다(빈 값). */
       const _recRows = ((rs.results || []) as any[]);
       const _recStudents = await resolveRecordingStudents(env as any, _recRows);
+      const _recTeachers = await resolveRecordingTeachers(env as any, _recRows);
       const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
         const students = _recStudents[_si] || [];
+        const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none' };
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
         let key = String(row.file_url || '');
         if (!key && row.filename) {
@@ -4320,12 +4344,13 @@ ${numbered}`;
           && row.status !== 'deleted' && row.status !== 'upload_failed'
           && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
           && !(row.expires_at && Number(row.expires_at) < _nowMs);
-        if (!playable) return { ...row, students };
+        if (!playable) return { ...row, students, teacher };
         const sig = await signRecDlSig(row.id, env);
         const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
         return {
           ...row,
           students,
+          teacher,
           // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
           dl_url: '/api/recording/play' + qs + '&dl=1',
           // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
