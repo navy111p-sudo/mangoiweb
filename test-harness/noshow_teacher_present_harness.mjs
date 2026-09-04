@@ -95,6 +95,14 @@ console.log('\nB. teacherLiveInRoom — «지금 살아 있는 강사» 판정 (
     await add('B-9 강사·학생 이름 둘 다에 걸리는 접속 → false(모름은 안 보냄 쪽이 아니라 «판정 불가»)',
       mkDb([{ room_id: 'r', role: 'teacher', username: 'Len', joined_at: T(1), out_at: T(0.1) }]),
       ['r', 'Len', 'Len Kim', NOW], false);
+    // 10~11) 미래 시각 = 카페24 «예약» 씨앗이지 접속이 아니다. 지나간 신호만 «살아 있음» 으로 센다.
+    //   ⚠️ 짝으로 둔다 — «미래를 막는다» 만 넣으면 전부 막아도 통과한다.
+    await add('B-10 out_at 이 1시간 «미래»(예약 씨앗) → false — 진짜 노쇼를 감추지 않는다',
+      mkDb([{ room_id: 'r', role: 'teacher', username: '교사 Teacher - Krystel', joined_at: T(-30), out_at: T(-60) }]),
+      ['r', 'KRYSTEL', '김선우', NOW], false);
+    await add('B-11 out_at 이 10초 «미래»(서버 시각 오차) → true — 되던 것을 깨지 않는다',
+      mkDb([{ room_id: 'r', role: 'teacher', username: '교사 Teacher - Krystel', joined_at: T(7), out_at: NOW + 10_000 }]),
+      ['r', 'KRYSTEL', '김선우', NOW], true);
     console.log(JSON.stringify(cases));
   `;
   writeFileSync(join(tmp, 'run.mjs'), runner);
