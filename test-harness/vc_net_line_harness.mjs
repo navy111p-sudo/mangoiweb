@@ -94,8 +94,17 @@ console.log('\n════════ ③ 서버 — 회선 값은 «서버가
   ok(/asLabel\(\s*_cf\.asn\s*,\s*_cf\.asOrganization\s*\)/.test(blk),
      '통신사는 request.cf 에서 읽는다');
   /* ⛔ 본문에서 받으면 아무나 위조할 수 있다 — 이 API 는 무인증이다(fire-and-forget) */
-  ok(!/b\.net|b\.isp|b\.country|b\.ip\b/.test(blk),
+  /* ⚠️ 부정 검사는 반드시 주석을 벗겨 낸 사본으로 — 다음 사람이 주석에 「⛔ b.net 을 받지 말 것」
+     이라고 예시를 적는 순간 거짓 FAIL 이 난다(CLAUDE.md 2장, 이 저장소가 두 번 밟은 함정). */
+  const bare = blk.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok(!/b\.net|b\.isp|b\.country|b\.ip\b/.test(bare),
      '⛔ 본문(b)에서 net·isp·country·ip 를 받지 않는다 — 무인증 API 라 받으면 위조된다');
+  /* 🪤 그 검사가 헛돌지 않는지 — 가짜로 넣어 보면 실제로 걸려야 한다 */
+  ok(/b\.net/.test(bare.replace('_net,', 'b.net,')), '   (그 부정 검사는 실제로 b.net 을 잡는다 — 헛돌지 않는다)');
+  /* 🔴 실패를 조용히 삼키지 않는가 — 삼키면 «로깅이 통째로 멈춘 것» 을 아무도 모르고,
+     화면은 그 상태를 「아직 수집 전」으로 그린다(고장이 정상 대기로 보인다). */
+  ok(/console\.(error|warn)\([^)]*vc-quality-log/.test(blk),
+     '기록이 실패하면 로그를 남긴다 — 조용히 삼키지 않는다');
   ok(/\(request as any\)\.cf \|\| \{\}/.test(blk),
      'request.cf 가 없어도(로컬·테스트) 죽지 않는다');
   /* CREATE 가 두 벌이라 ALTER 로만 붙여야 한다(CLAUDE.md — novideo·rx_* 와 같은 사정) */
@@ -161,6 +170,19 @@ console.log('\n════════ ④ 집계 SQL — 진짜 SQLite 에 돌
   ok(lines[0].net === OFF, '지연이 나쁜 회선이 맨 위로 온다');
   ok(!lines.some(r => !r.net), '⛔ net 이 빈 옛 기록은 목록에 안 낀다 — «모름» 이 한 회선이 되면 안 된다');
 
+  /* 🔴 「나쁜날」 — 지연 절대값으로 세면 이 화면이 겨냥한 회선이 매일 빨갛게 켜진다.
+     필리핀·중국 회선은 평소가 360~440ms 다(2026-09-02·09-03 실측). 늘 켜진 경고는 진짜 경고를 덮는다. */
+  eq(off.bad_days, 1, '사무실 회선은 «실제로 상한 날»(소리 끊김 34% · 손실)이 하루로 잡힌다');
+  const kr = lines.find(r => r.net === KR);
+  eq(kr.bad_days, 0, '⛔ 지연이 낮고 소리도 멀쩡한 한국 회선은 «나쁜날» 이 0 이다');
+  /* 🪤 되돌림 — 옛 판정(RTT 400ms 절대값)이면 «평소가 그 정도인» 회선이 실제로 빨개지는가 */
+  const oldBad = LINES.replace(/CASE WHEN rx_conceal >= 5 OR avg_loss >= 3 THEN/, 'CASE WHEN avg_rtt >= 400 THEN');
+  ok(oldBad !== LINES, '되돌림 사본을 만들었다(나쁜날 판정 문자열을 찾았다)');
+  const oldRows = db.prepare(`SELECT ${oldBad} FROM vc_quality WHERE ts >= ? AND net IS NOT NULL AND net <> '' GROUP BY net ORDER BY avg_rtt DESC LIMIT 100`).all(since);
+  const oldOff = oldRows.find(r => r.net === OFF);
+  ok(oldOff.bad_days >= off.bad_days,
+     `옛 절대값(RTT 400ms)으로 되돌리면 «나쁜날» 이 실제로 늘거나 같다 (${oldOff.bad_days} ≥ ${off.bad_days}) — 검사가 헛돌지 않는다`);
+
   const hours = db.prepare(`SELECT ${HOURLY} FROM vc_quality WHERE ts >= ? AND net = ? GROUP BY hour ORDER BY hour`).all(since, OFF);
   eq(hours.length, 2, '시간대가 두 칸으로 나뉜다 (14시 · 21시)');
   const h14 = hours.find(r => r.hour === '14'), h21 = hours.find(r => r.hour === '21');
@@ -200,6 +222,12 @@ console.log('\n════════ ⑤ 관리자 화면 배선 ════
   /* 화면에 그리는 값은 전부 이스케이프한다 — isp 는 통신사가 준 문자열이다 */
   ok(/vcqEsc\(x\.isp/.test(card) && /vcqEsc\(x\.net\)/.test(card), '회선·통신사 문자열을 이스케이프한다');
   ok(/id="vcq-net-detail"/.test(card), '시간대 표를 그릴 자리가 있다');
+  /* ⛔ 값을 onclick 문자열에 «조립해 넣는» 자리가 없어야 한다 — JSON.stringify 는 & 를 안 막아서
+     «출력이 안전한 값이라» 는 전제 하나에만 안전이 걸린다(CLAUDE.md 2장 「한 자리만 검사하고 안전하다고 결론」). */
+  ok(!/onclick="vcqLoadNetOne\('\+/.test(card),
+     '⛔ 회선 값을 onclick 에 조립해 넣지 않는다');
+  ok(/data-vcq-net="'\+vcqEsc\(x\.net\)\+'"/.test(card) && /this\.dataset\.vcqNet/.test(card),
+     '✅ data 속성에 이스케이프해 넣고 dataset 에서 읽는다 — 코드로 해석되는 자리가 없다');
 }
 
 console.log('\n════════ ⑥ 화면 함수를 «실제로 돌린다» — 무슨 HTML 이 나오는가 ════════');

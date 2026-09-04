@@ -640,7 +640,15 @@ export async function handleAdminApi(
                     ROUND(AVG(CASE WHEN rx_conceal >= 0 THEN rx_conceal END), 1) AS rx_conceal,
                     SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, SUM(aao) AS aao_events,
                     MAX(ts) AS last_seen,
-                    COUNT(DISTINCT CASE WHEN avg_rtt >= 400 THEN date(ts/1000, 'unixepoch', '+9 hours') END) AS bad_days`;
+                    COUNT(DISTINCT CASE WHEN rx_conceal >= 5 OR avg_loss >= 3 THEN date(ts/1000, 'unixepoch', '+9 hours') END) AS bad_days`;
+          /* 🔴 「나쁜날」을 «RTT 절대값» 으로 세지 않는다.
+             필리핀·중국 회선은 **평소가 360~440ms** 라(2026-09-02 class-849 · 09-03 class-1016 실측)
+             400ms 절대값으로 세면 이 화면이 겨냥한 바로 그 회선이 **매일 7/7 로 빨갛게** 켜진다
+             = 늘 켜진 경고가 진짜 경고를 덮는다(CLAUDE.md 2장 «절대값 문턱» 항목 두 개).
+             ⟹ «실제로 수업이 상했나» 를 재는 축으로 센다 — 소리가 끊겨 메워진 비율(rx_conceal)과
+                손실(avg_loss). 둘 다 «나쁜» 신호라 절대값이 맞다(RTT 만 «막힘» 이라 상대값이 맞다).
+             ℹ️ 사람별 표도 같은 이유로 avg_loss >= 3 을 쓴다. RTT 는 표에 숫자로 그대로 보인다.
+             ⚠️ rx_conceal 이 «모름»(-1)인 행은 >= 5 에 안 걸려 저절로 빠진다. */
           try {
             if (one) {
               const hr: any = await env.DB.prepare(
@@ -659,7 +667,9 @@ export async function handleAdminApi(
             ).bind(since).all();
             return json({ ok: true, days, net_ready: true, lines: ls.results || [] });
           } catch {
-            /* 칸이 아직 없다 = 이 기능 배포 뒤 첫 수업이 아직 안 돌았다. «실패» 가 아니라 «수집 전» 이다. */
+            /* ⚠️ 여기로 떨어지는 이유는 «칸이 아직 없다» 가 흔하지만 그것만은 아니다 — 어떤 D1 오류·
+               타임아웃도 같은 곳으로 온다. 잰 것은 «그 질의가 실패했다» 까지다.
+               ⛔ 화면이 원인을 단정하게 두지 말 것(CLAUDE.md 2장 「추론을 단정으로 적었음」). */
             return json({ ok: true, days, net_ready: false, lines: [], hours: [], people: [] });
           }
         }

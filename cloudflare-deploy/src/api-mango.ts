@@ -203,9 +203,27 @@ export async function handleMangoApi(
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
             num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
             _net, _isp, _cc).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
+        /* 🧹 30일 지난 기록 정리 — 2% 확률로 시도하는 best-effort 다.
+           ⚠️ 2026-09-03 부터 이 표에 접속 회선(net·isp·country)이 함께 담긴다.
+              이 정리가 조용히 실패하면 그 기록이 계속 쌓이므로 실패를 로그로 남긴다.
+           ⛔ 여기서 응답을 실패로 만들지 말 것 — 정리는 곁가지이고, 로깅 자체는 성공했다.
+           📌 이 표는 승인받은 파기 정본(src/retention.ts)에 **없다** — 파기 경로를 정본에
+              등록할지는 사람이 정할 일이다(작업기록 6장). */
+        if (Math.random() < 0.02) {
+          try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); }
+          catch (e: any) { console.error('[vc-quality-log] 30일 정리 실패:', e?.message || e); }
+        }
         return json({ ok: true });
-      } catch { return json({ ok: true }); }
+      } catch (e: any) {
+        /* 🔴 여기서 조용히 삼키면 «회선품질 로깅이 통째로 멈춘 것» 을 아무도 모른다.
+           특히 위 ALTER 가 한 번이라도 안 붙으면 INSERT 가 `no such column` 으로 **전건 실패**하는데,
+           그 상태를 관리자 화면은 「아직 수집 전」으로 그린다 = 고장이 «정상 대기» 로 보인다
+           (CLAUDE.md 2장 「기능이 «있는데» 아무 일도 안 일어남 — catch 가 삼키고 있을 수 있다」).
+           ⛔ 응답은 그대로 ok:true 다 — 이 API 는 fire-and-forget 이라 화면을 막으면 안 된다.
+              바뀐 것은 «Workers 로그에 한 줄 남는다» 뿐이다. */
+        console.error('[vc-quality-log] 기록 실패:', e?.message || e);
+        return json({ ok: true });
+      }
     }
 
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====

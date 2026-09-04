@@ -7851,8 +7851,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Real-time packet loss / RTT of teachers & students during class, sampled every 30s. High loss = that teacher's internet is bad. AAO = times auto audio-only kicked in.">
       💡 화상수업 중 <b>손실률·지연(RTT)</b>을 1분마다 자동 수집합니다. <b>손실률 높은 강사 = 인터넷 나쁨</b> → 그 회선을 개선(유선 랜 등)하면 수업 품질↑. <b>AAO</b>=자동 음성전용 전환 횟수.<br>
       📥 <b>받는 쪽</b>(2026-09-01 추가) — 「화면이 흐리다·소리가 끊긴다」는 <b>내가 받는 것</b> 이야기라 보내는 쪽 숫자로는 알 수 없었습니다. <b>수신손실</b>·<b>소리메움</b>(끊겨서 브라우저가 메꾼 비율 — 소리 끊김의 직접 지표)·<b>영상멈춤</b> 횟수를 함께 봅니다. <b>p95</b>는 평균이 가리는 스파이크입니다. <b>—</b> 는 «아직 표본 없음»이지 «문제 없음»이 아닙니다.<br>
-      🌐 <b>회선별 보기</b>(2026-09-03 추가) — 위 <b>보기</b>를 «회선별»로 바꾸면 <b>사람이 아니라 인터넷 회선</b>으로 묶어 봅니다. 필리핀 사무실은 강사 약 10명이 <b>공인 IP 하나를 나눠 쓰기</b> 때문에, 사람별 표로는 「그 회선이 매일 몇 시에 막히는가」를 볼 수 없었습니다. 회선을 누르면 <b>시간대별</b>로 펼쳐지고, 그 표가 <b>통신사에 항의할 근거</b>가 됩니다. ⛔ 회선 값은 개인이 아닙니다 — 마지막 자리를 버린 <b>대역</b>(/24·/48)이라 같은 대역에 남남이 섞일 수 있습니다. 사람을 특정하거나 차단하는 데 쓰지 마세요.<br>
       🔔 <b>회선이 나쁜 사람에게 알리는 법</b> — <b>자동 문자·알림톡은 보낼 수 없습니다</b>(2026-09-01 실측: 학생 29,461명 전원 전화번호·카카오ID 0건. 번호는 카페24에만 있습니다). 그래서 ① <b>수업 중 본인 화면</b>에 「인터넷이 불안정합니다」가 뜨고 ② <b>강사 화면</b>의 그 학생 타일에 표시되며 ③ <b>여기 목록</b>을 보고 사람이 연락합니다. <b>나쁜날</b>이 여러 날이면 «그날만» 이 아니라 회선 자체 문제입니다 — <b>하루치로 «댁의 인터넷이 문제」라고 하지 마세요.</b>
+    </div>
+    <!-- ⛔ 이 문단에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로 갈아끼워
+         🌐 를 한 번 누르면 «사람을 특정하지 말 것» 이라는 안전장치 문장이 통째로 사라진다
+         (CLAUDE.md 2장 「그 두 속성은 «설명» 이 아니라 «본문 갈아끼우기»」). 그래서 위 안내 상자
+         «밖» 에 별도 div 로 둔다. -->
+    <div style="background:#f8fafc;border:1px solid #cbd5e1;border-left:4px solid #0ea5e9;border-radius:10px;padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#334155;line-height:1.7">
+      🌐 <b>회선별 보기 · Group by internet line</b>(2026-09-03) — 아래 <b>보기</b>를 «회선별»로 바꾸면 <b>사람이 아니라 인터넷 회선</b>으로 묶어 봅니다. 필리핀 사무실은 강사 약 10명이 <b>공인 IP 하나를 나눠 쓰기</b> 때문에, 사람별 표로는 「그 회선이 매일 몇 시에 막히는가」를 볼 수 없었습니다. 회선을 누르면 <b>시간대별</b>로 펼쳐지고, 그 표가 <b>통신사에 항의할 근거</b>가 됩니다.<br>
+      ⛔ <b>회선 값은 개인이 아닙니다</b> — 마지막 자리를 버린 <b>대역</b>(/24·/48)이라 같은 대역에 남남이 섞일 수 있고, 한 사무실이 대역을 옮겨 다니기도 합니다(그래서 통신사도 함께 봅니다). <b>사람을 특정하거나 차단하는 데 쓰지 마세요.</b><br>
+      ⚠️ <b>「나쁜날」은 지연이 아니라 «실제로 수업이 상했나»로 셉니다</b>(소리 끊김 5%↑ 또는 손실 3%↑). 필리핀·중국 회선은 <b>평소 지연이 360~440ms</b>라 지연 절대값으로 세면 매일 빨갛게 켜져 진짜 경고를 덮습니다.
     </div>
     <div data-gc="🔎 기간 선택" data-gc-en="Period" style="margin-bottom:10px">
       <label style="font-size:12px;color:#475569">기간
@@ -7860,9 +7868,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <option value="1">1일</option><option value="7" selected>7일</option><option value="30">30일</option>
         </select>
       </label>
-      <label style="font-size:12px;color:#475569;margin-left:12px">보기
+      <label style="font-size:12px;color:#475569;margin-left:12px"><span data-ko="보기" data-en="Group by">보기</span>
         <select id="vcq-by" onchange="vcqLoad()" style="margin-left:6px;padding:4px 8px;border-radius:6px">
-          <option value="uid" selected>사람별</option><option value="net">회선별 (인터넷 회선)</option>
+          <option value="uid" selected>사람별 · Person</option><option value="net">회선별 · Internet line</option>
         </select>
       </label>
       <button onclick="vcqLoad()" style="margin-left:8px;padding:5px 12px;border:0;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer">새로고침</button>
@@ -7884,15 +7892,20 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var r=await fetch('/api/admin/vc/quality?by=net&days='+encodeURIComponent(days),{credentials:'include'});
     var d=await r.json().catch(function(){return {};});
     if(!r.ok||!d.ok){ body.innerHTML='조회 실패'; return; }
-    if(d.net_ready===false){ body.innerHTML='<span style="color:#94a3b8">회선 기록은 <b>이 기능을 배포한 뒤 첫 수업</b>부터 쌓입니다. 아직 수집 전입니다.</span>'; return; }
+    /* ⛔ 원인을 단정하지 않는다 — 칸이 없는 것이 흔하지만 어떤 D1 오류도 여기로 온다.
+       잰 것은 «회선 칸을 못 읽었다» 까지다(CLAUDE.md 2장 「추론을 단정으로」). */
+    if(d.net_ready===false){ body.innerHTML='<span style="color:#94a3b8">회선 칸을 읽지 못했습니다. 이 기능을 배포한 뒤 <b>첫 수업</b>부터 쌓이므로 <b>아직 수집 전일 수 있습니다</b>. 며칠 뒤에도 같으면 알려 주세요.</span>'; return; }
     var rows=d.lines||[];
     if(!rows.length){ body.innerHTML='<span style="color:#94a3b8">아직 수집된 회선 기록이 없습니다.</span>'; return; }
     var h='<div style="font-size:12px;color:#64748b;margin-bottom:8px">회선을 누르면 <b>시간대별</b>로 펼쳐집니다 — 「매일 14~16시에 막힌다」를 통신사에 보여 줄 수 있습니다.</div>'+
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
       '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">회선</th><th>통신사</th><th title="이 회선을 쓴 사람 수">인원</th>'+
-      '<th title="지연이 400ms 를 넘은 날 수">나쁜날</th><th>평균RTT</th><th>최악RTT</th><th>평균손실</th><th title="끊겨서 브라우저가 메꾼 소리 비율">📥소리메움</th><th>AAO</th><th>표본</th></tr>';
+      '<th title="소리 끊김 5% 이상 또는 손실 3% 이상이었던 날 수 — 지연 절대값으로 세지 않습니다(필리핀·중국 회선은 평소가 360~440ms 라 매일 켜집니다)">나쁜날</th><th>평균RTT</th><th>최악RTT</th><th>평균손실</th><th title="끊겨서 브라우저가 메꾼 소리 비율">📥소리메움</th><th>AAO</th><th>표본</th></tr>';
     rows.forEach(function(x){
-      h+='<tr style="border-bottom:1px solid #e2e8f0;cursor:pointer" onclick="vcqLoadNetOne('+JSON.stringify(String(x.net)).replace(/"/g,'&quot;')+')">'+
+      /* ⛔ onclick 에 값을 «조립해 넣지» 않는다 — JSON.stringify 는 &amp; 를 안 막아서 «출력이 안전한 값이라»
+         는 전제 하나에만 기대게 된다(CLAUDE.md 2장 「한 자리만 검사하고 안전하다고 결론」).
+         data 속성에 vcqEsc 로 넣고 핸들러가 dataset 에서 읽는다 = 코드로 해석되는 자리가 없다. */
+      h+='<tr style="border-bottom:1px solid #e2e8f0;cursor:pointer" data-vcq-net="'+vcqEsc(x.net)+'" onclick="vcqLoadNetOne(this.dataset.vcqNet)">'+
         '<td style="padding:6px 8px"><b>'+vcqEsc(x.net)+'</b>'+(x.country?'<span style="color:#94a3b8;font-size:11px"> '+vcqEsc(x.country)+'</span>':'')+'</td>'+
         '<td style="color:#475569">'+vcqEsc(x.isp||'—')+'</td>'+
         '<td>'+(x.people||0)+'명</td>'+
