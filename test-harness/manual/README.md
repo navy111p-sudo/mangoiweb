@@ -19,6 +19,7 @@ cd /경로/mangoiweb
 PW_DIR=/tmp/pw node test-harness/manual/approval-offline-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-attach-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -84,6 +85,25 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > «보내지 못한 결재를 저장했습니다» 안내가 **한 번도 뜨지 않았다.**
 > CLAUDE.md 에 적힌 «hidden 인데 그대로 보임» 함정의 반대쪽이고, 정적 검사로는 안 보인다.
 > (지금은 `approval_policy_harness.mjs` 가 그 줄을 감시한다)
+
+## approval-attach-browser.mjs — 분류별 파일 첨부 (16건)
+
+1. **«일반 문서» 에 첨부 버튼이 있는가** — 사장님 제보의 그 자리. `doc` 은 만들어질 때부터
+   `wantsFile:false` 라 **원래 없었다.**
+2. 문구가 분류에 맞는가 — 영수증이 «반드시» 필요한 분류만 「영수증 사진 찍기」,
+   나머지는 「파일 첨부 (사진·PDF)」. 서버가 받는 형식이 그 둘뿐이라 그대로 적는다.
+3. **OCR 을 언제 부르는가** — 일반 문서 사진에는 안 부른다(돈이 나가고 「영수증을 읽는 중」이
+   엉뚱하다). 지출 정산에는 그대로 부른다(짝 검사).
+4. 짝 검사 — 「긴급·고객불만에는 안 뜬다」(범위를 안 넓혔다) · 「지출·물품은 예전 그대로」.
+
+> 🔴 **이 검사는 한 번 헛돌았다.** 분류표를 서버 값을 «본떠» 손으로 적어 두었더니,
+> 소스에서 `doc` 을 되돌리는 변이가 **13건 전부 통과**했다 — 검사가 소스를 한 번도
+> 안 보고 있었다. 지금은 `approval-policy.ts` 의 `TYPES` 를 **읽어서** 서버가 화면에
+> 내려주는 모양으로 바꿔 쓴다. ⓪절이 「정본을 실제로 읽었는가」를 먼저 못 박는다.
+>
+> ⚠️ 변이 4종 실제 FAIL 확인 — doc 되돌리기 4건 · 문구 분기 제거 1건 ·
+> OCR 건너뛰기 제거 4건 · `runChecks` 를 `wantsFile` 로 되돌리면
+> `approval_policy_harness` 1건.
 
 ## approval-track-browser.mjs — 진행 추적 · «멈춘 이유» (27건)
 
