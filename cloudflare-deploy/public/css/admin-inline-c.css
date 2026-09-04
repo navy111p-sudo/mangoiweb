@@ -4999,7 +4999,19 @@ button.chip:hover,
   .lib-lang-lb{font-size:11.5px;font-weight:800;color:#94a3b8;min-width:52px}
   details.menu-card .lib-files a.lib-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;font-size:12px;font-weight:700;text-decoration:none !important;border-radius:99px;border:1px solid rgba(148,163,184,.4);color:#e2e8f0 !important;background:rgba(255,255,255,.06)}
   details.menu-card .lib-files a.lib-chip:hover{border-color:#f59e0b;color:#fde68a !important;background:rgba(245,158,11,.16)}
-  .lib-note{font-size:11px;color:#94a3b8;margin-top:6px;display:flex;align-items:center;gap:5px}
+  /* ⛔ display:flex 로 되돌리지 말 것 (2026-09-03).
+     이 줄은 «아이콘 + 한 줄 설명» 을 세로 가운데로 맞추려고 flex 였는데,
+     설명 안에 <b> 가 들어오면 앞 텍스트·<b>·뒤 텍스트가 «각각 flex 아이템» 이 되고
+     flex-wrap 기본값이 nowrap 이라 한 문장이 좁은 «단» 3개로 쪼개진다.
+     [잰 것 — 1280px, 로컬 서버에 admin.html 을 실제로 그려서]
+       고치기 전: <b>원본 화질 그대로</b> 폭 72px·2.6줄 / 「인쇄해서 차에 두는 용도」 3.9줄
+       고친 뒤  : 각각 폭 99px·143px·1.2줄, 문장이 상자 폭(694px)을 꽉 채워 정상 줄바꿈
+       <b> 가 없는 설명 줄 다섯 개는 폭·높이(733×24)가 고치기 전과 1px 도 안 바뀜
+     [그래서 내린 판단] «아이콘 정렬이 깨질까» 는 걱정하지 않아도 된다 — 아이콘이 별도 요소가
+       아니라 텍스트 노드 안의 이모지(「ℹ️ 자료를…」)라 자식이 하나뿐이고, 그러면 gap 은
+       아무 일도 안 한다(align-items 는 익명 아이템에 걸리기는 하나 결과가 같다).
+     같은 뿌리: CLAUDE.md 2장 「짧은 라벨 한 줄에 display:flex 를 썼더니 낱글자로 쪼개짐」. */
+  .lib-note{font-size:11px;color:#94a3b8;margin-top:6px}
   /* 🗑 (2026-08-16) 여기 있던 «자료실에만 중국어 폰트» 규칙은 지웠다.
      body 전체에서 MangoiHanSC 를 빼고 이곳에만 되돌리려던 시도였는데,
      hanzi_font_harness(2026-08-04 사장님 지시로 만든 통일 가드)에 걸려 전부 되돌렸다.
