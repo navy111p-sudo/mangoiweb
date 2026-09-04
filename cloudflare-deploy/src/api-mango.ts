@@ -176,19 +176,39 @@ export async function handleMangoApi(
                            'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🛰 (2026-09-03 class-1016·meet-123 Farrah) «어떤 길로 갔는가» — 중계(TURN)/직접(P2P).
+             RTT 1초가 2분 뒤 60ms 로 떨어졌는데 경로가 바뀐 것인지 회선이 풀린 것인지 가릴 칸이 없었다.
+               · path        — 'relay' | 'direct' | 'mixed' | ''(모름). ⛔ 모름을 direct 로 적지 않는다
+               · relay_ticks — 그 1분에 «중계» 였던 4초 틱 수 · path_ticks — 경로를 «안» 틱 수
+               · turn        — 내 쪽이 중계일 때 그 TURN 서버(host:port proto). Cloudflare 인지 무료 폴백인지가 여기서 갈린다
+             ⚠️ 역시 ALTER 로만 붙인다(위 주석과 같은 사정). 첫 로그가 들어와야 칸이 생긴다. */
+          for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
         const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        /* 🛰 path 는 «아는 값» 만 받는다(모르는 문자열은 빈 값 = 모름). turn 은 서버 주소 한 줄이라 글자를 좁히고 길이를 자른다
+           — 이 경로는 무인증이라 본문이 곧 남의 손이다(관리자 화면에 그대로 그려진다). */
+        const PATHS = ['relay', 'direct', 'mixed'];
+        const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
+        const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
-            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0)).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0))).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
-      } catch { return json({ ok: true }); }
+      } catch (e) {
+        /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
+           INSERT 가 조용히 죽어도 아무도 모르는 것이 이 표의 반복 사고였다(silent_catch_harness). */
+        console.warn('[vc-quality-log] 기록 실패', (e as any)?.message);
+        return json({ ok: true });
+      }
     }
 
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====
@@ -495,20 +515,44 @@ export async function handleMangoApi(
     //   자격증명이 아예 없는 요청은 통과 → 결석률 100% 버그 방어 설계(무인증도 출석 인정)를 절대 안 깬다.
     //   교사=관리자 세션 쿠키(checkAdminSession, role 무관 통과)·학생=mango_token 이면 본인은 항상 OK.
     //   반환값: true = 진행 허용, false = 명백한 위조(거부해야 함).
-    const _attnSoftAuthOk = async (claimedUid: string, body: any): Promise<boolean> => {
+    //
+    //   🔴 (2026-09-04) claimedAccountUid 는 반드시 «계정 아이디» 여야 한다 — 출석 호출부는 account_uid.
+    //     [무슨 일이 있었나] 출석 두 호출부(join·checkin)가 b.user_id 를 넘기고 있었다. 그런데
+    //       mango-attendance.js 의 user_id 는 계정이 아니라 **기기 식별자(`u_`+난수) 또는 DO 임시번호**이고
+    //       (아래 join INSERT 옆 주석·그 파일 accountUid 주석), 계정은 account_uid 로 «따로» 실린다.
+    //       로그인해서 mango_token 을 실은 학생은 토큰 uid(jye46712) ≠ user_id(u_j4cs5c65bp) → **항상 403
+    //       uid_mismatch**. 통과하는 사람은 «토큰 없는 요청(비로그인·토큰 없는 계정)» 과 «교사(관리자 세션)» 뿐이었다.
+    //     [잰 것 — 2026-09-03 운영 D1] attendance.account_uid 가 남은 계정은 전 기간 4개(jeong·student·
+    //       delaware·Lee — 관리자 jeong 외 셋은 «계정은 있는데 토큰은 없던» 로그인으로 보인다[추론]).
+    //       최근 7일 vc_quality 에 잡힌 로그인 학생 11명 중 출석에 account_uid 가 남은 사람은 관리자
+    //       jeong 하나. 그날 학생 출석 22행 중 19행은 이름·host·account_uid 가 전부 빈 행
+    //       (/api/gaze-score 의 «행이 없으면 만든다» 폴백이 만든 것).
+    //     [왜 아무도 몰랐나] 함수도 조건도 «있고» 틀린 것은 «무엇과 비교하는가» 뿐이라 문자열 하니스가
+    //       전부 초록이었다. 2026-07-19 라이브 검증(보안_PII_감사.md 「본인토큰 200」)은 user_id 칸에
+    //       계정을 넣어 보낸 것으로 보인다[추론 — 그 문서에 payload 가 없고, 옛 코드에서 200 이 나오려면
+    //       그럴 수밖에 없다]. 실제 클라이언트는 그렇게 보내지 않는다(7/19 당시 클라이언트도 user_id=state.userId).
+    //     [규칙] 토큰이 있으면 «토큰 uid === 계정 아이디» 일 때만 통과. 계정 아이디가 비어 있으면(옛
+    //       클라이언트·비로그인) 지금처럼 통과 — account_uid 칸에는 아무것도 안 적히므로 «계정 칸 위조» 는
+    //       성립하지 않고, 7/19 의 «자격증명 없는 요청은 통과» 취지(결석률 100% 버그 방어)도 지켜진다.
+    //       ⚠️ 다만 user_id 를 계정으로 읽는 곳이 실재한다(api-students.ts 학부모 대시보드·api-games.ts·
+    //       api-reports.ts·learning-insights.ts 의 `attendance WHERE user_id = ?`). 토큰 보유자가 account_uid 를
+    //       비우고 user_id 에 남의 계정 문자열을 넣는 것은 막지 않는데, 그건 **익명 요청이 원래부터 할 수
+    //       있던 일**이라 7/19 가 의도적으로 남긴 한계와 같은 수준이다(옛 게이트보다 나빠지지 않는다).
+    //     [consents 호출부는 그대로 b.user_id] — mango-consent.js 는 user_id 칸에 «계정»(getCurrentUser 의
+    //       uid)을 실어 보내므로 뜻이 같다(그 파일 83·192행). 그 표의 user_id 가 곧 계정 칸이다.
+    //     감시: test-harness/attendance_soft_auth_harness.mjs — 이 함수와 호출부의 인자식을 소스에서
+    //       오려 내 가짜 요청으로 **실제로 돌린다**(옛 인자 b.user_id 로 되돌리면 실제 FAIL).
+    const _attnSoftAuthOk = async (claimedAccountUid: string, body: any): Promise<boolean> => {
       try {
         const _adm = await checkAdminSession(request, env as any);
         if (_adm.ok) return true;                          // 교사/관리자 세션 → 허용(대상 uid 무관)
         const _tok = await authUidGlobal(request, url, env, body);
         if (!_tok) return true;                             // 자격증명 없음 → 기존대로 허용(회귀 0)
-        const _claimed = String(claimedUid || '').trim();
-        if (!_claimed) return true;                         // 주장한 계정이 없음 → 위조할 대상이 없다(출석 join/checkin 의 옛 클라이언트)
-        return _tok === _claimed;                           // 토큰 있음 → 본인일 때만 허용, 남이면 위조 거부
+        const _claimed = String(claimedAccountUid || '').trim();
+        if (!_claimed) return true;                         // 계정을 안 적는 요청 → 남의 계정에 적힐 것이 없다(옛 클라·비로그인)
+        return _tok === _claimed;                           // 토큰 있음 → 본인 계정일 때만 허용, 남의 계정이면 위조 거부
       } catch { return true; }                              // 검증 중 오류는 출석을 막지 않음(보수적)
     };
-    /* 출석 join/checkin 이 «주장하는 계정» — account_uid 다. user_id 는 계정이 아니다.
-       ⚠️ consents 쪽은 user_id 가 곧 계정이라 이 헬퍼를 쓰지 않고 b.user_id 를 그대로 넘긴다. */
-    const _attnClaimedAccount = (body: any): string => String((body && body.account_uid) || '').trim();
 
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
@@ -519,13 +563,8 @@ export async function handleMangoApi(
          15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
          ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
       try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
-      /* 🔴 (2026-09-04) 비교 대상은 «계정»(account_uid)이지 user_id 가 아니다.
-         user_id 는 기기 식별자(`u_`+난수) 또는 DO 임시번호라 토큰 uid 와 «언제나» 다르다(536행 주석).
-         그래서 2026-07-19 이후 로그인한 학생(토큰 있음)의 join 은 전부 403 이었고, 출석 행은
-         시선 API 폴백(아래 gaze-score)이 만든 «이름·host·계정 없는» 행만 남았다
-         (9/3 실측 학생 22행 중 19행 · 전 기간 account_uid 가 남은 계정 4개).
-         account_uid 가 비어 있으면 «아무 계정도 주장하지 않은 것» — 예전처럼 통과(회귀 0). */
-      if (!(await _attnSoftAuthOk(_attnClaimedAccount(b), b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // 🔐 비교 대상은 «계정»(account_uid) — user_id 는 기기 식별자라 토큰과 영영 안 맞는다(2026-09-04, 헬퍼 주석).
+      if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
       // 📣 오늘 처음 보는 (room_id, date) 조합이면 "수업 시작" 알림 큐에 적재
@@ -655,9 +694,9 @@ export async function handleMangoApi(
       if (!ID_RE.test(userId) || !ID_RE.test(roomId)) {
         return invalidBody(['room_id', 'user_id']);
       }
-      // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 uid 면 위조 거부, 없으면 통과(결석버그 방어 유지).
-      // (2026-09-04) join 과 같은 이유로 «계정»(account_uid)을 비교한다 — userId 는 기기 번호다.
-      if (!(await _attnSoftAuthOk(_attnClaimedAccount(b), b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 «계정» 이면 위조 거부, 없으면 통과(결석버그 방어 유지).
+      //    ⛔ userId(=b.user_id) 를 넘기지 말 것 — 기기 식별자라 로그인 학생이 전부 403 이 된다(2026-09-04, 헬퍼 주석).
+      if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const role = (b.role === 'teacher') ? 'teacher' : 'student';
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
@@ -3867,7 +3906,8 @@ ${numbered}`;
          [무엇을 근거로 채우나] `attendance.last_seen_at`.
                 이 값은 클라이언트가 30초마다 부르는 /api/speaking-time 이 **서버 도착 시각으로**
                 찍는다(클라 값으로 대체되지 않는다). 그래서 위조도 과다계상도 안 된다.
-                user_id 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다.
+                account_uid 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다
+                (⚠️ 2026-09-04 정정 — 전에는 «user_id» 라고 적혀 있었는데 그 칸은 기기 식별자다).
          [왜 «겹침»이 아니라 «지금 살아 있음» 인가] left_at 은 자주 안 닫힌다 —
                 공용방 학생 1,583행 중 272행이 left_at 없음이고, 세션 길이 최대치가 15일이었다.
                 그걸로 시간겹침을 재면 무관한 학생까지 걸린다(느슨한 창으로 재 봤을 때 1,359건 중
@@ -4330,7 +4370,10 @@ ${numbered}`;
          눌러 녹화를 켤 수 있고, 반대로 남의 동의를 «철회» 시켜 수업 녹화를 끌 수도 있다.
          출석과 같은 규칙을 쓴다(_attnSoftAuthOk): 자격증명이 있는데 그게 다른 uid 를
          가리킬 때만 거부한다. 자격증명이 아예 없는 요청은 예전처럼 통과시킨다 —
-         여기서 조이면 로그인 없이 들어온 학생이 동의를 «남길 수조차» 없어진다. */
+         여기서 조이면 로그인 없이 들어온 학생이 동의를 «남길 수조차» 없어진다.
+         ℹ️ 여기의 user_id 는 «계정» 이다(mango-consent.js 가 getCurrentUser 의 uid 를 그 칸에 싣는다) —
+            출석의 user_id(기기 식별자)와 이름만 같고 뜻이 다르다. 그래서 출석 호출부는 account_uid 를
+            넘기고 여기는 user_id 를 넘긴다(2026-09-04, 헬퍼 주석). */
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const ip = request.headers.get('cf-connecting-ip') || '';
@@ -4386,7 +4429,7 @@ ${numbered}`;
     if (path === '/api/consents/withdraw' && method === 'POST') {
       const b = await request.json() as any;
       if (!b || !b.user_id) return invalidBody(['user_id']);
-      // 🔐 철회도 본인만 — 남의 동의를 철회시키면 그 학생 수업의 녹화가 꺼진다(위와 같은 규칙).
+      // 🔐 철회도 본인만 — 남의 동의를 철회시키면 그 학생 수업의 녹화가 꺼진다(위와 같은 규칙. user_id = 계정).
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       await env.DB.prepare(

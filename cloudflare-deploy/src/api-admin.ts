@@ -638,7 +638,11 @@ export async function handleAdminApi(
                   ROUND(AVG(CASE WHEN rx_loss   >= 0 THEN rx_loss   END), 1) AS rx_loss,
                   ROUND(AVG(CASE WHEN rx_aloss  >= 0 THEN rx_aloss  END), 1) AS rx_aloss,
                   ROUND(AVG(CASE WHEN rx_conceal >= 0 THEN rx_conceal END), 2) AS rx_conceal,
-                  SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, MAX(COALESCE(peers, 0)) AS peers`;
+                  SUM(COALESCE(rx_freeze, 0)) AS rx_freeze, MAX(COALESCE(peers, 0)) AS peers,
+                  SUM(COALESCE(relay_ticks, 0)) AS relay_ticks, SUM(COALESCE(path_ticks, 0)) AS path_ticks,
+                  MAX(CASE WHEN COALESCE(turn, '') <> '' THEN turn END) AS turn`;
+        /* 🛰 relay_ticks/path_ticks — 중계(TURN)로 간 틱 / 경로를 «안» 틱. path_ticks 가 0 이면 «모름»(화면은 —).
+           ⛔ 0/0 을 «직접 100%» 로 그리지 말 것. turn 은 그 기간에 본 TURN 서버 중 하나(대개 한 가지다). */
         let rs: any = null, rx_ready = true;
         try {
           rs = await env.DB.prepare(

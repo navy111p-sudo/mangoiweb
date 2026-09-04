@@ -741,6 +741,99 @@ console.log('\n════════ ⑫ 음성전용(AAO) — «켜졌다 �
      `옛 복구(8초)로 되돌리면 같은 4분에 ${old.flips}회 켜졌다 꺼졌다 — 검사가 헛돌지 않는다`);
 }
 
+console.log('\n════════ ⑬ 경로(중계/직접) — «어떤 길로 갔는가» 가 실린다 (2026-09-03 Farrah 1초→60ms) ════════');
+{
+  /* [왜] class-1016·meet-123 에서 RTT 1,100~1,700ms 가 2분 뒤 60~85ms 로 떨어졌는데
+     «경로가 바뀐 것인지 회선이 풀린 것인지» 가릴 칸이 없었다. 이 절은 getStats 의 candidate-pair 를
+     가짜로 넣어 payload 에 path·turn·relay_ticks·path_ticks 가 실리는지 **실제로 돌려** 본다.
+     ⛔ «모름» 이 «직접» 으로 적히면 이 칸을 만든 이유가 사라진다 — 그 검사가 핵심이다. */
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  function statsOf(localType, remoteType, url, proto) {
+    const rows = [
+      { id: 'T1', type: 'transport', selectedCandidatePairId: 'CP1' },
+      { id: 'CP1', type: 'candidate-pair', localCandidateId: 'L1', remoteCandidateId: 'R1', nominated: true, state: 'succeeded' },
+      { id: 'L1', type: 'local-candidate', candidateType: localType, url: url, relayProtocol: proto },
+      { id: 'R1', type: 'remote-candidate', candidateType: remoteType },
+    ];
+    return { forEach: (f) => rows.forEach((r) => f(r, r.id)) };   // RTCStatsReport 는 Map 이라 forEach(value, key)
+  }
+  function rig(pcs) {
+    const t = runQlog({ admin: { uid: 'mangoi_018', name: 'Teacher - Farrah', role: 'teacher' } });
+    t.win.vcPeerConnections = pcs;
+    t.win.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() - 61000 };
+    return t;
+  }
+  async function ticks(t, n) { for (let i = 0; i < n; i++) { await t.api.rx(); await flush(); } }
+  function payload(t) { t.api.acc(1.0, 300); return t.sent[0]; }
+
+  /* ⓐ 내 쪽이 Cloudflare TURN 중계 */
+  const relayT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('relay', 'srflx', 'turn:turn.cloudflare.com:3478?transport=udp', 'udp')) } });
+  await ticks(relayT, 5);
+  const pr = payload(relayT);
+  ok(!!pr && pr.path === 'relay', `내 쪽이 relay 후보면 path='relay' (${pr && pr.path})`);
+  ok(!!pr && pr.relay_ticks === 5 && pr.path_ticks === 5, `5틱 전부 중계로 센다 (relay ${pr && pr.relay_ticks} / ${pr && pr.path_ticks})`);
+  ok(!!pr && /^turn\.cloudflare\.com:3478 udp$/.test(pr.turn), `TURN 서버가 host:port proto 로 실린다 (${pr && pr.turn})`);
+  ok(!!pr && !/turn:|\?/.test(pr.turn), '주소에서 scheme·쿼리는 뗀다');
+
+  /* ⓑ 직접(P2P) — host/srflx 만 */
+  const dirT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('srflx', 'host', 'stun:stun.l.google.com:19302', '')) } });
+  await ticks(dirT, 3);
+  const pd = payload(dirT);
+  ok(!!pd && pd.path === 'direct' && pd.relay_ticks === 0 && pd.path_ticks === 3, `둘 다 host/srflx 면 path='direct' (${pd && pd.path}, ${pd && pd.path_ticks}틱)`);
+  ok(!!pd && pd.turn === '', '직접이면 TURN 서버 칸은 빈 값이다(STUN 주소를 TURN 으로 적지 않는다)');
+
+  /* ⓒ 상대 쪽만 relay — 경로는 «중계» 지만 서버 주소는 «모름»(지어내지 않는다) */
+  const remT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('srflx', 'relay', 'stun:stun.l.google.com:19302', '')) } });
+  await ticks(remT, 2);
+  const pm = payload(remT);
+  ok(!!pm && pm.path === 'relay' && pm.turn === '', `상대만 relay: path='relay' 이고 turn 은 빈 값 (${pm && pm.path} / '${pm && pm.turn}')`);
+
+  /* ⓓ 🔴 핵심 — 경로를 «못 잰» 사람(getStats 없음 · 아직 연결 전)은 «모름» 이지 «직접» 이 아니다 */
+  const noStats = rig({ s1: { getReceivers: () => [] } });
+  await ticks(noStats, 4);
+  const pn = payload(noStats);
+  ok(!!pn && pn.path === '' && pn.path_ticks === 0, `getStats 가 없으면 path='' · path_ticks 0 (모름) — ⛔ 'direct' 가 아니다 ('${pn && pn.path}')`);
+  const notYet = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve({ forEach: (f) => [{ id: 'CP1', type: 'candidate-pair', state: 'in-progress', nominated: false }].forEach((r) => f(r)) }) } });
+  await ticks(notYet, 4);
+  const py = payload(notYet);
+  ok(!!py && py.path === '' && py.path_ticks === 0, '선택된 pair 가 아직 없으면(연결 전) 세지 않는다 — 모름');
+
+  /* ⓔ 섞임 — 처음 직접이었다가 중계로 바뀌면 'mixed', 틱 수가 그대로 남는다 */
+  let phase = 'srflx';
+  const mixT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf(phase, 'host', phase === 'relay' ? 'turn:openrelay.metered.ca:443?transport=tcp' : '', phase === 'relay' ? 'tcp' : '')) } });
+  await ticks(mixT, 3); phase = 'relay'; await ticks(mixT, 2);
+  const px = payload(mixT);
+  ok(!!px && px.path === 'mixed' && px.relay_ticks === 2 && px.path_ticks === 5, `경로가 바뀌면 'mixed' + 틱 수 (relay ${px && px.relay_ticks}/${px && px.path_ticks})`);
+  ok(!!px && /openrelay\.metered\.ca:443 tcp/.test(px.turn), `무료 폴백(openrelay)으로 갔으면 그 이름이 남는다 (${px && px.turn})`);
+
+  /* ⓕ getStats 가 던져도 요약은 그대로 나간다(통화 경로와 무관 — 이 파일의 1원칙) */
+  const throwT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.reject(new Error('boom')) } });
+  await ticks(throwT, 3);
+  const pt = payload(throwT);
+  ok(!!pt && pt.path === '' && typeof pt.avg_loss === 'number', 'getStats 가 던져도 요약은 나가고 경로만 «모름» 이다');
+
+  /* ⓖ 수업이 끝나면 경로 캐시를 비운다 — 앞 수업의 경로가 다음 수업에 남지 않게 */
+  ok(/window\.__vcPath = \{\};/.test(qlog) && /vc-in-call[\s\S]{0,400}__vcPath = \{\}/.test(qlog), '수업 종료 정리에 __vcPath 초기화가 있다');
+
+  /* ⓗ 서버 — INSERT 가 네 칸을 받고 ALTER 로 붙이며, 모르는 path 값은 버린다(무인증 경로) */
+  const APIM = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
+  ok(/INSERT INTO vc_quality \([^)]*\bpath\b[^)]*\bturn\b[^)]*\brelay_ticks\b[^)]*\bpath_ticks\b/.test(APIM), '서버 INSERT 에 path·turn·relay_ticks·path_ticks 가 있다');
+  ok(/ALTER TABLE vc_quality ADD COLUMN \$\{c\}/.test(APIM) && /"path TEXT DEFAULT ''"/.test(APIM) && /'path_ticks INTEGER DEFAULT 0'/.test(APIM), '네 칸은 ALTER 로만 붙인다(CREATE 두 벌 함정)');
+  ok(/PATHS = \['relay', 'direct', 'mixed'\]/.test(APIM) && /indexOf\(String\(b\.path \|\| ''\)\) >= 0/.test(APIM), '모르는 path 문자열은 빈 값으로 떨어진다(본문을 그대로 믿지 않는다)');
+  ok(/turnV = String\(b\.turn \|\| ''\)\.replace\(\/\[\^A-Za-z0-9\.:\\-_ \]\/g, ''\)\.slice\(0, 96\)/.test(APIM), 'turn 은 글자를 좁히고 96자에서 자른다');
+  const APIA = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  ok(/SUM\(COALESCE\(relay_ticks, 0\)\) AS relay_ticks, SUM\(COALESCE\(path_ticks, 0\)\) AS path_ticks/.test(APIA), '관리자 집계가 relay_ticks·path_ticks 를 함께 낸다');
+  const ADM = readFileSync(join(PUB, 'admin.html'), 'utf8');
+  const cellM = ADM.match(/function vcqPathCell\(x\)\{[\s\S]*?\n    \}/);
+  ok(!!cellM, '관리자 화면에 경로 칸 렌더러가 있다');
+  if (cellM) {
+    const cell = new Function('esc', cellM[0] + '\n;return vcqPathCell;')((s) => String(s));
+    ok(/—/.test(cell({ path_ticks: 0, relay_ticks: 0 })), '⛔ path_ticks 0 은 «—»(모름) — 0/0 을 «직접» 으로 그리지 않는다');
+    ok(/직접/.test(cell({ path_ticks: 10, relay_ticks: 0 })) && /중계/.test(cell({ path_ticks: 10, relay_ticks: 10 })) && /혼합 40%/.test(cell({ path_ticks: 10, relay_ticks: 4 })), '직접·중계·혼합 N% 로 그린다');
+    ok(/turn\.cloudflare\.com/.test(cell({ path_ticks: 1, relay_ticks: 1, turn: 'turn.cloudflare.com:3478 udp' })), 'TURN 서버 이름을 작은 글자로 함께 그린다');
+  }
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})`);
 if (fail) process.exit(1);
