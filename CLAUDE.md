@@ -536,7 +536,7 @@ git checkout -b 작업내용-요약
 
 | 영역 | 담당 | 파일 |
 |---|---|---|
-| **관리자·운영·정산** | A (배포 권한자) | `public/admin.html`, `src/api-admin.ts`, `src/accounting-*.ts`, `src/api-payroll-auto.ts`, `src/org-settlement.ts`, `src/api-retention.ts`, `src/churn-*.ts` |
+| **관리자·운영·정산** | A (배포 권한자) | `public/admin.html`, `src/api-admin.ts`, `src/accounting-*.ts`, `src/api-payroll-auto.ts`, `src/org-settlement.ts`, `src/api-retention.ts`, `src/churn-*.ts`, **`public/work.html`**(결재 화면), **`src/api-approval.ts`**, **`src/approval-policy.ts`** |
 | **학생 학습 콘텐츠** | B | `public/student-game-*.html`, `public/student-games.html`, `public/vocab.html`, `public/micro-quiz.html`, `public/review-quiz.html`, `public/warmup.html`, `public/ai-write.html`, `public/speech-coach*.html`, `public/suspect-mystery.html`, `public/battle-3d.html`, `src/api-games.ts`, `src/api-points.ts` |
 | **🚫 공동 금지구역** | A만 | `public/index.html`(홈+화상수업), `src/index.ts`(라우팅+인증게이트), `src/video-call-room.ts`, `src/signaling-room.ts`, `wrangler.toml`, `deploy.ps1`, `public/sw.js` |
 
