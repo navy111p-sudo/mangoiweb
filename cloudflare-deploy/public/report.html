@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>월별 학습 보고서 — 망고아이</title>
+<title>월간 성적표 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
@@ -65,7 +65,7 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-logo">Mangoi</span>
-    <div class="brand-sub" id="report-title">월별 학습 보고서</div>
+    <div class="brand-sub" id="report-title">월간 성적표</div>
   </div>
   <div id="content"><div class="empty">불러오는 중…</div></div>
 </div>
@@ -98,7 +98,7 @@ function showLogin() {
   document.getElementById('content').innerHTML = `
     <div class="card" style="max-width:380px;margin:20px auto;padding:28px 24px">
       <h3 style="font-size:17px;color:#fff;text-align:center;margin-bottom:6px">🔑 학생 로그인</h3>
-      <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">보고서를 보려면 로그인하세요</p>
+      <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">성적표를 보려면 로그인하세요</p>
       <div style="margin-bottom:12px">
         <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">학생 ID</label>
         <input id="lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
@@ -187,6 +187,16 @@ async function load() {
   }
 }
 
+/* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사가 쓰는 1분 수업일지(/api/eval/create,
+ *   bulk-create)는 1~5, AI 수업 리포트(/api/eval/ai-lesson-report)는 0~100 을 같은 칸에 적는다.
+ *   옛 코드는 「/10」으로 못 박아 두 갈래 **어느 쪽도 아닌 숫자**를 학부모에게 보여줬다
+ *   (2026-09-04 실측: 1~5 행 3건 · 0~100 행 2건). 값에서 척도를 읽어 만점을 그대로 말한다.
+ *   ⚠️ eval.html 의 evalMax() 와 «같은 말» 을 해야 한다 — 한쪽만 고치면 두 화면이 다른 만점을 말한다.
+ *   ⛔ 임의의 숫자로 환산하지 말 것.
+ *   ⚠️ 남은 것 — 위 「평균 점수」 타일(ev.avg_score)은 **서버가 두 척도를 섞어 평균 낸 값**이라
+ *      한 달에 두 갈래가 같이 있으면 뜻 없는 숫자가 된다(5 와 88 → 46.5). 만점도 못 붙인다.
+ *      고치려면 buildMonthlyReportData(src/api-reports.ts) 에서 맞춰야 하므로 별건으로 남긴다. */
+function evalMax(v){ return (Number(v) || 0) > 5 ? 100 : 5; }
 function render(d) {
   const s = d.student || {};
   const v = d.voice || {};
@@ -195,7 +205,7 @@ function render(d) {
   const pay = d.payments || {};
 
   const [year, month] = d.year_month.split('-');
-  document.getElementById('report-title').textContent = `${year}년 ${parseInt(month,10)}월 학습 보고서`;
+  document.getElementById('report-title').textContent = `${year}년 ${parseInt(month,10)}월 성적표`;
 
   let html = `
     <h1>${esc(s.student_name||uid)} 학생</h1>
@@ -207,7 +217,7 @@ function render(d) {
 
     <div class="stat-grid">
       <div class="stat"><div class="stat-num">${att.days || 0}</div><div class="stat-label">출석 일수</div></div>
-      <div class="stat"><div class="stat-num">${ev.count || 0}</div><div class="stat-label">평가서 작성</div></div>
+      <div class="stat"><div class="stat-num">${ev.count || 0}</div><div class="stat-label">수업일지</div></div>
       <div class="stat"><div class="stat-num">${ev.avg_score || 0}</div><div class="stat-label">평균 점수</div></div>
       <div class="stat"><div class="stat-num">${v.sessions || 0}</div><div class="stat-label">음성 코칭</div></div>
       <div class="stat"><div class="stat-num">${v.best || 0}</div><div class="stat-label">발음 최고점</div></div>
@@ -224,16 +234,16 @@ function render(d) {
     </div>
 
     <div class="card">
-      <h3>📝 이번 달 평가서</h3>
+      <h3>📝 이번 달 수업일지</h3>
       ${(ev.items||[]).length ? (ev.items||[]).map(e => `
         <div class="eval-item">
-          <span class="eval-score">${e.score_overall||0}/10</span>
+          <span class="eval-score">${e.score_overall||0}/${evalMax(e.score_overall)}</span>
           <span class="eval-date">${esc(e.lesson_date||'-')}</span>
           ${e.strengths ? `<div class="eval-body"><b>💪 잘한 점:</b> ${esc(e.strengths)}</div>` : ''}
           ${e.improvements ? `<div class="eval-body"><b>⚠️ 보완:</b> ${esc(e.improvements)}</div>` : ''}
           ${e.next_goals ? `<div class="eval-body"><b>🎯 다음 목표:</b> ${esc(e.next_goals)}</div>` : ''}
           ${e.teacher_comment ? `<div class="eval-body"><b>💬 강사 코멘트:</b> ${esc(e.teacher_comment)}</div>` : ''}
-        </div>`).join('') : '<div class="empty">이번 달 평가서가 없습니다</div>'}
+        </div>`).join('') : '<div class="empty">이번 달 수업일지가 없습니다</div>'}
     </div>
 
     <div style="text-align:center;margin-top:30px;padding:20px;color:#94a3b8;font-size:11.5px;border-top:1px solid rgba(139,92,246,0.18)">
