@@ -55,7 +55,10 @@ const RECS = [
     started_at: NOW - 1800000, duration_ms: 17000, size_bytes: 2200000, status: 'upload_failed',
     // 학생이 켠 공용방 — 근거가 없으므로 «—» 여야 한다(heyst 를 교사로 옮겨 적지 않는다).
     teacher: { name: '', uid: '', source: 'none' },
-    participant_names: '["heyst"]', consented_user_ids: '[]', students: [] },
+    /* 🎓 이름을 모르는 학생 — 서버가 계정을 그대로 name 에 넣어 준다(실측: 정우영의
+       실사용 계정 `jeong` 은 카페24에 이름이 없다). 이름 칸에 그것이 앉으면 안 된다. */
+    participant_names: '["heyst"]', consented_user_ids: '[]',
+    students: [{ uid: 'jeong', name: 'jeong' }] },
 ];
 
 const BOOT = `
@@ -154,8 +157,9 @@ async function main() {
   check('예약 수업은 학생 이름을 적는다', c0 === '최윤서', c0);
   check('   계정은 툴팁으로 함께 알려 준다', /계정: cys01/.test(await tip(0)), await tip(0));
   check('여러 명이면 예약 학생이 맨 앞', /^김선우/.test(c1), c1);
-  check('공용방처럼 학생을 모르면 «—» 와 이유를 말한다',
-    c2 === '—' && /로그인/.test(await tip(2)), c2 + ' / ' + (await tip(2)));
+  /* 🔴 2026-09-04 — 이름을 모르는 학생(name === uid). 이름 칸에 아이디가 앉으면 안 된다. */
+  check('⛔ 이름을 모르면 이름 칸에 아이디(jeong)를 적지 않는다',
+    c2 === '—' && /명부에 이름이 없습니다/.test(await tip(2)), c2 + ' / ' + (await tip(2)));
   const bold = await ev('(function(){var s=document.querySelectorAll("#recordings-table tr")[0].cells[' + sIdx + '].querySelector("span");return s?getComputedStyle(s).fontWeight:null})()');
   check('예약의 학생은 굵게 그려진다', String(bold) === '700' || Number(bold) >= 700, String(bold));
   /* 임시 접속번호(participant_names 에 섞여 있는 값)가 학생 칸에 새어 나오면 안 된다.
@@ -197,6 +201,25 @@ async function main() {
     (await at(2, tIdx)) + ' / ' + (await atTip(2, tIdx)));
   check('⛔ 그때 켠 사람(heyst)을 교사 칸 «본문» 으로 그리지 않는다',
     !/heyst/.test(await at(2, tIdx)), await at(2, tIdx));
+
+  console.log('\n── ③-4 학생 이름·아이디가 «따로» 보이는가 ──────────');
+  /* 2026-09-04 사장님 «학생도 학생아이디 목록을 만들어줘». 교사 칸과 같은 이유다.
+     ⚠️ 여기서도 칸 번호를 손으로 세지 않는다 — 머리글에서 찾는다. */
+  const suIdx = skOrder.indexOf('studentid');
+  check('학생 아이디 칸 자리를 머리글에서 찾았다', suIdx === sIdx + 1,
+    'student=' + sIdx + ' studentid=' + suIdx);
+  const uidAt = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];return t?t.cells[' + suIdx + '].textContent.trim():null})()');
+  check('예약 수업은 학생 아이디를 옆 칸에 적는다', (await uidAt(0)) === 'cys01', await uidAt(0));
+  check('이름을 몰라도 아이디는 잃지 않는다', (await uidAt(2)) === 'jeong', await uidAt(2));
+  const stuUidCol = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + suIdx + '].textContent.trim()).join("|")');
+  check('⛔ 임시 접속번호가 학생 아이디 칸에 새지 않는다', !/[a-z0-9]{18,}/.test(stuUidCol), stuUidCol);
+  check('   그 검사가 헛돌지 않았다(진짜 계정이 읽힌다)',
+    /cys01/.test(stuUidCol) && /jeong/.test(stuUidCol), stuUidCol);
+  /* 두 칸이 «같은 사람·같은 차례» 를 그리는가 — 여럿인 행으로 본다.
+     ⛔ 여기에 «항상 참» 인 껍데기 검사를 두지 말 것(초록만 늘고 아무것도 안 본다). */
+  const nMulti = (await cell(1)).split(',').length, uMulti = (await uidAt(1)).split(',').length;
+  check('   이름 칸과 아이디 칸이 어긋나지 않는다', nMulti === uMulti,
+    (await cell(1)) + ' / ' + (await uidAt(1)));
 
   console.log('\n── ③-2 머리글 정렬이 학생 칸에도 먹는가 ───────────');
   /* 2026-09-01 에 머리글 정렬(▲▼)이 들어오면서 모든 칸이 정렬 가능해졌다.
