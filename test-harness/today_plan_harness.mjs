@@ -116,7 +116,49 @@ if (mod) {
     check('①-6 중국어 교재면 음성코치가 /speech-coach-cn.html', zh.steps.find(s => s.key === 'speech')?.url === '/speech-coach-cn.html');
     // ①-7 주간표 — 수업 요일에는 수업일 묶음, 아니면 요일 묶음, 오늘 표시 하나
     check('①-7 주간표 7칸 · 오늘 표시 정확히 1칸 · 수업 요일 2칸', h.week.length === 7 && h.week.filter(w => w.isToday).length === 1 && h.week.filter(w => w.isClass).length === 2);
-    check('①-7 수업 요일 칸은 웜업→복습→단어', h.week.find(w => w.isClass)?.tools.join(',') === [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home].join(','));
+    /* ⚠️ «오늘이 아닌» 수업일 칸으로 본다 — 오늘 칸은 실제 steps 로 맞춰지므로(①-7c),
+       「이번 주 화요일에 수업이 있다」와 「오늘(화) 수업 시각을 모른다」가 함께 오면
+       오늘 칸은 집 묶음이 되는 것이 «맞다»(그때는 웜업을 언제 할지 정할 수 없다). */
+    check('①-7 수업 요일 칸은 웜업→복습→단어', h.week.find(w => w.isClass && !w.isToday)?.tools.join(',') === [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home].join(','));
+    // ①-7b 리듬 띠(2026-09-04) — 시각 라벨과 분 수. «수업일인가» 의 정본은 weekClassDows 하나다
+    const wk = buildTodayPlan({ ...base, weekClassTimes: { 2: '19:00', 4: '19:00', 6: '11:00' } }).week;
+    check('①-7b 수업일 칸에 시각이 붙는다', wk[2].start === '19:00' && wk[4].start === '19:00', wk.map(w => w.start));
+    check('①-7b weekClassDows 에 없는 요일의 시각은 «버린다»(정본은 하나)',
+      wk[6].isClass === false && wk[6].start === null, [wk[6].isClass, wk[6].start]);
+    check('①-7b 집인 날은 start 가 언제나 null', wk.filter(w => !w.isClass).every(w => w.start === null));
+    check('①-7b 시각을 안 주면 수업일이어도 start 는 null(지어내지 않는다)',
+      buildTodayPlan({ ...base }).week[2].start === null);
+    check('①-7b 잘못된 시각은 버린다', buildTodayPlan({ ...base, weekClassTimes: { 2: '25:99' } }).week[2].start === null);
+    // 분 수는 «그날 tools 의 합» — 지어낸 값이 아니라 계획의 합계여야 한다
+    check('①-7b 오늘이 «아닌» 날 minutes = tools 의 TOOLS[k].minutes 합',
+      wk.filter(w => !w.isToday).every(w => w.minutes === w.tools.reduce((n, k) => n + TOOLS[k].minutes, 0)), wk.map(w => w.minutes));
+    check('①-7b 모든 날 minutes 가 0 보다 크다(빈 칸이 «0분» 으로 그려지지 않게)', wk.every(w => w.minutes > 0));
+
+    /* ①-7c 🔴 «오늘» 칸은 실제 steps 와 «같은 말» 을 해야 한다 — 띠 바로 아래 펼침 상자가
+       같은 steps 를 나열하므로, 어긋나면 한 화면이 두 값을 말한다.
+       ⚠️ 레벨 미배정(band=null)이 예외가 아니라 «거의 전원» 이다 —
+          2026-09-04 운영 D1 실측: students_erp 29,475명 중 level 채워진 사람 1명.
+       고치기 전에는 금요일 띠=14분 / 상자=17분 이었다(변이시험으로 되돌리면 재현된다). */
+    for (const [nm, inp] of [
+      ['레벨 미배정 · 집인 날', { ...base, band: null, dow: 5 }],
+      ['레벨 미배정 · 수업일',  { ...base, band: null, dow: 2, weekClassTimes: { 2: '19:00' } }],
+      ['레벨 있음 · 수업일',    { ...base, dow: 2, classes: [{ start: '19:00', minutes: 20, source: 'mangoi' }], weekClassTimes: { 2: '19:00' } }],
+      ['레벨 있음 · 집인 날',   { ...base, dow: 5 }],
+      ['밴드 1 · 금요일(글쓰기 대신 친구)', { ...base, band: 1, dow: 5 }],
+    ]) {
+      const pl = buildTodayPlan(inp);
+      const td = pl.week[inp.dow];
+      const stepMin = pl.steps.reduce((n, st) => n + st.minutes, 0);
+      check(`①-7c ${nm} — 오늘 칸 분 수 == 오늘 할 일 합(${stepMin}분)`, td.minutes === stepMin, [td.minutes, stepMin]);
+      check(`①-7c ${nm} — 오늘 칸 tools == steps(레벨테스트 제외)`,
+        td.tools.join(',') === pl.steps.map(st => st.key).filter(k => k !== 'leveltest').join(','), [td.tools, pl.steps.map(st => st.key)]);
+      check(`①-7c ${nm} — totalMinutes 와도 같다`, pl.totalMinutes === stepMin, [pl.totalMinutes, stepMin]);
+    }
+    check('①-7c 오늘이 수업일이면 금색 테두리 칸에도 시각이 붙는다',
+      buildTodayPlan({ ...base, dow: 2, weekClassTimes: { 2: '19:00' } }).week[2].isToday === true
+      && buildTodayPlan({ ...base, dow: 2, weekClassTimes: { 2: '19:00' } }).week[2].start === '19:00');
+    check('①-7c 오늘 칸을 맞춰도 «다른 날» 은 안 건드린다',
+      buildTodayPlan({ ...base, band: null, dow: 5 }).week[1].tools.join(',') === HOME_WEEK[1].join(','));
     // ①-8 두 수업 — 첫 수업 전·마지막 수업 뒤
     const two = buildTodayPlan({ ...base, nowMin: 18 * 60, classes: [{ start: '20:00', minutes: 20, source: 'cafe24' }, { start: '17:00', minutes: 20, source: 'cafe24' }] });
     check('①-8 수업이 둘이면 표시는 첫 수업(17:00) · 18시는 두 수업 사이라 in_class', two.cls?.start === '17:00' && two.phase === 'in_class', [two.cls, two.phase]);
@@ -219,6 +261,22 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   check('⑦ 화면이 «성공이라고 말했는가»(ok === true) 로 판정한다', /d\.ok === true && d\.plan/.test(page));
   check('⑦ 서버 레벨은 도구 키에 «비어 있을 때만» 심는다', /!localStorage\.getItem\('mangoi_warmup_level'\)/.test(page) && /!localStorage\.getItem\('mangoi_aifriend_level'\)/.test(page));
   check('⑦ 화면에 상주 MutationObserver·setInterval 이 없다', !/MutationObserver|setInterval/.test(page));
+  /* 주간표 «리듬 띠»(2026-09-04 결정) — 되돌리면 여기서 FAIL 난다.
+     ⛔ 「그 글자가 있는가」로 쓰지 말 것 — 주석에 그 낱말을 적기만 해도 통과한다. 주석을 벗긴 사본을 본다. */
+  check('⑦ 주간표가 서버가 준 start·minutes 를 그린다(화면이 다시 계산하지 않는다)',
+    /w\.start/.test(page) && /w\.minutes/.test(page));
+  check('⑦ 주간표에 이모지 묶음(tools.map → ICON)이 되살아나지 않았다',
+    !/tools\.map\(/.test(page) && !/var ICON\s*=/.test(page));
+  check('⑦ 오늘 칸 펼침은 p.steps 를 쓴다(도구 목록을 두 벌로 적지 않는다)',
+    /td-week-today/.test(page) && /p\.steps\.map/.test(page));
+  /* 요약은 «주간표를 세어» 나와야 한다 — 숫자를 박아 두면 시간표가 바뀌어도 안 따라온다.
+     (문자열로는 여기까지가 한계다. «정말 그 숫자가 나오는가» 는 브라우저 검사 manual/today-week-band-browser.mjs) */
+  check('⑦ 요약(수업 N회 · AI N분)을 주간표에서 «센다»(숫자를 박지 않는다)',
+    /td-week-sum/.test(page) && /nCls\+\+/.test(page) && /minutes \|\| 0/.test(page)
+    && !/수업 [0-9]+회/.test(page));
+  check('⑦ today.html 에 리듬 띠 칸 셋이 있다(띠 · 오늘 펼침 · 요약)',
+    /id="td-week"/.test(html) && /id="td-week-today"/.test(html) && /id="td-week-sum"/.test(html));
+  check('⑦ 수업일/집 색이 CSS 로 갈린다(색이 곧 범례)', /\.day\.cls\s*\{/.test(html) && /\.day\.today\s*\{/.test(html));
   const menu = strip(rd(join(PUB, 'js', 'idx-allmenu.js')));
   const home = strip(rd(join(PUB, 'js', 'idx-ai-home.js')));
   const signup = rd(join(PUB, 'signup.html'));
