@@ -22,6 +22,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-attach-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-find-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-category-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-report-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -110,6 +111,33 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 >
 > ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
 > 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
+
+## approval-report-browser.mjs — 결재 «지출 정리» (36건)
+
+1. **첫 화면 예산** — 접혀 있는 동안은 서버를 안 부르고, 닫았다 다시 열어도 또 안 부른다.
+2. **통화가 «따로» 보이는가** — PHP 와 KRW 를 나란히. ⛔ 더한 숫자가 화면에 없어야 한다
+   (환율을 우리가 모르므로 합치면 지어내는 것이 된다).
+3. **승인·대기를 갈라 말하는가** — ⚠️ 「반려 금액이 안 보인다」로만 물으면 안 된다:
+   반려가 승인에 **더해지면** 그 숫자가 바뀌어 사라지고 검사가 통과한다(실측).
+   **승인 칸의 값 자체**를 본다.
+4. 항목별 — 이름·회계 계정·«항목 없음» 줄.
+5. 🔴 **「이 합계가 말하지 않는 것」** — 항목 없음·금액 없음·영수증 없음·지출일 없음·잘림.
+   짝 검사로 **다 채워진 달에는 그 상자가 안 뜨는지**도 본다(늘 뜨는 코드가 통과하지 않게).
+6. 언어를 바꾸면 따라오는가(JS 로 그린 글자는 `data-ko` 루프가 못 건드린다).
+7. 390px — 문서가 안 넘치고 **표 칸이 세로로 쪼개지지 않는지**(칸 높이 ÷ lineHeight < 3).
+8. 「말하지 않는 것」 상자의 **WCAG 대비 4.5 이상** — 반투명 층은 아래에서 위로 합성해서 잰다.
+
+> ⚠️ 합계를 **손으로 적지 않는다** — 정본 `summarizeApprovals` 를 실제로 돌려 그 결과를
+> 스텁으로 쓴다. 손으로 적으면 정본을 되돌려도 검사가 통과한다.
+>
+> ⛔ **「말하지 않는 것」 상자에 «늘 있는 사실» 을 넣지 마세요** — 달 눈금 안내를 거기 넣었더니
+> 상자가 **언제나 뜨게** 되어 그 상자를 아무도 안 읽게 됩니다(이 검사의 짝 검사가 잡았습니다).
+> 그런 사실은 그 표 옆의 작은 주석(`.repnote`) 자리입니다.
+>
+> ⚠️ 변이 7종 실제 FAIL 확인 — 통화를 하나만 그리면 1건, 「말하지 않는 것」을 늘 그리면 1건,
+> 열 때마다 부르면 1건, 기본 기간을 없애면 1건, 회계 계정을 안 그리면 1건,
+> 반려를 승인에 더하면 1건, 달 눈금 주석을 지우면 2건.
+> 정본 쪽 나머지는 `approval_report_harness`(자동)가 잡는다.
 
 ## approval-category-browser.mjs — 결재 «지출 항목» (37건)
 
