@@ -40,15 +40,25 @@ const RECS = [
     file_url: 'rec/a.webm', storage: 'r2',
     participant_names: '["cys01","w1hxlzisk4v5q4yzutktq","최윤서"]',
     consented_user_ids: '["cys01"]',
+    /* 🧑‍🏫 2026-09-04 — 서버가 예약에서 푼 교사. teacher_name 이 학생 계정(cys01)인데도
+       교사 칸에는 배정된 강사가 나와야 한다(src/recording-teacher.ts). */
+    teacher: { name: 'JANE', uid: 'mangoi_114', source: 'schedule' },
     students: [{ uid: 'cys01', name: '최윤서', scheduled: true }] },
   { id: 2, room_id: 'class-1078-20260901', teacher_name: '교사 Teacher - Krystel', teacher_id: 'u_b',
     started_at: NOW - 1200000, duration_ms: 1369000, size_bytes: 216600000, status: 'completed',
     file_url: 'rec/b.webm', storage: 'r2',
     participant_names: '["교사 Teacher - Krystel","김선우"]', consented_user_ids: '["jye46712"]',
+    // 이름은 찾았는데 계정 연결이 없는 강사 — 아이디 자리에 이름을 옮겨 적으면 안 된다.
+    teacher: { name: 'KRYSTEL', uid: '', source: 'roster' },
     students: [{ uid: 'jye46712', name: '김선우', scheduled: true }, { uid: 'heyst', name: '김사랑' }] },
   { id: 3, room_id: 'mangoi-class', teacher_name: 'heyst', teacher_id: 'u_c',
     started_at: NOW - 1800000, duration_ms: 17000, size_bytes: 2200000, status: 'upload_failed',
-    participant_names: '["heyst"]', consented_user_ids: '[]', students: [] },
+    // 학생이 켠 공용방 — 근거가 없으므로 «—» 여야 한다(heyst 를 교사로 옮겨 적지 않는다).
+    teacher: { name: '', uid: '', source: 'none' },
+    /* 🎓 이름을 모르는 학생 — 서버가 계정을 그대로 name 에 넣어 준다(실측: 정우영의
+       실사용 계정 `jeong` 은 카페24에 이름이 없다). 이름 칸에 그것이 앉으면 안 된다. */
+    participant_names: '["heyst"]', consented_user_ids: '[]',
+    students: [{ uid: 'jeong', name: 'jeong' }] },
 ];
 
 const BOOT = `
@@ -121,35 +131,106 @@ async function main() {
   console.log('\n── ② 머리칸과 몸칸이 어긋나지 않는가 ────────────────');
   const th = await ev('[...document.querySelectorAll("#rec-table-wrap thead th")].map(e=>e.textContent.trim()).join("|")');
   const nTd = await ev('document.querySelectorAll("#recordings-table tr:first-child td").length');
-  check('머리칸에 「학생」이 「교사」 바로 뒤에 있다', /방\|교사\|학생\|시작/.test(th), th);
+  /* ⚠️ 머리글 «순서» 를 글자로 못 박지 않는다 — 2026-09-04 에 「교사」가 「교사 이름」·
+     「교사 아이디」 둘로 갈리면서 `방|교사|학생|시작` 이 거짓 FAIL 이 됐다.
+     물어야 할 것은 «학생 칸이 교사 칸들 뒤에 있는가» 다. */
+  const skOrder = JSON.parse(await ev(
+    'JSON.stringify([...document.querySelectorAll("#rec-table-wrap thead th")].map(e=>e.getAttribute("data-sk")||""))'));
+  check('머리칸 차례가 방 → 교사… → 학생 이다',
+    skOrder.indexOf('room') === 0
+    && skOrder.indexOf('student') > skOrder.indexOf('teacher')
+    && skOrder.indexOf('teacher') > 0, skOrder.join('|'));
   check('머리칸 수 = 몸칸 수 (한 칸씩 밀리지 않는다)',
     th.split('|').length === nTd, 'th=' + th.split('|').length + ' td=' + nTd);
 
   console.log('\n── ③ 학생이 «보이는가» ─────────────────────────────');
-  const cell = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];return t?t.cells[2].textContent.trim():null})()');
-  const tip  = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];var s=t&&t.cells[2].querySelector("[title]");return s?s.getAttribute("title"):null})()');
+  /* 🔴 칸 번호를 손으로 세지 않는다. 2026-09-04 에 「교사 아이디」 칸이 들어오면서
+     학생 칸이 cells[2] → cells[3] 으로 밀렸고, 그때 아래 검사들이 조용히 «교사 아이디»
+     칸을 읽었다. 더 나쁜 것은 부정 검사(「임시번호가 안 샌다」)가 **아무것도 안 보고
+     초록**이 된 것이다. 머리글에서 자리를 «찾아» 쓴다(형제 파일 recording-table-filter
+     -browser.mjs 의 partIdx 와 같은 방식). */
+  const sIdx = skOrder.indexOf('student');
+  check('학생 칸 자리를 머리글에서 찾았다', sIdx > 0, 'idx=' + sIdx);
+  const cell = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];return t?t.cells[' + sIdx + '].textContent.trim():null})()');
+  const tip  = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];var s=t&&t.cells[' + sIdx + '].querySelector("[title]");return s?s.getAttribute("title"):null})()');
   const c0 = await cell(0), c1 = await cell(1), c2 = await cell(2);
   check('예약 수업은 학생 이름을 적는다', c0 === '최윤서', c0);
   check('   계정은 툴팁으로 함께 알려 준다', /계정: cys01/.test(await tip(0)), await tip(0));
   check('여러 명이면 예약 학생이 맨 앞', /^김선우/.test(c1), c1);
-  check('공용방처럼 학생을 모르면 «—» 와 이유를 말한다',
-    c2 === '—' && /로그인/.test(await tip(2)), c2 + ' / ' + (await tip(2)));
-  const bold = await ev('(function(){var s=document.querySelectorAll("#recordings-table tr")[0].cells[2].querySelector("span");return s?getComputedStyle(s).fontWeight:null})()');
+  /* 🔴 2026-09-04 — 이름을 모르는 학생(name === uid). 이름 칸에 아이디가 앉으면 안 된다. */
+  check('⛔ 이름을 모르면 이름 칸에 아이디(jeong)를 적지 않는다',
+    c2 === '—' && /명부에 이름이 없습니다/.test(await tip(2)), c2 + ' / ' + (await tip(2)));
+  const bold = await ev('(function(){var s=document.querySelectorAll("#recordings-table tr")[0].cells[' + sIdx + '].querySelector("span");return s?getComputedStyle(s).fontWeight:null})()');
   check('예약의 학생은 굵게 그려진다', String(bold) === '700' || Number(bold) >= 700, String(bold));
-  /* 임시 접속번호(participant_names 에 섞여 있는 값)가 학생 칸에 새어 나오면 안 된다 */
-  const all = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent).join(" ")');
+  /* 임시 접속번호(participant_names 에 섞여 있는 값)가 학생 칸에 새어 나오면 안 된다.
+     ⚠️ 부정 검사다 — 엉뚱한 칸을 읽으면 «아무것도 안 보고» 초록이 된다. 그래서 바로 위
+        「학생 칸 자리를 찾았다」와 아래 «제대로 찾는다» 검사를 짝으로 둔다. */
+  const all = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + sIdx + '].textContent).join(" ")');
   check('임시 접속번호가 학생 칸에 새지 않는다', !/[a-z0-9]{18,}/.test(all), all);
+  check('   그 검사가 헛돌지 않았다(학생 이름이 실제로 읽힌다)', /최윤서/.test(all) && /김선우/.test(all), all);
+
+  console.log('\n── ③-3 교사 이름·아이디가 «따로» 보이는가 ──────────');
+  /* 2026-09-04 사장님 «교사 이름에 아이디가 나와». 옛 화면은 한 칸에
+     `teacher_name || teacher_id` 를 그렸는데 앞은 «방을 먼저 켠 사람»(= 학생 계정이
+     그대로 올라옴), 뒤는 DO 임시번호(`u_…`)였다. 두 칸으로 갈랐다.
+     ⚠️ 여기서도 칸 번호를 손으로 세지 않는다 — 머리글에서 찾는다. */
+  const tIdx = skOrder.indexOf('teacher'), tuIdx = skOrder.indexOf('teacherid');
+  check('교사 이름·아이디 칸 자리를 머리글에서 찾았다', tIdx > 0 && tuIdx === tIdx + 1,
+    'teacher=' + tIdx + ' teacherid=' + tuIdx);
+  const at = async (i, col) => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];return t?t.cells[' + col + '].textContent.trim():null})()');
+  const atTip = async (i, col) => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];var s=t&&t.cells[' + col + '].querySelector("[title]");return s?s.getAttribute("title"):null})()');
+
+  check('예약 수업은 «배정된 강사» 이름을 적는다', (await at(0, tIdx)) === 'JANE', await at(0, tIdx));
+  check('   아이디는 옆 칸에 따로 적는다', (await at(0, tuIdx)) === 'mangoi_114', await at(0, tuIdx));
+  /* 🔴 이번에 고친 사고 그 자체 — teacher_name 이 학생 계정(cys01)인데 교사 칸에 그것이
+     나오면 안 된다. 부정 검사라 위 «제대로 찾는다» 두 줄과 짝으로 둔다. */
+  check('⛔ 학생 계정(cys01)이 교사 칸에 새지 않는다',
+    !/cys01/.test((await at(0, tIdx)) + ' ' + (await at(0, tuIdx))),
+    (await at(0, tIdx)) + ' / ' + (await at(0, tuIdx)));
+  const uidCol = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + tuIdx + '].textContent.trim()).join("|")');
+  check('⛔ DO 임시번호(u_…)가 아이디 칸에 새지 않는다', !/\bu_[a-z0-9]/.test(uidCol), uidCol);
+  check('   그 검사가 헛돌지 않았다(진짜 아이디가 읽힌다)', /mangoi_114/.test(uidCol), uidCol);
+
+  check('이름은 있는데 계정 연결이 없으면 아이디는 «—» 와 이유',
+    (await at(1, tIdx)) === 'KRYSTEL' && (await at(1, tuIdx)) === '—'
+    && /연결된 로그인 계정이 없습니다/.test(await atTip(1, tuIdx)),
+    (await at(1, tuIdx)) + ' / ' + (await atTip(1, tuIdx)));
+  check('공용방처럼 교사를 모르면 «—» 와 «왜·누가 켰는지»',
+    (await at(2, tIdx)) === '—' && /강사가 적혀 있지 않습니다/.test(await atTip(2, tIdx))
+    && /녹화를 켠 사람: heyst/.test(await atTip(2, tIdx)),
+    (await at(2, tIdx)) + ' / ' + (await atTip(2, tIdx)));
+  check('⛔ 그때 켠 사람(heyst)을 교사 칸 «본문» 으로 그리지 않는다',
+    !/heyst/.test(await at(2, tIdx)), await at(2, tIdx));
+
+  console.log('\n── ③-4 학생 이름·아이디가 «따로» 보이는가 ──────────');
+  /* 2026-09-04 사장님 «학생도 학생아이디 목록을 만들어줘». 교사 칸과 같은 이유다.
+     ⚠️ 여기서도 칸 번호를 손으로 세지 않는다 — 머리글에서 찾는다. */
+  const suIdx = skOrder.indexOf('studentid');
+  check('학생 아이디 칸 자리를 머리글에서 찾았다', suIdx === sIdx + 1,
+    'student=' + sIdx + ' studentid=' + suIdx);
+  const uidAt = async i => ev('(function(){var t=document.querySelectorAll("#recordings-table tr")[' + i + '];return t?t.cells[' + suIdx + '].textContent.trim():null})()');
+  check('예약 수업은 학생 아이디를 옆 칸에 적는다', (await uidAt(0)) === 'cys01', await uidAt(0));
+  check('이름을 몰라도 아이디는 잃지 않는다', (await uidAt(2)) === 'jeong', await uidAt(2));
+  const stuUidCol = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + suIdx + '].textContent.trim()).join("|")');
+  check('⛔ 임시 접속번호가 학생 아이디 칸에 새지 않는다', !/[a-z0-9]{18,}/.test(stuUidCol), stuUidCol);
+  check('   그 검사가 헛돌지 않았다(진짜 계정이 읽힌다)',
+    /cys01/.test(stuUidCol) && /jeong/.test(stuUidCol), stuUidCol);
+  /* 두 칸이 «같은 사람·같은 차례» 를 그리는가 — 여럿인 행으로 본다.
+     ⛔ 여기에 «항상 참» 인 껍데기 검사를 두지 말 것(초록만 늘고 아무것도 안 본다). */
+  const nMulti = (await cell(1)).split(',').length, uMulti = (await uidAt(1)).split(',').length;
+  check('   이름 칸과 아이디 칸이 어긋나지 않는다', nMulti === uMulti,
+    (await cell(1)) + ' / ' + (await uidAt(1)));
 
   console.log('\n── ③-2 머리글 정렬이 학생 칸에도 먹는가 ───────────');
   /* 2026-09-01 에 머리글 정렬(▲▼)이 들어오면서 모든 칸이 정렬 가능해졌다.
      학생 칸만 «누르면 아무 일도 안 일어나는» 칸으로 남으면 그것이 고장으로 읽힌다. */
   await ev('typeof recSortBy === "function" ? recSortBy("student") : Promise.reject("recSortBy 없음")');
   await sleep(200);
-  const sorted = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent.trim()).join("|")');
+  const sorted = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + sIdx + '].textContent.trim()).join("|")');
   check('학생 이름 올림순으로 정렬된다 (모르는 행은 뒤로)', sorted === '김선우, 김사랑|최윤서|—', sorted);
   await ev('recSortBy("student"); recSortBy("student")');   // ▼ → 원래 순서
   await sleep(200);
-  const back = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[2].textContent.trim()).join("|")');
+  const back = await ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>t.cells[' + sIdx + '].textContent.trim()).join("|")');
   check('세 번 누르면 원래 순서로 돌아온다', back === '최윤서|김선우, 김사랑|—', back);
 
   console.log('\n── ④ 칸을 하나 늘려도 화면이 안 밀리는가 ────────────');
