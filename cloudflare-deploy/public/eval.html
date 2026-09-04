@@ -128,7 +128,14 @@
       <span class="brand-logo">Mangoi</span>
       <div class="brand-sub" data-ko="오늘 수업일지" data-en="Today's Lesson Note">오늘 수업일지</div>
     </div>
-    <div id="eval-root" class="state">📥 수업일지를 불러오는 중…</div>
+    <!-- ⚠️ data-ko/data-en 을 직접 단다 — i18n 사전(js/i18n-sweep.js)은 42개 화면이 함께 실어
+       고치면 ?v= 를 42곳 올려야 한다. 안 달면 사전 미스라 서버 AI 번역(/api/i18n/translate)으로
+       새어 나가고, 시각·id 가 섞인 문구는 캐시가 영원히 빗나간다. -->
+  <!-- 🔴 data-ko/data-en 을 #eval-root «자신» 에 달면 안 된다 — 이 요소는 화면 전체가 그려지는
+       «그릇» 이라, i18n 엔진이 그 속성을 보고 textContent 를 통째로 갈아끼워 **그린 내용이 사라진다**
+       (2026-09-04 실제로 밟음 — 화면이 「불러오는 중…」에서 영영 안 넘어갔다. CLAUDE.md 2장
+       「아이콘 버튼에 달았더니」와 같은 뿌리다). 안쪽 span 에 단다 — 그리면 통째로 교체되어 충돌이 없다. -->
+  <div id="eval-root" class="state"><span data-ko="📥 수업일지를 불러오는 중…" data-en="📥 Loading lesson notes…">📥 수업일지를 불러오는 중…</span></div>
   </div>
 <script>
 (function(){
@@ -367,7 +374,8 @@
           </div>` : ''}
           <div class="eval-foot">
             <div>${escapeText(e.teacher_name||'담당 강사')} 드림</div>
-            <div style="margin-top:6px;font-size:11px">수업일지 #${e.id} · ${new Date(e.created_at).toLocaleString('ko-KR')}</div>
+            <div style="margin-top:6px;font-size:11px" data-ko="수업일지 #${e.id}" data-en="Lesson note #${e.id}">수업일지 #${e.id}</div>
+            <div style="margin-top:2px;font-size:11px">${new Date(e.created_at).toLocaleString('ko-KR')}</div>
             <a class="home-btn" href="/">🏠 망고아이 홈페이지로</a>
           </div>
         </div>`;

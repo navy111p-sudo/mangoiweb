@@ -197,6 +197,19 @@ async function load() {
  *      한 달에 두 갈래가 같이 있으면 뜻 없는 숫자가 된다(5 와 88 → 46.5). 만점도 못 붙인다.
  *      고치려면 buildMonthlyReportData(src/api-reports.ts) 에서 맞춰야 하므로 별건으로 남긴다. */
 function evalMax(v){ return (Number(v) || 0) > 5 ? 100 : 5; }
+/* 🔴 「평균 점수」는 서버(buildMonthlyReportData, src/api-reports.ts)가 score_overall 을 그대로
+ *   평균 낸 값이다. 한 달에 두 척도가 섞이면 5 와 88 의 평균이 46.5 가 되어 **뜻이 없는 숫자**다.
+ *   ⛔ 그 숫자를 만점도 단서도 없이 그대로 보여주지 말 것 — 화면이 모르면 «모른다» 고 말해야 한다
+ *      (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+ *   ⚠️ 서버를 고치는 것이 정본이다 — 여기서는 «섞였는지» 만 보고 가린다. */
+function avgLabel(ev){
+  var items = (ev && ev.items) || [];
+  var kinds = {};
+  items.forEach(function(e){ if (e && e.score_overall != null) kinds[evalMax(e.score_overall)] = 1; });
+  if (Object.keys(kinds).length > 1) return '—';           // 섞인 달 — 평균이 뜻을 잃는다
+  var max = Object.keys(kinds)[0];
+  return (ev && ev.avg_score) ? ev.avg_score + '<span style="font-size:13px;color:#94a3b8;-webkit-text-fill-color:#94a3b8">/' + (max || 5) + '</span>' : 0;
+}
 function render(d) {
   const s = d.student || {};
   const v = d.voice || {};
@@ -218,7 +231,7 @@ function render(d) {
     <div class="stat-grid">
       <div class="stat"><div class="stat-num">${att.days || 0}</div><div class="stat-label">출석 일수</div></div>
       <div class="stat"><div class="stat-num">${ev.count || 0}</div><div class="stat-label">수업일지</div></div>
-      <div class="stat"><div class="stat-num">${ev.avg_score || 0}</div><div class="stat-label">평균 점수</div></div>
+      <div class="stat"><div class="stat-num">${avgLabel(ev)}</div><div class="stat-label">평균 점수</div></div>
       <div class="stat"><div class="stat-num">${v.sessions || 0}</div><div class="stat-label">음성 코칭</div></div>
       <div class="stat"><div class="stat-num">${v.best || 0}</div><div class="stat-label">발음 최고점</div></div>
       <div class="stat"><div class="stat-num">${(pay.total_krw||0).toLocaleString('ko-KR')}</div><div class="stat-label">결제 (원)</div></div>

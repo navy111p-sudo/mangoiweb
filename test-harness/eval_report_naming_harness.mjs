@@ -154,5 +154,75 @@ if (fStars && fOn5 && fEval) {
   ok('stars()·evalOn5() 를 오려 낼 수 있다', false, '함수를 못 찾음 — 검사가 헛돌고 있다');
 }
 
+
+// ── ⑦ 같은 척도 결함이 남아 있는 자리 — «고쳤다» 로 읽히지 않게 이름을 찍어 둔다 ──
+//   ⛔ 이 절을 지우지 말 것. 이 저장소가 네 번 사고를 낸 「하기로 한 것이 «했다» 로 적힌다」의
+//      방어선이다 — 옛 경로를 grep 하는 데 30초면 되는데, 안 적으면 다음 사람이 다시 안 본다.
+//   ✅ 고친 자리는 «되살아나지 않는가» 로 못 박고, 못 고친 자리는 «사람 결정 대기» 로 출력만 한다
+//      (선례: popup_open_return_harness — FAIL 로 만들면 무관한 PR 이 전부 빨간불이 된다).
+console.log('\n⑦ 같은 척도 결함 — 고친 자리 · 남은 자리');
+const parent = rd(`${PUB}/parent.html`);
+const admR6  = rd(`${PUB}/js/adm-r6.js`);
+// 🔴 화면 전체가 그려지는 «그릇» 에 data-ko/data-en 을 달면 i18n 엔진이 textContent 를
+//    통째로 갈아끼워 **그린 내용이 사라진다**(2026-09-04 실제로 밟음 — 「불러오는 중…」에서 안 넘어갔다).
+ok('#eval-root «자신» 에는 data-ko/data-en 이 없다(그릇에 달면 화면이 지워진다)',
+   !/id="eval-root"[^>]*data-(ko|en)=/.test(evalH));
+ok('로딩 문구는 안쪽 span 에 달려 있다', /id="eval-root"[^>]*><span data-ko=/.test(evalH));
+// 학부모 대시보드의 만점 헬퍼가 «쓰기 전에 선언» 돼 있어야 한다(TDZ — 순서가 뒤바뀌면 그 자리에서 죽는다)
+{
+  const src = rd(`${PUB}/parent.html`);
+  const dec = src.indexOf('const pdEvalMax');
+  const use = src.indexOf('pdEvalMax(e.score_overall)');
+  ok('parent.html 이 헬퍼를 쓰기 «전» 에 선언한다', dec >= 0 && use >= 0 && dec < use, `선언 ${dec} · 사용 ${use}`);
+}
+ok('학부모 대시보드(parent.html)에 「/10」이 없다', !/\$\{e\.score_overall\|\|0\}\/10/.test(strip(parent)));
+ok('학부모 대시보드가 만점을 값에서 읽는다', /pdEvalMax\(e\.score_overall\)/.test(parent) && /> 5 \? 100 : 5/.test(parent));
+ok('관리자 평가서 표(adm-r6.js)가 점수를 그대로 repeat() 하지 않는다',
+   !/'★'\.repeat\(Math\.round\(overall\)\)/.test(strip(admR6)));
+{
+  // 실제로 돌려서 확인한다 — 88 이 들어오면 옛 코드는 RangeError 를 던졌다
+  const m = strip(admR6).match(/const evMax = [\s\S]*?const stars = [^;]+;/);
+  if (m) {
+    const f = new Function('overall', `${m[0]} return stars;`);
+    let threw = '';
+    for (const v of [88, 84, 5, 0, null, 120]) { try { f(v); } catch (e) { threw += ` ${v}:${e.constructor.name}`; } }
+    ok('관리자 표 별점이 0~100 행에서 안 던진다', !threw, threw);
+    /* ⚠️ try/catch 로 감싼다 — 되돌리면 f(88) 이 던지는데, 안 감싸면 하니스가 스택트레이스만
+     *   남기고 죽어 «무엇이 깨졌는지» 가 안 보인다(CLAUDE.md: 하니스를 크래시시키지 말 것). */
+    let five = true, err5 = '';
+    for (const v of [88, 5, 0, 120]) {
+      try { if ((f(v).match(/[★☆]/g) || []).length !== 5) { five = false; err5 += ` ${v}:${(f(v).match(/[★☆]/g) || []).length}칸`; } }
+      catch (e) { five = false; err5 += ` ${v}:${e.constructor.name}`; }
+    }
+    ok('관리자 표 별점이 언제나 5칸이다', five, err5);
+  } else ok('adm-r6.js 별점 블록을 오려 낼 수 있다', false, '못 찾음 — 검사가 헛돈다');
+}
+// 성적표 「평균 점수」 — 섞인 달이면 «모른다» 고 말해야 한다
+{
+  const m = report.match(/function avgLabel\(ev\)\{[\s\S]*?\n\}/);
+  if (m) {
+    const f = new Function(`${cut(report, 'evalMax')}; ${m[0]}; return avgLabel;`)();
+    const mixed = { avg_score: 46.5, items: [{ score_overall: 5 }, { score_overall: 88 }] };
+    const pure5 = { avg_score: 4.7, items: [{ score_overall: 5 }, { score_overall: 4 }] };
+    ok('두 척도가 섞인 달은 평균을 «—» 로 가린다', f(mixed) === '—', String(f(mixed)));
+    ok('한 척도뿐인 달은 평균에 만점을 붙여 보여 준다', /4\.7/.test(String(f(pure5))) && /\/5/.test(String(f(pure5))), String(f(pure5)));
+  } else ok('report.html avgLabel() 을 오려 낼 수 있다', false, '못 찾음 — 검사가 헛돈다');
+}
+// 🟡 아직 안 고친 자리 — 출력만 한다(사람이 정할 일)
+const REMAIN = [
+  // ⚠️ 세는 정규식이 실제와 어긋나면 그것도 같은 병이다 — 「N곳」이 거짓말이 된다.
+  //    2026-09-04 실측: teacher.html 1538·2715 두 곳, monthly-report.html 164 한 곳(163 은 주석).
+  ['public/teacher.html', /\+ '\/5/g, '강사 화면 지난 수업·초안 배지 「⭐ N/5」 — 0~100 행이면 「88/5」'],
+  ['public/monthly-report.html', /Number\(r\.score_overall\)/g, '월간 리포트 추이 그래프가 5점 만점을 전제로 선을 그린다'],
+  ['src/api-admin.ts', /종합 \$\{c\.score_overall\|\|'-'\}\/5점/g, 'AI 월간 리포트 프롬프트에 「종합 88/5점」이 그대로 실려 모델에 들어간다'],
+];
+let remainFound = 0;
+for (const [rel, re, why] of REMAIN) {
+  const src = rd(`../cloudflare-deploy/${rel}`);
+  const n = (src.match(re) || []).length;
+  if (n) { remainFound++; console.log(`  🟡 남은 자리 — ${rel} (${n}곳): ${why}`); }
+}
+console.log(`  ℹ️ 위 ${remainFound}개는 «사람 결정 대기» 입니다. 고쳤으면 이 목록에서 빼세요(FAIL 로 만들지 않습니다).`);
+
 console.log(`\n📝📊 eval_report_naming_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -77,12 +77,19 @@
       if (!rows.length) { el.innerHTML = '<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">아직 작성된 평가서가 없습니다.</div>'; return; }
       const html = rows.map(e => {
         const overall = e.score_overall;
-        const stars = overall != null ? '★'.repeat(Math.round(overall)) + '☆'.repeat(5-Math.round(overall)) : '-';
+        /* 🔴 옛 코드는 점수를 그대로 repeat() 에 넣었다 — 그런데 score_overall 은
+         *   «한 칸에 두 척도» 라(강사 1분 일지 1~5 · AI 수업 리포트 0~100)
+         *   88 이 들어오면 '☆'.repeat(5-88) 이 **RangeError 를 던져 이 표가 통째로 안 그려진다.**
+         *   0~100 행이 하나만 섞여도 그렇다. 척도를 먼저 5점으로 맞추고 0~5 로 자른다.
+         *   ⚠️ eval.html 의 evalMax()/evalOn5() 와 같은 말을 한다(하니스가 대조한다). */
+        const evMax = (Number(overall) || 0) > 5 ? 100 : 5;
+        const on5 = Math.max(0, Math.min(5, Math.round((Number(overall) || 0) * 5 / evMax)));
+        const stars = overall != null ? '★'.repeat(on5) + '☆'.repeat(5 - on5) : '-';
         return `<tr style="border-bottom:1px solid #e5e7eb">
           <td style="padding:9px 12px;font-size:11px;color:#9ca3af">#${e.id}</td>
           <td style="padding:9px 12px"><b>${esc(e.student_name||'-')}</b><br><span style="font-size:11px;color:#9ca3af">${esc(e.lesson_title||'')}</span></td>
           <td style="padding:9px 12px;font-size:12px;color:#6b7280">${esc(e.teacher_name||'-')}</td>
-          <td style="padding:9px 12px;text-align:center"><span style="color:#fbbf24;font-size:13px">${stars}</span><br><b style="color:#d97706">${overall||'-'}</b></td>
+          <td style="padding:9px 12px;text-align:center"><span style="color:#fbbf24;font-size:13px">${stars}</span><br><b style="color:#d97706">${overall != null ? overall + '<span style="font-size:10.5px;color:#9ca3af;font-weight:600">/' + evMax + '</span>' : '-'}</b></td>
           <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(e.lesson_date||'-')}</td>
           <td style="padding:9px 12px;text-align:center">${e.parent_notified?'<span style="color:#10b981">✓ 발송</span>':'<span style="color:#9ca3af">-</span>'}<br>${e.viewed_by_parent?'<span style="color:#3b82f6;font-size:11px">👁 열람</span>':''}</td>
           <td style="padding:8px 10px;text-align:center;white-space:nowrap">
