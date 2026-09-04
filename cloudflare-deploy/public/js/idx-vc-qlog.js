@@ -110,6 +110,7 @@ function vcqRxTick() {
     try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     ids.forEach(function (id) {
         var pc = pcs[id];
+        try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
         if (!pc || !pc.getReceivers) return;
         pc.getReceivers().forEach(function (r) {
             if (!r || !r.track || !r.getStats) return;
@@ -163,6 +164,57 @@ function vcqRxTick() {
     });
 }
 
+/* 🛰 연결 «경로» — 중계(TURN)로 가는가, 직접(P2P)으로 가는가 (2026-09-03)
+   [왜] class-1016 Farrah↔ysyt01 · meet-123 Farrah↔Karl: RTT 가 600~1,700ms 였다가 15:06 에
+     60~85ms 로 «뚝» 떨어졌다. 같은 두 사람·같은 PC 인데 2분 사이에 경로가 바뀐 것인지, 회선이 풀린 것인지
+     가릴 데이터가 «없었다» — 이 표는 손실·RTT 만 담고 «어떤 길로 갔는가» 는 한 칸도 없었다.
+     그래서 Globe 회선인지·TURN 중계인지·Cloudflare 어느 서버인지를 매번 추측으로 끝냈다(CLAUDE.md 2장
+     「원인을 «찾았다» 고 보고했는데 알고 보니 추론이었음」과 같은 뿌리).
+   [무엇] 4초마다 선택된 candidate-pair 를 읽어 local/remote 후보 종류를 본다.
+     · 한쪽이라도 relay 면 «중계», 둘 다 host/srflx/prflx 면 «직접». 아직 선택 전이면 «모름»(안 센다).
+     · 내 쪽이 relay 면 그 TURN 서버 주소(host:port)와 relayProtocol(udp/tcp/tls)도 적는다 —
+       Cloudflare 인지 무료 openrelay 폴백인지가 여기서 갈린다(X-Turn-Source 는 «발급» 이지 «실제 사용» 이 아니다).
+     · 상대 쪽만 relay 면 서버 주소는 알 수 없다(그건 상대의 TURN 이다) — 빈 값으로 둔다. 지어내지 않는다.
+   ⛔ «모름» 을 «직접» 으로 적지 말 것 — 연결 전·getStats 없음(옛 브라우저)은 path_ticks 0 으로 남겨
+      서버·화면이 «—» 로 그린다. 0 ticks 를 «직접 100%» 로 읽으면 이 칸을 만든 이유가 사라진다.
+   ⚠️ 이 탐침은 통화 경로와 무관하다 — getStats 가 던져도 catch 로 삼키고, 아무것도 안 바꾼다.
+   감시: vc_quality_blindspot_harness ⑬ */
+function vcqTurnHost(url) {
+    try {
+        var u = String(url || '').replace(/^turns?:/i, '').replace(/^stuns?:/i, '');
+        return u.split('?')[0].slice(0, 80);
+    } catch (_) { return ''; }
+}
+function vcqPathProbe(id, pc) {
+    if (!pc || typeof pc.getStats !== 'function') return;
+    var Q = window.__vcQ; if (!Q) return;
+    pc.getStats().then(function (st) {
+        var byId = {}, selId = null, pair = null;
+        st.forEach(function (s) {
+            if (!s || !s.id) return;
+            byId[s.id] = s;
+            if (s.type === 'transport' && s.selectedCandidatePairId) selId = s.selectedCandidatePairId;
+        });
+        if (selId && byId[selId]) pair = byId[selId];
+        if (!pair) st.forEach(function (s) { if (!pair && s && s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
+        if (!pair) return;                                   // 아직 연결 전 — «모름», 세지 않는다
+        var lc = byId[pair.localCandidateId] || {}, rc = byId[pair.remoteCandidateId] || {};
+        var relay = (lc.candidateType === 'relay' || rc.candidateType === 'relay');
+        var turn = (lc.candidateType === 'relay') ? vcqTurnHost(lc.url) : '';
+        var proto = (lc.candidateType === 'relay') ? String(lc.relayProtocol || '') : '';
+        var P = window.__vcPath || (window.__vcPath = {});
+        var prev = P[id];
+        var cur = { relay: relay, turn: turn, proto: proto, kinds: (lc.candidateType || '?') + '/' + (rc.candidateType || '?') };
+        if (!prev || prev.relay !== cur.relay || prev.turn !== cur.turn) {
+            try { console.log('[vc-path]', id, relay ? '중계(TURN)' : '직접(P2P)', cur.kinds, turn ? (turn + ' ' + proto) : ''); } catch (_) {}
+        }
+        P[id] = cur;
+        Q.pt = (Q.pt || 0) + 1;
+        if (relay) Q.pr = (Q.pr || 0) + 1;
+        if (turn) { Q.turn = turn; Q.proto = proto; }
+    }).catch(function () {});
+}
+
 /* 수업 중에만 사는 타이머. 첫 vcQualityAcc() 에서 켜지고 수업이 끝나면 스스로 꺼진다. */
 function vcqRxStart() {
     if (window.__vcRxT) return;
@@ -170,7 +222,10 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {};
+                /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
+                   다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
+                window.__vcNetSelf = null;
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
@@ -223,12 +278,44 @@ function vcNetNotify(html) {
     } catch (_) {}
 }
 
-/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다
-   (그게 곧 내 업링크다). ⛔ loss === -1 은 «영상 표본 없음» 이라 판정에 쓰지 않는다. */
+/* ① 내 회선이 나쁘다 — 학생·강사 모두에게. 판정은 «내가 보내는 것» 의 손실·RTT 다(그게 곧 내 업링크다).
+
+   🔴 2026-09-02 class-849 실측 — 이 함수가 «제일 나쁜 틱» 을 통째로 건너뛰고 있었다.
+   사장님이 19분 수업 내내 토스트를 한 번도 못 보셨고, 원인이 둘이었다.
+   ① `if (loss === -1) return;` 이 첫 줄이었다. loss === -1 은 «영상 표본이 없던 4초» 이지
+      «RTT 를 모른다» 가 아니다 — idx-main.js 는 그 틱에도 `vcQualityAcc(-1, rtt)` 로
+      **측정된 RTT 를 그대로 넘긴다**(5060행). 그런데 RTT 가 제일 높았던 두 창이
+      19:30:44 RTT 440(novideo 13/15) · 19:34:37 RTT 435(novideo 11/15) 로, 틱의 대부분이
+      바로 그 건너뛰는 틱이었다. ⇒ 손실만 보류하고 RTT 는 계속 본다.
+   ② 문턱이 절대값 400ms 였다. 중국 회선은 평소가 360~440ms 라(같은 수업 실측)
+      떴더라도 «공유기 가까이 가세요» 라는 **틀린 안내**가 된다(지리적 거리는 사람이 못 고친다).
+      거꾸로 기준이 130ms 인 국내 학생은 400 이 너무 느슨해 진짜 막힘을 놓친다.
+      ⇒ idx-main.js 가 #771 에서 쓴 것과 **같은 방식**으로 «이 회선의 기준값» 대비로 잰다.
+         기준값 = 그동안 본 최소 RTT(위로는 틱당 2% 씩만 따라감), 상한 500.
+   ⛔ 손실 문턱(8%)은 안 건드린다 — 손실은 «나쁜» 신호라 절대값이 맞고,
+      RTT 는 «막힌» 신호라 기준 대비 증가분이 맞다(#771 주석과 같은 구분).
+   ⚠️ 기준값은 여기서 따로 잰다 — idx-main.js 는 blocking 849KB 라 첫 화면 예산 때문에
+      인자를 늘리지 않았다. 상대가 여럿이면 틱마다 다른 상대의 RTT 가 섞여 들어오는데,
+      그건 이 함수가 이미 loss·rtt 를 단일값으로 받던 것과 같은 성질이다(1:1 이 정상 사용). */
 function vcNetSelfWatch(loss, rtt) {
-    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0 });
-    if (loss === -1) return;                                  // 표본 없음 → 판단 보류
-    var bad = (typeof loss === 'number' && loss >= 8) || (typeof rtt === 'number' && rtt >= 400);
+    var W = window.__vcNetSelf || (window.__vcNetSelf = { bad: 0, notifiedAt: 0, rttBase: null });
+    var rb = Math.min(W.rttBase || 0, 500);
+    var rttBad = Math.max(400, rb + 200);                     // 기준 200 미만 회선은 예전 숫자 그대로
+    /* ⛔ loss === -1 은 «손실을 모른다» 일 뿐이다. RTT 판정은 그대로 진행한다. */
+    var lossBad = (loss !== -1) && (typeof loss === 'number' && loss >= 8);
+    var bad = lossBad || (typeof rtt === 'number' && rtt >= rttBad);
+    /* 🔴 기준 RTT 는 «나쁘지 않은 틱» 에서만 위로 따라간다.
+       그냥 매 틱 올리면 계속 나쁜 회선이 «자기 나쁜 값» 을 평소로 학습해 스스로 정상이 된다 —
+       실측(기준 130ms 회선이 410ms 에 계속 머무는 경우): 16틱(약 64초) 만에 문턱이 410 위로 올라가
+       **토스트가 사실상 1회만 뜨고 만다**(3분 쿨다운이 끝날 무렵엔 이미 «정상» 이라 두 번째가 없다).
+       옛 절대값(400) 때는 3분마다 반복해서 알렸으니 그건 «되던 것» 을 깨는 것이다.
+       ⚠️ 여기가 #771(화질 회복)과 갈리는 자리다 — 그쪽은 지연이 높은 회선도 «언젠가 화질을 올려야»
+       하므로 계속 따라가는 것이 맞지만, 이쪽은 «네 평소보다 나쁘다» 를 사람에게 말하는 것이라
+       평소는 «좋았던 때» 에서만 배워야 한다. ⛔ 이 조건을 지우면 위 1회 문제가 그대로 돌아온다. */
+    if (typeof rtt === 'number' && rtt > 0) {
+        if (W.rttBase == null || rtt < W.rttBase) W.rttBase = rtt;      // 내려가는 쪽은 언제나 따라간다
+        else if (!bad) W.rttBase = W.rttBase + (rtt - W.rttBase) * 0.02; // 올라가는 쪽은 «괜찮은 틱» 에서만
+    }
     if (!bad) { W.bad = 0; return; }
     W.bad++;
     if (W.bad < 4) return;                                    // 연속 4틱(약 16초) — 스파이크 한 번으로는 안 띄운다
@@ -316,7 +403,7 @@ function vcLowQRemote(id, frameWidth, flowing) {
 }
 
 function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() });
+    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() });
     vcqRxStart();
     try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
@@ -353,10 +440,15 @@ function vcQualityAcc(loss, rtt) {
             rx_aloss: Q.rxa.length ? +avg(Q.rxa).toFixed(1) : -1,
             rx_conceal: Q.rxc.length ? +avg(Q.rxc).toFixed(2) : -1,
             rx_freeze: (Q.rxf || 0),
-            peers: Q.p.length ? Math.max.apply(null, Q.p) : 0
+            peers: Q.p.length ? Math.max.apply(null, Q.p) : 0,
+            /* 🛰 경로 — 이 1분 동안 «중계» 였던 틱 / 경로를 «안» 틱. 하나도 못 쟀으면 path 는 빈 값(«모름»)이다.
+               ⛔ 빈 값을 '직접' 으로 바꾸지 말 것(위 vcqPathProbe 주석). */
+            path: (Q.pt || 0) ? ((Q.pr || 0) === 0 ? 'direct' : ((Q.pr || 0) === Q.pt ? 'relay' : 'mixed')) : '',
+            relay_ticks: (Q.pr || 0), path_ticks: (Q.pt || 0),
+            turn: Q.turn ? (Q.turn + (Q.proto ? ' ' + Q.proto : '')) : ''
         });
         if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
-    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() };
+    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
 }
