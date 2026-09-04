@@ -736,3 +736,85 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
   out.by_month = [...monMap.values()].sort((a, b) => a.month < b.month ? -1 : 1);
   return out;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🧭 맨 위 요약 — 「아침에 한 번 열어 보는 화면」(D안)
+ *
+ *   [왜 SQL 집계를 그대로 써도 되는가]
+ *     C안(지출 정리)은 canView 를 못 걸어서 «행을 읽어 코드로» 셌다. 여기는 다르다 —
+ *     집계 범위를 **canView 가 무조건 통과시키는 두 가지**로만 잡기 때문이다:
+ *       ① 경영진 → 세 열람등급(exec·chain·broadcast)을 전부 통과한다
+ *          ⚠️ 정확히는 «경영진 **이면서 본사 계정**» 일 때다 — broadcast 분기는 isExec 를
+ *             보지 않고 isHqStaff 를 본다(실측: role 이 없는 exec 는 broadcast 가 false).
+ *             본사 계정이 아니면 라우트 가드(api-approval.ts)가 403 이라 여기 닿지 못한다.
+ *             ⛔ 그 가드를 지우면 이 전제가 조용히 깨진다 — 하니스가 둘 다 못 박는다.
+ *       ② 그 밖의 사람 → **본인이 올린 것만**(canView 첫 줄 「내가 올린 건은 언제나 본다」)
+ *     그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
+ *     ⛔ 이 전제를 넓히지 말 것 — 예컨대 «본사 직원은 전체» 로 바꾸는 순간
+ *        인사·급여가 요약으로 샌다(2026-09-04 에 C안에서 실제로 그랬다).
+ *
+ *   [⛔ 통화를 섞지 않는다 · 모르는 것을 0으로 때우지 않는다]
+ *     summarizeApprovals 와 같은 규칙이다. 두 화면이 다른 말을 하면 안 된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** SQL 이 (통화 × 달)로 묶어 준 행. */
+export interface MoneyGroupRow {
+  cur?: string | null;
+  ym?: string | null;          // 'YYYY-MM' (KST)
+  n?: number | string | null;
+  total?: number | string | null;
+  no_amt?: number | string | null;
+}
+
+export interface HomeMoney {
+  month: MoneyBucket[];
+  year: MoneyBucket[];
+  month_count: number;
+  year_count: number;
+  /** 금액이 없어 합계에 못 넣은 건 — 0으로 때우지 않고 따로 센다 */
+  month_no_amount: number;
+  year_no_amount: number;
+}
+
+/**
+ * (통화 × 달) 묶음을 「이번 달」과 「올해」로 접는다.
+ *   ⚠️ `ym` 은 이미 KST 로 잘린 값이어야 한다(SQL 에서 '+9 hours').
+ *      여기서 다시 시간대를 만지지 않는다 — 두 곳에서 자르면 반드시 어긋난다.
+ */
+export function foldHomeMoney(rows: MoneyGroupRow[], thisMonth: string): HomeMoney {
+  const out: HomeMoney = {
+    month: [], year: [], month_count: 0, year_count: 0,
+    month_no_amount: 0, year_no_amount: 0,
+  };
+  const yr = String(thisMonth || '').slice(0, 4);
+  for (const r of (rows || [])) {
+    const ym = String(r.ym || '');
+    if (!yr || ym.slice(0, 4) !== yr) continue;      // 올해가 아니면 세지 않는다
+    const cur = normCurrency(r.cur);
+    const n = Number(r.n) || 0;
+    const na = Number(r.no_amt) || 0;
+    /* 합계는 «읽을 수 있는 숫자» 일 때만 더한다 — SUM 이 NULL 이면(전부 금액 없음)
+       0 으로 때우지 않고 그냥 안 더한다. */
+    const t = (r.total === null || r.total === undefined || r.total === '') ? null : Number(r.total);
+    const amt = (t != null && isFinite(t) && t >= 0) ? t : null;
+
+    const push = (list: MoneyBucket[]) => {
+      let b = list.find(x => x.currency === cur);
+      if (!b) { b = { currency: cur, total: 0, count: 0 }; list.push(b); }
+      b.count += n;
+      if (amt != null) b.total += amt;
+    };
+    push(out.year); out.year_count += n; out.year_no_amount += na;
+    if (ym === thisMonth) { push(out.month); out.month_count += n; out.month_no_amount += na; }
+  }
+  /* ⚠️ 여기서 «비우지» 않는다 — 통화 줄은 그대로 돌려주고, 「—」로 그릴지는 **화면**이 정한다
+     (`repMoney`). 이 함수가 하지 않는 일을 한다고 적어 두면 다음 사람이 여기를 고치러 온다.
+     ⛔ 건수는 금액과 따로 둔다 — «0원짜리 승인 N건» 이 아니라 «금액 없는 승인 N건» 이다. */
+  return out;
+}
+
+/** 지금이 KST 로 몇 년 몇 월인가 — 'YYYY-MM'. */
+export function kstMonth(nowMs: number): string {
+  const d = new Date(nowMs + 9 * 3600_000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
