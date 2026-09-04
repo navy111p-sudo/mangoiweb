@@ -35,6 +35,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { ipToNet, asLabel } from './net-prefix';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
@@ -186,6 +187,15 @@ export async function handleMangoApi(
           for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🌐 (2026-09-03 필리핀 사무실 회선) net·isp·country — «어느 인터넷 회선인가».
+             [왜] 강사 약 10명이 사무실 공인 IP 하나를 나눠 쓰는데, 이 표는 사람(uid)별이라
+                «그 회선이 매일 몇 시에 막히는가» 를 볼 수 없었다. 통신사에 항의할 근거가 그 표다.
+             ⛔ IP 를 통째로 남기지 않는다 — 이 표에는 학생(다수가 미성년자) 기록도 함께 쌓인다.
+                묶는 데 필요한 것은 네트워크 부분뿐이라 /24(IPv4)·/48(IPv6)로 자른다(src/net-prefix.ts).
+             ⚠️ CREATE 문에는 넣지 않는다 — 위 novideo·rx_* 와 같은 사정(CREATE 가 두 벌이다). */
+          for (const c of ['net TEXT', 'isp TEXT', 'country TEXT']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
@@ -195,14 +205,23 @@ export async function handleMangoApi(
         const PATHS = ['relay', 'direct', 'mixed'];
         const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
         const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
+           ⚠️ request.cf 는 로컬 개발·테스트에서 없다. 없으면 빈 값이고 그게 정상이다. */
+        const _cf: any = (request as any).cf || {};
+        const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
+        const _isp = asLabel(_cf.asn, _cf.asOrganization);
+        const _cc = String(_cf.country || '').slice(0, 2);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
             num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
-            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0))).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  // 30일 지난 것 가끔 정리
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0)),
+            _net, _isp, _cc).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  /* 30일 지난 것 가끔 정리. ⚠️ 2026-09-03 부터 접속 회선(net·isp·country)도 담기므로
+     이 정리가 조용히 실패하면 그 기록이 계속 쌓인다. 📌 이 표는 승인받은 파기 정본(src/retention.ts)에
+     **없다** — 정본에 등록할지는 사람이 정할 일이다(작업기록 6장). */
         return json({ ok: true });
       } catch (e) {
         /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
