@@ -771,43 +771,6 @@ export async function handleApprovalApi(
     // 🧭 「이 건을 결재할 사람이 몇 명인가」가 바뀌면 «막힘» 표시도 바뀐다 — 서명에 함께 넣는다.
     //    ⚠️ 계정 «수» 만 본다. 이름을 「…이사」로 고쳐 경영진이 되는 경우(isExec 의 이름 안전장치)는
     //       이 숫자가 그대로라 못 잡지만, 아래 hourBucket 이 한 시간에 한 번은 전체를 다시 받게 한다.
-    /* ═══ 🧭 맨 위 요약(D안) — 「아침에 한 번 열어 보는 화면」 ═══════════════
-       [왜 SQL 집계를 그대로 써도 되는가]
-         C안(지출 정리)은 canView 를 못 걸어 «행을 읽어 코드로» 세지만, 여기는 범위를
-         **canView 가 무조건 통과시키는 두 가지**로만 잡는다 —
-           ① 경영진 → 세 열람등급을 전부 통과(approval-policy 의 canView)
-           ② 그 밖 → 본인이 올린 것만(「내가 올린 건은 언제나 본다」)
-         그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
-       ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여가 요약으로 샌다
-          (2026-09-04 에 C안에서 실제로 그랬다).
-       ⚠️ 달 눈금은 지출 정리와 **같은 규칙**이다(지출일이 있으면 그것, 없으면 올린 날).
-          두 화면이 다른 달로 자르면 사람이 숫자가 안 맞는다고 느낀다. */
-    const nowMonth = kstMonth(Date.now());
-    const sumAll = iAmExec;                      // 경영진만 전체
-    const moneyRows = await safe(async () => {
-      const st = env.DB.prepare(
-        `SELECT COALESCE(NULLIF(currency,''),'PHP') AS cur,
-                substr(COALESCE(NULLIF(spent_at,''),
-                                date(created_at/1000,'unixepoch','+9 hours')), 1, 7) AS ym,
-                COUNT(*) AS n, SUM(amount) AS total,
-                SUM(CASE WHEN amount IS NULL THEN 1 ELSE 0 END) AS no_amt
-           FROM approval_requests
-          WHERE status = 'approved'` + (sumAll ? '' : ' AND requester_username = ?') + `
-          GROUP BY cur, ym`
-      );
-      const r = await (sumAll ? st : st.bind(me)).all<any>();
-      return (r.results || []) as any[];
-    }, [] as any[]);
-    const homeMoney = foldHomeMoney(moneyRows, nowMonth);
-
-    /* 「진행 중」은 **정확한 수** 로 센다 — 아래 mine 은 최근 15건뿐이라 그것으로 세면
-       16번째부터 조용히 빠진다. ⚠️ 이 숫자는 언제나 «내가 올린 것» 이다(경영진도 마찬가지) —
-       「내가 올린 것이 어떻게 됐나」를 보는 칸이라 전체로 넓히면 뜻이 달라진다. */
-    const openRow: any = await safe(async () => await env.DB.prepare(
-      `SELECT COUNT(*) AS c FROM approval_requests
-        WHERE requester_username = ? AND status = 'pending'`
-    ).bind(me).first(), null);
-    const myOpen = Number(openRow?.c || 0);
 
     const hsig: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
@@ -827,6 +790,68 @@ export async function handleApprovalApi(
     if (request.headers.get('If-None-Match') === etag) {
       return new Response(null, { status: 304, headers });
     }
+
+    /* ⚠️ 아래 요약 조회는 **304 «뒤»** 에 둔다 — 이 응답의 설계가 「내용이 그대로면
+       열 번 다 304, 본문 0바이트」다. 위에 두면 캐시로 끝나는 요청마다 GROUP BY 가 돈다
+       (2026-09-04 함정 대조 지적). ETag 서명에는 approval_requests 의 건수·최종 시각이
+       이미 들어 있어, 결재가 새로 올라오거나 결재되면 이 숫자도 함께 바뀐다. */
+    /* ═══ 🧭 맨 위 요약(D안) — 「아침에 한 번 열어 보는 화면」 ═══════════════
+       [왜 SQL 집계를 그대로 써도 되는가]
+         C안(지출 정리)은 canView 를 못 걸어 «행을 읽어 코드로» 세지만, 여기는 범위를
+         **canView 가 무조건 통과시키는 두 가지**로만 잡는다 —
+           ① 경영진 → 세 열람등급을 전부 통과(approval-policy 의 canView)
+           ② 그 밖 → 본인이 올린 것만(「내가 올린 건은 언제나 본다」)
+         그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
+       ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여가 요약으로 샌다
+          (2026-09-04 에 C안에서 실제로 그랬다).
+       ⚠️ 달 눈금은 지출 정리와 **같은 규칙**이다(지출일이 있으면 그것, 없으면 올린 날).
+          두 화면이 다른 달로 자르면 사람이 숫자가 안 맞는다고 느낀다. */
+    const nowMonth = kstMonth(Date.now());
+    const sumAll = iAmExec;                      // 경영진만 전체
+    /* 🔴 「금액 없음」은 **돈이 나가는 분류에서만** 센다 — 긴급·휴가·문서는
+       needsAmount:false 라 «원래» 금액이 없다. 그것까지 세면 화면이 멀쩡한 결재를
+       «덜 채워진 것» 처럼 말하고, 같은 화면의 지출 정리(C안)와 **다른 숫자**를 말한다.
+       2026-09-04 함정 대조 실측: 같은 데이터에서 타일 6건 대 지출 정리 0건.
+       ⚠️ 목록은 정본(TYPES.wantsCategory)에서 만든다 — 여기에 손으로 적으면
+          분류를 늘릴 때 조용히 어긋난다. */
+    /* ⚠️ `IN (?,?,…)` 를 만들지 않는다 — 이 저장소는 그 자리표시자 생성을 금지한다
+       (D1 바인드 100 한도. 조직 스코프도 같은 이유로 «콤마 문자열 한 개» 를 쓴다).
+       바인드 하나로 끝내고, 분류가 늘어도 자리표시자 수가 안 변한다. */
+    const spendCsv = ',' + TYPES.filter(t => t.wantsCategory).map(t => t.key).join(',') + ',';
+    /* ⚠️ spent_at 은 저장할 때 형식을 안 본다 — 날짜가 아니면 substr 이 엉뚱한 글자를 내고
+       그 건이 «올해가 아님» 으로 통째로 사라진다(에러 없이). C안 monthOf 가 정규식으로
+       거르는 것과 같은 판정을 SQL 로 한다. */
+    const YMD = "spent_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'";
+    const moneyRows = await safe(async () => {
+      const st = env.DB.prepare(
+        `SELECT COALESCE(NULLIF(currency,''),'PHP') AS cur,
+                substr(CASE WHEN ${YMD} THEN spent_at
+                            ELSE date(created_at/1000,'unixepoch','+9 hours') END, 1, 7) AS ym,
+                COUNT(*) AS n, SUM(amount) AS total,
+                SUM(CASE WHEN amount IS NULL
+                          AND instr(?, ',' || req_type || ',') > 0 THEN 1 ELSE 0 END) AS no_amt
+           FROM approval_requests
+          WHERE status = 'approved'` + (sumAll ? '' : ' AND requester_username = ?') + `
+          GROUP BY cur, ym`
+      );
+      const binds = sumAll ? [spendCsv] : [spendCsv, me];
+      const r = await st.bind(...binds).all<any>();
+      return (r.results || []) as any[];
+    }, null);
+    /* 🔴 조회가 실패하면 «0건» 이 아니라 «모른다» 다 — safe() 가 예외를 삼키므로
+       화면이 그것을 «전체 0건 승인» 이라고 말하면 거짓이 된다(C안의 steps_missing 과 같은 자리). */
+    const moneyFailed = moneyRows === null;
+    const homeMoney = foldHomeMoney(moneyRows || [], nowMonth);
+
+    /* 「진행 중」은 **정확한 수** 로 센다 — 아래 mine 은 최근 15건뿐이라 그것으로 세면
+       16번째부터 조용히 빠진다. ⚠️ 이 숫자는 언제나 «내가 올린 것» 이다(경영진도 마찬가지) —
+       「내가 올린 것이 어떻게 됐나」를 보는 칸이라 전체로 넓히면 뜻이 달라진다. */
+    const openRow: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_requests
+        WHERE requester_username = ? AND status = 'pending'`
+    ).bind(me).first(), null);
+    const openFailed = !openRow;
+    const myOpen = Number(openRow?.c || 0);
 
     // ① 내가 결재할 것 — 내 단계이고, 내가 올린 건이 아닌 것
     //    정렬은 «마감이 급한 순 → 오래된 순». 시각에 기대지 않으므로 내용이 같으면 순서도 같다.
@@ -961,8 +986,22 @@ export async function handleApprovalApi(
         money: homeMoney,
         money_scope: sumAll ? 'all' : 'mine',
         my_open: myOpen,
-        // mine 은 최근 15건뿐 — 「멈춤」을 그 안에서만 셌다는 사실을 화면이 말해야 한다
+        /* 🔴 「멈춤」을 몇 건에서 찾았는지 — **진행 중인 것 중 화면에 있는 수** 다.
+           ⚠️ mine.length(15)를 쓰면 안 된다: mine 은 상태를 안 가리고 최근 15건이라
+              my_open(대기만 센 수)과 «모집단이 다르다». 그러면
+                · my_open 12 · mine 15(전부 승인·반려) → 12건을 하나도 못 봤는데 **침묵**
+                · my_open 20 · mine 15(그중 대기 6) → 「15건 봤다」인데 실제로는 6건
+              둘 다 거짓이 된다(2026-09-04 함정 대조 지적).
+           ⚠️ mine 은 created_at DESC 라 **오래 멈춘 건일수록 창 밖으로 밀려난다** —
+              이 기능이 존재하는 이유(5일 방치 건)가 정확히 그 모양이다. */
+        my_open_shown: mine.filter((m: any) => m.status === 'pending').length,
         mine_shown: mine.length,
+        /* 조회가 실패했으면 «0» 이 아니라 «모른다» 다 — 화면이 그 사실을 말한다. */
+        money_unknown: moneyFailed,
+        open_unknown: openFailed,
+        /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
+           정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
+        inbox_capped: inbox.length >= 20,
         month: nowMonth,
       },
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),

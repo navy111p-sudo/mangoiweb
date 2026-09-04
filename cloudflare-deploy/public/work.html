@@ -189,13 +189,20 @@ html.dark .repgap{background:#2a2109;border-color:#5c4708;color:#f0d9a0}
 }
 html.dark .tile{background:#16202c;border-color:#26313f}
 .tile:disabled{cursor:default}
-.tile .tl{font-size:12px;color:#6b7785;margin-bottom:3px;display:block}
-html.dark .tile .tl{color:#8b98a8}
+/* ⚠️ 색을 옅게 두지 말 것 — .tn 이 «전체 / 내가 올린 것»(어느 범위인지)과
+   「금액 없음 N건」을 적는 줄이다. 안 읽히면 그 타일의 숫자가 무슨 범위인지 알 수 없다.
+   2026-09-04 실측: 옛 색은 흰 카드 3.66 · hot 카드 3.46 · 다크 4.49 로 전부 미달이었다. */
+.tile .tl{font-size:12px;color:#5a6673;margin-bottom:3px;display:block}
+html.dark .tile .tl{color:#9db0c4}
 .tile .tv{font-size:19px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
 html.dark .tile .tv{color:#e8eef5}
-.tile .tn{font-size:11.5px;color:#7b8794;margin-top:2px;display:block;line-height:1.45}
+.tile .tn{font-size:11.5px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+html.dark .tile .tn{color:#9db0c4}
 .tile.hot{border-color:#e6a23c;background:#fff8e6}
 html.dark .tile.hot{background:#2a2109;border-color:#5c4708}
+/* hot 카드는 바탕이 옅은 앰버라 더 진해야 한다 */
+.tile.hot .tl,.tile.hot .tn{color:#54492e}
+html.dark .tile.hot .tl,html.dark .tile.hot .tn{color:#d9c9a3}
 .topstop{
   border:1px solid #e0a1a1;background:#fdf1f1;border-radius:9px;padding:11px 12px;margin-bottom:10px;
   font-size:13.5px;line-height:1.6;color:#7a1c1c
@@ -1156,17 +1163,30 @@ function paintTop(){
       h += '<div>' + esc(EN() ? ((stuck.length - 1) + ' more below.')
                               : ('나머지 ' + (stuck.length - 1) + '건은 아래 목록에 있습니다.')) + '</div>';
     }
-    /* 🔴 이 목록은 «최근 15건» 안에서만 찾은 것이다 — 그보다 많이 올렸으면 더 있을 수 있다.
-       감추면 「손봐야 할 것 1건」이 거짓이 된다. */
-    if (sm && sm.my_open > (sm.mine_shown || 0)) {
-      h += '<div>' + esc(EN()
-        ? ('Checked only the ' + sm.mine_shown + ' most recent of your ' + sm.my_open + ' open requests.')
-        : ('진행 중 ' + sm.my_open + '건 가운데 최근 ' + sm.mine_shown + '건만 살펴본 것입니다.')) + '</div>';
-    }
     h += '<button type="button" class="ts-go" onclick="topGo(' + Number(first.r.id) + ')">' +
          esc(T('Show it', '그 건 보기')) + '</button>';
     h += '</div>';
     stopHost.innerHTML = h;
+  }
+
+  /* 🔴 「창 밖은 못 봤다」는 **경고 상자 밖**에 둔다.
+     ⛔ 상자 «안» 에 두면, 창 안에 멈춘 건이 없을 때 상자가 통째로 안 그려져 그 말까지
+        함께 사라진다 — 정작 그때가 알려야 할 때다(화면에는 「손볼 것 없음」처럼 보이는데
+        창 밖에 있을 수 있다). mine 은 created_at DESC 라 **오래 멈춘 건일수록 밀려난다.**
+     ⚠️ 비교는 «진행 중인 것 중 화면에 있는 수»(my_open_shown)로 한다 —
+        mine.length 는 상태를 안 가리는 최근 15건이라 my_open 과 모집단이 다르다. */
+  var seen = (sm && typeof sm.my_open_shown === 'number') ? sm.my_open_shown : null;
+  if (sm && seen != null && sm.my_open > seen) {
+    stopHost.innerHTML += '<div class="repnote">' + esc(EN()
+      ? ('Checked ' + seen + ' of your ' + sm.my_open + ' open requests — the rest are outside this list.')
+      : ('진행 중 ' + sm.my_open + '건 가운데 ' + seen + '건만 살펴본 것입니다 — 나머지는 이 목록 밖에 있습니다.'))
+      + '</div>';
+  }
+  /* 조회가 실패했으면 «0건» 이 아니라 «모른다» 고 적는다. */
+  if (sm && (sm.money_unknown || sm.open_unknown)) {
+    stopHost.innerHTML += '<div class="repnote">' + esc(
+      T('Could not read some of these numbers — they may be missing.',
+        '아래 숫자 가운데 일부를 읽지 못했습니다 — 빠진 것이 있을 수 있습니다.')) + '</div>';
   }
 
   /* ── ② 타일 넷 ──────────────────────────────────────────────────────── */
@@ -1180,21 +1200,31 @@ function paintTop(){
   };
 
   var inboxN = (D.inbox || []).length;
+  /* ⚠️ 결재함은 20건에서 자른다(서버 inbox 루프) — 정확한 수처럼 보이지 않게 «+» 를 붙인다. */
+  var inboxCap = !!(sm && sm.inbox_capped);
   t += tile(inboxN ? 'hot' : '', T('Waiting for me', '내가 결재할 것'),
-            EN() ? String(inboxN) : (inboxN + '건'),
-            inboxN ? '' : T('nothing to decide', '지금은 없습니다'),
+            (EN() ? String(inboxN) : (inboxN + '건')) + (inboxCap ? '+' : ''),
+            inboxN ? (inboxCap ? T('at least this many', '적어도 이만큼') : '')
+                   : T('nothing to decide', '지금은 없습니다'),
             'topScroll(\'inbox\')');
 
-  var openN = sm ? sm.my_open : (D.mine || []).filter(function(r){ return r.status === 'pending'; }).length;
+  /* ⛔ 못 읽었으면 «0건» 이 아니라 «—» 다. */
+  var openN = (sm && !sm.open_unknown) ? sm.my_open : null;
   t += tile(stuck.length ? 'hot' : '', T('My requests in progress', '내가 올린 것 · 진행 중'),
-            EN() ? String(openN) : (openN + '건'),
-            stuck.length ? (EN() ? (stuck.length + ' need attention') : ('그중 손볼 것 ' + stuck.length + '건'))
-                         : '',
+            openN == null ? '—' : (EN() ? String(openN) : (openN + '건')),
+            openN == null ? T('could not read', '읽지 못했습니다')
+              : (stuck.length ? (EN() ? (stuck.length + ' need attention')
+                                      : ('그중 손볼 것 ' + stuck.length + '건'))
+                              : ''),
             'topScroll(\'mine\')');
 
   /* 💰 금액 타일 — «어느 범위인지» 를 반드시 함께 적는다.
      경영진은 전체, 그 밖은 내가 올린 것이라 같은 타일에서 다른 숫자를 본다. */
-  if (sm && sm.money) {
+  if (sm && sm.money_unknown) {
+    /* ⛔ 「전체 · 0건 승인」이라고 적지 않는다 — 못 읽은 것과 0건은 다른 사실이다. */
+    t += tile('', T('Approved this month', '이번 달 승인'), '—', T('could not read', '읽지 못했습니다'), '');
+    t += tile('', T('Approved this year', '올해 누적'), '—', T('could not read', '읽지 못했습니다'), '');
+  } else if (sm && sm.money) {
     var scopeNote = (sm.money_scope === 'all') ? T('everyone', '전체')
                                                : T('my requests', '내가 올린 것');
     var mm = repMoney(sm.money.month), yy = repMoney(sm.money.year);

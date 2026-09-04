@@ -64,7 +64,8 @@ function home(over) {
     types: TYPES, categories: CATS,
     inbox: [], mine: [stuckRow, okRow], reuse: [], urgent: [],
     summary: {
-      money: MONEY, money_scope: 'all', my_open: 1, mine_shown: 2, month: P.kstMonth(now),
+      money: MONEY, money_scope: 'all', my_open: 1, my_open_shown: 1, mine_shown: 2,
+      money_unknown: false, open_unknown: false, inbox_capped: false, month: P.kstMonth(now),
     },
   }, over || {});
 }
@@ -179,7 +180,8 @@ function check(name, cond, extra) {
   console.log('\n[4] 짝 검사 — 손봐야 할 것이 없을 때');
   await page.evaluate((row) => {
     window.__HOME = Object.assign({}, window.__HOME, {
-      mine: [row], summary: Object.assign({}, window.__HOME.summary, { my_open: 0, mine_shown: 1 }),
+      mine: [row], summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 0, my_open_shown: 0, mine_shown: 1 }),
     });
   }, okRow);
   await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
@@ -212,22 +214,106 @@ function check(name, cond, extra) {
   await page.evaluate((row) => {
     window.__HOME = Object.assign({}, window.__HOME, {
       mine: [row],
-      summary: Object.assign({}, window.__HOME.summary, { my_open: 30, mine_shown: 1 }),
+      summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 30, my_open_shown: 1, mine_shown: 1 }),
     });
   }, stuckRow);
   await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
   await page.waitForTimeout(700);
   const st3 = await stopTxt();
-  check('「진행 중 30건 중 최근 1건만 살펴봤다」고 말한다',
-    /최근 1건만 살펴본/.test(st3), JSON.stringify(st3));
+  check('「진행 중 30건 가운데 1건만 살펴봤다」고 말한다',
+    /30건 가운데 1건만 살펴본/.test(st3), JSON.stringify(st3));
   /* 🔴 여기가 «정확한 수» 를 쓰는지 가르는 자리다 — mine 은 1건뿐인데 실제 진행 중은 30건이다.
      최근 15건으로 세면 «1건» 이 되어 16번째부터 조용히 빠진다. */
   const tl4 = await tiles();
   check('「진행 중」이 서버가 준 정확한 수(30)로 나온다 — 화면에 있는 1건으로 세지 않는다',
     tl4[1] && /30/.test(tl4[1].v) && !/^1건$/.test(tl4[1].v), JSON.stringify(tl4[1]));
 
+  /* 🔴 함정 대조가 짚어 준 반례 ⓐ — **창 안에 멈춘 건이 없을 때**.
+     그 안내가 경고 상자 «안» 에 있으면 상자가 통째로 안 그려져 말까지 사라진다.
+     정작 그때가 알려야 할 때다(화면에는 「손볼 것 없음」처럼 보이는데 창 밖에 있을 수 있다). */
+  await page.evaluate((row) => {
+    window.__HOME = Object.assign({}, window.__HOME, {
+      mine: [row],   // 승인된 건 하나뿐 — 멈춘 것이 화면에 없다
+      summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 12, my_open_shown: 0, mine_shown: 1 }),
+    });
+  }, okRow);
+  await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
+  await page.waitForTimeout(700);
+  const st4 = await stopTxt();
+  check('멈춘 건이 화면에 없어도 「창 밖은 못 봤다」를 말한다 (상자 안에 두면 사라진다)',
+    /12건 가운데 0건만 살펴본/.test(st4), JSON.stringify(st4));
+  check('그때 빨간 경고 상자는 안 뜬다 (모르는 것과 «문제 있음» 은 다르다)',
+    (await page.evaluate(() => !document.querySelector('#topStop .topstop'))) === true);
+
+  /* 🔴 반례 ⓑ — 화면에 있는 «진행 중» 수로 비교해야 한다.
+     mine.length(상태 무관 15건)로 비교하면 「15건 봤다」인데 실제로는 6건만 본 것이 된다. */
+  await page.evaluate((rows) => {
+    window.__HOME = Object.assign({}, window.__HOME, {
+      mine: rows,
+      summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 20, my_open_shown: 6, mine_shown: 15 }),
+    });
+  }, [okRow]);
+  await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
+  await page.waitForTimeout(700);
+  const st5 = await stopTxt();
+  check('«진행 중인 것 중 화면에 있는 수»로 말한다 (15가 아니라 6)',
+    /20건 가운데 6건만 살펴본/.test(st5) && st5.indexOf('15건만') < 0, JSON.stringify(st5));
+
+  /* ── ⑥-2 못 읽었을 때 «0» 이라고 하지 않는가 ────────────────────────── */
+  console.log('\n[6-2] 조회 실패 — 「0건」이 아니라 「모른다」');
+  await page.evaluate((row) => {
+    window.__HOME = Object.assign({}, window.__HOME, {
+      mine: [row],
+      summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 0, my_open_shown: 0, money_unknown: true, open_unknown: true }),
+    });
+  }, okRow);
+  await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
+  await page.waitForTimeout(700);
+  const tlU = await tiles();
+  check('「진행 중」이 0건이 아니라 «—»', tlU[1] && tlU[1].v === '—', JSON.stringify(tlU[1]));
+  check('금액 타일도 «—»', tlU[2] && tlU[2].v === '—', JSON.stringify(tlU[2]));
+  check('⛔ 「전체 · 0건 승인」이라고 말하지 않는다',
+    tlU[2] && tlU[2].n.indexOf('0건 승인') < 0, JSON.stringify(tlU[2]));
+  check('못 읽었다는 사실을 적는다', /읽지 못했습니다/.test(await stopTxt() + JSON.stringify(tlU)));
+
+  /* ── ⑥-3 결재함 20건 상한 ───────────────────────────────────────────── */
+  console.log('\n[6-3] 결재함 20건 상한 — 정확한 수처럼 보이지 않게');
+  await page.evaluate((row) => {
+    const box = [];
+    for (var i = 0; i < 20; i++) box.push(Object.assign({}, row, { id: 500 + i }));
+    window.__HOME = Object.assign({}, window.__HOME, {
+      inbox: box,
+      summary: Object.assign({}, window.__HOME.summary,
+        { money_unknown: false, open_unknown: false, inbox_capped: true }),
+    });
+  }, okRow);
+  await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
+  await page.waitForTimeout(700);
+  const tlC = await tiles();
+  check('20건에서 잘렸으면 «+» 를 붙인다', tlC[0] && /20건\+/.test(tlC[0].v), JSON.stringify(tlC[0]));
+  check('«적어도 이만큼» 이라고 적는다', tlC[0] && /적어도/.test(tlC[0].n), JSON.stringify(tlC[0]));
+
   /* ── ⑦ 언어 ─────────────────────────────────────────────────────────── */
   console.log('\n[7] 언어');
+  /* ⚠️ 앞 절들이 화면 상태를 바꿔 놓았다 — 경고 줄이 있는 상태로 되돌리고 본다.
+     안 되돌리면 「경고 줄도 영어로」·「경고 줄이 읽힌다」가 **없는 것을 재게** 되어
+     거짓 FAIL 이 난다(2026-09-04 실측). */
+  await page.evaluate((row) => {
+    window.__HOME = Object.assign({}, window.__HOME, {
+      inbox: [], mine: [row],
+      summary: Object.assign({}, window.__HOME.summary,
+        { my_open: 1, my_open_shown: 1, mine_shown: 1,
+          money_unknown: false, open_unknown: false, inbox_capped: false }),
+    });
+  }, stuckRow);
+  await page.evaluate(() => window.reloadAll ? window.reloadAll() : location.reload());
+  await page.waitForTimeout(700);
+  check('되돌리기 확인 — 경고 줄이 다시 있다 (전제)',
+    (await page.evaluate(() => !!document.querySelector('#topStop .topstop'))) === true);
   await page.evaluate(() => window.toggleLang());
   await page.waitForTimeout(400);
   const tlEn = await tiles();
@@ -285,6 +371,98 @@ function check(name, cond, extra) {
     return Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100;
   });
   check('경고 줄이 읽힌다 (WCAG 4.5 이상)', contrast != null && contrast >= 4.5, String(contrast));
+
+  /* 🔴 «한 자리만 재고 「이 화면은 안전하다」로 끝내지 않는다»(CLAUDE.md 2장).
+     특히 .tn 은 «어느 범위인지»(전체 / 내가 올린 것)를 적는 줄이라, 안 읽히면
+     그 타일의 숫자가 무슨 뜻인지 알 수 없다. 밝게·어둡게 × 보통·강조 전부 잰다. */
+  const allText = await page.evaluate(() => {
+    const lum = (c) => {
+      const f = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+    };
+    const rgb = (s) => { const m = String(s).match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : null; };
+    const alpha = (s) => { const m = String(s).match(/[\d.]+/g); return (m && m.length > 3) ? Number(m[3]) : 1; };
+    const bgOf = (el0) => {
+      const layers = []; let el = el0;
+      while (el) {
+        const cs = getComputedStyle(el);
+        let c = rgb(cs.backgroundColor), a = alpha(cs.backgroundColor);
+        if ((!c || a === 0) && cs.backgroundImage && cs.backgroundImage !== 'none') {
+          const g = rgb(cs.backgroundImage); if (g) { c = g; a = 1; }
+        }
+        if (c && a > 0) { layers.push({ c, a }); if (a >= 1) break; }
+        el = el.parentElement;
+      }
+      if (!layers.length) layers.push({ c: [255, 255, 255], a: 1 });
+      let bg = layers[layers.length - 1].c;
+      for (let i = layers.length - 2; i >= 0; i--) {
+        const { c, a } = layers[i];
+        bg = [0, 1, 2].map((k) => c[k] * a + bg[k] * (1 - a));
+      }
+      return bg;
+    };
+    const out = [];
+    document.querySelectorAll('#topTiles .tl, #topTiles .tv, #topTiles .tn').forEach((el) => {
+      if (!el.textContent.trim()) return;
+      const fg = rgb(getComputedStyle(el).color), bg = bgOf(el);
+      const L1 = lum(fg), L2 = lum(bg);
+      out.push({
+        cls: el.className, hot: !!el.closest('.tile.hot'),
+        r: Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100,
+        txt: el.textContent.trim().slice(0, 20),
+      });
+    });
+    return out;
+  });
+  const dim = allText.filter((x) => x.r < 4.5);
+  check('타일 글자가 모두 읽힌다 — 밝게 (WCAG 4.5)', allText.length > 0 && dim.length === 0,
+    JSON.stringify(dim));
+  check('강조(hot) 타일 글자도 잰다 (전제 — 안 재면 그 조합이 빠진다)',
+    allText.some((x) => x.hot), JSON.stringify(allText.map((x) => x.hot)));
+
+  await page.evaluate(() => window.toggleMode());
+  await page.waitForTimeout(300);
+  const allDark = await page.evaluate(() => {
+    const lum = (c) => {
+      const f = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+    };
+    const rgb = (s) => { const m = String(s).match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : null; };
+    const alpha = (s) => { const m = String(s).match(/[\d.]+/g); return (m && m.length > 3) ? Number(m[3]) : 1; };
+    const bgOf = (el0) => {
+      const layers = []; let el = el0;
+      while (el) {
+        const cs = getComputedStyle(el);
+        let c = rgb(cs.backgroundColor), a = alpha(cs.backgroundColor);
+        if ((!c || a === 0) && cs.backgroundImage && cs.backgroundImage !== 'none') {
+          const g = rgb(cs.backgroundImage); if (g) { c = g; a = 1; }
+        }
+        if (c && a > 0) { layers.push({ c, a }); if (a >= 1) break; }
+        el = el.parentElement;
+      }
+      if (!layers.length) layers.push({ c: [0, 0, 0], a: 1 });
+      let bg = layers[layers.length - 1].c;
+      for (let i = layers.length - 2; i >= 0; i--) {
+        const { c, a } = layers[i];
+        bg = [0, 1, 2].map((k) => c[k] * a + bg[k] * (1 - a));
+      }
+      return bg;
+    };
+    const out = [];
+    document.querySelectorAll('#topTiles .tl, #topTiles .tv, #topTiles .tn').forEach((el) => {
+      if (!el.textContent.trim()) return;
+      const fg = rgb(getComputedStyle(el).color), bg = bgOf(el);
+      const L1 = lum(fg), L2 = lum(bg);
+      out.push({ cls: el.className, hot: !!el.closest('.tile.hot'),
+                 r: Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100 });
+    });
+    return out;
+  });
+  check('어둡게 상태에서도 모두 읽힌다',
+    allDark.length > 0 && allDark.filter((x) => x.r < 4.5).length === 0,
+    JSON.stringify(allDark.filter((x) => x.r < 4.5)));
+  await page.evaluate(() => window.toggleMode());
+  await page.waitForTimeout(200);
 
   /* ── ⑨ 조용한 실패 ─────────────────────────────────────────────────── */
   console.log('\n[9] 실행 중 오류');

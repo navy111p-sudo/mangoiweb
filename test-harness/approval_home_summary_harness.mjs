@@ -110,7 +110,16 @@ if (!DatabaseSync) {
     // 마지막 백틱은 그 prepare 호출을 닫는 `\n      );` 앞이다
     const close = api.indexOf('\n      );', b0);
     const expr = api.slice(b0, close);
-    try { build = new Function('sumAll', 'return ' + expr); } catch (e) { build = null; }
+    /* 그 식이 쓰는 «바깥 값» 을 여기서 넘긴다.
+       ⚠️ 소스에 새 변수가 끼어들면 호출할 때 ReferenceError 가 난다 — 그러면 **검사가
+          통째로 죽어** 무엇이 깨졌는지 안 보인다(2026-09-04 실측). 아래에서 감싸
+          «깔끔한 FAIL» 로 만든다. 그때 여기에 그 변수를 더해 주면 된다. */
+    const YMD = "spent_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'";
+    try {
+      const fn = new Function('sumAll', 'YMD', 'return ' + expr);
+      build = (all) => fn(all, YMD);
+      String(build(true));                       // 지금 바로 한 번 돌려 본다
+    } catch (e) { build = null; }
   }
   check('요약 SQL 식을 소스에서 오려 내 평가했다 (전제 — 못 하면 아래가 헛돈다)',
     !!build && /GROUP BY cur, ym/.test(String(build(true))), build ? '평가됨' : '못 함');
@@ -133,14 +142,17 @@ if (!DatabaseSync) {
        「본사 직원은 전체」로 넓히는 변이를 이 검사가 못 봅니다. */
     const sqlMine = String(build(false));
     const sqlAll  = String(build(true));
+    /* 「금액 없음」을 좁히는 목록도 정본에서 만든다 — 손으로 적으면 분류를 늘릴 때 어긋난다.
+       ⚠️ IN (?,?,…) 가 아니라 «콤마 문자열 한 개» 다(D1 바인드 한도 규칙). */
+    const SPENDCSV = ',' + P.TYPES.filter((t) => t.wantsCategory).map((t) => t.key).join(',') + ',';
     check('두 범위의 SQL 이 실제로 다르다 (전제 — 같으면 아래 짝 검사가 뜻을 잃는다)',
       sqlMine !== sqlAll && /requester_username/.test(sqlMine) && !/requester_username/.test(sqlAll),
       JSON.stringify([sqlMine.includes('requester_username'), sqlAll.includes('requester_username')]));
     /* ⚠️ 깔끔한 FAIL 로 남긴다 — 범위 조건이 사라지면 바인드 수가 안 맞아 prepare 가
        던지는데, 감싸지 않으면 **검사가 통째로 죽어** 무엇이 깨졌는지 안 보인다
        (2026-09-04 변이시험에서 실제로 그랬다). */
-    const runMine = (u) => { try { return db.prepare(sqlMine).all(u); } catch (e) { return null; } };
-    const runAll = () => { try { return db.prepare(sqlAll).all(); } catch (e) { return null; } };
+    const runMine = (u) => { try { return db.prepare(sqlMine).all(SPENDCSV, u); } catch (e) { return null; } };
+    const runAll = () => { try { return db.prepare(sqlAll).all(SPENDCSV); } catch (e) { return null; } };
 
     // ⓐ 직원(경영진 아님) → 본인 것만
     const lbyRows = runMine('mgr_lby');
@@ -199,34 +211,7 @@ check('금액 없는 승인은 0건', REAL.year_no_amount === 0);
 // ══ ④ 배선 ═══════════════════════════════════════════════════════════════
 console.log('\n[④] 배선');
 
-check('범위는 경영진일 때만 전체 (⛔ 본사 직원 전체로 넓히지 않았다)',
-  /const sumAll = iAmExec;/.test(api));
-check('그 밖에는 본인 조건을 SQL 에 건다',
-  /sumAll \? '' : ' AND requester_username = \?'/.test(api));
-check('화면이 어느 범위인지 말한다 (같은 타일에서 다른 숫자를 본다)',
-  /money_scope/.test(api) && /money_scope === 'all'/.test(work));
-check('「진행 중」은 정확한 수로 센다 (최근 15건으로 세지 않는다)',
-  /SELECT COUNT\(\*\) AS c FROM approval_requests\s*\n\s*WHERE requester_username = \? AND status = 'pending'/.test(api));
-check('「진행 중」은 언제나 내 것 (경영진도 전체로 넓히지 않는다)',
-  !/sumAll[\s\S]{0,120}status = 'pending'/.test(api));
-check('「멈춤」을 최근 몇 건에서 셌는지 내려준다', /mine_shown:\s*mine\.length/.test(api));
-check('화면이 그 사실을 말한다 (「손봐야 할 것 1건」이 거짓이 되지 않게)',
-  /my_open > \(sm\.mine_shown/.test(work));
-check('응답 모양이 바뀌었으니 ETag 를 올렸다', (() => {
-  const em = api.match(/W\/"a(\d+)-/);
-  return !!em && Number(em[1]) >= 6;
-})(), (api.match(/W\/"a(\d+)-/) || [])[0]);
-
-/* ⛔ 손봐야 할 것이 없으면 그 줄을 아예 안 그린다 — 늘 뜨는 경고는 아무도 안 읽는다. */
 const workJs = work.replace(/<!--[\s\S]*?-->/g, '');
-check('손봐야 할 것이 없으면 경고 줄을 안 그린다',
-  /if \(!stuck\.length\) \{\s*\n?\s*stopHost\.innerHTML = '';/.test(workJs));
-check('맨 위 요약은 서버를 따로 부르지 않는다 (첫 화면 API 한 번)',
-  !/paintTop[\s\S]{0,600}?fetch\(/.test(workJs));
-check('통화는 지출 정리와 같은 함수로 그린다 (규칙이 두 벌이 되지 않게)',
-  /repMoney\(sm\.money\.month\)/.test(workJs));
-check('멈춘 것을 지연보다 먼저 보여 준다 (지연은 기다리면 풀리지만 멈춤은 안 풀린다)',
-  /a\.why === 'blocked' \? 0 : 1/.test(workJs));
 /* ⚠️ 범위를 «앞 N자» 로 자르지 않는다 — 함수가 길어지면 조용히 통과·실패가 뒤집힌다.
    그 함수만 **중괄호 짝**으로 잘라 그 «안» 을 본다(CLAUDE.md 2장). */
 function fnBody(src, head) {
@@ -239,6 +224,81 @@ function fnBody(src, head) {
   }
   return src.slice(at, i);
 }
+
+check('범위는 경영진일 때만 전체 (⛔ 본사 직원 전체로 넓히지 않았다)',
+  /const sumAll = iAmExec;/.test(api));
+check('그 밖에는 본인 조건을 SQL 에 건다',
+  /sumAll \? '' : ' AND requester_username = \?'/.test(api));
+check('화면이 어느 범위인지 말한다 (같은 타일에서 다른 숫자를 본다)',
+  /money_scope/.test(api) && /money_scope === 'all'/.test(work));
+check('「진행 중」은 정확한 수로 센다 (최근 15건으로 세지 않는다)',
+  /SELECT COUNT\(\*\) AS c FROM approval_requests\s*\n\s*WHERE requester_username = \? AND status = 'pending'/.test(api));
+check('「진행 중」은 언제나 내 것 (경영진도 전체로 넓히지 않는다)',
+  !/sumAll[\s\S]{0,120}status = 'pending'/.test(api));
+/* 🔴 「몇 건에서 찾았나」는 **진행 중인 것 중 화면에 있는 수** 여야 한다.
+   mine.length(상태 무관 최근 15건)로 비교하면 my_open 과 모집단이 달라 두 방향으로 거짓이 된다
+   (2026-09-04 함정 대조 지적) — ⓐ 최근 15건이 전부 승인·반려면 **침묵** ⓑ 그중 대기가 6건뿐이면 「15건 봤다」. */
+check('「멈춤」을 «진행 중인 것 중 화면에 있는 수» 로 센다',
+  /my_open_shown:\s*mine\.filter\(\(m: any\) => m\.status === 'pending'\)\.length/.test(api));
+/* ⚠️ 「파일 어딘가에 그 이름이 있는가」로 쓰면 **내가 쓴 주석이 자기 검사를 통과시킵니다**
+   (실측: `sm.mine_shown` 으로 되돌리는 변이가 그대로 통과 — 바로 위 주석에 그 낱말이 있어서).
+   그래서 판정은 **그 값을 정하는 대입문 한 줄**로 합니다. */
+const seenLine = (work.split('\n').find(l => /var seen\s*=/.test(l) && !/^\s*(\/\/|\*)/.test(l)) || '');
+check('「몇 건에서 찾았나」를 정하는 줄을 찾았다 (전제 — 못 찾으면 아래가 헛돈다)',
+  seenLine.length > 0);
+check('화면도 그 값으로 비교한다 (mine_shown 이 아니라)',
+  /sm\.my_open > seen/.test(work) && /sm\.my_open_shown/.test(seenLine));
+check('⛔ 그 줄이 mine_shown 을 읽지 않는다',
+  !/mine_shown/.test(seenLine));
+
+/* 🔴 그 안내는 경고 상자 «밖» 에 있어야 한다 — 상자 안에 두면 창 안에 멈춘 건이 없을 때
+   상자가 통째로 안 그려져 그 말까지 사라진다(정작 그때가 알려야 할 때다). */
+const paintTopBody = fnBody(workJs, 'function paintTop()');
+const stopBranch = paintTopBody.slice(0, paintTopBody.indexOf('stopHost.innerHTML = h;'));
+check('paintTop 을 잘라 냈다 (전제)', paintTopBody.length > 500, paintTopBody.length + '자');
+check('「창 밖은 못 봤다」가 경고 상자 «밖» 에 있다 (없을 때가 정작 필요한 때다)',
+  stopBranch.indexOf('my_open > seen') < 0 && paintTopBody.indexOf('my_open > seen') > 0);
+
+/* 조회가 실패하면 «0» 이 아니라 «모른다» — C안의 steps_missing 과 같은 자리. */
+check('조회 실패를 내려보낸다', /money_unknown: moneyFailed/.test(api) && /open_unknown: openFailed/.test(api));
+check('화면이 «0건» 대신 «—» 로 적는다',
+  /sm\.money_unknown/.test(work) && /openN == null \? '—'/.test(work));
+check('결재함 20건 상한을 알려 준다 (정확한 수처럼 보이지 않게)',
+  /inbox_capped: inbox\.length >= 20/.test(api) && /inboxCap \? '\+' : ''/.test(work));
+
+/* 🔴 「금액 없음」은 돈이 나가는 분류에서만 — 긴급·휴가·문서는 원래 금액이 없다.
+   그것까지 세면 같은 화면의 지출 정리(C안)와 다른 숫자를 말한다. */
+check('「금액 없음」을 돈이 나가는 분류로 좁힌다',
+  /instr\(\?, ',' \|\| req_type \|\| ','\) > 0/.test(api));
+check('그 목록을 정본(TYPES.wantsCategory)에서 만든다 (손으로 적지 않는다)',
+  /TYPES\.filter\(t => t\.wantsCategory\)\.map\(t => t\.key\)/.test(api));
+check('⛔ IN (?,?,…) 자리표시자를 만들지 않는다 (D1 바인드 한도 규칙)',
+  !/map\(\(\) => '\?'\)/.test(api));
+check('spent_at 형식을 SQL 이 거른다 (날짜가 아니면 올린 날로 — C안 monthOf 와 같은 판정)',
+  /spent_at GLOB '\[0-9\]\[0-9\]\[0-9\]\[0-9\]-\[0-9\]\[0-9\]-\[0-9\]\[0-9\]'/.test(api));
+
+/* 🔴 요약 조회는 304 «뒤» 에 — 앞에 두면 캐시로 끝나는 요청마다 GROUP BY 가 돈다. */
+const i304 = api.indexOf("return new Response(null, { status: 304, headers });");
+const iMoney = api.indexOf('const moneyRows = await safe');
+const iOpen = api.indexOf('const openRow: any = await safe');
+check('요약 조회가 304 반환 «뒤» 에 있다 (본문 0바이트 설계를 지킨다)',
+  i304 > 0 && iMoney > i304 && iOpen > i304, `304@${i304} · money@${iMoney} · open@${iOpen}`);
+check('응답 모양이 바뀌었으니 ETag 를 올렸다', (() => {
+  const em = api.match(/W\/"a(\d+)-/);
+  return !!em && Number(em[1]) >= 6;
+})(), (api.match(/W\/"a(\d+)-/) || [])[0]);
+
+/* ⛔ 손봐야 할 것이 없으면 그 줄을 아예 안 그린다 — 늘 뜨는 경고는 아무도 안 읽는다. */
+check('손봐야 할 것이 없으면 경고 줄을 안 그린다',
+  /if \(!stuck\.length\) \{\s*\n?\s*stopHost\.innerHTML = '';/.test(workJs));
+/* ⚠️ 「앞 600자» 로 자르면 함수가 길어질 때 뒤쪽 fetch 를 못 본다(CLAUDE.md 2장).
+   함수를 **중괄호 짝**으로 잘라 그 «안» 전체를 본다. */
+check('맨 위 요약은 서버를 따로 부르지 않는다 (첫 화면 API 한 번)',
+  fnBody(workJs, 'function paintTop()').indexOf('fetch(') < 0);
+check('통화는 지출 정리와 같은 함수로 그린다 (규칙이 두 벌이 되지 않게)',
+  /repMoney\(sm\.money\.month\)/.test(workJs));
+check('멈춘 것을 지연보다 먼저 보여 준다 (지연은 기다리면 풀리지만 멈춤은 안 풀린다)',
+  /a\.why === 'blocked' \? 0 : 1/.test(workJs));
 const topGoBody = fnBody(workJs, 'window.topGo = function');
 check('topGo 함수를 잘라 냈다 (전제)', topGoBody.length > 50, topGoBody.length + '자');
 check('그 건이 화면에 없으면 문서함으로 안내한다 (「눌러도 아무 일도 없음」 방지)',
