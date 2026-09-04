@@ -145,7 +145,9 @@ async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind
   if (!m) return true;                       // 예약방이 아니면 mesh 와 같은 문턱
   if (ident.kind === 'admin') return true;    // 강사·본사 — 참관·수업이 이 경로로 온다
   try {
-    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first<any>();
+    /* ⚠️ `.first<any>()` 로 쓰지 말 것 — env 가 any 라 prepare 체인이 «타입 없는 호출» 이고,
+       거기에 타입인자를 주면 TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). */
+    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first() as any;
     if (!row) return false;
     const mine = String(ident.uid || '');
     const owner = String(row.user_id || '');

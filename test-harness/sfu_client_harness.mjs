@@ -605,6 +605,14 @@ await (async () => {
     ok(await f(boom, 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === false,
        '조회가 실패해도 막는 쪽으로 실패한다');
   }
+  /* 🪤 `env` 를 any 로 받으면 prepare 체인이 «타입 없는 호출» 이 되어, 거기에 타입인자를 주면
+     TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). 이 컨테이너는 tsc 를 못 돌리므로
+     그 한 가지 모양만이라도 여기서 막는다. */
+  if (src) {
+    ok(!/\.(first|all|run)\s*<[^>]*>\s*\(/.test(src),
+       'D1 호출에 타입인자를 주지 않는다 (env:any 라 TS2347 — CI 에서만 잡히던 것)');
+  }
+
   /* 두 경로가 «같은 것» 을 보는가 — 한쪽만 걸면 그쪽으로 새 나간다 */
   const nUse = (t.match(/await sfuRoomAllowed\(/g) || []).length;
   ok(nUse >= 2, 'sfu 프록시와 명단 «둘 다» 이 게이트를 지난다 (실제 ' + nUse + '곳)');
