@@ -603,7 +603,10 @@
     //    emma=teacher-avatar · jake=hero-avatar · lily/noah=입모양 이미지 세트에서 얼굴만 잘라 낸 것.
     //    emoji 는 썸네일이 없을 때(404)의 폴백으로 남긴다.
     const FRIENDS = [
-      { v: 'emma', emoji: '👩', face: '/img/friend-emma.webp', name: 'Emma',
+      // emma 는 -2: 정지 PNG(teacher-avatar.png)가 부옇고 회색 얼룩이 있어(사장님 「잘 보이지 않아」 2026-09-04)
+      //   영상(teacher-avatar.webm) 첫 프레임을 크로마키+선명화해 다시 만들었다. 이름을 바꾼 이유는 캐시 —
+      //   같은 이름으로 덮으면 이미 받은 브라우저는 옛 그림을 계속 보여 준다.
+      { v: 'emma', emoji: '👩', face: '/img/friend-emma-2.webp', name: 'Emma',
         ko: '엠마', en: 'Emma', persona: 'friendly',
         d_ko: '다정하게 이야기해요', d_en: 'Warm and friendly',
         hi: "Hi! I'm Emma. What do you want to talk about today?" },
