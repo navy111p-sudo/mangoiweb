@@ -7873,6 +7873,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     /* ⛔ «표본 없음» 을 0% 로 그리지 말 것 — 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다.
        서버는 표본이 없으면 NULL 을 준다(모름이 -1 로 들어온 행을 평균에서 뺐기 때문). */
     function pctOrDash(v){ return (v==null)?'—':(v+'%'); }
+    function vcqPathCell(x){
+      var pt=Number(x.path_ticks)||0, pr=Number(x.relay_ticks)||0;
+      if(!pt) return '<span style="color:#94a3b8">—</span>';
+      var pc=Math.round(100*pr/pt), lab=(pc===0)?'직접':(pc===100?'중계':'혼합 '+pc+'%');
+      var col=(pc===0)?'#16a34a':(pc===100?'#7c3aed':'#d97706');
+      var tn=x.turn?('<br><span style="color:#64748b;font-size:10.5px">'+esc(x.turn)+'</span>'):'';
+      return '<span style="font-weight:700;color:'+col+'">'+lab+'</span>'+tn;
+    }
     try{
       var r=await fetch('/api/admin/vc/quality?days='+encodeURIComponent(days),{credentials:'include'});
       var d=await r.json().catch(function(){return {};});
@@ -7880,7 +7888,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       var rows=d.rows||[];
       if(!rows.length){ body.innerHTML='<span style="color:#94a3b8">아직 수집된 회선품질 데이터가 없습니다. (화상수업이 진행되면 자동으로 쌓입니다)</span>'; return; }
       var h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
-        '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">이름</th><th>역할</th><th title="손실이 3% 넘은 날 수 — 여러 날이면 «그날만» 이 아니라 회선 자체 문제">나쁜날</th><th>평균손실</th><th>p95</th><th>최악손실</th><th>평균RTT</th><th title="받은 영상 손실">📥수신손실</th><th title="끊겨서 브라우저가 메꾼 소리 비율 — 소리 끊김의 직접 지표">📥소리메움</th><th title="받은 영상이 멈춘 횟수">📥영상멈춤</th><th>AAO</th><th>표본</th><th>마지막</th></tr>';
+        '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">이름</th><th>역할</th><th title="손실이 3% 넘은 날 수 — 여러 날이면 «그날만» 이 아니라 회선 자체 문제">나쁜날</th><th>평균손실</th><th>p95</th><th>최악손실</th><th>평균RTT</th><th title="중계(TURN)로 간 비율 — 직접(P2P)이면 두 사람 사이 회선, 중계면 TURN 서버 경유. 아래 작은 글자가 그 TURN 서버(Cloudflare 가 아니면 무료 폴백)">🛰경로</th><th title="받은 영상 손실">📥수신손실</th><th title="끊겨서 브라우저가 메꾼 소리 비율 — 소리 끊김의 직접 지표">📥소리메움</th><th title="받은 영상이 멈춘 횟수">📥영상멈춤</th><th>AAO</th><th>표본</th><th>마지막</th></tr>';
       rows.forEach(function(x){
         var when=x.last_seen?new Date(x.last_seen).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
         h+='<tr style="border-bottom:1px solid #e2e8f0">'+
@@ -7897,6 +7905,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           '<td style="color:'+color(x.p95_loss)+'">'+pctOrDash(x.p95_loss)+'</td>'+
           '<td style="color:'+color(x.worst_loss)+'">'+x.worst_loss+'%</td>'+
           '<td>'+x.avg_rtt+'ms</td>'+
+          /* 🛰 (2026-09-03) 경로 — path_ticks 0 = «모름» 이라 — 로 그린다(0/0 을 «직접» 으로 읽지 말 것) */
+          '<td>'+vcqPathCell(x)+'</td>'+
           '<td style="font-weight:700;color:'+color(x.rx_loss)+'">'+pctOrDash(x.rx_loss)+'</td>'+
           '<td style="font-weight:700;color:'+(x.rx_conceal==null?'#94a3b8':(x.rx_conceal>=5?'#dc2626':(x.rx_conceal>=2?'#d97706':'#16a34a')))+'">'+pctOrDash(x.rx_conceal)+'</td>'+
           '<td>'+((x.rx_freeze==null)?'—':(x.rx_freeze>0?'⚠ '+x.rx_freeze:'0'))+'</td>'+
