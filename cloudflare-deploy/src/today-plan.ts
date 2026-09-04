@@ -272,6 +272,26 @@ export function buildWeek(inp: PlanInput): WeekDay[] {
 }
 
 /**
+ * 주간표의 «오늘» 칸을 실제 steps 로 맞춘다.
+ *
+ * 🔴 왜 필요한가 — buildWeek 은 요일표만 보고 tools 를 정하는데, buildTodayPlan 은
+ *   레벨이 없으면(band == null) steps 를 «레벨테스트 + AI 친구» 로 통째로 바꾼다.
+ *   그 분기를 buildWeek 이 모르므로, 그대로 두면 띠의 오늘 칸은 「14분」인데 바로 아래
+ *   펼침 상자는 「레벨테스트 10분 · AI 친구 7분」(17분)을 나열한다 — 상자 제목이
+ *   「금요일 · 오늘」이라 «이 칸을 풀어 쓴 것» 으로 읽히는데 숫자가 다르다.
+ *   ⚠️ 예외가 아니라 «거의 모든 학생» 이다 — 2026-09-04 운영 D1 실측:
+ *      students_erp 29,475명 중 level 이 채워진 사람 1명.
+ *   ⛔ 반대로 고치지 말 것(steps 를 week 에 맞추기) — 「오늘 할 일」의 정본은 steps 다.
+ */
+export function todayFromSteps(week: WeekDay[], dow: number, steps: PlanStep[]): WeekDay[] {
+  const d = week[dow];
+  if (!d || !steps.length) return week;
+  d.tools = steps.map(s => s.key).filter(k => k !== 'leveltest') as ToolKey[];
+  d.minutes = steps.reduce((n, s) => n + (s.minutes || 0), 0);   // 레벨테스트도 «오늘 드는 시간» 이므로 합에 넣는다
+  return week;
+}
+
+/**
  * «오늘 할 일» 정본.
  *   · 레벨 미배정 → 레벨테스트가 1번, 그 뒤 AI 친구(레벨 없이도 되는 도구)
  *   · 수업일 → 웜업(전) · 복습퀴즈(후) · 단어 퀴즈(집)
@@ -336,7 +356,7 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     textbook: inp.textbook || null,
     steps, totalMinutes, doneCount,
     levelKeys: { warmup: band ? String(band) : null, aifriend: band ? ('S' + band) : null },
-    week: buildWeek(inp),
+    week: todayFromSteps(buildWeek(inp), inp.dow, steps),
   };
 }
 

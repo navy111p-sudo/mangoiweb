@@ -137,8 +137,8 @@
       '<span class="chip">🤖 ' + T('AI 약 ' + totMin + '분', '~' + totMin + ' min AI') + '</span>';
 
     $('td-legend').textContent = T(
-      '파란 칸이 학원 수업이 있는 날 · 초록 칸은 집에서 하는 날이에요. 분 수는 그날 AI 도구에 드는 시간이에요.',
-      'Blue = class day at the academy · green = at home. Minutes are the AI tools planned for that day.');
+      '파란 칸이 학원 수업이 있는 날 · 초록 칸은 집에서 하는 날이에요. 분 수는 그날 하기로 한 AI 학습 시간이에요.',
+      'Blue = class day at the academy · green = at home. Minutes are the AI practice planned for that day.');
   }
 
   load();

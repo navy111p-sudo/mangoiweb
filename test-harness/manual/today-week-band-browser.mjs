@@ -42,9 +42,27 @@ const PLAN = {
   },
 };
 
+/* 🔴 레벨 미배정 — 2026-09-04 운영 D1 실측 students_erp 29,475명 중 level 채워진 사람 «1명».
+   즉 이것이 예외가 아니라 거의 모든 학생이 보는 화면이다. 띠의 오늘 칸(14분)과
+   그 아래 펼침 상자(레벨테스트 10 + 친구 7 = 17분)가 어긋나던 자리라 반드시 함께 잰다. */
+const PLAN_NOLV = JSON.parse(JSON.stringify(PLAN));
+{
+  const p = PLAN_NOLV.plan;
+  p.mode = 'unassigned'; p.band = null; p.bandKo = null; p.bandEn = null; p.cefr = null;
+  p.textbook = null; p.levelKeys = { warmup: null, aifriend: null };
+  p.steps = [
+    { key: 'leveltest', slot: 'first', icon: '🎯', ko: '레벨테스트', en: 'Level test', url: '/level-test-ai.html', minutes: 10, done: false, whyKo: '한 번만 보면 됩니다.', whyEn: 'Once is enough.' },
+    { key: 'friend', slot: 'home', icon: '🤖', ko: 'AI 친구 대화', en: 'AI friend', url: '/ai-friend.html', minutes: 7, done: false, whyKo: '레벨 없이도 됩니다.', whyEn: 'Works without a level.' },
+  ];
+  p.totalMinutes = 17;
+  p.week[5].tools = ['friend']; p.week[5].minutes = 17;   // 정본 todayFromSteps 가 맞춰 내려주는 값
+}
+
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
-  const ctx = await browser.newContext({ viewport: vp });
+  /* ⛔ serviceWorkers 를 막지 않으면 «고쳐 놓고 다시 재도 옛 사본» 이 나온다(CLAUDE.md 2장).
+     페이지 주소의 ?_nc= 는 /js/today-page.js?v=2 를 안 비켜 간다. */
+  const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(String(e)));
   await page.route('**/api/student/today**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAN) }));
@@ -140,6 +158,34 @@ for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
   if (errs.length) console.log('     (JS 오류) ' + errs[0].slice(0, 120));
   await ctx.close();
 }
+/* ── 레벨 미배정(거의 전원) — 띠의 오늘 칸과 그 아래 상자가 «같은 말» 을 하는가 */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  await page.route('**/api/student/today**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAN_NOLV) }));
+  await page.addInitScript(() => { try { localStorage.setItem('mangoi_logged_user', JSON.stringify({ uid: 'demo1', name: '민서' })); localStorage.setItem('mango_token', 'tok'); } catch (e) {} });
+  await page.goto(BASE + '/today.html?_nc=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 20000 });
+  await page.waitForSelector('#td-week .day', { timeout: 10000 });
+  const s2 = await page.evaluate(() => {
+    const days = [...document.querySelectorAll('#td-week .day')];
+    const t = days.find(d => d.classList.contains('today'));
+    const box = document.getElementById('td-week-today');
+    return {
+      todayText: t.innerText.replace(/\s+/g, ' ').trim(),
+      items: [...box.querySelectorAll('li')].map(li => li.innerText.replace(/\s+/g, ' ').trim()),
+      sum: document.getElementById('td-week-sum').innerText.replace(/\s+/g, ' ').trim(),
+    };
+  });
+  const mins = s2.items.map(t => Number((t.match(/(\d+)\s*분/) || [])[1] || 0));
+  const sumMin = mins.reduce((a, b) => a + b, 0);
+  const cellMin = Number((s2.todayText.match(/(\d+)\s*분/) || [])[1] || 0);
+  console.log('\n[ 레벨 미배정 (거의 전원) ]');
+  ok('미배정 — 오늘 칸 분 수 == 펼침 상자 항목 분 수의 합', cellMin === sumMin && cellMin === 17, [s2.todayText, mins]);
+  ok('미배정 — 펼침 상자에 레벨테스트가 1번으로 나온다', /레벨테스트/.test(s2.items[0] || ''), s2.items);
+  ok('미배정 — 요약이 그려진다(수업 2회 · AI N분)', /수업 2회/.test(s2.sum) && /분/.test(s2.sum), s2.sum);
+  await ctx.close();
+}
+
 await browser.close();
 console.log(`\n📅 today week band — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

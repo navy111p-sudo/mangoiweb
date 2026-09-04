@@ -539,9 +539,14 @@ ${MANGOI_KNOWLEDGE}`;
       const weekDows = new Set<number>();
       /* 요일 → 그날 «가장 이른» 수업 시각. 주간표에 적을 라벨일 뿐이고 «수업일인가» 는 weekDows 가 정한다 */
       const weekTimes: Record<number, string> = {};
+      /* ⚠️ 판정 폭을 today-plan.ts 의 hhmmToMin 과 맞춘다 — 여기만 좁으면 '9:00' 같은 값에서
+         헤더는 「오늘 9:00 수업」인데 주간표 칸만 조용히 빈다(«한 화면이 두 말»). */
       const noteTime = (d: number, hhmm: string) => {
-        const t = String(hhmm || '').slice(0, 5);
-        if (!/^\d{2}:\d{2}$/.test(t)) return;
+        const m = String(hhmm || '').trim().match(/^(\d{1,2}):(\d{2})/);
+        if (!m) return;
+        const h = Number(m[1]), mi = Number(m[2]);
+        if (h > 23 || mi > 59) return;
+        const t = String(h).padStart(2, '0') + ':' + m[2];
         if (!weekTimes[d] || t < weekTimes[d]) weekTimes[d] = t;
       };
       for (const r of (clsRs?.results || [])) {
