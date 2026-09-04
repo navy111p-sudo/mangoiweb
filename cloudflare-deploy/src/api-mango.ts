@@ -185,6 +185,8 @@ export async function handleMangoApi(
                · turn        — 내 쪽이 중계일 때 그 TURN 서버(host:port proto). Cloudflare 인지 무료 폴백인지가 여기서 갈린다
              ⚠️ 역시 ALTER 로만 붙인다(위 주석과 같은 사정). 첫 로그가 들어와야 칸이 생긴다. */
           for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
           /* 🌐 (2026-09-03 필리핀 사무실 회선) net·isp·country — «어느 인터넷 회선인가».
              [왜] 강사 약 10명이 사무실 공인 IP 하나를 나눠 쓰는데, 이 표는 사람(uid)별이라
                 «그 회선이 매일 몇 시에 막히는가» 를 볼 수 없었다. 통신사에 항의할 근거가 그 표다.
@@ -203,7 +205,7 @@ export async function handleMangoApi(
         const PATHS = ['relay', 'direct', 'mixed'];
         const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
         const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
-                /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
+        /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
            ⚠️ request.cf 는 로컬 개발·테스트에서 없다. 없으면 빈 값이고 그게 정상이다. */
         const _cf: any = (request as any).cf || {};
         const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
