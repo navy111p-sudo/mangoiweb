@@ -4221,9 +4221,25 @@ ${numbered}`;
         : await countStmt.first<{ total: number }>();
       const total = countRow?.total || 0;
 
+      /* ⚠️ `r.participant_ids` 는 화면이 그리는 칸이 아니라 **학생 칸 판정의 첫 번째 근거**다
+            (src/recording-students.ts ①). 2026-09-01 에 이 SELECT 목록에서 빠져 있어
+            `resolveRecordingStudents()` 의 `parseIdList(r.participant_ids)` 가 **늘 빈 배열**이었고,
+            그 근거 하나가 «에러 없이» 죽어 있었다(학생 칸이 그래도 채워진 것은 나머지 세
+            근거 — 예약·consented_user_ids·teacher_name — 덕분이라 아무도 못 알아챘다).
+         📊 [되살려도 오늘 화면은 그대로다 — D1 전수 실측 2026-09-04]
+            `recordings` **2,122행 전수**에서 학생 칸이 «늘어나는» 행 **0건**이었다.
+            participant_ids 안의 실재 학생 계정 244개가 **전부** 이미 다른 근거로 잡힌다.
+            구조적으로 그렇다 — `/api/recordings/start` 가 `consented_user_ids` 를
+            «participant_ids 중 동의한 사람» 으로 계산해 넣고, 동의 안 한 학생은 그 아래
+            「동의 없으면 녹화 금지」 게이트가 막는다. ⟹ 두 칸이 사실상 겹친다.
+            그러니 이 수리는 «화면을 바꾸는 것» 이 아니라 **«정본이 읽겠다고 선언한 칸을
+            서버가 실제로 준다» 는 계약을 되돌리는 것**이다. 그 게이트나 동의 정책이 바뀌는
+            날(또는 consents 조회가 실패해 consented 가 비는 날) 이 근거가 실제로 일한다.
+         ⛔ 판정에 쓰는 칸을 SELECT 에서 빼지 말 것. 빼도 화면이 «고장» 으로 보이지 않는다.
+            감시: test-harness/recording_student_column_harness.mjs A절. */
       let q = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.filename, r.file_url,
                       r.size_bytes, r.duration_ms,
-                      r.participant_names, r.consented_user_ids,
+                      r.participant_names, r.participant_ids, r.consented_user_ids,
                       r.started_at, r.ended_at, r.status, r.storage, r.expires_at,
                       /* 시선 점수 — 해당 녹화 시간대의 attendance.gaze_score 평균
                          window = [started_at - 30s, ended_at 또는 started_at + duration + 30s] */
@@ -4312,7 +4328,10 @@ ${numbered}`;
            WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
            범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
            (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
-         ⚠️ 이 API 는 **관리자 전용**이다(index.ts isAdminOnlyApi 에 `/api/recordings` GET 등록).
+         ⚠️ 이 API 는 **로그인 전용**이다 — `index.ts` 의 `isAdminPath()` 에 `/api/recordings` GET 이
+            등록돼 있어 무인증으로는 못 부른다(`isAdminOnlyApi` 라는 함수는 이 저장소에 없다).
+            ⚠️ 다만 «관리자 전용» 은 아니다 — 경로가 `/api/admin/` 접두사가 아니라서 강사 차단
+            (`TEACHER_BLOCKED_PREFIXES`)도 스코프 차단(`forbidden_scope`)도 안 걸린다.
             «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
          감시: test-harness/recording_download_link_harness.mjs */
       const _nowMs = Date.now();
@@ -4330,7 +4349,14 @@ ${numbered}`;
       const _recRows = ((rs.results || []) as any[]);
       const _recStudents = await resolveRecordingStudents(env as any, _recRows);
       const _recTeachers = await resolveRecordingTeachers(env as any, _recRows);
-      const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
+      const _recItems = await Promise.all(_recRows.map(async (_raw: any, _si: number) => {
+        /* ⛔ `participant_ids` 는 «판정 근거» 라서 SELECT 로 받지만 **응답에는 싣지 않는다**.
+              그 배열은 곧 «누가 이 녹화를 재생할 수 있는가» 목록이고(recordings-r2.ts —
+              `mango_token uid ∈ participant_ids` 면 재생 허용), 이 API 는 `/api/admin/` 접두사가
+              **아니라서** 강사·지사·대리점 세션도 그대로 받는다(index.ts 의 스코프·강사 차단은
+              그 접두사에만 걸린다). 화면은 이 칸을 안 쓰므로 여기서 끊는다 — 판정에 필요한 것과
+              화면에 보내는 것은 다르다. */
+        const { participant_ids: _pidForResolverOnly, ...row } = _raw;
         const students = _recStudents[_si] || [];
         const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none' };
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.

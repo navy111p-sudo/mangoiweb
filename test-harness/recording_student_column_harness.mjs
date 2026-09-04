@@ -74,6 +74,70 @@ check('화면이 participant_names 로 학생을 지어내지 않는다',
   check('머리글에 「학생」 칸이 있다', /data-ko="학생" data-en="Student"/.test(head));
 }
 
+{ /* 🔴 2026-09-04 — SELECT 목록이 «판정 정본이 읽는 칸» 을 전부 주는가.
+     [무엇이 있었나] `/api/recordings` GET 의 SELECT 에 `r.participant_ids` 가 빠져 있었다.
+       그런데 정본(recording-students.ts)의 첫 번째 근거가 `parseIdList(r.participant_ids)` 다
+       → 그 칸이 응답 행에 아예 없으니 **늘 빈 배열**, 근거 하나가 조용히 죽어 있었다.
+     [왜 아무도 못 봤나] 학생 칸은 나머지 세 근거(예약·consented_user_ids·teacher_name)로
+       계속 채워졌다. 즉 «고장» 이 아니라 «근거가 안 쓰인다» 라서 화면에 표시가 안 난다.
+       (D1 전수 실측 2026-09-04: 2,122행 중 학생 칸이 «늘어나는» 행 0건 — 그래서 더 안 보였다.)
+     [왜 B절이 못 잡나] B절은 정본을 가짜 D1 로 돌린다 — 행에 그 칸을 «직접 넣어» 주므로
+       «서버가 그 칸을 안 준다» 는 사실은 원리상 볼 수 없다. 그래서 여기서 배선을 본다.
+     ⛔ 「participant_ids 가 있는가」로 못 박지 말 것 — 정본이 읽는 칸이 늘면 또 어긋난다.
+        «읽겠다고 선언한 칸»(인터페이스)을 **읽어서** 대조한다.
+     ⚠️ 판정 정본은 **둘**이다(학생·교사). 한쪽만 훑으면 다른 쪽이 같은 사고를 낸다. */
+  const IFACES = [
+    ['cloudflare-deploy/src/recording-students.ts', 'RecRowLike'],
+    ['cloudflare-deploy/src/recording-teacher.ts',  'RecTeacherRowLike'],
+  ];
+  const need = [];
+  let ifaceOk = true;
+  for (const [file, name] of IFACES) {
+    /* ⚠️ 정규식을 «문자열로» 조립하지 말 것 — `'\s'` 는 JS 문자열에서 그냥 `s` 다.
+          이 자리에서 실제로 밟았다. 인터페이스 몸통은 중괄호 짝으로 자른다. */
+    const src   = rd(file);
+    const at    = src.indexOf('export interface ' + name);
+    const open  = at < 0 ? -1 : src.indexOf('{', at);
+    const close = open < 0 ? -1 : src.indexOf('\n}', open);
+    const body  = close < 0 ? '' : src.slice(open + 1, close);
+    /* ⛔ `[a-z_]+` 로 좁히지 말 것 — camelCase(`gazeScore`)·숫자 포함(`live_room2`) 칸이
+          조용히 빠져 **거짓 통과**한다(2026-09-04 변이시험에서 실측). */
+    const f = [...body.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\??\s*:/gm)].map(m => m[1]);
+    if (!f.length) ifaceOk = false;
+    for (const c of f) if (!need.includes(c)) need.push(c);
+  }
+  const qStart = MANGO.indexOf('let q = `SELECT r.id, r.room_id');
+  const selEnd = qStart < 0 ? -1 : MANGO.indexOf('/*', qStart);          // 첫 주석 앞까지 = 최상위 칸 목록
+  /* ⛔ `--` 는 SQLite 의 유효한 줄주석이다 — 안 벗기면 「-- r.participant_ids」로 칸을 죽여도
+        검사가 초록이다(변이시험에서 실측). */
+  const selList = (qStart > 0 && selEnd > qStart)
+    ? MANGO.slice(qStart, selEnd).replace(/--.*/g, '') : '';   // JS 의 `.` 은 개행을 안 먹는다 = 줄주석만 제거
+  check('SELECT 칸 목록과 두 정본의 인터페이스를 찾았다',
+    !!selList && ifaceOk && need.length >= 4,
+    '못 찾으면 아래 검사가 무의미하다 — 모양이 바뀌었으면 여기부터 고칠 것 (need=' + need.join(',') + ')');
+  const missing = need.filter(c => !new RegExp('r\\.' + c + '(?![A-Za-z0-9_])').test(selList));
+  check('판정 정본이 읽는 칸을 SELECT 가 전부 준다', !!selList && ifaceOk && missing.length === 0,
+    '빠진 칸: ' + (missing.join(', ') || '(없음)') +
+    ' — 없는 칸은 늘 빈 값이라 그 근거가 «에러 없이» 죽는다');
+}
+
+{ /* 🔒 판정에 쓰는 칸이라고 «응답에» 실으면 안 된다.
+     `participant_ids` 는 곧 «누가 이 녹화를 재생할 수 있는가» 목록이고(recordings-r2.ts),
+     이 API 는 `/api/admin/` 접두사가 아니라서 강사·지사 세션도 그대로 받는다.
+     ⛔ 「그 글자가 없는가」로 검사하지 말 것 — SELECT 에는 있어야 한다.
+        물어야 할 것은 «응답으로 펼치는 것이 원본 행 그대로가 아닌가» 다. */
+  const mapStart = MANGO.indexOf('const _recItems = await Promise.all(_recRows.map(');
+  const mapEnd   = mapStart < 0 ? -1 : MANGO.indexOf('// 응답 본문은 배열 그대로 유지', mapStart);
+  const mapBlk   = (mapStart > 0 && mapEnd > mapStart) ? MANGO.slice(mapStart, mapEnd) : '';
+  const param    = (mapBlk.match(/_recRows\.map\(\s*async\s*\(\s*([A-Za-z_$][\w$]*)\s*:/) || [, ''])[1];
+  const spreads  = [...mapBlk.matchAll(/\.\.\.([A-Za-z_$][\w$]*)/g)].map(m => m[1]);
+  const peeled   = !!param
+    && new RegExp('participant_ids\\s*:[\\s\\S]{0,60}?\\}\\s*=\\s*' + param + '\\b').test(mapBlk);
+  check('응답에는 participant_ids 를 싣지 않는다(판정에만 쓴다)',
+    !!mapBlk && !!param && spreads.length > 0 && !spreads.includes(param) && peeled,
+    'param=' + param + ' spreads=' + spreads.join(',') + ' peeled=' + peeled);
+}
+
 check('검색이 학생(참가자)까지 훑는다',
   /COALESCE\(r\.participant_names,''\) LIKE \?/.test(MANGO) && /COALESCE\(r\.participant_ids,''\) LIKE \?/.test(MANGO),
   '화면에 이름이 보이는데 그 이름으로 검색하면 0건 = 「검색했는데 아무것도 없다」');
