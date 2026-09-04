@@ -48,7 +48,7 @@ import {                                               // 💼 인사·급여 «
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
-  sniffKind, normExt, contentTypeFor,
+  sniffKind, normExt, contentTypeFor, buildFindQuery,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -538,6 +538,57 @@ function rowOf(r: any, steps?: any[], brief = false) {
       decided_by: s.decided_by, decided_at: s.decided_at, memo: s.memo,
     })),
   };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📤 엑셀 내보내기 (CSV)
+ *
+ *   ⚠️ 두 가지를 꼭 지킨다.
+ *     ① **BOM** — 없으면 한국어 엑셀이 UTF-8 을 못 알아보고 한글이 깨진다.
+ *     ② **수식 차단** — 셀이 = + - @ 로 시작하면 엑셀이 «수식» 으로 실행한다.
+ *        결재 제목·내용은 사람이 적는 값이라 그대로 넣으면 남의 컴퓨터에서 수식이 돈다.
+ *        앞에 작은따옴표를 붙여 «글자» 로 못 박는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+function csvCell(v: any): string {
+  let t = (v === null || v === undefined) ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;      // 엑셀 수식 실행 차단
+  return '"' + t.replace(/"/g, '""') + '"';
+}
+
+/** ms → KST 'YYYY-MM-DD HH:MM'. 엑셀이 날짜로 알아보는 모양. */
+function csvWhen(ms: any): string {
+  const n = Number(ms || 0);
+  if (!n) return '';
+  const d = new Date(n + 9 * 3600_000);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) +
+         ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+}
+
+function csvResponse(items: any[]): Response {
+  const head = ['번호', '분류', '제목', '올린 사람', '올린 날짜', '금액', '통화',
+                '상태', '결재자', '결재 날짜', '첨부', '내용'];
+  const STAT: Record<string, string> = { pending: '대기 중', approved: '승인', rejected: '반려' };
+  const lines = [head.map(csvCell).join(',')];
+  for (const r of items) {
+    lines.push([
+      r.id, r.type_ko, r.title, (r.requester_name || r.requester_username),
+      csvWhen(r.created_at),
+      (r.amount == null ? '' : r.amount), (r.amount == null ? '' : (r.currency || 'PHP')),
+      (STAT[String(r.status)] || r.status), (r.decided_by || ''), csvWhen(r.decided_at),
+      (r.has_file ? 'O' : ''), (r.body || ''),
+    ].map(csvCell).join(','));
+  }
+  const stamp = csvWhen(Date.now()).slice(0, 10);
+  return new Response('\uFEFF' + lines.join('\r\n'), {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="approvals-' + stamp + '.csv"',
+      // 결재 내용에는 급여·거래처가 들어간다. 중간 캐시에 절대 남기지 않는다.
+      'Cache-Control': 'private, no-store',
+    },
+  });
 }
 
 /** 이 건의 결재선에 이름이 오른 사람들 — 열람 판정에 쓴다. */
@@ -1109,36 +1160,61 @@ export async function handleApprovalApi(
   //   teacher.html 이 scope=mine · scope=pending 을 쓴다. 응답 모양을 바꾸지 않는다.
   if (method === 'GET' && path === '/api/approval/requests') {
     if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
-    const scope = url.searchParams.get('scope') || 'mine';
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));
     const me = String(actor.username);
     const approver = !ph && isHqStaff(actor);
+
+    /* 📂 결재 문서함 (2026-09-04) — 「지난 결재를 찾을 수 있게」
+     *
+     *   왜 — 화면이 「내가 올린 것」 최근 15건만 보여 줘서, 16번째부터는 볼 방법이 없었다.
+     *   검색·기간·분류·상태 필터도 없었다(사장님 제보 「구분해서 정리해 저장한 곳이 있어?」).
+     *
+     *   ⚠️ 새 경로를 만들지 않는다 — 이미 등록된 이 경로에 **쿼리 파라미터만** 얹는다.
+     *      새 API 는 관문이 셋이고(src/index.ts 인증·라우팅 + api-mango 위임) 그중 둘이
+     *      공동 금지구역이다(CLAUDE.md 4-2).
+     */
+    const scope  = url.searchParams.get('scope') || 'mine';
+    const q      = String(url.searchParams.get('q') || '').trim().slice(0, 60);
+    const fType  = String(url.searchParams.get('type') || '').trim();
+    const fStat  = String(url.searchParams.get('status') || '').trim();
+    const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
+    const to     = String(url.searchParams.get('to') || '').trim();
+    const csv    = url.searchParams.get('format') === 'csv';
+    const limit  = csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));
+    const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
     if ((scope === 'pending' || scope === 'all') && !approver) {
       return json({ ok: false, error: 'forbidden_scope' }, 403);
     }
-    let sql: string, binds: any[];
-    if (scope === 'mine') {
-      sql = `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT ?`;
-      binds = [me, limit];
-    } else if (scope === 'pending') {
-      // 본인 요청은 결재함에서 뺀다 — 눌러도 거절될 버튼을 보여 줄 이유가 없다.
-      sql = `SELECT * FROM approval_requests WHERE status = 'pending' AND requester_username != ?
-              ORDER BY created_at ASC LIMIT ?`;
-      binds = [me, limit];
-    } else {
-      sql = `SELECT * FROM approval_requests ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`;
-      binds = [limit];
-    }
-    const rs = await env.DB.prepare(sql).bind(...binds).all<any>().catch(() => ({ results: [] as any[] }));
 
-    // 열람등급으로 한 번 더 거른다 — 인사·급여가 목록에 섞여 나가지 않게.
+    // 조건 조립은 정본 buildFindQuery 하나가 한다 — 여기서 다시 적지 않는다.
+    const { cond, binds, order } = buildFindQuery({
+      scope, me, q, type: fType, status: fStat, from, to,
+    });
+
+    /* 한 건 더 읽어 «다음이 있는가» 를 판정한다.
+     *   ⛔ 그 +1 로 «몇 건 남았는지» 를 말하지 않는다 — 언제나 «1건» 이 되어 거짓이 된다.
+     *   ⛔ 총 건수도 내려주지 않는다 — 아래 canView 로 거르므로 SQL COUNT 와 어긋난다.
+     *      「1-20 / 총 50건」이 거짓말하느니 「더 보기」가 낫다. */
+    const rs = await env.DB.prepare(
+      'SELECT * FROM approval_requests' + cond + order + ' LIMIT ? OFFSET ?'
+    ).bind(...binds, limit + 1, offset).all<any>().catch(() => ({ results: [] as any[] }));
+
+    const rows = (rs.results || []);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    // 단계는 한 번에 받는다 — 행마다 조회하면 목록 20건에 D1 조회가 20번 나간다.
+    const stepMap = await stepsByRequest(env, page.map((r: any) => Number(r.id)));
+
+    // 열람등급으로 한 번 더 거른다 — 인사·급여가 목록·CSV 에 섞여 나가지 않게.
     const items: any[] = [];
-    for (const r of (rs.results || [])) {
-      const ch = await chainOf(env, r.id);
-      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
-      items.push(rowOf(r, ch.steps));
+    for (const r of page) {
+      const steps = stepMap[Number(r.id)] || [];
+      if (!canView(actor, r.req_type, r.requester_username, chainUsers(steps), ph)) continue;
+      items.push(rowOf(r, steps, !csv));
     }
+
+    if (csv) return csvResponse(items);
 
     let pending = 0;
     if (approver) {
@@ -1147,7 +1223,7 @@ export async function handleApprovalApi(
       ).bind(me).first(), null);
       pending = Number(c?.c || 0);
     }
-    return json({ ok: true, can_approve: approver, pending, items });
+    return json({ ok: true, can_approve: approver, pending, items, has_more: hasMore, offset });
   }
 
   // ── 승인 / 반려 ───────────────────────────────────────────────────────────

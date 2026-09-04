@@ -20,6 +20,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-offline-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-attach-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-find-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -85,6 +86,29 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > «보내지 못한 결재를 저장했습니다» 안내가 **한 번도 뜨지 않았다.**
 > CLAUDE.md 에 적힌 «hidden 인데 그대로 보임» 함정의 반대쪽이고, 정적 검사로는 안 보인다.
 > (지금은 `approval_policy_harness.mjs` 가 그 줄을 감시한다)
+
+## approval-find-browser.mjs — 결재 문서함 «지난 결재 찾기» (25건)
+
+1. **첫 화면 예산** — 패널을 안 열었으면 검색을 부르지 않는다. 이 화면은 «첫 화면 API 한 번»
+   설계라, 열지도 않은 검색이 서버를 부르면 그 취지가 깨진다.
+2. **15건 제한이 사라졌는가** — 20건이 그려지고 «더 보기» 로 이어 붙는지(offset 이 실리는지).
+3. **고른 조건이 실제로 요청에 실리는가** — 검색어·분류·상태·기간·함. 화면만 바뀌고 서버에
+   안 가면 「검색했는데 그대로」가 된다. 짝 검사로 **비운 칸은 안 보내는지**도 본다.
+4. 함 목록은 권한을 따르는가(«내가 결재할 것»·«전체» 는 결재자에게만 — 서버도 403 으로 막는다).
+5. 언어를 바꿔도 따라오는가 — JS 로 그린 글자·`placeholder` 는 `data-ko/data-en` 루프가
+   못 건드린다. 고른 함이 그대로 남는지도 함께 본다.
+6. 엑셀 주소에 조건이 그대로 실리는가.
+
+> ⚠️ **엑셀 검사는 맨 뒤에 둔다** — 진짜 네비게이션이라 페이지 상태를 흔든다.
+> 그리고 `location.href` 를 후킹해 «이동했다» 를 잡지 않는다: 최신 크롬은 `Location`
+> 재정의를 막는데 **예외도 안 내고 조용히 원본 그대로**라, 검사가 진짜로 파일을 받으러
+> 가면서 죽는다(CLAUDE.md 2장 · 이 검사가 실제로 그렇게 죽었다). `page.route` 로 가로챈다.
+>
+> ⚠️ 버튼이 없을 때 `click()` 하면 타임아웃으로 **검사가 통째로 죽어** 무엇이 깨졌는지
+> 안 보인다 — 없으면 «못 눌렀다» 고 깔끔한 FAIL 로 남긴다.
+>
+> ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
+> 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
 
 ## approval-attach-browser.mjs — 분류별 파일 첨부 (16건)
 
