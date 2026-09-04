@@ -67,7 +67,7 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   };
   doc.__addBox = (userId) => { const b = mkEl('div'); b.id = 'vc-video-' + userId; boxes[b.id] = b; return b; };
   const win = {
-    localStorage: { getItem: (k) => (k in store ? store[k] : null) },
+    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     document: doc,
     vcPeerConnections: {},
     navigator: {
@@ -89,9 +89,10 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   const fn = new Function(...Object.keys(sandbox),
     qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart,'
          + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify,'
-         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote };');
+         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote,'
+         + ' startStep: vcqStartStep, wrapCreate: vcqWrapCreatePeer, saveRtt: vcqSaveRttBase, dupTab: vcqDupTabWatch, whyLine: vcqWhyLine, wrapAAO: vcqWrapAAONotify };');
   const api = fn(...Object.values(sandbox));
-  return { api, sent, win, doc };
+  return { api, sent, win, doc, store };
 }
 
 {
@@ -832,6 +833,112 @@ console.log('\n════════ ⑬ 경로(중계/직접) — «어떤 �
     ok(/직접/.test(cell({ path_ticks: 10, relay_ticks: 0 })) && /중계/.test(cell({ path_ticks: 10, relay_ticks: 10 })) && /혼합 40%/.test(cell({ path_ticks: 10, relay_ticks: 4 })), '직접·중계·혼합 N% 로 그린다');
     ok(/turn\.cloudflare\.com/.test(cell({ path_ticks: 1, relay_ticks: 1, turn: 'turn.cloudflare.com:3478 udp' })), 'TURN 서버 이름을 작은 글자로 함께 그린다');
   }
+}
+
+console.log('\n════════ ⑭ 2층 2·3·4 — 낮게 시작 · 둘째 탭 경고 · 안내에 «왜» (2026-09-03) ════════');
+{
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const MAIN = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  /* 밖에서 감싸는 방식이라 «그 이름이 아직 있는가» 가 곧 동작 조건이다 */
+  ok(/^function vcCreatePeer\(/m.test(MAIN), 'idx-main.js 에 전역 vcCreatePeer 가 있다(② 가 감싸는 대상)');
+  ok(/^function vcAAONotify\(/m.test(MAIN), 'idx-main.js 에 전역 vcAAONotify 가 있다(④ 가 감싸는 대상)');
+  ok(/if \(!pc\.__qInit\) \{ pc\.__qInit = 1; applyStep\(pc, pc\.__qStep \|\| 0\); \}/.test(MAIN),
+     '적응 루프 첫 틱이 pc.__qStep 을 그대로 적용한다(② 가 기대는 기전)');
+
+  /* ② 낮게 시작 */
+  const a = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  ok(a.api.startStep() === 0, '기준 RTT 를 모르면 0 — 지금과 같다(국내 회선은 아무것도 안 바뀐다)');
+  a.win.__vcNetSelf = { rttBase: 350 };
+  ok(a.api.startStep() === 1, '이 세션 기준 350ms → 1단계');
+  a.win.__vcNetSelf = { rttBase: 520 };
+  ok(a.api.startStep() === 2, '기준 520ms → 2단계');
+  a.win.vcGetQuality = () => 'low';
+  ok(a.api.startStep() === 1, "화질 모드 '저'(기본)면 2단계까지 안 내린다 — 1/4 해상도는 얼굴이 안 보인다");
+  a.win.vcGetQuality = () => 'auto';
+  a.win.__vcNetSelf = null;
+  a.store['mangoi_vc_rttbase'] = JSON.stringify({ rtt: 480, at: Date.now() - 86400000 });
+  ok(a.api.startStep() === 2, '세션 값이 없으면 지난 수업이 남긴 값(1일 전 480ms) → 2단계');
+  a.store['mangoi_vc_rttbase'] = JSON.stringify({ rtt: 480, at: Date.now() - 8 * 86400000 });
+  ok(a.api.startStep() === 0, '8일 지난 저장값은 버린다(회선이 바뀌었을 수 있다)');
+  a.store['mangoi_vc_rttbase'] = 'garbage';
+  ok(a.api.startStep() === 0, '깨진 저장값은 0');
+  /* 저장 — 수업 종료 정리가 부른다 */
+  a.win.__vcNetSelf = { rttBase: 433.7 };
+  a.api.saveRtt();
+  const saved = JSON.parse(a.store['mangoi_vc_rttbase']);
+  ok(saved && saved.rtt === 434 && typeof saved.at === 'number', `종료 정리가 기준 RTT 를 저장한다 (${a.store['mangoi_vc_rttbase']})`);
+  ok(/vcqSaveRttBase\(\);[\s\S]{0,120}window\.__vcNetSelf = null;/.test(qlog), '저장은 __vcNetSelf 를 비우기 «전» 에 한다(뒤면 늘 빈손)');
+  /* 감싸기 — 새 연결에 단계가 심긴다 */
+  const calls = [];
+  a.win.vcCreatePeer = function (id, name) { calls.push([id, name]); return { id }; };
+  a.api.wrapCreate();
+  ok(a.win.vcCreatePeer.__vcqWrapped === true, 'vcCreatePeer 를 감쌌다');
+  a.win.__vcNetSelf = { rttBase: 520 };
+  const pc1 = a.win.vcCreatePeer('u1', '학생');
+  ok(calls.length === 1 && calls[0][0] === 'u1' && pc1.id === 'u1', '원래 함수가 그대로 불리고 그 결과를 돌려준다');
+  ok(pc1.__qStep === 2, `새 연결에 시작 단계가 심긴다 (__qStep=${pc1.__qStep})`);
+  a.api.wrapCreate();
+  ok(a.win.vcCreatePeer.__vcqWrapped === true && a.win.vcCreatePeer('u2', 'x').__qStep === 2, '두 번 감싸도 한 겹이다(rx 틱마다 다시 불려도 안전)');
+  a.win.__vcNetSelf = null; a.store['mangoi_vc_rttbase'] = 'garbage';
+  ok(a.win.vcCreatePeer('u3', 'x').__qStep === undefined, '⛔ 모르면 단계를 심지 않는다 — 지금과 같다');
+  /* 관찰자는 보내는 영상이 없다 */
+  const o = runQlog({ admin: { uid: 'admin', name: 'a', role: 'hq' } });
+  o.win.vcCreatePeer = () => ({}); o.api.wrapCreate();
+  o.win.__vcNetSelf = { rttBase: 600 };
+  ok(o.win.vcCreatePeer('t', 'x').__qStep === 2, '(대조) 참관자가 아니면 심긴다');
+
+  /* ③ 같은 계정 둘째 탭 */
+  const d = runQlog({ label: '유세영 (나)' });
+  const toastOf = (t) => t.doc.getElementById('vc-netlow-toast');
+  d.win.vcPeerConnections = { a: { __username: '유세영', connectionState: 'connected', getReceivers: () => [] } };
+  d.api.dupTab();
+  ok(!!toastOf(d) && /같은 계정/.test(toastOf(d).innerHTML), '내 이름과 같은 «살아 있는» 상대가 있으면 나에게 알린다');
+  ok(/하나만/.test(toastOf(d).innerHTML) && /가족/.test(toastOf(d).innerHTML), '「탭은 하나만」 + 가족 공용 계정 예외를 함께 말한다(끊지 않는다)');
+  const at1 = d.win.__vcDupTab.at;
+  d.api.dupTab();
+  ok(d.win.__vcDupTab.at === at1, '5분 안에는 다시 안 띄운다');
+  const e = runQlog({ label: '유세영 (나)' });
+  e.win.vcPeerConnections = { a: { __username: '유세영', connectionState: 'closed', getReceivers: () => [] } };
+  e.api.dupTab();
+  ok(!toastOf(e), '닫힌 연결(유령)은 세지 않는다 — 그건 dupghost 몫');
+  const f = runQlog({ label: '유세영 (나)' });
+  f.win.vcPeerConnections = { a: { __username: '교사 Teacher - Farrah', connectionState: 'connected', getReceivers: () => [] } };
+  f.api.dupTab();
+  ok(!toastOf(f), '다른 이름이면 아무 말도 안 한다');
+  ok(!/\.close\(\)|vcRemovePeer/.test(qlog.slice(qlog.indexOf('function vcqDupTabWatch'), qlog.indexOf('function vcqWhyLine'))),
+     '⛔ 둘째 탭을 «끊지» 않는다 — 가족 공용 계정에서 서로를 쫓아낸다');
+
+  /* ④ 안내에 «왜» */
+  const w = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  ok(w.api.whyLine() === '', '아무것도 모르면 빈 문자열(거짓 숫자를 지어내지 않는다)');
+  w.win.__vcNetSelf = { lastRtt: 900, lastLoss: 1.2, rttBase: 130 };
+  const line1 = w.api.whyLine();
+  ok(/900ms/.test(line1) && /130ms/.test(line1) && /업로드/.test(line1), `지연만 높으면 «업로드가 꽉 찬 모양» (${line1.replace(/<[^>]+>/g, '')})`);
+  w.win.__vcNetSelf = { lastRtt: 200, lastLoss: 9.5, rttBase: 130 };
+  ok(/패킷/.test(w.api.whyLine()), '손실이 높으면 «패킷이 빠진다»');
+  /* selfWatch 가 마지막 값을 적어 두고 토스트에 싣는다 */
+  const g = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  for (let i = 0; i < 3; i++) g.api.selfWatch(0.5, 130);   // 평소 130ms 를 먼저 배운다
+  for (let i = 0; i < 5; i++) g.api.selfWatch(1, 950);     // 그 뒤 950ms 가 이어진다
+  const gt = g.doc.getElementById('vc-netlow-toast');
+  ok(!!gt && /950ms/.test(gt.innerHTML) && /업로드/.test(gt.innerHTML), '회선 경고 토스트에 지연 숫자와 «왜» 가 실린다');
+  /* AAO 안내 감싸기 */
+  const h = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  const got = [];
+  h.win.vcAAONotify = (html) => { got.push(html); };
+  h.api.wrapAAO();
+  h.win.__vcNetSelf = { lastRtt: 1100, lastLoss: 0.5, rttBase: 300 };
+  h.win.vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b>');
+  h.win.vcAAONotify('📶 <b>Connection recovered — video is back on.</b>');
+  ok(got.length === 2 && /1100ms/.test(got[0]) && /업로드/.test(got[0]), '음성전용 안내에 지연·이유가 덧붙는다');
+  ok(!/1100ms/.test(got[1]), '회복 안내는 그대로(숫자를 안 붙인다)');
+  h.api.wrapAAO();
+  ok(h.win.vcAAONotify.__vcqWrapped === true, '두 번 감싸도 한 겹');
+
+  /* ⛔ 상주 타이머·관찰자를 새로 만들지 않았다(홈 정지 전력) */
+  const bare = qlog.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok((bare.match(/setInterval\(/g) || []).length === 1, 'setInterval 은 여전히 수업 중 타이머 하나뿐');
+  ok(!/MutationObserver/.test(bare), 'MutationObserver 없음');
 }
 
 console.log('\n' + '═'.repeat(60));
