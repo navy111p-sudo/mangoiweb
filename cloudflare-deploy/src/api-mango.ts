@@ -176,19 +176,39 @@ export async function handleMangoApi(
                            'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🛰 (2026-09-03 class-1016·meet-123 Farrah) «어떤 길로 갔는가» — 중계(TURN)/직접(P2P).
+             RTT 1초가 2분 뒤 60ms 로 떨어졌는데 경로가 바뀐 것인지 회선이 풀린 것인지 가릴 칸이 없었다.
+               · path        — 'relay' | 'direct' | 'mixed' | ''(모름). ⛔ 모름을 direct 로 적지 않는다
+               · relay_ticks — 그 1분에 «중계» 였던 4초 틱 수 · path_ticks — 경로를 «안» 틱 수
+               · turn        — 내 쪽이 중계일 때 그 TURN 서버(host:port proto). Cloudflare 인지 무료 폴백인지가 여기서 갈린다
+             ⚠️ 역시 ALTER 로만 붙인다(위 주석과 같은 사정). 첫 로그가 들어와야 칸이 생긴다. */
+          for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
         const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        /* 🛰 path 는 «아는 값» 만 받는다(모르는 문자열은 빈 값 = 모름). turn 은 서버 주소 한 줄이라 글자를 좁히고 길이를 자른다
+           — 이 경로는 무인증이라 본문이 곧 남의 손이다(관리자 화면에 그대로 그려진다). */
+        const PATHS = ['relay', 'direct', 'mixed'];
+        const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
+        const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
-            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0)).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0))).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
-      } catch { return json({ ok: true }); }
+      } catch (e) {
+        /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
+           INSERT 가 조용히 죽어도 아무도 모르는 것이 이 표의 반복 사고였다(silent_catch_harness). */
+        console.warn('[vc-quality-log] 기록 실패', (e as any)?.message);
+        return json({ ok: true });
+      }
     }
 
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====
