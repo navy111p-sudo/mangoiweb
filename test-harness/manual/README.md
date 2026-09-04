@@ -21,6 +21,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-attach-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-find-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-category-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -109,6 +110,43 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 >
 > ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
 > 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
+
+## approval-category-browser.mjs — 결재 «지출 항목» (37건)
+
+1. **칸이 어디에 보이는가** — 돈이 나가는 분류(물품·지출)에만. 짝 검사로 **휴가·긴급·불만·
+   일반 문서에는 안 뜨는지**도 센다(한쪽만 보면 «전부 켜는 코드» 가 통과한다).
+2. **목록이 서버가 준 것인가** — 화면이 자기 목록을 들면 서버와 갈려 「골랐는데 저장이 안 되는」
+   사고가 난다(CLAUDE.md 2장 duration_months). 첫 칸이 «안 고름» 인지도 본다.
+3. **고른 값이 정말 요청에 실리는가** — `FormData` 를 뜯어 확인한다. 짝으로
+   **안 골랐으면 아예 안 보내는지**, 그리고 **안 골라도 올라가는지**(막으면 더 나쁘다).
+4. 폼을 다시 그려도 고른 항목이 안 날아가는가 — ⚠️ «정말 다시 그려졌는가» 를 **전제 검사로
+   먼저** 확인한다. storage 이벤트만 쏘면 폼이 아예 안 다시 그려져 이 절이 언제나 통과한다
+   (2026-09-04 실측 — 복원 코드를 지워도 초록이었다). 화면이 쓰는 `toggleLang()` 을 부른다.
+5. 새로고침해도 초안에 항목이 남는가.
+6. 목록에서 «무슨 돈이었나» 가 보이는가 — 짝으로 **항목이 없는 건에는 아무 말도 안 붙이는지**
+   (「항목 없음」이라고 적으면 안 고른 것이 고장처럼 읽힌다).
+7. 문서함에서 항목으로 찾을 수 있는가 — 조건이 실리는지·«전체» 면 안 보내는지.
+8. **칸이 쓸 만한 크기인가** — 제목 칸과 같은 폭 · 44px 이상 · 글자 16px 이상.
+   ⚠️ 16px 아래면 **iOS 사파리가 누를 때 화면을 확대**합니다. 규칙을 안 넣으면 실측 **115×19px·13.3px**
+   였습니다(브라우저 기본 select) — 「폼에 넣었으니 됐다」로 끝냈으면 폰에서 그 모양이었습니다.
+
+> ⚠️ 분류표·항목 목록을 **손으로 적지 않는다** — 정본(`approval-policy.ts`)을 import 해서
+> 서버가 내려주는 모양으로 바꿔 쓴다. 2026-09-04 에 `approval-attach-browser` 가 손으로 적었다가
+> **소스를 되돌려도 13건 전부 통과**한 적이 있다.
+>
+> ⚠️ `addInitScript` 는 **새로고침마다** 돈다 — 거기서 초안을 지우면 5절이 언제나 거짓 FAIL 이다.
+> 첫 로드에서 한 번만 지운다(`sessionStorage` 표시).
+>
+> ⚠️ 브라우저에서 `new Event('change')` 는 **bubble 하지 않는다** — 위임 리스너를 깨우려면
+> `{bubbles:true}` 로 쏴야 한다. 안 그러면 초안 저장이 «안 되는 것처럼» 보인다.
+>
+> ⚠️ ⑤절 뒤에는 폼이 **이미 열려 있고 `#kinds` 목록이 접혀** 있습니다 — 거기서 분류 버튼을
+> 다시 누르면 타임아웃으로 검사가 통째로 죽습니다. 그려져 있는 그 칸을 그대로 재세요.
+>
+> ⚠️ 변이 8종 실제 FAIL 확인 — 화면 목록을 손으로 들면 8건, `buildFD` 에서 빼면 2건,
+> 칩을 안 그리면 1건, 문서함 파라미터를 빼면 1건, keep 복원을 빼면 1건, 초안에서 빼면 2건,
+> `.row select` CSS 를 빼면 3건.
+> 정본 쪽(휴가에도 켜기 등)은 `approval_category_harness`(자동)가 잡는다.
 
 ## approval-attach-browser.mjs — 분류별 파일 첨부 (16건)
 
