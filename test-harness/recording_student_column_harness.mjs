@@ -71,7 +71,10 @@ check('화면이 participant_names 로 학생을 지어내지 않는다',
   check('thead 칸 수 = 한 줄이 그리는 칸 수', nTh > 0 && nTh === nTd, 'th=' + nTh + ' td=' + nTd);
   check('빈 표 colspan 도 그 칸 수와 같다', nCol === nTh,
     'colspan=' + nCol + ' th=' + nTh + ' — 어긋나면 «녹화 기록 없음» 줄만 표 폭이 달라진다');
-  check('머리글에 「학생」 칸이 있다', /data-ko="학생" data-en="Student"/.test(head));
+  check('머리글에 「학생 이름」·「학생 아이디」 두 칸이 있다',
+    /data-ko="학생 이름"/.test(head) && /data-ko="학생 아이디"/.test(head), head.slice(0, 200));
+  check('두 칸 다 정렬 키가 있고 서로 다르다',
+    /data-sk="student"/.test(head) && /data-sk="studentid"/.test(head));
 }
 
 check('검색이 학생(참가자)까지 훑는다',
@@ -218,47 +221,74 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
 /* ══ C. 화면 셀을 실제로 그려 본다 ═══════════════════════════════════════ */
 console.log('\n[ C. 화면 셀 — 소스를 오려 내 실행 ]');
 {
-  const start = CORE.indexOf('const studentCell = (function () {');
-  const end   = CORE.indexOf('})();', start);
+  /* 2026-09-04 — 「학생」 한 칸이 「학생 이름」·「학생 아이디」 둘로 갈렸다.
+     ⛔ 두 칸을 각각 오려 내지 말 것 — 한 함수가 둘을 «같은 사람·같은 차례» 로 만든다.
+        따로 검사하면 그 짝이 어긋나도 둘 다 초록이 된다. */
+  const start = CORE.indexOf('const _stCells = (function () {');
+  const end   = CORE.indexOf('const studentIdCell = _stCells.uid;', start);
   check('학생 셀 코드를 소스에서 찾았다', start > 0 && end > start,
     '못 찾으면 아래 검사는 전부 무의미하다 — 모양이 바뀌었으면 여기부터 고칠 것');
 
   if (start > 0 && end > start) {
-    const body = CORE.slice(start, end + 5);
+    const body = CORE.slice(start, end + 'const studentIdCell = _stCells.uid;'.length);
     const esc  = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const cell = new Function('r', 'adminLang', '_esc', body + '\n return studentCell;');
+    const cell = new Function('r', 'adminLang', '_esc', body + '\n return { name: studentCell, uid: studentIdCell };');
     const draw = (r, lang = 'ko') => cell(r, lang, esc);
 
     const one = draw({ source: 'both', students: [{ uid: 'cys01', name: '최윤서', scheduled: true }] });
-    check('학생 이름을 그린다', one.includes('최윤서'));
-    check('계정은 툴팁으로 함께 알려 준다', one.includes('계정: cys01'));
+    check('학생 이름을 그린다', one.name.includes('최윤서'), one.name);
+    check('아이디는 옆 칸에 따로 그린다', one.uid.includes('cys01'), one.uid);
+    check('이름 칸에 아이디를 함께 적지 않는다(칸이 둘인 이유)',
+      !one.name.includes('>cys01<'), one.name);
+    check('계정은 이름 칸 툴팁으로도 알려 준다', one.name.includes('계정: cys01'), one.name);
+    check('예약의 학생은 두 칸 다 굵게', /font-weight:700/.test(one.name) && /font-weight:700/.test(one.uid));
 
-    check('학생을 못 찾으면 «—» 와 그 이유를 함께 말한다', (() => {
+    check('학생을 못 찾으면 두 칸 다 «—» 와 그 이유', (() => {
       const h = draw({ source: 'both', students: [] });
-      return h.includes('—') && /title="[^"]*로그인/.test(h);
+      return h.name.includes('—') && h.uid.includes('—') && /title="[^"]*로그인/.test(h.name);
     })(), '빈칸으로 두면 「고장」으로 읽힌다');
     check('고아 행은 «기록이 없다» 고 말한다', (() => {
       const h = draw({ source: 'orphan', students: [] });
-      return h.includes('—') && /title="[^"]*기록이 없어/.test(h);
+      return h.name.includes('—') && h.uid.includes('—') && /title="[^"]*기록이 없어/.test(h.name);
     })());
-    check('students 가 아예 없어도(옛 응답) 죽지 않는다',
-      draw({ source: 'both' }).includes('—'));
+    check('students 가 아예 없어도(옛 응답) 죽지 않는다', (() => {
+      const h = draw({ source: 'both' });
+      return h.name.includes('—') && h.uid.includes('—');
+    })());
 
     const four = draw({ source: 'both', students: [
       { uid: 'a', name: '가나' }, { uid: 'b', name: '나다' }, { uid: 'c', name: '다라' }, { uid: 'd', name: '라마' }] });
-    check('사람이 많으면 3명까지 적고 나머지는 «외 N명»', four.includes('외 1명') && !four.includes('라마<'),
-      four);
-    check('숨긴 사람 이름은 툴팁에 남긴다', four.includes('라마'));
+    check('사람이 많으면 3명까지 적고 나머지는 «외 N명»',
+      four.name.includes('외 1명') && !four.name.includes('>라마<'), four.name);
+    /* ⚠️ «앞 몇 명이 있나» 만 보면 한쪽을 2명으로 잘라도 통과한다(2026-09-04 변이시험에서
+       실제로 놓쳤다). 두 칸이 **같은 사람 수** 를 같은 차례로 그리는지 세어서 본다. */
+    const nSpans = (h) => (h.split(',').length);
+    check('   아이디 칸도 똑같이 자른다(두 칸이 어긋나면 남의 계정처럼 읽힌다)',
+      four.uid.includes('외 1명') && four.uid.includes('>a<')
+      && four.uid.includes('>c<') && !four.uid.includes('>d<')
+      && nSpans(four.uid) === nSpans(four.name), four.uid + '   ↔   ' + four.name);
+    check('숨긴 사람 이름은 툴팁에 남긴다', four.name.includes('라마'));
 
-    const bad = draw({ source: 'both', students: [{ uid: 'x', name: '<script>alert(1)</script>' }] });
-    check('이름을 HTML 로 해석하지 않는다(이스케이프)',
-      !bad.includes('<script>') && bad.includes('&lt;script&gt;'), bad);
+    const bad = draw({ source: 'both', students: [{ uid: '"x', name: '<script>alert(1)</script>' }] });
+    check('이름·아이디를 HTML 로 해석하지 않는다(이스케이프)',
+      !bad.name.includes('<script>') && bad.name.includes('&lt;script&gt;')
+      && !bad.uid.includes('"x'), bad.name + ' | ' + bad.uid);
 
     const en = draw({ source: 'both', students: [] }, 'en');
-    check('영어 화면에서는 영어로 말한다', /title="[^"]*student account/i.test(en), en);
+    check('영어 화면에서는 영어로 말한다', /title="[^"]*student account/i.test(en.name), en.name);
 
-    const idOnly = draw({ source: 'both', students: [{ uid: 'newkid', name: '' }] });
-    check('이름을 못 구했으면 계정이라도 보여 준다', idOnly.includes('newkid'));
+    /* 🔴 2026-09-04 사장님 «학생도 학생아이디 목록을 만들어줘» 의 핵심.
+       서버는 이름을 못 찾으면 계정을 그대로 `name` 에 넣는다(칸이 하나였을 때의 폴백).
+       칸이 갈린 지금 그것을 그리면 «이름 자리에 아이디» 가 그대로 남는다.
+       실측 근거: 정우영의 실사용 계정 `jeong` 은 카페24에 이름이 없어 명부에 「jeong」
+       으로 찍힌다(CLAUDE.md 2장). */
+    const idOnly = draw({ source: 'both', students: [{ uid: 'jeong', name: 'jeong' }] });
+    check('⛔ 이름을 모르면 이름 칸에 아이디를 적지 않는다',
+      !idOnly.name.includes('>jeong<') && idOnly.name.includes('—'), idOnly.name);
+    check('   그때 «왜 비었는지» 를 말한다', /명부에 이름이 없습니다/.test(idOnly.name), idOnly.name);
+    check('   아이디는 잃지 않는다(옆 칸에 그대로)', idOnly.uid.includes('jeong'), idOnly.uid);
+    const blankName = draw({ source: 'both', students: [{ uid: 'newkid', name: '' }] });
+    check('이름 칸이 비어 와도 같은 규칙', blankName.name.includes('—') && blankName.uid.includes('newkid'));
   }
 }
 
