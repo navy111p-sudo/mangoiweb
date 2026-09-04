@@ -398,3 +398,63 @@ export function fmt(v: number, currency: string): string {
   const n = Math.round(Number(v) || 0).toLocaleString('en-US');
   return cur === 'KRW' ? ('₩' + n) : ('₱' + n);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔎 문서함 조건 조립 — «무엇을 찾는가» 를 SQL 조각으로
+ *
+ *   왜 함수로 빼나 — 라우트 안에 두면 하니스가 «그 글자가 있는가» 로밖에 못 본다.
+ *   조건을 뒤집어도(예: >= 를 <=) 글자는 그대로라 통과한다. 순수 함수라야
+ *   **진짜 SQLite 에 돌려** «정말 걸러지는가» 를 잴 수 있다.
+ *
+ *   ⚠️ LIKE 를 쓰지 않는다 — D1 의 LIKE 패턴 한도는 50자다(CLAUDE.md 2장 실측).
+ *      제목·내용은 그보다 길어질 수 있고, 이름 속 % 와 _ 를 와일드카드로 오해한다.
+ *      instr() 은 패턴 한도가 없고 있는 그대로 찾는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface FindInput {
+  scope?: string; me: string;
+  q?: string; type?: string; status?: string; from?: string; to?: string;
+}
+
+export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; order: string } {
+  const where: string[] = [];
+  const binds: any[] = [];
+  const me = String(inp.me || '');
+  const scope = String(inp.scope || 'mine');
+
+  if (scope === 'mine')          { where.push('requester_username = ?'); binds.push(me); }
+  else if (scope === 'open')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'pending'"); }
+  else if (scope === 'done')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'approved'"); }
+  else if (scope === 'rejected') { where.push('requester_username = ?'); binds.push(me); where.push("status = 'rejected'"); }
+  else if (scope === 'pending')  { where.push("status = 'pending'"); where.push('requester_username != ?'); binds.push(me); }
+  // 'all' 은 조건 없음 — 결재자에게만 열린다(호출부가 막는다)
+
+  const q = String(inp.q || '').trim().slice(0, 60);
+  if (q) {
+    where.push("(instr(lower(IFNULL(title,'')), lower(?)) > 0" +
+               " OR instr(lower(IFNULL(body,'')), lower(?)) > 0" +
+               " OR instr(lower(IFNULL(requester_name,'')), lower(?)) > 0" +
+               " OR instr(lower(requester_username), lower(?)) > 0)");
+    binds.push(q, q, q, q);
+  }
+
+  const t = String(inp.type || '').trim();
+  if (t && REQ_TYPES.indexOf(t as any) >= 0) { where.push('req_type = ?'); binds.push(t); }
+
+  const st = String(inp.status || '').trim();
+  if (st === 'pending' || st === 'approved' || st === 'rejected') { where.push('status = ?'); binds.push(st); }
+
+  // 기간 — created_at 은 ms 라 KST 날짜로 바꿔 비교한다(사람이 고른 날짜와 같은 눈금).
+  const from = String(inp.from || '').trim();
+  const to   = String(inp.to || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(from)) { where.push("date(created_at/1000,'unixepoch','+9 hours') >= ?"); binds.push(from); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(to))   { where.push("date(created_at/1000,'unixepoch','+9 hours') <= ?"); binds.push(to); }
+
+  return {
+    cond: where.length ? (' WHERE ' + where.join(' AND ')) : '',
+    binds,
+    order: (scope === 'pending')
+      ? ' ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC'
+      : " ORDER BY (status='pending') DESC, created_at DESC",
+  };
+}
