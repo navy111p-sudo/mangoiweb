@@ -70,10 +70,14 @@ function toneWav(seconds = 1.6, rate = 16000) {
   buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24); buf.writeUInt32LE(rate * 2, 28);
   buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34);
   buf.write('data', 36); buf.writeUInt32LE(n * 2, 40);
+  // ⚠️ 진폭이 중요하다 — 아바타의 tierFor 는 RMS 0.04 이하 closed · 0.09 이하 medium · 그 위 wide.
+  //    26000 으로 만들면 RMS 0.14~0.53 이라 **전부 wide** 가 되어 입모양이 한 번도 안 바뀌고,
+  //    그러면 이 검사는 «그리기 루프가 도는가» 까지만 재게 된다(2026-09-04 실제로 그 상태였다).
+  //    7000 이면 RMS 0.003~0.151 로 세 단계를 모두 지난다.
   for (let i = 0; i < n; i++) {
     const t = i / rate;
-    const env = 0.25 + 0.7 * Math.abs(Math.sin(2 * Math.PI * 1.7 * t));
-    buf.writeInt16LE(Math.round(Math.sin(2 * Math.PI * 220 * t) * env * 26000), 44 + i * 2);
+    const env = 0.02 + 0.98 * Math.abs(Math.sin(2 * Math.PI * 1.7 * t));
+    buf.writeInt16LE(Math.round(Math.sin(2 * Math.PI * 220 * t) * env * 7000), 44 + i * 2);
   }
   return buf;
 }
@@ -239,6 +243,65 @@ for (const cs of CASES) {
   ok(`②-2 ${cs.id}) 말하는 동안 «말하는 중» 표시가 켜진다`, r.speaking >= 3,
      `speaking ${r.speaking}틱 — 0 이면 plainStart 가 아예 안 불린 것이다`);
 }
+
+/* ── ③ 「소리 없이 입만 움직인다」 안전망 (2026-09-04) ──
+   analyzed:false 분기에는 위쪽 «5초 무음» 안전망이 없다. plainStop 이 유실되면
+   (크롬의 speechSynthesis onend 유실은 알려진 문제) 입이 영원히 움직인다 —
+   이 파일이 2026-07-26 에 일부러 좁혀 둔 「말은 안 하는데 입만 움직인다」 그 모양이다.
+   ⚠️ «멈춘다» 만 재면 반대로 무너진다(전부 멈춰도 통과) — «말하는 중엔 안 멈춘다» 를
+      반드시 짝으로 잰다. 그리고 «인자 없이 부른 기존 호출자» 가 영향을 안 받는지도. */
+await c.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/speech-coach.html?_nc=${Date.now()}` });
+await sleep(3500);
+
+/** window.speechSynthesis 를 가짜로 바꿔 놓고 plainStart 를 부른 뒤, 그리기가 살아 있는지 본다. */
+async function speakingAfter(opts, fakeSpeaking, waitMs) {
+  return await ev(`(async()=>{
+    try{ Object.defineProperty(window,'speechSynthesis',
+      { value:{ __fake:true, speaking:${fakeSpeaking}, pending:false, cancel(){}, speak(){} }, configurable:true }); }catch(e){}
+    try{ window.MangoAvatar.plainStop(); }catch(e){}
+    window.MangoAvatar.plainStart(${opts});
+    await new Promise(r=>setTimeout(r, ${waitMs}));
+    const on = document.getElementById('tavatar-wrap').classList.contains('speaking');
+    try{ window.MangoAvatar.plainStop(); }catch(e){}
+    return { on, faked: (()=>{ try{ return window.speechSynthesis && window.speechSynthesis.__fake === true; }catch(e){ return false; } })() };
+  })()`, true);
+}
+
+const s3a = await speakingAfter('{ analyzed: false }', 'false', 2500);
+ok('③ analyzed:false 인데 음성합성이 조용하면 스스로 멈춘다(입만 움직이지 않는다)',
+   s3a.on === false, `2.5초 뒤 speaking=${s3a.on} · 가짜설치=${s3a.faked}` +
+   (s3a.faked ? ' — 안전망이 안 도는 것이다' : ' — 가짜를 못 심었으니 «검사 환경» 문제다'));
+ok('③-2 analyzed:false 라도 «말하는 중» 이면 안 멈춘다',
+   (await speakingAfter('{ analyzed: false }', 'true', 2500)).on === true,
+   '말하는 동안 끊기면 한국어 발화에서 입이 곧바로 멎는다');
+ok('③-3 인자 없이 부른 기존 호출자(warmup·ai-friend)는 영향받지 않는다',
+   (await speakingAfter('', 'false', 2500)).on === true,
+   '옛 호출이 조용히 멈추면 다른 화면의 아바타가 죽는다');
+
+/* ── ④ 같은 문장을 연달아 두 번 (캐시 적중 — await 가 하나도 없는 경로) ──
+   재생 직전 ttsAudio.pause() 가 새로 단 'pause'→plainStop 을 깨우므로, 두 번째 재생에서
+   pause 와 playing 의 순서가 어긋나면 입이 죽는다. 1회만 재면 안 보인다. */
+await c.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/speech-coach.html?_nc=${Date.now()}` });
+await sleep(3800);
+await ev(`document.getElementById('target-input').value='I went to the park yesterday.'; true`);
+await ev(`speakTarget(); true`);            // 1회차 — 캐시를 채운다
+await sleep(2600);
+await ev(`(()=>{
+  const cv=document.getElementById('tavatar-canvas');
+  const cx=cv.getContext('2d',{willReadFrequently:true});
+  window.__shots=[]; clearInterval(window.__probeIv);
+  window.__probeIv=setInterval(()=>{ try{
+    const d=cx.getImageData(0,0,cv.width,cv.height).data;
+    let h=0; for(let i=0;i<d.length;i+=997) h=(h*31+d[i])>>>0;
+    window.__shots.push(h);
+  }catch(e){ window.__shots.push('E'); } },80);
+  return true; })()`);
+await ev(`speakTarget(); true`);            // 2회차 — 캐시 적중이라 await 가 없다
+await sleep(3000);
+const again = await ev(`(()=>{ clearInterval(window.__probeIv);
+  return { distinct:[...new Set(window.__shots)].length, frames:window.__shots.length }; })()`);
+ok('④ 같은 문장을 연달아 두 번 재생해도 입이 움직인다(캐시 적중 경로)',
+   again.distinct >= 3, `캔버스 변화 ${again.distinct}종 / ${again.frames}프레임`);
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
 if (fail) {

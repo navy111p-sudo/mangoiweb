@@ -283,6 +283,13 @@
     //   그동안은 boundEl 을 보지 않고 폴백 애니메이션을 쓴다.
     //   ⚠️ 기본값은 true — 인자 없이 부르는 기존 호출자의 동작은 그대로다.
     var lipFromAudio = true;
+    // 🛟 analyzed:false 발화의 «끝» 을 놓쳤을 때의 경계(위 loop 참고).
+    //    ⚠️ 틱 수가 아니라 «시간» 으로 센다 — rAF 속도는 기기·배터리·백그라운드 탭에 따라
+    //       크게 달라진다(헤드리스 실측 약 10fps, 보통 화면 60fps). 틱으로 세면 느린 기기에서
+    //       몇 초씩 늦게 멈춘다.
+    //    quietSince = 「말하는 중이 아니다」가 이어지기 시작한 시각(0 = 지금 말하는 중).
+    //    plainT0 = 이번 발화가 시작한 시각. 한 문장을 읽는 데 90초가 걸릴 일은 없다.
+    var quietSince = 0, plainT0 = 0, QUIET_MS = 700, PLAIN_MAX_MS = 90000;
     // 🗣 (2026-07-27) 소리 크기 → 입모양 3단계. 임계값은 실제 목소리로 다시 들어보며 조정 가능.
     function tierFor(level){
       if(level <= 0.04) return 'closed';
@@ -335,6 +342,23 @@
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
         //    기존처럼 루프를 계속 재생해 "말하는 느낌"만 흉내낸다.
         idleTicks = 0;
+        // 🛟 (2026-09-04) 이 분기에는 위쪽 «5초 무음» 안전망이 없다 — 그래서 plainStop 이
+        //    유실되면 소리 없이 입만 계속 움직인다(크롬의 speechSynthesis onend 유실은 알려진
+        //    문제다). 그건 이 파일이 2026-07-26 에 일부러 좁혀 둔 「말은 안 하는데 입만
+        //    움직인다」 그 모양이라, analyzed:false 로 시작한 발화에만 경계를 둔다.
+        //    ⛔ 새 타이머를 만들지 않는다(상주 setInterval 금지) — 이미 도는 rAF 안에서 센다.
+        //    ⚠️ 인자 없이 부른 기존 호출자(warmup·ai-friend)는 lipFromAudio 가 true 라
+        //       이 블록을 아예 타지 않는다 — 그쪽 동작은 종전 그대로다.
+        if(!lipFromAudio){
+          var sp = null; try{ sp = window.speechSynthesis; }catch(e){}
+          // «말하는 중이 아니다» 가 이어질 때만 센다. speak() 직후엔 아직 false 일 수 있어
+          // 큐(pending)도 함께 보고, 아래 유예(quietTicks)로 시작 순간을 넘긴다.
+          var nowMs = Date.now();
+          if(sp && !sp.speaking && !sp.pending){ if(!quietSince) quietSince = nowMs; }
+          else quietSince = 0;
+          if((quietSince && nowMs - quietSince > QUIET_MS) ||
+             (plainT0 && nowMs - plainT0 > PLAIN_MAX_MS)){ doStop(); return; }
+        }
         if(imgFrames){
           // 🖼 이미지 캐릭터는 '재생' 이 없으므로 세 장을 일정 간격으로 번갈아 보여 준다.
           //    ⚠️ 간격은 MIN_SWITCH_MS(90) 보다 커야 한다 — 작으면 showTier 가 매번 되돌아가
@@ -383,6 +407,7 @@
       //   opts.analyzed === false 로 부르면 «물린 오디오가 아닌 소리»(브라우저 음성합성 등)로
       //   보고 음량 분석 대신 폴백 애니메이션을 쓴다. 인자를 안 주면 예전과 똑같이 동작한다.
       plainStart: function(opts){ lipFromAudio = !(opts && opts.analyzed === false);
+        quietSince = 0; plainT0 = Date.now();
         ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
       plainStop:  function(){ doStop(); },
       // 미리 만든 립싱크 클립 재생(음성코치 전용) → 캔버스 키잉. 끝나면 idle 복귀.
