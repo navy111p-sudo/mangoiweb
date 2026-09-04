@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Philippines Office Internet — One Request</title>
+<!-- FONTS -->
+</head>
+<body>
+<style>
+  :root{
+    --paper:#fbfaf7; --card:#ffffff; --card2:#f4f1ea;
+    --ink:#241d16; --ink2:#5f5347; --ink3:#948878;
+    --line:#e5ddcf; --line2:#d0c4ae;
+    --mango:#d9821a; --mango-soft:#fdf2e1;
+    --bad:#b8443a; --bad-soft:#fbeeec;
+    --good:#2c7654; --good-soft:#e9f4ef;
+    --todo:#36699f; --todo-soft:#ebf1f8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Inter","Liberation Sans",Arial,sans-serif;
+    font-size:14.5px; line-height:1.65; padding:32px 22px 56px;
+  }
+  .wrap{max-width:790px; margin:0 auto; display:flex; flex-direction:column; gap:20px}
+  .stamp{font-size:11.5px; font-weight:700; color:var(--mango); letter-spacing:.09em; text-transform:uppercase}
+  h1{font-size:31px; line-height:1.22; margin:6px 0 0; font-weight:700; letter-spacing:-.02em}
+  .lede{font-size:15.5px; color:var(--ink2); margin:10px 0 0}
+  .meta{font-size:12px; color:var(--ink3); margin-top:8px}
+  h2{font-size:19px; margin:0 0 10px; font-weight:700; display:flex; align-items:center; gap:10px; letter-spacing:-.01em}
+  .no{display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--mango); color:#fff; font-size:14px; align-items:center; justify-content:center; font-weight:700; flex:0 0 auto}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; break-inside:avoid}
+  .card > p{margin:0 0 9px}
+  .card > p:last-child{margin-bottom:0}
+
+  /* THE ask — deliberately loud. This is the one thing the reader must not miss. */
+  .ask{background:#fff; border:3px solid var(--mango); border-radius:16px; padding:22px 24px; break-inside:avoid}
+  .ask .tag{display:inline-block; background:var(--mango); color:#fff; font-size:11.5px; font-weight:700;
+            letter-spacing:.09em; text-transform:uppercase; padding:4px 11px; border-radius:99px}
+  .ask h2{font-size:23px; margin:12px 0 4px; display:block}
+  .ask .oneline{font-size:17px; font-weight:700; line-height:1.45; margin:8px 0 0}
+  .price{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+  .chip{background:var(--good-soft); border:1px solid #bcd9c9; color:var(--good);
+        font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:99px}
+
+  .bad{background:var(--bad-soft); border-left:4px solid var(--bad); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .good{background:var(--good-soft); border-left:4px solid var(--good); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .todo{background:var(--todo-soft); border-left:4px solid var(--todo); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .tip{background:var(--mango-soft); border-left:4px solid var(--mango); border-radius:8px; padding:11px 14px; margin:11px 0 0; font-size:13.5px}
+
+  /* copy-and-send block */
+  .copy{background:#f7f5f0; border:1px dashed var(--line2); border-radius:10px; padding:14px 16px; margin-top:12px;
+        font-size:13.3px; line-height:1.6}
+  .copy .lbl{font-size:11.5px; font-weight:700; color:var(--ink3); letter-spacing:.07em; text-transform:uppercase; display:block; margin-bottom:7px}
+  code{background:#efe9dd; border-radius:4px; padding:1px 5px; font-family:"Liberation Mono",Consolas,monospace; font-size:12.5px}
+
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:10px}
+  th,td{border:1px solid var(--line2); padding:7px 9px; text-align:left; vertical-align:top}
+  th{background:var(--card2); font-weight:700}
+  td.n{text-align:right; white-space:nowrap}
+  .k{font-weight:700}
+  .red{color:var(--bad); font-weight:700}
+  .grn{color:var(--good); font-weight:700}
+  .small{font-size:12.5px; color:var(--ink2)}
+  ol,ul{margin:6px 0 0; padding-left:20px}
+  li{margin:4px 0}
+  .fill{color:var(--ink3); letter-spacing:.14em}
+  .foot{font-size:12px; color:var(--ink3); border-top:1px solid var(--line); padding-top:12px}
+
+  /* the picture that explains it without jargon */
+  .lane{display:flex; gap:12px; margin-top:12px; flex-wrap:wrap}
+  .lanebox{flex:1 1 210px; border:1px solid var(--line2); border-radius:10px; padding:12px 14px; background:#fff}
+  .lanebox .h{font-weight:700; font-size:13.5px; margin-bottom:5px}
+  .lanebox.now{border-color:#e3b4ae; background:var(--bad-soft)}
+  .lanebox.want{border-color:#b6d4c4; background:var(--good-soft)}
+
+  @media print{
+    body{padding:0; background:#fff; font-size:12.5px}
+    .wrap{max-width:none; gap:13px}
+    .card{padding:13px 15px; border-radius:10px}
+    .ask{padding:16px 18px; border-radius:12px; border-width:2.5px}
+    .ask h2{font-size:20px} .ask .oneline{font-size:15px}
+    h1{font-size:25px} h2{font-size:16.5px} .lede{font-size:14px}
+    table{font-size:11px}
+    .pagebreak{break-before:page}
+    @page{size:A4; margin:13mm 14mm}
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="stamp">Mangoi · For Karl &amp; the Manila office</div>
+    <h1>One firewall setting is breaking every class</h1>
+    <p class="lede">Teachers' <b>video</b> freezes while their <b>voice</b> stays clear. We found why. The fix is a router
+      setting — it costs <b>nothing</b> and takes minutes. This page explains what to ask for, and how to check it worked.</p>
+    <p class="meta">4 September 2026 · replaces the 3 September version (the cause turned out to be different) ·
+      based on measurements from our own database</p>
+  </header>
+
+  <!-- ══════════ THE ASK ══════════ -->
+  <section class="ask">
+    <span class="tag">What we need from you</span>
+    <h2>Please allow outbound UDP on the office internet</h2>
+    <p class="oneline">Ask whoever manages the office router / firewall to stop blocking
+      <b>outgoing UDP traffic</b>. That is the whole request.</p>
+
+    <div class="price">
+      <span class="chip">Cost: ₱0</span>
+      <span class="chip">No new hardware</span>
+      <span class="chip">No plan upgrade</span>
+      <span class="chip">Takes minutes</span>
+    </div>
+
+    <div class="copy">
+      <span class="lbl">Copy this to your IT person or ISP</span>
+      Our video-call software (WebRTC) needs to send <b>outbound UDP</b>. Right now it is being blocked,
+      so every call falls back to TCP and the video freezes.<br><br>
+      Please allow <b>outbound UDP</b> from the office network. Ideally allow outbound UDP to any port.
+      If that is not possible, at minimum please allow outbound UDP to:
+      <ul>
+        <li><code>turn.cloudflare.com</code> — <b>UDP 3478</b> and <b>UDP 53</b></li>
+        <li><code>stun.cloudflare.com</code> — <b>UDP 3478</b> and <b>UDP 53</b></li>
+        <li><code>stun.l.google.com</code> — <b>UDP 19302</b></li>
+      </ul>
+      We do not need any <i>inbound</i> ports opened. Nothing needs to be exposed to the internet.
+    </div>
+
+    <div class="tip"><b>If the router already allows UDP</b> — then the blocking is happening at the internet
+      provider. Please ask the ISP: <i>“Is UDP blocked or rate-limited on this line? Are we behind CGNAT?”</i>
+      Their answer tells us where to go next.</div>
+  </section>
+
+  <!-- ══════════ WHY, IN PLAIN WORDS ══════════ -->
+  <section class="card">
+    <h2><span class="no">1</span> Why this makes video freeze but not voice</h2>
+
+    <p>The internet has two ways to send things. Think of them as <b>courier</b> and <b>registered mail</b>.</p>
+
+    <div class="lane">
+      <div class="lanebox want">
+        <div class="h">UDP — the courier</div>
+        If a package is late, it is thrown away and the next one goes through.
+        Video looks a little rougher for a second, then continues. <b>This is what video calls are built for.</b>
+      </div>
+      <div class="lanebox now">
+        <div class="h">TCP — registered mail</div>
+        Every package must arrive, <b>in order</b>. If one is late, everything behind it waits in line.
+        Video stops dead, then jumps. <b>This is what we are stuck on now.</b>
+      </div>
+    </div>
+
+    <p style="margin-top:13px">Voice survives registered mail because it is tiny — about 30 kbps, and the browser can
+      paper over small gaps. Video is roughly <b>40&times; bigger</b>. One late packet stalls the whole picture, then a
+      burst arrives. That is exactly the “freeze… jump… freeze” teachers describe.</p>
+
+    <div class="bad"><b>So the problem is not your internet speed.</b> We measured round-trip times of
+      113–324 ms during the broken calls — that is a perfectly normal, healthy connection.
+      The traffic is simply being forced down the wrong lane.</div>
+  </section>
+
+  <!-- ══════════ EVIDENCE ══════════ -->
+  <section class="card">
+    <h2><span class="no">2</span> What we measured</h2>
+    <p class="small">From our own database, 4 September 2026. Every video call now records which route it took.</p>
+
+    <table>
+      <thead><tr><th>What we looked at</th><th>What we found</th><th>What it should be</th></tr></thead>
+      <tbody>
+        <tr><td>Calls that connected <b>directly</b> (peer to peer)</td>
+            <td class="red">0 out of 46</td><td class="grn">Most of them</td></tr>
+        <tr><td>Calls forced through a <b>relay server</b></td>
+            <td class="red">46 out of 46 — 100%</td><td class="grn">Only a few</td></tr>
+        <tr><td>Relay connections using <b>UDP</b> (the courier)</td>
+            <td class="red">0</td><td class="grn">All of them</td></tr>
+        <tr><td>Relay connections using <b>TCP</b> (registered mail)</td>
+            <td class="red">35 out of 35 — 100%</td><td class="grn">0</td></tr>
+        <tr><td>Round-trip time during the broken calls</td>
+            <td>113–324 ms</td><td>Normal — <b>not the problem</b></td></tr>
+        <tr><td>Video freezes</td><td class="red">4–9 per minute</td><td class="grn">Near zero</td></tr>
+        <tr><td>Audio gaps the browser had to fill in</td><td class="red">4–12%</td><td class="grn">Under 2%</td></tr>
+      </tbody>
+    </table>
+
+    <div class="good"><b>We checked our own side first.</b> Our server does hand out UDP routes —
+      we verified it on 4 September. So the UDP lane is offered; something on the network path is throwing
+      those packets away.</div>
+
+    <p class="small" style="margin-top:11px">This affected <b>6 different people</b>, not one bad laptop.
+      Roughly ten teacher accounts and two managers log in from the same office IP address, so one router
+      setting explains all of it.</p>
+  </section>
+
+  <div class="pagebreak"></div>
+
+  <!-- ══════════ WHAT WE ALREADY DID ══════════ -->
+  <section class="card">
+    <h2><span class="no">3</span> What we already fixed on our side</h2>
+    <p>We are not asking you to carry this alone. Since 3 September we shipped:</p>
+    <ul>
+      <li><b>Stopped the flicker.</b> When the line got bad, our software switched to audio-only and then tried to
+        come back after only 8 seconds — over and over. That is why the picture kept appearing and vanishing.
+        It now waits 32 seconds of a genuinely stable line before restoring video.</li>
+      <li><b>Stopped teachers' laptops recording.</b> Every browser in the room was making its own recording,
+        which used the same upload and the same CPU as the live video. Teachers no longer record automatically.</li>
+      <li><b>Lower start on slow lines.</b> Calls now begin at a lower quality when the line is known to be slow,
+        instead of flooding it and then backing off.</li>
+      <li><b>We can now see the route.</b> Every call records whether it went direct or through a relay,
+        and over UDP or TCP. That is how we found this — and it is how we will confirm your fix worked.</li>
+      <li><b>A backup path (server-relayed video).</b> Built and ready, switched off. It helps on connections that
+        can never be opened up — but it is <b>not</b> a substitute for this fix. It is also WebRTC, so where UDP is
+        blocked it falls back to TCP as well.</li>
+    </ul>
+  </section>
+
+  <!-- ══════════ HOW WE VERIFY ══════════ -->
+  <section class="card">
+    <h2><span class="no">4</span> How we will know it worked</h2>
+    <p>You do not have to test anything or report back with numbers. <b>Just tell us the date the change was made.</b>
+      We will read it from our own records.</p>
+    <ol>
+      <li>You change the firewall setting and tell us the date.</li>
+      <li>Teachers restart their browser and run one normal class.</li>
+      <li>We look at our route records for that class.</li>
+    </ol>
+    <div class="good"><b>Success looks like this:</b> calls start showing up as
+      <b>direct</b> instead of relay, or at least as relay over <b>UDP</b> instead of TCP —
+      and video freezes drop from 4–9 per minute toward zero.</div>
+    <div class="todo"><b>If nothing changes,</b> that is still useful — it tells us the blocking is at the ISP,
+      not the office router, and we take it up with them next.</div>
+  </section>
+
+  <!-- ══════════ CHECKLIST ══════════ -->
+  <section class="card">
+    <h2><span class="no">5</span> Please send this back to us</h2>
+    <table>
+      <thead><tr><th style="width:56%">Question</th><th>Your answer</th></tr></thead>
+      <tbody>
+        <tr><td>Who manages the office router / firewall?</td><td class="fill">____________________</td></tr>
+        <tr><td>Is outbound UDP currently blocked?</td><td class="fill">Yes / No / Don't know</td></tr>
+        <tr><td>Date the change was made</td><td class="fill">____________________</td></tr>
+        <tr><td>If it could not be changed — why?</td><td class="fill">____________________</td></tr>
+        <tr><td>Internet provider and plan name</td><td class="fill">____________________</td></tr>
+        <tr><td>Are teachers on Wi-Fi or wired cable?</td><td class="fill">____________________</td></tr>
+      </tbody>
+    </table>
+    <div class="tip">The last two are for later. <b>The first four are what matter this week.</b></div>
+  </section>
+
+  <!-- ══════════ IF IT CANNOT BE OPENED ══════════ -->
+  <section class="card">
+    <h2><span class="no">6</span> If UDP truly cannot be opened</h2>
+    <p>Then we move down this list, cheapest first. <b>Please do not spend money on these until the firewall
+      answer comes back</b> — a bigger plan will not help if the packets are still being blocked.</p>
+    <table>
+      <thead><tr><th>Option</th><th>Cost</th><th>What it would do</th></tr></thead>
+      <tbody>
+        <tr><td><b>Wired cable instead of Wi-Fi</b> for teachers</td><td>₱0</td>
+            <td>Removes one source of loss. Worth doing regardless.</td></tr>
+        <tr><td><b>Turn on our server-relay path</b></td><td>₱0 for now</td>
+            <td>Shortens the stalled leg. Helps, but does not remove the TCP problem.</td></tr>
+        <tr><td><b>A second, separate line</b> for classes only</td><td>Monthly fee</td>
+            <td>Bypasses the office firewall entirely. This is the reliable fallback.</td></tr>
+        <tr><td><b>Business plan with a public IP</b></td><td>Higher monthly fee</td>
+            <td>Removes CGNAT if that turns out to be the cause.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">7</span> In one paragraph</h2>
+    <p>Teachers' voices are fine and their video freezes because the office connection is forcing video down a
+      lane it was never designed for. The line is fast enough — we measured it. One firewall setting, at no cost,
+      is very likely to fix it. <b>Please ask your IT person or ISP to allow outbound UDP, and tell us the date
+      it was done.</b> We will confirm from our side.</p>
+  </section>
+
+  <p class="foot">Prepared by the Mangoi engineering team · 4 September 2026 ·
+    Measurements: 46 call records across 6 people, Mangoi production database.
+    Where this document says a fix “will” help, that is our expectation from how the technology works —
+    we will only call it proven once we measure it after the change.</p>
+
+</div>
+</body>
+</html>
