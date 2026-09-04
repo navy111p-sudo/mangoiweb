@@ -41,7 +41,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
-import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
+import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -2271,6 +2271,105 @@ export async function handleMangoApi(
         body.payload,
       );
       return json(r.body, r.status);
+    }
+
+    /* ═══ 📡 POST /api/class/sfu-peers — SFU 참가자 명단(신호) (2026-09-04, C안 2단계) ═══
+       [무엇] SFU 는 «누가 같은 방인가» 를 모릅니다(Cloudflare 문서: 「It does not define rooms,
+              participants, roles, or presence for your application」). 그래서 내가 만든
+              세션 id 와 트랙 이름을 여기에 적어 두고, 같은 방의 남의 것을 받아 갑니다.
+       [왜 화상방 DO 가 아니라 여기인가] 그 신호를 WebSocket 으로 보내려면 `src/video-call-room.ts`
+              에 case 를 하나 더해야 하는데 거기는 공동 금지구역입니다(모르는 type 은 그냥 버려집니다).
+              D1 한 표로 하면 금지구역을 한 줄도 안 건드리고, 덤으로 «강하게 일관» 합니다
+              (KV 는 읽기-수정-쓰기 경합에서 한쪽 announce 가 조용히 사라질 수 있습니다).
+       [왜 /api/class/ 밑인가] 그 접두사는 라우팅 허용목록에 **이미** 있습니다(src/index.ts).
+       ⚠️ 인증은 라우팅과 다른 것이라 여기서 «직접» 봅니다(CLAUDE.md 2장).
+       ⛔ 명단을 아무에게나 주지 않습니다 — 이 방에 «내 세션» 을 실제로 만든 사람만 봅니다
+          (sfuProxy 가 적어 둔 소유권 기록 `sfu:sess:<sid>` 을 그대로 재사용합니다). */
+    if (method === 'POST' && path === '/api/class/sfu-peers') {
+      const b = await request.json().catch(() => null) as any;
+      if (!b) return json({ ok: false, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰 또는 관리자 세션. ⛔ 본문의 uid 를 신원으로 믿지 않습니다. */
+      let ident: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const t = await authUidGlobal(request, new URL(request.url), env as any, b);
+        if (t) ident = { uid: String(t), kind: 'student' };
+      } catch {}
+      if (!ident) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) ident = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+      if (!ident) return json({ ok: false, error: 'unauthorized' }, 401);
+
+      /* 시크릿이 없으면 «꺼짐» — 표를 만들지도, 아무것도 적지도 않습니다. 화면은 그대로 mesh 로 갑니다. */
+      if (!sfuConfigured({ appId: (env as any).REALTIME_APP_ID, appToken: (env as any).REALTIME_APP_TOKEN })) {
+        return json({ ok: true, enabled: false, reason: 'no_secrets', peers: [] });
+      }
+
+      const room = String(b.room_id || '').trim();
+      if (!room || room.length > 120) return json({ ok: false, enabled: true, error: 'room_required' }, 400);
+      const sid = String(b.session_id || '').trim();
+      if (!SFU_SESSION_RE.test(sid)) return json({ ok: false, enabled: true, error: 'bad_session_id' }, 400);
+
+      /* ⛔ «내가 이 방에 만든 세션» 이어야 합니다 — 아니면 남의 수업 명단을 들여다볼 수 있습니다. */
+      const kv = (env as any).SESSION_STATE;
+      if (!kv) return json({ ok: false, enabled: true, error: 'owner_store_unavailable' }, 503);
+      let own: any = null;
+      try { own = JSON.parse((await kv.get(`sfu:sess:${sid}`)) || 'null'); } catch { own = null; }
+      if (!own || own.uid !== ident.uid || own.room !== room) {
+        return json({ ok: false, enabled: true, error: 'not_your_session' }, 403);
+      }
+
+      await ensureSchemaOnce('sfu_peers', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS sfu_peers (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, session_id TEXT, audio_track TEXT, video_track TEXT, name TEXT, role TEXT, account_uid TEXT, updated_at INTEGER, PRIMARY KEY (room_id, peer_id))`);
+      });
+
+      /* peer_id = 화상방(DO)이 접속마다 새로 발급하는 임시 번호입니다 — 계정이 아닙니다.
+         타일을 맞추는 데만 쓰므로 본문에서 받되, 길이·글자를 좁힙니다(그대로 화면에 그려집니다). */
+      const peerId = String(b.peer_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!peerId) return json({ ok: false, enabled: true, error: 'peer_id_required' }, 400);
+      const now = Date.now();
+
+      if (b.leave) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE room_id = ? AND peer_id = ?`).bind(room, peerId).run(); } catch {}
+        return json({ ok: true, enabled: true, peers: [] });
+      }
+
+      const cut = (v: any, n: number) => String(v == null ? '' : v).slice(0, n);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO sfu_peers (room_id, peer_id, session_id, audio_track, video_track, name, role, account_uid, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(room_id, peer_id) DO UPDATE SET
+             session_id = excluded.session_id, audio_track = excluded.audio_track,
+             video_track = excluded.video_track, name = excluded.name, role = excluded.role,
+             account_uid = excluded.account_uid, updated_at = excluded.updated_at`
+        ).bind(room, peerId, sid, cut(b.audio_track, 128), cut(b.video_track, 128),
+               cut(b.name, 60), cut(b.role, 20), ident.uid, now).run();
+      } catch (e: any) {
+        console.error('[sfu-peers] 명단 기록 실패', e && e.message);
+        return json({ ok: false, enabled: true, error: 'announce_failed' }, 500);
+      }
+
+      /* 나 말고, «최근 40초 안에» 알린 사람만. 탭이 죽어 남은 줄이 유령으로 보이지 않게. */
+      let peers: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT peer_id, session_id, audio_track, video_track, name, role
+             FROM sfu_peers WHERE room_id = ? AND peer_id <> ? AND updated_at > ? LIMIT 12`
+        ).bind(room, peerId, now - 40000).all();
+        peers = (rs.results || []) as any[];
+      } catch (e: any) { console.warn('[sfu-peers] 명단 조회 실패', e && e.message); }
+
+      /* 오래된 줄 가끔 정리(30분). ⚠️ 조용히 실패하면 표가 계속 자랍니다 — 로그로 남깁니다. */
+      if (Math.random() < 0.05) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE updated_at < ?`).bind(now - 1800000).run(); }
+        catch (e: any) { console.warn('[sfu-peers] 오래된 줄 정리 실패', e && e.message); }
+      }
+
+      return json({ ok: true, enabled: true, peers });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
