@@ -4,6 +4,8 @@
  *   · 도구를 열 때 서버 레벨을 웜업·AI 친구 localStorage 키에 «비어 있을 때만» 심는다 —
  *     학생이 이미 고른 값은 덮지 않는다(그 화면들이 자기 키를 정본으로 읽기 때문).
  *   · 돌아왔을 때(pageshow·visibilitychange)만 다시 읽는다. 상주 타이머 없음.
+ *   · 주간표는 «리듬 띠» 다(2026-09-04 사장님 결정) — 파랑 = 학원 수업일, 초록 = 집,
+ *     오늘 칸만 아래에 펼쳐 도구 이름을 글자로 적는다. ⛔ 이모지 묶음 + 범례로 되돌리지 말 것.
  *   · 이 파일을 고치면 today.html 의 ?v= 를 올린다(asset_version_harness).
  * ═══════════════════════════════════════════════════════════════════════ */
 (function () {
@@ -58,7 +60,6 @@
     return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'from=today&step=' + (i + 1) + '&total=' + n;
   }
 
-  var ICON = { warmup: '🗣️', review: '🧠', friend: '🤖', speech: '🎤', micro: '⚡', vocab: '📖', judgment: '🧭', write: '✍️', games: '🎮' };
   var SLOT = { before: ['수업 전', 'Before class'], after: ['수업 후', 'After class'], home: ['집에서', 'At home'], first: ['먼저', 'First'] };
 
   function render() {
@@ -101,15 +102,43 @@
       '</div>';
     }).join('');
 
-    $('td-week').innerHTML = p.week.map(function (w) {
+    /* ── 이번 주 «리듬 띠» — 파랑 = 학원 수업일, 초록 = 집. 색이 곧 범례다.
+       ⛔ 이모지 묶음으로 되돌리지 말 것(2026-09-04 사장님 결정). 무슨 도구인지는 바로 아래
+          «오늘» 상자와 위 「오늘 할 일」 카드가 말한다. */
+    var W = p.week || [];
+    $('td-week').innerHTML = W.map(function (w) {
+      var v = w.isClass
+        ? ('<span class="ic">🏫</span>' + esc(w.start || ''))
+        : (w.minutes ? T(w.minutes + '분', w.minutes + 'm') : '');
       return '<div class="day' + (w.isToday ? ' today' : '') + (w.isClass ? ' cls' : '') + '">' +
         '<div class="d">' + esc(en ? w.en : w.ko) + '</div>' +
-        '<div class="ic">' + w.tools.map(function (k) { return ICON[k] || ''; }).join('') + '</div>' +
-        '<div class="tag">' + (w.isClass ? '🏫' : (en ? 'home' : '집')) + '</div></div>';
+        '<div class="v">' + v + '</div></div>';
     }).join('');
+
+    /* 오늘 칸만 «펼쳐» 무슨 도구를 하는지 글자로 — 띠만 두면 «오늘» 이 흐려진다.
+       목록은 위 「오늘 할 일」과 같은 p.steps 를 쓴다(두 벌로 적으면 반드시 어긋난다). */
+    var tdw = null;
+    for (var wi = 0; wi < W.length; wi++) if (W[wi].isToday) { tdw = W[wi]; break; }
+    var box = $('td-week-today');
+    if (tdw && p.steps.length) {
+      box.hidden = false;
+      box.innerHTML = '<div class="t">' + esc(en ? tdw.en : tdw.ko) + T('요일 · 오늘', ' · today') + '</div>' +
+        '<ol>' + p.steps.map(function (s) {
+          return '<li>' + esc(s.icon) + ' ' + esc(en ? s.en : s.ko) +
+                 ' <span class="m">— ' + T(s.minutes + '분', s.minutes + ' min') + (s.done ? ' ✓' : '') + '</span></li>';
+        }).join('') + '</ol>';
+    } else { box.hidden = true; box.innerHTML = ''; }
+
+    /* 요약 — 주간표에서 그대로 센다(지어낸 값이 아니다). 🔥 연속일은 위 카드 칩에 이미 있어 넣지 않는다 */
+    var nCls = 0, totMin = 0;
+    for (var wj = 0; wj < W.length; wj++) { if (W[wj].isClass) nCls++; totMin += (W[wj].minutes || 0); }
+    $('td-week-sum').innerHTML =
+      '<span class="chip">🏫 ' + T('수업 ' + nCls + '회', nCls + ' classes') + '</span>' +
+      '<span class="chip">🤖 ' + T('AI 약 ' + totMin + '분', '~' + totMin + ' min AI') + '</span>';
+
     $('td-legend').textContent = T(
-      '🏫 수업일: 🗣️ 웜업(전) → 🧠 복습퀴즈(후) → ⚡ 단어(집) · 집: 말하기 하나 + 복습 하나 + 요일 특별',
-      '🏫 class day: warm-up → review quiz → words at home · home: one speaking + one review + a weekday special');
+      '파란 칸이 학원 수업이 있는 날 · 초록 칸은 집에서 하는 날이에요. 분 수는 그날 하기로 한 AI 학습 시간이에요.',
+      'Blue = class day at the academy · green = at home. Minutes are the AI practice planned for that day.');
   }
 
   load();

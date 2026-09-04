@@ -98,8 +98,14 @@ export interface PlanInput {
   nowMin: number;
   /** 오늘 잡힌 수업(망고아이 + 카페24). 없으면 [] */
   classes: ClassToday[];
-  /** 이번 주 수업 요일(정기 + 날짜지정) — 주간표용 */
+  /** 이번 주 수업 요일(정기 + 날짜지정) — 주간표용. «수업일인가» 의 정본은 이것 하나다 */
   weekClassDows: number[];
+  /**
+   * 요일 → 그날 첫 수업 시각 'HH:MM' (주간표에 «19:00» 을 적기 위한 «라벨» 일 뿐).
+   * ⛔ 이 값으로 «수업일인가» 를 판정하지 않는다 — weekClassDows 에 없는 요일의 값은 버린다.
+   *    (정본을 두 벌로 두면 둘이 어긋나는 날 화면이 조용히 거짓말한다.)
+   */
+  weekClassTimes?: Record<number, string>;
   /** 오늘 도구별 활동 횟수(0 이면 안 함). 없는 키는 0 */
   done: Partial<Record<ToolKey, number>>;
 }
@@ -127,6 +133,10 @@ export interface WeekDay {
   isClass: boolean;
   isToday: boolean;
   tools: ToolKey[];
+  /** 수업일이면 그날 첫 수업 시각 'HH:MM'. 모르면 null (수업일이 아니면 언제나 null) */
+  start: string | null;
+  /** 그날 AI 도구에 드는 분 — tools 의 TOOLS[k].minutes 합. 지어낸 값이 아니라 계획의 합계다 */
+  minutes: number;
 }
 
 export interface TodayPlan {
@@ -246,14 +256,38 @@ function lastClass(classes: ClassToday[]): ClassToday | null {
 /** 이번 주 요일표 — 화면이 그대로 그린다 */
 export function buildWeek(inp: PlanInput): WeekDay[] {
   const set = new Set(inp.weekClassDows || []);
+  const times = inp.weekClassTimes || {};
   const week: WeekDay[] = [];
   for (let d = 0; d <= 6; d++) {
     const isClass = set.has(d);
     const tools = isClass
       ? [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home]
       : fitToBand(HOME_WEEK[d] || ['friend', 'micro'], inp.band);
-    week.push({ dow: d, ko: DOW_KO[d], en: DOW_EN[d], isClass, isToday: d === inp.dow, tools });
+    /* 시각은 «수업일인 날» 에만 붙인다 — times 가 넓어도 판정은 weekClassDows 하나뿐 */
+    const start = isClass && hhmmToMin(times[d]) != null ? String(times[d]).slice(0, 5) : null;
+    const minutes = tools.reduce((n, k) => n + (TOOLS[k] ? TOOLS[k].minutes : 0), 0);
+    week.push({ dow: d, ko: DOW_KO[d], en: DOW_EN[d], isClass, isToday: d === inp.dow, tools, start, minutes });
   }
+  return week;
+}
+
+/**
+ * 주간표의 «오늘» 칸을 실제 steps 로 맞춘다.
+ *
+ * 🔴 왜 필요한가 — buildWeek 은 요일표만 보고 tools 를 정하는데, buildTodayPlan 은
+ *   레벨이 없으면(band == null) steps 를 «레벨테스트 + AI 친구» 로 통째로 바꾼다.
+ *   그 분기를 buildWeek 이 모르므로, 그대로 두면 띠의 오늘 칸은 「14분」인데 바로 아래
+ *   펼침 상자는 「레벨테스트 10분 · AI 친구 7분」(17분)을 나열한다 — 상자 제목이
+ *   「금요일 · 오늘」이라 «이 칸을 풀어 쓴 것» 으로 읽히는데 숫자가 다르다.
+ *   ⚠️ 예외가 아니라 «거의 모든 학생» 이다 — 2026-09-04 운영 D1 실측:
+ *      students_erp 29,475명 중 level 이 채워진 사람 1명.
+ *   ⛔ 반대로 고치지 말 것(steps 를 week 에 맞추기) — 「오늘 할 일」의 정본은 steps 다.
+ */
+export function todayFromSteps(week: WeekDay[], dow: number, steps: PlanStep[]): WeekDay[] {
+  const d = week[dow];
+  if (!d || !steps.length) return week;
+  d.tools = steps.map(s => s.key).filter(k => k !== 'leveltest') as ToolKey[];
+  d.minutes = steps.reduce((n, s) => n + (s.minutes || 0), 0);   // 레벨테스트도 «오늘 드는 시간» 이므로 합에 넣는다
   return week;
 }
 
@@ -322,7 +356,7 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     textbook: inp.textbook || null,
     steps, totalMinutes, doneCount,
     levelKeys: { warmup: band ? String(band) : null, aifriend: band ? ('S' + band) : null },
-    week: buildWeek(inp),
+    week: todayFromSteps(buildWeek(inp), inp.dow, steps),
   };
 }
 
