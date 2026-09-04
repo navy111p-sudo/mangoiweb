@@ -43,25 +43,34 @@ check('서버가 판정 정본을 import 한다',
 check('/api/recordings 응답에 students 를 싣는다',
   /const _recStudents = await resolveRecordingStudents\(/.test(MANGO) && /\bstudents,?\s*$/m.test(MANGO),
   'students 를 안 실으면 화면 칸이 늘 «—» 다');
+/* ⛔ 이 줄을 «글자 그대로» 못 박지 말 것 — 같은 자리에 칸을 하나 더 실으면
+      보장은 그대로인데 검사만 깨진다(2026-09-04 교사 칸에서 실제로 밟았다).
+      물어야 할 것은 «그 반환값에 students 가 들어 있는가» 다. */
 check('재생 불가한 행(dl_url 없는 행)에도 students 를 싣는다',
-  /if \(!playable\) return \{ \.\.\.row, students \};/.test(MANGO),
+  /if \(!playable\) return \{[^}]*\bstudents\b[^}]*\};/.test(MANGO),
   '저장 실패·보관 만료 행이야말로 «누구 수업이었나» 를 알아야 하는 자리다');
 
 check('화면이 학생 칸을 그린다', /\+ '<td>' \+ studentCell \+ '<\/td>'/.test(CORE));
-check('빈 목록 colspan 이 13 이다(칸을 하나 늘렸다)',
-  /colspan="13"/.test(CORE) && !/colspan="12"/.test(CORE),
-  'colspan 이 어긋나면 «녹화 기록 없음» 줄만 표 폭이 달라진다');
 check('화면이 participant_names 로 학생을 지어내지 않는다',
   !/students\s*=\s*[^;]*participant_names/.test(CORE),
   '그 배열에는 교사 표시이름과 임시 접속번호가 섞여 있다');
 
-{ // thead 의 <th> 수와 <tbody> 가 그리는 <td> 수가 같아야 한다
+{ /* thead 의 <th> 수 = 한 줄이 그리는 <td> 수 = 빈 표 colspan — 셋이 서로 같아야 한다.
+     ⛔ 여기에 «13» 같은 숫자를 못 박지 말 것. 칸을 늘리는 정상적인 변경마다 보장은
+        그대로인데 검사만 깨진다(CLAUDE.md 2장 「하니스가 목록·개수를 못 박아 두어」).
+        물어야 할 것은 «몇 개인가» 가 아니라 «세 곳이 서로 같은 말을 하는가» 다. */
   const thead = (HTML.match(/<tbody id="recordings-table">/) ? HTML.slice(0, HTML.indexOf('<tbody id="recordings-table">')) : '');
   const head  = thead.slice(thead.lastIndexOf('<thead>'));
   const nTh   = (head.match(/<th[\s>]/g) || []).length;
   const body  = CORE.slice(CORE.indexOf("return '<tr>'"), CORE.indexOf("+ '</tr>';") + 12);
   const nTd   = (body.match(/<td/g) || []).length + 3;   // gaze·speak·participation 셀은 함수가 <td> 를 만든다
-  check('thead 칸 수 = 한 줄이 그리는 칸 수', nTh === 13 && nTd === 13, 'th=' + nTh + ' td=' + nTd);
+  /* ⚠️ colspan 은 파일 전체에서 찾으면 안 된다 — 다른 표의 «로딩 중» 줄이 먼저 걸린다
+        (실측: 715행의 colspan="8"). renderRecordingsTable 안에서만 찾는다. */
+  const rrt   = CORE.indexOf('function renderRecordingsTable()');
+  const nCol  = Number((CORE.slice(rrt, rrt + 4000).match(/colspan="(\d+)"/) || [])[1] || -1);
+  check('thead 칸 수 = 한 줄이 그리는 칸 수', nTh > 0 && nTh === nTd, 'th=' + nTh + ' td=' + nTd);
+  check('빈 표 colspan 도 그 칸 수와 같다', nCol === nTh,
+    'colspan=' + nCol + ' th=' + nTh + ' — 어긋나면 «녹화 기록 없음» 줄만 표 폭이 달라진다');
   check('머리글에 「학생」 칸이 있다', /data-ko="학생" data-en="Student"/.test(head));
 }
 
@@ -92,11 +101,13 @@ check('화면이 participant_names 로 학생을 지어내지 않는다',
 check('검색이 학생(참가자)까지 훑는다',
   /COALESCE\(r\.participant_names,''\) LIKE \?/.test(MANGO) && /COALESCE\(r\.participant_ids,''\) LIKE \?/.test(MANGO),
   '화면에 이름이 보이는데 그 이름으로 검색하면 0건 = 「검색했는데 아무것도 없다」');
-{ // LIKE 자리 수와 바인드 수가 맞는가 (하나만 늘리면 D1 이 던진다)
-  const m = MANGO.match(/whereParts\.push\("\(r\.room_id LIKE[^"]*"\);[\s\S]{0,200}?whereBinds\.push\(([^)]*)\);/);
+{ /* LIKE 자리 수와 바인드 수가 맞는가 — 하나만 늘리면 D1 이 던져 목록이 통째로 500 이 된다.
+     ⛔ «5개» 처럼 숫자를 못 박지 말 것. 검색을 넓히는 정상적인 변경마다 깨진다.
+        물어야 할 것은 «둘이 같은가» 다. */
+  const m = MANGO.match(/whereParts\.push\(\s*"\(r\.room_id LIKE[\s\S]*?whereBinds\.push\(([^)]*)\);/);
   const nQ = m ? (m[0].match(/LIKE \?/g) || []).length : -1;
   const nB = m ? m[1].split(',').filter(x => x.trim()).length : -2;
-  check('LIKE 자리 수 = 바인드 수', nQ === nB && nQ === 5, 'LIKE=' + nQ + ' bind=' + nB);
+  check('LIKE 자리 수 = 바인드 수', nQ > 0 && nQ === nB, 'LIKE=' + nQ + ' bind=' + nB);
 }
 
 /* ══ B. 판정을 실제로 돌린다 ══════════════════════════════════════════════ */
