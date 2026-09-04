@@ -140,6 +140,50 @@ html.dark .flag.info{background:#233043;color:#a8bcd2}
 .steps{font-size:12.5px;color:#7b8794;margin-top:4px}
 html.dark .steps{color:#8b98a8}
 
+/* 📂 결재 문서함 (2026-09-04) — 지난 결재 찾기.
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
+h2 .findtoggle{
+  float:right; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
+  border:1px solid #bcc6d2; background:#fff; color:#2f3d4d; cursor:pointer
+}
+html.dark h2 .findtoggle{background:#16202c;border-color:#33414f;color:#c3cfdb}
+h2 .findtoggle[aria-expanded="true"]{border-color:#0f6b4f;color:#0f6b4f;background:#eaf6f1}
+html.dark h2 .findtoggle[aria-expanded="true"]{background:#102b22;color:#6fd3ad}
+.findpanel{
+  background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:11px 12px;margin-bottom:9px
+}
+html.dark .findpanel{background:#16202c;border-color:#26313f}
+.findrow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
+.findrow:last-of-type{margin-bottom:0}
+.findinput{
+  flex:1;min-width:170px;padding:9px 11px;font-size:15px;border-radius:7px;
+  border:1px solid #bcc6d2;background:#fff;color:#101828
+}
+html.dark .findinput{background:#0f1922;border-color:#33414f;color:#e8eef5}
+.findsel,.finddate{
+  padding:8px 9px;font-size:14px;border-radius:7px;border:1px solid #bcc6d2;
+  background:#fff;color:#2f3d4d;max-width:100%
+}
+html.dark .findsel,html.dark .finddate{background:#0f1922;border-color:#33414f;color:#c3cfdb}
+.findlab{font-size:12.5px;color:#7b8794}
+html.dark .findlab{color:#8b98a8}
+.findgo{
+  padding:9px 15px;font-size:14px;font-weight:600;border-radius:7px;border:0;
+  background:#0f6b4f;color:#fff;cursor:pointer
+}
+.findcsv{
+  margin-left:auto;padding:8px 13px;font-size:13px;font-weight:600;border-radius:7px;
+  border:1px solid #0f6b4f;background:#fff;color:#0f6b4f;cursor:pointer
+}
+html.dark .findcsv{background:#16202c}
+.findmore{
+  display:block;width:100%;margin-top:8px;padding:11px;font-size:14px;font-weight:600;
+  border-radius:8px;border:1px solid #bcc6d2;background:#fff;color:#2f3d4d;cursor:pointer
+}
+html.dark .findmore{background:#16202c;border-color:#33414f;color:#c3cfdb}
+.findnote{font-size:13px;color:#7b8794;padding:9px 2px}
+html.dark .findnote{color:#8b98a8}
+
 /* 🧭 진행 추적 (2026-09-04) — «올렸는데 어떻게 됐지» 에 답하는 줄.
    내가 올린 건에만 그린다. 결재함(내가 누를 것)에는 버튼이 더 중요하므로 그리지 않는다.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
@@ -285,8 +329,38 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <div id="reuse" class="reuse"></div>
   <div id="form" class="form" hidden></div>
 
-  <h2><span data-en="My requests" data-ko="내가 올린 것">My requests</span></h2>
+  <h2>
+    <span data-en="My requests" data-ko="내가 올린 것">My requests</span>
+    <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()"
+            data-en="Find past requests" data-ko="지난 결재 찾기">Find past requests</button>
+  </h2>
   <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+
+  <!-- 📂 결재 문서함 — 접혀 있다가 누르면 열린다.
+       ⚠️ 첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 깨지 않으려고, 여기서는
+          사람이 «찾기» 를 눌렀을 때만 서버를 부른다. -->
+  <div id="findPanel" class="findpanel" hidden>
+    <div class="findrow">
+      <input type="search" id="fq" class="findinput" autocomplete="off"
+             data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
+      <button type="button" class="findgo" onclick="runFind(0)"
+              data-en="Search" data-ko="찾기">Search</button>
+    </div>
+    <div class="findrow">
+      <select id="fscope" class="findsel" onchange="runFind(0)"></select>
+      <select id="ftype" class="findsel" onchange="runFind(0)"></select>
+      <select id="fstat" class="findsel" onchange="runFind(0)"></select>
+    </div>
+    <div class="findrow">
+      <label class="findlab" data-en="From" data-ko="시작일">From</label>
+      <input type="date" id="ffrom" class="finddate" onchange="runFind(0)">
+      <label class="findlab" data-en="To" data-ko="종료일">To</label>
+      <input type="date" id="fto" class="finddate" onchange="runFind(0)">
+      <button type="button" class="findcsv" onclick="findCsv()"
+              data-en="Excel" data-ko="엑셀 내려받기">Excel</button>
+    </div>
+    <div id="findResult"></div>
+  </div>
 
 </div>
 
@@ -460,6 +534,10 @@ function repaint(){
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
   paintForm();          // 언어를 바꿔도 폼 라벨이 따라오게. 값은 paintForm 이 챙겨서 되돌린다.
+  // 📂 문서함이 열려 있으면 그것도 다시 그린다 — JS 로 그린 글자는 data-ko/data-en 루프가
+  //    못 건드리므로, 여기서 다시 그리지 않으면 언어를 바꿔도 영어/한국어가 섞인 채 남는다.
+  var fp = document.getElementById('findPanel');
+  if (fp && !fp.hidden) { paintFindChrome(); paintFind(); }
   paintOutbox();
   paintPushBtn();
   // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
@@ -566,6 +644,160 @@ function stuckHtml(r){
          '이 단계를 결재할 사람을 지정해야 움직입니다.')) +
     '</div>';
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   📂 결재 문서함 — 지난 결재 찾기 (2026-09-04)
+
+   왜 — 「내가 올린 것」이 최근 15건뿐이라 그 뒤로는 볼 방법이 없었다.
+   검색·기간·분류·상태로 찾고, 엑셀로 내려받는다.
+
+   ⚠️ 첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 깨지 않는다 —
+      사람이 «찾기» 를 눌렀을 때만 서버를 부른다.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+var FIND = null;          // 마지막 검색 결과 { items, has_more, offset }
+var FIND_BUSY = false;
+
+window.toggleFind = function(){
+  var box = document.getElementById('findPanel');
+  var btn = document.getElementById('findBtn');
+  if (!box) return;
+  var open = box.hidden;                     // 지금 닫혀 있으면 연다
+  box.hidden = !open;
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) {
+    paintFindChrome();
+    if (!FIND) runFind(0);                   // 처음 열 때 한 번만 부른다
+    var q = document.getElementById('fq');
+    if (q) { try { q.focus(); } catch (e) {} }
+  }
+};
+
+/* 고르는 칸을 그린다.
+   ⚠️ 분류 목록은 **서버가 준 것**(D.types)을 쓴다 — 화면에 손으로 적으면
+      서버가 분류를 늘리거나 줄여도 따라오지 않는다. */
+function paintFindChrome(){
+  var sc = document.getElementById('fscope');
+  if (!sc) return;
+  var scopes = [
+    ['mine',     T('My requests (all)', '내가 올린 것 (전체)')],
+    ['open',     T('In progress',       '진행 중')],
+    ['done',     T('Approved',          '승인 완료')],
+    ['rejected', T('Rejected',          '반려')]
+  ];
+  // 결재자에게만 «내가 결재할 것»·«전체» 를 준다 — 서버도 같은 판정으로 막는다.
+  if (D && D.can_approve) {
+    scopes.push(['pending', T('Waiting for me', '내가 결재할 것')]);
+    scopes.push(['all',     T('Everything',     '전체')]);
+  }
+  fillSel(sc, scopes);
+
+  var ty = [['', T('All kinds', '분류 전체')]];
+  var list = (D && D.types) || [];
+  for (var i = 0; i < list.length; i++) {
+    ty.push([list[i].key, EN() ? (list[i].en || list[i].key) : (list[i].ko || list[i].key)]);
+  }
+  fillSel(document.getElementById('ftype'), ty);
+
+  fillSel(document.getElementById('fstat'), [
+    ['',         T('Any status', '상태 전체')],
+    ['pending',  T('Waiting',    '대기 중')],
+    ['approved', T('Approved',   '승인')],
+    ['rejected', T('Rejected',   '반려')]
+  ]);
+
+  // placeholder 는 data-en/data-ko 루프가 못 건드린다(그건 textContent 를 바꾼다).
+  var q = document.getElementById('fq');
+  if (q) q.placeholder = EN() ? (q.getAttribute('data-en-ph') || '') : (q.getAttribute('data-ko-ph') || '');
+}
+
+/** 고른 값을 잃지 않고 다시 그린다 — 언어를 바꿔도 고른 것이 그대로 있어야 한다. */
+function fillSel(el, pairs){
+  if (!el) return;
+  var keep = el.value;
+  var h = '';
+  for (var i = 0; i < pairs.length; i++) {
+    h += '<option value="' + esc(pairs[i][0]) + '">' + esc(pairs[i][1]) + '</option>';
+  }
+  el.innerHTML = h;
+  if (keep) el.value = keep;
+}
+
+function findParams(){
+  var g = function(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  var p = [];
+  p.push('scope=' + encodeURIComponent(g('fscope') || 'mine'));
+  if (g('fq'))    p.push('q=' + encodeURIComponent(g('fq')));
+  if (g('ftype')) p.push('type=' + encodeURIComponent(g('ftype')));
+  if (g('fstat')) p.push('status=' + encodeURIComponent(g('fstat')));
+  if (g('ffrom')) p.push('from=' + encodeURIComponent(g('ffrom')));
+  if (g('fto'))   p.push('to=' + encodeURIComponent(g('fto')));
+  return p.join('&');
+}
+
+window.runFind = function(offset){
+  if (FIND_BUSY) return;
+  var host = document.getElementById('findResult');
+  if (!host) return;
+  FIND_BUSY = true;
+  if (!offset) host.innerHTML = '<div class="findnote">' + esc(T('Searching...', '찾는 중...')) + '</div>';
+
+  fetch('/api/approval/requests?' + findParams() + '&limit=20&offset=' + (offset || 0), {
+    credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    FIND_BUSY = false;
+    // ⚠️ «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 판정한다.
+    //    404 본문에는 ok 칸이 아예 없어서 d.ok === false 는 그냥 통과한다(CLAUDE.md).
+    if (!d || d.ok !== true || !Array.isArray(d.items)) {
+      host.innerHTML = '<div class="findnote">' +
+        esc(T('Could not search. Please try again.', '찾지 못했습니다. 다시 눌러 주세요.')) + '</div>';
+      return;
+    }
+    var prev = (offset && FIND) ? FIND.items : [];
+    FIND = { items: prev.concat(d.items), has_more: !!d.has_more, offset: Number(d.offset || 0) };
+    paintFind();
+  })
+  .catch(function(){
+    FIND_BUSY = false;
+    host.innerHTML = '<div class="findnote">' +
+      esc(T('Network problem. Please try again.', '연결이 좋지 않습니다. 다시 눌러 주세요.')) + '</div>';
+  });
+};
+
+window.findMore = function(){
+  if (!FIND) return;
+  runFind(FIND.offset + 20);
+};
+
+function paintFind(){
+  var host = document.getElementById('findResult');
+  if (!host || !FIND) return;
+  if (!FIND.items.length) {
+    host.innerHTML = '<div class="findnote">' +
+      esc(T('Nothing found. Try a different word or period.',
+            '찾은 것이 없습니다. 다른 낱말이나 기간으로 해 보세요.')) + '</div>';
+    return;
+  }
+  var h = '<div class="findnote">' +
+    esc(EN() ? (FIND.items.length + ' found' + (FIND.has_more ? ' (more below)' : ''))
+             : (FIND.items.length + '건' + (FIND.has_more ? ' (더 있습니다)' : ''))) + '</div>';
+  for (var i = 0; i < FIND.items.length; i++) h += itemHtml(FIND.items[i], false);
+  if (FIND.has_more) {
+    h += '<button type="button" class="findmore" onclick="findMore()">' +
+         esc(T('Show more', '더 보기')) + '</button>';
+  }
+  host.innerHTML = h;
+}
+
+/* 엑셀 내려받기 — 지금 고른 조건 그대로.
+   ⚠️ window.open 을 쓰지 않는다: 카톡·문자 인앱 브라우저는 새 창을 못 열면서
+      예외도 안 던지고 null 만 돌려준다(CLAUDE.md). 같은 창에서 연다 —
+      서버가 Content-Disposition: attachment 를 주므로 화면은 그대로 있고 파일만 받는다. */
+window.findCsv = function(){
+  location.href = '/api/approval/requests?' + findParams() + '&format=csv';
+};
 
 function itemHtml(r, decidable){
   var late = isOverdue(r);
