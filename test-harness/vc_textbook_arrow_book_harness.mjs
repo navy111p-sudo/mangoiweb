@@ -158,5 +158,29 @@ console.log('\nC. 교재명 판정');
   ok('빈 값·내 PC 파일 이름은 빈 문자열', f('') === '' && f('IMG_1.jpg') === '');
 }
 
+// ── D. 감싸는 대상·읽는 칸이 «그 이름으로» 아직 있는가 ───────────────────
+/* 🔴 위 B절은 가짜 window 에 값을 «직접 넣어» 준다 — 그래서 idx-main.js 쪽에서 이름이
+      바뀌면 ⑮절은 no-op 이 되는데 이 하니스는 계속 초록이다(CLAUDE.md 「가짜 DB 로
+      돌렸는데 검사가 헛돌며 통과」). 그 칸들이 실재하는지 원본에서 대조한다. */
+console.log('\nD. 원본(idx-main.js)과 이름 맞춤');
+{
+  const main = readFileSync(join(ROOT, 'cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+  const need = [
+    ['async function pdfPrevPage(', '감쌀 원본 ◀'],
+    ['async function pdfNextPage(', '감쌀 원본 ▶'],
+    ['window._libSequence', '화살표 파일 목록'],
+    ['window._libSeqIdx', '목록 안 현재 위치'],
+    ['window._vcCurrentPdfUrl', '지금 열린 교재 주소'],
+    ['window._vcShownPdfUrl', '공유로 받은 교재 주소'],
+    ['window._vcShownPdfName', '교재 이름(책 판정 근거)'],
+  ];
+  need.forEach(function (n) {
+    ok('idx-main.js 에 ' + n[1] + ' 가 그 이름으로 있다', main.indexOf(n[0]) >= 0, n[0]);
+  });
+  /* 원본이 async 이므로 래퍼의 조기 return 도 Promise 여야 한다 — 나중에 await 를 쓰는
+     호출자가 생겨도 갈리지 않게. */
+  ok('⑮절의 조기 return 이 Promise 를 돌려준다', /return Promise\.resolve\(\)/.test(arrowSrc));
+}
+
 console.log(`\n${fail ? '❌' : '✅'} PASS ${pass} / FAIL ${fail}\n`);
 process.exit(fail ? 1 : 0);

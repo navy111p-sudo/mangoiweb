@@ -86,13 +86,28 @@ ok(/window\.__rqvResetProbe\s*=\s*function/.test(mfix),
    '교재가 «나중에» 오면 ⑩절 probe 를 다시 하게 푼다',
    '안 풀면 수업 초반에 복습 탭을 먼저 연 학생은 그 세션 내내 中文 전환이 안 된다');
 
-/* 교재명 추출은 «문자열이 있는가» 가 아니라 함수를 오려 내 실제로 돌려서 판정한다 */
-const bookOfSrc = /function bookOf\(name\)\s*\{[\s\S]*?\n    \}/.exec(mfix);
-ok(!!bookOfSrc, '교재명 추출 함수(bookOf)를 오려 냈다');
+/* 교재명 추출은 «문자열이 있는가» 가 아니라 함수를 오려 내 실제로 돌려서 판정한다
+   ⚠️ 범위는 «들여쓰기» 가 아니라 «중괄호 짝» 으로 자른다 — 2026-09-04 에 그 함수를
+      tbBookOf 로 이름을 바꿔 파일 상단(들여쓰기 2칸)으로 올리자 옛 정규식
+      (/function bookOf\(name\)[\s\S]*?\n    \}/)이 못 찾아 **이 아래 9가지 입력 검사가
+      통째로 조용히 건너뛰어졌다.** 이름만 바꿔도 같은 일이 나므로 짝으로 자른다. */
+function sliceFnBody(src, name) {
+  const at = src.indexOf('function ' + name + '(');
+  if (at < 0) return null;
+  let depth = 0, i = src.indexOf('{', at);
+  for (; i < src.length; i++) {
+    const c = src[i];
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) break; }
+  }
+  return src.slice(at, i + 1);
+}
+const bookOfSrc = sliceFnBody(mfix, 'tbBookOf');
+ok(!!bookOfSrc, '교재명 추출 함수(tbBookOf)를 오려 냈다');
 if (bookOfSrc) {
   let bookOf = null;
-  try { bookOf = new Function(bookOfSrc[0] + '; return bookOf;')(); } catch (e) { bookOf = null; }
-  ok(typeof bookOf === 'function', 'bookOf 가 실제로 돌아간다');
+  try { bookOf = new Function(bookOfSrc + '; return tbBookOf;')(); } catch (e) { bookOf = null; }
+  ok(typeof bookOf === 'function', 'tbBookOf 가 실제로 돌아간다');
   if (typeof bookOf === 'function') {
     const cases = [
       ['[다락원 중국어 마스터 3] 미분류 레슨 / Slide7.JPG', '다락원 중국어 마스터 3'],

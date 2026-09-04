@@ -1640,11 +1640,16 @@
       if (typeof orig !== 'function') return;       // 원본이 없으면 조용히 건너뛴다
       window[fn] = function () {
         try {
-          // ㉠ 교재가 하나도 없다 — 옛 목록으로 «엉뚱한 책» 을 열지 않는다
+          /* ㉠ 교재가 하나도 없다 — 옛 목록으로 «엉뚱한 책» 을 열지 않는다
+             ⚠️ 이 «열렸나» 판정은 js/idx-vc-textbook.js 의 hasContent() 와 «짝» 이다.
+                그쪽은 _vcShownPdfKey·_vcShownVideoUrl 도 본다. 여기서 둘을 안 보는 것은
+                idx-main.js:604 가 그 키를 쓴 «직후»(사이에 await 없음) 608행이 pdfLoad() 를
+                부르고 pdfLoad 첫 줄이 _vcCurrentPdfUrl 을 동기로 채우기 때문이다 —
+                즉 키만 있고 나머지가 빈 순간이 없다. ⛔ 그 순서가 바뀌면 여기도 함께 고칠 것. */
           if (!window._vcCurrentPdfUrl && !window._vcShownPdfUrl) {
             if (window._libSequence && window._libSequence.length) dropSeq();
             toast(zhLine('📚 아직 교재가 없어요 · No textbook yet', '还没有教材'));
-            return;
+            return Promise.resolve();   // 원본이 async 라 «항상 Promise» 계약을 지킨다
           }
           // ㉡ 지금 보는 책 ≠ 목록의 책 — 목록을 버리면 원본이 서버에서 이 책으로 다시 만든다
           var cur = tbBookOf(window._vcShownPdfName);
