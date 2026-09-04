@@ -18,6 +18,7 @@ mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core
 cd /경로/mangoiweb
 PW_DIR=/tmp/pw node test-harness/manual/approval-offline-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -83,6 +84,25 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > «보내지 못한 결재를 저장했습니다» 안내가 **한 번도 뜨지 않았다.**
 > CLAUDE.md 에 적힌 «hidden 인데 그대로 보임» 함정의 반대쪽이고, 정적 검사로는 안 보인다.
 > (지금은 `approval_policy_harness.mjs` 가 그 줄을 감시한다)
+
+## approval-track-browser.mjs — 진행 추적 · «멈춘 이유» (27건)
+
+1. **«막힘» 안내가 맞는 자리에만 뜨는가** — 이게 핵심이다.
+   「막힌 건에 뜬다」만 검사하면 **모든 건에 뜨는 코드**도 통과한다. 그래서
+   「안 막힌 대기 건」·「이미 끝난 건」·「남이 올린 건(`blocked` 를 켜 두어도)」·
+   「결재함」 넷에 **안 뜨는지**를 짝으로 센다.
+2. 진행바 칸 수(1단계 3칸 · 2단계 4칸) · 승인 끝난 건은 모든 칸이 `done`.
+3. 문구가 사실을 말하는가 — 막힌 **단계 이름**과 **이유**(본인 결재 금지)를 말하는지.
+4. 휴대폰 390px — 가로 넘침 0, **진행바 글자가 서로 겹치지 않는지**
+   (상자가 아니라 `Range.getClientRects()` 로 **실제 글자 자리**를 잰다).
+5. WCAG 대비 4.5:1 · KO/EN 전환 · PC 900px · 콘솔 오류 0.
+
+> 왜 만들었나 — 2026-08-30 에 올라온 긴급 건이 5일째 서 있었는데 화면은 「대기 중」이라고만 했다.
+> 그 건은 결재 단계가 `exec` 로 박혀 있고 그걸 결재할 수 있는 사람이 기안자 본인뿐이라
+> **기다려도 처리될 수 없는 상태**였다. 화면이 그 사실을 말하게 한 것이 이 변경이다.
+>
+> ⚠️ 변이시험으로 확인했다 — 막힘 안내 제거 6건 · `isMine` 제거 1건 · 진행바 제거 6건 ·
+> 「N일째」 제거 2건이 **실제로 FAIL** 난다.
 
 ## approval-ui-browser.mjs — 묶어서 승인 · 부재중(대결) (10건)
 
