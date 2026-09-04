@@ -201,6 +201,43 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
   return out;
 }
 
+/**
+ * 「왜 안 움직이나」 — 이 건들을 **지금 결재할 수 있는 사람이 몇 명인가**.
+ *
+ *   왜 서버가 세나 — 화면은 계정 목록도 결재 규칙도 모른다. 화면이 추측하면
+ *   「승인할 사람이 없습니다」라는 **틀린 말**을 사람에게 하게 된다.
+ *
+ *   ⚠️ 계정 조회는 **한 번만** 한다. 건마다 approversFor() 를 부르면 목록 15건에
+ *      D1 조회가 15번 나간다 — 필리핀 회선에서 그대로 대기 시간이 된다.
+ *
+ *   ⚠️ 세는 기준은 «지금 저장된 단계 역할» 이다. 결재 정책(stagesFor)이 나중에 바뀌어도
+ *      이미 만들어진 건의 역할은 approval_steps 에 박혀 있어 따라 바뀌지 않는다.
+ *      2026-09-04 실측: 8/30 에 올라온 긴급 건 하나가 `exec` 로 박혀 있는데
+ *      (그때는 긴급도 exec 였다 — 9/2 에 'any' 로 바뀜) exec 를 결재할 수 있는 사람은
+ *      기안자 본인뿐이라 **영영 처리될 수 없는 상태**로 5일을 서 있었다.
+ *      화면은 그동안 「대기 중」이라고만 했다. 그래서 이 함수가 생겼다.
+ */
+async function approverCounts(
+  env: ApprovalEnv,
+  jobs: Array<{ id: number; role: string; requester: string }>
+): Promise<Record<number, number>> {
+  const out: Record<number, number> = {};
+  if (!jobs.length) return out;
+  const rows = await hqAccounts(env);
+  for (const j of jobs) {
+    let n = 0;
+    for (const r of rows) {
+      const u = String(r.username || '');
+      if (!u) continue;
+      if (u === String(j.requester)) continue;   // 본인이 올린 건은 본인이 결재할 수 없다
+      const actor: ActorLike = { ok: true, username: u, name: r.name, role: 'hq', isTeacher: false };
+      if (canDecideStage(actor, j.role as any, isPhManager(actor))) n++;
+    }
+    out[j.id] = n;
+  }
+  return out;
+}
+
 /** 지금 이 사람 대신 결재하도록 위임받은 사람이 있는가(대결). 없으면 빈 배열. */
 async function delegatesOf(env: ApprovalEnv, usernames: string[]): Promise<string[]> {
   if (!usernames.length) return [];
@@ -665,9 +702,16 @@ export async function handleApprovalApi(
     ).first(), null);
     // 긴급 목록은 «최근 7일» 이라 시간이 지나면 저절로 빠진다. 표가 안 바뀌어도 목록은 바뀌므로
     // 한 시간 단위의 눈금을 하나 섞는다(1시간마다 한 번은 전체를 다시 받는다).
+    // 🧭 「이 건을 결재할 사람이 몇 명인가」가 바뀌면 «막힘» 표시도 바뀐다 — 서명에 함께 넣는다.
+    //    ⚠️ 계정 «수» 만 본다. 이름을 「…이사」로 고쳐 경영진이 되는 경우(isExec 의 이름 안전장치)는
+    //       이 숫자가 그대로라 못 잡지만, 아래 hourBucket 이 한 시간에 한 번은 전체를 다시 받게 한다.
+    const hsig: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
+    ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a3-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
-                 `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}-${hourBucket}"`;
+    const etag = `W/"a4-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+                 `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
+                 `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
       'Content-Type': 'application/json; charset=utf-8',
       // no-store 가 아니라 no-cache — «저장은 하되 쓰기 전에 반드시 확인» 이라는 뜻이다.
@@ -722,6 +766,27 @@ export async function handleApprovalApi(
 
     // ② 내가 올린 것
     const mine: any[] = mineRows.map((r: any) => rowOf(r, stepMap[Number(r.id)] || [], true));
+
+    /* 「올렸는데 어떻게 됐지」 — 아직 대기 중인 내 건에 «지금 결재할 수 있는 사람 수»를 붙인다.
+       0명이면 기다려도 처리되지 않는다. 화면이 그 사실을 말할 수 있어야 한다.
+       ⚠️ 대기 중인 건에만 붙인다 — 이미 끝난 건은 셀 이유가 없고, 그만큼 계정 조회도 아낀다. */
+    const countJobs: Array<{ id: number; role: string; requester: string }> = [];
+    for (const m of mine) {
+      if (m.status !== 'pending') continue;
+      const st = (m.steps || []).find((s: any) => Number(s.seq) === Number(m.stage_seq));
+      countJobs.push({
+        id: Number(m.id),
+        role: String(st?.role || 'staff'),   // 단계 기록이 없는 옛 건은 «staff 1단계»로 본다(rowOf 와 같은 해석)
+        requester: String(m.requester_username),
+      });
+    }
+    const counts = await approverCounts(env, countJobs);
+    for (const m of mine) {
+      const n = counts[Number(m.id)];
+      if (n === undefined) continue;         // 대기 중이 아닌 건 — 손대지 않는다
+      m.approver_count = n;
+      m.blocked = (n === 0);
+    }
 
     const urgent: any[] = [];
     for (const r of urgRows) {
