@@ -65,6 +65,30 @@ check('화면이 participant_names 로 학생을 지어내지 않는다',
   check('머리글에 「학생」 칸이 있다', /data-ko="학생" data-en="Student"/.test(head));
 }
 
+{ /* 🔴 2026-09-04 — SELECT 목록이 «판정 정본이 읽는 칸» 을 전부 주는가.
+     [무엇이 있었나] `/api/recordings` GET 의 SELECT 에 `r.participant_ids` 가 빠져 있었다.
+       그런데 정본(recording-students.ts)의 첫 번째 근거가 `parseIdList(r.participant_ids)` 다
+       → 그 칸이 응답 행에 아예 없으니 **늘 빈 배열**, 근거 하나가 조용히 죽어 있었다.
+     [왜 아무도 못 봤나] 학생 칸은 나머지 세 근거(예약·consented_user_ids·teacher_name)로
+       계속 채워졌다. 즉 «고장» 이 아니라 «근거가 안 쓰인다» 라서 화면에 표시가 안 난다.
+     [왜 B절이 못 잡나] B절은 정본을 가짜 D1 로 돌린다 — 행에 그 칸을 «직접 넣어» 주므로
+       «서버가 그 칸을 안 준다» 는 사실은 원리상 볼 수 없다. 그래서 여기서 배선을 본다.
+     ⛔ 「participant_ids 가 있는가」로 못 박지 말 것 — 정본이 읽는 칸이 늘면 또 어긋난다.
+        RecRowLike(정본이 읽겠다고 선언한 칸)를 **읽어서** 대조한다. */
+  const IFACE = rd('cloudflare-deploy/src/recording-students.ts');
+  const ifBody = (IFACE.match(/export interface RecRowLike\s*\{([\s\S]*?)\n\}/) || [, ''])[1];
+  const need   = [...ifBody.matchAll(/^\s*([a-z_]+)\??\s*:/gm)].map(m => m[1]);
+  const qStart = MANGO.indexOf('let q = `SELECT r.id, r.room_id');
+  const selEnd = qStart < 0 ? -1 : MANGO.indexOf('/*', qStart);          // 첫 주석 앞까지 = 최상위 칸 목록
+  const selList = (qStart > 0 && selEnd > qStart) ? MANGO.slice(qStart, selEnd) : '';
+  check('SELECT 칸 목록을 찾았다', !!selList && need.length >= 4,
+    '못 찾으면 아래 검사가 무의미하다 — 쿼리 모양이 바뀌었으면 여기부터 고칠 것 (need=' + need.join(',') + ')');
+  const missing = need.filter(c => !new RegExp('r\\.' + c + '(?![a-z_])').test(selList));
+  check('판정 정본이 읽는 칸을 SELECT 가 전부 준다', !!selList && missing.length === 0,
+    '빠진 칸: ' + (missing.join(', ') || '(없음)') +
+    ' — 없는 칸은 늘 빈 값이라 그 근거가 «에러 없이» 죽는다');
+}
+
 check('검색이 학생(참가자)까지 훑는다',
   /COALESCE\(r\.participant_names,''\) LIKE \?/.test(MANGO) && /COALESCE\(r\.participant_ids,''\) LIKE \?/.test(MANGO),
   '화면에 이름이 보이는데 그 이름으로 검색하면 0건 = 「검색했는데 아무것도 없다」');

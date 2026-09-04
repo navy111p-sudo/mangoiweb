@@ -4204,9 +4204,16 @@ ${numbered}`;
         : await countStmt.first<{ total: number }>();
       const total = countRow?.total || 0;
 
+      /* ⚠️ `r.participant_ids` 는 화면이 그리는 칸이 아니라 **학생 칸 판정의 첫 번째 근거**다
+            (src/recording-students.ts ①). 2026-09-01 에 이 SELECT 목록에서 빠져 있어
+            `resolveRecordingStudents()` 의 `parseIdList(r.participant_ids)` 가 **늘 빈 배열**이었고,
+            그 근거 하나가 «에러 없이» 죽어 있었다(학생 칸이 그래도 채워진 것은 나머지 세
+            근거 — 예약·consented_user_ids·teacher_name — 덕분이라 아무도 못 알아챘다).
+         ⛔ 판정에 쓰는 칸을 SELECT 에서 빼지 말 것. 빼도 화면이 «고장» 으로 보이지 않는다.
+            감시: test-harness/recording_student_column_harness.mjs A절. */
       let q = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.filename, r.file_url,
                       r.size_bytes, r.duration_ms,
-                      r.participant_names, r.consented_user_ids,
+                      r.participant_names, r.participant_ids, r.consented_user_ids,
                       r.started_at, r.ended_at, r.status, r.storage, r.expires_at,
                       /* 시선 점수 — 해당 녹화 시간대의 attendance.gaze_score 평균
                          window = [started_at - 30s, ended_at 또는 started_at + duration + 30s] */
