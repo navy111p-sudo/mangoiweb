@@ -140,6 +140,41 @@ html.dark .flag.info{background:#233043;color:#a8bcd2}
 .steps{font-size:12.5px;color:#7b8794;margin-top:4px}
 html.dark .steps{color:#8b98a8}
 
+/* 🧭 진행 추적 (2026-09-04) — «올렸는데 어떻게 됐지» 에 답하는 줄.
+   내가 올린 건에만 그린다. 결재함(내가 누를 것)에는 버튼이 더 중요하므로 그리지 않는다.
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
+.trk{display:flex;align-items:flex-start;margin:10px 0 2px}
+.trkS{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;min-width:0}
+.trkB{width:13px;height:13px;border-radius:50%;border:2px solid #cfd8e2;background:#fff;z-index:1;flex:0 0 auto}
+html.dark .trkB{border-color:#3a4653;background:#16202c}
+.trkL{font-size:11px;color:#7b8794;text-align:center;line-height:1.4;word-break:keep-all}
+html.dark .trkL{color:#8b98a8}
+.trkBar{position:absolute;top:5px;left:50%;width:100%;height:3px;background:#e3e9ef;z-index:0}
+html.dark .trkBar{background:#2a3542}
+.trkS:last-child .trkBar{display:none}
+.trkS.done .trkB{background:#1c7a45;border-color:#1c7a45}
+.trkS.done .trkBar{background:#1c7a45}
+.trkS.done .trkL{color:#2f3d4d;font-weight:600}
+html.dark .trkS.done .trkL{color:#c3cfdb}
+.trkS.now .trkB{background:#b06a06;border-color:#b06a06;box-shadow:0 0 0 4px #fbeed2}
+html.dark .trkS.now .trkB{box-shadow:0 0 0 4px #3a2c10}
+.trkS.now .trkL{color:#7a5406;font-weight:600}
+html.dark .trkS.now .trkL{color:#f0cf8a}
+.trkS.no .trkB{background:#a4341f;border-color:#a4341f}
+.trkS.no .trkL{color:#8e2b20;font-weight:600}
+html.dark .trkS.no .trkL{color:#f0907c}
+.trkS.stop .trkB{background:#a4341f;border-color:#a4341f;box-shadow:0 0 0 4px #f7dfdc}
+html.dark .trkS.stop .trkB{box-shadow:0 0 0 4px #3a1a16}
+.trkS.stop .trkL{color:#8e2b20;font-weight:700}
+html.dark .trkS.stop .trkL{color:#f0907c}
+
+/* 🔴 «기다려도 처리되지 않습니다» — 결재할 수 있는 사람이 0명일 때만 나온다.
+   ⛔ «대기 중» 이라고만 적지 말 것. 그래서 5일을 그냥 기다린 건이 있었다(2026-08-30). */
+.stuck{border:1px solid #a4341f;background:#f7dfdc;color:#7a2418;border-radius:7px;
+       padding:9px 11px;margin-top:8px;font-size:13px;line-height:1.6}
+html.dark .stuck{background:#3a1a16;border-color:#a4341f;color:#f0b6a8}
+.stuck b{font-weight:700}
+
 /* ── 결정 버튼 — 크게, 둘만 ─────────────────────────────── */
 .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .big{
@@ -469,9 +504,74 @@ function isOverdue(r){
   return !!(r.status === 'pending' && r.stage_due_at && Date.now() > Number(r.stage_due_at));
 }
 
+/* 🧭 「내가 올린 건인가」 — 진행바와 «멈춤» 안내는 내 건에만 그린다.
+   남이 올린 긴급 소통에까지 「승인할 사람이 없습니다」를 띄우면 남의 일에 대고 하는 말이 된다. */
+function isMine(r){
+  return !!(D && D.me && D.me.username && String(r.requester_username) === String(D.me.username));
+}
+
+/* 며칠째인가. 지연 판정과 같은 이유로 **화면이** 센다 — 서버가 담으면 내용이 그대로여도
+   응답이 매초 달라져서 「바뀐 것 없음(304)」으로 끝낼 수가 없다. */
+function daysWaiting(r){
+  return Math.floor((Date.now() - Number(r.created_at || 0)) / 86400000);
+}
+
+function roleLabel(role){
+  return role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+}
+
+/* 진행 추적 줄 — 올림 → (단계마다) → 완료.
+   ⚠️ steps 가 비어 있는 옛 건은 «1단계짜리»로 본다(서버 rowOf 와 같은 해석). */
+function trackHtml(r){
+  var steps = (r.steps && r.steps.length) ? r.steps
+            : [{ seq: 1, role: 'staff', status: (r.status === 'pending' ? 'active' : r.status) }];
+  function cell(cls, top, bot){
+    return '<div class="trkS' + (cls ? ' ' + cls : '') + '"><span class="trkBar"></span>' +
+           '<span class="trkB"></span><span class="trkL">' + esc(top) +
+           (bot ? ('<br>' + esc(bot)) : '') + '</span></div>';
+  }
+  var h = '<div class="trk">';
+  h += cell('done', T('Submitted', '올림'), when(r.created_at));
+  for (var i = 0; i < steps.length; i++) {
+    var s = steps[i], cls = '', mark = '';
+    if (s.status === 'approved')      { cls = 'done'; mark = T('Approved', '승인'); }
+    else if (s.status === 'rejected') { cls = 'no';   mark = T('Rejected', '반려'); }
+    else if (s.status === 'skipped')  { cls = 'done'; mark = T('Skipped', '전결'); }
+    else if (s.status === 'active')   { cls = r.blocked ? 'stop' : 'now';
+                                        mark = r.blocked ? T('Stopped', '멈춤') : T('In progress', '진행 중'); }
+    else                              { mark = T('Waiting', '대기'); }
+    h += cell(cls, roleLabel(s.role), mark);
+  }
+  h += cell(r.status === 'approved' ? 'done' : (r.status === 'rejected' ? 'no' : ''),
+            T('Done', '완료'),
+            r.status === 'approved' ? T('Approved', '승인됨')
+          : r.status === 'rejected' ? T('Rejected', '반려됨') : '');
+  return h + '</div>';
+}
+
+/* 🔴 「기다려도 처리되지 않습니다」 — **서버가** «결재할 수 있는 사람 0명»이라고 알려 준 건에만.
+   ⛔ 화면이 스스로 판정하지 않는다 — 계정 목록도 결재 규칙도 모르므로 틀린 말을 하게 된다. */
+function stuckHtml(r){
+  var role = 'staff';
+  for (var i = 0; i < (r.steps || []).length; i++) {
+    if (Number(r.steps[i].seq) === Number(r.stage_seq)) { role = r.steps[i].role; break; }
+  }
+  var who = roleLabel(role);
+  return '<div class="stuck"><b>' +
+    esc(T('This will not move on its own.', '이대로는 처리되지 않습니다.')) + '</b> ' +
+    esc(EN()
+      ? ('Nobody can decide the "' + who + '" step right now — and you cannot approve your own request. ' +
+         'Someone else has to be given rights for this step.')
+      : ('지금 「' + who + '」 단계를 결재할 수 있는 사람이 없습니다. 본인이 올린 결재는 본인이 승인할 수 없기 때문입니다. ' +
+         '이 단계를 결재할 사람을 지정해야 움직입니다.')) +
+    '</div>';
+}
+
 function itemHtml(r, decidable){
   var late = isOverdue(r);
-  var h = '<div class="item' + (late ? ' hot' : '') + '" id="req-' + r.id + '">';
+  // 🧭 «멈춤» — 서버가 결재 가능자 0명이라고 알려 준 내 건. 지연과 다른 사실이라 따로 센다.
+  var stop = !decidable && isMine(r) && !!r.blocked;
+  var h = '<div class="item' + ((late || stop) ? ' hot' : '') + '" id="req-' + r.id + '">';
 
   h += '<div class="ihead">';
   h += '<span class="chip">' + esc(typeLabel(r)) + '</span>';
@@ -479,6 +579,7 @@ function itemHtml(r, decidable){
     h += '<span class="chip">' + esc(T('Step ', '단계 ') + r.stage_seq + '/' + r.stage_total) + '</span>';
   }
   if (late) h += '<span class="chip late">' + esc(T('Overdue', '지연')) + '</span>';
+  if (stop) h += '<span class="chip late">' + esc(T('Stopped', '멈춤')) + '</span>';
   if (r.escalated) h += '<span class="chip late">' + esc(T('Escalated', '승격됨')) + '</span>';
   h += '<span class="ititle">' + esc(r.title) + '</span>';
   if (r.amount != null) h += '<span class="iamt">' + esc(money(r.amount, r.currency)) + '</span>';
@@ -490,6 +591,12 @@ function itemHtml(r, decidable){
     var st = r.status === 'approved' ? T('Approved', '승인됨')
            : r.status === 'rejected' ? T('Rejected', '반려됨')
            : T('Waiting', '대기 중');
+    // 「대기 중」만으로는 며칠이 지났는지 알 수 없다. 숫자를 함께 적는다.
+    if (r.status === 'pending') {
+      var dw = daysWaiting(r);
+      st += ' · ' + (dw <= 0 ? T('today', '오늘')
+                             : (EN() ? (dw + (dw === 1 ? ' day' : ' days')) : (dw + '일째')));
+    }
     h += ' &middot; ' + esc(st);
   }
   h += '</div>';
@@ -518,7 +625,12 @@ function itemHtml(r, decidable){
          esc(T('Receipt', '첨부 보기')) + (r.file_name ? ' (' + esc(r.file_name) + ')' : '') + '</a></div>';
   }
 
-  if (r.steps && r.steps.length > 1) {
+  /* 🧭 내가 올린 건은 진행바로 — 「지금 누구 차례이고, 왜 안 움직이는가」가 한눈에 보여야 한다.
+     결재함(내가 눌러야 할 것)에는 버튼이 더 중요하므로 예전처럼 한 줄 요약만 남긴다. */
+  if (!decidable && isMine(r)) {
+    h += trackHtml(r);
+    if (stop) h += stuckHtml(r);
+  } else if (r.steps && r.steps.length > 1) {
     var parts = [];
     for (var k = 0; k < r.steps.length; k++) {
       var s = r.steps[k];
@@ -990,8 +1102,12 @@ function paintForm(){
   // 자동 채움 버튼 — 사진과 음성. 이 화면의 핵심.
   h += '<div class="auto">';
   if (PICK.wants_file) {
+    /* 문구는 «반드시 필요한가» 로 가른다 — 일반 문서에 「영수증」이라고 쓰면 무엇을 붙이라는
+       말인지 알 수 없다. ⚠️ 서버가 받는 형식은 사진(jpg·png·webp)과 PDF 뿐이다
+       (내용을 보고 판정한다 — approval-policy 의 sniffKind). 워드·한글은 아직 못 받는다. */
     h += '<button type="button" id="b_shot" onclick="shoot()">' +
-         esc(T('Photograph receipt', '영수증 사진 찍기')) + '</button>';
+         esc(PICK.requires_file ? T('Photograph receipt', '영수증 사진 찍기')
+                                : T('Attach file (photo or PDF)', '파일 첨부 (사진·PDF)')) + '</button>';
   }
   h += '<button type="button" id="b_voice" onclick="voice()">' +
        esc(T('Speak it (English)', '말로 입력 (영어)')) + '</button>';
@@ -1060,6 +1176,22 @@ window.gotFile = function(input){
   var f = input.files && input.files[0];
   if (!f) return;
   if (f.type === 'application/pdf') { FILE = f; note(T('Attached: ', '첨부: ') + f.name); return; }
+
+  /* 영수증이 «반드시» 필요한 분류가 아니면(일반 문서) 사진을 읽지 않는다.
+     ⚠️ 그냥 두면 ① 「영수증을 읽는 중」·「금액을 직접 넣어 주세요」라는 엉뚱한 문구가 뜨고
+        ② 금액 칸이 없는 화면에서 ③ 돈이 나가는 OCR 을 헛되이 부른다. 첨부만 하면 된다. */
+  if (PICK && !PICK.requires_file) {
+    note(T('Preparing the file...', '파일을 준비하는 중...'));
+    shrink(f).then(function(blob){
+      FILE = blob || f;
+      note(T('Attached: ', '첨부: ') + f.name);
+    }).catch(function(){
+      FILE = f;                                  // 줄이기에 실패해도 원본을 붙인다
+      note(T('Attached: ', '첨부: ') + f.name);
+    });
+    return;
+  }
+
   note(T('Preparing the photo...', '사진을 준비하는 중...'));
   shrink(f).then(function(blob){
     FILE = blob || f;

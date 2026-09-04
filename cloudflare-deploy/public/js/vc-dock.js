@@ -43,7 +43,16 @@
     '#vc-dock button:active{transform:scale(.95);}',
     '#vc-dock button.active{background:#3b82f6;color:#fff;}#vc-dock button.active .lbl{color:#dbe7ff;}',
     '#vc-dock button.off{background:#ef4444;color:#fff;}#vc-dock button.off .lbl{color:#ffe0e0;}',
-    '#vc-dock button.leave{background:rgba(239,68,68,.18);color:#ff9a9a;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
+    /* 🔴 (2026-09-02) `!important` 가 필요한 이유 — 아래 나가기 버튼에 `ctrl-btn danger` 를 함께
+       달면서(825행 참고) `css/vc-refresh.css:29` 의
+         `body.vc-in-call .ctrl-btn.danger{background:rgba(239,68,68,.96)!important;color:#fff!important;
+          border-radius:14px!important;box-shadow:0 6px 16px rgba(239,68,68,.38)}`
+       가 함께 걸린다. 작성자 !important 라 특이성이 더 높은 이 규칙도 그냥은 진다
+       (브라우저 실측 2026-09-02: 연빨강 .18 → 진빨강 .96 · 글자 #ff9a9a → #fff · 모서리 13 → 14px).
+       그 규칙은 «옛 상단바 ✕» 를 위한 것이고 독 버튼까지 바꾸라는 지시가 아니었으므로 되돌린다.
+       ⚠️ 크기(width·height)는 `#vc-dock button`(1,0,1)가 이미 이겨서 안 바뀐다 — 실측 확인. */
+    '#vc-dock button.leave{background:rgba(239,68,68,.18)!important;color:#ff9a9a!important;',
+    '  border-radius:13px!important;box-shadow:none!important;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
     /* 🔔 (2026-07-24) 채팅 안읽음 배지 — 상단 툴바 배지는 모바일(≤640px)에서 숨겨져 있어
        학생이 채팅 온 것을 알 방법이 없었다. 독 버튼 위에 빨간 배지를 띄운다.
        ⚠️ 깜빡임(pulse)은 '자동으로 열지 못한 상황'에서만 켠다 — 늘 깜빡이면 금방 무시하게 된다. */
@@ -55,7 +64,7 @@
     '#vc-dock .dock-badge.pulse{animation:vcDockBadgePulse 1.1s ease-in-out infinite;}',
     '@keyframes vcDockBadgePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.28);}}',
     /* 백그라운드 탭·저전력에서 애니메이션이 멈춰도 배지 자체는 보이도록 opacity 는 건드리지 않는다 */
-    '#vc-dock button.leave:hover{background:#ef4444;color:#fff;}',
+    '#vc-dock button.leave:hover{background:#ef4444!important;color:#fff!important;}',
     '/* 화면공유 아이콘 강조 — 라인 아이콘이라 stroke를 굵게+밝게 */',
     '#vc-dock-share svg{stroke-width:2.5;color:#fff;}',
     '/* 이름 먼저 표시용 힌트(가로에서 라벨 숨김일 때 도크 위로 잠깐) */',
@@ -803,7 +812,29 @@
     } catch(_){}
     var bConsult = mk('consult','상담','consult',null,'카카오톡 상담 연결');
     bSet = mk('settings','설정','settings',null,'설정 — 장치·화질·언어·테마');
-    var bLeave = mk('leave','나가기','leave','leave','수업에서 나가기');
+    /* 🔴 (2026-09-02) 「나가기」를 수업 종료 흐름(평가 ⭐ → 복습퀴즈 🧠)에 잇는 표식.
+       [무엇이 문제였나] index.html 의 종료 방아쇠(4325행 isExitBtnEl)는 나가기 버튼을
+         `a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger`
+         로 찾는데, 독이 그리는 이 버튼은 id 가 `vc-dock-leave` · class 가 `leave` 라
+         **한 셀렉터에도 안 걸렸다.** 게다가 이 파일 위쪽 CSS(106행)가 옛 버튼(#vc-exit-btn-v34)을
+         display:none 으로 숨긴다 → 독이 켜진 화면에서 「나가기」를 누르면 아래 onclick 이
+         곧바로 vcLeaveRoom() 을 불러 **평가·복습퀴즈가 통째로 건너뛰어졌다.**
+       [실측 2026-09-02] 평가가 남은 수업 5건은 전부 «강사 퇴장 후 10초» 방아쇠(4408행)로
+         뜬 것이었고(강사→학생 퇴장 간격 12초 · 3분36초 · 4분20초 · 5분19초),
+         학생이 먼저 나간 class-849-20260902(간격 3초)만 class_ratings 에 한 줄도 없었다.
+       [고침] 그 셀렉터가 알아보는 표식 `ctrl-btn danger` 를 함께 단다. 판정·순서·중복방지는
+         전부 index.html 의 기존 코드 그대로다 — 여기서 흐름을 다시 만들지 않는다.
+       ⚠️ 크기는 안 바뀐다 — `#vc-dock button`(1,0,1)가 `.ctrl-btn`(0,1,0)를 이긴다
+         (width·height·display·font-size·flex-direction 을 전부 독이 명시한다. 실측 확인:
+          PC 70x62 · 폰 38x44 로 고침 전후 동일).
+       🔴 다만 «색·모서리·그림자» 는 `css/vc-refresh.css:29` 의 작성자 !important 가 이겨서
+         실제로 바뀌었다 — 위 CSS 블록(46행)에서 !important 로 되돌려 두었다. 그 줄을 지우면
+         나가기 버튼이 진빨강+흰글자로 변한다(사장님이 지시하지 않은 시각 변경).
+       ⚠️ 강사도 안전하다 — 학생은 평가 방아쇠(index.html:4325)가, 강사·관찰자·관리자는
+         v35(4601행)가 먼저 삼켜 __mangoLeaveClassSPA() → vcLeaveRoom() 으로 간다(지금 이 onclick 과 동등).
+         셋 다 v29(14907)·v32(15050)·v34(15161)의 location.replace 보다 «먼저» 등록돼 있어 홈으로 안 튕긴다.
+       ⛔ 이 클래스를 빼면 그 순간 평가·복습퀴즈가 다시 통째로 사라진다. */
+    var bLeave = mk('leave','나가기','leave','leave ctrl-btn danger','수업에서 나가기');
 
     btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };

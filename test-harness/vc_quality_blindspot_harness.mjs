@@ -67,7 +67,7 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   };
   doc.__addBox = (userId) => { const b = mkEl('div'); b.id = 'vc-video-' + userId; boxes[b.id] = b; return b; };
   const win = {
-    localStorage: { getItem: (k) => (k in store ? store[k] : null) },
+    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     document: doc,
     vcPeerConnections: {},
     navigator: {
@@ -89,9 +89,10 @@ function runQlog({ student = null, admin = null, label = '', inCall = true }) {
   const fn = new Function(...Object.keys(sandbox),
     qlog + '\n;return { acc: vcQualityAcc, who: vcqWho, rx: vcqRxTick, start: vcqRxStart,'
          + ' selfWatch: vcNetSelfWatch, peerMark: vcNetPeerMark, notify: vcNetNotify,'
-         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote };');
+         + ' lowqSelf: vcqLowQSelf, lowqRemote: vcLowQRemote,'
+         + ' startStep: vcqStartStep, wrapCreate: vcqWrapCreatePeer, saveRtt: vcqSaveRttBase, dupTab: vcqDupTabWatch, whyLine: vcqWhyLine, wrapAAO: vcqWrapAAONotify };');
   const api = fn(...Object.values(sandbox));
-  return { api, sent, win, doc };
+  return { api, sent, win, doc, store };
 }
 
 {
@@ -664,6 +665,280 @@ console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지
   ok(/vcqLowQSelf\(\)/.test(tick) && /vcLowQRemote\(id, s\.frameWidth \|\| 0, dr > 0\)/.test(tick),
      '4초 틱이 보내는 쪽·받는 쪽 배지를 둘 다 부르고, 받는 쪽에 «패킷이 오는가»(dr > 0)를 넘긴다');
   ok(/__vcLowQ = \{\}/.test(qlog.slice(qlog.indexOf('function vcqRxStart'))), '수업이 끝나면 배지 상태를 비운다');
+}
+
+console.log('\n════════ ⑫ 음성전용(AAO) — «켜졌다 꺼졌다» 깜빡임 (2026-09-03 class-1016 Farrah↔ysyt01 실측) ════════');
+{
+  /* [근거] 운영 D1 vc_quality, room=class-1016-20260903 — 21분 동안 aao 칸이 0/1 을 6번 오갔다
+       (강사·학생 각각). RTT 600~1,200ms · 끊긴 소리 30~44%. 사장님 「화면이 나왔다 안 나왔다 on/off」.
+     [뿌리 — 추론] 복구가 good>=2(8초)라 회선이 계속 흔들리면 «끔 → 8초 뒤 켬 → 다시 끔» 이 된다.
+       aao 칸은 60초 점 표본이라 «8초 주기» 자체를 D1 로 본 것은 아니다. 코드상 성립하는 기전이고, 아래가 그것을 실제로 돌려 보인다.
+     [검사] 판정 3줄과 vcAAOApply 를 소스에서 오려 내 실제로 돌린다. 문자열로 «>= 8» 을 찾지 않는다. */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const ji = main.indexOf('if (alp > 8 || art > 600)');
+  const jEndS = 'else { A.good = 0; }';
+  const jj = main.indexOf(jEndS, ji);
+  ok(ji > 0 && jj > ji, 'AAO 판정 3줄(손실↑ / 회복 / 애매)을 소스에서 찾았다');
+  const judge = main.slice(ji, jj + jEndS.length);
+  const blockAt = (src, start) => {
+    const o = src.indexOf('{', start); let d = 0;
+    for (let k = o; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (d === 0) return src.slice(start, k + 1); } }
+    return '';
+  };
+  const fi = main.indexOf('function vcAAOApply()');
+  const applySrc = blockAt(main, fi);
+  ok(fi > 0 && applySrc.length > 300, 'vcAAOApply 를 중괄호 짝으로 오려 냈다');
+
+  /** 판정 + 적용을 4초 틱으로 돌린다. series = [[오디오 손실%, RTT], …]. floor = 화질이 이미 바닥(진입 조건) */
+  function simulate(series, src = applySrc) {
+    const A = { active: false, sev: 0, good: 0, floor: true };
+    const track = { enabled: true };
+    const win = { __vcAAO: A, vcLocalStream: { getVideoTracks: () => [track] }, vcBg: null };
+    const env = { window: win, vcCamOn: true, vcAAONotify() {}, vcBroadcastCamState() {},
+                  console: { warn() {} }, vcLocalStream: win.vcLocalStream, vcBg: null };
+    const apply = new Function(...Object.keys(env), src + '\n;return vcAAOApply;')(...Object.values(env));
+    const judgeFn = new Function('alp', 'art', 'A', judge);
+    let flips = 0, prev = false; const trace = [];
+    for (const [alp, art] of series) {
+      judgeFn(alp, art, A); apply();
+      if (A.active !== prev) { flips++; prev = A.active; }
+      trace.push(A.active ? 1 : 0);
+    }
+    return { flips, active: A.active, trace, track };
+  }
+  const rep = (n, v) => Array.from({ length: n }, () => v);
+  const BAD = [15, 700], GOOD = [1, 500];
+
+  /* class-1016 모양 — «나쁨 4틱(16초) → 조용 6틱(24초)» 이 6번. 옛 코드는 매번 켜졌다 꺼졌다. */
+  const shaky = [];
+  for (let c = 0; c < 6; c++) shaky.push(...rep(4, BAD), ...rep(6, GOOD));
+  const now = simulate(shaky);
+  ok(now.flips === 1 && now.active === true,
+     `흔들리는 4분 동안 음성전용에 한 번 들어가 «그대로 머문다» (전환 ${now.flips}회, 옛 8초 복구면 매 주기 켜짐)`);
+  ok(now.track.enabled === false, '머무는 동안 내 영상 트랙은 꺼져 있다(대역폭을 실제로 아낀다)');
+
+  /* 진짜 조용해지면 돌아온다 — 8틱(32초) 연속 손실 3% 미만 */
+  const calm = simulate([...rep(4, BAD), ...rep(8, GOOD)]);
+  ok(calm.active === false && calm.track.enabled === true, '32초(8틱) 연속 조용하면 영상이 돌아온다');
+  const almost = simulate([...rep(4, BAD), ...rep(7, GOOD)]);
+  ok(almost.active === true, '28초(7틱)로는 아직 안 돌아온다 — 회복은 «32초 연속 조용함»');
+  const relapse = simulate([...rep(4, BAD), ...rep(7, GOOD), [5, 500], ...rep(7, GOOD)]);
+  ok(relapse.active === true, '중간에 3~8% 애매한 틱이 한 번 끼면 처음부터 다시 센다(옛 화질 회복과 같은 규칙)');
+
+  /* ⛔ 진입은 그대로 — 3틱(12초) 연속이어야 끄고, 조용한 회선은 영영 안 끈다 */
+  const two = simulate(rep(2, BAD));
+  ok(two.active === false, '나쁜 틱 2번(8초)으로는 안 끈다');
+  const three = simulate(rep(3, BAD));
+  ok(three.active === true && three.trace.indexOf(1) === 2, '나쁜 틱 3번째(12초)에 끈다 — 진입 시점은 안 바뀌었다');
+  const quiet = simulate(rep(40, GOOD));
+  ok(quiet.flips === 0, '조용한 회선(40틱)에서는 한 번도 안 끈다');
+  ok(/A\.active = true; A\.good = 0;/.test(applySrc), '진입할 때 «조용함» 카운트를 0 부터 다시 센다');
+
+  /* 되돌림 시험 — 복구를 옛 good>=2 로 바꾸면 같은 패턴에서 실제로 깜빡여야 한다. 안 늘면 이 검사는 헛도는 것이다. */
+  const oldSrc = applySrc.replace('A.active && A.good >= 8', 'A.active && A.good >= 2');
+  ok(oldSrc !== applySrc, '되돌림 사본을 만들었다(복구 문턱 문자열을 찾았다)');
+  const old = simulate(shaky, oldSrc);
+  ok(old.flips >= 8 && old.flips > now.flips,
+     `옛 복구(8초)로 되돌리면 같은 4분에 ${old.flips}회 켜졌다 꺼졌다 — 검사가 헛돌지 않는다`);
+}
+
+console.log('\n════════ ⑬ 경로(중계/직접) — «어떤 길로 갔는가» 가 실린다 (2026-09-03 Farrah 1초→60ms) ════════');
+{
+  /* [왜] class-1016·meet-123 에서 RTT 1,100~1,700ms 가 2분 뒤 60~85ms 로 떨어졌는데
+     «경로가 바뀐 것인지 회선이 풀린 것인지» 가릴 칸이 없었다. 이 절은 getStats 의 candidate-pair 를
+     가짜로 넣어 payload 에 path·turn·relay_ticks·path_ticks 가 실리는지 **실제로 돌려** 본다.
+     ⛔ «모름» 이 «직접» 으로 적히면 이 칸을 만든 이유가 사라진다 — 그 검사가 핵심이다. */
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  function statsOf(localType, remoteType, url, proto) {
+    const rows = [
+      { id: 'T1', type: 'transport', selectedCandidatePairId: 'CP1' },
+      { id: 'CP1', type: 'candidate-pair', localCandidateId: 'L1', remoteCandidateId: 'R1', nominated: true, state: 'succeeded' },
+      { id: 'L1', type: 'local-candidate', candidateType: localType, url: url, relayProtocol: proto },
+      { id: 'R1', type: 'remote-candidate', candidateType: remoteType },
+    ];
+    return { forEach: (f) => rows.forEach((r) => f(r, r.id)) };   // RTCStatsReport 는 Map 이라 forEach(value, key)
+  }
+  function rig(pcs) {
+    const t = runQlog({ admin: { uid: 'mangoi_018', name: 'Teacher - Farrah', role: 'teacher' } });
+    t.win.vcPeerConnections = pcs;
+    t.win.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() - 61000 };
+    return t;
+  }
+  async function ticks(t, n) { for (let i = 0; i < n; i++) { await t.api.rx(); await flush(); } }
+  function payload(t) { t.api.acc(1.0, 300); return t.sent[0]; }
+
+  /* ⓐ 내 쪽이 Cloudflare TURN 중계 */
+  const relayT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('relay', 'srflx', 'turn:turn.cloudflare.com:3478?transport=udp', 'udp')) } });
+  await ticks(relayT, 5);
+  const pr = payload(relayT);
+  ok(!!pr && pr.path === 'relay', `내 쪽이 relay 후보면 path='relay' (${pr && pr.path})`);
+  ok(!!pr && pr.relay_ticks === 5 && pr.path_ticks === 5, `5틱 전부 중계로 센다 (relay ${pr && pr.relay_ticks} / ${pr && pr.path_ticks})`);
+  ok(!!pr && /^turn\.cloudflare\.com:3478 udp$/.test(pr.turn), `TURN 서버가 host:port proto 로 실린다 (${pr && pr.turn})`);
+  ok(!!pr && !/turn:|\?/.test(pr.turn), '주소에서 scheme·쿼리는 뗀다');
+
+  /* ⓑ 직접(P2P) — host/srflx 만 */
+  const dirT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('srflx', 'host', 'stun:stun.l.google.com:19302', '')) } });
+  await ticks(dirT, 3);
+  const pd = payload(dirT);
+  ok(!!pd && pd.path === 'direct' && pd.relay_ticks === 0 && pd.path_ticks === 3, `둘 다 host/srflx 면 path='direct' (${pd && pd.path}, ${pd && pd.path_ticks}틱)`);
+  ok(!!pd && pd.turn === '', '직접이면 TURN 서버 칸은 빈 값이다(STUN 주소를 TURN 으로 적지 않는다)');
+
+  /* ⓒ 상대 쪽만 relay — 경로는 «중계» 지만 서버 주소는 «모름»(지어내지 않는다) */
+  const remT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf('srflx', 'relay', 'stun:stun.l.google.com:19302', '')) } });
+  await ticks(remT, 2);
+  const pm = payload(remT);
+  ok(!!pm && pm.path === 'relay' && pm.turn === '', `상대만 relay: path='relay' 이고 turn 은 빈 값 (${pm && pm.path} / '${pm && pm.turn}')`);
+
+  /* ⓓ 🔴 핵심 — 경로를 «못 잰» 사람(getStats 없음 · 아직 연결 전)은 «모름» 이지 «직접» 이 아니다 */
+  const noStats = rig({ s1: { getReceivers: () => [] } });
+  await ticks(noStats, 4);
+  const pn = payload(noStats);
+  ok(!!pn && pn.path === '' && pn.path_ticks === 0, `getStats 가 없으면 path='' · path_ticks 0 (모름) — ⛔ 'direct' 가 아니다 ('${pn && pn.path}')`);
+  const notYet = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve({ forEach: (f) => [{ id: 'CP1', type: 'candidate-pair', state: 'in-progress', nominated: false }].forEach((r) => f(r)) }) } });
+  await ticks(notYet, 4);
+  const py = payload(notYet);
+  ok(!!py && py.path === '' && py.path_ticks === 0, '선택된 pair 가 아직 없으면(연결 전) 세지 않는다 — 모름');
+
+  /* ⓔ 섞임 — 처음 직접이었다가 중계로 바뀌면 'mixed', 틱 수가 그대로 남는다 */
+  let phase = 'srflx';
+  const mixT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.resolve(statsOf(phase, 'host', phase === 'relay' ? 'turn:openrelay.metered.ca:443?transport=tcp' : '', phase === 'relay' ? 'tcp' : '')) } });
+  await ticks(mixT, 3); phase = 'relay'; await ticks(mixT, 2);
+  const px = payload(mixT);
+  ok(!!px && px.path === 'mixed' && px.relay_ticks === 2 && px.path_ticks === 5, `경로가 바뀌면 'mixed' + 틱 수 (relay ${px && px.relay_ticks}/${px && px.path_ticks})`);
+  ok(!!px && /openrelay\.metered\.ca:443 tcp/.test(px.turn), `무료 폴백(openrelay)으로 갔으면 그 이름이 남는다 (${px && px.turn})`);
+
+  /* ⓕ getStats 가 던져도 요약은 그대로 나간다(통화 경로와 무관 — 이 파일의 1원칙) */
+  const throwT = rig({ s1: { getReceivers: () => [], getStats: () => Promise.reject(new Error('boom')) } });
+  await ticks(throwT, 3);
+  const pt = payload(throwT);
+  ok(!!pt && pt.path === '' && typeof pt.avg_loss === 'number', 'getStats 가 던져도 요약은 나가고 경로만 «모름» 이다');
+
+  /* ⓖ 수업이 끝나면 경로 캐시를 비운다 — 앞 수업의 경로가 다음 수업에 남지 않게 */
+  ok(/window\.__vcPath = \{\};/.test(qlog) && /vc-in-call[\s\S]{0,400}__vcPath = \{\}/.test(qlog), '수업 종료 정리에 __vcPath 초기화가 있다');
+
+  /* ⓗ 서버 — INSERT 가 네 칸을 받고 ALTER 로 붙이며, 모르는 path 값은 버린다(무인증 경로) */
+  const APIM = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
+  ok(/INSERT INTO vc_quality \([^)]*\bpath\b[^)]*\bturn\b[^)]*\brelay_ticks\b[^)]*\bpath_ticks\b/.test(APIM), '서버 INSERT 에 path·turn·relay_ticks·path_ticks 가 있다');
+  ok(/ALTER TABLE vc_quality ADD COLUMN \$\{c\}/.test(APIM) && /"path TEXT DEFAULT ''"/.test(APIM) && /'path_ticks INTEGER DEFAULT 0'/.test(APIM), '네 칸은 ALTER 로만 붙인다(CREATE 두 벌 함정)');
+  ok(/PATHS = \['relay', 'direct', 'mixed'\]/.test(APIM) && /indexOf\(String\(b\.path \|\| ''\)\) >= 0/.test(APIM), '모르는 path 문자열은 빈 값으로 떨어진다(본문을 그대로 믿지 않는다)');
+  ok(/turnV = String\(b\.turn \|\| ''\)\.replace\(\/\[\^A-Za-z0-9\.:\\-_ \]\/g, ''\)\.slice\(0, 96\)/.test(APIM), 'turn 은 글자를 좁히고 96자에서 자른다');
+  const APIA = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  ok(/SUM\(COALESCE\(relay_ticks, 0\)\) AS relay_ticks, SUM\(COALESCE\(path_ticks, 0\)\) AS path_ticks/.test(APIA), '관리자 집계가 relay_ticks·path_ticks 를 함께 낸다');
+  const ADM = readFileSync(join(PUB, 'admin.html'), 'utf8');
+  const cellM = ADM.match(/function vcqPathCell\(x\)\{[\s\S]*?\n    \}/);
+  ok(!!cellM, '관리자 화면에 경로 칸 렌더러가 있다');
+  if (cellM) {
+    const cell = new Function('esc', cellM[0] + '\n;return vcqPathCell;')((s) => String(s));
+    ok(/—/.test(cell({ path_ticks: 0, relay_ticks: 0 })), '⛔ path_ticks 0 은 «—»(모름) — 0/0 을 «직접» 으로 그리지 않는다');
+    ok(/직접/.test(cell({ path_ticks: 10, relay_ticks: 0 })) && /중계/.test(cell({ path_ticks: 10, relay_ticks: 10 })) && /혼합 40%/.test(cell({ path_ticks: 10, relay_ticks: 4 })), '직접·중계·혼합 N% 로 그린다');
+    ok(/turn\.cloudflare\.com/.test(cell({ path_ticks: 1, relay_ticks: 1, turn: 'turn.cloudflare.com:3478 udp' })), 'TURN 서버 이름을 작은 글자로 함께 그린다');
+  }
+}
+
+console.log('\n════════ ⑭ 2층 2·3·4 — 낮게 시작 · 둘째 탭 경고 · 안내에 «왜» (2026-09-03) ════════');
+{
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const MAIN = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  /* 밖에서 감싸는 방식이라 «그 이름이 아직 있는가» 가 곧 동작 조건이다 */
+  ok(/^function vcCreatePeer\(/m.test(MAIN), 'idx-main.js 에 전역 vcCreatePeer 가 있다(② 가 감싸는 대상)');
+  ok(/^function vcAAONotify\(/m.test(MAIN), 'idx-main.js 에 전역 vcAAONotify 가 있다(④ 가 감싸는 대상)');
+  ok(/if \(!pc\.__qInit\) \{ pc\.__qInit = 1; applyStep\(pc, pc\.__qStep \|\| 0\); \}/.test(MAIN),
+     '적응 루프 첫 틱이 pc.__qStep 을 그대로 적용한다(② 가 기대는 기전)');
+
+  /* ② 낮게 시작 */
+  const a = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  ok(a.api.startStep() === 0, '기준 RTT 를 모르면 0 — 지금과 같다(국내 회선은 아무것도 안 바뀐다)');
+  a.win.__vcNetSelf = { rttBase: 350 };
+  ok(a.api.startStep() === 1, '이 세션 기준 350ms → 1단계');
+  a.win.__vcNetSelf = { rttBase: 520 };
+  ok(a.api.startStep() === 2, '기준 520ms → 2단계');
+  a.win.vcGetQuality = () => 'low';
+  ok(a.api.startStep() === 1, "화질 모드 '저'(기본)면 2단계까지 안 내린다 — 1/4 해상도는 얼굴이 안 보인다");
+  a.win.vcGetQuality = () => 'auto';
+  a.win.__vcNetSelf = null;
+  a.store['mangoi_vc_rttbase'] = JSON.stringify({ rtt: 480, at: Date.now() - 86400000 });
+  ok(a.api.startStep() === 2, '세션 값이 없으면 지난 수업이 남긴 값(1일 전 480ms) → 2단계');
+  a.store['mangoi_vc_rttbase'] = JSON.stringify({ rtt: 480, at: Date.now() - 8 * 86400000 });
+  ok(a.api.startStep() === 0, '8일 지난 저장값은 버린다(회선이 바뀌었을 수 있다)');
+  a.store['mangoi_vc_rttbase'] = 'garbage';
+  ok(a.api.startStep() === 0, '깨진 저장값은 0');
+  /* 저장 — 수업 종료 정리가 부른다 */
+  a.win.__vcNetSelf = { rttBase: 433.7 };
+  a.api.saveRtt();
+  const saved = JSON.parse(a.store['mangoi_vc_rttbase']);
+  ok(saved && saved.rtt === 434 && typeof saved.at === 'number', `종료 정리가 기준 RTT 를 저장한다 (${a.store['mangoi_vc_rttbase']})`);
+  ok(/vcqSaveRttBase\(\);[\s\S]{0,120}window\.__vcNetSelf = null;/.test(qlog), '저장은 __vcNetSelf 를 비우기 «전» 에 한다(뒤면 늘 빈손)');
+  /* 감싸기 — 새 연결에 단계가 심긴다 */
+  const calls = [];
+  a.win.vcCreatePeer = function (id, name) { calls.push([id, name]); return { id }; };
+  a.api.wrapCreate();
+  ok(a.win.vcCreatePeer.__vcqWrapped === true, 'vcCreatePeer 를 감쌌다');
+  a.win.__vcNetSelf = { rttBase: 520 };
+  const pc1 = a.win.vcCreatePeer('u1', '학생');
+  ok(calls.length === 1 && calls[0][0] === 'u1' && pc1.id === 'u1', '원래 함수가 그대로 불리고 그 결과를 돌려준다');
+  ok(pc1.__qStep === 2, `새 연결에 시작 단계가 심긴다 (__qStep=${pc1.__qStep})`);
+  a.api.wrapCreate();
+  ok(a.win.vcCreatePeer.__vcqWrapped === true && a.win.vcCreatePeer('u2', 'x').__qStep === 2, '두 번 감싸도 한 겹이다(rx 틱마다 다시 불려도 안전)');
+  a.win.__vcNetSelf = null; a.store['mangoi_vc_rttbase'] = 'garbage';
+  ok(a.win.vcCreatePeer('u3', 'x').__qStep === undefined, '⛔ 모르면 단계를 심지 않는다 — 지금과 같다');
+  /* 관찰자는 보내는 영상이 없다 */
+  const o = runQlog({ admin: { uid: 'admin', name: 'a', role: 'hq' } });
+  o.win.vcCreatePeer = () => ({}); o.api.wrapCreate();
+  o.win.__vcNetSelf = { rttBase: 600 };
+  ok(o.win.vcCreatePeer('t', 'x').__qStep === 2, '(대조) 참관자가 아니면 심긴다');
+
+  /* ③ 같은 계정 둘째 탭 */
+  const d = runQlog({ label: '유세영 (나)' });
+  const toastOf = (t) => t.doc.getElementById('vc-netlow-toast');
+  d.win.vcPeerConnections = { a: { __username: '유세영', connectionState: 'connected', getReceivers: () => [] } };
+  d.api.dupTab();
+  ok(!!toastOf(d) && /같은 계정/.test(toastOf(d).innerHTML), '내 이름과 같은 «살아 있는» 상대가 있으면 나에게 알린다');
+  ok(/하나만/.test(toastOf(d).innerHTML) && /가족/.test(toastOf(d).innerHTML), '「탭은 하나만」 + 가족 공용 계정 예외를 함께 말한다(끊지 않는다)');
+  const at1 = d.win.__vcDupTab.at;
+  d.api.dupTab();
+  ok(d.win.__vcDupTab.at === at1, '5분 안에는 다시 안 띄운다');
+  const e = runQlog({ label: '유세영 (나)' });
+  e.win.vcPeerConnections = { a: { __username: '유세영', connectionState: 'closed', getReceivers: () => [] } };
+  e.api.dupTab();
+  ok(!toastOf(e), '닫힌 연결(유령)은 세지 않는다 — 그건 dupghost 몫');
+  const f = runQlog({ label: '유세영 (나)' });
+  f.win.vcPeerConnections = { a: { __username: '교사 Teacher - Farrah', connectionState: 'connected', getReceivers: () => [] } };
+  f.api.dupTab();
+  ok(!toastOf(f), '다른 이름이면 아무 말도 안 한다');
+  ok(!/\.close\(\)|vcRemovePeer/.test(qlog.slice(qlog.indexOf('function vcqDupTabWatch'), qlog.indexOf('function vcqWhyLine'))),
+     '⛔ 둘째 탭을 «끊지» 않는다 — 가족 공용 계정에서 서로를 쫓아낸다');
+
+  /* ④ 안내에 «왜» */
+  const w = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  ok(w.api.whyLine() === '', '아무것도 모르면 빈 문자열(거짓 숫자를 지어내지 않는다)');
+  w.win.__vcNetSelf = { lastRtt: 900, lastLoss: 1.2, rttBase: 130 };
+  const line1 = w.api.whyLine();
+  ok(/900ms/.test(line1) && /130ms/.test(line1) && /업로드/.test(line1), `지연만 높으면 «업로드가 꽉 찬 모양» (${line1.replace(/<[^>]+>/g, '')})`);
+  w.win.__vcNetSelf = { lastRtt: 200, lastLoss: 9.5, rttBase: 130 };
+  ok(/패킷/.test(w.api.whyLine()), '손실이 높으면 «패킷이 빠진다»');
+  /* selfWatch 가 마지막 값을 적어 두고 토스트에 싣는다 */
+  const g = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  for (let i = 0; i < 3; i++) g.api.selfWatch(0.5, 130);   // 평소 130ms 를 먼저 배운다
+  for (let i = 0; i < 5; i++) g.api.selfWatch(1, 950);     // 그 뒤 950ms 가 이어진다
+  const gt = g.doc.getElementById('vc-netlow-toast');
+  ok(!!gt && /950ms/.test(gt.innerHTML) && /업로드/.test(gt.innerHTML), '회선 경고 토스트에 지연 숫자와 «왜» 가 실린다');
+  /* AAO 안내 감싸기 */
+  const h = runQlog({ student: { uid: 's', name: 's', role: 'student' } });
+  const got = [];
+  h.win.vcAAONotify = (html) => { got.push(html); };
+  h.api.wrapAAO();
+  h.win.__vcNetSelf = { lastRtt: 1100, lastLoss: 0.5, rttBase: 300 };
+  h.win.vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b>');
+  h.win.vcAAONotify('📶 <b>Connection recovered — video is back on.</b>');
+  ok(got.length === 2 && /1100ms/.test(got[0]) && /업로드/.test(got[0]), '음성전용 안내에 지연·이유가 덧붙는다');
+  ok(!/1100ms/.test(got[1]), '회복 안내는 그대로(숫자를 안 붙인다)');
+  h.api.wrapAAO();
+  ok(h.win.vcAAONotify.__vcqWrapped === true, '두 번 감싸도 한 겹');
+
+  /* ⛔ 상주 타이머·관찰자를 새로 만들지 않았다(홈 정지 전력) */
+  const bare = qlog.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok((bare.match(/setInterval\(/g) || []).length === 1, 'setInterval 은 여전히 수업 중 타이머 하나뿐');
+  ok(!/MutationObserver/.test(bare), 'MutationObserver 없음');
 }
 
 console.log('\n' + '═'.repeat(60));

@@ -20,7 +20,7 @@
 //     ⑦ 도움 칩은 서버를 부르지 않는다(비용 0·오프라인 동작).
 //
 //   실행: node test-harness/ai_friend_character_help_harness.mjs
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -71,6 +71,30 @@ check('기본 말투가 실제 존재하는 페르소나다',
   FRIENDS.every((f) => new RegExp(`data-persona="${f.persona}"`).test(aif)), FRIENDS.map((f) => f.persona));
 check('저장 키를 새로 만들지 않고 기존 mangoi_aifriend_voice 를 쓴다',
   /setItem\('mangoi_aifriend_voice', currentVoice\)/.test(aif) && !/mangoi_aifriend_friend/.test(aif));
+
+/* ①-1 (2026-09-03) 카드 얼굴 썸네일 — 이모지 대신 아바타 교사 얼굴(사장님 지시).
+   ⚠️ 화면은 그림이 404 면 이모지로 «조용히» 되돌아간다(폴백). 그래서 «그림 파일이 저장소에 실제로 있는가» 는
+      이 검사만이 지킨다 — 아바타 그림을 표만 고치고 파일을 커밋에 안 담아 며칠간 폴백이 돌았던 전례
+      (CLAUDE.md 2장 「아바타 얼굴을 새로 바꿨는데 화면엔 옛날 얼굴 그대로」)와 같은 구멍이다. */
+console.log('\n[ ①-1 카드 얼굴 썸네일 — 표가 가리키는 그림이 실제로 있는가 ]');
+const PUB = join(ROOT, 'cloudflare-deploy', 'public');
+const withFace = FRIENDS.filter((f) => f.v !== 'mix');
+check('네 사람 모두 face(얼굴 썸네일 경로)가 있고 「번갈아」는 없다',
+  withFace.every((f) => typeof f.face === 'string' && f.face.startsWith('/img/')) && !FRIENDS.find((f) => f.v === 'mix').face,
+  FRIENDS.map((f) => [f.v, f.face]));
+check('face 가 가리키는 파일이 저장소에 실제로 있다(폴백에만 기대지 않는다)',
+  withFace.every((f) => existsSync(join(PUB, f.face))),
+  withFace.filter((f) => !existsSync(join(PUB, f.face))).map((f) => f.face));
+check('썸네일이 가볍다(장당 40KB 이하 — 원본 240~280KB 를 그대로 쓰지 않았다)',
+  withFace.every((f) => existsSync(join(PUB, f.face)) && statSync(join(PUB, f.face)).size <= 40 * 1024),
+  withFace.map((f) => [f.face, existsSync(join(PUB, f.face)) ? statSync(join(PUB, f.face)).size : null]));
+check('얼굴이 서로 다른 파일이다(같은 그림에 이름만 다르게 금지)',
+  new Set(withFace.map((f) => f.face)).size === withFace.length);
+check('카드가 face 를 <img class="f-face"> 로 그리고, 404 면 숨겨 둔 이모지를 되살린다',
+  /<img class="f-face" src="' \+ f\.face/.test(aif) && /onerror="this\.hidden=true;this\.nextSibling\.hidden=false"/.test(aif)
+  && /<span class="f-emoji" hidden>/.test(aif));
+check('이모지 폴백은 그대로 남아 있다(face 가 없을 때 빈 칸이 되지 않게)',
+  FRIENDS.every((f) => typeof f.emoji === 'string' && f.emoji.length > 0));
 
 console.log('\n[ ①-2 «고른 느낌» 이 실제로 남는가 ]');
 check('헤더에 고른 친구 이름이 뜬다', /id="friendName"/.test(aif) && /function syncFriendName/.test(aif));

@@ -18,6 +18,8 @@ mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core
 cd /경로/mangoiweb
 PW_DIR=/tmp/pw node test-harness/manual/approval-offline-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-track-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-attach-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -83,6 +85,44 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > «보내지 못한 결재를 저장했습니다» 안내가 **한 번도 뜨지 않았다.**
 > CLAUDE.md 에 적힌 «hidden 인데 그대로 보임» 함정의 반대쪽이고, 정적 검사로는 안 보인다.
 > (지금은 `approval_policy_harness.mjs` 가 그 줄을 감시한다)
+
+## approval-attach-browser.mjs — 분류별 파일 첨부 (16건)
+
+1. **«일반 문서» 에 첨부 버튼이 있는가** — 사장님 제보의 그 자리. `doc` 은 만들어질 때부터
+   `wantsFile:false` 라 **원래 없었다.**
+2. 문구가 분류에 맞는가 — 영수증이 «반드시» 필요한 분류만 「영수증 사진 찍기」,
+   나머지는 「파일 첨부 (사진·PDF)」. 서버가 받는 형식이 그 둘뿐이라 그대로 적는다.
+3. **OCR 을 언제 부르는가** — 일반 문서 사진에는 안 부른다(돈이 나가고 「영수증을 읽는 중」이
+   엉뚱하다). 지출 정산에는 그대로 부른다(짝 검사).
+4. 짝 검사 — 「긴급·고객불만에는 안 뜬다」(범위를 안 넓혔다) · 「지출·물품은 예전 그대로」.
+
+> 🔴 **이 검사는 한 번 헛돌았다.** 분류표를 서버 값을 «본떠» 손으로 적어 두었더니,
+> 소스에서 `doc` 을 되돌리는 변이가 **13건 전부 통과**했다 — 검사가 소스를 한 번도
+> 안 보고 있었다. 지금은 `approval-policy.ts` 의 `TYPES` 를 **읽어서** 서버가 화면에
+> 내려주는 모양으로 바꿔 쓴다. ⓪절이 「정본을 실제로 읽었는가」를 먼저 못 박는다.
+>
+> ⚠️ 변이 4종 실제 FAIL 확인 — doc 되돌리기 4건 · 문구 분기 제거 1건 ·
+> OCR 건너뛰기 제거 4건 · `runChecks` 를 `wantsFile` 로 되돌리면
+> `approval_policy_harness` 1건.
+
+## approval-track-browser.mjs — 진행 추적 · «멈춘 이유» (27건)
+
+1. **«막힘» 안내가 맞는 자리에만 뜨는가** — 이게 핵심이다.
+   「막힌 건에 뜬다」만 검사하면 **모든 건에 뜨는 코드**도 통과한다. 그래서
+   「안 막힌 대기 건」·「이미 끝난 건」·「남이 올린 건(`blocked` 를 켜 두어도)」·
+   「결재함」 넷에 **안 뜨는지**를 짝으로 센다.
+2. 진행바 칸 수(1단계 3칸 · 2단계 4칸) · 승인 끝난 건은 모든 칸이 `done`.
+3. 문구가 사실을 말하는가 — 막힌 **단계 이름**과 **이유**(본인 결재 금지)를 말하는지.
+4. 휴대폰 390px — 가로 넘침 0, **진행바 글자가 서로 겹치지 않는지**
+   (상자가 아니라 `Range.getClientRects()` 로 **실제 글자 자리**를 잰다).
+5. WCAG 대비 4.5:1 · KO/EN 전환 · PC 900px · 콘솔 오류 0.
+
+> 왜 만들었나 — 2026-08-30 에 올라온 긴급 건이 5일째 서 있었는데 화면은 「대기 중」이라고만 했다.
+> 그 건은 결재 단계가 `exec` 로 박혀 있고 그걸 결재할 수 있는 사람이 기안자 본인뿐이라
+> **기다려도 처리될 수 없는 상태**였다. 화면이 그 사실을 말하게 한 것이 이 변경이다.
+>
+> ⚠️ 변이시험으로 확인했다 — 막힘 안내 제거 6건 · `isMine` 제거 1건 · 진행바 제거 6건 ·
+> 「N일째」 제거 2건이 **실제로 FAIL** 난다.
 
 ## approval-ui-browser.mjs — 묶어서 승인 · 부재중(대결) (10건)
 

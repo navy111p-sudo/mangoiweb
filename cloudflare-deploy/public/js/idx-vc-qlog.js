@@ -108,8 +108,12 @@ function vcqRxTick() {
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
     try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
+    try { vcqDupTabWatch(); } catch (_) {}   // 👥 같은 계정 둘째 탭(③)
+    try { vcqWrapCreatePeer(); } catch (_) {}   // ② 로드 순서상 아직 못 감쌌으면 여기서
+    try { vcqWrapAAONotify(); } catch (_) {}    // ④ 같은 이유
     ids.forEach(function (id) {
         var pc = pcs[id];
+        try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
         if (!pc || !pc.getReceivers) return;
         pc.getReceivers().forEach(function (r) {
             if (!r || !r.track || !r.getStats) return;
@@ -163,6 +167,178 @@ function vcqRxTick() {
     });
 }
 
+/* 🛰 연결 «경로» — 중계(TURN)로 가는가, 직접(P2P)으로 가는가 (2026-09-03)
+   [왜] class-1016 Farrah↔ysyt01 · meet-123 Farrah↔Karl: RTT 가 600~1,700ms 였다가 15:06 에
+     60~85ms 로 «뚝» 떨어졌다. 같은 두 사람·같은 PC 인데 2분 사이에 경로가 바뀐 것인지, 회선이 풀린 것인지
+     가릴 데이터가 «없었다» — 이 표는 손실·RTT 만 담고 «어떤 길로 갔는가» 는 한 칸도 없었다.
+     그래서 Globe 회선인지·TURN 중계인지·Cloudflare 어느 서버인지를 매번 추측으로 끝냈다(CLAUDE.md 2장
+     「원인을 «찾았다» 고 보고했는데 알고 보니 추론이었음」과 같은 뿌리).
+   [무엇] 4초마다 선택된 candidate-pair 를 읽어 local/remote 후보 종류를 본다.
+     · 한쪽이라도 relay 면 «중계», 둘 다 host/srflx/prflx 면 «직접». 아직 선택 전이면 «모름»(안 센다).
+     · 내 쪽이 relay 면 그 TURN 서버 주소(host:port)와 relayProtocol(udp/tcp/tls)도 적는다 —
+       Cloudflare 인지 무료 openrelay 폴백인지가 여기서 갈린다(X-Turn-Source 는 «발급» 이지 «실제 사용» 이 아니다).
+     · 상대 쪽만 relay 면 서버 주소는 알 수 없다(그건 상대의 TURN 이다) — 빈 값으로 둔다. 지어내지 않는다.
+   ⛔ «모름» 을 «직접» 으로 적지 말 것 — 연결 전·getStats 없음(옛 브라우저)은 path_ticks 0 으로 남겨
+      서버·화면이 «—» 로 그린다. 0 ticks 를 «직접 100%» 로 읽으면 이 칸을 만든 이유가 사라진다.
+   ⚠️ 이 탐침은 통화 경로와 무관하다 — getStats 가 던져도 catch 로 삼키고, 아무것도 안 바꾼다.
+   감시: vc_quality_blindspot_harness ⑬ */
+function vcqTurnHost(url) {
+    try {
+        var u = String(url || '').replace(/^turns?:/i, '').replace(/^stuns?:/i, '');
+        return u.split('?')[0].slice(0, 80);
+    } catch (_) { return ''; }
+}
+function vcqPathProbe(id, pc) {
+    if (!pc || typeof pc.getStats !== 'function') return;
+    var Q = window.__vcQ; if (!Q) return;
+    pc.getStats().then(function (st) {
+        var byId = {}, selId = null, pair = null;
+        st.forEach(function (s) {
+            if (!s || !s.id) return;
+            byId[s.id] = s;
+            if (s.type === 'transport' && s.selectedCandidatePairId) selId = s.selectedCandidatePairId;
+        });
+        if (selId && byId[selId]) pair = byId[selId];
+        if (!pair) st.forEach(function (s) { if (!pair && s && s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
+        if (!pair) return;                                   // 아직 연결 전 — «모름», 세지 않는다
+        var lc = byId[pair.localCandidateId] || {}, rc = byId[pair.remoteCandidateId] || {};
+        var relay = (lc.candidateType === 'relay' || rc.candidateType === 'relay');
+        var turn = (lc.candidateType === 'relay') ? vcqTurnHost(lc.url) : '';
+        var proto = (lc.candidateType === 'relay') ? String(lc.relayProtocol || '') : '';
+        var P = window.__vcPath || (window.__vcPath = {});
+        var prev = P[id];
+        var cur = { relay: relay, turn: turn, proto: proto, kinds: (lc.candidateType || '?') + '/' + (rc.candidateType || '?') };
+        if (!prev || prev.relay !== cur.relay || prev.turn !== cur.turn) {
+            try { console.log('[vc-path]', id, relay ? '중계(TURN)' : '직접(P2P)', cur.kinds, turn ? (turn + ' ' + proto) : ''); } catch (_) {}
+        }
+        P[id] = cur;
+        Q.pt = (Q.pt || 0) + 1;
+        if (relay) Q.pr = (Q.pr || 0) + 1;
+        if (turn) { Q.turn = turn; Q.proto = proto; }
+    }).catch(function () {});
+}
+
+/* ═══ 2026-09-03 «2층 2·3·4번» — 사장님 「진행해줘」(Farrah 1초 RTT 사고 후속) ═══
+   ② 낮게 시작해서 올라가기(vcqStartStep·vcqWrapCreatePeer)
+   ③ 같은 계정 둘째 탭 경고(vcqDupTabWatch)
+   ④ 안내 문구에 «왜» 를 싣기(vcqWhyLine·vcAAONotify 감싸기)
+   ⚠️ 셋 다 idx-main.js(blocking 849KB, 첫 화면 예산 여유 ~100B)를 한 줄도 안 건드린다 —
+      전역 함수(vcCreatePeer·vcAAONotify)를 «밖에서 감싸는» 방식이다(CLAUDE.md 2장 「blocking 파일을 못 고칠 때」).
+      그 이름이 바뀌면 조용히 헛돈다 — 하니스 ⑭가 «그 이름이 아직 있는가» 를 대조한다. */
+
+/* ② «낮게 시작» — 회선의 «평소 RTT» 를 알면 첫 연결부터 한두 단계 아래서 시작한다.
+   [왜] 적응 루프는 «상한에서 시작해 나빠지면 내린다». Farrah 회선(RTT 600~1,200ms)에서는 첫 16초 동안
+     상한(1.2Mbps)으로 쏘다가 업로드가 줄을 서고, 그 줄이 곧 RTT 1초다. 낮게 시작하면 줄이 «애초에» 안 쌓인다.
+   [근거] 이 세션의 기준 RTT(vcNetSelfWatch 가 «좋은 틱» 에서만 배운 값) → 없으면 지난 수업이 남긴 값(7일).
+   [문턱] 300ms 이상 → 1단계(0.6배) · 450ms 이상 → 2단계(0.35배). ⚠️ 화질 모드가 '저'(기본, 이미 360p·400kbps)면
+     최대 1단계까지만 — 2단계면 1/4 해상도(160px)라 얼굴이 안 보인다.
+   ⛔ 모르면 0(=지금과 같음). 국내 130ms 회선은 아무것도 안 바뀐다. 올라오는 것은 기존 «32초 조용함» 규칙 그대로. */
+var VCQ_RTTBASE_KEY = 'mangoi_vc_rttbase';
+var VCQ_RTTBASE_TTL = 7 * 86400000;
+function vcqKnownRttBase() {
+    try { var W = window.__vcNetSelf; if (W && typeof W.rttBase === 'number' && W.rttBase > 0) return W.rttBase; } catch (_) {}
+    try {
+        var j = JSON.parse(localStorage.getItem(VCQ_RTTBASE_KEY) || 'null');
+        if (j && typeof j.rtt === 'number' && j.rtt > 0 && (Date.now() - (j.at || 0)) < VCQ_RTTBASE_TTL) return j.rtt;
+    } catch (_) {}
+    return 0;
+}
+function vcqSaveRttBase() {
+    try {
+        var W = window.__vcNetSelf;
+        if (!W || typeof W.rttBase !== 'number' || !(W.rttBase > 0)) return;
+        localStorage.setItem(VCQ_RTTBASE_KEY, JSON.stringify({ rtt: Math.round(W.rttBase), at: Date.now() }));
+    } catch (_) {}
+}
+function vcqStartStep() {
+    var base = vcqKnownRttBase();
+    if (!(base >= 300)) return 0;
+    var step = base >= 450 ? 2 : 1;
+    try { if (typeof window.vcGetQuality === 'function' && window.vcGetQuality() === 'low') step = Math.min(step, 1); } catch (_) {}
+    return step;
+}
+function vcqWrapCreatePeer() {
+    try {
+        var orig = window.vcCreatePeer;
+        if (typeof orig !== 'function' || orig.__vcqWrapped) return;
+        var wrapped = function () {
+            var pc = orig.apply(this, arguments);
+            try {
+                var obs = (typeof vcIsObserver !== 'undefined') && !!vcIsObserver;   // 참관자는 보내는 영상이 없다
+                var st = obs ? 0 : vcqStartStep();
+                if (pc && st > 0 && !(pc.__qStep > st)) {
+                    pc.__qStep = st;   // 적응 루프의 첫 틱(__qInit)이 이 단계로 applyStep 한다
+                    console.log('[vc-startlow] 평소 RTT ' + Math.round(vcqKnownRttBase()) + 'ms → ' + st + '단계로 시작');
+                }
+            } catch (_) {}
+            return pc;
+        };
+        wrapped.__vcqWrapped = true;
+        window.vcCreatePeer = wrapped;
+    } catch (_) {}
+}
+vcqWrapCreatePeer();
+
+/* ③ 같은 계정 둘째 탭 — «내 이름과 같은 상대» 가 붙어 있으면 나에게 알린다.
+   [왜] class-1016(2026-09-03)에서 학생 세션이 «둘» 동시에 열려 있었고(둘째는 수업 뒤 15:00 까지 생존)
+     mesh 라 그 순간 업로드가 두 갈래였다. 끊지는 않는다 — 가족 공용 계정이 실재해 자동으로 끊으면
+     서로를 쫓아낸다(idx-vc-dupghost.js 의 «무한 킥» 경고). 5분에 한 번만, 살아 있는 연결만(죽은 유령은 dupghost 몫). */
+function vcqNormName(s) {
+    return String(s || '').replace(/\s*\((?:나|Me)\)\s*$/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function vcqDupTabWatch() {
+    try {
+        var el = document.getElementById('vc-local-label');
+        var me = vcqNormName(el && el.textContent);
+        if (!me) return;
+        var pcs = window.vcPeerConnections || {}, dup = false;
+        Object.keys(pcs).forEach(function (id) {
+            var pc = pcs[id]; if (!pc || !pc.__username) return;
+            var cs = pc.connectionState || pc.iceConnectionState || '';
+            if (cs === 'closed' || cs === 'failed') return;
+            if (vcqNormName(pc.__username) === me) dup = true;
+        });
+        var D = window.__vcDupTab || (window.__vcDupTab = { at: 0 });
+        if (!dup) return;
+        if (Date.now() - (D.at || 0) < 300000) return;
+        D.at = Date.now();
+        vcNetNotify('👥 <b>같은 계정이 다른 탭·기기에서도 들어와 있어요.</b><br>' +
+            '<span style="font-weight:500">수업 탭은 <b>하나만</b> 열어 주세요 — 둘이면 인터넷을 두 배로 씁니다. (가족이 함께 들어온 것이면 무시)</span><br>' +
+            '<span style="font-size:12px;opacity:.85">This account is open in another tab/device — keep only one class tab.</span>');
+    } catch (_) {}
+}
+
+/* ④ 안내에 «왜» — 숫자와 «업로드가 막힌 모양» 을 함께 적는다. 강사가 자기 PC 를 의심하지 않고 정확히 제보하게. */
+function vcqWhyLine() {
+    try {
+        var W = window.__vcNetSelf || {};
+        var rtt = (typeof W.lastRtt === 'number') ? Math.round(W.lastRtt) : 0;
+        var loss = (typeof W.lastLoss === 'number' && W.lastLoss >= 0) ? W.lastLoss : -1;
+        var base = (typeof W.rttBase === 'number') ? Math.round(W.rttBase) : 0;
+        if (!rtt && loss < 0) return '';
+        var parts = [];
+        if (rtt) parts.push('지연 ' + rtt + 'ms' + (base ? '(평소 ' + base + 'ms)' : ''));
+        if (loss >= 0) parts.push('손실 ' + loss.toFixed(1) + '%');
+        var why = '';
+        if (rtt && (loss < 0 || loss < 4) && rtt >= Math.max(400, base + 200)) why = ' · 업로드가 꽉 찬 모양입니다 — 이 회선의 다른 기기·백업·탭을 확인하세요';
+        else if (loss >= 4) why = ' · 패킷이 빠집니다 — 와이파이면 유선으로, 유선이면 회선 자체를 확인하세요';
+        return '<span style="font-size:11.5px;opacity:.8">' + parts.join(' · ') + why + '</span>';
+    } catch (_) { return ''; }
+}
+function vcqWrapAAONotify() {
+    try {
+        var orig = window.vcAAONotify;
+        if (typeof orig !== 'function' || orig.__vcqWrapped) return;
+        var wrapped = function (html) {
+            try { if (/audio only|음성만/.test(String(html))) { var w = vcqWhyLine(); if (w) html = String(html) + '<br>' + w; } } catch (_) {}
+            return orig.apply(this, arguments);
+        };
+        wrapped.__vcqWrapped = true;
+        window.vcAAONotify = wrapped;
+    } catch (_) {}
+}
+vcqWrapAAONotify();
+
 /* 수업 중에만 사는 타이머. 첫 vcQualityAcc() 에서 켜지고 수업이 끝나면 스스로 꺼진다. */
 function vcqRxStart() {
     if (window.__vcRxT) return;
@@ -170,9 +346,10 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {};
                 /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
+                try { vcqSaveRttBase(); } catch (_) {}   // ② 다음 수업의 «낮게 시작» 근거(7일)
                 window.__vcNetSelf = null;
                 return;
             }
@@ -260,6 +437,7 @@ function vcNetSelfWatch(loss, rtt) {
        ⚠️ 여기가 #771(화질 회복)과 갈리는 자리다 — 그쪽은 지연이 높은 회선도 «언젠가 화질을 올려야»
        하므로 계속 따라가는 것이 맞지만, 이쪽은 «네 평소보다 나쁘다» 를 사람에게 말하는 것이라
        평소는 «좋았던 때» 에서만 배워야 한다. ⛔ 이 조건을 지우면 위 1회 문제가 그대로 돌아온다. */
+    W.lastRtt = (typeof rtt === 'number' && rtt > 0) ? rtt : W.lastRtt; W.lastLoss = (typeof loss === 'number') ? loss : -1;   // ④ 안내에 «왜» 를 적을 때 쓴다
     if (typeof rtt === 'number' && rtt > 0) {
         if (W.rttBase == null || rtt < W.rttBase) W.rttBase = rtt;      // 내려가는 쪽은 언제나 따라간다
         else if (!bad) W.rttBase = W.rttBase + (rtt - W.rttBase) * 0.02; // 올라가는 쪽은 «괜찮은 틱» 에서만
@@ -271,7 +449,8 @@ function vcNetSelfWatch(loss, rtt) {
     W.notifiedAt = Date.now(); W.bad = 0;
     vcNetNotify('📶 <b>인터넷 연결이 불안정합니다.</b><br>' +
         '<span style="font-weight:500">공유기 가까이 가거나, 유선(랜선)으로 연결하면 좋아집니다.</span><br>' +
-        '<span style="font-size:12px;opacity:.85">Your internet looks unstable — move closer to the router or use a cable.</span>');
+        '<span style="font-size:12px;opacity:.85">Your internet looks unstable — move closer to the router or use a cable.</span>' +
+        (function () { var w = vcqWhyLine(); return w ? '<br>' + w : ''; })());
 }
 
 /* ② 상대 회선이 나쁘다 — **강사 화면에만** 그 사람 타일에 띄운다(위 머리말 참고).
@@ -351,7 +530,7 @@ function vcLowQRemote(id, frameWidth, flowing) {
 }
 
 function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() });
+    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() });
     vcqRxStart();
     try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
@@ -388,10 +567,15 @@ function vcQualityAcc(loss, rtt) {
             rx_aloss: Q.rxa.length ? +avg(Q.rxa).toFixed(1) : -1,
             rx_conceal: Q.rxc.length ? +avg(Q.rxc).toFixed(2) : -1,
             rx_freeze: (Q.rxf || 0),
-            peers: Q.p.length ? Math.max.apply(null, Q.p) : 0
+            peers: Q.p.length ? Math.max.apply(null, Q.p) : 0,
+            /* 🛰 경로 — 이 1분 동안 «중계» 였던 틱 / 경로를 «안» 틱. 하나도 못 쟀으면 path 는 빈 값(«모름»)이다.
+               ⛔ 빈 값을 '직접' 으로 바꾸지 말 것(위 vcqPathProbe 주석). */
+            path: (Q.pt || 0) ? ((Q.pr || 0) === 0 ? 'direct' : ((Q.pr || 0) === Q.pt ? 'relay' : 'mixed')) : '',
+            relay_ticks: (Q.pr || 0), path_ticks: (Q.pt || 0),
+            turn: Q.turn ? (Q.turn + (Q.proto ? ' ' + Q.proto : '')) : ''
         });
         if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
-    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], sentAt: Date.now() };
+    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
 }
