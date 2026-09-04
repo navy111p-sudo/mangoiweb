@@ -43,36 +43,114 @@ check('서버가 판정 정본을 import 한다',
 check('/api/recordings 응답에 students 를 싣는다',
   /const _recStudents = await resolveRecordingStudents\(/.test(MANGO) && /\bstudents,?\s*$/m.test(MANGO),
   'students 를 안 실으면 화면 칸이 늘 «—» 다');
+/* ⛔ 이 줄을 «글자 그대로» 못 박지 말 것 — 같은 자리에 칸을 하나 더 실으면
+      보장은 그대로인데 검사만 깨진다(2026-09-04 교사 칸에서 실제로 밟았다).
+      물어야 할 것은 «그 반환값에 students 가 들어 있는가» 다. */
 check('재생 불가한 행(dl_url 없는 행)에도 students 를 싣는다',
-  /if \(!playable\) return \{ \.\.\.row, students \};/.test(MANGO),
+  /if \(!playable\) return \{[^}]*\bstudents\b[^}]*\};/.test(MANGO),
   '저장 실패·보관 만료 행이야말로 «누구 수업이었나» 를 알아야 하는 자리다');
 
 check('화면이 학생 칸을 그린다', /\+ '<td>' \+ studentCell \+ '<\/td>'/.test(CORE));
-check('빈 목록 colspan 이 13 이다(칸을 하나 늘렸다)',
-  /colspan="13"/.test(CORE) && !/colspan="12"/.test(CORE),
-  'colspan 이 어긋나면 «녹화 기록 없음» 줄만 표 폭이 달라진다');
 check('화면이 participant_names 로 학생을 지어내지 않는다',
   !/students\s*=\s*[^;]*participant_names/.test(CORE),
   '그 배열에는 교사 표시이름과 임시 접속번호가 섞여 있다');
 
-{ // thead 의 <th> 수와 <tbody> 가 그리는 <td> 수가 같아야 한다
+{ /* thead 의 <th> 수 = 한 줄이 그리는 <td> 수 = 빈 표 colspan — 셋이 서로 같아야 한다.
+     ⛔ 여기에 «13» 같은 숫자를 못 박지 말 것. 칸을 늘리는 정상적인 변경마다 보장은
+        그대로인데 검사만 깨진다(CLAUDE.md 2장 「하니스가 목록·개수를 못 박아 두어」).
+        물어야 할 것은 «몇 개인가» 가 아니라 «세 곳이 서로 같은 말을 하는가» 다. */
   const thead = (HTML.match(/<tbody id="recordings-table">/) ? HTML.slice(0, HTML.indexOf('<tbody id="recordings-table">')) : '');
   const head  = thead.slice(thead.lastIndexOf('<thead>'));
   const nTh   = (head.match(/<th[\s>]/g) || []).length;
   const body  = CORE.slice(CORE.indexOf("return '<tr>'"), CORE.indexOf("+ '</tr>';") + 12);
   const nTd   = (body.match(/<td/g) || []).length + 3;   // gaze·speak·participation 셀은 함수가 <td> 를 만든다
-  check('thead 칸 수 = 한 줄이 그리는 칸 수', nTh === 13 && nTd === 13, 'th=' + nTh + ' td=' + nTd);
-  check('머리글에 「학생」 칸이 있다', /data-ko="학생" data-en="Student"/.test(head));
+  /* ⚠️ colspan 은 파일 전체에서 찾으면 안 된다 — 다른 표의 «로딩 중» 줄이 먼저 걸린다
+        (실측: 715행의 colspan="8"). renderRecordingsTable 안에서만 찾는다. */
+  const rrt   = CORE.indexOf('function renderRecordingsTable()');
+  const nCol  = Number((CORE.slice(rrt, rrt + 4000).match(/colspan="(\d+)"/) || [])[1] || -1);
+  check('thead 칸 수 = 한 줄이 그리는 칸 수', nTh > 0 && nTh === nTd, 'th=' + nTh + ' td=' + nTd);
+  check('빈 표 colspan 도 그 칸 수와 같다', nCol === nTh,
+    'colspan=' + nCol + ' th=' + nTh + ' — 어긋나면 «녹화 기록 없음» 줄만 표 폭이 달라진다');
+  check('머리글에 「학생 이름」·「학생 아이디」 두 칸이 있다',
+    /data-ko="학생 이름"/.test(head) && /data-ko="학생 아이디"/.test(head), head.slice(0, 200));
+  check('두 칸 다 정렬 키가 있고 서로 다르다',
+    /data-sk="student"/.test(head) && /data-sk="studentid"/.test(head));
+}
+
+{ /* 🔴 2026-09-04 — SELECT 목록이 «판정 정본이 읽는 칸» 을 전부 주는가.
+     [무엇이 있었나] `/api/recordings` GET 의 SELECT 에 `r.participant_ids` 가 빠져 있었다.
+       그런데 정본(recording-students.ts)의 첫 번째 근거가 `parseIdList(r.participant_ids)` 다
+       → 그 칸이 응답 행에 아예 없으니 **늘 빈 배열**, 근거 하나가 조용히 죽어 있었다.
+     [왜 아무도 못 봤나] 학생 칸은 나머지 세 근거(예약·consented_user_ids·teacher_name)로
+       계속 채워졌다. 즉 «고장» 이 아니라 «근거가 안 쓰인다» 라서 화면에 표시가 안 난다.
+       (D1 전수 실측 2026-09-04: 2,122행 중 학생 칸이 «늘어나는» 행 0건 — 그래서 더 안 보였다.)
+     [왜 B절이 못 잡나] B절은 정본을 가짜 D1 로 돌린다 — 행에 그 칸을 «직접 넣어» 주므로
+       «서버가 그 칸을 안 준다» 는 사실은 원리상 볼 수 없다. 그래서 여기서 배선을 본다.
+     ⛔ 「participant_ids 가 있는가」로 못 박지 말 것 — 정본이 읽는 칸이 늘면 또 어긋난다.
+        «읽겠다고 선언한 칸»(인터페이스)을 **읽어서** 대조한다.
+     ⚠️ 판정 정본은 **둘**이다(학생·교사). 한쪽만 훑으면 다른 쪽이 같은 사고를 낸다. */
+  const IFACES = [
+    ['cloudflare-deploy/src/recording-students.ts', 'RecRowLike'],
+    ['cloudflare-deploy/src/recording-teacher.ts',  'RecTeacherRowLike'],
+  ];
+  const need = [];
+  let ifaceOk = true;
+  for (const [file, name] of IFACES) {
+    /* ⚠️ 정규식을 «문자열로» 조립하지 말 것 — `'\s'` 는 JS 문자열에서 그냥 `s` 다.
+          이 자리에서 실제로 밟았다. 인터페이스 몸통은 중괄호 짝으로 자른다. */
+    const src   = rd(file);
+    const at    = src.indexOf('export interface ' + name);
+    const open  = at < 0 ? -1 : src.indexOf('{', at);
+    const close = open < 0 ? -1 : src.indexOf('\n}', open);
+    const body  = close < 0 ? '' : src.slice(open + 1, close);
+    /* ⛔ `[a-z_]+` 로 좁히지 말 것 — camelCase(`gazeScore`)·숫자 포함(`live_room2`) 칸이
+          조용히 빠져 **거짓 통과**한다(2026-09-04 변이시험에서 실측). */
+    const f = [...body.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\??\s*:/gm)].map(m => m[1]);
+    if (!f.length) ifaceOk = false;
+    for (const c of f) if (!need.includes(c)) need.push(c);
+  }
+  const qStart = MANGO.indexOf('let q = `SELECT r.id, r.room_id');
+  const selEnd = qStart < 0 ? -1 : MANGO.indexOf('/*', qStart);          // 첫 주석 앞까지 = 최상위 칸 목록
+  /* ⛔ `--` 는 SQLite 의 유효한 줄주석이다 — 안 벗기면 「-- r.participant_ids」로 칸을 죽여도
+        검사가 초록이다(변이시험에서 실측). */
+  const selList = (qStart > 0 && selEnd > qStart)
+    ? MANGO.slice(qStart, selEnd).replace(/--.*/g, '') : '';   // JS 의 `.` 은 개행을 안 먹는다 = 줄주석만 제거
+  check('SELECT 칸 목록과 두 정본의 인터페이스를 찾았다',
+    !!selList && ifaceOk && need.length >= 4,
+    '못 찾으면 아래 검사가 무의미하다 — 모양이 바뀌었으면 여기부터 고칠 것 (need=' + need.join(',') + ')');
+  const missing = need.filter(c => !new RegExp('r\\.' + c + '(?![A-Za-z0-9_])').test(selList));
+  check('판정 정본이 읽는 칸을 SELECT 가 전부 준다', !!selList && ifaceOk && missing.length === 0,
+    '빠진 칸: ' + (missing.join(', ') || '(없음)') +
+    ' — 없는 칸은 늘 빈 값이라 그 근거가 «에러 없이» 죽는다');
+}
+
+{ /* 🔒 판정에 쓰는 칸이라고 «응답에» 실으면 안 된다.
+     `participant_ids` 는 곧 «누가 이 녹화를 재생할 수 있는가» 목록이고(recordings-r2.ts),
+     이 API 는 `/api/admin/` 접두사가 아니라서 강사·지사 세션도 그대로 받는다.
+     ⛔ 「그 글자가 없는가」로 검사하지 말 것 — SELECT 에는 있어야 한다.
+        물어야 할 것은 «응답으로 펼치는 것이 원본 행 그대로가 아닌가» 다. */
+  const mapStart = MANGO.indexOf('const _recItems = await Promise.all(_recRows.map(');
+  const mapEnd   = mapStart < 0 ? -1 : MANGO.indexOf('// 응답 본문은 배열 그대로 유지', mapStart);
+  const mapBlk   = (mapStart > 0 && mapEnd > mapStart) ? MANGO.slice(mapStart, mapEnd) : '';
+  const param    = (mapBlk.match(/_recRows\.map\(\s*async\s*\(\s*([A-Za-z_$][\w$]*)\s*:/) || [, ''])[1];
+  const spreads  = [...mapBlk.matchAll(/\.\.\.([A-Za-z_$][\w$]*)/g)].map(m => m[1]);
+  const peeled   = !!param
+    && new RegExp('participant_ids\\s*:[\\s\\S]{0,60}?\\}\\s*=\\s*' + param + '\\b').test(mapBlk);
+  check('응답에는 participant_ids 를 싣지 않는다(판정에만 쓴다)',
+    !!mapBlk && !!param && spreads.length > 0 && !spreads.includes(param) && peeled,
+    'param=' + param + ' spreads=' + spreads.join(',') + ' peeled=' + peeled);
 }
 
 check('검색이 학생(참가자)까지 훑는다',
   /COALESCE\(r\.participant_names,''\) LIKE \?/.test(MANGO) && /COALESCE\(r\.participant_ids,''\) LIKE \?/.test(MANGO),
   '화면에 이름이 보이는데 그 이름으로 검색하면 0건 = 「검색했는데 아무것도 없다」');
-{ // LIKE 자리 수와 바인드 수가 맞는가 (하나만 늘리면 D1 이 던진다)
-  const m = MANGO.match(/whereParts\.push\("\(r\.room_id LIKE[^"]*"\);[\s\S]{0,200}?whereBinds\.push\(([^)]*)\);/);
+{ /* LIKE 자리 수와 바인드 수가 맞는가 — 하나만 늘리면 D1 이 던져 목록이 통째로 500 이 된다.
+     ⛔ «5개» 처럼 숫자를 못 박지 말 것. 검색을 넓히는 정상적인 변경마다 깨진다.
+        물어야 할 것은 «둘이 같은가» 다. */
+  const m = MANGO.match(/whereParts\.push\(\s*"\(r\.room_id LIKE[\s\S]*?whereBinds\.push\(([^)]*)\);/);
   const nQ = m ? (m[0].match(/LIKE \?/g) || []).length : -1;
   const nB = m ? m[1].split(',').filter(x => x.trim()).length : -2;
-  check('LIKE 자리 수 = 바인드 수', nQ === nB && nQ === 5, 'LIKE=' + nQ + ' bind=' + nB);
+  check('LIKE 자리 수 = 바인드 수', nQ > 0 && nQ === nB, 'LIKE=' + nQ + ' bind=' + nB);
 }
 
 /* ══ B. 판정을 실제로 돌린다 ══════════════════════════════════════════════ */
@@ -207,47 +285,74 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
 /* ══ C. 화면 셀을 실제로 그려 본다 ═══════════════════════════════════════ */
 console.log('\n[ C. 화면 셀 — 소스를 오려 내 실행 ]');
 {
-  const start = CORE.indexOf('const studentCell = (function () {');
-  const end   = CORE.indexOf('})();', start);
+  /* 2026-09-04 — 「학생」 한 칸이 「학생 이름」·「학생 아이디」 둘로 갈렸다.
+     ⛔ 두 칸을 각각 오려 내지 말 것 — 한 함수가 둘을 «같은 사람·같은 차례» 로 만든다.
+        따로 검사하면 그 짝이 어긋나도 둘 다 초록이 된다. */
+  const start = CORE.indexOf('const _stCells = (function () {');
+  const end   = CORE.indexOf('const studentIdCell = _stCells.uid;', start);
   check('학생 셀 코드를 소스에서 찾았다', start > 0 && end > start,
     '못 찾으면 아래 검사는 전부 무의미하다 — 모양이 바뀌었으면 여기부터 고칠 것');
 
   if (start > 0 && end > start) {
-    const body = CORE.slice(start, end + 5);
+    const body = CORE.slice(start, end + 'const studentIdCell = _stCells.uid;'.length);
     const esc  = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const cell = new Function('r', 'adminLang', '_esc', body + '\n return studentCell;');
+    const cell = new Function('r', 'adminLang', '_esc', body + '\n return { name: studentCell, uid: studentIdCell };');
     const draw = (r, lang = 'ko') => cell(r, lang, esc);
 
     const one = draw({ source: 'both', students: [{ uid: 'cys01', name: '최윤서', scheduled: true }] });
-    check('학생 이름을 그린다', one.includes('최윤서'));
-    check('계정은 툴팁으로 함께 알려 준다', one.includes('계정: cys01'));
+    check('학생 이름을 그린다', one.name.includes('최윤서'), one.name);
+    check('아이디는 옆 칸에 따로 그린다', one.uid.includes('cys01'), one.uid);
+    check('이름 칸에 아이디를 함께 적지 않는다(칸이 둘인 이유)',
+      !one.name.includes('>cys01<'), one.name);
+    check('계정은 이름 칸 툴팁으로도 알려 준다', one.name.includes('계정: cys01'), one.name);
+    check('예약의 학생은 두 칸 다 굵게', /font-weight:700/.test(one.name) && /font-weight:700/.test(one.uid));
 
-    check('학생을 못 찾으면 «—» 와 그 이유를 함께 말한다', (() => {
+    check('학생을 못 찾으면 두 칸 다 «—» 와 그 이유', (() => {
       const h = draw({ source: 'both', students: [] });
-      return h.includes('—') && /title="[^"]*로그인/.test(h);
+      return h.name.includes('—') && h.uid.includes('—') && /title="[^"]*로그인/.test(h.name);
     })(), '빈칸으로 두면 「고장」으로 읽힌다');
     check('고아 행은 «기록이 없다» 고 말한다', (() => {
       const h = draw({ source: 'orphan', students: [] });
-      return h.includes('—') && /title="[^"]*기록이 없어/.test(h);
+      return h.name.includes('—') && h.uid.includes('—') && /title="[^"]*기록이 없어/.test(h.name);
     })());
-    check('students 가 아예 없어도(옛 응답) 죽지 않는다',
-      draw({ source: 'both' }).includes('—'));
+    check('students 가 아예 없어도(옛 응답) 죽지 않는다', (() => {
+      const h = draw({ source: 'both' });
+      return h.name.includes('—') && h.uid.includes('—');
+    })());
 
     const four = draw({ source: 'both', students: [
       { uid: 'a', name: '가나' }, { uid: 'b', name: '나다' }, { uid: 'c', name: '다라' }, { uid: 'd', name: '라마' }] });
-    check('사람이 많으면 3명까지 적고 나머지는 «외 N명»', four.includes('외 1명') && !four.includes('라마<'),
-      four);
-    check('숨긴 사람 이름은 툴팁에 남긴다', four.includes('라마'));
+    check('사람이 많으면 3명까지 적고 나머지는 «외 N명»',
+      four.name.includes('외 1명') && !four.name.includes('>라마<'), four.name);
+    /* ⚠️ «앞 몇 명이 있나» 만 보면 한쪽을 2명으로 잘라도 통과한다(2026-09-04 변이시험에서
+       실제로 놓쳤다). 두 칸이 **같은 사람 수** 를 같은 차례로 그리는지 세어서 본다. */
+    const nSpans = (h) => (h.split(',').length);
+    check('   아이디 칸도 똑같이 자른다(두 칸이 어긋나면 남의 계정처럼 읽힌다)',
+      four.uid.includes('외 1명') && four.uid.includes('>a<')
+      && four.uid.includes('>c<') && !four.uid.includes('>d<')
+      && nSpans(four.uid) === nSpans(four.name), four.uid + '   ↔   ' + four.name);
+    check('숨긴 사람 이름은 툴팁에 남긴다', four.name.includes('라마'));
 
-    const bad = draw({ source: 'both', students: [{ uid: 'x', name: '<script>alert(1)</script>' }] });
-    check('이름을 HTML 로 해석하지 않는다(이스케이프)',
-      !bad.includes('<script>') && bad.includes('&lt;script&gt;'), bad);
+    const bad = draw({ source: 'both', students: [{ uid: '"x', name: '<script>alert(1)</script>' }] });
+    check('이름·아이디를 HTML 로 해석하지 않는다(이스케이프)',
+      !bad.name.includes('<script>') && bad.name.includes('&lt;script&gt;')
+      && !bad.uid.includes('"x'), bad.name + ' | ' + bad.uid);
 
     const en = draw({ source: 'both', students: [] }, 'en');
-    check('영어 화면에서는 영어로 말한다', /title="[^"]*student account/i.test(en), en);
+    check('영어 화면에서는 영어로 말한다', /title="[^"]*student account/i.test(en.name), en.name);
 
-    const idOnly = draw({ source: 'both', students: [{ uid: 'newkid', name: '' }] });
-    check('이름을 못 구했으면 계정이라도 보여 준다', idOnly.includes('newkid'));
+    /* 🔴 2026-09-04 사장님 «학생도 학생아이디 목록을 만들어줘» 의 핵심.
+       서버는 이름을 못 찾으면 계정을 그대로 `name` 에 넣는다(칸이 하나였을 때의 폴백).
+       칸이 갈린 지금 그것을 그리면 «이름 자리에 아이디» 가 그대로 남는다.
+       실측 근거: 정우영의 실사용 계정 `jeong` 은 카페24에 이름이 없어 명부에 「jeong」
+       으로 찍힌다(CLAUDE.md 2장). */
+    const idOnly = draw({ source: 'both', students: [{ uid: 'jeong', name: 'jeong' }] });
+    check('⛔ 이름을 모르면 이름 칸에 아이디를 적지 않는다',
+      !idOnly.name.includes('>jeong<') && idOnly.name.includes('—'), idOnly.name);
+    check('   그때 «왜 비었는지» 를 말한다', /명부에 이름이 없습니다/.test(idOnly.name), idOnly.name);
+    check('   아이디는 잃지 않는다(옆 칸에 그대로)', idOnly.uid.includes('jeong'), idOnly.uid);
+    const blankName = draw({ source: 'both', students: [{ uid: 'newkid', name: '' }] });
+    check('이름 칸이 비어 와도 같은 규칙', blankName.name.includes('—') && blankName.uid.includes('newkid'));
   }
 }
 
