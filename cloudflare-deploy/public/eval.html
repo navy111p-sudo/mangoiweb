@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>오늘의 학습 평가서 — 망고아이</title>
+<title>오늘 수업일지 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
@@ -126,9 +126,16 @@
   <div class="wrap">
     <div class="brand">
       <span class="brand-logo">Mangoi</span>
-      <div class="brand-sub">오늘의 학습 평가서</div>
+      <div class="brand-sub" data-ko="오늘 수업일지" data-en="Today's Lesson Note">오늘 수업일지</div>
     </div>
-    <div id="eval-root" class="state">📥 평가서를 불러오는 중…</div>
+    <!-- ⚠️ data-ko/data-en 을 직접 단다 — i18n 사전(js/i18n-sweep.js)은 42개 화면이 함께 실어
+       고치면 ?v= 를 42곳 올려야 한다. 안 달면 사전 미스라 서버 AI 번역(/api/i18n/translate)으로
+       새어 나가고, 시각·id 가 섞인 문구는 캐시가 영원히 빗나간다. -->
+  <!-- 🔴 data-ko/data-en 을 #eval-root «자신» 에 달면 안 된다 — 이 요소는 화면 전체가 그려지는
+       «그릇» 이라, i18n 엔진이 그 속성을 보고 textContent 를 통째로 갈아끼워 **그린 내용이 사라진다**
+       (2026-09-04 실제로 밟음 — 화면이 「불러오는 중…」에서 영영 안 넘어갔다. CLAUDE.md 2장
+       「아이콘 버튼에 달았더니」와 같은 뿌리다). 안쪽 span 에 단다 — 그리면 통째로 교체되어 충돌이 없다. -->
+  <div id="eval-root" class="state"><span data-ko="📥 수업일지를 불러오는 중…" data-en="📥 Loading lesson notes…">📥 수업일지를 불러오는 중…</span></div>
   </div>
 <script>
 (function(){
@@ -152,7 +159,7 @@
     root.innerHTML = `
       <div class="eval-card" style="max-width:380px;margin:0 auto;padding:28px 24px">
         <h3 style="font-size:17px;color:#fff;text-align:center;margin-bottom:6px">🔑 학생 로그인</h3>
-        <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">평가서를 보려면 로그인하세요</p>
+        <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">수업일지를 보려면 로그인하세요</p>
         <div style="margin-bottom:12px">
           <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">학생 ID</label>
           <input id="ev-lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
@@ -211,18 +218,29 @@
     }
   };
 
+  /* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사가 쓰는 1분 수업일지(/api/eval/create,
+   *   bulk-create)는 1~5 이고, AI 수업 리포트(/api/eval/ai-lesson-report)는 0~100 을 같은 칸에 적는다.
+   *   그래서 «/5» 를 못 박으면 100점짜리 행이 「88 / 5점」이 되고, «/10» 은 어느 쪽도 아니다.
+   *   ⚠️ 두 갈래를 «행» 으로 가릴 근거가 없다 — ai_lesson_reports.evaluation_id 는
+   *      2026-09-04 실측에서 2건 모두 비어 있어 조인이 안 된다. 그래서 값 자체로 척도를 읽는다.
+   *   ⛔ 임의의 숫자로 «환산» 하지 말 것 — 만점이 무엇인지 화면이 그대로 말해야 한다. */
+  function evalMax(v){ return (Number(v) || 0) > 5 ? 100 : 5; }
+  function evalOn5(v){ var m = evalMax(v); return (Number(v) || 0) * 5 / m; }
   function stars(n){
     n = Math.max(0, Math.min(5, Math.round(n||0)));
     return '<span style="color:#fbbf24">'+'★'.repeat(n)+'</span><span style="color:#475569">'+'☆'.repeat(5-n)+'</span>';
   }
   function scoreBar(label, value){
     if (value == null || value === '') return '';
-    const pct = Math.max(0, Math.min(100, (Number(value)/5)*100));
+    /* ⚠️ 여기도 만점이 하나가 아니다 — AI 수업 리포트 행은 세부 점수도 0~100 이라
+     *   「/ 5」를 못 박으면 「90 / 5」가 된다(위 evalMax 주석과 같은 뿌리). */
+    const smax = evalMax(value);
+    const pct = Math.max(0, Math.min(100, (Number(value)/smax)*100));
     return `<div class="score-row">
       <div class="score-label">${label}</div>
       <div style="display:flex;align-items:baseline;justify-content:space-between">
         <span class="score-num">${value}</span>
-        <span style="font-size:12px;color:#94a3b8">/ 5</span>
+        <span style="font-size:12px;color:#94a3b8">/ ${smax}</span>
       </div>
       <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%"></div></div>
     </div>`;
@@ -247,7 +265,7 @@
           var items = (d && d.ok && (d.rows || d.items)) || [];
           renderEvalList(items, userName);
         })
-        .catch(function(){ root.innerHTML = '<div>❌ 평가서 목록을 불러오지 못했습니다.<br><br><a href="/" style="color:#fde68a">홈으로</a></div>'; });
+        .catch(function(){ root.innerHTML = '<div>❌ 수업일지 목록을 불러오지 못했습니다.<br><br><a href="/" style="color:#fde68a">홈으로</a></div>'; });
       return;
     }
 
@@ -255,24 +273,28 @@
       if (!items.length) {
         root.className = '';
         root.innerHTML = '<div class="eval-card" style="padding:40px 24px;text-align:center">'
-          + '<div style="font-size:15px;color:#e2e8f0;margin-bottom:6px">📋 ' + escapeText(name) + '님의 학습 평가서</div>'
-          + '<div class="empty" style="margin-top:10px">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>'
+          + '<div style="font-size:15px;color:#e2e8f0;margin-bottom:6px" data-ko="📋 ' + escapeText(name) + '님의 수업일지" data-en="📋 ' + escapeText(name) + '\'s Lesson Notes">📋 ' + escapeText(name) + '님의 수업일지</div>'
+          + '<div class="empty" style="margin-top:10px" data-ko="아직 수업일지가 없습니다. 다음 수업 후 등록됩니다." data-en="No lesson notes yet. One is added after your next class.">아직 수업일지가 없습니다. 다음 수업 후 등록됩니다.</div>'
           + '<a href="/" style="display:inline-block;margin-top:16px;color:#fde68a;text-decoration:none;font-size:13px">🏠 홈으로</a>'
           + '</div>';
         return;
       }
       var html = '<div class="eval-card"><div class="eval-head">';
-      html += '<h2 class="eval-title">📋 ' + escapeText(name) + '님의 학습 평가서</h2>';
-      html += '<div class="eval-meta">총 <b>' + items.length + '개</b>의 평가서</div>';
+      html += '<h2 class="eval-title" data-ko="📋 ' + escapeText(name) + '님의 수업일지" data-en="📋 ' + escapeText(name) + '\'s Lesson Notes">📋 ' + escapeText(name) + '님의 수업일지</h2>';
+      html += '<div class="eval-meta">총 <b>' + items.length + '개</b></div>';
       html += '</div><div style="padding:16px 24px 24px">';
       items.forEach(function(e){
         var dt = e.lesson_date || (e.created_at ? new Date(e.created_at).toISOString().slice(0,10) : '');
-        var st = '<span style="color:#fbbf24">'+'★'.repeat(Math.round(e.score_overall||0))+'</span><span style="color:#475569">'+'☆'.repeat(5-Math.round(e.score_overall||0))+'</span>';
+        /* ⚠️ 여기서 stars() 를 쓰는 이유 — 옛 코드는 점수를 그대로 '★'.repeat() 에 넣었다.
+         *   그런데 이 칸에는 0~100 척도 행도 섞여 있어(위 evalMax 주석) 88 이 들어오면
+         *   '☆'.repeat(5-88) 이 **RangeError 를 던져 목록 전체가 안 그려진다.**
+         *   stars() 는 0~5 로 자르고, evalOn5() 가 척도를 먼저 맞춘다. */
+        var st = stars(evalOn5(e.score_overall));
         html += '<a href="/eval.html?id=' + e.id + '" style="display:block;background:rgba(139,92,246,0.08);border-left:3px solid #a78bfa;border-radius:10px;padding:16px 18px;margin-bottom:12px;text-decoration:none;color:#fff;transition:all .15s" onmouseover="this.style.background=\'rgba(139,92,246,0.15)\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.background=\'rgba(139,92,246,0.08)\';this.style.transform=\'\';">';
         html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">';
         html += '<div><div style="font-size:11.5px;color:#fde68a;margin-bottom:4px">' + dt + '</div>';
         html += '<div style="font-size:15px;font-weight:700">' + (e.lesson_title || '수업') + '</div></div>';
-        html += '<div style="text-align:right"><div style="font-size:22px;font-weight:800;background:linear-gradient(180deg,#fff8d8,#fbbf24,#c08820);-webkit-background-clip:text;-webkit-text-fill-color:transparent">' + (e.score_overall || '-') + '</div>';
+        html += '<div style="text-align:right"><div style="font-size:22px;font-weight:800;background:linear-gradient(180deg,#fff8d8,#fbbf24,#c08820);-webkit-background-clip:text;-webkit-text-fill-color:transparent">' + (e.score_overall != null ? e.score_overall + '<span style="font-size:12px;font-weight:600;color:#94a3b8;-webkit-text-fill-color:#94a3b8">/' + evalMax(e.score_overall) + '</span>' : '-') + '</div>';
         html += '<div style="font-size:11px;color:#94a3b8">' + st + '</div></div></div>';
         if (e.teacher_name) html += '<div style="font-size:12px;color:#94a3b8">👨‍🏫 ' + e.teacher_name + ' 선생님</div>';
         if (e.comment) html += '<div style="font-size:12.5px;color:#cbd5e1;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.1)">💬 ' + (e.comment.length > 80 ? e.comment.substring(0,80) + '...' : e.comment) + '</div>';
@@ -290,7 +312,7 @@
       if (r.status === 401) { showLogin(); return; }  // 🔐 본인 계정 로그인 전엔 열람 불가
       const d = await r.json();
       if (!d.ok || !d.eval) {
-        root.innerHTML = '<div>❌ 평가서를 찾을 수 없습니다 (#'+id+').<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
+        root.innerHTML = '<div>❌ 수업일지를 찾을 수 없습니다 (#'+id+').<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
         return;
       }
       const e = d.eval;
@@ -309,7 +331,7 @@
       root.innerHTML = `
         <div class="eval-card">
           <div class="eval-head">
-            <h1 class="eval-title">${escapeText(e.student_name||'학생')} 학생 평가서</h1>
+            <h1 class="eval-title">${escapeText(e.student_name||'학생')} 학생 수업일지</h1>
             <div class="eval-meta">
               <span>📅 <b>${escapeText(dt)}</b></span>
               ${e.lesson_title?`<span>📚 <b>${escapeText(e.lesson_title)}</b></span>`:''}
@@ -320,16 +342,16 @@
           <div class="overall-row">
             <div>
               <div class="overall-big">${overall}</div>
-              <div class="overall-of">종합 / 5점</div>
+              <div class="overall-of" data-ko="종합 / ${evalMax(overall)}점" data-en="Overall / ${evalMax(overall)}">종합 / ${evalMax(overall)}점</div>
             </div>
             <div style="flex:1">
-              <div class="overall-stars">${stars(overall)}</div>
-              <div style="font-size:12.5px;color:#94a3b8;margin-top:6px">${
-                overall >= 4.5 ? '🏆 매우 우수' :
-                overall >= 4.0 ? '⭐ 우수' :
-                overall >= 3.5 ? '👍 양호' :
-                overall >= 3.0 ? '🙂 보통' : '💪 분발 필요'
-              }</div>
+              <div class="overall-stars">${stars(evalOn5(overall))}</div>
+              <div style="font-size:12.5px;color:#94a3b8;margin-top:6px">${(function(r){
+                return r >= 4.5 ? '🏆 매우 우수' :
+                       r >= 4.0 ? '⭐ 우수' :
+                       r >= 3.5 ? '👍 양호' :
+                       r >= 3.0 ? '🙂 보통' : '💪 분발 필요';
+              })(evalOn5(overall))}</div>
             </div>
           </div>` : ''}
           ${scoresHtml ? `<div class="scores">${scoresHtml}</div>` : ''}
@@ -352,7 +374,8 @@
           </div>` : ''}
           <div class="eval-foot">
             <div>${escapeText(e.teacher_name||'담당 강사')} 드림</div>
-            <div style="margin-top:6px;font-size:11px">평가서 #${e.id} · ${new Date(e.created_at).toLocaleString('ko-KR')}</div>
+            <div style="margin-top:6px;font-size:11px" data-ko="수업일지 #${e.id}" data-en="Lesson note #${e.id}">수업일지 #${e.id}</div>
+            <div style="margin-top:2px;font-size:11px">${new Date(e.created_at).toLocaleString('ko-KR')}</div>
             <a class="home-btn" href="/">🏠 망고아이 홈페이지로</a>
           </div>
         </div>`;
