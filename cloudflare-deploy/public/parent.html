@@ -819,11 +819,18 @@ function pdRender(d){
     ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.08);display:flex;justify-content:space-between"><span style="color:#cbd5e1">${esc(p.method||'결제')} <span style="font-size:11px;color:#94a3b8">${fmtDate(p.paid_at)}</span></span><b style="color:#fbbf24">${fmt(p.amount_krw)}원</b></div>`).join('')
     : '<div class="empty">결제 내역 없음</div>';
 
+  /* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사 1분 수업일지(/api/eval/create·bulk-create)는
+   *   1~5, AI 수업 리포트(/api/eval/ai-lesson-report)는 0~100 을 같은 칸에 적는다.
+   *   옛 코드는 「/10」으로 못 박아 **두 갈래 어느 쪽도 아닌 숫자**를 학부모에게 보여줬다.
+   *   ⛔ 「/5」로 바꾸는 것도 안 된다 — 그 순간 0~100 행이 「88 / 5」가 되어 새 거짓말이 된다.
+   *   ⚠️ eval.html·report.html 의 evalMax() 와 «같은 말» 을 해야 한다(하니스 ⑤절이 대조한다). */
+  const pdEvalMax = (v) => (Number(v) || 0) > 5 ? 100 : 5;
+
   // 평가서
   const evals = d.evaluations || [];
   document.getElementById('pd-evals').innerHTML = evals.length
     ? evals.map(e => `<div class="eval-item">
-        <span class="eval-score">${e.score_overall||0}/10</span>
+        <span class="eval-score">${e.score_overall||0}/${pdEvalMax(e.score_overall)}</span>
         <span class="eval-date">${esc(e.lesson_date||'-')} · ${esc(e.teacher_name||'-')}</span>
         <div class="eval-text"><b style="color:#34d399">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
         <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>

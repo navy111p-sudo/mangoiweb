@@ -27,7 +27,7 @@ const P = await import(pathToFileURL(join(SRC, 'approval-policy.ts')).href);
 const {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks,
-  TWO_STEP_THRESHOLD, MONTHLY_BUDGET, AUTO_APPROVE_ENABLED,
+  TWO_STEP_THRESHOLD, MONTHLY_BUDGET, AUTO_APPROVE_ENABLED, EXEC_USERNAMES,
   sniffKind, normExt, contentTypeFor,
 } = P;
 
@@ -44,12 +44,24 @@ function check(name, cond, extra) {
 
 // ── 등장인물 ────────────────────────────────────────────────────────────────
 const boss    = { ok: true, username: 'admin',     name: '대표',            role: 'hq',    isTeacher: false };
-const office  = { ok: true, username: 'mgr_jjw',   name: '본사 담당',        role: 'hq',    isTeacher: false };
+/* «경영진이 아닌 본사 담당» — 계정명을 못 박지 않는다.
+   ⚠️ 2026-09-04 에 실제로 밟았다: 여기 'mgr_jjw' 를 적어 두었는데 그 사람이 경영진이 되자
+      「본사 담당은 인사·급여를 볼 수 없다」·「경영진 단계는 경영진만」 두 검사가 FAIL 났다.
+      보안이 샌 것이 아니라 **검사가 옛 명단을 들고 있던 것**이다.
+   ✅ 그래서 EXEC_USERNAMES 에 «없는» 계정을 골라 쓴다. 경영진이 늘어도 뜻이 유지된다. */
+const OFFICE_CANDIDATES = ['mgr_lby', 'mgr_jjw', 'mgr_staff'];
+const OFFICE_UID = OFFICE_CANDIDATES.find(u => !EXEC_USERNAMES.includes(u));
+const office  = { ok: true, username: OFFICE_UID, name: '본사 담당',        role: 'hq',    isTeacher: false };
 const phMgr   = { ok: true, username: 'mgr_melca', name: 'Melca',           role: 'hq',    isTeacher: false };
 const teacher = { ok: true, username: 'hq_t01',    name: 'Teacher Ann',     role: 'teacher', isTeacher: true };
 const agency  = { ok: true, username: 'shop_01',   name: '망고아이 대리점',  role: 'agency', isTeacher: false };
 
 console.log('════════ 결재 규칙 하니스 ════════');
+
+// 아래 열람·결재 검사들은 «경영진이 아닌 본사 계정이 하나는 있다» 는 전제 위에 선다.
+// 그 전제가 깨지면 검사가 조용히 뜻을 잃으므로 먼저 못 박는다.
+check('검사 전제 — 경영진이 아닌 본사 계정을 하나 고를 수 있다',
+  !!OFFICE_UID, '후보: ' + OFFICE_CANDIDATES.join(', ') + ' · 경영진: ' + EXEC_USERNAMES.join(', '));
 
 // ══ A. 결재선 자동 결정 ═══════════════════════════════════════════════════
 console.log('\n[A] 결재선이 금액·분류로 자동으로 정해지는가');
@@ -106,7 +118,7 @@ check('인사·급여를 경영진은 본다',
   canView(boss, 'hr', 'office', [], false) === true);
 
 check('내가 올린 인사 건은 내가 본다 (기안자는 언제나 본인 건을 본다)',
-  canView(office, 'hr', 'mgr_jjw', [], false) === true);
+  canView(office, 'hr', office.username, [], false) === true);   // 계정명을 두 번 적지 않는다
 
 check('지출 결재를 강사는 볼 수 없다 (회사 지출 내역)',
   canView(teacher, 'expense', 'mgr_melca', [], false) === false);

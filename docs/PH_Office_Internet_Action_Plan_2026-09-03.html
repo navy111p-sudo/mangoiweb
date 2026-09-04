@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Philippines Office Internet — Action Plan</title>
+<!-- FONTS -->
+</head>
+<body>
+<style>
+  :root{
+    --paper:#fbfaf7; --card:#ffffff; --card2:#f4f1ea;
+    --ink:#241d16; --ink2:#5f5347; --ink3:#948878;
+    --line:#e5ddcf; --line2:#d0c4ae;
+    --mango:#d9821a; --mango-soft:#fdf2e1;
+    --bad:#b8443a; --bad-soft:#fbeeec;
+    --good:#2c7654; --good-soft:#e9f4ef;
+    --todo:#36699f; --todo-soft:#ebf1f8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Inter","Liberation Sans",Arial,sans-serif;
+    font-size:14.5px; line-height:1.65; padding:32px 22px 56px;
+  }
+  .wrap{max-width:790px; margin:0 auto; display:flex; flex-direction:column; gap:22px}
+  .stamp{font-size:11.5px; font-weight:700; color:var(--mango); letter-spacing:.09em; text-transform:uppercase}
+  h1{font-size:31px; line-height:1.25; margin:6px 0 0; font-weight:700; letter-spacing:-.02em}
+  .lede{font-size:15.5px; color:var(--ink2); margin:10px 0 0}
+  .meta{font-size:12px; color:var(--ink3); margin-top:8px}
+  h2{font-size:19px; margin:0 0 10px; font-weight:700; display:flex; align-items:center; gap:10px; letter-spacing:-.01em}
+  .no{display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--mango); color:#fff; font-size:14px; align-items:center; justify-content:center; font-weight:700; flex:0 0 auto}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; break-inside:avoid}
+  .card > p{margin:0 0 9px}
+  .card > p:last-child{margin-bottom:0}
+  .bad{background:var(--bad-soft); border-left:4px solid var(--bad); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .good{background:var(--good-soft); border-left:4px solid var(--good); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .todo{background:var(--todo-soft); border-left:4px solid var(--todo); border-radius:8px; padding:11px 14px; margin:11px 0 0}
+  .tip{background:var(--mango-soft); border-left:4px solid var(--mango); border-radius:8px; padding:11px 14px; margin:11px 0 0; font-size:13.5px}
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:10px}
+  th,td{border:1px solid var(--line2); padding:7px 9px; text-align:left; vertical-align:top}
+  th{background:var(--card2); font-weight:700}
+  td.n{text-align:right; white-space:nowrap}
+  .k{font-weight:700}
+  .red{color:var(--bad); font-weight:700}
+  .grn{color:var(--good); font-weight:700}
+  .small{font-size:12.5px; color:var(--ink2)}
+  ol,ul{margin:6px 0 0; padding-left:20px}
+  li{margin:3px 0}
+  .fill{color:var(--ink3); letter-spacing:.14em}
+  .foot{font-size:12px; color:var(--ink3); border-top:1px solid var(--line); padding-top:12px}
+  @media print{
+    body{padding:0; background:#fff; font-size:12.5px}
+    .wrap{max-width:none; gap:14px}
+    .card{padding:13px 15px; border-radius:10px}
+    h1{font-size:25px} h2{font-size:16.5px} .lede{font-size:14px}
+    table{font-size:11px}
+    .pagebreak{break-before:page}
+    @page{size:A4; margin:13mm 14mm}
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="stamp">Mangoi &middot; Internal Action Plan &middot; 3 September 2026</div>
+    <h1>Philippines Office Internet — why classes break, and how we fix it</h1>
+    <p class="lede">Prepared for <span class="k">Karl</span> (PH Manager). Our server logs now measure every class,
+    and they point clearly at the office upload line. This plan lists what we already fixed on our side,
+    what we need you to measure this week, and what we should buy if the measurement confirms the cause.</p>
+    <div class="meta">Evidence: server line-quality logs (1 row per minute per person) &middot; admin login IP records &middot; deployment logs.
+    Where something is a conclusion rather than a measurement, it is marked <span class="k">[inference]</span>.</div>
+  </header>
+
+  <section class="card">
+    <h2><span class="no">1</span>What happened (measured)</h2>
+    <p>Class on 3 Sept, 14:00 KST — Teacher Farrah with Korean student <span class="k">ysyt01</span>, 21 minutes.
+    The student saw a blurry, freezing picture; Farrah's video kept switching itself off and on.</p>
+    <table>
+      <tr><th>What we measure</th><th>Normal class (same days)</th><th>This class</th><th>Meaning</th></tr>
+      <tr><td>Round-trip delay, average</td><td class="n">100–150 ms</td><td class="n red">609 ms (teacher) / 588 ms (student)</td><td>4–6&times; slower than normal</td></tr>
+      <tr><td>Round-trip delay, worst minute</td><td class="n">under 200 ms</td><td class="n red">1,091 / 1,267 ms</td><td>Over a second of lag</td></tr>
+      <tr><td>Audio concealed (sound lost and patched by the browser)</td><td class="n">0.3–1.6 %</td><td class="n red">30–44 %</td><td>Roughly 1 word in 3 damaged</td></tr>
+      <tr><td>Video freezes per minute</td><td class="n">about 1</td><td class="n red">6–21</td><td>Picture stalls every few seconds</td></tr>
+      <tr><td>Automatic &ldquo;audio-only&rdquo; switches</td><td class="n">0</td><td class="n red">6</td><td>Camera turning itself off and on</td></tr>
+    </table>
+    <div class="tip"><span class="k">Your own test at 15:00 the same day (Karl &harr; Farrah, both in the Philippines)</span> showed
+    round-trip delay of <span class="k">60 ms &rarr; 1,676 ms &rarr; 60 ms within three minutes</span>.
+    Both of you were inside the Philippines, so the Korea&ndash;Philippines undersea route is not the problem.
+    The problem is on the Philippine side.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">2</span>Which line, exactly</h2>
+    <p>Our login records show that <span class="k">about ten teacher accounts plus you and Melca all sign in from a single public IP address</span>
+    (216.247.55.144; it was 216.247.53.158 before 28 Aug). That means the teaching PCs share <span class="k">one office internet line</span>.</p>
+    <p><span class="k">Important — the line is not always bad.</span> On 1 Sept, Hannah, Win and Krystel taught on that same line with
+    170–190 ms delay and 1–7 % audio loss, which is fine. And on 3 Sept at 14:00 our records show only <span class="k">one</span>
+    Mangoi class running, so it was not &ldquo;too many classes at once&rdquo;.</p>
+    <table>
+      <tr><th>Teacher (last 4 days, class rooms)</th><th>Avg delay</th><th>Audio concealed</th><th>Auto audio-only</th></tr>
+      <tr><td class="red">Farrah</td><td class="n red">609 ms</td><td class="n red">33.6 %</td><td class="n red">6</td></tr>
+      <tr><td>Teacher C (China, separate line)</td><td class="n">384 ms</td><td class="n">1.3 %</td><td class="n">0</td></tr>
+      <tr><td>Teacher (mangoi_153)</td><td class="n">206 ms</td><td class="n">12.9 %</td><td class="n">1</td></tr>
+      <tr><td>Hannah</td><td class="n">193 ms</td><td class="n">6.3 %</td><td class="n">0</td></tr>
+      <tr><td>Win</td><td class="n">174 ms</td><td class="n grn">0.8 %</td><td class="n">1</td></tr>
+      <tr><td>Krystel</td><td class="n">172 ms</td><td class="n">7.4 %</td><td class="n">1</td></tr>
+      <tr><td>Teacher (mangoi_114)</td><td class="n grn">102 ms</td><td class="n grn">0.4 %</td><td class="n">0</td></tr>
+    </table>
+    <p class="small" style="margin-top:8px">Farrah's line record currently covers only this one class (teacher-side logging started 1 Sept),
+    so we cannot yet say whether her situation is permanent or was specific to that hour. That is exactly what step 4 settles.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">3</span>Most likely cause <span class="small" style="font-weight:400">[inference]</span></h2>
+    <div class="bad"><span class="k">The office upload capacity is being filled up, so packets queue and delay explodes.</span>
+    Engineers call this &ldquo;bufferbloat&rdquo;. The signature is exactly what we measured: delay jumping from 0.06 s to 1.6 s
+    while packet loss stays comparatively low.</div>
+    <p style="margin-top:11px">A video class has to <span class="k">upload</span> the teacher's camera continuously.
+    Home and small-office plans in the Philippines usually have a much smaller upload than download.
+    Once upload is full, everything on that line — including the class — starts queueing.</p>
+    <p>Three candidates, and we cannot tell them apart from Korea:</p>
+    <ol>
+      <li>The contracted <span class="k">upload speed is simply too small</span> for the number of simultaneous classes.</li>
+      <li>Something else on the same line is uploading — <span class="k">cloud backup, Windows Update, file sync, YouTube upload, another video call</span>.</li>
+      <li>The <span class="k">ISP itself is congested</span> in that time slot.</li>
+    </ol>
+    <p><span class="k">Ruled out on our side (measured):</span> our relay servers were healthy; the two people were in the same room;
+    there were no ghost connections; the teacher PC no longer records video (we removed that load on 3 Sept morning);
+    and our video quality setting is already on &ldquo;Low&rdquo;, so we are not sending a heavy stream.</p>
+  </section>
+
+  <section class="card pagebreak">
+    <h2><span class="no">4</span>What we need from you this week</h2>
+    <p>These cost nothing and they decide where the money should go. Please do them and send the numbers back.</p>
+    <table>
+      <tr><th style="width:34px">#</th><th>Task</th><th>How</th></tr>
+      <tr><td class="n">1</td><td><span class="k">Measure the line during class hours</span></td>
+        <td>On a teaching PC open <span class="k">fast.com</span>, click <span class="k">Show more info</span>, and screenshot
+        <span class="k">Upload</span> and <span class="k">Loaded latency</span>. Do this at 14:00, 16:00 and 20:00 for three days.
+        Loaded latency above 500 ms confirms the cause above.</td></tr>
+      <tr><td class="n">2</td><td><span class="k">Confirm how each teaching PC connects</span></td>
+        <td>Wired LAN cable or Wi-Fi? If Wi-Fi, how far from the router, and how many walls?</td></tr>
+      <tr><td class="n">3</td><td><span class="k">List what else uses the line</span></td>
+        <td>Number of PCs, phones, CCTV; any cloud backup / Google Drive / OneDrive / Windows Update running in the daytime.</td></tr>
+      <tr><td class="n">4</td><td><span class="k">Send the internet contract details</span></td>
+        <td>ISP name, plan name, and the <span class="k">contracted upload speed</span> (not just download). Ask the ISP if it is not on the bill.</td></tr>
+      <tr><td class="n">5</td><td><span class="k">Check the class app setting</span></td>
+        <td>In the class screen settings, Video quality should be <span class="k">Low</span>.</td></tr>
+    </table>
+    <p style="margin-top:12px" class="k">Please fill this in and send it back:</p>
+    <table>
+      <tr><th>Item</th><th>Answer</th></tr>
+      <tr><td>ISP / plan name</td><td class="fill">______________________</td></tr>
+      <tr><td>Contracted download / upload</td><td class="fill">________ Mbps / ________ Mbps</td></tr>
+      <tr><td>fast.com upload during class</td><td class="fill">________ Mbps</td></tr>
+      <tr><td>fast.com loaded latency during class</td><td class="fill">________ ms</td></tr>
+      <tr><td>Teaching PCs: wired / Wi-Fi</td><td class="fill">________ wired, ________ Wi-Fi</td></tr>
+      <tr><td>Max classes running at the same time</td><td class="fill">________</td></tr>
+      <tr><td>Worst time of day for quality</td><td class="fill">______________________</td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">5</span>Fixes, cheapest first</h2>
+    <table>
+      <tr><th style="width:34px">#</th><th>Action</th><th>Owner</th><th>Effect</th><th>Cost</th></tr>
+      <tr><td class="n">1</td><td><span class="k">Wired LAN for every teaching PC.</span> Wi-Fi can halve usable upload through one wall.</td><td>Karl</td><td class="grn">High</td><td>A few cables</td></tr>
+      <tr><td class="n">2</td><td><span class="k">Stop other uploads during class hours</span> — pause cloud backup and Windows Update, no file sync or personal video calls on that line.</td><td>Karl</td><td class="grn">High</td><td>None</td></tr>
+      <tr><td class="n">3</td><td><span class="k">Enable QoS on the router</span> so the teaching PCs get priority over everything else.</td><td>Karl</td><td class="grn">High</td><td>None (existing router)</td></tr>
+      <tr><td class="n">4</td><td><span class="k">Upgrade to a symmetric fibre plan</span> with real upload capacity. Rule of thumb: about 2 Mbps of upload per simultaneous class, plus headroom.</td><td>HQ approves</td><td class="grn">High</td><td>Monthly difference — quote needed</td></tr>
+      <tr><td class="n">5</td><td><span class="k">Add a second ISP + dual-WAN router.</span> When one carrier congests, classes ride the other. This is the closest thing to a guarantee.</td><td>HQ approves</td><td class="grn">High</td><td>Second line + router, one-off</td></tr>
+      <tr><td class="n">6</td><td><span class="k">Backup mobile data</span> (LTE/5G hotspot) for emergencies, so a class is never cancelled outright.</td><td>HQ approves</td><td>Medium</td><td>Small monthly</td></tr>
+    </table>
+    <div class="todo"><span class="k">Recommended order:</span> 1&ndash;3 immediately (this week, essentially free),
+    then decide 4 or 5 using the numbers from section 4. Do not buy a bigger plan before measuring —
+    if the real cause is a background upload or Wi-Fi, a bigger plan changes nothing.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">6</span>What we already did, and what we are building</h2>
+    <div class="good"><span class="k">Done (deploying tonight):</span> the video no longer flickers on and off.
+    Previously the app restored video after only 8 seconds of calm and then dropped it again; now it waits for
+    <span class="k">32 seconds of stable line</span> before turning the camera back on. In a simulation of exactly your
+    3 Sept conditions this reduced the switching from <span class="k">12 times to 1</span> over four minutes.</div>
+    <p style="margin-top:11px">Also shipped this week: video quality now recovers on high-latency lines instead of staying blurry;
+    the teacher PC no longer records the class (that load moved off her machine); and a badge now tells everyone
+    when the picture is low quality, so nobody thinks the app is broken.</p>
+    <div class="todo"><span class="k">Building next:</span> we are adding <span class="k">per-line quality tracking</span>.
+    Today our dashboard shows quality per person; it will also group by internet line, so we can see statements like
+    &ldquo;the office line degrades every day between 14:00 and 16:00&rdquo;.
+    That gives you a documented, time-stamped record to take to the ISP — which is much stronger than a phone complaint.</div>
+    <p class="small" style="margin-top:11px">To be clear: none of our software changes make the line itself faster.
+    They stop the symptoms from being worse than the line. Sections 4 and 5 are the real fix.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">7</span>How we will know it worked</h2>
+    <ul>
+      <li>In the admin dashboard, <span class="k">Teacher Line Quality</span>: Farrah's row should show average delay
+      <span class="grn">below 300 ms</span> and audio concealed <span class="grn">below 5 %</span>.</li>
+      <li>Compare the days before and after the LAN cables — the difference should be visible immediately.</li>
+      <li>The camera should stop switching itself off and on after tonight's deployment. If it still does, tell us:
+      that would mean a different cause.</li>
+    </ul>
+    <p style="margin-top:10px"><span class="k">Target date:</span> steps 1&ndash;3 and the measurements by <span class="k">Monday 7 September</span>,
+    decision on step 4/5 the same week.</p>
+  </section>
+
+  <div class="foot">
+    Measured from: class quality logs (3 Sept, 40 one-minute rows) &middot; Karl&ndash;Farrah test (3 Sept 15:00, 6 rows) &middot;
+    teacher comparison (4 days, 8 teachers) &middot; admin login IP records (14 days) &middot; deployment runs 2989 / 2995.
+    Anything not directly measured is marked [inference]. Questions: reply on KakaoTalk.
+  </div>
+
+</div>
+</body>
+</html>

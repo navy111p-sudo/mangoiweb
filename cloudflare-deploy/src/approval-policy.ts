@@ -30,8 +30,20 @@ export const MONTHLY_BUDGET: Record<string, number> = { PHP: 150000, KRW: 360000
  *   ⚠️ 여기에 없으면 «경영진 단계» 결재를 할 수 없다. 사람을 추가하려면 이 배열에 한 줄.
  *   이름에 대표·사장·경영이 들어간 계정도 자동으로 인정한다(계정을 새로 만들었을 때 결재가
  *   멈추지 않도록 하는 안전장치).
+ *
+ *   ⚠️ 여기에 넣으면 «결재» 만 열리는 것이 아니다. 함께 열리는 것:
+ *     · 인사·급여 결재의 **열람**(canView 의 visibility==='exec')
+ *     · **전결** — 중간 단계를 건너뛰고 바로 최종 결재(api-approval 의 straightThrough)
+ *   그래서 «매니저» 를 함부로 넣지 않는다(필리핀 매니저가 자기 지출을 스스로 최종 승인하게 된다).
+ *
+ *   📜 2026-09-04 `mgr_jjw`(장지웅, 본사 매니저) 추가 — 사장님 지시.
+ *      왜 — 경영진이 `admin` 하나뿐이라, 사장님이 인사·급여나 큰 금액 결재를 올리시면
+ *      「본인이 올린 결재는 본인이 승인할 수 없습니다」와 맞물려 **아무도 결재할 수 없었다.**
+ *      실제로 8/30 긴급 건이 그 상태로 5일을 서 있었다(그 뒤 화면이 이유를 말하도록 고쳤다 —
+ *      approverCounts, work.html 진행 추적).
+ *   ⚠️ 소문자로 적을 것 — isExec 가 username 을 toLowerCase() 해서 비교한다.
  */
-export const EXEC_USERNAMES = ['admin'];
+export const EXEC_USERNAMES = ['admin', 'mgr_jjw'];
 
 /** 소액·반복 항목 자동 승인 — 기본 꺼짐. 실제 데이터가 쌓인 뒤 항목별로 켜는 것이 안전하다. */
 export const AUTO_APPROVE_ENABLED = false;
@@ -63,7 +75,15 @@ export interface TypeSpec {
   /** 한 단계당 마감 시간(시간 단위) */
   slaHours: number;
   /** 첨부(영수증)가 없으면 점검 표시를 띄울 것인가 */
+  /** 파일을 «붙일 수 있는가» — 화면에 첨부 버튼을 그릴지 정한다. */
   wantsFile: boolean;
+  /**
+   * 파일이 «반드시 있어야 하는가» — 없으면 「영수증 첨부 없음」 경고를 낸다.
+   *   ⚠️ wantsFile 과 갈라 둔 이유(2026-09-04) — 예전엔 한 칸이 둘을 겸했다. 그래서
+   *      「일반 문서」에 첨부 버튼을 켜려면 «영수증이 없다» 는 엉뚱한 경고가 따라왔다.
+   *      붙일 수 있는 것과 반드시 있어야 하는 것은 다른 사실이다.
+   */
+  requiresFile?: boolean;
   /**
    * 기간(시작일·종료일)을 받는가 — 휴가 전용.
    * 승인되는 순간 기존 «강사 근무불가» 에 그대로 반영되어 **그 시간 예약이 실제로 막힌다.**
@@ -76,6 +96,12 @@ export interface TypeSpec {
    * 현지 매니저의 결재함에는 아예 뜨지 않는 것이 맞다(있으면 눌러 보게 된다).
    */
   koreaOnly?: boolean;
+  /**
+   * 「지출 항목」을 고르게 하는가 — 돈이 나가는 분류(물품·지출)에만 켠다.
+   *   ⚠️ 고객 불만·휴가·인사에 켜면 «무엇을 고르라는 것인지» 알 수 없는 칸이 되고,
+   *      그 값이 지출 리포트에 섞여 합계를 흐린다.
+   */
+  wantsCategory?: boolean;
 }
 
 /**
@@ -84,12 +110,12 @@ export interface TypeSpec {
  *      이름을 바꾸면 옛 결재가 «알 수 없는 분류»가 된다. 추가만 하고 바꾸지 말 것.
  */
 export const TYPES: TypeSpec[] = [
-  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
-  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
+  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true, wantsCategory: true },
+  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true, wantsCategory: true },
   { key: 'hr',        ko: '인사 · 급여', en: 'HR & Pay',  needsAmount: false, teacherMaySubmit: false, visibility: 'exec',      slaHours: 48, wantsFile: false, koreaOnly: true },
   { key: 'complaint', ko: '고객 불만', en: 'Complaint',   needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false },
   { key: 'urgent',    ko: '긴급 소통', en: 'Urgent',      needsAmount: false, teacherMaySubmit: true,  visibility: 'broadcast', slaHours: 2,  wantsFile: false },
-  { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: false },
+  { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: true  },
   // 🏖️ 휴가는 강사도 올린다 — 쉬는 사람이 본인이므로 당연하다.
   //    승인되면 teacher_unavailability 에 그대로 들어가 그 기간 예약이 실제로 막힌다.
   { key: 'leave',     ko: '휴가 신청', en: 'Time off',    needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false, wantsDates: true },
@@ -106,6 +132,95 @@ const TYPE_BY_KEY: Record<string, TypeSpec> = (() => {
 /** 모르는 분류가 들어오면 «일반 문서»로 본다 — 옛 데이터·잘못된 입력에도 화면이 깨지지 않게. */
 export function typeSpec(reqType: string | null | undefined): TypeSpec {
   return TYPE_BY_KEY[String(reqType || '')] || TYPE_BY_KEY['doc'];
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🏷️ 「지출 항목」 — 결재를 올릴 때 고르는 분류
+ *
+ *   [왜 필요한가]
+ *     결재는 쌓이는데 «무슨 돈이었나» 를 나중에 셀 수가 없었다. 제목은 사람마다
+ *     다르게 적으므로(「인터넷요금」·「인터넷 요금」·「PLDT」) 제목으로는 못 센다.
+ *
+ *   [왜 «자유 입력» 이 아닌가]
+ *     서버는 예전부터 category 를 60자 자유 문자열로 받고 있었다(화면이 안 보냈을 뿐).
+ *     그대로 열면 같은 항목이 세 이름으로 쌓여 합계가 조용히 갈라진다.
+ *     그래서 **고르는 목록**으로 두고, 목록에 없는 것은 'etc'(기타)로 받는다.
+ *
+ *   [왜 «반드시» 는 아닌가]
+ *     못 고르면 결재를 못 올리는 쪽이 더 나쁘다 — 급한 지출이 막힌다.
+ *     비어 있으면 그냥 비워 두고, 나중에 리포트가 「항목 없음」으로 보여 준다.
+ *
+ *   [저장되는 값]
+ *     한국어 라벨이 아니라 **key(ascii)** 를 넣는다. 라벨을 다듬어도 이미 쌓인
+ *     결재의 뜻이 안 바뀐다. ⛔ key 는 바꾸지 말 것 — 옛 결재가 «알 수 없는 항목»이 된다.
+ *
+ *   [account — 회계 계정과목]
+ *     새 분류 체계를 만들지 않는다. `accounting-reports.ts` 의 EXPENSE_CATEGORIES
+ *     (통장 출금이 실제로 쓰는 13개 계정)에 **있는 이름만** 쓴다.
+ *     그래야 나중에 「결재로 올라온 지출」과 「통장에서 나간 돈」을 나란히 놓고 볼 수 있다.
+ *     ⚠️ 그 파일을 import 하지 않는 이유 — 이 파일은 아무것도 import 하지 않는 순수
+ *        모듈이라 하니스가 그대로 불러 돌린다. 대신 하니스가 두 목록을 **대조**한다
+ *        (approval_category_harness ⓪절). 여기에 EXPENSE_CATEGORIES 에 없는 이름을
+ *        적으면 그 검사가 FAIL 난다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface CategorySpec {
+  /** 저장되는 값. ⛔ 바꾸지 말 것 */
+  key: string;
+  ko: string;
+  en: string;
+  /** 회계 계정과목 — accounting-reports.ts 의 EXPENSE_CATEGORIES 안에 있어야 한다 */
+  account: string;
+}
+
+export const CATEGORIES: CategorySpec[] = [
+  { key: 'supplies',  ko: '사무 · 소모품',   en: 'Office supplies',        account: '소모품비' },
+  // 🖥️ 장비·비품도 회계 계정은 소모품비다 — 통장 계정 목록에 «비품» 이 따로 없다.
+  //    새 계정을 여기서 만들면 회계 화면과 이름이 갈라진다.
+  { key: 'equipment', ko: '장비 · 비품',     en: 'Equipment',              account: '소모품비' },
+  { key: 'utility',   ko: '공과금 · 인터넷', en: 'Utilities & internet',   account: '공과금·통신' },
+  { key: 'rent',      ko: '임대 · 관리비',   en: 'Rent & building',        account: '임대·관리비' },
+  { key: 'transport', ko: '교통 · 출장',     en: 'Transport & travel',     account: '여비교통비' },
+  { key: 'meal',      ko: '식대 · 접대',     en: 'Meals & entertainment',  account: '접대비' },
+  { key: 'books',     ko: '교재 · 인쇄',     en: 'Books & printing',       account: '도서인쇄비' },
+  { key: 'service',   ko: '서비스 · 수수료', en: 'Services & fees',        account: '지급수수료' },
+  { key: 'ads',       ko: '광고 · 홍보',     en: 'Marketing',              account: '광고선전비' },
+  { key: 'tax',       ko: '세금 · 보험',     en: 'Tax & insurance',        account: '세금·보험' },
+  // 🧺 마지막은 언제나 «기타» — 목록에 없는 지출도 올릴 수 있어야 한다.
+  { key: 'etc',       ko: '기타',            en: 'Other',                  account: '기타출금' },
+];
+
+export const CATEGORY_KEYS: string[] = CATEGORIES.map(c => c.key);
+
+const CAT_BY_KEY: Record<string, CategorySpec> = (() => {
+  const m: Record<string, CategorySpec> = {};
+  for (const c of CATEGORIES) m[c.key] = c;
+  return m;
+})();
+
+/**
+ * 들어온 값을 목록 안의 key 로 맞춘다. 모르는 값이면 null.
+ *
+ *   ⛔ 모르는 값에 400 을 주지 않는다 — 결재를 못 올리게 막는 쪽이 더 나쁘다.
+ *   ⛔ 그렇다고 'etc' 로 «떨어뜨리지도» 않는다 — 안 고른 것과 «기타를 고른 것» 은
+ *      다른 사실이고, 섞으면 기타 합계가 조용히 부풀어 「기타가 제일 크다」가 된다.
+ *   ✅ 옛 데이터·다른 화면이 한국어 라벨을 보냈을 수 있으므로 라벨로도 찾아 준다.
+ */
+export function normCategory(v: string | null | undefined): string | null {
+  const raw = String(v || '').trim();
+  if (!raw) return null;
+  const low = raw.toLowerCase();
+  if (CAT_BY_KEY[low]) return low;
+  const flat = (x: string) => x.replace(/[\s·]/g, '');
+  for (const c of CATEGORIES) {
+    if (flat(c.ko) === flat(raw) || flat(c.en).toLowerCase() === flat(low)) return c.key;
+  }
+  return null;
+}
+
+/** key → 사람이 읽는 이름. 모르면 null(빈칸) — 지어내지 않는다. */
+export function categorySpec(key: string | null | undefined): CategorySpec | null {
+  return CAT_BY_KEY[String(key || '').toLowerCase()] || null;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -281,8 +396,10 @@ export function runChecks(inp: CheckInput): Flag[] {
   const cur = normCurrency(inp.currency);
   const amt = (inp.amount == null) ? null : Number(inp.amount);
 
-  // ① 첨부 누락 — 영수증이 필요한 분류인데 없다
-  if (spec.wantsFile && !inp.hasFile) {
+  // ① 첨부 누락 — 영수증이 «반드시» 필요한 분류인데 없다.
+  //    ⚠️ wantsFile(붙일 수 있는가)이 아니라 requiresFile 을 본다. 일반 문서는 붙일 수는
+  //       있지만 없어도 정상이라, 여기서 wantsFile 을 보면 「영수증 없음」이 늘 뜬다.
+  if (spec.requiresFile && !inp.hasFile) {
     out.push({ code: 'no_file', level: 'warn', ko: '영수증 첨부 없음', en: 'No receipt attached' });
   }
 
@@ -375,4 +492,247 @@ export function fmt(v: number, currency: string): string {
   const cur = normCurrency(currency);
   const n = Math.round(Number(v) || 0).toLocaleString('en-US');
   return cur === 'KRW' ? ('₩' + n) : ('₱' + n);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔎 문서함 조건 조립 — «무엇을 찾는가» 를 SQL 조각으로
+ *
+ *   왜 함수로 빼나 — 라우트 안에 두면 하니스가 «그 글자가 있는가» 로밖에 못 본다.
+ *   조건을 뒤집어도(예: >= 를 <=) 글자는 그대로라 통과한다. 순수 함수라야
+ *   **진짜 SQLite 에 돌려** «정말 걸러지는가» 를 잴 수 있다.
+ *
+ *   ⚠️ LIKE 를 쓰지 않는다 — D1 의 LIKE 패턴 한도는 50자다(CLAUDE.md 2장 실측).
+ *      제목·내용은 그보다 길어질 수 있고, 이름 속 % 와 _ 를 와일드카드로 오해한다.
+ *      instr() 은 패턴 한도가 없고 있는 그대로 찾는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface FindInput {
+  scope?: string; me: string;
+  q?: string; type?: string; status?: string; from?: string; to?: string;
+  /** 지출 항목(CATEGORY_KEYS) */
+  category?: string;
+}
+
+export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; order: string } {
+  const where: string[] = [];
+  const binds: any[] = [];
+  const me = String(inp.me || '');
+  const scope = String(inp.scope || 'mine');
+
+  if (scope === 'mine')          { where.push('requester_username = ?'); binds.push(me); }
+  else if (scope === 'open')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'pending'"); }
+  else if (scope === 'done')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'approved'"); }
+  else if (scope === 'rejected') { where.push('requester_username = ?'); binds.push(me); where.push("status = 'rejected'"); }
+  else if (scope === 'pending')  { where.push("status = 'pending'"); where.push('requester_username != ?'); binds.push(me); }
+  // 'all' 은 조건 없음 — 결재자에게만 열린다(호출부가 막는다)
+
+  const q = String(inp.q || '').trim().slice(0, 60);
+  if (q) {
+    where.push("(instr(lower(IFNULL(title,'')), lower(?)) > 0" +
+               " OR instr(lower(IFNULL(body,'')), lower(?)) > 0" +
+               " OR instr(lower(IFNULL(requester_name,'')), lower(?)) > 0" +
+               " OR instr(lower(requester_username), lower(?)) > 0)");
+    binds.push(q, q, q, q);
+  }
+
+  const t = String(inp.type || '').trim();
+  if (t && REQ_TYPES.indexOf(t as any) >= 0) { where.push('req_type = ?'); binds.push(t); }
+
+  const st = String(inp.status || '').trim();
+  if (st === 'pending' || st === 'approved' || st === 'rejected') { where.push('status = ?'); binds.push(st); }
+
+  /* 🏷️ 지출 항목 — 모르는 값이면 조건을 «몰래 넣지 않는다».
+     넣어 버리면 0건이 나오는데 화면은 「그런 지출이 없다」로 읽어 거짓말이 된다. */
+  const cat = normCategory(inp.category);
+  if (cat) { where.push('lower(IFNULL(category,\'\')) = ?'); binds.push(cat); }
+
+  // 기간 — created_at 은 ms 라 KST 날짜로 바꿔 비교한다(사람이 고른 날짜와 같은 눈금).
+  const from = String(inp.from || '').trim();
+  const to   = String(inp.to || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(from)) { where.push("date(created_at/1000,'unixepoch','+9 hours') >= ?"); binds.push(from); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(to))   { where.push("date(created_at/1000,'unixepoch','+9 hours') <= ?"); binds.push(to); }
+
+  return {
+    cond: where.length ? (' WHERE ' + where.join(' AND ')) : '',
+    binds,
+    order: (scope === 'pending')
+      ? ' ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC'
+      : " ORDER BY (status='pending') DESC, created_at DESC",
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📊 지출 정리 — 「이번 달 무슨 돈을 얼마나 썼나」
+ *
+ *   [왜 순수 함수인가]
+ *     라우트 안에서 더하면 하니스가 «그 줄이 있는가» 로밖에 못 본다. 합계는
+ *     **틀려도 에러가 안 나므로** 실제로 돌려서 숫자를 세어 봐야 한다.
+ *
+ *   [⛔ 통화를 섞지 않는다]
+ *     PHP 와 KRW 를 더하면 안 된다 — 환율을 우리가 모른다. 지어내면 그 숫자가
+ *     그대로 사장님 판단 근거가 된다(2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+ *     그래서 모든 합계가 **통화별**이다.
+ *
+ *   [⛔ 상태를 섞지 않는다]
+ *     승인 = 쓰기로 확정된 돈 · 대기 = 아직 아닌 돈 · 반려 = 안 쓴 돈.
+ *     합치면 「이번 달 얼마 썼나」가 거짓이 된다.
+ *
+ *   [⛔ 모르는 것을 0으로 때우지 않는다]
+ *     금액이 없는 건은 «0원» 이 아니라 «금액 없음 N건» 으로 따로 센다.
+ *     항목을 안 고른 건도 «기타» 가 아니라 «항목 없음» 으로 따로 센다.
+ *
+ *   [달 눈금]
+ *     회계는 «쓴 날» 이 맞지만 spent_at 은 비어 있을 수 있다 →
+ *     spent_at 이 있으면 그것, 없으면 올린 날. 어느 쪽을 썼는지 세어서 함께 돌려주고
+ *     화면이 그 사실을 말한다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface SummaryRowLike {
+  req_type?: string | null;
+  status?: string | null;
+  category?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  spent_at?: string | null;
+  created_at?: number | string | null;
+  file_key?: string | null;
+  has_file?: boolean | null;
+}
+
+export interface MoneyBucket { currency: string; total: number; count: number }
+
+export interface CategorySum {
+  key: string | null;        // null = 항목을 안 고른 건
+  ko: string; en: string;
+  account: string | null;
+  count: number;
+  money: MoneyBucket[];
+}
+
+export interface ApprovalSummary {
+  /** 센 행 수 (열람 가능분만) */
+  counted: number;
+  by_status: { approved: number; pending: number; rejected: number; other: number };
+  /** 승인된 것만 — «쓰기로 확정된 돈» */
+  approved_money: MoneyBucket[];
+  /** 대기 중 — «아직 아닌 돈» */
+  pending_money: MoneyBucket[];
+  /** 항목별(승인·대기만. 반려는 안 쓴 돈이라 뺀다) */
+  by_category: CategorySum[];
+  /** 달별(승인만) — [{ month, money }] */
+  by_month: Array<{ month: string; money: MoneyBucket[]; count: number }>;
+  /** 화면이 «모른다» 고 말해야 하는 것들 */
+  no_amount: number;        // 금액이 없는 건
+  no_category: number;      // 항목을 안 고른 건 (지출·물품 중에서만 센다)
+  no_file: number;          // 영수증이 필요한데 없는 건
+  /** 달 눈금을 무엇으로 잡았나 — 화면이 그대로 말한다 */
+  dated_by_spent: number;
+  dated_by_created: number;
+}
+
+function addMoney(list: MoneyBucket[], currency: string, amount: number | null): void {
+  const cur = normCurrency(currency);
+  let b = list.find(x => x.currency === cur);
+  if (!b) { b = { currency: cur, total: 0, count: 0 }; list.push(b); }
+  b.count++;
+  if (amount != null) b.total += amount;
+}
+
+/** 금액을 숫자로. 못 읽으면 **0이 아니라 null** — 「모른다」와 「0원」은 다른 사실이다. */
+function money(v: any): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return (isFinite(n) && n >= 0) ? n : null;
+}
+
+/** ms → KST 'YYYY-MM'. 못 읽으면 null. */
+function monthOf(row: SummaryRowLike): { month: string | null; bySpent: boolean } {
+  const sp = String(row.spent_at || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(sp)) return { month: sp.slice(0, 7), bySpent: true };
+  const ms = Number(row.created_at || 0);
+  if (!ms) return { month: null, bySpent: false };
+  const d = new Date(ms + 9 * 3600_000);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return { month: d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1), bySpent: false };
+}
+
+export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
+  const out: ApprovalSummary = {
+    counted: 0,
+    by_status: { approved: 0, pending: 0, rejected: 0, other: 0 },
+    approved_money: [], pending_money: [],
+    by_category: [], by_month: [],
+    no_amount: 0, no_category: 0, no_file: 0,
+    dated_by_spent: 0, dated_by_created: 0,
+  };
+  const catMap = new Map<string, CategorySum>();
+  const monMap = new Map<string, { month: string; money: MoneyBucket[]; count: number }>();
+
+  for (const r of (rows || [])) {
+    out.counted++;
+    const st = String(r.status || '');
+    if (st === 'approved' || st === 'pending' || st === 'rejected') out.by_status[st]++;
+    else out.by_status.other++;
+
+    const spec = typeSpec(r.req_type);
+    const amt = money(r.amount);
+    const cur = normCurrency(r.currency);
+
+    /* 금액은 «돈이 나가는 분류» 에서만 뜻이 있다 — 긴급·불만에 금액이 없는 것은
+       빠뜨린 것이 아니라 원래 없는 것이다. 그것까지 「금액 없음」으로 세면
+       화면이 멀쩡한 결재를 «덜 채워진 것» 처럼 말한다.
+
+       🔴 그리고 **반려는 세지 않는다** — 아래 by_category 가 반려를 빼기 때문에,
+          반려까지 세면 화면이 「항목 없음 1건 — 위 「항목 없음」 줄이 그것입니다」라고
+          하는데 그 줄이 **없다.** 사람이 없는 줄을 찾게 된다(2026-09-04 함정 대조 지적).
+          이 상자는 «이 합계» 가 말하지 않는 것을 적는 자리이고, 그 합계는 승인·대기다. */
+    const isSpend = !!spec.wantsCategory;
+    const counted = (st === 'approved' || st === 'pending');
+    if (counted && isSpend && amt == null) out.no_amount++;
+    if (counted && isSpend && !String(r.category || '').trim()) out.no_category++;
+    const hasFile = (r.has_file != null) ? !!r.has_file : !!r.file_key;
+    if (counted && spec.requiresFile && !hasFile) out.no_file++;
+
+    if (st === 'approved') addMoney(out.approved_money, cur, amt);
+    else if (st === 'pending') addMoney(out.pending_money, cur, amt);
+
+    // 항목별 — 반려는 «안 쓴 돈» 이라 뺀다
+    if (isSpend && (st === 'approved' || st === 'pending')) {
+      const key = String(r.category || '').trim() || '';
+      const cs = categorySpec(key);
+      const id = cs ? cs.key : '\u0000none';
+      let row = catMap.get(id);
+      if (!row) {
+        row = cs
+          ? { key: cs.key, ko: cs.ko, en: cs.en, account: cs.account, count: 0, money: [] }
+          : { key: null, ko: '항목 없음', en: 'No item', account: null, count: 0, money: [] };
+        catMap.set(id, row);
+      }
+      row.count++;
+      addMoney(row.money, cur, amt);
+    }
+
+    // 달별 — 승인된 것만(«쓴 돈»)
+    if (st === 'approved') {
+      const m = monthOf(r);
+      if (m.bySpent) out.dated_by_spent++; else if (m.month) out.dated_by_created++;
+      if (m.month) {
+        let mr = monMap.get(m.month);
+        if (!mr) { mr = { month: m.month, money: [], count: 0 }; monMap.set(m.month, mr); }
+        mr.count++;
+        addMoney(mr.money, cur, amt);
+      }
+    }
+  }
+
+  /* 항목별은 «금액이 큰 것» 부터. 통화가 여럿이면 비교할 공통 잣대가 없으므로
+     ⛔ 환산하지 않고 **건수** 로 정렬한다(그 다음 이름순 — 순서가 흔들리지 않게). */
+  out.by_category = [...catMap.values()].sort((a, b) =>
+    (b.count - a.count) || String(a.ko).localeCompare(String(b.ko)));
+  // 「항목 없음」은 언제나 맨 뒤 — 항목이 붙은 것이 먼저 보여야 한다
+  const noneAt = out.by_category.findIndex(c => c.key === null);
+  if (noneAt >= 0) out.by_category.push(out.by_category.splice(noneAt, 1)[0]);
+
+  out.by_month = [...monMap.values()].sort((a, b) => a.month < b.month ? -1 : 1);
+  return out;
 }
