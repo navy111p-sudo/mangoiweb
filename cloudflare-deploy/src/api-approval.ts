@@ -49,6 +49,7 @@ import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
   sniffKind, normExt, contentTypeFor, buildFindQuery,
+  CATEGORIES, normCategory, categorySpec,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -517,10 +518,17 @@ function rowOf(r: any, steps?: any[], brief = false) {
   let flags: Flag[] = [];
   try { if (r.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
   const body = (brief && r.body) ? String(r.body).slice(0, 300) : r.body;
+  const catSpec = categorySpec(r.category);
   return {
     id: r.id, req_type: r.req_type,
     type_ko: spec.ko, type_en: spec.en,
-    title: r.title, body, category: r.category,
+    title: r.title, body,
+    /* 🏷️ 항목은 key 로 저장하고 «읽을 때» 이름을 붙인다 — 라벨을 다듬어도
+       이미 쌓인 결재의 뜻이 안 바뀐다. 모르는 값이면 이름을 지어내지 않고 null. */
+    category: r.category || null,
+    category_ko: catSpec ? catSpec.ko : null,
+    category_en: catSpec ? catSpec.en : null,
+    category_account: catSpec ? catSpec.account : null,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
     date_from: r.date_from || null, date_to: r.date_to || null,
     hr_kind: r.hr_kind || null, period: r.period || null,
@@ -567,13 +575,14 @@ function csvWhen(ms: any): string {
 }
 
 function csvResponse(items: any[]): Response {
-  const head = ['번호', '분류', '제목', '올린 사람', '올린 날짜', '금액', '통화',
+  const head = ['번호', '분류', '지출 항목', '회계 계정', '제목', '올린 사람', '올린 날짜', '금액', '통화',
                 '상태', '결재자', '결재 날짜', '첨부', '내용'];
   const STAT: Record<string, string> = { pending: '대기 중', approved: '승인', rejected: '반려' };
   const lines = [head.map(csvCell).join(',')];
   for (const r of items) {
     lines.push([
-      r.id, r.type_ko, r.title, (r.requester_name || r.requester_username),
+      r.id, r.type_ko, (r.category_ko || ''), (r.category_account || ''),
+      r.title, (r.requester_name || r.requester_username),
       csvWhen(r.created_at),
       (r.amount == null ? '' : r.amount), (r.amount == null ? '' : (r.currency || 'PHP')),
       (STAT[String(r.status)] || r.status), (r.decided_by || ''), csvWhen(r.decided_at),
@@ -760,7 +769,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a4-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a5-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -854,7 +863,10 @@ export async function handleApprovalApi(
       const k = r.req_type + '|' + r.title;
       if (seen.indexOf(k) >= 0) continue;
       seen.push(k);
-      reuse.push({ req_type: r.req_type, title: r.title, body: r.body, amount: r.amount, currency: r.currency });
+      /* 🏷️ 지출 항목도 함께 물려준다 — 「지난번과 같이」는 매달 같은 돈(인터넷 요금 등)에
+         쓰는 기능이라, 항목이 안 따라오면 매번 다시 고르게 되어 결국 비어 있게 된다. */
+      reuse.push({ req_type: r.req_type, title: r.title, body: r.body, amount: r.amount,
+                   currency: r.currency, category: r.category || null });
       if (reuse.length >= 3) break;
     }
 
@@ -904,8 +916,12 @@ export async function handleApprovalApi(
       types: TYPES.filter(t => canSubmit(actor, t.key, ph))
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
                                wants_file: t.wantsFile, requires_file: !!t.requiresFile, wants_dates: !!t.wantsDates,
+                               wants_category: !!t.wantsCategory,
                                // 💼 인사·급여는 «달을 고르는» 분류다. 화면이 폼 대신 월 버튼을 그린다.
                                picks_period: t.key === 'hr' })),
+      /* 🏷️ 지출 항목 목록은 **서버가 내려준다** — 화면에 같은 목록을 또 적으면
+         둘이 갈려 「화면에서는 골랐는데 저장이 안 되는」 사고가 난다(CLAUDE.md 2장). */
+      categories: CATEGORIES.map(c => ({ key: c.key, ko: c.ko, en: c.en, account: c.account })),
       hr_periods: hrPeriods,
       inbox, mine, reuse, urgent,
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
@@ -987,7 +1003,14 @@ export async function handleApprovalApi(
       if (!title) return json({ ok: false, error: 'title_required' }, 400);
 
       const body = hrSnap ? String(hrSnap.body_ko) : String(form.get('body') || '').trim().slice(0, 4000);
-      const category = String(form.get('category') || '').trim().slice(0, 60) || null;
+      /* 🏷️ 지출 항목 — 예전에는 60자 «자유 문자열» 이었다(화면이 한 번도 안 보냈다).
+         자유 입력이면 같은 항목이 「인터넷요금」·「인터넷 요금」·「통신비」로 쌓여
+         나중에 합계가 조용히 갈라진다. 정본 목록(approval-policy.CATEGORIES)으로 맞춘다.
+         ⛔ 모르는 값에 400 을 주지 않는다 — 결재를 못 올리게 막는 쪽이 더 나쁘다.
+         ⛔ 돈이 안 나가는 분류(휴가·불만·인사)에는 아예 안 넣는다 — 지출 합계가 흐려진다. */
+      const category = typeSpec(reqType).wantsCategory
+        ? normCategory(String(form.get('category') || ''))
+        : null;
       const spentAt = String(form.get('spent_at') || '').trim().slice(0, 10) || null;
       const currency = normCurrency(String(form.get('currency') || 'PHP'));
 
@@ -1176,6 +1199,7 @@ export async function handleApprovalApi(
     const q      = String(url.searchParams.get('q') || '').trim().slice(0, 60);
     const fType  = String(url.searchParams.get('type') || '').trim();
     const fStat  = String(url.searchParams.get('status') || '').trim();
+    const fCat   = String(url.searchParams.get('category') || '').trim();
     const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
     const to     = String(url.searchParams.get('to') || '').trim();
     const csv    = url.searchParams.get('format') === 'csv';
@@ -1188,7 +1212,7 @@ export async function handleApprovalApi(
 
     // 조건 조립은 정본 buildFindQuery 하나가 한다 — 여기서 다시 적지 않는다.
     const { cond, binds, order } = buildFindQuery({
-      scope, me, q, type: fType, status: fStat, from, to,
+      scope, me, q, type: fType, status: fStat, category: fCat, from, to,
     });
 
     /* 한 건 더 읽어 «다음이 있는가» 를 판정한다.

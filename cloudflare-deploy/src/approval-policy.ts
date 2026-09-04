@@ -96,6 +96,12 @@ export interface TypeSpec {
    * 현지 매니저의 결재함에는 아예 뜨지 않는 것이 맞다(있으면 눌러 보게 된다).
    */
   koreaOnly?: boolean;
+  /**
+   * 「지출 항목」을 고르게 하는가 — 돈이 나가는 분류(물품·지출)에만 켠다.
+   *   ⚠️ 고객 불만·휴가·인사에 켜면 «무엇을 고르라는 것인지» 알 수 없는 칸이 되고,
+   *      그 값이 지출 리포트에 섞여 합계를 흐린다.
+   */
+  wantsCategory?: boolean;
 }
 
 /**
@@ -104,8 +110,8 @@ export interface TypeSpec {
  *      이름을 바꾸면 옛 결재가 «알 수 없는 분류»가 된다. 추가만 하고 바꾸지 말 것.
  */
 export const TYPES: TypeSpec[] = [
-  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true },
-  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true },
+  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true, wantsCategory: true },
+  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true, wantsCategory: true },
   { key: 'hr',        ko: '인사 · 급여', en: 'HR & Pay',  needsAmount: false, teacherMaySubmit: false, visibility: 'exec',      slaHours: 48, wantsFile: false, koreaOnly: true },
   { key: 'complaint', ko: '고객 불만', en: 'Complaint',   needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false },
   { key: 'urgent',    ko: '긴급 소통', en: 'Urgent',      needsAmount: false, teacherMaySubmit: true,  visibility: 'broadcast', slaHours: 2,  wantsFile: false },
@@ -126,6 +132,95 @@ const TYPE_BY_KEY: Record<string, TypeSpec> = (() => {
 /** 모르는 분류가 들어오면 «일반 문서»로 본다 — 옛 데이터·잘못된 입력에도 화면이 깨지지 않게. */
 export function typeSpec(reqType: string | null | undefined): TypeSpec {
   return TYPE_BY_KEY[String(reqType || '')] || TYPE_BY_KEY['doc'];
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🏷️ 「지출 항목」 — 결재를 올릴 때 고르는 분류
+ *
+ *   [왜 필요한가]
+ *     결재는 쌓이는데 «무슨 돈이었나» 를 나중에 셀 수가 없었다. 제목은 사람마다
+ *     다르게 적으므로(「인터넷요금」·「인터넷 요금」·「PLDT」) 제목으로는 못 센다.
+ *
+ *   [왜 «자유 입력» 이 아닌가]
+ *     서버는 예전부터 category 를 60자 자유 문자열로 받고 있었다(화면이 안 보냈을 뿐).
+ *     그대로 열면 같은 항목이 세 이름으로 쌓여 합계가 조용히 갈라진다.
+ *     그래서 **고르는 목록**으로 두고, 목록에 없는 것은 'etc'(기타)로 받는다.
+ *
+ *   [왜 «반드시» 는 아닌가]
+ *     못 고르면 결재를 못 올리는 쪽이 더 나쁘다 — 급한 지출이 막힌다.
+ *     비어 있으면 그냥 비워 두고, 나중에 리포트가 「항목 없음」으로 보여 준다.
+ *
+ *   [저장되는 값]
+ *     한국어 라벨이 아니라 **key(ascii)** 를 넣는다. 라벨을 다듬어도 이미 쌓인
+ *     결재의 뜻이 안 바뀐다. ⛔ key 는 바꾸지 말 것 — 옛 결재가 «알 수 없는 항목»이 된다.
+ *
+ *   [account — 회계 계정과목]
+ *     새 분류 체계를 만들지 않는다. `accounting-reports.ts` 의 EXPENSE_CATEGORIES
+ *     (통장 출금이 실제로 쓰는 13개 계정)에 **있는 이름만** 쓴다.
+ *     그래야 나중에 「결재로 올라온 지출」과 「통장에서 나간 돈」을 나란히 놓고 볼 수 있다.
+ *     ⚠️ 그 파일을 import 하지 않는 이유 — 이 파일은 아무것도 import 하지 않는 순수
+ *        모듈이라 하니스가 그대로 불러 돌린다. 대신 하니스가 두 목록을 **대조**한다
+ *        (approval_category_harness ⓪절). 여기에 EXPENSE_CATEGORIES 에 없는 이름을
+ *        적으면 그 검사가 FAIL 난다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface CategorySpec {
+  /** 저장되는 값. ⛔ 바꾸지 말 것 */
+  key: string;
+  ko: string;
+  en: string;
+  /** 회계 계정과목 — accounting-reports.ts 의 EXPENSE_CATEGORIES 안에 있어야 한다 */
+  account: string;
+}
+
+export const CATEGORIES: CategorySpec[] = [
+  { key: 'supplies',  ko: '사무 · 소모품',   en: 'Office supplies',        account: '소모품비' },
+  // 🖥️ 장비·비품도 회계 계정은 소모품비다 — 통장 계정 목록에 «비품» 이 따로 없다.
+  //    새 계정을 여기서 만들면 회계 화면과 이름이 갈라진다.
+  { key: 'equipment', ko: '장비 · 비품',     en: 'Equipment',              account: '소모품비' },
+  { key: 'utility',   ko: '공과금 · 인터넷', en: 'Utilities & internet',   account: '공과금·통신' },
+  { key: 'rent',      ko: '임대 · 관리비',   en: 'Rent & building',        account: '임대·관리비' },
+  { key: 'transport', ko: '교통 · 출장',     en: 'Transport & travel',     account: '여비교통비' },
+  { key: 'meal',      ko: '식대 · 접대',     en: 'Meals & entertainment',  account: '접대비' },
+  { key: 'books',     ko: '교재 · 인쇄',     en: 'Books & printing',       account: '도서인쇄비' },
+  { key: 'service',   ko: '서비스 · 수수료', en: 'Services & fees',        account: '지급수수료' },
+  { key: 'ads',       ko: '광고 · 홍보',     en: 'Marketing',              account: '광고선전비' },
+  { key: 'tax',       ko: '세금 · 보험',     en: 'Tax & insurance',        account: '세금·보험' },
+  // 🧺 마지막은 언제나 «기타» — 목록에 없는 지출도 올릴 수 있어야 한다.
+  { key: 'etc',       ko: '기타',            en: 'Other',                  account: '기타출금' },
+];
+
+export const CATEGORY_KEYS: string[] = CATEGORIES.map(c => c.key);
+
+const CAT_BY_KEY: Record<string, CategorySpec> = (() => {
+  const m: Record<string, CategorySpec> = {};
+  for (const c of CATEGORIES) m[c.key] = c;
+  return m;
+})();
+
+/**
+ * 들어온 값을 목록 안의 key 로 맞춘다. 모르는 값이면 null.
+ *
+ *   ⛔ 모르는 값에 400 을 주지 않는다 — 결재를 못 올리게 막는 쪽이 더 나쁘다.
+ *   ⛔ 그렇다고 'etc' 로 «떨어뜨리지도» 않는다 — 안 고른 것과 «기타를 고른 것» 은
+ *      다른 사실이고, 섞으면 기타 합계가 조용히 부풀어 「기타가 제일 크다」가 된다.
+ *   ✅ 옛 데이터·다른 화면이 한국어 라벨을 보냈을 수 있으므로 라벨로도 찾아 준다.
+ */
+export function normCategory(v: string | null | undefined): string | null {
+  const raw = String(v || '').trim();
+  if (!raw) return null;
+  const low = raw.toLowerCase();
+  if (CAT_BY_KEY[low]) return low;
+  const flat = (x: string) => x.replace(/[\s·]/g, '');
+  for (const c of CATEGORIES) {
+    if (flat(c.ko) === flat(raw) || flat(c.en).toLowerCase() === flat(low)) return c.key;
+  }
+  return null;
+}
+
+/** key → 사람이 읽는 이름. 모르면 null(빈칸) — 지어내지 않는다. */
+export function categorySpec(key: string | null | undefined): CategorySpec | null {
+  return CAT_BY_KEY[String(key || '').toLowerCase()] || null;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -414,6 +509,8 @@ export function fmt(v: number, currency: string): string {
 export interface FindInput {
   scope?: string; me: string;
   q?: string; type?: string; status?: string; from?: string; to?: string;
+  /** 지출 항목(CATEGORY_KEYS) */
+  category?: string;
 }
 
 export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; order: string } {
@@ -443,6 +540,11 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
 
   const st = String(inp.status || '').trim();
   if (st === 'pending' || st === 'approved' || st === 'rejected') { where.push('status = ?'); binds.push(st); }
+
+  /* 🏷️ 지출 항목 — 모르는 값이면 조건을 «몰래 넣지 않는다».
+     넣어 버리면 0건이 나오는데 화면은 「그런 지출이 없다」로 읽어 거짓말이 된다. */
+  const cat = normCategory(inp.category);
+  if (cat) { where.push('lower(IFNULL(category,\'\')) = ?'); binds.push(cat); }
 
   // 기간 — created_at 은 ms 라 KST 날짜로 바꿔 비교한다(사람이 고른 날짜와 같은 눈금).
   const from = String(inp.from || '').trim();

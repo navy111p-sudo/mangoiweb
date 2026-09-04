@@ -263,7 +263,14 @@ input[type=text],input[type=number],input[type=date],textarea{
   width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #ccd4de;border-radius:7px;
   background:#fff;color:#16202c;min-height:46px
 }
-html.dark input,html.dark textarea{background:#1d2836;border-color:#33404f;color:#e6edf3}
+/* 고르는 칸도 입력칸과 같은 모양으로. ⚠️ font-size 16px 아래로 내리지 말 것 —
+   iOS 사파리가 «작은 글자» 를 만나면 눌렀을 때 화면을 확대해 버린다.
+   ⚠️ `.row select` 로 좁힌다 — 그냥 `select` 로 쓰면 문서함 필터(.findsel)까지 덮는다. */
+.row select{
+  width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #ccd4de;border-radius:7px;
+  background:#fff;color:#16202c;min-height:46px
+}
+html.dark input,html.dark textarea,html.dark .row select{background:#1d2836;border-color:#33404f;color:#e6edf3}
 textarea{min-height:78px;resize:vertical}
 .help{font-size:12.5px;color:#7b8794;margin-top:3px}
 html.dark .help{color:#8b98a8}
@@ -350,6 +357,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
       <select id="fscope" class="findsel" onchange="runFind(0)"></select>
       <select id="ftype" class="findsel" onchange="runFind(0)"></select>
       <select id="fstat" class="findsel" onchange="runFind(0)"></select>
+      <select id="fcat" class="findsel" onchange="runFind(0)"></select>
     </div>
     <div class="findrow">
       <label class="findlab" data-en="From" data-ko="시작일">From</label>
@@ -706,6 +714,21 @@ function paintFindChrome(){
     ['rejected', T('Rejected',   '반려')]
   ]);
 
+  /* 🏷️ 지출 항목도 서버 목록(D.categories)으로 그린다. 목록이 안 왔으면 그 칸을 감춘다 —
+     빈 «고르기» 칸이 있으면 「고를 게 없다」가 아니라 「고장」으로 읽힌다. */
+  var ce = document.getElementById('fcat');
+  var cl = (D && D.categories) || [];
+  if (ce) {
+    ce.hidden = !cl.length;
+    if (cl.length) {
+      var cp = [['', T('All items', '항목 전체')]];
+      for (var k = 0; k < cl.length; k++) {
+        cp.push([cl[k].key, EN() ? (cl[k].en || cl[k].key) : (cl[k].ko || cl[k].key)]);
+      }
+      fillSel(ce, cp);
+    }
+  }
+
   // placeholder 는 data-en/data-ko 루프가 못 건드린다(그건 textContent 를 바꾼다).
   var q = document.getElementById('fq');
   if (q) q.placeholder = EN() ? (q.getAttribute('data-en-ph') || '') : (q.getAttribute('data-ko-ph') || '');
@@ -730,6 +753,7 @@ function findParams(){
   if (g('fq'))    p.push('q=' + encodeURIComponent(g('fq')));
   if (g('ftype')) p.push('type=' + encodeURIComponent(g('ftype')));
   if (g('fstat')) p.push('status=' + encodeURIComponent(g('fstat')));
+  if (g('fcat'))  p.push('category=' + encodeURIComponent(g('fcat')));
   if (g('ffrom')) p.push('from=' + encodeURIComponent(g('ffrom')));
   if (g('fto'))   p.push('to=' + encodeURIComponent(g('fto')));
   return p.join('&');
@@ -807,6 +831,10 @@ function itemHtml(r, decidable){
 
   h += '<div class="ihead">';
   h += '<span class="chip">' + esc(typeLabel(r)) + '</span>';
+  /* 🏷️ 지출 항목 — «무슨 돈이었나» 를 목록에서 바로 보이게. 없으면 아무것도 안 그린다
+     (「항목 없음」이라고 적으면 안 고른 것이 «고장» 처럼 보인다). */
+  var catL = EN() ? r.category_en : r.category_ko;
+  if (catL) h += '<span class="chip">' + esc(catL) + '</span>';
   if (r.stage_total > 1) {
     h += '<span class="chip">' + esc(T('Step ', '단계 ') + r.stage_seq + '/' + r.stage_total) + '</span>';
   }
@@ -1213,6 +1241,7 @@ window.reuse = function(i){
   setVal('f_title', r.title || '');
   setVal('f_body', r.body || '');
   if (r.amount != null) setVal('f_amount', r.amount);
+  if (r.category) setVal('f_cat', r.category);
   CUR = r.currency || 'PHP';
   paintCur();
   toast(T('Filled from your last request. Check it and submit.', '지난 기안으로 채웠습니다. 확인하고 올려 주세요.'));
@@ -1323,7 +1352,7 @@ function paintForm(){
   var keep = {
     t: getVal('f_title'), a: getVal('f_amount'),
     b: getVal('f_body'), s: getVal('f_spent'),
-    df: getVal('f_from'), dt: getVal('f_to'),
+    df: getVal('f_from'), dt: getVal('f_to'), c: getVal('f_cat'),
     n: (function(){
       var e = document.getElementById('autoNote'); return e ? e.textContent : '';
     })()
@@ -1374,6 +1403,28 @@ function paintForm(){
          '<input type="date" id="f_spent"></div>';
   }
 
+  /* 🏷️ 지출 항목 — 돈이 나가는 분류에만 나온다.
+     ⚠️ 목록을 여기에 적지 않는다. 서버가 내려준 D.categories 를 그대로 그린다 —
+        화면과 서버가 각자 목록을 들면 「골랐는데 저장이 안 되는」 사고가 난다.
+     ⚠️ 안 고르고도 올릴 수 있다(«고르세요» 가 기본값) — 못 고르면 결재를 못 올리는
+        쪽이 더 나쁘다. 비면 나중에 리포트가 「항목 없음」으로 보여 준다. */
+  if (PICK.wants_category) {
+    var cats = (D && D.categories) || [];
+    if (cats.length) {
+      var co = '<option value="">' + esc(T('Choose (optional)', '고르세요 (선택)')) + '</option>';
+      for (var ci = 0; ci < cats.length; ci++) {
+        co += '<option value="' + esc(cats[ci].key) + '">' +
+              esc(EN() ? cats[ci].en : cats[ci].ko) + '</option>';
+      }
+      h += '<div class="row"><label>' + esc(T('Spending item', '지출 항목')) + '</label>' +
+           '<select id="f_cat">' + co + '</select>' +
+           '<div class="help">' +
+           esc(T('Used to total spending later. You can leave it empty.',
+                 '나중에 무슨 돈이었는지 합계를 내는 데 씁니다. 비워 둬도 됩니다.')) +
+           '</div></div>';
+    }
+  }
+
   h += '<div class="row"><label>' + esc(T('Detail', '내용')) + '</label>' +
        '<textarea id="f_body" maxlength="4000"></textarea></div>';
 
@@ -1387,6 +1438,7 @@ function paintForm(){
   setVal('f_title', keep.t); setVal('f_amount', keep.a);
   setVal('f_body', keep.b); setVal('f_spent', keep.s);
   setVal('f_from', keep.df); setVal('f_to', keep.dt);
+  setVal('f_cat', keep.c);
   if (keep.n) note(keep.n);
   paintCur();
 }
@@ -1594,7 +1646,7 @@ function draftSave(){
       key: CKEY, type: PICK.key, cur: CUR,
       title: getVal('f_title'), amount: getVal('f_amount'),
       body: getVal('f_body'), spent: getVal('f_spent'),
-      from: getVal('f_from'), to: getVal('f_to'),
+      from: getVal('f_from'), to: getVal('f_to'), cat: getVal('f_cat'),
       ocr: OCR ? OCR.amount : null, at: Date.now()
     }));
   } catch (e) {}
@@ -1629,6 +1681,7 @@ function buildFD(rec){
   if (rec.spent) fd.append('spent_at', rec.spent);
   if (rec.from) fd.append('date_from', rec.from);
   if (rec.to) fd.append('date_to', rec.to);
+  if (rec.cat) fd.append('category', rec.cat);
   if (rec.ocr != null) fd.append('ocr_amount', String(rec.ocr));
   if (rec.file) fd.append('file', rec.file, (rec.fileName || 'receipt.jpg'));
   return fd;
@@ -1672,6 +1725,7 @@ window.submitReq = function(){
     key: CKEY, type: PICK.key, title: title, body: getVal('f_body') || '',
     cur: CUR, amount: amount, spent: getVal('f_spent') || '',
     from: getVal('f_from') || '', to: getVal('f_to') || '',
+    cat: getVal('f_cat') || '',
     ocr: (OCR && OCR.amount != null) ? OCR.amount : null,
     file: FILE || null, fileName: (FILE && FILE.name) || 'receipt.jpg', at: Date.now()
   };
@@ -1822,8 +1876,14 @@ try {
   if (c0) { D = JSON.parse(c0); repaint(); }
 } catch (e) {}
 
-// 초안 자동저장 — 폼은 다시 그려지지만 이 리스너는 바깥 상자에 붙어 있어 살아남는다.
-document.getElementById('form').addEventListener('input', draftSave);
+/* 초안 자동저장 — 폼은 다시 그려지지만 이 리스너는 바깥 상자에 붙어 있어 살아남는다.
+   ⚠️ 'change' 도 함께 듣는다 — 고르는 칸(select)은 브라우저·조작 방식에 따라
+      'input' 이 안 올 수 있다. 그때 초안에 «고른 항목» 만 조용히 안 담긴다.
+   ⛔ 인라인 onchange="draftSave()" 로 풀지 말 것 — 인라인 핸들러는 «전역» 에서 이름을
+      찾는데 이 함수는 파일 안 닫힌 스코프라 ReferenceError 가 난다(2026-09-04 실측). */
+var formBox = document.getElementById('form');
+formBox.addEventListener('input', draftSave);
+formBox.addEventListener('change', draftSave);
 
 load().then(restoreDraft).then(openWantedType).catch(function(){ restoreDraft(); openWantedType(); });
 outboxFlush();
@@ -1844,6 +1904,7 @@ function restoreDraft(){
   setVal('f_title', d.title || ''); setVal('f_amount', d.amount || '');
   setVal('f_body', d.body || ''); setVal('f_spent', d.spent || '');
   setVal('f_from', d.from || ''); setVal('f_to', d.to || '');
+  setVal('f_cat', d.cat || '');
   // ⚠️ 사진은 되살리지 못한다(기기 저장소에 담기엔 크고, 다시 찍는 편이 확실하다).
   note(T('Restored what you were writing. The photo needs to be taken again.',
          '쓰시던 내용을 되살렸습니다. 사진은 다시 찍어 주세요.'));
