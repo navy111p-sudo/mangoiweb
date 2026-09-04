@@ -852,7 +852,7 @@ export async function handleApprovalApi(
       pending: inbox.length,
       types: TYPES.filter(t => canSubmit(actor, t.key, ph))
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
-                               wants_file: t.wantsFile, wants_dates: !!t.wantsDates,
+                               wants_file: t.wantsFile, requires_file: !!t.requiresFile, wants_dates: !!t.wantsDates,
                                // 💼 인사·급여는 «달을 고르는» 분류다. 화면이 폼 대신 월 버튼을 그린다.
                                picks_period: t.key === 'hr' })),
       hr_periods: hrPeriods,

@@ -30,8 +30,20 @@ export const MONTHLY_BUDGET: Record<string, number> = { PHP: 150000, KRW: 360000
  *   ⚠️ 여기에 없으면 «경영진 단계» 결재를 할 수 없다. 사람을 추가하려면 이 배열에 한 줄.
  *   이름에 대표·사장·경영이 들어간 계정도 자동으로 인정한다(계정을 새로 만들었을 때 결재가
  *   멈추지 않도록 하는 안전장치).
+ *
+ *   ⚠️ 여기에 넣으면 «결재» 만 열리는 것이 아니다. 함께 열리는 것:
+ *     · 인사·급여 결재의 **열람**(canView 의 visibility==='exec')
+ *     · **전결** — 중간 단계를 건너뛰고 바로 최종 결재(api-approval 의 straightThrough)
+ *   그래서 «매니저» 를 함부로 넣지 않는다(필리핀 매니저가 자기 지출을 스스로 최종 승인하게 된다).
+ *
+ *   📜 2026-09-04 `mgr_jjw`(장지웅, 본사 매니저) 추가 — 사장님 지시.
+ *      왜 — 경영진이 `admin` 하나뿐이라, 사장님이 인사·급여나 큰 금액 결재를 올리시면
+ *      「본인이 올린 결재는 본인이 승인할 수 없습니다」와 맞물려 **아무도 결재할 수 없었다.**
+ *      실제로 8/30 긴급 건이 그 상태로 5일을 서 있었다(그 뒤 화면이 이유를 말하도록 고쳤다 —
+ *      approverCounts, work.html 진행 추적).
+ *   ⚠️ 소문자로 적을 것 — isExec 가 username 을 toLowerCase() 해서 비교한다.
  */
-export const EXEC_USERNAMES = ['admin'];
+export const EXEC_USERNAMES = ['admin', 'mgr_jjw'];
 
 /** 소액·반복 항목 자동 승인 — 기본 꺼짐. 실제 데이터가 쌓인 뒤 항목별로 켜는 것이 안전하다. */
 export const AUTO_APPROVE_ENABLED = false;
@@ -63,7 +75,15 @@ export interface TypeSpec {
   /** 한 단계당 마감 시간(시간 단위) */
   slaHours: number;
   /** 첨부(영수증)가 없으면 점검 표시를 띄울 것인가 */
+  /** 파일을 «붙일 수 있는가» — 화면에 첨부 버튼을 그릴지 정한다. */
   wantsFile: boolean;
+  /**
+   * 파일이 «반드시 있어야 하는가» — 없으면 「영수증 첨부 없음」 경고를 낸다.
+   *   ⚠️ wantsFile 과 갈라 둔 이유(2026-09-04) — 예전엔 한 칸이 둘을 겸했다. 그래서
+   *      「일반 문서」에 첨부 버튼을 켜려면 «영수증이 없다» 는 엉뚱한 경고가 따라왔다.
+   *      붙일 수 있는 것과 반드시 있어야 하는 것은 다른 사실이다.
+   */
+  requiresFile?: boolean;
   /**
    * 기간(시작일·종료일)을 받는가 — 휴가 전용.
    * 승인되는 순간 기존 «강사 근무불가» 에 그대로 반영되어 **그 시간 예약이 실제로 막힌다.**
@@ -84,12 +104,12 @@ export interface TypeSpec {
  *      이름을 바꾸면 옛 결재가 «알 수 없는 분류»가 된다. 추가만 하고 바꾸지 말 것.
  */
 export const TYPES: TypeSpec[] = [
-  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
-  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
+  { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true },
+  { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true,  requiresFile: true },
   { key: 'hr',        ko: '인사 · 급여', en: 'HR & Pay',  needsAmount: false, teacherMaySubmit: false, visibility: 'exec',      slaHours: 48, wantsFile: false, koreaOnly: true },
   { key: 'complaint', ko: '고객 불만', en: 'Complaint',   needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false },
   { key: 'urgent',    ko: '긴급 소통', en: 'Urgent',      needsAmount: false, teacherMaySubmit: true,  visibility: 'broadcast', slaHours: 2,  wantsFile: false },
-  { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: false },
+  { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: true  },
   // 🏖️ 휴가는 강사도 올린다 — 쉬는 사람이 본인이므로 당연하다.
   //    승인되면 teacher_unavailability 에 그대로 들어가 그 기간 예약이 실제로 막힌다.
   { key: 'leave',     ko: '휴가 신청', en: 'Time off',    needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false, wantsDates: true },
@@ -281,8 +301,10 @@ export function runChecks(inp: CheckInput): Flag[] {
   const cur = normCurrency(inp.currency);
   const amt = (inp.amount == null) ? null : Number(inp.amount);
 
-  // ① 첨부 누락 — 영수증이 필요한 분류인데 없다
-  if (spec.wantsFile && !inp.hasFile) {
+  // ① 첨부 누락 — 영수증이 «반드시» 필요한 분류인데 없다.
+  //    ⚠️ wantsFile(붙일 수 있는가)이 아니라 requiresFile 을 본다. 일반 문서는 붙일 수는
+  //       있지만 없어도 정상이라, 여기서 wantsFile 을 보면 「영수증 없음」이 늘 뜬다.
+  if (spec.requiresFile && !inp.hasFile) {
     out.push({ code: 'no_file', level: 'warn', ko: '영수증 첨부 없음', en: 'No receipt attached' });
   }
 
