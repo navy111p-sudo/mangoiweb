@@ -67,6 +67,11 @@
   ol,ul{margin:6px 0 0; padding-left:20px}
   li{margin:4px 0}
   .fill{color:var(--ink3); letter-spacing:.14em}
+  /* footnote marker - ties body text to the glossary at the end */
+  .fn{color:var(--mango); font-weight:700; font-size:.72em; vertical-align:super; margin-left:1px}
+  .gl{display:grid; grid-template-columns:auto 1fr; gap:7px 12px; margin-top:10px; font-size:13.2px}
+  .gl dt{font-weight:700; color:var(--mango); white-space:nowrap}
+  .gl dd{margin:0}
   .foot{font-size:12px; color:var(--ink3); border-top:1px solid var(--line); padding-top:12px}
 
   /* the picture that explains it without jargon */
@@ -84,6 +89,7 @@
     .ask h2{font-size:20px} .ask .oneline{font-size:15px}
     h1{font-size:25px} h2{font-size:16.5px} .lede{font-size:14px}
     table{font-size:11px}
+    .gl{font-size:11.3px}
     .pagebreak{break-before:page}
     @page{size:A4; margin:13mm 14mm}
   }
@@ -97,14 +103,17 @@
     <p class="lede">Teachers' <b>video</b> freezes while their <b>voice</b> stays clear. We found why. The fix is a router
       setting — it costs <b>nothing</b> and takes minutes. This page explains what to ask for, and how to check it worked.</p>
     <p class="meta">4 September 2026 · replaces the 3 September version (the cause turned out to be different) ·
-      based on measurements from our own database</p>
+      based on measurements from our own database<br>
+      Technical words are marked with a small orange number<span class="fn">n</span> —
+      they are all explained in plain English in the <b>Glossary at the end</b>.
+      You only really need <b>1, 2 and 4</b>.</p>
   </header>
 
   <!-- ══════════ THE ASK ══════════ -->
   <section class="ask">
     <span class="tag">What we need from you</span>
-    <h2>Please allow outbound UDP on the office internet</h2>
-    <p class="oneline">Ask whoever manages the office router / firewall to stop blocking
+    <h2>Please allow outbound UDP<span class="fn">1</span> on the office internet</h2>
+    <p class="oneline">Ask whoever manages the office router / firewall<span class="fn">4</span> to stop blocking
       <b>outgoing UDP traffic</b>. That is the whole request.</p>
 
     <div class="price">
@@ -125,11 +134,12 @@
         <li><code>stun.cloudflare.com</code> — <b>UDP 3478</b> and <b>UDP 53</b></li>
         <li><code>stun.l.google.com</code> — <b>UDP 19302</b></li>
       </ul>
-      We do not need any <i>inbound</i> ports opened. Nothing needs to be exposed to the internet.
+      We do not need any <i>inbound</i><span class="fn">4</span> ports<span class="fn">10</span> opened.
+      Nothing needs to be exposed to the internet.
     </div>
 
     <div class="tip"><b>If the router already allows UDP</b> — then the blocking is happening at the internet
-      provider. Please ask the ISP: <i>“Is UDP blocked or rate-limited on this line? Are we behind CGNAT?”</i>
+      provider. Please ask the ISP: <i>“Is UDP blocked or rate-limited on this line? Are we behind CGNAT<span class="fn">8</span>?”</i>
       Their answer tells us where to go next.</div>
   </section>
 
@@ -141,12 +151,12 @@
 
     <div class="lane">
       <div class="lanebox want">
-        <div class="h">UDP — the courier</div>
+        <div class="h">UDP<span class="fn">1</span> — the courier</div>
         If a package is late, it is thrown away and the next one goes through.
         Video looks a little rougher for a second, then continues. <b>This is what video calls are built for.</b>
       </div>
       <div class="lanebox now">
-        <div class="h">TCP — registered mail</div>
+        <div class="h">TCP<span class="fn">2</span> — registered mail</div>
         Every package must arrive, <b>in order</b>. If one is late, everything behind it waits in line.
         Video stops dead, then jumps. <b>This is what we are stuck on now.</b>
       </div>
@@ -156,7 +166,7 @@
       paper over small gaps. Video is roughly <b>40&times; bigger</b>. One late packet stalls the whole picture, then a
       burst arrives. That is exactly the “freeze… jump… freeze” teachers describe.</p>
 
-    <div class="bad"><b>So the problem is not your internet speed.</b> We measured round-trip times of
+    <div class="bad"><b>So the problem is not your internet speed.</b> We measured round-trip times<span class="fn">7</span> of
       113–324 ms during the broken calls — that is a perfectly normal, healthy connection.
       The traffic is simply being forced down the wrong lane.</div>
   </section>
@@ -169,9 +179,9 @@
     <table>
       <thead><tr><th>What we looked at</th><th>What we found</th><th>What it should be</th></tr></thead>
       <tbody>
-        <tr><td>Calls that connected <b>directly</b> (peer to peer)</td>
+        <tr><td>Calls that connected <b>directly</b> (peer to peer)<span class="fn">9</span></td>
             <td class="red">0 out of 46</td><td class="grn">Most of them</td></tr>
-        <tr><td>Calls forced through a <b>relay server</b></td>
+        <tr><td>Calls forced through a <b>relay server</b><span class="fn">5</span></td>
             <td class="red">46 out of 46 — 100%</td><td class="grn">Only a few</td></tr>
         <tr><td>Relay connections using <b>UDP</b> (the courier)</td>
             <td class="red">0</td><td class="grn">All of them</td></tr>
@@ -209,7 +219,7 @@
         instead of flooding it and then backing off.</li>
       <li><b>We can now see the route.</b> Every call records whether it went direct or through a relay,
         and over UDP or TCP. That is how we found this — and it is how we will confirm your fix worked.</li>
-      <li><b>A backup path (server-relayed video).</b> Built and ready, switched off. It helps on connections that
+      <li><b>A backup path (server-relayed video, an SFU<span class="fn">11</span>).</b> Built and ready, switched off. It helps on connections that
         can never be opened up — but it is <b>not</b> a substitute for this fix. It is also WebRTC, so where UDP is
         blocked it falls back to TCP as well.</li>
     </ul>
@@ -253,7 +263,7 @@
   <section class="card">
     <h2><span class="no">6</span> If UDP truly cannot be opened</h2>
     <p>Then we move down this list, cheapest first. <b>Please do not spend money on these until the firewall
-      answer comes back</b> — a bigger plan will not help if the packets are still being blocked.</p>
+      answer comes back</b> — a bigger plan will not help if the packets<span class="fn">12</span> are still being blocked.</p>
     <table>
       <thead><tr><th>Option</th><th>Cost</th><th>What it would do</th></tr></thead>
       <tbody>
@@ -275,6 +285,77 @@
       lane it was never designed for. The line is fast enough — we measured it. One firewall setting, at no cost,
       is very likely to fix it. <b>Please ask your IT person or ISP to allow outbound UDP, and tell us the date
       it was done.</b> We will confirm from our side.</p>
+  </section>
+
+
+  <div class="pagebreak"></div>
+
+  <section class="card">
+    <h2>&#128214; Glossary — the technical words, in plain English</h2>
+    <p class="small">Follow the small orange numbers from the text above.
+      You do not need all of these — <b>1, 2 and 4</b> are enough to make the request.</p>
+
+    <dl class="gl">
+      <dt>1 &middot; UDP</dt>
+      <dd><b>The “throw it away if it’s late” way of sending data.</b> Video calls and online games use it,
+        because being <i>on time</i> matters more than being complete. A little roughness is fine; stopping is not.
+        <b>This is the lane that is currently blocked.</b></dd>
+
+      <dt>2 &middot; TCP</dt>
+      <dd><b>The “everything arrives, in order” way.</b> Web pages and downloads use it, because being complete
+        matters more than being fast. It is the worst possible choice for live video: one late packet and
+        everything behind it waits.</dd>
+
+      <dt>3 &middot; WebRTC</dt>
+      <dd>The <b>standard technology</b> browsers use to send live video and audio to each other.
+        Our classroom is built on it; Zoom and Google Meet use the same family.
+        <b>It is designed around UDP.</b></dd>
+
+      <dt>4 &middot; Firewall &middot; outbound vs inbound</dt>
+      <dd>A firewall is the <b>gatekeeper that decides which traffic may pass</b> (usually built into the router).
+        <b>Outbound</b> is traffic leaving your office; <b>inbound</b> is traffic coming in from the internet.
+        &#9989; We are only asking about <b>outbound</b>, so this does not weaken your security —
+        nothing new becomes reachable from outside.</dd>
+
+      <dt>5 &middot; TURN relay</dt>
+      <dd>A server that <b>forwards video on your behalf</b> when two people cannot reach each other directly.
+        It is meant to be an emergency exit used occasionally.
+        Right now <b>100% of calls are going through it.</b></dd>
+
+      <dt>6 &middot; STUN</dt>
+      <dd>A small <b>“what does my address look like from outside?” lookup server</b>.
+        A direct connection cannot even be attempted without asking it first — and it also uses UDP.
+        <b>So when UDP is blocked, direct connections never even get started.</b></dd>
+
+      <dt>7 &middot; Round-trip time (RTT)</dt>
+      <dd>How long a signal takes to <b>go and come back</b>. Korea &harr; Philippines is normally 100–300 ms.
+        We measured 113–324 ms during the broken calls — <b>completely normal</b>, which is why
+        “the line is too slow” does not explain what teachers are seeing.</dd>
+
+      <dt>8 &middot; CGNAT</dt>
+      <dd>When the internet provider makes <b>many customers share one internet address</b>.
+        It saves addresses, but it means nobody outside can pinpoint you —
+        which <b>makes direct connections much harder</b>. A plan with a public IP removes it.</dd>
+
+      <dt>9 &middot; Direct connection (peer to peer)</dt>
+      <dd>The teacher’s computer and the student’s computer talking <b>straight to each other</b>,
+        with no server in between. Fastest and best. We currently have <b>0 out of 46</b>.</dd>
+
+      <dt>10 &middot; Port</dt>
+      <dd>If an internet address is a <b>building</b>, a port is the <b>room number</b>.
+        <code>UDP 3478</code> means “please let deliveries reach room 3478 in that building.”
+        The three lines in the request are the rooms our classroom uses.</dd>
+
+      <dt>11 &middot; SFU (server-relayed video)</dt>
+      <dd>Everyone sends to a <b>nearby server</b>, which forwards it on — the structure Zoom and Google Meet use.
+        We have built one and left it switched off.
+        &#9888; <b>It is not a replacement for this request</b> — it is also WebRTC, so where UDP is blocked
+        it falls back to TCP in exactly the same way.</dd>
+
+      <dt>12 &middot; Packet</dt>
+      <dd>One <b>small piece of data</b>. A single second of video is split into hundreds of them.
+        “Packets are being dropped” means those pieces are disappearing on the way.</dd>
+    </dl>
   </section>
 
   <p class="foot">Prepared by the Mangoi engineering team · 4 September 2026 ·
