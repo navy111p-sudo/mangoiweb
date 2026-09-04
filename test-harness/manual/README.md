@@ -499,3 +499,48 @@ node test-harness/manual/today-classes-filter-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/game-standalone-exit-browser.mjs
 ```
+
+---
+
+## speech-coach-avatar-browser.mjs — 음성 코칭 아바타 입모양이 실제로 움직이는가 (10건)
+
+「아바타 입모양이 움직이지 않아」(2026-09-04 사장님 제보)를 고친 뒤 회귀를 막는 검사.
+
+뿌리는 **`attach()` 와 `plainStart()` 의 역할이 다른 것**이었다 — `attach()` 는 음량 분석
+그래프를 잇기만 하고, 캔버스에 그리기를 **켜는** 것은 `plainStart()` 뿐인데 음성 코칭의
+서버 TTS 경로에 그 호출이 **한 줄도 없었다.** `attach` 도 «있고» 오디오도 «재생»되므로
+**문자열 하니스로는 안 보인다** — 수리 전에도 `--fast` 264건이 전부 초록이었다.
+
+**언제 부르나** — `speech-coach.html` 의 TTS 재생 경로(`scEnsureTtsAudio`·`speakTarget`·
+`speakWord`·`speakFallback`)나 `js/mango-avatar.js` 의 `plainStart`·`loop`·`showTier` 를
+건드렸을 때.
+
+실제로 재는 것 — 판정은 «함수가 불렸는가» 가 아니라 **«캔버스 픽셀이 실제로 바뀌는가»**
+(80ms 마다 체크섬을 떠서 몇 종류가 나오는지 센다):
+
+- **A) Emma + 커리큘럼 문장** → 미리 만든 립싱크 클립(`playClip`). 원래 되던 길이라 회귀 감시.
+- **B) Emma + 직접 입력 문장** → 서버 TTS (영상 캐릭터)
+- **C) Lily + 커리큘럼 문장** → 서버 TTS (이미지 캐릭터 — 클립은 Emma 전용이라 안 씀)
+- **D) 단어 하나 듣기** → 서버 TTS
+- 각 갈래마다 «말하는 중»(`#tavatar-wrap.speaking`) 표시가 켜지는지도 함께 —
+  **0틱이면 `plainStart` 가 아예 안 불린 것**이다.
+
+B·C·D 는 수리 전까지 전부 «멈춤» 이었다. A 만 멀쩡해서 **«Emma 로 커리큘럼 다섯 문장만
+들으면 정상»** 으로 보였고, 그래서 재현이 헷갈렸다.
+
+🔴 **검사 서버는 반드시 Range(206)를 줘야 한다.** 안 주면 `<video>` 의 `seekable` 이
+`[[0,0]]` 이 되어 입모양 **타임스탬프 seek 이 통째로 씹히고**, 고쳐 놓은 화면이
+«안 고쳐진» 것으로 측정된다(2026-09-04 실제로 그렇게 한 번 오판했다 — `readyState` 4 이고
+`buffered` 가 `[[0,8]]` 인데도 `currentTime = 4.0` 이 **0 그대로**였다). 그래서 이 파일은
+`python3 -m http.server` 를 쓰지 않고 **Range 를 주는 Node 서버를 자체적으로** 띄운다.
+①절이 그 전제(`seekable` 끝 > 1)를 먼저 못 박으므로, 그 줄이 빨간불이면 아래는 볼 것 없다.
+
+ℹ️ 이 검사는 **playwright 를 쓰지 않는다** — CDP 로 직접 말하므로(Node 22 는 `WebSocket` 이
+전역) `node_modules` 가 없는 컨테이너에서도 그대로 돈다. `PW_DIR` 도 필요 없다.
+
+```bash
+node test-harness/manual/speech-coach-avatar-browser.mjs
+```
+
+변이시험 — `scEnsureTtsAudio()` 의 배선을 빼고 돌리면 **4 PASS / 6 실패**로 B·C·D 만
+「멈춤 · speaking 0틱」으로 돌아가고 A 는 통과한다(2026-09-04 실측).

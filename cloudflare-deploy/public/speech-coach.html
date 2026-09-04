@@ -329,7 +329,7 @@
 <!-- 👩‍🏫 공용 아바타 모듈. ⛔ /css/mango-avatar.css 는 «싣지 마세요» —
      이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
      공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
-<script src="/js/mango-avatar.js?v=16" defer></script>
+<script src="/js/mango-avatar.js?v=17" defer></script>
 </head>
 <body>
 <!-- ☰ AI 친구 고르기 — 고르면 목소리와 얼굴이 함께 바뀐다.
@@ -931,7 +931,10 @@ function speakFallback(t, lang, _retried) {
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
     u.rate = 0.9;
     // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
-    u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart(); };
+    //   ⚠️ analyzed:false 를 반드시 넘긴다 — 서버 TTS 를 한 번이라도 들었으면 그 오디오가
+    //      아바타에 물려 있어(attach), 그냥 부르면 «멈춰 있는 그 오디오» 를 보고 입을 다문
+    //      채 굳는다(그리고 5초 뒤 그리기가 꺼진다).
+    u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart({ analyzed: false }); };
     u.onend   = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
     u.onerror = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
     window.speechSynthesis.cancel();
@@ -1113,6 +1116,36 @@ async function scFetchTtsUrl(t, lang, tryNo) {
   }
 }
 
+/* 👩‍🏫 (2026-09-04) 서버 TTS 오디오 요소를 «한 곳에서» 만들고 아바타에 물린다.
+   🔴 왜 생겼나 — 전에는 speakWord()·speakTarget() 이 각자 `new Audio()` 를 만들고
+      MangoAvatar.attach() 만 불렀다. attach() 는 음량 분석 그래프를 잇기만 할 뿐 «그리기»를
+      시작하지 않는다 — 그리기를 켜는 것은 plainStart() 뿐인데 서버 TTS 경로에는 그 호출이
+      한 줄도 없었다. 그래서 영어·중국어 발음을 들을 때 아바타가 첫 정지 화면 그대로 굳어
+      있었다(2026-09-04 브라우저 실측: 캔버스 37프레임이 전부 같은 그림, speaking 표시 0틱).
+      브라우저 음성합성(한국어)만 onstart 에서 plainStart 를 불러 «가끔은 움직이는» 상태라
+      재현이 헷갈렸고, 커리큘럼 5문장은 미리 만든 립싱크 클립(playClip)이 자기 안에서 그리기를
+      켜므로 Emma 로 그 문장을 들으면 멀쩡해 보였다.
+   ⚠️ 리스너는 «요소당 한 번» 만 단다 — 이 함수는 재생 때마다 불리므로 안 막으면 리스너가 쌓인다.
+   ⚠️ plainStart 를 play() 직전이 아니라 'playing' 에서 부른다 — 소리가 실제로 나기 시작한
+      뒤라야 «말은 안 하는데 입만 움직인다»(mango-avatar.js 가 적어 둔 옛 사고)가 안 난다. */
+function scEnsureTtsAudio() {
+  if (!ttsAudio) {
+    ttsAudio = new Audio();
+    ttsAudio.preload = 'auto';
+    if (window.MangoAvatar && MangoAvatar.attach) { try { MangoAvatar.attach(ttsAudio); } catch (e) {} }
+  }
+  if (!ttsAudio._avBound) {
+    ttsAudio._avBound = true;
+    const start = function () { try { window.MangoAvatar && MangoAvatar.plainStart(); } catch (e) {} };
+    const stop  = function () { try { window.MangoAvatar && MangoAvatar.plainStop(); } catch (e) {} };
+    ttsAudio.addEventListener('playing', start);
+    ttsAudio.addEventListener('ended', stop);
+    ttsAudio.addEventListener('pause', stop);
+    ttsAudio.addEventListener('error', stop);
+  }
+  return ttsAudio;
+}
+
 /** 단어 하나만 읽어 준다 (모범 문장 재생과 같은 통로를 쓴다). */
 async function speakWord(w) {
   const t = String(w || '').trim();
@@ -1126,7 +1159,7 @@ async function speakWord(w) {
     let url = ttsCache[scTtsKey(t, lang)];
     if (!url) url = await scFetchTtsUrl(t, lang, 0);
     if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
-    if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
+    scEnsureTtsAudio();              // 👩‍🏫 아바타 립싱크 바인딩(요소 생성 + plainStart/Stop 배선)
     ttsAudio.src = url;
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
@@ -1152,7 +1185,7 @@ async function speakTarget() {
     if (!url) url = await scFetchTtsUrl(t, lang, 0);
     if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
-    if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
+    scEnsureTtsAudio();
     ttsAudio.src = url;
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백

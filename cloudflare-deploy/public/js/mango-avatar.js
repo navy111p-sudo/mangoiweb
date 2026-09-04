@@ -48,7 +48,12 @@
 
    v7: (2026-08-31) 고를 수 있는 친구가 «둘»(여자·남자)에서 «넷» 이 되면서 캐릭터를
        성별이 아니라 이름으로 부른다 — emma·jake(성인, 기존) / lily·noah(19세, 새 얼굴).
-       옛 이름('female'|'male')은 CHAR_ALIAS 로 계속 받는다. */
+       옛 이름('female'|'male')은 CHAR_ALIAS 로 계속 받는다.
+
+   v8: (2026-09-04) plainStart 가 옵션을 받는다 — plainStart({analyzed:false}) 는 «이 소리는
+       물린 오디오가 아니다»(브라우저 음성합성 등)라는 뜻이다. attach() 로 한 번 물린 오디오
+       요소는 영영 boundEl 로 남는데, 그 뒤 speechSynthesis 로 말하면 boundEl 이 멈춰 있어
+       loop 가 '말 안 하는 중' 으로 읽고 입을 다문 채 굳혀 버렸다. 인자 없이 부르면 종전과 같다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -270,6 +275,14 @@
     // (오디오가 멈춰/끝나 있으면) **바로** 입을 다물고, 안전망은 그리기를 끝내 rAF 자원만
     // 정리하는 역할로 좁힌다.
     var idleTicks = 0;
+    // 🔇 (2026-09-04) 이번 발화가 «물린 오디오» 로 립싱크되는가.
+    //   attach() 로 TTS 오디오를 한 번 물리면 boundEl 이 영영 남는데, 그 뒤에 브라우저
+    //   음성합성(speechSynthesis)으로 말하면 boundEl 은 «멈춰 있는» 상태다 — 아래 loop 가
+    //   그것을 보고 '말 안 하는 중' 으로 판정해 입을 다문 채 고정해 버린다(그리고 5초 뒤 종료).
+    //   그래서 분석할 수 없는 음성으로 말하는 쪽은 plainStart({analyzed:false}) 로 알려 주고,
+    //   그동안은 boundEl 을 보지 않고 폴백 애니메이션을 쓴다.
+    //   ⚠️ 기본값은 true — 인자 없이 부르는 기존 호출자의 동작은 그대로다.
+    var lipFromAudio = true;
     // 🗣 (2026-07-27) 소리 크기 → 입모양 3단계. 임계값은 실제 목소리로 다시 들어보며 조정 가능.
     function tierFor(level){
       if(level <= 0.04) return 'closed';
@@ -309,7 +322,7 @@
     }
     function loop(){
       if(!drawing){ raf=0; return; }
-      if(boundEl && analyser && !clipActive){
+      if(boundEl && analyser && !clipActive && lipFromAudio){
         if(boundEl.paused || boundEl.ended){
           showTier('closed');                              // 말 안 하는 중 → 다문 입 프레임에 고정
           idleTicks++;
@@ -367,7 +380,10 @@
         mountCharacter(name);
       },
       // 말하기 시작: 그리기 루프 시작(오디오가 물려 재생 중이면 자동으로 음량 립싱크)
-      plainStart: function(){ ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
+      //   opts.analyzed === false 로 부르면 «물린 오디오가 아닌 소리»(브라우저 음성합성 등)로
+      //   보고 음량 분석 대신 폴백 애니메이션을 쓴다. 인자를 안 주면 예전과 똑같이 동작한다.
+      plainStart: function(opts){ lipFromAudio = !(opts && opts.analyzed === false);
+        ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
       plainStop:  function(){ doStop(); },
       // 미리 만든 립싱크 클립 재생(음성코치 전용) → 캔버스 키잉. 끝나면 idle 복귀.
       playClip: function(id){
