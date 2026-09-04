@@ -49,7 +49,7 @@ import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
   sniffKind, normExt, contentTypeFor, buildFindQuery,
-  CATEGORIES, normCategory, categorySpec,
+  CATEGORIES, normCategory, categorySpec, summarizeApprovals,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -59,6 +59,12 @@ interface ApprovalEnv {
   AI?: any;
   [k: string]: any;
 }
+
+/* 📊 지출 정리가 한 번에 세는 최대 행 수.
+   canView 로 걸러야 해서 SQL 집계를 못 쓰므로 «읽어서 센다» — 그 상한이다.
+   ⚠️ 올릴 때는 D1 응답 크기와 Worker CPU 를 함께 보세요(지금 결재는 3건이라
+      한참 여유가 있고, 넘치면 화면이 «잘렸다» 고 말합니다). */
+const REPORT_MAX = 2000;
 
 const json = (data: any, status = 200): Response =>
   new Response(JSON.stringify(data), {
@@ -1205,7 +1211,11 @@ export async function handleApprovalApi(
     const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
     const to     = String(url.searchParams.get('to') || '').trim();
     const csv    = url.searchParams.get('format') === 'csv';
-    const limit  = csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));
+    /* 📊 지출 정리 — 목록 대신 «합계» 를 돌려준다.
+       ⚠️ 새 경로를 만들지 않는다(A안과 같은 이유 — 관문 셋 중 둘이 공동 금지구역). */
+    const report = url.searchParams.get('view') === 'report';
+    const limit  = report ? REPORT_MAX
+                          : (csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20)));
     const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
     if ((scope === 'pending' || scope === 'all') && !approver) {
@@ -1241,6 +1251,21 @@ export async function handleApprovalApi(
     }
 
     if (csv) return csvResponse(items);
+
+    /* 📊 합계는 **행을 읽어서 코드로** 낸다.
+       ⛔ SQL GROUP BY 로 하면 canView 를 못 걸어 인사·급여가 합계에 섞인다.
+       ⚠️ 그래서 상한이 있다 — 넘으면 «잘렸다» 고 말한다. 잘린 줄 모르고 보는
+          합계가 「모른다」보다 나쁘다. */
+    if (report) {
+      return json({
+        ok: true,
+        summary: summarizeApprovals(page as any[]),
+        // page 는 상한까지 읽은 것 — 그보다 더 있으면 이 합계는 그 앞부분만 센 것이다
+        truncated: hasMore,
+        max: REPORT_MAX,
+        scope, from, to,
+      });
+    }
 
     let pending = 0;
     if (approver) {

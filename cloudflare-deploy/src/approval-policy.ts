@@ -560,3 +560,173 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
       : " ORDER BY (status='pending') DESC, created_at DESC",
   };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📊 지출 정리 — 「이번 달 무슨 돈을 얼마나 썼나」
+ *
+ *   [왜 순수 함수인가]
+ *     라우트 안에서 더하면 하니스가 «그 줄이 있는가» 로밖에 못 본다. 합계는
+ *     **틀려도 에러가 안 나므로** 실제로 돌려서 숫자를 세어 봐야 한다.
+ *
+ *   [⛔ 통화를 섞지 않는다]
+ *     PHP 와 KRW 를 더하면 안 된다 — 환율을 우리가 모른다. 지어내면 그 숫자가
+ *     그대로 사장님 판단 근거가 된다(2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+ *     그래서 모든 합계가 **통화별**이다.
+ *
+ *   [⛔ 상태를 섞지 않는다]
+ *     승인 = 쓰기로 확정된 돈 · 대기 = 아직 아닌 돈 · 반려 = 안 쓴 돈.
+ *     합치면 「이번 달 얼마 썼나」가 거짓이 된다.
+ *
+ *   [⛔ 모르는 것을 0으로 때우지 않는다]
+ *     금액이 없는 건은 «0원» 이 아니라 «금액 없음 N건» 으로 따로 센다.
+ *     항목을 안 고른 건도 «기타» 가 아니라 «항목 없음» 으로 따로 센다.
+ *
+ *   [달 눈금]
+ *     회계는 «쓴 날» 이 맞지만 spent_at 은 비어 있을 수 있다 →
+ *     spent_at 이 있으면 그것, 없으면 올린 날. 어느 쪽을 썼는지 세어서 함께 돌려주고
+ *     화면이 그 사실을 말한다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface SummaryRowLike {
+  req_type?: string | null;
+  status?: string | null;
+  category?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  spent_at?: string | null;
+  created_at?: number | string | null;
+  file_key?: string | null;
+  has_file?: boolean | null;
+}
+
+export interface MoneyBucket { currency: string; total: number; count: number }
+
+export interface CategorySum {
+  key: string | null;        // null = 항목을 안 고른 건
+  ko: string; en: string;
+  account: string | null;
+  count: number;
+  money: MoneyBucket[];
+}
+
+export interface ApprovalSummary {
+  /** 센 행 수 (열람 가능분만) */
+  counted: number;
+  by_status: { approved: number; pending: number; rejected: number; other: number };
+  /** 승인된 것만 — «쓰기로 확정된 돈» */
+  approved_money: MoneyBucket[];
+  /** 대기 중 — «아직 아닌 돈» */
+  pending_money: MoneyBucket[];
+  /** 항목별(승인·대기만. 반려는 안 쓴 돈이라 뺀다) */
+  by_category: CategorySum[];
+  /** 달별(승인만) — [{ month, money }] */
+  by_month: Array<{ month: string; money: MoneyBucket[]; count: number }>;
+  /** 화면이 «모른다» 고 말해야 하는 것들 */
+  no_amount: number;        // 금액이 없는 건
+  no_category: number;      // 항목을 안 고른 건 (지출·물품 중에서만 센다)
+  no_file: number;          // 영수증이 필요한데 없는 건
+  /** 달 눈금을 무엇으로 잡았나 — 화면이 그대로 말한다 */
+  dated_by_spent: number;
+  dated_by_created: number;
+}
+
+function addMoney(list: MoneyBucket[], currency: string, amount: number | null): void {
+  const cur = normCurrency(currency);
+  let b = list.find(x => x.currency === cur);
+  if (!b) { b = { currency: cur, total: 0, count: 0 }; list.push(b); }
+  b.count++;
+  if (amount != null) b.total += amount;
+}
+
+/** 금액을 숫자로. 못 읽으면 **0이 아니라 null** — 「모른다」와 「0원」은 다른 사실이다. */
+function money(v: any): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return (isFinite(n) && n >= 0) ? n : null;
+}
+
+/** ms → KST 'YYYY-MM'. 못 읽으면 null. */
+function monthOf(row: SummaryRowLike): { month: string | null; bySpent: boolean } {
+  const sp = String(row.spent_at || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(sp)) return { month: sp.slice(0, 7), bySpent: true };
+  const ms = Number(row.created_at || 0);
+  if (!ms) return { month: null, bySpent: false };
+  const d = new Date(ms + 9 * 3600_000);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return { month: d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1), bySpent: false };
+}
+
+export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
+  const out: ApprovalSummary = {
+    counted: 0,
+    by_status: { approved: 0, pending: 0, rejected: 0, other: 0 },
+    approved_money: [], pending_money: [],
+    by_category: [], by_month: [],
+    no_amount: 0, no_category: 0, no_file: 0,
+    dated_by_spent: 0, dated_by_created: 0,
+  };
+  const catMap = new Map<string, CategorySum>();
+  const monMap = new Map<string, { month: string; money: MoneyBucket[]; count: number }>();
+
+  for (const r of (rows || [])) {
+    out.counted++;
+    const st = String(r.status || '');
+    if (st === 'approved' || st === 'pending' || st === 'rejected') out.by_status[st]++;
+    else out.by_status.other++;
+
+    const spec = typeSpec(r.req_type);
+    const amt = money(r.amount);
+    const cur = normCurrency(r.currency);
+
+    /* 금액은 «돈이 나가는 분류» 에서만 뜻이 있다 — 긴급·불만에 금액이 없는 것은
+       빠뜨린 것이 아니라 원래 없는 것이다. 그것까지 「금액 없음」으로 세면
+       화면이 멀쩡한 결재를 «덜 채워진 것» 처럼 말한다. */
+    const isSpend = !!spec.wantsCategory;
+    if (isSpend && amt == null) out.no_amount++;
+    if (isSpend && !String(r.category || '').trim()) out.no_category++;
+    const hasFile = (r.has_file != null) ? !!r.has_file : !!r.file_key;
+    if (spec.requiresFile && !hasFile) out.no_file++;
+
+    if (st === 'approved') addMoney(out.approved_money, cur, amt);
+    else if (st === 'pending') addMoney(out.pending_money, cur, amt);
+
+    // 항목별 — 반려는 «안 쓴 돈» 이라 뺀다
+    if (isSpend && (st === 'approved' || st === 'pending')) {
+      const key = String(r.category || '').trim() || '';
+      const cs = categorySpec(key);
+      const id = cs ? cs.key : '\u0000none';
+      let row = catMap.get(id);
+      if (!row) {
+        row = cs
+          ? { key: cs.key, ko: cs.ko, en: cs.en, account: cs.account, count: 0, money: [] }
+          : { key: null, ko: '항목 없음', en: 'No item', account: null, count: 0, money: [] };
+        catMap.set(id, row);
+      }
+      row.count++;
+      addMoney(row.money, cur, amt);
+    }
+
+    // 달별 — 승인된 것만(«쓴 돈»)
+    if (st === 'approved') {
+      const m = monthOf(r);
+      if (m.bySpent) out.dated_by_spent++; else if (m.month) out.dated_by_created++;
+      if (m.month) {
+        let mr = monMap.get(m.month);
+        if (!mr) { mr = { month: m.month, money: [], count: 0 }; monMap.set(m.month, mr); }
+        mr.count++;
+        addMoney(mr.money, cur, amt);
+      }
+    }
+  }
+
+  /* 항목별은 «금액이 큰 것» 부터. 통화가 여럿이면 비교할 공통 잣대가 없으므로
+     ⛔ 환산하지 않고 **건수** 로 정렬한다(그 다음 이름순 — 순서가 흔들리지 않게). */
+  out.by_category = [...catMap.values()].sort((a, b) =>
+    (b.count - a.count) || String(a.ko).localeCompare(String(b.ko)));
+  // 「항목 없음」은 언제나 맨 뒤 — 항목이 붙은 것이 먼저 보여야 한다
+  const noneAt = out.by_category.findIndex(c => c.key === null);
+  if (noneAt >= 0) out.by_category.push(out.by_category.splice(noneAt, 1)[0]);
+
+  out.by_month = [...monMap.values()].sort((a, b) => a.month < b.month ? -1 : 1);
+  return out;
+}
