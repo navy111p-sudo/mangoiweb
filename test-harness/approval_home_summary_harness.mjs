@@ -27,6 +27,7 @@ const { foldHomeMoney, kstMonth, canView, isExec } = P;
 
 const api = readFileSync(join(SRC, 'api-approval.ts'), 'utf8');
 const work = readFileSync(join(PUB, 'work.html'), 'utf8');
+const polSrc = readFileSync(join(SRC, 'approval-policy.ts'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -184,6 +185,21 @@ if (!DatabaseSync) {
     check('전제 — 직원은 남의 인사·급여를 못 본다 (그래서 scope=mine 이어야 한다)',
       !canView(staffActor, 'hr', 'admin', [], false));
 
+    /* 🔴 2026-09-04 함정 대조 — 「경영진은 세 열람등급을 전부 통과한다」는 **그대로는 거짓**이다.
+       broadcast 분기는 isExec 가 아니라 **isHqStaff** 를 본다(실측: role 없는 exec 는 false).
+       실제로 성립하는 이유는 ⓐ 운영 경영진이 본사 계정이고 ⓑ 라우트 가드가 본사 계정이
+       아니면 403 이라 여기 닿지 못하기 때문이다. 둘 다 못 박는다 — 하나라도 바뀌면 FAIL. */
+    const execHq   = { ok: true, username: 'admin', role: 'hq' };
+    const execBare = { ok: true, username: 'admin', scopeType: 'hq' };   // 본사 계정이 아님
+    check('전제 — 본사 계정인 경영진은 broadcast(긴급)까지 본다',
+      canView(execHq, 'urgent', 'other', [], false));
+    check('⚠️ 그런데 «경영진이기만» 해서는 broadcast 를 못 본다 (주석이 과장이 아닌지 확인)',
+      isExec(execBare) && !canView(execBare, 'urgent', 'other', [], false));
+    check('그래서 라우트 가드가 본사 계정이 아니면 403 으로 막는다 (이 전제를 떠받치는 자리)',
+      /if \(!isHqStaff\(actor\) && !actor\.isTeacher\)[\s\S]{0,220}?403\)/.test(api));
+    check('⛔ 주석이 그 사정을 적어 두었다 (다음 사람이 이 자리를 다시 재지 않게)',
+      /broadcast 분기는 isExec 를[\s\S]{0,200}isHqStaff/.test(polSrc));
+
     // ⓒ 달 경계 — 지출일이 있으면 그것으로
     ins.run(5, 'expense', 'mgr_lby', 'approved', 55, 'PHP', '2026-08-31', KST('2026-09-01'));
     const lby2 = foldHomeMoney(runMine('mgr_lby') || [], '2026-09');
@@ -254,6 +270,7 @@ check('⛔ 그 줄이 mine_shown 을 읽지 않는다',
 /* 🔴 그 안내는 경고 상자 «밖» 에 있어야 한다 — 상자 안에 두면 창 안에 멈춘 건이 없을 때
    상자가 통째로 안 그려져 그 말까지 사라진다(정작 그때가 알려야 할 때다). */
 const paintTopBody = fnBody(workJs, 'function paintTop()');
+const paintChrome = fnBody(workJs, 'function paintRepChrome()') || '';
 const stopBranch = paintTopBody.slice(0, paintTopBody.indexOf('stopHost.innerHTML = h;'));
 check('paintTop 을 잘라 냈다 (전제)', paintTopBody.length > 500, paintTopBody.length + '자');
 check('「창 밖은 못 봤다」가 경고 상자 «밖» 에 있다 (없을 때가 정작 필요한 때다)',
@@ -301,6 +318,15 @@ check('멈춘 것을 지연보다 먼저 보여 준다 (지연은 기다리면 �
   /a\.why === 'blocked' \? 0 : 1/.test(workJs));
 const topGoBody = fnBody(workJs, 'window.topGo = function');
 check('topGo 함수를 잘라 냈다 (전제)', topGoBody.length > 50, topGoBody.length + '자');
+/* 🔴 한 화면이 «같은 말» 을 하는가 — 타일이 «전체» 인 사람에게 아래 지출 정리가
+   «내가 올린 것» 으로 열리면 두 숫자가 다르게 보인다(2026-09-04 함정 대조). */
+check('맨 위 타일이 «전체» 인 사람에게는 지출 정리도 «전체» 로 연다',
+  /money_scope === 'all'/.test(paintChrome) && /sc\.value = 'all'/.test(paintChrome));
+check('⛔ 사람이 이미 고른 값은 덮어쓰지 않는다',
+  /var had = sc\.value/.test(paintChrome) && /if \(had\) sc\.value = had/.test(paintChrome));
+check('⛔ 결재자 전원에게 «전체» 를 기본으로 주지는 않는다 (그 «전체» 는 타일과 다른 수다)',
+  /D\.can_approve/.test(paintChrome));
+
 check('그 건이 화면에 없으면 문서함으로 안내한다 (「눌러도 아무 일도 없음」 방지)',
   /toggleFind/.test(topGoBody) && /toast\(/.test(topGoBody));
 

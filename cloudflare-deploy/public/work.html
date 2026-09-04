@@ -945,7 +945,15 @@ function paintRepChrome(){
   var scopes = [['mine', T('My requests', '내가 올린 것')]];
   // 결재자에게만 «전체» — 서버도 같은 판정으로 403 을 준다.
   if (D && D.can_approve) scopes.push(['all', T('Everything', '전체')]);
+  var had = sc.value;                       // 사람이 이미 고른 값은 건드리지 않는다
   fillSel(sc, scopes);
+  /* 🔴 맨 위 타일과 «같은 말» 을 하게 한다 — 타일이 «전체» 인 사람(경영진)에게
+     아래 표가 «내가 올린 것» 으로 열리면 한 화면에서 두 숫자가 다르게 보인다.
+     ⛔ 결재자 전원에게 «전체» 를 기본으로 주지는 않는다 — 그 사람들의 «전체» 는
+        canView 로 걸러진 값이라 타일(경영진 전용 합계)과 애초에 다른 수다. */
+  var wantAll = !!(D && D.summary && D.summary.money_scope === 'all');
+  if (!had && wantAll && D && D.can_approve) sc.value = 'all';
+  else if (had) sc.value = had;
 }
 
 /** 기본 기간은 «이번 달 1일부터» — 비워 두면 전 기간이라 「이번 달 얼마」에 답을 못 한다. */

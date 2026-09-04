@@ -464,6 +464,37 @@ function check(name, cond, extra) {
   await page.evaluate(() => window.toggleMode());
   await page.waitForTimeout(200);
 
+  /* ── ⑧-2 한 화면이 «같은 말» 을 하는가 ─────────────────────────────── */
+  console.log('\n[8-2] 맨 위 타일과 아래 지출 정리가 같은 범위로 열리는가');
+  const scopeNow = await page.evaluate(() => {
+    const sc = document.getElementById('rscope');
+    const tn = Array.from(document.querySelectorAll('#topTiles .tn')).map((e) => e.textContent);
+    return { sc: sc ? sc.value : null, opts: sc ? sc.options.length : 0, tn: tn.join(' | ') };
+  });
+  check('지출 정리 범위 칸을 찾았다 (전제)', scopeNow.opts >= 2, JSON.stringify(scopeNow));
+  check('타일이 «전체» 인 사람에게 아래 표도 «전체» 로 열린다 (두 숫자가 갈리지 않게)',
+    scopeNow.sc === 'all', JSON.stringify(scopeNow));
+
+  /* 짝 검사 — 타일이 «내가 올린 것» 이면 아래도 그래야 한다.
+     ⚠️ `paintRepChrome` 은 window 에 없다(닫힌 스코프) — 화면이 실제로 지나는 길
+        (`reloadAll` → repaint)로 다시 그려야 한다. 손으로 부르려다 «값이 빈 채로 멈춘»
+        상태를 만들어 멀쩡한 코드가 FAIL 로 나왔다(실측). */
+  await page.evaluate(() => {
+    window.__HOME = Object.assign({}, window.__HOME, {
+      summary: Object.assign({}, window.__HOME.summary, { money_scope: 'mine' }),
+    });
+    const sc = document.getElementById('rscope');
+    if (sc) sc.value = '';                 // 사람이 아직 안 골랐다
+    return window.reloadAll ? window.reloadAll() : location.reload();
+  });
+  await page.waitForTimeout(700);
+  const scopeMine = await page.evaluate(() => {
+    const sc = document.getElementById('rscope');
+    return sc ? { v: sc.value, o: Array.from(sc.options).map((x) => x.value) } : null;
+  });
+  check('⛔ 타일이 «내가 올린 것» 이면 아래도 그렇다 (짝 검사)',
+    (scopeMine && scopeMine.v) === 'mine', JSON.stringify(scopeMine));
+
   /* ── ⑨ 조용한 실패 ─────────────────────────────────────────────────── */
   console.log('\n[9] 실행 중 오류');
   check('자바스크립트 오류가 없다', errors.length === 0, errors.join(' / '));

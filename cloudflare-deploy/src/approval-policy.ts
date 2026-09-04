@@ -743,7 +743,11 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
  *   [왜 SQL 집계를 그대로 써도 되는가]
  *     C안(지출 정리)은 canView 를 못 걸어서 «행을 읽어 코드로» 셌다. 여기는 다르다 —
  *     집계 범위를 **canView 가 무조건 통과시키는 두 가지**로만 잡기 때문이다:
- *       ① 경영진(isExec) → 세 열람등급(exec·chain·broadcast)을 전부 통과한다
+ *       ① 경영진 → 세 열람등급(exec·chain·broadcast)을 전부 통과한다
+ *          ⚠️ 정확히는 «경영진 **이면서 본사 계정**» 일 때다 — broadcast 분기는 isExec 를
+ *             보지 않고 isHqStaff 를 본다(실측: role 이 없는 exec 는 broadcast 가 false).
+ *             본사 계정이 아니면 라우트 가드(api-approval.ts)가 403 이라 여기 닿지 못한다.
+ *             ⛔ 그 가드를 지우면 이 전제가 조용히 깨진다 — 하니스가 둘 다 못 박는다.
  *       ② 그 밖의 사람 → **본인이 올린 것만**(canView 첫 줄 「내가 올린 건은 언제나 본다」)
  *     그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
  *     ⛔ 이 전제를 넓히지 말 것 — 예컨대 «본사 직원은 전체» 로 바꾸는 순간
@@ -803,8 +807,9 @@ export function foldHomeMoney(rows: MoneyGroupRow[], thisMonth: string): HomeMon
     push(out.year); out.year_count += n; out.year_no_amount += na;
     if (ym === thisMonth) { push(out.month); out.month_count += n; out.month_no_amount += na; }
   }
-  /* 금액이 0인 통화 줄은 보여 줄 것이 없다 — 「—」로 그리게 비운다.
-     ⛔ 건수는 그대로 둔다(«0원짜리 승인 N건» 이 아니라 «금액 없는 승인 N건» 이다). */
+  /* ⚠️ 여기서 «비우지» 않는다 — 통화 줄은 그대로 돌려주고, 「—」로 그릴지는 **화면**이 정한다
+     (`repMoney`). 이 함수가 하지 않는 일을 한다고 적어 두면 다음 사람이 여기를 고치러 온다.
+     ⛔ 건수는 금액과 따로 둔다 — «0원짜리 승인 N건» 이 아니라 «금액 없는 승인 N건» 이다. */
   return out;
 }
 
