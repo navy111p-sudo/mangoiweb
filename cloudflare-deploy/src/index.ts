@@ -2693,17 +2693,14 @@ const worker = {
         }
         await markNightlyStep(env as any, _nightly, 'finance-snapshot');
 
-        // 🎓 학습 인사이트 — 당월 위험도 스냅샷 자동 저장 (KST 03:00)
-        //   learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
-        try {
-          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
-          const period = kstNow.toISOString().slice(0, 7);
-          const rl = await runLearningSnapshot(env as any, period);
-          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
-        } catch (err) {
-          console.error('[learning-snapshot] error', err);
-        }
-        await markNightlyStep(env as any, _nightly, 'learning-snapshot');
+        /* 🎓 학습 인사이트 스냅샷은 **여기 없습니다** — 2026-09-04 에 `0 0 * * *`(KST 09:00)로 옮겼습니다.
+           ⚠️ 되돌리기 전에 읽으세요: 이 블록이 **사흘 만에 8분 48초 → 12분 27초**로 늘어
+              cron 벽시계 상한 15분까지 2분 33초밖에 안 남았습니다(실측 09-01·09-02·09-03).
+              넘으면 격리가 죽어 **뒤 작업이 조용히 잘립니다** — 미러가 3번째라 함께 잘립니다.
+              learning-snapshot 이 203,845ms(전체의 27%)라 이것 하나로 3분 24초를 벌었습니다.
+           ℹ️ 순서 의존은 «더 좋아졌습니다» — 이 작업은 attendance·students_erp 를 읽는데,
+              옮긴 자리(KST 09:00)는 이 블록의 카페24 동기화(KST 03:00) **6시간 뒤**라
+              같은 날 갱신된 자료를 봅니다. */
 
         // 🚨 이탈위험 — 어제 결석 감지 + 케어 대상 집계 (KST 03:00)
         //   감지는 항상 수행. 학부모 알림톡 발송은 게이트(AUTO_ALIMTALK='on' + SOLAPI_TEMPLATE_ABSENCE)
@@ -2809,6 +2806,12 @@ const worker = {
 
       // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
       if (cronIs('0 0 * * *')) {
+        /* 🌙 (2026-09-04) 이 블록도 «어디까지 갔는지» 를 남깁니다 — `0 18` 과 같은 방식.
+           learning-snapshot 을 여기로 옮기면서 함께 넣었습니다. 재지 않는 곳으로 3분 24초짜리
+           작업을 옮기면, 고치려던 «조용히 잘리는» 문제를 자리만 바꿔 되살리는 셈입니다.
+           ⚠️ markNightlyStep 은 try…catch «밖» 이어야 합니다 — 안에 넣으면 뜻이 뒤집혀
+              «그 작업이 에러를 던졌다» 가 되고 정상적인 날엔 기록이 한 줄도 안 남습니다. */
+        const _morning = await beginNightlyRun(env as any, '0 0 * * *').catch(() => null);
         try {
           const subUrl = new URL('https://internal.local/api/admin/subscription/cron-check');
           const subReq = new Request(subUrl.toString(), { method: 'POST' });
@@ -2817,6 +2820,7 @@ const worker = {
         } catch (err) {
           console.error('[recurring-billing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'recurring-billing');
 
         // 📊 경영 브리핑 알림톡 (KST 09:00) — 수신자에게 학생수·매출·비용 발송
         try {
@@ -2827,6 +2831,24 @@ const worker = {
         } catch (err) {
           console.error('[exec-briefing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'exec-briefing');
+
+        /* 🎓 학습 인사이트 — 당월 위험도 스냅샷 (KST 09:00 · 2026-09-04 에 `0 18` 에서 옮겨옴)
+           learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
+           ⚠️ 옮긴 이유는 `0 18` 블록의 그 자리 주석에 적혀 있습니다(체인이 15분 상한에 근접).
+           ℹ️ 읽는 것은 attendance·students_erp·student_evaluations·voice_coaching 이고,
+              카페24 동기화(KST 03:00) 6시간 뒤라 같은 날 갱신분을 봅니다.
+           ⚠️ period 는 여기서도 KST 로 계산합니다 — 매월 1일에 «당월» 이 되어야 합니다. */
+        try {
+          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          const period = kstNow.toISOString().slice(0, 7);
+          const rl = await runLearningSnapshot(env as any, period);
+          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
+        } catch (err) {
+          console.error('[learning-snapshot] error', err);
+        }
+        await markNightlyStep(env as any, _morning, 'learning-snapshot');
+        await endNightlyRun(env as any, _morning);
       }
 
       // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)
