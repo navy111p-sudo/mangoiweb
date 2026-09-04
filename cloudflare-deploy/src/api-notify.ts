@@ -9,6 +9,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession } from './auth-admin';
 import { writeClassAudit, ensureClassAuditTable } from './class-audit';  // 📜 수업 종료(end) 이력
 import { resolveNotifyPhones, partiesForRoom } from './notify-contacts';  // 📵 받는 사람은 서버가 정한다
+import { teacherLiveInRoom } from './no-show-truth';  // 🔔 강사가 이미 방에 있으면 「미입장」 알림을 안 보낸다
 import { checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendChatSummaryAlert, sendLessonEndAlert, sendLessonStartAlert, sendMentionAlert } from './solapi-client';
 
 let _notifSchemaReady = false;
@@ -422,17 +423,35 @@ export async function handleNotifyApi(
       const studentName = _parties?.studentName || body.student_name || '학생';
       const teacherName = _parties?.teacherName || body.teacher_name || '강사';
       const lessonTitle = body.lesson_title || '영어 수업';
-      const waited = Number(body.waited_minutes) || 5;
+      /* (2026-09-04) 0 은 0 이다 — 학생 입장 «즉시» 호출(reason:'student_entered', waited_minutes:0)이
+         `|| 5` 에 걸려 「5분째 기다리고 있어요」로 나갔다. 기다린 적이 없는데 5분이라고 적혔다. */
+      const _wRaw = Number(body.waited_minutes);
+      const waited = (Number.isFinite(_wRaw) && _wRaw >= 0) ? Math.round(_wRaw) : 5;
       const missingUid = waitingFor === 'teacher' ? (body.teacher_uid || '') : (body.student_uid || '');
       const roomUrl = `${new URL(request.url).origin}/?go=videocall`;
+
+      /* 🔔 (2026-09-04) 강사가 «지금» 그 방에 있으면 강사에게 알림을 보내지 않는다.
+         [실사고 2026-09-03 class-1079] Krystel 이 21:13:26 부터 방에 있었는데 학생 화면이
+           21:20:34 에 「강사 미입장」을 신고해 푸시가 나갔다 — 학생 쪽 소켓·카메라가 아직
+           안 열려 «내 화면에 안 보였을» 뿐이다. 판정은 no-show-truth 의 정본(이름 일치 ·
+           role 안 믿음 · 모르면 false)을 그대로 쓴다.
+         ⛔ 기록(class_no_show)은 그대로 남긴다 — 학생이 못 본 것은 사실이고, 읽는 쪽이
+            같은 함수로 «오판» 표시를 붙인다. 막는 것은 «알림» 뿐이다. */
+      let teacherLive = false;
+      if (waitingFor === 'teacher') {
+        try { teacherLive = await teacherLiveInRoom(env.DB, roomId, teacherName, studentName); } catch { teacherLive = false; }
+      }
 
       // 1) Web Push — 안 온 사람에게 '빨리 입장하세요' (구독 없으면 자동 스킵)
       let push: any = { skipped: true };
       const pushTitle = waitingFor === 'teacher' ? '⏰ 학생이 기다리고 있어요' : '⏰ 강사님이 기다리고 있어요';
       const pushBody = waitingFor === 'teacher'
-        ? `${studentName} 학생이 '${lessonTitle}' 방에서 ${waited}분째 기다리고 있어요. 지금 입장해 주세요.`
+        ? (waited > 0
+            ? `${studentName} 학생이 '${lessonTitle}' 방에서 ${waited}분째 기다리고 있어요. 지금 입장해 주세요.`
+            : `${studentName} 학생이 '${lessonTitle}' 방에 들어왔어요. 지금 입장해 주세요.`)
         : `${teacherName} 강사님이 '${lessonTitle}' 방에서 기다리고 있어요. 지금 입장하세요.`;
-      if (missingUid) push = await sendPushToUser(env, missingUid, pushTitle, pushBody, roomUrl, `no-show-${roomId}`);
+      if (teacherLive) push = { skipped: true, reason: 'teacher_present' };
+      else if (missingUid) push = await sendPushToUser(env, missingUid, pushTitle, pushBody, roomUrl, `no-show-${roomId}`);
 
       // 2) 알림톡 — 전용 템플릿(SOLAPI_TEMPLATE_NO_SHOW)이 등록돼 있을 때만 발송(없으면 정직하게 스킵)
       let kakao: any = { skipped: true, reason: 'no_template' };
@@ -443,7 +462,8 @@ export async function handleNotifyApi(
         parentUid: body.parent_uid, teacherId: _parties?.teacherId,
       });
       const targetPhone = waitingFor === 'teacher' ? _nsPh.teacher : (_nsPh.student || _nsPh.parent);
-      if (noShowTpl && targetPhone) {
+      if (teacherLive) kakao = { skipped: true, reason: 'teacher_present' };
+      else if (noShowTpl && targetPhone) {
         kakao = await sendKakaoAlimtalk(env, {
           templateCode: noShowTpl,
           recipientPhone: targetPhone,
@@ -460,7 +480,7 @@ export async function handleNotifyApi(
           .bind(roomId, body.schedule_id || null, waitingFor, missingUid || null, studentName, teacherName, lessonTitle, waited, (push && push.ok) ? 1 : 0, (kakao && kakao.ok) ? 1 : 0, Date.now()).run();
       } catch (e: any) { console.warn('[no-show] log insert skipped:', e?.message); }
 
-      return json({ ok: true, waiting_for: waitingFor, push, kakao });
+      return json({ ok: true, waiting_for: waitingFor, teacher_present: teacherLive, push, kakao });
     }
 
     // ── POST /api/notify/mention — @멘션 즉시 푸시 알림 (카카오 + Web Push) ──

@@ -501,9 +501,14 @@ export async function handleMangoApi(
         if (_adm.ok) return true;                          // 교사/관리자 세션 → 허용(대상 uid 무관)
         const _tok = await authUidGlobal(request, url, env, body);
         if (!_tok) return true;                             // 자격증명 없음 → 기존대로 허용(회귀 0)
-        return _tok === String(claimedUid || '').trim();   // 토큰 있음 → 본인일 때만 허용, 남이면 위조 거부
+        const _claimed = String(claimedUid || '').trim();
+        if (!_claimed) return true;                         // 주장한 계정이 없음 → 위조할 대상이 없다(출석 join/checkin 의 옛 클라이언트)
+        return _tok === _claimed;                           // 토큰 있음 → 본인일 때만 허용, 남이면 위조 거부
       } catch { return true; }                              // 검증 중 오류는 출석을 막지 않음(보수적)
     };
+    /* 출석 join/checkin 이 «주장하는 계정» — account_uid 다. user_id 는 계정이 아니다.
+       ⚠️ consents 쪽은 user_id 가 곧 계정이라 이 헬퍼를 쓰지 않고 b.user_id 를 그대로 넘긴다. */
+    const _attnClaimedAccount = (body: any): string => String((body && body.account_uid) || '').trim();
 
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
@@ -514,7 +519,13 @@ export async function handleMangoApi(
          15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
          ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
       try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
-      if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      /* 🔴 (2026-09-04) 비교 대상은 «계정»(account_uid)이지 user_id 가 아니다.
+         user_id 는 기기 식별자(`u_`+난수) 또는 DO 임시번호라 토큰 uid 와 «언제나» 다르다(536행 주석).
+         그래서 2026-07-19 이후 로그인한 학생(토큰 있음)의 join 은 전부 403 이었고, 출석 행은
+         시선 API 폴백(아래 gaze-score)이 만든 «이름·host·계정 없는» 행만 남았다
+         (9/3 실측 학생 22행 중 19행 · 전 기간 account_uid 가 남은 계정 4개).
+         account_uid 가 비어 있으면 «아무 계정도 주장하지 않은 것» — 예전처럼 통과(회귀 0). */
+      if (!(await _attnSoftAuthOk(_attnClaimedAccount(b), b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
       // 📣 오늘 처음 보는 (room_id, date) 조합이면 "수업 시작" 알림 큐에 적재
@@ -645,7 +656,8 @@ export async function handleMangoApi(
         return invalidBody(['room_id', 'user_id']);
       }
       // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 uid 면 위조 거부, 없으면 통과(결석버그 방어 유지).
-      if (!(await _attnSoftAuthOk(userId, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // (2026-09-04) join 과 같은 이유로 «계정»(account_uid)을 비교한다 — userId 는 기기 번호다.
+      if (!(await _attnSoftAuthOk(_attnClaimedAccount(b), b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const role = (b.role === 'teacher') ? 'teacher' : 'student';
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
