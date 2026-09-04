@@ -257,3 +257,34 @@ export async function teacherPresenceByRoom(
   }
   return out;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🔔 «지금» 그 방에 강사가 붙어 있는가 — 「강사 미입장」 알림을 보내기 **전** 에 묻는다 (2026-09-04)
+
+   [왜] `/api/notify/no-show` 는 학생 화면이 «내 화면에 강사가 안 보인다» 고 하면 그대로
+     강사에게 「⏰ 학생이 기다리고 있어요」 푸시를 보냈다. 그런데 학생 화면은 입장 버튼을
+     누른 «순간»(소켓·카메라가 열리기 전) 부터 세므로, 강사가 7분 전부터 앉아 있어도 알림이 갔다
+     (2026-09-03 class-1079: Krystel 21:13 입장 · 알림 21:20:34). 위 판정과 **같은 규칙**
+     (이름 일치 · role 안 믿음 · 모르면 false)으로 «최근 freshMs 안에 살아 있던 강사 접속» 이
+     있으면 true 다. 기록(class_no_show 행)은 그대로 남기고 **알림만** 막는 데 쓴다.
+   [안전한 방향] 판정 불가·조회 실패는 전부 false — 알림을 «안 보내는» 쪽으로 틀리지 않는다.
+   ══════════════════════════════════════════════════════════════════════════ */
+export async function teacherLiveInRoom(
+  db: any,
+  roomId: string,
+  teacherName: string,
+  studentName?: string,
+  nowMs: number = Date.now(),
+  freshMs: number = 3 * 60 * 1000,
+): Promise<boolean> {
+  try {
+    const room = String(roomId || '').trim();
+    if (!room || !String(teacherName || '').trim()) return false;
+    const m = await teacherPresenceByRoom(db, [{
+      room_id: room, missing_role: 'teacher', teacher_name: teacherName, student_name: studentName || '',
+    }]);
+    const p = m.get(room);
+    if (!p || p.present !== true || !p.to) return false;
+    return (nowMs - Number(p.to)) <= freshMs;
+  } catch { return false; }
+}

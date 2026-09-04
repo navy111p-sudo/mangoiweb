@@ -87,3 +87,6 @@ __pycache__/
 .claude/settings.local.json
 .claude/worktrees/
 .claude/preview-server.js
+
+# esbuild 생성물 — test-harness/azure_pronunciation_harness.mjs 가 매번 다시 굽는다(2026-09-04 trap-check)
+test-harness/.azure-pron.mjs
