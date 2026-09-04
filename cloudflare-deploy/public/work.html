@@ -181,6 +181,32 @@ html.dark .reptbl .rm{color:#e8eef5}
   background:#fff8e6;border:1px solid #f0d9a0;color:#5c4708
 }
 html.dark .repgap{background:#2a2109;border-color:#5c4708;color:#f0d9a0}
+/* 🧭 맨 위 요약. 주석에 CJK 홑낫표를 쓰지 않는다(한자 폰트 검사). */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,132px),1fr));gap:8px;margin-bottom:12px}
+.tile{
+  border:1px solid #dde3ea;border-radius:9px;padding:9px 11px;background:#fff;min-width:0;
+  font:inherit;text-align:left;cursor:pointer;color:inherit
+}
+html.dark .tile{background:#16202c;border-color:#26313f}
+.tile:disabled{cursor:default}
+.tile .tl{font-size:12px;color:#6b7785;margin-bottom:3px;display:block}
+html.dark .tile .tl{color:#8b98a8}
+.tile .tv{font-size:19px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
+html.dark .tile .tv{color:#e8eef5}
+.tile .tn{font-size:11.5px;color:#7b8794;margin-top:2px;display:block;line-height:1.45}
+.tile.hot{border-color:#e6a23c;background:#fff8e6}
+html.dark .tile.hot{background:#2a2109;border-color:#5c4708}
+.topstop{
+  border:1px solid #e0a1a1;background:#fdf1f1;border-radius:9px;padding:11px 12px;margin-bottom:10px;
+  font-size:13.5px;line-height:1.6;color:#7a1c1c
+}
+html.dark .topstop{background:#2a1212;border-color:#6b2626;color:#f3b7b7}
+.topstop b{display:block;margin-bottom:3px;font-size:14px}
+.topstop .ts-go{
+  display:inline-block;margin-top:6px;font:inherit;font-size:13px;font-weight:650;cursor:pointer;
+  padding:7px 11px;border-radius:7px;border:1px solid #b3261e;background:#fff;color:#b3261e
+}
+html.dark .topstop .ts-go{background:#3a1a1a;color:#f3b7b7;border-color:#8c3a3a}
 .repnote{font-size:11.5px;color:#7b8794;margin-top:4px;line-height:1.5}
 html.dark .repnote{color:#8b98a8}
 .repgap b{display:block;margin-bottom:3px}
@@ -353,6 +379,12 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 <div class="outbox" id="queueNote" hidden></div>
 
 <div class="wrap">
+
+  <!-- 🧭 맨 위 요약(D안) — 아침에 한 번 열어 보는 자리.
+       ⚠️ 첫 화면 API 한 번 설계를 지킨다: 여기 숫자는 이미 받은 /api/approval/home 안에 있고
+          따로 부르지 않는다. 손봐야 할 것이 없으면 경고 줄이 아예 안 뜬다. -->
+  <div id="topStop"></div>
+  <div id="topTiles" class="tiles"></div>
 
   <h2 id="urgentHead" hidden><span data-en="Urgent" data-ko="긴급 소통">Urgent</span></h2>
   <div id="urgent"></div>
@@ -587,6 +619,7 @@ function repaint(){
     ? urg.map(function(r){ return itemHtml(r, false); }).join('')
     : '';
 
+  paintTop();
   paintAway();
   paintSchedule();
   paintBulk();
@@ -1072,6 +1105,141 @@ function paintRep(){
 
   host.innerHTML = h;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🧭 맨 위 요약 (D안) — 「아침에 30초」
+
+   ⚠️ 여기 숫자는 **이미 받은 /api/approval/home 안에** 있다. 따로 부르지 않는다
+      (이 화면은 첫 화면 API 한 번 설계다).
+   ⛔ 손봐야 할 것이 없으면 경고 줄을 그리지 않는다 — 늘 뜨는 경고는 아무도 안 읽는다.
+   ⛔ 통화를 합치지 않는다(지출 정리와 같은 규칙 — repMoney 를 그대로 쓴다).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** 지금 손봐야 할 내 건 — 멈춘 것 먼저, 그다음 지연. */
+function topStuckItems(){
+  var out = [];
+  var mine = (D && D.mine) || [];
+  for (var i = 0; i < mine.length; i++) {
+    var r = mine[i];
+    if (r.status !== 'pending') continue;
+    if (r.blocked) out.push({ r: r, why: 'blocked' });
+    else if (isOverdue(r)) out.push({ r: r, why: 'late' });
+  }
+  // 멈춘 것이 먼저 — 지연은 기다리면 풀리지만 멈춘 것은 안 풀린다
+  out.sort(function(a, b){ return (a.why === 'blocked' ? 0 : 1) - (b.why === 'blocked' ? 0 : 1); });
+  return out;
+}
+
+function paintTop(){
+  var stopHost = document.getElementById('topStop');
+  var tileHost = document.getElementById('topTiles');
+  if (!stopHost || !tileHost || !D) return;
+
+  var sm = D.summary || null;
+  var stuck = topStuckItems();
+
+  /* ── ① 손봐야 할 것 ─────────────────────────────────────────────────── */
+  if (!stuck.length) {
+    stopHost.innerHTML = '';
+  } else {
+    var nBlocked = stuck.filter(function(x){ return x.why === 'blocked'; }).length;
+    var first = stuck[0];
+    var h = '<div class="topstop"><b>' +
+      esc(EN() ? ('Needs your attention — ' + stuck.length + (stuck.length === 1 ? ' request' : ' requests'))
+               : ('손봐야 할 것 ' + stuck.length + '건')) + '</b>';
+    h += '<div>' + esc('“' + String(first.r.title || '').slice(0, 60) + '”') + ' — ' +
+      esc(first.why === 'blocked'
+        ? T('cannot be processed as it is: nobody can approve this step right now.',
+            '이대로는 처리되지 않습니다 — 지금 이 단계를 결재할 수 있는 사람이 없습니다.')
+        : T('is past its due time.', '마감이 지났습니다.')) + '</div>';
+    if (stuck.length > 1) {
+      h += '<div>' + esc(EN() ? ((stuck.length - 1) + ' more below.')
+                              : ('나머지 ' + (stuck.length - 1) + '건은 아래 목록에 있습니다.')) + '</div>';
+    }
+    /* 🔴 이 목록은 «최근 15건» 안에서만 찾은 것이다 — 그보다 많이 올렸으면 더 있을 수 있다.
+       감추면 「손봐야 할 것 1건」이 거짓이 된다. */
+    if (sm && sm.my_open > (sm.mine_shown || 0)) {
+      h += '<div>' + esc(EN()
+        ? ('Checked only the ' + sm.mine_shown + ' most recent of your ' + sm.my_open + ' open requests.')
+        : ('진행 중 ' + sm.my_open + '건 가운데 최근 ' + sm.mine_shown + '건만 살펴본 것입니다.')) + '</div>';
+    }
+    h += '<button type="button" class="ts-go" onclick="topGo(' + Number(first.r.id) + ')">' +
+         esc(T('Show it', '그 건 보기')) + '</button>';
+    h += '</div>';
+    stopHost.innerHTML = h;
+  }
+
+  /* ── ② 타일 넷 ──────────────────────────────────────────────────────── */
+  var t = '';
+  var tile = function(cls, label, value, note, onclick){
+    return '<button type="button" class="tile' + (cls ? ' ' + cls : '') + '"' +
+           (onclick ? (' onclick="' + onclick + '"') : ' disabled') + '>' +
+           '<span class="tl">' + esc(label) + '</span>' +
+           '<span class="tv">' + esc(value) + '</span>' +
+           (note ? '<span class="tn">' + esc(note) + '</span>' : '') + '</button>';
+  };
+
+  var inboxN = (D.inbox || []).length;
+  t += tile(inboxN ? 'hot' : '', T('Waiting for me', '내가 결재할 것'),
+            EN() ? String(inboxN) : (inboxN + '건'),
+            inboxN ? '' : T('nothing to decide', '지금은 없습니다'),
+            'topScroll(\'inbox\')');
+
+  var openN = sm ? sm.my_open : (D.mine || []).filter(function(r){ return r.status === 'pending'; }).length;
+  t += tile(stuck.length ? 'hot' : '', T('My requests in progress', '내가 올린 것 · 진행 중'),
+            EN() ? String(openN) : (openN + '건'),
+            stuck.length ? (EN() ? (stuck.length + ' need attention') : ('그중 손볼 것 ' + stuck.length + '건'))
+                         : '',
+            'topScroll(\'mine\')');
+
+  /* 💰 금액 타일 — «어느 범위인지» 를 반드시 함께 적는다.
+     경영진은 전체, 그 밖은 내가 올린 것이라 같은 타일에서 다른 숫자를 본다. */
+  if (sm && sm.money) {
+    var scopeNote = (sm.money_scope === 'all') ? T('everyone', '전체')
+                                               : T('my requests', '내가 올린 것');
+    var mm = repMoney(sm.money.month), yy = repMoney(sm.money.year);
+    var mNote = scopeNote + ' · ' + (EN() ? (sm.money.month_count + ' approved')
+                                          : (sm.money.month_count + '건 승인'));
+    /* 금액 없는 승인은 «0원» 이 아니다 — 그렇게 적어 준다. */
+    if (sm.money.month_no_amount) {
+      mNote += ' · ' + (EN() ? (sm.money.month_no_amount + ' with no amount')
+                             : ('금액 없음 ' + sm.money.month_no_amount + '건'));
+    }
+    var yNote = scopeNote + ' · ' + (EN() ? (sm.money.year_count + ' approved')
+                                          : (sm.money.year_count + '건 승인'));
+    if (sm.money.year_no_amount) {
+      yNote += ' · ' + (EN() ? (sm.money.year_no_amount + ' with no amount')
+                             : ('금액 없음 ' + sm.money.year_no_amount + '건'));
+    }
+    t += tile('', T('Approved this month', '이번 달 승인'), mm, mNote, 'topSpending()');
+    t += tile('', T('Approved this year', '올해 누적'), yy, yNote, 'topSpending()');
+  }
+  tileHost.innerHTML = t;
+}
+
+/** 그 건으로 데려간다 — 목록에 있으면 그 줄로, 없으면 문서함에서 찾게 한다. */
+window.topGo = function(id){
+  var el = document.getElementById('req-' + id);
+  if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (e) { el.scrollIntoView(); } return; }
+  /* 최근 15건 밖이면 화면에 그 줄이 없다 — 「눌러도 아무 일도 안 일어남」이 되지 않게
+     문서함을 열어 준다. */
+  var box = document.getElementById('findPanel');
+  if (box && box.hidden && window.toggleFind) window.toggleFind();
+  toast(T('Find it in the document box below.', '아래 문서함에서 찾아 주세요.'));
+};
+
+window.topScroll = function(which){
+  var el = document.getElementById(which);
+  if (el) { try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); } }
+};
+
+/** 금액 타일 → 지출 정리를 열고 그리로. */
+window.topSpending = function(){
+  var box = document.getElementById('repPanel');
+  if (box && box.hidden && window.toggleRep) window.toggleRep();
+  var el = document.getElementById('repBtn');
+  if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (e) { el.scrollIntoView(); } }
+};
 
 window.repCsv = function(){
   var g = function(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };

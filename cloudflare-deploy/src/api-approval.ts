@@ -49,7 +49,7 @@ import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
   sniffKind, normExt, contentTypeFor, buildFindQuery,
-  CATEGORIES, normCategory, categorySpec, summarizeApprovals,
+  CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -771,11 +771,49 @@ export async function handleApprovalApi(
     // 🧭 「이 건을 결재할 사람이 몇 명인가」가 바뀌면 «막힘» 표시도 바뀐다 — 서명에 함께 넣는다.
     //    ⚠️ 계정 «수» 만 본다. 이름을 「…이사」로 고쳐 경영진이 되는 경우(isExec 의 이름 안전장치)는
     //       이 숫자가 그대로라 못 잡지만, 아래 hourBucket 이 한 시간에 한 번은 전체를 다시 받게 한다.
+    /* ═══ 🧭 맨 위 요약(D안) — 「아침에 한 번 열어 보는 화면」 ═══════════════
+       [왜 SQL 집계를 그대로 써도 되는가]
+         C안(지출 정리)은 canView 를 못 걸어 «행을 읽어 코드로» 세지만, 여기는 범위를
+         **canView 가 무조건 통과시키는 두 가지**로만 잡는다 —
+           ① 경영진 → 세 열람등급을 전부 통과(approval-policy 의 canView)
+           ② 그 밖 → 본인이 올린 것만(「내가 올린 건은 언제나 본다」)
+         그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
+       ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여가 요약으로 샌다
+          (2026-09-04 에 C안에서 실제로 그랬다).
+       ⚠️ 달 눈금은 지출 정리와 **같은 규칙**이다(지출일이 있으면 그것, 없으면 올린 날).
+          두 화면이 다른 달로 자르면 사람이 숫자가 안 맞는다고 느낀다. */
+    const nowMonth = kstMonth(Date.now());
+    const sumAll = iAmExec;                      // 경영진만 전체
+    const moneyRows = await safe(async () => {
+      const st = env.DB.prepare(
+        `SELECT COALESCE(NULLIF(currency,''),'PHP') AS cur,
+                substr(COALESCE(NULLIF(spent_at,''),
+                                date(created_at/1000,'unixepoch','+9 hours')), 1, 7) AS ym,
+                COUNT(*) AS n, SUM(amount) AS total,
+                SUM(CASE WHEN amount IS NULL THEN 1 ELSE 0 END) AS no_amt
+           FROM approval_requests
+          WHERE status = 'approved'` + (sumAll ? '' : ' AND requester_username = ?') + `
+          GROUP BY cur, ym`
+      );
+      const r = await (sumAll ? st : st.bind(me)).all<any>();
+      return (r.results || []) as any[];
+    }, [] as any[]);
+    const homeMoney = foldHomeMoney(moneyRows, nowMonth);
+
+    /* 「진행 중」은 **정확한 수** 로 센다 — 아래 mine 은 최근 15건뿐이라 그것으로 세면
+       16번째부터 조용히 빠진다. ⚠️ 이 숫자는 언제나 «내가 올린 것» 이다(경영진도 마찬가지) —
+       「내가 올린 것이 어떻게 됐나」를 보는 칸이라 전체로 넓히면 뜻이 달라진다. */
+    const openRow: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_requests
+        WHERE requester_username = ? AND status = 'pending'`
+    ).bind(me).first(), null);
+    const myOpen = Number(openRow?.c || 0);
+
     const hsig: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a5-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a6-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -917,6 +955,16 @@ export async function handleApprovalApi(
         is_exec: iAmExec, is_ph_manager: ph, is_teacher: !!actor.isTeacher,
       },
       colleagues, my_delegate: myDelegate,
+      /* 🧭 맨 위 요약. scope 는 화면이 «어느 범위인지» 를 사람에게 말하는 데 쓴다 —
+         경영진과 직원이 같은 타일에서 다른 숫자를 보므로 감추면 안 된다. */
+      summary: {
+        money: homeMoney,
+        money_scope: sumAll ? 'all' : 'mine',
+        my_open: myOpen,
+        // mine 은 최근 15건뿐 — 「멈춤」을 그 안에서만 셌다는 사실을 화면이 말해야 한다
+        mine_shown: mine.length,
+        month: nowMonth,
+      },
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
       types: TYPES.filter(t => canSubmit(actor, t.key, ph))
