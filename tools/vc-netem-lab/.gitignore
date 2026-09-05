@@ -1,0 +1,11 @@
+# 파이썬 / python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 조회 결과를 파일로 뽑았을 때 — 학생·강사 «이름» 이 들어갑니다.
+# report --who 는 사람 이름을 그대로 찍습니다. 깃에 올리지 마세요.
+*.csv
+*.json
+report_*.txt
