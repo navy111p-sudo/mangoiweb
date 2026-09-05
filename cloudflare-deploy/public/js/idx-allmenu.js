@@ -42,9 +42,9 @@
           옛 낱말도 함께 찾아 주므로, 그 말로 찾던 사람은 이름을 바꿔도 그대로 찾을 수 있다. */
     {emoji:'📝', img:'/img/menu/eval.webp', name:'오늘 수업일지', en:"Today's Lesson Note", url:'/eval.html'},
     {emoji:'📊', img:'/img/menu/report.webp', name:'월간 성적표', en:'Monthly Report Card', url:'/report.html'},
-    /* 📅 (2026-09-03) 오늘의 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
+    /* 📅 (2026-09-03) 오늘의 A.i 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
        (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
-    {emoji:'📅', img:'', name:'오늘의 학습', url:'/today.html'},
+    {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},

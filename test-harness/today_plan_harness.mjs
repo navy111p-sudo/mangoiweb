@@ -281,6 +281,50 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   const home = strip(rd(join(PUB, 'js', 'idx-ai-home.js')));
   const signup = rd(join(PUB, 'signup.html'));
   check('⑦ 입구 셋 — 전체메뉴 · 홈 검색 · 가입 완료 카드', /url:'\/today\.html'/.test(menu) && /location\.href='\/today\.html'/.test(home) && /href="\/today\.html"/.test(signup));
+
+  /* ── ⑧ 이름과 자리 (2026-09-04 사장님 지시)
+     이름: 「오늘의 학습」 → 「오늘의 A.i 학습」. 여러 곳이 «같은 말» 을 해야 한다 —
+           한 곳만 고치면 에러 없이 어긋나고, 그때가 「이거 같은 거야 다른 거야」가 다시 나오는 때다.
+     자리: 드로어 「AI 학습 도구」 «맨 위» + 로그인한 학생의 홈 큰 버튼.
+     ⚠️ «보이는가 · 눌리는가» 는 문자열로 못 본다 — manual/today-entry-browser.mjs 가 그려서 잰다. */
+  const idx = rd(join(PUB, 'index.html'));
+  const bar = rd(join(PUB, 'js', 'today-bar.js'));
+  const NAME = '오늘의 A.i 학습';
+  /* 🪤 주석을 «벗기고» 본다 — 안 벗기면 「왜 이 이름으로 바꿨나」 설명 주석이 자기를 잡아
+     알약 글자를 옛 이름으로 되돌려도 통과한다(2026-09-04 변이시험에서 실제로 안 잡혔다). */
+  for (const [nm, txt] of [['화면 제목', html], ['돌아가기 알약', bar], ['전체메뉴 타일', menu],
+                           ['홈 검색 라벨', home], ['가입 완료 카드', signup], ['홈(드로어·큰 버튼)', idx]])
+    check(`⑧ «${NAME}» — ${nm}`, strip(txt).includes(NAME));
+  /* 알약은 «화면에 그리는 글자» 를 콕 집어 본다 — 그 파일에서 이름이 나오는 곳이 여럿이다 */
+  check('⑧ 돌아가기 알약이 그리는 «글자» 가 새 이름',
+    /'📅 오늘의 A\.i 학습' \+ \(total/.test(strip(bar)), (strip(bar).match(/'📅[^']*'/g) || []).slice(0, 3));
+  check('⑧ 옛 이름이 화면 글자로 남아 있지 않다(주석은 무관)',
+    !/'📅 오늘의 학습'/.test(strip(bar)) && !/data-ko="📅 오늘의 학습"/.test(strip(html)));
+  check('⑧ 화면 제목 태그도 새 이름', /<title>오늘의 A\.i 학습/.test(html));
+  /* 옛 낱말로 찾던 사람이 못 찾게 되면 안 된다 — 검색어(kws)에는 «옛 말 + 새 말» 이 함께 있어야 한다 */
+  const kwLine = (home.split(/\r?\n/).find(l => /kws:/.test(l) && /\/today\.html/.test(l)) || '');
+  check('⑧ 홈 검색이 «옛 말» 로도 찾아 준다(오늘의 학습 · 계획표)',
+    /'오늘의 학습'/.test(kwLine) && /'계획표'/.test(kwLine), kwLine.slice(0, 90));
+  check('⑧ 홈 검색이 «새 말» 로도 찾아 준다(오늘의 ai 학습)', /'오늘의 ai 학습'/.test(kwLine));
+
+  /* 드로어 「AI 학습 도구」 묶음 — 그 안에서만 본다(파일 전체를 보면 딴 곳이 걸린다) */
+  const g = idx.indexOf('data-ko="AI 학습 도구"');
+  const gBody = g > 0 ? idx.slice(idx.indexOf('mg-acc-body', g), idx.indexOf('</details>', g)) : '';
+  const gBtns = [...gBody.matchAll(/<button[^>]*data-ko="([^"]+)"/g)].map(m => m[1]);
+  check('⑧ 드로어 「AI 학습 도구」 «맨 위» 가 오늘의 A.i 학습', /오늘의 A\.i 학습/.test(gBtns[0] || ''), gBtns.slice(0, 3));
+  check('⑧ 그 아래 도구가 그대로(8종 이상)', gBtns.length >= 9, gBtns.length);
+  /* ⛔ 「학습 공간」에는 넣지 않는다 — 거기는 레벨테스트·수업 신청처럼 «한 번씩 하는 학원 업무» 다 */
+  const sp = idx.indexOf('data-ko="학습 공간"');
+  const spBody = sp > 0 ? idx.slice(idx.indexOf('mg-acc-body', sp), idx.indexOf('</details>', sp)) : '';
+  check('⑧ 「학습 공간」에는 «안» 넣었다', sp > 0 && !/오늘의 A\.i 학습/.test(spBody));
+
+  /* 되돌아가는 길 — 도구 «목록» 을 없앤 것이 아니다. 없애면 「그냥 다른 것도」 하려는 학생의 길이 사라진다 */
+  check('⑧ ?menu=aitools 로 도구 목록을 여는 길이 있다',
+    /p\.get\('menu'\) === 'aitools'/.test(idx) && /openAiFriendsOverlay/.test(idx));
+  check('⑧ today.html 꼬리말이 «안내 글» 이 아니라 그 주소로 가는 링크다',
+    /href="\/\?menu=aitools"/.test(html) && !/도구를 전부 보려면 홈 왼쪽 메뉴/.test(html));
+  check('⑧ 도구 목록 자체는 그대로 살아 있다(전체메뉴 · 드로어 · 오버레이)',
+    /openAiFriendsOverlay = function/.test(idx) && gBtns.length >= 9);
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
