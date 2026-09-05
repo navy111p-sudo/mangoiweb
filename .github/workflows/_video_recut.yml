@@ -80,21 +80,31 @@ jobs:
           picks = {}
           rows = []
           for k in json.load(open('.video-short/recut.json')):
+              # 🔴 원본과 «같은 문장» 이므로 길이가 크게 다르면 잘렸거나 되풀이한 것이다.
+              #    ⛔ 「덩어리가 없으면 짧은 쪽」으로 고르면 안 된다 — 실제로 2.344초짜리
+              #       (같은 문장이 원본에서는 4.18초) 잘린 take 를 골랐다.
+              _, _, base = score(f'.video-short/raw/{k}.wav')
+              lo, hi = base * 0.75, base * 1.25
               best = None
               for i in range(3):
-                  p = f'.video-short/cand/{k}_{i}.wav'
-                  w, n, d = score(p)
-                  rows.append((k, i, w, n, d))
-                  if best is None or (w, d) < (best[1], best[2]): best = (i, w, d)
-              picks[k] = best[0]
-          # 원본도 같이 재어 «정말 나아졌나» 를 본다
-          for k in picks:
+                  w, n, d = score(f'.video-short/cand/{k}_{i}.wav')
+                  ok = lo <= d <= hi
+                  rows.append((k, i, w, n, d, ok))
+                  if not ok: continue
+                  # 덩어리가 적은 쪽 → 같으면 «원본 길이에 가까운» 쪽
+                  key = (w, abs(d - base))
+                  if best is None or key < best[1]: best = (i, key)
+              if best is None:
+                  print(f'⚠ {k}: 길이가 맞는 후보가 없다 — 원본을 그대로 쓴다')
+              else:
+                  picks[k] = best[0]
+          for k in list(picks) + [x for x in json.load(open('.video-short/recut.json')) if x not in picks]:
               w, n, d = score(f'.video-short/raw/{k}.wav')
-              rows.append((k, 'raw', w, n, d))
-          print(f'{"줄":6s} {"후보":5s} {"떨어진 덩어리 최대":>18s} {"개수":>5s} {"길이":>7s}')
-          for k, i, w, n, d in rows:
-              mark = ' ←뽑음' if picks.get(k) == i else ''
-              print(f'{k:6s} {str(i):5s} {w:15.1f} dB {n:5d} {d:7.3f}s{mark}')
+              rows.append((k, 'raw', w, n, d, True))
+          print(f'{"줄":6s} {"후보":5s} {"떨어진 덩어리 최대":>18s} {"개수":>5s} {"길이":>8s}  판정')
+          for k, i, w, n, d, ok in rows:
+              mark = ' ←뽑음' if picks.get(k) == i else ('' if ok else '  ✗길이가 크게 다름(잘렸거나 되풀이)')
+              print(f'{k:6s} {str(i):5s} {w:15.1f} dB {n:5d} {d:8.3f}s{mark}')
           for k, i in picks.items():
               shutil.copy(f'.video-short/cand/{k}_{i}.wav', f'.video-short/raw/{k}.wav')
               print(f'✅ {k} ← 후보 {i}')
@@ -191,7 +201,8 @@ jobs:
               print(f'ffmpeg -v error -y {ins} -filter_complex "{ch}concat=n={len(names)}:v=0:a=1" -ar 48000 -ac 2 -c:a pcm_s16le narration_full.wav')
               print('cd ..')
           scenes('.video-short', lambda n,N: 1.2 if n==N-1 else 0.45, 21)
-          scenes('.video',       lambda n,N: 0.55,                    20, title=True)
+          # ⚠️ 25 MiB 한도에 여유가 30 KiB 뿐이었다 → crf 20 → 21 (눈으로는 차이가 안 난다)
+          scenes('.video',       lambda n,N: 0.55,                    21, title=True)
           PY
           bash build.sh
 
