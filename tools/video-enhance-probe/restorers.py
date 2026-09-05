@@ -11,6 +11,11 @@ restorers.py — 복원 모델 어댑터 / restoration model adapters.
 
 어느 모델을 쓸 것인가 / which model
 ──────────────────────────────────
+⚠️ 아래 ms 는 **일반적인 참고치이지 이 저장소에서 잰 값이 아닙니다** — 프록시가 가중치
+   호스트를 막아 이 세 모델을 한 번도 못 돌려 봤습니다. `main.py --bench` 로 직접 재세요.
+⚠️ The ms below are GENERAL REFERENCE, not measured here — the proxy blocks the weight
+   hosts, so these three models have never been run in this repo. Measure with --bench.
+
   gfpgan       ★ 권장 / recommended.  단일 forward 의 GAN. RTX 3060 · FP16 에서
                  512 얼굴 하나에 약 15~25ms. 얼굴 복원 성능 대비 가장 가볍습니다.
                  One forward pass. ~15-25 ms per 512 face on an RTX 3060 with FP16.

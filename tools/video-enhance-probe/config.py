@@ -22,23 +22,40 @@ CACHE_DIR = Path(os.environ.get("MANGOI_PROBE_CACHE", Path.home() / ".cache" / "
 # ---------------------------------------------------------------------------
 # 망고아이 실제 적응 화질 사다리 / mangoi's real adaptive-quality ladder
 #
-# 정본은 cloudflare-deploy/public/js/idx-main.js 의 STEPS / SCALE / baseCaps().
-# Source of truth: STEPS / SCALE / baseCaps() in idx-main.js.
+# 정본은 cloudflare-deploy/public/js/idx-main.js 의
+#   STEPS(4972) · SCALE(4980) · vcQualityMode(4911) · vcQualityCaps(4922) · applyStep(5015)
 #
 # ⚠️ 여기 숫자는 그 파일에서 «베껴 온» 사본입니다. idx-main.js 를 고치면 여기도 고쳐야
 #    이 계측기가 «지금 학생이 실제로 보는 화면» 을 재현합니다.
-# ⚠️ These are a COPY. If idx-main.js changes, change here too — otherwise this rig
-#    stops reproducing what a student actually sees.
+# ⚠️ These are a COPY. If idx-main.js changes, change here too.
+#
+# 🔴 처음에 여기를 «틀리게» 베꼈습니다 — 남기는 이유입니다.
+#    `baseCaps()` 는 첫 줄이 `if (window.vcQualityCaps) return window.vcQualityCaps();`
+#    이고 그 함수는 같은 파일 4925행에서 «최상위» 로 대입됩니다. `baseCaps()` 는
+#    `applyStep()` 안에서야 «불리므로» 그때는 언제나 정의돼 있습니다
+#    ⟹ 그 아래 `return { br: 1200*1000, ... }` 는 **평소에 안 도는 폴백**입니다.
+#    저는 그 폴백을 베껴서, 기본 설정 학생이 아니라 «자동/고 를 손수 고른 사람» 의
+#    화면을 재현하고 있었습니다.
+# 🔴 We first copied the WRONG branch. baseCaps() returns vcQualityCaps() in practice;
+#    its literal return is a fallback that never runs. Copying it reproduced the wrong user.
+#
+# ⛔ 그러니 «`return` 문을 베끼기» 전에 그 위의 조기 반환을 먼저 보세요.
 # ---------------------------------------------------------------------------
-LADDER_STEPS = (1.0, 0.6, 0.35, 0.2, 0.08)   # 비트레이트 배수 / bitrate multiplier
-LADDER_SCALE = (1.0, 1.5, 2.0, 3.0, 4.0)     # 해상도 축소 / resolution divisor
+LADDER_STEPS = (1.0, 0.6, 0.35, 0.2, 0.08)   # 비트레이트·fps 배수 / bitrate & fps multiplier
+LADDER_SCALE = (1.0, 1.5, 2.0, 3.0, 4.0)     # 단계별 «추가» 해상도 축소 / EXTRA divisor per step
 LADDER_FPS_FLOOR = (10, 10, 10, 10, 5)       # 단계별 fps 하한 / per-step fps floor
+LADDER_BR_FLOOR = (150_000, 150_000, 150_000, 150_000, 60_000)   # 비트레이트 하한
 
-# baseCaps() 기본값 / baseCaps() defaults
-BASE_BITRATE_PC = 1_200_000
-BASE_BITRATE_MOBILE = 500_000
-BASE_FPS_PC = 24
-BASE_FPS_MOBILE = 15
+# vcQualityCaps() — (비트레이트, fps, «기본» 해상도 축소)
+#   ⚠️ 화면의 설정 기본값은 «저»(low)입니다(vcQualityMode 가 값이 없으면 'low').
+#      그래서 아래 "low" 줄이 «대부분의 학생» 이고, "auto"/"high" 는 손수 고른 사람입니다.
+#   ⚠️ The app's DEFAULT is 'low'. That row is most students; auto/high are opt-in.
+QUALITY_CAPS = {
+    #  mode  : (PC 비트레이트, 모바일 비트레이트, PC fps, 모바일 fps, 기본 scale)
+    "low":  (400_000, 250_000, 15, 15, 2.0),
+    "auto": (1_200_000, 500_000, 24, 15, 1.0),
+}
+QUALITY_CAPS["high"] = QUALITY_CAPS["auto"]      # JS 는 low 가 아니면 같은 값입니다
 
 
 @dataclass
@@ -52,7 +69,8 @@ class ProbeConfig:
     # 필리핀 회선에서 실제로 걸리는 단계를 로컬에서 재현합니다(0 = 열화 없음).
     # Reproduces the ladder step a Philippine link actually falls to (0 = none).
     degrade_step: int = 0
-    degrade_mobile: bool = False      # baseCaps() 의 모바일 분기 / mobile branch
+    degrade_mobile: bool = False      # vcQualityCaps() 의 모바일 분기 / mobile branch
+    quality_mode: str = "low"         # low | auto | high — ⚠️ 화면 «기본값이 low» 입니다
 
     # --- 모델 / model -------------------------------------------------------
     # gfpgan | codeformer | realesrgan | cv-sharpen | none
@@ -83,19 +101,30 @@ class ProbeConfig:
 
     # -- 파생 / derived -----------------------------------------------------
     @property
-    def base_bitrate(self) -> int:
-        return BASE_BITRATE_MOBILE if self.degrade_mobile else BASE_BITRATE_PC
-
-    @property
-    def base_fps(self) -> int:
-        return BASE_FPS_MOBILE if self.degrade_mobile else BASE_FPS_PC
+    def caps(self) -> tuple[int, int, float]:
+        """vcQualityCaps() 와 같은 답 / same answer as vcQualityCaps(): (br, fps, scale)."""
+        br_pc, br_mob, fps_pc, fps_mob, scale = QUALITY_CAPS[self.quality_mode]
+        return ((br_mob if self.degrade_mobile else br_pc),
+                (fps_mob if self.degrade_mobile else fps_pc),
+                scale)
 
     def ladder(self) -> tuple[int, float, int]:
-        """현재 단계의 (비트레이트, 해상도 축소, fps) / (bitrate, scale, fps) for the step."""
+        """현재 단계의 (비트레이트, 해상도 축소, fps) / (bitrate, scale, fps) for the step.
+
+        applyStep()(idx-main.js:5019-5022)과 같은 식이어야 합니다:
+            maxBitrate   = max(하한, round(caps.br  * STEPS[step]))
+            maxFramerate = max(하한, round(caps.fps * STEPS[step]))
+            scaleDownBy  = (caps.scale || 1) * SCALE[step]     ← ⚠️ «곱셈» 입니다
+        ⚠️ 마지막 줄의 `caps.scale` 곱을 빠뜨리면 low 모드의 ×2 가 통째로 사라져,
+           step 3 이 1/3(213×120 이어야 하는데 427×240)로 재현됩니다.
+        """
         s = max(0, min(self.degrade_step, len(LADDER_STEPS) - 1))
-        br = max(60_000 if s >= 4 else 150_000, int(self.base_bitrate * LADDER_STEPS[s]))
-        fps = max(LADDER_FPS_FLOOR[s], int(self.base_fps * LADDER_STEPS[s]))
-        return br, LADDER_SCALE[s], fps
+        base_br, base_fps, base_scale = self.caps
+        m = LADDER_STEPS[s]
+        # JS 는 Math.round — 파이썬 int() 는 «버림» 이라 답이 갈립니다(24*0.08 → 2 대 1).
+        br = max(LADDER_BR_FLOOR[s], round(base_br * m))
+        fps = max(LADDER_FPS_FLOOR[s], round(base_fps * m))
+        return br, (base_scale or 1.0) * LADDER_SCALE[s], fps
 
 
 # ---------------------------------------------------------------------------
@@ -194,13 +223,16 @@ def resolve_device(want: str) -> str:
 
 def banner(cfg: ProbeConfig) -> None:
     br, scale, fps = cfg.ladder()
+    ow, oh = max(1, int(cfg.width / scale)), max(1, int(cfg.height / scale))
     print("=" * 68)
     print("  망고아이 화상 프레임 화질 계측기 / mangoi video-frame enhancement probe")
     print("=" * 68)
     print(f"  입력 source      : {cfg.source}  ({cfg.width}x{cfg.height})")
+    print(f"  화질 설정 quality: {cfg.quality_mode}"
+          f"{'   ← 화면 기본값' if cfg.quality_mode == 'low' else '   (손수 고른 사람)'}"
+          f"{'  · 모바일' if cfg.degrade_mobile else '  · PC'}")
     print(f"  열화 degrade     : step {cfg.degrade_step} "
-          f"→ {br // 1000}kbps, 해상도 1/{scale:g}, {fps}fps"
-          f"{'  (모바일 기준)' if cfg.degrade_mobile else ''}")
+          f"→ {br // 1000}kbps, 해상도 1/{scale:g} = {ow}x{oh}, {fps}fps")
     print(f"  모델 model       : {cfg.model}")
     print(f"  장치 device      : {cfg.resolved_device}"
           f"{'  FP16' if cfg.fp16 and cfg.resolved_device == 'cuda' else ''}")

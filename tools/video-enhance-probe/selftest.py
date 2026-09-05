@@ -21,12 +21,15 @@ selftest.py — 카메라·GPU 없이 도는 자체 점검 / self-check with no 
 
 from __future__ import annotations
 
+import re
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
 
-from config import ProbeConfig, resolve_device
+from config import (LADDER_BR_FLOOR, LADDER_FPS_FLOOR, LADDER_SCALE, LADDER_STEPS,
+                    QUALITY_CAPS, ProbeConfig, resolve_device)
 from faces import (FACE_SIZE, FFHQ_TEMPLATE, Face, _soft_mask, align_matrix,
                    crop_aligned, paste_back)
 from sources import Degrader
@@ -95,24 +98,106 @@ def main() -> int:
     cfg = ProbeConfig()
     cfg.resolved_device = resolve_device("auto")
 
+    # ⓪ 정본 대조 / cross-check against the source of truth
+    #
+    # 🔴 이 절이 없어서 결함이 조용히 통과했습니다.
+    #    전에는 기대값을 «손으로 베껴» 두어, 제가 idx-main.js 의 «안 도는 폴백 분기» 를
+    #    베낀 것을 검사가 원리상 못 잡았습니다(그래도 PASS 31 이 나왔습니다).
+    #    CLAUDE.md 「하니스가 자기가 새로 만든 상수를 잡아 통과」 그대로입니다.
+    # ✅ 그래서 이제 «내가 적은 값» 이 아니라 **정본 파일을 읽어** 대조합니다.
+    # 🔴 Without this section the bug passed: expectations were hand-copied, so the rig
+    #    could not detect that we had copied a never-executed fallback branch.
+    print("\n[⓪] 정본(idx-main.js) 대조 / cross-check against source of truth")
+    js_path = Path(__file__).resolve().parents[2] / "cloudflare-deploy/public/js/idx-main.js"
+    if not js_path.exists():
+        print(f"  ⏭  건너뜀 / skipped — 정본이 없습니다: {js_path}")
+    else:
+        js = js_path.read_text(encoding="utf-8", errors="replace")
+
+        def nums(pattern: str) -> list[float] | None:
+            m = re.search(pattern, js)
+            return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", m.group(1))] if m else None
+
+        got = nums(r"const\s+STEPS\s*=\s*\[([^\]]*)\]")
+        check("STEPS 가 사본과 같은가", got == list(LADDER_STEPS), f"js={got}")
+        got = nums(r"const\s+SCALE\s*=\s*\[([^\]]*)\]")
+        check("SCALE 가 사본과 같은가", got == list(LADDER_SCALE), f"js={got}")
+
+        # 화면 «기본값» 이 low 인가 — 이것이 어느 행을 재현해야 하는지 정합니다.
+        m = re.search(r"function\s+vcQualityMode\s*\([^)]*\)\s*\{(.*?)\n\}", js, re.S)
+        check("화질 기본값이 'low' 인가", bool(m) and re.search(r"return\s*'low'", m.group(1)) is not None,
+              "기본값이 바뀌면 QUALITY_CAPS 의 어느 행이 «대부분의 학생» 인지도 바뀝니다")
+
+        # vcQualityCaps() 두 분기의 숫자
+        m = re.search(r"function\s+vcQualityCaps\s*\([^)]*\)\s*\{(.*?)\n\}", js, re.S)
+        if not m:
+            check("vcQualityCaps 를 찾았는가", False)
+        else:
+            body = m.group(1)
+            lo = re.search(r"'low'.*?return\s*\{([^}]*)\}", body, re.S)
+            hi = re.search(r"\n\s*return\s*\{([^}]*)\}\s*;\s*$", body.rstrip(), re.S)
+            lo_n = [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", lo.group(1))] if lo else None
+            hi_n = [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", hi.group(1))] if hi else None
+            # low : (mobile?250:400)*1000, fps 15, scale 2  → [250,400,1000,15,2]
+            c = QUALITY_CAPS["low"]
+            check("low 분기 숫자가 사본과 같은가",
+                  lo_n == [c[1] / 1000, c[0] / 1000, 1000, c[2], c[4]], f"js={lo_n}")
+            # auto: (mobile?500:1200)*1000, fps mobile?15:24, scale 1 → [500,1200,1000,15,24,1]
+            c = QUALITY_CAPS["auto"]
+            check("auto 분기 숫자가 사본과 같은가",
+                  hi_n == [c[1] / 1000, c[0] / 1000, 1000, c[3], c[2], c[4]], f"js={hi_n}")
+
+        # 🔴 이 한 줄이 제가 빠뜨렸던 곱셈입니다 — 없으면 low 의 ×2 가 통째로 사라집니다.
+        check("applyStep 이 caps.scale 을 곱하는가",
+              re.search(r"scaleResolutionDownBy\s*=\s*\(caps\.scale\s*\|\|\s*1\)\s*\*", js) is not None,
+              "ladder() 의 base_scale 곱셈이 이것과 짝입니다")
+        check("비트레이트 하한이 사본과 같은가",
+              re.search(r"Math\.max\(lo\s*\?\s*60000\s*:\s*150000", js) is not None,
+              f"사본={LADDER_BR_FLOOR}")
+        check("fps 하한이 사본과 같은가",
+              re.search(r"Math\.max\(lo\s*\?\s*5\s*:\s*10", js) is not None,
+              f"사본={LADDER_FPS_FLOOR}")
+        check("하한이 걸리는 단계(step>=4)가 사본과 같은가",
+              re.search(r"const\s+lo\s*=\s*step\s*>=\s*4", js) is not None)
+
     # ① 사다리 / ladder
     print("\n[①] 화질 사다리 / quality ladder")
     # 기대값은 idx-main.js 의 식을 손으로 푼 것입니다:
-    #   br  = max(step>=4 ? 60000 : 150000, 1_200_000 * STEPS[step])
-    #   fps = max(FPS_FLOOR[step],           24 * STEPS[step])
-    # step 4 = max(60000, 96000) = 96000  ← 하한 60k 가 아니라 96k 가 맞습니다.
-    expect = [(1_200_000, 1.0, 24), (720_000, 1.5, 14), (420_000, 2.0, 10),
-              (240_000, 3.0, 10), (96_000, 4.0, 5)]
-    for step, (br_e, sc_e, fps_e) in enumerate(expect):
-        cfg.degrade_step = step
-        br, sc, fps = cfg.ladder()
-        check(f"step {step}", (br, sc, fps) == (br_e, sc_e, fps_e),
-              f"{br // 1000}kbps 1/{sc:g} {fps}fps")
-    # 하한이 실제로 물리는지 — 모바일 기준 step 4 는 500k*0.08=40k 라 60k 로 올라가야 합니다.
+    #   br  = max(BR_FLOOR[step],  round(caps.br  * STEPS[step]))
+    #   fps = max(FPS_FLOOR[step], round(caps.fps * STEPS[step]))
+    #   sc  = caps.scale * SCALE[step]
+    # ⚠️ 'low' 가 **화면 기본값** 이라 이 행이 «대부분의 학생» 입니다.
+    EXPECT = {
+        "low":  [(400_000, 2.0, 15), (240_000, 3.0, 10), (150_000, 4.0, 10),
+                 (150_000, 6.0, 10), (60_000, 8.0, 5)],
+        "auto": [(1_200_000, 1.0, 24), (720_000, 1.5, 14), (420_000, 2.0, 10),
+                 (240_000, 3.0, 10), (96_000, 4.0, 5)],
+    }
+    for mode, rows in EXPECT.items():
+        cfg.quality_mode = mode
+        for step, want in enumerate(rows):
+            cfg.degrade_step = step
+            got = cfg.ladder()
+            ow = int(1280 / got[1])
+            check(f"{mode:>4} step {step}", got == want,
+                  f"{got[0] // 1000}kbps 1/{got[1]:g}={ow}x{int(720 / got[1])} {got[2]}fps"
+                  + ("" if got == want else f"   기대 {want}"))
+
+    # 🔴 이 두 줄이 «폴백 분기를 베낀» 결함을 콕 집어 잡습니다.
+    #    고치기 전 코드로 되돌리면 둘 다 실제로 FAIL 합니다.
+    cfg.quality_mode, cfg.degrade_step = "low", 0
+    check("기본(low)이 1200kbps 가 아님 / not the never-run fallback",
+          cfg.ladder()[0] == 400_000,
+          "1200k 가 나오면 baseCaps() 의 «안 도는 return» 을 베낀 것입니다")
+    check("기본(low)에 caps.scale ×2 가 반영됨 / caps.scale multiplied",
+          cfg.ladder()[1] == 2.0,
+          "1.0 이 나오면 ladder() 에서 base_scale 곱셈이 빠진 것입니다")
+
+    # 하한이 실제로 물리는지 — low·모바일 step 4 는 250k*0.08=20k 라 60k 로 올라가야 합니다.
     cfg.degrade_mobile, cfg.degrade_step = True, 4
     br_m, _, _ = cfg.ladder()
     check("step 4 하한이 실제로 물림 / floor actually binds", br_m == 60_000, f"모바일 {br_m}")
-    cfg.degrade_mobile = False
+    cfg.degrade_mobile, cfg.quality_mode = False, "low"
 
     # ② 열화 / degradation
     print("\n[②] 열화 시뮬레이터 / degradation simulator")

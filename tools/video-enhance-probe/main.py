@@ -26,9 +26,18 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
+
+# 🔴 결과물에는 사람 얼굴이 그대로 들어갑니다. 이 폴더에는 *.mp4 · *.png 를 막는
+#    .gitignore 가 있지만 **그 폴더에만** 걸립니다 — 리포 루트에서 실행하면 루트에
+#    떨어지고 루트 .gitignore 에는 그 통칙이 없습니다.
+#    그래서 기본 저장 위치를 «이 파일 옆» 으로 못 박습니다.
+# 🔴 Outputs contain faces. The .gitignore here only covers THIS folder, so we anchor
+#    default output next to this file rather than to the current working directory.
+_HERE = Path(__file__).resolve().parent
 
 from config import ProbeConfig, banner, resolve_device
 from faces import FaceDetector
@@ -79,8 +88,12 @@ def parse_args() -> ProbeConfig:
     p.add_argument("--height", type=int, default=720)
 
     p.add_argument("--degrade", type=int, default=0, choices=range(5), metavar="0-4",
-                   help="망고아이 화질 단계 재현 (0=열화 없음, 3~4=필리핀에서 실제로 자주 걸림)")
-    p.add_argument("--mobile", action="store_true", help="baseCaps() 모바일 기준으로 열화")
+                   help="망고아이 적응 화질 단계 재현 (0=열화 없음). "
+                        "⚠️ «필리핀에서 몇 단계까지 떨어지는지» 는 아직 아무도 못 쟀습니다 "
+                        "— 단계 값이 vc_quality 에 안 남습니다(README §9)")
+    p.add_argument("--quality", default="low", choices=["low", "auto", "high"],
+                   help="설정의 화질 버튼. ⚠️ 화면 기본값이 'low' 입니다 — 대부분의 학생이 여기")
+    p.add_argument("--mobile", action="store_true", help="vcQualityCaps() 모바일 기준으로 열화")
 
     p.add_argument("--model", default="gfpgan",
                    choices=["gfpgan", "codeformer", "realesrgan", "cv-sharpen", "none"])
@@ -103,7 +116,7 @@ def parse_args() -> ProbeConfig:
     a = p.parse_args()
     cfg = ProbeConfig(
         source=a.source, width=a.width, height=a.height,
-        degrade_step=a.degrade, degrade_mobile=a.mobile,
+        degrade_step=a.degrade, degrade_mobile=a.mobile, quality_mode=a.quality,
         model=a.model, device=a.device, fp16=a.fp16,
         codeformer_fidelity=a.fidelity, sr_input_size=a.sr_input,
         frame_skip=a.skip, skip_mode=a.skip_mode, temporal_ema=a.temporal_ema,
@@ -130,6 +143,17 @@ def main() -> int:
     paused = False
     n = 0
     t_start = time.perf_counter()
+
+    # --out 이 이 폴더 «밖» 이면 .gitignore 가 안 걸립니다 — 조용히 넘어가지 않습니다.
+    if cfg.out_path:
+        dest = Path(cfg.out_path).expanduser()
+        if not dest.is_absolute():
+            dest = _HERE / dest                  # 상대경로는 이 폴더 기준(= 보호받는 자리)
+            cfg.out_path = str(dest)
+        if _HERE not in dest.parents:
+            print(f"  ⚠️ 저장 위치가 이 폴더 밖입니다: {dest}\n"
+                  f"     여기 .gitignore 는 «이 폴더에만» 걸립니다 — 사람 얼굴이 든 파일이면\n"
+                  f"     깃에 올라가지 않는지 직접 확인하세요(README §7).", file=sys.stderr)
 
     # 창이 있는 모드인데 디스플레이가 없으면 조용히 끄는 대신 알려 줍니다.
     # If a window was asked for but there's no display, say so instead of crashing.
@@ -209,9 +233,10 @@ def main() -> int:
                     print(f"  · 열화 단계 {cfg.degrade_step} → {br // 1000}kbps, 1/{sc:g}, {fp}fps")
                 elif k == ord("s"):
                     stamp = time.strftime("%H%M%S")
-                    cv2.imwrite(f"probe_{stamp}_before.png", before)
-                    cv2.imwrite(f"probe_{stamp}_after.png", after)
-                    print(f"  · 저장 / saved probe_{stamp}_*.png")
+                    # CWD 가 아니라 «이 폴더» 에 씁니다 — 위 _HERE 주석 참고.
+                    cv2.imwrite(str(_HERE / f"probe_{stamp}_before.png"), before)
+                    cv2.imwrite(str(_HERE / f"probe_{stamp}_after.png"), after)
+                    print(f"  · 저장 / saved {_HERE}/probe_{stamp}_*.png")
     except KeyboardInterrupt:
         print("\n  · 중단 / interrupted")
     finally:
@@ -243,8 +268,12 @@ def main() -> int:
                   "🟡 빠듯함" if total <= budget else "❌ 예산 초과"
         print(f"  {target}fps 예산 {budget:.1f}ms  →  {total:.1f}ms  {verdict}")
     print("=" * 68)
-    print("  ℹ️ 이 숫자는 «이 PC» 의 것입니다. 필리핀 강사 노트북(대개 GPU 없음)에서는\n"
-          "     CPU 로 10~40배 느립니다 — 배포 판단은 README.md 를 보세요.")
+    # ⛔ 여기서 「필리핀 노트북은 GPU 가 없다」고 단정하지 마세요 — 아무도 안 쟀습니다.
+    #    README §0/§9 는 그것을 «추론» 이라고 적어 두었는데, 벤치 직후 사람이 실제로 읽는
+    #    것은 이 터미널 출력이라 여기만 단정형이면 그 구분이 사라집니다.
+    print("  ℹ️ 이 숫자는 «이 PC · 이 장치» 의 것입니다. GPU 가 없는 기기에서는 CPU 로\n"
+          "     10~40배 느려집니다. ⚠️ 필리핀 강사 기기 사양은 이 저장소에서 잰 적이\n"
+          "     없습니다 — 배포 판단 전에 실제 기기에서 다시 재세요(README §9).")
     return 0
 
 

@@ -20,7 +20,7 @@ huggingface_hub>=0.23         # 가중치 내려받기 / weight download
 # --- AI 모델을 쓸 때만 / only for the AI models -----------------------------
 # --model none, --model cv-sharpen 만 쓸 거면 아래는 필요 없습니다.
 torch>=2.0
-torchvision>=0.15
+torchvision>=0.15,<0.17        # ⚠️ 0.17+ 은 basicsr 이 import 에서 터집니다(README §6)
 basicsr>=1.4.2                # ⚠️ 아래 «basicsr 호환» 주의 / see README
 facexlib>=0.3.0
 gfpgan>=1.3.8                 # --model gfpgan
