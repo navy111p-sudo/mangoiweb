@@ -1,0 +1,127 @@
+{
+ ".video-short/raw/t1.wav": {
+  "dur": 4.58,
+  "cut": 4.58,
+  "why": "그대로"
+ },
+ ".video-short/raw/t2.wav": {
+  "dur": 4.18,
+  "cut": 4.01,
+  "why": "덩어리 4.01~4.18s (앞 조용 0.35s, 크기 -4.1dB)"
+ },
+ ".video-short/raw/t3.wav": {
+  "dur": 5.0,
+  "cut": 4.77,
+  "why": "덩어리 4.77~5.00s (앞 조용 1.27s, 크기 -5.5dB)"
+ },
+ ".video-short/raw/t4.wav": {
+  "dur": 5.907,
+  "cut": 5.9065,
+  "why": "그대로"
+ },
+ ".video-short/raw/t5.wav": {
+  "dur": 4.0,
+  "cut": 3.89,
+  "why": "덩어리 3.89~4.00s (앞 조용 1.09s, 크기 0.0dB)"
+ },
+ ".video-short/raw/t6.wav": {
+  "dur": 4.202,
+  "cut": 4.20175,
+  "why": "그대로"
+ },
+ ".video-short/raw/t7.wav": {
+  "dur": 5.0,
+  "cut": 4.97,
+  "why": "덩어리 4.97~4.99s (앞 조용 0.76s, 크기 -3.4dB)"
+ },
+ ".video/raw/s01.wav": {
+  "dur": 5.0,
+  "cut": 5.0,
+  "why": "그대로"
+ },
+ ".video/raw/s02.wav": {
+  "dur": 13.38,
+  "cut": 13.34,
+  "why": "덩어리 13.34~13.37s (앞 조용 0.29s, 크기 -9.1dB)"
+ },
+ ".video/raw/s03.wav": {
+  "dur": 10.68,
+  "cut": 10.68,
+  "why": "그대로"
+ },
+ ".video/raw/s04.wav": {
+  "dur": 16.5,
+  "cut": 16.5,
+  "why": "그대로"
+ },
+ ".video/raw/s05.wav": {
+  "dur": 17.28,
+  "cut": 16.89,
+  "why": "덩어리 16.89~17.28s (앞 조용 0.23s, 크기 -6.4dB)"
+ },
+ ".video/raw/s06.wav": {
+  "dur": 5.0,
+  "cut": 5.0,
+  "why": "그대로"
+ },
+ ".video/raw/s07.wav": {
+  "dur": 10.3,
+  "cut": 10.3,
+  "why": "그대로"
+ },
+ ".video/raw/s08.wav": {
+  "dur": 9.537,
+  "cut": 9.537125,
+  "why": "그대로"
+ },
+ ".video/raw/s09.wav": {
+  "dur": 13.334,
+  "cut": 13.333541666666667,
+  "why": "그대로"
+ },
+ ".video/raw/s10.wav": {
+  "dur": 17.28,
+  "cut": 17.28,
+  "why": "그대로"
+ },
+ ".video/raw/s11.wav": {
+  "dur": 5.146,
+  "cut": 5.145875,
+  "why": "그대로"
+ },
+ ".video/raw/s12.wav": {
+  "dur": 15.0,
+  "cut": 15.0,
+  "why": "그대로"
+ },
+ ".video/raw/s13.wav": {
+  "dur": 5.68,
+  "cut": 5.63,
+  "why": "덩어리 5.63~5.65s (앞 조용 0.47s, 크기 -4.1dB)"
+ },
+ ".video/raw/s14.wav": {
+  "dur": 5.68,
+  "cut": 5.68,
+  "why": "그대로"
+ },
+ ".video/raw/s15.wav": {
+  "dur": 14.6,
+  "cut": 14.6,
+  "why": "그대로"
+ },
+ ".video/raw/s16.wav": {
+  "dur": 9.6,
+  "cut": 9.6,
+  "why": "그대로"
+ },
+ ".video/raw/s17.wav": {
+  "dur": 14.6,
+  "cut": 14.6,
+  "why": "그대로"
+ },
+ ".video/raw/s18.wav": {
+  "dur": 16.5,
+  "cut": 16.5,
+  "why": "그대로"
+ }
+}

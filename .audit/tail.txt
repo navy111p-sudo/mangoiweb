@@ -1,0 +1,25 @@
+  .video-short/raw/t1.wav       4.580s →  4.580s   그대로
+✂ .video-short/raw/t2.wav       4.180s →  4.010s   덩어리 4.01~4.18s (앞 조용 0.35s, 크기 -4.1dB)
+✂ .video-short/raw/t3.wav       5.000s →  4.770s   덩어리 4.77~5.00s (앞 조용 1.27s, 크기 -5.5dB)
+  .video-short/raw/t4.wav       5.907s →  5.907s   그대로
+✂ .video-short/raw/t5.wav       4.000s →  3.890s   덩어리 3.89~4.00s (앞 조용 1.09s, 크기 0.0dB)
+  .video-short/raw/t6.wav       4.202s →  4.202s   그대로
+✂ .video-short/raw/t7.wav       5.000s →  4.970s   덩어리 4.97~4.99s (앞 조용 0.76s, 크기 -3.4dB)
+  .video/raw/s01.wav            5.000s →  5.000s   그대로
+✂ .video/raw/s02.wav           13.380s → 13.340s   덩어리 13.34~13.37s (앞 조용 0.29s, 크기 -9.1dB)
+  .video/raw/s03.wav           10.680s → 10.680s   그대로
+  .video/raw/s04.wav           16.500s → 16.500s   그대로
+✂ .video/raw/s05.wav           17.280s → 16.890s   덩어리 16.89~17.28s (앞 조용 0.23s, 크기 -6.4dB)
+  .video/raw/s06.wav            5.000s →  5.000s   그대로
+  .video/raw/s07.wav           10.300s → 10.300s   그대로
+  .video/raw/s08.wav            9.537s →  9.537s   그대로
+  .video/raw/s09.wav           13.334s → 13.334s   그대로
+  .video/raw/s10.wav           17.280s → 17.280s   그대로
+  .video/raw/s11.wav            5.146s →  5.146s   그대로
+  .video/raw/s12.wav           15.000s → 15.000s   그대로
+✂ .video/raw/s13.wav            5.680s →  5.630s   덩어리 5.63~5.65s (앞 조용 0.47s, 크기 -4.1dB)
+  .video/raw/s14.wav            5.680s →  5.680s   그대로
+  .video/raw/s15.wav           14.600s → 14.600s   그대로
+  .video/raw/s16.wav            9.600s →  9.600s   그대로
+  .video/raw/s17.wav           14.600s → 14.600s   그대로
+  .video/raw/s18.wav           16.500s → 16.500s   그대로
