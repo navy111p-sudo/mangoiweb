@@ -1,0 +1,221 @@
+# 임시 — 소리 진단 + «경계 없는» 재합성. main 에 올리지 않는다.
+#
+# 🔴 왜 다시 만드나 — 앞 판은 장면마다 AAC 로 인코딩한 뒤 `-c copy` 로 이어붙였다.
+#    AAC 는 스트림마다 앞에 priming(예열) 샘플이 붙으므로, 이어붙인 자리마다
+#    작은 틈·딸깍·되울림이 남는다. 그 뒤 음악 믹스가 그것을 디코드해 다시 인코딩해
+#    «구워» 버렸다. 계산한 경계 5.0·9.7·15.1·21.5·25.9·30.6초는 사장님이 짚으신
+#    0:15·0:20·0:26 과 겹친다.
+# ✅ 고침: 소리는 «한 덩어리 wav» 로 이어붙이고 AAC 인코딩은 «맨 마지막에 한 번만».
+name: video-audit
+on: { workflow_dispatch: {}, push: { branches: [video8] } }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg 설치
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          command -v ffmpeg && command -v ffprobe
+
+      - name: 재료 내려받기
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > get.sh
+          import json
+          for d in ('.video-short', '.video'):
+              print(f'mkdir -p {d}/aud')
+              for x in json.load(open(f'{d}/narration.json')):
+                  print(f"curl -fsSL -o {d}/aud/{x['f']}.wav '{x['url']}'")
+          print(f"curl -fsSL -o .video-short/music.m4a '{json.load(open('.video-short/music.json'))['url']}'")
+          PY
+          bash get.sh
+          for f in .video-short/aud/*.wav .video/aud/*.wav .video-short/music.m4a; do
+            ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" >/dev/null || { echo "❌ $f"; exit 1; }
+          done
+
+      - name: ① 진단 — 재료와 «지금 배포된» 영상을 잰다
+        run: |
+          set -euo pipefail
+          mkdir -p .audit/out
+          R=.audit/out/report.txt; : > $R
+          say(){ echo "$@" | tee -a $R; }
+
+          probe(){   # probe <이름> <파일>
+            say ""; say "── $1  ($2)"
+            ffprobe -v error -show_entries format=duration:stream=codec_name,sample_rate,channels \
+                    -of default=nw=1 "$2" 2>&1 | sed 's/^/    /' | tee -a $R
+            ffmpeg -v error -i "$2" -af volumedetect -f null - 2>&1 \
+              | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R
+          }
+
+          say "════ 재료 ════"
+          probe "사장님이 올린 목소리 샘플" .audit/sample.mp3
+          probe "배경음악(생성)"            .video-short/music.m4a
+          probe "나레이션 t4 (제일 긴 줄)"  .video-short/aud/t4.wav
+
+          say ""
+          say "════ 지금 배포된 짧은 판 ════"
+          probe "ai-tools-short-kr.mp4" cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4
+
+          # 🔎 «말이 없는 구간» 의 바닥 소리 — 목소리 복제가 원본의 잡음까지 베꼈나
+          say ""
+          say "════ 무음 구간 바닥 소리 (복제가 잡음을 베꼈으면 여기가 안 조용하다) ════"
+          for n in "샘플:.audit/sample.mp3" "나레이션t4:.video-short/aud/t4.wav"; do
+            f="${n#*:}"; say ""; say "── ${n%%:*}"
+            ffmpeg -v error -i "$f" -af "silencedetect=noise=-45dB:d=0.25" -f null - 2>&1 \
+              | grep -E "silence_(start|end)" | head -12 | sed 's/^.*] /    /' | tee -a $R
+          done
+
+          # 🔎 장면 경계 — 지금 파일에서 그 자리 0.3초만 떼어 잰다
+          say ""
+          say "════ 장면 경계 부근 0.3초 (딸깍·틈이 있으면 여기서 보인다) ════"
+          for t in 5.03 9.66 15.11 21.47 25.92 30.57; do
+            v=$(ffmpeg -v error -ss $t -t 0.3 -i cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4 \
+                 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //')
+            say "    t=${t}s   $v"
+          done
+
+          # 🖼 스펙트로그램 — 눈으로 본다
+          spec(){ ffmpeg -v error -y -i "$2" -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" ".audit/out/$1.png"; }
+          wave(){ ffmpeg -v error -y -i "$2" -lavfi "showwavespic=s=1400x260:colors=#f59e0b" ".audit/out/$1.png"; }
+          spec spec_sample   .audit/sample.mp3
+          spec spec_music    .video-short/music.m4a
+          spec spec_narr_t4  .video-short/aud/t4.wav
+          spec spec_now      cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4
+          wave wave_now      cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4
+          # 경계 15.11초 앞뒤 1초만 크게
+          ffmpeg -v error -y -ss 14.6 -t 1.0 -i cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4 \
+            -lavfi "showwavespic=s=1400x300:colors=#ef4444" .audit/out/wave_now_join15.png
+          cat $R
+
+      - name: ② 재합성 — 소리를 «한 덩어리» 로 만들고 AAC 는 마지막에 한 번만
+        run: |
+          set -euo pipefail
+          # ⚠️ 긴 판 장면 조립이 intro/outro 를 쓰므로 «먼저» 만들어야 한다
+          (cd .video && bash music.sh)
+          python3 - <<'PY' > build.sh
+          import json
+
+          def scenes(d, tails, crf, extra_last=None):
+              items = json.load(open(f'{d}/narration.json'))
+              N = len(items)
+              names = []
+              print(f'cd {d}; mkdir -p seg2; : > vlist.txt')
+              if extra_last is not None:   # 긴 판: 맨 앞 제목 화면(시그널 음악만)
+                  print('ffmpeg -v error -y -i intro.wav -ar 48000 -ac 2 seg2/s00.a.wav')
+                  names.append('s00')
+              for n, x in enumerate(items):
+                  f = x['f']; tail = tails(n, N)
+                  print(f'ffmpeg -v error -y -i aud/{f}.wav -af "apad=pad_dur={tail}" -ar 48000 -ac 2 seg2/{f}.n.wav')
+                  if extra_last is not None and n == N - 1:
+                      print(f'ffmpeg -v error -y -i seg2/{f}.n.wav -i outro.wav '
+                            f'-filter_complex "[0][1]concat=n=2:v=0:a=1" -ar 48000 -ac 2 seg2/{f}.a.wav')
+                  else:
+                      print(f'mv seg2/{f}.n.wav seg2/{f}.a.wav')
+                  names.append(f)
+              # 장면 영상 — «소리를 넣지 않는다»(-an). 길이는 그 장면 wav 를 재서 맞춘다.
+              for f in names:
+                  slide = 'slides/%s.jpg' % f
+                  print(f'D=$(python3 -c "import wave;w=wave.open(\'seg2/{f}.a.wav\');print(w.getnframes()/w.getframerate())")')
+                  print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+                  print(f'ffmpeg -v error -y -loop 1 -i {slide} -t "$D" -an '
+                        f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                        f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                        f'-c:v libx264 -preset medium -crf {crf} -r 30 seg2/{f}.v.mp4')
+                  print(f'echo "file \'seg2/{f}.v.mp4\'" >> vlist.txt')
+              # 영상만 이어붙인다(프레임 경계라 안전)
+              print('ffmpeg -v error -y -f concat -safe 0 -i vlist.txt -c copy video_only.mp4')
+              # 🔴 소리는 «wav 로» 이어붙인다 — 인코딩 경계가 아예 생기지 않는다
+              ins = ' '.join(f'-i seg2/{f}.a.wav' for f in names)
+              chain = ''.join(f'[{i}:a]' for i in range(len(names)))
+              print(f'ffmpeg -v error -y {ins} -filter_complex "{chain}concat=n={len(names)}:v=0:a=1" '
+                    f'-ar 48000 -ac 2 -c:a pcm_s16le narration_full.wav')
+              print('cd ..')
+
+          scenes('.video-short', lambda n, N: 1.2 if n == N - 1 else 0.45, 21)
+          scenes('.video',       lambda n, N: 0.55,                        20, extra_last=True)
+          PY
+          bash build.sh
+          ls -la .video-short/narration_full.wav .video/narration_full.wav .video-short/video_only.mp4 .video/video_only.mp4
+
+      - name: ③ 짧은 판 — 배경음악 믹스 + 리미터 + 마지막 인코딩 한 번
+        run: |
+          set -euo pipefail
+          cd .video-short
+          T=$(python3 -c "import wave;w=wave.open('narration_full.wav');print(w.getnframes()/w.getframerate())")
+          echo ">>> 소리 길이 ${T}s"
+          python3 - "$T" <<'PY' > mix.txt
+          import sys
+          T = float(sys.argv[1])
+          # ⛔ 값을 올리지 말 것 — 나레이션이 t=0 부터 나온다.
+          FI, DK0, DK1 = 1.0, 4.5, 7.5
+          UP0, UP1, FO = T - 8.0, T - 5.5, T - 2.0
+          LOUD, BED, END = 0.20, 0.05, 0.18
+          assert DK1 < UP0
+          e = (f"if(lt(t,{FI}),{LOUD}*t/{FI},"
+               f"if(lt(t,{DK0}),{LOUD},"
+               f"if(lt(t,{DK1}),{LOUD}+({BED}-{LOUD})*(t-{DK0})/{DK1-DK0},"
+               f"if(lt(t,{UP0:.3f}),{BED},"
+               f"if(lt(t,{UP1:.3f}),{BED}+({END}-{BED})*(t-{UP0:.3f})/{UP1-UP0},"
+               f"if(lt(t,{FO:.3f}),{END},"
+               f"max(0,{END}*(1-(t-{FO:.3f})/{T-FO:.3f}))))))))")
+          # 🔴 amix 뒤에 리미터 — 나레이션(≈0dB)에 음악을 더하면 봉우리가 1.0 을 넘어
+          #    «지직» 하는 클리핑이 된다. alimiter 가 그 봉우리만 눌러 준다.
+          print(f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                f"volume=eval=frame:volume='{e}',atrim=0:{T},asetpts=N/SR/TB[m];"
+                f"[0:a][m]amix=inputs=2:duration=first:normalize=0[x];"
+                f"[x]alimiter=limit=0.95:attack=5:release=60:level=disabled[a]")
+          PY
+          cat mix.txt
+          ffmpeg -v error -y -i narration_full.wav -stream_loop -1 -i music.m4a \
+            -filter_complex_script mix.txt -map '[a]' -c:a pcm_s16le mixed.wav
+          # 마지막에 «한 번만» AAC
+          ffmpeg -v error -y -i video_only.mp4 -i mixed.wav -map 0:v -map 1:a \
+            -c:v copy -c:a aac -b:a 192k -movflags +faststart mangoi-ai-short.mp4
+          ffprobe -v error -show_entries format=duration -of csv=p=0 mangoi-ai-short.mp4
+          ls -la mangoi-ai-short.mp4
+
+      - name: ④ 긴 판 — 마지막 인코딩 한 번
+        run: |
+          set -euo pipefail
+          cd .video
+          ffmpeg -v error -y -i video_only.mp4 -i narration_full.wav -map 0:v -map 1:a \
+            -c:v copy -c:a aac -b:a 192k -movflags +faststart mangoi-ai-guide.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-guide.mp4'],capture_output=True,text=True).stdout.strip()
+          m,s=divmod(float(d),60); print(f'>>> 긴 판: {int(m)}분 {s:.1f}초')
+          "
+          ls -la mangoi-ai-guide.mp4
+
+      - name: ⑤ 새 파일도 같은 자리에서 잰다 (전/후 대조)
+        run: |
+          set -euo pipefail
+          R=.audit/out/report.txt
+          say(){ echo "$@" | tee -a $R; }
+          say ""; say "════ 새로 만든 짧은 판 ════"
+          ffmpeg -v error -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 \
+            | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R
+          say ""
+          say "════ 같은 장면 경계 — 새 파일 ════"
+          for t in 5.03 9.66 15.11 21.47 25.92 30.57; do
+            v=$(ffmpeg -v error -ss $t -t 0.3 -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //')
+            say "    t=${t}s   $v"
+          done
+          ffmpeg -v error -y -i .video-short/mangoi-ai-short.mp4 -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" .audit/out/spec_new.png
+          ffmpeg -v error -y -i .video-short/mangoi-ai-short.mp4 -lavfi "showwavespic=s=1400x260:colors=#22c55e" .audit/out/wave_new.png
+          ffmpeg -v error -y -ss 14.6 -t 1.0 -i .video-short/mangoi-ai-short.mp4 -lavfi "showwavespic=s=1400x300:colors=#22c55e" .audit/out/wave_new_join15.png
+          cat $R
+
+      - name: 결과 커밋
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .audit/out .video/mangoi-ai-guide.mp4 .video-short/mangoi-ai-short.mp4
+          git commit -m "audit: 소리 진단 + 경계 없는 재합성 [skip ci]"
+          git push origin HEAD:video8
