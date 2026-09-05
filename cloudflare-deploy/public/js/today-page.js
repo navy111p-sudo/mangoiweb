@@ -28,13 +28,41 @@
   }
   function tok() { try { return localStorage.getItem('mango_token') || ''; } catch (e) { return ''; } }
 
+  /* ═══ 🍯 맛보기 — 로그인 없이 «하루쯤» 둘러보기 (2026-09-05 사장님 지시) ═══
+     처음 온 사람이 로그인 벽만 보고 나가던 것을 막는다. 서버가 개인정보가 없는
+     «보기용» 계획(?sample=1)을 주고, 화면은 그것을 «맛보기» 라고 말한다.
+     ⚠️ 창은 «처음 연 시각» 부터 잰다 — 기기 하나에 한 번뿐이라 계속 되살아나지 않는다.
+     ⛔ localStorage 가 막힌 곳(사생활 보호 창)에서는 «창을 못 연다» 가 아니라 «맛보기를
+        보여준다» 로 실패한다. 못 보여주면 고치려던 그 벽이 그대로다. */
+  var SAMPLE_KEY = 'mangoi_today_sample_from';
+  var SAMPLE_MS = 24 * 60 * 60 * 1000;
+  function sampleOpen() {
+    var now = Date.now();
+    try {
+      var v = Number(localStorage.getItem(SAMPLE_KEY) || 0);
+      if (!v) { localStorage.setItem(SAMPLE_KEY, String(now)); return true; }
+      return (now - v) < SAMPLE_MS;
+    } catch (e) { return true; }   // 저장을 못 하는 기기 — 막지 않는다
+  }
+
   var DATA = null;
   function show(id) { ['td-login', 'td-status', 'td-main'].forEach(function (x) { $(x).hidden = (x !== id); }); }
   function status(msg, err) { show('td-status'); var t = $('td-status-t'); t.textContent = msg; t.className = 'note' + (err ? ' err' : ''); }
 
   function load() {
     var u = user();
-    if (!u || !u.uid) { show('td-login'); return; }
+    if (!u || !u.uid) {
+      if (!sampleOpen()) { show('td-login'); return; }   // 하루가 지났으면 로그인 안내로
+      if (!DATA) status(T('맛보기 화면을 읽는 중…', 'Loading the sample…'));
+      fetch('/api/student/today?sample=1')
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (d) {
+          if (d && d.ok === true && d.plan) { DATA = d; render(); return; }
+          show('td-login');   // 맛보기를 못 읽으면 원래 화면으로 — 빈 화면보다 낫다
+        })
+        .catch(function () { show('td-login'); });
+      return;
+    }
     if (!DATA) status(T('오늘 계획을 읽는 중…', 'Loading today\'s plan…'));
     fetch('/api/student/today?uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent(tok()), { credentials: 'include' })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d.__http = r.status; return d; }); })
@@ -112,7 +140,11 @@
 
   function render() {
     var d = DATA, p = d.plan, en = isEn();
-    seedLevel(p);
+    /* ⛔ 맛보기 레벨(보기용)을 기기에 심지 않는다 — 그 값은 이 사람의 레벨이 아니고,
+       한 번 심으면 «비어 있을 때만» 규칙 때문에 나중에 진짜 레벨이 와도 안 덮인다. */
+    if (!d.sample) seedLevel(p);
+    var sb = $('td-sample');
+    if (sb) sb.hidden = !d.sample;
     show('td-main');
     var name = d.name || '';
     $('td-hello').textContent = name ? T(name + ' 님, 오늘도 조금만 해요', 'Hi ' + name + ' — a little today') : T('오늘도 조금만 해요', 'A little today');
@@ -126,8 +158,12 @@
     chips.push('<span class="chip mode">' + (p.mode === 'class' ? '🏫 ' + T('수업일', 'Class day') : (p.mode === 'home' ? '🏠 ' + T('집에서', 'At home') : '🎯 ' + T('레벨부터', 'Level first'))) + '</span>');
     if (p.band) chips.push('<span class="chip">' + esc(en ? p.bandEn : p.bandKo) + (p.cefr ? ' · ' + esc(p.cefr) : '') + '</span>');
     if (p.textbook) chips.push('<span class="chip">📚 ' + esc(p.textbook) + '</span>');
-    chips.push('<span class="chip streak">🔥 ' + T('연속 ' + d.ai_streak + '일', d.ai_streak + '-day streak') + '</span>');
-    chips.push('<span class="chip pts">⭐ ' + T('오늘 +' + d.points_today + 'P', '+' + d.points_today + 'P today') + '</span>');
+    /* ⛔ 맛보기에서는 연속일·포인트 칩을 그리지 않는다 — 값이 0 인 것은 사실이지만,
+       그 화면에서는 «너는 아무것도 안 했다» 로 읽힌다(맛보기는 남의 기록이 없는 화면이다). */
+    if (!d.sample) {
+      chips.push('<span class="chip streak">🔥 ' + T('연속 ' + d.ai_streak + '일', d.ai_streak + '-day streak') + '</span>');
+      chips.push('<span class="chip pts">⭐ ' + T('오늘 +' + d.points_today + 'P', '+' + d.points_today + 'P today') + '</span>');
+    }
     $('td-chips').innerHTML = chips.join('');
 
     var n = p.steps.length, dn = p.doneCount;

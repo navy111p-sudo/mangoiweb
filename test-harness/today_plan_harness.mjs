@@ -512,6 +512,88 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
 }
 
+
+// ═══ ⑩ 🍯 맛보기 — 로그인 없이 하루쯤 둘러보기 (2026-09-05) ═══
+//   🔴 문자열로 «그 낱말이 있는가» 를 보면 안 된다 — 물어야 할 것은
+//      ① 서버가 맛보기에서 «DB 를 안 읽는가»(개인정보가 실릴 자리가 없는가)
+//      ② 그 갈래가 인증 게이트 «앞» 인가(뒤에 있으면 영원히 안 닿는다)
+//      ③ 정본을 그 값으로 실제로 돌리면 «집에서 하는 날» 계획이 나오는가
+//      ④ 화면이 그 사실을 «맛보기» 라고 말하는가 · 가짜 레벨을 기기에 심지 않는가
+console.log('\n[ ⑩ 맛보기(로그인 없이) ]');
+{
+  const stuSrc = readFileSync(join(CF, 'src', 'api-students.ts'), 'utf8');
+  const todaySrc = handlerBlock(stuSrc, "path === '/api/student/today'") || '';
+  const sampleBlk = handlerBlock(todaySrc, "url.searchParams.get('sample')") || '';
+  check('⑩ 맛보기 갈래가 있다', !!sampleBlk, sampleBlk ? '(' + sampleBlk.length + '자)' : '못 찾음');
+
+  /* ② 순서 — 인증 게이트보다 «앞» 이어야 한다. 뒤면 로그인 안 한 사람은 401 을 먼저 받는다. */
+  const iSample = todaySrc.indexOf("url.searchParams.get('sample')");
+  const iGate = todaySrc.indexOf('resolveOwnerScope');
+  check('⑩ 맛보기가 인증 게이트보다 앞에 있다', iSample > 0 && iGate > iSample,
+    'sample@' + iSample + ' · gate@' + iGate);
+  /* ⛔ 게이트 자체가 사라지면 안 된다 — 맛보기를 연 것이지 본 화면을 연 것이 아니다 */
+  check('⑩ 본 화면의 인증 게이트는 그대로다',
+    /resolveOwnerScope/.test(todaySrc) && /auth_required/.test(todaySrc));
+
+  /* ① 맛보기 갈래 안에서는 DB 를 한 줄도 읽지 않는다 */
+  check('⑩ 맛보기는 DB 를 읽지 않는다', !!sampleBlk && !/env\.DB/.test(sampleBlk),
+    sampleBlk && /env\.DB/.test(sampleBlk) ? '⚠️ env.DB 를 부른다' : '');
+  /* 이름을 지어내지 않는다 — «측정할 수 없는 값을 그럴듯하게 채우지 말 것» */
+  check('⑩ 맛보기는 이름을 지어내지 않는다(name: null)', /name:\s*null/.test(sampleBlk));
+  check('⑩ 응답이 «맛보기» 라고 스스로 말한다(sample: true)', /sample:\s*true/.test(sampleBlk));
+  /* ⛔ «오늘 19시 수업» 이라고 말하면 그 시각에 아무도 안 온다 */
+  check('⑩ 맛보기에 수업을 만들어 넣지 않는다(classes: [])',
+    /classes:\s*\[\s*\]/.test(sampleBlk) && /weekClassDows:\s*\[\s*\]/.test(sampleBlk));
+
+  /* ③ 정본을 «서버가 넘기는 그 값» 으로 실제로 돌린다 */
+  if (mod) {
+    const { buildTodayPlan, SAMPLE_BAND, SAMPLE_TEXTBOOK, BAND_COUNT } = mod;
+    check('⑩ 맛보기 값이 정본에 선언돼 있다',
+      typeof SAMPLE_BAND === 'number' && SAMPLE_BAND >= 1 && SAMPLE_BAND <= 8,
+      'SAMPLE_BAND=' + String(SAMPLE_BAND));
+    /* ⛔ 교재 이름을 지어 넣지 않는다 — 그 화면은 «네 교재는 …» 이라고 말하는 셈이 된다 */
+    check('⑩ 맛보기가 교재를 지어내지 않는다', SAMPLE_TEXTBOOK == null, String(SAMPLE_TEXTBOOK));
+    const sp = buildTodayPlan({
+      band: SAMPLE_BAND, textbook: SAMPLE_TEXTBOOK, zh: false,
+      dow: 3, nowMin: 15 * 60, classes: [], weekClassDows: [], done: {},
+    });
+    check('⑩ 맛보기 계획이 «집에서 하는 날» 이다', sp.mode === 'home', sp.mode);
+    check('⑩ 맛보기 계획에 할 일이 실제로 담긴다', sp.steps.length >= 2,
+      sp.steps.length + '개 · ' + sp.steps.map(x => x.key).join(','));
+    check('⑩ 맛보기 계획에 수업 시각이 없다', sp.cls == null && sp.phase == null);
+    /* «맛보기니까 전부 done» 처럼 보이면 «다 했다» 는 거짓말이 된다 */
+    check('⑩ 맛보기가 «다 했다» 로 보이지 않는다', sp.doneCount === 0, 'doneCount=' + sp.doneCount);
+  }
+
+  /* ④ 화면 */
+  const tjs = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
+  const thtml = readFileSync(join(PUB, 'today.html'), 'utf8');
+  check('⑩ 로그인 안 한 사람에게 맛보기를 부른다', /sample=1/.test(tjs));
+  /* ⛔ 저장이 막힌 기기(사생활 보호 창)에서 «못 연다» 로 실패하면 고치려던 벽이 그대로다 */
+  const openFn = (tjs.match(/function sampleOpen\(\)[\s\S]{0,420}?\n  \}/) || [''])[0];
+  check('⑩ 저장을 못 하는 기기에서도 열린다(fail-open)',
+    /catch \(e\) \{ return true; \}/.test(openFn), openFn ? '' : 'sampleOpen 를 못 찾음');
+  check('⑩ 창은 «처음 연 시각» 부터 잰다(계속 되살아나지 않는다)',
+    /SAMPLE_KEY[\s\S]{0,200}?setItem\(SAMPLE_KEY/.test(tjs) && /now - v\) < SAMPLE_MS/.test(tjs));
+  check('⑩ 하루가 지나면 로그인 안내로 돌아간다',
+    /if \(!sampleOpen\(\)\) \{ show\('td-login'\); return; \}/.test(tjs));
+  /* 맛보기를 못 읽어도 빈 화면으로 두지 않는다 */
+  check('⑩ 맛보기를 못 읽으면 로그인 안내를 보여 준다',
+    (tjs.match(/show\('td-login'\)/g) || []).length >= 3);
+  /* 화면이 «맛보기» 라고 말해야 한다 — 안 말하면 이 계획을 «내 계획» 으로 읽는다 */
+  check('⑩ 화면에 맛보기 배너가 있다', /id="td-sample"/.test(thtml) && /맛보기/.test(thtml));
+  check('⑩ 배너를 맛보기일 때만 켠다', /sb\.hidden = !d\.sample/.test(tjs));
+  check('⑩ 배너에서 로그인·가입으로 갈 수 있다',
+    /id="td-sample"[\s\S]{0,900}?href="\/"[\s\S]{0,400}?href="\/signup\.html"/.test(thtml));
+  /* ⛔ 보기용 레벨을 기기에 심으면, «비어 있을 때만» 규칙 때문에 진짜 레벨이 와도 안 덮인다 */
+  check('⑩ 맛보기 레벨을 기기에 심지 않는다', /if \(!d\.sample\) seedLevel\(p\);/.test(tjs));
+  /* 0 인 값을 그리면 «너는 아무것도 안 했다» 로 읽힌다 */
+  check('⑩ 맛보기에서 연속일·포인트 칩을 그리지 않는다',
+    /if \(!d\.sample\) \{[\s\S]{0,400}?chip streak[\s\S]{0,400}?chip pts/.test(tjs));
+  /* ?v= 원장 — 화면 코드를 고쳤으면 번호가 올라가야 한다(immutable 캐시) */
+  check('⑩ today.html 이 새 today-page.js 를 부른다', /today-page\.js\?v=7/.test(thtml));
+}
+
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
 console.log(`\n📅 today_plan_harness — PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);
