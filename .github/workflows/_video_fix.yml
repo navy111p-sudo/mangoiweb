@@ -1,0 +1,180 @@
+# 임시 — 나레이션 잡음 제거 후 재합성. main 에 올리지 않는다.
+#
+# 🔴 원인(2026-09-05 스펙트로그램 실측): 사장님이 올린 목소리 샘플이 3~15kHz 대역에
+#    잡음이 꽉 찬 녹음이었고, 목소리 복제가 그 «쉭쉭거림» 을 그대로 베꼈다.
+#    생성된 나레이션 t4 를 보면 말과 말 사이가 조용하지 않다.
+# ⛔ 장면 이음매(AAC concat)는 «원인이 아니었다» — 15.11초 파형에 딸깍이 없고
+#    옛/새 파일의 경계 최대음량이 -10.0 vs -10.1 로 같았다. 그래도 이음매 없는
+#    조립(소리는 wav 로 이어 붙이고 AAC 는 마지막 한 번)은 그대로 가져간다.
+name: video-fix
+on: { workflow_dispatch: {}, push: { branches: [video9] } }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg 설치
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          command -v ffmpeg && command -v ffprobe
+
+      - name: 나레이션·음악 내려받기
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > get.sh
+          import json
+          for d in ('.video-short', '.video'):
+              print(f'mkdir -p {d}/raw')
+              for x in json.load(open(f'{d}/narration.json')):
+                  print(f"curl -fsSL -o {d}/raw/{x['f']}.wav '{x['url']}'")
+          print(f"curl -fsSL -o .video-short/music.m4a '{json.load(open('.video-short/music.json'))['url']}'")
+          PY
+          bash get.sh
+          for f in .video-short/raw/*.wav .video/raw/*.wav .video-short/music.m4a; do
+            ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" >/dev/null || { echo "❌ $f"; exit 1; }
+          done
+
+      - name: ① 잡음 제거 — 줄마다 같은 사슬을 건다
+        run: |
+          set -euo pipefail
+          mkdir -p .audit/out
+          # 🎛 사슬 — 세게 걸면 «물속 소리» 가 된다. 중간 세기로 둔다.
+          #    highpass  : 70Hz 아래 럼블
+          #    afftdn    : 넓은 대역 쉭쉭거림(핵심). tn=1 이 잡음을 따라가며 뺀다
+          #    deesser   : ㅅ·ㅊ 치찰음
+          #    equalizer : 7kHz 금속성 살짝
+          #    loudnorm  : 줄마다 다른 크기를 하나로
+          CHAIN="highpass=f=70,afftdn=nr=15:nf=-40:tn=1,deesser=i=0.35,equalizer=f=7000:width_type=q:w=1.2:g=-2,loudnorm=I=-16:TP=-1.5:LRA=11"
+          echo "$CHAIN"
+          for d in .video-short .video; do
+            mkdir -p $d/aud
+            for f in $d/raw/*.wav; do
+              b=$(basename "$f")
+              ffmpeg -v error -y -i "$f" -af "$CHAIN" -ar 48000 -ac 2 "$d/aud/$b"
+            done
+          done
+          ls -la .video-short/aud | head -4
+          # 🖼 전/후 — 눈으로 확인한다
+          ffmpeg -v error -y -i .video-short/raw/t4.wav -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" .audit/out/spec_t4_before.png
+          ffmpeg -v error -y -i .video-short/aud/t4.wav -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" .audit/out/spec_t4_after.png
+          R=.audit/out/denoise.txt; : > $R
+          for n in "전:.video-short/raw/t4.wav" "후:.video-short/aud/t4.wav"; do
+            echo "── ${n%%:*}" | tee -a $R
+            ffmpeg -hide_banner -nostats -i "${n#*:}" -af astats=metadata=1 -f null - 2>&1 \
+              | grep -E "^\[Parsed_astats.*(RMS level|Peak level|Noise floor|Flat factor)" | head -8 | sed 's/^.*] /    /' | tee -a $R || true
+          done
+          cat $R
+
+      - name: ② 조립 — 소리는 wav 로 이어 붙이고 AAC 는 마지막 한 번
+        run: |
+          set -euo pipefail
+          (cd .video && bash music.sh >/dev/null)
+          python3 - <<'PY' > build.sh
+          import json
+          def scenes(d, tail_of, crf, title=False):
+              items = json.load(open(f'{d}/narration.json')); N = len(items)
+              names = []
+              print(f'cd {d}; mkdir -p seg; : > vlist.txt')
+              if title:
+                  print('ffmpeg -v error -y -i intro.wav -ar 48000 -ac 2 seg/s00.a.wav'); names.append('s00')
+              for n, x in enumerate(items):
+                  f = x['f']
+                  print(f'ffmpeg -v error -y -i aud/{f}.wav -af "apad=pad_dur={tail_of(n,N)}" -ar 48000 -ac 2 seg/{f}.n.wav')
+                  if title and n == N - 1:
+                      print(f'ffmpeg -v error -y -i seg/{f}.n.wav -i outro.wav '
+                            f'-filter_complex "[0][1]concat=n=2:v=0:a=1" -ar 48000 -ac 2 seg/{f}.a.wav')
+                  else:
+                      print(f'mv seg/{f}.n.wav seg/{f}.a.wav')
+                  names.append(f)
+              for f in names:
+                  print(f'D=$(python3 -c "import wave;w=wave.open(\'seg/{f}.a.wav\');print(w.getnframes()/w.getframerate())")')
+                  print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+                  print(f'ffmpeg -v error -y -loop 1 -i slides/{f}.jpg -t "$D" -an '
+                        f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                        f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                        f'-c:v libx264 -preset medium -crf {crf} -r 30 seg/{f}.v.mp4')
+                  print(f'echo "file \'seg/{f}.v.mp4\'" >> vlist.txt')
+              print('ffmpeg -v error -y -f concat -safe 0 -i vlist.txt -c copy video_only.mp4')
+              ins = ' '.join(f'-i seg/{f}.a.wav' for f in names)
+              chain = ''.join(f'[{i}:a]' for i in range(len(names)))
+              print(f'ffmpeg -v error -y {ins} -filter_complex "{chain}concat=n={len(names)}:v=0:a=1" '
+                    f'-ar 48000 -ac 2 -c:a pcm_s16le narration_full.wav')
+              print('cd ..')
+          scenes('.video-short', lambda n, N: 1.2 if n == N - 1 else 0.45, 21)
+          scenes('.video',       lambda n, N: 0.55,                        20, title=True)
+          PY
+          bash build.sh
+          ls -la .video-short/narration_full.wav .video/narration_full.wav
+
+      - name: ③ 짧은 판 — 배경음악 + 리미터 + 마지막 인코딩
+        run: |
+          set -euo pipefail
+          cd .video-short
+          T=$(python3 -c "import wave;w=wave.open('narration_full.wav');print(w.getnframes()/w.getframerate())")
+          python3 - "$T" <<'PY' > mix.txt
+          import sys
+          T = float(sys.argv[1])
+          FI, DK0, DK1 = 1.0, 4.5, 7.5
+          UP0, UP1, FO = T - 8.0, T - 5.5, T - 2.0
+          LOUD, BED, END = 0.20, 0.05, 0.18   # ⛔ 올리지 말 것 — 나레이션이 t=0 부터 나온다
+          assert DK1 < UP0
+          e = (f"if(lt(t,{FI}),{LOUD}*t/{FI},"
+               f"if(lt(t,{DK0}),{LOUD},"
+               f"if(lt(t,{DK1}),{LOUD}+({BED}-{LOUD})*(t-{DK0})/{DK1-DK0},"
+               f"if(lt(t,{UP0:.3f}),{BED},"
+               f"if(lt(t,{UP1:.3f}),{BED}+({END}-{BED})*(t-{UP0:.3f})/{UP1-UP0},"
+               f"if(lt(t,{FO:.3f}),{END},"
+               f"max(0,{END}*(1-(t-{FO:.3f})/{T-FO:.3f}))))))))")
+          print(f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                f"volume=eval=frame:volume='{e}',atrim=0:{T},asetpts=N/SR/TB[m];"
+                f"[0:a][m]amix=inputs=2:duration=first:normalize=0[x];"
+                f"[x]alimiter=limit=0.95:attack=5:release=60:level=disabled[a]")
+          PY
+          ffmpeg -v error -y -i narration_full.wav -stream_loop -1 -i music.m4a \
+            -filter_complex_script mix.txt -map '[a]' -c:a pcm_s16le mixed.wav
+          ffmpeg -v error -y -i video_only.mp4 -i mixed.wav -map 0:v -map 1:a \
+            -c:v copy -c:a aac -b:a 192k -movflags +faststart mangoi-ai-short.mp4
+          ffprobe -v error -show_entries format=duration -of csv=p=0 mangoi-ai-short.mp4
+          ls -la mangoi-ai-short.mp4
+
+      - name: ④ 긴 판 — 마지막 인코딩
+        run: |
+          set -euo pipefail
+          cd .video
+          ffmpeg -v error -y -i video_only.mp4 -i narration_full.wav -map 0:v -map 1:a \
+            -c:v copy -c:a aac -b:a 192k -movflags +faststart mangoi-ai-guide.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-guide.mp4'],capture_output=True,text=True).stdout.strip()
+          m,s=divmod(float(d),60); print(f'>>> 긴 판: {int(m)}분 {s:.1f}초  ({float(d):.1f}s)')
+          "
+          ls -la mangoi-ai-guide.mp4
+
+      - name: ⑤ 결과 확인
+        run: |
+          set -euo pipefail
+          ffmpeg -v error -y -i .video-short/mangoi-ai-short.mp4 -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" .audit/out/spec_short_final.png
+          for f in .video-short/mangoi-ai-short.mp4 .video/mangoi-ai-guide.mp4; do
+            echo "── $f"
+            ffmpeg -hide_banner -nostats -i "$f" -af volumedetect -f null - 2>&1 | grep -E "mean_volume|max_volume" | sed 's/^.*] /    /' || true
+          done
+          # 25 MiB 한도 — 넘으면 배포가 그 자리에서 깨진다
+          python3 -c "
+          import os,sys
+          for p in ['.video/mangoi-ai-guide.mp4','.video-short/mangoi-ai-short.mp4']:
+              m=os.path.getsize(p)/1048576
+              print(f'{p}  {m:.2f} MiB  (한도 25 MiB, 남은 여유 {(25-m)*1024:.0f} KiB)')
+              if m>=25: print('❌ 한도 초과'); sys.exit(1)
+          "
+
+      - name: 결과 커밋
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .audit/out .video/mangoi-ai-guide.mp4 .video-short/mangoi-ai-short.mp4
+          git commit -m "video: 나레이션 잡음 제거 후 재합성 [skip ci]"
+          git push origin HEAD:video9

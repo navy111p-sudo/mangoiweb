@@ -1,0 +1,81 @@
+════ 재료 ════
+
+── 사장님이 올린 목소리 샘플  (.audit/sample.mp3)
+    codec_name=mp3
+    sample_rate=44100
+    channels=1
+    duration=29.335510
+    mean_volume: -15.3 dB
+    max_volume: -0.8 dB
+    histogram_0db: 14
+
+── 배경음악(생성)  (.video-short/music.m4a)
+    codec_name=aac
+    sample_rate=44100
+    channels=2
+    duration=45.063220
+    mean_volume: -15.0 dB
+    max_volume: -2.1 dB
+
+── 나레이션 t4 (제일 긴 줄)  (.video-short/aud/t4.wav)
+    codec_name=pcm_s16le
+    sample_rate=24000
+    channels=2
+    duration=5.906500
+    mean_volume: -18.4 dB
+    max_volume: -4.2 dB
+
+════ 지금 배포된 짧은 판 ════
+
+── ai-tools-short-kr.mp4  (cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4)
+    codec_name=h264
+    codec_name=aac
+    sample_rate=48000
+    channels=2
+    duration=36.797000
+    mean_volume: -19.6 dB
+    max_volume: -0.5 dB
+    histogram_0db: 283
+
+════ 무음 구간 바닥 소리 (복제가 잡음을 베꼈으면 여기가 안 조용하다) ════
+
+── 샘플
+    silence_start: 3.10698
+    silence_end: 3.40803 | silence_duration: 0.301043
+    silence_start: 5.91197
+    silence_end: 6.26129 | silence_duration: 0.34932
+    silence_start: 9.64524
+    silence_end: 10.1107 | silence_duration: 0.465488
+    silence_start: 13.0637
+    silence_end: 13.3675 | silence_duration: 0.30381
+    silence_start: 15.4623
+    silence_end: 15.7847 | silence_duration: 0.322404
+    silence_start: 18.3241
+    silence_end: 18.7553 | silence_duration: 0.43127
+
+── 나레이션t4
+    silence_start: 5.32904
+    silence_end: 5.60758 | silence_duration: 0.278542
+    silence_start: 5.65429
+    silence_end: 5.9065 | silence_duration: 0.252208
+
+════ 장면 경계 부근 0.3초 (딸깍·틈이 있으면 여기서 보인다) ════
+    t=5.03s   max_volume: -19.5 dB
+    t=9.66s   max_volume: -38.5 dB
+    t=15.11s   max_volume: -10.0 dB
+    t=21.47s   max_volume: -28.6 dB
+    t=25.92s   max_volume: -29.1 dB
+    t=30.57s   max_volume: -19.1 dB
+
+════ 새로 만든 짧은 판 ════
+    mean_volume: -19.6 dB
+    max_volume: -0.4 dB
+    histogram_0db: 378
+
+════ 같은 장면 경계 — 새 파일 ════
+    t=5.03s   max_volume: -19.5 dB
+    t=9.66s   max_volume: -37.5 dB
+    t=15.11s   max_volume: -10.1 dB
+    t=21.47s   max_volume: -30.0 dB
+    t=25.92s   max_volume: -28.9 dB
+    t=30.57s   max_volume: -19.7 dB
