@@ -93,11 +93,13 @@
     box.hidden = !show;
     if (!show) { box.innerHTML = ''; return; }
     try { localStorage.setItem(INTRO_KEY, String(st.opens + 1)); } catch (e) {}
+    /* 📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 39초 판» 을 가리킨다.
+       ⛔ 3분 35초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이다. */
     box.innerHTML =
-      '<a href="/promo.html?v=ai-tools" target="_blank" rel="noopener">'
-      + '<span class="t">' + esc(T('▶ 망고아이가 어떤 곳인지 3분 35초에 보기', '▶ What MangoI is — in 3 min 35 sec')) + '</span>'
-      + '<span class="s">' + esc(T('원장님·선생님께 드리는 안내예요. 부모님과 함께 보셔도 좋아요.',
-                                   'Made for academy directors and teachers — watch it with a parent.')) + '</span>'
+      '<a href="/promo.html?v=ai-tools-short" target="_blank" rel="noopener">'
+      + '<span class="t">' + esc(T('▶ 망고아이 AI 학습, 39초에 보기', '▶ MangoI AI learning — in 39 seconds')) + '</span>'
+      + '<span class="s">' + esc(T('무엇을 언제 하면 되는지 한 번에 알 수 있어요.',
+                                   'See what to do and when — all in one go.')) + '</span>'
       + '</a>'
       + '<button type="button" class="x" aria-label="' + esc(T('닫기', 'Close')) + '">✕</button>';
     box.querySelector('.x').addEventListener('click', function () {
