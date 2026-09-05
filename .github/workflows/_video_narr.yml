@@ -1,0 +1,161 @@
+# 임시 워크플로 — 새 목소리로 두 편 재합성 + 짧은 판 배경음악. main 에 올리지 않는다.
+# 왜 러너에서 하나: 작업 컨테이너의 ffmpeg 은 --disable-everything 빌드라 wav 조차 못 연다.
+name: video-narr
+on: { workflow_dispatch: {}, push: { branches: [video7] } }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg 설치
+        # ⚠️ `ffmpeg -version | head` 로 확인하면 파이프 종료코드가 head 것(0)이라 «없어도 통과» 한다.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          command -v ffmpeg && command -v ffprobe
+
+      - name: 나레이션·음악 내려받기
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > get.sh
+          import json
+          for d in ('.video-short', '.video'):
+              print(f'mkdir -p {d}/aud')
+              for x in json.load(open(f'{d}/narration.json')):
+                  print(f"curl -fsSL -o {d}/aud/{x['f']}.wav '{x['url']}'")
+          m = json.load(open('.video-short/music.json'))
+          print(f"curl -fsSL -o .video-short/music.m4a '{m['url']}'")
+          PY
+          bash get.sh
+          ls -la .video-short/aud .video/aud
+          ls -la .video-short/music.m4a
+          # 받은 것이 진짜 오디오인지 확인 — 404 본문이 wav 이름으로 저장돼도 curl 은 성공한다
+          for f in .video-short/aud/*.wav .video/aud/*.wav; do
+            ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" > /dev/null || { echo "❌ $f"; exit 1; }
+          done
+
+      - name: 짧은 판 — 장면 합성 (음악 없이)
+        run: |
+          set -euo pipefail
+          cd .video-short
+          mkdir -p seg
+          : > list.txt
+          python3 - <<'PY' > cmds.sh
+          import json
+          items = json.load(open('narration.json'))
+          N = len(items)
+          for n, x in enumerate(items):
+              f = x['f']
+              # 장면 길이 = 그 줄의 «오디오 실제 길이» + 뒤 여백 0.45초(마지막은 1.2초)
+              tail = 1.2 if n == N - 1 else 0.45
+              print(f'ffmpeg -v error -y -i aud/{f}.wav -af "apad=pad_dur={tail}" -ar 48000 -ac 2 seg/{f}.a.wav')
+              print(f'D=$(python3 -c "import wave;w=wave.open(\'seg/{f}.a.wav\');print(w.getnframes()/w.getframerate())")')
+              print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+              print(f'ffmpeg -v error -y -loop 1 -i slides/{f}.jpg -t "$D" '
+                    f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                    f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                    f'-c:v libx264 -preset medium -crf 21 -r 30 seg/{f}.v.mp4')
+              print(f'ffmpeg -v error -y -i seg/{f}.v.mp4 -i seg/{f}.a.wav -c:v copy -c:a aac -b:a 160k -shortest seg/{f}.mp4')
+              print(f'echo "file \'seg/{f}.mp4\'" >> list.txt')
+          PY
+          bash cmds.sh
+          ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy nomusic.mp4
+          ffprobe -v error -show_entries format=duration -of csv=p=0 nomusic.mp4
+
+      - name: 짧은 판 — 배경음악 (시작·끝은 들리게, 말할 때는 아주 낮게)
+        run: |
+          set -euo pipefail
+          cd .video-short
+          T=$(ffprobe -v error -show_entries format=duration -of csv=p=0 nomusic.mp4)
+          # ⚠️ 필터식에 쉼표가 많아 셸 따옴표로는 새기 쉽다 → 파일로 넘긴다(-filter_complex_script)
+          python3 - "$T" <<'PY' > mix.txt
+          import sys
+          T = float(sys.argv[1])
+          # ⛔ 값을 올리지 말 것 — 나레이션이 t=0 부터 나온다. 말이 안 들리는 쪽이 훨씬 나쁘다.
+          #    LOUD 0.20 ≈ -14dB · BED 0.05 ≈ -26dB (말 밑에 깔리는 정도)
+          FI, DK0, DK1 = 1.0, 4.5, 7.5          # 페이드인 끝 · 낮추기 시작 · 낮추기 끝
+          UP0, UP1, FO = T - 8.0, T - 5.5, T - 2.0   # 올리기 시작 · 올리기 끝 · 마지막 페이드아웃
+          LOUD, BED, END = 0.20, 0.05, 0.18     # 도입부 · 말할 때 바닥 · 마무리
+          assert DK1 < UP0, '영상이 너무 짧아 봉투가 겹친다'
+          e = (f"if(lt(t,{FI}),{LOUD}*t/{FI},"
+               f"if(lt(t,{DK0}),{LOUD},"
+               f"if(lt(t,{DK1}),{LOUD}+({BED}-{LOUD})*(t-{DK0})/{DK1-DK0},"
+               f"if(lt(t,{UP0:.3f}),{BED},"
+               f"if(lt(t,{UP1:.3f}),{BED}+({END}-{BED})*(t-{UP0:.3f})/{UP1-UP0},"
+               f"if(lt(t,{FO:.3f}),{END},"
+               f"max(0,{END}*(1-(t-{FO:.3f})/{T-FO:.3f}))))))))")
+          print(f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                f"volume=eval=frame:volume='{e}',atrim=0:{T},asetpts=N/SR/TB[m];"
+                f"[0:a][m]amix=inputs=2:duration=first:normalize=0[a]")
+          PY
+          cat mix.txt
+          ffmpeg -v error -y -i nomusic.mp4 -stream_loop -1 -i music.m4a \
+            -filter_complex_script mix.txt -map 0:v -map '[a]' \
+            -c:v copy -c:a aac -b:a 192k -movflags +faststart mangoi-ai-short.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-short.mp4'],capture_output=True,text=True).stdout.strip()
+          print(f'>>> 짧은 판: {float(d):.1f}초')
+          "
+          ls -la mangoi-ai-short.mp4
+
+      - name: 긴 판 — 시그널·엔딩 음악 만들기
+        run: cd .video && bash music.sh
+
+      - name: 긴 판 — 합성
+        run: |
+          set -euo pipefail
+          cd .video
+          mkdir -p seg
+          : > list.txt
+          python3 - <<'PY' > cmds.sh
+          import json
+          items = json.load(open('narration.json'))
+          N = len(items)
+
+          def clip(name, audio, slide):
+              print(f'D=$(python3 -c "import wave;w=wave.open(\'{audio}\');print(w.getnframes()/w.getframerate())")')
+              print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+              print(f'ffmpeg -v error -y -loop 1 -i {slide} -t "$D" '
+                    f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                    f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                    f'-c:v libx264 -preset medium -crf 20 -r 30 seg/{name}.v.mp4')
+              print(f'ffmpeg -v error -y -i seg/{name}.v.mp4 -i {audio} -c:v copy -c:a aac -b:a 192k -shortest seg/{name}.mp4')
+              print(f'echo "file \'seg/{name}.mp4\'" >> list.txt')
+
+          # ── s00 제목 화면 — 나레이션 없이 시그널 음악만 ──────────────────
+          print('ffmpeg -v error -y -i intro.wav -ar 48000 -ac 2 seg/s00.a.wav')
+          clip('s00', 'seg/s00.a.wav', 'slides/s00.jpg')
+
+          # ── s01~s18 나레이션 (줄마다 뒤 여백 0.55초) ─────────────────────
+          for n, x in enumerate(items):
+              f = x['f']
+              print(f'ffmpeg -v error -y -i aud/{f}.wav -af "apad=pad_dur=0.55" -ar 48000 -ac 2 seg/{f}.n.wav')
+              if n == N - 1:
+                  # 마지막 장면 뒤에 엔딩 음악을 이어 붙인다
+                  print(f'ffmpeg -v error -y -i seg/{f}.n.wav -i outro.wav '
+                        f'-filter_complex "[0][1]concat=n=2:v=0:a=1" -ar 48000 -ac 2 seg/{f}.a.wav')
+              else:
+                  print(f'mv seg/{f}.n.wav seg/{f}.a.wav')
+              clip(f, f'seg/{f}.a.wav', f'slides/{f}.jpg')
+          PY
+          bash cmds.sh
+          ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy mangoi-ai-guide.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-guide.mp4'],capture_output=True,text=True).stdout.strip()
+          m,s=divmod(float(d),60); print(f'>>> 긴 판: {int(m)}분 {s:.1f}초')
+          "
+          ls -la mangoi-ai-guide.mp4
+
+      - name: 결과 커밋
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .video/mangoi-ai-guide.mp4 .video-short/mangoi-ai-short.mp4
+          git commit -m "video: 새 목소리로 두 편 재합성 + 짧은 판 배경음악 [skip ci]"
+          git push origin HEAD:video7
