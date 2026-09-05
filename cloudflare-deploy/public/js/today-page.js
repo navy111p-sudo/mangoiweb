@@ -121,11 +121,11 @@
     box.hidden = !show;
     if (!show) { box.innerHTML = ''; return; }
     try { localStorage.setItem(INTRO_KEY, String(st.opens + 1)); } catch (e) {}
-    /* 📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 36초 판» 을 가리킨다.
-       ⛔ 3분 47초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이다. */
+    /* 📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 37초 판» 을 가리킨다.
+       ⛔ 3분 48초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이다. */
     box.innerHTML =
       '<a href="/promo.html?v=ai-tools-short" target="_blank" rel="noopener">'
-      + '<span class="t">' + esc(T('▶ 망고아이 AI 학습, 36초에 보기', '▶ MangoI AI learning — in 36 seconds')) + '</span>'
+      + '<span class="t">' + esc(T('▶ 망고아이 AI 학습, 37초에 보기', '▶ MangoI AI learning — in 37 seconds')) + '</span>'
       + '<span class="s">' + esc(T('무엇을 언제 하면 되는지 한 번에 알 수 있어요.',
                                    'See what to do and when — all in one go.')) + '</span>'
       + '</a>'
