@@ -1115,7 +1115,9 @@ Return STRICT JSON only, in BOTH Korean and English:
               그런데 이 공개 엔드포인트가 아이디를 이름과 함께 최대 50개 내주고 있었다
               (무인증 GET 실측으로 확인). 그 아이디로 판단력 기록 조회까지 이어졌다.
          [본인 표시] 「(나)」 하이라이트에만 쓰이던 값이라 서버가 판정해 `me` 로만 준다 —
-              같은 저장소의 단어왕 리더보드(/api/vocab/leaderboard)가 이미 그 방식이다.
+              단어왕 리더보드(/api/vocab/leaderboard)도 같은 방식이다 —
+              ⚠️ 다만 그것은 2026-09-05 에야 고쳤다. 이 주석은 그전까지 «이미 그 방식» 이라고
+                 적혀 있었지만 사실이 아니었고, 그 문장 때문에 아무도 다시 안 봤다.
          ⛔ user_id 를 되살리지 말 것. 이름이 없을 때 아이디로 폴백하지도 말 것. */
       const rows = ((rs.results || []) as any[]).map((r) => ({
         student_name: r.student_name || null,

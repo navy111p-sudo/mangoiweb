@@ -711,16 +711,30 @@ export async function handleGamesApi(
       await ensureVocab();
       const uid = (url.searchParams.get('uid') || '').trim();
       const since = Date.now() - 7 * 86400000;
+      /* 🔴 (2026-09-05) 이 엔드포인트는 «무인증 공개» 다 — 아이디를 내보내면 안 된다.
+         [왜] 학생 로그인은 «비밀번호가 설정된 경우만» 검사하는데(api-students.ts) 실측상
+              비밀번호가 있는 학생이 0명이다 → **아이디를 아는 것이 곧 로그인**이다.
+              그런데 여기가 `user_id` 를 그대로 담고, 이름이 없으면 `COALESCE(..., l.user_id)`
+              로 **이름 자리에까지 아이디를 넣어** 두 겹으로 새고 있었다.
+         [경위] 2026-08-28 에 /api/points/leaderboard 를 같은 이유로 고치면서 그 주석에
+              「단어왕 리더보드가 이미 그 방식이다」라고 적었지만 **사실이 아니었다** —
+              이쪽은 안 고쳐져 있었다. 그 문장 때문에 아무도 다시 안 봤다.
+         ⛔ user_id 를 되살리지 말 것. 이름이 없을 때 아이디로 폴백하지도 말 것.
+            본인 표시는 서버가 판정해 `me` 로만 준다.
+         ⛔ 게스트(guest_*)는 순위에서 뺀다 — 맛보기로 들어온 익명 이용자가 TOP 10 을
+            차지하면 진짜 학생의 동기 장치가 죽는다(영작 랭킹·게임 분석도 같은 방식). */
       const rs = await env.DB.prepare(
-        `SELECT l.user_id, COALESCE(sp.student_name, l.user_id) AS name, SUM(l.correct) AS correct_count, COUNT(*) AS review_count
+        `SELECT l.user_id, sp.student_name AS name, SUM(l.correct) AS correct_count, COUNT(*) AS review_count
          FROM vocab_review_log l LEFT JOIN student_points sp ON sp.user_id = l.user_id
-         WHERE l.reviewed_at >= ? GROUP BY l.user_id HAVING SUM(l.correct) > 0
+         WHERE l.reviewed_at >= ? AND LOWER(COALESCE(l.user_id,'')) NOT LIKE 'guest%'
+         GROUP BY l.user_id HAVING SUM(l.correct) > 0
          ORDER BY correct_count DESC, review_count DESC LIMIT 50`
       ).bind(since).all();
       const rows = (rs.results || []) as any[];
-      const top = rows.slice(0, 10).map((r, i) => ({ rank: i + 1, user_id: r.user_id, name: r.name, correct: r.correct_count, reviews: r.review_count, me: r.user_id === uid }));
+      const same = (a: any) => !!uid && String(a || '').toLowerCase() === uid.toLowerCase();
+      const top = rows.slice(0, 10).map((r, i) => ({ rank: i + 1, name: r.name || null, correct: r.correct_count, reviews: r.review_count, me: same(r.user_id) }));
       let myRank = null, myCorrect = 0;
-      const idx = rows.findIndex(r => r.user_id === uid);
+      const idx = rows.findIndex(r => same(r.user_id));
       if (idx >= 0) { myRank = idx + 1; myCorrect = rows[idx].correct_count; }
       return json({ ok: true, top, my_rank: myRank, my_correct: myCorrect, total_players: rows.length });
     }
