@@ -4990,20 +4990,26 @@ function vcArmFullscreenRetry() {
          (null = 브라우저의 적응 알고리즘에 그대로 돌려줌). 판단 근거는 바로 아래 루프가
          이미 재고 있는 손실률·RTT 다 — 새로 재지 않는다.
        ⚠️ 두 API 모두 크롬 계열에만 있다. 없으면 아무 일도 하지 않는다(기능 감지). */
-    function tuneReceiveLatency(pc, good) {
+    /* 🔊 (2026-09-05) 상태가 «둘» 에서 «셋» 이 됐다 — 자세한 근거는 아래 호출부 주석.
+       low = 대화 최우선(지연 0) · auto = 브라우저 자동 · buf = 늦게 온 패킷을 기다려 준다 */
+    function tuneReceiveLatency(pc, mode) {
         try {
             if (!pc || !pc.getReceivers) return;
-            if (pc.__rxLowLat === good) return;          // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
-            pc.__rxLowLat = good;
+            var ms = (typeof window.__vcRxBufMs === 'number') ? window.__vcRxBufMs : 300;
+            var key = mode + (mode === 'buf' ? ms : '');   // ms 를 바꾸면 다시 걸리게(시험용 손잡이)
+            if (pc.__rxLat === key) return;               // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
+            pc.__rxLat = key;
             pc.getReceivers().forEach(function (r) {
                 if (!r || !r.track) return;
                 var isAudio = r.track.kind === 'audio';
                 /* 목표 지연(ms). 오디오는 대화라 최대한 낮추고, 영상은 조금 여유를 둔다
                    — 영상이 튀는 것보다 20~30ms 늦는 편이 수업에 낫다. */
-                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = good ? (isAudio ? 0 : 100) : null; } catch (_) {}
-                try { if ('playoutDelayHint' in r) r.playoutDelayHint = good ? 0 : null; } catch (_) {}
+                var t = mode === 'low' ? (isAudio ? 0 : 100) : (mode === 'buf' && ms > 0 ? ms : null);
+                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = t; } catch (_) {}
+                /* ⚠️ playoutDelayHint 는 «초» 단위다(jitterBufferTarget 은 ms). 섞으면 1000배 틀린다. */
+                try { if ('playoutDelayHint' in r) r.playoutDelayHint = t === null ? null : (mode === 'low' ? 0 : t / 1000); } catch (_) {}
             });
-            console.log('[vc-latency] 수신 지연', good ? '낮춤(회선 양호)' : '브라우저 자동(회선 불안정)');
+            console.log('[vc-latency] 수신 지연', mode, mode === 'buf' ? ms + 'ms' : '');
         } catch (_) {}
     }
     window.__vcTuneReceiveLatency = tuneReceiveLatency;   // 하니스·진단에서 부를 수 있게
@@ -5102,7 +5108,19 @@ function vcArmFullscreenRetry() {
                    ✅ 이제 화질 회복과 «같은 근거» 를 쓴다: 32초 연속 양호 + 스파이크 후 30초 + RTT 150ms 미만.
                       그만큼 조용한 적이 없는 회선에서는 아예 안 켜지고 브라우저의 적응 버퍼가 그대로 쓰인다
                       — 그게 손실 있는 회선에서 옳은 기본값이다(같은 주석의 «지연보다 끊김이 우선»). */
-                try { tuneReceiveLatency(pc, step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && (rtt === 0 || rtt < 150)); } catch (_) {}
+                /* 🔊 (2026-09-05) 세 번째 상태 «buf» — 늦게 온 패킷을 기다려 주는 버퍼.
+                   근거: D1 725분 실측에서 RTT 450ms+ 의 소리끊김 33% 중 «진짜» 손실은 0.97% 뿐
+                   — 32%p 가 «늦어서 버린 것»(34배). 늦은 것은 기다리면 살아난다.
+                   ⛔ 그 전제(conceal ≫ aloss)가 깨지면 버퍼는 아무것도 못 살린다 — 늘리기 전에 다시 재라.
+                   ⚠️ 대가는 지연(+300ms) → «먼»(기준 300ms+)·«막힌»(3틱) 연결에만. 가까운 회선은 그대로.
+                   시험 window.__vcRxBufMs(0=끔) · 근거·미결은 vc_latency_tuning_harness 머리말 */
+                if (rtt > rttDown) pc.__qLate = (pc.__qLate || 0) + 1;
+                else if (rtt > 0 && rtt < rttUp) pc.__qLate = 0;
+                try {
+                    tuneReceiveLatency(pc,
+                        (step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && (rtt === 0 || rtt < 150)) ? 'low'
+                        : (rb >= 300 || (pc.__qLate || 0) >= 3) ? 'buf' : 'auto');
+                } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});
 
