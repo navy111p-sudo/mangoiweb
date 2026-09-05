@@ -387,39 +387,50 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   const todayJs2 = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
 
   /* ── 프리셋 표 — 주소·길이·포스터가 «한 줄» 에서 나온다 ── */
-  const pm = promo.match(/'ai-tools'\s*:\s*\{([\s\S]*?)\n    \}/);
-  const blk = pm ? pm[1] : '';
-  const pick = (k) => { const m = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return m ? m[1] : ''; };
-  const vsrc = pick('src'), vlen = pick('len'), vposter = pick('poster');
-  check('⑨ promo.html 에 ai-tools 프리셋이 있다', !!pm && !!vsrc && !!vlen && !!vposter,
-    `src=${vsrc} len=${vlen} poster=${vposter}`);
+  /* 프리셋이 «둘» 이다 — 3분 35초(원장·강사) · 39초(학생·학부모).
+     ⛔ 한쪽만 검사하지 말 것: 각 프리셋은 «자기 영상» 의 사실을 말해야 한다. */
+  const readPreset = (key) => {
+    const m = promo.match(new RegExp("'" + key + "'\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
+    const blk = m ? m[1] : '';
+    const pick = (k) => { const x = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return x ? x[1] : ''; };
+    return { ok: !!m, blk, src: pick('src'), len: pick('len'), poster: pick('poster') };
+  };
+  const P_LONG = readPreset('ai-tools'), P_SHORT = readPreset('ai-tools-short');
+  const vsrc = P_LONG.src, vposter = P_LONG.poster;
 
-  /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
-  check('⑨ 그 영상 파일이 저장소에 실제로 있다', !!vsrc && existsSync(join(PUB, vsrc.replace(/^\//, ''))), vsrc);
-  check('⑨ 그 포스터 그림이 저장소에 실제로 있다', !!vposter && existsSync(join(PUB, vposter.replace(/^\//, ''))), vposter);
-
-  /* ② 화면이 말하는 «3:35» 가 영상의 진짜 길이와 같은가 — mp4 헤더(mvhd)를 읽는다.
-        ⛔ 숫자를 정규식으로 못 박지 않는다. 영상을 갈아 끼우면 이 검사가 어긋남을 알린다. */
-  let realSec = -1;
-  try {
-    const d = readFileSync(join(PUB, vsrc.replace(/^\//, '')));
-    const k = d.indexOf(Buffer.from('mvhd'));
-    if (k > 0) {
+  /* mp4 헤더(mvhd)에서 «진짜 길이» 를 읽는다 */
+  const realSecOf = (rel) => {
+    try {
+      const d = readFileSync(join(PUB, rel.replace(/^\//, '')));
+      const k = d.indexOf(Buffer.from('mvhd'));
+      if (k <= 0) return -1;
       const ver = d[k + 4];
-      if (ver === 0) realSec = d.readUInt32BE(k + 20) / d.readUInt32BE(k + 16);
-      else realSec = Number(d.readBigUInt64BE(k + 28)) / d.readUInt32BE(k + 24);
-    }
-  } catch {}
-  const [mm, ss] = String(vlen).split(':').map(Number);
-  const saidSec = (mm * 60) + ss;
-  check('⑨ 화면이 말하는 길이가 영상의 진짜 길이와 같다 (±5초)',
-    realSec > 0 && Math.abs(realSec - saidSec) <= 5,
-    `화면 ${vlen}(${saidSec}s) vs 실제 ${realSec.toFixed(1)}s`);
+      return ver === 0 ? d.readUInt32BE(k + 20) / d.readUInt32BE(k + 16)
+                       : Number(d.readBigUInt64BE(k + 28)) / d.readUInt32BE(k + 24);
+    } catch { return -1; }
+  };
 
-  /* 포스터 크기 — 첫 화면에 그려지는 그림이라 커지면 안 된다 */
-  let posterKb = 0;
-  try { posterKb = readFileSync(join(PUB, vposter.replace(/^\//, ''))).length / 1024; } catch {}
-  check('⑨ 포스터가 120KB 이하다', posterKb > 0 && posterKb <= 120, posterKb.toFixed(1) + 'KB');
+  for (const [nm, P] of [['3분 35초 판', P_LONG], ['39초 판', P_SHORT]]) {
+    check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
+      `src=${P.src} len=${P.len} poster=${P.poster}`);
+    /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
+    check(`⑨ [${nm}] 영상 파일이 저장소에 실제로 있다`, !!P.src && existsSync(join(PUB, P.src.replace(/^\//, ''))), P.src);
+    check(`⑨ [${nm}] 포스터 그림이 저장소에 실제로 있다`, !!P.poster && existsSync(join(PUB, P.poster.replace(/^\//, ''))), P.poster);
+    /* ② 화면이 말하는 길이가 진짜 길이와 같은가 — 숫자를 정규식으로 못 박지 않는다.
+          영상을 갈아 끼우면 이 검사가 어긋남을 알린다. */
+    const real = realSecOf(P.src);
+    const [mm, ss] = String(P.len).split(':').map(Number);
+    const said = (mm * 60) + ss;
+    check(`⑨ [${nm}] 화면이 말하는 길이가 영상의 진짜 길이와 같다 (±5초)`,
+      real > 0 && Math.abs(real - said) <= 5, `화면 ${P.len}(${said}s) vs 실제 ${real.toFixed(1)}s`);
+    let kb = 0;
+    try { kb = readFileSync(join(PUB, P.poster.replace(/^\//, ''))).length / 1024; } catch {}
+    check(`⑨ [${nm}] 포스터가 120KB 이하다`, kb > 0 && kb <= 120, kb.toFixed(1) + 'KB');
+  }
+  /* 짧은 판이 «짧은가» — 학생 화면에 3분짜리를 걸어 두면 이 기능의 취지가 사라진다 */
+  check('⑨ 짧은 판이 실제로 1분 미만이다', realSecOf(P_SHORT.src) > 0 && realSecOf(P_SHORT.src) < 60,
+    realSecOf(P_SHORT.src).toFixed(1) + 's');
+  check('⑨ 두 판이 서로 다른 영상이다', !!P_LONG.src && !!P_SHORT.src && P_LONG.src !== P_SHORT.src);
 
   /* ③ 누르기 전엔 0바이트 — 어느 입구도 mp4 를 «미리» 걸어 두지 않는다 */
   const mp4InPage = (t) => new RegExp(vsrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(t);
@@ -449,8 +460,13 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* ── B안 — today.html 첫 방문자 한 줄 ── */
   const todayHtml2 = readFileSync(join(PUB, 'today.html'), 'utf8');
   check('⑨ B안 — today.html 에 안내 자리(#td-intro)가 있다', /id="td-intro"/.test(todayHtml2));
-  check('⑨ B안 — 로그인 전 화면에도 그 길이 있다',
-    /td-login[\s\S]{0,900}promo\.html\?v=ai-tools/.test(todayHtml2));
+  /* ⛔ 범위를 «길이» 로 자르지 말 것 — 설명 주석이 길어지면 그대로 헛돈다(실제로 밟았다).
+        로그인 카드는 그 다음 형제 주석까지가 경계다. */
+  const loginI = todayHtml2.indexOf('id="td-login"');
+  const loginEnd = todayHtml2.indexOf('<!-- 읽는 중', loginI);
+  const loginBlk = (loginI > 0 && loginEnd > loginI) ? todayHtml2.slice(loginI, loginEnd) : '';
+  check('⑨ B안 — 로그인 전 화면에도 그 길이 있다', /promo\.html\?v=ai-tools-short/.test(loginBlk),
+    loginBlk ? '(카드 ' + loginBlk.length + '자)' : '카드 경계를 못 찾음');
   /* 🪤 «renderIntro(p)» 로 찾으면 «function renderIntro(p) {» 라는 «선언» 이 잡혀,
         호출을 통째로 지워도 통과한다(변이시험에서 실제로 놓쳤다).
         물어야 할 것은 «부르는가» 이므로 «그 줄 하나짜리 문장» 인지로 본다. */
@@ -471,9 +487,19 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
         «닫았다» 로 읽혀 한 번만 뜨고 그친다(실제로 밟았다). */
   check('⑨ B안 — 닫으면 다시 안 뜨게 기록한다', /localStorage\.setItem\(INTRO_KEY, 'closed'\)/.test(todayJs2));
   check('⑨ B안 — 닫음 표시가 «횟수» 와 안 겹친다', /v === 'closed'/.test(todayJs2) && !/v === '1'/.test(todayJs2));
-  /* 대상이 학생이 아니다 — 화면이 그렇게 말해야 한다 */
-  check('⑨ 두 입구 모두 «원장님·선생님» 대상임을 말한다',
-    /원장님·선생님/.test(todayJs2) && /원장님·선생님/.test(about) && /원장님·선생님/.test(promo));
+  /* 🔴 «누구에게 하는 말인가» — 입구마다 가리키는 영상이 다르다.
+     ⛔ 학생 화면(today)이 3분 35초 판을 가리키면 안 된다: 그 대본은 선생님께 하는 말이라
+        아이가 듣다가 «내 이야기가 아니네» 로 나간다. 반대로 「망고아이란?」 카드는
+        그 판을 가리키므로 «원장님·선생님» 대상임을 밝혀야 한다. */
+  check('⑨ 학생 화면 두 곳이 «39초 판» 을 가리킨다',
+    /promo\.html\?v=ai-tools-short/.test(todayJs2) && /promo\.html\?v=ai-tools-short/.test(todayHtml2));
+  check('⑨ 학생 화면이 3분 35초 판을 가리키지 않는다',
+    !/promo\.html\?v=ai-tools(?!-short)/.test(todayJs2) && !/promo\.html\?v=ai-tools(?!-short)/.test(todayHtml2));
+  check('⑨ 「망고아이란?」 카드는 «3분 35초 판» 을 가리키고 대상을 밝힌다',
+    /promo\.html\?v=ai-tools(?!-short)/.test(about) && /원장님·선생님/.test(about));
+  check('⑨ 3분 35초 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
+  /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
+  check('⑨ 39초 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}

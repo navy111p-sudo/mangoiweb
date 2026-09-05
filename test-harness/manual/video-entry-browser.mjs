@@ -52,10 +52,10 @@ console.log('\n[B안] today.html — 처음 온 사람에게만');
     return { hidden:!e||e.hidden, href:a?a.getAttribute('href'):null, w:r?Math.round(r.width):0, h:r?Math.round(r.height):0,
              txt:e?e.textContent.replace(/\s+/g,' ').trim():'', onTop: !!(top&&e&&e.contains(top)), hasX: !!(e&&e.querySelector('.x')) }; });
   ok('레벨이 없으면 안내 줄이 뜬다', !m.hidden, JSON.stringify(m));
-  ok('주소가 /promo.html?v=ai-tools 다', m.href==='/promo.html?v=ai-tools', m.href);
+  ok('주소가 «39초 판» 이다 (학생 화면)', m.href==='/promo.html?v=ai-tools-short', m.href);
   ok('상자가 아니라 «누를 수 있는» 크기다(44px↑)', m.h>=44, m.w+'x'+m.h);
   ok('맨 위에 있다(다른 것이 안 덮는다)', m.onTop, m.topTag||'');
-  ok('«함께 보세요» 를 말한다', /함께/.test(m.txt), m.txt.slice(0,60));
+  ok('39초라고 말한다', /39초/.test(m.txt), m.txt.slice(0,60));
   ok('닫기 버튼이 있다', m.hasX);
   // 줄바꿈 — 낱글자로 쪼개지지 않았나
   const lines = await pg.evaluate(()=>{ const t=document.querySelector('#td-intro .t');
@@ -139,13 +139,14 @@ console.log('\n[B안] today.html — 처음 온 사람에게만');
     if(!a) return {none:true}; a.scrollIntoView({block:'center'}); const r=a.getBoundingClientRect();
     const top=document.elementFromPoint(r.left+r.width/2, r.top+12);
     return { href:a.getAttribute('href'), h:Math.round(r.height), onTop:!!(top&&a.contains(top)) }; });
-  ok('로그인 전 화면에도 있다', !m.none && m.href==='/promo.html?v=ai-tools', JSON.stringify(m));
+  ok('로그인 전 화면에도 있다(39초 판)', !m.none && m.href==='/promo.html?v=ai-tools-short', JSON.stringify(m));
   ok('그것도 누를 수 있는 크기·맨 위', !m.none && m.h>=44 && m.onTop, JSON.stringify(m));
   await ctx.close(); }
 
 console.log('\n[프리셋] promo.html — 지금 트는 영상의 «사실» 을 말한다');
 for (const [q, want] of [['', {len:'1:35', t:/1분 35초/, poster:/mangoi-promo-poster/}],
-                          ['?v=ai-tools', {len:'3:35', t:/3분 35초/, poster:/ai-tools-poster/}]]) {
+                          ['?v=ai-tools', {len:'3:35', t:/3분 35초/, poster:/ai-tools-poster/}],
+                          ['?v=ai-tools-short', {len:'0:39', t:/39초/, poster:/ai-tools-short-poster/}]]) {
   const ctx=await b.newContext({viewport:{width:900,height:800},serviceWorkers:'block'});
   const pg=await ctx.newPage();
   const reqs=[]; pg.on('request', r=>reqs.push(r.url()));
