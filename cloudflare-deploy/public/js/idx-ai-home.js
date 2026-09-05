@@ -40,7 +40,7 @@
           label 만 새 이름이고 kws 는 «옛 말 + 새 말» 을 모두 받는다. */
     { kws:['수업일지','수업 일지','일지','평가서','월말평가','월간평가','평가 결과','평가결과','evaluation','lesson note'], action: () => location.href='/eval.html', label:'📝 오늘 수업일지' },
     { kws:['성적표','월간성적표','월간 성적표','리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report','report card'], action: () => location.href='/report.html', label:'📊 월간 성적표' },
-    { kws:['오늘의 학습','오늘 학습','오늘 할 일','오늘할일','오늘 공부','학습 계획','학습계획','계획표','todays plan','today plan','study plan'], action: () => location.href='/today.html', label:'📅 오늘의 학습' },
+    { kws:['오늘의 ai 학습','오늘의 a.i 학습','오늘 ai 학습','오늘의 학습','오늘 학습','오늘 할 일','오늘할일','오늘 공부','학습 계획','학습계획','계획표','ai 학습계획','todays plan','today plan','todays ai plan','study plan'], action: () => location.href='/today.html', label:'📅 오늘의 A.i 학습' },
     { kws:['ai 친구','ai친구','인공지능 친구','영어 친구','대화 연습','챗봇','ai friend','chatbot'], action: () => location.href='/ai-friend.html', label:'🤖 AI 친구' },
     { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
     { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },

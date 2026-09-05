@@ -15,7 +15,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
-import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 학습» 정본 (2026-09-03)
+import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
   request: Request,
@@ -446,7 +446,7 @@ ${MANGOI_KNOWLEDGE}`;
     //   ⚠️ 개인정보를 돌려주지 않는다 — uid 는 요청자가 이미 토큰으로 갖고 있는 값이고,
     //      DB 조회도 하지 않는다(서명 + KV 대조뿐). 그래서 인증 게이트 없이 열어도 안전하다.
     // ═══════════════════════════════════════════════════════════════
-    // 📅 (2026-09-03) GET /api/student/today?uid=&token=  — «오늘의 학습»
+    // 📅 (2026-09-03) GET /api/student/today?uid=&token=  — «오늘의 A.i 학습»
     //   학생 한 명의 레벨·교재·오늘 수업(망고아이 + 카페24)·도구별 «오늘 했나» 를 모아
     //   정본 buildTodayPlan(src/today-plan.ts) 에 넘긴다. 판정은 전부 그 함수 안에 있고
     //   여기는 «재료를 모으는 곳» 이다 — 규칙을 여기에 다시 적지 말 것.

@@ -37,8 +37,17 @@ const check = (name, ok, extra) => {
   if (ok) { PASS++; console.log('  ✅ ' + name); }
   else { FAIL++; console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
 };
-/** 부정 검사는 주석을 벗긴 사본으로 — 블록주석은 줄 단위로 «지금 주석 안인가» 를 추적한다 */
+/**
+ * 부정 검사는 주석을 벗긴 사본으로 — 블록주석은 줄 단위로 «지금 주석 안인가» 를 추적한다.
+ * 🔴 (2026-09-04 함정 대조 지적) HTML 주석(«<!-- -->»)도 벗긴다. 안 벗기면 .html 파일에서
+ *    「이 이름이 있는가」류 검사가 «자기 설명 주석» 을 잡아 통과한다 — 실측: 홈 큰 버튼 라벨을
+ *    옛 이름으로 되돌려도 index.html 검사가 초록이었다(잡힌 것은 그날 새로 넣은 설명 주석).
+ *    그 위에 「주석을 벗기고 본다」고 적어 두었는데 .html 에 대해서는 사실이 아니었다.
+ * ⚠️ HTML 주석은 중첩이 없어 non-greedy 로 안전하다. 그래도 «코드를 통째로 먹지 않았는가» 를
+ *    아래 ⓪절이 전제 검사로 확인한다(CLAUDE.md 2장 「블록주석을 정규식 한 줄로 지웠더니」).
+ */
 function strip(src) {
+  src = String(src).replace(/<!--[\s\S]*?-->/g, '');
   const out = []; let inBlock = false;
   for (const line of String(src).split('\n')) {
     let res = '';
@@ -281,6 +290,69 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   const home = strip(rd(join(PUB, 'js', 'idx-ai-home.js')));
   const signup = rd(join(PUB, 'signup.html'));
   check('⑦ 입구 셋 — 전체메뉴 · 홈 검색 · 가입 완료 카드', /url:'\/today\.html'/.test(menu) && /location\.href='\/today\.html'/.test(home) && /href="\/today\.html"/.test(signup));
+
+  /* ── ⑧ 이름과 자리 (2026-09-04 사장님 지시)
+     이름: 「오늘의 학습」 → 「오늘의 A.i 학습」. 여러 곳이 «같은 말» 을 해야 한다 —
+           한 곳만 고치면 에러 없이 어긋나고, 그때가 「이거 같은 거야 다른 거야」가 다시 나오는 때다.
+     자리: 드로어 「AI 학습 도구」 «맨 위» + 로그인한 학생의 홈 큰 버튼.
+     ⚠️ «보이는가 · 눌리는가» 는 문자열로 못 본다 — manual/today-entry-browser.mjs 가 그려서 잰다. */
+  const idx = rd(join(PUB, 'index.html'));
+  const bar = rd(join(PUB, 'js', 'today-bar.js'));
+  /* ⚠️ 주석을 «벗긴» 사본에서 자른다 — 안 벗기면 「왜 바꿨나」 설명 주석에 남긴 옛 이름을
+     부정 검사가 잡아 «아직 남아 있다» 로 FAIL 낸다(2026-09-04 실제로 밟았다). */
+  const idxS = strip(idx);
+  /* ⓪ 전제 — strip 이 코드를 통째로 먹으면 아래 검사가 «전부 통과» 로 헛돈다
+     (CLAUDE.md 2장 「블록주석을 정규식 한 줄로 지웠더니 코드가 함께 사라짐」) */
+  check('⓪ strip 이 index.html 을 통째로 먹지 않았다', strip(idx).length > idx.length * 0.5,
+    [strip(idx).length, idx.length]);
+  check('⓪ strip 이 today-bar.js 를 통째로 먹지 않았다', strip(bar).length > bar.length * 0.4);
+  const NAME = '오늘의 A.i 학습';
+  /* ⚠️ 주석을 «벗기고» 본다 — 안 벗기면 「왜 이 이름으로 바꿨나」 설명 주석이 자기를 잡아
+     알약 글자를 옛 이름으로 되돌려도 통과한다(2026-09-04 변이시험에서 실제로 안 잡혔다). */
+  for (const [nm, txt] of [['화면 제목', html], ['돌아가기 알약', bar], ['전체메뉴 타일', menu],
+                           ['홈 검색 라벨', home], ['가입 완료 카드', signup], ['홈(드로어·큰 버튼)', idx]])
+    check(`⑧ «${NAME}» — ${nm}`, strip(txt).includes(NAME));
+  /* 알약은 «화면에 그리는 글자» 를 콕 집어 본다 — 그 파일에서 이름이 나오는 곳이 여럿이다 */
+  check('⑧ 돌아가기 알약이 그리는 «글자» 가 새 이름',
+    /'📅 오늘의 A\.i 학습' \+ \(total/.test(strip(bar)), (strip(bar).match(/'📅[^']*'/g) || []).slice(0, 3));
+  check('⑧ 옛 이름이 화면 글자로 남아 있지 않다(주석은 무관)',
+    !/'📅 오늘의 학습'/.test(strip(bar)) && !/data-ko="📅 오늘의 학습"/.test(strip(html)));
+  check('⑧ 화면 제목 태그도 새 이름', /<title>오늘의 A\.i 학습/.test(html));
+  /* 옛 낱말로 찾던 사람이 못 찾게 되면 안 된다 — 검색어(kws)에는 «옛 말 + 새 말» 이 함께 있어야 한다 */
+  const kwLine = (home.split(/\r?\n/).find(l => /kws:/.test(l) && /\/today\.html/.test(l)) || '');
+  check('⑧ 홈 검색이 «옛 말» 로도 찾아 준다(오늘의 학습 · 계획표)',
+    /'오늘의 학습'/.test(kwLine) && /'계획표'/.test(kwLine), kwLine.slice(0, 90));
+  check('⑧ 홈 검색이 «새 말» 로도 찾아 준다(오늘의 ai 학습)', /'오늘의 ai 학습'/.test(kwLine));
+
+  /* 드로어 「AI 학습 도구」 묶음 — 그 안에서만 본다(파일 전체를 보면 딴 곳이 걸린다) */
+  const g = idxS.indexOf('data-ko="AI 학습 도구"');
+  const gBody = g > 0 ? idxS.slice(idxS.indexOf('mg-acc-body', g), idxS.indexOf('</details>', g)) : '';
+  const gBtns = [...gBody.matchAll(/<button[^>]*data-ko="([^"]+)"/g)].map(m => m[1]);
+  check('⑧ 드로어 「AI 학습 도구」 «맨 위» 가 오늘의 A.i 학습', /오늘의 A\.i 학습/.test(gBtns[0] || ''), gBtns.slice(0, 3));
+  check('⑧ 그 아래 도구가 그대로(8종 이상)', gBtns.length >= 9, gBtns.length);
+  /* 🔴 (2026-09-04 함정 대조 지적) 로그인한 학생의 홈 큰 버튼 — 이 자리가 «탭 1번» 이고
+     이번 지시의 핵심인데, 검사가 manual/ 에만 있어 게이트가 못 지키고 있었다.
+     「보이는가·눌리는가」는 브라우저 몫이지만 «무엇으로 가는 버튼인가» 는 여기서 볼 수 있다. */
+  const hm = idxS.indexOf('id="hero-member"');
+  const hmBlock = hm > 0 ? idxS.slice(hm, idxS.indexOf('</div>', idxS.indexOf('</button>', hm))) : '';
+  check('⑧ 홈 큰 버튼(#hero-member)에 /today.html 로 가는 버튼이 있다',
+    /onclick="location\.href='\/today\.html'"/.test(hmBlock), hmBlock.slice(0, 80));
+  check('⑧ 그 버튼 라벨이 새 이름이다', /data-ko="오늘의 A\.i 학습"/.test(hmBlock));
+  check('⑧ 옛 「AI와 친구하기」가 그 자리에 남아 있지 않다', hm > 0 && !/AI와 친구하기/.test(hmBlock));
+  check('⑧ 「수업 입장」은 그대로 있다(같이 지우지 않았다)', /showView\('view-videocall-lobby'\)/.test(hmBlock));
+
+  /* ⛔ 「학습 공간」에는 넣지 않는다 — 거기는 레벨테스트·수업 신청처럼 «한 번씩 하는 학원 업무» 다 */
+  const sp = idxS.indexOf('data-ko="학습 공간"');
+  const spBody = sp > 0 ? idxS.slice(idxS.indexOf('mg-acc-body', sp), idxS.indexOf('</details>', sp)) : '';
+  check('⑧ 「학습 공간」에는 «안» 넣었다', sp > 0 && !/오늘의 A\.i 학습/.test(spBody));
+
+  /* 되돌아가는 길 — 도구 «목록» 을 없앤 것이 아니다. 없애면 「그냥 다른 것도」 하려는 학생의 길이 사라진다 */
+  check('⑧ ?menu=aitools 로 도구 목록을 여는 길이 있다',
+    /p\.get\('menu'\) === 'aitools'/.test(idx) && /openAiFriendsOverlay/.test(idx));
+  check('⑧ today.html 꼬리말이 «안내 글» 이 아니라 그 주소로 가는 링크다',
+    /href="\/\?menu=aitools"/.test(html) && !/도구를 전부 보려면 홈 왼쪽 메뉴/.test(html));
+  check('⑧ 도구 목록 자체는 그대로 살아 있다(전체메뉴 · 드로어 · 오버레이)',
+    /openAiFriendsOverlay = function/.test(idx) && gBtns.length >= 9);
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
