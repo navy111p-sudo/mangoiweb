@@ -1,0 +1,18 @@
+── 전
+    Peak level dB: -4.153252
+    RMS level dB: -18.380612
+    Flat factor: 0.000000
+    Noise floor dB: -inf
+    Noise floor count: 1406
+    Peak level dB: -4.190104
+    RMS level dB: -18.434270
+    Flat factor: 0.000000
+── 후
+    Peak level dB: -4.700353
+    RMS level dB: -18.863177
+    Flat factor: 0.000000
+    Noise floor dB: -inf
+    Noise floor count: 8968
+    Peak level dB: -4.739149
+    RMS level dB: -18.916972
+    Flat factor: 0.000000
