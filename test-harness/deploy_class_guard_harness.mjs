@@ -20,11 +20,14 @@
 
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const W = await import(join(ROOT, '.github/scripts/class-window.mjs'));
+// ⚠️ 절대경로 문자열을 그대로 import() 하면 Windows 에서 'C:' 가 URL 프로토콜로 읽혀
+//    ERR_UNSUPPORTED_ESM_URL_SCHEME 로 죽는다(리눅스 CI 는 통과해서 로컬만 빨간불).
+//    반드시 pathToFileURL(...).href 로 넘긴다 — 이 저장소의 다른 하니스들과 같은 방식.
+const W = await import(pathToFileURL(join(ROOT, '.github/scripts/class-window.mjs')).href);
 const { LIVE_CLASS_SQL, LIVE_WINDOW_MS, probeLiveClass, readCfIds, decideHold, isClassWindow } = W;
 const MANGO = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
 const YML   = readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8');

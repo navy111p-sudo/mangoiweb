@@ -268,7 +268,36 @@ export async function teacherPresenceByRoom(
      (이름 일치 · role 안 믿음 · 모르면 false)으로 «최근 freshMs 안에 살아 있던 강사 접속» 이
      있으면 true 다. 기록(class_no_show 행)은 그대로 남기고 **알림만** 막는 데 쓴다.
    [안전한 방향] 판정 불가·조회 실패는 전부 false — 알림을 «안 보내는» 쪽으로 틀리지 않는다.
+
+   ⛔ [미래 시각은 «살아 있음» 이 아니다 — 2026-09-04]
+     `p.to` 는 `COALESCE(left_at, last_seen_at)` 인데, 그 둘은 «접속» 이 찍는 값일 때만
+     서버 시각이다(api-mango.ts 의 leave·speaking-time — 전부 Date.now()). 그런데
+     **카페24 동기화가 «예약» 으로 미리 만들어 두는 출석행은 `left_at` 이 «예약 종료 시각»**
+     이라 미래다(`cafe24-sync.ts` 의 씨앗 INSERT — 저장소의 `INSERT INTO attendance` 8곳 중
+     미래 시각을 쓰는 곳은 그 하나뿐이고 나머지 7곳은 서버 `Date.now()` 다).
+     [잰 것 — 2026-09-04 운영 D1] 미래 시각 출석행 **387~397건**(예약 시각이라 시간이 흐르면
+     과거가 되어 줄어든다. 가장 먼 것 2030-02-20).
+     **오늘의 사고는 아니다** — 그 행은 **전부 `c24-*` 방**이라 `class-*` 방 번호로 묻는 이 함수와
+     구조적으로 안 만나고, 이 함수가 보는 **`username`** 칸에 강사 이름이 붙은 것도 0건이다.
+       ⚠️ **`teacher_name` 칸은 366건 채워져 있다** — 씨앗 INSERT 가 그 칸은 넣고 `username` 에는
+          «학생» 이름을, `role` 에는 `student` 를 박기 때문이다. 그 숫자를 보고 «0건이 아닌데?» 로
+          읽지 말 것. 위 `teacherPresenceByRoom` 은 `username` 만 본다(SELECT·hit 판정 둘 다).
+       ⚠️ 지금 코드에 «미러가 `class-*` 에 씨앗을 만드는» 경로는 **없다** — `c24-mirror.ts` 는
+          `attendance` 를 읽기만 하고 쓰는 것은 `class_schedules` 다.
+     그래도 막아 두는 것은 그 전제가 깨지는 순간(카페24가 `username`·`role` 을 강사로 싣거나
+     누가 `class-*` 에 씨앗을 만들면) «예약이 잡혀 있다» 가 «지금 강사가 있다» 로 읽히기 때문이다.
+     그 방향은 이 파일이 가장 나쁘다고 못 박은 것이다 — **진짜 노쇼를 조용히 감춘다.**
+     ⟹ 아래처럼 «지나간 신호» 만 인정한다. 서버 시각끼리는 음수가 나올 수 없으므로
+        음수는 곧 «서버가 안 찍은 값» 이라는 신호다(작은 여유만 두고 나머지는 거부).
+     ⚠️ `teacherPresenceByRoom`(사후 리포트) 쪽은 건드리지 않는다 — 거기서는 «수업이 끝난 뒤»
+        를 읽으므로 미래 값이 정상이고, 같이 조이면 노쇼 리포트의 뜻이 바뀐다.
    ══════════════════════════════════════════════════════════════════════════ */
+/** 서버 시각끼리의 오차만 봐준다. 이보다 먼 «미래» 는 접속이 아니라 예약으로 본다.
+ *  ⚠️ 60초에 «잰» 근거는 없다(추론) — 두 값 다 같은 Worker 의 `Date.now()` 라 실제 오차는
+ *     ms 수준일 것이고, 막으려는 예약 씨앗은 «분~년» 단위라 그 사이 어디를 골라도 갈린다.
+ *     넉넉한 쪽(=알림을 보내는 쪽)으로 잡았다. 좁히려면 먼저 실제 분포를 재고 좁힐 것. */
+const FUTURE_SLACK_MS = 60 * 1000;
+
 export async function teacherLiveInRoom(
   db: any,
   roomId: string,
@@ -285,6 +314,8 @@ export async function teacherLiveInRoom(
     }]);
     const p = m.get(room);
     if (!p || p.present !== true || !p.to) return false;
-    return (nowMs - Number(p.to)) <= freshMs;
+    const gap = nowMs - Number(p.to);
+    if (gap < -FUTURE_SLACK_MS) return false;   // 미래 = 예약 씨앗 → «살아 있음» 이 아니다(위 ⛔)
+    return gap <= freshMs;
   } catch { return false; }
 }

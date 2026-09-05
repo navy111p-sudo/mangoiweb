@@ -35,11 +35,13 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { ipToNet, asLabel } from './net-prefix';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
-import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
+import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
+import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -130,6 +132,30 @@ async function ensureSchemaOnce(key: string, run: () => Promise<void>): Promise<
   catch { /* 다음 요청에서 다시 시도 — 일부러 빗장을 걸지 않는다 */ }
 }
 
+/* 📡 SFU 를 켤 수 있는 방인가 — «그 수업의 사람» 인지 본다. (2026-09-04)
+   [왜 필요한가] 위 sfu-peers 주석 참고. 소유권 기록만으로는 아무나 아무 방으로 세션을 만든다.
+   [규칙] · `class-{예약id}-{YYYYMMDD}` 예약방 → 관리자·강사 세션은 통과, 학생은 그 예약의 학생일 때만
+          · 그 밖의 방(공용 연습방 `mangoi-class`·`demo-*`·`meet-*`) → 통과.
+            그 방들은 mesh 도 누구나 들어가므로 SFU 만 좁히면 «되던 것» 이 깨진다.
+   ⛔ 못 찾으면 **막는다**(false). verify-room 은 수업을 막지 않으려고 fail-open 이지만,
+      여기서 막히는 것은 SFU 하나뿐이라 반대 방향이 맞다.
+   ⚠️ 대소문자는 정확일치 먼저 — `Kim`/`kim` 처럼 대소문자만 다른 계정이 실재한다(CLAUDE.md 2장). */
+async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind: 'admin' | 'student' }): Promise<boolean> {
+  const m = /^class-(\d+)-\d{8}$/.exec(room);
+  if (!m) return true;                       // 예약방이 아니면 mesh 와 같은 문턱
+  if (ident.kind === 'admin') return true;    // 강사·본사 — 참관·수업이 이 경로로 온다
+  try {
+    /* ⚠️ `.first<any>()` 로 쓰지 말 것 — env 가 any 라 prepare 체인이 «타입 없는 호출» 이고,
+       거기에 타입인자를 주면 TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). */
+    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first() as any;
+    if (!row) return false;
+    const mine = String(ident.uid || '');
+    const owner = String(row.user_id || '');
+    if (!owner || !mine) return false;
+    return owner === mine || owner.toLowerCase() === mine.toLowerCase();
+  } catch { return false; }                   // 조회 실패 = 모름 = 막는다(SFU 만 안 켜진다)
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
@@ -185,6 +211,15 @@ export async function handleMangoApi(
           for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🌐 (2026-09-03 필리핀 사무실 회선) net·isp·country — «어느 인터넷 회선인가».
+             [왜] 강사 약 10명이 사무실 공인 IP 하나를 나눠 쓰는데, 이 표는 사람(uid)별이라
+                «그 회선이 매일 몇 시에 막히는가» 를 볼 수 없었다. 통신사에 항의할 근거가 그 표다.
+             ⛔ IP 를 통째로 남기지 않는다 — 이 표에는 학생(다수가 미성년자) 기록도 함께 쌓인다.
+                묶는 데 필요한 것은 네트워크 부분뿐이라 /24(IPv4)·/48(IPv6)로 자른다(src/net-prefix.ts).
+             ⚠️ CREATE 문에는 넣지 않는다 — 위 novideo·rx_* 와 같은 사정(CREATE 가 두 벌이다). */
+          for (const c of ['net TEXT', 'isp TEXT', 'country TEXT']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
@@ -194,14 +229,23 @@ export async function handleMangoApi(
         const PATHS = ['relay', 'direct', 'mixed'];
         const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
         const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
+           ⚠️ request.cf 는 로컬 개발·테스트에서 없다. 없으면 빈 값이고 그게 정상이다. */
+        const _cf: any = (request as any).cf || {};
+        const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
+        const _isp = asLabel(_cf.asn, _cf.asOrganization);
+        const _cc = String(_cf.country || '').slice(0, 2);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
             num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
-            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0))).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  // 30일 지난 것 가끔 정리
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0)),
+            _net, _isp, _cc).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  /* 30일 지난 것 가끔 정리. ⚠️ 2026-09-03 부터 접속 회선(net·isp·country)도 담기므로
+     이 정리가 조용히 실패하면 그 기록이 계속 쌓인다. 📌 이 표는 승인받은 파기 정본(src/retention.ts)에
+     **없다** — 정본에 등록할지는 사람이 정할 일이다(작업기록 6장). */
         return json({ ok: true });
       } catch (e) {
         /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
@@ -2238,6 +2282,10 @@ export async function handleMangoApi(
         } catch {}
       }
 
+      /* 🔒 방 소속 — sfuProxy 에 닿기 «전» 에 본다(위 sfuRoomAllowed 주석). */
+      if (identity && !(await sfuRoomAllowed(env as any, String(body.room_id || ''), identity))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
       const r = await sfuProxy(
         {
           appId, appToken,
@@ -2251,6 +2299,115 @@ export async function handleMangoApi(
         body.payload,
       );
       return json(r.body, r.status);
+    }
+
+    /* ═══ 📡 POST /api/class/sfu-peers — SFU 참가자 명단(신호) (2026-09-04, C안 2단계) ═══
+       [무엇] SFU 는 «누가 같은 방인가» 를 모릅니다(Cloudflare 문서: 「It does not define rooms,
+              participants, roles, or presence for your application」). 그래서 내가 만든
+              세션 id 와 트랙 이름을 여기에 적어 두고, 같은 방의 남의 것을 받아 갑니다.
+       [왜 화상방 DO 가 아니라 여기인가] 그 신호를 WebSocket 으로 보내려면 `src/video-call-room.ts`
+              에 case 를 하나 더해야 하는데 거기는 공동 금지구역입니다(모르는 type 은 그냥 버려집니다).
+              D1 한 표로 하면 금지구역을 한 줄도 안 건드리고, 덤으로 «강하게 일관» 합니다
+              (KV 는 읽기-수정-쓰기 경합에서 한쪽 announce 가 조용히 사라질 수 있습니다).
+       [왜 /api/class/ 밑인가] 그 접두사는 라우팅 허용목록에 **이미** 있습니다(src/index.ts).
+       ⚠️ 인증은 라우팅과 다른 것이라 여기서 «직접» 봅니다(CLAUDE.md 2장).
+       🔴 [게이트가 «둘» 인 이유 — 하나만으로는 남의 수업이 열립니다]
+          `sfu:sess:<sid>` 소유권 기록만 보면 «내가 만든 세션인가» 까지만 지켜집니다. 그런데
+          `session-new` 는 방 번호가 비었는지만 보므로(realtime-sfu.ts ④) **아무나 아무 방으로
+          세션을 만들 수 있습니다.** 방 번호는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이고,
+          학생 비밀번호는 29,417명 중 0명이 설정돼 있습니다(CLAUDE.md 2장) — 즉 소유권 검사
+          «하나만» 두면 로그인만 하면 남의 수업 세션 id·트랙 이름을 받아 그 반의 영상·소리를
+          끌어갈 수 있습니다(미성년자 수업입니다). 그래서 `sfuRoomAllowed()` 를 함께 봅니다.
+          ⚠️ 여기는 **막는 쪽으로 실패**합니다 — 막혀도 수업은 mesh 로 그대로 돌아가고
+             SFU 만 안 켜지므로, verify-room 의 fail-open 과 균형이 다릅니다. */
+    if (method === 'POST' && path === '/api/class/sfu-peers') {
+      const b = await request.json().catch(() => null) as any;
+      if (!b) return json({ ok: false, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰 또는 관리자 세션. ⛔ 본문의 uid 를 신원으로 믿지 않습니다. */
+      let ident: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const t = await authUidGlobal(request, new URL(request.url), env as any, b);
+        if (t) ident = { uid: String(t), kind: 'student' };
+      } catch {}
+      if (!ident) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) ident = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+      if (!ident) return json({ ok: false, error: 'unauthorized' }, 401);
+
+      /* 시크릿이 없으면 «꺼짐» — 표를 만들지도, 아무것도 적지도 않습니다. 화면은 그대로 mesh 로 갑니다. */
+      if (!sfuConfigured({ appId: (env as any).REALTIME_APP_ID, appToken: (env as any).REALTIME_APP_TOKEN })) {
+        return json({ ok: true, enabled: false, reason: 'no_secrets', peers: [] });
+      }
+
+      const room = String(b.room_id || '').trim();
+      if (!room || room.length > 120) return json({ ok: false, enabled: true, error: 'room_required' }, 400);
+      const sid = String(b.session_id || '').trim();
+      if (!SFU_SESSION_RE.test(sid)) return json({ ok: false, enabled: true, error: 'bad_session_id' }, 400);
+
+      /* ⛔ «내가 이 방에 만든 세션» 이어야 합니다 — 아니면 남의 수업 명단을 들여다볼 수 있습니다. */
+      const kv = (env as any).SESSION_STATE;
+      if (!kv) return json({ ok: false, enabled: true, error: 'owner_store_unavailable' }, 503);
+      let own: any = null;
+      try { own = JSON.parse((await kv.get(`sfu:sess:${sid}`)) || 'null'); } catch { own = null; }
+      if (!own || own.uid !== ident.uid || own.room !== room) {
+        return json({ ok: false, enabled: true, error: 'not_your_session' }, 403);
+      }
+      if (!(await sfuRoomAllowed(env as any, room, ident))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
+
+      await ensureSchemaOnce('sfu_peers', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS sfu_peers (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, session_id TEXT, audio_track TEXT, video_track TEXT, name TEXT, role TEXT, account_uid TEXT, updated_at INTEGER, PRIMARY KEY (room_id, peer_id))`);
+      });
+
+      /* peer_id = 화상방(DO)이 접속마다 새로 발급하는 임시 번호입니다 — 계정이 아닙니다.
+         타일을 맞추는 데만 쓰므로 본문에서 받되, 길이·글자를 좁힙니다(그대로 화면에 그려집니다). */
+      const peerId = String(b.peer_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!peerId) return json({ ok: false, enabled: true, error: 'peer_id_required' }, 400);
+      const now = Date.now();
+
+      if (b.leave) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE room_id = ? AND peer_id = ?`).bind(room, peerId).run(); } catch {}
+        return json({ ok: true, enabled: true, peers: [] });
+      }
+
+      const cut = (v: any, n: number) => String(v == null ? '' : v).slice(0, n);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO sfu_peers (room_id, peer_id, session_id, audio_track, video_track, name, role, account_uid, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(room_id, peer_id) DO UPDATE SET
+             session_id = excluded.session_id, audio_track = excluded.audio_track,
+             video_track = excluded.video_track, name = excluded.name, role = excluded.role,
+             account_uid = excluded.account_uid, updated_at = excluded.updated_at`
+        ).bind(room, peerId, sid, cut(b.audio_track, 128), cut(b.video_track, 128),
+               cut(b.name, 60), cut(b.role, 20), ident.uid, now).run();
+      } catch (e: any) {
+        console.error('[sfu-peers] 명단 기록 실패', e && e.message);
+        return json({ ok: false, enabled: true, error: 'announce_failed' }, 500);
+      }
+
+      /* 나 말고, «최근 40초 안에» 알린 사람만. 탭이 죽어 남은 줄이 유령으로 보이지 않게. */
+      let peers: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT peer_id, session_id, audio_track, video_track, name, role
+             FROM sfu_peers WHERE room_id = ? AND peer_id <> ? AND updated_at > ? LIMIT 12`
+        ).bind(room, peerId, now - 40000).all();
+        peers = (rs.results || []) as any[];
+      } catch (e: any) { console.warn('[sfu-peers] 명단 조회 실패', e && e.message); }
+
+      /* 오래된 줄 가끔 정리(30분). ⚠️ 조용히 실패하면 표가 계속 자랍니다 — 로그로 남깁니다. */
+      if (Math.random() < 0.05) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE updated_at < ?`).bind(now - 1800000).run(); }
+        catch (e: any) { console.warn('[sfu-peers] 오래된 줄 정리 실패', e && e.message); }
+      }
+
+      return json({ ok: true, enabled: true, peers });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
@@ -4145,9 +4302,25 @@ ${numbered}`;
            ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
               여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
               걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ? OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?)");
+        /* 🧑‍🏫 2026-09-04 — 「교사」·「아이디」 칸을 «예약에 배정된 강사» 로 바꾸면서 검색도 넓힌다.
+           그 칸의 값(예: 방 class-1079 의 교사 「KRYSTEL」·아이디 「mangoi_169」)은 recordings
+           어느 칸에도 없다 — 안 넓히면 **화면에 보이는 이름으로 검색하면 0건**이 나온다.
+           ⚠️ `cs.id` 는 PK 라 상관 서브쿼리라도 한 건 조회다. 방 번호에서 예약 id 를 떼는 식은
+              `class-1079-20260903` → `1079` (SUBSTR 7 부터 다음 «-» 앞까지). */
+        whereParts.push(
+          "(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?"
+          + " OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?"
+          + " OR EXISTS (SELECT 1 FROM class_schedules cs"
+          + "             WHERE r.room_id LIKE 'class-%'"
+          + "               AND cs.id = CAST(SUBSTR(r.room_id, 7, INSTR(SUBSTR(r.room_id, 7), '-') - 1) AS INTEGER)"
+          + "               AND (EXISTS (SELECT 1 FROM teachers t"
+          + "                             WHERE CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(t.name,'') LIKE ?)"
+          + "                 OR EXISTS (SELECT 1 FROM teacher_account_links tal"
+          + "                             WHERE CAST(tal.teacher_id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(tal.username,'') LIKE ?))))");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p, p, p);
+        whereBinds.push(p, p, p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -4204,9 +4377,25 @@ ${numbered}`;
         : await countStmt.first<{ total: number }>();
       const total = countRow?.total || 0;
 
+      /* ⚠️ `r.participant_ids` 는 화면이 그리는 칸이 아니라 **학생 칸 판정의 첫 번째 근거**다
+            (src/recording-students.ts ①). 2026-09-01 에 이 SELECT 목록에서 빠져 있어
+            `resolveRecordingStudents()` 의 `parseIdList(r.participant_ids)` 가 **늘 빈 배열**이었고,
+            그 근거 하나가 «에러 없이» 죽어 있었다(학생 칸이 그래도 채워진 것은 나머지 세
+            근거 — 예약·consented_user_ids·teacher_name — 덕분이라 아무도 못 알아챘다).
+         📊 [되살려도 오늘 화면은 그대로다 — D1 전수 실측 2026-09-04]
+            `recordings` **2,122행 전수**에서 학생 칸이 «늘어나는» 행 **0건**이었다.
+            participant_ids 안의 실재 학생 계정 244개가 **전부** 이미 다른 근거로 잡힌다.
+            구조적으로 그렇다 — `/api/recordings/start` 가 `consented_user_ids` 를
+            «participant_ids 중 동의한 사람» 으로 계산해 넣고, 동의 안 한 학생은 그 아래
+            「동의 없으면 녹화 금지」 게이트가 막는다. ⟹ 두 칸이 사실상 겹친다.
+            그러니 이 수리는 «화면을 바꾸는 것» 이 아니라 **«정본이 읽겠다고 선언한 칸을
+            서버가 실제로 준다» 는 계약을 되돌리는 것**이다. 그 게이트나 동의 정책이 바뀌는
+            날(또는 consents 조회가 실패해 consented 가 비는 날) 이 근거가 실제로 일한다.
+         ⛔ 판정에 쓰는 칸을 SELECT 에서 빼지 말 것. 빼도 화면이 «고장» 으로 보이지 않는다.
+            감시: test-harness/recording_student_column_harness.mjs A절. */
       let q = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.filename, r.file_url,
                       r.size_bytes, r.duration_ms,
-                      r.participant_names, r.consented_user_ids,
+                      r.participant_names, r.participant_ids, r.consented_user_ids,
                       r.started_at, r.ended_at, r.status, r.storage, r.expires_at,
                       /* 시선 점수 — 해당 녹화 시간대의 attendance.gaze_score 평균
                          window = [started_at - 30s, ended_at 또는 started_at + duration + 30s] */
@@ -4295,7 +4484,10 @@ ${numbered}`;
            WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
            범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
            (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
-         ⚠️ 이 API 는 **관리자 전용**이다(index.ts isAdminOnlyApi 에 `/api/recordings` GET 등록).
+         ⚠️ 이 API 는 **로그인 전용**이다 — `index.ts` 의 `isAdminPath()` 에 `/api/recordings` GET 이
+            등록돼 있어 무인증으로는 못 부른다(`isAdminOnlyApi` 라는 함수는 이 저장소에 없다).
+            ⚠️ 다만 «관리자 전용» 은 아니다 — 경로가 `/api/admin/` 접두사가 아니라서 강사 차단
+            (`TEACHER_BLOCKED_PREFIXES`)도 스코프 차단(`forbidden_scope`)도 안 걸린다.
             «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
          감시: test-harness/recording_download_link_harness.mjs */
       const _nowMs = Date.now();
@@ -4305,10 +4497,24 @@ ${numbered}`;
            (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
          ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
          판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      /* 🧑‍🏫 「교사」·「아이디」 칸 (2026-09-04 사장님 «교사 이름에 아이디가 나와»)
+         [왜 서버가 푸나] 이 표의 `teacher_name` 은 «방을 먼저 켠 사람» 이고 `teacher_id` 는
+           **DO 임시번호**(`u_…`, 실측 99.2%)다 — 둘 다 교사도 아이디도 아니다. 진짜 교사는
+           예약(class_schedules)→원부(teachers)→계정(teacher_account_links)을 타야 나온다.
+         판정 정본·근거는 src/recording-teacher.ts. 실패해도 목록은 그대로 뜬다(빈 값). */
       const _recRows = ((rs.results || []) as any[]);
       const _recStudents = await resolveRecordingStudents(env as any, _recRows);
-      const _recItems = await Promise.all(_recRows.map(async (row: any, _si: number) => {
+      const _recTeachers = await resolveRecordingTeachers(env as any, _recRows);
+      const _recItems = await Promise.all(_recRows.map(async (_raw: any, _si: number) => {
+        /* ⛔ `participant_ids` 는 «판정 근거» 라서 SELECT 로 받지만 **응답에는 싣지 않는다**.
+              그 배열은 곧 «누가 이 녹화를 재생할 수 있는가» 목록이고(recordings-r2.ts —
+              `mango_token uid ∈ participant_ids` 면 재생 허용), 이 API 는 `/api/admin/` 접두사가
+              **아니라서** 강사·지사·대리점 세션도 그대로 받는다(index.ts 의 스코프·강사 차단은
+              그 접두사에만 걸린다). 화면은 이 칸을 안 쓰므로 여기서 끊는다 — 판정에 필요한 것과
+              화면에 보내는 것은 다르다. */
+        const { participant_ids: _pidForResolverOnly, ...row } = _raw;
         const students = _recStudents[_si] || [];
+        const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none' };
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
         let key = String(row.file_url || '');
         if (!key && row.filename) {
@@ -4320,12 +4526,13 @@ ${numbered}`;
           && row.status !== 'deleted' && row.status !== 'upload_failed'
           && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
           && !(row.expires_at && Number(row.expires_at) < _nowMs);
-        if (!playable) return { ...row, students };
+        if (!playable) return { ...row, students, teacher };
         const sig = await signRecDlSig(row.id, env);
         const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
         return {
           ...row,
           students,
+          teacher,
           // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
           dl_url: '/api/recording/play' + qs + '&dl=1',
           // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
