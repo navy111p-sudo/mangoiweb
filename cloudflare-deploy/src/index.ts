@@ -1506,7 +1506,7 @@ const worker = {
         //   (핸들러 안에서 uid 일치를 검사한다. api-students.ts 참고)
         path === '/api/student/focus-history' ||
         path === '/api/student/full' ||
-        path === '/api/student/today' ||        // 📅 «오늘의 학습» — 본인 토큰/관리자 세션 (핸들러 안 resolveOwnerScope, api-students.ts)
+        path === '/api/student/today' ||        // 📅 «오늘의 A.i 학습» — 본인 토큰/관리자 세션 (핸들러 안 resolveOwnerScope, api-students.ts)
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
         // 🔒 (2026-08-08) 세션 상태 조회 — 401 을 받았을 때 «왜» 인지 화면에 알려주기 위한 것.
@@ -2693,17 +2693,21 @@ const worker = {
         }
         await markNightlyStep(env as any, _nightly, 'finance-snapshot');
 
-        // 🎓 학습 인사이트 — 당월 위험도 스냅샷 자동 저장 (KST 03:00)
-        //   learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
-        try {
-          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
-          const period = kstNow.toISOString().slice(0, 7);
-          const rl = await runLearningSnapshot(env as any, period);
-          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
-        } catch (err) {
-          console.error('[learning-snapshot] error', err);
-        }
-        await markNightlyStep(env as any, _nightly, 'learning-snapshot');
+        /* 🎓 학습 인사이트 스냅샷은 **여기 없습니다** — 2026-09-04 에 `0 0 * * *`(KST 09:00)로 옮겼습니다.
+           ⚠️ 되돌리기 전에 읽으세요.
+           [잰 값] `corpcard_meta` 의 `nightly:0 18 * * *:last_ok` 를 사흘 연속 조회:
+              09-01 8분 48초(527,969ms) · 09-02 10분 07초(606,993ms) · 09-03 12분 27초(746,707ms).
+              그중 learning-snapshot 이 144,928 → 168,660 → **203,845ms**(전체의 27%).
+           [판단] 세 점이 같은 방향이고 상한 15분까지 2분 33초였다. 넘으면 격리가 죽고
+              **꼬리부터 조용히 잘린다** — 먼저 잘리는 것은 decision-graph-sync·growth-snapshot·
+              auto-schedule 이다. ⚠️ 미러는 3번째라 «가장 늦게까지 안전한 축» 이지만,
+              체인이 더 늘면 그 절단점이 앞으로 당겨져 결국 미러까지 닿는다.
+              (처음 이 주석에 「미러가 3번째라 함께 잘립니다」라고 적었다가 고쳤다 —
+               심각도를 부풀린 문장이 규칙서에 박히면 다음 사람이 엉뚱한 것을 고친다.)
+           ℹ️ 순서 의존은 «없다» 가 아니라 «좋아졌다» — 이 작업은 attendance·students_erp·
+              student_evaluations·voice_coaching 과 ai_student_analysis·churn-graph 를 읽는데,
+              옮긴 자리(KST 09:00)는 이 블록의 카페24 동기화(KST 03:00) **6시간 뒤**라
+              같은 날 갱신된 자료를 봅니다. */
 
         // 🚨 이탈위험 — 어제 결석 감지 + 케어 대상 집계 (KST 03:00)
         //   감지는 항상 수행. 학부모 알림톡 발송은 게이트(AUTO_ALIMTALK='on' + SOLAPI_TEMPLATE_ABSENCE)
@@ -2809,6 +2813,12 @@ const worker = {
 
       // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
       if (cronIs('0 0 * * *')) {
+        /* 🌙 (2026-09-04) 이 블록도 «어디까지 갔는지» 를 남깁니다 — `0 18` 과 같은 방식.
+           learning-snapshot 을 여기로 옮기면서 함께 넣었습니다. 재지 않는 곳으로 3분 24초짜리
+           작업을 옮기면, 고치려던 «조용히 잘리는» 문제를 자리만 바꿔 되살리는 셈입니다.
+           ⚠️ markNightlyStep 은 try…catch «밖» 이어야 합니다 — 안에 넣으면 뜻이 뒤집혀
+              «그 작업이 에러를 던졌다» 가 되고 정상적인 날엔 기록이 한 줄도 안 남습니다. */
+        const _morning = await beginNightlyRun(env as any, '0 0 * * *').catch(() => null);
         try {
           const subUrl = new URL('https://internal.local/api/admin/subscription/cron-check');
           const subReq = new Request(subUrl.toString(), { method: 'POST' });
@@ -2817,6 +2827,7 @@ const worker = {
         } catch (err) {
           console.error('[recurring-billing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'recurring-billing');
 
         // 📊 경영 브리핑 알림톡 (KST 09:00) — 수신자에게 학생수·매출·비용 발송
         try {
@@ -2827,6 +2838,27 @@ const worker = {
         } catch (err) {
           console.error('[exec-briefing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'exec-briefing');
+
+        /* 🎓 학습 인사이트 — 당월 위험도 스냅샷 (KST 09:00 · 2026-09-04 에 `0 18` 에서 옮겨옴)
+           learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
+           ⚠️ 옮긴 이유는 `0 18` 블록의 그 자리 주석에 적혀 있습니다(체인이 15분 상한에 근접).
+           ℹ️ 읽는 것은 attendance·students_erp·student_evaluations·voice_coaching 과
+              ai_student_analysis·churn-graph 이고(정본 `buildSegments`),
+              카페24 동기화(KST 03:00) 6시간 뒤라 같은 날 갱신분을 봅니다.
+           ⛔ 이 블록의 순서(billing → briefing → snapshot)를 바꾸지 마세요 — 잘려도
+              «돈이 나가는 쪽» 이 아니라 꼬리가 잘리도록 일부러 이렇게 두었습니다.
+           ⚠️ period 는 여기서도 KST 로 계산합니다 — 매월 1일에 «당월» 이 되어야 합니다. */
+        try {
+          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          const period = kstNow.toISOString().slice(0, 7);
+          const rl = await runLearningSnapshot(env as any, period);
+          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
+        } catch (err) {
+          console.error('[learning-snapshot] error', err);
+        }
+        await markNightlyStep(env as any, _morning, 'learning-snapshot');
+        await endNightlyRun(env as any, _morning);
       }
 
       // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)

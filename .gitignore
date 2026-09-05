@@ -90,3 +90,6 @@ __pycache__/
 
 # esbuild 생성물 — test-harness/azure_pronunciation_harness.mjs 가 매번 다시 굽는다(2026-09-04 trap-check)
 test-harness/.azure-pron.mjs
+
+# 브라우저 하니스가 변이시험 중에만 두는 사본 (강제 종료 대비)
+*.harness-bak

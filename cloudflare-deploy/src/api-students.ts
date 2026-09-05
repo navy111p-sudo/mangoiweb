@@ -15,7 +15,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
-import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 학습» 정본 (2026-09-03)
+import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
   request: Request,
@@ -446,7 +446,7 @@ ${MANGOI_KNOWLEDGE}`;
     //   ⚠️ 개인정보를 돌려주지 않는다 — uid 는 요청자가 이미 토큰으로 갖고 있는 값이고,
     //      DB 조회도 하지 않는다(서명 + KV 대조뿐). 그래서 인증 게이트 없이 열어도 안전하다.
     // ═══════════════════════════════════════════════════════════════
-    // 📅 (2026-09-03) GET /api/student/today?uid=&token=  — «오늘의 학습»
+    // 📅 (2026-09-03) GET /api/student/today?uid=&token=  — «오늘의 A.i 학습»
     //   학생 한 명의 레벨·교재·오늘 수업(망고아이 + 카페24)·도구별 «오늘 했나» 를 모아
     //   정본 buildTodayPlan(src/today-plan.ts) 에 넘긴다. 판정은 전부 그 함수 안에 있고
     //   여기는 «재료를 모으는 곳» 이다 — 규칙을 여기에 다시 적지 말 것.
@@ -456,6 +456,26 @@ ${MANGOI_KNOWLEDGE}`;
     //      통째로 비면 안 된다. 단 students_erp 조회 실패는 그대로 500 이 맞다(기본 재료).
     // ═══════════════════════════════════════════════════════════════
     if (method === 'GET' && path === '/api/student/today') {
+      /* ═══ 🍯 맛보기 — 로그인 없이 «어떤 화면인지» 만 보여준다 (2026-09-05 사장님 지시) ═══
+         ⛔ D1 을 한 줄도 읽지 않는다. 그래서 이름·수업 시각처럼 개인정보가 실릴 «자리 자체가» 없다
+            — 위 게이트를 게스트에게 여는 것과는 다른 일이다(그 응답에는 실린다).
+         ⚠️ 오늘 수업은 언제나 «없음»(집에서 하는 날)으로 고정한다. 맛보기가 «오늘 19시 수업» 이라고
+            말하면 그건 그냥 거짓말이고, 그 시각에 아무도 안 온다.
+         ⚠️ name 은 null 이다 — 아무 이름이나 지어 넣지 않는다(CLAUDE.md 2장 「측정할 수 없는 값을
+            그럴듯하게 채우고 싶을 때」). 화면이 «맛보기» 라고 말하는 것으로 충분하다. */
+      if (String(url.searchParams.get('sample') || '') === '1') {
+        const ks = kstParts(Date.now());
+        const res = json({
+          ok: true, sample: true, uid: null, name: null, today: ks.ymd,
+          points_today: 0, ai_streak: 0,
+          plan: buildTodayPlan({
+            band: SAMPLE_BAND, textbook: SAMPLE_TEXTBOOK, zh: false,
+            dow: ks.dow, nowMin: ks.min, classes: [], weekClassDows: [], done: {},
+          }),
+        });
+        res.headers.set('Cache-Control', 'public, max-age=300');   // 개인정보가 없다 — 캐시해도 된다
+        return res;
+      }
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       const scope = await resolveOwnerScope(request, url, env as any, uid);

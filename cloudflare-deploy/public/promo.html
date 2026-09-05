@@ -130,6 +130,57 @@
 
 <script>
 (function(){
+  // ── 어떤 영상인가 — «한 줄» 에서 주소·제목·길이·포스터가 함께 나온다 (2026-09-05) ──
+  //   ⛔ 표를 쪼개지 말 것. 주소만 ?src= 로 바꾸고 글자는 그대로 두면 화면이 거짓말을 한다
+  //      (3분 48초짜리를 틀면서 「1분 35초에 담았습니다」라고 말하는 상태).
+  //   · ?v=<이름> 으로 고른다. 모르는 이름이면 기본 프리셋.
+  //   · ?src= 는 그대로 살아 있다(관리자 팝업 설정 adm-promo-setup.js 가 쓴다) —
+  //     프리셋의 «주소만» 덮어쓴다.
+  //   ⚠️ 그래서 ?src= 로 딴 영상을 주면 글자는 여전히 프리셋 것이다. 고쳐진 것은 «?v= 경로» 뿐이다.
+  //      팝업 설정이 ?v= 를 안 붙이므로 그쪽 화면은 «전과 똑같이» 동작한다(회귀 없음).
+  var PRESETS = {
+    promo: {
+      src:'/video/mangoi-promo.mp4', len:'1:35', poster:'/img/promo/mangoi-promo-poster.png',
+      ko:{ title:'망고아이가 어떤 곳인지 1분 35초에 담았습니다',
+           sub:'원어민 선생님과의 1:1 화상수업, 매 수업 학습 리포트, 학부모 알림까지.',
+           cta1:'무료 레벨테스트 신청' },
+      en:{ title:'See what MangoI is like — in 1 minute 35 seconds',
+           sub:'1:1 video lessons with native teachers, a report after every class, and parent updates.',
+           cta1:'Free level test' },
+      cta1href:'/level-test.html'
+    },
+    /* 🎬 AI 학습도구 안내 — 대상이 «학원 원장·강사» 다(대본이 「선생님은…」 으로 말한다).
+       그래서 제목에 그 대상을 적는다. 학생이 눌렀을 때 «내 이야기가 아니네» 로 끝나지 않게. */
+    'ai-tools': {
+      src:'/library/agency/ai-tools-kr.mp4', len:'3:48', poster:'/img/promo/ai-tools-poster.jpg',
+      ko:{ title:'AI 학습도구를 왜, 어떻게 쓰는지 3분 48초에 담았습니다',
+           sub:'원장님·선생님께 드리는 안내입니다 — 왜 만들었나(노출과 반복) → 어떻게 쓰나(정규수업 앞뒤에 붙이기) → 효과.',
+           cta1:'🤖 AI 학습도구 둘러보기' },
+      en:{ title:'Why and how to use the AI tools — in 3 minutes 48 seconds',
+           sub:'For academy directors and teachers — why we built it, how to use it around your regular class, and what it changes.',
+           cta1:'🤖 Browse the AI tools' },
+      cta1href:'/?menu=aitools'
+    },
+    /* 🎬 학생·학부모용 짧은 판 — 같은 내용을 «아이가 듣는 말» 로 다시 썼다.
+       ⛔ 여기서는 «원장님·선생님께» 라고 말하지 않는다. 이 판은 아이에게 하는 말이다. */
+    'ai-tools-short': {
+      src:'/library/agency/ai-tools-short-kr.mp4', len:'0:37', poster:'/img/promo/ai-tools-short-poster.jpg',
+      ko:{ title:'망고아이 AI 학습을 37초에 보기',
+           sub:'수업이 있는 날은 앞뒤로 10분씩, 없는 날은 집에서 15분. 매일 조금씩이 가장 오래 남아요.',
+           cta1:'📅 오늘의 A.i 학습 열기' },
+      en:{ title:'MangoI AI learning — in 37 seconds',
+           sub:'10 minutes before and after class, 15 minutes at home on other days. A little every day sticks best.',
+           cta1:'📅 Open my AI plan' },
+      cta1href:'/today.html'
+    }
+  };
+  var PRESET = PRESETS.promo;
+  try {
+    var pv = new URLSearchParams(location.search).get('v') || '';
+    if (Object.prototype.hasOwnProperty.call(PRESETS, pv)) PRESET = PRESETS[pv];
+  } catch (e) {}
+  var DEFAULT_SRC = PRESET.src;
+
   var T = {
     ko:{ brand:'망고아이', home:'홈으로', lang:'EN',
          title:'망고아이가 어떤 곳인지 1분 35초에 담았습니다',
@@ -156,9 +207,11 @@
     document.getElementById('t-brand').textContent = t.brand;
     document.getElementById('t-home').textContent  = t.home;
     document.getElementById('langBtn').textContent = t.lang;
-    document.getElementById('t-title').textContent = t.title;
-    document.getElementById('t-sub').textContent   = t.sub;
-    document.getElementById('t-cta1').textContent  = t.cta1;
+    /* 제목·부제는 «지금 트는 영상» 의 것이다 — 프리셋에서 온다(위 PRESETS 주석 참고) */
+    document.getElementById('t-title').textContent = PRESET[lang].title;
+    document.getElementById('t-sub').textContent   = PRESET[lang].sub;
+    var c1 = document.getElementById('t-cta1');
+    c1.textContent = PRESET[lang].cta1; c1.setAttribute('href', PRESET.cta1href);
     document.getElementById('t-cta2').textContent  = t.cta2;
     document.getElementById('t-foot').textContent  = t.foot;
     var pb = document.getElementById('playBtn');
@@ -171,10 +224,6 @@
   });
   paint();
 
-  // ── 영상 주소 — 같은 출처의 동영상 파일만 허용한다 ──
-  //   ⛔ 이 검사를 느슨하게 고치지 말 것: ?src= 로 남의 주소를 넣어 우리 페이지에서
-  //      재생시키는 길이 열린다(«//evil.com/x.mp4» 는 프로토콜 상대 주소라 외부다).
-  var DEFAULT_SRC = '/video/mangoi-promo.mp4';
   function safeSrc(v){
     if (!v) return '';
     if (v.charAt(0) !== '/' || v.charAt(1) === '/') return '';
@@ -183,6 +232,11 @@
   var SRC = '';
   try { SRC = safeSrc(new URLSearchParams(location.search).get('src') || ''); } catch (e) {}
   if (!SRC) SRC = DEFAULT_SRC;
+
+  (function applyPreset(){
+    var lb = document.getElementById('lenBadge'); if (lb) lb.textContent = PRESET.len;
+    var po = document.getElementById('poster');   if (po) po.src = PRESET.poster;
+  })();
 
   var stage = document.getElementById('stage');
   var playBtn = document.getElementById('playBtn');
@@ -201,7 +255,7 @@
     video.setAttribute('playsinline', '');            // iOS: 전체화면으로 튀지 않게
     video.setAttribute('controls', '');
     video.setAttribute('preload', 'auto');
-    video.setAttribute('poster', '/img/promo/mangoi-promo-poster.png');
+    video.setAttribute('poster', PRESET.poster);
     video.src = SRC;
 
     video.addEventListener('error', function(){

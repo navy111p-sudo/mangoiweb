@@ -10041,3 +10041,24 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #rec-search-bar button.rec-restore-bulk:hover{ background:#ffedd5 !important; }
 #rec-search-bar button.rec-restore-bulk[disabled]{ opacity:.6; cursor:default; }
 #rec-restore-result{ width:100%; font-size:12.5px; line-height:1.6; color:#374151; }
+
+
+/* 🔵 자료실 「NEW」 배지 색 되살리기 (2026-09-03)
+   ⚠️ 5014행에 `html[data-admin-theme="ivory"] .lib-doc-t span{color:#2563eb!important}` 가
+      이미 있는데도 화면에는 검정(#101828)으로 나왔다. 페인터 탓이 아니다 —
+      브라우저로 재 보니 인라인 우선순위가 비어 있었고(즉 아무도 인라인 !important 를 안 씀),
+      순수하게 **특이성**에서 진 것이다:
+        · 5014행                      → (0,2,2)
+        · 8843행 [id^="card-"] :is(…) → (0,10,5)  ← 이쪽이 이겨서 #101828
+        · 8239행 (tone 미지정)        → (0,9,5)
+   ✅ 그래서 «특이성 꼬리» 로 (0,11,4) 를 만들어 둘 다 이긴다(클래스 11 > 10 > 9).
+      :not() 목록은 8843행이 스스로 들고 있는 예외 목록과 같다 —
+      「색이 의도된 배지·칩」은 원래 그 규칙이 비켜 가려던 것이고, 이 배지가 정확히 그것이다.
+   ⛔ `[data-admin-tone="slate"]` 를 넣어 좁히지 말 것 — 그러면 (0,11,4)→(0,12,4) 가 되어
+      slate 에서는 이기지만, tone 이 slate 가 아닐 때 8239행(0,9,5)에 그대로 진다.
+   ⛔ 카드 id 를 나열해서(#card-lib-agency …) 풀지 말 것 — 자료실 카드가 늘면 조용히 빠진다.
+   ℹ️ 다크 테마는 손대지 않는다(이 규칙은 ivory 에서만 걸리고, 어두울 때는 인라인 #93c5fd 가 맞다).
+   ℹ️ #2563eb 는 흰 카드 위에서 대비 5.17:1 — 11px 굵은 글자(본문 기준 4.5:1)를 넘는다. */
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+  color: #2563eb !important;
+}

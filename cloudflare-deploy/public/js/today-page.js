@@ -28,13 +28,41 @@
   }
   function tok() { try { return localStorage.getItem('mango_token') || ''; } catch (e) { return ''; } }
 
+  /* ═══ 🍯 맛보기 — 로그인 없이 «하루쯤» 둘러보기 (2026-09-05 사장님 지시) ═══
+     처음 온 사람이 로그인 벽만 보고 나가던 것을 막는다. 서버가 개인정보가 없는
+     «보기용» 계획(?sample=1)을 주고, 화면은 그것을 «맛보기» 라고 말한다.
+     ⚠️ 창은 «처음 연 시각» 부터 잰다 — 기기 하나에 한 번뿐이라 계속 되살아나지 않는다.
+     ⛔ localStorage 가 막힌 곳(사생활 보호 창)에서는 «창을 못 연다» 가 아니라 «맛보기를
+        보여준다» 로 실패한다. 못 보여주면 고치려던 그 벽이 그대로다. */
+  var SAMPLE_KEY = 'mangoi_today_sample_from';
+  var SAMPLE_MS = 24 * 60 * 60 * 1000;
+  function sampleOpen() {
+    var now = Date.now();
+    try {
+      var v = Number(localStorage.getItem(SAMPLE_KEY) || 0);
+      if (!v) { localStorage.setItem(SAMPLE_KEY, String(now)); return true; }
+      return (now - v) < SAMPLE_MS;
+    } catch (e) { return true; }   // 저장을 못 하는 기기 — 막지 않는다
+  }
+
   var DATA = null;
   function show(id) { ['td-login', 'td-status', 'td-main'].forEach(function (x) { $(x).hidden = (x !== id); }); }
   function status(msg, err) { show('td-status'); var t = $('td-status-t'); t.textContent = msg; t.className = 'note' + (err ? ' err' : ''); }
 
   function load() {
     var u = user();
-    if (!u || !u.uid) { show('td-login'); return; }
+    if (!u || !u.uid) {
+      if (!sampleOpen()) { show('td-login'); return; }   // 하루가 지났으면 로그인 안내로
+      if (!DATA) status(T('맛보기 화면을 읽는 중…', 'Loading the sample…'));
+      fetch('/api/student/today?sample=1')
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (d) {
+          if (d && d.ok === true && d.plan) { DATA = d; render(); return; }
+          show('td-login');   // 맛보기를 못 읽으면 원래 화면으로 — 빈 화면보다 낫다
+        })
+        .catch(function () { show('td-login'); });
+      return;
+    }
     if (!DATA) status(T('오늘 계획을 읽는 중…', 'Loading today\'s plan…'));
     fetch('/api/student/today?uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent(tok()), { credentials: 'include' })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d.__http = r.status; return d; }); })
@@ -60,11 +88,63 @@
     return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'from=today&step=' + (i + 1) + '&total=' + n;
   }
 
+  /* 🎬 (2026-09-05 사장님 지시) 처음 온 사람에게만 안내 영상 한 줄.
+     · «처음» 의 판정은 서버가 준 사실 하나 — 아직 레벨이 없다(band 가 비었다).
+       레벨테스트를 보면 저절로 사라진다. 따로 «며칠째» 를 세지 않는다.
+     · 닫으면 다시 안 뜬다(localStorage). ⛔ 그 값을 못 읽어도 «안 뜨는» 쪽으로 실패하지 않는다 —
+       못 읽으면 그냥 보여 준다(안내를 잃는 것보다 한 번 더 보이는 편이 낫다).
+     ⛔ 여기서 영상을 붙이지 않는다 — 24.4MB 다. 누르면 /promo.html 이 열리고 거기서 받는다.
+     ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 원장·강사). 그래서 «함께 보세요» 라고 적는다 —
+        학생이 3분을 듣다가 자기 이야기가 아니라는 걸 알고 나가지 않게. */
+  /* 🪤 값 하나에 두 뜻을 담지 말 것 — 처음엔 «'1' = 닫음, 숫자 = 연 횟수» 로 썼는데
+     첫 번째로 세는 순간 그 값이 '1' 이라 «닫았다» 로 읽혀 한 번만 뜨고 그쳤다.
+     (브라우저 검사가 [true,false,false,false] 로 잡았다 — 문자열로는 안 보인다.)
+     ⟹ 닫음은 숫자가 아닌 표시로 못 박는다. */
+  var INTRO_KEY = 'mangoi_today_intro_v1';   // 'closed' = 사람이 닫음 · 그 밖에는 «연 횟수»
+  var INTRO_MAX_OPENS = 3;
+  function introState() {
+    try { var v = localStorage.getItem(INTRO_KEY); return { dismissed: v === 'closed', opens: Number(v) || 0 }; }
+    catch (e) { return { dismissed: false, opens: 0 }; }   // 못 읽으면 «보여 주는» 쪽으로 실패
+  }
+  function renderIntro(p) {
+    var box = $('td-intro');
+    if (!box) return;
+    var st = introState();
+    /* 🔴 «처음 온 사람» 을 무엇으로 가리나 — 2026-09-05 D1 실측이 답을 바꿨다.
+       처음에는 «아직 레벨이 없다»(p.band) 하나로 했는데, `students_erp.level` 은
+       **29,481명 중 1명**만 채워져 있다(CLAUDE.md 2장 「나이·학년으로 자동 분류」와 같은 사정).
+       ⟹ 그 조건은 사실상 «로그인한 학생 전원» 이라 «처음» 을 하나도 못 거른다.
+       그래서 실제로 거르는 것은 **이 화면을 연 횟수**(기기별)다 — 처음 3번만 보여 준다.
+       ⛔ p.band 를 빼지는 않는다: 레벨이 채워지기 시작하면 «레벨 있는 사람» 은 그날부터
+          바로 안 보게 되는 것이 맞다. 지금은 아무것도 안 거를 뿐이다. */
+    var show = !st.dismissed && st.opens < INTRO_MAX_OPENS && !p.band;
+    box.hidden = !show;
+    if (!show) { box.innerHTML = ''; return; }
+    try { localStorage.setItem(INTRO_KEY, String(st.opens + 1)); } catch (e) {}
+    /* 📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 37초 판» 을 가리킨다.
+       ⛔ 3분 48초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이다. */
+    box.innerHTML =
+      '<a href="/promo.html?v=ai-tools-short" target="_blank" rel="noopener">'
+      + '<span class="t">' + esc(T('▶ 망고아이 AI 학습, 37초에 보기', '▶ MangoI AI learning — in 37 seconds')) + '</span>'
+      + '<span class="s">' + esc(T('무엇을 언제 하면 되는지 한 번에 알 수 있어요.',
+                                   'See what to do and when — all in one go.')) + '</span>'
+      + '</a>'
+      + '<button type="button" class="x" aria-label="' + esc(T('닫기', 'Close')) + '">✕</button>';
+    box.querySelector('.x').addEventListener('click', function () {
+      try { localStorage.setItem(INTRO_KEY, 'closed'); } catch (e) {}
+      box.hidden = true; box.innerHTML = '';
+    });
+  }
+
   var SLOT = { before: ['수업 전', 'Before class'], after: ['수업 후', 'After class'], home: ['집에서', 'At home'], first: ['먼저', 'First'] };
 
   function render() {
     var d = DATA, p = d.plan, en = isEn();
-    seedLevel(p);
+    /* ⛔ 맛보기 레벨(보기용)을 기기에 심지 않는다 — 그 값은 이 사람의 레벨이 아니고,
+       한 번 심으면 «비어 있을 때만» 규칙 때문에 나중에 진짜 레벨이 와도 안 덮인다. */
+    if (!d.sample) seedLevel(p);
+    var sb = $('td-sample');
+    if (sb) sb.hidden = !d.sample;
     show('td-main');
     var name = d.name || '';
     $('td-hello').textContent = name ? T(name + ' 님, 오늘도 조금만 해요', 'Hi ' + name + ' — a little today') : T('오늘도 조금만 해요', 'A little today');
@@ -78,8 +158,12 @@
     chips.push('<span class="chip mode">' + (p.mode === 'class' ? '🏫 ' + T('수업일', 'Class day') : (p.mode === 'home' ? '🏠 ' + T('집에서', 'At home') : '🎯 ' + T('레벨부터', 'Level first'))) + '</span>');
     if (p.band) chips.push('<span class="chip">' + esc(en ? p.bandEn : p.bandKo) + (p.cefr ? ' · ' + esc(p.cefr) : '') + '</span>');
     if (p.textbook) chips.push('<span class="chip">📚 ' + esc(p.textbook) + '</span>');
-    chips.push('<span class="chip streak">🔥 ' + T('연속 ' + d.ai_streak + '일', d.ai_streak + '-day streak') + '</span>');
-    chips.push('<span class="chip pts">⭐ ' + T('오늘 +' + d.points_today + 'P', '+' + d.points_today + 'P today') + '</span>');
+    /* ⛔ 맛보기에서는 연속일·포인트 칩을 그리지 않는다 — 값이 0 인 것은 사실이지만,
+       그 화면에서는 «너는 아무것도 안 했다» 로 읽힌다(맛보기는 남의 기록이 없는 화면이다). */
+    if (!d.sample) {
+      chips.push('<span class="chip streak">🔥 ' + T('연속 ' + d.ai_streak + '일', d.ai_streak + '-day streak') + '</span>');
+      chips.push('<span class="chip pts">⭐ ' + T('오늘 +' + d.points_today + 'P', '+' + d.points_today + 'P today') + '</span>');
+    }
     $('td-chips').innerHTML = chips.join('');
 
     var n = p.steps.length, dn = p.doneCount;
@@ -88,6 +172,7 @@
       ? T('오늘 계획을 다 했어요! 🎉', 'All done for today! 🎉')
       : T(dn + '/' + n + ' 완료 · 약 ' + p.totalMinutes + '분', 'Done ' + dn + '/' + n + ' · about ' + p.totalMinutes + ' min');
     $('td-h-steps').textContent = T('오늘 할 일', 'Today');
+    renderIntro(p);
 
     $('td-steps').innerHTML = p.steps.map(function (s, i) {
       var sl = SLOT[s.slot] || SLOT.home;

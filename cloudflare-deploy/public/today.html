@@ -5,11 +5,11 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>오늘의 학습 — 망고아이</title>
+<title>오늘의 A.i 학습 — 망고아이</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#0a1530" />
 <!--
-  📅 오늘의 학습 — AI 학습도구 8종을 «오늘 할 순서» 로 이어 주는 화면 (2026-09-03)
+  📅 오늘의 A.i 학습 — AI 학습도구 8종을 «오늘 할 순서» 로 이어 주는 화면 (2026-09-03)
 
   [왜 있나]
     도구는 8종이 다 돌지만 서로 이어져 있지 않았다. 2026-09-03 D1 실측: 최근 30일 AI 도구를
@@ -103,20 +103,48 @@
   .wk-sum { margin-top:10px; }
   .legend { color:var(--muted); font-size:12px; margin-top:8px; }
   .note { color:var(--text2); font-size:13px; }
-  .login .go { display:inline-block; margin:6px 8px 0 0; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:900;
+  .login .go, .sample .go { display:inline-block; margin:6px 8px 0 0; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:900;
                background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; }
-  .login .alt { display:inline-block; margin-top:6px; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:800;
+  .login .alt, .sample .alt { display:inline-block; margin-top:6px; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:800;
                 background:rgba(255,255,255,.08); color:var(--text); }
+  /* 🍯 맛보기 배너 — 버튼은 로그인 카드와 같은 모양을 쓴다(.login 규칙을 함께 건다) */
+  .sample { border-color:rgba(250,204,21,.45); background:rgba(250,204,21,.07); }
   .err { color:#fca5a5; }
   [hidden] { display:none !important; }
-  .foot { color:var(--muted); font-size:12px; text-align:center; margin-top:18px; }
-  .foot a { color:var(--text2); }
+  /* 🎬 (2026-09-05) 처음 온 사람에게만 뜨는 안내 영상 한 줄.
+     ⛔ 여기서 영상을 «틀지» 않는다 — 24.4MB 다. 누르면 /promo.html 이 열리고 거기서 받는다.
+     ⛔ display:flex 로 감싸지 말 것 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+  .intro { display:block; background:rgba(96,165,250,.10); border:1px solid rgba(96,165,250,.38);
+           border-radius:14px; padding:12px 14px; margin-bottom:12px; position:relative; }
+  .intro a { display:block; color:var(--text); text-decoration:none; padding-right:44px; }
+  .intro .t { font-weight:900; font-size:15px; line-height:1.35; color:var(--blue); }
+  .intro .s { font-size:12.5px; color:var(--text2); margin-top:3px; line-height:1.5; }
+  /* ⚠️ 닫기도 «손가락으로 누르는» 것이다 — 26px 로 뒀다가 함정 대조에서 지적받았다.
+     보이는 크기는 그대로 두고 «누르는 자리» 만 44px 로 넓힌다. */
+  .intro .x { position:absolute; top:2px; right:2px; width:44px; height:44px; line-height:44px;
+              text-align:center; border:0; border-radius:10px; cursor:pointer; font-size:14px;
+              background:transparent; color:var(--muted); }
+  .foot { text-align:center; margin-top:20px; }
+  /* ⚠️ «그냥 글자» 로 두지 말 것 — 이 자리가 고치려던 것이 바로 «누를 수 없는 안내 글» 이었다.
+     2026-09-05 사장님 «이거 좀더 크게 잘 보이게 해줘» — 밑줄 친 작은 글씨(12px)를
+     화면 폭을 채우는 «버튼» 으로 바꿨다. 색만 바꾸면 사람은 그냥 글자로 읽는다
+     (CLAUDE.md 2장 «색은 맞게 칠했는데 그냥 글자로 보인다»).
+     ⛔ 금색을 «채우지» 는 않는다 — 카드의 «시작 ▶» 이 이 화면의 첫째 행동이고
+        이것은 둘째다. 테두리로 «버튼임» 을 말하고 강조는 한 칸 낮춘다. */
+  .foot a { display:flex; align-items:center; justify-content:center; gap:8px;
+            min-height:54px; padding:15px 18px; border-radius:14px;
+            font-size:17px; font-weight:900; letter-spacing:-.01em; line-height:1.25;
+            color:var(--gold); text-decoration:none;
+            background:rgba(251,191,36,.10); border:2px solid rgba(251,191,36,.55);
+            box-shadow:0 6px 18px rgba(0,0,0,.28); }
+  .foot a:active { background:rgba(251,191,36,.18); }
+  .foot .foot-note { color:var(--muted); font-size:12px; margin-top:8px; }
 </style>
 </head>
 <body>
 <div class="top">
   <a class="back" href="/" aria-label="뒤로" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack('/');}">←</a>
-  <span class="t" data-ko="📅 오늘의 학습" data-en="📅 Today's Plan">📅 오늘의 학습</span>
+  <span class="t" data-ko="📅 오늘의 A.i 학습" data-en="📅 Today's AI Plan">📅 오늘의 A.i 학습</span>
 </div>
 
 <div class="wrap">
@@ -128,6 +156,16 @@
       <a class="go" href="/" data-ko="🏠 홈에서 로그인" data-en="🏠 Log in from home">🏠 홈에서 로그인</a>
       <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
     </div>
+    <!-- 🎬 로그인 전에도 «이게 뭐 하는 곳인가» 를 볼 수 있어야 한다. 누르기 전엔 영상 0바이트.
+         📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 37초 판» 을 가리킨다.
+            ⛔ 3분 48초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이라
+               아이가 듣다가 «내 이야기가 아니네» 로 나간다. -->
+    <div class="intro" style="margin:14px 0 0">
+      <a href="/promo.html?v=ai-tools-short" target="_blank" rel="noopener">
+        <span class="t" data-ko="▶ 망고아이 AI 학습, 37초에 보기" data-en="▶ MangoI AI learning — in 37 seconds">▶ 망고아이 AI 학습, 37초에 보기</span>
+        <span class="s" data-ko="무엇을 언제 하면 되는지 한 번에 알 수 있어요." data-en="See what to do and when — all in one go.">무엇을 언제 하면 되는지 한 번에 알 수 있어요.</span>
+      </a>
+    </div>
   </div>
 
   <!-- 읽는 중 / 오류 -->
@@ -135,6 +173,16 @@
 
   <!-- 본문 -->
   <div id="td-main" hidden>
+    <!-- 🍯 맛보기 배너 — 로그인 전에는 이 화면이 «보기용» 이라고 화면이 직접 말한다.
+         ⛔ 감추지 말 것: 말 안 하면 이 계획이 «내 계획» 인 줄 알고 그대로 따라 합니다. -->
+    <div class="card sample" id="td-sample" hidden>
+      <p class="hello" data-ko="🍯 맛보기 화면이에요" data-en="🍯 This is a sample">🍯 맛보기 화면이에요</p>
+      <p class="sub" data-ko="지금 보이는 계획은 «어떤 화면인지» 보여드리는 예시입니다. 로그인하면 내 레벨과 내 수업 시간에 맞춰 바뀌어요." data-en="What you see is an example of how the plan looks. Log in and it changes to your level and your class times.">지금 보이는 계획은 «어떤 화면인지» 보여드리는 예시입니다. 로그인하면 내 레벨과 내 수업 시간에 맞춰 바뀌어요.</p>
+      <div class="chips">
+        <a class="go" href="/" data-ko="🏠 로그인하고 내 계획 보기" data-en="🏠 Log in for my own plan">🏠 로그인하고 내 계획 보기</a>
+        <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
+      </div>
+    </div>
     <div class="card">
       <p class="hello" id="td-hello"></p>
       <p class="sub" id="td-sub"></p>
@@ -142,6 +190,9 @@
       <div class="prog"><i id="td-prog"></i></div>
       <div class="prog-t" id="td-prog-t"></div>
     </div>
+
+    <!-- 🎬 처음 온 사람에게만(아직 레벨이 없을 때) 뜬다. 닫으면 다시 안 뜬다. -->
+    <div class="intro" id="td-intro" hidden></div>
 
     <div class="h" id="td-h-steps"></div>
     <div id="td-steps"></div>
@@ -155,11 +206,18 @@
     </div>
 
     <div class="foot">
-      <span data-ko="도구를 전부 보려면 홈 왼쪽 메뉴 ▸ AI 학습 도구" data-en="All tools: home ▸ left menu ▸ AI learning tools">도구를 전부 보려면 홈 왼쪽 메뉴 ▸ AI 학습 도구</span>
+      <!-- 🤖 (2026-09-04) «도구 전부 보기» — 홈 첫 화면 큰 버튼이 「오늘의 A.i 학습」으로 바뀌면서
+           AI 도구 목록은 한 칸 안쪽으로 들어갔다. 그 길을 여기서 되돌려 준다(없앤 것이 아니다).
+           ⛔ 안내 «글» 로 두지 말 것 — 전에는 「홈 왼쪽 메뉴 ▸ AI 학습 도구」라는 문장이라
+              누를 수가 없었다. 주소 하나(?menu=aitools)로 그 목록이 열린다. -->
+      <a href="/?menu=aitools" data-ko="🤖 AI 도구 전부 보기" data-en="🤖 See all AI tools">🤖 AI 도구 전부 보기</a>
+      <div class="foot-note" data-ko="오늘 할 일 말고 다른 도구도 골라서 할 수 있어요"
+           data-en="You can also pick any other tool, not just today's list"
+      >오늘 할 일 말고 다른 도구도 골라서 할 수 있어요</div>
     </div>
   </div>
 </div>
 
-<script defer src="/js/today-page.js?v=2"></script>
+<script defer src="/js/today-page.js?v=7"></script>
 </body>
 </html>

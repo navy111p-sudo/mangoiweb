@@ -20,7 +20,7 @@
 //   빼면 ①-3, 수업일 웜업을 빼면 ①-1, dowMatches 의 한글 표를 지우면 ③ 이 실제로 FAIL 난다.
 //
 //   실행: node test-harness/today_plan_harness.mjs
-import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,8 +37,17 @@ const check = (name, ok, extra) => {
   if (ok) { PASS++; console.log('  ✅ ' + name); }
   else { FAIL++; console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
 };
-/** 부정 검사는 주석을 벗긴 사본으로 — 블록주석은 줄 단위로 «지금 주석 안인가» 를 추적한다 */
+/**
+ * 부정 검사는 주석을 벗긴 사본으로 — 블록주석은 줄 단위로 «지금 주석 안인가» 를 추적한다.
+ * 🔴 (2026-09-04 함정 대조 지적) HTML 주석(«<!-- -->»)도 벗긴다. 안 벗기면 .html 파일에서
+ *    「이 이름이 있는가」류 검사가 «자기 설명 주석» 을 잡아 통과한다 — 실측: 홈 큰 버튼 라벨을
+ *    옛 이름으로 되돌려도 index.html 검사가 초록이었다(잡힌 것은 그날 새로 넣은 설명 주석).
+ *    그 위에 「주석을 벗기고 본다」고 적어 두었는데 .html 에 대해서는 사실이 아니었다.
+ * ⚠️ HTML 주석은 중첩이 없어 non-greedy 로 안전하다. 그래도 «코드를 통째로 먹지 않았는가» 를
+ *    아래 ⓪절이 전제 검사로 확인한다(CLAUDE.md 2장 「블록주석을 정규식 한 줄로 지웠더니」).
+ */
 function strip(src) {
+  src = String(src).replace(/<!--[\s\S]*?-->/g, '');
   const out = []; let inBlock = false;
   for (const line of String(src).split('\n')) {
     let res = '';
@@ -281,6 +290,310 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   const home = strip(rd(join(PUB, 'js', 'idx-ai-home.js')));
   const signup = rd(join(PUB, 'signup.html'));
   check('⑦ 입구 셋 — 전체메뉴 · 홈 검색 · 가입 완료 카드', /url:'\/today\.html'/.test(menu) && /location\.href='\/today\.html'/.test(home) && /href="\/today\.html"/.test(signup));
+
+  /* ── ⑧ 이름과 자리 (2026-09-04 사장님 지시)
+     이름: 「오늘의 학습」 → 「오늘의 A.i 학습」. 여러 곳이 «같은 말» 을 해야 한다 —
+           한 곳만 고치면 에러 없이 어긋나고, 그때가 「이거 같은 거야 다른 거야」가 다시 나오는 때다.
+     자리: 드로어 「AI 학습 도구」 «맨 위» + 로그인한 학생의 홈 큰 버튼.
+     ⚠️ «보이는가 · 눌리는가» 는 문자열로 못 본다 — manual/today-entry-browser.mjs 가 그려서 잰다. */
+  const idx = rd(join(PUB, 'index.html'));
+  const bar = rd(join(PUB, 'js', 'today-bar.js'));
+  /* ⚠️ 주석을 «벗긴» 사본에서 자른다 — 안 벗기면 「왜 바꿨나」 설명 주석에 남긴 옛 이름을
+     부정 검사가 잡아 «아직 남아 있다» 로 FAIL 낸다(2026-09-04 실제로 밟았다). */
+  const idxS = strip(idx);
+  /* ⓪ 전제 — strip 이 코드를 통째로 먹으면 아래 검사가 «전부 통과» 로 헛돈다
+     (CLAUDE.md 2장 「블록주석을 정규식 한 줄로 지웠더니 코드가 함께 사라짐」) */
+  check('⓪ strip 이 index.html 을 통째로 먹지 않았다', strip(idx).length > idx.length * 0.5,
+    [strip(idx).length, idx.length]);
+  check('⓪ strip 이 today-bar.js 를 통째로 먹지 않았다', strip(bar).length > bar.length * 0.4);
+  const NAME = '오늘의 A.i 학습';
+  /* ⚠️ 주석을 «벗기고» 본다 — 안 벗기면 「왜 이 이름으로 바꿨나」 설명 주석이 자기를 잡아
+     알약 글자를 옛 이름으로 되돌려도 통과한다(2026-09-04 변이시험에서 실제로 안 잡혔다). */
+  for (const [nm, txt] of [['화면 제목', html], ['돌아가기 알약', bar], ['전체메뉴 타일', menu],
+                           ['홈 검색 라벨', home], ['가입 완료 카드', signup], ['홈(드로어·큰 버튼)', idx]])
+    check(`⑧ «${NAME}» — ${nm}`, strip(txt).includes(NAME));
+  /* 알약은 «화면에 그리는 글자» 를 콕 집어 본다 — 그 파일에서 이름이 나오는 곳이 여럿이다 */
+  check('⑧ 돌아가기 알약이 그리는 «글자» 가 새 이름',
+    /'📅 오늘의 A\.i 학습' \+ \(total/.test(strip(bar)), (strip(bar).match(/'📅[^']*'/g) || []).slice(0, 3));
+  check('⑧ 옛 이름이 화면 글자로 남아 있지 않다(주석은 무관)',
+    !/'📅 오늘의 학습'/.test(strip(bar)) && !/data-ko="📅 오늘의 학습"/.test(strip(html)));
+  check('⑧ 화면 제목 태그도 새 이름', /<title>오늘의 A\.i 학습/.test(html));
+  /* 옛 낱말로 찾던 사람이 못 찾게 되면 안 된다 — 검색어(kws)에는 «옛 말 + 새 말» 이 함께 있어야 한다 */
+  const kwLine = (home.split(/\r?\n/).find(l => /kws:/.test(l) && /\/today\.html/.test(l)) || '');
+  check('⑧ 홈 검색이 «옛 말» 로도 찾아 준다(오늘의 학습 · 계획표)',
+    /'오늘의 학습'/.test(kwLine) && /'계획표'/.test(kwLine), kwLine.slice(0, 90));
+  check('⑧ 홈 검색이 «새 말» 로도 찾아 준다(오늘의 ai 학습)', /'오늘의 ai 학습'/.test(kwLine));
+
+  /* 드로어 「AI 학습 도구」 묶음 — 그 안에서만 본다(파일 전체를 보면 딴 곳이 걸린다) */
+  const g = idxS.indexOf('data-ko="AI 학습 도구"');
+  const gBody = g > 0 ? idxS.slice(idxS.indexOf('mg-acc-body', g), idxS.indexOf('</details>', g)) : '';
+  const gBtns = [...gBody.matchAll(/<button[^>]*data-ko="([^"]+)"/g)].map(m => m[1]);
+  check('⑧ 드로어 「AI 학습 도구」 «맨 위» 가 오늘의 A.i 학습', /오늘의 A\.i 학습/.test(gBtns[0] || ''), gBtns.slice(0, 3));
+  check('⑧ 그 아래 도구가 그대로(8종 이상)', gBtns.length >= 9, gBtns.length);
+  /* 🔴 (2026-09-04 함정 대조 지적) 로그인한 학생의 홈 큰 버튼 — 이 자리가 «탭 1번» 이고
+     이번 지시의 핵심인데, 검사가 manual/ 에만 있어 게이트가 못 지키고 있었다.
+     「보이는가·눌리는가」는 브라우저 몫이지만 «무엇으로 가는 버튼인가» 는 여기서 볼 수 있다. */
+  const hm = idxS.indexOf('id="hero-member"');
+  const hmBlock = hm > 0 ? idxS.slice(hm, idxS.indexOf('</div>', idxS.indexOf('</button>', hm))) : '';
+  check('⑧ 홈 큰 버튼(#hero-member)에 /today.html 로 가는 버튼이 있다',
+    /onclick="location\.href='\/today\.html'"/.test(hmBlock), hmBlock.slice(0, 80));
+  check('⑧ 그 버튼 라벨이 새 이름이다', /data-ko="오늘의 A\.i 학습"/.test(hmBlock));
+  check('⑧ 옛 「AI와 친구하기」가 그 자리에 남아 있지 않다', hm > 0 && !/AI와 친구하기/.test(hmBlock));
+  check('⑧ 「수업 입장」은 그대로 있다(같이 지우지 않았다)', /showView\('view-videocall-lobby'\)/.test(hmBlock));
+
+  /* ⛔ 「학습 공간」에는 넣지 않는다 — 거기는 레벨테스트·수업 신청처럼 «한 번씩 하는 학원 업무» 다 */
+  const sp = idxS.indexOf('data-ko="학습 공간"');
+  const spBody = sp > 0 ? idxS.slice(idxS.indexOf('mg-acc-body', sp), idxS.indexOf('</details>', sp)) : '';
+  check('⑧ 「학습 공간」에는 «안» 넣었다', sp > 0 && !/오늘의 A\.i 학습/.test(spBody));
+
+  /* 되돌아가는 길 — 도구 «목록» 을 없앤 것이 아니다. 없애면 「그냥 다른 것도」 하려는 학생의 길이 사라진다 */
+  check('⑧ ?menu=aitools 로 도구 목록을 여는 길이 있다',
+    /p\.get\('menu'\) === 'aitools'/.test(idx) && /openAiFriendsOverlay/.test(idx));
+  check('⑧ today.html 꼬리말이 «안내 글» 이 아니라 그 주소로 가는 링크다',
+    /href="\/\?menu=aitools"/.test(html) && !/도구를 전부 보려면 홈 왼쪽 메뉴/.test(html));
+
+  /* 🔎 (2026-09-05) 사장님 「이거 좀더 크게 잘 보이게 해줘」 — 12px 밑줄 글씨였다.
+     ⛔ 「밑줄이 있는가」·「17px 인가」로 못 박지 말 것 — 모양을 바꾸면 보장은 그대로인데
+        검사만 깨진다(CLAUDE.md 2장). 물어야 할 것은 «손가락으로 누를 수 있는 크기인가» 다.
+     ⚠️ 이건 «선언된 값» 을 읽는 문자열 검사다 — 실제로 그려진 크기는
+        manual/today-entry-browser.mjs 가 잰다. */
+  {
+    const m = html.match(/\.foot a\s*\{([\s\S]*?)\}/);
+    const blk = m ? m[1] : '';
+    const num = (prop) => { const x = blk.match(new RegExp(prop + '\\s*:\\s*(\\d+(?:\\.\\d+)?)px')); return x ? Number(x[1]) : 0; };
+    check('⑧ 그 링크가 «누를 수 있는 크기» 다 (높이 44px↑ · 글자 15px↑ · 한 줄 글씨가 아님)',
+      !!m && num('min-height') >= 44 && num('font-size') >= 15
+        && /display\s*:\s*(flex|block|inline-flex|grid)/.test(blk),
+      `min-height=${num('min-height')} font-size=${num('font-size')} display=${/display\s*:\s*([a-z-]+)/.exec(blk)?.[1]}`);
+  }
+  check('⑧ 도구 목록 자체는 그대로 살아 있다(전체메뉴 · 드로어 · 오버레이)',
+    /openAiFriendsOverlay = function/.test(idx) && gBtns.length >= 9);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * ⑨ 안내 영상 입구 두 곳 (2026-09-05 사장님 지시 — A안 + B안)
+ *    A안 홈 「망고아이란?」 맨 앞 카드 · B안 today.html 첫 방문자 한 줄
+ *
+ *   ⛔ «그 글자가 있는가» 로 끝내지 않는다. 여기서 못 박는 것은 셋이다 —
+ *      ① 가리키는 파일이 «실재하는가»(그림·영상을 커밋에 안 담는 사고 — 아바타 전례)
+ *      ② 화면이 말하는 길이가 «영상의 진짜 길이와 같은가»(mp4 헤더를 읽어 대조)
+ *      ③ 누르기 전에 «영상을 안 받는가»(24.4MB — 카드를 여는 것만으로 내려가면 안 된다)
+ *   ⚠️ «보이는가·눌리는가» 는 문자열로 못 본다 → test-harness/manual/video-entry-browser.mjs
+ * ═══════════════════════════════════════════════════════════════════════ */
+{
+  const promo  = readFileSync(join(PUB, 'promo.html'), 'utf8');
+  const about  = readFileSync(join(PUB, 'js', 'idx-about.js'), 'utf8');
+  const todayJs2 = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
+
+  /* ── 프리셋 표 — 주소·길이·포스터가 «한 줄» 에서 나온다 ── */
+  /* 프리셋이 «둘» 이다 — 3분 35초(원장·강사) · 39초(학생·학부모).
+     ⛔ 한쪽만 검사하지 말 것: 각 프리셋은 «자기 영상» 의 사실을 말해야 한다. */
+  const readPreset = (key) => {
+    const m = promo.match(new RegExp("'" + key + "'\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
+    const blk = m ? m[1] : '';
+    const pick = (k) => { const x = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return x ? x[1] : ''; };
+    return { ok: !!m, blk, src: pick('src'), len: pick('len'), poster: pick('poster') };
+  };
+  const P_LONG = readPreset('ai-tools'), P_SHORT = readPreset('ai-tools-short');
+  const vsrc = P_LONG.src, vposter = P_LONG.poster;
+
+  /* mp4 헤더(mvhd)에서 «진짜 길이» 를 읽는다 */
+  const realSecOf = (rel) => {
+    try {
+      const d = readFileSync(join(PUB, rel.replace(/^\//, '')));
+      const k = d.indexOf(Buffer.from('mvhd'));
+      if (k <= 0) return -1;
+      const ver = d[k + 4];
+      return ver === 0 ? d.readUInt32BE(k + 20) / d.readUInt32BE(k + 16)
+                       : Number(d.readBigUInt64BE(k + 28)) / d.readUInt32BE(k + 24);
+    } catch { return -1; }
+  };
+
+  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT]]) {
+    check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
+      `src=${P.src} len=${P.len} poster=${P.poster}`);
+    /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
+    check(`⑨ [${nm}] 영상 파일이 저장소에 실제로 있다`, !!P.src && existsSync(join(PUB, P.src.replace(/^\//, ''))), P.src);
+    check(`⑨ [${nm}] 포스터 그림이 저장소에 실제로 있다`, !!P.poster && existsSync(join(PUB, P.poster.replace(/^\//, ''))), P.poster);
+    /* ② 화면이 말하는 길이가 진짜 길이와 같은가 — 숫자를 정규식으로 못 박지 않는다.
+          영상을 갈아 끼우면 이 검사가 어긋남을 알린다. */
+    const real = realSecOf(P.src);
+    const [mm, ss] = String(P.len).split(':').map(Number);
+    const said = (mm * 60) + ss;
+    check(`⑨ [${nm}] 화면이 말하는 길이가 영상의 진짜 길이와 같다 (±5초)`,
+      real > 0 && Math.abs(real - said) <= 5, `화면 ${P.len}(${said}s) vs 실제 ${real.toFixed(1)}s`);
+    let kb = 0;
+    try { kb = readFileSync(join(PUB, P.poster.replace(/^\//, ''))).length / 1024; } catch {}
+    check(`⑨ [${nm}] 포스터가 120KB 이하다`, kb > 0 && kb <= 120, kb.toFixed(1) + 'KB');
+    /* 🔴 Cloudflare Workers 정적자산은 «파일 하나 25 MiB» 가 한도다 — Free·Paid 동일
+          (developers.cloudflare.com/workers/platform/limits — 2026-09-05 문서 확인).
+          넘으면 «배포가 그 자리에서 깨진다». 2026-09-05 에 긴 판이 24.98 MiB(여유 22 KiB)까지
+          붙은 적이 있어 이 검사를 넣었고, 그날 crf 를 한 단계 낮춰 되돌렸다.
+          ⚠️ 여유 숫자를 이 주석에 적지 말 것 — 영상을 갈 때마다 낡는다. 검사가 statSync 로
+             «매번 재서» 남은 여유를 출력하므로 그 출력이 정본이다.
+       ⛔ 한도를 늘려서 통과시키지 말 것 — 그건 Cloudflare 가 정하는 숫자다.
+          넘으면 길이를 줄이거나 화질(crf)을 낮추거나 R2 로 옮겨야 한다. */
+    let mib = 0;
+    try { mib = statSync(join(PUB, P.src.replace(/^\//, ''))).size / 1048576; } catch {}
+    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, mib > 0 && mib < 25,
+      `${mib.toFixed(2)} MiB · 남은 여유 ${((25 - mib) * 1024).toFixed(0)} KiB`);
+  }
+  /* 짧은 판이 «짧은가» — 학생 화면에 3분짜리를 걸어 두면 이 기능의 취지가 사라진다 */
+  check('⑨ 짧은 판이 실제로 1분 미만이다', realSecOf(P_SHORT.src) > 0 && realSecOf(P_SHORT.src) < 60,
+    realSecOf(P_SHORT.src).toFixed(1) + 's');
+  check('⑨ 두 판이 서로 다른 영상이다', !!P_LONG.src && !!P_SHORT.src && P_LONG.src !== P_SHORT.src);
+
+  /* ③ 누르기 전엔 0바이트 — 어느 입구도 mp4 를 «미리» 걸어 두지 않는다 */
+  const mp4InPage = (t) => new RegExp(vsrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(t);
+  check('⑨ today.html 이 mp4 를 직접 걸지 않는다 (누르기 전 0바이트)', !mp4InPage(readFileSync(join(PUB, 'today.html'), 'utf8')));
+  check('⑨ 「망고아이란?」 카드가 mp4 를 직접 걸지 않는다', !mp4InPage(about));
+
+  /* 🪤 포스터 주소가 «두 곳» 에 있다(promo 프리셋 · about 카드의 <img>).
+        개명하면 카드 그림만 조용히 404 가 된다 → «같은 파일을 가리키는가» 로 대조한다. */
+  const aboutPoster = (about.match(/<img src="(\/img\/promo\/[^"]+)"/) || [])[1] || '';
+  check('⑨ 두 곳이 같은 포스터를 가리킨다', !!aboutPoster && aboutPoster === vposter,
+    `about=${aboutPoster} promo=${vposter}`);
+
+  /* ── A안 — 「망고아이란?」 맨 앞 카드 ── */
+  /* ⛔ «앞 N자 안에 그 글자가 있나» 로 보지 않는다 — 설명 주석이 길어지면 그대로 헛돈다
+        (실제로 한 번 그렇게 짰다가 멀쩡한 코드가 FAIL 났다).
+        카드 «객체» 의 모양(`{ic:…, t:…}`)으로 찾으면 주석은 애초에 안 걸린다. */
+  const cards = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
+  check('⑨ A안 — 영상 카드가 BENEFITS 맨 앞이다',
+    cards.length > 1 && /안내 영상/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
+  check('⑨ A안 — 그 카드가 /promo.html?v=ai-tools 로 간다', /promo\.html\?v=ai-tools/.test(about));
+  /* ⚠️ 인앱 브라우저는 새 창을 못 열고 null 만 준다 — 폴백이 없으면 카톡에서 «눌러도 아무 일 없음» */
+  check('⑨ A안 — window.open 이 막히면 location.href 로 폴백한다',
+    /w\s*=\s*window\.open\([^)]*\)/.test(about) && /else\s*\{\s*location\.href\s*=\s*u;?\s*\}/.test(about));
+  check('⑨ A안 — 기능 문자열에 noopener 를 주지 않는다 (반환이 늘 null 이 된다)',
+    !/window\.open\([^)]*'noopener'/.test(about));
+
+  /* ── B안 — today.html 첫 방문자 한 줄 ── */
+  const todayHtml2 = readFileSync(join(PUB, 'today.html'), 'utf8');
+  check('⑨ B안 — today.html 에 안내 자리(#td-intro)가 있다', /id="td-intro"/.test(todayHtml2));
+  /* ⛔ 범위를 «길이» 로 자르지 말 것 — 설명 주석이 길어지면 그대로 헛돈다(실제로 밟았다).
+        로그인 카드는 그 다음 형제 주석까지가 경계다. */
+  const loginI = todayHtml2.indexOf('id="td-login"');
+  const loginEnd = todayHtml2.indexOf('<!-- 읽는 중', loginI);
+  const loginBlk = (loginI > 0 && loginEnd > loginI) ? todayHtml2.slice(loginI, loginEnd) : '';
+  check('⑨ B안 — 로그인 전 화면에도 그 길이 있다', /promo\.html\?v=ai-tools-short/.test(loginBlk),
+    loginBlk ? '(카드 ' + loginBlk.length + '자)' : '카드 경계를 못 찾음');
+  /* 🪤 «renderIntro(p)» 로 찾으면 «function renderIntro(p) {» 라는 «선언» 이 잡혀,
+        호출을 통째로 지워도 통과한다(변이시험에서 실제로 놓쳤다).
+        물어야 할 것은 «부르는가» 이므로 «그 줄 하나짜리 문장» 인지로 본다. */
+  check('⑨ B안 — 그리는 코드를 render 가 부른다', /^\s*renderIntro\(p\);\s*$/m.test(todayJs2));
+  /* 🔴 판정 — 2026-09-05 D1 실측: `students_erp.level` 은 29,481명 중 «1명» 만 채워져 있다.
+     그래서 «레벨이 없나»(p.band) 하나로는 «처음» 을 하나도 못 거르고 전원에게 뜬다.
+     실제로 거르는 것은 «이 화면을 연 횟수» 다. 셋이 모두 있어야 한다 —
+     ⛔ 「늘 뜨게」 만드는 변이가 통과하지 않도록 조건을 하나씩 확인한다. */
+  const showLine = (todayJs2.match(/var show = [^;]+;/) || [''])[0];
+  check('⑨ B안 — 닫았으면 안 뜬다', /!st\.dismissed/.test(showLine), showLine);
+  check('⑨ B안 — 처음 몇 번만 뜬다(연 횟수로 거른다)', /st\.opens < INTRO_MAX_OPENS/.test(showLine), showLine);
+  check('⑨ B안 — 레벨이 생기면 그때부터 안 뜬다', /!p\.band/.test(showLine), showLine);
+  check('⑨ B안 — 보여 줄 때 연 횟수를 센다', /setItem\(INTRO_KEY, String\(st\.opens \+ 1\)\)/.test(todayJs2));
+  /* 닫기 — 못 읽으면 «보여 주는» 쪽으로 실패해야 한다(안내를 잃는 것보다 낫다) */
+  check('⑨ B안 — 표시를 못 읽으면 그냥 보여 준다(fail-open)',
+    /function introState\(\)[\s\S]{0,320}catch \(e\) \{ return \{ dismissed: false, opens: 0 \}; \}/.test(todayJs2));
+  /* ⛔ 닫음 표시를 «숫자» 로 쓰지 말 것 — 연 횟수와 같은 칸이라 첫 번째로 세는 순간
+        «닫았다» 로 읽혀 한 번만 뜨고 그친다(실제로 밟았다). */
+  check('⑨ B안 — 닫으면 다시 안 뜨게 기록한다', /localStorage\.setItem\(INTRO_KEY, 'closed'\)/.test(todayJs2));
+  check('⑨ B안 — 닫음 표시가 «횟수» 와 안 겹친다', /v === 'closed'/.test(todayJs2) && !/v === '1'/.test(todayJs2));
+  /* 🔴 «누구에게 하는 말인가» — 입구마다 가리키는 영상이 다르다.
+     ⛔ 학생 화면(today)이 긴 판을 가리키면 안 된다: 그 대본은 선생님께 하는 말이라
+        아이가 듣다가 «내 이야기가 아니네» 로 나간다. 반대로 「망고아이란?」 카드는
+        그 판을 가리키므로 «원장님·선생님» 대상임을 밝혀야 한다. */
+  check('⑨ 학생 화면 두 곳이 «짧은 판» 을 가리킨다',
+    /promo\.html\?v=ai-tools-short/.test(todayJs2) && /promo\.html\?v=ai-tools-short/.test(todayHtml2));
+  check('⑨ 학생 화면이 긴 판을 가리키지 않는다',
+    !/promo\.html\?v=ai-tools(?!-short)/.test(todayJs2) && !/promo\.html\?v=ai-tools(?!-short)/.test(todayHtml2));
+  check('⑨ 「망고아이란?」 카드는 «긴 판» 을 가리키고 대상을 밝힌다',
+    /promo\.html\?v=ai-tools(?!-short)/.test(about) && /원장님·선생님/.test(about));
+  check('⑨ 긴 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
+  /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
+  check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
+}
+
+
+// ═══ ⑩ 🍯 맛보기 — 로그인 없이 하루쯤 둘러보기 (2026-09-05) ═══
+//   🔴 문자열로 «그 낱말이 있는가» 를 보면 안 된다 — 물어야 할 것은
+//      ① 서버가 맛보기에서 «DB 를 안 읽는가»(개인정보가 실릴 자리가 없는가)
+//      ② 그 갈래가 인증 게이트 «앞» 인가(뒤에 있으면 영원히 안 닿는다)
+//      ③ 정본을 그 값으로 실제로 돌리면 «집에서 하는 날» 계획이 나오는가
+//      ④ 화면이 그 사실을 «맛보기» 라고 말하는가 · 가짜 레벨을 기기에 심지 않는가
+console.log('\n[ ⑩ 맛보기(로그인 없이) ]');
+{
+  const stuSrc = readFileSync(join(CF, 'src', 'api-students.ts'), 'utf8');
+  const todaySrc = handlerBlock(stuSrc, "path === '/api/student/today'") || '';
+  const sampleBlk = handlerBlock(todaySrc, "url.searchParams.get('sample')") || '';
+  check('⑩ 맛보기 갈래가 있다', !!sampleBlk, sampleBlk ? '(' + sampleBlk.length + '자)' : '못 찾음');
+
+  /* ② 순서 — 인증 게이트보다 «앞» 이어야 한다. 뒤면 로그인 안 한 사람은 401 을 먼저 받는다. */
+  const iSample = todaySrc.indexOf("url.searchParams.get('sample')");
+  const iGate = todaySrc.indexOf('resolveOwnerScope');
+  check('⑩ 맛보기가 인증 게이트보다 앞에 있다', iSample > 0 && iGate > iSample,
+    'sample@' + iSample + ' · gate@' + iGate);
+  /* ⛔ 게이트 자체가 사라지면 안 된다 — 맛보기를 연 것이지 본 화면을 연 것이 아니다 */
+  check('⑩ 본 화면의 인증 게이트는 그대로다',
+    /resolveOwnerScope/.test(todaySrc) && /auth_required/.test(todaySrc));
+
+  /* ① 맛보기 갈래 안에서는 DB 를 한 줄도 읽지 않는다 */
+  check('⑩ 맛보기는 DB 를 읽지 않는다', !!sampleBlk && !/env\.DB/.test(sampleBlk),
+    sampleBlk && /env\.DB/.test(sampleBlk) ? '⚠️ env.DB 를 부른다' : '');
+  /* 이름을 지어내지 않는다 — «측정할 수 없는 값을 그럴듯하게 채우지 말 것» */
+  check('⑩ 맛보기는 이름을 지어내지 않는다(name: null)', /name:\s*null/.test(sampleBlk));
+  check('⑩ 응답이 «맛보기» 라고 스스로 말한다(sample: true)', /sample:\s*true/.test(sampleBlk));
+  /* ⛔ «오늘 19시 수업» 이라고 말하면 그 시각에 아무도 안 온다 */
+  check('⑩ 맛보기에 수업을 만들어 넣지 않는다(classes: [])',
+    /classes:\s*\[\s*\]/.test(sampleBlk) && /weekClassDows:\s*\[\s*\]/.test(sampleBlk));
+
+  /* ③ 정본을 «서버가 넘기는 그 값» 으로 실제로 돌린다 */
+  if (mod) {
+    const { buildTodayPlan, SAMPLE_BAND, SAMPLE_TEXTBOOK, BAND_COUNT } = mod;
+    check('⑩ 맛보기 값이 정본에 선언돼 있다',
+      typeof SAMPLE_BAND === 'number' && SAMPLE_BAND >= 1 && SAMPLE_BAND <= 8,
+      'SAMPLE_BAND=' + String(SAMPLE_BAND));
+    /* ⛔ 교재 이름을 지어 넣지 않는다 — 그 화면은 «네 교재는 …» 이라고 말하는 셈이 된다 */
+    check('⑩ 맛보기가 교재를 지어내지 않는다', SAMPLE_TEXTBOOK == null, String(SAMPLE_TEXTBOOK));
+    const sp = buildTodayPlan({
+      band: SAMPLE_BAND, textbook: SAMPLE_TEXTBOOK, zh: false,
+      dow: 3, nowMin: 15 * 60, classes: [], weekClassDows: [], done: {},
+    });
+    check('⑩ 맛보기 계획이 «집에서 하는 날» 이다', sp.mode === 'home', sp.mode);
+    check('⑩ 맛보기 계획에 할 일이 실제로 담긴다', sp.steps.length >= 2,
+      sp.steps.length + '개 · ' + sp.steps.map(x => x.key).join(','));
+    check('⑩ 맛보기 계획에 수업 시각이 없다', sp.cls == null && sp.phase == null);
+    /* «맛보기니까 전부 done» 처럼 보이면 «다 했다» 는 거짓말이 된다 */
+    check('⑩ 맛보기가 «다 했다» 로 보이지 않는다', sp.doneCount === 0, 'doneCount=' + sp.doneCount);
+  }
+
+  /* ④ 화면 */
+  const tjs = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
+  const thtml = readFileSync(join(PUB, 'today.html'), 'utf8');
+  check('⑩ 로그인 안 한 사람에게 맛보기를 부른다', /sample=1/.test(tjs));
+  /* ⛔ 저장이 막힌 기기(사생활 보호 창)에서 «못 연다» 로 실패하면 고치려던 벽이 그대로다 */
+  const openFn = (tjs.match(/function sampleOpen\(\)[\s\S]{0,420}?\n  \}/) || [''])[0];
+  check('⑩ 저장을 못 하는 기기에서도 열린다(fail-open)',
+    /catch \(e\) \{ return true; \}/.test(openFn), openFn ? '' : 'sampleOpen 를 못 찾음');
+  check('⑩ 창은 «처음 연 시각» 부터 잰다(계속 되살아나지 않는다)',
+    /SAMPLE_KEY[\s\S]{0,200}?setItem\(SAMPLE_KEY/.test(tjs) && /now - v\) < SAMPLE_MS/.test(tjs));
+  check('⑩ 하루가 지나면 로그인 안내로 돌아간다',
+    /if \(!sampleOpen\(\)\) \{ show\('td-login'\); return; \}/.test(tjs));
+  /* 맛보기를 못 읽어도 빈 화면으로 두지 않는다 */
+  check('⑩ 맛보기를 못 읽으면 로그인 안내를 보여 준다',
+    (tjs.match(/show\('td-login'\)/g) || []).length >= 3);
+  /* 화면이 «맛보기» 라고 말해야 한다 — 안 말하면 이 계획을 «내 계획» 으로 읽는다 */
+  check('⑩ 화면에 맛보기 배너가 있다', /id="td-sample"/.test(thtml) && /맛보기/.test(thtml));
+  check('⑩ 배너를 맛보기일 때만 켠다', /sb\.hidden = !d\.sample/.test(tjs));
+  check('⑩ 배너에서 로그인·가입으로 갈 수 있다',
+    /id="td-sample"[\s\S]{0,900}?href="\/"[\s\S]{0,400}?href="\/signup\.html"/.test(thtml));
+  /* ⛔ 보기용 레벨을 기기에 심으면, «비어 있을 때만» 규칙 때문에 진짜 레벨이 와도 안 덮인다 */
+  check('⑩ 맛보기 레벨을 기기에 심지 않는다', /if \(!d\.sample\) seedLevel\(p\);/.test(tjs));
+  /* 0 인 값을 그리면 «너는 아무것도 안 했다» 로 읽힌다 */
+  check('⑩ 맛보기에서 연속일·포인트 칩을 그리지 않는다',
+    /if \(!d\.sample\) \{[\s\S]{0,400}?chip streak[\s\S]{0,400}?chip pts/.test(tjs));
+  /* ?v= 원장 — 화면 코드를 고쳤으면 번호가 올라가야 한다(immutable 캐시) */
+  check('⑩ today.html 이 새 today-page.js 를 부른다', /today-page\.js\?v=7/.test(thtml));
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════
-// 📅 today-plan.ts — «오늘의 학습» 계획 정본 (2026-09-03)
+// 📅 today-plan.ts — «오늘의 A.i 학습» 계획 정본 (2026-09-03)
 //
 // [왜 이 파일이 생겼나]
 //   AI 학습도구는 8종이 있고 각각은 잘 돈다. 그런데 서로 이어져 있지 않았다.
@@ -299,6 +299,16 @@ export function todayFromSteps(week: WeekDay[], dow: number, steps: PlanStep[]):
  *   done 은 «오늘 그 도구를 한 번이라도 썼는가» 로만 본다 — 몇 분 했는지는 재지 않는다
  *   (재지 못하는 값을 지어내지 않는다).
  */
+/**
+ * 🍯 맛보기(로그인 전) 화면이 쓰는 «보기용» 값 — 실제 학생 한 명이 아니라 «가운데쯤» 을 고른 것.
+ *   ⚠️ 교재는 일부러 null 이다. 아무 교재 이름이나 적으면 그 화면은 «네 교재는 BTS 3» 이라고
+ *      말하는 셈이 되는데 그건 사실이 아니다(2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+ *   ⚠️ 밴드 3 은 «있는 값 중 하나» 를 고른 것이고 «평균» 이 아니다 — 평균이라고 적지 말 것.
+ *   ⛔ 수업은 언제나 [] 로 넘긴다(집에서 하는 날). «오늘 19시 수업» 이라고 말하면 아무도 안 온다.
+ */
+export const SAMPLE_BAND = 3;
+export const SAMPLE_TEXTBOOK: string | null = null;
+
 export function buildTodayPlan(inp: PlanInput): TodayPlan {
   const band = (inp.band && inp.band >= 1 && inp.band <= BAND_COUNT) ? inp.band : null;
   const bs = band ? BAND_SPECS[band - 1] : null;
