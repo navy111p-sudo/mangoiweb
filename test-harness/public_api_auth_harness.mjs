@@ -15,7 +15,7 @@
       CLAUDE.md 가 여러 번 경고한 «옆 함수가 딸려 들어와 통과하는» 오검사를 피하기 위해서다.
    ⚠️ 이 검사는 «게이트가 있는가» 까지만 본다. «게이트가 옳은가» 는 사람이 본다.
    ═══════════════════════════════════════════════════════════════════════════ */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -123,6 +123,21 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
     check(`[${label}] 게스트를 순위에서 뺀다`,
       !!blk && /NOT LIKE 'guest%'/i.test(body),
       '실측: student_points 94행 중 4행 · vocab_review_log 105행이 게스트');
+  }
+  /* 🔴 게스트 패턴은 «넓은» 쪽이어야 한다 — `guest_%` 로 좁히면 «밑줄 없는» bare `guest` 가 샌다.
+     그 값은 실제로 화면이 만든다(js/game-track.js·js/idx-daily-checkin.js 의 기본값,
+     js/idx-x8.js 의 폴백)이고 auth-admin.ts 의 resolveOwnerScope 도 `/^guest/i` 로 본다.
+     ⚠️ 파일 하나만 보지 말 것 — 같은 필터가 api-ai.ts·game-insights.ts 에도 있고,
+        2026-09-05 에 「한 곳만 고쳤다」가 바로 이 작업에서 두 번 나왔다. src 전체를 훑는다. */
+  {
+    const narrow = [];
+    for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
+      const t = stripComments(rd(join(SRC, f)));
+      if (/NOT LIKE 'guest_%'/i.test(t)) narrow.push(f);
+    }
+    check('게스트 제외 패턴이 bare `guest` 도 덮는다 (src 전체)',
+      narrow.length === 0,
+      narrow.length ? '좁은 패턴이 남은 파일: ' + narrow.join(', ') : "src/*.ts 전수 · `guest%` 만 씀");
   }
   const c = rd(join(PUB, 'js', 'idx-daily-checkin.js'));
   check('화면이 user_id 대신 me 로 «(나)» 를 표시한다',
