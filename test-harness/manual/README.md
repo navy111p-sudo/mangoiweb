@@ -24,6 +24,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-find-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-category-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-report-browser.mjs
 PW_DIR=/tmp/pw node test-harness/manual/approval-top-summary-browser.mjs
+PW_DIR=/tmp/pw node test-harness/manual/approval-withdraw-reverse-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
@@ -112,6 +113,33 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 >
 > ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
 > 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
+
+## approval-withdraw-reverse-browser.mjs — 결재 «회수 · 다시 올리기 · 취소 요청» (36건)
+
+1. 🔴 **버튼이 «있어야 할 곳에만»** 있는가 — 내 대기 건에 「회수」, 승인 건에 「취소 요청」,
+   회수된 건에 「다시 올리기」. **짝 검사**로 «안 떠야 할 곳»(이미 결재된 건 · 취소된 건 ·
+   남이 올린 건)도 반드시 함께 본다. 한쪽만 보면 «어디에나 뜨는 코드»가 통과한다.
+2. 🔴 **「6일째」가 초기화되지 않는가** — 30초 전에 다시 올린 건이 «6일째» 로 보여야 한다.
+   ⚠️ 짝으로 「원본이 없는 건은 그대로 2일째」도 본다(전부 원본으로 세는 코드가 걸린다).
+3. **상태를 사실대로** — 회수된 건은 «회수됨»(「반려됨」이 아니다), 취소된 건은 «취소됨».
+4. 🔴 **실제로 눌리는가** — `elementFromPoint` 로 «맨 위가 그 버튼인가» 까지 잰다.
+   「있다」·「보인다」·「눌린다」는 다 다른 사실이다.
+5. **누르기 «전» 에 무슨 일이 일어나는지 말하는가** — 회수는 「다시 올릴 수 있습니다」,
+   취소 요청은 「지우는 것이 아닙니다」. 그리고 사유 창에서 «취소» 를 누르면
+   **서버로 아무것도 안 가는지**도 본다.
+6. **폼이 «다시 올리는 중» 이라고 말하는가**, 그리고 **다른 분류를 고르면 그 표식이 사라지는가**
+   (안 사라지면 다음에 올리는 다른 건에 남의 원본 번호가 붙는다).
+7. 대비(반투명·그라데이션 합성) · 390px 에서 버튼 글자가 쪼개지지 않는가 · JS 오류 0.
+
+> 🔴 **이 검사가 진짜 결함을 잡았다** — `pick()` 이 폼을 그리면서 표식을 지운 «뒤» 에
+> 표식을 세워서 「다시 올리는 중」 배너가 **안 떴다.** 변수도 줄도 다 «있고» **순서만**
+> 틀렸기 때문에 문자열 하니스 91건은 전부 초록이었다.
+>
+> ⚠️ prompt/confirm 은 `page.on('dialog')` 로 답한다 — «취소를 누르는 경우» 를 함께
+> 시험하려면 답을 `null` 로 바꿔 `dismiss()` 하게 한다.
+>
+> ⚠️ 변이 4종 실제 FAIL 확인 — 승인 건에도 회수 버튼을 띄우면 3건, 사유 없이 취소 결재를
+> 올리게 하면 1건, 배너 순서를 되돌리면 2건, 「며칠째」에서 원본을 무시하면 1건.
 
 ## approval-top-summary-browser.mjs — 결재 «맨 위 요약» (47건)
 

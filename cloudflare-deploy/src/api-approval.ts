@@ -43,13 +43,14 @@ import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요
 import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
 import { siteUrl } from './site-url';                  // 🔗 사람에게 나가는 링크는 한 곳에서
 import {                                               // 💼 인사·급여 «월 확정» — 급여 표는 읽기만 한다
-  HR_KINDS, isHrKind, isPeriod, ensureHrTable, getLock, lockPeriod, buildHrSnapshot, listHrPeriods,
+  HR_KINDS, isHrKind, isPeriod, ensureHrTable, getLock, lockPeriod, unlockPeriod, buildHrSnapshot, listHrPeriods,
 } from './approval-hr';
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
   sniffKind, normExt, contentTypeFor, buildFindQuery,
   CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
+  STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -132,6 +133,14 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     // 💼 인사·급여 «월 확정» — 어느 달의 무엇을 확정하는 결재인가
     `ALTER TABLE approval_requests ADD COLUMN hr_kind TEXT`,
     `ALTER TABLE approval_requests ADD COLUMN period TEXT`,
+    /* ↩️ 회수하고 «다시 올린» 건이 가리키는 원본.
+       ⚠️ 이게 없으면 「6일째 기다리는 중」이 다시 올리는 순간 «1일째» 로 초기화되어
+          지연이 조용히 감춰진다. 화면은 이 값으로 원래 올린 날부터 센다. */
+    `ALTER TABLE approval_requests ADD COLUMN origin_id INTEGER`,
+    /* 🔁 «취소 결재» 가 가리키는, 무효로 하려는 승인 건 */
+    `ALTER TABLE approval_requests ADD COLUMN reverses_id INTEGER`,
+    /* 🔁 그 반대 방향 — 취소된 원본이 가리키는, 자기를 취소시킨 결재 */
+    `ALTER TABLE approval_requests ADD COLUMN cancelled_by_id INTEGER`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -478,7 +487,8 @@ async function gatherCheckFacts(
     const d: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM approval_requests
         WHERE requester_username = ? AND req_type = ? AND currency = ?
-          AND amount = ? AND created_at >= ? AND status != 'rejected'`
+          AND amount = ? AND created_at >= ?
+          AND status NOT IN ('rejected','withdrawn','cancelled')`
     ).bind(requester, reqType, currency, amount, since30).first(), null);
     duplicateCount = Number(d?.c || 0);
   }
@@ -540,7 +550,15 @@ function rowOf(r: any, steps?: any[], brief = false) {
     hr_kind: r.hr_kind || null, period: r.period || null,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
-    status: r.status, decided_by: r.decided_by, decided_at: r.decided_at,
+    status: r.status,
+    status_ko: (statusSpec(r.status)?.ko || null),
+    status_en: (statusSpec(r.status)?.en || null),
+    /* ↩️🔁 이어진 건들 — 화면이 「원래 8/30에 올림」·「취소 결재 #12」를 말할 수 있게 */
+    origin_id: r.origin_id || null,
+    origin_created_at: r.origin_created_at || null,
+    reverses_id: r.reverses_id || null,
+    cancelled_by_id: r.cancelled_by_id || null,
+    decided_by: r.decided_by, decided_at: r.decided_at,
     decide_memo: r.decide_memo, created_at: r.created_at,
     stage_seq: seq, stage_total: total,
     deadline_at: r.deadline_at || null, stage_due_at: r.stage_due_at || null,
@@ -583,7 +601,9 @@ function csvWhen(ms: any): string {
 function csvResponse(items: any[]): Response {
   const head = ['번호', '분류', '지출 항목', '회계 계정', '제목', '올린 사람', '올린 날짜', '금액', '통화',
                 '상태', '결재자', '결재 날짜', '첨부', '내용'];
-  const STAT: Record<string, string> = { pending: '대기 중', approved: '승인', rejected: '반려' };
+  /* 상태 라벨을 손으로 적지 않는다 — 상태가 늘면 엑셀에만 영문 코드가 날것으로 찍힌다. */
+  const STAT: Record<string, string> = {};
+  for (const st of STATUSES) STAT[st.key] = st.ko;
   const lines = [head.map(csvCell).join(',')];
   for (const r of items) {
     lines.push([
@@ -646,6 +666,83 @@ function chainUsers(steps: any[] | undefined): string[] {
   const out: string[] = [];
   for (const s of (steps || [])) if (s.decided_by) out.push(String(s.decided_by));
   return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔁 취소 결재가 «승인되었을 때» — 원본을 무효로 하고, 되돌릴 수 있는 것만 되돌린다
+ *
+ *   ⛔ 되돌릴 수 없는 것을 조용히 넘기지 않는다. 무엇을 되돌렸고 무엇을 못 되돌렸는지
+ *      결과로 돌려주고 로그에도 남긴다 — 「취소했다」는 말만 남고 강사가 계속 막혀 있는
+ *      상태가 제일 나쁘다.
+ *   ⚠️ 우리가 만든 것만 지운다 —
+ *      · 근무불가: linked_id 로 이어진 그 행이면서 created_by 가 «결재 자동반영» 일 때만
+ *      · 달 잠금: 그 결재가 건 잠금일 때만(request_id 일치)
+ *      사람이 손댄 자리는 건드리지 않고 «못 되돌렸다» 고 말한다.
+ *   ⚠️ 여기서 예외를 던지지 않는다 — 취소 결재는 이미 승인된 뒤다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+async function applyReversal(
+  env: ApprovalEnv, originalId: number, reversalId: number, by: string
+): Promise<{ cancelled: boolean; undone: string[]; left: string[] }> {
+  const undone: string[] = [];
+  const left: string[] = [];
+  let cancelled = false;
+  try {
+    const orig: any = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests WHERE id = ? LIMIT 1`
+    ).bind(originalId).first(), null);
+    if (!orig) { left.push('원본을 찾지 못했습니다(#' + originalId + ')'); return { cancelled, undone, left }; }
+
+    /* 조건부 UPDATE — 그사이 원본이 이미 취소됐으면 0행. 두 번 되돌리지 않는다. */
+    const up = await env.DB.prepare(
+      `UPDATE approval_requests SET status = 'cancelled', cancelled_by_id = ?
+        WHERE id = ? AND status = 'approved'`
+    ).bind(reversalId, originalId).run();
+    cancelled = !!up.meta.changes;
+    if (!cancelled) {
+      left.push('원본이 이미 «승인» 상태가 아니라 무효 처리하지 않았습니다');
+      return { cancelled, undone, left };
+    }
+
+    // 🏖️ 휴가 — 근무불가를 풀어야 그 기간 예약이 다시 열린다.
+    if (typeSpec(orig.req_type).wantsDates) {
+      if (orig.linked_id) {
+        const d = await safe(async () => await env.DB.prepare(
+          `DELETE FROM teacher_unavailability WHERE id = ? AND created_by = '결재 자동반영'`
+        ).bind(Number(orig.linked_id)).run(), null as any);
+        if (d && d.meta && d.meta.changes) {
+          undone.push('강사 근무불가를 해제했습니다(예약이 다시 열립니다)');
+          await safe(async () => {
+            await env.DB.prepare(`UPDATE approval_requests SET linked_id = NULL WHERE id = ?`)
+              .bind(originalId).run();
+            return true;
+          }, false);
+        } else {
+          left.push('근무불가 기록을 사람이 손댄 것으로 보여 그대로 두었습니다 — 캘린더에서 직접 확인해 주세요');
+        }
+      } else {
+        left.push('이 휴가로 만들어진 근무불가가 없습니다(본사 직원 휴가일 수 있습니다)');
+      }
+      left.push('그 기간에 이미 옮기거나 취소한 수업은 되돌아오지 않습니다 — 사람이 확인해야 합니다');
+    }
+
+    // 💼 인사·급여 — 그 달의 확정을 푼다.
+    if (orig.req_type === 'hr' && orig.hr_kind && orig.period) {
+      await safe(async () => { await ensureHrTable(env); return true; }, false);
+      const ok = await unlockPeriod(env, String(orig.hr_kind), String(orig.period), originalId);
+      if (ok) undone.push(String(orig.period) + ' 확정을 풀었습니다');
+      else left.push(String(orig.period) + ' 잠금은 이 결재가 건 것이 아니라 그대로 두었습니다');
+      left.push('이미 지급·정산이 나갔다면 그것은 되돌아오지 않습니다 — 사람이 확인해야 합니다');
+    }
+
+    console.log('[approval-reverse] 취소 반영', JSON.stringify({
+      originalId, reversalId, by, cancelled, undone, left,
+    }));
+  } catch (e) {
+    // 삼키되 반드시 남긴다 — 취소 결재는 이미 승인된 뒤다.
+    left.push('되돌리는 중 오류가 났습니다 — 사람이 확인해야 합니다');
+    console.error('[approval-reverse] 실패 — 손으로 확인 필요. original=' + originalId, (e as any)?.message || e);
+  }
+  return { cancelled, undone, left };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -776,7 +873,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a6-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a7-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -862,7 +959,10 @@ export async function handleApprovalApi(
     ).bind(me).all<any>(), { results: [] as any[] } as any);
 
     const mineRs = await safe(async () => await env.DB.prepare(
-      `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
+      /* ↩️ origin_created_at 을 «함께 뽑는다» — rowOf 가 읽는 칸이라 안 뽑으면
+         에러 없이 늘 빈 값이 되고, 회수·재작성한 건의 「N일째」가 조용히 1일로 돌아간다.
+         (id 로 거는 PK 조회라 행이 늘어도 비용이 붙지 않는다.) */
+      `SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
     ).bind(me).all<any>(), { results: [] as any[] } as any);
 
     // ③ 🚨 긴급 소통 — 조직 전원이 본다(강사 포함). 결재 권한과 무관하게 «보이는» 것이 목적이다.
@@ -1177,6 +1277,31 @@ export async function handleApprovalApi(
         fileKey = key; fileName = String(file.name || '').slice(0, 200); fileExt = realExt; fileSize = file.size;
       }
 
+      /* ↩️ ② 회수한 건을 다시 올리는 경우 — 원본을 가리켜 둔다.
+         ⚠️ 이게 없으면 「6일째 기다리는 중」이 다시 올리는 순간 «1일째» 로 초기화되어
+            **지연이 조용히 감춰진다.** 화면은 이 값으로 원래 올린 날부터 센다.
+         ⛔ 남의 건이나 «회수되지 않은» 건은 가리킬 수 없다 — 그러면 아무 건에나
+            남의 날짜를 붙여 지연을 조작할 수 있다. 확인해서 아니면 그냥 비운다
+            (400 을 주지 않는다 — 결재를 못 올리게 막는 쪽이 더 나쁘다). */
+      let originId: number | null = null;
+      let originCreatedAt: number | null = null;
+      const rawOrigin = Number(String(form.get('origin_id') || '').trim());
+      if (Number.isFinite(rawOrigin) && rawOrigin > 0) {
+        const og: any = await safe(async () => await env.DB.prepare(
+          `SELECT id, created_at, origin_id FROM approval_requests
+            WHERE id = ? AND requester_username = ? AND status = 'withdrawn' LIMIT 1`
+        ).bind(rawOrigin, actor.username).first(), null);
+        if (og) {
+          /* 여러 번 회수·재작성해도 «맨 처음» 을 가리킨다 — 사슬을 타고 올라가지 않아도
+             되고, 「원래 언제 올렸나」가 중간 건으로 잘리지 않는다. */
+          originId = Number(og.origin_id || og.id);
+          const root: any = (originId === Number(og.id)) ? og : await safe(async () => await env.DB.prepare(
+            `SELECT created_at FROM approval_requests WHERE id = ? LIMIT 1`
+          ).bind(originId).first(), null);
+          originCreatedAt = root ? Number(root.created_at) : Number(og.created_at);
+        }
+      }
+
       // 결재선·마감 — 사람이 고르지 않는다(approval-policy.stagesFor).
       const stages: Stage[] = stagesFor(reqType, amount, currency);
       const now = Date.now();
@@ -1203,12 +1328,12 @@ export async function handleApprovalApi(
            (req_type, requester_username, requester_name, title, body, category,
             amount, currency, spent_at, file_key, file_name, file_ext, file_size,
             status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags,
-            client_key, date_from, date_to, hr_kind, period)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            client_key, date_from, date_to, hr_kind, period, origin_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(reqType, actor.username, actor.name || null, title, body || null, category,
              amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, now,
              stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags), clientKey,
-             dateFrom, dateTo, hrKind, period).run();
+             dateFrom, dateTo, hrKind, period, originId).run();
 
       const reqId = Number(ins.meta.last_row_id);
 
@@ -1256,7 +1381,10 @@ export async function handleApprovalApi(
           '[망고아이 긴급] ' + title.slice(0, 60) + '\n' + (actor.name || actor.username) + '\n' + siteUrl('/work?id=' + reqId));
       }
 
-      return json({ ok: true, id: reqId, stages: stages.length, flags, summary: sum || null });
+      return json({
+        ok: true, id: reqId, stages: stages.length, flags, summary: sum || null,
+        origin_id: originId, origin_created_at: originCreatedAt,
+      });
     } catch (e: any) {
       /* 두 기기가 «동시에» 재전송하면 위쪽 중복 확인을 둘 다 통과한 뒤 UNIQUE 인덱스에서 갈린다.
          그건 실패가 아니라 «이미 저장됨» 이다 — 원래 건을 찾아서 성공으로 돌려준다.
@@ -1321,7 +1449,7 @@ export async function handleApprovalApi(
      *   ⛔ 총 건수도 내려주지 않는다 — 아래 canView 로 거르므로 SQL COUNT 와 어긋난다.
      *      「1-20 / 총 50건」이 거짓말하느니 「더 보기」가 낫다. */
     const rs = await env.DB.prepare(
-      'SELECT * FROM approval_requests' + cond + order + ' LIMIT ? OFFSET ?'
+      'SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at FROM approval_requests' + cond + order + ' LIMIT ? OFFSET ?'
     ).bind(...binds, limit + 1, offset).all<any>().catch(() => ({ results: [] as any[] }));
 
     const rows = (rs.results || []);
@@ -1425,6 +1553,9 @@ export async function handleApprovalApi(
     const lastStage = (seq >= total) || straightThrough;
     const finalStatus = (decision === 'rejected') ? 'rejected' : (lastStage ? 'approved' : 'pending');
 
+    /* 🔁 취소 결재라면 «무엇을 되돌렸는가» 를 응답에 실어 화면이 사람에게 말하게 한다. */
+    let reversal: { cancelled: boolean; undone: string[]; left: string[] } | null = null;
+
     // 조건부 UPDATE — status='pending' 이고 단계가 그대로일 때만 바뀐다(동시 클릭 방어를 DB 에서 한 번 더).
     const nextSeq = (finalStatus === 'pending') ? seq + 1 : seq;
     const nextDue = (finalStatus === 'pending') ? stageDeadlineMs(cur.req_type, now) : cur.stage_due_at;
@@ -1494,17 +1625,203 @@ export async function handleApprovalApi(
           console.error('[approval-hr] 달 확정 기록 실패 — 손으로 확인 필요. id=' + id, (e as any)?.message || e);
         }
       }
+      /* 🔁 «취소 결재» 가 최종 승인되면 원본을 무효로 하고 되돌릴 수 있는 것만 되돌린다.
+         ⛔ 되돌리지 못한 것은 응답과 로그로 «말한다» — 「취소했다」는 말만 남고
+            강사가 계속 막혀 있는 상태가 제일 나쁘다. */
+      if (finalStatus === 'approved' && cur.reverses_id) {
+        reversal = await applyReversal(env, Number(cur.reverses_id), id, String(actor.username));
+      }
       // 끝났으면 올린 사람에게 결과를 알린다.
       await notify(env, [String(cur.requester_username)],
                    decision === 'approved' ? 'Approved' : 'Rejected',
                    String(cur.title || '').slice(0, 80), id, 'approval-result');
     }
 
-    return json({ ok: true, id, status: finalStatus, stage_seq: nextSeq, stage_total: total, straight_through: straightThrough });
+    return json({
+      ok: true, id, status: finalStatus, stage_seq: nextSeq, stage_total: total,
+      straight_through: straightThrough,
+      reverses_id: cur.reverses_id || null,
+      reversal,                       // 취소 결재일 때만 값이 있다
+    });
   }
 
   // ── 첨부 내려받기 ─────────────────────────────────────────────────────────
   //   본인 요청이거나 열람 권한자만. 영수증에는 계좌·금액이 찍혀 있다.
+  /* ═════════════════════════════════════════════════════════════════════════
+   * ↩️ ① 회수 — 「내가 올린 것을 내가 내린다」
+   *
+   *   ⛔ 아무도 결재하기 «전» 에만. 1단계가 승인된 뒤에 내리면 그 사람의 결재가
+   *      뜻을 잃는다 — 그건 회수가 아니라 «남의 결재를 지우는 것» 이다.
+   *   ⛔ 상태를 rejected 로 쓰지 않는다 — 「반려당함」과 「내가 내림」은 다른 사실이고,
+   *      중복 감지·지출 합계가 그 값을 본다.
+   *   ⚠️ 기다리던 결재자에게 «회수되었다» 를 알린다. 안 보내면 결재함에서 사라진
+   *      이유를 아무도 모른다.
+   * ═══════════════════════════════════════════════════════════════════════ */
+  const mWithdraw = path.match(/^\/api\/approval\/requests\/(\d+)\/withdraw$/);
+  if (method === 'POST' && mWithdraw) {
+    const id = Number(mWithdraw[1]);
+    const cur: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
+      .bind(id).first().catch(() => null);
+    if (!cur) return json({ ok: false, error: 'not_found' }, 404);
+
+    // 이미 누가 결재를 눌렀는가 — 단계 표를 직접 본다(상태만 보면 다단계에서 놓친다).
+    const decided: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_steps
+        WHERE request_id = ? AND status IN ('approved','rejected')`
+    ).bind(id).first(), null);
+    const anyDecided = Number(decided?.c || 0) > 0;
+
+    const g = canWithdraw({
+      me: String(actor.username), requesterUsername: String(cur.requester_username),
+      status: String(cur.status), anyDecided, stageSeq: Number(cur.stage_seq || 1),
+    });
+    if (!g.ok) {
+      const MSG: Record<string, [string, string]> = {
+        not_mine:        ['내가 올린 결재만 회수할 수 있습니다.', 'You can only withdraw your own request.'],
+        not_pending:     ['이미 처리가 끝난 결재는 회수할 수 없습니다.', 'This request is already closed.'],
+        already_decided: ['이미 결재가 시작되어 회수할 수 없습니다. 승인된 뒤에는 «취소 결재»를 올려 주세요.',
+                          'A decision was already made. Submit a cancellation request instead.'],
+      };
+      const m = MSG[g.reason] || ['회수할 수 없습니다.', 'Cannot withdraw.'];
+      return json({ ok: false, error: g.reason, message: m[0], message_en: m[1] }, 403);
+    }
+
+    let memo = '';
+    try { const b: any = await request.json(); memo = String(b?.memo || '').trim().slice(0, 300); } catch { /* 빈 본문 허용 */ }
+
+    const now = Date.now();
+    /* 조건부 UPDATE — 그사이 누가 결재를 눌렀으면 0행이 되어 실패한다(경합 방어를 DB 에서 한 번 더). */
+    const up = await env.DB.prepare(
+      `UPDATE approval_requests
+          SET status = 'withdrawn', decided_by = ?, decided_at = ?, decide_memo = ?
+        WHERE id = ? AND status = 'pending' AND requester_username = ?`
+    ).bind(String(actor.username), now, memo || null, id, String(actor.username)).run();
+    if (!up.meta.changes) return json({ ok: false, error: 'already_decided' }, 409);
+
+    // 이력 — 남은 단계를 «회수됨» 으로 닫는다. 그 표의 뜻이 「전 이력이 여기 남는다」이다.
+    await safe(async () => {
+      await env.DB.prepare(
+        `UPDATE approval_steps SET status = 'withdrawn', decided_by = ?, decided_at = ?, memo = ?
+          WHERE request_id = ? AND status IN ('waiting','active')`
+      ).bind(String(actor.username), now, memo || '기안자 회수', id).run();
+      return true;
+    }, false);
+
+    // 기다리던 결재자에게 알린다 — 결재함에서 사라진 이유를 말해 준다.
+    await safe(async () => {
+      const stepRow: any = await env.DB.prepare(
+        `SELECT role FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
+      ).bind(id, Number(cur.stage_seq || 1)).first();
+      const targets = await approversFor(env, String(stepRow?.role || 'staff'), String(cur.requester_username));
+      if (targets.length) {
+        await notify(env, targets, 'Withdrawn · ' + (actor.name || actor.username),
+                     String(cur.title || '').slice(0, 80), id, 'approval-result');
+      }
+      return true;
+    }, false);
+
+    return json({ ok: true, id, status: 'withdrawn' });
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+   * 🔁 ③ 취소 결재 — 「승인된 것을 무효로 하려면 새 결재를 올려 승인받는다」
+   *
+   *   ⛔ 승인 건을 그 자리에서 지우지 않는다. 승인은 바깥으로 나간다 —
+   *      휴가는 강사 근무불가를 만들어 예약을 막고, 인사·급여는 그 달을 잠근다.
+   *      되돌리려면 그사이 잡힌 수업·정산을 어떻게 할지 사람이 정해야 한다.
+   *   ⚠️ 결재선은 **원본과 같은 규칙**(stagesFor)으로 만든다 — 취소를 원본보다
+   *      쉽게 통과시키면 「올릴 땐 경영진, 없앨 땐 아무나」가 된다.
+   *   ⚠️ 금액의 부호를 뒤집지 않는다 — 승인되면 원본이 합계에서 빠지므로,
+   *      음수까지 넣으면 이중으로 차감된다.
+   * ═══════════════════════════════════════════════════════════════════════ */
+  const mReverse = path.match(/^\/api\/approval\/requests\/(\d+)\/reverse$/);
+  if (method === 'POST' && mReverse) {
+    const id = Number(mReverse[1]);
+    const cur: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
+      .bind(id).first().catch(() => null);
+    if (!cur) return json({ ok: false, error: 'not_found' }, 404);
+
+    // 이미 올라와 있는 «대기 중» 취소 결재가 있는가 — 두 벌을 만들지 않는다.
+    const openRev: any = await safe(async () => await env.DB.prepare(
+      `SELECT id FROM approval_requests WHERE reverses_id = ? AND status = 'pending' LIMIT 1`
+    ).bind(id).first(), null);
+
+    const g = canReverse({
+      me: String(actor.username), isExec: iAmExec,
+      requesterUsername: String(cur.requester_username), status: String(cur.status),
+      cancelledById: cur.cancelled_by_id ? Number(cur.cancelled_by_id) : null,
+      openReverseId: openRev?.id ? Number(openRev.id) : null,
+    });
+    if (!g.ok) {
+      const MSG: Record<string, [string, string]> = {
+        not_approved:      ['승인된 결재만 취소 요청을 올릴 수 있습니다.', 'Only approved requests can be cancelled.'],
+        not_allowed:       ['이 결재의 취소는 올린 사람 또는 경영진만 요청할 수 있습니다.',
+                            'Only the requester or an executive can request cancellation.'],
+        already_cancelled: ['이미 취소된 결재입니다.', 'This request was already cancelled.'],
+        already_requested: ['이미 취소 결재가 올라와 결재를 기다리는 중입니다.',
+                            'A cancellation request is already pending.'],
+      };
+      const m = MSG[g.reason] || ['취소 요청을 올릴 수 없습니다.', 'Cannot request cancellation.'];
+      return json({
+        ok: false, error: g.reason, message: m[0], message_en: m[1],
+        open_reverse_id: openRev?.id || null, cancelled_by_id: cur.cancelled_by_id || null,
+      }, 403);
+    }
+
+    let reason = '';
+    try { const b: any = await request.json(); reason = String(b?.reason || '').trim().slice(0, 2000); } catch { /* 빈 본문 허용 */ }
+    if (!reason) {
+      return json({
+        ok: false, error: 'reason_required',
+        message: '취소하려는 이유를 적어 주세요 — 결재자가 그것으로 판단합니다.',
+        message_en: 'Please write why this should be cancelled.',
+      }, 400);
+    }
+
+    const now = Date.now();
+    const reqType = String(cur.req_type);
+    const amount = (cur.amount == null) ? null : Number(cur.amount);
+    const currency = normCurrency(cur.currency);
+    // 결재선은 원본과 같은 규칙으로.
+    const stages: Stage[] = stagesFor(reqType, amount, currency);
+    const deadline = deadlineMs(reqType, now, stages.length);
+    const stageDue = stageDeadlineMs(reqType, now);
+    const title = reverseTitle(cur.title);
+    const body = ('원래 결재 #' + id + ' 을(를) 취소하려는 요청입니다.\n\n[취소 사유]\n' + reason).slice(0, 4000);
+
+    const ins = await env.DB.prepare(
+      `INSERT INTO approval_requests
+         (req_type, requester_username, requester_name, title, body, category,
+          amount, currency, spent_at, status, created_at, stage_seq, stage_total,
+          deadline_at, stage_due_at, flags, reverses_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?)`
+    ).bind(reqType, String(actor.username), actor.name || null, title, body, cur.category || null,
+           amount, currency, cur.spent_at || null, now, stages.length, deadline, stageDue,
+           JSON.stringify([{ code: 'reversal', level: 'warn',
+                             ko: '이 결재는 승인된 #' + id + ' 을(를) 무효로 만듭니다.',
+                             en: 'Approving this cancels approved request #' + id + '.' }]),
+           id).run();
+    const newId = Number(ins.meta.last_row_id);
+
+    for (const st of stages) {
+      await safe(async () => {
+        await env.DB.prepare(
+          `INSERT INTO approval_steps (request_id, seq, role, status, started_at)
+           VALUES (?, ?, ?, ?, ?)`
+        ).bind(newId, st.seq, st.role, st.seq === 1 ? 'active' : 'waiting', st.seq === 1 ? now : null).run();
+        return true;
+      }, false);
+    }
+
+    const targets = await approversFor(env, stages[0].role, String(actor.username));
+    const deleg = await delegatesOf(env, targets);
+    for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
+    await notify(env, targets, 'Cancellation · ' + (actor.name || actor.username),
+                 title.slice(0, 80), newId, 'approval');
+
+    return json({ ok: true, id: newId, reverses_id: id, stages: stages.length });
+  }
+
   const mFile = path.match(/^\/api\/approval\/requests\/(\d+)\/file$/);
   if (method === 'GET' && mFile) {
     const id = Number(mFile[1]);

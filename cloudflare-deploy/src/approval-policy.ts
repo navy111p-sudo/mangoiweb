@@ -227,6 +227,132 @@ export function categorySpec(key: string | null | undefined): CategorySpec | nul
  * ③ 결재선 자동 결정
  * ═════════════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔖 결재 상태 — 정본은 여기 한 곳
+ *
+ *   pending   대기 중
+ *   approved  승인
+ *   rejected  반려      — 결재자가 «아니오» 라고 한 것
+ *   withdrawn 회수됨    — 기안자가 «내가 내렸다». 아무도 결재하기 «전» 에만 가능
+ *   cancelled 취소됨    — 승인됐던 건이 «취소 결재» 로 무효가 된 것
+ *
+ *   ⛔ withdrawn·cancelled 를 rejected 로 뭉치지 말 것.
+ *      「반려당함」·「내가 내림」·「승인됐다가 무효」는 서로 다른 사실이고,
+ *      그 값을 **중복 감지**(최근 30일 같은 금액)와 **지출 합계** 가 함께 봅니다.
+ *      한 글자를 아끼면 합계가 조용히 갈라집니다.
+ *   ⚠️ 상태를 늘리면 세는 곳이 짝입니다 — buildFindQuery · summarizeApprovals ·
+ *      맨 위 요약 SQL · 중복 감지 · CSV 라벨 · 화면 배지.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface StatusSpec { key: string; ko: string; en: string }
+
+export const STATUSES: StatusSpec[] = [
+  { key: 'pending',   ko: '대기 중',  en: 'Pending' },
+  { key: 'approved',  ko: '승인',     en: 'Approved' },
+  { key: 'rejected',  ko: '반려',     en: 'Rejected' },
+  { key: 'withdrawn', ko: '회수됨',   en: 'Withdrawn' },
+  { key: 'cancelled', ko: '취소됨',   en: 'Cancelled' },
+];
+
+export const STATUS_KEYS: string[] = STATUSES.map(s => s.key);
+
+export function statusSpec(key: string | null | undefined): StatusSpec | null {
+  const k = String(key || '').trim().toLowerCase();
+  return STATUSES.find(s => s.key === k) || null;
+}
+
+/** 이 상태의 건이 «지출 합계» 에 들어가는가 — 승인·대기만. 정본은 이 함수 하나. */
+export function countsAsSpend(status: string | null | undefined): boolean {
+  const k = String(status || '').trim().toLowerCase();
+  return k === 'approved' || k === 'pending';
+}
+
+/** 아직 «살아 있는» 건인가 — 결재를 기다리는 중. */
+export function isLive(status: string | null | undefined): boolean {
+  return String(status || '').trim().toLowerCase() === 'pending';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ↩️ ① 회수 — 「내가 올린 것을 내가 내린다」
+ *
+ *   왜 «아무도 결재하기 전» 으로 좁히나 — 결재는 «그때 그 내용에 도장을 찍는» 기록이다.
+ *   1단계가 승인된 뒤에 기안자가 내려 버리면 그 사람의 결재가 뜻을 잃는다.
+ *   그건 회수가 아니라 «남의 결재를 지우는 것» 이다.
+ *
+ *   ⛔ 승인·반려된 건은 회수가 아니다 — 승인 건은 ③ 취소 결재로 간다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface WithdrawInput {
+  me: string;
+  requesterUsername: string;
+  status: string;
+  /** approval_steps 에 이미 결재된(승인·반려) 단계가 하나라도 있는가 */
+  anyDecided?: boolean;
+  /** 다단계에서 지금 몇 번째 단계인가 — 2 이상이면 앞 단계가 승인된 것 */
+  stageSeq?: number | null;
+}
+
+export type GateReason =
+  | 'ok'
+  | 'not_mine'
+  | 'not_pending'
+  | 'already_decided'
+  | 'not_approved'
+  | 'not_allowed'
+  | 'already_cancelled'
+  | 'already_requested';
+
+export function canWithdraw(inp: WithdrawInput): { ok: boolean; reason: GateReason } {
+  const me = String(inp?.me || '');
+  if (!me || me !== String(inp?.requesterUsername || '')) return { ok: false, reason: 'not_mine' };
+  if (!isLive(inp?.status)) return { ok: false, reason: 'not_pending' };
+  // 앞 단계가 이미 승인된 다단계 건은 회수하지 않는다(남의 결재를 지우게 된다).
+  if (inp?.anyDecided) return { ok: false, reason: 'already_decided' };
+  if (Number(inp?.stageSeq || 1) > 1) return { ok: false, reason: 'already_decided' };
+  return { ok: true, reason: 'ok' };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔁 ③ 취소 결재 — 「승인된 것을 무효로 하려면, 새 결재를 올려 승인받는다」
+ *
+ *   ⛔ 승인 건을 그 자리에서 지우지 않는다. 승인은 **바깥으로 나간다** —
+ *      휴가는 강사 근무불가를 만들어 예약을 막고, 인사·급여는 그 달을 잠근다.
+ *      되돌리려면 그사이 잡힌 수업·정산을 어떻게 할지 «사람이» 정해야 한다.
+ *      회계에서 원장을 지우지 않고 반대 분개를 넣는 것과 같은 이치다.
+ *
+ *   누가 올릴 수 있나 — **원래 기안자 본인** 또는 **경영진**.
+ *   ⛔ 본사 직원 전원에게 열지 말 것 — 남의 지출을 함부로 무효화하게 된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface ReverseInput {
+  me: string;
+  isExec: boolean;
+  requesterUsername: string;
+  status: string;
+  /** 이미 이 건을 취소한 결재의 id (approval_requests.cancelled_by_id) */
+  cancelledById?: number | null;
+  /** 이미 올라와 있는 «대기 중인» 취소 결재의 id */
+  openReverseId?: number | null;
+}
+
+export function canReverse(inp: ReverseInput): { ok: boolean; reason: GateReason } {
+  const st = String(inp?.status || '').trim().toLowerCase();
+  if (st === 'cancelled' || inp?.cancelledById) return { ok: false, reason: 'already_cancelled' };
+  if (st !== 'approved') return { ok: false, reason: 'not_approved' };
+  const me = String(inp?.me || '');
+  const mine = !!me && me === String(inp?.requesterUsername || '');
+  if (!mine && !inp?.isExec) return { ok: false, reason: 'not_allowed' };
+  // 같은 건에 취소 결재를 두 벌 올리지 않는다 — 둘 다 승인되면 뜻이 겹친다.
+  if (inp?.openReverseId) return { ok: false, reason: 'already_requested' };
+  return { ok: true, reason: 'ok' };
+}
+
+/** 취소 결재의 제목 — 원본을 한눈에 알아보게. 길이는 저장 상한(200)에 맞춰 자른다. */
+export function reverseTitle(originalTitle: string | null | undefined): string {
+  const t = String(originalTitle || '').trim();
+  return ('[취소] ' + t).slice(0, 200);
+}
+
 export interface Stage { seq: number; role: StageRole }
 
 /**
@@ -522,7 +648,12 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
   if (scope === 'mine')          { where.push('requester_username = ?'); binds.push(me); }
   else if (scope === 'open')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'pending'"); }
   else if (scope === 'done')     { where.push('requester_username = ?'); binds.push(me); where.push("status = 'approved'"); }
-  else if (scope === 'rejected') { where.push('requester_username = ?'); binds.push(me); where.push("status = 'rejected'"); }
+  /* 「반려·회수·취소」 한 묶음 — 셋 다 «결국 안 된 것» 이라 사람은 한자리에서 찾는다.
+     ⚠️ 그래도 «상태» 는 따로 저장한다(화면 배지가 셋을 구분해 보여 준다). */
+  else if (scope === 'rejected') {
+    where.push('requester_username = ?'); binds.push(me);
+    where.push("status IN ('rejected','withdrawn','cancelled')");
+  }
   else if (scope === 'pending')  { where.push("status = 'pending'"); where.push('requester_username != ?'); binds.push(me); }
   // 'all' 은 조건 없음 — 결재자에게만 열린다(호출부가 막는다)
 
@@ -538,8 +669,10 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
   const t = String(inp.type || '').trim();
   if (t && REQ_TYPES.indexOf(t as any) >= 0) { where.push('req_type = ?'); binds.push(t); }
 
-  const st = String(inp.status || '').trim();
-  if (st === 'pending' || st === 'approved' || st === 'rejected') { where.push('status = ?'); binds.push(st); }
+  /* 상태 필터 — 목록을 손으로 적지 않는다(STATUS_KEYS 가 정본).
+     ⚠️ 손으로 적으면 상태가 늘 때 그 상태로 «찾을 수 없는» 상태가 조용히 생긴다. */
+  const st = String(inp.status || '').trim().toLowerCase();
+  if (STATUS_KEYS.indexOf(st) >= 0) { where.push('status = ?'); binds.push(st); }
 
   /* 🏷️ 지출 항목 — 모르는 값이면 조건을 «몰래 넣지 않는다».
      넣어 버리면 0건이 나오는데 화면은 「그런 지출이 없다」로 읽어 거짓말이 된다. */
@@ -612,7 +745,7 @@ export interface CategorySum {
 export interface ApprovalSummary {
   /** 센 행 수 (열람 가능분만) */
   counted: number;
-  by_status: { approved: number; pending: number; rejected: number; other: number };
+  by_status: { approved: number; pending: number; rejected: number; withdrawn: number; cancelled: number; other: number };
   /** 승인된 것만 — «쓰기로 확정된 돈» */
   approved_money: MoneyBucket[];
   /** 대기 중 — «아직 아닌 돈» */
@@ -659,7 +792,7 @@ function monthOf(row: SummaryRowLike): { month: string | null; bySpent: boolean 
 export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
   const out: ApprovalSummary = {
     counted: 0,
-    by_status: { approved: 0, pending: 0, rejected: 0, other: 0 },
+    by_status: { approved: 0, pending: 0, rejected: 0, withdrawn: 0, cancelled: 0, other: 0 },
     approved_money: [], pending_money: [],
     by_category: [], by_month: [],
     no_amount: 0, no_category: 0, no_file: 0,
@@ -670,8 +803,11 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
 
   for (const r of (rows || [])) {
     out.counted++;
-    const st = String(r.status || '');
-    if (st === 'approved' || st === 'pending' || st === 'rejected') out.by_status[st]++;
+    /* ⚠️ 상태 이름을 손으로 적지 않는다 — 상태가 늘 때 조용히 «other» 로 묻힌다.
+       회수·취소는 «금액» 에는 안 들어가지만(countsAsSpend) «몇 건인지» 는 말해야 한다:
+       사람이 「분명 올렸는데 합계에 없다」를 스스로 설명할 수 있어야 한다. */
+    const st = String(r.status || '').trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(out.by_status, st)) (out.by_status as any)[st]++;
     else out.by_status.other++;
 
     const spec = typeSpec(r.req_type);
@@ -687,7 +823,7 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
           하는데 그 줄이 **없다.** 사람이 없는 줄을 찾게 된다(2026-09-04 함정 대조 지적).
           이 상자는 «이 합계» 가 말하지 않는 것을 적는 자리이고, 그 합계는 승인·대기다. */
     const isSpend = !!spec.wantsCategory;
-    const counted = (st === 'approved' || st === 'pending');
+    const counted = countsAsSpend(st);       // 정본 — 승인·대기만
     if (counted && isSpend && amt == null) out.no_amount++;
     if (counted && isSpend && !String(r.category || '').trim()) out.no_category++;
     const hasFile = (r.has_file != null) ? !!r.has_file : !!r.file_key;
@@ -696,8 +832,8 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
     if (st === 'approved') addMoney(out.approved_money, cur, amt);
     else if (st === 'pending') addMoney(out.pending_money, cur, amt);
 
-    // 항목별 — 반려는 «안 쓴 돈» 이라 뺀다
-    if (isSpend && (st === 'approved' || st === 'pending')) {
+    // 항목별 — 반려·회수·취소는 «안 쓴 돈» 이라 뺀다(countsAsSpend 가 정본)
+    if (isSpend && counted) {
       const key = String(r.category || '').trim() || '';
       const cs = categorySpec(key);
       const id = cs ? cs.key : '\u0000none';
