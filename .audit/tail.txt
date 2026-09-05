@@ -1,5 +1,5 @@
   .video-short/raw/t1.wav       4.580 →  4.580s   그대로
-  .video-short/raw/t2.wav       2.344 →  2.344s   그대로
+  .video-short/raw/t2.wav       4.000 →  4.000s   그대로
 ✂ .video-short/raw/t3.wav       5.000 →  4.770s   덩어리 4.77~5.00s (앞 조용 1.27s, -5.5dB)
   .video-short/raw/t4.wav       6.680 →  6.680s   그대로
 ✂ .video-short/raw/t5.wav       4.000 →  3.890s   덩어리 3.89~4.00s (앞 조용 1.09s, 0.0dB)
