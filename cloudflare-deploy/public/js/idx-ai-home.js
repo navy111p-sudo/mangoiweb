@@ -35,9 +35,12 @@
     { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/my-schedule.html', label:'📅 내 주간 스케줄' },
     { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin.html#card-students-mgmt', label:'👨‍🎓 학생 관리' },
     { kws:['수업자료','수업 자료','학습자료','학습 자료','강의자료','수업 교재','수업노트','materials'], action: () => location.href='/lessons.html', label:'📖 수업 자료' },
-    { kws:['평가서','월말평가','월간평가','평가 결과','평가결과','evaluation'], action: () => location.href='/eval.html', label:'📝 평가서' },
-    { kws:['리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report'], action: () => location.href='/report.html', label:'📊 리포트' },
-    { kws:['오늘의 학습','오늘 학습','오늘 할 일','오늘할일','오늘 공부','학습 계획','학습계획','계획표','todays plan','today plan','study plan'], action: () => location.href='/today.html', label:'📅 오늘의 학습' },
+    /* 🏷 (2026-09-04) 화면 이름을 「오늘 수업일지」·「월간 성적표」로 바꿨다(전체메뉴 타일과 같은 말).
+       ⛔ 옛 낱말 '평가서'·'리포트'를 kws 에서 빼지 말 것 — 그 말로 찾던 사람이 못 찾게 된다.
+          label 만 새 이름이고 kws 는 «옛 말 + 새 말» 을 모두 받는다. */
+    { kws:['수업일지','수업 일지','일지','평가서','월말평가','월간평가','평가 결과','평가결과','evaluation','lesson note'], action: () => location.href='/eval.html', label:'📝 오늘 수업일지' },
+    { kws:['성적표','월간성적표','월간 성적표','리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report','report card'], action: () => location.href='/report.html', label:'📊 월간 성적표' },
+    { kws:['오늘의 ai 학습','오늘의 a.i 학습','오늘 ai 학습','오늘의 학습','오늘 학습','오늘 할 일','오늘할일','오늘 공부','학습 계획','학습계획','계획표','ai 학습계획','todays plan','today plan','todays ai plan','study plan'], action: () => location.href='/today.html', label:'📅 오늘의 A.i 학습' },
     { kws:['ai 친구','ai친구','인공지능 친구','영어 친구','대화 연습','챗봇','ai friend','chatbot'], action: () => location.href='/ai-friend.html', label:'🤖 AI 친구' },
     { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
     { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },
@@ -338,7 +341,7 @@
       { label: '🗣 발음연습', action: () => location.href = '/speech-coach.html' },
       { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
       { label: '🇨🇳 중국어 복습퀴즈', action: () => location.href = '/review-quiz-cn.html' },
-      { label: '📊 성적표·리포트', action: () => location.href = '/report.html' },
+      { label: '📊 월간 성적표', action: () => location.href = '/report.html' },
       { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
       { label: '💬 카카오 상담', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
       { label: '🥭 전체 메뉴', action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } }

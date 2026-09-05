@@ -48,7 +48,8 @@ import {                                               // 💼 인사·급여 «
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
-  sniffKind, normExt, contentTypeFor,
+  sniffKind, normExt, contentTypeFor, buildFindQuery,
+  CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -58,6 +59,12 @@ interface ApprovalEnv {
   AI?: any;
   [k: string]: any;
 }
+
+/* 📊 지출 정리가 한 번에 세는 최대 행 수.
+   canView 로 걸러야 해서 SQL 집계를 못 쓰므로 «읽어서 센다» — 그 상한이다.
+   ⚠️ 올릴 때는 D1 응답 크기와 Worker CPU 를 함께 보세요(지금 결재는 3건이라
+      한참 여유가 있고, 넘치면 화면이 «잘렸다» 고 말합니다). */
+const REPORT_MAX = 2000;
 
 const json = (data: any, status = 200): Response =>
   new Response(JSON.stringify(data), {
@@ -517,10 +524,17 @@ function rowOf(r: any, steps?: any[], brief = false) {
   let flags: Flag[] = [];
   try { if (r.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
   const body = (brief && r.body) ? String(r.body).slice(0, 300) : r.body;
+  const catSpec = categorySpec(r.category);
   return {
     id: r.id, req_type: r.req_type,
     type_ko: spec.ko, type_en: spec.en,
-    title: r.title, body, category: r.category,
+    title: r.title, body,
+    /* 🏷️ 항목은 key 로 저장하고 «읽을 때» 이름을 붙인다 — 라벨을 다듬어도
+       이미 쌓인 결재의 뜻이 안 바뀐다. 모르는 값이면 이름을 지어내지 않고 null. */
+    category: r.category || null,
+    category_ko: catSpec ? catSpec.ko : null,
+    category_en: catSpec ? catSpec.en : null,
+    category_account: catSpec ? catSpec.account : null,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
     date_from: r.date_from || null, date_to: r.date_to || null,
     hr_kind: r.hr_kind || null, period: r.period || null,
@@ -538,6 +552,58 @@ function rowOf(r: any, steps?: any[], brief = false) {
       decided_by: s.decided_by, decided_at: s.decided_at, memo: s.memo,
     })),
   };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📤 엑셀 내보내기 (CSV)
+ *
+ *   ⚠️ 두 가지를 꼭 지킨다.
+ *     ① **BOM** — 없으면 한국어 엑셀이 UTF-8 을 못 알아보고 한글이 깨진다.
+ *     ② **수식 차단** — 셀이 = + - @ 로 시작하면 엑셀이 «수식» 으로 실행한다.
+ *        결재 제목·내용은 사람이 적는 값이라 그대로 넣으면 남의 컴퓨터에서 수식이 돈다.
+ *        앞에 작은따옴표를 붙여 «글자» 로 못 박는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+function csvCell(v: any): string {
+  let t = (v === null || v === undefined) ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;      // 엑셀 수식 실행 차단
+  return '"' + t.replace(/"/g, '""') + '"';
+}
+
+/** ms → KST 'YYYY-MM-DD HH:MM'. 엑셀이 날짜로 알아보는 모양. */
+function csvWhen(ms: any): string {
+  const n = Number(ms || 0);
+  if (!n) return '';
+  const d = new Date(n + 9 * 3600_000);
+  const p = (x: number) => String(x).padStart(2, '0');
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) +
+         ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+}
+
+function csvResponse(items: any[]): Response {
+  const head = ['번호', '분류', '지출 항목', '회계 계정', '제목', '올린 사람', '올린 날짜', '금액', '통화',
+                '상태', '결재자', '결재 날짜', '첨부', '내용'];
+  const STAT: Record<string, string> = { pending: '대기 중', approved: '승인', rejected: '반려' };
+  const lines = [head.map(csvCell).join(',')];
+  for (const r of items) {
+    lines.push([
+      r.id, r.type_ko, (r.category_ko || ''), (r.category_account || ''),
+      r.title, (r.requester_name || r.requester_username),
+      csvWhen(r.created_at),
+      (r.amount == null ? '' : r.amount), (r.amount == null ? '' : (r.currency || 'PHP')),
+      (STAT[String(r.status)] || r.status), (r.decided_by || ''), csvWhen(r.decided_at),
+      (r.has_file ? 'O' : ''), (r.body || ''),
+    ].map(csvCell).join(','));
+  }
+  const stamp = csvWhen(Date.now()).slice(0, 10);
+  return new Response('\uFEFF' + lines.join('\r\n'), {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="approvals-' + stamp + '.csv"',
+      // 결재 내용에는 급여·거래처가 들어간다. 중간 캐시에 절대 남기지 않는다.
+      'Cache-Control': 'private, no-store',
+    },
+  });
 }
 
 /** 이 건의 결재선에 이름이 오른 사람들 — 열람 판정에 쓴다. */
@@ -705,11 +771,12 @@ export async function handleApprovalApi(
     // 🧭 「이 건을 결재할 사람이 몇 명인가」가 바뀌면 «막힘» 표시도 바뀐다 — 서명에 함께 넣는다.
     //    ⚠️ 계정 «수» 만 본다. 이름을 「…이사」로 고쳐 경영진이 되는 경우(isExec 의 이름 안전장치)는
     //       이 숫자가 그대로라 못 잡지만, 아래 hourBucket 이 한 시간에 한 번은 전체를 다시 받게 한다.
+
     const hsig: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a4-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a6-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -723,6 +790,68 @@ export async function handleApprovalApi(
     if (request.headers.get('If-None-Match') === etag) {
       return new Response(null, { status: 304, headers });
     }
+
+    /* ⚠️ 아래 요약 조회는 **304 «뒤»** 에 둔다 — 이 응답의 설계가 「내용이 그대로면
+       열 번 다 304, 본문 0바이트」다. 위에 두면 캐시로 끝나는 요청마다 GROUP BY 가 돈다
+       (2026-09-04 함정 대조 지적). ETag 서명에는 approval_requests 의 건수·최종 시각이
+       이미 들어 있어, 결재가 새로 올라오거나 결재되면 이 숫자도 함께 바뀐다. */
+    /* ═══ 🧭 맨 위 요약(D안) — 「아침에 한 번 열어 보는 화면」 ═══════════════
+       [왜 SQL 집계를 그대로 써도 되는가]
+         C안(지출 정리)은 canView 를 못 걸어 «행을 읽어 코드로» 세지만, 여기는 범위를
+         **canView 가 무조건 통과시키는 두 가지**로만 잡는다 —
+           ① 경영진 → 세 열람등급을 전부 통과(approval-policy 의 canView)
+           ② 그 밖 → 본인이 올린 것만(「내가 올린 건은 언제나 본다」)
+         그래서 SQL 이 준 행이 곧 «볼 수 있는 행» 이고 거를 것이 없다.
+       ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여가 요약으로 샌다
+          (2026-09-04 에 C안에서 실제로 그랬다).
+       ⚠️ 달 눈금은 지출 정리와 **같은 규칙**이다(지출일이 있으면 그것, 없으면 올린 날).
+          두 화면이 다른 달로 자르면 사람이 숫자가 안 맞는다고 느낀다. */
+    const nowMonth = kstMonth(Date.now());
+    const sumAll = iAmExec;                      // 경영진만 전체
+    /* 🔴 「금액 없음」은 **돈이 나가는 분류에서만** 센다 — 긴급·휴가·문서는
+       needsAmount:false 라 «원래» 금액이 없다. 그것까지 세면 화면이 멀쩡한 결재를
+       «덜 채워진 것» 처럼 말하고, 같은 화면의 지출 정리(C안)와 **다른 숫자**를 말한다.
+       2026-09-04 함정 대조 실측: 같은 데이터에서 타일 6건 대 지출 정리 0건.
+       ⚠️ 목록은 정본(TYPES.wantsCategory)에서 만든다 — 여기에 손으로 적으면
+          분류를 늘릴 때 조용히 어긋난다. */
+    /* ⚠️ `IN (?,?,…)` 를 만들지 않는다 — 이 저장소는 그 자리표시자 생성을 금지한다
+       (D1 바인드 100 한도. 조직 스코프도 같은 이유로 «콤마 문자열 한 개» 를 쓴다).
+       바인드 하나로 끝내고, 분류가 늘어도 자리표시자 수가 안 변한다. */
+    const spendCsv = ',' + TYPES.filter(t => t.wantsCategory).map(t => t.key).join(',') + ',';
+    /* ⚠️ spent_at 은 저장할 때 형식을 안 본다 — 날짜가 아니면 substr 이 엉뚱한 글자를 내고
+       그 건이 «올해가 아님» 으로 통째로 사라진다(에러 없이). C안 monthOf 가 정규식으로
+       거르는 것과 같은 판정을 SQL 로 한다. */
+    const YMD = "spent_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'";
+    const moneyRows = await safe(async () => {
+      const st = env.DB.prepare(
+        `SELECT COALESCE(NULLIF(currency,''),'PHP') AS cur,
+                substr(CASE WHEN ${YMD} THEN spent_at
+                            ELSE date(created_at/1000,'unixepoch','+9 hours') END, 1, 7) AS ym,
+                COUNT(*) AS n, SUM(amount) AS total,
+                SUM(CASE WHEN amount IS NULL
+                          AND instr(?, ',' || req_type || ',') > 0 THEN 1 ELSE 0 END) AS no_amt
+           FROM approval_requests
+          WHERE status = 'approved'` + (sumAll ? '' : ' AND requester_username = ?') + `
+          GROUP BY cur, ym`
+      );
+      const binds = sumAll ? [spendCsv] : [spendCsv, me];
+      const r = await st.bind(...binds).all<any>();
+      return (r.results || []) as any[];
+    }, null);
+    /* 🔴 조회가 실패하면 «0건» 이 아니라 «모른다» 다 — safe() 가 예외를 삼키므로
+       화면이 그것을 «전체 0건 승인» 이라고 말하면 거짓이 된다(C안의 steps_missing 과 같은 자리). */
+    const moneyFailed = moneyRows === null;
+    const homeMoney = foldHomeMoney(moneyRows || [], nowMonth);
+
+    /* 「진행 중」은 **정확한 수** 로 센다 — 아래 mine 은 최근 15건뿐이라 그것으로 세면
+       16번째부터 조용히 빠진다. ⚠️ 이 숫자는 언제나 «내가 올린 것» 이다(경영진도 마찬가지) —
+       「내가 올린 것이 어떻게 됐나」를 보는 칸이라 전체로 넓히면 뜻이 달라진다. */
+    const openRow: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_requests
+        WHERE requester_username = ? AND status = 'pending'`
+    ).bind(me).first(), null);
+    const openFailed = !openRow;
+    const myOpen = Number(openRow?.c || 0);
 
     // ① 내가 결재할 것 — 내 단계이고, 내가 올린 건이 아닌 것
     //    정렬은 «마감이 급한 순 → 오래된 순». 시각에 기대지 않으므로 내용이 같으면 순서도 같다.
@@ -803,7 +932,10 @@ export async function handleApprovalApi(
       const k = r.req_type + '|' + r.title;
       if (seen.indexOf(k) >= 0) continue;
       seen.push(k);
-      reuse.push({ req_type: r.req_type, title: r.title, body: r.body, amount: r.amount, currency: r.currency });
+      /* 🏷️ 지출 항목도 함께 물려준다 — 「지난번과 같이」는 매달 같은 돈(인터넷 요금 등)에
+         쓰는 기능이라, 항목이 안 따라오면 매번 다시 고르게 되어 결국 비어 있게 된다. */
+      reuse.push({ req_type: r.req_type, title: r.title, body: r.body, amount: r.amount,
+                   currency: r.currency, category: r.category || null });
       if (reuse.length >= 3) break;
     }
 
@@ -848,13 +980,41 @@ export async function handleApprovalApi(
         is_exec: iAmExec, is_ph_manager: ph, is_teacher: !!actor.isTeacher,
       },
       colleagues, my_delegate: myDelegate,
+      /* 🧭 맨 위 요약. scope 는 화면이 «어느 범위인지» 를 사람에게 말하는 데 쓴다 —
+         경영진과 직원이 같은 타일에서 다른 숫자를 보므로 감추면 안 된다. */
+      summary: {
+        money: homeMoney,
+        money_scope: sumAll ? 'all' : 'mine',
+        my_open: myOpen,
+        /* 🔴 「멈춤」을 몇 건에서 찾았는지 — **진행 중인 것 중 화면에 있는 수** 다.
+           ⚠️ mine.length(15)를 쓰면 안 된다: mine 은 상태를 안 가리고 최근 15건이라
+              my_open(대기만 센 수)과 «모집단이 다르다». 그러면
+                · my_open 12 · mine 15(전부 승인·반려) → 12건을 하나도 못 봤는데 **침묵**
+                · my_open 20 · mine 15(그중 대기 6) → 「15건 봤다」인데 실제로는 6건
+              둘 다 거짓이 된다(2026-09-04 함정 대조 지적).
+           ⚠️ mine 은 created_at DESC 라 **오래 멈춘 건일수록 창 밖으로 밀려난다** —
+              이 기능이 존재하는 이유(5일 방치 건)가 정확히 그 모양이다. */
+        my_open_shown: mine.filter((m: any) => m.status === 'pending').length,
+        mine_shown: mine.length,
+        /* 조회가 실패했으면 «0» 이 아니라 «모른다» 다 — 화면이 그 사실을 말한다. */
+        money_unknown: moneyFailed,
+        open_unknown: openFailed,
+        /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
+           정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
+        inbox_capped: inbox.length >= 20,
+        month: nowMonth,
+      },
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
       types: TYPES.filter(t => canSubmit(actor, t.key, ph))
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
-                               wants_file: t.wantsFile, wants_dates: !!t.wantsDates,
+                               wants_file: t.wantsFile, requires_file: !!t.requiresFile, wants_dates: !!t.wantsDates,
+                               wants_category: !!t.wantsCategory,
                                // 💼 인사·급여는 «달을 고르는» 분류다. 화면이 폼 대신 월 버튼을 그린다.
                                picks_period: t.key === 'hr' })),
+      /* 🏷️ 지출 항목 목록은 **서버가 내려준다** — 화면에 같은 목록을 또 적으면
+         둘이 갈려 「화면에서는 골랐는데 저장이 안 되는」 사고가 난다(CLAUDE.md 2장). */
+      categories: CATEGORIES.map(c => ({ key: c.key, ko: c.ko, en: c.en, account: c.account })),
       hr_periods: hrPeriods,
       inbox, mine, reuse, urgent,
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
@@ -936,7 +1096,14 @@ export async function handleApprovalApi(
       if (!title) return json({ ok: false, error: 'title_required' }, 400);
 
       const body = hrSnap ? String(hrSnap.body_ko) : String(form.get('body') || '').trim().slice(0, 4000);
-      const category = String(form.get('category') || '').trim().slice(0, 60) || null;
+      /* 🏷️ 지출 항목 — 예전에는 60자 «자유 문자열» 이었다(화면이 한 번도 안 보냈다).
+         자유 입력이면 같은 항목이 「인터넷요금」·「인터넷 요금」·「통신비」로 쌓여
+         나중에 합계가 조용히 갈라진다. 정본 목록(approval-policy.CATEGORIES)으로 맞춘다.
+         ⛔ 모르는 값에 400 을 주지 않는다 — 결재를 못 올리게 막는 쪽이 더 나쁘다.
+         ⛔ 돈이 안 나가는 분류(휴가·불만·인사)에는 아예 안 넣는다 — 지출 합계가 흐려진다. */
+      const category = typeSpec(reqType).wantsCategory
+        ? normCategory(String(form.get('category') || ''))
+        : null;
       const spentAt = String(form.get('spent_at') || '').trim().slice(0, 10) || null;
       const currency = normCurrency(String(form.get('currency') || 'PHP'));
 
@@ -1109,36 +1276,97 @@ export async function handleApprovalApi(
   //   teacher.html 이 scope=mine · scope=pending 을 쓴다. 응답 모양을 바꾸지 않는다.
   if (method === 'GET' && path === '/api/approval/requests') {
     if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
-    const scope = url.searchParams.get('scope') || 'mine';
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));
     const me = String(actor.username);
     const approver = !ph && isHqStaff(actor);
+
+    /* 📂 결재 문서함 (2026-09-04) — 「지난 결재를 찾을 수 있게」
+     *
+     *   왜 — 화면이 「내가 올린 것」 최근 15건만 보여 줘서, 16번째부터는 볼 방법이 없었다.
+     *   검색·기간·분류·상태 필터도 없었다(사장님 제보 「구분해서 정리해 저장한 곳이 있어?」).
+     *
+     *   ⚠️ 새 경로를 만들지 않는다 — 이미 등록된 이 경로에 **쿼리 파라미터만** 얹는다.
+     *      새 API 는 관문이 셋이고(src/index.ts 인증·라우팅 + api-mango 위임) 그중 둘이
+     *      공동 금지구역이다(CLAUDE.md 4-2).
+     */
+    const scope  = url.searchParams.get('scope') || 'mine';
+    const q      = String(url.searchParams.get('q') || '').trim().slice(0, 60);
+    const fType  = String(url.searchParams.get('type') || '').trim();
+    const fStat  = String(url.searchParams.get('status') || '').trim();
+    // 형제인 q 와 같이 길이를 자른다 — 정본 목록 대조라 주입은 안 되지만, 아주 긴 값이
+    // 조건 조립까지 흘러가지 않게 입구에서 막는다(항목 key 는 길어야 열 몇 자다).
+    const fCat   = String(url.searchParams.get('category') || '').trim().slice(0, 60);
+    const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
+    const to     = String(url.searchParams.get('to') || '').trim();
+    const csv    = url.searchParams.get('format') === 'csv';
+    /* 📊 지출 정리 — 목록 대신 «합계» 를 돌려준다.
+       ⚠️ 새 경로를 만들지 않는다(A안과 같은 이유 — 관문 셋 중 둘이 공동 금지구역). */
+    const report = url.searchParams.get('view') === 'report';
+    const limit  = report ? REPORT_MAX
+                          : (csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20)));
+    /* ⚠️ report 는 offset 을 무시한다 — 주소로 넣으면 «앞부분» 이 아니라 «중간만» 센
+       합계가 나오는데 truncated 는 그 사실을 말하지 못한다. */
+    const offset = report ? 0 : Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
     if ((scope === 'pending' || scope === 'all') && !approver) {
       return json({ ok: false, error: 'forbidden_scope' }, 403);
     }
-    let sql: string, binds: any[];
-    if (scope === 'mine') {
-      sql = `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT ?`;
-      binds = [me, limit];
-    } else if (scope === 'pending') {
-      // 본인 요청은 결재함에서 뺀다 — 눌러도 거절될 버튼을 보여 줄 이유가 없다.
-      sql = `SELECT * FROM approval_requests WHERE status = 'pending' AND requester_username != ?
-              ORDER BY created_at ASC LIMIT ?`;
-      binds = [me, limit];
-    } else {
-      sql = `SELECT * FROM approval_requests ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`;
-      binds = [limit];
-    }
-    const rs = await env.DB.prepare(sql).bind(...binds).all<any>().catch(() => ({ results: [] as any[] }));
 
-    // 열람등급으로 한 번 더 거른다 — 인사·급여가 목록에 섞여 나가지 않게.
+    // 조건 조립은 정본 buildFindQuery 하나가 한다 — 여기서 다시 적지 않는다.
+    const { cond, binds, order } = buildFindQuery({
+      scope, me, q, type: fType, status: fStat, category: fCat, from, to,
+    });
+
+    /* 한 건 더 읽어 «다음이 있는가» 를 판정한다.
+     *   ⛔ 그 +1 로 «몇 건 남았는지» 를 말하지 않는다 — 언제나 «1건» 이 되어 거짓이 된다.
+     *   ⛔ 총 건수도 내려주지 않는다 — 아래 canView 로 거르므로 SQL COUNT 와 어긋난다.
+     *      「1-20 / 총 50건」이 거짓말하느니 「더 보기」가 낫다. */
+    const rs = await env.DB.prepare(
+      'SELECT * FROM approval_requests' + cond + order + ' LIMIT ? OFFSET ?'
+    ).bind(...binds, limit + 1, offset).all<any>().catch(() => ({ results: [] as any[] }));
+
+    const rows = (rs.results || []);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    // 단계는 한 번에 받는다 — 행마다 조회하면 목록 20건에 D1 조회가 20번 나간다.
+    const stepMap = await stepsByRequest(env, page.map((r: any) => Number(r.id)));
+
+    // 열람등급으로 한 번 더 거른다 — 인사·급여가 목록·CSV 에 섞여 나가지 않게.
     const items: any[] = [];
-    for (const r of (rs.results || [])) {
-      const ch = await chainOf(env, r.id);
-      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
-      items.push(rowOf(r, ch.steps));
+    for (const r of page) {
+      const steps = stepMap[Number(r.id)] || [];
+      if (!canView(actor, r.req_type, r.requester_username, chainUsers(steps), ph)) continue;
+      items.push(rowOf(r, steps, !csv));
     }
+
+    /* 📊 합계는 **행을 읽어서 코드로** 낸다.
+       ⛔ SQL GROUP BY 로 하면 canView 를 못 걸어 인사·급여가 합계에 섞인다.
+       🔴 그래서 **반드시 `items`**(canView 를 지난 것) 를 넘긴다 — 바로 위 CSV 와 같은 값이다.
+          2026-09-04 에 여기에 `page`(거르기 «전»)를 넘겼다가 함정 대조 검사가 잡았다.
+          그때 실측: 경영진이 아닌 본사 계정이 scope=all 로 열면 인사·급여 750,000 이
+          승인 합계에, 900,000 이 대기 합계에 그대로 섞였다. **에러는 안 났다.**
+       ⚠️ 상한이 있다 — 넘으면 «잘렸다» 고 말한다. 잘린 줄 모르고 보는 합계가 「모른다」보다 나쁘다. */
+    if (report) {
+      /* ⚠️ 단계 조회(stepsByRequest)는 swallowErrors 다 — 목록에서는 맞는 판단이지만
+         (「단계를 못 읽었다고 결재함이 안 뜨면 안 된다」), **합계에서는** 청크 하나가
+         실패하면 결재선이 빈 것으로 보여 chain 열람 행이 canView 에서 떨어지고
+         **총액이 말없이 줄어든다.** 그래서 «단계를 하나도 못 읽었는가» 를 함께 내려보내
+         화면이 그 사실을 말하게 한다. */
+      const stepsMissing = page.length > 0 && Object.keys(stepMap).length === 0;
+      return json({
+        ok: true,
+        summary: summarizeApprovals(items),
+        // page 는 상한까지 읽은 것 — 그보다 더 있으면 이 합계는 그 앞부분만 센 것이다
+        truncated: hasMore,
+        max: REPORT_MAX,
+        // 엑셀은 500건까지라 그보다 많으면 화면 합계와 파일이 어긋난다 — 화면이 말해야 한다
+        csv_max: 500,
+        steps_missing: stepsMissing,
+        scope, from, to,
+      });
+    }
+
+    if (csv) return csvResponse(items);
 
     let pending = 0;
     if (approver) {
@@ -1147,7 +1375,7 @@ export async function handleApprovalApi(
       ).bind(me).first(), null);
       pending = Number(c?.c || 0);
     }
-    return json({ ok: true, can_approve: approver, pending, items });
+    return json({ ok: true, can_approve: approver, pending, items, has_more: hasMore, offset });
   }
 
   // ── 승인 / 반려 ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * 📅 today-bar.js — «오늘의 학습» 에서 열린 도구 화면에 «돌아가기» 알약을 띄운다 (2026-09-03)
+ * 📅 today-bar.js — «오늘의 A.i 학습» 에서 열린 도구 화면에 «돌아가기» 알약을 띄운다 (2026-09-03)
  *
  *   왜 필요한가 —
  *     /today.html 이 「1단계 웜업 → 2단계 복습퀴즈 → …」 로 도구를 차례로 열어 주는데,
@@ -9,7 +9,7 @@
  *   어떻게 —
  *     · 주소에 `?from=today` 가 있으면(또는 이 탭에서 그렇게 들어온 뒤 같은 화면 안에서
  *       이동했으면 — sessionStorage) 화면 아래 가운데에 작은 알약 하나를 그린다.
- *       「📅 오늘의 학습 2/3 · 돌아가기」 — 누르면 /today.html 로 간다.
+ *       「📅 오늘의 A.i 학습 2/3 · 돌아가기」 — 누르면 /today.html 로 간다.
  *     · «했나» 판정은 이 파일이 하지 않는다 — /today.html 이 서버(/api/student/today)에서
  *       다시 읽는다(도구마다 «끝» 의 정의가 달라 화면에서 짐작하면 틀린다).
  *
@@ -51,8 +51,8 @@
     var en = false;
     try { en = (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) {}
     var label = en
-      ? ('📅 Today\'s plan' + (total ? ' ' + step + '/' + total : '') + ' · back')
-      : ('📅 오늘의 학습' + (total ? ' ' + step + '/' + total : '') + ' · 돌아가기');
+      ? ('📅 Today\'s AI plan' + (total ? ' ' + step + '/' + total : '') + ' · back')
+      : ('📅 오늘의 A.i 학습' + (total ? ' ' + step + '/' + total : '') + ' · 돌아가기');
 
     var INTERACTIVE = 'button, a[href], input, select, textarea, label, [role="button"], [onclick]';
     var STEP = 56, MAX_STEPS = 6, BASE = 14;
@@ -93,7 +93,7 @@
       a.id = 'mangoi-today-bar';
       a.href = '/today.html';
       a.textContent = label;
-      a.setAttribute('aria-label', en ? 'Back to today\'s plan' : '오늘의 학습으로 돌아가기');
+      a.setAttribute('aria-label', en ? 'Back to today\'s AI plan' : '오늘의 A.i 학습으로 돌아가기');
       a.style.cssText = [
         'position:fixed', 'left:50%', 'bottom:14px', 'transform:translateX(-50%)',
         'z-index:99990', 'padding:8px 14px', 'border-radius:999px',

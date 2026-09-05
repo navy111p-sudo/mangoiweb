@@ -4683,6 +4683,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
     <details class="mg-acc">
       <summary><span class="mg-acc-ic">🤖</span><span class="mg-acc-tx" data-ko="AI 학습 도구" data-en="AI Learning Tools">AI 학습 도구</span><span class="mg-acc-chev" aria-hidden="true">›</span></summary>
       <div class="mg-acc-body">
+        <!-- 📅 (2026-09-04 사장님 지시) «오늘의 A.i 학습» 을 이 묶음 «맨 위» 에.
+             왜 여기인가 — 이 화면이 하는 일이 바로 아래 8개를 «오늘 할 순서» 로 이어 주는 것이다.
+             그 목록 맨 위에 있어야 「이것들을 순서대로 하려면 여기부터」로 읽힌다.
+             ⛔ 「학습 공간」 묶음으로 옮기지 말 것 — 거기는 레벨테스트·수업 신청·연기/변경처럼
+                «한 번씩 하는 학원 업무» 라서 «매일 하는 일» 이 그 안에서 묻힌다.
+             📊 근거: 최근 30일 AI 도구를 쓴 학생 60명 중 2개 이상 쓴 학생 7명(2026-09-03 D1 실측).
+                이 목록이 「아무거나 골라」라고만 말하고 있었다. -->
+        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/today.html';" data-ko="📅 오늘의 A.i 학습" data-en="📅 Today's AI Plan">📅 오늘의 A.i 학습</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ 수업 전 AI 웜업" data-en="🗣️ Pre-class AI Warm-up">🗣️ 수업 전 AI 웜업</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 AI 음성코치" data-en="🎤 AI Voice Coach">🎤 AI 음성코치</button>
@@ -6183,7 +6191,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
-      <script defer src="/js/idx-about.js?v=2"></script>
+      <script defer src="/js/idx-about.js?v=6"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
@@ -6314,9 +6322,16 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
           <span data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
         </button>
-        <button class="cta-pay" onclick="if(window.openAiFriendsOverlay)window.openAiFriendsOverlay();">
-          <svg class="btn-ai-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.3a7.7 7.7 0 0 1-11.1 6.9L4.5 19.5l1.4-4A7.7 7.7 0 1 1 20.5 11.3Z"/><path d="M12.2 7.5l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1 1-2.4Z"/></svg>
-          <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
+        <!-- 📅 (2026-09-04 사장님 지시) 여기는 «로그인한 학생만» 보는 첫 화면 큰 버튼이고 탭 1번이다.
+             전에는 「AI와 친구하기」= AI 도구 «목록» 을 여는 버튼이었다 — 첫 화면 한가운데에서
+             학생에게 「8개 중 아무거나 골라」라고 하고 있었던 셈이다.
+             ⛔ 그 목록으로 가는 길을 없앤 것이 아니다 — /today.html 꼬리말의 「도구 전부 보기」가
+                같은 openAiFriendsOverlay 를 연다(한 칸 안쪽으로 들어갔을 뿐).
+                드로어 「AI 학습 도구」 묶음과 전체메뉴에도 그대로 있다.
+             ⚠️ 아이콘은 달력(계획)으로 바꿨다 — 말풍선+반짝임은 «대화» 를 뜻해 이 화면과 안 맞는다. -->
+        <button class="cta-pay" onclick="location.href='/today.html'">
+          <svg class="btn-ai-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="16" y1="2.5" x2="16" y2="6.5"/><path d="M8.5 15.2l2.2 2.2 4.3-4.6"/></svg>
+          <span data-ko="오늘의 A.i 학습" data-en="Today's AI Plan">오늘의 A.i 학습</span>
         </button>
       </div>
       <style>
@@ -9203,7 +9218,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 -->
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
-<script defer src="/js/idx-ai-home.js?v=12"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
+<script defer src="/js/idx-ai-home.js?v=14"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
 
 
 <!-- 💬 신규상담 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
@@ -14814,7 +14829,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=11"></script>
+<script defer src="/js/idx-allmenu.js?v=13"></script>
 <!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-theme-mobile.js?v=1"></script>
 
@@ -16398,6 +16413,12 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      같이 고친 것: 영상 표본이 없는 사람(카메라 끔·영상 죽음)도 이제 기록이 남는다 —
      그 사각지대 때문에 「끊긴다」 제보를 숫자로 확인할 수가 없었다. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-vc-qlog.js?v=9"></script>
+<!-- 📡 (2026-09-04) SFU(서버 경유) 경로 — ⛔ 기본은 꺼져 있다. 서버 시크릿이 있고 «그 탭이»
+     ?sfu=1 로 켰을 때만 동작하며, 실패하면 조용히 지금 방식(mesh)으로 되돌아간다.
+     [왜] 그날 실측: 기록된 46건 전부가 TURN «중계», 볼 수 있는 35건 전부가 «TCP», UDP 0건.
+          RTT 는 113~324ms 로 나쁘지 않은데 얼굴만 얼어붙었다 — TCP 는 늦은 조각을 못 버려서다.
+     ⛔ 켜기 전 확인·되돌리는 길·«SFU 도 UDP 막히면 TCP 로 떨어진다» 는 한계는 그 파일 머리말에. -->
+<script defer src="/js/idx-vc-sfu.js?v=2"></script>
 <!-- 🔊 (2026-08-26 학생 제보) 안드로이드 볼륨키가 안 먹는 기기용 자체 출력 음량. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-vc-outputvolume.js?v=3"></script>
 <!-- 🧭 (2026-08-28) test.mangoi.co.kr 접속자에게 mangoi.ai 로 옮기라고 "안내"만 함(자동 리다이렉트 아님).
@@ -16585,11 +16606,31 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
   #ph49-kakao-fab .ph49-kakao-intext, .ph49-kakao-fab .ph49-kakao-intext { color: #FEE500 !important; }
 </style>
+<!-- 🤖 (2026-09-04) ?menu=aitools — AI 도구 «목록» 오버레이를 주소 하나로 연다.
+     왜: 홈 첫 화면 큰 버튼이 「오늘의 A.i 학습」으로 바뀌면서 그 목록은 한 칸 안쪽으로 들어갔다.
+         /today.html 꼬리말이 여기로 되돌아온다 — 길을 «없앤» 것이 아니다.
+     ⚠️ 상주 타이머가 아니다: 준비될 때까지 기다렸다 한 번 부르고, 6초 뒤에는 무조건 멈춘다.
+     ⚠️ 설명을 script «안» 에 두지 말 것 — 그 안의 글자는 첫 화면 예산(blocking)에 그대로 셉니다.
+        여유가 2KB 밖에 없다(CLAUDE.md 2장 「index.html 에 한 줄 더했는데 예산이 FAIL」). -->
 <script>
 /* 💳 예약 페이지 → "결제로 이동" 클릭 시, 홈(?menu=payment)으로 와서 결제창 자동 오픈 */
 (function(){
   try {
     var p = new URLSearchParams(location.search);
+    /* 🤖 ?menu=aitools — 위 HTML 주석 참고 (첫 화면 예산: 이 안의 글자는 blocking 으로 셉니다) */
+    if (p.get('menu') === 'aitools') {
+      var t2 = 0, tm2 = setInterval(function(){
+        t2++;
+        if (typeof window.openAiFriendsOverlay === 'function') {
+          clearInterval(tm2);
+          try { window.openAiFriendsOverlay(); } catch(e){ console.warn('[aitools]', e); }
+          /* menu 만 뺀다 — pathname 으로 통째로 갈아치우면 다른 쿼리·해시까지 조용히 잃는다 */
+          try { p.delete('menu'); var q = p.toString();
+                history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash); } catch(_){}
+        } else if (t2 > 60) { clearInterval(tm2); }
+      }, 100);
+      return;
+    }
     if (p.get('menu') !== 'payment') return;
     var tries = 0;
     var timer = setInterval(function(){

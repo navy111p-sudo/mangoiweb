@@ -35,12 +35,13 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { ipToNet, asLabel } from './net-prefix';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
-import { sfuProxy, sfuConfigured, SFU_OPS } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
+import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -131,6 +132,30 @@ async function ensureSchemaOnce(key: string, run: () => Promise<void>): Promise<
   catch { /* 다음 요청에서 다시 시도 — 일부러 빗장을 걸지 않는다 */ }
 }
 
+/* 📡 SFU 를 켤 수 있는 방인가 — «그 수업의 사람» 인지 본다. (2026-09-04)
+   [왜 필요한가] 위 sfu-peers 주석 참고. 소유권 기록만으로는 아무나 아무 방으로 세션을 만든다.
+   [규칙] · `class-{예약id}-{YYYYMMDD}` 예약방 → 관리자·강사 세션은 통과, 학생은 그 예약의 학생일 때만
+          · 그 밖의 방(공용 연습방 `mangoi-class`·`demo-*`·`meet-*`) → 통과.
+            그 방들은 mesh 도 누구나 들어가므로 SFU 만 좁히면 «되던 것» 이 깨진다.
+   ⛔ 못 찾으면 **막는다**(false). verify-room 은 수업을 막지 않으려고 fail-open 이지만,
+      여기서 막히는 것은 SFU 하나뿐이라 반대 방향이 맞다.
+   ⚠️ 대소문자는 정확일치 먼저 — `Kim`/`kim` 처럼 대소문자만 다른 계정이 실재한다(CLAUDE.md 2장). */
+async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind: 'admin' | 'student' }): Promise<boolean> {
+  const m = /^class-(\d+)-\d{8}$/.exec(room);
+  if (!m) return true;                       // 예약방이 아니면 mesh 와 같은 문턱
+  if (ident.kind === 'admin') return true;    // 강사·본사 — 참관·수업이 이 경로로 온다
+  try {
+    /* ⚠️ `.first<any>()` 로 쓰지 말 것 — env 가 any 라 prepare 체인이 «타입 없는 호출» 이고,
+       거기에 타입인자를 주면 TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). */
+    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first() as any;
+    if (!row) return false;
+    const mine = String(ident.uid || '');
+    const owner = String(row.user_id || '');
+    if (!owner || !mine) return false;
+    return owner === mine || owner.toLowerCase() === mine.toLowerCase();
+  } catch { return false; }                   // 조회 실패 = 모름 = 막는다(SFU 만 안 켜진다)
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
@@ -186,6 +211,15 @@ export async function handleMangoApi(
           for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🌐 (2026-09-03 필리핀 사무실 회선) net·isp·country — «어느 인터넷 회선인가».
+             [왜] 강사 약 10명이 사무실 공인 IP 하나를 나눠 쓰는데, 이 표는 사람(uid)별이라
+                «그 회선이 매일 몇 시에 막히는가» 를 볼 수 없었다. 통신사에 항의할 근거가 그 표다.
+             ⛔ IP 를 통째로 남기지 않는다 — 이 표에는 학생(다수가 미성년자) 기록도 함께 쌓인다.
+                묶는 데 필요한 것은 네트워크 부분뿐이라 /24(IPv4)·/48(IPv6)로 자른다(src/net-prefix.ts).
+             ⚠️ CREATE 문에는 넣지 않는다 — 위 novideo·rx_* 와 같은 사정(CREATE 가 두 벌이다). */
+          for (const c of ['net TEXT', 'isp TEXT', 'country TEXT']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
@@ -195,14 +229,23 @@ export async function handleMangoApi(
         const PATHS = ['relay', 'direct', 'mixed'];
         const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
         const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
+           ⚠️ request.cf 는 로컬 개발·테스트에서 없다. 없으면 빈 값이고 그게 정상이다. */
+        const _cf: any = (request as any).cf || {};
+        const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
+        const _isp = asLabel(_cf.asn, _cf.asOrganization);
+        const _cc = String(_cf.country || '').slice(0, 2);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
             num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
-            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0))).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  // 30일 지난 것 가끔 정리
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0)),
+            _net, _isp, _cc).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  /* 30일 지난 것 가끔 정리. ⚠️ 2026-09-03 부터 접속 회선(net·isp·country)도 담기므로
+     이 정리가 조용히 실패하면 그 기록이 계속 쌓인다. 📌 이 표는 승인받은 파기 정본(src/retention.ts)에
+     **없다** — 정본에 등록할지는 사람이 정할 일이다(작업기록 6장). */
         return json({ ok: true });
       } catch (e) {
         /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
@@ -2239,6 +2282,10 @@ export async function handleMangoApi(
         } catch {}
       }
 
+      /* 🔒 방 소속 — sfuProxy 에 닿기 «전» 에 본다(위 sfuRoomAllowed 주석). */
+      if (identity && !(await sfuRoomAllowed(env as any, String(body.room_id || ''), identity))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
       const r = await sfuProxy(
         {
           appId, appToken,
@@ -2252,6 +2299,115 @@ export async function handleMangoApi(
         body.payload,
       );
       return json(r.body, r.status);
+    }
+
+    /* ═══ 📡 POST /api/class/sfu-peers — SFU 참가자 명단(신호) (2026-09-04, C안 2단계) ═══
+       [무엇] SFU 는 «누가 같은 방인가» 를 모릅니다(Cloudflare 문서: 「It does not define rooms,
+              participants, roles, or presence for your application」). 그래서 내가 만든
+              세션 id 와 트랙 이름을 여기에 적어 두고, 같은 방의 남의 것을 받아 갑니다.
+       [왜 화상방 DO 가 아니라 여기인가] 그 신호를 WebSocket 으로 보내려면 `src/video-call-room.ts`
+              에 case 를 하나 더해야 하는데 거기는 공동 금지구역입니다(모르는 type 은 그냥 버려집니다).
+              D1 한 표로 하면 금지구역을 한 줄도 안 건드리고, 덤으로 «강하게 일관» 합니다
+              (KV 는 읽기-수정-쓰기 경합에서 한쪽 announce 가 조용히 사라질 수 있습니다).
+       [왜 /api/class/ 밑인가] 그 접두사는 라우팅 허용목록에 **이미** 있습니다(src/index.ts).
+       ⚠️ 인증은 라우팅과 다른 것이라 여기서 «직접» 봅니다(CLAUDE.md 2장).
+       🔴 [게이트가 «둘» 인 이유 — 하나만으로는 남의 수업이 열립니다]
+          `sfu:sess:<sid>` 소유권 기록만 보면 «내가 만든 세션인가» 까지만 지켜집니다. 그런데
+          `session-new` 는 방 번호가 비었는지만 보므로(realtime-sfu.ts ④) **아무나 아무 방으로
+          세션을 만들 수 있습니다.** 방 번호는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이고,
+          학생 비밀번호는 29,417명 중 0명이 설정돼 있습니다(CLAUDE.md 2장) — 즉 소유권 검사
+          «하나만» 두면 로그인만 하면 남의 수업 세션 id·트랙 이름을 받아 그 반의 영상·소리를
+          끌어갈 수 있습니다(미성년자 수업입니다). 그래서 `sfuRoomAllowed()` 를 함께 봅니다.
+          ⚠️ 여기는 **막는 쪽으로 실패**합니다 — 막혀도 수업은 mesh 로 그대로 돌아가고
+             SFU 만 안 켜지므로, verify-room 의 fail-open 과 균형이 다릅니다. */
+    if (method === 'POST' && path === '/api/class/sfu-peers') {
+      const b = await request.json().catch(() => null) as any;
+      if (!b) return json({ ok: false, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰 또는 관리자 세션. ⛔ 본문의 uid 를 신원으로 믿지 않습니다. */
+      let ident: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const t = await authUidGlobal(request, new URL(request.url), env as any, b);
+        if (t) ident = { uid: String(t), kind: 'student' };
+      } catch {}
+      if (!ident) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) ident = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+      if (!ident) return json({ ok: false, error: 'unauthorized' }, 401);
+
+      /* 시크릿이 없으면 «꺼짐» — 표를 만들지도, 아무것도 적지도 않습니다. 화면은 그대로 mesh 로 갑니다. */
+      if (!sfuConfigured({ appId: (env as any).REALTIME_APP_ID, appToken: (env as any).REALTIME_APP_TOKEN })) {
+        return json({ ok: true, enabled: false, reason: 'no_secrets', peers: [] });
+      }
+
+      const room = String(b.room_id || '').trim();
+      if (!room || room.length > 120) return json({ ok: false, enabled: true, error: 'room_required' }, 400);
+      const sid = String(b.session_id || '').trim();
+      if (!SFU_SESSION_RE.test(sid)) return json({ ok: false, enabled: true, error: 'bad_session_id' }, 400);
+
+      /* ⛔ «내가 이 방에 만든 세션» 이어야 합니다 — 아니면 남의 수업 명단을 들여다볼 수 있습니다. */
+      const kv = (env as any).SESSION_STATE;
+      if (!kv) return json({ ok: false, enabled: true, error: 'owner_store_unavailable' }, 503);
+      let own: any = null;
+      try { own = JSON.parse((await kv.get(`sfu:sess:${sid}`)) || 'null'); } catch { own = null; }
+      if (!own || own.uid !== ident.uid || own.room !== room) {
+        return json({ ok: false, enabled: true, error: 'not_your_session' }, 403);
+      }
+      if (!(await sfuRoomAllowed(env as any, room, ident))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
+
+      await ensureSchemaOnce('sfu_peers', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS sfu_peers (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, session_id TEXT, audio_track TEXT, video_track TEXT, name TEXT, role TEXT, account_uid TEXT, updated_at INTEGER, PRIMARY KEY (room_id, peer_id))`);
+      });
+
+      /* peer_id = 화상방(DO)이 접속마다 새로 발급하는 임시 번호입니다 — 계정이 아닙니다.
+         타일을 맞추는 데만 쓰므로 본문에서 받되, 길이·글자를 좁힙니다(그대로 화면에 그려집니다). */
+      const peerId = String(b.peer_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!peerId) return json({ ok: false, enabled: true, error: 'peer_id_required' }, 400);
+      const now = Date.now();
+
+      if (b.leave) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE room_id = ? AND peer_id = ?`).bind(room, peerId).run(); } catch {}
+        return json({ ok: true, enabled: true, peers: [] });
+      }
+
+      const cut = (v: any, n: number) => String(v == null ? '' : v).slice(0, n);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO sfu_peers (room_id, peer_id, session_id, audio_track, video_track, name, role, account_uid, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(room_id, peer_id) DO UPDATE SET
+             session_id = excluded.session_id, audio_track = excluded.audio_track,
+             video_track = excluded.video_track, name = excluded.name, role = excluded.role,
+             account_uid = excluded.account_uid, updated_at = excluded.updated_at`
+        ).bind(room, peerId, sid, cut(b.audio_track, 128), cut(b.video_track, 128),
+               cut(b.name, 60), cut(b.role, 20), ident.uid, now).run();
+      } catch (e: any) {
+        console.error('[sfu-peers] 명단 기록 실패', e && e.message);
+        return json({ ok: false, enabled: true, error: 'announce_failed' }, 500);
+      }
+
+      /* 나 말고, «최근 40초 안에» 알린 사람만. 탭이 죽어 남은 줄이 유령으로 보이지 않게. */
+      let peers: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT peer_id, session_id, audio_track, video_track, name, role
+             FROM sfu_peers WHERE room_id = ? AND peer_id <> ? AND updated_at > ? LIMIT 12`
+        ).bind(room, peerId, now - 40000).all();
+        peers = (rs.results || []) as any[];
+      } catch (e: any) { console.warn('[sfu-peers] 명단 조회 실패', e && e.message); }
+
+      /* 오래된 줄 가끔 정리(30분). ⚠️ 조용히 실패하면 표가 계속 자랍니다 — 로그로 남깁니다. */
+      if (Math.random() < 0.05) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE updated_at < ?`).bind(now - 1800000).run(); }
+        catch (e: any) { console.warn('[sfu-peers] 오래된 줄 정리 실패', e && e.message); }
+      }
+
+      return json({ ok: true, enabled: true, peers });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room

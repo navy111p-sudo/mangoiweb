@@ -33,11 +33,18 @@
           그 카드가 href·data-remote-help·모달 배선을 그대로 들고 있다. */
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
-    {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
-    {emoji:'📊', img:'/img/menu/report.webp', name:'리포트', url:'/report.html'},
-    /* 📅 (2026-09-03) 오늘의 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
+    /* 📝📊 (2026-09-04 사장님 지시) 옛 이름은 «평가서»·«리포트» 였다. 둘 다 «성적 종이» 라는 뜻이라
+       이름만으로는 차이를 알 수 없어 「이거 같은 거야 다른 거야」가 매번 나왔다.
+       «기간» 을 이름 맨 앞으로 빼서 나란히 놓였을 때 낱장(오늘)과 합본(월간)이 한눈에 갈리게 한다.
+       ⚠️ 이 둘은 서로 다른 화면이다 — 수업일지(/eval.html)는 강사가 수업마다 쓰는 낱장이고,
+          성적표(/report.html)는 그 낱장들 + 출석·음성코칭·결제를 한 달치로 묶은 합본이다.
+       ⛔ 옛 이름으로 되돌리지 말 것 — 홈 검색(js/idx-ai-home.js)이 「평가서」·「리포트」 같은
+          옛 낱말도 함께 찾아 주므로, 그 말로 찾던 사람은 이름을 바꿔도 그대로 찾을 수 있다. */
+    {emoji:'📝', img:'/img/menu/eval.webp', name:'오늘 수업일지', en:"Today's Lesson Note", url:'/eval.html'},
+    {emoji:'📊', img:'/img/menu/report.webp', name:'월간 성적표', en:'Monthly Report Card', url:'/report.html'},
+    /* 📅 (2026-09-03) 오늘의 A.i 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
        (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
-    {emoji:'📅', img:'', name:'오늘의 학습', url:'/today.html'},
+    {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
@@ -211,8 +218,14 @@
         : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
       // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
       // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
+      /* 🌐 라벨은 글자만 담은 span 이므로 data-ko/data-en 을 여기 단다(아이콘 · <a> 자신에 달면
+         두 i18n 엔진이 textContent 를 통째로 갈아끼워 사진이 사라진다 — CLAUDE.md 2장).
+         en 을 안 적은 타일은 지금처럼 한국어 그대로 — 속성을 안 달아 엔진이 건드리지 않는다. */
+      var lbl = m.en
+        ? '<span data-ko="' + m.name + '" data-en="' + m.en + '">' + (allmenuIsEn() ? m.en : m.name) + '</span>'
+        : '<span>' + m.name + '</span>';
       h += '<a href="' + m.url + '"' + (m.adminPortal ? ' data-admin-portal="1"' : '') + (m.remoteHelp ? ' data-remote-help="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
-        + ico + '<span>' + m.name + '</span></a>';
+        + ico + lbl + '</a>';
     });
     h += '</div></div>';
     h += '</div>';
