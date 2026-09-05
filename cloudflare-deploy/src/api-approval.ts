@@ -488,7 +488,8 @@ async function gatherCheckFacts(
       `SELECT COUNT(*) AS c FROM approval_requests
         WHERE requester_username = ? AND req_type = ? AND currency = ?
           AND amount = ? AND created_at >= ?
-          AND status NOT IN ('rejected','withdrawn','cancelled')`
+          AND status NOT IN ('rejected','withdrawn','cancelled')
+          AND reverses_id IS NULL`
     ).bind(requester, reqType, currency, amount, since30).first(), null);
     duplicateCount = Number(d?.c || 0);
   }
@@ -497,7 +498,8 @@ async function gatherCheckFacts(
   const mStart = (() => { const t = new Date(now); return Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1); })();
   const s: any = await safe(async () => await env.DB.prepare(
     `SELECT IFNULL(SUM(amount), 0) AS s FROM approval_requests
-      WHERE req_type = ? AND currency = ? AND status = 'approved' AND created_at >= ?`
+      WHERE req_type = ? AND currency = ? AND status = 'approved' AND created_at >= ?
+        AND reverses_id IS NULL`
   ).bind(reqType, currency, mStart).first(), null);
   const monthTotal = s ? Number(s.s || 0) : null;
 
@@ -533,12 +535,18 @@ function rowOf(r: any, steps?: any[], brief = false) {
   const seq = Number(r.stage_seq || 1);
   let flags: Flag[] = [];
   try { if (r.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
-  const body = (brief && r.body) ? String(r.body).slice(0, 300) : r.body;
+  /* 목록은 본문을 300자로 줄여 보낸다(응답 크기).
+     🔴 그런데 그 잘린 값을 «다시 올리기» 폼에 그대로 채우면 **내용이 말없이 바뀌어**
+        다시 올라간다 — ②는 「수정」을 대신하는 자리라 그게 제일 나쁘다.
+        그래서 «잘렸다» 는 사실을 함께 실어, 화면이 원문을 받아 오게 한다. */
+  const bodyFull = r.body ? String(r.body) : '';
+  const bodyCut = !!(brief && bodyFull.length > 300);
+  const body = bodyCut ? bodyFull.slice(0, 300) : r.body;
   const catSpec = categorySpec(r.category);
   return {
     id: r.id, req_type: r.req_type,
     type_ko: spec.ko, type_en: spec.en,
-    title: r.title, body,
+    title: r.title, body, body_truncated: bodyCut,
     /* 🏷️ 항목은 key 로 저장하고 «읽을 때» 이름을 붙인다 — 라벨을 다듬어도
        이미 쌓인 결재의 뜻이 안 바뀐다. 모르는 값이면 이름을 지어내지 않고 null. */
     category: r.category || null,
@@ -706,10 +714,24 @@ async function applyReversal(
     // 🏖️ 휴가 — 근무불가를 풀어야 그 기간 예약이 다시 열린다.
     if (typeSpec(orig.req_type).wantsDates) {
       if (orig.linked_id) {
-        const d = await safe(async () => await env.DB.prepare(
-          `DELETE FROM teacher_unavailability WHERE id = ? AND created_by = '결재 자동반영'`
-        ).bind(Number(orig.linked_id)).run(), null as any);
-        if (d && d.meta && d.meta.changes) {
+        /* 🔴 「지울 것이 없었다」와 「못 읽었다」는 다른 사실이다.
+           safe() 가 예외를 삼키면 null 이 오는데, 그걸 «사람이 손댔다» 로 적으면
+           **DB 오류를 원인으로 단정**하게 된다(2026-09-05 함정 대조 지적). 셋을 가른다. */
+        let failed = false;
+        const d = await (async () => {
+          try {
+            return await env.DB.prepare(
+              `DELETE FROM teacher_unavailability WHERE id = ? AND created_by = '결재 자동반영'`
+            ).bind(Number(orig.linked_id)).run();
+          } catch (e) {
+            failed = true;
+            console.error('[approval-reverse] 근무불가 조회 실패', (e as any)?.message || e);
+            return null as any;
+          }
+        })();
+        if (failed) {
+          left.push('근무불가 기록을 읽지 못했습니다 — 해제됐는지 캘린더에서 직접 확인해 주세요');
+        } else if (d && d.meta && d.meta.changes) {
           undone.push('강사 근무불가를 해제했습니다(예약이 다시 열립니다)');
           await safe(async () => {
             await env.DB.prepare(`UPDATE approval_requests SET linked_id = NULL WHERE id = ?`)
@@ -717,7 +739,7 @@ async function applyReversal(
             return true;
           }, false);
         } else {
-          left.push('근무불가 기록을 사람이 손댄 것으로 보여 그대로 두었습니다 — 캘린더에서 직접 확인해 주세요');
+          left.push('이 결재가 만든 근무불가를 찾지 못했습니다(사람이 손댔거나 이미 지워짐) — 캘린더에서 직접 확인해 주세요');
         }
       } else {
         left.push('이 휴가로 만들어진 근무불가가 없습니다(본사 직원 휴가일 수 있습니다)');
@@ -730,7 +752,8 @@ async function applyReversal(
       await safe(async () => { await ensureHrTable(env); return true; }, false);
       const ok = await unlockPeriod(env, String(orig.hr_kind), String(orig.period), originalId);
       if (ok) undone.push(String(orig.period) + ' 확정을 풀었습니다');
-      else left.push(String(orig.period) + ' 잠금은 이 결재가 건 것이 아니라 그대로 두었습니다');
+      // ⛔ 여기서도 「남의 잠금이었다」로 단정하지 않는다 — 못 읽었을 수도 있다.
+      else left.push(String(orig.period) + ' 확정은 풀지 못했습니다(이 결재가 건 잠금이 아니거나 읽지 못함) — 직접 확인해 주세요');
       left.push('이미 지급·정산이 나갔다면 그것은 되돌아오지 않습니다 — 사람이 확인해야 합니다');
     }
 
@@ -928,7 +951,11 @@ export async function handleApprovalApi(
                 SUM(CASE WHEN amount IS NULL
                           AND instr(?, ',' || req_type || ',') > 0 THEN 1 ELSE 0 END) AS no_amt
            FROM approval_requests
-          WHERE status = 'approved'` + (sumAll ? '' : ' AND requester_username = ?') + `
+          WHERE status = 'approved'
+            /* 🔁 «취소 결재» 자신은 지출이 아니다 — 금액을 들고 있는 것은 결재자가
+               얼마짜리를 없애는지 보라고이지 합계에 넣으려는 것이 아니다.
+               안 빼면 원본이 빠진 자리를 그대로 채워 **총액이 한 푼도 안 줄어든다.** */
+            AND reverses_id IS NULL` + (sumAll ? '' : ' AND requester_username = ?') + `
           GROUP BY cur, ym`
       );
       const binds = sumAll ? [spendCsv] : [spendCsv, me];
@@ -1114,6 +1141,8 @@ export async function handleApprovalApi(
                                picks_period: t.key === 'hr' })),
       /* 🏷️ 지출 항목 목록은 **서버가 내려준다** — 화면에 같은 목록을 또 적으면
          둘이 갈려 「화면에서는 골랐는데 저장이 안 되는」 사고가 난다(CLAUDE.md 2장). */
+      /* 🔖 상태 목록 — 화면이 손으로 적으면 상태가 늘 때 «그 상태로 못 찾는» 칸이 생긴다. */
+      statuses: STATUSES.map(st => ({ key: st.key, ko: st.ko, en: st.en })),
       categories: CATEGORIES.map(c => ({ key: c.key, ko: c.ko, en: c.en, account: c.account })),
       hr_periods: hrPeriods,
       inbox, mine, reuse, urgent,
@@ -1645,6 +1674,33 @@ export async function handleApprovalApi(
     });
   }
 
+  /* ── 한 건 자세히 ─────────────────────────────────────────────────────────
+     🔴 목록은 본문을 300자로 줄여 준다. 「이 내용으로 다시 올리기」가 그 잘린 값을
+        채우면 **내용이 말없이 바뀌어** 올라간다 — 그래서 원문을 받아 갈 자리가 필요하다.
+     ⚠️ 열람 권한은 목록·첨부와 «같은 판정»(canView)을 쓴다 — 여기만 느슨하면
+        인사·급여 본문이 새는 새 구멍이 된다. */
+  const mOne = path.match(/^\/api\/approval\/requests\/(\d+)$/);
+  if (method === 'GET' && mOne) {
+    if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
+    const id = Number(mOne[1]);
+    const r: any = await env.DB.prepare(
+      `SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id)
+         AS origin_created_at FROM approval_requests WHERE id = ? LIMIT 1`
+    ).bind(id).first().catch(() => null);
+    if (!r) return json({ ok: false, error: 'not_found' }, 404);
+    const ch = await chainOf(env, id);
+    if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) {
+      return json({ ok: false, error: 'forbidden' }, 403);
+    }
+    const steps = await safe(async () => {
+      const rs = await env.DB.prepare(
+        `SELECT * FROM approval_steps WHERE request_id = ? ORDER BY seq`
+      ).bind(id).all<any>();
+      return (rs.results || []) as any[];
+    }, [] as any[]);
+    return json({ ok: true, item: rowOf(r, steps, false) });   // brief=false → 본문 그대로
+  }
+
   // ── 첨부 내려받기 ─────────────────────────────────────────────────────────
   //   본인 요청이거나 열람 권한자만. 영수증에는 계좌·금액이 찍혀 있다.
   /* ═════════════════════════════════════════════════════════════════════════
@@ -2020,15 +2076,21 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
       `SELECT COUNT(*) AS c,
               SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) AS ok_n,
               SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS no_n,
-              SUM(CASE WHEN status='pending'  THEN 1 ELSE 0 END) AS wait_n
+              SUM(CASE WHEN status='pending'  THEN 1 ELSE 0 END) AS wait_n,
+              SUM(CASE WHEN status='withdrawn' THEN 1 ELSE 0 END) AS wd_n,
+              SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cx_n
          FROM approval_requests WHERE created_at >= ?`
     ).bind(from).first(), null);
     const total = Number(tot?.c || 0);
 
-    // 평균 처리 시간(시간 단위) — 끝난 건만 센다.
+    /* 평균 «결재» 처리 시간 — 끝난 건만.
+       🔴 회수는 빼야 한다. 회수도 decided_at/decided_by 를 쓰는데(그 건이 언제 끝났나),
+          기안자가 5분 만에 내린 회수가 «아주 빠른 결재» 로 섞여 **평균을 끌어내린다**
+          (2026-09-05 함정 대조 지적). 결재자가 판단한 것만 센다. */
     const avg: any = await safe(async () => await env.DB.prepare(
       `SELECT AVG(decided_at - created_at) AS ms FROM approval_requests
-        WHERE created_at >= ? AND decided_at IS NOT NULL`
+        WHERE created_at >= ? AND decided_at IS NOT NULL
+          AND status IN ('approved','rejected')`
     ).bind(from).first(), null);
     const avgH = avg?.ms ? Math.round(Number(avg.ms) / 3600_000 * 10) / 10 : null;
 
@@ -2050,9 +2112,13 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
 
     const lines = [
       '[망고아이] 주간 결재 요약',
+      /* ⚠️ 숫자를 손으로 나열하면 상태가 늘 때 **합이 안 맞는다**(a+b+c ≠ total).
+         회수·취소도 함께 적고, 0이면 굳이 안 적는다. */
       '올라온 결재 ' + total + '건 (승인 ' + Number(tot?.ok_n || 0) +
-        ' · 반려 ' + Number(tot?.no_n || 0) + ' · 대기 ' + Number(tot?.wait_n || 0) + ')',
-      avgH != null ? ('평균 처리 ' + avgH + '시간') : '평균 처리 — (끝난 건 없음)',
+        ' · 반려 ' + Number(tot?.no_n || 0) + ' · 대기 ' + Number(tot?.wait_n || 0) +
+        (Number(tot?.wd_n || 0) ? (' · 회수 ' + Number(tot.wd_n)) : '') +
+        (Number(tot?.cx_n || 0) ? (' · 취소 ' + Number(tot.cx_n)) : '') + ')',
+      avgH != null ? ('평균 결재 ' + avgH + '시간') : '평균 결재 — (끝난 건 없음)',
       lateN ? ('지금 마감을 넘긴 건 ' + lateN + '건') : '마감을 넘긴 건 없음',
     ];
     if (slow.length) {

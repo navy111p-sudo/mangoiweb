@@ -108,6 +108,26 @@ const othersOpen = {
   steps: [{ seq: 1, role: 'staff', status: 'active' }],
 };
 
+/** 🔴 남이 올린 «긴급» — urgent 목록은 decidable 이 아니라 **내 카드와 같은 경로**로 그려진다.
+    함정 대조 실측: 남의 건이 inbox 에만 있으면 `.mineacts` 가 애초에 안 그려져서
+    「남의 건에는 아무 버튼도 안 뜬다」 검사가 **isMine 을 return true 로 되돌려도 통과**했다. */
+const othersUrgent = {
+  id: 108, req_type: 'urgent', type_ko: '긴급 소통', type_en: 'Urgent',
+  title: '남이 올린 긴급', body: '', amount: null, currency: 'PHP',
+  requester_username: 'mgr_karl', requester_name: 'Karl',
+  status: 'pending', status_ko: SKO('pending'), status_en: 'Pending',
+  created_at: now - DAY, stage_seq: 1, stage_total: 1, flags: [],
+  steps: [{ seq: 1, role: 'any', status: 'active' }],
+};
+/** 남이 올려 «승인된» 건 — 취소 요청도 안 떠야 한다(경영진이어도 화면에선 안 준다). */
+const othersApproved = {
+  id: 109, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
+  title: '남의 승인 건', body: '', amount: 700, currency: 'PHP',
+  requester_username: 'mgr_karl', requester_name: 'Karl',
+  status: 'approved', status_ko: SKO('approved'), status_en: 'Approved',
+  created_at: now - 2 * DAY, stage_seq: 1, stage_total: 1, flags: [], steps: [],
+};
+
 function home(over) {
   return Object.assign({
     ok: true,
@@ -116,7 +136,7 @@ function home(over) {
     types: TYPES, categories: CATS,
     inbox: [othersOpen],
     mine: [mineOpen, mineDecided, mineApproved, mineWithdrawn, mineResub, mineCancelled],
-    reuse: [], urgent: [],
+    reuse: [], urgent: [othersUrgent, othersApproved],
     summary: {
       money: { month: [], year: [], month_count: 0, year_count: 0,
                month_no_amount: 0, year_no_amount: 0 },
@@ -186,10 +206,18 @@ function check(name, cond, extra) {
 
   /* ── ⓪ 전제 ────────────────────────────────────────────────────────── */
   console.log('\n[0] 전제 — 카드가 실제로 그려졌는가');
-  const drawn = await page.evaluate(() => [101, 102, 103, 104, 105, 106, 107]
-    .filter((i) => !!document.getElementById('req-' + i)));
-  check('여섯 가지 상태의 카드가 모두 그려졌다 (아래 검사가 뜻을 가지려면)',
-    drawn.length === 7, JSON.stringify(drawn));
+  const WANT = [101, 102, 103, 104, 105, 106, 107, 108, 109];
+  const drawn = await page.evaluate((w) => w.filter((i) => !!document.getElementById('req-' + i)), WANT);
+  check('시험할 카드 ' + WANT.length + '장이 모두 그려졌다 (아래 검사가 뜻을 가지려면)',
+    drawn.length === WANT.length, JSON.stringify(drawn));
+  /* 🔴 「남의 건에는 안 뜬다」가 뜻을 가지려면 그 카드가 «내 카드와 같은 경로» 로
+     그려져야 한다 — inbox(결재함)에만 있으면 .mineacts 가 애초에 안 그려져 헛돈다. */
+  const othersRendered = await page.evaluate(() => {
+    const c = document.getElementById('req-108');
+    return !!c && !c.querySelector('.acts');     // 결재 버튼이 없으면 «내 목록» 경로
+  });
+  check('전제 — 남의 건이 «내 카드와 같은 경로» 로 그려졌다 (안 그러면 아래가 헛돈다)',
+    othersRendered === true, String(othersRendered));
   check('상태 이름을 정본에서 가져왔다 (손으로 적지 않았다)',
     SKO('withdrawn') === '회수됨' && SKO('cancelled') === '취소됨');
 
@@ -214,8 +242,14 @@ function check(name, cond, extra) {
     !!a104 && a104.join('|').indexOf('다시 올리기') >= 0, JSON.stringify(a104));
   check('⛔ 이미 취소된 건에는 아무 버튼도 안 뜬다',
     !!a106 && a106.length === 0, JSON.stringify(a106));
-  check('🔴 남이 올린 건에는 아무 버튼도 안 뜬다',
+  const a108 = await actsOf(108);
+  const a109 = await actsOf(109);
+  check('🔴 남이 올린 대기 건에는 아무 버튼도 안 뜬다 (결재함)',
     a107 === null || a107.length === 0, JSON.stringify(a107));
+  check('🔴 남이 올린 건이 «내 목록과 같은 경로» 로 그려져도 버튼이 안 뜬다',
+    !!a108 && a108.length === 0, JSON.stringify(a108));
+  check('🔴 남이 올린 «승인» 건에도 취소 요청이 안 뜬다',
+    !!a109 && a109.length === 0, JSON.stringify(a109));
 
   /* ── ② 「며칠째」가 초기화되지 않는가 ──────────────────────────────── */
   console.log('\n[2] 다시 올려도 «며칠째»가 이어지는가');

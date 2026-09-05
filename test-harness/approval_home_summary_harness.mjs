@@ -129,7 +129,11 @@ if (!DatabaseSync) {
     const db = new DatabaseSync(':memory:');
     db.exec(`CREATE TABLE approval_requests (
       id INTEGER PRIMARY KEY, req_type TEXT, requester_username TEXT,
-      status TEXT, amount REAL, currency TEXT, spent_at TEXT, created_at INTEGER)`);
+      status TEXT, amount REAL, currency TEXT, spent_at TEXT, created_at INTEGER,
+      /* 🔁 «취소 결재» 표식 — 2026-09-05 에 요약 SQL 이 이 칸을 보게 됐다.
+         ⚠️ 검사용 표가 실제 스키마와 어긋나면 SQL 이 통째로 못 돌아 이 절이 헛돈다
+            (실제로 8건이 «실행 실패» 로 났고, 그래서 이 하니스가 변경을 잡아 줬다). */
+      reverses_id INTEGER)`);
     const KST = (d) => Date.parse(d + 'T00:00:00+09:00') + 12 * 3600_000;
     const ins = db.prepare(`INSERT INTO approval_requests
       (id, req_type, requester_username, status, amount, currency, spent_at, created_at)
@@ -169,6 +173,19 @@ if (!DatabaseSync) {
     const allRows = runAll();
     check('전체 범위 SQL 이 실제로 돈다 (전제)', !!allRows, allRows ? 'ok' : '실행 실패');
     const all = foldHomeMoney(allRows || [], '2026-09');
+    /* 🔴 «취소 결재» 는 지출이 아니다 — 안 빼면 원본이 빠진 자리를 그대로 채워
+       **총액이 한 푼도 안 준다**(2026-09-05 함정 대조 실측). */
+    ins.run(90, 'expense', 'mgr_lby', 'approved', 4321, 'PHP', null, KST('2026-09-05'));
+    db.prepare(`INSERT INTO approval_requests
+      (id, req_type, requester_username, status, amount, currency, spent_at, created_at, reverses_id)
+      VALUES (?,?,?,?,?,?,?,?,?)`).run(91, 'expense', 'mgr_lby', 'approved', 4321, 'PHP', null,
+                                       KST('2026-09-05'), 90);
+    const withRev = foldHomeMoney(runMine('mgr_lby') || [], '2026-09');
+    check('🔴 취소 결재가 요약 합계에 섞이지 않는다 (4,321 이 두 번 세어지지 않는다)',
+      cur(withRev.month, 'PHP') === cur(lby.month, 'PHP') + 4321,
+      JSON.stringify({ before: cur(lby.month, 'PHP'), after: cur(withRev.month, 'PHP') }));
+    db.exec('DELETE FROM approval_requests WHERE id IN (90, 91)');
+
     check('경영진은 전체를 센다 (짝 검사 — 전부 막는 코드는 여기서 걸린다)',
       cur(all.month, 'PHP') === 3000 && cur(all.month, 'KRW') === 750000,
       JSON.stringify(all.month));

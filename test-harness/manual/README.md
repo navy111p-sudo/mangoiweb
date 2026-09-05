@@ -114,7 +114,7 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > ⚠️ 변이 5종 실제 FAIL 확인 — 화면이 검색어를 안 보내면 1건, «더 보기» 를 안 그리면 4건,
 > 그리고 서버 쪽 3종은 `approval_find_harness`(자동)가 잡는다.
 
-## approval-withdraw-reverse-browser.mjs — 결재 «회수 · 다시 올리기 · 취소 요청» (36건)
+## approval-withdraw-reverse-browser.mjs — 결재 «회수 · 다시 올리기 · 취소 요청» (39건)
 
 1. 🔴 **버튼이 «있어야 할 곳에만»** 있는가 — 내 대기 건에 「회수」, 승인 건에 「취소 요청」,
    회수된 건에 「다시 올리기」. **짝 검사**로 «안 떠야 할 곳»(이미 결재된 건 · 취소된 건 ·
@@ -138,8 +138,14 @@ PW_DIR=/tmp/pw node test-harness/manual/c24-overlay-browser.mjs
 > ⚠️ prompt/confirm 은 `page.on('dialog')` 로 답한다 — «취소를 누르는 경우» 를 함께
 > 시험하려면 답을 `null` 로 바꿔 `dismiss()` 하게 한다.
 >
-> ⚠️ 변이 4종 실제 FAIL 확인 — 승인 건에도 회수 버튼을 띄우면 3건, 사유 없이 취소 결재를
-> 올리게 하면 1건, 배너 순서를 되돌리면 2건, 「며칠째」에서 원본을 무시하면 1건.
+> 🔴 **「남의 건에는 안 뜬다」는 fixture 를 잘못 두면 헛돈다** — 남의 건이 `inbox`(결재함)에만
+> 있으면 `.mineacts` 가 애초에 안 그려져서, `isMine` 을 `return true` 로 되돌려도
+> **전부 통과한다**(함정 대조 실측). 남의 건을 **`urgent`**(= 내 카드와 같은 경로)에도 넣고,
+> 「그 경로로 그려졌는가」를 **전제 검사**로 박아 둔다.
+>
+> ⚠️ 변이 5종 실제 FAIL 확인 — 승인 건에도 회수 버튼을 띄우면 3건, 사유 없이 취소 결재를
+> 올리게 하면 1건, 배너 순서를 되돌리면 2건, 「며칠째」에서 원본을 무시하면 1건,
+> **`isMine` 을 늘 true 로 두면 2건**(전에는 0건이었다).
 
 ## approval-top-summary-browser.mjs — 결재 «맨 위 요약» (47건)
 

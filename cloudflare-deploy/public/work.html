@@ -722,6 +722,16 @@ function roleLabel(role){
 
 /* 진행 추적 줄 — 올림 → (단계마다) → 완료.
    ⚠️ steps 가 비어 있는 옛 건은 «1단계짜리»로 본다(서버 rowOf 와 같은 해석). */
+/** 아직 결재를 기다리는 중인가 — 서버 `isLive` 와 같은 뜻. */
+function isLiveStatus(st){ return String(st || '') === 'pending'; }
+
+/** 진행바 «완료» 칸의 글자 — 서버가 준 상태 이름을 그대로 쓴다.
+    ⛔ 여기에 상태 목록을 다시 적지 않는다(상태가 늘 때 이 칸만 조용히 빈다). */
+function endLabel(r){
+  if (isLiveStatus(r.status)) return '';
+  return (EN() ? r.status_en : r.status_ko) || '';
+}
+
 function trackHtml(r){
   var steps = (r.steps && r.steps.length) ? r.steps
             : [{ seq: 1, role: 'staff', status: (r.status === 'pending' ? 'active' : r.status) }];
@@ -737,15 +747,18 @@ function trackHtml(r){
     if (s.status === 'approved')      { cls = 'done'; mark = T('Approved', '승인'); }
     else if (s.status === 'rejected') { cls = 'no';   mark = T('Rejected', '반려'); }
     else if (s.status === 'skipped')  { cls = 'done'; mark = T('Skipped', '전결'); }
+    else if (s.status === 'withdrawn') { cls = 'no'; mark = T('Withdrawn', '회수'); }
     else if (s.status === 'active')   { cls = r.blocked ? 'stop' : 'now';
                                         mark = r.blocked ? T('Stopped', '멈춤') : T('In progress', '진행 중'); }
+    /* 🔴 끝난 건의 «남은 단계» 를 「대기」라고 말하면 안 된다 — 배지는 「회수됨」인데
+       바로 아래 진행바가 「대기」라고 하면 한 카드가 서로 다른 말을 한다
+       (2026-09-05 함정 대조 실측). 아무도 기다리지 않으므로 «—» 로 둔다. */
+    else if (!isLiveStatus(r.status)) { mark = '—'; }
     else                              { mark = T('Waiting', '대기'); }
     h += cell(cls, roleLabel(s.role), mark);
   }
-  h += cell(r.status === 'approved' ? 'done' : (r.status === 'rejected' ? 'no' : ''),
-            T('Done', '완료'),
-            r.status === 'approved' ? T('Approved', '승인됨')
-          : r.status === 'rejected' ? T('Rejected', '반려됨') : '');
+  h += cell(r.status === 'approved' ? 'done' : (isLiveStatus(r.status) ? '' : 'no'),
+            T('Done', '완료'), endLabel(r));
   return h + '</div>';
 }
 
@@ -805,7 +818,9 @@ function paintFindChrome(){
     ['mine',     T('My requests (all)', '내가 올린 것 (전체)')],
     ['open',     T('In progress',       '진행 중')],
     ['done',     T('Approved',          '승인 완료')],
-    ['rejected', T('Rejected',          '반려')]
+    /* 🔴 서버 scope 'rejected' 는 반려·회수·취소 **셋** 을 담는다(셋 다 «결국 안 된 것»).
+       라벨을 「반려」로 두면 골랐을 때 회수·취소가 섞여 나와 이름표가 거짓말을 한다. */
+    ['rejected', T('Not approved (rejected · withdrawn · cancelled)', '안 된 것 (반려·회수·취소)')]
   ];
   // 결재자에게만 «내가 결재할 것»·«전체» 를 준다 — 서버도 같은 판정으로 막는다.
   if (D && D.can_approve) {
@@ -821,12 +836,19 @@ function paintFindChrome(){
   }
   fillSel(document.getElementById('ftype'), ty);
 
-  fillSel(document.getElementById('fstat'), [
-    ['',         T('Any status', '상태 전체')],
-    ['pending',  T('Waiting',    '대기 중')],
-    ['approved', T('Approved',   '승인')],
-    ['rejected', T('Rejected',   '반려')]
-  ]);
+  /* 🔴 상태 목록을 **손으로 적지 않는다** — 서버(STATUS_KEYS)는 다 받는데 화면에만
+     선택지가 없으면 「기능이 있는데 아무도 못 쓰는」 상태가 된다(회수·취소가 실제로 그랬다).
+     ⚠️ 이름은 서버가 준 것을 쓴다(D.statuses) — 없으면 옛 응답이므로 손으로 떨어뜨린다. */
+  var st = [['', T('Any status', '상태 전체')]];
+  var sl = (D && D.statuses) || [];
+  if (sl.length) {
+    for (var si = 0; si < sl.length; si++) st.push([sl[si].key, EN() ? sl[si].en : sl[si].ko]);
+  } else {
+    st.push(['pending',  T('Waiting',  '대기 중')]);
+    st.push(['approved', T('Approved', '승인')]);
+    st.push(['rejected', T('Rejected', '반려')]);
+  }
+  fillSel(document.getElementById('fstat'), st);
 
   /* 🏷️ 지출 항목도 서버 목록(D.categories)으로 그린다. 목록이 안 왔으면 그 칸을 감춘다 —
      빈 «고르기» 칸이 있으면 「고를 게 없다」가 아니라 「고장」으로 읽힌다. */
@@ -1652,12 +1674,45 @@ window.doWithdraw = function(id){
 /* ② 「수정」을 대신하는 자리 — 회수한 건의 내용을 폼에 그대로 채우고 원본을 가리켜 둔다.
    ⛔ 올라간 결재의 «내용을 고치는» 기능은 만들지 않는다. 결재는 그때 그 내용에
       도장을 찍는 기록이라, 결재 중에 내용이 바뀌면 결재자가 본 것과 승인한 것이 달라진다. */
+/* 🔴 목록의 본문은 **300자로 잘려** 있다. 그 값을 그대로 채우면 «내용이 말없이 바뀌어»
+   다시 올라간다 — ②는 「수정」을 대신하는 자리라 그게 제일 나쁘다.
+   그래서 잘렸으면 **원문을 받아 온 뒤** 채운다. 못 받아 오면 **채우지 않는다**
+   (잘린 채로 채우고 「채웠습니다」라고 말하는 쪽이 더 나쁘다). */
 window.reSubmit = function(id){
   var r = findLocal(id);
   if (!r) { toast(T('Open it from the archive first.', '문서함에서 그 건을 먼저 열어 주세요.')); return; }
-  fillFormFrom(r, id);
-  toast(T('Filled in. Check it and submit.', '내용을 채웠습니다. 확인하고 올려 주세요.'));
+  if (!r.body_truncated) { doFill(r, id); return; }
+  toast(T('Loading the full text...', '원문을 불러오는 중...'));
+  fetch('/api/approval/requests/' + id, {
+    credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+  })
+  .then(function(res){ return res.json(); })
+  .then(function(d){
+    // «성공이라고 말했는가» 로 판정 — ok 칸이 없는 404 본문이 조용히 통과하지 않게.
+    if (!d || d.ok !== true || !d.item) {
+      toast(T('Could not load the full text — nothing was filled in.',
+              '원문을 불러오지 못했습니다 — 아무것도 채우지 않았습니다.'));
+      return;
+    }
+    doFill(d.item, id);
+  })
+  .catch(function(){
+    toast(T('Could not load the full text — nothing was filled in.',
+            '원문을 불러오지 못했습니다 — 아무것도 채우지 않았습니다.'));
+  });
 };
+
+/* 채우고 «정말 채워졌을 때만» 그렇게 말한다.
+   ⚠️ pick() 은 같은 분류로 폼이 이미 열려 있으면 **닫고 돌아간다** — 그때 「채웠습니다」가
+      뜨면 거짓말이 된다(2026-09-05 함정 대조 지적). fillFormFrom 이 성공 여부를 돌려준다. */
+function doFill(r, id){
+  if (fillFormFrom(r, id)) {
+    toast(T('Filled in. Check it and submit.', '내용을 채웠습니다. 확인하고 올려 주세요.'));
+  } else {
+    toast(T('The form was already open — it is closed now. Press again to fill it in.',
+            '폼이 열려 있어 닫았습니다. 한 번 더 누르면 채웁니다.'));
+  }
+}
 
 window.askReverse = function(id){
   var host = document.getElementById('act-' + id);
@@ -1891,8 +1946,13 @@ function paintReuse(){
 window.reuse = function(i){
   var r = (D.reuse || [])[i];
   if (!r) return;
-  fillFormFrom(r, null);          // 원본을 «가리키지는» 않는다 — 이건 새 결재다
-  toast(T('Filled from your last request. Check it and submit.', '지난 기안으로 채웠습니다. 확인하고 올려 주세요.'));
+  // 원본을 «가리키지는» 않는다 — 이건 새 결재다
+  if (fillFormFrom(r, null)) {
+    toast(T('Filled from your last request. Check it and submit.', '지난 기안으로 채웠습니다. 확인하고 올려 주세요.'));
+  } else {
+    toast(T('The form was already open — it is closed now. Press again to fill it in.',
+            '폼이 열려 있어 닫았습니다. 한 번 더 누르면 채웁니다.'));
+  }
 };
 
 /* ↩️ ② 「이 내용으로 다시 올리기」 — reuse 와 «같은 채우기» 를 쓰되,
@@ -1902,7 +1962,7 @@ var RESUBMIT_OF = null;              // 지금 폼이 «어느 회수 건» 을 
 
 function fillFormFrom(r, originId){
   window.pick(r.req_type);
-  if (!PICK) return;
+  if (!PICK) return false;          // 같은 분류로 열려 있어 pick() 이 닫은 것
   /* 🔴 순서가 중요하다 — pick() 이 폼을 그리면서 RESUBMIT_OF 를 지운다.
      표식을 세운 «뒤» 에 한 번 더 그려야 「다시 올리는 중」 줄이 나온다.
      (문자열 검사로는 안 보인다 — 변수도 줄도 다 «있고» 순서만 틀렸다. 브라우저 검사가 잡았다.) */
@@ -1917,6 +1977,7 @@ function fillFormFrom(r, originId){
   paintCur();
   var f = document.getElementById('form');
   if (f && f.scrollIntoView) f.scrollIntoView({ block: 'start' });
+  return true;
 }
 
 /** 화면이 이미 들고 있는 건에서 하나 찾기 — 목록·문서함 어디에 있든. */

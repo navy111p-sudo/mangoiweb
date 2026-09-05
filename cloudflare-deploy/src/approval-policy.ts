@@ -267,6 +267,22 @@ export function countsAsSpend(status: string | null | undefined): boolean {
   return k === 'approved' || k === 'pending';
 }
 
+/**
+ * 🔁 이 행이 «쓴 돈» 으로 세어져야 하는가.
+ *   ⛔ 취소 결재(reverses_id 가 있는 행)는 **아니다** — 그것은 지출이 아니라
+ *      「이 지출을 되돌리자」는 요청이다. 금액을 그대로 들고 있는 이유는
+ *      **결재자가 얼마짜리를 없애는지 봐야** 하기 때문이지 합계에 넣으려는 것이 아니다.
+ *   📊 안 걸렀을 때 실측(원본 500,000 승인 + 취소 결재):
+ *        대기 중  → 승인 500,000 **+ 대기 500,000**, 항목 합계 **1,000,000(2건)**
+ *        승인 뒤  → 승인 **500,000 그대로**(원본이 빠진 자리를 취소 결재가 채움)
+ *      즉 ① 올린 순간 두 배로 세고 ② 승인돼도 총액이 안 줄어든다. 에러는 안 난다.
+ */
+export function isSpendRow(row: { status?: string | null; reverses_id?: number | null } | null | undefined): boolean {
+  if (!row) return false;
+  if (row.reverses_id != null && Number(row.reverses_id) > 0) return false;
+  return countsAsSpend(row.status);
+}
+
 /** 아직 «살아 있는» 건인가 — 결재를 기다리는 중. */
 export function isLive(status: string | null | undefined): boolean {
   return String(status || '').trim().toLowerCase() === 'pending';
@@ -730,6 +746,10 @@ export interface SummaryRowLike {
   created_at?: number | string | null;
   file_key?: string | null;
   has_file?: boolean | null;
+  /* 🔁 «취소 결재» 인가 — 원본 번호. 이 행은 «쓴 돈» 이 아니라 «되돌리자는 요청» 이라
+     금액·항목 합계에 넣으면 안 된다(2026-09-05 함정 대조 실측: 대기 중에는 두 배로,
+     승인 뒤에는 원본이 빠진 자리를 그대로 채워 **총액이 한 푼도 안 줄었다**). */
+  reverses_id?: number | null;
 }
 
 export interface MoneyBucket { currency: string; total: number; count: number }
@@ -823,14 +843,15 @@ export function summarizeApprovals(rows: SummaryRowLike[]): ApprovalSummary {
           하는데 그 줄이 **없다.** 사람이 없는 줄을 찾게 된다(2026-09-04 함정 대조 지적).
           이 상자는 «이 합계» 가 말하지 않는 것을 적는 자리이고, 그 합계는 승인·대기다. */
     const isSpend = !!spec.wantsCategory;
-    const counted = countsAsSpend(st);       // 정본 — 승인·대기만
+    // 정본 — 승인·대기만, 그리고 «취소 결재 자신» 은 지출이 아니다(isSpendRow)
+    const counted = isSpendRow(r);
     if (counted && isSpend && amt == null) out.no_amount++;
     if (counted && isSpend && !String(r.category || '').trim()) out.no_category++;
     const hasFile = (r.has_file != null) ? !!r.has_file : !!r.file_key;
     if (counted && spec.requiresFile && !hasFile) out.no_file++;
 
-    if (st === 'approved') addMoney(out.approved_money, cur, amt);
-    else if (st === 'pending') addMoney(out.pending_money, cur, amt);
+    if (counted && st === 'approved') addMoney(out.approved_money, cur, amt);
+    else if (counted && st === 'pending') addMoney(out.pending_money, cur, amt);
 
     // 항목별 — 반려·회수·취소는 «안 쓴 돈» 이라 뺀다(countsAsSpend 가 정본)
     if (isSpend && counted) {

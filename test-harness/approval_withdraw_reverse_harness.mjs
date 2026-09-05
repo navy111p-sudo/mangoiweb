@@ -30,7 +30,7 @@ const PUB = join(ROOT, 'cloudflare-deploy/public');
 
 const P = await import(pathToFileURL(join(SRC, 'approval-policy.ts')).href);
 const {
-  canWithdraw, canReverse, reverseTitle, countsAsSpend, isLive,
+  canWithdraw, canReverse, reverseTitle, countsAsSpend, isLive, isSpendRow,
   STATUSES, STATUS_KEYS, statusSpec, summarizeApprovals, buildFindQuery,
 } = P;
 
@@ -203,6 +203,32 @@ sec('[④] 지출 정리 — 회수·취소가 금액에 섞이지 않고, 건�
   check('반려도 그대로 따로 센다',
     s.by_status.rejected === 1 && s.by_status.approved === 1 && s.by_status.pending === 1);
 
+  /* 🔴 2026-09-05 함정 대조가 잡은 것 — 원본과 «취소 결재» 를 «짝» 으로 안 넣으면
+     이 절이 통째로 헛돈다. 취소 결재는 원본의 금액·항목을 그대로 복사해 만들어지므로,
+     안 거르면 ① 올린 순간 두 배로 세고 ② 승인돼도 총액이 한 푼도 안 준다. */
+  const pair = (revStatus) => summarizeApprovals([
+    { id: 10, req_type: 'expense', status: (revStatus === 'approved' ? 'cancelled' : 'approved'),
+      amount: 500000, currency: 'KRW', category: 'supplies' },
+    { id: 11, req_type: 'expense', status: revStatus, amount: 500000, currency: 'KRW',
+      category: 'supplies', reverses_id: 10 },
+  ]);
+  const krw = (arr) => (arr.find(m => m.currency === 'KRW') || { total: 0 }).total;
+
+  const p1 = pair('pending');
+  check('🔴 취소 결재를 올린 순간 그 돈이 «두 번» 세어지지 않는다',
+    krw(p1.approved_money) === 500000 && krw(p1.pending_money) === 0,
+    JSON.stringify({ a: p1.approved_money, p: p1.pending_money }));
+  check('🔴 그때 항목 합계도 두 배가 되지 않는다',
+    (p1.by_category.find(c => c.key === 'supplies') || {}).count === 1,
+    JSON.stringify(p1.by_category));
+
+  const p2 = pair('approved');
+  check('🔴 취소가 승인되면 총액이 실제로 «줄어든다» (원본이 빠진 자리를 취소 결재가 채우지 않는다)',
+    krw(p2.approved_money) === 0, JSON.stringify(p2.approved_money));
+  check('취소 결재 자신은 지출 행이 아니다 (정본 isSpendRow)',
+    isSpendRow({ status: 'approved', reverses_id: 10 }) === false
+    && isSpendRow({ status: 'approved' }) === true);
+
   const cat = s.by_category.find(c => c.key === 'supplies');
   check('항목별 집계에도 회수·취소가 안 들어간다',
     cat && cat.count === 2 && php(cat.money) === 1200, JSON.stringify(cat));
@@ -219,7 +245,7 @@ sec('[⑤] 문서함 찾기 — buildFindQuery 를 진짜 SQLite 에 돌린다')
   db.exec(`CREATE TABLE approval_requests (
     id INTEGER PRIMARY KEY, req_type TEXT, requester_username TEXT, requester_name TEXT,
     title TEXT, body TEXT, category TEXT, amount REAL, currency TEXT,
-    status TEXT, created_at INTEGER, origin_id INTEGER)`);
+    status TEXT, created_at INTEGER, origin_id INTEGER, reverses_id INTEGER)`);
   const ins = db.prepare(`INSERT INTO approval_requests
     (id, req_type, requester_username, title, body, status, created_at)
     VALUES (?,?,?,?,?,?,?)`);
@@ -259,7 +285,8 @@ sec('[⑥] 중복 감지·요약 SQL — 회수·취소가 «쓴 돈» 으로 �
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE approval_requests (
     id INTEGER PRIMARY KEY, req_type TEXT, requester_username TEXT,
-    amount REAL, currency TEXT, status TEXT, created_at INTEGER, spent_at TEXT)`);
+    amount REAL, currency TEXT, status TEXT, created_at INTEGER, spent_at TEXT,
+    reverses_id INTEGER)`);
   const ins = db.prepare(`INSERT INTO approval_requests
     (id, req_type, requester_username, amount, currency, status, created_at) VALUES (?,?,?,?,?,?,?)`);
   const now = Date.now();
@@ -267,6 +294,10 @@ sec('[⑥] 중복 감지·요약 SQL — 회수·취소가 «쓴 돈» 으로 �
   ins.run(2, 'expense', 'mgr_lby', 500, 'PHP', 'withdrawn', now - 1000);
   ins.run(3, 'expense', 'mgr_lby', 500, 'PHP', 'cancelled', now - 1000);
   ins.run(4, 'expense', 'mgr_lby', 500, 'PHP', 'rejected',  now - 1000);
+  // 🔁 취소 결재는 원본과 «금액이 같다» — 중복으로 세면 정상 재청구에 거짓 경고가 붙는다
+  db.prepare(`INSERT INTO approval_requests
+    (id, req_type, requester_username, amount, currency, status, created_at, reverses_id)
+    VALUES (?,?,?,?,?,?,?,?)`).run(5, 'expense', 'mgr_lby', 500, 'PHP', 'approved', now - 1000, 1);
 
   // 소스에서 그 조건을 오려 낸다 — 손으로 베끼면 코드가 바뀌어도 검사가 안 따라온다.
   const m = apiNC.match(/SELECT COUNT\(\*\) AS c FROM approval_requests\s*\n\s*WHERE requester_username = \? AND req_type = \? AND currency = \?[\s\S]*?`/);
@@ -422,8 +453,61 @@ sec('[⑩] 정본이 한 곳인가');
     /for \(const st of STATUSES\) STAT\[st\.key\] = st\.ko/.test(apiNC));
   check('찾기 상태 필터도 목록을 손으로 적지 않는다',
     /STATUS_KEYS\.indexOf\(st\) >= 0/.test(stripComments(pol)));
-  check('지출 합계 판정이 countsAsSpend 한 곳을 지난다',
-    /const counted = countsAsSpend\(st\)/.test(stripComments(pol)));
+  check('지출 합계 판정이 정본 한 곳(isSpendRow)을 지난다',
+    /const counted = isSpendRow\(r\)/.test(stripComments(pol)));
+  check('그 정본이 countsAsSpend 를 품는다 (상태 판정을 두 벌로 안 만든다)',
+    /export function isSpendRow[\s\S]{0,400}countsAsSpend\(row\.status\)/.test(stripComments(pol)));
+
+  /* #14 — 부정·긍정 문구 검사는 **주석을 벗긴 사본**에 물어야 한다.
+     원본(work)으로 물으면 화면에서 지우고 주석에만 남겨도 통과한다. */
+  check('회수 안내가 «주석이 아니라 화면» 에 있다',
+    /다시 올릴 수 있습니다/.test(workNC));
+  check('취소 안내도 화면에 있다', /지우는 것이 아닙니다/.test(workNC));
+
+  /* #15 — 화면 상태 목록도 손으로 적지 않는가 (서버만 넓히면 사람은 못 고른다) */
+  check('🔴 화면 상태 필터도 서버 목록(D.statuses)으로 그린다',
+    /\(D && D\.statuses\) \|\| \[\]/.test(workNC));
+  check('서버가 그 목록을 실제로 내려준다',
+    /statuses: STATUSES\.map\(/.test(apiNC));
+  check('🔴 「반려함」 이름표가 셋을 담는다고 말한다 (「반려」라고만 하면 거짓말)',
+    /안 된 것 \(반려·회수·취소\)/.test(work));
+
+  /* 진행바 — 배지는 「회수됨」인데 바로 아래가 「대기」라고 말하면 한 카드가 서로 다른 말을 한다 */
+  const trk = blockFrom(workNC, 'function trackHtml(');
+  check('진행바를 잘라 냈다 (전제)', trk.length > 200);
+  check('🔴 끝난 건의 남은 단계를 「대기」라고 말하지 않는다',
+    /!isLiveStatus\(r\.status\)/.test(trk));
+  check('«완료» 칸은 서버가 준 상태 이름을 쓴다 (상태가 늘 때 그 칸만 비지 않게)',
+    /endLabel\(r\)/.test(trk));
+
+  /* 다시 올리기 — 잘린 본문을 그대로 채우면 «내용이 말없이 바뀐다» */
+  check('🔴 목록 본문이 잘렸으면 원문을 받아 온 뒤 채운다',
+    /r\.body_truncated/.test(workNC) && /\/api\/approval\/requests\/' \+ id/.test(workNC));
+  check('⛔ 못 받아 오면 아무것도 안 채운다 (잘린 채 「채웠습니다」가 더 나쁘다)',
+    /아무것도 채우지 않았습니다/.test(workNC));
+  check('서버가 «잘렸다» 를 말해 준다', /body_truncated: bodyCut/.test(apiNC));
+  check('단건 조회는 목록과 «같은 판정»(canView)을 쓴다 — 여기만 느슨하면 새 구멍이다',
+    /const mOne = path\.match[\s\S]{0,900}canView\(actor, r\.req_type/.test(apiNC));
+
+  /* 토스트가 거짓말하지 않는가 — pick() 이 폼을 닫았는데 「채웠습니다」가 뜨면 안 된다 */
+  check('채우기가 성공 여부를 돌려준다',
+    /if \(!PICK\) return false;/.test(workNC) && /if \(fillFormFrom\(/.test(workNC));
+
+  /* 주간 리포트 — 상태가 늘면 a+b+c ≠ total 이 되고, 회수가 평균을 오염시킨다 */
+  check('🔴 주간 리포트가 회수·취소도 센다 (합이 안 맞는 문장을 안 보낸다)',
+    /AS wd_n/.test(apiNC) && /AS cx_n/.test(apiNC) && /회수 '/.test(api));
+  check('🔴 평균 처리 시간에서 회수를 뺀다 (기안자가 5분 만에 내린 것이 «빠른 결재» 로 섞인다)',
+    /AVG\(decided_at - created_at\)[\s\S]{0,200}status IN \('approved','rejected'\)/.test(apiNC));
+
+  /* 되돌리기 실패를 «사람이 손댔다» 로 단정하지 않는가 */
+  check('🔴 「못 읽었다」와 「지울 것이 없었다」를 가른다 (원인을 단정하지 않는다)',
+    /읽지 못했습니다/.test(api) && /사람이 손댔거나 이미 지워짐/.test(api));
+
+  /* 맨 위 요약·중복 감지 SQL 도 취소 결재를 뺀다 */
+  check('🔴 맨 위 요약 SQL 이 취소 결재를 뺀다 (안 빼면 총액이 한 푼도 안 준다)',
+    /AND reverses_id IS NULL` \+ \(sumAll/.test(apiNC));
+  check('중복 감지도 취소 결재를 «또 올린 것» 으로 안 센다',
+    /status NOT IN \('rejected','withdrawn','cancelled'\)\s*\n\s*AND reverses_id IS NULL/.test(apiNC));
   check('⛔ 「approved || pending」 을 다시 손으로 적은 자리가 남아 있지 않다',
     !/st === 'approved' \|\| st === 'pending'/.test(stripComments(pol)));
   /* 🪤 처음엔 «setVal('f_title') 이 몇 번 나오는가» 로 셌는데, 그 글자는
