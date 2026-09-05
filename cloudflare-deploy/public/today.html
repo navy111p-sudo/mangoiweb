@@ -109,10 +109,21 @@
                 background:rgba(255,255,255,.08); color:var(--text); }
   .err { color:#fca5a5; }
   [hidden] { display:none !important; }
-  .foot { color:var(--muted); font-size:12px; text-align:center; margin-top:18px; }
-  /* ⚠️ 밑줄을 지우지 말 것 — 이 자리가 고치려던 것이 바로 «누를 수 없는 안내 글» 이었다.
-     색만 바꾸면 사람은 «그냥 글자» 로 읽는다(CLAUDE.md 2장 «색은 맞게 칠했는데 그냥 글자로 보인다»). */
-  .foot a { color:var(--gold); text-decoration:underline; text-underline-offset:3px; font-weight:700; }
+  .foot { text-align:center; margin-top:20px; }
+  /* ⚠️ «그냥 글자» 로 두지 말 것 — 이 자리가 고치려던 것이 바로 «누를 수 없는 안내 글» 이었다.
+     2026-09-05 사장님 «이거 좀더 크게 잘 보이게 해줘» — 밑줄 친 작은 글씨(12px)를
+     화면 폭을 채우는 «버튼» 으로 바꿨다. 색만 바꾸면 사람은 그냥 글자로 읽는다
+     (CLAUDE.md 2장 «색은 맞게 칠했는데 그냥 글자로 보인다»).
+     ⛔ 금색을 «채우지» 는 않는다 — 카드의 «시작 ▶» 이 이 화면의 첫째 행동이고
+        이것은 둘째다. 테두리로 «버튼임» 을 말하고 강조는 한 칸 낮춘다. */
+  .foot a { display:flex; align-items:center; justify-content:center; gap:8px;
+            min-height:54px; padding:15px 18px; border-radius:14px;
+            font-size:17px; font-weight:900; letter-spacing:-.01em; line-height:1.25;
+            color:var(--gold); text-decoration:none;
+            background:rgba(251,191,36,.10); border:2px solid rgba(251,191,36,.55);
+            box-shadow:0 6px 18px rgba(0,0,0,.28); }
+  .foot a:active { background:rgba(251,191,36,.18); }
+  .foot .foot-note { color:var(--muted); font-size:12px; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -162,6 +173,9 @@
            ⛔ 안내 «글» 로 두지 말 것 — 전에는 「홈 왼쪽 메뉴 ▸ AI 학습 도구」라는 문장이라
               누를 수가 없었다. 주소 하나(?menu=aitools)로 그 목록이 열린다. -->
       <a href="/?menu=aitools" data-ko="🤖 AI 도구 전부 보기" data-en="🤖 See all AI tools">🤖 AI 도구 전부 보기</a>
+      <div class="foot-note" data-ko="오늘 할 일 말고 다른 도구도 골라서 할 수 있어요"
+           data-en="You can also pick any other tool, not just today's list"
+      >오늘 할 일 말고 다른 도구도 골라서 할 수 있어요</div>
     </div>
   </div>
 </div>

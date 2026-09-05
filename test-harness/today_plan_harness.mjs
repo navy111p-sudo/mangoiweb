@@ -351,6 +351,21 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     /p\.get\('menu'\) === 'aitools'/.test(idx) && /openAiFriendsOverlay/.test(idx));
   check('⑧ today.html 꼬리말이 «안내 글» 이 아니라 그 주소로 가는 링크다',
     /href="\/\?menu=aitools"/.test(html) && !/도구를 전부 보려면 홈 왼쪽 메뉴/.test(html));
+
+  /* 🔎 (2026-09-05) 사장님 「이거 좀더 크게 잘 보이게 해줘」 — 12px 밑줄 글씨였다.
+     ⛔ 「밑줄이 있는가」·「17px 인가」로 못 박지 말 것 — 모양을 바꾸면 보장은 그대로인데
+        검사만 깨진다(CLAUDE.md 2장). 물어야 할 것은 «손가락으로 누를 수 있는 크기인가» 다.
+     ⚠️ 이건 «선언된 값» 을 읽는 문자열 검사다 — 실제로 그려진 크기는
+        manual/today-entry-browser.mjs 가 잰다. */
+  {
+    const m = html.match(/\.foot a\s*\{([\s\S]*?)\}/);
+    const blk = m ? m[1] : '';
+    const num = (prop) => { const x = blk.match(new RegExp(prop + '\\s*:\\s*(\\d+(?:\\.\\d+)?)px')); return x ? Number(x[1]) : 0; };
+    check('⑧ 그 링크가 «누를 수 있는 크기» 다 (높이 44px↑ · 글자 15px↑ · 한 줄 글씨가 아님)',
+      !!m && num('min-height') >= 44 && num('font-size') >= 15
+        && /display\s*:\s*(flex|block|inline-flex|grid)/.test(blk),
+      `min-height=${num('min-height')} font-size=${num('font-size')} display=${/display\s*:\s*([a-z-]+)/.exec(blk)?.[1]}`);
+  }
   check('⑧ 도구 목록 자체는 그대로 살아 있다(전체메뉴 · 드로어 · 오버레이)',
     /openAiFriendsOverlay = function/.test(idx) && gBtns.length >= 9);
 }
