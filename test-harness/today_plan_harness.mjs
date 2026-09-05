@@ -370,6 +370,112 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     /openAiFriendsOverlay = function/.test(idx) && gBtns.length >= 9);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * ⑨ 안내 영상 입구 두 곳 (2026-09-05 사장님 지시 — A안 + B안)
+ *    A안 홈 「망고아이란?」 맨 앞 카드 · B안 today.html 첫 방문자 한 줄
+ *
+ *   ⛔ «그 글자가 있는가» 로 끝내지 않는다. 여기서 못 박는 것은 셋이다 —
+ *      ① 가리키는 파일이 «실재하는가»(그림·영상을 커밋에 안 담는 사고 — 아바타 전례)
+ *      ② 화면이 말하는 길이가 «영상의 진짜 길이와 같은가»(mp4 헤더를 읽어 대조)
+ *      ③ 누르기 전에 «영상을 안 받는가»(24.4MB — 카드를 여는 것만으로 내려가면 안 된다)
+ *   ⚠️ «보이는가·눌리는가» 는 문자열로 못 본다 → test-harness/manual/video-entry-browser.mjs
+ * ═══════════════════════════════════════════════════════════════════════ */
+{
+  const promo  = readFileSync(join(PUB, 'promo.html'), 'utf8');
+  const about  = readFileSync(join(PUB, 'js', 'idx-about.js'), 'utf8');
+  const todayJs2 = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
+
+  /* ── 프리셋 표 — 주소·길이·포스터가 «한 줄» 에서 나온다 ── */
+  const pm = promo.match(/'ai-tools'\s*:\s*\{([\s\S]*?)\n    \}/);
+  const blk = pm ? pm[1] : '';
+  const pick = (k) => { const m = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return m ? m[1] : ''; };
+  const vsrc = pick('src'), vlen = pick('len'), vposter = pick('poster');
+  check('⑨ promo.html 에 ai-tools 프리셋이 있다', !!pm && !!vsrc && !!vlen && !!vposter,
+    `src=${vsrc} len=${vlen} poster=${vposter}`);
+
+  /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
+  check('⑨ 그 영상 파일이 저장소에 실제로 있다', !!vsrc && existsSync(join(PUB, vsrc.replace(/^\//, ''))), vsrc);
+  check('⑨ 그 포스터 그림이 저장소에 실제로 있다', !!vposter && existsSync(join(PUB, vposter.replace(/^\//, ''))), vposter);
+
+  /* ② 화면이 말하는 «3:35» 가 영상의 진짜 길이와 같은가 — mp4 헤더(mvhd)를 읽는다.
+        ⛔ 숫자를 정규식으로 못 박지 않는다. 영상을 갈아 끼우면 이 검사가 어긋남을 알린다. */
+  let realSec = -1;
+  try {
+    const d = readFileSync(join(PUB, vsrc.replace(/^\//, '')));
+    const k = d.indexOf(Buffer.from('mvhd'));
+    if (k > 0) {
+      const ver = d[k + 4];
+      if (ver === 0) realSec = d.readUInt32BE(k + 20) / d.readUInt32BE(k + 16);
+      else realSec = Number(d.readBigUInt64BE(k + 28)) / d.readUInt32BE(k + 24);
+    }
+  } catch {}
+  const [mm, ss] = String(vlen).split(':').map(Number);
+  const saidSec = (mm * 60) + ss;
+  check('⑨ 화면이 말하는 길이가 영상의 진짜 길이와 같다 (±5초)',
+    realSec > 0 && Math.abs(realSec - saidSec) <= 5,
+    `화면 ${vlen}(${saidSec}s) vs 실제 ${realSec.toFixed(1)}s`);
+
+  /* 포스터 크기 — 첫 화면에 그려지는 그림이라 커지면 안 된다 */
+  let posterKb = 0;
+  try { posterKb = readFileSync(join(PUB, vposter.replace(/^\//, ''))).length / 1024; } catch {}
+  check('⑨ 포스터가 120KB 이하다', posterKb > 0 && posterKb <= 120, posterKb.toFixed(1) + 'KB');
+
+  /* ③ 누르기 전엔 0바이트 — 어느 입구도 mp4 를 «미리» 걸어 두지 않는다 */
+  const mp4InPage = (t) => new RegExp(vsrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(t);
+  check('⑨ today.html 이 mp4 를 직접 걸지 않는다 (누르기 전 0바이트)', !mp4InPage(readFileSync(join(PUB, 'today.html'), 'utf8')));
+  check('⑨ 「망고아이란?」 카드가 mp4 를 직접 걸지 않는다', !mp4InPage(about));
+
+  /* 🪤 포스터 주소가 «두 곳» 에 있다(promo 프리셋 · about 카드의 <img>).
+        개명하면 카드 그림만 조용히 404 가 된다 → «같은 파일을 가리키는가» 로 대조한다. */
+  const aboutPoster = (about.match(/<img src="(\/img\/promo\/[^"]+)"/) || [])[1] || '';
+  check('⑨ 두 곳이 같은 포스터를 가리킨다', !!aboutPoster && aboutPoster === vposter,
+    `about=${aboutPoster} promo=${vposter}`);
+
+  /* ── A안 — 「망고아이란?」 맨 앞 카드 ── */
+  /* ⛔ «앞 N자 안에 그 글자가 있나» 로 보지 않는다 — 설명 주석이 길어지면 그대로 헛돈다
+        (실제로 한 번 그렇게 짰다가 멀쩡한 코드가 FAIL 났다).
+        카드 «객체» 의 모양(`{ic:…, t:…}`)으로 찾으면 주석은 애초에 안 걸린다. */
+  const cards = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
+  check('⑨ A안 — 영상 카드가 BENEFITS 맨 앞이다',
+    cards.length > 1 && /안내 영상/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
+  check('⑨ A안 — 그 카드가 /promo.html?v=ai-tools 로 간다', /promo\.html\?v=ai-tools/.test(about));
+  /* ⚠️ 인앱 브라우저는 새 창을 못 열고 null 만 준다 — 폴백이 없으면 카톡에서 «눌러도 아무 일 없음» */
+  check('⑨ A안 — window.open 이 막히면 location.href 로 폴백한다',
+    /w\s*=\s*window\.open\([^)]*\)/.test(about) && /else\s*\{\s*location\.href\s*=\s*u;?\s*\}/.test(about));
+  check('⑨ A안 — 기능 문자열에 noopener 를 주지 않는다 (반환이 늘 null 이 된다)',
+    !/window\.open\([^)]*'noopener'/.test(about));
+
+  /* ── B안 — today.html 첫 방문자 한 줄 ── */
+  const todayHtml2 = readFileSync(join(PUB, 'today.html'), 'utf8');
+  check('⑨ B안 — today.html 에 안내 자리(#td-intro)가 있다', /id="td-intro"/.test(todayHtml2));
+  check('⑨ B안 — 로그인 전 화면에도 그 길이 있다',
+    /td-login[\s\S]{0,900}promo\.html\?v=ai-tools/.test(todayHtml2));
+  /* 🪤 «renderIntro(p)» 로 찾으면 «function renderIntro(p) {» 라는 «선언» 이 잡혀,
+        호출을 통째로 지워도 통과한다(변이시험에서 실제로 놓쳤다).
+        물어야 할 것은 «부르는가» 이므로 «그 줄 하나짜리 문장» 인지로 본다. */
+  check('⑨ B안 — 그리는 코드를 render 가 부른다', /^\s*renderIntro\(p\);\s*$/m.test(todayJs2));
+  /* 🔴 판정 — 2026-09-05 D1 실측: `students_erp.level` 은 29,481명 중 «1명» 만 채워져 있다.
+     그래서 «레벨이 없나»(p.band) 하나로는 «처음» 을 하나도 못 거르고 전원에게 뜬다.
+     실제로 거르는 것은 «이 화면을 연 횟수» 다. 셋이 모두 있어야 한다 —
+     ⛔ 「늘 뜨게」 만드는 변이가 통과하지 않도록 조건을 하나씩 확인한다. */
+  const showLine = (todayJs2.match(/var show = [^;]+;/) || [''])[0];
+  check('⑨ B안 — 닫았으면 안 뜬다', /!st\.dismissed/.test(showLine), showLine);
+  check('⑨ B안 — 처음 몇 번만 뜬다(연 횟수로 거른다)', /st\.opens < INTRO_MAX_OPENS/.test(showLine), showLine);
+  check('⑨ B안 — 레벨이 생기면 그때부터 안 뜬다', /!p\.band/.test(showLine), showLine);
+  check('⑨ B안 — 보여 줄 때 연 횟수를 센다', /setItem\(INTRO_KEY, String\(st\.opens \+ 1\)\)/.test(todayJs2));
+  /* 닫기 — 못 읽으면 «보여 주는» 쪽으로 실패해야 한다(안내를 잃는 것보다 낫다) */
+  check('⑨ B안 — 표시를 못 읽으면 그냥 보여 준다(fail-open)',
+    /function introState\(\)[\s\S]{0,320}catch \(e\) \{ return \{ dismissed: false, opens: 0 \}; \}/.test(todayJs2));
+  /* ⛔ 닫음 표시를 «숫자» 로 쓰지 말 것 — 연 횟수와 같은 칸이라 첫 번째로 세는 순간
+        «닫았다» 로 읽혀 한 번만 뜨고 그친다(실제로 밟았다). */
+  check('⑨ B안 — 닫으면 다시 안 뜨게 기록한다', /localStorage\.setItem\(INTRO_KEY, 'closed'\)/.test(todayJs2));
+  check('⑨ B안 — 닫음 표시가 «횟수» 와 안 겹친다', /v === 'closed'/.test(todayJs2) && !/v === '1'/.test(todayJs2));
+  /* 대상이 학생이 아니다 — 화면이 그렇게 말해야 한다 */
+  check('⑨ 두 입구 모두 «원장님·선생님» 대상임을 말한다',
+    /원장님·선생님/.test(todayJs2) && /원장님·선생님/.test(about) && /원장님·선생님/.test(promo));
+}
+
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
 console.log(`\n📅 today_plan_harness — PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);

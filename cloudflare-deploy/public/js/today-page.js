@@ -60,6 +60,52 @@
     return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'from=today&step=' + (i + 1) + '&total=' + n;
   }
 
+  /* 🎬 (2026-09-05 사장님 지시) 처음 온 사람에게만 안내 영상 한 줄.
+     · «처음» 의 판정은 서버가 준 사실 하나 — 아직 레벨이 없다(band 가 비었다).
+       레벨테스트를 보면 저절로 사라진다. 따로 «며칠째» 를 세지 않는다.
+     · 닫으면 다시 안 뜬다(localStorage). ⛔ 그 값을 못 읽어도 «안 뜨는» 쪽으로 실패하지 않는다 —
+       못 읽으면 그냥 보여 준다(안내를 잃는 것보다 한 번 더 보이는 편이 낫다).
+     ⛔ 여기서 영상을 붙이지 않는다 — 24.4MB 다. 누르면 /promo.html 이 열리고 거기서 받는다.
+     ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 원장·강사). 그래서 «함께 보세요» 라고 적는다 —
+        학생이 3분을 듣다가 자기 이야기가 아니라는 걸 알고 나가지 않게. */
+  /* 🪤 값 하나에 두 뜻을 담지 말 것 — 처음엔 «'1' = 닫음, 숫자 = 연 횟수» 로 썼는데
+     첫 번째로 세는 순간 그 값이 '1' 이라 «닫았다» 로 읽혀 한 번만 뜨고 그쳤다.
+     (브라우저 검사가 [true,false,false,false] 로 잡았다 — 문자열로는 안 보인다.)
+     ⟹ 닫음은 숫자가 아닌 표시로 못 박는다. */
+  var INTRO_KEY = 'mangoi_today_intro_v1';   // 'closed' = 사람이 닫음 · 그 밖에는 «연 횟수»
+  var INTRO_MAX_OPENS = 3;
+  function introState() {
+    try { var v = localStorage.getItem(INTRO_KEY); return { dismissed: v === 'closed', opens: Number(v) || 0 }; }
+    catch (e) { return { dismissed: false, opens: 0 }; }   // 못 읽으면 «보여 주는» 쪽으로 실패
+  }
+  function renderIntro(p) {
+    var box = $('td-intro');
+    if (!box) return;
+    var st = introState();
+    /* 🔴 «처음 온 사람» 을 무엇으로 가리나 — 2026-09-05 D1 실측이 답을 바꿨다.
+       처음에는 «아직 레벨이 없다»(p.band) 하나로 했는데, `students_erp.level` 은
+       **29,481명 중 1명**만 채워져 있다(CLAUDE.md 2장 「나이·학년으로 자동 분류」와 같은 사정).
+       ⟹ 그 조건은 사실상 «로그인한 학생 전원» 이라 «처음» 을 하나도 못 거른다.
+       그래서 실제로 거르는 것은 **이 화면을 연 횟수**(기기별)다 — 처음 3번만 보여 준다.
+       ⛔ p.band 를 빼지는 않는다: 레벨이 채워지기 시작하면 «레벨 있는 사람» 은 그날부터
+          바로 안 보게 되는 것이 맞다. 지금은 아무것도 안 거를 뿐이다. */
+    var show = !st.dismissed && st.opens < INTRO_MAX_OPENS && !p.band;
+    box.hidden = !show;
+    if (!show) { box.innerHTML = ''; return; }
+    try { localStorage.setItem(INTRO_KEY, String(st.opens + 1)); } catch (e) {}
+    box.innerHTML =
+      '<a href="/promo.html?v=ai-tools" target="_blank" rel="noopener">'
+      + '<span class="t">' + esc(T('▶ 망고아이가 어떤 곳인지 3분 35초에 보기', '▶ What MangoI is — in 3 min 35 sec')) + '</span>'
+      + '<span class="s">' + esc(T('원장님·선생님께 드리는 안내예요. 부모님과 함께 보셔도 좋아요.',
+                                   'Made for academy directors and teachers — watch it with a parent.')) + '</span>'
+      + '</a>'
+      + '<button type="button" class="x" aria-label="' + esc(T('닫기', 'Close')) + '">✕</button>';
+    box.querySelector('.x').addEventListener('click', function () {
+      try { localStorage.setItem(INTRO_KEY, 'closed'); } catch (e) {}
+      box.hidden = true; box.innerHTML = '';
+    });
+  }
+
   var SLOT = { before: ['수업 전', 'Before class'], after: ['수업 후', 'After class'], home: ['집에서', 'At home'], first: ['먼저', 'First'] };
 
   function render() {
@@ -88,6 +134,7 @@
       ? T('오늘 계획을 다 했어요! 🎉', 'All done for today! 🎉')
       : T(dn + '/' + n + ' 완료 · 약 ' + p.totalMinutes + '분', 'Done ' + dn + '/' + n + ' · about ' + p.totalMinutes + ' min');
     $('td-h-steps').textContent = T('오늘 할 일', 'Today');
+    renderIntro(p);
 
     $('td-steps').innerHTML = p.steps.map(function (s, i) {
       var sl = SLOT[s.slot] || SLOT.home;
