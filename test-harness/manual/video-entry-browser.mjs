@@ -17,6 +17,25 @@ import { createRequire } from 'node:module';
 const require = createRequire('/tmp/pw/node_modules/');
 const { chromium } = require('playwright-core');
 const BASE='http://127.0.0.1:8899';
+/* 🪤 길이를 «3분 35초» 처럼 글자 그대로 못 박으면, 목소리를 바꿔 길이가 달라질 때마다
+      보장은 그대로인데 검사만 깨진다(2026-09-05 에 실제로 6건 깨졌다).
+      물어야 할 것은 «몇 분인가» 가 아니라 «프리셋의 len 과 화면 문구가 서로 같은 말을 하는가» 다.
+      그래서 기대값을 promo.html 에서 «읽어» 온다. */
+import { readFileSync } from 'node:fs';
+const PROMO = readFileSync(new URL('../../cloudflare-deploy/public/promo.html', import.meta.url), 'utf8');
+const preset = (key) => {
+  const re = key ? new RegExp("'" + key + "'\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}")
+                 : /promo\s*:\s*\{([\s\S]*?)\n    \}/;
+  const blk = (PROMO.match(re) || [, ''])[1];
+  const len = (blk.match(/len:'([^']+)'/) || [])[1];
+  const poster = (blk.match(/poster:'([^']+)'/) || [])[1] || '';
+  if (!len) throw new Error('promo.html 에서 프리셋을 못 읽었다: ' + (key || 'promo'));
+  const [mm, ss] = len.split(':').map(Number);
+  /* 화면 문구가 그 길이를 «말하는지» 는 len 에서 만든 정규식으로 본다 */
+  const say = mm ? new RegExp(mm + '분\\s*' + ss + '초') : new RegExp('\\b' + ss + '초');
+  return { len, say, poster: new RegExp(poster.split('/').pop().replace('.', '\\.')) };
+};
+const P_PROMO = preset(''), P_LONG = preset('ai-tools'), P_SHORT = preset('ai-tools-short');
 const TOK = Buffer.from(JSON.stringify({uid:'jeong',exp:Date.now()+30*86400000})).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')+'.sig';
 let PASS=0, FAIL=0;
 const ok=(n,c,d='')=>{ c?PASS++:FAIL++; console.log((c?'  ✅ ':'  ❌ ')+n+(c?'':'  →  '+d)); };
@@ -52,10 +71,10 @@ console.log('\n[B안] today.html — 처음 온 사람에게만');
     return { hidden:!e||e.hidden, href:a?a.getAttribute('href'):null, w:r?Math.round(r.width):0, h:r?Math.round(r.height):0,
              txt:e?e.textContent.replace(/\s+/g,' ').trim():'', onTop: !!(top&&e&&e.contains(top)), hasX: !!(e&&e.querySelector('.x')) }; });
   ok('레벨이 없으면 안내 줄이 뜬다', !m.hidden, JSON.stringify(m));
-  ok('주소가 «39초 판» 이다 (학생 화면)', m.href==='/promo.html?v=ai-tools-short', m.href);
+  ok('주소가 «짧은 판» 이다 (학생 화면)', m.href==='/promo.html?v=ai-tools-short', m.href);
   ok('상자가 아니라 «누를 수 있는» 크기다(44px↑)', m.h>=44, m.w+'x'+m.h);
   ok('맨 위에 있다(다른 것이 안 덮는다)', m.onTop, m.topTag||'');
-  ok('39초라고 말한다', /39초/.test(m.txt), m.txt.slice(0,60));
+  ok('프리셋과 같은 길이를 말한다', P_SHORT.say.test(m.txt), m.txt.slice(0,60) + '  기대 ' + P_SHORT.say);
   ok('닫기 버튼이 있다', m.hasX);
   // 줄바꿈 — 낱글자로 쪼개지지 않았나
   const lines = await pg.evaluate(()=>{ const t=document.querySelector('#td-intro .t');
@@ -139,14 +158,14 @@ console.log('\n[B안] today.html — 처음 온 사람에게만');
     if(!a) return {none:true}; a.scrollIntoView({block:'center'}); const r=a.getBoundingClientRect();
     const top=document.elementFromPoint(r.left+r.width/2, r.top+12);
     return { href:a.getAttribute('href'), h:Math.round(r.height), onTop:!!(top&&a.contains(top)) }; });
-  ok('로그인 전 화면에도 있다(39초 판)', !m.none && m.href==='/promo.html?v=ai-tools-short', JSON.stringify(m));
+  ok('로그인 전 화면에도 있다(짧은 판)', !m.none && m.href==='/promo.html?v=ai-tools-short', JSON.stringify(m));
   ok('그것도 누를 수 있는 크기·맨 위', !m.none && m.h>=44 && m.onTop, JSON.stringify(m));
   await ctx.close(); }
 
 console.log('\n[프리셋] promo.html — 지금 트는 영상의 «사실» 을 말한다');
-for (const [q, want] of [['', {len:'1:35', t:/1분 35초/, poster:/mangoi-promo-poster/}],
-                          ['?v=ai-tools', {len:'3:35', t:/3분 35초/, poster:/ai-tools-poster/}],
-                          ['?v=ai-tools-short', {len:'0:39', t:/39초/, poster:/ai-tools-short-poster/}]]) {
+for (const [q, want] of [['', {len:P_PROMO.len, t:P_PROMO.say, poster:P_PROMO.poster}],
+                          ['?v=ai-tools', {len:P_LONG.len, t:P_LONG.say, poster:P_LONG.poster}],
+                          ['?v=ai-tools-short', {len:P_SHORT.len, t:P_SHORT.say, poster:P_SHORT.poster}]]) {
   const ctx=await b.newContext({viewport:{width:900,height:800},serviceWorkers:'block'});
   const pg=await ctx.newPage();
   const reqs=[]; pg.on('request', r=>reqs.push(r.url()));
@@ -189,7 +208,7 @@ console.log('\n[A안] 홈 「망고아이란?」 맨 앞 영상 카드');
     return { poster: img?img.getAttribute('src'):null, imgOk: !!(img&&img.complete&&img.naturalWidth>0),
              cta: cta?cta.textContent.trim():null, body: b?b.textContent.replace(/\s+/g,' ').trim():'' }; });
   ok('상세에 포스터 그림이 실제로 그려진다', dm.imgOk && /ai-tools-poster/.test(dm.poster||''), JSON.stringify(dm).slice(0,120));
-  ok('버튼이 «영상 보기(3분 35초)» 다', /3분 35초/.test(dm.cta||''), dm.cta);
+  ok('버튼이 «영상 보기(긴 판 길이)» 다', P_LONG.say.test(dm.cta||''), (dm.cta||'') + '  기대 ' + P_LONG.say);
   ok('«원장님·선생님» 대상임을 말한다', /선생님/.test(dm.body), dm.body.slice(0,80));
   ok('카드를 열어도 영상은 0바이트', !reqs.some(u=>/ai-tools-kr\.mp4/.test(u)));
   await ctx.close(); }

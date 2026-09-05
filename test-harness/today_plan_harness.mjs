@@ -20,7 +20,7 @@
 //   빼면 ①-3, 수업일 웜업을 빼면 ①-1, dowMatches 의 한글 표를 지우면 ③ 이 실제로 FAIL 난다.
 //
 //   실행: node test-harness/today_plan_harness.mjs
-import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -410,7 +410,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     } catch { return -1; }
   };
 
-  for (const [nm, P] of [['3분 35초 판', P_LONG], ['39초 판', P_SHORT]]) {
+  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT]]) {
     check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
       `src=${P.src} len=${P.len} poster=${P.poster}`);
     /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
@@ -426,6 +426,16 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     let kb = 0;
     try { kb = readFileSync(join(PUB, P.poster.replace(/^\//, ''))).length / 1024; } catch {}
     check(`⑨ [${nm}] 포스터가 120KB 이하다`, kb > 0 && kb <= 120, kb.toFixed(1) + 'KB');
+    /* 🔴 Cloudflare Workers 정적자산은 «파일 하나 25 MiB» 가 한도다 — Free·Paid 동일
+          (developers.cloudflare.com/workers/platform/limits — 2026-09-05 문서 확인).
+          넘으면 «배포가 그 자리에서 깨진다». 지금 긴 판이 24.98 MiB 라 여유가 22KB 뿐이라,
+          목소리를 갈거나 장면을 더하면 다음번에 바로 넘는다. 그때 이 줄이 알려 준다.
+       ⛔ 한도를 늘려서 통과시키지 말 것 — 그건 Cloudflare 가 정하는 숫자다.
+          넘으면 길이를 줄이거나 화질(crf)을 낮추거나 R2 로 옮겨야 한다. */
+    let mib = 0;
+    try { mib = statSync(join(PUB, P.src.replace(/^\//, ''))).size / 1048576; } catch {}
+    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, mib > 0 && mib < 25,
+      `${mib.toFixed(2)} MiB · 남은 여유 ${((25 - mib) * 1024).toFixed(0)} KiB`);
   }
   /* 짧은 판이 «짧은가» — 학생 화면에 3분짜리를 걸어 두면 이 기능의 취지가 사라진다 */
   check('⑨ 짧은 판이 실제로 1분 미만이다', realSecOf(P_SHORT.src) > 0 && realSecOf(P_SHORT.src) < 60,
@@ -488,18 +498,18 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   check('⑨ B안 — 닫으면 다시 안 뜨게 기록한다', /localStorage\.setItem\(INTRO_KEY, 'closed'\)/.test(todayJs2));
   check('⑨ B안 — 닫음 표시가 «횟수» 와 안 겹친다', /v === 'closed'/.test(todayJs2) && !/v === '1'/.test(todayJs2));
   /* 🔴 «누구에게 하는 말인가» — 입구마다 가리키는 영상이 다르다.
-     ⛔ 학생 화면(today)이 3분 35초 판을 가리키면 안 된다: 그 대본은 선생님께 하는 말이라
+     ⛔ 학생 화면(today)이 긴 판을 가리키면 안 된다: 그 대본은 선생님께 하는 말이라
         아이가 듣다가 «내 이야기가 아니네» 로 나간다. 반대로 「망고아이란?」 카드는
         그 판을 가리키므로 «원장님·선생님» 대상임을 밝혀야 한다. */
-  check('⑨ 학생 화면 두 곳이 «39초 판» 을 가리킨다',
+  check('⑨ 학생 화면 두 곳이 «짧은 판» 을 가리킨다',
     /promo\.html\?v=ai-tools-short/.test(todayJs2) && /promo\.html\?v=ai-tools-short/.test(todayHtml2));
-  check('⑨ 학생 화면이 3분 35초 판을 가리키지 않는다',
+  check('⑨ 학생 화면이 긴 판을 가리키지 않는다',
     !/promo\.html\?v=ai-tools(?!-short)/.test(todayJs2) && !/promo\.html\?v=ai-tools(?!-short)/.test(todayHtml2));
-  check('⑨ 「망고아이란?」 카드는 «3분 35초 판» 을 가리키고 대상을 밝힌다',
+  check('⑨ 「망고아이란?」 카드는 «긴 판» 을 가리키고 대상을 밝힌다',
     /promo\.html\?v=ai-tools(?!-short)/.test(about) && /원장님·선생님/.test(about));
-  check('⑨ 3분 35초 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
+  check('⑨ 긴 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
   /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
-  check('⑨ 39초 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
+  check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
