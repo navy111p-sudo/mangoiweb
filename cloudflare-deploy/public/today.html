@@ -110,7 +110,9 @@
   .err { color:#fca5a5; }
   [hidden] { display:none !important; }
   .foot { color:var(--muted); font-size:12px; text-align:center; margin-top:18px; }
-  .foot a { color:var(--text2); }
+  /* ⚠️ 밑줄을 지우지 말 것 — 이 자리가 고치려던 것이 바로 «누를 수 없는 안내 글» 이었다.
+     색만 바꾸면 사람은 «그냥 글자» 로 읽는다(CLAUDE.md 2장 «색은 맞게 칠했는데 그냥 글자로 보인다»). */
+  .foot a { color:var(--gold); text-decoration:underline; text-underline-offset:3px; font-weight:700; }
 </style>
 </head>
 <body>

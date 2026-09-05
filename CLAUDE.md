@@ -478,7 +478,7 @@
 | `src/api-ai.ts` | AI 영작첨삭·영어친구챗·AI 명령 라우터 |
 | `src/video-call-room.ts` | 화상수업 Durable Object (실사용) |
 | `src/signaling-room.ts` | 구 시그널링 DO (진단용, 삭제 금지) |
-| `src/today-plan.ts` | 📅 «오늘의 학습» 정본(순수 함수) — 수업일/집/미배정 묶음(`HOME_WEEK`·`CLASS_DAY`)·레벨 키 매핑. API 는 `api-students.ts` 의 `/api/student/today`, 화면은 `public/today.html`. ⚠️ 표를 바꾸면 `docs/AI학습도구_학습계획표_*.html` 도 함께 |
+| `src/today-plan.ts` | 📅 «오늘의 A.i 학습» 정본(순수 함수) — 수업일/집/미배정 묶음(`HOME_WEEK`·`CLASS_DAY`)·레벨 키 매핑. API 는 `api-students.ts` 의 `/api/student/today`, 화면은 `public/today.html`. ⚠️ 표를 바꾸면 `docs/AI학습도구_학습계획표_*.html` 도 함께 |
 
 화면(`cloudflare-deploy/public/`)은 HTML 53개. 주요 파일은 `index.html`(홈+화상수업), `admin.html`(관리자), `student.html`(학생).
 

@@ -16606,23 +16606,27 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
   #ph49-kakao-fab .ph49-kakao-intext, .ph49-kakao-fab .ph49-kakao-intext { color: #FEE500 !important; }
 </style>
+<!-- 🤖 (2026-09-04) ?menu=aitools — AI 도구 «목록» 오버레이를 주소 하나로 연다.
+     왜: 홈 첫 화면 큰 버튼이 「오늘의 A.i 학습」으로 바뀌면서 그 목록은 한 칸 안쪽으로 들어갔다.
+         /today.html 꼬리말이 여기로 되돌아온다 — 길을 «없앤» 것이 아니다.
+     ⚠️ 상주 타이머가 아니다: 준비될 때까지 기다렸다 한 번 부르고, 6초 뒤에는 무조건 멈춘다.
+     ⚠️ 설명을 script «안» 에 두지 말 것 — 그 안의 글자는 첫 화면 예산(blocking)에 그대로 셉니다.
+        여유가 2KB 밖에 없다(CLAUDE.md 2장 「index.html 에 한 줄 더했는데 예산이 FAIL」). -->
 <script>
 /* 💳 예약 페이지 → "결제로 이동" 클릭 시, 홈(?menu=payment)으로 와서 결제창 자동 오픈 */
 (function(){
   try {
     var p = new URLSearchParams(location.search);
-    /* 🤖 (2026-09-04) ?menu=aitools — AI 도구 «목록» 오버레이를 주소 하나로 연다.
-       왜: 홈 첫 화면 큰 버튼이 「오늘의 A.i 학습」으로 바뀌면서 그 목록은 한 칸 안쪽으로
-           들어갔다. /today.html 꼬리말이 여기로 되돌아온다(길을 없앤 것이 아니다).
-       ⚠️ 이 블록은 setInterval 로 «준비될 때까지» 기다렸다가 한 번 부르고 스스로 멈춘다 —
-          상주 타이머가 아니다(6초 뒤에는 무조건 끝난다). */
+    /* 🤖 ?menu=aitools — 위 HTML 주석 참고 (첫 화면 예산: 이 안의 글자는 blocking 으로 셉니다) */
     if (p.get('menu') === 'aitools') {
       var t2 = 0, tm2 = setInterval(function(){
         t2++;
         if (typeof window.openAiFriendsOverlay === 'function') {
           clearInterval(tm2);
           try { window.openAiFriendsOverlay(); } catch(e){ console.warn('[aitools]', e); }
-          try { history.replaceState(null, '', location.pathname); } catch(_){}
+          /* menu 만 뺀다 — pathname 으로 통째로 갈아치우면 다른 쿼리·해시까지 조용히 잃는다 */
+          try { p.delete('menu'); var q = p.toString();
+                history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash); } catch(_){}
         } else if (t2 > 60) { clearInterval(tm2); }
       }, 100);
       return;
