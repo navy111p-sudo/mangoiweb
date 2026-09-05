@@ -5112,13 +5112,17 @@ function vcArmFullscreenRetry() {
                    근거: D1 725분 실측에서 RTT 450ms+ 의 소리끊김 33% 중 «진짜» 손실은 0.97% 뿐
                    — 32%p 가 «늦어서 버린 것»(34배). 늦은 것은 기다리면 살아난다.
                    ⛔ 그 전제(conceal ≫ aloss)가 깨지면 버퍼는 아무것도 못 살린다 — 늘리기 전에 다시 재라.
-                   ⚠️ 대가는 지연(+300ms) → «먼»(기준 300ms+)·«막힌»(3틱) 연결에만. 가까운 회선은 그대로.
+                   ⚠️ 대가는 지연(+300ms) → «먼»(기준 300ms+)·«막힌»(3틱) 연결에만 건다.
+                      ⛔ 「가까운 회선은 안 걸린다」가 아니다 — rb 가 작아도 3틱 막히면 걸린다.
+                   ⛔ low 게이트의 `rb < 300` 을 빼지 말 것: 그게 없으면 «먼 회선» 이 RTT 보고가
+                      빠진 틱마다 buf→low(300→0ms)로 뒤집혀, 이 함수 주석이 경고하는 «재설정 =
+                      소리 튐» 이 겨냥한 인구에서 그대로 난다(rb≥300 이면 rtt<150 은 원래 불가능).
                    시험 window.__vcRxBufMs(0=끔) · 근거·미결은 vc_latency_tuning_harness 머리말 */
                 if (rtt > rttDown) pc.__qLate = (pc.__qLate || 0) + 1;
                 else if (rtt > 0 && rtt < rttUp) pc.__qLate = 0;
                 try {
                     tuneReceiveLatency(pc,
-                        (step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && (rtt === 0 || rtt < 150)) ? 'low'
+                        (step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && rb < 300 && (rtt === 0 || rtt < 150)) ? 'low'
                         : (rb >= 300 || (pc.__qLate || 0) >= 3) ? 'buf' : 'auto');
                 } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)

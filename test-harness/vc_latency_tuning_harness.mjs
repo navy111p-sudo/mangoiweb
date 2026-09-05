@@ -172,6 +172,40 @@ check('같은 상태면 다시 쓰지 않는다', /if \(pc\.__rx\w* === \w+\) re
   check('막힘 카운터가 회복되면 0 으로 돌아간다',
         /rtt < rttUp\) pc\.__qLate = 0/.test(js),
         '안 지우면 한 번 막힌 연결이 수업 내내 버퍼를 물고 간다');
+
+  /* 🔴 여기까지는 «글자» 만 본다 — 그래서 놓친 것이 있었다.
+     2026-09-05 함정 대조가 잡은 것: 먼 회선(rb≥300)이 «RTT 보고가 빠진 틱» 마다
+     buf(300ms) → low(0ms) 로 뒤집혔다. low 게이트의 `rtt === 0` 탈출구가 살아 있고,
+     먼 회선은 rttUp = rb+100 이라 __qGood 을 쉽게 채우기 때문이다.
+     ⟹ 그 함수 주석이 경고하는 «불필요한 재설정 = 소리 튐» 이, 하필 이 기능이
+        겨냥한 바로 그 인구에서 난다. 문자열 검사로는 절대 안 보인다.
+     ✅ 그래서 식을 «오려 내 실제로 돌린다». */
+  if (call) {
+    let f = null;
+    try {
+      f = new Function('pc', 'step', 'lossPct', 'rtt', 'rb', 'NOW',
+                       '{const Date={now:()=>NOW};return (' + call + ');}');
+    } catch (e) { check('호출부 식을 평가할 수 있다', false, String(e).slice(0, 80)); }
+    if (f) {
+      const G = { __qGood: 9, __qBadAt: 0, __qLate: 0 };          // 오래 조용했던 연결
+      const at = (pc, rtt, rb) => f(pc, 0, 0.5, rtt, rb, 1e12);
+      const cases = [
+        ['먼 회선(rb=360)·RTT 380',        G, 380, 360, 'buf'],
+        ['먼 회선·RTT 보고 누락(0)',        G,   0, 360, 'buf'],   // ← 뒤집히면 여기서 걸린다
+        ['가까운 회선(rb=80)·RTT 100',      G, 100,  80, 'low'],
+        ['RTT 를 한 번도 못 잼(rb=0)',      G,   0,   0, 'low'],
+        ['가까운 회선·3틱 막힘',
+         { __qGood: 0, __qBadAt: 1e12, __qLate: 3 }, 600, 80, 'buf'],
+      ];
+      for (const [name, pc, rtt, rb, want] of cases) {
+        let got; try { got = at(pc, rtt, rb); } catch (e) { got = 'ERR ' + e; }
+        check(`식을 돌려서: ${name} → ${want}`, got === want, `실제 ${got}`);
+      }
+      check('먼 회선은 RTT 보고 유무와 무관하게 같은 답 (소리 튐 방지)',
+            at(G, 380, 360) === at(G, 0, 360),
+            'low 게이트에 rb 조건이 없으면 틱마다 300ms↔0ms 로 뒤집힌다');
+    }
+  }
 }
 
 /* ── 2. 인코더 힌트 ──────────────────────────────────────── */
