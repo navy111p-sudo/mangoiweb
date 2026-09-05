@@ -62,7 +62,7 @@ jobs:
                   sr, e, dur = env(p)
                   pk = max(e) or 1
                   QUIET = pk * 0.012      # ≈ −38dB  «조용하다»
-                  LOUD  = pk * 0.10       # ≈ −20dB  «소리다»
+                  LOUD  = pk * 0.056      # ≈ −25dB  «소리다»
                   # 끝에서 거슬러 올라가며: 소리덩어리 → 그 앞의 조용한 구간(≥80ms) 을 찾는다
                   i = len(e) - 1
                   while i >= 0 and e[i] < QUIET: i -= 1          # 끝의 진짜 무음 건너뛰기
@@ -75,7 +75,7 @@ jobs:
                   blob_pk = max(e[blob_start:end_of_sound+1]) if end_of_sound >= blob_start else 0
                   cut = dur; why = '그대로'
                   # 떨어져 나온 덩어리 = 앞에 80ms 이상 조용하고, 그 덩어리가 «크다»
-                  if gap >= 8 and blob_pk >= LOUD and k >= 0:
+                  if gap >= 4 and blob_pk >= LOUD and k >= 0:
                       cut = round((j + 1) * W, 3)     # 조용한 구간 «끝» 에서 자른다
                       why = f'덩어리 {blob_start*W:.2f}~{(end_of_sound+1)*W:.2f}s (앞 조용 {gap*W:.2f}s, 크기 {20*__import__("math").log10(blob_pk/pk):.1f}dB)'
                   cuts[p] = {'dur': round(dur,3), 'cut': cut, 'why': why}
@@ -190,28 +190,28 @@ jobs:
         run: |
           set -euo pipefail
           cat > verify.py <<'PY'
-          import subprocess, re, os, sys
-          def scan(p):
-              d = float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration',
-                                        '-of','csv=p=0',p],capture_output=True,text=True).stdout.strip())
-              vals=[]; t=0.0
-              while t < d:
-                  r = subprocess.run(['ffmpeg','-hide_banner','-nostats','-ss',f'{t}','-t','0.25','-i',p,
-                                      '-af','volumedetect','-f','null','-'],capture_output=True,text=True)
-                  m = re.search(r'max_volume:\s*(-?[0-9.]+)', r.stderr)
-                  vals.append((round(t,2), float(m.group(1)) if m else -99.0)); t += 0.25
-              return vals
+          import subprocess, wave, array, os, sys, math
+          def peaks(mp4, win=0.25):
+              wav = '/tmp/' + os.path.basename(mp4) + '.wav'
+              # ⚠️ 창마다 ffmpeg 을 띄우면 912창에 7분이 걸린다 — 한 번만 디코드한다
+              subprocess.run(['ffmpeg','-v','error','-y','-i',mp4,'-ac','1','-ar','16000',
+                              '-c:a','pcm_s16le',wav], check=True)
+              w = wave.open(wav); sr = w.getframerate()
+              a = array.array('h'); a.frombytes(w.readframes(w.getnframes()))
+              N = int(sr*win); out=[]
+              for i in range(0, len(a)-N+1, N):
+                  pk = max(abs(x) for x in a[i:i+N]) or 1
+                  out.append((round(i/sr,2), 20*math.log10(pk/32768)))
+              return out
           bad = 0
           for p in ['.video-short/mangoi-ai-short.mp4', '.video/mangoi-ai-guide.mp4']:
-              v = scan(p)
+              v = peaks(p); n = 0
               print(f'\n── {p}  창 {len(v)}개')
-              # ⚠️ 가장자리도 본다 — 이웃이 하나뿐이면 그 하나와 견준다
               for i,(t,x) in enumerate(v):
                   nb = [v[j][1] for j in (i-1, i+1) if 0 <= j < len(v)]
                   if nb and x - max(nb) >= 12:
-                      print(f'   ⚠ t={t:6.2f}s  {x:7.2f} dB  (이웃 {max(nb):.1f})'); bad += 1
-              print('   ✅ 12dB 넘게 튀는 창 없음' if bad == 0 else '')
-          # 25 MiB 한도
+                      print(f'   ⚠ t={t:7.2f}s  {x:7.2f} dB  (이웃 {max(nb):.1f})'); n += 1; bad += 1
+              print('   ✅ 12dB 넘게 튀는 창 없음' if n == 0 else f'   ⚠ {n}건')
           for p in ['.video/mangoi-ai-guide.mp4', '.video-short/mangoi-ai-short.mp4']:
               m = os.path.getsize(p)/1048576
               print(f'   {p}  {m:.2f} MiB (여유 {(25-m)*1024:.0f} KiB)')
