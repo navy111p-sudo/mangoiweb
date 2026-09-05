@@ -1,0 +1,69 @@
+# 임시 워크플로 — 40초 짧은 판(학생·학부모용) 합성. main 에 올리지 않는다.
+# 왜 러너에서 하나: 작업 컨테이너의 ffmpeg 은 --disable-everything 빌드라 wav 조차 못 연다.
+name: video-short
+on: { workflow_dispatch: {}, push: { branches: [video6] } }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg 설치
+        # ⚠️ `ffmpeg -version | head` 로 확인하면 파이프 종료코드가 head 것(0)이라 «없어도 통과» 한다.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          command -v ffmpeg && command -v ffprobe
+      - name: 나레이션 내려받기
+        run: |
+          set -euo pipefail
+          cd .video-short && mkdir -p aud
+          python3 - <<'PY' > get.sh
+          import json
+          for x in json.load(open('narration.json')):
+              print(f"curl -fsSL -o aud/{x['f']}.wav '{x['url']}'")
+          PY
+          bash get.sh
+          ls -la aud
+      - name: 합성
+        run: |
+          set -euo pipefail
+          cd .video-short
+          mkdir -p seg
+          : > list.txt
+          python3 - <<'PY' > cmds.sh
+          import json
+          items = json.load(open('narration.json'))
+          N = len(items)
+          for n, x in enumerate(items):
+              f = x['f']
+              # 장면 길이 = 그 줄의 «오디오 실제 길이» + 뒤 여백 0.45초(마지막은 1.2초)
+              tail = 1.2 if n == N - 1 else 0.45
+              print(f'D=$(python3 -c "import wave;w=wave.open(\'aud/{f}.wav\');print(w.getnframes()/w.getframerate()+{tail})")')
+              print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+              print(f'ffmpeg -v error -y -i aud/{f}.wav -af "apad=pad_dur={tail}" -ar 48000 -ac 2 seg/{f}.a.wav')
+              print(f'ffmpeg -v error -y -loop 1 -i slides/{f}.jpg -t "$D" '
+                    f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                    f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                    f'-c:v libx264 -preset medium -crf 21 -r 30 seg/{f}.v.mp4')
+              print(f'ffmpeg -v error -y -i seg/{f}.v.mp4 -i seg/{f}.a.wav -c:v copy -c:a aac -b:a 160k -shortest seg/{f}.mp4')
+              print(f'echo "file \'seg/{f}.mp4\'" >> list.txt')
+          PY
+          bash cmds.sh
+          ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy mangoi-ai-short.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-short.mp4'],capture_output=True,text=True).stdout.strip()
+          print(f'>>> 완성: {float(d):.1f}초')
+          "
+          ls -la mangoi-ai-short.mp4
+      - name: 결과 커밋
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .video-short/mangoi-ai-short.mp4
+          git commit -m "video: 40초 짧은 판 합성 [skip ci]"
+          git push origin HEAD:video6
