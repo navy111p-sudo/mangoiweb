@@ -42,9 +42,12 @@ function strip(src) {
 
 const idx = strip(readFileSync(join(SRC, 'index.ts'), 'utf8'));
 
-/* 18시 블록을 «중괄호 짝» 으로 자른다. 길이로 자르면 옆 cron 블록이 딸려 온다. */
-function block18() {
-  const s = idx.indexOf("cronIs('0 18 * * *')");
+/* cron 블록을 «중괄호 짝» 으로 자른다. 길이로 자르면 옆 cron 블록이 딸려 온다.
+   ⚠️ (2026-09-04) `block18()` 이던 것을 일반화했다 — learning-snapshot 을 `0 0` 으로 옮기면서
+      그 블록에도 계측을 붙였는데, 18시만 검사하면 **앞으로 그 블록에 작업을 더하고 표시를
+      빠뜨려도 초록불**이다. 고치려던 «조용히 잘리는» 문제를 자리만 바꿔 되살리는 셈이다. */
+function blockOf(cron) {
+  const s = idx.indexOf(`cronIs('${cron}')`);
   if (s < 0) return '';
   let d = 0, started = false;
   for (let i = s; i < idx.length; i++) {
@@ -53,7 +56,7 @@ function block18() {
   }
   return '';
 }
-const B = block18();
+const B = blockOf('0 18 * * *');
 
 console.log('\n[ A. 18시 블록이 «판 시작 → 단계 → 종료» 를 남긴다 ]');
 check('18시 블록을 찾았다', B.length > 2000, "cronIs('0 18 * * *') 블록이 없다 — 구조가 바뀌었나?");
@@ -66,12 +69,12 @@ check('판 종료(endNightlyRun)가 블록 «맨 끝» 에 있다',
   '종료 기록이 없거나 중간에 있다 — «끝까지 갔다» 를 증명하지 못한다');
 
 console.log('\n[ B. 모든 작업이 단계 표시를 남긴다 — 하나라도 빠지면 그 구간이 사각지대 ]');
-{
+function checkStepCoverage(B, label, runVar, tailTags) {
   /* try 개수(= 작업 수)와 표시 개수가 같아야 한다. 「대충 몇 개 이상」으로 두면
      작업을 새로 넣고 표시를 빠뜨려도 초록불이 된다. */
   const tries = (B.match(/\n\s{8,10}try \{/g) || []).length;
   const marks = (B.match(/markNightlyStep\(/g) || []).length;
-  check(`작업 ${tries}개에 표시 ${marks}개 — 하나도 안 빠졌다`, tries > 0 && tries === marks,
+  check(`${label}: 작업 ${tries}개에 표시 ${marks}개 — 하나도 안 빠졌다`, tries > 0 && tries === marks,
     `try ${tries}개인데 표시가 ${marks}개다. 새 작업을 넣었으면 그 뒤에도 markNightlyStep 을 붙일 것`);
   /* 🔴 개수만 세면 «어디에 있는가» 를 못 본다. 실제로 표시 16개가 전부 catch 블록 «안» 에
      들어간 채로 이 검사가 초록불이었다(2026-08-31 trap-check 가 잡음). catch 안에 있으면
@@ -94,18 +97,36 @@ console.log('\n[ B. 모든 작업이 단계 표시를 남긴다 — 하나라도
       }
     }
   }
-  check('표시가 catch 블록 «밖» 에 있다 — 성공한 작업만 남긴다', inCatch.length === 0,
+  check(`${label}: 표시가 catch 블록 «밖» 에 있다 — 성공한 작업만 남긴다`, inCatch.length === 0,
     'catch 안에 있는 표시: 블록 내 ' + inCatch.join(',') + '번째 줄.\n'
     + '       그러면 정상적인 밤에는 기록이 한 줄도 안 남고, 남은 것의 뜻은 «끝났다» 가 아니라 «에러가 났다» 다');
 
-  const tags = [...B.matchAll(/markNightlyStep\(env as any, _nightly, '([\w-]+)'\)/g)].map((m) => m[1]);
-  check('표시 이름이 전부 다르다(로그 꼬리표 기준)', tags.length > 0 && new Set(tags).size === tags.length,
+  const tags = [...B.matchAll(new RegExp(`markNightlyStep\\(env as any, ${runVar}, '([\\w-]+)'\\)`, 'g'))].map((m) => m[1]);
+  check(`${label}: 표시 이름이 전부 다르다(로그 꼬리표 기준)`, tags.length > 0 && new Set(tags).size === tags.length,
     '같은 이름이 둘 이상이면 «어디서 죽었는지» 를 가릴 수 없다: ' + tags.join(','));
   /* 꼬리 두 개를 콕 집어 확인한다. auto-schedule 은 월요일에만 도는 «진짜 마지막» 이라
      growth-snapshot 만 보면 월요일 밤의 꼬리가 사각지대로 남는다. */
-  check('꼬리 작업(growth-snapshot·auto-schedule)까지 표시가 있다',
-    tags.includes('growth-snapshot') && tags.includes('auto-schedule'),
+  check(`${label}: 꼬리 작업(${tailTags.join('·')})까지 표시가 있다`,
+    tailTags.every((t) => tags.includes(t)),
     '꼬리 작업에 표시가 없으면 «뒤가 잘렸는지» 를 영영 모른다');
+}
+checkStepCoverage(B, '03시', '_nightly', ['growth-snapshot', 'auto-schedule']);
+
+/* 🌙 (2026-09-04) 09시 블록 — learning-snapshot 을 여기로 옮기면서 계측을 붙였다.
+   ⛔ 이 절을 지우지 말 것. 지우면 그 블록이 다시 «아무도 재지 않는 곳» 이 된다.
+   ⚠️ 꼬리는 learning-snapshot 이다(순서: billing → briefing → snapshot).
+      그 순서는 «잘려도 돈이 나가는 쪽이 아니라 꼬리가 잘리도록» 일부러 둔 것이다. */
+{
+  const M = blockOf('0 0 * * *');
+  check('09시 블록을 찾았다', M.length > 500, "cronIs('0 0 * * *') 블록이 없다 — 구조가 바뀌었나?");
+  check('09시: 판 시작이 블록 «맨 앞» 에 있다',
+    /const _morning = await beginNightlyRun\(/.test(M)
+    && M.indexOf('beginNightlyRun') < M.indexOf('markNightlyStep'),
+    '시작 기록이 없거나 작업들 뒤에 있다');
+  check('09시: 판 종료가 블록 «맨 끝» 에 있다',
+    /await endNightlyRun\(/.test(M) && M.lastIndexOf('endNightlyRun') > M.lastIndexOf('markNightlyStep'),
+    '종료 기록이 없거나 중간에 있다');
+  checkStepCoverage(M, '09시', '_morning', ['learning-snapshot']);
 }
 
 console.log('\n[ C. 기록이 실패해도 야간 작업은 계속된다 — 감시가 감시 대상을 죽이면 안 된다 ]');
