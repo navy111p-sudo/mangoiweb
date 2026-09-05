@@ -731,8 +731,19 @@ export async function handleGamesApi(
          ORDER BY correct_count DESC, review_count DESC LIMIT 50`
       ).bind(since).all();
       const rows = (rs.results || []) as any[];
-      const same = (a: any) => !!uid && String(a || '').toLowerCase() === uid.toLowerCase();
-      const top = rows.slice(0, 10).map((r, i) => ({ rank: i + 1, name: r.name || null, correct: r.correct_count, reviews: r.review_count, me: same(r.user_id) }));
+      /* ⚠️ «정확일치» 다 — 대소문자를 무시하면 안 된다. `Kim`/`kim`(김민수)·`Lee`/`lee`(이병엽)
+         처럼 대소문자만 다른 «별개 행» 이 실재하고(CLAUDE.md 2장), 둘 다 기록이 있으면
+         두 줄에 「(나)」가 붙고 findIndex 가 먼저 만난 쪽을 집어 my_rank·my_correct 에
+         «남의 숫자» 가 실린다. 로그인·lookup·set-password 네 곳도 「정확일치 먼저」다. */
+      const same = (a: any) => !!uid && String(a || '') === uid;
+      /* 🔴 (2026-09-05) 이름 칸이 «아이디 그 자체» 인 행이 실재한다 — D1 실측 student_points
+         94행 중 **18행**(`jeong`·`lee`·`kang`·`Lee`…). 카페24에 이름이 없는 계정은 명부에
+         아이디로 찍히기 때문이다. ⟹ user_id 를 뺐어도 **그 이름으로 아이디가 그대로 나간다.** */
+      const showName = (r: any) => {
+        const nm = String(r.name || '').trim();
+        return (nm && nm !== String(r.user_id || '')) ? nm : null;
+      };
+      const top = rows.slice(0, 10).map((r, i) => ({ rank: i + 1, name: showName(r), correct: r.correct_count, reviews: r.review_count, me: same(r.user_id) }));
       let myRank = null, myCorrect = 0;
       const idx = rows.findIndex(r => same(r.user_id));
       if (idx >= 0) { myRank = idx + 1; myCorrect = rows[idx].correct_count; }

@@ -106,6 +106,23 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
     check(`[${label}] 이름이 없을 때 아이디로 폴백하지 않는다`,
       !!blk && !/COALESCE\s*\([^)]*student_name[^)]*user_id/i.test(body),
       'COALESCE(student_name, user_id) 는 «이름 자리에» 아이디를 넣는다');
+    /* 🔴 2026-09-05 D1 실측 — student_points 94행 중 **18행**의 student_name 이 아이디 그 자체다
+       (`jeong`·`lee`·`kang`·`Lee`…). 카페24에 이름이 없는 계정은 명부에 아이디로 찍힌다.
+       ⟹ 위 두 검사를 통과해도 «이름» 칸으로 아이디가 그대로 나간다. 이름을 내보내기 «전»
+          그 값이 아이디와 같은지 견주는 코드가 있어야 한다. */
+    check(`[${label}] 이름이 아이디와 같으면 «이름 없음» 으로 준다`,
+      !!blk && /!==\s*(?:uidStr|String\(r\.user_id)/.test(body),
+      'user_id 를 빼도 student_name 이 아이디면 그대로 샌다 (실측 18행)');
+    /* ⚠️ 대소문자만 다른 «별개 행» 이 실재한다(Kim/kim·Lee/lee) — 무시하면 남의 줄에
+       「(나)」가 붙고 my_rank 에 남의 숫자가 실린다. 로그인 네 곳도 「정확일치 먼저」다. */
+    check(`[${label}] «(나)» 판정이 대소문자를 무시하지 않는다`,
+      !!blk && !/toLowerCase\(\)\s*===\s*\w+\.toLowerCase\(\)/.test(body),
+      'Kim/kim·Lee/lee 는 별개 계정이다');
+    /* 게스트가 위를 차지하면 진짜 학생의 동기 장치가 죽는다 (맛보기를 열면 유입이 는다).
+       ⚠️ 패턴은 `guest%` — 미로그인 uid 기본값이 밑줄 없는 `guest` 라 `guest_%` 는 샌다. */
+    check(`[${label}] 게스트를 순위에서 뺀다`,
+      !!blk && /NOT LIKE 'guest%'/i.test(body),
+      '실측: student_points 94행 중 4행 · vocab_review_log 105행이 게스트');
   }
   const c = rd(join(PUB, 'js', 'idx-daily-checkin.js'));
   check('화면이 user_id 대신 me 로 «(나)» 를 표시한다',
@@ -115,11 +132,6 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
   check('단어왕 화면이 user_id 를 그리지 않는다',
     !/row\.user_id/.test(v) && /row\.name \|\|/.test(v),
     '이름이 없을 때 화면이 아이디로 메우면 서버에서 막은 것이 도로 샌다');
-  /* 게스트가 TOP 10 을 차지하면 진짜 학생의 동기 장치가 죽는다 (맛보기를 열면 유입이 는다) */
-  const vb = handlerBlock(games, `path === '/api/vocab/leaderboard'`);
-  check('주간 단어왕이 게스트를 순위에서 뺀다',
-    !!vb && /NOT LIKE 'guest%'/i.test(vb),
-    '영작 랭킹·게임 분석도 같은 방식으로 게스트를 뺀다');
 }
 
 console.log('\n[ D. 포인트가 실제로 찍히는 경로는 소유자 판정을 거친다 ]');
