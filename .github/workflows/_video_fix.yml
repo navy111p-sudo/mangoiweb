@@ -130,7 +130,10 @@ jobs:
           print(f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                 f"volume=eval=frame:volume='{e}',atrim=0:{T},asetpts=N/SR/TB[m];"
                 f"[0:a][m]amix=inputs=2:duration=first:normalize=0[x];"
-                f"[x]alimiter=limit=0.95:attack=5:release=60:level=disabled[a]")
+                # ⛔ alimiter 를 쓰지 말 것 — 최대음량이 -0.4dB 라 클리핑이 없는데,
+                #    리미터가 순간 반응하면 그 자리에 전대역 «틱» 을 만든다(25.2초에서 실측).
+                #    대신 고정 배율로 여유를 둔다 — 결정론이라 그런 것이 생기지 않는다.
+                f"[x]volume=0.90[a]")
           PY
           ffmpeg -v error -y -i narration_full.wav -stream_loop -1 -i music.m4a \
             -filter_complex_script mix.txt -map '[a]' -c:a pcm_s16le mixed.wav
@@ -160,6 +163,32 @@ jobs:
             echo "── $f"
             ffmpeg -hide_banner -nostats -i "$f" -af volumedetect -f null - 2>&1 | grep -E "mean_volume|max_volume" | sed 's/^.*] /    /' || true
           done
+          echo "── 0.25초 창 최대음량 (앞뒤보다 6dB 넘게 튀면 «틱» 후보)"
+          python3 - <<'PY' > scan.sh
+          for i in range(0, 148):
+              t = i * 0.25
+              print(f'printf "%6.2f " {t}; ffmpeg -hide_banner -nostats -ss {t} -t 0.25 '
+                    f'-i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 '
+                    f'| grep -o "max_volume: [-0-9.]* dB" || echo "?"')
+          PY
+          bash scan.sh > .audit/out/scan.txt 2>/dev/null || true
+          python3 - <<'PY'
+          import re
+          rows=[]
+          for ln in open('.audit/out/scan.txt'):
+              m=re.match(r'\s*([0-9.]+)\s+max_volume:\s*(-?[0-9.]+)', ln)
+              if m: rows.append((float(m.group(1)), float(m.group(2))))
+          print(f'  창 {len(rows)}개')
+          spikes=[]
+          for i in range(1, len(rows)-1):
+              t,v = rows[i]; prev=rows[i-1][1]; nxt=rows[i+1][1]
+              if v - max(prev, nxt) >= 6: spikes.append((t, v, prev, nxt))
+          if spikes:
+              print('  ⚠ 튀는 자리:')
+              for t,v,p,n in spikes: print(f'    t={t:6.2f}s  {v:7.2f} dB  (앞 {p:.1f} / 뒤 {n:.1f})')
+          else:
+              print('  ✅ 앞뒤보다 6dB 넘게 튀는 창이 없다')
+          PY
           # 25 MiB 한도 — 넘으면 배포가 그 자리에서 깨진다
           python3 -c "
           import os,sys
