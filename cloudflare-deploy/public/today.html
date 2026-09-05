@@ -109,6 +109,19 @@
                 background:rgba(255,255,255,.08); color:var(--text); }
   .err { color:#fca5a5; }
   [hidden] { display:none !important; }
+  /* 🎬 (2026-09-05) 처음 온 사람에게만 뜨는 안내 영상 한 줄.
+     ⛔ 여기서 영상을 «틀지» 않는다 — 24.4MB 다. 누르면 /promo.html 이 열리고 거기서 받는다.
+     ⛔ display:flex 로 감싸지 말 것 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+  .intro { display:block; background:rgba(96,165,250,.10); border:1px solid rgba(96,165,250,.38);
+           border-radius:14px; padding:12px 14px; margin-bottom:12px; position:relative; }
+  .intro a { display:block; color:var(--text); text-decoration:none; padding-right:44px; }
+  .intro .t { font-weight:900; font-size:15px; line-height:1.35; color:var(--blue); }
+  .intro .s { font-size:12.5px; color:var(--text2); margin-top:3px; line-height:1.5; }
+  /* ⚠️ 닫기도 «손가락으로 누르는» 것이다 — 26px 로 뒀다가 함정 대조에서 지적받았다.
+     보이는 크기는 그대로 두고 «누르는 자리» 만 44px 로 넓힌다. */
+  .intro .x { position:absolute; top:2px; right:2px; width:44px; height:44px; line-height:44px;
+              text-align:center; border:0; border-radius:10px; cursor:pointer; font-size:14px;
+              background:transparent; color:var(--muted); }
   .foot { text-align:center; margin-top:20px; }
   /* ⚠️ «그냥 글자» 로 두지 말 것 — 이 자리가 고치려던 것이 바로 «누를 수 없는 안내 글» 이었다.
      2026-09-05 사장님 «이거 좀더 크게 잘 보이게 해줘» — 밑줄 친 작은 글씨(12px)를
@@ -141,6 +154,13 @@
       <a class="go" href="/" data-ko="🏠 홈에서 로그인" data-en="🏠 Log in from home">🏠 홈에서 로그인</a>
       <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
     </div>
+    <!-- 🎬 로그인 전에도 «이게 뭐 하는 곳인가» 를 볼 수 있어야 한다. 누르기 전엔 영상 0바이트. -->
+    <div class="intro" style="margin:14px 0 0">
+      <a href="/promo.html?v=ai-tools" target="_blank" rel="noopener">
+        <span class="t" data-ko="▶ 망고아이가 어떤 곳인지 3분 35초에 보기" data-en="▶ What MangoI is — in 3 min 35 sec">▶ 망고아이가 어떤 곳인지 3분 35초에 보기</span>
+        <span class="s" data-ko="원장님·선생님께 드리는 안내예요. 부모님과 함께 보셔도 좋아요." data-en="Made for academy directors and teachers — watch it with a parent.">원장님·선생님께 드리는 안내예요. 부모님과 함께 보셔도 좋아요.</span>
+      </a>
+    </div>
   </div>
 
   <!-- 읽는 중 / 오류 -->
@@ -155,6 +175,9 @@
       <div class="prog"><i id="td-prog"></i></div>
       <div class="prog-t" id="td-prog-t"></div>
     </div>
+
+    <!-- 🎬 처음 온 사람에게만(아직 레벨이 없을 때) 뜬다. 닫으면 다시 안 뜬다. -->
+    <div class="intro" id="td-intro" hidden></div>
 
     <div class="h" id="td-h-steps"></div>
     <div id="td-steps"></div>
@@ -180,6 +203,6 @@
   </div>
 </div>
 
-<script defer src="/js/today-page.js?v=2"></script>
+<script defer src="/js/today-page.js?v=3"></script>
 </body>
 </html>

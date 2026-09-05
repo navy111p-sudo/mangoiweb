@@ -9,6 +9,27 @@
         if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
+          /* 🎬 (2026-09-05 사장님 지시) 안내 영상 — «처음 들어온 사람이 들어보고 이해하게».
+             ⛔ 여기서 영상을 «틀지» 않는다. 24.4MB 라 카드를 여는 것만으로 받게 하면
+                볼 생각이 없는 사람에게도 내려간다(adm-promo-setup.js 가 같은 판단을 해 뒀다).
+                포스터 그림(26KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
+             ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 학원 원장·강사). 그래서 카드 글도
+                그렇게 적는다 — 학생이 눌렀다가 «내 이야기가 아니네» 로 끝나지 않게. */
+          {ic:'🎬', t:'▶ 안내 영상 — 3분 35초로 보기', lead:true,
+           d:'<img src="/img/promo/ai-tools-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
+             + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 35초에 담았습니다. '
+             + '원장님·선생님께 드리는 안내라, 학생은 <b>부모님·선생님과 함께</b> 보시면 좋습니다.',
+           p:['왜 만들었나 — 단어 하나를 제 것으로 만들려면 8~10번은 만나야 합니다',
+              '어떻게 쓰나 — 정규수업을 바꾸지 않고 수업 전 10분·수업 후 10분을 붙입니다',
+              '효과 — 주 100분이던 노출이 매일로 바뀝니다'],
+           /* ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 «못 열고 null 만» 돌려준다(예외도 안 난다).
+              ⛔ 기능 문자열에 'noopener' 를 주면 표준상 반환이 늘 null 이라 «막혔다» 판정이 항상 참이 된다
+                 → 빼고 연 뒤 opener 를 끊는다(CLAUDE.md 2장 «window.open 이 안 열림»). */
+           cta:{l:'▶ 영상 보기 (3분 35초)', go:function(){
+             var u = '/promo.html?v=ai-tools', w = null;
+             try { w = window.open(u, '_blank'); } catch (e) {}
+             if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
+           }}},
           {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true, voice:'/audio/teacher-ai-voice.mp3',
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
            p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 다른 대부분의 화상외국어 업체들과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서를 생성하고, 배운 내용에 맞춰 듣기·말하기·쓰기 등 10문항 복습 퀴즈를 바로 진행','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
