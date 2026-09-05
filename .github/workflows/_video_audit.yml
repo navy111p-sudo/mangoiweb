@@ -46,9 +46,9 @@ jobs:
           probe(){   # probe <이름> <파일>
             say ""; say "── $1  ($2)"
             ffprobe -v error -show_entries format=duration:stream=codec_name,sample_rate,channels \
-                    -of default=nw=1 "$2" 2>&1 | sed 's/^/    /' | tee -a $R
-            ffmpeg -v error -i "$2" -af volumedetect -f null - 2>&1 \
-              | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R
+                    -of default=nw=1 "$2" 2>&1 | sed 's/^/    /' | tee -a $R || true
+            ffmpeg -hide_banner -nostats -i "$2" -af volumedetect -f null - 2>&1 \
+              | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R || true
           }
 
           say "════ 재료 ════"
@@ -65,16 +65,16 @@ jobs:
           say "════ 무음 구간 바닥 소리 (복제가 잡음을 베꼈으면 여기가 안 조용하다) ════"
           for n in "샘플:.audit/sample.mp3" "나레이션t4:.video-short/aud/t4.wav"; do
             f="${n#*:}"; say ""; say "── ${n%%:*}"
-            ffmpeg -v error -i "$f" -af "silencedetect=noise=-45dB:d=0.25" -f null - 2>&1 \
-              | grep -E "silence_(start|end)" | head -12 | sed 's/^.*] /    /' | tee -a $R
+            ffmpeg -hide_banner -nostats -i "$f" -af "silencedetect=noise=-45dB:d=0.25" -f null - 2>&1 \
+              | grep -E "silence_(start|end)" | head -12 | sed 's/^.*] /    /' | tee -a $R || true
           done
 
           # 🔎 장면 경계 — 지금 파일에서 그 자리 0.3초만 떼어 잰다
           say ""
           say "════ 장면 경계 부근 0.3초 (딸깍·틈이 있으면 여기서 보인다) ════"
           for t in 5.03 9.66 15.11 21.47 25.92 30.57; do
-            v=$(ffmpeg -v error -ss $t -t 0.3 -i cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4 \
-                 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //')
+            v=$(ffmpeg -hide_banner -nostats -ss $t -t 0.3 -i cloudflare-deploy/public/library/agency/ai-tools-short-kr.mp4 \
+                 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //' || true)
             say "    t=${t}s   $v"
           done
 
@@ -197,12 +197,12 @@ jobs:
           R=.audit/out/report.txt
           say(){ echo "$@" | tee -a $R; }
           say ""; say "════ 새로 만든 짧은 판 ════"
-          ffmpeg -v error -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 \
-            | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R
+          ffmpeg -hide_banner -nostats -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 \
+            | grep -E "mean_volume|max_volume|histogram_0db" | sed 's/^.*] /    /' | tee -a $R || true
           say ""
           say "════ 같은 장면 경계 — 새 파일 ════"
           for t in 5.03 9.66 15.11 21.47 25.92 30.57; do
-            v=$(ffmpeg -v error -ss $t -t 0.3 -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //')
+            v=$(ffmpeg -hide_banner -nostats -ss $t -t 0.3 -i .video-short/mangoi-ai-short.mp4 -af volumedetect -f null - 2>&1 | grep max_volume | sed 's/^.*] //' || true)
             say "    t=${t}s   $v"
           done
           ffmpeg -v error -y -i .video-short/mangoi-ai-short.mp4 -lavfi "showspectrumpic=s=1400x520:legend=1:gain=3" .audit/out/spec_new.png
