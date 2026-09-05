@@ -15,9 +15,9 @@
                 포스터 그림(26KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
              ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 학원 원장·강사). 그래서 카드 글도
                 그렇게 적는다 — 학생이 눌렀다가 «내 이야기가 아니네» 로 끝나지 않게. */
-          {ic:'🎬', t:'▶ 안내 영상 — 3분 35초로 보기', lead:true,
+          {ic:'🎬', t:'▶ 안내 영상 — 3분 48초로 보기', lead:true,
            d:'<img src="/img/promo/ai-tools-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
-             + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 35초에 담았습니다. '
+             + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 48초에 담았습니다. '
              + '원장님·선생님께 드리는 안내라, 학생은 <b>부모님·선생님과 함께</b> 보시면 좋습니다.',
            p:['왜 만들었나 — 단어 하나를 제 것으로 만들려면 8~10번은 만나야 합니다',
               '어떻게 쓰나 — 정규수업을 바꾸지 않고 수업 전 10분·수업 후 10분을 붙입니다',
@@ -25,7 +25,7 @@
            /* ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 «못 열고 null 만» 돌려준다(예외도 안 난다).
               ⛔ 기능 문자열에 'noopener' 를 주면 표준상 반환이 늘 null 이라 «막혔다» 판정이 항상 참이 된다
                  → 빼고 연 뒤 opener 를 끊는다(CLAUDE.md 2장 «window.open 이 안 열림»). */
-           cta:{l:'▶ 영상 보기 (3분 35초)', go:function(){
+           cta:{l:'▶ 영상 보기 (3분 48초)', go:function(){
              var u = '/promo.html?v=ai-tools', w = null;
              try { w = window.open(u, '_blank'); } catch (e) {}
              if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
