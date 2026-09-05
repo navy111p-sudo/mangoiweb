@@ -1,0 +1,78 @@
+# 임시 워크플로 — 성우 나레이션으로 안내 동영상 합성. main 에 올리지 않는다.
+# 왜 러너에서 하나: 작업 컨테이너의 ffmpeg 은 --disable-everything 빌드라 mp3 조차 못 연다.
+name: video-build
+on: { workflow_dispatch: {}, push: { branches: [video5] } }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg 설치
+        # ⚠️ ubuntu-latest 에 ffmpeg 은 «없다». 그리고 `ffmpeg -version | head` 로 확인하면
+        #    파이프 종료코드가 head 의 것(0)이라 «없어도 통과»한다 — 실제로 밟았다.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          command -v ffmpeg && command -v ffprobe
+      - name: 시그널·엔딩 음악 만들기
+        run: cd .video && bash music.sh
+      - name: 장면 경계 찾기 (무음 스냅)
+        run: cd .video && python3 split.py narration.mp3
+      - name: 합성
+        run: |
+          set -euo pipefail
+          cd .video
+          mkdir -p seg
+          : > list.txt
+          python3 - <<'PY' > cmds.sh
+          import json, wave
+          cuts = json.load(open('cuts.json'))
+          N = len(cuts)
+
+          def clip(name, audio, slide):
+              # 화면 길이는 «오디오 실제 길이» 를 재서 맞춘다
+              print(f'D=$(python3 -c "import wave;w=wave.open(\'{audio}\');print(w.getnframes()/w.getframerate())")')
+              print(f'FR=$(awk -v a="$D" \'BEGIN{{printf "%d", (a*30<1?1:a*30)}}\')')
+              print(f'ffmpeg -v error -y -loop 1 -i {slide} -t "$D" '
+                    f'-vf "scale=3840:-2,zoompan=z=\'min(zoom+0.00035,1.06)\':d=$FR:'
+                    f'x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':s=1920x1080:fps=30,format=yuv420p" '
+                    f'-c:v libx264 -preset medium -crf 20 -r 30 seg/{name}.v.mp4')
+              print(f'ffmpeg -v error -y -i seg/{name}.v.mp4 -i {audio} -c:v copy -c:a aac -b:a 192k -shortest seg/{name}.mp4')
+              print(f'echo "file \'seg/{name}.mp4\'" >> list.txt')
+
+          # ── s00 제목 화면 — 나레이션 없이 시그널 음악만 ──────────────────
+          print('ffmpeg -v error -y -i intro.wav -ar 48000 -ac 2 seg/s00.a.wav')
+          clip('s00', 'seg/s00.a.wav', 'slides/s00.jpg')
+
+          # ── s01~s18 나레이션 ────────────────────────────────────────────
+          for c in cuts:
+              i, st, du = c['i'], c['start'], c['dur']
+              f = f"s{i:02d}"
+              print(f'ffmpeg -v error -y -ss {st} -t {du} -i narration.mp3 -ar 48000 -ac 2 seg/{f}.n.wav')
+              if i == N:
+                  # 마지막 장면 뒤에 엔딩 음악을 이어 붙인다
+                  print(f'ffmpeg -v error -y -i seg/{f}.n.wav -i outro.wav '
+                        f'-filter_complex "[0][1]concat=n=2:v=0:a=1" -ar 48000 -ac 2 seg/{f}.a.wav')
+              else:
+                  print(f'mv seg/{f}.n.wav seg/{f}.a.wav')
+              clip(f, f'seg/{f}.a.wav', f'slides/{f}.jpg')
+          PY
+          bash cmds.sh
+          ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy mangoi-ai-guide.mp4
+          python3 -c "
+          import subprocess
+          d=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','mangoi-ai-guide.mp4'],capture_output=True,text=True).stdout.strip()
+          m,s=divmod(float(d),60); print(f'>>> 완성: {int(m)}분 {s:.1f}초')
+          "
+          ls -la mangoi-ai-guide.mp4
+      - name: 결과 커밋
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .video/mangoi-ai-guide.mp4 .video/cuts.json
+          git commit -m "video: 성우 나레이션으로 합성 [skip ci]"
+          git push origin HEAD:video5
