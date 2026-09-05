@@ -1,0 +1,77 @@
+# 임시 — «문장 끝 소리 덩어리» 가 어디서 오나. 영상 인코딩 없이 소리만 훑는다(빠르다).
+name: audio-probe
+on: { workflow_dispatch: {}, push: { branches: [video9] } }
+permissions: { contents: write }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: 원본 나레이션 내려받기
+        run: |
+          set -euo pipefail
+          mkdir -p .probe/raw
+          python3 - <<'PY' > g.sh
+          import json
+          for x in json.load(open('.video-short/narration.json')):
+              print(f"curl -fsSL -o .probe/raw/{x['f']}.wav '{x['url']}'")
+          PY
+          bash g.sh && ls -la .probe/raw
+      - name: 사슬을 조각내어 각각 만든다
+        run: |
+          set -euo pipefail
+          mkdir -p .probe/out
+          mk(){ # mk <이름> <필터>
+            for f in .probe/raw/*.wav; do b=$(basename "$f" .wav)
+              mkdir -p ".probe/$1"
+              ffmpeg -v error -y -i "$f" ${2:+-af "$2"} -ar 48000 -ac 2 ".probe/$1/$b.wav"
+            done; }
+          mk raw2 ""
+          mk dn   "highpass=f=70,afftdn=nr=15:nf=-40:tn=1"
+          mk dnds "highpass=f=70,afftdn=nr=15:nf=-40:tn=1,deesser=i=0.35,equalizer=f=7000:width_type=q:w=1.2:g=-2"
+          mk full "highpass=f=70,afftdn=nr=15:nf=-40:tn=1,deesser=i=0.35,equalizer=f=7000:width_type=q:w=1.2:g=-2,loudnorm=I=-16:TP=-1.5:LRA=11"
+      - name: 0.25초 창으로 훑어 «튀는 자리» 를 찾는다
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > scan.py
+          import subprocess, re, os, json, sys
+          stages = ['raw2', 'dn', 'dnds', 'full']
+          files = sorted(os.listdir('.probe/raw'))
+          out = {}
+          for st in stages:
+              out[st] = {}
+              for fn in files:
+                  p = f'.probe/{st}/{fn}'
+                  d = float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',p],
+                                           capture_output=True,text=True).stdout.strip())
+                  vals=[]
+                  t=0.0
+                  while t < d:
+                      r = subprocess.run(['ffmpeg','-hide_banner','-nostats','-ss',f'{t}','-t','0.25','-i',p,
+                                          '-af','volumedetect','-f','null','-'],capture_output=True,text=True)
+                      m = re.search(r'max_volume:\s*(-?[0-9.]+)', r.stderr)
+                      vals.append((round(t,2), float(m.group(1)) if m else -99.0))
+                      t += 0.25
+                  out[st][fn] = vals
+          json.dump(out, open('.probe/out/scan.json','w'))
+          # 튀는 자리 = 앞뒤보다 6dB 이상
+          for st in stages:
+              print(f'\n═══ {st} ═══')
+              for fn, vals in out[st].items():
+                  sp=[(t,v,vals[i-1][1],vals[i+1][1]) for i,(t,v) in enumerate(vals)
+                      if 0<i<len(vals)-1 and v-max(vals[i-1][1],vals[i+1][1])>=6]
+                  if sp:
+                      for t,v,p,n in sp: print(f'  {fn}  t={t:5.2f}s  {v:7.2f} dB  (앞 {p:.1f} / 뒤 {n:.1f})')
+                  else:
+                      print(f'  {fn}  ✅ 없음')
+          PY
+          python3 scan.py | tee .probe/out/spikes.txt
+      - name: 결과 커밋
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f .probe/out
+          git commit -m "probe: 문장 끝 소리 덩어리 출처 [skip ci]"
+          git push origin HEAD:video9
