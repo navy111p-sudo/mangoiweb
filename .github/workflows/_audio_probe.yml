@@ -34,7 +34,7 @@ jobs:
       - name: 0.25초 창으로 훑어 «튀는 자리» 를 찾는다
         run: |
           set -euo pipefail
-          python3 - <<'PY' > scan.py
+          cat > scan.py <<'PY'
           import subprocess, re, os, json, sys
           stages = ['raw2', 'dn', 'dnds', 'full']
           files = sorted(os.listdir('.probe/raw'))
