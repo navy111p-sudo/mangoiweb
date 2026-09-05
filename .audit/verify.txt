@@ -1,11 +1,10 @@
 
-── .video-short/mangoi-ai-short.mp4  창 146개
-   ⚠ t=  8.50s   -17.60 dB  (이웃 -33.8)
+── .video-short/mangoi-ai-short.mp4  창 144개
+   ⚠ t=   8.50s   -19.01 dB  (이웃 -38.1)
+   ⚠ 1건
 
-
-── .video/mangoi-ai-guide.mp4  창 912개
-   ⚠ t=111.50s   -54.30 dB  (이웃 -68.0)
-   ⚠ t=163.00s    -3.60 dB  (이웃 -19.2)
-
-   .video/mangoi-ai-guide.mp4  24.94 MiB (여유 62 KiB)
+── .video/mangoi-ai-guide.mp4  창 908개
+   ⚠ t=  35.50s    -5.31 dB  (이웃 -61.1)
+   ⚠ 1건
+   .video/mangoi-ai-guide.mp4  24.93 MiB (여유 73 KiB)
    .video-short/mangoi-ai-short.mp4  5.61 MiB (여유 19851 KiB)

@@ -7,7 +7,7 @@
 ✂ .video-short/raw/t7.wav       5.000s →  4.970s   덩어리 4.97~4.99s (앞 조용 0.76s, 크기 -3.4dB)
   .video/raw/s01.wav            5.000s →  5.000s   그대로
 ✂ .video/raw/s02.wav           13.380s → 13.340s   덩어리 13.34~13.37s (앞 조용 0.29s, 크기 -9.1dB)
-  .video/raw/s03.wav           10.680s → 10.680s   그대로
+✂ .video/raw/s03.wav           10.680s → 10.280s   덩어리 10.28~10.66s (앞 조용 0.04s, 크기 -6.1dB)
   .video/raw/s04.wav           16.500s → 16.500s   그대로
 ✂ .video/raw/s05.wav           17.280s → 16.890s   덩어리 16.89~17.28s (앞 조용 0.23s, 크기 -6.4dB)
   .video/raw/s06.wav            5.000s →  5.000s   그대로
