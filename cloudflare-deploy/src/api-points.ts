@@ -1106,8 +1106,14 @@ Return STRICT JSON only, in BOTH Korean and English:
       await ensurePointTables(env);
       const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 50);
       const meUid = (url.searchParams.get('uid') || '').trim();
+      /* ⛔ 게스트(guest*)는 순위에서 뺀다 — 맛보기로 들어온 익명 이용자가 위를 차지하면
+         진짜 학생의 동기 장치가 죽는다. 2026-09-05 D1 실측: student_points 94행 중 4행이 게스트.
+         ⚠️ 패턴은 `guest%` 다 — 미로그인 uid 기본값이 밑줄 없는 `guest` 라(auth-admin.ts)
+            `guest_%` 로 좁히면 그것이 그대로 샌다. */
       const rs = await env.DB.prepare(
-        `SELECT user_id, student_name, lifetime_earned FROM student_points ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
+        `SELECT user_id, student_name, lifetime_earned FROM student_points
+          WHERE LOWER(COALESCE(user_id,'')) NOT LIKE 'guest%'
+          ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
       ).bind(limit).all();
       /* 🔴 (2026-08-28) user_id 를 더는 내려주지 않는다.
          [왜] 학생 로그인은 «비밀번호가 설정된 경우만» 검사하는데(api-students.ts) 실측상
@@ -1115,13 +1121,27 @@ Return STRICT JSON only, in BOTH Korean and English:
               그런데 이 공개 엔드포인트가 아이디를 이름과 함께 최대 50개 내주고 있었다
               (무인증 GET 실측으로 확인). 그 아이디로 판단력 기록 조회까지 이어졌다.
          [본인 표시] 「(나)」 하이라이트에만 쓰이던 값이라 서버가 판정해 `me` 로만 준다 —
-              같은 저장소의 단어왕 리더보드(/api/vocab/leaderboard)가 이미 그 방식이다.
+              단어왕 리더보드(/api/vocab/leaderboard)도 같은 방식이다 —
+              ⚠️ 다만 그것은 2026-09-05 에야 고쳤다. 이 주석은 그전까지 «이미 그 방식» 이라고
+                 적혀 있었지만 사실이 아니었고, 그 문장 때문에 아무도 다시 안 봤다.
          ⛔ user_id 를 되살리지 말 것. 이름이 없을 때 아이디로 폴백하지도 말 것. */
-      const rows = ((rs.results || []) as any[]).map((r) => ({
-        student_name: r.student_name || null,
-        lifetime_earned: Number(r.lifetime_earned) || 0,
-        me: !!meUid && String(r.user_id || '').toLowerCase() === meUid.toLowerCase(),
-      }));
+      /* 🔴 (2026-09-05) 이름 칸이 «아이디 그 자체» 인 행이 실재한다 — D1 실측 94행 중 **18행**
+         (`jeong`·`lee`·`kang`·`Lee`·`lemuel`…). 카페24에 이름이 없는 계정은 명부에 아이디로
+         찍히기 때문이다(CLAUDE.md 2장). ⟹ user_id 를 응답에서 뺐어도 **그 이름으로 아이디가
+         그대로 나간다.** 이름이 아이디와 같으면 «이름 없음» 으로 준다.
+         ⚠️ 대소문자를 무시해서 견주지 말 것 — `Lee`/`lee` 는 별개 계정이라 한쪽만 가려지면
+            나머지 한쪽이 그대로 샌다. 여기서는 «같은 글자면 아이디» 이므로 정확일치가 맞다.
+         ⚠️ 「(나)」 판정도 정확일치다 — 대소문자만 다른 별개 행이 실재해 무시하면 남의 줄에
+            「(나)」가 붙는다(로그인·lookup·set-password 네 곳과 같은 규칙). */
+      const rows = ((rs.results || []) as any[]).map((r) => {
+        const uidStr = String(r.user_id || '');
+        const nm = String(r.student_name || '').trim();
+        return {
+          student_name: (nm && nm !== uidStr) ? nm : null,
+          lifetime_earned: Number(r.lifetime_earned) || 0,
+          me: !!meUid && uidStr === meUid,
+        };
+      });
       return json({ ok: true, rows });
     }
 

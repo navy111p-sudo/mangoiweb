@@ -103,10 +103,12 @@
   .wk-sum { margin-top:10px; }
   .legend { color:var(--muted); font-size:12px; margin-top:8px; }
   .note { color:var(--text2); font-size:13px; }
-  .login .go { display:inline-block; margin:6px 8px 0 0; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:900;
+  .login .go, .sample .go { display:inline-block; margin:6px 8px 0 0; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:900;
                background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; }
-  .login .alt { display:inline-block; margin-top:6px; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:800;
+  .login .alt, .sample .alt { display:inline-block; margin-top:6px; padding:10px 16px; border-radius:12px; text-decoration:none; font-weight:800;
                 background:rgba(255,255,255,.08); color:var(--text); }
+  /* 🍯 맛보기 배너 — 버튼은 로그인 카드와 같은 모양을 쓴다(.login 규칙을 함께 건다) */
+  .sample { border-color:rgba(250,204,21,.45); background:rgba(250,204,21,.07); }
   .err { color:#fca5a5; }
   [hidden] { display:none !important; }
   /* 🎬 (2026-09-05) 처음 온 사람에게만 뜨는 안내 영상 한 줄.
@@ -155,12 +157,12 @@
       <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
     </div>
     <!-- 🎬 로그인 전에도 «이게 뭐 하는 곳인가» 를 볼 수 있어야 한다. 누르기 전엔 영상 0바이트.
-         📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 36초 판» 을 가리킨다.
-            ⛔ 3분 47초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이라
+         📌 (2026-09-05) 학생 화면이므로 «학생·학부모용 37초 판» 을 가리킨다.
+            ⛔ 3분 48초 판(?v=ai-tools)으로 되돌리지 말 것 — 그 대본은 선생님께 하는 말이라
                아이가 듣다가 «내 이야기가 아니네» 로 나간다. -->
     <div class="intro" style="margin:14px 0 0">
       <a href="/promo.html?v=ai-tools-short" target="_blank" rel="noopener">
-        <span class="t" data-ko="▶ 망고아이 AI 학습, 36초에 보기" data-en="▶ MangoI AI learning — in 36 seconds">▶ 망고아이 AI 학습, 36초에 보기</span>
+        <span class="t" data-ko="▶ 망고아이 AI 학습, 37초에 보기" data-en="▶ MangoI AI learning — in 37 seconds">▶ 망고아이 AI 학습, 37초에 보기</span>
         <span class="s" data-ko="무엇을 언제 하면 되는지 한 번에 알 수 있어요." data-en="See what to do and when — all in one go.">무엇을 언제 하면 되는지 한 번에 알 수 있어요.</span>
       </a>
     </div>
@@ -171,6 +173,16 @@
 
   <!-- 본문 -->
   <div id="td-main" hidden>
+    <!-- 🍯 맛보기 배너 — 로그인 전에는 이 화면이 «보기용» 이라고 화면이 직접 말한다.
+         ⛔ 감추지 말 것: 말 안 하면 이 계획이 «내 계획» 인 줄 알고 그대로 따라 합니다. -->
+    <div class="card sample" id="td-sample" hidden>
+      <p class="hello" data-ko="🍯 맛보기 화면이에요" data-en="🍯 This is a sample">🍯 맛보기 화면이에요</p>
+      <p class="sub" data-ko="지금 보이는 계획은 «어떤 화면인지» 보여드리는 예시입니다. 로그인하면 내 레벨과 내 수업 시간에 맞춰 바뀌어요." data-en="What you see is an example of how the plan looks. Log in and it changes to your level and your class times.">지금 보이는 계획은 «어떤 화면인지» 보여드리는 예시입니다. 로그인하면 내 레벨과 내 수업 시간에 맞춰 바뀌어요.</p>
+      <div class="chips">
+        <a class="go" href="/" data-ko="🏠 로그인하고 내 계획 보기" data-en="🏠 Log in for my own plan">🏠 로그인하고 내 계획 보기</a>
+        <a class="alt" href="/signup.html" data-ko="처음이에요 — 가입하기" data-en="New here — sign up">처음이에요 — 가입하기</a>
+      </div>
+    </div>
     <div class="card">
       <p class="hello" id="td-hello"></p>
       <p class="sub" id="td-sub"></p>
@@ -206,6 +218,6 @@
   </div>
 </div>
 
-<script defer src="/js/today-page.js?v=6"></script>
+<script defer src="/js/today-page.js?v=7"></script>
 </body>
 </html>
