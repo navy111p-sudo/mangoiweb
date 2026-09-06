@@ -111,6 +111,28 @@ check('연결해도 이메일이 없으면 그 자리에서 말해 준다 (연�
   /if \(!j\.reachable\)/.test(tct) && /자동 알림은 아직 못 갑니다/.test(tct));
 check('후보도 낱말 경계로만 (Anna ⊄ HANNAH)', /wordsOf\(a\)\.indexOf\(target\) >= 0/.test(api));
 
+console.log('\n[ ⑦ 📵 운영자 요약 문자는 기본 OFF (2026-09-06 사장님 지시) ]');
+/* [왜] 수업 시간대마다 「🚨 결석 위험 1건 · … (+15분 미입장)」 문자가 사장님 폰으로 계속 왔다.
+   [무엇을 껐나] «운영자에게 문자로 알리는 것» 하나뿐이다 — 감지·기록·강사 알림은 그대로다.
+   ⛔ OWNER_ALERT_PHONE 자체를 지우는 것으로 풀면 안 된다: 결제·환불·이상로그인·사이트 장애·
+      방 갈림 감시견이 **같은 번호**를 쓴다. 그래서 이 알림 하나만 KV 스위치로 끈다. */
+const iOwnerGate = sweepCode.indexOf('if (!ownerMode)');
+const iOwnerSend = sweepCode.indexOf('sendPlainSms(env, ownerPhone');
+const iNoShowLog = sweepCode.indexOf('INSERT INTO class_no_show');
+check('스위치가 있고, 명시적으로 켤 때만 켜진다 (없으면 OFF)',
+  /get\('absent_alert_owner_send'\)\) === 'on'/.test(sweepCode));
+check('KV 조회가 실패해도 «안 보내는» 쪽으로 떨어진다 (let ownerMode = false)',
+  /let ownerMode = false;[\s\S]{0,200}?catch \{\}/.test(sweepCode));
+check('꺼져 있으면 운영자 문자에 «닿기 전에» 멈춘다',
+  iOwnerGate >= 0 && iOwnerSend >= 0 && iOwnerGate < iOwnerSend);
+check('멈출 때 조용히 넘어가지 않는다 (사유를 남긴다)',
+  /skipped: 'owner_send_off'/.test(sweepCode));
+check('감지·기록은 그대로다 — class_no_show 기록이 스위치보다 앞이다',
+  iNoShowLog >= 0 && iOwnerGate >= 0 && iNoShowLog < iOwnerGate);
+check('강사 알림은 이 스위치와 무관하다 (강사에겐 여전히 기본 발송)',
+  !/ownerMode[\s\S]{0,400}?(sendEmail\(env as any|sendPlainSms\(env, tc\.phone)/.test(sweepCode));
+check('다시 켜는 방법이 코드에 적혀 있다', /absent_alert_owner_send/.test(sweep) && /배포 없이/.test(sweep));
+
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

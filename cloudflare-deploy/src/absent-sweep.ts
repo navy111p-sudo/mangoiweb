@@ -5,8 +5,11 @@
  * 화상수업에 입장(attendance 기록)하지 않은" 수업을 찾아 문자로 알린다.
  *
  * 안전장치 (기본 = 안전 모드):
- *  - 발송 대상: 운영자(OWNER_ALERT_PHONE)에게 요약 1통. 학부모 직접 발송은
- *    KV(SESSION_STATE) 'absent_alert_parent_send' 값이 'on' 일 때만 (기본 OFF).
+ *  - 발송 대상: 담당 강사(이메일/한국번호 문자)만 항상. **운영자 요약 문자와 학부모 직접 발송은
+ *    둘 다 기본 OFF** 이고 KV(SESSION_STATE) 스위치로만 켠다
+ *    ('absent_alert_owner_send' / 'absent_alert_parent_send' = 'on').
+ *    ⚠️ 운영자 요약은 2026-09-06 사장님 지시로 껐다 — 수업마다 문자가 계속 왔다.
+ *       감지·기록(class_no_show)·강사 알림은 그대로이므로 관리자 › 노쇼 리포트에서 다 보인다.
  *  - 중복 방지: class_no_show 에 room_id(=class-{id}-{YYYYMMDD}, 날짜 포함이라 세션당 유일)
  *    기록이 있으면 스킵 — 클라이언트발 /api/notify/no-show 기록과도 자연히 상호 dedup.
  *  - 폭주 방지: 한 번의 sweep 에서 학부모 문자 최대 5건. 감지 창 = 시작 +10분 ~ +40분
@@ -35,6 +38,7 @@ export interface AbsentSweepResult {
   checked: number;             // 오늘 발생 예약 중 감지 창 안에 있던 수업 수
   alerted: number;             // 이번에 새로 기록/알림한 결석 위험 수
   parent_mode: boolean;        // 학부모 직접 발송 모드였는지
+  owner_mode?: boolean;        // 운영자 요약 문자 모드였는지 (기본 OFF)
   owner_sms?: any;             // 운영자 요약 문자 결과
   details: any[];
   dry?: boolean;
@@ -153,6 +157,20 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   try { parentMode = (await env.SESSION_STATE?.get('absent_alert_parent_send')) === 'on'; } catch {}
   result.parent_mode = parentMode;
 
+  /* 📵 (2026-09-06) 운영자 요약 문자 — 사장님 지시로 **기본 OFF**.
+     [왜] 수업 시간대마다 「🚨 결석 위험 1건 · … (+15분 미입장)」 문자가 사장님 폰으로 계속 왔습니다.
+          예약은 있는데 학생이 늦게 들어오는 흔한 경우까지 전부 잡히므로 하루에 여러 통이 됩니다.
+     ⚠️ **감지·기록·강사 알림은 그대로입니다** — 멈추는 것은 «운영자에게 문자로 알리는 것» 하나뿐이고,
+        결석 위험 자체는 `class_no_show` 에 계속 쌓여 관리자 › 노쇼 리포트에서 그대로 보입니다.
+        (기록까지 끄면 「왜 수업이 성립하지 않았나」가 함께 사라집니다 — 규칙서 2장.)
+     ⚠️ `OWNER_ALERT_PHONE` 자체를 지우면 안 됩니다 — 결제·환불·이상로그인·사이트 장애·방 갈림
+        감시견이 **같은 번호**를 씁니다. 그래서 이 알림 하나만 KV 스위치로 끕니다.
+     ✅ 다시 켜려면 배포 없이 KV(SESSION_STATE) `absent_alert_owner_send` = `on`.
+     ⚠️ KV 조회가 실패하면 «안 보내는» 쪽으로 떨어집니다 — 이 자리에서 원하는 실패 방향입니다. */
+  let ownerMode = false;
+  try { ownerMode = (await env.SESSION_STATE?.get('absent_alert_owner_send')) === 'on'; } catch {}
+  result.owner_mode = ownerMode;
+
   const newlyAbsent: any[] = [];
   for (const c of candidates) {
     // ① 학생이 이미 입장했으면 정상 — attendance 는 /api/attendance/join 이 기록
@@ -257,8 +275,13 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     result.details.push(detail);
   }
 
-  // 운영자 요약 문자 1통 (dry 는 발송 안 함)
+  // 운영자 요약 문자 1통 (dry 는 발송 안 함 · 기본 OFF — 위 ownerMode 참고)
   if (result.alerted > 0 && !dry) {
+    if (!ownerMode) {
+      // ⛔ 조용히 넘기지 않는다 — 「왜 문자가 안 왔나」를 진단(dry run·로그)에서 바로 볼 수 있어야 한다.
+      result.owner_sms = { skipped: 'owner_send_off', hint: "KV absent_alert_owner_send='on' 이면 다시 보냅니다" };
+      return result;
+    }
     try {
       const ownerPhone = env.OWNER_ALERT_PHONE;
       if (ownerPhone) {
