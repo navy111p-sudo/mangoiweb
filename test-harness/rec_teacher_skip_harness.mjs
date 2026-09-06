@@ -265,6 +265,81 @@ console.log('\n════════ ⑦ 스냅샷 사각지대 — 비트레
   chk('탭이 갑자기 닫혔을 때 최악 손실이 15초를 넘지 않는다', worstSec <= 15, `최악 ${worstSec}초`);
 }
 
+console.log('\n════════ ⑧ 그리기 fps 가 실제로 제한되는가 (가드 식을 오려 내 돌린다) ════════');
+{
+  /* [무엇이 낭비였나] draw() 는 requestAnimationFrame 으로 도니 화면 주사율(보통 60fps)로
+     그리는데 captureStream 은 그중 일부만 가져간다 = 그린 것의 대부분을 버린다.
+     ⛔ 이 검사를 «captureStream 인자가 몇인가» 로 쓰지 말 것 — 캡처만 낮추면 그리기는 그대로다.
+        그래서 **가드 식을 소스에서 오려 내 60fps 로 몰아 호출하고 «실제로 그린 횟수»** 를 센다. */
+  const fpsM   = /const REC_FPS\s*=\s*(\d+)/.exec(REC);
+  const frameM = /const FRAME_MS\s*=\s*([^;]+);/.exec(REC);
+  chk('녹화 fps 상수(REC_FPS)가 선언돼 있다', !!fpsM, fpsM && fpsM[1]);
+  /* 🔴 «가드가 도는가» 만 보면 REC_FPS 를 60 으로 되돌려도 이 절이 **전부 통과**한다
+     (함정 대조 실측). 그러면 다음 사람이 «가볍게» 를 되돌려도 초록불이다.
+     지키려는 것은 «가드의 존재» 가 아니라 **«실제로 가볍다»** 이므로 상한을 함께 못 박는다.
+     ⛔ 올릴 거면 필리핀·중국 강사 회선의 업로드를 먼저 재고 이 숫자를 함께 고칠 것. */
+  chk('REC_FPS 가 화면 주사율보다 한참 낮다(«가볍게» 가 되돌려지지 않게)',
+      !!fpsM && Number(fpsM[1]) <= 15, fpsM && `${fpsM[1]}fps ≤ 15`);
+  chk('FRAME_MS 를 REC_FPS 에서 계산한다(두 값이 어긋날 수 없게)',
+      !!frameM && /REC_FPS/.test(frameM[1]), frameM && frameM[1].trim());
+
+  const guardM = /const _now = Date\.now\(\);\s*\n\s*if \(_now - composeDrawAt < ([^)]+)\) \{([\s\S]*?)\n\s*\}\s*\n\s*composeDrawAt = _now;/.exec(REC);
+  chk('draw() 첫머리에 fps 가드가 있다', !!guardM);
+
+  if (fpsM && frameM && guardM) {
+    const REC_FPS = Number(fpsM[1]);
+    const FRAME_MS = 1000 / REC_FPS;
+    const skipBody = guardM[2];
+
+    /* 🔴 문턱 식을 «손으로 다시 적으면» 이 검사는 통째로 헛돈다 — 소스에서 문턱을 0 으로
+       바꿔도(=고치기 전과 같음) 초록불이었다(2026-09-06 변이시험에서 실측).
+       그래서 **오려 낸 식 자체를 평가**한다. 여기에 손으로 적힌 숫자가 없어야 한다. */
+    const condExpr = guardM[1].trim();
+    const cond = new Function('_now', 'composeDrawAt', 'FRAME_MS', 'REC_FPS',
+                              `return _now - composeDrawAt < (${condExpr});`);
+
+    // 가드를 그대로 재현해 60fps 로 1초간 몰아 호출한다
+    let composeDrawAt = 0, composeTickAt = 0, drew = 0, tickUpdates = 0;
+    const step = (nowMs) => {
+      const _now = nowMs;
+      if (cond(_now, composeDrawAt, FRAME_MS, REC_FPS)) {
+        if (/composeTickAt\s*=\s*_now/.test(skipBody)) { composeTickAt = _now; tickUpdates++; }
+        return false;
+      }
+      composeDrawAt = _now; return true;
+    };
+    for (let t = 0; t < 1000; t += 1000 / 60) if (step(Math.round(t))) drew++;
+    chk(`60fps 로 1초를 몰아도 «실제로 그리는» 것은 ${REC_FPS}회 안팎이다`,
+        drew <= REC_FPS + 1 && drew >= REC_FPS - 1, `실제 ${drew}회 (가드 없으면 60회)`);
+    /* 위 검사는 «REC_FPS 를 지키는가» 라 REC_FPS 자체가 60 이면 60회도 통과한다.
+       그래서 «고치기 전(60회)보다 실제로 줄었는가» 를 따로 센다. */
+    chk('그린 횟수가 고치기 전(60회)보다 확실히 줄었다',
+        drew < 20, `실제 ${drew}회 < 20`);
+
+    /* ⚠️ 건너뛸 때 composeTickAt 을 갱신하지 않으면 keepAlive(700ms)가 «rAF 가 멎었다» 로
+       오판해 오히려 두 번 그린다 — 가볍게 하려다 무겁게 만드는 실수다. */
+    chk('건너뛸 때도 composeTickAt 을 갱신한다(keepAlive 오판 방지)',
+        tickUpdates > 0, `갱신 ${tickUpdates}회`);
+
+    /* 🔴 건너뛸 때 rAF 를 다시 걸지 않으면 그 자리에서 그리기가 «영영» 멎는다
+       (가볍게 하려다 녹화를 정지시키는 최악의 실수 — 화면은 멀쩡해 보이고 녹화만 얼어붙는다). */
+    chk('건너뛸 때 rAF 를 다시 건다(그리기가 멎지 않게)',
+        /requestAnimationFrame\(draw\)/.test(skipBody) && /\breturn\b/.test(skipBody));
+
+    /* 백그라운드에서는 keepAlive 가 이 가드에 걸리면 안 된다(걸리면 캔버스가 얼어붙는다). */
+    const keepM = /Date\.now\(\) - composeTickAt > (\d+)/.exec(REC);
+    chk('백그라운드 keepAlive 간격이 FRAME_MS 보다 커서 가드에 안 걸린다',
+        !!keepM && Number(keepM[1]) > FRAME_MS, `keepAlive ${keepM && keepM[1]}ms > frame ${Math.round(FRAME_MS)}ms`);
+
+    /* 그리기와 캡처가 같은 상수여야 «버리는 프레임» 이 다시 생기지 않는다 */
+    chk('captureStream 이 REC_FPS 를 그대로 쓴다(숫자를 다시 적지 않는다)',
+        /captureStream\(REC_FPS\)/.test(REC));
+  }
+
+  chk('합성 캔버스가 alpha:false 다(투명 채널이 필요 없다)',
+      /getContext\('2d',\s*\{\s*alpha:\s*false\s*\}\)/.test(REC));
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`  ${fail === 0 ? '✅' : '❌'} ${fail === 0 ? '전부 통과' : 'FAIL ' + fail + '건'}`);
 process.exit(fail ? 1 : 0);

@@ -22,7 +22,18 @@
   let composeCanvas = null;
   let composeCtx = null;
   let composeRafId = null;
-  let composeTickAt = 0;        // 마지막으로 «실제로 그린» 시각 — rAF 정지 감지용
+  /* 마지막으로 **rAF 가 돈** 시각 — rAF 정지 감지용(keepAlive 가 이 값을 본다).
+     ⚠️ 2026-09-06 부터 «그리기를 건너뛴» 프레임에도 갱신한다 — 이 값의 뜻은 «그렸다» 가
+        아니라 «rAF 가 살아 있다» 이다. 안 갱신하면 keepAlive(700ms)가 «멎었다» 로 오판해
+        오히려 두 번 그린다. «실제로 그린» 시각은 아래 composeDrawAt 이다. */
+  let composeTickAt = 0;
+  let composeDrawAt = 0;        // 목표 fps 제한용 — 마지막으로 «캔버스에 그린» 시각
+  /* 🪶 녹화 fps. 수업 화면은 «교재 + 얼굴» 이라 움직임이 적어 10fps 로 충분하다.
+     해상도를 낮추는 대신 이쪽을 낮춘 이유: 해상도를 내리면 **교재 글자**를 잃는데,
+     fps 는 공간 화질을 한 픽셀도 안 건드리면서 CPU 를 선형으로 줄인다.
+     ⛔ 올릴 거면 필리핀·중국 강사 회선의 업로드부터 재 볼 것. */
+  const REC_FPS = 10;
+  const FRAME_MS = 1000 / REC_FPS;
   let composeKeepAlive = null;  // rAF 가 멎었을 때 대신 그리는 타이머
   // 📉 녹화 정체 감시 — 데이터가 사실상 안 쌓이면 선생님께 눈에 보이게 알린다
   let recTotalBytes = 0, stallBytesMark = 0, stallTimer = null, isStalled = false;
@@ -124,7 +135,9 @@
   let snapCount = 0;       // 이번 녹화에서 올린 스냅샷 수
   let snapInFlight = false;
   const SNAP_FIRST_MS = 9000;    // 첫 스냅샷 — 파트가 생기기 한참 전
-  const SNAP_EVERY_MS = 12000;   // 그 뒤 12초마다 — 첫 파트가 생기기까지 약 35초를 세 번 덮는다
+  const SNAP_EVERY_MS = 12000;   // 그 뒤 12초마다 — 첫 파트가 생기기까지 «47초»(2026-09-06 에
+                                 // 0.9Mbps 로 내려 35 → 47초)를 네 번 덮는다. 정본은 하니스 ⑦절이
+                                 // 비트레이트를 «읽어» 재계산한다 — 여기 숫자는 그 결과를 옮겨 적은 것.
   const SNAP_MAX = 15;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
   //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
@@ -298,7 +311,9 @@
        ⛔ 다시 1080p 로 올릴 거면 강사 쪽 업로드부터 재 보고 올릴 것. */
     composeCanvas.width = 1280;
     composeCanvas.height = 720;
-    composeCtx = composeCanvas.getContext('2d');
+    // 🪶 alpha:false — 이 캔버스는 매 프레임 fillRect 로 전체를 불투명하게 칠하므로
+    //    투명 채널이 필요 없다. 합성 비용이 준다(브라우저가 뒤를 섞지 않아도 된다).
+    composeCtx = composeCanvas.getContext('2d', { alpha: false });
  
     // 레이아웃 상수: 좌측(비디오) 30%, 우측(콘텐츠) 70%
     const VID_W = Math.floor(composeCanvas.width * 0.3);   // 384px (1280 기준)
@@ -465,6 +480,26 @@
     }
  
     function draw() {
+      /* 🪶 (2026-09-05 사장님 지시 «최대한 가볍게») 그리기를 목표 fps 로 제한한다.
+         [무엇이 낭비였나] 이 함수는 requestAnimationFrame 으로 도니 **화면 주사율(보통 60fps)**
+           로 그리는데, 아래 captureStream 은 그중 일부만 가져간다. 즉 그린 것의 3/4 이상을
+           **그리자마자 버리고 있었다.** 그 CPU 는 WebRTC 실시간 영상과 «같은» 것을 나눠 쓴다.
+         [왜 rAF 를 그대로 두나] 아래 2026-08-05 실장애 주석 참고 — 탭이 숨으면 rAF 가 멎어
+           캔버스가 얼어붙고 녹화가 빈 껍데기가 된다. 그래서 구조(rAF + keepAlive)는 건드리지
+           않고 «그릴 차례가 아니면 건너뛰기» 만 넣는다.
+         ⚠️ 건너뛸 때도 composeTickAt 을 갱신해야 한다 — 안 그러면 아래 keepAlive(700ms)가
+            «rAF 가 멎었다» 로 오판해 오히려 두 번 그린다.
+         ℹ️ 백그라운드에서는 keepAlive 가 약 1초에 한 번 부르는데, 그 간격이 FRAME_MS 보다
+            훨씬 크므로 이 가드에 걸리지 않는다(= 예전과 같이 계속 그린다). */
+      const _now = Date.now();
+      if (_now - composeDrawAt < FRAME_MS - 2) {
+        composeTickAt = _now;
+        if (composeRafId) cancelAnimationFrame(composeRafId);
+        composeRafId = requestAnimationFrame(draw);
+        return;
+      }
+      composeDrawAt = _now;
+
       const ctx = composeCtx;
       // 배경
       ctx.fillStyle = '#0f172a';
@@ -547,7 +582,10 @@
         try { draw(); } catch (_) {}
       }
     }, 500);
-    return composeCanvas.captureStream(15);
+    /* 🪶 그리기와 «같은» 값이라 버리는 프레임이 «거의» 없다.
+       ⚠️ «없다» 고 단정하지 말 것 — captureStream 의 캡처 시계는 우리 그리기와 위상이 맞지
+          않아 같은 화면을 두 번 담거나 한 장을 건너뛸 수 있다(이 환경에서는 못 쟀다). */
+    return composeCanvas.captureStream(REC_FPS);
   }
  
   // 트랙 하나를 믹서에 연결 — 이미 연결한 트랙(id 기준)·끝난 트랙은 건너뛴다.
@@ -1143,7 +1181,15 @@
  
     let mime = 'video/webm;codecs=vp8,opus';
     if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
-    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 1_200_000 });
+    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 900_000 });
+    /* 🪶 (2026-09-05) 1.2Mbps → 0.9Mbps. fps 를 15 → 10 으로 낮췄으므로 **프레임당** 비트는
+       오히려 늘어(80kb → 90kb) 정지 화면(교재) 화질은 유지된다. 업로드만 25% 준다.
+       ⚠️ 오디오는 건드리지 않는다(기본값) — 소리는 수업의 핵심이다.
+       ⚠️ 첫 5MiB 파트가 생기기까지가 길어진다 — 영상만 세면 35초 → **47초**(오디오까지 세면
+          실제로는 31초 → 41초). 하니스 ⑦절은 «영상만» 으로 보수적으로 재므로 47초가 정본이다.
+          스냅샷 창(9초 + 12초 × 14 = **177초**까지, SNAP_MAX 15장)이 충분히 덮는다.
+       ⛔ 여기를 더 내릴 거면 SNAP_EVERY_MS 도 함께 보라 — 그 구간이 스냅샷 2회 밑으로 내려가면
+          탭이 일찍 닫힌 수업이 통째로 사라진다(⑦절이 FAIL 낸다). */
  
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
