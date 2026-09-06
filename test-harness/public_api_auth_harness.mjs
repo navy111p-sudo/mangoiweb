@@ -161,9 +161,44 @@ console.log('\n[ C-2. 🍯 판단력 훈련 맛보기 — 게스트에게 열되
   check('C-2 게스트에게만 상한을 건다',
     /jScope === 'guest'/.test(body),
     '로그인한 학생의 동작은 그대로여야 한다');
-  check('C-2 상한 숫자를 이름 붙은 상수로 둔다',
-    /SAMPLE_SCENARIO_CAP/.test(body) && /const SAMPLE_SCENARIO_CAP\s*=\s*\d+/.test(stripComments(pts)),
-    '숫자를 흩어 두면 화면·서버가 어긋난다');
+  /* 🔴 CLAUDE.md 「비용이 나가는 API」 — 판정을 라우트 «안» 에만 두면 하니스가 문자열로만
+     검사하게 되고, 조건을 뒤집어도 그 글자가 남아 통과한다. 실제로 밟았다(2026-09-05):
+     `if (false && n >= CAP)` · `n >= CAP * 1000` · `n > CAP && false` 세 변이가 전부 43/43 통과.
+     ⟹ 판정은 순수 함수(judgment-sample-gate.ts)에 두고, 여기서 **실제로 돌린다.** */
+  check('C-2 라우트가 판정을 «부르기만» 한다(조건을 직접 쓰지 않는다)',
+    /sampleScenarioAllowed\(/.test(body) && !/n\s*[<>]=?\s*SAMPLE_SCENARIO_CAP/.test(body),
+    '라우트 안에 조건이 있으면 뒤집어도 문자열 검사가 통과한다');
+  {
+    const gateSrc = rd(join(SRC, 'judgment-sample-gate.ts'));
+    // 타입만 벗겨 그대로 실행한다(의존성 0 인 순수 모듈이라 컴파일이 필요 없다)
+    const js = gateSrc
+      .replace(/^export\s+/gm, '')
+      .replace(/:\s*any\b/g, '').replace(/:\s*number\b/g, '').replace(/:\s*boolean\b/g, '');
+    let gate = null, CAP = null;
+    try {
+      // eslint-disable-next-line no-new-func
+      const f = new Function(js + '\nreturn { sampleScenarioAllowed, SAMPLE_SCENARIO_CAP };');
+      const m = f(); gate = m.sampleScenarioAllowed; CAP = m.SAMPLE_SCENARIO_CAP;
+    } catch (e) { /* 아래 검사가 FAIL 로 드러낸다 */ }
+    check('C-2 판정 함수를 실제로 돌릴 수 있다', typeof gate === 'function' && typeof CAP === 'number',
+      'CAP=' + String(CAP));
+    if (typeof gate === 'function' && typeof CAP === 'number') {
+      /* 🔴 여기가 「조건 뒤집기」 변이시험이 물리는 자리다 — 경계 앞뒤를 실제로 넣어 본다 */
+      check('C-2 상한 «전» 은 통과한다', gate(0) === true && gate(CAP - 1) === true,
+        '0·' + (CAP - 1));
+      check('C-2 상한에 «닿으면» 막는다', gate(CAP) === false, String(CAP));
+      check('C-2 상한을 «넘으면» 막는다', gate(CAP + 1) === false && gate(CAP * 100) === false,
+        String(CAP + 1) + '·' + (CAP * 100));
+      /* ⚠️ 못 세면 막지 않는다 — 고장 난 가드가 맛보기를 영구히 막는 쪽이 더 나쁘다 */
+      check('C-2 못 세면 막지 않는다(fail-open)',
+        gate(NaN) === true && gate(null) === true && gate(-1) === true && gate('x') === true);
+      /* 상한 숫자가 한 곳뿐인가 — 화면·서버가 어긋나지 않게 */
+      check('C-2 상한 숫자가 정본 한 곳에만 있다',
+        /const SAMPLE_SCENARIO_CAP\s*=\s*\d+/.test(stripComments(gateSrc))
+          && !/=\s*12\b/.test(stripComments(pts)),
+        'CAP=' + CAP);
+    }
+  }
   /* ⚠️ 세는 자리가 «생성 앞» 이어야 한다 — 뒤면 실패한 요청이 안 세여 재시도로 빠져나간다 */
   /* 🪤 상수 «이름» 의 위치로 재면 안 된다 — 그 이름이 생성 앞뒤 어디에 있어도 통과한다
      (변이시험에서 실제로 놓쳤다). «막고 돌아가는 return» 이 생성보다 앞인지로 묻는다. */
@@ -214,10 +249,23 @@ console.log('\n[ C-2. 🍯 판단력 훈련 맛보기 — 게스트에게 열되
   /* 🔴 맛보기를 열면 게스트가 judgment_events 에 행을 남긴다. 그 표를 «학생 구분 없이»
      통째로 읽어 Neo4j 로 보내는 ETL 이 있어, 거르지 않으면 `guest_xxxxxxx` 라는
      «있지도 않은 학생» 노드와 취약 스킬 집계가 생기고 그것을 선생님이 본다. */
-  const dg = stripComments(rd(join(SRC, 'decision-graph.ts')));
-  check('C-2 판단 이벤트 ETL 이 게스트를 뺀다',
-    /FROM judgment_events[\s\S]{0,200}?NOT LIKE 'guest%'/i.test(dg),
-    '안 거르면 맛보기 방문자가 «학생» 으로 리포트에 올라온다');
+  /* 🪤 «한 곳만 고쳤다» — 처음에 decision-graph.ts 하나만 막았는데 함정 대조가 **세 곳을 더**
+     찾았습니다. judgment_events·judgment_analysis 를 «학생 구분 없이» 읽는 자리를 **목록으로**
+     둡니다 — 새 집계가 생기면 여기 한 줄만 더하면 같은 검사를 받습니다.
+     ℹ️ 사람별 조회(`WHERE student_uid = ?`)는 안전합니다. 위험한 것은 집계·ETL·내보내기입니다. */
+  const GUEST_SAFE = [
+    ['Neo4j ETL(판단 그래프)', 'decision-graph.ts', /FROM judgment_events[\s\S]{0,240}?NOT LIKE 'guest%'/i,
+     '거르지 않으면 맛보기 방문자가 «학생» 노드로 선생님 리포트에 올라온다'],
+    ['밴드별 정답률 통계', 'api-admin.ts', /FROM judgment_analysis[\s\S]{0,260}?NOT LIKE 'guest%'/i,
+     '이 수치가 «문장 난이도를 내릴까» 를 정한다 — 대충 눌러 본 사람이 섞이면 안 된다'],
+    ['야간 성장 스냅샷(cron)', 'api-judgment.ts', /SELECT DISTINCT student_uid FROM judgment_analysis[\s\S]{0,200}?NOT LIKE 'guest%'/i,
+     '게스트마다 스냅샷 행을 만들고 students 숫자를 부풀린다'],
+    ['엔벨로프 외부 내보내기', 'api-judgment.ts', /migrated_at IS NULL[\s\S]{0,120}?NOT LIKE 'guest%'/i,
+     '상황문과 «학생이 쓴 이유 원문» 이 외부로 나간다'],
+  ];
+  for (const [label, file, re, why] of GUEST_SAFE) {
+    check(`C-2 [${label}] 게스트를 뺀다`, re.test(stripComments(rd(join(SRC, file)))), why);
+  }
 }
 
 console.log('\n[ D. 포인트가 실제로 찍히는 경로는 소유자 판정을 거친다 ]');

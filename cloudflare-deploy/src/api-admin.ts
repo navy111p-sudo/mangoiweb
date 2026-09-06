@@ -801,6 +801,10 @@ export async function handleAdminApi(
     //   ⚠️ 표본이 적으면 정답률은 의미가 없습니다. 그래서 n 을 반드시 함께 내려보냅니다.
     // ═══════════════════════════════════════════════════════════════════
     if (method === 'GET' && path === '/api/admin/stats/judgment-bands') {
+      /* ⛔ 게스트(guest*)는 뺀다 — 2026-09-05 에 판단력 훈련을 «맛보기» 로 열면서 로그인 없는
+         방문자도 문제를 풀게 됐다. 대충 눌러 보고 나가는 사람의 정답률이 이 평균에 섞이면,
+         바로 위 주석이 말하는 «너무 어렵다 → 내릴 것» 판단이 **실제 학생과 무관하게** 내려간다.
+         students 칸도 게스트를 «학생» 으로 센다. */
       try {
         const rs = await env.DB.prepare(
           `SELECT CAST(json_extract(reasoning_features_json,'$.reading_band') AS INTEGER) AS band,
@@ -809,6 +813,7 @@ export async function handleAdminApi(
                   COUNT(DISTINCT student_uid) AS students
              FROM judgment_analysis
             WHERE json_extract(reasoning_features_json,'$.reading_band') IS NOT NULL
+              AND LOWER(COALESCE(student_uid,'')) NOT LIKE 'guest%'
             GROUP BY band ORDER BY band`
         ).all<any>();
         const rows = (rs.results || []).map((r: any) => ({

@@ -864,6 +864,7 @@
   }
   function renderPlacement(){
     view = 'placement';
+    renderSampleBar();   // 🍯 위와 같은 이유 — 레벨 찾기도 «푸는» 화면이다
     var letters = ['A','B','C','D'];
     var opts = plQ.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span>'+spk(o)+'</button>';
@@ -1291,6 +1292,7 @@
 
   function renderQuestion(){
     view='q';
+    renderSampleBar();   // 🍯 설정 카드에서 «한 줄» 로 줄여 뒀던 것을 여기서 푼다
     var letters = ['A','B','C','D'];
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"'+(i===chosen?' data-sel="1"':'')+'><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span>'+spk(o)+'</button>';

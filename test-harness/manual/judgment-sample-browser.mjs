@@ -123,6 +123,32 @@ check('배너에 로그인 버튼이 있다', hit && !hit.no && hit.href === '/'
 check('그 버튼이 맨 위에 있다(가려지지 않음)', !!hit.mine, hit.topTag);
 check('탭 표적이 충분히 크다(44px 권장·최소 32)', hit.h >= 32, hit.w+'x'+hit.h);
 
+console.log('\n[ ②-2 «저장되지 않아요» 가 실제로 뜨는가 (설정 카드 → 문제 화면) ]');
+/* 🔴 함정 대조가 잡은 것 — 배너를 설정 카드에서 «한 줄» 로 줄여 놓고 **푸는 자리가 없어서**
+   첫 방문 게스트에게 그 문장이 «한 번도» 안 떴습니다. 새 게스트는 반드시 설정 카드를
+   지나므로 주 경로에서 영영 안 보입니다 — 하필 그것이 배너의 존재 이유입니다.
+   ⛔ 「파일에 그 글자가 있는가」로는 못 잡습니다. 실제로 눌러서 화면을 봐야 합니다. */
+const barAt = () => evalJs(`(function(){
+  var b=document.getElementById('sampleBar');
+  return b && !b.hidden ? b.innerText.replace(/\\n/g,' ') : '(없음)';
+})()`);
+await evalJs("localStorage.clear()");
+capLeft = 3;
+await goto(BASE + '/judgment.html?_nc=' + Date.now());
+await new Promise(r => setTimeout(r, 1600));
+const barSetup = await barAt();
+check('②-2 설정 카드에서는 한 줄로만 (선택지를 밀지 않게)',
+  /맛보기/.test(barSetup) && !/저장되지 않아요/.test(barSetup), barSetup);
+const go = await evalJs(`(function(){
+  var b=document.querySelector('#stage [data-s="skip"]'); if(!b) return false;
+  b.scrollIntoView({block:'center'}); b.click(); return true;
+})()`);
+check('②-2 「바로 시작」을 눌렀다', go === true);
+await new Promise(r => setTimeout(r, 2200));
+const barQ = await barAt();
+check('②-2 문제 화면에서는 «저장되지 않아요» 가 실제로 뜬다',
+  /저장되지 않아요|not kept|不会保存/.test(barQ), barQ);
+
 console.log('\n[ ③ 하루가 지나면 로그인 안내로 돌아간다 ]');
 await evalJs("localStorage.setItem('mangoi_judg_sample_from', String(Date.now() - 25*3600*1000))");
 await goto(BASE + '/judgment.html?_nc=' + Date.now());
@@ -135,7 +161,9 @@ check('창이 지나면 배너가 안 뜬다', st3.barHidden === true);
 check('창이 지나면 로그인 안내가 뜬다', /로그인 후 이용|log in/i.test(st3.stageText||''), (st3.stageText||'').replace(/\n/g,' ').slice(0,40));
 
 console.log('\n[ ④ 맛보기 한도 — «고장» 이 아니라 «오늘 몫» 이라고 말한다 ]');
-await evalJs("localStorage.removeItem('mangoi_judg_sample_from')");
+/* ⚠️ 앞 절이 «설정을 끝낸» 상태를 남기므로 통째로 비운다 — 안 그러면 설정 카드가 안 떠서
+   「바로 시작」을 못 찾고, 검사가 «코드가 틀린 것처럼» 빨간불이 난다(실제로 밟았다). */
+await evalJs("localStorage.clear()");
 capLeft = 0;                       // 다음 요청부터 곧바로 한도
 await goto(BASE + '/judgment.html?_nc=' + Date.now());
 await new Promise(r => setTimeout(r, 1500));

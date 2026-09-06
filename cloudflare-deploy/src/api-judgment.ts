@@ -383,7 +383,12 @@ export async function exportJudgmentEnvelopes(env: MangoEnv, opts?: { sinceId?: 
   await ensureJudgmentTables(env);
   const sinceId = Math.max(0, Number(opts?.sinceId) || 0);
   const limit = Math.min(1000, Math.max(1, Number(opts?.limit) || 200));
-  const where = opts?.includeMigrated ? `WHERE id > ?` : `WHERE id > ? AND migrated_at IS NULL`;
+  /* ⛔ 게스트(guest*)는 내보내지 않는다 — 이 엔벨로프는 상황문과 «학생이 쓴 이유 원문» 을 담아
+     외부(NCP FastAPI)로 나간다. 맛보기 방문자의 글을 밖으로 보낼 이유가 없다.
+     ⚠️ 조건을 변수로 빼지 말 것 — 질의문만 읽어서는 «걸렀는지» 가 안 보이고 감시도 못 한다. */
+  const where = opts?.includeMigrated
+    ? `WHERE id > ? AND LOWER(COALESCE(student_uid,'')) NOT LIKE 'guest%'`
+    : `WHERE id > ? AND migrated_at IS NULL AND LOWER(COALESCE(student_uid,'')) NOT LIKE 'guest%'`;
   const rs = await env.DB.prepare(`SELECT id, raw_json FROM judgment_analysis ${where} ORDER BY id ASC LIMIT ?`).bind(sinceId, limit).all();
   const rows: Array<{ id: number; envelope: any }> = [];
   let maxId = sinceId;
@@ -474,7 +479,9 @@ export async function runGrowthSnapshot(env: MangoEnv, opts?: { period?: string;
   let uids: string[] = [];
   if (opts?.studentUid) uids = [opts.studentUid];
   else {
-    const rs = await env.DB.prepare(`SELECT DISTINCT student_uid FROM judgment_analysis WHERE created_at>=? AND created_at<?`).bind(start, end).all<any>();
+    /* ⛔ 게스트(guest*)는 뺀다 — 맛보기 방문자마다 decision_growth_snapshots 행을 만들고
+       (uid 당 D1 4회) 로그의 students 숫자를 부풀린다. 매일 밤 도는 배치다. */
+    const rs = await env.DB.prepare(`SELECT DISTINCT student_uid FROM judgment_analysis WHERE created_at>=? AND created_at<? AND LOWER(COALESCE(student_uid,'')) NOT LIKE 'guest%'`).bind(start, end).all<any>();
     uids = (rs.results || []).map((r: any) => String(r.student_uid)).filter(Boolean);
   }
 
