@@ -10059,7 +10059,7 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
    ⛔ 카드 id 를 나열해서(#card-lib-agency …) 풀지 말 것 — 자료실 카드가 늘면 조용히 빠진다.
    ℹ️ 다크 테마는 손대지 않는다(이 규칙은 ivory 에서만 걸리고, 어두울 때는 인라인 #93c5fd 가 맞다).
    ℹ️ #2563eb 는 흰 카드 위에서 대비 5.17:1 — 11px 굵은 글자(본문 기준 4.5:1)를 넘는다. */
-html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(.lib-lvl):not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
   color: #2563eb !important;
 }
 
@@ -10116,3 +10116,17 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not
   transform: none !important;
 }
 #textbooks-table td button.tb-hide-toggle[disabled] { opacity: .55 !important; cursor: default !important; }
+
+/* 🟠 자료실 「쉬움」 난이도 배지는 앰버 (2026-09-06 사장님 지시 「원래 앰버로 되돌려줘」)
+   바로 위 파랑 규칙에서 `.lib-lvl` 만 빼고 여기서 따로 칠한다 —
+   같은 (0,12,4) 라 8843행(0,10,5)·8239행(0,9,5)을 똑같이 이긴다.
+   ⚠️ 인라인의 원래 앰버 #fbbf24 를 그대로 쓰지 않는다:
+        흰 카드 위 대비 **1.67:1** 로 사실상 안 읽힌다(잰 값).
+        #b45309 는 5.02:1 — 이 파일이 ivory 에서 쓰는 앰버와 같은 값이다.
+   ℹ️ 다크 테마는 이 규칙이 안 걸리므로 인라인 #fbbf24 가 그대로 나온다(어두운 면 위 10.69:1).
+      즉 «원래 앰버» 는 어두울 때 그대로이고, 밝을 때만 읽히는 앰버로 내려온다.
+   ⛔ 이 배지에 «-btn/-chip/-pill/-tag» 로 끝나거나 `badge`·`kpi-tile` 인 클래스를 주지 말 것 —
+      8843행의 :not() 목록에 걸려 제외되면 인라인 #fbbf24 가 그대로 나와 안 읽힌다. */
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+  color: #b45309 !important;
+}
