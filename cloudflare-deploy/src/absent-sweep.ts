@@ -56,7 +56,9 @@ export interface AbsentSweepResult {
    ✅ 대신 `class_schedules.teacher_id → teachers.name → teacher_profiles` 를 **이름으로** 잇는다.
       ⚠️ 부분일치는 금지 — 'Anna' 가 'HANNAH' 에 붙는 사고가 이미 있었다. api-teacher.ts 와 같은
          **낱말 경계** 규칙을 쓰고, 애매하면(후보 2명 이상) **아무에게도 안 보낸다**.
-      ⚠️ `teacher_profiles.linked_teacher_id` 는 현재 전 행이 NULL 이라 못 쓴다(실측). */
+      ⚠️ `teacher_profiles.linked_teacher_id` 는 2026-08-07 실측에서 전 행 NULL 이었다.
+         📊 2026-09-06 재실측: 33행 중 **29행이 채워져 있다** — 아래 «0순위 linked» 경로가
+            지금은 실제로 도는 주 경로다(그 아래 이름 매칭은 나머지 4행용). */
 /* 📵 (2026-09-01) `/api/notify/*` 도 이 판정을 씁니다 — 복제하지 마세요(notify-contacts.ts).
    판정을 여러 곳에 복제하면 반드시 어긋납니다(규칙서 2장, no-show-truth.ts 가 그 선례). */
 export async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; email: string | null; why: string }> {
@@ -220,8 +222,16 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
             강사는 언제까지 기다려야 하는지, 우리가 알고는 있는지조차 알 수 없었다.
        ⚠️ 학부모 문자와 달리 **모드 스위치 없이 항상 보낸다** — 강사에게 «지금 상황»을 알리는 것은
           과잉 발송이 아니라 기본이다. 세션당 1회만 나간다(위 dup 검사가 보장).
-       ⚠️ 못 보낸 경우를 조용히 넘기지 않는다. 아래 운영자 요약에 «연락처 없음» 으로 함께 실어
-          원부의 빈칸이 눈에 보이게 한다(실측: 활동 강사 29명 중 원부 연결 0건). */
+       ⚠️ 못 보낸 경우를 조용히 넘기지 않는다 — 원부의 빈칸이 눈에 보여야 한다.
+          📊 [잰 것 — 2026-09-06 운영 D1 `teacher_profiles` 전수] 33행 중 이메일 27 · 연결
+             (`linked_teacher_id`) 29 · 한국 번호 2. 즉 **지금은 대부분에게 닿습니다** —
+             2026-08-07 에 여기 적혀 있던 「연결 0건」은 그때 값이고 지금은 아닙니다.
+             ⚠️ 남은 6명은 이메일이 없어 여전히 못 갑니다(관리자 › 📇 강사 연락처 연결).
+          ⚠️ (2026-09-06) 운영자 요약 문자가 기본 OFF 가 되면서, 그 «⚠ 못 보냄» 줄이 갈 곳이
+             한 번 사라졌었다. 지금은 세 곳에 남는다 — ① 켜져 있으면 운영자 요약 문자
+             ② 항상 `details[].teacher_sms` ③ 꺼져 있어도 `owner_sms.unsent_lines`.
+             ⛔ 「어차피 detail 에 있으니」로 ③을 지우지 말 것: 문자가 안 갈 때 사람이 실제로
+                보는 것은 cron 로그(`[absent-sweep]`) 한 줄이고, 거기 안 실리면 안 보인다. */
     let teacherNameForLog: string | null = null;
     if (!dry) {
       try {
@@ -277,18 +287,27 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
 
   // 운영자 요약 문자 1통 (dry 는 발송 안 함 · 기본 OFF — 위 ownerMode 참고)
   if (result.alerted > 0 && !dry) {
-    if (!ownerMode) {
-      // ⛔ 조용히 넘기지 않는다 — 「왜 문자가 안 왔나」를 진단(dry run·로그)에서 바로 볼 수 있어야 한다.
-      result.owner_sms = { skipped: 'owner_send_off', hint: "KV absent_alert_owner_send='on' 이면 다시 보냅니다" };
-      return result;
+    /* ⛔ 꺼져 있어도 조용히 넘기지 않는다 — 「왜 문자가 안 왔나」와 「무엇이 안 갔나」가
+       함께 보여야 한다. 보이는 곳: cron 로그 `[absent-sweep]`(index.ts 가 result 를 통째로
+       찍는다)과 GET /api/admin/absent-sweep/run 응답.
+       ⚠️ dry run 은 여기까지 오지 않는다(`!dry` 조건) — 그때는 위 `owner_mode:false` 로 본다.
+       ⛔ 이 분기를 «이른 return» 으로 되돌리지 말 것: 나중에 이 블록 뒤에 정리 코드가 붙으면
+          OFF 인 날에만 조용히 건너뛰어진다. */
+    if (ownerMode) {
+      try {
+        const ownerPhone = env.OWNER_ALERT_PHONE;
+        if (ownerPhone) {
+          const text = `[망고아이] 🚨 결석 위험 ${result.alerted}건\n${ownerLines.slice(0, 8).join('\n')}${parentMode ? '\n(학부모 문자 발송됨)' : '\n(학부모 발송 OFF — 관리자 확인용)'}`;
+          result.owner_sms = await sendPlainSms(env, ownerPhone, text);
+        } else result.owner_sms = { skipped: 'no_owner_phone' };
+      } catch (e: any) { result.owner_sms = { error: String(e?.message || e).slice(0, 120) }; }
+    } else {
+      result.owner_sms = {
+        skipped: 'owner_send_off',
+        hint: "KV absent_alert_owner_send='on' 이면 다시 보냅니다",
+        unsent_lines: ownerLines.slice(0, 8),   // 강사에게 «못 보냄» 사유가 여기서 사라지지 않게
+      };
     }
-    try {
-      const ownerPhone = env.OWNER_ALERT_PHONE;
-      if (ownerPhone) {
-        const text = `[망고아이] 🚨 결석 위험 ${result.alerted}건\n${ownerLines.slice(0, 8).join('\n')}${parentMode ? '\n(학부모 문자 발송됨)' : '\n(학부모 발송 OFF — 관리자 확인용)'}`;
-        result.owner_sms = await sendPlainSms(env, ownerPhone, text);
-      } else result.owner_sms = { skipped: 'no_owner_phone' };
-    } catch (e: any) { result.owner_sms = { error: String(e?.message || e).slice(0, 120) }; }
   }
 
   return result;

@@ -53,6 +53,11 @@ console.log('\n[ ② 못 보낼 땐 «조용히» 넘기지 않는다 ]');
 check('못 보낸 이유를 상세에 남긴다', /detail\.teacher_sms = why;/.test(sweepCode));
 check('운영자 요약에 «못 보냄 + 이유» 를 싣는다 (원부 빈칸이 보이게)',
   /ownerLines\.push\(`  ⚠ 강사 «\$\{tc\.name \|\| c\.teacher_id\}» 에게 못 보냄/.test(sweep));
+/* 🪤 위 검사는 «push 하는 코드가 있는가» 만 본다. 2026-09-06 에 운영자 문자를 기본 OFF 로
+   바꾸자 그 배열이 **아무 데도 안 가게** 됐는데도 초록불이었다 — 「조용히 넘기지 않는다」가
+   그대로 「조용히 넘긴다」가 된 것을 검사가 못 봤다. 물어야 할 것은 «닿는 곳이 있는가» 다. */
+check('그 줄이 «사람이 보는 곳» 에 실제로 닿는다 (문자가 꺼져 있어도)',
+  /unsent_lines: ownerLines\.slice/.test(sweepCode));
 check('기록에 «누가 기다렸는지» 를 남긴다 (예전엔 teacher_name 이 null 이었다)',
   /teacherNameForLog/.test(sweep) && !/'student', c\.user_id \|\| null, name, null,/.test(sweep));
 
@@ -116,7 +121,7 @@ console.log('\n[ ⑦ 📵 운영자 요약 문자는 기본 OFF (2026-09-06 사�
    [무엇을 껐나] «운영자에게 문자로 알리는 것» 하나뿐이다 — 감지·기록·강사 알림은 그대로다.
    ⛔ OWNER_ALERT_PHONE 자체를 지우는 것으로 풀면 안 된다: 결제·환불·이상로그인·사이트 장애·
       방 갈림 감시견이 **같은 번호**를 쓴다. 그래서 이 알림 하나만 KV 스위치로 끈다. */
-const iOwnerGate = sweepCode.indexOf('if (!ownerMode)');
+const iOwnerGate = sweepCode.indexOf('if (ownerMode)');
 const iOwnerSend = sweepCode.indexOf('sendPlainSms(env, ownerPhone');
 const iNoShowLog = sweepCode.indexOf('INSERT INTO class_no_show');
 check('스위치가 있고, 명시적으로 켤 때만 켜진다 (없으면 OFF)',
@@ -129,8 +134,39 @@ check('멈출 때 조용히 넘어가지 않는다 (사유를 남긴다)',
   /skipped: 'owner_send_off'/.test(sweepCode));
 check('감지·기록은 그대로다 — class_no_show 기록이 스위치보다 앞이다',
   iNoShowLog >= 0 && iOwnerGate >= 0 && iNoShowLog < iOwnerGate);
-check('강사 알림은 이 스위치와 무관하다 (강사에겐 여전히 기본 발송)',
-  !/ownerMode[\s\S]{0,400}?(sendEmail\(env as any|sendPlainSms\(env, tc\.phone)/.test(sweepCode));
+/* 🪤 이 검사를 «앞 N자» 로 쓰면 안 된다 — 처음엔 `ownerMode[\s\S]{0,400}?sendEmail` 이었는데,
+   강사 알림 블록을 `if (!dry && ownerMode)` 로 바꿔 **스위치가 강사 알림까지 삼키게** 만들어도
+   실측 거리가 759자(메일)·1,486자(문자)라 창 밖이어서 38/38 전부 초록이었다.
+   하필 이 PR 이 가장 크게 약속한 것(「강사 알림은 그대로」)을 지키는 검사였다.
+   ✅ 규칙서대로 **중괄호 짝으로 «감싸는 블록» 을 함수 경계까지 거슬러 올라가** 조건을 모은다. */
+function enclosingConds(src, needle) {
+  const at = src.indexOf(needle);
+  const fnStart = src.indexOf('export async function runAbsentStudentSweep');
+  if (at < 0 || fnStart < 0 || at < fnStart) return null;   // 못 찾으면 «모름» — 통과시키지 않는다
+  const conds = [];
+  let depth = 0;
+  for (let i = at; i > fnStart; i--) {
+    const ch = src[i];
+    if (ch === '}') depth++;
+    else if (ch === '{') {
+      if (depth === 0) {
+        const head = src.slice(Math.max(fnStart, i - 300), i);   // 그 `{` 를 여는 헤더 줄
+        conds.push(head.slice(head.lastIndexOf('\n') + 1));
+      } else depth--;
+    }
+  }
+  return conds;
+}
+const condMail = enclosingConds(sweepCode, 'sendEmail(env as any');
+const condSms  = enclosingConds(sweepCode, 'sendPlainSms(env, tc.phone');
+const condOwn  = enclosingConds(sweepCode, 'sendPlainSms(env, ownerPhone');
+check('전제: 감싸는 블록을 실제로 찾았다 (못 찾으면 아래 검사가 헛돈다)',
+  Array.isArray(condMail) && condMail.length > 0 && Array.isArray(condSms) && condSms.length > 0);
+check('강사 알림은 이 스위치와 무관하다 (감싸는 블록 어디에도 ownerMode 가 없다)',
+  !!condMail && !!condSms && !condMail.some(c => /ownerMode/.test(c)) && !condSms.some(c => /ownerMode/.test(c)));
+/* «막는다» 만 보면 전부 막는 코드도 통과한다 — «제대로 막는가» 를 짝으로 둔다. */
+check('반대로 운영자 문자는 그 스위치가 실제로 감싼다',
+  !!condOwn && condOwn.some(c => /ownerMode/.test(c)));
 check('다시 켜는 방법이 코드에 적혀 있다', /absent_alert_owner_send/.test(sweep) && /배포 없이/.test(sweep));
 
 console.log('\n─────────────────────────────────────────────');
