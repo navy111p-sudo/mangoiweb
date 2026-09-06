@@ -31,6 +31,7 @@ const PUB = join(ROOT, 'cloudflare-deploy/public');
 const P = await import(pathToFileURL(join(SRC, 'approval-policy.ts')).href);
 const {
   canWithdraw, canReverse, reverseTitle, countsAsSpend, isLive, isSpendRow,
+  canDelete, isApprovalFileKey,
   STATUSES, STATUS_KEYS, statusSpec, summarizeApprovals, buildFindQuery,
 } = P;
 
@@ -122,6 +123,55 @@ sec('[①] 회수 — canWithdraw 를 실제로 돌린다');
     canWithdraw({ ...base, stageSeq: 2 }).reason === 'already_decided');
   check('빈 계정으로는 통과하지 않는다 (신원을 못 읽었을 때 막는 쪽으로 실패)',
     canWithdraw({ ...base, me: '', requesterUsername: '' }).reason === 'not_mine');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * [①-2] 삭제 판정 — 「없었던 것으로」
+ * ═════════════════════════════════════════════════════════════════════════ */
+sec('[①-2] 삭제 — canDelete 를 실제로 돌린다');
+{
+  const base = { me: 'admin', requesterUsername: 'admin', status: 'withdrawn', hasResubmitChild: false };
+
+  check('회수한 내 건은 지울 수 있다 (짝 검사 — 전부 막는 코드는 여기서 걸린다)',
+    canDelete(base).ok === true, JSON.stringify(canDelete(base)));
+
+  check('⛔ 남이 올린 건은 못 지운다',
+    canDelete({ ...base, me: 'mgr_lby' }).reason === 'not_mine');
+  check('🔴 승인된 건은 못 지운다 — 돈이 나갔거나 바깥으로 나갔다(③ 취소 결재로 간다)',
+    canDelete({ ...base, status: 'approved' }).reason === 'not_withdrawn');
+  check('🔴 반려된 건도 못 지운다 — 결재자가 «아니오» 라고 판단한 기록이다',
+    canDelete({ ...base, status: 'rejected' }).reason === 'not_withdrawn');
+  check('🔴 대기 중인 건도 못 지운다 — 지금 남이 보고 있다(먼저 회수해야 한다)',
+    canDelete({ ...base, status: 'pending' }).reason === 'not_withdrawn');
+  check('⛔ 이미 취소된 건도 못 지운다',
+    canDelete({ ...base, status: 'cancelled' }).reason === 'not_withdrawn');
+  check('빈 계정으로는 통과하지 않는다 (막는 쪽으로 실패)',
+    canDelete({ me: '', requesterUsername: '', status: 'withdrawn' }).reason === 'not_mine');
+
+  /* 🔴 «회수 → 다시 올리기 → 원본 삭제» 가 지연을 지우는 우회로가 되면 안 된다.
+     원본을 지우면 자식의 origin_created_at 이 NULL 이 되어 「N일째」가 오늘로 초기화된다 —
+     ①②를 만들 때 막으려던 바로 그 구멍이 다시 열린다. */
+  check('🔴 이어받아 다시 올린 결재가 있으면 원본을 못 지운다 (지연을 지우는 우회로 차단)',
+    canDelete({ ...base, hasResubmitChild: true }).reason === 'has_child');
+  check('짝 검사 — 이어받은 것이 없으면 지울 수 있다 (전부 막는 코드는 여기서 걸린다)',
+    canDelete({ ...base, hasResubmitChild: false }).ok === true);
+  /* 🔴 fail-closed — 자식 조회가 «실패» 했을 때 «없다» 로 떨어뜨리면 위 가드가 통째로 열린다.
+     (함정 대조 2026-09-06: safe(…, null) → !!null → false → 삭제 진행) */
+  check('🔴 자식 여부를 «모르면»(null) 지우지 않는다 — 되돌릴 수 없는 조작은 막는 쪽으로 실패',
+    canDelete({ ...base, hasResubmitChild: null }).reason === 'lookup_failed');
+  check('🔴 자식 여부를 «안 넘기면»(undefined) 도 지우지 않는다 — 안전장치가 꺼진 것이 기본값이면 안 된다',
+    canDelete({ me: 'admin', requesterUsername: 'admin', status: 'withdrawn' }).reason === 'lookup_failed');
+  check('짝 — 그래도 상태·소유자 판정이 먼저다 (승인 건은 모르든 말든 not_withdrawn)',
+    canDelete({ ...base, status: 'approved', hasResubmitChild: null }).reason === 'not_withdrawn');
+
+  /* 🔴 첨부 열쇠 — 그 칸에 다른 것이 들어 있으면 엉뚱한 파일을 지운다(되돌릴 수 없다). */
+  check('결재 첨부 열쇠만 지울 수 있다고 판정한다',
+    isApprovalFileKey('approval/1788421000581-vctzr1.jpg') === true);
+  check('🔴 녹화 파일 열쇠는 «아니라고» 한다 (엉뚱한 것을 지우면 되돌릴 수 없다)',
+    isApprovalFileKey('rec/2026-09/abc.webm') === false);
+  check('⛔ 접두사만 있고 이름이 없으면 아니다', isApprovalFileKey('approval/') === false);
+  check('⛔ 빈 값·null 도 아니다',
+    isApprovalFileKey('') === false && isApprovalFileKey(null) === false);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -330,6 +380,54 @@ sec('[⑦] 서버 배선');
     /UPDATE approval_steps SET status = 'withdrawn'/.test(wBlock));
   check('기다리던 결재자에게 알린다 (결재함에서 사라진 이유를 말해 준다)',
     /notify\(env, targets, 'Withdrawn/.test(wBlock));
+  /* 🔴 단계 조회가 실패했을 때 «아무도 안 눌렀다» 로 떨어뜨리면 결재 도장이 찍힌 건도 회수되고,
+     이제는 그 뒤 삭제까지 이어져 결재자의 판단 기록이 통째로 사라진다. 모르면 회수하지 않는다. */
+  check('🔴 회수도 fail-closed — 단계 조회가 실패하면 503 lookup_failed 로 거절한다',
+    /let anyDecided: boolean \| null = null;/.test(wBlock)
+    && /if \(anyDecided === null\)/.test(wBlock) && /error: 'lookup_failed'/.test(wBlock)
+    && !/safe\(async \(\) => await env\.DB\.prepare\(\s*`SELECT COUNT\(\*\) AS c FROM approval_steps/.test(stripComments(wBlock)));
+
+  const dBlock = blockFrom(api, "const mDel = path.match(");
+  check('삭제 라우트를 잘라 냈다 (전제)', dBlock.length > 300);
+  check('삭제 판정을 정본(canDelete)에 맡긴다', /canDelete\(\{/.test(dBlock));
+  check('🔴 «이어받아 다시 올린 건» 이 있는지 서버가 실제로 조회한다',
+    /SELECT id FROM approval_requests WHERE origin_id = \? LIMIT 1/.test(dBlock)
+    && /hasResubmitChild: hasChild/.test(dBlock));
+  /* 🔴 그 조회가 실패하면 «모른다»(null) 로 넘겨야 한다 — safe(…, null) 로 감싸 «없다» 에
+     떨어뜨리면 가드가 fail-open 이다. 변수가 null 로 시작하고 try 안에서만 채워지는지 본다. */
+  check('🔴 자식 조회는 fail-closed — null 로 시작해 성공했을 때만 채운다 (safe 로 «없다» 에 떨어뜨리지 않는다)',
+    /let hasChild: boolean \| null = null;/.test(dBlock)
+    && !/safe\(async \(\) => await env\.DB\.prepare\(\s*`SELECT id FROM approval_requests WHERE origin_id/.test(stripComments(dBlock)));
+  check('🔴 모르면 503 으로 거절하고 화면에 «확인이 끝나지 않아 지우지 않았다» 고 말한다',
+    /lookup_failed' \? 503 : 403/.test(dBlock) && /lookup_failed:\s*\['확인이 끝나지 않아 지우지 않았습니다/.test(dBlock));
+  /* 🔴 TOCTOU — SELECT 시점의 자식 판정만 믿지 않는다. DELETE 의 WHERE 가 한 번 더 본다. */
+  check('🔴 조건부 DELETE 의 WHERE 에도 «자식이 없다» 가 들어 있다 (그 사이에 다시 올려도 부모가 안 지워진다)',
+    /DELETE FROM approval_requests[\s\S]{0,260}AND NOT EXISTS \(SELECT 1 FROM approval_requests c WHERE c\.origin_id = approval_requests\.id\)/.test(dBlock));
+  check('0행이면 «자식이 생겼다» 와 «상태가 바뀌었다» 를 갈라 말한다',
+    /AS kids/.test(dBlock) && /fail\('has_child', 403/.test(dBlock) && /fail\('changed', 409/.test(dBlock));
+  check('⚠️ 404·409 에도 문구가 있다 — 지운 뒤 한 번 더 누른 것이 「지우지 못했습니다」로 읽히면 안 된다',
+    /not_found:\s*\['이미 지워졌거나 없는 결재입니다/.test(dBlock) && /changed:\s*\['그사이 상태가 바뀌어/.test(dBlock)
+    && /return fail\('not_found', 404\)/.test(dBlock));
+  check('⚠️ 첨부를 못 지웠으면 «어느 파일인지» 를 돌려준다 (R2 청소기가 approval/ 을 안 치우므로 사람이 찾아야 한다)',
+    /file_key: fileGone === false \? String\(cur\.file_key\) : undefined/.test(dBlock));
+  check('본사 계정만 닿는다', /if \(!isHqStaff\(actor\)\) return json/.test(dBlock));
+  check('🔴 행을 «조건부» 로 지운다 — 그사이 상태가 바뀌면 0행이고 아무것도 안 잃는다',
+    /DELETE FROM approval_requests\s*\n\s*WHERE id = \? AND status = 'withdrawn' AND requester_username = \?/.test(dBlock));
+  check('단계 이력도 함께 지운다 (고아 행을 안 남긴다)',
+    /DELETE FROM approval_steps WHERE request_id = \?/.test(dBlock));
+  check('🔴 첨부도 R2 에서 지운다 (영수증 사진이 고아로 남지 않게)',
+    /RECORDINGS\.delete\(String\(cur\.file_key\)\)/.test(dBlock));
+  check('🔴 그때 접두사를 확인한다 (엉뚱한 파일을 지우면 되돌릴 수 없다)',
+    /isApprovalFileKey\(cur\.file_key\)/.test(dBlock));
+  check('⛔ 첨부를 못 지웠으면 조용히 넘기지 않는다 (고아 파일이 남은 것을 사람이 알아야 한다)',
+    /console\.error\('\[approval-delete\]/.test(dBlock) && /file_deleted/.test(dBlock));
+  check('누가 무엇을 지웠는지 서버 로그에 남긴다 (「그 건 어디 갔지?」를 물을 수 있게)',
+    /console\.log\('\[approval-delete\] 삭제'/.test(dBlock));
+  check('⛔ 제목·본문은 로그에 안 남긴다 (지운 사람의 뜻은 «없었던 것으로» 다)',
+    !/title: cur\.title|body: cur\.body/.test(dBlock));
+  /* 🔴 순서 — R2 를 먼저 지우고 행 삭제가 0행이면 «결재는 남았는데 영수증만 사라진» 상태가 된다. */
+  check('🔴 행을 먼저 지우고 그 뒤에 첨부를 치운다 (순서가 뒤집히면 첨부만 사라진다)',
+    dBlock.indexOf('DELETE FROM approval_requests') < dBlock.indexOf('RECORDINGS.delete'));
 
   const rBlock = blockFrom(api, "const mReverse = path.match(");
   check('취소 결재 라우트를 잘라 냈다 (전제)', rBlock.length > 300);
@@ -388,15 +486,29 @@ sec('[⑧] 다시 올리기 — 원래 올린 날이 이어지는가');
      (CLAUDE.md 「SELECT 별칭만 두면 헬퍼가 읽는 필드가 없다」의 형제) */
   check('rowOf 가 origin_created_at 을 읽는다 (전제)',
     /origin_created_at: r\.origin_created_at/.test(apiNC));
-  const selects = apiNC.match(/SELECT \*[^`']*FROM approval_requests[^`']*/g) || [];
-  const feedRowOf = selects.filter(q => /requester_username = \? ORDER BY created_at DESC LIMIT 15/.test(q));
+  /* 템플릿 리터럴(백틱) 안의 SELECT 만 오린다 — 칸 식에 'withdrawn' 같은 홑따옴표가 들어 있어
+     [^`']* 로 자르면 거기서 끊겨 «SELECT 가 없다» 는 거짓 FAIL 이 난다(2026-09-06 실측). */
+  const selects = apiNC.match(/`SELECT \*[^`]*FROM approval_requests[^`]*`/g) || [];
+  const feedRowOf = selects.filter(q => /requester_username = \? ORDER BY created_at DESC LIMIT 15`$/.test(q));
   check('🔴 「내가 올린 것」 조회가 그 칸을 실제로 뽑는다',
     feedRowOf.length === 1 && /AS origin_created_at/.test(feedRowOf[0]),
     JSON.stringify(feedRowOf));
   check('🔴 문서함 조회도 그 칸을 뽑는다',
-    /AS origin_created_at FROM approval_requests' \+ cond/.test(apiNC));
+    /AS origin_created_at, ' \+[\s\S]{0,240}FROM approval_requests" \+ cond/.test(apiNC));
   check('응답 모양이 바뀌었으니 홈 ETag 를 올렸다',
-    /W\/"a([7-9]|\d\d)-/.test(apiNC));
+    /W\/"a([8-9]|\d\d)-/.test(apiNC));
+
+  /* 🗑️ has_child — 화면이 「삭제」를 그릴지 정하는 칸. 세 SELECT 가 «전부» 뽑아야 한다.
+     한 곳만 빠지면 그 화면에서만 버튼이 뜨고 눌러야 403 이 온다(에러 없음). */
+  check('rowOf 가 has_child 를 읽는다 (전제)', /has_child: !!Number\(r\.has_child \|\| 0\)/.test(apiNC));
+  const hasChildCol = /CASE WHEN approval_requests\.status = 'withdrawn' THEN EXISTS\(SELECT 1 FROM approval_requests c WHERE c\.origin_id = approval_requests\.id\) ELSE 0 END AS has_child/;
+  check('🔴 「내가 올린 것」 조회가 has_child 를 뽑는다', feedRowOf.length === 1 && hasChildCol.test(feedRowOf[0]));
+  check('🔴 문서함 조회도 has_child 를 뽑는다',
+    (apiNC.match(/AS origin_created_at, ' \+\s*"CASE WHEN approval_requests\.status = 'withdrawn'[^"]*AS has_child FROM approval_requests" \+ cond/) || []).length === 1);
+  check('🔴 단건 조회도 has_child 를 뽑는다',
+    /AS origin_created_at, CASE WHEN approval_requests\.status = 'withdrawn'[\s\S]{0,200}AS has_child\s*\n\s*FROM approval_requests WHERE id = \? LIMIT 1/.test(apiNC));
+  check('origin_id 에 인덱스를 둔다 (자식 조회가 세 SELECT + 삭제 게이트에서 돈다)',
+    /CREATE INDEX IF NOT EXISTS idx_appr_origin ON approval_requests\(origin_id\)/.test(apiNC));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -411,9 +523,31 @@ sec('[⑨] 화면 배선');
   const missing = [...called].filter(n => !new RegExp('window\\.' + n + '\\s*=').test(workNC));
   check('🔴 인라인 onclick 이 부르는 이름이 전부 window 에 붙어 있다',
     missing.length === 0, missing.join(', '));
-  check('새로 만든 넷도 그 안에 있다 (전제 — 없으면 위 검사가 헛돈다)',
-    ['askWithdraw', 'doWithdraw', 'reSubmit', 'askReverse'].every(n => called.has(n)),
-    JSON.stringify([...called]));
+  check('새로 만든 것들도 그 안에 있다 (전제 — 없으면 위 검사가 헛돈다)',
+    ['askWithdraw', 'doWithdraw', 'reSubmit', 'askReverse', 'askDelete', 'doDelete']
+      .every(n => called.has(n)), JSON.stringify([...called]));
+
+  /* 🗑️ 삭제 — 되돌릴 수 없는 조작이라 «누르기 전에» 말해야 한다. */
+  const askDel = blockFrom(workNC, 'window.askDelete = function(');
+  check('삭제 확인 블록을 잘라 냈다 (전제)', askDel.length > 200);
+  check('🔴 «되돌릴 수 없다» 를 누르기 전에 말한다', /되돌릴 수 없습니다/.test(work));
+  check('첨부가 있으면 «파일도 함께 지워진다» 고 말한다', /r\.has_file/.test(askDel));
+  check('「그대로 두기」도 함께 준다 (되돌릴 길)', /그대로 두기/.test(workNC));
+  /* ⛔ «거리» 로 재지 않는다 — 함정 대조 실측: 버튼을 withdrawn 블록 «밖» 으로 옮겨도
+     'withdrawn' 과 askDelete( 사이가 253자라 400자 창 안에 들어와 그대로 통과했다.
+     중괄호 짝으로 그 블록을 잘라 «안에 있고, 밖에는 없다» 를 센다. */
+  const wdBlock = blockFrom(workNC, "if (r.status === 'withdrawn') {");
+  const delInBlock = (wdBlock.match(/onclick="askDelete\(/g) || []).length;
+  const delTotal   = (workNC.match(/onclick="askDelete\(/g) || []).length;
+  check('⛔ 삭제 버튼은 회수된 건 블록 «안» 에만 그린다 (밖에는 한 곳도 없다)',
+    wdBlock.length > 80 && delInBlock === 1 && delTotal === delInBlock,
+    JSON.stringify({ inBlock: delInBlock, total: delTotal }));
+  check('🔴 이어받아 다시 올린 결재가 있는 건(has_child)에는 삭제 버튼을 안 그리고 이유를 적는다',
+    /if \(r\.has_child\)\s*\{[\s\S]{0,400}이어받아 다시 올린 결재가 있어 지울 수 없습니다[\s\S]{0,400}\}\s*else\s*\{[\s\S]{0,300}onclick="askDelete\(/.test(wdBlock));
+  check('⚠️ 첨부를 못 지웠으면 «어느 파일인지» 도 함께 보여준다', /res\.j\.file_key/.test(workNC));
+  check('DELETE 메서드로 부른다', /method: 'DELETE'/.test(workNC));
+  check('⚠️ 첨부를 못 지웠으면 «지웠다» 고만 말하지 않는다',
+    /file_deleted === false/.test(workNC));
 
   check('🔴 「며칠째」를 원래 올린 날부터 센다 (다시 올려도 초기화되지 않게)',
     /Number\(r\.origin_created_at \|\| 0\) \|\| Number\(r\.created_at \|\| 0\)/.test(workNC));
