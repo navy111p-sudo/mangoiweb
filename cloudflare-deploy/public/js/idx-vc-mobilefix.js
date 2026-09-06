@@ -1592,5 +1592,64 @@
     };
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑭ 화면 공유 — «초당 장수» 만 15 로 묶는다 (2026-09-06 사장님 결정)
+     ────────────────────────────────────────────────────────────
+     왜 fps «만» 인가 — 화면 공유는 2026-08-11 에 contentHint='detail' 로
+       «글자 선명함이 먼저» 라고 일부러 정한 자리다(카메라는 정반대인 'motion').
+       해상도를 조이면 교재·PPT 글자가 뭉개져 그 결정과 정면으로 부딪힌다.
+       반대로 공유 화면은 정지화면에 가까워 초당 장수를 줄여도 잃는 것이 거의 없다.
+     ⛔ 카메라는 건드리지 않는다 — PC 24fps 유지(2026-09-06 사장님 결정).
+       회선이 나쁘면 적응 루프(idx-main.js vcAdaptiveQuality)가 이미 알아서 내리므로,
+       기준값을 내리면 «좋은 회선만» 손해다. degradationPreference 가
+       'maintain-framerate'(2026-08-11 강사 «영상이 멈춘다» 제보)인 것과도 어긋난다.
+     왜 여기(defer)인가 — 호출부는 idx-main.js 의 vcShareMyScreen 한 곳인데,
+       그 파일은 blocking 이고 첫 화면 예산 여유가 116바이트뿐이다(2026-09-06 실측).
+       그래서 navigator.mediaDevices.getDisplayMedia 를 밖에서 감싼다.
+       ⚠️ 이 방식의 약점: 그 API 이름이 바뀌면 «조용히» 헛돈다(에러도 안 난다).
+          그래서 screen_share_fps_harness 가 «호출처가 여전히 그 이름인가» 를 못 박는다.
+     ⚠️ 저장소 안 getDisplayMedia 호출처는 그 한 곳뿐이다(2026-09-06 전수) —
+        전역을 감싸도 다른 기능에 닿지 않는다. 새 호출처가 생기면 함께 보라.
+     ✅ 실패하면 «고치기 전» 으로 되돌린다 — 제약을 거부하는 브라우저에서는
+        원래 인자로 한 번 더 부른다. 화면 공유가 아예 안 되는 것이 제일 나쁘다. */
+  (function screenShareFpsCap(){
+    var MAX_FPS = 15;
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getDisplayMedia !== 'function' || md.__mgFpsCapped) return;
+    var orig = md.getDisplayMedia.bind(md);
+    md.__mgFpsCapped = true;
+    md.getDisplayMedia = function (constraints) {
+      var c = constraints || {};
+      var capped;
+      try {
+        if (c.video === false) return orig(c);   // 영상 없는 공유는 그대로 둔다
+        var v = c.video;
+        var vObj = (v && typeof v === 'object') ? Object.assign({}, v) : {};
+        /* 부르는 쪽이 이미 초당 장수를 정했으면 존중한다 — 나중에 더 낮게 부르는
+           자리가 생겨도 우리가 다시 «올려» 버리면 안 된다.
+           ⛔ width·height 는 건드리지 않는다(위 «fps 만» 이유). */
+        if (!vObj.frameRate) vObj.frameRate = { ideal: MAX_FPS, max: MAX_FPS };
+        capped = Object.assign({}, c, { video: vObj });
+      } catch (e) { return orig(c); }
+      return orig(capped).then(function (s) {
+        /* 제약을 «받아들인 척» 하고 무시하는 브라우저가 있어 트랙에 한 번 더 건다.
+           실패해도 무해 — 공유는 이미 시작됐다. */
+        try {
+          var t = s.getVideoTracks()[0];
+          if (t && t.applyConstraints) t.applyConstraints({ frameRate: { max: MAX_FPS } }).catch(function(){});
+        } catch (e) {}
+        try { console.log('[mobilefix ⑭] 화면 공유 ' + MAX_FPS + 'fps 상한'); } catch (e) {}
+        return s;
+      }, function (err) {
+        var n = (err && err.name) || '';
+        /* ⛔ 사용자가 «취소» 를 누른 것을 재시도하면 공유 선택 창이 «두 번» 뜬다.
+           되돌려 볼 것은 «제약을 거부당한» 경우뿐이다. */
+        if (n === 'NotAllowedError' || n === 'AbortError' || n === 'NotFoundError') throw err;
+        try { console.warn('[mobilefix ⑭] fps 상한 거부 → 원래 제약으로 재시도', n); } catch (e) {}
+        return orig(c);
+      });
+    };
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps 준비됨'); } catch (e) {}
 })();
