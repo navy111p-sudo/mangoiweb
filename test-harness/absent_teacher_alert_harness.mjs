@@ -168,6 +168,17 @@ check('강사 알림은 이 스위치와 무관하다 (감싸는 블록 어디�
 check('반대로 운영자 문자는 그 스위치가 실제로 감싼다',
   !!condOwn && condOwn.some(c => /ownerMode/.test(c)));
 check('다시 켜는 방법이 코드에 적혀 있다', /absent_alert_owner_send/.test(sweep) && /배포 없이/.test(sweep));
+/* 🪤 호출부 주석이 사실과 어긋나면 다음 사람이 그것을 믿습니다 — 실제로 이 커밋 직전까지
+   index.ts 가 「기본 = 안전 모드(운영자 문자 + 기록만)」이라고 **정반대**를 말하고 있었습니다.
+   범위는 «길이» 가 아니라 그 주석 블록의 시작~호출 사이로 자릅니다. */
+const iCallHead = idx.indexOf('// 🚨 결석 위험 자동 알림');
+const iCall = idx.indexOf('runAbsentStudentSweep(env as any)');
+const callNote = (iCallHead >= 0 && iCall > iCallHead) ? idx.slice(iCallHead, iCall) : '';
+check('전제: 호출부 주석 블록을 실제로 찾았다', callNote.length > 0);
+check('호출부 주석이 «운영자 문자가 기본» 이라고 말하지 않는다',
+  !!callNote && !/운영자 문자 \+ 기록만/.test(callNote));
+check('호출부 주석이 두 스위치를 모두 알려준다',
+  !!callNote && /absent_alert_owner_send/.test(callNote) && /absent_alert_parent_send/.test(callNote));
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);

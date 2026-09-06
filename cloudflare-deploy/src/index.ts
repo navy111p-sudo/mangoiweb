@@ -2494,8 +2494,12 @@ const worker = {
         console.error('[leveltest-hourbefore] error', err);
       }
 
-      // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.
-      //   기본 = 안전 모드(운영자 문자 + 기록만). 학부모 발송은 KV 'absent_alert_parent_send'='on' 일 때만.
+      // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지.
+      //   기본 = 안전 모드(기록 + 담당 강사 알림). 사람에게 나가는 문자 «둘 다» 기본 OFF 이고
+      //   KV(SESSION_STATE) 스위치로만 켠다 — 운영자 'absent_alert_owner_send',
+      //   학부모 'absent_alert_parent_send' (각각 'on').
+      //   ⚠️ 운영자 요약 문자는 2026-09-06 사장님 지시로 껐다(수업마다 문자가 계속 왔다).
+      //      감지·class_no_show 기록·강사 알림은 그대로 — 관리자 › 노쇼 리포트에서 다 보인다.
       try {
         const ab = await runAbsentStudentSweep(env as any);
         if (ab && (ab.alerted > 0 || !ab.ok)) console.log('[absent-sweep]', JSON.stringify(ab));
