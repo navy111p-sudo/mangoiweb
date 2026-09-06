@@ -108,6 +108,16 @@ const othersOpen = {
   steps: [{ seq: 1, role: 'staff', status: 'active' }],
 };
 
+/** 첨부가 있는 회수 건 — 「파일도 함께 지워집니다」를 말하는지 보려면 필요하다. */
+const mineWithdrawnFile = {
+  id: 110, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
+  title: '영수증 붙은 회수 건', body: '', amount: 1200, currency: 'PHP',
+  requester_username: 'admin', requester_name: '정우영',
+  status: 'withdrawn', status_ko: SKO('withdrawn'), status_en: 'Withdrawn',
+  has_file: true, file_name: 'receipt.jpg',
+  created_at: now - 3 * DAY, stage_seq: 1, stage_total: 1, flags: [], steps: [],
+};
+
 /** 🔴 남이 올린 «긴급» — urgent 목록은 decidable 이 아니라 **내 카드와 같은 경로**로 그려진다.
     함정 대조 실측: 남의 건이 inbox 에만 있으면 `.mineacts` 가 애초에 안 그려져서
     「남의 건에는 아무 버튼도 안 뜬다」 검사가 **isMine 을 return true 로 되돌려도 통과**했다. */
@@ -135,7 +145,8 @@ function home(over) {
     colleagues: [], my_delegate: null, can_approve: true, pending: 1,
     types: TYPES, categories: CATS,
     inbox: [othersOpen],
-    mine: [mineOpen, mineDecided, mineApproved, mineWithdrawn, mineResub, mineCancelled],
+    mine: [mineOpen, mineDecided, mineApproved, mineWithdrawn, mineResub, mineCancelled,
+           mineWithdrawnFile],
     reuse: [], urgent: [othersUrgent, othersApproved],
     summary: {
       money: { month: [], year: [], month_count: 0, year_count: 0,
@@ -181,6 +192,9 @@ function check(name, cond, extra) {
       if (/\/api\/approval\/requests\/\d+\/withdraw/.test(u)) {
         return Promise.resolve(new Response(JSON.stringify({ ok: true, id: 101, status: 'withdrawn' }), { status: 200 }));
       }
+      if ((o && o.method) === 'DELETE' && /\/api\/approval\/requests\/\d+$/.test(u)) {
+        return Promise.resolve(new Response(JSON.stringify({ ok: true, deleted: true, file_deleted: null }), { status: 200 }));
+      }
       if (/\/api\/approval\/requests\/\d+\/reverse/.test(u)) {
         return Promise.resolve(new Response(JSON.stringify({ ok: true, id: 200, reverses_id: 103 }), { status: 200 }));
       }
@@ -206,7 +220,7 @@ function check(name, cond, extra) {
 
   /* ── ⓪ 전제 ────────────────────────────────────────────────────────── */
   console.log('\n[0] 전제 — 카드가 실제로 그려졌는가');
-  const WANT = [101, 102, 103, 104, 105, 106, 107, 108, 109];
+  const WANT = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110];
   const drawn = await page.evaluate((w) => w.filter((i) => !!document.getElementById('req-' + i)), WANT);
   check('시험할 카드 ' + WANT.length + '장이 모두 그려졌다 (아래 검사가 뜻을 가지려면)',
     drawn.length === WANT.length, JSON.stringify(drawn));
@@ -240,6 +254,12 @@ function check(name, cond, extra) {
     !!a103 && a103.join('|').indexOf('회수') < 0, JSON.stringify(a103));
   check('회수된 건에는 「다시 올리기」가 뜬다 (= 「수정」을 대신하는 자리)',
     !!a104 && a104.join('|').indexOf('다시 올리기') >= 0, JSON.stringify(a104));
+  check('🗑️ 회수된 건에는 「삭제」도 뜬다 (짝 검사)',
+    !!a104 && a104.join('|').indexOf('삭제') >= 0, JSON.stringify(a104));
+  check('🔴 대기 중인 건에는 삭제가 «안» 뜬다 (지금 남이 보고 있다 — 먼저 회수해야 한다)',
+    !!a101 && a101.join('|').indexOf('삭제') < 0, JSON.stringify(a101));
+  check('🔴 승인된 건에도 삭제가 «안» 뜬다 (그건 ③ 취소 결재로 간다)',
+    !!a103 && a103.join('|').indexOf('삭제') < 0, JSON.stringify(a103));
   check('⛔ 이미 취소된 건에는 아무 버튼도 안 뜬다',
     !!a106 && a106.length === 0, JSON.stringify(a106));
   const a108 = await actsOf(108);
@@ -388,6 +408,42 @@ function check(name, cond, extra) {
   const rcall = await page.evaluate(() => window.__CALLS.find((c) => /reverse/.test(c.u)) || null);
   check('사유를 적으면 취소 결재가 올라간다 (짝 검사)',
     !!rcall && rcall.m === 'POST' && /중복 청구였습니다/.test(String(rcall.b)), JSON.stringify(rcall));
+
+  /* ── ⑥-2 삭제 — 되돌릴 수 없는 조작 ───────────────────────────────── */
+  console.log('\n[6-2] 삭제 — «되돌릴 수 없다» 를 누르기 전에 말하는가');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(600);
+  const openDel = (id) => page.evaluate((i) => {
+    const c = document.getElementById('req-' + i);
+    if (!c) return false;
+    const b = Array.from(c.querySelectorAll('.mineacts button'))
+      .find((x) => x.textContent.trim() === '삭제');
+    if (!b) return false;
+    b.click();
+    return true;
+  }, id);
+
+  check('삭제 버튼을 눌렀다 (전제)', (await openDel(104)) === true);
+  await page.waitForTimeout(150);
+  const delTxt = await page.evaluate(() => (document.getElementById('act-104') || {}).innerText || '');
+  check('🔴 «되돌릴 수 없다» 를 누르기 전에 말한다', /되돌릴 수 없습니다/.test(delTxt), delTxt.slice(0, 160));
+  check('「그대로 두기」도 함께 준다', /그대로 두기/.test(delTxt));
+  check('⛔ 첨부가 없는 건에는 «파일도 지워진다» 고 말하지 않는다 (없는 말을 안 한다)',
+    !/첨부한 파일도/.test(delTxt), delTxt.slice(0, 200));
+
+  await page.evaluate(() => { const e = document.getElementById('act-104'); if (e) e.innerHTML = ''; });
+  check('첨부 있는 회수 건의 삭제 버튼을 눌렀다 (전제)', (await openDel(110)) === true);
+  await page.waitForTimeout(150);
+  const delTxt2 = await page.evaluate(() => (document.getElementById('act-110') || {}).innerText || '');
+  check('🔴 첨부가 있으면 «파일도 함께 지워진다» 고 말한다 (짝 검사)',
+    /첨부한 파일도/.test(delTxt2), delTxt2.slice(0, 200));
+
+  await page.evaluate(() => (window.__CALLS.length = 0));
+  await page.evaluate(() => document.querySelector('#act-110 .whybtns button.danger').click());
+  await page.waitForTimeout(300);
+  const dcall = await page.evaluate(() =>
+    window.__CALLS.find((c) => c.m === 'DELETE' && /\/requests\/\d+$/.test(c.u)) || null);
+  check('「완전히 지우기」를 누르면 DELETE 가 나간다 (짝 검사)', !!dcall, JSON.stringify(dcall));
 
   /* ── ⑦ 글자가 읽히는가 ────────────────────────────────────────────── */
   console.log('\n[7] 대비 — 반투명·그라데이션까지 합성해서 잰다');

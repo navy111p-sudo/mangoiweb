@@ -51,6 +51,7 @@ import {
   sniffKind, normExt, contentTypeFor, buildFindQuery,
   CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
+  canDelete, isApprovalFileKey,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -1672,6 +1673,101 @@ export async function handleApprovalApi(
       reverses_id: cur.reverses_id || null,
       reversal,                       // 취소 결재일 때만 값이 있다
     });
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+   * 🗑️ 삭제 — 「없었던 것으로」
+   *
+   *   회수된 «내» 건만. 그 상태는 아무도 결재 도장을 안 찍은 것이라 지워도
+   *   잃을 기록이 없다. ⛔ 승인·반려·대기 건은 서버가 거절한다(주소로 직접 불러도).
+   *
+   *   [지우는 순서가 중요하다]
+   *     ① 행을 **조건부로** 먼저 지운다 — 그사이 상태가 바뀌었으면 0행이 되고
+   *        **아무것도 잃지 않는다.**
+   *     ② 그 뒤에 단계 이력과 R2 첨부를 치운다. 여기서 실패하면 «고아 파일» 이
+   *        남지만 사장님이 원한 «목록에서 사라짐» 은 이미 이뤄졌다 —
+   *        조용히 넘기지 말고 **크게 로그를 남긴다.**
+   *   ⛔ 순서를 뒤집지 말 것 — R2 를 먼저 지우고 ①이 0행이면 결재는 남았는데
+   *      영수증만 사라진다(「첨부 보기」가 깨진다).
+   * ═══════════════════════════════════════════════════════════════════════ */
+  const mDel = path.match(/^\/api\/approval\/requests\/(\d+)$/);
+  if (method === 'DELETE' && mDel) {
+    if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
+    const id = Number(mDel[1]);
+    const cur: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
+      .bind(id).first().catch(() => null);
+    if (!cur) return json({ ok: false, error: 'not_found' }, 404);
+
+    /* 🔴 이 건을 이어받아 다시 올린 결재가 있는가 — 있으면 지우지 않는다.
+       지우면 그 자식의 「N일째」가 원본 날짜를 잃고 **오늘로 초기화**되어,
+       «회수 → 다시 올리기 → 원본 삭제» 가 **지연을 지우는 우회로**가 된다. */
+    const child: any = await safe(async () => await env.DB.prepare(
+      `SELECT id FROM approval_requests WHERE origin_id = ? LIMIT 1`
+    ).bind(id).first(), null);
+
+    const g = canDelete({
+      me: String(actor.username),
+      requesterUsername: String(cur.requester_username),
+      status: String(cur.status),
+      hasResubmitChild: !!child?.id,
+    });
+    if (!g.ok) {
+      const MSG: Record<string, [string, string]> = {
+        not_mine:      ['내가 올린 결재만 지울 수 있습니다.', 'You can only delete your own request.'],
+        not_withdrawn: ['회수한 결재만 지울 수 있습니다. 먼저 회수해 주세요 — 승인된 건은 «취소 결재»를 올려야 합니다.',
+                        'Only a withdrawn request can be deleted. Withdraw it first; an approved one needs a cancellation request.'],
+        has_child:     ['이 건을 이어받아 다시 올린 결재가 있어 지울 수 없습니다 — 그 결재의 «며칠째»가 이 날짜를 쓰고 있습니다.',
+                        'A re-submitted request follows this one and uses its date, so it cannot be deleted.'],
+      };
+      const m = MSG[g.reason] || ['지울 수 없습니다.', 'Cannot delete.'];
+      return json({
+        ok: false, error: g.reason, message: m[0], message_en: m[1],
+        status: cur.status, child_id: child?.id || null,
+      }, 403);
+    }
+
+    // ① 행 — 조건부. 그사이 상태가 바뀌었으면 0행이고 아무것도 안 잃는다.
+    const up = await env.DB.prepare(
+      `DELETE FROM approval_requests
+        WHERE id = ? AND status = 'withdrawn' AND requester_username = ?`
+    ).bind(id, String(actor.username)).run();
+    if (!up.meta.changes) return json({ ok: false, error: 'not_withdrawn' }, 409);
+
+    // ② 단계 이력 — 남기면 고아 행이 된다.
+    await safe(async () => {
+      await env.DB.prepare(`DELETE FROM approval_steps WHERE request_id = ?`).bind(id).run();
+      return true;
+    }, false);
+
+    /* ② R2 첨부 — 안 지우면 영수증 사진이 저장소에 고아로 남는다.
+       ⛔ 접두사를 확인한다(isApprovalFileKey) — 그 칸에 다른 것이 들어 있으면
+          엉뚱한 파일을 지우게 되고 되돌릴 수 없다. */
+    let fileGone: boolean | null = null;
+    if (cur.file_key && isApprovalFileKey(cur.file_key)) {
+      if (!env.RECORDINGS) {
+        fileGone = false;
+        console.error('[approval-delete] R2 가 없어 첨부를 못 지웠습니다 — 고아 파일. key=' + cur.file_key);
+      } else {
+        try {
+          await env.RECORDINGS.delete(String(cur.file_key));
+          fileGone = true;
+        } catch (e) {
+          fileGone = false;
+          // 삼키되 크게 남긴다 — 결재는 이미 사라졌고 파일만 남은 상태를 사람이 알아야 한다.
+          console.error('[approval-delete] 첨부 삭제 실패 — 고아 파일이 남았습니다. key=' + cur.file_key,
+                        (e as any)?.message || e);
+        }
+      }
+    }
+
+    /* 화면에는 안 보이지만 서버에는 남긴다 — 나중에 「그 건 어디 갔지?」를 물을 수 있어야 한다.
+       ⚠️ 제목·본문은 남기지 않는다(지운 사람의 뜻이 «없었던 것으로» 이다). */
+    console.log('[approval-delete] 삭제', JSON.stringify({
+      id, by: String(actor.username), req_type: cur.req_type,
+      created_at: cur.created_at, had_file: !!cur.file_key, file_gone: fileGone,
+    }));
+
+    return json({ ok: true, id, deleted: true, file_deleted: fileGone });
   }
 
   /* ── 한 건 자세히 ─────────────────────────────────────────────────────────

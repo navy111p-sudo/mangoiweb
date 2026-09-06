@@ -316,7 +316,9 @@ export type GateReason =
   | 'not_approved'
   | 'not_allowed'
   | 'already_cancelled'
-  | 'already_requested';
+  | 'already_requested'
+  | 'not_withdrawn'
+  | 'has_child';
 
 export function canWithdraw(inp: WithdrawInput): { ok: boolean; reason: GateReason } {
   const me = String(inp?.me || '');
@@ -326,6 +328,55 @@ export function canWithdraw(inp: WithdrawInput): { ok: boolean; reason: GateReas
   if (inp?.anyDecided) return { ok: false, reason: 'already_decided' };
   if (Number(inp?.stageSeq || 1) > 1) return { ok: false, reason: 'already_decided' };
   return { ok: true, reason: 'ok' };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🗑️ ①-2 삭제 — 「없었던 것으로」
+ *
+ *   회수된 건만 지울 수 있다. 회수는 **아무도 결재 도장을 안 찍은 상태**라
+ *   결재선에 판단이 하나도 안 남았고, 그건 «올렸다가 거둬들인 초안» 이다 —
+ *   회사 기록으로서 가치가 없으므로 지워도 잃을 것이 없다.
+ *
+ *   ⛔ 지우면 안 되는 셋:
+ *     · 승인된 건 — 돈이 나갔거나 바깥으로 나갔다(휴가→예약 차단, 인사·급여→달 잠금).
+ *                   그건 ③ 취소 결재가 할 일이다.
+ *     · 반려된 건 — 결재자가 「아니오」라고 **판단한 기록**이다. 기안자가 지울 수 있으면
+ *                   «반려당한 적 없는 것처럼» 만들 수 있다.
+ *     · 대기 중인 건 — 지금 남이 보고 있다. **먼저 회수**해야 한다.
+ *
+ *   ⚠️ 「회수 → 삭제」 두 단계인 것이 맞다 — 회수는 되돌릴 수 있고 삭제는 못 되돌린다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface DeleteInput {
+  me: string;
+  requesterUsername: string;
+  status: string;
+  /** 이 건을 «이어받아 다시 올린» 결재가 있는가(다른 행의 origin_id 가 이 건을 가리킴) */
+  hasResubmitChild?: boolean;
+}
+
+export function canDelete(inp: DeleteInput): { ok: boolean; reason: GateReason } {
+  const me = String(inp?.me || '');
+  if (!me || me !== String(inp?.requesterUsername || '')) return { ok: false, reason: 'not_mine' };
+  if (String(inp?.status || '').trim().toLowerCase() !== 'withdrawn') {
+    return { ok: false, reason: 'not_withdrawn' };
+  }
+  /* 🔴 이 건을 이어받아 다시 올린 결재가 있으면 지우지 않는다.
+     지우면 그 자식의 「N일째」가 **원본 날짜를 잃고 오늘로 초기화**된다 —
+     즉 «회수 → 다시 올리기 → 원본 삭제» 가 **지연을 지우는 우회로**가 된다.
+     ①②를 만들 때 막으려던 바로 그 구멍이 다시 열린다. */
+  if (inp?.hasResubmitChild) return { ok: false, reason: 'has_child' };
+  return { ok: true, reason: 'ok' };
+}
+
+/**
+ * 🗑️ 이 첨부 열쇠를 «우리가» 지워도 되는가.
+ *   ⛔ `file_key` 칸에 다른 것이 들어 있을 수 있으므로 접두사를 확인한다 —
+ *      녹화 파기가 같은 이유로 `rec/` 를 확인한다(엉뚱한 것을 지우면 되돌릴 수 없다).
+ */
+export function isApprovalFileKey(key: string | null | undefined): boolean {
+  const k = String(key || '');
+  return k.startsWith('approval/') && k.length > 'approval/'.length;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
