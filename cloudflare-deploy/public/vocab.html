@@ -1396,7 +1396,7 @@ async function loadRank(){
       + d.top.map(row => `
         <div class="lb-row${row.me?' me':''}">
           <span class="rk">${medal[row.rank-1] || row.rank}</span>
-          <span class="nm">${esc(row.name)}${row.me?' <span style="color:#fbbf24">(나)</span>':''}</span>
+          <span class="nm">${esc(row.name || '이름 없는 친구')}${row.me?' <span style="color:#fbbf24">(나)</span>':''}</span>
           <span class="sc">${row.correct}개</span>
         </div>`).join('')
       + (d.my_rank ? `<div class="my-rank">내 순위: <b style="color:#fbbf24">${d.my_rank}위</b> / ${d.total_players}명 — 정답 ${d.my_correct}개</div>`

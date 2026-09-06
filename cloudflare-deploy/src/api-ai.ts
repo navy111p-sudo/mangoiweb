@@ -386,13 +386,18 @@ Student text: """${text}"""`;
     //   점수 경쟁은 저학년에 역효과 → "많이 쓴 사람" 기준. 이름은 마스킹해 PII 비노출,
     //   uid+token 이 오면 내 순위(me)도 함께 반환. uid 없이 호출해도 목록은 조회 가능.
     if (method === 'GET' && path === '/api/ai/write-leaderboard') {
+      /* ⚠️ 게스트 패턴은 `guest%` 다 — `guest_%` 로 좁히면 «밑줄 없는» bare `guest` 가 샙니다.
+         그 값은 실제로 화면이 만듭니다(js/game-track.js·js/idx-daily-checkin.js 의 기본값,
+         js/idx-x8.js 의 폴백)이고 auth-admin.ts 의 resolveOwnerScope 도 `/^guest/i` 로 봅니다.
+         2026-09-05 D1 실측으로는 이 표에 아직 0건이지만, 같은 날 «맛보기»(로그인 없이 하루)를
+         열어 게스트 유입이 늘므로 지금 넓혀 둡니다. */
       await ensureWriteSchema();
       const KST_OFF = 32400000;
       const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
       const weekStartMs = (todayD - ((todayD + 3) % 7)) * 86400000 - KST_OFF;
       const rs = await env.DB.prepare(
         `SELECT student_uid, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections
-         WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest_%'
+         WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND LOWER(student_uid) NOT LIKE 'guest%'
          GROUP BY student_uid ORDER BY n DESC, avg_score DESC LIMIT 10`
       ).bind(weekStartMs).all();
       const rows = ((rs.results || []) as any[]);
@@ -432,7 +437,7 @@ Student text: """${text}"""`;
           if (myN > 0) {
             const above: any = await env.DB.prepare(
               `SELECT COUNT(*) AS c FROM (SELECT student_uid FROM ai_writing_corrections
-               WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest_%'
+               WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND LOWER(student_uid) NOT LIKE 'guest%'
                GROUP BY student_uid HAVING COUNT(*) > ?)`
             ).bind(weekStartMs, myN).first();
             me = { rank: (above?.c || 0) + 1, count: myN };

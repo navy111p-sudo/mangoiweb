@@ -15,7 +15,7 @@
       CLAUDE.md 가 여러 번 경고한 «옆 함수가 딸려 들어와 통과하는» 오검사를 피하기 위해서다.
    ⚠️ 이 검사는 «게이트가 있는가» 까지만 본다. «게이트가 옳은가» 는 사람이 본다.
    ═══════════════════════════════════════════════════════════════════════════ */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -87,14 +87,66 @@ for (const [label, needle] of [
 
 console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
 {
-  const blk = handlerBlock(points, `path === '/api/points/leaderboard'`);
-  check('리더보드 응답에 user_id 를 담지 않는다',
-    !!blk && !/user_id\s*:/.test(stripComments(blk)) && /\bme\s*:/.test(blk),
-    '학생은 비밀번호가 없어 «아이디 = 로그인» 이다. 본인 표시는 서버가 판정한 me 로만 준다');
+  /* 🔴 (2026-09-05) 한 곳만 보면 안 된다 — 2026-08-28 에 /api/points/leaderboard 만 고치고
+     그 주석에 「단어왕 리더보드도 이미 그 방식」이라고 적었지만 **사실이 아니었다**.
+     단어왕 쪽은 user_id 를 그대로 담고, 이름이 없으면 COALESCE 로 «이름 자리에» 아이디를
+     넣어 두 겹으로 새고 있었다. 검사가 한 곳만 봐서 1주일 넘게 아무도 몰랐다.
+     ⛔ 새 공개 랭킹을 만들면 여기 목록에 «반드시» 더할 것. */
+  const BOARDS = [
+    ['포인트 랭킹', points, `path === '/api/points/leaderboard'`],
+    ['주간 단어왕', games,  `path === '/api/vocab/leaderboard'`],
+  ];
+  for (const [label, src, needle] of BOARDS) {
+    const blk = handlerBlock(src, needle);
+    const body = blk ? stripComments(blk) : '';
+    check(`[${label}] 응답에 user_id 를 담지 않는다`,
+      !!blk && !/user_id\s*:/.test(body) && /\bme\s*:/.test(body),
+      '학생은 비밀번호가 없어 «아이디 = 로그인» 이다. 본인 표시는 서버가 판정한 me 로만 준다');
+    /* 이름이 없을 때 아이디로 폴백하면 위 검사를 통과하면서 그대로 샌다 */
+    check(`[${label}] 이름이 없을 때 아이디로 폴백하지 않는다`,
+      !!blk && !/COALESCE\s*\([^)]*student_name[^)]*user_id/i.test(body),
+      'COALESCE(student_name, user_id) 는 «이름 자리에» 아이디를 넣는다');
+    /* 🔴 2026-09-05 D1 실측 — student_points 94행 중 **18행**의 student_name 이 아이디 그 자체다
+       (`jeong`·`lee`·`kang`·`Lee`…). 카페24에 이름이 없는 계정은 명부에 아이디로 찍힌다.
+       ⟹ 위 두 검사를 통과해도 «이름» 칸으로 아이디가 그대로 나간다. 이름을 내보내기 «전»
+          그 값이 아이디와 같은지 견주는 코드가 있어야 한다. */
+    check(`[${label}] 이름이 아이디와 같으면 «이름 없음» 으로 준다`,
+      !!blk && /!==\s*(?:uidStr|String\(r\.user_id)/.test(body),
+      'user_id 를 빼도 student_name 이 아이디면 그대로 샌다 (실측 18행)');
+    /* ⚠️ 대소문자만 다른 «별개 행» 이 실재한다(Kim/kim·Lee/lee) — 무시하면 남의 줄에
+       「(나)」가 붙고 my_rank 에 남의 숫자가 실린다. 로그인 네 곳도 「정확일치 먼저」다. */
+    check(`[${label}] «(나)» 판정이 대소문자를 무시하지 않는다`,
+      !!blk && !/toLowerCase\(\)\s*===\s*\w+\.toLowerCase\(\)/.test(body),
+      'Kim/kim·Lee/lee 는 별개 계정이다');
+    /* 게스트가 위를 차지하면 진짜 학생의 동기 장치가 죽는다 (맛보기를 열면 유입이 는다).
+       ⚠️ 패턴은 `guest%` — 미로그인 uid 기본값이 밑줄 없는 `guest` 라 `guest_%` 는 샌다. */
+    check(`[${label}] 게스트를 순위에서 뺀다`,
+      !!blk && /NOT LIKE 'guest%'/i.test(body),
+      '실측: student_points 94행 중 4행 · vocab_review_log 105행이 게스트');
+  }
+  /* 🔴 게스트 패턴은 «넓은» 쪽이어야 한다 — `guest_%` 로 좁히면 «밑줄 없는» bare `guest` 가 샌다.
+     그 값은 실제로 화면이 만든다(js/game-track.js·js/idx-daily-checkin.js 의 기본값,
+     js/idx-x8.js 의 폴백)이고 auth-admin.ts 의 resolveOwnerScope 도 `/^guest/i` 로 본다.
+     ⚠️ 파일 하나만 보지 말 것 — 같은 필터가 api-ai.ts·game-insights.ts 에도 있고,
+        2026-09-05 에 「한 곳만 고쳤다」가 바로 이 작업에서 두 번 나왔다. src 전체를 훑는다. */
+  {
+    const narrow = [];
+    for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
+      const t = stripComments(rd(join(SRC, f)));
+      if (/NOT LIKE 'guest_%'/i.test(t)) narrow.push(f);
+    }
+    check('게스트 제외 패턴이 bare `guest` 도 덮는다 (src 전체)',
+      narrow.length === 0,
+      narrow.length ? '좁은 패턴이 남은 파일: ' + narrow.join(', ') : "src/*.ts 전수 · `guest%` 만 씀");
+  }
   const c = rd(join(PUB, 'js', 'idx-daily-checkin.js'));
   check('화면이 user_id 대신 me 로 «(나)» 를 표시한다',
     /x\s*=>\s*x\.me/.test(c) && !/s\.user_id\s*===/.test(c),
     '화면이 아직 user_id 를 기대하면 「(나)」 표시가 사라진다');
+  const v = rd(join(PUB, 'vocab.html'));
+  check('단어왕 화면이 user_id 를 그리지 않는다',
+    !/row\.user_id/.test(v) && /row\.name \|\|/.test(v),
+    '이름이 없을 때 화면이 아이디로 메우면 서버에서 막은 것이 도로 샌다');
 }
 
 console.log('\n[ D. 포인트가 실제로 찍히는 경로는 소유자 판정을 거친다 ]');

@@ -85,6 +85,23 @@ export async function lockPeriod(
   }, false);
 }
 
+/**
+ * 🔁 취소 결재가 승인되어 그 달의 확정을 «되돌린다».
+ *   ⛔ 아무 잠금이나 지우지 않는다 — **그 결재가 건 잠금일 때만**(request_id 일치).
+ *      사람이 따로 확정한 달이나 다른 결재가 건 잠금은 건드리지 않는다.
+ *   되돌렸으면 true, 지울 것이 없거나 남의 잠금이면 false.
+ */
+export async function unlockPeriod(
+  env: HrEnv, kind: string, period: string, requestId: number
+): Promise<boolean> {
+  return await safe(async () => {
+    const r = await env.DB.prepare(
+      `DELETE FROM approval_period_locks WHERE kind = ? AND period = ? AND request_id = ?`
+    ).bind(kind, period, requestId).run();
+    return !!r.meta.changes;
+  }, false);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * 그 달의 숫자 — **서버가 읽는다.** 올리는 사람은 타이핑하지 않는다.
  * ═════════════════════════════════════════════════════════════════════════ */
