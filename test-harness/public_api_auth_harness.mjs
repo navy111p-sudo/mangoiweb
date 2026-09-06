@@ -149,6 +149,77 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
     '이름이 없을 때 화면이 아이디로 메우면 서버에서 막은 것이 도로 샌다');
 }
 
+console.log('\n[ C-2. 🍯 판단력 훈련 맛보기 — 게스트에게 열되 «비용» 은 정본이 막는다 ]');
+{
+  const pts = rd(join(SRC, 'api-points.ts'));
+  const blk = handlerBlock(pts, `path === '/api/judgment/scenario'`) || '';
+  const body = blk ? stripComments(blk) : '';
+  check('C-2 시나리오 경로를 찾았다', !!blk, blk ? '(' + blk.length + '자)' : '못 찾음');
+
+  /* 🔴 이 경로는 요청 한 번에 LLM 을 한 번 돌린다. 화면을 게스트에게 여는 순간
+     상한이 «정본» 에 있어야 한다 — 화면에 두면 본문 한 줄로 깨진다(CLAUDE.md 「비용이 나가는 API」). */
+  check('C-2 게스트에게만 상한을 건다',
+    /jScope === 'guest'/.test(body),
+    '로그인한 학생의 동작은 그대로여야 한다');
+  check('C-2 상한 숫자를 이름 붙은 상수로 둔다',
+    /SAMPLE_SCENARIO_CAP/.test(body) && /const SAMPLE_SCENARIO_CAP\s*=\s*\d+/.test(stripComments(pts)),
+    '숫자를 흩어 두면 화면·서버가 어긋난다');
+  /* ⚠️ 세는 자리가 «생성 앞» 이어야 한다 — 뒤면 실패한 요청이 안 세여 재시도로 빠져나간다 */
+  /* 🪤 상수 «이름» 의 위치로 재면 안 된다 — 그 이름이 생성 앞뒤 어디에 있어도 통과한다
+     (변이시험에서 실제로 놓쳤다). «막고 돌아가는 return» 이 생성보다 앞인지로 묻는다. */
+  const iRet = body.indexOf("error: 'sample_limit'");
+  const iGen = body.indexOf('generatePersonalizedScenario');
+  check('C-2 막고 돌아가는 자리가 LLM 생성보다 앞이다',
+    iRet > 0 && iGen > iRet, 'return@' + iRet + ' · gen@' + iGen);
+  /* 그리고 «세는 것»(put) 도 생성 앞이어야 한다 — 뒤면 실패한 요청이 안 세여 재시도로 빠져나간다 */
+  const iPut = body.indexOf('kvS.put');
+  check('C-2 세는 것도 LLM 생성보다 앞이다', iPut > 0 && iGen > iPut, 'put@' + iPut + ' · gen@' + iGen);
+  /* ⚠️ KV 가 안 되면 «막지 않는» 쪽으로 실패한다 — 그래야 고치기 전 상태와 같아질 뿐이고
+     맛보기가 통째로 죽지 않는다. 같은 파일 judg:ic:rl 가드와 같은 방식. */
+  check('C-2 KV 가 안 되면 막지 않는다(fail-open)',
+    /catch \{[^}]*\}\s*\n\s*\}/.test(blk) && /try \{[\s\S]*SAMPLE_SCENARIO_CAP/.test(blk),
+    '고장 난 가드가 맛보기를 영구히 막으면 안 된다');
+  /* ⛔ 인증 게이트를 약화시키지 않았는지 — 맛보기를 연 것이지 게이트를 연 것이 아니다 */
+  check('C-2 남의 아이디 차단(deny)은 그대로다',
+    /resolveOwnerScope/.test(body) && /auth_required/.test(body));
+
+  /* 화면 — «고장» 이 아니라 «오늘 몫» 이라고 말해야 한다 */
+  const jh = rd(join(PUB, 'judgment.html'));
+  check('C-2 화면이 게스트 아이디를 guest_ 로 만든다',
+    /'guest_' \+ Math\.random/.test(jh),
+    'auth-admin 의 resolveOwnerScope 가 /^guest/i 만 통과시킨다');
+  check('C-2 저장이 막힌 기기에서도 맛보기가 열린다(fail-open)',
+    /function sampleOpen\(\)[\s\S]{0,400}?catch\(e\)\{ return true; \}/.test(jh));
+  check('C-2 하루가 지나면 로그인 안내로 돌아간다',
+    /if\(sampleOpen\(\)\)\{[\s\S]{0,200}?\} else \{[\s\S]{0,120}?renderNoLogin\(\);/.test(jh));
+  check('C-2 화면이 «맛보기» 라고 말한다',
+    /id="sampleBar"/.test(jh) && /맛보기로 보고 있어요/.test(jh));
+  /* 두 실패 경로(배치·본 경로)가 같은 판정을 써야 한다 — 하나만 고치면 어긋난다 */
+  /* 🪤 `isSampleLimit(d)` 로 세면 «선언» 줄까지 함께 잡혀, 호출 한 곳을 지워도 통과한다
+     (변이시험에서 실제로 놓쳤다). 조건문 안의 «호출» 만 센다. */
+  const jCalls = (jh.match(/if\(isSampleLimit\(d\)\)/g) || []).length;
+  check('C-2 한도 판정이 한 곳뿐이고 두 경로가 함께 쓴다',
+    (jh.match(/function isSampleLimit\(/g) || []).length === 1 && jCalls >= 2,
+    '호출 ' + jCalls + '곳 (배치·본 경로)');
+  check('C-2 한도를 «고장» 으로 말하지 않는다',
+    /renderSampleLimit/.test(jh) && /여기까지예요/.test(jh));
+  /* ⛔ 「다시 시도」를 두면 눌러도 같은 답이 와서 그때는 진짜 고장으로 읽힌다 */
+  check('C-2 한도 안내에 「다시 시도」를 두지 않는다',
+    !/renderSampleLimit\(n\)\{[\s\S]{0,900}?다시 시도/.test(jh));
+  /* 🔴 상한 숫자를 화면에 복제하면 서버와 어긋난다 — 서버가 준 limit 을 쓴다 */
+  check('C-2 화면이 상한 숫자를 복제하지 않는다',
+    /renderSampleLimit\(d\.limit\)/.test(jh),
+    '서버 응답의 limit 을 그대로 그린다');
+
+  /* 🔴 맛보기를 열면 게스트가 judgment_events 에 행을 남긴다. 그 표를 «학생 구분 없이»
+     통째로 읽어 Neo4j 로 보내는 ETL 이 있어, 거르지 않으면 `guest_xxxxxxx` 라는
+     «있지도 않은 학생» 노드와 취약 스킬 집계가 생기고 그것을 선생님이 본다. */
+  const dg = stripComments(rd(join(SRC, 'decision-graph.ts')));
+  check('C-2 판단 이벤트 ETL 이 게스트를 뺀다',
+    /FROM judgment_events[\s\S]{0,200}?NOT LIKE 'guest%'/i.test(dg),
+    '안 거르면 맛보기 방문자가 «학생» 으로 리포트에 올라온다');
+}
+
 console.log('\n[ D. 포인트가 실제로 찍히는 경로는 소유자 판정을 거친다 ]');
 for (const [label, needle] of [
   ['POST /api/vocab/reward', `path === '/api/vocab/reward'`],
