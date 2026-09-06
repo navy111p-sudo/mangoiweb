@@ -318,7 +318,9 @@ export type GateReason =
   | 'already_cancelled'
   | 'already_requested'
   | 'not_withdrawn'
-  | 'has_child';
+  | 'has_child'
+  /** 판정에 필요한 것을 «조회하지 못했다» — 되돌릴 수 없는 조작은 모르면 막는다 */
+  | 'lookup_failed';
 
 export function canWithdraw(inp: WithdrawInput): { ok: boolean; reason: GateReason } {
   const me = String(inp?.me || '');
@@ -351,8 +353,10 @@ export interface DeleteInput {
   me: string;
   requesterUsername: string;
   status: string;
-  /** 이 건을 «이어받아 다시 올린» 결재가 있는가(다른 행의 origin_id 가 이 건을 가리킴) */
-  hasResubmitChild?: boolean;
+  /** 이 건을 «이어받아 다시 올린» 결재가 있는가(다른 행의 origin_id 가 이 건을 가리킴).
+   *  ⛔ optional 이 아니다 — 안 넘기면 안전장치가 «꺼진» 것이 기본값이 된다.
+   *  `null` = «조회에 실패해 모른다» → 지우지 않는다(되돌릴 수 없는 조작은 막는 쪽으로 실패). */
+  hasResubmitChild: boolean | null;
 }
 
 export function canDelete(inp: DeleteInput): { ok: boolean; reason: GateReason } {
@@ -365,7 +369,10 @@ export function canDelete(inp: DeleteInput): { ok: boolean; reason: GateReason }
      지우면 그 자식의 「N일째」가 **원본 날짜를 잃고 오늘로 초기화**된다 —
      즉 «회수 → 다시 올리기 → 원본 삭제» 가 **지연을 지우는 우회로**가 된다.
      ①②를 만들 때 막으려던 바로 그 구멍이 다시 열린다. */
-  if (inp?.hasResubmitChild) return { ok: false, reason: 'has_child' };
+  /* ⛔ 모르면 막는다 — 자식 조회가 실패했을 때 «없다» 로 떨어뜨리면 이 가드가 통째로
+     fail-open 이 된다(함정 대조 2026-09-06 지적). undefined(안 넘김)도 같은 취급이다. */
+  if (inp?.hasResubmitChild == null) return { ok: false, reason: 'lookup_failed' };
+  if (inp.hasResubmitChild) return { ok: false, reason: 'has_child' };
   return { ok: true, reason: 'ok' };
 }
 

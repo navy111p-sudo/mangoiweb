@@ -108,6 +108,8 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
   );
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_status ON approval_requests(status, created_at)`); } catch { /* 있으면 그만 */ }
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_user ON approval_requests(requester_username, created_at)`); } catch { /* 있으면 그만 */ }
+  // 🔁 「이어받아 다시 올린 건」 조회(has_child · 삭제 게이트)가 origin_id 로 건다.
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_origin ON approval_requests(origin_id)`); } catch { /* 있으면 그만 */ }
 
   // 🆕 다단계·자동화용 칸. 이미 있으면 ALTER 가 에러를 내므로 하나씩 삼킨다.
   //    (기존 행은 전부 NULL 로 들어오고, 아래 rowOf() 가 «1단계짜리»로 해석한다.)
@@ -565,6 +567,10 @@ function rowOf(r: any, steps?: any[], brief = false) {
     /* ↩️🔁 이어진 건들 — 화면이 「원래 8/30에 올림」·「취소 결재 #12」를 말할 수 있게 */
     origin_id: r.origin_id || null,
     origin_created_at: r.origin_created_at || null,
+    /* 🗑️ 회수된 건 중 «이어받아 다시 올린 결재가 있는» 것 — 화면이 삭제 버튼을 안 그린다.
+       (서버 403 을 누른 «뒤» 에 받는 대신. SELECT 가 이 칸을 안 뽑으면 늘 false 라
+        버튼이 뜨고 눌러야 거절된다 — 하니스가 세 SELECT 를 대조한다) */
+    has_child: !!Number(r.has_child || 0),
     reverses_id: r.reverses_id || null,
     cancelled_by_id: r.cancelled_by_id || null,
     decided_by: r.decided_by, decided_at: r.decided_at,
@@ -897,7 +903,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a7-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a8-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -990,7 +996,7 @@ export async function handleApprovalApi(
       /* ↩️ origin_created_at 을 «함께 뽑는다» — rowOf 가 읽는 칸이라 안 뽑으면
          에러 없이 늘 빈 값이 되고, 회수·재작성한 건의 「N일째」가 조용히 1일로 돌아간다.
          (id 로 거는 PK 조회라 행이 늘어도 비용이 붙지 않는다.) */
-      `SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
+      `SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at, CASE WHEN approval_requests.status = 'withdrawn' THEN EXISTS(SELECT 1 FROM approval_requests c WHERE c.origin_id = approval_requests.id) ELSE 0 END AS has_child FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
     ).bind(me).all<any>(), { results: [] as any[] } as any);
 
     // ③ 🚨 긴급 소통 — 조직 전원이 본다(강사 포함). 결재 권한과 무관하게 «보이는» 것이 목적이다.
@@ -1479,7 +1485,8 @@ export async function handleApprovalApi(
      *   ⛔ 총 건수도 내려주지 않는다 — 아래 canView 로 거르므로 SQL COUNT 와 어긋난다.
      *      「1-20 / 총 50건」이 거짓말하느니 「더 보기」가 낫다. */
     const rs = await env.DB.prepare(
-      'SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at FROM approval_requests' + cond + order + ' LIMIT ? OFFSET ?'
+      'SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id) AS origin_created_at, ' +
+      "CASE WHEN approval_requests.status = 'withdrawn' THEN EXISTS(SELECT 1 FROM approval_requests c WHERE c.origin_id = approval_requests.id) ELSE 0 END AS has_child FROM approval_requests" + cond + order + ' LIMIT ? OFFSET ?'
     ).bind(...binds, limit + 1, offset).all<any>().catch(() => ({ results: [] as any[] }));
 
     const rows = (rs.results || []);
@@ -1694,44 +1701,75 @@ export async function handleApprovalApi(
   if (method === 'DELETE' && mDel) {
     if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
     const id = Number(mDel[1]);
+    /* 화면이 그 실패를 뭐라고 말하는지 — 성공한 조작을 «실패» 로 읽히게 하지 않는다.
+       (지운 뒤 한 번 더 누르면 404 가 오는데 문구가 없으면 「지우지 못했습니다」가 뜬다) */
+    const DEL_MSG: Record<string, [string, string]> = {
+      not_found:     ['이미 지워졌거나 없는 결재입니다.', 'Already deleted or not found.'],
+      not_mine:      ['내가 올린 결재만 지울 수 있습니다.', 'You can only delete your own request.'],
+      not_withdrawn: ['회수한 결재만 지울 수 있습니다. 먼저 회수해 주세요 — 승인된 건은 «취소 결재»를 올려야 합니다.',
+                      'Only a withdrawn request can be deleted. Withdraw it first; an approved one needs a cancellation request.'],
+      has_child:     ['이 건을 이어받아 다시 올린 결재가 있어 지울 수 없습니다 — 그 결재의 «며칠째»가 이 날짜를 쓰고 있습니다.',
+                      'A re-submitted request follows this one and uses its date, so it cannot be deleted.'],
+      lookup_failed: ['확인이 끝나지 않아 지우지 않았습니다. 잠시 뒤 다시 시도해 주세요.',
+                      'Could not verify — nothing was deleted. Please try again shortly.'],
+      changed:       ['그사이 상태가 바뀌어 지우지 않았습니다 — 화면을 새로고침해 주세요.',
+                      'The request changed in the meantime — nothing was deleted. Please refresh.'],
+    };
+    const fail = (reason: string, code: number, extra?: Record<string, unknown>) => {
+      const m = DEL_MSG[reason] || ['지울 수 없습니다.', 'Cannot delete.'];
+      return json({ ok: false, error: reason, message: m[0], message_en: m[1], ...(extra || {}) }, code);
+    };
+
     const cur: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
       .bind(id).first().catch(() => null);
-    if (!cur) return json({ ok: false, error: 'not_found' }, 404);
+    if (!cur) return fail('not_found', 404);
 
     /* 🔴 이 건을 이어받아 다시 올린 결재가 있는가 — 있으면 지우지 않는다.
        지우면 그 자식의 「N일째」가 원본 날짜를 잃고 **오늘로 초기화**되어,
-       «회수 → 다시 올리기 → 원본 삭제» 가 **지연을 지우는 우회로**가 된다. */
-    const child: any = await safe(async () => await env.DB.prepare(
-      `SELECT id FROM approval_requests WHERE origin_id = ? LIMIT 1`
-    ).bind(id).first(), null);
+       «회수 → 다시 올리기 → 원본 삭제» 가 **지연을 지우는 우회로**가 된다.
+       ⛔ 조회가 실패하면 «모른다»(null) 로 넘긴다 — safe(…, null) 로 «없다» 에 떨어뜨리면
+          이 가드가 fail-open 이 된다(함정 대조 2026-09-06). 되돌릴 수 없는 조작은 막는 쪽으로 실패. */
+    let hasChild: boolean | null = null;
+    let childId: number | null = null;
+    try {
+      const child: any = await env.DB.prepare(
+        `SELECT id FROM approval_requests WHERE origin_id = ? LIMIT 1`
+      ).bind(id).first();
+      hasChild = !!child?.id;
+      childId = child?.id ? Number(child.id) : null;
+    } catch (e) {
+      console.error('[approval-delete] 자식 조회 실패 — 지우지 않습니다. id=' + id, (e as any)?.message || e);
+    }
 
     const g = canDelete({
       me: String(actor.username),
       requesterUsername: String(cur.requester_username),
       status: String(cur.status),
-      hasResubmitChild: !!child?.id,
+      hasResubmitChild: hasChild,
     });
     if (!g.ok) {
-      const MSG: Record<string, [string, string]> = {
-        not_mine:      ['내가 올린 결재만 지울 수 있습니다.', 'You can only delete your own request.'],
-        not_withdrawn: ['회수한 결재만 지울 수 있습니다. 먼저 회수해 주세요 — 승인된 건은 «취소 결재»를 올려야 합니다.',
-                        'Only a withdrawn request can be deleted. Withdraw it first; an approved one needs a cancellation request.'],
-        has_child:     ['이 건을 이어받아 다시 올린 결재가 있어 지울 수 없습니다 — 그 결재의 «며칠째»가 이 날짜를 쓰고 있습니다.',
-                        'A re-submitted request follows this one and uses its date, so it cannot be deleted.'],
-      };
-      const m = MSG[g.reason] || ['지울 수 없습니다.', 'Cannot delete.'];
-      return json({
-        ok: false, error: g.reason, message: m[0], message_en: m[1],
-        status: cur.status, child_id: child?.id || null,
-      }, 403);
+      return fail(g.reason, g.reason === 'lookup_failed' ? 503 : 403,
+                  { status: cur.status, child_id: childId });
     }
 
-    // ① 행 — 조건부. 그사이 상태가 바뀌었으면 0행이고 아무것도 안 잃는다.
+    /* ① 행 — 조건부. 그사이 상태가 바뀌었거나 «다시 올리기» 가 들어왔으면 0행이고
+          아무것도 안 잃는다. 자식 검사를 SELECT 시점에만 두면 그 사이(TOCTOU)에
+          부모가 지워질 수 있어 WHERE 에도 넣는다 — DB 가 한 번 더 본다. */
     const up = await env.DB.prepare(
       `DELETE FROM approval_requests
-        WHERE id = ? AND status = 'withdrawn' AND requester_username = ?`
+        WHERE id = ? AND status = 'withdrawn' AND requester_username = ?
+          AND NOT EXISTS (SELECT 1 FROM approval_requests c WHERE c.origin_id = approval_requests.id)`
     ).bind(id, String(actor.username)).run();
-    if (!up.meta.changes) return json({ ok: false, error: 'not_withdrawn' }, 409);
+    if (!up.meta.changes) {
+      // 왜 0행이었나 — «자식이 생겼다» 와 «상태가 바뀌었다» 는 다른 말이다.
+      const again: any = await safe(async () => await env.DB.prepare(
+        `SELECT status,
+                (SELECT COUNT(*) FROM approval_requests c WHERE c.origin_id = approval_requests.id) AS kids
+           FROM approval_requests WHERE id = ? LIMIT 1`
+      ).bind(id).first(), null);
+      if (again && Number(again.kids || 0) > 0) return fail('has_child', 403, { status: again.status });
+      return fail('changed', 409, { status: again?.status || null });
+    }
 
     // ② 단계 이력 — 남기면 고아 행이 된다.
     await safe(async () => {
@@ -1767,7 +1805,12 @@ export async function handleApprovalApi(
       created_at: cur.created_at, had_file: !!cur.file_key, file_gone: fileGone,
     }));
 
-    return json({ ok: true, id, deleted: true, file_deleted: fileGone });
+    /* ⚠️ 첨부를 못 지웠으면 «어느 파일인지» 를 함께 준다 — 이 저장소의 R2 청소기는
+       rec/·recordings/ 접두사만 치우므로 approval/ 고아는 사람이 대시보드에서 지워야 한다. */
+    return json({
+      ok: true, id, deleted: true, file_deleted: fileGone,
+      file_key: fileGone === false ? String(cur.file_key) : undefined,
+    });
   }
 
   /* ── 한 건 자세히 ─────────────────────────────────────────────────────────
@@ -1781,7 +1824,8 @@ export async function handleApprovalApi(
     const id = Number(mOne[1]);
     const r: any = await env.DB.prepare(
       `SELECT *, (SELECT o.created_at FROM approval_requests o WHERE o.id = approval_requests.origin_id)
-         AS origin_created_at FROM approval_requests WHERE id = ? LIMIT 1`
+         AS origin_created_at, CASE WHEN approval_requests.status = 'withdrawn' THEN EXISTS(SELECT 1 FROM approval_requests c WHERE c.origin_id = approval_requests.id) ELSE 0 END AS has_child
+       FROM approval_requests WHERE id = ? LIMIT 1`
     ).bind(id).first().catch(() => null);
     if (!r) return json({ ok: false, error: 'not_found' }, 404);
     const ch = await chainOf(env, id);
@@ -1816,12 +1860,27 @@ export async function handleApprovalApi(
       .bind(id).first().catch(() => null);
     if (!cur) return json({ ok: false, error: 'not_found' }, 404);
 
-    // 이미 누가 결재를 눌렀는가 — 단계 표를 직접 본다(상태만 보면 다단계에서 놓친다).
-    const decided: any = await safe(async () => await env.DB.prepare(
-      `SELECT COUNT(*) AS c FROM approval_steps
-        WHERE request_id = ? AND status IN ('approved','rejected')`
-    ).bind(id).first(), null);
-    const anyDecided = Number(decided?.c || 0) > 0;
+    /* 이미 누가 결재를 눌렀는가 — 단계 표를 직접 본다(상태만 보면 다단계에서 놓친다).
+       ⛔ 이 조회가 실패했을 때 «아무도 안 눌렀다» 로 떨어뜨리지 않는다 — 그러면 결재 도장이
+          찍힌 건도 회수되고, 이제는 그 뒤 삭제까지 이어져 결재자의 판단 기록이 통째로
+          사라질 수 있다(함정 대조 2026-09-06). 모르면 회수하지 않는다. */
+    let anyDecided: boolean | null = null;
+    try {
+      const decided: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM approval_steps
+          WHERE request_id = ? AND status IN ('approved','rejected')`
+      ).bind(id).first();
+      anyDecided = Number(decided?.c || 0) > 0;
+    } catch (e) {
+      console.error('[approval-withdraw] 단계 조회 실패 — 회수하지 않습니다. id=' + id, (e as any)?.message || e);
+    }
+    if (anyDecided === null) {
+      return json({
+        ok: false, error: 'lookup_failed',
+        message: '결재 진행 상태를 확인하지 못해 회수하지 않았습니다. 잠시 뒤 다시 시도해 주세요.',
+        message_en: 'Could not verify the approval progress — nothing was withdrawn. Please try again shortly.',
+      }, 503);
+    }
 
     const g = canWithdraw({
       me: String(actor.username), requesterUsername: String(cur.requester_username),

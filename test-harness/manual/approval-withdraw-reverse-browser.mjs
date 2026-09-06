@@ -108,14 +108,36 @@ const othersOpen = {
   steps: [{ seq: 1, role: 'staff', status: 'active' }],
 };
 
-/** 첨부가 있는 회수 건 — 「파일도 함께 지워집니다」를 말하는지 보려면 필요하다. */
+/** 첨부가 있는 회수 건 — 「파일도 함께 지워집니다」를 말하는지 보려면 필요하다.
+    ⚠️ 번호 110 은 mineCancelled.cancelled_by_id(=「106 을 취소시킨 결재」)가 쓰고 있다 —
+    같은 번호를 «회수된 건» 으로 두면 fixture 가 자기모순이다(함정 대조 2026-09-06). */
 const mineWithdrawnFile = {
-  id: 110, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
+  id: 111, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
   title: '영수증 붙은 회수 건', body: '', amount: 1200, currency: 'PHP',
   requester_username: 'admin', requester_name: '정우영',
   status: 'withdrawn', status_ko: SKO('withdrawn'), status_en: 'Withdrawn',
   has_file: true, file_name: 'receipt.jpg',
   created_at: now - 3 * DAY, stage_seq: 1, stage_total: 1, flags: [], steps: [],
+};
+/** 반려된 내 건 — ⛔ 삭제도 회수도 안 뜬다(결재자가 «아니오» 라고 판단한 기록이다). */
+const mineRejected = {
+  id: 112, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
+  title: '반려된 지출', body: '', amount: 999, currency: 'PHP',
+  requester_username: 'admin', requester_name: '정우영',
+  status: 'rejected', status_ko: SKO('rejected'), status_en: 'Rejected',
+  decided_by: 'mgr_karl', decided_at: now - DAY,
+  created_at: now - 2 * DAY, stage_seq: 1, stage_total: 1, flags: [],
+  steps: [{ seq: 1, role: 'staff', status: 'rejected' }],
+};
+/** 🔴 «이어받아 다시 올린 결재가 있는» 회수 건 — 삭제 버튼 대신 이유가 떠야 한다.
+    지우면 자식(#105 류)의 「N일째」가 오늘로 초기화되어 지연을 지우는 우회로가 된다. */
+const mineWithdrawnChild = {
+  id: 113, req_type: 'expense', type_ko: '지출 결재', type_en: 'Expense',
+  title: '다시 올린 것의 원본', body: '', amount: 640, currency: 'PHP',
+  requester_username: 'admin', requester_name: '정우영',
+  status: 'withdrawn', status_ko: SKO('withdrawn'), status_en: 'Withdrawn',
+  has_child: true,
+  created_at: now - 6 * DAY, stage_seq: 1, stage_total: 1, flags: [], steps: [],
 };
 
 /** 🔴 남이 올린 «긴급» — urgent 목록은 decidable 이 아니라 **내 카드와 같은 경로**로 그려진다.
@@ -146,7 +168,7 @@ function home(over) {
     types: TYPES, categories: CATS,
     inbox: [othersOpen],
     mine: [mineOpen, mineDecided, mineApproved, mineWithdrawn, mineResub, mineCancelled,
-           mineWithdrawnFile],
+           mineWithdrawnFile, mineRejected, mineWithdrawnChild],
     reuse: [], urgent: [othersUrgent, othersApproved],
     summary: {
       money: { month: [], year: [], month_count: 0, year_count: 0,
@@ -220,7 +242,7 @@ function check(name, cond, extra) {
 
   /* ── ⓪ 전제 ────────────────────────────────────────────────────────── */
   console.log('\n[0] 전제 — 카드가 실제로 그려졌는가');
-  const WANT = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110];
+  const WANT = [101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113];
   const drawn = await page.evaluate((w) => w.filter((i) => !!document.getElementById('req-' + i)), WANT);
   check('시험할 카드 ' + WANT.length + '장이 모두 그려졌다 (아래 검사가 뜻을 가지려면)',
     drawn.length === WANT.length, JSON.stringify(drawn));
@@ -262,6 +284,24 @@ function check(name, cond, extra) {
     !!a103 && a103.join('|').indexOf('삭제') < 0, JSON.stringify(a103));
   check('⛔ 이미 취소된 건에는 아무 버튼도 안 뜬다',
     !!a106 && a106.length === 0, JSON.stringify(a106));
+  const a112 = await actsOf(112);
+  check('🔴 반려된 건에는 삭제가 «안» 뜬다 (결재자가 «아니오» 라고 판단한 기록이다)',
+    !!a112 && a112.join('|').indexOf('삭제') < 0, JSON.stringify(a112));
+  check('⛔ 반려된 건에 회수도 안 뜬다',
+    !!a112 && a112.join('|').indexOf('회수') < 0, JSON.stringify(a112));
+  /* 🔴 has_child — 서버가 「이어받은 결재가 있다」고 말한 회수 건 */
+  const a113 = await actsOf(113);
+  const note113 = await page.evaluate(() => {
+    const c = document.getElementById('req-113');
+    const n = c && c.querySelector('.mineacts-note');
+    return n ? n.textContent.trim() : '';
+  });
+  check('🔴 이어받은 결재가 있는 회수 건에는 삭제 버튼이 «안» 뜬다 (눌러야 403 을 받는 흐름이 아니게)',
+    !!a113 && a113.join('|').indexOf('삭제') < 0, JSON.stringify(a113));
+  check('그 자리에 «왜 지울 수 없는지» 를 적는다',
+    /이어받아 다시 올린 결재가 있어 지울 수 없습니다/.test(note113), note113);
+  check('짝 — 그래도 「다시 올리기」는 그대로 뜬다 (버튼을 통째로 잃지 않았다)',
+    !!a113 && a113.join('|').indexOf('다시 올리기') >= 0, JSON.stringify(a113));
   const a108 = await actsOf(108);
   const a109 = await actsOf(109);
   check('🔴 남이 올린 대기 건에는 아무 버튼도 안 뜬다 (결재함)',
@@ -432,14 +472,14 @@ function check(name, cond, extra) {
     !/첨부한 파일도/.test(delTxt), delTxt.slice(0, 200));
 
   await page.evaluate(() => { const e = document.getElementById('act-104'); if (e) e.innerHTML = ''; });
-  check('첨부 있는 회수 건의 삭제 버튼을 눌렀다 (전제)', (await openDel(110)) === true);
+  check('첨부 있는 회수 건의 삭제 버튼을 눌렀다 (전제)', (await openDel(111)) === true);
   await page.waitForTimeout(150);
-  const delTxt2 = await page.evaluate(() => (document.getElementById('act-110') || {}).innerText || '');
+  const delTxt2 = await page.evaluate(() => (document.getElementById('act-111') || {}).innerText || '');
   check('🔴 첨부가 있으면 «파일도 함께 지워진다» 고 말한다 (짝 검사)',
     /첨부한 파일도/.test(delTxt2), delTxt2.slice(0, 200));
 
   await page.evaluate(() => (window.__CALLS.length = 0));
-  await page.evaluate(() => document.querySelector('#act-110 .whybtns button.danger').click());
+  await page.evaluate(() => document.querySelector('#act-111 .whybtns button.danger').click());
   await page.waitForTimeout(300);
   const dcall = await page.evaluate(() =>
     window.__CALLS.find((c) => c.m === 'DELETE' && /\/requests\/\d+$/.test(c.u)) || null);
