@@ -11,6 +11,8 @@ import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './gift
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
+/* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
+import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
 import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
@@ -796,8 +798,37 @@ Return STRICT JSON only, in BOTH Korean and English:
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 (2026-08-28) 남의 아이디로 LLM 생성을 돌리고 그 학생 기록에 얹는 것을 막는다(위 growth 와 같은 이유).
-      if ((await resolveOwnerScope(request, url, env as any, uid, body)) === 'deny') {
+      const jScope = await resolveOwnerScope(request, url, env as any, uid, body);
+      if (jScope === 'deny') {
         return json({ ok: false, error: 'auth_required' }, 401);
+      }
+      /* ═══ 🍯 맛보기(로그인 없이) 남용 가드 — 게스트에게만 (2026-09-05) ═══
+         이 경로는 요청 한 번에 LLM 을 한 번 돌린다(위 주석의 운영 실측 평균 11초).
+         게스트는 예전부터 통과했지만 화면이 막고 있어 실제 호출이 0건이었다
+         (D1 실측 judgment_events 194행 중 게스트 0행). 그 화면을 여는 김에 상한을 건다.
+         ⛔ 상한을 «부르는 쪽»(화면)에 두지 않는다 — 본문 한 줄로 깨진다(CLAUDE.md 「비용이
+            나가는 API」). 정본인 여기가 든다.
+         ⚠️ 로그인한 학생에게는 한 글자도 안 걸린다 — 그들의 동작은 그대로다.
+         ⚠️ KV 가 안 되면 «막지 않는» 쪽으로 실패한다. 그러면 고치기 전(게스트가 이미 통과하던
+            상태)과 같아질 뿐이고, 맛보기가 통째로 죽는 것보다 낫다.
+            같은 파일의 judg:ic:rl 가드와 같은 방식(best-effort, 레이스 허용).
+         ⚠️ 세는 자리는 «생성 앞» 이다 — 뒤에 두면 실패한 요청이 안 세여 재시도로 빠져나간다. */
+      if (jScope === 'guest') {
+        const kvS = (env as any).SESSION_STATE as KVNamespace | undefined;
+        try {
+          if (kvS) {
+            // KST 하루 단위(자정 리셋) — 사람이 「오늘 몇 문제」로 이해하는 눈금과 같게
+            const ymd = new Date(Date.now() + 32400000).toISOString().slice(0, 10);
+            const key = `judg:sample:${uid}:${ymd}`;
+            const n = parseInt((await kvS.get(key)) || '0', 10) || 0;
+            if (!sampleScenarioAllowed(n)) {
+              /* 화면이 이것을 «고장» 이 아니라 «맛보기 한도» 로 말해야 한다 —
+                 200 으로 돌려주는 것은 그 화면이 ok===false 를 읽어 안내를 그리기 때문이다. */
+              return json({ ok: false, error: 'sample_limit', limit: SAMPLE_SCENARIO_CAP }, 200);
+            }
+            await kvS.put(key, String(n + 1), { expirationTtl: 172800 });
+          }
+        } catch { /* KV 실패 → 막지 않는다(위 설명) */ }
       }
       try {
         // focus_misconception — 학생이 "이 유형 더 연습하기"를 누른 경우. 사전에 없는 코드는 생성기가 무시합니다.

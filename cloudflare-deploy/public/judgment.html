@@ -310,6 +310,23 @@
   .opt .spk{margin-left:auto}
   .sit-label .spk{margin-left:8px}
   .pill.muted{background:rgba(255,255,255,.06);color:var(--mut)}
+
+  /* 🍯 맛보기 배너 — 로그인 전에만 뜬다 */
+  /* 🔴 높이를 짧게 유지할 것 — 이 상자가 커지면 아래의 «첫 설정 카드» 가 화면 밖으로 밀린다.
+     실측(360x640): 137px 배너에서 첫 선택지가 y=739 로 스크롤 밖이었고, 한 줄로 줄여 되돌렸다.
+     (CLAUDE.md 2장 «첫 화면에 정하세요 카드를 띄웠는데 아무도 안 고름») */
+  .sample-bar{ max-width:720px; margin:0 auto 4px; padding:4px 11px; border-radius:11px;
+    border:1px solid rgba(250,204,21,.45); background:rgba(250,204,21,.09); line-height:1.4; }
+  .sample-bar b{ font-size:13px; }
+  .sample-bar span{ font-size:12px; opacity:.85; }
+  /* ⚠️ 손가락으로 누를 수 있는 크기를 지킨다(≥34px) — 상자를 조이다 버튼까지 조이면
+     «보이는데 못 누르는» 버튼이 된다. 높이는 상자의 여백에서 갚는다(위 padding/margin). */
+  .sample-bar a{ float:right; margin-left:10px; padding:9px 13px; border-radius:9px;
+    font-size:12px; font-weight:800; line-height:1.25; text-decoration:none; white-space:nowrap;
+    background:linear-gradient(135deg,#fde68a,#fbbf24); color:#1a1200; }
+  .sample-bar::after{ content:''; display:block; clear:both; }
+  /* ⛔ display:flex 로 감싸지 말 것 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 2장) */
+  [hidden]{ display:none !important; }
 </style>
 <script src="/js/game-track.js?v=3" defer></script>
 <!-- 🔊 원어민 TTS(서버 Deepgram Aura-2 미국 여성 → Aura-1 → MeloTTS → 브라우저 폴백) -->
@@ -359,6 +376,10 @@
     </div>
   </div>
 
+  <!-- 🍯 맛보기 배너 — 로그인 전에는 이 화면이 «맛보기» 라고 화면이 직접 말한다.
+       ⛔ 감추지 말 것: 말 안 하면 여기서 쌓은 기록이 «내 기록» 으로 이어지는 줄 압니다. -->
+  <div id="sampleBar" class="sample-bar" hidden></div>
+
   <div id="stage" class="card enter">
     <div class="center"><span class="spin"></span><div style="margin-top:14px">…</div></div>
   </div>
@@ -380,6 +401,34 @@
   }
   var _USER = resolveUser();
   var UID = _USER.uid;
+  /* ═══ 🍯 맛보기 — 로그인 없이 «하루쯤» 둘러보기 (2026-09-05 사장님 지시) ═══
+     서버 세 API(growth·scenario·answer)는 예전부터 게스트를 통과시킵니다
+     (auth-admin.ts 의 resolveOwnerScope 가 /^guest/i 를 'guest' 로 봅니다).
+     막고 있던 것은 이 화면 하나뿐이라, 여기서 게스트 아이디를 만들어 주면 열립니다.
+     ⚠️ 아이디는 반드시 `guest_` 로 시작해야 합니다 — 그래야 서버가 토큰 없이 통과시킵니다.
+     ⚠️ 창은 «처음 연 시각» 부터 잽니다 — 기기 하나에 한 번뿐이라 계속 되살아나지 않습니다.
+     ⛔ localStorage 가 막힌 곳(사생활 보호 창)에서는 «못 연다» 가 아니라 «맛보기를 보여준다»
+        쪽으로 실패합니다. 못 보여주면 고치려던 그 벽이 그대로입니다.
+     ⚠️ 여기서 쌓인 기록은 그 게스트 아이디의 것이고 «내 계정» 으로 이어지지 않습니다 —
+        배너가 그 사실을 말합니다. */
+  var IS_SAMPLE = false;
+  var SAMPLE_KEY = 'mangoi_judg_sample_from', SAMPLE_ID = 'mangoi_judg_sample_uid';
+  var SAMPLE_MS = 24 * 60 * 60 * 1000;
+  function sampleOpen(){
+    var now = Date.now();
+    try{
+      var v = Number(localStorage.getItem(SAMPLE_KEY) || 0);
+      if(!v){ localStorage.setItem(SAMPLE_KEY, String(now)); return true; }
+      return (now - v) < SAMPLE_MS;
+    }catch(e){ return true; }   // 저장을 못 하는 기기 — 막지 않는다
+  }
+  function sampleUid(){
+    try{
+      var g = localStorage.getItem(SAMPLE_ID);
+      if(!g){ g = 'guest_' + Math.random().toString(36).slice(2,9); localStorage.setItem(SAMPLE_ID, g); }
+      return g;
+    }catch(e){ return 'guest_' + Math.random().toString(36).slice(2,9); }
+  }
   /* 🔐 (2026-08-28) 본인 확인용 서명 토큰 — 서버가 이 화면의 세 API(growth·scenario·answer)에
      소유자 판정을 걸었다. 예전에는 검사가 아예 없어서 아이디만 알면 남의 아이 판단력 기록을
      읽고 오답까지 밀어 넣을 수 있었다(무인증 실측으로 확인).
@@ -604,6 +653,8 @@
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
     else if(view==='nologin') renderNoLogin();   // 로그인 안내도 언어 따라 다시 그린다(안 하면 첫 언어로 굳음)
     else if(view==='setup') renderFirstRunSetup();   // 🎬 첫 설정 카드도 마찬가지(고른 값 setupAge/setupList 는 그대로 유지)
+    else if(view==='samplelimit') renderSampleLimit(window._sampleLimitN);   // 🍯 한도 안내도 언어 따라
+    renderSampleBar();                               // 🍯 맛보기 배너도 함께(안 하면 첫 언어로 굳는다)
     if(solved>0) streakEl.innerHTML = streakText();
   }
   document.getElementById('langBtn').addEventListener('click', function(){
@@ -618,11 +669,48 @@
     view='nologin';
     stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.','请先在应用中登录后使用。')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)','（以学生账号登录后会自动开始）')+'</span></div>';
   }
-  if(!UID){
-    applyStatic();
-    renderNoLogin();
-    return;
+  /* 🍯 맛보기 배너 — 화면이 «이건 맛보기» 라고 직접 말한다. 언어 전환에도 다시 그린다. */
+  function renderSampleBar(){
+    var bar = document.getElementById('sampleBar');
+    if(!bar) return;
+    bar.hidden = !IS_SAMPLE;
+    if(!IS_SAMPLE){ bar.innerHTML = ''; return; }
+    /* ⚠️ 버튼을 «먼저» 그린다 — float:right 는 그 줄이 시작되기 전에 나와야 첫 줄 오른쪽에 붙는다.
+       🔴 첫 설정 카드(view==='setup')에서는 «한 줄» 로만 — 그 화면은 «고르는» 화면이라
+          위에 한 줄이라도 더 얹히면 360x640 폰에서 선택지가 스크롤 밖으로 밀린다(실측).
+          「저장되지 않아요」는 어차피 «풀기 시작한 뒤» 에 뜻이 생기므로 그때 붙인다. */
+    var terse = (view === 'setup');
+    bar.innerHTML = '<a href="/">' + T('🏠 로그인','🏠 Log in','🏠 登录') + '</a>'
+      + '<b>' + T('🍯 맛보기로 보고 있어요','🍯 You are trying a sample','🍯 正在试用体验') + '</b>'
+      + (terse ? '' : ' <span>' + T('지금 푼 것은 저장되지 않아요.','What you answer now is not kept.','现在做的题不会保存。') + '</span>');
   }
+  /* 🍯 맛보기 한도 — «고장» 이 아니라 «오늘 몫을 다 썼다» 로 말해야 한다.
+     ⛔ 「다시 시도」 버튼을 두지 말 것 — 눌러도 같은 답이 오고 그때는 진짜 고장으로 읽힌다. */
+  function renderSampleLimit(n){
+    view='samplelimit';
+    window._sampleLimitN = n || window._sampleLimitN;   // 언어 전환 때 같은 숫자로 다시 그리기 위해
+    stage.innerHTML = '<div class="center"><div style="font-size:34px">🍯</div>'
+      + '<div style="margin-top:10px;font-weight:800">' + T('오늘 맛보기는 여기까지예요','That is today\'s sample','今天的体验到这里')
+      + '</div><div style="margin-top:8px;font-size:.9em;opacity:.85">'
+      + T('맛보기는 하루에 ' + (n||12) + '문제까지 볼 수 있어요. 로그인하면 계속 풀 수 있고 기록도 쌓여요.',
+          'The sample gives you ' + (n||12) + ' questions a day. Log in to keep going — and to keep your record.',
+          '体验每天最多 ' + (n||12) + ' 题。登录后可以继续，记录也会保存。')
+      + '</div><a class="btn" style="max-width:260px;margin:18px auto 0;display:block;text-align:center;text-decoration:none" href="/">'
+      + T('🏠 로그인하러 가기','🏠 Log in','🏠 去登录') + '</a></div>';
+  }
+  /* 서버가 맛보기 한도라고 답했나 — 두 실패 경로가 같은 판정을 쓴다(한 곳만 고치면 어긋난다) */
+  function isSampleLimit(d){ return !!(d && d.ok === false && d.error === 'sample_limit'); }
+  if(!UID){
+    if(sampleOpen()){
+      IS_SAMPLE = true;
+      UID = sampleUid();          // guest_* — 서버가 토큰 없이 통과시키는 모양
+    } else {
+      applyStatic();
+      renderNoLogin();
+      return;
+    }
+  }
+  renderSampleBar();
 
   function loading(msg){ sayStop(); stage.innerHTML = '<div class="center"><span class="spin"></span><div style="margin-top:14px">'+esc(msg)+'</div></div>'; }
 
@@ -762,6 +850,7 @@
     view = 'placement';
     loading(T('레벨을 찾는 중이에요…','Finding your level…','正在测定你的难度…'));
     var d = await requestScenario(null, 0, 0, null, plBand);
+    if(isSampleLimit(d)){ plOn = false; renderSampleLimit(d.limit); return; }   // 🍯 맛보기 한도
     if(!validScenario(d)){
       stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.','题目加载失败。')
         + '<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="plAbort">'+T('그만두기','Stop','退出')+'</button></div>';
@@ -775,6 +864,7 @@
   }
   function renderPlacement(){
     view = 'placement';
+    renderSampleBar();   // 🍯 위와 같은 이유 — 레벨 찾기도 «푸는» 화면이다
     var letters = ['A','B','C','D'];
     var opts = plQ.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span>'+spk(o)+'</button>';
@@ -871,12 +961,14 @@
   }
 
   function renderFirstRunSetup(){
+    /* 배너를 «한 줄» 로 줄이려면 view 가 정해진 뒤 다시 그려야 한다 — 아래 view='setup' 뒤에 부른다 */
     view = 'setup';
     // 📜 «왜 판단력 훈련을 하나요?» 설명 상자는 기본이 펼침(class="explain open")이라 폰에서 두 화면쯤 됩니다.
     //    그 아래로 밀리면 정작 «정하라»고 띄운 카드가 스크롤 밖에 있어 첫 진입의 뜻이 사라집니다
     //    (390px 실측 2026-08-26: 카드 top 966px — 화면 844px 밖).
     //    ⛔ 상자를 없애지는 않습니다 — 제목 줄이 그대로 토글이라 한 번 누르면 다시 펼쳐집니다.
     try{ document.getElementById('explain').classList.remove('open'); }catch(e){}
+    renderSampleBar();   // 🍯 view='setup' 이 정해진 뒤라야 «한 줄» 로 줄어든다
     // ⚡ 카드가 떠 있는 동안 첫 문제를 뒤에서 만들어 둡니다 — 이 카드의 진짜 이득이 이 한 줄입니다.
     //    (이미 만들고 있으면 prefetchNext 가 그냥 돌아가므로, 다시 그릴 때마다 불러도 안전합니다)
     if(!prefetch) prefetchNext(setupAge==='adult' ? 'adult' : null);
@@ -1187,6 +1279,7 @@
       // 레벨 목록·현재 범주는 문제 생성이 실패해도 챙깁니다 — 실패했을 때야말로
       //   "레벨 고르기"로 빠져나갈 수 있어야 하니까요.
       captureBand(d);
+      if(isSampleLimit(d)){ renderSampleLimit(d.limit); return; }   // 🍯 맛보기 한도 — «고장» 이 아니다
       if(!validScenario(d)) throw new Error('no scenario');
       scenario = d;
       _autoSay = true;
@@ -1199,6 +1292,7 @@
 
   function renderQuestion(){
     view='q';
+    renderSampleBar();   // 🍯 설정 카드에서 «한 줄» 로 줄여 뒀던 것을 여기서 푼다
     var letters = ['A','B','C','D'];
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"'+(i===chosen?' data-sel="1"':'')+'><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span>'+spk(o)+'</button>';
