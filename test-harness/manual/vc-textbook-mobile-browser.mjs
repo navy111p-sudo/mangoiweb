@@ -481,34 +481,53 @@ await load(1280, 800, 2, 'ko-KR');
 let t6 = await tiles('video-half', 2);
 ok(t6.ratio > 2, `PC·학생 화면 — 상대(교사)가 전체화면, 내 타일은 오른아래 PIP (실측 ${t6.ratio}배)`, JSON.stringify(t6));
 
-/* ── 교사 화면 = «자기 자신» 이 크다 (2026-08-26 사장님 추가 지시) ─────────
-   ⚠️ 처음엔 «상대가 주인공» 으로 만들었다가 이 지시로 뒤집었다. 되돌아가면 여기가 FAIL 한다.
-   ⚠️ 폰에서 한때 2.58배가 나온 적이 있다 — PC 용 줄에 미디어쿼리가 없어 폰까지 닿아
-      상대가 «두 번» 줄어든 것이다. 그래서 상한(1.75)을 반드시 함께 본다. */
-console.log('\n⑨-2 교사 화면 — 교사 자신이 더 큰가');
+/* ── 교사 화면 = «아무도 크지 않다» (2026-09-07 사장님 지시) ─────────────
+   📜 경위: 2026-08-26 에는 반대로 「교사 화면에서도 교사 자신이 크게」였고 이 절이 그것을
+      못 박고 있었다. 2026-09-07 에 「교사는 화면을 작게 — 자기 것과 학생 것 모두」로 바뀌었다.
+   ⚠️ 그 지시의 동기(「화면이 크면 용량이 무겁지 않을까」)는 사실이 아니다 — 타일 크기는
+      송신 비트레이트·CPU 와 무관하다(vcQualityCaps·applyStep 이 정한다). 이 절이 지키는 것은
+      «보이는 크기» 뿐이고, 용량 검사가 아니다. ⛔ 여기에 용량 판정을 얹지 말 것.
+   ⚠️ 「같은 크기」만 보면 반쪽이다 — PC 에서 «전체화면 하나 + 210px PIP» 도 «둘 다 있긴 하다» 로
+      통과할 수 있으므로, PC 는 «둘 다 보통 칸인가»(position 이 static 인가)까지 함께 본다.
+   ⚠️ 학생 화면은 그대로 «교사가 큼» 이어야 한다 — 짝으로 안 보면 «전부 반반» 도 통과한다(위 ⑨절). */
+console.log('\n⑨-2 교사 화면 — 두 얼굴이 같은 크기인가 (자기 자신이 크지 않다)');
 await load(390, 844, 3, 'ko-KR');
 let s1 = await tiles('video-half', 2, false, 'teacher');
 ok(s1.cls === true, '교사로 들어오면 body 에 mg-teacher-self 가 붙는다', JSON.stringify(s1));
-ok(s1.mineRatio >= 1.5 && s1.mineRatio <= 1.75,
-  `세로폰·교사 화면 — 교사 자신이 1.6배쯤 크다 (실측 ${s1.mineRatio}배)`, JSON.stringify(s1));
+ok(Math.abs(s1.mineRatio - 1) < 0.15,
+  `세로폰·교사 화면 — 두 얼굴이 같은 크기 (실측 ${s1.mineRatio}배, 바꾸기 전 1.6배)`, JSON.stringify(s1));
 let s1b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s1b.ratio - 1) < 0.15,
   `세로폰·교사 화면 여러 명 수업은 그대로 고르게 (실측 ${s1b.ratio}배)`, JSON.stringify(s1b));
 
 await load(844, 390, 3, 'ko-KR');
 let s2 = await tiles('video-half', 2, false, 'teacher');
-ok(s2.mineRatio >= 1.5 && s2.mineRatio <= 1.75,
-  `가로폰·교사 화면 — 교사 자신이 1.6배쯤 크다 (실측 ${s2.mineRatio}배)`, JSON.stringify(s2));
+ok(Math.abs(s2.mineRatio - 1) < 0.15,
+  `가로폰·교사 화면 — 두 얼굴이 같은 크기 (실측 ${s2.mineRatio}배, 바꾸기 전 1.6배)`, JSON.stringify(s2));
 let s2b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s2b.ratio - 1) < 0.15,
   `가로폰·교사 화면 여러 명 수업은 그대로 고르게 (실측 ${s2b.ratio}배)`, JSON.stringify(s2b));
 
 await load(1280, 800, 2, 'ko-KR');
 let s3 = await tiles('video-half', 2, false, 'teacher');
-ok(s3.mineRatio > 2,
-  `PC·교사 화면 — 교사 자신이 전체화면, 학생이 오른아래 PIP (실측 ${s3.mineRatio}배)`, JSON.stringify(s3));
-ok(Math.abs(s3.mineRatio - t6.ratio) < 0.5,
-  `PC 는 학생 화면과 «정확히 거울» 이다 (학생 ${t6.ratio}배 / 교사 ${s3.mineRatio}배)`,
+ok(Math.abs(s3.mineRatio - 1) < 0.2,
+  `PC·교사 화면 — 두 얼굴이 나란히 같은 크기 (실측 ${s3.mineRatio}배, 바꾸기 전 전체화면+PIP)`, JSON.stringify(s3));
+/* «전체화면 + PIP» 가 아니라 «보통 칸 둘» 인지 — 크기 비율만으로는 못 가른다 */
+let s3pos = await evalJs(`(function(){
+  var g = document.getElementById('vc-video-grid');
+  if (!g) return { err: 'no-grid' };
+  var bs = [].slice.call(g.querySelectorAll('.video-box'));
+  return {
+    grid: getComputedStyle(g).display,
+    pos:  bs.map(function(b){ return getComputedStyle(b).position; })
+  };
+})()`);
+ok(s3pos.grid === 'grid' && s3pos.pos.length === 2 && s3pos.pos.every(p => p === 'static'),
+  'PC·교사 화면 — 그리드가 되살아나고 두 타일 모두 «보통 칸»(static) 이다', JSON.stringify(s3pos));
+/* 짝 검사 — 학생 화면은 그대로 «교사가 전체화면» 이어야 한다.
+   ⛔ 이 줄을 지우면 «모든 화면을 반반으로» 만드는 회귀가 조용히 통과한다. */
+ok(t6.ratio > 2,
+  `PC·학생 화면은 그대로 «교사 전체화면» 이다 (실측 ${t6.ratio}배) — 교사 화면만 바뀌었다`,
   JSON.stringify({ student: t6, teacher: s3 }));
 let s3b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s3b.ratio - 1) < 0.15,

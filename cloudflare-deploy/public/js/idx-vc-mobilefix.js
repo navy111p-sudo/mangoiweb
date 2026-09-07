@@ -646,17 +646,31 @@
         (index.html 3272·3392·3412 — 「겹침·축소·가림 절대 금지」).
         2026-08-26 사장님 지시로 그 결정을 바꾼다. 되돌리려면 이 절만 지우면 된다.
 
-     [무엇을 크게 하나] **«교사» 타일이다 — 누가 보든 교사가 크다.**
+     [무엇을 크게 하나] **«학생 화면에서만» 상대(교사)가 크다.**
        · 학생 화면 → 상대(교사)가 큼
-       · 교사 화면 → **자기 자신**이 큼 (2026-08-26 사장님 추가 지시)
-     ⚠️ 처음엔 «상대» 기준으로 만들었다가 바로 이 지시로 바꿨다. 그때 근거로 삼은
-        「자기 얼굴이 화면을 지배하면 안 된다」는 우리 짐작이었고, 사장님 판단은 달랐다.
-     ℹ️ 순서(order)는 건드리지 않는다 — 내 타일은 그대로 맨 뒤에 있고 «크기» 만 바뀐다.
-        그래서 교사 화면에서는 둘째 칸이 커진다(1fr 1.6fr).
+       · 교사 화면 → **아무도 크지 않다 — 두 얼굴이 같은 크기** (2026-09-07 사장님 지시)
+
+     🔴 2026-09-07 — 교사 쪽 «자기 자신 크게» 를 걷어냈다.
+        [지시] 「교사는 화면을 작게 만들어줘. 자기 것과 학생 것 모두」
+        [경위] 2026-08-26 에는 반대로 「교사 화면에서도 교사 자신이 크게」였다.
+          그때 근거로 삼은 「자기 얼굴이 화면을 지배하면 안 된다」는 우리 짐작이었고
+          사장님 판단은 달랐는데, 2026-09-07 에 다시 «작게» 로 정하셨다.
+        ⚠️ **그 지시의 동기는 「화면이 크면 용량이 무겁지 않을까」였는데 그건 사실이 아니다.**
+          타일 크기를 인코더에 넘기는 코드가 이 저장소에 없고(송신 상한은 vcQualityCaps·
+          applyStep 이 정한다), P2P 라 «받는 쪽 화면 크기» 가 보내는 쪽으로 가지 않는다.
+          즉 이 변경으로 대역폭·CPU 는 한 바이트도 줄지 않는다 — 바뀌는 것은 «보이는 크기» 뿐.
+          ⛔ 이 절을 「용량 절감책」으로 인용하지 말 것.
+        ℹ️ 「둘 다 더 작게」의 실제 손잡이는 얼굴칸 폭이다 — 크기바의 「교재 크게」(quarter,
+          #vc-video-pane 18~28%). 그것을 교사 기본값으로 삼는 것은 별건이다(입장 시
+          크기를 정하는 코드가 idx-main.js 에 셋 있어 서로 밀어낸다 — 3602·3877·5386행).
+
+     ℹ️ 순서(order)는 건드리지 않는다 — 내 타일은 그대로 맨 뒤에 있다.
      ℹ️ 1:1(data-count="2") 일 때만. 3명 이상은 주인공이 정해지지 않는다.
+     ⛔ 되돌리려면(교사도 자기 자신이 크게) BIGME 를 '1fr 1.6fr' 로 되돌리고
+        아래 PC 블록의 «전체화면/PIP 맞바꾸기» 를 되살리면 된다 — git 이력에 그대로 있다.
   ══════════════════════════════════════════════════════════════ */
   var BIG  = '1.6fr 1fr';          // 첫 칸(상대)이 큼      — 학생 화면
-  var BIGME = '1fr 1.6fr';         // 둘째 칸(내 타일)이 큼 — 교사 화면(내 타일은 order:96 로 맨 뒤)
+  var BIGME = '1fr 1fr';           // 교사 화면 — 둘이 같은 크기 (2026-09-07)
   var PORT = '@media (max-width:920px) and (orientation:portrait){';
   var LAND = '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){';
   /* 원래 규칙(index.html 3272·3392)이 (3,2,0)·(3,3,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다.
@@ -679,28 +693,29 @@
     /* PC·태블릿(≥1024px) — 여기는 그리드가 아니다.
        css/vc-refresh.css 가 1:1 을 «상대 전체화면 + 내 타일은 오른아래 작은 PIP(24%·최대 210px)» 로 그린다
        (display:block + 둘 다 position:absolute). 그래서 타일 크기를 정하는 것은 fr 비율이 아니라
-       «누가 PIP 인가» 하나다. 교사 화면에서는 그 둘을 맞바꿈 — 내가 전체화면, 상대가 PIP.
-       ⚠️ 폭 만 바꿔서는 안 된다 — 높이도 aspect-ratio·inset 으로 정해진다(실측: 상대 211x687 / 나 210x158).
-       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 fr 규칙과 겹쳐 두 번 줄어든다
-       (실측으로 밟음: 1.6배가 아니라 2.58배가 됐다). 이겨야 할 상대는 vc-refresh.css(2,2,1) 가 아니라
-       index.html vc-teacher-first 의 (3,5,1) 이다 — id 를 다섯 개로 만들어(5,3,1) 이긴다.
-       (id 개수를 먼저 비교하므로 클래스가 적어도 이긴다. 처음엔 (3,3,1) 로 만들어 «내 타일이
-        전체화면인데 폭만 62%» 라는 어정쩡한 상태를 실측으로 밟았다.) */
+       «전체화면이 있는가» 다.
+       🔴 2026-09-07 사장님 지시 — 교사 화면에서는 «전체화면 주인공» 을 두지 않는다.
+          그리드를 되살려 두 얼굴을 나란히 같은 크기로 놓는다. 그러면 지금 341x687 로 화면을
+          가득 채우던 얼굴이 절반 이하가 된다.
+       ⚠️ 학생 화면(:not(.mg-teacher-self))은 손대지 않는다 — 거기서는 교사가 그대로 전체화면이다.
+       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 fr 규칙과 겹친다
+          (실측으로 밟음: 1.6배가 아니라 2.58배가 됐다).
+       ⚠️ 이겨야 할 상대가 둘이다 — vc-refresh.css 의 (1,2,1)(display:block·둘 다 absolute)과
+          index.html vc-teacher-first 의 (3,5,1)(#vc-local-box 을 62%·margin-left:auto 로 줄이는 줄).
+          id 를 네 개로 만들어((4,5,1)) 둘 다 이긴다. id 개수를 먼저 비교하므로 클래스가 적어도 이긴다.
+       ⛔ #vc-local-box 만 되돌리면 안 된다 — 그 62%·margin-left:auto 가 남아 «나란히 놓았는데
+          내 칸만 62% 로 쪼그라든» 상태가 된다(2026-08-26 에 같은 모양을 실측으로 밟았다). */
     '@media (min-width:1024px){' +
-      /* 내 타일 → 전체화면 */
-      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
-        'position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;' +
-        'max-width:none !important;aspect-ratio:auto !important;border-radius:0 !important;' +
-        'box-shadow:none !important;z-index:1 !important;margin-left:0 !important;opacity:1 !important}' +
-      /* 상대 → 오른아래 PIP (학생 화면에서 내 타일이 받던 «그 크기» 그대로)
-         ℹ️ 62% 는 vc-refresh.css 의 24% 가 아니라 index.html vc-teacher-first 의 값이다 —
-            그 규칙이 (2,5,1) 로 더 세서 학생 화면 PIP 는 실제로 62%(상한 210px)로 그려진다.
-            24% 를 그대로 베끼면 PIP 가 82px 로 나와 학생 화면과 짝이 안 맞는다(실측). */
-      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box:not(#vc-local-box){' +
-        'position:absolute !important;inset:auto 14px 14px auto !important;' +
-        'width:62% !important;max-width:210px !important;height:auto !important;aspect-ratio:4/3 !important;' +
-        'border-radius:14px !important;overflow:hidden !important;z-index:40 !important;' +
-        'box-shadow:0 0 0 2px rgba(251,191,36,.6),0 10px 26px rgba(0,0,0,.5) !important}' +
+      /* 그리드 되살리기 — vc-refresh.css 가 걸어 둔 display:block 을 되돌린다 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"]{' +
+        'display:grid !important;position:relative !important;' +
+        'grid-template-columns:1fr 1fr !important;grid-auto-rows:1fr !important;gap:8px !important}' +
+      /* 두 타일 모두 «보통 칸» 으로 — 전체화면도 PIP 도 없다 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box{' +
+        'position:static !important;inset:auto !important;width:auto !important;height:auto !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;margin-left:0 !important;' +
+        'border-radius:12px !important;overflow:hidden !important;z-index:auto !important;' +
+        'box-shadow:none !important;opacity:1 !important}' +
     '}';
 
   /* ⑨-3 «이 방의 교사가 누구인가» — 상대 타일에 교사가 있으면 내가 무엇이든 상대가 주인공이다.
