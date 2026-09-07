@@ -61,6 +61,8 @@
   let videoEl = null;
   let stopped = true;
   let lastContextKey = null;   // 직전 세션의 room:user (중복 start 방지)
+  /* 🧑‍🏫 «역할이 늦게 와서 교사로 밝혀지는» 경우를 잡는 창. 0 이면 더 안 본다(끝이 있는 확인). */
+  let roleRecheckUntil = 0;
 
   // 누적 카운터 (매 보고 후 리셋)
   let totalSamples = 0;
@@ -82,6 +84,49 @@
 
   function isDisabled() {
     try { return localStorage.getItem('mango_gaze_disabled') === '1'; } catch (_) { return false; }
+  }
+
+  /* 🧑‍🏫 (2026-09-07 사장님 지시) 교사 기기에서는 시선 측정을 하지 않는다.
+     ─────────────────────────────────────────────────────────────────
+     [왜] 이 지표는 «학생이 집중했나» 를 보려고 만든 것이고, 읽는 쪽이 전부 학생만 본다:
+       · 학생 랭킹  — api-admin.ts 의 집계 SQL 이 `AND COALESCE(role,'student') = 'student'`
+       · 녹화 추천  — api-mango.ts 가 그 학생(uid)의 행만 조회
+     그런데 이 모듈에는 역할 분기가 없어서(참관자만 skip) **교사 기기에서도 똑같이
+     250ms마다 MediaPipe 얼굴 추론이 돌고 있었다.** 2026-09-07 실측: 실접속 교사 292행 중
+     242행(83%)에 점수가 쌓여 있었고, 그 값을 읽는 곳은 한 곳도 없다 → 순수한 낭비다.
+     ⟹ 끄면 «잃는 것이 0» 인 유일한 자리라 여기만 끈다(학생 측정은 그대로).
+
+     [무엇이 줄어드나 — 부풀리지 말 것]
+       · CPU/GPU: 4fps 얼굴 랜드마크 추론이 수업 내내 사라진다 ← 이쪽이 실익
+       · 트래픽: 수업 중 나가는 것은 30초마다 작은 JSON 하나라 «거의 안 준다».
+         대신 캐시가 빈 기기의 첫 수업에서 모델 3.58MB(face_landmarker.task, 실측)와
+         MediaPipe wasm 런타임을 안 받는다. ⚠️ wasm 크기는 이 저장소에서 못 쟀다.
+       ⛔ 「트래픽이 줄어든다」로 요약하지 말 것 — 매 수업 반복되는 트래픽은 거의 그대로다.
+
+     [판정] 정본 window.vcIsTeacherRole() 하나만 본다.
+       ⛔ 이름 휴리스틱을 여기서 다시 만들지 말 것 — 그 함수가 이미 «로그인이 아예 없을 때만»
+          이라는 조건까지 들고 있다(idx-main.js).
+       ✅ **모르면 «측정한다»** — 여기서 안전한 실패는 «학생 지표를 잃지 않는» 쪽이다.
+          (250kbps 상한과 방향이 반대다. 거기는 «교사 송신을 깎지 않는» 쪽이 안전했다.)
+
+     [역할이 늦게 온다] 입장 직후에는 vcIsTeacherRole() 이 아직 false 일 수 있다.
+       그래서 시작한 뒤 ROLE_RECHECK_MS 동안만 다시 보고, 교사로 밝혀지면 그 자리에서
+       **전송 없이** 멈춘다(모은 샘플도 버린다 — 안 버리면 pagehide 비콘이 교사 점수를 보낸다).
+       ⛔ 끝없이 다시 보지 않는다. ⛔ 상주 setInterval 을 새로 만들지 않는다 —
+          이미 도는 검출 루프 안에서 «끝이 있는» 확인만 한다.
+
+     [되돌리는 길] localStorage.setItem('mango_gaze_teacher','on')  → 교사도 다시 측정 */
+  const GAZE_TEACHER_KEY = 'mango_gaze_teacher';
+  const ROLE_RECHECK_MS = 30_000;
+  function teacherOptedIn() {
+    try { return localStorage.getItem(GAZE_TEACHER_KEY) === 'on'; } catch (_) { return false; }
+  }
+  function isTeacherDevice() {
+    if (teacherOptedIn()) return false;
+    try {
+      if (typeof window.vcIsTeacherRole === 'function') return !!window.vcIsTeacherRole();
+    } catch (_) {}
+    return false;                 // 모르면 측정한다(학생 지표를 잃지 않는 쪽)
   }
 
   // 메인 페이지의 top-level `let` 바인딩 (vcRoomId 등) 은 Global Environment 의
@@ -189,6 +234,13 @@
   // ── 감지 루프 ──────────────────────────────────────────
   async function detectOnce() {
     if (stopped || !landmarker || !videoEl) return;
+    /* 🧑‍🏫 역할이 늦게 와서 «교사» 로 밝혀지면 그 자리에서 멈춘다(위 isTeacherDevice 주석).
+       ⚠️ 창이 «끝이 있어야» 한다 — 안 그러면 매 250ms 마다 판정을 계속 부른다. */
+    if (roleRecheckUntil && Date.now() < roleRecheckUntil) {
+      if (isTeacherDevice()) { abortForTeacher(); return; }
+    } else if (roleRecheckUntil) {
+      roleRecheckUntil = 0;
+    }
     if (videoEl.readyState < 2 || videoEl.paused || videoEl.ended) {
       // 카메라가 오래 꺼져 있으면 서버에 신호
       signalCameraOffIfNeeded();
@@ -294,8 +346,24 @@
   }
 
   // ── 라이프사이클 ───────────────────────────────────────
+  /* 교사로 밝혀졌을 때의 정지 — «전송 없이» 멈춘다.
+     ⚠️ 모은 샘플을 반드시 0 으로 되돌린다. 안 그러면 pagehide 의 sendFinalBeacon 이
+        sessionTotal>0 을 보고 교사 점수를 서버에 보낸다(그 함수의 유일한 가드가 그것이다). */
+  function abortForTeacher() {
+    roleRecheckUntil = 0;
+    stopped = true;
+    stopDetectLoop();
+    if (reportTimer) { clearInterval(reportTimer); reportTimer = null; }
+    totalSamples = 0; forwardSamples = 0;
+    sessionTotal = 0; sessionForward = 0;
+    lastContextKey = null;
+    log('역할이 교사로 확인됨 → 시선 측정 중단 (전송 없음)');
+  }
+
   async function start() {
     if (isDisabled()) { log('비활성화됨(localStorage.mango_gaze_disabled=1)'); return; }
+    /* 🧑‍🏫 교사 기기는 여기서 끝 — MediaPipe 로드(모델 3.58MB)조차 하지 않는다 */
+    if (isTeacherDevice()) { log('교사 기기 → 시선 측정 skip (되돌리기: mango_gaze_teacher=on)'); return; }
 
     const ctx = readVcCtx();
     if (ctx.observer) { log('관찰자 모드 → skip'); return; }
@@ -325,6 +393,7 @@
     sessionTotal = 0;
     sessionForward = 0;
     stopped = false;
+    roleRecheckUntil = Date.now() + ROLE_RECHECK_MS;   // 늦게 오는 역할을 이 창 동안만 다시 본다
 
     startDetectLoop();
     reportTimer = setInterval(reportTick, REPORT_INTERVAL_MS);
@@ -334,6 +403,7 @@
   async function stop() {
     if (stopped) return;
     stopped = true;
+    roleRecheckUntil = 0;
     stopDetectLoop();
     if (reportTimer) { clearInterval(reportTimer); reportTimer = null; }
     // 마지막 구간 + 세션 총계 전송
