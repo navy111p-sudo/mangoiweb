@@ -5122,8 +5122,8 @@ function vcArmFullscreenRetry() {
                 else if (rtt > 0 && rtt < rttUp) pc.__qLate = 0;
                 try {
                     tuneReceiveLatency(pc,
-                        (step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && rb < 300 && (rtt === 0 || rtt < 150)) ? 'low'
-                        : (rb >= 300 || (pc.__qLate || 0) >= 3) ? 'buf' : 'auto');
+                        (step === 0 && !pc.__qWantBuf && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && rb < 300 && (rtt === 0 || rtt < 150)) ? 'low'
+                        : (rb >= 300 || pc.__qWantBuf || (pc.__qLate || 0) >= 3) ? 'buf' : 'auto');
                 } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});

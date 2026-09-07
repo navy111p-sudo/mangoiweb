@@ -153,11 +153,18 @@ function vcqRxTick() {
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
                         if (prev) {
-                            if (dl + dr >= 8) Q.rxa.push(100 * dl / (dl + dr));
+                            /* 🔊 (2026-09-07) 아래 vcqBufDecide 가 «끊김 대 진짜손실» 을 같은 틱에서
+                               봐야 해서 값을 변수로 잡아 둔다. 못 잰 틱은 null — 그때는 세지 않는다. */
+                            var apct = (dl + dr >= 8) ? (100 * dl / (dl + dr)) : null;
+                            if (apct !== null) Q.rxa.push(apct);
                             var dcs = Math.max(0, cs - (prev.cs || 0)), dts = Math.max(0, ts - (prev.ts || 0));
                             /* 메워진 소리 비율 — «끊겨서 브라우저가 만들어 낸 소리» 다.
                                표본이 너무 적으면(무음·DTX) 비율이 튀므로 버린다. */
-                            if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
+                            if (dts >= 4000) {
+                                var cpct = 100 * dcs / dts;
+                                Q.rxc.push(cpct);
+                                try { vcqBufDecide(id, pc, cpct, apct); } catch (_) {}
+                            }
                         }
                         prevAll[key] = { lost: lost, rec: rec, cs: cs, ts: ts };
                     }
@@ -182,6 +189,75 @@ function vcqRxTick() {
       서버·화면이 «—» 로 그린다. 0 ticks 를 «직접 100%» 로 읽으면 이 칸을 만든 이유가 사라진다.
    ⚠️ 이 탐침은 통화 경로와 무관하다 — getStats 가 던져도 catch 로 삼키고, 아무것도 안 바꾼다.
    감시: vc_quality_blindspot_harness ⑬ */
+/* ══════════════════════════════════════════════════════════════════════════
+   🔊 (2026-09-07) «늦어서 버려지는 소리» 에만 지터버퍼 완화를 건다 — vcqBufDecide
+   ──────────────────────────────────────────────────────────────────────────
+   [지시] 사장님 2026-09-07 「지터버퍼 문턱 넣어줘」.
+
+   [무엇이 문제였나] idx-main.js 에 그 완화(tuneReceiveLatency 의 'buf')는 2026-09-05 에
+     이미 들어가 있었다. 그런데 걸리는 조건이 «기준 RTT ≥ 300ms» 또는 «3틱 연속 RTT>450» 뿐이라
+     정작 피해자에게 안 닿고 있었다.
+     [잰 것 — 2026-09-07 운영 D1 vc_quality, 최근 30일]
+       · 경로가 기록된 72건이 **전부 relay**(direct 0). 그중 60건이 turn.cloudflare.com:3478 **tcp**, UDP 0
+       · relay 62건: 소리끊김(rx_conceal) **10.24%** vs 진짜 오디오손실(rx_aloss) **0.60%** → **17.2배**
+       · 그 62건의 기준 RTT 평균 **281ms**, RTT 300 이상은 **23건(37%)뿐** → **63%가 문턱 미달**
+     ⟹ 소리끊김의 약 94%가 «잃어버린 것» 이 아니라 «늦게 와서 버린 것» 인데,
+        바로 그 회선들이 완화 대상에서 빠져 있었다. 늦은 것은 기다리면 살아난다.
+     [판단 — 측정 아님] TCP 중계라 그렇다고 본다. TCP 는 늦은 조각을 못 버리고 재전송한다.
+        손실이 낮은데 끊기는 지문이 그것이다. 다만 «TCP 때문» 을 직접 증명하지는 못했다.
+
+   [그래서 무엇을 바꿨나] 문턱을 RTT 가 아니라 **증상 자체**로 바꾼다 —
+     «소리가 끊기는데(conceal 높음) 진짜 손실은 작다(aloss 작음)» 이면 켠다.
+     그것이 idx-main.js 의 그 주석이 요구한 전제(conceal ≫ aloss)와 같은 말이고,
+     RTT·경로와 무관하게 «기다리면 살아나는» 상황을 직접 가리킨다.
+   ⛔ 「relay 면 무조건 켜기」로 하지 않았다 — 중계여도 소리가 멀쩡한 연결이 있고,
+      그런 연결에 +300ms 를 얹으면 대화만 굼떠진다(얻는 것 없이).
+
+   [대가] 켜지면 수신 지연이 **+300ms**(window.__vcRxBufMs). 대화 반응이 그만큼 느려진다.
+      끊기는 것보다 낫다는 판단은 idx-main.js 의 그 주석에 이미 있다.
+
+   [흔들리지 않게] 3틱(약 12초) 연속 나빠야 켜고, 5틱(약 20초) 연속 좋아야 끈다.
+     ⛔ 매 틱 뒤집히게 만들지 말 것 — tuneReceiveLatency 주석이 «재설정 = 소리 튐» 을 경고한다.
+     ⚠️ 그 사이 구간(2~4%)에서는 «유지» 다. 그래야 문턱 근처에서 왔다갔다하지 않는다.
+
+   [모르면 안 켠다] 손실을 못 잰 틱(오디오 패킷이 너무 적은 틱)은 세지 않는다.
+     +300ms 는 실제 비용이라 «모름» 으로 물리지 않는다.
+
+   [되돌리는 길] window.__vcRxBufMs = 0  → 이 판정이 통째로 꺼지고 예전 동작 그대로.
+   ⚠️ idx-main.js 는 이 값을 `pc.__qWantBuf` 한 칸으로만 읽는다(그 파일 blocking 예산이
+      81바이트뿐이라 판정을 거기 둘 수 없다). 그 칸 이름이 바뀌면 조용히 헛돈다 —
+      감시(vc_latency_tuning_harness)가 양쪽 이름을 대조한다.
+   감시: test-harness/vc_latency_tuning_harness.mjs
+   ══════════════════════════════════════════════════════════════════════════ */
+var VCQ_BUF_ON_CONCEAL  = 4;   // % — 이 이상 끊기면 «나쁜 틱»
+var VCQ_BUF_OFF_CONCEAL = 2;   // % — 이 아래로 내려가야 «좋은 틱»
+var VCQ_BUF_LATE_RATIO  = 3;   // conceal ≥ aloss×3 이면 «늦어서 버린 것»(실측 17.2배)
+var VCQ_BUF_ON_TICKS    = 3;   // 약 12초 연속
+var VCQ_BUF_OFF_TICKS   = 5;   // 약 20초 연속
+function vcqBufDecide(id, pc, concealPct, alossPct) {
+    if (!pc) return;
+    try {
+        /* 시험 손잡이로 끄면 예전 그대로 — 켜 둔 상태였으면 즉시 되돌린다 */
+        if (window.__vcRxBufMs === 0) { pc.__qWantBuf = false; return; }
+        if (typeof alossPct !== 'number') return;      // 손실을 못 잰 틱은 세지 않는다
+        var S = window.__vcBufS || (window.__vcBufS = {});
+        var s = S[id] || (S[id] = { bad: 0, good: 0 });
+        if (concealPct >= VCQ_BUF_ON_CONCEAL && concealPct >= alossPct * VCQ_BUF_LATE_RATIO) {
+            s.bad++; s.good = 0;
+        } else if (concealPct < VCQ_BUF_OFF_CONCEAL) {
+            s.good++; s.bad = 0;
+        }                                              // 그 사이는 «유지»(히스테리시스)
+        if (!pc.__qWantBuf && s.bad >= VCQ_BUF_ON_TICKS) {
+            pc.__qWantBuf = true;
+            try { console.log('[vc-buf]', id, '소리가 늦어서 버려짐 → 수신 버퍼 완화 켬',
+                { conceal: Math.round(concealPct * 10) / 10, aloss: Math.round(alossPct * 10) / 10 }); } catch (_) {}
+        } else if (pc.__qWantBuf && s.good >= VCQ_BUF_OFF_TICKS) {
+            pc.__qWantBuf = false;
+            try { console.log('[vc-buf]', id, '소리가 안정 → 수신 버퍼 완화 끔'); } catch (_) {}
+        }
+    } catch (_) {}
+}
+
 function vcqTurnHost(url) {
     try {
         var u = String(url || '').replace(/^turns?:/i, '').replace(/^stuns?:/i, '');
@@ -346,7 +422,9 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {};
+                /* 🔊 __vcBufS 도 함께 비운다 — 앞 수업의 «나쁨/좋음» 연속카운트가 넘어가면
+                   다음 수업 첫 틱에 곧바로 켜지거나(또는 안 켜지거나) 한다. */
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {}; window.__vcBufS = {};
                 /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
                 try { vcqSaveRttBase(); } catch (_) {}   // ② 다음 수업의 «낮게 시작» 근거(7일)
