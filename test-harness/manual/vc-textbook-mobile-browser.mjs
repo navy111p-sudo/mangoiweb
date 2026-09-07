@@ -380,8 +380,13 @@ const PROBE = `(function(bw,bh,vw,vh,opts){
      ⚠️ 폭으로는 「교재 크게」(최대 300px)와 「기본」(최소 260px)이 겹쳐 못 가른다. */
   var row=document.getElementById('vc-main-row'), keep=row?row.className:null;
   if(row&&opts.mode){ row.className=row.className.replace(/video-[a-z]+/g,'').trim()+' '+opts.mode; }
-  try{ vcSmartFitVideo(vid); }catch(e){ if(row&&keep!==null) row.className=keep; return 'ERR:'+e.message; }
-  if(row&&keep!==null) row.className=keep;
+  /* 인원도 맞춰 둔다 — ⑧-2 는 «1:1 수업» 에만 걸린다(그룹은 방향이 반대가 된다). */
+  var grid=document.getElementById('vc-video-grid'), keepN=grid?grid.getAttribute('data-count'):null;
+  if(grid) grid.setAttribute('data-count', String(opts.count||2));
+  function restore(){ if(row&&keep!==null) row.className=keep;
+    if(grid){ if(keepN===null) grid.removeAttribute('data-count'); else grid.setAttribute('data-count',keepN); } }
+  try{ vcSmartFitVideo(vid); }catch(e){ restore(); return 'ERR:'+e.message; }
+  restore();
   return vid.style.objectFit||'(없음)';
 })`;
 const fit = (bw, bh, vw, vh, opts) => evalJs(`${PROBE}(${bw},${bh},${vw},${vh},${JSON.stringify(opts || {})})`);
@@ -405,6 +410,12 @@ ok(await fit(300, 985, 1280, 720, { mode: 'video-quarter' }) === 'cover',
   '「교재 크게」가 넓어져 300px 이 돼도 그대로 — 폭으로 갈랐다면 「기본」과 구별되지 않는다');
 ok(await fit(295, 139, 1280, 720) === 'cover', '가로로 넓은 칸은 원래대로 꽉 찬다 (회귀 없음)');
 ok(await fit(210, 157, 1280, 720) === 'cover', '오른아래 PIP(가로로 넓다)도 그대로 꽉 찬다');
+/* 그룹 수업은 손대지 않는다 — 4인 「얼굴 크게」는 스포트라이트로 교사 타일이 가로(834x553)라
+   그대로인데 학생 타일만(273x361) 세로여서 42.7% 로 줄었다(함정 대조 실측). 방향이 반대다. */
+ok(await fit(273, 361, 1280, 720, { mode: 'video-threequarter', count: 4 }) === 'cover',
+  '4인 그룹 수업의 학생 타일 — 그대로 꽉 채운다 (그룹은 방향이 반대가 된다)');
+ok(await fit(620, 922, 1280, 720, { mode: 'video-full', count: 3 }) === 'cover',
+  '3인 「모두 보기」 — 그대로 꽉 채운다 (전원이 37.9% 가 되던 조합)');
 
 /* ⛔ 화면 공유는 잘리면 «공유한 화면의 좌우가 사라진다» — 반드시 전체 보이기 */
 ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',

@@ -66,11 +66,15 @@ ok('«넓게 보는 모드» 목록도 소스에서 읽었다', !!modesM,
    '손으로 적어 두면 소스가 바뀌어도 내가 적은 값만 보게 된다');
 
 /* 가짜 화면 — matchMedia 와 #vc-main-row 의 모드만 있으면 된다. */
-function makeBig(wide, mode) {
+function makeBig(wide, mode, count) {
   const mm = (q) => ({ matches: /min-width:\s*1024px/.test(q) ? !!wide : false });
   const cls = String(mode === undefined ? 'video-threequarter' : mode).split(/\s+/).filter(Boolean);
-  const doc = { getElementById: (id) => id === 'vc-main-row'
-    ? (mode === null ? null : { classList: { contains: (c) => cls.includes(c) } }) : null };
+  const n = count === undefined ? '2' : count;   // 1:1 이 기본
+  const doc = { getElementById: (id) => {
+    if (id === 'vc-main-row') return mode === null ? null : { classList: { contains: (c) => cls.includes(c) } };
+    if (id === 'vc-video-grid') return n === null ? null : { getAttribute: () => n };
+    return null;
+  } };
   return new Function('matchMedia', 'document', bigSrc + '\nreturn mgBigPortraitBox;')(mm, doc);
 }
 const box = (w, h, id) => ({ id: id || 'vc-video-teacher', clientWidth: w, clientHeight: h });
@@ -105,6 +109,19 @@ if (bigSrc.includes('function mgBigPortraitBox')) {
   ok('크기를 아직 모르면(0) 옛 동작 그대로', pc(box(0, 0)) === false);
   ok('모드를 모르면(#vc-main-row 없음) 옛 동작 그대로',
      makeBig(true, null)(box(680, 985)) === false, '모르면 바꾸지 않는 쪽으로 실패한다');
+
+  /* ③ 그룹 수업은 손대지 않는다 — 함정 대조가 잡은 «반대 방향» 부작용.
+     [잰 것 — 1905x1051] 4인 「얼굴 크게」는 스포트라이트로 교사 타일이 가로(834x553)라
+     그대로인데 **학생 타일만**(273x361) 세로여서 42.7% 로 줄었다. 3인 「모두 보기」는 전원 37.9%.
+     지시는 「학생이 보는 교사 얼굴」이라 그 조합은 고치려던 것과 방향이 반대다. */
+  ok('3인 수업은 손대지 않는다', makeBig(true, 'video-threequarter', '3')(box(273, 361)) === false);
+  ok('4인 수업은 손대지 않는다', makeBig(true, 'video-threequarter', '4')(box(273, 361)) === false);
+  ok('3인 「모두 보기」도 손대지 않는다 (전원 37.9% 가 되던 조합)',
+     makeBig(true, 'video-full', '3')(box(620, 922)) === false);
+  ok('인원을 모르면(#vc-video-grid 없음) 옛 동작 그대로',
+     makeBig(true, 'video-threequarter', null)(box(850, 938)) === false);
+  ok('1:1 은 그대로 바뀐다 — 짝이 없으면 «전부 안 바꾸기» 도 통과한다',
+     makeBig(true, 'video-threequarter', '2')(box(850, 938)) === true);
 }
 
 console.log('\n② 그 판정이 실제로 «꽉 채우기» 를 막는가 — 래퍼를 오려 내 돌린다');
@@ -131,8 +148,11 @@ if (wrapSrc && bigSrc) {
     };
     const mm = (q) => ({ matches: /min-width:\s*1024px/.test(q) ? !opts.phone : false });
     const cls = String(opts.mode || 'video-threequarter').split(/\s+/);
-    const doc = { getElementById: (id) => id === 'vc-main-row'
-      ? { classList: { contains: (c) => cls.includes(c) } } : null };
+    const doc = { getElementById: (id) => {
+      if (id === 'vc-main-row') return { classList: { contains: (c) => cls.includes(c) } };
+      if (id === 'vc-video-grid') return { getAttribute: () => String(opts.count || 2) };
+      return null;
+    } };
     const _smartFit = { apply: () => { rec.fellBack = true; return undefined; } };
     const isScreenShareTile = (box) => !!(box && box.querySelector('.vc-ss-badge'));
     const fn = new Function('matchMedia', 'document', 'isScreenShareTile', '_smartFit',
@@ -153,6 +173,9 @@ if (wrapSrc && bigSrc) {
   ok('PC PIP — 여전히 꽉 채운다', r3.fit === 'cover', `fit=${r3.fit}`);
   const r4 = run(345, 687, 1280, 720, { phone: true });
   ok('폰 — 여전히 꽉 채운다', r4.fit === 'cover', `fit=${r4.fit}`);
+  const r4b = run(273, 361, 1280, 720, { count: 4 });
+  ok('4인 그룹 수업의 학생 타일 — 여전히 꽉 채운다 (반대 방향 부작용 방지)',
+     r4b.fit === 'cover', `fit=${r4b.fit}`);
 
   /* ③ 건드리면 안 되는 것들 */
   const r5 = run(680, 985, 1920, 1080, { share: true });
@@ -182,6 +205,10 @@ if (modesM) {
      names.includes('video-threequarter'));
   ok('「기본」·「교재 크게」는 목록에 없다 — 학생 기본값을 건드리면 27.5% 가 된다',
      !names.includes('video-half') && !names.includes('video-quarter'));
+  /* ⛔ video-solo 는 이름과 달리 «얼굴을 감추는» 모드다 — vcScreenSet 의
+     「얼굴 화면 숨기기」·「칠판만」·「교재만」이 재활용한다. */
+  ok('«video-solo» 는 목록에 없다 — 넓게 보는 모드가 아니라 얼굴을 감추는 모드다',
+     !names.includes('video-solo'));
 }
 
 console.log(`\n${fail ? '❌' : '✅'} vc_face_fit_contain: PASS ${pass} / FAIL ${fail}`);
