@@ -26,7 +26,8 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
-import { probeImage, ocrGate } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
+import { probeImage, ocrGate } from './textbook-ocr';
+import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -12587,6 +12588,13 @@ LIMIT $limit`;
     //   • R2: RECORDINGS 버킷 재사용, key prefix "textbook-files/"
     //   • 강의실 교재 탭에서 라이브러리 → 선택 → 칠판/PDF 뷰어 동기화
     // ═══════════════════════════════════════════════════════════════════════
+    /* 📚 «묶음(책) 이름» 판정 정본 — 파일명 앞 [대괄호] 하나가 묶음이다.
+       ⛔ 이 식을 복제하지 말 것: 숨김 목록(GET)과 묶음 삭제(DELETE)가 서로 다른 식을 쓰면
+          사람이 화면에서 고른 책과 **다른 책이 지워진다**(되돌릴 수 없다).
+       ⛔ LIKE 로 바꾸지 말 것: D1 은 LIKE 패턴이 50자를 넘으면 조회 자체가 실패한다
+          (실측 — 교재 이름은 「BTS 17 Korea (Hobbies And Activities,…)」처럼 쉽게 넘는다). */
+    const BOOK_EXPR = `(CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END)`;
+
     const ensureTextbookFilesTable = async () => {
       await env.DB.exec(
         `CREATE TABLE IF NOT EXISTS textbook_files (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL, mime TEXT, ext TEXT, size_bytes INTEGER, r2_key TEXT NOT NULL, textbook_id INTEGER, level TEXT, unit_no INTEGER, description TEXT, uploaded_by TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`
@@ -12645,7 +12653,7 @@ LIMIT $limit`;
       await ensureTextbookFilesTable();
       const hidden = await loadHiddenBooks();
       const rs: any = await env.DB.prepare(
-        `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+        `SELECT ${BOOK_EXPR} AS book,
                 COUNT(*) AS files
          FROM textbook_files WHERE active = 1 GROUP BY book ORDER BY book ASC`
       ).all().catch(() => ({ results: [] }));
@@ -12670,6 +12678,132 @@ LIMIT $limit`;
         `INSERT OR REPLACE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
       ).bind(book, who, Date.now()).run();
       return json({ ok: true, book, hidden: true });
+    }
+
+    /* 🗑️ DELETE /api/admin/textbook-files — 교재 «묶음 통째» 영구 삭제 (2026-09-07 사장님 결정 B안)
+       ═══════════════════════════════════════════════════════════════════════════
+       [왜] 지금까지 서버 교재를 지우는 길은 `/:id` **한 장씩** 뿐이었다.
+          `[BTS 2 001 (Shapes and colors)]` = 19번, `[BTS Books]` = **6,680번** 확인창이라
+          사실상 «삭제가 없는» 상태였다(2026-09-07 필리핀 매니저 Mai 제보 — D1 실측).
+       [관문] `src/index.ts`(공동 금지구역)를 한 줄도 안 건드린다 —
+          `path === '/api/admin/textbook-files'` 는 ②라우팅 허용목록에 **이미** 있고
+          그 등록은 메서드를 안 가린다. 이 경로의 DELETE 는 비어 있었다(실측).
+          ⚠️ 그래서 본문에 `action` 을 두고 **모르는 값은 거절**한다 — 안 그러면 나중에
+             이 경로에 다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러 들어온다.
+       [2단계 안전장치]
+          1단계 `dry_run`(기본값) — 아무것도 안 지우고 «몇 장 · 몇 MB» 만 세어 돌려준다.
+          2단계 `dry_run:false` + `confirm_name` 이 책 이름과 **정확일치**해야 실제로 지운다.
+       ⛔ 되돌릴 수 없다. 그래서 «숨기기»(textbook_hidden_books)를 없애지 않았다 —
+          파일을 남기고 목록에서만 빼는 쪽이 대부분의 경우 맞는 답이다. */
+    if (method === 'DELETE' && path === '/api/admin/textbook-files') {
+      const b: any = await request.json().catch(() => ({}));
+      const book = String(b?.book || '').trim();
+      const dryRun = b?.dry_run !== false;
+      const _pgActor = await getAdminActor(request, env as any);
+
+      /* 파일 수를 먼저 센다 — ⚠️ 조회가 실패하면 **0 이 아니라 null**(모름)로 넘긴다.
+         0 으로 떨어뜨리면 «없는 책» 과 «못 센 책» 이 같은 말이 되어 가드가 fail-open 이 된다. */
+      let totalFiles: number | null = null;
+      let cnt: any = null;
+      if (book) {
+        try {
+          await ensureTextbookFilesTable();
+          cnt = await env.DB.prepare(
+            `SELECT COUNT(*) AS files, SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS active_files,
+                    COALESCE(SUM(size_bytes),0) AS bytes
+               FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+          ).bind(book).first();
+          totalFiles = Number(cnt?.files ?? 0);
+        } catch { totalFiles = null; }   // 모름 — 게이트가 lookup_failed 로 막는다
+      }
+
+      /* 🔒 허용 판정은 **정본 함수 한 곳**이 한다(src/textbook-purge-gate.ts).
+         ⛔ 여기에 조건을 다시 적지 말 것 — 라우트 안 조건은 하니스가 문자열로만 보게 되고,
+            그러면 부등호를 뒤집어도 초록불이 난다. */
+      const gate = textbookPurgeGate({
+        action: b?.action, actorOk: !!_pgActor.ok, isTeacher: !!_pgActor.isTeacher,
+        role: _pgActor.role, book, dryRun, confirmName: b?.confirm_name, totalFiles,
+      });
+      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status as any);
+
+      if (gate.mode === 'count') {
+        const sample: any = await env.DB.prepare(
+          `SELECT name FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT 5`
+        ).bind(book).all().catch(() => ({ results: [] }));
+        return json({
+          ok: true, dry_run: true, book,
+          files: Number(totalFiles || 0),
+          active_files: Number(cnt?.active_files || 0),
+          bytes: Number(cnt?.bytes || 0),
+          sample: (sample.results || []).map((r: any) => r.name),
+        });
+      }
+
+      /* 한 번에 다 지우지 않는다 — 6,680장짜리 묶음이 실재해 요청 하나가 시간 초과로 죽으면
+         «어디까지 지워졌는지» 를 아무도 모른다. 화면이 남은 수를 보고 반복해서 부른다. */
+      const PURGE_BATCH_MAX = 300;
+      /* ⚠️ 여기서 «못 읽음» 을 «지울 게 없음»(빈 배열)으로 떨어뜨리면 안 된다 —
+         아래 remaining 과 겹치면 「삭제 완료 · 0장」이라는 **거짓 완료**가 된다. */
+      let rows: any = null;
+      try {
+        rows = await env.DB.prepare(
+          `SELECT id, r2_key FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT ${PURGE_BATCH_MAX}`
+        ).bind(book).all();
+      } catch { rows = null; }
+      if (!rows) return json({ ok: false, error: 'lookup_failed' }, 503);
+
+      const r2 = (env as any).RECORDINGS;
+      let deleted = 0, r2Deleted = 0, r2Failed = 0;
+      for (const row of (rows.results || [])) {
+        const key = String(row?.r2_key || '');
+        /* ⛔ 접두사가 맞는 키만 지운다 — 이 칸에 다른 값이 섞여 들어온 전례가 있다(녹화 file_url).
+           R2 delete 는 «없는 키» 에도 예외를 안 내므로, 접두사 검사 없이 넘기면
+           엉뚱한 오브젝트를 지우고도 «성공» 으로 센다. */
+        if (r2 && key.startsWith('textbook-files/')) {
+          try { await r2.delete(key); r2Deleted++; }
+          catch { r2Failed++; continue; }   // ⚠️ D1 행을 남긴다 — 지우면 그 키를 영영 못 찾아 고아가 된다
+        }
+        await env.DB.prepare(`DELETE FROM textbook_files WHERE id = ?`).bind(row.id).run();
+        deleted++;
+      }
+
+      /* 🔴 «남은 수» 를 못 읽었을 때 0 으로 떨어뜨리면 세 가지가 한꺼번에 거짓이 된다:
+         ① 응답 done:true → 화면이 «삭제 완료» 라고 말한다(파일은 남아 있는데)
+         ② 아래 숨김 표식이 지워져 **숨겨 뒀던 교재가 전 강사·학생에게 되살아난다**
+         ③ 감사로그에 remaining:0 이라는 틀린 사실이 박힌다(되돌릴 수 없는 조작의 유일한 흔적)
+         → **null(모름)로 두고, 모르면 아무것도 «완료» 로 만들지 않는다.**
+         (게이트가 이미 같은 원칙이다 — CLAUDE.md 「«모른다» 를 별도 사유로 거절」) */
+      let remaining: number | null = null;
+      try {
+        const left: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+        ).bind(book).first();
+        remaining = Number(left?.n ?? 0);
+      } catch { remaining = null; }
+
+      // 다 지운 것을 «확인했을 때만» 숨김 표식을 정리한다(모르면 안 건드린다).
+      if (remaining === 0) {
+        try {
+          await ensureTextbookHiddenTable();
+          await env.DB.prepare(`DELETE FROM textbook_hidden_books WHERE book = ?`).bind(book).run();
+        } catch { /* 숨김 정리는 실패해도 삭제 자체를 되돌리지 않는다 */ }
+      }
+
+      // 누가 무엇을 지웠는지 남긴다 — 되돌릴 수 없는 조작이라 기록이 유일한 흔적이다.
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+        await env.DB.prepare(
+          `INSERT INTO admin_audit_logs (admin_uid, action, target_user, meta, created_at) VALUES (?,?,?,?,?)`
+        ).bind(_pgActor.username || 'unknown', 'textbook_purge_book', book,
+               JSON.stringify({ deleted, r2_deleted: r2Deleted, r2_failed: r2Failed, remaining }), Date.now()).run();
+      } catch { /* 기록 실패가 삭제를 막지는 않는다 */ }
+
+      return json({
+        ok: true, dry_run: false, book,
+        deleted, r2_deleted: r2Deleted, r2_failed: r2Failed,
+        remaining,                       // null = 모름 (조회 실패)
+        done: remaining === 0,           // ⚠️ 모르면 false — «완료» 라고 말하지 않는다
+      });
     }
 
     // POST /api/admin/textbook-files — 파일 업로드 (multipart/form-data)
