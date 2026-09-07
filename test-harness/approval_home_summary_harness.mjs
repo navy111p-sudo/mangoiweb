@@ -347,6 +347,36 @@ check('⛔ 결재자 전원에게 «전체» 를 기본으로 주지는 않는�
 check('그 건이 화면에 없으면 문서함으로 안내한다 (「눌러도 아무 일도 없음」 방지)',
   /toggleFind/.test(topGoBody) && /toast\(/.test(topGoBody));
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   📂 문서함이 펼쳐진 채로 시작해도 첫 화면 «그리기» 는 API 한 번인가 (2026-09-07)
+
+   왜 여기(자동 게이트)에 두나 — 진짜 순서 검사는 브라우저 하니스
+   (manual/approval-find-browser.mjs ①⑥)에 있는데, manual/ 은 규약상 게이트가
+   물어 가지 않는다. 가드가 통째로 빠지는 것만이라도 자동으로 잡는다.
+
+   🔴 이 계약이 왜 필요한가 — 부팅 경로가 둘이다. 캐시가 있으면(재방문자는 전원
+      그렇다) load() «전» 에 repaint() 가 동기로 돌아, 가드가 없으면 문서함 검색이
+      home «보다 먼저» 나간다. [잰 것 — 2026-09-07 CDP] find 33.6ms → home 37.2ms.
+   ⚠️ 이건 «모양» 검사다. 「가드가 있다」까지만 말하고 「순서가 맞다」고 말하지 않는다.
+      ═════════════════════════════════════════════════════════════════════ */
+const autoOpenBody = fnBody(workJs, 'function findAutoOpen()');
+check('findAutoOpen 을 잘라 냈다 (전제)', autoOpenBody.length > 30, autoOpenBody.length + '자');
+check('문서함 자동 조회는 «home 을 시도한 뒤» 에만 나간다',
+  /HOME_TRIED/.test(autoOpenBody));
+/* 짝 검사 — 플래그를 «세우는» 곳이 load() 안에 있어야 한다. 어디서도 안 세우면
+   문서함이 영영 안 채워지고, 아무 데서나 세우면 가드가 뜻을 잃는다. */
+const loadBody = fnBody(workJs, 'function load()');
+check('그 플래그는 load() 안에서 «성공·실패 양쪽» 에 세운다 (짝 검사)',
+  (loadBody.match(/HOME_TRIED = true/g) || []).length >= 2,
+  (loadBody.match(/HOME_TRIED = true/g) || []).length + '곳');
+
+/* 🔖 고른 범위 기억 — «사람이 고른 순간» 에만 저장해야 한다.
+   runFind 안에서 저장하면 홈이 실패했을 때 복원에 실패한 기본값(mine)이
+   저장되어 결재자가 골라 둔 「전체」가 영구히 지워진다(2026-09-07 실측). */
+check('범위 저장은 사람이 고르는 자리에만 있다 (runFind 안이 아니다)',
+  !/localStorage\.setItem\(FSCOPE_KEY/.test(fnBody(workJs, 'window.runFind = function')) &&
+  /localStorage\.setItem\(FSCOPE_KEY/.test(fnBody(workJs, 'window.fscopePick = function')));
+
 console.log('\n──────────────────────────────────────');
 if (FAIL) {
   console.log(`  ❌ ${FAIL}건 실패 / ${PASS + FAIL}건`);

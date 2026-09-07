@@ -94,6 +94,10 @@ function check(name, cond, extra) {
       u = String(u);
       if (u.indexOf('/api/approval/home') === 0) {
         window.__CALLS.push('home');
+        /* 「홈이 실패했을 때」를 재현하려고 둔 스위치 — ⑦절에서만 켠다. */
+        let fail = false;
+        try { fail = localStorage.getItem('__failhome') === '1'; } catch (e) {}
+        if (fail) return Promise.resolve(new Response('{"ok":false}', { status: 500 }));
         return Promise.resolve(new Response(JSON.stringify(home), { status: 200 }));
       }
       if (u.indexOf('/api/approval/requests?') === 0) {
@@ -282,9 +286,56 @@ function check(name, cond, extra) {
   check('지난번에 고른 범위(done)로 열린다', again.scope === 'done', String(again.scope));
   check('그 범위로 서버에 묻는다 (짝 검사 — 화면만 바뀌면 소용없다)',
         /scope=done/.test((again.urls || [])[0] || ''), JSON.stringify(again.urls));
+  /* 🔴 여기가 «캐시가 있는» 경로다 — ①절(첫 방문)과 부팅 순서가 다르다.
+     캐시가 있으면 load() «전» 에 repaint() 가 동기로 돌아서, 가드가 없으면
+     find 가 home 보다 먼저 나간다(2026-09-07 실측 find 33.6ms → home 37.2ms).
+     ①절만 보면 그 결함이 통째로 안 잡힌다. */
+  const calls2 = await page.evaluate(() => window.__CALLS);
+  check('재방문(캐시 있음)에서도 home 이 먼저다',
+        calls2[0] === 'home', JSON.stringify(calls2));
 
-  /* ── ⑦ 좁은 화면 ──────────────────────────────────────────────────── */
-  console.log('\n[7] 휴대폰 390px');
+  /* ── ⑦ 홈이 실패해도 골라 둔 범위를 지우지 않는가 ──────────────────── */
+  console.log('\n[7] 오프라인 한 번에 설정이 날아가지 않는가');
+
+  /* 왜 — 홈이 실패하면 D 가 없어 범위 목록에 「전체」가 없다. 그때 복원이 실패하고
+     그 자리의 기본값(mine)이 저장되면 **결재자가 골라 둔 「전체」가 영구히 지워진다.**
+     ⚠️ 「모르면 손대지 않는 쪽으로 실패」 — 저장은 사람이 고른 순간에만 해야 한다. */
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('mangoi_work_find_scope', 'all');   // 결재자가 골라 둔 값
+      localStorage.removeItem('mangoi_work_home_v1');          // 캐시도 없는 상태
+      localStorage.setItem('__failhome', '1');
+    } catch (e) {}
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  const kept = await page.evaluate(() => {
+    let v = null; try { v = localStorage.getItem('mangoi_work_find_scope'); } catch (e) {}
+    return { saved: v, shown: (document.getElementById('fscope') || {}).value,
+             note: (document.getElementById('findResult') || {}).textContent || '' };
+  });
+  check('홈이 실패해도 골라 둔 범위(all)가 남아 있다', kept.saved === 'all', JSON.stringify(kept));
+  /* ⚠️ 여기서 실패한 것은 **홈뿐**이라 문서함 검색은 정상으로 돈다 — 「연결이 좋지 않습니다」를
+     기대하면 안 된다(처음에 그렇게 적었다가 이 검사가 스스로 FAIL 났다).
+     물어야 할 것은 «홈이 죽어도 문서함은 채워지는가» 다. */
+  check('홈이 실패해도 문서함은 채워진다 (빈 칸으로 두지 않는다)',
+        kept.note.trim().length > 0 && !/^불러오는 중|^Loading/.test(kept.note.trim()),
+        JSON.stringify(kept.note.slice(0, 60)));
+
+  // 뒷정리 — 뒤 검사는 «홈이 되는 상태 + 범위 done» 을 전제로 한다
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem('__failhome');
+      localStorage.setItem('mangoi_work_find_scope', 'done');
+    } catch (e) {}
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  check('뒷정리 — 다시 정상으로 돌아왔다 (뒤 검사의 전제)',
+        (await page.evaluate(() => (document.getElementById('fscope') || {}).value)) === 'done');
+
+  /* ── ⑧ 좁은 화면 ──────────────────────────────────────────────────── */
+  console.log('\n[8] 휴대폰 390px');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
@@ -292,8 +343,8 @@ function check(name, cond, extra) {
     document.documentElement.scrollWidth - window.innerWidth);
   check('가로로 넘치지 않는다', overflow <= 0, '넘침 ' + overflow + 'px');
 
-  /* ── ⑧ 엑셀 — 맨 뒤에 둔다(진짜 네비게이션이라 페이지 상태를 흔든다) ───────────────────────────────────────────────────────── */
-  console.log('\n[8] 엑셀 내려받기');
+  /* ── ⑨ 엑셀 — 맨 뒤에 둔다(진짜 네비게이션이라 페이지 상태를 흔든다) ───────────────────────────────────────────────────────── */
+  console.log('\n[9] 엑셀 내려받기');
 
   /* ⚠️ location.href 를 후킹해서 «이동했다» 를 잡지 않는다 — 최신 크롬은 Location
      재정의를 막는데 **예외도 안 내고 조용히 원본 그대로**라, 그대로 진짜 내려받기가
@@ -311,7 +362,7 @@ function check(name, cond, extra) {
   check('엑셀도 고른 조건을 그대로 쓴다', !!csvUrl && /scope=done/.test(csvUrl), String(csvUrl));
 
   /* ── ⑧ 조용한 실패가 없는가 ───────────────────────────────────────── */
-  console.log('\n[9] 실행 중 오류');
+  console.log('\n[10] 실행 중 오류');
   check('자바스크립트 오류가 없다', errors.length === 0, errors.join(' / '));
 
   console.log('\n──────────────────────────────────────');
