@@ -121,11 +121,40 @@ ok(/if\s*\(\s*bk\s*&&\s*bk\s*!==\s*window\.__mangoiCurrentBookId\s*\)/.test(mfix
 
 /* 상주 감시 금지 — 홈 전체를 멎게 한 전력(2026-07-14 · 2026-08-27) */
 /* ⑬절만 정확히 잘라 낸다 — 범위를 «대충» 잡으면 옆 절의 코드가 딸려 들어와
-   멀쩡한 코드가 FAIL 난다(CLAUDE.md 「검사 범위를 길이로 자르지 마세요」). */
+   멀쩡한 코드가 FAIL 난다(CLAUDE.md 「검사 범위를 길이로 자르지 마세요」).
+   🔴 2026-09-07 — 그 주석을 적어 놓고 실제로는 «파일 끝의 console.log» 까지 잡고 있었다.
+      그래서 ⑬절 뒤에 새 절(⑮ 학생 송신 상한)이 붙자, 그 절이 「⛔ 상주 setInterval 을 두지
+      않는다」고 **금지를 적어 둔 주석 한 줄** 때문에 FAIL 이 났다 — 코드는 멀쩡했다.
+      CLAUDE.md 「부정 검사가 자기 주석을 잡는다」의 그 함정이다.
+      ✅ 끝은 «다음 절의 구분선» 으로 잡고, 부정 검사는 «주석을 벗긴 사본» 으로 판정한다.
+      ⛔ 블록주석을 정규식 한 줄로 지우지 않는다 — 문자열 안의 짝 없는 «별표+슬래시» 하나에
+         뒤가 통째로 날아간다(CLAUDE.md 실측 8만자 증발). 줄 단위로 «지금 주석 안인가» 를 센다. */
 const s13 = mfix.indexOf('⑬ 📚');
-const e13 = mfix.indexOf("console.log('[mobilefix] 교재 배율");
+const e13raw = mfix.indexOf('/* ═', s13 + 1);          // 다음 절 머리
+const e13 = e13raw > s13 ? e13raw : mfix.indexOf("console.log('[mobilefix] 교재 배율");
 const sec13 = (s13 >= 0 && e13 > s13) ? mfix.slice(s13, e13) : '';
-ok(sec13 && !/setInterval|MutationObserver/.test(sec13),
+function stripComments(t) {
+  let inBlock = false;
+  return t.split('\n').map((line) => {
+    let out = '', i = 0;
+    while (i < line.length) {
+      if (inBlock) {
+        const end = line.indexOf('*/', i);
+        if (end < 0) { i = line.length; } else { inBlock = false; i = end + 2; }
+      } else {
+        const b = line.indexOf('/*', i), l = line.indexOf('//', i);
+        if (b >= 0 && (l < 0 || b < l)) { out += line.slice(i, b); inBlock = true; i = b + 2; }
+        else if (l >= 0) { out += line.slice(i, l); i = line.length; }
+        else { out += line.slice(i); i = line.length; }
+      }
+    }
+    return out;
+  }).join('\n');
+}
+/* 전제 검사 — 잘라 낸 범위가 «⑬절 하나» 인지. 비거나 파일 끝까지면 아래 검사가 뜻을 잃는다. */
+ok(sec13.length > 200 && sec13.length < 6000 && !/⑮|studentUplinkCap/.test(sec13),
+   '⑬절만 잘라 냈다 (옆 절이 딸려 들어오지 않았다)', `len=${sec13.length}`);
+ok(sec13 && !/setInterval|MutationObserver/.test(stripComments(sec13)),
    '⑬절에 상주 setInterval·MutationObserver 가 없다',
    'body class 감시가 홈 전체를 멎게 한 전력이 있다(CLAUDE.md)');
 

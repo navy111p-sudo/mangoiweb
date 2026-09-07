@@ -1666,5 +1666,121 @@
     };
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑮ 학생이 «교사에게» 보내는 영상만 250kbps — 교사가 받는 쪽만 가볍게
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-09-07 「학생이 보는 교사 화질은 유지하고,
+            교사가 보는 학생 화질을 줄여서 가볍게」.
+
+     [왜 «학생 쪽» 을 고치나] WebRTC 에서 화질은 **보내는 쪽만** 정한다
+       (sender.setParameters). 받는 쪽이 상대의 화질을 낮출 방법은 없고, 「너 낮춰」를
+       보내려면 화상수업 DO(공동 금지구역)에 메시지를 새로 만들어야 한다.
+       그래서 «학생 브라우저가 스스로» 낮춘다 — 교사 쪽 코드는 한 줄도 안 바뀐다.
+
+     [무엇을 고치나] window.vcQualityCaps 를 감싼다. 적응 루프의 baseCaps() 가 그 이름을
+       **window. 로** 부르므로(idx-main.js:4975) 여기서 감싸면 그대로 먹는다.
+       ⛔ idx-main.js 를 고칠 수 없다 — blocking 849KB 에 첫 화면 예산 여유가 116바이트뿐이다.
+       ℹ️ vcSetQuality(4938행)의 콘솔 로그만은 «지역» vcQualityCaps() 를 불러 상한 «전» 값을
+          찍는다. 실제 적용은 __vcApplyStep → baseCaps → window 를 지나므로 상한이 걸린다 —
+          그 로그를 보고 «안 걸렸다» 고 읽지 말 것.
+
+     [누가 학생인가] «상대편에 교사가 있으면 나는 학생» — ⑨-3 의 mgRemoteTeacherPresent()
+       를 그대로 쓴다. 그 판정은 역할 오판(관리자 폴백)에도 안 뒤집히게 만들어 둔 것이다.
+       ⛔ 「내가 학생인가」(vcIsTeacherRole 의 반대)로 판정하지 말 것 — 그 함수는 역할이
+          아직 안 왔을 때 false 로 떨어지므로 **진짜 교사가 입장 직후 몇 초 동안 «학생» 이 되어
+          지키기로 한 교사 송신이 깎인다.** 모르면 안 낮추는 쪽이 안전한 실패다.
+
+     [값] 250kbps — 폰 학생이 이미 쓰고 있는 값이라 새 조합이 아니다.
+       ⚠️ br 만 낮추면 안 된다. 화질 모드를 '자동/고' 로 바꾼 학생은 scale 1(720p)·24fps 라
+          거기에 250kbps 를 물리면 심하게 깨진다. 낮출 때는 fps·scale 도 '저' 조합
+          (15fps·1/2)보다 성기지 않게 함께 맞춘다 = 폰 학생과 정확히 같은 파라미터.
+       ⚠️ 이미 그보다 낮으면 올리지 않는다(Math.min/Math.max) — 적응 루프가 더 내려간 상태를
+          되돌리면 나쁜 회선에서 «고치려던 것» 이 거꾸로 간다.
+
+     [언제 걸리나] 적응 루프가 연결마다 최초 1회 applyStep 을 건다(idx-main.js:5050 __qInit).
+       그런데 «역할이 늦게 와서» 그 뒤에 학생으로 밝혀지면 다시 안 걸린다 → 판정이 바뀐 순간
+       vcSetQuality 와 같은 방식으로 모든 연결에 한 번 다시 건다.
+       ⛔ 상주 setInterval·body class 감시를 두지 않는다(둘 다 이 저장소에서 사고를 낸 방식).
+          이미 걸려 있는 vcApplySpotlight 훅(⑨절)에 얹는다 — 그 훅은 타일이 생길 때와
+          로스터에서 역할이 올 때 불린다.
+       ⚠️ 판정이 «바뀔 때만» 다시 건다. 매번 setParameters 를 부르면 영상이 튄다.
+
+     [되돌리는 길] localStorage 'mangoi_vc_student_cap' = 'off'
+
+     ⚠️ **효과 크기를 부풀려 적지 말 것** — PC 학생 400→250 = 150kbps 이고
+        폰 학생은 이미 250이라 변화가 없다. 더 큰 이득은 «학생의 업로드» 가 줄어드는 것이다
+        (가정 인터넷·폰 데이터에서 가장 약한 방향).
+     ⛔ 이 절을 「교사 CPU 절감책」으로 인용하지 말 것 — 디코딩은 인코딩보다 훨씬 가볍고,
+        교사의 인코딩(자기가 보내는 것)은 지시대로 그대로 둔다.
+     ⚠️ 맞바꾼 것: 교사가 학생 얼굴을 640×360 대신 320×180 급으로 본다.
+        영어 수업에서 입모양·표정을 보는 자리라, 되돌릴 값은 위 스위치 한 줄이다.
+     감시: test-harness/student_uplink_cap_harness.mjs (이 블록을 오려 내 실제로 돌린다)
+  ══════════════════════════════════════════════════════════════ */
+  (function studentUplinkCap() {
+    var CAP_BR = 250 * 1000;   // 폰 학생이 이미 쓰는 값
+    var CAP_FPS = 15;          // '저' 모드와 같은 값
+    var CAP_SCALE = 2;         // '저' 모드와 같은 값 (1280 → 640)
+
+    function capOff() {
+      try { return localStorage.getItem('mangoi_vc_student_cap') === 'off'; } catch (e) { return false; }
+    }
+    /* 내가 «학생 쪽» 인가 — 상대편에 교사가 있으면 그렇다.
+       참관자는 제외한다(애초에 영상을 안 보내고, 역할이 admin 이라 헷갈리기 쉽다). */
+    function iAmStudentSide() {
+      try {
+        if (document.body && document.body.classList.contains('vc-observer')) return false;
+        return !!mgRemoteTeacherPresent();
+      } catch (e) { return false; }   // 모르면 안 낮춘다
+    }
+
+    var origCaps = window.vcQualityCaps;
+    if (typeof origCaps !== 'function') {
+      try { console.warn('[mobilefix ⑮] vcQualityCaps 가 없다 — 학생 상한을 걸지 않는다'); } catch (e) {}
+      return;                          // 그 이름이 바뀌면 조용히 헛돌지 않고 여기서 멈춘다
+    }
+    window.vcQualityCaps = function () {
+      var c = null;
+      try { c = origCaps.apply(this, arguments); } catch (e) {}
+      if (!c || typeof c.br !== 'number') return c;      // 모르면 그대로
+      if (capOff() || !iAmStudentSide()) return c;
+      return {
+        br:    Math.min(c.br, CAP_BR),
+        fps:   Math.min(typeof c.fps === 'number' ? c.fps : CAP_FPS, CAP_FPS),
+        scale: Math.max(typeof c.scale === 'number' ? c.scale : 1, CAP_SCALE)
+      };
+    };
+
+    /* 판정이 바뀌면(=역할이 늦게 와서 학생으로 밝혀지면) 이미 걸린 상한을 다시 건다.
+       vcSetQuality 가 쓰는 것과 같은 방식이다(idx-main.js:4930). */
+    var lastSide = null;
+    function reapplyIfChanged() {
+      try {
+        var now = capOff() ? false : iAmStudentSide();
+        if (now === lastSide) return;                    // 바뀔 때만 — 매번 걸면 영상이 튄다
+        lastSide = now;
+        if (typeof window.__vcApplyStep !== 'function') return;
+        var pcs = window.vcPeerConnections || {};
+        Object.keys(pcs).forEach(function (id) {
+          var pc = pcs[id];
+          if (!pc) return;
+          try { window.__vcApplyStep(pc, pc.__qStep || 0); } catch (e) {}
+        });
+        try { console.log('[mobilefix ⑮] 학생 송신 상한 ' + (now ? (CAP_BR / 1000) + 'kbps 적용' : '해제')); } catch (e) {}
+      } catch (e) {}
+    }
+    /* 검사·콘솔에서 부를 수 있게 */
+    window.__mgStudentUplinkCap = { br: CAP_BR, fps: CAP_FPS, scale: CAP_SCALE,
+                                    isStudentSide: iAmStudentSide, reapply: reapplyIfChanged };
+
+    var _spotCap = window.vcApplySpotlight;
+    if (typeof _spotCap === 'function') {
+      window.vcApplySpotlight = function () {
+        var r = _spotCap.apply(this, arguments);
+        try { reapplyIfChanged(); } catch (e) {}
+        return r;
+      };
+    }
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 학생 송신 250kbps 준비됨'); } catch (e) {}
 })();
