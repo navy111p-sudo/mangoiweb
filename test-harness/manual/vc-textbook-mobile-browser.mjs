@@ -376,17 +376,46 @@ const PROBE = `(function(bw,bh,vw,vh,opts){
   box.appendChild(vid);
   if(opts.share){var b=document.createElement('span');b.className='vc-ss-badge';box.appendChild(b);}
   host.appendChild(box);
-  try{ vcSmartFitVideo(vid); }catch(e){ return 'ERR:'+e.message; }
+  /* 크기바 모드를 잠깐 바꿔 잰다 — 판정(mgBigPortraitBox)이 #vc-main-row 의 모드를 본다.
+     ⚠️ 폭으로는 「교재 크게」(최대 300px)와 「기본」(최소 260px)이 겹쳐 못 가른다. */
+  var row=document.getElementById('vc-main-row'), keep=row?row.className:null;
+  if(row&&opts.mode){ row.className=row.className.replace(/video-[a-z]+/g,'').trim()+' '+opts.mode; }
+  /* 인원도 맞춰 둔다 — ⑧-2 는 «1:1 수업» 에만 걸린다(그룹은 방향이 반대가 된다). */
+  var grid=document.getElementById('vc-video-grid'), keepN=grid?grid.getAttribute('data-count'):null;
+  if(grid) grid.setAttribute('data-count', String(opts.count||2));
+  function restore(){ if(row&&keep!==null) row.className=keep;
+    if(grid){ if(keepN===null) grid.removeAttribute('data-count'); else grid.setAttribute('data-count',keepN); } }
+  try{ vcSmartFitVideo(vid); }catch(e){ restore(); return 'ERR:'+e.message; }
+  restore();
   return vid.style.objectFit||'(없음)';
 })`;
 const fit = (bw, bh, vw, vh, opts) => evalJs(`${PROBE}(${bw},${bh},${vw},${vh},${JSON.stringify(opts || {})})`);
 
-// PC·태블릿의 «오른쪽 세로 컬럼» — 사장님 화면이 이 모양이었다(교사 28.2% / 학생 42.3% 실측)
+/* 🔴 2026-09-07 사장님 지시로 «PC 의 넓은 세로 칸» 만 뜻이 뒤집혔다 —
+   「학생이 보는 교사 얼굴이 너무 크다 · 절반으로 · 선명하고 가볍게」.
+   그 칸에서 cover 는 «채우기» 가 아니라 «확대» 다 — 실측(1905x1051 · 교사 1280x720)
+   「얼굴 크게」 칸 850x938 에 그림이 1669x938 로 들어가 폭 51% 만 보였다(원본의 1.30배 업스케일).
+   확대를 멈추면 850x478 = 0.51배가 되어 「크다」·「잘린다」·「흐리다」가 함께 풀린다.
+   ⚠️ 바뀐 것은 「얼굴 크게」·「모두 보기」뿐이다. 「기본」(학생 기본값)·「교재 크게」·PIP·폰은
+      그대로다 — 실측상 「기본」에서 전체 보이기를 하면 459x258 = 칸의 27.5% 가 되어
+      2026-08-26 「얼굴이 칸의 28% 로 쪼그라든다」 신고 수치가 그대로 재현된다. */
 await load(1280, 800, 2, 'ko-KR');
-ok(await fit(345, 687, 1280, 720) === 'cover',
-  '교사의 가로(16:9) 웹캠이 세로로 긴 칸을 꽉 채운다 (고치기 전 contain·채움 28.2%)');
-ok(await fit(132, 180, 1280, 720) === 'cover', '좁은 세로 컬럼에서도 꽉 채운다 (전 contain·41.3%)');
+ok(await fit(850, 938, 1280, 720, { mode: 'video-threequarter' }) === 'contain',
+  '「얼굴 크게」 — 확대하지 않는다 (사장님 화면이 이 모양이었다 · 실측 0.51배)');
+ok(await fit(459, 938, 1280, 720, { mode: 'video-half' }) === 'cover',
+  '「기본」(학생 기본값)은 그대로 — 전체 보이기면 칸의 27.5% 가 되어 8/26 신고가 되살아난다');
+ok(await fit(132, 180, 1280, 720, { mode: 'video-quarter' }) === 'cover',
+  '「교재 크게」 좁은 세로 컬럼은 그대로 꽉 채운다 (전체 보이기면 41.3% 로 쪼그라든다)');
+ok(await fit(300, 985, 1280, 720, { mode: 'video-quarter' }) === 'cover',
+  '「교재 크게」가 넓어져 300px 이 돼도 그대로 — 폭으로 갈랐다면 「기본」과 구별되지 않는다');
 ok(await fit(295, 139, 1280, 720) === 'cover', '가로로 넓은 칸은 원래대로 꽉 찬다 (회귀 없음)');
+ok(await fit(210, 157, 1280, 720) === 'cover', '오른아래 PIP(가로로 넓다)도 그대로 꽉 찬다');
+/* 그룹 수업은 손대지 않는다 — 4인 「얼굴 크게」는 스포트라이트로 교사 타일이 가로(834x553)라
+   그대로인데 학생 타일만(273x361) 세로여서 42.7% 로 줄었다(함정 대조 실측). 방향이 반대다. */
+ok(await fit(273, 361, 1280, 720, { mode: 'video-threequarter', count: 4 }) === 'cover',
+  '4인 그룹 수업의 학생 타일 — 그대로 꽉 채운다 (그룹은 방향이 반대가 된다)');
+ok(await fit(620, 922, 1280, 720, { mode: 'video-full', count: 3 }) === 'cover',
+  '3인 「모두 보기」 — 그대로 꽉 채운다 (전원이 37.9% 가 되던 조합)');
 
 /* ⛔ 화면 공유는 잘리면 «공유한 화면의 좌우가 사라진다» — 반드시 전체 보이기 */
 ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
