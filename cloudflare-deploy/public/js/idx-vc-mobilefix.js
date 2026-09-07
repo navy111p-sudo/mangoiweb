@@ -17,6 +17,8 @@
  *   ⑦ 얼굴 꾸미기(가면) 파일을 우리 서버(/vendor/mediapipe-face/)에서 쓴다 —
  *      지금까지 구글·jsdelivr 에서 받아 와 중국에서 통째로 막혀 있었다.
  *   ⑧ 「교사 화면이 작고 학생 화면이 크다」 — 상대 타일이 검은 띠에 둘러싸이던 것.
+ *      ⑧-2 단, PC 의 «넓은 세로 칸» 에서는 꽉 채우지 않는다 — 1.96배 확대를 멈추고
+ *      전체를 보여 준다(2026-09-07 사장님 「교사 얼굴이 너무 크다 · 절반으로 · 선명하고 가볍게」).
  *   ⑨ 1:1 수업에서 «교사» 얼굴을 크게(상대:나 = 1.6:1, PC 는 누가 PIP 인가로).
  *   ⑩ 중국어 복습퀴즈 — 수업 교재로 언어를 판정하고, 「진도(과)」를 학생이 고르게 한다
  *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
@@ -576,6 +578,59 @@
     try { return !!(box && box.querySelector('.vc-ss-badge')); } catch (e) { return false; }
   }
 
+  /* ⑧-2 «넉넉히 큰 세로 칸» 에서는 꽉 채우지 않는다 — 확대를 멈춘다
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-09-07 「학생이 보는 교사 얼굴을 지금보다 절반 크기로. 너무 크다」
+            + 「셋 중 가장 선명하게, 최대한 가볍게」.
+     [무엇이 문제였나] 위 cover 는 «채우기» 가 아니라 «확대» 다.
+       PC 학생 화면의 얼굴 칸은 세로로 길다. 거기에 교사의 가로 웹캠을 cover 로 넣으면
+       세로에 맞추느라 늘어난다 — **[잰 것 · 1905x1051 창 · 교사 1280x720 · 「얼굴 크게」]**
+       칸은 850x938 인데 그림은 **1669x938**(원본의 1.30배 업스케일)이고 **폭 51% 만 보인다.**
+       → ① 얼굴이 가득 차고 ② 좌우가 잘려 코·입만 남고 ③ 늘린 만큼 흐려진다.
+       세 가지가 한 원인이라 «전체 보이기» 하나로 같이 풀린다 — 그림이 850x478 이 되어
+       얼굴은 **0.51배**(= 850/1669 · 지시한 «절반» 과 일치), 업스케일이 사라져 가장 선명하고,
+       GPU 가 늘리는 일이 없어 가장 가볍다.
+     ⛔ 좁은 칸은 그대로 둔다 — 사이드컬럼(교재 크게)·PIP 에서 전체 보이기를 하면
+        「교사 얼굴이 칸의 28% 로 쪼그라든다」던 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 가르는 기준은 폭(px)이 아니라 **크기바에서 사람이 고른 모드**이고,
+        바꾸는 것은 **「얼굴 크게」·「모두 보기」뿐**이다(아래 목록 주석의 실측 참고).
+        「교재 크게」와 «학생 기본값» 인 「기본」은 손대지 않는다 — 거기서 전체 보이기를 하면
+        얼굴이 칸의 18~27.5% 가 되어 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 폰은 이 줄에 애초에 안 닿는다(min-width:1024px) — 2026-07-14 「꽉 차게」 지시 그대로다.
+        폰 세로는 정본(vcSmartFitVideo)이 자기 예외로 먼저 cover 를 준다.
+     ℹ️ 세로 영상(교사가 폰으로 들어옴)은 위 cover 조건이 «가로일 때» 라 여기까지 오지 않는다.
+     ⚠️ 크기바로 칸이 바뀌면 ResizeObserver 가 다시 부른다(idx-main.js vcInstallSmartFit) — 저절로 따라온다. */
+  /* ⛔ 폭(px)으로 가르려다 실패했다 — 하니스가 잡았다.
+        「교재 크게」는 clamp(180px,18%,300px) 이고 「기본」은 clamp(260px,27%,460px) 라
+        **260~300px 이 겹친다.** 폭으로는 두 모드를 원리상 구분할 수 없다.
+        그래서 사람이 «고른 것» 그 자체(크기바 모드)로 가른다.
+
+     🔴 그리고 «작게 두는 모드를 뺀다»(부정 목록)에서 «넓게 보는 모드만»(긍정 목록)으로 좁혔다 —
+        실측이 이유다. 1905x1051 · 교사 웹캠 1280x720 에서 칸 안에 그려지는 그림:
+          「얼굴 크게」 850x938 → 전체 보이기 850x478 = 고치기 전의 **0.51배**  ← 사장님이 본 화면
+          「기본」     459x938 → 전체 보이기 459x258 = 칸의 **27.5%**
+        뒤엣것은 2026-08-26 「교사 얼굴이 칸의 28% 로 쪼그라든다」 신고 수치 **그대로**다.
+        게다가 「기본」은 index.html 의 **학생 기본값**(vc-main-row video-half)이라
+        건드리면 반경이 학생 전원이다. 그래서 «사장님이 그 화면에서 크다고 한» 모드만 바꾼다.
+     ℹ️ 「기본」에서도 줄이려면 이 목록에 'video-half' 를 더하면 된다 — 사람이 정할 일이다. */
+  var MG_WIDE_FACE_MODES = ['video-threequarter', 'video-full', 'video-solo'];
+  function mgBigPortraitBox(box) {
+    try {
+      if (!box || box.id === 'vc-local-box') return false;
+      if (!matchMedia('(min-width:1024px)').matches) return false;
+      var bw = box.clientWidth, bh = box.clientHeight;
+      if (!bw || !bh) return false;
+      if (bh <= bw) return false;                 // 가로로 넓은 칸은 확대가 안 일어난다(PIP 포함)
+      var row = document.getElementById('vc-main-row');
+      if (!row) return false;                     // 모르면 옛 동작 그대로
+      for (var i = 0; i < MG_WIDE_FACE_MODES.length; i++) {
+        if (row.classList.contains(MG_WIDE_FACE_MODES[i])) return true;
+      }
+      return false;                               // 모르는 모드도 옛 동작 그대로
+    } catch (e) { return false; }
+  }
+  window.mgBigPortraitBox = mgBigPortraitBox;   // 검사·콘솔에서 부를 수 있게
+
   var _smartFit = window.vcSmartFitVideo;
   if (typeof _smartFit === 'function') {
     window.vcSmartFitVideo = function (v) {
@@ -589,8 +644,9 @@
           v.style.setProperty('object-fit', 'contain', 'important');
           return;
         }
+        /* 🔍 큰 세로 칸이면 꽉 채우지 않는다 — 위 ⑧-2. 정본에 맡기면 «전체 보이기» 가 된다. */
         if (v && v.videoWidth && v.videoHeight && v.videoWidth >= v.videoHeight
-            && box && box.id !== 'vc-local-box') {
+            && box && box.id !== 'vc-local-box' && !mgBigPortraitBox(box)) {
           v.style.setProperty('object-fit', 'cover', 'important');
           return;
         }
