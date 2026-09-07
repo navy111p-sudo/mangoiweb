@@ -747,7 +747,7 @@ PW_DIR=/tmp/pw node test-harness/manual/game-standalone-exit-browser.mjs
 **변이시험(2026-09-07 실제로 돌려 본 것)** — CSS 블록 제거 → ❌ 5건 ·
 파일 없는 행에도 버튼 → ❌ 2건 · 저장 실패인데 화면 바꾸기 → ❌ 1건.
 ⚠️ 반대로 «글자색 페인터 셋 등재 제거» 는 **FAIL 이 안 난다** — 지금 팔레트(밝은 바탕·
-어두운 글자·대비 6.9)에서는 그 셋이 이 버튼을 원래 안 건드리기 때문이다. 색을 어둡게
+어두운 글자·대비 6.49)에서는 그 셋이 이 버튼을 원래 안 건드리기 때문이다. 색을 어둡게
 바꾸는 날에는 사람이 세 곳(`adm-s12` KEEP_SEL · `adm-s13` TX_KEEP · `adm-light-surfaces`
 SKIP_SEL)을 함께 봐야 한다.
 

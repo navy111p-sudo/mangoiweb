@@ -9320,8 +9320,15 @@ window._tbHideErr = '';
 
 async function _tbLoadHideMap() {
   window._tbHideMap = null; window._tbHideLower = null; window._tbHideErr = '';
+  /* ⏱ 이 조회는 교재 표를 그리기 «전» 에 기다린다 — 응답이 매달리면 표 전체가 안 그려진다.
+     숨김 칸은 곁가지이므로 6초를 넘기면 포기하고 «모름» 으로 두고 표는 그대로 그린다.
+     ⚠️ AbortSignal.timeout 은 옛 브라우저에 없다 — AbortController + setTimeout 으로. */
+  var ac = null, tid = 0;
+  try { ac = new AbortController(); tid = setTimeout(function(){ try { ac.abort(); } catch (e) {} }, 6000); } catch (e) { ac = null; }
   try {
-    var r = await fetch('/api/admin/textbook-hidden-books', { cache: 'no-store', credentials: 'include' });
+    var opt = { cache: 'no-store', credentials: 'include' };
+    if (ac) opt.signal = ac.signal;
+    var r = await fetch('/api/admin/textbook-hidden-books', opt);
     var d = await r.json().catch(function(){ return {}; });
     /* «성공이라고 말했는가» 로 판정한다 — 종단 404 본문에는 ok 칸이 없어
        `d.ok === false` 로 보면 그냥 통과한다(CLAUDE.md 2장). */
@@ -9341,6 +9348,8 @@ async function _tbLoadHideMap() {
   } catch (e) {
     window._tbHideErr = 'failed';
     console.warn('[ph240 hide] 숨김 목록 실패', e);
+  } finally {
+    if (tid) clearTimeout(tid);
   }
 }
 

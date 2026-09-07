@@ -10077,13 +10077,13 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not
    ⚠️ 색이 «구분 정보» 다(보임 초록 / 숨김 빨강). 그래서 글자색 페인터 셋 세 곳에 등재해 뒀다 —
       adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP.
       ℹ️ [잰 것 — 2026-09-07 브라우저 실측] **지금 팔레트에서는 그 셋이 이 버튼을 원래 안 건드린다**
-         (등재를 셋 다 빼고 다시 재도 색이 한 픽셀도 안 바뀌었다). 밝은 바탕 + 어두운 글자 + 대비 6.9~7.0 이라
+         (등재를 셋 다 빼고 다시 재도 색이 한 픽셀도 안 바뀌었다). 밝은 바탕 + 어두운 글자 + 대비 6.49~6.80 이라
          「어두운 면 구제」·「밝게 누르기」 어느 조건에도 안 걸리기 때문이다.
       ⟹ 등재는 «지금 막고 있는 것» 이 아니라 **팔레트를 어둡게 바꾸는 날을 위한 것**이다.
          그러니 브라우저 검사도 이 등재를 못 잡는다 — 색을 바꿀 때는 사람이 세 곳을 함께 보라.
    ⚠️ box-sizing 을 못 박는다 — 테두리가 폭을 밀면 좁은 칸에서 줄이 바뀐다.
    ℹ️ 팔레트는 옆 표(.tr-st-badge)와 같은 것을 쓴다 — 한 화면에서 초록·빨강이 다른 뜻이면 헷갈린다.
-      대비: #166534 on #dcfce7 = 6.9:1 · #991b1b on #fee2e2 = 7.0:1 (본문 기준 4.5:1 초과). */
+      대비: #166534 on #dcfce7 = 6.49:1 · #991b1b on #fee2e2 = 6.80:1 (본문 기준 4.5:1 초과). */
 #textbooks-table td button.tb-hide-toggle {
   display: inline-block !important;
   padding: 3px 10px !important;
@@ -10106,5 +10106,13 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not
   color: #991b1b !important;
   border-color: #fca5a5 !important;
 }
-#textbooks-table td button.tb-hide-toggle:hover { filter: brightness(0.95) !important; }
+/* ⛔ hover 에 움직임을 두지 않는다(CLAUDE.md 1-3 «hover 확대 금지» — 색·밝기만).
+   ⚠️ 3374행 `details.table-card.menu-card button:not()x3:hover{ transform:translateY(-1px)!important }`
+      가 그대로 걸려 실측 1px 이 올라가고 있었다(2026-09-07 브라우저 실측 top 854.81 → 853.51).
+      «안 쓴다» 고 주석만 적어 두면 그것이 거짓이 된다 — 끄는 줄을 실제로 둔다
+      (#en-multi-table td button 선례와 같은 방식). */
+#textbooks-table td button.tb-hide-toggle:hover {
+  filter: brightness(0.95) !important;
+  transform: none !important;
+}
 #textbooks-table td button.tb-hide-toggle[disabled] { opacity: .55 !important; cursor: default !important; }
