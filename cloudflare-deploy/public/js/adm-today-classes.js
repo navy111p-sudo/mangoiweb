@@ -45,6 +45,16 @@
       + (isEn() ? b.en : b.ko) + '</span>';
   }
 
+  /* ☎️ 번호 보기 — 저장은 «숫자만» 이다(api-retention.ts 가 정규화해 넣는다).
+     ⛔ font-family 를 주지 말 것: 한자 글꼴 통일 가드(hanzi_font_harness)가
+        «맨 앞이 MangoiHanSC 가 아니다» 로 FAIL 낸다(CLAUDE.md 2장, 실제로 밟은 함정). */
+  function telFmt(p) {
+    var d = String(p == null ? '' : p).replace(/[^0-9]/g, '');
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return d;
+  }
+
   function hhmm(ts) {
     try {
       return new Date(ts).toLocaleTimeString('ko-KR', {
@@ -241,6 +251,7 @@
   };
 
   var _rows = [];
+  var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
      [왜] 오늘 목록 166건 중 142건이 카페24라, 새로 넣은 수업이 그 안에 파묻혀 눈으로 못 찾았다.
@@ -263,7 +274,15 @@
   function rowText(s) {
     return [
       s.student_name, s.student_uid, s.teacher_name, s.substituted_from,
-      s.room_id, s.textbook, s.level, s.start_time
+      s.room_id, s.textbook, s.level, s.start_time,
+      /* 🏫☎️ (2026-09-07) 학원 이름·연락처로도 찾을 수 있게 — 매니저는 「○○학원 학생들」 이나
+         번호 뒷자리로 찾는다. 칸을 화면에 그렸으면 검색도 함께 넓혀야 한다
+         (안 그러면 「보이는데 검색하면 0건」이 된다 — CLAUDE.md 2장). */
+      s.academy, s.contact_phone,
+      /* ⚠️ 화면은 번호를 끊어서 그린다(telFmt). 저장값(01012345678)만 훑으면
+         **화면에 보이는 그대로**(「010-1234-5678」·「010-1234」) 쳤을 때 0건이 된다 —
+         「보이는데 검색하면 아무것도 없다」(CLAUDE.md 2장). 둘 다 넣는다. */
+      telFmt(s.contact_phone)
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -279,6 +298,21 @@
         shown: shown
       } }));
     } catch (e) { /* 무시 */ }
+  }
+
+  /* ☎️ 연락처가 «왜 대부분 비어 있는지» — 서버가 준 근거로만 말한다(_contactSrc).
+     ⛔ 화면이 스스로 판정하지 않는다: 화면은 자기 역할도, 그 표의 성격도 모른다.
+     ⚠️ 폰에는 hover 가 없어 title 로는 못 전한다 → **보이는 줄**로 그린다. */
+  function contactNote(missing, total) {
+    if (!missing) return '';
+    if (_contactSrc === 'restricted') {
+      return T('☎ 연락처는 본사 계정에서만 보입니다.',
+               'Contact numbers are visible to HQ accounts only.');
+    }
+    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 저장돼 있지 않고, '
+           + '«관리 대상(만료·휴면)» 명단에 오른 학생만 번호가 있습니다.',
+             '☎ ' + missing + ' of ' + total + ' have no number — the student roster stores no phone numbers; '
+           + 'only students on the at-risk (expiring/inactive) list have one.');
   }
 
   function render() {
@@ -340,11 +374,17 @@
     /* 🚪 (2026-07-24 강사 피드백) "입장 버튼이 학생 이름과 멀리 떨어져 있어 다른 방에 잘못 들어간다"
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
-    box.innerHTML = '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
+    var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    box.innerHTML = (note
+        ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
+        : '')
+      + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   '<th>' + T('시간', 'Time') + '</th>'
       +   '<th>' + T('상태', 'Status') + '</th>'
       +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
+      +   '<th>' + T('연락처', 'Contact') + '</th>'
+      +   '<th>' + T('학원', 'Academy') + '</th>'
       +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
       +   '<th>' + T('강사', 'Teacher') + '</th>'
       +   '<th>' + T('강의실', 'Room') + '</th>'
@@ -409,6 +449,24 @@
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
               + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
             : '';
+          /* ☎️🏫 (2026-09-07 매니저 요청 «student Name, ID, contact number, Academy»)
+             수업에 안 들어오는 학생을 그 줄에서 바로 찾기 위한 칸.
+             ⛔ 없을 때 다른 값으로 채우지 않는다 — «—» 와 «왜 없는지» 를 적는다
+                (빈칸은 «고장» 으로 읽힌다: CLAUDE.md 2장 「모르면 모른다고 말하게 하라」).
+             ☎ 는 tel: 링크다 — 매니저 대부분이 폰으로 이 화면을 본다. */
+          var contact = s.contact_phone
+            ? '<a href="tel:' + esc(String(s.contact_phone).replace(/[^0-9+]/g, '')) + '" '
+              + 'style="font-size:11.5px;color:#1d4ed8;text-decoration:none;white-space:nowrap" '
+              + 'title="' + T('눌러서 전화 걸기', 'Tap to call') + '">☎ ' + esc(telFmt(s.contact_phone)) + '</a>'
+            /* ⛔ 이유를 `title` 로만 달지 말 것 — title 툴팁은 **마우스 전용**이라
+               폰에서는 영원히 안 뜬다(CLAUDE.md 2장). 매니저는 대부분 폰으로 본다.
+               → 칸에는 «—» 만 두고, **이유는 목록 위에 보이는 줄로 한 번** 말한다(contactNote).
+                 줄마다 반복해 적으면 76% 의 줄이 같은 문장으로 시끄러워진다. */
+            : '<span style="color:#9ca3af;font-size:11px">—</span>';
+          var academy = s.academy
+            ? '<span style="font-size:11.5px;color:#475569;white-space:nowrap">' + esc(s.academy) + '</span>'
+            : '<span style="color:#9ca3af;font-size:11px">—</span>';
+
           /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
              예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유).
              ⛔ (2026-08-30) 클래스 이름을 «-btn» 으로 끝내지 말 것 — admin-inline-c.css 의
@@ -423,7 +481,15 @@
           return '<tr>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
-            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div></td>'
+            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
+              /* 🆔 아이디 — 이름이 같은 학생이 실재해서(동명이인) 매니저가 확정하려면 필요하다.
+                 ⛔ display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+              + (s.student_uid && s.student_name
+                  ? '<div style="font-size:10.5px;color:#6b7280;letter-spacing:0.2px">' + esc(s.student_uid) + '</div>'
+                  : '')
+            + '</td>'
+            + '<td>' + contact + '</td>'
+            + '<td>' + academy + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
@@ -466,6 +532,8 @@
       if (!d || d.ok !== true || !Array.isArray(d.sessions)) {
         throw new Error((d && d.error) || 'load_failed');
       }
+      /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
+      _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;

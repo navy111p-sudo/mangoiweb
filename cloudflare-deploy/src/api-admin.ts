@@ -26,7 +26,8 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
-import { probeImage, ocrGate } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
+import { probeImage, ocrGate } from './textbook-ocr';
+import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -3170,7 +3171,7 @@ export async function handleAdminApi(
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
@@ -3203,6 +3204,50 @@ export async function handleAdminApi(
           subOverlay.set(String(r.schedule_id), { id: String(r.substitute_teacher_id), name: r.sub_name || null });
         }
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
+
+      /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
+            **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
+            「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
+            영원히 빈칸이라 여기서는 읽지 않는다.
+         ⚠️ `student_retention` 은 «이탈 위험 학생 스냅샷» 이지 전체 명부가 아니다 —
+            카페24 서버가 밀어 넣고(handleRetentionIngest), 이번 스냅샷에 없는 학생은 **지워진다**.
+            즉 «잘 다니는 학생은 원리상 없고», 있던 번호도 대상에서 벗어나면 사라진다.
+            실측: 223행 중 199행에 번호가 있고, 예약이 잡힌 학생 444명 기준 **105명(23.6%)**.
+            ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
+         ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
+            「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
+            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+      /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
+         지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
+         `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
+         **지사장·학원장이 처음으로 학생 전화번호를 보게 되는** 변경이 된다 —
+         매니저 요청(«managers schedule»)에 없던 일이고 **사람이 정할 일**이다.
+         ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
+         ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
+      const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
+      const phoneMap = new Map<string, string>();
+      if (_ctSeeContact) {
+        try {
+          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
+             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
+          const CONTACT_CAP = 2000;
+          const pr: any = await env.DB.prepare(
+            `SELECT user_id, phone FROM student_retention
+              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
+              ORDER BY user_id LIMIT ?`
+          ).bind(CONTACT_CAP).all();
+          const got = (pr?.results as any[]) || [];
+          for (const r of got) {
+            const u = String(r.user_id || '').trim();
+            if (u) phoneMap.set(u, String(r.phone || '').trim());
+          }
+          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
+        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
+      }
 
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
@@ -3237,6 +3282,11 @@ export async function handleAdminApi(
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           student_name: s.student_name || null,
+          /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
+             그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
+             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+          academy: s.se_shop || null,
+          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3270,7 +3320,7 @@ export async function handleAdminApi(
         const rs: any = await env.DB.prepare(
           `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
                   se.korean_name AS stu_ko, se.english_name AS stu_en,
-                  se.level AS se_level, se.textbook AS se_textbook
+                  se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM attendance a
              LEFT JOIN students_erp se ON se.user_id = a.user_id
             WHERE a.room_id LIKE 'c24-%' AND a.date = ?
@@ -3296,6 +3346,8 @@ export async function handleAdminApi(
             room_id: r.room_id,        // 표시용 식별자일 뿐 — 이 번호로 망고아이 방을 열 수 없다
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
+            academy: r.se_shop || null,
+            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
@@ -3314,8 +3366,15 @@ export async function handleAdminApi(
 
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
-      return json({
+      /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
+         ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
+           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
+      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const res = json({
         ok: true,
+        contact_source: contactSource,
+        contact_missing: sessions.filter(x => !x.contact_phone).length,
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
         now: nowMs, count: sessions.length, sessions,
@@ -3326,6 +3385,11 @@ export async function handleAdminApi(
         },
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
+      /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
+         (CLAUDE.md 2장 「자격증명을 응답에 실을 때」의 PII 판). 지금 CF 기본값은 /api/ 를
+         캐시하지 않지만, 누가 「Cache Everything」을 걸면 그 전제가 깨진다. */
+      res.headers.set('Cache-Control', 'private, no-store');
+      return res;
     }
 
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
@@ -12587,6 +12651,13 @@ LIMIT $limit`;
     //   • R2: RECORDINGS 버킷 재사용, key prefix "textbook-files/"
     //   • 강의실 교재 탭에서 라이브러리 → 선택 → 칠판/PDF 뷰어 동기화
     // ═══════════════════════════════════════════════════════════════════════
+    /* 📚 «묶음(책) 이름» 판정 정본 — 파일명 앞 [대괄호] 하나가 묶음이다.
+       ⛔ 이 식을 복제하지 말 것: 숨김 목록(GET)과 묶음 삭제(DELETE)가 서로 다른 식을 쓰면
+          사람이 화면에서 고른 책과 **다른 책이 지워진다**(되돌릴 수 없다).
+       ⛔ LIKE 로 바꾸지 말 것: D1 은 LIKE 패턴이 50자를 넘으면 조회 자체가 실패한다
+          (실측 — 교재 이름은 「BTS 17 Korea (Hobbies And Activities,…)」처럼 쉽게 넘는다). */
+    const BOOK_EXPR = `(CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END)`;
+
     const ensureTextbookFilesTable = async () => {
       await env.DB.exec(
         `CREATE TABLE IF NOT EXISTS textbook_files (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL, mime TEXT, ext TEXT, size_bytes INTEGER, r2_key TEXT NOT NULL, textbook_id INTEGER, level TEXT, unit_no INTEGER, description TEXT, uploaded_by TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`
@@ -12645,7 +12716,7 @@ LIMIT $limit`;
       await ensureTextbookFilesTable();
       const hidden = await loadHiddenBooks();
       const rs: any = await env.DB.prepare(
-        `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+        `SELECT ${BOOK_EXPR} AS book,
                 COUNT(*) AS files
          FROM textbook_files WHERE active = 1 GROUP BY book ORDER BY book ASC`
       ).all().catch(() => ({ results: [] }));
@@ -12670,6 +12741,132 @@ LIMIT $limit`;
         `INSERT OR REPLACE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
       ).bind(book, who, Date.now()).run();
       return json({ ok: true, book, hidden: true });
+    }
+
+    /* 🗑️ DELETE /api/admin/textbook-files — 교재 «묶음 통째» 영구 삭제 (2026-09-07 사장님 결정 B안)
+       ═══════════════════════════════════════════════════════════════════════════
+       [왜] 지금까지 서버 교재를 지우는 길은 `/:id` **한 장씩** 뿐이었다.
+          `[BTS 2 001 (Shapes and colors)]` = 19번, `[BTS Books]` = **6,680번** 확인창이라
+          사실상 «삭제가 없는» 상태였다(2026-09-07 필리핀 매니저 Mai 제보 — D1 실측).
+       [관문] `src/index.ts`(공동 금지구역)를 한 줄도 안 건드린다 —
+          `path === '/api/admin/textbook-files'` 는 ②라우팅 허용목록에 **이미** 있고
+          그 등록은 메서드를 안 가린다. 이 경로의 DELETE 는 비어 있었다(실측).
+          ⚠️ 그래서 본문에 `action` 을 두고 **모르는 값은 거절**한다 — 안 그러면 나중에
+             이 경로에 다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러 들어온다.
+       [2단계 안전장치]
+          1단계 `dry_run`(기본값) — 아무것도 안 지우고 «몇 장 · 몇 MB» 만 세어 돌려준다.
+          2단계 `dry_run:false` + `confirm_name` 이 책 이름과 **정확일치**해야 실제로 지운다.
+       ⛔ 되돌릴 수 없다. 그래서 «숨기기»(textbook_hidden_books)를 없애지 않았다 —
+          파일을 남기고 목록에서만 빼는 쪽이 대부분의 경우 맞는 답이다. */
+    if (method === 'DELETE' && path === '/api/admin/textbook-files') {
+      const b: any = await request.json().catch(() => ({}));
+      const book = String(b?.book || '').trim();
+      const dryRun = b?.dry_run !== false;
+      const _pgActor = await getAdminActor(request, env as any);
+
+      /* 파일 수를 먼저 센다 — ⚠️ 조회가 실패하면 **0 이 아니라 null**(모름)로 넘긴다.
+         0 으로 떨어뜨리면 «없는 책» 과 «못 센 책» 이 같은 말이 되어 가드가 fail-open 이 된다. */
+      let totalFiles: number | null = null;
+      let cnt: any = null;
+      if (book) {
+        try {
+          await ensureTextbookFilesTable();
+          cnt = await env.DB.prepare(
+            `SELECT COUNT(*) AS files, SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS active_files,
+                    COALESCE(SUM(size_bytes),0) AS bytes
+               FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+          ).bind(book).first();
+          totalFiles = Number(cnt?.files ?? 0);
+        } catch { totalFiles = null; }   // 모름 — 게이트가 lookup_failed 로 막는다
+      }
+
+      /* 🔒 허용 판정은 **정본 함수 한 곳**이 한다(src/textbook-purge-gate.ts).
+         ⛔ 여기에 조건을 다시 적지 말 것 — 라우트 안 조건은 하니스가 문자열로만 보게 되고,
+            그러면 부등호를 뒤집어도 초록불이 난다. */
+      const gate = textbookPurgeGate({
+        action: b?.action, actorOk: !!_pgActor.ok, isTeacher: !!_pgActor.isTeacher,
+        role: _pgActor.role, book, dryRun, confirmName: b?.confirm_name, totalFiles,
+      });
+      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status as any);
+
+      if (gate.mode === 'count') {
+        const sample: any = await env.DB.prepare(
+          `SELECT name FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT 5`
+        ).bind(book).all().catch(() => ({ results: [] }));
+        return json({
+          ok: true, dry_run: true, book,
+          files: Number(totalFiles || 0),
+          active_files: Number(cnt?.active_files || 0),
+          bytes: Number(cnt?.bytes || 0),
+          sample: (sample.results || []).map((r: any) => r.name),
+        });
+      }
+
+      /* 한 번에 다 지우지 않는다 — 6,680장짜리 묶음이 실재해 요청 하나가 시간 초과로 죽으면
+         «어디까지 지워졌는지» 를 아무도 모른다. 화면이 남은 수를 보고 반복해서 부른다. */
+      const PURGE_BATCH_MAX = 300;
+      /* ⚠️ 여기서 «못 읽음» 을 «지울 게 없음»(빈 배열)으로 떨어뜨리면 안 된다 —
+         아래 remaining 과 겹치면 「삭제 완료 · 0장」이라는 **거짓 완료**가 된다. */
+      let rows: any = null;
+      try {
+        rows = await env.DB.prepare(
+          `SELECT id, r2_key FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT ${PURGE_BATCH_MAX}`
+        ).bind(book).all();
+      } catch { rows = null; }
+      if (!rows) return json({ ok: false, error: 'lookup_failed' }, 503);
+
+      const r2 = (env as any).RECORDINGS;
+      let deleted = 0, r2Deleted = 0, r2Failed = 0;
+      for (const row of (rows.results || [])) {
+        const key = String(row?.r2_key || '');
+        /* ⛔ 접두사가 맞는 키만 지운다 — 이 칸에 다른 값이 섞여 들어온 전례가 있다(녹화 file_url).
+           R2 delete 는 «없는 키» 에도 예외를 안 내므로, 접두사 검사 없이 넘기면
+           엉뚱한 오브젝트를 지우고도 «성공» 으로 센다. */
+        if (r2 && key.startsWith('textbook-files/')) {
+          try { await r2.delete(key); r2Deleted++; }
+          catch { r2Failed++; continue; }   // ⚠️ D1 행을 남긴다 — 지우면 그 키를 영영 못 찾아 고아가 된다
+        }
+        await env.DB.prepare(`DELETE FROM textbook_files WHERE id = ?`).bind(row.id).run();
+        deleted++;
+      }
+
+      /* 🔴 «남은 수» 를 못 읽었을 때 0 으로 떨어뜨리면 세 가지가 한꺼번에 거짓이 된다:
+         ① 응답 done:true → 화면이 «삭제 완료» 라고 말한다(파일은 남아 있는데)
+         ② 아래 숨김 표식이 지워져 **숨겨 뒀던 교재가 전 강사·학생에게 되살아난다**
+         ③ 감사로그에 remaining:0 이라는 틀린 사실이 박힌다(되돌릴 수 없는 조작의 유일한 흔적)
+         → **null(모름)로 두고, 모르면 아무것도 «완료» 로 만들지 않는다.**
+         (게이트가 이미 같은 원칙이다 — CLAUDE.md 「«모른다» 를 별도 사유로 거절」) */
+      let remaining: number | null = null;
+      try {
+        const left: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+        ).bind(book).first();
+        remaining = Number(left?.n ?? 0);
+      } catch { remaining = null; }
+
+      // 다 지운 것을 «확인했을 때만» 숨김 표식을 정리한다(모르면 안 건드린다).
+      if (remaining === 0) {
+        try {
+          await ensureTextbookHiddenTable();
+          await env.DB.prepare(`DELETE FROM textbook_hidden_books WHERE book = ?`).bind(book).run();
+        } catch { /* 숨김 정리는 실패해도 삭제 자체를 되돌리지 않는다 */ }
+      }
+
+      // 누가 무엇을 지웠는지 남긴다 — 되돌릴 수 없는 조작이라 기록이 유일한 흔적이다.
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+        await env.DB.prepare(
+          `INSERT INTO admin_audit_logs (admin_uid, action, target_user, meta, created_at) VALUES (?,?,?,?,?)`
+        ).bind(_pgActor.username || 'unknown', 'textbook_purge_book', book,
+               JSON.stringify({ deleted, r2_deleted: r2Deleted, r2_failed: r2Failed, remaining }), Date.now()).run();
+      } catch { /* 기록 실패가 삭제를 막지는 않는다 */ }
+
+      return json({
+        ok: true, dry_run: false, book,
+        deleted, r2_deleted: r2Deleted, r2_failed: r2Failed,
+        remaining,                       // null = 모름 (조회 실패)
+        done: remaining === 0,           // ⚠️ 모르면 false — «완료» 라고 말하지 않는다
+      });
     }
 
     // POST /api/admin/textbook-files — 파일 업로드 (multipart/form-data)
