@@ -62,7 +62,7 @@
   /* 이 페인터가 «손대면 안 되는» 요소 — 자기 배경을 들고 다니고 색이 뜻인 것들.
      ⚠️ 아래 EXCLUDE 와 다른 목록이다: EXCLUDE 는 ivoryLighten(배경 칠하기)용,
         이쪽은 fixTextOnDark(글자색 구제)용이다. */
-  var TX_KEEP = '.tp-st-badge,.tr-st-badge';   // 색이 «구분 정보» 인 상태 배지 (강사 명부 · 강사 명부 실데이터)
+  var TX_KEEP = '.tp-st-badge,.tr-st-badge,.tb-hide-toggle';   // 색이 «구분 정보» 인 상태 배지 (강사 명부 · 강사 명부 실데이터)
   function fixTextOnDark(card){
     /* 카드 자신이 색면인 경우도 포함해야 한다 — querySelectorAll('*') 은 자신을 빼므로
        그 안의 글자가 통째로 구제 대상에서 빠지던 버그가 있었다(26-07-22). */

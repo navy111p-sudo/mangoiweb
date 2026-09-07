@@ -9123,7 +9123,7 @@ async function _adminLoadIdbTextbooks() {
 async function loadTextbooks() {
   var tb = document.getElementById('textbooks-table');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="6" class="empty">📥 불러오는 중…</td></tr>';
+  tb.innerHTML = '<tr><td colspan="7" class="empty">📥 불러오는 중…</td></tr>';
 
   var items = [];
   var srvCount = 0, idbCount = 0;
@@ -9175,11 +9175,14 @@ async function loadTextbooks() {
     }
   } catch(e) { console.warn('[ph240] 서버 파일 그룹 실패', e); }
 
+  // 4) 🙈 (2026-09-07) 표의 «숨김» 칸이 쓸 목록. 실패해도 표는 그대로 그린다(칸만 «—» 가 된다).
+  await _tbLoadHideMap();
+
   console.log('[ph240] 교재 표 — D1 ' + srvCount + ' + IDB ' + idbCount + ' + 서버파일 ' + srvFileCount + '개 = 표시 ' + items.length + '그룹');
 
   if (items.length === 0) {
     var fb0 = document.getElementById('tb-filter-bar'); if (fb0) fb0.innerHTML = '';
-    tb.innerHTML = '<tr><td colspan="6" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
     return;
   }
 
@@ -9259,9 +9262,10 @@ function _tbRenderChips(items) {
 function _tbRenderRows(key) {
   var tb = document.getElementById('textbooks-table');
   if (!tb) return;
+  _tbHideNote();   // 🙈 개수 줄은 목록이 접혀 있어도 사실대로 — 행 렌더 결과와 무관하다
   // fix (2026-06-02) — '전체교재' 접힘 상태면 목록 숨김 (전체교재 다시 누르면 펼쳐짐)
   if (window._tbCollapsed) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty" style="cursor:pointer;color:#93c5fd" onclick="(function(){window._tbCollapsed=false;_tbRenderChips(window._tbItems||[]);_tbRenderRows(window._tbActiveFilter);})()">📁 목록이 접혀 있습니다 — \'전체교재\'를 다시 누르거나 여기를 클릭하면 펼쳐집니다</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="empty" style="cursor:pointer;color:#93c5fd" onclick="(function(){window._tbCollapsed=false;_tbRenderChips(window._tbItems||[]);_tbRenderRows(window._tbActiveFilter);})()">📁 목록이 접혀 있습니다 — \'전체교재\'를 다시 누르거나 여기를 클릭하면 펼쳐집니다</td></tr>';
     return;
   }
   var items = (window._tbItems || []).filter(function(t){ return _tbItemMatches(t, key); });
@@ -9270,7 +9274,7 @@ function _tbRenderRows(key) {
     return '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.22);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="서버 — 모든 기기에서 보임">☁ 서버</span>';
   }
   if (items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">📭 "' + _esc(key) + '" 교재 없음</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="empty">📭 "' + _esc(key) + '" 교재 없음</td></tr>';
     return;
   }
   tb.innerHTML = items.map(function(t, i) {
@@ -9284,9 +9288,157 @@ function _tbRenderRows(key) {
       '<td style="text-align:right">' + (t.units || '—') + '</td>' +
       '<td>' + (_esc(t.publisher) || '—') + '</td>' +
       '<td><code style="font-size:11px">' + (_esc(t.isbn) || '—') + '</code></td>' +
+      _tbHideCell(t) +
     '</tr>';
   }).join('');
+  /* 🙈 인라인 onclick 을 쓰지 않는다 — 교재명에 따옴표가 들어가면 그 자리에서 깨진다.
+     ⚠️ 이 표는 필터를 누를 때마다 통째로 다시 그려지므로 리스너도 매번 새로 단다(쌓이지 않는다). */
+  tb.querySelectorAll('button.tb-hide-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){ _tbToggleHide(btn); });
+  });
 }
+/* ════════════════════════════════════════════════════════════════════
+   🙈 (2026-09-07 사장님 지시) 관리자 교재 표의 «숨김» 칸
+   ──────────────────────────────────────────────────────────────────
+   [왜] 숨김은 2026-08-13 부터 /textbook-uploader.html 아래쪽에만 있었다.
+        그 페이지를 모르면 찾을 길이 없어 「숨김 버튼이 어디 있냐」가 올라왔다.
+        API 는 그대로 쓰고(정본이 둘이 되면 안 된다) 화면만 한 곳 더 붙인다.
+   [무엇을 숨기나] 숨김의 단위는 «교재 묶음 이름»(= textbook_files 의 파일명 앞 [대괄호])이다.
+        그래서 이 표의 행 중 **그 묶음 이름과 맞는 행에만** 버튼이 붙는다.
+        ⛔ 안 맞는 행에 버튼을 만들지 않는다 — 눌러도 라이브러리에서 사라지는 것이 없어
+           「눌렀는데 아무 일도 안 일어난다」가 된다. 대신 «—» 와 이유를 툴팁으로 적는다.
+   ⛔ 이름이 대소문자만 다를 때는 «유일할 때만» 잇는다(후보가 둘이면 «모름») — 엉뚱한
+      묶음을 숨기면 강사가 쓰는 교재가 통째로 사라진다.
+   ⛔ «지우기» 는 만들지 않는다. 숨김/되살림뿐이고 파일·기록은 그대로다.
+   ⚠️ 이 API 는 본사·관리자 전용이다(강사가 체크하면 전 강사의 교재가 사라지므로
+      src/index.ts 가 강사를 막는다). 403 이면 «모름» 으로 두고 칸을 «—» 로 그린다 —
+      조용히 «보임» 이라고 말하면 그것이 거짓말이 된다.
+   ════════════════════════════════════════════════════════════════════ */
+window._tbHideMap = null;    // { '묶음이름': { files, hidden } } · null = «모름»(권한 없음·조회 실패)
+window._tbHideLower = null;  // 소문자 → 정본 이름 (후보가 둘이면 null)
+window._tbHideErr = '';
+
+async function _tbLoadHideMap() {
+  window._tbHideMap = null; window._tbHideLower = null; window._tbHideErr = '';
+  /* ⏱ 이 조회는 교재 표를 그리기 «전» 에 기다린다 — 응답이 매달리면 표 전체가 안 그려진다.
+     숨김 칸은 곁가지이므로 6초를 넘기면 포기하고 «모름» 으로 두고 표는 그대로 그린다.
+     ⚠️ AbortSignal.timeout 은 옛 브라우저에 없다 — AbortController + setTimeout 으로. */
+  var ac = null, tid = 0;
+  try { ac = new AbortController(); tid = setTimeout(function(){ try { ac.abort(); } catch (e) {} }, 6000); } catch (e) { ac = null; }
+  try {
+    var opt = { cache: 'no-store', credentials: 'include' };
+    if (ac) opt.signal = ac.signal;
+    var r = await fetch('/api/admin/textbook-hidden-books', opt);
+    var d = await r.json().catch(function(){ return {}; });
+    /* «성공이라고 말했는가» 로 판정한다 — 종단 404 본문에는 ok 칸이 없어
+       `d.ok === false` 로 보면 그냥 통과한다(CLAUDE.md 2장). */
+    if (d.ok !== true || !Array.isArray(d.books)) {
+      window._tbHideErr = (r.status === 401 || r.status === 403) ? 'forbidden' : 'failed';
+      return;
+    }
+    var map = {}, lower = {};
+    d.books.forEach(function(b){
+      var name = String(b && b.book == null ? '' : b.book).trim();
+      if (!name) return;
+      map[name] = { files: (b && b.files) || 0, hidden: !!(b && b.hidden) };
+      var k = name.toLowerCase();
+      lower[k] = Object.prototype.hasOwnProperty.call(lower, k) ? null : name;
+    });
+    window._tbHideMap = map; window._tbHideLower = lower;
+  } catch (e) {
+    window._tbHideErr = 'failed';
+    console.warn('[ph240 hide] 숨김 목록 실패', e);
+  } finally {
+    if (tid) clearTimeout(tid);
+  }
+}
+
+/* 이 행의 교재명이 «어느 묶음» 인가 — ① 정확일치 먼저 ② 없으면 대소문자만 다른 후보(유일할 때만) */
+function _tbHideBookOf(title) {
+  var map = window._tbHideMap; if (!map) return null;
+  var name = String(title == null ? '' : title).trim();
+  if (!name) return null;
+  if (Object.prototype.hasOwnProperty.call(map, name)) return name;
+  var uniq = window._tbHideLower ? window._tbHideLower[name.toLowerCase()] : null;
+  return uniq || null;
+}
+
+function _tbHideCell(t) {
+  var en = (window.adminLang === 'en');
+  if (!window._tbHideMap) {
+    var why = (window._tbHideErr === 'forbidden')
+      ? (en ? 'Hiding is available to HQ/admin accounts only' : '숨김 설정은 본사·관리자 계정만 가능합니다')
+      : (en ? 'Could not load the hide list' : '숨김 목록을 불러오지 못했습니다');
+    return '<td style="text-align:center;color:#94a3b8" title="' + _esc(why) + '">—</td>';
+  }
+  var book = _tbHideBookOf(t.title);
+  if (!book) {
+    var none = en ? 'No files uploaded to the server under this name — nothing to hide'
+                  : '이 이름으로 서버에 올라온 파일이 없어 숨길 대상이 없습니다';
+    return '<td style="text-align:center;color:#94a3b8" title="' + _esc(none) + '">—</td>';
+  }
+  var hidden = !!(window._tbHideMap[book] && window._tbHideMap[book].hidden);
+  var label = hidden ? (en ? '🙈 Hidden' : '🙈 숨김') : (en ? '👁 Shown' : '👁 보임');
+  var tip = hidden
+    ? (en ? 'Hidden from the teacher/student library — click to show it again'
+          : '강사·학생 라이브러리에서 안 보입니다 — 누르면 다시 보입니다')
+    : (en ? 'Visible in the library — click to hide it (files are kept)'
+          : '라이브러리에 보입니다 — 누르면 숨깁니다 (파일은 지워지지 않습니다)');
+  return '<td style="text-align:center;white-space:nowrap">'
+    + '<button type="button" class="tb-hide-toggle' + (hidden ? ' tb-hide-on' : '') + '"'
+    + ' data-book="' + _esc(book) + '" data-next="' + (hidden ? '0' : '1') + '"'
+    + ' title="' + _esc(tip) + '">' + label + '</button></td>';
+}
+
+function _tbHideNote() {
+  var note = document.getElementById('tb-hide-note');
+  var cnt = document.getElementById('tb-hide-count');
+  var map = window._tbHideMap;
+  /* 목록을 못 받았으면 안내 줄을 감춘다 — 「버튼을 누르세요」라고 말해 놓고
+     칸이 전부 «—» 이면 그것이 고장으로 읽힌다. */
+  if (note) note.style.display = map ? '' : 'none';
+  if (!cnt) return;
+  if (!map) { cnt.textContent = ''; return; }
+  var names = Object.keys(map);
+  var n = 0;
+  names.forEach(function(k){ if (map[k].hidden) n++; });
+  cnt.textContent = (window.adminLang === 'en')
+    ? ('· ' + names.length + ' groups · ' + n + ' hidden')
+    : ('· 묶음 ' + names.length + '개 · 숨김 ' + n + '개');
+}
+
+async function _tbToggleHide(btn) {
+  var en = (window.adminLang === 'en');
+  var book = btn.getAttribute('data-book');
+  var next = (btn.getAttribute('data-next') === '1');
+  if (!book || !window._tbHideMap) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/api/admin/textbook-hidden-books', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: book, hidden: next })
+    });
+    var d = await r.json().catch(function(){ return {}; });
+    if (d.ok !== true) throw new Error((d && d.error) || ('HTTP ' + r.status));
+    if (window._tbHideMap[book]) window._tbHideMap[book].hidden = next;
+    _tbRenderRows(window._tbActiveFilter || '전체교재');   // 버튼·개수 줄을 함께 다시 그린다
+  } catch (e) {
+    /* 저장이 안 됐는데 «된 것처럼» 보이면 안 된다 — 화면을 한 칸도 안 바꾸고 사유를 말한다. */
+    btn.disabled = false;
+    alert((en ? 'Could not save. Please try again.\n' : '저장하지 못했습니다. 다시 시도해 주세요.\n') + ((e && e.message) || ''));
+  }
+}
+
+/* 🌐 JS 로 그린 라벨이라 data-ko/data-en 루프가 못 고친다 — 언어가 바뀌면 다시 그린다.
+   ⚠️ 관리자 화면의 그 이벤트는 document 에서 발행되고(CustomEvent 는 bubbles:false 라
+      window 로 안 올라간다) 다른 화면은 window 에서 쏜다 — 둘 다 듣는다. */
+(function _tbBindLangRedraw(){
+  function redraw(){ if (window._tbItems) _tbRenderRows(window._tbActiveFilter || '전체교재'); }
+  document.addEventListener('mangoi:lang-changed', redraw);
+  window.addEventListener('mangoi:lang-changed', redraw);
+})();
+
 // fix (2026-06-01) — 이 PC(IndexedDB)의 교재 파일을 서버로 업로드 → 모든 기기/휴대폰에서 보이게
 async function syncLocalTextbooksToServer() {
   var btn = document.getElementById('tb-sync-server-btn');

@@ -1550,6 +1550,16 @@ export async function handleMangoApi(
         || path.startsWith('/api/family/') || path.startsWith('/api/nps/')
         || path.startsWith('/api/subscription/')
         || path.startsWith('/api/textbook-files') || path.startsWith('/api/admin/textbook-files')
+        /* 🙈 (2026-09-07) 교재 라이브러리 숨김 — **2026-08-13 신설 이래 줄곧 404 였다.**
+           index.ts 의 인증 게이트(①, 5787행)와 라우팅 허용목록(②, 1274행)에는 있었는데
+           이 위임 가드(③)에만 빠져 handleAdminApi 까지 못 갔다. 바로 위 textbook-files 는
+           startsWith 로 걸리지만 «textbook-hidden-books» 는 그 접두사에도 /api/admin/textbooks
+           에도 안 걸린다(문자열 전수 대조로 확인 — 108개 중 걸리는 것 0건).
+           ⚠️ 화면에서는 «고장» 으로 안 보였다 — 404 본문 {error:'Not Found'} 에 ok 칸이 없어
+              업로더(/textbook-uploader.html)의 숨김 상자는 「목록을 불러오지 못했습니다」로만 떴다.
+           📜 teacher-contacts(8/13)·finance-cafe24(8/15)·classes/today(7/23→8/25)·vc/(8/27)와
+              **같은 원인의 다섯 번째**다. 새 /api/admin/* 경로는 반드시 관문 셋을 다 등록할 것. */
+        || path === '/api/admin/textbook-hidden-books'
         || path.startsWith('/api/recordings/')
         || path.startsWith('/api/mango-videos') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/franchises') || path.startsWith('/api/admin/centers')

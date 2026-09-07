@@ -716,3 +716,41 @@ node test-harness/manual/today-classes-filter-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/game-standalone-exit-browser.mjs
 ```
+
+---
+
+## textbook-hide-toggle-browser.mjs — 관리자 교재 표의 «숨김» 토글 (33건)
+
+관리자 › **📖 교재 콘텐츠 관리 ▸ 📚 컨텐츠 교재 관리** 표의 마지막 「숨김」 칸
+(2026-09-07 사장님 「관리자 교재 관리 화면에도 숨김 버튼 넣어줘」).
+숨김 자체는 2026-08-13 부터 `/textbook-uploader.html` 에만 있었고 API 는 그대로 쓴다 —
+여기서 봐야 하는 것은 문자열이 아니라 **«몇 px 이고 무슨 색이고 실제로 눌리는가»** 다.
+
+**언제 부르나** — 그 표(`_tbRenderRows`·`_tbHideCell`, `js/adm-core.js`)를 건드렸을 때,
+`admin-inline-c.css` 의 전역 버튼 룰을 건드렸을 때, 글자색 페인터 셋을 고쳤을 때.
+
+실제로 재는 것:
+
+- thead 칸 수 = 한 줄 `<td>` 수 = `colspan` (하나만 어긋나면 표가 통째로 밀린다)
+- 버튼이 **«큰 파란 알약» 이 아닌가** — 전역 룰 `details.menu-card button{인디고 !important;
+  padding:9px 18px !important}` 이 표 안 작은 버튼을 뭉개면 옆 칸을 밀어낸다.
+  ⚠️ 높이는 **`body{zoom:1.3}` 으로 나눠서** 잰다(안 그러면 멀쩡한 버튼이 39px 로 나온다)
+- 보임(초록)·숨김(빨강) **두 상태의 배경·글자색이 실제로 다른가**, 글자가 읽히는가(대비 ≥ 4.5)
+- 「보인다」와 「눌린다」는 다르다 → `elementFromPoint` 로 맨 위가 그 버튼인가
+- 눌렀을 때 **POST 가 서버로 실제로 나가는가**(시연 껍데기가 아닌가)와 보낸 내용,
+  그리고 **한 번 더 누르면 되돌아오는가**(되돌릴 길이 화면에 있는가)
+- 저장이 실패하면 **화면을 한 칸도 안 바꾸는가**(«된 것처럼» 보이면 안 된다)
+- 파일이 없는 교재·권한이 없는 계정(403)에는 버튼을 안 만들고 **«—» 와 사유**를 적는가
+  (조용히 «보임» 이라 말하면 그것이 거짓말이 된다)
+- 🌐 EN 으로 바꾸면 버튼 글자가 따라오는가(JS 로 그린 라벨)
+
+**변이시험(2026-09-07 실제로 돌려 본 것)** — CSS 블록 제거 → ❌ 5건 ·
+파일 없는 행에도 버튼 → ❌ 2건 · 저장 실패인데 화면 바꾸기 → ❌ 1건.
+⚠️ 반대로 «글자색 페인터 셋 등재 제거» 는 **FAIL 이 안 난다** — 지금 팔레트(밝은 바탕·
+어두운 글자·대비 6.49)에서는 그 셋이 이 버튼을 원래 안 건드리기 때문이다. 색을 어둡게
+바꾸는 날에는 사람이 세 곳(`adm-s12` KEEP_SEL · `adm-s13` TX_KEEP · `adm-light-surfaces`
+SKIP_SEL)을 함께 봐야 한다.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/textbook-hide-toggle-browser.mjs
+```
