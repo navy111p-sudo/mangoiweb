@@ -3171,7 +3171,7 @@ export async function handleAdminApi(
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
@@ -3204,6 +3204,50 @@ export async function handleAdminApi(
           subOverlay.set(String(r.schedule_id), { id: String(r.substitute_teacher_id), name: r.sub_name || null });
         }
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
+
+      /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
+            **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
+            「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
+            영원히 빈칸이라 여기서는 읽지 않는다.
+         ⚠️ `student_retention` 은 «이탈 위험 학생 스냅샷» 이지 전체 명부가 아니다 —
+            카페24 서버가 밀어 넣고(handleRetentionIngest), 이번 스냅샷에 없는 학생은 **지워진다**.
+            즉 «잘 다니는 학생은 원리상 없고», 있던 번호도 대상에서 벗어나면 사라진다.
+            실측: 223행 중 199행에 번호가 있고, 예약이 잡힌 학생 444명 기준 **105명(23.6%)**.
+            ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
+         ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
+            「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
+            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+      /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
+         지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
+         `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
+         **지사장·학원장이 처음으로 학생 전화번호를 보게 되는** 변경이 된다 —
+         매니저 요청(«managers schedule»)에 없던 일이고 **사람이 정할 일**이다.
+         ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
+         ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
+      const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
+      const phoneMap = new Map<string, string>();
+      if (_ctSeeContact) {
+        try {
+          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
+             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
+          const CONTACT_CAP = 2000;
+          const pr: any = await env.DB.prepare(
+            `SELECT user_id, phone FROM student_retention
+              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
+              ORDER BY user_id LIMIT ?`
+          ).bind(CONTACT_CAP).all();
+          const got = (pr?.results as any[]) || [];
+          for (const r of got) {
+            const u = String(r.user_id || '').trim();
+            if (u) phoneMap.set(u, String(r.phone || '').trim());
+          }
+          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
+        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
+      }
 
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
@@ -3238,6 +3282,11 @@ export async function handleAdminApi(
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           student_name: s.student_name || null,
+          /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
+             그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
+             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+          academy: s.se_shop || null,
+          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3271,7 +3320,7 @@ export async function handleAdminApi(
         const rs: any = await env.DB.prepare(
           `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
                   se.korean_name AS stu_ko, se.english_name AS stu_en,
-                  se.level AS se_level, se.textbook AS se_textbook
+                  se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM attendance a
              LEFT JOIN students_erp se ON se.user_id = a.user_id
             WHERE a.room_id LIKE 'c24-%' AND a.date = ?
@@ -3297,6 +3346,8 @@ export async function handleAdminApi(
             room_id: r.room_id,        // 표시용 식별자일 뿐 — 이 번호로 망고아이 방을 열 수 없다
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
+            academy: r.se_shop || null,
+            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
@@ -3315,8 +3366,15 @@ export async function handleAdminApi(
 
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
-      return json({
+      /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
+         ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
+           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
+      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const res = json({
         ok: true,
+        contact_source: contactSource,
+        contact_missing: sessions.filter(x => !x.contact_phone).length,
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
         now: nowMs, count: sessions.length, sessions,
@@ -3327,6 +3385,11 @@ export async function handleAdminApi(
         },
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
+      /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
+         (CLAUDE.md 2장 「자격증명을 응답에 실을 때」의 PII 판). 지금 CF 기본값은 /api/ 를
+         캐시하지 않지만, 누가 「Cache Everything」을 걸면 그 전제가 깨진다. */
+      res.headers.set('Cache-Control', 'private, no-store');
+      return res;
     }
 
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
