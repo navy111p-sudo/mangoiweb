@@ -264,7 +264,13 @@ function check(name, cond, extra) {
   /* ── ⑦ 문서함에서 항목으로 찾기 ─────────────────────────────────────── */
   console.log('\n[7] 문서함 — 항목으로 찾을 수 있는가');
 
-  await page.evaluate(() => { window.__FINDS = []; if (window.toggleFind) window.toggleFind(); });
+  /* ⚠️ 문서함은 2026-09-07 부터 **처음부터 펼쳐져 있다** — 그냥 toggleFind() 를 부르면
+     열리는 게 아니라 «닫힌다». 닫혀 있을 때만 연다. */
+  await page.evaluate(() => {
+    window.__FINDS = [];
+    const box = document.getElementById('findPanel');
+    if (box && box.hidden && window.toggleFind) window.toggleFind();
+  });
   await page.waitForTimeout(500);
   const fcat = await page.evaluate(() => {
     const s = document.getElementById('fcat');

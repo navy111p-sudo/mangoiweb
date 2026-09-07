@@ -11,7 +11,9 @@
  *     그래서 «보낸 요청에 그 조건이 실려 있는가» 를 가로채서 센다.
  *
  *   [특히 조심한 것]
- *     · 첫 화면은 API 한 번 — 패널이 닫혀 있는 동안 검색을 부르면 안 된다.
+ *     · 문서함은 **처음부터 펼쳐져 있다**(2026-09-07 사장님 지시). 그래도 첫 화면 «그리기» 는
+ *       /api/approval/home 한 번이어야 한다 — 검색은 그 «뒤» 에 딱 한 번 나가야 한다.
+ *       그래서 부른 순서(__CALLS)를 기록해 «home 이 먼저인가» 까지 본다.
  *     · 결재자가 아닌 사람에게 «내가 결재할 것»·«전체» 함을 주면 서버가 403 을 준다.
  *     · 언어를 바꾸면 JS 로 그린 글자도 따라와야 한다(data-ko/data-en 이 못 건드린다).
  *
@@ -85,14 +87,17 @@ function check(name, cond, extra) {
   await page.addInitScript(({ home, p1, p2 }) => {
     try { localStorage.setItem('mangoi_lang', 'ko'); } catch (e) {}
     window.__FIND_URLS = [];               // 검색이 실제로 무엇을 물었는지
+    window.__CALLS = [];                   // 부른 순서 — 「home 이 먼저인가」를 보려고
     window.__NAV = [];                     // location.href 로 연 주소(엑셀)
     const rf = window.fetch;
     window.fetch = function (u, o) {
       u = String(u);
       if (u.indexOf('/api/approval/home') === 0) {
+        window.__CALLS.push('home');
         return Promise.resolve(new Response(JSON.stringify(home), { status: 200 }));
       }
       if (u.indexOf('/api/approval/requests?') === 0) {
+        window.__CALLS.push('find');
         window.__FIND_URLS.push(u);
         const more = /offset=(\d+)/.exec(u);
         const off = more ? Number(more[1]) : 0;
@@ -110,20 +115,36 @@ function check(name, cond, extra) {
 
   const findUrls = () => page.evaluate(() => window.__FIND_URLS);
 
-  /* ── ① 첫 화면 예산 ────────────────────────────────────────────────── */
-  console.log('\n[1] 첫 화면 — 안 열었는데 서버를 부르지 않는가');
+  /* ── ① 처음부터 펼쳐져 있고, 첫 화면 예산은 그대로인가 ─────────────── */
+  console.log('\n[1] 첫 화면 — 펼쳐진 채로 시작하되 home 이 먼저인가');
 
-  check('패널이 닫혀 있다', await page.locator('#findPanel').isHidden());
-  check('아직 검색을 부르지 않았다 (첫 화면은 API 한 번)',
-        (await findUrls()).length === 0, JSON.stringify(await findUrls()));
+  check('패널이 처음부터 펼쳐져 있다 (2026-09-07)', await page.locator('#findPanel').isVisible());
+  const calls = await page.evaluate(() => window.__CALLS);
+  check('home 을 먼저 부른다 (첫 화면 그리기는 여전히 API 한 번)',
+        calls[0] === 'home', JSON.stringify(calls));
+  check('검색은 그 뒤에 딱 한 번 (두 번 나가지 않는다)',
+        (await findUrls()).length === 1, JSON.stringify(await findUrls()));
+  check('여는 버튼은 「접기」로 시작한다',
+        /접기/.test(await page.locator('#findBtn').textContent()),
+        await page.locator('#findBtn').textContent());
+  const scope0 = await page.evaluate(() => document.getElementById('fscope').value);
+  check('처음 고른 적이 없으면 「내가 올린 것」', scope0 === 'mine', scope0);
 
-  /* ── ② 열면 찾아 준다 ─────────────────────────────────────────────── */
-  console.log('\n[2] 열면 지난 결재가 나오는가');
+  /* ── ② 접기·펴기 ─────────────────────────────────────────────────── */
+  console.log('\n[2] 접었다 펴도 되는가 (그리고 다시 부르지 않는가)');
 
   await page.locator('#findBtn').click();
-  await page.waitForTimeout(700);
-  check('패널이 열린다', await page.locator('#findPanel').isVisible());
-  check('열 때 한 번 부른다', (await findUrls()).length === 1);
+  await page.waitForTimeout(300);
+  check('누르면 접힌다', await page.locator('#findPanel').isHidden());
+  check('접으면 버튼이 「지난 결재 찾기」로 바뀐다',
+        /지난 결재 찾기/.test(await page.locator('#findBtn').textContent()),
+        await page.locator('#findBtn').textContent());
+
+  await page.locator('#findBtn').click();
+  await page.waitForTimeout(500);
+  check('다시 누르면 펴진다', await page.locator('#findPanel').isVisible());
+  check('이미 받아 둔 것은 다시 부르지 않는다 (짝 검사)',
+        (await findUrls()).length === 1, JSON.stringify(await findUrls()));
 
   const cards = await page.locator('#findResult .item').count();
   check('지난 결재가 20건 그려진다 (15건 제한이 사라졌다)', cards === 20, '실제 ' + cards + '건');
@@ -213,11 +234,57 @@ function check(name, cond, extra) {
   });
   check('함 이름이 영어로 바뀐다', /Approved|In progress/.test(en.scope), en.scope);
   check('검색창 안내도 영어로 바뀐다', /Search/i.test(en.ph), JSON.stringify(en.ph));
-  check('버튼 글자도 영어로 바뀐다', /Find past/i.test(en.btn), JSON.stringify(en.btn));
+  /* ⚠️ 이 시점에는 패널이 **펼쳐져 있다** — 그래서 「Hide」 가 맞다.
+     data-ko/data-en 을 함께 갱신하지 않으면 여기서 옛 글자(접기)가 그대로 남아 FAIL 난다. */
+  check('버튼 글자도 영어로 바뀐다 (펼쳐져 있으니 Hide)', /^\s*Hide\s*$/.test(en.btn), JSON.stringify(en.btn));
   check('언어를 바꿔도 고른 함이 그대로다 (done)', en.keep === 'done', en.keep);
 
-  /* ── ⑥ 좁은 화면 ──────────────────────────────────────────────────── */
-  console.log('\n[6] 휴대폰 390px');
+  /* ⚠️ 짝 검사 — **접힌 상태**에서 언어를 바꿔 본다.
+     펼친 상태만 보면 초기 HTML 의 data-en 이 마침 「Hide」라 우연히 맞아 떨어져서,
+     paintFindBtn 이 data-ko/data-en 을 갱신하지 않아도 통과한다(2026-09-07 변이시험에서 실측).
+     접으면 라벨이 바뀌어야 하므로 여기서만 그 결함이 드러난다. */
+  await page.locator('#findBtn').click();               // 접는다
+  await page.waitForTimeout(250);
+  await page.evaluate(() => window.toggleLang());       // 한국어로
+  await page.waitForTimeout(350);
+  const koClosed = await page.locator('#findBtn').textContent();
+  check('접힌 채로 언어를 바꿔도 「지난 결재 찾기」', /지난 결재 찾기/.test(koClosed), koClosed);
+  await page.evaluate(() => window.toggleLang());       // 다시 영어로
+  await page.waitForTimeout(350);
+  const enClosed = await page.locator('#findBtn').textContent();
+  check('영어로도 「Find past requests」', /Find past/i.test(enClosed), enClosed);
+  /* 지금 «보이는 글자» 는 paintFindBtn 이 applyLang «뒤» 에 도는 덕에 맞아떨어진다.
+     그 순서에만 기대면 나중에 applyLang 이 repaint 를 안 부르게 바뀌는 순간 조용히 깨진다 —
+     그래서 속성 자체도 따라오는지 함께 본다(CLAUDE.md 「JS 로 그린 라벨」). */
+  const btnAttrs = await page.evaluate(() => {
+    const b = document.getElementById('findBtn');
+    return { ko: b.getAttribute('data-ko'), en: b.getAttribute('data-en') };
+  });
+  check('접힌 상태에서는 data-ko/data-en 도 함께 바뀐다',
+        btnAttrs.ko === '지난 결재 찾기' && /Find past/i.test(btnAttrs.en || ''), JSON.stringify(btnAttrs));
+  await page.locator('#findBtn').click();               // 뒤 검사는 펼침을 전제로 한다
+  await page.waitForTimeout(300);
+  check('다시 펼쳐 두었다 (뒤 검사의 전제)', await page.locator('#findPanel').isVisible());
+
+  /* ── ⑥ 다시 열면 지난번 범위 그대로인가 (2026-09-07) ───────────────── */
+  console.log('\n[6] 다시 열었을 때 — 지난번에 고른 범위를 기억하는가');
+
+  /* 왜 — 펼쳐 두어도 늘 「내가 올린 것」으로 열리면 바로 위 목록과 같은 것이 또 보인다.
+     ⚠️ «화면 값이 그대로인가» 만 보면 안 된다 — 그 값으로 **서버에 묻는지** 짝으로 본다. */
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  const again = await page.evaluate(() => ({
+    open: !document.getElementById('findPanel').hidden,
+    scope: (document.getElementById('fscope') || {}).value,
+    urls: window.__FIND_URLS,
+  }));
+  check('다시 열어도 펼쳐져 있다', again.open);
+  check('지난번에 고른 범위(done)로 열린다', again.scope === 'done', String(again.scope));
+  check('그 범위로 서버에 묻는다 (짝 검사 — 화면만 바뀌면 소용없다)',
+        /scope=done/.test((again.urls || [])[0] || ''), JSON.stringify(again.urls));
+
+  /* ── ⑦ 좁은 화면 ──────────────────────────────────────────────────── */
+  console.log('\n[7] 휴대폰 390px');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
@@ -225,8 +292,8 @@ function check(name, cond, extra) {
     document.documentElement.scrollWidth - window.innerWidth);
   check('가로로 넘치지 않는다', overflow <= 0, '넘침 ' + overflow + 'px');
 
-  /* ── ⑦ 엑셀 — 맨 뒤에 둔다(진짜 네비게이션이라 페이지 상태를 흔든다) ───────────────────────────────────────────────────────── */
-  console.log('\n[7] 엑셀 내려받기');
+  /* ── ⑧ 엑셀 — 맨 뒤에 둔다(진짜 네비게이션이라 페이지 상태를 흔든다) ───────────────────────────────────────────────────────── */
+  console.log('\n[8] 엑셀 내려받기');
 
   /* ⚠️ location.href 를 후킹해서 «이동했다» 를 잡지 않는다 — 최신 크롬은 Location
      재정의를 막는데 **예외도 안 내고 조용히 원본 그대로**라, 그대로 진짜 내려받기가
@@ -244,7 +311,7 @@ function check(name, cond, extra) {
   check('엑셀도 고른 조건을 그대로 쓴다', !!csvUrl && /scope=done/.test(csvUrl), String(csvUrl));
 
   /* ── ⑧ 조용한 실패가 없는가 ───────────────────────────────────────── */
-  console.log('\n[8] 실행 중 오류');
+  console.log('\n[9] 실행 중 오류');
   check('자바스크립트 오류가 없다', errors.length === 0, errors.join(' / '));
 
   console.log('\n──────────────────────────────────────');
