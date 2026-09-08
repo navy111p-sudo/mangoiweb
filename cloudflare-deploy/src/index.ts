@@ -4159,14 +4159,19 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        fix 는 «마지막으로 본 것» 을 남긴다 — 다시 뽑았으면 그 답의 교정이 맞다.
        파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
     let rawFix: any = null;
+    let stagedFix: any = null;
     const takeWarmupReply = (r: any): string => {
       const parsed = parseWarmupOutput((r && (r.response || r.result || '')));
-      if (parsed.fix !== undefined) rawFix = parsed.fix;
+      stagedFix = parsed.fix;
       return parsed.reply;
     };
+    /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
+       재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
+       화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
+    const commitFix = () => { rawFix = stagedFix; };
     try {
       const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
-      aiText = takeWarmupReply(result);
+      aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
       //    것으로 오해한다(직원 확인 사례: 정상적인 영어 문장에도 발생). 진짜 이해 실패가
@@ -4174,7 +4179,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       if (!aiText) {
         try {
           const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
-          aiText = takeWarmupReply(retryEmpty);
+          aiText = takeWarmupReply(retryEmpty); commitFix();
         } catch {}
       }
       /* 🧯 무너진 출력 차단 (2026-08-31 사장님 화면 실사고 — 1단계인데 200토큰짜리 낱말 죽이
@@ -4196,7 +4201,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
           const freshText = takeWarmupReply(fresh);
           // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
-          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; }
+          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; commitFix(); }
         } catch {}
         if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
       }
@@ -4219,7 +4224,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           });
           const againText = takeWarmupReply(again);
           if (againText && !wrongSelfName(againText, ctxFriend) && !replyRejectReason(againText, sanityCap)) {
-            aiText = againText;
+            aiText = againText; commitFix();
           }
         } catch {}
       }
@@ -4233,7 +4238,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           max_tokens: 200, temperature: 0.95,
         });
         const retryText = takeWarmupReply(retry);
-        if (retryText && !warmupIsRepeat(retryText, history)) aiText = retryText;
+        if (retryText && !warmupIsRepeat(retryText, history)) { aiText = retryText; commitFix(); }
       }
     } catch (e: any) {
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
@@ -4241,7 +4246,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
     // 자기 탓으로 오해하기 쉽다 — 위 재시도로도 안 되는 진짜 드문 경우이므로, AI 쪽 잠깐의
     // 딸꾹질임을 알리는 톤으로 바꾼다(학생향 문구는 항상 희망적/격려 톤 유지).
-    if (!aiText) aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+    if (!aiText) {
+      aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+      /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
+         「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
+      rawFix = null;
+    }
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {

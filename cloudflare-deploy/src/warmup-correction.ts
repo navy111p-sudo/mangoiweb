@@ -73,17 +73,23 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
   // ```json … ``` 코드펜스를 벗긴다(모델이 지시를 어기고 감싸는 일이 실제로 있다)
   let body = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
+  /* 🔴 잘린 출력이 «가장 흔한 실패 모양» 이다 — max_tokens 안에 이제 교정까지 들어가므로
+     reply 예산이 줄었고, 잘리면 «정의상» 닫는 중괄호가 없다.
+     옛 코드는 `e > s` 로 블록을 통째로 건너뛰어 생 JSON 을 학생 화면·TTS 에 그대로 보냈다.
+     그래서 닫는 중괄호가 없어도 «열린 조각» 에서 reply 를 건져 본다.
+     ⚠️ reply 를 JSON 첫 키로 둔 것이 여기서 값을 한다 — 잘려도 reply 는 이미 끝나 있다. */
+  const looksLikeJson = /\{\s*"|"reply"\s*:|"fix"\s*:/.test(body);
   const s = body.indexOf('{');
   const e = body.lastIndexOf('}');
-  if (s >= 0 && e > s) {
-    const slice = body.slice(s, e + 1);
+  if (s >= 0) {
+    const slice = e > s ? body.slice(s, e + 1) : body.slice(s);
     try {
       const o = JSON.parse(slice);
       if (o && typeof o.reply === 'string' && o.reply.trim()) {
         return { reply: o.reply.trim(), fix: o.fix || null };
       }
     } catch { /* 아래 폴백으로 */ }
-    // JSON 이 깨졌어도 reply 문자열만은 건져 본다
+    // JSON 이 깨졌거나 «잘렸어도» reply 문자열만은 건져 본다
     const m = /"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(slice);
     if (m) {
       let r = m[1];
@@ -91,11 +97,12 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
       r = String(r).trim();
       if (r) return { reply: r, fix: null };
     }
-    /* 여기까지 왔으면 JSON 처럼 생겼는데 못 읽은 것이다.
-       ⛔ 중괄호 덩어리를 그대로 학생에게 보내지 않는다 — 빈 문자열로 두면 부르는 쪽의
-          기존 «잠깐의 딸꾹질» 안전 문구가 받아 준다(그게 옛 동작이다). */
-    if (s === 0) return { reply: '', fix: null };
   }
+  /* 🛟 마지막 안전망 — 여기까지 왔는데 JSON 흔적이 남아 있으면 «학생에게 보내지 않는다».
+     빈 문자열로 두면 부르는 쪽의 기존 «잠깐의 딸꾹질» 안전 문구가 받아 준다(옛 동작).
+     ⛔ 이 줄을 «s === 0 일 때만» 으로 좁히지 말 것 — 모델이 JSON 앞에 말을 한마디 붙이면
+        (`Here you go: {…`) 그 조건을 비켜 가고, 그러면 중괄호가 그대로 새어 나간다. */
+  if (looksLikeJson) return { reply: '', fix: null };
   return { reply: body, fix: null };
 }
 
@@ -107,9 +114,26 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
 function normEn(s: unknown): string {
   return String(s == null ? '' : s)
     .toLowerCase()
+    .replace(/[\u2018\u2019\u02BC]/g, "'")   // 곱슬 아포스트로피 — 모델은 ’, 학생은 ' 를 쓴다
     .replace(/[^a-z0-9' ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/* 글자 두 개씩 얼마나 겹치나(Dice) — 낱말 겹침만 보면 «형태가 바뀌는» 교정이 묻힌다.
+   [잰 것 — 2026-09-08]
+     통과해야 할 진짜 교정: 0.48 ~ 0.96  (가장 낮은 것이 "I don't went" → "I didn't go" 0.48)
+     막아야 할 창작:        0.00 ~ 0.09  ("I go" → "Pizza tastes wonderful" 0.00)
+   간격이 다섯 배라 0.35 로 가른다. 낱말 겹침(0.5)과 «둘 중 하나» 면 통과시킨다. */
+function charDice(a: string, b: string): number {
+  const bg = (x: string) => { const o: string[] = []; for (let i = 0; i < x.length - 1; i++) o.push(x.slice(i, i + 2)); return o; };
+  const A = bg(normEn(a)), B = bg(normEn(b));
+  if (!A.length || !B.length) return 0;
+  const m = new Map<string, number>();
+  for (const x of B) m.set(x, (m.get(x) || 0) + 1);
+  let hit = 0;
+  for (const x of A) { const c = m.get(x) || 0; if (c > 0) { hit++; m.set(x, c - 1); } }
+  return (2 * hit) / (A.length + B.length);
 }
 
 /** 낱말이 얼마나 겹치나 — 통째로 다시 쓴 문장(교정이 아니라 창작)을 걸러 낸다. */
@@ -152,12 +176,16 @@ export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix |
   if (!nWas || !nNow) return null;
 
   // 🔴 핵심 — was 가 학생 원문에 «있어야» 한다. 없으면 모델이 지어낸 것이다.
-  if (!nSaid.includes(nWas)) return null;
+  /* ⚠️ 낱말 경계로 본다 — 그냥 includes 면 'o to sch' 같은 «낱말 조각» 이 통과해
+     화면에 뜻 없는 교정이 그려진다(CLAUDE.md 2장 「«부분문자열» 로 보면」). */
+  if (!(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
   // 고친 것이 없으면 교정이 아니다
   if (nWas === nNow) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
-  if (wordOverlap(nWas, nNow) < 0.5) return null;
+  /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
+     흔한 교정이 0.33 으로 묻힌다(함정 대조가 실측으로 잡았다). 둘 중 하나면 통과. */
+  if (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35) return null;
 
   const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
   const severity: 'major' | 'minor' = String(fixRaw.severity) === 'major' ? 'major' : 'minor';

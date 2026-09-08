@@ -52,10 +52,17 @@ const INDEX = readFileSync(join(SRC, 'index.ts'), 'utf8');
   check('A-2 모델 출력을 날것으로 꺼내는 자리가 0건 (전부 takeWarmupReply 를 지난다)',
         rawPicks.length === 0, '남은 자리 ' + rawPicks.length + '건');
 
-  const takes = (H.match(/takeWarmupReply\(/g) || []).length;
-  const runs = (H.match(/env\.AI\.run\(WARMUP_MODEL/g) || []).length;
+  /* ⚠️ 주석을 벗기고 «코드만» 센다. 안 그러면 주석에 적힌 takeWarmupReply() 가 함께 세어져
+     «코드는 한 글자도 안 고치고 주석 괄호만 떼도 FAIL» 이 난다(함정 대조가 실측으로 잡았다). */
+  const code = H.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const takes = (code.match(/takeWarmupReply\(/g) || []).length;
+  const commits = (code.match(/commitFix\(\)/g) || []).length;
+  const runs = (code.match(/env\.AI\.run\(WARMUP_MODEL/g) || []).length;
   check('A-3 AI 호출 수와 추출 수가 짝이 맞는다 (새 재시도를 넣고 빠뜨리면 여기서 걸린다)',
-        runs > 0 && takes === runs + 1, 'AI.run ' + runs + '회 · takeWarmupReply ' + takes + '회(선언 1 포함)');
+        runs > 0 && takes === runs, 'AI.run ' + runs + '회 · takeWarmupReply ' + takes + '회');
+  check('A-3b 채택한 답장마다 교정을 확정한다 (버려진 재시도의 교정이 남지 않는다)',
+        commits === runs, 'commitFix ' + commits + '회 · AI.run ' + runs + '회');
+  check('A-3c 답장을 버리면 그 교정도 버린다', /rawFix = null;/.test(code));
 
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*\)/.test(H) && !/fix:\s*rawFix/.test(H));
@@ -96,8 +103,20 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const broken = parseWarmupOutput('{"reply":"Great job!","fix":{oops}');
   t('B-4 JSON 이 깨져도 reply 만 건져 낸다', broken.reply === 'Great job!' && broken.fix === null);
 
+  /* 🔴 함정 대조가 잡은 진짜 결함 — max_tokens 안에 교정까지 들어가므로 «잘림» 이 가장 흔한
+     실패 모양인데, 잘리면 정의상 닫는 중괄호가 없다. 옛 코드는 그때 원문을 그대로 내보냈다. */
+  {
+    const cut = '{"reply":"Oh, you went to school yesterday! What did you do there?","fix":{"was":"I go to sch';
+    const c = parseWarmupOutput(cut);
+    t('B-4b 🔴 잘린 JSON 에서도 reply 를 건져 낸다', c.reply === 'Oh, you went to school yesterday! What did you do there?', c.reply.slice(0, 40));
+    t('B-4c 🔴 잘려도 중괄호가 학생 화면으로 안 샌다', !c.reply.includes('{') && !c.reply.includes('"reply"'));
+    const cutEarly = parseWarmupOutput('{"reply":"Oh, you went to sch');
+    t('B-4d reply 자체가 잘리면 빈 문자열 (딸꾹질 문구가 받는다)', cutEarly.reply === '', JSON.stringify(cutEarly.reply));
+    const prefixed = parseWarmupOutput('Here you go: {"reply":"Nice!","fix":');
+    t('B-4e JSON 앞에 말이 붙어도 중괄호가 안 샌다', !prefixed.reply.includes('{'), JSON.stringify(prefixed.reply).slice(0, 50));
+  }
   const hopeless = parseWarmupOutput('{"nope": 1}');
-  t('B-5 못 읽으면 빈 문자열 — 학생 화면에 중괄호를 절대 안 내보낸다', hopeless.reply === '' && hopeless.fix === null, JSON.stringify(hopeless.reply));
+  t('B-5 못 읽으면 빈 문자열 (잘린 경우는 B-4b~e 가 따로 본다)', hopeless.reply === '' && hopeless.fix === null, JSON.stringify(hopeless.reply));
 
   t('B-6 빈 응답은 빈 응답', parseWarmupOutput('').reply === '' && parseWarmupOutput(null).reply === '');
 }
@@ -127,11 +146,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     verifyWarmupFix({ was: 'I go', now: 'Pizza tastes wonderful', why_ko: '더 좋아', tag: 'other', severity: 'minor' }, said) === null);
 
   const unknownTag = verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거형이야', tag: '내맘대로', severity: '이상함' }, said);
+  t('B-13b 형태가 바뀌는 교정은 통과한다 (낱말 겹침만 보면 묻힌다)',
+    !!verifyWarmupFix({ was: "I don't went", now: "I didn't go", why_ko: '과거 부정은 didn\u2019t go 예요', tag: 'verb_form', severity: 'major' }, "I don't went to school"));
+  t('B-13c 그래도 통째로 다른 문장은 여전히 막힌다',
+    verifyWarmupFix({ was: 'I like it', now: 'Do you want to play soccer with me', why_ko: '이렇게 말해요', tag: 'other', severity: 'minor' }, 'I like it') === null);
   t('B-14 모르는 tag·severity 는 안전한 기본값으로 (버리지는 않는다)',
     unknownTag && unknownTag.tag === 'other' && unknownTag.severity === 'minor');
 
   t('B-15 fix 가 없으면(null) 조용히 없음', verifyWarmupFix(null, said) === null && verifyWarmupFix({}, said) === null);
 
+  t('B-15b 낱말 조각은 통과 못 한다 (부분문자열이 아니라 낱말 경계)',
+    verifyWarmupFix({ was: 'o to sch', now: 'o to schoo', why_ko: '이렇게 써', tag: 'other', severity: 'minor' }, 'I go to school') === null);
+  t('B-15c 곱슬 아포스트로피가 섞여도 대조가 어긋나지 않는다',
+    !!verifyWarmupFix({ was: 'I don\u2019t went', now: 'I didn\u2019t go', why_ko: '과거형은 didn\u2019t go 예요', tag: 'verb_form', severity: 'major' }, "I don't went to school"));
   t('B-16 학생 원문이 비면 아무것도 통과 못 한다',
     verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거형', tag: 'past_tense', severity: 'minor' }, '') === null);
 
@@ -194,14 +221,25 @@ console.log('\nC. 화면 배선 (warmup.html)');
 {
   const W = readFileSync(join(PUB, 'warmup.html'), 'utf8');
   check('C-1 서버가 준 fix 를 그린다', /showFixCard\(\s*d\.fix\s*,\s*d\.repeat\s*\)/.test(W));
-  check('C-2 보낼 때 이전 교정 카드를 걷는다', /fixCardClear\(\)/.test(W) && /function fixCardClear\(\)/.test(W));
+  /* ⚠️ «선언» 이 함께 매치되면 호출을 전부 지워도 통과한다 — 이 저장소에서 세 번째 밟은 함정이다.
+     선언은 정확히 1개, «부르는 곳» 은 2곳 이상(보낼 때 + 그릴 때)이어야 한다. */
+  const decl = (W.match(/function fixCardClear\(\)/g) || []).length;
+  const calls = (W.replace(/function fixCardClear\(\)/g, '').match(/fixCardClear\(\)/g) || []).length;
+  check('C-2 보낼 때 이전 교정 카드를 걷는다 (선언 1개 · 부르는 곳 2곳 이상)',
+        decl === 1 && calls >= 2, '선언 ' + decl + ' · 호출 ' + calls);
   check('C-3 서버가 «교정 없음» 이면 아무것도 안 그린다',
         /if\(!fix \|\| !fix\.was \|\| !fix\.now\) return;/.test(W));
   /* ⛔ 학생·모델이 만든 «값» 에 data-ko/data-en 을 달면 i18n 엔진이 textContent 를 통째로
      갈아끼워 문장이 사라진다. 라벨에만 달아야 한다(CLAUDE.md 2장). */
   const fixBlock = W.slice(W.indexOf('function showFixCard('), W.indexOf('function fixSpeakThenMic('));
+  /* ⚠️ 「_fixLabel(v,…)」 한 모양만 보면 v.setAttribute('data-ko', …) 로 직접 달았을 때 통과한다.
+     값을 만드는 그 줄을 «잘라서» data-ko/data-en 이 아예 없는지 본다. */
+  const mkStart = fixBlock.indexOf('var mk = function(');
+  const mkEnd = fixBlock.indexOf('card.appendChild(mk(', mkStart);
+  const mkBody = mkStart >= 0 && mkEnd > mkStart ? fixBlock.slice(mkStart, mkEnd) : '';
+  check('C-4-0 값을 만드는 블록을 잘라 냈다 (전제)', mkBody.length > 120, mkBody.length + '자');
   check('C-4 was/now 를 담는 칸에는 data-ko/data-en 을 안 단다',
-        fixBlock.length > 200 && !/_fixLabel\(\s*v\s*,/.test(fixBlock) && /v\.textContent\s*=\s*val;/.test(fixBlock));
+        mkBody.length > 120 && !/data-ko|data-en|_fixLabel\(\s*v\b/.test(mkBody) && /v\.textContent\s*=\s*val;/.test(mkBody));
   check('C-5 따라 말하기는 서버가 켜 줄 때만 그린다', /if\(offerRepeat\)\{/.test(fixBlock));
   check('C-6 소리가 끝난 뒤 마이크를 연다 (안전망 포함)',
         /function fixSpeakThenMic/.test(W) && /classList\.contains\('playing'\)/.test(W) && /15000/.test(W));
