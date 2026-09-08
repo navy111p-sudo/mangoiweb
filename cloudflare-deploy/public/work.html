@@ -435,37 +435,8 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 
   <h2>
     <span data-en="My requests" data-ko="내가 올린 것">My requests</span>
-    <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()"
-            data-en="Find past requests" data-ko="지난 결재 찾기">Find past requests</button>
   </h2>
   <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
-
-  <!-- 📂 결재 문서함 — 접혀 있다가 누르면 열린다.
-       ⚠️ 첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 깨지 않으려고, 여기서는
-          사람이 «찾기» 를 눌렀을 때만 서버를 부른다. -->
-  <div id="findPanel" class="findpanel" hidden>
-    <div class="findrow">
-      <input type="search" id="fq" class="findinput" autocomplete="off"
-             data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
-      <button type="button" class="findgo" onclick="runFind(0)"
-              data-en="Search" data-ko="찾기">Search</button>
-    </div>
-    <div class="findrow">
-      <select id="fscope" class="findsel" onchange="runFind(0)"></select>
-      <select id="ftype" class="findsel" onchange="runFind(0)"></select>
-      <select id="fstat" class="findsel" onchange="runFind(0)"></select>
-      <select id="fcat" class="findsel" onchange="runFind(0)"></select>
-    </div>
-    <div class="findrow">
-      <label class="findlab" data-en="From" data-ko="시작일">From</label>
-      <input type="date" id="ffrom" class="finddate" onchange="runFind(0)">
-      <label class="findlab" data-en="To" data-ko="종료일">To</label>
-      <input type="date" id="fto" class="finddate" onchange="runFind(0)">
-      <button type="button" class="findcsv" onclick="findCsv()"
-              data-en="Excel" data-ko="엑셀 내려받기">Excel</button>
-    </div>
-    <div id="findResult"></div>
-  </div>
 
   <h2>
     <span data-en="Spending" data-ko="지출 정리">Spending</span>
@@ -484,6 +455,58 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
       <input type="date" id="rto" class="finddate" onchange="runRep()">
     </div>
     <div id="repResult"></div>
+  </div>
+
+  <h2>
+    <!-- 📂 (2026-09-08 사장님 지시) 「지출 정리」를 문서함 **위**로 올렸다.
+         왜 — 문서함이 펼쳐진 뒤로 높이가 4,336px 이라(360×640 실측) 그 아래에 있던
+              지출 정리가 화면 7.8배 밑으로 밀려 «못 찾는 것» 이 됐다.
+         ⛔ 순서를 되돌리지 말 것 — 되돌리면 그 상태가 그대로 재현된다.
+         ⚠️ 그래서 문서함에 **자기 제목**이 생겼다. 여는 버튼도 여기로 함께 왔다 —
+            버튼만 「내가 올린 것」에 두면 «누르면 저 아래 것이 접히는» 꼴이 된다. -->
+    <span data-en="Archive" data-ko="결재 문서함">Archive</span>
+    <!-- 그래서 라벨이 「접기」로 시작한다. 라벨은 paintFindBtn() 이 상태에 맞춰 다시 쓰는데,
+         ⚠️ textContent 만 쓰면 언어를 바꿀 때 applyLang 이 옛 글자로 되돌린다 —
+            data-ko/data-en 도 **함께** 갱신한다(CLAUDE.md 「JS 로 그린 라벨」). -->
+    <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()" aria-expanded="true"
+            data-en="Hide" data-ko="접기">Hide</button>
+  </h2>
+
+  <!-- 📂 결재 문서함 — **처음부터 펼쳐져 있다** (2026-09-07 사장님 지시).
+       왜 — 접혀 있고 여는 버튼이 제목 옆 작은 글씨라 「남들이 올린 것·승인 완료를
+            어디서도 못 찾겠다」는 제보가 나왔다. 그 범위 고르기가 여기에만 있다.
+       ⚠️ 그래도 **첫 화면 그리기 비용은 그대로다** — 여기서 서버를 부르지 않는다.
+          홈(/api/approval/home)을 «시도한 뒤»에 findAutoOpen() 이 딱 한 번 부른다
+          (HOME_TRIED — 캐시로 먼저 그리는 경로가 있어서 그 플래그가 꼭 필요하다).
+          ⛔ 이 자리에서 runFind 를 부르지 말 것(첫 화면에 두 요청이 동시에 나간다).
+       ⛔ hidden 을 되살리지 말 것 — 되살리면 위 제보가 그대로 재현된다.
+          접기·펴기는 사람이 「접기」 버튼으로 한다. -->
+  <div id="findPanel" class="findpanel">
+    <div class="findrow">
+      <input type="search" id="fq" class="findinput" autocomplete="off"
+             data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
+      <button type="button" class="findgo" onclick="runFind(0)"
+              data-en="Search" data-ko="찾기">Search</button>
+    </div>
+    <div class="findrow">
+      <!-- ⚠️ 범위만 fscopePick — 고른 «그 순간» 에만 기억한다(위 주석 참고). -->
+      <select id="fscope" class="findsel" onchange="fscopePick()"></select>
+      <select id="ftype" class="findsel" onchange="runFind(0)"></select>
+      <select id="fstat" class="findsel" onchange="runFind(0)"></select>
+      <select id="fcat" class="findsel" onchange="runFind(0)"></select>
+    </div>
+    <div class="findrow">
+      <label class="findlab" data-en="From" data-ko="시작일">From</label>
+      <input type="date" id="ffrom" class="finddate" onchange="runFind(0)">
+      <label class="findlab" data-en="To" data-ko="종료일">To</label>
+      <input type="date" id="fto" class="finddate" onchange="runFind(0)">
+      <button type="button" class="findcsv" onclick="findCsv()"
+              data-en="Excel" data-ko="엑셀 내려받기">Excel</button>
+    </div>
+    <!-- ⚠️ 빈 칸으로 두지 말 것 — 펼쳐진 채로 아무 글자도 없으면 «고장» 으로 읽힌다.
+         홈이 오면 곧바로 「찾는 중...」→ 결과로 바뀌고, 홈이 실패해도 findAutoOpen 이
+         한 번 불러 «연결이 좋지 않습니다» 로 바뀐다(이 글자가 남아 있는 일은 없다). -->
+    <div id="findResult"><div class="findnote" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
   </div>
 
 </div>
@@ -588,6 +611,7 @@ function load(){
     })
     .then(function(j){
       if (!j || j.ok === false) throw new Error((j && j.error) || 'load_failed');
+      HOME_TRIED = true;              // 이제부터 문서함 자동 조회를 내보내도 된다
       D = j; offline(false);
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
       repaint();
@@ -596,6 +620,7 @@ function load(){
     })
     .catch(function(err){
       if (String(err && err.message) === 'auth') throw err;
+      HOME_TRIED = true;              // 실패도 «시도» 다 — 문서함이 영영 안 채워지면 안 된다
       offline(true);
       if (!D) {
         // 마지막으로 성공했던 값이라도 그린다 — 흰 화면보다 낫다
@@ -663,6 +688,8 @@ function repaint(){
   //    못 건드리므로, 여기서 다시 그리지 않으면 언어를 바꿔도 영어/한국어가 섞인 채 남는다.
   var fp = document.getElementById('findPanel');
   if (fp && !fp.hidden) { paintFindChrome(); paintFind(); }
+  paintFindBtn();
+  findAutoOpen();       // 펼쳐진 채로 시작하므로 홈을 다 그린 뒤 한 번 찾아 둔다
   var rp = document.getElementById('repPanel');
   if (rp && !rp.hidden) { paintRepChrome(); paintRep(); }
   paintOutbox();
@@ -802,14 +829,29 @@ function stuckHtml(r){
 
 var FIND = null;          // 마지막 검색 결과 { items, has_more, offset }
 var FIND_BUSY = false;
+var FIND_AUTO = false;    // 펼쳐진 채로 시작하므로 «자동 첫 조회» 를 한 번만 한다
+/* 🔴 home 을 한 번은 «시도했는가». 자동 조회는 그 뒤에만 나간다.
+   왜 — 부팅 경로가 둘이다. 캐시가 있으면(재방문자는 전원 그렇다) load() «전»에
+        repaint() 가 동기로 돌아, 이 플래그가 없으면 find 가 home 보다 **먼저** 나간다.
+        [잰 것 — 2026-09-07 CDP 실측] 캐시 없음: home 33.3ms → find 113.6ms /
+        캐시 있음: **find 33.6ms → home 37.2ms**(역순, 사실상 동시).
+   ⛔ 「repaint 뒤에 부르니까 home 이 먼저」로 적지 말 것 — 그 repaint 가 어디서
+      불렸는지에 달려 있다. 실제로 그렇게 적었다가 함정 대조에서 잡혔다. */
+var HOME_TRIED = false;
+/* 🔖 마지막으로 고른 범위를 그 기기에 기억한다 (2026-09-07).
+   왜 — 펼쳐 놓아도 기본이 「내가 올린 것」이면 바로 위 목록과 같은 것이 또 보인다.
+        찾던 것은 「전체」·「승인 완료」였다. 한 번 고르면 다음에도 그대로 열린다.
+   ⚠️ 저장된 값이 목록에 **없으면**(결재 권한을 잃어 「전체」가 사라진 경우) 그냥 둔다 —
+      서버도 같은 판정으로 막으므로 «고를 수 없는 값» 이 남아 있으면 안 된다. */
+var FSCOPE_KEY = 'mangoi_work_find_scope';
+var FSCOPE_APPLIED = false;
 
 window.toggleFind = function(){
   var box = document.getElementById('findPanel');
-  var btn = document.getElementById('findBtn');
   if (!box) return;
   var open = box.hidden;                     // 지금 닫혀 있으면 연다
   box.hidden = !open;
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  paintFindBtn();
   if (open) {
     paintFindChrome();
     if (!FIND) runFind(0);                   // 처음 열 때 한 번만 부른다
@@ -817,6 +859,35 @@ window.toggleFind = function(){
     if (q) { try { q.focus(); } catch (e) {} }
   }
 };
+
+/* 여는 버튼의 이름표 — 펼쳐져 있으면 「접기」, 접혀 있으면 「지난 결재 찾기」.
+   ⚠️ data-ko/data-en 도 함께 쓴다. applyLang 이 그 속성으로 textContent 를 갈아끼우므로,
+      textContent 만 바꾸면 🌐 를 누르는 순간 옛 글자로 되돌아간다(CLAUDE.md). */
+function paintFindBtn(){
+  var box = document.getElementById('findPanel');
+  var btn = document.getElementById('findBtn');
+  if (!box || !btn) return;
+  var open = !box.hidden;
+  var ko = open ? '접기' : '지난 결재 찾기';
+  var en = open ? 'Hide' : 'Find past requests';
+  btn.setAttribute('data-ko', ko);
+  btn.setAttribute('data-en', en);
+  btn.textContent = EN() ? en : ko;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+/* 펼쳐진 채로 시작하니 첫 조회도 우리가 한 번 해 준다.
+   ⚠️ 첫 화면 «그리기» 는 그대로 /api/approval/home 한 번이다 — 이 함수는 그 응답을
+      **시도한 뒤**에만 나간다(위 HOME_TRIED). 홈이 통째로 실패했을 때도 한 번은
+      불리도록 부팅 꼬리에서도 부른다(그 경우 화면이 «연결이 좋지 않습니다» 라고 말한다). */
+function findAutoOpen(){
+  var box = document.getElementById('findPanel');
+  if (!HOME_TRIED) return;            // 캐시로 먼저 그린 것뿐이면 아직 기다린다
+  if (!box || box.hidden || FIND || FIND_AUTO || FIND_BUSY) return;
+  FIND_AUTO = true;
+  paintFindChrome();
+  runFind(0);
+}
 
 /* 고르는 칸을 그린다.
    ⚠️ 분류 목록은 **서버가 준 것**(D.types)을 쓴다 — 화면에 손으로 적으면
@@ -838,6 +909,20 @@ function paintFindChrome(){
     scopes.push(['all',     T('Everything',     '전체')]);
   }
   fillSel(sc, scopes);
+  /* 기억해 둔 범위를 **처음 그릴 때 한 번만** 되살린다 — 그 뒤에는 사람이 고른 값이 정본이다.
+     ⚠️ fillSel 은 «이미 골라 둔 값» 만 지켜 준다. 처음에는 그 값이 없어 첫 항목(mine)이
+        골라지므로, 여기서 따로 넣어 준다. 목록에 없는 값이면 손대지 않는다. */
+  if (!FSCOPE_APPLIED) {
+    FSCOPE_APPLIED = true;
+    try {
+      var want = localStorage.getItem(FSCOPE_KEY);
+      if (want) {
+        for (var wi = 0; wi < sc.options.length; wi++) {
+          if (sc.options[wi].value === want) { sc.value = want; break; }
+        }
+      }
+    } catch (e) {}
+  }
 
   var ty = [['', T('All kinds', '분류 전체')]];
   var list = (D && D.types) || [];
@@ -934,6 +1019,21 @@ window.runFind = function(offset){
     host.innerHTML = '<div class="findnote">' +
       esc(T('Network problem. Please try again.', '연결이 좋지 않습니다. 다시 눌러 주세요.')) + '</div>';
   });
+};
+
+/* 범위를 고르면 기억하고 다시 찾는다.
+   🔴 저장을 runFind 안에 두면 «사람이 고르지 않은 값» 까지 덮어쓴다 — 홈이 실패해
+      D 가 없으면 목록에 「전체」가 없어 복원이 실패하고, 그 자리의 기본값(mine)이
+      저장되어 **결재자가 골라 둔 「전체」가 영구히 지워진다**(2026-09-07 실측).
+      그래서 «사람이 고른 순간» 에만 쓴다.
+   ⚠️ 인라인 onchange 가 부르므로 반드시 window 에 둔다 — 이 파일 안 닫힌 스코프에
+      두면 ReferenceError 이고 «고쳐도 값만 조용히 안 담긴다»(CLAUDE.md). */
+window.fscopePick = function(){
+  try {
+    var fsc = document.getElementById('fscope');
+    if (fsc && fsc.value) localStorage.setItem(FSCOPE_KEY, fsc.value);
+  } catch (e) {}
+  runFind(0);
 };
 
 window.findMore = function(){
@@ -1313,9 +1413,12 @@ window.topGo = function(id){
   var el = document.getElementById('req-' + id);
   if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (e) { el.scrollIntoView(); } return; }
   /* 최근 15건 밖이면 화면에 그 줄이 없다 — 「눌러도 아무 일도 안 일어남」이 되지 않게
-     문서함을 열어 준다. */
+     문서함을 열어 준다.
+     ⚠️ 2026-09-07 부터 문서함은 이미 펼쳐져 있다 — 그래서 «여는 것» 만으로는 화면에
+        아무 변화가 없다. 그 자리까지 **데려다 놓는다**(접어 둔 사람은 먼저 펴 준다). */
   var box = document.getElementById('findPanel');
   if (box && box.hidden && window.toggleFind) window.toggleFind();
+  if (box) { try { box.scrollIntoView({ block: 'start' }); } catch (e) { box.scrollIntoView(); } }
   toast(T('Find it in the document box below.', '아래 문서함에서 찾아 주세요.'));
 };
 
@@ -2717,7 +2820,11 @@ var formBox = document.getElementById('form');
 formBox.addEventListener('input', draftSave);
 formBox.addEventListener('change', draftSave);
 
-load().then(restoreDraft).then(openWantedType).catch(function(){ restoreDraft(); openWantedType(); });
+/* ⚠️ 마지막 .then(f, f) 는 «홈이 실패했을 때도» 문서함을 한 번 채우기 위한 것이다.
+      성공하면 repaint 안에서 이미 불렸고 FIND_AUTO 가 막으므로 두 번 나가지 않는다. */
+load().then(restoreDraft).then(openWantedType)
+      .catch(function(){ restoreDraft(); openWantedType(); })
+      .then(findAutoOpen, findAutoOpen);
 outboxFlush();
 subFlush();
 paintQueue();
