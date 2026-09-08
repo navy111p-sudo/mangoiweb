@@ -711,7 +711,17 @@ export interface FindInput {
   q?: string; type?: string; status?: string; from?: string; to?: string;
   /** 지출 항목(CATEGORY_KEYS) */
   category?: string;
+  /** 🗂 결재자로 거른다(계정명) — «그 사람이 도장을 찍은 건». 결재 권한자에게만(호출부가 막는다) */
+  decidedBy?: string;
 }
+
+/* 🗂 「그 사람이 결재한 건」 — approval_requests.decided_by 를 쓰지 않는다.
+   그 칸은 «최종 처리자» 라 회수하면 기안자 이름이 들어가고, 다단계면 1단계 결재자가 안 남는다.
+   결재 도장은 approval_steps 에만 정직하게 남는다(승인·반려만 — 대기·건너뜀은 도장이 아니다).
+   ⚠️ 바인드 1개(계정명). 호출하는 쪽이 binds 순서를 맞춘다. */
+export const DECIDED_BY_SQL =
+  "EXISTS (SELECT 1 FROM approval_steps s WHERE s.request_id = approval_requests.id" +
+  " AND s.decided_by = ? AND s.status IN ('approved','rejected'))";
 
 export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; order: string } {
   const where: string[] = [];
@@ -729,7 +739,15 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
     where.push("status IN ('rejected','withdrawn','cancelled')");
   }
   else if (scope === 'pending')  { where.push("status = 'pending'"); where.push('requester_username != ?'); binds.push(me); }
+  /* 🗂 「내가 결재한 것」 — 내가 도장을 찍은 건(승인이든 반려든). 사장님이 2026-09-08 에
+     「내가 결재한 것·남이 결재한 것을 볼 곳이 어디냐」고 물으실 때까지 이 함이 없었다. */
+  else if (scope === 'decided')  { where.push(DECIDED_BY_SQL); binds.push(me); }
   // 'all' 은 조건 없음 — 결재자에게만 열린다(호출부가 막는다)
+
+  /* 🗂 결재자별 함 — «그 사람이 결재한 건». all 과 같이 결재 권한자에게만(호출부가 막는다).
+     계정명은 hqAccounts 목록에서 온 값이라 여기서 다시 검사하지 않고 길이만 자른다. */
+  const by = String(inp.decidedBy || '').trim().slice(0, 60);
+  if (by) { where.push(DECIDED_BY_SQL); binds.push(by); }
 
   const q = String(inp.q || '').trim().slice(0, 60);
   if (q) {
@@ -765,6 +783,107 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
     order: (scope === 'pending')
       ? ' ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC'
       : " ORDER BY (status='pending') DESC, created_at DESC",
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🗂 결재 보관함 — 왼쪽 «함» 옆에 붙는 건수(2026-09-08, 시안 A)
+ *
+ *   [왜 SQL 집계를 그대로 써도 되는가]
+ *     범위 조건(archiveVisibleCond)이 canView 의 세 분기를 SQL 로 옮긴 것이라, SQL 이 준 행이
+ *     곧 «오른쪽 표에 나올 수 있는 행» 이다 — 하니스가 세 등급 모두 canView 를 행마다
+ *     실제로 불러 «같은 집합인가» 를 대조한다(approval_archive_harness ②절).
+ *     한 줄만 어긋나면 함 옆 숫자가 표와 다른 말을 한다.
+ *   ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여 건수가 함 옆에 뜬다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface ArchiveActor { exec: boolean; ph: boolean }
+
+/**
+ * canView 를 SQL 로 옮긴 것 — 세 등급이 canView 의 분기와 하나씩 짝이다.
+ *   ① 경영진        → 조건 없음(세 열람등급 전부 통과)
+ *   ② 본사 직원      → 내가 올린 것 ∪ exec 등급(인사·급여)이 아닌 전부(canView 마지막 줄 isHqStaff)
+ *   ③ 필리핀 매니저  → 내가 올린 것 ∪ 내가 도장 찍은 것 ∪ broadcast(긴급) — chain 은 결재선에 있을 때만
+ *   ⚠️ 등급을 «키 목록» 으로 SQL 에 넣는다 — instr(콤마문자열) 한 바인드(자리표시자 생성 금지 규칙).
+ *   하니스가 세 등급 모두 «SQL 이 준 행 == canView 가 참인 행» 을 실제로 대조한다.
+ */
+export function archiveVisibleCond(me: string, actor: ArchiveActor): { cond: string; binds: any[] } {
+  const u = String(me || '');
+  if (actor.exec) return { cond: '', binds: [] };
+  const csv = (vis: string) => ',' + TYPES.filter(t => t.visibility === vis).map(t => t.key).join(',') + ',';
+  if (!actor.ph) {
+    return { cond: "(requester_username = ? OR instr(?, ',' || req_type || ',') = 0)", binds: [u, csv('exec')] };
+  }
+  return {
+    cond: '(requester_username = ? OR ' + DECIDED_BY_SQL + " OR instr(?, ',' || req_type || ',') > 0)",
+    binds: [u, u, csv('broadcast')],
+  };
+}
+
+/** 기간 함 네 개 — KST 날짜(YYYY-MM-DD)로 돌려준다. today 도 KST 날짜여야 한다. */
+export function archivePeriods(today: string): Record<string, { from: string; to: string }> {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(today || ''));
+  const y = m ? Number(m[1]) : 1970, mo = m ? Number(m[2]) : 1;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = (yy: number, mm: number) => new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const ym = (yy: number, mm: number) => `${yy}-${pad(mm)}`;
+  const pm = mo === 1 ? { y: y - 1, m: 12 } : { y, m: mo - 1 };
+  const qStart = Math.floor((mo - 1) / 3) * 3 + 1;
+  return {
+    month:      { from: ym(y, mo) + '-01',        to: ym(y, mo) + '-' + pad(lastDay(y, mo)) },
+    last_month: { from: ym(pm.y, pm.m) + '-01',   to: ym(pm.y, pm.m) + '-' + pad(lastDay(pm.y, pm.m)) },
+    quarter:    { from: ym(y, qStart) + '-01',    to: ym(y, qStart + 2) + '-' + pad(lastDay(y, qStart + 2)) },
+    year:       { from: `${y}-01-01`,             to: `${y}-12-31` },
+  };
+}
+
+export interface ArchiveFacetInput { me: string; exec: boolean; ph: boolean; today: string }
+export interface SqlPiece { sql: string; binds: any[] }
+
+/**
+ * 함 옆 숫자를 세는 SQL 다섯 갈래. 라우트는 «부르기만» 하고, 하니스가 진짜 SQLite 에 돌린다.
+ *   ⚠️ 바인드 순서: SELECT 절의 ? 가 WHERE 절의 ? 보다 «먼저» 다(SQLite 는 나오는 순서).
+ */
+export function buildArchiveFacets(inp: ArchiveFacetInput): {
+  totals: SqlPiece; types: SqlPiece; approvers: SqlPiece;
+  periods: Record<string, SqlPiece>;
+} {
+  const me = String(inp.me || '');
+  const vis = archiveVisibleCond(me, { exec: !!inp.exec, ph: !!inp.ph });
+  const W = (extra: string) => {
+    const parts = [vis.cond, extra].filter(Boolean);
+    return parts.length ? (' WHERE ' + parts.join(' AND ')) : '';
+  };
+  const D = "date(created_at/1000,'unixepoch','+9 hours')";
+  const per = archivePeriods(inp.today);
+  const periods: Record<string, SqlPiece> = {};
+  for (const k of Object.keys(per)) {
+    periods[k] = {
+      sql: `SELECT COUNT(*) AS n FROM approval_requests` + W(`${D} >= ? AND ${D} <= ?`),
+      binds: [...vis.binds, per[k].from, per[k].to],
+    };
+  }
+  return {
+    // «전체 · 내가 올린 것 · 내가 결재한 것» 셋을 한 번에
+    totals: {
+      sql: `SELECT COUNT(*) AS all_n, SUM(requester_username = ?) AS mine_n, SUM(${DECIDED_BY_SQL}) AS decided_n` +
+           ` FROM approval_requests` + W(''),
+      binds: [me, me, ...vis.binds],
+    },
+    types: {
+      sql: `SELECT req_type AS k, COUNT(*) AS n FROM approval_requests` + W('') + ` GROUP BY req_type`,
+      binds: [...vis.binds],
+    },
+    /* 결재자별 — 도장(approval_steps) 기준. 같은 건에 두 번 찍었어도(다단계) 한 건으로 센다.
+       vis.cond 의 requester_username · approval_requests.id 가 조인 뒤에도 풀리도록 표 이름을 그대로 쓴다. */
+    approvers: {
+      sql: `SELECT s.decided_by AS u, COUNT(DISTINCT s.request_id) AS n` +
+           ` FROM approval_steps s JOIN approval_requests ON approval_requests.id = s.request_id` +
+           W(`s.decided_by IS NOT NULL AND s.status IN ('approved','rejected')`) +
+           ` GROUP BY s.decided_by ORDER BY n DESC, u ASC LIMIT 20`,
+      binds: [...vis.binds],
+    },
+    periods,
   };
 }
 
