@@ -483,7 +483,11 @@ const TILES = `(function(mode,count,localFirst,role,observer,remote){
     var r=e.getBoundingClientRect(); return r.width*r.height; }
   var other = count>2 ? area('vc-video-a') : area('vc-video-teacher');
   var mine  = area('vc-local-box');
-  return JSON.stringify({ other:Math.round(other), mine:Math.round(mine),
+  /* ⚠️ 면적만 재면 «내 타일이 흐려지는 것»(vc-teacher-first 의 opacity:.96)을 못 잡는다 —
+     ③ 줄을 통째로 지워도 검사 4건이 전부 통과했다(2026-09-08 변이시험 실측). 그래서 함께 잰다. */
+  var lb = document.getElementById('vc-local-box');
+  var op = lb ? Number(getComputedStyle(lb).opacity) : null;
+  return JSON.stringify({ other:Math.round(other), mine:Math.round(mine), op:op,
     cls: document.body.classList.contains('mg-teacher-self'),
     ratio: mine>0 ? Math.round(other/mine*100)/100 : null,
     mineRatio: other>0 ? Math.round(mine/other*100)/100 : null });
@@ -550,6 +554,12 @@ ok(Math.abs(s3.mineRatio - 1) < 0.15,
   `PC·교사 화면 — 교사와 학생이 같은 크기 (실측 ${s3.mineRatio}배 · 09-08 전에는 7배쯤)`, JSON.stringify(s3));
 ok(s3.mine > 0 && s3.other > 0,
   'PC·교사 화면 — 두 타일 모두 실제로 그려진다 (반반으로 되돌리다 한쪽이 0 이 되면 안 된다)',
+  JSON.stringify(s3));
+/* ⚠️ 크기가 같아도 «내 타일만 흐린» 상태가 될 수 있다 — vc-teacher-first 의 opacity:.96 은
+   #vc-local-box 규칙에만 있어, 그것을 끄는 ③ 줄을 지워도 «면적» 검사는 전부 통과한다
+   (2026-09-08 변이시험에서 실제로 못 잡았다). 그래서 크기 옆에 이 한 줄을 짝으로 둔다. */
+ok(s3.op === 1,
+  `PC·교사 화면 — 내 타일이 흐려지지 않는다 (opacity 실측 ${s3.op} · vc-teacher-first 는 .96)`,
   JSON.stringify(s3));
 /* ⛔ 학생 화면은 한 줄도 안 건드렸다 — 여기가 FAIL 하면 «교사 화면만» 이라는 지시를 벗어난 것이다 */
 ok(t6.ratio > 2,

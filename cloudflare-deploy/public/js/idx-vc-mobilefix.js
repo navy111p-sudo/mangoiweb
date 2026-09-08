@@ -779,8 +779,13 @@
         'width:100% !important;height:100% !important;min-height:0 !important;' +
         'max-width:none !important;aspect-ratio:auto !important;' +
         'border-radius:12px !important;overflow:hidden !important;z-index:auto !important}' +
-      /* ③ 내 타일 — ②와 같은 값에 «62% 축소·오른쪽 정렬·흐리게»(vc-teacher-first)를 끄는 세 줄을 더한다.
-         ⚠️ ②의 .video-box 만으로는 안 된다: 그 세 속성은 #vc-local-box 규칙에만 있어 ②가 덮지 못한다. */
+      /* ③ 내 타일 — ②와 같은 값에 «흐리게»(vc-teacher-first 의 opacity:.96)를 끄는 줄을 더한다.
+         📌 [잰 것] ③을 통째로 지우고 실측하니 실제로 달라지는 것은 **opacity 하나뿐**이었다
+            (0.96 → 1). 폭 62%·margin-left:auto 는 ②의 width:100%(4,5,1)가
+            vc-teacher-first(3,5,1)를 이미 이겨 무효화된다(실측 width 329px · margin-left 0px).
+         ⚠️ 그러니 ③을 «없어도 되는 줄» 로 읽지 말 것 — 지우면 교사 자기 타일만 조용히
+            흐려진다(크기는 그대로라 «면적» 만 재는 검사로는 안 잡힌다).
+            그래서 브라우저 검사 ⑨-2 가 opacity 도 함께 잰다. */
       'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
         'position:relative !important;inset:auto !important;' +
         'width:100% !important;height:100% !important;min-height:0 !important;' +
