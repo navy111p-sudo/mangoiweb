@@ -61,6 +61,12 @@ await ev(`(() => { try {
 await cdp('Page.navigate', { url: BASE + '/index.html?_nc=' + Date.now() });
 await new Promise(r => setTimeout(r, 4000));
 
+/* 🎭 아래 검사들은 «선생님이 쓰는 화면» 을 잰다 — 2026-09-08 부터 이 기능은 선생님 전용이라
+      역할을 세우지 않으면 스위치가 아예 안 그려져 전부 헛돈다. 역할 게이트 자체는 ⑯절이 잰다. */
+await ev(`(() => { try { window.vcMyRole = 'teacher'; } catch(e){} return 1; })()`);
+ok(await ev(`(typeof window.vcOfficeModeAllowed === 'function') && window.vcOfficeModeAllowed() === true`),
+   '전제: 이 화면을 «선생님» 으로 세웠다 (아래 검사들이 그것을 전제한다)');
+
 /* ⑪ 이 «소스에 무엇이 적혔는가» 를 봐야 하므로 페이지에서 직접 받아 둔다. */
 await ev(`(async () => {
   try { window.__officeSrc = await (await fetch('/js/idx-vc-officemode.js?_nc=' + Date.now())).text(); }
@@ -381,6 +387,87 @@ ok(swMic.skip || !(swMic.on === true && swMic.realMic === true),
    JSON.stringify(swMic));
 
 await ev(`(async () => { try { await window.vcSetOfficeMode(false); } catch(e){} return 1; })()`);
+
+console.log('\n⑯ «선생님만» 게이트 — 학생 화면에서는 아예 안 보이는가');
+/* 🎭 2026-09-08 사장님 지시. ⚠️ 여기서 물어야 할 것이 셋이고, 하나만 물으면 헛돕니다:
+      ① 학생에게는 안 보인다 ② 선생님에게는 «보인다»(짝이 없으면 «전부 감추기» 도 통과)
+      ③ 역할이 «늦게» 와도 다시 열면 보인다(강사 역할은 입장 뒤에 확정될 수 있습니다). */
+const roleGate = await ev(`(async () => {
+  var sw = document.querySelector('[data-act="office"]');
+  var row = sw && sw.closest('.sg-row');
+  var note = document.querySelector('[data-office-note="1"]');
+  if (!row || !note) return { found: false };
+  /* ⚠️ 「보인다」를 offsetParent 로만 재면 «팝오버가 닫혀 있어서» 도 false 가 되어
+        멀쩡한 코드가 «감췄다» 로 나옵니다(실제로 그렇게 나왔습니다).
+        «우리가 감췄는가» 는 그 요소의 계산된 display 로 재고,
+        «사람 눈에 실제로 보이는가» 는 팝오버를 연 상태에서 offsetParent 로 따로 잽니다. */
+  function vis(){
+    return { row: getComputedStyle(row).display !== 'none',
+             note: getComputedStyle(note).display !== 'none',
+             onScreen: !!row.offsetParent };
+  }
+  var btn = document.getElementById('vc-dock-settings');
+  if (!btn || btn.tagName !== 'BUTTON') btn = document.querySelector('#vc-dock button#vc-dock-settings');
+  async function reopen(role){
+    window.vcMyRole = role;
+    var pop = row.closest('#vc-dock-settings') || document.querySelector('.sg-pop');
+    /* 열려 있으면 한 번 닫고 다시 연다 — refreshSettings 는 «열 때» 돈다 */
+    for (var i = 0; i < 2; i++) {
+      if (btn) btn.click();
+      await new Promise(r => setTimeout(r, 260));
+      if (pop && pop.classList.contains('open')) break;
+    }
+    await new Promise(r => setTimeout(r, 200));
+    return vis();
+  }
+  var asTeacher = await reopen('teacher');
+  var asStudent = await reopen('student');
+  var backToTeacher = await reopen('teacher');   // ③ 역할이 늦게 온 강사
+
+  return { found: true, asTeacher: asTeacher, asStudent: asStudent, backToTeacher: backToTeacher,
+           allowStudent: (window.vcMyRole = 'student', window.vcOfficeModeAllowed()),
+           allowTeacher: (window.vcMyRole = 'teacher', window.vcOfficeModeAllowed()) };
+})()`);
+ok(roleGate.found, '전제: 스위치 행과 설명 줄을 둘 다 찾았다', JSON.stringify(roleGate));
+ok(roleGate.found && roleGate.asStudent.row === false && roleGate.asStudent.note === false,
+   '학생 화면에서는 스위치도 설명도 «안 보인다»', JSON.stringify(roleGate));
+ok(roleGate.found && roleGate.asTeacher.row === true && roleGate.asTeacher.note === true,
+   '선생님 화면에서는 «보인다» — 짝이 없으면 «전부 감추기» 도 통과한다', JSON.stringify(roleGate));
+ok(roleGate.found && roleGate.asTeacher.onScreen === true,
+   '선생님 화면에서 설정을 열면 그 줄이 «실제로 화면에» 있다', JSON.stringify(roleGate));
+ok(roleGate.found && roleGate.backToTeacher.row === true,
+   '역할이 «늦게» 확정돼도 설정을 다시 열면 보인다', JSON.stringify(roleGate));
+ok(roleGate.allowStudent === false && roleGate.allowTeacher === true,
+   '판정 함수 자체가 학생/선생님을 가른다', JSON.stringify(roleGate));
+
+console.log('\n⑯-2 학생이 «직접» 켜려 해도 거절되는가 (그리고 저장값을 안 지우는가)');
+/* ⚠️ 저장값을 지우면 «역할이 늦게 온 강사» 의 설정이 그 한 번의 오판으로 사라져
+      다음 수업에도 안 켜지는 상태가 굳습니다 — 그래서 거절은 «조용히» 해야 합니다. */
+const studentBlock = await ev(`(async () => {
+  await window.vcSetOfficeMode(false);
+  window.vcMyRole = 'teacher';
+  document.body.classList.add('vc-in-call');
+  window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  await window.vcSetOfficeMode(true);
+  if (!window.vcOfficeModeOn()) return { armed: false };
+  await window.vcSetOfficeMode(false);
+
+  try { localStorage.setItem('mangoi_vc_office','1'); } catch(e){}
+  window.vcMyRole = 'student';
+  var r = await window.vcSetOfficeMode(true);
+  var t = window.vcLocalStream.getAudioTracks()[0];
+  var out = { armed: true, ret: r, on: window.vcOfficeModeOn(),
+              saved: localStorage.getItem('mangoi_vc_office'),
+              live: t ? t.readyState : null, proc: ${IS_PROC}(t) };
+  window.vcMyRole = 'teacher';
+  try { localStorage.setItem('mangoi_vc_office','0'); } catch(e){}
+  return out;
+})()`);
+ok(studentBlock.armed === true, '전제: 선생님으로는 실제로 켜졌다 (짝)', JSON.stringify(studentBlock));
+ok(studentBlock.ret === false && studentBlock.on === false, '학생이 직접 불러도 안 켜진다', JSON.stringify(studentBlock));
+ok(studentBlock.proc === false, '마이크가 가공되지 않았다 — 이름만 거절하고 실제로 걸리면 뜻이 없다', JSON.stringify(studentBlock));
+ok(studentBlock.live === 'live', '거절해도 마이크는 살아 있다 — 수업이 안 끊긴다', JSON.stringify(studentBlock));
+ok(studentBlock.saved === '1', "거절이 저장값을 지우지 않는다 — 역할이 늦게 온 강사의 설정을 잃지 않는다", JSON.stringify(studentBlock));
 
 console.log(`\n════════════════════════════════\n  PASS ${pass}  FAIL ${fail}\n════════════════════════════════`);
 try { ws.close(); } catch (e) {}

@@ -54,6 +54,23 @@
   function saved() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
   function remember(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} }
   function inCall() { try { return document.body.classList.contains('vc-in-call'); } catch (e) { return false; } }
+
+  /* 🎭 «선생님만» — 2026-09-08 사장님 지시.
+     판정은 정본 `vcIsStaffNow()` 하나만 봅니다(그 주석이 「강사 전용 기능은 전부 이걸 쓴다」).
+     ⛔ «강사가 아니면 학생»(`!vcIsStaffNow()`)으로 판정하지 않습니다 — 그 판정은 **역할이 아직
+        확정되지 않은 강사를 학생으로 오판**합니다(같은 파일 `vcIsStudentNow` 주석의 8/10 사고).
+        여기서는 그 오판이 «교사가 자기 기능을 못 쓰는» 쪽이라, 아래 두 곳이 그것을 견딥니다:
+        · 설정을 «열 때마다» 다시 판정합니다(역할이 늦게 오면 다시 열면 보입니다)
+        · 수업 진입 자동 적용은 «교사가 될 때까지» 기다립니다(폴링)
+     ⛔ 역할 정본을 고쳐서 풀지 마세요 — 그 값에는 화면공유·교재 넘김·장치 도우미 권한이
+        함께 걸려 있습니다(CLAUDE.md). 여기서는 «묻기만» 합니다.
+     ℹ️ 이것은 보안 게이트가 아닙니다 — 사무실 모드는 «자기 마이크» 만 가공하므로 학생이
+        콘솔로 불러도 남에게 영향이 없습니다. 화면을 어지럽히지 않는 것이 목적입니다. */
+  function isStaff() {
+    try { return (typeof window.vcIsStaffNow === 'function') && !!window.vcIsStaffNow(); }
+    catch (e) { return false; }
+  }
+  window.vcOfficeModeAllowed = isStaff;
   function localStream() { try { return window.vcLocalStream || null; } catch (e) { return null; } }
   function audioTrack() { var s = localStream(); try { return (s && s.getAudioTracks && s.getAudioTracks()[0]) || null; } catch (e) { return null; } }
 
@@ -158,6 +175,10 @@
 
   async function enable() {
     if (on || busy) return true;
+    /* ⛔ 선생님 전용. ⚠️ 여기서 저장값을 지우지 않습니다 — 역할이 늦게 오는 강사의 저장값이
+       그 한 번의 오판으로 사라지면 «다음 수업에도 안 켜지는» 상태가 굳습니다.
+       저장값은 사람이 스위치를 눌렀을 때만 바뀝니다. */
+    if (!isStaff()) { console.log('[office] 선생님 전용입니다 — 건너뜁니다'); return false; }
     if (!inCall() || !localStream()) { remember(true); return true; }  // 수업에 들어갈 때 다시 건다
     busy = true;
     try {
@@ -319,6 +340,7 @@
       if (inCall()) sawCall = true;
       else if (sawCall) { clearInterval(pending); pending = null; return; } // 들어갔다 나갔으면 그만
       if (!sawCall) return;                                                  // 아직 입장 전 — 더 기다린다
+      if (!isStaff()) return;   // 역할이 아직 안 왔을 수 있다 — 학생이면 그대로 20초 뒤 포기한다
       if (localStream() && audioTrack()) {
         clearInterval(pending); pending = null;
         if (saved() && !on) enable();
