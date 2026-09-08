@@ -52,12 +52,54 @@ const nrm = (s: any): string => String(s || '').toUpperCase().trim();
 /** 표기에서 실제로 쓰이는 구분자들 — '중국어 강선생님' · 'HT FARRAH' */
 const words = (s: any): string[] => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
 
-/** 낱말 경계로 같은 사람인가. api-teacher.ts 의 wordMatch 와 같은 규칙. */
+/* 🔗 같은 사람인데 표기가 다른 이름 — «완전일치 쌍» 만 손으로 적는다 (2026-09-08)
+
+   [왜] 예약표(teachers.name)와 화상방 입장 표기가 서로 다른 강사가 실제로 있다.
+     실사고(2026-09-08 class-1924): 원부는 'FAR'(teachers.id=22) 인데 그 강사는
+     '교사 Teacher - Farrah' 로 들어온다. 낱말 경계로는 어긋나고('FARRAH' 는 'FAR' 이
+     아니다), 'Teacher - Farrah' 는 계정이 아니라 계정 해석(accountToTeacherName)도
+     못 푼다 → **이름을 붙이는 두 경로가 다 실패**했다. 그 결과
+       (1) 강사가 1분 52초 «먼저» 들어와 있는데 「강사 미입장」 푸시가 나갔다
+           (notified_push=1 — 같은 날 이름이 붙어 억제된 세 건과 대조된다)
+       (2) present 가 **false**(=「없었다」로 확정)라 급여 되돌림도 안 걸렸다.
+           실측 21분 05초 수업한 강사의 수업이 노쇼로 남는다.
+   [잰 것 — 2026-09-08, 최근 30일 강사 접속 254회] 이름을 못 붙이는 표기는 2종 59회다.
+     · '교사'(이름 없이 입장) 34회 — 정보 자체가 없어 **원리상 못 고친다**.
+     · '교사 Teacher - Farrah' 25회 — 고칠 수 있는 것은 이것 하나뿐이다.
+     나머지(Kaye·Kes·Krystel·Hannah·Shas·Cindy·Win·계정형 mangoi_xxx)는 전부 붙는다.
+
+   ⛔ **부분일치를 여는 것이 아니다.** 'FAR' 이 'FARRAH' 안에 들어 있다고 붙이기 시작하면
+      'ANNA' ⊂ 'HANNAH' 가 되살아나 **남의 이름이 붙는다.** 그 방향은 진짜 노쇼를 감추고
+      수업료를 전액 내보내므로 이 파일에서 가장 나쁜 실수다.
+      그래서 **여기 적힌 쌍만** 같은 사람으로 본다 — 'KRY' 는 'KRYSTEL' 에 안 붙는다.
+   ⛔ 한 그룹에 서로 다른 두 사람을 넣지 말 것. 줄을 더할 때는 활성 강사 명부
+      (teachers WHERE active=1)와 대조해 **다른 강사와 겹치지 않는지** 먼저 확인할 것.
+   ⚠️ 이 표는 «이름» 만 넓힌다 — 계정↔원부 해석(accountToTeacherName)은 그대로다.
+   ⚠️ 근본 해결은 표기를 한쪽으로 맞추는 것이다(예약표를 고치거나 입장 이름을 계정으로
+      통일). D1·화면이 걸린 별건이라 사람이 정한다 — 그때 이 표에서 그 줄을 지운다. */
+const NAME_ALIASES: readonly (readonly string[])[] = [
+  ['FAR', 'FARRAH'],   // 원부 'FAR'(teachers.id=22) ↔ 입장 표기 'Teacher - Farrah'
+];
+
+/** 이름 «전체» 가 별칭표에 있을 때만 그 그룹으로 넓힌다. 아니면 자기 자신 하나뿐이다. */
+const aliasesOf = (s: any): string[] => {
+  const k = nrm(s);
+  if (!k) return [];
+  for (const g of NAME_ALIASES) if (g.indexOf(k) >= 0) return g.slice();
+  return [k];
+};
+
+/** 낱말 경계로 같은 사람인가. api-teacher.ts 의 wordMatch 와 같은 규칙 + 위 별칭표. */
 export function sameTeacherByWord(a: any, b: any): boolean {
   const x = nrm(stripRolePrefix(a)), y = nrm(stripRolePrefix(b));
   if (!x || !y) return false;
-  if (x === y) return true;
-  return words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0;
+  /* 전체가 같거나(별칭 포함), 한쪽 «이름 전체» 가 상대의 «낱말 하나» 와 같으면 같은 사람이다.
+     ⚠️ 낱말끼리는 넓히지 않는다 — 별칭은 «이름 전체» 가 표에 있을 때만 걸린다(aliasesOf). */
+  const X = aliasesOf(x), Y = aliasesOf(y);
+  const wx = words(x), wy = words(y);
+  for (const xa of X) if (Y.indexOf(xa) >= 0 || wy.indexOf(xa) >= 0) return true;
+  for (const ya of Y) if (wx.indexOf(ya) >= 0) return true;
+  return false;
 }
 
 /**

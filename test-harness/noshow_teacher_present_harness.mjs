@@ -154,5 +154,100 @@ console.log('\nC. /api/notify/no-show — waited 0 은 0 · teacherLive 가 push
   check('C-13 no-show-truth 를 import 한다', /import \{ teacherLiveInRoom \} from '\.\/no-show-truth'/.test(NOTIFY));
 }
 
+// ═══════ D. 이름 별칭표 — 표기가 달라 «강사가 없었다» 로 확정되던 사고 (2026-09-08) ═══════
+//   [무슨 사고였나] class-1924: 원부 'FAR' ↔ 입장 표기 '교사 Teacher - Farrah'.
+//     낱말 경계로도, 계정 해석으로도 안 붙어 ① 「강사 미입장」 푸시가 실제로 나갔고
+//     (notified_push=1) ② present=false(=「없었다」 확정)라 급여 되돌림도 안 걸렸다.
+//   ⛔ 이 절은 «붙는다» 만 세지 않는다. 별칭이 **부분일치를 열지 않았는지**(KRY↮KRYSTEL,
+//      ANNA↮HANNAH)를 짝으로 본다 — 그쪽으로 틀리면 진짜 노쇼가 감춰지고 수업료가 전액 나간다.
+console.log('\nD. 이름 별칭표 — 붙어야 할 것과 붙으면 안 될 것 (실제 실행)');
+{
+  const TRUTH = readFileSync(join(SRC_DIR, 'no-show-truth.ts'), 'utf8');
+
+  /* 별칭표를 **소스에서 읽는다** — 하니스에 손으로 적으면 소스를 한 번도 안 보고 통과한다
+     (CLAUDE.md 2장 「자기가 새로 만든 상수를 잡아 통과」의 형제). */
+  const decl = /const NAME_ALIASES[^=]*=\s*\[([\s\S]*?)\n\];/.exec(TRUTH);
+  check('D-0 NAME_ALIASES 선언을 소스에서 읽었다', !!decl);
+  const groups = decl
+    ? [...decl[1].matchAll(/\[([^\]]*)\]/g)].map((m) =>
+        m[1].split(',').map((t) => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean))
+    : [];
+  check('D-1 별칭 그룹이 하나 이상 있다', groups.length >= 1);
+  check('D-2 모든 그룹이 2개 이상 · 대문자 · 앞뒤 공백 없음',
+    groups.length > 0 && groups.every((g) => g.length >= 2 && g.every((n) => n === n.toUpperCase().trim() && !!n)));
+  {
+    // 한 이름이 두 그룹에 걸치면 «누구인지» 가 갈린다 — 그러면 남의 이름이 붙는다.
+    const seen = new Set(); let dup = false;
+    for (const g of groups) for (const n of g) { if (seen.has(n)) dup = true; seen.add(n); }
+    check('D-3 같은 이름이 두 그룹에 들어 있지 않다', !dup);
+  }
+
+  const tmp = mkdtempSync(join(tmpdir(), 'nsa-'));
+  const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
+  writeFileSync(join(tmp, 'no-show-truth.ts'), fix(TRUTH));
+  writeFileSync(join(tmp, 'd1-chunk.ts'), fix(readFileSync(join(SRC_DIR, 'd1-chunk.ts'), 'utf8')));
+  const runner = `
+    import { teacherLiveInRoom, teacherPresenceByRoom } from './no-show-truth.ts';
+    const NOW = 1_800_000_000_000, T = (m) => NOW - m * 60_000;
+    // 실제 D1 링크 표 그대로(2026-09-08): 그 강사 계정은 mangoi_018 이라 «Teacher - Farrah» 는 안 풀린다
+    const LINKS = [{ acct: 'MANGOI_018', tname: 'FAR' }, { acct: 'MANGOI_042', tname: 'HT NESS' }];
+    const mkDb = (att) => ({ prepare(sql) { return { bind() { return { all: async () =>
+      ({ results: /FROM attendance/.test(sql) ? att : LINKS }) }; } }; } });
+    const one = (username) => mkDb([{ room_id: 'r', role: 'teacher', username, joined_at: T(7), out_at: T(0.5) }]);
+    const out = [];
+    const add = async (name, uname, teacher, student, want) => {
+      const got = await teacherLiveInRoom(one(uname), 'r', teacher, student, NOW);
+      out.push([name, got === want, got]);
+    };
+    // ── 붙어야 하는 것 ──
+    await add('D-4 실사고 재현: 원부 FAR ↔ 입장 «교사 Teacher - Farrah» → true',
+      '교사 Teacher - Farrah', 'FAR', '유세영', true);
+    await add('D-5 반대 방향(원부가 FARRAH 로 바뀌어도) → true',
+      '교사 Teacher - Far', 'FARRAH', '유세영', true);
+    await add('D-6 «되던 것» 안 깨짐 — 낱말 일치(KAYE) → true',
+      '교사 Teacher Kaye', 'KAYE', '지승연', true);
+    await add('D-7 «되던 것» 안 깨짐 — 계정 해석(mangoi_042 → HT NESS) → true',
+      '교사 mangoi_042', 'HT NESS', 'heyst', true);
+    // ── 붙으면 «안» 되는 것 (부분일치를 연 것이 아님을 증명한다) ──
+    await add('D-8 낱말 속 우연(ANNA ⊂ HANNAH) 은 여전히 막힌다 → false',
+      '교사 HANNAH', 'ANNA', '학생', false);
+    await add('D-9 별칭표에 없는 줄임말(KRY ⊂ KRYSTEL) 은 안 붙는다 → false',
+      '교사 Teacher - Krystel', 'KRY', '학생', false);
+    await add('D-10 별칭이 엉뚱한 사람을 붙이지 않는다(FAR ↮ HANNAH) → false',
+      '교사 HANNAH', 'FAR', '학생', false);
+    await add('D-11 이름 없이 «교사» 로만 들어온 접속은 그대로 못 붙인다 → false',
+      '교사', 'FAR', '학생', false);
+    // ── 안전장치가 살아 있나: 학생 이름과 구분이 안 되면 «모름»(null) 이지 «있었다» 가 아니다 ──
+    {
+      const m = await teacherPresenceByRoom(mkDb([
+        { room_id: 'r', role: 'teacher', username: '교사 Farrah', joined_at: T(7), out_at: T(0.5) },
+      ]), [{ room_id: 'r', missing_role: 'teacher', teacher_name: 'FAR', student_name: 'Farrah Kim' }]);
+      const p = m.get('r');
+      out.push(['D-12 학생 이름에도 걸리면 «모름»(null) — «있었다» 로 단정하지 않는다', p && p.present === null, p && p.present]);
+    }
+    // ── 급여: 오늘 class-1924 실제 값으로 되돌림이 걸리는가 ──
+    {
+      const K = (h, mi, s) => 1788793200000 + ((h * 3600 + mi * 60 + s) * 1000);
+      const m = await teacherPresenceByRoom(mkDb([
+        { room_id: 'c', role: 'teacher', username: '교사 Teacher - Farrah', joined_at: K(14, 0, 0), out_at: K(14, 21, 5) },
+        { room_id: 'c', role: 'student', username: 'ysyt01', joined_at: K(14, 1, 52), out_at: K(14, 23, 28) },
+      ]), [{ room_id: 'c', missing_role: 'teacher', teacher_name: 'FAR', student_name: '유세영' }]);
+      const p = m.get('c');
+      out.push(['D-13 급여 되돌림 — 실제 class-1924 값으로 present=true · 접속 21분', !!p && p.present === true && p.minutes === 21, p && p.present + '/' + p.minutes]);
+    }
+    console.log(JSON.stringify(out));
+  `;
+  writeFileSync(join(tmp, 'run.mjs'), runner);
+  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(tmp, 'run.mjs')], { encoding: 'utf8' });
+  rmSync(tmp, { recursive: true, force: true });
+  if (r.status !== 0) {
+    check('D-4 별칭표 실행(타입 제거 import)', false);
+    console.log('    ' + String(r.stderr || '').split('\n').slice(0, 6).join('\n    '));
+  } else {
+    const last = String(r.stdout || '').trim().split('\n').pop();
+    for (const [name, ok, got] of JSON.parse(last)) check(name + (ok ? '' : ` (실제=${got})`), ok);
+  }
+}
+
 console.log(`\n합계: PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('실패: ' + FAILS.join(' | ')); process.exit(1); }
