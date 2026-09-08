@@ -124,7 +124,13 @@ check('④ 연락처 조회가 try/catch 로 감싸여 있다 (실패해도 목�
 // ── ⑤~⑥ 화면을 실제로 그려서 센다 ─────────────────────────────────────
 function renderOnce(sessions, opts = {}) {
   const els = {};
-  const mk = (id) => (els[id] || (els[id] = { id, innerHTML: '', textContent: '', value: '', checked: false, addEventListener() {}, removeEventListener() {} }));
+  /* ⚠️ querySelectorAll 은 «있는 셈» 쳐야 한다 — render() 가 그린 뒤 그 안의 요소에
+     리스너를 다는 코드가 있고(2026-09-08 교재 배지 → 배정 창), 가짜 element 에 그 메서드가
+     없으면 render() 가 그 줄에서 죽어 표가 통째로 안 그려진다(빈 innerHTML → 이 절 전부 FAIL).
+     여기서는 «표가 제대로 그려지는가» 만 보므로 빈 목록으로 충분하다 —
+     그 배선이 실제로 도는지는 브라우저 검사가 본다
+     (test-harness/manual/today-classes-bulkbook-browser.mjs ⑪절). */
+  const mk = (id) => (els[id] || (els[id] = { id, innerHTML: '', textContent: '', value: '', checked: false, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} }));
   mk('tc-body'); mk('tc-count');
   if (opts.q != null) mk('tc-q').value = opts.q;
   const doc = { getElementById: (id) => els[id] || null, dispatchEvent: () => true, addEventListener() {} };
