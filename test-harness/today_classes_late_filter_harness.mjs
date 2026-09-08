@@ -141,7 +141,7 @@ check('③-5 자정 00:10 은 빠진다 (하루치 목록의 «맨 앞» 이지 
   !onNames.includes('자정십분'), onNames.join(','));
 check('③-6 남은 줄이 정확히 두 개다', onNames.length === 2, onNames.join(','));
 check('③-7 거르는 중이면 «표시 N건 / 전체» 를 둘 다 말한다',
-  /표시 2건/.test(on.count) && /5건/.test(on.count), on.count);
+  /표시 2건/.test(on.count) && /전체 5건/.test(on.count), on.count);
 
 console.log('\n── ④ 끄면 전부 돌아오는가 (짝 검사) ────────────────────');
 const off = await renderOnce(SESSIONS, { late: false });
@@ -168,8 +168,14 @@ const unknown = [row('시각모름', 23, 0, { start_ts: null }), row('스물세�
 const unk = await renderOnce(unknown, { late: true });
 check('⑦-1 시작 시각을 모르는 줄을 «늦은 밤» 으로 세지 않는다',
   !names(unk.html).includes('시각모름'), names(unk.html).join(','));
+/* ⚠️ 「끄면 그 줄이 보인다」만 두면 그 검사는 **헛돕니다** — 거르기가 꺼져 있으면 isLate 가
+   아예 안 불려서 판정을 어떻게 바꿔도 통과합니다(함정 대조 실측: `return 23` 변이에서
+   ⑦-1 만 FAIL, 그 검사는 통과). 그래서 «거르기를 켠 채로» 두 가지를 함께 봅니다 —
+   그 줄이 빠지고, 그런데도 «전체 N건» 에는 남아 있는가(감추는 것이지 지우는 것이 아니다). */
+check('⑦-2 켠 채로도 «전체 2건» 은 그대로다 (감추는 것이지 목록에서 지우는 게 아니다)',
+  /표시 1건/.test(unk.count) && /전체 2건/.test(unk.count), unk.count);
 const unkOff = await renderOnce(unknown, { late: false });
-check('⑦-2 끄면 그 줄도 그대로 보인다 (거르개가 줄을 영영 삼키지 않는다)',
+check('⑦-3 끄면 그 줄이 돌아온다 (거르개 밖에서는 손대지 않는다)',
   names(unkOff.html).includes('시각모름'), names(unkOff.html).join(','));
 
 console.log('\n── ⑧ 눌렀을 때 다시 그리는가 ───────────────────────────');
