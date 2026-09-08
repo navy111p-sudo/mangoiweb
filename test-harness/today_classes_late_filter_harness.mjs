@@ -63,8 +63,14 @@ const ADMIN_NC = stripComments(ADMIN.replace(/<!--[\s\S]*?-->/g, ''));
       tcLoadToday() → render() 를 그대로 태운다. */
 function renderOnce(sessions, opts = {}) {
   const els = {}; const bound = [];
+  /* ⚠️ 그린 «뒤» 에 도는 배선(2026-09-08 main: 교재 미배정 배지 → 배정 창)이
+     `box.querySelectorAll('.tc-book-pin')` 을 부른다. 가짜 요소에 그 함수가 없으면
+     render() 가 그 줄에서 던지고 **표가 통째로 안 그려진다** — 화면 버그가 아니라
+     검사 환경 문제다(CLAUDE.md 2장 「FAIL 이 나면 검사 쪽을 먼저 의심하라」).
+     여기서 재는 것은 «무엇이 남는가» 뿐이라 빈 목록으로 충분하다. */
   const mk = (id) => (els[id] || (els[id] = {
     id, innerHTML: '', textContent: '', value: '', checked: false,
+    querySelectorAll: () => [], querySelector: () => null,
     addEventListener(t) { bound.push(id + ':' + t); }, removeEventListener() {},
   }));
   mk('tc-body'); mk('tc-count'); mk('tc-late'); mk('tc-only-live'); mk('tc-source'); mk('tc-q');
