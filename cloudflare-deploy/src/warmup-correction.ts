@@ -1,0 +1,225 @@
+/*!
+ * ✏️ warmup-correction.ts — A.i 웜업 «교정 카드» 판정 정본 (2026-09-08)
+ *
+ * 왜 만들었나:
+ *   웜업 시스템 프롬프트에는 [칭찬]·[막혔을 때]·[재미] 는 있는데 «교정» 이 한 줄도 없었다.
+ *   그래서 학생이 "I go to school yesterday" 라고 해도 아바타는 칭찬하고 다음 질문으로 갔다.
+ *   지금 웜업의 정체는 «말할 기회» 이지 «배우는 시간» 이 아니었다.
+ *
+ * ⛔ 교정을 «두 번째 LLM 호출» 로 만들지 말 것.
+ *   지금 /api/warmup/chat 이 이미 부르는 그 한 번의 호출에서 답장과 교정을 함께 JSON 으로
+ *   받는다. 따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 되고, 아이는 기다리지 않는다.
+ *
+ * ⛔ 지시만으로는 안 지켜진다 — 이 저장소가 단어 수·문법·구두점에서 반복 확인한 것이다.
+ *   그래서 모델이 준 fix 를 그대로 쓰지 않고 verifyWarmupFix() 가 «만든 뒤 확인해서 버린다».
+ *   특히 was 가 학생 원문에 «글자 그대로» 있어야 한다 — 없으면 모델이 지어낸 것이고,
+ *   지어낸 교정은 «안 고쳐 주는 것» 보다 나쁘다. 아이가 그대로 따라 말하기 때문이다.
+ *
+ * ✅ 실패 방향: 이 파일의 모든 판정은 «교정 없음» 쪽으로 실패한다.
+ *   파싱이 깨지든 검증에 걸리든 결과는 «고치기 전과 똑같은 웜업» 이다. 그것이 안전한 쪽이다.
+ *
+ * 감시: test-harness/warmup_correction_harness.mjs (정본을 타입 제거로 실제로 돌린다)
+ */
+
+import { isEnglishText } from './english-only';
+
+/** 교정 종류 — 화면이 색·아이콘을 고르는 데 쓰고, 같은 실수가 되풀이되는지 세는 열쇠이기도 하다. */
+export const WARMUP_FIX_TAGS = [
+  'past_tense', 'verb_form', 'article', 'plural', 'preposition',
+  'word_order', 'subject_verb', 'word_choice', 'question_form', 'other',
+] as const;
+
+export type WarmupFix = {
+  was: string;
+  now: string;
+  why_ko: string;
+  tag: string;
+  severity: 'major' | 'minor';
+};
+
+/** 세션 동안 «무엇을 몇 번 틀렸나 · 마지막으로 언제 고쳐 줬나» — KV 에 6시간 보관한다. */
+export type WarmupFixMemo = {
+  tags?: Record<string, number>;
+  lastShownTurn?: number;
+  lastRepeatTurn?: number;
+  shown?: number;
+};
+
+/* ─────────────────────────────────────────────────────────────
+   프롬프트 — [교정] 절 + JSON 출력 계약
+   ⚠️ reply 안의 글은 기존 [형식]·[길이]·[언어] 규칙을 그대로 따른다.
+      JSON 은 «담는 그릇» 일 뿐이고 학생이 보는 문장의 규칙을 바꾸지 않는다.
+   ───────────────────────────────────────────────────────────── */
+export const WARMUP_CORRECTION_RULE = [
+  '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
+  '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
+  '⛔ 뜻이 통하면 그냥 넘어가. 사소한 것까지 매번 고치면 학생이 말문이 막힌다. 한 번에 한 가지만 고쳐.',
+  '[출력형식] 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  '{"reply":"<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>","now":"<고친 영어>","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>","tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other","severity":"major|minor"}}',
+  '고칠 것이 없으면 "fix": null 로 둬.',
+  '"was" 는 학생이 «실제로 쓴 글자 그대로» 여야 해 — 학생이 말하지 않은 문장을 지어내면 절대 안 돼.',
+  '"severity" 는 뜻이 달라지거나 못 알아들을 정도면 "major", 알아들을 수는 있는 작은 실수면 "minor".',
+].join('\n');
+
+/* ─────────────────────────────────────────────────────────────
+   ① 모델 출력 → { reply, fix }
+   ⚠️ 파싱이 깨져도 학생 화면에 중괄호가 보이면 안 된다. 세 단계로 떨어진다:
+      JSON.parse → "reply" 만 정규식으로 건져내기 → 원문 그대로(옛 동작).
+   ───────────────────────────────────────────────────────────── */
+export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return { reply: '', fix: null };
+
+  // ```json … ``` 코드펜스를 벗긴다(모델이 지시를 어기고 감싸는 일이 실제로 있다)
+  let body = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  const s = body.indexOf('{');
+  const e = body.lastIndexOf('}');
+  if (s >= 0 && e > s) {
+    const slice = body.slice(s, e + 1);
+    try {
+      const o = JSON.parse(slice);
+      if (o && typeof o.reply === 'string' && o.reply.trim()) {
+        return { reply: o.reply.trim(), fix: o.fix || null };
+      }
+    } catch { /* 아래 폴백으로 */ }
+    // JSON 이 깨졌어도 reply 문자열만은 건져 본다
+    const m = /"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(slice);
+    if (m) {
+      let r = m[1];
+      try { r = JSON.parse('"' + m[1] + '"'); } catch { r = m[1].replace(/\\"/g, '"').replace(/\\n/g, ' '); }
+      r = String(r).trim();
+      if (r) return { reply: r, fix: null };
+    }
+    /* 여기까지 왔으면 JSON 처럼 생겼는데 못 읽은 것이다.
+       ⛔ 중괄호 덩어리를 그대로 학생에게 보내지 않는다 — 빈 문자열로 두면 부르는 쪽의
+          기존 «잠깐의 딸꾹질» 안전 문구가 받아 준다(그게 옛 동작이다). */
+    if (s === 0) return { reply: '', fix: null };
+  }
+  return { reply: body, fix: null };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ② 모델이 준 fix 를 «믿지 않고» 검증한다
+   ───────────────────────────────────────────────────────────── */
+
+/** 비교용 정규화 — 대소문자·구두점을 지우고 공백을 접는다. */
+function normEn(s: unknown): string {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** 낱말이 얼마나 겹치나 — 통째로 다시 쓴 문장(교정이 아니라 창작)을 걸러 낸다. */
+function wordOverlap(a: string, b: string): number {
+  const A = normEn(a).split(' ').filter(Boolean);
+  const B = normEn(b).split(' ').filter(Boolean);
+  if (!A.length || !B.length) return 0;
+  const setB = new Set(B);
+  let hit = 0;
+  for (const w of new Set(A)) if (setB.has(w)) hit++;
+  return hit / Math.min(new Set(A).size, setB.size);
+}
+
+/**
+ * 모델이 준 fix 를 결정론으로 검증한다. 하나라도 어긋나면 **null**(= 교정 없음).
+ * ⛔ 여기서 문장을 «고쳐 쓰지» 않는다 — 통과시키거나 버리기만 한다.
+ */
+export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix | null {
+  if (!fixRaw || typeof fixRaw !== 'object') return null;
+
+  const was = String(fixRaw.was == null ? '' : fixRaw.was).trim();
+  const now = String(fixRaw.now == null ? '' : fixRaw.now).trim();
+  const whyKo = String(fixRaw.why_ko == null ? '' : fixRaw.why_ko).trim();
+  const said = String(studentInput == null ? '' : studentInput).trim();
+
+  if (!was || !now || !whyKo || !said) return null;
+  if (was.length > 200 || now.length > 200 || whyKo.length > 200) return null;
+
+  /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
+     상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
+     (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
+  if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+
+  // why_ko 는 한국어여야 한다(한글이 한 글자도 없으면 모델이 영어로 쓴 것 → 버린다)
+  if (!/[가-힣]/.test(whyKo)) return null;
+
+  const nWas = normEn(was);
+  const nNow = normEn(now);
+  const nSaid = normEn(said);
+  if (!nWas || !nNow) return null;
+
+  // 🔴 핵심 — was 가 학생 원문에 «있어야» 한다. 없으면 모델이 지어낸 것이다.
+  if (!nSaid.includes(nWas)) return null;
+  // 고친 것이 없으면 교정이 아니다
+  if (nWas === nNow) return null;
+  // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
+  if (now.length > Math.max(60, said.length * 2.5)) return null;
+  if (wordOverlap(nWas, nNow) < 0.5) return null;
+
+  const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
+  const severity: 'major' | 'minor' = String(fixRaw.severity) === 'major' ? 'major' : 'minor';
+
+  return { was, now, why_ko: whyKo, tag, severity };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ③ «언제 보여 줄 것인가» — 여기가 성패다
+   2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로 넣었다가
+   「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다.
+   교정도 같다. 매 턴 고치면 말문이 막힌다.
+   ───────────────────────────────────────────────────────────── */
+
+/** 교정을 연달아 하지 않는다 — 최소 이만큼 턴을 띄운다. */
+export const WARMUP_FIX_GAP_TURNS = 2;
+/** 「따라 말해 볼까?」 는 이만큼 턴을 띄운다(제안서의 «3턴에 한 번»). */
+export const WARMUP_REPEAT_GAP_TURNS = 3;
+
+export function decideWarmupFixShow(
+  fix: WarmupFix | null,
+  memoIn: WarmupFixMemo | null | undefined,
+  turnCount: number,
+): { show: WarmupFix | null; memo: WarmupFixMemo } {
+  const memo: WarmupFixMemo = {
+    tags: { ...((memoIn && memoIn.tags) || {}) },
+    lastShownTurn: (memoIn && memoIn.lastShownTurn) || 0,
+    lastRepeatTurn: (memoIn && memoIn.lastRepeatTurn) || 0,
+    shown: (memoIn && memoIn.shown) || 0,
+  };
+  if (!fix) return { show: null, memo };
+
+  /* 보여 주든 말든 «틀린 것» 자체는 센다 — 두 번째부터 보여 주는 판정의 근거가 된다.
+     ⚠️ 세는 것과 보여 주는 것은 다른 축이다. 이 줄을 아래 게이트 뒤로 옮기면
+        minor 는 영영 두 번째가 되지 않아 «한 번도 안 뜨는 기능» 이 된다. */
+  const seen = (memo.tags![fix.tag] || 0) + 1;
+  memo.tags![fix.tag] = seen;
+
+  // 바로 앞 턴에 이미 고쳐 줬으면 이번엔 쉰다
+  if (turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) return { show: null, memo };
+
+  // 뜻이 달라지는 오류는 바로, 작은 실수는 «같은 실수가 두 번째» 일 때만
+  const worth = fix.severity === 'major' || seen >= 2;
+  if (!worth) return { show: null, memo };
+
+  memo.lastShownTurn = turnCount;
+  memo.shown = (memo.shown || 0) + 1;
+  return { show: fix, memo };
+}
+
+/**
+ * 「한 번 따라 해 볼까?」 를 붙일지. 되말해 주기만 하면 아이는 흘려 듣는다 —
+ * 이 한 바퀴가 «웜업» 을 «수업» 으로 바꾼다.
+ * ⚠️ memo 를 그 자리에서 고친다(부르는 쪽이 그대로 저장한다).
+ */
+export function warmupShouldOfferRepeat(
+  show: WarmupFix | null,
+  memo: WarmupFixMemo,
+  turnCount: number,
+): boolean {
+  if (!show) return false;
+  if (turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
+  memo.lastRepeatTurn = turnCount;
+  return true;
+}
