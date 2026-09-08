@@ -52,6 +52,12 @@ try {
   const m = truth.match(/const stripRolePrefix[\s\S]*?export function sameTeacherByWord[\s\S]*?\n\}/);
   if (m) {
     const js = m[0]
+      /* ⚠️ 타입 «이름» 을 하나씩 적어 두면 정본에 새 타입이 생기는 순간 추출이 조용히 깨진다.
+         2026-09-08 에 실제로 밟았다 — `const NAME_ALIASES: readonly (readonly string[])[]` 가
+         이 목록에 없어 `Missing initializer in const declaration` 으로 죽었고, 이 하니스의
+         검사 5건(그중 「⛔ 막을 것 — 'Anna' 는 'HANNAH' 가 아니다」)이 조용히 사라졌다.
+         → 변수 선언의 타입은 «이름» 이 아니라 «자리»(const 이름 : … =)로 벗긴다. */
+      .replace(/\bconst\s+([A-Za-z_$][\w$]*)\s*:[^=]+=/g, 'const $1 =')
       .replace(/:\s*any\b/g, '').replace(/:\s*string\[\]/g, '').replace(/:\s*string\b/g, '')
       .replace(/:\s*boolean\b/g, '').replace(/^export /gm, '');
     sameTeacherByWord = new Function(js + '; return sameTeacherByWord;')();
@@ -297,3 +303,10 @@ if (!mod) {
 console.log('\n────────────────────────────────');
 console.log(`총 ${pass + fails.length}건 중 ✅ ${pass} 통과 / ❌ ${fails.length} 실패`);
 if (fails.length) { console.log('실패:'); for (const f of fails) console.log('  - ' + f); }
+/* 🔴 (2026-09-08) 실패해도 종료코드가 0 이라 `run.mjs` 가 이 하니스를 늘 ✅ 로 셌다.
+   그래서 정본에 새 타입이 생겨 **위 추출이 깨지고 검사 5건이 조용히 사라졌는데도**
+   `--fast` 합계가 한 자리도 안 움직였다(실측: 39건 → 34건인데 게이트는 초록).
+   ⚠️ 그 5건 안에 「⛔ 막을 것 — 'Anna' 는 'HANNAH' 가 아니다」가 들어 있었다 —
+      이 저장소가 «가장 나쁜 방향» 이라고 못 박은 바로 그 안전속성의 감시다.
+   ⛔ 이 줄을 지우지 말 것. 검사가 사라진 것을 «통과» 로 세면 감시 자체가 장식이 된다. */
+if (fails.length) process.exit(1);
