@@ -1,0 +1,542 @@
+<meta charset="utf-8">
+<title>결재 보관함 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+
+<style>
+/* ──────────────────────────────────────────────────────────────────
+   결재 보관함 시안 4종 — 2026-09-08
+   앞선 시안(결재_정리화면_시안4종_2026-09-04.html)과 같은 토큰을 씁니다 —
+   admin.html 이 실측해 둔 밝은 테마 값(카드 #fff · 글자 #101828 · 강조 앰버 #b45309).
+   숫자는 전부 «예시» 입니다(운영 D1 의 지금 값은 4건 · ₱2,801 뿐이라 화면이 비어 보여서).
+   ────────────────────────────────────────────────────────────────── */
+:root{
+  --ink:#101828; --ink2:#475467; --ink3:#8B8378;
+  --bg:#F6F4F0; --card:#FFFFFF; --sunk:#FAF8F5;
+  --line:#E5E0D7; --line2:#EFEBE3;
+  --accent:#B45309; --accent-soft:#FDF2E0; --accent-line:#EBCFA6;
+  --ok:#15803D; --ok-soft:#E7F6EC;
+  --wait:#B45309; --wait-soft:#FDF0DA;
+  --no:#B91C1C; --no-soft:#FBE9E9;
+  --blue:#1D4ED8; --blue-soft:#E8EEFB;
+  --shadow:0 1px 2px rgba(43,35,24,.06), 0 8px 24px -12px rgba(43,35,24,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#F3EFE8; --ink2:#C0B8AC; --ink3:#8C8377;
+    --bg:#16140F; --card:#211E18; --sunk:#1B1913;
+    --line:#39342B; --line2:#2C2921;
+    --accent:#F0A64A; --accent-soft:#3A2A12; --accent-line:#5A4526;
+    --ok:#5DD08B; --ok-soft:#14301F;
+    --wait:#F0A64A; --wait-soft:#3A2A12;
+    --no:#F08A8A; --no-soft:#3B1A1A;
+    --blue:#8FB0FF; --blue-soft:#1B2540;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#F3EFE8; --ink2:#C0B8AC; --ink3:#8C8377;
+  --bg:#16140F; --card:#211E18; --sunk:#1B1913;
+  --line:#39342B; --line2:#2C2921;
+  --accent:#F0A64A; --accent-soft:#3A2A12; --accent-line:#5A4526;
+  --ok:#5DD08B; --ok-soft:#14301F;
+  --wait:#F0A64A; --wait-soft:#3A2A12;
+  --no:#F08A8A; --no-soft:#3B1A1A;
+  --blue:#8FB0FF; --blue-soft:#1B2540;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+  font-size:15px; line-height:1.7; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:40px 20px 80px}
+.mono{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:'IBM Plex Mono', monospace; font-size:11.5px; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin:0 0 10px
+}
+h1{font-size:clamp(26px,4.4vw,38px); line-height:1.28; font-weight:700; letter-spacing:-.02em; margin:0 0 12px; text-wrap:balance}
+.lede{font-size:16.5px; color:var(--ink2); max-width:62ch; margin:0}
+h2{font-size:clamp(20px,3vw,25px); font-weight:700; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:16px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 12px}
+
+/* 현재 상태 */
+.facts{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:22px 24px; box-shadow:var(--shadow); margin-top:28px
+}
+.facts h2{font-size:19px; margin-bottom:14px}
+.gap-list{list-style:none; padding:0; margin:0}
+.gap-list li{display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-top:1px solid var(--line2); font-size:14.5px; color:var(--ink2)}
+.gap-list li:first-child{border-top:0}
+.gap-list b{color:var(--ink); font-weight:600}
+.x{color:var(--no); font-weight:700; flex:0 0 auto; font-size:13px; margin-top:1px}
+.o{color:var(--ok); font-weight:700; flex:0 0 auto; font-size:13px; margin-top:1px}
+
+.jump{display:flex; flex-wrap:wrap; gap:8px; margin-top:24px}
+.jump a{
+  font-size:13.5px; font-weight:600; text-decoration:none; color:var(--ink);
+  background:var(--card); border:1px solid var(--line); border-radius:999px;
+  padding:7px 15px; transition:border-color .15s, color .15s
+}
+.jump a:hover{border-color:var(--accent); color:var(--accent)}
+.jump a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* 공통 — 맨 위 요약 줄에 5번째 카드 */
+.common{margin-top:44px; padding-top:34px; border-top:1px solid var(--line)}
+.common > p{color:var(--ink2); max-width:64ch}
+
+/* 시안 블록 */
+.plan{margin-top:52px; padding-top:34px; border-top:1px solid var(--line)}
+.plan-head{display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px}
+.tag{
+  font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; letter-spacing:.06em;
+  color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-line);
+  border-radius:6px; padding:3px 9px; flex:0 0 auto
+}
+.ref{font-size:13px; color:var(--ink3)}
+.plan > p{color:var(--ink2); max-width:64ch}
+
+/* 기기 프레임 */
+.frame{
+  margin:22px 0 0; background:var(--card); border:1px solid var(--line);
+  border-radius:12px; box-shadow:var(--shadow); overflow:hidden
+}
+.frame-bar{
+  display:flex; align-items:center; gap:7px; padding:9px 13px;
+  background:var(--sunk); border-bottom:1px solid var(--line2)
+}
+.dot{width:9px; height:9px; border-radius:50%; background:var(--line); flex:0 0 auto}
+.frame-url{
+  margin-left:6px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+  color:var(--ink3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap
+}
+.screen{padding:0; overflow-x:auto}
+.note{font-size:12.5px; color:var(--ink3); margin:8px 2px 0}
+
+/* 공용 UI 조각 */
+.pill{
+  display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600;
+  border-radius:5px; padding:2px 7px; white-space:nowrap; line-height:1.6
+}
+.p-ok{color:var(--ok); background:var(--ok-soft)}
+.p-wait{color:var(--wait); background:var(--wait-soft)}
+.p-no{color:var(--no); background:var(--no-soft)}
+.p-gray{color:var(--ink2); background:var(--sunk); border:1px solid var(--line2)}
+.chip{
+  display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:500;
+  border:1px solid var(--line); background:var(--card); color:var(--ink2);
+  border-radius:999px; padding:4px 11px; white-space:nowrap
+}
+.chip.on{border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:600}
+.chips{display:flex; gap:6px; flex-wrap:wrap}
+.av{
+  display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+  border-radius:50%; font-size:10.5px; font-weight:700; color:#fff; flex:0 0 auto
+}
+.av.a1{background:#B45309}.av.a2{background:#1D4ED8}.av.a3{background:#15803D}.av.a4{background:#6D28D9}
+.amt{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-weight:600}
+.muted{color:var(--ink3)}
+.small{font-size:12.5px}
+
+/* 맨 위 요약 카드 줄 (지금 화면 재현 + 5번째) */
+.tiles{display:grid; grid-template-columns:repeat(5,minmax(150px,1fr)); gap:10px; padding:14px; min-width:820px}
+.tile{border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:var(--card); min-height:88px}
+.tile .k{font-size:12px; color:var(--ink2); margin-bottom:4px}
+.tile .v{font-size:22px; font-weight:700; letter-spacing:-.02em; line-height:1.2}
+.tile .s{font-size:12px; color:var(--ink3); margin-top:3px}
+.tile.new{border:2px solid var(--accent); background:var(--accent-soft); position:relative}
+.tile.new .k{color:var(--accent); font-weight:600}
+.tile.new .badge{
+  position:absolute; top:-10px; right:10px; font-size:10.5px; font-weight:700; letter-spacing:.06em;
+  background:var(--accent); color:#fff; border-radius:999px; padding:1px 8px
+}
+
+/* 표 */
+table.t{width:100%; border-collapse:collapse; font-size:13.5px; min-width:640px}
+table.t th{font-size:11.5px; font-weight:600; color:var(--ink3); text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); letter-spacing:.02em; white-space:nowrap; background:var(--sunk)}
+table.t td{padding:9px 10px; border-bottom:1px solid var(--line2); vertical-align:middle; white-space:nowrap}
+table.t td.r, table.t th.r{text-align:right}
+table.t tr.sub td{background:var(--sunk); font-weight:600; font-size:12.5px; color:var(--ink2)}
+table.t tr.hi td{background:var(--accent-soft)}
+
+/* A — 그룹웨어식 */
+.a-lay{display:grid; grid-template-columns:200px 1fr; min-width:860px}
+.a-side{border-right:1px solid var(--line2); background:var(--sunk); padding:12px 10px}
+.a-side .grp{font-size:11px; font-weight:600; color:var(--ink3); letter-spacing:.08em; text-transform:uppercase; margin:12px 8px 4px}
+.a-side .grp:first-child{margin-top:0}
+.a-side a{display:flex; justify-content:space-between; gap:8px; font-size:13.5px; color:var(--ink); text-decoration:none; padding:6px 8px; border-radius:7px}
+.a-side a .n{color:var(--ink3); font-size:12px; font-family:'IBM Plex Mono',monospace}
+.a-side a.on{background:var(--card); border:1px solid var(--line); font-weight:600}
+.a-main{padding:12px 14px}
+.a-top{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px}
+.a-top .sum{font-size:13px; color:var(--ink2)}
+.a-top .sum b{color:var(--ink)}
+.btn{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:6px 11px}
+.btn.pri{background:var(--accent); border-color:var(--accent); color:#fff}
+
+/* B — 타임라인 */
+.b-lay{min-width:720px; padding:14px 16px}
+.b-scrub{display:flex; gap:4px; align-items:flex-end; height:70px; padding:0 4px; border-bottom:1px solid var(--line2); margin-bottom:6px}
+.b-scrub .m{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:11px; color:var(--ink3); font-family:'IBM Plex Mono',monospace}
+.b-scrub .bar{width:100%; max-width:38px; background:var(--line); border-radius:3px 3px 0 0}
+.b-scrub .m.on .bar{background:var(--accent)}
+.b-scrub .m.on{color:var(--accent); font-weight:600}
+.b-range{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--ink2); margin-bottom:12px}
+.b-month{margin-top:10px}
+.b-mh{display:flex; justify-content:space-between; align-items:baseline; padding:8px 10px; background:var(--sunk); border:1px solid var(--line2); border-radius:9px; position:sticky; top:0}
+.b-mh b{font-size:14.5px}
+.b-mh .tot{font-size:13px; color:var(--ink2)}
+.b-row{display:grid; grid-template-columns:64px 1fr auto auto; gap:12px; align-items:center; padding:10px 10px; border-bottom:1px solid var(--line2)}
+.b-row .d{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink3)}
+.b-row .t{font-size:14px}
+.b-row .t .who{font-size:12px; color:var(--ink3); margin-top:1px}
+.b-row .by{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink2)}
+
+/* C — 보기 전환 */
+.c-lay{min-width:820px; padding:12px 14px}
+.c-views{display:flex; gap:2px; background:var(--sunk); border:1px solid var(--line2); border-radius:9px; padding:3px; width:max-content; margin-bottom:10px}
+.c-views span{font-size:12.5px; padding:5px 12px; border-radius:6px; color:var(--ink2)}
+.c-views span.on{background:var(--card); color:var(--ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.c-saved{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; font-size:12.5px; color:var(--ink3)}
+.c-board{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.c-col{background:var(--sunk); border:1px solid var(--line2); border-radius:10px; padding:10px}
+.c-col .h{display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; margin-bottom:8px}
+.c-col .h .n{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink3); font-weight:500}
+.c-card{background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:7px; font-size:13px}
+.c-card .m{display:flex; justify-content:space-between; gap:8px; margin-top:4px; font-size:12px; color:var(--ink3)}
+
+/* D — 매트릭스 */
+.d-lay{min-width:820px; padding:12px 14px}
+.d-top{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px}
+table.mx{border-collapse:separate; border-spacing:0; width:100%; font-size:13px}
+table.mx th, table.mx td{padding:8px 10px; text-align:right; border-bottom:1px solid var(--line2); white-space:nowrap}
+table.mx th{font-size:11.5px; color:var(--ink3); font-weight:600; background:var(--sunk)}
+table.mx th:first-child, table.mx td:first-child{text-align:left}
+table.mx td .c{display:block; font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums}
+table.mx td .c small{color:var(--ink3); font-weight:500; margin-left:3px}
+table.mx td.sel{background:var(--accent-soft); outline:2px solid var(--accent); outline-offset:-2px; border-radius:4px}
+table.mx tr.tot td{font-weight:700; background:var(--sunk); border-top:1px solid var(--line)}
+.d-drill{margin-top:14px; border-top:1px dashed var(--line); padding-top:10px}
+.d-drill .h{display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px}
+.d-drill .h b{color:var(--accent)}
+
+/* 장단점 */
+.pros{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+.pros > div{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px}
+.pros h4{margin:0 0 6px; font-size:13px; letter-spacing:.04em; color:var(--ink3); text-transform:uppercase}
+.pros ul{margin:0; padding-left:18px; font-size:14px; color:var(--ink2)}
+.pros li{margin:3px 0}
+.pros li b{color:var(--ink)}
+.fit{margin-top:10px; font-size:13.5px; color:var(--ink2)}
+.fit b{color:var(--ink)}
+
+/* 추천 */
+.reco{margin-top:56px; background:var(--card); border:1px solid var(--accent-line); border-left:5px solid var(--accent); border-radius:12px; padding:22px 24px; box-shadow:var(--shadow)}
+.reco h2{font-size:20px; margin-bottom:10px}
+.reco p{color:var(--ink2); max-width:66ch}
+.reco ol{margin:8px 0 0; padding-left:20px; color:var(--ink2); font-size:14.5px}
+.reco li{margin:5px 0}
+.reco b{color:var(--ink)}
+.cmp{width:100%; border-collapse:collapse; margin-top:16px; font-size:13.5px}
+.cmp th{font-size:11.5px; color:var(--ink3); text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); font-weight:600}
+.cmp td{padding:8px 10px; border-bottom:1px solid var(--line2); vertical-align:top}
+.cmp td:first-child{font-weight:600; white-space:nowrap}
+.dotc{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle}
+.g{background:var(--ok)} .y{background:var(--wait)} .r{background:var(--no)}
+
+@media (max-width:720px){
+  .pros{grid-template-columns:1fr}
+  .c-board{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Approval Archive · 2026-09-08</p>
+  <h1>결재 보관함 — 내가 결재한 것, 남이 결재한 것을 한자리에서</h1>
+  <p class="lede">사장님 「결재 보관함 카드를 열면 전체 · 기간별 · 결재자별 · 종류별 등을 모두 한 번에 볼 수 있게 — 4가지 샘플로」. 잘하는 업체 넷을 벤치마킹해 각각 다른 «보는 방식» 으로 만들었습니다. 숫자는 전부 예시입니다.</p>
+
+  <div class="facts">
+    <h2>지금 화면에 이미 있는 것과 없는 것</h2>
+    <ul class="gap-list">
+      <li><span class="o">있음</span><span><b>「지난 결재 찾기」</b>(제목 옆 버튼) — 함 6종 · 검색 · 기간 · 분류 · 지출 항목 · 상태 · 엑셀. 서버·권한 판정은 그대로 재활용합니다.</span></li>
+      <li><span class="x">없음</span><span><b>맨 위 요약 줄에서 바로 들어가는 입구</b> — 지금은 카드 넷(내가 결재할 것 · 내가 올린 것 · 이번 달 · 올해)이고 «보관함» 카드가 없습니다.</span></li>
+      <li><span class="x">없음</span><span><b>「내가 결재한 것」 함</b> — 지금 함은 «내가 올린 것» 축과 «전체» 뿐이라, 내가 도장을 찍은 건만 따로 볼 수 없습니다.</span></li>
+      <li><span class="x">없음</span><span><b>결재자별 · 종류별 «묶어서 보기»</b> — 필터로 한 조건씩 좁힐 수는 있지만, 「누가 무엇을 얼마나」를 한 표로 놓고 보는 화면이 없습니다.</span></li>
+      <li><span class="o">전제</span><span>네 시안 모두 <b>«전체» 는 결재 권한자(사장님·경영진)에게만</b> 열립니다 — 지금 서버 판정(<span class="mono small">canView</span>) 그대로. 일반 직원은 자기 것만 봅니다.</span></li>
+    </ul>
+  </div>
+
+  <div class="jump">
+    <a href="#common">공통: 5번째 카드</a>
+    <a href="#a">A 함 + 표</a>
+    <a href="#b">B 월별 타임라인</a>
+    <a href="#c">C 보기 전환</a>
+    <a href="#d">D 매트릭스 + 드릴다운</a>
+    <a href="#reco">추천</a>
+  </div>
+
+  <!-- ═══════════ 공통 ═══════════ -->
+  <section class="common" id="common">
+    <div class="plan-head"><span class="tag">공통</span><h2>맨 위 요약 줄에 다섯째 카드 「결재 보관함」</h2></div>
+    <p>네 시안 모두 입구는 같습니다 — 지금 카드 넷 옆에 하나를 더하고, 그 카드를 누르면 아래 시안 중 하나가 펼쳐집니다. 카드에는 «올해 전체 건수 · 승인 금액 · 마지막 결재가 언제» 를 씁니다(카드가 스스로 사실을 말해야 누릅니다).</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">mangoi.ai/work — 결재함 맨 위</span></div>
+      <div class="screen">
+        <div class="tiles">
+          <div class="tile"><div class="k">내가 결재할 것</div><div class="v">0건</div><div class="s">지금은 없습니다</div></div>
+          <div class="tile"><div class="k">내가 올린 것 · 진행 중</div><div class="v">0건</div><div class="s">&nbsp;</div></div>
+          <div class="tile"><div class="k">이번 달 승인</div><div class="v amt">₱2,800</div><div class="s">전체 · 3건 승인</div></div>
+          <div class="tile"><div class="k">올해 누적</div><div class="v amt">₱2,801</div><div class="s">전체 · 4건 승인</div></div>
+          <div class="tile new"><span class="badge">NEW</span><div class="k">🗂 결재 보관함</div><div class="v">4건</div><div class="s">올해 전체 · 마지막 결재 9/7 장지웅 · 열기 →</div></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">⚠️ 카드가 다섯이면 폰(390px)에서는 두 줄이 됩니다 — 지금도 넷이 두 줄이라 새 문제는 아닙니다. 보관함 카드는 «전체» 를 볼 수 있는 사람에게는 전체 숫자, 직원에게는 «내 것» 숫자를 씁니다(같은 카드에서 다른 숫자를 보게 되므로 카드 안에 «전체/내 것» 을 함께 적습니다).</p>
+  </section>
+
+  <!-- ═══════════ A ═══════════ -->
+  <section class="plan" id="a">
+    <div class="plan-head"><span class="tag">시안 A</span><h2>함 + 표 — 그룹웨어식</h2><span class="ref">벤치마크: 카카오워크 전자결재 · 다우오피스 · 하이웍스</span></div>
+    <p>국내 그룹웨어가 다 이렇게 생겼습니다 — 왼쪽에 «함» 이 트리로 서 있고 오른쪽이 표입니다. 함이 곧 «보는 방식» 이라 <b>결재자별·종류별·기간별이 왼쪽 목록에 «접힌 폴더» 로 다 들어갑니다.</b> 지금 「지난 결재 찾기」의 함 6종을 그대로 왼쪽으로 옮기고 결재자·종류 폴더를 더한 것이라 만드는 양이 가장 적습니다.</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">결재 보관함 › 결재자별 › 장지웅</span></div>
+      <div class="screen">
+        <div class="a-lay">
+          <div class="a-side">
+            <div class="grp">전체</div>
+            <a href="#a"><span>전체 결재</span><span class="n">24</span></a>
+            <a href="#a"><span>내가 결재한 것</span><span class="n">9</span></a>
+            <a href="#a"><span>내가 올린 것</span><span class="n">6</span></a>
+            <div class="grp">기간별</div>
+            <a href="#a"><span>이번 달</span><span class="n">3</span></a>
+            <a href="#a"><span>지난 달</span><span class="n">7</span></a>
+            <a href="#a"><span>3분기</span><span class="n">14</span></a>
+            <div class="grp">결재자별</div>
+            <a href="#a" class="on"><span>장지웅</span><span class="n">9</span></a>
+            <a href="#a"><span>정우영</span><span class="n">12</span></a>
+            <a href="#a"><span>이병엽</span><span class="n">3</span></a>
+            <div class="grp">종류별</div>
+            <a href="#a"><span>지출 · 구매</span><span class="n">11</span></a>
+            <a href="#a"><span>휴가 · 인사</span><span class="n">6</span></a>
+            <a href="#a"><span>문서 · 긴급</span><span class="n">7</span></a>
+          </div>
+          <div class="a-main">
+            <div class="a-top">
+              <div class="sum"><b>장지웅님이 결재한 것</b> · 9건 · 승인 8 · 반려 1 · 지출 합계 <span class="amt">₱6,420</span></div>
+              <div style="display:flex;gap:6px"><span class="btn">기간 ▾</span><span class="btn">종류 ▾</span><span class="btn pri">엑셀</span></div>
+            </div>
+            <table class="t">
+              <tr><th>날짜</th><th>종류</th><th>제목</th><th>올린 사람</th><th class="r">금액</th><th>상태</th><th>결재</th></tr>
+              <tr><td class="mono small">09-07</td><td>문서</td><td>Attendance Report — July 31</td><td>Melca</td><td class="r muted">—</td><td><span class="pill p-ok">승인</span></td><td class="small">장지웅 · 19:14</td></tr>
+              <tr><td class="mono small">09-07</td><td>문서</td><td>September 3, 2026</td><td>Melca</td><td class="r muted">—</td><td><span class="pill p-ok">승인</span></td><td class="small">장지웅 · 19:14</td></tr>
+              <tr><td class="mono small">08-28</td><td>지출</td><td>인터넷 요금 (PLDT) 8월</td><td>Karl</td><td class="r amt">₱2,899</td><td><span class="pill p-ok">승인</span></td><td class="small">장지웅 · 2단계</td></tr>
+              <tr><td class="mono small">08-21</td><td>휴가</td><td>Sick leave 8/22</td><td>Rica</td><td class="r muted">—</td><td><span class="pill p-ok">승인</span></td><td class="small">장지웅</td></tr>
+              <tr><td class="mono small">08-14</td><td>지출</td><td>교재 인쇄 (BTS 3)</td><td>Melca</td><td class="r amt">₱1,120</td><td><span class="pill p-no">반려</span></td><td class="small">장지웅 · 「견적 2개 필요」</td></tr>
+              <tr><td class="mono small">08-06</td><td>구매</td><td>헤드셋 3개</td><td>Karl</td><td class="r amt">₱2,401</td><td><span class="pill p-ok">승인</span></td><td class="small">장지웅</td></tr>
+            </table>
+            <p class="note">… 3건 더 · <b>더 보기</b></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pros">
+      <div><h4>좋은 점</h4><ul>
+        <li><b>누구나 아는 모양</b> — 매니저·강사가 다른 회사에서 쓰던 그대로라 설명이 필요 없습니다.</li>
+        <li><b>만들 것이 가장 적습니다</b> — 함 6종·필터·엑셀이 이미 있고, 「내가 결재한 것」·결재자·종류 폴더만 더합니다(서버 조건 몇 줄).</li>
+        <li>폴더 옆 건수가 <b>보지 않고도 «어디에 몇 건»</b> 을 말해 줍니다.</li>
+      </ul></div>
+      <div><h4>아쉬운 점</h4><ul>
+        <li><b>폰에서 좁습니다</b> — 왼쪽 함을 드로어로 접어야 하고, 그러면 «한 번에» 가 «두 번 눌러서» 가 됩니다.</li>
+        <li>한 번에 <b>한 축만</b> 봅니다 — 「장지웅 × 지출」은 폴더 + 필터 두 번입니다.</li>
+        <li>기간·결재자·종류가 «폴더» 라 <b>조합 총액</b>(누가 무엇을 얼마나)은 표 위 한 줄로만 나옵니다.</li>
+      </ul></div>
+    </div>
+    <p class="fit"><b>맞는 사람:</b> 매일 결재를 넘기는 매니저. <b>만들기:</b> 반나절.</p>
+  </section>
+
+  <!-- ═══════════ B ═══════════ -->
+  <section class="plan" id="b">
+    <div class="plan-head"><span class="tag">시안 B</span><h2>월별 타임라인 — 가계부식</h2><span class="ref">벤치마크: 토스 소비내역 · 뱅크샐러드 · Apple Card 명세</span></div>
+    <p>결재를 «돈이 나간 기록» 으로 보는 방식입니다. 위에 <b>월별 막대(기간 스크러버)</b> 가 있어 손가락으로 달을 고르고, 아래는 달마다 «합계가 붙은 머리줄» 이 스크롤을 따라옵니다. 결재자는 줄 끝 아바타로, 종류는 위 칩으로 거릅니다. <b>폰에서 가장 잘 읽히는</b> 모양입니다.</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">결재 보관함 › 2026년 · 7~9월</span></div>
+      <div class="screen">
+        <div class="b-lay">
+          <div class="b-scrub">
+            <div class="m"><div class="bar" style="height:8px"></div>1월</div>
+            <div class="m"><div class="bar" style="height:6px"></div>2월</div>
+            <div class="m"><div class="bar" style="height:14px"></div>3월</div>
+            <div class="m"><div class="bar" style="height:10px"></div>4월</div>
+            <div class="m"><div class="bar" style="height:18px"></div>5월</div>
+            <div class="m"><div class="bar" style="height:22px"></div>6월</div>
+            <div class="m on"><div class="bar" style="height:30px"></div>7월</div>
+            <div class="m on"><div class="bar" style="height:44px"></div>8월</div>
+            <div class="m on"><div class="bar" style="height:16px"></div>9월</div>
+            <div class="m"><div class="bar" style="height:2px"></div>10월</div>
+            <div class="m"><div class="bar" style="height:2px"></div>11월</div>
+            <div class="m"><div class="bar" style="height:2px"></div>12월</div>
+          </div>
+          <div class="b-range">
+            <span>7월 1일 – 9월 8일 · <b>14건</b> · 승인 <span class="amt">₱11,310</span></span>
+            <span class="chips"><span class="chip on">전체</span><span class="chip">지출·구매</span><span class="chip">휴가·인사</span><span class="chip">문서</span><span class="chip">결재자 ▾</span></span>
+          </div>
+
+          <div class="b-month">
+            <div class="b-mh"><b>9월</b><span class="tot">3건 · 승인 <span class="amt">₱2,800</span> · 결재 <span class="av a2" title="장지웅">장</span> <span class="av a1" title="정우영">정</span></span></div>
+            <div class="b-row"><span class="d">9/7 월</span><div class="t">September 3, 2026 <span class="pill p-gray">문서</span><div class="who">Melca 올림</div></div><span class="amt muted">—</span><span class="by"><span class="av a2">장</span>승인</span></div>
+            <div class="b-row"><span class="d">9/7 월</span><div class="t">Attendance Report — July 31 <span class="pill p-gray">문서</span><div class="who">Melca 올림</div></div><span class="amt muted">—</span><span class="by"><span class="av a2">장</span>승인</span></div>
+            <div class="b-row"><span class="d">9/3 수</span><div class="t">Dual WAN Router <span class="pill p-gray">구매</span><div class="who">Karl 올림 · 영수증 1</div></div><span class="amt">₱2,800</span><span class="by"><span class="av a1">정</span>승인</span></div>
+          </div>
+          <div class="b-month">
+            <div class="b-mh"><b>8월</b><span class="tot">7건 · 승인 <span class="amt">₱6,420</span> · 반려 1 · 결재 <span class="av a2">장</span> <span class="av a3" title="이병엽">이</span></span></div>
+            <div class="b-row"><span class="d">8/28 금</span><div class="t">인터넷 요금 (PLDT) 8월 <span class="pill p-gray">지출</span><div class="who">Karl 올림 · 통신비</div></div><span class="amt">₱2,899</span><span class="by"><span class="av a2">장</span>승인</span></div>
+            <div class="b-row"><span class="d">8/21 금</span><div class="t">Sick leave 8/22 <span class="pill p-gray">휴가</span><div class="who">Rica 올림</div></div><span class="amt muted">—</span><span class="by"><span class="av a2">장</span>승인</span></div>
+            <div class="b-row"><span class="d">8/14 금</span><div class="t">교재 인쇄 (BTS 3) <span class="pill p-gray">지출</span><div class="who">Melca 올림</div></div><span class="amt muted" style="text-decoration:line-through">₱1,120</span><span class="by"><span class="av a2">장</span><span class="pill p-no">반려</span></span></div>
+            <div class="b-row"><span class="d">8/06 목</span><div class="t">헤드셋 3개 <span class="pill p-gray">구매</span><div class="who">Karl 올림 · 영수증 1</div></div><span class="amt">₱2,401</span><span class="by"><span class="av a3">이</span>승인</span></div>
+          </div>
+          <p class="note" style="text-align:center">… 7월 4건 · 아래로 이어집니다</p>
+        </div>
+      </div>
+    </div>
+    <div class="pros">
+      <div><h4>좋은 점</h4><ul>
+        <li><b>«언제 얼마»</b> 가 제일 빨리 읽힙니다 — 월 머리줄 합계만 훑어도 그 해가 보입니다.</li>
+        <li><b>폰에서 제일 좋습니다</b> — 한 줄이 한 건이고 옆으로 넘칠 것이 없습니다.</li>
+        <li>스크러버 막대가 <b>「어느 달이 많았나」</b> 를 말없이 알려 줍니다.</li>
+      </ul></div>
+      <div><h4>아쉬운 점</h4><ul>
+        <li>결재자별·종류별은 <b>거르기만</b> 됩니다 — 「장지웅이 결재한 것만 모아 보기」는 칩 하나이지만, 「결재자끼리 비교」는 안 됩니다.</li>
+        <li>문서·휴가처럼 <b>금액 없는 결재</b>가 «—» 로 남아 지출 화면처럼 보이는 것이 조금 어색합니다.</li>
+        <li>PC 넓은 화면에서는 왼쪽·오른쪽이 비어 <b>정보 밀도가 낮습니다.</b></li>
+      </ul></div>
+    </div>
+    <p class="fit"><b>맞는 사람:</b> 폰으로 결재를 훑어보는 사장님. <b>만들기:</b> 하루.</p>
+  </section>
+
+  <!-- ═══════════ C ═══════════ -->
+  <section class="plan" id="c">
+    <div class="plan-head"><span class="tag">시안 C</span><h2>보기 전환 — 같은 자료를 표·보드·묶음·달력으로</h2><span class="ref">벤치마크: Notion 데이터베이스 · Airtable · Linear</span></div>
+    <p>「전체 · 기간별 · 결재자별 · 종류별을 <b>모두</b>」라는 말을 가장 곧이곧대로 받은 시안입니다. 자료는 하나인데 <b>보는 방식을 위 탭으로 바꿉니다</b> — «표» 는 A, «달력» 은 B 와 같고, <b>«결재자별 보드»</b> 는 사람마다 한 칸씩 세워 누가 무엇을 들고 있는지 나란히 보여 주고, «종류별 묶음» 은 소제목으로 접습니다. 자주 쓰는 조합은 <b>«저장된 보기»</b> 로 이름 붙여 둡니다(「장지웅이 결재한 지출」 한 번 누르면 끝).</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">결재 보관함 › 결재자별 보드 · 3분기</span></div>
+      <div class="screen">
+        <div class="c-lay">
+          <div class="c-views"><span>표</span><span class="on">결재자별 보드</span><span>종류별 묶음</span><span>달력</span></div>
+          <div class="c-saved">저장된 보기: <span class="chip on">3분기 전체</span><span class="chip">내가 결재한 것</span><span class="chip">장지웅 · 지출만</span><span class="chip">Karl 이 올린 것</span><span class="chip" style="border-style:dashed">+ 지금 조건 저장</span></div>
+          <div class="c-board">
+            <div class="c-col">
+              <div class="h"><span><span class="av a1">정</span> 정우영</span><span class="n">12건 · ₱5,201</span></div>
+              <div class="c-card">Dual WAN Router<div class="m"><span>Karl · 구매</span><span class="amt">₱2,800</span></div></div>
+              <div class="c-card">7월 인터넷 요금<div class="m"><span>Karl · 지출</span><span class="amt">₱2,400</span></div></div>
+              <div class="c-card">TEST<div class="m"><span>Melca · 지출</span><span class="amt">₱1</span></div></div>
+              <div class="c-card" style="opacity:.6">… 9건 더</div>
+            </div>
+            <div class="c-col">
+              <div class="h"><span><span class="av a2">장</span> 장지웅</span><span class="n">9건 · ₱6,420</span></div>
+              <div class="c-card">September 3, 2026<div class="m"><span>Melca · 문서</span><span class="pill p-ok">승인</span></div></div>
+              <div class="c-card">Attendance Report<div class="m"><span>Melca · 문서</span><span class="pill p-ok">승인</span></div></div>
+              <div class="c-card">인터넷 요금 (PLDT) 8월<div class="m"><span>Karl · 지출</span><span class="amt">₱2,899</span></div></div>
+              <div class="c-card">교재 인쇄 (BTS 3)<div class="m"><span>Melca · 지출</span><span class="pill p-no">반려</span></div></div>
+              <div class="c-card" style="opacity:.6">… 5건 더</div>
+            </div>
+            <div class="c-col">
+              <div class="h"><span><span class="av a3">이</span> 이병엽</span><span class="n">3건 · ₱2,401</span></div>
+              <div class="c-card">헤드셋 3개<div class="m"><span>Karl · 구매</span><span class="amt">₱2,401</span></div></div>
+              <div class="c-card">Sick leave 7/30<div class="m"><span>Rica · 휴가</span><span class="pill p-ok">승인</span></div></div>
+              <div class="c-card">8월 근무표<div class="m"><span>Melca · 문서</span><span class="pill p-ok">승인</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pros">
+      <div><h4>좋은 점</h4><ul>
+        <li>요청 그대로 — <b>네 가지 축을 한 화면에서 탭으로</b> 오갑니다. «누가 뭘 들고 있나» 는 보드가, «언제» 는 달력이 답합니다.</li>
+        <li><b>«저장된 보기»</b> 가 매번 필터를 다시 거는 수고를 없앱니다 — 사장님이 늘 보는 조합을 한 번 저장하면 끝.</li>
+        <li>같은 자료라 <b>어느 보기에서 봐도 숫자가 같습니다</b>(서버 판정 하나).</li>
+      </ul></div>
+      <div><h4>아쉬운 점</h4><ul>
+        <li><b>만들 것이 가장 많습니다</b> — 보기 4종 + 저장된 보기(어디에 저장하나: 기기? 계정?). 「전부 잘하는」 화면이 되기 쉽습니다.</li>
+        <li>보드는 <b>결재자가 4~5명을 넘으면</b> 옆으로 넘칩니다(지금은 3명이라 괜찮지만).</li>
+        <li>폰에서 보드는 한 칸씩 세로로 서서 <b>«나란히 비교»</b> 라는 장점이 사라집니다.</li>
+      </ul></div>
+    </div>
+    <p class="fit"><b>맞는 사람:</b> 여러 방식으로 자료를 뜯어보는 것을 좋아하는 사장님·경영진. <b>만들기:</b> 이틀.</p>
+  </section>
+
+  <!-- ═══════════ D ═══════════ -->
+  <section class="plan" id="d">
+    <div class="plan-head"><span class="tag">시안 D</span><h2>매트릭스 + 드릴다운 — 「누가 × 무엇을 = 얼마」 한 표</h2><span class="ref">벤치마크: Metabase 피벗 · Jira 대시보드 · Google Sheets 피벗</span></div>
+    <p>결재자와 종류를 <b>가로·세로로 놓은 한 표</b>가 첫 화면입니다. 칸마다 «건수 · 금액» 이고, 위 기간 칩으로 이번 달/분기/올해를 바꾸면 표 전체가 다시 셉니다. <b>칸을 누르면 아래에 그 칸의 결재 목록이 펼쳐집니다</b>(드릴다운). 회계와 대조하기 제일 좋고, 「3분기에 장지웅이 지출을 얼마나 승인했나」가 <b>한 번도 안 누르고</b> 보입니다.</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">결재 보관함 › 3분기 · 결재자 × 종류</span></div>
+      <div class="screen">
+        <div class="d-lay">
+          <div class="d-top">
+            <span class="chips"><span class="chip">이번 달</span><span class="chip on">3분기</span><span class="chip">올해</span><span class="chip">직접 지정 ▾</span></span>
+            <span class="chips"><span class="chip">세로: 결재자 ▾</span><span class="chip">가로: 종류 ▾</span><span class="chip">엑셀</span></span>
+          </div>
+          <table class="mx">
+            <tr><th>결재자 \ 종류</th><th>지출 · 구매</th><th>휴가 · 인사</th><th>문서 · 긴급</th><th>반려 · 회수</th><th>합계</th></tr>
+            <tr><td><span class="av a1">정</span> 정우영</td><td><span class="c">₱5,201<small>×3</small></span></td><td><span class="c">—<small>×2</small></span></td><td><span class="c">—<small>×4</small></span></td><td><span class="c">—<small>×3</small></span></td><td><span class="c">₱5,201<small>×12</small></span></td></tr>
+            <tr><td><span class="av a2">장</span> 장지웅</td><td class="sel"><span class="c">₱5,300<small>×2</small></span></td><td><span class="c">—<small>×1</small></span></td><td><span class="c">—<small>×5</small></span></td><td><span class="c">₱1,120<small>×1</small></span></td><td><span class="c">₱5,300<small>×9</small></span></td></tr>
+            <tr><td><span class="av a3">이</span> 이병엽</td><td><span class="c">₱2,401<small>×1</small></span></td><td><span class="c">—<small>×1</small></span></td><td><span class="c">—<small>×1</small></span></td><td><span class="c">—</span></td><td><span class="c">₱2,401<small>×3</small></span></td></tr>
+            <tr class="tot"><td>합계</td><td><span class="c">₱12,902<small>×6</small></span></td><td><span class="c">—<small>×4</small></span></td><td><span class="c">—<small>×10</small></span></td><td><span class="c">₱1,120<small>×4</small></span></td><td><span class="c">₱12,902<small>×24</small></span></td></tr>
+          </table>
+          <div class="d-drill">
+            <div class="h"><span><b>장지웅 × 지출·구매</b> · 3분기 · 2건 · <span class="amt">₱5,300</span></span><span class="small muted">칸을 누르면 여기가 바뀝니다 · 닫기 ✕</span></div>
+            <table class="t">
+              <tr><th>날짜</th><th>제목</th><th>올린 사람</th><th>지출 항목</th><th class="r">금액</th><th>결재</th></tr>
+              <tr><td class="mono small">08-28</td><td>인터넷 요금 (PLDT) 8월</td><td>Karl</td><td>통신비</td><td class="r amt">₱2,899</td><td class="small">장지웅 · 2단계 승인</td></tr>
+              <tr><td class="mono small">07-19</td><td>교재 인쇄 (BTS 2)</td><td>Melca</td><td>교재·인쇄</td><td class="r amt">₱2,401</td><td class="small">장지웅 승인</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">세로·가로 축은 바꿀 수 있습니다 — «올린 사람 × 월», «종류 × 월» 로 놓으면 그대로 월별 추이표가 됩니다. 문서·휴가는 금액이 없으니 <b>건수만</b> 씁니다(0원으로 적지 않습니다 — 지어내는 숫자가 됩니다).</p>
+    <div class="pros">
+      <div><h4>좋은 점</h4><ul>
+        <li><b>「누가 무엇을 얼마나」가 한 번도 안 누르고 보입니다</b> — 사장님이 아침에 30초.</li>
+        <li><b>회계 대조에 제일 셉니다</b> — 이미 있는 지출 정리(C안)의 «지출 항목» 이 가로축이 되면 통장 지출과 나란히 놓입니다.</li>
+        <li>드릴다운이 곧 「지난 결재 찾기」라서 <b>서버는 지금 있는 것을 그대로</b> 씁니다(집계 SQL 하나만 새로).</li>
+      </ul></div>
+      <div><h4>아쉬운 점</h4><ul>
+        <li><b>폰에서는 표가 옆으로 굴러갑니다</b>(열 5개). 폰 전용으로는 «세로축만» 접는 축약이 필요합니다.</li>
+        <li>결재 건수가 적을 때는 <b>빈 칸(—)이 많아</b> 썰렁합니다 — 지금 4건이면 표 대부분이 빕니다.</li>
+        <li>익숙하지 않은 사람에게는 「표를 누른다」가 <b>한 번은 알려 줘야</b> 합니다.</li>
+      </ul></div>
+    </div>
+    <p class="fit"><b>맞는 사람:</b> 숫자로 경영을 보는 사장님·회계 담당. <b>만들기:</b> 하루 반.</p>
+  </section>
+
+  <!-- ═══════════ 추천 ═══════════ -->
+  <section class="reco" id="reco">
+    <h2>제 추천 — D(매트릭스)를 첫 화면으로, A 의 「내가 결재한 것」 함을 그 옆에</h2>
+    <p>사장님 말씀의 핵심은 「모두 한 번에」입니다. 네 축을 <b>한 눈에</b> 놓는 것은 D 하나뿐이고(A·B 는 한 축씩, C 는 탭을 눌러야 다음 축), 그러면서도 서버는 지금 있는 「지난 결재 찾기」를 그대로 씁니다. 다만 D 만 있으면 「내가 결재한 것만 쭉 보기」가 한 칸 클릭이라 <b>A 의 함 한 줄(전체 · 내가 결재한 것 · 내가 올린 것)을 표 위에 칩으로</b> 둡니다. 폰에서는 표를 세로축만 남긴 «결재자별 합계 목록» 으로 접습니다.</p>
+    <table class="cmp">
+      <tr><th></th><th>A 함+표</th><th>B 타임라인</th><th>C 보기 전환</th><th>D 매트릭스</th></tr>
+      <tr><td>네 축을 한 번에</td><td><span class="dotc y"></span>한 축씩</td><td><span class="dotc y"></span>기간 위주</td><td><span class="dotc g"></span>탭으로 전부</td><td><span class="dotc g"></span>한 표에</td></tr>
+      <tr><td>폰에서</td><td><span class="dotc y"></span>드로어 필요</td><td><span class="dotc g"></span>제일 좋음</td><td><span class="dotc y"></span>보드가 무너짐</td><td><span class="dotc y"></span>축약 필요</td></tr>
+      <tr><td>회계 대조</td><td><span class="dotc y"></span>엑셀로</td><td><span class="dotc y"></span>월 합계</td><td><span class="dotc y"></span>표 보기에서</td><td><span class="dotc g"></span>제일 셈</td></tr>
+      <tr><td>만드는 양</td><td><span class="dotc g"></span>반나절</td><td><span class="dotc g"></span>하루</td><td><span class="dotc r"></span>이틀+</td><td><span class="dotc y"></span>하루 반</td></tr>
+      <tr><td>서버 새로 만들 것</td><td>함 3종 조건</td><td>월별 집계 1</td><td>보기 4 + 저장</td><td>집계 SQL 1</td></tr>
+    </table>
+    <p style="margin-top:16px"><b>순서를 정해 주시면 이렇게 갑니다:</b></p>
+    <ol>
+      <li>맨 위 요약 줄에 <b>「결재 보관함」 카드</b>(공통) — 올해 건수·승인 금액·마지막 결재.</li>
+      <li>고르신 시안의 첫 화면 — D 라면 <b>결재자 × 종류 매트릭스 + 기간 칩</b>, 칸 클릭 → 드릴다운(= 지금 「지난 결재 찾기」 결과).</li>
+      <li><b>「내가 결재한 것」 함</b>(서버 조건 한 줄 — 지금 없는 것).</li>
+      <li>권한은 그대로 — 전체는 결재 권한자만, 직원은 자기 것만. 인사·급여는 지금처럼 경영진만.</li>
+    </ol>
+    <p style="margin-top:14px" class="small">⚠️ 숫자는 전부 예시입니다. 운영 D1 의 지금 결재는 4건(₱2,801)뿐이라 어느 시안이든 <b>처음 몇 달은 표가 비어 보입니다</b> — 그래서 빈 칸을 «—» 로 두고 0 을 지어내지 않는 것을 어느 시안이든 전제로 했습니다.</p>
+  </section>
+</div>

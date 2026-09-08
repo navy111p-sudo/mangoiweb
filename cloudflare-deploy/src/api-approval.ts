@@ -52,6 +52,7 @@ import {
   CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
   canDelete, isApprovalFileKey,
+  buildArchiveFacets, archivePeriods,                  // 🗂 결재 보관함 — 함 옆 건수·기간 함 경계
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -903,7 +904,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a8-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a9-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${hourBucket}"`;
     const headers = {
@@ -983,6 +984,38 @@ export async function handleApprovalApi(
     ).bind(me).first(), null);
     const openFailed = !openRow;
     const myOpen = Number(openRow?.c || 0);
+
+    /* 🗂 결재 보관함 카드(시안 A, 2026-09-08) — 「올해 몇 건 · 마지막 결재가 언제·누구」.
+       범위는 금액 타일과 같다(경영진=전체 · 그 밖=내가 올린 것) — 한 줄에 놓인 카드가
+       서로 다른 범위를 말하면 사람이 숫자가 안 맞는다고 느낀다.
+       ⚠️ 마지막 결재는 approval_requests.decided_by 가 아니라 **approval_steps 의 도장**으로 본다 —
+          앞 칸은 회수하면 기안자 이름이 들어간다(«결재» 가 아닌 것이 섞인다). */
+    const yearFrom = nowMonth.slice(0, 4) + '-01-01';
+    const archRow: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM approval_requests
+        WHERE date(created_at/1000,'unixepoch','+9 hours') >= ?` + (sumAll ? '' : ' AND requester_username = ?')
+    ).bind(...(sumAll ? [yearFrom] : [yearFrom, me])).first(), null);
+    const lastStamp: any = await safe(async () => await env.DB.prepare(
+      `SELECT s.decided_by AS u, s.decided_at AS at
+         FROM approval_steps s JOIN approval_requests r ON r.id = s.request_id
+        WHERE s.decided_at IS NOT NULL AND s.status IN ('approved','rejected')` +
+        (sumAll ? '' : ' AND r.requester_username = ?') +
+      ` ORDER BY s.decided_at DESC LIMIT 1`
+    ).bind(...(sumAll ? [] : [me])).first(), null);
+    let lastName: string | null = null;
+    if (lastStamp?.u) {
+      const acc = (await hqAccounts(env)).find(a => String(a.username) === String(lastStamp.u));
+      lastName = acc?.name ? String(acc.name) : null;
+    }
+    const homeArchive = {
+      year_from: yearFrom,
+      /* 못 읽었으면 «0» 이 아니라 «모른다» — 화면이 «—» 로 그린다. */
+      year_count: archRow ? Number(archRow.n || 0) : null,
+      last_decided_at: lastStamp?.at ? Number(lastStamp.at) : null,
+      last_decided_by: lastStamp?.u ? String(lastStamp.u) : null,
+      last_decided_by_name: lastName,
+      unknown: !archRow,
+    };
 
     // ① 내가 결재할 것 — 내 단계이고, 내가 올린 건이 아닌 것
     //    정렬은 «마감이 급한 순 → 오래된 순». 시각에 기대지 않으므로 내용이 같으면 순서도 같다.
@@ -1133,6 +1166,8 @@ export async function handleApprovalApi(
         /* 조회가 실패했으면 «0» 이 아니라 «모른다» 다 — 화면이 그 사실을 말한다. */
         money_unknown: moneyFailed,
         open_unknown: openFailed,
+        /* 🗂 결재 보관함 카드 */
+        archive: homeArchive,
         /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
            정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
         inbox_capped: inbox.length >= 20,
@@ -1465,19 +1500,79 @@ export async function handleApprovalApi(
     /* 📊 지출 정리 — 목록 대신 «합계» 를 돌려준다.
        ⚠️ 새 경로를 만들지 않는다(A안과 같은 이유 — 관문 셋 중 둘이 공동 금지구역). */
     const report = url.searchParams.get('view') === 'report';
+    /* 🗂 결재 보관함(시안 A) — 함 옆 건수. 새 경로를 만들지 않는다(같은 이유). */
+    const facets = url.searchParams.get('view') === 'facets';
+    /* 🗂 결재자별 함 — «그 사람이 결재한 건». all 과 같은 등급(결재 권한자만). */
+    const fBy    = String(url.searchParams.get('decided_by') || '').trim().slice(0, 60);
     const limit  = report ? REPORT_MAX
                           : (csv ? 500 : Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20)));
     /* ⚠️ report 는 offset 을 무시한다 — 주소로 넣으면 «앞부분» 이 아니라 «중간만» 센
        합계가 나오는데 truncated 는 그 사실을 말하지 못한다. */
     const offset = report ? 0 : Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
-    if ((scope === 'pending' || scope === 'all') && !approver) {
+    if ((scope === 'pending' || scope === 'all' || fBy) && !approver) {
       return json({ ok: false, error: 'forbidden_scope' }, 403);
+    }
+
+    /* 🗂 함 옆 건수 — 정본 buildArchiveFacets 가 SQL 을 만들고 여기서는 돌리기만 한다.
+       [왜 SQL 집계를 그대로 써도 되나] 범위가 canView 를 무조건 통과하는 것뿐이라서 —
+         경영진=전체 · 그 밖=«내가 올린 것 ∪ 내가 도장 찍은 것»(정본 주석 참고).
+       ⚠️ 하나라도 못 읽으면 그 칸은 null 로 두고 unknown 을 켠다 — «0건» 과 «못 읽음» 은 다르다. */
+    if (facets) {
+      const exec = iAmExec;                 // 경영진=전체(맨 위 타일과 같은 판정)
+      const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+      const F = buildArchiveFacets({ me, exec, ph, today });
+      let unknown = false;
+      const one = async (piece: { sql: string; binds: any[] }) =>
+        safe(async () => await env.DB.prepare(piece.sql).bind(...piece.binds).first<any>(), null);
+      const all = async (piece: { sql: string; binds: any[] }) =>
+        safe(async () => (await env.DB.prepare(piece.sql).bind(...piece.binds).all<any>()).results || [], null);
+      const tot = await one(F.totals);
+      if (!tot) unknown = true;
+      /* 기간 함은 «경계» 도 함께 내려준다 — 화면이 달 계산을 따로 하면 두 벌이 되어 어긋난다
+         (서버는 KST 로 세고 화면은 브라우저 시계로 세는 식). */
+      const bounds = archivePeriods(today);
+      const periods: Record<string, { from: string; to: string; n: number | null }> = {};
+      for (const k of Object.keys(F.periods)) {
+        const r = await one(F.periods[k]);
+        if (!r) unknown = true;
+        periods[k] = { from: bounds[k].from, to: bounds[k].to, n: r ? Number(r.n || 0) : null };
+      }
+      const tyRows = await all(F.types);
+      if (!tyRows) unknown = true;
+      const types = TYPES.map(t => {
+        const hit = (tyRows || []).find((r: any) => String(r.k) === t.key);
+        return { key: t.key, ko: t.ko, en: t.en, n: tyRows ? Number(hit?.n || 0) : null };
+      });
+      /* 결재자별은 결재 권한자에게만 — 직원에게는 «누가 결재하는 사람인가» 명부가 될 뿐이다. */
+      let approvers: any[] = [];
+      if (approver) {
+        const apRows = await all(F.approvers);
+        if (!apRows) unknown = true;
+        const names = await hqAccounts(env);
+        approvers = (apRows || []).map((r: any) => {
+          const acc = names.find(a => String(a.username) === String(r.u));
+          return { username: String(r.u), name: acc?.name ? String(acc.name) : String(r.u), n: Number(r.n || 0) };
+        });
+      }
+      return json({
+        ok: true,
+        facets: {
+          /* «전체» 는 결재 권한자에게만 뜻이 있다 — 직원의 all_n 은 «내가 볼 수 있는 것» 이라 이름이 거짓이 된다 */
+          all:     (approver && tot) ? Number(tot.all_n || 0) : null,
+          mine:    tot ? Number(tot.mine_n || 0) : null,
+          decided: tot ? Number(tot.decided_n || 0) : null,
+          periods, types, approvers,
+          approver_view: approver,
+          today,
+          unknown,
+        },
+      });
     }
 
     // 조건 조립은 정본 buildFindQuery 하나가 한다 — 여기서 다시 적지 않는다.
     const { cond, binds, order } = buildFindQuery({
-      scope, me, q, type: fType, status: fStat, category: fCat, from, to,
+      scope, me, q, type: fType, status: fStat, category: fCat, from, to, decidedBy: fBy,
     });
 
     /* 한 건 더 읽어 «다음이 있는가» 를 판정한다.
