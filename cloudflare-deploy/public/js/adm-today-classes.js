@@ -327,12 +327,19 @@
      ⚠️ 배정 판정과 상한(대상 미리보기 강제 · 미배정 학생만 · 2000명 초과 force)은 전부
         그 모달과 서버에 이미 있다. 여기서 다시 만들지 않는다 — 문만 하나 더 낸 것이다.
      ⛔ 이 줄을 display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
-  function bookNoteHtml(missing, total) {
+  function bookNoteHtml(missing, total, ltSkipped) {
     if (!missing) return '';
     /* ⚠️ 짧게 쓴다 — 1500px 창에서도 이 카드 폭이 좁아(관리자 zoom 1.3) 긴 문장은 세 줄로 접힌다.
        실측으로 세 줄이 나와 한 번 줄인 문장이다(브라우저 검사 ⑥절이 두 줄 이내로 못 박는다). */
-    var msg = T('📚 표시된 ' + total + '건 중 ' + missing + '건이 교재 미배정 — 학생 명부의 교재 칸이 비어 있습니다.',
-                '📚 ' + missing + ' of ' + total + ' shown have no textbook — the student roster field is empty.');
+    /* 🧪 (2026-09-08) 레벨테스트는 «첫 수업» 이라 교재가 없는 것이 정상이다 — 세지 않는다.
+       ⛔ 대신 «세지 않았다» 를 감추지 않는다: 분모는 «화면에 보이는 줄 수» 그대로 두고
+          몇 건을 왜 뺐는지 꼬리말로 적는다. 그러지 않으면 「4건 다 노란데 왜 2건이라 하지」가 된다
+          (CLAUDE.md 2장 「«없는 것» 을 세는 칸 — 아예 존재하지 않는 종류까지 세고 있지 않은지」·
+           「두 수를 비교해 알려 줄 때 — 두 수의 모집단이 같은지부터」). */
+    var msg = T('📚 표시된 ' + total + '건 중 ' + missing + '건이 교재 미배정 — 학생 명부의 교재 칸이 비어 있습니다.'
+                  + (ltSkipped ? ' (레벨테스트 ' + ltSkipped + '건 제외)' : ''),
+                '📚 ' + missing + ' of ' + total + ' shown have no textbook — the student roster field is empty.'
+                  + (ltSkipped ? ' (' + ltSkipped + ' level test excluded)' : ''));
     /* 🎨 클래스는 `tc-act` 를 그대로 쓴다 — admin-inline-c.css 의 특이성 꼬리 규칙이
        전역 「카드 안 button = 파란 알약」을 이미 이기고 있어 새 CSS 를 만들지 않아도 된다.
        ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것(같은 파일 9503행 경고 — 이 버튼만 흰 버튼이 된다). */
@@ -407,8 +414,10 @@
     var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
     /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
        (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
-    var missing = rows.filter(function (s) { return !s.textbook_assigned; }).length;
-    var bookLine = bookNoteHtml(missing, rows.length);
+    var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test; }).length;
+    /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
+    var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
+    var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
     box.innerHTML = (note
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')

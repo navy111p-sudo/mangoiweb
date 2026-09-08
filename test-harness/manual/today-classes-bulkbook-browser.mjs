@@ -52,6 +52,15 @@ const SESSIONS = [
     textbook_assigned: false, start_time: '13:00', start_ts: NOW, end_ts: NOW + 12e5,
     status: 'live', join_open: false, is_level_test: false },
 ];
+/* 🧪 레벨테스트 1건을 섞은 판 — 첫 수업이라 교재가 없는 것이 정상이라 «세지 않아야» 한다.
+   ⚠️ 「빼는가」만 넣지 않는다 — «빼고 나서도 일반수업은 그대로 센다» 를 짝으로 봐야
+      「아무것도 안 세는 코드」가 통과하지 않는다. */
+const SESSIONS_LT = SESSIONS.concat([{
+  source: 'mangoi', schedule_id: 2004, observable: true, room_id: 'class-2004-20260908',
+  student_uid: 'newkid', student_name: '새하테스트', teacher_name: 'SID', level: null, textbook: null,
+  textbook_assigned: false, start_time: '19:00', start_ts: NOW + 12e6, end_ts: NOW + 12e6 + 18e5,
+  status: 'early', join_open: false, is_level_test: true },
+]);
 /* 전부 배정된 판 — «안 뜬다» 짝 검사용 */
 const SESSIONS_ALL = SESSIONS.map(s => Object.assign({}, s, { textbook_assigned: true, textbook: s.textbook || 'BTS 1 001' }));
 
@@ -203,6 +212,19 @@ async function main() {
   check('배정된 학생만 남으면 줄이 사라진다', !(await ev('!!document.getElementById("tc-bulk-book")')));
   await ev('(function(){var e=document.getElementById("tc-q");e.value="";e.dispatchEvent(new Event("input",{bubbles:true}));})()');
   await sleep(200);
+
+  console.log('\n── ⑤-2 레벨테스트는 세지 않는가 ────────────────────');
+  await reload(SESSIONS_LT);
+  const lt = await ev('(function(){var e=document.querySelector("#tc-body #tc-bulk-book"); return e ? e.parentElement.textContent.trim() : null})()');
+  check('표는 5건인데 «5건 중 3건» 으로 센다 (레벨테스트 1건은 뺀다)', /표시된 5건 중 3건/.test(lt || ''), String(lt));
+  check('   왜 적게 셌는지 말한다 (레벨테스트 1건 제외)', /레벨테스트 1건 제외/.test(lt || ''), String(lt));
+  /* ⚠️ «빼는가» 만 보면 「아무것도 안 세는 코드」도 통과한다 — 일반수업은 그대로 세는지 짝으로 본다 */
+  check('   그래도 일반수업 미배정 3건은 그대로 센다', /중 3건/.test(lt || ''), String(lt));
+  const ltLines = JSON.parse(await ev(`(function(){var b=document.getElementById("tc-bulk-book").parentElement;
+    var r=document.createRange(); r.selectNodeContents(b.firstChild);
+    return JSON.stringify({rects:r.getClientRects().length})})()`));
+  check('   꼬리말이 붙어도 두 줄 이내다', ltLines.rects <= 2, JSON.stringify(ltLines));
+  await reload(SESSIONS);
 
   console.log('\n── ⑥ 글자가 낱글자로 쪼개지지 않는가 ───────────────');
   /* ⛔ display:flex 로 감싸면 짧은 글이 «교 / 재 / 미 / 배 / 정» 으로 쪼개진다(CLAUDE.md 2장).
