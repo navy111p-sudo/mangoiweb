@@ -71,12 +71,25 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
         'runWarmup ' + runs + '회 · takeWarmupReply ' + takes + '회');
   check('A-3b 채택한 답장마다 교정을 확정한다 (버려진 재시도의 교정이 남지 않는다)',
         commits === runs, 'commitFix ' + commits + '회 · runWarmup ' + runs + '회');
-  check('A-3d 모델을 부르는 자리는 runWarmup 한 곳뿐 (폴백이 전 경로에 걸린다)',
-        rawRuns === 2, 'env.AI.run ' + rawRuns + '회 (runWarmup 안 2건이어야)');
+  /* ⚠️ «몇 개인가» 로 못 박지 않는다 — 물어야 할 것은 «어디에 있는가» 다.
+     runWarmup 의 몸통을 중괄호 짝으로 잘라, 그 «밖» 에 env.AI.run 이 없는지 본다. */
+  const rwStart = code.indexOf('const runWarmup');
+  let rwBody = '';
+  if (rwStart >= 0) {
+    const ob = code.indexOf('{', code.indexOf('=>', rwStart));
+    for (let i = ob, d = 0; i < code.length; i++) {
+      if (code[i] === '{') d++;
+      else if (code[i] === '}' && --d === 0) { rwBody = code.slice(ob, i + 1); break; }
+    }
+  }
+  const rawOutside = (code.replace(rwBody, '').match(/env\.AI\.run\(WARMUP_MODEL/g) || []).length;
+  check('A-3d 모델을 부르는 자리는 runWarmup 몸통 «안» 뿐 (폴백이 전 경로에 걸린다)',
+        rwBody.length > 40 && /env\.AI\.run\(WARMUP_MODEL/.test(rwBody) && rawOutside === 0,
+        'runWarmup 몸통 ' + rwBody.length + '자 · 몸통 밖 env.AI.run ' + rawOutside + '회');
   check('A-3c 답장을 버리면 그 교정도 버린다', /rawFix = null;/.test(code));
 
   /* 🔴 2026-09-08 실사고 — 교정 카드가 «한 번도 안 떴습니다».
-     JSON 을 «말로만» 시켰고(같은 모델에 response_format 을 쓰는 곳이 이미 9곳 있었는데),
+     JSON 을 «말로만» 시켰고(같은 모델에 response_format 을 쓰는 곳이 이미 여덟 곳 있었는데),
      프롬프트는 [형식] 「평문으로만 써」 와 정면으로 부딪히고 있었습니다.
      실패 방향은 안전했지만 «조용해서» 아무도 못 봤습니다 — 그래서 셋을 못 박습니다. */
   const viaOpts = (code.match(/warmupAIOpts\(/g) || []).length;
@@ -85,11 +98,45 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
         'env.AI.run ' + rawRuns + '회 · warmupAIOpts ' + viaOpts + '회');
   check('A-8b 모델이 그 옵션을 거절하면 한 번 끄고 다시 부른다 (선례: api-sales-hr.ts)',
         /warmupRF\s*=\s*false/.test(code) && /catch\s*\(rfErr/.test(code));
+  /* 🔴 «거절되면 다시 부른다» 만 검사하면, 429·타임아웃까지 재시도하는 결함이 그대로
+     통과합니다(함정 대조 실측 — 가드를 지워도 초록이었습니다). CLAUDE.md 「제약이 거부될 때…」
+     — **«다른 오류는 재시도 «안» 한다» 를 짝으로**. 판정 함수를 오려 내 «실제로 돌립니다». */
+  const rfmSrc = (code.match(/const isRfRejection[\s\S]*?\n    \};/) || [''])[0];
+  let isRf = null;
+  try { isRf = new Function('"use strict";' + rfmSrc.replace(/const isRfRejection = \(e: any\): boolean =>/, 'const isRfRejection = (e) =>') + ' return isRfRejection;')(); } catch { isRf = null; }
+  check('A-8b-1 그 판정을 소스에서 오려 내 돌릴 수 있다 (전제)', typeof isRf === 'function');
+  if (typeof isRf === 'function') {
+    const YES = ['response_format is not supported', 'Unrecognized request argument: response_format',
+                 'invalid json_object', 'AiError: 400 Bad Request — json schema'];
+    /* ⚠️ 앞 넷은 «긍정 목록에 안 걸려서» 저절로 false 가 됩니다 — 그것만 두면
+       «먼저 거르는» 줄을 통째로 지워도 초록입니다(실측). 뒤 셋처럼 **두 낱말이 겹치는**
+       메시지를 반드시 섞으세요 — 그때만 «어느 쪽이 이기는가» 가 실제로 검사됩니다. */
+    const NO  = ['429 Too Many Requests', 'Error: request timed out',
+                 'The operation was aborted', '500 Internal Server Error',
+                 'AiError: 400 Bad Request — rate limit exceeded, retry later',
+                 'Error 500: unsupported upstream (capacity exceeded)',
+                 'timed out while validating response_format'];
+    check('A-8b-2 제약 거절이면 다시 부른다', YES.every((m) => isRf(new Error(m)) === true),
+          YES.filter((m) => isRf(new Error(m)) !== true).join(' | ') || '4/4');
+    check('A-8b-3 🔴 429·타임아웃·5xx 는 다시 부르지 않는다 (JSON 모드가 조용히 꺼지면 회귀가 되살아난다)',
+          NO.every((m) => isRf(new Error(m)) === false),
+          NO.filter((m) => isRf(new Error(m)) !== false).join(' | ') || '7/7');
+    check('A-8b-4 그 가드를 실제로 호출한다 (선언만 두고 안 쓰면 무의미)',
+          /!warmupRF\s*\|\|\s*!isRfRejection\(/.test(code));
+  }
   check('A-8c 모델이 평문을 주면 로그로 남긴다 (다시 조용해지지 않게)',
         /warmupPlain\+\+/.test(code) && /no JSON/.test(H));
+  /* ⚠️ «빈 응답» 을 «평문» 으로 세면, 그 로그를 보러 온 사람이 「프롬프트가 안 먹는다」로
+     읽고 엉뚱한 곳을 고칩니다(다른 사실을 한 숫자로 뭉치지 말 것). */
+  check('A-8c-2 «빈 응답» 은 «평문» 과 갈라 센다',
+        /if \(!parsed\.reply\) warmupEmpty\+\+/.test(code) && /else if \(!parsed\.json\) warmupPlain\+\+/.test(code));
+  const capM = INDEX.match(/const WARMUP_MAX_TOKENS = (\d+)/);
+  const cap = capM ? Number(capM[1]) : 0;
+  /* ⚠️ 선언만 보면 «호출부만 200 으로 되돌리는» 변이가 그대로 통과합니다(실측).
+     실제 호출 옵션이 그 상수를 쓰는지, 그리고 숫자를 다시 적지 않았는지 함께 봅니다. */
   check('A-9 교정이 같은 예산에 들어가므로 토큰 상한을 올렸다 (200 은 잘림 위험)',
-        /const WARMUP_MAX_TOKENS = (\d+)/.test(INDEX) && Number(RegExp.$1) >= 300,
-        'WARMUP_MAX_TOKENS=' + (RegExp.$1 || '?'));
+        cap >= 300 && /max_tokens:\s*WARMUP_MAX_TOKENS/.test(code) && !/max_tokens:\s*\d/.test(code),
+        'WARMUP_MAX_TOKENS=' + (cap || '?') + ' · 호출부 숫자 하드코딩 ' + ((code.match(/max_tokens:\s*\d/g) || []).length) + '건');
 
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*\)/.test(H) && !/fix:\s*rawFix/.test(H));

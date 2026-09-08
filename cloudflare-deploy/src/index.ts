@@ -3126,7 +3126,8 @@ const warmupSystem = (friendName: string) => [
 /* 🔢 한 답장의 토큰 상한. 200 이던 것을 320 으로 올렸다(2026-09-08) —
    교정 카드가 붙으면서 같은 예산에 «JSON 껍데기 + 토큰이 비싼 한국어 설명(why_ko)» 이
    함께 들어간다. 잘리면 교정이 통째로 사라지고(파서가 안전하게 버린다) 본문도 문장 중간에서
-   끊긴다. ⚠️ 지연은 «실제로 생성한 만큼» 만 늘어난다 — 보통 답장은 100토큰 안팎이라 그대로다. */
+   끊긴다. ⚠️ 지연·비용은 «실제로 생성한 만큼» 만 늘어난다(상한은 «넘지 마라» 이지 «채워라» 가 아님).
+   ⚠️ 「보통 답장이 몇 토큰인가」는 재지 않았다 — 재려면 배포 뒤 Workers 로그를 보아야 한다. */
 const WARMUP_MAX_TOKENS = 320;
 const WARMUP_MAX_TURNS = 20;   // 저장할 최근 대화(사용자/AI) 최대 개수
 /* 🔴 2026-09-03 — 12(=6턴)에서 20(=10턴)으로 넓혔다. 벨잉글리시 원장님 제보
@@ -4165,19 +4166,36 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
     let rawFix: any = null;
     let stagedFix: any = null;
-    /* 🔴 (2026-09-08) 교정 카드가 «한 번도 안 뜬» 원인 둘 — 사장님 실사용 제보로 잡았다.
+    /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
+       「테스트 했는데 이전과 달라진게 없는데」(교정 카드 미표시) 제보를 고치는 회귀 수리라
+       범위를 이 핸들러 안으로 한정했다. 다른 두 WARMUP_MODEL 호출(3662·4456행)은 안 건드린다
+       — 특히 4456 은 JSON «배열» 을 기대하므로 json_object 를 켜면 깨진다.
+       🔴 (2026-09-08) 교정 카드가 «한 번도 안 뜬» 원인 둘 — 사장님 실사용 제보로 잡았다.
        ① JSON 을 «말로만» 시켰다. 이 저장소는 같은 모델(llama-3.3-70b-fp8-fast)에
-          response_format(json_object) 을 이미 9곳에서 쓰고 있었는데 여기만 안 썼다.
+          response_format(json_object) 을 이미 여덟 곳에서 쓰고 있었는데(2026-09-08 실측) 여기만 안 썼다.
        ② 프롬프트가 자기모순이었다 — [형식] 「평문으로만 써」 가 [출력형식] JSON 과 정면으로
           부딪혀, 모델이 평문을 돌려주면 파서는 «교정 없음» 으로 안전하게 떨어졌다.
           실패 방향은 안전했지만 «조용해서» 아무도 못 봤다(그게 이 저장소가 가장 자주 속는 모양).
        ⚠️ 그래서 이제 «평문이 왔다» 를 로그로 남긴다 — 다시 조용해지지 않게. */
     let warmupPlain = 0;
+    let warmupEmpty = 0;
     let warmupRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: api-sales-hr.ts)
     const warmupAIOpts = (msgs: any[], temperature: number): any => {
       const o: any = { messages: msgs, max_tokens: WARMUP_MAX_TOKENS, temperature };
       if (warmupRF) o.response_format = { type: 'json_object' };
       return o;
+    };
+    /* ⛔ 재시도는 «제약(response_format)이 원인일 때» 만 한다 — CLAUDE.md 2장
+       「제약이 거부될 때 «원래 인자로 다시 부르는» 폴백을 둘 때」.
+       ⚠️ `if (!warmupRF) throw` 로만 가르면 «이미 껐나» 를 물을 뿐이라, 첫 호출의
+          429(뉴런 소진)·타임아웃·5xx 가 전부 이 분기로 들어온다. 그러면 ① 무관한
+          일시 장애 한 번에 warmupRF 가 꺼져 그 요청의 남은 네 경로가 JSON 모드를
+          잃고(= 지금 고치는 그 회귀가 되살아남) ② 로그가 틀린 진단을 남기고
+          ③ 429 에 쓸모없는 재시도가 붙는다(같은 장 목소리 폴백: 「429 는 제외 — 답이 같습니다」). */
+    const isRfRejection = (e: any): boolean => {
+      const m = String((e && (e.message || e.name)) || e || '');
+      if (/\b(429|5\d\d)\b|rate.?limit|quota|capacity|exceed|timeout|timed out|abort|network|fetch failed/i.test(m)) return false;
+      return /response_format|json_object|json schema|unsupported|not supported|unrecognized|invalid|\b400\b/i.test(m);
     };
     /* ⚠️ 모델을 부르는 곳은 «여기 하나» 다 — 폴백을 첫 호출에만 두면 나머지 네 경로가
        그 보호를 못 받고, 「AI 호출 수 == 추출 수」 짝도 어긋난다(하니스가 잡았다). */
@@ -4185,7 +4203,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       try {
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } catch (rfErr: any) {
-        if (!warmupRF) throw rfErr;   // response_format 탓이 아니면 그대로 위로 올린다
+        if (!warmupRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
         console.warn('[warmup] response_format rejected, retrying without:', rfErr?.message || rfErr);
         warmupRF = false;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
@@ -4194,7 +4212,11 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     const takeWarmupReply = (r: any): string => {
       const parsed = parseWarmupOutput((r && (r.response || r.result || '')));
       stagedFix = parsed.fix;
-      if (!parsed.json) warmupPlain++;
+      /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
+         보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.
+         빈 응답은 이 저장소가 이미 아는 별개 현상이고 바로 아래에서 재시도한다. */
+      if (!parsed.reply) warmupEmpty++;
+      else if (!parsed.json) warmupPlain++;
       return parsed.reply;
     };
     /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
@@ -4277,6 +4299,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          교정 카드만 조용히 안 뜨기 때문입니다(2026-09-08 실사고가 정확히 그 모양). */
       console.warn('[warmup] model returned plain text (no JSON) x' + warmupPlain + ' rf=' + warmupRF);
     }
+    if (warmupEmpty) console.warn('[warmup] model returned empty x' + warmupEmpty);
     if (!aiText) {
       aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
       /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
