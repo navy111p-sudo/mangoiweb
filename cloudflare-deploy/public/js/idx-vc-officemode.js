@@ -137,7 +137,11 @@
       var s = t && t.getSettings ? t.getSettings() : null;
       if (s && s.deviceId) return s.deviceId;
     } catch (e) {}
-    try { return localStorage.getItem('mangoi_vc_mic') || ''; } catch (e) { return ''; }
+    /* ⛔ 키 이름을 여기에 복제하지 않는다 — 처음에 'mangoi_vc_mic' 이라고 적었는데 그건 «죽은 키» 였다
+       (정본은 idx-main.js 의 VC_MIC_PREF_KEY = 'mangoi_vc_mic_id'). 읽으면 늘 null 이라 에러 없이
+       «교사가 고른 마이크» 대신 기본 마이크를 잡는다. 정본 함수를 그대로 쓴다. */
+    try { if (typeof window.vcSavedMicId === 'function') return window.vcSavedMicId() || ''; } catch (e) {}
+    try { return localStorage.getItem('mangoi_vc_mic_id') || ''; } catch (e) { return ''; }
   }
 
   function micConstraints(officeOn, id) {
@@ -183,6 +187,23 @@
       procTrack = destNode.stream.getAudioTracks()[0];
       if (!procTrack) throw new Error('가공 트랙 없음');
 
+      /* 🔴 원본 마이크가 죽으면(USB 를 뽑거나 OS 가 장치를 뺏음) «스스로 손을 뗀다».
+         왜 필요한가 — idx-main.js 의 마이크 자가치유(vcHealLocalMic)는
+         「살아 있는 트랙이 하나라도 있으면 그만둔다」로 판정하는데,
+         WebAudio 가 만든 가공 트랙은 **원본이 죽어도 계속 'live'** 다(실측).
+         ⇒ 우리가 끼어 있는 동안에는 그 자가치유가 원리상 못 돈다 = 교사가 조용히 무음이 되고
+            「🎤 마이크가 자동으로 다시 연결됐어요」 안내도 안 나온다.
+         여기서 사무실 모드를 끄면 표준 마이크로 돌아가고, 그때부터 자가치유가 다시 일한다.
+         ⚠️ 저장값은 «켜짐» 으로 둔다(keepPref) — 사람이 끈 것이 아니다. */
+      try {
+        var rawT = rawStream.getAudioTracks()[0];
+        if (rawT) rawT.onended = function () {
+          if (!on) return;
+          console.warn('[office] 원본 마이크가 끊겨 사무실 모드를 해제합니다 — 마이크 자가치유에 넘깁니다');
+          try { disable(true); } catch (e) {}
+        };
+      } catch (e) {}
+
       if (!swapTrack(procTrack)) throw new Error('트랙 교체 실패');
 
       on = true; remember(true);
@@ -216,13 +237,18 @@
     if (t) swapTrack(t);
   }
 
-  async function disable() {
+  /* keepPref=true 면 저장값을 «켜짐» 그대로 둔다.
+     🔴 왜 갈라야 하나 — 수업에서 나갈 때도 이 함수를 부르는데, 무조건 remember(false) 로 두면
+        «사람이 끈 것» 과 «수업이 끝난 것» 이 같은 값이 되어 **설정이 다음 수업으로 안 넘어간다.**
+        (2026-09-08 함정 대조가 잡음: 나가기 전 '1' → 나간 뒤 '0'.)
+        CLAUDE.md 「화면의 «끄기»를 눌렀더니 다시 켤 수가 없음 — 상태가 셋인데 저장이 둘」의 형제. */
+  async function disable(keepPref) {
     if (busy) return;
     busy = true;
     var was = on;
     on = false;
     teardown();
-    remember(false);
+    if (keepPref !== true) remember(false);
     if (was) {
       try { await restorePlainMic(); }
       catch (e) {
@@ -265,18 +291,34 @@
   function bootWraps() {
     rewrap('vcSetNoiseSuppression');
     rewrap('vcSetMicDevice');
+    /* 🔴 vcSwitchMic 은 «직접» 불리는 경로가 둘이라 반드시 감싸야 한다 —
+          index.html 의 <select id="vc-mic-select" onchange="vcSwitchMic(...)"> 와
+          idx-main.js 의 강사→학생 「장치 도우미」 원격 전환.
+          그 함수는 vcLocalStream 의 오디오 트랙을 전부 stop·remove 하므로 우리 가공 트랙이 날아가는데,
+          감싸지 않으면 vcOfficeModeOn() 이 계속 true 라 «켜졌다고 말하는데 아무 일도 안 하는» 상태가 되고
+          게이트 타이머·AudioContext·두 번째 마이크 캡처가 수업 내내 그대로 남는다.
+          (2026-09-08 함정 대조 실측: trackChanged:true · nowRealMic:true 인데 officeSaysOn:true) */
+    rewrap('vcSwitchMic');
   }
 
   /* 수업에 들어간 뒤 «저장된 값» 대로 한 번 건다.
      ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력) —
         showView 를 감싸 그 순간에만 확인한다. */
   var pending = null;
+  /* 🔴 여기서 「지금 수업인가」를 보고 아니면 그만두면 «한 번도 안 도는» 코드가 된다 —
+        입장 순서가 `showView('view-videocall-call')` → `body.classList.add('vc-in-call')` 이라
+        (idx-main.js:2869~2870 · 관찰자 입장 3830~3831도 같음) 우리 훅이 도는 순간 inCall() 은 아직 false 다.
+        (2026-09-08 함정 대조 실측: 그 순서에서 vcOfficeModeOn() 이 영영 false 였다.)
+     ⇒ «수업이 시작되기를» 잠깐 기다렸다가, 시작된 뒤에 마이크가 서면 건다. */
   function armOnce() {
     if (pending) return;
-    var tries = 0;
+    var tries = 0, sawCall = false;
     pending = setInterval(function () {
       tries++;
-      if (!inCall() || tries > 40) { clearInterval(pending); pending = null; return; }
+      if (tries > 40) { clearInterval(pending); pending = null; return; }   // 20초면 포기
+      if (inCall()) sawCall = true;
+      else if (sawCall) { clearInterval(pending); pending = null; return; } // 들어갔다 나갔으면 그만
+      if (!sawCall) return;                                                  // 아직 입장 전 — 더 기다린다
       if (localStream() && audioTrack()) {
         clearInterval(pending); pending = null;
         if (saved() && !on) enable();
@@ -289,7 +331,15 @@
     if (typeof orig !== 'function' || orig.__officeHooked) return false;
     var wrapped = function () {
       var r = orig.apply(this, arguments);
-      try { if (inCall()) { bootWraps(); if (saved()) armOnce(); } else if (on) disable(); } catch (e) {}
+      try {
+        bootWraps();
+        /* ⛔ 여기서 inCall() 로 가르지 않는다 — 위 armOnce 주석대로 입장 때는 아직 false 다.
+           수업 화면으로 «가는» 전환이면 걸고, 수업 «밖» 으로 나가는 전환이면 끈다. */
+        var toCall = false;
+        try { toCall = String(arguments[0] || '').indexOf('videocall') >= 0; } catch (e2) {}
+        if (toCall) { if (saved()) armOnce(); }
+        else if (on) disable(true);   // 수업이 끝난 것 — «사람이 끈 것» 이 아니므로 저장값은 지킨다
+      } catch (e) {}
       return r;
     };
     wrapped.__officeHooked = true;
@@ -300,7 +350,8 @@
   function boot() {
     bootWraps();
     if (!hookShowView()) setTimeout(hookShowView, 1500);
-    if (inCall() && saved()) armOnce();
+    /* 이미 수업 중에 이 파일이 늦게 실린 경우 — armOnce 가 스스로 «입장했나» 를 확인하므로 그냥 건다. */
+    if (saved()) armOnce();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

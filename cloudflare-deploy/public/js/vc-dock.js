@@ -698,7 +698,10 @@
       self.classList.toggle('on', want);
       try {
         var r = call('vcSetOfficeMode', want);
-        if (r && typeof r.then === 'function') r.then(function(ok){
+        /* ⛔ 정본 파일이 안 실렸으면(404·옛 캐시) call() 이 undefined 를 준다 — 그때 그냥 두면
+           «켜졌다고 말하는데 아무 일도 안 하는» 상태가 된다(스위치가 없는 것보다 나쁘다). */
+        if (typeof r === 'undefined') { self.classList.toggle('on', !want); }
+        else if (r && typeof r.then === 'function') r.then(function(ok){
           if (want && ok === false) self.classList.remove('on');
         }).catch(function(){ self.classList.toggle('on', !want); });
       } catch(e){ self.classList.toggle('on', !want); }

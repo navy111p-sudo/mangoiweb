@@ -27,6 +27,15 @@ let id = 0; const pend = new Map();
 ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); } };
 await new Promise(r => ws.onopen = r);
 const cdp = (method, params = {}) => new Promise(res => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
+/* «지금 트랙이 WebAudio 가공 트랙인가» — 실측으로 정한 판별식.
+   ⚠️ 「가공 트랙에는 deviceId 가 없다」는 **틀린 전제였다**(실측: deviceId="WebAudio-<uuid>",
+      label="MediaStreamAudioDestinationNode"). 그걸 전제로 쓰면 ⑦ 은 늘 통과하고 ⑮ 는 정상 코드를
+      «모순» 으로 오판한다 — 2026-09-08 에 실제로 둘 다 겪었다. 두 신호를 함께 본다. */
+const IS_PROC = `(function(t){ if(!t) return null;
+  var s = (t.getSettings && t.getSettings()) || {};
+  return /^WebAudio-/.test(String(s.deviceId||'')) || /MediaStreamAudioDest/i.test(String(t.label||''));
+})`;
+
 const ev = async (expr) => {
   const r = await cdp('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
   if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 400));
@@ -51,6 +60,13 @@ await ev(`(() => { try {
 } catch(e){} return 1; })()`);
 await cdp('Page.navigate', { url: BASE + '/index.html?_nc=' + Date.now() });
 await new Promise(r => setTimeout(r, 4000));
+
+/* ⑪ 이 «소스에 무엇이 적혔는가» 를 봐야 하므로 페이지에서 직접 받아 둔다. */
+await ev(`(async () => {
+  try { window.__officeSrc = await (await fetch('/js/idx-vc-officemode.js?_nc=' + Date.now())).text(); }
+  catch (e) { window.__officeSrc = ''; }
+  return 1;
+})()`);
 
 console.log('\n① 정본 파일이 실려 돌았는가');
 ok(await ev(`typeof window.vcSetOfficeMode === 'function'`), 'window.vcSetOfficeMode 가 있다');
@@ -160,21 +176,32 @@ const agc = await ev(`(() => {
 })()`);
 ok(agc.kind === 'audio', '가공 트랙이 오디오 트랙이다', JSON.stringify(agc));
 
+console.log('\n⑥-2 «가공 트랙인가» 판별식이 실제로 두 상태를 가르는가 (전제)');
+const probe = await ev(`(async () => {
+  var proc = ${IS_PROC}(window.vcLocalStream.getAudioTracks()[0]);   // 지금은 켜져 있다
+  var s = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  var plain = ${IS_PROC}(s.getAudioTracks()[0]);
+  s.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+  return { proc: proc, plain: plain };
+})()`);
+ok(probe.proc === true && probe.plain === false,
+   '판별식이 가공 트랙과 진짜 마이크를 실제로 가른다 — 안 가르면 ⑦·⑦-2·⑮ 가 통째로 헛돈다',
+   JSON.stringify(probe));
+
 console.log('\n⑦ 끄면 «켜기 전» 으로 되돌아가는가');
 const off = await ev(`(async () => {
   var beforeId = window.vcLocalStream.getAudioTracks()[0].id;
   await window.vcSetOfficeMode(false);
   var t = window.vcLocalStream.getAudioTracks()[0];
-  var st = (t && t.getSettings) ? t.getSettings() : {};
   return { on: window.vcOfficeModeOn(), swapped: t && t.id !== beforeId,
            live: t ? t.readyState : null, enabled: t ? t.enabled : null,
-           realMic: !!st.deviceId, saved: localStorage.getItem('mangoi_vc_office') };
+           realMic: ${IS_PROC}(t) === false, saved: localStorage.getItem('mangoi_vc_office') };
 })()`);
 ok(off.on === false, '꺼진다');
 ok(off.swapped === true, '트랙이 표준 마이크로 다시 갈렸다', JSON.stringify(off));
 ok(off.live === 'live', '되돌린 트랙이 살아 있다 — 여기서 죽으면 «소리가 안 나가는» 최악의 실패다');
 ok(off.enabled === false, '되돌릴 때도 음소거 상태를 물려줬다');
-ok(off.realMic === true, '되돌린 것이 «진짜 마이크» 다 (가공 트랙에는 deviceId 가 없다)', JSON.stringify(off));
+ok(off.realMic === true, '되돌린 것이 «진짜 마이크» 다 (WebAudio 가공 트랙이 아니다)', JSON.stringify(off));
 ok(off.saved === '0', '저장값이 0 이다');
 
 /* 🔴 2026-09-08 에 실제로 난 결함의 재발 감시 —
@@ -197,8 +224,7 @@ const fallback = await ev(`(async () => {
   await window.vcSetOfficeMode(false);
   navigator.mediaDevices.getUserMedia = orig;
   var t = window.vcLocalStream.getAudioTracks()[0];
-  var st = (t && t.getSettings) ? t.getSettings() : {};
-  return { armed: true, live: t ? t.readyState : null, realMic: !!st.deviceId,
+  return { armed: true, live: t ? t.readyState : null, realMic: ${IS_PROC}(t) === false,
            swapped: t && t.id !== midId, on: window.vcOfficeModeOn() };
 })()`);
 ok(fallback.armed === true, '전제: 사무실 모드가 실제로 켜진 상태에서 껐다', JSON.stringify(fallback));
@@ -248,6 +274,113 @@ ok(!en.skip && en.hasAttr, 'label 에 data-en 이 있다', JSON.stringify(en));
 ok(en.en === 'Office mode' || en.en !== en.ko, `EN 토글로 라벨이 바뀐다 (KO "${en.ko}" → "${en.en}")`);
 
 await ev(`(() => { try { localStorage.setItem('mangoi_lang','ko'); } catch(e){} return 1; })()`);
+
+/* ══ 아래 ⑪~⑮ 는 2026-09-08 함정 대조가 찾아낸 결함들의 재발 감시다.
+      ⚠️ 그때 이 파일의 검사 34종이 «전부 통과» 하면서 넷 중 하나도 못 잡았다 —
+         「보인다·눌린다·켜진다」만 재고 «언제 걸리는가»·«무엇을 읽는가» 를 안 봤기 때문이다. ══ */
+
+console.log('\n⑪ 죽은 localStorage 키를 쓰지 않는가');
+const micKey = await ev(`(() => {
+  var src = window.__officeSrc || '';
+  /* ⚠️ 부정 검사(«이 이름이 없어야 한다»)는 «주석을 벗겨 낸 사본» 으로 판정한다 —
+        그 죽은 키 이름은 «왜 이렇게 했는지» 를 설명하는 주석에 일부러 남겨 두었고,
+        원본으로 재면 검사가 자기 주석을 잡는다(CLAUDE.md 「부정 검사가 자기 주석을 잡음」).
+     ⛔ 블록주석을 정규식 한 줄로 지우지 않는다 — 문자열 속 «별표+슬래시» 하나에 뒷부분이
+        통째로 날아가 멀쩡한 코드가 «없다» 로 판정된다. 줄 단위로 «지금 블록주석 안인가» 를 추적한다. */
+  var out = [], inBlk = false;
+  src.split('\\n').forEach(function (ln) {
+    var keep = '', i = 0;
+    while (i < ln.length) {
+      if (inBlk) { var e = ln.indexOf('*' + '/', i); if (e < 0) { i = ln.length; } else { inBlk = false; i = e + 2; } }
+      else {
+        var b = ln.indexOf('/' + '*', i), l = ln.indexOf('//', i);
+        if (l >= 0 && (b < 0 || l < b)) { keep += ln.slice(i, l); i = ln.length; }
+        else if (b >= 0) { keep += ln.slice(i, b); inBlk = true; i = b + 2; }
+        else { keep += ln.slice(i); i = ln.length; }
+      }
+    }
+    out.push(keep);
+  });
+  var code = out.join('\\n');
+  return { usesCanonFn: /window\\.vcSavedMicId/.test(code),
+           deadKey: /'mangoi_vc_mic'/.test(code),
+           strippedOk: code.length > 0 && code.length < src.length,
+           realKeyExists: typeof window.vcSavedMicId === 'function' };
+})()`);
+ok(micKey.strippedOk === true, '전제: 주석을 실제로 벗겨 냈다 (안 벗기면 자기 주석을 잡는다)', JSON.stringify(micKey));
+ok(micKey.realKeyExists, '정본 vcSavedMicId() 가 존재한다 (전제)', JSON.stringify(micKey));
+ok(micKey.usesCanonFn && !micKey.deadKey,
+   "정본 함수를 쓰고 죽은 키 'mangoi_vc_mic' 을 안 쓴다 — 그 키는 읽으면 늘 null 이라 교사가 고른 마이크를 잃는다",
+   JSON.stringify(micKey));
+
+console.log('\n⑫ 실제 «입장 순서» 로 들어가면 저장값대로 켜지는가');
+/* 🔴 입장은 showView('view-videocall-call') 가 «먼저», body.vc-in-call 이 «나중» 이다
+      (idx-main.js:2869~2870). 그 순서에서 안 걸리면 「수업에 들어가면 자동으로 켜진다」가 거짓말이 된다. */
+const enter = await ev(`(async () => {
+  await window.vcSetOfficeMode(false);
+  try { localStorage.setItem('mangoi_vc_office','1'); } catch(e){}
+  document.body.classList.remove('vc-in-call');
+  window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  try { window.showView('view-videocall-call'); } catch(e){}
+  document.body.classList.add('vc-in-call');          // ← 실제 순서대로 «나중에»
+  for (var i = 0; i < 30 && !window.vcOfficeModeOn(); i++) await new Promise(r => setTimeout(r, 400));
+  return { on: window.vcOfficeModeOn() };
+})()`);
+ok(enter.on === true,
+   '실제 입장 순서(showView → vc-in-call)에서 저장값대로 «자동으로» 켜진다', JSON.stringify(enter));
+
+console.log('\n⑬ 수업이 끝나면 설정이 «다음 수업까지» 남는가');
+/* 🔴 disable() 이 무조건 remember(false) 면 나갈 때마다 지워져 저장 기능 자체가 무의미해진다.
+      «사람이 끈 것» 과 «수업이 끝난 것» 은 다른 사실이다. */
+const leave = await ev(`(async () => {
+  var before = localStorage.getItem('mangoi_vc_office');
+  document.body.classList.remove('vc-in-call');
+  try { window.showView('view-home'); } catch(e){}
+  await new Promise(r => setTimeout(r, 800));
+  return { before: before, after: localStorage.getItem('mangoi_vc_office'), on: window.vcOfficeModeOn() };
+})()`);
+ok(leave.before === '1' && leave.after === '1',
+   '수업에서 나가도 저장값이 «켜짐» 으로 남는다 (사람이 끈 것이 아니다)', JSON.stringify(leave));
+ok(leave.on === false, '그래도 실제 동작은 꺼진다 (수업 밖에서 마이크를 쥐고 있지 않는다)');
+
+console.log('\n⑭ 사람이 «직접» 끄면 저장값도 꺼지는가 (⑬의 짝)');
+const manualOff = await ev(`(async () => {
+  document.body.classList.add('vc-in-call');
+  window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  await window.vcSetOfficeMode(true);
+  var mid = localStorage.getItem('mangoi_vc_office');
+  await window.vcSetOfficeMode(false);
+  return { mid: mid, after: localStorage.getItem('mangoi_vc_office') };
+})()`);
+ok(manualOff.mid === '1' && manualOff.after === '0',
+   '스위치로 끄면 저장값도 0 이 된다 — 짝이 없으면 «영영 안 꺼지는» 반대 사고가 난다', JSON.stringify(manualOff));
+
+console.log('\n⑮ vcSwitchMic 을 «직접» 불러도 상태가 거짓말하지 않는가');
+/* 🔴 index.html 의 <select onchange="vcSwitchMic(...)"> 와 강사→학생 「장치 도우미」가 그 함수를
+      직접 부른다. 그 함수는 vcLocalStream 의 오디오 트랙을 전부 stop·remove 하므로 가공 트랙이 날아간다. */
+const swMic = await ev(`(async () => {
+  if (typeof window.vcSwitchMic !== 'function') return { skip: true };
+  await window.vcSetOfficeMode(true);
+  if (!window.vcOfficeModeOn()) return { armed: false };
+  var devs = await navigator.mediaDevices.enumerateDevices();
+  var mic = devs.find(d => d.kind === 'audioinput');
+  await window.vcSwitchMic(mic ? mic.deviceId : '');
+  await new Promise(r => setTimeout(r, 1200));
+  var t = window.vcLocalStream.getAudioTracks()[0];
+  return { armed: true, on: window.vcOfficeModeOn(), realMic: ${IS_PROC}(t) === false,
+           live: t ? t.readyState : null };
+})()`);
+ok(swMic.skip || swMic.armed === true, '전제: 사무실 모드가 켜진 상태에서 마이크를 바꿨다', JSON.stringify(swMic));
+ok(swMic.skip || swMic.live === 'live', '마이크를 바꾼 뒤에도 소리가 나간다', JSON.stringify(swMic));
+/* ⛔ 여기를 «on 이거나 realMic 이거나» 로 느슨하게 물으면 안 된다 — 래퍼를 지운 변이가 그대로
+      통과한다(2026-09-08 변이시험 실측). 잡아야 하는 것은 «모순» 이다:
+      「켜졌다(on=true)」고 말하는데 트랙이 «진짜 마이크»(realMic=true)면 가공이 안 되고 있다는 뜻 = 거짓말.
+      정상은 둘 중 하나다 — 다시 걸렸다(on=true · realMic=false) 또는 정직하게 껐다(on=false · realMic=true). */
+ok(swMic.skip || !(swMic.on === true && swMic.realMic === true),
+   'vcOfficeModeOn() 이 «실제 상태» 와 어긋나지 않는다 — 다시 걸렸거나, 껐다고 정직하게 말한다',
+   JSON.stringify(swMic));
+
+await ev(`(async () => { try { await window.vcSetOfficeMode(false); } catch(e){} return 1; })()`);
 
 console.log(`\n════════════════════════════════\n  PASS ${pass}  FAIL ${fail}\n════════════════════════════════`);
 try { ws.close(); } catch (e) {}
