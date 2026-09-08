@@ -5084,7 +5084,7 @@ function vcArmFullscreenRetry() {
                 if (rtt > 0) { const b = pc.__qRttBase; pc.__qRttBase = (b == null || rtt < b) ? rtt : b + (rtt - b) * 0.02; }
                 const rb = Math.min(pc.__qRttBase || 0, 500);
                 const rttDown = Math.max(450, rb + 200), rttUp = Math.max(250, rb + 100);
-                const LOSS_MID_STEP = 2;   // 손실 애매(1.5~6%) 시 회복 상한 ×0.35·1/2
+                const LOSS_MID_STEP = 2, MID_TICKS = 15;
                 const held = Date.now() - (pc.__qBadAt || 0) > 30000;
                 if (lossPct > 6 || rtt > rttDown) {
                     pc.__qGood = 0; pc.__qMid = 0; pc.__qBadAt = Date.now();
@@ -5093,13 +5093,11 @@ function vcArmFullscreenRetry() {
                     pc.__qGood = (pc.__qGood || 0) + 1; pc.__qMid = (pc.__qMid || 0) + 1;
                     if (pc.__qGood >= 8 && held && step > 0) { step--; pc.__qGood = 0; pc.__qMid = 0; }
                 } else if (lossPct >= 1.5) {
-                    /* 📉 (2026-09-08) 손실 축 사각지대 — 6% 초과만 내려가고 1.5% 미만만 회복이라 그 «사이» 에 굳었다.
-                       __qMid 는 «나쁘지 않은» 틱만 세어 LOSS_MID_STEP 까지 «부분 회복» 시킨다(__qGood 은 옛대로 지운다).
-                       근거·⛔·변이시험: vc_quality_blindspot_harness ④-3 */
+                    /* 손실 축 사각지대(2026-09-08) — vc_quality_blindspot_harness ④-3 */
                     pc.__qGood = 0;
                     if (rtt === 0 || rtt < rttUp) {
                         pc.__qMid = (pc.__qMid || 0) + 1;
-                        if (pc.__qMid >= 8 && held && step > LOSS_MID_STEP) { step--; pc.__qMid = 0; }
+                        if (pc.__qMid >= MID_TICKS && held && step > LOSS_MID_STEP) { step--; pc.__qMid = 0; }
                     } else { pc.__qMid = 0; }
                 }
                 if (step !== (pc.__qStep || 0)) {
