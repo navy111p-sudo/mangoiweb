@@ -1928,6 +1928,93 @@ function showAnswerChips(list){
     _renderAnswerChips(list);
   }, ANS_DELAY_MS);
 }
+/* ══════════════════════════════════════════════════════════════
+   ✏️ 교정 카드 (2026-09-08) — 서버가 «검증해서» 준 것만 그린다.
+   서버 판정 정본은 src/warmup-correction.ts. 화면은 판정을 다시 하지 않는다.
+   ⛔ was/now 는 학생·모델이 만든 «값» 이므로 data-ko/data-en 을 달지 않는다
+      (i18n 엔진이 textContent 를 통째로 갈아끼워 문장이 사라진다 — CLAUDE.md 2장).
+      번역이 필요한 것은 «라벨» 뿐이고, 라벨은 자기 span 을 따로 갖는다.
+   ══════════════════════════════════════════════════════════════ */
+function fixCardClear(){
+  try{
+    var olds = document.querySelectorAll('.fix-card');   // 같은 카드가 두 벌 쌓이는 것 방지
+    for(var i=0;i<olds.length;i++) olds[i].remove();
+  }catch(e){}
+}
+function _fixLabel(el, ko, en){
+  el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+  el.textContent = (typeof getLang === 'function' && getLang() === 'en') ? en : ko;
+}
+function showFixCard(fix, offerRepeat){
+  fixCardClear();
+  if(!fix || !fix.was || !fix.now) return;              // 서버가 «교정 없음» 이면 아무것도 안 그린다
+  var card = document.createElement('div');
+  card.className = 'fix-card';
+
+  var t = document.createElement('div'); t.className = 'fix-title';
+  _fixLabel(t, '✨ 이렇게 말하면 더 좋아요', '✨ Even better like this');
+  card.appendChild(t);
+
+  var mk = function(labKo, labEn, val, cls){
+    var row = document.createElement('div'); row.className = 'fix-line';
+    var l = document.createElement('span'); l.className = 'fix-lbl';
+    _fixLabel(l, labKo, labEn);
+    var v = document.createElement('span'); v.className = cls; v.textContent = val;
+    row.appendChild(l); row.appendChild(v); return row;
+  };
+  card.appendChild(mk('내가 말한 것', 'You said', String(fix.was), 'fix-was'));
+  card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
+
+  if(fix.why_ko){
+    var w = document.createElement('div'); w.className = 'fix-why';
+    w.textContent = '💡 ' + String(fix.why_ko);        // 한국어 설명 — 번역 대상이 아니다
+    card.appendChild(w);
+  }
+
+  var acts = document.createElement('div'); acts.className = 'fix-acts';
+  var listen = document.createElement('button');
+  listen.type = 'button'; listen.className = 'fix-btn';
+  _fixLabel(listen, '🔊 들어보기', '🔊 Listen');
+  listen.onclick = function(){ try{ speak(String(fix.now), listen); }catch(e){} };
+  acts.appendChild(listen);
+
+  /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «웜업» 을 «수업» 으로
+     바꾼다(제안서 P1-b). 서버가 «3턴에 한 번» 만 offerRepeat 을 켠다. */
+  if(offerRepeat){
+    var say = document.createElement('button');
+    say.type = 'button'; say.className = 'fix-btn';
+    _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
+    say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+    acts.appendChild(say);
+  }
+  card.appendChild(acts);
+  log.appendChild(card); log.scrollTop = log.scrollHeight;
+}
+/* 문장을 들려준 «뒤에» 마이크를 연다.
+   speak() 는 끝났음을 알려 주는 콜백이 밖으로 없지만, 재생이 끝나면 넘긴 버튼에서
+   'playing' 클래스를 떼는 계약이 이미 있다 — 그것을 신호로 쓴다.
+   ⚠️ 소리가 꺼져 있으면(_speechOn=false) 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
+   ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
+function fixSpeakThenMic(btn, text){
+  var opened = false;
+  var openMic = function(){
+    if(opened) return; opened = true;
+    btn.disabled = false;
+    try{
+      if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 이미 듣는 중
+      if(typeof toggleMic === 'function') toggleMic();
+    }catch(e){}
+  };
+  btn.disabled = true;
+  try{ speak(text, btn); }catch(e){ openMic(); return; }
+  var t0 = Date.now();
+  var iv = setInterval(function(){
+    if(!btn.classList.contains('playing') || Date.now() - t0 > 15000){
+      clearInterval(iv); openMic();
+    }
+  }, 250);
+}
+
 function _renderAnswerChips(list){
   if(!list || !list.length) return;
   var card = document.createElement('div');
@@ -2036,6 +2123,7 @@ async function sendMsg(){
 
   addMsg(text, 'me'); inp.value = '';
   ansCardClear();                           // 💬 내가 말했으니 이전 «대답 보기» 는 걷는다
+  fixCardClear();                           // ✏️ 이전 «교정 카드» 도 함께 걷는다
   bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
   sending = true; document.getElementById('sendBtn').disabled = true;
 
@@ -2057,6 +2145,7 @@ async function sendMsg(){
     } else {
       var d = await r.json();
       addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+      showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
       showAnswerChips(d.answer_chips);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
     }
   }catch(e){
@@ -2120,6 +2209,37 @@ async function sendMsg(){
 }
 /* 빈 껍데기가 된 옛 칩 자리는 줄 간격만 남기지 않게 */
 #qsChips:empty{ display:none!important; }
+
+/* ①-3 ✏️ 교정 카드 (2026-09-08) — «질문 추천»(노랑)·«대답 보기»(초록)와 색으로 가른다.
+   ⛔ 빨강 계열을 쓰지 않는다. 야단이 아니라 대화로 보여야 한다(제안서 P1). */
+.fix-card{ align-self:flex-start; max-width:88%; display:flex; flex-direction:column; gap:8px;
+  padding:11px 13px; border-radius:16px; border:1px solid rgba(56,189,248,.38);
+  background:linear-gradient(180deg,rgba(56,189,248,.13),rgba(56,189,248,.04));
+  animation:msgIn .22s ease both; }
+/* 색은 «눈대중» 이 아니라 재서 정한다 — #7dd3fc 는 이 배경에서 3.94:1 로 기준(4.5) 아래였다.
+   가장 밝은 것은 «고친 문장»(fix-now) 이어야 한다. 그것이 읽어야 할 것이기 때문이다. */
+.fix-card .fix-title{ font-size:13px; font-weight:800; color:#bae6fd; }
+/* ⛔ 이 줄에 display:flex 를 쓰지 않는다 — 문장이 흐르는 줄에 flex 를 쓰면 좁은 폰에서
+   글자마디마다 아이템이 되어 «내 / 가 / 말 / 한 것» 으로 쪼개진다(CLAUDE.md 2장).
+   라벨은 그냥 인라인으로 두면 문장과 함께 자연스럽게 흐른다. */
+.fix-card .fix-line{ font-size:15px; line-height:1.45; }
+.fix-card .fix-lbl{ font-size:12px; font-weight:800; opacity:.8; margin-right:7px; }
+.fix-card .fix-was{ opacity:.72; }
+.fix-card .fix-now{ font-weight:800; color:#e0f2fe; }
+.fix-card .fix-why{ font-size:13.5px; line-height:1.5; opacity:.9; }
+.fix-card .fix-acts{ display:flex; gap:7px; flex-wrap:wrap; }
+.fix-card .fix-btn{ font-family:inherit; cursor:pointer; color:var(--text);
+  background:rgba(56,189,248,.14); border:1px solid rgba(56,189,248,.34);
+  border-radius:14px; padding:8px 13px; font-size:14px; font-weight:700;
+  transition:background .15s, transform .08s; }
+.fix-card .fix-btn:hover{ background:rgba(56,189,248,.27); }
+.fix-card .fix-btn:active{ transform:scale(.97); }
+.fix-card .fix-btn:disabled{ opacity:.55; cursor:wait; }
+@media (min-width:760px){
+  .fix-card .fix-title{ font-size:15px; }
+  .fix-card .fix-line{ font-size:17px; }
+  .fix-card .fix-btn{ font-size:15px; }
+}
 
 /* ② 폰(≤640px): 아바타를 가로 한 줄로 — 얼굴은 그대로 보이되 높이를 크게 아낀다.
       높이는 mango-avatar.js 가 인라인으로 넣으므로 !important 로 덮는다(비율 4:5 유지). */

@@ -50,6 +50,7 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
+import { WARMUP_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
@@ -4129,6 +4130,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
+       따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
+       ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
+          takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
+          중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
+    sys += '\n' + WARMUP_CORRECTION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4146,9 +4153,25 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
 
     // ── Workers AI 호출 ──
     let aiText = '';
+    /* ✏️ 모델 출력은 이제 JSON({reply,fix}) 이다. 아래 다섯 자리(첫 호출·빈응답 재시도·
+       무너짐 재시도·이름 재시도·반복 재시도)가 «전부» 이 한 곳을 지나야 한다.
+       ⛔ 새 재시도를 추가할 때 이것을 빼먹으면 그 경로만 조용히 중괄호를 내보낸다.
+       fix 는 «마지막으로 본 것» 을 남긴다 — 다시 뽑았으면 그 답의 교정이 맞다.
+       파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
+    let rawFix: any = null;
+    let stagedFix: any = null;
+    const takeWarmupReply = (r: any): string => {
+      const parsed = parseWarmupOutput((r && (r.response || r.result || '')));
+      stagedFix = parsed.fix;
+      return parsed.reply;
+    };
+    /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
+       재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
+       화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
+    const commitFix = () => { rawFix = stagedFix; };
     try {
       const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
-      aiText = (result && (result.response || result.result || '')).toString().trim();
+      aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
       //    것으로 오해한다(직원 확인 사례: 정상적인 영어 문장에도 발생). 진짜 이해 실패가
@@ -4156,7 +4179,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       if (!aiText) {
         try {
           const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
-          aiText = (retryEmpty && (retryEmpty.response || retryEmpty.result || '')).toString().trim();
+          aiText = takeWarmupReply(retryEmpty); commitFix();
         } catch {}
       }
       /* 🧯 무너진 출력 차단 (2026-08-31 사장님 화면 실사고 — 1단계인데 200토큰짜리 낱말 죽이
@@ -4176,9 +4199,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           /* ⚠️ 온도를 «낮추지» 않는다 — 같은 프롬프트에서 낮은 온도는 오히려 같은 방향으로
              다시 무너지기 쉽습니다. 이 파일의 다른 재시도도 올리는 쪽입니다(빈 응답 0.8·반복 0.95). */
           const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
-          const freshText = (fresh && (fresh.response || fresh.result || '')).toString().trim();
+          const freshText = takeWarmupReply(fresh);
           // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
-          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; }
+          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; commitFix(); }
         } catch {}
         if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
       }
@@ -4199,9 +4222,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
             ]),
             max_tokens: 200, temperature: 0.7,
           });
-          const againText = (again && (again.response || again.result || '')).toString().trim();
+          const againText = takeWarmupReply(again);
           if (againText && !wrongSelfName(againText, ctxFriend) && !replyRejectReason(againText, sanityCap)) {
-            aiText = againText;
+            aiText = againText; commitFix();
           }
         } catch {}
       }
@@ -4214,8 +4237,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           ]),
           max_tokens: 200, temperature: 0.95,
         });
-        const retryText = (retry && (retry.response || retry.result || '')).toString().trim();
-        if (retryText && !warmupIsRepeat(retryText, history)) aiText = retryText;
+        const retryText = takeWarmupReply(retry);
+        if (retryText && !warmupIsRepeat(retryText, history)) { aiText = retryText; commitFix(); }
       }
     } catch (e: any) {
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
@@ -4223,7 +4246,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
     // 자기 탓으로 오해하기 쉽다 — 위 재시도로도 안 되는 진짜 드문 경우이므로, AI 쪽 잠깐의
     // 딸꾹질임을 알리는 톤으로 바꾼다(학생향 문구는 항상 희망적/격려 톤 유지).
-    if (!aiText) aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+    if (!aiText) {
+      aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+      /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
+         「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
+      rawFix = null;
+    }
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
@@ -4235,11 +4263,45 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     } catch {}
 
     const turnCount = Math.floor(history.length / 2) + 1;
+
+    /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
+       ⛔ 매 턴 고치지 않는다. 2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로
+          넣었다가 「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다.
+       ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
+          그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
+    let showFix: any = null;
+    let offerRepeat = false;
+    try {
+      const verified = verifyWarmupFix(rawFix, studentInput);
+      if (verified) {
+        const mkey = 'warmupfix:' + sessionId;
+        let memoIn: any = null;
+        try {
+          const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
+          if (rawMemo != null) memoIn = JSON.parse(rawMemo);
+        } catch {}
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount);
+        showFix = decided.show;
+        offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
+        // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
+        try {
+          if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
+        } catch (e: any) {
+          /* 이게 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로
+             풀려 매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
+          console.warn('[warmup] fix memo save failed:', e?.message || e);
+        }
+      }
+    } catch (e: any) {
+      console.warn('[warmup] fix gate skipped:', e?.message || e);
+    }
+
     // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
     //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
     return new Response(JSON.stringify({
       session_id: sessionId, ai_response: aiText, turn_count: turnCount,
       answer_chips: warmupAnswerChips(aiText, ctxDifficulty),
+      fix: showFix, repeat: offerRepeat,
     }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });

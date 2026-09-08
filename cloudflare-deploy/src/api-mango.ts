@@ -1730,6 +1730,10 @@ export async function handleMangoApi(
        *   남의 방으로 들어갈 수 있었다.
        *   · 강사 실사례: teachers 'FAR'(id 22, 담당 35건) 가 'HT FARRAH'(id 3) 안에 들어 있어
        *     FARRAH 로 조회하면 FAR 의 수업 35건이 함께 나왔다(부분일치 양방향).
+       *     📌 (2026-09-08 사장님 확인) **그 둘은 실은 같은 사람이다** — id 3 은 퇴사 행이고
+       *        지금 활성 수업 0건·계정 연결 0건이다. 그래도 **이 구조는 그대로 둔다**:
+       *        여기서 막는 것은 그 쌍만이 아니라 «부분일치 일반» 이고, 아래 학생 동명이인
+       *        (김민서 71명·김민준 56명)이 그 규칙의 진짜 이유다.
        *   · 학생: 동명이인이 실제로 많다(김민서 71명·김민준 56명). 지금 사고가 안 난 것은
        *     예약이 걸린 663명 중 이름이 겹치는 쌍이 «아직» 없어서일 뿐이다.
        *
@@ -1757,7 +1761,7 @@ export async function handleMangoApi(
             ).bind(nameParam, nameParam, nameParam, nameParam).all<any>();
             const all = (rs.results || []).filter((x: any) => x.tid);
             const exact = all.filter((x: any) => Number(x.exact) === 1);
-            // 이름이 정확히 일치하는 강사가 있으면 부분일치분은 버린다(FAR ⊂ HT FARRAH 오염 차단)
+            // 이름이 정확히 일치하는 강사가 있으면 부분일치분은 버린다(동명이인·부분일치 오염 차단)
             for (const x of (exact.length ? exact : all)) { condsName.push('cs.teacher_id = ?'); bindsName.push(x.tid); }
           } catch {}
         }
