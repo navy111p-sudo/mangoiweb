@@ -315,6 +315,43 @@
            + 'only students on the at-risk (expiring/inactive) list have one.');
   }
 
+  /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
+     그 자리에서 기존 「일괄 교재 배정」 모달을 연다.
+     [왜 줄마다가 아니라 여기인가] 배지는 줄마다 뜨는데, 2026-09-08 운영 D1 실측으로
+       students_erp.textbook 이 채워진 학생이 **29,485명 중 0명**이었다. 그래서 그 노란 배지가
+       «예외 표시» 가 아니라 모든 줄의 배경색이 되어 있었고, 숫자로 한 번 말해 주지 않으면
+       아무도 «몇 건인지» 를 모른다.
+     ⛔ 배지를 눌러 «교재 업로드» 화면으로 보내지 않는다 — 같은 날 실측으로 서버에는 교재 파일이
+        이미 38,998장(2,791묶음) 있고, 비어 있는 것은 «이 학생 = 이 교재» 연결 하나다.
+        업로더는 textbook_files 에 쓰므로 아무리 올려도 이 배지는 그대로 남는다(읽는 칸이 다르다).
+     ⚠️ 배정 판정과 상한(대상 미리보기 강제 · 미배정 학생만 · 2000명 초과 force)은 전부
+        그 모달과 서버에 이미 있다. 여기서 다시 만들지 않는다 — 문만 하나 더 낸 것이다.
+     ⛔ 이 줄을 display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+  function bookNoteHtml(missing, total, ltSkipped) {
+    if (!missing) return '';
+    /* ⚠️ 짧게 쓴다 — 1500px 창에서도 이 카드 폭이 좁아(관리자 zoom 1.3) 긴 문장은 세 줄로 접힌다.
+       실측으로 세 줄이 나와 한 번 줄인 문장이다(브라우저 검사 ⑥절이 두 줄 이내로 못 박는다). */
+    /* 🧪 (2026-09-08) 레벨테스트는 «첫 수업» 이라 교재가 없는 것이 정상이다 — 세지 않는다.
+       ⛔ 대신 «세지 않았다» 를 감추지 않는다: 분모는 «화면에 보이는 줄 수» 그대로 두고
+          몇 건을 왜 뺐는지 꼬리말로 적는다. 그러지 않으면 「4건 다 노란데 왜 2건이라 하지」가 된다
+          (CLAUDE.md 2장 「«없는 것» 을 세는 칸 — 아예 존재하지 않는 종류까지 세고 있지 않은지」·
+           「두 수를 비교해 알려 줄 때 — 두 수의 모집단이 같은지부터」). */
+    var msg = T('📚 표시된 ' + total + '건 중 ' + missing + '건이 교재 미배정 — 학생 명부의 교재 칸이 비어 있습니다.'
+                  + (ltSkipped ? ' (레벨테스트 ' + ltSkipped + '건 제외)' : ''),
+                '📚 ' + missing + ' of ' + total + ' shown have no textbook — the student roster field is empty.'
+                  + (ltSkipped ? ' (' + ltSkipped + ' level test excluded)' : ''));
+    /* 🎨 클래스는 `tc-act` 를 그대로 쓴다 — admin-inline-c.css 의 특이성 꼬리 규칙이
+       전역 「카드 안 button = 파란 알약」을 이미 이기고 있어 새 CSS 를 만들지 않아도 된다.
+       ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것(같은 파일 9503행 경고 — 이 버튼만 흰 버튼이 된다). */
+    return '<div style="padding:6px 2px 8px;color:#92400e;font-size:11.5px;line-height:1.6">'
+      + esc(msg)
+      + ' <button type="button" id="tc-bulk-book" class="tc-act" title="'
+      + T('학생 교재 일괄 배정 창을 엽니다 (대상 미리보기 → 실행)',
+          'Opens bulk textbook assignment (preview targets, then run)')
+      + '">' + T('📚 일괄 배정', '📚 Bulk assign') + '</button>'
+      + '</div>';
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
@@ -375,9 +412,16 @@
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
     var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
+       (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
+    var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test; }).length;
+    /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
+    var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
+    var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
     box.innerHTML = (note
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
+      + bookLine
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   '<th>' + T('시간', 'Time') + '</th>'
@@ -434,11 +478,29 @@
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
+          /* 🎯 (2026-09-08 사장님 요청) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
+             ⛔ <button> 으로 만들지 않는다 — admin-inline-c.css 의 전역
+                `details.menu-card button{ background:인디고 !important; padding:9px 18px !important }` 가
+                인라인 style 을 이겨 배지가 **파란 알약**이 된다(CLAUDE.md 2장 「표 안의 작은
+                아이콘 버튼」). `<span role="button" tabindex="0">` 은 그 규칙에 안 걸린다.
+             ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다 — 누구에게 배정할지 모르면
+                열어 봐야 «전체» 로 흐른다(그게 이 기능이 막으려는 바로 그 사고다). */
+          var canPin = !s.textbook_assigned && !!(s.student_uid && String(s.student_uid).trim());
           var bookTag = s.textbook_assigned
             ? '<span style="font-size:11px;color:#6b7280">📚 ' + esc(s.textbook) + '</span>'
-            : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
+            : '<span' + (canPin
+                  ? ' class="tc-book-pin" role="button" tabindex="0"'
+                    + ' data-uid="' + esc(s.student_uid) + '"'
+                    + ' data-who="' + esc((s.student_name || s.student_uid) + ' (' + s.student_uid + ')') + '"'
+                    + ' title="' + T('이 학생에게 교재를 배정합니다', 'Assign a textbook to this student') + '"'
+                    + ' style="cursor:pointer;'
+                  : ' style="')
+              /* ⚠️ nowrap — 좁은 칸에서 「📚 교재 미배정 ▸」가 두 줄로 접혀 배지가 48px 이 됐다(실측).
+                 한 줄짜리 상자에는 줄바꿈을 막아 둔다(CLAUDE.md 2장). */
+              + 'display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
-              + T('📚 교재 미배정', '📚 no textbook') + '</span>';
+              /* ▸ 는 «누를 수 있다» 는 표시다 — 폰에는 hover 도 title 도 없어서 글자로 말해야 한다 */
+              + T('📚 교재 미배정', '📚 no textbook') + (canPin ? ' ▸' : '') + '</span>';
           var levelTag = s.level
             ? '<span style="font-size:11px;color:#475569">' + esc(s.level) + '</span>'
             : '';
@@ -497,6 +559,53 @@
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
+    /* 🔗 인라인 onclick 을 쓰지 않는다 — 이 파일은 IIFE 라 안쪽 함수가 전역이 아니고,
+       인라인 핸들러는 언제나 window 에서 이름을 찾아 ReferenceError 가 난다(CLAUDE.md 2장).
+       render() 가 통째로 다시 그리므로 리스너는 쌓이지 않는다. */
+    /* 🎯 배지 → «그 학생만» 배정 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다.
+       ⚠️ role="button" 이라 키보드도 받아야 한다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+    var pins = box.querySelectorAll('.tc-book-pin');
+    for (var pi = 0; pi < pins.length; pi++) {
+      (function (el) {
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          if (!uid) return;
+          if (typeof window.mangoiOpenBulkTextbook !== 'function') {
+            alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                    'Could not open the textbook assignment dialog. Please refresh and try again.'));
+            return;
+          }
+          window.mangoiOpenBulkTextbook({ userIds: [uid], who: el.getAttribute('data-who') || uid });
+        };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(pins[pi]);
+    }
+    var bulkBtn = $('tc-bulk-book');
+    if (bulkBtn) {
+      bulkBtn.addEventListener('click', function () {
+        /* ⛔ 이 화면이 배정을 «직접» 하지 않는다 — 대상 미리보기를 강제하는 그 모달로만 간다.
+           ⚠️ 함수가 없으면(스크립트 미로드·이름 변경) 조용히 넘기지 말고 사람에게 말한다 —
+              아무 일도 안 일어나면 «버튼이 고장났다» 로 읽힌다. */
+        /* 📌 «이 줄이 센 수» 와 «저 창의 기본 대상» 은 모집단이 다르다 — 이 줄은 «화면에 보이는
+           줄» 을 세는데, 저 창은 학생 검색어가 비면 «권한 범위 전체» 가 대상이다.
+           그 말을 실행 직전에 사람이 보는 자리(상태줄)에 적어 준다. 감추면 「3건인 줄 알고
+           눌렀는데 수백 명이 잡혔다」가 된다(CLAUDE.md 2장 「두 수를 비교해 알려 줄 때」).
+           ⛔ 대신 검색어를 채워 좁히지는 않는다 — 그 칸은 **부분일치**라 아이디 하나로
+              남의 계정까지 걸린다(정확일치는 서버 몫 — 다음 판). */
+        if (typeof window.mangoiOpenBulkTextbook === 'function') {
+          window.mangoiOpenBulkTextbook({ note: T(
+            '⚠ 이 창의 기본 대상은 «오늘 수업 ' + missing + '건» 이 아니라 권한 범위의 미배정 학생 전체입니다. 「대상 미리보기」로 인원을 먼저 확인하세요.',
+            '⚠ This dialog targets ALL unassigned students in your scope — not just the ' + missing + ' shown here. Preview the targets first.') });
+          return;
+        }
+        alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                'Could not open the textbook assignment dialog. Please refresh and try again.'));
+      });
+    }
     announceCounts(rows.length);
   }
 
@@ -592,4 +701,16 @@
      setInterval)는 쓰지 않는다(홈을 통째로 멎게 한 전력 — CLAUDE.md 2장). */
   document.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
   window.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
+  /* 🌐 (2026-09-08) 🌐 EN 을 누르면 이 표도 따라오게 한다.
+     [무엇이 문제였나] 이 표는 render() 가 T() 로 글자를 «그리는» 방식이라
+       adm-core.js 의 applyAdminLangDom() 이 손댈 수 없다(그건 data-ko/data-en 요소만 본다).
+       그런데 여기엔 lang 리스너가 없어서, 매니저가 EN 을 눌러도 표 전체가 한국어로 남고
+       🔄 불러오기를 다시 눌러야 바뀌었다(함정 대조에서 잡힘).
+     ⚠️ 발행처가 화면마다 다르다 — adm-core.js 의 toggleAdminLang 은 **document** 에 쏘고
+        CustomEvent 는 기본이 bubbles:false 라 window 로 안 올라간다. **둘 다** 듣는다.
+     ⛔ data-ko/data-en 으로 풀지 말 것 — 그 줄에는 버튼이 들어 있어 두 i18n 엔진이
+        textContent 를 통째로 갈아끼우면 **버튼이 사라진다**(CLAUDE.md 2장).
+     ⛔ 서버를 다시 부르지 않는다(render() 만) — 이미 받아 둔 _rows 로 다시 그린다. */
+  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
 })();

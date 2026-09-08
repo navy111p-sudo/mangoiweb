@@ -29,6 +29,13 @@
      1. 외부 리소스 0개. link·script src·웹폰트·CDN·아이콘팩 전부 금지.
         (admin.html 의 공통 레이아웃 — LNB · i18n 스윕 204KB · adm-* 74개 · Chart.js 155KB —
          를 일절 상속하지 않는다. 하나라도 부르면 끝이다.)
+        ※ (2026-09-08) 예외 하나 — 「교재 미배정」 배지를 **누른 뒤에만** `/js/adm-bulkbook.js`
+          (23KB)를 한 번 받는다. 첫 화면 요청은 그대로 0개다(누르지 않으면 영영 안 받는다).
+          ⚠️ 그 파일은 자기 완결적이다 — adm-core·i18n 스윕·Chart.js 를 상속하지 않는다.
+             그러니 위 괄호가 막으려는 «공통 레이아웃 연쇄» 가 아니다.
+          ⛔ 그렇다고 화면 로드 시점으로 옮기지 말 것(그 순간 계약 1번이 깨진다).
+          ⛔ 대신 이 화면에 배정 창을 «복제» 하지도 말 것 — 배정 판정이 두 벌이 되면
+             「화면마다 답이 다른」 사고가 시작된다(admin.html 과 같은 창을 쓴다).
      2. 차트 라이브러리 금지. 추이는 인라인 SVG 선 하나로 그린다(약 20줄).
      3. 애니메이션·transition 금지. 저사양 기기에서 렉이고, 백그라운드 탭에서 멈춰
         요소가 영영 안 보이는 사고가 난다(과거 실사고).
@@ -1266,7 +1273,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>';
       var tags = '';
       if (r.source === 'cafe24') tags += '<span class="tag">LMS</span>';
-      if (!r.textbook_assigned) tags += '<span class="tag hot">' + esc(T('no textbook', '교재 미배정')) + '</span>';
+      /* 📚 (2026-09-08 사장님 지시) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
+         admin.html 「오늘 수업」과 같은 동작이다 — 매니저가 온종일 보는 화면은 이쪽이라
+         한쪽만 눌리면 「눌러도 아무 일 없다」 제보가 여기서 다시 올라온다.
+         ⛔ <button> 이 아니라 span+role — 이 화면은 .tag 로 모양을 잡는다(버튼 기본 스타일 회피).
+         ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다: 누구인지 모르면 창이 «전체» 로 흐른다. */
+      if (!r.textbook_assigned) {
+        var canPin = !!(r.student_uid && String(r.student_uid).trim());
+        tags += '<span class="tag hot"' + (canPin
+            ? ' data-bookpin="' + esc(r.student_uid) + '"'
+              + ' data-bookwho="' + esc((r.student_name || r.student_uid) + ' (' + r.student_uid + ')') + '"'
+              + ' role="button" tabindex="0" style="cursor:pointer"'
+            : '') + '>'
+          + esc(T('no textbook', '교재 미배정')) + (canPin ? ' \u25B8' : '') + '</span>';
+      }
       else if (r.textbook) tags += '<span class="muted">' + esc(r.textbook) + '</span>';
       // 🚪 입장 — 망고아이 방이 있는 줄만(강사 대체용). 확인 문구는 관리자 화면과 같다
       var act = r.join_open
@@ -1301,6 +1321,61 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
     if (rows.length && box) box.insertAdjacentHTML('afterbegin', head);
+    bindBookPins();
+  }
+
+  /* 📚 (2026-09-08) 「교재 미배정 ▸」 배지 → «그 학생만» 배정 창.
+     ⚠️ 배정 창(교재 목록·대상 미리보기·실행·상한)은 admin.html 과 **같은 파일**을 쓴다 —
+        여기에 복제하면 배정 판정이 두 벌이 되어 「화면마다 답이 다른」 사고가 시작된다.
+     ⚠️ 그 파일은 **누른 뒤에만** 받는다(계약 1번의 예외 — 파일 머리말 참고). 첫 화면 요청은 0개다.
+     ⚠️ 위임 리스너다 — hqRows() 가 innerHTML 만 갈아치우고 이 상자 자신은 남으므로 한 번만 건다.
+        (줄마다 걸면 다시 그릴 때마다 쌓인다.)
+     ⚠️ role="button" 이라 키보드(Enter·Space)도 받아야 한다 — 안 그러면 마우스 전용이 된다. */
+  var _bookPinBound = false;
+  function bindBookPins(){
+    var box = document.getElementById('todayAllBody');
+    if (!box || _bookPinBound) return;
+    _bookPinBound = true;
+    var open = function(ev){
+      var el = ev.target && ev.target.closest ? ev.target.closest('[data-bookpin]') : null;
+      if (!el) return;
+      ev.preventDefault();
+      var uid = el.getAttribute('data-bookpin') || '';
+      if (!uid) return;
+      loadBulkbook(function(ok){
+        if (!ok) {
+          alert(T('Could not open the textbook assignment dialog. Please refresh and try again.',
+                  '교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.'));
+          return;
+        }
+        window.mangoiOpenBulkTextbook({ userIds: [uid], who: el.getAttribute('data-bookwho') || uid });
+      });
+    };
+    box.addEventListener('click', open);
+    box.addEventListener('keydown', function(ev){
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      if (!(ev.target && ev.target.closest && ev.target.closest('[data-bookpin]'))) return;
+      open(ev);
+    });
+  }
+
+  /* ⛔ 이 함수를 화면 로드 시점에 부르지 말 것 — 그 순간 계약 1번(외부 리소스 0개)이 깨진다.
+     ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다 — 다르면 두 화면이 서로 다른 사본을
+        쓰게 되고, asset_version_harness 가 그 어긋남을 FAIL 로 잡는다. */
+  var _bulkbookLoading = null;
+  function loadBulkbook(cb){
+    if (typeof window.mangoiOpenBulkTextbook === 'function') return cb(true);
+    if (_bulkbookLoading) { _bulkbookLoading.push(cb); return; }   /* 연타로 두 번 받지 않게 */
+    _bulkbookLoading = [cb];
+    var done = function(ok){
+      var qs = _bulkbookLoading; _bulkbookLoading = null;
+      for (var i = 0; i < qs.length; i++) qs[i](ok && typeof window.mangoiOpenBulkTextbook === 'function');
+    };
+    var sc = document.createElement('script');
+    sc.src = '/js/adm-bulkbook.js?v=10';
+    sc.onload = function(){ done(true); };
+    sc.onerror = function(){ done(false); };
+    document.head.appendChild(sc);
   }
 
   /* 실제 참가자로 입장 — 카메라는 꺼진 채로 시작(js/vc-observe-guard.js 가 &vc_cam=off 를 처리).
