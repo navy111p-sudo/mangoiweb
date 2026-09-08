@@ -315,6 +315,36 @@
            + 'only students on the at-risk (expiring/inactive) list have one.');
   }
 
+  /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
+     그 자리에서 기존 「일괄 교재 배정」 모달을 연다.
+     [왜 줄마다가 아니라 여기인가] 배지는 줄마다 뜨는데, 2026-09-08 운영 D1 실측으로
+       students_erp.textbook 이 채워진 학생이 **29,485명 중 0명**이었다. 그래서 그 노란 배지가
+       «예외 표시» 가 아니라 모든 줄의 배경색이 되어 있었고, 숫자로 한 번 말해 주지 않으면
+       아무도 «몇 건인지» 를 모른다.
+     ⛔ 배지를 눌러 «교재 업로드» 화면으로 보내지 않는다 — 같은 날 실측으로 서버에는 교재 파일이
+        이미 38,998장(2,791묶음) 있고, 비어 있는 것은 «이 학생 = 이 교재» 연결 하나다.
+        업로더는 textbook_files 에 쓰므로 아무리 올려도 이 배지는 그대로 남는다(읽는 칸이 다르다).
+     ⚠️ 배정 판정과 상한(대상 미리보기 강제 · 미배정 학생만 · 2000명 초과 force)은 전부
+        그 모달과 서버에 이미 있다. 여기서 다시 만들지 않는다 — 문만 하나 더 낸 것이다.
+     ⛔ 이 줄을 display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+  function bookNoteHtml(missing, total) {
+    if (!missing) return '';
+    /* ⚠️ 짧게 쓴다 — 1500px 창에서도 이 카드 폭이 좁아(관리자 zoom 1.3) 긴 문장은 세 줄로 접힌다.
+       실측으로 세 줄이 나와 한 번 줄인 문장이다(브라우저 검사 ⑥절이 두 줄 이내로 못 박는다). */
+    var msg = T('📚 표시된 ' + total + '건 중 ' + missing + '건이 교재 미배정 — 학생 명부의 교재 칸이 비어 있습니다.',
+                '📚 ' + missing + ' of ' + total + ' shown have no textbook — the student roster field is empty.');
+    /* 🎨 클래스는 `tc-act` 를 그대로 쓴다 — admin-inline-c.css 의 특이성 꼬리 규칙이
+       전역 「카드 안 button = 파란 알약」을 이미 이기고 있어 새 CSS 를 만들지 않아도 된다.
+       ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것(같은 파일 9503행 경고 — 이 버튼만 흰 버튼이 된다). */
+    return '<div style="padding:6px 2px 8px;color:#92400e;font-size:11.5px;line-height:1.6">'
+      + esc(msg)
+      + ' <button type="button" id="tc-bulk-book" class="tc-act" title="'
+      + T('학생 교재 일괄 배정 창을 엽니다 (대상 미리보기 → 실행)',
+          'Opens bulk textbook assignment (preview targets, then run)')
+      + '">' + T('📚 일괄 배정', '📚 Bulk assign') + '</button>'
+      + '</div>';
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
@@ -375,9 +405,13 @@
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
     var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
+       (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
+    var bookLine = bookNoteHtml(rows.filter(function (s) { return !s.textbook_assigned; }).length, rows.length);
     box.innerHTML = (note
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
+      + bookLine
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   '<th>' + T('시간', 'Time') + '</th>'
@@ -497,6 +531,20 @@
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
+    /* 🔗 인라인 onclick 을 쓰지 않는다 — 이 파일은 IIFE 라 안쪽 함수가 전역이 아니고,
+       인라인 핸들러는 언제나 window 에서 이름을 찾아 ReferenceError 가 난다(CLAUDE.md 2장).
+       render() 가 통째로 다시 그리므로 리스너는 쌓이지 않는다. */
+    var bulkBtn = $('tc-bulk-book');
+    if (bulkBtn) {
+      bulkBtn.addEventListener('click', function () {
+        /* ⛔ 이 화면이 배정을 «직접» 하지 않는다 — 대상 미리보기를 강제하는 그 모달로만 간다.
+           ⚠️ 함수가 없으면(스크립트 미로드·이름 변경) 조용히 넘기지 말고 사람에게 말한다 —
+              아무 일도 안 일어나면 «버튼이 고장났다» 로 읽힌다. */
+        if (typeof window.mangoiOpenBulkTextbook === 'function') { window.mangoiOpenBulkTextbook(); return; }
+        alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                'Could not open the textbook assignment dialog. Please refresh and try again.'));
+      });
+    }
     announceCounts(rows.length);
   }
 

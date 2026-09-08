@@ -211,6 +211,21 @@
     if (st && msg) st.textContent = msg;
   }
 
+  /* 🔗 (2026-09-08) 밖에서도 이 모달을 열 수 있게 낸 문 — 매니저 「오늘 수업」의
+     «교재 미배정 N건» 줄이 부른다(js/adm-today-classes.js).
+     ⛔ 배정 규칙을 그쪽에 복제하지 않으려고 «여는 문» 만 낸 것이다. 미리보기 강제·
+        미배정 학생만·2000명 초과 force 는 전부 이 모달과 서버에 그대로 남는다.
+     ⚠️ 이름을 바꾸면 부르는 쪽이 **조용히 헛돈다** — 그쪽은 함수가 없으면 사람에게
+        «못 열었다» 고 말하도록 해 두었다(아무 일도 안 일어나면 «고장» 으로 읽힌다). */
+  window.mangoiOpenBulkTextbook = function (prefill) {
+    openModal();
+    try {
+      var q = prefill && prefill.q ? String(prefill.q) : '';
+      var el = $('bat-q');
+      if (q && el) { el.value = q; invalidatePreview(); }
+    } catch (e) { /* 무시 — 채우기 실패가 모달을 막으면 안 된다 */ }
+  };
+
   // 학생관리 카드가 lazy 렌더될 수 있어 주기적으로 버튼 주입 시도 (있으면 no-op)
   if (document.readyState !== 'loading') injectButton();
   else document.addEventListener('DOMContentLoaded', injectButton);
