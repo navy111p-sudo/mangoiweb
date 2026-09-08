@@ -1,7 +1,7 @@
 // -*- coding: utf-8 -*-
 /* ═══════════════════════════════════════════════════════════════════════════
-   🔎 「🚪 오늘 수업」 출처 고르기 + 검색창 — 진짜 브라우저에 그려서 재는 검사
-   (2026-09-01 신설)
+   🔎 「🚪 오늘 수업」 출처 고르기 + 검색창 + 🌙 23시 이후 — 진짜 브라우저에 그려서 재는 검사
+   (2026-09-01 신설 · 2026-09-08 ⑨절 「23시 이후만」 추가)
 
    [왜 필요한가] 이 변경에서 틀릴 수 있는 것은 «누른 뒤 표에 무엇이 남는가» 와
    «비었을 때 이유를 말하는가» 뿐이다. 문자열 회귀 하니스는 함수도 값도 전부 «있다» 고
@@ -66,6 +66,9 @@ const BOOT = `
   } catch(e){}
   (function(){
     var S = ${JSON.stringify(SESSIONS)};
+    /* 🌙 ⑨절(23시 이후)에서 씨앗을 바꿔 끼운다 — 위 ①~⑧ 의 기대값을 건드리지 않으려고
+       세션 배열을 갈아 끼우고 tcLoadToday() 를 다시 부른다. */
+    window.__tcSetSessions = function(a){ S = a; };
     window.__tcHits = 0;
     var ok = function(body){ return new Response(JSON.stringify(body), { status:200, headers:{'content-type':'application/json'} }); };
     var real = window.fetch.bind(window);
@@ -225,6 +228,60 @@ async function main() {
   check('출처 선택지가 영어로 바뀐다', /All/.test(enOpt) && /Mangoi/.test(enOpt), enOpt);
   const ph = await ev('document.getElementById("tc-q").placeholder');
   check('검색창 안내글도 영어로 바뀐다 (data-ko-ph/data-en-ph)', /Search/.test(ph), ph);
+
+  console.log('\n── ⑨ 🌙 「23시 이후만」 (2026-09-08) ─────────────────');
+  /* ⚠️ ⑧절이 화면을 영어로 바꿔 두었다 — 표 안 문구는 T() 가 그 값을 보므로 여기서 한국어로
+     되돌려 놓고 잰다(안 그러면 「«표시 N건» 을 안 말한다」는 거짓 FAIL 이 난다). */
+  await ev('(function(){ window.adminLang="ko"; applyAdminLangDom(); document.dispatchEvent(new CustomEvent("mangoi:lang-changed")); })()');
+  await sleep(250);
+  /* 씨앗을 «시각이 정해진» 것으로 갈아 끼운다 — 실행 시각(밤/낮)에 따라 결과가 달라지면
+     그 검사는 그때부터 아무도 안 믿는다. KST 벽시계로 못 박는다. */
+  const kst = (h, mi) => Date.UTC(2026, 8, 8, h, mi, 0) - 9 * 3600 * 1000;
+  const LATE_SEED = [
+    { source: 'cafe24', schedule_id: null, observable: false, room_id: 'c24-a', student_uid: 'a',
+      student_name: '자정십분', teacher_name: 'T', level: null, textbook: null, textbook_assigned: false,
+      start_time: '00:10', start_ts: kst(0, 10), end_ts: kst(0, 30), status: 'early', join_open: false, is_level_test: false },
+    { source: 'cafe24', schedule_id: null, observable: false, room_id: 'c24-b', student_uid: 'b',
+      student_name: '스물두시오십구', teacher_name: 'T', level: null, textbook: null, textbook_assigned: false,
+      start_time: '22:59', start_ts: kst(22, 59), end_ts: kst(23, 19), status: 'early', join_open: false, is_level_test: false },
+    { source: 'cafe24', schedule_id: null, observable: false, room_id: 'c24-c', student_uid: 'c',
+      student_name: '스물세시정각', teacher_name: 'T', level: null, textbook: null, textbook_assigned: false,
+      start_time: '23:00', start_ts: kst(23, 0), end_ts: kst(23, 20), status: 'early', join_open: false, is_level_test: false },
+    { source: 'cafe24', schedule_id: null, observable: false, room_id: 'c24-d', student_uid: 'd',
+      student_name: '스물세시오십구', teacher_name: 'T', level: null, textbook: null, textbook_assigned: false,
+      start_time: '23:59', start_ts: kst(23, 59), end_ts: kst(23, 59) + 12e5, status: 'early', join_open: false, is_level_test: false },
+  ];
+  await ev('window.__tcSetSessions(' + JSON.stringify(LATE_SEED) + ')');
+  await ev('tcLoadToday()'); await sleep(600);
+  const setLate = async on => ev(`(function(){var c=document.getElementById("tc-late");c.checked=${on ? 'true' : 'false'};c.dispatchEvent(new Event("change",{bubbles:true}));})()`);
+  check('체크박스(#tc-late)가 있다', await ev('!!document.getElementById("tc-late")'));
+  check('   화면에 실제로 보인다 (카드가 열려 있고 무엇에도 안 덮인다)',
+    await ev('!!document.getElementById("tc-late").offsetParent'));
+  check('   #tc-body «밖» 이다 (표를 다시 그려도 체크가 안 풀린다)',
+    await ev('!document.getElementById("tc-body").contains(document.getElementById("tc-late"))'));
+  check('끄면 네 건 다 보인다', (await ev('document.querySelectorAll("#tc-body tbody tr").length')) === 4);
+  await setLate(true); await sleep(150);
+  check('켜면 23:00·23:59 두 건만 남는다', (await names()) === '스물세시정각,스물세시오십구', await names());
+  check('   22:59 · 자정 00:10 은 빠진다 (하루치 목록이라 자정은 «맨 앞» 이다)',
+    !/스물두시오십구|자정십분/.test(await ev('document.getElementById("tc-body").textContent')));
+  const cntL = await ev('document.getElementById("tc-count").textContent');
+  check('   «표시 2건 / 전체 4건» 처럼 둘 다 말한다', /표시 2건/.test(cntL) && /4건/.test(cntL), cntL);
+  const hitsL = await ev('window.__tcHits');
+  await setLate(false); await setLate(true); await sleep(150);
+  check('   화면 안에서만 거른다 (서버 요청 0건)', (await ev('window.__tcHits')) === hitsL);
+  await ev('window.__tcSetSessions(' + JSON.stringify([LATE_SEED[1]]) + ')');
+  await ev('tcLoadToday()'); await sleep(500);
+  const emptyL = await ev('document.getElementById("tc-body").textContent');
+  check('0건이면 «왜» 를 말한다 (「23시 이후」가 켜져 있다는 것과 전체 건수)',
+    /조건에 맞는 수업이 없습니다/.test(emptyL) && /23시 이후/.test(emptyL) && /전체 1건/.test(emptyL), emptyL.slice(0, 200));
+  await setLate(false); await sleep(150);
+  check('   끄면 그 줄이 돌아온다 (거르개가 줄을 영영 삼키지 않는다)',
+    (await ev('document.querySelectorAll("#tc-body tbody tr").length')) === 1);
+  /* 🌐 EN 라벨 — 마지막에 한 번 바꿔 확인한다(정적 라벨 정본은 adm-core 의 applyAdminLangDom). */
+  await ev('(function(){ window.adminLang="en"; applyAdminLangDom(); document.dispatchEvent(new CustomEvent("mangoi:lang-changed")); })()');
+  await sleep(250);
+  const lateEn = await ev('(document.getElementById("tc-late").parentNode.textContent || "").trim()');
+  check('EN 으로 바꾸면 라벨도 영어다', /After 23:00/i.test(lateEn), lateEn);
 
   c.close(); bye();
   console.log('\n════════════════════════════════════════════');

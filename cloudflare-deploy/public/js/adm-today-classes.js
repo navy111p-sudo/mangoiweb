@@ -63,6 +63,23 @@
     } catch (e) { return '-'; }
   }
 
+  /* 🌙 (2026-09-08 사장님 요청) 「23시 이후」 거르기 — 늦은 밤 수업만 따로 본다.
+     [무엇을 재나] 그 수업의 **시작 시각(KST)** 하나다. 시(hour)는 벽시계 문자열을 다시
+       파싱하지 말고 «+9시간 뒤 UTC 시» 로 곧장 센다 — toLocaleTimeString 은 자정을
+       엔진에 따라 '24' 로 주는 경우가 있어 판정에 쓰면 자정 줄이 조용히 어긋난다.
+     ⚠️ 이 목록은 **하루치**다(날짜 칸이 정하는 그 날). 그래서 여기서 걸러지는 것은
+        23:00~23:59 이고, 자정을 넘긴 00:10 수업은 «그 날짜 목록의 맨 앞» 에 있지
+        23시 뒤에 있지 않다. 라벨도 그렇게 적어 둔다(「23시 이후」가 새벽까지 포함한다고
+        읽히면 「필터가 빠뜨린다」는 제보가 된다).
+     ⛔ 문턱을 화면 여러 곳에 적지 말 것 — 여기 한 줄이 정본이다. */
+  var LATE_FROM_HOUR = 23;
+  function kstHour(ts) {
+    var n = Number(ts);
+    if (!isFinite(n) || !n) return -1;          // 모르면 «늦은 밤 아님» 쪽으로(거르기가 줄을 삼키지 않게)
+    return new Date(n + 9 * 3600 * 1000).getUTCHours();
+  }
+  function isLate(s) { return kstHour(s.start_ts) >= LATE_FROM_HOUR; }
+
   /* 🚪 실제 참가자로 입장 — 강사가 못 들어왔을 때 매니저가 대신 맡는 용도.
      참관(ghost)과 달리 학생에게 보이므로, 오해가 없도록 반드시 한 번 확인받는다. */
   /* 📷 (2026-08-20) 카메라를 끈 채로 입장 — &vc_cam=off (js/vc-observe-guard.js 가 처리).
@@ -269,6 +286,10 @@
     var el = $('tc-q');
     return el ? String(el.value || '').trim().toLowerCase() : '';
   }
+  function lateOnly() {
+    var el = $('tc-late');
+    return !!(el && el.checked);
+  }
   /* 한 줄에서 검색이 훑는 칸 — 학생·강사·강의실·교재·레벨. 옮겨 적은 방 번호로 찾는 일이 잦아
      room_id 를 반드시 포함한다(예: 「c24-512074」·「class-1015-20260901」). */
   function rowText(s) {
@@ -320,13 +341,17 @@
     if (!box) return;
     var onlyLive = !!($('tc-only-live') && $('tc-only-live').checked);
     var src = srcFilter(), q = qFilter();
+    var late = lateOnly();
     var rows = _rows.filter(function (s) {
       if (onlyLive && !s.join_open) return false;
+      if (late && !isLate(s)) return false;
       if (src && (s.source === 'cafe24' ? 'cafe24' : 'mangoi') !== src) return false;
       if (q && rowText(s).indexOf(q) < 0) return false;
       return true;
     });
-    var filtering = !!(src || q);
+    /* 🌙 「23시 이후만」도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
+       버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
+    var filtering = !!(src || q || late);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -336,6 +361,7 @@
           + ' (' + (src === 'cafe24' ? T('카페24', 'cafe24') : src === 'mangoi' ? T('망고아이', 'Mangoi') : T('전체', 'All'))
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
+          + (late ? ' · ' + T('🌙 23시 이후', '🌙 after 23:00') : '')
           + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
       } else {
         why = onlyLive
@@ -558,6 +584,9 @@
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
     var c = $('tc-only-live');
     if (c && !c._tcBound) { c._tcBound = true; c.addEventListener('change', render); }
+    /* 🌙 23시 이후만 — 화면 안에서만 거른다(서버를 다시 부르지 않는다). */
+    var lt = $('tc-late');
+    if (lt && !lt._tcBound) { lt._tcBound = true; lt.addEventListener('change', render); }
     /* 🔎 출처·검색은 **화면 안에서만** 거른다 — 서버를 다시 부르지 않는다(이미 받아 둔 목록이라
        한 글자 칠 때마다 요청이 나갈 이유가 없다). 날짜만 서버를 다시 부른다(아래).
        ⚠️ 입력칸은 #tc-body «밖» 이라 다시 그려도 포커스·커서가 그대로다 — 안에 두면 한 글자마다
