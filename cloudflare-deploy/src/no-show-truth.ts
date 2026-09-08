@@ -72,34 +72,62 @@ const words = (s: any): string[] => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Bo
       'ANNA' ⊂ 'HANNAH' 가 되살아나 **남의 이름이 붙는다.** 그 방향은 진짜 노쇼를 감추고
       수업료를 전액 내보내므로 이 파일에서 가장 나쁜 실수다.
       그래서 **여기 적힌 쌍만** 같은 사람으로 본다 — 'KRY' 는 'KRYSTEL' 에 안 붙는다.
-   ⛔ 한 그룹에 서로 다른 두 사람을 넣지 말 것. 줄을 더할 때는 활성 강사 명부
-      (teachers WHERE active=1)와 대조해 **다른 강사와 겹치지 않는지** 먼저 확인할 것.
+   ⛔ 한 그룹에 서로 다른 두 사람을 넣지 말 것. 줄을 더할 때는 **`teachers` 전체**와
+      대조해 «다른 강사의 이름·낱말과 겹치지 않는지» 먼저 확인할 것.
+      ⚠️ **`active=1` 만 보면 못 잡는다** — 여기서 문제가 된 `HT FARRAH` 는 `active=0`
+         (퇴사)인데도 이름이 남아 있어, 출석 표기에 그 이름이 찍히면 그대로 붙는다.
    ⚠️ 이 표는 «이름» 만 넓힌다 — 계정↔원부 해석(accountToTeacherName)은 그대로다.
    ⚠️ 근본 해결은 표기를 한쪽으로 맞추는 것이다(예약표를 고치거나 입장 이름을 계정으로
       통일). D1·화면이 걸린 별건이라 사람이 정한다 — 그때 이 표에서 그 줄을 지운다. */
 const NAME_ALIASES: readonly (readonly string[])[] = [
-  ['FAR', 'FARRAH'],   // 원부 'FAR'(teachers.id=22) ↔ 입장 표기 'Teacher - Farrah'
+  // 원부 'FAR'(teachers.id=22) ↔ 입장 표기 '교사 Teacher - Farrah'(실측 25회).
+  //   동일인 근거: teacher_profiles.id=27 이 korean_name='Teacher Far' · english_name='Teacher Farrah'.
+  //   ⚠️ 왜 두 값을 적는가 — 역할 접두사가 벗겨지는 «횟수» 가 부르는 자리마다 다르다(아래 주석).
+  ['FAR', 'FARRAH', 'TEACHER FARRAH'],
 ];
 
-/** 이름 «전체» 가 별칭표에 있을 때만 그 그룹으로 넓힌다. 아니면 자기 자신 하나뿐이다. */
-const aliasesOf = (s: any): string[] => {
-  const k = nrm(s);
-  if (!k) return [];
-  for (const g of NAME_ALIASES) if (g.indexOf(k) >= 0) return g.slice();
-  return [k];
-};
+/** 표기 차이를 흡수한 별칭 조회용 열쇠 — 구분자를 낱말 사이 한 칸으로 고른다.
+ *  'Teacher - Farrah' 와 'Teacher Farrah' 가 같은 열쇠가 된다(둘 다 'TEACHER FARRAH'). */
+const aliasKey = (s: any): string => words(s).join(' ');
+
+/** 두 이름이 «같은 별칭 그룹» 에 **둘 다** 들어 있는가. */
+function sameByAlias(x: string, y: string): boolean {
+  const kx = aliasKey(x), ky = aliasKey(y);
+  if (!kx || !ky) return false;
+  for (const g of NAME_ALIASES) if (g.indexOf(kx) >= 0 && g.indexOf(ky) >= 0) return true;
+  return false;
+}
 
 /** 낱말 경계로 같은 사람인가. api-teacher.ts 의 wordMatch 와 같은 규칙 + 위 별칭표. */
 export function sameTeacherByWord(a: any, b: any): boolean {
   const x = nrm(stripRolePrefix(a)), y = nrm(stripRolePrefix(b));
   if (!x || !y) return false;
-  /* 전체가 같거나(별칭 포함), 한쪽 «이름 전체» 가 상대의 «낱말 하나» 와 같으면 같은 사람이다.
-     ⚠️ 낱말끼리는 넓히지 않는다 — 별칭은 «이름 전체» 가 표에 있을 때만 걸린다(aliasesOf). */
-  const X = aliasesOf(x), Y = aliasesOf(y);
-  const wx = words(x), wy = words(y);
-  for (const xa of X) if (Y.indexOf(xa) >= 0 || wy.indexOf(xa) >= 0) return true;
-  for (const ya of Y) if (wx.indexOf(ya) >= 0) return true;
-  return false;
+  // ① 옛 규칙 그대로 — 여기까지는 별칭이 없던 때와 한 글자도 다르지 않다.
+  if (x === y) return true;
+  if (words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0) return true;
+  /* ② 별칭 — «이름 전체» 끼리만 본다.
+     🔴 ⛔ **별칭을 상대의 «낱말» 에까지 넓히면 안 된다.** 넓히면 별칭 'FARRAH' 가
+        `words('HT FARRAH')` = ['HT','FARRAH'] 의 낱말에 걸려 **다른 강사**
+        `HT FARRAH`(teachers.id=3, 퇴사)가 'FAR' 로 붙는다. 부분일치를 연 것이 아닌데도
+        결과가 같아지는 자리다 — 실제로 한 번 그렇게 짰다가 함정 대조가 잡았다.
+        이 저장소는 그 둘을 «다른 사람» 으로 못 박아 두었다(api-mango.ts 의
+        「FAR ⊂ HT FARRAH 오염 차단」 · c24-mirror.ts 의 「부분일치는 절대 금지 —
+        'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가 있었다」).
+        그 방향은 **진짜 노쇼를 감추고 수업료를 전액 내보낸다.**
+     ⟹ 그 오염이 여기서 안 나는 이유는 **양쪽이 «둘 다» 그룹에 있어야** 붙기 때문이다.
+        'HT FARRAH' 는 그룹에 없으므로 'FAR' 방의 접속으로 인정되지 않는다(하니스 D-15 가 잰다).
+        ℹ️ 'FARRAH' 대 'HT FARRAH' 가 붙는 것은 **별칭과 무관한 옛 낱말 규칙**이다(①) —
+           별칭표를 비워도 똑같이 true 다. 예약 이름은 실측상 'FAR' 이라 이 경로는 안 닿는다.
+
+     ⚠️ [표에 적을 값을 고를 때] **역할 접두사가 두 번 벗겨진다.**
+        `teacherPresenceByRoom` 의 `namesOf()` 가 한 번 벗기고(`'교사 Teacher - Farrah'`
+        → `'Teacher - Farrah'`), 그 값을 받은 이 함수가 **또 한 번** 벗긴다(→ `'- Farrah'`).
+        그래서 **실제 경로**(출석 대조)에 닿는 열쇠는 `'FARRAH'` 이고,
+        `sameTeacherByWord` 를 **직접** 부르면(한 번만 벗김) `'TEACHER FARRAH'` 다.
+        ⛔ 둘 중 하나만 적으면 다른 쪽에서 **조용히 안 걸린다** — 실제로 각각 한 번씩
+           그렇게 적었다가 하니스 D-4(실제 경로)와 D-14(그룹 전수)가 잡았다.
+           새 줄을 더할 때는 **반드시 하니스로 확인**할 것. 눈으로는 안 보인다. */
+  return sameByAlias(x, y);
 }
 
 /**
