@@ -183,8 +183,14 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
 
   /* 되돌림 시험 — 옛 문턱(3틱, 홀드 없음)으로 바꾸면 실제로 진동이 늘어야 한다.
      늘지 않으면 이 검사는 헛도는 것이다. */
+  /* ⚠️ 되돌림은 «식 모양» 을 글자 그대로 못 박지 말 것 — 홀드 조건을 변수로 빼는 것 같은 무해한 정리에
+     보장이 아니라 «검사만» 깨진다(CLAUDE.md 「하니스가 객체 모양을 정규식으로 못 박아 두어」). 뜻으로 묻는다:
+     ① 연속 틱 수를 8 → 3 으로 줄이고 ② 스파이크 후 홀드(30초)를 없앤다 — 어느 모양으로 쓰였든. */
   const oldBlock = block
-    .replace('pc.__qGood >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && step > 0', 'pc.__qGood >= 3 && step > 0');
+    .replace(/>= 8 /g, '>= 3 ')
+    .replace(/&& held /g, '')
+    .replace(/&& Date\.now\(\) - \(pc\.__qBadAt \|\| 0\) > 30000 /g, '');
+  ok(oldBlock !== block, '되돌림 시험용(3틱·홀드 없음) 블록을 만들었다');
   const decideOld = new Function('pc', 'lossPct', 'rtt', 'STEPS', oldBlock + '\n;return step;');
   const pcOld = { __qStep: 0, __qGood: 0, __qBadAt: 0 };
   let oldFlips = 0;
@@ -286,6 +292,68 @@ console.log('\n════════ ④-2 높은 기준 RTT 회선 — 내�
   for (let k = 0; k < 300; k++) lossy.push([k % 7 === 3 ? 2.0 : 0.3, k === 50 ? 620 : 360]);
   const lNow = run(block, lossy);
   ok(lNow.worst >= 1 && lNow.recoveredAt < 0, `손실 2% 가 28초마다 오면 «조용함» 을 매번 다시 센다 (끝 단계 ${lNow.end}, 회복 없음)`);
+}
+
+console.log('\n════════ ④-3 손실 축 사각지대 — 꾸준한 «애매» 손실에서 바닥에 굳는가 (2026-09-08) ════════');
+{
+  /* [무엇이 문제였나] 내려가는 기준은 손실 6% «초과», 올라오는 기준은 1.5% «미만».
+     그 사이(1.5~6%)에 꾸준히 머무는 연결은 어느 쪽에도 안 걸려 8틱을 영영 못 모았다 →
+     스파이크 한 번에 내려간 화질이 RTT 가 아무리 좋아도 수업 끝까지 바닥.
+     [잰 것 — 2026-09-08, 이 판정 블록을 실제로 돌림] RTT 100ms 고정 · 3틱 스파이크 뒤 손실만 바꿔 3분:
+       1.4% → 단계 0(완전복구) · 1.5%~6% → 굳음. 1.5% 에서 칼같이 갈렸다.
+     [고침] __qMid(«나쁘지 않은» 틱)로 LOSS_MID_STEP 까지만 «부분 회복».
+       ⛔ 단계 0 까지 열지 않는다 — 손실 4% 짜리 회선을 «정상» 으로 보면 그 손실을 우리가 만든다.
+       ⛔ __qGood(완전 회복)은 옛대로 손실 틱마다 지운다 — 2026-09-01 진동 방어를 안 깬다. */
+  const main = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+  const i = main.indexOf('let step = pc.__qStep || 0;');
+  const j = main.indexOf('if (step !== (pc.__qStep || 0))', i);
+  const block = main.slice(i, j);
+  const midDecl = block.match(/const LOSS_MID_STEP = (\d)/);
+  ok(!!midDecl, '판정 블록이 회복 상한(LOSS_MID_STEP)을 선언한다');
+  const MID = midDecl ? Number(midDecl[1]) : -1;
+  ok(MID >= 1 && MID <= 3, `회복 상한이 바닥(4)도 완전복구(0)도 아닌 중간이다 (LOSS_MID_STEP=${MID})`);
+
+  function run(src, series) {
+    let t = 0; const FakeDate = { now: () => t };
+    const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS', 'Date', src + '\n;return step;');
+    const pc = { __qStep: 0, __qGood: 0, __qMid: 0, __qBadAt: 0 };
+    let worst = 0;
+    for (const [loss, rtt] of series) { t += 4000; pc.__qStep = decide(pc, loss, rtt, [1, .6, .35, .2, .08], FakeDate); worst = Math.max(worst, pc.__qStep); }
+    return { worst, end: pc.__qStep };
+  }
+  /* 3틱 스파이크(바닥까지 내림) → 45틱(3분) 동안 RTT 는 아주 좋고(100ms) 손실만 그 값으로 꾸준히 */
+  const mk = L => { const s = []; for (let k = 0; k < 3; k++) s.push([20, 700]); for (let k = 0; k < 45; k++) s.push([L, 100]); return s; };
+
+  ok(run(block, mk(1.4)).end === 0, '손실 1.4% — 여전히 단계 0 까지 완전 회복한다(되던 것을 안 깼다)');
+  for (const L of [1.5, 2, 4, 6]) {
+    const r = run(block, mk(L));
+    ok(r.end === MID, `손실 ${L}% 가 꾸준해도 바닥에 안 굳는다 — 단계 ${r.end}(=LOSS_MID_STEP) 까지 올라온다`);
+  }
+  ok(run(block, mk(4)).end !== 0, '⛔ 손실 4% 를 «정상»(단계 0)으로 보지는 않는다');
+  ok(run(block, mk(7)).end >= 3, '손실 7%(6% 초과)는 여전히 내려간다 — 내려가는 쪽은 안 건드렸다');
+
+  /* RTT 까지 애매하면(rttUp~rttDown) 손실·지연이 둘 다 나쁜 것이라 부분 회복도 안 한다 */
+  const bothVague = []; for (let k = 0; k < 3; k++) bothVague.push([20, 700]);
+  for (let k = 0; k < 60; k++) bothVague.push([3, 620]);   // 기준 RTT 500 → rttUp 600 · rttDown 700 사이
+  ok(run(block, bothVague).end > MID, '손실·RTT 가 «둘 다» 애매하면 부분 회복도 하지 않는다');
+
+  /* 되돌림 ① — 옛 코드(애매 손실 틱마다 리셋)로 바꾸면 실제로 굳어야 한다 */
+  const oldSrc = block.replace(/\} else if \(lossPct >= 1\.5\) \{[\s\S]*?\n(\s{16})\}\n/, '} else if (lossPct >= 1.5) { pc.__qGood = 0; pc.__qMid = 0; }\n');
+  ok(oldSrc !== block, '되돌림 시험용(옛 리셋) 블록을 만들었다');
+  ok(run(oldSrc, mk(2)).end > MID, `옛 코드로 되돌리면 손실 2% 에서 실제로 굳는다 (단계 ${run(oldSrc, mk(2)).end}) — 검사가 헛돌지 않는다`);
+
+  /* 되돌림 ② — 상한을 0 으로 열면 손실 4% 가 «정상» 이 된다(그러면 안 된다) */
+  const openSrc = block.replace(/const LOSS_MID_STEP = \d/, 'const LOSS_MID_STEP = 0');
+  ok(openSrc !== block, '되돌림 시험용(상한 0) 블록을 만들었다');
+  ok(run(openSrc, mk(4)).end === 0, '상한을 0 으로 열면 손실 4% 가 단계 0 이 된다 — 상한 검사가 헛돌지 않는다');
+
+  /* 되돌림 ③ — __qGood 을 부분 회복에 쓰면(옛 초안) 2026-09-01 진동 방어가 깨진다.
+     28초마다 손실 2% 가 오는 회선은 «완전 회복» 이 오면 안 된다(④-2 ㉢ 의 짝). */
+  const share = block.replace(/pc\.__qMid/g, 'pc.__qGood');
+  ok(share !== block, '되돌림 시험용(카운터 공유) 블록을 만들었다');
+  const lossy = []; for (let k = 0; k < 300; k++) lossy.push([k % 7 === 3 ? 2.0 : 0.3, k === 50 ? 620 : 360]);
+  ok(run(block, lossy).end > 0 && run(share, lossy).end === 0,
+     `카운터를 공유하면 28초 주기 손실에서도 «완전 회복» 이 와 버린다 (지금 ${run(block, lossy).end} · 공유 ${run(share, lossy).end}) — 두 카운터를 나눈 이유`);
 }
 
 console.log('\n════════ ⑤ 소리 — 수신 지연 재설정과 음성전용 문턱 ════════');
