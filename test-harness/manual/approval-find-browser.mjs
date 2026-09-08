@@ -343,6 +343,23 @@ function check(name, cond, extra) {
     document.documentElement.scrollWidth - window.innerWidth);
   check('가로로 넘치지 않는다', overflow <= 0, '넘침 ' + overflow + 'px');
 
+  /* 🔴 순서 — 「지출 정리」가 문서함 «위» 에 있어야 한다 (2026-09-08 사장님 지시).
+     왜 — 문서함이 펼쳐진 뒤로 4,300px 이 넘어서, 그 아래에 있으면 지출 정리가
+          화면 7.8배 밑으로 밀려 «못 찾는 것» 이 된다(360×640 실측 4,979px).
+     ⚠️ 「위에 있는가」만 보면 안 된다 — 위에 있어도 그 위가 길어지면 또 밀린다.
+        «몇 px 인가» 를 함께 잰다(짝 검사). */
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.waitForTimeout(300);
+  const order = await page.evaluate(() => {
+    const t = (id) => { const e = document.getElementById(id);
+      return e ? Math.round(e.getBoundingClientRect().top + window.scrollY) : -1; };
+    return { rep: t('repBtn'), find: t('findPanel'), h: window.innerHeight };
+  });
+  check('「지출 정리」가 문서함보다 위에 있다',
+        order.rep > 0 && order.find > 0 && order.rep < order.find, JSON.stringify(order));
+  check('「지출 정리」가 두 화면 안에 있다 (짝 검사 — 위에 있어도 밀리면 소용없다)',
+        order.rep < order.h * 2, order.rep + 'px / 화면 ' + order.h + 'px');
+
   /* ── ⑨ 엑셀 — 맨 뒤에 둔다(진짜 네비게이션이라 페이지 상태를 흔든다) ───────────────────────────────────────────────────────── */
   console.log('\n[9] 엑셀 내려받기');
 

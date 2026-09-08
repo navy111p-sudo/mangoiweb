@@ -435,14 +435,42 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 
   <h2>
     <span data-en="My requests" data-ko="내가 올린 것">My requests</span>
-    <!-- 📂 (2026-09-07 사장님 지시) 문서함을 **처음부터 펼친 채로** 둔다 — 아래 findPanel 참고.
-         그래서 라벨이 「접기」로 시작한다. 라벨은 paintFindBtn() 이 상태에 맞춰 다시 쓰는데,
+  </h2>
+  <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+
+  <h2>
+    <span data-en="Spending" data-ko="지출 정리">Spending</span>
+    <button type="button" id="repBtn" class="findtoggle" onclick="toggleRep()"
+            data-en="How much did we spend?" data-ko="얼마나 썼나 보기">How much did we spend?</button>
+  </h2>
+
+  <!-- 📊 지출 정리 — 문서함과 같이 «접혀 있다가 누를 때만» 서버를 부른다.
+       첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 지킨다. -->
+  <div id="repPanel" class="findpanel" hidden>
+    <div class="findrow">
+      <select id="rscope" class="findsel" onchange="runRep()"></select>
+      <label class="findlab" data-en="From" data-ko="시작일">From</label>
+      <input type="date" id="rfrom" class="finddate" onchange="runRep()">
+      <label class="findlab" data-en="To" data-ko="종료일">To</label>
+      <input type="date" id="rto" class="finddate" onchange="runRep()">
+    </div>
+    <div id="repResult"></div>
+  </div>
+
+  <h2>
+    <!-- 📂 (2026-09-08 사장님 지시) 「지출 정리」를 문서함 **위**로 올렸다.
+         왜 — 문서함이 펼쳐진 뒤로 높이가 4,336px 이라(360×640 실측) 그 아래에 있던
+              지출 정리가 화면 7.8배 밑으로 밀려 «못 찾는 것» 이 됐다.
+         ⛔ 순서를 되돌리지 말 것 — 되돌리면 그 상태가 그대로 재현된다.
+         ⚠️ 그래서 문서함에 **자기 제목**이 생겼다. 여는 버튼도 여기로 함께 왔다 —
+            버튼만 「내가 올린 것」에 두면 «누르면 저 아래 것이 접히는» 꼴이 된다. -->
+    <span data-en="Archive" data-ko="결재 문서함">Archive</span>
+    <!-- 그래서 라벨이 「접기」로 시작한다. 라벨은 paintFindBtn() 이 상태에 맞춰 다시 쓰는데,
          ⚠️ textContent 만 쓰면 언어를 바꿀 때 applyLang 이 옛 글자로 되돌린다 —
             data-ko/data-en 도 **함께** 갱신한다(CLAUDE.md 「JS 로 그린 라벨」). -->
     <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()" aria-expanded="true"
             data-en="Hide" data-ko="접기">Hide</button>
   </h2>
-  <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
 
   <!-- 📂 결재 문서함 — **처음부터 펼쳐져 있다** (2026-09-07 사장님 지시).
        왜 — 접혀 있고 여는 버튼이 제목 옆 작은 글씨라 「남들이 올린 것·승인 완료를
@@ -479,25 +507,6 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
          홈이 오면 곧바로 「찾는 중...」→ 결과로 바뀌고, 홈이 실패해도 findAutoOpen 이
          한 번 불러 «연결이 좋지 않습니다» 로 바뀐다(이 글자가 남아 있는 일은 없다). -->
     <div id="findResult"><div class="findnote" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
-  </div>
-
-  <h2>
-    <span data-en="Spending" data-ko="지출 정리">Spending</span>
-    <button type="button" id="repBtn" class="findtoggle" onclick="toggleRep()"
-            data-en="How much did we spend?" data-ko="얼마나 썼나 보기">How much did we spend?</button>
-  </h2>
-
-  <!-- 📊 지출 정리 — 문서함과 같이 «접혀 있다가 누를 때만» 서버를 부른다.
-       첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 지킨다. -->
-  <div id="repPanel" class="findpanel" hidden>
-    <div class="findrow">
-      <select id="rscope" class="findsel" onchange="runRep()"></select>
-      <label class="findlab" data-en="From" data-ko="시작일">From</label>
-      <input type="date" id="rfrom" class="finddate" onchange="runRep()">
-      <label class="findlab" data-en="To" data-ko="종료일">To</label>
-      <input type="date" id="rto" class="finddate" onchange="runRep()">
-    </div>
-    <div id="repResult"></div>
   </div>
 
 </div>
