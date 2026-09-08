@@ -4054,7 +4054,9 @@ ${numbered}`;
             없고, 새 칸을 지연 ALTER 로 붙이면 없는 DB 에서 조회가 통째로 죽는다(CLAUDE.md 함정).
          ⛔ LEFT JOIN 으로 바꾸지 말 것 — 파트가 여럿이면 행이 늘어 «같은 녹화» 가 여러 번 걸린다.
          ⚠️ 200 으로 돌려준다 — 화면이 «실패» 로 오인해 재시도 폭주하지 않게(consent_required 선례). */
-      try {
+      /* ⚠️ room_id 가 비면 이 게이트를 건너뛴다 — 빈 값('')끼리 «같은 방» 으로 묶여
+            서로 다른 수업이 서로를 막는다(클라이언트는 vcRoomId 가 미정의면 '' 를 보낸다). */
+      if (String(b.room_id || '').trim()) try {
         let dupRows: any[] | null = null;
         try {
           const rs = await env.DB.prepare(
@@ -4074,12 +4076,17 @@ ${numbered}`;
         }
         const gate = recordingDupGate({ rows: dupRows, now, windowMs: REC_DUP_LIVE_WINDOW_MS });
         if (gate.block) {
-          console.log(`[recordings] 동시 녹화 거절 room=${b.room_id} holder=${gate.holderId} by=${gate.by}`);
+          console.log(`[recordings] 동시 녹화 거절 room=${b.room_id} holder=${gate.holderId}`);
+          /* ⛔ «누가 찍고 있는지» 를 응답에 싣지 않는다 — 그 값(recordings.teacher_name)은
+                화면의 아이디 입력칸(index.html `#vc-name-input`, autocomplete="username")에서 온
+                **학생 로그인 아이디**일 수 있다(9/8 실측: 그 칸에 `ysyt01`·`mby1` 이 그대로 찍혔다).
+                이 경로는 무인증이고 room_id 는 `class-{예약id}-{YYYYMMDD}` 로 열거 가능해서,
+                수업 시간대 내내 «그 방 학생의 아이디» 를 아무나 받아 가는 통로가 된다.
+                이 서비스에서 아이디는 곧 비밀번호다(password_hash 가 설정된 학생 0명 — CLAUDE.md 2장).
+             ✅ 사람에게는 「다른 기기에서 녹화 중」 하나면 충분하고, 화면은 이름 없이도 그린다. */
           return json({
             ok: false,
             error: 'already_recording',
-            by: gate.by,
-            holder_id: gate.holderId,
             retry_after_ms: REC_DUP_LIVE_WINDOW_MS,
             message: '이 수업은 다른 기기에서 이미 녹화하고 있습니다.'
           }, 200);
@@ -4226,8 +4233,15 @@ ${numbered}`;
             그건 «늘린» 것이 아니라 동의 문구가 이미 3개월이었던 것에 **맞춘** 것이다. */
       const RETENTION_MS = 180 * 24 * 3600 * 1000; // 6개월
       const res = await env.DB.prepare(
-        `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`
+        /* 🎥 (2026-09-08) status 를 «명시» 한다 — 예전엔 컬럼 목록에서 빼고 DEFAULT 에 기댔는데,
+              그 기본값이 두 벌이라 환경에 따라 갈렸다: schema.sql:83 은 DEFAULT 'recording' 인데
+              런타임 `CREATE TABLE IF NOT EXISTS recordings` 3곳(api-mango 2 · index.ts 1)에는 없다.
+              DEFAULT 가 없는 DB 에서는 status 가 NULL 이라
+                ① 파트 업로드가 통째로 거절되고(recordings-r2.ts 의 `status !== 'recording'`)
+                ② 동시녹화 게이트가 영원히 0행을 봐서 «넣었는데 한 번도 안 도는» 상태가 된다.
+              값은 운영 DB 의 DEFAULT 와 같으므로 기존 동작은 바뀌지 않는다. */
+        `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', 'recording')`
       ).bind(
         b.room_id, b.teacher_id, b.teacher_name || null,
         b.filename || `rec_${b.room_id}_${now}.webm`,

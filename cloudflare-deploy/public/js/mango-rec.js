@@ -63,7 +63,6 @@
         **자동으로 다시 시도한다**(startRetryAt). 서버 쪽 «살아있음» 창이 3분이므로
         상대가 죽었으면 늦어도 그 안에 이 기기가 이어받는다. */
   let dupBlocked = false;
-  let dupBlockedBy = '';
 
   /* ⏱ 다음 «자동» 시작을 시도할 시각. 시작이 실패하면(미동의·중복·서버 오류 무엇이든)
      이 값을 미뤄 두고 그때까지는 3초 폴링이 서버를 두드리지 않는다.
@@ -708,10 +707,12 @@
         : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화할 수 없습니다. 학생이 동의 팝업을 수락하면 시작됩니다 — 눌러서 다시 시도';
     }
     if (!isRecording && dupBlocked) {
+      /* ⛔ «누가 찍고 있는지» 는 서버가 주지 않는다(그 이름이 학생 로그인 아이디일 수 있어
+            무인증 응답에서 뺐다 — api-mango.ts 의 그 자리 주석 참고). 여기서도 묻지 않는다. */
       return en
-        ? 'Another device is already recording this class' + (dupBlockedBy ? ' (' + dupBlockedBy + ')' : '')
-          + '. Two copies would have the same content and would slow the class down, so this device is waiting. Tap to try again.'
-        : '이 수업은 다른 기기' + (dupBlockedBy ? '(' + dupBlockedBy + ')' : '') + '에서 이미 녹화하고 있습니다.'
+        ? 'Another device is already recording this class. Two copies would have the same content'
+          + ' and would slow the class down, so this device is waiting. Tap to try again.'
+        : '이 수업은 다른 기기에서 이미 녹화하고 있습니다.'
           + ' 두 벌은 내용이 같고 수업만 느려지므로 여기서는 기다립니다 — 눌러서 다시 시도';
     }
     if (!isRecording && isStaffSkipRecording()) {
@@ -814,6 +815,8 @@
           await startRecording({ auto: true });
         } catch (e) {
           console.warn('[mango-rec] 수동 재시작 예외:', e);
+          dupBlocked = false;                              // 사유가 통신 오류면 그렇게 보이게 둔다
+          startRetryAt = Date.now() + START_RETRY_MS;
         }
         // 실패했으면 다시 «눌러서 시작» 으로 되돌린다 (성공하면 startRecording 이 칠했다)
         if (!isRecording) paintRecBadge();
@@ -1140,11 +1143,10 @@
       /* 🎥 «다른 기기가 이미 찍고 있다» — 실패가 아니라 «정상적으로 양보한» 상태다.
          그래서 경고창을 띄우지 않는다(강사가 손으로 눌렀을 때도 조용히 사유만 배지에 남긴다). */
       dupBlocked = (startRes?.error === 'already_recording');
-      dupBlockedBy = dupBlocked ? String(startRes?.by || '') : '';
       // ⏱ 어떤 사유든 곧바로 다시 두드리지 않는다. 다만 «영영 포기» 도 아니다(위 주석 참고).
       startRetryAt = Date.now() + START_RETRY_MS;
       if (!auto && dupBlocked) {
-        console.log('[mango-rec] 다른 기기가 이미 녹화 중 — 시작하지 않습니다:', dupBlockedBy || '(이름 모름)');
+        console.log('[mango-rec] 다른 기기가 이미 녹화 중 — 시작하지 않습니다');
       } else if (!auto) {
         alert(consentBlocked
           ? (isEn()
@@ -1156,7 +1158,7 @@
       return;
     }
     consentBlocked = false;
-    dupBlocked = false; dupBlockedBy = ''; startRetryAt = 0;
+    dupBlocked = false; startRetryAt = 0;
     // 자동 녹화 시 동의 팝업 건너뜀 (수업 녹화는 필수이므로)
     if (!auto) {
       const nonConsented = startRes.non_consented || [];
@@ -1436,6 +1438,12 @@
             } catch (e) {
               console.warn('[mango-rec] 자동 녹화 시작 실패:', e);
               autoRecStarted = false; // 실패 시엔 다음 폴링 때 재시도 가능하게 되돌림
+              /* 🎥 (2026-09-08 함정 대조) 예외(429 속도제한·통신 오류)로 끝나면 startRecording 이
+                 startRetryAt 을 못 건다 → 3초 폴링이 그대로 다시 두드린다. 여기서 대신 건다.
+                 ⛔ dupBlocked 는 함께 푼다 — 실제 사유가 통신 오류인데 배지가 계속
+                    「다른 기기가 녹화 중」이라고 말하면 그건 거짓말이다. */
+              dupBlocked = false;
+              startRetryAt = Date.now() + START_RETRY_MS;
             }
             /* 🎥 (2026-09-08) 서버가 «미동의»·«다른 기기가 녹화 중» 으로 거절하면 startRecording 은
                예외를 던지지 않고 조용히 돌아온다. 그때 autoRecStarted 가 true 로 남으면 이 기기는
@@ -1458,7 +1466,7 @@
     // 미동의 차단도 방을 나가면 푼다 — 다음 수업(다른 학생)까지 끌고 가면 멀쩡한 방에 ⛔ 가 뜬다
     if (!inCall && consentBlocked) consentBlocked = false;
     // 🎥 «다른 기기가 녹화 중» 도 같은 이유로 방을 나가면 푼다(다음 수업까지 끌고 가면 안 된다)
-    if (!inCall && (dupBlocked || startRetryAt)) { dupBlocked = false; dupBlockedBy = ''; startRetryAt = 0; }
+    if (!inCall && (dupBlocked || startRetryAt)) { dupBlocked = false; startRetryAt = 0; }
   }, 2000);
  
   // vcLeaveRoom 후킹 — 나가기 버튼 클릭 시 자동으로 녹화 종료

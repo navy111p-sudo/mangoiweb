@@ -32,7 +32,20 @@
  *   ⟹ 창을 3분으로 둔다. 짧으면 느린 회선의 «살아 있는» 녹화를 죽은 것으로 봐 두 벌이 다시 생기고,
  *      길면 유령(브라우저가 신호 없이 죽은 행)이 그만큼 오래 남는다.
  *   ⚠️ 유령이 남아도 «영영» 은 아니다 — 막힌 기기가 60초마다 다시 시도하므로 창이 지나면 이어받는다
- *      (mango-rec.js 의 dupBlockedRetryAt). 최악의 손실은 그 3분이다.
+ *      (mango-rec.js 의 startRetryAt). 최악의 손실은 그 3분이다.
+ *
+ * [반경 — 이게 어디까지 닿나]
+ *   ⚠️ 녹화의 **86%가 공용방**이다(api-mango.ts 의 실측 주석: recordings 1,552건 중 1,329건).
+ *      그 방은 room_id 가 상수 `mangoi-class` 라, 이 게이트는 거기서 «서비스 전체에서 한 번에 한 벌» 이 된다.
+ *      의도한 대로로 «보인다» — 그 방은 Durable Object 하나이고 정원 4명(video-call-room.ts
+ *      SHARED_ROOM_MAX_USERS)이라 같은 시각에 있는 사람은 서로 보고 있는 «같은 수업» 이기 때문이다.
+ *      ⛔ 정원이 늘거나 공용방이 여러 개가 되면 그 전제가 깨진다 — 그때 이 줄을 다시 보라.
+ *
+ * [안 한 것 — 사람이 정할 일]
+ *   · «같은 기기의 재시작» 을 통과시키지 않는다. 브라우저가 신호 없이 죽으면 같은 사람이 새로고침해도
+ *     최대 3분을 기다린다(그전엔 2초 만에 이어서 찍었다 — 9/8 class-1900 이 그 모양).
+ *     teacher_id 를 함께 뽑아 «요청자와 같으면 통과» 로 열 수는 있지만, 한 사람이 두 기기를 쓰는
+ *     경우가 곧바로 걸린다. 지금은 «3분 기다림» 쪽을 골랐다.
  */
 
 /** 같은 방에서 «아직 녹화 중» 인 행 (조회 결과 한 줄) */
@@ -53,11 +66,14 @@ export interface DupGateInput {
 
 export interface DupGateResult {
   block: boolean;
-  /** 막았을 때 «누가 찍고 있나» — 화면이 사람에게 보여 준다 */
+  /* 막았을 때 «누가 찍고 있나».
+     ⛔ 이 값을 API 응답에 싣지 말 것 — recordings.teacher_name 은 화면의 아이디 입력칸에서
+        오므로 **학생 로그인 아이디일 수 있다**(9/8 실측 `ysyt01`·`mby1`). /api/recordings/start 는
+        무인증이고 이 서비스에서 아이디는 곧 비밀번호다(CLAUDE.md 2장). 서버 로그용으로만 쓴다. */
   by: string;
   /** 막은 상대 녹화의 id (로그용) */
   holderId: number | null;
-  /** 판정 사유 — lookup_failed · none · stale · future · live */
+  /** 판정 사유 — lookup_failed · none · stale · live */
   reason: 'lookup_failed' | 'none' | 'stale' | 'live';
 }
 

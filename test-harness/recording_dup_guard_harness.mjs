@@ -55,6 +55,23 @@ function strip(t) {
   return out;
 }
 
+/** 여는 중괄호부터 짝이 맞는 닫는 중괄호까지 (문자열·주석은 건너뛴다) */
+function braceBlock(src, openIdx) {
+  let depth = 0, inStr = null, inLine = false, inBlock = false;
+  for (let i = openIdx; i < src.length; i++) {
+    const c = src[i], n = src[i + 1];
+    if (inLine) { if (c === '\n') inLine = false; continue; }
+    if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
+    if (inStr) { if (c === '\\') { i++; continue; } if (c === inStr) inStr = null; continue; }
+    if (c === '/' && n === '/') { inLine = true; i++; continue; }
+    if (c === '/' && n === '*') { inBlock = true; i++; continue; }
+    if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return src.slice(openIdx, i + 1); }
+  }
+  return src.slice(openIdx);
+}
+
 console.log('🧪 같은 방 «동시 녹화» 방지 — recording-dup-guard');
 
 // ═══════════════ A. 정본을 실제로 돌린다 ═══════════════
@@ -148,11 +165,36 @@ console.log('\nC. 실패 방향 — 막는 쪽으로 실패하지 않는다');
   check('C-3 판정 결과를 «조건으로» 쓴다(부르기만 하지 않는다)', /if\s*\(gate\.block\)/.test(block));
   check('C-4 거절은 HTTP 200 + ok:false — 화면이 «실패» 로 오인해 재시도 폭주하지 않게',
     /error:\s*'already_recording'[\s\S]{0,400}\}\s*,\s*200\s*\)/.test(block));
-  check('C-5 거절할 때 «누가 찍고 있는지» 를 함께 내려준다(화면이 사람에게 말한다)', /by:\s*gate\.by/.test(block));
-  // 게이트 전체가 try 로 감싸여 있는가 — 판정이 던져도 녹화는 시작돼야 한다
-  const outerTry = MANGO.lastIndexOf('try {', gi);
-  check('C-6 게이트 전체가 try 로 감싸여 있다(판정이 던져도 녹화는 시작된다)',
-    outerTry > 0 && /catch[\s\S]{0,160}통과시킴/.test(MANGO.slice(gi, gi + 3000)));
+  /* 🔐 C-5 (2026-09-08 함정 대조 지적으로 «뒤집은» 검사)
+     처음엔 「누가 찍고 있는지 함께 내려준다」였는데, 그 값(recordings.teacher_name)은
+     화면의 아이디 입력칸에서 오므로 **학생 로그인 아이디** 다(실측 `ysyt01`·`mby1`).
+     이 경로는 무인증이고 room_id 는 열거 가능해서, 수업 시간대 내내 아이디를 흘리는 통로였다.
+     ⟹ 계약을 뒤집는다 — 이름을 «싣지 않는» 것이 맞다. */
+  const respAt = MANGO.indexOf("error: 'already_recording'", gi);
+  const respObj = respAt > 0 ? braceBlock(MANGO, MANGO.lastIndexOf('{', respAt)) : '';
+  check('C-5a 거절 응답 객체를 잘라 냈다', /already_recording/.test(respObj) && respObj.length < 500);
+  check('C-5 거절 응답에 «녹화 중인 사람 이름» 을 싣지 않는다(무인증 API + 아이디=비밀번호)',
+    !/\bby\b/.test(respObj) && !/teacher_name/.test(respObj));
+  /* C-6 «게이트 전체가 try 로 감싸여 있는가».
+     🪤 처음엔 `lastIndexOf('try {')` + 「근처에 catch 가 있나」로 썼는데 **헛돌았다** —
+        바깥 try/catch 를 통째로 지워도 49/49 초록이었다(함정 대조 실측).
+        `outerTry > 0` 은 파일 앞쪽 아무 try 나 잡아 언제나 참이고, /catch…통과시킴/ 은
+        **안쪽** catch 의 로그 문자열에 걸렸다. 하필 그 검사가 지키는 것이 fail-open 의 핵심이다.
+     ✅ 그래서 «문자열이 근처에 있나» 가 아니라 **«recordingDupGate 호출이 그 try 블록 «안» 인가»**
+        를 중괄호 짝으로 판정한다. */
+  const callAt = MANGO.indexOf('recordingDupGate({');
+  const tryAt = MANGO.lastIndexOf('try {', gi);
+  const tryBlock = tryAt > 0 ? braceBlock(MANGO, MANGO.indexOf('{', tryAt)) : '';
+  const inTry = tryAt > 0 && callAt > tryAt && callAt < tryAt + tryBlock.length;
+  check('C-6 판정 호출이 try 블록 «안» 에 있다(판정이 던져도 녹화는 시작된다)', inTry);
+  check('C-6b 그 try 의 catch 가 «통과시킨다»(로그만 남기고 거절하지 않는다)', (() => {
+    if (!inTry) return false;
+    const tryStart = MANGO.indexOf('{', tryAt);
+    const catchAt = MANGO.indexOf('catch', tryStart + tryBlock.length);
+    if (catchAt < 0 || catchAt > tryStart + tryBlock.length + 40) return false;
+    const catchBody = braceBlock(MANGO, MANGO.indexOf('{', catchAt));
+    return !/\breturn\b/.test(catchBody);   // 여기서 return 하면 녹화가 막힌다
+  })());
   check('C-7 INSERT 보다 «앞» 에서 판정한다', gi < MANGO.indexOf('INSERT INTO recordings'));
 }
 
@@ -163,7 +205,7 @@ console.log('\nD. 화면(mango-rec.js)');
   check('D-1 already_recording 을 알아본다', /dupBlocked\s*=\s*\(startRes\?\.error === 'already_recording'\)/.test(js));
   check('D-2 사유를 «본문 글자» 로 말한다 — 툴팁은 폰에서 안 보인다',
     /timeEl\.textContent[\s\S]{0,400}다른 기기가 녹화 중/.test(js));
-  check('D-3 성공하면 플래그를 푼다', /dupBlocked = false;\s*dupBlockedBy = '';\s*startRetryAt = 0;/.test(js));
+  check('D-3 성공하면 플래그를 푼다', /dupBlocked = false;\s*startRetryAt = 0;/.test(js));
   check('D-4 실패하면 다음 시도를 미룬다(3초 폴링이 서버를 두드리지 않게)',
     /startRetryAt = Date\.now\(\) \+ START_RETRY_MS/.test(js));
   check('D-5 자동 시작 조건이 그 대기시간을 실제로 본다', /Date\.now\(\) >= startRetryAt/.test(js));
@@ -172,6 +214,11 @@ console.log('\nD. 화면(mango-rec.js)');
   check('D-7 사람이 배지를 누르면 대기시간을 건너뛴다', /startRetryAt = 0;\s*\/\/[^\n]*|startRetryAt = 0;[\s\S]{0,120}Starting…/.test(js));
   check('D-8 방을 나가면 플래그를 푼다(다음 수업까지 끌고 가지 않는다)',
     /!inCall && \(dupBlocked \|\| startRetryAt\)/.test(js));
+  /* 🔐 무인증 응답에 학생 로그인 아이디가 실리지 않는지 */
+  check('D-11 화면이 서버가 준 «녹화 중인 사람 이름» 을 쓰지 않는다(학생 아이디일 수 있다)',
+    !/dupBlockedBy/.test(js) && !/startRes\?\.by/.test(js));
+  check('D-12 예외(429·통신 오류)로 끝나도 재시도 대기를 건다 — 3초 폴링이 두드리지 않게',
+    /catch \(e\)[\s\S]{0,400}startRetryAt = Date\.now\(\) \+ START_RETRY_MS/.test(js));
   check('D-9 «다른 기기가 찍는 중» 에 경고창을 띄우지 않는다(정상적으로 양보한 상태다)',
     /!auto && dupBlocked[\s\S]{0,200}console\.log/.test(js));
   // 재시도 간격이 살아있음 창보다 짧아야 «상대가 죽으면 이어받는다» 가 성립한다
