@@ -51,7 +51,7 @@ async function checkLayer2(env: MangoEnv): Promise<{ state: 'unset' | 'ok' | 'st
       const text = stale
         ? '[망고아이] 🔕 외부 장애감시(2층)가 30분째 응답이 없습니다. 사이트는 정상이지만 감시가 한 겹뿐입니다.'
         : '[망고아이] 🔔 외부 장애감시(2층)가 정상 복구되었습니다.';
-      const r = await sendPlainSms(env, phone, text);
+      const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
       smsSent = r.ok;
     }
     try { stale ? await kv.put('watchdog2:alerted', '1') : await kv.delete('watchdog2:alerted'); } catch {}
@@ -103,7 +103,7 @@ export async function runSiteWatchdog(
       const text = isUp
         ? '[망고아이] ✅ 사이트가 정상 복구되었습니다.'
         : '[망고아이] ⚠️ 사이트 응답 없음 감지. 접속 확인이 필요합니다.';
-      const r = await sendPlainSms(env, phone, text);
+      const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
       smsSent = r.ok;
       detail = r.message || r.error;
     }
@@ -225,7 +225,7 @@ export async function handleUptimeApi(
     ? `[망고아이] ✅ 사이트 정상 복구됨 (${site}).`
     : `[망고아이] ⚠️ 사이트 응답 없음 감지 (${site}). 접속 확인이 필요합니다.`;
 
-  const r = await sendPlainSms(env, phone, text);
+  const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
   // 중복방지 타이머는 '발송 성공' 시에만 건다 — 실패 시엔 재시도를 막지 않도록.
   if (kv && r.ok) { try { await kv.put(throttleKey, String(Date.now()), { expirationTtl: 300 }); } catch {} }
 

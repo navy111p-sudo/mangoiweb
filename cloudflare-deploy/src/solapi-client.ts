@@ -23,7 +23,7 @@
 
 import { siteUrl } from './site-url';
 /* 📵 운영자 문자 음소거 판정 — 정본은 한 곳(복제 금지). 순수 함수라 하니스가 실제로 돌린다. */
-import { isOwnerPhone, ownerMuteFromKv, OWNER_MUTE_KV_KEY } from './owner-sms-mute';
+import { isOwnerPhone, ownerSmsBlocked, OWNER_MUTE_KV_KEY, type OwnerSmsKind } from './owner-sms-mute';
 
 export interface SolapiEnv {
   SOLAPI_API_KEY?: string;
@@ -129,19 +129,26 @@ async function generateSignature(
 //     고치면 나중에 새 알림이 생길 때 조용히 새어 나가므로, «보내는 정본» 에 둔 것이다.
 //     기본이 «음소거» 이고 되켜기는 KV `owner_alert_mute='off'`(배포 불필요).
 //     ⚠️ 학부모·강사·학생 문자는 번호가 달라 영향 없다(수신번호로만 판정).
+//     📌 (2026-09-09) 예외 둘 — `opts.kind` 로 «무슨 알림인가» 를 밝히면 음소거 중에도 나간다.
+//        지금은 `uptime`(사이트 장애)·`room-split`(방 갈림 감시견)뿐이고 목록의 정본은
+//        `owner-sms-mute.ts` 의 `OWNER_ALWAYS_KINDS` 다. ⛔ 여기서 예외를 만들지 말 것.
+//        ✅ 안 밝힌 호출은 그대로 막힌다 — 새 알림이 조용히 새지 않는다.
 //     자세한 근거·대가는 `owner-sms-mute.ts` 머리말 참고.
 export async function sendPlainSms(
   env: SolapiEnv, toPhone: string, text: string,
-  opts?: { country?: string; subject?: string; from?: string }
+  opts?: { country?: string; subject?: string; from?: string; kind?: OwnerSmsKind }
 ): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string; muted?: boolean }> {
   const mode = getSolapiMode(env);
   if (isOwnerPhone(toPhone, env.OWNER_ALERT_PHONE)) {
-    let muted = true;   // ⚠️ KV 를 못 읽어도 «안 보냄» — 끄라는 지시로 만든 스위치다
-    try { muted = ownerMuteFromKv(await env.SESSION_STATE?.get(OWNER_MUTE_KV_KEY)); } catch {}
+    /* ⚠️ KV 를 못 읽어도 «지금 정책대로» 떨어진다 — 장애·감시견은 나가고 나머지는 막힌다.
+       (종류를 안 밝힌 호출은 여기서도 막히는 쪽이다) */
+    let muted = ownerSmsBlocked(null, opts?.kind);
+    try { muted = ownerSmsBlocked(await env.SESSION_STATE?.get(OWNER_MUTE_KV_KEY), opts?.kind); } catch {}
     if (muted) {
       /* ⛔ 조용히 넘기지 않는다 — 무엇이 안 갔는지 Workers 로그에 남긴다.
          ⚠️ 본문에 학생 이름·금액이 들어가므로 «앞 40자» 만 남긴다(로그에 PII 를 쌓지 않는다). */
       console.warn('[owner-sms] 음소거로 보내지 않음(KV owner_alert_mute=off 로 되켬):',
+        'kind=' + (opts?.kind || '(안 밝힘)'),
         String(text || '').replace(/\s+/g, ' ').slice(0, 40));
       return { ok: false, mode, muted: true, message: '운영자 문자 음소거(owner_alert_mute)' };
     }
