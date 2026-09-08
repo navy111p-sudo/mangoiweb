@@ -223,6 +223,12 @@
       var q = prefill && prefill.q ? String(prefill.q) : '';
       var el = $('bat-q');
       if (q && el) { el.value = q; invalidatePreview(); }
+      /* 📌 여는 쪽이 «이 창의 대상» 을 한 마디 적을 수 있게 — 부르는 화면이 세는 수와
+         이 창의 기본 대상이 다를 수 있다(그쪽은 «화면에 보이는 줄», 여기는 «권한 범위 전체»).
+         ⚠️ invalidatePreview() 가 상태줄을 비우므로 **그 뒤에** 쓴다(순서가 뒤집히면 사라진다). */
+      var note = prefill && prefill.note ? String(prefill.note) : '';
+      var st = $('bat-status');
+      if (note && st) st.textContent = note;
     } catch (e) { /* 무시 — 채우기 실패가 모달을 막으면 안 된다 */ }
   };
 

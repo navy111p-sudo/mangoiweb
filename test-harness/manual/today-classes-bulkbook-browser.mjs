@@ -177,6 +177,11 @@ async function main() {
   check('   «대상 미리보기» 전에는 실행 버튼이 잠겨 있다 (오배정 방지)',
     await ev('!!document.getElementById("bat-run").disabled'));
   check('   «미배정 학생만» 이 기본으로 켜져 있다', await ev('!!document.getElementById("bat-empty").checked'));
+  /* 📌 이 줄이 센 수(화면에 보이는 3건)와 저 창의 기본 대상(권한 범위 전체)은 모집단이 다르다.
+     실행 직전에 사람이 보는 자리에서 그 말을 해야 한다(CLAUDE.md 2장 「두 수를 비교할 때」). */
+  const st = await ev('document.getElementById("bat-status").textContent');
+  check('   «이 창의 대상은 화면의 3건이 아니다» 를 상태줄에서 말한다',
+    /권한 범위/.test(st || '') && /미리보기/.test(st || ''), String(st));
   await ev('document.getElementById("bat-close").click()');
   await sleep(200);
 
@@ -231,9 +236,20 @@ async function main() {
   await ev('window.mangoiOpenBulkTextbook = window.__mangoiOpenBackup');
 
   console.log('\n── ⑨ 🌐 EN 전환을 따라오는가 ───────────────────────');
-  await ev('(function(){ window.adminLang="en"; if (typeof applyAdminLangDom === "function") applyAdminLangDom(); document.dispatchEvent(new CustomEvent("mangoi:lang-changed")); })()');
-  await ev('tcLoadToday()');
+  /* ⛔ 여기서 tcLoadToday() 를 «손으로» 부르면 안 된다 — 그러면 「render() 가 영어를 낸다」까지만
+     증명하고, 정작 매니저가 EN 을 눌렀을 때 표가 안 바뀌는 것을 못 본다(함정 대조에서 잡힌 결함).
+     실제 토글 경로 그대로 간다: toggleAdminLang() 이 있으면 그것을, 없으면 adm-core 와 같은 모양으로
+     **document** 에 이벤트만 쏜다(CustomEvent 는 bubbles:false 라 window 로 안 올라간다). */
+  await ev(`(function(){
+    if (typeof toggleAdminLang === 'function') { toggleAdminLang(); return 'toggle'; }
+    window.adminLang = 'en';
+    if (typeof applyAdminLangDom === 'function') applyAdminLangDom();
+    document.dispatchEvent(new CustomEvent('mangoi:lang-changed'));
+    return 'event';
+  })()`);
   await sleep(800);
+  check('EN 을 누른 «그 경로» 로 화면이 영어가 됐다 (손으로 다시 그리지 않았다)',
+    (await ev('window.adminLang')) === 'en', String(await ev('window.adminLang')));
   const en = await ev('(function(){var e=document.querySelector("#tc-body #tc-bulk-book"); return e ? e.parentElement.textContent.trim() : null})()');
   check('요약 줄이 영어로 바뀐다', /3 of 4 shown have no textbook/.test(en || ''), String(en));
   check('   버튼 글자도 영어다', /Bulk assign/.test(en || ''), String(en));

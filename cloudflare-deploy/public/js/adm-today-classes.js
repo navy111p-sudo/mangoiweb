@@ -407,7 +407,8 @@
     var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
     /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
        (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
-    var bookLine = bookNoteHtml(rows.filter(function (s) { return !s.textbook_assigned; }).length, rows.length);
+    var missing = rows.filter(function (s) { return !s.textbook_assigned; }).length;
+    var bookLine = bookNoteHtml(missing, rows.length);
     box.innerHTML = (note
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
@@ -540,7 +541,18 @@
         /* ⛔ 이 화면이 배정을 «직접» 하지 않는다 — 대상 미리보기를 강제하는 그 모달로만 간다.
            ⚠️ 함수가 없으면(스크립트 미로드·이름 변경) 조용히 넘기지 말고 사람에게 말한다 —
               아무 일도 안 일어나면 «버튼이 고장났다» 로 읽힌다. */
-        if (typeof window.mangoiOpenBulkTextbook === 'function') { window.mangoiOpenBulkTextbook(); return; }
+        /* 📌 «이 줄이 센 수» 와 «저 창의 기본 대상» 은 모집단이 다르다 — 이 줄은 «화면에 보이는
+           줄» 을 세는데, 저 창은 학생 검색어가 비면 «권한 범위 전체» 가 대상이다.
+           그 말을 실행 직전에 사람이 보는 자리(상태줄)에 적어 준다. 감추면 「3건인 줄 알고
+           눌렀는데 수백 명이 잡혔다」가 된다(CLAUDE.md 2장 「두 수를 비교해 알려 줄 때」).
+           ⛔ 대신 검색어를 채워 좁히지는 않는다 — 그 칸은 **부분일치**라 아이디 하나로
+              남의 계정까지 걸린다(정확일치는 서버 몫 — 다음 판). */
+        if (typeof window.mangoiOpenBulkTextbook === 'function') {
+          window.mangoiOpenBulkTextbook({ note: T(
+            '⚠ 이 창의 기본 대상은 «오늘 수업 ' + missing + '건» 이 아니라 권한 범위의 미배정 학생 전체입니다. 「대상 미리보기」로 인원을 먼저 확인하세요.',
+            '⚠ This dialog targets ALL unassigned students in your scope — not just the ' + missing + ' shown here. Preview the targets first.') });
+          return;
+        }
         alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
                 'Could not open the textbook assignment dialog. Please refresh and try again.'));
       });
@@ -640,4 +652,16 @@
      setInterval)는 쓰지 않는다(홈을 통째로 멎게 한 전력 — CLAUDE.md 2장). */
   document.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
   window.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
+  /* 🌐 (2026-09-08) 🌐 EN 을 누르면 이 표도 따라오게 한다.
+     [무엇이 문제였나] 이 표는 render() 가 T() 로 글자를 «그리는» 방식이라
+       adm-core.js 의 applyAdminLangDom() 이 손댈 수 없다(그건 data-ko/data-en 요소만 본다).
+       그런데 여기엔 lang 리스너가 없어서, 매니저가 EN 을 눌러도 표 전체가 한국어로 남고
+       🔄 불러오기를 다시 눌러야 바뀌었다(함정 대조에서 잡힘).
+     ⚠️ 발행처가 화면마다 다르다 — adm-core.js 의 toggleAdminLang 은 **document** 에 쏘고
+        CustomEvent 는 기본이 bubbles:false 라 window 로 안 올라간다. **둘 다** 듣는다.
+     ⛔ data-ko/data-en 으로 풀지 말 것 — 그 줄에는 버튼이 들어 있어 두 i18n 엔진이
+        textContent 를 통째로 갈아끼우면 **버튼이 사라진다**(CLAUDE.md 2장).
+     ⛔ 서버를 다시 부르지 않는다(render() 만) — 이미 받아 둔 _rows 로 다시 그린다. */
+  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
 })();
