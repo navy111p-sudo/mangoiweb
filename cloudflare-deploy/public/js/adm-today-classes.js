@@ -478,11 +478,29 @@
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
+          /* 🎯 (2026-09-08 사장님 요청) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
+             ⛔ <button> 으로 만들지 않는다 — admin-inline-c.css 의 전역
+                `details.menu-card button{ background:인디고 !important; padding:9px 18px !important }` 가
+                인라인 style 을 이겨 배지가 **파란 알약**이 된다(CLAUDE.md 2장 「표 안의 작은
+                아이콘 버튼」). `<span role="button" tabindex="0">` 은 그 규칙에 안 걸린다.
+             ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다 — 누구에게 배정할지 모르면
+                열어 봐야 «전체» 로 흐른다(그게 이 기능이 막으려는 바로 그 사고다). */
+          var canPin = !s.textbook_assigned && !!(s.student_uid && String(s.student_uid).trim());
           var bookTag = s.textbook_assigned
             ? '<span style="font-size:11px;color:#6b7280">📚 ' + esc(s.textbook) + '</span>'
-            : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
+            : '<span' + (canPin
+                  ? ' class="tc-book-pin" role="button" tabindex="0"'
+                    + ' data-uid="' + esc(s.student_uid) + '"'
+                    + ' data-who="' + esc((s.student_name || s.student_uid) + ' (' + s.student_uid + ')') + '"'
+                    + ' title="' + T('이 학생에게 교재를 배정합니다', 'Assign a textbook to this student') + '"'
+                    + ' style="cursor:pointer;'
+                  : ' style="')
+              /* ⚠️ nowrap — 좁은 칸에서 「📚 교재 미배정 ▸」가 두 줄로 접혀 배지가 48px 이 됐다(실측).
+                 한 줄짜리 상자에는 줄바꿈을 막아 둔다(CLAUDE.md 2장). */
+              + 'display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
-              + T('📚 교재 미배정', '📚 no textbook') + '</span>';
+              /* ▸ 는 «누를 수 있다» 는 표시다 — 폰에는 hover 도 title 도 없어서 글자로 말해야 한다 */
+              + T('📚 교재 미배정', '📚 no textbook') + (canPin ? ' ▸' : '') + '</span>';
           var levelTag = s.level
             ? '<span style="font-size:11px;color:#475569">' + esc(s.level) + '</span>'
             : '';
@@ -544,6 +562,28 @@
     /* 🔗 인라인 onclick 을 쓰지 않는다 — 이 파일은 IIFE 라 안쪽 함수가 전역이 아니고,
        인라인 핸들러는 언제나 window 에서 이름을 찾아 ReferenceError 가 난다(CLAUDE.md 2장).
        render() 가 통째로 다시 그리므로 리스너는 쌓이지 않는다. */
+    /* 🎯 배지 → «그 학생만» 배정 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다.
+       ⚠️ role="button" 이라 키보드도 받아야 한다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+    var pins = box.querySelectorAll('.tc-book-pin');
+    for (var pi = 0; pi < pins.length; pi++) {
+      (function (el) {
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          if (!uid) return;
+          if (typeof window.mangoiOpenBulkTextbook !== 'function') {
+            alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                    'Could not open the textbook assignment dialog. Please refresh and try again.'));
+            return;
+          }
+          window.mangoiOpenBulkTextbook({ userIds: [uid], who: el.getAttribute('data-who') || uid });
+        };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(pins[pi]);
+    }
     var bulkBtn = $('tc-bulk-book');
     if (bulkBtn) {
       bulkBtn.addEventListener('click', function () {

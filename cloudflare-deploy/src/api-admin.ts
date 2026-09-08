@@ -8929,6 +8929,24 @@ LIMIT $limit`;
       const onlyEmpty = b.only_empty !== false;   // 기본 = 미배정 학생만 (기존 배정 실수 덮어쓰기 방지)
       const dry = !!b.dry;
 
+      /* 🎯 (2026-09-08) «그 학생만» 정확일치 배정 — 매니저 「오늘 수업」의 교재 배지에서 온다.
+         ⛔ q(부분일치)로 대신하지 말 것 — 아이디 조각 하나(`kim`)로 남의 계정까지 걸리고,
+            only_empty 가 기본이며 2026-09-08 실측으로 학생 29,485명이 **전원 미배정** 이라
+            그대로 수백 명이 함께 배정된다. 그래서 정확일치 입구를 따로 둔다.
+         ⚠️ IN (?,?,…) 로 펴지 않는다 — D1 바인드 100개 한도이고, d1_bind_limit_harness 가
+            `map(() => '?')` 를 잡아 FAIL 낸다. **콤마 문자열 한 개**를 바인딩해 정확일치로 본다
+            (실측: students_erp.user_id 에 콤마 0건·빈 값 0건이라 이 방식이 성립한다).
+         ⚠️ login_id 는 보지 않는다 — 화면이 보내는 것은 class_schedules.user_id·attendance.user_id 이고
+            그 값이 students_erp.user_id 와 맞는 것을 실측했다(992/1,000 · 2,408/2,409).
+            넓히면 «다른 학생이 걸릴» 여지가 생긴다. 못 찾으면 targets 0 으로 «아무것도 안 하는» 쪽이 맞다.
+         ⚠️ 대소문자를 무시하지 않는다 — 대소문자만 다른 학생 계정이 실재한다(Kim/kim).
+            «둘 중 아무나» 집으면 남의 계정에 배정된다. */
+      const rawIds: any[] = Array.isArray(b.user_ids) ? b.user_ids : [];
+      const userIds = Array.from(new Set(rawIds.map((v: any) => String(v == null ? '' : v).trim()).filter(Boolean)));
+      if (rawIds.length && !userIds.length) return json({ ok: false, error: 'invalid_user_ids' }, 400);
+      if (userIds.length > 50) return json({ ok: false, error: 'too_many_user_ids', count: userIds.length }, 400);
+      if (userIds.some(v => v.indexOf(',') >= 0)) return json({ ok: false, error: 'invalid_user_ids' }, 400);
+
       // textbook/level 컬럼은 기본 DDL 에 없음(운영 DB엔 있을 수 있음) → 멱등 보강
       for (const ddl of [`ALTER TABLE students_erp ADD COLUMN textbook TEXT`, `ALTER TABLE students_erp ADD COLUMN level TEXT`]) {
         try { await env.DB.exec(ddl); } catch {}
@@ -8945,11 +8963,15 @@ LIMIT $limit`;
         binds.push(like, like, like, like, like);
       }
       if (onlyEmpty) conds.push(`(textbook IS NULL OR textbook = '')`);
+      /* 🎯 정확일치 — 콤마로 감싸 «부분일치» 가 되지 않게 한다(`,jeong,` 안에 `,eon,` 은 없다) */
+      if (userIds.length) { conds.push(`instr(?, ',' || user_id || ',') > 0`); binds.push(',' + userIds.join(',') + ','); }
       const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 
       const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp ${where}`).bind(...binds).first();
       const targets = Number(cnt?.n || 0);
-      if (dry) return json({ ok: true, dry: true, targets, textbook_title: title, level: level || null, only_empty: onlyEmpty, q: q || null });
+      /* 📌 «무엇으로 좁혔는지» 를 함께 돌려준다 — 화면이 「전체가 대상」인지 「이 학생만」인지
+         사실대로 말할 수 있어야 한다(그 둘을 헷갈리면 수백 명이 한 번에 배정된다). */
+      if (dry) return json({ ok: true, dry: true, targets, textbook_title: title, level: level || null, only_empty: onlyEmpty, q: q || null, user_ids: userIds.length ? userIds : null });
       if (!targets) return json({ ok: true, updated: 0, targets: 0 });
       if (targets > 2000 && !b.force) return json({ ok: false, error: 'too_many_targets', targets, hint: 'force=true 로 재요청하면 실행합니다' }, 400);
 
@@ -8966,7 +8988,7 @@ LIMIT $limit`;
         `UPDATE students_erp SET textbook = ?, level = CASE WHEN ? = '' THEN level ELSE ? END ${where}`
       ).bind(title, level, level, ...binds).run();
       const updated = Number(upd?.meta?.changes ?? targets);
-      return json({ ok: true, updated, targets, textbook_title: title, level: level || null });
+      return json({ ok: true, updated, targets, textbook_title: title, level: level || null, user_ids: userIds.length ? userIds : null });
     }
 
     if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {

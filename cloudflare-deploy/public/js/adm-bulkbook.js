@@ -19,6 +19,11 @@
   function T(ko, en){ return isEn() ? en : ko; }
 
   var lastPreview = null;   // 마지막 dry 결과 { targets, ... } — 실행 전 미리보기 강제용
+  /* 🎯 (2026-09-08) 「이 학생만」 모드 — 매니저 「오늘 수업」의 교재 배지에서 열면 채워진다.
+     서버가 user_ids 를 **정확일치** 로 본다(부분일치인 학생 검색어와 다른 입구다).
+     ⛔ 창을 닫을 때 반드시 비운다 — 안 비우면 다음에 「일괄 배정」으로 연 창이 몰래
+        그 한 명만 대상으로 돌고, 화면은 «전체» 처럼 보인다(조용한 사고). */
+  var pinnedIds = null;
 
   function injectButton(){
     var loadBtn = $('sm-load-students');
@@ -55,6 +60,7 @@
         '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:12px;cursor:pointer">' +
           '<input id="bat-empty" type="checkbox" checked /> ' + T('교재 미배정 학생만 (권장)', 'Only students with no textbook (recommended)') +
         '</label>' +
+        '<div id="bat-pinned" style="display:none;font-size:12.5px;line-height:1.6;color:#065f46;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.45);border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>' +
         '<div id="bat-status" style="min-height:20px;font-size:12.5px;font-weight:700;color:#92400e;margin-bottom:12px"></div>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end">' +
           '<button id="bat-preview" type="button" style="padding:8px 14px;font-size:13px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;font-weight:800;cursor:pointer">🔍 ' + T('대상 미리보기', 'Preview targets') + '</button>' +
@@ -86,10 +92,42 @@
     if (st) st.textContent = '';
   }
 
-  function closeModal(){ var ov = $('bat-overlay'); if (ov) ov.style.display = 'none'; }
+  function closeModal(){
+    var ov = $('bat-overlay'); if (ov) ov.style.display = 'none';
+    /* ⛔ 닫을 때도 푼다 — 여는 쪽(openModal)과 «둘 다» 두는 이중 방어다.
+       하나만 지워도 다른 하나가 받쳐 주지만, **둘 다 지우면** 다음에 연 창이 몰래
+       그 한 명만 대상으로 돈다(브라우저 검사에서 실제로 5건 FAIL 로 재현했다). */
+    unpin();
+  }
+
+  function unpin(){
+    pinnedIds = null;
+    var q = $('bat-q'), pin = $('bat-pinned');
+    if (q) { q.disabled = false; q.placeholder = T('비우면 권한 범위 내 전체', 'Empty = all in your scope'); }
+    if (pin) pin.style.display = 'none';
+  }
+
+  /* 🎯 「이 학생만」으로 고정 — 검색어 칸을 잠그고, 누구인지 화면에 못 박는다.
+     ⚠️ 이름을 화면에 그릴 때 반드시 esc() — 학생 이름은 우리가 만든 값이 아니다. */
+  function pinTo(ids, who){
+    pinnedIds = ids.slice(0);
+    var q = $('bat-q');
+    if (q) { q.value = ''; q.disabled = true; q.placeholder = T('이 학생만 배정합니다', 'Assigning to this student only'); }
+    var pin = $('bat-pinned');
+    if (pin) {
+      pin.style.display = 'block';
+      pin.innerHTML = '🎯 ' + T('이 학생에게만 배정합니다: ', 'Assigning to this student only: ')
+        + '<b>' + esc(who || ids.join(', ')) + '</b>';
+    }
+  }
 
   function openModal(){
     buildModal();
+    /* ⛔ «이 학생만» 은 창을 열 때마다 푼다 — 이 자리가 정본이다(모든 입구가 지난다).
+       학생관리 툴바의 「📚 일괄 배정」 버튼은 이 함수를 **직접** 부르므로(injectButton),
+       닫기에만 걸어 두면 그 경로로 연 창이 몰래 «한 명» 만 대상으로 돈다 — 화면은
+       «전체» 처럼 보이는 조용한 사고다(2026-09-08 변이시험에서 이 구멍을 찾았다). */
+    unpin();
     invalidatePreview();
     $('bat-overlay').style.display = 'flex';
     loadBooks();
@@ -155,9 +193,11 @@
     return {
       textbook_title: $('bat-book').value,
       level: $('bat-level').value.trim(),
-      q: $('bat-q').value.trim(),
+      q: pinnedIds ? '' : $('bat-q').value.trim(),
       only_empty: $('bat-empty').checked,
-      dry: !!dry
+      dry: !!dry,
+      /* 🎯 정확일치 목록 — 서버가 이것이 오면 학생 검색어(부분일치)를 무시한다 */
+      user_ids: pinnedIds || undefined
     };
   }
 
@@ -267,9 +307,13 @@
   window.mangoiOpenBulkTextbook = function (prefill) {
     openModal();
     try {
-      var q = prefill && prefill.q ? String(prefill.q) : '';
-      var el = $('bat-q');
-      if (q && el) { el.value = q; invalidatePreview(); }
+      var ids = (prefill && Array.isArray(prefill.userIds)) ? prefill.userIds.filter(Boolean) : null;
+      if (ids && ids.length) { pinTo(ids, prefill.who); invalidatePreview(); }
+      else {
+        var q = prefill && prefill.q ? String(prefill.q) : '';
+        var el = $('bat-q');
+        if (q && el) { el.value = q; invalidatePreview(); }
+      }
       /* 📌 여는 쪽이 «이 창의 대상» 을 한 마디 적을 수 있게 — 부르는 화면이 세는 수와
          이 창의 기본 대상이 다를 수 있다(그쪽은 «화면에 보이는 줄», 여기는 «권한 범위 전체»).
          ⚠️ invalidatePreview() 가 상태줄을 비우므로 **그 뒤에** 쓴다(순서가 뒤집히면 사라진다). */

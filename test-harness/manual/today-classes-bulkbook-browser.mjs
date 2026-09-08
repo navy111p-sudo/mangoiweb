@@ -85,6 +85,7 @@ const BOOT = `
          ⚠️ 종단 404 응답에는 «ok» 칸이 아예 없다 — 그대로 흉내 낸다(그게 함정이다).
             ⛔ 이 주석은 백틱 템플릿(BOOT) 안이다 — 백틱을 쓰면 문자열이 그 자리에서 끊긴다. */
       if (s.indexOf('/api/admin/students/bulk-assign-textbook') >= 0) {
+        try { window.__lastBulkBody = JSON.parse((o && o.body) || '{}'); } catch(e) { window.__lastBulkBody = null; }
         var f = window.__bulkFail;
         if (f) return Promise.resolve(new Response(JSON.stringify(f.body), { status: f.status, headers:{'content-type':'application/json'} }));
         return Promise.resolve(ok({ ok:true, dry:true, targets:3 }));
@@ -264,6 +265,79 @@ async function main() {
   check('   그때 모달이 열리지도 않는다',
     (await ev('(function(){var o=document.getElementById("bat-overlay"); return o ? getComputedStyle(o).display : "none"})()')) === 'none');
   await ev('window.mangoiOpenBulkTextbook = window.__mangoiOpenBackup');
+
+  console.log('\n── ⑪ 배지를 누르면 «그 학생만» 인가 ────────────────');
+  await reload(SESSIONS);
+  check('미배정 배지가 누를 수 있는 것으로 보인다 (▸)',
+    await ev('!!document.querySelector("#tc-body .tc-book-pin")'));
+  const pinCount = await ev('document.querySelectorAll("#tc-body .tc-book-pin").length');
+  /* ⚠️ «배정된 학생 배지는 안 눌린다» 를 짝으로 — 없으면 «전부 눌리게» 해도 통과한다 */
+  check('   배정된 학생(장지웅)의 교재명은 누를 수 없다', pinCount === 3, '누를 수 있는 배지 ' + pinCount + '개');
+  /* 🎨 <button> 이면 전역 룰에 먹혀 파란 알약이 된다 — span 인지 못 박는다(CLAUDE.md 2장) */
+  check('   배지는 <button> 이 아니다 (파란 알약이 되지 않는다)',
+    (await ev('document.querySelector("#tc-body .tc-book-pin").tagName')) === 'SPAN');
+  const badge = JSON.parse(await ev(`(function(){var e=document.querySelector("#tc-body .tc-book-pin");var s=getComputedStyle(e);
+    return JSON.stringify({h:Math.round(e.getBoundingClientRect().height), cur:s.cursor, role:e.getAttribute('role'), tab:e.getAttribute('tabindex')})})()`));
+  check('   배지 모양이 그대로다 (높이 30px 이하 · 손가락 커서 · role/tabindex)',
+    badge.h <= 30 && badge.cur === 'pointer' && badge.role === 'button' && badge.tab === '0', JSON.stringify(badge));
+
+  await ev('document.querySelector("#tc-body .tc-book-pin").click()');
+  await sleep(500);
+  check('누르면 배정 창이 열린다', (await ev('(function(){var o=document.getElementById("bat-overlay"); return o ? getComputedStyle(o).display : null})()')) === 'flex');
+  const pinned = await ev('document.getElementById("bat-pinned").textContent');
+  check('   «이 학생에게만» 이라고 누구인지 못 박는다',
+    /이 학생에게만/.test(pinned || '') && /mby1/.test(pinned || ''), String(pinned));
+  check('   학생 검색어 칸이 잠긴다 (부분일치로 새지 않게)',
+    await ev('!!document.getElementById("bat-q").disabled'));
+  /* 🎯 정말 «그 학생만» 나가는지 — 실제 요청 본문을 본다(화면 글자가 아니라) */
+  await ev('window.__lastBulkBody = null');
+  await ev(`(function(){var b=document.getElementById("bat-book"); b.value='BTS 1 001'; b.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await ev('document.getElementById("bat-preview").click()');
+  await sleep(400);
+  const body1 = JSON.parse(await ev('JSON.stringify(window.__lastBulkBody)'));
+  check('   요청에 그 학생 아이디만 실린다', JSON.stringify(body1 && body1.user_ids) === '["mby1"]', JSON.stringify(body1));
+  check('   그때 학생 검색어는 비워 보낸다 (두 조건이 겹치지 않게)', (body1 || {}).q === '', JSON.stringify((body1 || {}).q));
+
+  /* ⛔ 닫은 뒤에도 «그 한 명» 이 남아 있으면, 다음에 「일괄 배정」으로 연 창이 몰래 한 명만
+     대상으로 돈다(화면은 «전체» 처럼 보인다). 조용한 사고라 반드시 짝으로 확인한다. */
+  await ev('document.getElementById("bat-close").click()');
+  await sleep(200);
+  await ev('document.getElementById("tc-bulk-book").click()');
+  await sleep(400);
+  check('창을 닫으면 «이 학생만» 이 풀린다', (await ev('getComputedStyle(document.getElementById("bat-pinned")).display')) === 'none');
+  check('   검색어 칸도 다시 열린다', !(await ev('!!document.getElementById("bat-q").disabled')));
+  await ev('window.__lastBulkBody = null');
+  await ev(`(function(){var b=document.getElementById("bat-book"); b.value='BTS 1 001'; b.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await ev('document.getElementById("bat-preview").click()');
+  await sleep(400);
+  const body2 = JSON.parse(await ev('JSON.stringify(window.__lastBulkBody)'));
+  check('   그 뒤 요청에는 학생 목록이 안 실린다', !(body2 && body2.user_ids), JSON.stringify(body2));
+  await ev('document.getElementById("bat-close").click()');
+  await sleep(200);
+  /* 🔴 이 창을 여는 입구가 셋이다 — 요약 줄 · 배지 · **학생관리 툴바의 「📚 일괄 배정」**.
+     마지막 것은 openModal() 을 «직접» 부르므로, 풀어 주는 자리가 여는 함수 안에 없으면
+     그 경로로 연 창만 몰래 «한 명» 대상으로 돈다(화면은 «전체» 처럼 보인다).
+     ⚠️ 이 검사가 없을 때 그 구멍이 실제로 초록불로 지나갔다 — 반드시 셋째 입구로도 확인한다. */
+  await ev('document.querySelector("#tc-body .tc-book-pin").click()');
+  await sleep(400);
+  await ev('document.getElementById("bat-close").click()');
+  await sleep(200);
+  const toolbarBtn = await ev('!!document.getElementById("sm-bulk-assign-textbook")');
+  check('셋째 입구(학생관리 툴바 버튼)가 실제로 있다 (전제)', toolbarBtn);
+  if (toolbarBtn) {
+    await ev('document.getElementById("sm-bulk-assign-textbook").click()');
+    await sleep(400);
+    check('   그 버튼으로 열어도 «이 학생만» 이 안 남는다',
+      (await ev('getComputedStyle(document.getElementById("bat-pinned")).display')) === 'none');
+    await ev('window.__lastBulkBody = null');
+    await ev(`(function(){var b=document.getElementById("bat-book"); b.value='BTS 1 001'; b.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await ev('document.getElementById("bat-preview").click()');
+    await sleep(400);
+    const body3 = JSON.parse(await ev('JSON.stringify(window.__lastBulkBody)'));
+    check('      그 창의 요청에도 학생 목록이 안 실린다', !(body3 && body3.user_ids), JSON.stringify(body3));
+    await ev('document.getElementById("bat-close").click()');
+    await sleep(200);
+  }
 
   console.log('\n── ⑩ 실패를 «사람 말» 로 하는가 ────────────────────');
   const preview = async fail => {
