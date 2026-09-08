@@ -153,6 +153,53 @@ html.dark h2 .findtoggle[aria-expanded="true"]{background:#102b22;color:#6fd3ad}
   background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:11px 12px;margin-bottom:9px
 }
 html.dark .findpanel{background:#16202c;border-color:#26313f}
+/* 결재 보관함(시안 A, 2026-09-08) — 왼쪽 함 트리 + 오른쪽 표.
+   그룹웨어(카카오워크·다우오피스)처럼 함이 곧 «보는 방식» 이다. 폰(720px 아래)에서는
+   함을 가로로 굴리는 칩 줄로 접는다 — 왼쪽 기둥으로 두면 표가 3분의 2 폭이 된다. */
+.findlay{display:grid;grid-template-columns:184px minmax(0,1fr);gap:12px;align-items:start}
+.findmain{min-width:0}
+.findbox{
+  border:1px solid #e3e8ee;border-radius:9px;background:#f8fafc;padding:8px 6px;
+  font-size:13.5px;position:sticky;top:8px;max-height:calc(100vh - 24px);overflow:auto
+}
+html.dark .findbox{background:#101a24;border-color:#26313f}
+.fbgrp{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7785;margin:10px 8px 3px}
+.fbgrp:first-child{margin-top:2px}
+html.dark .fbgrp{color:#8b98a8}
+.fbitem{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;
+  font:inherit;text-align:left;color:#101828;background:transparent;border:1px solid transparent;
+  border-radius:7px;padding:6px 8px;cursor:pointer;line-height:1.35
+}
+html.dark .fbitem{color:#e8eef5}
+.fbitem:hover{background:#fff}
+html.dark .fbitem:hover{background:#16202c}
+.fbitem.on{background:#fff;border-color:#bcc6d2;font-weight:600}
+html.dark .fbitem.on{background:#16202c;border-color:#33414f}
+.fbitem .fbn{font-size:12px;color:#6b7785;font-variant-numeric:tabular-nums;flex:0 0 auto}
+html.dark .fbitem .fbn{color:#8b98a8}
+.fbitem.on .fbn{color:#0f6b4f}
+html.dark .fbitem.on .fbn{color:#6fd3ad}
+.fbclear{display:block;width:100%;margin-top:8px;font:inherit;font-size:12.5px;color:#4a5765;background:transparent;border:1px dashed #bcc6d2;border-radius:7px;padding:5px 8px;cursor:pointer}
+html.dark .fbclear{color:#9fb0c2;border-color:#33414f}
+.fbnote{font-size:12px;color:#7b8794;margin:6px 8px 2px}
+.fbwhere{font-size:12.5px;color:#4a5765;margin:0 0 8px}
+html.dark .fbwhere{color:#9fb0c2}
+.fbwhere b{color:#101828}
+html.dark .fbwhere b{color:#e8eef5}
+@media (max-width:720px){
+  .findlay{grid-template-columns:minmax(0,1fr)}
+  .findbox{position:static;max-height:none;display:flex;gap:4px;overflow-x:auto;padding:6px;
+           -webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .fbgrp{margin:0;padding:6px 4px 0 6px;flex:0 0 auto;align-self:center;font-size:10.5px}
+  .fbgrp:first-child{margin:0}
+  .fbitem{width:auto;flex:0 0 auto;white-space:nowrap;padding:5px 9px;border-color:#dde3ea;background:#fff}
+  html.dark .fbitem{border-color:#26313f;background:#16202c}
+  .fbitem.on{border-color:#0f6b4f;color:#0f6b4f}
+  html.dark .fbitem.on{color:#6fd3ad;border-color:#0f6b4f}
+  .fbclear{width:auto;flex:0 0 auto;margin:0;white-space:nowrap;align-self:center}
+  .fbnote{display:none}
+}
 /* 📊 지출 정리. ⚠️ 여기 주석에는 CJK 홑낫표를 쓰지 않는다 —
    한자 폰트 검사가 style 안의 그 글자를 세어 983KB 폰트를 받는 화면으로 본다. */
 .repcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px;margin-bottom:10px}
@@ -198,6 +245,11 @@ html.dark .tile .tl{color:#9db0c4}
 html.dark .tile .tv{color:#e8eef5}
 .tile .tn{font-size:11.5px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
 html.dark .tile .tn{color:#9db0c4}
+/* 결재 보관함 타일 — 다른 넷과 «같은 물건» 이지만 여는 문이라 색을 한 톤 다르게 */
+.tile.arch{border-color:#9fc7b6;background:#f2faf6}
+html.dark .tile.arch{background:#0f2a21;border-color:#215e49}
+.tile.arch .tl,.tile.arch .tn{color:#2f5f4c}
+html.dark .tile.arch .tl,html.dark .tile.arch .tn{color:#9fd3bc}
 .tile.hot{border-color:#e6a23c;background:#fff8e6}
 html.dark .tile.hot{background:#2a2109;border-color:#5c4708}
 /* hot 카드는 바탕이 옅은 앰버라 더 진해야 한다 */
@@ -482,6 +534,11 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
        ⛔ hidden 을 되살리지 말 것 — 되살리면 위 제보가 그대로 재현된다.
           접기·펴기는 사람이 「접기」 버튼으로 한다. -->
   <div id="findPanel" class="findpanel">
+    <div class="findlay">
+      <!-- 🗂 결재 보관함 함 트리(시안 A, 2026-09-08) — 서버 facets 로 그린다. 함을 누르면 오른쪽 조건이 바뀐다. -->
+      <nav id="findBox" class="findbox" aria-label="결재 보관함"></nav>
+      <div class="findmain">
+    <div id="findWhere" class="fbwhere"></div>
     <div class="findrow">
       <input type="search" id="fq" class="findinput" autocomplete="off"
              data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
@@ -507,6 +564,8 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
          홈이 오면 곧바로 「찾는 중...」→ 결과로 바뀌고, 홈이 실패해도 findAutoOpen 이
          한 번 불러 «연결이 좋지 않습니다» 로 바뀐다(이 글자가 남아 있는 일은 없다). -->
     <div id="findResult"><div class="findnote" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+      </div><!-- /.findmain -->
+    </div><!-- /.findlay -->
   </div>
 
 </div>
@@ -687,7 +746,7 @@ function repaint(){
   // 📂 문서함이 열려 있으면 그것도 다시 그린다 — JS 로 그린 글자는 data-ko/data-en 루프가
   //    못 건드리므로, 여기서 다시 그리지 않으면 언어를 바꿔도 영어/한국어가 섞인 채 남는다.
   var fp = document.getElementById('findPanel');
-  if (fp && !fp.hidden) { paintFindChrome(); paintFind(); }
+  if (fp && !fp.hidden) { paintFindChrome(); paintFindBox(); paintFind(); }
   paintFindBtn();
   findAutoOpen();       // 펼쳐진 채로 시작하므로 홈을 다 그린 뒤 한 번 찾아 둔다
   var rp = document.getElementById('repPanel');
@@ -855,6 +914,7 @@ window.toggleFind = function(){
   if (open) {
     paintFindChrome();
     if (!FIND) runFind(0);                   // 처음 열 때 한 번만 부른다
+    loadFacets();                            // 함 옆 건수 — 열 때마다 새로(결재가 그사이 바뀐다)
     var q = document.getElementById('fq');
     if (q) { try { q.focus(); } catch (e) {} }
   }
@@ -886,8 +946,168 @@ function findAutoOpen(){
   if (!box || box.hidden || FIND || FIND_AUTO || FIND_BUSY) return;
   FIND_AUTO = true;
   paintFindChrome();
+  paintFindBox();            // 🗂 함 트리(건수는 곧 loadFacets 가 채운다)
+  loadFacets();
   runFind(0);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🗂 결재 보관함 — 왼쪽 함 트리(시안 A, 2026-09-08)
+
+   사장님 「내가 결재한 것·남이 결재한 것을 다 볼 수 있는 곳이 어디냐」 →
+   「보관함 카드를 열면 전체·기간별·결재자별·종류별을 한 번에」.
+   함은 «보는 방식» 이다 — 누르면 오른쪽 조건(scope · 기간 · 결재자 · 종류)이 바뀌고
+   결과는 지금 있는 runFind 가 그대로 가져온다(서버는 같은 경로, 파라미터만 늘었다).
+   ⚠️ 함 옆 건수는 서버 facets 가 센다 — 화면이 세면 15건 창 안에서만 세게 된다.
+   ⚠️ 기간 함의 날짜 경계도 서버가 준다(KST). 화면이 따로 계산하면 두 벌이 되어 어긋난다.
+   ══════════════════════════════════════════════════════════════════════════ */
+var FACETS = null;        // 서버가 준 함 옆 건수
+var FIND_BY = '';         // 결재자별 함 — 서버 파라미터 decided_by
+
+function loadFacets(){
+  fetch('/api/approval/requests?view=facets', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      // «성공이라고 말했는가» 로 판정 — 404 본문에는 ok 칸이 없다.
+      FACETS = (d && d.ok === true && d.facets) ? d.facets : { unknown: true, failed: true };
+      paintFindBox();
+    })
+    .catch(function(){ FACETS = { unknown: true, failed: true }; paintFindBox(); });
+}
+
+/** 지금 오른쪽 조건이 무엇인지 — 함의 «켜짐» 표시가 이것을 본다. */
+function fbState(){
+  var g = function(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  return { scope: g('fscope') || 'mine', from: g('ffrom'), to: g('fto'), type: g('ftype'), by: FIND_BY };
+}
+
+function paintFindBox(){
+  var box = document.getElementById('findBox');
+  if (!box) return;
+  var f = FACETS;
+  var st = fbState();
+  var canAll = !!(D && D.can_approve);
+  var n = function(v){ return (v == null) ? '—' : String(v); };
+  var item = function(on, label, count, onclick){
+    return '<button type="button" class="fbitem' + (on ? ' on' : '') + '" onclick="' + onclick + '">' +
+           '<span>' + esc(label) + '</span><span class="fbn">' + esc(count) + '</span></button>';
+  };
+  var h = '';
+  if (!f) {
+    h += '<div class="fbnote">' + esc(T('Counting...', '건수를 세는 중...')) + '</div>';
+  }
+  var noPeriod = !st.from && !st.to;
+
+  // ① 전체
+  h += '<div class="fbgrp">' + esc(T('All', '전체')) + '</div>';
+  if (canAll) {
+    h += item(st.scope === 'all' && !st.by, T('Everything', '전체 결재'), f ? n(f.all) : '', 'fbPick(\'scope\',\'all\')');
+  }
+  h += item(st.scope === 'decided' && !st.by, T('Decided by me', '내가 결재한 것'), f ? n(f.decided) : '', 'fbPick(\'scope\',\'decided\')');
+  h += item(st.scope === 'mine' && !st.by, T('My requests', '내가 올린 것'), f ? n(f.mine) : '', 'fbPick(\'scope\',\'mine\')');
+
+  // ② 기간별 — 경계는 서버가 준 것(KST)
+  var per = (f && f.periods) || null;
+  var PER = [['month', T('This month', '이번 달')], ['last_month', T('Last month', '지난 달')],
+             ['quarter', T('This quarter', '이번 분기')], ['year', T('This year', '올해')]];
+  h += '<div class="fbgrp">' + esc(T('By period', '기간별')) + '</div>';
+  for (var i = 0; i < PER.length; i++) {
+    var pk = PER[i][0], pv = per ? per[pk] : null;
+    var on = !!(pv && st.from === pv.from && st.to === pv.to);
+    h += item(on, PER[i][1], pv ? n(pv.n) : '', pv ? ('fbPick(\'period\',\'' + pk + '\')') : 'void 0');
+  }
+
+  // ③ 결재자별 — 결재 권한자에게만(서버도 approver_view 로 같은 판정)
+  var aps = (f && f.approvers) || [];
+  if (canAll && (!f || aps.length)) {
+    h += '<div class="fbgrp">' + esc(T('By approver', '결재자별')) + '</div>';
+    for (var a = 0; a < aps.length; a++) {
+      h += item(st.by === aps[a].username, aps[a].name || aps[a].username, n(aps[a].n),
+                'fbPick(\'by\',\'' + esc(aps[a].username).replace(/'/g, '') + '\')');
+    }
+    if (f && !aps.length) h += '<div class="fbnote">' + esc(T('No decisions yet', '아직 결재한 사람이 없습니다')) + '</div>';
+  }
+
+  // ④ 종류별 — 서버 목록(TYPES) 순서 그대로, 0건인 종류는 감춘다(빈 폴더는 눌러도 빈 표다)
+  var tys = (f && f.types) || [];
+  var shown = 0, th = '';
+  for (var k = 0; k < tys.length; k++) {
+    if (!tys[k].n) continue;
+    shown++;
+    th += item(st.type === tys[k].key, EN() ? (tys[k].en || tys[k].key) : (tys[k].ko || tys[k].key), n(tys[k].n),
+               'fbPick(\'type\',\'' + esc(tys[k].key) + '\')');
+  }
+  if (shown) h += '<div class="fbgrp">' + esc(T('By kind', '종류별')) + '</div>' + th;
+
+  if (st.by || st.from || st.to || st.type) {
+    h += '<button type="button" class="fbclear" onclick="fbPick(\'clear\')">' + esc(T('Clear folders', '함 조건 지우기')) + '</button>';
+  }
+  if (f && f.unknown) {
+    h += '<div class="fbnote">' + esc(T('Some counts could not be read.', '일부 건수를 읽지 못했습니다.')) + '</div>';
+  }
+  box.innerHTML = h;
+  paintFindWhere();
+}
+
+/** 오른쪽 위 한 줄 — 「지금 무엇을 보고 있나」. 함이 여러 축을 겹치면 사람이 잊는다. */
+function paintFindWhere(){
+  var el = document.getElementById('findWhere');
+  if (!el) return;
+  var st = fbState();
+  var parts = [];
+  var SC = { all: T('everything', '전체 결재'), decided: T('decided by me', '내가 결재한 것'),
+             mine: T('my requests', '내가 올린 것'), open: T('in progress', '진행 중'),
+             done: T('approved', '승인 완료'), rejected: T('not approved', '안 된 것'),
+             pending: T('waiting for me', '내가 결재할 것') };
+  parts.push(SC[st.scope] || st.scope);
+  if (st.by) {
+    var ap = ((FACETS && FACETS.approvers) || []).filter(function(x){ return x.username === st.by; })[0];
+    parts.push((EN() ? 'decided by ' : '결재자 ') + (ap ? (ap.name || ap.username) : st.by));
+  }
+  if (st.from || st.to) parts.push((st.from || '…') + ' ~ ' + (st.to || '…'));
+  if (st.type) {
+    var ty = ((D && D.types) || []).filter(function(x){ return x.key === st.type; })[0];
+    parts.push(ty ? (EN() ? ty.en : ty.ko) : st.type);
+  }
+  el.innerHTML = esc(T('Showing: ', '보는 중: ')) + '<b>' + esc(parts.join(' · ')) + '</b>';
+}
+
+/** 함을 눌렀다 — 그 축만 바꾼다(다른 축은 그대로). «전체» 함은 결재자 축을 함께 지운다. */
+window.fbPick = function(kind, val){
+  var set = function(id, v){ var e = document.getElementById(id); if (e) e.value = v; };
+  if (kind === 'scope') { set('fscope', val); FIND_BY = ''; }
+  else if (kind === 'by') { FIND_BY = (FIND_BY === val) ? '' : val; if (FIND_BY) set('fscope', 'all'); }
+  else if (kind === 'period') {
+    var pv = FACETS && FACETS.periods && FACETS.periods[val];
+    if (!pv) return;
+    var st = fbState();
+    if (st.from === pv.from && st.to === pv.to) { set('ffrom', ''); set('fto', ''); }   // 한 번 더 누르면 끄기
+    else { set('ffrom', pv.from); set('fto', pv.to); }
+  }
+  else if (kind === 'type') { var t = document.getElementById('ftype'); if (t) t.value = (t.value === val) ? '' : val; }
+  else if (kind === 'clear') { FIND_BY = ''; set('ffrom', ''); set('fto', ''); set('ftype', ''); }
+  paintFindBox();
+  runFind(0);
+};
+
+/** 오른쪽 «함» 고르기 칸을 손으로 바꿨을 때 — 결재자 함과 어긋나지 않게 */
+window.fbScopeChanged = function(){
+  var st = fbState();
+  if (st.scope !== 'all') FIND_BY = '';
+  paintFindBox();
+  runFind(0);
+};
+
+/** 맨 위 「결재 보관함」 카드 → 문서함을 열고 «전체»(권한자) 또는 «내가 올린 것» 으로 */
+window.topArchive = function(){
+  var box = document.getElementById('findPanel');
+  if (box && box.hidden && window.toggleFind) window.toggleFind();
+  var sc = document.getElementById('fscope');
+  /* «전체» 로 바꾸고 기억까지(fscopePick) — 사람이 고른 것과 같은 길을 탄다 */
+  if (sc && D && D.can_approve && sc.value !== 'all') { sc.value = 'all'; FIND_BY = ''; window.fscopePick(); }
+  var el = document.getElementById('findBtn');
+  if (el) { try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); } }
+};
 
 /* 고르는 칸을 그린다.
    ⚠️ 분류 목록은 **서버가 준 것**(D.types)을 쓴다 — 화면에 손으로 적으면
@@ -897,6 +1117,8 @@ function paintFindChrome(){
   if (!sc) return;
   var scopes = [
     ['mine',     T('My requests (all)', '내가 올린 것 (전체)')],
+    /* 🗂 「내가 결재한 것」 — 내가 도장을 찍은 건(2026-09-08 까지 이 함이 없었다) */
+    ['decided',  T('Decided by me',     '내가 결재한 것')],
     ['open',     T('In progress',       '진행 중')],
     ['done',     T('Approved',          '승인 완료')],
     /* 🔴 서버 scope 'rejected' 는 반려·회수·취소 **셋** 을 담는다(셋 다 «결국 안 된 것»).
@@ -987,6 +1209,7 @@ function findParams(){
   if (g('fcat'))  p.push('category=' + encodeURIComponent(g('fcat')));
   if (g('ffrom')) p.push('from=' + encodeURIComponent(g('ffrom')));
   if (g('fto'))   p.push('to=' + encodeURIComponent(g('fto')));
+  if (FIND_BY)    p.push('decided_by=' + encodeURIComponent(FIND_BY));   // 🗂 결재자별 함
   return p.join('&');
 }
 
@@ -1033,7 +1256,7 @@ window.fscopePick = function(){
     var fsc = document.getElementById('fscope');
     if (fsc && fsc.value) localStorage.setItem(FSCOPE_KEY, fsc.value);
   } catch (e) {}
-  runFind(0);
+  fbScopeChanged();          // 🗂 함 트리의 «켜짐» 표시와 결재자 축을 맞춘 뒤 runFind(0)
 };
 
 window.findMore = function(){
@@ -1404,6 +1627,24 @@ function paintTop(){
     }
     t += tile('', T('Approved this month', '이번 달 승인'), mm, mNote, 'topSpending()');
     t += tile('', T('Approved this year', '올해 누적'), yy, yNote, 'topSpending()');
+  }
+
+  /* 🗂 결재 보관함(시안 A) — 다섯째 카드. 「올해 몇 건 · 마지막 결재가 언제·누구」.
+     범위는 금액 타일과 같다(서버가 같은 판정) — 카드에 그것을 적어 준다.
+     ⛔ 못 읽었으면 «0건» 이 아니라 «—». */
+  var ar = sm && sm.archive;
+  if (ar) {
+    var arScope = (sm.money_scope === 'all') ? T('everyone', '전체') : T('my requests', '내가 올린 것');
+    var arVal = (ar.year_count == null) ? '—' : (EN() ? String(ar.year_count) : (ar.year_count + '건'));
+    var arNote = arScope + ' · ' + (EN() ? 'this year' : '올해');
+    if (ar.last_decided_at) {
+      var ld = new Date(Number(ar.last_decided_at) + 9 * 3600 * 1000);
+      var who = ar.last_decided_by_name || ar.last_decided_by || '';
+      arNote += ' · ' + (EN() ? 'last decision ' : '마지막 결재 ') +
+                (ld.getUTCMonth() + 1) + '/' + ld.getUTCDate() + (who ? (' ' + who) : '');
+    }
+    if (ar.unknown) arNote = T('could not read', '읽지 못했습니다');
+    t += tile('arch', T('Archive', '결재 보관함'), arVal, arNote + ' · ' + T('open', '열기 →'), 'topArchive()');
   }
   tileHost.innerHTML = t;
 }
