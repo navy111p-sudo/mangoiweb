@@ -42,6 +42,7 @@ import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생�
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
+import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -4041,6 +4042,52 @@ ${numbered}`;
         }
         await (env as any).SESSION_STATE?.put?.(rkey, String(cur + 1), { expirationTtl: 7200 });
       } catch { /* KV 장애로 정상 수업이 막히면 안 되므로 통과 */ }
+
+      /* 🎥 (2026-09-08 사장님 「왜 자꾸 동시에 두번씩 녹화가 되는 거지?」)
+         같은 방을 «두 기기가 각각» 찍고 있으면 두 번째를 거절한다. 두 파일은 내용이 같고,
+         한 벌이 실시간 영상과 같은 CPU·업로드 회선을 나눠 쓴다(파일 머리말: recording-dup-guard.ts).
+
+         ⚠️ 「가장 수업에 덜 지장있게」(같은 날 지시) — 이 게이트는 **막는 쪽으로 실패하지 않는다.**
+            조회가 실패하면(표가 없다·D1 이 흔들린다) rows 가 null 이라 정본이 그냥 통과시킨다.
+            잃을 것이 «수업 녹화 그 자체» 라, 두 벌보다 0벌이 나쁘기 때문이다.
+         ⚠️ 「살아 있는가」는 recording_parts.created_at 으로 잰다 — recordings 에는 그 시각 칸이
+            없고, 새 칸을 지연 ALTER 로 붙이면 없는 DB 에서 조회가 통째로 죽는다(CLAUDE.md 함정).
+         ⛔ LEFT JOIN 으로 바꾸지 말 것 — 파트가 여럿이면 행이 늘어 «같은 녹화» 가 여러 번 걸린다.
+         ⚠️ 200 으로 돌려준다 — 화면이 «실패» 로 오인해 재시도 폭주하지 않게(consent_required 선례). */
+      try {
+        let dupRows: any[] | null = null;
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT r.id AS id, r.teacher_name AS teacher_name,
+                    COALESCE((SELECT MAX(p.created_at) FROM recording_parts p
+                               WHERE p.recording_id = r.id), r.started_at) AS alive_at
+               FROM recordings r
+              WHERE r.room_id = ? AND r.status = 'recording'
+              ORDER BY r.started_at DESC
+              LIMIT 10`
+          ).bind(String(b.room_id || '')).all();
+          dupRows = (rs.results || []) as any[];
+        } catch (e: any) {
+          // 표가 아직 없거나 D1 이 흔들렸다 = «모른다» → 막지 않는다
+          console.error('[recordings] 동시녹화 조회 실패(통과시킴):', e?.message || e);
+          dupRows = null;
+        }
+        const gate = recordingDupGate({ rows: dupRows, now, windowMs: REC_DUP_LIVE_WINDOW_MS });
+        if (gate.block) {
+          console.log(`[recordings] 동시 녹화 거절 room=${b.room_id} holder=${gate.holderId} by=${gate.by}`);
+          return json({
+            ok: false,
+            error: 'already_recording',
+            by: gate.by,
+            holder_id: gate.holderId,
+            retry_after_ms: REC_DUP_LIVE_WINDOW_MS,
+            message: '이 수업은 다른 기기에서 이미 녹화하고 있습니다.'
+          }, 200);
+        }
+      } catch (e: any) {
+        console.error('[recordings] 동시녹화 판정 예외(통과시킴):', e?.message || e);
+      }
+
       const participantIds = (b.participant_ids || []) as string[];
       const participantNames = (b.participant_names || []) as string[];
 
