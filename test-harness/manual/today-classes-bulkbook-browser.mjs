@@ -322,6 +322,18 @@ async function main() {
   await sleep(400);
   await ev('document.getElementById("bat-close").click()');
   await sleep(200);
+  /* 🧪 레벨테스트 줄 — 요약은 «세지 않지만»(사장님 지시) 배지는 «눌리게» 둔다.
+     세지 않는 것과 손댈 수 없는 것은 다르다: 첫 수업이라 교재가 없는 게 정상이라 경고에서 뺐을 뿐,
+     원하면 배정할 수 있어야 한다. ⚠️ 그래서 「요약 3건 · 배지 4개」로 숫자가 갈리는 것이 **의도**다.
+     ⛔ 이 검사를 지우고 «배지도 3개» 로 바꾸려면 그것은 사람이 정할 일이다(둘 중 하나로 못 박아 둔다). */
+  await reload(SESSIONS_LT);
+  const ltPins = await ev('document.querySelectorAll("#tc-body .tc-book-pin").length');
+  check('레벨테스트 배지도 누를 수 있다 (세지 않을 뿐, 배정은 가능 — 의도한 것)', ltPins === 4, '누를 수 있는 배지 ' + ltPins + '개');
+  const ltLine = await ev('(function(){var e=document.querySelector("#tc-body #tc-bulk-book"); return e ? e.parentElement.textContent.trim() : null})()');
+  check('   그때 요약은 3건으로 세고 «왜» 를 말한다 (숫자가 갈리는 이유가 화면에 있다)',
+    /중 3건/.test(ltLine || '') && /레벨테스트 1건 제외/.test(ltLine || ''), String(ltLine));
+  await reload(SESSIONS);
+
   const toolbarBtn = await ev('!!document.getElementById("sm-bulk-assign-textbook")');
   check('셋째 입구(학생관리 툴바 버튼)가 실제로 있다 (전제)', toolbarBtn);
   if (toolbarBtn) {
@@ -338,6 +350,21 @@ async function main() {
     await ev('document.getElementById("bat-close").click()');
     await sleep(200);
   }
+
+  console.log('\n── ⑪-2 «이 학생만» 인데 0명이면 이유를 말하는가 ────');
+  await ev('window.__bulkFail = { status: 200, body: { ok: true, dry: true, targets: 0, user_ids: ["mby1"] } }');
+  await ev('document.querySelector("#tc-body .tc-book-pin").click()');
+  await sleep(400);
+  await ev(`(function(){var b=document.getElementById("bat-book"); b.value='BTS 1 001'; b.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await ev('document.getElementById("bat-preview").click()');
+  await sleep(400);
+  const zero = await ev('document.getElementById("bat-status").textContent');
+  check('0명일 때 «왜» 를 말한다 (명부에 없거나 이미 배정)',
+    /명부에서 못 찾았거나/.test(zero || ''), String(zero));
+  check('   그때 실행 버튼은 잠겨 있다', await ev('!!document.getElementById("bat-run").disabled'));
+  await ev('document.getElementById("bat-close").click()');
+  await ev('window.__bulkFail = null');
+  await sleep(200);
 
   console.log('\n── ⑩ 실패를 «사람 말» 로 하는가 ────────────────────');
   const preview = async fail => {

@@ -8941,6 +8941,14 @@ LIMIT $limit`;
             넓히면 «다른 학생이 걸릴» 여지가 생긴다. 못 찾으면 targets 0 으로 «아무것도 안 하는» 쪽이 맞다.
          ⚠️ 대소문자를 무시하지 않는다 — 대소문자만 다른 학생 계정이 실재한다(Kim/kim).
             «둘 중 아무나» 집으면 남의 계정에 배정된다. */
+      /* 🔴 «배열이 아닌 모양» 을 조용히 «목록 없음» 으로 읽으면 안 된다 — 그 순간 이 조건이
+         통째로 빠져 스코프 전체가 대상이 된다(fail-open). 실측: `"jeong"`·`"a,b"`·`{0:'x',length:1}`·`123`
+         이 전부 []  로 떨어졌다. 2026-09-08 실측대로 학생이 **전원 미배정** 이라 only_empty 가
+         아무것도 못 걸러 주므로, 2,000명 미만 스코프에서는 **그 스코프 학생 전원이 한 번에**
+         배정되고 응답은 {ok:true} 다. ⟹ «모른다» 는 별도 사유로 **거절**한다
+         (CLAUDE.md 2장 「되돌릴 수 없는 조작의 가드를 fail-open 으로 두지 말 것」).
+         ⚠️ 지금 화면은 언제나 배열을 보내므로 «오늘의 사고» 가 아니라 «다음 호출자» 를 막는 것이다. */
+      if (b.user_ids != null && !Array.isArray(b.user_ids)) return json({ ok: false, error: 'invalid_user_ids' }, 400);
       const rawIds: any[] = Array.isArray(b.user_ids) ? b.user_ids : [];
       const userIds = Array.from(new Set(rawIds.map((v: any) => String(v == null ? '' : v).trim()).filter(Boolean)));
       if (rawIds.length && !userIds.length) return json({ ok: false, error: 'invalid_user_ids' }, 400);

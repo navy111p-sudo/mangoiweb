@@ -35,7 +35,9 @@ check('정확일치 조건절을 소스에서 오려 냈다', !!COND, String(CON
 const BINDEXPR = (SRC.match(/binds\.push\((',' \+ userIds\.join\([^)]*\) \+ ',')\)/) || [])[1];
 check('   바인드 조립도 오려 냈다', !!BINDEXPR, String(BINDEXPR));
 /* ⚠️ 바인드 한도 — IN (?,?,…) 로 펴면 D1 100개 제한에 걸리고 d1_bind_limit_harness 가 FAIL 낸다 */
-const GATE_START = 'const rawIds: any[]';
+/* ⚠️ 게이트의 «첫 줄» 을 앵커로 잡는다 — 배열 판정이 rawIds 선언 «앞» 에 있으므로
+   rawIds 부터 자르면 그 줄이 빠져 검사가 조용히 헛돈다(실제로 한 번 그랬다). */
+const GATE_START = 'if (b.user_ids != null && !Array.isArray(b.user_ids))';
 const GATE_END = "if (userIds.some(v => v.indexOf(',') >= 0)) return json({ ok: false, error: 'invalid_user_ids' }, 400);";
 const _gs = SRC.indexOf(GATE_START), _ge = SRC.indexOf(GATE_END);
 const gateSrc = (_gs >= 0 && _ge > _gs) ? SRC.slice(_gs, _ge + GATE_END.length) : '';
@@ -139,6 +141,18 @@ const gate = new Function('b', `
 `);
 const tryGate = b => { try { return gate(b); } catch (e) { return { threw: String(e && e.message) }; } };
 check('빈 배열은 «목록 없음» 으로 본다', JSON.stringify(tryGate({ user_ids: [] }).userIds) === '[]');
+/* 🔴 «배열이 아닌 모양» 은 거절해야 한다 — 조용히 [] 로 떨어지면 이 조건이 통째로 빠져
+   스코프 전체가 대상이 된다(fail-open). 함정 대조가 실제로 이 구멍을 찾았다. */
+for (const bad of ['jeong', 'a,b', 123, true]) {
+  const r = tryGate({ user_ids: bad });
+  check(`배열이 아니면 거절한다 (${JSON.stringify(bad)})`, r.__rej === true && r.body.error === 'invalid_user_ids', JSON.stringify(r));
+}
+{
+  const r = tryGate({ user_ids: { 0: 'jeong', length: 1 } });
+  check('유사배열도 거절한다 ({0:…, length:1})', r.__rej === true, JSON.stringify(r));
+}
+/* ⚠️ 짝 — 아예 «안 보낸» 것은 예전처럼 «목록 없음» 이어야 한다(옛 동작을 깨면 안 된다) */
+check('   아예 안 보내면 옛 동작 그대로', JSON.stringify(tryGate({}).userIds) === '[]', JSON.stringify(tryGate({})));
 check('공백·빈 문자열만 보내면 거절한다', !!tryGate({ user_ids: ['  ', ''] }).__rej || (tryGate({ user_ids: ['  ', ''] }).userIds || []).length === 0);
 check('   그때 조용히 «전체» 로 흐르지 않는다', (() => {
   const r = tryGate({ user_ids: ['  ', ''] });

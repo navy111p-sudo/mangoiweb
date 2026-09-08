@@ -196,7 +196,10 @@
       q: pinnedIds ? '' : $('bat-q').value.trim(),
       only_empty: $('bat-empty').checked,
       dry: !!dry,
-      /* 🎯 정확일치 목록 — 서버가 이것이 오면 학생 검색어(부분일치)를 무시한다 */
+      /* 🎯 정확일치 목록 — 서버는 이 조건을 학생 검색어와 **AND 로 묶는다**(무시하지 않는다).
+         그래서 여기서 q 를 비워 보낸다 — 두 조건이 겹치면 «이 학생» 이 조용히 0명이 된다.
+         ⛔ 주석을 「서버가 q 를 무시한다」로 적지 말 것: 다음 사람이 그것을 믿고 서버에서
+            q 를 빼면 그 순간 뜻이 바뀐다(CLAUDE.md 2장 「주석을 믿지 마세요」). */
       user_ids: pinnedIds || undefined
     };
   }
@@ -224,7 +227,12 @@
     invalid_body: ['보낸 값이 모자랍니다 — 교재를 골랐는지 확인해 주세요.',
                    'Missing required values — please check that a textbook is selected.'],
     'Not Found': ['서버가 이 기능의 주소를 모릅니다 — 배포가 아직 안 나갔을 수 있습니다.',
-                  'The server does not know this endpoint — the deploy may not have gone out yet.']
+                  'The server does not know this endpoint — the deploy may not have gone out yet.'],
+    /* 🎯 «이 학생만» 입구가 내는 코드 — 화면이 모르면 「실패 (invalid_user_ids)」로 뜬다 */
+    invalid_user_ids: ['학생 지정이 잘못 전달됐습니다. 창을 닫고 배지를 다시 눌러 주세요.',
+                       'The student selection was not sent correctly. Close this and click the badge again.'],
+    too_many_user_ids: ['한 번에 지정할 수 있는 학생은 50명까지입니다.',
+                        'You can pin at most 50 students at once.']
   };
   function failText(j, status){
     var code = (j && j.error) || '';
@@ -262,6 +270,15 @@
       var j = res.j;
       if (!res.httpOk || !j || j.ok !== true) { st.textContent = '❌ ' + failText(j, res.status); return; }
       lastPreview = j;
+      /* 🎯 «이 학생만» 인데 0명이면 이유를 말한다 — 화면에는 「📚 교재 미배정 ▸」 배지가 떠 있는데
+         대상이 0명이라, 그냥 «0명» 만 쓰면 «고장» 으로 읽힌다(CLAUDE.md 2장 「화면이 그 실패를
+         뭐라고 말하는지」). 실측상 학생 아이디의 0.8% 는 학생 명부에서 안 찾아진다. */
+      if (pinnedIds && j.targets === 0) {
+        st.textContent = '🎯 ' + T('대상 0명 — 그 학생을 학생 명부에서 못 찾았거나, 그 사이 교재가 이미 배정됐습니다.',
+                                   'No targets — that student is not in the roster, or a textbook was assigned in the meantime.');
+        var run0 = $('bat-run'); run0.disabled = true; run0.style.opacity = '.5';
+        return;
+      }
       st.textContent = '🎯 ' + T('대상 학생: ', 'Targets: ') + j.targets + T('명', ' students') + ($('bat-empty').checked ? T(' (미배정만)', ' (unassigned only)') : '');
       var run = $('bat-run');
       run.disabled = j.targets === 0;
