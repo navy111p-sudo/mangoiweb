@@ -156,15 +156,22 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
   ok(i > 0 && j > i, '적응 루프의 판정 블록을 소스에서 찾았다');
   const block = main.slice(i, j);
 
-  /** 잘라 낸 판정 블록을 그대로 돌린다 */
-  function simulate(series) {
-    const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS',
-      block + '\n;return step;');
+  /** 잘라 낸 판정 블록을 그대로 돌린다.
+      🔴 (2026-09-08) 옛날에는 Date 를 안 넘겨 «진짜 벽시계» 로 돌았다. 300틱이 1ms 안에 다 도니까
+         첫 스파이크에서 __qBadAt 이 찍힌 뒤 홀드(30초)가 끝까지 참이 안 되어 회복 경로가 통째로 얼었고,
+         그래서 «진동 횟수» 가 옛 코드든 새 코드든 언제나 4회로 나왔다 — 같은 게 아니라 «안 재고 있던» 것이다
+         (실측: 벽시계 옛 4 · 새 4 / 가짜시계 옛 16 · 새 16 · 옛문턱 변이 38).
+         ④-2·④-3 처럼 가짜 시계를 넘긴다. ⛔ Date 인자를 다시 빼지 말 것 — 이 절이 통째로 헛돈다. */
+  function simulate(src, series) {
+    let t = 0; const FakeDate = { now: () => t };
+    const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS', 'Date',
+      (src || block) + '\n;return step;');
     const STEPS = [1.0, 0.6, 0.35, 0.2, 0.08];
-    const pc = { __qStep: 0, __qGood: 0, __qBadAt: 0 };
+    const pc = { __qStep: 0, __qGood: 0, __qMid: 0, __qBadAt: 0 };
     let flips = 0, worst = 0;
     for (const [loss, rtt] of series) {
-      const next = decide(pc, loss, rtt, STEPS);
+      t += 4000;
+      const next = decide(pc, loss, rtt, STEPS, FakeDate);
       if (next !== pc.__qStep) flips++;
       pc.__qStep = next;
       worst = Math.max(worst, next);
@@ -177,8 +184,11 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
   for (const [avg, max, rtt] of REAL) {
     for (let k = 0; k < 15; k++) ticks.push(k === 7 ? [max, rtt] : [avg, rtt]);
   }
-  const now = simulate(ticks);
-  ok(now.flips <= 12, `진동(단계 변경) 횟수가 20분에 ${now.flips}회로 억제됐다 (스파이크 20회 대비)`);
+  const now = simulate(null, ticks);
+  /* ⚠️ 숫자 20 은 «가짜 시계로 실제로 재서» 나온 16 에 여유를 둔 값이다(옛 벽시계 시절의 12 가 아니다).
+     2026-09-08 손실 축 수리(__qMid)를 넣고도 이 계열에서는 16 그대로였다 — 60초(MID_TICKS=15) 조용함을
+     요구하므로 «1분에 한 번 스파이크» 인 이 회선은 부분 회복을 한 번도 못 모은다. ⛔ 더 키우지 말 것. */
+  ok(now.flips <= 20, `진동(단계 변경) 횟수가 20분에 ${now.flips}회로 억제됐다 (스파이크 20회 대비)`);
   ok(now.worst >= 1, '나빠질 때는 여전히 내려간다(내려가는 쪽은 안 건드렸다)');
 
   /* 되돌림 시험 — 옛 문턱(3틱, 홀드 없음)으로 바꾸면 실제로 진동이 늘어야 한다.
@@ -188,13 +198,11 @@ console.log('\n════════ ④ 화질 자동조절 — 진동이 �
      ① 연속 틱 수를 8 → 3 으로 줄이고 ② 스파이크 후 홀드(30초)를 없앤다 — 어느 모양으로 쓰였든. */
   const oldBlock = block
     .replace(/>= 8 /g, '>= 3 ')
+    .replace(/>= MID_TICKS /g, '>= 3 ')
     .replace(/&& held /g, '')
     .replace(/&& Date\.now\(\) - \(pc\.__qBadAt \|\| 0\) > 30000 /g, '');
   ok(oldBlock !== block, '되돌림 시험용(3틱·홀드 없음) 블록을 만들었다');
-  const decideOld = new Function('pc', 'lossPct', 'rtt', 'STEPS', oldBlock + '\n;return step;');
-  const pcOld = { __qStep: 0, __qGood: 0, __qBadAt: 0 };
-  let oldFlips = 0;
-  for (const [loss, rtt] of ticks) { const n = decideOld(pcOld, loss, rtt, [1, .6, .35, .2, .08]); if (n !== pcOld.__qStep) oldFlips++; pcOld.__qStep = n; }
+  const oldFlips = simulate(oldBlock, ticks).flips;
   ok(oldFlips > now.flips, `옛 문턱으로 되돌리면 진동이 실제로 늘어난다 (옛 ${oldFlips}회 > 지금 ${now.flips}회) — 검사가 헛돌지 않는다`);
 }
 
@@ -313,13 +321,13 @@ console.log('\n════════ ④-3 손실 축 사각지대 — 꾸준
   const MID = midDecl ? Number(midDecl[1]) : -1;
   ok(MID >= 1 && MID <= 3, `회복 상한이 바닥(4)도 완전복구(0)도 아닌 중간이다 (LOSS_MID_STEP=${MID})`);
 
-  function run(src, series) {
+  function run(src, series, seed) {
     let t = 0; const FakeDate = { now: () => t };
     const decide = new Function('pc', 'lossPct', 'rtt', 'STEPS', 'Date', src + '\n;return step;');
-    const pc = { __qStep: 0, __qGood: 0, __qMid: 0, __qBadAt: 0 };
+    const pc = Object.assign({ __qStep: 0, __qGood: 0, __qMid: 0, __qBadAt: 0 }, seed || {});
     let worst = 0;
     for (const [loss, rtt] of series) { t += 4000; pc.__qStep = decide(pc, loss, rtt, [1, .6, .35, .2, .08], FakeDate); worst = Math.max(worst, pc.__qStep); }
-    return { worst, end: pc.__qStep };
+    return { worst, end: pc.__qStep, mid: pc.__qMid };
   }
   /* 3틱 스파이크(바닥까지 내림) → 45틱(3분) 동안 RTT 는 아주 좋고(100ms) 손실만 그 값으로 꾸준히 */
   const mk = L => { const s = []; for (let k = 0; k < 3; k++) s.push([20, 700]); for (let k = 0; k < 45; k++) s.push([L, 100]); return s; };
@@ -354,6 +362,43 @@ console.log('\n════════ ④-3 손실 축 사각지대 — 꾸준
   const lossy = []; for (let k = 0; k < 300; k++) lossy.push([k % 7 === 3 ? 2.0 : 0.3, k === 50 ? 620 : 360]);
   ok(run(block, lossy).end > 0 && run(share, lossy).end === 0,
      `카운터를 공유하면 28초 주기 손실에서도 «완전 회복» 이 와 버린다 (지금 ${run(block, lossy).end} · 공유 ${run(share, lossy).end}) — 두 카운터를 나눈 이유`);
+
+  /* ── (2026-09-08 함정 대조 검사 지적) 위 검사들은 «끝 단계» 만 보고 전부 __qMid=0 에서 시작한다.
+     그래서 문턱·리셋 세 가지를 무력화해도 전부 초록이었다(실측 PASS 214/FAIL 0 × 3종).
+     세 가드가 «실제로 일하는» 상태를 만들어 준다 — 지울 값이 있고, 홀드가 이미 지난 상태. ── */
+  const midDeclN = block.match(/MID_TICKS = (\d+)/);
+  ok(!!midDeclN, '판정 블록이 부분 회복 문턱(MID_TICKS)을 선언한다');
+  const N = midDeclN ? Number(midDeclN[1]) : -1;
+  ok(N >= 8, `부분 회복 문턱이 완전 회복(8틱)보다 짧지 않다 (MID_TICKS=${N}) — 손실이 있는 쪽 근거가 더 약하다`);
+  const PAST = { __qBadAt: -1e9 };                 // 홀드(30초)는 이미 지난 것으로
+  const VAGUE = [[3, 100]];                        // 손실만 애매 · RTT 아주 좋음
+  const BOTH  = [[3, 620]];                        // 손실도 RTT 도 애매(기준 500 → rttUp 600)
+
+  ok(run(block, VAGUE, Object.assign({ __qStep: 4 }, PAST)).end === 4,
+     `문턱 전에는 안 올라간다 — __qMid=0 에서 애매 1틱이면 단계 4 그대로`);
+  ok(run(block, VAGUE.concat(VAGUE), Object.assign({ __qStep: 4, __qMid: N }, PAST)).end === 3,
+     `한 번에 한 단계씩만 올라간다 — __qMid=${N} 에서 애매 2틱이어도 단계 3 (회복 뒤 __qMid 를 지운다)`);
+  ok(run(block, BOTH.concat(VAGUE), Object.assign({ __qStep: 4, __qMid: N }, PAST)).end === 4,
+     '손실·RTT 가 둘 다 애매한 틱이 «모은 것을 지운다» — 그 다음 틱에 올라가지 않는다');
+  ok(run(block, VAGUE, { __qStep: 4, __qMid: N, __qBadAt: 4000 }).end === 4,
+     '스파이크 직후 30초 안에는 부분 회복도 안 한다(holdstate)');
+
+  /* 되돌림 ④ — 위 넷이 실제로 그 세 가드를 잡는지 확인(안 잡히면 이 절이 헛돈다) */
+  const mutants = [
+    ['문턱 무력화',   block.replace(/pc\.__qMid >= MID_TICKS/, 'pc.__qMid >= 1')],
+    ['둘다애매 리셋 삭제', block.replace(/\} else \{ pc\.__qMid = 0; \}/, '}')],
+    ['회복 후 리셋 삭제',  block.replace(/step--; pc\.__qMid = 0; \}/, 'step--; }')],
+    ['홀드 삭제',     block.replace(/pc\.__qMid >= MID_TICKS && held /, 'pc.__qMid >= MID_TICKS ')],
+  ];
+  for (const [name, m] of mutants) {
+    ok(m !== block, `되돌림 시험용(${name}) 블록을 만들었다`);
+    const caught =
+      run(m, VAGUE, Object.assign({ __qStep: 4 }, PAST)).end !== 4 ||
+      run(m, VAGUE.concat(VAGUE), Object.assign({ __qStep: 4, __qMid: N }, PAST)).end !== 3 ||
+      run(m, BOTH.concat(VAGUE), Object.assign({ __qStep: 4, __qMid: N }, PAST)).end !== 4 ||
+      run(m, VAGUE, { __qStep: 4, __qMid: N, __qBadAt: 4000 }).end !== 4;
+    ok(caught, `«${name}» 변이가 위 넷 중 하나에 실제로 걸린다 — 검사가 헛돌지 않는다`);
+  }
 }
 
 console.log('\n════════ ⑤ 소리 — 수신 지연 재설정과 음성전용 문턱 ════════');
