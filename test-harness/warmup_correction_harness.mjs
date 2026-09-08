@@ -29,6 +29,7 @@ console.log('════════ ✏️ 웜업 교정 카드 ════�
 // ═══════════ A. 배선 — /api/warmup/chat 핸들러 안 ═══════════
 console.log('\nA. 서버 배선 (index.ts 의 웜업 핸들러 «안» 만 잘라서 본다)');
 const INDEX = readFileSync(join(SRC, 'index.ts'), 'utf8');
+const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
 {
   /* ⚠️ 앵커는 «라우터 분기» 가 아니라 «핸들러 함수» 여야 한다.
      path === '/api/warmup/chat' 은 위쪽 라우터에도 있어서, 그것을 집으면 무관한 3,600줄이
@@ -42,6 +43,11 @@ const INDEX = readFileSync(join(SRC, 'index.ts'), 'utf8');
 
   check('A-1 [교정] 절을 시스템 프롬프트에 주입한다',
         /sys\s*\+=\s*'\\n'\s*\+\s*WARMUP_CORRECTION_RULE\s*;/.test(H));
+  /* ⚠️ 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말합니다 — JSON 지시와 정면으로
+     부딪히므로, 어느 쪽이 이기는지 «프롬프트가 직접» 말해야 합니다. */
+  check('A-1b 🔴 [출력형식] 이 [형식] 보다 우선한다고 프롬프트가 직접 말한다',
+        /\[출력형식\][\s\S]{0,120}\[형식\][\s\S]{0,80}우선|우선[\s\S]{0,80}\[형식\]/.test(CORR),
+        '');
 
   /* 🔴 이 검사가 이 하니스의 핵심이다.
      모델 출력이 JSON 이 된 뒤에도 «날것으로» 꺼내는 자리가 하나라도 남으면,
@@ -57,12 +63,33 @@ const INDEX = readFileSync(join(SRC, 'index.ts'), 'utf8');
   const code = H.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const takes = (code.match(/takeWarmupReply\(/g) || []).length;
   const commits = (code.match(/commitFix\(\)/g) || []).length;
-  const runs = (code.match(/env\.AI\.run\(WARMUP_MODEL/g) || []).length;
-  check('A-3 AI 호출 수와 추출 수가 짝이 맞는다 (새 재시도를 넣고 빠뜨리면 여기서 걸린다)',
-        runs > 0 && takes === runs, 'AI.run ' + runs + '회 · takeWarmupReply ' + takes + '회');
+  const runs = (code.match(/await runWarmup\(/g) || []).length;
+  /* ⚠️ 모델을 부르는 «자리» 는 runWarmup 하나여야 한다 — 첫 호출에만 폴백을 두었더니
+     나머지 네 경로가 그 보호를 못 받았다(2026-09-08 하니스가 잡음). */
+  const rawRuns = (code.match(/env\.AI\.run\(WARMUP_MODEL/g) || []).length;
+  check('A-3 답장을 뽑는 경로마다 추출을 지난다', runs > 0 && takes === runs,
+        'runWarmup ' + runs + '회 · takeWarmupReply ' + takes + '회');
   check('A-3b 채택한 답장마다 교정을 확정한다 (버려진 재시도의 교정이 남지 않는다)',
-        commits === runs, 'commitFix ' + commits + '회 · AI.run ' + runs + '회');
+        commits === runs, 'commitFix ' + commits + '회 · runWarmup ' + runs + '회');
+  check('A-3d 모델을 부르는 자리는 runWarmup 한 곳뿐 (폴백이 전 경로에 걸린다)',
+        rawRuns === 2, 'env.AI.run ' + rawRuns + '회 (runWarmup 안 2건이어야)');
   check('A-3c 답장을 버리면 그 교정도 버린다', /rawFix = null;/.test(code));
+
+  /* 🔴 2026-09-08 실사고 — 교정 카드가 «한 번도 안 떴습니다».
+     JSON 을 «말로만» 시켰고(같은 모델에 response_format 을 쓰는 곳이 이미 9곳 있었는데),
+     프롬프트는 [형식] 「평문으로만 써」 와 정면으로 부딪히고 있었습니다.
+     실패 방향은 안전했지만 «조용해서» 아무도 못 봤습니다 — 그래서 셋을 못 박습니다. */
+  const viaOpts = (code.match(/warmupAIOpts\(/g) || []).length;
+  check('A-8 🔴 모든 AI 호출이 JSON 모드를 지난다 (response_format 을 말로만 시키지 않는다)',
+        /response_format\s*=\s*\{\s*type:\s*'json_object'\s*\}/.test(code) && rawRuns > 0 && viaOpts === rawRuns,
+        'env.AI.run ' + rawRuns + '회 · warmupAIOpts ' + viaOpts + '회');
+  check('A-8b 모델이 그 옵션을 거절하면 한 번 끄고 다시 부른다 (선례: api-sales-hr.ts)',
+        /warmupRF\s*=\s*false/.test(code) && /catch\s*\(rfErr/.test(code));
+  check('A-8c 모델이 평문을 주면 로그로 남긴다 (다시 조용해지지 않게)',
+        /warmupPlain\+\+/.test(code) && /no JSON/.test(H));
+  check('A-9 교정이 같은 예산에 들어가므로 토큰 상한을 올렸다 (200 은 잘림 위험)',
+        /const WARMUP_MAX_TOKENS = (\d+)/.test(INDEX) && Number(RegExp.$1) >= 300,
+        'WARMUP_MAX_TOKENS=' + (RegExp.$1 || '?'));
 
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*\)/.test(H) && !/fix:\s*rawFix/.test(H));
@@ -119,6 +146,8 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-5 못 읽으면 빈 문자열 (잘린 경우는 B-4b~e 가 따로 본다)', hopeless.reply === '' && hopeless.fix === null, JSON.stringify(hopeless.reply));
 
   t('B-6 빈 응답은 빈 응답', parseWarmupOutput('').reply === '' && parseWarmupOutput(null).reply === '');
+  t('B-6b 🔴 «JSON 이었는가» 를 돌려준다 (모델이 평문을 주는 것을 볼 수 있어야 한다)',
+    parseWarmupOutput(good).json === true && parseWarmupOutput('Hi! How are you?').json === false);
 }
 
 // ── ② verifyWarmupFix — 모델을 믿지 않는다 ──

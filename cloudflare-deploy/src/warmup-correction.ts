@@ -54,7 +54,7 @@ export const WARMUP_CORRECTION_RULE = [
   '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
   '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
   '⛔ 뜻이 통하면 그냥 넘어가. 사소한 것까지 매번 고치면 학생이 말문이 막힌다. 한 번에 한 가지만 고쳐.',
-  '[출력형식] 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   '{"reply":"<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>","now":"<고친 영어>","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>","tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other","severity":"major|minor"}}',
   '고칠 것이 없으면 "fix": null 로 둬.',
   '"was" 는 학생이 «실제로 쓴 글자 그대로» 여야 해 — 학생이 말하지 않은 문장을 지어내면 절대 안 돼.',
@@ -66,9 +66,9 @@ export const WARMUP_CORRECTION_RULE = [
    ⚠️ 파싱이 깨져도 학생 화면에 중괄호가 보이면 안 된다. 세 단계로 떨어진다:
       JSON.parse → "reply" 만 정규식으로 건져내기 → 원문 그대로(옛 동작).
    ───────────────────────────────────────────────────────────── */
-export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
+export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json: boolean } {
   const text = String(raw == null ? '' : raw).trim();
-  if (!text) return { reply: '', fix: null };
+  if (!text) return { reply: '', fix: null, json: false };
 
   // ```json … ``` 코드펜스를 벗긴다(모델이 지시를 어기고 감싸는 일이 실제로 있다)
   let body = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -86,7 +86,7 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
     try {
       const o = JSON.parse(slice);
       if (o && typeof o.reply === 'string' && o.reply.trim()) {
-        return { reply: o.reply.trim(), fix: o.fix || null };
+        return { reply: o.reply.trim(), fix: o.fix || null, json: true };
       }
     } catch { /* 아래 폴백으로 */ }
     // JSON 이 깨졌거나 «잘렸어도» reply 문자열만은 건져 본다
@@ -95,15 +95,15 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any } {
       let r = m[1];
       try { r = JSON.parse('"' + m[1] + '"'); } catch { r = m[1].replace(/\\"/g, '"').replace(/\\n/g, ' '); }
       r = String(r).trim();
-      if (r) return { reply: r, fix: null };
+      if (r) return { reply: r, fix: null, json: true };
     }
   }
   /* 🛟 마지막 안전망 — 여기까지 왔는데 JSON 흔적이 남아 있으면 «학생에게 보내지 않는다».
      빈 문자열로 두면 부르는 쪽의 기존 «잠깐의 딸꾹질» 안전 문구가 받아 준다(옛 동작).
      ⛔ 이 줄을 «s === 0 일 때만» 으로 좁히지 말 것 — 모델이 JSON 앞에 말을 한마디 붙이면
         (`Here you go: {…`) 그 조건을 비켜 가고, 그러면 중괄호가 그대로 새어 나간다. */
-  if (looksLikeJson) return { reply: '', fix: null };
-  return { reply: body, fix: null };
+  if (looksLikeJson) return { reply: '', fix: null, json: true };
+  return { reply: body, fix: null, json: false };
 }
 
 /* ─────────────────────────────────────────────────────────────
