@@ -161,20 +161,66 @@
     };
   }
 
+  /* 🗣 (2026-09-08) 실패를 «사람 말» 로 옮긴다 — 서버가 내는 것은 영문 코드다.
+     [무엇이 문제였나] 강사·내부 계정이 이 창을 열어 실행하면 서버가 403 `no_scope` 로
+       올바르게 막는데, 화면에는 「❌ no_scope」라는 **영문 코드만** 떴다. 쓰는 사람은
+       무엇이 잘못됐는지도, 무엇을 하면 되는지도 알 수 없다
+       (CLAUDE.md 2장 「상한·검증을 새로 걸 때 화면이 그 실패를 뭐라고 말하는지」).
+     ⚠️ 이 코드 목록은 서버에서 «읽어» 온 것이다 — 지어내지 않았다:
+       no_scope·too_many_targets (api-admin.ts) · forbidden_teacher·forbidden_scope·
+       auth_required (index.ts·auth-admin.ts) · invalid_body (api-util.ts) ·
+       Not Found (index.ts 종단 404 — 이 응답에는 `ok` 칸이 아예 없다).
+     ⛔ 모르는 코드를 «성공» 이나 «알 수 없는 오류» 로 뭉개지 않는다 — 코드를 그대로 함께
+        보여 준다(다음 사람이 그것으로 찾는다). */
+  var FAIL_TEXT = {
+    no_scope: ['이 계정에는 학생 명부 범위가 없어 교재를 배정할 수 없습니다 (강사·내부 계정). 본사나 지사 계정으로 로그인해 주세요.',
+               'This account has no student scope, so it cannot assign textbooks (teacher/internal account). Please use an HQ or branch account.'],
+    forbidden_teacher: ['강사 계정은 이 기능을 쓸 수 없습니다.',
+                        'Teacher accounts cannot use this feature.'],
+    forbidden_scope: ['이 계정의 권한 범위에서는 쓸 수 없는 기능입니다.',
+                      'This feature is not available for your account scope.'],
+    auth_required: ['로그인이 풀렸습니다. 새로고침한 뒤 다시 로그인해 주세요.',
+                    'Your session expired. Please refresh and sign in again.'],
+    invalid_body: ['보낸 값이 모자랍니다 — 교재를 골랐는지 확인해 주세요.',
+                   'Missing required values — please check that a textbook is selected.'],
+    'Not Found': ['서버가 이 기능의 주소를 모릅니다 — 배포가 아직 안 나갔을 수 있습니다.',
+                  'The server does not know this endpoint — the deploy may not have gone out yet.']
+  };
+  function failText(j, status){
+    var code = (j && j.error) || '';
+    /* 대상이 너무 많아 막힌 것은 «무엇을 하면 되는지» 가 다르다 — 건수를 함께 말한다 */
+    if (code === 'too_many_targets') {
+      var n = (j && j.targets) || 0;
+      return T('대상이 ' + n + '명으로 너무 많아 막았습니다. 학생 검색어로 범위를 좁혀 주세요.',
+               'Blocked: ' + n + ' targets is too many. Narrow it down with the student filter.');
+    }
+    if (FAIL_TEXT[code]) return isEn() ? FAIL_TEXT[code][1] : FAIL_TEXT[code][0];
+    if (code) return T('실패 (' + code + ')', 'Failed (' + code + ')');
+    if (status) return T('서버가 ' + status + ' 로 거절했습니다.', 'The server refused with HTTP ' + status + '.');
+    return T('실패', 'Failed');
+  }
+
+  /* ⚠️ 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 한다 —
+     종단 404 응답에는 `ok` 칸이 없어 `d.ok === false` 검사를 그냥 통과한다(CLAUDE.md 2장).
+     그래서 HTTP 상태도 함께 들고 온다. 본문이 JSON 이 아니어도(로그인 HTML 등) 안 던진다. */
   function post(body){
     return fetch('/api/admin/students/bulk-assign-textbook', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
-    }).then(function(r){ return r.json(); });
+    }).then(function(r){
+      return r.json().then(function(j){ return { j: j, status: r.status, httpOk: r.ok }; },
+                           function(){ return { j: null, status: r.status, httpOk: r.ok }; });
+    });
   }
 
   function doPreview(){
     var st = $('bat-status');
     if (!$('bat-book').value) { st.textContent = '⚠️ ' + T('교재를 먼저 선택하세요', 'Select a textbook first'); return; }
     st.textContent = T('대상 계산 중…', 'Counting…');
-    post(payload(true)).then(function(j){
-      if (!j || !j.ok) { st.textContent = '❌ ' + ((j && j.error) || T('실패', 'Failed')); return; }
+    post(payload(true)).then(function(res){
+      var j = res.j;
+      if (!res.httpOk || !j || j.ok !== true) { st.textContent = '❌ ' + failText(j, res.status); return; }
       lastPreview = j;
       st.textContent = '🎯 ' + T('대상 학생: ', 'Targets: ') + j.targets + T('명', ' students') + ($('bat-empty').checked ? T(' (미배정만)', ' (unassigned only)') : '');
       var run = $('bat-run');
@@ -195,8 +241,9 @@
       body.force = true;
     }
     st.textContent = T('배정 실행 중…', 'Assigning…');
-    post(body).then(function(j){
-      if (!j || !j.ok) { st.textContent = '❌ ' + ((j && j.error) || T('실패', 'Failed')); return; }
+    post(body).then(function(res){
+      var j = res.j;
+      if (!res.httpOk || !j || j.ok !== true) { st.textContent = '❌ ' + failText(j, res.status); return; }
       st.textContent = '✅ ' + T('배정 완료: ', 'Assigned: ') + j.updated + T('명', ' students');
       invalidatePreviewKeepMsg(st.textContent);
       try { var reload = $('sm-load-students'); if (reload) reload.click(); } catch(e){}

@@ -81,6 +81,14 @@ const BOOT = `
     window.fetch = function(u, o){
       var s = String((u && u.url) || u || '');
       if (s.indexOf('/api/admin/classes/today') >= 0) return Promise.resolve(ok({ ok:true, sessions: window.__tcSeed }));
+      /* 🧪 배정 API — window.__bulkFail 로 «서버가 이렇게 거절하면» 을 만들어 본다.
+         ⚠️ 종단 404 응답에는 «ok» 칸이 아예 없다 — 그대로 흉내 낸다(그게 함정이다).
+            ⛔ 이 주석은 백틱 템플릿(BOOT) 안이다 — 백틱을 쓰면 문자열이 그 자리에서 끊긴다. */
+      if (s.indexOf('/api/admin/students/bulk-assign-textbook') >= 0) {
+        var f = window.__bulkFail;
+        if (f) return Promise.resolve(new Response(JSON.stringify(f.body), { status: f.status, headers:{'content-type':'application/json'} }));
+        return Promise.resolve(ok({ ok:true, dry:true, targets:3 }));
+      }
       if (s.indexOf('/api/admin/textbooks') >= 0) { window.__books++; return Promise.resolve(ok({ ok:true, items:[], library:[{ name:'BTS 1 001', level:'Lv 1', quizzes:12, files:20, lang:'en' }] })); }
       if (s.indexOf('/api/admin/me') >= 0) return Promise.resolve(ok({ ok:true, username:'admin', role:'hq_exec' }));
       return real(u, o);
@@ -256,6 +264,37 @@ async function main() {
   check('   그때 모달이 열리지도 않는다',
     (await ev('(function(){var o=document.getElementById("bat-overlay"); return o ? getComputedStyle(o).display : "none"})()')) === 'none');
   await ev('window.mangoiOpenBulkTextbook = window.__mangoiOpenBackup');
+
+  console.log('\n── ⑩ 실패를 «사람 말» 로 하는가 ────────────────────');
+  const preview = async fail => {
+    await ev(`window.__bulkFail = ${fail ? JSON.stringify(fail) : 'null'}`);
+    await ev('document.getElementById("tc-bulk-book").click()');
+    await sleep(400);
+    await ev(`(function(){var b=document.getElementById("bat-book"); b.value='BTS 1 001'; b.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await ev('document.getElementById("bat-preview").click()');
+    await sleep(400);
+    const txt = await ev('document.getElementById("bat-status").textContent');
+    await ev('document.getElementById("bat-close").click()');
+    await sleep(150);
+    return txt;
+  };
+  /* ⚠️ «제대로 센다» 를 짝으로 먼저 본다 — 없으면 「무엇이든 실패로 읽는 코드」가 통과한다 */
+  const okTxt = await preview(null);
+  check('제대로 되면 대상 인원을 말한다 (3명)', /3/.test(okTxt || '') && !/❌/.test(okTxt || ''), String(okTxt));
+  const noScope = await preview({ status: 403, body: { ok: false, error: 'no_scope' } });
+  check('403 no_scope → 영문 코드가 아니라 사람 말로 말한다',
+    /학생 명부 범위가 없어/.test(noScope || '') && !/no_scope/.test(noScope || ''), String(noScope));
+  check('   무엇을 하면 되는지도 말한다 (본사·지사 계정)', /본사나 지사 계정/.test(noScope || ''), String(noScope));
+  const tooMany = await preview({ status: 400, body: { ok: false, error: 'too_many_targets', targets: 4210 } });
+  check('too_many_targets → 건수와 «좁히라» 를 말한다',
+    /4210/.test(tooMany || '') && /좁혀/.test(tooMany || ''), String(tooMany));
+  /* 🔴 종단 404 는 `ok` 칸이 없다 — «성공이라고 말했는가» 로 판정하지 않으면 조용히 통과한다 */
+  const notFound = await preview({ status: 404, body: { error: 'Not Found', path: '/api/admin/students/bulk-assign-textbook' } });
+  check('404(ok 칸 없음) 를 «성공» 으로 읽지 않는다', /❌/.test(notFound || ''), String(notFound));
+  check('   배포가 안 나갔을 수 있다고 말한다', /배포가 아직 안 나갔을 수 있습니다/.test(notFound || ''), String(notFound));
+  const unknown = await preview({ status: 400, body: { ok: false, error: 'zzz_unknown' } });
+  check('모르는 코드는 뭉개지 말고 코드를 함께 보여 준다', /zzz_unknown/.test(unknown || ''), String(unknown));
+  await ev('window.__bulkFail = null');
 
   console.log('\n── ⑨ 🌐 EN 전환을 따라오는가 ───────────────────────');
   /* ⛔ 여기서 tcLoadToday() 를 «손으로» 부르면 안 된다 — 그러면 「render() 가 영어를 낸다」까지만
