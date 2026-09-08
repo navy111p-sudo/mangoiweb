@@ -82,8 +82,12 @@ const words = (s: any): string[] => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Bo
 const NAME_ALIASES: readonly (readonly string[])[] = [
   // 원부 'FAR'(teachers.id=22) ↔ 입장 표기 '교사 Teacher - Farrah'(실측 25회).
   //   동일인 근거: teacher_profiles.id=27 이 korean_name='Teacher Far' · english_name='Teacher Farrah'.
-  //   ⚠️ 왜 두 값을 적는가 — 역할 접두사가 벗겨지는 «횟수» 가 부르는 자리마다 다르다(아래 주석).
-  ['FAR', 'FARRAH', 'TEACHER FARRAH'],
+  //   ⚠️ 왜 여러 값을 적는가 — 역할 접두사가 벗겨지는 «횟수» 가 부르는 자리마다 다르다(아래 주석).
+  //   'HT FARRAH' 는 teachers.id=3(퇴사) 의 표기다 — **같은 사람**임을 2026-09-08 에 사장님이
+  //     확인해 주셔서 그룹에 넣는다. 그 전에는 «다른 사람» 으로 보고 일부러 뺐었다.
+  //     ⚠️ 그렇다고 부분일치를 여는 것이 아니다 — 'HT NESS' 는 낱말 'HT' 를 나눠 갖지만
+  //        그룹에 없으므로 안 붙는다(하니스 D-15 가 잰다).
+  ['FAR', 'FARRAH', 'TEACHER FARRAH', 'HT FARRAH'],
 ];
 
 /** 표기 차이를 흡수한 별칭 조회용 열쇠 — 구분자를 낱말 사이 한 칸으로 고른다.
@@ -106,13 +110,12 @@ export function sameTeacherByWord(a: any, b: any): boolean {
   if (x === y) return true;
   if (words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0) return true;
   /* ② 별칭 — «이름 전체» 끼리만 본다.
-     🔴 ⛔ **별칭을 상대의 «낱말» 에까지 넓히면 안 된다.** 넓히면 별칭 'FARRAH' 가
-        `words('HT FARRAH')` = ['HT','FARRAH'] 의 낱말에 걸려 **다른 강사**
-        `HT FARRAH`(teachers.id=3, 퇴사)가 'FAR' 로 붙는다. 부분일치를 연 것이 아닌데도
+     🔴 ⛔ **별칭을 상대의 «낱말» 에까지 넓히면 안 된다.** 넓히면 별칭이 상대 이름의
+        «낱말» 에 걸려, 표에 없는 사람까지 같은 사람으로 붙는다. 부분일치를 연 것이 아닌데도
         결과가 같아지는 자리다 — 실제로 한 번 그렇게 짰다가 함정 대조가 잡았다.
-        이 저장소는 그 둘을 «다른 사람» 으로 못 박아 두었다(api-mango.ts 의
-        「FAR ⊂ HT FARRAH 오염 차단」 · c24-mirror.ts 의 「부분일치는 절대 금지 —
-        'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가 있었다」).
+        (그때 걸린 것은 'FARRAH' ⊂ 'HT FARRAH' 였는데, 그 둘은 2026-09-08 에 «같은 사람» 으로
+         확인되어 지금은 그룹에 함께 있다. 그래도 **이 금지는 그대로다** — 낱말까지 넓히면
+         'HT NESS' 처럼 낱말 'HT' 만 겹치는 남까지 딸려 온다.)
         그 방향은 **진짜 노쇼를 감추고 수업료를 전액 내보낸다.**
      ⟹ 그 오염이 여기서 안 나는 이유는 **양쪽이 «둘 다» 그룹에 있어야** 붙기 때문이다.
         'HT FARRAH' 는 그룹에 없으므로 'FAR' 방의 접속으로 인정되지 않는다(하니스 D-15 가 잰다).

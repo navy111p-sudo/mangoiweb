@@ -206,6 +206,8 @@ console.log('\nD. 이름 별칭표 — 붙어야 할 것과 붙으면 안 될 �
       '교사 Teacher - Farrah', 'FAR', '학생', true);
     await add('D-5 구분자가 달라도 같은 사람(하이픈 없는 «Teacher Farrah») → true',
       '교사 Teacher Farrah', 'FAR', '학생', true);
+    await add('D-5b 같은 사람의 퇴사 표기(교사 HT FARRAH)도 FAR 로 붙는다 → true',
+      '교사 HT FARRAH', 'FAR', '학생', true);
     await add('D-6 «되던 것» 안 깨짐 — 낱말 일치(KAYE) → true',
       '교사 Teacher Kaye', 'KAYE', '학생', true);
     await add('D-7 «되던 것» 안 깨짐 — 계정 해석(mangoi_042 → HT NESS) → true',
@@ -248,7 +250,10 @@ console.log('\nD. 이름 별칭표 — 붙어야 할 것과 붙으면 안 될 �
     /* ⚠️ D-15 는 «붙는가» 가 아니라 **«별칭이 «새로» 붙였는가»** 를 묻는다.
        별칭표를 비운 사본과 나란히 돌려 비교한다 — 안 그러면 옛 낱말 규칙이 원래부터
        붙이던 쌍('FARRAH' ⊂ 'HT FARRAH')까지 이 변경 탓으로 잡아 **거짓 FAIL** 이 난다. */
-    const OTHERS = ['HT FARRAH', 'HANNAH', 'HT NESS', 'KRYSTEL', 'KAYE', 'ANA', 'JANICE'];
+    /*  ⚠️ 'HT FARRAH' 는 **일부러 뺐다** — 2026-09-08 사장님 확인으로 FAR 와 같은 사람이라
+        이제 그룹 안에 있다(D-14 가 «붙는다» 로 잰다). 대신 **'HT NESS'** 가 그 자리를 지킨다:
+        낱말 'HT' 를 HT FARRAH 와 나눠 갖는 «남» 이라, 별칭을 낱말까지 넓히면 여기가 먼저 깨진다. */
+    const OTHERS = ['HANNAH', 'HT NESS', 'KRYSTEL', 'KAYE', 'ANA', 'JANICE', 'JED', 'WIN'];
     const GROUPS = ${JSON.stringify(groups)};
     const { teacherLiveInRoom: liveNoAlias } = await import('./no-alias.ts');
     for (const g of GROUPS) {
@@ -265,6 +270,27 @@ console.log('\nD. 이름 별칭표 — 붙어야 할 것과 붙으면 안 될 �
         out.push(['D-15 별칭이 «다른 강사» 를 새로 붙이지 않는다: ' + a + ' ↮ ' + o,
                   got === base, got + '(별칭없음=' + base + ')']);
       }
+    }
+    /* 🔴 D-16 «낱말 확장 금지» 를 직접 잰다 — 반례를 **그룹에서 자동으로 만든다.**
+       그룹 원소 앞에 다른 낱말을 붙인 이름은 그룹에 «없으므로» 붙으면 안 된다.
+       ⚠️ 실측 명부(OTHERS)만으로는 이 변이를 못 잡는다 — 지금 명부에 'FAR'·'FARRAH' 를
+          낱말로 가진 다른 강사가 없기 때문이다(그래서 한 번 통과했다). 규칙 자체를 재야 한다. */
+    for (const g of GROUPS) for (const a of g) for (const b of g) {
+      const fake = 'ZZQ ' + b;                 // 그룹에 없는 이름인데 b 를 «낱말» 로 가진다
+      const got  = await teacherLiveInRoom(one('교사 ' + fake), 'r', a, '학생', NOW);
+      const base = await liveNoAlias(one('교사 ' + fake), 'r', a, '학생', NOW);
+      /*  ⚠️ «붙는가» 가 아니라 «별칭이 «새로» 붙였는가» 로 묻는다 — 옛 규칙(「이름 전체가
+          상대의 낱말 하나와 같으면 같은 사람」)은 'FAR' ↔ 'ZZQ FAR' 를 원래부터 붙인다.
+          그것까지 위반으로 잡으면 멀쩡한 코드가 FAIL 난다(실제로 한 번 그렇게 짰다). */
+      out.push(['D-16 별칭이 «낱말만 겹치는 남» 을 새로 붙이지 않는다: ' + a + ' ↮ ' + fake,
+                got === base, got + '(별칭없음=' + base + ')']);
+    }
+    /* 🔴 D-17 «다른 사람» 이 그룹에 섞이지 않았는가 — 표를 잘못 적는 실수를 잡는다.
+       ⚠️ D-15 는 「그룹에 있으면 건너뛴다」라서, 남을 그룹에 «넣어 버리면» 스스로 비켜난다.
+          그래서 이 목록은 그 스킵 없이 **그룹 안에 있으면 FAIL** 로 못 박는다. */
+    const NEVER = ['HT NESS', 'HANNAH', 'KRYSTEL', 'KAYE', 'ANA', 'JANICE', 'JED', 'WIN', 'SID'];
+    for (const g of GROUPS) for (const n of NEVER) {
+      out.push(['D-17 «다른 강사» 가 별칭 그룹에 없다: ' + n, g.indexOf(n) < 0, g.join('/')]);
     }
     console.log(JSON.stringify(out));
   `;

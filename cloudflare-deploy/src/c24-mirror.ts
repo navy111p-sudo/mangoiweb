@@ -170,6 +170,9 @@ export function classMinutes(start: number, end: number): number {
  *    `teacher_weekly_calendar_id_space_harness` 가 「HT NESS 는 단어 단위로 맞다」로 못 박아 두었다.
  * ⛔ 부분일치(substring)는 절대 금지 — 'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가 있었다.
  *    낱말 **전체** 가 같을 때만이라 'farr' 는 'farrah' 에 안 걸린다.
+ *    📌 (2026-09-08 사장님 확인) 그 예시의 두 이름은 **실은 같은 사람**이다(id 3 은 퇴사 행).
+ *       그래도 **이 금지는 그대로다** — 막는 것은 그 쌍이 아니라 «부분일치 일반» 이고,
+ *       바로 아래 'ht' 예시가 그 규칙이 실제로 지키는 것이다.
  * ⛔ 후보가 둘 이상이면 **잇지 않는다**(null). 모르는 것보다 틀린 것이 나쁘다(CLAUDE.md 2장).
  *    그래서 'ht' 처럼 여럿이 나눠 갖는 낱말은 자동으로 «모름» 이 된다.
  */
@@ -519,6 +522,12 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
         `teacher_weekly_calendar_id_space_harness` 가 「HT NESS 는 단어 단위로 맞다」로 못 박음).
      ⛔ 부분일치(substring)는 절대 금지 — 'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가
         실제로 있었다. 낱말 «전체» 가 같을 때만이고, 그래서 'farr' 는 'farrah' 에 안 걸린다.
+        📌 (2026-09-08 사장님 확인) 그 두 이름은 **실은 같은 사람**이다 — 그래도 이 금지는
+           그대로다(막는 것은 그 쌍이 아니라 «부분일치 일반» 이고, 바로 아래 'ht' 가 그 예다).
+        ℹ️ 「같은 사람인가」를 이름으로 묻는 자리가 하나 더 있다 — 노쇼·급여 판정의
+           `src/no-show-truth.ts` 다. 거기는 «완전일치 쌍» 표(NAME_ALIASES)로 그 둘을 잇는다.
+           ⛔ 그 표를 여기에 복제하지 말 것 — 여기는 «시간표를 만드는» 자리라 틀리면
+              남의 일정이 생긴다. 판정 성격이 다르다.
      ⛔ 그리고 후보가 둘 이상이면 잇지 않는다 — 모르는 것보다 틀린 것이 나쁘다(CLAUDE.md 2장).
         (실제로 'ht' 라는 낱말은 HT NESS·HT FARRAH 둘이 나눠 가지므로 자동으로 «모름» 이 된다) */
   let roster: { id: any; name: any }[] = [];
