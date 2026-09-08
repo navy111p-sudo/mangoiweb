@@ -198,7 +198,11 @@ const friend = block(AI, "case 'chat-friend'") || AI;
 ok(/wrongSelfName\(/.test(AI), 'api-ai.ts 가 판정을 불러온다');
 
 /* 두 화면 모두 «다시 뽑는» 자리여야 한다 — 그냥 버리면 대화가 끊긴다 */
-ok(/wrongSelfName[\s\S]{0,900}env\.AI\.run/.test(warm),
+/* ⚠️ «식 모양» 을 글자 그대로 못 박지 말 것 — 2026-09-08 에 모델 호출이
+      env.AI.run(...) 에서 헬퍼 runWarmup(...) 으로 모이자 보장은 그대로인데
+      이 검사만 빨간불이 났다. 물어야 할 것은 «어떤 함수를 부르는가» 가 아니라
+      «다시 뽑는가» 다. */
+ok(/wrongSelfName[\s\S]{0,900}(?:env\.AI\.run|runWarmup\()/.test(warm),
   '웜업: 이름을 어기면 «다시 뽑는다»(그냥 버리지 않는다)');
 
 /* ── ⑦ 구조적 원인 — 모델이 «자기가 한 인사» 를 보는가 ────────────────────
