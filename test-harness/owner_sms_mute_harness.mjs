@@ -5,13 +5,19 @@
      「관리자 로그인 알림」이 또 왔습니다. 사장님이 PDF 보고서를 보시고
      «5명 중 1명만 껐다» 는 것을 확인한 뒤 「일단 모두 꺼줘」로 결정.
 
+   [후속] 2026-09-09 사장님 「사이트 장애랑 감시견만 다시 켜줘」 —
+     `uptime`·`room-split` 두 종류만 음소거에서 뺐습니다(⑧절).
+
    [이 하니스가 지키는 것]
      ① 판정이 «정본 한 곳» 에 있고 순수 함수다 (문자열이 아니라 실제로 돌린다)
-     ② 기본이 «음소거» — 값이 없거나 모르는 값이면 막는다
+     ② 기본이 «음소거» — 종류를 안 밝히면 값이 없거나 모르는 값일 때 막는다
      ③ 되켜는 값은 'off' 하나뿐이고 실제로 켜진다  ← 짝이 없으면 «전부 막기» 도 통과
      ④ 운영자 «아닌» 번호는 절대 막지 않는다(학부모·강사 문자가 사라지면 훨씬 나쁘다)
      ⑤ 막는 자리가 «보내는 정본»(sendPlainSms) 안이고, 실제 발송보다 «앞» 이다
      ⑥ 조용히 사라지지 않는다(로그) · 거짓 성공을 말하지 않는다(ok:false + muted)
+     ⑧ 예외는 «두 종류만» 이고, 그 예외를 실제로 받는 호출부도 그 둘뿐이다
+        ← «막는다» 만 검사하면 예외가 죽어도 초록이고, «보낸다» 만 검사하면
+          결제·로그인이 몰래 예외를 받아도 초록이다. 둘을 **짝으로** 둔다.
    ══════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -38,11 +44,17 @@ const solCode = strip(sol);
    「무슨 답이 나오는가」를 볼 수 없다(이 저장소의 반복 실측). */
 function loadFns() {
   let js = mute
+    .replace(/^\s*export\s+type\s+[^;\n]*;?\s*$/gm, '')      // `export type OwnerSmsKind = …`
     .replace(/^\s*export\s+/gm, '')
+    .replace(/\s+as\s+readonly\s+string\[\]/g, '')           // `(X as readonly string[])`
+    .replace(/\s+as\s+const/g, '')                           // `= [...] as const`
+    .replace(/:\s*readonly\s+string\[\]/g, '')
     .replace(/:\s*string\s*\|\s*null\s*\|\s*undefined/g, '')
+    .replace(/\?:\s*string\s*\|\s*null/g, '')                // `kind?: string | null` → `kind`
     .replace(/\)\s*:\s*boolean/g, ')')
     .replace(/\)\s*:\s*string/g, ')');
-  return new Function(js + '\n; return { ownerMuteFromKv, isOwnerPhone, OWNER_MUTE_KV_KEY };')();
+  return new Function(js +
+    '\n; return { ownerMuteFromKv, ownerSmsBlocked, isOwnerPhone, OWNER_MUTE_KV_KEY, OWNER_ALWAYS_KINDS };')();
 }
 let F = null, loadErr = null;
 try { F = loadFns(); } catch (e) { loadErr = e; }
@@ -50,18 +62,22 @@ try { F = loadFns(); } catch (e) { loadErr = e; }
 console.log('\n📵 운영자 문자 전체 음소거\n');
 console.log('[ ① 판정이 정본 한 곳에 있고 실제로 돈다 ]');
 check('전제: 판정 함수를 실제로 불러왔다 (실패하면 아래가 전부 헛돈다)',
-  !!F && typeof F.ownerMuteFromKv === 'function' && typeof F.isOwnerPhone === 'function');
+  !!F && typeof F.ownerSmsBlocked === 'function' && typeof F.isOwnerPhone === 'function');
 if (loadErr) console.log('     ↳ 로드 오류:', String(loadErr.message || loadErr).slice(0, 120));
 check('스위치 이름이 코드에 상수로 있다', !!F && F.OWNER_MUTE_KV_KEY === 'owner_alert_mute');
+check('예외 목록이 코드에 «선언된 값» 으로 있다 (주석 글자가 아니라)',
+  !!F && Array.isArray(F.OWNER_ALWAYS_KINDS));
 check('판정을 복제하지 않는다 (solapi-client 가 정본을 import)',
   /from '\.\/owner-sms-mute'/.test(sol)
-  && /isOwnerPhone/.test(sol) && /ownerMuteFromKv/.test(sol));
+  && /isOwnerPhone/.test(sol) && /ownerSmsBlocked/.test(sol));
 
-console.log('\n[ ② 기본이 «음소거» — 모르면 막는다 ]');
+console.log('\n[ ② 기본이 «음소거» — 종류를 안 밝히면 모를 때 막는다 ]');
 if (F) {
   for (const [v, label] of [[undefined, '값 없음'], [null, 'null'], ['', '빈 값'],
                             ['on', "'on'"], ['ON', "'ON'"], ['yes', '모르는 값'], ['0', "'0'"]]) {
     check(`${label} → 막는다`, F.ownerMuteFromKv(v) === true);
+    check(`${label} + 종류 안 밝힘 → 막는다`, F.ownerSmsBlocked(v) === true
+      && F.ownerSmsBlocked(v, undefined) === true && F.ownerSmsBlocked(v, '') === true);
   }
 }
 
@@ -74,16 +90,17 @@ if (F) {
 
 console.log('\n[ ④ 운영자 «아닌» 번호는 절대 막지 않는다 ]');
 if (F) {
-  const OWNER = '01089862224';
-  check('같은 번호 → 운영자로 본다', F.isOwnerPhone('01089862224', OWNER) === true);
-  check('하이픈이 있어도 같은 번호', F.isOwnerPhone('010-8986-2224', OWNER) === true);
-  check('+82 표기도 같은 번호', F.isOwnerPhone('+82 10-8986-2224', OWNER) === true);
+  /* 🔒 실번호를 적지 않는다 — 검사는 isOwnerPhone 의 «양쪽» 을 다 통제하므로 가짜로도 같은 답이다. */
+  const OWNER = '01000000001';
+  check('같은 번호 → 운영자로 본다', F.isOwnerPhone('01000000001', OWNER) === true);
+  check('하이픈이 있어도 같은 번호', F.isOwnerPhone('010-0000-0001', OWNER) === true);
+  check('+82 표기도 같은 번호', F.isOwnerPhone('+82 10-0000-0001', OWNER) === true);
   check('학부모 번호 → 막지 않는다', F.isOwnerPhone('01012345678', OWNER) === false);
   check('필리핀 강사 번호 → 막지 않는다', F.isOwnerPhone('09358444527', OWNER) === false);
   check('수신번호가 비면 막지 않는다', F.isOwnerPhone('', OWNER) === false);
   check('운영자 번호를 모르면 막지 않는다 (남의 문자까지 죽이면 안 된다)',
     F.isOwnerPhone('01012345678', undefined) === false && F.isOwnerPhone('01012345678', '') === false);
-  check('한 자리만 달라도 남의 번호', F.isOwnerPhone('01089862225', OWNER) === false);
+  check('한 자리만 달라도 남의 번호', F.isOwnerPhone('01000000002', OWNER) === false);
 }
 
 console.log('\n[ ⑤ 막는 자리가 «보내는 정본» 안이고 실제 발송보다 앞이다 ]');
@@ -129,18 +146,18 @@ console.log('\n[ ⑤-2 KV 를 못 읽어도 «안 보냄» 으로 떨어진다 ]
 /* 🪤 이 절이 없을 때 변이시험 M4(`let muted = false`)가 **31/31 통과**했다 —
       「KV 가 흔들리면 문자가 다시 간다」를 검사가 원리상 못 봤다. 지시와 정반대 방향이라
       «있는가» 가 아니라 **게이트를 오려 내 실제로 돌려서** 확인한다. */
-function runGate(env) {
+function runGate(env, kind) {
   const m = send.match(/if \(isOwnerPhone[\s\S]*?\n  \}/);
   if (!m) return { err: 'gate_not_found' };
   const fn = new Function(
-    'env', 'toPhone', 'text', 'mode', 'isOwnerPhone', 'ownerMuteFromKv', 'OWNER_MUTE_KV_KEY', 'console',
+    'env', 'toPhone', 'text', 'opts', 'mode', 'isOwnerPhone', 'ownerSmsBlocked', 'OWNER_MUTE_KV_KEY', 'console',
     `return (async () => {\n${m[0]}\n return { sent: true };\n})();`);
   const quiet = { warn() {}, log() {}, error() {} };
-  return fn(env, '010-8986-2224', '[망고아이] 시험', 'live',
-            F.isOwnerPhone, F.ownerMuteFromKv, F.OWNER_MUTE_KV_KEY, quiet);
+  return fn(env, '010-0000-0001', '[망고아이] 시험', kind ? { kind } : undefined, 'live',
+            F.isOwnerPhone, F.ownerSmsBlocked, F.OWNER_MUTE_KV_KEY, quiet);
 }
 if (F && send) {
-  const OWNER = { OWNER_ALERT_PHONE: '01089862224' };
+  const OWNER = { OWNER_ALERT_PHONE: '01000000001' };
   const res = {};
   await (async () => {
     res.throws = await runGate({ ...OWNER, SESSION_STATE: { get() { throw new Error('KV 장애'); } } });
@@ -149,12 +166,87 @@ if (F && send) {
     res.off    = await runGate({ ...OWNER, SESSION_STATE: { async get() { return 'off'; } } });
     res.other  = await runGate({ OWNER_ALERT_PHONE: '01000000000',
                                  SESSION_STATE: { async get() { return null; } } });
+    // 📌 예외 둘은 KV 가 흔들려도 나가야 한다 — 그러라고 되켠 것이다
+    res.upThrow  = await runGate({ ...OWNER, SESSION_STATE: { get() { throw new Error('KV 장애'); } } }, 'uptime');
+    res.splitNul = await runGate({ ...OWNER, SESSION_STATE: { async get() { return null; } } }, 'room-split');
+    res.upAll    = await runGate({ ...OWNER, SESSION_STATE: { async get() { return 'all'; } } }, 'uptime');
   })();
   check('KV 조회가 «던져도» 막는다', res.throws?.muted === true);
   check('KV 바인딩이 없어도 막는다', res.noBind?.muted === true);
   check('KV 값이 비어 있어도 막는다', res.empty?.muted === true);
   check("KV 가 'off' 면 실제로 보낸다 (짝 — 없으면 «전부 막기» 도 통과)", res.off?.sent === true);
   check('운영자 번호가 아니면 게이트를 그냥 지나간다', res.other?.sent === true);
+  check('사이트 장애는 KV 가 «던져도» 나간다', res.upThrow?.sent === true);
+  check('방 갈림 감시견은 KV 값이 없어도 나간다', res.splitNul?.sent === true);
+  check("KV 가 'all' 이면 예외까지 막는다 (완전 침묵으로 되돌릴 길)", res.upAll?.muted === true);
+}
+
+console.log('\n[ ⑧ 예외는 «두 종류만» — 넓히면 9/8 지시가 통째로 되돌아간다 ]');
+if (F) {
+  check("'uptime' → 보낸다 (사이트 장애)", F.ownerSmsBlocked(null, 'uptime') === false);
+  check("'room-split' → 보낸다 (방 갈림 감시견)", F.ownerSmsBlocked(null, 'room-split') === false);
+  check("'UPTIME' → 보낸다 (대소문자·공백 무시)",
+    F.ownerSmsBlocked(null, ' UPTIME ') === false);
+  /* ⛔ 목록을 «길이·순서» 로 못 박지 않는다 — 나중에 정당하게 늘 때 멀쩡한 수리가 빨간불이 된다.
+     물어야 할 것은 «지금 꺼져 있어야 할 것이 켜져 있지 않은가» 다. */
+  for (const k of ['payment', 'refund', 'login', 'lead', 'absent', 'no-show', '', 'all', 'off'])
+    check(`'${k || '(빈 값)'}' → 여전히 막힌다`, F.ownerSmsBlocked(null, k) === true);
+  check("'off' 는 종류와 무관하게 전부 보낸다",
+    F.ownerSmsBlocked('off', 'payment') === false && F.ownerSmsBlocked('off') === false);
+}
+
+/* ── 예외를 «실제로 받는» 호출부가 그 둘뿐인가 ──────────────────────────
+   ⚠️ 목록만 좁게 두고 결제 쪽에서 `kind:'uptime'` 을 달면 그대로 새어 나간다.
+      그래서 소스 전체에서 «kind 를 넘기는 sendPlainSms 호출» 을 세어 파일을 대조한다. */
+{
+  const { readdirSync } = await import('node:fs');
+  /* 🪤 하위 폴더가 생기는 날 조용히 안 보게 되지 않도록 «재귀» 로 훑는다.
+        (지금 src/ 는 하위 폴더가 없지만, «없어서 통과» 와 «봐서 통과» 는 다르다) */
+  function allTs(rel) {
+    const out = [];
+    for (const e of readdirSync(join(HERE, rel), { withFileTypes: true })) {
+      if (e.isDirectory()) out.push(...allTs(`${rel}/${e.name}`));
+      else if (e.name.endsWith('.ts')) out.push(`${rel}/${e.name}`);
+    }
+    return out;
+  }
+  const files = allTs(SRC);
+  const EXEMPT_FILES = ['api-uptime.ts', 'room-split-guard.ts'];
+  /* 🔴 따옴표 «한 종류» 만 보면 안 된다 — 함정 대조에서 실제로 뚫렸다:
+        결제 알림에 `{ kind: "uptime" }`(쌍따옴표)를 달았더니 tsc 도 통과하고
+        이 검사도 **65/65 초록**이었다. 이 PR 의 핵심 보장이 따옴표 하나로 사라졌다.
+        ⚠️ 인자 안에 `;` 가 들어간 호출은 여전히 못 본다(지금 호출부에는 없다). */
+  const KIND_RE = /sendPlainSms\([^;]*?kind:\s*['"`]([a-z-]+)['"`]/g;
+  const tagged = [];   // [파일, kind]
+  for (const rel of files) {
+    const f = rel.split('/').pop();
+    for (const m of strip(rd(rel)).matchAll(KIND_RE)) tagged.push([f, m[1]]);
+  }
+  const byFile = new Map();
+  for (const [f, k] of tagged) byFile.set(f, (byFile.get(f) || new Set()).add(k));
+  check(`전제: src 를 재귀로 훑어 예외 호출을 실제로 찾았다 (파일 ${files.length}개)`,
+    files.length > 50 && tagged.length > 0);
+  /* ⛔ «몇 개인가» 로 못 박지 않는다 — 나중에 장애 알림이 하나 늘면 보장은 세졌는데
+        검사만 빨간불이 된다(이 저장소가 여러 번 밟은 함정).
+        물어야 할 것은 **«그 파일에서 kind 를 빠뜨린 운영자 호출이 없는가»** 다. */
+  for (const f of EXEMPT_FILES) {
+    const src = strip(rd(`${SRC}/${f}`));
+    const all = [...src.matchAll(/sendPlainSms\(/g)].length;
+    const withKind = [...src.matchAll(KIND_RE)].length;
+    check(`${f} 의 sendPlainSms 호출이 «전부» 예외를 받는다 (${withKind}/${all})`,
+      all > 0 && withKind === all);
+  }
+  check('사이트 장애가 예외를 받는다 (api-uptime.ts)',
+    tagged.some(([f, k]) => f === 'api-uptime.ts' && k === 'uptime'));
+  check('방 갈림 감시견이 예외를 받는다 (room-split-guard.ts)',
+    tagged.some(([f, k]) => f === 'room-split-guard.ts' && k === 'room-split'));
+  const strayFile = [...byFile.keys()].filter(f => !EXEMPT_FILES.includes(f));
+  check('결제·환불·로그인·상담 리드는 예외를 «안» 받는다' +
+        (strayFile.length ? ` — 샌 파일: ${strayFile.join(', ')}` : ''), strayFile.length === 0);
+  const strayKind = [...new Set(tagged.map(([, k]) => k))]
+    .filter(k => !F?.OWNER_ALWAYS_KINDS?.includes(k));
+  check('호출부가 «목록에 없는» 종류를 쓰지 않는다 (오타는 조용히 막힌다)' +
+        (strayKind.length ? ` — ${strayKind.join(', ')}` : ''), strayKind.length === 0);
 }
 
 console.log('\n[ ⑥ 조용히 안 사라지고, 거짓 성공을 말하지 않는다 ]');
