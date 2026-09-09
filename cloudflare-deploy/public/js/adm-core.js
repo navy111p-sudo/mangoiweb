@@ -11987,7 +11987,15 @@ function buildMenuIndex() {
     { kw:'칭찬 스티커 칭찬스티커 praise', card:'card-praise-stats', label:'칭찬 스티커 통계' },
     { kw:'정기결제 구독 자동결제 recurring', card:'card-recurring-billing', label:'정기 결제' },
     { kw:'미납 독촉 미수금 dunning', card:'card-auto-dunning', label:'미납 추적' },
-    { kw:'녹화 녹화본 활성방 recording', card:'card-active-rooms', label:'녹화·활성 방' },
+    /* 🎥 (2026-09-09) 「녹화」가 «실시간 수업(활성 룸)» 으로 가던 것을 바로잡는다.
+       한 줄에 «녹화» 와 «활성방» 이 함께 묶여 있었고 라벨이 「녹화·활성 방」이라
+       「녹화」로 시작해 정렬 1위가 됐다 → Enter·➡️ 가 card-active-rooms 로 갔다
+       (실측: ➡️ 클릭 뒤 card-active-rooms 가 화면 맨 위, card-recording-storage 는 display:none).
+       ⛔ 두 줄을 다시 합치지 말 것 — 서로 다른 화면이다.
+       ⚠️ top:true 는 «이름이 그 말로 시작할 때만» 걸리므로 라벨에 이모지를 붙이지 말 것
+          (「🎥 녹화 관리」로 적으면 indexOf('녹화')!==0 이라 조용히 안 걸린다). */
+    { kw:'녹화 녹화본 녹화영상 수업영상 다시보기 보관 recording record', card:'card-recording-storage', label:'녹화 관리', en:'Recordings', top:true },
+    { kw:'활성방 활성 룸 실시간 수업 지금 진행중 라이브 active rooms live', card:'card-active-rooms', label:'실시간 수업 (활성 룸)', en:'Live Classes (Active Rooms)' },
     { kw:'가족 가족계정 family', card:'card-family-mgmt', label:'가족 계정' },
     { kw:'동영상 비디오 영상 유튜브 youtube 비디오관리 video', card:'sub-mango-videos', label:'망고아이 비디오 관리 (YouTube)' },
     { kw:'콘텐츠 컨텐츠 교재 자료 content', card:'card-textbooks', label:'교재 콘텐츠 관리' },

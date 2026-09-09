@@ -204,8 +204,28 @@ check('검색이 style.display 로 숨기지 않는다 (복구 루프에 지는 
   !/s\.style\.display = \(q === ''/.test(html) && !/g\.style\.display = \(q === ''/.test(html));
 check('검색 전용 숨김 클래스를 쓴다 (ph85-shide)', /var HIDE = 'ph85-shide'/.test(html));
 check('그 클래스의 CSS 규칙이 있다', /\.ph85-shide[^{]*\{[^}]*display:\s*none\s*!important/.test(css));
-check('손자까지 찾는다 — 원본 이름(data-gc-name)도 본다',
-  /ph125-grandchildren'\)[\s\S]{0,400}?data-gc-name/.test(html));
+/* 🪤 (2026-09-09) 예전에는 «손자 루프에서 400자 안에 data-gc-name 이 있는가» 로 물었다.
+   그런데 그 대조를 `_gcText()` 헬퍼로 빼내자(영문 이름 `__gc.en` 까지 함께 보려고)
+   그 이름이 창 밖(약 40줄 위)으로 나가 **보장은 오히려 세졌는데 검사만** 빨간불이 났다.
+   CLAUDE.md 2장 「하니스가 «객체 모양» 을 정규식으로 못 박아 두어 칸 하나 늘렸더니 FAIL」.
+   ✅ 이제 «뜻» 으로 묻는다 — ⓐ 손자 글자를 만드는 자리가 원본 이름을 보는가
+                              ⓑ 손자 루프가 실제로 그것을 쓰는가. 짝으로 본다
+      (ⓐ만 두면 헬퍼는 있는데 아무도 안 부르는 상태가 통과한다). */
+const gcTextBody = (function () {
+  const i = html.indexOf('function _gcText(');
+  if (i < 0) return '';
+  const s0 = html.indexOf('{', i);
+  let d = 0;
+  for (let j = s0; j < html.length; j++) {
+    if (html[j] === '{') d++;
+    else if (html[j] === '}') { d--; if (!d) return html.slice(s0, j + 1); }
+  }
+  return '';
+})();
+check('손자 글자를 만드는 자리가 원본 이름(data-gc-name)을 본다',
+  /data-gc-name/.test(gcTextBody));
+check('손자 루프가 실제로 그것을 쓴다',
+  /ph125-grandchildren'\)[\s\S]{0,600}?_gcText\(/.test(html));
 check('걸린 손자가 있으면 그 목록을 펴 준다', /gcHit > 0[\s\S]{0,120}?ph125-open/.test(html));
 check('검색을 지우면 검색 때문에 편 것을 되돌린다 (ph85-sopen)',
   /var OPENED = 'ph85-sopen'/.test(html) && /classList\.remove\('ph125-open', OPENED\)/.test(html));
