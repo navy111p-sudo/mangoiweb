@@ -213,13 +213,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     const po = parseWarmupOutput(objIn);
     t('B-7 🔴 이미 파싱된 «객체» 로 와도 reply 를 꺼낸다', po.reply === 'Nice! What did you do?' && po.fix && po.fix.was === 'I go', JSON.stringify(po.reply));
     t('B-7b 🔴 어떤 모양으로 와도 "[object Object]" 를 학생에게 안 보낸다',
-      [objIn, { response: 'hi' }, { nope: 1 }, [{ reply: 'x' }], [1, 2], { reply: '' }, { reply: 123 }]
+      [objIn, { response: 'hi' }, { nope: 1 }, [{ reply: 'x' }], [1, 2], { reply: '' }, { reply: 123 },
+       /* 🔴 이 둘이 빠져 있어서 검사 «이름» 이 실제 보장보다 넓었습니다 — 안전망이 «입력 글자»
+          에 걸려 있으면 객체 분기가 그보다 앞이라 이 둘이 그대로 통과합니다(실측). */
+       { reply: '[object Object]' }, { reply: 'Hi [object Object] there' }]
         .every(v => !/\\[object /.test(parseWarmupOutput(v).reply)),
       JSON.stringify([{ response: 'hi' }, [{ reply: 'x' }]].map(v => parseWarmupOutput(v).reply)));
     t('B-7c 객체인데 reply 가 없으면 빈 문자열 (딸꾹질 문구가 받는다)',
       parseWarmupOutput({ nope: 1 }).reply === '' && parseWarmupOutput({ response: 'hi' }).reply === '');
     /* ⚠️ «객체를 막는다» 만 두면 «전부 빈 문자열» 도 통과한다 — 위 B-7 이 그 짝이다.
        그리고 문자열 경로가 죽지 않았는지도 함께 본다(B-1~B-6 이 그 짝). */
+    t('B-7e 🔴 fix 칸에만 그 글자가 있으면 답장은 살린다 (안전망은 «reply» 에 건다)',
+      parseWarmupOutput({ reply: 'Nice work!', fix: { was: 'a', now: 'b', why_ko: '[object Object]', tag: 'other', severity: 'minor' } }).reply === 'Nice work!',
+      JSON.stringify(parseWarmupOutput({ reply: 'Nice work!', fix: { why_ko: '[object Object]' } }).reply));
     t('B-7d 마지막 안전망: 문자열 안에 굳어 버린 "[object Object]" 도 안 내보낸다',
       parseWarmupOutput('[object Object]').reply === '' &&
       parseWarmupOutput('Sure! [object Object]').reply === '');
