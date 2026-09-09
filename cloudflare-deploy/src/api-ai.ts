@@ -23,6 +23,7 @@ import { parseJsonBody } from './api-util';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
+import { recordAiFailure } from './ai-failure-log';
 
 export async function handleAiApi(
   request: Request,
@@ -822,10 +823,13 @@ ${AI_FRIEND_CORRECTION_RULE}`;
             (사장님 화면 실측: 학생이 "I'm talking about a dinosaur." 라고 항의한 다음 턴에도 폴백).
          ✅ 그래서 «답» 인 척하지 않고 ai_unavailable 로 밝힙니다 — 화면이 그것을 보고
             안내로 그리고, 소리로 읽지 않고, 교정 카드도 안 붙입니다.
-         ⚠️ 왜 실패했는지는 이 코드에서 못 잽니다 — Workers 로그가 정본입니다.
-            · `[chat-friend] all models failed …` 는 «늘» 찍힙니다(마지막 예외를 함께).
-            · `[chat-friend] model output: plain=… empty=… rf=…` 는 friendPlain/friendEmpty 가
-              0 이 아닐 때만 찍힙니다 — 모델이 전부 «예외를 던진» 경우에는 안 나옵니다. */
+         🔴 «왜 실패했나» 를 Workers 로그로 찾으려 하지 마세요 — 2026-09-09 실측:
+            `wrangler.toml` 이 `head_sampling_rate = 0.05` 라 **요청의 5% 만** 로그에 남습니다.
+            사장님 세션 3건은 그래서 한 줄도 안 남았고(대시보드에서 22:41 → 22:32 로 건너뜀),
+            제가 「로그가 정본」이라고 말씀드린 뒤에야 그 설정을 확인했습니다.
+            ⛔ 그 비율을 올려서 풀지 마세요 — `wrangler.toml` 은 공동 금지구역입니다.
+         ✅ 그래서 «실패했을 때만» 사유를 D1 에 한 줄 남깁니다(아래 recordAiFailure).
+            폴백은 드물어서(9/9 하루 2건) 표가 커질 일이 없고, 사람이 대시보드를 뒤질 필요도 없습니다. */
       let usedFallback = false;
       if (!reply) {
         const fallbacks = [
@@ -836,6 +840,21 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
         usedFallback = true;
         console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
+        /* ⛔ 기록이 대화를 막으면 안 됩니다 — 통째로 try/catch 이고 await 하지 않습니다.
+           ⛔ 학생 발화·AI 답변은 «한 글자도» 싣지 않습니다(무엇이 실패했나만). */
+        try {
+          await recordAiFailure(env, {
+            feature: 'chat-friend',
+            models: models.join(','),
+            err: String(lastErr?.message || lastErr || 'unknown'),
+            rf: friendRF ? 1 : 0,
+            plain: friendPlain,
+            empty: friendEmpty,
+            level,
+          });
+        } catch (e: any) {
+          console.error('[chat-friend] recordAiFailure failed:', e?.message || e);
+        }
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
