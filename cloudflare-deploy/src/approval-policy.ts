@@ -607,8 +607,18 @@ export function allowsStraightThrough(reqType: string | null | undefined): boole
  *     · 확인은 **막지 않는다** — 이미 확정되어 필리핀에 통보까지 끝난 건에 도장만 찍는다.
  *       그래서 안 눌러도 업무는 흘러간다. 놓쳐도 사고가 나지 않는 것이 설계 의도다.
  *
- *   ⚠️ 큰돈(₱5,000 이상)은 여기 안 걸린다 — 그건 경영진이 «직접» 최종 결재하므로
- *      decidedBy 가 본인이 되어 저절로 빠진다. 규칙을 따로 적지 않아도 맞는다.
+ *   ⚠️ 이 판정은 **금액을 보지 않는다** — «내가 마지막 도장을 찍었는가» 만 본다.
+ *      큰돈(₱5,000 이상)을 대표님이 직접 최종 결재하면 그래서 저절로 빠진다.
+ *
+ *   🔴 그러나 «큰돈은 반드시 대표가 결재한다» 를 이 함수가 보장하지는 **않는다.**
+ *      결재권자(장지웅)가 경영진 명단에도 있어서 1단계(mgr)에 이어 2단계(exec)까지
+ *      **연달아 누를 수 있다**(decide 에는 「본인이 올린 건은 본인이 승인 못 함」만 있고
+ *      「같은 사람이 연속 두 단계」를 막는 규칙이 없다). 그러면 대표님께는 «결재» 가
+ *      아니라 «확인» 으로 온다.
+ *      막으려면 그 규칙을 decide 에 넣어야 하는데, 그건 «둘 중 하나가 자리를 비우면
+ *      큰돈 결재가 멈춘다» 는 대가가 있다 — **사람이 정할 일**이다(2026-09-09 미결).
+ *      ⛔ 이 문단을 「보장된다」로 고쳐 적지 말 것. 2026-09-09 함정 대조가 정본을 실제로
+ *         돌려 반대임을 확인했다.
  * ═════════════════════════════════════════════════════════════════════════ */
 
 export interface AckInput {
@@ -618,6 +628,13 @@ export interface AckInput {
   decidedBy: string | null | undefined;
   /** 이미 확인했으면 그 시각 (approval_requests.exec_ack_at) */
   ackAt: number | null | undefined;
+  /**
+   * 이 건을 취소시킨 «취소 결재» 의 id (approval_requests.cancelled_by_id).
+   *   ⚠️ 없애기로 한 지출에 「봤다」 도장을 찍게 하지 않는다.
+   *   ⚠️ 이 칸이 없으면 목록 SQL 과 판정이 어긋난다 — 목록에는 안 뜨는데 주소로 부르면
+   *      통과하는 상태가 된다(2026-09-09 함정 대조 지적).
+   */
+  cancelledById?: number | null;
   /** 지금 보고 있는 사람 */
   me: string;
   isExec: boolean;
@@ -634,6 +651,7 @@ export function needsExecAck(inp: AckInput): boolean {
   const k = typeSpec(inp.reqType).key;
   if (k !== 'purchase' && k !== 'expense') return false;
   if (String(inp.status || '').trim().toLowerCase() !== 'approved') return false;
+  if (inp.cancelledById) return false;
   if (inp.ackAt != null && Number(inp.ackAt) > 0) return false;
   const me = String(inp.me || '').trim().toLowerCase();
   if (!me) return false;

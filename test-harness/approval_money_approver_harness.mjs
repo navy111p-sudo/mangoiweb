@@ -29,6 +29,7 @@
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dir, '../cloudflare-deploy/src');
@@ -129,7 +130,10 @@ check('옛 exec 단계는 그대로 — 결재권자라도 경영진이 아니�
       (문자열로 「그 조건이 있는가」만 보면, 조건을 뒤집어도 그 글자가 남아 통과한다) */
 console.log('\n[Ⓑ-2] 결재권자 명단이 비었을 때 — 막지 않는 쪽으로 실패하는가');
 {
-  const tmp = join(SRC, `__ha_empty_${Date.now()}.ts`);
+  /* ⛔ 운영 소스 디렉터리(src/)에 쓰지 않는다 — 프로세스가 죽으면 남고,
+        그 상태로 tsc·번들이 그 파일을 함께 읽는다(2026-09-09 함정 대조 지적).
+        approval-policy.ts 는 import 가 없는 순수 파일이라 어디서든 돌아간다. */
+  const tmp = join(tmpdir(), `__ha_empty_${Date.now()}.ts`);
   try {
     const patched = POLICY_SRC.replace(
       /export const MONEY_APPROVERS = \[[^\]]*\];/,
@@ -163,6 +167,65 @@ check('본사 직원은 staff 단계 알림을 받는다 (옛 동작 유지)',
   isPrimaryApprover(plain, 'staff', false) === true);
 check('못 누르는 사람은 알림도 못 받는다',
   isPrimaryApprover(phMgr, 'mgr', true) === false);
+
+/* 🔴 [Ⓒ-2] «결재권자 본인이 올린 건» — 알림이 아무에게도 안 가지 않는가.
+     approversFor 는 기안자를 제외한다(자기 건은 자기가 결재 못 함). 그래서 주 결재자가
+     그 한 사람뿐이면 목록이 **0명** 이 된다. 그때 화면의 「이대로는 처리되지 않습니다」는
+     approverCounts(canDecideStage) 기준이라 **뜨지도 않는다** ⟹ 조용히 아무도 모른다.
+     ⚠️ 문자열로 「isPrimaryApprover 를 부르는가」만 보면 이 구멍을 원리상 못 본다.
+        그래서 함수를 **소스에서 오려 내 실제로 돌린다**. */
+console.log('\n[Ⓒ-2] 결재권자 «본인» 이 올렸을 때 — 알림이 사라지지 않는가');
+{
+  const decl = /async function approversFor\([^)]*\)[^{]*\{/.exec(API_SRC);
+  check('approversFor 를 소스에서 찾았다 (못 찾으면 아래가 헛돈다)', !!decl);
+  if (decl) {
+    const start = decl.index + decl[0].length;
+    let depth = 1, i = start;
+    while (i < API_SRC.length && depth > 0) {
+      const ch = API_SRC[i];
+      if (ch === '{') depth++; else if (ch === '}') depth--;
+      i++;
+    }
+    const body = API_SRC.slice(start, i - 1)
+      .replace(/:\s*ActorLike\s*=/g, ' =')
+      .replace(/:\s*string\[\]\s*=/g, ' =')
+      .replace(/ as any/g, '');
+    const HQ = [
+      { username: EXEC_UID, name: '대표' },
+      { username: APPROVER_UID, name: '장 부장' },
+      { username: PLAIN_UID, name: '본사 직원' },
+      { username: 'mgr_melca', name: 'Melca' },
+    ];
+    const PH = ['mgr_melca', 'mgr_maimai', 'mgr_karl'];
+    const approversFor = new Function(
+      'hqAccounts', 'isPrimaryApprover', 'canDecideStage', 'isPhManager',
+      `return async function approversFor(env, role, exceptUser) {${body}};`
+    )(async () => HQ, isPrimaryApprover, canDecideStage,
+      (a) => PH.includes(String(a.username || '').toLowerCase()));
+
+    const by = async (who) => await approversFor(null, 'mgr', who);
+    const fromPlain = await by(PLAIN_UID);
+    const fromApprover = await by(APPROVER_UID);
+    const fromBoss = await by(EXEC_UID);
+
+    check('직원이 올리면 결재권자에게 알린다',
+      fromPlain.length === 1 && fromPlain[0] === APPROVER_UID, JSON.stringify(fromPlain));
+    check('🔴 결재권자 본인이 올려도 알림이 0명이 아니다',
+      fromApprover.length > 0, JSON.stringify(fromApprover));
+    check('그때는 경영진이 받는다 (누를 수 있는 사람으로 넓힌다)',
+      fromApprover.includes(EXEC_UID), JSON.stringify(fromApprover));
+    check('그때도 필리핀 매니저에게는 안 간다 (넓히되 아무에게나 보내지 않는다)',
+      !fromApprover.some(u => PH.includes(u)), JSON.stringify(fromApprover));
+    check('그때도 그 밖의 본사 직원에게는 안 간다 (mgr 단계를 못 누르므로)',
+      !fromApprover.includes(PLAIN_UID), JSON.stringify(fromApprover));
+    check('경영진이 올리면 결재권자에게 알린다 (평소 경로는 그대로)',
+      fromBoss.length === 1 && fromBoss[0] === APPROVER_UID, JSON.stringify(fromBoss));
+    /* 짝 — 폴백이 «언제나» 도는 것이 아님을 확인한다. 늘 돌면 경영진이 모든 mgr 건의
+       알림을 받게 되어 「결재는 장 부장이 한다」가 다시 무너진다. */
+    check('폴백은 주 결재자가 없을 때만 돈다',
+      !fromPlain.includes(EXEC_UID) && !fromBoss.includes(EXEC_UID));
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Ⓓ 전결 — 물품·지출에서만 끈다
@@ -214,8 +277,13 @@ const ack = (o) => needsExecAck({
 check('소액 건을 결재권자가 승인했다 → 대표에게 확인이 뜬다', ack({}) === true);
 check('지출 정산도 마찬가지', ack({ reqType: 'expense' }) === true);
 /* 🔴 짝 — 아무 때나 뜨면 「확인할 것 30건」이 되어 정작 돈 건이 파묻힌다. */
-check('큰돈 건은 안 뜬다 — 내가 직접 최종 결재했으므로',
+/* ⚠️ 이름을 「큰돈 건은 안 뜬다」로 적지 말 것 — needsExecAck 는 **금액을 인자로 받지도
+      않는다.** 재는 것은 「마지막 도장이 나인가」 하나뿐이다(2026-09-09 함정 대조 지적:
+      검사 이름이 실제 보장보다 넓으면, 다음 사람이 안 지켜지는 것을 지켜진 줄 안다). */
+check('내가 마지막 도장을 찍었으면 안 뜬다 (금액은 보지 않는다)',
   ack({ decidedBy: EXEC_UID }) === false);
+check('취소된 건에는 도장을 찍지 않는다 (없애기로 한 지출)',
+  ack({ cancelledById: 42 }) === false);
 check('계정 표기가 대소문자만 달라도 «내가 찍은 것»으로 본다',
   ack({ decidedBy: String(EXEC_UID).toUpperCase() }) === false);
 check('이미 확인한 건은 다시 안 뜬다', ack({ ackAt: 1757000000000 }) === false);
@@ -241,12 +309,23 @@ check('ackAt 이 0 이면 «아직 안 함» 으로 본다 (0 을 «했다»로 
  * Ⓕ 배선 — 서버·화면이 위 판정을 실제로 부르는가
  * ═════════════════════════════════════════════════════════════════════════ */
 console.log('\n[Ⓕ] 배선 — 서버');
-check('알림 대상을 isPrimaryApprover 로 고른다 (approversFor 안에서)',
+/* ⚠️ 「canDecideStage 가 아예 없어야 한다」로 쓰지 말 것 — 주 결재자가 0명일 때의
+      폴백이 그것을 쓴다(Ⓒ-2). 물어야 할 것은 «주 결재자를 먼저 고르는가» 다. */
+check('알림 대상을 isPrimaryApprover 로 «먼저» 고른다 (폴백은 그 뒤)',
   (() => {
     const i = API_SRC.indexOf('async function approversFor');
     if (i < 0) return false;
-    const body = API_SRC.slice(i, i + 1400);
-    return body.includes('isPrimaryApprover(') && !/if \(canDecideStage\(actor, role as any/.test(body);
+    const body = API_SRC.slice(i, i + 2600);
+    const a = body.indexOf('isPrimaryApprover(');
+    const b = body.indexOf('canDecideStage(');
+    return a > 0 && (b < 0 || a < b);
+  })());
+check('주 결재자가 0명이면 넓혀서 알린다 (조용히 사라지지 않게)',
+  (() => {
+    const i = API_SRC.indexOf('async function approversFor');
+    if (i < 0) return false;
+    const body = API_SRC.slice(i, i + 2600);
+    return /if \(out\.length\) return out;/.test(body) && body.includes('canDecideStage(');
   })());
 check('«결재할 수 있는 사람 수» 는 여전히 canDecideStage 로 센다 (대신 결재도 세어야 한다)',
   (() => {
@@ -289,6 +368,18 @@ check('확인 대기 조회가 취소된 건을 뺀다',
   /status = 'approved' AND exec_ack_at IS NULL AND cancelled_by_id IS NULL/.test(API_SRC));
 check('확인 대기 조회는 대소문자를 가리지 않고 «내가 찍은 것» 을 뺀다',
   /LOWER\(IFNULL\(decided_by,''\)\) <> LOWER\(\?\)/.test(API_SRC));
+/* ⚠️ 서명에 넣는 것과 «읽어서 쓰는 것» 은 다르다 — 둘 다 본다. 한쪽만 있으면
+      확인을 눌러도 서명이 그대로라 다른 기기가 최대 한 시간 옛 목록을 보여 준다. */
+check('확인 도장이 ETag 서명에 들어간다 (다른 기기에서 304 로 옛 목록이 남지 않게)',
+  /IFNULL\(MAX\(IFNULL\(exec_ack_at,0\)\),0\) AS mk/.test(API_SRC) &&
+  /\$\{sig\?\.mk \|\| 0\}/.test(API_SRC));
+check('확인 API 가 취소 여부를 뽑아 정본에 넘긴다 (목록 SQL 과 답이 갈리지 않게)',
+  (() => {
+    const i = API_SRC.indexOf('const mAck = path.match');
+    const j = API_SRC.indexOf('const mDecide = path.match', i);
+    const body = API_SRC.slice(i, j);
+    return body.includes('cancelled_by_id') && /cancelledById: cur\.cancelled_by_id/.test(body);
+  })());
 check('결재함에 «대신 결재» 표시를 실어 보낸다',
   /row\.by_proxy = !isPrimaryApprover\(actor, role, ph\)/.test(API_SRC));
 

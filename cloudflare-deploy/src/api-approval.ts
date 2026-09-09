@@ -228,6 +228,22 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
        알려야 할 사람은 다른 질문이다. */
     if (isPrimaryApprover(actor, role as any, isPhManager(actor))) out.push(u);
   }
+  if (out.length) return out;
+
+  /* 🔴 주 결재자가 한 명도 없다 — **결재권자 본인이 올린 건**이 정확히 그렇다
+       (자기가 올린 결재는 자기가 결재할 수 없으므로 exceptUser 로 빠진다).
+       여기서 빈 배열을 돌려주면 그 결재는 **아무에게도 알림이 안 가고**, 화면의
+       「이대로는 처리되지 않습니다」는 approverCounts(canDecideStage) 기준이라 뜨지도
+       않는다 ⟹ 아무도 모르는 채로 마감 이틀이 지나 승격 크론이 건드릴 때까지 조용하다.
+       그래서 «누를 수 있는 사람» 전원으로 넓혀 알린다(이 경우 경영진이 받는다).
+       ⚠️ 이 폴백은 2026-09-09 함정 대조가 잡은 회귀다. 지우지 말 것. */
+  for (const r of rows) {
+    const u = String(r.username || '');
+    if (!u) continue;
+    if (exceptUser && u === String(exceptUser)) continue;
+    const actor: ActorLike = { ok: true, username: u, name: r.name, role: 'hq', isTeacher: false };
+    if (canDecideStage(actor, role as any, isPhManager(actor))) out.push(u);
+  }
   return out;
 }
 
@@ -894,8 +910,12 @@ export async function handleApprovalApi(
      *   ⚠️ 계정명을 서명에 넣는 이유 — 같은 브라우저를 다른 사람이 쓰면 서명이 어긋나
      *      304 가 아니라 자기 데이터를 새로 받는다. */
     const sig: any = await safe(async () => await env.DB.prepare(
+      /* ✅ exec_ack_at 을 빠뜨리면 «확인» 을 눌러도 서명이 그대로라 304 가 나가고,
+            다른 기기의 화면이 이미 확인한 건을 최대 한 시간 계속 보여 준다
+            (위 「달을 확정하면」·「대결이 바뀌어도」와 같은 이유). */
       `SELECT COUNT(*) AS c, IFNULL(MAX(created_at),0) AS mc, IFNULL(MAX(decided_at),0) AS md,
-              IFNULL(MAX(IFNULL(escalated_at,0)),0) AS me2
+              IFNULL(MAX(IFNULL(escalated_at,0)),0) AS me2,
+              IFNULL(MAX(IFNULL(exec_ack_at,0)),0) AS mk
          FROM approval_requests`
     ).first(), null);
     // 대결(위임)이 바뀌어도 화면이 달라진다 — 서명에 함께 넣는다.
@@ -919,7 +939,7 @@ export async function handleApprovalApi(
     const hourBucket = Math.floor(Date.now() / 3600_000);
     const etag = `W/"a9-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
-                 `-${hsig?.c || 0}-${hourBucket}"`;
+                 `-${hsig?.c || 0}-${sig?.mk || 0}-${hourBucket}"`;
     const headers = {
       'Content-Type': 'application/json; charset=utf-8',
       // no-store 가 아니라 no-cache — «저장은 하되 쓰기 전에 반드시 확인» 이라는 뜻이다.
@@ -1056,7 +1076,9 @@ export async function handleApprovalApi(
          결재는 이미 끝났고(필리핀에도 통보 완료) «봤다»는 도장만 남은 건이다.
          ⚠️ **막지 않는다.** 안 눌러도 업무는 그대로 흘러간다 — 그것이 설계 의도다.
          ⚠️ 큰돈 건은 경영진이 직접 최종 결재하므로 decided_by 가 본인이 되어 저절로 빠진다.
-         ⚠️ SQL 은 넓게 잡고 최종 판정은 needsExecAck 이 한다 — 판정을 두 벌로 두면 어긋난다.
+         ⚠️ 최종 판정은 needsExecAck 한 곳이 한다. 여기 WHERE 는 그 판정과 «같은 말» 을
+            미리 걸어 LIMIT 20 이 엉뚱한 행으로 채워지지 않게 하는 것뿐이다
+            (한쪽만 고치면 목록에는 안 뜨는데 주소로 부르면 통과하는 상태가 된다).
             (다만 decided_by 비교는 SQL 에서도 해 둔다. 안 하면 대표님이 직접 찍은 건들이
              LIMIT 20 을 채워, 정작 확인해야 할 건이 창 밖으로 밀린다.) */
     const ackRs = iAmExec ? await safe(async () => await env.DB.prepare(
@@ -1103,7 +1125,7 @@ export async function handleApprovalApi(
     for (const r of ackRows) {
       if (!needsExecAck({
         reqType: r.req_type, status: r.status, decidedBy: r.decided_by,
-        ackAt: r.exec_ack_at, me, isExec: iAmExec,
+        ackAt: r.exec_ack_at, cancelledById: r.cancelled_by_id, me, isExec: iAmExec,
       })) continue;
       ackPending.push(rowOf(r, stepMap[Number(r.id)] || [], true));
     }
@@ -1216,7 +1238,9 @@ export async function handleApprovalApi(
         /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
            정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
         inbox_capped: inbox.length >= 20,
-        /* ✅ 「확인할 것 N건」 — 결재가 아니라 «봤다»는 도장이 남은 수. 0이면 화면이 안 그린다. */
+        /* ✅ 「확인할 것 N건」 — 결재가 아니라 «봤다»는 도장이 남은 수.
+           ⚠️ 지금 화면은 이 숫자를 «타일» 로 그리지 않는다(구역 자체가 0건이면 숨는다).
+              결재함 배지(paintBadge)와 섞지 않으려고 일부러 따로 둔 값이다. */
         ack_pending: ackPending.length,
         ack_capped: ackPending.length >= 20,
         month: nowMonth,
@@ -1703,8 +1727,10 @@ export async function handleApprovalApi(
         message_en: 'Only executives can confirm.',
       }, 403);
     }
+    /* ⚠️ cancelled_by_id 를 함께 뽑는다 — 안 뽑으면 정본이 늘 undefined 를 받아
+          «취소된 지출에도 도장이 찍히는» 상태가 되고, 목록 SQL 과 답이 갈린다. */
     const cur: any = await env.DB.prepare(
-      `SELECT id, req_type, status, decided_by, exec_ack_at, exec_ack_by
+      `SELECT id, req_type, status, decided_by, exec_ack_at, exec_ack_by, cancelled_by_id
          FROM approval_requests WHERE id = ? LIMIT 1`
     ).bind(id).first().catch(() => null);
     if (!cur) return json({ ok: false, error: 'not_found' }, 404);
@@ -1712,7 +1738,8 @@ export async function handleApprovalApi(
     /* 판정은 정본 하나로 — 화면·목록·여기가 같은 함수를 지나야 어긋나지 않는다. */
     if (!needsExecAck({
       reqType: cur.req_type, status: cur.status, decidedBy: cur.decided_by,
-      ackAt: cur.exec_ack_at, me: String(actor.username), isExec: iAmExec,
+      ackAt: cur.exec_ack_at, cancelledById: cur.cancelled_by_id,
+      me: String(actor.username), isExec: iAmExec,
     })) {
       return json({
         ok: false, error: 'not_ackable',
