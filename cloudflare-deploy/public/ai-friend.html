@@ -1393,7 +1393,18 @@
         let d;
         try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
         removeTyping();
-        if (d && d.ok && d.reply) {
+        /* 🚨 AI 가 답을 못 만든 턴 (2026-09-09 사장님 「이해못하고 이상한 주제로 질문해」).
+           서버가 ai_unavailable 로 밝혀 줍니다. 그때 오는 reply 는 «학생이 무슨 말을 했든 똑같은»
+           고정 문구라, 그대로 그리면 Lily 가 딴소리를 한 것처럼 보입니다(실측: 공룡 얘기 중에
+           「오늘 뭐 먹었어?」). ⛔ 소리로 읽지 않고 교정 카드도 안 붙입니다 — 둘 다 «AI 가 한 말»
+           이라는 전제 위에 있습니다. ✅ 대신 무슨 일이 났는지 사람 말로 적습니다. */
+        if (d && d.ok && d.ai_unavailable) {
+          // ⚠️ 맨이름 getLang 은 없을 때 ReferenceError — 이 파일의 정본 헬퍼를 씁니다.
+          appendMsg('ai', isEn()
+            ? '⚠️ I could not think of a reply just now. Please send it again in a moment.'
+            : '⚠️ 지금은 답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요.');
+          applyGam(d.gam, wasVoice);
+        } else if (d && d.ok && d.reply) {
           appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
           /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
              ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
