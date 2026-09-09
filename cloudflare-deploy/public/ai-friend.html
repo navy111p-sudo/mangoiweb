@@ -1368,6 +1368,11 @@
       // 빈 상태면 클리어
       const empty = document.querySelector('.empty-state');
       if (empty) document.getElementById('chat').innerHTML = '';
+      /* ✏️ 이전 «교정 카드» 도 함께 걷는다 (웜업 warmup.html 과 같은 자리).
+         ⛔ showFixCard 안에서만 지우면 안 된다 — 서버 오류·네트워크 실패로 그 함수가 아예
+            안 불리는 경로가 둘 있어(아래 else / catch), 옛 카드가 «방금 보낸 문장» 아래
+            그대로 남아 그 문장을 고쳐 준 것처럼 보인다(2026-09-09 함정 대조). */
+      fixCardClear();
 
       input.value = '';
       document.getElementById('sendBtn').disabled = true;

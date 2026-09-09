@@ -958,14 +958,27 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       try {
         const verified = verifyWarmupFix(rawFix, msg);
         if (verified) {
-          /* 이번 답장까지 세어 1부터 시작한다. 조회가 실패했으면 0 → 1 이라 «처음» 으로 통과한다. */
+          /* 이번 답장까지 세어 1부터 시작한다.
+             ⚠️ turnNo 가 1 이면 게이트가 «막습니다» — decideWarmupFixShow 의 첫 조건이
+                `turnCount - lastShownTurn(0) < 2` 라 1-0=1 로 걸립니다(정본을 돌려 실측).
+                즉 «학생의 맨 첫 마디» 에는 교정이 안 뜹니다. 웜업도 같은 동작이라 그대로 둡니다.
+             🔴 그래서 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정되어 교정이 영영 안 뜹니다.
+                방향은 안전하지만(«교정 없음») 조용해서 아무도 모릅니다 — 그래서 로그를 남깁니다.
+                ⛔ 「조회가 실패해도 «처음» 으로 통과한다」고 적지 마세요. 사실이 아닙니다
+                   (2026-09-09 에 제가 그렇게 적었다가 함정 대조가 실측으로 잡았습니다). */
+          if (!turns) console.warn('[chat-friend] turn count query failed — 교정 게이트가 계속 막힙니다');
           const turnNo = Number((turns && (turns as any).n) || 0) + 1;
           const mkey = 'aifriendfix:' + uid;
           let memoIn: any = null;
           try {
             const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
             if (rawMemo != null) memoIn = JSON.parse(rawMemo);
-          } catch {}
+          } catch (e: any) {
+            /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «연달아 교정 안 하기»·
+               «minor 는 두 번째부터» 가 통째로 풀려 «매 턴 교정» 이 됩니다 — 화면은 멀쩡해 보입니다.
+               쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
+            console.warn('[chat-friend] fix memo read failed:', e?.message || e);
+          }
           const decided = decideWarmupFixShow(verified, memoIn, turnNo);
           showFix = decided.show;
           offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
@@ -1018,6 +1031,12 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
+      /* ✏️ 교정 메모도 함께 지운다 (2026-09-09 함정 대조).
+         턴 수는 위 DELETE 로 0 으로 돌아가는데 KV 의 lastShownTurn 은 6시간 남아 있어서,
+         「대화 초기화」를 누른 학생은 최대 6시간 동안 교정이 조용히 억제된다.
+         ⚠️ 실패해도 초기화 자체는 성공으로 답한다 — 메모는 6시간 뒤 저절로 사라진다. */
+      try { if ((env as any).SESSION_STATE) await (env as any).SESSION_STATE.delete('aifriendfix:' + uid); }
+      catch (e: any) { console.warn('[chat-friend] fix memo clear failed:', e?.message || e); }
       return json({ ok: true });
     }
     // ═══════════════════════════════════════════════════════════════

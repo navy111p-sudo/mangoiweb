@@ -124,6 +124,25 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
   const commits = (Hc.match(/commitFix\(\)/g) || []).length;
   check('A-11 교정은 «그 답장을 채택했을 때만» 확정한다 (재시도가 거절되면 그 교정도 버린다)',
         commits >= 4, 'commitFix() ' + commits + '회');
+
+  /* 🔴 turnNo 가 1 이면 게이트가 «막는다»(F-13 이 실제로 돌려 증명한다).
+     그러니 그 조회가 계속 실패하면 교정이 영영 안 뜬다 — 조용하면 아무도 모른다. */
+  check('A-12 🔴 턴 수 조회가 실패하면 로그로 남긴다 (조용하면 교정이 영영 안 뜬다)',
+        /if\s*\(!turns\)\s*console\.(warn|error)/.test(Hc));
+  /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «매 턴 교정» 이 된다 — 화면은 멀쩡해 보인다.
+     쓰기 쪽에만 로그가 있던 것을 함정 대조가 잡았다. 둘 다 있어야 한다. */
+  const warns = (Hc.match(/fix memo (read|save) failed/g) || []).length;
+  check('A-13 KV 메모는 «읽기·쓰기 둘 다» 실패를 남긴다', warns === 2, warns + '/2');
+}
+
+/* 🟡 대화를 지우면 턴 수는 0 으로 돌아가는데 KV 메모는 6시간 남는다 —
+   그동안 교정이 조용히 억제된다(웜업은 세션키라 이 모양이 없다). */
+{
+  const s2 = AI.indexOf("path === '/api/ai/chat-clear'");
+  const e2 = AI.indexOf('// ═══', s2);
+  const C = s2 > 0 ? AI.slice(s2, e2 > s2 ? e2 : s2 + 1600) : '';
+  check('A-14 「대화 초기화」가 교정 메모도 함께 지운다 (안 지우면 6시간 억제)',
+        /SESSION_STATE/.test(C) && /delete\('aifriendfix:'/.test(C));
 }
 
 // ═══════════ B. 판정을 복제하지 않았다 ═══════════
@@ -166,8 +185,20 @@ let RULES = null;
     const fw = fixPart(RULES.W), fa = fixPart(RULES.A);
     check('C-1 🔴 fix 스키마가 두 화면에서 «완전히 같다»', fw.length > 40 && fw === fa,
           fw === fa ? String(fw.length) + '자' : '\n    웜업: ' + fw + '\n    친구: ' + fa);
-    check('C-2 AI 친구 규칙은 영어로 쓴다 (프롬프트 언어를 따라 한국어가 reply 에 샌다)',
+    /* ⚠️ 이 검사의 옛 이름은 「AI 친구 규칙은 영어로 쓴다」였는데 재는 것은 «OUTPUT FORMAT 이
+       있는가» 뿐이었다 — 실제로는 10줄 중 5줄이 한국어다(함정 대조가 세어 잡았다).
+       이름이 보장보다 넓으면 다음 사람이 그 이름을 믿는다. 재는 것을 그대로 이름에 쓴다. */
+    check('C-2 AI 친구 규칙의 «지시문» 은 영어다 (웜업 [교정] 절을 그대로 베끼지 않았다)',
           /OUTPUT FORMAT/.test(RULES.A) && !/^\[교정\]/m.test(RULES.A));
+    {
+      const koLines = RULES.A.split('\n').filter((l) => /[가-힣]/.test(l)).length;
+      const total = RULES.A.split('\n').length;
+      /* 한국어가 남는 것은 «fix 스키마를 두 화면이 글자까지 같게 쓰기로 한» 대가다.
+         ⛔ 「전부 영어」로 못 박지 않는다 — 그러면 C-1(스키마 동일)과 정면으로 부딪힌다.
+         대신 «절반을 넘지 않는가» 로 두어, 지시문까지 한국어로 흘러가면 잡는다. */
+      check('C-2b 한국어 줄은 절반 이하다 (스키마를 공유하는 대가만큼만)',
+            koLines * 2 <= total, koLines + '/' + total + '줄');
+    }
     check('C-3 AI 친구 규칙이 «reply 안에 한국어 팁 금지» 를 말한다',
           /NEVER put a Korean grammar tip inside "reply"/.test(RULES.A));
     check('C-4 why_ko 는 한글만 쓰라고 두 규칙 모두 말한다',
@@ -214,10 +245,33 @@ console.log('\nD. response_format 거절 판정 (정본 ↔ index.ts 로컬 복�
     check('D-2 🔴 429·타임아웃·5xx 는 다시 부르지 않는다 (JSON 모드가 조용히 꺼지면 회귀가 되살아난다)',
           NO.every((m) => canon(new Error(m)) === false),
           NO.filter((m) => canon(new Error(m)) !== false).join(' | ') || NO.length + '/' + NO.length);
-    const all = YES.concat(NO).concat(['', 'boom', 'network error']);
+    /* ⚠️ 반례를 «손으로 적은 목록» 으로만 두면, 한쪽에 새 표현(ECONNRESET 등)을 넣어 넓혀도
+       그 낱말이 목록에 없어서 못 잡는다(CLAUDE.md 별칭표의 「반례 자동 생성」과 같은 자리).
+       그래서 **두 소스의 정규식에서 갈래를 읽어** 입력을 자동으로 만든다 —
+       어느 쪽을 넓히든 그 낱말로 만든 입력에서 둘의 답이 갈린다. */
+    const tokensOf = (src) => {
+      const out = new Set();
+      for (const m of src.matchAll(/\/([^/\n]{4,300})\/[gimsuy]*\.test/g)) {
+        for (const raw of m[1].split('|')) {
+          const t = raw.replace(/\\b|\\d|\\s|[()\[\]{}?*+^$.]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (t.length >= 4) out.add(t);
+        }
+      }
+      return [...out];
+    };
+    const auto = tokensOf(CORR.slice(CORR.indexOf('export function isRfRejection')))
+      .concat(tokensOf(IDX.slice(IDX.indexOf('const isRfRejection ='), IDX.indexOf('const isRfRejection =') + 800)));
+    check('D-3a 두 정규식에서 반례를 자동으로 뽑았다 (전제)', auto.length >= 8, auto.length + '개');
+    /* 🔴 낱말만 넣으면 둘 다 false 라 «차이가 안 드러납니다» — 실제로 정본에만 econnreset 을
+       넣어 봤더니 그대로 통과했습니다(CLAUDE.md 「두 낱말이 겹치는 메시지를 반드시 섞으세요」).
+       그래서 «긍정 낱말 + 후보 부정 낱말» 을 겹쳐 만듭니다. 그때만 «어느 쪽이 이기는가» 가
+       검사되고, 한쪽만 넓히면 그 자리에서 답이 갈립니다. */
+    const all = YES.concat(NO).concat(['', 'boom', 'network error'])
+      .concat(auto.map((t) => 'AiError: ' + t + ' while calling model'))
+      .concat(auto.map((t) => 'AiError: 400 Bad Request — response_format ' + t));
     const diff = all.filter((m) => canon(new Error(m)) !== local(new Error(m)));
     check('D-3 🔴 정본과 index.ts 복사본이 «같은 답» 을 낸다 (한쪽만 고쳐지는 것을 막는다)',
-          diff.length === 0, diff.join(' | '));
+          diff.length === 0, diff.slice(0, 4).join(' | '));
   }
 }
 
@@ -252,6 +306,12 @@ console.log('\nE. 화면 (ai-friend.html)');
   check('E-5 교정 카드가 뜨면 옛 (💡 …) 팁 칩은 안 그린다 (같은 말이 두 번 나오지 않게)',
         /tip\s*&&\s*!hasFix\s*\?/.test(HTML));
   check('E-6 같은 카드가 두 벌 쌓이지 않는다', /querySelectorAll\('\.fix-card'\)/.test(HTML));
+  /* 🔴 showFixCard 안에서만 지우면, 서버 오류·네트워크 실패로 그 함수가 «안 불리는» 경로에서
+     옛 카드가 방금 보낸 문장 아래 그대로 남아 그 문장을 고쳐 준 것처럼 보인다.
+     웜업은 전송 시점에도 걷는다(warmup.html) — 여기도 같아야 한다. */
+  check('E-8 🔴 보낼 때도 옛 교정 카드를 걷는다 (오류 응답에 옛 카드가 남지 않게)',
+        HTML.indexOf('fixCardClear();') < HTML.indexOf("appendMsg('user', msg)")
+        && (HTML.match(/fixCardClear\(\);/g) || []).length >= 2);
   /* 🪤 CLAUDE.md 2장 — <style> 안 CSS 주석의 홑낫표 한 글자에 한자 폰트(983KB) 검사가 FAIL 난다. */
   const styles = (HTML.match(/<style[^>]*>[\s\S]*?<\/style>/g) || []).join('');
   check('E-7 <style> 안에 CJK 홑낫표가 없다 (한자 폰트 검사 FAIL 방지)',
@@ -320,6 +380,11 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
      여기서는 그 상태를 재현해 «실제로 멎는다» 를 증거로 남긴다(A-10 이 지키는 것). */
   const stuck = decideWarmupFixShow(major, { ...d1.memo, lastShownTurn: 21 }, 21);
   t('F-12 🔴 턴 수가 안 늘면 교정이 멎는다 (COUNT 로 세는 이유)', stuck.show === null);
+  /* 🔴 turnNo 가 1 이면 «막힌다» — 서버 주석이 한때 「«처음» 으로 통과한다」고 거짓을 적었다.
+     그 진술을 여기서 실제로 돌려 못 박는다(F-8 은 turn 5 로만 시험해 이것을 한 번도 안 쟀다). */
+  t('F-13 🔴 turnNo=1 은 «막힌다» — 첫 마디에는 교정이 안 뜬다',
+    decideWarmupFixShow(major, null, 1).show === null);
+  t('F-13b 짝 검사: turnNo=2 부터 뜬다', !!decideWarmupFixShow(major, null, 2).show);
 }
 console.log('__J__' + JSON.stringify(out));
 `;
