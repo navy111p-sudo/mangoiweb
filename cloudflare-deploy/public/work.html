@@ -73,7 +73,7 @@ html.dark body{color:#e6edf3;background:#0f1620}
 .top>h1,.top>.tbar{max-width:1100px;margin-left:auto;margin-right:auto}
 .offbar,.outbox{padding-left:max(14px,calc((100% - 1100px) / 2))}
 html.dark .top{background:#16202c;border-bottom-color:#26313f}
-.top h1{margin:0 auto 8px;font-size:21px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top h1{margin:0 auto 8px;font-size:23px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tbar{display:flex;gap:6px;flex-wrap:wrap}
 .tbtn{
   font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
@@ -107,15 +107,19 @@ html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
 /* ── 본문 ───────────────────────────────────────────────── */
 .wrap{max-width:1100px;margin:0 auto;padding:12px 12px 60px}
 /* 🔠 구역 제목 (2026-09-09 사장님 지시) — 옛 값은 15px·700·#4a5765 였다.
-   본문(16px)보다 «작고» 회청색이라 제목으로 안 읽혔다: 대비 6.6:1.
-   지금은 21px·800·먹색(15.9:1) + 왼쪽 초록 막대로 구역을 나눈다.
+   그때 본문이 16px 이었으니 제목이 본문보다 «작았고» 회청색이라 제목으로 안 읽혔다.
+   브라우저 실측 대비 6.82:1 → 16.38:1 (라이트) · 8.19:1 → 14.37:1 (다크).
+   지금은 21px·800·먹색 + 왼쪽 초록 막대로 구역을 나눈다.
    ⚠️ ::before 는 이 flex 상자의 «첫 칸» 이 된다 — gap:8px 이 그대로 붙는다.
    ⚠️ display:flex 라서 이 파일 위쪽의 [hidden]{display:none!important} 한 줄이 «있어야만»
         감춘 제목(#urgentHead·#ackHead)이 실제로 숨는다. 그 줄을 지우면 «확인할 것» 이 늘 보인다. */
 h2{margin:30px 0 8px;font-size:21px;font-weight:800;color:#101828;display:flex;align-items:center;gap:8px;
    padding-bottom:6px;border-bottom:1px solid #e3e9ee}
 h2::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;border-radius:2px;background:#0b6e63}
-html.dark h2{color:#dbe6f2;border-bottom-color:#26313f}
+/* ⚠️ 다크에서 막대를 #0b6e63 그대로 두면 배경(#0f1620) 대비 2.96:1 이라 안 보인다 —
+      막대의 존재 이유가 «구역을 나누는 것» 이므로 밝은 쪽으로 바꾼다(10.2:1). */
+html.dark h2{color:#dbe6f2;border-bottom-color:#2f3d4d}
+html.dark h2::before{background:#6fd3ad}
 .empty{color:#7b8794;font-size:14px;padding:14px 2px}
 html.dark .empty{color:#8b98a8}
 
@@ -150,8 +154,10 @@ html.dark .steps{color:#8b98a8}
 
 /* 📂 결재 문서함 (2026-09-04) — 지난 결재 찾기.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
+/* ⚠️ h2 가 display:flex 라 float 은 «무시된다»(표준). 오른쪽 정렬은 margin-left:auto 로.
+      폭이 1100px 로 넓어지면서 버튼이 제목 옆에 붙어 있는 것이 눈에 띄었다. */
 h2 .findtoggle{
-  float:right; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
+  margin-left:auto; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
   border:1px solid #bcc6d2; background:#fff; color:#2f3d4d; cursor:pointer
 }
 html.dark h2 .findtoggle{background:#16202c;border-color:#33414f;color:#c3cfdb}
@@ -218,8 +224,10 @@ html.dark .repcard .rl{color:#8b98a8}
 .repcard .rv{font-size:17px;font-weight:700;color:#101828;line-height:1.25;word-break:break-word}
 html.dark .repcard .rv{color:#e8eef5}
 .repcard .rn{font-size:12px;color:#7b8794;margin-top:2px}
-.repsec{font-size:13px;font-weight:700;color:#4a5765;margin:11px 0 5px}
-html.dark .repsec{color:#9fb0c2}
+/* 소제목도 «제목» 이다 — 2026-09-09 에 h2 를 고치면서 여기가 옛 값(13px·700·#4a5765)으로
+   남아 있었다. h2(21px)보다는 작게 두되 색·무게는 같은 기준으로 맞춘다. */
+.repsec{font-size:15px;font-weight:800;color:#101828;margin:14px 0 5px}
+html.dark .repsec{color:#dbe6f2}
 /* 표는 상자 안에서 굴린다 — 문서가 옆으로 밀리면 폰에서 화면 전체가 흔들린다 */
 .reptbl{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
 .reptbl td{padding:7px 4px;border-top:1px solid #eef1f5;vertical-align:top}
@@ -252,6 +260,13 @@ html.dark .tile .tl{color:#9db0c4}
 .tile .tv{font-size:23px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
 html.dark .tile .tv{color:#e8eef5}
 .tile .tn{font-size:12px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+/* 📏 아주 좁은 폰에서만 타일 숫자를 한 단계 내린다 (2026-09-09).
+   23px 이면 8자리 원화가 «숫자 한가운데» 에서 끊긴다 — .tv 에 word-break:break-word 가
+   있어 «₩12,345,67 / 8» 이 된다. 금액이 끊기면 자릿수를 잘못 세므로 «크게» 보다 «안 끊기게» 가 먼저다.
+   실측(₩12,345,678 · 줄 수): 320~350px 에서 23px=2줄 · 20px=1줄, 360px 이상은 23px 도 1줄.
+   ⚠️ 잘림 검사(scrollWidth>clientWidth)로는 이 사고가 원리상 «안 보인다» — 잘리는 게 아니라
+      흐르기 때문이다. 확인은 «칸 높이 ÷ lineHeight» 로 줄 수를 세는 것뿐이다. */
+@media (max-width:359px){ .tile .tv{font-size:20px} }
 html.dark .tile .tn{color:#9db0c4}
 /* 결재 보관함 타일 — 다른 넷과 «같은 물건» 이지만 여는 문이라 색을 한 톤 다르게 */
 .tile.arch{border-color:#9fc7b6;background:#f2faf6}
