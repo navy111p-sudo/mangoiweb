@@ -624,7 +624,9 @@ Student text: """${text}"""`;
            ⛔ history.length 로 세지 말 것: 위 조회가 LIMIT 20 이라 그 값은 곧 상한에 붙고,
               그러면 turnCount - lastShownTurn 이 영영 0 이 되어 교정이 통째로 멎는다
               (웜업 쪽에도 같은 모양이 남아 있다 — 아래 게이트 주석 참고).
-           ⛔ 조회가 실패해도 막지 않는다 — 0 이면 게이트가 «처음» 으로 보고 통과시킨다. */
+           ⛔ 조회가 실패해도 막지 않는다 — 0 이면 turnNo 가 1 이 되고, 뜻이 달라지는 교정(major)은
+              그때도 뜹니다. 다만 «계속» 실패하면 turnNo 가 1 에 고정되어 «작은 실수는 두 번째부터»
+              쪽이 멎는다(아래 게이트 주석). */
         env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid = ? AND role = 'assistant'`).bind(uid).first().catch(() => null),
       ]);
       const history = (recent.results || []).reverse();
@@ -974,14 +976,14 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         const verified = verifyWarmupFix(rawFix, msg);
         if (verified) {
           /* 이번 답장까지 세어 1부터 시작한다.
-             ⚠️ turnNo 가 1 이면 게이트가 «막습니다» — decideWarmupFixShow 의 첫 조건이
-                `turnCount - lastShownTurn(0) < 2` 라 1-0=1 로 걸립니다(정본을 돌려 실측).
-                즉 «학생의 맨 첫 마디» 에는 교정이 안 뜹니다. 웜업도 같은 동작이라 그대로 둡니다.
-             🔴 그래서 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정되어 교정이 영영 안 뜹니다.
-                방향은 안전하지만(«교정 없음») 조용해서 아무도 모릅니다 — 그래서 로그를 남깁니다.
-                ⛔ 「조회가 실패해도 «처음» 으로 통과한다」고 적지 마세요. 사실이 아닙니다
-                   (2026-09-09 에 제가 그렇게 적었다가 함정 대조가 실측으로 잡았습니다). */
-          if (!turns) console.warn('[chat-friend] turn count query failed — 교정 게이트가 계속 막힙니다');
+             🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
+                가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
+                지금은 «한 번도 안 보여줬으면 간격이 성립하지 않는다» 로 고쳤습니다(decideWarmupFixShow).
+             ⚠️ 그래도 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정됩니다. 뜻이 달라지는 교정(major)은
+                그래도 뜨지만 «작은 실수는 두 번째부터» 쪽은 간격에 걸려 멎습니다 — 조용해서 아무도
+                모르므로 로그를 남깁니다.
+                ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
+          if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
           const turnNo = Number((turns && (turns as any).n) || 0) + 1;
           const mkey = 'aifriendfix:' + uid;
           let memoIn: any = null;
