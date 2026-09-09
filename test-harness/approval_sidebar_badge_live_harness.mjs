@@ -232,7 +232,7 @@ console.log('\n[ E 옛 adm-ia6.js 가 캐시에 남아 부제 자리가 없어�
 
 console.log('\n[ D adm-ia6.js — i18n 이 배지를 지우지 않게 ]');
 {
-  const blk = (IA6.match(/var appr = document\.createElement[\s\S]{0,1600}?frag\.appendChild\(appr\);/) || [''])[0];
+  const blk = (IA6.match(/var appr = document\.createElement[\s\S]*?frag\.appendChild\(appr\);/) || [''])[0];   // 범위는 길이가 아니라 양쪽 앵커로 — 주석이 길어졌다고 검사가 «못 찾았다» 로 헛돌지 않게(2026-09-09 실제로 밟음)
   ok('결재함 줄을 만드는 구간을 찾았다', blk.length > 0);
   ok('⛔ <a> 에 data-ko/data-en 을 달지 않는다 (i18n 이 textContent 를 갈아끼워 배지가 사라진다)',
     !/appr\.setAttribute\('data-(ko|en)'/.test(blk));
@@ -241,7 +241,7 @@ console.log('\n[ D adm-ia6.js — i18n 이 배지를 지우지 않게 ]');
   ok('부제 자리 #ia6-appr-sub 가 있다', /id="ia6-appr-sub"/.test(blk));
   ok('배지 #ia6-appr-n 은 그대로 있다', /id="ia6-appr-n"/.test(blk));
   ok('라벨 span 이 .ia6-appr-t 안에 있다 (부제와 한 줄)', /class="ia6-appr-t">\s*'\s*\+\s*'<span class="ia6-appr-l"/.test(blk) || /ia6-appr-t"><span class="ia6-appr-l"/.test(blk.replace(/'\s*\+\s*'/g, '')));
-  ok('adm-ia6.js 를 고쳤으면 ?v= 도 올렸다 (57 이상)', Number((ADM.match(/adm-ia6\.js\?v=(\d+)/) || [])[1]) >= 57);
+  ok('adm-ia6.js 를 고쳤으면 ?v= 도 올렸다 (58 이상)', Number((ADM.match(/adm-ia6\.js\?v=(\d+)/) || [])[1]) >= 58);
 }
 
 console.log('\n[ B-CSS 지연 색 · 새 도착 표시 — 색만 ]');
