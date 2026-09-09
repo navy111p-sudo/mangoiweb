@@ -604,10 +604,20 @@ function mgAcctUid(){
   try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.user_id || u.uid || u.id)) return u.user_id || u.uid || u.id; } catch(e){}
   return null;
 }
+/* ⛔ (2026-09-09) 이름이 «아이디 그 자체» 면 빈 값으로 돌려줍니다.
+   로그인 정본이 `name: u.name || u.uid`(index.html:13600 · idx-user-session.js:73)라
+   이름 없는 계정은 name 칸에 **아이디**가 들어 있습니다. 그걸 그대로 `student_name` 으로
+   보내면 서버 정본이 `student_name = COALESCE(?, student_name)` 이라 **기존에 들어 있던
+   진짜 이름이 아이디로 덮입니다**(src/api-games.ts 의 그 자리 주석이 같은 말을 합니다).
+   ⚠️ 두 리더보드가 «이름 == 아이디면 안 보여준다» 로 막고는 있지만, 그건 «내보내기» 쪽
+  방어일 뿐 **DB 를 오염시키는 것은 막지 못합니다.** 안 보내는 것이 맞습니다.
+   ⚠️ 대소문자를 무시해 견주지 마세요 — `Lee`/`lee` 는 별개 계정이라 한쪽만 가려집니다
+  (서버 쪽 판정과 같은 규칙: 정확일치). */
 function mgAcctName(){
-  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.name || a.user_name)) return a.name || a.user_name; } catch(e){}
-  try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_name)) return u.name || u.user_name; } catch(e){}
-  return '';
+  var nm = '';
+  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.name || a.user_name)) nm = a.name || a.user_name; } catch(e){}
+  if (!nm) { try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_name)) nm = u.name || u.user_name; } catch(e){} }
+  return (nm && String(nm) !== String(mgAcctUid() || '')) ? nm : '';
 }
 /* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
 function awardSpeechPoints(setId, badgeLabel){

@@ -450,9 +450,20 @@
       본보기: judgment.html 의 authTok(). */
 function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+/* ⛔ (2026-09-09) 이름이 «아이디 그 자체» 면 빈 값으로 돌려줍니다.
+   로그인 정본이 `name: u.name || u.uid`(index.html:13600 · idx-user-session.js:73)라
+   이름 없는 계정은 name 칸에 **아이디**가 들어 있습니다. 그걸 그대로 `student_name` 으로
+   보내면 서버 정본이 `student_name = COALESCE(?, student_name)` 이라 **기존에 들어 있던
+   진짜 이름이 아이디로 덮입니다**(src/api-games.ts 의 그 자리 주석이 같은 말을 합니다).
+   ⚠️ 두 리더보드가 «이름 == 아이디면 안 보여준다» 로 막고는 있지만, 그건 «내보내기» 쪽
+  방어일 뿐 **DB 를 오염시키는 것은 막지 못합니다.** 안 보내는 것이 맞습니다.
+   ⚠️ 대소문자를 무시해 견주지 마세요 — `Lee`/`lee` 는 별개 계정이라 한쪽만 가려집니다
+  (서버 쪽 판정과 같은 규칙: 정확일치). */
 function getName(){
-  try { const a = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if (a && (a.name || a.user_name)) return a.name || a.user_name; } catch(e){}
-  try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); return u?.name || u?.user_name || ''; } catch(e){ return ''; }
+  var nm = '', uid = '';
+  try { const a = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if (a) { nm = a.name || a.user_name || ''; uid = a.uid || a.user_id || a.id || ''; } } catch(e){}
+  if (!nm || !uid) { try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); if (u) { nm = nm || u.name || u.user_name || ''; uid = uid || u.user_id || u.uid || u.id || ''; } } catch(e){} }
+  return (nm && String(nm) !== String(uid)) ? nm : '';
 }
 /* 신원(uid+토큰): 로그인=실제 학생, 비로그인=기기별 서버서명 게스트 신원.
    list/due 는 소유자 토큰을 요구(IDOR 방지)하므로, 게스트도 서명 토큰이 있어야 게임/도감이 작동한다. */

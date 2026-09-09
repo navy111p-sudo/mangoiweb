@@ -118,7 +118,18 @@ console.log('\n[ C. ⛔ 서버가 모르는 상품을 화면이 팔지 않는다
 if (!ok) check('미등록 상품 없음', false, '전제 실패');
 else {
   /* 서버 판정은 «PRICES 에 있으면 그 금액, other 만 입력금액, 나머지는 거절» 입니다.
-     그 조건을 그대로 옮겨 와 화면이 파는 키를 전부 통과시켜 봅니다. */
+     ⚠️ 아래 `serverAccepts` 는 그 조건을 «옮겨 적은» 것이라, 서버가 바뀌면 조용히 어긋납니다.
+        그래서 «옮겨 적은 근거» 자체를 먼저 검사합니다 — 서버가 그 규칙을 바꾸면 여기가
+        먼저 빨간불이 되어 이 절이 헛돌지 않습니다(CLAUDE.md 「예외로 빼는 값은 그 근거
+        자체를 검사로 함께 남기세요」). */
+  check('(근거) 서버는 가격표에 없으면 unknown_program 으로 거절한다',
+    /if \(!priced\)[\s\S]{0,200}unknown_program/.test(API_PAY));
+  check('(근거) 서버는 0원 이하를 not_payable 로 거절한다',
+    /if \(amount <= 0\)[\s\S]{0,200}not_payable/.test(API_PAY));
+  check("(근거) 입력 금액을 받는 예외는 'other' 뿐이다",
+    /else if \(program === 'other'\)/.test(API_PAY) &&
+    (API_PAY.match(/program === 'other'/g) || []).length >= 1);
+
   const serverAccepts = (key, amount) => {
     if (PRICES[key]) return PRICES[key].amount > 0;   // 가격표에 있고 0원 초과면 결제 가능
     return key === 'other' && amount > 0;             // 상담형만 입력 금액 허용

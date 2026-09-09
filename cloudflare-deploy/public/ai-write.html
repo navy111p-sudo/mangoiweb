@@ -554,8 +554,11 @@
   <script>
     /* 🔴 (2026-09-09) 예전엔 mango_user.user_id 하나만 봤는데, 로그인 동기화가 실제로
        저장하는 모양은 {uid,name,role} — user_id 칸이 없다. 그래서 로그인 학생도 매번
-       «게스트» 로 떨어졌고, 게다가 그 게스트 id 도 호출마다 새 난수라 기록이 안 이어졌다
-       (warmup.html 등은 mangoi_guest_uid 에 고정 저장한다). */
+       «게스트» 로 떨어졌고, 게다가 그 게스트 id 도 호출마다 새 난수라 기록이 안 이어졌다.
+       ⚠️ 게스트 id «키» 는 화면마다 갈려 있습니다(실측) — 여기·micro-quiz·streak·tetris 는
+          `mangoi_guest_uid`, review-quiz 는 `rq_guest_id`, vocab 은 서버 서명 `mango_guest_id`,
+          warmup 은 게스트 id 를 «아예 안 만듭니다»(빈 문자열). 통일돼 있다고 적지 마세요 —
+          그렇게 적힌 주석 때문에 다음 사람이 없는 것을 찾게 됩니다. */
     function getUid() {
       try {
         const a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');

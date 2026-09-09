@@ -58,6 +58,25 @@ function cutFn(src, name) {
   return null;
 }
 
+/* 주석 제거 — ⛔ `t.replace(/\/\*[\s\S]*?\*\//g,'')` 한 줄로 지우지 마세요.
+   문자열·주석 안의 짝 없는 «슬래시+별표» 하나에 그 뒤가 통째로 사라져, 부정 검사가
+   «없다» 로 거짓 통과합니다(CLAUDE.md 2장). 줄 단위로 «지금 블록주석 안인가» 를 봅니다. */
+function stripComments(src) {
+  const out = []; let inBlock = false;
+  for (let line of String(src).split('\n')) {
+    let buf = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i], n = line[i + 1];
+      if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
+      if (c === '/' && n === '*') { inBlock = true; i++; continue; }
+      if (c === '/' && n === '/') break;      // 줄 주석 — 남은 줄을 버립니다
+      buf += c;
+    }
+    out.push(buf);
+  }
+  return out.join('\n');
+}
+
 /* 가짜 localStorage — 화면 코드가 쓰는 만큼만 흉내냅니다. */
 function fakeStore(seed) {
   const m = new Map(Object.entries(seed || {}));
@@ -114,7 +133,13 @@ const TARGETS = [
   { file: 'speech-coach-cn.html', fn: 'mgAcctUid',    call: 'mgAcctUid()',     label: '발음 코칭(중국어)' },
 ];
 
+/* ⚠️ TARGETS 는 «한 함수로 끝나는» 화면 6곳입니다. 나머지 둘(vocab.initIdentity ·
+   ai-friend.getAuth)은 async 라 B-2·B-3 절에서 따로 돌립니다 — 합쳐서 «8곳» 입니다.
+   그 수를 여기서 세어 둡니다: 9번째 화면이 생겼는데 검사에 안 넣으면 이 줄이 먼저 빨간불입니다. */
+const COVERED = TARGETS.length + 2;
+
 console.log('\n[ A. 전제 — 신원 함수를 소스에서 실제로 오려 냈는가 ]');
+check(`검사가 덮는 화면이 8곳이다 (TARGETS ${TARGETS.length} + 비동기 2)`, COVERED === 8, `실제: ${COVERED}`);
 const CUT = {};
 for (const t of TARGETS) {
   const body = cutFn(PUB(t.file), t.fn);
@@ -201,9 +226,22 @@ console.log('\n[ B-2. 단어장 — initIdentity() 를 실제로 돌려 «게스
       await go.then((v) => check('단어장 — 옛 {user_id:…} 도 UID=jeong', v.UID === 'jeong' && v.IS_GUEST === false, JSON.stringify(v)))
              .catch((e) => check('단어장 — 옛 {user_id:…} 도 UID=jeong', false, String(e && e.message || e)));
     }
-    // 짝 — 토큰이 없으면 계정으로 붙지 않아야 합니다(IDOR 가드가 토큰을 요구합니다)
-    check('⛔ 단어장 — 토큰 없이 계정으로 붙지 않는다',
-      /\(a\.uid \|\| a\.user_id \|\| a\.id\) && tok/.test(body));
+    /* 짝 — 토큰이 없으면 계정으로 붙지 않아야 합니다(IDOR 가드가 토큰을 요구합니다).
+       ⛔ 식 «모양» 을 글자 그대로 못 박지 마세요 — 갈래가 둘인데 한쪽만 검사하면
+          다른 갈래에서 `&& tok` 을 빼도 통과합니다(함정 대조 실측). 그리고 무해한
+          리팩터(`const auid = …; if (auid && tok)`)에 거짓 FAIL 이 납니다.
+       ✅ 두 갈래를 «각각 실제로 돌려» 답으로 묻습니다. */
+    for (const [label, seed] of [
+      ['mangoi_logged_user 갈래', { mangoi_logged_user: NEW_SHAPE }],
+      ['mango_user 갈래',        { mango_user: OLD_SHAPE }],
+    ]) {
+      const r = mk(seed);   // 토큰을 일부러 안 넣습니다
+      const pr = (r.ok && r.value && typeof r.value.then === 'function') ? r.value : null;
+      if (!pr) { check(`⛔ 단어장 — 토큰 없으면 계정으로 안 붙는다(${label})`, false, r.err || 'Promise 아님'); continue; }
+      await pr.then((v) => check(`⛔ 단어장 — 토큰 없으면 계정으로 안 붙는다(${label})`,
+                      v.UID !== 'jeong' && v.IS_GUEST === true, JSON.stringify(v)))
+              .catch((e) => check(`⛔ 단어장 — 토큰 없으면 계정으로 안 붙는다(${label})`, false, String(e && e.message || e)));
+    }
   }
 }
 
@@ -241,13 +279,73 @@ console.log('\n[ F. ⛔ 발음 코칭이 계정 자리에 «기기 식별자» �
   // 계정과 무관합니다 — 그 키로 포인트를 적립하면 서버가 매번 거절합니다(조용한 실패).
   for (const f of ['speech-coach.html', 'speech-coach-cn.html']) {
     const src = PUB(f);
-    const bad = /getItem\(\s*['"]mango_user_id['"]\s*\)/.test(src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, ''));
+    const bad = /getItem\(\s*['"]mango_user_id['"]\s*\)/.test(stripComments(src));
     check(`${f} — 포인트 적립에 mango_user_id 를 쓰지 않는다`, !bad);
   }
   // 짝: «그럼 무엇을 쓰는가» — 계정 헬퍼를 실제로 부르고 있어야 합니다
   for (const f of ['speech-coach.html', 'speech-coach-cn.html']) {
     check(`${f} — awardSpeechPoints 가 mgAcctUid() 를 쓴다`,
       /var uid = mgAcctUid\(\)/.test(PUB(f)));
+  }
+}
+
+console.log('\n[ G. ⛔ «이름» 자리에 아이디를 보내지 않는다 — 보내면 진짜 이름이 덮입니다 ]');
+{
+  /* 로그인 정본이 `name: u.name || u.uid` 라(index.html · idx-user-session.js) 이름 없는
+     계정은 name 칸에 **아이디**가 들어 있습니다. 그걸 `student_name` 으로 보내면 서버 정본이
+     `student_name = COALESCE(?, student_name)` 이라 기존 진짜 이름이 아이디로 덮입니다.
+     ⚠️ 두 리더보드가 「이름 == 아이디면 안 보여준다」로 내보내기는 막지만, DB 오염은 못 막습니다. */
+  const NAMELESS = JSON.stringify({ uid: 'jeong', name: 'jeong', role: 'student' });   // 이름이 아이디와 같은 계정
+  const NAMED    = JSON.stringify({ uid: 'jeong', name: '정우영', role: 'student' });
+  const NAME_TARGETS = [
+    { file: 'micro-quiz.html',   fn: 'getName',    call: 'getName()',    extraFn: 'getUid',    label: 'AI 단어 퀴즈' },
+    { file: 'vocab.html',        fn: 'getName',    call: 'getName()',    extraFn: null,        label: '단어장' },
+    { file: 'speech-coach.html', fn: 'mgAcctName', call: 'mgAcctName()', extraFn: 'mgAcctUid', label: '발음 코칭(한국어)' },
+  ];
+  for (const t of NAME_TARGETS) {
+    const src = PUB(t.file);
+    const body = cutFn(src, t.fn);
+    const extra = t.extraFn ? (cutFn(src, t.extraFn) || '') : '';
+    if (!body || (t.extraFn && !extra)) { check(`${t.label} — ${t.fn}() 를 오려 냄`, false); continue; }
+    check(`${t.label} — ${t.fn}() 를 오려 냄`, true);
+    const run1 = (seed) => runFn(body, { store: fakeStore(seed), extra, call: t.call });
+    const a = run1({ mangoi_logged_user: NAMELESS, mango_user: NAMELESS, mango_token: 'tok' });
+    check(`${t.label} — 이름이 «아이디 그 자체» 면 빈 값`, a.ok && String(a.value || '') === '',
+      a.ok ? `실제: ${JSON.stringify(a.value)}` : a.err);
+    // 짝 — 진짜 이름은 그대로 가야 합니다(«전부 빈 값» 으로 만드는 수리도 통과하면 안 됩니다)
+    const b = run1({ mangoi_logged_user: NAMED, mango_user: NAMED, mango_token: 'tok' });
+    check(`${t.label} — 진짜 이름은 그대로 간다`, b.ok && String(b.value || '') === '정우영',
+      b.ok ? `실제: ${JSON.stringify(b.value)}` : b.err);
+    /* ⚠️ 두 키에 «똑같이» 넣으면 새 키를 읽는 줄을 지워도 옛 키 폴백이 답을 맞혀
+       변이가 통과합니다(함정 대조 실측). 새 키에만 넣어 그 줄을 실제로 재세요. */
+    const c = run1({ mangoi_logged_user: NAMED, mango_token: 'tok' });
+    check(`${t.label} — mangoi_logged_user 에만 이름이 있어도 읽는다`, c.ok && String(c.value || '') === '정우영',
+      c.ok ? `실제: ${JSON.stringify(c.value)}` : c.err);
+  }
+}
+
+console.log('\n[ H. AI 영작첨삭 — 로그인 판정이 신원 함수와 «같은 폭» 인가 ]');
+{
+  /* isLoggedIn() 이 getUid() 보다 좁으면 「기록이 없어요」라고 잘못 안내합니다
+     (이 화면이 실제로 그 상태였습니다 — mango_user.user_id 만 보던 시절). */
+  const src = PUB('ai-write.html');
+  const body = cutFn(src, 'isLoggedIn'), uidFn = cutFn(src, 'getUid');
+  check('ai-write.html 의 isLoggedIn()·getUid() 를 오려 냄', !!body && !!uidFn);
+  if (body && uidFn) {
+    const mk = (seed) => runFn(body, {
+      store: fakeStore(seed), extra: uidFn,
+      pre: "function getToken(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }",
+      call: 'isLoggedIn()',
+    });
+    const on = mk({ mangoi_logged_user: NEW_SHAPE, mango_user: NEW_SHAPE, mango_token: 'tok' });
+    check('로그인 학생이면 true', on.ok && on.value === true, on.ok ? `실제: ${JSON.stringify(on.value)}` : on.err);
+    const old = mk({ mango_user: OLD_SHAPE, mango_token: 'tok' });
+    check('옛 {user_id:…} 도 true', old.ok && old.value === true, old.ok ? `실제: ${JSON.stringify(old.value)}` : old.err);
+    // 짝 — 아니면 false 여야 합니다(«항상 true» 로 만드는 수리도 통과하면 안 됩니다)
+    const off = mk({});
+    check('⛔ 비로그인이면 false', off.ok && off.value === false, off.ok ? `실제: ${JSON.stringify(off.value)}` : off.err);
+    const noTok = mk({ mangoi_logged_user: NEW_SHAPE });
+    check('⛔ 토큰이 없으면 false', noTok.ok && noTok.value === false, noTok.ok ? `실제: ${JSON.stringify(noTok.value)}` : noTok.err);
   }
 }
 
