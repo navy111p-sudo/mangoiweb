@@ -162,6 +162,93 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
         /'warmupfix:'\s*\+\s*sessionId/.test(H) && /expirationTtl:\s*6\s*\*\s*3600/.test(H));
 }
 
+// ═══════════ A2. 정밀 교정 규칙 — 프롬프트가 «반드시 고쳐» 라고 말하는가 ═══════════
+/* 🔴 2026-09-09 사장님 「I ate pizza yesterday 인데 I eat pizza yesterday 라고 말했는데
+   아바타가 수정해주지 않았어」 · 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」.
+   원인 셋 중 하나가 «프롬프트가 스스로 넘어가라고 시킨 것» 이었다.
+   ⚠️ 이 절은 «글자» 검사라 모델이 실제로 지킨다는 증거가 아니다 — 게이트 쪽 증거는 B-30~B-32.
+      그래도 그 지시가 되돌아오면 여기서 먼저 빨간불이 난다. */
+console.log('\nA2. 정밀 교정 규칙 (두 화면이 같은 정본을 쓴다)');
+{
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const RULES = strip(CORR);
+  const wStart = RULES.indexOf('export const WARMUP_CORRECTION_RULE');
+  const aStart = RULES.indexOf('export const AI_FRIEND_CORRECTION_RULE');
+  const wRule = wStart >= 0 ? RULES.slice(wStart, RULES.indexOf('].join', wStart)) : '';
+  const aRule = aStart >= 0 ? RULES.slice(aStart, RULES.indexOf('].join', aStart)) : '';
+  check('A2-0 두 규칙 본문을 잘라 냈다 (전제)', wRule.length > 200 && aRule.length > 200,
+        '웜업 ' + wRule.length + '자 · 친구 ' + aRule.length + '자');
+
+  /* ⛔ 옛 지시가 되살아나면 같은 사고가 그대로 재현된다. 주석은 벗기고 «규칙 글» 만 본다. */
+  check('A2-1 🔴 「뜻이 통하면 그냥 넘어가」류 지시가 규칙에 남아 있지 않다',
+        !/그냥 넘어가/.test(wRule) && !/only when it matters/i.test(aRule)
+        && !/If the meaning is clear, set "fix": null/i.test(aRule));
+
+  check('A2-2 🔴 웜업 규칙이 «시제·동사꼴·수일치·의문문 어순은 반드시» 라고 말한다',
+        /반드시/.test(wRule) && /시제/.test(wRule) && /동사꼴/.test(wRule)
+        && /수일치/.test(wRule) && /의문문 어순/.test(wRule));
+  check('A2-3 🔴 친구 규칙도 같은 넷을 «ALWAYS» 로 말한다',
+        /ALWAYS fix/.test(aRule) && /tense/i.test(aRule) && /verb form/i.test(aRule)
+        && /subject-verb/i.test(aRule) && /question word order/i.test(aRule));
+
+  /* ⚠️ 짝 검사 — «전부 매 턴 고쳐» 로 넓히면 2026-09-03 원장님 제보(「정해진 문장 안에서만
+     한다」)와 같은 뿌리로 되돌아간다. 두 규칙 모두 «그 넷이 아니면 넘어가» 를 함께 말해야 한다. */
+  check('A2-4 짝: 그 넷이 아닌 사소한 것은 매번 잡지 말라고도 말한다',
+        /사소한 것/.test(wRule) && /"fix": null/.test(aRule) && /smaller than those four/i.test(aRule));
+
+  /* 🔴 severity 를 모델에게 맡기지 않는 목록 — 여기에 article·plural·word_choice 가 들어가면
+     그 순간 매 턴 교정이 되어 위 짝 규칙이 무너진다. */
+  const mctM = CORR.match(/export const MEANING_CHANGING_TAGS = \[([^\]]*)\]/);
+  const mct = mctM ? (mctM[1].match(/'([a-z_]+)'/g) || []).map((x) => x.slice(1, -1)) : [];
+  const allTagsM = CORR.match(/export const WARMUP_FIX_TAGS = \[([\s\S]*?)\] as const/);
+  const allTags = allTagsM ? (allTagsM[1].match(/'([a-z_]+)'/g) || []).map((x) => x.slice(1, -1)) : [];
+  check('A2-5 뜻이 달라지는 tag 목록을 소스에서 읽었다 (전제)', mct.length >= 3, mct.join(','));
+  check('A2-6 그 목록은 전체 tag 목록의 부분집합 (오타가 있으면 조용히 안 걸린다)',
+        mct.length > 0 && mct.every((x) => allTags.includes(x)),
+        '없는 tag: ' + mct.filter((x) => !allTags.includes(x)).join(',') || '-');
+  check('A2-7 🔴 그 목록에 article·plural·word_choice 를 넣지 않았다 (매 턴 교정 방지)',
+        !mct.includes('article') && !mct.includes('plural') && !mct.includes('word_choice'));
+
+  /* 🔴 A2-7 은 «세 이름» 만 막습니다 — 함정 대조가 변이시험으로 두 구멍을 실측했습니다:
+        ① `'preposition'` 을 목록에 «더하면» PASS 91·55 로 통째로 통과(그 종류가 매 턴 뜨는데 아무도 안 잡음)
+        ② `'question_form'` 을 목록에서 «빼면» 역시 통과 — 프롬프트는 여전히 「의문문 어순 … 반드시」라고
+           말하는데 코드만 조용히 어긋납니다.
+     ✅ 그래서 «글자가 있는가» 가 아니라 **«두 곳이 서로 같은 말을 하는가»** 로 묻습니다
+        (CLAUDE.md 「하니스는 «여러 곳이 서로 같은 말을 하는가» 로 검사하세요」).
+     ⚠️ 판정 범위는 «반드시 고쳐» 를 말하는 «그 줄» 뿐입니다 — 규칙 전체로 넓히면 바로 아래
+        「사소한 것은 넘어가」 줄의 관사·낱말 고르기가 함께 잡혀 멀쩡한 코드가 FAIL 합니다. */
+  const TAG_WORDS = {
+    question_form: ['의문문 어순', 'question word order'],   // ⚠️ '어순'·'word order' 보다 «먼저» 소비해야 한다
+    word_choice:   ['낱말 고르기', 'word choice'],
+    subject_verb:  ['수일치', 'subject-verb'],
+    verb_form:     ['동사꼴', 'verb form'],
+    word_order:    ['어순', 'word order'],
+    past_tense:    ['시제', 'tense'],
+    article:       ['관사', 'article'],
+    plural:        ['복수', 'plural'],
+  };
+  const mustLineKo = wRule.split('\n').filter((l) => l.includes('반드시')).join(' ');
+  const mustLineEn = aRule.split('\n').filter((l) => /ALWAYS fix/.test(l)).join(' ');
+  check('A2-8-0 두 규칙에서 «반드시 고쳐» 를 말하는 줄을 찾았다 (전제)',
+        mustLineKo.length > 30 && mustLineEn.length > 30,
+        'KO ' + mustLineKo.length + '자 · EN ' + mustLineEn.length + '자');
+  let koTxt = mustLineKo, enTxt = mustLineEn.toLowerCase();
+  const mentioned = [];
+  for (const [tag, [ko, en]] of Object.entries(TAG_WORDS)) {
+    if (koTxt.includes(ko) && enTxt.includes(en.toLowerCase())) {
+      mentioned.push(tag);
+      koTxt = koTxt.split(ko).join(' ');          // 소비 — '의문문 어순' 을 지워야 '어순' 이 안 걸린다
+      enTxt = enTxt.split(en.toLowerCase()).join(' ');
+    }
+  }
+  const sorted = (a) => [...a].sort().join(',');
+  check('A2-8 🔴 «프롬프트가 반드시 고치라고 말하는 것» 과 «코드가 major 로 확정하는 것» 이 서로 같다',
+        sorted(mentioned) === sorted(mct) && mct.length > 0,
+        '프롬프트 [' + sorted(mentioned) + '] · 코드 [' + sorted(mct) + ']');
+  check('A2-9 🔴 코드 목록의 모든 tag 가 «자기 말» 을 갖는다 (모르는 tag 를 넣으면 여기서 걸린다)',
+        mct.every((x) => TAG_WORDS[x]), '대응표에 없는 tag: ' + (mct.filter((x) => !TAG_WORDS[x]).join(',') || '-'));
+}
+
 // ═══════════ B. 정본을 실제로 돌린다 ═══════════
 console.log('\nB. 정본 실행 (node 타입 제거 — 컴파일 없이 진짜로 돌린다)');
 {
@@ -290,21 +377,46 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const a = decideWarmupFixShow(F('major'), null, 5);
   t('B-18 뜻이 달라지는 오류(major)는 바로 보여 준다', !!a.show);
 
-  const b = decideWarmupFixShow(F('minor'), null, 5);
+  const b = decideWarmupFixShow(F('minor', 'article'), null, 5);
   t('B-19 작은 실수(minor)는 처음엔 안 보여 준다 — 매 턴 고치면 말문이 막힌다', b.show === null);
-  t('B-20 그래도 «틀린 것» 자체는 센다 (안 세면 두 번째가 영영 안 온다)', b.memo.tags.past_tense === 1);
+  t('B-20 그래도 «틀린 것» 자체는 센다 (안 세면 두 번째가 영영 안 온다)', b.memo.tags.article === 1);
 
-  const c = decideWarmupFixShow(F('minor'), b.memo, 7);
-  t('B-21 같은 실수가 두 번째면 그때 보여 준다', !!c.show && c.memo.tags.past_tense === 2);
+  const c = decideWarmupFixShow(F('minor', 'article'), b.memo, 7);
+  t('B-21 같은 실수가 두 번째면 그때 보여 준다', !!c.show && c.memo.tags.article === 2);
 
+  /* 🔴 2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」 —
+     뜻이 달라지는 오류는 연달아 틀려도 «매번» 고쳐 준다. 옛 코드는 major 도 2턴을 띄워서,
+     과거형을 세 번 연달아 틀려도 한 번만 고쳐 주고 나머지는 조용히 지나갔다. */
   const d = decideWarmupFixShow(F('major'), c.memo, 8);
-  t('B-22 바로 앞 턴에 고쳐 줬으면 이번 턴은 쉰다 (연달아 고치지 않는다)', d.show === null);
+  t('B-22 🔴 뜻이 달라지는 오류는 바로 앞 턴에 고쳐 줬어도 또 고쳐 준다', !!d.show);
 
-  const e = decideWarmupFixShow(F('major'), c.memo, 9);
-  t('B-23 한 턴 띄우면 다시 고쳐 준다', !!e.show);
+  /* ⚠️ 짝 검사 — 이 예외를 minor 까지 넓히면 관사 하나까지 매 턴 잡혀 말문이 막힌다.
+     앞 검사만 두면 «전부 매 턴 고치기» 도 통과한다. */
+  const e2 = decideWarmupFixShow(F('minor', 'article'), c.memo, 8);
+  t('B-22b 🔴 작은 실수는 여전히 «연달아» 고치지 않는다 (예외를 minor 로 넓히지 말 것)', e2.show === null);
+
+  const e3 = decideWarmupFixShow(F('minor', 'article'), c.memo, 9);
+  t('B-23 작은 실수도 한 턴 띄우면 다시 고쳐 준다', !!e3.show);
+
+  /* 🔴 첫 마디 — 옛 코드는 lastShownTurn 이 0 이라 (1 - 0 < 2) 로 turn 1 이 «원리상» 막혔다.
+     학생이 처음 한 말은 절대 못 고쳐 주고 있었다(정본을 돌려 실측). */
+  t('B-23b 🔴 학생의 «맨 첫 마디» 도 고쳐 준다 (turn 1)', !!decideWarmupFixShow(F('major'), null, 1).show);
+  t('B-23c 짝: 첫 마디여도 작은 실수는 처음엔 안 고친다 (조용한 규칙은 그대로)',
+    decideWarmupFixShow(F('minor', 'article'), null, 1).show === null);
+
+  /* 🔴 «한 번도 안 보여줬으면 간격이 없다» 를 «홀로» 재는 자리.
+     major 는 애초에 간격을 안 보므로 위 B-23b 로는 이 줄이 검사되지 않는다(변이시험 실측).
+     실제로 닿는 경우: AI 친구의 턴 수 조회가 계속 실패해 turnNo 가 1 에 고정될 때 —
+     그때 같은 작은 실수를 두 번째로 하면 «보여 줘야» 한다. */
+  {
+    const m1 = decideWarmupFixShow(F('minor', 'article'), null, 1);
+    const m2 = decideWarmupFixShow(F('minor', 'article'), m1.memo, 1);
+    t('B-23d 🔴 턴 수가 1 에 고정돼도 «두 번째» 작은 실수는 고쳐 준다 (아직 한 번도 안 보여줬으므로)',
+      m1.show === null && !!m2.show, JSON.stringify([!!m1.show, !!m2.show]));
+  }
 
   const z = decideWarmupFixShow(null, c.memo, 20);
-  t('B-24 교정이 없으면 메모도 안 늘어난다', z.show === null && z.memo.tags.past_tense === 2);
+  t('B-24 교정이 없으면 메모도 안 늘어난다', z.show === null && z.memo.tags.article === 2);
 }
 
 // ── ④ warmupShouldOfferRepeat — 「따라 말해 보기」 ──
@@ -315,7 +427,53 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-26 바로 다음 교정에는 안 붙인다 (3턴에 한 번)', warmupShouldOfferRepeat(F, memo, 5) === false);
   t('B-27 세 턴 지나면 다시 붙는다', warmupShouldOfferRepeat(F, memo, 7) === true);
   t('B-28 교정이 없으면 따라 말하기도 없다', warmupShouldOfferRepeat(null, memo, 30) === false);
+  /* 🔴 같은 뿌리 — 한 번도 안 권했으면 «연달아» 가 성립하지 않는다. 옛 코드는 lastRepeatTurn
+     이 0 이라 turn 1·2 에서 「따라 말해 보기」가 원리상 안 떴다. */
+  t('B-29 🔴 첫 마디(turn 1)에도 따라 말하기가 붙는다',
+    warmupShouldOfferRepeat(F, { tags: {}, lastShownTurn: 0, lastRepeatTurn: 0, shown: 0 }, 1) === true);
 }
+
+// ── ⑤ 사장님 화면 재현 — 「I eat pizza yesterday 인데 고쳐 주지 않았어」 ──
+{
+  /* 🔴 2026-09-09. 모델은 «뜻이 통하는» 시제 오류를 minor 로 준다(실측). 옛 코드는 그 값을
+     그대로 믿어 「같은 실수 두 번째부터」로 미뤘고, 그래서 학생의 첫 실수가 지나갔다.
+     여기서는 «모델이 minor 라고 준» 상태 그대로 넣어 세 턴 연달아 뜨는지 본다. */
+  const sayings = [
+    ['I go to school yesterday', 'I went to school yesterday', 'past_tense'],
+    ['I eat pizza yesterday', 'I ate pizza yesterday', 'past_tense'],
+    ['I sleep yesterday', 'I slept yesterday', 'past_tense'],
+  ];
+  let memo = null;
+  const shown = [];
+  sayings.forEach(([was, now, tag], i) => {
+    const v = verifyWarmupFix({ was, now, why_ko: '어제 일이라 과거형을 써요', tag, severity: 'minor' }, was);
+    const d = decideWarmupFixShow(v, memo, i + 1);
+    memo = d.memo;
+    shown.push(!!d.show);
+  });
+  t('B-30 🔴 모델이 minor 로 줘도 시제 오류는 «매 턴» 고쳐 준다 (사장님 화면 재현)',
+    shown.every(Boolean), JSON.stringify(shown));
+
+  /* ⚠️ 짝 검사 — 관사 같은 사소한 것까지 매 턴 잡으면 말문이 막힌다. 그 규칙은 그대로여야 한다. */
+  let m2 = null;
+  const shown2 = [];
+  for (let i = 1; i <= 4; i++) {
+    const v = verifyWarmupFix({ was: 'I have a apple', now: 'I have an apple', why_ko: '모음 앞에는 an 을 써요', tag: 'article', severity: 'minor' }, 'I have a apple');
+    const d = decideWarmupFixShow(v, m2, i);
+    m2 = d.memo;
+    shown2.push(!!d.show);
+  }
+  t('B-31 🔴 짝: 관사(article)는 여전히 매 턴이 아니다', JSON.stringify(shown2) === '[false,true,false,true]', JSON.stringify(shown2));
+
+  /* 🔴 severity 를 «우리가» 확정한다 — 모델이 minor 라 해도 그 넷은 major. */
+  const up = verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거형이에요', tag: 'past_tense', severity: 'minor' }, 'I go to school yesterday');
+  t('B-32 🔴 뜻이 달라지는 tag 는 모델이 minor 라 해도 major 로 확정한다', up && up.severity === 'major', up && up.severity);
+  const keep = verifyWarmupFix({ was: 'a apple', now: 'an apple', why_ko: '모음 앞에는 an 이에요', tag: 'article', severity: 'minor' }, 'I ate a apple');
+  t('B-32b 짝: 사소한 tag 는 모델이 준 minor 를 그대로 둔다', keep && keep.severity === 'minor', keep && keep.severity);
+  const up2 = verifyWarmupFix({ was: 'a apple', now: 'an apple', why_ko: '모음 앞에는 an 이에요', tag: 'article', severity: 'major' }, 'I ate a apple');
+  t('B-32c 모델이 major 라고 하면 어떤 tag 든 major (판정을 좁히지 않는다)', up2 && up2.severity === 'major', up2 && up2.severity);
+}
+
 process.stdout.write('@@JSON@@' + JSON.stringify(out));
 `;
   writeFileSync(join(tmp, 'run.mjs'), runner);
