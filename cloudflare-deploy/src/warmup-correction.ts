@@ -67,7 +67,34 @@ export const WARMUP_CORRECTION_RULE = [
       JSON.parse → "reply" 만 정규식으로 건져내기 → 원문 그대로(옛 동작).
    ───────────────────────────────────────────────────────────── */
 export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json: boolean } {
-  const text = String(raw == null ? '' : raw).trim();
+  /* 🔴 Workers AI 는 response_format(json_object) 을 켜면 response 를 «이미 파싱된 객체» 로
+        주기도 한다. 그때 String(raw) 는 "[object Object]" 가 되고, 그 글자에는 중괄호가
+        없어서 아래 JSON 경로·안전망을 전부 비켜 가 학생 말풍선과 TTS 로 그대로 나간다.
+        2026-09-08 사장님 「이렇게 잘 못나와object 이 뭐야??」 — JSON 모드를 켠 그날의 실사고다.
+        ✅ 저장소에 선례가 이미 둘 있었다(내가 안 본 것이다) —
+           api-diary.ts 의 「JSON 모드면 response 가 이미 객체이거나 JSON 문자열. 둘 다 대응」과
+           api-approval.ts parseLooseJson 의 첫 줄 `typeof raw === 'object'`.
+        ⛔ 여기를 문자열 전제로 되돌리지 말 것. */
+  /* 🛟 마지막 안전망은 «돌려줄 reply» 에 건다.
+        ⛔ «입력 글자» 에 걸면 안 된다 — 위 객체 분기가 그보다 «앞» 이라 객체 경로가 통째로
+           비켜 가고, 그러면 { reply: "[object Object]" } 가 그대로 학생에게 나간다.
+           2026-09-08 에 실제로 그렇게 짰다가 함정 대조가 잡았습니다(정본을 돌려 재현).
+        ℹ️ 덤으로 «reply 는 멀쩡한데 fix.why_ko 에 그 글자가 있어» 답장까지 버리는 일도 없어진다. */
+  const OBJ_JUNK = /\[object [A-Z]\w*\]/;
+  const out = (reply: string, fix: any, json: boolean) =>
+    OBJ_JUNK.test(reply) ? { reply: '', fix: null, json: true } : { reply, fix, json };
+
+  let src: unknown = raw;
+  if (src && typeof src === 'object') {
+    const o: any = src;
+    if (typeof o.reply === 'string' && o.reply.trim()) {
+      return out(o.reply.trim(), o.fix || null, true);
+    }
+    /* 객체인데 reply 가 없다(모양이 다르거나 잘렸다) — 아래 문자열 경로가 한 번 더 건져 보게
+       «글자» 로 되돌린다. ⛔ String(o) 로 넘기면 그 자리에서 "[object Object]" 가 된다. */
+    try { src = JSON.stringify(o); } catch { return { reply: '', fix: null, json: true }; }
+  }
+  const text = String(src == null ? '' : src).trim();
   if (!text) return { reply: '', fix: null, json: false };
 
   // ```json … ``` 코드펜스를 벗긴다(모델이 지시를 어기고 감싸는 일이 실제로 있다)
@@ -86,7 +113,7 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json
     try {
       const o = JSON.parse(slice);
       if (o && typeof o.reply === 'string' && o.reply.trim()) {
-        return { reply: o.reply.trim(), fix: o.fix || null, json: true };
+        return out(o.reply.trim(), o.fix || null, true);
       }
     } catch { /* 아래 폴백으로 */ }
     // JSON 이 깨졌거나 «잘렸어도» reply 문자열만은 건져 본다
@@ -95,7 +122,7 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json
       let r = m[1];
       try { r = JSON.parse('"' + m[1] + '"'); } catch { r = m[1].replace(/\\"/g, '"').replace(/\\n/g, ' '); }
       r = String(r).trim();
-      if (r) return { reply: r, fix: null, json: true };
+      if (r) return out(r, null, true);
     }
   }
   /* 🛟 마지막 안전망 — 여기까지 왔는데 JSON 흔적이 남아 있으면 «학생에게 보내지 않는다».
@@ -103,7 +130,7 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json
      ⛔ 이 줄을 «s === 0 일 때만» 으로 좁히지 말 것 — 모델이 JSON 앞에 말을 한마디 붙이면
         (`Here you go: {…`) 그 조건을 비켜 가고, 그러면 중괄호가 그대로 새어 나간다. */
   if (looksLikeJson) return { reply: '', fix: null, json: true };
-  return { reply: body, fix: null, json: false };
+  return out(body, null, false);
 }
 
 /* ─────────────────────────────────────────────────────────────
