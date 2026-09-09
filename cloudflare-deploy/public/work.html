@@ -59,7 +59,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 html,body{margin:0;padding:0}
 body{
   font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Malgun Gothic",Arial,sans-serif;
-  font-size:16px;line-height:1.5;color:#16202c;background:#f4f6f8;
+  font-size:17px;line-height:1.5;color:#16202c;background:#f4f6f8;
   -webkit-text-size-adjust:100%;
 }
 html.dark body{color:#e6edf3;background:#0f1620}
@@ -70,10 +70,10 @@ html.dark body{color:#e6edf3;background:#0f1620}
       (2026-08-17 사장님 화면 1920px 에서 확인). 휴대폰에서는 둘 다 꽉 차서 티가 안 났다.
       띠 배경은 그대로 화면 전체를 쓰고, **안쪽 내용만** 본문과 같은 폭·같은 축으로 맞춘다.
       ⚠️ .wrap 의 max-width 를 바꾸면 여기도 같이 바꿔야 한다. 두 값은 늘 같아야 한다. */
-.top>h1,.top>.tbar{max-width:820px;margin-left:auto;margin-right:auto}
-.offbar,.outbox{padding-left:max(14px,calc((100% - 820px) / 2))}
+.top>h1,.top>.tbar{max-width:1100px;margin-left:auto;margin-right:auto}
+.offbar,.outbox{padding-left:max(14px,calc((100% - 1100px) / 2))}
 html.dark .top{background:#16202c;border-bottom-color:#26313f}
-.top h1{margin:0 auto 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top h1{margin:0 auto 8px;font-size:21px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tbar{display:flex;gap:6px;flex-wrap:wrap}
 .tbtn{
   font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
@@ -105,9 +105,17 @@ html.dark .offbar{background:#3a2c10;color:#f0cf8a;border-bottom-color:#5a4620}
 html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
 
 /* ── 본문 ───────────────────────────────────────────────── */
-.wrap{max-width:820px;margin:0 auto;padding:12px 12px 60px}
-h2{margin:20px 0 8px;font-size:15px;font-weight:700;color:#4a5765;display:flex;align-items:center;gap:8px}
-html.dark h2{color:#9fb0c2}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 12px 60px}
+/* 🔠 구역 제목 (2026-09-09 사장님 지시) — 옛 값은 15px·700·#4a5765 였다.
+   본문(16px)보다 «작고» 회청색이라 제목으로 안 읽혔다: 대비 6.6:1.
+   지금은 21px·800·먹색(15.9:1) + 왼쪽 초록 막대로 구역을 나눈다.
+   ⚠️ ::before 는 이 flex 상자의 «첫 칸» 이 된다 — gap:8px 이 그대로 붙는다.
+   ⚠️ display:flex 라서 이 파일 위쪽의 [hidden]{display:none!important} 한 줄이 «있어야만»
+        감춘 제목(#urgentHead·#ackHead)이 실제로 숨는다. 그 줄을 지우면 «확인할 것» 이 늘 보인다. */
+h2{margin:30px 0 8px;font-size:21px;font-weight:800;color:#101828;display:flex;align-items:center;gap:8px;
+   padding-bottom:6px;border-bottom:1px solid #e3e9ee}
+h2::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;border-radius:2px;background:#0b6e63}
+html.dark h2{color:#dbe6f2;border-bottom-color:#26313f}
 .empty{color:#7b8794;font-size:14px;padding:14px 2px}
 html.dark .empty{color:#8b98a8}
 
@@ -126,8 +134,8 @@ html.dark .chip{background:#233043;color:#a8bcd2}
 html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
 .chip.late{background:#f7dfdc;color:#8e2b20}
 html.dark .chip.late{background:#3a1a16;color:#f0907c}
-.ititle{font-weight:650;font-size:15.5px;flex:1;min-width:140px;word-break:break-word}
-.iamt{font-weight:700;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ititle{font-weight:650;font-size:17px;flex:1;min-width:140px;word-break:break-word}
+.iamt{font-weight:700;font-size:17.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
 html.dark .imeta{color:#8b98a8}
 .isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
@@ -239,11 +247,11 @@ html.dark .tile{background:#16202c;border-color:#26313f}
 /* ⚠️ 색을 옅게 두지 말 것 — .tn 이 «전체 / 내가 올린 것»(어느 범위인지)과
    「금액 없음 N건」을 적는 줄이다. 안 읽히면 그 타일의 숫자가 무슨 범위인지 알 수 없다.
    2026-09-04 실측: 옛 색은 흰 카드 3.66 · hot 카드 3.46 · 다크 4.49 로 전부 미달이었다. */
-.tile .tl{font-size:12px;color:#5a6673;margin-bottom:3px;display:block}
+.tile .tl{font-size:12.5px;color:#5a6673;margin-bottom:3px;display:block}
 html.dark .tile .tl{color:#9db0c4}
-.tile .tv{font-size:19px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
+.tile .tv{font-size:23px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
 html.dark .tile .tv{color:#e8eef5}
-.tile .tn{font-size:11.5px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+.tile .tn{font-size:12px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
 html.dark .tile .tn{color:#9db0c4}
 /* 결재 보관함 타일 — 다른 넷과 «같은 물건» 이지만 여는 문이라 색을 한 톤 다르게 */
 .tile.arch{border-color:#9fc7b6;background:#f2faf6}
@@ -389,8 +397,8 @@ html.dark .whynote{color:#9db0c4}
 /* ── 올리기 ─────────────────────────────────────────────── */
 .kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
 .kind{
-  font:inherit;font-size:15px;font-weight:650;padding:16px 10px;border-radius:9px;
-  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:58px;color:#16202c
+  font:inherit;font-size:16px;font-weight:650;padding:16px 10px;border-radius:9px;
+  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:62px;color:#16202c
 }
 html.dark .kind{background:#16202c;border-color:#33404f;color:#e6edf3}
 .kind:hover{background:#eef2f6}
