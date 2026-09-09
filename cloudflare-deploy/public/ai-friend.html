@@ -452,22 +452,27 @@
     }
     async function getAuth() {
       if (authCache) return authCache;
-      let u = null;
-      try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
-      if (u && u.user_id) {
+      /* 🔴 (2026-09-09) 예전엔 mango_user.user_id 하나만 봤는데, 로그인 동기화가 실제로
+         저장하는 모양은 {uid,name,role} — user_id 칸이 없다. 그래서 로그인 학생도 매번
+         «게스트» 로 떨어져 계정에 대화 이력이 안 쌓였다. mangoi_logged_user 도 함께 보고,
+         uid·user_id·id 를 전부 받는다. */
+      let u = null, uid = null;
+      try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); uid = u && (u.uid || u.user_id || u.id); } catch(e){}
+      if (!uid) { try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); uid = u && (u.user_id || u.uid || u.id); } catch(e){} }
+      if (uid) {
         let tok = null;
         try { tok = localStorage.getItem('mango_token'); } catch(e){}
-        if (tok && tokenUid(tok) === u.user_id) {
-          authCache = { uid: u.user_id, token: tok };
+        if (tok && tokenUid(tok) === uid) {
+          authCache = { uid: uid, token: tok };
           return authCache;
         }
         // 토큰이 없거나 다른 계정 것 → 비밀번호 미설정 계정은 조용히 재발급 (로그인과 동일 보안수준)
         try {
-          const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: u.user_id }) });
+          const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
           const d = await r.json();
           if (d.ok && d.token) {
             try { localStorage.setItem('mango_token', d.token); } catch(e){}
-            authCache = { uid: u.user_id, token: d.token };
+            authCache = { uid: uid, token: d.token };
             return authCache;
           }
         } catch(e){}
