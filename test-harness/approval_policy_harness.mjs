@@ -73,9 +73,12 @@ check('소액 물품구입은 1단계',
   stagesFor('purchase', smallPhp, 'PHP').length === 1,
   JSON.stringify(stagesFor('purchase', smallPhp, 'PHP')));
 
-check('기준 금액부터는 2단계 (담당 → 경영진)',
+/* ⚠️ «역할 이름» 을 글자 그대로 못 박지 않는다 — 2026-09-09 에 돈이 나가는 건의 1단계가
+      'staff'(본사 아무나) 에서 'mgr'(지정 결재권자) 로 좁혀졌을 때, 보장은 오히려 세졌는데
+      이 검사만 빨간불이 났다. 물어야 할 것은 «두 단계인가 · 마지막이 경영진인가» 다. */
+check('기준 금액부터는 2단계 (마지막은 경영진)',
   (() => { const s = stagesFor('purchase', bigPhp, 'PHP');
-           return s.length === 2 && s[0].role === 'staff' && s[1].role === 'exec'; })(),
+           return s.length === 2 && s[0].role !== 'exec' && s[1].role === 'exec'; })(),
   JSON.stringify(stagesFor('purchase', bigPhp, 'PHP')));
 
 check('지출 정산도 같은 기준을 쓴다',

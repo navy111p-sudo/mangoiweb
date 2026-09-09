@@ -474,6 +474,11 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <h2 id="urgentHead" hidden><span data-en="Urgent" data-ko="긴급 소통">Urgent</span></h2>
   <div id="urgent"></div>
 
+  <!-- ✅ 확인할 것 — 결재가 아니라 «봤다»는 도장. 경영진에게만, 있을 때만 뜬다.
+       ⚠️ 여기 건은 이미 확정되어 필리핀에도 통보가 끝났다. 안 눌러도 업무는 진행된다. -->
+  <h2 id="ackHead" hidden><span data-en="To confirm" data-ko="확인할 것">To confirm</span></h2>
+  <div id="ackBox"></div>
+
   <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
   <div id="awayBox"></div>
   <div id="schedBox"></div>
@@ -740,6 +745,7 @@ function repaint(){
   paintAway();
   paintSchedule();
   paintBulk();
+  paintAck();
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
   paintForm();          // 언어를 바꿔도 폼 라벨이 따라오게. 값은 paintForm 이 챙겨서 되돌린다.
@@ -774,6 +780,31 @@ function paintBadge(){
 }
 
 function typeLabel(r){ return EN() ? (r.type_en || r.req_type) : (r.type_ko || r.req_type); }
+
+/* ✅ 확인할 것 — 「결재」와 섞이지 않게 별도 구역으로 그린다.
+     ⛔ 이 목록을 결재함(inbox)에 합치지 말 것. 합치면 「내가 결재할 것 5건」이 실제로는
+        «눌러야 움직이는 것»과 «이미 끝난 것»을 섞어 세게 되어, 급한 건이 그 안에 묻힌다. */
+function paintAck(){
+  var host = document.getElementById('ackBox');
+  var head = document.getElementById('ackHead');
+  if (!host || !head) return;
+  var arr = (D && D.ack_pending) || [];
+  head.hidden = !arr.length;
+  if (!arr.length) { host.innerHTML = ''; return; }
+  var s = (D && D.summary) || {};
+  var more = s.ack_capped ? '+' : '';
+  var h = '<div class="why"><b>' +
+    esc(T('These are already approved — nothing is waiting on you.',
+          '이미 결재가 끝난 건입니다 — 대표님을 기다리는 것이 아닙니다.')) + '</b> ' +
+    esc(T('Press Confirm to mark that you have seen it. Work goes ahead either way.',
+          '보셨다는 표시만 남기시면 됩니다. 안 누르셔도 업무는 그대로 진행됩니다.')) +
+    '</div>';
+  for (var i = 0; i < arr.length; i++) h += itemHtml(arr[i], false, true);
+  if (more) {
+    h += '<div class="steps">' + esc(T('Showing the 20 most recent.', '최근 20건만 보여 줍니다.')) + '</div>';
+  }
+  host.innerHTML = h;
+}
 
 function paintList(id, arr, decidable){
   var host = document.getElementById(id);
@@ -813,7 +844,11 @@ function daysWaiting(r){
 }
 
 function roleLabel(role){
-  return role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+  if (role === 'exec') return T('Exec', '경영진');
+  /* 💳 'mgr' = 돈이 나가는 건의 지정 결재권자(서버 MONEY_APPROVERS).
+     ⛔ 사람 이름을 여기 적지 말 것 — 명단이 바뀌면 화면만 조용히 옛 이름을 말한다. */
+  if (role === 'mgr') return T('Approver', '결재권자');
+  return T('Office', '본사');
 }
 
 /* 진행 추적 줄 — 올림 → (단계마다) → 완료.
@@ -1684,7 +1719,9 @@ window.repCsv = function(){
   location.href = '/api/approval/requests?' + p.join('&');
 };
 
-function itemHtml(r, decidable){
+/* ⚠️ 세 번째 인자 ackable — «확인할 것» 구역에서만 true. 옛 호출부는 인자 두 개라
+      undefined 가 들어가 예전과 똑같이 동작한다(버튼이 안 그려진다). */
+function itemHtml(r, decidable, ackable){
   var late = isOverdue(r);
   // 🧭 «멈춤» — 서버가 결재 가능자 0명이라고 알려 준 내 건. 지연과 다른 사실이라 따로 센다.
   var stop = !decidable && isMine(r) && !!r.blocked;
@@ -1758,7 +1795,7 @@ function itemHtml(r, decidable){
     var parts = [];
     for (var k = 0; k < r.steps.length; k++) {
       var s = r.steps[k];
-      var lbl = s.role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+      var lbl = roleLabel(s.role);   // ⛔ 라벨을 여기 다시 적지 말 것(roleLabel 이 정본)
       var mark = s.status === 'approved' ? 'OK' : s.status === 'rejected' ? 'X'
                : s.status === 'skipped' ? T('skipped', '전결') : s.status === 'active' ? '...' : '-';
       parts.push(lbl + ' ' + mark);
@@ -1822,9 +1859,34 @@ function itemHtml(r, decidable){
     if (acts) h += '<div class="mineacts">' + acts + '</div><div id="act-' + r.id + '"></div>';
   }
 
-  if (decidable) {
+  /* ✅ 확인 — 결재가 아니다. 상태를 바꾸지 않고 «봤다»는 도장만 찍는다. */
+  if (ackable) {
     h += '<div class="acts">' +
-         '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>' +
+         '<button class="big ok" onclick="ackOne(' + r.id + ')">' + esc(T('Confirm', '확인')) + '</button>' +
+         '</div><div id="ack-' + r.id + '"></div>';
+  }
+
+  if (decidable) {
+    /* 💳 「대신 결재」 — 서버가 «내가 주 결재자가 아니다» 라고 알려 준 단계.
+       ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다). */
+    if (r.by_proxy) {
+      h += '<div class="steps">' + esc(
+        T('The approver normally decides this one. You can decide on their behalf.',
+          '이 단계는 결재권자가 결재합니다. 자리를 비웠다면 대신 결재하실 수 있습니다.')) + '</div>';
+    }
+    /* 🖐 앞 단계를 내가 결재한 건 — 서버가 승인을 막는다(sameDeciderBlocked).
+       «승인» 버튼을 안 그리고 이유를 적는다. 안 그리면 눌렀다가 403 을 보게 되고,
+       묶음 승인에서는 조용히 빠져 건수만 줄어든다.
+       ⛔ 「반려」는 남긴다 — 돈이 나가지 않는 방향이라 서버도 막지 않는다.
+       ⛔ 화면이 스스로 판정하지 않는다(결재 규칙도 계정 명단도 모른다). */
+    if (r.same_decider) {
+      h += '<div class="steps">' + esc(
+        T('You approved an earlier stage — a different approver must decide this stage.',
+          '앞 단계를 결재하셔서 이 단계는 다른 결재자가 눌러야 합니다.')) + '</div>';
+    }
+    h += '<div class="acts">' +
+         (r.same_decider ? '' :
+           '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>') +
          '<button class="big no" onclick="askWhy(' + r.id + ')">' + esc(T('Reject', '반려')) + '</button>' +
          '</div><div id="why-' + r.id + '"></div>';
   }
@@ -1843,6 +1905,7 @@ function itemHtml(r, decidable){
 function cleanOnes(){
   return (D.inbox || []).filter(function(r){
     if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
+    if (r.same_decider) return false;                     // 🖐 서버가 막는 건 — 묶으면 조용히 빠진다
     var f = r.flags || [];
     for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
     return true;
@@ -2218,6 +2281,39 @@ window.decide = function(id, decision, memo){
         load().catch(function(){});
       }
     });
+};
+
+/* ✅ 확인 — «봤다»는 도장.
+     ⛔ 못 보낸 결재 큐(outbox)에 넣지 않는다. 확인은 아무것도 막지 않으므로 다음에 열 때
+        다시 누르면 그만이고, 큐에 섞으면 로그아웃 경고의 「못 보낸 결재 N건」이 거짓이 된다. */
+window.ackOne = function(id){
+  var el = document.getElementById('ack-' + id);
+  if (el) el.innerHTML = '<div class="steps">' + esc(T('Saving...', '저장 중...')) + '</div>';
+  fetch('/api/approval/requests/' + id + '/ack', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+  .then(function(res){
+    // 이미 확인된 건은 «성공» 으로 친다 — 두 기기에서 눌렀을 때 실패로 보이지 않게.
+    if ((res.j && res.j.ok) || (res.j && res.j.error === 'already_acked')) {
+      if (D) {
+        D.ack_pending = (D.ack_pending || []).filter(function(x){ return x.id !== id; });
+        if (D.summary) D.summary.ack_pending = (D.ack_pending || []).length;
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(D)); } catch (e) {}
+      }
+      toast(T('Confirmed.', '확인했습니다.'));
+      repaint();
+      return;
+    }
+    if (el) el.innerHTML = '';
+    toast((res.j && (EN() ? res.j.message_en : res.j.message)) ||
+          T('Could not save. Please try again.', '저장하지 못했습니다. 다시 눌러 주세요.'));
+  })
+  .catch(function(){
+    if (el) el.innerHTML = '';
+    toast(T('Offline — try again when you reconnect.', '연결이 끊겼습니다 — 연결되면 다시 눌러 주세요.'));
+  });
 };
 
 /** 서버로 보내기. 네트워크 실패만 큐에 남긴다 — 서버가 «판단해서» 거절한 것은 다시 보내도 소용없다. */
