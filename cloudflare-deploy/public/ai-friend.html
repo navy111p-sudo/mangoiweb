@@ -1317,9 +1317,16 @@
           (CLAUDE.md 「목록에 항목만 늘리고 파일을 안 넣음」 — 그 폴백이 조용히 도는 것을
           막으려고 topic_icon_harness 가 «표가 가리키는 그림이 실제로 있는가» 를 따로 본다). */
     function topicCardHtml(t, i, en) {
+      /* ⚠️ onerror 는 «속성 안의 JS 문자열» 이라 이스케이프가 두 겹이다.
+            지금 표는 이모지뿐이라 안전하지만, 아포스트로피가 든 값이 들어오면 속성이 깨진다.
+            그래서 홑따옴표·역슬래시를 미리 막는다(라벨 쪽은 escapeHtml 이 맡는다). */
+      const eSafe = String(t.e || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const icon = t.pic
         ? '<span class="t-icon"><img class="t-pic" src="/img/topics/' + t.pic + '.webp" alt="" '
-          + 'loading="lazy" decoding="async" onerror="this.parentNode.textContent=\'' + t.e + '\'"></span>'
+          + 'loading="lazy" decoding="async" onerror="this.parentNode.textContent=\'' + eSafe + '\'"></span>'
+        /* pic 이 없는 주제를 나중에 넣을 수 있게 남겨 두는 갈래다(죽은 코드가 아니라 안전망).
+           ⚠️ 지금 정책은 «전부 실사» 라 하니스가 그 상태를 못 박는다 — 그래서 이 갈래로는
+              오지 않는다. pic 없는 주제를 정말 넣기로 하면 그 검사를 함께 고칠 것. */
         : '<span class="t-emoji">' + t.e + '</span>';
       return '<div class="topic-card" onclick="topicSend(' + i + ')">' + icon
         + '<span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>';

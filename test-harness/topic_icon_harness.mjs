@@ -95,8 +95,18 @@ if (Array.isArray(TOPICS)) {
   for (const t of TOPICS) {
     for (const ch of [...String((t && t.e) || '')]) {
       const cp = ch.codePointAt(0);
-      // Unicode 13(2020) 이후에 새로 들어온 이모지 구역 — 넉넉히 잡아 막는다
-      if (cp >= 0x1FA70 && cp <= 0x1FAFF) tofu.push(`${t.ko}: U+${cp.toString(16).toUpperCase()}`);
+      /* Unicode 13(2020) 이후에 들어온 이모지들. ⚠️ 「Symbols and Pictographs Extended-A」
+         (U+1FA70~) «만» 보면 🥲 U+1F972·🥸 U+1F978 처럼 옛 구역에 끼워 넣은 것들을 놓친다 —
+         검사 이름은 「Unicode 13+」인데 실제로는 한 구역만 재고 있었다(함정 대조 지적).
+         구역이 아니라 «코드포인트 목록» 으로 막는다(Unicode 13·14·15 신규 이모지). */
+      const U13_PLUS = new Set([
+        0x1F972, 0x1F978, 0x1F979, 0x1F9CB, 0x1F90C, 0x1F90D, 0x1F90E, 0x1F9A3, 0x1F9A4,
+        0x1F9AB, 0x1F9AC, 0x1F9AD, 0x1F9AE, 0x1F9AF, 0x1F6D6, 0x1F6D7, 0x1F6DC, 0x1F6DD,
+        0x1F6DE, 0x1F6DF, 0x1F7F0, 0x1FAE0, 0x1FAF0, 0x1F1FA,
+      ]);
+      if ((cp >= 0x1FA70 && cp <= 0x1FAFF) || U13_PLUS.has(cp)) {
+        tofu.push(`${t.ko}: U+${cp.toString(16).toUpperCase()}`);
+      }
     }
   }
   ok(tofu.length === 0, '폴백 이모지에 Unicode 13+ 가 섞이지 않았다', tofu.join(', '));
@@ -108,7 +118,10 @@ if (Array.isArray(TOPICS)) {
    ⚠️ «호출» 로 세야 한다 — 함수 «선언» 줄이 함께 잡히면 호출 하나를 지워도 통과한다
       (이 저장소가 두 번 밟은 형태). */
 const declCount = (AF.match(/function topicCardHtml\s*\(/g) || []).length;
-const callCount = (AF.match(/topicCardHtml\s*\(\s*t\s*,/g) || []).length;
+/* ⚠️ 「topicCardHtml(t,」 로 세면 «선언» 줄이 함께 잡혀, 호출 하나를 지워도 2가 남아 통과한다.
+      실제로 그렇게 짰다가 함정 대조가 잡았다(이 저장소에서 세 번째다).
+      «부르는» 모양(=> 뒤)만 센다. */
+const callCount = (AF.match(/=>\s*topicCardHtml\s*\(/g) || []).length;
 ok(declCount === 1, `topicCardHtml 선언이 정확히 하나다 (${declCount}개)`);
 ok(callCount >= 2, `두 렌더 자리가 모두 그 헬퍼를 부른다 (호출 ${callCount}곳)`);
 
