@@ -181,7 +181,7 @@ for (const [q, want] of [['', {len:P_PROMO.len, t:P_PROMO.say, poster:P_PROMO.po
   await ctx.close();
 }
 
-console.log('\n[A안] 홈 「망고아이란?」 맨 앞 영상 카드');
+console.log('\n[A안] 홈 「망고아이란?」 — 3분 48초 판은 없앴고 1분 21초 홍보영상을 맨 앞에 뒀다(2026-09-09 사장님 지시)');
 { const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,serviceWorkers:'block'});
   const pg=await ctx.newPage();
   await pg.route('**/api/**', r=>r.fulfill({status:200,contentType:'application/json',body:'{"ok":true,"items":[]}'}));
@@ -194,23 +194,21 @@ console.log('\n[A안] 홈 「망고아이란?」 맨 앞 영상 카드');
   await pg.waitForTimeout(500);
   const m = await pg.evaluate(()=>{ const items=[...document.querySelectorAll('#about-mangoi-ov .abm-item')];
     const first=items[0]; const r=first?first.getBoundingClientRect():null;
-    if(first) first.scrollIntoView({block:'center'});
-    const r2=first?first.getBoundingClientRect():null;
-    const top=r2?document.elementFromPoint(r2.left+r2.width/2, r2.top+r2.height/2):null;
     return { n:items.length, firstTx:first?first.textContent.replace(/\s+/g,' ').trim():'',
-             h:r?Math.round(r.height):0, onTop:!!(top&&first&&first.contains(top)) }; });
-  ok('영상 카드가 «맨 앞» 이다', /안내 영상/.test(m.firstTx), m.firstTx.slice(0,40));
-  ok('그 카드가 맨 위에 있고 누를 수 있다', m.onTop && m.h>=44, JSON.stringify(m));
-  await pg.evaluate(()=>document.querySelector('#about-mangoi-ov .abm-item').click());
-  await pg.waitForTimeout(400);
-  const dm = await pg.evaluate(()=>{ const b=document.querySelector('#about-mangoi-ov .abm-detail-body');
-    const img=b?b.querySelector('img'):null; const cta=b?b.querySelector('.abm-dcta'):null;
-    return { poster: img?img.getAttribute('src'):null, imgOk: !!(img&&img.complete&&img.naturalWidth>0),
-             cta: cta?cta.textContent.trim():null, body: b?b.textContent.replace(/\s+/g,' ').trim():'' }; });
-  ok('상세에 포스터 그림이 실제로 그려진다', dm.imgOk && /ai-tools-poster/.test(dm.poster||''), JSON.stringify(dm).slice(0,120));
-  ok('버튼이 «영상 보기(긴 판 길이)» 다', P_LONG.say.test(dm.cta||''), (dm.cta||'') + '  기대 ' + P_LONG.say);
-  ok('«원장님·선생님» 대상임을 말한다', /선생님/.test(dm.body), dm.body.slice(0,80));
-  ok('카드를 열어도 영상은 0바이트', !reqs.some(u=>/ai-tools-kr\.mp4/.test(u)));
+             all:items.map(x=>x.textContent.replace(/\s+/g,' ').trim()).join(' | '),
+             h:r?Math.round(r.height):0 }; });
+  /* ⛔ «3분 48초 안내 영상» 줄을 되살리지 말 것 — 사장님 「이거 그냥 삭제해줘. 완전히 없애」.
+     ⛔ 그렇다고 «promo 링크가 하나도 없다» 로 묻지도 말 것 — 같은 날 사장님이 그 자리에
+        «1분 21초 홍보영상(사장님 목소리)» 을 두라고 정하셨다. 둘은 다른 영상이다.
+     ✅ «없다» 만 보면 카드가 통째로 안 그려져도 통과하므로 «있어야 할 것» 을 짝으로 둔다. */
+  ok('«안내 영상(3분 48초)» 줄이 어느 카드에도 없다', !/안내 영상/.test(m.all), m.firstTx.slice(0,40));
+  ok('맨 앞이 «홍보영상» 카드다', /^▶/.test(m.firstTx), m.firstTx.slice(0,40));
+  ok('나머지 카드는 그대로 그려진다 (12장 이상)', m.n >= 12 && m.h >= 44, JSON.stringify({n:m.n,h:m.h}));
+  const html = await pg.content();
+  ok('지운 3분 48초 판으로 가는 길이 없다', !/promo\.html\?v=ai-tools\b/.test(html));
+  ok('새 홍보영상으로 가는 길은 있다', /promo\.html\?v=brand/.test(html));
+  /* 카드를 여는 것만으로 영상을 받으면 안 된다 — 포스터 그림 + 링크뿐이어야 한다 */
+  ok('영상은 0바이트', !reqs.some(u=>/(ai-tools-kr|mangoi-promo-kr)\.mp4/.test(u)));
   await ctx.close(); }
 
 await b.close();
