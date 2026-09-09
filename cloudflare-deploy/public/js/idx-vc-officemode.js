@@ -1,6 +1,11 @@
 /* 🏢 사무실 모드 — 옆자리 교사 목소리가 학생에게 덜 들리게 «내 마이크 입력» 을 가공한다.
    (2026-09-08 사장님 요청 — 「사무실에서 주변 교사 목소리가 들리지 않게」)
 
+   🔛 기본값 = 켜짐 (2026-09-09 사장님 「교사한테 항상 켜지는 것을 디폴트값으로」)
+      · 저장값이 «없으면» 켜고, «'0'(사람이 껐음)» 이면 켜지 않는다 — 아래 pref()/wantOn() 참고.
+      · «교사인가» 는 저장값이 아니라 실제로 거는 자리(armOnce → isStaff)가 봅니다.
+        학생 브라우저에서는 armOnce 가 돌아도 아무 일도 안 하고 20초 뒤 끝납니다.
+
    ⚠️ 먼저 알아 둘 것 — 브라우저의 noiseSuppression 은 «사람 목소리» 를 못 지운다.
       그 엔진은 에어컨·팬·키보드 같은 «일정한 잡음» 을 겨냥해 만든 것이고, 옆자리 목소리는
       «지워야 할 잡음» 이 아니라 «지켜야 할 음성» 으로 분류된다. 그래서 잡음 제거를 켜 두어도
@@ -45,17 +50,31 @@
   var TICK_MS  = 25;
 
   var on = false, busy = false;
+  /* 이 «페이지» 에서 켜기가 한 번 실패했는가 — 자동 적용만 그만둔다(사람이 스위치를 누르면 다시 시도).
+     ⚠️ 저장값('0')으로 적지 않는 이유는 아래 enable() 의 실패 처리 주석에 있다. */
+  var autoFailed = false;
   var ctx = null, srcNode = null, hpNode = null, gainNode = null, anaNode = null, destNode = null;
   var rawStream = null;   // 우리가 새로 잡은 원본 마이크 (AGC off)
   var procTrack = null;   // peer 에게 실제로 보내는 가공 트랙
   var timer = null, buf = null, floorDb = -60, openUntil = 0, isOpen = false;
   var srcMicId = '';      // 켜기 «전» 에 쓰던 «진짜» 마이크 장치 id — 되돌릴 때 이것으로 다시 잡는다
 
-  function saved() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+  /* 🔛 저장값은 «셋» 이다 — '1'(켬) · '0'(사람이 껐음) · 없음(아직 안 정함).
+     2026-09-09 사장님 「교사한테 항상 켜지는 것을 디폴트값으로」 → «없음» 을 «켬» 으로 읽는다.
+     ⛔ 두 값으로 뭉개지 마세요 — «아직 안 정함» 과 «사람이 껐음» 이 같아지면
+        교사가 끈 것이 다음 수업에 되살아납니다(CLAUDE.md 「상태가 셋인데 저장이 둘」).
+     ⚠️ 「교사면」 이라는 조건은 여기서 묻지 않습니다 — 이 함수가 불리는 시점에는 역할이
+        아직 안 왔을 수 있습니다. 실제로 거는 자리(armOnce)가 isStaff() 를 «폴링하며» 봅니다.
+        그래서 학생 브라우저에서도 armOnce 는 돌지만 20초 뒤 아무것도 안 하고 끝납니다. */
+  function pref() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function wantOn() { return pref() !== '0'; }
   function remember(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} }
+  /* 「아직 안 정함」으로 되돌린다 — «켜다가 실패한 것» 을 «사람이 껐다» 로 적으면
+     한 번의 일시 장애가 그 교사의 기본값을 영영 꺼 버립니다(다음 수업에 다시 시도해야 합니다). */
+  function forget() { try { localStorage.removeItem(KEY); } catch (e) {} }
   function inCall() { try { return document.body.classList.contains('vc-in-call'); } catch (e) { return false; } }
 
-  /* 🎭 «선생님만» — 2026-09-08 사장님 지시.
+  /* 🎭 «선생님 + 관리자 로그인» — 2026-09-08 「선생님만 쓰게 막아줘」 → 2026-09-09 「사장님 계정도 보이게 넓혀줘」.
      판정은 정본 `vcIsStaffNow()` 하나만 봅니다(그 주석이 「강사 전용 기능은 전부 이걸 쓴다」).
      ⛔ «강사가 아니면 학생»(`!vcIsStaffNow()`)으로 판정하지 않습니다 — 그 판정은 **역할이 아직
         확정되지 않은 강사를 학생으로 오판**합니다(같은 파일 `vcIsStudentNow` 주석의 8/10 사고).
@@ -66,9 +85,33 @@
         함께 걸려 있습니다(CLAUDE.md). 여기서는 «묻기만» 합니다.
      ℹ️ 이것은 보안 게이트가 아닙니다 — 사무실 모드는 «자기 마이크» 만 가공하므로 학생이
         콘솔로 불러도 남에게 영향이 없습니다. 화면을 어지럽히지 않는 것이 목적입니다. */
+  /* 🔑 (2026-09-09 사장님 「사장님 계정도 보이게 넓혀줘」) — 축을 «둘» 로 늘렸습니다.
+     [왜 필요했나] 사장님이 수업 방에 들어가면 화면이 «학생» 으로 잡히는 경우가 있습니다.
+       `index.html` 의 입장 판정(`js/idx-main.js:2625~2642`)이 관리자 로그인을 발견하면
+       「스태프로 입장할까요?」를 묻는데, **취소하면 그 세션은 `vcMyRole='student'`** 입니다.
+       그러면 위 `vcIsStaffNow()` 가 false 라 그 줄이 정상적으로 감춰집니다 — 사장님 화면에
+       「사무실 모드가 없다」로 보이던 것이 이 자리입니다(2026-09-09).
+     [무엇을 봤나] 그 브라우저에 **관리자 로그인이 있는가**(`mangoi_admin_session.uid`).
+       그 키는 교사·본사·지사가 관리자 화면에 로그인할 때만 생기고, 학생 로그인은
+       `mangoi_logged_user` 라 **키 자체가 다릅니다** — 그래서 진짜 학생 브라우저에는 없습니다.
+       같은 키를 같은 뜻으로 이미 읽는 곳: `idx-main.js:2626`.
+     ⛔ **정본 `vcIsStaffNow()` 를 고쳐서 넓히지 않았습니다** — 그 값에는 화면공유·교재 넘김·
+        장치 도우미 «권한» 이 함께 걸려 있어, 거기를 넓히면 사무실 모드와 무관한 것까지 열립니다
+        (CLAUDE.md 「역할 정본을 고쳐서 풀지 마세요」). 넓힌 것은 **이 게이트 하나**입니다.
+     ℹ️ 보안 게이트가 아니라 «화면을 어지럽히지 않기» 가 목적이라 넓혀도 잃는 것이 없습니다 —
+        사무실 모드는 «자기 마이크» 만 가공하므로 남에게 영향이 없습니다.
+     ⚠️ localStorage 를 못 읽으면(사생활 보호 모드 등) false 로 떨어집니다 — 그때도 교사는
+        위 `vcIsStaffNow()` 로 그대로 보이므로, 잃는 것은 «관리자인데 학생으로 입장한» 경우뿐입니다. */
+  function hasAdminLogin() {
+    try {
+      var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+      return !!String(s.uid || '').trim();
+    } catch (e) { return false; }
+  }
   function isStaff() {
-    try { return (typeof window.vcIsStaffNow === 'function') && !!window.vcIsStaffNow(); }
-    catch (e) { return false; }
+    try { if (typeof window.vcIsStaffNow === 'function' && window.vcIsStaffNow()) return true; }
+    catch (e) {}
+    return hasAdminLogin();
   }
   window.vcOfficeModeAllowed = isStaff;
   function localStream() { try { return window.vcLocalStream || null; } catch (e) { return null; } }
@@ -175,10 +218,10 @@
 
   async function enable() {
     if (on || busy) return true;
-    /* ⛔ 선생님 전용. ⚠️ 여기서 저장값을 지우지 않습니다 — 역할이 늦게 오는 강사의 저장값이
+    /* ⛔ 선생님·관리자 전용. ⚠️ 여기서 저장값을 지우지 않습니다 — 역할이 늦게 오는 강사의 저장값이
        그 한 번의 오판으로 사라지면 «다음 수업에도 안 켜지는» 상태가 굳습니다.
        저장값은 사람이 스위치를 눌렀을 때만 바뀝니다. */
-    if (!isStaff()) { console.log('[office] 선생님 전용입니다 — 건너뜁니다'); return false; }
+    if (!isStaff()) { console.log('[office] 선생님·관리자 전용입니다 — 건너뜁니다'); return false; }
     if (!inCall() || !localStream()) { remember(true); return true; }  // 수업에 들어갈 때 다시 건다
     busy = true;
     try {
@@ -227,7 +270,9 @@
 
       if (!swapTrack(procTrack)) throw new Error('트랙 교체 실패');
 
-      on = true; remember(true);
+      /* 한 번이라도 성공했으면 «이 기기에서는 된다» 는 뜻 — 자동 적용 차단을 푼다.
+         (사람이 스위치로 켜서 성공한 경우도 여기로 온다.) */
+      on = true; remember(true); autoFailed = false;
       timer = setInterval(tick, TICK_MS);
       console.log('[office] 사무실 모드 켜짐 — AGC off + 하이패스 120Hz + 노이즈 게이트');
       busy = false;
@@ -236,7 +281,12 @@
       console.warn('[office] 켜기 실패 — 원래대로 되돌립니다:', e);
       teardown(); on = false; busy = false;
       try { await restorePlainMic(); } catch (e2) {}
-      remember(false);
+      /* ⛔ remember(false) 로 적지 않는다 — 그러면 «일시 장애» 가 «사람이 껐다» 로 굳어
+         기본 켜짐(2026-09-09)이 그 브라우저에서 영영 사라진다. 「아직 안 정함」으로 되돌린다.
+         ⚠️ 대신 이 페이지에서는 «자동으로» 다시 시도하지 않는다 — 계속 실패하는 기기에서
+            수업마다 마이크를 다시 잡는 일이 되풀이되지 않게. 사람이 스위치를 누르면 다시 시도한다. */
+      forget();
+      autoFailed = true;
       return false;
     }
   }
@@ -332,7 +382,7 @@
         (2026-09-08 함정 대조 실측: 그 순서에서 vcOfficeModeOn() 이 영영 false 였다.)
      ⇒ «수업이 시작되기를» 잠깐 기다렸다가, 시작된 뒤에 마이크가 서면 건다. */
   function armOnce() {
-    if (pending) return;
+    if (pending || autoFailed) return;
     var tries = 0, sawCall = false;
     pending = setInterval(function () {
       tries++;
@@ -343,7 +393,7 @@
       if (!isStaff()) return;   // 역할이 아직 안 왔을 수 있다 — 학생이면 그대로 20초 뒤 포기한다
       if (localStream() && audioTrack()) {
         clearInterval(pending); pending = null;
-        if (saved() && !on) enable();
+        if (wantOn() && !on) enable();
       }
     }, 500);
   }
@@ -359,7 +409,7 @@
            수업 화면으로 «가는» 전환이면 걸고, 수업 «밖» 으로 나가는 전환이면 끈다. */
         var toCall = false;
         try { toCall = String(arguments[0] || '').indexOf('videocall') >= 0; } catch (e2) {}
-        if (toCall) { if (saved()) armOnce(); }
+        if (toCall) { if (wantOn()) armOnce(); }
         else if (on) disable(true);   // 수업이 끝난 것 — «사람이 끈 것» 이 아니므로 저장값은 지킨다
       } catch (e) {}
       return r;
@@ -373,7 +423,7 @@
     bootWraps();
     if (!hookShowView()) setTimeout(hookShowView, 1500);
     /* 이미 수업 중에 이 파일이 늦게 실린 경우 — armOnce 가 스스로 «입장했나» 를 확인하므로 그냥 건다. */
-    if (saved()) armOnce();
+    if (wantOn()) armOnce();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
