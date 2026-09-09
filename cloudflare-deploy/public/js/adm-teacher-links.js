@@ -18,6 +18,7 @@
   var _tlAccounts = [];   // [{username, last_login_at}]
   var _tlLinks = {};      // username → {teacher_id, teacher_name}
   var _tlLoaded = false;
+  var _tlShowLeft = false;  // 「퇴사 강사도 보기」 체크 상태 (tlRender 가 매번 다시 읽는다)
 
   function esc(v) {
     return String(v == null ? '' : v).replace(/[<>&"]/g, function (c) {
@@ -31,6 +32,15 @@
     if (isNaN(d.getTime())) return '—';
     var p = function (n) { return String(n).padStart(2, '0'); };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  /* 🚪 «퇴사(비활성) 강사인가» — 판정은 여기 한 곳뿐이다.
+     ⚠️ 모르면 «재직» 으로 둔다. 숨기는 쪽으로 실패하면 멀쩡한 강사가 목록에서 조용히 사라져
+        연결 자체를 못 하게 된다(빠지는 쪽이 훨씬 나쁘다). teachers.active 는 NULL 이 들어갈 수
+        있고(스키마 DEFAULT 1 · 서버도 곳곳에서 COALESCE(active,1) 를 쓴다) `Number(null) === 0`
+        이 참이므로 null 검사를 먼저 해야 한다. */
+  function tlIsLeft(t) {
+    return !!t && t.active != null && Number(t.active) === 0;
   }
 
   window.tlLoad = async function () {
@@ -64,6 +74,7 @@
     var en = isEn();
     var q = String((document.getElementById('tl-search') || {}).value || '').trim().toLowerCase();
     var onlyUnlinked = !!(document.getElementById('tl-only-unlinked') || {}).checked;
+    _tlShowLeft = !!(document.getElementById('tl-show-left') || {}).checked;
 
     var rows = _tlAccounts.filter(function (a) {
       if (q && String(a.username).toLowerCase().indexOf(q) < 0) return false;
@@ -111,8 +122,18 @@
       var opts = '<option value="">' + (en ? '— not linked —' : '— 연결 안 됨 —') + '</option>';
       _tlTeachers.forEach(function (t) {
         var mine = cur && cur.teacher_id === t.id;
+        var left = tlIsLeft(t);
+        /* 🚪 (2026-09-09) 퇴사 강사는 기본으로 목록에서 뺀다.
+           왜 — 이 드롭다운만 active 를 안 걸러서, 같은 사람이 원부에 두 줄로 있으면
+           («FAR»(id 22, 재직) 과 «HT FARRAH»(id 3, 퇴사)) 여기서 잘못 고르기 쉬웠다.
+           그 연결은 출근·급여가 갈리는 자리라 조용히 틀리면 되돌리기 어렵다.
+           ⛔ 이미 그 강사에게 이어진 계정(mine)은 «절대» 숨기지 않는다 — 숨기면 그 줄이
+              「연결 안 됨」으로 보여, 사람이 멀쩡한 연결을 다시 만들려 든다.
+           ✅ 되돌릴 길은 화면에 둔다 — 「퇴사 강사도 보기」 체크박스(#tl-show-left). */
+        if (left && !mine && !_tlShowLeft) return;
         var takenBy = usedBy[t.id];
         var tag = (takenBy && !mine) ? ' (' + (en ? 'used: ' : '사용 중: ') + takenBy + ')' : '';
+        if (left) tag += ' (' + (en ? 'left' : '퇴사') + ')';
         opts += '<option value="' + esc(t.id) + '"' + (mine ? ' selected' : '') + '>'
              + esc(t.name) + tag + '</option>';
       });
