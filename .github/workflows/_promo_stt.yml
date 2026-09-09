@@ -1,0 +1,35 @@
+# 임시 — 나레이션 받아쓰기. main 에 올리지 않는다.
+# 왜: 이 작업 컨테이너에는 오디오 디코더가 없어 «무슨 말인지» 를 알 수 없다.
+#     화면(슬라이드)을 말에 맞추려면 글자가 먼저 필요하다.
+name: promo-stt
+on: { push: { branches: [video12] } }
+permissions: { contents: write }
+jobs:
+  stt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -q faster-whisper
+      - name: 받아쓰기 (한국어)
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/narration.mp3
+          python3 - <<'PY' > .promo/transcript.txt
+          from faster_whisper import WhisperModel
+          m = WhisperModel("large-v3", device="cpu", compute_type="int8")
+          segs, info = m.transcribe(".promo/narration.mp3", language="ko",
+                                    vad_filter=True, beam_size=5,
+                                    vad_parameters=dict(min_silence_duration_ms=300))
+          print(f"# language={info.language} prob={info.language_probability:.2f} dur={info.duration:.2f}")
+          for s in segs:
+              print(f"[{s.start:7.2f} → {s.end:7.2f}] {s.text.strip()}")
+          PY
+          cat .promo/transcript.txt
+      - name: 결과 커밋
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add .promo/transcript.txt
+          git commit -m "stt: 나레이션 받아쓰기 [skip ci]" || exit 0
+          git push origin HEAD:video12
