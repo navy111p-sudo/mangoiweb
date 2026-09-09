@@ -233,5 +233,83 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   }
 }
 
+/* ── 🐢 입 바꾸는 속도 (v8, 2026-09-09) ─────────────────────────────────────
+   사장님 「Emma 의 입이 너무 빨리 움직여 — Lily·Noah 처럼」.
+   원인은 «횟수» 가 아니라 «한 번 바꿀 때 화면이 얼마나 달라지는가» 였다(실측은 mango-avatar.js 머리말 v8).
+   Emma 의 세 입모양은 8초 영상의 «서로 다른 순간» 이라 고개·눈·어깨가 함께 움직이고,
+   Lily·Noah 는 같은 좌표계에서 «입만» 오려 낸 세 장이다.
+   ⚠️ Jake 는 재지 못했다(hero-avatar.mp4 가 H.264 라 이 컨테이너가 디코드 못 함) — 같이
+      늦춘 것은 «영상 seek 이라는 같은 경로» 라는 판단이고, 측정이 아니다.
+   ⚠️ 문자열로 「hold 가 있는가」만 보면 못 잡는다 — 표를 읽어 «관계» 로 묻고, 배선은
+      그 게이트가 «상수가 아니라 캐릭터 값» 을 쓰는지로 묻는다(상수를 다시 박으면 FAIL). */
+if (CH) {
+  const imgChars = Object.keys(CH).filter(k => CH[k].frames);
+  const vidChars = Object.keys(CH).filter(k => CH[k].sources);
+  const DEF = AV.match(/var MIN_SWITCH_MS = (\d+), FADE_MS = (\d+);/);
+  ok(!!DEF, '기본 hold·fade 선언을 찾았다 (MIN_SWITCH_MS·FADE_MS)');
+  const defHold = DEF ? Number(DEF[1]) : 90, defFade = DEF ? Number(DEF[2]) : 130;
+  const holdOf = k => (CH[k].hold > 0 ? CH[k].hold : defHold);
+  const fadeOf = k => (CH[k].fade > 0 ? CH[k].fade : defFade);
+
+  // ① 영상 캐릭터는 이미지 캐릭터보다 «느리게» 바뀌어야 한다 — 한 번의 변화가 훨씬 크기 때문.
+  //    ⛔ 숫자(200)를 못 박지 않는다: 나중에 180·220 으로 다듬어도 뜻은 그대로여야 한다.
+  // ⚠️ 이미지 캐릭터가 하나도 없으면 Math.max() 가 -Infinity 라 아래가 «언제나 참» 이 된다.
+  //    검사가 조용히 아무것도 안 재는 상태를 막으려고 전제부터 묻는다.
+  ok(imgChars.length > 0 && vidChars.length > 0,
+    `견줄 두 종류가 다 있다 (영상 ${vidChars.length} · 이미지 ${imgChars.length})`);
+  const slowestImg = Math.max(...imgChars.map(holdOf));
+  for (const k of vidChars) {
+    ok(holdOf(k) > slowestImg,
+      `${k}(영상): 이미지 캐릭터보다 입을 천천히 바꾼다 (${holdOf(k)}ms > ${slowestImg}ms)`,
+      '영상 캐릭터는 입모양 세 장이 «영상의 다른 순간» 이라 바뀔 때 얼굴째 움직인다 — '
+      + '같은 속도로 바꾸면 «입이 빠르다» 가 아니라 «덜덜거린다» 로 보입니다(2026-09-09 사장님 제보)');
+  }
+  // ② Lily·Noah 는 사장님이 «이렇게 해 달라» 고 하신 기준이다 — 함께 늦추면 안 된다.
+  for (const k of imgChars) {
+    ok(holdOf(k) === defHold && fadeOf(k) === defFade,
+      `${k}(이미지): 예전 속도 그대로다 (${holdOf(k)}ms · ${fadeOf(k)}ms)`,
+      'Lily·Noah 는 지금이 기준입니다 — 여기를 늦추면 비교 대상이 사라집니다');
+  }
+  // ③ 섞는 시간이 바꾸는 간격보다 길면 앞 전환이 끝나기 전에 다음 전환이 와서 두 얼굴이
+  //    계속 겹쳐 보인다 — «얼굴째 움직이는» 영상 캐릭터에서만 눈에 띈다.
+  //    ⚠️ 기본값은 fade 130 > hold 90 이고 Lily·Noah 가 그 상태인데 **그게 정상이다**:
+  //       그쪽은 한 번에 바뀌는 픽셀이 2~3% 뿐이라 겹쳐도 안 보인다(사장님이 고른 기준).
+  //       그래서 이 규칙은 «hold 를 스스로 적은 캐릭터»(= 늦추기로 한 캐릭터)에만 건다.
+  //    ⛔ 이 검사를 전체 캐릭터로 넓히지 마세요 — Lily·Noah 를 «고치러» 가게 됩니다.
+  const tuned = Object.keys(CH).filter(k => CH[k].hold > 0);
+  ok(tuned.length > 0, `속도를 따로 정한 캐릭터가 있다 (${tuned.join(', ') || '없음'})`,
+    '이 목록이 비면 아래 검사가 조용히 아무것도 안 재게 됩니다');
+  for (const k of tuned) {
+    ok(fadeOf(k) <= holdOf(k),
+      `${k}: 섞는 시간이 바꾸는 간격을 넘지 않는다 (fade ${fadeOf(k)} ≤ hold ${holdOf(k)})`,
+      '넘으면 앞 얼굴이 채 사라지기 전에 다음 얼굴이 겹칩니다');
+  }
+
+  // ④ 배선 — 게이트가 «캐릭터 값» 을 실제로 쓰는가. 상수로 되돌리면 여기서 걸린다.
+  const gates = (AV.match(/if\(now - lastSwitchAt < curHold\) return;/g) || []).length;
+  ok(gates === 2, `showTier 의 두 갈래(이미지·영상)가 모두 캐릭터 hold 를 본다 (${gates}/2)`,
+    '한쪽만 고치면 그 갈래만 조용히 옛 속도로 돕니다');
+  ok(/\(Date\.now\(\) - fadeT0\) \/ curFade/.test(AV),
+    'keyFrame 의 섞기가 캐릭터 fade 를 본다');
+  ok(/curHold = \(c\.hold > 0\)/.test(AV) && /curFade = \(c\.fade > 0\)/.test(AV),
+    'applyFrame 이 캐릭터마다 hold·fade 를 다시 정한다',
+    '여기서 안 정하면 캐릭터를 바꿔도 앞 캐릭터의 속도가 그대로 남습니다');
+
+  // ⑤ 🔴 var 호이스팅 — 선언을 applyFrame 아래로 내리면 첫 applyFrame(curChar) 이
+  //    undefined 를 읽어, hold 를 안 적은 캐릭터의 최소 유지시간이 «조용히 0» 이 된다.
+  //    (var 는 «선언» 만 끌어올려지고 값은 안 끌어올려집니다 — 에러가 안 납니다)
+  const iDecl = AV.indexOf('var MIN_SWITCH_MS =');
+  const iUse  = AV.indexOf('applyFrame(curChar);');
+  ok(iDecl > 0 && iUse > 0 && iDecl < iUse,
+    '기본값 선언이 첫 applyFrame(curChar) 호출보다 «위» 에 있다',
+    'var 는 값이 끌어올려지지 않습니다 — 아래에 두면 그 순간 undefined 를 읽습니다');
+
+  // ⑥ 음성합성 폴백의 장 넘기는 간격은 hold 보다 커야 한다(작으면 입이 한 장에 굳는다).
+  //    숫자를 박지 말고 curHold 에서 끌어오는지 본다.
+  ok(/var seqMs = Math\.max\(\d+, curHold \+ \d+\);/.test(AV),
+    '음성합성 폴백의 장 넘기는 간격이 hold 를 따라간다',
+    '150 처럼 숫자를 박아 두면 hold 를 늘렸을 때 입이 한 장에 굳습니다');
+}
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
