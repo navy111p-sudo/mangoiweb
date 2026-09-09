@@ -807,17 +807,23 @@
           그래서 **다른 class 의 진짜 링크**로 두면 어느 쪽에도 안 걸리고, 리스너 없이
           브라우저가 그냥 이동시킨다 — 가로채기와 싸울 일이 없다.
        ⛔ class 를 .ph85-head/.ph85-sub 로 바꾸지 말 것(그 순간 삼켜진다).
-       [배지] 숫자는 admin.html 의 결재 블록이 **같은 API 호출 한 번**으로 채운다.
+       [배지] 숫자는 /js/adm-appr-badge.js(결재 배지 블록 — 2026-09-09 admin.html 인라인에서 defer 파일로 분리)가 **같은 API 호출 한 번**으로 채운다.
           여기서 또 부르면 첫 화면에서 같은 요청이 두 번 나간다. */
     var appr = document.createElement('a');
     appr.id = 'ia6-appr';
     appr.href = '/work';
-    appr.setAttribute('data-ko', '결재함');
-    appr.setAttribute('data-en', 'Approvals');
+    /* ⛔ data-ko/data-en 을 <a> 자체에 달지 말 것 (2026-09-09 수리).
+       adm-core.js 의 toggleAdminLang 이 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로,
+       <a> 에 달려 있던 동안 EN/KO 를 한 번 누르면 아이콘·배지(#ia6-appr-n)·부제가 전부 지워졌다
+       (CLAUDE.md 2장 「아이콘 버튼에 data-ko 를 달았더니」와 같은 함정). 글자만 담은 span 에만 단다.
+       [부제] #ia6-appr-sub 는 /js/adm-appr-badge.js 가 «지연 N · N일째» 를 채운다 — 여기서 글자를 쓰지 않는다. */
     appr.innerHTML =
       '<div class="ph85-ico">' + svg('<path d="M3 13h4l2 3h6l2-3h4"/>' +
         '<path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>') + '</div>' +
-      '<div class="ia6-appr-t">' + (en ? 'Approvals' : '결재함') + '</div>' +
+      '<div class="ia6-appr-t">' +
+        '<span class="ia6-appr-l" data-ko="결재함" data-en="Approvals">' + (en ? 'Approvals' : '결재함') + '</span>' +
+        '<span id="ia6-appr-sub" class="ia6-appr-sub"></span>' +
+      '</div>' +
       '<span id="ia6-appr-n" class="ia6-appr-n"></span>';
     frag.appendChild(appr);
 
