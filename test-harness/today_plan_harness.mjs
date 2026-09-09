@@ -401,7 +401,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* mp4 헤더(mvhd)에서 «진짜 길이» 를 읽는다 */
   const realSecOf = (rel) => {
     try {
-      const d = readFileSync(join(PUB, rel.replace(/^\//, '')));
+      const d = readFileSync(join(PUB, String(rel).split('?')[0].replace(/^\//, '')));
       const k = d.indexOf(Buffer.from('mvhd'));
       if (k <= 0) return -1;
       const ver = d[k + 4];
@@ -410,12 +410,20 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     } catch { return -1; }
   };
 
+  /* 🔴 캐시용 쿼리(?v=)는 «주소» 의 일부이지 «파일» 이 아니다 — 파일을 찾을 때는 뗀다.
+        ⚠️ 영상을 «같은 이름으로» 갈아 끼우면 src/index.ts 의 미디어 Cache-Control 이
+           7일(max-age=604800)이라 **옛 영상이 최대 7일 남는다**. 그래서 내용이 바뀌면
+           ?v= 를 올려 주소를 갈라야 하고, 즉 src 에 쿼리가 «붙는 것이 정상» 이다.
+           (2026-09-09: 목소리를 바꿔 놓고 ?v= 를 안 붙여, 제보하신 사장님 화면에는
+            옛 37초 AI 목소리 판이 그대로 나올 뻔했다 — 함정 대조가 잡았다.) */
+  const assetRel = (u) => String(u || '').split('?')[0].replace(/^\//, '');
+
   for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT]]) {
     check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
       `src=${P.src} len=${P.len} poster=${P.poster}`);
     /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
-    check(`⑨ [${nm}] 영상 파일이 저장소에 실제로 있다`, !!P.src && existsSync(join(PUB, P.src.replace(/^\//, ''))), P.src);
-    check(`⑨ [${nm}] 포스터 그림이 저장소에 실제로 있다`, !!P.poster && existsSync(join(PUB, P.poster.replace(/^\//, ''))), P.poster);
+    check(`⑨ [${nm}] 영상 파일이 저장소에 실제로 있다`, !!P.src && existsSync(join(PUB, assetRel(P.src))), P.src);
+    check(`⑨ [${nm}] 포스터 그림이 저장소에 실제로 있다`, !!P.poster && existsSync(join(PUB, assetRel(P.poster))), P.poster);
     /* ② 화면이 말하는 길이가 진짜 길이와 같은가 — 숫자를 정규식으로 못 박지 않는다.
           영상을 갈아 끼우면 이 검사가 어긋남을 알린다. */
     const real = realSecOf(P.src);
@@ -424,7 +432,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     check(`⑨ [${nm}] 화면이 말하는 길이가 영상의 진짜 길이와 같다 (±5초)`,
       real > 0 && Math.abs(real - said) <= 5, `화면 ${P.len}(${said}s) vs 실제 ${real.toFixed(1)}s`);
     let kb = 0;
-    try { kb = readFileSync(join(PUB, P.poster.replace(/^\//, ''))).length / 1024; } catch {}
+    try { kb = readFileSync(join(PUB, assetRel(P.poster))).length / 1024; } catch {}
     check(`⑨ [${nm}] 포스터가 120KB 이하다`, kb > 0 && kb <= 120, kb.toFixed(1) + 'KB');
     /* 🔴 Cloudflare Workers 정적자산은 «파일 하나 25 MiB» 가 한도다 — Free·Paid 동일
           (developers.cloudflare.com/workers/platform/limits — 2026-09-05 문서 확인).
@@ -435,10 +443,18 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
        ⛔ 한도를 늘려서 통과시키지 말 것 — 그건 Cloudflare 가 정하는 숫자다.
           넘으면 길이를 줄이거나 화질(crf)을 낮추거나 R2 로 옮겨야 한다. */
     let mib = 0;
-    try { mib = statSync(join(PUB, P.src.replace(/^\//, ''))).size / 1048576; } catch {}
+    try { mib = statSync(join(PUB, assetRel(P.src))).size / 1048576; } catch {}
     check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, mib > 0 && mib < 25,
       `${mib.toFixed(2)} MiB · 남은 여유 ${((25 - mib) * 1024).toFixed(0)} KiB`);
   }
+  /* 🔴 짧은 판은 «같은 이름으로» 여러 번 갈아 끼운 파일이다(2026-09-05 부터 네 번).
+        ?v= 가 없으면 옛 판이 최대 7일 남아 「고쳤는데 안 고쳐졌다」가 된다.
+        ⛔ 영상 내용을 바꾸면 이 번호를 «반드시» 올릴 것 — 그래야 주소가 갈린다.
+        ℹ️ 긴 판은 이번에 내용이 안 바뀌어 일부러 안 붙였다(붙이면 24MB 를 전원이 다시 받는다).
+           다음에 갈아 끼울 때 함께 붙일 것. */
+  check('⑨ 짧은 판 주소에 캐시를 가르는 ?v= 가 있다', /[?&]v=/.test(String(P_SHORT.src)),
+    P_SHORT.src);
+
   /* 짧은 판이 «짧은가» — 학생 화면에 3분짜리를 걸어 두면 이 기능의 취지가 사라진다 */
   check('⑨ 짧은 판이 실제로 1분 미만이다', realSecOf(P_SHORT.src) > 0 && realSecOf(P_SHORT.src) < 60,
     realSecOf(P_SHORT.src).toFixed(1) + 's');
@@ -451,23 +467,19 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
 
   /* 🪤 포스터 주소가 «두 곳» 에 있다(promo 프리셋 · about 카드의 <img>).
         개명하면 카드 그림만 조용히 404 가 된다 → «같은 파일을 가리키는가» 로 대조한다. */
-  const aboutPoster = (about.match(/<img src="(\/img\/promo\/[^"]+)"/) || [])[1] || '';
-  check('⑨ 두 곳이 같은 포스터를 가리킨다', !!aboutPoster && aboutPoster === vposter,
-    `about=${aboutPoster} promo=${vposter}`);
+  /* 🔴 (2026-09-09 사장님 지시) 「망고아이란?」 카드의 «▶ 안내 영상 — 3분 48초로 보기» 줄은
+        **없앴습니다** — 「이거 그냥 삭제해줘. 필요없어. 완전히 없애」.
+        ⛔ 되살리지 말 것(CLAUDE.md 1-3 «되살리면 안 되는 것»). 아래 검사가 그것을 못 박는다.
+        ℹ️ 영상 자체와 /promo.html 주소는 그대로 살아 있다 — 없앤 것은 «홈 카드의 그 줄» 이다. */
 
-  /* ── A안 — 「망고아이란?」 맨 앞 카드 ── */
-  /* ⛔ «앞 N자 안에 그 글자가 있나» 로 보지 않는다 — 설명 주석이 길어지면 그대로 헛돈다
-        (실제로 한 번 그렇게 짰다가 멀쩡한 코드가 FAIL 났다).
-        카드 «객체» 의 모양(`{ic:…, t:…}`)으로 찾으면 주석은 애초에 안 걸린다. */
+  /* ── A안(「망고아이란?」 카드의 안내 영상 줄) — 2026-09-09 에 사장님 지시로 삭제 ── */
+  /* ⚠️ 이 `cards` 는 «파일에 그 객체가 적혀 있는가» 일 뿐 «화면에 그려지는가» 가 아니다 —
+        변이시험에서 배열을 통째로 딴 이름으로 옮겨도 이 정규식은 그대로 13장을 셌다.
+        «정말 그려지는가» 는 `manual/video-entry-browser.mjs` A절(실제 DOM)이 본다. */
   const cards = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
-  check('⑨ A안 — 영상 카드가 BENEFITS 맨 앞이다',
-    cards.length > 1 && /안내 영상/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
-  check('⑨ A안 — 그 카드가 /promo.html?v=ai-tools 로 간다', /promo\.html\?v=ai-tools/.test(about));
-  /* ⚠️ 인앱 브라우저는 새 창을 못 열고 null 만 준다 — 폴백이 없으면 카톡에서 «눌러도 아무 일 없음» */
-  check('⑨ A안 — window.open 이 막히면 location.href 로 폴백한다',
-    /w\s*=\s*window\.open\([^)]*\)/.test(about) && /else\s*\{\s*location\.href\s*=\s*u;?\s*\}/.test(about));
-  check('⑨ A안 — 기능 문자열에 noopener 를 주지 않는다 (반환이 늘 null 이 된다)',
-    !/window\.open\([^)]*'noopener'/.test(about));
+  check('⑨ 「망고아이란?」 카드에 안내 영상 줄이 없다 (2026-09-09 지시)',
+    cards.length > 1 && !cards.some(t => /안내 영상/.test(t)) && !/promo\.html/.test(about),
+    `카드 ${cards.length}장 · 첫 장 「${cards[0] || '(없음)'}」`);
 
   /* ── B안 — today.html 첫 방문자 한 줄 ── */
   const todayHtml2 = readFileSync(join(PUB, 'today.html'), 'utf8');
@@ -507,8 +519,8 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     /promo\.html\?v=ai-tools-short/.test(todayJs2) && /promo\.html\?v=ai-tools-short/.test(todayHtml2));
   check('⑨ 학생 화면이 긴 판을 가리키지 않는다',
     !/promo\.html\?v=ai-tools(?!-short)/.test(todayJs2) && !/promo\.html\?v=ai-tools(?!-short)/.test(todayHtml2));
-  check('⑨ 「망고아이란?」 카드는 «긴 판» 을 가리키고 대상을 밝힌다',
-    /promo\.html\?v=ai-tools(?!-short)/.test(about) && /원장님·선생님/.test(about));
+  /* 2026-09-09: 그 줄을 없앴으므로 이제 «가리키지 않는 것» 이 맞다 */
+  check('⑨ 「망고아이란?」 카드가 이제 영상으로 가지 않는다', !/promo\.html/.test(about));
   check('⑨ 긴 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
   /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
   check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
