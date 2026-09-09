@@ -610,8 +610,19 @@ console.log('\n[ ⑩ 맛보기(로그인 없이) ]');
   /* 0 인 값을 그리면 «너는 아무것도 안 했다» 로 읽힌다 */
   check('⑩ 맛보기에서 연속일·포인트 칩을 그리지 않는다',
     /if \(!d\.sample\) \{[\s\S]{0,400}?chip streak[\s\S]{0,400}?chip pts/.test(tjs));
-  /* ?v= 원장 — 화면 코드를 고쳤으면 번호가 올라가야 한다(immutable 캐시) */
-  check('⑩ today.html 이 새 today-page.js 를 부른다', /today-page\.js\?v=7/.test(thtml));
+  /* ?v= 원장 — 화면 코드를 고쳤으면 번호가 올라가야 한다(immutable 캐시).
+     ⛔ 번호를 «글자 그대로» 못 박지 말 것 — 규칙대로 올릴 때마다 «보장은 세졌는데 검사만»
+        빨간불이 된다(2026-09-09 실제로 밟음: v=7 → v=8 로 올리자 이 줄이 FAIL).
+     ✅ 물어야 할 것은 «몇 번인가» 가 아니라 «버전을 달고 부르는가 + 그 번호가 원장에 있는가».
+        «내용이 바뀌었는데 번호를 안 올렸다» 는 asset_version_harness 가 따로 잡는다. */
+  const tpv = (thtml.match(/today-page\.js\?v=(\d+)/) || [])[1];
+  let tpvInLedger = false;
+  try {
+    const led = JSON.parse(rd(join(__dir, 'asset-versions.json')));
+    tpvInLedger = Object.prototype.hasOwnProperty.call(led, '/js/today-page.js?v=' + tpv);
+  } catch { /* 원장을 못 읽으면 아래에서 FAIL 로 드러난다 */ }
+  check('⑩ today.html 이 today-page.js 를 «버전을 달고» 부르고 그 번호가 원장에 있다',
+    !!tpv && tpvInLedger, `?v=${tpv || '(없음)'} · 원장에 ${tpvInLedger ? '있음' : '없음'}`);
 }
 
 try { rmSync(tmp, { recursive: true, force: true }); } catch {}
