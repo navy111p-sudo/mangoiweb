@@ -390,12 +390,17 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* 프리셋이 «둘» 이다 — 3분 35초(원장·강사) · 39초(학생·학부모).
      ⛔ 한쪽만 검사하지 말 것: 각 프리셋은 «자기 영상» 의 사실을 말해야 한다. */
   const readPreset = (key) => {
-    const m = promo.match(new RegExp("'" + key + "'\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
+    /* ⚠️ 키는 따옴표가 있을 수도(‘ai-tools’ — 하이픈 때문) 없을 수도(brand) 있다.
+          따옴표 친 것만 읽으면 새 프리셋이 «없는 것» 으로 조용히 통과한다(2026-09-09 실측). */
+    const m = promo.match(new RegExp("(?:'" + key + "'|" + key + ")\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
     const blk = m ? m[1] : '';
     const pick = (k) => { const x = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return x ? x[1] : ''; };
     return { ok: !!m, blk, src: pick('src'), len: pick('len'), poster: pick('poster') };
   };
   const P_LONG = readPreset('ai-tools'), P_SHORT = readPreset('ai-tools-short');
+  /* 🎬 2026-09-09 신설 — 사람 목소리 나레이션으로 만든 짧은 홍보영상.
+     ⛔ 프리셋을 늘리면 «여기» 에도 더할 것. 안 더하면 파일이 없어도 조용히 통과한다. */
+  const P_BRAND = readPreset('brand');
   const vsrc = P_LONG.src, vposter = P_LONG.poster;
 
   /* mp4 헤더(mvhd)에서 «진짜 길이» 를 읽는다 */
@@ -410,7 +415,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     } catch { return -1; }
   };
 
-  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT]]) {
+  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT], ['홍보 판', P_BRAND]]) {
     check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
       `src=${P.src} len=${P.len} poster=${P.poster}`);
     /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
@@ -435,8 +440,9 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
        ⛔ 한도를 늘려서 통과시키지 말 것 — 그건 Cloudflare 가 정하는 숫자다.
           넘으면 길이를 줄이거나 화질(crf)을 낮추거나 R2 로 옮겨야 한다. */
     let mib = 0;
-    try { mib = statSync(join(PUB, P.src.replace(/^\//, ''))).size / 1048576; } catch {}
-    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, mib > 0 && mib < 25,
+    /* ⛔ src 가 비면 join(PUB,'') 이 «폴더» 를 재서 통과해 버린다 — 먼저 막는다 */
+    try { if (P.src) mib = statSync(join(PUB, P.src.replace(/^\//, ''))).size / 1048576; } catch {}
+    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, !!P.src && mib > 0 && mib < 25,
       `${mib.toFixed(2)} MiB · 남은 여유 ${((25 - mib) * 1024).toFixed(0)} KiB`);
   }
   /* 짧은 판이 «짧은가» — 학생 화면에 3분짜리를 걸어 두면 이 기능의 취지가 사라진다 */
@@ -452,17 +458,29 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* 🪤 포스터 주소가 «두 곳» 에 있다(promo 프리셋 · about 카드의 <img>).
         개명하면 카드 그림만 조용히 404 가 된다 → «같은 파일을 가리키는가» 로 대조한다. */
   const aboutPoster = (about.match(/<img src="(\/img\/promo\/[^"]+)"/) || [])[1] || '';
-  check('⑨ 두 곳이 같은 포스터를 가리킨다', !!aboutPoster && aboutPoster === vposter,
-    `about=${aboutPoster} promo=${vposter}`);
+  /* ⛔ «ai-tools 의 포스터와 같은가» 로 못 박지 말 것 — 카드가 가리키는 영상이 바뀌면
+        보장은 그대로인데 검사만 깨진다(2026-09-09 실제로 그렇게 깨졌다).
+        물어야 할 것은 «그 카드가 «자기가 링크하는» 프리셋의 포스터를 그리는가» 다. */
+  const leadV = (about.match(/promo\.html\?v=([\w-]+)/) || [])[1] || '';
+  const leadP = leadV ? readPreset(leadV) : { poster: '' };
+  check('⑨ 맨 앞 카드가 «자기가 여는 영상» 의 포스터를 그린다',
+    !!aboutPoster && !!leadP.poster && aboutPoster === leadP.poster,
+    `card=${aboutPoster} preset(${leadV})=${leadP.poster}`);
 
   /* ── A안 — 「망고아이란?」 맨 앞 카드 ── */
   /* ⛔ «앞 N자 안에 그 글자가 있나» 로 보지 않는다 — 설명 주석이 길어지면 그대로 헛돈다
         (실제로 한 번 그렇게 짰다가 멀쩡한 코드가 FAIL 났다).
         카드 «객체» 의 모양(`{ic:…, t:…}`)으로 찾으면 주석은 애초에 안 걸린다. */
   const cards = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
+  /* ⛔ «안내 영상» 이라는 «글자» 로 못 박지 말 것 — 어느 영상을 맨 앞에 두는가는 사람이 정한다.
+        지켜야 하는 것은 «맨 앞이 영상 카드인가» 와 «그 카드가 실재하는 프리셋으로 가는가» 다. */
   check('⑨ A안 — 영상 카드가 BENEFITS 맨 앞이다',
-    cards.length > 1 && /안내 영상/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
-  check('⑨ A안 — 그 카드가 /promo.html?v=ai-tools 로 간다', /promo\.html\?v=ai-tools/.test(about));
+    cards.length > 1 && /^▶/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
+  check('⑨ A안 — 그 카드가 실재하는 promo 프리셋으로 간다',
+    !!leadV && leadP.ok && !!leadP.src, `v=${leadV} src=${leadP.src}`);
+  /* 3분 48초 판을 «지우지 않았는가» — 대상이 달라 둘 다 남기기로 했다(2026-09-09) */
+  check('⑨ A안 — 원장·강사용 안내 영상 카드도 남아 있다',
+    cards.some(t => /안내 영상/.test(t)), cards.filter(t => /^▶/.test(t)).join(' | '));
   /* ⚠️ 인앱 브라우저는 새 창을 못 열고 null 만 준다 — 폴백이 없으면 카톡에서 «눌러도 아무 일 없음» */
   check('⑨ A안 — window.open 이 막히면 location.href 로 폴백한다',
     /w\s*=\s*window\.open\([^)]*\)/.test(about) && /else\s*\{\s*location\.href\s*=\s*u;?\s*\}/.test(about));
