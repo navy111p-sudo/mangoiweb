@@ -11085,7 +11085,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           var m = !q || own.indexOf(q) >= 0 || gcHit > 0;
           s.classList.toggle(HIDE, !m);
           if (box) box.classList.toggle(HIDE, !m);
-          if (m && q) { anyMatch = true; shownHits++; }
+          /* 🔐 (2026-09-09) «화면에 남는 수» 를 셀 때 **역할로 감춰진 항목은 빼야** 한다.
+             `adm-ia6.js` 의 applyRoleFilter 가 `.ia6-role-hide` 를 붙이고 CSS 가
+             `display:none !important` 로 감춘다. 그것까지 세면 지사·대리점·강사 계정에서
+             «검색어에 걸린 메뉴가 전부 역할로 감춰진» 경우 화면은 0건인데 «없다» 안내가
+             안 떠서, 이 수리가 고치려던 바로 그 상태가 그대로 남는다.
+             ⚠️ HIDE 는 그대로 토글한다 — 세는 것만 뺀다(권한 판정은 IA6 몫). */
+          if (m && q) { anyMatch = true; if (!s.classList.contains('ia6-role-hide')) shownHits++; }
 
           /* 손자가 걸렸으면 그 목록을 펴서 «어디에 있는지» 보여 준다. 검색을 지우면 도로 접는다. */
           if (q && gcHit > 0 && !s.classList.contains('ph125-open')) {
@@ -11113,7 +11119,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var apprTxt = _sbText(appr) + ' ' + _sbText(appr.querySelector('.ia6-appr-l'));
         var apprHit = !q || apprTxt.indexOf(q) >= 0;
         appr.classList.toggle(HIDE, !apprHit);
-        if (q && apprHit) shownHits++;
+        if (q && apprHit && !appr.classList.contains('ia6-role-hide')) shownHits++;
       }
       _syncEmpty(q, shownHits);
     }
@@ -11145,7 +11151,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
            ⛔ 페인터에 기대지 말 것 — 처음부터 그 화면 톤에 맞는 색을 준다.
            ⛔ 이 설명을 아래 cssText 조립 «사이»에 끼워 넣지 말 것 —
               「따옴표 + 주석 + 따옴표」는 이 저장소가 이미 밟은 함정이고(CLAUDE.md 2장),
-              덤으로 그 색을 읽는 검사(admin-search-browser ⑤절)가 값을 못 찾는다. */
+              덤으로 그 색을 읽는 검사(admin-search-browser 대비절)가 값을 못 찾는다.
+              (이 주석을 쓴 직후에 제가 바로 그 자리에 또 끼워 넣어 검사가 빨간불이 됐습니다.)
+           ⚠️ `pointer-events:none` 은 장식이 아니다 — 휴대폰 드로어의 자동닫기
+              (아래 pointerdown 가드)가 `.ph85-search-wrap` 만 예외로 두는데 이 상자는
+              그 «밖» 이라, 탭하면 드로어가 닫혀 버린다. 클릭을 안 받아 그 일이 없어진다. */
         box.style.cssText = 'margin:6px 10px 8px;padding:10px 12px;border-radius:10px;' +
           'background:rgba(148,163,184,.16);border:1px solid rgba(148,163,184,.32);' +
           'color:#334155;font-size:12.5px;line-height:1.5;pointer-events:none';
@@ -11161,6 +11171,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       box.style.display = '';
     }
     search.addEventListener('input', runSearch);
+    /* 🌐 (2026-09-09) 안내가 떠 있는 채로 🌐 를 누르면 글자가 안 따라온다.
+       ⚠️ 이 화면의 `mangoi:lang-changed` 는 `adm-core.js` 의 toggleAdminLang 이
+          **`document`** 에서 `bubbles:false` 로 쏜다 — `window` 에만 달면 영원히 침묵한다.
+          딴 화면은 `window` 에서 쏘므로 **둘 다** 듣는다(다시 그리기만 하므로 중복은 무해). */
+    ['mangoi:lang-changed', 'mangoi:lang'].forEach(function (ev) {
+      document.addEventListener(ev, function () { if (search.value.trim()) runSearch(); });
+      window.addEventListener(ev, function () { if (search.value.trim()) runSearch(); });
+    });
     /* ⚠️ 사이드바를 다시 그리는 코드가 여럿이라(IA6·ph86·ph118) 그 뒤에 클래스가 사라질 수 있다.
        검색어가 남아 있으면 다시 입힌다 — «쳤는데 잠시 뒤 풀리는» 일이 두 번 다시 없게. */
     setInterval(function(){ if (search.value.trim()) runSearch(); }, 1200);

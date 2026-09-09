@@ -325,6 +325,65 @@ const sidebarState = page => page.evaluate(() => {
     check('검색을 비우면 결재함도 되돌아온다', back.apprVisible === true, JSON.stringify(back));
     check('검색을 비우면 안내가 사라진다', !back.emptyShown, back.emptyText);
 
+    // ─────────────────────────────────────────────────────────────────────
+    console.log('\n⑤ 역할로 감춰진 항목 — «0건인데 안내가 안 뜨는» 변종이 없는가');
+    /* 🔐 `adm-ia6.js` 의 applyRoleFilter 가 `.ia6-role-hide` 를 붙이고 CSS 가
+       display:none 으로 감춘다. 지사·대리점·강사 계정에서 «검색어에 걸린 메뉴가
+       전부 역할로 감춰진» 경우가 그것이다 — 그때도 «없다»고 말해야 한다.
+       ⚠️ 이 검사는 admin 세션으로 열린 화면에 클래스를 «직접 붙여» 그 상태를 만든다.
+          안 그러면 이 경로에 한 번도 닿지 못한다(함정 대조 지적). */
+    const roleCase = await page.evaluate(() => {
+      const subs = [].filter.call(document.querySelectorAll('#ph85-sidebar .ph85-sub'),
+        e => /녹화/.test(e.textContent || ''));
+      subs.forEach(e => e.classList.add('ia6-role-hide'));
+      return subs.length;
+    });
+    check('전제 — 「녹화」로 걸리는 항목에 역할 숨김을 걸었다', roleCase > 0, '건수=' + roleCase);
+    await typeInto(page, 'ph85-search', '녹화');
+    await page.waitForTimeout(400);
+    const roleHidden = await sidebarState(page);
+    /* 🔴 **잰 것(2026-09-09) — `.ia6-role-hide` 는 `.ph85-sub` 에 실제로는 안 먹습니다.**
+       `#ph85-sidebar .ia6-role-hide{display:none!important}`(1,1,0)와
+       `#ph85-sidebar .ph85-sub{display:flex!important}`(1,1,0)가 **같은 특이성**이라
+       문서 순서상 뒤에 오는 쪽이 이깁니다(실측 computed display=flex · offsetParent 살아 있음).
+       ⚠️ 이것은 **이 수리와 무관한 기존 결함**이라 여기서 고치지 않았습니다 —
+          지사·대리점 계정에서 «역할로 감춰야 할 항목이 그대로 보이는» 별건입니다(사람이 정할 일).
+       ⟹ 그래서 이 절이 물을 수 있는 것은 «화면에서 사라지는가» 가 아니라
+          **«우리가 그것을 «있는 것» 으로 세지 않는가»** 입니다. 그 CSS 가 고쳐지는 날
+          화면도 0건이 되고, 이 검사는 그대로 통과합니다. */
+    check('역할로 감춰진 항목은 «있는 것» 으로 세지 않는다 (→ «없다» 안내가 뜬다)',
+          roleHidden.emptyShown, JSON.stringify(roleHidden));
+    // 짝 — 역할 숨김을 떼면 다시 «있다»
+    await page.evaluate(() => {
+      [].forEach.call(document.querySelectorAll('#ph85-sidebar .ia6-role-hide'),
+        e => e.classList.remove('ia6-role-hide'));
+    });
+    await typeInto(page, 'ph85-search', '녹화');
+    await page.waitForTimeout(400);
+    const roleBack = await sidebarState(page);
+    check('역할 숨김을 떼면 다시 걸리고 안내는 사라진다',
+          roleBack.n > 0 && !roleBack.emptyShown, JSON.stringify(roleBack));
+
+    console.log('\n⑥ 🌐 를 누르면 안내 글자가 따라오는가');
+    /* ⚠️ 이 화면의 `mangoi:lang-changed` 는 `document` 에서 bubbles:false 로 쏜다 —
+       window 에만 달면 영원히 침묵한다(CLAUDE.md 2장). 실제 토글 함수를 부른다. */
+    await typeInto(page, 'ph85-search', 'zzq없는말');
+    await page.waitForTimeout(400);
+    const ko = (await sidebarState(page)).emptyText;
+    const toggled = await page.evaluate(() => {
+      if (typeof window.toggleAdminLang !== 'function') return 'no-fn';
+      window.toggleAdminLang(); return 'ok';
+    });
+    await page.waitForTimeout(500);
+    const after = (await sidebarState(page)).emptyText;
+    check('전제 — 언어 토글 함수가 있다', toggled === 'ok', String(toggled));
+    check('🌐 를 누르면 안내 글자가 바뀐다', toggled !== 'ok' || (after && after !== ko),
+          JSON.stringify({ ko: ko.slice(0, 30), after: after.slice(0, 30) }));
+    check('바뀐 뒤에도 그 검색어가 들어 있다', after.indexOf('zzq없는말') >= 0, after);
+    // 되돌린다 — 다음 검사가 언어에 휘둘리지 않게
+    await page.evaluate(() => { try { window.toggleAdminLang(); } catch (e) {} });
+    await page.waitForTimeout(300);
+
   } finally {
     try { if (ctx) await ctx.close(); } catch (e) { /* 무시 */ }
     await browser.close();
