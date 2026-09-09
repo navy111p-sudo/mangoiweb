@@ -198,6 +198,15 @@
     .topic-card:hover { transform: translateY(-3px) scale(1.03); border-color: rgba(251,191,36,0.55);
       box-shadow: 0 10px 22px -8px rgba(251,191,36,0.35); }
     .topic-card .t-emoji { font-size: 26px; line-height: 1; }
+    /* 🖼 실사 아이콘 자리 (2026-09-09 사장님 «이모지가 너무 단순하다»).
+       ⚠️ .t-icon 은 span 이라 display 를 «반드시» 적는다 — 인라인이면 width/height 를
+          브라우저가 통째로 무시한다(CLAUDE.md «막대 채움이 안 보임»과 같은 뿌리).
+       ⚠️ 그림을 못 받으면 img 의 onerror 가 이 칸을 이모지 글자로 되돌린다 —
+          그래서 font-size 를 여기 남겨 둔다(폴백이 26px 로 그려진다). */
+    .topic-card .t-icon { width: 48px; height: 48px; display: flex; align-items: center;
+      justify-content: center; font-size: 26px; line-height: 1; }
+    .topic-card .t-pic { display: block; width: 100%; height: 100%; object-fit: cover;
+      border-radius: 12px; }
     .topic-card .t-name { font-size: 11.5px; font-weight: 800; color: var(--text); }
     /* 🧑 친구(캐릭터) 고르기 카드 — 2026-08-07.
        주제 카드(.topic-card)와 같은 모양이되 «지금 고른 친구» 는 테두리로 확실히 표시한다.
@@ -1289,15 +1298,40 @@
        주제를 붙잡아 둘 근거가 하나도 없었다. 이제 고른 주제를 기억해(id) 매 요청에 함께
        보내고, 화면 위에도 계속 띄운다. */
     const TOPICS = [
-      { e: '🍕', ko: '음식 이야기', en: 'Food', id: 'food', msg: "Let's talk about food! What's your favorite food, Mango?" },
-      { e: '🐾', ko: '동물 친구들', en: 'Animals', id: 'animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
-      { e: '🚀', ko: '우주 탐험', en: 'Space', id: 'space', msg: "Let's talk about space! Tell me something cool about space." },
-      { e: '🦖', ko: '공룡 시대', en: 'Dinosaurs', id: 'dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
-      { e: '🎮', ko: '게임 이야기', en: 'Games', id: 'video games', msg: "Let's talk about games! What games do you know?" },
-      { e: '🏫', ko: '학교 생활', en: 'School', id: 'school life', msg: 'Can I tell you about my school day?' },
-      { e: '⚽', ko: '스포츠', en: 'Sports', id: 'sports', msg: "Let's talk about sports! Do you like soccer?" },
-      { e: '🎬', ko: '영화·만화', en: 'Movies', id: 'movies and cartoons', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
+      /* 💬 자유주제 — 2026-09-09 사장님 지시로 맨 앞에. 「무슨 얘기든 좋다」는 뜻이므로
+         id 를 넘기긴 하지만 서버 프롬프트가 «학생이 꺼낸 얘기를 따라간다» 이므로
+         고정 주제처럼 굳지 않는다(api-ai.ts 의 topicCtx). */
+      { e: '💬', pic: 'free', ko: '자유주제', en: 'Free Topic', id: 'anything you like', msg: "Let's just chat! What do you want to talk about today?" },
+      { e: '👪', pic: 'family', ko: '가족과 친구', en: 'Family & Friends', id: 'family and friends', msg: 'I want to talk about family and friends! Can you tell me about your family?' },
+      { e: '🍕', pic: 'food', ko: '음식 이야기', en: 'Food', id: 'food', msg: "Let's talk about food! What's your favorite food, Mango?" },
+      { e: '🐾', pic: 'animals', ko: '동물 친구들', en: 'Animals', id: 'animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
+      { e: '🚀', pic: 'space', ko: '우주 탐험', en: 'Space', id: 'space', msg: "Let's talk about space! Tell me something cool about space." },
+      { e: '🦖', pic: 'dinosaurs', ko: '공룡 시대', en: 'Dinosaurs', id: 'dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
+      { e: '🎮', pic: 'games', ko: '게임 이야기', en: 'Games', id: 'video games', msg: "Let's talk about games! What games do you know?" },
+      { e: '🏫', pic: 'school', ko: '학교 생활', en: 'School', id: 'school life', msg: 'Can I tell you about my school day?' },
+      { e: '⚽', pic: 'sports', ko: '스포츠', en: 'Sports', id: 'sports', msg: "Let's talk about sports! Do you like soccer?" },
+      { e: '🎬', pic: 'movies', ko: '영화·만화', en: 'Movies', id: 'movies and cartoons', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
     ];
+    /* 🖼 주제 카드 한 장 — 그리는 곳이 «둘»(빈 화면 · 주제 바꾸기)이라 마크업을 여기 한 곳에 둔다.
+       ⚠️ 그림(pic)이 없거나 못 받으면 «빈 칸» 이 되지 않게 onerror 가 이모지로 되돌린다
+          (CLAUDE.md 「목록에 항목만 늘리고 파일을 안 넣음」 — 그 폴백이 조용히 도는 것을
+          막으려고 topic_icon_harness 가 «표가 가리키는 그림이 실제로 있는가» 를 따로 본다). */
+    function topicCardHtml(t, i, en) {
+      /* ⚠️ onerror 는 «속성 안의 JS 문자열» 이라 이스케이프가 두 겹이다.
+            지금 표는 이모지뿐이라 안전하지만, 아포스트로피가 든 값이 들어오면 속성이 깨진다.
+            그래서 홑따옴표·역슬래시를 미리 막는다(라벨 쪽은 escapeHtml 이 맡는다). */
+      const eSafe = String(t.e || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const icon = t.pic
+        ? '<span class="t-icon"><img class="t-pic" src="/img/topics/' + t.pic + '.webp" alt="" '
+          + 'loading="lazy" decoding="async" onerror="this.parentNode.textContent=\'' + eSafe + '\'"></span>'
+        /* pic 이 없는 주제를 나중에 넣을 수 있게 남겨 두는 갈래다(죽은 코드가 아니라 안전망).
+           ⚠️ 지금 정책은 «전부 실사» 라 하니스가 그 상태를 못 박는다 — 그래서 이 갈래로는
+              오지 않는다. pic 없는 주제를 정말 넣기로 하면 그 검사를 함께 고칠 것. */
+        : '<span class="t-emoji">' + t.e + '</span>';
+      return '<div class="topic-card" onclick="topicSend(' + i + ')">' + icon
+        + '<span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>';
+    }
+
     /* 🗺 지금 이야기 중인 주제 — 새로고침해도 이어지게 localStorage 에 보관 */
     let currentTopic = (function () {
       try {
@@ -1333,9 +1367,7 @@
       box.style.cssText = 'margin:10px 0 4px';
       box.innerHTML = '<p style="color:var(--text2);font-size:12px;font-weight:800;margin:0 0 8px;text-align:center">'
         + (en ? 'Pick a new topic:' : '새 주제를 골라볼까요?') + '</p>'
-        + '<div class="topics">' + TOPICS.map((t, i) =>
-            '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e
-            + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>').join('')
+        + '<div class="topics">' + TOPICS.map((t, i) => topicCardHtml(t, i, en)).join('')
         + '</div>';
       chat.appendChild(box);
       chat.scrollTop = chat.scrollHeight;
@@ -1343,9 +1375,7 @@
     function renderEmpty() {
       const chat = document.getElementById('chat');
       const en = isEn();
-      const cards = TOPICS.map((t, i) =>
-        '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>'
-      ).join('');
+      const cards = TOPICS.map((t, i) => topicCardHtml(t, i, en)).join('');
       chat.innerHTML = '<div class="empty-state">'
         + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
         + "<h2>👋 Hi! I'm " + friendOf(personNow()).name + "</h2>"
@@ -1635,6 +1665,7 @@
 .input-bar button[type=submit]{font-size:16px}
 .tip-chip{font-size:13.5px}
 .topic-card .t-emoji{font-size:30px}
+.topic-card .t-icon{width:56px;height:56px;font-size:30px}
 .topic-card .t-name{font-size:13px}
 .empty-state h2{font-size:22px}
 .empty-state p{font-size:14.5px}
@@ -1690,6 +1721,7 @@
   .topics{max-width:720px;gap:12px}
   .topic-card{padding:18px 8px 14px;border-radius:18px;gap:7px}
   .topic-card .t-emoji{font-size:40px}
+  .topic-card .t-icon{width:64px;height:64px;font-size:40px}
   .topic-card .t-name{font-size:17px}
   .quick button{font-size:16px;padding:11px 20px}
   .pt-toast{font-size:19px;padding:11px 24px}
