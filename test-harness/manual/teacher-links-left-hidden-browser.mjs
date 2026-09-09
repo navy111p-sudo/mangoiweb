@@ -67,6 +67,16 @@ const ACCOUNTS2 = [
   { username: 'mangoi_011', name: 'Mariane', role: 'teacher', name_is_username: false,
     linked_teacher_id: '11', linked_teacher_name: 'MARIANE', linked_at: 1757000000000,
     auto_match: null, auto_candidates: [], status: 'linked' },
+  /* ⑧ 줄 순서 검사용 — 네 상태를 다 덮어야 «급한 것부터 위로» 를 실제로 잴 수 있다.
+     ⚠️ 아이디를 «순서대로» 짓지 말 것 — 알파벳 2차 정렬이 우연히 답을 맞혀 검사가 헛돈다.
+        여기 넷은 상태가 전부 달라 1차 키가 언제나 결정한다. */
+  { username: 'mangoi_900', name: 'Kaye', role: 'teacher', name_is_username: false,
+    linked_teacher_id: null, linked_teacher_name: null, linked_at: null,
+    auto_match: null, auto_candidates: [{ id: '22', name: 'FAR' }, { id: '3', name: 'HT FARRAH' }],
+    status: 'ambiguous' },
+  { username: 'mangoi_901', name: 'Hannah', role: 'teacher', name_is_username: false,
+    linked_teacher_id: null, linked_teacher_name: null, linked_at: null,
+    auto_match: { id: '24', name: 'HANNAH' }, auto_candidates: [], status: 'auto' },
 ];
 const LINKS = [
   { username: 'mangoi_011', teacher_id: '11', teacher_name: 'MARIANE', linked_by: 'admin', linked_at: 1757000000000 },
@@ -265,11 +275,12 @@ const setShowLeft = async (page, id, on) => {
       '여기서 실패하면 아래 검사가 전부 헛돈다');
 
     if (lazyOk) {
-      /* 🪤 줄 «순서» 로 잡지 말 것 — 이 표의 정렬 키가 `order[status] || 9` 라
-         `order.unlinked === 0` 이 falsy 로 떨어져 **「연결 안 됨」이 맨 아래로 갑니다**
-         (「급한 것부터 위로」라는 그 코드의 주석과 정반대. 내 변경과 무관한 기존 결함이라
-         여기서는 고치지 않고, 검사만 순서에 안 기대게 둡니다).
-         각 <select> 에 `tlk-sel-<아이디>` 가 있으니 그것으로 콕 집는다. */
+      /* 🪤 <select> 는 줄 «순서» 로 집지 말 것 — 각 <select> 에 `tlk-sel-<아이디>` 가 있으니
+         그것으로 콕 집는다. 순서에 기대면 정렬이 바뀔 때마다 이 검사들이 함께 흔들린다.
+         (순서 자체는 아래 ⑧절이 «따로» 잰다.)
+         📜 2026-09-09 이전에는 정렬 키가 `order[status] || 9` 라 `order.unlinked === 0` 이
+            falsy 로 떨어져 「연결 안 됨」이 맨 아래로 갔다 — 그 코드의 주석과 정반대였고,
+            이 검사가 줄 순서로 집었다가 3건이 거짓 FAIL 났다. 지금은 고쳐졌다. */
       const opts2 = (u) => page.evaluate(n => {
         const sel = document.getElementById('tlk-sel-' + n);
         if (!sel) return null;
@@ -306,6 +317,30 @@ const setShowLeft = async (page, id, on) => {
       const en1 = ((await opts2('mangoi_011')) || []).find(o => o.v === '11');
       check('🌐 를 누르면 «(left)» 로 따라온다 (재렌더를 직접 안 불렀다)',
         !!en1 && /\(left\)/.test(en1.t), en1 && en1.t);
+
+      /* ─── ⑧ 줄 순서 — 「급한 것부터 위로」가 «화면에서» 실제로 그런가 ───
+         왜 브라우저에서도 재는가 — 자동 하니스(⑧절)는 정렬식을 «오려 내» 돌립니다.
+         그건 «식이 맞나» 이지 «그 식이 진짜로 이 표를 그리는가» 가 아닙니다.
+         여기서는 그려진 <tr> 을 위에서부터 읽습니다. */
+      console.log('\n[ ⑧ 두 번째 화면 — 줄 순서 ]');
+      await page.evaluate(() => {
+        window.adminLang = 'ko';
+        document.dispatchEvent(new CustomEvent('mangoi:lang-changed'));
+      });
+      await page.waitForTimeout(200);
+      const rowOrder = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('#tlk-table tbody tr'))
+          .map(tr => (tr.cells[0] && tr.cells[0].textContent || '').trim()));
+      // ⓪ 전제 — 네 상태가 다 그려졌어야 아래 검사가 뜻을 가진다
+      check('⑧-0 네 계정이 다 그려졌다 (전제)', rowOrder.length === 4, rowOrder.join(' → '));
+      check('⑧-1 「연결 안 됨」이 맨 위다 (falsy 함정: unlinked 의 순위가 0)',
+        rowOrder[0] === 'mangoi_018', rowOrder.join(' → '));
+      check('⑧-2 「연결됨」이 맨 아래다',
+        rowOrder[rowOrder.length - 1] === 'mangoi_011', rowOrder.join(' → '));
+      check('⑧-3 전체 순서가 연결안됨 → 헷갈림 → 자동 → 연결됨',
+        JSON.stringify(rowOrder) ===
+          JSON.stringify(['mangoi_018', 'mangoi_900', 'mangoi_901', 'mangoi_011']),
+        rowOrder.join(' → '));
     }
 
   } finally {

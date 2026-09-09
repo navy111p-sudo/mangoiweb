@@ -77,14 +77,22 @@
     window.addEventListener(ev, function () { if (_accounts.length) render(); });
   });
 
+  /* ↕ 줄 순서 — 급한 것부터 위로: 연결 안 됨 → 헷갈림 → 자동매칭 → 연결됨.
+     ⛔ `order[st] || 9` 로 쓰지 마세요 — 첫 칸이 **0** 이라 falsy 로 떨어져 9 가 되고,
+        정확히 그 반대로 「연결 안 됨」이 맨 아래로 가는데 **에러는 안 납니다**
+        (1・2・3 은 truthy 라 멀쩡해 보여 더 헷갈립니다). 모르는 상태만 9 입니다.
+     감시는 `teacher_link_left_hidden_harness` ⑧절 · `manual/teacher-links-left-hidden-browser.mjs` ⑧-6. */
+  var TLK_ORDER = { unlinked: 0, ambiguous: 1, auto: 2, linked: 3 };
+  function tlkRank(st) {
+    return Object.prototype.hasOwnProperty.call(TLK_ORDER, st) ? TLK_ORDER[st] : 9;
+  }
+
   function render() {
     var host = document.getElementById('tlk-table');
     if (!host) return;
     _tlkShowLeft = !!(document.getElementById('tlk-show-left') || {}).checked;
-    // 급한 것부터 위로 — 연결 안 됨 → 헷갈림 → 자동매칭 → 연결됨
-    var order = { unlinked: 0, ambiguous: 1, auto: 2, linked: 3 };
     var rows = _accounts.slice().sort(function (a, b) {
-      var d = (order[a.status] || 9) - (order[b.status] || 9);
+      var d = tlkRank(a.status) - tlkRank(b.status);
       return d !== 0 ? d : String(a.username).localeCompare(String(b.username));
     });
 
