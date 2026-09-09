@@ -48,6 +48,7 @@ import {                                               // 💼 인사·급여 «
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
+  isPrimaryApprover, allowsStraightThrough, needsExecAck,   // 💳 결재권자 · 전결 · 확인
   sniffKind, normExt, contentTypeFor, buildFindQuery,
   CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
@@ -145,6 +146,11 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     `ALTER TABLE approval_requests ADD COLUMN reverses_id INTEGER`,
     /* 🔁 그 반대 방향 — 취소된 원본이 가리키는, 자기를 취소시킨 결재 */
     `ALTER TABLE approval_requests ADD COLUMN cancelled_by_id INTEGER`,
+    /* ✅ 「확인」 — 결재가 아니라 «경영진이 봤다»는 표시(2026-09-09).
+       ⚠️ 이 칸이 비어 있다고 «안 봤다»가 아니다 — 큰돈 건은 경영진이 직접 최종 결재하므로
+          애초에 확인 대상이 아니다(needsExecAck 가 decided_by 로 가른다). */
+    `ALTER TABLE approval_requests ADD COLUMN exec_ack_by TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN exec_ack_at INTEGER`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -216,7 +222,11 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
     if (!u) continue;
     if (exceptUser && u === String(exceptUser)) continue;
     const actor: ActorLike = { ok: true, username: u, name: r.name, role: 'hq', isTeacher: false };
-    if (canDecideStage(actor, role as any, isPhManager(actor))) out.push(u);
+    /* 💳 알림은 «주 결재자» 에게만 간다(isPrimaryApprover).
+       canDecideStage 로 두면 'mgr' 단계에서 «대신 결재할 수 있는» 경영진에게까지 알림이
+       가서, 「결재는 장 부장이 한다」가 화면에서만 참이 된다. 누를 수 있는 사람과
+       알려야 할 사람은 다른 질문이다. */
+    if (isPrimaryApprover(actor, role as any, isPhManager(actor))) out.push(u);
   }
   return out;
 }
@@ -575,6 +585,9 @@ function rowOf(r: any, steps?: any[], brief = false) {
     reverses_id: r.reverses_id || null,
     cancelled_by_id: r.cancelled_by_id || null,
     decided_by: r.decided_by, decided_at: r.decided_at,
+    /* ✅ 경영진 «확인» 도장 — 결재가 아니라 «봤다»는 표시(막지 않는다). */
+    exec_ack_by: r.exec_ack_by || null,
+    exec_ack_at: r.exec_ack_at || null,
     decide_memo: r.decide_memo, created_at: r.created_at,
     stage_seq: seq, stage_total: total,
     deadline_at: r.deadline_at || null, stage_due_at: r.stage_due_at || null,
@@ -1039,12 +1052,29 @@ export async function handleApprovalApi(
         ORDER BY created_at DESC LIMIT 10`
     ).bind((hourBucket * 3600_000) - 7 * 86400_000).all<any>(), { results: [] as any[] } as any);
 
+    /* ④ ✅ 확인 대기 — 경영진에게만.
+         결재는 이미 끝났고(필리핀에도 통보 완료) «봤다»는 도장만 남은 건이다.
+         ⚠️ **막지 않는다.** 안 눌러도 업무는 그대로 흘러간다 — 그것이 설계 의도다.
+         ⚠️ 큰돈 건은 경영진이 직접 최종 결재하므로 decided_by 가 본인이 되어 저절로 빠진다.
+         ⚠️ SQL 은 넓게 잡고 최종 판정은 needsExecAck 이 한다 — 판정을 두 벌로 두면 어긋난다.
+            (다만 decided_by 비교는 SQL 에서도 해 둔다. 안 하면 대표님이 직접 찍은 건들이
+             LIMIT 20 을 채워, 정작 확인해야 할 건이 창 밖으로 밀린다.) */
+    const ackRs = iAmExec ? await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests
+        WHERE status = 'approved' AND exec_ack_at IS NULL AND cancelled_by_id IS NULL
+          AND req_type IN ('purchase','expense')
+          AND LOWER(IFNULL(decided_by,'')) <> LOWER(?)
+        ORDER BY decided_at DESC LIMIT 20`
+    ).bind(me).all<any>(), { results: [] as any[] } as any) : ({ results: [] as any[] } as any);
+
     // 단계는 **한 번에** 받는다 — 예전엔 행마다 따로 조회해서 쿼리가 40건 넘게 나갔다.
     const pend = (pendRs.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
+    const ackRows = (ackRs.results || []);
     const allIds: number[] = [];
     for (const r of pend) allIds.push(Number(r.id));
     for (const r of mineRows) if (allIds.indexOf(Number(r.id)) < 0) allIds.push(Number(r.id));
     for (const r of urgRows) if (allIds.indexOf(Number(r.id)) < 0) allIds.push(Number(r.id));
+    for (const r of ackRows) if (allIds.indexOf(Number(r.id)) < 0) allIds.push(Number(r.id));
     const stepMap = await stepsByRequest(env, allIds);
 
     const inbox: any[] = [];
@@ -1056,12 +1086,27 @@ export async function handleApprovalApi(
       const role = (cur?.role || 'staff') as any;
       if (!canDecideStage(actor, role, ph)) continue;
       if (!canView(actor, r.req_type, r.requester_username, chainUsers(steps), ph)) continue;
-      inbox.push(rowOf(r, steps, true));
+      const row: any = rowOf(r, steps, true);
+      /* 💳 「대신 결재」 — 누를 수는 있지만 내가 «주» 결재자는 아닌 단계.
+         화면이 그 사실을 말해야 한다. 안 그러면 경영진 화면에서 결재권자의 건이
+         자기 일처럼 보여, 「결재는 장 부장이 한다」가 조용히 무너진다. */
+      row.by_proxy = !isPrimaryApprover(actor, role, ph);
+      inbox.push(row);
       if (inbox.length >= 20) break;
     }
 
     // ② 내가 올린 것
     const mine: any[] = mineRows.map((r: any) => rowOf(r, stepMap[Number(r.id)] || [], true));
+
+    /* ④ 확인 대기 — 최종 판정은 정본 needsExecAck 하나로 한다(위 SQL 은 «넓게 거르기»일 뿐). */
+    const ackPending: any[] = [];
+    for (const r of ackRows) {
+      if (!needsExecAck({
+        reqType: r.req_type, status: r.status, decidedBy: r.decided_by,
+        ackAt: r.exec_ack_at, me, isExec: iAmExec,
+      })) continue;
+      ackPending.push(rowOf(r, stepMap[Number(r.id)] || [], true));
+    }
 
     /* 「올렸는데 어떻게 됐지」 — 아직 대기 중인 내 건에 «지금 결재할 수 있는 사람 수»를 붙인다.
        0명이면 기다려도 처리되지 않는다. 화면이 그 사실을 말할 수 있어야 한다.
@@ -1171,6 +1216,9 @@ export async function handleApprovalApi(
         /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
            정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
         inbox_capped: inbox.length >= 20,
+        /* ✅ 「확인할 것 N건」 — 결재가 아니라 «봤다»는 도장이 남은 수. 0이면 화면이 안 그린다. */
+        ack_pending: ackPending.length,
+        ack_capped: ackPending.length >= 20,
         month: nowMonth,
       },
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
@@ -1188,6 +1236,8 @@ export async function handleApprovalApi(
       categories: CATEGORIES.map(c => ({ key: c.key, ko: c.ko, en: c.en, account: c.account })),
       hr_periods: hrPeriods,
       inbox, mine, reuse, urgent,
+      /* ✅ 확인 대기 — 경영진이 아니면 언제나 빈 배열이다(화면은 그러면 카드를 안 그린다). */
+      ack_pending: ackPending,
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
          (같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다 — 데이터는 원래 자리에 둔다) */
       schedule_pending: scheduleWaiting,
@@ -1638,6 +1688,51 @@ export async function handleApprovalApi(
     return json({ ok: true, can_approve: approver, pending, items, has_more: hasMore, offset });
   }
 
+  /* ── ✅ 확인 — 경영진이 «봤다»는 도장 ──────────────────────────────────────
+       결재(decide)와 다른 점: 이미 확정된 건에 표시만 남긴다. 아무것도 막지 않고,
+       상태도 바꾸지 않으며, 필리핀에도 알림이 가지 않는다(이미 통보가 끝난 건이다).
+       ℹ️ 라우팅은 `/api/approval/` **접두사**로 이미 열려 있어 src/index.ts(공동 금지구역)를
+          한 줄도 고치지 않는다. 인증 게이트도 같은 접두사로 걸린다. */
+  const mAck = path.match(/^\/api\/approval\/requests\/(\d+)\/ack$/);
+  if (method === 'POST' && mAck) {
+    const id = Number(mAck[1]);
+    if (!iAmExec) {
+      return json({
+        ok: false, error: 'forbidden',
+        message: '확인은 경영진만 할 수 있습니다.',
+        message_en: 'Only executives can confirm.',
+      }, 403);
+    }
+    const cur: any = await env.DB.prepare(
+      `SELECT id, req_type, status, decided_by, exec_ack_at, exec_ack_by
+         FROM approval_requests WHERE id = ? LIMIT 1`
+    ).bind(id).first().catch(() => null);
+    if (!cur) return json({ ok: false, error: 'not_found' }, 404);
+
+    /* 판정은 정본 하나로 — 화면·목록·여기가 같은 함수를 지나야 어긋나지 않는다. */
+    if (!needsExecAck({
+      reqType: cur.req_type, status: cur.status, decidedBy: cur.decided_by,
+      ackAt: cur.exec_ack_at, me: String(actor.username), isExec: iAmExec,
+    })) {
+      return json({
+        ok: false, error: 'not_ackable',
+        already_acked: !!cur.exec_ack_at,
+        message: cur.exec_ack_at ? '이미 확인한 결재입니다.' : '확인할 수 있는 결재가 아닙니다.',
+        message_en: cur.exec_ack_at ? 'Already confirmed.' : 'This request is not awaiting your confirmation.',
+      }, 409);
+    }
+
+    const now = Date.now();
+    /* 조건부 UPDATE — 두 사람이 동시에 눌러도 먼저 찍힌 도장이 남는다(decide 와 같은 방식). */
+    const up = await env.DB.prepare(
+      `UPDATE approval_requests SET exec_ack_by = ?, exec_ack_at = ?
+        WHERE id = ? AND status = 'approved' AND exec_ack_at IS NULL`
+    ).bind(String(actor.username), now, id).run();
+    if (!up.meta.changes) return json({ ok: false, error: 'already_acked' }, 409);
+
+    return json({ ok: true, id, exec_ack_by: String(actor.username), exec_ack_at: now });
+  }
+
   // ── 승인 / 반려 ───────────────────────────────────────────────────────────
   const mDecide = path.match(/^\/api\/approval\/requests\/(\d+)\/decide$/);
   if (method === 'POST' && mDecide) {
@@ -1665,8 +1760,11 @@ export async function handleApprovalApi(
     ).bind(id, seq).first(), null);
     const role = (stepRow?.role || 'staff') as any;
 
-    // 전결 — 경영진은 중간 단계를 건너뛰고 바로 최종 결재할 수 있다.
-    const straightThrough = iAmExec && role !== 'exec';
+    /* 전결 — 경영진은 중간 단계를 건너뛰고 바로 최종 결재할 수 있다.
+       🔴 단, 돈이 나가는 분류(물품·지출)에서는 끈다(allowsStraightThrough).
+          지정 결재권자가 경영진 명단에도 있어서, 켜 두면 그가 1단계를 누르는 순간
+          2단계가 «건너뜀»으로 닫혀 **대표 확인 단계가 아예 열리지 않는다.** */
+    const straightThrough = iAmExec && role !== 'exec' && allowsStraightThrough(cur.req_type);
     if (!canDecideStage(actor, role, ph) && !straightThrough) {
       return json({
         ok: false, error: 'forbidden',
