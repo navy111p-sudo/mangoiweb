@@ -384,18 +384,27 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
 {
   const promo  = readFileSync(join(PUB, 'promo.html'), 'utf8');
   const about  = readFileSync(join(PUB, 'js', 'idx-about.js'), 'utf8');
+  /* ⛔ «이 글자가 없어야 한다» 류는 반드시 주석을 벗겨 낸 사본으로 판정할 것 —
+        「왜 지웠는지」 적은 설명 주석이 그 글자를 담고 있어 검사가 «자기 주석» 을 잡는다
+        (CLAUDE.md 2장 — 실제로 이 자리에서 한 번 밟았다). */
+  const aboutC = strip(about);
   const todayJs2 = readFileSync(join(PUB, 'js', 'today-page.js'), 'utf8');
 
   /* ── 프리셋 표 — 주소·길이·포스터가 «한 줄» 에서 나온다 ── */
   /* 프리셋이 «둘» 이다 — 3분 35초(원장·강사) · 39초(학생·학부모).
      ⛔ 한쪽만 검사하지 말 것: 각 프리셋은 «자기 영상» 의 사실을 말해야 한다. */
   const readPreset = (key) => {
-    const m = promo.match(new RegExp("'" + key + "'\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
+    /* ⚠️ 키는 따옴표가 있을 수도(‘ai-tools’ — 하이픈 때문) 없을 수도(brand) 있다.
+          따옴표 친 것만 읽으면 새 프리셋이 «없는 것» 으로 조용히 통과한다(2026-09-09 실측). */
+    const m = promo.match(new RegExp("(?:'" + key + "'|" + key + ")\\s*:\\s*\\{([\\s\\S]*?)\\n    \\}"));
     const blk = m ? m[1] : '';
     const pick = (k) => { const x = blk.match(new RegExp(k + ":\\s*'([^']+)'")); return x ? x[1] : ''; };
     return { ok: !!m, blk, src: pick('src'), len: pick('len'), poster: pick('poster') };
   };
   const P_LONG = readPreset('ai-tools'), P_SHORT = readPreset('ai-tools-short');
+  /* 🎬 2026-09-09 신설 — 사람 목소리 나레이션으로 만든 짧은 홍보영상.
+     ⛔ 프리셋을 늘리면 «여기» 에도 더할 것. 안 더하면 파일이 없어도 조용히 통과한다. */
+  const P_BRAND = readPreset('brand');
   const vsrc = P_LONG.src, vposter = P_LONG.poster;
 
   /* mp4 헤더(mvhd)에서 «진짜 길이» 를 읽는다 */
@@ -418,7 +427,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
             옛 37초 AI 목소리 판이 그대로 나올 뻔했다 — 함정 대조가 잡았다.) */
   const assetRel = (u) => String(u || '').split('?')[0].replace(/^\//, '');
 
-  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT]]) {
+  for (const [nm, P] of [['긴 판', P_LONG], ['짧은 판', P_SHORT], ['홍보 판', P_BRAND]]) {
     check(`⑨ [${nm}] promo.html 에 프리셋이 있다`, P.ok && !!P.src && !!P.len && !!P.poster,
       `src=${P.src} len=${P.len} poster=${P.poster}`);
     /* ① 가리키는 파일이 실재하는가 — 없으면 «누르면 아무것도 안 나오는» 버튼이 된다 */
@@ -443,8 +452,9 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
        ⛔ 한도를 늘려서 통과시키지 말 것 — 그건 Cloudflare 가 정하는 숫자다.
           넘으면 길이를 줄이거나 화질(crf)을 낮추거나 R2 로 옮겨야 한다. */
     let mib = 0;
-    try { mib = statSync(join(PUB, assetRel(P.src))).size / 1048576; } catch {}
-    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, mib > 0 && mib < 25,
+    /* ⛔ src 가 비면 join(PUB,'') 이 «폴더» 를 재서 통과해 버린다 — 먼저 막는다 */
+    try { if (P.src) mib = statSync(join(PUB, assetRel(P.src))).size / 1048576; } catch {}
+    check(`⑨ [${nm}] 정적자산 한도(25 MiB) 안이다`, !!P.src && mib > 0 && mib < 25,
       `${mib.toFixed(2)} MiB · 남은 여유 ${((25 - mib) * 1024).toFixed(0)} KiB`);
   }
   /* 🔴 짧은 판은 «같은 이름으로» 여러 번 갈아 끼운 파일이다(2026-09-05 부터 네 번).
@@ -470,16 +480,42 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* 🔴 (2026-09-09 사장님 지시) 「망고아이란?」 카드의 «▶ 안내 영상 — 3분 48초로 보기» 줄은
         **없앴습니다** — 「이거 그냥 삭제해줘. 필요없어. 완전히 없애」.
         ⛔ 되살리지 말 것(CLAUDE.md 1-3 «되살리면 안 되는 것»). 아래 검사가 그것을 못 박는다.
-        ℹ️ 영상 자체와 /promo.html 주소는 그대로 살아 있다 — 없앤 것은 «홈 카드의 그 줄» 이다. */
+        ℹ️ 영상 자체와 /promo.html?v=ai-tools 주소는 그대로 살아 있다 — 없앤 것은 «그 줄» 이다.
+     📌 같은 날 사장님 지시로 «1분 21초 홍보영상(사장님 목소리)» 줄을 맨 앞에 두었습니다.
+        지운 «3분 48초 합성목소리 판» 과 다른 영상이라 «되살린 것» 이 아닙니다.
+        ⛔ 그래서 이 절은 «promo 링크가 없다» 가 아니라 «어느 영상으로 가는가» 로 묻습니다. */
+  const aboutPoster = (aboutC.match(/<img src="(\/img\/promo\/[^"]+)"/) || [])[1] || '';
+  /* ⛔ «어느 프리셋의 포스터인가» 를 글자로 못 박지 말 것 — 어느 영상을 거는지는 사람이 정한다.
+        물어야 할 것은 «그 카드가 «자기가 여는» 프리셋의 포스터를 그리는가» 다. */
+  /* ⛔ 주석이 든 원본에서 «첫 매치» 를 잡지 말 것 — 설명 주석이 다른 프리셋 이름을 담고 있으면
+        그것을 집어 «엉뚱한 영상의 포스터와 대조» 하게 된다(실제로 밟았다). */
+  const leadV = (aboutC.match(/promo\.html\?v=([\w-]+)/) || [])[1] || '';
+  const leadP = leadV ? readPreset(leadV) : { poster: '' };
+  check('⑨ 맨 앞 카드가 «자기가 여는 영상» 의 포스터를 그린다',
+    !!aboutPoster && !!leadP.poster && aboutPoster === leadP.poster,
+    `card=${aboutPoster} preset(${leadV})=${leadP.poster}`);
 
   /* ── A안(「망고아이란?」 카드의 안내 영상 줄) — 2026-09-09 에 사장님 지시로 삭제 ── */
   /* ⚠️ 이 `cards` 는 «파일에 그 객체가 적혀 있는가» 일 뿐 «화면에 그려지는가» 가 아니다 —
         변이시험에서 배열을 통째로 딴 이름으로 옮겨도 이 정규식은 그대로 13장을 셌다.
         «정말 그려지는가» 는 `manual/video-entry-browser.mjs` A절(실제 DOM)이 본다. */
-  const cards = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
-  check('⑨ 「망고아이란?」 카드에 안내 영상 줄이 없다 (2026-09-09 지시)',
-    cards.length > 1 && !cards.some(t => /안내 영상/.test(t)) && !/promo\.html/.test(about),
+  const cards = [...aboutC.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
+  /* ⛔ «지웠다» 를 «promo 링크가 하나도 없다» 로 못 박지 말 것 — 같은 날 사장님이 새 영상을
+        그 자리에 두라고 정하셨다. 지켜야 하는 것은 «지운 그 줄이 안 돌아왔는가» 다. */
+  check('⑨ 「망고아이란?」 카드에 «안내 영상(3분 48초)» 줄이 없다 (2026-09-09 지시)',
+    cards.length > 1 && !cards.some(t => /안내 영상/.test(t)) && !/promo\.html\?v=ai-tools(?!-short)/.test(aboutC),
     `카드 ${cards.length}장 · 첫 장 「${cards[0] || '(없음)'}」`);
+  /* ⛔ «홍보영상» 이라는 «글자» 로 못 박지 말 것 — 어느 영상을 맨 앞에 두는가는 사람이 정한다.
+        지켜야 하는 것은 «맨 앞이 영상 카드인가» 와 «그 카드가 실재하는 프리셋으로 가는가» 다. */
+  check('⑨ A안 — 영상 카드가 BENEFITS 맨 앞이다',
+    cards.length > 1 && /^▶/.test(cards[0]), (cards[0] || '(없음)') + ' … 총 ' + cards.length + '장');
+  check('⑨ A안 — 그 카드가 실재하는 promo 프리셋으로 간다',
+    !!leadV && leadP.ok && !!leadP.src, `v=${leadV} src=${leadP.src}`);
+  /* ⚠️ 인앱 브라우저는 새 창을 못 열고 null 만 준다 — 폴백이 없으면 카톡에서 «눌러도 아무 일 없음» */
+  check('⑨ A안 — window.open 이 막히면 location.href 로 폴백한다',
+    /w\s*=\s*window\.open\([^)]*\)/.test(about) && /else\s*\{\s*location\.href\s*=\s*u;?\s*\}/.test(about));
+  check('⑨ A안 — 기능 문자열에 noopener 를 주지 않는다 (반환이 늘 null 이 된다)',
+    !/window\.open\([^)]*'noopener'/.test(aboutC));
 
   /* ── B안 — today.html 첫 방문자 한 줄 ── */
   const todayHtml2 = readFileSync(join(PUB, 'today.html'), 'utf8');
@@ -519,8 +555,13 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
     /promo\.html\?v=ai-tools-short/.test(todayJs2) && /promo\.html\?v=ai-tools-short/.test(todayHtml2));
   check('⑨ 학생 화면이 긴 판을 가리키지 않는다',
     !/promo\.html\?v=ai-tools(?!-short)/.test(todayJs2) && !/promo\.html\?v=ai-tools(?!-short)/.test(todayHtml2));
-  /* 2026-09-09: 그 줄을 없앴으므로 이제 «가리키지 않는 것» 이 맞다 */
-  check('⑨ 「망고아이란?」 카드가 이제 영상으로 가지 않는다', !/promo\.html/.test(about));
+  /* 2026-09-09: «3분 48초 안내 영상» 줄은 없앴고(사장님 「완전히 없애」), 같은 날 그 자리에
+        «1분 21초 홍보영상(사장님 목소리)» 을 넣기로 정하셨다. 지켜야 하는 것은 «지운 그 판으로
+        가지 않는가» 이지 «영상이 하나도 없는가» 가 아니다.
+        ⛔ !/promo\.html/ 로 되돌리지 말 것 — 사장님이 넣으라고 하신 줄이 빨간불이 된다.
+        ⚠️ 주석을 벗긴 사본(aboutC)으로 볼 것 — 설명 주석이 그 주소를 담고 있다. */
+  check('⑨ 「망고아이란?」 카드가 «지운 3분 48초 판» 으로 가지 않는다',
+    !/promo\.html\?v=ai-tools(?!-short)/.test(aboutC));
   check('⑨ 긴 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
   /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
   check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));
