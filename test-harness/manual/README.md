@@ -830,3 +830,7 @@ cd /경로/mangoiweb && node test-harness/manual/vc-office-mode-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 ```
+
+---
+
+- `hero-cta-and-cefr-bar-browser.mjs` — 홈 큰 버튼(골드 채움·오늘 상태 줄·대비)과 레벨테스트 CEFR 막대가 «실제로 그려지는가» (2026-09-09)
