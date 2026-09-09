@@ -117,7 +117,11 @@ const blockAt = (src, head) => {
 const friend = blockAt(AI, "case 'chat-friend'") || AI;
 ok(/from '\.\/reply-korean'/.test(AI), 'api-ai.ts 가 판정을 불러온다');
 ok(/stripAddedKorean\(\s*reply/.test(friend), 'AI 영어친구가 «모델이 준 답» 을 그 판정에 넣는다');
-ok(/NEVER translate your own English into Korean/.test(friend),
+/* ⚠️ 문구를 «글자 그대로» 못 박지 않는다 — 2026-09-09 에 이 화면이 교정 카드를 받으면서
+   그 줄이 「NEVER write Korean inside "reply" …」 로 «더 세게» 바뀌었는데, 옛 정규식은
+   보장이 세진 그 수리에 빨간불을 냈다(CLAUDE.md 「보장은 세졌는데 검사만 깨졌습니다」).
+   물어야 할 것은 «그 문장이 있는가» 가 아니라 «답장에 한국어를 넣지 말라고 했는가» 다. */
+ok(/(NEVER|Never|Do not|do not)[^\n]{0,90}(translate your own English|Korean inside "reply")/.test(friend),
   '프롬프트에도 «네 영어를 한국어로 옮기지 마라» 를 적어 둔다',
   '지시만으로는 안 지켜지지만, 안 적으면 모델이 그것을 «해도 되는 일» 로 본다');
 

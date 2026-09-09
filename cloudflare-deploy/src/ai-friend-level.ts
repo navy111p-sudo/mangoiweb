@@ -148,8 +148,43 @@ export function aiFriendNormalizeLevel(level: unknown): string {
   return Object.prototype.hasOwnProperty.call(AI_FRIEND_LEVELS, key) ? key : AI_FRIEND_DEFAULT_LEVEL;
 }
 
-export function aiFriendLevelSpec(level: string): AiFriendLevelSpec {
-  return AI_FRIEND_LEVELS[aiFriendNormalizeLevel(level)];
+/**
+ * 학생이 «나에게 물었나» — 그 턴에는 대답이 되묻기보다 먼저다 (2026-09-09).
+ *
+ * 왜 필요한가 — 사장님 화면 실측(S1):
+ *   학생 "What is your favorite food?" → AI "Cool! Do you have a favorite food?"
+ *   학생 "What did you do yesterday?"  → AI "Ooh nice one! Did you eat food yesterday?"
+ *   물어본 것에 대답하지 않고 되묻기만 합니다. 원인이 «모델» 이 아니라 «규격» 이었습니다 —
+ *   S1 은 maxSentences 2 이고 규칙 문장이 「칭찬 하나 + 질문 하나가 전부」라고 못 박아,
+ *   대답이 들어갈 자리가 **아예 없었습니다.** 게다가 모델이 대답을 해도 아래 트리머가
+ *   «칭찬 + 마지막 질문» 만 남겨 그 대답을 버렸습니다(실측: "Nice one! I love pizza.
+ *   What about you?" → "Nice one! What about you?").
+ *
+ * ⛔ 되묻기 강제를 «없애서» 풀지 마세요 — 기초 학생은 스스로 말을 못 꺼내서 질문이 없으면
+ *    대화가 그 자리에서 끝납니다(CLAUDE.md 에 못 박힌 결정). 여기서 하는 일은
+ *    «학생이 물어본 턴에만» 대답 자리를 한 문장 내주는 것뿐입니다.
+ * ⚠️ 물음표가 없어도 묻는 경우가 많습니다(아이들은 "what your favorite food" 처럼 씁니다) —
+ *    의문사·조동사로 «시작» 하면 물은 것으로 봅니다.
+ * ⛔ 넓히지 마세요 — 문장 «안» 의 의문사(I know what you like)까지 잡으면 평범한 대화가
+ *    전부 «질문» 이 되어 길이 정책이 통째로 느슨해집니다.
+ */
+const ASK_HEAD = /^(what|who|whom|whose|where|when|why|how|which|do|does|did|is|are|am|was|were|can|could|will|would|should|may|have|has|had|tell me|say)\b/i;
+export function aiFriendStudentAsked(msg: unknown): boolean {
+  const t = String(msg == null ? '' : msg).trim();
+  if (!t) return false;
+  if (/\?/.test(t)) return true;
+  return ASK_HEAD.test(t);
+}
+
+/**
+ * @param opts.answering 학생이 방금 «나에게 물었다» — 그 턴만 문장 한 칸을 더 준다.
+ *   ⚠️ 낱말 상한(maxWordsPerSentence)은 «건드리지 않습니다» — 길이를 늘리면 모델이
+ *      문법 낱말(a·is·do)부터 버린다는 것이 이 저장소의 반복 실측입니다.
+ */
+export function aiFriendLevelSpec(level: string, opts?: { answering?: boolean }): AiFriendLevelSpec {
+  const base = AI_FRIEND_LEVELS[aiFriendNormalizeLevel(level)];
+  if (!opts || !opts.answering) return base;
+  return { ...base, maxSentences: base.maxSentences + 1 };
 }
 
 /**
@@ -229,12 +264,12 @@ export function aiFriendBrokenQuestions(reply: string, level: string): string[] 
  * ⚠️ «판별 유니온» 으로 만들지 마세요 — 이 저장소는 strictNullChecks:false 라 좁히기가
  *    동작하지 않아 컴파일이 깨집니다(CLAUDE.md 함정). 한 가지 모양으로 둡니다.
  */
-export function aiFriendMeasureReply(reply: string, level: string): {
+export function aiFriendMeasureReply(reply: string, level: string, opts?: { answering?: boolean }): {
   ok: boolean; sentences: number; maxSentences: number;
   worstWords: number; maxWordsPerSentence: number; hardMaxWordsPerSentence: number;
   broken: string[]; score: number;
 } {
-  const spec = aiFriendLevelSpec(level);
+  const spec = aiFriendLevelSpec(level, opts);
   const parts = aiFriendSplitSentences(reply);
   let worst = 0;
   for (const p of parts) worst = Math.max(worst, aiFriendCountWords(p));
@@ -280,8 +315,8 @@ export function aiFriendShortenHint(reply: string, level: string): string {
  *    한 문장이 여전히 길면 그건 받아들입니다(문제를 못 주는 것이 더 나쁩니다).
  * ⛔ 질문을 버리지 마세요 — 되물을 말이 없어지면 그 자리에서 대화가 끊깁니다.
  */
-export function aiFriendTrimSentences(reply: string, level: string): string {
-  const spec = aiFriendLevelSpec(level);
+export function aiFriendTrimSentences(reply: string, level: string, opts?: { answering?: boolean }): string {
+  const spec = aiFriendLevelSpec(level, opts);
   const parts = aiFriendSplitSentences(reply);
   if (parts.length <= spec.maxSentences) return reply;
 
@@ -292,13 +327,25 @@ export function aiFriendTrimSentences(reply: string, level: string): string {
   for (let i = parts.length - 1; i >= 0; i--) { if (/\?/.test(parts[i])) { qIdx = i; break; } }
   const lastIdx = qIdx >= 0 ? qIdx : parts.length - 1;
 
-  const keep: string[] = [];
-  if (spec.maxSentences >= 2 && lastIdx !== 0) keep.push(parts[0]);   // 칭찬 한 줄
-  keep.push(parts[lastIdx]);
-  // 자리가 남으면 앞쪽 문장을 순서대로 채운다(되묻는 질문은 늘 마지막에 남는다)
-  for (let i = 1; i < parts.length && keep.length < spec.maxSentences; i++) {
-    if (i === lastIdx) continue;
-    keep.splice(keep.length - 1, 0, parts[i]);
+  /* 🔴 학생이 물어본 턴에는 «대답» 이 칭찬보다 먼저다 (2026-09-09 사장님 「질문과 대답이 서로 맞지 않아」).
+     옛 코드는 언제나 parts[0](칭찬) + 마지막 질문만 남겨, 모델이 제대로 대답해도 그 대답을 버렸다.
+     실측: "Nice one! I love pizza. What about you?" → "Nice one! What about you?"
+     ⛔ 마지막 질문은 언제나 지킨다 — 되묻기가 사라지면 기초 학생의 대화가 그 자리에서 끝난다.
+     ⚠️ 고를 때는 «자리(index)» 로 모았다가 마지막에 오름차순으로 잇는다. 문장을 고른 순서대로
+        이어 붙이면 「It is yummy. Cool! Do you like it?」처럼 앞뒤가 뒤엉킨다(만들면서 실제로 밟았다). */
+  const answering = !!(opts && opts.answering);
+  const pick = new Set<number>([lastIdx]);
+  /* 우선순위: ① 학생이 물었으면 «내용» 문장(칭찬 자리 0 을 뺀 앞쪽부터) ② 칭찬 ③ 나머지 앞쪽부터.
+     안 물었으면 옛 순서 그대로 — 칭찬이 먼저다. */
+  const order: number[] = [];
+  if (answering) {
+    for (let i = 1; i < parts.length; i++) if (i !== lastIdx) order.push(i);
+    if (lastIdx !== 0) order.push(0);
+  } else {
+    if (spec.maxSentences >= 2 && lastIdx !== 0) order.push(0);
+    for (let i = 1; i < parts.length; i++) if (i !== lastIdx) order.push(i);
   }
+  for (const i of order) { if (pick.size >= spec.maxSentences) break; pick.add(i); }
+  const keep = [...pick].sort((x, y) => x - y).map((i) => parts[i]);
   return keep.join(' ').trim() + tip;
 }

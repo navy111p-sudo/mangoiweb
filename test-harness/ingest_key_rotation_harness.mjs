@@ -83,9 +83,18 @@ for (const [name, src, nw, old] of [
   /* ⚠️ `(env as any)` 안의 ')' 때문에 [^)]* 로는 인자 목록을 못 짚는다(uptime 이 그 형태다).
      캐스트와 공백을 먼저 걷어낸 뒤 «순서» 만 본다 — 새 키가 앞, 옛 키가 뒤. */
   const flat = src.replace(/\(env as any\)/g, 'env').replace(/\s+/g, '');
-  const re = new RegExp('keyMatchesAny\\(given,env\\.' + nw + '\\)');
-  check(`${name}: keyMatchesAny(given, ${nw}) — 새 키만`, re.test(flat),
-    (flat.match(/keyMatchesAny\([^;]{0,90}/) || [])[0]);
+  /* ⚠️ 예전에는 `keyMatchesAny(given,env.<새키>)` 를 **글자 그대로** 못 박았습니다. 그래서
+     2026-09-09 에 장애 웹훅에 시험용 칸(`UPTIME_HOOK_KEY_TEST`)을 «더하는» 변경에서
+     보장은 그대로인데 검사만 빨간불이 났습니다(같은 이유로 `watchdog_layer2_harness` 도 깨짐).
+     ✅ 물어야 할 것은 «후보가 하나뿐인가» 가 아니라 다음 둘입니다 —
+        ㉠ 새 키가 **첫 후보**인가 ㉡ 후보가 전부 **그 이름 계열의 환경변수**인가
+        (옛 키 불인정은 바로 아래 검사가 짝으로 봅니다). */
+  const base = nw.replace(/_NEW$/, '');
+  const args = (flat.match(/keyMatchesAny\(given,([^;]*?)\)\)/) || [])[1];
+  const cands = args ? args.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  check(`${name}: 새 키(${nw})가 «첫» 후보다`, cands[0] === `env.${nw}`, args);
+  check(`${name}: 후보가 전부 «${base}_*» 환경변수다 (항상 통과하는 값이 안 섞였다)`,
+    cands.length >= 1 && cands.every((c) => new RegExp(`^env\\.${base}_[A-Z_]+$`).test(c)), args);
   /* 🔒 옛 키를 다시 후보에 넣으면 공개돼 있던 값이 되살아난다. 되돌아가지 않게 못 박는다. */
   check(`${name}: 🔴 옛 키(${old})를 더 이상 후보로 넣지 않는다`,
     !new RegExp('keyMatchesAny\\([^)]*env\\.' + old + '[,)]').test(flat),

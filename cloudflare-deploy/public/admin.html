@@ -2042,14 +2042,22 @@
             <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="tc-only-live" /> <span data-ko="지금 들어갈 수 있는 것만" data-en="Joinable only">지금 들어갈 수 있는 것만</span>
             </label>
-            <!-- 🌙 (2026-09-08 사장님 요청) 「23시 이후」만 보기 — 늦은 밤 수업을 따로 확인한다.
-                 · 재는 것은 **시작 시각(KST)** 하나다(js/adm-today-classes.js 의 LATE_FROM_HOUR = 23).
-                 · 이 목록은 «하루치» 라 여기 걸리는 것은 23:00~23:59 다. 자정을 넘긴 00:10 수업은
-                   그 날짜 목록의 «맨 앞» 에 있지 23시 뒤에 있지 않다 → 라벨에 시간대를 그대로 적는다
-                   (「23시 이후」가 새벽까지 포함한다고 읽히면 「필터가 빠뜨린다」는 제보가 된다).
-                 ⛔ 문턱(23)을 여기 숫자로 다시 적지 말 것 — 정본은 그 파일 한 줄이다. -->
-            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
-              <input type="checkbox" id="tc-late" /> <span data-ko="🌙 23시 이후만 (23:00~23:59)" data-en="🌙 After 23:00 only (23:00–23:59)">🌙 23시 이후만 (23:00~23:59)</span>
+            <!-- 🌙🌒 늦은 밤 수업 고르기 (2026-09-08 「23시 이후」 · 2026-09-09 「야간」 사장님 요청)
+                 · 재는 것은 **시작 시각(KST)** 하나다(js/adm-today-classes.js 의 LATE_FROM_HOUR·NIGHT_UNTIL_HOUR).
+                 · 이 목록은 «하루치» 라, 그 하루의 «양 끝» 이 둘 다 밤이다 —
+                   새벽 00:00~05:59(전날 밤에서 이어진 수업) + 밤 23:00~23:59(그날 밤의 시작).
+                   「23시 이후」는 뒤쪽만, 「야간」은 둘 다 봅니다.
+                 ⚠️ 그래도 «자정을 넘겨 이어지는 한 판» 은 두 날짜로 갈립니다(서버가 날짜로 자릅니다).
+                    그 사실은 목록 위 안내 줄(nightNote)이 말합니다 — 여기 라벨로 감추지 마세요.
+                 ⛔ 체크박스 둘로 나누지 말 것 — 두 범위가 포개져 있어 «둘 다 켠 상태» 의 뜻이 모호해집니다.
+                 ⛔ 문턱(23·6)을 여기 숫자로 «판정» 하지 말 것 — 정본은 그 파일 두 줄입니다(라벨 글자는 예외). -->
+            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px">
+              <span data-ko="시간대" data-en="Time">시간대</span>
+              <select id="tc-night" style="box-sizing:border-box">
+                <option value="" data-ko="전체" data-en="All">전체</option>
+                <option value="late" data-ko="🌙 23시 이후 (23:00~23:59)" data-en="🌙 After 23:00 (23:00–23:59)">🌙 23시 이후 (23:00~23:59)</option>
+                <option value="night" data-ko="🌒 야간 — 자정 이후 포함 (23:00~05:59)" data-en="🌒 Night — incl. after midnight (23:00–05:59)">🌒 야간 — 자정 이후 포함 (23:00~05:59)</option>
+              </select>
             </label>
 
             <!-- 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」을 갈라 보기.
@@ -10264,7 +10272,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      («아무도 저장하지 않는 죽은 키»)를 정본 window.adminLang / mangoi_lang 으로 바꾼 수정이라,
      옛 파일이 immutable 캐시에 남아 있으면 EN 스태프 화면이 그대로 한국어로 뜬다. -->
 <script src="/js/adm-bulkbook.js?v=10" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-today-classes.js?v=26" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/adm-today-classes.js?v=27" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-today-tabs.js?v=2" defer></script><!-- v=2: 초대 카드를 「화상방 접속」의 짝으로 (2026-09-01) --><!-- 📌 (2026-09-01 A안) 「오늘 수업」 한 항목 안에서 전체 / 🔴 진행 중 / 🎥 화상방 접속 탭 -->
 <script src="/js/adm-quick-access.js?v=15" defer></script><!-- v=15: 「오늘 수업」으로 이름 통일 + 같은 카드를 가리키는 항목이 둘일 때 «주인» 을 고른다 (2026-09-01) --><!-- v=14: 「수업 관제탑」 칸 추가 (2026-08-30) --><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=3" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
@@ -13459,7 +13467,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   padding:11px 12px 11px 14px;margin:0 0 10px;color:#0b6e63;
   font-size:15.5px;font-weight:800}
 #ph85-sidebar #ia6-appr .ph85-ico{color:#0b6e63;display:flex;align-items:center}
-#ph85-sidebar #ia6-appr .ia6-appr-t{flex:1;min-width:0}
+#ph85-sidebar #ia6-appr .ia6-appr-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
 /* 대기가 있으면 초록으로 «켜진다» — 0 건이면 테두리만 남아 «여기 있다» 를 계속 알린다.
    (올리러 들어갈 때는 언제나 0 건이라, 그때도 찾기 쉬워야 한다) */
 #ph85-sidebar #ia6-appr.on{background:#0b6e63;color:#fff;border-color:#0b6e63}
@@ -13469,8 +13477,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   justify-content:center;padding:0 6px}
 #ph85-sidebar #ia6-appr.on .ia6-appr-n{background:#fff;color:#0b6e63}
 .ia6-appr-n:empty{display:none}
+/* 🧾 (2026-09-09 A+B) 부제 «지연 N · N일째» — 단계 기한(stage_due_at)이 지난 건이 있을 때만 채워진다.
+   글자는 /js/adm-appr-badge.js(paintSidebar — 2026-09-09 defer 파일로 분리)가 쓴다. 비어 있으면 자리를 차지하지 않는다. */
+.ia6-appr-sub{font-size:12.5px;font-weight:600;opacity:.9;margin-left:6px}
+.ia6-appr-sub:empty{display:none}
+/* 지연이 하나라도 있으면 초록 → 빨강. 두 단계만 둔다(주황 중간 단계 없음 — 세 색이면 뜻을 외워야 한다).
+   지연이 없는 날은 위 .on 그대로라 «늘 빨간 것» 이 되지 않는다. */
+#ph85-sidebar #ia6-appr.late{border-color:#b42318;color:#b42318}
+#ph85-sidebar #ia6-appr.late .ph85-ico{color:#b42318}
+#ph85-sidebar #ia6-appr.late.on{background:#b42318;color:#fff;border-color:#b42318}
+#ph85-sidebar #ia6-appr.late.on .ph85-ico{color:#fbd5d5}
+#ph85-sidebar #ia6-appr.late.on .ia6-appr-n{background:#fff;color:#b42318}
+/* 새 건이 «늘어난 순간» 1.5초만 노란 테두리 — 색만 바뀐다(위치·크기 고정, 반복 깜빡임 없음). */
+#ph85-sidebar #ia6-appr{transition:background-color .35s,border-color .35s,outline-color .35s}
+#ph85-sidebar #ia6-appr.fresh{outline:3px solid #f59e0b;outline-offset:2px}
 </style>
-<script src="/js/adm-ia6.js?v=56" defer></script><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=58" defer></script><!-- v=58: 주석만 — 배지·부제를 채우는 곳이 admin.html 인라인이 아니라 /js/adm-appr-badge.js 임을 바로잡음 (2026-09-09, trap-check 지적) --><!-- v=57: 결재함 라벨의 data-ko/data-en 을 <a> 에서 span 으로 — EN/KO 토글이 배지 요소를 지우던 함정 (2026-09-09) --><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-quickfav.js?v=2" defer></script><!-- ⭐ 자주 쓰는 메뉴(고정★ + 최근 본) — 사용성 점검 2번 · 2026-08-19 -->
 <script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
@@ -13544,100 +13566,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ⚠️ localStorage 의 mangoi_admin_nav_collapsed 는 남을 수 있으나 이제 읽는 곳이 없다. -->
 
 <!-- ════════════════════════════════════════════════════════════════════════════
-     🧾 결재 대기 알림 (2026-08-16)
+     🧾 결재 대기 알림 (2026-08-16) → 본문은 /js/adm-appr-badge.js (2026-09-09 defer 파일로 분리)
 
-     왜 여기(맨 끝 · 자체 완결) 인가
-       이 파일은 1MB 다. 기존 레이아웃·메뉴 체계를 건드리면 사고 반경이 서비스 전체가 된다.
-       그래서 **아무것도 참조하지 않는 블록 하나**로 끝냈다 —
-       admin.html 의 CSS·JS·i18n·메뉴 어느 것에도 의존하지 않는다.
-
-     하는 일은 딱 하나: «결재 N건» 을 보여 주고 누르면 /work 로 보낸다.
-       ⚠️ 결재 목록·승인 버튼을 여기에 만들지 말 것. 그러면 화면이 두 벌이 되고,
-          전용 경량 화면(/work)을 만든 이유가 사라진다.
-       ⚠️ 대기가 0건이면 아예 그리지 않는다. 늘 떠 있는 배지는 곧 배경이 된다.
-       ⚠️ 첫 화면과 경쟁하지 않게 3초 뒤에 한 번만 부른다. 반복 폴링하지 않는다.
-       ⚠️ hover 확대·애니메이션 없음(CLAUDE.md 1-3 — 과거에 의도적으로 제거한 것).
+     여기 있던 인라인 스크립트 태그 8KB 를 별도 파일로 뺐다 — first_paint_budget_harness 의 admin.html
+     blocking 여유가 2KB 뿐이어서(main 315KB / 상한 317KB) 1분 주기 갱신·지연 색을 더하자 넘쳤다.
+     기준선을 올리는 대신 규칙대로 defer 로 뺀 것. 설계 배경(자체 완결·/work 로만 보냄·목록 금지)은
+     그 파일 머리말에 있다. CSS(<style id="ia6-appr-css">)는 이 파일 위쪽(IA6 사이드바 CSS 옆)에 그대로 있다.
+       ⚠️ 이 줄의 ?v= 는 그 파일을 고칠 때마다 올린다(asset_version_harness).
+       ⚠️ 결재 목록·승인 버튼을 admin.html 에 만들지 말 것 — 전용 화면 /work 가 정본.
      ════════════════════════════════════════════════════════════════════════════ -->
-<script>
-(function(){
-  "use strict";
-  /* ⚠️ 대기가 0건이어도 **입구는 늘 보여 준다.**
-     처음엔 «0건이면 그리지 않는다» 였는데, 그러면 한국 본사(대표·담당)가 결재를
-     **올리러** 들어갈 방법이 화면에 없다 — 주소를 외워야 한다.
-     이 프로젝트가 없애려던 «찾아 들어가야 한다» 가 그대로 되살아난다.
-     대신 0건일 때는 조용한 회색으로 두어 «알림» 이 아니라 «메뉴» 로 읽히게 한다. */
-  /* ⚠️ 오른쪽 아래에 «떠 있게» 두지 않는다 — 그 자리는 이미 「AI 운영비서」 버튼과
-     상담원 아바타가 차지하고 있어서 그 뒤에 가려진다(2026-08-17 사장님 화면에서 확인).
-     대신 본문 **맨 위**(자주 쓰는 기능 바로 위)에 한 줄로 끼워 넣는다.
-     흐름 안에 있으므로 무엇에도 가려지지 않고, 눈이 처음 닿는 자리다. */
-  /* 🧾 (2026-08-20) 초록 줄을 **없앴다.**
-     [왜] 처음엔 「어디에도 안 보인다」(2026-08-17)를 급히 풀려고 「자주 쓰는 기능」 상자
-          «위» 에 흐름 안 요소로 끼워 넣었다. 그때는 그것이 유일한 입구였다.
-          지금은 ① 사이드바 맨 위 「결재함」 ② 이 「자주 쓰는 기능」 표 첫 칸 두 곳이 있어
-          초록 줄까지 두면 같은 입구가 셋이고, 표 밖에 혼자 떠 있어 어색했다(사장님 지적).
-     [대신] 표의 「결재함」 칸에 **숫자만** 붙인다. 칸 자체는 adm-quick-access.js 가 그린다.
-     ⛔ 여기서 결재 목록·승인 버튼을 만들지 말 것 — 화면이 두 벌이 되고 /work 를 만든 이유가 사라진다. */
-  /* 🧾 사이드바 맨 위 「결재함」 줄의 숫자. 요소는 adm-ia6.js 가 그리는데 **나중에 다시 그릴 수**
-     있으므로(사이드바를 통째로 새로 그리는 스크립트가 여럿이다) 숫자를 기억해 뒀다가 다시 입힌다.
-     ⚠️ 여기서 API 를 또 부르지 않는다 — 첫 화면에서 같은 요청이 두 번 나간다. */
-  var apprN = null;
-  function paintSidebar(n){
-    if (typeof n === 'number') apprN = n;
-    if (apprN === null) return;
-    var row = document.getElementById('ia6-appr');
-    if (!row) return;
-    var el = document.getElementById('ia6-appr-n');
-    if (el) el.textContent = apprN > 0 ? String(apprN) : '';
-    row.classList.toggle('on', apprN > 0);
-  }
-  // 사이드바가 다시 그려져도 숫자가 사라지지 않게 — 가볍게 되입힌다(요청 없음).
-  setInterval(function(){ paintSidebar(); }, 4000);
-
-  function paintQuick(n, late){
-    var row = document.querySelector('#ph161-quick-items .ph161-q[data-qa="결재함"]');
-    if (!row) return false;
-    var b = row.querySelector('.mi-appr-n');
-    if (!b) {
-      b = document.createElement('span');
-      b.className = 'mi-appr-n';
-      /* 인라인으로 쓴다 — 이 표의 다른 칸도 전부 인라인 style 이고, 그래야 이 블록이
-         admin.html 의 CSS 에 아무것도 기대지 않는다(이 파일 1MB, 사고 반경을 줄인다). */
-      b.style.cssText = 'flex:none;margin-left:6px;background:#c0392b;color:#fff;'
-        + 'font-size:11px;font-weight:800;min-width:18px;height:18px;border-radius:9px;'
-        + 'display:flex;align-items:center;justify-content:center;padding:0 5px';
-      row.appendChild(b);
-    }
-    b.textContent = n > 0 ? String(n) : '';
-    b.style.display = n > 0 ? 'flex' : 'none';
-    b.title = late ? ('지연 ' + late + '건') : '';
-    return true;
-  }
-
-  function load(){
-    fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        if (!j || !j.ok || !j.inbox) return;
-        var late = 0, now = Date.now();
-        for (var i = 0; i < j.inbox.length; i++) {
-          var x = j.inbox[i];
-          if (x.stage_due_at && now > Number(x.stage_due_at)) late++;
-        }
-        paintSidebar(j.inbox.length);
-        /* 「자주 쓰는 기능」 표는 adm-quick-access.js 가 나중에 그릴 수 있다.
-           아직 없으면 잠깐 뒤 다시 — 못 붙였는데 조용히 넘어가면 숫자가 영영 안 뜬다. */
-        if (!paintQuick(j.inbox.length, late)) {
-          var tries = 0;
-          var iv = setInterval(function(){
-            if (paintQuick(j.inbox.length, late) || ++tries > 20) clearInterval(iv);
-          }, 500);
-        }
-      })
-      .catch(function(){ /* 결재를 못 불러온 것이 관리자 화면을 망치지 않는다 */ });
-  }
-  setTimeout(load, 3000);
-})();
-</script>
+<script src="/js/adm-appr-badge.js?v=1" defer></script><!-- v=1: 인라인에서 분리 + 1분 주기 갱신·탭 복귀 재조회·지연(.late) 색·새 도착(.fresh) 표시 (2026-09-09 A+B) -->
 <!-- BUILD:20260813015745 -->
 </body>
 </html>
