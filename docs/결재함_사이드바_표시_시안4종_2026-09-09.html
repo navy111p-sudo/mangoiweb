@@ -1,0 +1,367 @@
+<meta charset="utf-8">
+<title>결재함 도착 표시 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+
+<style>
+/* ──────────────────────────────────────────────────────────────────
+   결재함 도착 표시 시안 4종 — 2026-09-09
+   사장님 「결재가 뜨면 여기 결재카드에 표시가 나게 해줘. 4가지 샘플로. 뭐가 제일 좋을지 네 생각」
+   앞선 두 시안(결재_보관함_시안4종_2026-09-08 · 결재_정리화면_시안4종_2026-09-04)과 같은 토큰.
+   사이드바 모형은 실제 admin 사이드바 값(IA6 · 결재함 줄 #0b6e63 · 배지 #c0392b)을 그대로 씁니다.
+   숫자·이름은 전부 «예시» 입니다(2026-09-09 운영 D1 실측: 대기 중 결재 0건).
+   ────────────────────────────────────────────────────────────────── */
+:root{
+  --ink:#101828; --ink2:#475467; --ink3:#8B8378;
+  --bg:#F6F4F0; --card:#FFFFFF; --sunk:#FAF8F5;
+  --line:#E5E0D7; --line2:#EFEBE3;
+  --accent:#B45309; --accent-soft:#FDF2E0; --accent-line:#EBCFA6;
+  --ok:#15803D; --ok-soft:#E7F6EC;
+  --wait:#B45309; --wait-soft:#FDF0DA;
+  --no:#B91C1C; --no-soft:#FBE9E9;
+  --blue:#1D4ED8; --blue-soft:#E8EEFB;
+  --shadow:0 1px 2px rgba(43,35,24,.06), 0 8px 24px -12px rgba(43,35,24,.18);
+  /* 실제 관리자 사이드바 값 — 모형이 사실과 같아 보이도록 */
+  --sb-bg:#F7F8FA; --sb-line:#E6E8EC; --sb-ink:#1F2937; --sb-mute:#6B7280;
+  --appr:#0b6e63; --appr-soft:#E3F3F1; --appr-ico:#9fd8d0; --badge:#c0392b;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#F3EFE8; --ink2:#C0B8AC; --ink3:#8C8377;
+    --bg:#16140F; --card:#211E18; --sunk:#1B1913;
+    --line:#39342B; --line2:#2C2921;
+    --accent:#F0A64A; --accent-soft:#3A2A12; --accent-line:#5A4526;
+    --ok:#5DD08B; --ok-soft:#14301F;
+    --wait:#F0A64A; --wait-soft:#3A2A12;
+    --no:#F08A8A; --no-soft:#3B1A1A;
+    --blue:#8FB0FF; --blue-soft:#1B2540;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    --sb-bg:#1C1F25; --sb-line:#2E323A; --sb-ink:#E5E7EB; --sb-mute:#9CA3AF;
+    --appr:#2FA394; --appr-soft:#173330; --appr-ico:#0f4a43; --badge:#E0554A;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#F3EFE8; --ink2:#C0B8AC; --ink3:#8C8377;
+  --bg:#16140F; --card:#211E18; --sunk:#1B1913;
+  --line:#39342B; --line2:#2C2921;
+  --accent:#F0A64A; --accent-soft:#3A2A12; --accent-line:#5A4526;
+  --ok:#5DD08B; --ok-soft:#14301F;
+  --wait:#F0A64A; --wait-soft:#3A2A12;
+  --no:#F08A8A; --no-soft:#3B1A1A;
+  --blue:#8FB0FF; --blue-soft:#1B2540;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  --sb-bg:#1C1F25; --sb-line:#2E323A; --sb-ink:#E5E7EB; --sb-mute:#9CA3AF;
+  --appr:#2FA394; --appr-soft:#173330; --appr-ico:#0f4a43; --badge:#E0554A;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+  font-size:15px; line-height:1.7; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:40px 20px 80px}
+.mono{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:'IBM Plex Mono', monospace; font-size:11.5px; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin:0 0 10px;
+}
+h1{font-size:30px; line-height:1.25; margin:0 0 12px; font-weight:700; letter-spacing:-.01em; text-wrap:balance}
+h2{font-size:21px; margin:0 0 6px; font-weight:700; letter-spacing:-.005em; text-wrap:balance}
+h3{font-size:15.5px; margin:0 0 6px; font-weight:700}
+.lead{font-size:16px; color:var(--ink2); max-width:66ch; margin:0}
+p{margin:0 0 10px}
+.sub{color:var(--ink2); font-size:14px}
+.hair{border:0; border-top:1px solid var(--line); margin:34px 0}
+code{font-family:'IBM Plex Mono', monospace; font-size:.9em; background:var(--sunk); border:1px solid var(--line2); border-radius:5px; padding:1px 6px}
+
+/* ── 지금 상태 카드 ── */
+.now{
+  display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:24px; align-items:start;
+  background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow); margin:26px 0 0;
+}
+.now ul{margin:8px 0 0; padding-left:18px}
+.now li{margin:4px 0}
+.tag{display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:999px; border:1px solid transparent; vertical-align:middle}
+.tag.ok{background:var(--ok-soft); color:var(--ok); border-color:color-mix(in srgb, var(--ok) 35%, transparent)}
+.tag.no{background:var(--no-soft); color:var(--no); border-color:color-mix(in srgb, var(--no) 35%, transparent)}
+.tag.wait{background:var(--wait-soft); color:var(--wait); border-color:color-mix(in srgb, var(--wait) 35%, transparent)}
+
+/* ── 시안 블록 ── */
+.sample{margin:38px 0 0}
+.shead{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px}
+.shead .letter{
+  font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:13px; color:var(--accent);
+  border:1.5px solid var(--accent-line); background:var(--accent-soft); border-radius:8px; padding:2px 10px;
+}
+.shead .bench{font-size:13px; color:var(--ink3)}
+.sgrid{display:grid; grid-template-columns:300px minmax(0,1fr); gap:24px; align-items:start; margin-top:14px}
+@media (max-width:760px){ .sgrid{grid-template-columns:minmax(0,1fr)} .now{grid-template-columns:minmax(0,1fr)} }
+
+/* 사이드바 모형 — 실제 드로어의 «결재함 줄 + 그룹 몇 개» */
+.drawer{
+  background:var(--sb-bg); border:1px solid var(--sb-line); border-radius:16px; padding:14px 12px 12px;
+  color:var(--sb-ink); box-shadow:var(--shadow); font-family:'IBM Plex Sans KR', 'Malgun Gothic', sans-serif;
+}
+.drawer .tools{display:flex; gap:6px; margin-bottom:12px}
+.drawer .tools span{font-size:11.5px; color:var(--sb-mute); border:1px solid var(--sb-line); border-radius:8px; padding:3px 9px; background:var(--card)}
+.appr{
+  display:flex; align-items:center; gap:11px; background:var(--card); border:1.5px solid var(--appr);
+  border-radius:12px; padding:11px 12px 11px 14px; margin:0 0 10px; color:var(--appr); font-size:15.5px; font-weight:800;
+  position:relative; text-decoration:none;
+}
+.appr .ico{display:flex; color:var(--appr)}
+.appr .ico svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.appr .t{flex:1; min-width:0}
+.appr.on{background:var(--appr); color:#fff; border-color:var(--appr)}
+.appr.on .ico{color:var(--appr-ico)}
+.n{background:var(--badge); color:#fff; font-size:12.5px; font-weight:800; min-width:22px; height:22px; border-radius:11px; display:flex; align-items:center; justify-content:center; padding:0 6px}
+.appr.on .n{background:#fff; color:var(--appr)}
+.grp{display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:10px; font-size:14.5px; font-weight:600; color:var(--sb-ink)}
+.grp .ico{width:18px; height:18px; border-radius:5px; background:var(--sb-line)}
+.grp .t{flex:1}
+.grp .pill{font-size:12px; font-weight:700; color:var(--sb-mute); background:var(--card); border:1px solid var(--sb-line); border-radius:999px; min-width:24px; text-align:center; padding:0 7px}
+.grp .arrow{color:var(--sb-mute)}
+.cap{font-size:12.5px; color:var(--ink3); margin-top:8px; line-height:1.55}
+
+/* B — 점 + 색 단계 */
+.dot{width:10px; height:10px; border-radius:50%; background:var(--badge); box-shadow:0 0 0 2px var(--card)}
+.appr.late{border-color:var(--no); color:var(--no)}
+.appr.late .ico{color:var(--no)}
+.appr.late.on{background:var(--no); color:#fff; border-color:var(--no)}
+.appr.late.on .ico{color:#fbd5d5}
+.appr.late.on .n{color:var(--no)}
+
+/* C — 미리보기 줄 */
+.peek{
+  margin:-4px 0 10px; padding:8px 12px 9px 14px; border-radius:0 0 12px 12px; border:1.5px solid var(--appr); border-top:0;
+  background:var(--appr-soft); color:var(--sb-ink); font-size:13px; line-height:1.5; display:grid; gap:2px;
+}
+.appr.stack{margin-bottom:0; border-radius:12px 12px 0 0}
+.peek b{font-weight:700}
+.peek .m{color:var(--sb-mute); font-size:12px}
+.peek .who{display:inline-block; font-weight:700; color:var(--appr)}
+
+/* D — 도착 알림 (제목·표 첫 칸·토스트) */
+.toast{
+  display:flex; align-items:center; gap:10px; background:var(--card); border:1.5px solid var(--appr);
+  border-left-width:6px; border-radius:10px; padding:10px 14px; box-shadow:var(--shadow); font-size:13.5px; margin-top:10px;
+}
+.toast .go{margin-left:auto; font-weight:700; color:var(--appr); white-space:nowrap}
+.tab{
+  display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line); border-bottom:0;
+  border-radius:9px 9px 0 0; padding:6px 14px; font-size:13px; color:var(--ink2); margin-top:14px;
+}
+.tab .fav{width:14px; height:14px; border-radius:3px; background:#f59e0b}
+.quick{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:12px}
+.quick div{background:var(--card); border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13px; display:flex; align-items:center; gap:6px}
+.quick .qn{margin-left:auto; background:var(--badge); color:#fff; font-size:11px; font-weight:800; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 5px}
+
+/* 설명 표 */
+.facts{display:grid; grid-template-columns:110px minmax(0,1fr); gap:6px 14px; font-size:14px; margin:10px 0 0}
+.facts dt{color:var(--ink3); font-weight:600}
+.facts dd{margin:0}
+.pm{display:grid; grid-template-columns:1fr 1fr; gap:10px 18px; margin-top:12px}
+@media (max-width:560px){ .pm{grid-template-columns:1fr} }
+.pm h4{margin:0 0 4px; font-size:13px; font-weight:700; letter-spacing:.02em}
+.pm h4.plus{color:var(--ok)} .pm h4.minus{color:var(--no)}
+.pm ul{margin:0; padding-left:16px; font-size:14px; color:var(--ink2)}
+.pm li{margin:2px 0}
+.cost{display:inline-flex; gap:3px; vertical-align:middle}
+.cost i{width:10px; height:10px; border-radius:2px; background:var(--line); display:inline-block}
+.cost i.f{background:var(--accent)}
+
+/* 비교 표 */
+table{width:100%; border-collapse:collapse; font-size:14px; margin-top:14px}
+th,td{padding:10px 12px; border-bottom:1px solid var(--line2); text-align:left; vertical-align:top}
+th{font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink3); font-weight:600; border-bottom:1px solid var(--line)}
+.tblwrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); box-shadow:var(--shadow); padding:4px 8px 8px}
+td.pick{font-weight:700; color:var(--accent)}
+
+/* 추천 */
+.reco{
+  background:var(--card); border:1.5px solid var(--accent-line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow);
+}
+.reco ol{margin:8px 0 0; padding-left:20px}
+.reco li{margin:6px 0}
+.reco .why{color:var(--ink2); font-size:14px}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Approvals · Sidebar indicator · 2026-09-09</p>
+  <h1>결재가 도착하면 사이드바 「결재함」에 어떻게 표시할까</h1>
+  <p class="lead">관리자 화면 왼쪽 드로어 맨 위 「결재함」 줄에, 새 결재가 오면 «눈에 띄게» 만드는 방법 네 가지입니다. 넷은 서로 배타적이지 않아서 섞을 수 있고, 맨 아래에 제 추천을 적었습니다.</p>
+
+  <div class="now">
+    <div>
+      <h2>먼저, 지금 상태 (코드로 확인한 사실)</h2>
+      <p class="sub">「표시가 없다」가 아니라 「표시가 있는데 두 가지가 빠져 있다」입니다.</p>
+      <ul>
+        <li><span class="tag ok">있음</span> 대기 건수 <b>빨간 숫자 배지</b>와, 1건 이상이면 줄 전체가 <b>초록으로 켜지는</b> 규칙 — 이미 들어 있습니다(<code>admin.html</code> 결재 블록 + <code>adm-ia6.js</code>). 사장님 화면에 숫자가 없었던 것은 <b>그 시각 대기 결재가 0건</b>이었기 때문입니다(운영 D1 실측 2026-09-09).</li>
+        <li><span class="tag no">빠짐</span> <b>화면을 연 뒤 3초에 한 번만</b> 조회합니다. 관리자 화면을 켜 둔 채로 결재가 도착하면 <b>새로고침하기 전까지 아무 표시도 안 바뀝니다.</b> 「결재가 뜨면」이 안 되는 진짜 이유가 이것입니다.</li>
+        <li><span class="tag no">빠짐</span> 「지연 N건」은 자주 쓰는 기능 표 칸의 <b>마우스 툴팁</b>에만 있어 폰에서는 볼 수 없고, 사이드바 줄에는 없습니다.</li>
+        <li><span class="tag wait">함정</span> 결재함 줄(<code>&lt;a id="ia6-appr"&gt;</code>)에 <code>data-ko/data-en</code>이 달려 있어 <b>EN/KO를 한 번 누르면 아이콘과 숫자 배지 요소가 지워집니다</b>(i18n 엔진이 textContent를 통째로 갈아끼움 — CLAUDE.md의 그 함정). 그 뒤로는 새로고침 전까지 숫자가 돌아오지 못합니다. 코드로 확인했고 브라우저 재현은 구현 때 함께 합니다. 어느 시안을 고르셔도 이건 같이 고칩니다.</li>
+        <li><span class="tag ok">참고</span> 사장님 계정에는 <b>웹 푸시 구독 2개</b>가 켜져 있어, 결재가 올라오면 기기 알림은 이미 갑니다. 이번 일은 «관리자 화면 안에서» 알아채게 하는 것입니다.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="drawer" aria-label="지금 화면 모형">
+        <div class="tools"><span>모두 펼치기</span><span>모두 접기</span><span>메뉴 지도</span></div>
+        <a class="appr" href="#" onclick="return false"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></span><span class="t">결재함</span></a>
+        <div class="grp"><span class="ico"></span><span class="t">오늘</span><span class="pill">8</span><span class="arrow">›</span></div>
+        <div class="grp"><span class="ico"></span><span class="t">학생</span><span class="pill">6</span><span class="arrow">›</span></div>
+      </div>
+      <p class="cap">지금 · 대기 0건일 때. 테두리만 남아 «여기 있다»를 알립니다(0건이어도 입구는 보이게 — 2026-08-20 결정).</p>
+    </div>
+  </div>
+
+  <hr class="hair">
+
+  <!-- ───────────── A ───────────── -->
+  <section class="sample">
+    <div class="shead"><span class="letter">A</span><h2>숫자 배지 + 실시간 갱신</h2><span class="bench">벤치마크 · Gmail 받은편지함 숫자 · Slack 채널 배지</span></div>
+    <p class="sub">지금 있는 배지를 그대로 두고, <b>«언제 갱신되는가»</b>만 고칩니다. 1분마다 조용히 다시 묻고, 탭으로 돌아왔을 때(<code>visibilitychange</code>)·창에 포커스가 왔을 때 즉시 한 번 더 묻습니다. 새 건이 «늘어난 순간»에만 줄이 짧게 한 번 밝아집니다.</p>
+    <div class="sgrid">
+      <div>
+        <div class="drawer">
+          <div class="tools"><span>모두 펼치기</span><span>모두 접기</span><span>메뉴 지도</span></div>
+          <a class="appr on" href="#" onclick="return false"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></span><span class="t">결재함</span><span class="n">2</span></a>
+          <div class="grp"><span class="ico"></span><span class="t">오늘</span><span class="pill">8</span><span class="arrow">›</span></div>
+          <div class="grp"><span class="ico"></span><span class="t">학생</span><span class="pill">6</span><span class="arrow">›</span></div>
+        </div>
+        <p class="cap">지금 배지 모양 그대로. 바뀌는 것은 «열어 둔 사이에도 숫자가 살아 움직인다»는 점 하나.</p>
+      </div>
+      <div>
+        <dl class="facts">
+          <dt>무엇이 보이나</dt><dd>내가 지금 결재할 수 있는 건수. 0건이면 테두리만.</dd>
+          <dt>언제 바뀌나</dt><dd>60초 주기 + 탭 복귀·창 포커스 때 즉시. 새 건이 늘면 줄이 0.6초 밝아짐(깜빡임 반복 없음).</dd>
+          <dt>만들기</dt><dd><span class="cost"><i class="f"></i><i></i><i></i><i></i></span> 반나절 — <code>admin.html</code> 결재 블록의 <code>setTimeout(load, 3000)</code> 한 줄을 «주기 + 이벤트»로. 서버 변경 0.</dd>
+          <dt>비용</dt><dd>관리자 1명당 시간에 60회 <code>/api/approval/home</code>. ETag 304라 대부분 본문 없이 끝납니다.</dd>
+        </dl>
+        <div class="pm">
+          <div><h4 class="plus">좋은 점</h4><ul><li>이미 아는 모양이라 배울 것이 없습니다</li><li>사고 반경이 가장 작습니다(자체 완결 블록 한 곳)</li><li>「결재가 뜨면 표시」라는 요구를 문자 그대로 채웁니다</li></ul></div>
+          <div><h4 class="minus">아쉬운 점</h4><ul><li>숫자만 있어 «급한 건인지·누가 올렸는지»는 눌러 봐야 압니다</li><li>60초 안에는 모릅니다(즉시성은 푸시가 맡습니다)</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── B ───────────── -->
+  <section class="sample">
+    <div class="shead"><span class="letter">B</span><h2>지연 단계 색 + 「며칠째」</h2><span class="bench">벤치마크 · Jira 기한 색상 · 카카오워크 결재 «지연» 빨강</span></div>
+    <p class="sub">숫자만으로는 «오늘 처리해도 되는 것»과 «이미 늦은 것»이 같아 보입니다. 단계 기한(<code>stage_due_at</code>)이 지난 건이 하나라도 있으면 줄이 <b>초록 → 빨강</b>으로 바뀌고, 옆에 가장 오래 기다린 건이 «며칠째»인지 적습니다. A와 함께 쓰는 것을 전제로 합니다.</p>
+    <div class="sgrid">
+      <div>
+        <div class="drawer">
+          <div class="tools"><span>모두 펼치기</span><span>모두 접기</span><span>메뉴 지도</span></div>
+          <a class="appr late on" href="#" onclick="return false"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></span><span class="t">결재함 <span style="font-weight:600;font-size:12.5px;opacity:.9">· 지연 1 · 3일째</span></span><span class="n">3</span></a>
+          <div class="grp"><span class="ico"></span><span class="t">오늘</span><span class="pill">8</span><span class="arrow">›</span></div>
+          <div class="grp"><span class="ico"></span><span class="t">학생</span><span class="pill">6</span><span class="arrow">›</span></div>
+        </div>
+        <p class="cap">지연이 없으면 A와 똑같이 초록. 지연이 생기는 «그날»부터만 빨강으로 바뀝니다 — 늘 빨간 것은 곧 배경이 됩니다.</p>
+      </div>
+      <div>
+        <dl class="facts">
+          <dt>무엇이 보이나</dt><dd>건수 + «지연 N · 며칠째». 색은 두 단계만(초록/빨강). 주황 중간 단계는 일부러 뺐습니다 — 세 색이면 뜻을 외워야 합니다.</dd>
+          <dt>언제 바뀌나</dt><dd>A의 갱신 주기를 그대로 탑니다. 지연 판정은 서버가 이미 내려주는 <code>stage_due_at</code>·<code>created_at</code>으로 화면이 셈.</dd>
+          <dt>만들기</dt><dd><span class="cost"><i class="f"></i><i class="f"></i><i></i><i></i></span> A + 반나절 — CSS 한 상태(<code>.late</code>) + 글자 한 조각. 서버 변경 0.</dd>
+          <dt>주의</dt><dd>「며칠째」는 화면이 셉니다(서버가 담으면 응답이 매초 달라져 304가 영영 안 나옵니다 — 결재 화면이 이미 그렇게 하고 있는 규칙).</dd>
+        </dl>
+        <div class="pm">
+          <div><h4 class="plus">좋은 점</h4><ul><li>«급한 것»이 색으로 먼저 읽힙니다 — 숫자 3보다 빨간 줄이 빠릅니다</li><li>결재 화면(/work)이 쓰는 지연 기준과 같은 값을 쓰니 두 화면이 같은 말을 합니다</li><li>폰에서도 보입니다(툴팁이 아니라 본문 글자)</li></ul></div>
+          <div><h4 class="minus">아쉬운 점</h4><ul><li>줄이 길어져 좁은 드로어에서 글자가 줄바꿈될 수 있습니다(→ 336px 폭에서 실측해 자릅니다)</li><li>«지연»의 뜻(단계 기한 초과)을 한 번은 설명해야 합니다</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── C ───────────── -->
+  <section class="sample">
+    <div class="shead"><span class="letter">C</span><h2>결재함 아래 «가장 최근 1건» 미리보기</h2><span class="bench">벤치마크 · Notion 인박스 첫 줄 · 다우오피스 «새 결재» 요약</span></div>
+    <p class="sub">숫자 대신 <b>무엇이 왔는지</b>를 한 줄로 보여 줍니다 — 「Melca · 지출 · ₱1,200 · 12분 전」. 결재함 줄 바로 아래 붙는 작은 상자이고, 대기가 0건이면 상자 자체가 없습니다. 누르면 그 건으로 바로 갑니다.</p>
+    <div class="sgrid">
+      <div>
+        <div class="drawer">
+          <div class="tools"><span>모두 펼치기</span><span>모두 접기</span><span>메뉴 지도</span></div>
+          <a class="appr on stack" href="#" onclick="return false"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></span><span class="t">결재함</span><span class="n">2</span></a>
+          <div class="peek"><div><span class="who">Melca</span> · 지출 · <b class="mono">₱1,200</b> 교재 프린트</div><div class="m">12분 전 · 그 외 1건</div></div>
+          <div class="grp"><span class="ico"></span><span class="t">오늘</span><span class="pill">8</span><span class="arrow">›</span></div>
+          <div class="grp"><span class="ico"></span><span class="t">학생</span><span class="pill">6</span><span class="arrow">›</span></div>
+        </div>
+        <p class="cap">대기 0건이면 이 상자는 그려지지 않습니다. 이름·금액은 예시입니다.</p>
+      </div>
+      <div>
+        <dl class="facts">
+          <dt>무엇이 보이나</dt><dd>가장 최근 대기 건의 «누가 · 종류 · 금액 · 제목 앞부분 · 몇 분 전» + 나머지 건수.</dd>
+          <dt>언제 바뀌나</dt><dd>A의 갱신을 탑니다. 필요한 값(<code>inbox[]</code>의 requester·req_type·amount·title·created_at)은 서버가 이미 내려줍니다.</dd>
+          <dt>만들기</dt><dd><span class="cost"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span> A + 하루 — 상자 그리기 + i18n(EN/KO) + 좁은 폭 줄임. 서버 변경 0.</dd>
+          <dt>주의</dt><dd>드로어를 다시 그리는 스크립트가 여럿이라(IA6·ph86·ph118) 상자가 지워질 수 있어 A의 «되입히기» 방식으로 함께 지켜야 합니다. 금액 표시는 결재 화면과 같은 통화 표기.</dd>
+        </dl>
+        <div class="pm">
+          <div><h4 class="plus">좋은 점</h4><ul><li>사이드바만 봐도 «지금 무슨 결재인지» 압니다 — 소액이면 나중에, 큰 건이면 지금</li><li>결재 화면(/work)을 열지 않고도 판단이 됩니다</li></ul></div>
+          <div><h4 class="minus">아쉬운 점</h4><ul><li>사이드바에 «내용»이 들어오는 첫 사례라 다른 메뉴 줄과 결이 달라집니다</li><li>결재 제목이 곧 사이드바에 노출됩니다 — 인사·급여 결재 제목이 옆 사람 눈에 들어갈 수 있어 «종류만» 쓰거나 인사·급여는 제목을 감춰야 합니다</li><li>줄이 하나 늘어 드로어가 그만큼 길어집니다</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── D ───────────── -->
+  <section class="sample">
+    <div class="shead"><span class="letter">D</span><h2>도착 순간 알림 — 탭 제목 + 자주 쓰는 기능 칸 + 토스트</h2><span class="bench">벤치마크 · Gmail 탭 제목 «(2)» · Slack 도착 배너</span></div>
+    <p class="sub">사이드바가 <b>접혀 있거나 다른 탭을 보고 있어도</b> 알게 하는 방향입니다. 새 건이 «늘어난 순간» ① 브라우저 탭 제목이 「(1) 관리자 — 망고아이」로 바뀌고 ② 본문 「자주 쓰는 기능」의 결재함 칸에도 같은 숫자가 붙고(이건 이미 있습니다) ③ 화면 위쪽에 한 줄 토스트가 8초 떠서 「열기」로 바로 갑니다. 사이드바 줄 자체는 A와 같습니다.</p>
+    <div class="sgrid">
+      <div>
+        <div class="tab"><span class="fav"></span>(1) 관리자 — 망고아이</div>
+        <div class="drawer" style="border-radius:0 16px 16px 16px">
+          <a class="appr on" href="#" onclick="return false"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></span><span class="t">결재함</span><span class="n">1</span></a>
+          <div class="toast"><span>🧾</span><span>새 결재가 1건 왔습니다 · Melca · 지출</span><span class="go">열기 →</span></div>
+          <div class="quick"><div>결재함 <span class="qn">1</span></div><div>오늘 수업</div><div>학생 명부</div></div>
+        </div>
+        <p class="cap">토스트는 화면 «위쪽 가운데» — 오른쪽 아래는 AI 운영비서 버튼과 상담원 아바타가 차지하고 있어 거기 두면 가려집니다(2026-08-17 실측).</p>
+      </div>
+      <div>
+        <dl class="facts">
+          <dt>무엇이 보이나</dt><dd>탭 제목의 (N) · 사이드바 숫자 · 표 첫 칸 숫자 · 도착 순간에만 뜨는 토스트 한 줄.</dd>
+          <dt>언제 바뀌나</dt><dd>A의 갱신에서 «건수가 전보다 늘었을 때»만. 화면을 처음 열 때는 토스트를 띄우지 않습니다(그때는 이미 숫자가 보입니다).</dd>
+          <dt>만들기</dt><dd><span class="cost"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span> A + 하루 — 이전 건수 기억 · 제목 갱신 · 토스트. 서버 변경 0.</dd>
+          <dt>주의</dt><dd>토스트는 hover 확대·깜빡임 없이 «나타나고 사라지기»만(1-3 규칙). 소리는 넣지 않습니다. 탭 제목은 다른 스크립트가 제목을 쓰는 곳이 없는지 먼저 확인.</dd>
+        </dl>
+        <div class="pm">
+          <div><h4 class="plus">좋은 점</h4><ul><li>드로어를 닫아 둔 PC·다른 탭을 보던 사람에게도 닿습니다</li><li>「도착」이라는 «사건»을 알립니다 — A·B·C는 «상태»만 보여 줍니다</li></ul></div>
+          <div><h4 class="minus">아쉬운 점</h4><ul><li>기기 푸시가 이미 가는 사람(사장님)에게는 알림이 두 번이 됩니다</li><li>60초 주기라 «즉시»는 아닙니다 — 즉시성이 정말 필요하면 서버 쪽(SSE/웹소켓)이 필요한데 그건 별건입니다</li><li>알림이 잦아지면 결재가 «방해»로 느껴질 수 있습니다</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="hair">
+
+  <h2>한눈에 비교</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>시안</th><th>알려 주는 것</th><th>서버 변경</th><th>만들기</th><th>사고 반경</th><th>폰 드로어</th></tr></thead>
+      <tbody>
+        <tr><td class="pick">A 숫자 + 실시간</td><td>몇 건인가 (지금 것 + 갱신)</td><td>없음</td><td>반나절</td><td>블록 한 곳</td><td>그대로 보임</td></tr>
+        <tr><td class="pick">B 지연 색 + 며칠째</td><td>급한가</td><td>없음</td><td>A + 반나절</td><td>CSS 한 상태</td><td>글자 길이 실측 필요</td></tr>
+        <tr><td>C 최근 1건 미리보기</td><td>무엇이 왔나</td><td>없음</td><td>A + 하루</td><td>드로어 재그리기와 충돌 가능</td><td>줄 하나 늘어남</td></tr>
+        <tr><td>D 도착 알림</td><td>«지금» 왔다</td><td>없음</td><td>A + 하루</td><td>탭 제목·토스트 자리</td><td>토스트 자리 확인 필요</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap" style="margin-top:10px">넷 다 서버는 그대로입니다 — 필요한 값(건수·기한·요청자·종류·금액)은 <code>/api/approval/home</code>이 이미 내려줍니다. 차이는 «화면이 그것을 언제, 얼마나 보여 주는가»뿐입니다.</p>
+
+  <div class="reco" style="margin-top:28px">
+    <p class="eyebrow">제 추천</p>
+    <h2>A + B — 실시간 숫자에 «지연이면 빨강»까지</h2>
+    <p class="why">「결재가 뜨면 표시가 나게」의 진짜 원인은 배지가 없는 것이 아니라 <b>배지가 한 번만 갱신되는 것</b>이라, A가 문제를 정확히 맞춥니다. 거기에 B의 빨간 단계를 얹으면 사장님이 드로어를 열 때 «몇 건»과 «급한가»가 한 줄에서 끝납니다. 둘을 합쳐도 하루 안에 되고, 서버와 <code>index.ts</code>는 한 줄도 안 건드립니다.</p>
+    <ol>
+      <li><b>A</b>부터 — 60초 주기 + 탭 복귀·포커스 때 즉시. 그 자리에서 EN/KO 함정(배지 요소가 지워지는 것)도 함께 고칩니다.</li>
+      <li><b>B</b>를 얹기 — 지연 1건 이상이면 줄이 빨강, 「지연 N · 며칠째」 글자.</li>
+      <li><b>D</b>는 «푸시가 안 가는 직원»(구독 없는 계정)이 있으면 그때 붙입니다. 사장님 계정은 이미 푸시가 가서 지금은 이중 알림이 됩니다.</li>
+      <li><b>C</b>는 보류 — 사이드바에 결재 제목이 노출되는 것은 인사·급여 결재가 있는 화면에서 따로 판단할 일입니다.</li>
+    </ol>
+    <p class="why" style="margin-top:12px">확인 방법(구현 뒤): 로컬 서버 + 크로미움으로 관리자 화면을 열어 놓고 가짜 <code>/api/approval/home</code> 응답을 0건 → 2건 → 지연 1건으로 바꿔 가며 ① 새로고침 없이 숫자·색이 따라오는지 ② EN/KO를 눌러도 배지가 살아 있는지 ③ 336px 드로어 폭에서 글자가 한 줄인지를 잽니다. 배포된 화면은 사장님이 한 번 봐야 끝입니다.</p>
+  </div>
+</div>

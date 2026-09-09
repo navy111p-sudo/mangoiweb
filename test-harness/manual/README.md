@@ -802,3 +802,31 @@ cd /경로/mangoiweb && node test-harness/manual/vc-office-mode-browser.mjs
   HTTP 캐시만 끄면 서비스워커가 옛 사본을 줘서 «고치기 전» 값이 나오고 검사가 헛돈다.
 - ⚠️ 시작할 때 `mangoi_lang` 을 ko 로 못 박는다 — 앞 회차가 EN 으로 끝나면
   다음 회차의 라벨 검사가 거짓 실패한다(실측).
+
+---
+
+## approval-sidebar-badge-live-browser.mjs — 사이드바 「결재함」 실시간 배지 + 지연 색 (33건 · 2026-09-09 A+B)
+
+배지 JS(`/js/adm-appr-badge.js`, defer)는 자동 하니스(`approval_sidebar_badge_live_harness`)가 가짜 DOM 에서
+돌리지만, «빨갛게 보이는가 · 🌐 EN 을 눌러도 배지가 남는가 · 한 줄인가» 는 진짜 CSS 캐스케이드와
+진짜 i18n 엔진(`adm-core.js` `toggleAdminLang`)이 있어야 잰다. **정적 서버가 필요하다**
+(`cd cloudflare-deploy/public && python3 -m http.server 8899` — `file://` 로 열면 외부 js 가 전부 404).
+
+실제로 재는 것:
+
+- 배지 JS 가 **defer 파일에서** 실렸고 admin.html 에 인라인 사본이 0 인가(두 벌이면 조회가 두 번 나간다)
+- 지연 1건 → `.late` · `getComputedStyle` 테두리 `rgb(180, 35, 24)` · 부제 「· 지연 1 · 3일째」가 **보이는가**
+- 🌐 EN 토글 뒤 **`#ia6-appr-n` 이 DOM 에 남아 있고 숫자 그대로인가**(③번 함정 — `<a>` 의 `data-ko`),
+  4초 repaint 뒤 부제가 「· late 1 · 3 days」로 따라오는가, KO 로 되돌리면 「결재함」인가
+- 창 포커스에 다시 물어 4건이 되면 배지 4 + `.fresh`(outline 색만 · `transform:none`)가 붙고 1.6초 뒤 걷히는가
+- 지연 0 → `.late` 없음 · 부제 비고 `display:none`(자리를 차지하지 않음)
+- 라벨·부제·배지가 **같은 줄**이고 텍스트 상자가 접히지 않았는가(`scrollHeight ≤ clientHeight` —
+  ⚠️ 줄 높이 px 로 재지 말 것: zoom 1.3 + padding 11px 라 멀쩡한 한 줄이 67px 다)
+
+**변이시험(2026-09-09 실제로 돌려 본 것)** — `adm-ia6.js` 의 `<a>` 에 `data-ko` 복원 → ❌ **9건**(배지 요소가
+실제로 사라짐) · `.late` 규칙 **다섯 개 전부** 제거 → ❌ 1건. ⚠️ `.late` 규칙 «하나만» 지우면 FAIL 이 안 난다 —
+켜짐 상태에서는 `.late.on` 규칙이 테두리를 그리기 때문(정확한 변이가 아니면 검사가 헛도는 것처럼 보인다).
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
+```

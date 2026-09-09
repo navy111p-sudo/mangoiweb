@@ -460,7 +460,16 @@ check('화면 — 수업 변경은 원래 화면으로 보낸다',
   /paintSchedule/.test(WORK_SRC) && /schedule_pending/.test(WORK_SRC));
 
 // 관리자 화면(1MB)은 배지 한 줄만 — 결재 목록을 그리로 옮기면 /work 를 만든 이유가 사라진다.
-const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+/* 2026-09-09: 결재 배지 블록이 admin.html 인라인에서 /js/adm-appr-badge.js(defer)로 나갔다
+   (첫 화면 예산 — first_paint_budget_harness). CSS 는 admin.html 에, JS 는 그 파일에 있으므로
+   아래 검사들은 둘을 «합본» 으로 본다(한쪽만 보면 함수도 값도 «없다» 로 헛돈다 — CLAUDE.md 2장
+   「그 파일을 읽던 다른 하니스가 조용히 헛돕니다」). */
+const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8')
+  + '\n' + readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-appr-badge.js'), 'utf8');
+check('결재 배지 JS 는 defer 파일로 실린다 (첫 화면 예산 — 인라인 금지)',
+  /<script src="\/js\/adm-appr-badge\.js\?v=\d+" defer><\/script>/.test(ADMIN_SRC) &&
+  !/<script>\s*\(function\(\)\{\s*"use strict";\s*\/\* ⚠️ 대기가 0건이어도/.test(ADMIN_SRC),
+  'admin.html blocking 여유가 2KB 뿐이라 인라인으로 되돌리면 first_paint_budget 이 빨간불이 된다');
 const QUICK_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-quick-access.js'), 'utf8');
 const IA6_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-ia6.js'), 'utf8');
 
@@ -511,9 +520,19 @@ check('표가 늦게 그려져도 숫자를 다시 붙인다',
   /if \(!paintQuick\([^)]*\)\) \{[\s\S]{0,240}setInterval/.test(ADMIN_SRC),
   '「자주 쓰는 기능」 표는 외부 js 가 그린다 — 한 번 실패하고 넘어가면 숫자가 영영 안 뜬다');
 
-check('관리자 화면의 배지는 반복 폴링하지 않는다',
-  /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
-  '좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다');
+/* 🔁 2026-09-09 규칙 바꿈(사장님 A+B 선택) — 원래는 «반복 폴링하지 않는다» 였다.
+   그런데 화면을 연 뒤 «한 번만» 조회하니 열어 둔 사이 도착한 결재가 새로고침 전까지 안 떴다
+   (사장님 「결재가 뜨면 표시가 나게」). 지금 계약: 첫 조회는 여전히 3초 뒤(첫 화면과 경쟁 금지) ·
+   그 뒤 60초 이상 간격 · 숨은 탭에서는 건너뜀. 실제 동작은 approval_sidebar_badge_live_harness 가
+   가짜 DOM 으로 돌려 확인한다 — 여기서는 «주기가 좁아지지 않았는가» 만 못 박는다. */
+check('관리자 화면의 배지는 첫 화면과 경쟁하지 않는다 (첫 조회 3초 뒤)',
+  /setTimeout\(load, 3000\)/.test(ADMIN_SRC),
+  '첫 화면에서 결재 조회가 먼저 나가면 필리핀 회선에서 그대로 지연이 된다');
+check('주기 조회는 60초 이상 · 숨은 탭에서는 건너뛴다',
+  Number((ADMIN_SRC.match(/var POLL_MS\s*=\s*(\d+)/) || [])[1]) >= 60000 &&
+  /setInterval\(load, POLL_MS\)/.test(ADMIN_SRC) &&
+  /if \(document\.hidden \|\| loading\) return;/.test(ADMIN_SRC),
+  '좁은 회선에서 잦은 폴링은 정작 필요한 요청과 대역폭을 다툰다');
 
 // ══ K. 인사·급여 «월 확정» — 숫자를 손으로 적지 않는가 ════════════════════
 console.log('\n[K] 인사·급여 월 확정 — 급여를 다시 계산하지 않는가');
