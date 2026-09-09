@@ -243,9 +243,13 @@ check('옛 «한 줄짜리» 레벨 지시가 사라졌다(A1·C1 만 설명하�
   !/A1 = very short simple sentences/.test(CF));
 check('기초 단계에서 «재미있는 사실»을 끈다', /lvSpec\.plain\s*\?\s*''/.test(CF));
 check('기초 단계에서 «최근 틀린 단어 끼워 넣기»를 끈다', /weak\.length\s*&&\s*!lvSpec\.plain/.test(CF));
-check('만든 뒤 실제로 재 본다', /aiFriendMeasureReply\(reply,\s*level\)/.test(CF));
-check('넘치면 한 번 더 뽑는다', /aiFriendShortenHint\(reply,\s*level\)/.test(CF));
-check('그래도 넘치면 문장 수를 줄인다', /aiFriendTrimSentences\(reply,\s*level\)/.test(CF));
+/* ⚠️ 호출을 «식 모양» 그대로 못 박지 않는다 — 2026-09-09 에 「학생이 물어본 턴에만 대답
+   자리를 한 칸 준다」로 세 번째 인자가 붙자, 보장은 그대로인데 이 검사만 빨간불이 났다
+   (CLAUDE.md 「보장은 오히려 세졌는데 검사만 깨졌습니다」). 물어야 할 것은 «인자가 몇 개인가»
+   가 아니라 «그 답장을 그 레벨 기준으로 재고·줄이는가» 다. */
+check('만든 뒤 실제로 재 본다', /aiFriendMeasureReply\(reply,\s*level\b/.test(CF));
+check('넘치면 한 번 더 뽑는다', /aiFriendShortenHint\(reply,\s*level\b/.test(CF));
+check('그래도 넘치면 문장 수를 줄인다', /aiFriendTrimSentences\(reply,\s*level\b/.test(CF));
 check('다시 뽑은 것을 «더 나을 때만» 받는다(빈 답·더 나쁜 답으로 바꾸지 않는다)',
   /m2\.ok\s*\|\|\s*m2\.score\s*<\s*lvBefore\.score/.test(CF));
 check('기본 레벨을 하드코딩하지 않고 정본을 거친다',
