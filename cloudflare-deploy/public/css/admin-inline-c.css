@@ -9486,7 +9486,11 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
 #ph85-sidebar .ph85-group.ph85-shide,
 #ph85-sidebar .ph85-sub.ph85-shide,
 #ph85-sidebar .ph125-grandchildren.ph85-shide,
-#ph85-sidebar .ph125-gc.ph85-shide { display: none !important; }
+#ph85-sidebar .ph125-gc.ph85-shide,
+/* 🧾 (2026-09-09) 결재함은 그룹 안 .ph85-sub 가 아니라 사이드바 맨 위 <a> 라
+   위 네 줄 어디에도 안 걸렸다. 검색이 그것도 걸러야 하므로 함께 못박는다.
+   ⛔ 이 줄을 지우면 검색 중에 결재함만 혼자 남아 «걸러지지 않는» 항목이 된다. */
+#ph85-sidebar #ia6-appr.ph85-shide { display: none !important; }
 
 /* ═══ ⭐ 자주 쓰는 메뉴 (2026-08-19 · js/adm-quickfav.js) ═══════════════════
    검색창 아래, 그룹 목록 위. 매일 쓰는 대여섯 개를 3번 클릭 → 1번으로.
@@ -10129,4 +10133,37 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(.lib-l
       8843행의 :not() 목록에 걸려 제외되면 인라인 #fbbf24 가 그대로 나와 안 읽힌다. */
 html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
   color: #b45309 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🔎 (2026-09-09) 히어로 «통합 검색» 드롭다운을 PC 에서 되살린다
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 무슨 일이 있었나 — 사장님 「가로 검색창에 «녹화» 를 쳤는데 아무 일도 안 일어나」.
+      실측(로컬 서버 + 크로미움, 「녹화」 입력):
+        · 폭 1600px … computed display «none» · 높이 0px · 그런데 DOM 안 항목은 12개
+        · 폭  900px … computed display «block» · 높이 482px · 항목 12개
+      즉 후보를 12개 «찾아 놓고» 화면에 한 줄도 안 그리고 있었다.
+
+   범인은 이 파일 2896행([style#ph89-clean])과 3082행의
+     @media (min-width:1024px){ .menu-search-wrap, .menu-search-input,
+       .menu-search-dropdown, .menu-search-clear, .menu-search-item{display:none!important} }
+   2026-05-25 Phase 89 「우측 메인 영역의 옛 메뉴(가나다 순) 검색 카드 제거」 규칙인데,
+   2026-06-24 에 되살린 히어로 검색창의 드롭다운이 **같은 클래스**(menu-search-dropdown)를
+   달고 있어 함께 걸린다. 작성자 !important 라 admin-inline-a.css 의
+   `.hero .hero-search-dropdown.show{display:block}`(important 없음)을 언제나 이긴다.
+   admin.html 의 ph89Clean 이 박는 **인라인** display:none 도 함께 이겨야 하는데,
+   작성자 !important 는 인라인도 이기므로 여기 한 곳으로 둘 다 해결된다.
+
+   ⛔ 위 두 규칙을 지워서 풀지 말 것 — 옛 검색 카드 제거가 통째로 풀린다.
+      (지금 admin.html 에 그 실물 마크업은 없지만, 규칙을 지우면 «왜 지웠나» 가 사라진다.)
+   ⛔ 히어로 드롭다운에서 menu-search-dropdown/menu-search-item 클래스를 떼는 방식도 금지 —
+      admin-inline-a.css 224행의 항목 모양(display:flex·padding·hover)이 그 클래스에 걸려 있다.
+   ⚠️ `.show` 없을 때는 여전히 감춰야 한다(아래 첫 줄) — 안 그러면 빈 상자가 늘 떠 있는다.
+   ✅ 확인은 코드가 아니라 브라우저에서:
+      getComputedStyle(document.getElementById('menu-search-dropdown')).display
+      감시는 test-harness/manual/admin-search-browser.mjs ①절 */
+@media (min-width: 1024px) {
+  .hero .hero-search-dropdown { display: none !important; }
+  .hero .hero-search-dropdown.show { display: block !important; }
+  .hero .hero-search-dropdown .menu-search-item { display: flex !important; }
 }
