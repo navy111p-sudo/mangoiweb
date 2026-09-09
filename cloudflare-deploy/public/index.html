@@ -10352,6 +10352,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
             <div class="prod-price">₩80,000<span class="prod-unit">/4회</span></div>
             <div class="prod-perclass">1회당 ₩20,000</div>
           </button>
+          <!-- 🤖 (2026-09-09) 화상수업 없이 AI 학습도구만 쓰는 1개월 이용권. 서버 가격표
+               src/api-pay.ts PRICES.ai_content 와 이름·금액을 반드시 맞출 것. -->
+          <button class="product-card" data-program="ai_content" data-price="10000">
+            <div class="prod-icon">🤖</div>
+            <div class="prod-name">AI 콘텐츠 전용</div>
+            <div class="prod-detail">화상수업 없이 AI 학습도구만</div>
+            <div class="prod-price">₩10,000<span class="prod-unit">/1개월</span></div>
+          </button>
           <button class="product-card" data-program="b2b" data-price="0">
             <div class="badge-best" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">🏫 단체</div>
             <div class="prod-icon">🏢</div>
@@ -10944,7 +10952,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=14"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=15"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
