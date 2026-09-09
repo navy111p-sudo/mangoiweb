@@ -51,7 +51,13 @@ function walk(dir, out = []) {
    `= window.open(` · `!window.open(` · `return window.open(` 셋이면 값을 쓰는 것이다.
    ⚠️ 「앞 N줄」 같은 어림짐작을 쓰지 않는다(CLAUDE.md 2장) — 한 표현 안에서 판정한다. */
 const USES_RETURN = /(?:[=!]\s*|return\s+)window\.open\s*\(/;
-const HAS_NOOPENER = /window\.open\s*\([^)]*['"]noopener['"]\s*\)/;
+/* 🪤 (2026-09-09 정정) 예전엔 «따옴표 안이 정확히 noopener 이고 곧바로 `)`» 만 봤다
+   (`['"]noopener['"]\s*\)`). 그래서 실제로 같은 사고를 내는 세 모양을 통째로 놓쳤다 —
+   `'noopener,noreferrer'` · `'noopener,width=500'` · `'width=500,noopener'`.
+   함정 대조에서 «'noopener,noreferrer' 로 되돌리고 가드도 제거» 라는 **사고 완전 재현**이
+   8/8 초록으로 통과했다. ⟹ 기능 문자열 «안에» 낱말로 들어 있으면 잡는다.
+   ⚠️ HTML 속성 `rel="noopener"` 는 앞에 `window.open(` 이 없어 안 걸린다(실측). */
+const HAS_NOOPENER = /window\.open\s*\([^)]*['"][^'"]*\bnoopener\b[^'"]*['"]/;
 
 /* ⚠️ 아직 «못 고친» 자리 — 숨기지 않고 이름으로 적어 둔다.
    목록에 남겨 두는 것은 «봐준다» 가 아니라 «사람 결정을 기다리는 중» 이라는 뜻이다.
@@ -101,22 +107,58 @@ check(`①-2 못 고친 자리가 «목록에 적힌 그만큼뿐» 이다 (실�
     ? '      · 고쳤다면 PENDING_FILES 의 건수를 줄이세요(0이면 그 줄 자체를 지웁니다)'
     : '      · 그 파일에 «새» 자리가 생겼습니다 — 아래 목록을 보세요');
 
-/* ── ② 고친 자리들이 «보호를 잃지 않았는가» — noopener 를 뺐으면 opener 를 끊어야 한다 ── */
+/* ── ② 고친 자리들이 «보호를 잃지 않았는가» — noopener 를 뺐으면 opener 를 끊어야 한다 ──
+   🪤 (2026-09-09 정정) 예전엔 **파일 전체**에서 `.opener = null` 을 찾았다. 그런데 한 파일에
+      고친 자리가 둘 이상이면(`index.html` = toKakao·openKakao, `adm-core.js` = 두 곳)
+      **한쪽만 되돌려도 다른 쪽이 검사를 대신 만족시킵니다.** 함정 대조 실측으로
+      「openKakao 의 가드만 제거」가 8/8 초록으로 통과했다.
+   ⟹ 앵커(함수 이름) 뒤 «첫 window.open( 호출» 을 찾아 **그 호출 둘레만** 본다.
+   ⚠️ 범위를 «길이» 로만 자르지 않는다(CLAUDE.md) — 다음 window.open( 이 먼저 나오면 거기서 끊는다.
+   ℹ️ 여기 없는 «반환값을 쓰는» 호출 13건은 애초에 noopener 를 안 준 옛 코드라 이 검사 밖이다
+      (opener 보호를 그쪽까지 넓히는 것은 별건 — 사람이 정할 일). */
+/* 🪤 앵커는 «선언» 모양으로 잡는다 — 이름만으로 찾으면 **호출부가 먼저 걸린다**
+      (`adm-core.js` 는 1968행 호출이 1991행 정의보다 위라 엉뚱한 자리를 검사했다).
+   🪤 그리고 «블록주석» 을 벗긴 사본에서 찾는다 — 주석에 적어 둔 설명용 예시
+      `window.open(u,'_blank','noopener')` 가 첫 매치로 걸린다(`adm-promo-setup.js` 에서 실측).
+      ⚠️ 정규식 한 줄로 지우지 말 것(CLAUDE.md) — 줄 단위로 «지금 블록 안인가» 를 추적한다. */
+const stripBlock = (t) => {
+  let inb = false;
+  return t.split('\n').map((ln) => {
+    let out = '', i = 0;
+    while (i < ln.length) {
+      if (inb) { const e = ln.indexOf('*/', i); if (e < 0) { i = ln.length; } else { inb = false; i = e + 2; } }
+      else { const s = ln.indexOf('/*', i); if (s < 0) { out += ln.slice(i); i = ln.length; } else { out += ln.slice(i, s); inb = true; i = s + 2; } }
+    }
+    return out;
+  }).join('\n');
+};
 const GUARDED = [
-  ['cloudflare-deploy/public/js/adm-core.js', 'mangoiOpenTab'],
-  ['cloudflare-deploy/public/js/monitor-wall.js', 'openTab'],
-  ['cloudflare-deploy/public/admin/ghost-view.html', 'ghdOpenTab'],
+  ['cloudflare-deploy/public/js/adm-core.js', 'function mangoiOpenTab'],
+  ['cloudflare-deploy/public/js/monitor-wall.js', 'function openTab'],
+  ['cloudflare-deploy/public/admin/ghost-view.html', 'function ghdOpenTab'],
   ['cloudflare-deploy/public/js/adm-promo-setup.js', null],
-  /* index.html 은 공동 금지구역이라 되돌아가기 쉽다 — 여기서 못 박는다.
+  /* index.html 은 공동 금지구역이라 되돌아가기 쉽다 — 두 자리를 «각각» 못 박는다.
      ⚠️ 이 파일에는 `rel="noopener"`(HTML 속성)가 따로 있는데 그건 무해하다.
-        ①절이 «기능 문자열» 만 보므로 둘이 섞이지 않는다. */
-  ['cloudflare-deploy/public/index.html', 'openKakao'],
+        ①절이 앞에 `window.open(` 을 요구하므로 둘이 섞이지 않는다(실측). */
+  /* ⚠️ `window.openKakao` 로만 적으면 toKakao 안의 «호출부»
+        (`if (window.openKakao) return window.openKakao();`)가 먼저 걸려
+        toKakao 의 가드를 보고 통과한다 — 실제로 밟았다. 대입문 모양으로 잡는다. */
+  ['cloudflare-deploy/public/index.html', 'function toKakao'],
+  ['cloudflare-deploy/public/index.html', 'window.openKakao = function'],
 ];
-for (const [rel, fnName] of GUARDED) {
-  const src = readFileSync(join(ROOT, rel), 'utf8');
-  const name = rel.split('/').pop() + (fnName ? ` (${fnName})` : '');
+for (const [rel, anchor] of GUARDED) {
+  const src = stripBlock(readFileSync(join(ROOT, rel), 'utf8'));
+  const name = rel.split('/').pop() + (anchor ? ` (${anchor})` : '');
+  const from = anchor ? src.indexOf(anchor) : 0;
+  /* 전제: 앵커를 못 찾으면 아래 검사가 통째로 헛돈다 — 그것부터 FAIL 로 드러낸다 */
+  check(`②-0 ${name} — 검사할 자리를 찾았다`, anchor ? from >= 0 : true);
+  const calls = [...src.matchAll(/window\.open\s*\(/g)].map(m => m.index).filter(i => i >= from);
+  const start = calls[0];
+  check(`②-1 ${name} — 그 자리에 window.open 호출이 있다`, start !== undefined);
+  const next = calls[1];
+  const win = start === undefined ? '' : src.slice(start, Math.min(next ?? Infinity, start + 600));
   check(`② ${name} 이 opener 를 끊는다 (noopener 를 뺀 만큼 손으로 건다)`,
-    /\.opener\s*=\s*null/.test(src));
+    /\.opener\s*=\s*null/.test(win));
 }
 
 /* ── ③ 헛경고를 다시 만들지 않았는가 — «막혔다» 판정이 반환값 하나에만 걸려 있어도
