@@ -1,0 +1,4 @@
+── .video-short/mangoi-ai-short.mp4  창 120개
+   ✅ 12dB 넘게 튀는 창 없음
+   소리 있는 창 116/120
+   4.56 MiB (25 MiB 한도까지 20935 KiB)
