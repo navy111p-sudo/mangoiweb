@@ -5084,14 +5084,21 @@ function vcArmFullscreenRetry() {
                 if (rtt > 0) { const b = pc.__qRttBase; pc.__qRttBase = (b == null || rtt < b) ? rtt : b + (rtt - b) * 0.02; }
                 const rb = Math.min(pc.__qRttBase || 0, 500);
                 const rttDown = Math.max(450, rb + 200), rttUp = Math.max(250, rb + 100);
+                const LOSS_MID_STEP = 2, MID_TICKS = 15;
+                const held = Date.now() - (pc.__qBadAt || 0) > 30000;
                 if (lossPct > 6 || rtt > rttDown) {
-                    pc.__qGood = 0; pc.__qBadAt = Date.now();
+                    pc.__qGood = 0; pc.__qMid = 0; pc.__qBadAt = Date.now();
                     if (step < STEPS.length - 1) step++;
                 } else if (lossPct < 1.5 && (rtt === 0 || rtt < rttUp)) {
-                    pc.__qGood = (pc.__qGood || 0) + 1;
-                    if (pc.__qGood >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && step > 0) { step--; pc.__qGood = 0; }
+                    pc.__qGood = (pc.__qGood || 0) + 1; pc.__qMid = (pc.__qMid || 0) + 1;
+                    if (pc.__qGood >= 8 && held && step > 0) { step--; pc.__qGood = 0; pc.__qMid = 0; }
                 } else if (lossPct >= 1.5) {
-                    pc.__qGood = 0;   // 손실이 있으면 «조용함» 을 처음부터 다시 센다. 손실 없이 RTT 만 애매(rttUp~rttDown)하면 지우지 않고 멈춘다 — 28초마다 흔들리는 회선이 영영 못 올라오던 것(④-2)
+                    /* 손실 축 사각지대(2026-09-08) — vc_quality_blindspot_harness ④-3 */
+                    pc.__qGood = 0;
+                    if (rtt === 0 || rtt < rttUp) {
+                        pc.__qMid = (pc.__qMid || 0) + 1;
+                        if (pc.__qMid >= MID_TICKS && held && step > LOSS_MID_STEP) { step--; pc.__qMid = 0; }
+                    } else { pc.__qMid = 0; }
                 }
                 if (step !== (pc.__qStep || 0)) {
                     console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms(기준 ' + Math.round(rb) + ') → 단계', pc.__qStep || 0, '→', step);
