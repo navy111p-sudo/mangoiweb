@@ -44,7 +44,7 @@ ok('⛔ <a> 자체에는 data-ko/data-en 을 달지 않는다 (i18n 이 배지 �
 console.log('\n[ ② 클릭이 삼켜지지 않는가 — 가장 중요한 것 ]');
 /* ph97·wireDelegate 가 보는 class 를 쓰면 그 순간 리스너가 이 클릭을 가로챈다.
    ⚠️ 아이콘 상자에 쓰는 .ph85-ico 는 «보는 대상» 이 아니라 무해하므로 검사에서 뺀다. */
-const apprBlock = (IA6.match(/var appr = document\.createElement[\s\S]{0,900}?frag\.appendChild\(appr\);/) || [''])[0];
+const apprBlock = (IA6.match(/var appr = document\.createElement[\s\S]*?frag\.appendChild\(appr\);/) || [''])[0];   // 범위는 길이가 아니라 양쪽 앵커로 — 주석이 길어졌다고 검사가 «못 찾았다» 로 헛돌지 않게(2026-09-09 실제로 밟음)
 ok('결재함 줄을 만드는 구간을 찾았다', apprBlock.length > 0);
 ok('⛔ class 에 ph85-head 를 쓰지 않는다 (쓰면 ph97 이 삼킨다)', !/ph85-head/.test(apprBlock));
 ok('⛔ class 에 ph85-sub 를 쓰지 않는다 (쓰면 ph97 이 삼킨다)', !/ph85-sub/.test(apprBlock));
