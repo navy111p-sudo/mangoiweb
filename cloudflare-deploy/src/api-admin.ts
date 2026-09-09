@@ -4836,6 +4836,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
       } catch {}
+      /* ⛔ 퇴사자(active=0)를 여기서 걸러 내지 말 것 — 화면(adm-teacher-links.js)이 기본으로
+         숨기고 「퇴사 강사도 보기」로 되돌릴 수 있게 해 두었다. 서버가 미리 지우면 그 체크박스가
+         조용히 무동작이 되고, 이미 퇴사자에게 이어진 계정이 「연결 안 됨」으로 보인다. */
       const tRs = await env.DB.prepare(`SELECT id, name, active FROM teachers ORDER BY active DESC, name ASC`).all();
       const aRs = await env.DB.prepare(
         `SELECT username, last_login_at FROM teacher_legacy_accounts ORDER BY last_login_at DESC`
@@ -14435,7 +14438,16 @@ LIMIT $limit`;
               WHERE role LIKE '%teacher%' OR username LIKE 'mangoi_%' OR username LIKE 'hq_t_%'
               ORDER BY username`
           ).all<any>().catch(() => ({ results: [] as any[] })),
-          env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name FROM teachers ORDER BY name`)
+          /* 🚪 active 를 «뽑아서» 내려준다 — 거르지는 않는다.
+             왜 뽑나 — 이 목록이 그대로 <option> 이 되는데, 그 연결은 출근·급여가 갈리는 자리다.
+               원부에 같은 사람이 두 줄이면(«FAR» id 22 재직 · «HT FARRAH» id 3 퇴사) 여기서
+               잘못 고르기 쉽다 — 2026-08-26 에 실제로 그렇게 스케줄 16건이 죽은 행에 붙었다.
+               그때까지 이 질의에는 active 가 SELECT 에도 WHERE 에도 없어 화면이 «거를 수조차»
+               없었다.
+             ⛔ 여기서 WHERE active=1 로 걸러 버리지 말 것 — 화면의 「퇴사 강사도 보기」가
+               되돌릴 길인데, 서버가 미리 지우면 그 체크박스가 조용히 무동작이 된다
+               (CLAUDE.md 2장 「붙이는 쪽과 읽는 쪽이 짝」). 거르는 것은 화면 몫이다. */
+          env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, COALESCE(active, 1) AS active FROM teachers ORDER BY name`)
             .all<any>().catch(() => ({ results: [] as any[] })),
           env.DB.prepare(`SELECT username, teacher_id, teacher_name, linked_by, linked_at FROM teacher_account_links`)
             .all<any>().catch(() => ({ results: [] as any[] })),

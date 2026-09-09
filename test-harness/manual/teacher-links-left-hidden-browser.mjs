@@ -1,6 +1,12 @@
 // -*- coding: utf-8 -*-
 // 🔗 강사↔로그인 연결 — «퇴사 강사를 기본 목록에서 뺀다» 브라우저 검사 (2026-09-09)
 //
+//   🔴 이 저장소에는 «강사↔계정 연결» 화면이 **둘** 입니다. 둘 다 잽니다 —
+//     ① `#card-teacher-links` · `adm-teacher-links.js` · `GET /api/admin/teachers/links`
+//     ② `#card-teacher-link`  · `adm-tlink.js`(lazy) · `GET /api/admin/teacher-links`
+//     둘이 **같은 표**(`teacher_account_links`)에 씁니다. 한쪽만 고치면 나머지가 그대로
+//     같은 사고를 냅니다(CLAUDE.md 2장 「「이미 고친 사고」인데 한 화면만 그대로 재발」).
+//
 //   왜 이 검사가 있나 —
 //     이 드롭다운만 `active` 를 안 걸러서, 같은 사람이 원부에 두 줄로 있으면
 //     («FAR» id 22 재직 · «HT FARRAH» id 3 퇴사 — 2026-08-26 실사고의 뿌리)
@@ -34,9 +40,11 @@ const check = (n, ok, extra) => {
   else { fail++; console.log('  ❌ ' + n + (extra ? '  → ' + extra : '')); }
 };
 
-/* 씨앗 — 2026-09-09 운영 D1 실측 그대로의 «모양»:
-     재직 25 · 퇴사 5, 그 퇴사 5 중 계정이 이어진 사람은 MARIANE(11) 하나뿐.
-   ⚠️ 사람 이름을 검사에 못 박는 것이 아니라 «상태 조합» 을 재현하는 것이 목적이다. */
+/* 씨앗 — 2026-09-09 운영 D1 에서 본 «상태 조합» 을 재현한다(값 자체를 베낀 것이 아니다):
+     재직 25 · 퇴사 5 · 그 퇴사 5 중 계정이 이어진 사람은 하나뿐 · active NULL 은 **0건**.
+   ⚠️ 그래서 `NULLCASE`(active: null) 는 **실측에 없는 행**이다 — 일부러 넣은 «장래 방어» 다.
+      지금 0건이라고 검사에서 빼면, NULL 이 하나라도 생기는 날 멀쩡한 강사가 조용히 사라진다.
+   ⚠️ 사람 이름을 못 박는 것이 목적이 아니다 — 이름이 바뀌어도 상태 조합만 같으면 된다. */
 const TEACHERS = [
   { id: 22, name: 'FAR',       active: 1 },
   { id: 24, name: 'HANNAH',    active: 1 },
@@ -50,6 +58,15 @@ const ACCOUNTS = [
   { username: 'mangoi_018', last_login_at: 1757300000000 },
   { username: 'mangoi_167', last_login_at: 1757200000000 },
   { username: 'mangoi_011', last_login_at: 1757100000000 },
+];
+/* ② 화면(`/api/admin/teacher-links`)의 계정 모양 — 서버가 자동매칭 결과까지 함께 준다. */
+const ACCOUNTS2 = [
+  { username: 'mangoi_018', name: 'Teacher - Farrah', role: 'teacher', name_is_username: false,
+    linked_teacher_id: null, linked_teacher_name: null, linked_at: null,
+    auto_match: null, auto_candidates: [], status: 'unlinked' },
+  { username: 'mangoi_011', name: 'Mariane', role: 'teacher', name_is_username: false,
+    linked_teacher_id: '11', linked_teacher_name: 'MARIANE', linked_at: 1757000000000,
+    auto_match: null, auto_candidates: [], status: 'linked' },
 ];
 const LINKS = [
   { username: 'mangoi_011', teacher_id: '11', teacher_name: 'MARIANE', linked_by: 'admin', linked_at: 1757000000000 },
@@ -88,6 +105,12 @@ async function open(browser) {
   /* 🪤 포괄을 «먼저», 구체적인 것을 «뒤에» — route 는 나중에 등록한 것이 이긴다. */
   await ctx.route('**/api/**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"items":[]}' }));
+  /* ② 화면(adm-tlink.js)의 API — 경로가 «teacher-links»(단수)라 위 «teachers/links» 와 다르다. */
+  await ctx.route('**/api/admin/teacher-links**', route =>
+    route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ ok: true, roster: TEACHERS, accounts: ACCOUNTS2 }),
+    }));
   await ctx.route('**/api/admin/teachers/links**', route =>
     route.fulfill({
       status: 200, contentType: 'application/json',
@@ -117,13 +140,15 @@ const optsOf = (page, username) => page.evaluate(u => {
   return Array.from(sel.options).filter(o => o.value).map(o => ({ v: o.value, t: o.textContent }));
 }, username);
 
-const setShowLeft = async (page, on) => {
-  await page.evaluate(v => {
-    const cb = document.getElementById('tl-show-left');
-    cb.checked = v;
-    window.tlRender();
-  }, on);
-  await page.waitForTimeout(120);
+/* 🪤 `cb.checked = v` 뒤 렌더 함수를 «직접» 부르면, 그 체크박스의 배선(oninput/위임)이
+      오타여도 검사가 전부 통과한다(CLAUDE.md 2장 「인라인 onclick·onchange 가 부르는 이름」).
+      그래서 **실제로 누른다** — click() 은 체크박스에 input·change 를 모두 발생시킨다. */
+const setShowLeft = async (page, id, on) => {
+  await page.evaluate(a => {
+    const cb = document.getElementById(a.id);
+    if (cb.checked !== a.on) cb.click();
+  }, { id, on });
+  await page.waitForTimeout(180);
 };
 
 (async () => {
@@ -179,7 +204,7 @@ const setShowLeft = async (page, on) => {
       farTxt && farTxt.t);
 
     console.log('\n[ ④ 되돌릴 길 — 체크박스로 꺼낼 수 있는가 ]');
-    await setShowLeft(page, true);
+    await setShowLeft(page, 'tl-show-left', true);
     const on = (await optsOf(page, 'mangoi_018') || []).map(o => o.v);
     check('켜면 퇴사자(3·4·11)가 전부 나온다',
       ['3', '4', '11'].every(x => on.includes(x)), on.join(','));
@@ -188,18 +213,29 @@ const setShowLeft = async (page, on) => {
     const onTxt = (await optsOf(page, 'mangoi_018') || []).find(o => o.v === '3');
     check('꺼낸 퇴사자에도 «(퇴사)» 라벨이 붙는다', !!onTxt && /\(퇴사\)/.test(onTxt.t),
       onTxt && onTxt.t);
-    await setShowLeft(page, false);
+    await setShowLeft(page, 'tl-show-left', false);
     const off = (await optsOf(page, 'mangoi_018') || []).map(o => o.v);
     check('끄면 다시 사라진다 (상태가 안 굳는다)', !off.includes('3'), off.join(','));
 
-    console.log('\n[ ⑤ EN — 영어 화면에서도 같은 말을 하는가 ]');
-    await page.evaluate(() => { window.adminLang = 'en'; window.tlRender(); });
-    await page.waitForTimeout(120);
+    console.log('\n[ ⑤ EN — 🌐 를 누르면 «따라오는가» (재렌더를 직접 부르지 않는다) ]');
+    /* 🪤 `window.tlRender()` 를 손수 부르면 「라벨이 영어인가」만 보게 되고
+       「🌐 를 누르면 따라오는가」는 한 번도 안 묻게 된다 — 이 표의 라벨은 JS 가 그려서
+       `data-ko`/`data-en` 루프가 못 고치므로 그 배선이 없으면 새로고침해야 영어가 된다.
+       ⚠️ 관리자 화면의 그 이벤트는 `window` 가 아니라 **`document`** 에서 발행된다. */
+    await page.evaluate(() => {
+      window.adminLang = 'en';
+      document.dispatchEvent(new CustomEvent('mangoi:lang-changed'));
+    });
+    await page.waitForTimeout(200);
     const enMine = (await optsOf(page, 'mangoi_011') || []).find(o => o.v === '11');
     check('EN 에서는 «(left)» 로 나온다', !!enMine && /\(left\)/.test(enMine.t), enMine && enMine.t);
     const enIds = (await optsOf(page, 'mangoi_018') || []).map(o => o.v);
     check('EN 에서도 퇴사자는 기본에서 안 보인다', !enIds.includes('3'), enIds.join(','));
-    await page.evaluate(() => { window.adminLang = 'ko'; window.tlRender(); });
+    await page.evaluate(() => {
+      window.adminLang = 'ko';
+      document.dispatchEvent(new CustomEvent('mangoi:lang-changed'));
+    });
+    await page.waitForTimeout(200);
 
     console.log('\n[ ⑥ 눌린다 — 「보인다」와 「눌린다」는 다르다 ]');
     const hit = await page.evaluate(() => {
@@ -210,6 +246,67 @@ const setShowLeft = async (page, on) => {
       return !!top && (top === sel || sel.contains(top));
     });
     check('강사 드롭다운이 맨 위에 있다 (무엇도 안 덮는다)', hit);
+
+    console.log('\n[ ⑦ 두 번째 화면 (#card-teacher-link · adm-tlink.js) — 같은 구멍이 남지 않았는가 ]');
+    /* 이 카드는 lazy 라 «펼쳐야» 스크립트가 실린다 — 열고 전역이 생기기를 기다린다. */
+    await page.evaluate(() => {
+      try { if (typeof window.jumpToMenu === 'function') window.jumpToMenu('card-teacher-link'); } catch (e) {}
+      let el = document.getElementById('tlk-table');
+      while (el) { if (el.tagName === 'DETAILS') el.open = true; el = el.parentElement; }
+    });
+    let lazyOk = true;
+    try {
+      await page.waitForFunction(() => typeof window.tlkLoad === 'function', { timeout: 20000 });
+      await page.evaluate(() => window.tlkLoad());
+      await page.waitForFunction(() => document.querySelectorAll('#tlk-table select').length >= 2,
+        { timeout: 20000 });
+    } catch (e) { lazyOk = false; }
+    check('두 번째 화면이 실제로 그려졌다 (lazy 로드 성공)', lazyOk,
+      '여기서 실패하면 아래 검사가 전부 헛돈다');
+
+    if (lazyOk) {
+      /* 🪤 줄 «순서» 로 잡지 말 것 — 이 표의 정렬 키가 `order[status] || 9` 라
+         `order.unlinked === 0` 이 falsy 로 떨어져 **「연결 안 됨」이 맨 아래로 갑니다**
+         (「급한 것부터 위로」라는 그 코드의 주석과 정반대. 내 변경과 무관한 기존 결함이라
+         여기서는 고치지 않고, 검사만 순서에 안 기대게 둡니다).
+         각 <select> 에 `tlk-sel-<아이디>` 가 있으니 그것으로 콕 집는다. */
+      const opts2 = (u) => page.evaluate(n => {
+        const sel = document.getElementById('tlk-sel-' + n);
+        if (!sel) return null;
+        return Array.from(sel.options).filter(o => o.value).map(o => ({ v: o.value, t: o.textContent }));
+      }, u);
+      const a0 = (await opts2('mangoi_018')) || [];
+      const ids0 = a0.map(o => o.v);
+      check('퇴사 «HT FARRAH»(3) 가 안 보인다', !ids0.includes('3'), ids0.join(','));
+      check('퇴사 «RICA»(4) 도 안 보인다', !ids0.includes('4'), ids0.join(','));
+      // ↔ 짝: 전부 숨기는 코드도 위 둘을 통과한다
+      check('재직 «FAR»(22)·«HANNAH»(24) 는 보인다',
+        ids0.includes('22') && ids0.includes('24'), ids0.join(','));
+      check('active 가 NULL 인 행(99)은 «재직» 으로 보고 남긴다', ids0.includes('99'), ids0.join(','));
+
+      const a1 = (await opts2('mangoi_011')) || [];
+      const ids1 = a1.map(o => o.v);
+      check('이미 이어진 퇴사자 MARIANE(11) 은 «그 줄» 에 남아 있다', ids1.includes('11'), ids1.join(','));
+      const t11 = a1.find(o => o.v === '11');
+      check('그 라벨에 «(퇴사)» 가 붙는다', !!t11 && /\(퇴사\)/.test(t11.t), t11 && t11.t);
+
+      await setShowLeft(page, 'tlk-show-left', true);
+      const on2 = ((await opts2('mangoi_018')) || []).map(o => o.v);
+      check('체크박스를 «실제로 눌러» 켜면 퇴사자가 나온다 (위임 배선이 산다)',
+        ['3', '4', '11'].every(x => on2.includes(x)), on2.join(','));
+      await setShowLeft(page, 'tlk-show-left', false);
+      const off2 = ((await opts2('mangoi_018')) || []).map(o => o.v);
+      check('끄면 다시 사라진다', !off2.includes('3'), off2.join(','));
+
+      await page.evaluate(() => {
+        window.adminLang = 'en';
+        document.dispatchEvent(new CustomEvent('mangoi:lang-changed'));
+      });
+      await page.waitForTimeout(200);
+      const en1 = ((await opts2('mangoi_011')) || []).find(o => o.v === '11');
+      check('🌐 를 누르면 «(left)» 로 따라온다 (재렌더를 직접 안 불렀다)',
+        !!en1 && /\(left\)/.test(en1.t), en1 && en1.t);
+    }
 
   } finally {
     await browser.close();

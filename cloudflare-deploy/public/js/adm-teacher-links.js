@@ -155,6 +155,17 @@
     wrap.innerHTML = html;
   };
 
+
+  /* 🌐 EN/KO 토글 — 이 표의 라벨은 JS 가 그리므로 `data-ko`/`data-en` 루프가 못 고친다.
+     ⚠️ 관리자 화면의 그 이벤트는 `document` 에서 발행되고(`adm-core.js` 의 toggleAdminLang)
+        `CustomEvent` 기본이 `bubbles:false` 라 window 로 «올라가지 않는다» — window 에만 달면
+        영원히 침묵한다(CLAUDE.md 2장). 화면마다 발행처가 달라 «양쪽에 다» 단다(중복 호출은
+        다시 그리기뿐이라 무해). */
+  ['mangoi:lang-changed'].forEach(function (ev) {
+    document.addEventListener(ev, function () { if (_tlLoaded) window.tlRender(); });
+    window.addEventListener(ev, function () { if (_tlLoaded) window.tlRender(); });
+  });
+
   window.tlSave = async function (sel) {
     var username = sel.getAttribute('data-username');
     var teacherId = sel.value;
