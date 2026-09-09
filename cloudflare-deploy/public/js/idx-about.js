@@ -15,7 +15,25 @@
                 포스터 그림(26KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
              ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 학원 원장·강사). 그래서 카드 글도
                 그렇게 적는다 — 학생이 눌렀다가 «내 이야기가 아니네» 로 끝나지 않게. */
-          {ic:'🎬', t:'▶ 안내 영상 — 3분 48초로 보기', lead:true,
+          /* 🎬 (2026-09-09 사장님 지시) 짧은 홍보영상을 맨 앞에 —
+             나레이션이 «사장님이 직접 녹음해 주신 사람 목소리» 다. 그 앞 판은 합성 목소리였고
+             「한국말이 이해가 가지 않아」 제보를 받아 갈아 끼운 것이 이 영상이다.
+             ⛔ 이 자리를 다시 TTS 영상으로 되돌리지 말 것.
+             ⛔ 아래 3분 48초 판을 지우지 말 것 — 대상이 다르다(이쪽은 «처음 보는 사람»,
+                그쪽은 «원장·강사» 에게 쓰는 법을 설명한다). */
+          {ic:'🎬', t:'▶ 홍보영상 — 1분 21초로 보기', lead:true,
+           d:'<img src="/img/promo/brand-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
+             + '망고아이가 <b>어떤 곳인지</b> 1분 21초에 담았습니다. '
+             + '처음 오신 분은 이 영상부터 보시면 가장 빠릅니다.',
+           p:['왜 안 되나 — 재능이 아니라 «오래 하지 못해서» 입니다',
+              '무엇이 다른가 — 수업이 없는 날의 빈 시간을 A.I 학습 14가지가 채웁니다',
+              '근거 — 비고츠키 근접발달영역과 간격 반복 위에 설계했습니다'],
+           cta:{l:'▶ 영상 보기 (1분 21초)', go:function(){
+             var u = '/promo.html?v=brand', w = null;
+             try { w = window.open(u, '_blank'); } catch (e) {}
+             if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
+           }}},
+          {ic:'🎬', t:'▶ 안내 영상 — 3분 48초로 보기',
            d:'<img src="/img/promo/ai-tools-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
              + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 48초에 담았습니다. '
              + '원장님·선생님께 드리는 안내라, 학생은 <b>부모님·선생님과 함께</b> 보시면 좋습니다.',
