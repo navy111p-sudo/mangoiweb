@@ -3,6 +3,7 @@
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
 import { ensurePointTables, applyPointTransaction } from './api-points';
 import { checkEarnAllowed } from './point-policy';   // 🪙 하루 상한 정본(복제 금지)
@@ -678,6 +679,7 @@ Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
 ${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+${FRIEND_EMPATHY_RULE}
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
@@ -838,6 +840,15 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
             + (lvAfter.broken.length ? ', broken questions: ' + JSON.stringify(lvAfter.broken) : ''));
         }
       }
+
+      /* 💛 (2026-09-09) 학생이 부정적인 말을 한 턴이면 답장 앞머리의 칭찬 상투구를 떼어 낸다.
+         [왜 여기인가] 길이·문법 손질이 «다 끝난 뒤» 이고 DB 에 저장하기 «전» 이라,
+         학생이 본 문장과 ai_friend_chats 에 남는 문장이 같아진다(다음 턴의 history 도 그것을 본다).
+         ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
+         ⚠️ 판정에 넣는 것은 «학생 발화»(msg)다. reply 를 넣으면 정반대가 된다.
+         ⚠️ 이 화면과 웜업은 «같은 판정» 을 써야 한다 — 한쪽만 고치면 화면마다 답이 달라진다
+            (정본 src/warmup-empathy.ts 하나. 하니스가 두 화면의 배선을 함께 본다). */
+      reply = applyEmpathyGuard(msg, reply) || reply;
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가

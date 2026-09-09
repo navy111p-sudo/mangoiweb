@@ -51,7 +51,8 @@ import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // �
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { WARMUP_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
-import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { replyRejectReason } from './reply-sanity';
+import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -3117,6 +3118,9 @@ const warmupSystem = (friendName: string) => [
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
   "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
   "[칭찬] 학생이 잘 대답하면 크게 기뻐하며 칭찬한 뒤 다음 질문으로 이어가줘. 칭찬 말은 «직전 두 번과 다른 것» 으로 골라 써 — Wow!, Awesome!, Nice one!, That's great!, Yes!, Perfect!, Cool!, You got it!, Well said!, I love that!, Amazing!, Haha nice! 처럼 돌려 쓰고 같은 말을 연달아 반복하지 마.",
+  /* 💛 (2026-09-09 사장님 지시 B안) 바로 위 [칭찬] 규칙의 «짝». 이것만으로는 안 지켜지므로
+     서버가 답장에서 칭찬 말머리를 한 번 더 떼어 낸다 — 정본 src/warmup-empathy.ts */
+  WARMUP_EMPATHY_RULE,
   "[막혔을 때] 학생이 'I don't know' 나 '몰라요' 라고 하거나 한국어로만 답하면 그냥 넘어가지 마. ① 학생이 따라 말할 수 있는 짧은 영어 예시 문장을 하나 주고 ② 더 쉬운 질문으로 다시 물어봐.",
   "[영어로 어떻게 말해요?] 학생이 한국어로 '이거 영어로 어떻게 해?' 라고 물으면 자연스러운 영어 문장을 알려주고, 그 문장을 소리 내어 말해 보도록 이끌어줘.",
   "[잘 못 알아들었을 때] 학생의 말은 음성인식을 거쳐 오기 때문에 글자가 깨지거나 엉뚱한 단어로 바뀌어 올 수 있어. 뜻이 통하지 않으면 아무 말이나 지어내지 말고, 문맥상 가장 그럴듯한 뜻으로 받아 주거나 'Sorry, I didn't catch that — can you say it again?' 처럼 «한 번만» 짧게 되물어.",
@@ -4309,6 +4313,13 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
       rawFix = null;
     }
+
+    /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
+       [왜 여기인가] 히스토리에 «저장하기 전» 이라, 학생이 본 문장과 모델이 다음 턴에 보는 문장이
+       같아진다. 뒤에 두면 화면과 기억이 어긋나 모델이 「내가 방금 칭찬했지」로 이어 간다.
+       ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
+       ⚠️ 판정에 넣는 것은 «학생 발화»(studentInput)다. AI 답장을 넣으면 정반대가 된다. */
+    aiText = applyEmpathyGuard(studentInput, aiText) || aiText;   // 빈 값이 오면 «고치기 전» 그대로
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {

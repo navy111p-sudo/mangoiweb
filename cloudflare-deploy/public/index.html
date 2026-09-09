@@ -6316,6 +6316,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 
       <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
       <script defer src="/js/idx-leveltest-card.js?v=2"></script>
+      <!-- 📅 (2026-09-09) 큰 버튼 두 개 안에 «오늘 상태» 한 줄 — defer 라 첫 화면 예산 0바이트.
+           값을 지어내지 않습니다: 모르면 그 줄을 아예 안 그립니다. -->
+      <script defer src="/js/idx-cta-status.js?v=1"></script>
 
       <div class="ai-cta-row" id="hero-member" style="display:none">
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
@@ -15893,21 +15896,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 </style>
 
-<style id="cta-transparent-override">
-  .ai-cta-row .cta-pay, .ai-cta-row .cta-enter,
-  body .cta-pay, body .cta-enter,
-  button.cta-pay, button.cta-enter {
-    background: rgba(245,158,11,0.10) !important;
-    border: 1.5px solid rgba(245,158,11,0.60) !important;
-    color: #fbbf24 !important;
-    box-shadow: 0 6px 18px -8px rgba(245,158,11,0.4) !important;
-    -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
-  }
-  .ai-cta-row .cta-pay::before, .ai-cta-row .cta-enter::before,
-  .cta-pay::before, .cta-enter::before { opacity: 0 !important; background: transparent !important; }
-  .ai-cta-row .cta-pay *, .ai-cta-row .cta-enter *,
-  .cta-pay svg, .cta-enter svg, .cta-pay span, .cta-enter span { color: #fbbf24 !important; stroke: #fbbf24 !important; }
-</style>
+<!-- 🟡 (2026-09-09 사장님 지시 A안) 옛 #cta-transparent-override 를 걷어냈습니다.
+     그 덩어리가 `background: rgba(245,158,11,0.10) !important` 로 원래 «골드 채움» 을
+     10% 투명 유리로 덮고 있었습니다 — 실측 계산값 backgroundColor rgba(245,158,11,0.1) ·
+     backgroundImage none · color rgb(251,191,36). 어두운 배경 사진 위에서 «테두리만 있는
+     빈 상자» 로 보여 사장님이 「눈에 잘 띄지 않음」이라고 하신 그 상태였습니다.
+     ⛔ 되살리지 마세요. 투명하게 갈 이유가 다시 생기면 «테두리·글자를 진하게» 쪽으로 하세요
+        (10% 배경은 대비를 못 만듭니다). 감시: cta_hero_status_harness ①. -->
 <!-- (삭제됨 2026-07-22) home-title-image-css + scifi-title-override
      둘 다 문서 뒤쪽 골드 타이틀 규칙에 덮어써지던 옛 세대 제목 CSS 였다.
      로딩 중 제목이 '세리프 → 청록 외곽선 → 골드'로 여러 번 바뀌어 보이던 원인.
