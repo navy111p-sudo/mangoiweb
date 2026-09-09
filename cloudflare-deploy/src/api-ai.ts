@@ -813,14 +813,28 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           console.error('[chat-friend] repeat retry failed:', e?.message || e);
         }
       }
+      /* 🚨 모델이 «다» 실패한 경우 (2026-09-09 사장님 제보로 표시를 붙임).
+         [잰 것 — 2026-09-09 D1 ai_friend_chats] 그날 AI 답 35건 중 폴백 2건이고, 그 2건이
+         사장님 세션(22:33:17·22:33:37)에 «연달아» 나왔습니다. 직전 22:32:52 는 정상 답이었고
+         9/1(80건)·9/2(53건)·9/3(10건)은 폴백 0건입니다.
+         ⛔ 이 문장은 «AI 가 한 말» 이 아닙니다 — 학생이 무슨 말을 했든 똑같이 나오는 고정 문구라,
+            공룡 얘기를 하던 학생에게 「오늘 뭐 먹었어?」 라고 되물어 «이해를 못 한다» 로 보입니다
+            (사장님 화면 실측: 학생이 "I'm talking about a dinosaur." 라고 항의한 다음 턴에도 폴백).
+         ✅ 그래서 «답» 인 척하지 않고 ai_unavailable 로 밝힙니다 — 화면이 그것을 보고
+            안내로 그리고, 소리로 읽지 않고, 교정 카드도 안 붙입니다.
+         ⚠️ 왜 실패했는지는 이 코드에서 못 잽니다 — Workers 로그가 정본입니다.
+            · `[chat-friend] all models failed …` 는 «늘» 찍힙니다(마지막 예외를 함께).
+            · `[chat-friend] model output: plain=… empty=… rf=…` 는 friendPlain/friendEmpty 가
+              0 이 아닐 때만 찍힙니다 — 모델이 전부 «예외를 던진» 경우에는 안 나옵니다. */
+      let usedFallback = false;
       if (!reply) {
-        // AI 호출이 다 실패한 경우 — 친근한 폴백
         const fallbacks = [
           "Hi! 😊 I'm here. Tell me about your day in English!",
           "Hello! Let's practice some English together. What's on your mind?",
           "Hey there! 🥭 Try writing one sentence in English about what you ate today!",
         ];
         reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        usedFallback = true;
         console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
@@ -912,7 +926,17 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
-        await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+        /* ⛔ 폴백은 «AI 가 한 말» 로 남기지 않습니다.
+           [잰 것 — D1 ai_friend_chats, 사장님 세션] 22:32:52 정상답 → 22:33:17 폴백 → 22:33:37 폴백.
+             즉 폴백이 history 에 들어간 «뒤» 에 모델이 실제로 답한 턴은 한 번도 없습니다.
+           [판단 — 관측이 아니라 예방] 다음 «정상» 턴이 오면 모델이 그 고정 문구를 자기 직전
+             발언으로 보게 됩니다. 그 문구는 주제와 무관하므로(예: 음식) 대화를 끌 수 있어 미리 막습니다.
+           ✅ 학생 발화는 그대로 남깁니다 — 학생이 «말한 것» 은 사실이고, 답이 없는 턴으로 남는 것이
+              「없던 일」로 지우는 것보다 정직합니다.
+           ⚠️ 대신 폴백의 흔적이 D1 에 안 남습니다 — 이 뒤로 빈도의 정본은 아래 console.error 뿐입니다. */
+        if (!usedFallback) {
+          await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+        }
       } catch (e: any) {
         console.error('[chat-friend] DB insert failed:', e?.message || e);
         // DB 실패해도 reply는 반환
@@ -1034,7 +1058,10 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       }
 
       return json({ ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
-                    fix: showFix, repeat: offerRepeat });
+                    // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
+                    //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
+                    ...(usedFallback ? { ai_unavailable: true } : {}),
+                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat });
     }
 
     if (method === 'GET' && path === '/api/ai/chat-history') {

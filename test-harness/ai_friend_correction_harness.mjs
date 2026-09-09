@@ -106,8 +106,12 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
 
   check('A-6 모델이 준 fix 를 그대로 싣지 않고 «반드시» 검증한다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*msg\s*\)/.test(Hc) && !/fix:\s*rawFix/.test(Hc));
+  /* ⚠️ «식 모양» 을 글자 그대로 못 박지 않습니다 — 2026-09-09 에 폴백일 때 카드를 끄는
+     (보장이 «더» 센) 수리를 넣자 `fix: showFix, repeat: offerRepeat` 라는 옛 모양이 깨져
+     멀쩡한 코드가 FAIL 났습니다(CLAUDE.md 2장 「객체 모양을 정규식으로 못 박아 두어」).
+     물어야 할 것은 «어떻게 생겼나» 가 아니라 «검증을 통과한 그 변수를 싣는가» 입니다. */
   check('A-7 응답에는 검증·게이트를 통과한 것만 싣는다',
-        /fix:\s*showFix\s*,\s*repeat:\s*offerRepeat/.test(Hc));
+        /fix:\s*[^,]*\bshowFix\b/.test(Hc) && /repeat:\s*[^,}]*\bofferRepeat\b/.test(Hc));
   check('A-8 게이트가 던져도 대화가 죽지 않는다 (통째로 try/catch)',
         /try\s*\{[\s\S]*verifyWarmupFix[\s\S]*?\}\s*catch/.test(Hc));
   check('A-9 교정 메모는 6시간 — 발화를 저장하는 것이 아니다',
