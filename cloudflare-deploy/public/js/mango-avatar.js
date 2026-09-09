@@ -48,7 +48,33 @@
 
    v7: (2026-08-31) 고를 수 있는 친구가 «둘»(여자·남자)에서 «넷» 이 되면서 캐릭터를
        성별이 아니라 이름으로 부른다 — emma·jake(성인, 기존) / lily·noah(19세, 새 얼굴).
-       옛 이름('female'|'male')은 CHAR_ALIAS 로 계속 받는다. */
+       옛 이름('female'|'male')은 CHAR_ALIAS 로 계속 받는다.
+
+   v8: (2026-09-09) 사장님 「Emma 의 입이 너무 빨리 움직여 — Lily·Noah 처럼 천천히」.
+       🔴 «바꾸는 횟수» 는 원래 넷이 똑같았습니다(showTier 의 MIN_SWITCH_MS=90 하나).
+          다른 것은 «한 번 바뀔 때 화면이 얼마나 달라지는가» 였습니다 —
+          [잰 것 — 2026-09-09, 크로미움에서 세 장을 실제로 그려 픽셀 비교]
+            Emma  : 평균 차 10.8~15.3 · 눈에 띄게 바뀐 픽셀 11.4~18.3% · 바뀐 범위 = 화면 전체
+                    (세로 10칸 전부 — 머리 꼭대기까지 움직입니다)
+            Lily  : 평균 차  3.4~ 4.1 · 바뀐 픽셀 2.4~3.4% · 맨 윗칸 0.0(머리는 그대로) · 입 부근에 몰림
+            Noah  : 평균 차  2.8~ 4.4 · 바뀐 픽셀 1.9~3.2% · 마찬가지
+          Emma 의 세 입모양은 «8초 영상의 서로 다른 순간»(0.2·3.3·4.0초)이라 입만이 아니라
+          고개 각도·눈·어깨가 함께 바뀝니다. hold 가 90ms 였으니 초당 최대 11번까지 바뀝니다 —
+          그래서 «입이 빠르다» 가 아니라 «얼굴이 덜덜거린다» 로 보입니다. Lily·Noah 는 같은
+          좌표계에서 입만 오려 낸 세 장이라 같은 횟수여도 조용합니다.
+       ⚠️ [잰 것 / 판단 구분] Jake 는 «재지 못했습니다» — hero-avatar.mp4 가 H.264 라 이
+          컨테이너의 크로미움이 디코드하지 못합니다(그 함정은 2장에 이미 있습니다).
+          Jake 를 함께 늦춘 것은 «구조가 같다» 는 판단입니다 — 같은 8초 영상의 서로 다른
+          순간(3.2·7.1·3.5초)을 seek 해서 보여 주는 똑같은 경로입니다. 사장님이 지적하신
+          것은 Emma 뿐이니, 원치 않으시면 jake 줄의 `hold:200, fade:160` 만 지우면 됩니다.
+       ✅ 그래서 «횟수»(hold)와 «섞는 시간»(fade)을 캐릭터별로 둡니다 — 영상 캐릭터만
+          느리게(200ms·160ms), 이미지 캐릭터는 지금 값 그대로(90ms·130ms).
+       ⚠️ 200ms 는 «사람 말의 음절 속도(초당 4~6)» 에 맞춘 값이지 사장님이 들어 보고 정한
+          값이 아닙니다. 더 느리게·빠르게는 이 두 숫자만 고치면 됩니다.
+       ⛔ Lily·Noah 를 함께 늦추지 마세요 — 그쪽은 사장님이 «이렇게 해 달라» 고 하신 기준입니다.
+       ⛔ 입모양 «장 자체» 를 바꿔서 풀 수는 없습니다(원본 영상의 그 순간들입니다).
+          근본 해결은 Emma 도 Lily 처럼 «같은 얼굴에서 입만 다른 3장» 으로 만드는 것이고,
+          그건 얼굴을 새로 만드는 별건입니다(사람이 정할 일). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -71,13 +97,22 @@
   //     Lily·Noah = 새로 만든 19세 얼굴(입모양 이미지 3장, 배경이 지워진 투명 PNG).
   //   ⛔ Emma·Jake 를 지우지 마세요: Lily·Noah 의 PNG 가 없을 때의 폴백이고,
   //      playClip() 의 미리 만든 립싱크 클립(teacher-say-*)이 Emma 얼굴과 짝입니다.
+  // 🐢 hold / fade (2026-09-09, v8) — «입모양을 얼마나 자주 바꾸는가»(hold, ms)와
+  //   «바뀔 때 앞 화면과 얼마나 오래 섞는가»(fade, ms). 안 적으면 아래 기본값(90·130).
+  //   ⚠️ 영상 캐릭터(emma·jake)만 늦춥니다 — 세 입모양이 «같은 얼굴의 입만» 이 아니라
+  //      «영상의 서로 다른 순간» 이라 한 번 바꿀 때마다 고개·눈·어깨까지 함께 움직이기
+  //      때문입니다(머리말 v8 의 실측). 이미지 캐릭터는 입만 바뀌므로 지금 값이 맞습니다.
+  //   ⛔ 영상 캐릭터는 fade 를 hold 보다 크게 두지 마세요 — 앞 전환이 채 끝나기 전에 다음
+  //      전환이 와서 두 얼굴이 계속 겹쳐 보입니다(고치기 전 Emma 가 그 상태였습니다: 130 > 90).
+  //   ℹ️ 기본값은 그 반대(fade 130 > hold 90)이고 Lily·Noah 가 그대로인데 «그게 정상» 입니다 —
+  //      그쪽은 한 번에 바뀌는 픽셀이 2~3% 뿐이라 겹쳐도 안 보입니다. 고치지 마세요.
   var CHARACTERS = {
     emma: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
-            poses:{ closed:3.3, medium:0.2, wide:4.0 } },
+            poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
     jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
-            poses:{ closed:3.2, medium:7.1, wide:3.5 } },
+            poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
             still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'emma' },
@@ -100,6 +135,16 @@
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
     var curChar = 'emma', cropRect = CHARACTERS.emma.rect;
     var curPoses = CHARACTERS.emma.poses || CHARACTERS.emma.frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
+    // 🎞 잡음성 순간 변동으로 너무 자주(덜덜) 바뀌는 것 방지 — 한 음절 정도의 최소 유지시간(ms).
+    //   FADE_MS 는 전환할 때 앞 화면과 섞는 시간(keyFrame 이 씁니다).
+    //   ⚠️ 이 둘은 «안 적은 캐릭터» 의 기본값입니다 — 캐릭터별 값은 CHARACTERS 의 hold/fade.
+    //   ⛔ 여기(applyFrame 보다 «위») 에서 옮기지 마세요: var 는 «선언» 만 끌어올려지고 값은
+    //      안 끌어올려져서, 아래에 두면 첫 applyFrame(curChar) 이 undefined 를 읽습니다
+    //      (hold 를 안 적은 캐릭터의 최소 유지시간이 조용히 0 이 됩니다).
+    var MIN_SWITCH_MS = 90, FADE_MS = 130;
+    // 🐢 (v8) 지금 캐릭터의 «바꾸는 간격»·«섞는 시간». applyFrame() 이 캐릭터마다 다시 정한다.
+    //    ⚠️ 이 둘을 다시 상수로 되돌리면 Emma 가 초당 11번 얼굴째 덜덜거리던 상태로 돌아갑니다.
+    var curHold = MIN_SWITCH_MS, curFade = FADE_MS;
     // 🖼 v6 이미지 캐릭터 상태 — imgFrames 가 null 이 아니면 «영상이 아니라 그림» 을 그리는 중이다.
     var imgFrames = null, imgCur = null, imgAspectDone = false;
     var keyedNow = (CHARACTERS.emma.keyed !== false);   // 초록 제거가 필요한 캐릭터인가
@@ -125,6 +170,9 @@
       //    이미지 캐릭터는 원본이 정사각이 아니므로 c.aspect 로 시작해 두고, 'closed' 장이
       //    실제로 로드된 뒤 naturalWidth/Height 로 다시 정확히 맞춘다(mountImages) —
       //    파일을 다른 비율로 갈아 끼워도 저절로 따라오게 하려는 것.
+      // 🐢 (v8) 캐릭터마다 입 바꾸는 속도가 다르다 — 안 적은 캐릭터는 기본값(빠름) 그대로.
+      curHold = (c.hold > 0) ? c.hold : MIN_SWITCH_MS;
+      curFade = (c.fade > 0) ? c.fade : FADE_MS;
       setAspect(c.aspect || ((cropRect.r - cropRect.l) / (cropRect.b - cropRect.t)));
     }
     applyFrame(curChar);
@@ -214,7 +262,6 @@
     //   전환 직전 화면을 스냅샷(fadeData)해두고, 짧은 시간(FADE_MS) 동안 새 프레임과 섞어
     //   부드럽게 넘어가게 한다(showTier 에서 스냅샷을 남김).
     var fadeData = null, fadeT0 = 0;
-    var FADE_MS = 130;
     function keyFrame(){
       var srcEl, vw, vh;
       if (imgFrames){
@@ -249,7 +296,7 @@
         else if (diff > 0){ d[i+1] = mx; }
       }
       if (fadeData && fadeData.data.length === d.length){
-        var a = (Date.now() - fadeT0) / FADE_MS;
+        var a = (Date.now() - fadeT0) / curFade;
         if (a >= 1) { fadeData = null; }
         else {
           var fd = fadeData.data;
@@ -277,7 +324,6 @@
       return 'wide';
     }
     var lastSwitchAt = 0;
-    var MIN_SWITCH_MS = 90;   // 🎞 잡음성 순간 변동으로 너무 자주(덜덜) 바뀌는 것 방지 — 한 음절 정도의 최소 유지시간
     function showTier(tier){
       if(tier === curTier || !curPoses) return;
       // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
@@ -293,13 +339,13 @@
         //    (v3 사고와 같은 자리 — 확정해버리면 다 받은 뒤에도 영영 안 바꾼다).
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
-        if(now - lastSwitchAt < MIN_SWITCH_MS) return;
+        if(now - lastSwitchAt < curHold) return;
         try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
       if(video.readyState < 2) return;
-      if(now - lastSwitchAt < MIN_SWITCH_MS) return;
+      if(now - lastSwitchAt < curHold) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
       // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
@@ -324,10 +370,13 @@
         idleTicks = 0;
         if(imgFrames){
           // 🖼 이미지 캐릭터는 '재생' 이 없으므로 세 장을 일정 간격으로 번갈아 보여 준다.
-          //    ⚠️ 간격은 MIN_SWITCH_MS(90) 보다 커야 한다 — 작으면 showTier 가 매번 되돌아가
-          //       입이 한 장에 굳는다.
+          //    ⚠️ 간격은 그 캐릭터의 curHold 보다 «커야» 한다 — 작으면 showTier 가 매번
+          //       되돌아가 입이 한 장에 굳는다. (v8) hold 가 캐릭터별로 달라졌으므로
+          //       숫자를 박지 않고 curHold 에서 끌어온다 — 지금 이미지 캐릭터는 hold 를
+          //       안 적어 90 이라 결과는 예전과 같은 150ms 다.
           var SEQ = ['closed','medium','wide','medium'];
-          showTier(SEQ[Math.floor(Date.now() / 150) % SEQ.length]);
+          var seqMs = Math.max(150, curHold + 60);
+          showTier(SEQ[Math.floor(Date.now() / seqMs) % SEQ.length]);
         } else {
           curTier = null;
           if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
