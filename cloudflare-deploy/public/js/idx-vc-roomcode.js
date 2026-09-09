@@ -52,21 +52,46 @@
      ⚠️ 규칙이 두 파일에 있으므로 `meet_room_code_harness.mjs` 가 둘을 대조한다.
         idx-vc-room.js 는 blocking 이고 첫 화면 예산 여유가 325바이트뿐이라 여기(defer)에 둔다. */
   var MEET_PREFIX = 'meet-';
+  /* 🔴 (2026-09-09 함정 대조) 이 목록에서 `meet-` 을 «뺀다».
+     넣어 두면 `MEET-1234`·`Meet-1234` 가 「접두사가 있으니 그대로」로 빠져나가는데,
+     모달은 소문자로 내려 `meet-1234` 를 만든다 → **고치려던 「같은 번호인데 다른 방」이
+     대문자로 그대로 재현된다**(방 이름은 idFromName 이라 대소문자를 구분한다).
+     ⚠️ 하필 이 칸에는 `autocapitalize="off"` 가 없어서 폰 키보드가 첫 글자를 대문자로
+        만든다 — 계정 아이디에서 이미 밟은 함정이다(CLAUDE.md 2장). 아래 armCaseGuards() 참고. */
+  var MEET_RE = /^meet-/i;
   // 이미 «어느 방인지» 를 스스로 말하는 이름들 — 여기에 걸리면 그대로 둔다
-  var KNOWN_ROOM = /^(?:meet-|class-|demo-|room-|c24-|mangoi-class$)/i;
+  var KNOWN_ROOM = /^(?:class-|demo-|room-|c24-|mangoi-class$)/i;
+
+  /* 모달(idx-vc-room.js)의 normalize() 와 «같은» 다듬기 */
+  function meetSlug(c) {
+    return c.toLowerCase()
+            .replace(MEET_RE, '')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9\uac00-\ud7a3-]/g, '');
+  }
 
   function resolveRoomCode(raw) {
     var c = (raw == null ? '' : String(raw)).trim();
     if (!c) return '';                       // 빈칸은 빈칸 그대로 — 공용방 폴백은 예전 그대로다
-    if (KNOWN_ROOM.test(c)) return c;
-    /* 모달의 normalize() 와 같은 다듬기 — 대문자·공백·기호가 섞여도 같은 방으로 모인다 */
-    var n = c.toLowerCase()
-             .replace(/^meet-/, '')
-             .replace(/\s+/g, '-')
-             .replace(/[^a-z0-9\uac00-\ud7a3-]/g, '');
+    if (KNOWN_ROOM.test(c)) return c;        // 회의방이 아닌 방은 한 글자도 안 건드린다
+    var n = meetSlug(c);                     // `meet-` 이 붙었든 안 붙었든 같은 자리로 모은다
     return n ? (MEET_PREFIX + n) : '';
   }
   window.vcResolveRoomCode = resolveRoomCode;
+
+  /* 폰 키보드가 방 번호의 첫 글자를 대문자로 만드는 것은 «서버로 못 막습니다».
+     index.html 은 공동 금지구역이라 그 칸에 속성을 직접 못 단다 → 밖에서 입혀 준다.
+     (js/session-guard.js 가 아이디 칸에 쓰는 것과 같은 방식) */
+  function armCaseGuards() {
+    try {
+      var i = el('vc-roomcode-input');
+      if (!i || i.__caseGuarded) return;
+      i.__caseGuarded = true;
+      i.setAttribute('autocapitalize', 'off');
+      i.setAttribute('autocorrect', 'off');
+      i.setAttribute('spellcheck', 'false');
+    } catch (e) {}
+  }
 
   /* 입장 직전에 «실제로 들어갈 방» 을 칸에 적어 준다.
      ⛔ 몰래 바꾸지 않는다 — 값이 바뀌면 접힌 칸을 펴서 보여 준다(이 파일 ①과 같은 원칙).
@@ -291,7 +316,7 @@
       if (typeof origShow === 'function' && !origShow.__roomcodeWrapped) {
         window.showView = function (id) {
           var r = origShow.apply(this, arguments);
-          if (id === 'view-videocall-lobby') setTimeout(fillRoomCode, 150);
+          if (id === 'view-videocall-lobby') { armCaseGuards(); setTimeout(fillRoomCode, 150); }
           if (id === 'view-videocall-call') startWatch();
           return r;
         };
@@ -312,6 +337,7 @@
       }
     } catch (e) {}
 
+    armCaseGuards();
     fillRoomCode();                       // 이미 로비가 떠 있는 경우
 
     /* 수업 화면은 «들어간 뒤» 에 방 이름·탭바가 정해진다 → 그때만 잠깐 지켜본다.

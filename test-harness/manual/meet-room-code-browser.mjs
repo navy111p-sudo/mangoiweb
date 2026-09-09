@@ -18,7 +18,8 @@
  *    소켓·카메라를 건드리지 않고 «래퍼가 한 일» 만 깨끗하게 잽니다.
  *    (이름을 채우면 헤드리스 렌더러가 alert/미디어에서 멈춰 검사가 통째로 헛돕니다 — 실제로 밟음)
  */
-const PORT = 9331, BASE = 'http://127.0.0.1:8921';
+const PORT = Number(process.env.CDP_PORT || 9331);
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:8921';
 const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
 const page = list.find(t => t.type === 'page');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -64,23 +65,24 @@ console.log('② 실사고 재현 — 로비에 «1234» 를 치고 입장을 �
 const got = await evalJs(`(function(){
   var box = document.getElementById('vc-roomcode-input');
   box.value = '1234';
-  var seen = null;
-  var W = window.vcJoinRoom;                       // 지금 걸려 있는 래퍼
-  var orig = window.__origProbe;
-  // 래퍼 «안쪽» 원본을 가짜로 바꿔 치고, 래퍼를 그대로 부른다 → 래퍼가 한 일만 잰다
-  window.vcJoinRoom = W;                           // (그대로)
-  // idx-main.js 가 실제로 읽는 그 값을 그 시점에 가로챈다
-  var d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  try {
-    // 래퍼가 normalizeRoomInput() 을 부른 «뒤» 의 칸 값을 본다
-    if (typeof window.vcEnsureMediaPermission === 'function') window.vcEnsureMediaPermission = function(){ return Promise.reject(new Error('probe')); };
-    W.call(window);
-  } catch(e){}
+  /* 지금 걸려 있는 래퍼를 그대로 부른다. 이름 칸이 비어 있으므로 원본 vcJoinRoom 은
+     첫 줄에서 곧바로 return 하고, 그때 normalizeRoomInput() 은 «이미» 돌았다.
+     → 소켓·카메라를 건드리지 않고 «래퍼가 한 일» 만 잰다. */
+  try { window.vcJoinRoom.call(window); } catch(e){}
   return box.value;
 })()`);
 t('입장 직전 방 코드 칸', got, 'meet-1234');
 const opened = await evalJs(`(function(){var i=document.getElementById('vc-roomcode-input');var d=i.closest('details');return d? !!d.open : 'no-details';})()`);
 t('바뀐 값을 사람에게 «보여 주는가»(칸이 펴짐)', opened, 'true');
+
+console.log('②-2 대문자로 쳐도 같은 방인가 (폰 키보드 첫 글자 대문자)');
+for (const [inp, want] of [['Meet-1234','meet-1234'], ['MEET-1234','meet-1234'], ['1234','meet-1234']]) {
+  const v = await evalJs(`(function(){window.alert=function(){};var b=document.getElementById('vc-roomcode-input');b.value=${JSON.stringify(inp)};document.getElementById('vc-name-input').value='';try{window.vcJoinRoom.call(window);}catch(e){}return b.value;})()`);
+  t(`«${inp}» 입장 직전 칸`, v, want);
+}
+console.log('②-3 칸에 대문자·자동고침 방어가 실제로 붙었는가');
+for (const [a, want] of [['autocapitalize','off'], ['autocorrect','off'], ['spellcheck','false']])
+  t(a, await evalJs(`document.getElementById('vc-roomcode-input').getAttribute(${JSON.stringify(a)})`), want);
 
 console.log('③ 공용방 폴백은 예전 그대로인가 (빈칸)');
 const blank = await evalJs(`(function(){var b=document.getElementById('vc-roomcode-input');b.value='';try{window.vcJoinRoom.call(window);}catch(e){}return b.value;})()`);
