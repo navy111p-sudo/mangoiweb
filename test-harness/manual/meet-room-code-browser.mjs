@@ -159,12 +159,16 @@ const meta = await evalJs(`(function(){
     var m = /rgba?\\(([^)]+)\\)/.exec(cs.color) || [0,'0,0,0'];
     var p = m[1].split(',').map(parseFloat);
     var lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
-    var covered = null;
-    for (var x = r.left + 8; x < r.right - 8 && !covered; x += Math.max(24, (r.width - 16) / 6))
-      for (var y = r.top + 6; y < r.bottom - 6; y += Math.max(8, (r.height - 12) / 3)) {
-        var top = document.elementFromPoint(x, y);
-        if (top && top !== el && !el.contains(top) && !top.contains(el)) { covered = top.id || String(top.className) || top.tagName; break; }
-      }
+    /* ⚠️ elementFromPoint 는 «뷰포트 밖» 이면 null 을 준다 → 화면 밖 요소는 가림 검사가
+       «무조건 통과» 가 된다(함정 대조가 잡았습니다). 그래서 못 쟀으면 «못 쟀다» 고 말한다. */
+    var onScreen = r.top >= 0 && r.bottom <= innerHeight && r.width > 0;
+    var covered = onScreen ? null : '미측정(화면 밖)';
+    if (onScreen)
+      for (var x = r.left + 8; x < r.right - 8 && !covered; x += Math.max(24, (r.width - 16) / 6))
+        for (var y = r.top + 6; y < r.bottom - 6; y += Math.max(8, (r.height - 12) / 3)) {
+          var top = document.elementFromPoint(x, y);
+          if (top && top !== el && !el.contains(top) && !top.contains(el)) { covered = top.id || String(top.className) || top.tagName; break; }
+        }
     return { ko: (el.getAttribute('data-ko') || '').slice(0, 14),
              fg: { r: p[0], g: p[1], b: p[2], a: (p.length > 3 ? p[3] : 1) * opac(el) },
              fontPx: parseFloat(cs.fontSize),
@@ -172,11 +176,13 @@ const meta = await evalJs(`(function(){
              /* 🔴 captureScreenshot 의 clip 은 «문서» 좌표이고 rect 는 «뷰포트» 좌표다.
                 스크롤을 안 더하면 엉뚱한 자리(배경 사진)를 찍고 «대비 1.17» 같은 거짓 실패가 난다 — 실제로 밟음. */
              rect: { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) },
-             onScreen: r.top >= 0 && r.bottom <= innerHeight && r.width > 0,
+             onScreen: onScreen,
              covered: covered };
   });
 })()`);
-t('안내 줄 개수', meta.length, 2);
+/* ⛔ «정확히 2» 로 못 박지 말 것 — 나중에 안내를 한 줄 정당하게 더하면
+   보장은 세지는데 검사만 빨간불이 난다(CLAUDE.md 2장 「목록·개수를 못 박은 검사」). */
+t('안내 줄이 «둘 이상» 으로 나뉘어 있다 (' + meta.length + '개)', meta.length >= 2, true);
 
 for (let i = 0; i < meta.length; i++) {
   const m = meta[i];
@@ -208,16 +214,27 @@ console.log('④-2 🌐 를 눌러도 두 줄이 그대로 남는가 (i18n 이 �
 /* ⚠️ 언어 판정은 반드시 getLang() 으로 — index.html 은 i18n 엔진이 «둘» 이고
    나중에 로드되는 js/mango-i18n.js 가 setLang/getLang/toggleLang 을 덮어쓴다(CLAUDE.md 2장).
    toggleLang 은 인자를 안 받으므로 «누른 뒤 지금 언어» 를 물어 그 속성과 대조한다. */
-const after = await evalJs(`(function(){
-  try { (window.toggleLang || function(){})(); } catch(e){}
-  var lang = (window.getLang ? window.getLang() : (document.documentElement.lang || 'ko'));
-  var key = 'data-' + (String(lang).slice(0,2) === 'en' ? 'en' : 'ko');
-  var els = window.__banner;
-  return { n: els.length, lang: lang, key: key,
-           okAll: els.map(function(e){ return e.textContent.trim() === (e.getAttribute(key)||'').trim(); }) };
-})()`);
-t('🌐 전환 뒤 줄 개수', after && after.n, 2);
-t('🌐 전환 뒤 두 줄 모두 «' + (after && after.lang) + '» 로 바뀐다', JSON.stringify(after && after.okAll), JSON.stringify([true, true]));
+/* 한 번만 누르면 그 회차의 «시작 언어» 에 따라 KO 로 돌아올 수도 있다 —
+   두 번 눌러 **KO·EN 을 둘 다** 실제로 지나가게 한다. */
+const seen = new Set();
+for (let k = 0; k < 2; k++) {
+  await evalJs(`(function(){ try { (window.toggleLang || function(){})(); } catch(e){} })()`);
+  await new Promise(r => setTimeout(r, 250));   // i18n 스윕이 한 틱 뒤에 돌 수 있다 — 안 기다리면 플레이크
+  const after = await evalJs(`(function(){
+    var lang = (window.getLang ? window.getLang() : (document.documentElement.lang || 'ko'));
+    var key = 'data-' + (String(lang).slice(0,2) === 'en' ? 'en' : 'ko');
+    var els = window.__banner;
+    return { n: els.length, lang: lang,
+             okAll: els.map(function(e){ return e.textContent.trim() === (e.getAttribute(key)||'').trim(); }) };
+  })()`);
+  seen.add(String(after && after.lang).slice(0, 2));
+  t(`🌐 전환 뒤 줄이 그대로 남는다 (${after && after.lang})`, (after && after.n) >= 2, true);
+  t(`🌐 전환 뒤 두 줄 모두 «${after && after.lang}» 로 바뀐다`, JSON.stringify(after && after.okAll), JSON.stringify([true, true]));
+}
+/* ⛔ 전제 — 두 언어를 «둘 다» 지나갔는가. 안 두면 KO 만 두 번 보고도 통과한다. */
+t('KO·EN 을 둘 다 지나갔다', JSON.stringify([...seen].sort()), JSON.stringify(['en', 'ko']));
+
+try { await send('Emulation.clearDeviceMetricsOverride'); } catch (_) {}   // 같은 크롬으로 다른 검사를 이어 돌릴 때를 위해 되돌린다
 
 console.log(`\n결과: PASS ${P} / FAIL ${F}`);
 ws.close();
