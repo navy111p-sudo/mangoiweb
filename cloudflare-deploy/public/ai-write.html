@@ -552,11 +552,26 @@
   </div>
 
   <script>
-    // 전체 사이트 로그인된 사용자(mango_user) 자동 사용
+    /* 🔴 (2026-09-09) 예전엔 mango_user.user_id 하나만 봤는데, 로그인 동기화가 실제로
+       저장하는 모양은 {uid,name,role} — user_id 칸이 없다. 그래서 로그인 학생도 매번
+       «게스트» 로 떨어졌고, 게다가 그 게스트 id 도 호출마다 새 난수라 기록이 안 이어졌다.
+       ⚠️ 게스트 id «키» 는 화면마다 갈려 있습니다(실측) — 여기·micro-quiz·streak·tetris 는
+          `mangoi_guest_uid`, review-quiz 는 `rq_guest_id`, vocab 은 서버 서명 `mango_guest_id`,
+          warmup 은 게스트 id 를 «아예 안 만듭니다»(빈 문자열). 통일돼 있다고 적지 마세요 —
+          그렇게 적힌 주석 때문에 다음 사람이 없는 것을 찾게 됩니다. */
     function getUid() {
       try {
+        const a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+        if (a && (a.uid || a.user_id || a.id)) return a.uid || a.user_id || a.id;
+      } catch(e){}
+      try {
         const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
-        if (u && u.user_id) return u.user_id;
+        if (u && (u.user_id || u.uid || u.id)) return u.user_id || u.uid || u.id;
+      } catch(e){}
+      try {
+        let g = localStorage.getItem('mangoi_guest_uid');
+        if (!g) { g = 'guest_' + Math.random().toString(36).slice(2, 8); localStorage.setItem('mangoi_guest_uid', g); }
+        return g;
       } catch(e){}
       return 'guest_' + (Math.random().toString(36).slice(2, 8));
     }
@@ -1115,8 +1130,9 @@
     //   그걸 그냥 무시하면 "기록이 없어요"로 보여 저장 기능이 아예 없는 것처럼 오해를 산다 → 먼저 걸러서 안내.
     function isLoggedIn() {
       try {
-        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
-        return !!(u && u.user_id) && !!getToken();
+        // 🔴 (2026-09-09) getUid() 와 같은 폭으로 — mango_user.user_id 만 보던 예전 코드는
+        // 로그인 학생도 게스트로 판정해 "기록이 없어요" 로 잘못 안내했다.
+        return getUid().indexOf('guest_') !== 0 && !!getToken();
       } catch(e){ return false; }
     }
 
