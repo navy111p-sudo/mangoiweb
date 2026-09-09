@@ -292,10 +292,18 @@
       if (msg) { plEl.innerHTML = msg + '<br>'; plEl.style.display = ''; }
     }
     var bk = d.breakdown || [];
+    /* 🎨 (2026-09-09, 학생 피드백) 막대가 전부 같은 보라색이라 「A1은 4/4, C2는 0/4」처럼
+       점수 차이가 한눈에 안 들어온다는 지적 — 정답률에 따라 색을 바꿔 시각적으로 구분되게 한다. */
+    function bkColor(pct){
+      if (pct >= 75) return 'linear-gradient(90deg,#4ade80,#16a34a)';   // 녹색 — 잘함
+      if (pct >= 50) return 'linear-gradient(90deg,#facc15,#ca8a04)';   // 노랑 — 보통
+      if (pct >= 25) return 'linear-gradient(90deg,#fb923c,#ea580c)';   // 주황 — 약함
+      return 'linear-gradient(90deg,#f87171,#dc2626)';                  // 빨강 — 많이 약함(0점 포함)
+    }
     $('ai-breakdown').innerHTML = bk.map(function(r){
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
       return '<div class="bkrow"><span class="bl">'+esc(r.cefr)+'</span>'
-        + '<span class="bkbar"><span class="bkfill" style="width:'+pct+'%"></span></span>'
+        + '<span class="bkbar"><span class="bkfill" style="width:'+pct+'%;background:'+bkColor(pct)+'"></span></span>'
         + '<span class="bkn">'+r.correct+'/'+r.total+'</span></div>';
     }).join('');
     window.scrollTo({top:0, behavior:'smooth'});

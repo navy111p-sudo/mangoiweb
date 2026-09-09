@@ -15901,21 +15901,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 </style>
 
-<style id="cta-transparent-override">
-  .ai-cta-row .cta-pay, .ai-cta-row .cta-enter,
-  body .cta-pay, body .cta-enter,
-  button.cta-pay, button.cta-enter {
-    background: rgba(245,158,11,0.10) !important;
-    border: 1.5px solid rgba(245,158,11,0.60) !important;
-    color: #fbbf24 !important;
-    box-shadow: 0 6px 18px -8px rgba(245,158,11,0.4) !important;
-    -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
-  }
-  .ai-cta-row .cta-pay::before, .ai-cta-row .cta-enter::before,
-  .cta-pay::before, .cta-enter::before { opacity: 0 !important; background: transparent !important; }
-  .ai-cta-row .cta-pay *, .ai-cta-row .cta-enter *,
-  .cta-pay svg, .cta-enter svg, .cta-pay span, .cta-enter span { color: #fbbf24 !important; stroke: #fbbf24 !important; }
-</style>
+<!-- (제거됨 2026-09-09, 학생 피드백) #cta-transparent-override — 바로 위 "골드 글로우 강화"
+     블록이 준 채운 그라데이션 버튼을, id 특정성(+더 뒤에 옴)으로 다시 10% 투명 테두리형으로
+     덮어쓰고 있었다. 설명 주석이 하나도 없어 의도된 결정인지 실수인지 판단할 근거가
+     없었는데, 정확히 이 상태(수업 입장 · 오늘의 A.i 학습 버튼이 어두운 배경 위에서 잘 안
+     보임)가 사장님/학생 피드백으로 들어왔다. 위 .cta-pay/.cta-enter 채운 골드 스타일이
+     그대로 적용되게 이 블록만 지운다 — 되살리려면 이 주석 자리에 다시 넣을 것. -->
+
 <!-- (삭제됨 2026-07-22) home-title-image-css + scifi-title-override
      둘 다 문서 뒤쪽 골드 타이틀 규칙에 덮어써지던 옛 세대 제목 CSS 였다.
      로딩 중 제목이 '세리프 → 청록 외곽선 → 골드'로 여러 번 바뀌어 보이던 원인.
