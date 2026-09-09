@@ -9,24 +9,25 @@
         if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
-          /* 🎬 (2026-09-05 사장님 지시) 안내 영상 — «처음 들어온 사람이 들어보고 이해하게».
-             ⛔ 여기서 영상을 «틀지» 않는다. 24.4MB 라 카드를 여는 것만으로 받게 하면
+          /* 🎬 (2026-09-09 사장님 지시) 짧은 홍보영상 — «처음 들어온 사람이 보고 이해하게».
+             나레이션이 «사장님이 직접 녹음해 주신 사람 목소리» 다. 그 앞 판은 합성 목소리였고
+             「한국말이 이해가 가지 않아」 제보를 받아 갈아 끼운 것이 이 영상이다.
+             ⛔ 이 자리를 다시 TTS·음성복제 영상으로 되돌리지 말 것.
+             ⛔ 여기서 영상을 «틀지» 않는다. 13.5MB 라 카드를 여는 것만으로 받게 하면
                 볼 생각이 없는 사람에게도 내려간다(adm-promo-setup.js 가 같은 판단을 해 뒀다).
-                포스터 그림(26KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
-             ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 학원 원장·강사). 그래서 카드 글도
-                그렇게 적는다 — 학생이 눌렀다가 «내 이야기가 아니네» 로 끝나지 않게. */
-          {ic:'🎬', t:'▶ 안내 영상 — 3분 48초로 보기', lead:true,
-           d:'<img src="/img/promo/ai-tools-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
-             + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 48초에 담았습니다. '
-             + '원장님·선생님께 드리는 안내라, 학생은 <b>부모님·선생님과 함께</b> 보시면 좋습니다.',
-           p:['왜 만들었나 — 단어 하나를 제 것으로 만들려면 8~10번은 만나야 합니다',
-              '어떻게 쓰나 — 정규수업을 바꾸지 않고 수업 전 10분·수업 후 10분을 붙입니다',
-              '효과 — 주 100분이던 노출이 매일로 바뀝니다'],
-           /* ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 «못 열고 null 만» 돌려준다(예외도 안 난다).
-              ⛔ 기능 문자열에 'noopener' 를 주면 표준상 반환이 늘 null 이라 «막혔다» 판정이 항상 참이 된다
-                 → 빼고 연 뒤 opener 를 끊는다(CLAUDE.md 2장 «window.open 이 안 열림»). */
-           cta:{l:'▶ 영상 보기 (3분 48초)', go:function(){
-             var u = '/promo.html?v=ai-tools', w = null;
+                포스터 그림(35KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
+             ℹ️ 여기 있던 «▶ 안내 영상 — 3분 48초로 보기» 줄은 2026-09-09 사장님
+                「완전히 없애」 지시로 뺐다(#889). ⛔ 되살리지 말 것 — CLAUDE.md 1-3.
+                영상 파일과 /promo.html?v=ai-tools 주소는 그대로 살아 있다. */
+          {ic:'🎬', t:'▶ 홍보영상 — 1분 21초로 보기', lead:true,
+           d:'<img src="/img/promo/brand-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
+             + '망고아이가 <b>어떤 곳인지</b> 1분 21초에 담았습니다. '
+             + '처음 오신 분은 이 영상부터 보시면 가장 빠릅니다.',
+           p:['왜 안 되나 — 재능이 아니라 «오래 하지 못해서» 입니다',
+              '무엇이 다른가 — 수업이 없는 날의 빈 시간을 A.I 학습 14가지가 채웁니다',
+              '근거 — 비고츠키 근접발달영역과 간격 반복 위에 설계했습니다'],
+           cta:{l:'▶ 영상 보기 (1분 21초)', go:function(){
+             var u = '/promo.html?v=brand', w = null;
              try { w = window.open(u, '_blank'); } catch (e) {}
              if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
            }}},
