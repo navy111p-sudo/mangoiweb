@@ -4210,7 +4210,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       }
     };
     const takeWarmupReply = (r: any): string => {
-      const parsed = parseWarmupOutput((r && (r.response || r.result || '')));
+      /* ⚠️ `r.result` 를 그대로 넘기면 안 된다 — 그건 «응답 객체»(`{response: …}`)라
+         정본이 문자열로 굳히면 "[object Object]" 가 된다. 저장소의 다른 다섯 곳이 전부
+         `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
+      const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
       stagedFix = parsed.fix;
       /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
          보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.

@@ -770,6 +770,41 @@ PW_DIR=/tmp/pw node test-harness/manual/textbook-hide-toggle-browser.mjs
 
 ---
 
+## vc-office-mode-browser.mjs — 화상수업 «사무실 모드» (34건)
+
+사무실에서 옆자리 교사 목소리가 학생에게 들어가는 문제로 넣은 스위치
+(2026-09-08 사장님 요청). 여기서 봐야 하는 것은 문자열이 아니라
+«스위치가 눌리는가»·«트랙이 실제로 갈렸는가»·«끄면 소리가 돌아오는가» 다.
+
+- 설정 팝오버에 「사무실 모드」 행이 그려지고 **보이고 눌린다**(elementFromPoint 로 맨 위 확인)
+- 설명 줄이 낱글자로 쪼개지지 않는다(줄 수로 판정)
+- **가짜 마이크**(`--use-fake-device-for-media-stream`)로 정본을 «실제로 돌린다» —
+  트랙이 가공 트랙으로 갈리고, 끄면 진짜 마이크로 돌아온다
+- 🔴 음소거 상태(`track.enabled`)를 갈아끼울 때 물려준다 —
+  안 물려주면 «음소거했는데 소리가 나간다»
+- 🔴 켜기가 실패하면 «켜기 전» 으로 되돌아가고 false 를 준다(스위치도 되돌아간다)
+- 🔴 **끌 때 장치 지정이 거부돼도 기본 마이크로 되돌아간다** —
+  2026-09-08 에 실제로 났던 결함의 재발 감시. 켜져 있는 동안 vcLocalStream 의 트랙은
+  WebAudio 가 만든 «가공 트랙» 이라 장치 id 가 없는데, 그것을 `deviceId:{exact:…}` 로
+  넘겨 OverconstrainedError 가 났고 되돌리기가 통째로 실패해 **무음 트랙이 남았다**
+  (= 사무실 모드를 껐는데 소리가 아예 안 나감). 문자열 검사로는 안 보인다.
+- KO/EN 라벨이 실제로 바뀐다
+
+⚠️ **로컬 서버가 필요하다**(파일을 그대로 서빙한다 — `file://` 로는 스크립트가 전부 404):
+
+```bash
+cd cloudflare-deploy/public && python3 -m http.server 8899 &
+cd /경로/mangoiweb && node test-harness/manual/vc-office-mode-browser.mjs
+```
+
+- `playwright-core` 를 쓰지 않는다(CDP 를 직접 말한다) — `PW_DIR` 이 필요 없다.
+- ⚠️ 캐시를 **두 겹 다** 끈다(`setCacheDisabled` + `setBypassServiceWorker`).
+  HTTP 캐시만 끄면 서비스워커가 옛 사본을 줘서 «고치기 전» 값이 나오고 검사가 헛돈다.
+- ⚠️ 시작할 때 `mangoi_lang` 을 ko 로 못 박는다 — 앞 회차가 EN 으로 끝나면
+  다음 회차의 라벨 검사가 거짓 실패한다(실측).
+
+---
+
 ## approval-sidebar-badge-live-browser.mjs — 사이드바 「결재함」 실시간 배지 + 지연 색 (33건 · 2026-09-09 A+B)
 
 배지 JS(`/js/adm-appr-badge.js`, defer)는 자동 하니스(`approval_sidebar_badge_live_harness`)가 가짜 DOM 에서
@@ -795,4 +830,3 @@ PW_DIR=/tmp/pw node test-harness/manual/textbook-hide-toggle-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 ```
-

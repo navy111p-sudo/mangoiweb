@@ -138,6 +138,18 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
         cap >= 300 && /max_tokens:\s*WARMUP_MAX_TOKENS/.test(code) && !/max_tokens:\s*\d/.test(code),
         'WARMUP_MAX_TOKENS=' + (cap || '?') + ' · 호출부 숫자 하드코딩 ' + ((code.match(/max_tokens:\s*\d/g) || []).length) + '건');
 
+  /* 🔴 2026-09-08 실사고 — 이 자리가 «[object Object]» 의 두 번째 입구였다.
+     `r.result` 는 «응답 객체»(`{response: …}`)라 그대로 넘기면 정본이 문자열로 굳힌다.
+     저장소의 다른 다섯 곳이 전부 `r?.response ?? r?.result?.response` 로 읽는다.
+     ⚠️ «그 함수를 부르는가» 로는 못 잡는다 — «무엇을 넘기는가» 를 본다. */
+  {
+    const argM = code.match(/parseWarmupOutput\(([^;]*?)\);/);
+    const arg = argM ? argM[1] : '';
+    check('A-10 🔴 모델 응답에서 «글자» 를 꺼내 넘긴다 (응답 객체를 통째로 넘기지 않는다)',
+          /\.response/.test(arg) && !/\bresult\s*(\|\||\?\?|\))/.test(arg),
+          '인자: ' + (arg.trim() || '(못 찾음)'));
+  }
+
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*\)/.test(H) && !/fix:\s*rawFix/.test(H));
 
@@ -191,6 +203,33 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   }
   const hopeless = parseWarmupOutput('{"nope": 1}');
   t('B-5 못 읽으면 빈 문자열 (잘린 경우는 B-4b~e 가 따로 본다)', hopeless.reply === '' && hopeless.fix === null, JSON.stringify(hopeless.reply));
+
+  /* 🔴 2026-09-08 실사고 — Workers AI 는 response_format(json_object) 일 때 response 를
+     «이미 파싱된 객체» 로 주기도 한다. String(객체) 는 "[object Object]" 이고 그 글자에는
+     중괄호가 없어서 위 안전망을 전부 비켜 가 학생 말풍선과 TTS 로 그대로 나갔다.
+     ⚠️ 문자열만 넣어 보는 검사로는 원리상 못 잡는다 — «객체를 실제로 넣어» 본다. */
+  {
+    const objIn = { reply: 'Nice! What did you do?', fix: { was: 'I go', now: 'I went', why_ko: '어제 일이라 went 야', tag: 'past_tense', severity: 'minor' } };
+    const po = parseWarmupOutput(objIn);
+    t('B-7 🔴 이미 파싱된 «객체» 로 와도 reply 를 꺼낸다', po.reply === 'Nice! What did you do?' && po.fix && po.fix.was === 'I go', JSON.stringify(po.reply));
+    t('B-7b 🔴 어떤 모양으로 와도 "[object Object]" 를 학생에게 안 보낸다',
+      [objIn, { response: 'hi' }, { nope: 1 }, [{ reply: 'x' }], [1, 2], { reply: '' }, { reply: 123 },
+       /* 🔴 이 둘이 빠져 있어서 검사 «이름» 이 실제 보장보다 넓었습니다 — 안전망이 «입력 글자»
+          에 걸려 있으면 객체 분기가 그보다 앞이라 이 둘이 그대로 통과합니다(실측). */
+       { reply: '[object Object]' }, { reply: 'Hi [object Object] there' }]
+        .every(v => !/\\[object /.test(parseWarmupOutput(v).reply)),
+      JSON.stringify([{ response: 'hi' }, [{ reply: 'x' }]].map(v => parseWarmupOutput(v).reply)));
+    t('B-7c 객체인데 reply 가 없으면 빈 문자열 (딸꾹질 문구가 받는다)',
+      parseWarmupOutput({ nope: 1 }).reply === '' && parseWarmupOutput({ response: 'hi' }).reply === '');
+    /* ⚠️ «객체를 막는다» 만 두면 «전부 빈 문자열» 도 통과한다 — 위 B-7 이 그 짝이다.
+       그리고 문자열 경로가 죽지 않았는지도 함께 본다(B-1~B-6 이 그 짝). */
+    t('B-7e 🔴 fix 칸에만 그 글자가 있으면 답장은 살린다 (안전망은 «reply» 에 건다)',
+      parseWarmupOutput({ reply: 'Nice work!', fix: { was: 'a', now: 'b', why_ko: '[object Object]', tag: 'other', severity: 'minor' } }).reply === 'Nice work!',
+      JSON.stringify(parseWarmupOutput({ reply: 'Nice work!', fix: { why_ko: '[object Object]' } }).reply));
+    t('B-7d 마지막 안전망: 문자열 안에 굳어 버린 "[object Object]" 도 안 내보낸다',
+      parseWarmupOutput('[object Object]').reply === '' &&
+      parseWarmupOutput('Sure! [object Object]').reply === '');
+  }
 
   t('B-6 빈 응답은 빈 응답', parseWarmupOutput('').reply === '' && parseWarmupOutput(null).reply === '');
   t('B-6b 🔴 «JSON 이었는가» 를 돌려준다 (모델이 평문을 주는 것을 볼 수 있어야 한다)',
