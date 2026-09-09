@@ -152,15 +152,22 @@ let rank = null;
 try { rank = new Function(ordSrc + '\n' + rankSrc + '\n; return tlkRank;')(); } catch (e) { /* 아래에서 잡힌다 */ }
 check('⑧ 순위 함수를 실제로 실행할 수 있다', typeof rank === 'function');
 
-if (typeof rank === 'function') {
+/* ⚠️ «만들기» 만 try 로 감싸면 모자랍니다 — 표 이름만 바꾼 변이는 «만들 때» 는 멀쩡하고
+   «부를 때» ReferenceError 를 던져, 하니스가 스택트레이스만 남기고 죽습니다.
+   그러면 무엇이 깨졌는지 안 보입니다(CLAUDE.md 2장 「깔끔한 FAIL 로」). 그래서 호출도 감쌉니다. */
+function rk(st) { try { return typeof rank === 'function' ? rank(st) : NaN; } catch (e) { return NaN; } }
+
+/* ⛔ 아래 검사들을 `if (typeof rank === 'function')` 안에 넣지 마세요 —
+   오려내기가 깨지는 변이에서 검사가 «FAIL» 이 아니라 **조용히 사라집니다**(합계만 줄어듦). */
+{
   /* 「연결 안 됨」이 «모르는 상태» 보다도 앞이어야 한다 — 이것이 falsy 함정의 급소다. */
-  check('⑧-1 연결 안 됨이 헷갈림보다 위', rank('unlinked') < rank('ambiguous'),
-    rank('unlinked') + ' vs ' + rank('ambiguous'));
-  check('⑧-2 헷갈림이 자동매칭보다 위', rank('ambiguous') < rank('auto'));
-  check('⑧-3 자동매칭이 연결됨보다 위', rank('auto') < rank('linked'));
+  check('⑧-1 연결 안 됨이 헷갈림보다 위', rk('unlinked') < rk('ambiguous'),
+    rk('unlinked') + ' vs ' + rk('ambiguous'));
+  check('⑧-2 헷갈림이 자동매칭보다 위', rk('ambiguous') < rk('auto'));
+  check('⑧-3 자동매칭이 연결됨보다 위', rk('auto') < rk('linked'));
   // ↔ 짝: 모르는 상태만 뒤로 — 이것이 없으면 «전부 0» 도 통과한다
-  check('⑧-4 모르는 상태는 맨 뒤', rank('linked') < rank('zzz-없는상태'),
-    rank('linked') + ' vs ' + rank('zzz-없는상태'));
+  check('⑧-4 모르는 상태는 맨 뒤', rk('linked') < rk('zzz-없는상태'),
+    rk('linked') + ' vs ' + rk('zzz-없는상태'));
 
   /* 실제 정렬을 돌려 본다 — 일부러 «맨 아래에 unlinked» 를 넣어 뒤집히는지 확인.
      ⚠️ 자르는 범위를 «sort 문 한 줄» 로 좁히지 말 것 — 옛 falsy 모양은 순위 표를 render() 안에
@@ -171,11 +178,11 @@ if (typeof rank === 'function') {
   const sortEnd = S2.indexOf('});', S2.indexOf('_accounts.slice().sort(', bodyStart));
   const sortSrc = bodyStart >= 0 && sortEnd > bodyStart ? S2.slice(bodyStart, sortEnd + 3) : null;
   check('⑧-5 정렬식을 오려 냈다 (render 머리부터)', !!sortSrc && /_accounts\.slice\(\)\.sort\(/.test(sortSrc));
-  if (sortSrc) {
+  {
     let sorted = null;
     try {
       sorted = new Function('_accounts', 'document', '_tlkShowLeft',
-        ordSrc + '\n' + rankSrc + '\n' + sortSrc + '\n; return rows.map(function (r) { return r.status; });'
+        ordSrc + '\n' + rankSrc + '\n' + (sortSrc || '') + '\n; return rows.map(function (r) { return r.status; });'
       )([
         { username: 'a', status: 'linked' },
         { username: 'b', status: 'auto' },
@@ -188,8 +195,13 @@ if (typeof rank === 'function') {
       JSON.stringify(sorted));
   }
 }
-// ⛔ 옛 falsy 모양으로 되돌아가지 않았는가 (주석은 이미 벗겨진 사본이라 자기 설명에 안 걸린다)
-check('⑧-7 `order[...] || 9` 로 되돌아가지 않았다', !/\border\s*\[[^\]]*\]\s*\|\|/.test(S2));
+/* ⛔ 옛 falsy 모양으로 되돌아가지 않았는가 (주석은 이미 벗겨진 사본이라 자기 설명에 안 걸린다)
+   ⚠️ «이름» 으로 묻지 마세요 — `\border` 로 물었더니 파일에서 `order` 라는 이름이 사라진 뒤로
+      사실상 죽은 검사가 됐고, 가장 있음직한 재발(`TLK_ORDER[st] || 9`)을 못 잡았습니다
+      (`\b` 가 대소문자를 가려 `TLK_ORDER` 안의 `ORDER` 에 안 걸립니다). **모양** 으로 물으세요.
+   ℹ️ 숫자 폴백만 봅니다 — `STATUS[r.status] || STATUS.unlinked` 같은 정당한 객체 폴백은
+      0 이 값이 될 수 없어 이 함정과 무관하고, 누적기(`|| 0`)도 [1-9] 라 안 걸립니다. */
+check('⑧-7 색인 조회를 `|| 숫자` 로 되돌리지 않았다', !/\[[^\]]*\]\s*\|\|\s*-?[1-9]/.test(S2));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
