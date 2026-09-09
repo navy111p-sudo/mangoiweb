@@ -54,7 +54,23 @@
   .bkrow{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12.5px}
   .bkrow .bl{width:34px;font-weight:800;color:#c7d2fe}
   .bkbar{flex:1;height:9px;background:rgba(255,255,255,.09);border-radius:99px;overflow:hidden}
-  .bkfill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1)}
+  /* 🔴 (2026-09-09) display:block 을 «지우지 마세요» — 이 한 줄이 없으면 막대가 통째로 안 보입니다.
+     .bkfill 은 <span> 이고 부모 .bkbar 는 flex 컨테이너가 아니라, 기본값이면 display:inline 입니다.
+     인라인 요소는 width·height 를 «무시» 하므로 실측 폭·높이가 둘 다 0 이 됩니다
+     (2026-09-09 브라우저 실측: A1 100% 지시 → 0.0px, A2 75% → 0.0px, C2 0% → 0.0px).
+     즉 색은 원래부터 있었고 그려지지 않았을 뿐이라 4/4 와 0/4 가 화면에서 똑같았습니다.
+     같은 파일의 진행 막대(.progfill)는 <div> 라 멀쩡했습니다 — 이 한 줄만 달랐습니다.
+     ⚠️ 확인은 «규칙이 있는가» 가 아니라 브라우저에서 채움의 getBoundingClientRect().width 를 재세요. */
+  .bkfill{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#818cf8,#6366f1)}
+  /* 🎨 점수별 색 (2026-09-09 사장님 지시 B안) — «내 점수를 시각적으로 더 쉽게».
+     ⚠️ 색«만» 으로 뜻을 지지 않습니다 — 오른쪽 4/4 숫자가 늘 함께 있어 색약이어도 읽힙니다.
+     ⛔ 기본 .bkfill 의 보라색을 지우지 마세요: 아래 등급 클래스가 안 붙는 날에도
+        «막대가 보이는» 쪽으로 실패해야 합니다(안 붙으면 통째로 안 보이던 것이 이번 사고). */
+  .bkfill.s4{background:linear-gradient(90deg,#34d399,#10b981)}   /* 다 맞음 */
+  .bkfill.s3{background:linear-gradient(90deg,#a3e635,#65a30d)}
+  .bkfill.s2{background:linear-gradient(90deg,#fbbf24,#d97706)}
+  .bkfill.s1{background:linear-gradient(90deg,#fb923c,#ea580c)}
+  .bkfill.s0{background:rgba(248,113,113,.9)}                     /* 0점 — «측정됐다» 를 남기는 빨간 점 */
   .bkn{width:34px;text-align:right;color:#a8b3cf;font-weight:700}
   .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
   .cta a{flex:1 1 46%;text-align:center;text-decoration:none;border-radius:12px;padding:14px 10px;font-weight:800;font-size:14px}
@@ -292,10 +308,22 @@
       if (msg) { plEl.innerHTML = msg + '<br>'; plEl.style.display = ''; }
     }
     var bk = d.breakdown || [];
+    /* 🎨 (2026-09-09) 맞힌 비율로 색을 고른다 — 정본은 이 한 줄뿐이고 CSS 는 색만 갖는다.
+       ⛔ «개수» 가 아니라 «비율» 로 가른다: 밴드당 문항 수가 4가 아닌 날에도 뜻이 안 바뀐다.
+       ⚠️ 0점일 때 폭 6% 짜리 빨간 점을 남긴다 — 빈 막대는 «측정 안 됨» 으로 읽히고,
+          그것이 방금 고친 사고(4/4 와 0/4 가 똑같이 빈 막대)와 같은 오해를 다시 만든다.
+          숫자 0/4 가 바로 옆에 있으므로 «조금 맞았다» 로 읽힐 여지는 없다.
+       ⚠️ 문항이 아예 없는 밴드(total=0)는 «0점» 이 아니라 «모름» 이므로 채우지 않는다. */
+    var barCls = function (pct) {
+      return pct >= 100 ? 's4' : pct >= 75 ? 's3' : pct >= 50 ? 's2' : pct > 0 ? 's1' : 's0';
+    };
     $('ai-breakdown').innerHTML = bk.map(function(r){
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
-      return '<div class="bkrow"><span class="bl">'+esc(r.cefr)+'</span>'
-        + '<span class="bkbar"><span class="bkfill" style="width:'+pct+'%"></span></span>'
+      var w = !r.total ? 0 : (pct > 0 ? pct : 6);
+      var cls = r.total ? (' ' + barCls(pct)) : '';
+      return '<div class="bkrow" title="'+esc(r.cefr)+' — '+(r.total|0)+'문항 중 '+(r.correct|0)+'개 정답">'
+        + '<span class="bl">'+esc(r.cefr)+'</span>'
+        + '<span class="bkbar"><span class="bkfill'+cls+'" style="width:'+w+'%"></span></span>'
         + '<span class="bkn">'+r.correct+'/'+r.total+'</span></div>';
     }).join('');
     window.scrollTo({top:0, behavior:'smooth'});

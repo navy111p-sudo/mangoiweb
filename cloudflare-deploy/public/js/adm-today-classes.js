@@ -76,6 +76,18 @@
         읽히면 「필터가 빠뜨린다」는 제보가 된다).
      ⛔ 문턱을 화면 여러 곳에 적지 말 것 — 여기 한 줄이 정본이다. */
   var LATE_FROM_HOUR = 23;
+  /* 🌙🌒 (2026-09-09 사장님 요청) 「자정 이후까지 보는 야간」 — 위 「23시 이후」의 짝이다.
+     [무엇이 다른가] 이 목록은 여전히 **하루치**이고, 그 하루의 «양 끝» 이 둘 다 밤이다:
+       새벽 00:00~05:59 (= 전날 밤에서 이어진 수업) + 밤 23:00~23:59 (= 그날 밤의 시작).
+       「23시 이후」는 뒤쪽만 보고, 「야간」은 둘 다 본다.
+     📊 [잰 것] CLAUDE.md 배포창 항목의 실측에 00:00~00:20 접속 22건 · 00:40~01:10 이 있다.
+       그것이 「23시 이후」에 안 걸리던 바로 그 수업들이다. 06시를 끝으로 둔 것은 그 실측(01:10)을
+       넉넉히 덮으면서 아침 수업과 섞이지 않는 자리라서다.
+     ⚠️ 그래도 **«자정을 넘겨 이어지는 한 판»** 을 한 화면에 모아 주지는 못한다 — 오늘 23:40 수업의
+        이어지는 00:20 은 «내일 날짜» 목록에 있다(서버가 날짜로 자른다). 그래서 화면이 그 사실을
+        말해 준다(nightNote) — 감추면 「필터가 빠뜨린다」는 제보가 된다.
+     ⛔ 문턱 둘은 여기 두 줄이 정본이다(화면 HTML 에 숫자를 다시 적지 말 것). */
+  var NIGHT_UNTIL_HOUR = 6;          // 새벽 끝(이 시각 «전» 까지) — 06:00 부터는 아침
   function kstHour(ts) {
     var n = Number(ts);
     /* 모르면 «늦은 밤 아님» 으로 떨어뜨린다 — 즉 거르기를 **켜면 그 줄은 화면에서 빠진다**.
@@ -85,6 +97,16 @@
     return new Date(n + 9 * 3600 * 1000).getUTCHours();
   }
   function isLate(s) { return kstHour(s.start_ts) >= LATE_FROM_HOUR; }
+  /* 🌒 새벽 — ⛔ `h < NIGHT_UNTIL_HOUR` «만» 쓰지 말 것: 시각을 모르는 줄은 kstHour 가 -1 이라
+     그 조건을 그냥 통과해 «모르는 것» 이 새벽으로 둔갑한다(23시 쪽과 반대 방향의 사고).
+     반드시 `h >= 0` 을 짝으로 둔다. */
+  function isDawn(s) { var h = kstHour(s.start_ts); return h >= 0 && h < NIGHT_UNTIL_HOUR; }
+  /* 고른 모드에 걸리는가 — 'late' 는 밤만, 'night' 는 밤 + 새벽. 모르는 모드는 «안 거른다». */
+  function inNight(s, mode) {
+    if (mode === 'late') return isLate(s);
+    if (mode === 'night') return isLate(s) || isDawn(s);
+    return true;
+  }
 
   /* 🚪 실제 참가자로 입장 — 강사가 못 들어왔을 때 매니저가 대신 맡는 용도.
      참관(ghost)과 달리 학생에게 보이므로, 오해가 없도록 반드시 한 번 확인받는다. */
@@ -292,9 +314,17 @@
     var el = $('tc-q');
     return el ? String(el.value || '').trim().toLowerCase() : '';
   }
-  function lateOnly() {
-    var el = $('tc-late');
-    return !!(el && el.checked);
+  /* 고른 시간대 — '' (전체) · 'late' (23:00~23:59) · 'night' (23:00~05:59).
+     ⛔ 모르는 값은 «전체» 로 떨어뜨린다(옛 화면이 캐시에 남아 다른 값을 보내도 줄이 안 사라진다). */
+  function nightMode() {
+    var el = $('tc-night');
+    var v = el ? String(el.value || '') : '';
+    return (v === 'late' || v === 'night') ? v : '';
+  }
+  function nightLabel(mode) {
+    return mode === 'night' ? T('🌙 야간 (23:00~05:59)', '🌙 Night (23:00–05:59)')
+         : mode === 'late'  ? T('🌙 23시 이후 (23:00~23:59)', '🌙 After 23:00 (23:00–23:59)')
+         : '';
   }
   /* 한 줄에서 검색이 훑는 칸 — 학생·강사·강의실·교재·레벨. 옮겨 적은 방 번호로 찾는 일이 잦아
      room_id 를 반드시 포함한다(예: 「c24-512074」·「class-1015-20260901」). */
@@ -330,6 +360,21 @@
   /* ☎️ 연락처가 «왜 대부분 비어 있는지» — 서버가 준 근거로만 말한다(_contactSrc).
      ⛔ 화면이 스스로 판정하지 않는다: 화면은 자기 역할도, 그 표의 성격도 모른다.
      ⚠️ 폰에는 hover 가 없어 title 로는 못 전한다 → **보이는 줄**로 그린다. */
+  /* 🌒 「야간」을 켰을 때 «날짜 경계» 를 말해 준다 — 이 목록은 하루치라 «자정을 넘겨 이어지는
+     한 판» 이 두 날짜로 갈린다. 그 사실을 감추면 「오늘 23:40 수업의 새벽이 안 보인다」가
+     그대로 「필터가 빠뜨린다」는 제보가 된다(그리고 그건 사실이다 — 필터가 아니라 목록의 성질이다).
+     ⚠️ 폰에는 hover 가 없어 title 로는 못 전한다 → **보이는 줄**로 그린다.
+     ⛔ 이 줄을 «항상» 그리지 말 것: 야간을 안 켠 사람에게는 아무 뜻도 없는 문장이다. */
+  function nightNote(mode, dawn, late) {
+    if (mode !== 'night') return '';
+    return T(
+      '🌒 야간 = 이 날짜의 새벽 ' + dawn + '건(00:00~05:59) + 밤 ' + late + '건(23:00~23:59) 입니다. '
+        + '자정을 넘겨 이어진 수업은 «다음 날짜» 목록의 새벽에 있습니다 — 날짜를 하루 넘겨 보세요.',
+      '🌒 Night = ' + dawn + ' early-morning (00:00–05:59) + ' + late + ' late-night (23:00–23:59) on this date. '
+        + 'A class that runs past midnight appears in the NEXT date\u2019s list — step the date forward by one.'
+    );
+  }
+
   function contactNote(missing, total) {
     if (!missing) return '';
     if (_contactSrc === 'restricted') {
@@ -384,17 +429,17 @@
     if (!box) return;
     var onlyLive = !!($('tc-only-live') && $('tc-only-live').checked);
     var src = srcFilter(), q = qFilter();
-    var late = lateOnly();
+    var night = nightMode();
     var rows = _rows.filter(function (s) {
       if (onlyLive && !s.join_open) return false;
-      if (late && !isLate(s)) return false;
+      if (night && !inNight(s, night)) return false;
       if (src && (s.source === 'cafe24' ? 'cafe24' : 'mangoi') !== src) return false;
       if (q && rowText(s).indexOf(q) < 0) return false;
       return true;
     });
-    /* 🌙 「23시 이후만」도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
+    /* 🌙 시간대 고르기도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
        버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
-    var filtering = !!(src || q || late);
+    var filtering = !!(src || q || night);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -404,7 +449,7 @@
           + ' (' + (src === 'cafe24' ? T('카페24', 'cafe24') : src === 'mangoi' ? T('망고아이', 'Mangoi') : T('전체', 'All'))
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
-          + (late ? ' · ' + T('🌙 23시 이후', '🌙 after 23:00') : '')
+          + (night ? ' · ' + nightLabel(night) : '')
           + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
       } else {
         why = onlyLive
@@ -444,13 +489,20 @@
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
     var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    /* 🌒 «표시된 줄» 기준으로 센다 — 거르는 중이면 눈앞의 목록을 말해야 한다(교재 줄과 같은 규칙) */
+    var nNote = nightNote(night,
+      rows.filter(isDawn).length,
+      rows.filter(isLate).length);
     /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
        (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
     var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test; }).length;
     /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
     var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
     var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
-    box.innerHTML = (note
+    box.innerHTML = (nNote
+        ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
+        : '')
+      + (note
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
       + bookLine
@@ -699,9 +751,9 @@
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
     var c = $('tc-only-live');
     if (c && !c._tcBound) { c._tcBound = true; c.addEventListener('change', render); }
-    /* 🌙 23시 이후만 — 화면 안에서만 거른다(서버를 다시 부르지 않는다). */
-    var lt = $('tc-late');
-    if (lt && !lt._tcBound) { lt._tcBound = true; lt.addEventListener('change', render); }
+    /* 🌙 시간대(23시 이후 · 야간) — 화면 안에서만 거른다(서버를 다시 부르지 않는다). */
+    var nt = $('tc-night');
+    if (nt && !nt._tcBound) { nt._tcBound = true; nt.addEventListener('change', render); }
     /* 🔎 출처·검색은 **화면 안에서만** 거른다 — 서버를 다시 부르지 않는다(이미 받아 둔 목록이라
        한 글자 칠 때마다 요청이 나갈 이유가 없다). 날짜만 서버를 다시 부른다(아래).
        ⚠️ 입력칸은 #tc-body «밖» 이라 다시 그려도 포커스·커서가 그대로다 — 안에 두면 한 글자마다

@@ -57,6 +57,10 @@ await new Promise(r => setTimeout(r, 2500));
 await ev(`(() => { try {
   localStorage.setItem('mangoi_lang','ko');
   localStorage.removeItem('mangoi_vc_office');
+  /* ⚠️ ⑯-3·⑰ 이 관리자 세션을 «쓰므로», 중간에 죽으면 그 값이 다음 회차에 남아
+     ⑯(「학생 화면에서는 안 보인다」)이 거짓 FAIL 납니다 — 크로미움을 --user-data-dir 없이
+     띄워 localStorage 가 회차 사이에 남기 때문입니다(위 주석의 실측). 시작할 때 함께 지웁니다. */
+  localStorage.removeItem('mangoi_admin_session');
 } catch(e){} return 1; })()`);
 await cdp('Page.navigate', { url: BASE + '/index.html?_nc=' + Date.now() });
 await new Promise(r => setTimeout(r, 4000));
@@ -253,7 +257,33 @@ const failsafe = await ev(`(async () => {
 ok(failsafe.r === false, '실패하면 false 를 돌려준다 — 스위치가 그것을 보고 되돌린다', JSON.stringify(failsafe));
 ok(failsafe.on === false, '실패 뒤 «꺼짐» 이다 (켜졌다고 거짓말하지 않는다)');
 ok(failsafe.live === 'live', '실패해도 마이크가 살아 있다 — 수업이 안 끊긴다');
-ok(failsafe.saved === '0', '실패하면 저장값도 0 이다 (다음 입장 때 또 실패하지 않게)');
+/* 🔴 2026-09-09 「기본값 = 켜짐」으로 바뀌면서 «옳은 답» 이 뒤집혔습니다.
+      전에는 실패를 '0' 으로 적는 것이 맞았지만, 이제 '0' 은 «사람이 껐음» 이라
+      일시 장애 한 번이 그 교사의 기본 켜짐을 «영영» 없앱니다(그리고 아무도 모릅니다).
+      ⇒ 저장값은 「아직 안 정함」(키 없음)으로 되돌리고, «되풀이 시도» 는 저장값이 아니라
+        페이지 안의 표시(autoFailed)로 막습니다. 아래 두 줄이 그 짝입니다. */
+ok(failsafe.saved === null,
+   "실패를 '0'(사람이 껐음)으로 굳히지 않는다 — 기본 켜짐이 한 번의 장애로 사라지면 안 된다",
+   JSON.stringify(failsafe));
+const failNoRetry = await ev(`(async () => {
+  document.body.classList.remove('vc-in-call');
+  try { window.showView('view-home'); } catch(e){}
+  await new Promise(r => setTimeout(r, 700));
+  try { window.showView('view-videocall-call'); } catch(e){}
+  document.body.classList.add('vc-in-call');
+  for (var i = 0; i < 12 && !window.vcOfficeModeOn(); i++) await new Promise(r => setTimeout(r, 400));
+  var auto = window.vcOfficeModeOn();
+  var manual = await window.vcSetOfficeMode(true);   // 사람이 누르면 다시 시도한다 (짝)
+  var out = { auto: auto, manual: manual, on: window.vcOfficeModeOn() };
+  try { await window.vcSetOfficeMode(false); } catch(e){}
+  return out;
+})()`);
+ok(failNoRetry.auto === false,
+   '한 번 실패한 페이지에서는 «자동으로» 다시 걸지 않는다 — 계속 실패하는 기기에서 수업마다 마이크를 다시 잡지 않는다',
+   JSON.stringify(failNoRetry));
+ok(failNoRetry.manual === true && failNoRetry.on === true,
+   '그래도 사람이 스위치를 누르면 다시 시도한다 — 짝이 없으면 «영영 못 켜는» 반대 사고가 난다',
+   JSON.stringify(failNoRetry));
 
 console.log('\n⑨ 스위치를 «실제로 눌러» 본다');
 const click = await ev(`(async () => {
@@ -440,6 +470,136 @@ ok(roleGate.found && roleGate.backToTeacher.row === true,
 ok(roleGate.allowStudent === false && roleGate.allowTeacher === true,
    '판정 함수 자체가 학생/선생님을 가른다', JSON.stringify(roleGate));
 
+console.log('\n⑯-3 «사장님 계정도» — 관리자 로그인이 있으면 학생 역할이어도 보이는가');
+/* 🔑 2026-09-09 사장님 「사장님 계정도 보이게 넓혀줘」.
+   [왜 필요했나] 관리자 로그인이 있어도 입장 프롬프트에서 «취소» 하면 vcMyRole 은 'student' 다
+     (idx-main.js:2625~2642). 그러면 ⑯ 의 게이트가 정상적으로 감춰 사장님 화면에 안 보였다.
+   ⚠️ 여기서 «보인다» 만 물으면 «전부 보이기»(게이트를 통째로 지운 것)도 통과합니다 —
+      그래서 **«관리자 로그인이 없는 학생은 여전히 안 보인다» 를 짝으로** 잽니다.
+   ⚠️ 그리고 이 절은 localStorage 를 건드리므로 **끝나면 반드시 원래대로** 돌려놓습니다
+      (안 그러면 아래 절들이 «관리자» 상태로 돌아 조용히 헛돕니다). */
+const adminGate = await ev(`(async () => {
+  var K = 'mangoi_admin_session';
+  var before = null;
+  try { before = localStorage.getItem(K); } catch(e){}
+  var out = {};
+  try {
+    // ① 관리자 로그인이 «없는» 학생 — 감춰져야 한다(짝)
+    try { localStorage.removeItem(K); } catch(e){}
+    window.vcMyRole = 'student';
+    out.studentNoAdmin = window.vcOfficeModeAllowed();
+
+    // ② 관리자 로그인이 «있는» 학생(= 사장님이 취소를 눌러 학생으로 입장한 경우) — 보여야 한다
+    try { localStorage.setItem(K, JSON.stringify({ uid: 'jeong', name: '사장님' })); } catch(e){}
+    out.studentWithAdmin = window.vcOfficeModeAllowed();
+
+    // ③ uid 가 «빈 값» 인 껍데기는 관리자로 치지 않는다 — 있으나 마나 한 키에 열리면 안 된다
+    try { localStorage.setItem(K, JSON.stringify({ uid: '  ' })); } catch(e){}
+    out.emptyUid = window.vcOfficeModeAllowed();
+
+    // ④ 깨진 JSON 이어도 던지지 않는다 — 이 판정이 던지면 설정 팝오버가 통째로 안 그려진다
+    try { localStorage.setItem(K, '{not json'); } catch(e){}
+    out.brokenJson = window.vcOfficeModeAllowed();
+  } catch (e) { out.threw = String(e && e.message || e); }
+  try { if (before === null) localStorage.removeItem(K); else localStorage.setItem(K, before); } catch(e){}
+  window.vcMyRole = 'teacher';
+  return out;
+})()`);
+ok(adminGate.threw === undefined, '판정이 어떤 저장값에도 던지지 않는다', JSON.stringify(adminGate));
+ok(adminGate.studentWithAdmin === true,
+   '관리자 로그인이 있으면 학생 역할이어도 «보인다» — 사장님 계정', JSON.stringify(adminGate));
+ok(adminGate.studentNoAdmin === false,
+   '관리자 로그인이 없는 학생은 «여전히 안 보인다» — 짝이 없으면 «전부 보이기» 도 통과한다',
+   JSON.stringify(adminGate));
+ok(adminGate.emptyUid === false, 'uid 가 빈 값인 껍데기 세션으로는 안 열린다', JSON.stringify(adminGate));
+ok(adminGate.brokenJson === false, '저장값이 깨져 있으면 «막는 쪽» 으로 떨어진다', JSON.stringify(adminGate));
+
+/* 🔴 위 넷은 «판정 함수» 만 부릅니다 — 그것만 두면 vc-dock.js 의 offAllowed 를
+      window.vcIsStaffNow() 로 바꿔 놔도(= 사장님 화면은 다시 안 보임) 전부 초록입니다.
+      지시 1이 지키려던 자리를 **계산된 display 로** 한 번 더 못 박습니다(⑯절과 같은 기준). */
+const adminRow = await ev(`(async () => {
+  var K = 'mangoi_admin_session';
+  var before = null; try { before = localStorage.getItem(K); } catch(e){}
+  var sw = document.querySelector('[data-act="office"]');
+  var row = sw && sw.closest('.sg-row');
+  if (!row) return { found: false };
+  /* ⚠️ #vc-dock-settings 는 «둘» 이다(팝오버 603행 · 버튼 848행) — getElementById 로 집으면
+     회차마다 다른 것을 잡는다. ⑯절과 «똑같이» 태그로 가려낸다. 여기를 대충 두면 클릭이
+     아예 안 나가 refreshSettings 가 안 돌고, 그러면 앞 절의 상태가 그대로 남아
+     이 검사가 «둘 다 보임» 으로 헛돈다(2026-09-09 실제로 그렇게 나왔다). */
+  var btn = document.getElementById('vc-dock-settings');
+  if (!btn || btn.tagName !== 'BUTTON') btn = document.querySelector('#vc-dock button#vc-dock-settings');
+  if (!btn) return { found: false, noBtn: true };
+  var pop = row.closest('#vc-dock-settings') || document.querySelector('.sg-pop');
+  async function reopen() {
+    for (var i = 0; i < 2; i++) {
+      btn.click();
+      await new Promise(r => setTimeout(r, 260));
+      if (pop && pop.classList.contains('open')) break;
+    }
+    await new Promise(r => setTimeout(r, 200));
+    return { seen: getComputedStyle(row).display !== 'none', open: !!(pop && pop.classList.contains('open')) };
+  }
+  window.vcMyRole = 'student';
+  try { localStorage.removeItem(K); } catch(e){}
+  var a = await reopen();                                          // 짝 — 안 보여야 한다
+  try { localStorage.setItem(K, JSON.stringify({ uid: 'boss' })); } catch(e){}
+  var b = await reopen();                                          // 보여야 한다
+  try { if (before === null) localStorage.removeItem(K); else localStorage.setItem(K, before); } catch(e){}
+  window.vcMyRole = 'teacher';
+  return { found: true, noAdmin: a.seen, withAdmin: b.seen, openedA: a.open, openedB: b.open };
+})()`);
+ok(adminRow.found === true, '전제: 스위치 행을 찾았다', JSON.stringify(adminRow));
+ok(adminRow.openedA === true && adminRow.openedB === true,
+   '전제: 두 번 다 설정 팝오버가 «실제로 열렸다» — 안 열리면 이 절이 통째로 헛돈다', JSON.stringify(adminRow));
+ok(adminRow.withAdmin === true,
+   '관리자 로그인이 있으면 그 줄이 «실제로 화면에» 보인다 (계산된 display)', JSON.stringify(adminRow));
+ok(adminRow.noAdmin === false,
+   '관리자 로그인이 없는 학생 화면에서는 «실제로» 안 보인다 — 짝', JSON.stringify(adminRow));
+
+console.log('\n⑯-4 축이 «둘» 인가 — 보이기는 넓히고 «자동 켜기» 는 선생님만');
+/* 🔴 2026-09-09 함정 대조 지적. 두 지시의 범위가 다릅니다 —
+      「사장님 계정도 보이게」(보이기)와 「교사한테 항상 켜지는」(자동 켜기).
+      하나로 합치면 **공용 PC 에 남은 관리자 세션으로 «학생으로 입장» 한 아이의 마이크**에까지
+      게이트가 자동으로 걸립니다(idx-main.js:2622 의 confirm 방어선을 옆으로 돌아갑니다).
+   ⚠️ 그렇다고 enable() 까지 좁히면 «보이는데 눌러도 안 되는 버튼» 이 됩니다 — 그래서 셋을 함께 봅니다. */
+const twoAxis = await ev(`(async () => {
+  var K = 'mangoi_admin_session';
+  var before = null; try { before = localStorage.getItem(K); } catch(e){}
+  async function goHome() {
+    try { await window.vcSetOfficeMode(false); } catch(e){}
+    document.body.classList.remove('vc-in-call');
+    try { window.showView('view-home'); } catch(e){}
+    await new Promise(r => setTimeout(r, 900));
+  }
+  try { localStorage.setItem(K, JSON.stringify({ uid: 'boss' })); } catch(e){}
+  await goHome();
+  /* 🔴 저장값 비우기는 goHome() «뒤» 에 — goHome 이 vcSetOfficeMode(false) 를 부르고
+     그것이 '0' 을 씁니다. 앞에 두면 wantOn() 이 false 가 되어 armOnce 가 «아예 안 돌고»,
+     그러면 이 절이 무엇을 넣어도 통과합니다(2026-09-09 변이시험에서 실제로 헛돌았습니다). */
+  try { localStorage.removeItem('mangoi_vc_office'); } catch(e){}
+  window.vcMyRole = 'student';                       // 관리자 로그인 + 학생 역할
+  window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  try { window.showView('view-videocall-call'); } catch(e){}
+  document.body.classList.add('vc-in-call');
+  for (var i = 0; i < 16; i++) await new Promise(r => setTimeout(r, 400));
+  var auto = window.vcOfficeModeOn();                // 자동으로는 «안» 켜져야 한다
+  var manual = await window.vcSetOfficeMode(true);   // 눌렀을 때는 켜져야 한다 (짝)
+  var out = { auto: auto, manual: manual, on: window.vcOfficeModeOn() };
+  try { await window.vcSetOfficeMode(false); } catch(e){}
+  await goHome();
+  try { if (before === null) localStorage.removeItem(K); else localStorage.setItem(K, before); } catch(e){}
+  try { localStorage.setItem('mangoi_vc_office','0'); } catch(e){}
+  window.vcMyRole = 'teacher';
+  return out;
+})()`);
+ok(twoAxis.auto === false,
+   '관리자 세션이 남은 «학생» 에게는 자동으로 켜지지 않는다 — 공용 PC 의 아이 마이크를 건드리지 않는다',
+   JSON.stringify(twoAxis));
+ok(twoAxis.manual === true && twoAxis.on === true,
+   '그래도 «누르면» 켜진다 — 짝이 없으면 «보이는데 눌러도 안 되는 버튼» 이 된다',
+   JSON.stringify(twoAxis));
+
 console.log('\n⑯-2 학생이 «직접» 켜려 해도 거절되는가 (그리고 저장값을 안 지우는가)');
 /* ⚠️ 저장값을 지우면 «역할이 늦게 온 강사» 의 설정이 그 한 번의 오판으로 사라져
       다음 수업에도 안 켜지는 상태가 굳습니다 — 그래서 거절은 «조용히» 해야 합니다. */
@@ -468,6 +628,63 @@ ok(studentBlock.ret === false && studentBlock.on === false, '학생이 직접 �
 ok(studentBlock.proc === false, '마이크가 가공되지 않았다 — 이름만 거절하고 실제로 걸리면 뜻이 없다', JSON.stringify(studentBlock));
 ok(studentBlock.live === 'live', '거절해도 마이크는 살아 있다 — 수업이 안 끊긴다', JSON.stringify(studentBlock));
 ok(studentBlock.saved === '1', "거절이 저장값을 지우지 않는다 — 역할이 늦게 온 강사의 설정을 잃지 않는다", JSON.stringify(studentBlock));
+
+console.log('\n⑰ 기본값 = 켜짐 (2026-09-09 사장님 「교사한테 항상 켜지는 것을 디폴트값으로」)');
+/* 🔴 여기서 「켜진다」 하나만 물으면 헛돕니다 — «무조건 켜기» 변이가 그대로 통과합니다.
+      셋을 «짝» 으로 둡니다:
+        ⓐ 저장값이 «없으면»(=처음 쓰는 교사) 자동으로 켜진다        ← 이번에 바꾼 것
+        ⓑ 저장값이 '0'(사람이 껐음)이면 켜지지 않는다              ← 없으면 「끈 것이 되살아난다」
+        ⓒ 학생 브라우저에서는 저장값이 없어도 켜지지 않는다        ← 없으면 「전부 켜기」도 통과
+   ⚠️ ⓒ 는 관리자 로그인이 없어야 성립합니다(⑯-3 의 «사장님 계정» 축) — 여기서 지우고 되돌립니다. */
+const dflt = await ev(`(async () => {
+  var admBak = null;
+  try { admBak = localStorage.getItem('mangoi_admin_session'); localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+  async function goHome() {
+    try { await window.vcSetOfficeMode(false); } catch(e){}
+    document.body.classList.remove('vc-in-call');
+    try { window.showView('view-home'); } catch(e){}
+    await new Promise(r => setTimeout(r, 900));
+  }
+  /* 실제 입장 순서 그대로 — showView 가 «먼저», vc-in-call 이 «나중»(idx-main.js:2869~2870). */
+  async function enter(role, stored, expectOn) {
+    await goHome();
+    try {
+      if (stored === null) localStorage.removeItem('mangoi_vc_office');
+      else localStorage.setItem('mangoi_vc_office', stored);
+    } catch(e){}
+    window.vcMyRole = role;
+    window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    try { window.showView('view-videocall-call'); } catch(e){}
+    document.body.classList.add('vc-in-call');
+    var n = expectOn ? 30 : 16;   // «안 켜진다» 쪽은 끝까지 기다릴 필요가 없다
+    for (var i = 0; i < n; i++) {
+      if (expectOn && window.vcOfficeModeOn()) break;
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return window.vcOfficeModeOn();
+  }
+  var teacherFresh  = await enter('teacher', null, true);
+  /* 🔴 자동으로 켜진 뒤에도 저장값은 «없음» 이어야 한다 — 여기서 '1' 을 써 버리면
+     첫 수업 한 번에 전 교사가 «사람이 켰음» 으로 굳어, 나중에 기본값을 되돌릴 수 없다. */
+  var freshSaved = null;
+  try { freshSaved = localStorage.getItem('mangoi_vc_office'); } catch(e){}
+  var teacherOptOut = await enter('teacher', '0',  false);
+  var studentFresh  = await enter('student', null, false);
+  await goHome();
+  window.vcMyRole = 'teacher';
+  try { localStorage.setItem('mangoi_vc_office','0'); } catch(e){}
+  try { if (admBak !== null) localStorage.setItem('mangoi_admin_session', admBak); } catch(e){}
+  return { teacherFresh: teacherFresh, teacherOptOut: teacherOptOut, studentFresh: studentFresh, freshSaved: freshSaved };
+})()`);
+ok(dflt.teacherFresh === true,
+   'ⓐ 저장값이 없는 교사는 수업에 들어가면 «자동으로» 켜진다 — 기본값 켜짐', JSON.stringify(dflt));
+ok(dflt.teacherOptOut === false,
+   "ⓑ 사람이 끈 것('0')은 되살아나지 않는다 — 짝이 없으면 «무조건 켜기» 도 통과한다", JSON.stringify(dflt));
+ok(dflt.studentFresh === false,
+   'ⓒ 학생은 저장값이 없어도 켜지지 않는다 — 짝이 없으면 «전부 켜기» 도 통과한다', JSON.stringify(dflt));
+ok(dflt.freshSaved === null,
+   "ⓓ 자동으로 켜져도 저장값을 «쓰지» 않는다 — '1' 을 쓰면 첫 수업에 전원이 «사람이 켰음» 으로 굳어 기본값을 되돌릴 수 없다",
+   JSON.stringify(dflt));
 
 console.log(`\n════════════════════════════════\n  PASS ${pass}  FAIL ${fail}\n════════════════════════════════`);
 try { ws.close(); } catch (e) {}

@@ -116,6 +116,36 @@
     .tip-chip { margin-top: 8px; padding: 7px 10px; border-radius: 10px; font-size: 12px;
       background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35);
       color: #fde68a; line-height: 1.5; white-space: normal; }
+    /* ✏️ 교정 카드 (2026-09-09) — 웜업(warmup.html)과 «같은 모양·같은 서버 판정».
+       옛 방식은 답변 본문 끝에 (💡 …) 한국어 팁 한 줄을 붙이는 것이었는데, 그 팁은
+       «고친 문장» 을 안 보여 줘서 학생이 무엇을 어떻게 고칠지 알 수 없었다
+       (실측: "I go to school yesterday" → «어제에 가는 것이 더 자연스러워요»).
+       ⚠️ 가장 밝은 것은 «고친 문장»(fix-now) 이어야 한다 — 그것이 읽어야 할 것이다. */
+    .fix-card { align-self: flex-start; max-width: 88%; display: flex; flex-direction: column; gap: 8px;
+      margin: 2px 0 2px 36px; padding: 12px 14px; border-radius: 14px;
+      background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.34); }
+    .fix-card .fix-title { font-size: 13px; font-weight: 800; color: #bae6fd; }
+    .fix-card .fix-line { font-size: 15px; line-height: 1.45; }
+    .fix-card .fix-lbl { font-size: 12px; font-weight: 800; opacity: .8; margin-right: 7px; }
+    .fix-card .fix-was { opacity: .72; }
+    .fix-card .fix-now { font-weight: 800; color: #e0f2fe; }
+    .fix-card .fix-why { font-size: 13.5px; line-height: 1.5; opacity: .9; }
+    .fix-card .fix-acts { display: flex; gap: 7px; flex-wrap: wrap; }
+    .fix-card .fix-btn { font-family: inherit; cursor: pointer; color: var(--text);
+      background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.40);
+      border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 700; }
+    .fix-card .fix-btn:hover { background: rgba(56,189,248,0.27); }
+    .fix-card .fix-btn:active { transform: scale(.97); }
+    .fix-card .fix-btn:disabled { opacity: .55; cursor: wait; }
+    @media (max-width: 480px) {
+      /* ⛔ margin-left 를 0 으로 두지 말 것 — 왼쪽 가장자리에는 «메뉴» 손잡이(#mg-drawer-tab,
+         x 2~46px)가 떠 있어서 카드 제목과 «내가 말한 것» 라벨을 덮는다(2026-09-09 실측).
+         AI 말풍선이 x=50 에서 시작하는 것과 같은 이유다 — 카드도 그 줄에 맞춘다. */
+      .fix-card { max-width: calc(100% - 36px); }
+      .fix-card .fix-title { font-size: 14px; }
+      .fix-card .fix-line { font-size: 16px; }
+      .fix-card .fix-btn { font-size: 14px; }
+    }
     .ai-row { display: flex; gap: 8px; align-items: flex-end; }
     .ai-avatar { width: 28px; height: 28px; border-radius: 50%;
       background: linear-gradient(135deg, #fbbf24, #f59e0b);
@@ -943,7 +973,11 @@
       }
       return html;
     }
-    function appendMsg(role, content) {
+    /* @param hasFix 교정 카드가 따로 그려지면 옛 (💡 …) 팁 칩은 안 그린다 —
+       같은 말이 카드와 본문에 두 번 나오면 아이가 무엇을 보라는 것인지 알 수 없다.
+       ⚠️ 팁 추출 자체는 남긴다: 프롬프트를 바꿔도 모델이 가끔 옛 모양을 내고,
+          그때 그 글자가 본문에 그대로 남으면 영어 TTS 가 한국어를 읽는다. */
+    function appendMsg(role, content, hasFix) {
       const chat = document.getElementById('chat');
       if (role === 'user') {
         const m = document.createElement('div');
@@ -965,7 +999,7 @@
           + '<span class="ai-text">' + escapeHtml(body).replace(/\n/g, '<br>') + '</span>'
           + '<span class="sub-veil" data-ko="🔊 듣고 맞혀 보세요 (탭하면 보여요)" data-en="🔊 Listen and guess (tap to see)">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
           + '<span class="sub-hint" data-ko="👁 자막을 가려 뒀어요 — 눌러서 보기" data-en="👁 Subtitles hidden — tap to reveal">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
-          + (tip ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
+          + (tip && !hasFix ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
           + '</div>'
           + '<button class="replay-btn" aria-label="다시 듣기" data-ko-aria="다시 듣기" data-en-aria="Play again" title="다시 듣기">🔊</button>'
           + '<button class="mean-btn" data-ko="뜻" data-en="Meaning" title="한국어 뜻 보기" data-ko-title="한국어 뜻 보기" data-en-title="Show Korean meaning">뜻</button>';
@@ -1007,6 +1041,91 @@
       updateSoundBtn();
     }
     let _ttsLangSet = false;
+    /* ══════════════════════════════════════════════════════════════
+       ✏️ 교정 카드 — 서버가 «검증해서» 준 것만 그린다 (2026-09-09)
+       ⛔ 화면이 스스로 문장을 고치지 않는다. 아이가 그대로 따라 읽을 문장이라
+          코드가 지어내면 «안 고쳐 주는 것» 보다 나쁘다(판정 정본 src/warmup-correction.ts).
+       ⛔ 카드 상자에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
+          갈아끼워 문장이 사라진다(CLAUDE.md 2장). 번역 대상은 «라벨» 뿐이고 자기 span 을 갖는다.
+       ══════════════════════════════════════════════════════════════ */
+    function fixCardClear() {
+      try {
+        const olds = document.querySelectorAll('.fix-card');   // 같은 카드가 두 벌 쌓이는 것 방지
+        for (let i = 0; i < olds.length; i++) olds[i].remove();
+      } catch(e){}
+    }
+    function _fixLabel(el, ko, en) {
+      el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+      el.textContent = isEn() ? en : ko;
+    }
+    function showFixCard(fix, offerRepeat) {
+      fixCardClear();
+      if (!fix || !fix.was || !fix.now) return;   // 서버가 «교정 없음» 이면 아무것도 안 그린다
+      const chat = document.getElementById('chat');
+      if (!chat) return;
+      const card = document.createElement('div');
+      card.className = 'fix-card';
+
+      const t = document.createElement('div'); t.className = 'fix-title';
+      _fixLabel(t, '✨ 이렇게 말하면 더 좋아요', '✨ Even better like this');
+      card.appendChild(t);
+
+      const mk = function(labKo, labEn, val, cls) {
+        const row = document.createElement('div'); row.className = 'fix-line';
+        const l = document.createElement('span'); l.className = 'fix-lbl';
+        _fixLabel(l, labKo, labEn);
+        const v = document.createElement('span'); v.className = cls; v.textContent = val;
+        row.appendChild(l); row.appendChild(v); return row;
+      };
+      card.appendChild(mk('내가 말한 것', 'You said', String(fix.was), 'fix-was'));
+      card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
+
+      if (fix.why_ko) {
+        const w = document.createElement('div'); w.className = 'fix-why';
+        w.textContent = '💡 ' + String(fix.why_ko);   // 한국어 설명 — 번역 대상이 아니다
+        card.appendChild(w);
+      }
+
+      const acts = document.createElement('div'); acts.className = 'fix-acts';
+      const listen = document.createElement('button');
+      listen.type = 'button'; listen.className = 'fix-btn';
+      _fixLabel(listen, '🔊 들어보기', '🔊 Listen');
+      listen.onclick = function(){ try { speakText(String(fix.now), listen, null); } catch(e){} };
+      acts.appendChild(listen);
+
+      /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «수다» 를
+         «연습» 으로 바꾼다. 서버가 «3턴에 한 번» 만 offerRepeat 을 켠다. */
+      if (offerRepeat) {
+        const say = document.createElement('button');
+        say.type = 'button'; say.className = 'fix-btn';
+        _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
+        say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+        acts.appendChild(say);
+      }
+      card.appendChild(acts);
+      chat.appendChild(card); chat.scrollTop = chat.scrollHeight;
+    }
+    /* 문장을 들려준 «뒤에» 마이크를 연다.
+       speakText 는 끝났음을 알려 주는 콜백이 밖으로 없지만, 재생이 끝나면 넘긴 버튼에서
+       'playing' 클래스를 떼는 계약이 이미 있다 — 그것을 신호로 쓴다.
+       ⚠️ 소리가 꺼져 있으면 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
+       ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
+    function fixSpeakThenMic(btn, text) {
+      let opened = false;
+      const openMic = function(){
+        if (opened) return; opened = true;
+        btn.disabled = false;
+        try { if (!_recognizing) toggleMic(); } catch(e){}
+      };
+      btn.disabled = true;
+      try { speakText(text, btn, null); } catch(e){ openMic(); return; }
+      const t0 = Date.now();
+      const tick = setInterval(function(){
+        if (!btn.classList.contains('playing') && Date.now() - t0 > 350) { clearInterval(tick); openMic(); }
+        else if (Date.now() - t0 > 15000) { clearInterval(tick); openMic(); }
+      }, 200);
+    }
+
     function speakText(text, btn, row) {
       if (!window.MangoiTTS) return;
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
@@ -1249,6 +1368,11 @@
       // 빈 상태면 클리어
       const empty = document.querySelector('.empty-state');
       if (empty) document.getElementById('chat').innerHTML = '';
+      /* ✏️ 이전 «교정 카드» 도 함께 걷는다 (웜업 warmup.html 과 같은 자리).
+         ⛔ showFixCard 안에서만 지우면 안 된다 — 서버 오류·네트워크 실패로 그 함수가 아예
+            안 불리는 경로가 둘 있어(아래 else / catch), 옛 카드가 «방금 보낸 문장» 아래
+            그대로 남아 그 문장을 고쳐 준 것처럼 보인다(2026-09-09 함정 대조). */
+      fixCardClear();
 
       input.value = '';
       document.getElementById('sendBtn').disabled = true;
@@ -1270,7 +1394,10 @@
         try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
         removeTyping();
         if (d && d.ok && d.reply) {
-          appendMsg('ai', d.reply);
+          appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
+          /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
+             ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
+          showFixCard(d.fix, d.repeat);
           applyGam(d.gam, wasVoice);
           // 🔊 새 답변 자동 재생 (소리 듣기 켜져 있을 때) — 마지막 스피커 버튼에 재생 표시
           if (isSoundOn()) {
@@ -1505,6 +1632,14 @@
   .chat{padding:24px 20px;gap:15px}
   .msg{font-size:28px;line-height:1.55;max-width:74%;padding:14px 20px;border-radius:22px}
   .tip-chip{font-size:19px;padding:11px 15px}
+  /* ✏️ 교정 카드도 «같은 배율» 로 키운다 — 이 블록을 빠뜨리면 말풍선만 28px 로 커지고
+     카드는 15px 로 남아, PC 에서 «카드만 작다» 가 된다(2026-09-09 스크린샷으로 잡음). */
+  .fix-card{max-width:74%;padding:16px 20px;gap:10px;border-radius:20px}
+  .fix-card .fix-title{font-size:19px}
+  .fix-card .fix-line{font-size:22px}
+  .fix-card .fix-lbl{font-size:17px}
+  .fix-card .fix-why{font-size:19px}
+  .fix-card .fix-btn{font-size:18px;padding:9px 17px}
   .msg .wod-hit{padding:0 6px}
   .ai-avatar{width:40px;height:40px}
   .replay-btn{width:40px;height:40px;font-size:18px}

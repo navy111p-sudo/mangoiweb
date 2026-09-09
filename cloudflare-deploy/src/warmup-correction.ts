@@ -1,5 +1,9 @@
 /*!
- * ✏️ warmup-correction.ts — A.i 웜업 «교정 카드» 판정 정본 (2026-09-08)
+ * ✏️ warmup-correction.ts — «교정 카드» 판정 정본 (2026-09-08)
+ *    쓰는 화면 둘: A.i 웜업(/api/warmup/chat) · AI 영어친구(/api/ai/chat-friend, 2026-09-09 추가)
+ *    ⛔ 파일 이름이 warmup 이라고 웜업 전용으로 읽지 말 것. 판정을 화면마다 복제하면
+ *       한쪽만 고쳐지는 것이 이 저장소가 반복해 밟은 함정이다(no-show-truth.ts 선례).
+ *       화면별로 다른 것은 «프롬프트 문구» 뿐이고, fix 스키마와 파싱·검증·게이트는 한 벌이다.
  *
  * 왜 만들었나:
  *   웜업 시스템 프롬프트에는 [칭찬]·[막혔을 때]·[재미] 는 있는데 «교정» 이 한 줄도 없었다.
@@ -29,6 +33,11 @@ export const WARMUP_FIX_TAGS = [
   'word_order', 'subject_verb', 'word_choice', 'question_form', 'other',
 ] as const;
 
+/** 뜻이 달라지는 교정 — 그대로 두면 학생이 틀린 채로 굳는다. 모델이 minor 라 해도 major 로 본다.
+ *  ⛔ 여기에 article·plural·word_choice 를 넣지 마세요 — 그 순간 매 턴 교정이 떠서
+ *     「사소한 것까지 매번 잡히면 학생이 말문이 막힌다」가 그대로 재현됩니다. */
+export const MEANING_CHANGING_TAGS = ['past_tense', 'verb_form', 'subject_verb', 'question_form'] as const;
+
 export type WarmupFix = {
   was: string;
   now: string;
@@ -50,16 +59,79 @@ export type WarmupFixMemo = {
    ⚠️ reply 안의 글은 기존 [형식]·[길이]·[언어] 규칙을 그대로 따른다.
       JSON 은 «담는 그릇» 일 뿐이고 학생이 보는 문장의 규칙을 바꾸지 않는다.
    ───────────────────────────────────────────────────────────── */
-export const WARMUP_CORRECTION_RULE = [
-  '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
-  '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
-  '⛔ 뜻이 통하면 그냥 넘어가. 사소한 것까지 매번 고치면 학생이 말문이 막힌다. 한 번에 한 가지만 고쳐.',
-  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
-  '{"reply":"<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>","now":"<고친 영어>","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>","tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other","severity":"major|minor"}}',
+/** JSON 계약 — "reply" 설명만 화면마다 다르고 **"fix" 는 완전히 같다**.
+    ⛔ 화면마다 스키마를 따로 적지 말 것 — 그 순간 한쪽만 조용히 어긋나고,
+       parseWarmupOutput·verifyWarmupFix 한 벌이 두 화면을 다 받는다는 전제가 깨진다. */
+function fixJsonLine(replyDesc: string): string {
+  return '{"reply":"' + replyDesc + '","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>",'
+    + '"now":"<고친 영어>","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>",'
+    + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other",'
+    + '"severity":"major|minor"}}';
+}
+
+/** 두 화면이 함께 지켜야 하는 것 — 지어낸 교정은 «안 고쳐 주는 것» 보다 나쁘다. */
+const FIX_COMMON_RULES = [
   '고칠 것이 없으면 "fix": null 로 둬.',
   '"was" 는 학생이 «실제로 쓴 글자 그대로» 여야 해 — 학생이 말하지 않은 문장을 지어내면 절대 안 돼.',
   '"severity" 는 뜻이 달라지거나 못 알아들을 정도면 "major", 알아들을 수는 있는 작은 실수면 "minor".',
+];
+
+export const WARMUP_CORRECTION_RULE = [
+  '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
+  '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
+  '한 번에 한 가지만 고쳐. 다만 «시제·동사꼴·주어동사 수일치·의문문 어순» 은 뜻이 통해도 «반드시» 고쳐 줘 — 그 넷은 그대로 두면 학생이 틀린 채로 굳는다(예: "I eat pizza yesterday" → "I ate pizza yesterday").',
+  '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)까지 매번 잡지는 마. 매번 잡히면 학생이 말문이 막힌다.',
+  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  fixJsonLine('<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>'),
+  ...FIX_COMMON_RULES,
 ].join('\n');
+
+/* ─────────────────────────────────────────────────────────────
+   🤖 AI 영어친구(/api/ai/chat-friend) 용 같은 계약 — 2026-09-09
+   사장님 「A.i 친구도 똑같이 만들어줘」.
+
+   왜 여기에 두나: 판정(parse·verify·gate)을 두 곳에 복제하면 한쪽만 고쳐지는 것이
+   이 저장소가 반복해 밟은 함정이다(no-show-truth.ts 선례). 프롬프트만 화면별로 다르고
+   «fix 스키마와 판정» 은 한 벌이어야 한다.
+
+   ⚠️ 이 화면의 시스템 프롬프트는 영어라 «지시문» 은 영어로 쓴다 — 모델이 프롬프트 언어를
+      따라 답을 쓰는 경향이 있어, 한국어를 섞으면 reply 에 한국어가 샌다(src/reply-korean.ts).
+      🔴 그렇다고 이 규칙이 «전부» 영어인 것은 아니다 — 실측 11줄 중 5줄이 한국어다.
+         ⚠️ 줄을 더하거나 빼면 이 숫자와 CLAUDE.md 의 같은 숫자를 «함께» 고칠 것.
+         fix 스키마와 공통 규칙(fixJsonLine·FIX_COMMON_RULES)을 두 화면이 «글자까지 같게»
+         쓰기로 한 대가이고, 그것이 파서·검증 한 벌이 두 화면을 받는 근거다.
+         ⛔ 「이 규칙은 영어다」라고 적지 말 것 — 2026-09-09 에 그렇게 적었다가 함정 대조가
+            세어 보고 잡았다. 새어 나온 한국어는 하류 stripAddedKorean 이 받는다(막지는 못한다).
+   ⚠️ 옛 방식은 답장 «본문 끝» 에 (💡 …) 한국어 팁을 붙이는 것이었다. 그 팁은
+      «고친 문장» 을 보여 주지 않아 학생이 무엇을 어떻게 고쳐야 하는지 알 수 없었다
+      (2026-09-09 실측: "I go to school yesterday" → 「어제에 가는 것이 더 자연스러워요」).
+   ⛔ 그래서 팁을 reply 안에 다시 넣지 말 것 — 같은 말이 카드와 본문에 두 번 나온다.
+   ───────────────────────────────────────────────────────────── */
+export const AI_FRIEND_CORRECTION_RULE = [
+  'OUTPUT FORMAT — this rule OVERRIDES every rule above about how to lay out your message.',
+  'Reply with ONE JSON object and nothing else: no greeting, no explanation, no code fence. Start with { and end with }.',
+  fixJsonLine('<your English message to the student — obey EVERY rule above: level, sentence limit, cheer, emojis, one question>'),
+  'Everything the student reads is inside "reply". All the rules above apply to that text and to nothing else.',
+  '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
+  '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',
+  'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Leaving them uncorrected is how a child learns the mistake by heart.',
+  'For anything smaller than those four (one missing article, a word choice you would phrase differently), set "fix": null and just keep chatting happily — being nagged every turn makes a child stop talking.',
+  ...FIX_COMMON_RULES,
+].join('\n');
+
+/* ─────────────────────────────────────────────────────────────
+   response_format 거절 판정 — 웜업·AI친구가 «같은 답» 을 내야 한다
+   ⛔ `if (!켰나) throw` 로만 가르면 «이미 껐나» 를 물을 뿐이라 429·타임아웃·5xx 가
+      전부 이 분기로 들어온다. 그러면 무관한 일시 장애 한 번에 JSON 모드가 꺼져
+      그 요청의 남은 경로가 통째로 옛 동작으로 되돌아간다(2026-09-08 함정 대조).
+   📌 index.ts 의 웜업 핸들러에는 같은 판정이 «로컬 복사본» 으로 남아 있다
+      (그 파일은 공동 금지구역 — CLAUDE.md 4-2). 하니스가 둘을 실제로 돌려 대조한다.
+   ───────────────────────────────────────────────────────────── */
+export function isRfRejection(e: any): boolean {
+  const m = String((e && (e.message || e.name)) || e || '');
+  if (/\b(429|5\d\d)\b|rate.?limit|quota|capacity|exceed|timeout|timed out|abort|network|fetch failed/i.test(m)) return false;
+  return /response_format|json_object|json schema|unsupported|not supported|unrecognized|invalid|\b400\b/i.test(m);
+}
 
 /* ─────────────────────────────────────────────────────────────
    ① 모델 출력 → { reply, fix }
@@ -215,7 +287,19 @@ export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix |
   if (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35) return null;
 
   const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
-  const severity: 'major' | 'minor' = String(fixRaw.severity) === 'major' ? 'major' : 'minor';
+  /* 🔴 severity 를 모델에게 맡기지 않는다 (2026-09-09 사장님 「I ate pizza yesterday 인데
+     I eat pizza yesterday 라고 말했는데 아바타가 수정해주지 않았어」).
+     ⚠️ [추론 — 잰 것이 아님] 모델이 준 severity 는 D1·KV·로그 어디에도 안 남아 이 저장소에서
+        확인할 수 없습니다. 옛 프롬프트 문구(「뜻이 통하면 그냥 넘어가」 + 「알아들을 수는 있는
+        작은 실수면 minor」)로 미루어 그렇게 준다고 봤습니다. 사장님 화면은 아래 ③(turn 1 게이트)
+        만으로도 설명되므로, 셋 중 무엇이 주범이었는지는 가릴 근거가 없습니다.
+        그렇게 주면 아래 게이트가
+     「같은 실수 두 번째부터」로 미뤄서, 학생의 첫 실수가 그대로 지나갑니다.
+     ⛔ 이 넷은 그대로 두면 학생이 틀린 채로 굳는 것들이라 «작은 실수» 가 아닙니다.
+        모델이 minor 라고 해도 우리가 major 로 확정합니다 — 「지시만으로는 안 지켜진다」. */
+  const severity: 'major' | 'minor' =
+    (MEANING_CHANGING_TAGS as readonly string[]).includes(tag) ? 'major'
+      : (String(fixRaw.severity) === 'major' ? 'major' : 'minor');
 
   return { was, now, why_ko: whyKo, tag, severity };
 }
@@ -227,7 +311,9 @@ export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix |
    교정도 같다. 매 턴 고치면 말문이 막힌다.
    ───────────────────────────────────────────────────────────── */
 
-/** 교정을 연달아 하지 않는다 — 최소 이만큼 턴을 띄운다. */
+/** 교정을 연달아 하지 않는다 — 최소 이만큼 턴을 띄운다.
+ *  ⚠️ 2026-09-09 부터 이 간격은 «작은 실수(minor)» 에만 걸린다. 뜻이 달라지는 오류는
+ *     간격을 안 본다(decideWarmupFixShow 주석). 이 줄만 읽고 major 도 띄운다고 보지 말 것. */
 export const WARMUP_FIX_GAP_TURNS = 2;
 /** 「따라 말해 볼까?」 는 이만큼 턴을 띄운다(제안서의 «3턴에 한 번»). */
 export const WARMUP_REPEAT_GAP_TURNS = 3;
@@ -251,12 +337,32 @@ export function decideWarmupFixShow(
   const seen = (memo.tags![fix.tag] || 0) + 1;
   memo.tags![fix.tag] = seen;
 
-  // 바로 앞 턴에 이미 고쳐 줬으면 이번엔 쉰다
-  if (turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) return { show: null, memo };
-
   // 뜻이 달라지는 오류는 바로, 작은 실수는 «같은 실수가 두 번째» 일 때만
   const worth = fix.severity === 'major' || seen >= 2;
   if (!worth) return { show: null, memo };
+
+  /* 🔴 간격 규칙은 «작은 실수» 에만 건다 (2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」).
+     옛 코드는 major 도 2턴을 띄웠다. 그래서 과거형 실수를 세 번 연달아 해도 한 번만 고쳐 줬고,
+     학생 화면에서는 「어떤 건 고쳐 주고 어떤 건 안 고쳐 준다」로 보였다(실측으로 재현).
+     뜻이 달라지는 오류는 그 자리에서 바로잡아야 틀린 채로 굳지 않는다.
+     ⛔ 이 예외를 minor 까지 넓히지 마세요 — 관사 하나까지 매 턴 잡히면 학생이 말문이 막힙니다.
+     ⚖️ [맞바꿈 — 사람이 정할 일] 지금 major 에는 상한이 «아예 없습니다»(정본을 돌려 잰 것:
+        past_tense 를 10턴 연속 넣으면 10/10 표시). 사장님 「더욱 더 정밀하게」에 맞춘 값입니다.
+        너무 잦다는 제보가 오면 **이 조건 한 줄만** 바꾸면 됩니다 —
+        `fix.severity !== 'major'` → `turnCount - (memo.lastShownTurn || 0) < 1` 같은 «major 전용
+        1턴 간격». ⛔ 옛 코드(간격 2턴)로 통째로 되돌리지는 마세요 — 그게 이 사고였습니다.
+        ℹ️ 카드는 쌓이지 않습니다(화면이 그릴 때 `fixCardClear()` 로 이전 카드를 지웁니다).
+     ⚠️ 그리고 `tag` 는 여전히 «모델이 정하는 값» 입니다 — 모델이 관사 교정을 past_tense 로
+        태깅하면 major 가 됩니다(방향은 «더 고쳐 줌» 이라 안전).
+
+     🔴 그리고 «아직 한 번도 안 보여줬으면» 간격이 성립하지 않는다.
+        옛 코드는 lastShownTurn 이 0 이라 turnCount 1 에서 1-0=1 < 2 로 «첫 교정» 이 원리상
+        막혔다(정본을 돌려 실측). 학생의 맨 첫 마디는 절대 못 고쳐 주고 있었다. */
+  const shownBefore = (memo.lastShownTurn || 0) > 0;
+  if (fix.severity !== 'major' && shownBefore
+      && turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) {
+    return { show: null, memo };
+  }
 
   memo.lastShownTurn = turnCount;
   memo.shown = (memo.shown || 0) + 1;
@@ -274,7 +380,11 @@ export function warmupShouldOfferRepeat(
   turnCount: number,
 ): boolean {
   if (!show) return false;
-  if (turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
+  /* 위와 같은 이유 — 한 번도 안 권했으면 «연달아» 가 성립하지 않는다.
+     [잰 것] WARMUP_REPEAT_GAP_TURNS=3 · 옛 조건 `turnCount - 0 < 3` → turn 1·2 막힘 · turn 3 부터 뜸.
+     즉 막혔던 것은 «첫 두 턴» 이다(세 턴이 아니다 — 함정 대조가 실측으로 정정). */
+  if ((memo.lastRepeatTurn || 0) > 0
+      && turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
   memo.lastRepeatTurn = turnCount;
   return true;
 }
