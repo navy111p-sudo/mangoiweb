@@ -108,12 +108,26 @@
       return !!String(s.uid || '').trim();
     } catch (e) { return false; }
   }
-  function isStaff() {
+  /* 🔴 축이 «둘» 이다 — 지시가 둘이었고 서로 범위가 다르다.
+       · 보이기(canSee)     = 선생님 «또는» 관리자 로그인   ← 9/09 「사장님 계정도 보이게」
+       · 자동 켜기(isStaff) = 선생님만                      ← 9/09 「교사한테 항상 켜지는」
+     ⛔ 하나로 합치지 마세요 — 합치면 **공용 PC 에 남은 관리자 세션으로 «학생으로 입장» 한 아이의
+        마이크**에까지 게이트가 자동으로 걸립니다. `idx-main.js:2622` 주석이 바로 그 confirm 을
+        「공용 PC 에 남은 관리자 세션으로 학생이 승격되는 길을 한 겹 막는다」고 못 박아 두었는데,
+        합치면 그 방어선을 옆으로 돌아갑니다(2026-09-09 함정 대조가 잡음).
+     ℹ️ 사장님이 «학생으로» 들어가신 경우에는 **줄은 보이고 자동으로 켜지지는 않습니다** —
+        한 번 누르면 켜집니다. 「스태프로 입장」을 고르시면 그때는 자동으로 켜집니다.
+     ✅ 되돌리려면 아래 canSee 를 isStaff 로 부르는 한 줄만 바꾸면 됩니다(사람이 정할 일). */
+  function canSee() {
     try { if (typeof window.vcIsStaffNow === 'function' && window.vcIsStaffNow()) return true; }
     catch (e) {}
     return hasAdminLogin();
   }
-  window.vcOfficeModeAllowed = isStaff;
+  function isStaff() {
+    try { return typeof window.vcIsStaffNow === 'function' && !!window.vcIsStaffNow(); }
+    catch (e) { return false; }
+  }
+  window.vcOfficeModeAllowed = canSee;
   function localStream() { try { return window.vcLocalStream || null; } catch (e) { return null; } }
   function audioTrack() { var s = localStream(); try { return (s && s.getAudioTracks && s.getAudioTracks()[0]) || null; } catch (e) { return null; } }
 
@@ -216,13 +230,20 @@
     return { audio: a, video: false };
   }
 
-  async function enable() {
+  /* byUser=true 는 «사람이 스위치를 눌렀다» 는 뜻이다.
+     🔴 자동으로 켜졌을 때 remember(true) 를 쓰면 **첫 수업 한 번에 전 교사의 저장값이 '1'** 이 되어
+        «아직 안 정함» 과 «사람이 켰음» 이 구별되지 않는다 — 나중에 기본값을 되돌릴 때 이미 켜진 채로
+        굳는다(그것을 막으려고 «값을 안 쓰고 없음을 켬으로 읽는» 방식을 고른 것인데, 여기서 쓰면
+        하루 늦게 같은 일이 일어난다. 2026-09-09 함정 대조가 잡음). */
+  async function enable(byUser) {
     if (on || busy) return true;
-    /* ⛔ 선생님·관리자 전용. ⚠️ 여기서 저장값을 지우지 않습니다 — 역할이 늦게 오는 강사의 저장값이
-       그 한 번의 오판으로 사라지면 «다음 수업에도 안 켜지는» 상태가 굳습니다.
-       저장값은 사람이 스위치를 눌렀을 때만 바뀝니다. */
-    if (!isStaff()) { console.log('[office] 선생님·관리자 전용입니다 — 건너뜁니다'); return false; }
-    if (!inCall() || !localStream()) { remember(true); return true; }  // 수업에 들어갈 때 다시 건다
+    /* ⛔ 여기는 «스위치가 보이는 사람» 까지 받는다(canSee) — 자동 켜기가 아니라 «누른 것» 이기 때문이다.
+       isStaff() 로 좁히면 사장님 화면에 **보이는데 눌러도 안 되는 버튼**이 남습니다
+       (CLAUDE.md 「기능이 «있는데» 아무도 못 씀」). 「선생님만 자동으로」는 armOnce 가 맡습니다.
+       ⚠️ 여기서 저장값을 지우지 않습니다 — 역할이 늦게 오는 강사의 저장값이 그 한 번의 오판으로
+          사라지면 «다음 수업에도 안 켜지는» 상태가 굳습니다. 저장값은 사람이 눌렀을 때만 바뀝니다. */
+    if (!canSee()) { console.log('[office] 선생님·관리자 전용입니다 — 건너뜁니다'); return false; }
+    if (!inCall() || !localStream()) { if (byUser) remember(true); return true; }  // 수업에 들어갈 때 다시 건다
     busy = true;
     try {
       var id = currentMicId();
@@ -272,7 +293,7 @@
 
       /* 한 번이라도 성공했으면 «이 기기에서는 된다» 는 뜻 — 자동 적용 차단을 푼다.
          (사람이 스위치로 켜서 성공한 경우도 여기로 온다.) */
-      on = true; remember(true); autoFailed = false;
+      on = true; if (byUser) remember(true); autoFailed = false;
       timer = setInterval(tick, TICK_MS);
       console.log('[office] 사무실 모드 켜짐 — AGC off + 하이패스 120Hz + 노이즈 게이트');
       busy = false;
@@ -338,7 +359,7 @@
   }
 
   window.vcSetOfficeMode = function (want) {
-    return want ? enable() : disable();
+    return want ? enable(true) : disable();   // 이 경로는 «사람이 눌렀다» 뿐이다(스위치·원격)
   };
   window.vcOfficeModeOn = function () { return on; };
 
@@ -352,7 +373,7 @@
       if (wasOn) { teardown(); on = false; }   // 우리 체인을 먼저 접는다(그쪽이 옛 트랙을 stop 한다)
       var r;
       try { r = await orig.apply(this, arguments); }
-      finally { if (wasOn) { try { await enable(); } catch (e) {} } }
+      finally { if (wasOn) { try { await enable(false); } catch (e) {} } }   // 이어 가는 것 — 저장값을 새로 쓰지 않는다
       return r;
     };
     wrapped.__officeWrapped = true;
@@ -390,10 +411,12 @@
       if (inCall()) sawCall = true;
       else if (sawCall) { clearInterval(pending); pending = null; return; } // 들어갔다 나갔으면 그만
       if (!sawCall) return;                                                  // 아직 입장 전 — 더 기다린다
+      /* ⛔ 자동 켜기는 «선생님» 만 — canSee 로 넓히면 공용 PC 에 남은 관리자 세션으로
+         «학생으로 입장» 한 아이의 마이크에까지 게이트가 걸립니다(위 canSee/isStaff 주석). */
       if (!isStaff()) return;   // 역할이 아직 안 왔을 수 있다 — 학생이면 그대로 20초 뒤 포기한다
       if (localStream() && audioTrack()) {
         clearInterval(pending); pending = null;
-        if (wantOn() && !on) enable();
+        if (wantOn() && !on) enable(false);   // 자동 — 저장값을 쓰지 않는다(위 enable 주석)
       }
     }, 500);
   }
@@ -423,7 +446,9 @@
     bootWraps();
     if (!hookShowView()) setTimeout(hookShowView, 1500);
     /* 이미 수업 중에 이 파일이 늦게 실린 경우 — armOnce 가 스스로 «입장했나» 를 확인하므로 그냥 건다. */
-    if (wantOn()) armOnce();
+    /* ⚠️ 여기에 조건이 없으면 «홈을 여는 모든 방문자»(학생 29,000명 포함)가 20초 폴링을 시작한다.
+       이 자리의 목적은 주석 그대로 «이미 수업 중일 때» 하나뿐이고, 수업 진입은 showView 훅이 맡는다. */
+    if (wantOn() && inCall()) armOnce();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
