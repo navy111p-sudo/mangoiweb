@@ -45,18 +45,21 @@ const check = (n, ok, extra) => {
   else { fail++; console.log('  ❌ ' + n + (extra ? '  → ' + extra : '')); }
 };
 
+// 지난 실행이 중간에 죽었으면 «무엇보다 먼저» 되돌린다 (조용히 넘어가지 않고 말한다).
+// ⛔ 이 블록을 아래 «건너뜀» 검사 뒤로 옮기지 말 것 — playwright 가 없는 기계에서는
+//    그 자리에서 종료코드 0 으로 나가 버려 **잘린 CSS 를 안 고친 채 «건너뜀»** 이 된다
+//    (「확인 안 한 것」이 「문제없음」으로 위장하는 모양 — 2026-09-09 함정 대조가 잡음).
+if (existsSync(BAK)) {
+  writeFileSync(CSS, readFileSync(BAK, 'utf8'), 'utf8');
+  unlinkSync(BAK);
+  console.log('⚠️  지난 실행이 중간에 죽어 CSS 가 잘린 채였습니다 — 사본에서 되돌렸습니다.');
+}
+
 const pw = loadPlaywright(), exe = findChromium();
 if (!pw || !exe) {
   console.log('⏭  건너뜀 — playwright-core 또는 Chromium 이 없습니다.');
   console.log('   mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core');
   process.exit(0);
-}
-
-// 지난 실행이 중간에 죽었으면 먼저 되돌린다 (조용히 넘어가지 않고 말한다)
-if (existsSync(BAK)) {
-  writeFileSync(CSS, readFileSync(BAK, 'utf8'), 'utf8');
-  unlinkSync(BAK);
-  console.log('⚠️  지난 실행이 중간에 죽어 CSS 가 잘린 채였습니다 — 사본에서 되돌렸습니다.');
 }
 
 const srv = spawn('python3', ['-m', 'http.server', String(PORT)], { cwd: PUBLIC, stdio: 'ignore' });
