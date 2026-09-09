@@ -11,7 +11,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
-import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
+import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
@@ -678,16 +678,30 @@ Student text: """${text}"""`;
          대화가 그 자리에서 끝난다. 반대로 상급에서는 매 턴 질문이 «취조» 처럼 느껴져
          「정해진 문장 안에서만 한다」의 2순위 원인이 됐다(원장님 제보).
          ⛔ 기초 쪽을 함께 풀지 말 것. */
+      /* 🔴 2026-09-09 사장님 「질문과 대답이 서로 맞지 않아」 — 화면 실측:
+           학생 "What is your favorite food?" → AI "Cool! Do you have a favorite food?"
+           학생 "What did you do yesterday?"  → AI "Ooh nice one! Did you eat food yesterday?"
+         물어본 것에 «대답» 을 하지 않고 되묻기만 했습니다. 모델이 아니라 규격 탓이었습니다 —
+         기초 단계 규칙이 「칭찬 하나 + 질문 하나가 전부」라고 못 박아 대답이 들어갈 자리가
+         아예 없었고, 트리머도 대답을 버렸습니다(ai-friend-level.ts 참고).
+         ⛔ 되묻기 강제를 «없애서» 풀지 마세요 — 기초 학생은 질문이 없으면 대화가 그 자리에서
+            끝납니다(2026-09-03 결정). 여기서 하는 일은 «물어본 턴에만» 대답을 먼저 시키는 것입니다. */
+      const studentAsked = aiFriendStudentAsked(msg);
+      const answerRule = studentAsked
+        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it first, in one short sentence, before anything else. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
+        : '';
       const askRule = lvSpec.plain
-        ? '- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.\n'
+        ? (studentAsked
+          ? '- After you answer, add ONE short follow-up question so the student speaks again. Answer first, question second.\n'
+          : '- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.\n')
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
-- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
-${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
+${answerRule}${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - NEVER write Korean inside "reply". Do not translate your own English, and do not add a grammar tip there — corrections go in the "fix" field below, which the student sees as its own card. Showing Korean next to the English stops them from reading the English at all, and they have a separate button for the meaning.
@@ -832,7 +846,8 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           const rn = aiFriendStripHanzi(takeFriendReply(again));
           // 다시 뽑은 것이 «이름도 맞고 눈높이도 나빠지지 않을 때만» 받는다
           if (rn && !wrongSelfName(rn, friendName)
-              && aiFriendMeasureReply(rn, level).score <= aiFriendMeasureReply(reply, level).score) {
+              && aiFriendMeasureReply(rn, level, { answering: studentAsked }).score
+                 <= aiFriendMeasureReply(reply, level, { answering: studentAsked }).score) {
             reply = rn;
             commitFix();
           }
@@ -845,7 +860,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          만든 답을 실제로 세어 보고 ① 넘치면 한 번 더 뽑고 ② 그래도 넘치면 문장 «수» 만 줄입니다.
          ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
          ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
-      const lvBefore = aiFriendMeasureReply(reply, level);
+      const lvBefore = aiFriendMeasureReply(reply, level, { answering: studentAsked });
       if (!lvBefore.ok) {
         if (usedModel) {
           try {
@@ -854,7 +869,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
               { role: 'user', content: aiFriendShortenHint(reply, level) },
             ]), 160, 0.4);
             const st2 = aiFriendStripHanzi(takeFriendReply(shorter));
-            const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
+            const m2 = st2 ? aiFriendMeasureReply(st2, level, { answering: studentAsked }) : null;
             // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
             //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
             if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
@@ -865,8 +880,8 @@ ${AI_FRIEND_CORRECTION_RULE}`;
             console.error('[chat-friend] level shorten retry failed:', e?.message || e);
           }
         }
-        reply = aiFriendTrimSentences(reply, level) || reply;
-        const lvAfter = aiFriendMeasureReply(reply, level);
+        reply = aiFriendTrimSentences(reply, level, { answering: studentAsked }) || reply;
+        const lvAfter = aiFriendMeasureReply(reply, level, { answering: studentAsked });
         if (!lvAfter.ok) {
           /* 한 문장이 여전히 길거나 꼴이 깨져 있을 수 있다 — 낱말을 자르거나 문장을 «고쳐 쓰지» 는
              않기 때문이다(아이가 그대로 따라 읽는 문장이라 코드가 지어내면 안 된다).
