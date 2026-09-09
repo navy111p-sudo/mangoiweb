@@ -208,6 +208,45 @@ console.log('\nA2. 정밀 교정 규칙 (두 화면이 같은 정본을 쓴다)'
         '없는 tag: ' + mct.filter((x) => !allTags.includes(x)).join(',') || '-');
   check('A2-7 🔴 그 목록에 article·plural·word_choice 를 넣지 않았다 (매 턴 교정 방지)',
         !mct.includes('article') && !mct.includes('plural') && !mct.includes('word_choice'));
+
+  /* 🔴 A2-7 은 «세 이름» 만 막습니다 — 함정 대조가 변이시험으로 두 구멍을 실측했습니다:
+        ① `'preposition'` 을 목록에 «더하면» PASS 91·55 로 통째로 통과(그 종류가 매 턴 뜨는데 아무도 안 잡음)
+        ② `'question_form'` 을 목록에서 «빼면» 역시 통과 — 프롬프트는 여전히 「의문문 어순 … 반드시」라고
+           말하는데 코드만 조용히 어긋납니다.
+     ✅ 그래서 «글자가 있는가» 가 아니라 **«두 곳이 서로 같은 말을 하는가»** 로 묻습니다
+        (CLAUDE.md 「하니스는 «여러 곳이 서로 같은 말을 하는가» 로 검사하세요」).
+     ⚠️ 판정 범위는 «반드시 고쳐» 를 말하는 «그 줄» 뿐입니다 — 규칙 전체로 넓히면 바로 아래
+        「사소한 것은 넘어가」 줄의 관사·낱말 고르기가 함께 잡혀 멀쩡한 코드가 FAIL 합니다. */
+  const TAG_WORDS = {
+    question_form: ['의문문 어순', 'question word order'],   // ⚠️ '어순'·'word order' 보다 «먼저» 소비해야 한다
+    word_choice:   ['낱말 고르기', 'word choice'],
+    subject_verb:  ['수일치', 'subject-verb'],
+    verb_form:     ['동사꼴', 'verb form'],
+    word_order:    ['어순', 'word order'],
+    past_tense:    ['시제', 'tense'],
+    article:       ['관사', 'article'],
+    plural:        ['복수', 'plural'],
+  };
+  const mustLineKo = wRule.split('\n').filter((l) => l.includes('반드시')).join(' ');
+  const mustLineEn = aRule.split('\n').filter((l) => /ALWAYS fix/.test(l)).join(' ');
+  check('A2-8-0 두 규칙에서 «반드시 고쳐» 를 말하는 줄을 찾았다 (전제)',
+        mustLineKo.length > 30 && mustLineEn.length > 30,
+        'KO ' + mustLineKo.length + '자 · EN ' + mustLineEn.length + '자');
+  let koTxt = mustLineKo, enTxt = mustLineEn.toLowerCase();
+  const mentioned = [];
+  for (const [tag, [ko, en]] of Object.entries(TAG_WORDS)) {
+    if (koTxt.includes(ko) && enTxt.includes(en.toLowerCase())) {
+      mentioned.push(tag);
+      koTxt = koTxt.split(ko).join(' ');          // 소비 — '의문문 어순' 을 지워야 '어순' 이 안 걸린다
+      enTxt = enTxt.split(en.toLowerCase()).join(' ');
+    }
+  }
+  const sorted = (a) => [...a].sort().join(',');
+  check('A2-8 🔴 «프롬프트가 반드시 고치라고 말하는 것» 과 «코드가 major 로 확정하는 것» 이 서로 같다',
+        sorted(mentioned) === sorted(mct) && mct.length > 0,
+        '프롬프트 [' + sorted(mentioned) + '] · 코드 [' + sorted(mct) + ']');
+  check('A2-9 🔴 코드 목록의 모든 tag 가 «자기 말» 을 갖는다 (모르는 tag 를 넣으면 여기서 걸린다)',
+        mct.every((x) => TAG_WORDS[x]), '대응표에 없는 tag: ' + (mct.filter((x) => !TAG_WORDS[x]).join(',') || '-'));
 }
 
 // ═══════════ B. 정본을 실제로 돌린다 ═══════════

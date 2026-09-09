@@ -985,6 +985,11 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       let offerRepeat = false;
       try {
         const verified = verifyWarmupFix(rawFix, msg);
+        /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
+           «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
+           낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
+           ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
+        if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
         if (verified) {
           /* 이번 답장까지 세어 1부터 시작한다.
              🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
