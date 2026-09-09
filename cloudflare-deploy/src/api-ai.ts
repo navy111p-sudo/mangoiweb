@@ -822,8 +822,10 @@ ${AI_FRIEND_CORRECTION_RULE}`;
             (사장님 화면 실측: 학생이 "I'm talking about a dinosaur." 라고 항의한 다음 턴에도 폴백).
          ✅ 그래서 «답» 인 척하지 않고 ai_unavailable 로 밝힙니다 — 화면이 그것을 보고
             안내로 그리고, 소리로 읽지 않고, 교정 카드도 안 붙입니다.
-         ⚠️ 왜 실패했는지는 이 코드에서 못 잽니다 — Workers 로그의 아래 두 줄이 정본입니다
-            ([chat-friend] model … failed / model output: plain=… empty=… rf=…). */
+         ⚠️ 왜 실패했는지는 이 코드에서 못 잽니다 — Workers 로그가 정본입니다.
+            · `[chat-friend] all models failed …` 는 «늘» 찍힙니다(마지막 예외를 함께).
+            · `[chat-friend] model output: plain=… empty=… rf=…` 는 friendPlain/friendEmpty 가
+              0 이 아닐 때만 찍힙니다 — 모델이 전부 «예외를 던진» 경우에는 안 나옵니다. */
       let usedFallback = false;
       if (!reply) {
         const fallbacks = [
@@ -924,12 +926,14 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
-        /* ⛔ 폴백은 «AI 가 한 말» 로 남기지 않습니다 — 남기면 다음 턴의 history 가 그 고정 문구를
-           자기 직전 발언으로 보고 그쪽 주제로 끌려갑니다(사장님 세션에서 공룡 → 음식으로 끌려간
-           그 모양입니다. 실측: 폴백 뒤 학생이 "I'm talking about a dinosaur." 로 되돌리려 했지만
-           다음 턴도 폴백이었습니다).
+        /* ⛔ 폴백은 «AI 가 한 말» 로 남기지 않습니다.
+           [잰 것 — D1 ai_friend_chats, 사장님 세션] 22:32:52 정상답 → 22:33:17 폴백 → 22:33:37 폴백.
+             즉 폴백이 history 에 들어간 «뒤» 에 모델이 실제로 답한 턴은 한 번도 없습니다.
+           [판단 — 관측이 아니라 예방] 다음 «정상» 턴이 오면 모델이 그 고정 문구를 자기 직전
+             발언으로 보게 됩니다. 그 문구는 주제와 무관하므로(예: 음식) 대화를 끌 수 있어 미리 막습니다.
            ✅ 학생 발화는 그대로 남깁니다 — 학생이 «말한 것» 은 사실이고, 답이 없는 턴으로 남는 것이
-              「없던 일」로 지우는 것보다 정직합니다. */
+              「없던 일」로 지우는 것보다 정직합니다.
+           ⚠️ 대신 폴백의 흔적이 D1 에 안 남습니다 — 이 뒤로 빈도의 정본은 아래 console.error 뿐입니다. */
         if (!usedFallback) {
           await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
         }
