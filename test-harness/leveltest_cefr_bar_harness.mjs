@@ -22,7 +22,7 @@
 // ⚠️ 「그 규칙이 있는가」로만 보면 이 사고를 원리상 못 잡는다 — 사고 당시에도
 //    규칙도 색도 전부 «있었다». 틀린 것은 «그려지는가» 하나뿐이었다.
 //    그래서 ③은 문자열이 아니라 **실행**이고, 화면 실측은 아래 브라우저 검사가 맡는다:
-//      PW_DIR=/tmp/pw node test-harness/manual/leveltest-cefr-bar-browser.mjs
+//      node test-harness/manual/hero-cta-and-cefr-bar-browser.mjs
 //
 // 실행: node test-harness/leveltest_cefr_bar_harness.mjs
 
@@ -109,10 +109,25 @@ if (RA >= 0) {
   ok('④ 4/4 는 100% 를 채운다', widthOf({ total: 4 }, 100) === 100);
 }
 
-/* ── 색«만» 으로 뜻을 지지 않는가 (색약 대비) ───────────────────────────── */
-ok('숫자 4/4 가 막대 옆에 그대로 남아 있다 (색만으로 판단하지 않게)',
-  /class="bkn">'\+r\.correct\+'\/'\+r\.total\+'</.test(SRC.replace(/\s+/g, ' ')) || SRC.includes("'</span>'"),
-  '');
+/* ── 색«만» 으로 뜻을 지지 않는가 (색약 대비) ─────────────────────────────
+   🪤 처음에는 `… || SRC.includes("'</span>'")` 라는 폴백을 달아 두었는데, 그 글자가 파일에
+      늘 있어서 **`.bkn` 칸을 통째로 지워도 초록불**이었습니다(함정 대조가 잡았습니다).
+      하필 그 검사가 지키기로 한 것이 «색약이어도 숫자로 읽을 수 있다» 는 안전망입니다.
+   ✅ 그래서 렌더 코드를 «오려 내 실제로 돌려» 그 칸에 correct/total 이 실제로 찍히는지 봅니다. */
+{
+  const A2 = SRC.indexOf("      return '<div class=\"bkrow\"");
+  const B2 = SRC.indexOf("}).join('');", A2);
+  ok('색약 대비: 렌더 코드를 잘라 냈다', A2 >= 0 && B2 > A2);
+  if (A2 >= 0 && B2 > A2) {
+    // eslint-disable-next-line no-new-func
+    const rowHtml = new Function('r', 'esc', 'var pct=r.total?Math.round(r.correct/r.total*100):0;'
+      + 'var w=!r.total?0:(pct>0?pct:6); var cls=r.total?(" "+(pct>=100?"s4":pct>=75?"s3":pct>=50?"s2":pct>0?"s1":"s0")):"";'
+      + SRC.slice(A2, B2).replace(/^\s*return/, 'return'));
+    const html = rowHtml({ cefr: 'A2', correct: 3, total: 4 }, (x) => String(x));
+    ok('색약 대비: 막대 옆에 «3/4» 숫자가 실제로 그려진다 (색만으로 판단하지 않게)',
+      /class="bkn">\s*3\/4\s*</.test(html), html.slice(0, 140));
+  }
+}
 
 console.log('├────────────────────────────────────────────────');
 console.log(`│ 📊 leveltest_cefr_bar_harness — PASS ${pass} / FAIL ${fail}`);

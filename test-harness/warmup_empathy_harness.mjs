@@ -113,6 +113,12 @@ const runner = `
     eq(i + ' 한국어 부정 신호: ' + s, studentSoundsNegative(s), true);
   }
   eq('K-6 「재미있어요」 는 부정이 아니다', studentSoundsNegative('오늘 재미있어요'), false);
+  /* 🪤 부분일치 반례 — 함정 대조가 '아프' ⊂ 아프리카 · '화나' ⊂ 영화나 를 잡았다.
+     ⛔ 이 두 줄을 지우지 말 것: 어간을 다시 넓히면 조용히 되살아난다. */
+  eq('K-7 「아프리카」 를 «아프다» 로 오해하지 않는다', studentSoundsNegative('아프리카 가고 싶어요'), false);
+  eq('K-8 「영화나 볼까」 를 «화나다» 로 오해하지 않는다', studentSoundsNegative('영화나 볼까요'), false);
+  eq('K-9 진짜 「배가 아파요」 는 잡는다 (짝)', studentSoundsNegative('배가 아파요'), true);
+  eq('K-10 진짜 「화났어요」 는 잡는다 (짝)', studentSoundsNegative('너무 화났어요'), true);
 
   // ── 이모지가 앞에 붙어도 뗀다 (모델이 자주 붙인다) ──────────────────────
   eq('E-1 이모지+칭찬도 떼어 낸다',

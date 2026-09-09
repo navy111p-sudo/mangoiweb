@@ -37,13 +37,21 @@
     if (document.getElementById('mgcs-style')) return;
     var st = document.createElement('style');
     st.id = 'mgcs-style';
+    /* ⛔ 이 줄에 `opacity` 를 넣지 마세요 — 그 요소를 통째로 흐리게 만들어 대비를 떨어뜨립니다.
+       [잰 것 — 2026-09-09 브라우저] opacity:.8 이면 골드 그라데이션의 «가장 어두운 끝»
+       rgb(217,119,6) 에서 대비 4.12:1 로 기준(작은 글자 4.5)에 미달했습니다. 빼니 5.46:1.
+       가운데정렬이라 평소엔 5점대여서 «가끔 멀쩡» 해 보입니다 — 줄이 길어지면 그 구간에 걸립니다.
+       위계는 «크기»(11px 대 16px)로 냅니다. ⛔ 색도 못 박지 마세요(버튼 색이 바뀌면 글자만 안 읽힙니다).
+       🪤 그리고 이 주석을 «문자열 사이» 에 넣지 마세요 — 「따옴표 + 블록주석 + 따옴표」는 단항 +가 되어
+          `'aNaN'` 이 되고 CSS 규칙이 통째로 깨집니다. 실제로 한 번 그렇게 짜서, 변이시험이
+          「고쳤는데 되돌려도 통과」로 그것을 드러냈습니다. */
     /* ⚠️ `.ai-cta-row > *` 가 gap:8px · inline-flex 한 줄이라, 우리 줄을 그냥 넣으면
        아이콘 옆에 나란히 붙는다. flex-wrap 으로 둘째 줄로 내리고 세로 gap 만 0 으로 만든다.
        선택자에 #hero-member 를 붙여 그 규칙(0,1,0)을 특정성으로 이긴다 — !important 를 쓰지 않는다. */
     st.textContent =
       '#' + ROW + ' > .mgcs-has-sub{flex-wrap:wrap;row-gap:0;height:auto}'
       + '#' + ROW + ' > .mgcs-has-sub > .' + SUB + '{flex:0 0 100%;text-align:center;'
-      + 'font-size:11px;font-weight:700;line-height:1.25;letter-spacing:-.2px;opacity:.8;'
+      + 'font-size:11px;font-weight:700;line-height:1.25;letter-spacing:-.2px;'
       + 'margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
       + 'position:relative;z-index:1}'
       + '@media(max-width:640px){#' + ROW + ' > .mgcs-has-sub > .' + SUB + '{font-size:10px}}';

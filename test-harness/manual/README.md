@@ -802,3 +802,4 @@ cd /경로/mangoiweb && node test-harness/manual/vc-office-mode-browser.mjs
   HTTP 캐시만 끄면 서비스워커가 옛 사본을 줘서 «고치기 전» 값이 나오고 검사가 헛돈다.
 - ⚠️ 시작할 때 `mangoi_lang` 을 ko 로 못 박는다 — 앞 회차가 EN 으로 끝나면
   다음 회차의 라벨 검사가 거짓 실패한다(실측).
+- `hero-cta-and-cefr-bar-browser.mjs` — 홈 큰 버튼(골드 채움·오늘 상태 줄·대비)과 레벨테스트 CEFR 막대가 «실제로 그려지는가» (2026-09-09)

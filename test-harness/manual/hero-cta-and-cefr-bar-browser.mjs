@@ -55,32 +55,51 @@ async function connect() {
   return { send, evalJs, goto, close: () => ws.close() };
 }
 
-/** 두 색의 WCAG 대비비 — 배경이 투명이면 조상을 타고 올라가 «쌓아» 합성한다 */
+/** WCAG 대비비 — «최악의 경우» 를 잰다.
+ *  🪤 처음 판은 세 겹으로 헛돌았습니다(함정 대조가 잡음):
+ *    ① 새로 만든 `.mgcs-sub` 를 «한 번도 재지 않았습니다»(라벨만 쟀습니다)
+ *    ② `opacity` 를 안 봤습니다 — 그 요소를 통째로 흐리게 만드는데 색만 읽으면 실제보다 세게 나옵니다
+ *    ③ 그라데이션에서 «첫 stop»(가장 밝은 쪽)만 배경으로 썼습니다 — 글자가 앉은 어두운 구간이 아닙니다
+ *  ⟹ 그 상태에서 실측하니 4.12:1(미달)인 줄이 «통과» 로 나왔습니다. 셋 다 고친 지금은 5.46:1 입니다.
+ *  ⚠️ 반투명 층은 «멈추지 말고» 아래에서 위로 합성합니다(CLAUDE.md 실측 전례). */
 const CONTRAST_FN = `
   function _lum(c){ const f=v=>{v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);};
     return .2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2]); }
   function _rgb(s){ const m=String(s).match(/rgba?\\(([^)]+)\\)/); if(!m) return null;
     const p=m[1].split(',').map(x=>parseFloat(x)); return [p[0],p[1],p[2], p.length>3?p[3]:1]; }
-  function _bgOf(el){
-    const stack=[];
+  /** 그 요소 뒤에 실제로 깔린 «색 후보» 를 전부 — 그라데이션이면 stop 을 «모두» 돌려준다 */
+  function _bgsOf(el){
+    const stack=[]; let stops=null;
     for(let n=el; n; n=n.parentElement){ const cs=getComputedStyle(n);
       let c=_rgb(cs.backgroundColor);
-      /* ⚠️ 그라데이션이면 backgroundColor 는 투명이다 — 그 층을 건너뛰면 흰 바탕으로 계산돼
-         «흰 글자에 흰 배경» 이라는 거짓 실패가 난다(CLAUDE.md 실측 전례). */
       if((!c||c[3]===0) && cs.backgroundImage && cs.backgroundImage!=='none'){
-        const g=cs.backgroundImage.match(/rgba?\\([^)]+\\)/); if(g) c=_rgb(g[0]);
+        const g=cs.backgroundImage.match(/rgba?\\([^)]+\\)/g);   // ⚠️ 전역 — 첫 stop 만 보면 «가장 밝은 곳» 만 잰다
+        if(g && g.length){ stops = g.map(_rgb); break; }
       }
       if(!c||c[3]===0) continue;
       stack.push(c); if(c[3]===1) break;
     }
-    if(!stack.length) return [255,255,255];
-    let out=stack[stack.length-1].slice(0,3);
-    for(let i=stack.length-2;i>=0;i--){ const c=stack[i],a=c[3];
-      out=[0,1,2].map(k=>c[k]*a+out[k]*(1-a)); }
-    return out;
+    const flatten = (base) => { let out=base.slice(0,3);
+      for(let i=stack.length-1;i>=0;i--){ const c=stack[i],a=c[3];
+        out=[0,1,2].map(k=>c[k]*a+out[k]*(1-a)); } return out; };
+    if(stops && stops.length) return stops.map(flatten);
+    if(!stack.length) return [[255,255,255]];
+    return [flatten(stack[stack.length-1])];
   }
-  function contrastOf(el){ const fg=_rgb(getComputedStyle(el).color)||[0,0,0]; const bg=_bgOf(el);
-    const a=_lum(fg)+.05,b=_lum(bg)+.05; return +( (Math.max(a,b)/Math.min(a,b)).toFixed(2) ); }
+  /** ⚠️ opacity 는 그 요소를 통째로 흐리게 한다 — 글자색을 배경과 «합성» 해야 진짜 값이 나온다.
+   *     조상에 걸린 opacity 도 곱해진다. */
+  function _fgOf(el){ const fg=_rgb(getComputedStyle(el).color)||[0,0,0]; let op=1;
+    for(let n=el; n && n.nodeType===1; n=n.parentElement){ const o=parseFloat(getComputedStyle(n).opacity);
+      if(!isNaN(o)) op*=o; }
+    return [fg[0],fg[1],fg[2], fg[3]*op]; }
+  function contrastOf(el){ const fg=_fgOf(el);
+    let worst=99;
+    for(const bg of _bgsOf(el)){
+      const blended=[0,1,2].map(k=>fg[k]*fg[3]+bg[k]*(1-fg[3]));
+      const a=_lum(blended)+.05,b=_lum(bg)+.05;
+      worst=Math.min(worst, Math.max(a,b)/Math.min(a,b));
+    }
+    return +worst.toFixed(2); }
 `;
 
 const c = await connect();
@@ -155,10 +174,17 @@ for (const [label, width] of [['PC 1280px', 1280], ['폰 390px', 390]]) {
         const mid=[rc.left+rc.width/2, rc.top+rc.height/2];
         const top=document.elementFromPoint(mid[0],mid[1]);
         return { filled: cs.backgroundImage !== 'none', color: cs.color,
-          contrast: contrastOf(lbl || b), h: Math.round(rc.height),
+          contrast: contrastOf(lbl || b),
+          subContrast: sub ? contrastOf(sub) : null,   /* ← 새로 만든 줄도 «반드시» 잰다 */
+          h: Math.round(rc.height),
           label: lbl ? lbl.textContent.trim() : null,
           sub: sub ? sub.textContent : null,
           subClipped: sub ? (sub.scrollWidth > sub.clientWidth + 1) : false,
+          /* 🪤 스타일 «주입» 이 깨져도 줄은 그대로 보입니다 — 대비 검사만으로는 못 잡습니다.
+             (실제로 「따옴표 + 블록주석 + 따옴표」 로 규칙이 NaN 이 되어 통째로 죽은 적이 있습니다.)
+             그래서 «작은 글씨인가»·«아래 줄로 내려갔는가» 를 함께 봅니다. */
+          subFont: sub ? parseFloat(getComputedStyle(sub).fontSize) : null,
+          subBelow: (sub && lbl) ? (sub.getBoundingClientRect().top >= lbl.getBoundingClientRect().bottom - 2) : null,
           clickable: !!(top && (top === b || b.contains(top))) }; }) };
   })()`);
   check('B-0 회원 히어로가 보인다 (스텁이 먹었나 — 전제)', out.shown === true);
@@ -166,10 +192,18 @@ for (const [label, width] of [['PC 1280px', 1280], ['폰 390px', 390]]) {
     for (const [i, b] of out.btns.entries()) {
       const who = i === 0 ? '수업 입장' : '오늘의 A.i 학습';
       check(`B-1 ${who}: 배경이 «채움»(그라데이션)이다 ← 10% 투명 유리로 되돌아가지 않았다`, b.filled, JSON.stringify(b.color));
-      check(`B-2 ${who}: 글자 대비 4.5 이상`, b.contrast >= 4.5, String(b.contrast));
+      check(`B-2 ${who}: 라벨 대비 4.5 이상`, b.contrast >= 4.5, String(b.contrast));
+      /* ⚠️ 11px 작은 글자라 «큰 글자 3:1» 예외가 안 됩니다. 그리고 그라데이션의 가장 어두운
+         끝에서 재야 합니다 — 밝은 끝만 보면 4.12 짜리가 통과합니다(실제로 그랬습니다). */
+      check(`B-3 ${who}: 오늘 상태 줄 대비 4.5 이상 (11px 작은 글자)`,
+        b.subContrast != null && b.subContrast >= 4.5, String(b.subContrast));
       check(`C-1 ${who}: 라벨이 살아 있다 (i18n 이 지우지 않았다)`, !!b.label, String(b.label));
       check(`C-2 ${who}: 오늘 상태 줄이 있다`, !!b.sub, String(b.sub));
       check(`C-3 ${who}: 상태 줄이 잘리지 않는다`, !b.subClipped, String(b.sub));
+      check(`C-6 ${who}: 상태 줄 스타일이 살아 있다 (작은 글씨)`,
+        b.subFont != null && b.subFont <= 12, String(b.subFont));
+      check(`C-7 ${who}: 상태 줄이 라벨 «아래» 줄에 있다 (옆에 붙지 않았다)`,
+        b.subBelow === true, JSON.stringify(b.subBelow));
       check(`C-4 ${who}: 가운데가 «맨 위» 라 눌린다`, b.clickable);
     }
     check('C-5 문서가 가로로 넘치지 않는다', !out.docOverflow);

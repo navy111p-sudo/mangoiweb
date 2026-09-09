@@ -321,7 +321,7 @@
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
       var w = !r.total ? 0 : (pct > 0 ? pct : 6);
       var cls = r.total ? (' ' + barCls(pct)) : '';
-      return '<div class="bkrow" title="'+esc(r.cefr)+' — '+r.total+'문항 중 '+r.correct+'개 정답">'
+      return '<div class="bkrow" title="'+esc(r.cefr)+' — '+(r.total|0)+'문항 중 '+(r.correct|0)+'개 정답">'
         + '<span class="bl">'+esc(r.cefr)+'</span>'
         + '<span class="bkbar"><span class="bkfill'+cls+'" style="width:'+w+'%"></span></span>'
         + '<span class="bkn">'+r.correct+'/'+r.total+'</span></div>';
