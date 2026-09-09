@@ -38,6 +38,51 @@
            !/^room-/i.test(code) && !/^class-\d+-\d{8}$/.test(code);
   }
 
+  // ── ⓪ 회의방 번호 해석 ───────────────────────────────────────────────────
+  /* 🚪 (2026-09-09 사장님 제보) 「교사가 회의방 1234 를 여는데 학생은 mangoi-class 에 있다」
+     [원인] 방 이름을 만드는 규칙이 «두 곳» 이고 서로 달랐다.
+        · 회의방 모달(idx-vc-room.js)  : 1234 → 실제 방 id 는 **meet-1234**
+        · 로비 «⚙️ 방 코드 직접 입력» : 1234 → 그대로 **1234** (idx-main.js `vcRoomId = vcTypedRoom`)
+       그래서 모달이 「양쪽이 같은 번호를 넣어야 만납니다」라고 약속해 놓고, 학생이 그
+       «같은 번호» 를 넣으면 **다른 방**으로 갔다. 코드를 아예 안 넣으면 공용방으로 갔다.
+       에러가 안 난다 — 양쪽 다 «참여자 1명» 인 멀쩡한 방이라 고장으로 보이지 않는다.
+     [고침] 로비가 모달과 «같은 말» 을 하게 한다. 접두사가 없는 값은 회의방 번호로 본다.
+     ⛔ 접두사가 있는 방(class-·demo-·room-·c24-·meet-·mangoi-class)은 한 글자도 건드리지 않는다 —
+        예약 수업방·연습방·관리자 임베드가 전부 그쪽이라, 손대면 그 경로가 통째로 갈린다.
+     ⚠️ 규칙이 두 파일에 있으므로 `meet_room_code_harness.mjs` 가 둘을 대조한다.
+        idx-vc-room.js 는 blocking 이고 첫 화면 예산 여유가 325바이트뿐이라 여기(defer)에 둔다. */
+  var MEET_PREFIX = 'meet-';
+  // 이미 «어느 방인지» 를 스스로 말하는 이름들 — 여기에 걸리면 그대로 둔다
+  var KNOWN_ROOM = /^(?:meet-|class-|demo-|room-|c24-|mangoi-class$)/i;
+
+  function resolveRoomCode(raw) {
+    var c = (raw == null ? '' : String(raw)).trim();
+    if (!c) return '';                       // 빈칸은 빈칸 그대로 — 공용방 폴백은 예전 그대로다
+    if (KNOWN_ROOM.test(c)) return c;
+    /* 모달의 normalize() 와 같은 다듬기 — 대문자·공백·기호가 섞여도 같은 방으로 모인다 */
+    var n = c.toLowerCase()
+             .replace(/^meet-/, '')
+             .replace(/\s+/g, '-')
+             .replace(/[^a-z0-9\uac00-\ud7a3-]/g, '');
+    return n ? (MEET_PREFIX + n) : '';
+  }
+  window.vcResolveRoomCode = resolveRoomCode;
+
+  /* 입장 직전에 «실제로 들어갈 방» 을 칸에 적어 준다.
+     ⛔ 몰래 바꾸지 않는다 — 값이 바뀌면 접힌 칸을 펴서 보여 준다(이 파일 ①과 같은 원칙).
+        그래야 「이 방 링크 복사」도 그 방의 링크를 만든다. */
+  function normalizeRoomInput() {
+    try {
+      var input = el('vc-roomcode-input');
+      if (!input) return;
+      var raw = input.value.trim();
+      var fixed = resolveRoomCode(raw);
+      if (!fixed || fixed === raw) return;
+      input.value = fixed;
+      try { var det = input.closest ? input.closest('details') : null; if (det) det.open = true; } catch (e) {}
+    } catch (e) {}
+  }
+
   // ── ① 방 번호 기억 ───────────────────────────────────────────────────────
   function saveTypedRoom() {
     try {
@@ -258,7 +303,11 @@
     try {
       var origJoin = window.vcJoinRoom;
       if (typeof origJoin === 'function' && !origJoin.__roomcodeWrapped) {
-        window.vcJoinRoom = function () { saveTypedRoom(); return origJoin.apply(this, arguments); };
+        window.vcJoinRoom = function () {
+          saveTypedRoom();        // 기억은 «사람이 친 대로»(다음에 그대로 보여 준다)
+          normalizeRoomInput();   // 입장은 «해석한 방 id» 로 — 회의방 모달과 같은 규칙
+          return origJoin.apply(this, arguments);
+        };
         window.vcJoinRoom.__roomcodeWrapped = true;
       }
     } catch (e) {}
