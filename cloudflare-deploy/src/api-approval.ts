@@ -266,7 +266,8 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
  */
 async function approverCounts(
   env: ApprovalEnv,
-  jobs: Array<{ id: number; role: string; requester: string }>
+  jobs: Array<{ id: number; role: string; requester: string;
+                reqType?: string | null; priorDeciders?: (string | null)[] }>
 ): Promise<Record<number, number>> {
   const out: Record<number, number> = {};
   if (!jobs.length) return out;
@@ -278,7 +279,17 @@ async function approverCounts(
       if (!u) continue;
       if (u === String(j.requester)) continue;   // 본인이 올린 건은 본인이 결재할 수 없다
       const actor: ActorLike = { ok: true, username: u, name: r.name, role: 'hq', isTeacher: false };
-      if (canDecideStage(actor, j.role as any, isPhManager(actor))) n++;
+      if (!canDecideStage(actor, j.role as any, isPhManager(actor))) continue;
+      /* 🖐 앞 단계를 이미 결재한 사람은 이 단계를 누를 수 없다(sameDeciderBlocked).
+         ⛔ 이 줄을 빼면 이 함수가 «누를 수 있는 사람» 을 실제보다 많게 세고,
+            그러면 아무도 못 누르는 건에 「이대로는 처리되지 않습니다」가 뜨지 않는다 —
+            이 함수가 생긴 이유(8/30 긴급 건 5일 방치)가 그대로 재현된다.
+         📌 2026-09-09 실측: 경영진(대표·결재권자)이 «올린» 큰돈 건은 1단계를 나머지 한 명이
+            누르는 순간 2단계 결재자가 0명이 된다. 그 사실을 화면이 말해야 한다. */
+      if (sameDeciderBlocked({
+        reqType: j.reqType, priorDeciders: j.priorDeciders || [], me: u, decision: 'approved',
+      }).blocked) continue;
+      n++;
     }
     out[j.id] = n;
   }
@@ -1155,7 +1166,8 @@ export async function handleApprovalApi(
     /* 「올렸는데 어떻게 됐지」 — 아직 대기 중인 내 건에 «지금 결재할 수 있는 사람 수»를 붙인다.
        0명이면 기다려도 처리되지 않는다. 화면이 그 사실을 말할 수 있어야 한다.
        ⚠️ 대기 중인 건에만 붙인다 — 이미 끝난 건은 셀 이유가 없고, 그만큼 계정 조회도 아낀다. */
-    const countJobs: Array<{ id: number; role: string; requester: string }> = [];
+    const countJobs: Array<{ id: number; role: string; requester: string;
+                            reqType?: string | null; priorDeciders?: (string | null)[] }> = [];
     for (const m of mine) {
       if (m.status !== 'pending') continue;
       const st = (m.steps || []).find((s: any) => Number(s.seq) === Number(m.stage_seq));
@@ -1163,6 +1175,13 @@ export async function handleApprovalApi(
         id: Number(m.id),
         role: String(st?.role || 'staff'),   // 단계 기록이 없는 옛 건은 «staff 1단계»로 본다(rowOf 와 같은 해석)
         requester: String(m.requester_username),
+        /* 🖐 「앞 단계를 누가 찍었나」 — 같은 사람은 이 단계를 못 누르므로 세는 데서 빠져야 한다.
+           ⚠️ 단계 조회가 실패하면 빈 배열이 되어 «고치기 전» 과 같은 수를 센다(막지 않는 쪽).
+              서버 decide 가 최종 판정을 하므로 안전한 방향이고, 위 결재함 행도 같은 방향이다. */
+        reqType: m.req_type,
+        priorDeciders: (m.steps || [])
+          .filter((s2: any) => Number(s2.seq) < Number(m.stage_seq) && String(s2.status || '') === 'approved')
+          .map((s2: any) => s2.decided_by),
       });
     }
     const counts = await approverCounts(env, countJobs);
@@ -1834,12 +1853,19 @@ export async function handleApprovalApi(
           「앞 단계에 아무도 없다」가 되어 이 게이트가 조용히 통째로 풀린다.
        ℹ️ 1단계(seq 1)에는 앞 단계가 없으니 조회 자체를 하지 않는다(빈 배열 = 통과). */
     const needSameCheck = blocksSameDecider(cur.req_type) && seq > 1;
-    const priorDeciders: (string | null)[] | null = needSameCheck
+    const priorSteps: (string | null)[] | null = needSameCheck
       ? await safe(async () => ((await env.DB.prepare(
           `SELECT decided_by FROM approval_steps
             WHERE request_id = ? AND seq < ? AND status = 'approved'`
         ).bind(id, seq).all<any>()).results || []).map((r: any) => r.decided_by as string | null), null)
       : [];
+    /* 🔴 단계 도장(approval_steps)은 아래에서 **best-effort**(safe(..., false))로 쓰인다.
+         그 쓰기가 한 번 실패하면 건은 다음 단계로 넘어가 있는데 앞 단계 도장이 비어,
+         이 게이트가 «조회는 성공했는데 근거만 없는» 상태로 조용히 풀린다.
+         요청 행의 decided_by 는 **하드** UPDATE 라 그때도 남아 있다(= 직전 단계 결재자).
+         두 근거를 함께 넘겨 서로를 받치게 한다. ⛔ 이 concat 을 빼지 말 것. */
+    const priorDeciders: (string | null)[] | null = (priorSteps === null) ? null
+      : (needSameCheck ? priorSteps.concat([ ((cur as any).decided_by ?? null) as string | null ]) : priorSteps);
     const sd = sameDeciderBlocked({
       reqType: cur.req_type, priorDeciders, me: String(actor.username), decision,
     });

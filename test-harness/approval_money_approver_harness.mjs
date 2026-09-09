@@ -53,6 +53,33 @@ function check(name, cond, extra) {
   console.log(`  ${cond ? '✅' : '❌'} ${name}${cond ? '' : (extra ? ` — ${extra}` : '')}`);
 }
 
+/* 중괄호 짝으로 «그 함수·그 라우트» 만 잘라 낸다 — 파일 전체에서 찾으면 딴 코드가 걸린다.
+   ⚠️ 길이(slice(i, i+N))로 자르면 옆 함수가 딸려 들어온다(CLAUDE.md 2장). */
+function blockFromSrc(src, anchorRe) {
+  const m = src.match(anchorRe);
+  if (!m) return '';
+  /* ⚠️ TypeScript 는 «인자 목록»·«반환 타입» 안에도 { 가 나온다
+     (Array<{ id: number }> · Promise<{ ok: boolean }>). 그냥 첫 { 를 잡으면
+     타입을 몸통으로 오해해 엉뚱한 조각을 자른다(CLAUDE.md 2장 — 실제로 밟았다).
+     ⟹ 괄호·꺾쇠 깊이가 0인 { 만 몸통으로 인정한다. */
+  let i = -1, par = 0, ang = 0;
+  for (let j = m.index + m[0].length - 1; j < src.length; j++) {
+    const c = src[j];
+    if (c === '(') par++;
+    else if (c === ')') par--;
+    else if (c === '<') ang++;
+    else if (c === '>') { if (ang > 0) ang--; }
+    else if (c === '{' && par <= 0 && ang <= 0) { i = j; break; }
+  }
+  if (i < 0) return '';
+  let d = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
+
 /* ── 등장인물 ──────────────────────────────────────────────────────────────
    ⛔ 계정명을 손으로 적지 않는다 — 정본 상수에서 골라 온다. */
 const APPROVER_UID = String(MONEY_APPROVERS[0] || '');
@@ -466,27 +493,75 @@ check('모르는 분류에도 안 걸린다', blocksSameDecider('zzz') === false
 check('분류가 안 걸리면 앞 단계가 나여도 통과',
   sd({ reqType: 'hr' }).blocked === false);
 
-/* 🔴 교착 확인 — 지금 명단으로 큰돈 결재가 멈추지 않는가.
-     경영진이 둘 이상이어야, 1단계를 누른 사람 말고 다른 사람이 2단계를 누를 수 있다. */
-check('큰돈 2단계 결재가 교착되지 않는다 (1단계를 누른 사람 말고도 결재할 사람이 남는다)',
-  EXEC_USERNAMES.filter(u => !MONEY_APPROVERS.includes(u)).length >= 1,
-  `EXEC=${JSON.stringify(EXEC_USERNAMES)} MONEY=${JSON.stringify(MONEY_APPROVERS)}`);
+/* 🔴 교착 — «누가 올렸느냐» 에 따라 큰돈 2단계가 멈추는가.
+     ⛔ 예전 검사는 `EXEC_USERNAMES.filter(u => !MONEY_APPROVERS.includes(u)).length >= 1`
+        한 줄이었는데 **「본인이 올린 건은 본인이 결재 못 함」을 모형에 안 넣어 언제나 참**
+        이었다. 그 검사를 근거로 소스 주석·CLAUDE.md·작업기록 세 곳이 「교착이 없다」고
+        적었고, 실제로는 **경영진이 올린 큰돈 건이 교착**한다(2026-09-09 함정 대조가 잡음).
+     ✅ 그래서 이제 «기안자별로 1·2단계 후보를 실제로 세어» 사실 그대로 못 박는다. */
+const ROSTER = [...new Set([...EXEC_USERNAMES, ...MONEY_APPROVERS, PLAIN_UID])].filter(Boolean);
+/** 그 단계를 «지금» 누를 수 있는 사람 — 서버(api-approval decide)와 같은 순서로 거른다. */
+function decidersFor({ reqType, role, requester, priorDeciders }) {
+  return ROSTER.filter(u => {
+    if (u === requester) return false;                               // 본인이 올린 건
+    if (!canDecideStage(hq(u), role, false)) return false;           // 그 단계 권한
+    return !sameDeciderBlocked({                                     // 같은 사람 연속 금지
+      reqType, priorDeciders: priorDeciders || [], me: u, decision: 'approved',
+    }).blocked;
+  });
+}
+/** 큰돈 건을 «끝까지» 밟아 본다 — 1단계 후보마다 2단계 후보가 남는지. */
+function bigMoneyWalk(requester) {
+  const st = stagesFor('purchase', BIG, 'PHP');
+  const s1 = decidersFor({ reqType: 'purchase', role: st[0].role, requester, priorDeciders: [] });
+  return s1.map(first => ({
+    first,
+    second: decidersFor({ reqType: 'purchase', role: st[1].role, requester, priorDeciders: [first] }),
+  }));
+}
+const walkPlain = bigMoneyWalk(PLAIN_UID);
+const walkBoss  = bigMoneyWalk(EXEC_UID);
+const walkAppr  = bigMoneyWalk(APPROVER_UID);
+
+check('전제 — 큰돈은 2단계다 (아래 걸음이 뜻을 가지려면)',
+  stagesFor('purchase', BIG, 'PHP').length === 2);
+check('전제 — 1단계 후보가 있다 (0명이면 아래 검사가 통째로 헛돈다)',
+  walkPlain.length > 0 && walkBoss.length > 0 && walkAppr.length > 0,
+  `plain=${walkPlain.length} boss=${walkBoss.length} appr=${walkAppr.length}`);
+
+/* ✅ 보통 경로(본사 직원·필리핀이 올린 건)는 어떤 1단계 결재자를 거쳐도 2단계가 열린다.
+     ⛔ 이것이 깨지면 필리핀에서 올라오는 큰돈 결재가 통째로 멈춘다 — 진짜 사고다. */
+check('보통 경로 — 남이 올린 큰돈은 어느 길로 가도 2단계 결재자가 남는다',
+  walkPlain.length > 0 && walkPlain.every(w => w.second.length >= 1),
+  JSON.stringify(walkPlain));
+
+/* 🔴 지금 «사실» — 경영진 둘 중 하나가 «올린» 큰돈 건은 2단계가 0명이 되어 멈춘다.
+     기안자 제외 + 같은 사람 연속 금지가 맞물린 결과이고, 2026-09-09 이 변경이 만든 것이다.
+     ⚠️ 이 검사는 「그래도 된다」가 아니라 **「지금 이렇다」를 못 박는 것**이다 —
+        문서 세 곳이 이 사실을 그대로 적고 있고, 규칙을 바꾸면 여기부터 빨간불이 되어야 한다.
+     📌 실측(2026-09-09 D1): 물품·지출 4건은 전부 필리핀 매니저가 올렸고 모두 소액이라,
+        오늘까지 이 교착에 실제로 걸린 건은 0건이다. */
+const bossStuck = walkBoss.every(w => w.second.length === 0);
+const apprStuck = walkAppr.every(w => w.second.length === 0);
+check('지금 사실 — 경영진이 «올린» 큰돈은 2단계가 0명이다 (규칙을 바꾸면 여기가 먼저 빨간불)',
+  bossStuck && apprStuck,
+  `boss=${JSON.stringify(walkBoss)} approver=${JSON.stringify(walkAppr)}`);
+
+/* ✅ 그리고 **화면이 그 사실을 말해야** 한다 — 「이대로는 처리되지 않습니다」 배너.
+     approverCounts 가 sameDeciderBlocked 를 모르면 0명인 건에 배너가 안 뜬다
+     (8/30 긴급 건이 5일 방치된 그 모양). */
+const AC = blockFromSrc(API_SRC, /async function approverCounts\(/);
+check('전제 — approverCounts 본문을 잘라 냈다', AC.length > 200, `len=${AC.length}`);
+check('배너가 사실을 말한다 — approverCounts 가 같은 사람 연속 금지를 함께 센다',
+  /sameDeciderBlocked\(/.test(AC));
+check('그 판정에 «앞 단계 결재자» 를 실제로 넘긴다 (빈 값만 넘기면 언제나 안 막힌다)',
+  /priorDeciders:\s*j\.priorDeciders/.test(AC));
+check('home 이 그 근거를 채워 보낸다 (안 채우면 위 판정이 헛돈다)',
+  /priorDeciders:\s*\(m\.steps \|\| \[\]\)/.test(API_SRC));
 
 console.log('\n[Ⓗ-2] 배선 — 서버가 실제로 그 판정을 지나는가');
 /* 결재(decide) 라우트만 잘라 본다 — 파일 전체에서 찾으면 딴 라우트의 코드가 걸린다. */
-function blockFrom(src, anchorRe) {
-  const m = src.match(anchorRe);
-  if (!m) return '';
-  let i = src.indexOf('{', m.index + m[0].length - 1);
-  if (i < 0) return '';
-  let d = 0;
-  for (let j = i; j < src.length; j++) {
-    if (src[j] === '{') d++;
-    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
-  }
-  return '';
-}
-const DECIDE = blockFrom(API_SRC, /if \(method === 'POST' && mDecide\) \{/);
+const DECIDE = blockFromSrc(API_SRC, /if \(method === 'POST' && mDecide\) \{/);
 check('전제 — decide 라우트 본문을 잘라 냈다', DECIDE.length > 500, `len=${DECIDE.length}`);
 check('decide 가 정본 sameDeciderBlocked 를 부른다', /sameDeciderBlocked\(/.test(DECIDE));
 check('조건을 라우트 안에 다시 적지 않았다 (정본 하나로)',
@@ -507,13 +582,89 @@ check('막는 판정이 «결재를 적기 전» 에 온다',
 check('사람이 읽을 사유를 한국어·영어로 준다',
   /same_decider:[\s\S]{0,200}different approver/.test(DECIDE));
 
+/* 🔴 「부르기는 하는데 안 막는다」를 잡는다.
+     ⛔ 함정 대조 실측(2026-09-09): `decision` 인자를 `'rejected'` 리터럴로 못 박으면
+        게이트가 **한 번도 막지 않는데** 위 검사들은 전부 초록이었다(부르고·403 이고·
+        순서도 앞이라서). CLAUDE.md 2장이 두 번 못 박은 형태 —
+        「«불렀는가» 만 보지 말고 «그 결과를 조건으로 쓰는가»·«무엇을 넘기는가» 도 볼 것」.
+     ✅ 그래서 그 호출의 인자 묶음만 오려 내, «게이트가 채운 그 변수» 를 쓰는지 본다.
+     ℹ️ 결재함 행(home)의 `decision: 'approved'` 리터럴은 정상이다 — 거기는 «승인할 수
+        있는가» 를 미리 그려 주는 자리라 언제나 승인 기준으로 묻는다. 그래서 decide
+        라우트만 잘라서 판정한다. */
+function argsOf(src, callRe) {
+  const m = src.match(callRe);
+  if (!m) return '';
+  let i = src.indexOf('(', m.index + m[0].length - 1);
+  if (i < 0) return '';
+  let d = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === '(') d++;
+    else if (src[j] === ')') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
+const SD_ARGS = argsOf(DECIDE, /sameDeciderBlocked\(/);
+check('전제 — decide 의 sameDeciderBlocked 인자를 오려 냈다', SD_ARGS.length > 40, `len=${SD_ARGS.length}`);
+check('«결정» 을 리터럴로 못 박지 않았다 (박으면 게이트가 언제나 통과·언제나 차단)',
+  /\bdecision\s*[,}]/.test(SD_ARGS) && !/decision\s*:\s*['"]/.test(SD_ARGS), SD_ARGS.replace(/\s+/g, ' '));
+check('«앞 단계 결재자» 를 그 조회 결과 변수로 넘긴다',
+  /\bpriorDeciders\s*[,}]/.test(SD_ARGS) && !/priorDeciders\s*:\s*\[/.test(SD_ARGS));
+check('«나» 를 로그인한 계정에서 가져온다 (본문 값이 아니다)',
+  /me\s*:\s*String\(actor\.username\)/.test(SD_ARGS));
+check('앞 단계 도장이 비어도 요청 행의 decided_by 가 근거로 함께 간다 (best-effort 기록 대비)',
+  /priorSteps\.concat\(\[[^\]]*decided_by/.test(DECIDE));
+
 console.log('\n[Ⓗ-3] 배선 — 화면이 그 사실을 말하는가');
 check('결재함 행에 same_decider 표시를 붙인다', /row\.same_decider = sameDeciderBlocked\(/.test(API_SRC));
 check('그 표시를 정본으로 계산한다 (화면이 스스로 판정하지 않는다)',
   !/same_decider\s*=\s*[^=]*decided_by/.test(WORK_SRC));
-check('화면이 승인 버튼을 감춘다', /r\.same_decider \? '' :/.test(WORK_SRC));
-check('짝 — 반려 버튼은 남긴다 (돈이 안 나가는 방향)',
-  /askWhy\(' \+ r\.id \+ '\)/.test(WORK_SRC));
+/* 승인·반려 두 버튼을 그리는 그 «식» 만 오려 내 판정한다.
+   ⛔ 예전에는 「파일 어딘가에 askWhy( 가 있는가」였는데, 반려 버튼까지 함께 감추는
+      변이가 그대로 통과했다(2026-09-09 함정 대조 실측). 그러면 장 부장 화면에서 그 건은
+      승인도 반려도 못 하는 채 남는다. */
+const ACTS = (() => {
+  /* ⚠️ 같은 글자가 «확인 카드»(ackOne)에도 있다 — 첫 번째를 잡으면 엉뚱한 조각이 온다.
+        decide( 가 들어 있는 쪽, 즉 «결재 가능한» 카드의 식을 고른다. */
+  const NEEDLE = `h += '<div class="acts">'`;
+  for (let i = WORK_SRC.indexOf(NEEDLE); i >= 0; i = WORK_SRC.indexOf(NEEDLE, i + 1)) {
+    /* ⚠️ 끝을 «why-» 로만 잡으면 확인 카드에서 시작한 조각이 결재 카드까지 삼켜
+          decide( 를 품게 된다 — 둘 중 «먼저 오는» 표시까지만 자른다. */
+    const a = WORK_SRC.indexOf("ack-", i), w = WORK_SRC.indexOf('why-', i);
+    const j = (a >= 0 && w >= 0) ? Math.min(a, w) : Math.max(a, w);
+    if (j < 0) continue;
+    const seg = WORK_SRC.slice(i, j);
+    if (seg.indexOf('decide(') >= 0) return seg;
+  }
+  return '';
+})();
+check('전제 — 승인·반려를 그리는 식을 오려 냈다', ACTS.length > 80, `len=${ACTS.length}`);
+check('화면이 승인 버튼을 감춘다 (same_decider 가 그 버튼을 가린다)',
+  /same_decider[^\n]*\?[^\n]*''[\s\S]{0,160}decide\([^\n]*approved/.test(ACTS));
+/* 「가드 밖」은 «글자 거리» 로 재면 안 된다 — 승인·반려가 한 줄에 나란히 있어
+   「200자 안에 askWhy 가 있다」로는 밖에 있어도 걸린다. 괄호 짝으로 «가드의 범위» 를
+   구해 반려가 그 «안» 인지 «밖» 인지 본다. */
+/* ⚠️ 가드가 «하나» 라고 가정하면 안 된다 — 반려까지 감싸는 두 번째 가드를 넣는 변이가
+      첫 번째 가드만 보는 검사를 그대로 통과했다(2026-09-09 변이시험 실측).
+      ⟹ same_decider 가 나오는 «모든» 자리의 범위를 구해, 반려가 그 어디에도 안 들어가는지 본다. */
+const GUARDS = (() => {
+  const out = [];
+  for (let k = ACTS.indexOf('same_decider'); k >= 0; k = ACTS.indexOf('same_decider', k + 1)) {
+    let open = -1;
+    for (let j = k; j >= 0; j--) if (ACTS[j] === '(') { open = j; break; }
+    if (open < 0) continue;
+    let d = 0;
+    for (let j = open; j < ACTS.length; j++) {
+      if (ACTS[j] === '(') d++;
+      else if (ACTS[j] === ')') { d--; if (!d) { out.push([open, j]); break; } }
+    }
+  }
+  return out;
+})();
+const REJ = ACTS.indexOf('askWhy(');
+check('전제 — 승인을 가리는 «가드의 범위» 를 괄호 짝으로 구했다', GUARDS.length >= 1, JSON.stringify(GUARDS));
+check('짝 — 반려 버튼은 어느 가드 «안» 에도 없다 (돈이 안 나가는 방향이라 남겨야 한다)',
+  REJ >= 0 && GUARDS.length >= 1 && GUARDS.every(g => REJ < g[0] || REJ > g[1]),
+  `askWhy@${REJ} guards=${JSON.stringify(GUARDS)}`);
 check('화면이 이유를 적는다', /앞 단계를 결재하셔서/.test(WORK_SRC));
 check('묶음 승인에서 빠진다 (조용히 건수만 줄지 않게)',
   /if \(r\.same_decider\) return false;/.test(WORK_SRC));
@@ -522,9 +673,15 @@ console.log('\n[Ⓗ-4] 확인 목록도 결재권자에게는 안 나간다');
 check('home 이 «결재권자가 아닌 경영진» 만 확인 대상으로 본다',
   /const iAmAckViewer = iAmExec && !iAmMoneyApprover;/.test(API_SRC));
 check('확인 목록 조회가 그 판정을 쓴다', /const ackRs = iAmAckViewer \?/.test(API_SRC));
-check('두 호출부 모두 isApprover 를 넘긴다 (한쪽만 넘기면 목록과 주소 호출이 어긋난다)',
-  (API_SRC.match(/isApprover: iAmMoneyApprover/g) || []).length === 2,
-  String((API_SRC.match(/isApprover: iAmMoneyApprover/g) || []).length));
+/* ⛔ 개수를 «2» 로 못 박지 않는다 — 함정 대조 실측(2026-09-09):
+      isApprover 없이 새 호출부를 추가해도 2가 유지되어 **통과**했고(= 결재권자에게 확인이
+      다시 뜨는데 초록불), 정당한 3번째 호출부를 추가하면 **거짓 FAIL** 이 났다.
+      CLAUDE.md 2장 — 「«몇 개인가» 가 아니라 «그 목록에 그것이 들어 있는가»」. */
+const ACK_CALLS = (API_SRC.match(/needsExecAck\(/g) || []).length;
+const ACK_FLAGS = (API_SRC.match(/isApprover:\s*iAmMoneyApprover/g) || []).length;
+check('전제 — needsExecAck 를 부르는 곳이 있다', ACK_CALLS >= 1, `calls=${ACK_CALLS}`);
+check('모든 호출부가 isApprover 를 넘긴다 (한쪽만 넘기면 목록과 주소 호출이 어긋난다)',
+  ACK_CALLS === ACK_FLAGS, `needsExecAck(=${ACK_CALLS} · isApprover=${ACK_FLAGS}`);
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Ⓖ 규칙서가 같은 말을 하는가 — 여러 곳에 흩어진 단정이 어긋나지 않게
