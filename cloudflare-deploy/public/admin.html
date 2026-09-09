@@ -11033,20 +11033,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var HIDE = 'ph85-shide';                       // 검색 전용 숨김 — style.display 를 쓰지 않는다
     var OPENED = 'ph85-sopen';                     // 검색 때문에 편 것 — 지울 때 되돌린다
 
-    /* 🌐 (2026-09-09) «무엇을 대조하는가» 정본.
-       예전에는 textContent(=화면 글자) 하나만 봤다. 그런데 사이드바 항목은 IA6 가
-       `data-ko`/`data-en` 을 함께 달아 두므로(adm-ia6.js), 화면이 한국어일 때
-       「recording」·「payroll」로 치면 **0건**이었다(실측). EN 으로 쓰는 필리핀 매니저는
-       영어로 자기 메뉴를 못 찾는다 — 반대로 EN 화면에서 한국어로도 못 찾았다.
-       ⛔ textContent 만 보는 방식으로 되돌리지 말 것. */
+    /* 🌐 (2026-09-09) «무엇을 대조하는가» 정본 — ⛔ textContent 만 보는 방식으로 되돌리지 말 것
+       (한국어 화면에서 「recording」·「payroll」이 0건이었다.
+        자세한 것은 docs/작업기록/260909_관리자_두검색창_수리.md) */
     function _sbText(el){
       if (!el) return '';
       return ((el.textContent || '') + ' ' +
               (el.getAttribute('data-ko') || '') + ' ' +
               (el.getAttribute('data-en') || '')).toLowerCase();
     }
-    /* 손자 줄은 화면 글자가 다듬어져 있고(pretty) 영문 이름은 속성이 아니라
-       adm-r25.js 가 물려 준 `__gc` 객체({ko,en})에만 있다. 셋 다 본다. */
+    /* 손자는 보이는 글자가 다듬어져 있고(pretty) 영문 이름은 adm-r25.js 가 물려 준
+       `__gc` 객체에만 있다. 셋 다 본다. */
     function _gcText(gc){
       var extra = '';
       try { if (gc.__gc) extra = ' ' + (gc.__gc.ko || '') + ' ' + (gc.__gc.en || ''); } catch (e) {}
@@ -11057,13 +11054,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       var q = search.value.toLowerCase().trim();
       var shownHits = 0;                     // 🔢 «화면에 실제로 남는» 항목 수
       bar.querySelectorAll('.ph85-group').forEach(function(g){
-        /* ⛔ (2026-09-09) 옛(감춰진) 사이드바 그룹은 훑지 않는다.
-           이 화면의 사이드바는 두 벌이다 — 옛 9그룹(`data-ia6-legacy`, CSS 로 display:none)과
-           그 위에 IA6 가 다시 그린 것. 예전에는 둘 다 훑어서, 옛 쪽에만 있는 말로 검색하면
-           «찾았다»고 판단해 그룹까지 열어 놓고 **화면에는 한 줄도 안 나타났다**
-           (실측: 「결재」 → 검색이 찾은 항목 1건 · 화면에 보이는 것 0건 — 그 그룹이 display:none).
-           사람에게는 «검색이 고장났다» 로 보인다.
-           ⚠️ IA6 가 아직 안 돌았으면 이 속성이 없어 저절로 예전처럼 훑는다(그때는 옛 쪽이 화면). */
+        /* ⛔ (2026-09-09) 옛(감춰진) 사이드바 그룹은 훑지 않는다 — 사이드바가 두 벌이라,
+           옛 쪽에만 있는 말은 «찾았다»고 판단해 놓고 화면엔 0건이었다(「결재」 실측 1건/0건).
+           ⚠️ IA6 가 아직 안 돌았으면 이 속성이 없어 저절로 예전처럼 훑는다. */
         if (g.hasAttribute('data-ia6-legacy')) return;
         var titleEl = g.querySelector('.ph85-title');
         var title = _sbText(titleEl);
@@ -11085,12 +11078,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           var m = !q || own.indexOf(q) >= 0 || gcHit > 0;
           s.classList.toggle(HIDE, !m);
           if (box) box.classList.toggle(HIDE, !m);
-          /* 🔐 (2026-09-09) «화면에 남는 수» 를 셀 때 **역할로 감춰진 항목은 빼야** 한다.
-             `adm-ia6.js` 의 applyRoleFilter 가 `.ia6-role-hide` 를 붙이고 CSS 가
-             `display:none !important` 로 감춘다. 그것까지 세면 지사·대리점·강사 계정에서
-             «검색어에 걸린 메뉴가 전부 역할로 감춰진» 경우 화면은 0건인데 «없다» 안내가
-             안 떠서, 이 수리가 고치려던 바로 그 상태가 그대로 남는다.
-             ⚠️ HIDE 는 그대로 토글한다 — 세는 것만 뺀다(권한 판정은 IA6 몫). */
+          /* 🔐 «화면에 남는 수» 에서 역할로 감춰진 항목은 뺀다(applyRoleFilter 의 .ia6-role-hide).
+             안 빼면 지사·대리점 계정에서 «0건인데 안내가 안 뜨는» 상태가 남는다.
+             ⚠️ HIDE 토글은 그대로 — 세는 것만 뺀다. */
           if (m && q) { anyMatch = true; if (!s.classList.contains('ia6-role-hide')) shownHits++; }
 
           /* 손자가 걸렸으면 그 목록을 펴서 «어디에 있는지» 보여 준다. 검색을 지우면 도로 접는다. */
@@ -11107,13 +11097,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         if (q && anyMatch && !g.classList.contains('open')) g.classList.add('open', OPENED);
         else if (!q && g.classList.contains(OPENED)) g.classList.remove('open', OPENED);
       });
-      /* 🧾 (2026-09-09) 결재함은 그룹 안 `.ph85-sub` 가 아니라 사이드바 맨 위 <a>(#ia6-appr) 라
-         위 루프가 아예 안 봤다 — 「결재」로 치면 결재함이 화면에 **보이는데도** 0건이었다.
-         ⚠️ 라벨의 data-ko/data-en 은 <a> 가 아니라 안쪽 span(.ia6-appr-l)에 있다
-            (배지가 날아가지 않게 일부러 그렇게 둔 것 — adm-ia6.js 815행 주석).
-            그래서 <a> 와 그 span 을 **둘 다** 읽어야 「approvals」로도 걸린다.
-         ⛔ <a> 에 data-ko/data-en 을 달아 해결하려 하지 말 것 — i18n 엔진이 textContent 를
-            갈아끼워 숫자 배지(#ia6-appr-n)가 DOM 에서 사라진다. */
+      /* 🧾 결재함은 `.ph85-sub` 가 아니라 <a>(#ia6-appr) 라 위 루프가 아예 안 봤다
+         (「결재」로 치면 화면에 보이는데도 0건). 라벨의 data-ko/data-en 은 안쪽 span 에
+         있으므로 <a> 와 span 을 둘 다 읽는다.
+         ⛔ <a> 에 data-ko/data-en 을 달아 풀지 말 것 — 숫자 배지가 DOM 에서 사라진다. */
       var appr = document.getElementById('ia6-appr');
       if (appr) {
         var apprTxt = _sbText(appr) + ' ' + _sbText(appr.querySelector('.ia6-appr-l'));
@@ -11124,16 +11111,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       _syncEmpty(q, shownHits);
     }
 
-    /* 🈳 (2026-09-09) 결과가 없으면 «없다»고 말한다.
-       예전에는 항목이 전부 사라지고 **아무 말도 없었다** — 사람에게는 «검색이 고장났다» 로
-       읽힌다(사장님 「세로 검색창은 잘 검색이 되지 않아」). 이 화면 사이드바에 없는 말이라도
-       가로 통합 검색에는 별칭·학생·교사까지 들어 있으므로 그쪽으로 안내한다.
-       ⚠️ 안내는 `.ph85-search-wrap` **밖**에 붙인다 — wrap 안에 넣으면 그 높이가 커져
-          「↑ 검색에서 나가기」 버튼(wrap 기준 배치)이 어긋난다(위 3) 주석과 같은 사정).
-       ⛔ id 를 `sidebar-search-empty` 로 짓지 말 것 — admin-inline-c.css 가 그 이름을
-          `display:none !important` 로 감춘다(옛 사이드바 정리 규칙).
-       ⛔ 이 상자에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
-          갈아끼워 안쪽 검색어 span 이 사라진다. 글자는 아래에서 직접 쓴다. */
+    /* 🈳 (2026-09-09) 결과가 없으면 «없다»고 말한다 — 예전에는 항목이 전부 사라지고
+       아무 말도 없어서 «검색이 고장났다» 로 읽혔다.
+       ⚠️ 안내는 `.ph85-search-wrap` **밖**에 붙인다(안에 넣으면 「↑ 나가기」 버튼이 어긋난다).
+       ⛔ id 를 `sidebar-search-empty` 로 짓지 말 것 — admin-inline-c.css 가 그 이름을 감춘다.
+       ⛔ data-ko/data-en 을 달지 말 것 — i18n 이 textContent 를 갈아끼워 검색어가 사라진다. */
     function _syncEmpty(q, n){
       var wrap = search.closest('.ph85-search-wrap') || search;
       var box = document.getElementById('ph85-search-empty');
@@ -11141,21 +11123,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       if (!box) {
         box = document.createElement('div');
         box.id = 'ph85-search-empty';
-        /* 🎨 글자색은 **이 화면 톤**에 맞춘다. 이 관리자 화면은 밝은 테마
-           (adm-light-theme.css)라 사이드바도 밝고, 옆 항목(.ph85-sub)이 rgb(52,64,84) 를 쓴다.
-           처음에 밝은 회색(#e2e8f0)을 줬다가 브라우저로 재 보니 **대비 1.08**
-           (합성 배경 rgb(237,240,243))로 안 읽혔다. 화면에서 «읽히기는» 했는데 그건
-           페인터(js/adm-light-surfaces.js 등)가 대비가 낮을 때만 인라인 !important 로
-           보정해 준 것이라, **페인터가 돌기 전 몇 초 동안은 그대로 안 보였다**
-           (실측: 로드 직후 priority='' → 잠시 뒤 'important').
-           ⛔ 페인터에 기대지 말 것 — 처음부터 그 화면 톤에 맞는 색을 준다.
-           ⛔ 이 설명을 아래 cssText 조립 «사이»에 끼워 넣지 말 것 —
-              「따옴표 + 주석 + 따옴표」는 이 저장소가 이미 밟은 함정이고(CLAUDE.md 2장),
-              덤으로 그 색을 읽는 검사(admin-search-browser 대비절)가 값을 못 찾는다.
-              (이 주석을 쓴 직후에 제가 바로 그 자리에 또 끼워 넣어 검사가 빨간불이 됐습니다.)
-           ⚠️ `pointer-events:none` 은 장식이 아니다 — 휴대폰 드로어의 자동닫기
-              (아래 pointerdown 가드)가 `.ph85-search-wrap` 만 예외로 두는데 이 상자는
-              그 «밖» 이라, 탭하면 드로어가 닫혀 버린다. 클릭을 안 받아 그 일이 없어진다. */
+        /* 🎨 이 화면은 밝은 테마라 사이드바도 밝다 — 옆 항목이 rgb(52,64,84) 를 쓴다.
+           밝은 회색(#e2e8f0)은 **대비 1.08** 로 안 읽혔다(페인터가 몇 초 뒤 구제해 주지만
+           그 전까지는 안 보인다). ⛔ 페인터에 기대지 말 것.
+           ⛔ 이 설명을 아래 cssText 조립 «사이»에 끼워 넣지 말 것(CLAUDE.md 2장 함정 —
+              실제로 두 번 밟았고 색을 읽는 검사가 값을 못 찾는다).
+           ⚠️ `pointer-events:none` 은 장식이 아니다 — 이 상자는 드로어 자동닫기의
+              예외(.ph85-search-wrap) «밖» 이라, 클릭을 받으면 드로어가 닫힌다. */
         box.style.cssText = 'margin:6px 10px 8px;padding:10px 12px;border-radius:10px;' +
           'background:rgba(148,163,184,.16);border:1px solid rgba(148,163,184,.32);' +
           'color:#334155;font-size:12.5px;line-height:1.5;pointer-events:none';
@@ -11165,16 +11139,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                  ? window.adminLang === 'en'
                  : (localStorage.getItem('mangoi_lang') === 'en');
       box.textContent = en
-        ? '\u201C' + q + '\u201D \u2014 no menu here. Try the big search at the top (students, teachers, shortcuts).'
-        : '\u201C' + q + '\u201D \uC5D0 \uD574\uB2F9\uD558\uB294 \uBA54\uB274\uAC00 \uC5EC\uAE30\uC5D0\uB294 \uC5C6\uC2B5\uB2C8\uB2E4. '
-          + '\uC704\uCABD \uD070 \uAC80\uC0C9\uCC3D\uC5D0\uC11C \uCC3E\uC544\uBCF4\uC138\uC694(\uD559\uC0DD\u00B7\uAC15\uC0AC\u00B7\uBC14\uB85C\uAC00\uAE30\uAE4C\uC9C0 \uCC3E\uC2B5\uB2C8\uB2E4).';
+        ? '“' + q + '” — no menu here. Try the big search at the top (students, teachers, shortcuts).'
+        : '“' + q + '” 에 해당하는 메뉴가 여기에는 없습니다. 위쪽 큰 검색창에서 찾아보세요(학생·강사·바로가기까지 찾습니다).';
       box.style.display = '';
     }
     search.addEventListener('input', runSearch);
-    /* 🌐 (2026-09-09) 안내가 떠 있는 채로 🌐 를 누르면 글자가 안 따라온다.
-       ⚠️ 이 화면의 `mangoi:lang-changed` 는 `adm-core.js` 의 toggleAdminLang 이
-          **`document`** 에서 `bubbles:false` 로 쏜다 — `window` 에만 달면 영원히 침묵한다.
-          딴 화면은 `window` 에서 쏘므로 **둘 다** 듣는다(다시 그리기만 하므로 중복은 무해). */
+    /* 🌐 안내가 떠 있는 채로 🌐 를 눌러도 따라오게. ⚠️ 관리자 화면은 `document` 에서
+       bubbles:false 로 쏜다 — window 에만 달면 영원히 침묵한다. 그래서 둘 다 듣는다. */
     ['mangoi:lang-changed', 'mangoi:lang'].forEach(function (ev) {
       document.addEventListener(ev, function () { if (search.value.trim()) runSearch(); });
       window.addEventListener(ev, function () { if (search.value.trim()) runSearch(); });
