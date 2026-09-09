@@ -1,11 +1,17 @@
 # 임시 — 짧은 홍보영상 합성. main 에 올리지 않는다.
 #   소리: 사장님이 주신 «사람 목소리» 나레이션을 그대로 쓴다(TTS 아님).
 #   음악: ffmpeg 사인파 합성 — 상용 음원이 아니라 저작권 문제가 없다.
-#         ⛔ 말하는 동안 음량을 올리지 말 것. 「음악이 안 들린다」보다 「말이 안 들린다」가 훨씬 나쁘다.
+#   ⛔ 말하는 동안 음악 음량을 올리지 말 것. 「음악이 안 들린다」보다 「말이 안 들린다」가 훨씬 나쁘다.
+#   ⚠️ 필터식은 쉼표가 많아 셸 따옴표로 넘기면 샌다 → -filter_complex_script 파일로 넘긴다(2026-09-05 기록).
 name: promo-build
-on: { push: { branches: [video12] } }
-permissions: { contents: write }
-env: { INTRO: '2.6', OUTRO: '3.4' }
+on:
+  push:
+    branches: [video12]
+permissions:
+  contents: write
+env:
+  INTRO: '2.6'
+  OUTRO: '3.4'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,46 +19,44 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
-      - name: ① 재료 확인
+      - name: 1-재료확인
         run: |
           set -euo pipefail
           test -f .promo/narration.mp3
-          N=$(ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/narration.mp3)
-          echo "나레이션 ${N}초"
+          ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/narration.mp3
           python3 - <<'PY'
-          import json,os
-          sc=json.load(open('.promo/scenes.json'))
-          miss=[s['id'] for s in sc if not os.path.exists(f".promo/slides/{s['id']}.jpg")]
-          assert not miss, f"슬라이드 없음: {miss}"
-          print(f"장면 {len(sc)}개 · 마지막 {sc[-1]['b']}초")
+          import json, os
+          sc = json.load(open('.promo/scenes.json'))
+          miss = [s['id'] for s in sc if not os.path.exists('.promo/slides/%s.jpg' % s['id'])]
+          assert not miss, '슬라이드 없음: %s' % miss
+          print('장면 %d개 · 마지막 %.2f초' % (len(sc), sc[-1]['b']))
           PY
 
-      - name: ② 장면마다 영상 조각 (천천히 확대)
+      - name: 2-장면조각
         run: |
           set -euo pipefail
           mkdir -p .promo/seg
           python3 - <<'PY' > seg.sh
-          import json
-          sc=json.load(open('.promo/scenes.json'))
-          INTRO=float(__import__('os').environ.get('INTRO','2.6'))
-          OUTRO=float(__import__('os').environ.get('OUTRO','3.4'))
-          for i,s in enumerate(sc):
-              d=s['b']-s['a']
-              if i==0: d+=INTRO
-              if i==len(sc)-1: d+=OUTRO
-              n=max(2,round(d*30))
-              # 26장이 전부 같은 방향으로 확대되면 «출렁» 인다 → 홀짝으로 방향을 바꾼다
-              z=("min(1.0+0.00035*on,1.09)" if i%2==0 else "max(1.09-0.00035*on,1.0)")
-              print(f"ffmpeg -v error -y -loop 1 -i .promo/slides/{s['id']}.jpg -t {d:.3f} "
-                    f"-vf \"scale=2880:-1,zoompan=z='{z}':d={n}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-                    f"s=1920x1080:fps=30,fade=t=in:st=0:d=0.22,format=yuv420p\" "
-                    f"-an -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p .promo/seg/{i:02d}.mp4")
+          import json, os
+          sc = json.load(open('.promo/scenes.json'))
+          INTRO = float(os.environ.get('INTRO', '2.6'))
+          OUTRO = float(os.environ.get('OUTRO', '3.4'))
+          for i, s in enumerate(sc):
+              d = s['b'] - s['a']
+              if i == 0: d += INTRO
+              if i == len(sc) - 1: d += OUTRO
+              n = max(2, round(d * 30))
+              z = "min(1.0+0.00035*on,1.09)" if i % 2 == 0 else "max(1.09-0.00035*on,1.0)"
+              vf = ("scale=2880:-1,zoompan=z='%s':d=%d:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                    ":s=1920x1080:fps=30,fade=t=in:st=0:d=0.22,format=yuv420p" % (z, n))
+              print('ffmpeg -v error -y -loop 1 -i .promo/slides/%s.jpg -t %.3f -vf "%s" '
+                    '-an -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p .promo/seg/%02d.mp4'
+                    % (s['id'], d, vf, i))
           PY
           bash seg.sh
           ls .promo/seg | wc -l
-          for f in .promo/seg/*.mp4; do printf "%s %s\n" "$f" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f")"; done
 
-      - name: ③ 이어 붙이기
+      - name: 3-이어붙이기
         run: |
           set -euo pipefail
           : > list.txt
@@ -60,70 +64,78 @@ jobs:
           ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy .promo/video.mp4
           ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/video.mp4
 
-      - name: ④ 배경음악 (사인파 합성 · 저작권 없음)
+      - name: 4-배경음악
         run: |
           set -euo pipefail
           V=$(ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/video.mp4)
           N=$(ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/narration.mp3)
-          python3 - "$V" "$N" <<'PY' > env.txt
-          import sys,os
-          V=float(sys.argv[1]); N=float(sys.argv[2])
-          I=float(os.environ.get('INTRO','2.6'))
-          SPK_A, SPK_B = I, I+N          # 말하는 구간
-          # 시작·끝은 들리게(0.20), 말하는 동안은 깔리기만(0.045)
-          e=(f"volume='if(lt(t,{SPK_A-0.6:.2f}),0.20,"
-             f"if(lt(t,{SPK_A+0.4:.2f}),0.20-0.155*(t-{SPK_A-0.6:.2f})/1.0,"
-             f"if(lt(t,{SPK_B-0.3:.2f}),0.045,"
-             f"if(lt(t,{SPK_B+1.6:.2f}),0.045+0.155*(t-{SPK_B-0.3:.2f})/1.9,0.20))))':eval=frame")
-          print(e)
+          python3 - "$V" "$N" <<'PY'
+          import sys, os
+          V = float(sys.argv[1]); N = float(sys.argv[2])
+          I = float(os.environ.get('INTRO', '2.6'))
+          A, B = I, I + N                      # 말하는 구간
+          LOUD, BED = 0.20, 0.045              # 시작·끝 / 말하는 동안
+          # 봉투: 조용해지는 데 1.0초, 다시 올라오는 데 1.9초
+          env = ("volume='if(lt(t,%.2f),%s,"
+                 "if(lt(t,%.2f),%s-%s*(t-%.2f)/1.0,"
+                 "if(lt(t,%.2f),%s,"
+                 "if(lt(t,%.2f),%s+%s*(t-%.2f)/1.9,%s))))':eval=frame"
+                 % (A-0.6, LOUD, A+0.4, LOUD, LOUD-BED, A-0.6,
+                    B-0.3, BED, B+1.6, BED, LOUD-BED, B-0.3, LOUD))
+          notes = [(130.81,0.50),(132.31,0.50),(196.00,0.30),(197.30,0.30),
+                   (261.63,0.34),(263.13,0.34),(329.63,0.24),(331.13,0.24),(587.33,0.10)]
+          pre = ';'.join('[%d]volume=%.2f[n%d]' % (i, v, i) for i, (f, v) in enumerate(notes))
+          mix = ''.join('[n%d]' % i for i in range(len(notes)))
+          chain = (pre + ';' + mix + 'amix=inputs=%d:normalize=0,' % len(notes)
+                   + 'aecho=0.82:0.88:170|360|540:0.34|0.22|0.12,lowpass=f=2100,'
+                   + env + ',afade=t=in:st=0:d=1.8,afade=t=out:st=%.2f:d=2.6,' % (V - 2.6)
+                   + 'aformat=sample_rates=48000:channel_layouts=stereo')
+          open('music.filter', 'w').write(chain)
+          open('music.inputs', 'w').write(' '.join('-f lavfi -i sine=f=%s:d=%.3f' % (f, V) for f, v in notes))
+          print('필터 %d자' % len(chain))
           PY
-          ENV=$(cat env.txt); echo "$ENV"
-          ffmpeg -v error -y \
-            -f lavfi -i "sine=f=130.81:d=$V" -f lavfi -i "sine=f=132.31:d=$V" \
-            -f lavfi -i "sine=f=196.00:d=$V" -f lavfi -i "sine=f=197.30:d=$V" \
-            -f lavfi -i "sine=f=261.63:d=$V" -f lavfi -i "sine=f=263.13:d=$V" \
-            -f lavfi -i "sine=f=329.63:d=$V" -f lavfi -i "sine=f=331.13:d=$V" \
-            -f lavfi -i "sine=f=587.33:d=$V" \
-            -filter_complex "[0]volume=0.50[a1];[1]volume=0.50[a2];[2]volume=0.30[b1];[3]volume=0.30[b2];\
-[4]volume=0.34[c1];[5]volume=0.34[c2];[6]volume=0.24[d1];[7]volume=0.24[d2];[8]volume=0.10[e];\
-[a1][a2][b1][b2][c1][c2][d1][d2][e]amix=inputs=9:normalize=0,\
-aecho=0.82:0.88:170|360|540:0.34|0.22|0.12,lowpass=f=2100,$ENV,\
-afade=t=in:st=0:d=1.8,afade=t=out:st=$(python3 -c "print(f'{$V-2.6:.2f}')"):d=2.6,\
-aformat=sample_rates=48000:channel_layouts=stereo" .promo/music.wav
+          ffmpeg -v error -y $(cat music.inputs) -filter_complex_script music.filter .promo/music.wav
           ffprobe -v error -show_entries format=duration -of csv=p=0 .promo/music.wav
 
-      - name: ⑤ 소리 합치고 최종 인코딩
+      - name: 5-최종인코딩
         run: |
           set -euo pipefail
-          MS=$(python3 -c "print(int(float('${INTRO}')*1000))")
+          MS=$(python3 -c "print(int(float('${INTRO}') * 1000))")
+          python3 - "$MS" <<'PY'
+          import sys
+          ms = sys.argv[1]
+          f = ('[1:a]adelay=%s|%s,highpass=f=70,dynaudnorm=g=7:m=3[v];'
+               '[2:a]anull[m];'
+               '[v][m]amix=inputs=2:normalize=0:duration=longest,volume=0.92,'
+               'aformat=sample_rates=48000:channel_layouts=stereo[a]') % (ms, ms)
+          open('mix.filter', 'w').write(f)
+          PY
           ffmpeg -v error -y -i .promo/video.mp4 -i .promo/narration.mp3 -i .promo/music.wav \
-            -filter_complex "[1:a]adelay=${MS}|${MS},highpass=f=70,dynaudnorm=g=7:m=3,volume=1.0[v];\
-[2:a]volume=1.0[m];[v][m]amix=inputs=2:normalize=0:duration=longest,volume=0.92,\
-aformat=sample_rates=48000:channel_layouts=stereo[a]" \
+            -filter_complex_script mix.filter \
             -map 0:v -map "[a]" -c:v libx264 -preset slow -crf 21 -pix_fmt yuv420p \
             -profile:v high -level 4.0 -movflags +faststart \
             -c:a aac -b:a 160k -shortest .promo/mangoi-promo-75.mp4
           ls -l .promo/mangoi-promo-75.mp4
 
-      - name: ⑥ 확인 — 길이·트랙·25MiB 한도
+      - name: 6-확인
         run: |
           set -euo pipefail
-          F=.promo/mangoi-promo-75.mp4
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_type,codec_name,width,height -of default=nw=1 "$F"
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height -of default=nw=1 .promo/mangoi-promo-75.mp4
           python3 - <<'PY'
-          import os,subprocess
-          F='.promo/mangoi-promo-75.mp4'
-          sz=os.path.getsize(F); lim=25*1024*1024
-          dur=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',F],
-                                   capture_output=True,text=True).stdout.strip())
-          print(f"길이 {dur:.2f}초 · {sz:,}B = {sz/1048576:.2f} MiB · 한도까지 {(lim-sz)/1024:.0f} KiB")
-          assert sz < lim, "❌ 25 MiB 한도 초과"
-          assert 78 < dur < 84, f"❌ 길이가 예상 밖: {dur}"
+          import os, subprocess
+          F = '.promo/mangoi-promo-75.mp4'
+          sz = os.path.getsize(F); lim = 25 * 1024 * 1024
+          dur = float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration',
+                                      '-of','csv=p=0',F], capture_output=True, text=True).stdout.strip())
+          print('길이 %.2f초 · %d B = %.2f MiB · 한도까지 %.0f KiB' % (dur, sz, sz/1048576, (lim-sz)/1024))
+          assert sz < lim, '25 MiB 한도 초과'
+          assert 78 < dur < 84, '길이가 예상 밖: %s' % dur
           PY
 
-      - name: ⑦ 결과 커밋
+      - name: 7-커밋
         run: |
-          git config user.name github-actions; git config user.email actions@github.com
+          git config user.name github-actions
+          git config user.email actions@github.com
           git add -f .promo/mangoi-promo-75.mp4
           git commit -m "promo: 짧은 홍보영상 합성 [skip ci]" || exit 0
           git push origin HEAD:video12
