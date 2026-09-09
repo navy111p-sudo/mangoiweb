@@ -276,12 +276,12 @@
 
   <span class="eyebrow"><span class="dot"></span>일일업무 보고서 · 누적 기록 2번째</span>
   <h1>2026년 9월 9일 (화) 업무 보고</h1>
-  <p class="lede">오늘 처리한 업무 3건입니다. 모두 코드 작성·검증·커밋까지 마쳤고, 병합 요청(PR)은 지시받지 않아 아직 만들지 않았습니다. 가장 최근 보고가 맨 위, 지난 기록은 아래로 쌓입니다.</p>
+  <p class="lede">오늘 처리한 업무 6건입니다(스크린샷 제보 4장을 각각 별도 항목으로 나눠 적었습니다 — 이전에는 "4건"으로 한데 묶여 있었습니다). 모두 코드 작성·검증·커밋까지 마쳤고, 병합 요청(PR)은 지시받지 않아 아직 만들지 않았습니다. 가장 최근 보고가 맨 위, 지난 기록은 아래로 쌓입니다.</p>
 
   <div class="statrow">
-    <div class="stat"><b>3건</b><span>오늘 처리한 업무</span></div>
+    <div class="stat"><b>6건</b><span>오늘 처리한 업무</span></div>
     <div class="stat"><b>3개</b><span>커밋 (병합 전)</span></div>
-    <div class="stat"><b>8개 화면</b><span>3번 항목에서 수정</span></div>
+    <div class="stat"><b>8개 화면</b><span>6번 항목에서 수정</span></div>
     <div class="stat"><b>0건</b><span>회귀 테스트 실패 (297건 통과)</span></div>
   </div>
 
@@ -329,29 +329,24 @@
     </div>
   </section>
 
+  <p class="task-desc" style="max-width:none; margin:-6px 0 20px; font-size:13px;">
+    ※ 아래 2~5번 항목은 스크린샷 4장으로 받은 하나의 제보 묶음(같은 대화, 같은 커밋 <code>f35f6f8</code>)에서
+    나온 것입니다 — 원인·수정 방식이 서로 달라 항목을 나눠 적었습니다.
+  </p>
+
   <section class="task">
     <div class="task-head">
       <span class="task-num">2.</span>
-      <h2 class="task-title">학생·교사 피드백 4건 수정 (스크린샷 제보 기반)</h2>
+      <h2 class="task-title">레벨테스트 결과 막대 색상 수정 (스크린샷 제보 기반)</h2>
     </div>
-    <p class="task-desc">스크린샷 4장으로 받은 제보를 하나씩 처리했습니다.</p>
-
-    <div class="findings">
-      <table>
-        <tr><th style="width:24px">#</th><th>제보 내용</th><th>무엇을 고쳤나</th></tr>
-        <tr><td class="n">1</td><td>레벨테스트 결과의 A1~C2 막대가 전부 같은 색</td><td>정답률에 따라 초록·노랑·주황·빨강으로 색이 다르게 나오도록 수정</td></tr>
-        <tr><td class="n">2</td><td>홈 화면 "수업 입장"·"오늘의 A.i 학습" 버튼이 잘 안 보임</td><td>원인 불명의 CSS(설명 주석도 없이 버튼을 다시 투명하게 덮던 코드)를 제거해 원래 진한 금색 버튼 복원</td></tr>
-        <tr><td class="n">3</td><td>"AI 단어 퀴즈"는 완료해도 완료 표시가 안 뜸</td><td>로그인 학생을 손님으로 잘못 인식하던 코드 수정 — 3번 항목과 같은 뿌리의 버그, 여기서 처음 발견</td></tr>
-        <tr><td class="n">4</td><td>학생이 "학교 싫어요"라고 답했는데 AI가 "하하 좋아요!"라고 반응</td><td>AI 지시문에 "부정적인 답에는 축하 표현 금지" 규칙 추가 — 같은 문제가 있던 "AI 영어친구" 화면도 함께 수정</td></tr>
-      </table>
-    </div>
+    <p class="task-desc">레벨테스트 결과 화면의 A1~C2 막대가 전부 같은 색이라 점수 차이를 한눈에 보기 어렵다는 제보였습니다.</p>
 
     <div class="quad">
       <div class="qcard good">
         <h3>✔ 된 것</h3>
         <ul>
-          <li>4건 전부 원인 진단 + 코드 수정 완료</li>
-          <li>가상 브라우저로 색상·버튼·클릭 동작을 직접 확인(스크린샷 근거 있음)</li>
+          <li>정답률에 따라 초록(75%+)·노랑(50%+)·주황(25%+)·빨강(그 이하)으로 막대 색이 다르게 나오도록 수정</li>
+          <li>가상 브라우저로 색이 다르게 나오는 것을 직접 확인(스크린샷 근거 있음)</li>
           <li>타입체크·회귀 테스트 297건, 트랩체크 통과</li>
         </ul>
       </div>
@@ -367,7 +362,7 @@
         <h3>◆ 요청사항</h3>
         <ul>
           <li>PR 생성 승인 부탁드립니다</li>
-          <li>배포 후 배포 권한자가 <b>직접 화면에서</b> 레벨테스트 색상·홈 버튼·단어퀴즈 완료표시를 봐 주셔야 합니다</li>
+          <li>배포 후 배포 권한자가 <b>직접 화면에서</b> 레벨테스트 막대 색상이 맞는지 봐 주셔야 합니다</li>
         </ul>
       </div>
     </div>
@@ -376,10 +371,115 @@
   <section class="task">
     <div class="task-head">
       <span class="task-num">3.</span>
+      <h2 class="task-title">홈 화면 "수업 입장"·"오늘의 A.i 학습" 버튼 안 보임 수정 (스크린샷 제보 기반)</h2>
+    </div>
+    <p class="task-desc">홈 화면의 "수업 입장"·"오늘의 A.i 학습" 버튼이 배경과 비슷해서 잘 안 보인다는 제보였습니다.</p>
+
+    <div class="quad">
+      <div class="qcard good">
+        <h3>✔ 된 것</h3>
+        <ul>
+          <li>원인 불명의 CSS 한 줄(설명 주석도 없이 버튼을 다시 투명하게 덮던 코드)을 제거</li>
+          <li>원래 있던 진한 금색 버튼이 나오도록 복원</li>
+          <li>가상 브라우저로 버튼이 잘 보이는 것을 직접 확인</li>
+          <li>타입체크·회귀 테스트 297건, 트랩체크 통과</li>
+        </ul>
+      </div>
+      <div class="qcard crit">
+        <h3>✕ 안 된 것</h3>
+        <ul>
+          <li>PR 생성 전, 실서비스 반영 전</li>
+          <li>이 버튼이 있는 화면(<code>index.html</code>)이 배포 권한자 전용 파일인데 이번에 살짝 고쳤습니다 — 확인 부탁드립니다</li>
+        </ul>
+      </div>
+      <div class="qcard warn">
+        <h3>◐ 진행중인 것</h3>
+        <ul><li>없음</li></ul>
+      </div>
+      <div class="qcard req">
+        <h3>◆ 요청사항</h3>
+        <ul>
+          <li>PR 생성 승인 부탁드립니다</li>
+          <li>배포 후 배포 권한자가 <b>직접 화면에서</b> 홈 버튼이 잘 보이는지 봐 주셔야 합니다</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="task">
+    <div class="task-head">
+      <span class="task-num">4.</span>
+      <h2 class="task-title">"AI 단어 퀴즈" 완료 표시 안 뜨는 문제 수정 (스크린샷 제보 기반)</h2>
+    </div>
+    <p class="task-desc">"AI 단어 퀴즈"는 완료해도 완료 표시가 안 뜬다는(웜업·복습퀴즈는 정상) 제보였습니다.</p>
+
+    <div class="quad">
+      <div class="qcard good">
+        <h3>✔ 된 것</h3>
+        <ul>
+          <li>로그인 학생을 손님(비로그인)으로 잘못 인식하던 코드를 고쳐 완료 표시가 정상적으로 뜨도록 수정</li>
+          <li>이 원인과 <b>완전히 같은 뿌리의 버그가 다른 7개 화면에도 퍼져 있는 것</b>을 이 화면에서 처음 발견 — 아래 6번 항목에서 함께 정리</li>
+          <li>가상 브라우저로 완료 표시가 뜨는 것을 직접 확인</li>
+          <li>타입체크·회귀 테스트 297건, 트랩체크 통과</li>
+        </ul>
+      </div>
+      <div class="qcard crit">
+        <h3>✕ 안 된 것</h3>
+        <ul><li>PR 생성 전, 실서비스 반영 전</li></ul>
+      </div>
+      <div class="qcard warn">
+        <h3>◐ 진행중인 것</h3>
+        <ul><li>없음</li></ul>
+      </div>
+      <div class="qcard req">
+        <h3>◆ 요청사항</h3>
+        <ul>
+          <li>PR 생성 승인 부탁드립니다</li>
+          <li>배포 후 배포 권한자가 <b>직접 화면에서</b> 단어 퀴즈 완료 표시가 뜨는지 봐 주셔야 합니다</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="task">
+    <div class="task-head">
+      <span class="task-num">5.</span>
+      <h2 class="task-title">AI가 부정적인 답에도 축하 반응하던 문제 수정 (스크린샷 제보 기반)</h2>
+    </div>
+    <p class="task-desc">학생이 "학교 싫어요"라고 답했는데 AI가 "하하 좋아요!(Haha nice!)"라고 반응한다는 제보였습니다.</p>
+
+    <div class="quad">
+      <div class="qcard good">
+        <h3>✔ 된 것</h3>
+        <ul>
+          <li>AI에게 주는 지시문에 "부정적인 답에는 축하 표현을 쓰지 말 것" 규칙 추가</li>
+          <li>같은 문제가 있던 "AI 영어친구" 화면에도 있어서 함께 수정</li>
+          <li>가상 브라우저로 부정적인 답에 AI가 축하하지 않는 것을 직접 확인</li>
+          <li>타입체크·회귀 테스트 297건, 트랩체크 통과</li>
+        </ul>
+      </div>
+      <div class="qcard crit">
+        <h3>✕ 안 된 것</h3>
+        <ul><li>PR 생성 전, 실서비스 반영 전</li></ul>
+      </div>
+      <div class="qcard warn">
+        <h3>◐ 진행중인 것</h3>
+        <ul><li>없음</li></ul>
+      </div>
+      <div class="qcard req">
+        <h3>◆ 요청사항</h3>
+        <ul><li>PR 생성 승인 부탁드립니다</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="task">
+    <div class="task-head">
+      <span class="task-num">6.</span>
       <h2 class="task-title">로그인 학생이 "손님"으로 잘못 인식되던 버그 — 8개 화면 수정</h2>
     </div>
     <p class="task-desc">
-      위 2번의 3번째 제보를 고치다가, <b>완전히 똑같은 버그가 다른 7개 화면에도 퍼져 있는 것</b>을
+      위 4번(AI 단어 퀴즈 완료 표시) 항목을 고치다가, <b>완전히 똑같은 버그가 다른 7개 화면에도 퍼져 있는 것</b>을
       발견했습니다. 로그인 여부를 확인하는 코드가 옛날 방식의 계정 정보 모양만 확인하고 있었는데,
       실제 로그인 시스템은 몇 달 전부터 다른 모양으로 정보를 저장하고 있어서 로그인한 학생도
       전부 "손님"으로 잘못 판단되고 있었습니다. 영향받은 화면: <b>단어 퀴즈·단어장·스트릭(연속학습
@@ -424,15 +524,15 @@
   <div class="linkrow">
     <a href="https://github.com/navy111p-sudo/mangoiweb/commit/c78bea4" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-      <span class="tag">커밋 1</span> c78bea4 (결제 상품 추가)
+      <span class="tag">커밋 1</span> c78bea4 (결제 상품 추가 — 1번)
     </a>
     <a href="https://github.com/navy111p-sudo/mangoiweb/commit/f35f6f8" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-      <span class="tag">커밋 2</span> f35f6f8 (피드백 4건 수정)
+      <span class="tag">커밋 2</span> f35f6f8 (학생·교사 피드백 4건 수정 — 2~5번)
     </a>
     <a href="https://github.com/navy111p-sudo/mangoiweb/commit/5a38f13" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-      <span class="tag">커밋 3</span> 5a38f13 (uid 인식 버그 8개 화면)
+      <span class="tag">커밋 3</span> 5a38f13 (uid 인식 버그 8개 화면 — 6번)
     </a>
     <a href="https://github.com/navy111p-sudo/mangoiweb/tree/claude/ai-content-payment-option-lnad1a" target="_blank" rel="noopener">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
@@ -448,9 +548,9 @@
     <h4 class="tl-heading">타임라인 (커밋 시각은 실제 기록, KST 기준)</h4>
     <p class="tl-progress-label"><b>5 / 8단계</b> 완료 — PR·병합·배포·화면확인이 남았습니다</p>
     <div class="timeline">
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:04 KST</div><div class="tl-label">커밋 1 완료 — 결제 상품 추가 <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:25 KST</div><div class="tl-label">커밋 2 완료 — 피드백 4건 수정 <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:53 KST</div><div class="tl-label">커밋 3 완료 — uid 인식 버그 8개 화면 <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:04 KST</div><div class="tl-label">커밋 1 완료 — 결제 상품 추가(1번) <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:25 KST</div><div class="tl-label">커밋 2 완료 — 학생·교사 피드백 4건 수정(2~5번) <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:53 KST</div><div class="tl-label">커밋 3 완료 — uid 인식 버그 8개 화면(6번) <span class="tl-pill">완료</span></div></div>
       <div class="tl-item current"><span class="tl-dot"></span><div class="tl-time">대기중</div><div class="tl-label">PR 생성 승인 <span class="tl-pill">확인 필요</span></div></div>
       <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">CI 통과 → 병합 <span class="tl-pill">예정</span></div></div>
       <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">실서비스 배포 <span class="tl-pill">예정</span></div></div>
@@ -463,7 +563,7 @@
     <ol>
       <li><b>PR 생성 및 병합</b><span>승인 시 3개 커밋을 PR로 올림 — CI 통과 시 자동으로 병합까지 이어집니다.</span></li>
       <li><b>배포 후 실제 화면 확인</b><span>특히 레벨테스트 막대 색상·홈 버튼·단어퀴즈 완료표시는 화면을 직접 봐야 확실합니다.</span></li>
-      <li><b>(선택) 옛 "손님" 계정에 쌓인 학생 기록 이관 여부 논의</b><span>3번 작업의 부작용 안내 참고 — 지시 주시면 진행하겠습니다.</span></li>
+      <li><b>(선택) 옛 "손님" 계정에 쌓인 학생 기록 이관 여부 논의</b><span>6번 작업의 부작용 안내 참고 — 지시 주시면 진행하겠습니다.</span></li>
       <li><b>(선택) index.html의 유사 위치(openParentDashboard)에도 같은 유형의 버그 발견</b><span>이번 범위에는 포함하지 않았습니다. 별도 지시 주시면 진행하겠습니다.</span></li>
     </ol>
   </div>
