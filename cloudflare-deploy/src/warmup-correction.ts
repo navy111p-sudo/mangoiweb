@@ -67,8 +67,30 @@ export const WARMUP_CORRECTION_RULE = [
       JSON.parse → "reply" 만 정규식으로 건져내기 → 원문 그대로(옛 동작).
    ───────────────────────────────────────────────────────────── */
 export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json: boolean } {
-  const text = String(raw == null ? '' : raw).trim();
+  /* 🔴 Workers AI 는 response_format(json_object) 을 켜면 response 를 «이미 파싱된 객체» 로
+        주기도 한다. 그때 String(raw) 는 "[object Object]" 가 되고, 그 글자에는 중괄호가
+        없어서 아래 JSON 경로·안전망을 전부 비켜 가 학생 말풍선과 TTS 로 그대로 나간다.
+        2026-09-08 사장님 「이렇게 잘 못나와object 이 뭐야??」 — JSON 모드를 켠 그날의 실사고다.
+        ✅ 저장소에 선례가 이미 둘 있었다(내가 안 본 것이다) —
+           api-diary.ts 의 「JSON 모드면 response 가 이미 객체이거나 JSON 문자열. 둘 다 대응」과
+           api-approval.ts parseLooseJson 의 첫 줄 `typeof raw === 'object'`.
+        ⛔ 여기를 문자열 전제로 되돌리지 말 것. */
+  let src: unknown = raw;
+  if (src && typeof src === 'object') {
+    const o: any = src;
+    if (typeof o.reply === 'string' && o.reply.trim()) {
+      return { reply: o.reply.trim(), fix: o.fix || null, json: true };
+    }
+    /* 객체인데 reply 가 없다(모양이 다르거나 잘렸다) — 아래 문자열 경로가 한 번 더 건져 보게
+       «글자» 로 되돌린다. ⛔ String(o) 로 넘기면 그 자리에서 "[object Object]" 가 된다. */
+    try { src = JSON.stringify(o); } catch { return { reply: '', fix: null, json: true }; }
+  }
+  const text = String(src == null ? '' : src).trim();
   if (!text) return { reply: '', fix: null, json: false };
+
+  /* 🛟 위에서 다 막았어도 «다른 모양»(배열·중첩 객체가 문자열로 굳은 것)이 남을 수 있다.
+        학생에게 보내지 않는 쪽으로 실패한다 — 부르는 쪽의 안전 문구가 받는다. */
+  if (/\[object [A-Z]\w*\]/.test(text)) return { reply: '', fix: null, json: true };
 
   // ```json … ``` 코드펜스를 벗긴다(모델이 지시를 어기고 감싸는 일이 실제로 있다)
   let body = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
