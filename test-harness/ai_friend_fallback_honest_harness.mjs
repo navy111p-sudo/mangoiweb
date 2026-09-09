@@ -81,6 +81,27 @@ ok('전제: 선언이 let 이다', /let\s+usedFallback\s*=\s*false/.test(SRV));
 const trueAssign = (SRV.match(/\busedFallback\s*=\s*true/g) || []).length;
 ok('true 로 켜는 곳도 한 곳뿐이다', trueAssign === 1, 'true 대입 ' + trueAssign + '곳');
 
+console.log('\n①-b 서버 — 실패 «사유» 를 우리 쪽에 남기는가');
+
+/* 🔴 Workers 로그는 head_sampling_rate=0.05 라 20건 중 19건이 버려집니다(2026-09-09 실측).
+   그래서 «왜 실패했나» 의 정본은 로그가 아니라 이 표입니다. */
+const FL = readFileSync(new URL('../cloudflare-deploy/src/ai-failure-log.ts', import.meta.url), 'utf8');
+ok('실패 기록 정본 파일이 있다', FL.length > 200);
+ok('폴백 블록이 그것을 부른다', fbBlock.includes('recordAiFailure('));
+ok('그 호출이 try 안이다(기록이 대화를 막지 않는다)',
+   /try\s*\{[^}]*recordAiFailure\(/s.test(fbBlock) || /try\s*\{[\s\S]{0,400}?recordAiFailure\(/.test(fbBlock));
+ok('마지막 예외 문장을 싣는다(이것이 보려던 값)', /err:\s*String\(lastErr/.test(fbBlock));
+ok('JSON 모드 여부도 싣는다(rf)', /\brf:\s*friendRF/.test(fbBlock));
+
+// ⛔ 개인정보 — 학생 발화·AI 답변은 한 글자도 실으면 안 됩니다.
+ok('학생 발화(msg)를 안 싣는다', !/\bmsg\b/.test(fbBlock.slice(fbBlock.indexOf('recordAiFailure'))));
+ok('AI 답변(reply)을 안 싣는다',
+   !/recordAiFailure\([\s\S]{0,400}?\breply\b/.test(fbBlock));
+ok('기록 정본도 발화·답변 칸이 없다',
+   !/\b(msg|reply|content|utterance)\s*:/.test(FL.replace(/\/\*[\s\S]*?\*\//g, '')));
+ok('오류 문장을 잘라서 넣는다(표가 부풀지 않게)', /slice\(0,\s*ERR_MAX\)/.test(FL));
+ok('표를 없으면 만든다(지연 CREATE)', /CREATE TABLE IF NOT EXISTS ai_failure_log/.test(FL));
+
 console.log('\n② 서버 — 폴백을 «기록에 안 남기는가»');
 
 const insIdx = SRV.indexOf("INSERT INTO ai_friend_chats");
