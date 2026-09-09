@@ -596,6 +596,64 @@ export function allowsStraightThrough(reqType: string | null | undefined): boole
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 🖐 같은 사람이 «두 단계 연달아» 못 누르게
+ *
+ *   [왜 — 2026-09-09 사장님 지시 「1번 막아주고」]
+ *     지정 결재권자(장지웅 부장)가 경영진 명단(EXEC_USERNAMES)에도 있어서, 큰돈 건에서
+ *     1단계(mgr)를 누른 그 사람이 2단계(exec)까지 이어서 누를 수 있었다. 그러면 대표님께는
+ *     «결재» 가 아니라 «확인» 으로 내려와, 「₱5,000 이상은 대표가 결재한다」가 화면에서만
+ *     참인 상태가 된다(2026-09-09 함정 대조가 정본을 돌려 확인한 실제 동작).
+ *
+ *   [대가 — 아는 채로 고른 것]
+ *     둘 중 하나가 휴가·출장이면 큰돈 결재가 그 자리에서 멈춘다. 그래도 이쪽을 고른 이유는,
+ *     막지 않으면 «두 사람 결재» 라는 규칙 자체가 없는 것과 같아지기 때문이다.
+ *     ℹ️ 지금 명단으로는 교착이 없다 — 경영진이 둘(admin·mgr_jjw)이라, 1단계를 누른 사람이
+ *        누구든 나머지 한 사람이 2단계를 누를 수 있다.
+ *
+ *   ⛔ 반려(rejected)에는 걸지 않는다 — 반려는 돈이 나가지 않는 방향이고, 자기가 앞서 찍은
+ *      도장을 스스로 물리는 것을 막을 이유가 없다. 막는 것은 «승인» 뿐이다.
+ *
+ *   ⛔ 이 규칙을 분류 전체로 넓히지 말 것 — 긴급·휴가·문서까지 걸면 1단계짜리 건에는
+ *      아무 효과도 없으면서, 나중에 단계가 늘 때 엉뚱한 곳에서 멈춘다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 이 분류에 «같은 사람 연속 결재 금지» 를 거는가 — 돈이 나가는 둘만. */
+export function blocksSameDecider(reqType: string | null | undefined): boolean {
+  const k = typeSpec(reqType).key;
+  return k === 'purchase' || k === 'expense';
+}
+
+export interface SameDeciderInput {
+  reqType: string | null | undefined;
+  /**
+   * 앞 단계(seq 가 작은 단계)에서 **이미 승인 도장을 찍은** 사람들.
+   *   🔴 조회에 실패했으면 반드시 `null` 을 넘길 것 — 빈 배열로 넘기면 «앞 단계에 아무도
+   *      없다» 는 뜻이 되어 이 게이트가 조용히 통째로 풀린다. 돈이 걸린 자리라
+   *      **모르면 막는 쪽**으로 실패한다.
+   */
+  priorDeciders: (string | null | undefined)[] | null | undefined;
+  /** 지금 누르려는 사람 */
+  me: string;
+  /** 'approved' | 'rejected' — 반려는 막지 않는다. */
+  decision: string | null | undefined;
+}
+
+/** 막아야 하는가. `reason` 은 화면이 «왜» 를 말할 수 있게 갈라 둔다. */
+export function sameDeciderBlocked(inp: SameDeciderInput): { blocked: boolean; reason: string } {
+  const pass = { blocked: false, reason: '' };
+  if (!inp) return { blocked: true, reason: 'lookup_failed' };
+  if (String(inp.decision || '').trim().toLowerCase() !== 'approved') return pass;
+  if (!blocksSameDecider(inp.reqType)) return pass;
+  const me = String(inp.me || '').trim().toLowerCase();
+  if (!me) return { blocked: true, reason: 'unknown_actor' };
+  if (inp.priorDeciders == null) return { blocked: true, reason: 'lookup_failed' };
+  for (const d of inp.priorDeciders) {
+    if (String(d || '').trim().toLowerCase() === me) return { blocked: true, reason: 'same_decider' };
+  }
+  return pass;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * ✅ 「확인」 — 결재가 아니라 «봤다»는 표시
  *
  *   [왜 있나 — 2026-09-09 사장님 지시]
@@ -610,15 +668,13 @@ export function allowsStraightThrough(reqType: string | null | undefined): boole
  *   ⚠️ 이 판정은 **금액을 보지 않는다** — «내가 마지막 도장을 찍었는가» 만 본다.
  *      큰돈(₱5,000 이상)을 대표님이 직접 최종 결재하면 그래서 저절로 빠진다.
  *
- *   🔴 그러나 «큰돈은 반드시 대표가 결재한다» 를 이 함수가 보장하지는 **않는다.**
- *      결재권자(장지웅)가 경영진 명단에도 있어서 1단계(mgr)에 이어 2단계(exec)까지
- *      **연달아 누를 수 있다**(decide 에는 「본인이 올린 건은 본인이 승인 못 함」만 있고
- *      「같은 사람이 연속 두 단계」를 막는 규칙이 없다). 그러면 대표님께는 «결재» 가
- *      아니라 «확인» 으로 온다.
- *      막으려면 그 규칙을 decide 에 넣어야 하는데, 그건 «둘 중 하나가 자리를 비우면
- *      큰돈 결재가 멈춘다» 는 대가가 있다 — **사람이 정할 일**이다(2026-09-09 미결).
- *      ⛔ 이 문단을 「보장된다」로 고쳐 적지 말 것. 2026-09-09 함정 대조가 정본을 실제로
- *         돌려 반대임을 확인했다.
+ *   ⚠️ «큰돈은 대표가 결재한다» 를 지키는 것은 이 함수가 아니라 **sameDeciderBlocked**
+ *      (같은 사람이 두 단계 연달아 못 누름)다. 2026-09-09 그 규칙을 넣기 전에는
+ *      결재권자가 1단계에 이어 2단계까지 눌러, 대표님께 «결재» 대신 «확인» 이 왔다.
+ *      ⛔ 그 규칙을 끄면 이 문단이 다시 거짓이 된다 — 함께 보고 고칠 것.
+ *
+ *   ✅ 확인은 «결재권자가 아닌 경영진» 에게만 뜬다(isApprover) — 2026-09-09 사장님
+ *      「2번은 대표만 보이게」. 결재권자는 결재를 하는 사람이지 확인하는 사람이 아니다.
  * ═════════════════════════════════════════════════════════════════════════ */
 
 export interface AckInput {
@@ -638,6 +694,16 @@ export interface AckInput {
   /** 지금 보고 있는 사람 */
   me: string;
   isExec: boolean;
+  /**
+   * 이 사람이 돈 나가는 건의 **결재권자**인가(isMoneyApprover).
+   *   결재권자에게는 「확인할 것」을 띄우지 않는다 — 결재를 하는 사람이지 확인하는
+   *   사람이 아니다(2026-09-09 사장님 「확인은 대표만 보이게」).
+   *   ⚠️ 이름을 못 박지 않고 «결재권자인가» 로 묻는다 — 결재권자가 바뀌어도 규칙이
+   *      저절로 따라온다.
+   *   ⚠️ 안 넘기면 기본 false = «확인 대상» 이다. 옛 동작 그대로라 조용히 빠지지는
+   *      않지만, 새 호출부를 만들면 반드시 넘길 것(하니스가 호출부를 대조한다).
+   */
+  isApprover?: boolean;
 }
 
 /**
@@ -648,6 +714,8 @@ export interface AckInput {
  */
 export function needsExecAck(inp: AckInput): boolean {
   if (!inp || !inp.isExec) return false;
+  // 💳 결재권자는 «확인» 대상이 아니다 — 그 사람은 결재로 이미 그 건을 봤다.
+  if (inp.isApprover) return false;
   const k = typeSpec(inp.reqType).key;
   if (k !== 'purchase' && k !== 'expense') return false;
   if (String(inp.status || '').trim().toLowerCase() !== 'approved') return false;

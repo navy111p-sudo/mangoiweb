@@ -39,6 +39,7 @@ const P = await import(pathToFileURL(POLICY_PATH).href);
 const {
   stagesFor, canDecideStage, isPrimaryApprover, isMoneyApprover,
   allowsStraightThrough, needsExecAck, isExec,
+  blocksSameDecider, sameDeciderBlocked,
   MONEY_APPROVERS, EXEC_USERNAMES, TWO_STEP_THRESHOLD, TYPES,
 } = P;
 
@@ -305,6 +306,20 @@ check('상태 글자에 공백·대문자가 섞여도 알아본다',
 check('ackAt 이 0 이면 «아직 안 함» 으로 본다 (0 을 «했다»로 읽지 않는다)',
   ack({ ackAt: 0 }) === true);
 
+/* 🔴 [Ⓔ-2] 「확인은 대표만 보이게」 — 2026-09-09 사장님 지시.
+     ⚠️ «결재권자에게 안 뜬다» 만 두면 «아무에게도 안 뜬다» 도 통과한다.
+        반드시 «대표에게는 뜬다» 를 짝으로 둔다. */
+console.log('\n[Ⓔ-2] 확인은 «결재권자가 아닌 경영진» 에게만');
+check('결재권자에게는 확인이 뜨지 않는다 (결재를 하는 사람이지 확인하는 사람이 아니다)',
+  ack({ me: APPROVER_UID, decidedBy: EXEC_UID, isApprover: true }) === false);
+check('짝 — 같은 건이 대표에게는 뜬다 (전부 막는 코드도 통과하지 않게)',
+  ack({ me: EXEC_UID, decidedBy: APPROVER_UID, isApprover: false }) === true);
+check('isApprover 를 안 넘기면 옛 동작 그대로 (조용히 사라지지 않는다)',
+  needsExecAck({ reqType: 'purchase', status: 'approved', decidedBy: APPROVER_UID,
+                 ackAt: null, me: EXEC_UID, isExec: true }) === true);
+check('결재권자라도 경영진이 아니면 애초에 안 뜬다',
+  ack({ me: APPROVER_UID, isExec: false, isApprover: true }) === false);
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * Ⓕ 배선 — 서버·화면이 위 판정을 실제로 부르는가
  * ═════════════════════════════════════════════════════════════════════════ */
@@ -401,6 +416,115 @@ check('대신 결재 안내는 서버 판정(by_proxy)을 쓴다 — 화면이 �
   /r\.by_proxy/.test(WORK_SRC));
 check('확인 목록을 결재함에 합치지 않는다 (급한 건이 묻히지 않게)',
   !/paintList\('inbox', *\(D\.inbox *\|\| *\[\]\)\.concat/.test(WORK_SRC));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Ⓗ 같은 사람이 «두 단계 연달아» 못 누른다 — 2026-09-09 사장님 「1번 막아주고」
+ *
+ *   ⚠️ 「막는가」만 재면 «전부 막기» 도 통과한다. 절마다 **«그래도 되는 것은 된다»**
+ *      를 짝으로 둔다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+console.log('\n[Ⓗ] 같은 사람 연속 결재 금지');
+const sd = (o) => sameDeciderBlocked({
+  reqType: 'purchase', priorDeciders: [APPROVER_UID], me: APPROVER_UID, decision: 'approved', ...o,
+});
+check('앞 단계를 내가 승인했으면 이 단계는 막힌다', sd({}).blocked === true);
+check('그때 사유는 same_decider', sd({}).reason === 'same_decider');
+check('짝 — 다른 사람은 그대로 결재할 수 있다',
+  sd({ me: EXEC_UID }).blocked === false);
+check('짝 — 앞 단계에 아무도 없으면(1단계) 막지 않는다',
+  sd({ priorDeciders: [] }).blocked === false);
+check('대소문자만 달라도 같은 사람으로 본다',
+  sd({ me: String(APPROVER_UID).toUpperCase() }).blocked === true);
+check('앞뒤 공백이 섞여도 같은 사람으로 본다',
+  sd({ priorDeciders: [' ' + APPROVER_UID + ' '] }).blocked === true);
+check('앞 단계 결재자가 여럿이어도 그중 하나가 나면 막는다',
+  sd({ priorDeciders: ['someone_else', APPROVER_UID] }).blocked === true);
+check('앞 단계에 «도장을 안 찍은» 빈 값이 섞여 있어도 오판하지 않는다',
+  sd({ priorDeciders: [null, ''], me: EXEC_UID }).blocked === false);
+
+/* 🔴 조회 실패 = «모른다». 빈 배열로 떨어뜨리면 게이트가 통째로 풀린다. */
+check('앞 단계를 조회하지 못하면 막는다 (모르면 막는 쪽으로 실패)',
+  sd({ priorDeciders: null }).blocked === true && sd({ priorDeciders: null }).reason === 'lookup_failed');
+check('undefined 도 «모른다» 로 본다', sd({ priorDeciders: undefined }).blocked === true);
+check('인자를 통째로 안 넘겨도 막는다', sameDeciderBlocked(null).blocked === true);
+check('누구인지 모르면 막는다', sd({ me: '' }).reason === 'unknown_actor');
+
+/* 🔴 반려는 막지 않는다 — 돈이 나가지 않는 방향이다. */
+check('반려는 앞 단계를 내가 결재했어도 막지 않는다',
+  sd({ decision: 'rejected' }).blocked === false);
+check('결정을 안 넘기면 막지 않는다 (승인에만 거는 규칙)',
+  sd({ decision: null }).blocked === false);
+
+/* 🔴 분류 — 돈이 나가는 둘에만. */
+check('물품 구입에 걸린다', blocksSameDecider('purchase') === true);
+check('지출 정산에 걸린다', blocksSameDecider('expense') === true);
+check('인사·급여에는 안 걸린다', blocksSameDecider('hr') === false);
+check('긴급에는 안 걸린다', blocksSameDecider('urgent') === false);
+check('휴가에는 안 걸린다', blocksSameDecider('leave') === false);
+check('문서에는 안 걸린다', blocksSameDecider('doc') === false);
+check('모르는 분류에도 안 걸린다', blocksSameDecider('zzz') === false);
+check('분류가 안 걸리면 앞 단계가 나여도 통과',
+  sd({ reqType: 'hr' }).blocked === false);
+
+/* 🔴 교착 확인 — 지금 명단으로 큰돈 결재가 멈추지 않는가.
+     경영진이 둘 이상이어야, 1단계를 누른 사람 말고 다른 사람이 2단계를 누를 수 있다. */
+check('큰돈 2단계 결재가 교착되지 않는다 (1단계를 누른 사람 말고도 결재할 사람이 남는다)',
+  EXEC_USERNAMES.filter(u => !MONEY_APPROVERS.includes(u)).length >= 1,
+  `EXEC=${JSON.stringify(EXEC_USERNAMES)} MONEY=${JSON.stringify(MONEY_APPROVERS)}`);
+
+console.log('\n[Ⓗ-2] 배선 — 서버가 실제로 그 판정을 지나는가');
+/* 결재(decide) 라우트만 잘라 본다 — 파일 전체에서 찾으면 딴 라우트의 코드가 걸린다. */
+function blockFrom(src, anchorRe) {
+  const m = src.match(anchorRe);
+  if (!m) return '';
+  let i = src.indexOf('{', m.index + m[0].length - 1);
+  if (i < 0) return '';
+  let d = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
+const DECIDE = blockFrom(API_SRC, /if \(method === 'POST' && mDecide\) \{/);
+check('전제 — decide 라우트 본문을 잘라 냈다', DECIDE.length > 500, `len=${DECIDE.length}`);
+check('decide 가 정본 sameDeciderBlocked 를 부른다', /sameDeciderBlocked\(/.test(DECIDE));
+check('조건을 라우트 안에 다시 적지 않았다 (정본 하나로)',
+  !/priorDeciders[\s\S]{0,200}indexOf\(/.test(DECIDE) && !/decided_by[^\n]*===[^\n]*actor\.username/.test(DECIDE));
+check('앞 단계 결재자를 approval_steps 에서 읽는다',
+  /SELECT decided_by[\s\S]{0,160}approval_steps/.test(DECIDE));
+check('앞 단계만 본다 (seq < ?) — 다음 단계까지 세면 엉뚱한 것을 막는다',
+  /seq < \?/.test(DECIDE));
+check('승인 도장만 센다 (반려·건너뜀은 «앞 단계 결재» 가 아니다)',
+  /status = 'approved'/.test(DECIDE));
+check('조회 실패는 null 로 떨어진다 (빈 배열이면 게이트가 풀린다)',
+  /\)\.map\(\(r: any\) => r\.decided_by[^\n]*\n?[\s\S]{0,40}, null\)/.test(DECIDE) ||
+  /r\.decided_by as string \| null\)[\s\S]{0,20}, null\)/.test(DECIDE));
+check('막히면 403 으로 끊는다', /if \(sd\.blocked\)[\s\S]{0,900}403\)/.test(DECIDE));
+check('막는 판정이 «결재를 적기 전» 에 온다',
+  DECIDE.indexOf('sd.blocked') > 0 &&
+  DECIDE.indexOf('sd.blocked') < DECIDE.indexOf('UPDATE approval_requests'));
+check('사람이 읽을 사유를 한국어·영어로 준다',
+  /same_decider:[\s\S]{0,200}different approver/.test(DECIDE));
+
+console.log('\n[Ⓗ-3] 배선 — 화면이 그 사실을 말하는가');
+check('결재함 행에 same_decider 표시를 붙인다', /row\.same_decider = sameDeciderBlocked\(/.test(API_SRC));
+check('그 표시를 정본으로 계산한다 (화면이 스스로 판정하지 않는다)',
+  !/same_decider\s*=\s*[^=]*decided_by/.test(WORK_SRC));
+check('화면이 승인 버튼을 감춘다', /r\.same_decider \? '' :/.test(WORK_SRC));
+check('짝 — 반려 버튼은 남긴다 (돈이 안 나가는 방향)',
+  /askWhy\(' \+ r\.id \+ '\)/.test(WORK_SRC));
+check('화면이 이유를 적는다', /앞 단계를 결재하셔서/.test(WORK_SRC));
+check('묶음 승인에서 빠진다 (조용히 건수만 줄지 않게)',
+  /if \(r\.same_decider\) return false;/.test(WORK_SRC));
+
+console.log('\n[Ⓗ-4] 확인 목록도 결재권자에게는 안 나간다');
+check('home 이 «결재권자가 아닌 경영진» 만 확인 대상으로 본다',
+  /const iAmAckViewer = iAmExec && !iAmMoneyApprover;/.test(API_SRC));
+check('확인 목록 조회가 그 판정을 쓴다', /const ackRs = iAmAckViewer \?/.test(API_SRC));
+check('두 호출부 모두 isApprover 를 넘긴다 (한쪽만 넘기면 목록과 주소 호출이 어긋난다)',
+  (API_SRC.match(/isApprover: iAmMoneyApprover/g) || []).length === 2,
+  String((API_SRC.match(/isApprover: iAmMoneyApprover/g) || []).length));
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Ⓖ 규칙서가 같은 말을 하는가 — 여러 곳에 흩어진 단정이 어긋나지 않게

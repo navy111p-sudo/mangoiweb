@@ -1874,8 +1874,19 @@ function itemHtml(r, decidable, ackable){
         T('The approver normally decides this one. You can decide on their behalf.',
           '이 단계는 결재권자가 결재합니다. 자리를 비웠다면 대신 결재하실 수 있습니다.')) + '</div>';
     }
+    /* 🖐 앞 단계를 내가 결재한 건 — 서버가 승인을 막는다(sameDeciderBlocked).
+       «승인» 버튼을 안 그리고 이유를 적는다. 안 그리면 눌렀다가 403 을 보게 되고,
+       묶음 승인에서는 조용히 빠져 건수만 줄어든다.
+       ⛔ 「반려」는 남긴다 — 돈이 나가지 않는 방향이라 서버도 막지 않는다.
+       ⛔ 화면이 스스로 판정하지 않는다(결재 규칙도 계정 명단도 모른다). */
+    if (r.same_decider) {
+      h += '<div class="steps">' + esc(
+        T('You approved an earlier stage — a different approver must decide this stage.',
+          '앞 단계를 결재하셔서 이 단계는 다른 결재자가 눌러야 합니다.')) + '</div>';
+    }
     h += '<div class="acts">' +
-         '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>' +
+         (r.same_decider ? '' :
+           '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>') +
          '<button class="big no" onclick="askWhy(' + r.id + ')">' + esc(T('Reject', '반려')) + '</button>' +
          '</div><div id="why-' + r.id + '"></div>';
   }
@@ -1894,6 +1905,7 @@ function itemHtml(r, decidable, ackable){
 function cleanOnes(){
   return (D.inbox || []).filter(function(r){
     if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
+    if (r.same_decider) return false;                     // 🖐 서버가 막는 건 — 묶으면 조용히 빠진다
     var f = r.flags || [];
     for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
     return true;

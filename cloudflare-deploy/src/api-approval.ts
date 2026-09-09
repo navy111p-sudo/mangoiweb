@@ -48,7 +48,8 @@ import {                                               // 💼 인사·급여 «
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
-  isPrimaryApprover, allowsStraightThrough, needsExecAck,   // 💳 결재권자 · 전결 · 확인
+  isPrimaryApprover, isMoneyApprover, allowsStraightThrough, needsExecAck,   // 💳 결재권자 · 전결 · 확인
+  blocksSameDecider, sameDeciderBlocked,                     // 🖐 같은 사람 연속 결재 금지
   sniffKind, normExt, contentTypeFor, buildFindQuery,
   CATEGORIES, normCategory, categorySpec, summarizeApprovals, foldHomeMoney, kstMonth,
   STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
@@ -895,6 +896,10 @@ export async function handleApprovalApi(
 
   const ph = isPhManager(actor);
   const iAmExec = isExec(actor);
+  /* 💳 돈 나가는 건의 «결재권자» 인가 — 확인(ack) 대상에서 빠진다.
+     결재권자는 결재로 이미 그 건을 봤다(2026-09-09 사장님 「확인은 대표만 보이게」). */
+  const iAmMoneyApprover = isMoneyApprover(actor);
+  const iAmAckViewer = iAmExec && !iAmMoneyApprover;
 
   // ── 화면 한 번에 채우기 ───────────────────────────────────────────────────
   //   /work 는 이 응답 하나로 첫 화면을 그린다. 회선이 느린 곳에서 왕복 횟수가 곧 체감 속도다.
@@ -1075,13 +1080,17 @@ export async function handleApprovalApi(
     /* ④ ✅ 확인 대기 — 경영진에게만.
          결재는 이미 끝났고(필리핀에도 통보 완료) «봤다»는 도장만 남은 건이다.
          ⚠️ **막지 않는다.** 안 눌러도 업무는 그대로 흘러간다 — 그것이 설계 의도다.
-         ⚠️ 큰돈 건은 경영진이 직접 최종 결재하므로 decided_by 가 본인이 되어 저절로 빠진다.
+         ⚠️ 결재권자(장 부장)에게는 뜨지 않는다 — iAmAckViewer. 결재를 하는 사람이지
+            확인하는 사람이 아니다.
+         ⚠️ 큰돈 건은 «같은 사람 연속 결재 금지»(sameDeciderBlocked) 덕에 대표님이 2단계를
+            찍게 되어 decided_by 가 본인이 되고, 그래서 저절로 빠진다. 그 규칙을 끄면
+            이 줄이 거짓이 된다.
          ⚠️ 최종 판정은 needsExecAck 한 곳이 한다. 여기 WHERE 는 그 판정과 «같은 말» 을
             미리 걸어 LIMIT 20 이 엉뚱한 행으로 채워지지 않게 하는 것뿐이다
             (한쪽만 고치면 목록에는 안 뜨는데 주소로 부르면 통과하는 상태가 된다).
             (다만 decided_by 비교는 SQL 에서도 해 둔다. 안 하면 대표님이 직접 찍은 건들이
              LIMIT 20 을 채워, 정작 확인해야 할 건이 창 밖으로 밀린다.) */
-    const ackRs = iAmExec ? await safe(async () => await env.DB.prepare(
+    const ackRs = iAmAckViewer ? await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests
         WHERE status = 'approved' AND exec_ack_at IS NULL AND cancelled_by_id IS NULL
           AND req_type IN ('purchase','expense')
@@ -1113,6 +1122,18 @@ export async function handleApprovalApi(
          화면이 그 사실을 말해야 한다. 안 그러면 경영진 화면에서 결재권자의 건이
          자기 일처럼 보여, 「결재는 장 부장이 한다」가 조용히 무너진다. */
       row.by_proxy = !isPrimaryApprover(actor, role, ph);
+      /* 🖐 앞 단계를 내가 결재한 건 — 이 단계는 다른 결재자가 눌러야 한다(sameDeciderBlocked).
+         화면이 그 사실을 말하지 않으면 「승인」을 눌렀다가 403 을 보게 되고,
+         묶음 승인에서는 «조용히 빠진» 채 건수만 줄어든다.
+         ⚠️ 판정은 정본 하나로 — 여기서 조건을 다시 적으면 서버와 화면이 어긋난다.
+         ℹ️ steps 는 이미 받아 둔 것이라 추가 조회가 없다. */
+      row.same_decider = sameDeciderBlocked({
+        reqType: r.req_type,
+        priorDeciders: steps
+          .filter((s2: any) => Number(s2.seq) < seq && String(s2.status || '') === 'approved')
+          .map((s2: any) => s2.decided_by),
+        me, decision: 'approved',
+      }).blocked;
       inbox.push(row);
       if (inbox.length >= 20) break;
     }
@@ -1126,6 +1147,7 @@ export async function handleApprovalApi(
       if (!needsExecAck({
         reqType: r.req_type, status: r.status, decidedBy: r.decided_by,
         ackAt: r.exec_ack_at, cancelledById: r.cancelled_by_id, me, isExec: iAmExec,
+        isApprover: iAmMoneyApprover,
       })) continue;
       ackPending.push(rowOf(r, stepMap[Number(r.id)] || [], true));
     }
@@ -1739,7 +1761,7 @@ export async function handleApprovalApi(
     if (!needsExecAck({
       reqType: cur.req_type, status: cur.status, decidedBy: cur.decided_by,
       ackAt: cur.exec_ack_at, cancelledById: cur.cancelled_by_id,
-      me: String(actor.username), isExec: iAmExec,
+      me: String(actor.username), isExec: iAmExec, isApprover: iAmMoneyApprover,
     })) {
       return json({
         ok: false, error: 'not_ackable',
@@ -1805,6 +1827,34 @@ export async function handleApprovalApi(
     const decision = String(payload?.decision || '');
     if (decision !== 'approved' && decision !== 'rejected') return json({ ok: false, error: 'bad_decision' }, 400);
     const memo = String(payload?.memo || '').slice(0, 1000) || null;
+
+    /* 🖐 같은 사람이 «두 단계 연달아» 승인하지 못하게 (2026-09-09 사장님 「1번 막아주고」).
+         돈이 나가는 분류에서만, «승인» 에만 건다(반려는 돈이 안 나가는 방향이라 막지 않는다).
+       🔴 앞 단계 조회가 실패하면 `null` 을 넘겨 **막는 쪽으로** 실패한다 — 빈 배열로 넘기면
+          「앞 단계에 아무도 없다」가 되어 이 게이트가 조용히 통째로 풀린다.
+       ℹ️ 1단계(seq 1)에는 앞 단계가 없으니 조회 자체를 하지 않는다(빈 배열 = 통과). */
+    const needSameCheck = blocksSameDecider(cur.req_type) && seq > 1;
+    const priorDeciders: (string | null)[] | null = needSameCheck
+      ? await safe(async () => ((await env.DB.prepare(
+          `SELECT decided_by FROM approval_steps
+            WHERE request_id = ? AND seq < ? AND status = 'approved'`
+        ).bind(id, seq).all<any>()).results || []).map((r: any) => r.decided_by as string | null), null)
+      : [];
+    const sd = sameDeciderBlocked({
+      reqType: cur.req_type, priorDeciders, me: String(actor.username), decision,
+    });
+    if (sd.blocked) {
+      const SD_MSG: Record<string, [string, string]> = {
+        same_decider:  ['앞 단계를 결재하신 분은 다음 단계를 결재할 수 없습니다. 다른 결재자가 눌러야 합니다.',
+                        'You approved an earlier stage — a different approver must decide this stage.'],
+        lookup_failed: ['앞 단계 결재 기록을 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.',
+                        'Could not verify the earlier stage. Please try again shortly.'],
+        unknown_actor: ['계정을 확인하지 못했습니다. 다시 로그인해 주세요.',
+                        'Could not identify your account. Please sign in again.'],
+      };
+      const m = SD_MSG[sd.reason] || SD_MSG.same_decider;
+      return json({ ok: false, error: 'same_decider', reason: sd.reason, message: m[0], message_en: m[1] }, 403);
+    }
 
     const now = Date.now();
     const lastStage = (seq >= total) || straightThrough;
