@@ -503,7 +503,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   /* ⛔ «지웠다» 를 «promo 링크가 하나도 없다» 로 못 박지 말 것 — 같은 날 사장님이 새 영상을
         그 자리에 두라고 정하셨다. 지켜야 하는 것은 «지운 그 줄이 안 돌아왔는가» 다. */
   check('⑨ 「망고아이란?」 카드에 «안내 영상(3분 48초)» 줄이 없다 (2026-09-09 지시)',
-    cards.length > 1 && !cards.some(t => /안내 영상/.test(t)) && !/promo\.html\?v=ai-tools\b/.test(aboutC),
+    cards.length > 1 && !cards.some(t => /안내 영상/.test(t)) && !/promo\.html\?v=ai-tools(?!-short)/.test(aboutC),
     `카드 ${cards.length}장 · 첫 장 「${cards[0] || '(없음)'}」`);
   /* ⛔ «홍보영상» 이라는 «글자» 로 못 박지 말 것 — 어느 영상을 맨 앞에 두는가는 사람이 정한다.
         지켜야 하는 것은 «맨 앞이 영상 카드인가» 와 «그 카드가 실재하는 프리셋으로 가는가» 다. */
@@ -561,7 +561,7 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
         ⛔ !/promo\.html/ 로 되돌리지 말 것 — 사장님이 넣으라고 하신 줄이 빨간불이 된다.
         ⚠️ 주석을 벗긴 사본(aboutC)으로 볼 것 — 설명 주석이 그 주소를 담고 있다. */
   check('⑨ 「망고아이란?」 카드가 «지운 3분 48초 판» 으로 가지 않는다',
-    !/promo\.html\?v=ai-tools\b/.test(aboutC));
+    !/promo\.html\?v=ai-tools(?!-short)/.test(aboutC));
   check('⑨ 긴 판 프리셋이 대상을 밝힌다', /원장님·선생님/.test(P_LONG.blk));
   /* ⛔ 짧은 판은 아이에게 하는 말이다 — 거기서 «원장님·선생님께» 라고 하면 안 된다 */
   check('⑨ 짧은 판 프리셋은 «원장님·선생님» 이라고 말하지 않는다', !/원장님·선생님/.test(P_SHORT.blk));

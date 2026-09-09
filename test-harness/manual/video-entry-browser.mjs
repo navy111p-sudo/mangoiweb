@@ -204,9 +204,35 @@ console.log('\n[A안] 홈 「망고아이란?」 — 3분 48초 판은 없앴고
   ok('«안내 영상(3분 48초)» 줄이 어느 카드에도 없다', !/안내 영상/.test(m.all), m.firstTx.slice(0,40));
   ok('맨 앞이 «홍보영상» 카드다', /^▶/.test(m.firstTx), m.firstTx.slice(0,40));
   ok('나머지 카드는 그대로 그려진다 (12장 이상)', m.n >= 12 && m.h >= 44, JSON.stringify({n:m.n,h:m.h}));
-  const html = await pg.content();
-  ok('지운 3분 48초 판으로 가는 길이 없다', !/promo\.html\?v=ai-tools\b/.test(html));
-  ok('새 홍보영상으로 가는 길은 있다', /promo\.html\?v=brand/.test(html));
+  /* 🔴 «어디로 가는가» 를 pg.content() 로 재지 말 것 — 주소는 cta.go 함수 «안» 에만 있고
+        그 JS 는 외부 <script src> 라 직렬화된 DOM 에 안 들어간다. 그렇게 쓰면 부정 검사는
+        «언제나 참», 긍정 검사는 «언제나 거짓» 이라 둘 다 헛돈다(2026-09-09 실제로 그랬다 —
+        #889 가 물려준 !/promo\.html/ 도 삭제 «전» 에도 통과했을 검사였다).
+        ✅ 맨 앞 카드를 실제로 눌러 window.open 이 «무슨 주소로» 불리는지 본다. */
+  const goTo = await pg.evaluate(async () => {
+    const seen = [];
+    const realOpen = window.open;
+    window.open = (u) => { seen.push(String(u)); return null; };   // null → location.href 폴백 경로
+    const realAssign = Object.getOwnPropertyDescriptor(window.location, 'href');
+    let href = '';
+    try {
+      document.querySelector('#about-mangoi-ov .abm-item').click();
+      await new Promise(r => setTimeout(r, 300));
+      const cta = document.querySelector('#about-mangoi-ov .abm-dcta');
+      if (!cta) return { err: 'cta 없음' };
+      /* location.href 로 떨어지면 페이지가 실제로 이동해 버리니 한 겹 막는다 */
+      try { Object.defineProperty(window.location, 'href', { configurable: true, set(v){ href = String(v); }, get(){ return document.URL; } }); } catch (e) {}
+      cta.click();
+      await new Promise(r => setTimeout(r, 100));
+    } finally {
+      window.open = realOpen;
+      try { if (realAssign) Object.defineProperty(window.location, 'href', realAssign); } catch (e) {}
+    }
+    return { seen, href };
+  });
+  const dest = [...(goTo.seen || []), goTo.href || ''].join(' ');
+  ok('맨 앞 카드를 누르면 «새 홍보영상» 으로 간다', /promo\.html\?v=brand/.test(dest), JSON.stringify(goTo));
+  ok('«지운 3분 48초 판» 으로 가지 않는다', !/promo\.html\?v=ai-tools(?!-short)/.test(dest), JSON.stringify(goTo));
   /* 카드를 여는 것만으로 영상을 받으면 안 된다 — 포스터 그림 + 링크뿐이어야 한다 */
   ok('영상은 0바이트', !reqs.some(u=>/(ai-tools-kr|mangoi-promo-kr)\.mp4/.test(u)));
   await ctx.close(); }
