@@ -9,6 +9,28 @@
         if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
+          /* 🎬 (2026-09-09 사장님 지시) 짧은 홍보영상 — «처음 들어온 사람이 보고 이해하게».
+             나레이션이 «사장님이 직접 녹음해 주신 사람 목소리» 다. 그 앞 판은 합성 목소리였고
+             「한국말이 이해가 가지 않아」 제보를 받아 갈아 끼운 것이 이 영상이다.
+             ⛔ 이 자리를 다시 TTS·음성복제 영상으로 되돌리지 말 것.
+             ⛔ 여기서 영상을 «틀지» 않는다. 13.5MB 라 카드를 여는 것만으로 받게 하면
+                볼 생각이 없는 사람에게도 내려간다(adm-promo-setup.js 가 같은 판단을 해 뒀다).
+                포스터 그림(35KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
+             ℹ️ 여기 있던 «▶ 안내 영상 — 3분 48초로 보기» 줄은 2026-09-09 사장님
+                「완전히 없애」 지시로 뺐다(#889). ⛔ 되살리지 말 것 — CLAUDE.md 1-3.
+                영상 파일과 /promo.html?v=ai-tools 주소는 그대로 살아 있다. */
+          {ic:'🎬', t:'▶ 홍보영상 — 1분 21초로 보기', lead:true,
+           d:'<img src="/img/promo/brand-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
+             + '망고아이가 <b>어떤 곳인지</b> 1분 21초에 담았습니다. '
+             + '처음 오신 분은 이 영상부터 보시면 가장 빠릅니다.',
+           p:['왜 안 되나 — 재능이 아니라 «오래 하지 못해서» 입니다',
+              '무엇이 다른가 — 수업이 없는 날의 빈 시간을 A.I 학습 14가지가 채웁니다',
+              '근거 — 비고츠키 근접발달영역과 간격 반복 위에 설계했습니다'],
+           cta:{l:'▶ 영상 보기 (1분 21초)', go:function(){
+             var u = '/promo.html?v=brand', w = null;
+             try { w = window.open(u, '_blank'); } catch (e) {}
+             if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
+           }}},
           {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true, voice:'/audio/teacher-ai-voice.mp3',
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
            p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 다른 대부분의 화상외국어 업체들과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서를 생성하고, 배운 내용에 맞춰 듣기·말하기·쓰기 등 10문항 복습 퀴즈를 바로 진행','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
