@@ -31,9 +31,13 @@ const ok = (c, m, extra) => {
 };
 
 /* 고치기 전 실측값 — 줄었는지 견주는 기준선 */
-const BEFORE = { 'PC 1920x1080': 390, 'PC 1280x800': 390, '폰 390x844': 342, '폰 360x640': 342 };
+const BEFORE = { 'PC 1920x1080': 390, 'PC 1280x800': 390,
+                 '폰 390x844': 342, '폰 360x640': 342, '작은 폰 320x640': 342 };
 const SIZES = [['PC 1920x1080',1920,1080], ['PC 1280x800',1280,800],
-               ['폰 390x844',390,844], ['폰 360x640',360,640]];
+               ['폰 390x844',390,844], ['폰 360x640',360,640],
+               /* ⚠️ 320px 는 이 저장소가 실제로 밟은 폭이다(「100vw 가 스크롤바를 포함」).
+                  헤더에 여덟 자리를 두었으니 제일 좁은 폭에서 넘치는지 반드시 잰다. */
+               ['작은 폰 320x640',320,640]];
 
 const b = await pw.chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
@@ -77,6 +81,25 @@ for (const [tag, w, h] of SIZES) {
       overflow: top.scrollWidth > top.clientWidth + 1,
       nameClipped: !!name && name.scrollWidth > name.clientWidth + 1,
       nameText: name ? name.textContent.trim() : '',
+      /* ⚙ 요약 — 폰에서는 «레벨» 만 접고 «자막·소리가 꺼져 있다» 표시(👁·🔇)는 남아야 한다.
+         🔴 한때 .ot-sum 을 통째로 숨겨, 끈 학생이 되돌아올 길이 화면에서 사라졌다. */
+      flagBox: (() => {
+        const f = document.querySelector('#optsToggle .ot-flag');
+        if (!f) return { has: false };
+        /* ⚠️ 비어 있을 때는 «안 보이는 것이 정상» 이다(.ot-flag:empty). 그래서 그냥 재면
+           «꺼진 것이 없는» 화면에서 늘 false 가 나온다 — 표시를 넣어 보고 판정한다. */
+        const keep = f.textContent;
+        f.textContent = '👁';
+        const shown = getComputedStyle(f).display !== 'none'
+          && f.getBoundingClientRect().width > 0;
+        f.textContent = keep;
+        return { has: true, shown: shown };
+      })(),
+      /* 🌐 옆 글자(«EN»/«한국어») — 누르면 무슨 말이 되는지 알려 주는 유일한 자리 */
+      langLabelShown: (() => {
+        const l = document.querySelector('.top #mangoi-global-bar .lang-label-sync');
+        return l ? getComputedStyle(l).display !== 'none' && l.textContent.trim().length > 0 : false;
+      })(),
       streakInTop: !!document.querySelector('.top #streakChip'),
       ptsInTop: !!document.querySelector('.top #ptsChip'),
       optsInSheet: !!document.querySelector('#optsSheet .opts'),
@@ -106,6 +129,10 @@ for (const [tag, w, h] of SIZES) {
   ok(m.optsInSheet && m.questsInSheet && m.sndInSheet && m.clearInSheet,
     '설정·퀘스트·소리·대화초기화는 시트 안에 있다');
   ok(m.alive.length === 0, '옮긴 뒤에도 갱신 대상이 전부 살아 있다', '사라진 id: ' + m.alive.join(', '));
+  ok(m.flagBox.has && m.flagBox.shown,
+    '⚙ 옆 «꺼짐» 표시 자리(👁·🔇)가 살아 있다',
+    m.flagBox.has ? '.ot-flag 가 display:none 이다' : '.ot-flag 가 없다');
+  ok(m.langLabelShown, '🌐 옆 언어 글자(«EN»/«한국어»)가 보인다 — 무엇으로 바뀌는지 알 수 있다');
 
   /* 시트 열고 — 실제로 눌리는지까지.
      ⚠️ 클릭이 막히면(다른 것이 덮고 있으면) playwright 가 던진다. 그대로 두면 검사가

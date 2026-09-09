@@ -1634,14 +1634,11 @@
   .input-bar input{padding:12px 12px}
   .input-bar button{padding:10px 13px}
 }
-/* ≤480px(폰): 우상단 고정 홈/EN 바가 🔊·대화초기화 버튼을 덮지 않게 헤더를 그 아래로 */
-@media (max-width:480px){
-  .top{padding-top:48px}
-}
-/* 481px 이상(태블릿~): 헤더 오른쪽에 고정 홈/EN 바 자리를 비워 버튼 겹침 방지 */
-@media (min-width:481px){
-  .top{padding-right:190px}
-}
+/* 🗑 여기 있던 옛 규칙 둘(폰 위쪽 여백 48 · 태블릿 오른쪽 여백 190)을 지웠다.
+   ⛔ 되살리지 마세요 — 그 둘은 «공용 홈/EN 바가 우상단에 «떠» 있다»(fixed) 는 전제로
+   만든 것인데, A안(2026-09-09)에서 그 바를 헤더 «안» 으로 합쳐 흐름 안으로 넣었습니다.
+   되살리면 헤더 오른쪽에 190 만큼 빈 구멍이 생깁니다.
+   ⚠️ 검사에 이 낱말들을 «없어야 한다» 로 쓸 거면 주석을 벗겨 낸 사본으로 판정하세요. */
 </style>
 <style id="txt-big-2026-07-13">
 /* ══ 🔎 가독성 확대 (2026-07-13 사장님 요청: PC에서 글자가 너무 작음) ══
@@ -1808,7 +1805,11 @@
 .top .mango-icon{ width:30px; height:30px; flex:0 0 auto; }
 .top .snd-toggle, .top .hud-chip, .top .opts-toggle{ flex:0 0 auto; }
 /* 헤더로 올라온 상태 칩은 한 줄에 맞게 조금 좁힌다 */
+/* ⚠️ 칩 글자를 여기서 줄이면 «PC에서 글자가 너무 작다»(2026-07-13 사장님 지시)를
+   되돌리는 셈이 된다 — 그 지시가 만든 규칙은 .hud-chip{font-size:17px}(min-width:760px)이고
+   이 규칙이 특정성으로 이긴다. 그래서 좁은 화면에서만 줄이고 PC 는 되살린다. */
 .top .hud-chip{ font-size:11.5px; padding:4px 9px; }
+@media (min-width:760px){ .top .hud-chip{ font-size:14.5px; padding:7px 13px; } }
 .top .hud-chip .xp-track{ display:none; }
 /* 좁은 폰에서는 부제부터 접어 칩 자리를 지킨다 */
 @media (max-width:420px){ .top .status .chg{ display:none; } }
@@ -1819,7 +1820,8 @@
   border:1px solid rgba(148,163,184,0.35); border-radius:10px;
   padding:6px 10px; font-size:12px; font-weight:800; cursor:pointer;
   white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
-.opts-toggle .ot-sum{ color:var(--gold); font-weight:900; }
+.opts-toggle .ot-sum{ color:var(--gold); font-weight:900; display:inline-flex; gap:4px; }
+.opts-toggle .ot-flag:empty{ display:none; }
 body.sheet-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.5); }
 @media (min-width:760px){ .opts-toggle{ font-size:13.5px; padding:7px 12px; } }
 /* 첫 방문 한 번만 «여기 있어요» 말풍선.
@@ -1891,11 +1893,41 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 .sheet-quick{ display:flex; align-items:center; gap:9px; padding:2px 0 12px; }
 .sheet-quick-label{ font-size:13px; font-weight:700; }
 @media (max-width:520px){
-  .top #mangoi-global-bar .mangoi-home-label,
-  .top #mangoi-global-bar .lang-label-sync{ display:none; }
-  .top #mangoi-global-bar > *{ padding:6px 8px !important; gap:0 !important; }
-  /* 폰에서는 ⚙ 요약(«4단계 · B1»)을 접어 한 줄을 지킨다 — 시트를 열면 바로 보인다 */
-  .opts-toggle .ot-sum{ display:none; }
+  /* 🏠 의 «홈» 글자만 접는다 — 집 그림은 그 자체로 뜻이 통한다.
+     ⛔ 🌐 옆 글자(«EN»·«한국어»)는 접지 말 것 — 그 글자가 «누르면 무엇이 되는가» 를
+        말하는 유일한 자리다. 지구본만 남기면 «무슨 말로 바뀌는지» 를 알 길이 없고,
+        title 툴팁은 폰에 hover 가 없어 안 뜬다(CLAUDE.md «폰에서는 안 뜸»). */
+  .top #mangoi-global-bar .mangoi-home-label{ display:none; }
+  .top #mangoi-global-bar > *{ padding:6px 8px !important; gap:3px !important; }
+  /* 폰에서는 ⚙ 요약의 «레벨» 만 접어 한 줄을 지킨다 — 시트를 열면 바로 보인다.
+     ⛔ .ot-sum 을 통째로 숨기지 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
+        함께 사라져, 끈 학생에게 되돌아올 길이 화면에서 없어진다(함정 대조가 잡았다). */
+  .opts-toggle .ot-lv{ display:none; }
+}
+/* ≤380px — 여기서부터는 «자리» 가 아니라 «여백» 으로 맞춘다.
+   🔴 잰 것(2026-09-09): 360px 에서 고정 자리 합이 341px 이라 이름에 24px 밖에 안 남고
+      «Emma»(45px)가 잘렸다. 320px 에서는 6px 가 통째로 넘쳤다.
+   ⛔ 이름·칩·홈·언어 중 무엇도 «지워서» 풀지 말 것 — 안 보이는 문이 생긴다.
+   ⛔ Mr.mango(.mango-icon)도 지우지 말 것 — 사이트 공식 캐릭터다(CLAUDE.md 0장). */
+@media (max-width:380px){
+  .top{ gap:4px; padding:8px 8px; }
+  .top .mango-icon{ width:26px; height:26px; }
+  .top .snd-toggle{ width:26px; height:26px; }
+  .top .name{ font-size:14px; }
+  .top .hud-chip{ font-size:10.5px; padding:4px 5px; gap:2px; }
+  .opts-toggle{ padding:6px 8px; }
+  .top #mangoi-global-bar > *{ padding:5px 6px !important; font-size:11px !important; }
+  .top #mangoi-global-bar{ gap:3px !important; }
+}
+/* ≤330px(아주 작은 폰) — 위 여백을 다 줄여도 몇 px 가 모자란다.
+   ✅ 남은 한 칸은 «뒤로» 버튼에서 낸다. 이 화면은 헤더 안에 🏠 홈이 함께 있어서
+      ← 를 아이콘만으로 줄여도 나가는 문이 둘 다 남는다. */
+@media (max-width:330px){
+  .top{ gap:3px; padding:8px 6px; }
+  .top .hud-chip{ padding:3px 4px; }
+  /* 마지막 몇 px 는 이름 글자에서 낸다 — 지우는 것보다 작아지는 편이 낫다.
+     ⚠️ 더 줄이지 말 것. 13px 아래로는 «누구와 이야기하는가» 가 읽히지 않는다. */
+  .top .name{ font-size:13px; }
 }
 
 /* 위험한 조작은 맨 아래로 — 헤더에 두면 잘못 누른다 */
@@ -1950,6 +1982,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   function summary(){
     var lv = document.querySelector('.opts .opt.active[data-level]');
     var sb = document.querySelector('.opts .opt.active[data-sub]');
+    var sn = document.getElementById('sndToggle');
     /* ⚠️ 레벨 버튼은 두 줄이다(숫자 + <i>CEFR</i>). textContent 를 그대로 쓰면 「3A2+」 가 된다
        — 2026-08-31 trap-check 가 잡았다. 숫자와 CEFR 을 «사람이 읽는 모양» 으로 붙인다. */
     var s = '';
@@ -1958,8 +1991,16 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
       var cefr = lv.querySelector('i');
       s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
     }
-    if (sb && sb.dataset.sub !== 'on') s = (s ? s + ' ' : '') + '👁';
-    return s;
+    /* 🔴 «지금 꺼져 있다» 표시는 레벨과 «따로» 돌려준다.
+       폰에서는 한 줄을 지키려고 레벨 부분만 접는데, 그때 이 표시까지 함께 접히면
+       자막·소리를 끈 학생에게 «되돌아올 길» 이 화면에서 사라진다 —
+       그건 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+       ⚠️ 소리도 같은 이유로 함께 본다. 🔊 버튼이 시트로 내려가 헤더에서 안 보이므로,
+          꺼 놓으면 어디에도 표시가 없었다. */
+    var flags = '';
+    if (sb && sb.dataset.sub !== 'on') flags += '👁';
+    if (sn && sn.classList.contains('off')) flags += '🔇';
+    return { lv: s, flags: flags };
   }
 
   function init(){
@@ -2038,17 +2079,28 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     btn.setAttribute('aria-label', '설정 열기');
     btn.setAttribute('data-ko-aria', '설정 열기');
     btn.setAttribute('data-en-aria', 'Open settings');
-    btn.innerHTML = '⚙ <span class="ot-sum"></span>';
+    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv"></span>'
+      + '<span class="ot-flag"></span></span>';
     top.appendChild(btn);
 
     document.body.appendChild(scrim);
     document.body.appendChild(sheet);
+    sheet.setAttribute('inert', '');          /* 처음엔 닫혀 있다 */
+    sheet.setAttribute('aria-hidden', 'true');
 
-    function paint(){ btn.querySelector('.ot-sum').textContent = summary(); }
+    function paint(){
+      var r = summary();
+      btn.querySelector('.ot-lv').textContent = r.lv;
+      btn.querySelector('.ot-flag').textContent = r.flags;
+    }
 
     function setOpen(v){
       document.body.classList.toggle('sheet-open', !!v);
       btn.setAttribute('aria-expanded', String(!!v));
+      /* 닫힘은 transform 으로만 만드니 display 는 살아 있다 — 그대로 두면 화면 밖 버튼
+         25개가 Tab·스크린리더에 계속 잡힌다(함정 대조가 잡았다). */
+      if (v) { sheet.removeAttribute('inert'); sheet.removeAttribute('aria-hidden'); }
+      else   { sheet.setAttribute('inert', ''); sheet.setAttribute('aria-hidden', 'true'); }
       if (v) {
         paint();
         btn.removeAttribute('data-hint');
@@ -2072,6 +2124,8 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     document.querySelectorAll('.opts .opt[data-level], .opts .opt[data-sub]').forEach(function(o){
       o.addEventListener('click', function(){ setTimeout(paint, 0); });
     });
+    /* 소리를 끄고 켤 때도 표시가 따라와야 한다 — 안 그러면 헤더가 «켜져 있다» 고 거짓말한다 */
+    if (snd2) snd2.addEventListener('click', function(){ setTimeout(paint, 0); });
 
     /* ⑥ 공용 상단바(🏠 홈 · 🌐 EN)를 헤더 «안» 으로 합친다.
        🔴 이건 A안을 위해 «필요한» 변경이다. 그 바는 fixed·우상단·z-index 99999 라
@@ -2108,7 +2162,12 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
           어디로 갔는지 한 번은 말해 줘야 한다(안 그러면 못 찾는다). */
     try {
       if (localStorage.getItem(HINT_KEY) !== '1') {
-        btn.setAttribute('data-hint', '설정은 여기로 옮겼어요');
+        /* ⚠️ «보여준 그 순간» 에 기록한다. 시트를 열 때만 기록하면 «한 번만» 이 아니라
+              «시트를 한 번도 안 연 학생에게는 매번» 이 된다(함정 대조가 잡았다). */
+        localStorage.setItem(HINT_KEY, '1');
+        var en = false;
+        try { en = (typeof getLang === 'function' ? getLang() : 'ko') === 'en'; } catch(e2){}
+        btn.setAttribute('data-hint', en ? 'Settings moved here' : '설정은 여기로 옮겼어요');
         setTimeout(function(){ btn.removeAttribute('data-hint'); }, 6000);
       }
       localStorage.removeItem(OLD_KEY);

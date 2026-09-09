@@ -119,6 +119,44 @@ ok(/insertBefore\(\s*streak\s*,/.test(script) && /insertBefore\(\s*pts\s*,/.test
 ok(!/insertBefore\(\s*(opts|quests)\s*,/.test(script),
   '설정·퀘스트는 헤더로 되돌리지 않는다');
 
+/* ── ⓗ 폰에서 «꺼짐» 표시가 살아남는가 ────────────────────────────────
+   🔴 함정 대조가 잡은 것 — 좁은 폭에서 .ot-sum 을 통째로 숨겨, 자막·소리를 끈 학생에게
+      «지금 꺼져 있다»(👁·🔇)를 말해 줄 자리가 화면에서 사라졌었다. 되돌아올 길이 없어진다. */
+ok(/\.ot-lv\b/.test(AF) && /\.ot-flag\b/.test(AF),
+  '⚙ 요약이 «레벨»(.ot-lv)과 «꺼짐 표시»(.ot-flag)로 나뉘어 있다');
+ok(!/\.opts-toggle\s+\.ot-sum\s*\{[^}]*display\s*:\s*none/.test(bare),
+  '좁은 폭에서 ⚙ 요약을 «통째로» 숨기지 않는다',
+  '.ot-sum 을 숨기면 👁·🔇 까지 함께 사라진다 — 접는 것은 .ot-lv 뿐이다');
+ok(/\.ot-flag['"]\)\s*\.textContent|querySelector\(\s*'\.ot-flag'\s*\)/.test(script),
+  '꺼짐 표시를 실제로 그린다(.ot-flag 에 값을 쓴다)');
+/* 그 짝 — «무엇이 꺼졌나» 를 소리까지 본다. 자막만 보면 🔊 를 시트로 내린 뒤
+   «소리 꺼짐» 이 화면 어디에도 안 남는다(그것도 함정 대조가 잡았다). */
+/* ⚠️ «그 글자가 스크립트 안에 있는가» 로 묻지 말 것 — 바로 위 주석에 그 글자가 있어
+      표시를 실제로 지워도 통과한다(변이시험에서 실측). «값에 더하는가» 로 묻는다. */
+const bareScript = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+ok(/flags\s*\+=\s*'🔇'/.test(bareScript),
+  '소리가 꺼져 있으면 🔇 를 요약에 «더한다»(🔊 는 시트 안이라 안 보인다)');
+ok(/flags\s*\+=\s*'👁'/.test(bareScript), '자막이 꺼져 있으면 👁 를 요약에 «더한다»');
+/* 그리고 그 둘이 서로 다른 조건에서 켜지는가 — 한 조건에 묶으면 «소리만 껐을 때» 가 안 뜬다 */
+ok(/classList\.contains\(\s*'off'\s*\)/.test(bareScript) && /dataset\.sub/.test(bareScript),
+  '자막 상태와 소리 상태를 «따로» 본다');
+
+/* ── ⓘ 옛 «떠 있는 공용 바» 전제로 만든 여백이 되살아나지 않았는가 ────
+   ⚠️ 이 검사는 주석을 벗겨 낸 사본으로 본다 — 「왜 지웠는지」 적은 주석이 그 값을
+      담고 있어, 원본으로 보면 자기 주석을 잡는다(이 저장소가 여러 번 밟은 함정). */
+ok(!/\.top\s*\{[^}]*padding-top\s*:\s*48px/.test(bare),
+  '폰에서 헤더를 공용 바 «아래» 로 밀던 여백이 없다');
+ok(!/\.top\s*\{[^}]*padding-right\s*:\s*190px/.test(bare),
+  '헤더 오른쪽에 공용 바 자리를 비우던 190px 구멍이 없다',
+  '그 바는 이제 헤더 «안» 에 있다 — 되살리면 오른쪽이 텅 빈다');
+
+/* ── ⓙ 🌐 옆 글자를 접지 않았는가 ──────────────────────────────────
+   지구본만 남기면 «누르면 무슨 말이 되는가» 를 알 길이 없다. 폰에는 hover 가 없어
+   title 툴팁도 안 뜬다(CLAUDE.md 「폰에서는 안 뜸」). */
+ok(!/\.lang-label-sync\s*\{\s*display\s*:\s*none/.test(bare)
+   && !/,\s*\n?\s*\.top #mangoi-global-bar \.lang-label-sync\s*\{\s*display\s*:\s*none/.test(bare),
+  '🌐 옆 언어 글자(«EN»/«한국어»)를 접지 않는다');
+
 /* ── 첫 방문 안내 — 설정이 헤더에서 사라졌으니 한 번은 말해 줘야 한다 ── */
 ok(/data-hint/.test(script), '첫 방문에 «설정은 여기로 옮겼어요» 를 한 번 알려 준다');
 ok(!/setAttribute\('data-ko'|setAttribute\('data-en'/.test(script.match(/data-hint[\s\S]{0,400}/)?.[0] || ''),
