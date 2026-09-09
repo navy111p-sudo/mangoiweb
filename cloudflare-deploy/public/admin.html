@@ -4118,6 +4118,9 @@
             <label style="font-size:12px;color:#475467;display:inline-flex;align-items:center;gap:5px">
               <input id="tl-only-unlinked" type="checkbox" oninput="tlRender()" />
               <span data-ko="아직 연결 안 된 것만" data-en="Unlinked only">아직 연결 안 된 것만</span></label>
+            <label style="font-size:12px;color:#475467;display:inline-flex;align-items:center;gap:5px" title="퇴사 강사는 기본으로 목록에서 뺍니다 — 잘못 이어지면 출근·급여가 갈립니다" data-ko-title="퇴사 강사는 기본으로 목록에서 뺍니다 — 잘못 이어지면 출근·급여가 갈립니다" data-en-title="Left teachers are hidden by default — a wrong link splits attendance and payroll">
+              <input id="tl-show-left" type="checkbox" oninput="tlRender()" />
+              <span data-ko="퇴사 강사도 보기" data-en="Show left teachers">퇴사 강사도 보기</span></label>
             <span id="tl-count" style="font-size:11.5px;color:#667085;margin-left:auto"></span>
           </div>
           <div id="tl-wrap" style="overflow:auto;border:1px solid #e4e8ee;border-radius:10px">
@@ -7805,12 +7808,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
       <button class="primary" onclick="tlkLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <label style="font-size:12px;color:#475467;display:inline-flex;align-items:center;gap:5px" title="퇴사 강사는 기본으로 목록에서 뺍니다 — 잘못 이어지면 출근·급여가 갈립니다" data-ko-title="퇴사 강사는 기본으로 목록에서 뺍니다 — 잘못 이어지면 출근·급여가 갈립니다" data-en-title="Left teachers are hidden by default — a wrong link splits attendance and payroll">
+        <input id="tlk-show-left" type="checkbox" />
+        <span data-ko="퇴사 강사도 보기" data-en="Show left teachers">퇴사 강사도 보기</span></label>
       <span id="tlk-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
     <div data-gc="📋 계정–원부 연결표" data-gc-en="Link Table" id="tlk-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-tlink.js?v=2" data-card="card-teacher-link" data-globals="tlkLoad,tlkSave,tlkUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+<script type="text/lazy-js" data-src="/js/adm-tlink.js?v=3" data-card="card-teacher-link" data-globals="tlkLoad,tlkSave,tlkUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 
 <details class="table-card menu-card" id="card-teacher-contact">
   <summary><span data-ko="📇 강사 연락처 연결" data-en="📇 Link Teacher Contacts">📇 강사 연락처 연결</span> <span id="tct-badge" style="display:none;margin-left:6px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#991b1b"></span></summary>
@@ -10296,7 +10302,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- 🕒 출근현황 (강사관리 하위) — 데이터 + 렌더링 + Excel/Chart -->
 <script src="/js/adm-p6.js?v=6" defer></script>
-<script src="/js/adm-teacher-links.js?v=2" defer></script><!-- 🔗 강사↔로그인 연결 (되돌리기=이 줄 + #card-teacher-links 제거) --><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-teacher-links.js?v=4" defer></script><!-- 🔗 강사↔로그인 연결 (되돌리기=이 줄 + #card-teacher-links 제거) --><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
 
 
 <!-- 📚 출석현황 (수업당 출결) — 데이터 + 렌더링 + Excel/Chart -->
