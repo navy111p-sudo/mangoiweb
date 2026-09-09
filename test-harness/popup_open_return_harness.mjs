@@ -54,12 +54,11 @@ const USES_RETURN = /(?:[=!]\s*|return\s+)window\.open\s*\(/;
 const HAS_NOOPENER = /window\.open\s*\([^)]*['"]noopener['"]\s*\)/;
 
 /* ⚠️ 아직 «못 고친» 자리 — 숨기지 않고 이름으로 적어 둔다.
-   public/index.html 은 CLAUDE.md 4-2 의 **공동 금지구역**이라 배포 담당 승인 없이는 못 고친다.
-   🔴 그런데 여기 있는 것이 `window.openKakao` 라 반경이 크다 — 홈·수업화면(vc-dock 「상담」)이
-      전부 이것을 부르고, 지금은 «카톡 탭이 열리고 + 지금 보던 화면까지 카톡으로 이동» 한다.
-      수업 중이면 그것이 곧 «수업에서 나가기» 다.
-   ⛔ 고쳤으면 이 목록에서 지우세요. 목록에 남겨 두는 것은 «봐준다» 가 아니라
-      «사람 결정을 기다리는 중» 이라는 뜻입니다. */
+   목록에 남겨 두는 것은 «봐준다» 가 아니라 «사람 결정을 기다리는 중» 이라는 뜻이다.
+   ⛔ 고쳤으면 그 줄을 지우세요(대신 아래 ②절 GUARDED 에 그 파일을 올려 보호를 못 박습니다).
+   ✅ 2026-09-09 현재 비어 있습니다 — public/index.html 의 두 자리(`toKakao`·`window.openKakao`)가
+      사장님 승인으로 고쳐졌습니다. 그전에는 홈·수업화면(vc-dock 「상담」)이 전부 그것을 불러
+      «카톡 탭이 열리고 + 보던 화면까지 카톡으로 이동» 했고, 수업 중이면 곧 «수업에서 나가기» 였습니다. */
 /* 🪤 (2026-09-02 정정) 예전엔 «파일:줄번호» 로 못 박아 두었는데, 그 파일 위쪽에 줄이
    몇 줄만 늘어도 아래가 통째로 밀려 **뜻은 그대로인데 검사만 깨졌다**(실제로 밟음 —
    index.html 4330행에 주석 8줄이 들어가자 9220→9228 · 14121→14129 로 밀려
@@ -69,7 +68,7 @@ const HAS_NOOPENER = /window\.open\s*\([^)]*['"]noopener['"]\s*\)/;
    ⚠️ 맞바꾼 것: 같은 파일에서 하나를 고치고 동시에 하나를 새로 만들면 건수가 같아 못 잡는다.
       줄번호 방식도 밀리는 순간 무력해지므로 이쪽이 실용적으로 낫다고 보았다. */
 const PENDING_FILES = new Map([
-  ['cloudflare-deploy/public/index.html', 2],    // toKakao() · window.openKakao()
+  // (비어 있음 — 새로 «사람 결정 대기» 가 생기면 여기에 «파일 → 건수» 로 적습니다)
 ]);
 
 const offenders = [];
@@ -90,10 +89,10 @@ check(`① 반환값을 쓰면서 'noopener' 를 준 «새» 자리가 없다 (�
   offenders.map(o => '      · ' + o).join('\n'));
 
 if (pending.length) {
-  console.log(`  ⚠️  아직 못 고친 자리 ${pending.length}건 — 공동 금지구역(public/index.html)이라 사람 결정 대기 중`);
+  console.log(`  ⚠️  아직 못 고친 자리 ${pending.length}건 — 사람 결정 대기 중`);
   pending.forEach(o => console.log('      · ' + o));
-  console.log('      🔴 window.openKakao — 지금은 «카톡 탭이 열리고 + 보던 화면까지 카톡으로 이동» 합니다.');
-  console.log('         수업 중 「상담」을 누르면 그것이 곧 «수업에서 나가기» 입니다.');
+  console.log('      🔴 그 자리는 지금 «탭이 열리는데 + 보던 화면까지 그 주소로 이동» 합니다.');
+  console.log('         수업 화면에서 그런 버튼을 누르면 그것이 곧 «수업에서 나가기» 입니다.');
 }
 const PENDING_TOTAL = [...PENDING_FILES.values()].reduce((a, b) => a + b, 0);
 check(`①-2 못 고친 자리가 «목록에 적힌 그만큼뿐» 이다 (실측 ${pending.length}건 / 등록 ${PENDING_TOTAL}건)`,
@@ -108,6 +107,10 @@ const GUARDED = [
   ['cloudflare-deploy/public/js/monitor-wall.js', 'openTab'],
   ['cloudflare-deploy/public/admin/ghost-view.html', 'ghdOpenTab'],
   ['cloudflare-deploy/public/js/adm-promo-setup.js', null],
+  /* index.html 은 공동 금지구역이라 되돌아가기 쉽다 — 여기서 못 박는다.
+     ⚠️ 이 파일에는 `rel="noopener"`(HTML 속성)가 따로 있는데 그건 무해하다.
+        ①절이 «기능 문자열» 만 보므로 둘이 섞이지 않는다. */
+  ['cloudflare-deploy/public/index.html', 'openKakao'],
 ];
 for (const [rel, fnName] of GUARDED) {
   const src = readFileSync(join(ROOT, rel), 'utf8');
