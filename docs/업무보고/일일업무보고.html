@@ -1,3 +1,4 @@
+<meta charset="utf-8" />
 <title>망고아이 일일업무보고</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -101,7 +102,7 @@
     margin:16px 0 8px; color:var(--ink); text-wrap:balance;
     letter-spacing:-.01em;
   }
-  .lede{ color:var(--ink-soft); font-size:16px; max-width:62ch; margin:0 0 28px; }
+  .lede{ color:var(--ink-soft); font-size:16px; max-width:66ch; margin:0 0 28px; }
 
   .statrow{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));
@@ -130,8 +131,22 @@
     font-family:"Gothic A1",sans-serif; font-weight:700; font-size:19px;
     color:var(--ink); margin:0;
   }
-  .task-desc{ color:var(--ink-soft); font-size:14.5px; margin:10px 0 22px; max-width:68ch; }
+  .task-desc{ color:var(--ink-soft); font-size:14.5px; margin:10px 0 22px; max-width:70ch; }
   .task-desc b{ color:var(--ink); font-weight:600; }
+
+  .findings{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden;
+    margin:0 0 22px; font-size:13.6px;
+  }
+  .findings table{ width:100%; border-collapse:collapse; }
+  .findings th{
+    background:var(--surface-alt); text-align:left; font-weight:600;
+    padding:9px 12px; font-size:12px; color:var(--ink-soft);
+    border-bottom:1px solid var(--line);
+  }
+  .findings td{ padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink); }
+  .findings tr:last-child td{ border-bottom:0; }
+  .findings td.n{ font-family:"Gothic A1",sans-serif; font-weight:700; color:var(--accent-ink); width:28px; }
 
   .quad{
     display:grid; grid-template-columns:repeat(2,1fr);
@@ -235,92 +250,207 @@
     text-align:center; color:var(--ink-faint); font-size:13px;
     border-top:1px solid var(--line); padding-top:22px; margin-top:8px;
   }
+
+  /* ── 지난 기록 구획 (누적 보고서 2번째 항목부터 추가) ───────────── */
+  .archive-divider{
+    display:flex; align-items:center; gap:14px; margin:44px 0 28px;
+  }
+  .archive-divider::before, .archive-divider::after{
+    content:""; flex:1; height:1px; background:var(--line);
+  }
+  .archive-divider span{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.05em;
+    color:var(--ink-faint); text-transform:uppercase; white-space:nowrap;
+  }
+  .archive{ opacity:.86; }
+  .archive h1{ font-size:clamp(22px,3.4vw,28px); }
+  .archive .statrow{ margin-bottom:26px; }
+  @media print{
+    .archive{ opacity:1; }
+    section.task, .roadmap, .stat{ box-shadow:none; border:1px solid var(--line); }
+    .page{ padding:24px 20px 40px; }
+  }
 </style>
 
 <div class="page">
 
-  <span class="eyebrow"><span class="dot"></span>일일업무 보고서 · 누적 기록 1번째</span>
-  <h1>2026년 8월 19일 (수) 업무 보고</h1>
-  <p class="lede">오늘 처리한 업무 1건의 진행 상태를 정리했습니다. 가장 최근 보고가 맨 위, 지난 기록은 아래로 쌓입니다.</p>
+  <span class="eyebrow"><span class="dot"></span>일일업무 보고서 · 누적 기록 2번째</span>
+  <h1>2026년 9월 9일 (화) 업무 보고</h1>
+  <p class="lede">오늘 처리한 업무 3건입니다. 모두 코드 작성·검증·커밋까지 마쳤고, 병합 요청(PR)은 지시받지 않아 아직 만들지 않았습니다. 가장 최근 보고가 맨 위, 지난 기록은 아래로 쌓입니다.</p>
 
   <div class="statrow">
-    <div class="stat"><b>1건</b><span>오늘 처리한 업무</span></div>
-    <div class="stat"><b>5 / 9단계</b><span>진행 단계 (코드 수정·검증 완료)</span></div>
-    <div class="stat"><b>2건</b><span>상관 확인·승인 요청</span></div>
-    <div class="stat"><b>0건</b><span>회귀 테스트 실패</span></div>
+    <div class="stat"><b>3건</b><span>오늘 처리한 업무</span></div>
+    <div class="stat"><b>3개</b><span>커밋 (병합 전)</span></div>
+    <div class="stat"><b>8개 화면</b><span>3번 항목에서 수정</span></div>
+    <div class="stat"><b>0건</b><span>회귀 테스트 실패 (297건 통과)</span></div>
   </div>
 
   <section class="task">
     <div class="task-head">
       <span class="task-num">1.</span>
-      <h2 class="task-title">관리자 화면 "1:1 상담 예약" 슬롯 생성 오류 수정</h2>
+      <h2 class="task-title">결제 시스템에 "AI 콘텐츠 전용(1개월)" 상품 추가</h2>
     </div>
     <p class="task-desc">
-      관리자가 상담 슬롯을 만들면 <b>D1_ERROR(데이터베이스 오류)</b>가 뜨며 매번 실패하던 문제였습니다.
-      슬롯 표에 담당자 정보를 넣는 칸이 일부 화면 경로에서 누락돼 있던 것이 원인이며, 코드 수정과
-      자동 검증까지 마치고 브랜치에 올려 둔 상태입니다. <b>전문용어는 별도 PDF로 안내</b>드렸습니다.
+      화상영어 수업 상품만 있던 결제 화면에, <b>화상수업 없이 AI 학습도구만</b> 쓰는 월 10,000원짜리
+      상품이 없어서 새로 만들었습니다. 기존 "AI 발음 코치"(15,000원)와 같은 방식 — <b>카드 결제
+      한 번으로 사는 1회성 상품</b>입니다(매달 자동 재청구는 아님 — 진행 전 여쭤보고 정한 것).
+      이 상품을 사지 않아도 AI 학습도구는 지금처럼 계속 무료로 쓸 수 있게 뒀습니다(이것도 여쭤보고
+      정함 — 실제로 막으려면 8개 화면을 새로 건드려야 하는 별도의 큰 작업입니다).
     </p>
 
     <div class="quad">
       <div class="qcard good">
         <h3>✔ 된 것</h3>
         <ul>
-          <li>오류 원인 진단 완료</li>
-          <li>코드 수정 완료</li>
-          <li>타입체크(문법 검사) 통과</li>
-          <li>회귀 테스트 184건 통과 · 실패 0건</li>
-          <li>커밋 생성 및 브랜치 푸시 완료</li>
+          <li>서버 가격표에 새 상품 등록 (금액 위변조 방지 그대로 적용)</li>
+          <li>홈 화면 결제 카드 + 관리자 "결제 링크 보내기" 옵션 추가</li>
+          <li>타입체크·회귀 테스트 297건 통과</li>
+          <li>가상 브라우저로 실제 클릭까지 확인, 흔한 실수 대조(트랩체크) 통과</li>
         </ul>
       </div>
       <div class="qcard crit">
         <h3>✕ 안 된 것</h3>
         <ul>
-          <li>실서비스(mangoi.ai) 반영 전</li>
-          <li>배포 담당자의 화면 육안 확인 전</li>
+          <li>PR 생성 전, 실서비스(mangoi.ai) 반영 전</li>
+          <li>이 상품 구매 여부와 무관하게 AI 도구는 계속 무료 이용 가능 (의도된 것)</li>
         </ul>
       </div>
       <div class="qcard warn">
         <h3>◐ 진행중인 것</h3>
-        <ul>
-          <li>병합 요청(PR) 생성 여부 확인 대기 중</li>
-        </ul>
+        <ul><li>없음 — 작업 자체는 끝, PR 생성 승인 대기</li></ul>
       </div>
       <div class="qcard req">
         <h3>◆ 요청사항</h3>
         <ul>
           <li>PR 생성 승인 부탁드립니다</li>
-          <li>배포 후 실제 화면 확인 부탁드립니다</li>
+          <li><b>index.html은 배포 권한자 전용 파일</b>인데 이번에 살짝 고쳤습니다 — 확인 부탁드립니다</li>
         </ul>
       </div>
     </div>
+  </section>
 
-    <div class="linkrow">
-      <a href="https://github.com/navy111p-sudo/mangoiweb/commit/e426875" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-        <span class="tag">커밋</span> e426875
-      </a>
-      <a href="https://github.com/navy111p-sudo/mangoiweb/tree/claude/d1-error-fix-popu80" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-        <span class="tag">브랜치</span> claude/d1-error-fix-popu80
-      </a>
-      <a href="https://github.com/navy111p-sudo/mangoiweb/blob/claude/d1-error-fix-popu80/cloudflare-deploy/src/api-admin.ts" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-        <span class="tag">수정 파일</span> api-admin.ts
-      </a>
-      <a href="https://github.com/navy111p-sudo/mangoiweb/pull/new/claude/d1-error-fix-popu80" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
-        <span class="tag">PR 생성</span> (아직 미생성)
-      </a>
+  <section class="task">
+    <div class="task-head">
+      <span class="task-num">2.</span>
+      <h2 class="task-title">학생·교사 피드백 4건 수정 (스크린샷 제보 기반)</h2>
+    </div>
+    <p class="task-desc">스크린샷 4장으로 받은 제보를 하나씩 처리했습니다.</p>
+
+    <div class="findings">
+      <table>
+        <tr><th style="width:24px">#</th><th>제보 내용</th><th>무엇을 고쳤나</th></tr>
+        <tr><td class="n">1</td><td>레벨테스트 결과의 A1~C2 막대가 전부 같은 색</td><td>정답률에 따라 초록·노랑·주황·빨강으로 색이 다르게 나오도록 수정</td></tr>
+        <tr><td class="n">2</td><td>홈 화면 "수업 입장"·"오늘의 A.i 학습" 버튼이 잘 안 보임</td><td>원인 불명의 CSS(설명 주석도 없이 버튼을 다시 투명하게 덮던 코드)를 제거해 원래 진한 금색 버튼 복원</td></tr>
+        <tr><td class="n">3</td><td>"AI 단어 퀴즈"는 완료해도 완료 표시가 안 뜸</td><td>로그인 학생을 손님으로 잘못 인식하던 코드 수정 — 3번 항목과 같은 뿌리의 버그, 여기서 처음 발견</td></tr>
+        <tr><td class="n">4</td><td>학생이 "학교 싫어요"라고 답했는데 AI가 "하하 좋아요!"라고 반응</td><td>AI 지시문에 "부정적인 답에는 축하 표현 금지" 규칙 추가 — 같은 문제가 있던 "AI 영어친구" 화면도 함께 수정</td></tr>
+      </table>
     </div>
 
-    <h4 class="tl-heading">타임라인</h4>
-    <p class="tl-progress-label"><b>5 / 9단계</b> 완료 — 병합·배포·화면확인이 남았습니다</p>
+    <div class="quad">
+      <div class="qcard good">
+        <h3>✔ 된 것</h3>
+        <ul>
+          <li>4건 전부 원인 진단 + 코드 수정 완료</li>
+          <li>가상 브라우저로 색상·버튼·클릭 동작을 직접 확인(스크린샷 근거 있음)</li>
+          <li>타입체크·회귀 테스트 297건, 트랩체크 통과</li>
+        </ul>
+      </div>
+      <div class="qcard crit">
+        <h3>✕ 안 된 것</h3>
+        <ul><li>PR 생성 전, 실서비스 반영 전</li></ul>
+      </div>
+      <div class="qcard warn">
+        <h3>◐ 진행중인 것</h3>
+        <ul><li>없음</li></ul>
+      </div>
+      <div class="qcard req">
+        <h3>◆ 요청사항</h3>
+        <ul>
+          <li>PR 생성 승인 부탁드립니다</li>
+          <li>배포 후 배포 권한자가 <b>직접 화면에서</b> 레벨테스트 색상·홈 버튼·단어퀴즈 완료표시를 봐 주셔야 합니다</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="task">
+    <div class="task-head">
+      <span class="task-num">3.</span>
+      <h2 class="task-title">로그인 학생이 "손님"으로 잘못 인식되던 버그 — 8개 화면 수정</h2>
+    </div>
+    <p class="task-desc">
+      위 2번의 3번째 제보를 고치다가, <b>완전히 똑같은 버그가 다른 7개 화면에도 퍼져 있는 것</b>을
+      발견했습니다. 로그인 여부를 확인하는 코드가 옛날 방식의 계정 정보 모양만 확인하고 있었는데,
+      실제 로그인 시스템은 몇 달 전부터 다른 모양으로 정보를 저장하고 있어서 로그인한 학생도
+      전부 "손님"으로 잘못 판단되고 있었습니다. 영향받은 화면: <b>단어 퀴즈·단어장·스트릭(연속학습
+      기록)·AI 영어친구·발음 코칭(한국어·중국어)·AI 영작첨삭·연속학습 위젯 공용 코드.</b>
+    </p>
+    <p class="task-desc">
+      실제 문제: 로그인한 학생이 저장한 단어장·연속학습일·AI 대화·발음 점수가 <b>본인 계정이 아니라
+      "손님" 계정에</b> 쌓이고 있었습니다. 발음 연습 완료 보상 포인트는 완전히 엉뚱한 값을 계정
+      번호로 쓰고 있어 그동안 <b>한 번도 정상 지급되지 않고 조용히 실패</b>하고 있었습니다(이번
+      수정으로 처음 정상 작동 — 과거분 소급 지급은 안 함).
+    </p>
+
+    <div class="quad">
+      <div class="qcard good">
+        <h3>✔ 된 것</h3>
+        <ul>
+          <li>8개 화면 전부 동일한 방식으로 수정 + 손님(비로그인) 상태 정상 동작 확인</li>
+          <li>타입체크·회귀 테스트 297건, 트랩체크 통과 — 되돌리기 어려운 부작용 없음 확인</li>
+        </ul>
+      </div>
+      <div class="qcard crit">
+        <h3>✕ 안 된 것</h3>
+        <ul>
+          <li>PR 생성 전, 실서비스 반영 전</li>
+          <li><b>과거에 "손님" 계정으로 잘못 쌓인 기록을 학생 본인 계정으로 옮기는 작업은 하지 않음</b> — 확신 없이 자동으로 옮기는 것이 더 위험하다고 판단</li>
+        </ul>
+      </div>
+      <div class="qcard warn">
+        <h3>◐ 진행중인 것</h3>
+        <ul><li>없음</li></ul>
+      </div>
+      <div class="qcard req">
+        <h3>◆ 요청사항</h3>
+        <ul>
+          <li>PR 생성 승인 부탁드립니다</li>
+          <li>배포 뒤 <b>"내 단어장이 없어졌어요"</b> 같은 문의가 들어올 수 있습니다 — 버그가 아니라 손님 계정과 분리되어 보이는 것. 미리 안내가 필요하면 말씀해 주세요</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="linkrow">
+    <a href="https://github.com/navy111p-sudo/mangoiweb/commit/c78bea4" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="tag">커밋 1</span> c78bea4 (결제 상품 추가)
+    </a>
+    <a href="https://github.com/navy111p-sudo/mangoiweb/commit/f35f6f8" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="tag">커밋 2</span> f35f6f8 (피드백 4건 수정)
+    </a>
+    <a href="https://github.com/navy111p-sudo/mangoiweb/commit/5a38f13" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="tag">커밋 3</span> 5a38f13 (uid 인식 버그 8개 화면)
+    </a>
+    <a href="https://github.com/navy111p-sudo/mangoiweb/tree/claude/ai-content-payment-option-lnad1a" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="tag">브랜치</span> claude/ai-content-payment-option-lnad1a
+    </a>
+    <a href="https://github.com/navy111p-sudo/mangoiweb/pull/new/claude/ai-content-payment-option-lnad1a" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="tag">PR 생성</span> (아직 미생성)
+    </a>
+  </div>
+
+  <section class="task">
+    <h4 class="tl-heading">타임라인 (커밋 시각은 실제 기록, KST 기준)</h4>
+    <p class="tl-progress-label"><b>5 / 8단계</b> 완료 — PR·병합·배포·화면확인이 남았습니다</p>
     <div class="timeline">
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:12 KST</div><div class="tl-label">오류 발견 <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:12 – 20:15</div><div class="tl-label">원인 진단 <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:15 – 20:16</div><div class="tl-label">코드 수정 <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:16</div><div class="tl-label">검증 (타입체크 · 회귀 테스트 184건) <span class="tl-pill">완료</span></div></div>
-      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:17</div><div class="tl-label">커밋 · 브랜치 푸시 <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:04 KST</div><div class="tl-label">커밋 1 완료 — 결제 상품 추가 <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:25 KST</div><div class="tl-label">커밋 2 완료 — 피드백 4건 수정 <span class="tl-pill">완료</span></div></div>
+      <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">14:53 KST</div><div class="tl-label">커밋 3 완료 — uid 인식 버그 8개 화면 <span class="tl-pill">완료</span></div></div>
       <div class="tl-item current"><span class="tl-dot"></span><div class="tl-time">대기중</div><div class="tl-label">PR 생성 승인 <span class="tl-pill">확인 필요</span></div></div>
       <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">CI 통과 → 병합 <span class="tl-pill">예정</span></div></div>
       <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">실서비스 배포 <span class="tl-pill">예정</span></div></div>
@@ -331,19 +461,122 @@
   <div class="roadmap">
     <h2>앞으로 진행할 업무</h2>
     <ol>
-      <li><b>PR 생성 및 병합</b><span>승인 주시면 즉시 진행 — CI 통과 시 자동으로 병합까지 이어집니다.</span></li>
-      <li><b>배포 후 실제 화면 확인</b><span>mangoi.ai 관리자 화면에서 상담 슬롯 생성이 정상 동작하는지 확인.</span></li>
-      <li><b>(제안) 유사 함정 전수 점검</b><span>이번 원인과 같은 패턴(표는 있는데 일부 경로에서 칸 추가가 누락된 경우)이 다른 관리자 기능에도 있는지 점검을 제안드립니다. 지시 주시면 별도로 진행하겠습니다.</span></li>
+      <li><b>PR 생성 및 병합</b><span>승인 시 3개 커밋을 PR로 올림 — CI 통과 시 자동으로 병합까지 이어집니다.</span></li>
+      <li><b>배포 후 실제 화면 확인</b><span>특히 레벨테스트 막대 색상·홈 버튼·단어퀴즈 완료표시는 화면을 직접 봐야 확실합니다.</span></li>
+      <li><b>(선택) 옛 "손님" 계정에 쌓인 학생 기록 이관 여부 논의</b><span>3번 작업의 부작용 안내 참고 — 지시 주시면 진행하겠습니다.</span></li>
+      <li><b>(선택) index.html의 유사 위치(openParentDashboard)에도 같은 유형의 버그 발견</b><span>이번 범위에는 포함하지 않았습니다. 별도 지시 주시면 진행하겠습니다.</span></li>
     </ol>
   </div>
 
   <div class="foot-note">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 8v5M12 16h.01M12 22a10 10 0 100-20 10 10 0 000 20z"/></svg>
-    <div>전문용어(D1, 커밋, 브랜치, PR, CI 등) 설명은 대화창에서 별도 PDF로 전달드렸습니다. 이 보고서의 원본 문서는
+    <div>전문용어(D1, 커밋, 브랜치, PR, CI, uid 등) 설명은 대화창에서 별도 PDF로 전달드렸습니다. 이 보고서의 원본 문서는
     저장소의 <code>docs/업무보고/일일업무보고.md</code> 이며, 매일 이 문서 맨 위에 새 기록이 추가되는 방식으로 쌓입니다.</div>
   </div>
 
-  <p class="past-note">이전 기록 없음 — 이번이 첫 보고입니다. 다음 보고부터는 이 자리 아래로 과거 기록이 이어집니다.</p>
+  <div class="archive-divider"><span>여기서부터 지난 기록</span></div>
+
+  <div class="archive">
+    <span class="eyebrow"><span class="dot"></span>일일업무 보고서 · 누적 기록 1번째</span>
+    <h1>2026년 8월 19일 (수) 업무 보고</h1>
+    <p class="lede">오늘 처리한 업무 1건의 진행 상태를 정리했습니다.</p>
+
+    <div class="statrow">
+      <div class="stat"><b>1건</b><span>오늘 처리한 업무</span></div>
+      <div class="stat"><b>5 / 9단계</b><span>진행 단계 (코드 수정·검증 완료)</span></div>
+      <div class="stat"><b>2건</b><span>상관 확인·승인 요청</span></div>
+      <div class="stat"><b>0건</b><span>회귀 테스트 실패</span></div>
+    </div>
+
+    <section class="task">
+      <div class="task-head">
+        <span class="task-num">1.</span>
+        <h2 class="task-title">관리자 화면 "1:1 상담 예약" 슬롯 생성 오류 수정</h2>
+      </div>
+      <p class="task-desc">
+        관리자가 상담 슬롯을 만들면 <b>D1_ERROR(데이터베이스 오류)</b>가 뜨며 매번 실패하던 문제였습니다.
+        슬롯 표에 담당자 정보를 넣는 칸이 일부 화면 경로에서 누락돼 있던 것이 원인이며, 코드 수정과
+        자동 검증까지 마치고 브랜치에 올려 둔 상태입니다.
+      </p>
+
+      <div class="quad">
+        <div class="qcard good">
+          <h3>✔ 된 것</h3>
+          <ul>
+            <li>오류 원인 진단 완료</li>
+            <li>코드 수정 완료</li>
+            <li>타입체크(문법 검사) 통과</li>
+            <li>회귀 테스트 184건 통과 · 실패 0건</li>
+            <li>커밋 생성 및 브랜치 푸시 완료</li>
+          </ul>
+        </div>
+        <div class="qcard crit">
+          <h3>✕ 안 된 것</h3>
+          <ul>
+            <li>실서비스(mangoi.ai) 반영 전</li>
+            <li>배포 담당자의 화면 육안 확인 전</li>
+          </ul>
+        </div>
+        <div class="qcard warn">
+          <h3>◐ 진행중인 것</h3>
+          <ul>
+            <li>병합 요청(PR) 생성 여부 확인 대기 중</li>
+          </ul>
+        </div>
+        <div class="qcard req">
+          <h3>◆ 요청사항</h3>
+          <ul>
+            <li>PR 생성 승인 부탁드립니다</li>
+            <li>배포 후 실제 화면 확인 부탁드립니다</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="linkrow">
+        <a href="https://github.com/navy111p-sudo/mangoiweb/commit/e426875" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+          <span class="tag">커밋</span> e426875
+        </a>
+        <a href="https://github.com/navy111p-sudo/mangoiweb/tree/claude/d1-error-fix-popu80" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+          <span class="tag">브랜치</span> claude/d1-error-fix-popu80
+        </a>
+        <a href="https://github.com/navy111p-sudo/mangoiweb/blob/claude/d1-error-fix-popu80/cloudflare-deploy/src/api-admin.ts" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+          <span class="tag">수정 파일</span> api-admin.ts
+        </a>
+        <a href="https://github.com/navy111p-sudo/mangoiweb/pull/new/claude/d1-error-fix-popu80" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+          <span class="tag">PR 생성</span> (아직 미생성)
+        </a>
+      </div>
+
+      <h4 class="tl-heading">타임라인</h4>
+      <p class="tl-progress-label"><b>5 / 9단계</b> 완료 — 병합·배포·화면확인이 남았습니다</p>
+      <div class="timeline">
+        <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:12 KST</div><div class="tl-label">오류 발견 <span class="tl-pill">완료</span></div></div>
+        <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:12 – 20:15</div><div class="tl-label">원인 진단 <span class="tl-pill">완료</span></div></div>
+        <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:15 – 20:16</div><div class="tl-label">코드 수정 <span class="tl-pill">완료</span></div></div>
+        <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:16</div><div class="tl-label">검증 (타입체크 · 회귀 테스트 184건) <span class="tl-pill">완료</span></div></div>
+        <div class="tl-item done"><span class="tl-dot"></span><div class="tl-time">20:17</div><div class="tl-label">커밋 · 브랜치 푸시 <span class="tl-pill">완료</span></div></div>
+        <div class="tl-item current"><span class="tl-dot"></span><div class="tl-time">대기중</div><div class="tl-label">PR 생성 승인 <span class="tl-pill">확인 필요</span></div></div>
+        <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">CI 통과 → 병합 <span class="tl-pill">예정</span></div></div>
+        <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">실서비스 배포 <span class="tl-pill">예정</span></div></div>
+        <div class="tl-item pending"><span class="tl-dot"></span><div class="tl-time">예정</div><div class="tl-label">배포 담당자 화면 확인 <span class="tl-pill">예정</span></div></div>
+      </div>
+    </section>
+
+    <div class="roadmap">
+      <h2>당시 앞으로 진행할 업무로 적었던 것</h2>
+      <ol>
+        <li><b>PR 생성 및 병합</b><span>승인 시 즉시 진행 — CI 통과 시 자동으로 병합까지 이어집니다.</span></li>
+        <li><b>배포 후 실제 화면 확인</b><span>mangoi.ai 관리자 화면에서 상담 슬롯 생성이 정상 동작하는지 확인.</span></li>
+        <li><b>(제안) 유사 함정 전수 점검</b><span>표는 있는데 일부 경로에서 칸 추가가 누락된 경우가 다른 관리자 기능에도 있는지 점검 제안.</span></li>
+      </ol>
+    </div>
+
+    <p class="past-note">여기가 이 보고서의 첫 항목입니다. 더 이전 기록은 없습니다.</p>
+  </div>
 
   <footer>망고아이 · 일일업무 보고서 (사내 공유용)</footer>
 </div>
