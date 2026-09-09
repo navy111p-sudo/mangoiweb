@@ -8125,10 +8125,24 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
             <button type="button" aria-label="비밀번호 보기" onclick="var p=document.getElementById('vc-room-input');p.type=(p.type==='password'?'text':'password');this.textContent=(p.type==='password'?'👁':'🙈');" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:16px;color:#94a3b8;padding:4px;line-height:1;z-index:2">👁</button>
             <svg class="lf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <!-- 기본: 방코드 비움 → 교사·학생 모두 같은 공용 수업방에서 자동으로 만남 -->
-        <div style="font-size:12px;color:#6ee7b7;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:9px;padding:8px 11px;margin:2px 0 6px;text-align:left"
-             data-ko="✅ 아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요"
-             data-en="✅ Just log in — you'll meet your teacher in the same classroom automatically">✅ 아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요</div>
+        <!-- 🔴 (2026-09-09 사장님 지시) 이 안내는 «예약된 수업» 에만 참이다.
+             옛 문구 「아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요」는
+             회의방(meet-…)에서 거짓이었다 — 회의방은 예약이 없어 «빈 방코드 → 오늘 예약방»
+             자동 교정(js/idx-main.js 의 sessions/today 조회)을 통째로 비켜 가고,
+             학생은 공용 연습방(mangoi-class)에 혼자 남는다. 2026-09-09 사장님 제보가 그 사고다.
+             ⛔ 두 줄을 한 <div> 에 담지 말 것 — i18n 엔진이 [data-ko] 요소의 textContent 를
+                통째로 갈아끼워 자식이 날아간다(CLAUDE.md 2장 「아이콘 버튼에 달았더니」).
+             🎨 배경을 «거의 불투명»(0.92)하게 둔 이유 — 이 로비 뒤에는 배경 «사진» 이 깔려 있어
+                옛 10% 틴트로는 밝은 사진 위에서 대비가 2.74 까지 떨어졌다(2026-09-09 픽셀 실측,
+                본문 글자 기준 4.5 필요). 옛 초록 줄도 내내 그 상태였다.
+                ⛔ 다시 반투명으로 되돌리지 말 것 — 사진이 바뀌면 그날로 안 읽히게 된다.
+             📄 docs/작업기록/260909_회의방_같은번호인데_다른방.md -->
+        <div style="font-size:12px;color:#6ee7b7;background:rgba(4,26,20,0.92);border:1px solid rgba(16,185,129,0.45);border-radius:9px;padding:8px 11px;margin:2px 0 4px;text-align:left"
+             data-ko="✅ 예약된 수업이면 아이디·비밀번호만 넣어도 선생님 방으로 자동 입장해요"
+             data-en="✅ If you have a class booked, just log in — you'll join your teacher's room automatically">✅ 예약된 수업이면 아이디·비밀번호만 넣어도 선생님 방으로 자동 입장해요</div>
+        <div style="font-size:12px;color:#fcd34d;background:rgba(30,20,3,0.92);border:1px solid rgba(245,158,11,0.45);border-radius:9px;padding:8px 11px;margin:0 0 6px;text-align:left"
+             data-ko="🔢 선생님이 방 번호(예: 1234)를 알려 주셨다면 아래 「⚙️ 방 코드 직접 입력」에 그 번호를 넣으세요"
+             data-en="🔢 If your teacher gave you a room number (e.g. 1234), enter it under “⚙️ Enter room code” below">🔢 선생님이 방 번호(예: 1234)를 알려 주셨다면 아래 「⚙️ 방 코드 직접 입력」에 그 번호를 넣으세요</div>
         <details style="margin:0 0 4px;text-align:left">
           <summary style="cursor:pointer;font-size:13px;color:#a5b4cf;font-weight:600;list-style:none;padding:5px 2px" data-ko="⚙️ 방 코드 직접 입력 (선택)" data-en="⚙️ Enter room code manually (optional)">⚙️ 방 코드 직접 입력 (선택)</summary>
           <div class="lobby-field" style="margin-top:6px">
