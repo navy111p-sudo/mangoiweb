@@ -182,5 +182,64 @@ console.log('⑨ 방 번호 칸에 대문자·자동고침 방어를 입히는�
   else bad('armCaseGuards() 를 부르는 곳이 없다', '선언만 있고 안 돈다');
 }
 
+/* ⑩ 로비 안내가 «사실» 을 말하는가 (2026-09-09 사장님 지시로 고친 자리)
+   옛 문구 「아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요」는
+   회의방에서 거짓이었다 — 회의방은 예약이 없어 «빈 방코드 → 오늘 예약방» 자동 교정을
+   비켜 가고, 학생은 공용 연습방에 혼자 남는다(이 사고의 사람 쪽 절반).
+   ⚠️ 부정 검사는 «주석을 벗겨 낸 사본» 으로 한다 — 왜 고쳤는지 적은 HTML 주석이
+      바로 그 옛 문구를 담고 있어서, 안 벗기면 검사가 «자기 주석» 을 잡는다. */
+console.log('⑩ 로비 안내가 «예약된 수업» 조건을 말하는가');
+{
+  const a = indexSrc.indexOf('id="vc-room-input"');
+  const b = indexSrc.indexOf('⚙️ 방 코드 직접 입력 (선택)');
+  if (a < 0 || b < 0 || b <= a) {
+    bad('로비 안내 구간을 못 찾음', '앵커(비밀번호 칸 ~ 방 코드 직접 입력)가 바뀌었다');
+  } else {
+    const raw  = indexSrc.slice(a, b);
+    const bare = raw.replace(/<!--[\s\S]*?-->/g, '');   // ← 주석 벗기기(자기 주석 방지)
+    /* ⛔ «양쪽 다 ok()» 로 쓰지 말 것 — 어떤 경우에도 통과해 PASS 수만 부풀린다(함정 대조가 잡았습니다).
+       여기서 물을 값어치가 있는 것은 **«주석 벗기기가 실제로 일하고 있는가»** 하나다.
+       그것이 죽으면 아래 부정 검사가 «자기 주석» 을 잡아 거짓 FAIL 을 내기 시작한다. */
+    if (/<!--/.test(raw)) {
+      (!/<!--/.test(bare) && bare.length < raw.length)
+        ? ok('전제: 주석 벗기기가 실제로 동작한다 (−' + (raw.length - bare.length) + '자)')
+        : bad('주석이 안 벗겨졌다', '부정 검사가 «자기 주석» 을 잡게 된다');
+    } else {
+      ok('전제: 이 구간에 주석이 없다(벗길 것이 없음)');
+    }
+
+    if (/아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요/.test(bare))
+      bad('무조건 약속하는 옛 문구가 화면에 그대로 있다', '회의방에서 거짓이다');
+    else ok('무조건 약속하는 옛 문구가 화면에 없다');
+
+    // 조건을 말하는가 + 방 번호 칸으로 보내는가
+    (/예약/.test(bare)) ? ok('«예약» 조건을 말한다') : bad('조건 없이 약속한다', '어떤 경우에 참인지 안 적혀 있다');
+    (/방 번호/.test(bare) && /방 코드 직접 입력/.test(bare))
+      ? ok('방 번호를 받았을 때 갈 곳(방 코드 직접 입력)을 알려 준다')
+      : bad('방 번호를 넣으라는 안내가 없다', '회의방 학생이 갈 곳을 모른다');
+    (/room number/i.test(bare) && /room code/i.test(bare))
+      ? ok('영어 안내도 같은 말을 한다') : bad('영어 안내가 그 말을 안 한다', 'KO 만 고치면 EN 학생은 그대로다');
+
+    // 구조 — 두 줄을 한 요소에 담지 않았는가 + 보이는 글자 == data-ko
+    /* ⛔ data-ko 가 data-en «앞» 에 온다고 못 박지 말 것 — 속성 순서만 바꾸는 무해한 편집에
+       거짓 FAIL 이 난다. 여는 태그를 통째로 잡고 속성은 «따로» 읽는다. */
+    const divs = [...bare.matchAll(/<div\b([^>]*)>([\s\S]*?)<\/div>/g)]
+      .map(m => {
+        const ko = /\bdata-ko="([^"]*)"/.exec(m[1]), en = /\bdata-en="([^"]*)"/.exec(m[1]);
+        return (ko && en) ? { ko: ko[1], en: en[1], body: m[2] } : null;
+      })
+      .filter(Boolean);
+    if (divs.length >= 2) ok('안내가 «두 요소» 로 나뉘어 있다 (' + divs.length + '개)');
+    else bad('안내 요소가 ' + divs.length + '개', 'i18n 이 textContent 를 갈아끼우므로 한 요소에 여러 줄을 담으면 안 된다');
+    let bodyOk = true, koOk = true;
+    for (const d of divs) {
+      if (/</.test(d.body)) bodyOk = false;                  // 자식 요소가 있으면 🌐 에 날아간다
+      if (d.body.trim() !== d.ko.trim()) koOk = false;       // 보이는 글자 != data-ko → 🌐 한 번에 뜻이 바뀐다
+    }
+    bodyOk ? ok('data-ko 요소 안에 자식 요소가 없다') : bad('data-ko 요소가 자식을 품고 있다', '🌐 를 누르면 그 자식이 사라진다');
+    koOk ? ok('보이는 글자가 data-ko 와 같다') : bad('보이는 글자와 data-ko 가 다르다', '🌐 한 번에 뜻이 바뀐다');
+  }
+}
+
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);
 process.exit(fail ? 1 : 0);
