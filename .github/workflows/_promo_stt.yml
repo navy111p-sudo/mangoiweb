@@ -19,11 +19,13 @@ jobs:
           from faster_whisper import WhisperModel
           m = WhisperModel("large-v3", device="cpu", compute_type="int8")
           segs, info = m.transcribe(".promo/narration.mp3", language="ko",
-                                    vad_filter=True, beam_size=5,
+                                    vad_filter=True, beam_size=5, word_timestamps=True,
                                     vad_parameters=dict(min_silence_duration_ms=300))
           print(f"# language={info.language} prob={info.language_probability:.2f} dur={info.duration:.2f}")
           for s in segs:
               print(f"[{s.start:7.2f} → {s.end:7.2f}] {s.text.strip()}")
+              for w in (s.words or []):
+                  print(f"    {w.start:7.2f} {w.end:7.2f} {w.word}")
           PY
           cat .promo/transcript.txt
       - name: 결과 커밋
