@@ -594,6 +594,21 @@ function markStepDone(i){
     }
   }
 }
+/* 🔐 (2026-09-09) 로그인 계정 uid — mangoi_logged_user({uid,name,role}) 를 먼저 보고
+   mango_user 로 폴백한다. ⚠️ `mango_user_id` 는 여기서 쓰면 안 되는 키다 — 그건
+   js/mango.js 가 발급하는 화상수업용 «기기별 임의 식별자»(u_xxxxxx)라 계정과 무관하고,
+   실제로 이 파일이 그 키로 포인트를 적립하려 했던 것이 바로 그 버그였다(항상 다른 사람
+   것도 아닌 «아무 계정도 아닌» id 로 적립을 시도해 서버가 매번 거절했을 것이다). */
+function mgAcctUid(){
+  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.uid || a.user_id || a.id)) return a.uid || a.user_id || a.id; } catch(e){}
+  try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.user_id || u.uid || u.id)) return u.user_id || u.uid || u.id; } catch(e){}
+  return null;
+}
+function mgAcctName(){
+  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.name || a.user_name)) return a.name || a.user_name; } catch(e){}
+  try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_name)) return u.name || u.user_name; } catch(e){}
+  return '';
+}
 /* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
 function awardSpeechPoints(setId, badgeLabel){
   try {
@@ -601,7 +616,7 @@ function awardSpeechPoints(setId, badgeLabel){
     if (b.indexOf(setId) < 0) { b.push(setId); localStorage.setItem('mangoi_speech_badges', JSON.stringify(b)); }
   } catch(e){}
   try {
-    var uid = localStorage.getItem('mango_user_id');   // mango.js 와 동일 키
+    var uid = mgAcctUid();
     if (uid) {
       fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1324,8 +1339,11 @@ async function processAudio(blob) {
 
     // 2) 발음 평가 + AI 피드백
     const target = document.getElementById('target-display').textContent;
-    let user = null; try { user = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
     // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트는 토큰 불필요.
+    //    uid·이름은 mgAcctUid()/mgAcctName() 로 얻는다(2026-09-09) — mango_user.user_id
+    //    하나만 보던 예전 코드는 로그인 동기화가 실제로 쓰는 {uid,name,role} 모양과 안 맞아
+    //    로그인 학생 제출이 전부 «guest» 계정으로 서버에 갔었다.
+    const _scUid = mgAcctUid();
     const _scTok = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
     // 🎧 (2026-07-30) Whisper 가 준 음향정보를 채점에 함께 넘긴다 — 또렷함/흐름을 텍스트가 아닌
     //   실제 소리(구간 확신도 avg_logprob, 단어별 타이밍)로 재기 위해서다. 텍스트만 보면
@@ -1357,7 +1375,7 @@ async function processAudio(blob) {
     // 🔍 «왜 안 붙었나» 를 기록에 남긴다. 이게 없으면 azure_used=0 만 보이고 원인을 못 짚는다.
     const _scAzureDiag = _scAzure ? ('ok(sdk)' + (_spokenSrc === 'azure' ? '+text' : ''))
                                   : ('sdk:' + String((_az && _az.reason) || 'none'));
-    const _scPayload = { target, spoken: _spokenFinal, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
+    const _scPayload = { target, spoken: _spokenFinal, student_uid: _scUid || 'guest', student_name: mgAcctName(), token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)

@@ -11,7 +11,7 @@
  *  [기존 망고아이와의 관계 — 중요]
  *   - 이 "학습 불꽃"은 Workers의 기존 "출석 스트릭(/api/streak/status·check-in)"과
  *     다른 개념이라, 서버 경로 충돌을 피하려 기본은 localStorage 로만 동작한다.
- *   - student_id 는 로그인 사용자(mango_user.user_id)가 있으면 그대로 쓰고,
+ *   - student_id 는 로그인 사용자(mangoi_logged_user/mango_user 의 uid)가 있으면 그대로 쓰고,
  *     없으면 안정적인 익명 id(mangoi_anon_id)를 만들어 재사용한다.
  *
  *  [사용법]
@@ -41,10 +41,16 @@
   }
 
   /* ── 학생 식별자: 로그인 유저 우선, 없으면 안정적 익명 id ─────────── */
+  /* 🔴 (2026-09-09) 예전엔 mango_user.user_id 하나만 봤는데, 로그인 동기화(js/idx-user-session.js)가
+     실제로 저장하는 모양은 {uid,name,role} — user_id 칸이 없다. mangoi_logged_user 도 함께 본다. */
   function getStudentId() {
     try {
+      var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+      if (a && (a.uid || a.user_id || a.id)) return String(a.uid || a.user_id || a.id);
+    } catch (e) {}
+    try {
       var u = JSON.parse(localStorage.getItem('mango_user') || 'null');
-      if (u && u.user_id) return String(u.user_id);
+      if (u && (u.user_id || u.uid || u.id)) return String(u.user_id || u.uid || u.id);
     } catch (e) {}
     var anon = localStorage.getItem(LS_ANON);
     if (!anon) {

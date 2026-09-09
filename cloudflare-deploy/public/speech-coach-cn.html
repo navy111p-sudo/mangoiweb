@@ -1068,6 +1068,15 @@ function markSentenceDone(){
     }
   }
 }
+/* 🔐 (2026-09-09) 로그인 계정 uid — mangoi_logged_user({uid,name,role}) 를 먼저 보고
+   mango_user 로 폴백한다. ⚠️ `mango_user_id` 는 여기서 쓰면 안 되는 키다 — 그건
+   js/mango.js 가 발급하는 화상수업용 «기기별 임의 식별자»(u_xxxxxx)라 계정과 무관하다
+   (public/speech-coach.html 의 같은 버그 — 형제 화면이라 여기도 같이 고친다). */
+function mgAcctUid(){
+  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.uid || a.user_id || a.id)) return a.uid || a.user_id || a.id; } catch(e){}
+  try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.user_id || u.uid || u.id)) return u.user_id || u.uid || u.id; } catch(e){}
+  return null;
+}
 /* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
 function awardSpeechPoints(setId, badgeLabel){
   try {
@@ -1075,7 +1084,7 @@ function awardSpeechPoints(setId, badgeLabel){
     if (b.indexOf(setId) < 0) { b.push(setId); localStorage.setItem('mangoi_speech_badges', JSON.stringify(b)); }
   } catch(e){}
   try {
-    var uid = localStorage.getItem('mango_user_id');
+    var uid = mgAcctUid();
     if (uid) {
       fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
