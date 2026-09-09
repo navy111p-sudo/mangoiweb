@@ -30,7 +30,8 @@ const PUBLIC = join(ROOT, 'cloudflare-deploy', 'public');
 const CSS = join(PUBLIC, 'css', 'admin-inline-c.css');
 const PORT = 8947;                       // 다른 검사와 겹치지 않게
 const BASE = `http://127.0.0.1:${PORT}`;
-const BLUE = 'rgb(37, 99, 235)';         // #2563eb
+const BLUE = 'rgb(37, 99, 235)';         // #2563eb — 「NEW」 배지
+const AMBER = 'rgb(180, 83, 9)';         // #b45309 — 「쉬움」 난이도 배지(2026-09-06)
 // ②의 변이시험은 CSS 를 «잠깐 잘랐다 되돌린다». finally 로 되돌리지만
 // **강제 종료(SIGKILL·컨테이너 재시작)에는 finally 가 안 돈다** — 그러면 잘린 CSS 가 남고,
 // 다음 실행이 그것을 «원본» 으로 읽어 수리를 영영 잃는다(2026-09-03 이 세션에서 실제로
@@ -106,6 +107,7 @@ async function measure(browser) {
       const cs = getComputedStyle(el), owner = el.closest('[id^="card-"]');
       return {
         card: owner ? owner.id : '', text: el.textContent.trim().slice(0, 10),
+        lvl: el.classList.contains('lib-lvl'),
         visible: !!el.offsetParent, color: cs.color,
         inlinePriority: el.style.getPropertyPriority('color'),
         contrast: Math.round(ratio(parse(cs.color), bgOf(el)) * 100) / 100,
@@ -122,8 +124,16 @@ try {
   const now = await measure(browser);
   const vis = now.filter(b => b.visible);
   check('배지를 «보이는» 상태로 실제로 재고 있다 (잠금 해제 뒤 0개면 검사가 헛돈 것)', vis.length >= 5, `보이는 배지 ${vis.length}개`);
-  check('보이는 배지가 전부 파랑(#2563eb)이다', vis.length > 0 && vis.every(b => b.color === BLUE),
-    [...new Set(vis.map(b => b.color))].join(' · '));
+  const news = vis.filter(b => !b.lvl), lvls = vis.filter(b => b.lvl);
+  check('「NEW」 배지가 전부 파랑(#2563eb)이다', news.length > 0 && news.every(b => b.color === BLUE),
+    [...new Set(news.map(b => b.color))].join(' · '));
+  // ⚠️ 「쉬움」 은 «있어야» 한다 — 0개면 아래 검사가 조용히 뜻을 잃는다
+  check('「쉬움」 난이도 배지를 실제로 재고 있다 (0개면 아래 검사가 헛돈 것)', lvls.length > 0, `${lvls.length}개`);
+  check('「쉬움」 배지는 앰버(#b45309)다 — 파랑에 휩쓸리지 않았다',
+    lvls.length > 0 && lvls.every(b => b.color === AMBER),
+    [...new Set(lvls.map(b => b.color))].join(' · '));
+  check('두 배지가 서로 다른 색이다 (한 규칙이 둘 다 먹지 않았다)',
+    news.length > 0 && lvls.length > 0 && news[0].color !== lvls[0].color);
   check('대리점 자료실(card-lib-agency)의 배지가 포함돼 있다', vis.some(b => b.card === 'card-lib-agency'));
   check('전부 WCAG 본문 기준(4.5:1) 이상으로 읽힌다', vis.length > 0 && vis.every(b => b.contrast >= 4.5),
     vis.length ? '최저 ' + Math.min(...vis.map(b => b.contrast)) : '');
@@ -140,9 +150,12 @@ try {
       writeFileSync(BAK, orig, 'utf8');                     // ⚠️ 자르기 «전»에 사본부터
       writeFileSync(CSS, orig.slice(0, idx), 'utf8');       // 꼬리를 통째로 잘라 «고치기 전» 으로
       const before = (await measure(browser)).filter(b => b.visible);
-      check('되돌리면 파랑이 아니게 된다 (= 이 검사가 진짜로 무언가를 지킨다)',
-        before.length > 0 && before.every(b => b.color !== BLUE),
-        [...new Set(before.map(b => b.color))].join(' · '));
+      check('되돌리면 「NEW」 가 파랑이 아니게 된다 (= 이 검사가 진짜로 무언가를 지킨다)',
+        before.length > 0 && before.filter(b => !b.lvl).every(b => b.color !== BLUE),
+        [...new Set(before.filter(b => !b.lvl).map(b => b.color))].join(' · '));
+      check('되돌리면 「쉬움」 도 앰버가 아니게 된다',
+        before.some(b => b.lvl) && before.filter(b => b.lvl).every(b => b.color !== AMBER),
+        [...new Set(before.filter(b => b.lvl).map(b => b.color))].join(' · '));
     } finally {
       writeFileSync(CSS, orig, 'utf8');                      // ⚠️ 반드시 되돌린다
       if (existsSync(BAK)) unlinkSync(BAK);
