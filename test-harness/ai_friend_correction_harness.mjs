@@ -114,7 +114,8 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
         /'aifriendfix:'\s*\+\s*uid/.test(Hc) && /expirationTtl:\s*6\s*\*\s*3600/.test(Hc));
 
   /* 🔴 턴 수는 «단조 증가» 해야 한다. history 는 LIMIT 20 이라 곧 상한에 붙고,
-     그러면 turnNo - lastShownTurn 이 영영 0 이 되어 교정이 통째로 멎는다
+     그러면 turnNo - lastShownTurn 이 영영 0 이 되어 «작은 실수는 두 번째부터» 쪽이 멎는다
+     (2026-09-09 부터 major 는 간격을 안 보므로 그쪽은 계속 뜬다 — F-12 가 실제로 돌려 증명한다).
      — 화면은 멀쩡해 보이고 에러도 안 난다. */
   check('A-10 🔴 턴 수를 history.length 로 세지 않는다 (상한에 붙으면 교정이 영영 멎는다)',
         /COUNT\(\*\) AS n FROM ai_friend_chats/.test(Hc) && !/turnNo\s*=[^\n]*history\.length/.test(Hc));
@@ -125,8 +126,8 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
   check('A-11 교정은 «그 답장을 채택했을 때만» 확정한다 (재시도가 거절되면 그 교정도 버린다)',
         commits >= 4, 'commitFix() ' + commits + '회');
 
-  /* 🔴 turnNo 가 1 이면 게이트가 «막는다»(F-13 이 실제로 돌려 증명한다).
-     그러니 그 조회가 계속 실패하면 교정이 영영 안 뜬다 — 조용하면 아무도 모른다. */
+  /* 🔴 그 조회가 «계속» 실패하면 turnNo 가 1 에 고정된다. 뜻이 달라지는 교정은 그래도 뜨지만
+     (F-13), «작은 실수는 두 번째부터» 쪽은 간격에 걸려 멎는다 — 조용하면 아무도 모른다. */
   check('A-12 🔴 턴 수 조회가 실패하면 로그로 남긴다 (조용하면 교정이 영영 안 뜬다)',
         /if\s*\(!turns\)\s*console\.(warn|error)/.test(Hc));
   /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «매 턴 교정» 이 된다 — 화면은 멀쩡해 보인다.
@@ -375,16 +376,22 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
   const d3 = decideWarmupFixShow(minor, d2.memo, 9);
   t('F-10 같은 실수가 두 번째면 보여 준다', !!d3.show);
   const d4 = decideWarmupFixShow(major, d1.memo, 6);
-  t('F-11 바로 앞 턴에 고쳐 줬으면 이번엔 쉰다', d4.show === null);
-  /* 🔴 턴 수가 «상한에 붙어» 더 안 늘면 교정이 영영 멎는다 — 그래서 서버가 COUNT 로 센다.
-     여기서는 그 상태를 재현해 «실제로 멎는다» 를 증거로 남긴다(A-10 이 지키는 것). */
-  const stuck = decideWarmupFixShow(major, { ...d1.memo, lastShownTurn: 21 }, 21);
-  t('F-12 🔴 턴 수가 안 늘면 교정이 멎는다 (COUNT 로 세는 이유)', stuck.show === null);
-  /* 🔴 turnNo 가 1 이면 «막힌다» — 서버 주석이 한때 「«처음» 으로 통과한다」고 거짓을 적었다.
-     그 진술을 여기서 실제로 돌려 못 박는다(F-8 은 turn 5 로만 시험해 이것을 한 번도 안 쟀다). */
-  t('F-13 🔴 turnNo=1 은 «막힌다» — 첫 마디에는 교정이 안 뜬다',
-    decideWarmupFixShow(major, null, 1).show === null);
-  t('F-13b 짝 검사: turnNo=2 부터 뜬다', !!decideWarmupFixShow(major, null, 2).show);
+  /* 🔴 2026-09-09 사장님 「I ate pizza yesterday 인데 아바타가 수정해주지 않았어」 —
+     뜻이 달라지는 오류는 연달아 틀려도 «매번» 고쳐 준다(옛 코드는 major 도 2턴을 띄웠다). */
+  t('F-11 🔴 뜻이 달라지는 오류는 바로 앞 턴에 고쳐 줬어도 또 고쳐 준다', !!d4.show);
+  /* ⚠️ 짝 — 그 예외를 minor 까지 넓히면 관사 하나까지 매 턴 잡혀 말문이 막힌다. */
+  const d4b = decideWarmupFixShow(minor, d3.memo, 10);
+  t('F-11b 🔴 짝: 작은 실수는 여전히 연달아 고치지 않는다', d4b.show === null);
+  /* 🔴 턴 수가 «상한에 붙어» 더 안 늘면 «작은 실수» 교정이 멎는다 — 그래서 서버가 COUNT 로 센다.
+     ⚠️ major 는 이제 간격을 안 보므로 이 재현에 쓸 수 없다(쓰면 검사가 헛돈다). */
+  const stuck = decideWarmupFixShow(minor, { ...d3.memo, lastShownTurn: 21 }, 21);
+  t('F-12 🔴 턴 수가 안 늘면 작은 실수 교정이 멎는다 (COUNT 로 세는 이유)', stuck.show === null);
+  /* 🔴 2026-09-09 까지는 turnNo=1 이 «막혔다» — lastShownTurn 이 0 이라 1-0=1 < 2 로 걸려
+     학생의 맨 첫 마디는 원리상 못 고쳐 줬다. 지금은 «한 번도 안 보여줬으면 간격 없음» 이다. */
+  t('F-13 🔴 turnNo=1 — 학생의 첫 마디도 고쳐 준다',
+    !!decideWarmupFixShow(major, null, 1).show);
+  t('F-13b 짝 검사: 첫 마디여도 작은 실수는 처음엔 안 고친다',
+    decideWarmupFixShow(minor, null, 1).show === null);
 }
 console.log('__J__' + JSON.stringify(out));
 `;
