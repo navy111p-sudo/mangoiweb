@@ -567,6 +567,7 @@
         <div class="add-form-card">
           <h4 data-ko="👨‍👩‍👧 학생 정보 편집" data-en="👨‍👩‍👧 Edit Student Info">👨‍👩‍👧 학생 정보 편집</h4>
           <div class="grid-2">
+            <div class="form-row"><label data-ko="학생 이름"      data-en="Student Name">학생 이름</label><input id="cName" type="text"></div>
             <div class="form-row"><label data-ko="학생 전화"      data-en="Student Phone">학생 전화</label><input id="cStudentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="부모님 전화"    data-en="Parent Phone">부모님 전화</label><input id="cParentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="담임 교사 전화" data-en="Teacher Phone">담임 교사 전화</label><input id="cTeacherPhone" type="tel"></div>
@@ -1642,6 +1643,7 @@ $('csAddBtn').addEventListener('click', async () => {
 function renderContact(){
   const erp = _state.full.erp || {};
   const map = {
+    cName: erp.korean_name || erp.username,
     cStudentPhone: erp.student_phone, cParentPhone: erp.parent_phone, cTeacherPhone: erp.teacher_phone,
     cKakao: erp.kakao_id, cParentKakao: erp.parent_kakao_id,
     cSchool: erp.school, cGrade: erp.grade, cBirth: erp.birth_date,
@@ -1659,7 +1661,9 @@ $('cSaveBtn').addEventListener('click', async () => {
     if (pw !== pwConfirm) { toast(t('pwMismatch'), true); return; }
     if (pw.length < 4) { toast(t('pwTooShort'), true); return; }
   }
+  const newName = $('cName').value.trim();
   const body = {
+    korean_name: newName || null,
     student_phone: $('cStudentPhone').value || null,
     parent_phone: $('cParentPhone').value || null,
     teacher_phone: $('cTeacherPhone').value || null,
@@ -1684,6 +1688,8 @@ $('cSaveBtn').addEventListener('click', async () => {
     if (r.ok && j.ok) {
       toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
+      // 🥭 이름을 바꿨으면 왼쪽 카드·상단 이름도 즉시 새로 읽어온다(안 하면 새로고침 전까지 옛 이름).
+      if (j.name_changed) await loadFull();
     }
     else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
   } catch (e) { toast(t('netError'), true); }

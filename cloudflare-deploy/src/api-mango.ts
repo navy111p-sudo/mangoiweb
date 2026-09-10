@@ -38,7 +38,7 @@ import { broadcastWebPush } from './web-push';
 import { ipToNet, asLabel } from './net-prefix';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
-import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, ensureStudentOverrideTable } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -3910,6 +3910,15 @@ ${numbered}`;
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
           sets.push(`${k} = ?`); vals.push(b[k]);
         }
+        // 🥭 학생 이름 — korean_name·username 을 «함께» 고친다(이 페이지 왼쪽 카드는 username 만 읽는다).
+        //   빈 문자열이면 손대지 않는다 — 이름을 NULL 로 지우면 화면 전체가 uid 로 떨어진다.
+        let nameChanged = false;
+        const newName = (typeof b.korean_name === 'string') ? b.korean_name.trim() : '';
+        if (newName) {
+          sets.push('korean_name = ?'); vals.push(newName);
+          sets.push('username = ?'); vals.push(newName);
+          nameChanged = true;
+        }
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
         if (typeof b.new_password === 'string' && b.new_password.length > 0) {
@@ -3931,7 +3940,28 @@ ${numbered}`;
         await env.DB.prepare(
           `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged });
+        // 🧹 이름을 바꿨으면 student_erp_override 에도 적어 둔다 — 안 그러면 카페24 야간
+        //   동기화(03:00 KST)가 하룻밤 만에 원래 이름으로 되돌린다(CLAUDE.md 2장 「학생 이름·
+        //   계정을 D1 에서 고치거나 지웠는데 다음날 원복됨」). 실제 매칭 키는 user_id 라
+        //   student_id/login_id/username 중 무엇으로 찾아왔든 진짜 user_id 를 먼저 구한다.
+        //   ⚠️ fail-open — 여기서 실패해도 오늘 화면은 이미 바뀌었으니 저장 자체는 성공으로 둔다.
+        if (nameChanged) {
+          try {
+            const row = await env.DB.prepare(
+              `SELECT user_id FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
+            ).bind(uid, uid, uid).first<{ user_id: string }>();
+            const realUid = row && row.user_id;
+            if (realUid && await ensureStudentOverrideTable(env as any)) {
+              const now = Date.now();
+              await env.DB.prepare(
+                `INSERT INTO student_erp_override (user_id, korean_name, created_at, updated_at)
+                 VALUES (?, ?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET korean_name = excluded.korean_name, updated_at = excluded.updated_at`
+              ).bind(realUid, newName, now, now).run();
+            }
+          } catch { /* 이름 고정 실패 — 오늘은 바뀌고 내일 밤 되돌아갈 뿐, 저장 자체는 막지 않는다 */ }
+        }
+        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged });
       }
     }
 
