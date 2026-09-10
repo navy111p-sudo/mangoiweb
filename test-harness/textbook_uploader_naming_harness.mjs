@@ -266,8 +266,46 @@ console.log('\n[ ⑧ 파일 고르기 · 숨김 안내 · 자동 저장 (2026-09
   // ② 숨김 안내 — 서버가 알려 주고, 화면이 말하고, «자동으로 풀지는 않는다»(짝)
   check('서버가 중복 응답에 «어느 묶음»(book)을 싣는다', /skipped: true[\s\S]{0,400}?book: dupBook/.test(ADM));
   check('서버가 중복 응답에 «숨김인가»(hidden)를 싣는다', /hidden: dupHidden/.test(ADM));
-  check('숨김 조회 실패를 «false» 가 아니라 «모름(null)» 으로 둔다',
-    /let dupHidden: boolean \| null = null/.test(ADM) && /catch \{ dupHidden = null; \}/.test(ADM));
+  /* 🔴 (2026-09-10 함정 대조) 이 검사는 원래 **선언문 글자** 만 봤다 — 그래서 코드가
+     `loadHiddenBooks()`(몸통 전체가 try 라 절대 안 던지고 실패하면 빈 Set 을 준다)로 묻는 동안
+     «모름» 이 **원리상 만들어지지 않는데도** 초록불이었다(catch 는 도달 불가능한 죽은 코드).
+     ⟹ 이제 정본을 **오려 내 실제로 돌린다.** D1 이 던질 때 무엇이 나오는지가 이 검사의 전부다. */
+  {
+    const A = ADM.indexOf('let dupHidden');
+    const B = ADM.indexOf('} catch { dupHidden = null; dupHiddenBy = null; }');
+    check('숨김 판정을 오려 냈다', A > 0 && B > A);
+    let ran = null, err = '';
+    if (A > 0 && B > A) {
+      const js = ADM.slice(A, B + '} catch { dupHidden = null; dupHiddenBy = null; }'.length)
+        .replace(/:\s*boolean \| null/g, '').replace(/:\s*string \| null/g, '')
+        .replace(/const hrow:\s*any\s*=/g, 'const hrow =');
+      try {
+        const fn = new Function('env', 'ensureTextbookHiddenTable', 'dupBook',
+          'return (async () => { ' + js + ' return { hidden: dupHidden, by: dupHiddenBy }; })()');
+        /* 가짜 D1 — prepare/bind 두 층 모두에 first 를 둔다(한 층만 두면 정본이 다른 모양으로
+           부를 때 예외가 나고, 그 예외가 «못 찾음» 으로 둔갑해 검사가 헛돈다). */
+        const db = (row, throws) => ({ DB: { prepare() {
+          if (throws) throw new Error('D1_ERROR');
+          const r = { bind: () => r, first: async () => row, all: async () => ({ results: [] }) };
+          return r;
+        } } });
+        const noop = async () => {};
+        ran = {
+          hidden: await fn(db({ hidden_by: 'maimai-260813' }), noop, 'LEVEL 1'),
+          shown:  await fn(db(null), noop, 'BTS'),
+          broken: await fn(db(null, true), noop, 'BTS'),
+          ensureBroken: await fn(db(null), async () => { throw new Error('no table'); }, 'BTS'),
+        };
+      } catch (e) { err = String(e && e.message || e); }
+    }
+    check('숨긴 묶음이면 hidden=true (제대로 찾는다)', !!ran && ran.hidden.hidden === true, err);
+    check('«왜 숨겼는지»(숨긴 사람)도 함께 준다', !!ran && ran.hidden.by === 'maimai-260813');
+    check('안 숨긴 묶음이면 hidden=false', !!ran && ran.shown.hidden === false);
+    /* 🔴 여기가 이 절의 이유다 — 조회가 실패했는데 false 를 주면 「숨김 아님」이 **확정** 되어
+       화면이 「확인하지 못했습니다」를 못 띄우고 옛 문구로 떨어진다. */
+    check('D1 이 던지면 hidden=null (모름 — false 가 아니다)', !!ran && ran.broken.hidden === null);
+    check('표 만들기가 실패해도 hidden=null', !!ran && ran.ensureBroken.hidden === null);
+  }
   check('화면이 «숨김이라 안 보인다» 고 말한다', /숨김» 이라 안 보입니다/.test(UP));
   check('화면이 그 자리에서 [보이게 하기] 를 준다',
     /okText: '👁 보이게 하기'/.test(UP) && /hidden: false/.test(UP));
@@ -285,10 +323,24 @@ console.log('\n[ ⑧ 파일 고르기 · 숨김 안내 · 자동 저장 (2026-09
     /if \(window\.__pickedSingleFiles\) \{[\s\S]{0,300}?ph241Stop\(/.test(UP));
   check('멈춘 이유를 화면이 말한다(이름을 확인하라)',
     /교재 이름을 확인한 뒤 저장하세요/.test(UP) && /cr-name-hint/.test(UP));
+  /* ⚠️ 대기 초(5)를 숫자로 못 박지 않는다 — 사장님이 그 값을 바꾸면 멀쩡한 수리가 빨간불이 된다.
+     물어야 할 것은 «카운트다운이 살아 있고 스스로 누르는가» 다. */
   check('폴더로 올린 것은 여전히 자동 저장한다',
-    /var ph241Left = 5;/.test(UP) && /btn\.click\(\)/.test(UP));
-  check('드래그가 «폴더인가» 를 경로로 가른다',
-    /__pickedSingleFiles = files\.length > 0 && !files\.some/.test(UP));
+    /ph241Left\s*=\s*\d+/.test(UP) && /setInterval\(ph241Tick/.test(UP) && /btn\.click\(\)/.test(UP));
+  /* ⚠️ «어느 줄에 어떤 모양으로 쓰였는가» 가 아니라 «어디서 정하는가» 를 묻는다.
+     ZIP 은 풀리면서 폴더 경로가 생기므로 판정은 **압축을 푼 뒤**(processFiles 안)여야 한다 —
+     드롭 핸들러에서 미리 정하면 ZIP 한 개를 놓았을 때 「폴더가 없다」고 거짓말한다. */
+  {
+    const pf = UP.indexOf('async function processFiles');
+    const set = UP.indexOf('window.__pickedSingleFiles =');
+    const drop = UP.indexOf("dz.addEventListener('drop'");
+    check('«폴더인가» 판정이 processFiles 안에 있다', pf > 0 && set > pf);
+    check('그 판정이 경로의 «/» 를 본다',
+      /__pickedSingleFiles[\s\S]{0,220}indexOf\('\/'\)/.test(UP));
+    check('드롭 핸들러가 따로 정하지 않는다(판정이 한 곳이다)',
+      (UP.match(/window\.__pickedSingleFiles\s*=/g) || []).length === 1
+      && !(drop > 0 && UP.slice(drop, drop + 500).includes('__pickedSingleFiles =')));
+  }
 
   // ④ 이 PC 삭제 버튼이 «어느 것을 지우는지» 이름으로 말한다
   check('표의 [삭제] 가 «이 PC» 라고 이름으로 말한다', /🖥 이 PC 에서 삭제<\/button>/.test(UP));

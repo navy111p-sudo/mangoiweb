@@ -323,10 +323,15 @@ console.log('\n⑥ 파일 고르기 · 자동 저장 멈춤 (2026-09-10)');
     f.fullPath = 'BTS 2/001/Slide1.JPG'; processFiles([f]); return 1; })()`);
   await sleep(1500);
   const folder = JSON.parse(await p.evalJs(`JSON.stringify({
-    btn: (document.getElementById('btn-save')||{}).textContent || '', timer: !!window._ph241Timer
+    btn: (document.getElementById('btn-save')||{}).textContent || '', timer: !!window._ph241Timer,
+    hint: !!document.getElementById('cr-name-hint')
   })`));
   check('폴더로 올린 것은 여전히 자동 저장한다(ph241 유지)',
     folder.timer === true || /자동 저장/.test(folder.btn), 'btn=' + folder.btn);
+  /* 🔴 (2026-09-10 함정 대조) 안내 상자는 `cr-groups` 의 **형제** 라 카드를 다시 그려도 살아남는다.
+     안 지우면 버튼은 「N초 뒤 자동 저장」인데 바로 위 상자는 「멈췄습니다」라고 말한다 —
+     한 화면이 두 가지를 말하면 사람은 위에 있는 쪽을 따른다. */
+  check('폴더로 다시 올리면 지난번 안내가 사라진다', folder.hint === false);
   await p.close();
 }
 

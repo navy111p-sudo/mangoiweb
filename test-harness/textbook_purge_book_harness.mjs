@@ -237,8 +237,17 @@ ok('purgeBook 이 2단계(세기 → 이름 확인)를 거친다',
    ⚠️ 주석에 그 낱말이 그대로 들어 있으므로 **주석을 벗겨 낸 사본**으로 판정한다
       (CLAUDE.md 「부정 검사가 자기 주석을 잡는다」). */
 {
-  const bare = stripCmt(html.slice(html.indexOf('async function purgeBook'),
-                                   html.indexOf('async function purgeBook') + 3000));
+  /* ⚠️ «길이» 로 자르지 말 것 — purgeBook 은 실측 5,889자라 `+3000` 은 **뒤 절반을 검사 밖**에
+     둔다(2026-09-10 함정 대조가 잡음). 함수 끝까지 **중괄호 짝** 으로 자른다. */
+  const pbStart = html.indexOf('async function purgeBook');
+  let depth = 0, pbEnd = pbStart, started = false;
+  for (let k = html.indexOf('{', pbStart); k < html.length; k++) {
+    const ch = html[k];
+    if (ch === '{') { depth++; started = true; }
+    else if (ch === '}') { depth--; if (started && depth === 0) { pbEnd = k + 1; break; } }
+  }
+  ok('purgeBook 몸통을 끝까지 잘라 냈다', pbEnd - pbStart > 3000);
+  const bare = stripCmt(html.slice(pbStart, pbEnd));
   ok('삭제 확인이 브라우저 대화상자로 되돌아가지 않았다',
      !/\bprompt\s*\(/.test(bare) && !/\bconfirm\s*\(/.test(bare));
   ok('확인 상자가 화면 안에서 뜬다(mgModal)', /await\s+mgModal\(/.test(bare));

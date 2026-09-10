@@ -13052,11 +13052,26 @@ LIMIT $limit`;
                 푸는 것은 사람이 화면에서 [보이게 하기] 를 누를 때뿐이다. */
           const dupBook = rawName.startsWith('[') && rawName.indexOf(']') > 1
             ? rawName.slice(1, rawName.indexOf(']')) : '(기타)';
+          /* 🔴 `loadHiddenBooks()` 로 묻지 말 것 — 그 함수는 **몸통 전체가 try** 라
+             절대 던지지 않고 실패하면 «빈 Set» 을 준다(fail-open). 그러면 `.has()` 가
+             **false** 가 되어 「숨김 아님」이 **확정**되고, 여기 catch 는 도달 불가능한
+             죽은 코드가 된다(2026-09-10 함정 대조가 잡음 — 주석은 null 이라 적혀 있었다).
+             ⟹ 「모름」을 만들려면 **여기서 직접** 묻고 예외를 받아야 한다. */
           let dupHidden: boolean | null = null;
-          try { dupHidden = (await loadHiddenBooks()).has(dupBook); } catch { dupHidden = null; }
+          let dupHiddenBy: string | null = null;
+          try {
+            await ensureTextbookHiddenTable();
+            const hrow: any = await env.DB.prepare(
+              `SELECT hidden_by FROM textbook_hidden_books WHERE book = ? LIMIT 1`
+            ).bind(dupBook).first();
+            dupHidden = !!hrow;
+            /* «왜 숨겼는지» 는 이 칸뿐이다 — 화면이 안 보여 주면 사람이 근거 없이 되돌린다
+               (LEVEL 1~7 은 마이마이 확인으로 숨긴 것이다). */
+            dupHiddenBy = hrow ? String(hrow.hidden_by || '') || null : null;
+          } catch { dupHidden = null; dupHiddenBy = null; }
           return json({
             ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName,
-            book: dupBook, hidden: dupHidden,
+            book: dupBook, hidden: dupHidden, hidden_by: dupHiddenBy,
           });
         }
 
