@@ -39,7 +39,7 @@
     }
     return false;
   }
-  window.MangoEscape = { openExternal: openExternal, isInApp: isInApp, inApp: inApp };
+  window.MangoEscape = { openExternal: openExternal, isInApp: isInApp, inApp: inApp, showBanner: showBanner };
 
   function buildBanner() {
     if (document.getElementById('mango-inapp-banner')) return;
