@@ -502,7 +502,7 @@
         }
       };
       fx._fileset = fileset;
-        try { console.log('[mobilefix] 얼굴인식 파일을 우리 서버에서 씁니다 — ' + FACE_LOCAL); } catch (e) {}
+      try { console.log('[mobilefix] 얼굴인식 파일을 우리 서버에서 씁니다 — ' + FACE_LOCAL); } catch (e) {}
       return true;
     })().catch(function (e) {
       /* 실패하면 «손대지 않은 상태» 로 되돌린다 — idx-x6.js 가 원래대로 CDN 에서 받는다.
@@ -1966,7 +1966,10 @@
       if (typeof orig === 'function' && !orig.__mgInApp) {
         window.showView = function (id) {
           var r = orig.apply(this, arguments);
-          try { if (String(id || '').indexOf('videocall') !== -1) hide(); } catch (_) {}
+          /* ⚠️ 로비(view-videocall-lobby)에서는 남긴다 — 덮어서 곤란한 것은 «수업 화면» 의
+             36px 툴바뿐이고, 카톡 링크로 들어온 사람은 로비가 그것을 읽을 유일한 시간이다
+             (그렇게 안 하면 겨냥한 사람에게 0.6초만 보인다 — 함정 대조 실측). */
+          try { if (String(id || '').indexOf('videocall-call') !== -1) hide(); } catch (_) {}
           return r;
         };
         window.showView.__mgInApp = true;

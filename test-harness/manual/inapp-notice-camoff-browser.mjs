@@ -16,7 +16,7 @@
  *   (서버·크로미움을 이 파일이 직접 띄운다. 준비물이 없으면 «건너뜀» 으로 끝난다)
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,6 +76,26 @@ await send('Page.enable'); await send('Runtime.enable'); await send('Network.ena
    (2026-09-02 실측: 되돌려도 «통과» 하는 거짓 초록) */
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 try { await send('Network.setBypassServiceWorker', { bypass: true }); } catch {}
+/* 🔴 «자동 이동을 안 한다» 를 Page.frameNavigated 나 location.href 로 재면 «원리상 실패할 수 없는»
+   헛도는 검사가 된다 — openExternal 이 쓰는 kakaotalk:// · intent:// 는 사용자 스킴이라
+   main-frame 탐색을 한 건도 안 내고 location.href 도 안 바뀐다(함정 대조 실측).
+   → 페이지 스크립트보다 «먼저» 돌려 openExternal 을 세는 스텁으로 갈아 끼운다. */
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+(function(){
+  window.__mgOpenExtCalls = 0;
+  var _v;
+  Object.defineProperty(window, 'MangoEscape', {
+    configurable: true,
+    get: function(){ return _v; },
+    set: function(v){
+      try { if (v && typeof v.openExternal === 'function') {
+        v.openExternal = function(){ window.__mgOpenExtCalls++; return false; };
+      } } catch (e) {}
+      _v = v;
+    }
+  });
+})();
+` });
 
 const KAKAO = 'Mozilla/5.0 (Linux; Android 13; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 KAKAOTALK/10.4.5';
 const CHROME_UA = 'Mozilla/5.0 (Linux; Android 13; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -100,7 +120,8 @@ const hint = await js(`(function(){
   var r = { txt: h ? h.textContent : '', hasI: !!i,
             iDisplay: cs ? cs.display : '', iPx: cs ? parseFloat(cs.fontSize) : 0,
             hPx: hs ? parseFloat(hs.fontSize) : 0, overflowY: hs ? hs.overflowY : '',
-            over: h ? (h.scrollHeight - h.clientHeight) : -1 };
+            over: h ? (h.scrollHeight - h.clientHeight) : -1,
+            clientH: h ? h.clientHeight : -1, scrollH: h ? h.scrollHeight : -1 };
   window.vcRemoteCamOff = { TEST: 'user' };
   vcApplyRemoteCamHint('TEST');
   r.camTxt = box.querySelector('.vc-camoff-hint').textContent;
@@ -111,7 +132,9 @@ ok('음성전용 안내에 영어가 있다 (병기)', hint.txt.includes('audio 
 ok('영어 줄이 <i> 로 따로 있다', hint.hasI);
 ok('영어 줄이 블록(한 줄 차지)', hint.iDisplay === 'block', hint.iDisplay);
 ok('영어 줄이 한국어보다 작다', hint.iPx > 0 && hint.iPx < hint.hPx, `${hint.iPx}px < ${hint.hPx}px`);
-ok('좁은 타일에서 안 넘친다(overflow:hidden)', hint.overflowY === 'hidden', hint.overflowY);
+ok('상자에 overflow:hidden 이 걸려 있다', hint.overflowY === 'hidden', hint.overflowY);
+ok('좁은 타일(150×110)에서 글자가 잘리지 않는다', hint.over <= 0,
+  `넘침 ${hint.over}px (상자 ${hint.clientH}px / 내용 ${hint.scrollH}px)`);
 ok('카메라 꺼짐 안내도 한/영 병기',
   hint.camTxt.includes('카메라를 껐어요') && hint.camTxt.includes('Camera is off'), hint.camTxt);
 
@@ -133,7 +156,6 @@ console.log('\n════════ ② 인앱 브라우저 안내 ═══
 const plain = await js(`!!document.getElementById('mango-inapp-banner')`);
 ok('보통 브라우저에서는 배너가 안 뜬다', plain === false);
 
-const navBefore = navCount;
 await open(KAKAO);
 const b1 = await js(`(function(){
   var b = document.getElementById('mango-inapp-banner');
@@ -152,16 +174,34 @@ const b1 = await js(`(function(){
   }
   return { has: !!b, h: rb ? Math.round(rb.height) : 0, hasRow: !!row,
            rowTop: rr ? Math.round(rr.top) : -1, topMost: topMost,
-           href: location.href, hasClose: !!document.getElementById('mango-inapp-close') };
+           href: location.href, hasClose: !!document.getElementById('mango-inapp-close'),
+           openExt: window.__mgOpenExtCalls };
 })()`);
 ok('카톡 인앱이면 홈에서 배너가 뜬다', b1.has);
 ok('배너가 화면에 실제로 그려졌다', b1.h > 0, `높이 ${b1.h}px`);
-ok('⛔ 자동 이동을 하지 않았다 (로그인이 안 넘어감)',
-  navCount === navBefore + 1 && b1.href.indexOf('/index.html') !== -1, `nav ${navCount - navBefore} · ${b1.href.slice(0, 45)}`);
+ok('⛔ 자동 이동(openExternal)을 부르지 않았다 — 로그인이 안 넘어감',
+  b1.openExt === 0, `openExternal ${b1.openExt}회 · ${b1.href.slice(0, 45)}`);
+/* 짝 — «위치» 로도 본다(스텁이 헛돌아도 이쪽이 잡는다). ⓬절만 중괄호 짝으로 오려 낸다 */
+{
+  const src = readFileSync(join(PUB, 'js', 'idx-vc-mobilefix.js'), 'utf8');
+  const at = src.indexOf('function mgInAppNotice');
+  let d = 0, end = -1;
+  for (let i = src.indexOf('{', at); i < src.length; i++) {
+    if (src[i] === '{') d++; else if (src[i] === '}') { d--; if (d === 0) { end = i; break; } }
+  }
+  const body = at >= 0 && end > at ? src.slice(at, end) : '';
+  ok('⓬절을 오려 냈다 (전제)', body.length > 200, `${body.length}자`);
+  ok('⓬절 소스에 openExternal 호출이 없다', body.length > 200 && !/openExternal/.test(body));
+}
 if (b1.hasRow) {
   ok('우상단 칩 줄을 배너 밑으로 내렸다', b1.rowTop >= b1.h, `칩 top ${b1.rowTop} ≥ 배너 ${b1.h}`);
   ok('칩 줄이 배너에 안 가린다 (맨 위가 칩)', b1.topMost === 'chip', b1.topMost);
-} else { console.log('  ⏭ 칩 줄(#ph50-chip-row)이 없어 겹침 검사 건너뜀'); }
+} else { ok('홈에 우상단 칩 줄(#ph50-chip-row)이 있다 (전제)', false, '없으면 아래 두 검사가 조용히 사라진다'); }
+
+/* 짝 — 로비에서는 «남아야» 한다. 카톡 링크로 들어온 사람에게는 로비가 그것을 읽을 유일한 시간이고,
+   덮어서 곤란한 것은 «수업 화면» 의 36px 툴바뿐이다(로비까지 치우면 0.6초만 보인다 — 함정 대조 실측). */
+const lob = await js(`(function(){ showView('view-videocall-lobby'); return !!document.getElementById('mango-inapp-banner'); })()`);
+ok('로비에서는 배너가 남는다 (카톡 링크로 온 사람이 읽을 시간)', lob === true);
 
 /* 수업에 들어가면 사라진다 — 배너는 top:0 고정인데 수업 툴바는 36px 이라 「나가기」를 덮는다 */
 const b2 = await js(`(function(){

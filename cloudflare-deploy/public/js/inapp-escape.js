@@ -56,7 +56,7 @@
       'display:flex;flex-direction:column;gap:10px;';
 
     var title = isIOS ? 'Camera not working? · 카메라가 안 보이나요?'
-                      : 'Please open this in your browser · 브라우저로 이동합니다';
+                      : 'Please open this in your browser · 브라우저에서 열어 주세요';
     var guide = isIOS
       ? 'Tap the menu in this chat app and choose "Open in Safari". The camera and microphone only work there.<br>카카오톡 메뉴에서 "Safari로 열기"를 눌러 주세요.'
       : 'Chat apps block the camera. Tap the button below to open this in Chrome.<br>카카오톡 안에서는 카메라가 차단됩니다.';
