@@ -121,9 +121,26 @@
     if (rm.userCount === 1) return 1;
     return 0;
   }
-  function visibleRooms(){
+  /* 👥 회의방은 «수업» 이 아니다 — /api/active-rooms 가 방 종류를 안 가려 섞여 뜬다.
+     예약이 없어 끝나는 시각도 없으니 탭을 닫기 전까지 남는다(2026-09-10 meet-1234).
+     ⛔ 판정을 새로 정하지 말 것 — adm-s1.js 의 _ghIsMeetRoom 과 «같은 말» 이어야 하고
+        meet_room_split_harness ⑩ 이 두 파일을 오려 내 대조한다. 대소문자는 안 가린다
+        (MEET-1234 도 회의방). class-·c24-·demo-·room- 은 안 건드린다.
+     📄 docs/작업기록/260910_지금진행중인수업_회의방_갈라그리기.md */
+  function isMeetRoom(roomId){ return /^meet-/i.test(String(roomId || '')); }
+  function splitRooms(list){
+    var cls = [], meet = [];
+    (list || []).forEach(function(rm){ (isMeetRoom(rm && rm.roomId) ? meet : cls).push(rm); });
+    return { cls: cls, meet: meet };
+  }
+  function kwRooms(){
     var kw = ($('q').value || '').trim().toLowerCase();
-    var list = state.rooms.filter(function(rm){ return !kw || roomText(rm).indexOf(kw) >= 0; });
+    return splitRooms(state.rooms.filter(function(rm){ return !kw || roomText(rm).indexOf(kw) >= 0; }));
+  }
+  /* 🔁 순회 참관도 이 목록을 쓴다(회의방은 안 돈다) */
+  function visibleRooms(){ return sortRooms(kwRooms().cls); }
+  function visibleMeetRooms(){ return sortRooms(kwRooms().meet); }
+  function sortRooms(list){
     var mode = $('sel-sort').value;
     var startOf = function(rm){
       var sc = state.names[String(rm.roomId)] || {};
@@ -147,10 +164,14 @@
     var chips = [];
     if (state.counts) chips.push('<span class="chip">' + L('📅 예약 기준 지금 수업', '📅 Booked now')
       + '<b>' + (state.counts.now || 0) + '</b></span>');
-    chips.push('<span class="chip">' + L('🎥 화상방', '🎥 Mango-i rooms') + '<b>' + state.rooms.length + '</b></span>');
+    /* 🔢 합치지 말 것 — 회의방이 «수업 건수» 로 읽힌다 */
+    var sp = splitRooms(state.rooms);
+    chips.push('<span class="chip">' + L('🎥 수업방', '🎥 Class rooms') + '<b>' + sp.cls.length + '</b></span>');
+    if (sp.meet.length) chips.push('<span class="chip">' + L('👥 회의방', '👥 Meeting rooms') + '<b>' + sp.meet.length + '</b></span>');
     chips.push('<span class="chip' + (alertCount ? ' st-bad' : '') + '">' + L('🚨 이상 알림', '🚨 Alerts')
       + '<b>' + alertCount + '</b></span>');
-    var alone = state.rooms.filter(function(r){ return r.userCount === 1; }).length;
+    /* 회의방을 함께 세면 이 칩이 늘 켜져 있다(«혼자» 가 흔하고 끝나는 시각이 없다) */
+    var alone = sp.cls.filter(function(r){ return r.userCount === 1; }).length;
     if (alone) chips.push('<span class="chip st-bad">' + L('⚠ 혼자 대기', '⚠ Waiting alone') + '<b>' + alone + '</b></span>');
     if (state.turn) {
       var bad = state.turn.indexOf('public-fallback') === 0;
@@ -189,16 +210,35 @@
       L('인원', 'People'), L('회선', 'Line'), L('액션', 'Actions')
     ].map(function(h){ return '<th>' + h + '</th>'; }).join('');
 
+    var sp = splitRooms(state.rooms);
     var list = visibleRooms();
-    $('rooms').innerHTML = list.length ? list.map(rowHtml).join('')
+    $('rooms').innerHTML = list.length ? list.map(function(rm){ return rowHtml(rm, false); }).join('')
       : '<tr><td colspan="7" class="empty">'
         + (state.forbidden
             ? L('권한이 없어 목록을 표시하지 않습니다.', 'Not shown - no permission.')
-            : (state.rooms.length
+            : (sp.cls.length
                 ? L('검색어와 맞는 수업이 없습니다.', 'No class matches your search.')
-                : L('지금 망고아이 화상방에 접속해 있는 수업이 없습니다.',
-                    'No one is connected to a Mango-i video room right now.')))
+                /* ⛔ «아무도 접속해 있지 않다» 고 말하지 않는다 — 회의방이 있으면 거짓말이 된다 */
+                : L('지금 진행 중인 수업방이 없습니다.', 'No class room is in progress right now.')))
         + '</td></tr>';
+
+    /* 👥 회의방 — 접힌 구역. ⛔ 줄을 지우지 말 것(참관·직접입장이 회의방에도 필요) */
+    var msec = $('meet-sec');
+    if (msec) {
+      msec.hidden = !sp.meet.length;
+      if (sp.meet.length) {
+        var mlist = visibleMeetRooms();
+        $('meet-title').textContent = L('👥 회의방 ' + sp.meet.length + '개 · 수업 아님 (눌러서 열기)',
+          '👥 Meeting rooms · ' + sp.meet.length + ' · not classes (click to open)');
+        $('meet-note').textContent = L(
+          '방 번호를 쳐서 연 회의방입니다. 예약이 없어 «끝나는 시각» 이 없고, 마지막 탭을 닫아야 목록에서 사라집니다.',
+          'Rooms opened by typing a room code. They have no booking, so no end time - a room stays here until the last tab is closed.');
+        $('meet-rooms').innerHTML = mlist.length
+          ? mlist.map(function(rm){ return rowHtml(rm, true); }).join('')
+          : '<tr><td colspan="7" class="empty">'
+            + L('검색어와 맞는 회의방이 없습니다.', 'No meeting room matches your search.') + '</td></tr>';
+      }
+    }
 
     /* 예약 줄 — 수강신청(참관 가능) + 카페24(방이 없어 불가). «접속 기록 없음» ≠ «미접속». */
     $('sched-title').textContent = L('📅 예약 기준 지금 수업', '📅 Booked classes for this moment');
@@ -260,11 +300,12 @@
      ⚠️ 숫자를 여기 한 곳에만 둡니다 — 배지·툴팁·아래 안내 문장이 전부 이 값을 읽습니다.
      한 화면이 서로 다른 말을 하면 사람은 어느 쪽을 믿을지 모릅니다(CLAUDE.md 2장). */
   var OBS_MAX = 4, OBS_BUSY = 2;
-  function rowHtml(rm){
+  /* ⚠️ list.map(rowHtml) 로 부르지 말 것 — 둘째 인자가 «순번» 이라 둘째 줄부터 전부 회의방이 된다 */
+  function rowHtml(rm, isMeet){
     var rid = String(rm.roomId == null ? '' : rm.roomId);
     var al = state.alerts[rid];
     var sev = severity(rm);
-    var cls = al ? 'st-alert' : (sev === 2 ? 'st-alert' : (rm.userCount === 1 ? 'st-alone' : 'st-ok'));
+    var cls = al ? 'st-alert' : (sev === 2 ? 'st-alert' : (rm.userCount === 1 && !isMeet ? 'st-alone' : 'st-ok'));
     if (rot.on && rot.room === rid) cls += ' st-rot';
     var sc = state.names[rid] || {};
     var who = (sc.teacher_name || sc.student_name)
@@ -273,14 +314,17 @@
       : esc((rm.users || []).map(function(u){ return u.username; }).join(', ')) || L('(이름 미상)', '(unknown)');
     var badges = '';
     if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
-    if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
+    /* 회의방은 색만 낮춘다 — «혼자다» 는 사실은 그대로 적는다 */
+    if (rm.userCount === 1) badges += isMeet
+      ? ' <span class="badge mute">' + L('혼자', 'alone') + '</span>'
+      : ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
     /* 👁 참관 정원 — 서버 OBSERVER_MAX 와 짝. 참관자 한 명 = 방 안 «각자»의 업로드 한 갈래라
        붐빌수록 강사 회선이 상합니다. 그래서 «들어가기 전에» 여기서 고르게 합니다.
        ⚠️ 소리만/영상은 «입장할 때» 정해집니다(재협상이 없음) — 들어간 뒤에는 못 바꿉니다. */
     var obs = rm.observerCount || 0, obsFull = obs >= OBS_MAX, obsBusy = obs >= OBS_BUSY;
     if (obs > 0) badges += ' <span class="badge ' + (obsBusy ? 'alone' : 'obs') + '">'
       + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (obsFull ? L(' 정원 참', ' full') : '') + '</span>';
-    var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 ? '⚠' : '🟢'));
+    var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 && !isMeet ? '⚠' : (isMeet ? '👥' : '🟢')));
     /* ⏱ 시각은 «예약» 에서 온다 — 화상방 자체는 시작 시각을 알려 주지 않는다.
        모르면 «—» 로 둔다(방이 열린 시각을 추측해서 적지 않는다). */
     var when = sc.start_time ? esc(sc.start_time) : '—';
@@ -422,7 +466,9 @@
   function rotStart(){
     var list = visibleRooms();
     if (!list.length) {
-      alert(L('지금 참관할 수 있는 화상방이 없습니다.', 'There is no room to observe right now.'));
+      /* 회의방은 순회에 안 넣는다 — 그래서 «수업방» 이라고 말한다 */
+      alert(L('지금 순회할 수업방이 없습니다. (회의방은 아래 목록에서 👁 로 봅니다)',
+              'No class room to rotate through. (Meeting rooms: use the eye button in the list below.)'));
       return;
     }
     /* 창은 «사람이 누른 이 순간» 에 연다 — 타이머 안에서 열면 팝업 차단에 걸린다.

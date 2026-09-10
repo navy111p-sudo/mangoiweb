@@ -397,11 +397,11 @@
     <button class="opt" data-persona="serious" data-ko="진지한" data-en="Serious">진지한</button>
     <button class="opt" data-persona="tutor" data-ko="튜터" data-en="Tutor">튜터</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
-    <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
-    <button class="opt active" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
-    <button class="opt" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
-    <button class="opt" data-rate="1.25" data-ko="빠르게" data-en="Fast">빠르게</button>
-    <button class="opt" data-rate="1.5" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
+    <button class="opt" data-rate="0.5" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
+    <button class="opt" data-rate="0.65" data-ko="느리게" data-en="Slow">느리게</button>
+    <button class="opt active" data-rate="0.8" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt" data-rate="1" data-ko="빠르게" data-en="Fast">빠르게</button>
+    <button class="opt" data-rate="1.25" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
     <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
          목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
          학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
@@ -574,26 +574,53 @@
       } catch(e){ return AIF_DEFAULT; }
     })();
     let currentPersona = 'friendly';
-    /* 🐢 처음 오는 학생이 듣는 속도 (2026-09-10 사장님 「Emma 말이 너무 빨라 — 좀더 느리게」).
-       ⚠️ 이 숫자는 제가 고른 값이 아니라 **웜업이 이미 쓰고 있던 값**입니다 —
-          warmup.html 의 `WARMUP_START_RATE = 2`(= RATE_STEPS 2단계 = 0.8) 가
-          2026-07-23 「처음 듣는 학생이 못 알아듣는 일이 없게」로 정해진 것인데,
-          AI 영어친구만 1(보통)로 남아 있어 «같은 Emma 인데 화면마다 말 속도가 달랐습니다».
-       ⛔ 「보통」 버튼의 값(1)을 0.8 로 바꾸는 방식으로 고치지 마세요 — 그러면 라벨이
-          거짓말을 하고 다섯 칸의 뜻이 화면마다 갈립니다. 바꾸는 것은 «시작 칸» 하나입니다.
-       ℹ️ 이미 속도를 고른 학생에게는 안 닿습니다(그 선택이 이깁니다 — 아래 localStorage).
-          더 느리게 하려면 이 값을 0.6 으로만 바꾸면 됩니다(RATE_STEPS_AF 의 맨 아래 칸). */
-    const AF_START_RATE = 0.8;
-    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 = AF_START_RATE)
+    /* 🔊 원어민 음성 재생 속도 — «계단 정본은 여기 한 곳» 이다.
+       화면 버튼(data-rate)·저장값 스냅·"천천히 말해줘" 한 칸 내리기가 모두 이 배열을 본다.
+       ⛔ 딴 곳에 값을 다시 적지 말 것 — 한쪽만 바뀌면 «버튼은 보통인데 실제로는 다른 배속» 이
+          되고 에러는 안 난다.
+       🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
+          화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
+       📜 2026-08-31 사장님 「속도 구별이 잘 안돼」 → 칸 사이를 20% 이상으로 넓혔다.
+          2026-09-10 사장님 「아직도 말 속도가 너무 빨라. 보통을 기준으로 모두 느리게」
+          → 계단을 통째로 한 칸씩 내렸다(보통 1 → 0.8, 즉 옛 「느리게」가 새 「보통」).
+          칸 사이 비율(30·23·25·25%)은 20% 위로 그대로라 8/31 결정이 안 깨진다. */
+    const RATE_STEPS_AF = [0.5, 0.65, 0.8, 1, 1.25];
+    const RATE_DEFAULT_AF = 0.8;              // = «보통»
+    const RATE_KEY_AF = 'mangoi_aifriend_tts_rate';
+    /* 🔴 «옛 계단을 쓰던 기기» 를 한 번만 옮겨 준다 — 이 줄이 없으면 사장님 지시가
+       «이미 속도를 골라 둔 학생» 에게는 한 글자도 안 닿습니다.
+       값만 두면 «가장 가까운 칸» 이 옛 값을 그대로 집어 배속이 안 바뀌고(0.8→0.8·1→1),
+       하필 «🐢 아주 느리게» 를 골라 둔 학생 — 「너무 빠르다」를 이미 몸으로 말한 학생 —
+       만 0.6 → 0.65 로 «빨라집니다»(함정 대조가 브라우저로 재서 잡았습니다).
+       그래서 «값» 이 아니라 «칸 번호» 로 옮깁니다: 0.6→0.5 · 0.8→0.65 · 1→0.8 · 1.25→1 · 1.5→1.25.
+       라벨(아주 느리게…아주 빠르게)이 그대로 보존되면서 전원이 지시대로 한 칸 느려집니다.
+       ⛔ 이것은 «한 번만» 이어야 합니다 — 매번 돌면 새 0.8 을 옛 2단계로 보고 0.65 로,
+          또 0.65 를… 하며 수업 때마다 계속 느려집니다. 그래서 표식(RATE_VER_AF)을 둡니다. */
+    const RATE_VER_KEY_AF = 'mangoi_aifriend_tts_rate_v';
+    const RATE_VER_AF = '2';                  // 2 = 2026-09-10 한 칸씩 내린 계단
+    const RATE_STEPS_V1_AF = [0.6, 0.8, 1, 1.25, 1.5];   // 옮겨 오기 전용(판정에 쓰지 말 것)
+    const rateMarkAF = () => { try { localStorage.setItem(RATE_VER_KEY_AF, RATE_VER_AF); } catch(e){} };
+    const rateNearAF = (r) =>
+      RATE_STEPS_AF.reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, RATE_DEFAULT_AF);
     let currentRate = (function(){
       try {
-        const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate'));
-        if (!(r >= 0.5 && r <= 1.5)) return AF_START_RATE;
-        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값(1.2)은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
-           상태가 된다 — 화면은 「보통」처럼 보이는데 실제로는 1.2배로 읽는다(에러 없음).
-           그래서 가장 가까운 칸으로 맞춰서 시작한다. */
-        return [0.6, 0.8, 1, 1.25, 1.5].reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, AF_START_RATE);
-      } catch(e){ return AF_START_RATE; }
+        const r = parseFloat(localStorage.getItem(RATE_KEY_AF));
+        const moved = localStorage.getItem(RATE_VER_KEY_AF) === RATE_VER_AF;
+        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
+           상태가 된다 — 화면은 «보통» 처럼 보이는데 실제로는 딴 배속으로 읽는다(에러 없음).
+           ⛔ 범위 밖이라고 «기본값으로» 떨어뜨리지 말 것 — 아주 빠르게를 고른 학생이
+              말없이 보통으로 되돌아간다. 터무니없는 값만 거른다. */
+        if (!(r >= 0.3 && r <= 2)) { rateMarkAF(); return RATE_DEFAULT_AF; }
+        if (moved) return rateNearAF(r);
+        const i = RATE_STEPS_V1_AF.findIndex(v => Math.abs(v - r) < 1e-9);
+        /* ⛔ 옛 계단에 없는 값(예: 1.2)에 «가장 가까운 칸» 을 쓰면 1.25 로 «빨라진다» —
+           지시가 「모두 느리게」이므로 모르는 값은 «그보다 느린 쪽» 으로 내린다. */
+        const next = i >= 0 ? RATE_STEPS_AF[i]
+          : (RATE_STEPS_AF.filter(v => v <= r + 1e-9).pop() || RATE_STEPS_AF[0]);
+        try { localStorage.setItem(RATE_KEY_AF, String(next)); } catch(e){}
+        rateMarkAF();
+        return next;
+      } catch(e){ return RATE_DEFAULT_AF; }
     })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
@@ -859,13 +886,12 @@
     /* 🐢 (2026-07-23) "천천히 말해줘" 를 말이나 글로 부탁하면 실제로 음성 속도를 한 단계 낮춘다.
        그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
        (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
-    /* 🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
-       화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
-       (2026-08-31 사장님 「속도 구별이 잘 안돼」로 칸 사이를 20% 이상으로 넓혔다) */
-    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.25, 1.5];
+    /* 계단 정본(RATE_STEPS_AF)은 이 파일 위쪽 «음성 재생 속도» 블록에 한 벌만 있다. */
     function applyRate(v) {
       currentRate = v;
-      try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
+      /* 사람이 고른 값은 이미 새 계단이다 — 표식을 함께 남겨야 다음 로드에서 또 옮기지 않는다 */
+      try { localStorage.setItem(RATE_KEY_AF, String(currentRate)); } catch(e){}
+      rateMarkAF();
       document.querySelectorAll('.opt[data-rate]').forEach(x => {
         x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
       });
@@ -1818,7 +1844,12 @@
   .top .status{ display:none; }
   .top .clear-btn{ font-size:11px; padding:5px 9px; }
   .snd-toggle{ width:32px; height:32px; font-size:15px; }
-  .opts-toggle{ font-size:11px; padding:5px 9px; }
+  /* 📜 2026-09-10 «설정» 두 글자가 이 버튼 안으로 들어와 버튼이 넓어졌다.
+     여기는 «높이» 기준 블록(가로로 눕힌 폰)이라 자리가 특히 빠듯해 함께 줄여 둔다.
+     ⚠️ 390·320px 실측은 «폭» 기준 블록(max-width:520px) 쪽에 적혀 있다.
+     ⛔ 그 글자를 접어서 되돌리지 말 것(사장님 지시) — 대신 여백에서 낸다. */
+  .opts-toggle{ font-size:11px; padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
   .hud{ padding:4px 12px; gap:6px; }
   .hud-chip{ font-size:11.5px; padding:4px 9px; }
   .hud-lv .xp-track{ width:44px; height:6px; }
@@ -1947,11 +1978,23 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
         말하는 유일한 자리다. 지구본만 남기면 «무슨 말로 바뀌는지» 를 알 길이 없고,
         title 툴팁은 폰에 hover 가 없어 안 뜬다(CLAUDE.md «폰에서는 안 뜸»). */
   .top #mangoi-global-bar .mangoi-home-label{ display:none; }
-  .top #mangoi-global-bar > *{ padding:6px 8px !important; gap:3px !important; }
-  /* 폰에서는 ⚙ 요약의 «레벨» 만 접어 한 줄을 지킨다 — 시트를 열면 바로 보인다.
-     ⛔ .ot-sum 을 통째로 숨기지 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
+  /* ⚠️ 이 블록 안에서 같은 선택자를 두 번 적지 말 것 — 뒤가 이겨서 앞이 죽은 줄이 된다.
+     «설정» 두 글자가 들어오며 좁아진 몫을 여기서 함께 낸다(2026-09-10, 6px 8px → 6px 6px). */
+  .top #mangoi-global-bar > *{ padding:6px 6px !important; gap:3px !important; }
+  /* 📜 2026-09-10 이전에는 여기서 ⚙ 요약의 «레벨»(.ot-lv)을 접어 한 줄을 지켰다.
+     지금 그 자리에 든 것은 «설정» 두 글자라 «1단계 · A1»보다 짧아서 접을 이유가 없고,
+     사장님이 «톱니바퀴 옆에 설정이라고 단어도 추가해줘»라고 하신 바로 그 글자다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning_harness 가 <style> 안에서 세어
+        «이 화면이 983KB 한자 폰트를 받는다» 로 판정한다(세 번째로 밟았다). « » 를 쓴다.
+     ⛔ .ot-lv 를 다시 접지 말 것 — 톱니바퀴만 남으면 «무엇을 여는 버튼인지» 알 길이 없다
+        (title 툴팁은 폰에 hover 가 없어 안 뜬다).
+     ⛔ .ot-sum 을 통째로 숨기지도 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
         함께 사라져, 끈 학생에게 되돌아올 길이 화면에서 없어진다(함정 대조가 잡았다). */
-  .opts-toggle .ot-lv{ display:none; }
+  /* 그 대신 여백에서 낸다 — «설정» 두 글자가 폭을 24px 먹기 때문이다(2026-09-10 실측).
+     ⚠️ 여기서 안 줄이면 390px 에서 친구 이름(«Emma»)이 잘린다. 이름을 지우는 것보다
+        버튼 여백을 줄이는 편이 낫다(위 ⛔ 이름·칩·홈·언어를 지우지 말 것). */
+  .opts-toggle{ padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
 }
 /* ≤380px — 여기서부터는 «자리» 가 아니라 «여백» 으로 맞춘다.
    🔴 잰 것(2026-09-09): 360px 에서 고정 자리 합이 341px 이라 이름에 24px 밖에 안 남고
@@ -1964,7 +2007,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   .top .snd-toggle{ width:26px; height:26px; }
   .top .name{ font-size:14px; }
   .top .hud-chip{ font-size:10.5px; padding:4px 5px; gap:2px; }
-  .opts-toggle{ padding:6px 8px; }
+  .opts-toggle{ padding:6px 5px; }
   .top #mangoi-global-bar > *{ padding:5px 6px !important; font-size:11px !important; }
   .top #mangoi-global-bar{ gap:3px !important; }
 }
@@ -1972,8 +2015,13 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
    ✅ 남은 한 칸은 «뒤로» 버튼에서 낸다. 이 화면은 헤더 안에 🏠 홈이 함께 있어서
       ← 를 아이콘만으로 줄여도 나가는 문이 둘 다 남는다. */
 @media (max-width:330px){
-  .top{ gap:3px; padding:8px 6px; }
+  /* 🔴 잰 것(2026-09-10): «설정» 을 넣은 뒤 320px 에서 이름에 36px 밖에 안 남아
+     «Emma»(39px)가 3px 잘렸다. 칸 사이(gap)를 1px 줄여 6px 를 낸다. */
+  .top{ gap:2px; padding:8px 6px; }
   .top .hud-chip{ padding:3px 4px; }
+  /* «설정» 글자를 지키려고 마지막 몇 px 를 여백에서 더 낸다(2026-09-10). */
+  .opts-toggle{ font-size:10.5px; padding:5px 4px; }
+  .top #mangoi-global-bar > *{ padding:5px 4px !important; }
   /* 마지막 몇 px 는 이름 글자에서 낸다 — 지우는 것보다 작아지는 편이 낫다.
      ⚠️ 더 줄이지 말 것. 13px 아래로는 «누구와 이야기하는가» 가 읽히지 않는다. */
   .top .name{ font-size:13px; }
@@ -2062,15 +2110,20 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
       var cefr = lv.querySelector('i');
       s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
     }
-    /* 🔴 «지금 꺼져 있다» 표시는 레벨과 «따로» 돌려준다.
-       폰에서는 한 줄을 지키려고 레벨 부분만 접는데, 그때 이 표시까지 함께 접히면
-       자막·소리를 끈 학생에게 «되돌아올 길» 이 화면에서 사라진다 —
-       그건 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+    /* 🔴 «지금 꺼져 있다» 표시는 앞 글자와 «따로» 돌려준다.
+       한때 폰에서 앞부분을 접었는데 그때 이 표시까지 함께 접히면 자막·소리를 끈 학생에게
+       «되돌아올 길» 이 화면에서 사라진다 — 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+       📜 2026-09-10 부터는 접지 않는다(그 자리가 «설정» 두 글자로 바뀜) — 그래도 «따로 돌려주는»
+          구조는 그대로 둔다. 다시 좁아져 접게 될 때 이 표시가 함께 사라지면 안 되기 때문이다.
        ⚠️ 소리도 같은 이유로 함께 본다. 🔊 버튼이 시트로 내려가 헤더에서 안 보이므로,
           꺼 놓으면 어디에도 표시가 없었다. */
     var flags = '';
     if (sb && sb.dataset.sub !== 'on') flags += '👁';
     if (sn && sn.classList.contains('off')) flags += '🔇';
+    /* ⚠️ lv(레벨 요약)는 2026-09-10 부터 «읽는 곳이 0곳» 이다 — 헤더 그 자리가 «설정» 이 됐다.
+       ⛔ 이 값을 헤더에 다시 그리지 마세요(사장님 지시). 지우지 않고 두는 것은 만드는 규칙이
+          간단하지 않아서다(레벨 버튼이 두 줄이라 textContent 를 그냥 쓰면 «3A2+» 가 된다 —
+          2026-08-31 trap-check 산물). 시트 어딘가에 레벨을 요약해 보여 줄 일이 생기면 이것을 쓴다. */
     return { lv: s, flags: flags };
   }
 
@@ -2223,7 +2276,11 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     btn.setAttribute('aria-label', '설정 열기');
     btn.setAttribute('data-ko-aria', '설정 열기');
     btn.setAttribute('data-en-aria', 'Open settings');
-    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv"></span>'
+    /* 📜 2026-09-10 사장님 「이거 설정 톱니바퀴로 바꿔줘. 톱니바퀴 옆에 설정이라고 단어도 추가해줘」
+       — 여기 있던 「1단계 · A1」(레벨 요약)을 「설정」이라는 말로 바꿨다. 레벨은 시트를 열면 맨 위에 있다.
+       ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 달 것 — ⚙ 나 .ot-sum 에 달면 두 i18n 엔진이
+          textContent 를 통째로 갈아끼워 톱니바퀴와 꺼짐 표시(.ot-flag)가 DOM 에서 사라진다. */
+    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv" data-ko="설정" data-en="Settings">설정</span>'
       + '<span class="ot-flag"></span></span>';
     top.appendChild(btn);
 
@@ -2234,7 +2291,10 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 
     function paint(){
       var r = summary();
-      btn.querySelector('.ot-lv').textContent = r.lv;
+      /* ⛔ .ot-lv 에 레벨을 다시 쓰지 말 것 — 사장님이 「설정」으로 바꾸라고 하신 자리다(2026-09-10).
+         🌐 를 눌렀을 때 따라오도록 여기서도 지금 언어로 맞춰 준다(data-ko/data-en 과 같은 말). */
+      var lvEl = btn.querySelector('.ot-lv');
+      if (lvEl) lvEl.textContent = isEn() ? 'Settings' : '설정';
       btn.querySelector('.ot-flag').textContent = r.flags;
     }
 

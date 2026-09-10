@@ -22,6 +22,7 @@ import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
 import { sendEmail, emailLayout } from './email';
+import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
 function escapeHtmlAbs(s: any): string {
@@ -143,8 +144,18 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
     const late = now - start_ts;
     if (late < DETECT_AFTER_MS || late > DETECT_UNTIL_MS) continue;   // 감지 창 밖
-    candidates.push({ ...s, start_ts, late_min: Math.floor(late / 60000), room_id: `class-${s.id}-${ymd}` });
+    /* ⚠️ `schedule_id` 를 «따로» 담는다 — 이 행의 열쇠는 `s.id` 인데
+       applyRoomOverrides 는 `schedule_id` 를 읽는다. 안 담으면 **에러 없이 늘 헛돈다**
+       (CLAUDE.md 2장 「헬퍼에 행을 넘겼는데 아무 일도 안 일어남」). */
+    candidates.push({ ...s, schedule_id: s.id, start_ts, late_min: Math.floor(late / 60000), room_id: `class-${s.id}-${ymd}` });
   }
+
+  /* 🚪 「오늘은 이 방으로」 — 지정이 걸린 수업은 **그 회의방**의 출석을 봐야 한다.
+     ⚠️ 안 보면 학생이 지정된 방에 멀쩡히 있는데 예약방(class-…)에 없다는 이유로
+        「결석 위험」이 찍히고, 그 `class_no_show` 행을 `no-show-truth.ts` 가 읽어
+        **그 수업의 수업료가 0원**이 된다(CLAUDE.md 2장 「급여가 걸려 있습니다」).
+     ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
+  await applyRoomOverrides(env.DB, candidates, ymd);
 
   const result: AbsentSweepResult = { ok: true, checked: candidates.length, alerted: 0, parent_mode: false, details: [], dry };
   if (!candidates.length) return result;

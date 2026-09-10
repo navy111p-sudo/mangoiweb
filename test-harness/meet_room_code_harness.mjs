@@ -241,5 +241,70 @@ console.log('⑩ 로비 안내가 «예약된 수업» 조건을 말하는가');
   }
 }
 
+/* ── ⑪ 링크 도메인 — 두 «링크 복사» 가 같은 정본 도메인을 쓰는가 ────────────
+   [왜] 2026-09-10 실측: 로비(idx-vc-roomcode.js)는 `https://mangoi.ai` 로 못 박는데
+     회의방 모달(idx-vc-room.js)은 **location.origin** 이었다. 그래서 선생님이
+     test.mangoi.co.kr 에서 복사한 링크가 그대로 퍼지고, 받는 학생은 오리진이 갈려
+     localStorage 로그인이 없어 **「로그인했는데 또 로그인하래요」** 를 겪는다.
+     (30일 실측: mangoi.ai 296회·46명 대 test.mangoi.co.kr 12회·3명)
+   [무엇을 묻나] «그 글자가 있는가» 가 아니라 **링크 만드는 함수를 실제로 돌려** 답을 본다.
+   ⚠️ 기대값을 하니스에 손으로 적지 않는다 — 서버 정본 src/site-url.ts 에서 읽어 온다.
+      (경로 모양·쿼리 파라미터는 두 화면이 달라도 된다. 같아야 하는 것은 «오리진» 뿐이다.) */
+{
+  console.log('\n⑪ 링크 도메인 — 정본과 같은가');
+  const canonSrc = fs.readFileSync(ROOT + 'cloudflare-deploy/src/site-url.ts', 'utf8');
+  const canonM = /export\s+const\s+SITE_ORIGIN\s*=\s*'([^']+)'/.exec(canonSrc);
+  if (!canonM) {
+    bad('src/site-url.ts 에서 SITE_ORIGIN 을 못 읽었다', '정본이 바뀌었으면 이 검사를 함께 고칠 것');
+  } else {
+    const CANON = canonM[1];
+    ok('정본을 읽었다 (src/site-url.ts SITE_ORIGIN = ' + CANON + ')');
+
+    const builders = [
+      { name: '회의방 모달 (idx-vc-room.js)',      src: modalSrc, fn: 'function meetUrl(', callee: 'meetUrl' },
+      { name: '로비 링크 복사 (idx-vc-roomcode.js)', src: lobbySrc, fn: 'window.vcRoomLink = function (', callee: 'vcRoomLink' },
+    ];
+    for (const b of builders) {
+      const body = cut(b.src, b.fn);
+      if (!body) { bad(b.name + ' — 링크 만드는 함수를 못 오려 냈다', b.fn); continue; }
+      const bare = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+      // ① location.origin 을 쓰지 않는가 (주석은 벗겨 낸 사본으로 판정)
+      /\blocation\s*\.\s*origin\b/.test(bare)
+        ? bad(b.name + ' — location.origin 을 쓴다', '만든 도메인이 그대로 퍼져 받는 사람이 다시 로그인한다')
+        : ok(b.name + ' — location.origin 을 쓰지 않는다');
+      // ② 실제로 돌려 본다
+      const originM = /var\s+SITE_ORIGIN\s*=\s*'([^']*)'/.exec(b.src);
+      if (!originM) { bad(b.name + ' — SITE_ORIGIN 상수가 없다', '도메인을 식 안에 흩어 적지 말 것'); continue; }
+      let url = null;
+      try {
+        url = new Function('SITE_ORIGIN', 'code',
+          bare.replace(/^[\s\S]*?function\s*\w*\s*\([^)]*\)\s*\{/, '').replace(/\}\s*;?\s*$/, '')
+              .replace(/\bnormalize\s*\(/g, 'String(').replace(/\bnormalizeRoomInput\s*\(/g, 'String(')
+        )(originM[1], '1234');
+      } catch (e) { bad(b.name + ' — 링크를 만들다 던졌다', String(e && e.message)); continue; }
+      (typeof url === 'string' && url.indexOf(CANON + '/') === 0)
+        ? ok(b.name + ' → ' + url)
+        : bad(b.name + ' — 정본 도메인으로 시작하지 않는다', '만든 주소: ' + JSON.stringify(url));
+
+      /* 🔴 (2026-09-10 함정 대조) «빌더가 옳은가» 만 보면 **아무것도 안 지켜집니다** —
+         `SITE_ORIGIN` 은 그대로 두고 **복사 핸들러가 그 빌더를 안 부르게** 바꾸면
+         (`var url = location.origin + '/?meet=' + …`) 위 검사는 전부 통과합니다.
+         실제로 그 변이를 돌려 PASS 68/FAIL 0 이 나오는 것을 확인했습니다.
+         ⟹ CLAUDE.md 2장 「«불렀는가» 만 보지 말고 «그 결과를 쓰는가» 도 보세요」.
+         ⛔ 선언(`function meetUrl(`·`= function (`)이 호출로 세이지 않게 «부르는 모양» 으로만 셉니다. */
+      const bareAll = b.src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+      const calls = [...bareAll.matchAll(new RegExp('(?<!function\\s{0,4})\\b' + b.callee + '\\s*\\(', 'g'))]
+        .filter(m => !/function\s*$/.test(bareAll.slice(Math.max(0, m.index - 12), m.index)));
+      (calls.length >= 1)
+        ? ok(b.name + ' — 복사 핸들러가 그 빌더를 실제로 부른다 (' + calls.length + '곳)')
+        : bad(b.name + ' — 빌더를 부르는 곳이 없다', '빌더만 옳고 링크는 딴 데서 만들어집니다');
+      /* 그리고 그 파일 안에서 링크를 «따로» 조립하지 않는가 — 빌더를 비켜 가는 두 번째 길 */
+      (/location\s*\.\s*(origin|host|hostname)\s*\+/.test(bareAll))
+        ? bad(b.name + ' — 파일 안에서 location 으로 주소를 따로 조립한다', '빌더를 비켜 갑니다')
+        : ok(b.name + ' — 파일 어디에서도 location 으로 주소를 조립하지 않는다');
+    }
+  }
+}
+
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);
 process.exit(fail ? 1 : 0);

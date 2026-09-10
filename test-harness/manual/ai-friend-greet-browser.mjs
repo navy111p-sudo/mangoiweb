@@ -1,23 +1,24 @@
 // -*- coding: utf-8 -*-
-/* ai-friend-greet-rate-browser.mjs — 친구 인사 중복 · 말 속도 시작 칸 (2026-09-10)
+/* ai-friend-greet-browser.mjs — 친구 인사가 «누를 때마다 쌓이는가» (2026-09-10)
  *
  * ⚠️ 자동으로 안 돕니다. 사람이 부릅니다:
  *      cd cloudflare-deploy/public && python3 -m http.server 8957 &
  *      PW_DIR=/tmp/pw AIF_URL=http://127.0.0.1:8957/ai-friend.html \
- *        node test-harness/manual/ai-friend-greet-rate-browser.mjs
+ *        node test-harness/manual/ai-friend-greet-browser.mjs
  *
- * 왜 «브라우저» 여야 하나 — 둘 다 문자열로는 원리상 안 보입니다.
- *   ① 인사 중복: 함수도 값도 다 «있고» 틀린 것은 «누를 때마다 쌓이는가» 뿐입니다.
- *      (2026-09-10 사장님 화면에 Emma 인사가 두 줄. D1 `ai_friend_chats` 에는 인사가
- *       한 줄도 없어 «서버에 두 벌» 이 아니라 «화면에만 쌓인» 것이었습니다.)
- *   ② 말 속도: 시작 칸이 실제로 몇 배인지는 `currentRate` 를 «읽어야» 압니다.
- *      웜업은 2026-07-23 부터 0.8(2단계)로 시작하는데 AI 영어친구만 1 이었습니다 —
- *      같은 Emma 인데 화면마다 말 속도가 달랐습니다.
+ * 왜 «브라우저» 여야 하나 — 문자열로는 원리상 안 보입니다. 함수도 값도 다 «있고»
+ * 틀린 것은 «누를 때마다 쌓이는가» 뿐입니다(2026-09-10 사장님 화면에 Emma 인사가 두 줄.
+ * D1 `ai_friend_chats` 에는 인사가 한 줄도 없어 «서버에 두 벌» 이 아니라 «화면에만 쌓인» 것).
  *
  * ⛔ 「인사가 하나다」만 세지 마세요 — 그러면 «인사를 아예 안 하는» 회귀도 통과합니다.
  *    «한 번 누르면 하나 나온다» 와 «두 번 눌러도 하나다» 를 짝으로 둡니다.
  * ⛔ 「대화 도중 친구를 바꾸면 앞의 진짜 대화가 지워지지 않는다」도 짝입니다 —
  *    지우는 범위를 넓히면 학생이 쓴 말이 사라지는데 에러가 안 납니다.
+ *
+ * ℹ️ 말하기 «속도» 는 여기서 안 봅니다 — 2026-09-10 PR #917 이 다섯 칸을 통째로
+ *    한 칸씩 내리면서(0.5/0.65/0.8/1/1.25) 감시를 `listening_speed_harness` 와
+ *    `manual/ai-friend-header-browser.mjs` 에 두었습니다. 여기서 숫자를 또 못 박으면
+ *    그 정본과 어긋납니다.
  */
 import { loadPlaywright, findChromium } from './_pw.mjs';
 
@@ -59,32 +60,11 @@ console.log('\n■ 전제 — 화면이 떴는가');
 const booted = await p.evaluate(() => ({
   empty: !!document.querySelector('.empty-state'),
   cards: document.querySelectorAll('.friend-card[data-v]').length,
-  hasRate: typeof currentRate === 'number',
 }));
 ok(booted.empty, '빈 화면(친구·주제 고르기)이 그려졌다');
 ok(booted.cards >= 2, `친구 카드가 있다 (${booted.cards}개)`,
   '카드가 없으면 아래 «두 번 누르기» 가 통째로 헛돕니다');
-ok(booted.hasRate, 'currentRate 를 읽을 수 있다',
-  'let 은 window 속성이 안 되지만 최상위 classic script 라 전역 스코프에서 이름으로 읽힙니다');
 ok(errs.length === 0, `JS 에러가 없다 (${errs.length}건)`, errs.join(' / '));
-
-console.log('\n■ 🐢 말 속도 — 시작 칸이 웜업과 같은가');
-const rate = await p.evaluate(() => ({
-  cur: typeof currentRate === 'number' ? currentRate : null,
-  activeBtn: (document.querySelector('.opt[data-rate].active') || {}).dataset?.rate || null,
-  steps: [...document.querySelectorAll('.opt[data-rate]')].map(x => x.dataset.rate),
-}));
-ok(rate.cur === 0.8, `처음 오는 학생은 0.8 배로 듣는다 (지금 ${rate.cur})`,
-  '웜업은 2026-07-23 부터 0.8(WARMUP_START_RATE=2)로 시작합니다 — 같은 Emma 가 화면마다 다른 속도로 말하면 안 됩니다');
-/* ⚠️ 이 검사는 «값과 화면이 어긋나는가» 를 봅니다 — 정적 HTML 의 active 위치는 «못» 잽니다.
-      화면 로드 직후 JS 가 currentRate 에 맞는 칸으로 active 를 옮기기 때문입니다(자가교정).
-      그래서 HTML 쪽 active 를 「보통」으로 되돌려도 여기는 초록입니다(변이시험 실측) —
-      그 한 줄이 막는 것은 «JS 가 돌기 전 한 순간 보통으로 보이는 것» 뿐이고, 검사는 없습니다. */
-ok(rate.activeBtn === '0.8', `설정의 «켜진 칸» 도 0.8 이다 (지금 ${rate.activeBtn})`,
-  '값과 화면이 어긋나면 「보통인 줄 알았는데 느리게 읽는다」가 됩니다');
-ok(rate.steps.join(',') === '0.6,0.8,1,1.25,1.5',
-  `다섯 칸이 웜업과 같다 (${rate.steps.join(', ')})`,
-  '칸 값이 갈리면 「어떤 화면은 더 느리다」가 되고 에러는 안 납니다');
 
 console.log('\n■ 🧹 인사 — 눌러도 쌓이지 않는가');
 const greet = await safeEval(p, async () => {

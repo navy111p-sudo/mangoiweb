@@ -49,8 +49,10 @@
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9가-힣-]/g, '');
   }
+  /* 🔗 ⛔ location.origin 금지 — CLAUDE.md 2장 「사람에게 링크를 안내할 때」 */
+  var SITE_ORIGIN = 'https://mangoi.ai';
   function meetUrl(code){
-    return location.origin + '/?meet=' + encodeURIComponent(normalize(code));
+    return SITE_ORIGIN + '/?meet=' + encodeURIComponent(normalize(code));
   }
 
   /* 회의방 입장 — 이미 검증된 mangoiJoinClass(30319줄)를 그대로 재사용한다.
