@@ -42,6 +42,9 @@ const HOME = {
 const CASES = [
   ['키 없음(서버 미설정)', '서버에 알림 키(VAPID)가 아직 없습니다. 관리자가 등록해야 합니다.', { key: '' }],
   ['서버에 못 닿음',       '서버에 닿지 못했습니다. 연결을 확인하고 다시 눌러 주세요.',          { netfail: 1 }],
+  // 🔴 fetch 는 404·500 에도 reject 하지 않는다 — 이 줄이 없으면 서버 장애가
+  //    「관리자가 키를 등록해야 합니다」로 나가는 것을 아무도 못 본다(실제로 밟았다).
+  ['서버 오류(HTTP 500)',  '서버가 알림 키를 주지 못했습니다 (HTTP 500). 잠시 뒤 다시 눌러 주세요.', { http: 500 }],
   ['SW 등록 실패',         '이 브라우저에서 알림용 백그라운드 등록에 실패했습니다.',             { key: 'AAA', swfail: 1 }],
   ['구독 거절',            '이 브라우저가 알림 구독을 거절했습니다.',                            { key: 'AAA', subfail: 1 }],
   ['서버 저장 실패',       '이 기기에서는 등록됐지만 서버가 저장하지 못했습니다.',               { key: 'AAA', savefail: 1 }],
@@ -72,7 +75,10 @@ const stub = (home, cfg) => {
     var u = String(url);
     var J = function (o) { return Promise.resolve(new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json' } })); };
     if (u.indexOf('/api/push/vapid-public-key') >= 0) {
+      window.__vapidHits = (window.__vapidHits || 0) + 1;   // «가드» 검사용
       if (window.__CFG.netfail) return Promise.reject(new TypeError('Failed to fetch'));
+      if (window.__CFG.http) return Promise.resolve(new Response('<html>oops</html>',
+        { status: window.__CFG.http, headers: { 'Content-Type': 'text/html' } }));
       return J({ ok: true, key: window.__CFG.key });
     }
     if (u.indexOf('/api/push/subscribe') >= 0) return J({ ok: !window.__CFG.savefail });
@@ -100,15 +106,42 @@ const stub = (home, cfg) => {
     await page.waitForTimeout(900);
 
     const got = await page.evaluate(async () => {
+      const b0 = document.getElementById('pushBtn');
+      // ⚠️ «누르기 전» 값을 함께 잰다 — 안 그러면 askPush 가 아무 일도 안 해도
+      //    조용한 되살리기가 만들어 둔 상태 덕에 hidden 검사가 그냥 통과한다.
+      const before = { hidden: b0 ? !!b0.hidden : null, hits: window.__vapidHits || 0 };
       window.askPush();
       await new Promise(r => setTimeout(r, 700));
       const t = document.querySelector('#toast, .toast');
       const b = document.getElementById('pushBtn');
-      return { toast: t ? t.textContent.trim() : '(토스트 없음)', hidden: b ? !!b.hidden : null };
+      return {
+        before: before,
+        // ⚠️ textContent 만 보면 «화면에 안 보여도» 통과한다 — show 클래스까지 본다.
+        toast: t ? t.textContent.trim() : '(토스트 없음)',
+        toastShown: !!(t && String(t.className).indexOf('show') >= 0),
+        hidden: b ? !!b.hidden : null,
+        hits: window.__vapidHits || 0,
+      };
+    });
+
+    // 🛡 «조용한 되살리기» 가 repaint 마다 다시 나가지 않는가 —
+    //    가드(pushSilentTried)를 지우면 이 줄이 잡는다. ⚠️ «끊김» 은 일부러 다시 붙으므로 예외.
+    const guard = await page.evaluate(async () => {
+      const n0 = window.__vapidHits || 0;
+      // ⚠️ repaint()·load() 는 IIFE 안이라 밖에서 못 부른다 — 화면의 「새로고침」이
+      //    쓰는 window.reloadAll(→ load → repaint)로 실제 경로를 그대로 탄다.
+      window.reloadAll(); window.reloadAll(); window.reloadAll();
+      await new Promise(r => setTimeout(r, 600));
+      return (window.__vapidHits || 0) - n0;
     });
 
     check(name + ' → 사유를 그대로 말한다', got.toast === want, '실제="' + got.toast + '" 기대="' + want + '"');
+    check(name + ' — 토스트가 실제로 보인다(show)', got.toastShown === true, 'className 에 show 없음');
+    check(name + ' — 누르기 «전» 에는 그 문구가 없었다', got.before.hits !== undefined && got.hits > got.before.hits,
+          '발급요청 ' + got.before.hits + ' → ' + got.hits + ' (버튼이 아무 일도 안 했을 수 있다)');
     check(name + ' — JS 오류 0', errors.length === 0, errors.slice(0, 2).join(' / '));
+    if (cfg.netfail) check(name + ' — «끊김» 은 다시 붙는다(가드에 안 걸린다)', guard >= 1, 'repaint 3회에 발급요청 ' + guard + '회');
+    else             check(name + ' — repaint 를 세 번 해도 다시 안 나간다', guard === 0, 'repaint 3회에 발급요청 ' + guard + '회');
     // 성공했을 때만 버튼이 숨는다(이미 켜져 있으니 다시 권할 이유가 없다).
     if (name === '성공') check('성공하면 「알림 받기」 버튼이 숨는다', got.hidden === true, 'hidden=' + got.hidden);
     else check(name + ' — 실패했으면 버튼은 그대로 보인다(다시 누를 수 있어야 한다)', got.hidden === false, 'hidden=' + got.hidden);
