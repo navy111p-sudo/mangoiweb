@@ -194,8 +194,12 @@ check('🔴 건너뜀은 «실패» 가 아니다 (ok:true + skipped) — 화면
   /skipped: true, reason: 'duplicate'/.test(aapi));
 check('🔴 건너뛸 때는 R2 에도 안 쓴다 (중복 판정이 r2.put 앞에 있다)',
   aapi.indexOf("reason: 'duplicate'") < aapi.indexOf('const key = `textbook-files/'));
+/* ⚠️ (2026-09-10) 옛 검사는 `if (j && j.skipped) srvDup++` 라는 **한 줄 모양** 을 글자 그대로
+   못 박고 있었다 — 건너뛴 파일이 «어느 묶음·숨김인가» 를 함께 모으려고 블록으로 늘리자
+   보장은 그대로인데 검사만 빨간불이 났다. 물어야 할 것은 «나눠 세는가» 다. */
 check('업로더가 «새로 올린 것» 과 «이미 있어 건너뛴 것» 을 나눠 센다',
-  /srvDup/.test(uploader) && /if \(j && j\.skipped\) srvDup\+\+/.test(uploader));
+  /srvDup/.test(uploader) && /j\.skipped\)/.test(uploader) && /srvDup\+\+/.test(uploader)
+  && /srvOk\+\+/.test(uploader));
 check('🔴 건너뛴 것을 «올렸다» 고 말하지 않는다 (완료 문구에 건너뜀 개수가 나온다)',
   /이미 있어 건너뜀/.test(uploader));
 check('🌐 «이미 있다» 안내가 한/영 둘 다다', /already in the library/.test(uploader));

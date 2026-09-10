@@ -96,6 +96,7 @@ td.acts button{ padding:5px 9px; font-size:12px; margin:1px 2px 1px 0; }
 .badge.alone{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
 .badge.alert{ background:var(--crit-bg); color:var(--crit); border:1px solid var(--crit); }
 .badge.obs{ background:var(--violet-bg); color:var(--violet); }
+.badge.mute{ background:var(--card); color:var(--muted); border:1px solid var(--line); }
 .sig-ok{ color:var(--ok); font-weight:700; }
 .sig-warn{ color:var(--warn); font-weight:700; }
 .sig-bad{ color:var(--crit); font-weight:800; }
@@ -169,6 +170,14 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     </table>
   </div>
 
+  <!-- 👥 (2026-09-10) 회의방 — «수업» 이 아니라 방 번호로 연 방이다. 기본은 접힌다.
+       ⛔ 줄을 지우지 않는다(참관·직접입장은 회의방에도 필요) — 갈라 놓기만 한다. -->
+  <details class="sec" id="meet-sec" hidden>
+    <summary id="meet-title"></summary>
+    <p class="note" id="meet-note"></p>
+    <div class="tablewrap"><table><tbody id="meet-rooms"></tbody></table></div>
+  </details>
+
   <div class="sec">
     <h2 id="sched-title"></h2>
     <p class="note" id="sched-note"></p>
@@ -178,6 +187,6 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
   <footer id="ft"></footer>
 </div>
 
-<script src="/js/monitor-wall.js?v=2" defer></script>
+<script src="/js/monitor-wall.js?v=3" defer></script><!-- v=3: 회의방(meet-…)을 «수업» 줄과 갈라 접힌 구역으로 (2026-09-10) -->
 </body>
 </html>
