@@ -28,8 +28,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dir, '../cloudflare-deploy/src/enroll-ops.ts');
+const AUTH = join(__dir, '../cloudflare-deploy/src/auth-admin.ts');
 const IA6 = join(__dir, '../cloudflare-deploy/public/js/adm-ia6.js');
 const src = readFileSync(SRC, 'utf8');
+const auth = readFileSync(AUTH, 'utf8');
 const ia6 = readFileSync(IA6, 'utf8');
 
 let pass = 0, fail = 0;
@@ -71,13 +73,30 @@ const stripped = fnSrc
   .replace(/:\s*string \| null\b/g, '')
   .replace(/:\s*Request\b/g, '');
 
+/* ⛔ 「조직인가」 판정을 여기에 손으로 베끼지 않는다 — 정본이 좁아지면(예: franchise 제거)
+   게이트는 실제로 뚫리는데 검사만 초록으로 남는다(CLAUDE.md 「설정표를 손으로 적으면」).
+   정본 `isOrgScopedRole`(auth-admin.ts)을 **오려 내 그대로 쓴다.** */
+let isOrgScopedRole = null;
+try {
+  const os = bodyAt(auth, 'export function isOrgScopedRole')
+    .replace('export function', 'function')
+    .replace(/\)\s*:\s*boolean\s*\{/, ') {')
+    .replace(/:\s*string \| null \| undefined/g, '');
+  isOrgScopedRole = new Function(os + '\nreturn isOrgScopedRole;')();
+} catch (e) { console.log('     (정본 평가 실패: ' + e.message + ')'); }
+ok(typeof isOrgScopedRole === 'function', '정본 `isOrgScopedRole` 을 소스에서 읽어 왔다');
+/* 짝 — 「읽었다」만으로는 부족하다. 그 함수가 실제로 두 쪽을 가르는지 본다. */
+ok(typeof isOrgScopedRole === 'function'
+   && isOrgScopedRole('branch') === true && isOrgScopedRole('hq') === false,
+   '정본이 조직(branch)과 본사(hq)를 실제로 가른다');
+
 let gate = null;
 try {
   gate = new Function('getAdminActor', 'json', 'isOrgScopedRole', 'console',
     stripped + '\nreturn enrollAdminHqOnly;')(
       (req) => req.__actor,
       (obj, status) => ({ __json: obj, status }),
-      (r) => r === 'branch' || r === 'agency' || r === 'franchise',
+      isOrgScopedRole,
       { warn() {} });
 } catch (e) { console.log('     (평가 실패: ' + e.message + ')'); }
 ok(typeof gate === 'function', '게이트를 함수로 만들었다');
@@ -189,6 +208,12 @@ console.log('\n④ 배선 — 이 접두사의 «모든» 경로가 게이트를
      '이 접두사의 «새» 경로는 아무것도 안 해도 게이트를 지난다');
   ok(gated('/api/pay/enroll/quote', selfGated) === false,
      '학생용 경로(/api/pay/enroll/quote)는 게이트를 안 지난다');
+
+  /* 🔴 «있는가» 만으로는 부족하다 — 게이트 호출을 admin 라우트들 «아래» 로 옮겨도
+     위 검사는 전부 통과한다(CLAUDE.md 「감시는 «어디에 있는가» 를 세서」). */
+  const firstRoute = src.indexOf("path === '/api/pay/enroll/admin/");
+  ok(call > 0 && firstRoute > 0 && call < firstRoute,
+     '게이트가 첫 admin 라우트보다 «앞» 에서 불린다');
   for (const p of selfGated) {
     ok(gated(p, selfGated) === false, `제외 경로 ${p} 는 이 게이트를 안 지난다(스코프로 자른다)`);
   }

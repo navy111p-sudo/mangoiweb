@@ -869,9 +869,12 @@ const ENROLL_ADMIN_SELF_GATED = new Set([
 /** 🔒 본사(내부 계정)만 통과. 강사·지사·대리점·지사본사는 403.
  *
  *  🔴 «모른다» 를 «본사» 로 읽지 않는 것이 이 함수의 핵심이다.
- *     `getAdminActor()` 는 스코프 조회가 실패하면 그 예외를 **삼키고**
- *     `scopeType='none'` 으로 떨어지는데(auth-admin.ts 의 try/catch),
- *     `resolveRole('none', …)` 은 그것을 **`staff`(본사 동급)** 으로 판정한다.
+ *     `getAdminActor()` 는 스코프를 «못 구해도» `scopeType='none'` 으로 떨어지고,
+ *     `resolveRole('none', …)` 이 그것을 **`staff`(본사 동급)** 으로 판정한다.
+ *     ⚠️ 그 자리는 `auth-admin.ts` 의 try/catch «만» 이 아니다 — `getScope()` 안의
+ *        D1 접근이 전부 `s_safe`(scope.ts)로 감싸여 있어 **던지지 않고 조용히 null 을**
+ *        돌려주고, 그러면 `autoSeedOne()` 이 이름으로 추측하며 이름마저 못 읽으면
+ *        `type='none'` 이다. ⛔ 그러니 그 try/catch 를 걷어내는 것으로는 «고쳤다» 가 아니다.
  *     ⟹ `isOrgScopedRole(actor.role)` «하나만» 보면 D1 이 한 번 흔들릴 때
  *        지사 계정이 그대로 통과한다 — 이 함수가 막으려던 바로 그 일이다.
  *        (CLAUDE.md 「가드에 필요한 값을 safe(…, null) 로 조회하면 fail-open」)
@@ -883,6 +886,13 @@ const ENROLL_ADMIN_SELF_GATED = new Set([
  *     그러고도 없으면 심기까지 실패한 것이라 그때도 막는 쪽이 맞다.
  *     (2026-09-10 실측: 계정 49개 중 4개가 `admin_scope` 행이 없었고 전부
  *      이름으로 정확히 추측됐다 — 즉 평소에는 잘 돌고 흔들릴 때만 샌다)
+ *  🪤 **이 재조회로도 «못» 막는 변종이 하나 있다** — `autoSeedOne()` 은 이름을 못 읽어
+ *     `type='none'` 이 된 값을 `INSERT OR IGNORE` 로 **admin_scope 에 영구히 심는다.**
+ *     그 뒤로는 이 재조회가 그 'none' 을 «정상적으로» 읽어 통과시킨다. 즉 여기서 막는
+ *     것은 «못 읽는 순간» 이지 «잘못 심긴 값» 이 아니다. 정본 수리는 `autoSeedOne` 이
+ *     «이름을 못 읽었으면 아무것도 안 쓰게» 하는 쪽인데 반경이 있어 **사람이 정할 일**
+ *     이다(2026-09-10 함정 대조 지적). ⚠️ 그 조건에 닿을 수 있는 것은 `admin_scope` 행이
+ *     없는 넷 중 조직 계정 둘(`agency_sc002`·`capitown`)이다.
  *  ⚠️ 판정을 여기서 복제하지 않는다 — «조직인가» 는 정본 `isOrgScopedRole()` 이 답한다. */
 async function enrollAdminHqOnly(request: Request, env: any): Promise<Response | null> {
   const actor = await getAdminActor(request, env as any);
