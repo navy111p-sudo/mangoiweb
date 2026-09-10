@@ -127,7 +127,7 @@ ok(!/insertBefore\(\s*(opts|quests)\s*,/.test(script),
    🔴 함정 대조가 잡은 것 — 좁은 폭에서 .ot-sum 을 통째로 숨겨, 자막·소리를 끈 학생에게
       «지금 꺼져 있다»(👁·🔇)를 말해 줄 자리가 화면에서 사라졌었다. 되돌아올 길이 없어진다. */
 ok(/\.ot-lv\b/.test(AF) && /\.ot-flag\b/.test(AF),
-  '⚙ 요약이 «레벨»(.ot-lv)과 «꺼짐 표시»(.ot-flag)로 나뉘어 있다');
+  '⚙ 요약이 «글자»(.ot-lv)와 «꺼짐 표시»(.ot-flag)로 나뉘어 있다');
 ok(!/\.opts-toggle\s+\.ot-sum\s*\{[^}]*display\s*:\s*none/.test(bare),
   '좁은 폭에서 ⚙ 요약을 «통째로» 숨기지 않는다',
   '.ot-sum 을 숨기면 👁·🔇 까지 함께 사라진다 — 접는 것은 .ot-lv 뿐이다');
@@ -138,6 +138,59 @@ ok(/\.ot-flag['"]\)\s*\.textContent|querySelector\(\s*'\.ot-flag'\s*\)/.test(scr
 ok(/flags\s*\+=\s*'🔇'/.test(bareScript),
   '소리가 꺼져 있으면 🔇 를 요약에 «더한다»(🔊 는 시트 안이라 안 보인다)');
 ok(/flags\s*\+=\s*'👁'/.test(bareScript), '자막이 꺼져 있으면 👁 를 요약에 «더한다»');
+
+/* ── ⓚ ⚙ 버튼이 «무엇을 여는 버튼인지» 말하는가 ────────────────────────
+   📜 2026-09-10 사장님 「이거 설정 톱니바퀴로 바꿔줘. 톱니바퀴 옆에 설정이라고 단어도 추가해줘」
+      — 그전에는 이 자리에 레벨 요약(«1단계 · A1»)이 있었고 폰에서는 그것마저 접혀
+      톱니바퀴만 남았다(title 툴팁은 폰에 hover 가 없어 안 뜬다).
+   ⛔ 「설정」이라는 글자가 파일 어딘가에 있는가로 묻지 말 것 — 시트 제목·라벨에 널려 있다.
+      ⚙ 버튼 «안의 그 span» 을 콕 집어 본다. */
+const otLv = AF.match(/<span class="ot-lv"[^>]*>[^<]*<\/span>/);
+ok(!!otLv, '⚙ 버튼 안에 글자 칸(.ot-lv span)이 있다',
+  '못 찾으면 아래 검사가 통째로 헛돈다');
+ok(!!otLv && />설정</.test(otLv[0]),
+  '⚙ 톱니바퀴 옆에 «설정» 이라는 말이 있다',
+  '톱니바퀴만 있으면 «무엇을 여는 버튼인지» 알 길이 없다(폰에는 hover 가 없다)');
+/* 짝 — 🌐 를 눌렀을 때도 따라오는가. 한쪽만 보면 «한국어로만 박아 두기» 도 통과한다. */
+ok(!!otLv && /data-ko="설정"/.test(otLv[0]) && /data-en="Settings"/.test(otLv[0]),
+  '그 말이 KO/EN 둘 다 있다(🌐 를 누르면 따라온다)');
+/* ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 — ⚙ 나 .ot-sum 에 달면 두 i18n 엔진이
+      textContent 를 통째로 갈아끼워 톱니바퀴와 꺼짐 표시(.ot-flag)가 DOM 에서 사라진다
+      (CLAUDE.md 「아이콘 버튼에 data-ko 를 달았더니」·「글자 + 배지를 함께 담은 요소」). */
+ok(!/<span class="ot-sum"[^>]*data-(ko|en)=/.test(bareScript)
+   && !/<span class="ot-flag"[^>]*data-(ko|en)=/.test(bareScript),
+  'data-ko/data-en 을 ⚙ 요약 상자(.ot-sum)나 꺼짐 표시(.ot-flag)에 달지 않았다',
+  '거기 달면 i18n 이 textContent 를 갈아끼워 톱니바퀴·👁·🔇 가 사라진다');
+/* 다시 그릴 때도 레벨로 되돌아가지 않는가 — 이 한 줄이 이 변경의 전부다. */
+ok(!/ot-lv[^\n]*textContent\s*=\s*r\.lv/.test(bareScript),
+  '다시 그릴 때 헤더에 레벨을 되돌려 쓰지 않는다',
+  '사장님이 «설정» 으로 바꾸라고 하신 자리다(2026-09-10)');
+/* ⛔ 범위를 «길이» 로 자르지 말 것(CLAUDE.md) — 옆 함수가 딸려 들어오거나 잘려 나간다.
+   paint() 몸통을 «중괄호 짝» 으로 잘라 그 안에서만 본다. */
+const paintBody = (() => {
+  const i = bareScript.indexOf('function paint()');
+  if (i < 0) return '';
+  const o = bareScript.indexOf('{', i);
+  if (o < 0) return '';
+  let d = 0;
+  for (let k = o; k < bareScript.length; k++) {
+    if (bareScript[k] === '{') d++;
+    else if (bareScript[k] === '}') { d--; if (!d) return bareScript.slice(o, k + 1); }
+  }
+  return '';
+})();
+ok(paintBody.length > 60, `paint() 몸통을 잘라냈다 (${paintBody.length}자)`,
+  '못 잘라내면 아래 검사가 헛돈다');
+ok(/ot-lv/.test(paintBody) && /'설정'/.test(paintBody),
+  '다시 그릴 때도 그 칸에 «설정»(또는 Settings)을 쓴다',
+  '안 쓰면 시트를 한 번 연 뒤 그 말이 빈칸이 된다');
+/* 폰에서 접지 않는가 — 접으면 톱니바퀴만 남아 2026-09-10 지시가 그대로 되돌아간다.
+   ⚠️ 부정 검사라 주석을 벗겨 낸 사본(bare)으로 본다. */
+/* ⛔ 선택자 모양을 못 박지 말 것 — `.top .ot-lv{display:none}` 이나 `visibility:hidden`
+   으로 접으면 안 걸린다(함정 대조 지적). «그 칸을 감추는 규칙이 어떤 모양으로든 있는가» 로 묻는다. */
+ok(!/\.ot-lv\b[^{}]*\{[^}]*(?:display\s*:\s*none|visibility\s*:\s*hidden)/.test(bare),
+  '좁은 폭에서 «설정» 글자를 접지 않는다(어떤 모양으로도)',
+  '접으면 톱니바퀴만 남는다 — 폰에는 hover 가 없어 title 툴팁도 안 뜬다');
 /* 그리고 그 둘이 서로 다른 조건에서 켜지는가 — 한 조건에 묶으면 «소리만 껐을 때» 가 안 뜬다 */
 ok(/classList\.contains\(\s*'off'\s*\)/.test(bareScript) && /dataset\.sub/.test(bareScript),
   '자막 상태와 소리 상태를 «따로» 본다');
