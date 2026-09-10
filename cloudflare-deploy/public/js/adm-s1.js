@@ -108,10 +108,16 @@
     /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시.
        ⚠️ 회의방에서는 «혼자» 가 흔하고 끝나는 시각도 없어 노란불이 늘 켜져 있다.
           그래서 회의방에서는 색만 낮춘다 — 사실(혼자다)은 그대로 적는다. */
+    /* ⚠️ 색을 **인라인으로 주면 안 먹습니다** — 이 카드 안 글자는
+          `html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] :is(p,span,div,…)`
+          가 `#101828 !important` 로 덮습니다(클래스 3·요소 1 대 인라인 → 작성자 !important 가 이깁니다).
+          2026-09-10 함정 대조 실측: 인라인 앰버·회색 둘 다 계산값이 `rgb(16,24,40)` 로 **같았습니다.**
+       ✅ 그래서 «클래스» 로 주고 admin-inline-c.css 맨 끝에서 **조상 id 를 앞에 붙여**(1,1,0) 되살립니다.
+       ⛔ 앰버 #fbbf24 로 되돌리지 마세요 — 흰 카드 위 대비 1.67 이라 안 읽힙니다(#b45309 = 5.0). */
     const alone = (rm.userCount === 1)
       ? (isMeet
-          ? ' <span style="color:#94a3b8;font-weight:700">' + (en ? 'alone' : '혼자') + '</span>'
-          : ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>')
+          ? ' <span class="gh-alone-meet">' + (en ? 'alone' : '혼자') + '</span>'
+          : ' <span class="gh-alone">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>')
       : '';
     /* 👥 예약된 강사·학생. 못 이었으면 «—» — 추측해서 채우지 않는다.
        (강사 번호가 세 벌이라 잘못 이으면 조용히 남의 이름이 붙는다 — CLAUDE.md 2장) */
@@ -170,7 +176,15 @@
      ⚠️ 이모지는 Unicode 13 미만만 쓴다(Win10 두부 방지 — CLAUDE.md 1-4). 👥 = U+1F465. */
   function _ghMeetHtml(list, sched, en){
     if (!list || !list.length) return '';
-    return '<details style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
+    /* ⚠️ id 를 준 것은 «펼쳐 둔 상태를 기억하기» 위해서다(아래 toggle 리스너).
+          «card-» 로 시작하지 않으므로 다른 toggle 캡처 핸들러(adm-menu-hit·adm-lazy)에는 안 걸린다.
+       ⚠️ 손자 메뉴 스캐너 주의 — adm-r25 의 scan() 은 'details.sub-item, .sub-menu > details, [data-gc]'
+          라 이 details 를 안 잡지만, scanLeaf() 는 «클래스 없는 details» 도 잡는다.
+          그쪽은 사이드바 항목에 data-ia6-sub 가 있을 때만 도는데 「수업 관찰」에는 없다.
+          ⛔ 나중에 그 속성을 달게 되면 이 details 의 summary 글자(건수에 따라 바뀐다)가
+             손자 이름으로 올라가 설명 사전 키와 어긋난다 — 그때 클래스·구조를 다시 볼 것. */
+    return '<details id="gh-meet-sec"' + (window.__ghMeetOpen ? ' open' : '')
+      + ' style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
       + '<summary style="cursor:pointer;font-size:12.5px;color:#94a3b8;font-weight:700;padding:2px 0">'
       +   (en ? ('👥 Meeting rooms · ' + list.length + ' · not classes (click to open)')
              : ('👥 회의방 ' + list.length + '개 · 수업 아님 (눌러서 열기)'))
@@ -310,6 +324,14 @@
     if (window.__ghLiveAutoLoaded) return;
     window.__ghLiveAutoLoaded = true;
     try { window.ghLoadLive(); } catch(err){}
+  }, true);
+  /* 📂 회의방 구역을 펼쳐 두었으면 그대로 둔다 — 🌐 언어 전환·🔄 새로고침이 목록을 통째로
+     다시 그리므로(box.innerHTML) 기억해 두지 않으면 사람이 편 것이 닫힌다.
+     («성공 뒤 재조회가 화면 상태를 지운다» — CLAUDE.md 2장과 같은 뿌리) */
+  document.addEventListener('toggle', function(e){
+    const d = e.target;
+    if (!d || d.id !== 'gh-meet-sec') return;
+    window.__ghMeetOpen = !!d.open;
   }, true);
   /* 🌐 언어를 바꾸면 목록을 새 언어로 다시 그린다.
      ⚠️ #gh-live-list 에는 data-ko/data-en 을 달지 않았다(달면 i18n 엔진이 목록을 통째로
