@@ -80,6 +80,109 @@
     if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Enter class' : '수업 입장');
     else window.open(url, '_blank', 'noopener');
   };
+  /* 👥 (2026-09-10 사장님 「meet-1234 가 계속 이렇게 보이는데 이유가 뭐지?」)
+     회의방(meet-…)을 «수업» 줄과 갈라 그린다.
+     ─────────────────────────────────────────────────────────────────────────
+     [무엇이 문제였나] 이 카드 제목은 「지금 진행 중인 수업」인데 /api/active-rooms 는
+       방 종류를 가리지 않는다. 그래서 예약이 없는 회의방이 «수업» 칸 «—» 인 채로 진짜
+       수업과 나란히 뜨고, 혼자 있으면 「⚠ 혼자 대기중」 노란불까지 붙었다.
+       회의방은 «끝나는 시각» 이 없어 탭을 닫기 전에는 사라지지 않는다 — 서버의 죽은 소켓
+       청소는 «브라우저가 죽었을 때» 만 돌고, 탭이 살아 있으면 25초마다 ping 이 가서
+       «정상 접속» 이 맞다. ⟹ 그 노란불이 몇 시간이고 켜져 있었다(2026-09-10 실측:
+       meet-1234 가 09:05 부터 「⚠ 혼자 대기중」으로 남아 있었다).
+     [고침] 목록을 둘로 나눈다 — 수업방은 예전 그대로, 회의방은 접힌 «회의방» 구역으로
+       내리고 노란 경고 대신 회색 «혼자» 로만 적는다. 개수도 갈라 센다.
+     ⛔ 줄을 «지우지» 않는다 — 참관·양식·직접입장 버튼도 그대로다. 감추면 「기능이 없어졌다」가 된다.
+     ⚠️ 판정은 방 이름 접두사 하나뿐이다(회의방 정본은 js/idx-vc-roomcode.js 의
+        resolveRoomCode() 가 meet- 을 붙인다). 대소문자를 무시하는 이유는 MEET-1234 처럼
+        대문자로 만들어진 «다른 방» 도 회의방으로 보여야 하기 때문이다(방 이름은
+        idFromName 이라 대소문자를 구분한다 — CLAUDE.md 2장).
+     ⛔ class-·c24-·demo-·room-·mangoi-class 는 한 글자도 건드리지 않는다. */
+  function _ghIsMeetRoom(roomId){ return /^meet-/i.test(String(roomId || '')); }
+
+  /* 방 한 줄. 수업방·회의방이 같은 함수를 쓰고 «회의방인가» 만 다르게 그린다. */
+  function _ghRoomRow(rm, sched, en, isMeet){
+    const names = (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || '-';
+    const rid = esc(rm.roomId);
+    const ridAttr = encodeURIComponent(rm.roomId);
+    /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시.
+       ⚠️ 회의방에서는 «혼자» 가 흔하고 끝나는 시각도 없어 노란불이 늘 켜져 있다.
+          그래서 회의방에서는 색만 낮춘다 — 사실(혼자다)은 그대로 적는다. */
+    const alone = (rm.userCount === 1)
+      ? (isMeet
+          ? ' <span style="color:#94a3b8;font-weight:700">' + (en ? 'alone' : '혼자') + '</span>'
+          : ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>')
+      : '';
+    /* 👥 예약된 강사·학생. 못 이었으면 «—» — 추측해서 채우지 않는다.
+       (강사 번호가 세 벌이라 잘못 이으면 조용히 남의 이름이 붙는다 — CLAUDE.md 2장) */
+    const sc = sched[rm.roomId];
+    const whoT = (sc && sc.teacher_name) ? esc(sc.teacher_name) : '';
+    const whoS = (sc && sc.student_name) ? esc(sc.student_name) : '';
+    const whoTxt = (whoT || whoS)
+      ? (whoT ? '<b style="color:#e9d5ff">' + whoT + '</b>' : '')
+        + (whoT && whoS ? '<span style="color:#64748b"> · </span>' : '')
+        + (whoS ? '<span style="color:#cbd5e1">' + whoS + '</span>' : '')
+        + ((sc && sc.start_time) ? '<div style="color:#94a3b8;font-size:11px">' + esc(sc.start_time) + '</div>' : '')
+      /* 회의방은 예약이 없어 이 칸이 늘 비는데, «—» 만 있으면 「빠진 것」 처럼 읽힌다.
+         «회의방» 이라고 적어 «원래 없는 것» 임을 화면이 말하게 한다. */
+      : (isMeet ? '<span style="color:#94a3b8;font-weight:700">' + (en ? 'meeting room' : '회의방') + '</span>'
+                : '<span style="color:#64748b">—</span>');
+    return '<tr style="border-top:1px solid rgba(255,255,255,0.06)">'
+      + '<td style="padding:6px 8px">' + whoTxt + '</td>'
+      + '<td style="padding:6px 8px"><code style="color:#c4b5fd">' + rid + '</code>' + alone + '</td>'
+      + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
+      + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
+      + '<td style="padding:6px 8px;white-space:nowrap">'
+      /* 👁 원클릭 — UID·사유 자동 기록, 새 탭. 여러 줄을 연달아 누르면 동시 참관(보다 방식) */
+      +   '<button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + ridAttr + '\'))" '
+      +     'title="' + (en ? 'One click — audit log recorded automatically, live view opens in a new tab'
+                            : '한 번 클릭 — 감사 기록 자동, 새 탭으로 라이브 화면이 열립니다') + '" '
+      +     '>'
+      +     (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
+      +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+      +     'title="' + (en ? 'Fill the form below (write your own reason)' : '아래 양식에 방 번호만 채웁니다 (사유를 직접 적을 때)') + '" '
+      +     '>'
+      +     (en ? '📋 Fill form' : '📋 양식 채우기') + '</button>'
+      /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
+         초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
+      +   '<button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+      +     'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
+                            : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '" '
+      +     '>'
+      +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
+      + '</td></tr>';
+  }
+
+  function _ghRoomsTable(list, sched, en, isMeet){
+    return '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      + '<thead><tr style="color:#94a3b8;text-align:left">'
+      +   '<th style="padding:6px 8px">' + (isMeet ? (en ? 'Kind' : '종류') : (en ? 'Class' : '수업')) + '</th>'
+      +   '<th style="padding:6px 8px">' + (en ? 'Room' : '강의실') + '</th>'
+      +   '<th style="padding:6px 8px">' + (en ? 'People' : '인원') + '</th>'
+      +   '<th style="padding:6px 8px">' + (en ? 'Participants' : '참가자') + '</th>'
+      +   '<th style="padding:6px 8px">' + (en ? 'Action' : '액션') + '</th>'
+      + '</tr></thead><tbody>'
+      + list.map(function(rm){ return _ghRoomRow(rm, sched, en, isMeet); }).join('')
+      + '</tbody></table>';
+  }
+
+  /* 👥 회의방 구역 — 기본은 «접혀» 있다. 개수는 접힌 채로도 보인다.
+     ⚠️ 이모지는 Unicode 13 미만만 쓴다(Win10 두부 방지 — CLAUDE.md 1-4). 👥 = U+1F465. */
+  function _ghMeetHtml(list, sched, en){
+    if (!list || !list.length) return '';
+    return '<details style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
+      + '<summary style="cursor:pointer;font-size:12.5px;color:#94a3b8;font-weight:700;padding:2px 0">'
+      +   (en ? ('👥 Meeting rooms · ' + list.length + ' · not classes (click to open)')
+             : ('👥 회의방 ' + list.length + '개 · 수업 아님 (눌러서 열기)'))
+      + '</summary>'
+      + '<div style="font-size:11.5px;color:#64748b;margin:4px 0 6px">'
+      +   (en ? 'Rooms opened by typing a room code. They have no booking, so they have no end time — a room stays listed until the last tab is closed.'
+             : '방 번호를 쳐서 연 회의방입니다. 예약이 없어 «끝나는 시각» 이 없고, 마지막 탭을 닫아야 목록에서 사라집니다.')
+      + '</div>'
+      + _ghRoomsTable(list, sched, en, true)
+      + '</details>';
+  }
+
   window.ghLoadLive = async function(){
     const box = $('gh-live-list'), cnt = $('gh-live-count');
     const en = _ghIsEn();
@@ -103,18 +206,24 @@
       let sched2 = [];
       try { if (cr) { const cj = await cr.json(); if (cj && cj.ok) sched2 = cj.classes || []; } } catch(e){}
       const schedHtml = _ghSchedHtml(sched2, en);
-      const cntTxt = function(nRooms){
-        return (en ? ('· ' + nRooms + ' room(s)') : ('· 화상방 ' + nRooms + '개'))
-          + (sched2.length ? (en ? (' · ' + sched2.length + ' booked') : (' · 예약 수업 ' + sched2.length + '건')) : '');
+      /* 🔢 개수는 «갈라서» 센다 — 한 숫자로 합치면 회의방이 수업 건수로 읽힌다(CLAUDE.md 2장
+         「정상 정리분에 진짜 실패가 파묻힌다」와 같은 뿌리). */
+      const cntTxt = function(nClass, nMeet){
+        const parts = [ (en ? ('· ' + nClass + ' class room(s)') : ('· 수업방 ' + nClass + '개')) ];
+        if (nMeet) parts.push(en ? (nMeet + ' meeting room(s)') : ('회의방 ' + nMeet + '개'));
+        if (sched2.length) parts.push(en ? (sched2.length + ' booked') : ('예약 수업 ' + sched2.length + '건'));
+        return parts.join(' · ');
       };
       if (!Array.isArray(rooms) || !rooms.length) {
         box.innerHTML = '<div style="padding:10px 0;color:#94a3b8">'
           + (en ? 'No one is connected to a Mango-i video room right now.'
                 : '지금 망고아이 화상방에 접속해 있는 사람이 없습니다.') + '</div>' + schedHtml;
-        if (cnt) cnt.textContent = cntTxt(0);
+        if (cnt) cnt.textContent = cntTxt(0, 0);
         return;
       }
-      if (cnt) cnt.textContent = cntTxt(rooms.length);
+      const meetRooms = rooms.filter(function(rm){ return _ghIsMeetRoom(rm.roomId); });
+      const classRooms = rooms.filter(function(rm){ return !_ghIsMeetRoom(rm.roomId); });
+      if (cnt) cnt.textContent = cntTxt(classRooms.length, meetRooms.length);
       /* 👥 (2026-08-19 제보 2-①) 「누구 수업인지」 — 방 번호만으로는 알 수 없다.
          ⚠️ 참가자 칸(rm.users)은 «지금 접속해 있는 사람»이라 강사가 아직 안 들어왔으면 비어 있다.
             그때가 바로 급히 참관해야 할 때이므로, 예약된 강사·학생을 D1 에서 따로 받아 채운다.
@@ -130,58 +239,17 @@
         }
       } catch (e) { /* 조용히 — 표는 이름 없이 그대로 그린다 */ }
 
-      box.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-        + '<thead><tr style="color:#94a3b8;text-align:left">'
-        +   '<th style="padding:6px 8px">' + (en ? 'Class' : '수업') + '</th>'
-        +   '<th style="padding:6px 8px">' + (en ? 'Room' : '강의실') + '</th>'
-        +   '<th style="padding:6px 8px">' + (en ? 'People' : '인원') + '</th>'
-        +   '<th style="padding:6px 8px">' + (en ? 'Participants' : '참가자') + '</th>'
-        +   '<th style="padding:6px 8px">' + (en ? 'Action' : '액션') + '</th>'
-        + '</tr></thead><tbody>'
-        + rooms.map(function(rm){
-            const names = (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || '-';
-            const rid = esc(rm.roomId);
-            const ridAttr = encodeURIComponent(rm.roomId);
-            /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시 */
-            const alone = (rm.userCount === 1)
-              ? ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>' : '';
-            /* 👥 예약된 강사·학생. 못 이었으면 «—» — 추측해서 채우지 않는다.
-               (강사 번호가 세 벌이라 잘못 이으면 조용히 남의 이름이 붙는다 — CLAUDE.md 2장) */
-            const sc = sched[rm.roomId];
-            const whoT = (sc && sc.teacher_name) ? esc(sc.teacher_name) : '';
-            const whoS = (sc && sc.student_name) ? esc(sc.student_name) : '';
-            const whoTxt = (whoT || whoS)
-              ? (whoT ? '<b style="color:#e9d5ff">' + whoT + '</b>' : '')
-                + (whoT && whoS ? '<span style="color:#64748b"> · </span>' : '')
-                + (whoS ? '<span style="color:#cbd5e1">' + whoS + '</span>' : '')
-                + ((sc && sc.start_time) ? '<div style="color:#94a3b8;font-size:11px">' + esc(sc.start_time) + '</div>' : '')
-              : '<span style="color:#64748b">—</span>';
-            return '<tr style="border-top:1px solid rgba(255,255,255,0.06)">'
-              + '<td style="padding:6px 8px">' + whoTxt + '</td>'
-              + '<td style="padding:6px 8px"><code style="color:#c4b5fd">' + rid + '</code>' + alone + '</td>'
-              + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
-              + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
-              + '<td style="padding:6px 8px;white-space:nowrap">'
-              /* 👁 원클릭 — UID·사유 자동 기록, 새 탭. 여러 줄을 연달아 누르면 동시 참관(보다 방식) */
-              +   '<button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'title="' + (en ? 'One click — audit log recorded automatically, live view opens in a new tab'
-                                    : '한 번 클릭 — 감사 기록 자동, 새 탭으로 라이브 화면이 열립니다') + '" '
-              +     '>'
-              +     (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
-              +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'title="' + (en ? 'Fill the form below (write your own reason)' : '아래 양식에 방 번호만 채웁니다 (사유를 직접 적을 때)') + '" '
-              +     '>'
-              +     (en ? '📋 Fill form' : '📋 양식 채우기') + '</button>'
-              /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
-                 초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
-              +   '<button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
-                                    : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '" '
-              +     '>'
-              +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
-              + '</td></tr>';
-          }).join('')
-        + '</tbody></table>' + schedHtml;
+      /* 수업방이 0개인데 회의방만 있을 때 «접속해 있는 사람이 없습니다» 라고 하면 거짓말이 된다.
+         «수업» 이 없다는 것과 «아무도 없다» 는 다른 사실이다. */
+      const classHtml = classRooms.length
+        ? _ghRoomsTable(classRooms, sched, en, false)
+        : '<div style="padding:10px 0;color:#94a3b8">'
+          + (en ? ('No class room is in progress right now.'
+                   + (meetRooms.length ? ' (' + meetRooms.length + ' meeting room(s) below — not classes.)' : ''))
+                : ('지금 진행 중인 수업방이 없습니다.'
+                   + (meetRooms.length ? ' (아래 회의방 ' + meetRooms.length + '개는 수업이 아닙니다.)' : '')))
+          + '</div>';
+      box.innerHTML = classHtml + _ghMeetHtml(meetRooms, sched, en) + schedHtml;
     } catch(e) {
       box.innerHTML = '<div style="padding:10px 0;color:#fca5a5">⚠ ' + esc(e.message || e) + '</div>';
     }
