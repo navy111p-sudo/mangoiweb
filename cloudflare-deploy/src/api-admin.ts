@@ -59,6 +59,7 @@ import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  //
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
 import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
@@ -10798,6 +10799,13 @@ LIMIT $limit`;
       // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
       //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
       await _addEnrCol2('fee_source', 'TEXT');
+      /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
+         [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
+           `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다.
+         ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
+            **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
+            그 표에 두는 이유: `students_erp` 는 매일 밤 카페24 UPSERT 가 번호 칸을 덮는다. */
+      await _addEnrCol2('parent_phone', 'TEXT');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -10810,7 +10818,24 @@ LIMIT $limit`;
         binds.push(lim);
         try {
           const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
-          return json({ ok: true, items: rs.results || [] });
+          const items = rs.results || [];
+          /* 📞 (2026-09-10) 목록이 «지금 문자가 갈 번호» 를 사실대로 말한다.
+             ⚠️ `enrollments.parent_phone` 은 «등록할 때 적은 값» 이지 «지금 발송이 읽는 값» 이 아니다.
+                실제로 읽는 곳은 `student_erp_override` 하나이므로 그것을 실어 보낸다 —
+                두 값이 갈렸을 때 화면이 옛 값을 보여 주면 「넣었는데 왜 안 가지」가 된다.
+             ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도 — 공용 헬퍼가 센다).
+             ⚠️ 실패해도 목록은 그대로 내려간다(번호 칸만 «모름» 이 된다). */
+          try {
+            const uids = items.map((r: any) => String(r.student_user_id || '')).filter(Boolean);
+            if (uids.length) {
+              const pm = await loadOverridePhones(env as any, uids);
+              for (const it of items) {
+                const p = pm.get(String(it.student_user_id || ''));
+                (it as any).notify_phone = p?.parent || p?.student || '';
+              }
+            }
+          } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
+          return json({ ok: true, items });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });
         }
@@ -10852,8 +10877,13 @@ LIMIT $limit`;
         weekly1Price: _w1,
         weekly: weeklyCountFromDays(b.days_of_week),
       });
+      /* 📞 학부모 연락처 — 숫자만 남기고 9자리 미만은 «없는 것» 으로 본다(정본과 같은 규칙).
+         ⚠️ 필수로 만들지 않는다. 지금 등록되는 학생 중에는 번호를 모르는 경우가 실제로 있고,
+            여기서 막으면 «번호 때문에 등록이 안 되는» 새 사고가 된다. 안 넣으면 예전 그대로다. */
+      const _pPhone = String(b.parent_phone ?? '').replace(/[^0-9]/g, '');
+      const _parentPhone = _pPhone.length >= 9 ? _pPhone : '';
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw, fee_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw, fee_source, parent_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -10862,10 +10892,28 @@ LIMIT $limit`;
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio, _dur, _classMin, _fee.baseFeeKrw, _fee.source
+        _prio, _dur, _classMin, _fee.baseFeeKrw, _fee.source, _parentPhone || null
       ).run();
+      /* 📞 문자가 실제로 읽는 자리에 함께 적는다 — `student_erp_override`(동기화가 못 덮는 표).
+         ⚠️ **결과를 응답에 실어 화면이 말하게 한다.** 조용히 실패하면 사장님은 번호를 넣었다고
+            믿는데 수업 전 문자는 계속 안 나가고, 아무도 이유를 모른다(규칙서 2장
+            「보냈습니다라고 하는데 아무 데도 안 갔음」과 같은 뿌리).
+         ⚠️ 여기서 throw 하면 등록 자체가 실패한다 — 번호는 나중에 채울 수 있지만 등록은 그렇지 않다.
+            그래서 감싸되 «안 됐다» 는 사실은 반드시 돌려준다. */
+      let _phoneSaved: any = null;
+      if (_parentPhone && b.student_user_id) {
+        try {
+          const sv = await setOverridePhones(env as any, String(b.student_user_id), { parent: _parentPhone }, 'enroll');
+          _phoneSaved = { ok: sv.ok, reason: sv.reason };
+        } catch (e: any) {
+          _phoneSaved = { ok: false, reason: String(e?.message || e).slice(0, 120) };
+        }
+      } else if (_parentPhone && !b.student_user_id) {
+        // 아이디가 없으면 «누구의 번호인지» 를 모른다 — 신청서에만 남기고 문자 쪽에는 안 붙인다.
+        _phoneSaved = { ok: false, reason: 'no_student_uid' };
+      }
       // 화면이 «얼마로 잡혔는지» 를 그 자리에서 보여 줄 수 있게 계산 결과를 함께 돌려준다
-      return json({ ok: true, id: r.meta.last_row_id, fee: _fee });
+      return json({ ok: true, id: r.meta.last_row_id, fee: _fee, phone_saved: _phoneSaved });
     }
 
     // 수강신청 상태 변경 (pending → confirmed → cancelled 등)
@@ -10874,11 +10922,46 @@ LIMIT $limit`;
       const m = path.match(/^\/api\/admin\/enrollments\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
       const b = await parseJsonBody(request);
-      if (!b || !b.status) return invalidBody(['status']);
-      const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
-      if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
-      await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
-      return json({ ok: true, id, status: b.status });
+      /* 📞 (2026-09-10) 연락처만 고치러 오는 요청도 받는다 — **이미 등록된** 학생에게
+         번호를 넣을 자리가 여기밖에 없다(등록 화면의 칸은 «앞으로 등록되는» 학생용이라,
+         이것이 없으면 지금 수업 중인 학생에게는 안내문자를 영영 못 보낸다).
+         ⚠️ 그래서 status 를 «선택» 으로 바꾼다. 단 **둘 다 없으면** 예전처럼 400 이다 —
+            아무것도 안 보내는 요청을 200 으로 답하면 「저장됐다」는 거짓말이 된다. */
+      const _pRaw = b && b.parent_phone !== undefined ? String(b.parent_phone ?? '').replace(/[^0-9]/g, '') : null;
+      const _wantPhone = _pRaw !== null;
+      if (!b || (!b.status && !_wantPhone)) return invalidBody(['status']);
+      if (b.status) {
+        const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
+        if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
+        await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
+      }
+      let _phoneSaved: any = null;
+      if (_wantPhone) {
+        /* 빈 문자열로 보내면 «지운다» 는 뜻이다(「아직 안 받았다」와 구분). 9자리 미만은 안 받는다. */
+        const clear = _pRaw === '';
+        const phone = _pRaw.length >= 9 ? _pRaw : '';
+        if (!clear && !phone) {
+          _phoneSaved = { ok: false, reason: 'too_short' };
+        } else {
+          try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN parent_phone TEXT`); } catch { /* 이미 있음 */ }
+          try {
+            await env.DB.prepare(`UPDATE enrollments SET parent_phone = ?, updated_at = ? WHERE id = ?`)
+              .bind(phone || null, Date.now(), id).run();
+          } catch (e: any) { console.warn('[enrollments] 번호 기록 실패:', e?.message); }
+          /* ⚠️ 발송이 실제로 읽는 곳은 override 다 — 신청서에만 적으면 문자는 그대로 안 나간다.
+             누구의 번호인지 알아야 하므로 학생 계정을 신청서에서 다시 읽는다. */
+          const row: any = await env.DB.prepare(`SELECT student_user_id FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+          const uid = String(row?.student_user_id || '').trim();
+          if (!uid) _phoneSaved = { ok: false, reason: 'no_student_uid' };
+          else {
+            try {
+              const sv = await setOverridePhones(env as any, uid, clear ? { clear: true } : { parent: phone }, 'enroll-edit');
+              _phoneSaved = { ok: sv.ok, reason: sv.reason };
+            } catch (e: any) { _phoneSaved = { ok: false, reason: String(e?.message || e).slice(0, 120) }; }
+          }
+        }
+      }
+      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved });
     }
 
     /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)

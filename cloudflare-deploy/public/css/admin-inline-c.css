@@ -3496,6 +3496,12 @@ button.chip:hover,
   #en-multi-table tbody tr td.en-c-classmin { order: 7; grid-column: span 4; }
   #en-multi-table tbody tr td.en-c-start    { order: 8; grid-column: span 6; }
   #en-multi-table tbody tr td.en-c-dur      { order: 9; grid-column: span 6; }
+  /* 📞 (2026-09-10) 학부모 연락처 — 한 줄을 통째로 쓴다(span 12).
+     ⚠️ 이 블록은 12칸 그리드라 **줄마다 합이 정확히 12** 여야 한다. 기존 세 줄
+        (3+3+4+2 / 4+4+4 / 6+6)은 이미 12로 맞아 있으므로, 새 칸을 4나 6으로 끼우면
+        그 줄들이 어긋나 배치가 통째로 무너진다(규칙서 2장 「열을 하나 더했는데 맨 앞으로 튀어나옴」).
+     ⚠️ order 를 안 주면 기본값 0 이라 학생 아이디보다 «앞» 에 놓인다. */
+  #en-multi-table tbody tr td.en-c-phone    { order: 10; grid-column: span 12; }
   @media (max-width: 1100px) {
     #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
     #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }

@@ -18,6 +18,7 @@
  */
 
 import { sendPlainSms } from './solapi-client';
+import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 
 const REMIND_MIN_MS = 15 * 60 * 1000;   // 시작 15분 전까지 알림 창 유지
@@ -308,15 +309,29 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     const hhmm = String(c.start_time || '');
     const detail: any = { room_id: c.room_id, student: name, start: hhmm, mins_left: c.mins_left };
 
-    // 전화번호 — 스키마 편차(phone/student_phone) 대비 SELECT * 후 유연하게 해석
+    /* 전화번호 — 판정 정본은 `phonesForStudent`(notify-contacts.ts) 하나다.
+       📞 (2026-09-10) 그 함수가 «우리 화면에서 받아 둔 번호»(student_erp_override)를 **먼저** 보고
+          없으면 학생 명부로 떨어진다. 명부 번호는 카페24 동기화가 매일 밤 덮어서 실측 0건이라,
+          이 배선이 없으면 아래 발송은 영영 'no_phone' 으로 끝난다(7일간 671건 감지 / 0건 발송).
+       ⛔ 같은 판정을 여기에 복제하지 말 것 — 두 곳이 갈리면 「어떤 학생만 안 나가는」 사고가 된다. */
     let parentPhone = '', studentPhone = '';
     try {
+      const p = await phonesForStudent(env, c.user_id || '');
+      parentPhone = p.parent; studentPhone = p.student;
+    } catch (e: any) {
+      console.warn('[lesson-reminder] 번호 정본 조회 실패:', e?.message, 'uid=', c.user_id);
+    }
+    /* ⚠️ 정본은 `user_id` 로만 찾는다. 이 화면은 예전부터 `login_id` 로도 찾고 있었으므로
+       («되던 것» 을 깨지 않게) 정본이 빈손일 때만 그 경로를 한 번 더 시도한다. */
+    try {
+      if (!parentPhone && !studentPhone) {
       const stu: any = await env.DB.prepare(
         `SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
       ).bind(c.user_id || '', c.user_id || '').first();
       if (stu) {
         parentPhone = String(stu.parent_phone || '').trim();
         studentPhone = String(stu.student_phone || stu.phone || '').trim();
+      }
       }
     } catch (e) {
       // 🔇→🔊 조회가 실패하면 아래에서 'no_phone' 으로 처리돼 «번호가 없는 학생» 과 구분되지 않는다.
