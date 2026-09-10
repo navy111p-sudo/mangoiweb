@@ -37,6 +37,7 @@ import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장
 import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
+import { aiBillingRouter, generateMonthlyAiInvoices } from './ai-billing';   // 🏢 B2B 대리점 AI 사용료 월 청구 (2026-09-10)
 import { capitownRouter } from './api-capitown';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
@@ -386,6 +387,8 @@ const worker = {
             // ── 회사 전체 재무·경영 (2026-07-12 최초) ──
             '/api/admin/reports/', '/api/admin/exec/', '/api/admin/realtime/',
             '/api/admin/settlement/', '/api/admin/capitown/', '/api/admin/accounting',
+            // 🏢 B2B 대리점 AI 사용료 — 대리점별 단가·청구·결제 내역(돈). 강사에게 열 이유가 없다.
+            '/api/admin/ai-billing/',
             // ── 결제·정산·구독 (student_payments · refunds · recurring_billing · auto_dunning) ──
             '/api/admin/payments', '/api/admin/duplicate-payments',
             '/api/admin/subscription', '/api/admin/subscriptions', '/api/admin/dunning',
@@ -1989,6 +1992,12 @@ const worker = {
       return settlementRouter(request, env);
     }
 
+    // 🏢 B2B(대리점) AI 사용료 월 청구 (2026-09-10 신설)
+    //   /api/admin/ai-billing/{rate|invoice|invoice/generate|invoice/item|invoice/checkout|history}
+    if (path.startsWith('/api/admin/ai-billing/') || path === '/api/admin/ai-billing') {
+      return aiBillingRouter(request, env as any);
+    }
+
     // 🏢 캐피타운 프랜차이즈 정산 (2026-07-22) — 경영진·캐피타운 본사=전체, capi_* 지사=자기 지사만
     if (path.startsWith('/api/admin/capitown/')) {
       return capitownRouter(request, env);
@@ -2889,6 +2898,16 @@ const worker = {
             console.log('[monthly-report] cron ran', JSON.stringify(r));
           } catch (err) {
             console.error('[monthly-report] error', err);
+          }
+          // 🏢 B2B 대리점 AI 사용료 — 매월 1일 KST, «다음 달» 청구서를 자동 생성/보강한다
+          //   (사장님 지시: 자동 생성 + 생성 내역 열람 + 인원 추가/제외는 사람이 조정).
+          //   실패해도 무영향 — 대리점 담당자가 manager.html 에서 「청구서 만들기」로
+          //   언제든 같은 함수를 다시 부를 수 있다(멱등, 덮어쓰지 않고 더하기만 한다).
+          try {
+            const r = await generateMonthlyAiInvoices(env as any);
+            console.log('[ai-billing-monthly] cron ran', JSON.stringify(r));
+          } catch (err) {
+            console.error('[ai-billing-monthly] error', err);
           }
         }
       }
@@ -5939,6 +5958,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/reports/')) return true;
   // 🏢 조직 정산 트리 (org-settlement) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') return true;
+  // 🏢 B2B 대리점 AI 사용료 월 청구 (2026-09-10) — 관리자 전용 (인증 필수). 대리점 자기 몫만
+  //   보게 자르는 것은 ai-billing.ts 핸들러 안(scopeStudentCond)이다 — 여기는 열기만 한다.
+  if (path.startsWith('/api/admin/ai-billing/') || path === '/api/admin/ai-billing') return true;
   // 🔒 [PII 감사 2026-07-10] 대량 개인정보 덤프 엔드포인트 — 관리자 전용으로 잠금.
   //   (감사에서 무인증 전체명단 유출 확인 + 학생/강사 프론트가 호출 안 함 → 안전하게 게이트)
   //   나머지 per-user IDOR 은 프론트 토큰 연동이 필요해 별도 계획(docs/보안_PII_감사.md)으로 진행.
@@ -6036,6 +6058,11 @@ function isAgencyAllowedApi(path: string): boolean {
     // 🏢 정산 트리(org-settlement)는 자체 scopedRootId()로 agency/branch를 자기 노드로,
     //   franchise는 설계상 HQ 진입 후 합산으로 이미 격리하므로 공통 허용목록에 포함.
     '/api/admin/settlement/',
+    // 🏢 B2B 대리점 AI 사용료 (2026-09-10) — 대리점 담당자가 manager.html 에서 자기 청구서를
+    //   보고 결제해야 하므로 반드시 열어야 한다. 핸들러(ai-billing.ts)가 scopeStudentCond·
+    //   shopAllowed() 로 자기 대리점(agency=shop_name 일치)·자기 지사(branch) 몫만 자르고,
+    //   단가 변경(POST rate)은 그 안에서 scope.type==='hq' 로 한 번 더 막는다.
+    '/api/admin/ai-billing/',
     // 🏢 캐피타운 정산 — 핸들러가 계정별(경영진·capitown=전체 / capi_* 지사=자기 지사만) 자체 격리(2026-07-22)
     '/api/admin/capitown/',
     // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
