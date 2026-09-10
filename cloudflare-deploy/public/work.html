@@ -678,6 +678,7 @@ var CACHE_KEY = 'mangoi_work_home_v1';
 var D = null;                       // 마지막으로 받은 /api/approval/home
 var PICK = null;                    // 고른 분류
 var CUR = 'PHP';
+var PROXY_OPEN = {};                // 💳 「대신 결재」를 펼쳐 둔 건 id — 60초마다 다시 그려도 안 접히게
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
@@ -1901,9 +1902,25 @@ function itemHtml(r, decidable, ackable){
          '</div><div id="ack-' + r.id + '"></div>';
   }
 
-  if (decidable) {
-    /* 💳 「대신 결재」 — 서버가 «내가 주 결재자가 아니다» 라고 알려 준 단계.
-       ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다). */
+  /* 💳 「대신 결재」를 **접어 둔** 상태 — 서버가 «내가 주 결재자가 아니다»(by_proxy)라고
+     알려 준 단계다. 돈 나가는 건의 'mgr'(결재권자) 단계를 경영진이 보고 있을 때만 참이다.
+
+     ⛔ 승인·반려 버튼을 «바로» 그리지 않는다 — 2026-09-10 사장님 지시
+        「₱5,000 미만은 장 부장님만 결재하고 저는 확인만」. 버튼이 그대로 보이면 소액 건이
+        대표님 결재함에서 «내가 눌러야 할 일» 로 읽힌다. 묶음 승인도 같은 이유로 뺀다(cleanOnes).
+     ⛔ 그렇다고 목록에서 통째로 빼지는 않는다 — 결재권자가 휴가·출장이면 그 건이 그대로
+        멈춘다(8/30 긴급 건이 그렇게 5일 서 있었다). 한 번 더 눌러 펼치면 예전과 같다.
+     ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다) — 서버 by_proxy 하나만 본다. */
+  if (decidable && r.by_proxy && !PROXY_OPEN[r.id]) {
+    h += '<div class="steps">' + esc(
+      T('The approver decides this one. You only confirm it after it is approved.',
+        '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
+    h += '<div class="acts">' +
+         '<button class="mini" onclick="proxyOpen(' + r.id + ')">' +
+         esc(T('Decide on their behalf', '대신 결재하기')) + '</button>' +
+         '</div>';
+  } else if (decidable) {
+    /* 💳 펼친 「대신 결재」 — 자리를 비운 결재권자를 대신해 누르는 자리. */
     if (r.by_proxy) {
       h += '<div class="steps">' + esc(
         T('The approver normally decides this one. You can decide on their behalf.',
@@ -1941,6 +1958,11 @@ function cleanOnes(){
   return (D.inbox || []).filter(function(r){
     if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
     if (r.same_decider) return false;                     // 🖐 서버가 막는 건 — 묶으면 조용히 빠진다
+    /* 💳 내가 «주» 결재자가 아닌 단계는 묶지 않는다 — 한 번 누르면 결재권자 몫까지 함께
+       승인되어 「소액은 장 부장님만 결재」가 그 자리에서 무너진다(2026-09-10 사장님 지시).
+       ⛔ 펼쳤는지(PROXY_OPEN)와 무관하게 뺀다 — 묶음 승인은 «건 하나» 를 보고 누르는
+          버튼이 아니라 목록 전체를 쓰는 버튼이다. 대신 결재는 그 건의 버튼으로 한다. */
+    if (r.by_proxy) return false;
     var f = r.flags || [];
     for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
     return true;
@@ -2273,6 +2295,13 @@ window.doReverse = function(id){
   });
 };
 
+/* 💳 「대신 결재하기」 — 접어 둔 승인·반려 버튼을 펼친다.
+   ⚠️ 펼침을 PROXY_OPEN 에 남기고 다시 그린다 — 이 화면은 60초마다 repaint 하므로,
+      안 남기면 펼쳐 놓은 것이 눈앞에서 도로 접힌다. */
+window.proxyOpen = function(id){
+  PROXY_OPEN[id] = true;
+  repaint();
+};
 window.askWhy = function(id){
   var host = document.getElementById('why-' + id);
   if (!host) return;

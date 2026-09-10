@@ -401,12 +401,59 @@ check('주간 요약의 숫자는 코드가 계산한다 (AI 아님)',
 // ══ I. 묶어서 승인 — 점검을 무력화하지 않는가 ═════════════════════════════
 console.log('\n[I] 묶어서 승인이 자동 점검을 무력화하지 않는가');
 
+/* cleanOnes 의 «몸통» 을 중괄호 짝으로 잘라 낸다.
+   ⛔ 「앞 N자 안에 그 글자가 있나」로 재지 말 것 — 주석 한 문단만 늘어도 창 밖으로 밀려
+      **보장은 그대로인데 검사만** 빨간불이 된다(2026-09-10 실제로 밟았다: 묶음 승인에서
+      «대신 결재» 건을 빼는 주석을 더하자 경고 검사가 400자 창을 넘어 FAIL).
+      CLAUDE.md 「검사 범위를 «길이» 로 자르지 마세요」. */
+const CLEAN_ONES = (() => {
+  const i = WORK_SRC.indexOf('function cleanOnes()');
+  if (i < 0) return '';
+  const open = WORK_SRC.indexOf('{', i);
+  if (open < 0) return '';
+  let depth = 0, body = '';
+  for (let k = open; k < WORK_SRC.length; k++) {
+    const c = WORK_SRC[k];
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { body = WORK_SRC.slice(open, k + 1); break; } }
+  }
+  /* 🪤 주석을 벗겨 낸다 — 안 벗기면 «주석으로 막아 둔 줄» 이 검사를 통과시킨다.
+     2026-09-10 변이시험에서 실제로 밟았다: 가드를 `// (변이) if (r.by_proxy) return false;`
+     로 막았는데 그 글자가 주석에 남아 141건이 전부 초록이었다.
+     ⛔ 블록주석을 정규식 한 줄로 지우지 말 것(CLAUDE.md) — 줄 단위로 «지금 블록 안인가» 를
+        추적한다. */
+  let inBlock = false;
+  return body.split('\n').map((ln) => {
+    let out = '', k = 0;
+    while (k < ln.length) {
+      if (inBlock) {
+        const e = ln.indexOf('*/', k);
+        if (e < 0) { k = ln.length; } else { inBlock = false; k = e + 2; }
+        continue;
+      }
+      if (ln.startsWith('//', k)) break;
+      if (ln.startsWith('/*', k)) { inBlock = true; k += 2; continue; }
+      out += ln[k]; k++;
+    }
+    return out;
+  }).join('\n');
+})();
+
+check('전제 — cleanOnes 의 몸통을 잘라 냈다 (아래 검사가 헛돌지 않게)', CLEAN_ONES.length > 40);
+
 check('화면 — 경고가 붙은 건은 묶음에서 뺀다',
-  /function cleanOnes\(\)[\s\S]{0,400}level === 'warn'/.test(WORK_SRC),
+  /level === 'warn'/.test(CLEAN_ONES),
   '경고까지 쓸어 승인하면 자동 점검이 있으나 마나가 된다');
 
 check('화면 — 마감을 넘긴 건도 묶음에서 뺀다',
-  /function cleanOnes\(\)[\s\S]{0,200}isOverdue\(r\)/.test(WORK_SRC));
+  /isOverdue\(r\)/.test(CLEAN_ONES));
+
+/* 💳 2026-09-10 사장님 「₱5,000 미만은 장 부장님만 결재하고 저는 확인만」.
+   묶음 승인은 목록 전체를 한 번에 누르는 버튼이라, «내가 주 결재자가 아닌» 건이 섞여 있으면
+   그 한 번에 결재권자 몫까지 함께 승인된다 — 화면에서 그 지시가 무너지는 자리다. */
+check('화면 — «대신 결재» 건(by_proxy)은 묶음에서 뺀다',
+  /r\.by_proxy/.test(CLEAN_ONES),
+  '한 번 누르면 결재권자 몫까지 함께 승인된다');
 
 check('화면 — 두 건 이상일 때만 묶음 버튼을 보여 준다',
   /list\.length < 2/.test(WORK_SRC));
