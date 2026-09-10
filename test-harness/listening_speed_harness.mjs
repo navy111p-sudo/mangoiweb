@@ -106,5 +106,41 @@ const snap = AF.match(/\[0\.6, 0\.8, 1, 1\.25, 1\.5\]\.reduce\(/);
 ok(!!snap, '저장된 옛 속도를 «가장 가까운 칸» 으로 맞춰서 시작한다',
   '칸 값이 바뀌면 옛 저장값은 어느 버튼과도 안 맞는다 — 조용히 어긋난 채로 읽는다');
 
+/* ── 🐢 ⑦ 두 화면이 «같은 칸에서 시작하는가» (2026-09-10) ────────────────────────
+   사장님 「Emma 말이 너무 빨라 — 좀더 느리게」.
+   칸 값(⑤)은 이미 같았는데 «시작 칸» 이 갈려 있었습니다 —
+     웜업     : WARMUP_START_RATE = 2  → 0.8   (2026-07-23 「처음 듣는 학생이 못 알아듣지 않게」)
+     AI 영어친구: 저장값이 없으면 1(보통)
+   같은 Emma 인데 화면마다 말 속도가 달랐고, 에러는 한 줄도 안 났습니다.
+   ⚠️ 숫자(0.8)를 못 박지 않습니다 — 나중에 둘 다 0.6 으로 내려도 «같기만» 하면 통과해야 합니다.
+   ⛔ 「보통」 버튼의 값을 바꾸는 방식으로 맞추지 마세요(라벨이 거짓말을 합니다) —
+      바꾸는 것은 «시작 칸» 뿐이고, 그래서 여기서도 «시작 칸» 만 봅니다. */
+const wuStartLv = (() => {
+  const m = WU.match(/WARMUP_START_RATE\s*=\s*(\d+)/);
+  return m ? Number(m[1]) : null;
+})();
+ok(wuStartLv !== null, `웜업의 시작 단계를 읽었다 (${wuStartLv})`,
+  '못 읽으면 아래 대조가 조용히 헛돕니다');
+const afStart = (() => {
+  const m = AF.match(/AF_START_RATE\s*=\s*([0-9.]+)/);
+  return m ? Number(m[1]) : null;
+})();
+ok(afStart !== null, `AI 영어친구의 시작 속도를 읽었다 (${afStart})`,
+  '이름이 바뀌었거나 상수를 없애고 숫자를 도로 박았을 수 있습니다');
+
+if (wuStartLv !== null && afStart !== null && STEPS) {
+  const wuStart = STEPS[wuStartLv];
+  ok(wuStart === afStart,
+    `두 화면이 같은 칸에서 시작한다 (웜업 ${wuStart} · AI 영어친구 ${afStart})`,
+    '갈리면 같은 Emma 가 화면마다 다른 속도로 말합니다 — 2026-09-10 사장님 제보의 원인입니다');
+  ok(Array.isArray(afList) ? afList.includes(afStart) : false,
+    `시작 속도가 다섯 칸 «안» 의 값이다 (${afStart})`,
+    '칸에 없는 값으로 시작하면 어느 버튼도 안 켜집니다 — 화면과 실제가 어긋납니다');
+  // «보통» 이 1 이라는 라벨의 뜻은 그대로여야 한다 — 시작 칸을 옮겼다고 라벨을 건드리면 안 된다
+  ok(/data-rate="1"[^>]*data-ko="보통"/.test(AF),
+    '「보통」 버튼은 여전히 1 배다',
+    '시작 칸을 옮기는 대신 라벨의 값을 바꾸면 다섯 칸의 뜻이 화면마다 갈립니다');
+}
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);

@@ -398,8 +398,8 @@
     <button class="opt" data-persona="tutor" data-ko="튜터" data-en="Tutor">튜터</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
     <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
-    <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
-    <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt active" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
+    <button class="opt" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
     <button class="opt" data-rate="1.25" data-ko="빠르게" data-en="Fast">빠르게</button>
     <button class="opt" data-rate="1.5" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
     <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
@@ -574,16 +574,26 @@
       } catch(e){ return AIF_DEFAULT; }
     })();
     let currentPersona = 'friendly';
-    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
+    /* 🐢 처음 오는 학생이 듣는 속도 (2026-09-10 사장님 「Emma 말이 너무 빨라 — 좀더 느리게」).
+       ⚠️ 이 숫자는 제가 고른 값이 아니라 **웜업이 이미 쓰고 있던 값**입니다 —
+          warmup.html 의 `WARMUP_START_RATE = 2`(= RATE_STEPS 2단계 = 0.8) 가
+          2026-07-23 「처음 듣는 학생이 못 알아듣는 일이 없게」로 정해진 것인데,
+          AI 영어친구만 1(보통)로 남아 있어 «같은 Emma 인데 화면마다 말 속도가 달랐습니다».
+       ⛔ 「보통」 버튼의 값(1)을 0.8 로 바꾸는 방식으로 고치지 마세요 — 그러면 라벨이
+          거짓말을 하고 다섯 칸의 뜻이 화면마다 갈립니다. 바꾸는 것은 «시작 칸» 하나입니다.
+       ℹ️ 이미 속도를 고른 학생에게는 안 닿습니다(그 선택이 이깁니다 — 아래 localStorage).
+          더 느리게 하려면 이 값을 0.6 으로만 바꾸면 됩니다(RATE_STEPS_AF 의 맨 아래 칸). */
+    const AF_START_RATE = 0.8;
+    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 = AF_START_RATE)
     let currentRate = (function(){
       try {
         const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate'));
-        if (!(r >= 0.5 && r <= 1.5)) return 1;
+        if (!(r >= 0.5 && r <= 1.5)) return AF_START_RATE;
         /* ⚠️ 칸 값이 바뀌면 저장된 옛 값(1.2)은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
            상태가 된다 — 화면은 「보통」처럼 보이는데 실제로는 1.2배로 읽는다(에러 없음).
            그래서 가장 가까운 칸으로 맞춰서 시작한다. */
-        return [0.6, 0.8, 1, 1.25, 1.5].reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, 1);
-      } catch(e){ return 1; }
+        return [0.6, 0.8, 1, 1.25, 1.5].reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, AF_START_RATE);
+      } catch(e){ return AF_START_RATE; }
     })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
@@ -709,8 +719,26 @@
       try { if (window.UXT) UXT.hit('ux:aifriend-friend-' + f.v); } catch(e){}
       const p = document.getElementById('friendPicker');
       if (p) p.remove();
-      // 고르자마자 그 친구가 자기 목소리로 인사한다 — 누구를 골랐는지 «귀로» 확인시켜 준다
-      if (greet) { appendMsg('ai', f.hi); if (isSoundOn()) speakText(f.hi, null, null); }
+      /* 고르자마자 그 친구가 자기 목소리로 인사한다 — 누구를 골랐는지 «귀로» 확인시켜 준다.
+         🧹 (2026-09-10) 인사는 «지금 누구를 골랐나» 를 알리는 확인 줄이라 «한 번에 하나» 만 남긴다.
+            전에는 카드를 누를 때마다 그냥 덧붙여서, 같은 인사가 빈 화면 아래로 쌓였다
+            (사장님 제보 — Emma 인사가 두 줄. 서버에 저장되는 값이 아니라 화면에만 쌓인 것이라
+             D1 `ai_friend_chats` 에는 인사가 한 줄도 없다).
+         ⚠️ 지우는 것은 «맨 끝에 붙어 있는 인사» 뿐이다 — 대화 도중에 친구를 바꾸면 그 앞의
+            «진짜 대화» 는 한 줄도 건드리면 안 된다(지우면 학생이 쓴 말이 사라진다).
+         ✅ 목소리는 누를 때마다 다시 들려준다 — 「들어 보고 고르는」 것이 이 인사의 목적이다. */
+      if (greet) {
+        const chatEl = document.getElementById('chat');
+        if (chatEl) {
+          while (chatEl.lastElementChild && chatEl.lastElementChild.dataset
+                 && chatEl.lastElementChild.dataset.friendGreet === '1') {
+            chatEl.lastElementChild.remove();
+          }
+        }
+        appendMsg('ai', f.hi);
+        if (chatEl && chatEl.lastElementChild) chatEl.lastElementChild.dataset.friendGreet = '1';
+        if (isSoundOn()) speakText(f.hi, null, null);
+      }
     }
     function friendCards() {
       const en = isEn();
