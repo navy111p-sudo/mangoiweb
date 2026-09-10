@@ -408,7 +408,31 @@ export async function handlePointsApi(
         //   교사 세션이 없어 여기서 막혀도 칭찬 포인트는 그 경로로 정상 적립됨(이중경로·멱등).
         const apAdmin = await checkAdminSession(request, env as any);
         if (!apAdmin.ok) return json({ ok: false, error: 'auth_required', message: '교사만 별점을 줄 수 있습니다.' }, 401);
-        const rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
+        let rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
+        /* 🪪 (2026-09-10) 번호가 «죽었을 때만» 이름으로 한 번 더 찾는다.
+           [왜] 화상방 번호(peer id)는 접속할 때마다 새로 발급된다. 학생이 재연결하면
+             선생님 화면의 옛 타일 번호는 그 자리에서 죽고, 그 별은 서버에서도 화면에서도
+             아무 데도 안 간다 — 그런데 지금까지 «아무 말 없이» 사라졌다.
+             2026-09-10 실측: 한 화면이 2분 15초마다 새 번호로 다시 들어오고 있었다.
+           ⛔ 이름만으로 사람을 정하지 않는다 — 같은 방 로스터 안에서 «완전일치» 하고
+              후보 계정이 «정확히 하나» 일 때만 받는다. 동명이인이면 안 붙인다
+              (CLAUDE.md 2장 「남의 이름이 뜸」 — 모르는 것보다 틀린 게 나쁘다).
+           ⛔ 부분일치·대소문자 무시로 넓히지 말 것. 학생 이름은 겹치는 것이 실재한다.
+           ⚠️ 이 경로는 위에서 교사 쿠키 세션을 이미 확인했다. 본문의 이름은 «그 방에
+              이미 등록된 사람» 을 고르는 데만 쓰이고, 없는 계정을 만들어내지 못한다. */
+        if (!rr?.account_uid) {
+          const tName = String(body.target_name || '').trim();
+          if (tName) {
+            const cand = await env.DB.prepare(
+              `SELECT account_uid, name, role FROM vc_roster
+                WHERE room_id=? AND name=? AND account_uid IS NOT NULL AND TRIM(account_uid)<>''
+                ORDER BY updated_at DESC LIMIT 20`
+            ).bind(room, tName).all();
+            const rows = (cand?.results || []) as any[];
+            const uniq = new Set(rows.map((r) => String(r.account_uid)));
+            if (uniq.size === 1) rr = rows[0];
+          }
+        }
         if (!rr?.account_uid) return json({ ok: false, error: 'account_not_registered' }, 200);
         if (rr.role && rr.role !== 'student') return json({ ok: false, error: 'target_not_student' }, 200);
         const res: any = await creditPraisePoint({ accountUid: rr.account_uid, studentName: rr.name, awardId, room, fromName });
