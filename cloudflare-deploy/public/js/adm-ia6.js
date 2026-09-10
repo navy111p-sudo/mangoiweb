@@ -55,8 +55,14 @@
         teacher · hq · staff · franchise · branch · agency.
         카드 쪽(`_applyMenuVisibility` 의 hq_exec·hq_mgr…)과 **어휘가 다르다.** 섞지 말 것.
      ✅ 값의 근거는 «그 화면이 부르는 API 를 서버가 실제로 막는가» 다(2026-09-09 실측).
-        추측으로 늘리지 말고, 막는 코드를 확인하고 그 자리를 주석에 적을 것. */
-  var ORG_ROLES = ['franchise', 'branch', 'agency'];   // = src/auth-admin.ts isOrgScopedRole()
+        추측으로 늘리지 말고, 막는 코드를 확인하고 그 자리를 주석에 적을 것.
+     🔴 **`hideFrom` 값은 «순수 리터럴» 이어야 합니다** — 상수 이름(`ORG_ROLES` 같은 것)을 쓰면
+        하니스 셋이 깨집니다. `today_menu_split_harness`·`admin_site_structure_sync_harness`·
+        `admin_sidebar_ia6_click_harness` 는 이 `GROUPS` 블록만 오려 내 **`eval`** 하기 때문에
+        블록 «밖» 의 이름은 정의되지 않아 통째로 `null` 이 됩니다(2026-09-09 실제로 밟았습니다 —
+        게다가 그 셋은 **실패해도 종료코드가 0** 이라 «하니스를 하나씩 돌려 exit 를 보는» 방식으로는
+        안 잡히고 CI 에서야 드러났습니다). 조직 계정 셋은 `src/auth-admin.ts` 의
+        `isOrgScopedRole()` 과 같은 값이며, 어긋나면 브라우저 검사가 잡습니다. */
 
   /* 지금 로그인한 사람의 역할. 서버가 확인해 준 window.__ADM_ME 가 정본이고,
      아직 안 왔으면 빈 문자열 — 그때는 아무것도 감추지 않는다(adm-today-classes.js 와 같은 방식). */
@@ -187,7 +193,7 @@
            ⚠️ 강사에게는 **감추지 않는다** — 그 경로는 TEACHER_BLOCKED_PREFIXES 에 없고
               핸들러도 checkAdminSession 만 본다. 즉 강사는 실제로 쓸 수 있다. */
         { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html',
-          hideFrom: ORG_ROLES,
+          hideFrom: ['franchise', 'branch', 'agency'],
           tip: '📅 20·30·40분 변경 신청 — 매달 1일에 한꺼번에 반영',
           tipEn: '📅 Class-length requests — applied on the 1st of each month',
           secs: [
@@ -267,7 +273,7 @@
         { ko: '환불 처리', en: 'Refunds', href: '/admin/refunds.html',
           /* 🔐 (2026-09-09) 위 ⚠️ 에 적힌 «별건» 을 이제 한다 — api-pay-refund.ts 의 refundGate 가
              강사는 forbidden_teacher, 지사·대리점·지사본사는 forbidden_scope 로 막는다. 그 둘 그대로. */
-          hideFrom: ['teacher'].concat(ORG_ROLES),
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '💸 결제를 되돌리고 그 사실을 장부에 남깁니다 (본사 전용)',
           tipEn: '💸 Cancel a payment and record it (HQ only)',
           secs: [
@@ -303,7 +309,7 @@
         { ko: '영업 실적·평가', en: 'Sales & review', href: '/admin/sales-hr.html',
           /* 🔐 (2026-09-09) `/api/admin/sales/` 는 강사 차단(TEACHER_BLOCKED_PREFIXES)이고
              isAgencyAllowedApi 에도 없어 지사·대리점은 forbidden_scope 다. 둘 다 빈 화면만 본다. */
-          hideFrom: ['teacher'].concat(ORG_ROLES),
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '🚗 영업담당자 방문·계약·성과급·반기 평가',
           tipEn: '🚗 Sales rep visits, deals, incentives, half-year review',
           secs: [
