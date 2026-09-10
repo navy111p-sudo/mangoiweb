@@ -123,8 +123,19 @@ ok(/if\s*\(\s*bk\s*&&\s*bk\s*!==\s*window\.__mangoiCurrentBookId\s*\)/.test(mfix
 /* ⑬절만 정확히 잘라 낸다 — 범위를 «대충» 잡으면 옆 절의 코드가 딸려 들어와
    멀쩡한 코드가 FAIL 난다(CLAUDE.md 「검사 범위를 길이로 자르지 마세요」). */
 const s13 = mfix.indexOf('⑬ 📚');
-const e13 = mfix.indexOf("console.log('[mobilefix] 교재 배율");
-const sec13 = (s13 >= 0 && e13 > s13) ? mfix.slice(s13, e13) : '';
+/* ⑬절의 «끝» 은 «다음 절이 시작하는 자리» 다.
+   ⚠️ 파일 끝(마지막 console.log)까지로 잡으면 그 뒤에 새 절이 붙을 때마다 남의 코드가
+      딸려 들어와 멀쩡한 코드가 FAIL 난다 — 2026-09-10 실제로 밟았다(⑮⑯ 칭찬 절을
+      더하자 그 절 **주석**의 «setInterval» 글자에 걸렸다). */
+const after13 = s13 >= 0 ? mfix.slice(s13 + 4) : '';
+const nextSec = after13.search(/[⑭⑮⑯⑰⑱⑲⑳]/);
+const e13 = s13 < 0 ? -1
+  : nextSec >= 0 ? s13 + 4 + nextSec
+  : mfix.indexOf("console.log('[mobilefix] 교재 배율");
+/* 부정 검사(«이 낱말이 없어야 한다»)는 **주석을 벗겨 낸 사본**으로 판정한다 —
+   「왜 안 쓰는지」 적어 둔 설명 주석이 자기 자신에게 걸린다(CLAUDE.md 2장). */
+const stripCmt = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+const sec13 = (s13 >= 0 && e13 > s13) ? stripCmt(mfix.slice(s13, e13)) : '';
 ok(sec13 && !/setInterval|MutationObserver/.test(sec13),
    '⑬절에 상주 setInterval·MutationObserver 가 없다',
    'body class 감시가 홈 전체를 멎게 한 전력이 있다(CLAUDE.md)');

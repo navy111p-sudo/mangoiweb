@@ -51,6 +51,12 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 .dropzone .dz-or{display:inline-block;margin:10px 6px;color:var(--text-mute);font-size:12px;font-weight:600}
 .dropzone .dz-btn{display:inline-block;background:linear-gradient(135deg,var(--accent),#1D4ED8);color:#fff;padding:10px 20px;border-radius:99px;font-size:13.5px;font-weight:800;cursor:pointer;border:0;margin-top:4px}
 .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+/* 📄 (2026-09-10) [파일 선택] 버튼 — ⚠️ 위 규칙은 «상자 전체» 를 덮는다(.dropzone 이 유일한
+   위치 기준이라 inset:0 이 상자 끝까지 퍼진다). 그래서 파일용 input 을 그냥 하나 더 넣으면
+   **나중 것이 상자를 통째로 덮어 [폴더 선택] 이 영영 안 열린다.** 라벨을 위치 기준으로 만들어
+   그 버튼 안에만 두고, z-index 로 폴더용 위에 올린다(빈 자리 클릭 = 폴더 선택, 그대로 유지). */
+.dropzone label.dz-file{position:relative;z-index:3}
+.dropzone label.dz-file input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
 
 /* 진행 상태 */
 .progress-bar{margin-top:16px;background:var(--bg-soft);border-radius:10px;padding:14px 16px;display:none;border:1px solid var(--border)}
@@ -185,12 +191,21 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <label class="dz-btn">📂 폴더 선택하기
     <input type="file" id="folder-input" webkitdirectory directory multiple>
   </label>
+  <!-- ⛔ accept 에 «image» + 슬래시 + 별표 를 쓰지 마세요 — 두 가지가 걸립니다:
+       ① 서버가 받는 것은 pdf·jpg·png·webp 뿐이라(`allowedExt`) HEIC·GIF 를 고르게 해 놓고
+          업로드 단계에서 `invalid_type` 으로 거절하게 됩니다(고를 수 있는데 안 올라감).
+       ② 그 값 끝의 «슬래시+별표» 가 **블록주석 여는 기호**라, 주석을 정규식 한 줄로 지우는
+          하니스가 그 뒤를 통째로 먹습니다(2026-09-10 실제로 밟아 검사 3건이 거짓 FAIL). -->
+  <label class="dz-btn dz-file" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);margin-left:8px">📄 파일 선택하기
+    <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp,.zip,.mp4,application/pdf" multiple>
+  </label>
   <!-- 💡 (2026-08-21 마이마이) 「폴더 선택하기가 파일을 하나도 못 읽는다」 제보.
        실제로는 잘 읽는다 — 윈도우의 «폴더 선택» 창이 **폴더만 보여 주고 파일은 안 보여 주는** 것이
        원인이었다. JPG 만 든 폴더에 들어가면 창이 「일치하는 항목이 없습니다」 로 비어 보여서,
        쓰는 사람은 «파일을 못 읽는구나» 하고 창을 닫는다. 그래서 드래그앤드롭만 되는 것처럼 느껴졌다.
        ⛔ 이 안내를 지우지 마세요 — 창을 띄우는 것은 브라우저·윈도우라 코드로는 못 고칩니다. -->
-  <div class="dz-hint">💡 <b>폴더 선택 창에는 파일이 안 보이는 것이 정상입니다.</b><br>
+  <div class="dz-hint">💡 <b>폴더 선택 창에는 파일이 안 보이는 것이 정상입니다.</b>
+  파일 하나만 올리려면 <b>[📄 파일 선택하기]</b> 를 쓰세요.<br>
   폴더만 보입니다. 올릴 폴더 <b>안으로 들어간 뒤</b> 오른쪽 아래 <b>[폴더 선택]</b> 버튼을 그냥 누르세요.<br>
   <span style="opacity:.85">폴더를 창으로 <b>끌어다 놓아도</b> 똑같이 됩니다.</span></div>
 </div>
@@ -500,7 +515,22 @@ dz.addEventListener('drop', async (e) => {
   const items = e.dataTransfer && e.dataTransfer.items;
   if (!items) return;
   const files = await readDataTransfer(items);
+  if (files.length) processFiles(files);   // «폴더인가» 판정은 processFiles 가 한다(ZIP 때문)
+});
+/* 📄 (2026-09-10 필리핀 매니저 「PDF·JPG 를 고를 수가 없다」)
+   ═══════════════════════════════════════════════════════════════════════
+   [원인] 이 화면의 고르기 칸이 **폴더 전용 하나뿐**이었다(`webkitdirectory`). 그런 칸은
+      브라우저가 **표준상 파일을 하나도 안 보여 준다** — 「인식을 못 한다」가 아니라
+      «파일을 고르는 버튼이 없다» 가 맞다(제보의 「전에도 안 됐다」와 일치).
+   ⚠️ `window.__pickedSingleFiles` — 폴더 없이 올린 파일은 교재 이름을 «파일명에서» 짐작할
+      수밖에 없어(BTS 1·2·3 이 「BTS」 한 묶음으로 뭉친다) 자동 저장을 멈추고 사람이 이름을
+      확인하게 한다. ⛔ 이 값을 «업로드 방식» 말고 다른 뜻으로 재사용하지 말 것. */
+document.getElementById('file-input').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  files.forEach(f => { f.fullPath = f.name; });   // 폴더 경로 없음 — 파일명이 곧 전체 경로
+  console.log('[picker] 파일로 고른 것:', files.length, '개');
   if (files.length) processFiles(files);
+  e.target.value = '';   // 같은 파일을 다시 고를 수 있게 비운다(폴더 쪽과 같은 이유)
 });
 document.getElementById('folder-input').addEventListener('change', (e) => {
   const files = Array.from(e.target.files || []);
@@ -792,6 +822,14 @@ async function processFiles(files) {
   } else {
     console.warn('[ph257] JSZip 미로드 — ZIP 풀기 불가');
   }
+  /* 📁 (2026-09-10) «폴더로 온 것인가» 는 **여기 한 곳** 에서만 정한다.
+     ⚠️ 드롭 핸들러에서 미리 정하면 **ZIP 한 개를 끌어다 놓았을 때 틀린다** — 압축을 풀기
+        전에는 경로에 «/» 가 없어 «파일 하나» 로 보이지만, 풀고 나면 폴더 구조가 생겨
+        이름이 제대로 잡힌다. 그때 「폴더 이름이 없어 짐작했습니다」라고 말하면 거짓말이다
+        (함정 대조가 잡음). 그래서 ZIP 을 푼 «뒤» 에 최종 경로로 판정한다. */
+  window.__pickedSingleFiles = files.length > 0
+    && !files.some(f => String(f.fullPath || f.webkitRelativePath || '').indexOf('/') >= 0);
+
   const rejected = [];
   const accepted = [];
   for (const f of files) {
@@ -963,6 +1001,37 @@ function renderClassifyResult() {
     });
   }
 
+  /* 📄 (2026-09-10) **파일 하나씩** 올린 것은 자동 저장하지 않는다
+     ─────────────────────────────────────────────────────────────
+     폴더가 없으면 교재 이름을 «파일명에서» 짐작할 수밖에 없어 BTS 1·2·3 이 「BTS」 한 묶음으로
+     뭉친다(9/10 사고). 5초 뒤 저절로 저장되면 사람이 그 이름을 볼 틈이 없다.
+     ⛔ 폴더 업로드의 자동 저장은 그대로 둔다 — ph241 의 취지가 그것이다. */
+  /* ⚠️ 먼저 «지난번 안내» 를 지운다 — 이 상자는 `cr-groups` 의 **형제** 라 카드를 다시 그려도
+     살아남는다. 안 지우면 파일 → 폴더 순서로 올릴 때 버튼은 「N초 뒤 자동 저장」인데 바로 위
+     상자는 「자동 저장을 멈췄습니다」라고 말한다(함정 대조가 잡음). */
+  var oldHint = document.getElementById('cr-name-hint');
+  if (oldHint && oldHint.parentNode) oldHint.parentNode.removeChild(oldHint);
+
+  if (window.__pickedSingleFiles) {
+    ph241Stop('파일 하나씩 올림 — 교재 이름 확인이 필요');
+    btn.textContent = '💾 교재 이름을 확인한 뒤 저장하세요';
+    btn.style.background = 'linear-gradient(135deg,#0ea5e9,#0369a1)';
+    btn.style.color = '#fff';
+    var nameHint = null;
+    {
+      nameHint = document.createElement('div');
+      nameHint.id = 'cr-name-hint';
+      nameHint.style.cssText = 'margin:10px 0 0;padding:10px 12px;border-radius:9px;font-size:12.5px;line-height:1.7;'
+        + 'background:rgba(14,165,233,0.10);border:1px solid rgba(14,165,233,0.45);color:#7dd3fc';
+      wrap.parentNode.insertBefore(nameHint, wrap);
+    }
+    nameHint.innerHTML = '📄 <b>파일 하나씩 올렸습니다 — 자동 저장을 멈췄습니다.</b><br>'
+      + '폴더 이름이 없어 교재 이름을 파일 이름에서 짐작했습니다. 위 <b>«교재명»</b> 칸이 맞는지 보고,'
+      + ' 다르면 고친 뒤 <b>[💾 라이브러리에 저장]</b> 을 눌러 주세요.<br>'
+      + '<span style="opacity:.85">Single files: auto-save is paused. Please check the textbook name above, then press Save.</span>';
+    return;
+  }
+
   var ph241Left = 5;
   var ph241Tick = function () {
     // btn.disabled = 저장이 도는 중 → 진행률 글자를 덮지 않도록 여기서도 손을 뗀다(이중 방어)
@@ -1047,6 +1116,10 @@ document.getElementById('btn-save').onclick = async () => {
      srvDenied 는 «권한이 없어서» 다(401/403). 강사에게는 이게 가장 흔한 경우다. */
   const srvJobs = [];
   let srvOk = 0, srvFail = 0, srvDenied = 0, srvSkipped = 0, srvDup = 0;
+  const srvDupBy = {};   // book → 숨긴 사람(«왜 숨겼는지» 의 유일한 단서)
+  /* 🙈 (2026-09-10) 건너뛴 파일이 «어느 묶음» 에 있고 그 묶음이 «숨김» 인지 모은다.
+     book → true(숨김) / false(보임) / null(모름). 값이 없으면 옛 서버 응답이다. */
+  const srvDupBooks = {};
 
   try {
     if (!db) {
@@ -1097,7 +1170,16 @@ document.getElementById('btn-save').onclick = async () => {
                        그걸 성공으로 세면 «100장 올렸습니다» 라고 말해 놓고 실제로는 0장인
                        상황이 된다 — 올린 것과 건너뛴 것을 나눠 센다. */
                     return r.json().then(function(j){
-                      if (j && j.skipped) srvDup++; else srvOk++;
+                      if (j && j.skipped) {
+                        srvDup++;
+                        if (j.book) {
+                          /* ⚠️ 한 묶음에 숨김/보임이 섞일 수 없으므로 마지막 값을 쓴다.
+                             단 «모름»(null)이 «숨김»(true)을 덮지 않게 한다 — 모름으로 덮으면
+                             정작 알려 줘야 할 때 화면이 입을 다문다. */
+                          if (!(srvDupBooks[j.book] === true && j.hidden !== true)) srvDupBooks[j.book] = j.hidden;
+                          if (j.hidden_by) srvDupBy[j.book] = j.hidden_by;
+                        }
+                      } else srvOk++;
                     }).catch(function(){ srvOk++; });
                   })
                   .catch(function(){ srvFail++; /* 오프라인 */ })
@@ -1158,13 +1240,7 @@ document.getElementById('btn-save').onclick = async () => {
          이게 안 보여서 같은 책을 몇 번씩 올렸고, 페이지가 2~5배가 됐다. */
       btn.textContent = '✅ 저장 완료! (새로 ' + srvOk + '개'
         + (srvDup > 0 ? ' · 이미 있어 건너뜀 ' + srvDup + '개' : '') + ')';
-      if (srvDup > 0 && srvOk === 0) {
-        alert('ℹ️ 이 교재는 이미 자료실에 있습니다\n\n'
-          + srvDup + '개 파일이 모두 이미 등록되어 있어 건너뛰었습니다. 중복으로 올라가지 않았습니다.\n\n'
-          + 'ℹ️ This textbook is already in the library\n\n'
-          + 'All ' + srvDup + ' file(s) were already registered, so they were skipped. '
-          + 'Nothing was duplicated.');
-      }
+      if (srvDup > 0) await announceDuplicates(srvDup, srvOk, srvDupBooks, srvDupBy);
     } else {
       btn.textContent = '✅ 저장 완료! (이 컴퓨터)';
     }
@@ -1471,7 +1547,10 @@ function applyLibFilter() {
         '<div class="lib-actions">' +
           '<button class="act-view" data-tb-id="' + t.id + '">보기</button>' +
           '<button class="act-class">수업에서</button>' +
-          '<button class="act-del" data-tb-id="' + t.id + '">삭제</button>' +
+          /* 🖥 (2026-09-10) 「삭제가 안 된다」 제보의 절반이 이 버튼이었다 — 이것은 **이 PC(IndexedDB)만**
+             지우고 서버(공용 자료실)는 한 줄도 안 건드린다. 이름이 그냥 «삭제» 라 서버까지 지운 것으로
+             읽혔다. 서버에서 지우는 것은 아래 «공용 자료실 교재» 의 [🗑 삭제] 다. */
+          '<button class="act-del" data-tb-id="' + t.id + '">🖥 이 PC 에서 삭제</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
@@ -1612,6 +1691,200 @@ function renderHideBooks(){
   });
 }
 
+/* 🪟 화면 «안» 확인 상자 — 브라우저 대화상자를 쓰지 않는다 (2026-09-10)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] `confirm()`·`prompt()` 는 크롬의 「이 페이지가 추가 대화상자를 만들지 못하게 막기」가
+      켜지면 **뜨지도 않고 조용히 null/false** 를 돌려준다. 확인 창을 몇 번 거치면 그 체크가
+      나타나므로, 하필 «여러 번 눌러 본 사람» 에게서 기능이 죽는다.
+      ⚠️ 교재 삭제가 그 상태였다 — 잰 것은 **감사로그 0건(서버 미도달)** 까지이고,
+         «대화상자가 막혔기 때문» 인지 «이름을 틀리게 쳤기 때문» 인지는 재지 못했다.
+   ✅ 여기서는 «왜 안 되는지» 를 화면이 말해 준다 — 이름이 안 맞으면 버튼이 왜 잠겼는지 보인다.
+   ⚠️ z-index 는 이 화면에서 가장 높아야 한다(공용 상단바·위젯 위).
+   ⚠️ 열려 있는 동안 Esc = 취소, Enter = 확인(잠겨 있지 않을 때만).           */
+function mgEsc(t){
+  return String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function mgModal(o){
+  o = o || {};
+  return new Promise(function(resolve){
+    var prev = document.activeElement;
+    var back = document.createElement('div');
+    back.className = 'mg-modal-back';
+    back.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(3,7,18,.72);'
+      + 'display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto';
+    var need = o.requireText ? String(o.requireText) : '';
+    var okColor = o.danger ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#0ea5e9,#0369a1)';
+    back.innerHTML =
+        '<div role="dialog" aria-modal="true" style="background:var(--bg-card);border:1px solid var(--border-strong);'
+      + 'border-radius:16px;max-width:520px;width:100%;margin:auto;padding:20px 22px;box-shadow:0 24px 60px -20px rgba(0,0,0,.7)">'
+      + '<h3 style="margin:0 0 12px;font-size:17px;font-weight:800;color:#fff">' + mgEsc(o.title || '확인') + '</h3>'
+      + '<div style="font-size:13.5px;line-height:1.7;color:var(--text)">' + (o.bodyHtml || '') + '</div>'
+      + (need
+          ? '<div style="margin-top:14px">'
+            + '<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">확인을 위해 아래 이름을 그대로 입력해 주세요 '
+            + '<span style="opacity:.8">/ Type this name to confirm</span></div>'
+            + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
+            + '<code id="mg-need" style="flex:1;min-width:0;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;'
+            + 'padding:8px 10px;font-size:12.5px;color:#fcd34d;overflow-x:auto;white-space:nowrap">' + mgEsc(need) + '</code>'
+            + '<button type="button" id="mg-copy" style="flex:0 0 auto;padding:8px 12px;border-radius:8px;border:1px solid var(--border-strong);'
+            + 'background:rgba(255,255,255,.06);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📋 복사</button>'
+            + '</div>'
+            + '<input id="mg-input" type="text" autocomplete="off" spellcheck="false" placeholder="여기에 이름을 입력 / paste here" '
+            + 'style="width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--border-strong);background:rgba(0,0,0,.25);'
+            + 'color:var(--text);font-size:13.5px;font-family:inherit">'
+            + '<div id="mg-why" style="margin-top:7px;font-size:12px;color:#fca5a5">이름이 똑같아야 [' + mgEsc(o.okText || '확인') + '] 이 켜집니다.</div>'
+            + '</div>'
+          : '')
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap">'
+      + '<button type="button" id="mg-cancel" style="padding:10px 16px;border-radius:9px;border:1px solid var(--border-strong);'
+      + 'background:transparent;color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소 / Cancel</button>'
+      + '<button type="button" id="mg-ok" style="padding:10px 18px;border-radius:9px;border:0;background:' + okColor + ';'
+      + 'color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">' + mgEsc(o.okText || '확인') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(back);
+
+    var okBtn = back.querySelector('#mg-ok');
+    var input = back.querySelector('#mg-input');
+    var why   = back.querySelector('#mg-why');
+    var done  = false;
+    function setOk(on){
+      okBtn.disabled = !on;
+      okBtn.style.opacity = on ? '1' : '.45';
+      okBtn.style.cursor = on ? 'pointer' : 'not-allowed';
+    }
+    if (need) {
+      setOk(false);
+      input.addEventListener('input', function(){
+        var same = input.value === need;
+        setOk(same);
+        /* ⚠️ «왜 잠겼는지» 를 말해 준다 — 옛 prompt() 는 아무 말 없이 끝나서
+           사람이 «고장» 으로 읽었다. 앞뒤 공백은 흔한 실수라 따로 짚어 준다. */
+        why.textContent = same ? '✅ 이름이 같습니다.'
+          : (input.value.trim() === need ? '앞이나 뒤에 빈칸이 있습니다.'
+            : '아직 이름이 다릅니다. [📋 복사] 를 눌러 붙여넣어도 됩니다.');
+        why.style.color = same ? '#86efac' : '#fca5a5';
+      });
+      back.querySelector('#mg-copy').addEventListener('click', function(){
+        /* 클립보드가 막힌 브라우저(비 HTTPS·권한 거부)에서도 길이 남아야 한다 —
+           실패하면 그 자리에 바로 채워 준다. 이름은 화면에 이미 보이고 있으므로
+           «몰래 채우는 것» 이 아니다. */
+        var t = need;
+        var fill = function(){ input.value = t; input.dispatchEvent(new Event('input')); input.focus(); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(t).then(function(){ fill(); }, function(){ fill(); });
+        } else fill();
+      });
+    }
+    function close(v){
+      if (done) return; done = true;
+      document.removeEventListener('keydown', onKey, true);
+      if (back.parentNode) back.parentNode.removeChild(back);
+      try { if (prev && prev.focus) prev.focus(); } catch(_) {}
+      resolve(v);
+    }
+    function onKey(e){
+      if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      else if (e.key === 'Enter' && !okBtn.disabled) { e.preventDefault(); close(true); }
+    }
+    document.addEventListener('keydown', onKey, true);
+    okBtn.addEventListener('click', function(){ if (!okBtn.disabled) close(true); });
+    back.querySelector('#mg-cancel').addEventListener('click', function(){ close(false); });
+    back.addEventListener('click', function(e){ if (e.target === back) close(false); });
+    /* ⚠️ 이름 입력이 없는 상자는 **[취소]** 에 포커스를 둔다 — Enter 를 한 번 더 눌렀다가
+       «보이게 하기» 가 실수로 실행되는 것을 막는다(숨김은 사람이 뜻을 갖고 건 것이다). */
+    setTimeout(function(){ try { (input || back.querySelector('#mg-cancel')).focus(); } catch(_) {} }, 30);
+  });
+}
+
+/* 🙈 «이미 자료실에 있습니다» 를 «어디에 있고 왜 안 보이는지» 로 (2026-09-10)
+   ═══════════════════════════════════════════════════════════════════════════
+   [사고] 9/10 필리핀 매니저 「올렸는데 라이브러리에 없다 — 이미 있다고만 한다」.
+      파일은 정말 있었고(9/1 업로드) 그 묶음 「BTS」가 9/8 에 **숨김** 이라 안 보였다.
+      옛 문구는 «건너뛰었다» 만 말해서 사람이 없는 파일을 계속 다시 올렸다.
+   ⛔ 여기서 숨김을 «자동으로» 풀지 말 것 — 숨긴 데는 이유가 있다(MES 교재 등).
+      사람이 [👁 보이게 하기] 를 눌렀을 때만 푼다. */
+async function announceDuplicates(dup, ok, booksMap, byMap){
+  const books = Object.keys(booksMap || {});
+  const hidden = books.filter(b => booksMap[b] === true);
+  const unknown = books.filter(b => booksMap[b] === null || booksMap[b] === undefined);
+  const listOf = a => a.map(b => '<b>' + mgEsc(b) + '</b>').join(', ');
+
+  if (hidden.length) {
+    const go = await mgModal({
+      title: '🙈 이미 있습니다 — 그런데 «숨김» 이라 안 보입니다',
+      okText: '👁 보이게 하기',
+      bodyHtml:
+          '<p style="margin:0 0 10px">파일 <b>' + dup + '개</b>가 이미 자료실에 있어 건너뛰었습니다.'
+        + ' 중복으로 올라가지 않았습니다.</p>'
+        + '<p style="margin:0 0 10px">그런데 그 교재 묶음이 지금 <b style="color:#fca5a5">숨김</b> 상태라'
+        + ' 선생님·학생 라이브러리에서 <b>빠져 있습니다.</b> 그래서 «올렸는데 안 보인다» 로 보입니다.</p>'
+        + '<p style="margin:0 0 10px">숨겨진 묶음: ' + hidden.map(function(b){
+            var who = byMap && byMap[b] ? ' <span style="font-size:11.5px;color:var(--text-mute)">(숨긴 사람: '
+              + mgEsc(byMap[b]) + ')</span>' : '';
+            return '<b>' + mgEsc(b) + '</b>' + who;
+          }).join(', ') + '</p>'
+        + '<p style="margin:0 0 10px;font-size:12px;color:#fcd34d">⚠️ 일부러 숨겨 둔 교재일 수 있습니다'
+        + '(예: 옛 MES 교재). 누가 숨겼는지 보고 판단해 주세요.</p>'
+        + '<p style="margin:0;color:#86efac">지금 보이게 할까요? <b>파일은 그대로입니다</b> — 언제든 다시 숨길 수 있습니다.</p>'
+        + '<p style="margin:10px 0 0;font-size:12px;color:var(--text-mute)">Already in the library, but the bundle is HIDDEN,'
+        + ' so teachers and students cannot see it. Press [Show] to make it visible again.</p>',
+    });
+    if (!go) return;
+    let unhid = 0, failed = 0, why = '';
+    for (const b of hidden) {
+      try {
+        const r = await fetch('/api/admin/textbook-hidden-books', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin', body: JSON.stringify({ book: b, hidden: false })
+        });
+        const j = await r.json().catch(() => null);
+        /* ⚠️ 판정은 «실패라고 말했는가» 가 아니라 **«성공이라고 말했는가»** 로 — 관문이 빠지면
+           종단 404 가 `{error:'Not Found'}` 로 와서 `ok` 칸이 아예 없다(CLAUDE.md). */
+        if (j && j.ok === true) unhid++;
+        else {
+          failed++;
+          /* 🔴 «왜» 를 반드시 말한다 — 이 API 는 **강사에게 막혀 있다**(`TEACHER_BLOCKED_PREFIXES`).
+             그런데 이 화면은 강사도 쓴다. 사유 없이 「실패 1개」만 적으면 «고장» 으로 읽히고,
+             정작 할 일(본사에 요청)이 안 보인다(CLAUDE.md 「버튼이 늘 같은 실패 문구 하나만」). */
+          if (!why) why = (r.status === 401 || r.status === 403 || (j && /forbidden|unauthor/i.test(String(j.error || ''))))
+            ? '이 목록을 바꾸는 것은 <b>본사 계정</b>만 할 수 있습니다. 본사에 «보이게 해 달라» 고 요청해 주세요.'
+              + '<br><span style="opacity:.85">Only head office can unhide. Please ask the head office.</span>'
+            : '사유: <code>' + mgEsc((j && j.error) || ('http_' + r.status)) + '</code>';
+        }
+      } catch (_) { failed++; if (!why) why = '네트워크 문제로 보입니다. 잠시 뒤 다시 시도해 주세요.'; }
+    }
+    await mgModal({
+      title: unhid && !failed ? '👁 다시 보이게 했습니다' : '⚠️ 일부만 되돌렸습니다',
+      okText: '확인', bodyHtml:
+          '<p style="margin:0 0 8px">보이게 한 묶음: <b>' + unhid + '개</b>'
+        + (failed ? ' · 실패 <b style="color:#fca5a5">' + failed + '개</b>' : '') + '</p>'
+        + (why ? '<p style="margin:0 0 8px;color:#fca5a5">' + why + '</p>' : '')
+        + '<p style="margin:0;color:var(--text-dim)">수업 화면에서 <b>새로고침</b> 하면 바로 보입니다.'
+        + ' / Refresh the class screen to see them.</p>',
+    });
+    try { loadHideBooks(); } catch (_) {}
+    return;
+  }
+
+  if (ok === 0) {
+    await mgModal({
+      title: 'ℹ️ 이 교재는 이미 자료실에 있습니다',
+      okText: '확인', bodyHtml:
+          '<p style="margin:0 0 10px">파일 <b>' + dup + '개</b>가 모두 이미 등록되어 있어 건너뛰었습니다.'
+        + ' 중복으로 올라가지 않았습니다.</p>'
+        + (books.length ? '<p style="margin:0 0 10px">있는 곳: ' + listOf(books) + '</p>' : '')
+        + (unknown.length
+            ? '<p style="margin:0 0 10px;color:#fcd34d">⚠️ 숨김 여부를 확인하지 못했습니다.'
+              + ' 라이브러리에 안 보이면 아래 «공용 자료실 교재» 목록에서 체크가 켜져 있는지 봐 주세요.</p>'
+            : '')
+        + '<p style="margin:0;font-size:12px;color:var(--text-mute)">This textbook is already in the library —'
+        + ' all ' + dup + ' file(s) were already registered, so they were skipped. Nothing was duplicated.</p>',
+    });
+  }
+}
+
 /* 🗑️ (2026-09-07 사장님 결정 B안) 교재 «묶음 통째» 영구 삭제 — 2단계 안전장치
    ═══════════════════════════════════════════════════════════════════════
    [왜] 그전까지 서버 교재를 지우는 길은 admin.html 의 «한 장씩» 뿐이었다.
@@ -1641,38 +1914,65 @@ async function purgeBook(book, btn){
     d = await r.json().catch(() => null);
     if (!d || d.ok !== true) {
       const err = (d && d.error) || ('http_' + r.status);
-      alert(err === 'forbidden_teacher' || err === 'forbidden_scope'
-        ? '이 기능은 본사 계정만 쓸 수 있습니다.\n(Head office accounts only.)'
-        : err === 'unauthorized'
-          ? '로그인이 필요합니다. 화면 위 [🔑 로그인하기] 를 눌러 주세요.\n(Please log in first.)'
-          : '건수를 확인하지 못했습니다: ' + err);
+      /* ⚠️ 이 안내들도 화면 «안» 에서 말한다 — `alert()` 는 크롬이 막으면 통째로 사라져
+         「눌러도 아무 일도 안 일어난다」가 된다(이 기능이 실제로 그랬다). */
+      await mgModal({ title: '삭제를 시작하지 못했습니다', okText: '확인', bodyHtml:
+        err === 'forbidden_teacher' || err === 'forbidden_scope'
+          ? '<p style="margin:0">이 기능은 <b>본사 계정</b>만 쓸 수 있습니다.<br><span style="color:var(--text-mute)">Head office accounts only.</span></p>'
+          : err === 'unauthorized'
+            ? '<p style="margin:0">로그인이 필요합니다. 화면 위 <b>[🔑 로그인하기]</b> 를 눌러 주세요.<br><span style="color:var(--text-mute)">Please log in first.</span></p>'
+            : '<p style="margin:0">건수를 확인하지 못했습니다: <code>' + mgEsc(err) + '</code></p>' });
       return;
     }
   } catch (e) {
-    alert('건수를 확인하지 못했습니다 (네트워크). 다시 시도해 주세요.');
+    await mgModal({ title: '건수를 확인하지 못했습니다', okText: '확인', bodyHtml:
+      '<p style="margin:0">네트워크 문제로 보입니다. 잠시 뒤 다시 눌러 주세요.<br>'
+      + '<span style="color:var(--text-mute)">Network problem — please try again.</span></p>' });
     return;
   } finally {
     if (btn) { btn.disabled = false; setBtn(orig); }
   }
 
-  if (!d.files) { alert('이미 없는 교재입니다.'); loadHideBooks(); return; }
+  if (!d.files) {
+    await mgModal({ title: 'ℹ️ 이미 없는 교재입니다', okText: '확인',
+      bodyHtml: '<p style="margin:0">지울 파일이 없습니다. 목록을 새로 읽습니다.</p>' });
+    loadHideBooks(); return;
+  }
 
   const mb = (Number(d.bytes || 0) / 1024 / 1024).toFixed(1);
-  const sample = (d.sample || []).slice(0, 3).join('\n  · ');
-  if (!confirm(
-      '🗑 영구 삭제 — 되돌릴 수 없습니다\n\n'
-    + '교재: ' + book + '\n'
-    + '파일: ' + d.files + '장 (' + mb + ' MB)\n'
-    + (sample ? '예)\n  · ' + sample + '\n' : '')
-    + '\n파일까지 함께 지워집니다. 지난 수업에서 이 교재를 열면 안 보이게 됩니다.\n'
-    + '※ 그냥 목록에서만 감추려면 [취소] 하고 왼쪽 체크박스(숨기기)를 쓰세요.\n\n'
-    + '— — —\nPERMANENT delete. This cannot be undone.\n'
-    + d.files + ' file(s), ' + mb + ' MB will be removed.')) return;
+  const sample = (d.sample || []).slice(0, 3);
 
-  // ── 2단계: 이름을 정확히 다시 입력 ──
-  const typed = prompt('확인을 위해 교재 이름을 그대로 입력해 주세요.\nType the book name exactly to confirm:\n\n' + book);
-  if (typed === null) return;
-  if (typed !== book) { alert('이름이 다릅니다. 삭제하지 않았습니다.\nName did not match — nothing was deleted.'); return; }
+  /* ── 2단계: 화면 «안» 에서 확인받는다 (2026-09-10) ──
+     ⛔ 브라우저 `confirm()`·`prompt()` 로 되돌리지 말 것.
+        [잰 것 — 2026-09-10] `admin_audit_logs` 의 `textbook_purge_book` 이 **0건**이다.
+        같은 표에 `ghost_join` 76건이 그날도 쌓였으니 표는 살아 있다
+        ⟹ **2단계 요청이 서버에 한 번도 도달한 적이 없다.** 여기까지가 잰 것이다.
+        [판단 — 재지 않음] 거기서 멈추는 길은 셋이고 셋 다 서버에 아무것도 안 보낸다:
+        ⓐ 크롬의 「이 페이지가 추가 대화상자를 만들지 못하게 막기」가 켜져 `prompt()` 가
+           **뜨지도 않고 null** 을 돌려줌(그러면 코드가 조용히 끝난다) ⓑ 이름을 다르게 입력
+        ⓒ 사람이 취소. 어느 쪽이든 **화면 안에서 물으면 «왜 안 되는지» 가 보인다.**
+     ✅ 안전장치는 그대로다 — 이름을 정확히 입력해야 하고, 서버도 `confirm_name` 을 다시 본다.
+        달라진 것은 «어디서 묻는가» 와 «왜 안 되는지 화면이 말해 주는가» 뿐이다. */
+  const okToPurge = await mgModal({
+    title: '🗑 영구 삭제 — 되돌릴 수 없습니다',
+    danger: true,
+    okText: '🗑 영구 삭제',
+    requireText: book,
+    bodyHtml:
+        '<p style="margin:0 0 10px">교재 <b>' + mgEsc(book) + '</b> 의 파일 <b>' + d.files + '장</b>'
+      + ' (' + mb + ' MB) 을 <b>파일까지</b> 지웁니다.</p>'
+      + (sample.length
+          ? '<div style="font-size:11.5px;color:var(--text-mute);background:rgba(0,0,0,.22);border-radius:8px;padding:8px 10px;margin-bottom:10px;word-break:break-all">'
+            + sample.map(function(n){ return '· ' + mgEsc(n); }).join('<br>') + '</div>'
+          : '')
+      + '<p style="margin:0 0 10px;color:#fca5a5">지난 수업에서 이 교재를 열면 안 보이게 됩니다.'
+      + ' <b>되돌릴 수 없습니다.</b></p>'
+      + '<p style="margin:0;color:#fcd34d">※ 목록에서만 감추려면 [취소] 하고 왼쪽 <b>체크박스(숨기기)</b> 를 쓰세요.'
+      + ' 그쪽은 파일이 남고 언제든 되돌릴 수 있습니다.</p>'
+      + '<p style="margin:10px 0 0;font-size:12px;color:var(--text-mute)">PERMANENT delete — '
+      + d.files + ' file(s), ' + mb + ' MB. This cannot be undone.</p>',
+  });
+  if (!okToPurge) return;
 
   // ── 실행: 서버가 한 번에 최대 300장씩 지운다. 남은 수를 보고 반복한다. ──
   let total = 0, r2fail = 0, guard = 0, doneConfirmed = false;
@@ -1686,8 +1986,9 @@ async function purgeBook(book, btn){
       });
       const j = await r.json().catch(() => null);
       if (!j || j.ok !== true) {
-        alert('삭제 중 멈췄습니다: ' + ((j && j.error) || ('http_' + r.status))
-          + '\n지금까지 ' + total + '장 지웠습니다. 다시 눌러 이어서 지울 수 있습니다.');
+        await mgModal({ title: '⚠️ 삭제 중 멈췄습니다', okText: '확인', bodyHtml:
+            '<p style="margin:0 0 8px">사유: <code>' + mgEsc((j && j.error) || ('http_' + r.status)) + '</code></p>'
+          + '<p style="margin:0">지금까지 <b>' + total + '장</b> 지웠습니다. [🗑 삭제] 를 다시 눌러 이어서 지울 수 있습니다.</p>' });
         break;
       }
       total += Number(j.deleted || 0);
@@ -1701,8 +2002,9 @@ async function purgeBook(book, btn){
            서버가 그 수를 못 읽었을 때 null 을 준다 — 숫자인 척 말하면 안 된다. */
         const leftTxt = (j.remaining === null || j.remaining === undefined)
           ? '남은 수를 확인하지 못했습니다' : ('남은 ' + j.remaining + '장을 지우지 못했습니다');
-        alert(leftTxt + ' (저장소 응답 실패).\n'
-            + '지금까지 ' + total + '장 지웠습니다. 잠시 뒤 다시 눌러 주세요.');
+        await mgModal({ title: '⚠️ 아직 다 지우지 못했습니다', okText: '확인', bodyHtml:
+            '<p style="margin:0 0 8px">' + mgEsc(leftTxt) + ' (저장소 응답 실패).</p>'
+          + '<p style="margin:0">지금까지 <b>' + total + '장</b> 지웠습니다. 잠시 뒤 다시 눌러 주세요.</p>' });
         break;
       }
     }
@@ -1712,10 +2014,13 @@ async function purgeBook(book, btn){
 
   /* ⛔ «완료» 라고 단정하지 않는다 — 서버가 done:true 를 준 것을 확인했을 때만 완료다.
      중간에 멈췄으면 «절반만 지워진» 상태라 그렇게 말해 줘야 사람이 다시 누른다. */
-  alert((doneConfirmed ? '🗑 삭제 완료' : '⚠️ 아직 다 지우지 못했습니다')
-    + '\n\n교재: ' + book + '\n지운 파일: ' + total + '장'
-    + (doneConfirmed ? '' : '\n👉 [🗑 삭제] 를 다시 눌러 이어서 지울 수 있습니다.')
-    + (r2fail ? '\n⚠️ 파일 저장소에서 못 지운 것: ' + r2fail + '장 (다시 누르면 재시도합니다)' : ''));
+  await mgModal({
+    title: doneConfirmed ? '🗑 삭제 완료' : '⚠️ 아직 다 지우지 못했습니다',
+    okText: '확인', bodyHtml:
+        '<p style="margin:0 0 8px">교재: <b>' + mgEsc(book) + '</b><br>지운 파일: <b>' + total + '장</b></p>'
+      + (doneConfirmed ? '' : '<p style="margin:0 0 8px;color:#fcd34d">👉 [🗑 삭제] 를 다시 눌러 이어서 지울 수 있습니다.</p>')
+      + (r2fail ? '<p style="margin:0;color:#fca5a5">⚠️ 파일 저장소에서 못 지운 것: ' + r2fail + '장 (다시 누르면 재시도합니다)</p>' : ''),
+  });
   loadHideBooks();
   if (typeof renderLibrary === 'function') renderLibrary();
 }
