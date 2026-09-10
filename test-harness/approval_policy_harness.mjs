@@ -406,6 +406,20 @@ console.log('\n[I] 묶어서 승인이 자동 점검을 무력화하지 않는�
       **보장은 그대로인데 검사만** 빨간불이 된다(2026-09-10 실제로 밟았다: 묶음 승인에서
       «대신 결재» 건을 빼는 주석을 더하자 경고 검사가 400자 창을 넘어 FAIL).
       CLAUDE.md 「검사 범위를 «길이» 로 자르지 마세요」. */
+const CLEAN_ONES_RAW = (() => {
+  const i = WORK_SRC.indexOf('function cleanOnes()');
+  if (i < 0) return '';
+  const open = WORK_SRC.indexOf('{', i);
+  if (open < 0) return '';
+  let depth = 0;
+  for (let k = open; k < WORK_SRC.length; k++) {
+    const c = WORK_SRC[k];
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return WORK_SRC.slice(open, k + 1); }
+  }
+  return '';
+})();
+
 const CLEAN_ONES = (() => {
   const i = WORK_SRC.indexOf('function cleanOnes()');
   if (i < 0) return '';
@@ -454,6 +468,46 @@ check('화면 — 마감을 넘긴 건도 묶음에서 뺀다',
 check('화면 — «대신 결재» 건(by_proxy)은 묶음에서 뺀다',
   /r\.by_proxy/.test(CLEAN_ONES),
   '한 번 누르면 결재권자 몫까지 함께 승인된다');
+
+/* 🔴 위 검사는 «그 글자가 있는가» 뿐이라 **조건 뒤집기로 뚫립니다** —
+   `if (r.by_proxy && false) return false;` 로 바꾸면 가드가 한 번도 안 막는데
+   글자는 그대로라 통과합니다(2026-09-10 변이시험 실측: 141/141 초록).
+   CLAUDE.md 「그 게이트를 라우트 «안» 에만 두지 마세요 … 하니스에 「조건 뒤집기」
+   변이시험을 반드시 넣으세요」. 그래서 **필터를 실제로 돌려** 답을 봅니다.
+   ⚠️ 평가에는 «주석을 안 벗긴» 원본을 씁니다 — 벗긴 사본으로 돌리면 문자열 안의
+      `//` 같은 것에 코드가 잘릴 수 있습니다(여기엔 없지만 전제를 두지 않습니다). */
+const runClean = (rows) => {
+  const fn = new Function('D', 'isOverdue',
+    'return (function cleanOnes()' + CLEAN_ONES_RAW + ')();');
+  return fn({ inbox: rows }, (r) => !!r.__overdue).map((r) => r.id);
+};
+
+check('전제 — cleanOnes 를 실제로 돌릴 수 있다', (() => {
+  try { return Array.isArray(runClean([{ id: 1 }])); } catch { return false; }
+})());
+
+check('실행 — «대신 결재» 건이 실제로 묶음에서 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, by_proxy: true }])) === '[1]'; }
+           catch { return false; } })(),
+  '조건 뒤집기(`&& false`)를 잡는 검사');
+
+/* ⚠️ 짝 — 이게 없으면 «전부 빼기»(항상 false) 도 통과합니다. */
+check('짝 — 내 차례인 건은 묶음에 그대로 남는다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2 }])) === '[1,2]'; }
+           catch { return false; } })());
+
+check('실행 — 앞 단계를 내가 찍은 건(same_decider)도 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, same_decider: true }])) === '[1]'; }
+           catch { return false; } })());
+
+check('실행 — 경고(warn)가 붙은 건도 빠진다',
+  (() => { try { return JSON.stringify(runClean([
+             { id: 1 }, { id: 2, flags: [{ level: 'warn' }] }])) === '[1]'; }
+           catch { return false; } })());
+
+check('실행 — 마감을 넘긴 건도 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, __overdue: true }])) === '[1]'; }
+           catch { return false; } })());
 
 check('화면 — 두 건 이상일 때만 묶음 버튼을 보여 준다',
   /list\.length < 2/.test(WORK_SRC));

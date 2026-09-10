@@ -68,6 +68,16 @@ const HOME = {
           stage_seq: 2, stage_total: 2,
           steps: [{ seq: 1, role: 'mgr', status: 'approved', decided_by: 'mgr_jjw' },
                   { seq: 2, role: 'exec', status: 'active' }] }),
+    /* ⑤ 🔴 큰돈(₱5,000 이상) 2단계 건의 **1단계** — 여기도 `by_proxy` 다.
+       그런데 이 건은 대표님이 **2단계를 직접 결재**하셔야 하고 「확인」은 영영 안 뜬다
+       (needsExecAck 는 `decided_by === me` 면 false). 그래서 접힘 안내가 「확인만
+       하시면 됩니다」라고 말하면 **사장님 지시의 그 부류에 정반대 말**이 된다.
+       ⚠️ 이 조합(by_proxy && stage_total>1)이 fixture 에 없으면 그 결함이 검사에
+          **원리상 안 닿는다** — 2026-09-10 함정 대조가 그 구멍을 잡았다. */
+    row({ id: 55, title: 'Projector', amount: 8800, by_proxy: true,
+          stage_seq: 1, stage_total: 2,
+          steps: [{ seq: 1, role: 'mgr', status: 'active' },
+                  { seq: 2, role: 'exec', status: 'pending' }] }),
   ],
   mine: [], urgent: [], ack_pending: [], reuse: [],
 };
@@ -131,8 +141,8 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
      이게 깨지면 아래 검사가 전부 «없어서 통과» 하는 헛돎이 된다. */
   console.log('\n[0] 전제');
   const drawn = await page.evaluate(() =>
-    [51, 52, 53, 54].filter((n) => !!document.getElementById('req-' + n)).length);
-  check('결재함에 네 건이 다 그려졌다', drawn === 4, '실제: ' + drawn);
+    [51, 52, 53, 54, 55].filter((n) => !!document.getElementById('req-' + n)).length);
+  check('결재함에 다섯 건이 다 그려졌다', drawn === 5, '실제: ' + drawn);
 
   /* ── ① 접힘 ──────────────────────────────────────────────────────────── */
   console.log('\n[1] 소액(결재권자 몫)은 접혀 있다');
@@ -143,6 +153,45 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
   const note51 = await page.evaluate(() =>
     (document.getElementById('req-51') || {}).textContent || '');
   check('#51 이 «확인만 하시면 됩니다» 라고 말한다', /확인/.test(note51) && /결재권자/.test(note51));
+
+  /* ── ①-2 접힘 안내가 «그다음이 무엇인가» 를 사실대로 말하는가 ──────────
+     ⛔ 「접힌다」만 재면 이 결함을 못 봅니다 — #51 도 #55 도 똑같이 접히기 때문입니다.
+        갈리는 것은 **무슨 글자가 나오는가** 뿐입니다. */
+  console.log('\n[1-2] 접힘 안내가 사실을 말하는가');
+  const note55 = await page.evaluate(() =>
+    (document.querySelector('#req-55 .proxynote') || {}).textContent || '');
+  check('#55(2단계 건)은 «그다음은 대표님이 직접 결재» 라고 말한다',
+    /직접 결재/.test(note55), '실제: ' + note55);
+  check('#55 는 «확인만 하시면 됩니다» 라고 말하지 않는다 (거짓말 금지)',
+    !/「확인」만/.test(note55), '실제: ' + note55);
+  check('짝 — #51(1단계 건)은 그대로 «확인만» 이라고 말한다',
+    /「확인」만/.test(note51), '실제: ' + note51);
+  check('#55 도 접혀 있다 (승인 버튼 없음)', (await hasApprove(page, 55)) === false);
+
+  /* 안내가 «유일한 설명» 이라 본문 대비 4.5 를 넘어야 한다(WCAG).
+     ⚠️ 반투명이면 아래 층과 합성해야 하지만, 여기 배경은 불투명 카드다. */
+  const noteContrast = await page.evaluate(() => {
+    const el = document.querySelector('#req-55 .proxynote');
+    if (!el) return null;
+    const rgb = (s) => { const m = String(s).match(/rgba?\(([^)]+)\)/);
+      return m ? m[1].split(',').slice(0, 3).map(parseFloat) : null; };
+    let bg = null, n = el;
+    while (n && n !== document.documentElement) {
+      const c = rgb(getComputedStyle(n).backgroundColor);
+      const a = String(getComputedStyle(n).backgroundColor).match(/rgba\([^)]+,\s*([\d.]+)\)/);
+      if (c && (!a || parseFloat(a[1]) === 1)) { bg = c; break; }
+      n = n.parentElement;
+    }
+    if (!bg) bg = [255, 255, 255];
+    return { fg: rgb(getComputedStyle(el).color), bg: bg };
+  });
+  const lum = (c) => { const v = c.map((x) => { const s = x / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const cr = noteContrast
+    ? (Math.max(lum(noteContrast.fg), lum(noteContrast.bg)) + 0.05) /
+      (Math.min(lum(noteContrast.fg), lum(noteContrast.bg)) + 0.05) : 0;
+  check('접힘 안내가 읽힌다 (대비 4.5 이상)', cr >= 4.5, '실제: ' + cr.toFixed(2));
 
   /* ── ② 짝 — 내가 주 결재자인 건은 그대로 ─────────────────────────────── */
   console.log('\n[2] 짝 — 내 차례인 건은 접히지 않는다');
@@ -155,7 +204,7 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
   const bulk = await page.evaluate(() =>
     (document.getElementById('bulkBox') || {}).textContent || '');
   check('묶음 버튼이 떠 있다', /한 번에 승인/.test(bulk), '실제: ' + bulk.slice(0, 80));
-  check('묶음 건수가 2건이다 (#52·#54 만 — #51·#53 제외)',
+  check('묶음 건수가 2건이다 (#52·#54 만 — #51·#53·#55 제외)',
     /\b2건/.test(bulk), '실제: ' + bulk.slice(0, 80));
 
   /* ── ④ 펼치면 예전과 같다 ────────────────────────────────────────────── */

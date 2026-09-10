@@ -151,6 +151,11 @@ html.dark .flag{background:#3a2c10;color:#f0cf8a}
 html.dark .flag.info{background:#233043;color:#a8bcd2}
 .steps{font-size:12.5px;color:#7b8794;margin-top:4px}
 html.dark .steps{color:#8b98a8}
+/* 💳 «대신 결재» 접힘 안내 — 승인 버튼을 안 그린 «유일한 설명» 이라 다른 안내보다 진하다.
+   흐린 회색(#7b8794)은 흰 카드 위 대비 3.66 으로 본문 기준(4.5)에 못 미쳤다.
+   ⛔ .steps 전체를 진하게 바꾸지 말 것 — 나머지 안내의 무게까지 함께 올라간다. */
+.proxynote{color:#667085}
+html.dark .proxynote{color:#aab6c4}
 
 /* 📂 결재 문서함 (2026-09-04) — 지난 결재 찾기.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
@@ -1912,9 +1917,31 @@ function itemHtml(r, decidable, ackable){
         멈춘다(8/30 긴급 건이 그렇게 5일 서 있었다). 한 번 더 눌러 펼치면 예전과 같다.
      ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다) — 서버 by_proxy 하나만 본다. */
   if (decidable && r.by_proxy && !PROXY_OPEN[r.id]) {
-    h += '<div class="steps">' + esc(
-      T('The approver decides this one. You only confirm it after it is approved.',
-        '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
+    /* 🔴 «그다음이 무엇인가» 를 말해야 한다 — 큰돈(₱5,000 이상) 건도 1단계는 결재권자라
+       여기로 옵니다. 그 건은 대표님이 **2단계를 직접 결재**하셔야 하고 「확인」은 영영 안
+       뜹니다(needsExecAck 는 `decided_by === me` 면 false). 그래서 한 문장으로 뭉치면
+       하필 사장님 지시의 그 부류에 **정반대 말**을 하게 됩니다(2026-09-10 함정 대조가 잡음).
+       ⛔ 금액 기준(TWO_STEP_THRESHOLD)을 화면에 베끼지 말 것 — 서버가 이미 실어 보낸
+          «남은 단계»(steps·stage_total)로만 가른다. 규칙이 바뀌어도 저절로 따라온다.
+       ⚠️ 뒤에 단계가 남았는데 그 역할을 모르면 **지어내지 않는다**(가운데 갈래). */
+    var mgrLater = (r.steps || []).filter(function(s){
+      return Number(s.seq) > Number(r.stage_seq || 1);
+    });
+    var mgrLaterExec = false;
+    for (var mi = 0; mi < mgrLater.length; mi++) {
+      if (String(mgrLater[mi].role) === 'exec') { mgrLaterExec = true; break; }
+    }
+    var mgrMoreAfter = mgrLater.length > 0 ||
+                       Number(r.stage_total || 1) > Number(r.stage_seq || 1);
+    h += '<div class="steps proxynote">' + esc(
+      mgrLaterExec
+        ? T('The approver decides this stage — you decide the next one yourself.',
+            '이 단계는 결재권자가 결재합니다. 그다음 단계는 대표님이 직접 결재하십니다.')
+        : mgrMoreAfter
+          ? T('The approver decides this stage — another stage follows.',
+              '이 단계는 결재권자가 결재합니다. 이 뒤에 결재 단계가 더 있습니다.')
+          : T('The approver decides this one. You only confirm it after it is approved.',
+              '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
     h += '<div class="acts">' +
          '<button class="mini" onclick="proxyOpen(' + r.id + ')">' +
          esc(T('Decide on their behalf', '대신 결재하기')) + '</button>' +
