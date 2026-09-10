@@ -224,6 +224,14 @@
         /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
            /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
         { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
+          /* 🔐 (2026-09-10) 이 화면의 여섯 탭이 전부 «회사 전체» 운영이다 — 강사 급여
+             배율·회사 공휴일·전국 만료 임박 명단·하루치 수업의 강사 통째 변경·학부모
+             문자 스윕·환불 계산. 서버도 같은 날 본사 전용이 됐다(enrollAdminHqOnly).
+             ⚠️ 그전에는 서버 가드가 없어서 «일부러 안 감췄다» — 감추면 진짜 문제가
+                눈에서 사라지기 때문. 이제 서버가 막으므로 화면도 함께 감춘다(짝).
+             ⛔ 값은 순수 리터럴로 둘 것 — 상수 이름을 쓰면 GROUPS 를 오려 내 eval 하는
+                하니스 셋에서 GROUPS 가 통째로 null 이 된다(PR #912 에서 실제로 밟음). */
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산',
           tipEn: '📚 Teacher rates, long-class capacity, holidays, refunds',
           secs: [
