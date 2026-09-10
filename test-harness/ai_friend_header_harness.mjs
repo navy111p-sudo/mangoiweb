@@ -165,13 +165,31 @@ ok(!/<span class="ot-sum"[^>]*data-(ko|en)=/.test(bareScript)
 ok(!/ot-lv[^\n]*textContent\s*=\s*r\.lv/.test(bareScript),
   '다시 그릴 때 헤더에 레벨을 되돌려 쓰지 않는다',
   '사장님이 «설정» 으로 바꾸라고 하신 자리다(2026-09-10)');
-ok(/ot-lv[\s\S]{0,220}?'설정'/.test(bareScript),
+/* ⛔ 범위를 «길이» 로 자르지 말 것(CLAUDE.md) — 옆 함수가 딸려 들어오거나 잘려 나간다.
+   paint() 몸통을 «중괄호 짝» 으로 잘라 그 안에서만 본다. */
+const paintBody = (() => {
+  const i = bareScript.indexOf('function paint()');
+  if (i < 0) return '';
+  const o = bareScript.indexOf('{', i);
+  if (o < 0) return '';
+  let d = 0;
+  for (let k = o; k < bareScript.length; k++) {
+    if (bareScript[k] === '{') d++;
+    else if (bareScript[k] === '}') { d--; if (!d) return bareScript.slice(o, k + 1); }
+  }
+  return '';
+})();
+ok(paintBody.length > 60, `paint() 몸통을 잘라냈다 (${paintBody.length}자)`,
+  '못 잘라내면 아래 검사가 헛돈다');
+ok(/ot-lv/.test(paintBody) && /'설정'/.test(paintBody),
   '다시 그릴 때도 그 칸에 «설정»(또는 Settings)을 쓴다',
   '안 쓰면 시트를 한 번 연 뒤 그 말이 빈칸이 된다');
 /* 폰에서 접지 않는가 — 접으면 톱니바퀴만 남아 2026-09-10 지시가 그대로 되돌아간다.
    ⚠️ 부정 검사라 주석을 벗겨 낸 사본(bare)으로 본다. */
-ok(!/\.opts-toggle\s+\.ot-lv\s*\{[^}]*display\s*:\s*none/.test(bare),
-  '좁은 폭에서 «설정» 글자를 접지 않는다',
+/* ⛔ 선택자 모양을 못 박지 말 것 — `.top .ot-lv{display:none}` 이나 `visibility:hidden`
+   으로 접으면 안 걸린다(함정 대조 지적). «그 칸을 감추는 규칙이 어떤 모양으로든 있는가» 로 묻는다. */
+ok(!/\.ot-lv\b[^{}]*\{[^}]*(?:display\s*:\s*none|visibility\s*:\s*hidden)/.test(bare),
+  '좁은 폭에서 «설정» 글자를 접지 않는다(어떤 모양으로도)',
   '접으면 톱니바퀴만 남는다 — 폰에는 hover 가 없어 title 툴팁도 안 뜬다');
 /* 그리고 그 둘이 서로 다른 조건에서 켜지는가 — 한 조건에 묶으면 «소리만 껐을 때» 가 안 뜬다 */
 ok(/classList\.contains\(\s*'off'\s*\)/.test(bareScript) && /dataset\.sub/.test(bareScript),

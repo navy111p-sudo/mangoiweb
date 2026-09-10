@@ -81,8 +81,10 @@ for (const [tag, w, h] of SIZES) {
       overflow: top.scrollWidth > top.clientWidth + 1,
       nameClipped: !!name && name.scrollWidth > name.clientWidth + 1,
       nameText: name ? name.textContent.trim() : '',
-      /* ⚙ 요약 — 폰에서는 «레벨» 만 접고 «자막·소리가 꺼져 있다» 표시(👁·🔇)는 남아야 한다.
-         🔴 한때 .ot-sum 을 통째로 숨겨, 끈 학생이 되돌아올 길이 화면에서 사라졌다. */
+      /* ⚙ 요약 — «자막·소리가 꺼져 있다» 표시(👁·🔇)가 어느 폭에서도 남아야 한다.
+         🔴 한때 .ot-sum 을 통째로 숨겨, 끈 학생이 되돌아올 길이 화면에서 사라졌다.
+         📜 2026-09-10 부터는 앞 글자(.ot-lv, 지금은 «설정»)도 접지 않는다 — 접으면
+            톱니바퀴만 남아 «무엇을 여는 버튼인지» 알 길이 없다(폰에는 hover 가 없다). */
       flagBox: (() => {
         const f = document.querySelector('#optsToggle .ot-flag');
         if (!f) return { has: false };

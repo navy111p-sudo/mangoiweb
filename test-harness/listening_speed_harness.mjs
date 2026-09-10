@@ -56,10 +56,14 @@ ok(vals.length === 5 && vals.every((v) => typeof v === 'number'),
 /* 📜 2026-09-10 이전에는 «정확히 1.0» 이었다. 위 머리말 ① 참고 — 사장님 지시로 0.8 이 됐다.
    ⛔ 등호로 못 박지 말 것. 대신 «원음보다 빠르지 않다»(빠른 쪽으로는 못 감)와
       «0.75 미만으로 늘이지 않는다»(잡음이 들리기 시작하는 선) 둘로 지킨다. */
+/* 🔴 «1.0 이하» 로만 물으면 옛 계단(…1.0…)으로 통째로 되돌리는 변이가 그대로 통과한다
+      — 함정 대조가 실제로 재현했다. 지시 자체가 「보통을 기준으로 더 느리게」였으므로
+      «원음보다 느리다» 로 물어야 그 되돌림이 잡힌다(CLAUDE.md 「지금 꺼져 있어야 할 것이
+      켜져 있지 않은가로 물을 것」). ⛔ 「1.0 이하」로 되돌리지 말 것. */
 const NORMAL_MIN = 0.75, NORMAL_MAX = 1.0;
-ok(STEPS && STEPS[3] >= NORMAL_MIN - 1e-9 && STEPS[3] <= NORMAL_MAX + 1e-9,
-  `3단계(보통)가 ${STEPS ? STEPS[3] : '?'} — 원음(1.0)보다 빠르지 않고 ${NORMAL_MIN} 이상이다`,
-  '1.0 을 넘으면 «보통» 이 원음보다 빨라진다(2026-09-10 지시가 되돌아간다). '
+ok(STEPS && STEPS[3] >= NORMAL_MIN - 1e-9 && STEPS[3] < NORMAL_MAX - 1e-9,
+  `3단계(보통)가 ${STEPS ? STEPS[3] : '?'} — 원음(1.0)보다 «느리고» ${NORMAL_MIN} 이상이다`,
+  '1.0 이상이면 2026-09-10 「보통을 기준으로 더 느리게」 지시가 되돌아간 것이다. '
   + `${NORMAL_MIN} 밑으로 내려가면 시간축 늘이기 잡음이 들린다`);
 ok(vals.every((v, i) => i === 0 || v > vals[i - 1]), '칸이 갈수록 빨라진다(단조 증가)');
 
@@ -120,7 +124,11 @@ ok(btnRates.length === 5 && !!STEPS && btnRates.every((v, i) => v === vals[i]),
 ok(/RATE_STEPS_AF\s*\.reduce\(/.test(AF),
   '저장된 옛 속도를 «정본 계단(RATE_STEPS_AF)» 으로 맞춰서 시작한다',
   '칸 값이 바뀌면 옛 저장값은 어느 버튼과도 안 맞는다 — 조용히 어긋난 채로 읽는다');
-ok(!/\[\s*[\d.]+\s*(?:,\s*[\d.]+\s*){4}\]\s*\.reduce\(/.test(AF),
+/* ⚠️ 부정 검사는 «주석을 벗겨 낸» 사본으로 판정한다 — 이 파일들은 📜 이력 주석을 남기는
+      관행이라 「예전에는 [0.6, 0.8, 1, 1.25, 1.5].reduce( … ) 였다」 한 줄이면 자기 주석을
+      잡는다(함정 대조가 실제로 재현해서 거짓 FAIL 을 냈다. CLAUDE.md 2장). */
+const AF_BARE = AF.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+ok(!/\[\s*[\d.]+\s*(?:,\s*[\d.]+\s*){4}\]\s*\.reduce\(/.test(AF_BARE),
   '스냅이 숫자를 «다시 적어» 두지 않았다(정본 배열 하나만 본다)',
   '두 벌이면 한쪽만 고쳐져 «버튼은 보통인데 실제로는 다른 배속» 이 되고 에러는 안 난다');
 
@@ -137,6 +145,64 @@ ok(afDefault !== null && !!afList && afList.indexOf(afDefault) >= 0,
 ok(afDefault !== null && !!STEPS && Math.abs(afDefault - STEPS[3]) < 1e-9,
   `기본 속도가 «보통»(${STEPS ? STEPS[3] : '?'}) 이다`,
   '기본이 보통이 아니면 아무도 안 골랐는데 다른 속도로 시작한다');
+
+/* ── ⑧ 이미 속도를 골라 둔 학생에게도 지시가 닿는가 ────────────────────────
+   🔴 함정 대조가 브라우저로 재서 잡은 것 — «가장 가까운 값» 으로만 맞추면 저장값이 있는
+      학생 다섯 중 넷은 배속이 한 글자도 안 느려지고(0.8→0.8·1→1), 하필 «아주 느리게» 를
+      골라 둔 학생만 0.6 → 0.65 로 «빨라진다». 그래서 «칸 번호» 로 한 번 옮긴다. */
+const mig = (() => {
+  const m = AF.match(/const RATE_STEPS_V1_AF\s*=\s*\[[^\]]*\];/);
+  if (!m) return null;
+  try { return new Function('return ' + m[0].replace(/^const [^=]+=\s*/, '').replace(/;$/, '') + ';')(); }
+  catch { return null; }
+})();
+ok(!!mig && mig.length === 5, '옛 계단 표(RATE_STEPS_V1_AF)를 읽었다',
+  '없으면 옛 값을 쓰던 기기가 영영 옛 배속으로 남는다');
+ok(!!mig && !!afList && mig.every((v, i) => afList[i] < v - 1e-9),
+  `옛 칸이 «같은 번호의 새 칸» 으로 전부 느려진다 (${mig ? mig.join('/') : '?'} → ${afList ? afList.join('/') : '?'})`,
+  '한 칸이라도 빨라지면 「너무 빠르다」고 말한 학생이 더 빨라진다');
+ok(/RATE_STEPS_V1_AF\.findIndex/.test(AF_BARE) || /findIndex[\s\S]{0,80}RATE_STEPS_V1_AF/.test(AF_BARE),
+  '옮길 때 «값» 이 아니라 «칸 번호» 로 찾는다',
+  '값으로 맞추면 옛 값이 그대로 남아 배속이 안 바뀐다');
+/* 짝 — «한 번만» 인가. 표식이 없으면 매번 옮겨 수업 때마다 계속 느려진다. */
+ok(/RATE_VER_KEY_AF/.test(AF_BARE) && /localStorage\.setItem\(\s*RATE_VER_KEY_AF/.test(AF_BARE),
+  '그 옮기기를 «한 번만» 하도록 표식을 남긴다',
+  '표식이 없으면 새 0.8 을 옛 2단계로 보고 0.65 로, 또 0.65 를… 계속 느려진다');
+ok(/rateMarkAF\(\);/.test(AF_BARE.slice(AF_BARE.indexOf('function applyRate'))),
+  '사람이 속도를 고르면 그 표식도 함께 남긴다',
+  '안 남기면 사람이 고른 새 값을 다음 로드가 옛 값으로 오해해 또 옮긴다');
+
+/* 옛 계단에 «없는» 값도 빨라지지 않는가 — 지시가 「모두 느리게」다.
+   🔴 함정 대조 뒤 브라우저로 재다가 찾았다: «가장 가까운 칸» 이면 1.2 → 1.25 로 빨라진다.
+   ⛔ 「그 줄이 있는가」로 묻지 말 것 — 식을 오려 내 «답» 으로 묻는다. */
+const migExpr = (() => {
+  const m = AF.match(/const next = i >= 0 \? RATE_STEPS_AF\[i\]\s*([\s\S]*?);/);
+  return m ? m[1] : null;
+})();
+ok(!!migExpr, '옛 계단에 없는 값을 어떻게 옮기는지 식을 잘라냈다',
+  '못 잘라내면 아래 검사가 헛돈다');
+if (migExpr && afList) {
+  const fall = (r) => {
+    try { return new Function('RATE_STEPS_AF', 'r', 'return ' + migExpr.replace(/^\s*:/, '') + ';')(afList, r); }
+    catch { return NaN; }
+  };
+  /* ⚠️ 가장 느린 칸(0.5)보다 «더 느린» 저장값은 어느 계단에도 없던 값이다 — 그때는
+     가장 느린 칸으로 올리는 것이 맞다(0.5 아래는 소리가 뭉개진다). 그 하나만 예외로 둔다. */
+  const cases = [1.2, 1.4, 0.9, 0.55, 0.31];
+  const bad = cases.filter((r) => (r >= afList[0] ? !(fall(r) <= r + 1e-9) : fall(r) !== afList[0]));
+  ok(bad.length === 0,
+    `옛 계단에 없는 값도 «그보다 느린 칸» 으로 간다 (${cases.map((r) => r + '→' + fall(r)).join(' · ')})`,
+    '가장 가까운 칸으로 맞추면 1.2 가 1.25 로 «빨라진다» — 지시와 정반대다');
+  ok(cases.every((r) => afList.indexOf(fall(r)) >= 0),
+    '그 결과가 항상 다섯 칸 안이다',
+    '칸 밖이면 켜진 버튼이 하나도 없다');
+  /* 짝 — «너무 많이» 내리지도 않는가. 이 줄이 없으면 «항상 최저칸(0.5)» 도 통과한다
+     (변이시험에서 실제로 통과했다): 빠르게를 고른 학생이 아주 느리게로 떨어진다. */
+  const want = (r) => { const c = afList.filter((v) => v <= r + 1e-9); return c.length ? c[c.length - 1] : afList[0]; };
+  ok(cases.every((r) => Math.abs(fall(r) - want(r)) < 1e-9),
+    `내리되 «바로 아래 칸» 까지만 내린다 (${cases.map((r) => r + '→' + fall(r)).join(' · ')})`,
+    '항상 최저칸으로 떨어뜨리면 빠르게를 고른 학생이 아주 느리게가 된다');
+}
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
