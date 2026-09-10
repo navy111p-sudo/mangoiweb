@@ -64,11 +64,15 @@
         안 잡히고 CI 에서야 드러났습니다). 조직 계정 셋은 `src/auth-admin.ts` 의
         `isOrgScopedRole()` 과 같은 값이며, 어긋나면 브라우저 검사가 잡습니다. */
 
-  /* 지금 로그인한 사람의 역할. 서버가 확인해 준 window.__ADM_ME 가 정본이고,
-     아직 안 왔으면 빈 문자열 — 그때는 아무것도 감추지 않는다(adm-today-classes.js 와 같은 방식). */
+  /* 지금 로그인한 사람의 역할. **이번 방문에 서버가 확인해 준 `window.__ADM_ME` 만** 본다.
+     아직 안 왔으면 빈 문자열 — 그때는 아무것도 감추지 않는다(adm-today-classes.js 와 같은 방식).
+     ⛔ `admIdentity()` 로 떨어뜨리지 말 것 — 그 함수는 `localStorage['admin_session']` 에
+        `__fromServer` 표식이 있으면 **지난 방문 값**을 돌려준다. 공용 PC 에서 앞사람이 강사였다면
+        본사 사람이 열 때 잠시 «강사» 로 판정돼 **메뉴가 사라집니다** — 이 파일이 피하기로 한
+        바로 그 방향(빠지는 쪽)입니다. 신원이 오면 `mangoi:identity` 로 곧 제자리로 옵니다. */
   function myRole() {
     var me = null;
-    try { me = window.__ADM_ME || (typeof window.admIdentity === 'function' ? window.admIdentity() : null); } catch (e) {}
+    try { me = window.__ADM_ME; } catch (e) {}
     return (me && me.role) ? String(me.role) : '';
   }
 
@@ -131,12 +135,19 @@
         { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
         /* 🗼 (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
            줄마다 참관·입장·종료까지 하는 별도 화면. 별도 페이지라 href 다(「수업 길이 변경」과 같은 꼴).
-           🔐 (2026-09-09) 강사에게는 감춘다 — 이 화면이 부르는 API 가 **전부** 강사 차단이다
-              (src/index.ts TEACHER_BLOCKED_PREFIXES: `/api/admin/classes-now` · `/api/admin/alerts`
-               · `/api/admin/ghost` · `/api/admin/vc/`). 눌러도 빈 표만 나온다.
-           ⚠️ 지사·대리점에게는 **감추지 않는다** — `classes-now` 는 그들에게 열려 있고
-              (isAgencyAllowedApi) 핸들러가 자기 학생 수업만 잘라서 준다. 참관(ghost)만 403 이라
-              «목록은 되고 참관만 안 되는» 상태다. 되는 것을 메뉴에서 빼는 쪽이 더 나쁘다. */
+           🔐 (2026-09-09) 강사에게는 감춘다 — 이 화면의 **뼈대**(목록·알림·참관·회선)가 강사 차단이라
+              눌러도 빈 표만 나온다(src/index.ts TEACHER_BLOCKED_PREFIXES 의
+              `/api/admin/classes-now` · `/api/admin/alerts` · `/api/admin/ghost` · `/api/admin/vc/`).
+           ⛔ 「이 화면이 부르는 API 가 **전부** 막힌다」로 적지 말 것 — 사실이 아니다.
+              `monitor-wall.js` 는 여섯을 부르는데 **`/api/admin/live-classes` 와 `/api/admin/room/` 은
+              차단목록에 없습니다.** 특히 `POST /api/admin/room/:id/force-end` 는 핸들러에도 강사 가드가
+              없어 **강사가 URL 로 수업을 강제 종료할 수 있습니다**(이번 변경이 만든 것이 아니고,
+              메뉴를 감춰도 그대로입니다 — 서버 가드는 별건. 2026-09-09 함정 대조가 찾음).
+           ⚠️ 지사·대리점에게는 **감추지 않는다** — `classes-now` 가 그들에게 열려 있고
+              (isAgencyAllowedApi) 핸들러가 자기 학생 수업만 잘라서 줍니다.
+              ⛔ 「참관만 403」이 아닙니다 — 조직 계정에게 열린 것은 **`classes-now` 하나뿐**이고
+                 `alerts`·`ghost/start`·`live-classes`·`room/`·`vc/quality` 는 전부 forbidden_scope 입니다.
+                 그래도 «목록은 되므로» 감추지 않습니다(되는 것을 메뉴에서 빼는 쪽이 더 나쁩니다). */
         { ko: '수업 관제탑', en: 'Control tower', href: '/admin/monitor-wall.html',
           hideFrom: ['teacher'],
           tip: '🗼 지금 열린 수업을 한 표로 — 참관·입장·종료·순회 참관',
@@ -1237,8 +1248,12 @@
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
       /* 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter).
          🔴 (2026-09-09 실측) id 를 앞에 붙이는 것만으로는 **못 이긴다.**
-            `admin-inline-c.css:6117` 에 `#ph85-sidebar .ph85-sub{display:flex !important}` 가 있고
-            둘 다 특이성 (1,1,0) 이라 **문서 순서상 뒤가 이긴다.** 그런데 그 파일은
+            `admin-inline-c.css` 에 겨루는 규칙이 **셋** 있고(⛔ 행 번호로 적지 말 것 — 그 파일은
+            계속 자랍니다. 선택자로 찾으세요): `#ph85-sidebar .ph85-group{display:block!important}` ·
+            `#ph85-sidebar .ph85-sub{display:block!important}` · `#ph85-sidebar .ph85-sub{display:flex!important}`.
+            전부 특이성 (1,1,0) 이라 **문서 순서상 뒤가 이긴다.**
+            게다가 그 블록의 자기 주석이 「권한 시스템이 어떤 역할로 hide 해도 ph85 사이드바는 강제 visible」
+            이라 **역할 감춤을 이기려고 만들어진 규칙**이다. 그런데 그 파일은
             `<head>` 가 아니라 **`<body>` 안**에서 링크된다(admin.html) — 이 <style> 은
             document.head 에 붙으므로 언제나 «앞» 이고, 그래서 **언제나 진다.**
             [잰 것] class 는 붙었는데(`ia6-role-hide`) computed display 가 `flex` 였다.

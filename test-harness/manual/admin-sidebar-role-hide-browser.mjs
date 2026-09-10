@@ -1,16 +1,34 @@
 // -*- coding: utf-8 -*-
 // 🔐 «역할별 사이드바 숨김» 브라우저 검사 (2026-09-09)
 //
-//   왜 이 검사가 있나 — 사장님 「역할별 사이드바 숨김도 고쳐줘」.
-//   파고 보니 CSS 특이성 문제가 **아니었다**(그렇게 보고했다가 실측으로 정정했다 —
-//   `#ph85-sidebar .ia6-role-hide{display:none!important}` 와 겨루는 규칙이 저장소에 없다).
-//   진짜 원인은 **판정이 그 항목을 아예 안 본다** 였다:
-//     applyRoleFilter 는 «가리키는 카드가 전부 감춰졌나» 로 판정하는데,
-//     딴 페이지로 가는 항목(href)은 카드가 아예 없어 known=0 → 언제나 «남긴다».
-//     그래서 서버가 403 으로 막는 화면인데도 강사·지사 사이드바에 그대로 떠서,
-//     눌러야만 「권한이 없습니다」를 봤다.
-//   그 사실은 adm-ia6.js 안에 두 곳이나 주석으로 적혀 있었다(monitor-wall · 환불) —
-//   «적어 둔 것» 이 «고친 것» 이 아니라는 이 저장소의 오랜 함정 그대로다.
+//   왜 이 검사가 있나 — 사장님 「역할별 사이드바 숨김도 고쳐줘」. 원인이 **둘**이었다.
+//
+//   ① **이기는 규칙** — adm-ia6.js 가 document.head 에 주입하는
+//      `#ph85-sidebar .ia6-role-hide{display:none!important}`(1,1,0)와 겨루는 규칙이
+//      admin-inline-c.css 에 **셋** 있다(선택자로 찾을 것 — 행 번호로 적지 말 것):
+//        `#ph85-sidebar .ph85-group{display:block!important}`
+//        `#ph85-sidebar .ph85-sub{display:block!important}`
+//        `#ph85-sidebar .ph85-sub{display:flex!important}`
+//      전부 (1,1,0) 동률인데 그 CSS 는 `<head>` 가 아니라 **`<body>` 안**에서 링크되어
+//      언제나 «뒤» 라 **언제나 이긴다.** 그 블록의 자기 주석이 「권한 시스템이 어떤 역할로
+//      hide 해도 ph85 사이드바는 강제 visible」이라 **역할 감춤을 이기려고 만들어진 규칙**이다.
+//      [잰 것] class 는 붙었는데 computed display 가 flex ⟹ 역할 감춤이 한 번도 안 먹고 있었다.
+//      ⛔ 그래서 특이성을 (1,2,0)으로 올린 그 두 줄을 «군더더기» 로 지우지 말 것 —
+//         지우면 이 검사가 실제로 14건 FAIL 한다(변이시험으로 확인).
+//      ⚠️ 처음에 나는 이것을 「겨루는 규칙이 저장소에 없다」고 **틀리게** 적었다.
+//         `document.styleSheets` 를 훑는 코드가 `if(r.cssRules)` 로 갈라 한 개도 못 보고 있었다
+//         (Chrome 112+ 는 평범한 style 규칙에도 빈 cssRules 가 있다 — CLAUDE.md 2장).
+//
+//   ② **판정이 그 항목을 아예 안 본다** — applyRoleFilter 는 «가리키는 카드가 전부 감춰졌나» 로
+//      판정하는데, 딴 페이지로 가는 항목(href)은 카드가 아예 없어 known=0 → 언제나 «남긴다».
+//      그래서 서버가 403 으로 막는 화면이 강사·지사 사이드바에 그대로 떴다.
+//      그 사실은 adm-ia6.js 안에 두 곳이나 주석으로 적혀 있었다(monitor-wall · 환불) —
+//      «적어 둔 것» 이 «고친 것» 이 아니라는 이 저장소의 오랜 함정 그대로다.
+//
+//   ⚠️ **«평소 화면» 이 이랬다고 읽지 말 것** — 강사가 /admin.html 을 열면 teacherPortalRedirect 가
+//      /teacher 로, 조직 계정은 managerPortalRedirect 가 /manager 로 302 한다(둘 다 `?full=1` 로만
+//      우회). 그래서 이 감춤이 실제로 걸리는 곳은 «`?full=1` 로 콘솔에 들어온 경우» 다.
+//      그 빈도는 재지 않았다.
 //
 //   왜 브라우저인가 —
 //     함수도 값도 «있고» 틀린 것은 «누가 무엇을 보는가» 뿐이다. 수리 전에도
@@ -27,6 +45,7 @@
 //        mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core
 //        PW_DIR=/tmp/pw node test-harness/manual/admin-sidebar-role-hide-browser.mjs
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPlaywright, findChromium } from './_pw.mjs';
@@ -117,7 +136,10 @@ const seen = (page, ko) => page.evaluate((ko) => {
   };
 }, ko);
 
-const visible = s => s.found && s.display !== 'none' && !s.roleHide;
+/* ⚠️ 이것은 «화면에 보인다» 가 아니라 **«역할로 감춰지지 않았다»** 입니다 —
+   `.ph85-sub` 는 접힌 아코디언 안에서도 위 경쟁 규칙 때문에 computed display 가 `flex` 입니다.
+   이 버그를 재는 데는 맞는 측정이지만, 「열렸다·보인다·눌린다는 다 다릅니다」와 헷갈리지 말 것. */
+const notRoleHidden = s => s.found && s.display !== 'none' && !s.roleHide;
 
 (async () => {
   const { chromium, exe } = requireBrowser();
@@ -143,13 +165,41 @@ const visible = s => s.found && s.display !== 'none' && !s.roleHide;
                           show: ['수업 관제탑', '수업 길이 변경', '수강 운영', '환불 처리', '영업 실적·평가'], hide: [] },
     ];
 
+    /* ⓪ 전제 — 손으로 적은 CASES 가 «지금 있는 href 항목» 을 전부 담았는가.
+       ⛔ 이게 없으면 6번째 href 항목이 생겨도 검사가 **아무 말도 안 합니다**(조용히 빠집니다).
+       ⚠️ GROUPS 를 오려 내 eval 하므로, 그 블록이 «순수 리터럴» 이 아니게 되면 여기서 먼저 FAIL 합니다
+          (2026-09-09 에 상수 이름을 썼다가 다른 하니스 셋을 깨뜨렸습니다 — 그 계약을 여기서도 지킵니다). */
+    console.log('\n⓪ 전제 — 검사 목록이 지금의 href 항목을 전부 담았는가');
+    {
+      const src = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'js', 'adm-ia6.js'), 'utf8');
+      const i = src.indexOf('var GROUPS = [');
+      const j = src.indexOf('\n  ];', i);
+      let G = null;
+      if (i >= 0 && j >= 0) {
+        let body = src.slice(i + 'var GROUPS = '.length, j + 4)
+          .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+        try { G = eval(body); } catch { G = null; }
+      }
+      check('GROUPS 를 오려 내 읽었다 (순수 리터럴이다)', Array.isArray(G) && G.length > 0);
+      if (Array.isArray(G)) {
+        const hrefs = [];
+        G.forEach(g => (g.items || []).forEach(it => { if (it.href) hrefs.push(it.ko); }));
+        const covered = new Set([].concat(...CASES.map(c => c.show.concat(c.hide))));
+        const missing = hrefs.filter(k => !covered.has(k));
+        check('href 항목이 전부 검사 목록에 있다', missing.length === 0, '빠진 것: ' + missing.join(' · '));
+        /* 짝 — 없는 이름을 적어 두고 «다 덮었다» 고 착각하지 않게 */
+        const ghost = [...covered].filter(k => !hrefs.includes(k));
+        check('검사 목록에 «없는 항목» 이 적혀 있지 않다', ghost.length === 0, '있지도 않은 것: ' + ghost.join(' · '));
+      }
+    }
+
     for (const c of CASES) {
       console.log(`\n■ 역할 = ${c.role === null ? '(신원 미도착)' : c.role}`);
       const opened = await open(browser, c.role); ctx = opened.ctx;
       const page = opened.page;
       for (const ko of c.show) {
         const s = await seen(page, ko);
-        check(`「${ko}」 보인다`, visible(s), JSON.stringify(s));
+        check(`「${ko}」 역할로 안 감춰진다`, notRoleHidden(s), JSON.stringify(s));
       }
       for (const ko of c.hide) {
         const s = await seen(page, ko);
@@ -167,7 +217,7 @@ const visible = s => s.found && s.display !== 'none' && !s.roleHide;
       const opened = await open(browser, null); ctx = opened.ctx;
       const page = opened.page;
       const before = await seen(page, '환불 처리');
-      check('신원 전에는 「환불 처리」가 보인다', visible(before), JSON.stringify(before));
+      check('신원 전에는 「환불 처리」가 안 감춰진다', notRoleHidden(before), JSON.stringify(before));
 
       await page.evaluate(() => {
         window.__ADM_ME = { uid: 'probe', name: 'probe', role: 'teacher', __fromServer: true };
@@ -179,7 +229,7 @@ const visible = s => s.found && s.display !== 'none' && !s.roleHide;
 
       // 짝 — 같은 순간에 «감추면 안 되는 것» 은 그대로 남아야 한다
       const keep = await seen(page, '수업 길이 변경');
-      check('같은 순간 「수업 길이 변경」은 강사에게 그대로 보인다', visible(keep), JSON.stringify(keep));
+      check('같은 순간 「수업 길이 변경」은 강사에게 그대로 남는다', notRoleHidden(keep), JSON.stringify(keep));
 
       /* window 에서 듣게 되돌리는 실수를 막는 짝 검사 —
          window 로 쏜 같은 이벤트로는 «아무 일도 안 일어나야» 정상이 아니라,
@@ -188,7 +238,92 @@ const visible = s => s.found && s.display !== 'none' && !s.roleHide;
                                   document.dispatchEvent(new CustomEvent('mangoi:identity')); });
       await page.waitForTimeout(400);
       const back = await seen(page, '환불 처리');
-      check('역할이 본사로 바뀌면 다시 보인다(감춤이 굳지 않는다)', visible(back), JSON.stringify(back));
+      check('역할이 본사로 바뀌면 감춤이 풀린다(굳지 않는다)', notRoleHidden(back), JSON.stringify(back));
+      await ctx.close(); ctx = null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    console.log('\n■ 공용 PC — 앞사람의 «지난 방문 값» 으로 본사 메뉴가 사라지지 않는가');
+    {
+      /* 🪤 `admIdentity()` 는 localStorage['admin_session'] 에 __fromServer 표식이 있으면
+            **지난 방문 값**을 돌려준다. myRole() 이 그것으로 떨어지면 공용 PC 에서
+            앞사람이 강사였을 때 본사 사람의 메뉴가 «잠시 사라진다» — 빠지는 쪽이다.
+         ⚠️ 다른 회차는 open() 이 그 키를 지우고 시작하므로 이 경로를 한 번도 안 밟는다.
+            그래서 여기서만 «앞사람 값이 남아 있는» 상태를 일부러 만든다. */
+      const ctx2 = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+      const page2 = await ctx2.newPage();
+      await page2.addInitScript(() => {
+        try {
+          localStorage.setItem('mangoi_admin_welcome_v1_done', '1');
+          localStorage.setItem('admin_session', JSON.stringify({
+            uid: 'prev', name: 'prev', role: 'teacher', __fromServer: true,   // ← 앞사람: 강사
+          }));
+        } catch (e) { /* 시크릿 */ }
+      });
+      await ctx2.route('**/api/**', route =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"items":[],"results":[]}' }));
+      // 서버 응답은 «오지 않는다» — 신원이 아직 안 온 순간을 재현한다
+      await ctx2.route('**/api/admin/me*', route =>
+        route.fulfill({ status: 401, contentType: 'application/json', body: '{"ok":false}' }));
+      await page2.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
+      await page2.waitForFunction(() => {
+        const sb = document.getElementById('ph85-sidebar');
+        return sb && sb.querySelectorAll('.ph85-sub').length > 10 && !!window.mangoiIA6;
+      }, null, { timeout: 30000 });
+      await page2.waitForTimeout(1500);
+      const stale = await page2.evaluate(() => {
+        const sb = document.getElementById('ph85-sidebar');
+        const el = [].slice.call(sb.querySelectorAll('.ph85-sub'))
+          .filter(e => e.getAttribute('data-ko') === '환불 처리')[0];
+        return { found: !!el, display: el ? getComputedStyle(el).display : null,
+                 roleHide: el ? el.classList.contains('ia6-role-hide') : null,
+                 prev: (() => { try { return JSON.parse(localStorage.getItem('admin_session') || '{}').role; } catch (e) { return null; } })() };
+      });
+      check('전제 — 앞사람의 «강사» 값이 localStorage 에 남아 있다', stale.prev === 'teacher', JSON.stringify(stale));
+      check('그래도 「환불 처리」가 감춰지지 않는다 (지난 방문 값을 안 믿는다)',
+        stale.found && stale.display !== 'none' && !stale.roleHide, JSON.stringify(stale));
+      await ctx2.close();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    console.log('\n■ 그룹째 감춤 — 한 그룹의 항목이 하나도 안 남으면 그룹도 사라지는가');
+    {
+      /* ⚠️ 지금 실제 역할 여덟 개로는 이 경로가 한 번도 안 일어납니다 —
+            그래서 `#ph85-sidebar .ph85-group.ia6-role-hide` 줄을 지워도 위 검사들은 전부 통과합니다.
+            그룹 쪽에도 경쟁 규칙(`#ph85-sidebar .ph85-group{display:block!important}`)이 실재하므로
+            여기서 «가짜로 한 그룹을 비워» 그 줄이 실제로 이기는지 잽니다. */
+      const opened = await open(browser, 'hq'); ctx = opened.ctx;
+      const page = opened.page;
+      const r = await page.evaluate(() => {
+        const sb = document.getElementById('ph85-sidebar');
+        /* ⚠️ 첫 번째 그룹을 집으면 안 된다 — 「메뉴 지도」처럼 `.ph85-sub` 가 0개인 그룹이 있어
+              전제가 «항목이 없는 그룹» 으로 실패한다(실측). **항목이 있는 그룹**을 골라야 한다. */
+        const grp = [].slice.call(sb.querySelectorAll('.ph85-group[data-ia6]'))
+          .filter(g => g.querySelectorAll('.ph85-sub').length > 0)[0];
+        if (!grp) return { ok: false, why: '항목이 있는 그룹을 못 찾음' };
+        const subs = [].slice.call(grp.querySelectorAll('.ph85-sub'));
+        const before = getComputedStyle(grp).display;
+        // 그 그룹의 모든 항목에 «있지도 않은 역할» 금지목록을 달고 그 역할로 판정시킨다
+        subs.forEach(e => e.setAttribute('data-ia6-hide-from', 'zz-probe-role'));
+        const keep = window.__ADM_ME;
+        window.__ADM_ME = { role: 'zz-probe-role', __fromServer: true };
+        window.mangoiIA6.applyRoleFilter();
+        const after = getComputedStyle(grp).display;
+        const cls = grp.classList.contains('ia6-role-hide');
+        // 되돌린다
+        subs.forEach(e => e.removeAttribute('data-ia6-hide-from'));
+        window.__ADM_ME = keep;
+        window.mangoiIA6.applyRoleFilter();
+        const back = getComputedStyle(grp).display;
+        return { ok: true, before, after, cls, back };
+      });
+      check('전제 — 항목이 있는 그룹을 찾았다', r.ok, r.why || '');
+      if (r.ok) {
+        check('그룹이 원래는 보인다', r.before !== 'none', JSON.stringify(r));
+        check('항목이 하나도 안 남으면 그룹에 ia6-role-hide 가 붙는다', r.cls === true, JSON.stringify(r));
+        check('그리고 실제로 감춰진다 (경쟁 규칙을 이긴다)', r.after === 'none', JSON.stringify(r));
+        check('되돌리면 그룹이 돌아온다', r.back !== 'none', JSON.stringify(r));
+      }
       await ctx.close(); ctx = null;
     }
 
