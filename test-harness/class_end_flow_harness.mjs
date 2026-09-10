@@ -136,6 +136,10 @@ const e13 = s13 < 0 ? -1
    「왜 안 쓰는지」 적어 둔 설명 주석이 자기 자신에게 걸린다(CLAUDE.md 2장). */
 const stripCmt = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const sec13 = (s13 >= 0 && e13 > s13) ? stripCmt(mfix.slice(s13, e13)) : '';
+/* 전제 — 못 자르면 아래 검사가 «조용히» 통과한다. 앵커(⑬ 📚)는 이 파일에 ⑬ 이
+   두 번 있어서(1297행 ⑬ 📖 · 1628행 ⑬ 📚) 이모지까지 붙여 둔 것이다. */
+ok(sec13.length > 200, '⑬절을 실제로 잘라 냈다(전제)',
+   '앵커가 어긋나면 아래 «상주 감시 없음» 이 아무것도 안 보고 통과한다');
 ok(sec13 && !/setInterval|MutationObserver/.test(sec13),
    '⑬절에 상주 setInterval·MutationObserver 가 없다',
    'body class 감시가 홈 전체를 멎게 한 전력이 있다(CLAUDE.md)');
