@@ -47,6 +47,7 @@
 import { json, parseJsonBody } from './api-util';
 import { getScope, scopeStudentCond, type Scope } from './scope';
 import { enrolledCond } from './exec-summary';
+import { hiddenExcludeCond } from './student-override';   // 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다
 import { sendPlainSms } from './solapi-client';
 
 interface Env { DB: D1Database; [k: string]: any }
@@ -128,9 +129,14 @@ async function shopAllowed(env: Env, scope: Scope, shopName: string): Promise<bo
 
 /** 대리점(shop_name) 의 「지금」 재원 학생 목록 — enrolledCond() 정본을 그대로 쓴다. */
 async function currentRoster(env: Env, shopName: string): Promise<Array<{ user_id: string; name: string }>> {
+  /* 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다 — 카페24가 정본이라 지워도 밤에 되살아나므로
+     «읽을 때» 거르는 것이 이 저장소의 관례다(정본 student-override.ts). 안 거르면 중복 계정이
+     그대로 COUNT 에 들어가 대리점이 실제보다 많은 인원으로 청구받는다(실측 전례: 한 사람의
+     계정이 카페24에 15개). 표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open). */
+  const hideEx = await hiddenExcludeCond(env as any);
   const rows = await safe(async () => (await env.DB.prepare(
     `SELECT user_id, COALESCE(NULLIF(TRIM(korean_name),''), NULLIF(TRIM(username),''), user_id) AS name
-     FROM students_erp WHERE shop_name = ? AND ${enrolledCond('')}`
+     FROM students_erp WHERE shop_name = ? AND ${enrolledCond('')}${hideEx ? ` AND ${hideEx}` : ''}`
   ).bind(shopName).all<{ user_id: string; name: string }>()).results || [], [] as any[]);
   return rows;
 }
@@ -265,6 +271,9 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     const where = ["s.shop_name IS NOT NULL", "TRIM(s.shop_name) <> ''"];
     const binds: any[] = [];
     if (sc.cond) { where.push(sc.cond); binds.push(...sc.binds); }
+    // 🙈 숨긴 계정 제외 — currentRoster() 와 «같은 인원» 을 세야 화면 미리보기와 청구서가 안 갈린다
+    const hideExRate = await hiddenExcludeCond(env as any, 's');
+    if (hideExRate) where.push(hideExRate);
     const rows = await safe(async () => (await env.DB.prepare(`
       SELECT s.shop_name AS shop_name,
              MAX(s.franchise) AS franchise,
@@ -398,7 +407,14 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
       `SELECT id, shop_name, billing_month, rate_krw, status FROM ai_billing_invoices WHERE id = ?`
     ).bind(invoiceId).first<any>();
     if (!inv) return err('invoice not found', 404);
-    // 결제는 그 대리점 담당자 본인 또는 본사만 — 지사(branch)는 남의 결제를 대신 만들지 않는다.
+    /* 결제 주문을 만들 수 있는 것은 그 대리점 담당자 본인과 본사다.
+       ⚠️ 다만 «지사도 못 만든다» 고 읽지 마세요 — 그건 사실이 아닙니다. `getScope`(scope.ts)는
+          지사 계정의 `?as=agency:<산하 대리점>` 드릴다운을 **agency 스코프로 승격**시키므로
+          (그 대리점이 자기 산하인지 DB 로 확인한 뒤에만 — 남의 지사 것은 승격 안 됨),
+          지사 계정이 그 파라미터를 붙이면 이 조건을 통과해 산하 대리점의 주문을 만들 수 있습니다.
+          돈이 실제로 나가려면 사람이 토스 결제창을 끝까지 눌러야 하고, 대상도 «자기 산하» 뿐이라
+          권한 상승은 아닙니다. 「지사는 대신 결제하면 안 된다」로 정하려면 여기서 스코프가 아니라
+          **세션 본래 스코프**로 판정해야 합니다 — 정책이라 사람이 정할 일입니다(2026-09-11 미결). */
     if (!(scope.type === 'hq' || (scope.type === 'agency' && scope.value === inv.shop_name))) return err('forbidden', 403);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {

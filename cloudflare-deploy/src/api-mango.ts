@@ -3935,6 +3935,14 @@ ${numbered}`;
             : json({ ok: false, error: 'nothing_to_update' }, 400);
         }
         sets.push('updated_at = ?'); vals.push(Date.now());
+        /* 🔑 override 에 쓸 진짜 user_id 는 «UPDATE 앞» 에서 구한다.
+           이름을 바꾸면 SET 에 `username = ?` 가 들어가는데, 그 행이 세 갈래 중
+           «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
+           → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
+           (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다. */
+        const preRow = nameChanged ? await env.DB.prepare(
+          `SELECT user_id FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
+        ).bind(uid, uid, uid).first<{ user_id: string }>().catch(() => null) : null;
         // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
         vals.push(uid, uid, uid);
         await env.DB.prepare(
@@ -3947,10 +3955,7 @@ ${numbered}`;
         //   ⚠️ fail-open — 여기서 실패해도 오늘 화면은 이미 바뀌었으니 저장 자체는 성공으로 둔다.
         if (nameChanged) {
           try {
-            const row = await env.DB.prepare(
-              `SELECT user_id FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
-            ).bind(uid, uid, uid).first<{ user_id: string }>();
-            const realUid = row && row.user_id;
+            const realUid = preRow && preRow.user_id;
             if (realUid && await ensureStudentOverrideTable(env as any)) {
               const now = Date.now();
               await env.DB.prepare(
@@ -3961,7 +3966,7 @@ ${numbered}`;
             }
           } catch { /* 이름 고정 실패 — 오늘은 바뀌고 내일 밤 되돌아갈 뿐, 저장 자체는 막지 않는다 */ }
         }
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged });
+        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged });
       }
     }
 

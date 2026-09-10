@@ -1700,6 +1700,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.live) paintLive();
     if (D.outage) paintOutage();
     if (D.bugs) paintBugs();
+    // 🏢 AI 사용료 청구서도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
+    //    applyLang() 이 textContent 를 통째로 갈아끼운다. 여기서 다시 안 그리면 🌐 한 번에
+    //    명세·인원 체크박스·「결제하기」가 「펼치면 불러옵니다.」로 지워지고, <details> 가 이미
+    //    열려 있어 ontoggle 도 재발화하지 않아 되돌릴 방법이 없다(CLAUDE.md 2장 「그릇에 달았더니
+    //    그린 내용이 통째로 사라짐」).
+    if (D.aibill) paintAiBill();
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
     //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
     try { paintTodo(); } catch (e) {}
