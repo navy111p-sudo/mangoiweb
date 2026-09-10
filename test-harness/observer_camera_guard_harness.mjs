@@ -341,9 +341,16 @@ console.log('\n▶ H. 참관자 얼굴 칸 가드 — 실제로 돌려서 확인
         /fromObserver \?\s*''\s*:/.test(bc), '참관자 분기에서 이름을 비우지 않는다');
 
   /* 화면: ⑩절만 오려 내 진짜로 실행 */
+  /* ⚠️ 파일 «끝까지» 자르면 뒤에 붙는 새 절이 딸려 들어온다 — 실제로 ⑪절을 넣자
+     H⑭(«상주 setInterval 을 쓰지 않는다»)가 ⑪절의 타이머를 잡아 거짓 FAIL 이 났다.
+     ⑩절 하나만 자른다: 다음 블록주석이 시작하는 자리에서 끊는다. */
   const mi = guard.indexOf('⑩ 참관자는');
-  const code = mi >= 0 ? guard.slice(guard.lastIndexOf('/*', mi)) : '';
+  const ni = mi >= 0 ? guard.indexOf('⑪ 참관 화면', mi) : -1;
+  const codeEnd = ni >= 0 ? guard.lastIndexOf('/*', ni) : guard.length;
+  const code = mi >= 0 ? guard.slice(guard.lastIndexOf('/*', mi), codeEnd) : '';
   check('H④ ⑩절이 파일에 있다', code.length > 0);
+  check('H④-2 ⑩절 조각에 뒤 절이 딸려 오지 않았다 (검사 범위가 파일 끝까지가 아니다)',
+        code.length > 0 && !/⑪ 참관 화면/.test(code));
 
   function boot() {
     const boxes = new Map();
@@ -411,6 +418,115 @@ console.log('\n▶ H. 참관자 얼굴 칸 가드 — 실제로 돌려서 확인
   }
   check('H⑭ 상주 setInterval 로 감시하지 않는다 (홈 전체가 멎은 전력)',
         !/setInterval/.test(strip(code)));
+}
+
+console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을 실제로 돌려서 확인');
+{
+  /* ⑪절만 오려 낸다. ⛔ 파일 끝까지 자르면 다음에 붙는 절이 딸려 온다(H④-2 참고). */
+  const wi = guard.indexOf('⑪ 참관 화면');
+  const sec = wi >= 0 ? guard.slice(guard.lastIndexOf('/*', wi)) : '';
+  check('I① ⑪절이 파일에 있다', sec.length > 0);
+
+  const sc = strip(sec);
+  /* 🔒 이 절의 안전장치 전부 — 수업 화면(학생 29,000명)에는 한 줄도 돌면 안 된다. */
+  check('I② 참관 화면이 아니면 곧바로 반환한다 (?observe= 가 없으면 아무 일도 안 한다)',
+        /observe=[\s\S]{0,80}test\(location\.search\)[\s\S]{0,40}return/.test(sc),
+        '수업 화면에서 도는 코드가 되면 반경이 학생 전원이다');
+  check('I③ 참관이 아니게 되면 타이머를 스스로 끈다 (상주 타이머를 남기지 않는다)',
+        /if\s*\(!obs\(\)\)[\s\S]{0,120}clearInterval/.test(sc));
+  check('I④ body class MutationObserver 를 쓰지 않는다 (홈 전체가 멎은 전력)',
+        !/MutationObserver/.test(sc));
+  check('I⑤ vcRemovePeer 를 부르지 않는다 (학생 화면에 「수업이 끝났어요」)',
+        !/vcRemovePeer/.test(sc));
+
+  /* ── 판정을 실제로 돌린다 ── */
+  function cut(src, head) {
+    const i = src.indexOf(head);
+    if (i < 0) return '';
+    const s0 = src.indexOf('{', i);
+    let d = 0;
+    for (let k = s0; k < src.length; k++) {
+      if (src[k] === '{') d++;
+      else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
+    }
+    return '';
+  }
+  const stallLine = (sec.match(/var STALL_MS = \d+;/) || [''])[0];
+  const framesFn  = cut(sec, 'function frames(v)');
+  const stateFn   = cut(sec, 'function stateOf(box, now)');
+  check('I⑥ 판정 함수를 오려 냈다 (전제 — 이게 비면 아래 검사가 통째로 헛돈다)',
+        !!stallLine && !!framesFn && !!stateFn);
+
+  if (stallLine && framesFn && stateFn) {
+    const stateOf = new Function(stallLine + '\n' + framesFn + '\n' + stateFn + '\nreturn stateOf;')();
+
+    const mkVideo = o => ({
+      paused: o.paused === true,
+      srcObject: o.noStream ? null : { getVideoTracks: () => o.tracks || [] },
+      getVideoPlaybackQuality: o.noFrames ? undefined : (() => ({ totalVideoFrames: o.f || 0 })),
+    });
+    const mkBox = o => ({
+      video: mkVideo(o),
+      hint: o.hint ? {} : null,
+      querySelector(sel) {
+        if (sel === 'video') return o.novideo ? null : this.video;
+        if (sel === '.vc-connecting-hint') return this.hint;
+        return null;
+      },
+    });
+    const live = { readyState: 'live', muted: false };
+
+    /* «말한다» 쪽 */
+    check('I⑦ 비디오 트랙이 하나도 없으면 「소리만」이라고 말한다',
+          stateOf(mkBox({ tracks: [] }), 1000) === 'nocam');
+    check('I⑧ 상대가 카메라를 끄면(muted) 「카메라를 껐다」고 말한다',
+          stateOf(mkBox({ tracks: [{ readyState: 'live', muted: true }] }), 1000) === 'camoff');
+    check('I⑨ 트랙이 live 가 아니면 「카메라를 껐다」고 말한다',
+          stateOf(mkBox({ tracks: [{ readyState: 'ended', muted: false }] }), 1000) === 'camoff');
+    {
+      const b = mkBox({ tracks: [live], f: 500 });
+      const first = stateOf(b, 1000);          // 프레임 수를 처음 기억한다
+      const later = stateOf(b, 1000 + 4000);   // 4초째 그대로
+      check('I⑩ 프레임이 4초째 그대로면 「영상이 멈췄다」고 말한다',
+            first === null && later === 'stall');
+    }
+
+    /* «말하지 않는다» 쪽 — 짝이 없으면 «항상 말하기» 도 통과한다 */
+    {
+      const b = mkBox({ tracks: [live], f: 500 });
+      stateOf(b, 1000);
+      b.video.getVideoPlaybackQuality = () => ({ totalVideoFrames: 560 });
+      check('I⑪ 프레임이 늘고 있으면 아무 말도 안 한다 (정상 영상)',
+            stateOf(b, 1000 + 4000) === null);
+    }
+    {
+      /* ⚠️ 한 번만 부르면 헛돈다 — 첫 호출은 «프레임 수를 기억하는» 자리라 어차피 null 이다.
+         「못 재면 말하지 않는다」가 실제로 일하는 곳은 4초 뒤 «두 번째» 호출이다
+         (그 줄을 지우면 -1 이 -1 과 같아 모든 영상이 「멈췄다」가 된다 — 변이시험으로 확인). */
+      const b = mkBox({ tracks: [live], noFrames: true });
+      const first = stateOf(b, 1000);
+      const later = stateOf(b, 1000 + 4000);
+      check('I⑫ 프레임을 못 재는 브라우저에서는 「멈췄다」고 하지 않는다 (모르면 말하지 않는다)',
+            first === null && later === null);
+    }
+    {
+      const b = mkBox({ tracks: [live], paused: true, f: 500 });
+      stateOf(b, 1000);
+      check('I⑬ 자동재생에 막혀 멈춘 것은 말하지 않는다 (기존 「소리 켜기」 배너가 담당)',
+            stateOf(b, 1000 + 4000) === null);
+    }
+    check('I⑭ 영상이 아직 안 붙었으면 말하지 않는다 (기존 「📷 연결 중…」이 담당)',
+          stateOf(mkBox({ noStream: true }), 1000) === null);
+    check('I⑮ 「📷 연결 중…」이 살아 있는 동안에는 손을 뗀다 (같은 말을 두 번 하지 않는다)',
+          stateOf(mkBox({ tracks: [], hint: true }), 1000) === null);
+    check('I⑯ <video> 가 아직 없으면 말하지 않는다',
+          stateOf(mkBox({ novideo: true }), 1000) === null);
+  }
+
+  /* 화면이 그 파일을 «그 버전으로» 부르고 있는가 — 안 올리면 옛 사본이 캐시에 남는다 */
+  check('I⑰ index.html 이 새 버전으로 가드를 싣는다 (immutable 캐시에 옛 사본이 남지 않게)',
+        /vc-observe-guard\.js\?v=(\d+)/.test(indexHtml) && Number(RegExp.$1) >= 10,
+        'CLAUDE.md — asset_version 원장과 짝');
 }
 
 console.log('\n' + '═'.repeat(64));
