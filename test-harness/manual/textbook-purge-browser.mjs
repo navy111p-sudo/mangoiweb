@@ -60,8 +60,15 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: `
         { book:'BTS 2 001 (Shapes and colors)', files:19, hidden:false },
         { book:'Mangoi Books', files:2394, hidden:true },
         { book:'(기타)', files:12, hidden:false }] }), {status:200,headers:{'Content-Type':'application/json'}}));
-    if (url.includes('/api/admin/textbook-files'))
-      return Promise.resolve(new Response(JSON.stringify({ ok:true, dry_run:true, book:'BTS 2 001 (Shapes and colors)', files:19, bytes:1800000, sample:['Slide1.JPG'] }), {status:200,headers:{'Content-Type':'application/json'}}));
+    if (url.includes('/api/admin/textbook-files')) {
+      /* 2단계(실제 삭제)와 1단계(세기)를 갈라서 답한다 — 안 가르면 2단계가 «0장 지움» 으로
+         읽혀 «남은 수» 경고로 빠지고, 정작 재려던 흐름을 한 번도 안 지난다. */
+      const isPurge = /"dry_run":false/.test(String((o && o.body) || ''));
+      return Promise.resolve(new Response(JSON.stringify(isPurge
+        ? { ok:true, dry_run:false, book:'BTS 2 001 (Shapes and colors)', deleted:19, r2_deleted:19, r2_failed:0, remaining:0, done:true }
+        : { ok:true, dry_run:true, book:'BTS 2 001 (Shapes and colors)', files:19, bytes:1800000, sample:['Slide1.JPG'] }
+      ), {status:200,headers:{'Content-Type':'application/json'}}));
+    }
     return _f.apply(this, arguments);
   };
 ` });
@@ -110,17 +117,77 @@ ok('1단계 요청에 confirm_name 이 없다',
    dels.every(c => !/confirm_name/.test(String(c.body))));
 ok('action 이 purge_book 이다', dels.some(c => /"action":"purge_book"/.test(String(c.body))));
 
-/* 확인창이 «무엇을 얼마나» 지우는지 말하는가 — 숫자만 없는 경고는 사람이 안 읽는다. */
-console.log('\n[ 확인창이 사실을 말하는가 ]');
-const dlg = dialogSeen;
-ok('확인창이 실제로 떴다', dlg.length >= 1, JSON.stringify(dlg).slice(0, 120));
-ok('건수를 먼저 보여 준다(19장)', dlg.some(d => /19장/.test(d[1])));
-ok('용량도 보여 준다', dlg.some(d => /MB/.test(d[1])));
-ok('«되돌릴 수 없습니다» 라고 말한다', dlg.some(d => /되돌릴 수 없습니다/.test(d[1])));
-ok('«숨기기» 를 대안으로 안내한다', dlg.some(d => /숨기기/.test(d[1])));
-ok('영어로도 말한다(필리핀 매니저)', dlg.some(d => /cannot be undone/i.test(d[1])));
-/* 🔴 취소하면 2단계(이름 확인 prompt)로 절대 넘어가면 안 된다. */
-ok('취소하면 이름 확인 단계로 안 간다', !dlg.some(d => d[0] === 'prompt'));
+/* 🪟 (2026-09-10) 확인은 **화면 안** 에서 한다 — 브라우저 대화상자가 아니다.
+   [왜 바꿨나] `prompt()` 는 크롬의 「추가 대화상자 차단」이 켜지면 **뜨지 않고 null** 을
+      돌려주고 코드가 조용히 끝난다. 실제로 그래서 삭제가 한 번도 서버에 닿지 못했다
+      (감사로그 `textbook_purge_book` **0건** · 같은 표의 `ghost_join` 은 그날도 76건).
+   ⚠️ 그래서 이 검사는 «상자가 떴는가» 만 보지 않는다 — **네이티브 창이 안 떴는가** 를
+      짝으로 본다. 하나만 보면 옛 방식으로 되돌아가도 초록불이 난다. */
+console.log('\n[ 확인이 화면 «안» 에서 되는가 ]');
+const modalTxt = await evalJs(`(document.querySelector('.mg-modal-back')||{}).innerText || ''`);
+ok('화면 안 확인 상자가 떴다', (await evalJs(`!!document.querySelector('.mg-modal-back')`)) === true);
+ok('네이티브 대화상자는 «안» 떴다', dialogSeen.length === 0, JSON.stringify(dialogSeen).slice(0,120));
+ok('건수를 먼저 보여 준다(19장)', /19장/.test(modalTxt));
+ok('용량도 보여 준다', /MB/.test(modalTxt));
+ok('«되돌릴 수 없습니다» 라고 말한다', /되돌릴 수 없습니다/.test(modalTxt));
+ok('«숨기기» 를 대안으로 안내한다', /숨기기/.test(modalTxt));
+ok('영어로도 말한다(필리핀 매니저)', /cannot be undone/i.test(modalTxt));
+
+/* 🔴 잠금이 실제로 걸려 있는가 — 이름을 안 쳤는데 지워지면 안전장치가 없는 것과 같다. */
+console.log('\n[ 이름을 맞춰야만 열리는가 ]');
+ok('처음에는 [영구 삭제] 가 잠겨 있다', (await evalJs(`document.getElementById('mg-ok').disabled`)) === true);
+await evalJs(`(function(){ const i=document.getElementById('mg-input');
+  i.value='BTS 2 001'; i.dispatchEvent(new Event('input')); return 1; })()`);
+ok('이름이 다르면 여전히 잠겨 있다', (await evalJs(`document.getElementById('mg-ok').disabled`)) === true);
+ok('왜 잠겼는지 화면이 말해 준다',
+   /아직 이름이 다릅니다/.test(String(await evalJs(`document.getElementById('mg-why').textContent`))));
+/* ⚠️ 앞뒤 공백은 가장 흔한 실수라 따로 짚어 준다(옛 prompt 는 아무 말도 안 했다). */
+await evalJs(`(function(){ const i=document.getElementById('mg-input');
+  i.value='BTS 2 001 (Shapes and colors) '; i.dispatchEvent(new Event('input')); return 1; })()`);
+ok('앞뒤 빈칸을 짚어 준다',
+   /빈칸/.test(String(await evalJs(`document.getElementById('mg-why').textContent`))));
+
+/* 🔴 취소하면 2단계 요청이 나가면 안 된다. */
+console.log('\n[ 취소하면 아무것도 안 지운다 ]');
+await send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
+await send('Input.dispatchKeyEvent', { type:'keyUp', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
+await sleep(400);
+ok('Esc 로 상자가 닫힌다', (await evalJs(`!document.querySelector('.mg-modal-back')`)) === true);
+{
+  const c = JSON.parse(await evalJs(`JSON.stringify(window.__calls.filter(c=>c.method==='DELETE'))`) || '[]');
+  ok('취소했으니 2단계 요청이 없다', c.every(x => !/dry_run":false/.test(String(x.body))));
+}
+
+/* ✅ 그리고 «제대로 치면 진짜로 지워지는가» — 짝으로 둔다.
+   이것이 없으면 «전부 잠가 두기» 도 통과한다(그러면 고치려던 사고가 그대로다). */
+console.log('\n[ 이름을 맞추면 실제로 지운다 ]');
+await evalJs(`(function(){ document.querySelector('[data-del-book]').scrollIntoView({block:'center'}); return 1; })()`);
+await sleep(400);
+await evalJs(`(function(){ const b=document.querySelector('[data-del-book]'); const r=b.getBoundingClientRect();
+  window.__cx=Math.round(r.left+r.width/2); window.__cy=Math.round(r.top+r.height/2); return 1; })()`);
+const cx2 = await evalJs('window.__cx'), cy2 = await evalJs('window.__cy');
+await send('Input.dispatchMouseEvent', { type:'mousePressed', x:cx2, y:cy2, button:'left', clickCount:1 });
+await send('Input.dispatchMouseEvent', { type:'mouseReleased', x:cx2, y:cy2, button:'left', clickCount:1 });
+await sleep(900);
+ok('다시 누르면 확인 상자가 또 뜬다', (await evalJs(`!!document.querySelector('.mg-modal-back')`)) === true);
+/* [📋 복사] 는 클립보드가 막힌 환경에서도 칸을 채워야 한다 — 헤드리스가 바로 그 환경이다. */
+await evalJs(`(function(){ document.getElementById('mg-copy').click(); return 1; })()`);
+await sleep(300);
+ok('[📋 복사] 가 이름 칸을 채운다',
+   (await evalJs(`document.getElementById('mg-input').value`)) === 'BTS 2 001 (Shapes and colors)');
+ok('이름이 맞으면 [영구 삭제] 가 열린다', (await evalJs(`document.getElementById('mg-ok').disabled`)) === false);
+await evalJs(`(function(){ document.getElementById('mg-ok').click(); return 1; })()`);
+await sleep(1200);
+{
+  const c = JSON.parse(await evalJs(`JSON.stringify(window.__calls.filter(c=>c.method==='DELETE'))`) || '[]');
+  const purge = c.filter(x => /dry_run":false/.test(String(x.body)));
+  ok('2단계 요청이 실제로 나갔다', purge.length >= 1);
+  ok('2단계에 confirm_name 이 실린다',
+     purge.some(x => /"confirm_name":"BTS 2 001 \(Shapes and colors\)"/.test(String(x.body))));
+}
+ok('끝나고도 네이티브 대화상자를 안 쓴다', dialogSeen.length === 0, JSON.stringify(dialogSeen).slice(0,120));
+ok('결과를 화면 안에서 말해 준다(삭제 완료)',
+   /삭제 완료/.test(String(await evalJs(`(document.querySelector('.mg-modal-back')||{}).innerText || ''`))));
 
 console.log('\n──────────────────────────────');
 console.log(`PASS ${pass} / FAIL ${fail}`);
