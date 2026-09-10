@@ -43,6 +43,7 @@ import { resolveRecordingStudents } from './recording-students';   // 🎓 녹�
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
+import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1907,6 +1908,12 @@ export async function handleMangoApi(
         if (sessions.length) matchedBy = 'name';
       }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
+
+      /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
+         학생 화면은 이 답을 그대로 쓰므로(js/idx-main.js 「빈 방코드 → 오늘 예약 방으로 자동 교정」)
+         **학생이 하는 일은 평소와 똑같다.** 정본·주의사항은 src/class-room-override.ts.
+         ⚠️ 이 호출은 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. */
+      await applyRoomOverrides(env.DB, sessions, ymd);
 
       // 자동 입장 대상(current): 지금 입장 가능한 것 우선(진행중/열림), 없으면 가장 가까운 예정 수업
       let current: any = null;
