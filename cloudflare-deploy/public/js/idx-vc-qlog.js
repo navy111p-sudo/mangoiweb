@@ -619,9 +619,17 @@ function vcQualityAcc(loss, rtt) {
    감시: test-harness/aao_freeze_harness.mjs
    ══════════════════════════════════════════════════════════════════════════════════ */
 
+/* 화면공유 때문에 «끄기» 가 뒤집힌 상태인가 — 뒤집힘이 바뀔 때만 상대에게 다시 알린다 */
+var __vcAaoOver = false;
+
 /* 영상 «보내기» 만 멈추거나 되살린다. 트랙은 건드리지 않는다. on=0 끔 / on=1 켬 */
 function vcAAOVideo(on) {
-    if (window.__vcScreenSharing) return;          // 공유 중인 «화면» 을 끄면 교재가 사라진다
+    /* 🖥 화면공유 중에는 «언제나 보낸다» — 그때 sender 가 쥔 것은 카메라가 아니라 교재 화면이다.
+       ⛔ 여기서 그냥 `return` 하면 «켜기» 까지 막혀 영상이 영영 안 돌아옵니다. `active=true` 로
+          되돌리는 코드는 저장소에 이 함수 한 곳뿐이고 `vcAAOVideo(1)` 을 부르는 곳도 한 곳뿐이라,
+          회복 시점에 공유 중이면 그 뒤로 아무도 되살리지 않습니다(함정 대조가 잡은 실제 결함).
+          «상태를 지정» 하는 방식이라 공유가 시작·종료되는 순간도 4초 타이머가 저절로 따라잡습니다. */
+    var want = window.__vcScreenSharing ? true : !!on;
     var pcs = window.vcPeerConnections || {};
     Object.keys(pcs).forEach(function (id) {
         try {
@@ -631,12 +639,19 @@ function vcAAOVideo(on) {
             var p = s.getParameters();
             if (!p.encodings || !p.encodings.length) p.encodings = [{}];
             var cur = p.encodings[0].active !== false;      // 값이 없으면 «보내는 중» 이 기본이다
-            if (cur === !!on) return;                      // 바뀔 때만 — 불필요한 setParameters 는 인코더를 흔든다
-            p.encodings[0].active = !!on;
+            if (cur === want) return;                       // 바뀔 때만 — 불필요한 setParameters 는 인코더를 흔든다
+            p.encodings[0].active = want;
             s.setParameters(p).catch(function () {});
         } catch (_) {}
     });
-    try { vcAaoSelfMark(!on); } catch (_) {}
+    /* 공유가 시작·끝나 «실제로 보내는가» 가 뒤집히면 상대에게 다시 알린다 — 안 그러면
+       살아 움직이는 교재 위에 «N초 전 모습» 이 얹히고(거짓말), 반대로 멈춘 화면에 아무 안내도 없게 된다. */
+    var over = (want !== !!on);
+    if (over !== __vcAaoOver) {
+        __vcAaoOver = over;
+        try { if (typeof vcBroadcastCamState === 'function') vcBroadcastCamState(want, 'aao'); } catch (_) {}
+    }
+    try { vcAaoSelfMark(!want); } catch (_) {}
 }
 window.vcAAOVideo = vcAAOVideo;
 
@@ -652,7 +667,7 @@ function vcAaoStripEl(box) {
     el.className = 'vc-aao-freeze';
     el.style.cssText = 'position:absolute;left:0;right:0;top:0;z-index:9;display:block;text-align:center;'
         + 'padding:5px 8px;background:rgba(120,53,15,.92);color:#fff7ed;font-size:11px;font-weight:700;'
-        + 'line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;';
+        + 'line-height:1.25;white-space:normal;overflow:hidden;pointer-events:none;';
     box.style.position = 'relative';
     box.appendChild(el);
     return el;
@@ -694,8 +709,8 @@ function vcAaoSelfMark(on) {
         var el = box.querySelector('.vc-aao-freeze');
         if (!on) { if (el) el.remove(); return; }
         el = vcAaoStripEl(box);
-        var ko = '📶 영상 멈춤 · 지금 상대에게는 안 나갑니다';
-        var en = '📶 Video paused · not being sent right now';
+        var ko = '📶 영상 안 나감';          // ⚠️ PIP 는 폰에서 130px — 길면 핵심이 잘린다
+        var en = '📶 Video not sent';
         el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
         el.textContent = (typeof miIsEn === 'function' && miIsEn()) ? en : ko;
     } catch (_) {}

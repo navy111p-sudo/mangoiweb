@@ -109,7 +109,7 @@ function makePc(opts = {}) {
 /* ── ⑤절을 돌릴 수 있는 세계를 만든다 ── */
 function boot(code, { screenSharing = false, en = false } = {}) {
   const { doc, byId, mk } = makeDom();
-  const origCalls = [];
+  const origCalls = [], bcast = [];
   const win = {
     __vcScreenSharing: screenSharing,
     vcPeerConnections: {},
@@ -117,14 +117,16 @@ function boot(code, { screenSharing = false, en = false } = {}) {
     __vcAAO: null,
     vcApplyRemoteCamHint: (uid) => { origCalls.push(uid); },
     vcqRxStart: () => {},
-    miIsEn: () => en
+    miIsEn: () => en,
+    vcBroadcastCamState: (camOn, why) => { bcast.push([camOn, why]); }
   };
+  win.__bcast = bcast;
   const ctx = vm.createContext(win);
   ctx.window = win; ctx.document = doc; ctx.Date = Date; ctx.Math = Math;
   ctx.Object = Object; ctx.JSON = JSON; ctx.Promise = Promise; ctx.console = { log() {}, warn() {} };
-  ctx.vcqRxStart = win.vcqRxStart; ctx.miIsEn = win.miIsEn;
+  ctx.vcqRxStart = win.vcqRxStart; ctx.miIsEn = win.miIsEn; ctx.vcBroadcastCamState = win.vcBroadcastCamState;
   vm.runInContext(code, ctx);
-  return { ctx, win, doc, byId, mk, origCalls };
+  return { ctx, win, doc, byId, mk, origCalls, bcast };
 }
 
 /* 타일 하나를 세계에 등록한다 */
@@ -169,8 +171,12 @@ sec('Ⓐ 배선 — 어디에 있는가(문자열이 아니라 «위치» 로)')
   const fiveCode = strip(five);
   ok(!/setInterval/.test(fiveCode), 'A-9 ⑤절이 새 setInterval 을 만들지 않는다(홈이 멎은 전력 2회)');
   ok(/setInterval/.test(five), 'A-9b 전제: 주석 벗기기가 실제로 무언가를 벗겨 냈다(안 그러면 A-9 가 헛돈다)');
-  ok(indexHtml.includes('/js/idx-vc-qlog.js?v=10') && indexHtml.includes('/js/idx-main.js?v=54'),
-     'A-10 두 파일의 ?v= 가 올라갔다(immutable 캐시에 옛 사본이 남지 않게)');
+  ok(/\/js\/idx-vc-qlog\.js\?v=\d+/.test(indexHtml) && /\/js\/idx-main\.js\?v=\d+/.test(indexHtml),
+     'A-10 두 파일이 ?v= 를 달고 실린다(원장 대조는 asset_version_harness 담당)');
+  // ⚠️ 아래 이름을 하니스가 «지어내면» idx-main.js 에서 바뀌어도 초록불이 된다 — 소스에서 읽어 대조한다.
+  const aaoVar = (idxMain.match(/window\.(__vcAAO)\b/) || [])[1];
+  ok(aaoVar === '__vcAAO', 'A-11 AAO 상태 이름을 idx-main.js 에서 읽어 확인했다(' + aaoVar + ')');
+  ok(five.includes('window.' + aaoVar), 'A-12 ⑤절이 그 «같은» 이름을 본다');
 }
 
 sec('Ⓑ 끄고 켜기 — 실제로 돌려서');
@@ -206,6 +212,32 @@ sec('Ⓑ 끄고 켜기 — 실제로 돌려서');
   e3.win.vcPeerConnections = { a: bad, b: good };
   e3.ctx.vcAAOVideo(0);
   ok(good._p.encodings[0].active === false, 'B-8 한 상대에서 예외가 나도 나머지는 그대로 끈다');
+
+  /* 🔴 함정 대조가 잡은 결함: 화면공유 가드가 «켜기» 까지 막아 영상이 영영 안 돌아왔다.
+     active=true 로 되돌리는 코드는 저장소에 vcAAOVideo 한 곳뿐이라 되살릴 사람이 없다. */
+  const e6 = boot(five, { screenSharing: true });
+  const frozen = makePc({ active: false });          // AAO 로 이미 꺼진 채 공유가 시작된 상태
+  e6.win.vcPeerConnections = { u1: frozen };
+  addTile(e6, 'self', 320);
+  e6.ctx.vcAAOVideo(1);
+  ok(frozen._p.encodings[0].active === true, 'B-10 공유 중이어도 «켜기» 는 반드시 돌아온다(영영 안 돌아오던 결함)');
+
+  const e7 = boot(five, { screenSharing: true });
+  const frozen2 = makePc({ active: false });         // AAO 중에 공유가 시작된 순간
+  e7.win.vcPeerConnections = { u1: frozen2 };
+  addTile(e7, 'self', 320);
+  e7.ctx.vcAAOVideo(0);
+  ok(frozen2._p.encodings[0].active === true, 'B-11 AAO 중에 공유가 시작되면 되살린다 — 안 그러면 학생에게 교재가 안 간다');
+  ok(e7.bcast.some(b => b[0] === true && b[1] === 'aao'),
+     'B-12 «실제로 보내는가» 가 뒤집히면 상대에게 다시 알린다 — 안 그러면 살아 있는 교재 위에 «N초 전» 이 얹힌다');
+  ok(!e7.doc.getElementById('vc-local-box').querySelector('.vc-aao-freeze'),
+     'B-13 공유 중에는 내 타일에 «안 나감» 을 적지 않는다(실제로 나가고 있다)');
+
+  const e8 = boot(five);                              // 공유가 아닐 때는 헛되이 알리지 않는다
+  e8.win.vcPeerConnections = { u1: makePc() };
+  addTile(e8, 'self', 320);
+  e8.ctx.vcAAOVideo(0);
+  ok(e8.bcast.length === 0, 'B-14 평소에는 알림을 덧붙이지 않는다(대역폭 위기에 WS 를 더 쓰지 않게)');
 
   // encodings 가 비어 있는 sender(일부 브라우저)
   const e4 = boot(five);
@@ -264,7 +296,7 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   const pc = makePc(); e5.win.vcPeerConnections = { u1: pc };
   e5.ctx.vcAAOVideo(0);
   const s5 = self.box.querySelector('.vc-aao-freeze');
-  ok(!!s5 && /안 나갑니다/.test(s5.textContent), 'C-13 내 타일에 «지금 상대에게 안 나갑니다» 를 적는다(R3)');
+  ok(!!s5 && /안 나감/.test(s5.textContent), 'C-13 내 타일에 «안 나감» 을 적는다 — 이제 내 미리보기는 살아 있어서(R3)');
   ok(self.v.style.filter === '', 'C-14 내 미리보기는 흑백으로 만들지 않는다(실제로 살아 움직인다)');
   e5.ctx.vcAAOVideo(1);
   ok(!self.box.querySelector('.vc-aao-freeze'), 'C-15 복구되면 내 타일 표시도 뗀다');
@@ -284,19 +316,52 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   e7.win.vcPeerConnections = { late };
   e7.ctx.vcAaoTick();
   ok(late._p.encodings[0].active === false, 'C-17 AAO 중에 들어온 상대의 sender 에도 4초 안에 다시 건다');
+
+  /* 🔴 짝이 빠져 있었다 — 이것이 없으면 «모든 수업에서 4초마다 전원의 영상을 끄는» 변이도 통과한다. */
+  const e8 = boot(five);
+  const idle = makePc();
+  e8.win.vcPeerConnections = { idle };
+  e8.win.__vcAAO = { active: false };
+  e8.ctx.vcAaoTick();
+  ok(idle._calls.setParameters === 0 && idle._p.encodings[0].active === undefined,
+     'C-18 AAO 가 아닐 때는 4초 타이머가 sender 를 건드리지 않는다');
+
+  // 「N초 전」이 실제로 갱신되는가 — 갱신이 없으면 그 표시의 존재 이유가 사라진다
+  const e9 = boot(five);
+  const t9 = addTile(e9, 'u1', 320);
+  e9.win.vcRemoteCamOff = { u1: 'aao' };
+  e9.win.vcApplyRemoteCamHint('u1');
+  e9.ctx.__vcAaoSince.u1 = Date.now() - 42000;        // 42초 전에 멈춘 것으로 돌려 놓고
+  e9.ctx.vcAaoTick();
+  ok(/4[12]초 전/.test(t9.box.querySelector('.vc-aao-freeze').textContent),
+     'C-19 4초 타이머가 «N초 전» 을 다시 쓴다');
+
+  // 상대가 나가 타일이 사라지면 기준 시각도 지운다(다음 사람에게 옛 시각이 붙지 않게)
+  const e10 = boot(five);
+  const t10 = addTile(e10, 'u1', 320);
+  e10.win.vcRemoteCamOff = { u1: 'aao' };
+  e10.win.vcApplyRemoteCamHint('u1');
+  delete e10.byId['vc-video-u1'];
+  e10.ctx.vcAaoTick();
+  ok(!('u1' in e10.ctx.__vcAaoSince), 'C-20 타일이 사라지면 그 상대의 기준 시각도 지운다');
 }
 
 sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
 {
   const mut = [
-    ['옛 방식으로 되돌리기(enabled=false)', five.replace('p.encodings[0].active = !!on;', 'p.encodings[0].active = true;')],
-    ['트랙을 비우는 방식으로 바꾸기', five.replace('p.encodings[0].active = !!on;', 's.replaceTrack(null);')],
+    ['영상을 아예 안 끄게 되돌리기', five.replace('p.encodings[0].active = want;', 'p.encodings[0].active = true;')],
+    ['트랙을 비우는 방식으로 바꾸기', five.replace('p.encodings[0].active = want;', 's.replaceTrack(null);')],
     ['사람이 끈 카메라에도 멈춤 띠 붙이기', five.replace("if (why !== 'aao') {", 'if (false) {')],
     ['보여 줄 장면이 없어도 «멈춤» 이라 말하기', five.replace('if (!v || !v.videoWidth) {', 'if (false) {')],
     ['«N초 전» 을 빼기', five.replace(" + sec + '초 전 모습'", " + ''")],
     ['흑백을 빼기', five.replace("v.style.filter = 'grayscale(1)'", "v.style.filter = ''")],
-    ['화면공유 가드를 빼기', five.replace('if (window.__vcScreenSharing) return;', '')],
-    ['내 타일 표시를 빼기', five.replace('try { vcAaoSelfMark(!on); } catch (_) {}', '')]
+    ['화면공유 보호를 빼기(교재가 사라진다)', five.replace('window.__vcScreenSharing ? true : !!on', '!!on')],
+    ['내 타일 표시를 빼기', five.replace('try { vcAaoSelfMark(!want); } catch (_) {}', '')],
+    ['화면공유 가드를 옛 «조기 return» 으로 되돌리기',
+      five.replace('var want = window.__vcScreenSharing ? true : !!on;', 'if (window.__vcScreenSharing) return;\n    var want = !!on;')],
+    ['4초 타이머의 «AAO 일 때만» 가드를 빼기', five.replace('if (A && A.active) {', 'if (true) {')],
+    ['「N초 전」 갱신을 빼기', five.replace('if (el) vcAaoLabel(el, id);', 'if (el) { /* 갱신 없음 */ }')],
+    ['나간 상대의 기준 시각 정리를 빼기', five.replace('else delete __vcAaoSince[id];', '')]
   ];
   for (const [name, code] of mut) {
     if (code === five) { fail++; console.log('  ❌ 변이 «' + name + '» 가 소스에 안 걸렸다(검사가 헛돈다)'); continue; }
@@ -332,8 +397,32 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
 
       const e5 = boot(code, { screenSharing: true });
       const pc5 = makePc(); e5.win.vcPeerConnections = { u1: pc5 };
+      addTile(e5, 'self', 320);
       e5.ctx.vcAAOVideo(0);
-      if (pc5._calls.setParameters !== 0) broke = true;
+      if (pc5._calls.setParameters !== 0) broke = true;          // 공유 중 «끄기» 는 없어야 한다
+
+      const e6 = boot(code, { screenSharing: true });
+      const fz = makePc({ active: false }); e6.win.vcPeerConnections = { u1: fz };
+      addTile(e6, 'self', 320);
+      e6.ctx.vcAAOVideo(1);
+      if (fz._p.encodings[0].active !== true) broke = true;      // 공유 중에도 «켜기» 는 돌아와야 한다
+
+      const e7 = boot(code);
+      const idle = makePc(); e7.win.vcPeerConnections = { idle };
+      e7.win.__vcAAO = { active: false };
+      e7.ctx.vcAaoTick();
+      if (idle._calls.setParameters !== 0) broke = true;         // AAO 가 아니면 안 건드린다
+
+      const e8 = boot(code);
+      const t8 = addTile(e8, 'u1', 320);
+      e8.win.vcRemoteCamOff = { u1: 'aao' };
+      e8.win.vcApplyRemoteCamHint('u1');
+      e8.ctx.__vcAaoSince.u1 = Date.now() - 42000;
+      e8.ctx.vcAaoTick();
+      if (!/4[12]초 전/.test(t8.box.querySelector('.vc-aao-freeze').textContent)) broke = true;
+      delete e8.byId['vc-video-u1'];
+      e8.ctx.vcAaoTick();
+      if ('u1' in e8.ctx.__vcAaoSince) broke = true;
     } catch (_) { broke = true; }
     ok(broke, '변이 «' + name + '» 가 그대로 통과했다 — 이 검사는 그것을 못 막는다');
   }
