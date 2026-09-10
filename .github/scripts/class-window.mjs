@@ -330,7 +330,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
                 '',
                 `- 지금: **${d.kst}** · 수업 시간대 **${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST**`,
                 '- 게이트(tsc·회귀 하니스·?v=)는 **그대로 돌았습니다.** 건너뛴 것은 Cloudflare 배포뿐입니다.',
-                '- 이 커밋은 **창이 끝난 뒤 몰아 배포**(새벽~오전에 네 번 시도)에 자동으로 실려 나갑니다. 따로 하실 일은 없습니다.',
+                '- 이 커밋은 **창이 끝난 뒤 몰아 배포**(새벽~오전에 여러 차례 시도)에 자동으로 실려 나갑니다. 따로 하실 일은 없습니다.',
                 '',
                 '**왜 막나** — 배포하면 화상수업 Durable Object 가 재시작되어 진행 중인 수업의 연결이 끊깁니다.',
                 '2026-09-01 실측: 21:43:57 배포 **8초 뒤** `class-1070` 강사, **37초 뒤** `class-1078` 강사(Krystel)가 동시에 끊겼습니다.',

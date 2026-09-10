@@ -1858,11 +1858,9 @@
        2026-09-10 실측: 아침 회의방 이름표 **0장**(같은 시각 다른 방은 정상) →
        같은 날 오후에는 12장. 즉 «늘 안 되는» 것이 아니라 «되다 안 되다» 였다.
      [무엇을 하나] 같은 등록을 **끝이 있는** 일정(1·6·20·60초)으로 몇 번 더 시도하고,
-       한 번 성공하면 그 뒤 타이머는 스스로 물러난다.
+       한 번 성공하면 그 뒤 타이머는 스스로 물러난다. 늦게 로그인 정보가 읽히면 그때 붙는다.
      ⛔ 상주 setInterval·MutationObserver 를 두지 않는다 — 홈 전체가 멎은 전력이 있다.
-     ⛔ 관리자에게 학생 로그인 키(mangoi_logged_user)를 «만들어 주는» 방식은 쓰지 않는다.
-        그 키 하나로 학생 전용 기능이 통째로 열린다(CLAUDE.md 2장 「로그인 세션이 두 갈래」).
-        여기서는 «등록에 쓸 계정 이름» 만 관리자 세션에서 읽는다.
+     ⛔ 계정을 «관리자 세션» 에서 빌려 오지 않는다 — 아래 myAccount() 주석 참고.
      ⚠️ 교사·참관자는 원본과 똑같이 건너뛴다 — 칭찬을 «받는» 쪽이 아니다.
      ═══════════════════════════════════════════════════════════════════ */
   (function praiseRosterRetry() {
@@ -1871,15 +1869,19 @@
         || window.vcRegisterRosterIdentity.__mgRetry) return;
     var orig = window.vcRegisterRosterIdentity;
 
-    /* 학생 로그인 키가 먼저. 없을 때만 관리자 세션에서 «이름» 을 빌린다. */
+    /* 계정은 «학생 로그인 키» 하나만 본다 — 원본과 같은 근거다.
+       ⛔ 관리자 세션(mangoi_admin_session)으로 떨어지는 폴백을 넣지 말 것.
+          처음 판에 넣었다가 함정 대조에서 빼냈다. 두 가지 이유다 —
+          ⓐ 닿지 않는다: idx-main.js 가 «관리자 세션이 있으면 vcMyRole = admin» 으로
+             정하므로, 그 세션이 있는 사람은 위 amIStudentHere() 에서 이미 물러난다.
+          ⓑ 닿으면 틀린다: 그래도 닿는 구석(vcMyRole 은 student 인데 학생 키만 없는
+             경우)에서는 **그 학생 자리를 선생님 계정으로** 로스터에 올린다 →
+             그 방 칭찬 포인트가 관리자 계정으로 간다. 서버는 관리자 쿠키를 통과시키므로
+             막히지 않는다. 1P = 1원이라 되돌리기 어렵다. */
     function myAccount() {
       try {
         var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
         if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid) };
-      } catch (e) {}
-      try {
-        var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null');
-        if (s && s.uid) return { uid: String(s.uid), name: String(s.name || s.uid) };
       } catch (e) {}
       return null;
     }
