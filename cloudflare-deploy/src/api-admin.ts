@@ -10826,12 +10826,25 @@ LIMIT $limit`;
              ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도 — 공용 헬퍼가 센다).
              ⚠️ 실패해도 목록은 그대로 내려간다(번호 칸만 «모름» 이 된다). */
           try {
-            const uids = items.map((r: any) => String(r.student_user_id || '')).filter(Boolean);
+            /* ⛔ **강사에게는 번호를 안 내려준다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에 없어
+               강사도 통과하는데, 번호를 실으면 «남의 집 학부모 연락처가 한 화면에 모입니다»
+               (규칙서가 `/api/admin/teacher-contacts` 를 막은 것과 같은 이유).
+               ⚠️ 못 물어보면(조회 실패) **안 내려주는 쪽**으로 실패한다 — 번호 칸이 비는 것보다
+                  모르는 사람에게 새는 쪽이 나쁘다. 화면은 그때 「문자 안 감」으로 보이는데,
+                  그건 목록에서 고칠 수 없다는 뜻이라 본사 계정으로 다시 열면 제대로 보인다. */
+            let maySeePhones = false;
+            try {
+              const a = await getAdminActor(request, env as any);
+              maySeePhones = !!a && a.ok !== false && !a.isTeacher;
+            } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 안 실음:', e?.message); }
+            const uids = maySeePhones ? items.map((r: any) => String(r.student_user_id || '')).filter(Boolean) : [];
             if (uids.length) {
               const pm = await loadOverridePhones(env as any, uids);
               for (const it of items) {
                 const p = pm.get(String(it.student_user_id || ''));
-                (it as any).notify_phone = p?.parent || p?.student || '';
+                /* ⚠️ 학생 번호로 폴백하지 않는다 — 화면 라벨이 「학부모 연락처」인데 학생 번호가
+                   그 자리에 뜨면, 거기서 고칠 때 출처가 섞인다(학생 번호가 parent 로 저장된다). */
+                (it as any).notify_phone = p?.parent || '';
               }
             }
           } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
@@ -10937,6 +10950,19 @@ LIMIT $limit`;
       }
       let _phoneSaved: any = null;
       if (_wantPhone) {
+        /* ⛔ **강사는 남의 «발송 번호» 를 바꿀 수 없다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에
+           없어 강사도 닿는데, 여기서 바꾼 번호로 **실제 문자가 나갑니다**(돈이 나가고 우리 이름으로).
+           ⚠️ 못 물어보면 **막는 쪽**으로 실패한다 — 되돌리기 어려운 «바깥으로 나가는» 값이라
+              모르면 안 바꾸는 것이 맞다(조회 실패로 번호를 못 넣으면 본사 계정으로 다시 하면 된다).
+           ⚠️ status 변경은 위에서 이미 처리했다 — 그쪽 권한은 이 변경의 몫이 아니라 건드리지 않는다. */
+        let mayEditPhone = false;
+        try {
+          const a = await getAdminActor(request, env as any);
+          mayEditPhone = !!a && a.ok !== false && !a.isTeacher;
+        } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 저장 안 함:', e?.message); }
+        if (!mayEditPhone) {
+          return json({ ok: false, error: 'forbidden_teacher', detail: '연락처는 본사·관리자만 고칠 수 있습니다.' }, 403);
+        }
         /* 빈 문자열로 보내면 «지운다» 는 뜻이다(「아직 안 받았다」와 구분). 9자리 미만은 안 받는다. */
         const clear = _pRaw === '';
         const phone = _pRaw.length >= 9 ? _pRaw : '';
@@ -10955,7 +10981,7 @@ LIMIT $limit`;
           if (!uid) _phoneSaved = { ok: false, reason: 'no_student_uid' };
           else {
             try {
-              const sv = await setOverridePhones(env as any, uid, clear ? { clear: true } : { parent: phone }, 'enroll-edit');
+              const sv = await setOverridePhones(env as any, uid, clear ? { clear: true, parent: '' } : { parent: phone }, 'enroll-edit');
               _phoneSaved = { ok: sv.ok, reason: sv.reason };
             } catch (e: any) { _phoneSaved = { ok: false, reason: String(e?.message || e).slice(0, 120) }; }
           }
@@ -13122,7 +13148,40 @@ LIMIT $limit`;
           `SELECT id FROM textbook_files WHERE active = 1 AND name = ? AND size_bytes = ? LIMIT 1`
         ).bind(rawName, file.size).first().catch(() => null);
         if (dupRow && dupRow.id) {
-          return json({ ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName });
+          /* 🙈 (2026-09-10 필리핀 매니저) 「이미 있다는데 라이브러리 어디에도 안 보인다」
+             ═══════════════════════════════════════════════════════════════════════
+             [실측] 그 파일은 정말 있었다(9/1 업로드). 안 보인 이유는 그 파일이 들어간 묶음
+                「BTS」가 9/8 에 **숨김** 이라 `/api/textbook-files?group=1` 이 목록에서 빼기
+                때문이었다. 그런데 이 응답은 «건너뛰었다» 만 말해서, 화면은 「없는데 있다고
+                한다」로 읽혔다 — 사람이 다시 올리고 또 올린다.
+             [고침] «어느 묶음인가»(book)와 «지금 숨김인가»(hidden)를 함께 준다.
+             ⚠️ 숨김 조회가 실패하면 **false 가 아니라 null(모름)** 이다 — 「숨김이 아니다」로
+                단정하면 화면이 엉뚱한 곳을 찾게 한다(CLAUDE.md 「모름을 아니오로 채우지 말 것」).
+             ⛔ 여기서 숨김을 «풀어» 주지 말 것 — 조회가 상태를 바꾸면 아무도 이유를 모른다.
+                푸는 것은 사람이 화면에서 [보이게 하기] 를 누를 때뿐이다. */
+          const dupBook = rawName.startsWith('[') && rawName.indexOf(']') > 1
+            ? rawName.slice(1, rawName.indexOf(']')) : '(기타)';
+          /* 🔴 `loadHiddenBooks()` 로 묻지 말 것 — 그 함수는 **몸통 전체가 try** 라
+             절대 던지지 않고 실패하면 «빈 Set» 을 준다(fail-open). 그러면 `.has()` 가
+             **false** 가 되어 「숨김 아님」이 **확정**되고, 여기 catch 는 도달 불가능한
+             죽은 코드가 된다(2026-09-10 함정 대조가 잡음 — 주석은 null 이라 적혀 있었다).
+             ⟹ 「모름」을 만들려면 **여기서 직접** 묻고 예외를 받아야 한다. */
+          let dupHidden: boolean | null = null;
+          let dupHiddenBy: string | null = null;
+          try {
+            await ensureTextbookHiddenTable();
+            const hrow: any = await env.DB.prepare(
+              `SELECT hidden_by FROM textbook_hidden_books WHERE book = ? LIMIT 1`
+            ).bind(dupBook).first();
+            dupHidden = !!hrow;
+            /* «왜 숨겼는지» 는 이 칸뿐이다 — 화면이 안 보여 주면 사람이 근거 없이 되돌린다
+               (LEVEL 1~7 은 마이마이 확인으로 숨긴 것이다). */
+            dupHiddenBy = hrow ? String(hrow.hidden_by || '') || null : null;
+          } catch { dupHidden = null; dupHiddenBy = null; }
+          return json({
+            ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName,
+            book: dupBook, hidden: dupHidden, hidden_by: dupHiddenBy,
+          });
         }
 
         const key = `textbook-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;

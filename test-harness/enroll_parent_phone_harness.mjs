@@ -202,15 +202,19 @@ if (setFn && sqlTpl) {
   db.exec(`CREATE TABLE student_erp_override (user_id TEXT PRIMARY KEY, korean_name TEXT, hidden INTEGER NOT NULL DEFAULT 0, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, parent_phone TEXT, student_phone TEXT, phone_by TEXT, phone_at INTEGER)`);
 
   // 템플릿 안의 `${clear ? … }` 를 실제로 평가한다 — 소스가 바뀌면 이 SQL 도 바뀐다
-  const sqlFor = (clear) => {
+  const sqlFor = (clearParent, clearStudent) => {
+    /* 소스의 템플릿을 그대로 평가한다 — 두 칸을 «따로» 지울 수 있는지까지 이 SQL 이 정한다.
+       인자를 안 주면 둘 다 true(= 옛 검사와 같은 «둘 다 지우기»). */
+    const cp = clearParent === undefined ? true : clearParent;
+    const cs = clearStudent === undefined ? cp : clearStudent;
     // eslint-disable-next-line no-new-func
-    return new Function('clear', 'return ' + sqlTpl)(clear);
+    return new Function('clearParent', 'clearStudent', 'return ' + sqlTpl)(cp, cs);
   };
   let saveErr = '';
   const runSave = (uid, parent, student, clear = false) => {
     const now = Date.now();
     try {
-      db.prepare(sqlFor(clear)).run(uid, parent || null, student || null, 'test', now, now, now,
+      db.prepare(sqlFor(clear, clear)).run(uid, parent || null, student || null, 'test', now, now, now,
         clear ? (parent || null) : parent, clear ? (student || null) : student, 'test', now, now);
     } catch (e) {
       /* 크래시 대신 «깔끔한 FAIL» 로 — 스택만 남으면 무엇이 깨졌는지 안 보인다 */
@@ -236,6 +240,19 @@ if (setFn && sqlTpl) {
   check('B-4 clear 로 부르면 지워진다(「아직 안 받음」과 「지웠다」를 가른다)',
     !g4.parent_phone && !g4.student_phone, JSON.stringify(g4));
 
+  /* clear 가 «넘긴 칸만» 지우는지 — 학부모를 지우러 온 요청이 학생 번호까지 없애면
+     그 뒤 문자가 조용히 한 통만 나간다(함정 대조가 잡은 자리). */
+  runSave('heys2', '01011112222', '01077776666');
+  const sqlClearParentOnly = sqlFor(true, false);
+  const nowC = Date.now();
+  try {
+    db.prepare(sqlClearParentOnly).run('heys2', null, null, 'test', nowC, nowC, nowC,
+      null, '', 'test', nowC, nowC);
+  } catch (e) { saveErr = String(e?.message || e).slice(0, 120); }
+  const g5 = get('heys2');
+  check('B-5 학부모만 지우면 학생 번호는 남는다',
+    !g5.parent_phone && g5.student_phone === '01077776666', JSON.stringify(g5) + ' ' + saveErr);
+
   db.close();
 }
 
@@ -250,11 +267,23 @@ check('C-2 저장 정본이 students_erp 를 건드리지 않는다',
   !/students_erp/.test(setBody), 'students_erp 에 쓰면 카페24 동기화가 매일 밤 덮는다');
 
 // 등록 API 도 마찬가지 — 그 라우트 안에서 students_erp 번호 칸을 UPDATE 하면 같은 사고다
-const enrollRoute = (() => {
-  const i = adminTs.indexOf("path === '/api/admin/enrollments'");
+/* ⚠️ 범위를 «길이» 로 자르면 안 된다 — 그 블록에 줄이 몇 개 늘기만 해도 뒷부분이 잘려
+   멀쩡한 코드가 «없다» 로 나온다(실제로 밟았다: GET 에 코드를 더하자 POST 가 9000자 밖으로
+   밀려 C-5·D-1 이 거짓 FAIL). **중괄호 짝**으로 그 라우트 블록만 잘라 낸다. */
+function blockFrom(src, anchor) {
+  const i = src.indexOf(anchor);
   if (i < 0) return '';
-  return adminTs.slice(i, i + 9000);
-})();
+  const open = src.indexOf('{', i);
+  if (open < 0) return '';
+  let depth = 0;
+  for (let k = open; k < src.length; k++) {
+    const ch = src[k];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return src.slice(i, k + 1); }
+  }
+  return '';
+}
+const enrollRoute = blockFrom(adminTs, "if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments')");
 check('C-3 등록 라우트를 잘라 냈다(전제)', enrollRoute.length > 1000);
 check('C-4 등록 라우트가 students_erp 의 번호 칸을 직접 UPDATE 하지 않는다',
   !/UPDATE\s+students_erp[\s\S]{0,200}(parent_phone|student_phone|\bphone\b)/i.test(strip(enrollRoute)));
@@ -325,10 +354,7 @@ check('F-8 줄마다 span 합이 정확히 12 다', lines12 && sum === 0, bad ||
 // ══════════════════════════════════════════════════════════════
 console.log('\n[H] 이미 등록된 학생의 번호를 고치는 길');
 
-const patchRoute = (() => {
-  const i = adminTs.indexOf("method === 'PATCH' && /^\\/api\\/admin\\/enrollments");
-  return i < 0 ? '' : adminTs.slice(i, i + 4000);
-})();
+const patchRoute = blockFrom(adminTs, "if (method === 'PATCH' && /^\\/api\\/admin\\/enrollments");
 check('H-1 PATCH 라우트를 잘라 냈다(전제)', patchRoute.length > 500);
 const patchStrip = strip(patchRoute);
 check('H-2 연락처만 보내도 받는다(status 를 필수로 두지 않는다)',
@@ -340,6 +366,21 @@ check('H-4 그 경로도 발송이 읽는 자리(override)에 적는다',
   /setOverridePhones\s*\(/.test(patchStrip),
   '신청서에만 적으면 문자는 그대로 안 나간다');
 check('H-5 그 경로도 저장 결과를 응답에 싣는다', /phone_saved/.test(patchStrip));
+
+/* ⛔ 강사 가드 — 이 두 경로는 `TEACHER_BLOCKED_PREFIXES` 에 없어 강사도 닿는다.
+   GET 에 번호를 실으면 «남의 집 학부모 연락처가 한 화면에 모이고»,
+   PATCH 를 열어 두면 강사가 아무 신청건의 «문자가 갈 번호» 를 바꿀 수 있다(돈이 나간다).
+   ⚠️ 방향이 다르다 — 읽기는 «안 실어 주는 쪽», 쓰기는 «막는 쪽» 으로 실패해야 한다. */
+check('H-10 목록이 강사에게는 번호를 안 실어 준다',
+  /isTeacher/.test(strip(enrollRoute)) && /maySeePhones/.test(strip(enrollRoute)));
+check('H-11 번호 수정은 강사를 막는다(403)',
+  /isTeacher/.test(patchStrip) && /forbidden_teacher/.test(patchStrip));
+check('H-12 역할을 못 물어보면 «막는 쪽» 으로 실패한다',
+  /let mayEditPhone = false/.test(patchStrip) && /let maySeePhones = false/.test(strip(enrollRoute)),
+  '기본값이 true 면 조회 한 번 실패에 그대로 새어 나간다');
+/* 라벨이 「학부모 연락처」인데 학생 번호가 그 자리에 뜨면, 거기서 고칠 때 출처가 섞인다. */
+check('H-13 목록 번호는 학생 번호로 폴백하지 않는다',
+  !/notify_phone\s*=\s*p\?\.parent\s*\|\|\s*p\?\.student/.test(strip(enrollRoute)));
 
 /* 목록이 «지금 발송이 읽는» 번호를 보여 주는가.
    ⚠️ `enrollments.parent_phone`(등록할 때 적은 값)을 그리면 두 값이 갈렸을 때 옛 값을 말한다. */

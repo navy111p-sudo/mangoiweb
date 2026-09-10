@@ -158,6 +158,9 @@ export async function loadOverridePhones(env: OverrideEnv, uids: string[]): Prom
  *
  * ⚠️ 빈 값을 넘기면 그 칸은 **안 건드린다**(지우지 않는다). 지우려면 `clear` 를 쓴다 —
  *    「아직 안 받았다」와 「지웠다」를 한 값으로 뭉개면 되돌릴 수가 없다.
+ * ⚠️ `clear` 도 **넘긴 칸만** 지운다. 학부모 번호를 지우러 온 요청이 학생 번호까지 NULL 로
+ *    만들면 그 뒤 문자가 조용히 한 통만 나간다 — 위 COALESCE 가 막으려던 것과 같은 사고다
+ *    (처음에 clear 경로가 그 보호를 비켜 가 있었고, 함정 대조가 잡았다).
  * @returns 저장에 성공했나. **실패를 삼키지 않는다** — 부르는 쪽이 사람에게 말해야 한다
  *          (조용히 실패하면 「입력했는데 문자가 안 온다」가 되고 아무도 이유를 모른다).
  */
@@ -171,7 +174,17 @@ export async function setOverridePhones(
   if (!u) return { ok: false, parent: '', student: '', reason: 'no_uid' };
   const parent = normPhone(phones?.parent);
   const student = normPhone(phones?.student);
+  /* `clear` 는 **넘긴 칸만** 지운다 — 어느 칸을 지울지는 그 키를 넘겼는지로 본다
+     (값이 빈 문자열이어도 «그 칸을 지우겠다» 는 뜻이다). 안 넘긴 칸은 아래 SQL 이 그대로 둔다.
+     ⚠️ `{clear:true}` 만 넘기면 «무엇을 지울지» 를 모른다 — 그때는 아무것도 안 하고 거절한다.
+        말 없이 둘 다 지우면 학부모 번호를 지우러 온 요청이 학생 번호까지 없애고,
+        그 뒤 문자가 조용히 한 통만 나간다. */
   const clear = !!phones?.clear;
+  const clearParent = clear && phones?.parent !== undefined;
+  const clearStudent = clear && phones?.student !== undefined;
+  if (clear && !clearParent && !clearStudent) {
+    return { ok: false, parent: '', student: '', reason: 'clear_needs_field' };
+  }
   if (!clear && !parent && !student) return { ok: false, parent: '', student: '', reason: 'no_phone' };
   if (!(await ensureStudentOverrideTable(env))) return { ok: false, parent, student, reason: 'no_table' };
   const now = Date.now();
@@ -182,12 +195,13 @@ export async function setOverridePhones(
       `INSERT INTO student_erp_override (user_id, hidden, parent_phone, student_phone, phone_by, phone_at, created_at, updated_at)
        VALUES (?, 0, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET
-         parent_phone  = ${clear ? '?' : 'COALESCE(NULLIF(?, \'\'), parent_phone)'},
-         student_phone = ${clear ? '?' : 'COALESCE(NULLIF(?, \'\'), student_phone)'},
+         parent_phone  = ${clearParent ? '?' : 'COALESCE(NULLIF(?, \'\'), parent_phone)'},
+         student_phone = ${clearStudent ? '?' : 'COALESCE(NULLIF(?, \'\'), student_phone)'},
          phone_by = ?, phone_at = ?, updated_at = ?`,
     ).bind(
       u, parent || null, student || null, by || null, now, now, now,
-      clear ? (parent || null) : parent, clear ? (student || null) : student,
+      clearParent ? (parent || null) : parent,
+      clearStudent ? (student || null) : student,
       by || null, now, now,
     ).run();
     return { ok: true, parent, student };
