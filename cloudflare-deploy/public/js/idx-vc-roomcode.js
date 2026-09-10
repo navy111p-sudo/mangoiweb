@@ -50,7 +50,7 @@
      ⛔ 접두사가 있는 방(class-·demo-·room-·c24-·meet-·mangoi-class)은 한 글자도 건드리지 않는다 —
         예약 수업방·연습방·관리자 임베드가 전부 그쪽이라, 손대면 그 경로가 통째로 갈린다.
      ⚠️ 규칙이 두 파일에 있으므로 `meet_room_code_harness.mjs` 가 둘을 대조한다.
-        idx-vc-room.js 는 blocking 이고 첫 화면 예산 여유가 325바이트뿐이라 여기(defer)에 둔다. */
+        idx-vc-room.js 는 blocking 이고 첫 화면 예산 여유가 **186바이트**(2026-09-10 실측)뿐이라 여기(defer)에 둔다. */
   var MEET_PREFIX = 'meet-';
   /* 🔴 (2026-09-09 함정 대조) 이 목록에서 `meet-` 을 «뺀다».
      넣어 두면 `MEET-1234`·`Meet-1234` 가 「접두사가 있으니 그대로」로 빠져나가는데,

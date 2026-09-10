@@ -261,8 +261,8 @@ console.log('⑩ 로비 안내가 «예약된 수업» 조건을 말하는가');
     ok('정본을 읽었다 (src/site-url.ts SITE_ORIGIN = ' + CANON + ')');
 
     const builders = [
-      { name: '회의방 모달 (idx-vc-room.js)',      src: modalSrc, fn: 'function meetUrl(' },
-      { name: '로비 링크 복사 (idx-vc-roomcode.js)', src: lobbySrc, fn: 'window.vcRoomLink = function (' },
+      { name: '회의방 모달 (idx-vc-room.js)',      src: modalSrc, fn: 'function meetUrl(', callee: 'meetUrl' },
+      { name: '로비 링크 복사 (idx-vc-roomcode.js)', src: lobbySrc, fn: 'window.vcRoomLink = function (', callee: 'vcRoomLink' },
     ];
     for (const b of builders) {
       const body = cut(b.src, b.fn);
@@ -285,6 +285,23 @@ console.log('⑩ 로비 안내가 «예약된 수업» 조건을 말하는가');
       (typeof url === 'string' && url.indexOf(CANON + '/') === 0)
         ? ok(b.name + ' → ' + url)
         : bad(b.name + ' — 정본 도메인으로 시작하지 않는다', '만든 주소: ' + JSON.stringify(url));
+
+      /* 🔴 (2026-09-10 함정 대조) «빌더가 옳은가» 만 보면 **아무것도 안 지켜집니다** —
+         `SITE_ORIGIN` 은 그대로 두고 **복사 핸들러가 그 빌더를 안 부르게** 바꾸면
+         (`var url = location.origin + '/?meet=' + …`) 위 검사는 전부 통과합니다.
+         실제로 그 변이를 돌려 PASS 68/FAIL 0 이 나오는 것을 확인했습니다.
+         ⟹ CLAUDE.md 2장 「«불렀는가» 만 보지 말고 «그 결과를 쓰는가» 도 보세요」.
+         ⛔ 선언(`function meetUrl(`·`= function (`)이 호출로 세이지 않게 «부르는 모양» 으로만 셉니다. */
+      const bareAll = b.src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+      const calls = [...bareAll.matchAll(new RegExp('(?<!function\\s{0,4})\\b' + b.callee + '\\s*\\(', 'g'))]
+        .filter(m => !/function\s*$/.test(bareAll.slice(Math.max(0, m.index - 12), m.index)));
+      (calls.length >= 1)
+        ? ok(b.name + ' — 복사 핸들러가 그 빌더를 실제로 부른다 (' + calls.length + '곳)')
+        : bad(b.name + ' — 빌더를 부르는 곳이 없다', '빌더만 옳고 링크는 딴 데서 만들어집니다');
+      /* 그리고 그 파일 안에서 링크를 «따로» 조립하지 않는가 — 빌더를 비켜 가는 두 번째 길 */
+      (/location\s*\.\s*(origin|host|hostname)\s*\+/.test(bareAll))
+        ? bad(b.name + ' — 파일 안에서 location 으로 주소를 따로 조립한다', '빌더를 비켜 갑니다')
+        : ok(b.name + ' — 파일 어디에서도 location 으로 주소를 조립하지 않는다');
     }
   }
 }

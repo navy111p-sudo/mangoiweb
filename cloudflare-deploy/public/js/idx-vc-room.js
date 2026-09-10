@@ -49,8 +49,7 @@
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9가-힣-]/g, '');
   }
-  /* 🔗 (2026-09-10) 안내 링크는 정본 도메인 고정 — location.origin 이면 test.mangoi.co.kr 에서
-     만든 링크가 퍼져 받는 사람이 오리진이 갈려 다시 로그인한다. 로비(idx-vc-roomcode.js)와 같은 값. */
+  /* 🔗 ⛔ location.origin 금지 — CLAUDE.md 2장 「사람에게 링크를 안내할 때」 */
   var SITE_ORIGIN = 'https://mangoi.ai';
   function meetUrl(code){
     return SITE_ORIGIN + '/?meet=' + encodeURIComponent(normalize(code));
