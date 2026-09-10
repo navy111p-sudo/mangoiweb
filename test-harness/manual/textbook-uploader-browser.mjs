@@ -257,6 +257,79 @@ console.log('\n⑥ 되돌림 감시 — 다락원·Phonics');
   await p.close();
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   ⑥ (2026-09-10) 📄 파일 고르기 버튼 · 파일 하나씩이면 자동 저장을 멈춘다
+   ───────────────────────────────────────────────────────────────────────
+   [왜 브라우저인가] 「버튼이 있다」와 「눌린다」는 다르다. 이 화면의 폴더용 input 은
+      CSS 로 **상자 전체를 덮고 있어서**(.dropzone input[type=file]{inset:0}) 파일용 칸을
+      그냥 하나 더 넣으면 **나중 것이 상자를 통째로 덮어 [폴더 선택] 이 영영 안 열린다.**
+      마크업만 봐서는 안 보이고 `elementFromPoint` 로 «맨 위가 누구인가» 를 재야 드러난다.
+   ⚠️ 짝으로 본다 — 「파일 버튼이 눌린다」 옆에 **「빈 자리는 여전히 폴더 선택이다」** 를 둔다.
+      앞만 보면 폴더 칸을 죽여 놓고도 초록불이 난다.                                      */
+console.log('\n⑥ 파일 고르기 · 자동 저장 멈춤 (2026-09-10)');
+{
+  const { p } = await open(200);
+  const st = JSON.parse(await p.evalJs(`JSON.stringify({
+    has: !!document.getElementById('file-input'),
+    dir: document.getElementById('file-input') ? document.getElementById('file-input').hasAttribute('webkitdirectory') : null,
+    accept: document.getElementById('file-input') ? document.getElementById('file-input').getAttribute('accept') : '',
+    folderStill: document.getElementById('folder-input') ? document.getElementById('folder-input').hasAttribute('webkitdirectory') : false
+  })`));
+  check('파일 고르기 칸이 있다', st.has === true);
+  check('그 칸은 폴더 전용이 아니다', st.dir === false);
+  check('서버가 받는 형식만 고르게 한다', /\.pdf/.test(st.accept) && /\.jpg/.test(st.accept) && /\.png/.test(st.accept));
+  check('폴더 고르기 칸은 그대로다(되돌림 방지)', st.folderStill === true);
+
+  // 「보인다」가 아니라 「눌린다」 — 그 좌표의 맨 위가 무엇인가
+  const hit = JSON.parse(await p.evalJs(`(function(){
+    var lab = document.querySelector('label.dz-file');
+    lab.scrollIntoView({ block: 'center' });
+    var r = lab.getBoundingClientRect();
+    var top = document.elementFromPoint(Math.round(r.left + r.width/2), Math.round(r.top + r.height/2));
+    /* ⚠️ 빈 자리를 재기 전에 **드롭존을 다시 화면 안으로 굴린다** — 위에서 라벨을 가운데로
+       굴려 놨기 때문에 상자 윗부분이 화면 «밖»(top 음수)이라 그대로 찍으면 null 이 나오고,
+       「폴더 선택이 죽었다」로 오독한다(2026-09-10 실제로 밟았다). */
+    var dz = document.getElementById('dropzone') || document.querySelector('.dropzone');
+    dz.scrollIntoView({ block: 'center' });
+    var dr = dz.getBoundingClientRect();
+    var empty = document.elementFromPoint(Math.round(dr.left + dr.width/2), Math.round(dr.top + 18));
+    return JSON.stringify({
+      w: Math.round(r.width), h: Math.round(r.height),
+      topId: top ? (top.id || top.className || top.tagName) : null,
+      topIsFile: !!(top && (top.id === 'file-input' || (top.closest && top.closest('label.dz-file')))),
+      emptyIsFolder: !!(empty && empty.id === 'folder-input')
+    });
+  })()`));
+  check('파일 버튼이 화면에 그려졌다', hit.w > 40 && hit.h > 20);
+  check('그 자리의 맨 위가 파일 고르기다(가려지지 않았다)', hit.topIsFile === true, 'top=' + hit.topId);
+  check('빈 자리는 여전히 폴더 고르기다(예전 동작 유지)', hit.emptyIsFolder === true);
+
+  /* 파일 하나씩 올리면 자동 저장을 멈추고 «이름을 확인하라» 고 말한다.
+     ⚠️ 짝 — 폴더로 올린 경우에는 여전히 카운트다운이 돌아야 한다. */
+  await p.evalJs(`(function(){ window.__pickedSingleFiles = true;
+    var f = new File([new Uint8Array(8)], 'BTS 2 003 (Shapes and colors).pdf', { type: 'application/pdf' });
+    f.fullPath = f.name; processFiles([f]); return 1; })()`);
+  await sleep(1500);
+  const single = JSON.parse(await p.evalJs(`JSON.stringify({
+    btn: (document.getElementById('btn-save')||{}).textContent || '',
+    hint: !!document.getElementById('cr-name-hint'),
+    timer: !!window._ph241Timer
+  })`));
+  check('파일 하나씩이면 자동 저장을 멈춘다', single.timer === false, 'btn=' + single.btn);
+  check('«이름을 확인하라» 고 화면이 말한다', /이름을 확인/.test(single.btn) && single.hint === true);
+
+  await p.evalJs(`(function(){ window.__pickedSingleFiles = false;
+    var f = new File([new Uint8Array(8)], 'Slide1.JPG', { type: 'image/jpeg' });
+    f.fullPath = 'BTS 2/001/Slide1.JPG'; processFiles([f]); return 1; })()`);
+  await sleep(1500);
+  const folder = JSON.parse(await p.evalJs(`JSON.stringify({
+    btn: (document.getElementById('btn-save')||{}).textContent || '', timer: !!window._ph241Timer
+  })`));
+  check('폴더로 올린 것은 여전히 자동 저장한다(ph241 유지)',
+    folder.timer === true || /자동 저장/.test(folder.btn), 'btn=' + folder.btn);
+  await p.close();
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);
 if (fail) { console.log('\n❌ 실패:'); FAILS.forEach((f) => console.log('   - ' + f)); process.exit(1); }

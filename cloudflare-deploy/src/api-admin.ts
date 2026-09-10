@@ -13039,7 +13039,25 @@ LIMIT $limit`;
           `SELECT id FROM textbook_files WHERE active = 1 AND name = ? AND size_bytes = ? LIMIT 1`
         ).bind(rawName, file.size).first().catch(() => null);
         if (dupRow && dupRow.id) {
-          return json({ ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName });
+          /* 🙈 (2026-09-10 필리핀 매니저) 「이미 있다는데 라이브러리 어디에도 안 보인다」
+             ═══════════════════════════════════════════════════════════════════════
+             [실측] 그 파일은 정말 있었다(9/1 업로드). 안 보인 이유는 그 파일이 들어간 묶음
+                「BTS」가 9/8 에 **숨김** 이라 `/api/textbook-files?group=1` 이 목록에서 빼기
+                때문이었다. 그런데 이 응답은 «건너뛰었다» 만 말해서, 화면은 「없는데 있다고
+                한다」로 읽혔다 — 사람이 다시 올리고 또 올린다.
+             [고침] «어느 묶음인가»(book)와 «지금 숨김인가»(hidden)를 함께 준다.
+             ⚠️ 숨김 조회가 실패하면 **false 가 아니라 null(모름)** 이다 — 「숨김이 아니다」로
+                단정하면 화면이 엉뚱한 곳을 찾게 한다(CLAUDE.md 「모름을 아니오로 채우지 말 것」).
+             ⛔ 여기서 숨김을 «풀어» 주지 말 것 — 조회가 상태를 바꾸면 아무도 이유를 모른다.
+                푸는 것은 사람이 화면에서 [보이게 하기] 를 누를 때뿐이다. */
+          const dupBook = rawName.startsWith('[') && rawName.indexOf(']') > 1
+            ? rawName.slice(1, rawName.indexOf(']')) : '(기타)';
+          let dupHidden: boolean | null = null;
+          try { dupHidden = (await loadHiddenBooks()).has(dupBook); } catch { dupHidden = null; }
+          return json({
+            ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName,
+            book: dupBook, hidden: dupHidden,
+          });
         }
 
         const key = `textbook-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;

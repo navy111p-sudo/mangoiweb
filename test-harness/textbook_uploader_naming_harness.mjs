@@ -234,6 +234,66 @@ console.log('\n[G] 🗣 한 화면이 «한 가지» 를 말하는가');
     /교재명·레벨은 아래 칸에서 바로 고칠 수 있습니다/.test(body));
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   📄🙈 (2026-09-10 필리핀 매니저 3건) 파일 고르기 · 숨김 안내 · 자동 저장
+   ────────────────────────────────────────────────────────────────────────
+   [사고] ① 「PDF·JPG 를 고를 수가 없다」 — 고르기 칸이 **폴더 전용 하나뿐**이었다.
+      ② 「이미 있다는데 안 보인다」 — 있는 것은 맞고, 그 묶음이 **숨김** 이라 서버가 목록에서
+         뺐다. 응답이 그 말을 안 해서 사람이 같은 파일을 계속 다시 올렸다.
+      ③ 파일 하나만 올리면 폴더 경로가 없어 교재 이름이 「BTS」로 뭉치는데, 5초 자동 저장이
+         **이름을 볼 틈을 안 줬다.**
+   ⚠️ 「그 글자가 있는가」가 아니라 «짝» 으로 묻는다 — 한쪽만 보면 반대로 무너진다.        */
+console.log('\n[ ⑧ 파일 고르기 · 숨김 안내 · 자동 저장 (2026-09-10) ]');
+{
+  const ADM = read('cloudflare-deploy/src/api-admin.ts');
+
+  // ① 파일 고르기 — 새 칸이 생겼고, «폴더 칸은 그대로» 여야 한다(짝)
+  check('파일 고르기 칸이 있다', /id="file-input"[^>]*\bmultiple\b/.test(UP) || /<input[^>]*id="file-input"/.test(UP));
+  check('파일 고르기 칸이 폴더 전용이 아니다',
+    !/<input[^>]*id="file-input"[^>]*webkitdirectory/.test(UP));
+  check('폴더 고르기 칸은 그대로 있다(되돌림 방지)',
+    /<input[^>]*id="folder-input"[^>]*webkitdirectory/.test(UP));
+  check('파일 고르기가 서버가 받는 형식만 고르게 한다(pdf·jpg·png·webp)',
+    /id="file-input"[^>]*accept="[^"]*\.pdf[^"]*\.jpg[^"]*\.png[^"]*\.webp/.test(UP));
+  /* 🔴 accept 에 «image» + 슬래시 + 별표 를 쓰면 그 «슬래시+별표» 가 블록주석 여는 기호라
+     주석 제거기가 그 뒤를 통째로 먹는다(2026-09-10 실측: 이 파일의 검사 3건이 거짓 FAIL).
+     덤으로 서버가 안 받는 HEIC·GIF 를 고르게 해 놓고 업로드에서 거절하게 된다. */
+  check('accept 에 주석을 여는 글자(image + 슬래시 + 별표)가 없다',
+    !new RegExp('accept="[^"]*image/' + '\\*').test(UP));
+  check('파일로 고른 것에 경로가 아니라 파일명을 넣는다',
+    /file-input'\)\.addEventListener\('change'[\s\S]{0,400}?fullPath = f\.name/.test(UP));
+
+  // ② 숨김 안내 — 서버가 알려 주고, 화면이 말하고, «자동으로 풀지는 않는다»(짝)
+  check('서버가 중복 응답에 «어느 묶음»(book)을 싣는다', /skipped: true[\s\S]{0,400}?book: dupBook/.test(ADM));
+  check('서버가 중복 응답에 «숨김인가»(hidden)를 싣는다', /hidden: dupHidden/.test(ADM));
+  check('숨김 조회 실패를 «false» 가 아니라 «모름(null)» 으로 둔다',
+    /let dupHidden: boolean \| null = null/.test(ADM) && /catch \{ dupHidden = null; \}/.test(ADM));
+  check('화면이 «숨김이라 안 보인다» 고 말한다', /숨김» 이라 안 보입니다/.test(UP));
+  check('화면이 그 자리에서 [보이게 하기] 를 준다',
+    /okText: '👁 보이게 하기'/.test(UP) && /hidden: false/.test(UP));
+  /* ⛔ 짝 — 조회가 숨김을 «자동으로» 풀면 안 된다(숨긴 데는 이유가 있다: MES 교재 등).
+     사람이 버튼을 눌렀을 때만 푼다. 서버의 중복 분기에 DELETE 가 있으면 FAIL. */
+  {
+    const dup = ADM.slice(ADM.indexOf('if (dupRow && dupRow.id) {'),
+                          ADM.indexOf('if (dupRow && dupRow.id) {') + 1600);
+    check('중복 응답이 숨김을 자동으로 풀지 않는다',
+      dup.length > 100 && !/DELETE FROM textbook_hidden_books/.test(dup));
+  }
+
+  // ③ 자동 저장 — 파일 하나씩이면 멈추고, «폴더는 그대로 자동 저장» 이어야 한다(짝)
+  check('파일 하나씩 올리면 자동 저장을 멈춘다',
+    /if \(window\.__pickedSingleFiles\) \{[\s\S]{0,300}?ph241Stop\(/.test(UP));
+  check('멈춘 이유를 화면이 말한다(이름을 확인하라)',
+    /교재 이름을 확인한 뒤 저장하세요/.test(UP) && /cr-name-hint/.test(UP));
+  check('폴더로 올린 것은 여전히 자동 저장한다',
+    /var ph241Left = 5;/.test(UP) && /btn\.click\(\)/.test(UP));
+  check('드래그가 «폴더인가» 를 경로로 가른다',
+    /__pickedSingleFiles = files\.length > 0 && !files\.some/.test(UP));
+
+  // ④ 이 PC 삭제 버튼이 «어느 것을 지우는지» 이름으로 말한다
+  check('표의 [삭제] 가 «이 PC» 라고 이름으로 말한다', /🖥 이 PC 에서 삭제<\/button>/.test(UP));
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);
 if (fail) { console.log('\n❌ 실패:'); FAILS.forEach(f => console.log('   - ' + f)); process.exit(1); }
