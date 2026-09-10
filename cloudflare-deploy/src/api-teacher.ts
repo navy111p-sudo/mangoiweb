@@ -24,6 +24,7 @@ import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 import { getReadingBandFor } from './api-judgment';
 // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 나눈다 — 손으로 90 씩 자르지 않는다
 import { selectInChunks } from './d1-chunk';
+import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 
 interface TeacherEnv {
   DB: D1Database;
@@ -778,6 +779,15 @@ export async function handleTeacherApi(
       if (e?.message !== 'no_cafe24_teacher_id') console.warn('[teacher-portal] lms classes:', e?.message);
     }
   }
+
+  /* 🚪 「오늘은 이 방으로」 — 학생 쪽(sessions/today)과 **같은 답**을 받아야 한다.
+     ⚠️ 위 `room_id: \`class-${s.id}-${ymd}\`` 주석이 못 박아 둔 불변식이 바로 이것이다 —
+        「api-mango.ts 의 sessions/today 와 반드시 같은 식」. 지정이 걸린 수업에서
+        여기만 옛 방을 주면 **강사는 옛 방, 학생은 지정된 방**으로 갈려
+        「같은 수업인데 둘 다 참여자 1명」이 **매번** 재현된다(이 저장소가 네 번 사고 낸 그 자리).
+     ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
+     ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
+  await applyRoomOverrides(env.DB, classes, ymd);
 
   /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
      ⚠️ 새로 판정하지 않는다. class_no_show 에 이미 남은 것을 읽기만 한다

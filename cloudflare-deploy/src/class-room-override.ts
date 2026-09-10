@@ -77,6 +77,9 @@ export async function ensureRoomOverrideTable(db: any): Promise<void> {
  *    지정이 안 걸리면 예약방으로 가므로 «고치기 전» 과 같은 상태일 뿐이다.
  *    ⛔ 조용히 넘기지는 않는다 — console.warn 으로 남긴다.
  */
+/* isolate 당 한 번만 경고한다 — 위 catch 주석 참고. */
+let warnedOnce = false;
+
 export async function applyRoomOverrides(
   db: any,
   sessions: any[],
@@ -114,7 +117,14 @@ export async function applyRoomOverrides(
       s.room_override_note = o.note || null;
     }
   } catch (e) {
-    console.warn('[room-override] 조회 실패 — 예약방 그대로 진행합니다', e);
+    /* ⚠️ 학생 29,000명이 지나는 hot path 다. 표가 생기기 «전» 에는 이 조회가 **매번** 던지므로
+       그대로 두면 워커 로그가 같은 줄로 뒤덮인다(이 기능을 아무도 안 쓰면 영원히).
+       ⟹ isolate 당 **한 번만** 찍는다. ⛔ 통째로 삼키지는 않는다 — 조용해지면 조회가
+          계속 실패해도 아무도 모른다(CLAUDE.md 「조용히 넘기지 말 것」). */
+    if (!warnedOnce) {
+      warnedOnce = true;
+      console.warn('[room-override] 조회 실패 — 예약방 그대로 진행합니다 (이 isolate 에서는 다시 안 찍습니다)', e);
+    }
   }
 }
 

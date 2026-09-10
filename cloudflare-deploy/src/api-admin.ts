@@ -6682,19 +6682,38 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (isOrgScopedRole((_roActor as any).role)) {
         return json({ ok: false, error: 'forbidden_scope', message: '본사 또는 담당 강사만 지정할 수 있습니다.' }, 403);
       }
+      /* 🔴 (2026-09-10 함정 대조) 차단목록만 두면 **fail-open 이 됩니다.**
+         `getAdminActor` 는 `getScope()`·이름 조회를 각각 try/catch 로 삼키고 실패하면
+         `scope='none'`·`name=''` 으로 떨어뜨리는데, 그러면 `resolveRole` 이 `'staff'` 를 줘서
+         `isTeacher === false` → **담당 확인이 통째로 건너뛰어집니다.** D1 이 한 번 흔들리면
+         아무나 남의 수업을 다른 방으로 돌릴 수 있다는 뜻입니다.
+         ⟹ 「본사인가」를 **양성으로** 묻고, 그 밖은 전부 담당 확인을 지나게 합니다. */
+      /* `resolveRole` 이 실제로 내는 값은 teacher·franchise·branch·agency·hq·staff 뿐이고,
+         **`'hq'` 만 본사**다(본사 매니저도 스코프가 hq 라 여기에 든다).
+         ⚠️ `'staff'` 는 «스코프를 못 읽었을 때» 떨어지는 값이기도 하다 — 그래서 본사로 안 친다. */
+      const _roIsHq = String((_roActor as any).role || '') === 'hq';
 
       const sid = Number(b.schedule_id);
       if (!Number.isFinite(sid) || sid <= 0) return json({ ok: false, error: 'bad_schedule_id' }, 400);
 
       // 그 예약이 실재하는지 + 담당 강사가 누구인지
-      const row: any = await env.DB.prepare(
-        `SELECT id, user_id, student_name, teacher_id, status FROM class_schedules WHERE id = ?`
-      ).bind(sid).first().catch(() => null);
+      /* ⚠️ «못 찾았다» 와 «못 물어봤다» 를 갈라 말한다 — `.catch(() => null)` 로 뭉치면
+         D1 이 흔들렸을 뿐인데 화면이 「그 수업이 없습니다」라고 **거짓 사유**를 말한다
+         (CLAUDE.md 2장 「«모른다»(null) 를 별도 사유(`lookup_failed`)로」). 둘 다 막는 것은 같다. */
+      let row: any = null;
+      try {
+        row = await env.DB.prepare(
+          `SELECT id, user_id, student_name, teacher_id, status FROM class_schedules WHERE id = ?`
+        ).bind(sid).first();
+      } catch (e) {
+        console.warn('[room-override] 예약 조회 실패', e);
+        return json({ ok: false, error: 'lookup_failed', message: '수업 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
+      }
       if (!row || !row.id) return json({ ok: false, error: 'schedule_not_found' }, 404);
 
       /* 강사면 «자기 수업» 인지 확인한다. 못 확인하면 **막는 쪽으로 실패**한다 —
          남의 학생을 다른 방으로 보내는 조작이라 「모르면 통과」가 되면 안 된다. */
-      if ((_roActor as any).isTeacher) {
+      if (!_roIsHq) {
         const mine = await teacherOwnsSchedule(env as any, _roActor as any, row);
         if (mine !== true) return json({ ok: false, error: 'forbidden_not_my_class', message: '내 수업만 지정할 수 있습니다.' }, 403);
       }
@@ -6715,7 +6734,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (!v.ok) return json({ ok: false, error: v.error || 'bad_room_code', message: '방 번호를 확인해 주세요.' }, 400);
 
       const now = Date.now();
-      const note = String(b.note || '').trim().slice(0, 200) || null;
+      /* ⛔ 메모는 «받지 않는다». 화면이 안 보내는 죽은 칸인데 서버가 받아 저장하고
+         `room_override_note` 로 **학생 응답에 실어 보내고** 있었다 — 누가 채우는 순간
+         «선생님 메모가 학생 화면으로» 가는 길이 된다(2026-09-10 함정 대조).
+         칸은 남겨 둔다(나중에 «학생에게 보여 줄 한 줄» 로 쓸 수 있다) — 지금은 늘 null. */
+      const note: string | null = null;
       await env.DB.prepare(
         `INSERT INTO class_room_override (schedule_id, ymd, room_id, note, created_by, created_at)
          VALUES (?, ?, ?, ?, ?, ?)

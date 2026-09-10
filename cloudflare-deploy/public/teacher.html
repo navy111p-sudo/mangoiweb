@@ -2163,13 +2163,25 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           + T('\n\n[!] Points and the review quiz are off in a meeting room.',
               '\n\n⚠️ 회의방에서는 포인트·복습퀴즈가 쉽니다.')
           + (link ? '\n\n' + link : ''));
-        /* 링크를 «보내는» 길도 준다 — 휴대폰은 공유 시트, PC 는 클립보드.
-           ⛔ window.open 으로 열지 말 것(인앱 브라우저는 예외 없이 null 만 돌려준다). */
+        /* 링크를 «보내는» 길.
+           🔴 (2026-09-10 함정 대조) `navigator.share` 를 **alert 뒤**에 부르면 그 시점엔
+              사용자 제스처(transient activation)가 이미 사라져 `NotAllowedError` 로 거절되고,
+              `.catch(function(){})` 가 그것을 **조용히 삼킵니다.** 데스크톱 크롬도
+              `navigator.share` 가 있어서 클립보드 폴백으로도 안 갑니다 — 즉 «보냈다고 생각하는데
+              아무 데도 안 가는» 모양입니다. ⟹ **클립보드를 먼저** 시도하고(제스처가 필요 없습니다),
+              공유 시트는 **사람이 한 번 더 누를 때** 엽니다.
+           ⛔ window.open 으로 열지 말 것(인앱 브라우저는 예외 없이 null 만 돌려줍니다). */
         if (link) {
+          var copied = false;
           try {
-            if (navigator.share) { navigator.share({ text: link }).catch(function () {}); }
-            else if (navigator.clipboard) { navigator.clipboard.writeText(link).catch(function () {}); }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(link).then(function () { copied = true; }).catch(function () {});
+            }
           } catch (e) {}
+          if (navigator.share && confirm(T('Send this link now?', '이 링크를 지금 보낼까요?'))) {
+            /* confirm 을 사람이 «누른» 그 제스처 안에서 연다 — 그래야 공유 시트가 실제로 뜬다. */
+            try { navigator.share({ text: link }).catch(function () {}); } catch (e) {}
+          }
         }
       })
       .catch(function () { alert(T('Network error. Please try again.', '통신이 불안정합니다. 다시 시도해 주세요.')); });
