@@ -771,7 +771,7 @@
   function en() {
     try {
       var g = (typeof window.getLang === 'function') ? window.getLang()
-            : (localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang') || 'ko');
+            : (localStorage.getItem('mangoi_lang') || 'ko');   // ⛔ mango_lang 은 구버전 키
       return String(g).toLowerCase() === 'en';
     } catch (_) { return false; }
   }
@@ -799,14 +799,34 @@
     if (!ms || typeof ms.getVideoTracks !== 'function') return null;
     if (box.querySelector('.vc-connecting-hint')) return null;
 
+    /* 🔒 «카메라 꺼짐» 은 이 저장소에 이미 정본이 있다 — idx-main.js 의 vcApplyRemoteCamHint()
+       가 .vc-camoff-hint 를 그리고, 그것은 서버가 실어 준 사유로 «사람이 껐다(user)» 와
+       «회선이 약해 시스템이 내렸다(aao)» 를 갈라 말한다(window.vcRemoteCamOff[uid]).
+       참관 화면도 vc-in-call 이 붙고 cam-state 방송을 그대로 받으므로 그 정본이 여기서도 돈다.
+       ⛔ 그러니 우리가 «상대가 껐다» 고 단정하면 AAO 에서 «사실이 아닌» 말을 덧붙이게 된다
+          (기존 힌트는 「음성만 전송 중」이라고 말하는 그 자리다). 정본이 아는 칸에서는 손을 뗀다. */
+    var uid = String(box.id || '').slice('vc-video-'.length);
+    var known = false;
+    try { known = !!(window.vcRemoteCamOff && window.vcRemoteCamOff[uid]); } catch (_) {}
+    if (known || box.querySelector('.vc-camoff-hint') || box.querySelector('.vc-black-hint')) return null;
+
     var vts = ms.getVideoTracks() || [];
     if (!vts.length) return 'nocam';                       // 비디오 트랙 자체가 없다
     var t = vts[0];
-    if (t.readyState !== 'live' || t.muted === true) return 'camoff';   // 상대가 껐다
+    /* 정본이 «모르는» 채로 영상만 끊긴 자리 — 왜 끊겼는지는 우리도 모르므로 단정하지 않는다. */
+    if (t.readyState !== 'live' || t.muted === true) return 'novideo';
 
     if (v.paused === true) return null;                    // 자동재생 정책 — 다른 안내가 담당
     var f = frames(v);
     if (f < 0) return null;                                // 못 쟀다 → 말하지 않는다
+
+    /* 🖥 화면 공유 타일은 «정지 화면» 이 정상이다(교재 한 장을 띄워 둔 동안 새 프레임이 없다).
+       판별은 이 저장소가 이미 쓰는 .vc-ss-badge — CLAUDE.md 「⛔ 화면 공유는 예외입니다」.
+       ⚠️ 실제 프레임 간격은 재지 않았다. 재기 전에는 «말하지 않는» 쪽으로 둔다. */
+    if (box.querySelector('.vc-ss-badge')) return null;
+    /* 🙈 배경 탭에서는 브라우저가 디코딩을 늦춰 프레임이 안 늘 수 있다 — 멀쩡한 영상을
+       「멈췄다」로 오진한다. 관제탑 순회 참관은 창을 재사용해 배경으로 두는 구조다. */
+    try { if (document.hidden === true) return null; } catch (_) {}
 
     var last = box.__vcWhyF;
     if (!last || last.n !== f) { box.__vcWhyF = { n: f, at: now }; return null; }
@@ -817,8 +837,8 @@
   var TEXT = {
     nocam:  ['🎤 소리만 오는 중 — 상대가 카메라를 켜지 않았습니다',
              '🎤 Audio only — the other side has no camera on'],
-    camoff: ['📷 상대가 카메라를 껐습니다',
-             '📷 Camera is off on the other side'],
+    novideo: ['📷 상대 영상이 오지 않습니다',
+              '📷 No video coming from the other side'],
     stall:  ['⏳ 영상이 멈췄습니다 — 다시 받는 중',
              '⏳ Video stalled — receiving again'],
   };
@@ -827,8 +847,10 @@
     if (document.getElementById('vc-obs-why-css')) return;
     var st = document.createElement('style');
     st.id = 'vc-obs-why-css';
-    st.textContent = '.vc-obs-why{position:absolute;left:50%;bottom:42px;transform:translateX(-50%);'
-      + 'z-index:5;max-width:92%;padding:6px 12px;border-radius:99px;white-space:nowrap;'
+    /* ⚠️ 별점 버튼이 오른아래(right:8px·bottom:34px·z-index:7)에 있다 — 가로로 비켜서고
+       그 폭만큼 자리를 비운다(pointer-events:none 이라 클릭은 원래 안 막는다). */
+    st.textContent = '.vc-obs-why{position:absolute;left:8px;bottom:42px;'
+      + 'z-index:5;max-width:calc(100% - 56px);padding:6px 12px;border-radius:99px;white-space:nowrap;'
       + 'overflow:hidden;text-overflow:ellipsis;background:rgba(15,23,42,.82);color:#e2e8f0;'
       + 'border:1px solid rgba(148,163,184,.45);font-size:12px;font-weight:700;line-height:1.4;'
       + 'pointer-events:none;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}';
@@ -853,7 +875,14 @@
     /* 참관이 아니게 되면 스스로 끈다 — 상주 타이머를 남기지 않는다. */
     if (!obs()) { try { clearInterval(timer); } catch (_) {} timer = null; return; }
     var now = Date.now();
-    var boxes = document.querySelectorAll('[id^="vc-video-"]');
+    /* ⛔ [id^="vc-video-"] 로 훑지 말 것 — index.html 에 그 접두사인데 «칸이 아닌» 것이 둘 있다
+       (#vc-video-pane 8440행 · #vc-video-grid 8498행). 둘 다 안에 <video> 를 갖고 있어
+       칸으로 오인되고, 알약이 얼굴 열 전체에 하나씩 더 그려진다.
+       idx-main.js 도 같은 함정을 알고 id === 'pane' 을 따로 거른다(1442행).
+       여기서는 정본 vcRemoteBlackWatch 와 같은 방식으로 «그리드의 직계 .video-box» 만 훑는다. */
+    var grid = document.getElementById('vc-video-grid');
+    if (!grid) return;
+    var boxes = grid.querySelectorAll(':scope > .video-box[id^="vc-video-"]');
     for (var i = 0; i < boxes.length; i++) {
       try { paint(boxes[i], stateOf(boxes[i], now)); } catch (_) {}
     }

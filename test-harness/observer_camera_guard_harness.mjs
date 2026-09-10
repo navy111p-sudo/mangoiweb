@@ -424,7 +424,11 @@ console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을
 {
   /* ⑪절만 오려 낸다. ⛔ 파일 끝까지 자르면 다음에 붙는 절이 딸려 온다(H④-2 참고). */
   const wi = guard.indexOf('⑪ 참관 화면');
-  const sec = wi >= 0 ? guard.slice(guard.lastIndexOf('/*', wi)) : '';
+  /* ⚠️ H④-2 와 같은 이유로 «파일 끝까지» 자르지 않는다. 지금은 ⑪절이 마지막이라 결과가 같지만,
+     ⑫절이 붙는 순간 I④(MutationObserver 없음)·I⑤(vcRemovePeer 없음)가 거짓 FAIL 을 낸다. */
+  const wj = wi >= 0 ? guard.indexOf('⑫ ', wi) : -1;
+  const secEnd = wj >= 0 ? guard.lastIndexOf('/*', wj) : guard.length;
+  const sec = wi >= 0 ? guard.slice(guard.lastIndexOf('/*', wi), secEnd) : '';
   check('I① ⑪절이 파일에 있다', sec.length > 0);
 
   const sc = strip(sec);
@@ -458,7 +462,13 @@ console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을
         !!stallLine && !!framesFn && !!stateFn);
 
   if (stallLine && framesFn && stateFn) {
-    const stateOf = new Function(stallLine + '\n' + framesFn + '\n' + stateFn + '\nreturn stateOf;')();
+    /* ⚠️ 판정이 window.vcRemoteCamOff(기존 정본의 상태)와 document.hidden(배경 탭)을 읽는다.
+       주입하지 않으면 그 두 줄이 예외로 빠져 검사가 헛돈다. */
+    const mkStateOf = (winOverride, docOverride) => new Function(
+      'window', 'document',
+      stallLine + '\n' + framesFn + '\n' + stateFn + '\nreturn stateOf;'
+    )(winOverride || { vcRemoteCamOff: {} }, docOverride || { hidden: false });
+    const stateOf = mkStateOf();
 
     const mkVideo = o => ({
       paused: o.paused === true,
@@ -466,11 +476,14 @@ console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을
       getVideoPlaybackQuality: o.noFrames ? undefined : (() => ({ totalVideoFrames: o.f || 0 })),
     });
     const mkBox = o => ({
+      id: 'vc-video-' + (o.uid || 'stu1'),
       video: mkVideo(o),
-      hint: o.hint ? {} : null,
       querySelector(sel) {
         if (sel === 'video') return o.novideo ? null : this.video;
-        if (sel === '.vc-connecting-hint') return this.hint;
+        if (sel === '.vc-connecting-hint') return o.hint ? {} : null;
+        if (sel === '.vc-camoff-hint') return o.camoffHint ? {} : null;
+        if (sel === '.vc-black-hint') return o.blackHint ? {} : null;
+        if (sel === '.vc-ss-badge') return o.screenShare ? {} : null;
         return null;
       },
     });
@@ -479,10 +492,15 @@ console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을
     /* «말한다» 쪽 */
     check('I⑦ 비디오 트랙이 하나도 없으면 「소리만」이라고 말한다',
           stateOf(mkBox({ tracks: [] }), 1000) === 'nocam');
-    check('I⑧ 상대가 카메라를 끄면(muted) 「카메라를 껐다」고 말한다',
-          stateOf(mkBox({ tracks: [{ readyState: 'live', muted: true }] }), 1000) === 'camoff');
-    check('I⑨ 트랙이 live 가 아니면 「카메라를 껐다」고 말한다',
-          stateOf(mkBox({ tracks: [{ readyState: 'ended', muted: false }] }), 1000) === 'camoff');
+    check('I⑧ 영상이 끊기면(muted) 말한다 — ⛔ 단, «껐다» 고 단정하지 않는다',
+          stateOf(mkBox({ tracks: [{ readyState: 'live', muted: true }] }), 1000) === 'novideo');
+    check('I⑨ 트랙이 live 가 아니어도 같은 말을 한다',
+          stateOf(mkBox({ tracks: [{ readyState: 'ended', muted: false }] }), 1000) === 'novideo');
+    /* ⚠️ 부정 검사는 «주석을 벗겨 낸» 사본으로 — 왜 그렇게 했는지 적은 주석이 그 낱말을
+       갖고 있어 검사가 «자기 주석» 을 잡는다(CLAUDE.md 2장. 여기서 실제로 밟았다). */
+    check('I⑨-2 문구가 «상대가 껐다» 로 단정하지 않는다 (AAO 는 회선 때문이지 사람이 끈 것이 아니다)',
+          !/카메라를 껐/.test(strip(sec)) && /상대 영상이 오지 않습니다/.test(sec),
+          'idx-main.js vcApplyRemoteCamHint 가 user/aao 를 갈라 말하는 정본이다');
     {
       const b = mkBox({ tracks: [live], f: 500 });
       const first = stateOf(b, 1000);          // 프레임 수를 처음 기억한다
@@ -521,6 +539,56 @@ console.log('\n▶ I. 참관 화면이 «왜 검은지» 말한다 — 판정을
           stateOf(mkBox({ tracks: [], hint: true }), 1000) === null);
     check('I⑯ <video> 가 아직 없으면 말하지 않는다',
           stateOf(mkBox({ novideo: true }), 1000) === null);
+
+    /* ── 이미 있는 정본에 양보하는가 (함정 대조 2026-09-10) ──
+       ⛔ 「상대가 카메라를 껐다」는 idx-main.js vcApplyRemoteCamHint 의 몫이다. 그것은 서버가
+          실어 준 사유로 «사람이 껐다» 와 «회선이 약해 내려갔다(AAO)» 를 갈라 말한다.
+          우리가 덧붙이면 AAO 에서 «사실이 아닌» 말이 하나 더 붙는다. */
+    {
+      const win = { vcRemoteCamOff: { stu9: 'aao' } };
+      const so = mkStateOf(win, { hidden: false });
+      check('I⑱ 정본이 «왜 꺼졌는지» 아는 칸에서는 손을 뗀다 (AAO 에 「껐다」를 덧붙이지 않는다)',
+            so(mkBox({ uid: 'stu9', tracks: [{ readyState: 'live', muted: true }] }), 1000) === null);
+      check('I⑲ 정본이 모르는 칸에서는 말한다 (짝 — 없으면 «전부 침묵» 도 통과한다)',
+            so(mkBox({ uid: 'other', tracks: [{ readyState: 'live', muted: true }] }), 1000) === 'novideo');
+    }
+    check('I⑳ 기존 「카메라 꺼짐」 힌트가 붙어 있으면 손을 뗀다',
+          stateOf(mkBox({ camoffHint: true, tracks: [{ readyState: 'live', muted: true }] }), 1000) === null);
+    check('I㉑ 기존 「상대 영상 준비 중」 힌트가 붙어 있으면 손을 뗀다',
+          stateOf(mkBox({ blackHint: true, tracks: [] }), 1000) === null);
+    {
+      /* 화면 공유는 «정지 화면» 이 정상이다 — 교재 한 장을 띄워 두면 프레임이 안 는다 */
+      const b = mkBox({ screenShare: true, tracks: [live], f: 500 });
+      check('I㉒ 화면 공유 타일은 「멈췄다」고 하지 않는다',
+            stateOf(b, 1000) === null && stateOf(b, 1000 + 4000) === null);
+    }
+    {
+      const so = mkStateOf({ vcRemoteCamOff: {} }, { hidden: true });
+      const b = mkBox({ tracks: [live], f: 500 });
+      check('I㉓ 배경 탭에서는 「멈췄다」고 하지 않는다 (관제탑 순회 참관이 창을 재사용한다)',
+            so(b, 1000) === null && so(b, 1000 + 4000) === null);
+    }
+  }
+
+  /* ⛔ [id^="vc-video-"] 로 전체를 훑으면 «칸이 아닌» #vc-video-pane·#vc-video-grid 가 걸린다 */
+  {
+    const tickBody = (() => {
+      const i = sec.indexOf('function tick()');
+      if (i < 0) return '';
+      const s0 = sec.indexOf('{', i);
+      let d = 0;
+      for (let k = s0; k < sec.length; k++) {
+        if (sec[k] === '{') d++;
+        else if (sec[k] === '}') { d--; if (!d) return sec.slice(i, k + 1); }
+      }
+      return '';
+    })();
+    check('I㉔ tick() 을 잘라 냈다 (전제)', tickBody.length > 0);
+    check('I㉕ 칸이 아닌 것을 훑지 않는다 (#vc-video-pane · #vc-video-grid 가 같은 접두사다)',
+          tickBody.length > 0 && !/querySelectorAll\('\[id\^="vc-video-"\]'\)/.test(tickBody),
+          'idx-main.js 도 같은 함정을 알고 id === \'pane\' 을 따로 거른다(1442행)');
+    check('I㉖ 그리드의 «직계 .video-box» 만 훑는다 (정본 vcRemoteBlackWatch 와 같은 방식)',
+          /:scope > \.video-box/.test(tickBody));
   }
 
   /* 화면이 그 파일을 «그 버전으로» 부르고 있는가 — 안 올리면 옛 사본이 캐시에 남는다 */
