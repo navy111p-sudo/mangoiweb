@@ -235,6 +235,9 @@
     fallback();
   };
 
+  /* 입장 순간에 사람이 친 방 번호. 비어 있는데 회의방에 들어갔다 = 서버가 정해 준 방. */
+  var typedAtJoin = '';
+
   // ── ③ 공용 연습방 안내 ───────────────────────────────────────────────────
   var sharedShown = false;
   function sharedBanner() {
@@ -260,6 +263,45 @@
     try { b.querySelector('button').onclick = function () { try { b.remove(); } catch (e) {} }; } catch (e) {}
     document.body.appendChild(b);
     // 오래 두면 화면을 가린다 — 읽을 만큼만 두고 스스로 사라진다.
+    setTimeout(function () { try { b.remove(); } catch (e) {} }, 15000);
+  }
+
+  /* ── ⑤ 「오늘은 선생님이 정한 방」 안내 (2026-09-10) ────────────────────────
+     [왜] 서버가 예약방 대신 회의방을 돌려주면(src/class-room-override.ts) 학생은
+       **아무것도 안 하고** 그 방에 들어간다 — 그게 이 기능의 전부다. 그런데 화면이
+       아무 말도 안 하면 「왜 늘 가던 방이 아니지?」가 되고, 더 나쁘게는 「잘못 들어왔나」
+       하고 나갔다 다시 들어온다. **바뀐 것을 화면이 말해야 한다.**
+     [판정] 사람이 방 번호를 «안 쳤는데» 회의방에 있다 → 서버가 정해 준 것.
+       ⛔ 「meet- 이면 무조건」으로 넓히지 말 것 — 스스로 번호를 친 사람에게는
+          「선생님이 정했다」가 거짓말이 된다.
+     ⚠️ 맞바꿈도 함께 말한다 — 회의방은 예약 수업방이 아니라서 **출석 포인트·복습퀴즈
+        안내·강사 AI 코칭이 꺼진다**(__vcIsMeetingRoom). 감추면 「수업은 했는데 포인트가
+        0이다」가 되고 아무도 이유를 모른다. */
+  var assignedShown = false;
+  function assignedBanner() {
+    if (assignedShown) return;
+    assignedShown = true;
+    var en = isEn();
+    var b = document.createElement('div');
+    b.id = 'vc-assigned-room-banner';
+    b.style.cssText =
+      'position:fixed;left:50%;transform:translateX(-50%);' +
+      'top:calc(env(safe-area-inset-top,0px) + 46px);z-index:100002;' +
+      'max-width:min(430px, calc(100% - 16px));box-sizing:border-box;' +
+      'background:rgba(4,26,20,.95);color:#6ee7b7;border:1px solid rgba(16,185,129,.55);' +
+      'border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.55;font-weight:700;' +
+      'box-shadow:0 8px 24px rgba(0,0,0,.45);display:flex;gap:8px;align-items:flex-start';
+    b.innerHTML =
+      '<span style="flex:1 1 auto;min-width:0">' +
+        (en ? 'Today your teacher moved this class to a <b>different room</b>. You are in the right place.<br>'
+            + '<span style="font-weight:500;opacity:.85">Points and the review quiz are off in this room.</span>'
+            : '오늘은 선생님이 <b>다른 방</b>으로 옮긴 수업이에요. 제대로 들어오셨어요.<br>'
+            + '<span style="font-weight:500;opacity:.85">이 방에서는 포인트·복습퀴즈가 쉬어요.</span>') +
+      '</span>' +
+      '<button type="button" aria-label="닫기" style="flex:0 0 auto;background:transparent;border:0;' +
+        'color:#6ee7b7;font-size:16px;line-height:1;cursor:pointer;padding:0 2px">&times;</button>';
+    try { b.querySelector('button').onclick = function () { try { b.remove(); } catch (e) {} }; } catch (e) {}
+    document.body.appendChild(b);
     setTimeout(function () { try { b.remove(); } catch (e) {} }, 15000);
   }
 
@@ -296,6 +338,7 @@
       var nm = el('vc-room-name');
       var room = (nm && nm.textContent) ? nm.textContent.trim() : '';
       if (room === SHARED_ROOM) sharedBanner();
+      else if (/^meet-/i.test(room) && !typedAtJoin) assignedBanner();   // 안 쳤는데 회의방 = 서버가 정해 준 방
     } catch (e) {}
   }
 
@@ -329,6 +372,11 @@
       var origJoin = window.vcJoinRoom;
       if (typeof origJoin === 'function' && !origJoin.__roomcodeWrapped) {
         window.vcJoinRoom = function () {
+          /* 🚪 입장 «순간» 에 사람이 방 번호를 쳤는지 기억해 둔다.
+             안 쳤는데 회의방(meet-…)에 들어가 있으면 그건 **서버가 정해 준 방**이다
+             (「오늘은 이 방으로」 — src/class-room-override.ts). 아래 ⑤ 안내가 그것을 쓴다.
+             ⛔ 서버 응답을 다시 조회해서 판정하지 말 것 — 같은 요청이 두 번 나간다. */
+          try { var _rc = el('vc-roomcode-input'); typedAtJoin = (_rc && _rc.value.trim()) || ''; } catch (e) { typedAtJoin = ''; }
           saveTypedRoom();        // 기억은 «사람이 친 대로»(다음에 그대로 보여 준다)
           normalizeRoomInput();   // 입장은 «해석한 방 id» 로 — 회의방 모달과 같은 규칙
           return origJoin.apply(this, arguments);

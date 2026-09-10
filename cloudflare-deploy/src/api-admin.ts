@@ -49,6 +49,8 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
+import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
+import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
@@ -6655,6 +6657,81 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //           start_time:'HH:MM'(필수), duration_min?, class_type?, notes?, force? }
     //   ⚠️ day_of_week 는 반드시 '숫자 0=일~6=토' 로 저장한다 — /api/class/sessions/today 가
     //      그 형식을 기준으로 오늘 수업을 계산한다. 반복 수업이 여러 요일이면 요일당 1행.
+    /* 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다 (2026-09-10 사장님 지시)
+       ─────────────────────────────────────────────────────────────────────────
+       ⚠️ **왜 PUT 인가** — 새 경로를 만들려면 `src/index.ts` 의 라우팅 허용목록에 한 줄을
+          넣어야 하는데 그 파일은 «공동 금지구역» 이다. 그 목록의 등록은 **메서드를 안 가리므로**
+          이미 등록된 `/api/admin/class-schedules`(정확일치)의 **비어 있는 메서드**에 얹는다
+          (실측: 이 경로는 GET·POST 만 쓴다). CLAUDE.md 2장 「②가 금지구역이라 못 고칠 때」.
+       ⛔ 그래서 본문에 `action` 을 두고 **모르는 값은 거절한다** — 안 그러면 나중에 이 경로에
+          다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러 들어간다.
+       판정 정본은 `src/class-room-override.ts`(방 이름 규칙은 화면과 같은 말을 해야 한다). */
+    if (method === 'PUT' && path === '/api/admin/class-schedules') {
+      const b: any = await request.json().catch(() => ({}));
+      const act = String(b.action || '').trim();
+      if (act !== 'room_override' && act !== 'room_override_clear') {
+        return json({ ok: false, error: 'unknown_action', message: '모르는 요청입니다.' }, 400);
+      }
+
+      /* 누가 지정할 수 있나 — 본사(hq) 와 **그 수업 담당 강사**.
+         ⛔ 지사·대리점은 막는다(isOrgScopedRole) — 남의 수업을 다른 방으로 돌리는 조작이다.
+         ⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'(내부직원·교사)에도 true 라 강사를 못 가린다
+            (CLAUDE.md 2장 「본사 전용으로 막았는데 강사가 그대로 실행됨」). */
+      const _roActor = await getAdminActor(request, env as any);
+      if (!_roActor || (_roActor as any).ok === false) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (isOrgScopedRole((_roActor as any).role)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사 또는 담당 강사만 지정할 수 있습니다.' }, 403);
+      }
+
+      const sid = Number(b.schedule_id);
+      if (!Number.isFinite(sid) || sid <= 0) return json({ ok: false, error: 'bad_schedule_id' }, 400);
+
+      // 그 예약이 실재하는지 + 담당 강사가 누구인지
+      const row: any = await env.DB.prepare(
+        `SELECT id, user_id, student_name, teacher_id, status FROM class_schedules WHERE id = ?`
+      ).bind(sid).first().catch(() => null);
+      if (!row || !row.id) return json({ ok: false, error: 'schedule_not_found' }, 404);
+
+      /* 강사면 «자기 수업» 인지 확인한다. 못 확인하면 **막는 쪽으로 실패**한다 —
+         남의 학생을 다른 방으로 보내는 조작이라 「모르면 통과」가 되면 안 된다. */
+      if ((_roActor as any).isTeacher) {
+        const mine = await teacherOwnsSchedule(env as any, _roActor as any, row);
+        if (mine !== true) return json({ ok: false, error: 'forbidden_not_my_class', message: '내 수업만 지정할 수 있습니다.' }, 403);
+      }
+
+      const ymd = String(b.ymd || '').trim() || kstYmd(Date.now());
+      if (!/^\d{8}$/.test(ymd)) return json({ ok: false, error: 'bad_ymd' }, 400);
+      /* ⛔ 지난 날짜에는 못 건다 — 「오늘 하루」가 이 기능의 전부다. */
+      if (ymd < kstYmd(Date.now())) return json({ ok: false, error: 'past_ymd', message: '지난 날짜에는 지정할 수 없습니다.' }, 400);
+
+      await ensureRoomOverrideTable(env.DB);
+
+      if (act === 'room_override_clear') {
+        await env.DB.prepare(`DELETE FROM class_room_override WHERE schedule_id = ? AND ymd = ?`).bind(sid, ymd).run();
+        return json({ ok: true, cleared: true, schedule_id: sid, ymd });
+      }
+
+      const v = validateOverrideInput(sid, b.room_code);
+      if (!v.ok) return json({ ok: false, error: v.error || 'bad_room_code', message: '방 번호를 확인해 주세요.' }, 400);
+
+      const now = Date.now();
+      const note = String(b.note || '').trim().slice(0, 200) || null;
+      await env.DB.prepare(
+        `INSERT INTO class_room_override (schedule_id, ymd, room_id, note, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(schedule_id, ymd) DO UPDATE SET
+           room_id = excluded.room_id, note = excluded.note,
+           created_by = excluded.created_by, created_at = excluded.created_at`
+      ).bind(sid, ymd, v.room_id, note, String((_roActor as any).username || 'unknown'), now).run();
+
+      return json({
+        ok: true, schedule_id: sid, ymd, room_id: v.room_id, note,
+        student_name: row.student_name || null,
+        /* 화면이 그대로 보여 줄 링크 — 도메인은 정본 한 곳에서만 온다(CLAUDE.md 0장). */
+        link: `${SITE_ORIGIN}/?meet=${encodeURIComponent(v.room_id.replace(/^meet-/, ''))}`,
+      });
+    }
+
     if (method === 'POST' && path === '/api/admin/class-schedules') {
       try {
         await env.DB.exec(
