@@ -397,11 +397,11 @@
     <button class="opt" data-persona="serious" data-ko="진지한" data-en="Serious">진지한</button>
     <button class="opt" data-persona="tutor" data-ko="튜터" data-en="Tutor">튜터</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
-    <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
-    <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
-    <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
-    <button class="opt" data-rate="1.25" data-ko="빠르게" data-en="Fast">빠르게</button>
-    <button class="opt" data-rate="1.5" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
+    <button class="opt" data-rate="0.5" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
+    <button class="opt" data-rate="0.65" data-ko="느리게" data-en="Slow">느리게</button>
+    <button class="opt active" data-rate="0.8" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt" data-rate="1" data-ko="빠르게" data-en="Fast">빠르게</button>
+    <button class="opt" data-rate="1.25" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
     <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
          목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
          학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
@@ -463,6 +463,14 @@
     </div>
   </div>
 
+  <!-- ✨ 오늘의 단어 «주차장» (2026-09-09 A안 목업의 마지막 한 조각).
+       카드 자체는 빈 화면 «안»(#wodSlot)에 그린다 — 그래야 대화창 높이를 한 픽셀도
+       안 먹는다(밖에 두었더니 PC 1280 에서 대화창이 52.6% 로 내려갔다. 실측).
+       ⛔ 이 상자는 «늘 비어 있고 늘 숨어» 있다. #wodChip 은 아래 스크립트가 .hud 에서
+          «옮겨» 오고, 빈 화면이 지워지기 «직전» 에 여기로 잠깐 피신한다(wodPark).
+       ⛔ 새로 만들지 말 것 — updateHUD 의 getElementById 가 null 이 되는데 그 함수는
+          null 검사가 없어 «던지고», 그 뒤 퀘스트 갱신 4줄이 통째로 죽는다. -->
+  <div id="wodCard" hidden></div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
     <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
@@ -566,16 +574,53 @@
       } catch(e){ return AIF_DEFAULT; }
     })();
     let currentPersona = 'friendly';
-    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
+    /* 🔊 원어민 음성 재생 속도 — «계단 정본은 여기 한 곳» 이다.
+       화면 버튼(data-rate)·저장값 스냅·"천천히 말해줘" 한 칸 내리기가 모두 이 배열을 본다.
+       ⛔ 딴 곳에 값을 다시 적지 말 것 — 한쪽만 바뀌면 «버튼은 보통인데 실제로는 다른 배속» 이
+          되고 에러는 안 난다.
+       🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
+          화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
+       📜 2026-08-31 사장님 「속도 구별이 잘 안돼」 → 칸 사이를 20% 이상으로 넓혔다.
+          2026-09-10 사장님 「아직도 말 속도가 너무 빨라. 보통을 기준으로 모두 느리게」
+          → 계단을 통째로 한 칸씩 내렸다(보통 1 → 0.8, 즉 옛 「느리게」가 새 「보통」).
+          칸 사이 비율(30·23·25·25%)은 20% 위로 그대로라 8/31 결정이 안 깨진다. */
+    const RATE_STEPS_AF = [0.5, 0.65, 0.8, 1, 1.25];
+    const RATE_DEFAULT_AF = 0.8;              // = «보통»
+    const RATE_KEY_AF = 'mangoi_aifriend_tts_rate';
+    /* 🔴 «옛 계단을 쓰던 기기» 를 한 번만 옮겨 준다 — 이 줄이 없으면 사장님 지시가
+       «이미 속도를 골라 둔 학생» 에게는 한 글자도 안 닿습니다.
+       값만 두면 «가장 가까운 칸» 이 옛 값을 그대로 집어 배속이 안 바뀌고(0.8→0.8·1→1),
+       하필 «🐢 아주 느리게» 를 골라 둔 학생 — 「너무 빠르다」를 이미 몸으로 말한 학생 —
+       만 0.6 → 0.65 로 «빨라집니다»(함정 대조가 브라우저로 재서 잡았습니다).
+       그래서 «값» 이 아니라 «칸 번호» 로 옮깁니다: 0.6→0.5 · 0.8→0.65 · 1→0.8 · 1.25→1 · 1.5→1.25.
+       라벨(아주 느리게…아주 빠르게)이 그대로 보존되면서 전원이 지시대로 한 칸 느려집니다.
+       ⛔ 이것은 «한 번만» 이어야 합니다 — 매번 돌면 새 0.8 을 옛 2단계로 보고 0.65 로,
+          또 0.65 를… 하며 수업 때마다 계속 느려집니다. 그래서 표식(RATE_VER_AF)을 둡니다. */
+    const RATE_VER_KEY_AF = 'mangoi_aifriend_tts_rate_v';
+    const RATE_VER_AF = '2';                  // 2 = 2026-09-10 한 칸씩 내린 계단
+    const RATE_STEPS_V1_AF = [0.6, 0.8, 1, 1.25, 1.5];   // 옮겨 오기 전용(판정에 쓰지 말 것)
+    const rateMarkAF = () => { try { localStorage.setItem(RATE_VER_KEY_AF, RATE_VER_AF); } catch(e){} };
+    const rateNearAF = (r) =>
+      RATE_STEPS_AF.reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, RATE_DEFAULT_AF);
     let currentRate = (function(){
       try {
-        const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate'));
-        if (!(r >= 0.5 && r <= 1.5)) return 1;
-        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값(1.2)은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
-           상태가 된다 — 화면은 「보통」처럼 보이는데 실제로는 1.2배로 읽는다(에러 없음).
-           그래서 가장 가까운 칸으로 맞춰서 시작한다. */
-        return [0.6, 0.8, 1, 1.25, 1.5].reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, 1);
-      } catch(e){ return 1; }
+        const r = parseFloat(localStorage.getItem(RATE_KEY_AF));
+        const moved = localStorage.getItem(RATE_VER_KEY_AF) === RATE_VER_AF;
+        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
+           상태가 된다 — 화면은 «보통» 처럼 보이는데 실제로는 딴 배속으로 읽는다(에러 없음).
+           ⛔ 범위 밖이라고 «기본값으로» 떨어뜨리지 말 것 — 아주 빠르게를 고른 학생이
+              말없이 보통으로 되돌아간다. 터무니없는 값만 거른다. */
+        if (!(r >= 0.3 && r <= 2)) { rateMarkAF(); return RATE_DEFAULT_AF; }
+        if (moved) return rateNearAF(r);
+        const i = RATE_STEPS_V1_AF.findIndex(v => Math.abs(v - r) < 1e-9);
+        /* ⛔ 옛 계단에 없는 값(예: 1.2)에 «가장 가까운 칸» 을 쓰면 1.25 로 «빨라진다» —
+           지시가 「모두 느리게」이므로 모르는 값은 «그보다 느린 쪽» 으로 내린다. */
+        const next = i >= 0 ? RATE_STEPS_AF[i]
+          : (RATE_STEPS_AF.filter(v => v <= r + 1e-9).pop() || RATE_STEPS_AF[0]);
+        try { localStorage.setItem(RATE_KEY_AF, String(next)); } catch(e){}
+        rateMarkAF();
+        return next;
+      } catch(e){ return RATE_DEFAULT_AF; }
     })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
@@ -823,13 +868,12 @@
     /* 🐢 (2026-07-23) "천천히 말해줘" 를 말이나 글로 부탁하면 실제로 음성 속도를 한 단계 낮춘다.
        그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
        (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
-    /* 🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
-       화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
-       (2026-08-31 사장님 「속도 구별이 잘 안돼」로 칸 사이를 20% 이상으로 넓혔다) */
-    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.25, 1.5];
+    /* 계단 정본(RATE_STEPS_AF)은 이 파일 위쪽 «음성 재생 속도» 블록에 한 벌만 있다. */
     function applyRate(v) {
       currentRate = v;
-      try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
+      /* 사람이 고른 값은 이미 새 계단이다 — 표식을 함께 남겨야 다음 로드에서 또 옮기지 않는다 */
+      try { localStorage.setItem(RATE_KEY_AF, String(currentRate)); } catch(e){}
+      rateMarkAF();
       document.querySelectorAll('.opt[data-rate]').forEach(x => {
         x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
       });
@@ -1387,6 +1431,9 @@
         + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
         /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.
            고르지 않고 주제만 눌러도 그대로 진행된다(관문이 아니라 안내). */
+        /* ✨ 오늘의 단어 — 인사 바로 아래. 여기는 «칩이 들어올 빈 자리» 이고
+           칩 자체는 wodSync() 가 옮겨 온다(새로 만들면 updateHUD 가 던진다). */
+        + '<div class="wod-card" id="wodSlot"></div>'
         + '<p style="color:var(--text2)">' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</p>'
         + friendCards()
         + '<p style="color:var(--text2);margin-top:16px">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
@@ -1422,6 +1469,10 @@
 
       // 빈 상태면 클리어
       const empty = document.querySelector('.empty-state');
+      /* 🛟 빈 화면을 지우기 «직전» 에 오늘의 단어 칩을 밖으로 피신시킨다.
+         안 하면 innerHTML 이 그 칩을 통째로 파괴하고, 그 뒤 updateHUD() 의
+         getElementById 가 null 이 되어 «던진다»(퀘스트 갱신 4줄이 함께 죽는다). */
+      if (empty && window.wodPark) window.wodPark();
       if (empty) document.getElementById('chat').innerHTML = '';
       /* ✏️ 이전 «교정 카드» 도 함께 걷는다 (웜업 warmup.html 과 같은 자리).
          ⛔ showFixCard 안에서만 지우면 안 된다 — 서버 오류·네트워크 실패로 그 함수가 아예
@@ -1612,6 +1663,7 @@
       if (auth) {
         try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
       }
+      if (window.wodPark) window.wodPark();         // 🛟 위와 같은 이유 — 지우기 직전에 피신
       document.getElementById('chat').innerHTML = '';
       setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
       renderEmpty();
@@ -1774,7 +1826,12 @@
   .top .status{ display:none; }
   .top .clear-btn{ font-size:11px; padding:5px 9px; }
   .snd-toggle{ width:32px; height:32px; font-size:15px; }
-  .opts-toggle{ font-size:11px; padding:5px 9px; }
+  /* 📜 2026-09-10 «설정» 두 글자가 이 버튼 안으로 들어와 버튼이 넓어졌다.
+     여기는 «높이» 기준 블록(가로로 눕힌 폰)이라 자리가 특히 빠듯해 함께 줄여 둔다.
+     ⚠️ 390·320px 실측은 «폭» 기준 블록(max-width:520px) 쪽에 적혀 있다.
+     ⛔ 그 글자를 접어서 되돌리지 말 것(사장님 지시) — 대신 여백에서 낸다. */
+  .opts-toggle{ font-size:11px; padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
   .hud{ padding:4px 12px; gap:6px; }
   .hud-chip{ font-size:11.5px; padding:4px 9px; }
   .hud-lv .xp-track{ width:44px; height:6px; }
@@ -1903,11 +1960,23 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
         말하는 유일한 자리다. 지구본만 남기면 «무슨 말로 바뀌는지» 를 알 길이 없고,
         title 툴팁은 폰에 hover 가 없어 안 뜬다(CLAUDE.md «폰에서는 안 뜸»). */
   .top #mangoi-global-bar .mangoi-home-label{ display:none; }
-  .top #mangoi-global-bar > *{ padding:6px 8px !important; gap:3px !important; }
-  /* 폰에서는 ⚙ 요약의 «레벨» 만 접어 한 줄을 지킨다 — 시트를 열면 바로 보인다.
-     ⛔ .ot-sum 을 통째로 숨기지 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
+  /* ⚠️ 이 블록 안에서 같은 선택자를 두 번 적지 말 것 — 뒤가 이겨서 앞이 죽은 줄이 된다.
+     «설정» 두 글자가 들어오며 좁아진 몫을 여기서 함께 낸다(2026-09-10, 6px 8px → 6px 6px). */
+  .top #mangoi-global-bar > *{ padding:6px 6px !important; gap:3px !important; }
+  /* 📜 2026-09-10 이전에는 여기서 ⚙ 요약의 «레벨»(.ot-lv)을 접어 한 줄을 지켰다.
+     지금 그 자리에 든 것은 «설정» 두 글자라 «1단계 · A1»보다 짧아서 접을 이유가 없고,
+     사장님이 «톱니바퀴 옆에 설정이라고 단어도 추가해줘»라고 하신 바로 그 글자다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning_harness 가 <style> 안에서 세어
+        «이 화면이 983KB 한자 폰트를 받는다» 로 판정한다(세 번째로 밟았다). « » 를 쓴다.
+     ⛔ .ot-lv 를 다시 접지 말 것 — 톱니바퀴만 남으면 «무엇을 여는 버튼인지» 알 길이 없다
+        (title 툴팁은 폰에 hover 가 없어 안 뜬다).
+     ⛔ .ot-sum 을 통째로 숨기지도 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
         함께 사라져, 끈 학생에게 되돌아올 길이 화면에서 없어진다(함정 대조가 잡았다). */
-  .opts-toggle .ot-lv{ display:none; }
+  /* 그 대신 여백에서 낸다 — «설정» 두 글자가 폭을 24px 먹기 때문이다(2026-09-10 실측).
+     ⚠️ 여기서 안 줄이면 390px 에서 친구 이름(«Emma»)이 잘린다. 이름을 지우는 것보다
+        버튼 여백을 줄이는 편이 낫다(위 ⛔ 이름·칩·홈·언어를 지우지 말 것). */
+  .opts-toggle{ padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
 }
 /* ≤380px — 여기서부터는 «자리» 가 아니라 «여백» 으로 맞춘다.
    🔴 잰 것(2026-09-09): 360px 에서 고정 자리 합이 341px 이라 이름에 24px 밖에 안 남고
@@ -1920,7 +1989,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   .top .snd-toggle{ width:26px; height:26px; }
   .top .name{ font-size:14px; }
   .top .hud-chip{ font-size:10.5px; padding:4px 5px; gap:2px; }
-  .opts-toggle{ padding:6px 8px; }
+  .opts-toggle{ padding:6px 5px; }
   .top #mangoi-global-bar > *{ padding:5px 6px !important; font-size:11px !important; }
   .top #mangoi-global-bar{ gap:3px !important; }
 }
@@ -1928,8 +1997,13 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
    ✅ 남은 한 칸은 «뒤로» 버튼에서 낸다. 이 화면은 헤더 안에 🏠 홈이 함께 있어서
       ← 를 아이콘만으로 줄여도 나가는 문이 둘 다 남는다. */
 @media (max-width:330px){
-  .top{ gap:3px; padding:8px 6px; }
+  /* 🔴 잰 것(2026-09-10): «설정» 을 넣은 뒤 320px 에서 이름에 36px 밖에 안 남아
+     «Emma»(39px)가 3px 잘렸다. 칸 사이(gap)를 1px 줄여 6px 를 낸다. */
+  .top{ gap:2px; padding:8px 6px; }
   .top .hud-chip{ padding:3px 4px; }
+  /* «설정» 글자를 지키려고 마지막 몇 px 를 여백에서 더 낸다(2026-09-10). */
+  .opts-toggle{ font-size:10.5px; padding:5px 4px; }
+  .top #mangoi-global-bar > *{ padding:5px 4px !important; }
   /* 마지막 몇 px 는 이름 글자에서 낸다 — 지우는 것보다 작아지는 편이 낫다.
      ⚠️ 더 줄이지 말 것. 13px 아래로는 «누구와 이야기하는가» 가 읽히지 않는다. */
   .top .name{ font-size:13px; }
@@ -1938,6 +2012,28 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 /* 위험한 조작은 맨 아래로 — 헤더에 두면 잘못 누른다 */
 .sheet-danger{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;
   padding-top:12px; border-top:1px solid var(--border); }
+
+/* ✨ 오늘의 단어 — 첫 화면에서만 보이는 카드.
+   시트 안에 있으면 «설정을 열어야 보이는 것» 이 되어 아무도 안 봅니다(A안 목업의 마지막 조각).
+   ⚠️ 대화가 시작되면 자리를 비웁니다 — 늘 떠 있으면 상단을 줄인 뜻이 없어집니다.
+   ⚠️ [hidden] 은 작성자 CSS 에 지기 쉬우므로 !important 로 못 박습니다
+      (CLAUDE.md «el.hidden 인데 그대로 보임»). */
+#wodCard{ display:none !important; }   /* 주차장 — 늘 숨김. 높이를 먹지 않는다 */
+.wod-card{ display:flex; justify-content:center; margin:2px 0 14px; }
+/* 카드 안으로 «옮겨 온» 칩은 헤더 칩이 아니라 «카드» 로 보이게 키웁니다.
+   ⛔ 색·테두리는 .hud-wod 가 이미 갖고 있으니 다시 칠하지 않습니다(두 세대가 겹칩니다). */
+.wod-card .hud-wod{ font-size:14px !important; padding:10px 16px !important;
+  border-radius:14px; cursor:pointer; max-width:100%; }
+.wod-card .hud-wod .wod-ko{ font-size:12.5px !important; }
+/* 👂 «눌러서 들어요» — title 툴팁은 폰에 hover 가 없어 안 뜹니다(CLAUDE.md).
+   그래서 글자로 그리되, 가상요소라 i18n 엔진의 textContent 갈아끼우기와 무관합니다. */
+.wod-card .hud-wod::after{ content:attr(data-tap); margin-left:8px;
+  font-size:11.5px; font-weight:700; color:var(--text2); }
+@media (max-width:380px){
+  .wod-card{ padding:5px 8px 2px; }
+  .wod-card .hud-wod{ font-size:12.5px !important; padding:8px 12px !important; }
+  .wod-card .hud-wod::after{ margin-left:5px; font-size:10.5px; }
+}
 
 /* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
 .chat{ flex:1 1 auto; min-height:0; }
@@ -1996,19 +2092,82 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
       var cefr = lv.querySelector('i');
       s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
     }
-    /* 🔴 «지금 꺼져 있다» 표시는 레벨과 «따로» 돌려준다.
-       폰에서는 한 줄을 지키려고 레벨 부분만 접는데, 그때 이 표시까지 함께 접히면
-       자막·소리를 끈 학생에게 «되돌아올 길» 이 화면에서 사라진다 —
-       그건 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+    /* 🔴 «지금 꺼져 있다» 표시는 앞 글자와 «따로» 돌려준다.
+       한때 폰에서 앞부분을 접었는데 그때 이 표시까지 함께 접히면 자막·소리를 끈 학생에게
+       «되돌아올 길» 이 화면에서 사라진다 — 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+       📜 2026-09-10 부터는 접지 않는다(그 자리가 «설정» 두 글자로 바뀜) — 그래도 «따로 돌려주는»
+          구조는 그대로 둔다. 다시 좁아져 접게 될 때 이 표시가 함께 사라지면 안 되기 때문이다.
        ⚠️ 소리도 같은 이유로 함께 본다. 🔊 버튼이 시트로 내려가 헤더에서 안 보이므로,
           꺼 놓으면 어디에도 표시가 없었다. */
     var flags = '';
     if (sb && sb.dataset.sub !== 'on') flags += '👁';
     if (sn && sn.classList.contains('off')) flags += '🔇';
+    /* ⚠️ lv(레벨 요약)는 2026-09-10 부터 «읽는 곳이 0곳» 이다 — 헤더 그 자리가 «설정» 이 됐다.
+       ⛔ 이 값을 헤더에 다시 그리지 마세요(사장님 지시). 지우지 않고 두는 것은 만드는 규칙이
+          간단하지 않아서다(레벨 버튼이 두 줄이라 textContent 를 그냥 쓰면 «3A2+» 가 된다 —
+          2026-08-31 trap-check 산물). 시트 어딘가에 레벨을 요약해 보여 줄 일이 생기면 이것을 쓴다. */
     return { lv: s, flags: flags };
   }
 
+  /* ✨ 첫 화면에서만 보이는 «오늘의 단어» 카드.
+     ⛔ «보여라/숨겨라» 를 부르는 쪽이 정하지 않는다 — 화면에 빈 상태가 있는지 «보고»
+        정한다. 그래야 부르는 자리를 하나 빠뜨려도 어긋나지 않는다. */
+  /* 칩이 있어야 할 자리로 «옮긴다». 빈 화면이 있으면 그 안(#wodSlot), 없으면 주차장.
+     ⛔ «보여라/숨겨라» 를 부르는 쪽이 정하지 않는다 — 화면을 «보고» 정해야 부르는
+        자리를 하나 빠뜨려도 어긋나지 않는다.
+     ⛔ 새로 만들지 않는다. appendChild 는 «이동» 이라 참조·리스너가 전부 살아 있다. */
+  function wodSync(){
+    var chip = document.getElementById('wodChip');
+    var home = document.getElementById('wodCard');
+    if (!chip || !home) return;
+    var slot = document.getElementById('wodSlot');
+    var want = slot || home;
+    if (chip.parentNode !== want) want.appendChild(chip);
+  }
+  /* 🛟 빈 화면이 지워지기 «직전» 에 부른다 — innerHTML 이 칩을 파괴하기 전에 밖으로.
+     ⚠️ 이 함수는 절대 던지면 안 된다. 부르는 자리가 «대화를 보내는 길» 이라
+        여기서 죽으면 메시지가 안 나간다. */
+  function wodPark(){
+    try {
+      var chip = document.getElementById('wodChip');
+      var home = document.getElementById('wodCard');
+      if (chip && home && chip.parentNode !== home) home.appendChild(chip);
+    } catch(e){}
+  }
+  window.wodPark = wodPark;
+  /* 👂 «눌러서 들어요» 는 가상요소(::after content:attr)로 그린다.
+     ⛔ data-ko/data-en 으로 달지 말 것 — 두 i18n 엔진이 textContent 를 통째로 갈아끼워
+        카드 안 단어가 통째로 사라진다(CLAUDE.md 「아이콘 버튼에 달았더니」). */
+  function syncWodTap(){
+    var chip = document.getElementById('wodChip');
+    if (!chip) return;
+    /* ⛔ 언어 판정을 새로 만들지 않는다 — 이 화면의 정본은 isEn() 이다.
+       복제하면 어느 날 한쪽만 고쳐져 «화면마다 답이 다른» 사고가 된다. */
+    var en = false;
+    try { en = (typeof isEn === 'function') ? isEn() : false; } catch(e){}
+    chip.setAttribute('data-tap', chip.getAttribute(en ? 'data-en-tap' : 'data-ko-tap') || '');
+  }
+
+  /* 그리는 자리에 «곁들여» 부른다 — 원래 함수는 그대로 두고 감싸기만 한다.
+     ⛔ 상주 MutationObserver·setInterval 로 지켜보지 말 것(홈을 통째로 멎게 한 전력). */
+  function wireWod(){
+    if (window.renderEmpty && !window.renderEmpty.__wod) {
+      var re = window.renderEmpty;
+      window.renderEmpty = function(){ var r = re.apply(this, arguments); wodSync(); return r; };
+      window.renderEmpty.__wod = 1;
+    }
+    /* 대화가 시작되면 자리를 비운다. 말풍선이 붙는 길이 여럿이라 «붙이는 한 곳» 에서 본다. */
+    if (window.appendMsg && !window.appendMsg.__wod) {
+      var am = window.appendMsg;
+      window.appendMsg = function(){ var r = am.apply(this, arguments); wodSync(); return r; };
+      window.appendMsg.__wod = 1;
+    }
+    document.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
+    window.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
+  }
+
   function init(){
+    wireWod();                                  // ✨ 시트가 없어도(=아래 return) 카드는 살아야 한다
     var top = document.querySelector('.top');
     if (!top || document.getElementById('optsSheet')) return;
 
@@ -2039,6 +2198,21 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     var snd    = top.querySelector('.snd-toggle');
     if (streak) top.insertBefore(streak, snd || null);
     if (pts)    top.insertBefore(pts,    snd || null);
+
+    /* ①-2 ✨ 오늘의 단어도 «먼저» 꺼낸다 — 다만 헤더가 아니라 «첫 화면 카드» 로.
+          시트에 두면 설정을 열어야 보이는 것이 되어 아무도 안 본다(A안 목업의 마지막 조각).
+       🔴 여기가 .hud 이동보다 «앞» 이어야 하는 이유는 위 ① 과 같다 — 시트가 아직
+          document 에 없으면 getElementById 가 null 을 돌려주고 조용히 건너뛴다. */
+    var wodChip = document.getElementById('wodChip');
+    var wodCard = document.getElementById('wodCard');
+    if (wodChip && wodCard) {
+      wodCard.appendChild(wodChip);          // ⛔ 새로 만들지 않는다 — «옮긴다»(일단 주차장)
+      wodChip.setAttribute('data-tap', '👂 눌러서 들어요');
+      wodChip.setAttribute('data-ko-tap', '👂 눌러서 들어요');
+      wodChip.setAttribute('data-en-tap', '👂 Tap to hear');
+      syncWodTap();
+      wodSync();
+    }
 
     /* ② 남은 줄을 그대로 옮긴다 — 소리 → 오늘의 할 일 → 상태(레벨·오늘의 단어) → 설정 순서.
        ⚠️ 🔊 도 시트로 내린다. 헤더에 여덟 자리를 두면 폰 390px 에서 이름이 «Em…» 으로
@@ -2084,7 +2258,11 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     btn.setAttribute('aria-label', '설정 열기');
     btn.setAttribute('data-ko-aria', '설정 열기');
     btn.setAttribute('data-en-aria', 'Open settings');
-    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv"></span>'
+    /* 📜 2026-09-10 사장님 「이거 설정 톱니바퀴로 바꿔줘. 톱니바퀴 옆에 설정이라고 단어도 추가해줘」
+       — 여기 있던 「1단계 · A1」(레벨 요약)을 「설정」이라는 말로 바꿨다. 레벨은 시트를 열면 맨 위에 있다.
+       ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 달 것 — ⚙ 나 .ot-sum 에 달면 두 i18n 엔진이
+          textContent 를 통째로 갈아끼워 톱니바퀴와 꺼짐 표시(.ot-flag)가 DOM 에서 사라진다. */
+    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv" data-ko="설정" data-en="Settings">설정</span>'
       + '<span class="ot-flag"></span></span>';
     top.appendChild(btn);
 
@@ -2095,7 +2273,10 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 
     function paint(){
       var r = summary();
-      btn.querySelector('.ot-lv').textContent = r.lv;
+      /* ⛔ .ot-lv 에 레벨을 다시 쓰지 말 것 — 사장님이 「설정」으로 바꾸라고 하신 자리다(2026-09-10).
+         🌐 를 눌렀을 때 따라오도록 여기서도 지금 언어로 맞춰 준다(data-ko/data-en 과 같은 말). */
+      var lvEl = btn.querySelector('.ot-lv');
+      if (lvEl) lvEl.textContent = isEn() ? 'Settings' : '설정';
       btn.querySelector('.ot-flag').textContent = r.flags;
     }
 
