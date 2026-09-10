@@ -783,9 +783,14 @@ function repaint(){
   paintOutbox();
   paintPushBtn();
   // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
-  if (!pushOn && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+  // ⚠️ pushSilentTried — repaint() 는 자주 도는데, 실패하면 pushOn 이 다시 false 로
+  //    되돌아오므로 가드가 없으면 그릴 때마다 발급요청·SW등록·POST 가 다시 나간다.
+  //    한 번 실패했으면 이 페이지가 살아 있는 동안은 다시 안 묻는다.
+  //    ⛔ 버튼(askPush)은 이 가드에 걸리지 않는다 — 사람이 누르면 언제든 다시 시도한다.
+  if (!pushOn && !pushSilentTried && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+    pushSilentTried = true;
     pushOn = true;                       // 중복 호출 방지 — 실패하면 아래에서 되돌린다
-    subscribePush().then(function(ok){ if (!ok) pushOn = false; paintPushBtn(); });
+    subscribePush().then(function(r){ if (!r.ok) pushOn = false; paintPushBtn(); });
   }
   if (FOCUS_ID) {
     var el = document.getElementById('req-' + FOCUS_ID);
@@ -3120,6 +3125,7 @@ function paintPushBtn(){
   b.hidden = (Notification.permission === 'granted' && pushOn);
 }
 var pushOn = false;
+var pushSilentTried = false;   // 위 «조용한 되살리기» 가드(버튼은 안 걸린다)
 window.askPush = function(){
   if (!pushReady()) {
     toast(T('This device cannot receive notifications. On iPhone, add this page to the Home Screen first.',
@@ -3128,19 +3134,46 @@ window.askPush = function(){
   }
   Notification.requestPermission().then(function(p){
     if (p !== 'granted') { toast(T('Notifications are turned off.', '알림이 꺼져 있습니다.')); return; }
-    return subscribePush().then(function(ok){
-      toast(ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.')
-               : T('Could not turn on notifications.', '알림을 켜지 못했습니다.'));
+    return subscribePush().then(function(r){
+      // ⚠️ 실패를 한 줄로 뭉개지 않는다 — 사람이 «내 폰 문제인지 서버 설정 문제인지» 를
+      //    가릴 수 있어야 다음 할 일이 정해진다(2026-09-10 사장님 제보).
+      toast(r.ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.') : r.why);
     });
   }).catch(function(){});
 };
+/* 몸통이 네 단계라 실패도 네 가지다. 그것을 한 줄로 뭉개면
+   보는 사람은 다음에 무엇을 해야 하는지 알 방법이 없다 — 서버 설정인지,
+   이 브라우저인지, 마지막 저장만 안 된 것인지가 전부 같은 문장이 된다.
+   그래서 { ok, why } 를 돌려준다.
+   ⚠️ 불리언이 아니다 — 호출부에서 `if (!ok)` 로 쓰면 반대로 동작한다.
+      지금 호출부는 둘(askPush · 조용한 되살리기)이고 둘 다 `r.ok` 를 본다. */
+function pushWhy(step){
+  if (step === 'key')  return T('The server has no notification key yet (VAPID). An administrator must register it.',
+                                '서버에 알림 키(VAPID)가 아직 없습니다. 관리자가 등록해야 합니다.');
+  if (step === 'sw')   return T('This browser could not start the background worker for notifications.',
+                                '이 브라우저에서 알림용 백그라운드 등록에 실패했습니다.');
+  if (step === 'save') return T('Registered on this device, but the server did not save it.',
+                                '이 기기에서는 등록됐지만 서버가 저장하지 못했습니다.');
+  if (step === 'net')  return T('Could not reach the server. Check your connection and try again.',
+                                '서버에 닿지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+  return T('This browser refused the notification subscription.',
+           '이 브라우저가 알림 구독을 거절했습니다.');
+}
 function subscribePush(){
+  var step = 'key';
   return fetch('/api/push/vapid-public-key', { credentials: 'same-origin' })
-    .then(function(r){ return r.json(); })
+    // ⛔ 연결 실패를 'key' 로 읽으면 «서버에 키가 없다» 고 말하게 되어 관리자를
+    //    엉뚱한 곳(시크릿 등록)으로 보낸다. 끊긴 것과 없는 것은 다른 사실이다.
+    .catch(function(e){ step = 'net'; throw e; })
+    // ⚠️ json() 자체가 던질 수 있다(HTML 오류페이지가 오면) — 그러면 사유가 'key' 가 아니라
+    // 엉뚱한 단계로 밀리므로 여기서 잡아 null 로 떨어뜨린다.
+    .then(function(r){ return r.json().catch(function(){ return null; }); })
     .then(function(j){
       if (!j || !j.key) throw new Error('no_key');
+      step = 'sw';
       return navigator.serviceWorker.register('/sw.js').then(function(reg){
         return navigator.serviceWorker.ready.then(function(){
+          step = 'subscribe';
           return reg.pushManager.getSubscription().then(function(sub){
             if (sub) return sub;
             return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(j.key) });
@@ -3149,16 +3182,24 @@ function subscribePush(){
       });
     })
     .then(function(sub){
+      step = 'save';
       var s = sub.toJSON ? sub.toJSON() : sub;
       return fetch('/api/push/subscribe', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         // ⚠️ user_id 에 **관리자 계정명**을 넣는다. 서버(api-approval notify)가 이 값으로 찾는다.
         body: JSON.stringify({ subscription: s, user_id: (D && D.me && D.me.username) || null, ua: navigator.userAgent })
-      }).then(function(r){ return r.json(); });
+      }).then(function(r){ return r.json().catch(function(){ return null; }); });
     })
-    .then(function(j){ pushOn = !!(j && j.ok); paintPushBtn(); return pushOn; })
-    .catch(function(){ return false; });
+    .then(function(j){
+      pushOn = !!(j && j.ok); paintPushBtn();
+      return pushOn ? { ok: true, why: '' } : { ok: false, why: pushWhy('save') };
+    })
+    .catch(function(err){
+      // ⚠️ 토스트는 몇 초 뒤 사라진다 — 진짜 예외는 콘솔에도 남긴다.
+      try { console.warn('[push] 실패 step=' + step, err); } catch (e) {}
+      return { ok: false, why: pushWhy(step) };
+    });
 }
 
 /* ── 시작 ─────────────────────────────────────────────────────────────────── */
