@@ -18,13 +18,18 @@
  */
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, copyFileSync, unlinkSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import zlib from 'node:zlib';
 
 const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.BASE || 'http://127.0.0.1:8899';
 const PORT = 9366;
 const SRC = new URL('../../cloudflare-deploy/public/js/idx-vc-qlog.js', import.meta.url).pathname;
-const BAK = SRC + '.aaobak';
+/* ⛔ 백업을 public/ «안» 에 두지 말 것 — deploy.ps1 이 그 폴더를 통째로 업로드해서
+      중간에 죽으면 사본이 실서비스로 나간다. 그리고 «다음 실행이 먼저 복구» 하게 둔다. */
+const BAK = join(tmpdir(), 'mangoi-aao-qlog.bak');
+if (existsSync(BAK)) { copyFileSync(BAK, SRC); unlinkSync(BAK); console.log('⚠️ 지난 실행이 남긴 변이를 먼저 되돌렸습니다'); }
 
 let pass = 0, fail = 0;
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
@@ -111,12 +116,26 @@ const SETUP = (opts) => `(async () => {
     box.innerHTML = '<video autoplay playsinline muted></video><span class="video-label">학생 김사랑</span>';
     grid.insertBefore(box, document.getElementById('vc-local-box') || null);
   }
-  window.vcPeerRoles = { u1: 'student' }; window.vcMyRole = 'teacher';
+  window.vcPeerRoles = { u1: 'student' }; window.vcMyRole = O.role || 'teacher';
+  /* ⚠️ «타일을 손으로 만들면» 실제 경로가 붙이는 조각이 빠진다 — 그러면 아래 검사가 0 of 0 으로 통과한다.
+     실제로 밟았다: ⇱ 분리 버튼(vcAddDetachButton)을 안 불러 「겹침 0개」가 나왔는데 실은 덮여 있었다. */
+  try { vcAddDetachButton(box); } catch(e){}
   try { vcAddDmButton(box, 'u1'); } catch(e){}
   try { vcRefreshPraiseUI(); } catch(e){}
+  if (O.netlow) { try { vcNetPeerMark('u1', true); } catch(e){} }   // 📶 «이 학생 인터넷이 불안정해요» — AAO 와 같은 조건에서 뜬다
   await new Promise(r => setTimeout(r, 200));
   const vid = box.querySelector('video');
   try { Object.defineProperty(vid, 'videoWidth', { configurable: true, get: () => O.vw }); } catch(e){}
+  for (let k = 2; k <= (O.tiles || 1); k++) {           // 여러 명 — 타일이 작아진다
+    const id = 'u' + k;
+    if (document.getElementById('vc-video-' + id)) continue;
+    const b2 = document.createElement('div');
+    b2.className = 'video-box'; b2.id = 'vc-video-' + id; b2.dataset.role = 'student';
+    b2.innerHTML = '<video autoplay playsinline muted></video><span class="video-label">학생 ' + k + '</span>';
+    grid.insertBefore(b2, document.getElementById('vc-local-box') || null);
+  }
+  try { vcUpdateGridCount(); } catch(e){}
+  await new Promise(r => setTimeout(r, 150));
   window.vcRemoteCamOff = { u1: O.why };
   window.vcApplyRemoteCamHint('u1');
   await new Promise(r => setTimeout(r, 150));
@@ -173,6 +192,11 @@ const MEASURE = `(() => {
   const g = s => { const el = box.querySelector(s); return el ? R(el) : null; };
   out.star = g('.vc-star-btn'); out.dm = g('.vc-dm-btn'); out.label = g('.video-label');
   out.devhelp = g('.vc-devhelp-btn');
+  /* ⇱ 분리 버튼(z-index 5)·📶 회선 경고(z-index 9 · pointer-events:none) — 둘 다 위 두 검사에
+     «원리상» 안 걸려서 한 번 새어 나갔다. 보이는 것만 싣는다. */
+  const vis = s => { const el = box.querySelector(s); if (!el) return null; const cs = getComputedStyle(el);
+    return (cs.display === 'none' || cs.visibility === 'hidden') ? null : R(el); };
+  out.detach = vis('.video-detach-btn'); out.netlow = vis('.vc-netlow-hint');
   return out;
 })()`;
 
@@ -190,7 +214,9 @@ async function open(w, h) {
   await cdp('Network.setCacheDisabled', { cacheDisabled: true });
   await cdp('Network.setBypassServiceWorker', { bypass: true });
   await cdp('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: true });
-  await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('mangoi_vc_orientation_dismissed','1')}catch(e){}` });
+  /* ⚠️ 이 등록은 «누적» 된다 — 회차마다 부르면 쌓인다(CLAUDE.md 「스텁을 회차마다 쌓지 마세요」).
+     지금 넣는 것이 멱등한 한 줄이라도 한 번만 건다. */
+  if (!open._armed) { open._armed = 1; await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('mangoi_vc_orientation_dismissed','1')}catch(e){}` }); }
   await cdp('Page.navigate', { url: BASE + '/index.html?_nc=' + Date.now() });
   await new Promise(r => setTimeout(r, 3400));
 }
@@ -200,7 +226,7 @@ console.log('\n════════ 음성전용 «화면 멈춤» 띠 — �
 /* ───────── ① 전제 — 이 검사가 실제로 «그 화면» 을 보고 있는가 ───────── */
 console.log('\n① 전제 — 수업 타일이 진짜로 그려졌는가');
 await open(390, 844);
-let r = await evalJs(SETUP({ why: 'aao', vw: 640 }));
+let r = await evalJs(SETUP({ why: 'aao', vw: 640, netlow: true }));
 ok(r && r.ok, '수업 화면이 펴지고 타일이 만들어졌다', JSON.stringify(r));
 let m = await evalJs(MEASURE);
 ok(!!m.star, '⭐ 칭찬 버튼이 실재한다 (없으면 아래 검사가 조용히 헛돈다)');
@@ -218,7 +244,14 @@ ok(m.clipped === false, '글자가 안 잘린다 (overflow:hidden 이라 잘려�
 
 /* ───────── ③ 가림 — 픽셀로 잰다 ───────── */
 console.log('\n③ 띠가 타일의 «누를 것» 을 덮지 않는가 — 화면 픽셀 실측');
+/* ⚠️ 띠 «가운데» 는 글자가 지나간다 — 그 픽셀을 «띠 색» 으로 쓰면 회차마다 값이 흔들려
+      비교가 되다 말다 한다(실제로 밟았다: rgb(111,49,14) 와 rgb(156,111,84) 가 번갈아 나왔다).
+   ✅ 글자를 잠깐 투명으로 만들고 찍으면 그 자리가 «합성이 끝난 진짜 배경» 이다. 버튼 색은 그대로다. */
+const stripText = (hide) => `(() => { const e=document.querySelector('#vc-video-u1 .vc-aao-freeze'); if(e) e.style.color=${hide ? "'transparent'" : "''"}; return 1; })()`;
+const fgColor = await evalJs(`(() => { const e=document.querySelector('#vc-video-u1 .vc-aao-freeze'); return getComputedStyle(e).color; })()`);
+await evalJs(stripText(true)); await new Promise(r => setTimeout(r, 120));
 let img = await shot();
+await evalJs(stripText(false));
 const stripPx = pxAt(img, m.strip.cx, m.strip.cy);
 console.log(`    · 띠 색 rgb(${stripPx.join(',')}) · 띠 ${Math.round(m.strip.w)}×${Math.round(m.strip.h)}px`);
 const starPx = pxAt(img, m.star.cx, m.star.cy);
@@ -227,11 +260,21 @@ ok(!near(starPx, stripPx), `⭐ 칭찬 버튼이 띠 색으로 덮이지 않았�
 ok(!near(dmPx, stripPx), `💬 개별채팅 버튼이 띠 색으로 덮이지 않았다`, `DM 중앙 rgb(${dmPx.join(',')}) · 띠 rgb(${stripPx.join(',')})`);
 const labelPx = pxAt(img, m.label.cx, m.label.cy);
 ok(!near(labelPx, stripPx), '이름표가 띠 색으로 덮이지 않았다');
+/* 📶 회선 경고 — AAO 와 «같은 조건»(회선이 나쁠 때) 에서 뜨는데 z-index 가 띠와 같아(9)
+   «아래 깔림» 검사에도 «겹침» 검사(pointer-events:none)에도 안 걸린다. 픽셀로만 보인다. */
+ok(!!m.netlow, '📶 회선 경고가 실재한다 (없으면 아래 검사가 헛돈다 — 강사 화면 전용)');
+ok(!!m.netlow && !near(pxAt(img, m.netlow.cx, m.netlow.cy), stripPx),
+  '📶 회선 경고가 띠 색으로 덮이지 않았다',
+  m.netlow ? `경고 중앙 rgb(${pxAt(img, m.netlow.cx, m.netlow.cy).join(',')}) · 띠 rgb(${stripPx.join(',')})` : '');
 
-/* 일반 검사 — 앞으로 타일 위쪽에 무엇이 새로 붙어도 걸린다 */
-const under = (m.parts || []).filter(p => p.z < m.stripZ);
-ok(under.length === 0, `띠와 겹치는데 띠보다 «아래» 에 깔린 조각이 없다 (지금 ${m.parts.length}개 겹침 · 전부 위)`,
-  under.map(p => `${p.cls} z=${p.z} < ${m.stripZ}`).join(' / '));
+/* 일반 검사 — 앞으로 타일 위쪽에 무엇이 새로 붙어도 걸린다.
+   ⛔ «z-index 가 띠보다 낮은가» 로 묻지 말 것 — 같은 z(9)이면 DOM 순서로 띠가 이기고,
+      pointer-events:none 인 배지는 겹침 검사에도 안 걸린다. 실제로 그 둘이 각각 새어 나갔다.
+   ✅ 그래서 «겹친 조각의 가운데가 띠 색으로 칠해졌는가» 를 픽셀로 직접 본다. */
+const painted = (m.parts || []).filter(p => near(pxAt(img, p.cx, p.cy), stripPx));
+ok(painted.length === 0,
+  `띠와 겹치는 조각 ${m.parts.length}개가 전부 «자기 색» 으로 보인다 (덮인 것 0)`,
+  painted.map(p => `${p.cls} z=${p.z}`).join(' / '));
 
 /* ───────── ④ 눌리는가 ───────── */
 console.log('\n④ 「보인다」와 「눌린다」는 다른 값이다');
@@ -246,15 +289,9 @@ ok(m.overlaps.length === 0,
 
 /* ───────── ⑤ 읽히는가 ───────── */
 console.log('\n⑤ 띠 글자가 읽히는가 — WCAG 대비');
-const fg = await evalJs(`(() => { const e=document.querySelector('#vc-video-u1 .vc-aao-freeze'); return getComputedStyle(e).color; })()`);
-await evalJs(`(() => { const e=document.querySelector('#vc-video-u1 .vc-aao-freeze'); e.style.color='transparent'; return 1; })()`);
-await new Promise(r => setTimeout(r, 120));
-const bgImg = await shot();
-const bgPx = pxAt(bgImg, m.strip.cx, m.strip.cy);        // 글자를 지운 자리 = 진짜 배경(합성 끝난 값)
-await evalJs(`(() => { const e=document.querySelector('#vc-video-u1 .vc-aao-freeze'); e.style.color=''; return 1; })()`);
-const fgRgb = (fg.match(/\d+/g) || []).slice(0, 3).map(Number);
-const ratio = contrast(fgRgb, bgPx);
-ok(ratio >= 4.5, `띠 글자 대비 ${ratio.toFixed(2)} ≥ 4.5`, `글자 rgb(${fgRgb.join(',')}) · 배경(실측) rgb(${bgPx.join(',')})`);
+const fgRgb = (fgColor.match(/\d+/g) || []).slice(0, 3).map(Number);
+const ratio = contrast(fgRgb, stripPx);                  // stripPx = 글자를 지우고 찍은 «진짜 배경»
+ok(ratio >= 4.5, `띠 글자 대비 ${ratio.toFixed(2)} ≥ 4.5`, `글자 rgb(${fgRgb.join(',')}) · 배경(실측) rgb(${stripPx.join(',')})`);
 
 /* ───────── ⑥ «지금» 으로 오인되지 않는가 ───────── */
 console.log('\n⑥ 멈춘 그림이 «지금» 으로 오인되지 않는가');
@@ -263,17 +300,49 @@ ok(/grayscale/.test(m.filter || ''), '멈춘 영상에 흑백을 입힌다');
 /* ───────── ⑦ 좁은 폰 ───────── */
 console.log('\n⑦ 좁은 폰(320px)에서도 같은가');
 await open(320, 640);
-await evalJs(SETUP({ why: 'aao', vw: 640 }));
+await evalJs(SETUP({ why: 'aao', vw: 640, netlow: true }));
 const m320 = await evalJs(MEASURE);
 ok(!!m320.strip, '띠가 생긴다');
 ok(m320.clipped === false, '글자가 안 잘린다');
+await evalJs(stripText(true)); await new Promise(r => setTimeout(r, 120));
 const img320 = await shot();
+await evalJs(stripText(false));
 const sp320 = pxAt(img320, m320.strip.cx, m320.strip.cy);
 ok(!!m320.star && !near(pxAt(img320, m320.star.cx, m320.star.cy), sp320), '⭐ 버튼이 안 덮인다');
 ok(!!m320.dm && !near(pxAt(img320, m320.dm.cx, m320.dm.cy), sp320), '💬 버튼이 안 덮인다');
-const under320 = (m320.parts || []).filter(p => p.z < m320.stripZ);
-ok(under320.length === 0, '띠 아래 깔린 조각이 없다', under320.map(p => p.cls).join(' / '));
+const painted320 = (m320.parts || []).filter(p => near(pxAt(img320, p.cx, p.cy), sp320));
+ok(painted320.length === 0, `띠와 겹친 조각 ${m320.parts.length}개가 전부 자기 색이다`, painted320.map(p => p.cls).join(' / '));
 ok(m320.overlaps.length === 0, '누를 수 있는 조각끼리 겹치지 않는다', m320.overlaps.join(' / '));
+
+/* ───────── ⑦-2 학생이 보는 화면 — ⇱ 분리 버튼이 여기서만 보인다 ───────── */
+console.log('\n⑦-2 학생이 보는 선생님 타일 (칭찬 UI 가 없어 ⇱ 분리 버튼이 산다)');
+await open(390, 844);
+await evalJs(SETUP({ why: 'aao', vw: 640, netlow: true, role: 'student' }));
+const ms = await evalJs(MEASURE);
+ok(!!ms.detach, '⇱ 분리 버튼이 실재한다 (없으면 이 절이 통째로 헛돈다)');
+/* ℹ️ 📶 회선 경고는 여기 없다 — vcNetPeerMark 가 vcIsTeacherRole() 게이트라 «강사 화면에만» 뜬다.
+      그래서 그 검사는 위 ③(강사 화면)에 둔다. */
+await evalJs(stripText(true)); await new Promise(r => setTimeout(r, 120));
+const imgS = await shot();
+await evalJs(stripText(false));
+const spS = pxAt(imgS, ms.strip.cx, ms.strip.cy);
+ok(!!ms.detach && !near(pxAt(imgS, ms.detach.cx, ms.detach.cy), spS),
+  '⇱ 분리 버튼이 띠 색으로 덮이지 않았다 (z-index 5 라 «아래» 검사로만 걸린다)',
+  ms.detach ? `분리 중앙 rgb(${pxAt(imgS, ms.detach.cx, ms.detach.cy).join(',')}) · 띠 rgb(${spS.join(',')})` : '');
+const paintedS = (ms.parts || []).filter(p => near(pxAt(imgS, p.cx, p.cy), spS));
+ok(paintedS.length === 0, `띠와 겹친 조각 ${ms.parts.length}개가 전부 자기 색이다`, paintedS.map(p => p.cls).join(' / '));
+
+/* ───────── ⑦-3 여러 명 — 타일이 작아지면 밀린 버튼이 아래 칸과 만나는가 ───────── */
+console.log('\n⑦-3 4명이 한 화면일 때 (타일이 작아진다)');
+await open(390, 844);
+await evalJs(SETUP({ why: 'aao', vw: 640, netlow: true, tiles: 4 }));
+const m4 = await evalJs(MEASURE);
+ok(!!m4.strip, '띠가 생긴다');
+console.log(`    · 타일 ${Math.round(m4.box.w)}×${Math.round(m4.box.h)}px · 띠 ${Math.round(m4.strip.h)}px`);
+ok(m4.overlaps.length === 0, `작은 타일에서도 누를 수 있는 조각끼리 겹치지 않는다`, m4.overlaps.join(' / '));
+const inBox = (r) => r && r.t >= m4.box.t - 1 && (r.t + r.h) <= m4.box.t + m4.box.h + 1;
+ok(inBox(m4.star) && inBox(m4.dm), '밀린 ⭐·💬 가 타일 «안» 에 남는다 (밖으로 나가면 안 보인다)',
+  `⭐ ${m4.star && Math.round(m4.star.t - m4.box.t)}px · 💬 ${m4.dm && Math.round(m4.dm.t - m4.box.t)}px · 타일 높이 ${Math.round(m4.box.h)}px`);
 
 /* ───────── ⑧ 되돌리기 ───────── */
 console.log('\n⑧ 회복하면 «고치기 전» 으로 깨끗이 돌아가는가');
@@ -318,7 +387,9 @@ try {
     await open(390, 844);
     await evalJs(SETUP({ why: 'aao', vw: 640 }));
     const mm = await evalJs(MEASURE);
+    await evalJs(stripText(true)); await new Promise(r => setTimeout(r, 120));
     const im = await shot();
+    await evalJs(stripText(false));
     const sp = pxAt(im, mm.strip.cx, mm.strip.cy);
     const covered = near(pxAt(im, mm.star.cx, mm.star.cy), sp) || near(pxAt(im, mm.dm.cx, mm.dm.cy), sp);
     ok(covered, '비켜서기를 빼면 버튼이 실제로 띠에 덮인다 (= ③이 헛돌지 않는다)');
@@ -327,6 +398,7 @@ try {
 } finally {
   if (existsSync(BAK)) { copyFileSync(BAK, SRC); unlinkSync(BAK); }
 }
+process.on('exit', () => { try { chrome.kill(); } catch (_) {} });   // ⚠️ 중간에 죽어도 브라우저를 남기지 않는다
 if (!mutDone) console.log('  (변이 복원 완료)');
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

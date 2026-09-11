@@ -407,8 +407,11 @@ sec('Ⓔ 비켜서기 — 띠가 타일의 «누를 것» 을 덮지 않게');
      ⛔ 숫자를 여기에 베껴 적지 않는다. 두 쪽 모두 소스에서 읽어 대조한다
         (CLAUDE.md 「검사에 설정표를 손으로 적으면 소스를 한 번도 안 본다」). */
   const css = e.head.children.find(c => c.id === 'vc-aao-css').textContent;
-  const src = indexHtml + '\n' + idxMain;
-  const CORNERS = ['vc-star-btn', 'vc-dm-btn', 'vc-devhelp-btn', 'vc-star-toast', 'vc-point-basket', 'vpb-fly', 'vc-ss-badge'];
+  /* ⚠️ qlog «자신» 도 읽어야 한다 — ②절의 📶 회선 경고(.vc-netlow-hint)가 이 파일에 있고,
+     빼먹었더니 그 조각이 비켜서기 목록에서 통째로 새어 나갔다(2026-09-11 함정 대조). */
+  const src = indexHtml + '\n' + idxMain + '\n' + qlog;
+  const CORNERS = ['vc-star-btn', 'vc-dm-btn', 'vc-devhelp-btn', 'vc-star-toast', 'vc-point-basket',
+                   'vpb-fly', 'vc-ss-badge', 'video-detach-btn', 'vc-netlow-hint'];
   const baseTop = (name) => {
     let i = -1;
     while ((i = src.indexOf(name, i + 1)) >= 0) {

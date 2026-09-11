@@ -671,16 +671,24 @@ function vcAaoStyleOnce() {
     var st = document.createElement('style');
     st.id = 'vc-aao-css';
     /* ⚠️ «위쪽 모서리» 는 한 칸이 아니라 «세로로 쌓인 칸» 이다 — 하나만 내리면 그 밑칸에 올라탄다.
-       실측(2026-09-11 390px 폰, 타일 위에서 잰 값): ⭐6 · 💬8 · 🎛40 · +1P토스트 48.
-       처음에 ⭐·💬 만 내렸다가 💬 가 🎛(장치 도우미) 위에 얹혀 «가려진 것을 옮겨 또 가리는» 상태가 됐다.
-       ⛔ 목록을 줄이지 말 것. 새 모서리 버튼을 만들면 여기에 함께 적는다 —
-          브라우저 검사가 «AAO 중에 두 조각이 서로 겹치지 않는가» 로 못 박는다. */
+       실측(2026-09-11, 타일 위에서 잰 값): ⭐6 · ⇱분리6 · 바구니6 · 🖥배지6 · 💬8 · 📶경고8 · 🎛40 · +1P토스트48 · vpb-fly48.
+       처음에 ⭐·💬 만 내렸다가 💬 가 🎛(장치 도우미) 위에 얹혀 «가려진 것을 옮겨 또 가리는» 상태가 됐고,
+       그다음 판에서도 ⇱분리(z-index 5)와 📶경고(z-index 9·pointer-events:none)가 빠져 그대로 덮여 있었다.
+       ⛔ 목록을 줄이지 말 것. 새 모서리 조각을 만들면 여기에 함께 적는다.
+       ⚠️ «눌리는 것» 만 적으면 안 된다 — 배지처럼 pointer-events:none 이거나 띠와 z-index 가 같은
+          조각은 «겹침» 검사에 안 걸린다. 그래서 브라우저 검사가 «띠와 겹친 조각이 전부 자기 색으로
+          칠해졌는가» 를 픽셀로 따로 본다(그 검사가 이 둘을 잡았다). */
     st.textContent = '.video-box.vc-aao-on .vc-star-btn,.video-box.vc-aao-on .vc-point-basket,'
-        + '.video-box.vc-aao-on .vc-ss-badge{top:calc(6px + var(--aao-h,0px))!important}'
-        + '.video-box.vc-aao-on .vc-dm-btn{top:calc(8px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-ss-badge,.video-box.vc-aao-on .video-detach-btn'
+        + '{top:calc(6px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-dm-btn,.video-box.vc-aao-on .vc-netlow-hint'
+        + '{top:calc(8px + var(--aao-h,0px))!important}'
         + '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'
         + '.video-box.vc-aao-on .vc-star-toast,.video-box.vc-aao-on .vpb-fly'
         + '{top:calc(48px + var(--aao-h,0px))!important}';
+    /* ⚠️ 한계 — base 는 «첫 정의» 한 값이다. 같은 조각에 모드별 override 가 있으면 그것까지는 안 본다
+       (실측 예: mg-uni-on 통합바에서 #vc-local-box .vc-star-toast 는 44px 이라 여기서는 4px 더 내려간다.
+        해롭지 않아 그대로 두지만, 그런 override 를 새로 만들 때는 이 줄을 함께 보라). */
     (document.head || document.documentElement).appendChild(st);
 }
 
@@ -740,7 +748,11 @@ function vcAaoShift(box, el) {
         if (!h) return;
         box.style.setProperty('--aao-h', h + 'px');
         box.classList.add('vc-aao-on');
-    } catch (_) {}
+    } catch (e) {
+        /* 실패해도 «고치기 전»(버튼이 덮인 상태)으로 떨어질 뿐이라 새 위험은 없다.
+           다만 조용하면 「⭐ 가 안 보인다」가 영영 안 밝혀지므로 한 번은 남긴다. */
+        if (!vcAaoShift._warned) { vcAaoShift._warned = 1; try { console.warn('[vc-aao] shift 실패 — 위쪽 버튼이 띠에 가릴 수 있습니다', e); } catch (_) {} }
+    }
 }
 
 /* 내 타일 — 내가 «음성만» 을 보내는 동안. 흑백은 안 입힌다(내 미리보기는 실제로 살아 움직인다). */

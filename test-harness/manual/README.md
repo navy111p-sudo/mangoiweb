@@ -837,7 +837,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 
 ---
 
-## vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠 (37건 · 2026-09-11)
+## vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠 (45건 · 2026-09-11)
 
 회선이 무너져 영상을 끄면 상대 타일이 **마지막 장면에서 멈추고** 위쪽에 띠가 붙는다
 (`.vc-aao-freeze` — 「📶 영상 멈춤 · 소리는 정상 · N초 전 모습」).
@@ -852,8 +852,12 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 
 실제로 재는 것:
 
-- 띠·⭐·💬·🎛(장치 도우미)·이름표가 **실재하는가**(전제 — 없으면 아래가 조용히 헛돈다)
-- 스크린샷 픽셀로 **⭐·💬·이름표가 띠 색이 아닌가**, 그리고 띠와 겹치면서 띠보다 «아래» 에 깔린 조각이 0인가
+- 띠·⭐·💬·🎛(장치 도우미)·📶(회선 경고)·⇱(분리)·이름표가 **실재하는가**(전제 — 없으면 아래가 조용히 헛돈다)
+- 스크린샷 픽셀로 **띠와 겹친 조각이 전부 «자기 색» 인가** ← 최종 심판.
+  ⛔ 「z-index 가 띠보다 낮은가」로 묻지 말 것 — 같은 z(9)면 DOM 순서로 띠가 이기고(📶 회선 경고),
+  `pointer-events:none` 인 배지는 겹침 검사에도 안 걸린다. 실제로 그 둘이 각각 새어 나갔다.
+- ⚠️ **띠 색은 «글자를 지우고» 잰다** — 띠 가운데는 글자가 지나가 회차마다 값이 바뀐다
+  (`rgb(111,49,14)` ↔ `rgb(156,111,84)`). `color:transparent` 로 만들고 찍으면 진짜 배경이다.
 - **누를 수 있는 조각끼리 서로 겹치지 않는가** ← ⭐·💬 만 내렸다가 💬 가 🎛 위에 올라앉은 것을 잡은 검사
 - 「보인다」와 「눌린다」는 다른 값 — 세 버튼 중앙의 `elementFromPoint` 가 자기 자신인가
 - 글자가 안 잘리는가(`scrollHeight ≤ clientHeight` — `overflow:hidden` 이라 잘려도 티가 안 난다)
@@ -862,9 +866,18 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 - 회복하면 띠·흑백·`vc-aao-on`·`--aao-h` 가 **전부** 지워지고 ⭐ 가 제자리(44px → 6px)로 돌아오는가
 - 짝 — `reason='user'`(사람이 끔)와 `videoWidth 0`(한 프레임도 안 온 상대)에는 **멈춤 띠를 안 쓰고**
   옛 전면 안내(`.vc-camoff-hint`)가 그대로 뜨는가
+- **역할별로 시나리오가 둘** — ⇱ 분리 버튼은 **학생 화면**(칭찬 UI 가 없을 때만 산다),
+  📶 회선 경고는 **강사 화면** 전용(`vcNetPeerMark` 의 `vcIsTeacherRole` 게이트). 한 시나리오로는 둘 다 못 본다
+- **4명 타일**(187×98px)에서 밀린 ⭐·💬 가 타일 «안» 에 남고 조각끼리 안 겹치는가
+- ⚠️ 타일을 «손으로» 만들면 실제 경로가 붙이는 조각이 빠져 **0 of 0 으로 통과**한다 —
+  `vcAddDetachButton`·`vcNetPeerMark` 를 함께 부르고 «그 조각이 실재하는가» 를 전제 검사로 둔다
 
-**변이시험(2026-09-11 실제로 돌려 본 것)** — `vcAaoShift` 를 빼면 ❌(버튼이 실제로 띠에 덮인다,
-하니스 안에 내장) · 비켜서기 CSS 에서 **🎛 한 줄만** 빼면 ❌ **3건**(💬 가 🎛 위에 올라앉는다).
+**변이시험(2026-09-11 실제로 돌려 본 것)** — `vcAaoShift` 를 빼면 ❌(하니스 안에 내장) ·
+비켜서기 CSS 에서 한 줄씩 빼면 **🎛 ❌3건 · ⇱분리 ❌2건 · 📶경고 ❌3건**
+(뒤의 둘은 자동 `aao_freeze_harness` E-10 도 각각 ❌1건).
+
+⚠️ 변이용 백업은 **`os.tmpdir()`** 에 둔다 — `public/` 안에 두면 `deploy.ps1` 이 통째로 업로드한다.
+다음 실행이 시작할 때 남은 백업을 **먼저 되돌린다**.
 
 ```bash
 cd cloudflare-deploy/public && python3 -m http.server 8899 &
