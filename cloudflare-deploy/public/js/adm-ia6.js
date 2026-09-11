@@ -275,6 +275,13 @@
               2026-08-18 «사이드바에서 바로» 요청(#283)은 그 손자 줄이 대신한다. */
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
+        /* 🏢 (2026-09-10 신설) 대리점별 AI 콘텐츠 사용료 단가 조정 — 사장님 지시
+           "본사 관리자 페이지에서는 해당 대리점의 AI 수업 수강료를 조절할 수 있어야 해".
+           청구서 생성·결제는 대리점 담당자가 manager.html 에서 직접 한다 — 여기는
+           단가 조정 + 전체 열람만(card-ai-billing, src/ai-billing.ts 의 /rate). */
+        { ko: '🏢 AI 사용료', en: '🏢 AI Usage Fee', cards: ['card-ai-billing'],
+          tip: '🏢 대리점별 AI 콘텐츠 사용료 단가 조정 · 재원 인원 열람 (본사 전용)',
+          tipEn: '🏢 Adjust per-agency AI content fee rate, view enrolled headcount (HQ only)' },
         /* 💸 환불 처리 (2026-08-25 사장님 「사이드바에도 넣어줘」) — 별도 페이지라 href 다
            (위 「수업 길이 변경」·「수강 운영」과 같은 꼴, 주소는 확장자까지 적는다 —
             확장자를 빼면 site_map_drift_harness 가 «죽은 링크» 로 FAIL 낸다).
