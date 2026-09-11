@@ -175,10 +175,14 @@ if (!ts) {
     const seg = routeSrc.slice(a, b).replace(/ as any/g, '');
     let out;
     try {
-      const fn = new Function('textbookPurgeGate', 'json', 'b', '_pgActor', 'book', 'dryRun', 'totalFiles',
+      /* 🪪 (2026-09-11) 라우트가 강사일 때 정본 헬퍼로 본문을 만든다 — 사본을 «실행» 하는
+         검사라 그 이름을 넣어 주지 않으면 ReferenceError 로 죽는다(그건 «막혔다» 가 아니다). */
+      const fn = new Function('textbookPurgeGate', 'json', 'forbiddenTeacherBody', 'b', '_pgActor', 'book', 'dryRun', 'totalFiles',
         seg + '\nreturn "PASSED_THROUGH";');
       out = fn(() => ({ ok: false, mode: 'none', error: 'forbidden_teacher', status: 403 }),
-               () => 'BLOCKED', {}, { ok: true, isTeacher: true, role: 'teacher' }, 'BTS 2', true, 19);
+               () => 'BLOCKED',
+               (who, d) => ({ ok: false, error: 'forbidden_teacher', who: (who && who.username) || '', message: d || '' }),
+               {}, { ok: true, isTeacher: true, role: 'teacher', username: 'hq_t_kang' }, 'BTS 2', true, 19);
     } catch (e) { return 'THREW:' + e.message; }
     return out;
   }

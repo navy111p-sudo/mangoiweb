@@ -6,6 +6,7 @@
 import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { handleMangoApi } from './api-mango';
 import { handleDurationQueue } from './duration-change-queue';   // 📅 수업 길이 변경 신청함(월 1회 일괄 반영)
 import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
@@ -460,11 +461,12 @@ const worker = {
           if (_teacherBlocked) {
             const _actor = await getAdminActor(request, env as any);
             if (_actor.isTeacher) {
-              return new Response(JSON.stringify({
-                ok: false, error: 'forbidden_teacher',
-                message: '강사 권한으로는 볼 수 없는 정보입니다.',
-                message_en: 'This information is not available with a teacher account.'
-              }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+              /* 🪪 «지금 누구로 들어와 있는가» 를 함께 말한다 — 2026-09-10 사장님이 이 문구만 보고
+                 서버 설정을 의심하셨다. 실제로는 그 브라우저가 강선생님 세션을 들고 있었고
+                 (세션 쿠키는 브라우저당 한 개라 뒤에 한 로그인이 앞을 덮는다) 계정 한 줄이면
+                 5초에 끝났을 일이다. 문구 정본은 src/forbidden-teacher.ts 하나. */
+              return new Response(JSON.stringify(forbiddenTeacherBody(_actor)),
+                { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
             }
           }
         }
@@ -1918,7 +1920,7 @@ const worker = {
       try {
         const actor = await getAdminActor(request, env as any);
         if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 환율을 변경할 수 없습니다.' }),
+          return new Response(JSON.stringify(forbiddenTeacherBody(actor, '강사는 급여 환율을 변경할 수 없습니다.')),
             { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
         }
         const b: any = await request.json().catch(() => ({}));
@@ -1937,7 +1939,7 @@ const worker = {
       try {
         const actor = await getAdminActor(request, env as any);
         if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }),
+          return new Response(JSON.stringify(forbiddenTeacherBody(actor, '강사는 지급 상태를 변경할 수 없습니다.')),
             { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
         }
         const b: any = await request.json().catch(() => ({}));

@@ -25,6 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dir, '../cloudflare-deploy/src/enroll-ops.ts');
@@ -33,6 +34,20 @@ const IA6 = join(__dir, '../cloudflare-deploy/public/js/adm-ia6.js');
 const src = readFileSync(SRC, 'utf8');
 const auth = readFileSync(AUTH, 'utf8');
 const ia6 = readFileSync(IA6, 'utf8');
+
+/* 🪪 (2026-09-11) 강사 거절 본문은 정본 헬퍼(src/forbidden-teacher.ts)가 만든다.
+   이 하니스는 게이트 «사본을 실행» 하므로 그 이름을 넣어 주지 않으면 ReferenceError 로
+   죽는다 — 그건 «막혔다» 가 아니다. ⛔ 여기에 헬퍼를 다시 구현하지 말 것(정본이 두 벌이 된다).
+   못 컴파일하면 «계정 줄» 검사만 건너뛰고 나머지 판정은 그대로 본다. */
+let forbiddenTeacherBody = (who, d) => ({ ok: false, error: 'forbidden_teacher', who: '', who_line: '', message: d || '' });
+let ftReal = false;
+try {
+  const eb = createRequire(join(__dir, '../cloudflare-deploy/package.json'))('esbuild');
+  const ts = readFileSync(join(__dir, '../cloudflare-deploy/src/forbidden-teacher.ts'), 'utf8');
+  const js = eb.transformSync(ts, { loader: 'ts', format: 'esm' }).code;
+  const mod = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
+  forbiddenTeacherBody = mod.forbiddenTeacherBody; ftReal = true;
+} catch { /* esbuild 없음 — 위 임시 구현으로 게이트 판정만 본다 */ }
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ ' + m); } };
@@ -92,11 +107,12 @@ ok(typeof isOrgScopedRole === 'function'
 
 let gate = null;
 try {
-  gate = new Function('getAdminActor', 'json', 'isOrgScopedRole', 'console',
+  gate = new Function('getAdminActor', 'json', 'isOrgScopedRole', 'forbiddenTeacherBody', 'console',
     stripped + '\nreturn enrollAdminHqOnly;')(
       (req) => req.__actor,
       (obj, status) => ({ __json: obj, status }),
       isOrgScopedRole,
+      forbiddenTeacherBody,
       { warn() {} });
 } catch (e) { console.log('     (평가 실패: ' + e.message + ')'); }
 ok(typeof gate === 'function', '게이트를 함수로 만들었다');
@@ -121,6 +137,13 @@ console.log('\n② 역할별 판정 — 실제로 돌려서');
 {
   const t = await run(A('teacher'), { scope_type: 'teacher' });
   ok(err(t) === 'forbidden_teacher' && t.status === 403, '강사 → 403 forbidden_teacher');
+  /* 🪪 짝 — 「막는다」만 보면 «지금 누구로 들어와 있는지» 를 안 말해도 통과한다.
+     2026-09-10 사장님이 그 한 줄이 없어 반나절을 쓰셨다(CLAUDE.md 2장). */
+  if (ftReal) {
+    const tw = await run(A('teacher', { username: 'hq_t_kang', name: '강선생님' }), { scope_type: 'teacher' });
+    ok(/강선생님\(hq_t_kang\)/.test((tw.__json && tw.__json.message) || ''),
+       '강사 거절에 «지금 로그인한 계정» 이 실린다');
+  }
 
   for (const st of ['branch', 'agency', 'franchise']) {
     const r = await run(A(st), { scope_type: st });

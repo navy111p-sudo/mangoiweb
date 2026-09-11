@@ -364,7 +364,9 @@
         var m = j.message || j.error;
         if (j.error === 'not_paid') m = '이 주문은 결제완료 상태가 아닙니다 (현재: ' + (j.status || '?') + '). 환불은 실제로 돈이 들어온 주문에만 할 수 있습니다.';
         if (j.error === 'order_not_found') m = '그 주문번호를 찾을 수 없습니다.';
-        if (j.error === 'forbidden_teacher') m = '강사 계정으로는 환불 화면을 쓸 수 없습니다.';
+        /* 🪪 «지금 누구로 들어와 있는가» 는 서버가 완성해 준 한 문장(who_line)을 붙이기만 한다 —
+           ⛔ 그 문장을 여기에 베껴 적지 말 것(정본은 src/forbidden-teacher.ts 하나). */
+        if (j.error === 'forbidden_teacher') m = '강사 계정으로는 환불 화면을 쓸 수 없습니다.' + (j.who_line ? ' ' + j.who_line : '');
         if (j.error === 'forbidden_scope') m = '환불은 본사에서만 처리합니다.';
         alert(m);
         $('pv-card').classList.add('hide');
