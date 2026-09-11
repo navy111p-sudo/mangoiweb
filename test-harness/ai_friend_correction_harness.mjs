@@ -76,24 +76,47 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
   check('A-2 옛 (💡 …) 본문 팁 지시가 프롬프트에서 사라졌다',
         !/add ONE short Korean tip/.test(Hc));
 
-  /* ⚠️ 모델을 부르는 곳이 «runFriend 몸통 안» 하나여야 제약 폴백이 전 경로에 걸린다.
-     하나라도 밖에 있으면 그 경로만 JSON 모드를 못 받고 조용히 옛 동작이 된다. */
-  const rwStart = Hc.indexOf('const runFriend =');
-  const rwEnd = Hc.indexOf('const takeFriendReply', rwStart);
-  const rwBody = rwStart > 0 && rwEnd > rwStart ? Hc.slice(rwStart, rwEnd) : '';
+  /* ⚠️ 모델을 부르는 곳이 «감싼 함수 몸통 안» 이어야 제약 폴백이 전 경로에 걸린다.
+     하나라도 밖에 있으면 그 경로만 JSON 모드를 못 받고 조용히 옛 동작이 된다.
+
+     📜 2026-09-11 — 옛 단정은 「runFriend «하나» 뿐」이었다. A-1 스트리밍이 들어오면서
+     모델을 부르는 자리가 runFriendStreaming 으로 «하나 더» 생겨 그 단정이 사실이 아니게 됐다.
+     ⛔ 검사를 느슨하게 푸는 것이 아니라 «새 경계» 로 옮겨 적는다 — 경계가 사라지면
+        다음에 누가 env.AI.run 을 아무 데서나 불러도 아무도 모른다. */
+  function bodyOfArrow(src, name) {
+    const i = src.indexOf('const ' + name + ' = async (');
+    if (i < 0) return '';
+    const open = src.indexOf('{', src.indexOf('=>', i));
+    let d = 0;
+    for (let k = open; k < src.length; k++) {
+      if (src[k] === '{') d++;
+      else if (src[k] === '}') { d--; if (d === 0) return src.slice(i, k + 1); }
+    }
+    return '';
+  }
+  const WRAPPERS = ['runFriend', 'runFriendStreaming'];
+  const wrapBodies = WRAPPERS.map(n => bodyOfArrow(Hc, n));
   const rawRuns = (Hc.match(/env\.AI\.run\(/g) || []).length;
-  const runsInside = (rwBody.match(/env\.AI\.run\(/g) || []).length;
-  check('A-3 모델을 부르는 자리는 runFriend 몸통 «안» 뿐 (폴백이 전 경로에 걸린다)',
-        rwBody.length > 40 && rawRuns > 0 && rawRuns === runsInside,
+  const runsInside = wrapBodies.reduce((a, b) => a + (b.match(/env\.AI\.run\(/g) || []).length, 0);
+  check('A-3 모델을 부르는 자리는 감싼 함수 몸통 «안» 뿐 (폴백이 전 경로에 걸린다)',
+        wrapBodies.every(b => b.length > 40) && rawRuns > 0 && rawRuns === runsInside,
         'env.AI.run ' + rawRuns + '회 · 몸통 안 ' + runsInside + '회');
 
   /* 🔴 응답 추출이 한 곳이라도 파서를 안 지나면 그 경로만 생 JSON 을 학생 화면·TTS 로 보낸다
-     (웜업에서 실제로 그 사고가 났다 — "[object Object]", 2026-09-08). */
-  const runCalls = (Hc.match(/(?<!const )runFriend\(/g) || []).length;
-  const takeCalls = (Hc.match(/takeFriendReply\(/g) || []).length;
-  check('A-4 🔴 모델을 부른 만큼 «정본 파서» 를 지난다 (한 곳이라도 빠지면 생 JSON 이 샌다)',
-        runCalls > 0 && runCalls === takeCalls,
-        'runFriend ' + runCalls + '회 · takeFriendReply ' + takeCalls + '회');
+     (웜업에서 실제로 그 사고가 났다 — "[object Object]", 2026-09-08).
+
+     📜 2026-09-11 — 옛 검사는 «호출 수 == 파서 수» 였는데, 스트리밍이 「실패하면 같은 모델을
+     옛 방식으로 다시」 를 넣으면서 한 결과 변수에 호출이 둘이 되어 숫자가 어긋났다(계약은 그대로).
+     ✅ 이제 «모델을 부른 결과를 담는 변수» 를 전부 찾아 그것이 파서를 지나는지 본다 —
+        숫자가 아니라 뜻이라, 호출을 더해도 «파서를 빼먹는» 것만 잡는다. */
+  /* ⚠️ TypeScript 라 «const retry: any = await …» 처럼 타입 주석이 붙습니다 —
+     그것을 빼고 읽지 않으면 변수 이름이 'any' 로 잡혀 거짓 FAIL 이 납니다(실제로 밟았습니다). */
+  const resultVars = [...Hc.matchAll(/(\w+)\s*(?::\s*[\w<>\[\]|, ]+)?\s*=\s*await runFriend(?:Streaming)?\(/g)].map(m => m[1]);
+  const uniqVars = [...new Set(resultVars)];
+  const unparsed = uniqVars.filter(v => !new RegExp('takeFriendReply\\(\\s*' + v + '\\b').test(Hc));
+  check('A-4 🔴 모델을 부른 «결과» 가 전부 정본 파서를 지난다 (한 곳이라도 빠지면 생 JSON 이 샌다)',
+        uniqVars.length > 0 && unparsed.length === 0,
+        '결과 변수 ' + uniqVars.join(',') + (unparsed.length ? ' · 파서를 안 지남: ' + unparsed.join(',') : ''));
 
   check('A-5 JSON 모드를 «말로만» 시키지 않는다 (response_format)',
         /response_format\s*=\s*\{\s*type:\s*'json_object'\s*\}/.test(Hc));
