@@ -213,6 +213,18 @@ async function run(opts) {
      잠금 자체는 ⑩절이 locked:true 로 따로 본다. */
   if (!o.locked) sandbox.wsSetEditing(true, { quiet: true });
 
+  /* 🚪 입구가 «셋» 이라 되돌리기 검사도 셋을 각각 돌려야 한다 — 하나만 재면
+     나머지 둘의 prev 가 틀려도 조용히 통과한다(2026-09-11 함정 대조 지적). */
+  if (o.entry) {
+    await o.entry(sandbox);
+    return {
+      calls, added, removed, toasts, SLOTS, dom, clock, timers, sandbox, warns,
+      get reloaded() { return reloaded; },
+      get rendered() { return rendered; },
+      get srcGone() { return !(slotKey('29', '2026-09-11', 14 * 60 + 20) in SLOTS); },
+      get undos() { return dom.created.filter(e => e.className === 'undo-toast'); },
+    };
+  }
   sandbox.window.__moveCtx = {
     srcTeacher: { id: '29', name: '중국어 강선생님' },
     dstTeacher: { id: '27', name: 'MAIMAI' },
@@ -607,6 +619,121 @@ sec('⑪-2 되돌리기 — 자동 잠금 뒤에도 되는가 / 강사를 모르
   /* 실패했을 때는 되돌릴 것이 없다 */
   const bad = await run({ reply: { status: 200, json: { ok: false, error: 'x' } } });
   ok(bad.undos.length === 0, '저장이 실패했는데 되돌리기를 내놓는다');
+}
+
+sec('⑪-3 되돌리기 — 형제 입구 둘도 «원래 값» 을 보내는가');
+/* 🔴 2026-09-11 함정 대조 지적: ⑪·⑪-2 는 confirmMoveDo «하나» 만 재고 있었다.
+   같은 일을 하는 입구가 셋인데 하나만 보면 나머지 둘의 prev 가 틀려도(예: 옮긴 «뒤» 값을
+   넘기거나 강사를 빠뜨려도) 검사가 전부 초록이다 — 실제로 변이 2종이 그대로 통과했다. */
+{
+  const SIB = {
+    rscConfirm: PERSIST_SRC + '\n' + FAILMSG_SRC + '\n' + RSC_SRC,
+    confirmMove: PERSIST_SRC + '\n' + FAILMSG_SRC + '\n' + CMOVE_SRC,
+  };
+
+  /* ── 우클릭 「수업 변경」 → 담당 강사 탭: 시간은 그대로, 강사만 29 → 27 ── */
+  const rsc = await run({
+    src: SIB.rscConfirm,
+    entry: async (sb) => {
+      sb.window.__rescheduleCtx = {
+        teacher: { id: '29', name: '중국어 강선생님' },
+        origDate: '2026-09-11', origHour: 14, origMinute: 20,
+        activeTab: 'teacher', mode: 'change',
+        pickedTeacher: { id: '27', name: 'MAIMAI' },
+      };
+      await sb.window.rscConfirm();
+    },
+  });
+  ok(rsc.calls.length === 1, '전제가 깨졌다 — rscConfirm 에서 저장이 안 나갔다 (' + rsc.calls.length + '건)');
+  ok(rsc.calls[0].body.teacher_id === '27', '전제가 깨졌다 — 새 강사로 보내지 않았다: ' + JSON.stringify(rsc.calls[0].body));
+  ok(rsc.undos.length === 1, 'rscConfirm 이 저장하고도 되돌리기를 안 내놓는다 (' + rsc.undos.length + ')');
+  {
+    /* ⚠️ 되돌리기가 아예 안 뜬 변이에서 여기서 죽으면 «무엇이 깨졌는지» 가 안 보인다 —
+       깔끔한 FAIL 로 떨어지게 감싼다. */
+    const btn = rsc.undos[0] && rsc.undos[0].querySelector('button');
+    const n0 = rsc.calls.length;
+    if (btn) await btn.fire('click');
+    ok(!!btn && rsc.calls.length === n0 + 1, 'rscConfirm 의 되돌리기를 눌렀는데 요청이 안 나간다');
+    const u = rsc.calls[rsc.calls.length - 1] || { url: '', method: '', body: {} };
+    ok(u.body.teacher_id === '29', 'rscConfirm 되돌리기가 «원래 강사» 를 안 보낸다: ' + JSON.stringify(u.body));
+    ok(u.body.start_time === '14:20', 'rscConfirm 되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
+    ok(u.body.scheduled_date === '2026-09-11', 'rscConfirm 되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
+    ok(rsc.reloaded >= 1, 'rscConfirm 되돌린 뒤 서버에서 다시 읽지 않는다');
+  }
+
+  /* ── 우클릭 「📅 연기」 → 시간 탭: 날짜가 실제로 바뀌는 유일한 갈래 ──
+     🪤 강사 탭만 재면 «옮긴 뒤 날짜를 prev 에 담는» 변이가 그대로 통과한다 —
+     그 갈래는 dstDate 가 origDate 와 «같은 값» 이라 바꿔 놓아도 답이 안 변한다(실측). */
+  const rscT = await run({
+    src: SIB.rscConfirm,
+    entry: async (sb) => {
+      sb.window.__rescheduleCtx = {
+        teacher: { id: '29', name: '중국어 강선생님' },
+        origDate: '2026-09-11', origHour: 14, origMinute: 20,
+        activeTab: 'time', mode: 'postpone',
+        pickedDate: '2026-09-18', pickedHour: 16,
+      };
+      await sb.window.rscConfirm();
+    },
+  });
+  ok(rscT.calls.length === 1 && rscT.calls[0].body.scheduled_date === '2026-09-18',
+    '전제가 깨졌다 — 연기(시간 탭)가 새 날짜로 저장되지 않았다: ' + JSON.stringify((rscT.calls[0] || {}).body));
+  ok(rscT.undos.length === 1, '연기(시간 탭)가 저장하고도 되돌리기를 안 내놓는다 (' + rscT.undos.length + ')');
+  {
+    const btn = rscT.undos[0] && rscT.undos[0].querySelector('button');
+    const n0 = rscT.calls.length;
+    if (btn) await btn.fire('click');
+    ok(!!btn && rscT.calls.length === n0 + 1, '연기(시간 탭)의 되돌리기를 눌렀는데 요청이 안 나간다');
+    const u = rscT.calls[rscT.calls.length - 1] || { body: {} };
+    ok(u.body.scheduled_date === '2026-09-11', '연기 되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
+    ok(u.body.start_time === '14:20', '연기 되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
+    ok(u.body.teacher_id === undefined, '연기 되돌리기가 안 바꾼 강사까지 덮어쓴다: ' + JSON.stringify(u.body));
+  }
+
+  /* ── 「이동」 모달: 강사는 그대로, 시각만 14:20 → 16:00 ── */
+  const cmv = await run({
+    src: SIB.confirmMove,
+    entry: async (sb) => {
+      sb.movingSlot = {
+        slot: sb.SLOTS[sb.slotKey('29', '2026-09-11', 14 * 60 + 20)],
+        teacher: { id: '29', name: '중국어 강선생님' },
+        oldDate: '2026-09-11', oldHour: 14, oldMinute: 20,
+      };
+      await sb.window.confirmMove('2026-09-12', 16);
+    },
+  });
+  ok(cmv.calls.length === 1, '전제가 깨졌다 — confirmMove 에서 저장이 안 나갔다 (' + cmv.calls.length + '건)');
+  ok(cmv.calls[0].body.start_time === '16:00' && cmv.calls[0].body.scheduled_date === '2026-09-12',
+    '전제가 깨졌다 — 새 시각으로 보내지 않았다: ' + JSON.stringify(cmv.calls[0].body));
+  ok(cmv.undos.length === 1, 'confirmMove 가 저장하고도 되돌리기를 안 내놓는다 (' + cmv.undos.length + ')');
+  {
+    const btn = cmv.undos[0] && cmv.undos[0].querySelector('button');
+    const n0 = cmv.calls.length;
+    if (btn) await btn.fire('click');
+    ok(!!btn && cmv.calls.length === n0 + 1, 'confirmMove 의 되돌리기를 눌렀는데 요청이 안 나간다');
+    const u = cmv.calls[cmv.calls.length - 1] || { url: '', method: '', body: {} };
+    ok(u.body.start_time === '14:20', 'confirmMove 되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
+    ok(u.body.scheduled_date === '2026-09-11', 'confirmMove 되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
+    /* ⛔ 강사를 안 바꾼 입구는 되돌리기에도 teacher_id 를 실으면 안 된다 — 그 사이 다른
+       사람이 강사를 바꿔 두었으면 되돌리기가 그것까지 덮는다. */
+    ok(u.body.teacher_id === undefined, 'confirmMove 되돌리기가 안 바꾼 강사까지 덮어쓴다: ' + JSON.stringify(u.body));
+    ok(cmv.reloaded >= 1, 'confirmMove 되돌린 뒤 서버에서 다시 읽지 않는다');
+  }
+
+  /* 🔒 형제 입구도 잠기면 저장하지 않는가 — «막힌다» 와 «켜면 된다» 의 짝 */
+  const rscLock = await run({
+    src: SIB.rscConfirm, locked: true,
+    entry: async (sb) => {
+      sb.window.__rescheduleCtx = {
+        teacher: { id: '29', name: '중국어 강선생님' },
+        origDate: '2026-09-11', origHour: 14, origMinute: 20,
+        activeTab: 'teacher', mode: 'change', pickedTeacher: { id: '27', name: 'MAIMAI' },
+      };
+      await sb.window.rscConfirm();
+    },
+  });
+  ok(rscLock.calls.length === 0, '잠겼는데 rscConfirm 이 저장했다 (' + rscLock.calls.length + '건)');
+  ok(rscLock.undos.length === 0, '저장도 안 했는데 rscConfirm 이 되돌리기를 내놓는다');
 }
 
 sec('⑫ 드래그 자체가 안 끌리는가 — 잠금 판정을 «실제로 돌려» 본다');

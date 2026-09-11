@@ -244,6 +244,21 @@ const contrastOf = (page, sel) => page.evaluate((s) => {
                     prev: { dateISO: '2026-09-11', startMin: 860, teacherId: '29' }, what: '테스트' });
     });
     await page.waitForTimeout(250);
+    /* 🔴 2026-09-11 함정 대조 지적: 둘 다 `position:fixed; bottom:24px; left:50%` 라
+       되돌리기 토스트가 저장 성공 토스트를 63% 덮고 있었다 — 하필 그 토스트가
+       «무엇을 바꿨는지»(「✅ 담당 강사 변경: MAIMAI」)를 말하는 유일한 자리다. */
+    await page.evaluate(() => { showDndToast('✅ 👨‍🏫 담당 강사 변경: MAIMAI', 'ok'); });
+    await page.waitForTimeout(250);
+    const ov = await page.evaluate(() => {
+      const a = document.querySelector('.undo-toast'), b = document.querySelector('.dnd-toast.show');
+      if (!a || !b) return { found: false };
+      const r = a.getBoundingClientRect(), q = b.getBoundingClientRect();
+      const w = Math.max(0, Math.min(r.right, q.right) - Math.max(r.left, q.left));
+      const h = Math.max(0, Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top));
+      return { found: true, pct: q.width * q.height ? Math.round(w * h / (q.width * q.height) * 100) : 0,
+               undo: [Math.round(r.top), Math.round(r.bottom)], toast: [Math.round(q.top), Math.round(q.bottom)] };
+    });
+    check('저장 성공 토스트를 안 덮는다 (겹침 0%)', ov.found && ov.pct === 0, ov);
     const u = await topmostIs(page, '.undo-toast button');
     check('되돌리기 버튼이 화면에 있다', !!u.found && u.visible, u);
     check('🔴 그 자리의 맨 위가 되돌리기 버튼이다 (.dnd-toast 는 pointer-events:none 이라 못 눌린다)', u.mine === true, u);

@@ -491,7 +491,9 @@ html, body { overscroll-behavior: contain; }
    그래서 누를 수 있는 전용 토스트를 따로 둔다(CLAUDE.md «보이는데 안 눌림»). */
 /* ⚠️ 밝은 화면이라 어두운 알약(#0f172a)으로 두면 페인터가 «배경만» 밝게 눌러
    흰 글자가 그대로 남는다 — 실측 대비 1.08. 처음부터 밝은 톤으로 고른다. */
-.undo-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);
+/* ⛔ bottom 을 .dnd-toast(24px) 와 같은 값으로 두지 말 것 — 저장 성공 토스트
+   «✅ 담당 강사 변경: MAIMAI» 를 «무엇을 바꿨는지» 가 안 보이게 덮는다(실측 65%). */
+.undo-toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(10px);
   background:#ffffff;border:2px solid #10b981;border-radius:99px;padding:9px 12px 9px 20px;
   color:#111827;font-weight:700;font-size:13.5px;box-shadow:var(--shL);z-index:9901;
   display:flex;align-items:center;gap:12px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:auto}

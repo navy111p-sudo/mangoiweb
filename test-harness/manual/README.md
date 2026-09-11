@@ -886,7 +886,7 @@ node test-harness/manual/vc-aao-freeze-browser.mjs
 
 ---
 
-## weekly-schedule-lock-browser.mjs — 편집 잠금·되돌리기가 «정말» 도는가 (29건)
+## weekly-schedule-lock-browser.mjs — 편집 잠금·되돌리기가 «정말» 도는가 (30건)
 
 2026-09-11 사장님 지시. 바로 앞 수리로 주간 스케줄의 드래그가 **서버에 저장되기 시작**하자
 반대 위험이 생겼다 — 예전에는 실수로 끌어도 아무 일이 없었는데, 이제는 **한 번 끌면 그대로
