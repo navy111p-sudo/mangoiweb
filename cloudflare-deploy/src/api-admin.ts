@@ -6121,7 +6121,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          `ambiguous column name: status` 로 아래 sqlWithJoin 이 통째로 죽는다.
          그러면 catch 가 «JOIN 없는» 폴백으로 떨어뜨려 teacher_name 칸이 응답에서
          사라지고, 화면은 «번호는 있는데 이름이 없다» 로 읽어 모든 예약을
-         「강사 미확인」으로 그린다(2026-09-11 실사고 — 활성 1,262건 전부).
+         「강사 미확인」으로 그린다(2026-09-11 실사고 — `status != 'cancelled'` 기준 1,262건 전부).
          ⛔ 서브쿼리 «안»(students_erp)의 user_id 에는 붙이지 말 것 — 붙이면 상관
             서브쿼리가 되어 매 행마다 전수 스캔한다(2026-08-27 그 사고).
          ✅ 감시: test-harness/class_schedules_join_harness.mjs 가 두 SQL 을 오려 내

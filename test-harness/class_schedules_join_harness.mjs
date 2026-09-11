@@ -8,7 +8,11 @@
 //   로 sqlWithJoin 이 통째로 죽었다. 그러면 catch 가 «JOIN 없는» 폴백으로
 //   떨어뜨려 `teacher_name` 칸이 응답에서 사라지고, 학생 상세 화면은
 //   «번호는 있는데 이름이 없다» 로 읽어 모든 예약을 「강사 미확인」으로 그린다.
-//   2026-09-11 실사고 — 활성 예약 1,262건 전부가 그 상태였다.
+//   2026-09-11 실사고 — 예약 1,262건 전부가 그 상태였다.
+//   ⚠️ 세는 기준을 함께 적는다: `status != 'cancelled'` · 2026-09-11 17시(KST) 운영 D1.
+//      admin/student.html 주석의 1,263건은 같은 날 조금 다른 시각의 실측이다 — 그 사이
+//      예약이 하나 늘거나 취소되면 어긋난다. 숫자만 적고 기준을 안 적으면 다음 사람이
+//      «둘 중 뭐가 맞지» 로 시간을 쓴다(CLAUDE.md 「잰 것과 판단을 줄을 나눠 적으세요」).
 //   WHERE 첫 줄이 언제나 status 조건이라 **이 JOIN 은 한 번도 성공한 적이 없다.**
 //
 // [왜 문자열 검사만으로는 모자란가]
@@ -53,12 +57,23 @@ function argsFrom(text, openParen) {
   return '';
 }
 
-/* ══ ① 전제 — 이 검사가 뜻을 가지려면 teachers 에 status·user_id 가 둘 다 있어야 한다 ══ */
-console.log('\n① 전제 — teachers 스키마에 status·user_id 가 둘 다 있다(운영 실측 2026-09-11)');
-// 운영 D1 sqlite_master 실측 그대로
-const DDL_TEACHERS = `CREATE TABLE teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, name TEXT NOT NULL,
-  center_id INTEGER, rank TEXT, hourly_rate_php INTEGER, status TEXT, years INTEGER,
-  rate_per_10min_php REAL, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`;
+/* ══ ① 전제 — teachers 에 status·user_id 가 둘 다 있어야 이 검사가 뜻을 가진다 ══
+   ⛔ 그 DDL 을 여기 «베껴 적지» 말 것 — 하니스가 자기가 적은 상수를 검사하게 되어,
+      정본이 바뀌어도 조용히 초록이 된다(CLAUDE.md 2장 「자기가 새로 만든 상수를 잡아 통과」).
+      정본은 api-admin.ts 의 ensurePayrollSchema — CREATE 와 멱등 ALTER 를 «읽어서» 쓴다. */
+console.log('\n① 전제 — teachers 스키마를 정본에서 읽는다 (status·user_id 가 둘 다 있다)');
+/** 소스의 `await env.DB.exec([ `CREATE TABLE …` , … ].join(' '))` 조각을 이어 붙여 DDL 을 복원 */
+function ddlFromSource(src, table) {
+  const at = src.indexOf('`CREATE TABLE IF NOT EXISTS ' + table + ' (`');
+  if (at < 0) return '';
+  const end = src.indexOf("].join(' ')", at);
+  if (end < 0) return '';
+  return (src.slice(at, end).match(/`[^`]*`/g) || []).map((x) => x.slice(1, -1)).join(' ');
+}
+const DDL_TEACHERS = ddlFromSource(SRC, 'teachers');
+check('teachers DDL 을 정본(api-admin.ts)에서 읽었다', /CREATE TABLE IF NOT EXISTS teachers/.test(DDL_TEACHERS), DDL_TEACHERS.slice(0, 60));
+// 기존 DB 에 컬럼이 없을 때 붙는 멱등 ALTER 도 정본에서 읽어 함께 적용한다(운영 DB 가 그 모양)
+const ALTERS = (SRC.match(/`ALTER TABLE teachers ADD COLUMN [^`]*`/g) || []).map((x) => x.slice(1, -1));
 const DDL_SCHEDULES = `CREATE TABLE class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL,
   student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular',
   day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30,
@@ -66,12 +81,16 @@ const DDL_SCHEDULES = `CREATE TABLE class_schedules (id INTEGER PRIMARY KEY AUTO
   updated_at INTEGER, notes TEXT)`;
 const DDL_STUDENTS = `CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, english_name TEXT,
   username TEXT, login_id TEXT, student_name TEXT, status TEXT)`;
-check('teachers 에 status 컬럼이 있다 (이게 없으면 아래 검사가 뜻을 잃는다)', /\bstatus TEXT\b/.test(DDL_TEACHERS));
-check('teachers 에 user_id 컬럼이 있다', /\buser_id TEXT\b/.test(DDL_TEACHERS));
-
 const db = new DatabaseSync(':memory:');
 db.exec(DDL_TEACHERS); db.exec(DDL_SCHEDULES); db.exec(DDL_STUDENTS);
-db.exec(`INSERT INTO teachers (id, name, status, active, created_at, updated_at) VALUES (29,'중국어 강선생님','재직',1,1,1)`);
+for (const a of ALTERS) { try { db.exec(a); } catch { /* duplicate column — 정상 */ } }
+// «적혀 있는가» 가 아니라 «실제로 만들어진 표에 있는가» 로 묻는다
+const tCols = db.prepare('SELECT name FROM pragma_table_info(?)').all('teachers').map((r) => r.name);
+check('teachers 에 status 컬럼이 있다 (이게 없으면 아래 검사가 뜻을 잃는다)', tCols.includes('status'), tCols);
+check('teachers 에 user_id 컬럼이 있다 — class_schedules 와 겹치는 두 칸', tCols.includes('user_id'), tCols);
+// ⚠️ status 는 여기서 «쓰지» 않는다 — 정본 DDL 에서 그 칸이 사라지는 변이를 넣었을 때
+//    씨앗 INSERT 가 먼저 던지면 하니스가 크래시해 «무엇이 깨졌는지» 가 안 보인다(깔끔한 FAIL 로).
+db.exec(`INSERT INTO teachers (id, name, active, created_at, updated_at) VALUES (29,'중국어 강선생님',1,1,1)`);
 db.exec(`INSERT INTO students_erp (user_id, korean_name, username, login_id) VALUES ('jeong','정우영','정우영','jeong')`);
 // 실사고와 같은 모양: 원부에 있는 번호(29) / 원부에 없는 번호(999) — «짝» 으로 둔다
 db.exec(`INSERT INTO class_schedules (id,user_id,student_name,schedule_kind,day_of_week,start_time,teacher_id,status,created_at)
@@ -147,6 +166,20 @@ for (const s of SCEN) {
   }
 }
 
+/* ══ ③-2 시나리오를 «고르지 않고» — 모든 조건을 한꺼번에 컴파일한다 ══
+   ⚠️ 위 ③은 조회 경로를 손으로 골라 조합한다. 그러면 나중에 where.push 가 하나 늘 때
+      그 조건은 검사에 «닿지 않는다». 바인드 없이 prepare 만 하면 컴파일 단계에서
+      ambiguous 가 그대로 나므로, 미래에 늘어날 조건까지 한 번에 덮는다. */
+console.log('\n③-2 모든 조건을 AND 로 이어 컴파일 — 미래에 늘어날 조건까지 덮는다');
+const ALL_CONDS = [...whereInit, ...pushArgs.filter((c) => typeof c === 'string' && c !== '<평가실패>')];
+check('이어 붙일 조건이 모두 모였다 (전제)', ALL_CONDS.length >= 7, ALL_CONDS.length);
+for (const [라벨, tmpl] of [['JOIN', mJoin && mJoin[1]], ['폴백(JOIN 없음)', mNo && mNo[1]]]) {
+  if (!tmpl) continue;
+  let err = null;
+  try { db.prepare(mkSql(tmpl, ALL_CONDS)); } catch (e) { err = String(e && e.message || e); }
+  check(`${라벨} — 모든 조건을 함께 써도 컴파일된다 (ambiguous 없음)`, err === null, err);
+}
+
 /* ══ ④ 짝 — «이름이 실제로 실린다» 와 «원부에 없는 번호는 안 지어낸다» ══ */
 console.log('\n④ 짝 검사 — 이름이 실리는가 / 없는 번호를 지어내지 않는가');
 let joined = [];
@@ -167,6 +200,19 @@ check('students_erp 서브쿼리를 쓰는 조건이 있다 (전제)', subs.leng
 for (const c of subs) {
   const inner = c.slice(c.indexOf('SELECT'), c.indexOf('FROM students_erp'));
   check('서브쿼리의 SELECT 목록에 cs. 가 없다 — ' + inner.trim().slice(0, 46), !inner.includes('cs.'), inner.trim());
+}
+/* 🔴 위 글자 검사는 «일반형» 을 못 잡는다 — 서브쿼리의 WHERE 에서 «바깥에만 있는» 컬럼을
+      무심코 참조해도 SQLite 는 에러 없이 상관 서브쿼리로 만든다(2026-08-27 실측 4.3초/2,348만 행).
+      그래서 실행계획에 CORRELATED 가 뜨는지로 «뜻» 을 묻는다. */
+for (const [라벨, tmpl] of [['JOIN', mJoin && mJoin[1]], ['폴백(JOIN 없음)', mNo && mNo[1]]]) {
+  if (!tmpl) continue;
+  let plan = [], err = null;
+  try { plan = db.prepare('EXPLAIN QUERY PLAN ' + mkSql(tmpl, [...whereInit, cUidName]))
+                 .all('jeong', '정우영', '정우영', '정우영', 100); }
+  catch (e) { err = String(e && e.message || e); }
+  const detail = plan.map((r) => r.detail || '').join(' | ');
+  check(`${라벨} — 실행계획에 CORRELATED 가 없다 (매 행 전수 스캔 방지)`,
+    err === null && !/CORRELATED/i.test(detail), err || detail);
 }
 
 /* ══ ⑥ 형제 — api-mango.ts 의 같은 JOIN 도 접두사를 지킨다 ══ */
