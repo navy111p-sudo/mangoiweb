@@ -23,6 +23,7 @@ const rd = (p) => { try {
 
 const tapi   = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mapi   = rd('../cloudflare-deploy/src/api-mango.ts');
+const cew    = rd('../cloudflare-deploy/src/class-entry-window.ts');  // 🚪 입장 시간창 정본 (2026-09-11)
 const aapi   = rd('../cloudflare-deploy/src/api-admin.ts');
 const thtml  = rd('../cloudflare-deploy/public/teacher.html');
 const mypage = rd('../cloudflare-deploy/public/admin/mypage.html');
@@ -81,8 +82,22 @@ check('그 창이 그날 00:00~24:00 이다',
   && /enterUntilTs = enterFromTs \+ 86400000 - 1/.test(tapi));
 check('🔴 «수업 시간인가»(join_open)와 «들어갈 수 있나»(can_enter)를 섞지 않는다',
   /join_open: now >= open_at_ts/.test(tapi) && /can_enter: now >= enterFromTs/.test(tapi));
-check('🔴 학생 입장 창은 건드리지 않았다 (29,000명 전체의 입장 시각)',
-  /OPEN_BEFORE/.test(mapi) && !/enter_from_ts/.test(mapi));
+/* 🔴 (2026-09-11 갱신 — 옛 단정을 버린 이유를 날짜와 함께 남긴다)
+   여기 있던 검사는 「api-mango.ts 에 enter_from_ts 가 **없다**」였다. 2026-08-07 당시에는
+   그것이 곧 「학생 쪽을 안 건드렸다」였기 때문이다.
+   그런데 그 단정이 이번 사고의 한쪽 원인이 됐다 — 강사 포털만 하루 종일 열리고 홈 화면은
+   종료+15분에 닫혀, 수업에서 나간 강사가 다시 못 들어왔다(class-2332-20260911 실측).
+   사장님 지시로 홈 화면도 «문» 을 따로 내려주게 했으므로(src/class-entry-window.ts)
+   api-mango.ts 에도 enter_from_ts 가 생긴다. 이제 지켜야 할 것은 그 «글자의 부재» 가 아니라
+   **학생이 잃는 것이 없다**는 사실이다. 그 셋을 대신 못 박는다.
+   ⛔ 이 셋 중 하나라도 빼면 29,000명의 입장 시각이 조용히 바뀔 수 있다. */
+check('🔴 학생이 «여는» 시각은 그대로다 (OPEN_BEFORE 10분 · 29,000명 전체)',
+  /const OPEN_BEFORE = 10 \* 60 \* 1000;/.test(mapi));
+check('🔴 학생 창은 그 여는 시각에서 시작한다 (강사처럼 하루 종일이 아니다)',
+  /from: i\.openAtTs/.test(cew) && /if \(i\.isTeacher\)/.test(cew));
+check('🔴 학생 창이 지금(종료+15분)보다 짧아지지 않는다 — 바닥이 있다',
+  /ENTER_FLOOR_MS = 15 \* 60 \* 1000/.test(cew)
+  && /Math\.max\(i\.endTs \+ ENTER_FLOOR_MS/.test(cew));
 check('시작 전에는 [미리 입장] 이 눌린다 (비활성 «N분 뒤 입장» 이 아니다)',
   /btn-early[\s\S]{0,400}data-join/.test(thtml));
 check('끝난 수업도 [다시 입장] 이 된다 (연장·마무리)', /btn-reenter/.test(thtml));
