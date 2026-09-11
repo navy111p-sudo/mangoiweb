@@ -414,8 +414,16 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
        지사가 산하 대리점인 척 결제 주문을 만들 수 있었다(실제로 그랬다 — 2026-09-11 발견).
        그래서 여기만 `noDrillDown` 으로 «원래 로그인 계정이 무엇인가» 를 한 번 더 물어
        그걸로 판정한다 — 조회에 쓰는 `scope` 는 그대로 두고(드릴다운 조회는 계속 되어야
-       한다), 이 한 곳의 판정에만 raw 값을 쓴다. */
-    const rawScope = await safe(async () => await getScope(env, request, { noDrillDown: true }), scope);
+       한다), 이 한 곳의 판정에만 raw 값을 쓴다.
+       ⚠️ (trap-check 지적) 이 조회가 실패했을 때 폴백을 드릴다운 `scope` 로 두면 안 된다 —
+       되돌릴 수 없는 조작(결제 주문 생성)의 가드는 «모르면 막는» 쪽으로 실패해야 한다
+       (CLAUDE.md 「가드에 필요한 값을 safe(…, null) 로 조회할 때」). 265행의 최초 scope
+       조회도 이미 이 원칙대로 'none' 으로 떨어진다 — 여기도 그와 같은 값으로 맞춘다.
+       ⚠️ 지금은 getScope() 내부가 전부 s_safe() 로 감싸여 있어 실제로 던지는 경로가
+       없으므로 이 폴백은 오늘 당장은 안 밟힌다 — 그래도 나중에 그 내부가 바뀌어 던지게
+       되는 순간 조용히 «열리는» 쪽으로 실패하지 않도록 미리 잠가 둔다. */
+    const rawScope = await safe(async () => await getScope(env, request, { noDrillDown: true }),
+      { type: 'none', value: null, label: '권한 없음' } as Scope);
     if (!(rawScope.type === 'hq' || (rawScope.type === 'agency' && rawScope.value === inv.shop_name))) return err('forbidden', 403);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {
