@@ -8290,9 +8290,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <div class="menu-form">
               <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
               <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              <!-- 🪤 (2026-09-11 trap-check 지적) value 속성이 없는 <option>+data-ko/data-en 은
+                   위험하다 — value 없는 option 의 .value 는 표준상 textContent 를 그대로 따라가는데,
+                   i18n 엔진(toggleAdminLang)이 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로
+                   화면을 영어로 바꾸는 순간 .value 도 "골드"→"Gold" 로 조용히 바뀐다. mbrEdit() 가
+                   그 뒤 DB 값("골드")으로 .value 를 되돌리려 하면 일치하는 옵션이 없어(selectedIndex
+                   -1) 등급이 빈 채로 열리고, 그대로 저장하면 tier 가 NULL 로 덮인다(재현 확인됨).
+                   ct-paytype 처럼 언어와 무관한 고정 value 를 명시해 이 함정을 원천 차단한다. -->
               <select id="mbr-tier" style="width:140px;">
                 <option value="" data-ko="등급…" data-en="Tier…">등급…</option>
-                <option data-ko="플래티넘" data-en="Platinum">플래티넘</option><option data-ko="골드" data-en="Gold">골드</option><option data-ko="실버" data-en="Silver">실버</option><option data-ko="일반" data-en="Standard">일반</option>
+                <option value="플래티넘" data-ko="플래티넘" data-en="Platinum">플래티넘</option><option value="골드" data-ko="골드" data-en="Gold">골드</option><option value="실버" data-ko="실버" data-en="Silver">실버</option><option value="일반" data-ko="일반" data-en="Standard">일반</option>
               </select>
               <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
               <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
