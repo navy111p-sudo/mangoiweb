@@ -24,6 +24,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
+import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 
 export async function handleAiApi(
   request: Request,
@@ -593,6 +594,12 @@ Student text: """${text}"""`;
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {
+      /* ⏱ (2026-09-11) 지연 계측 시작 — 여기가 «학생이 기다리기 시작하는» 자리입니다.
+         ⛔ warmup_session_log.first_reply_at 을 지연으로 읽지 마세요: 그 칸은 «학생이
+            첫마디를 뗀» 시각(사람 반응 시간)이지 시스템 지연이 아닙니다. 정본 ai-latency-log.ts */
+      const latT0 = Date.now();
+      let latModelMs = 0;   // 모델 호출에 실제로 든 시간의 «합»
+      let latTries = 0;     // 모델을 몇 번 불렀나 (폴백·재시도 포함)
       await ensureChatSchema();
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
@@ -768,13 +775,20 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          `if (!friendRF) throw` 로만 가르면 429·타임아웃까지 이 분기로 들어와, 일시 장애 한 번에
          JSON 모드가 꺼지고 그 요청의 남은 경로가 통째로 옛 동작이 된다. */
       const runFriend = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
+        /* ⏱ 모델 호출만 따로 잽니다 — 전체 시간에서 이것을 빼면 «우리 코드가 쓴 시간» 이 나옵니다.
+           ⚠️ 실패한 호출도 셉니다(그 시간도 학생은 기다립니다). finally 로 두는 이유입니다. */
+        const mT0 = Date.now();
+        latTries++;
         try {
           return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
         } catch (rfErr: any) {
           if (!friendRF || !isRfRejection(rfErr)) throw rfErr;
           console.warn('[chat-friend] response_format rejected, retrying without:', rfErr?.message || rfErr);
           friendRF = false;
+          latTries++;
           return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
+        } finally {
+          latModelMs += Date.now() - mT0;
         }
       };
       /* ⚠️ 정본에 «응답 객체» 를 통째로 넘기면 안 된다 — JSON 모드에서는 response 가 이미
@@ -1074,6 +1088,25 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       if (friendPlain || friendEmpty) {
         /* 조용해지지 않게 남긴다 — 「교정이 한 번도 안 뜬다」의 1순위 원인이 이것이었다. */
         console.warn('[chat-friend] model output: plain=' + friendPlain + ' empty=' + friendEmpty + ' rf=' + friendRF);
+      }
+
+      /* ⏱ 지연 기록 (2026-09-11 · A-3) — 34% 가 «1턴만 하고 나가는» 이유가 «느려서» 인지
+         가리려면 먼저 재야 합니다. ⛔ 학생 발화·AI 답변은 한 글자도 싣지 않습니다(길이만).
+         ⛔ 기록이 대화를 막으면 안 됩니다 — 통째로 try/catch 입니다. */
+      try {
+        await recordAiLatency(env, {
+          feature: 'chat-friend',
+          model: usedModel || 'fallback',
+          ms: Date.now() - latT0,
+          model_ms: latModelMs,
+          tries: latTries,
+          chars: (reply || '').length,
+          level,
+          rf: friendRF ? 1 : 0,
+          ok: usedFallback ? 0 : 1,
+        });
+      } catch (e: any) {
+        console.error('[chat-friend] recordAiLatency failed:', e?.message || e);
       }
 
       return json({ ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
