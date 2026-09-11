@@ -9445,6 +9445,16 @@ LIMIT $limit`;
           linkedAccount = await env.DB.prepare(
             `SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value = ? LIMIT 1`
           ).bind(before.name).first<{ username: string }>();
+          // 🏢 지사본사(scope_type='franchise') 계정은 scope_value 가 콤마로 여러 지사 이름을
+          //   담은 목록이라 위 정확일치로는 안 잡힌다 — scope.ts scopeFranchiseCond('franchise')
+          //   가 쓰는 것과 같은 콤마-경계 LIKE 로 「그 목록 안에 이 지사의 옛 이름이 있는가」를
+          //   본다(부분일치 방지: 양쪽에 콤마를 붙여 «노원»이 «노원구지사»에 안 걸리게 한다).
+          //   빠뜨리면 지사본사 계정이 경고 하나 없이 조용히 이 지사에 대한 가시성을 잃는다.
+          if (!linkedAccount) {
+            linkedAccount = await env.DB.prepare(
+              `SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || ? || ',%') LIMIT 1`
+            ).bind(before.name).first<{ username: string }>();
+          }
           if (linkedAccount) {
             const nameDup = await env.DB.prepare(`SELECT id FROM franchises WHERE name = ? AND id != ? LIMIT 1`)
               .bind(newName, fid).first<{ id: number }>();
