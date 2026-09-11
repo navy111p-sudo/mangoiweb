@@ -104,8 +104,11 @@ if (M) {
   // ⓓ 🔴 짝 — «모르면 지어내지 않는다». 이 줄이 없으면 «항상 뭔가 붙이기» 도 통과한다.
   const d = F({ username: '', name: '' });
   check('계정을 모르면 계정 줄이 비어 있다', d.who_line === '' && d.who_line_en === '', 'who_line=' + d.who_line);
-  check('계정을 모르면 본문이 옛 문구 그대로다',
-    d.message === '강사 권한으로는 볼 수 없는 정보입니다.', d.message);
+  /* ⚠️ 기본값은 «보다/쓰다» 를 안 가리는 말이어야 한다 — detail 없이 부르는 자리에
+     삭제·저장이 섞여 있어 「볼 수 없는 정보」로 두면 막은 것과 다른 말을 한다. */
+  check('계정을 모르면 본문이 사유만 남는다',
+    d.message === '강사 권한으로는 쓸 수 없는 기능입니다.', d.message);
+  check('기본 문구가 «본다» 로 좁혀져 있지 않다', !/볼 수 없는/.test(d.message), d.message);
   check('계정을 모를 때 빈 괄호가 안 생긴다', !/\(\s*\)/.test(d.message + d.message_en), d.message);
   check('who 가 null 이어도 던지지 않는다', (() => {
     try { return F(null).error === 'forbidden_teacher'; } catch { return false; }
@@ -118,9 +121,9 @@ if (M) {
 
   // ⓕ 화면 다섯이 «붙이기만» 할 수 있도록 한 문장으로 떼어 준다
   check('who_line 이 완성된 한 문장이다', /^지금 로그인한 계정: .+/.test(a.who_line), a.who_line);
-  check('message = 사유 + 공백 + who_line', a.message === '강사 권한으로는 볼 수 없는 정보입니다. ' + a.who_line);
+  check('message = 사유 + 공백 + who_line', a.message === '강사 권한으로는 쓸 수 없는 기능입니다. ' + a.who_line);
   check('message_en = 사유 + 공백 + who_line_en',
-    a.message_en === 'This information is not available with a teacher account. ' + a.who_line_en);
+    a.message_en === 'This is not available with a teacher account. ' + a.who_line_en);
 
   // ⓖ 오류 코드는 바뀌면 안 된다 — 화면 다섯이 이 코드로 가른다
   check("error 코드는 여전히 'forbidden_teacher'", a.error === 'forbidden_teacher' && a.ok === false);
@@ -141,7 +144,8 @@ for (const f of tsFiles) {
   if (GATE_ALLOW.has(f)) continue;
   const body = stripComments(read(join(SRC, f)));
   // «error: 'forbidden_teacher'» 를 손으로 적은 리터럴이 남아 있으면 그 자리는 계정을 못 말한다.
-  const n = (body.match(/error:\s*'forbidden_teacher'/g) || []).length;
+  // ⚠️ 작은따옴표 한 모양만 보면 나중에 "forbidden_teacher" 로 적을 때 조용히 빠진다
+  const n = (body.match(/error:\s*['\"]forbidden_teacher['\"]/g) || []).length;
   if (n) leftovers.push(f + '×' + n);
 }
 check('응답을 만드는 자리에 옛 리터럴이 0건', leftovers.length === 0, leftovers.join(', '));
@@ -154,13 +158,18 @@ for (const f of tsFiles) {
   const n = (body.match(/forbiddenTeacherBody\s*\(/g) || []).length;
   if (n) { useCount += n; useFiles.push(f + '×' + n); }
 }
-check('헬퍼를 실제로 쓰는 자리가 넉넉히 있다 (≥ 35)', useCount >= 35, '지금 ' + useCount + '곳: ' + useFiles.join(', '));
+/* 📊 [잰 것 — 2026-09-11] 지금 44곳(옛 리터럴에서 전환한 42 + 순수 게이트 호출부 2).
+   ⛔ 정확한 수로 못 박지 말 것 — 새 API 가 생기면 정당하게 늘어난다. «확 줄지 않았나» 만 본다. */
+check('헬퍼를 실제로 쓰는 자리가 넉넉히 있다 (≥ 40)', useCount >= 40, '지금 ' + useCount + '곳: ' + useFiles.join(', '));
 
 /* 중앙 게이트 — 사장님이 실제로 부딪힌 그 자리. ⚠️ 여기가 빠지면 «URL 로 직접 연» 경우가
    전부 계정 없이 나간다(핸들러 가드는 그보다 뒤에서 돈다). */
 const idx = stripComments(read(join(SRC, 'index.ts')));
 check('중앙 강사 차단 게이트가 헬퍼를 쓴다',
-  /_teacherBlocked[\s\S]{0,600}?forbiddenTeacherBody\(\s*_actor\s*\)/.test(idx));
+  /_teacherBlocked[\s\S]{0,900}?forbiddenTeacherBody\(\s*_actor\s*,/.test(idx));
+/* 그 자리는 «조회» 성격이라 고치기 전 문구를 그대로 넘긴다 — 기본값(중립)에 기대지 않는다 */
+check('중앙 게이트가 고치기 전 문구를 그대로 넘긴다',
+  /_teacherBlocked[\s\S]{0,900}?'강사 권한으로는 볼 수 없는 정보입니다\.'/.test(idx));
 
 /* 순수 게이트 둘 — 그 «호출부» 가 forbidden_teacher 일 때 헬퍼로 바꿔 주는가 */
 const adm = stripComments(read(join(SRC, 'api-admin.ts')));
@@ -207,8 +216,10 @@ for (const [rel] of SCREENS) {
 check('화면이 그 문장을 베껴 적지 않았다', copied.length === 0, copied.join(', '));
 
 /* 🪤 EN/KO 를 가르는 화면은 영문 칸도 읽어야 한다 — 안 읽으면 영어 화면에서만 조용히 빠진다.
-   (환불 화면은 한국어 전용이라 제외 — 그 파일에는 언어 함수가 아예 없다) */
-for (const rel of ['manager.html', 'js/adm-bulkbook.js', 'js/monitor-wall.js']) {
+   ℹ️ `admin/refunds.html` 만 제외한다 — 그 alert 는 바탕 문장이 전부 한국어라 계정 줄만
+      영어면 오히려 어긋난다(그 파일 주석에 같은 말을 적어 뒀다). 교재 업로더는 영어 한 줄을
+      함께 그리므로 포함한다. */
+for (const rel of ['manager.html', 'textbook-uploader.html', 'js/adm-bulkbook.js', 'js/monitor-wall.js']) {
   const body = stripComments(read(join(PUB, rel)));
   check(rel + ' 는 영문 계정 줄도 읽는다', body.includes('who_line_en'));
 }
@@ -283,8 +294,17 @@ if (SERVER_403) {
       check('교재 일괄배정 영문도 계정을 말한다', gotEn.includes('강선생님(hq_t_kang)'), gotEn);
       const bare = koFn({ ok: false, error: 'forbidden_teacher' }, 403);
       check('계정을 안 주면 교재 일괄배정도 안 붙인다', !/지금 로그인한 계정/.test(bare), bare);
+      /* ⚠️ 이 화면은 who_line 이 «실려 오면» 어느 코드에든 붙입니다 — 그게 무해한 이유는
+         **서버가 forbidden_teacher 에만 싣기** 때문입니다. 그래서 여기서는 «안 실렸으면
+         안 붙는다» 까지만 보장하고, 진짜 보장은 바로 아래 서버 쪽에서 봅니다.
+         ⛔ 검사 이름을 «다른 오류에는 안 붙는다» 로 적지 말 것 — 보장보다 넓습니다. */
       const other = koFn({ ok: false, error: 'no_scope' }, 403);
-      check('다른 오류에는 계정 줄이 안 붙는다(교재 일괄배정)', !/지금 로그인한 계정/.test(other), other);
+      check('계정 줄이 안 실려 오면 다른 오류에도 안 붙는다(교재 일괄배정)',
+        !/지금 로그인한 계정/.test(other), other);
+      /* 🔑 진짜 보장 — 계정 줄을 «만드는» 곳이 정본 하나뿐이고, 그 함수는 언제나
+         error:'forbidden_teacher' 를 함께 답니다(다른 코드에는 실릴 길이 없습니다). */
+      check('계정 줄은 forbidden_teacher 응답에만 실린다(정본이 그 코드를 함께 단다)',
+        M.forbiddenTeacherBody({ username: 'x' }).error === 'forbidden_teacher');
     }
   }
 }

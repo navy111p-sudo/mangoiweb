@@ -465,7 +465,11 @@ const worker = {
                  서버 설정을 의심하셨다. 실제로는 그 브라우저가 강선생님 세션을 들고 있었고
                  (세션 쿠키는 브라우저당 한 개라 뒤에 한 로그인이 앞을 덮는다) 계정 한 줄이면
                  5초에 끝났을 일이다. 문구 정본은 src/forbidden-teacher.ts 하나. */
-              return new Response(JSON.stringify(forbiddenTeacherBody(_actor)),
+              /* ⚠️ 기본 문구에 기대지 않고 «이 자리의 말» 을 넘긴다 — 고치기 전 문구 그대로다.
+                 (기본값은 삭제·저장 자리까지 함께 쓰므로 «보다/쓰다» 를 안 가리는 말이다) */
+              return new Response(JSON.stringify(forbiddenTeacherBody(_actor,
+                '강사 권한으로는 볼 수 없는 정보입니다.',
+                'This information is not available with a teacher account.')),
                 { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
             }
           }

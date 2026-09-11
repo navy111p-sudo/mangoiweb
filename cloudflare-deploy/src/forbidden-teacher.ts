@@ -9,9 +9,18 @@
  *   «강선생님 로그인» 이 관리자 세션을 덮은 것이었습니다. 계정 이름 한 줄이면 5초에
  *   끝났을 일입니다. → 사장님 지시 「강사 계정 문구에 계정 이름도 같이 넣어줘」.
  *
- * ⛔ 이 판정을 다른 파일에 복제하지 마세요. 이 저장소는 같은 문구가 **서버 41곳 + 화면
- *    4곳** 에 흩어져 있었고, 그래서 한쪽만 고치면 나머지에서 그대로 재발합니다
+ * ⛔ 이 판정을 다른 파일에 복제하지 마세요. 한쪽만 고치면 나머지에서 그대로 재발합니다
  *    (CLAUDE.md 2장 「같은 판정이 두 곳에 있으면 한쪽만 고쳐진다」).
+ *
+ * 📊 [잰 것 — 2026-09-11, 주석을 벗겨 낸 사본으로 전수] 고치기 전 `error: 'forbidden_teacher'`
+ *    리터럴 **44건** = **응답을 만드는 자리 42** + **순수 게이트 2**(아래 ⚠️).
+ *    화면은 **5곳**(admin/refunds.html · manager.html · textbook-uploader.html ·
+ *    js/adm-bulkbook.js · js/monitor-wall.js)이 서버 문구를 «안 쓰고» 자기 문구를 그립니다.
+ *    ⚠️ 세는 기준을 밝히지 않으면 42·44 가 어긋나 보입니다 — 지금 이 함수를 부르는 자리는
+ *       **44곳**(전환된 42 + 게이트 호출부 2)입니다.
+ *
+ * ⚠️ 순수 게이트 둘(`textbookPurgeGate`·`teacherMoveDenyReason`)은 Response 를 만들지 않아
+ *    일부러 그대로 뒀습니다 — 계정은 «응답을 만드는» 호출부가 붙입니다.
  *
  * ⚠️ 이 값은 **부르는 사람 «자신» 의 계정**입니다 — 남의 정보가 아닙니다.
  *    같은 값을 `/api/admin/me` 가 이미 그대로 내려주므로 새로 새는 것이 없습니다.
@@ -59,7 +68,12 @@ export type ForbiddenTeacherBody = {
  *
  * ⛔ 기본 문구를 «실제 사유 중 하나» 로 두지 마세요 — 나중에 새 자리에서 detail 을 빠뜨리면
  *    **틀린 문구가 조용히** 나갑니다(2026-09-10 pushWhy 에서 같은 실수를 했습니다).
- *    여기 기본값은 어느 자리에서나 참인 «가장 일반적인» 문장이라 그 위험이 없습니다.
+ * ⚠️ 그래서 기본값을 «보다/쓰다» 를 안 가리는 말로 둡니다 — `detail` 없이 부르는 자리에
+ *    **삭제·저장·스위치 켜기가 섞여 있어서**(교재 묶음 삭제·강사 계정 연결 저장·자동결제
+ *    스위치·교재 이름 일괄 변경·카페24 미러 실행·LMS 자리표시 정리 …) 「볼 수 없는
+ *    정보입니다」로 두면 **막은 것과 다른 말**을 하게 됩니다(2026-09-11 함정 대조 지적).
+ *    ⛔ 「어느 자리에서나 참이라 위험이 없다」고 적지 마세요 — 그 문장이 틀렸습니다.
+ * ✅ 자리마다 무엇이 막혔는지 아는 곳은 `detail` 로 그 말을 넘기세요(그쪽이 언제나 낫습니다).
  */
 export function forbiddenTeacherBody(
   who?: ForbiddenTeacherWho | null,
@@ -69,8 +83,8 @@ export function forbiddenTeacherBody(
   const username = String(who?.username ?? '').trim();
   const rawName = String(who?.name ?? '').trim();
   const label = teacherWhoLabel(who);
-  const base = String(detail ?? '').trim() || '강사 권한으로는 볼 수 없는 정보입니다.';
-  const baseEn = String(detailEn ?? '').trim() || 'This information is not available with a teacher account.';
+  const base = String(detail ?? '').trim() || '강사 권한으로는 쓸 수 없는 기능입니다.';
+  const baseEn = String(detailEn ?? '').trim() || 'This is not available with a teacher account.';
   // ⚠️ 계정을 못 읽었으면 «지어내지» 않고 옛 문구 그대로 둡니다(CLAUDE.md 2장
   //    「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」). 빈 괄호가 더 헷갈립니다.
   const whoLine = label
