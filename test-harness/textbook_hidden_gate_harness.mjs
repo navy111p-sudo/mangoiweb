@@ -102,15 +102,34 @@ check(`⑨ thead th(${nTh}) = 한 줄 td(${nTd}) = colspan(${colspans.join(',')}
 console.log('\n── 3. 표 안 작은 버튼이 전역 «인디고 알약» 룰에 안 먹히는가 ──');
 /* ⚠️ 색·크기는 브라우저로 재야 한다 — 여기서는 «방어가 그 자리에 있는가» 만 본다.
       실제 측정은 test-harness/manual/textbook-hide-toggle-browser.mjs (33종). */
-const cssBlock = CSS.slice(CSS.indexOf('#textbooks-table td button.tb-hide-toggle'));
+/* 🪤 (2026-09-11) 범위를 «파일 끝까지» 로 잡으면 안 된다 — 이 CSS 파일에 새 절이 붙는
+      순간 남의 규칙이 딸려 들어와 **손대지도 않은 검사가 빨간불**이 된다(CLAUDE.md 2장
+      「하니스가 검사 범위를 «파일 끝까지» 로 잡아 두었을 때」. 실제로 2026-09-11 에
+      조직 3표 버튼 블록이 파일 끝에 붙으면서 ⑫가 거짓 FAIL 났다).
+      ⚠️ 그렇다고 «다음 주석까지» 로 자르면 이번엔 **너무 일찍** 끊긴다 — 이 절 안에
+         설명 주석이 하나 더 있어서 :hover 규칙이 통째로 빠진다(고치다 실제로 밟았다).
+      → 선택자에 tb-hide-toggle 이 들어간 **규칙들만** 골라 잇는다. 파일이 자라도 안 어긋난다. */
+/* ⚠️ 매칭 «전» 에 주석을 벗긴다 — `[^{}]*` 는 선택자 앞 «주석까지» 먹어서, tb-hide-toggle 을
+      언급하는 주석 뒤에 무관한 규칙이 오면 그 규칙의 선언이 딸려 들어온다(고치려던 거짓 FAIL
+      이 그대로 되살아난다). 벗기고 나면 선택자만 남는다. */
+const CSS_NOCMT = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const cssBlock = [...CSS_NOCMT.matchAll(/([^{}]*tb-hide-toggle[^{}]*)\{([^}]*)\}/g)].map(m => m[0]).join('\n');
+// 전제 — 이 절을 실제로 잘라 냈는가. 앵커가 어긋나면 아래 검사들이 빈 문자열을 보고 통과한다.
+check('⑩-0 [전제] tb-hide-toggle 규칙을 잘라 냈다 (4개)',
+  (cssBlock.match(/tb-hide-toggle/g) || []).length >= 4 && cssBlock.length > 200);
+/* 🪤 부정 검사(«이 글자가 없어야 한다»)는 **주석을 벗겨 낸 사본**으로 판정한다 —
+      이 절의 설명 주석에 `background:#…` 이 «쓰지 말 것» 의 예시로 들어 있어서,
+      원문으로 물으면 검사가 자기 주석을 잡는다(CLAUDE.md 2장 · 2026-09-11 실제로 밟음).
+      ⑬ 도 같은 사본으로 본다 — 주석에 적힌 「transform:none」 은 «끄는 줄» 이 아니다. */
+const cssCode = cssBlock;   // 이미 주석이 없다(위에서 벗겼다)
 check('⑩ ID 접두 선택자로 되살린다 (조상 id 가 앞에 있다)',
   /#textbooks-table td button\.tb-hide-toggle/.test(CSS));
 check('⑪ 클래스 이름이 «-btn» 으로 끝나지 않는다 ([class$="-btn"] 규칙 회피)',
   !/class="[^"]*-btn"/.test(bodySeg) && /tb-hide-toggle/.test(bodySeg));
 check('⑫ background 단축이 아니라 background-color 로 쓴다',
-  /background-color:/.test(cssBlock) && !/[^-]background:\s*#/.test(cssBlock));
+  /background-color:/.test(cssCode) && !/[^-]background:\s*#/.test(cssCode));
 check('⑬ hover 에 transform 을 두지 않는다 (끄는 줄이 실제로 있다)',
-  /transform:\s*none\s*!important/.test(cssBlock));
+  /transform:\s*none\s*!important/.test(cssCode));
 
 console.log('──────────────────────────────────────────');
 console.log(`  ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

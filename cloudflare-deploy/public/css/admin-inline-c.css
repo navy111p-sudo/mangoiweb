@@ -10201,3 +10201,50 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
    ⚠️ 색은 «둘째» 신호다 — 글리프(⚠)·문구·굵기가 먼저다. 색만으로 뜻을 지고 가게 두지 말 것. */
 #card-admin-ghost .gh-alone      { color: #b45309 !important; font-weight: 800 !important; }
 #card-admin-ghost .gh-alone-meet { color: #475467 !important; font-weight: 700 !important; }
+
+/* 🏢 (2026-09-11) 조직 3표(대리점·지사·대표지사)의 «표 안 작은 버튼» 을 되살린다.
+ [왜] 전역 룰 `details.menu-card button:not(…)` 가 background 인디고 그라데이션 +
+      padding:9px 18px + color:#fff 를 **!important** 로 걸어, 작성자가 인라인으로 적어 둔
+      `padding:2px 8px;font-size:11px;background:#fff` 이 통째로 무시된다(작성자 !important >
+      인라인). 그래서 「✏️ 수정」·「🟢 사용중」·「취소」가 전부 큰 파란 알약이 되어 좁은 칸을
+      밀어낸다 — 같은 파일 #tp-list-table td button.tp-act-btn(강사 목록)·
+      #en-multi-table td button.en-row-time-builder(수강신청 표) 선례와 **똑같은 함정**이다.
+ [고침] ID 접두로 특이도를 올려 되살린다 — (1,1,2) 대 전역 (0,4,2). id 가 하나라도 있으면
+      클래스를 아무리 쌓은 규칙도 못 이긴다.
+ ⛔ 이 블록에 `display` 를 쓰지 말 것 — 「취소」 세 개는 인라인 `display:none` 으로 숨겨져
+    있고(수정 모드에서만 보인다), 여기서 display 를 정하면 **항상 보이게** 된다.
+ ⛔ hover 에 transform 을 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」.
+ ⚠️ 전역 룰 자체를 고쳐서 풀지 말 것 — 관리자 화면 버튼 «전체» 의 모양이 걸린다. */
+#centers-table td button.org-rowact,
+#franchises-table td button.org-rowact,
+#mbranches-table td button.org-rowact,
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #344054 !important;
+  border: 1px solid #D0D5DD !important;
+  border-radius: 5px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+}
+/* 「취소」는 폼 안 버튼이라 표 안 버튼보다 한 치수 크게 둔다(원래 인라인 값 그대로). */
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  padding: 5px 12px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+#centers-table td button.org-rowact:hover,
+#franchises-table td button.org-rowact:hover,
+#mbranches-table td button.org-rowact:hover,
+#ct-cancel-btn:hover, #fr-cancel-btn:hover, #mbr-cancel-btn:hover {
+  background-color: #F9FAFB !important;
+  background-image: none !important;
+  border-color: #98A2B3 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}

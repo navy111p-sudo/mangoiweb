@@ -468,11 +468,35 @@ console.log('\n[9] 수강료 → 본사 요율 파생');
   // 화면: 가맹점을 코드에 특정하지 않는다 (사장님 지시)
   const CORE = readFileSync(new URL('../cloudflare-deploy/public/js/adm-core.js', import.meta.url), 'utf8');
   const tu = CORE.slice(CORE.indexOf('async function ctSetTuition('), CORE.indexOf('window.ctSetTuition'));
-  check('수강료 저장이 rate-config 로 간다', /rate-config/.test(tu));
-  check('비우면 표준값으로 되돌린다(reset)', /reset:\s*true/.test(tu));
+  /* 💰 (2026-09-11) 정본이 _ctPostTuition 하나로 모였다 — 표 안 칸(ctSetTuition)과
+     대리점 «수정» 폼(saveCenter)이 둘 다 그것을 부른다.
+     🪤 「그 줄이 ctSetTuition 안에 있는가」로 물으면 **정본으로 모으는 정당한 수리가
+        빨간불**이 된다(2026-09-11 실제로 밟음). «뜻» 으로 묻는다 — 정본이 rate-config 로
+        가는가 + 부르는 쪽이 그 정본을 실제로 부르는가, 둘을 짝으로. */
+  const post = CORE.slice(CORE.indexOf('async function _ctPostTuition('), CORE.indexOf('window._ctPostTuition'));
+  check('[전제] 수강료 저장 정본(_ctPostTuition)을 잘라 냈다', post.length > 80);
+  check('수강료 저장이 rate-config 로 간다', /rate-config/.test(post));
+  check('비우면 표준값으로 되돌린다(reset)', /reset:\s*true/.test(post));
+  check('표 안 칸이 그 정본을 부른다(자기가 따로 조립하지 않는다)',
+    /_ctPostTuition\(/.test(tu) && !/rate-config/.test(tu));
+  /* 🧾 수정 폼도 같은 정본을 쓴다 — 그리고 **대리점 저장이 끝난 뒤 «바뀐 뒤 이름»** 으로
+     불러야 한다(scope_key 가 대리점 «이름» 이라, 먼저 부르면 옛 이름에 저장된다). */
+  const sc = CORE.slice(CORE.indexOf('async function saveCenter('), CORE.indexOf('window.saveCenter'));
+  check('수정 폼도 그 정본을 부른다', /_ctPostTuition\(name,/.test(sc));
+  /* 🪤 부정 검사는 **주석을 벗겨 낸 사본**으로 — 나중에 「⛔ 여기서 rate-config 를 직접
+        부르지 말 것」 같은 주석을 달면 검사가 자기 주석을 잡는다(CLAUDE.md 2장). */
+  const scCode = sc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('수정 폼이 rate-config 를 따로 부르지 않는다', !/rate-config/.test(scCode));
+  check('🔑 수강료 저장이 «대리점 저장 뒤» 에 온다 (바뀐 뒤 이름으로)',
+    sc.indexOf('_ctPostTuition(') > sc.indexOf("method: 'PATCH'"));
+  check('수강료만 실패했을 때 사람에게 말한다(조용한 반쪽 성공 금지)',
+    /tuitionErr/.test(sc));
   check('실패 시 값을 되돌린다(조용한 반쪽 성공 금지)', /inp\.value\s*=\s*prev/.test(tu));
+  /* 🔑 사장님 지시 — 특정 가맹점을 코드에 특정하지 않는다.
+     🪤 2026-09-11: 본문이 _ctPostTuition 으로 옮겨 갔는데 이 검사는 tu(표 안 칸)만 보고 있어
+        **post 안에 이름을 박아도 통과**했다(변이시험 실측 134/134 초록). 둘 다 본다. */
   check('🔑 특정 가맹점 이름이 코드에 박혀 있지 않다',
-    !/(SLP|뮤엠|캐피타운|장지웅)/.test(tu));
+    !/(SLP|뮤엠|캐피타운|장지웅)/.test(tu + '\n' + post));
 }
 
 // ════════════════════════════════════════════════════════════════════

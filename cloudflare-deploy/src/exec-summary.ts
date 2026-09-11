@@ -74,7 +74,11 @@ const scopeFor = (env: Env, request: Request) =>
  *   그래서 판정을 **여기 한 곳**으로 모은다. 새 조회를 붙일 때 이 함수를 쓰면 같은 실수가 안 난다.
  *   NULL·빈 문자열도 재원으로 본다(수기 등록분이 status 없이 들어오는 경우가 있다).
  */
-function activeCond(alias = ''): string {
+/* ⚠️ export — 이 판정을 다른 파일이 또 잘못 베낄 위험을 없애려고 내보낸다.
+ *   ai-billing.ts(B2B AI 사용료 청구 — 2026-09-10)가 「재원 학생」을 셀 때 이걸 그대로 쓴다.
+ *   복사해서 새로 짜지 말 것 — 위 «단독 비교하면 0건» 사고가 그대로 재현된다.
+ */
+export function activeCond(alias = ''): string {
   const col = (alias ? alias + '.' : '') + 'status';
   return `(${col} IN ('정상','활동','active') OR ${col} IS NULL OR ${col} = '')`;
 }
@@ -90,7 +94,7 @@ function inactiveCond(alias = ''): string { return `NOT ${activeCond(alias)}`; }
  *   🕘 `date('now','+9 hours')` = KST 오늘. 바인드를 늘리지 않으려고 인라인으로 쓴다
  *      (호출부마다 바인드 순서를 맞추다 틀리는 것이 더 위험하다).
  */
-function enrolledCond(alias = ''): string {
+export function enrolledCond(alias = ''): string {
   const p = alias ? alias + '.' : '';
   return `(${p}end_date IS NULL OR ${p}end_date = '' OR ${p}end_date >= date('now','+9 hours'))`
        + ` AND ${activeCond(alias)}`;

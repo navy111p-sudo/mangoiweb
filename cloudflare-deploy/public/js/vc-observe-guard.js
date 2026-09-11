@@ -714,3 +714,304 @@
     };
   }
 })();
+
+/* ============================================================================
+   ⑪ 참관 화면의 «검은 칸» 이 왜 검은지 끝까지 말한다   (2026-09-10 사장님 지시)
+   ----------------------------------------------------------------------------
+   [제보] 「👁 바로 참관」으로 들어갔더니 검은 화면이 나온다 — 그것을 보고
+     「학생·강사도 참관자가 들어온 걸 알게 되는 것 아니냐」고 걱정하셨다.
+     실제로는 그 검은 칸이 **참관자 자신의 화면**이고 두 사람에게는 가지 않는다
+     (참관자는 아무것도 보내지 않고 서버도 입장을 방송하지 않는다 — handleJoinObserve).
+     즉 고칠 것은 «참관이 새는 것» 이 아니라 **«참관 화면이 이유를 말하지 않는 것»** 이다.
+
+   [무엇이 비어 있었나] 칸을 만들 때 그리는 「📷 연결 중…」(index.html .vc-connecting-hint)은
+     **영상이 도착하는 순간 vcAddRemoteVideo 가 지운다.** 그래서 그 «뒤» 에
+       · 상대가 카메라를 끄거나        (원격 비디오 트랙이 muted 로 바뀐다)
+       · 영상이 얼어붙으면            (트랙은 live 인데 프레임이 안 는다)
+     아무 설명 없는 검은 칸만 남는다. 참관자는 그것을 «고장» 으로 읽는다.
+
+   [무엇을 «안» 건드리나]
+     ⛔ public/index.html — 공동 금지구역이고 첫 화면 예산 여유가 186바이트뿐이다.
+        CSS 도 여기서 주입한다(이 파일의 ⑦절이 이미 쓰는 방식).
+     ⛔ js/idx-main.js(blocking 849KB) — 한 줄도 안 고친다.
+     ⛔ 수업 화면(강사·학생)에는 한 줄도 안 돈다 — 주소에 ?observe= 가 없으면
+        이 절은 아무것도 하지 않고 곧바로 반환한다. 반경이 학생 29,000명인 자리라
+        «참관 화면에만» 이라는 조건이 이 절의 안전장치 전부다.
+     ⛔ 기존 「📷 연결 중…」 힌트가 살아 있는 동안에는 손을 뗀다 — 같은 말을 두 번 하지 않는다.
+
+   [⚠️ 타이머를 두는 이유와 그 대가]
+     카메라를 껐다 켜는 것은 «수업 내내» 일어나므로 «끝이 있는 확인» 몇 번으로는 못 잡는다.
+     그래서 2초 간격 타이머를 두되 — **참관 화면에서만 시작하고, 참관이 아니게 되면
+     스스로 끈다**(js/idx-vc-qlog.js 의 수신 계측 타이머와 같은 방식).
+     ⛔ body class MutationObserver 는 쓰지 않는다(홈 전체가 멎은 전력 2회).
+
+   [⚠️ 모르면 말하지 않는다]
+     프레임 수를 못 재는 브라우저에서는 «멈췄다» 고 하지 않는다. 자동재생 정책에 막혀
+     <video> 가 paused 인 경우도 판정을 미룬다 — 그건 기존 「소리 켜기」 배너가 담당한다.
+     틀린 설명은 설명이 없는 것보다 나쁘다.
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__vcObsWhyGuard) return;
+  window.__vcObsWhyGuard = true;
+
+  /* 🔒 참관 화면이 아니면 여기서 끝 — 수업 화면에는 한 줄도 돌지 않는다. */
+  if (!/[?&]observe=/i.test(location.search)) return;
+
+  var TICK_MS = 2000;      // 참관 화면에서만 도는 확인 주기
+  var STALL_MS = 4000;     // 프레임이 이만큼 안 늘면 «멈췄다»
+
+  /* ⛔ window.vcIsObserver 로 읽지 말 것 — idx-main.js 의 vcIsObserver 는 let 이라
+     window 속성이 되지 않는다(늘 undefined). classic script 끼리는 «맨 이름» 으로 읽는다.
+     CLAUDE.md 2장 「값을 넣었는데 DB·전송 payload 에는 늘 빈 값」·let_on_window_harness. */
+  function obs() {
+    return window._vcObserverMode === true
+        || (typeof vcIsObserver !== 'undefined' && vcIsObserver === true);
+  }
+  function en() {
+    try {
+      var g = (typeof window.getLang === 'function') ? window.getLang()
+            : (localStorage.getItem('mangoi_lang') || 'ko');   // ⛔ mango_lang 은 구버전 키
+      return String(g).toLowerCase() === 'en';
+    } catch (_) { return false; }
+  }
+  function L(ko, e) { return en() ? e : ko; }
+
+  /* 프레임 수 — 못 재면 -1. ⛔ -1 을 «0 프레임» 으로 읽지 말 것(그러면 늘 «멈췄다»). */
+  function frames(v) {
+    try {
+      if (typeof v.getVideoPlaybackQuality === 'function') {
+        var q = v.getVideoPlaybackQuality();
+        if (q && typeof q.totalVideoFrames === 'number') return q.totalVideoFrames;
+      }
+    } catch (_) {}
+    if (typeof v.webkitDecodedFrameCount === 'number') return v.webkitDecodedFrameCount;
+    return -1;
+  }
+
+  /* 이 칸이 지금 «왜» 검은가. null = 할 말 없음(정상이거나 판정 보류).
+     ⚠️ 순수 판정 — DOM 을 읽기만 하고 바꾸지 않는다(하니스가 이 함수를 오려 내 돌린다). */
+  function stateOf(box, now) {
+    var v = box.querySelector('video');
+    if (!v) return null;
+    /* 영상이 아직 안 붙었다 → 기존 「📷 연결 중…」 이 담당한다. */
+    var ms = v.srcObject;
+    if (!ms || typeof ms.getVideoTracks !== 'function') return null;
+    if (box.querySelector('.vc-connecting-hint')) return null;
+
+    /* 🔒 «카메라 꺼짐» 은 이 저장소에 이미 정본이 있다 — idx-main.js 의 vcApplyRemoteCamHint()
+       가 .vc-camoff-hint 를 그리고, 그것은 서버가 실어 준 사유로 «사람이 껐다(user)» 와
+       «회선이 약해 시스템이 내렸다(aao)» 를 갈라 말한다(window.vcRemoteCamOff[uid]).
+       참관 화면도 vc-in-call 이 붙고 cam-state 방송을 그대로 받으므로 그 정본이 여기서도 돈다.
+       ⛔ 그러니 우리가 «상대가 껐다» 고 단정하면 AAO 에서 «사실이 아닌» 말을 덧붙이게 된다
+          (기존 힌트는 「음성만 전송 중」이라고 말하는 그 자리다). 정본이 아는 칸에서는 손을 뗀다. */
+    var uid = String(box.id || '').slice('vc-video-'.length);
+    var known = false;
+    try { known = !!(window.vcRemoteCamOff && window.vcRemoteCamOff[uid]); } catch (_) {}
+    if (known || box.querySelector('.vc-camoff-hint') || box.querySelector('.vc-black-hint')) return null;
+
+    /* 🔒 음성전용(AAO) «영상 멈춤» 도 정본이 따로 있다 — js/idx-vc-qlog.js ⑤ 가 타일 위쪽에
+       「📶 영상 멈춤 · 소리 정상 · N초 전」 띠(.vc-aao-freeze)를 붙이고 그림을 흑백으로 멈춘다
+       (2026-09-10 사장님 「얼굴을 안 보이게 하는 것보단 차라리 화면 멈춤」 → PR #929·#932).
+       ⛔ 그 칸에서 우리가 「영상이 멈췄습니다 — 다시 받는 중」이라고 하면 «거짓말» 이다 —
+          고장이 아니라 «일부러» 멈춘 것이고, 다시 받는 중도 아니다. 정본이 아는 칸에서는 손을 뗀다.
+       ⚠️ 클래스 «둘 다» 본다: 띠(.vc-aao-freeze)는 지워졌는데 상태 클래스(vc-aao-on)만 남는
+          중간 순간이 있고, 그 반대도 마찬가지다. 어느 쪽이든 보이면 판정을 미룬다. */
+    if (box.querySelector('.vc-aao-freeze') || box.classList.contains('vc-aao-on')) return null;
+
+    var vts = ms.getVideoTracks() || [];
+    if (!vts.length) return 'nocam';                       // 비디오 트랙 자체가 없다
+    var t = vts[0];
+    /* 정본이 «모르는» 채로 영상만 끊긴 자리 — 왜 끊겼는지는 우리도 모르므로 단정하지 않는다. */
+    if (t.readyState !== 'live' || t.muted === true) return 'novideo';
+
+    if (v.paused === true) return null;                    // 자동재생 정책 — 다른 안내가 담당
+    var f = frames(v);
+    if (f < 0) return null;                                // 못 쟀다 → 말하지 않는다
+
+    /* 🖥 화면 공유 타일은 «정지 화면» 이 정상이다(교재 한 장을 띄워 둔 동안 새 프레임이 없다).
+       판별은 이 저장소가 이미 쓰는 .vc-ss-badge — CLAUDE.md 「⛔ 화면 공유는 예외입니다」.
+       ⚠️ 실제 프레임 간격은 재지 않았다. 재기 전에는 «말하지 않는» 쪽으로 둔다. */
+    if (box.querySelector('.vc-ss-badge')) return null;
+    /* 🙈 배경 탭에서는 브라우저가 디코딩을 늦춰 프레임이 안 늘 수 있다 — 멀쩡한 영상을
+       「멈췄다」로 오진한다. 관제탑 순회 참관은 창을 재사용해 배경으로 두는 구조다. */
+    try { if (document.hidden === true) return null; } catch (_) {}
+
+    var last = box.__vcWhyF;
+    if (!last || last.n !== f) { box.__vcWhyF = { n: f, at: now }; return null; }
+    if (now - last.at >= STALL_MS) return 'stall';         // 프레임이 4초째 그대로
+    return null;
+  }
+
+  var TEXT = {
+    nocam:  ['🎤 소리만 오는 중 — 상대가 카메라를 켜지 않았습니다',
+             '🎤 Audio only — the other side has no camera on'],
+    novideo: ['📷 상대 영상이 오지 않습니다',
+              '📷 No video coming from the other side'],
+    stall:  ['⏳ 영상이 멈췄습니다 — 다시 받는 중',
+             '⏳ Video stalled — receiving again'],
+  };
+
+  function css() {
+    if (document.getElementById('vc-obs-why-css')) return;
+    var st = document.createElement('style');
+    st.id = 'vc-obs-why-css';
+    /* ⚠️ 별점 버튼이 오른아래(right:8px·bottom:34px·z-index:7)에 있다 — 가로로 비켜서고
+       그 폭만큼 자리를 비운다(pointer-events:none 이라 클릭은 원래 안 막는다). */
+    st.textContent = '.vc-obs-why{position:absolute;left:8px;bottom:42px;'
+      + 'z-index:5;max-width:calc(100% - 56px);padding:6px 12px;border-radius:99px;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;background:rgba(15,23,42,.82);color:#e2e8f0;'
+      + 'border:1px solid rgba(148,163,184,.45);font-size:12px;font-weight:700;line-height:1.4;'
+      + 'pointer-events:none;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  function paint(box, state) {
+    var el = box.querySelector('.vc-obs-why');
+    if (!state) { if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+    var msg = L(TEXT[state][0], TEXT[state][1]);
+    if (!el) {
+      css();
+      el = document.createElement('div');
+      el.className = 'vc-obs-why';
+      box.appendChild(el);
+    }
+    if (el.textContent !== msg) el.textContent = msg;
+  }
+
+  var timer = null;
+  function tick() {
+    /* 참관이 아니게 되면 스스로 끈다 — 상주 타이머를 남기지 않는다. */
+    if (!obs()) { try { clearInterval(timer); } catch (_) {} timer = null; return; }
+    var now = Date.now();
+    /* ⛔ [id^="vc-video-"] 로 훑지 말 것 — index.html 에 그 접두사인데 «칸이 아닌» 것이 둘 있다
+       (#vc-video-pane 8440행 · #vc-video-grid 8498행). 둘 다 안에 <video> 를 갖고 있어
+       칸으로 오인되고, 알약이 얼굴 열 전체에 하나씩 더 그려진다.
+       idx-main.js 도 같은 함정을 알고 id === 'pane' 을 따로 거른다(1442행).
+       여기서는 정본 vcRemoteBlackWatch 와 같은 방식으로 «그리드의 직계 .video-box» 만 훑는다. */
+    var grid = document.getElementById('vc-video-grid');
+    if (!grid) return;
+    var boxes = grid.querySelectorAll(':scope > .video-box[id^="vc-video-"]');
+    for (var i = 0; i < boxes.length; i++) {
+      try { paint(boxes[i], stateOf(boxes[i], now)); } catch (_) {}
+    }
+  }
+  function start() { if (!timer) timer = setInterval(tick, TICK_MS); }
+
+  /* 참관 모드는 사람이 방을 열어야 켜진다 — «끝이 있는» 확인 몇 번으로 기다렸다 시작한다. */
+  [500, 1500, 3000, 6000, 12000, 20000].forEach(function (ms) {
+    setTimeout(function () { if (obs()) start(); }, ms);
+  });
+})();
+
+/* ============================================================================
+   ⑫ 이름을 «지어낸» 상대의 얼굴 칸은 만들지 않는다   (2026-09-11 사장님 지시)
+   ----------------------------------------------------------------------------
+   [제보] 「왜 이렇게 계속 참가자가 보여?」 — 수업 화면 얼굴 열에 이름표가 「참가자」인
+     **온통 검은 칸**이 하나 더. 이어서 「관찰을 하더라도 저게 아예 나타나지 않게 해줘」.
+
+   [뿌리 — 잰 것] 「참가자」는 사람 이름이 아니라 **서버가 «이름을 모를 때» 채워 넣는 글자**다.
+     · src/video-call-room.ts handleOffer: `fromUsername: fromObserver ? '' : (usernameOf(userId) || '참가자')`
+     · usernameOf 는 «입장(joined)한 소켓» 이 없으면 null 을 준다(재접속으로 밀려난 소켓·이미 닫힌 소켓).
+     · handleJoinRoom 이 `if (!username) → error` 로 막으므로 **정상 입장한 사람은 이름이 반드시 있다.**
+     ⟹ 이름이 비어 오는 상대는 ⓐ 참관자(일부러 비움) ⓑ 이미 끊긴 소켓 둘뿐이고,
+        **둘 다 영상을 보내지 않는다.** 그런데 화면은 이름이 «있다» 고 보고 칸을 깔아 버렸다.
+     받는 쪽 js/idx-main.js vcHandleOffer: `const fromName = data.fromUsername || '참가자'`
+     → vcEnsureParticipantBox(…, '참가자') → 이름표 「참가자」 + 영영 검은 칸.
+
+   [무엇을 고쳤나] 이름을 모르는 상대는 **영상이 실제로 도착할 때까지 칸을 만들지 않는다.**
+     · 참관자·끊긴 소켓은 영상을 안 보내므로 **칸이 애초에 안 생긴다.**
+     · 진짜 참가자는 두 길 중 하나로 반드시 칸이 생긴다 —
+         ① 명단(existing-users·user-joined)이 **진짜 이름**으로 vcEnsureParticipantBox 를 부른다
+            → 그 순간 표시를 지우고 평소대로 만든다.
+         ② 영상이 도착하면 vcAddRemoteVideo 가 **자기 힘으로** 칸을 만든다(그 함수는
+            vcEnsureParticipantBox 를 거치지 않고 직접 그린다 — 실측).
+     ⟹ «없는 사람» 만 사라지고 «있는 사람» 은 그대로다.
+
+   ⛔ 「이름이 참가자인 칸을 지운다」로 풀지 말 것 — 이름이 아직 안 붙은 진짜 학생의 칸까지 지운다.
+      판정 근거는 «그 offer 가 이름을 갖고 왔는가» 하나뿐이고, 추측으로는 채우지 않는다.
+   ⛔ vcRemovePeer(id,'left') 로 지우지 말 것 — index.html 이 'left' 를 «수업 종료» 로 읽어
+      학생 화면에 「수업이 끝났어요」가 뜬다(CLAUDE.md 2장). 여기서는 «안 만드는» 것뿐이다.
+   ⛔ answer 는 그대로 보낸다 — 참관 자체를 막는 것이 아니다(⑩절과 같은 판단).
+   ⛔ 상주 setInterval·body class MutationObserver 금지(홈 전체가 멎은 전력 2회).
+   ⚠️ 이 절은 **수업 화면(강사·학생)에서 돌아야 한다** — ?observe= 로 걸러서는 안 된다(⑩절과 같다).
+   ⚠️ 서버(src/video-call-room.ts)는 한 줄도 안 고쳤다 — 공동 금지구역이다. 그래서 판정은
+      «이름이 비었나» 가 아니라 «비었거나 서버가 지어낸 그 글자인가» 로 한다.
+      📌 근본 수리는 서버가 «모른다» 를 그대로 보내는 것(`|| '참가자'` 제거 + 표시 한 칸)이고,
+         그건 금지구역이라 **사람이 정할 일**로 남긴다. 그때 아래 UNKNOWN_NAMES 는 지워도 된다.
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__vcNamelessTileGuard) return;
+  window.__vcNamelessTileGuard = true;
+
+  /* 서버가 «이름을 모를 때» 내보내는 값. ⛔ 늘리지 말 것 — 진짜로 그 이름을 쓰는 학생이
+     있으면 그 사람의 칸이 늦게 생긴다(영상이 오면 생기므로 사라지지는 않는다). */
+  var UNKNOWN_NAMES = ['', '참가자'];
+
+  /* 이름을 모르는 채로 offer 만 온 peer id. 추측으로는 절대 채우지 않는다. */
+  var UNK = (window.__vcNamelessPeers = window.__vcNamelessPeers || {});
+
+  function nameless(n) {
+    var s = (n == null ? '' : String(n)).trim();
+    for (var i = 0; i < UNKNOWN_NAMES.length; i++) if (s === UNKNOWN_NAMES[i]) return true;
+    return false;
+  }
+
+  function hasTrack(stream) {
+    try {
+      if (!stream || typeof stream.getTracks !== 'function') return false;
+      var ts = stream.getTracks() || [];
+      for (var i = 0; i < ts.length; i++) if (ts[i] && ts[i].readyState === 'live') return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /* (가) offer 가 이름 없이 오면 표시해 둔다. 원래 처리는 그대로 이어서 한다(answer 는 보낸다). */
+  var _offer = window.vcHandleOffer;
+  if (typeof _offer === 'function') {
+    window.vcHandleOffer = function (data) {
+      try {
+        if (data && data.fromUserId && (data.fromObserver || nameless(data.fromUsername))) {
+          UNK[data.fromUserId] = true;
+        }
+      } catch (_) {}
+      return _offer.apply(this, arguments);
+    };
+  }
+
+  /* (나) 자리만 미리 까는 경로를 막는다. ⚠️ «이미 있는 칸» 은 건드리지 않는다 —
+     명단으로 먼저 생긴 진짜 칸을 이 절이 지우면 안 된다(여기는 «안 만드는» 절이다). */
+  var _ensure = window.vcEnsureParticipantBox;
+  if (typeof _ensure === 'function') {
+    window.vcEnsureParticipantBox = function (userId, username) {
+      try {
+        if (userId && UNK[userId]) {
+          if (!nameless(username)) delete UNK[userId];          // 명단이 진짜 이름을 줬다 → 평소대로
+          else if (!document.getElementById('vc-video-' + userId)) return null;
+        }
+      } catch (_) {}
+      return _ensure.apply(this, arguments);
+    };
+  }
+
+  /* (다) 🔴 **여기가 진짜 통로다.** offer 로 알게 된 상대의 칸은 vcEnsureParticipantBox 가
+     아니라 **이 함수가 «자기 힘으로» 만든다**(실측: vcEnsureParticipantBox 를 부르는 곳은
+     명단 두 곳뿐 — idx-main.js 4091·4162. offer → vcCreatePeer → ontrack → 여기).
+     ⛔ 그래서 (나)만 막으면 아무것도 안 막힌다 — 처음에 그렇게 짰다가 호출부를 세어 보고 고쳤다.
+     · 살아 있는 트랙이 왔다 = 보여 줄 것이 있다 → 표시를 지우고 평소대로 그린다.
+     · 줄 것이 없는데 칸도 아직 없다 → **만들지 않는다.**
+     ⚠️ 트랙이 muted 여도 readyState 는 live 다 — 「카메라만 끈 진짜 사람」은 그대로 나온다. */
+  var _add = window.vcAddRemoteVideo;
+  if (typeof _add === 'function') {
+    window.vcAddRemoteVideo = function (userId, username, stream) {
+      try {
+        if (userId && UNK[userId]) {
+          if (hasTrack(stream)) delete UNK[userId];
+          else if (!document.getElementById('vc-video-' + userId)) return;
+        }
+      } catch (_) {}
+      return _add.apply(this, arguments);
+    };
+  }
+})();
