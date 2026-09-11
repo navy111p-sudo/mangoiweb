@@ -8281,7 +8281,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
                data-ko="대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요."
                data-en="A master branch groups several branches. Assign one per branch in the “🏢 Branch” table below.">대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요.</div>
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 지사(fr-form-wrap)
+               와 같은 방식(js/adm-core.js 의 mbrEdit/saveMasterBranch/mbrResetForm).
+               ontoggle 로 «닫힐 때만» mbrResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _mbrEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 대표지사를 덮어쓰게 된다. -->
+          <details id="mbr-form-wrap" ontoggle="if(!this.open&&window.mbrResetForm)window.mbrResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
             <div class="menu-form">
               <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
@@ -8293,10 +8297,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
               <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
               <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
+              <button id="mbr-cancel-btn" onclick="mbrResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
-          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
-            <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="mbranches-table"><tr><td colspan="9" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -10183,7 +10189,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=209" defer></script><!-- 분할추출:adm-core (v=209: 2026-09-11 지사 «수정» 메뉴 신설 — 사장님 제보 「지사도 대리점과
+<script src="/js/adm-core.js?v=210" defer></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
+     버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
+     등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
+     는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간
+     동기화가 안 덮어쓴다 — 대리점·지사와 달리 정정표(override table)가 필요 없다. scope.ts 의
+     Scope 타입에도 'master' 가 없어(admin_scope 가 이 표의 name 으로 아무것도 매칭하지 않음)
+     이름을 바꿔도 로그인 계정이 조용히 못 찾게 되는 걱정도 없다 — 그냥 UPDATE 한다) (v=209: 2026-09-11 지사 «수정» 메뉴 신설 — 사장님 제보 「지사도 대리점과
      마찬가지로 수정 메뉴가 없다」. 대리점(v=208)과 같은 방식·같은 위험을 그대로 옮겼다 — 표
      마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다(saveFranchise/frEdit/
      frResetForm). 이름·대표자·전화·주소는 카페24 야간 동기화가 매일 밤 덮어써서(cafe24-sync.ts

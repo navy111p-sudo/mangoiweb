@@ -5126,12 +5126,15 @@ function _frnPhone(v) {
 /* 🏛️ 대표지사 목록 캐시 — 지사 표의 «대표지사» 칸 드롭다운을 그리는 데 쓴다.
    지사가 241행이라 행마다 fetch 하면 안 된다. 한 번 받아 두고 같은 목록을 재사용한다. */
 let _masterBranches = [];
+// ✏️ (2026-09-11) 대리점(centers)·지사(franchises)와 같은 이유·같은 방식 — 본사만 true.
+var _mbrCanEdit = true;
 async function _ensureMasterBranches(force) {
   if (_masterBranches.length && !force) return _masterBranches;
   try {
     const r = await fetch('/api/admin/franchises?view=master',{cache:'no-store',credentials:'include'});
     const d = await r.json().catch(()=>({}));
     if (d && d.ok && Array.isArray(d.items)) _masterBranches = d.items;
+    if (d && typeof d.can_edit === 'boolean') _mbrCanEdit = d.can_edit;
   } catch (e) { /* 대표지사를 못 받아도 지사 목록은 보여야 한다 */ }
   return _masterBranches;
 }
@@ -5173,27 +5176,80 @@ async function loadFranchises() {
 async function loadMasterBranches() {
   const tb = document.getElementById('mbranches-table');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중…</td></tr>';
+  tb.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
   await _ensureMasterBranches(true);
   if (!_masterBranches.length) {
-    tb.innerHTML = '<tr><td colspan="8" class="empty">'
+    tb.innerHTML = '<tr><td colspan="9" class="empty">'
       + (adminLang==='en' ? 'No master branches yet. Add one above.' : '등록된 대표지사가 없습니다. 위에서 등록하세요.')
       + '</td></tr>';
     return;
   }
+  // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·권역·등급·대표자·전화를
+  // 고친다(mbrEdit). _mbrCanEdit 은 GET(view=master) 이 이미 알려 준다(본사만 true).
+  const _mbrActCell = m => _mbrCanEdit
+    ? `<button type="button" onclick="mbrEdit(${Number(m.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+        style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
+    : '';
   tb.innerHTML = _masterBranches.map(m => {
     const on = m.active !== 0;
     return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td><td>${_esc(m.region)||'—'}</td>`
       + `<td>${_esc(m.tier)||'—'}</td><td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
       + `<td>${Number(m.branch_count)||0}</td>`
       + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
-      + (on ? (adminLang==='en'?'🟢 active':'🟢 사용중') : (adminLang==='en'?'⏸ paused':'⏸ 중지')) + '</button></td></tr>';
+      + (on ? (adminLang==='en'?'🟢 active':'🟢 사용중') : (adminLang==='en'?'⏸ paused':'⏸ 중지')) + '</button></td>'
+      + `<td style="white-space:nowrap">${_mbrActCell(m)}</td></tr>`;
   }).join('');
 }
-async function addMasterBranch() {
+var _mbrEditId = 0;
+function mbrResetForm() {
+  _mbrEditId = 0;
+  const e = id => document.getElementById(id);
+  ['mbr-name','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  _ctSetBtnLabel(e('mbr-add-btn'), '+ 등록', '+ Add');
+  const c = e('mbr-cancel-btn'); if (c) c.style.display = 'none';
+}
+window.mbrResetForm = mbrResetForm;
+
+/* ✏️ (2026-09-11 신설 — 사장님 제보 「대표지사도 수정하는 버튼이 없다」)
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다(지사 frEdit 과 같은 방식). */
+function mbrEdit(id) {
+  const m = _masterBranches.filter(x => String(x.id) === String(id))[0];
+  if (!m) return;
+  const e = k => document.getElementById(k);
+  _mbrEditId = m.id;
+  if (e('mbr-name')) e('mbr-name').value = m.name == null ? '' : m.name;
+  if (e('mbr-region')) e('mbr-region').value = m.region == null ? '' : m.region;
+  if (e('mbr-tier')) e('mbr-tier').value = m.tier == null ? '' : m.tier;
+  if (e('mbr-manager')) e('mbr-manager').value = m.owner_name == null ? '' : m.owner_name;
+  if (e('mbr-phone')) e('mbr-phone').value = m.phone == null ? '' : m.phone;
+  const wrap = e('mbr-form-wrap'); if (wrap) wrap.open = true;
+  _ctSetBtnLabel(e('mbr-add-btn'), '💾 수정 저장', '💾 Save');
+  const cancel = e('mbr-cancel-btn'); if (cancel) cancel.style.display = '';
+  if (e('mbr-name')) e('mbr-name').focus();
+}
+window.mbrEdit = mbrEdit;
+
+async function saveMasterBranch() {
   const e = id => document.getElementById(id);
   const name = ((e('mbr-name')||{}).value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'대표지사 이름은 필수입니다'); return; }
+  if (_mbrEditId) {
+    // ✏️ master_branches 는 카페24와 무관한 D1 전용 표라(위 서버 주석) 대리점·지사와 달리
+    // «옛 이름으로 이 계정을 찾는다» 류 경고가 없다 — 그냥 저장하고 목록만 다시 그린다.
+    const d = await _menuPost('/api/admin/franchises', {
+      kind: 'master_edit', id: _mbrEditId, name,
+      region: (e('mbr-region')||{}).value || null,
+      tier: (e('mbr-tier')||{}).value || null,
+      owner_name: (e('mbr-manager')||{}).value || null,
+      phone: (e('mbr-phone')||{}).value || null
+    });
+    if (d) {
+      mbrResetForm();
+      await loadMasterBranches();
+      if (document.getElementById('franchises-table')) loadFranchises();
+    }
+    return;
+  }
   const d = await _menuPost('/api/admin/franchises', {
     kind: 'master', name,
     region: (e('mbr-region')||{}).value || null,
@@ -5222,7 +5278,7 @@ async function assignMasterBranch(franchiseId, masterId, sel) {
   if (document.getElementById('mbranches-table')) loadMasterBranches();
 }
 window.loadMasterBranches = loadMasterBranches;
-window.addMasterBranch = addMasterBranch;
+window.saveMasterBranch = saveMasterBranch;
 window.setMasterBranchActive = setMasterBranchActive;
 window.assignMasterBranch = assignMasterBranch;
 
@@ -11580,7 +11636,7 @@ window.bulkCopyContacts = function() {
 // 6개 메뉴 컨트롤 일괄 바인딩
 (function bindPhase9Menus(){
   const e = id => document.getElementById(id);
-  if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);
+  if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', saveMasterBranch);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', saveFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', saveCenter);
   // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)

@@ -9361,7 +9361,10 @@ LIMIT $limit`;
             `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
                FROM master_branches m${mWhere} ORDER BY m.active DESC, m.name ASC`
           ).bind(..._fCond.binds).all();
-          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond });
+          // ✏️ (2026-09-11) 지사·대리점(centers/franchises)과 같은 이유로 can_edit 을 함께 준다 —
+          // 화면이 이걸 보고 «수정» 버튼을 그릴지 정한다(안 주면 지사장 화면에도 버튼이 그려졌다가
+          // 눌렀을 때만 403 이 나는 어색한 경험이 된다).
+          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond, can_edit: canEditOrg(_fSc) });
         }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
         if (cols === 'id, name') {
@@ -9545,6 +9548,36 @@ LIMIT $limit`;
         await env.DB.prepare(`UPDATE master_branches SET active = ?, updated_at = ? WHERE id = ?`)
           .bind(b.active ? 1 : 0, now, mid).run();
         return json({ ok: true, id: mid, active: b.active ? 1 : 0 });
+      }
+      /* ✏️ 대표지사 수정 (2026-09-11 신설 — 사장님 제보 「대표지사도 수정하는 버튼이 없다」)
+         master_branches 는 카페24에 없는 «우리만의 표» 다(위 9325행 주석) — franchises·centers
+         와 달리 매일 밤 동기화가 덮어쓰지 않으므로, 그 둘에 쓴 override 표(franchise_manual_override
+         등) 짝이 여기엔 필요 없다. 그냥 UPDATE 하면 그대로 남는다.
+         ⚠️ scope.ts 의 Scope 타입에는 'master' 가 없다 — admin_scope 는 이 표의 name 을 기준으로
+         아무것도 매칭하지 않는다(franchises/centers 이름과 달리 로그인 계정과 안 엮인다). 그래서
+         지사·대리점 PATCH 에 있던 「이름 바뀌면 연결된 계정이 조용히 못 찾게 된다」 걱정이 여기엔
+         없다 — grep 으로 확인: master_branches·franchise_master_map 을 쓰는 곳은 이 파일 하나뿐. */
+      if (b && b.kind === 'master_edit') {
+        const mid = parseInt(String(b.id || ''), 10);
+        if (!mid) return invalidBody(['id']);
+        await ensureMaster();
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
+        const sets: string[] = [];
+        const binds: any[] = [];
+        if (has('name')) {
+          const nm = String(b.name || '').trim();
+          if (!nm) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(nm);
+        }
+        if (has('region')) { sets.push('region = ?'); binds.push(String(b.region || '').trim() || null); }
+        if (has('tier')) { sets.push('tier = ?'); binds.push(String(b.tier || '').trim() || null); }
+        if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
+        if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
+        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+        sets.push('updated_at = ?'); binds.push(now);
+        binds.push(mid);
+        await env.DB.prepare(`UPDATE master_branches SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        return json({ ok: true, id: mid });
       }
 
       if (!b || !b.name) return invalidBody(['name']);
