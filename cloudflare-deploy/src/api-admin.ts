@@ -48,7 +48,8 @@ import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';  
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
 import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
@@ -5949,6 +5950,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           students,
           duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
           note: r.notes || '',
+          /* 🚚 (2026-09-11) 드래그로 옮길 때 «어느 칸을 고쳐야 하는가».
+             ⛔ 화면이 이 판정을 복제하면 안 된다 — 바로 아래 `kind === 'one_off' || r.scheduled_date`
+                와 한 글자라도 어긋나는 순간 조용히 틀린 칸을 고친다.
+             🔴 실제로 밟았다(2026-09-11): 화면이 `slot.recurring` 으로 갈랐는데 이 `base` 에는
+                그 칸이 **아예 없어**(recurring 은 teacher_unavailability 쪽 base2 에만 실린다)
+                진짜 수업이 예외 없이 false → **언제나 scheduled_date** 를 보냈다. 그러면
+                반복 행에 날짜가 박혀 sessions/today 가 그 하루만 열고 «매주» 가 죽는다.
+             ⚠️ 값을 바꾸면 weekly-schedule.html 의 confirmMoveDo 와 짝이 어긋난다. */
+          move_field: ((String(r.schedule_kind || 'recurring') === 'one_off') || r.scheduled_date)
+            ? 'scheduled_date' : 'day_of_week',
         };
         const kind = String(r.schedule_kind || 'recurring');
         if (kind === 'one_off' || r.scheduled_date) {
@@ -7200,6 +7211,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
        *      NOT_PLACEHOLDER 가 다섯 파일에 복제돼 있는 것과 같은 사정.)
        *  ℹ️ 강사를 «안 바꾸는» 요청(요일·시각만)은 이 블록을 통째로 비켜 간다 — 기존
        *     드래그 이동의 권한은 한 톨도 좁히지 않았다. */
+      /* 🗓 반복 수업에 날짜를 박으면 «매주» 가 죽는다 — 정본 moveFieldConflict 가 판정한다.
+         화면(weekly-schedule.html)이 서버의 move_field 를 그대로 쓰므로 정상 경로에서는
+         닿지 않지만, 옛 캐시 화면·다른 호출자를 위한 2차 방어다. */
+      {
+        const _mfDeny = moveFieldConflict(_pchRow, body);
+        if (_mfDeny) return json({ ok: false, error: _mfDeny.error, message: _mfDeny.message }, _mfDeny.status as any);
+      }
+
+      let _tchFrom: string | null = null;      // 감사 이력용 — ⛔ body 에 끼워 넣지 말 것(아래 주석)
+      let _tchToName: string | null = null;
       if (body.teacher_id != null && String(body.teacher_id).trim() !== '') {
         const _tid = String(body.teacher_id).trim();
         if (!/^\d+$/.test(_tid)) {
@@ -7207,9 +7228,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         }
         const _cur = String(_pchRow?.teacher_id ?? '').trim();
         if (_cur !== _tid) {                       // 같은 강사면 바꿀 것이 없다 — 게이트도 안 탄다
-          if (!_pchActor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-          if (_pchActor.isTeacher) {
-            return json({ ok: false, error: 'forbidden_teacher', message: '담당 강사 변경은 강사 권한으로 할 수 없습니다.' }, 403);
+          /* 🪞 행을 못 읽었으면 «담당 강사» 는 바꾸지 않는다. 그 행이 카페24 미러가 만든 것이면
+             아래 「사람 손이 이긴다」 도장(source='c24-mirror:manual')이 함께 빠지고, 미러의
+             UPDATE 가 teacher_id 를 통째로 되돌린다(c24-mirror.ts) — 즉 「옮겼는데 밤에
+             되돌아감」이 급여까지 끌고 간다. 요일·시각만 바꾸는 요청은 예전대로 통과한다. */
+          if (!_pchRow) {
+            return json({ ok: false, error: 'schedule_read_failed', message: '수업 정보를 읽지 못해 담당 강사를 바꾸지 않았습니다. 잠시 후 다시 시도해 주세요.' }, 503);
           }
           let _scopeType: string | null = null;
           try {
@@ -7222,15 +7246,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             console.warn('[class-schedules] teacher move scope:', e?.message);
             _scopeType = null;
           }
-          if (_scopeType === null) {
-            return json({ ok: false, error: 'scope_unknown', message: '권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 403);
-          }
-          if (_scopeType === 'teacher') {
-            return json({ ok: false, error: 'forbidden_teacher', message: '담당 강사 변경은 강사 권한으로 할 수 없습니다.' }, 403);
-          }
-          if (isOrgScopedRole(_scopeType)) {
-            return json({ ok: false, error: 'forbidden_scope', message: '담당 강사 변경은 본사만 할 수 있습니다.' }, 403);
-          }
+          /* 🔒 판정 정본은 src/class-teacher-move.ts 하나다 — 라우트 안에 조건을 늘어놓으면
+             하니스가 «그 글자가 있는가» 로만 보게 되고, 조건을 뒤집어도 통과한다(실측). */
+          const _deny = teacherMoveDenyReason({ ok: _pchActor.ok, isTeacher: _pchActor.isTeacher, scopeType: _scopeType });
+          if (_deny) return json({ ok: false, error: _deny.error, message: _deny.message }, _deny.status as any);
+
           /* 🆔 실재하는 강사인가 — 없는 번호를 넣으면 그 수업은 «강사가 누구인지 모르는» 행이
              되고, 화면·급여·노쇼 판정이 전부 이름을 못 붙인다. 모르면 안 바꾼다.
              ⚠️ class_schedules.teacher_id 는 teachers.id 도메인이다(카페24 강사번호가 아니다
@@ -7242,8 +7262,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             return json({ ok: false, error: 'teacher_not_found', message: '그 번호의 강사를 찾을 수 없습니다.' }, 400);
           }
           sets.push('teacher_id = ?'); binds.push(_tid);
-          (body as any).__teacher_from = _pchRow?.teacher_id ?? null;
-          (body as any).__teacher_to_name = _trow.name || _tid;
+          /* ⛔ 상태를 `body` 에 끼워 넘기지 말 것 — body 는 request.json() 이라 클라이언트가
+             그 칸을 그대로 보낼 수 있다. 강사 변경이 없어도 감사 이력(class_audit_log)에
+             거짓 줄을 남길 수 있고, 이 PATCH 는 강사도 부를 수 있어 «급여 근거» 가 오염된다.
+             (2026-09-11 함정 대조 지적) */
+          _tchFrom = _pchRow?.teacher_id ?? null;
+          _tchToName = _trow.name || _tid;
         }
       }
 
@@ -7263,12 +7287,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
         /* 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일 «또는 담당 강사» 가 바뀐 경우.
            ⚠️ 강사 변경을 여기서 빼면 급여가 걸린 변경이 아무 데도 안 남는다. */
-        const _tchChanged = (body as any).__teacher_to_name != null;
+        const _tchChanged = _tchToName != null;
         if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null || _tchChanged) {
           const _newDate = body.scheduled_date != null ? String(body.scheduled_date) : (_pchRow ? _pchRow.scheduled_date : null);
           const _newTime = body.start_time != null ? String(body.start_time) : (_pchRow ? _pchRow.start_time : null);
           const _tchLine = _tchChanged
-            ? ` · 담당 강사 ${String((body as any).__teacher_from ?? '?')} → ${String((body as any).__teacher_to_name)}`
+            ? ` · 담당 강사 ${String(_tchFrom ?? '?')} → ${String(_tchToName)}`
             : '';
           await writeClassAudit(env, {
             action: 'reschedule', schedule_id: id,
