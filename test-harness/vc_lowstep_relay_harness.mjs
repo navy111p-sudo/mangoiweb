@@ -106,7 +106,7 @@ ok('③ 관리자 API 가 있다 (GET·POST /api/admin/vc/relay)',
    /path === '\/api\/admin\/vc\/relay' && \(method === 'GET' \|\| method === 'POST'\)/.test(ADMIN));
 // canEditOrg() 는 강사를 못 막는다(scope.type==='none' 에 true) — 반드시 따로 막아야 한다.
 ok('⛔ ③ 강사는 이 설정을 못 바꾼다(forbidden_teacher)',
-   /_vrActor\.isTeacher\) return json\(\{ ok: false, error: 'forbidden_teacher' \}, 403\)/.test(ADMIN));
+   /_vrActor\.isTeacher\) return json\((?:\{ ok: false, error: 'forbidden_teacher' \}|forbiddenTeacherBody\(_vrActor\)), 403\)/.test(ADMIN));
 ok('③ teacher_id 는 숫자만 받는다(오타·옛 폼이 보낸 쓰레기 차단)',
    /!\/\^\\d\+\$\/\.test\(tid\)/.test(ADMIN));
 

@@ -14,6 +14,7 @@
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
 import { json, parseJsonBody } from './api-util';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 // 수업 길이·격자·요금배수는 전부 class-policy 한 곳에서 온다 (여기 복사 금지)
 import {
@@ -897,7 +898,7 @@ const ENROLL_ADMIN_SELF_GATED = new Set([
 async function enrollAdminHqOnly(request: Request, env: any): Promise<Response | null> {
   const actor = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-  const denyTeacher = () => json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+  const denyTeacher = () => json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
   if (actor.isTeacher) return denyTeacher();
 
   let scopeType: string | null = null;
@@ -1355,7 +1356,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
        GET 도 남의 수업 정보를 보여주므로 함께 막는다). */
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
     await ensureEnrollTables(env);
     const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
     const date = String(url.searchParams.get('date') || '').trim();
@@ -1425,7 +1426,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     // 🔴 (2026-08-28 trap-check 지적) 위 GET 과 같은 이유 — 강사는 이 쓰기 API 를 아예 못 쓴다.
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
     await ensureEnrollTables(env);
     const body = await parseJsonBody(request) || {};
     const scheduleId = Number(body.schedule_id || 0);

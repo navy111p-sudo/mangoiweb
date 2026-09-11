@@ -156,7 +156,9 @@ for (const [label, anchor] of [
   const blk = blockAt(enroll, anchor);
   check(label + ' 라우트를 찾았다', blk.length > 200);
   const guardAt = blk.indexOf('isTeacher');
-  check(label + ' — isTeacher 403 가드가 있다', guardAt > 0 && /forbidden_teacher/.test(blk));
+  /* 🪪 (2026-09-11) 거절 본문이 정본 헬퍼(forbiddenTeacherBody)로 바뀌었다 — 보장은 그대로다.
+     ⛔ 옛 리터럴만 못 박으면 정당한 수리가 빨간불이 된다(CLAUDE.md 2장). */
+  check(label + ' — isTeacher 403 가드가 있다', guardAt > 0 && /forbidden_teacher|forbiddenTeacherBody/.test(blk));
   // 가드가 DB 를 만지기 «전» 에 와야 한다 — 뒤에 있으면 강사가 조회·기록을 이미 마친 뒤다
   const firstDb = Math.min(...['env.DB.prepare', 'env.DB.exec', 'ensureEnrollTables']
     .map((k) => { const i = blk.indexOf(k); return i < 0 ? Number.MAX_SAFE_INTEGER : i; }));
@@ -206,7 +208,7 @@ console.log('\n②-2 조직 계정(지사·대리점·지사본사) — 자기 �
     const blk = blockAt(enroll, anchor);
     const teacherAt = blk.indexOf('isTeacher');
     const scopeAt = blk.indexOf('subScopeDenied');
-    check(label + ' — 강사 403 가드가 있다', teacherAt > 0 && /forbidden_teacher/.test(blk));
+    check(label + ' — 강사 403 가드가 있다', teacherAt > 0 && /forbidden_teacher|forbiddenTeacherBody/.test(blk));
     check(label + ' — 조직 계정 스코프 검사를 부른다', scopeAt > 0);
     check(label + ' — 스코프 검사에 그 수업의 학생(user_id)을 넘긴다', /subScopeDenied\(env, request, actor\.role, row\.user_id\)/.test(blk));
     // 쓰기보다 «앞» 에 와야 한다 — 뒤에 있으면 이미 바꾼 뒤에 거절하는 꼴이다
