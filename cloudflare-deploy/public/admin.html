@@ -11858,7 +11858,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-timetable" data-menu-label-ko="통합 시간표" data-menu-label-en="Unified Timetable">
   <summary><span>🗓 통합 시간표 ⭐신규</span></summary>
   <div class="menu-body">
-    <div class="pl-info">💡 <b>강사·학생·강의실 통합 시간표</b> — 충돌 감지 + 드래그&드롭 배정.</div>
+    <!-- 🏷 (2026-09-11) 「강의실」을 뺐다 — 이 화면에 물리 교실 개념은 없다. 방은 예약 id 로
+         결정되는 화상방(class-{예약id}-{YYYYMMDD})이고, 감지하는 충돌은 «같은 시간 겹침» 이다.
+         없는 것을 약속하면 그 칸은 「눌러도 아무 일 없는 버튼」이 된다. -->
+    <div class="pl-info">💡 <b>강사·학생 통합 시간표</b> — 시간 겹침 감지 + 끌어서 배정.</div>
     <!-- 🪞 (2026-09-01) 카페24 미러 — 「강사를 하나씩 가져와 보자」를 화면에서 할 수 있게.
          monitor-wall 링크와 같은 방식: background-color: 로 준다(admin-inline-c.css 의
          옛 다크 규칙이 background:linear-gradient(…) 는 !important 로 덮는다. CLAUDE.md 2장). -->
@@ -11917,14 +11920,45 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           });
       };
     </script>
-    <div class="pl-feature-list">
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📆 주간/월간 뷰</b><span>구글 캘린더 스타일 그리드</span></div>
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>👨‍🏫 강사별 필터</b><span>강사 선택 → 모든 수업</span></div>
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>👨‍🎓 학생별 필터</b><span>학생 선택 → 시간표</span></div>
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>🚪 강의실 배정</b><span>점유율 + 충돌 자동 감지</span></div>
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>🔄 드래그 이동</b><span>드래그&드롭으로 시간 변경</span></div>
-      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📲 변경 알림</b><span>이동/취소 시 학부모 자동 알림</span></div>
-    </div>
+    <!-- 📅 (2026-09-11 사장님 제보 「이거 누르면 모두 똑같은 강사스케줄들이 나와」)
+         [무엇이 문제였나] 이 자리에 카드 6장이 있었는데 클릭 동작이 문자 하나까지 같았다 —
+           onclick="location.href='/admin/weekly-schedule.html'"  × 6 (+ 아래 버튼까지 7)
+         파라미터도 분기도 없어 무엇을 눌러도 같은 첫 화면이 나왔다. 게다가 카드가 «기능 설명» 만
+         적고 있어서 시간표를 열어 봐야만 답을 알 수 있었고, 여섯 약속 중 둘은 사실이 아니었다
+         (「월간」 뷰는 없고, 「학부모 자동 알림」은 한 번도 나간 적이 없다).
+         [고침 — 사장님이 A+D 를 고르심] 카드마다 다른 ?preset= 으로 보내고(A),
+           카드가 «지금 숫자» 를 먼저 말한다(D). 그리는 코드는 /js/adm-schedule-cards.js.
+         ⛔ 여기 카드를 다시 하드코딩하지 말 것 — preset 목록이 두 벌이 되면 어긋난다.
+            (하니스 schedule_entry_preset_harness 가 두 파일을 대조해 FAIL 낸다) -->
+    <style>
+      /* ⚠️ 이 style 은 admin-inline-c.css 링크(592행)보다 «뒤» 라야 이긴다 — 그 파일은
+            <head> 가 아니라 <body> 안에서 링크된다(CLAUDE.md). 카드 자리에 두는 이유다.
+         ⚠️ 숫자에 «색으로» 뜻을 싣지 않는다 — 관리자 화면은 글자색 보정 페인터가 셋이라
+            인라인 !important 로 덮인다. 그래서 위계는 «크기·굵기», 경고는 «테두리 + ⚠ 글자» 로 진다.
+         ⚠️ 배경은 background-color 로 쓴다(background:#f… 는 옛 다크 규칙에 걸려 투명해진다). */
+      #card-timetable .sc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:10px 0}
+      #card-timetable .sc-card{display:flex;flex-direction:column;gap:2px;min-width:0;
+        background-color:#ffffff;border:1px solid #dfe3ea;border-radius:10px;padding:12px 13px;
+        text-decoration:none;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+      #card-timetable a.sc-card{cursor:pointer}
+      #card-timetable a.sc-card:hover{border-color:#b45309}
+      #card-timetable .sc-card.sc-static{cursor:default}
+      #card-timetable .sc-head{display:flex;align-items:center;gap:6px;min-width:0}
+      #card-timetable .sc-ic{font-size:14px;flex-shrink:0}
+      #card-timetable .sc-lb{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* 한 줄짜리 숫자에는 line-height 를 못 박는다 — 안 정하면 바깥에서 1.5~1.7 을 물려받아
+         줄은 하나인데 상자만 두 줄처럼 높아진다(CLAUDE.md). */
+      #card-timetable .sc-big{font-size:24px;font-weight:900;line-height:1.18;letter-spacing:-.02em;
+        font-variant-numeric:tabular-nums;white-space:nowrap}
+      #card-timetable .sc-big.sc-nonum{font-size:0;line-height:0}
+      #card-timetable .sc-u{font-size:11px;font-weight:600;margin-left:2px;opacity:.65}
+      #card-timetable .sc-sub{font-size:10.5px;line-height:1.5;opacity:.8}
+      /* 🚨 안 나간 알림 — 색이 아니라 «테두리» 가 뜻을 진다(페인터는 테두리를 안 건드린다). */
+      #card-timetable .sc-card.sc-alert{border-color:#b91c1c;border-left-width:4px}
+    </style>
+    <div id="sc-cards" class="sc-cards"></div>
+    <noscript><a href="/admin/weekly-schedule.html">📆 전체 시간표 열기</a></noscript>
+    <script src="/js/adm-schedule-cards.js?v=1" defer></script>
     <button data-gc="📆 시간표 보기" data-gc-en="Open Timetable" class="pl-cta-btn" data-ko="📆 시간표 보기" data-en="📆 Open Timetable" onclick="location.href='/admin/weekly-schedule.html'">📆 시간표 보기</button>
   </div>
 </details>
