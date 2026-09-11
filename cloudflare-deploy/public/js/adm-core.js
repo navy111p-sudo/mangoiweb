@@ -17225,6 +17225,10 @@ window.rebuildGlobalSearchIndex = function() {
     // 회계 — 경영진 + 관리자
     'card-accounting-mgmt':   'mgrOrUp',
     'card-accounting-reports':'mgrOrUp',
+    // 🏢 (2026-09-10 신설) 대리점별 AI 사용료 단가 — 돈이 걸린 설정이라 회계와 같은 등급.
+    //   서버(ai-billing.ts POST /rate)도 scope.type==='hq' 로 한 번 더 막는다 — 여기는
+    //   «눌러도 안 되는 버튼» 을 안 보이게 하는 것뿐.
+    'card-ai-billing':        'mgrOrUp',
     // 본사 전용 (교사 포함)
     'card-settlement-stats':  'hq',       // 정산통계관리
     'card-payroll':           'mgrOrUp',  // 강사 급여·평가 (교사는 본인만 — _applyMenuVisibility 특례 + 렌더 필터)
