@@ -7,6 +7,7 @@
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
@@ -123,9 +124,9 @@ export async function handlePointsApi(
   const denyTeacher = async (): Promise<Response | null> => {
     const a = await getAdminActor(request, env as any);
     if (!a.isTeacher) return null;
-    return json({ ok: false, error: 'forbidden_teacher',
-      message: '강사 권한으로는 변경할 수 없습니다.',
-      message_en: 'This change is not available with a teacher account.' }, 403);
+    return json(forbiddenTeacherBody(a,
+      '강사 권한으로는 변경할 수 없습니다.',
+      'This change is not available with a teacher account.'), 403);
   };
 
     // ═══════════════════════════════════════════════════════════════

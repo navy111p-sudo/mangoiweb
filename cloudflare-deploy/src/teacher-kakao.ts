@@ -22,6 +22,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody } from './api-util';
 import { getAdminActor } from './auth-admin';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 
 export interface TeacherKakaoEnv {
@@ -156,7 +157,7 @@ export async function handleTeacherKakaoApi(
   await ensureTeacherKakaoSchema(env);
   const actor = await getAdminActor(request, env as any);
   // 강사 본인은 다른 강사에게 단체 메시지를 보낼 수 없다(본사·매니저 기능).
-  if (actor?.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+  if (actor?.isTeacher) return json(forbiddenTeacherBody(actor), 403);
 
   // ── ① 현황: 강사별 카카오ID + 전달 가능 경로 + 미배정 ID ──────────────
   if (method === 'GET' && path === '/api/admin/teachers/kakao') {

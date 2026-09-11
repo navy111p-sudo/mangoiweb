@@ -50,7 +50,7 @@ const refundCode = strip(refundSrc);
 /* ══════════ ① 권한 — 강사·지사·대리점 ══════════ */
 console.log('\n[ ① 권한 — 누가 환불을 만질 수 있나 ]');
 check('강사를 막는다 (isTeacher → forbidden_teacher)',
-  /actor\.isTeacher/.test(refundCode) && /forbidden_teacher/.test(refundCode));
+  /actor\.isTeacher/.test(refundCode) && /forbidden_teacher|forbiddenTeacherBody/.test(refundCode));
 check('지사·대리점·지사본사를 막는다 (forbidden_scope)',
   /scopeType === 'branch'/.test(refundCode)
   && /scopeType === 'agency'/.test(refundCode)

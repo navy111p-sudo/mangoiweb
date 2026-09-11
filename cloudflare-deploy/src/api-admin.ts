@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -741,7 +742,7 @@ export async function handleAdminApi(
       /* 🔐 강사 전면 차단 — canEditOrg() 는 강사를 «못 막는다»(scope.type==='none' 에 true).
          CLAUDE.md 2장 「관리자 쓰기 API 를 본사 전용으로 막았는데 강사가 그대로 실행됨」. */
       const _vrActor = await getAdminActor(request, env as any);
-      if (_vrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_vrActor.isTeacher) return json(forbiddenTeacherBody(_vrActor), 403);
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
         if (method === 'GET') {
@@ -2611,7 +2612,7 @@ export async function handleAdminApi(
       //   같은 원천을 쓰므로 출석현황과 급여가 서로 어긋날 수 없다(요청 8·22 «한곳에서»).
       //   🔐 강사는 전면 차단 — 전 강사의 단가·공제가 담긴다.
       if (url.searchParams.get('all') === '1') {
-        if (_lsActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        if (_lsActor.isTeacher) return json(forbiddenTeacherBody(_lsActor), 403);
         const dAll = await computeLessonFeeMonth(year, month);
         return json({
           ok: true, year, month, all: true,
@@ -2703,7 +2704,7 @@ export async function handleAdminApi(
     //   body: { levels: [{ code, rate_per_20min }] }
     if (method === 'POST' && path === '/api/admin/payroll/levels') {
       const _lvwActor = await getAdminActor(request, env as any);
-      if (_lvwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급 요율을 변경할 수 없습니다.' }, 403);
+      if (_lvwActor.isTeacher) return json(forbiddenTeacherBody(_lvwActor, '강사는 등급 요율을 변경할 수 없습니다.'), 403);
       await ensureTeacherLevels();
       const body: any = await request.json().catch(() => ({}));
       if (!Array.isArray(body.levels)) return json({ ok: false, error: 'levels_array_required' }, 400);
@@ -2725,7 +2726,7 @@ export async function handleAdminApi(
     //   등급 지정 시 그 강사 fee_per_10min = 등급요율/2 자동세팅(fee_per_10min 명시하면 그 값 우선).
     if (method === 'POST' && path === '/api/admin/payroll/teacher-level') {
       const _tlActor = await getAdminActor(request, env as any);
-      if (_tlActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급을 변경할 수 없습니다.' }, 403);
+      if (_tlActor.isTeacher) return json(forbiddenTeacherBody(_tlActor, '강사는 등급을 변경할 수 없습니다.'), 403);
       await ensureTeacherLevels();
       const body: any = await request.json().catch(() => ({}));
       const tid = parseInt(body.teacher_id, 10);
@@ -2756,7 +2757,7 @@ export async function handleAdminApi(
      */
     if (method === 'GET' && path === '/api/admin/payroll/late-detect') {
       const _ldActor = await getAdminActor(request, env as any);
-      if (_ldActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_ldActor.isTeacher) return json(forbiddenTeacherBody(_ldActor), 403);
       const y = parseInt(url.searchParams.get('year') || '', 10);
       const mo = parseInt(url.searchParams.get('month') || '', 10);
       if (!y || !mo || mo < 1 || mo > 12) return invalidBody(['year', 'month']);
@@ -2840,7 +2841,7 @@ export async function handleAdminApi(
     //   근태 자동로그 도입 전까지 관리자가 상세표에서 직접 기입 → late_no_extend 공제에 반영.
     if (method === 'POST' && path === '/api/admin/payroll/late-minutes') {
       const _lmActor = await getAdminActor(request, env as any);
-      if (_lmActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지각분을 입력할 수 없습니다.' }, 403);
+      if (_lmActor.isTeacher) return json(forbiddenTeacherBody(_lmActor, '강사는 지각분을 입력할 수 없습니다.'), 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS lesson_late_minutes (schedule_id INTEGER NOT NULL, lesson_date TEXT NOT NULL, minutes INTEGER DEFAULT 0, updated_by TEXT, updated_at INTEGER, PRIMARY KEY (schedule_id, lesson_date));`); } catch {}
       const body: any = await request.json().catch(() => ({}));
       const sid = parseInt(body.schedule_id, 10);
@@ -3001,7 +3002,7 @@ export async function handleAdminApi(
     //   승인: 새 일시가 있으면 class_schedules 를 그 일시로 이동, 없으면(단순 연기) status='postponed'.
     if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {
       const _srdActor = await getAdminActor(request, env as any);
-      if (_srdActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 요청을 승인·거절할 수 없습니다.' }, 403);
+      if (_srdActor.isTeacher) return json(forbiddenTeacherBody(_srdActor, '강사는 요청을 승인·거절할 수 없습니다.'), 403);
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
       const id = parseInt(body.id, 10);
@@ -3138,7 +3139,7 @@ export async function handleAdminApi(
           날짜만 바꾸면 되므로 조회를 따로 만들지 않는다(둘이 어긋날 일이 없다). */
     if (method === 'GET' && path === '/api/admin/classes/today') {
       const _ctActor = await getAdminActor(request, env as any);
-      if (_ctActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_ctActor.isTeacher) return json(forbiddenTeacherBody(_ctActor), 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
       /* 🔄 (2026-08-28) 1회성 대체강사 오버레이 표 — enroll-ops.ts 의 ensureEnrollTables() 와 같은
          정의를 여기서도 방어적으로 한 번 더 만든다(그 핸들러가 먼저 안 돌았을 수도 있어서 —
@@ -3790,7 +3791,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { rules: [{ code, amount, enabled }] } — 금액·켜기/끄기만 수정(라벨은 시드 유지)
     if (method === 'POST' && path === '/api/admin/payroll/deduction-rules') {
       const _drActor = await getAdminActor(request, env as any);
-      if (_drActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 공제 규칙을 변경할 수 없습니다.' }, 403);
+      if (_drActor.isTeacher) return json(forbiddenTeacherBody(_drActor, '강사는 공제 규칙을 변경할 수 없습니다.'), 403);
       await ensureDeductionRules();
       const body: any = await request.json().catch(() => ({}));
       if (!Array.isArray(body.rules)) return json({ ok: false, error: 'rules_array_required' }, 400);
@@ -3811,7 +3812,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { year, month, rows: [{ teacher_id, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount?, memo? }] }
     if (method === 'POST' && path === '/api/admin/payroll/save') {
       const _svActor = await getAdminActor(request, env as any);
-      if (_svActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 정산을 저장할 수 없습니다.' }, 403);
+      if (_svActor.isTeacher) return json(forbiddenTeacherBody(_svActor, '강사는 급여 정산을 저장할 수 없습니다.'), 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const year = parseInt(body.year, 10);
@@ -3855,7 +3856,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { payroll_id?, teacher_id?, year?, month?, paid_amount?, memo? }
     if (method === 'POST' && path === '/api/admin/payroll/mark-paid') {
       const _mpActor = await getAdminActor(request, env as any);
-      if (_mpActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }, 403);
+      if (_mpActor.isTeacher) return json(forbiddenTeacherBody(_mpActor, '강사는 지급 상태를 변경할 수 없습니다.'), 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const now = Date.now();
@@ -4095,7 +4096,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
        (틀리게 매칭되면 다른 강사 사진이 나가는 사고라 fuzzy 매칭은 자동 적용하지 않음). */
     if (method === 'POST' && path === '/api/admin/teacher-profiles/auto-match') {
       const _amActor = await getAdminActor(request, env as any);
-      if (_amActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_amActor.isTeacher) return json(forbiddenTeacherBody(_amActor), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
 
@@ -4154,7 +4155,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
     if (method === 'POST' && path === '/api/admin/teacher-profiles') {
       const _tpwActor = await getAdminActor(request, env as any);
-      if (_tpwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 등록할 수 없습니다.' }, 403);
+      if (_tpwActor.isTeacher) return json(forbiddenTeacherBody(_tpwActor, '강사는 강사 프로필을 등록할 수 없습니다.'), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
       const b = await parseJsonBody(request);
@@ -4192,7 +4193,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   기존행=제공된(빈칸 아닌) 필드만 UPDATE(빈값은 건너뜀·기존값 보존), 없으면 INSERT. mbti 유효시 teacher_mbti(tp-id) 동기화(+사진).
     if (method === 'POST' && path === '/api/admin/teacher-profiles/import') {
       const _impActor = await getAdminActor(request, env as any);
-      if (_impActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 임포트할 수 없습니다.' }, 403);
+      if (_impActor.isTeacher) return json(forbiddenTeacherBody(_impActor, '강사는 임포트할 수 없습니다.'), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '스키마 실패: ' + String(e?.message || e) }, 500); }
       const body = await parseJsonBody(request);
@@ -4286,7 +4287,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // 🔐 강사: 본인 프로필 단건만 조회 가능, 수정·삭제는 불가(자기 단가·계좌 임의변경도 차단)
       const _tpiActor = await getAdminActor(request, env as any);
       if (_tpiActor.isTeacher && method !== 'GET') {
-        return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
+        return json(forbiddenTeacherBody(_tpiActor, '강사는 강사 프로필을 수정·삭제할 수 없습니다.'), 403);
       }
       if (method === 'GET') {
         /* 🔑 login_username — 목록 조회와 **똑같은 문장**을 쓴다(위 주석 참고).
@@ -4301,7 +4302,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
         if (_tpiActor.isTeacher && !sameTeacherName(_tpiActor.name, row.korean_name) && !sameTeacherName(_tpiActor.name, row.english_name)) {
-          return json({ ok: false, error: 'forbidden_teacher', message: '본인 프로필만 조회할 수 있습니다.' }, 403);
+          return json(forbiddenTeacherBody(_tpiActor, '본인 프로필만 조회할 수 있습니다.'), 403);
         }
         return json({ ok: true, item: row });
       }
@@ -4742,7 +4743,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (!it) return json({ ok: false, error: 'not_found' }, 404);
         if (_hrActor.isTeacher &&
             !sameTeacherName(_hrActor.name, it.korean_name) && !sameTeacherName(_hrActor.name, it.english_name)) {
-          return json({ ok: false, error: 'forbidden_teacher', message: '본인 인사평가만 조회할 수 있습니다.' }, 403);
+          return json(forbiddenTeacherBody(_hrActor, '본인 인사평가만 조회할 수 있습니다.'), 403);
         }
         const kn = it.korean_name || '', en = it.english_name || kn;
         it.recent_feedback = await q(
@@ -4861,7 +4862,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 연결 저장 / 해제 — { username, teacher_id }  (teacher_id 가 비면 해제)
     if (method === 'POST' && path === '/api/admin/teachers/links') {
       const _lkActor = await getAdminActor(request, env as any);
-      if (_lkActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_lkActor.isTeacher) return json(forbiddenTeacherBody(_lkActor), 403);
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
       } catch {}
@@ -4909,7 +4910,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 강사 등록 (새 모델: name + status + years + rate_per_10min_php)
     if (method === 'POST' && path === '/api/admin/teachers') {
       const _tnActor = await getAdminActor(request, env as any);
-      if (_tnActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사를 등록할 수 없습니다.' }, 403);
+      if (_tnActor.isTeacher) return json(forbiddenTeacherBody(_tnActor, '강사는 강사를 등록할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.name || !b.status || b.rate_per_10min_php == null) {
@@ -4935,7 +4936,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 강사 수정 (부분 업데이트 — 모든 필드 선택적)
     if (method === 'PATCH' && /^\/api\/admin\/teachers\/\d+$/.test(path)) {
       const _tuActor = await getAdminActor(request, env as any);
-      if (_tuActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 정보를 수정할 수 없습니다.' }, 403);
+      if (_tuActor.isTeacher) return json(forbiddenTeacherBody(_tuActor, '강사는 강사 정보를 수정할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const m = path.match(/^\/api\/admin\/teachers\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
@@ -4963,7 +4964,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 월별 수업 수 입력 (20분 단위 수업 횟수)
     if (method === 'PUT' && path === '/api/admin/teacher-classes') {
       const _tcActor = await getAdminActor(request, env as any);
-      if (_tcActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 수업 수를 입력할 수 없습니다.' }, 403);
+      if (_tcActor.isTeacher) return json(forbiddenTeacherBody(_tcActor, '강사는 수업 수를 입력할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month || b.class_count == null) {
@@ -4994,7 +4995,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 월별 평가 입력 (5개 카테고리 점수 + 코멘트)
     if (method === 'PUT' && path === '/api/admin/teacher-evaluation') {
       const _teActor = await getAdminActor(request, env as any);
-      if (_teActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 평가를 입력할 수 없습니다.' }, 403);
+      if (_teActor.isTeacher) return json(forbiddenTeacherBody(_teActor, '강사는 평가를 입력할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month) return invalidBody(['teacher_id', 'year', 'month']);
@@ -5049,7 +5050,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const result = await calcPayrollOne(env, id, year, month);
       const _oneActor = await getAdminActor(request, env as any);
       if (_oneActor.isTeacher && !(result.ok && sameTeacherName(_oneActor.name, result.teacher_name))) {
-        return json({ ok: false, error: 'forbidden_teacher', message: '본인 급여명세서만 조회할 수 있습니다.' }, 403);
+        return json(forbiddenTeacherBody(_oneActor, '본인 급여명세서만 조회할 수 있습니다.'), 403);
       }
       return json(result, result.ok ? 200 : 404);
     }
@@ -5096,7 +5097,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 마감 (payslips 잠금)
     if (method === 'POST' && path === '/api/admin/payroll/finalize') {
       const _finActor = await getAdminActor(request, env as any);
-      if (_finActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여를 마감할 수 없습니다.' }, 403);
+      if (_finActor.isTeacher) return json(forbiddenTeacherBody(_finActor, '강사는 급여를 마감할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.year || !b.month) return invalidBody(['year', 'month']);
@@ -5145,7 +5146,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       //   — 그 목록은 «차단 목록» 이라 새 API 의 기본값이 «강사 허용» 이기 때문이다(index.ts:313).
       //   payroll 의 다른 엔드포인트들은 각자 본인-필터로 막고 있었고, 이것만 빠져 있었다.
       const _seedActor = await getAdminActor(request, env as any);
-      if (_seedActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 데모 데이터를 생성할 수 없습니다.' }, 403);
+      if (_seedActor.isTeacher) return json(forbiddenTeacherBody(_seedActor, '강사는 급여 데모 데이터를 생성할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       const year  = (b && b.year)  ? Number(b.year)  : new Date().getFullYear();
@@ -5254,7 +5255,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
        ═══════════════════════════════════════════════════════════════════ */
     if (method === 'GET' && path === '/api/admin/payroll/auto-evaluate') {
       const _aeActor = await getAdminActor(request, env as any);
-      if (_aeActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 전체 자동 평가를 조회할 수 없습니다.' }, 403);
+      if (_aeActor.isTeacher) return json(forbiddenTeacherBody(_aeActor, '강사는 전체 자동 평가를 조회할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const year  = parseInt(url.searchParams.get('year')  || '0', 10);
       const month = parseInt(url.searchParams.get('month') || '0', 10);
@@ -7036,7 +7037,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
      */
     if (method === 'POST' && path === '/api/admin/class-schedules/purge-placeholders') {
       const _pActor = await getAdminActor(request, env as any);
-      if (_pActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_pActor.isTeacher) return json(forbiddenTeacherBody(_pActor), 403);
       const _pScope = await getScope(env as any, request);
       if (!canEditOrg(_pScope)) return json({ ok: false, error: 'forbidden_scope' }, 403);
 
@@ -7259,7 +7260,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           /* 🔒 판정 정본은 src/class-teacher-move.ts 하나다 — 라우트 안에 조건을 늘어놓으면
              하니스가 «그 글자가 있는가» 로만 보게 되고, 조건을 뒤집어도 통과한다(실측). */
           const _deny = teacherMoveDenyReason({ ok: _pchActor.ok, isTeacher: _pchActor.isTeacher, scopeType: _scopeType });
-          if (_deny) return json({ ok: false, error: _deny.error, message: _deny.message }, _deny.status as any);
+          if (_deny) return json(
+            _deny.error === 'forbidden_teacher'
+              ? forbiddenTeacherBody(_pchActor, _deny.message)
+              : { ok: false, error: _deny.error, message: _deny.message },
+            _deny.status as any);
 
           /* 🆔 실재하는 강사인가 — 없는 번호를 넣으면 그 수업은 «강사가 누구인지 모르는» 행이
              되고, 화면·급여·노쇼 판정이 전부 이름을 못 붙인다. 모르면 안 바꾼다.
@@ -11071,12 +11076,17 @@ LIMIT $limit`;
               모르면 안 바꾸는 것이 맞다(조회 실패로 번호를 못 넣으면 본사 계정으로 다시 하면 된다).
            ⚠️ status 변경은 위에서 이미 처리했다 — 그쪽 권한은 이 변경의 몫이 아니라 건드리지 않는다. */
         let mayEditPhone = false;
+        /* ⚠️ try 안에서 const 로 두면 아래 거절 문구가 «누구로 들어와 있는지» 를 못 읽는다
+           (블록 스코프). 조회가 실패하면 null 인 채로 남고, 그때는 헬퍼가 계정 줄을 빼고
+           옛 문구 그대로 낸다 — 모르는 것을 지어내지 않는다. */
+        let _phActor: any = null;
         try {
           const a = await getAdminActor(request, env as any);
+          _phActor = a;
           mayEditPhone = !!a && a.ok !== false && !a.isTeacher;
         } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 저장 안 함:', e?.message); }
         if (!mayEditPhone) {
-          return json({ ok: false, error: 'forbidden_teacher', detail: '연락처는 본사·관리자만 고칠 수 있습니다.' }, 403);
+          return json({ ...forbiddenTeacherBody(_phActor, '연락처는 본사·관리자만 고칠 수 있습니다.'), detail: '연락처는 본사·관리자만 고칠 수 있습니다.' }, 403);
         }
         /* 빈 문자열로 보내면 «지운다» 는 뜻이다(「아직 안 받았다」와 구분). 9자리 미만은 안 받는다. */
         const clear = _pRaw === '';
@@ -12963,7 +12973,7 @@ LIMIT $limit`;
       if (path === '/api/admin/billing/auto-renew-live') {
         const a = await getAdminActor(request, env as any);
         if (!a.ok) return json({ ok: false, error: 'auth_required' }, 401);
-        if (a.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        if (a.isTeacher) return json(forbiddenTeacherBody(a), 403);
         let live = false;
         try { live = (await (env as any).SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
         if (method === 'GET') return json({ ok: true, live });
@@ -13144,7 +13154,9 @@ LIMIT $limit`;
         action: b?.action, actorOk: !!_pgActor.ok, isTeacher: !!_pgActor.isTeacher,
         role: _pgActor.role, book, dryRun, confirmName: b?.confirm_name, totalFiles,
       });
-      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status as any);
+      if (!gate.ok) return json(
+        gate.error === 'forbidden_teacher' ? forbiddenTeacherBody(_pgActor) : { ok: false, error: gate.error },
+        gate.status as any);
 
       if (gate.mode === 'count') {
         const sample: any = await env.DB.prepare(
@@ -13456,7 +13468,7 @@ LIMIT $limit`;
        ⛔ SELECT 만 한다. 이 API 는 아무것도 고치지 않는다. */
     if (method === 'GET' && path === '/api/admin/classes-now') {
       const _actor = await getAdminActor(request, env as any);
-      if (_actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_actor.isTeacher) return json(forbiddenTeacherBody(_actor), 403);
 
       const now = Date.now();
       const AHEAD_MS = 15 * 60 * 1000;        // 곧 시작(15분 앞)까지 함께 보여 준다
@@ -13688,7 +13700,7 @@ LIMIT $limit`;
          그 'none' 이 «내부직원·교사» 다(src/scope.ts 주석). 즉 강사가 그대로 통과한다.
          admin_write_guard_harness 가 이 구멍을 잡아 줬다 — 가드를 한 줄 더 둔다. */
       const _rbActor = await getAdminActor(request, env as any);
-      if (_rbActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_rbActor.isTeacher) return json(forbiddenTeacherBody(_rbActor), 403);
       const _rbScope = await getScope(env as any, request);
       if (!canEditOrg(_rbScope)) return json({ ok: false, error: 'forbidden' }, 403);
       await ensureTextbookFilesTable();
@@ -13843,7 +13855,7 @@ LIMIT $limit`;
      */
     if (method === 'POST' && /^\/api\/admin\/textbook-files\/\d+$/.test(path)) {
       const _ocrActor = await getAdminActor(request, env as any);
-      if (_ocrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 이 시험을 실행할 수 없습니다.' }, 403);
+      if (_ocrActor.isTeacher) return json(forbiddenTeacherBody(_ocrActor, '강사는 이 시험을 실행할 수 없습니다.'), 403);
       if (isOrgScopedRole((_ocrActor as any).role)) return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 실행할 수 있습니다.' }, 403);
 
       const b = await parseJsonBody(request) || {};

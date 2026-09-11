@@ -25,6 +25,7 @@
 
 import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 // 🧾 수수료율 판정은 정산관리(org-settlement)와 **같은 것**을 쓴다 — 그 파일 주석 참고
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
@@ -677,7 +678,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p.startsWith('c24-mirror/')) {
       if (request.method.toUpperCase() !== 'POST') return err('method not allowed', 405);
       const actor = await getAdminActor(request, env as any);
-      if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor), 403);
       if (isOrgScopedRole((actor as any).role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
       const body: any = await request.json().catch(() => ({}));
 
