@@ -111,7 +111,29 @@ function monthAdd(period: string, n: number): string {
 }
 function isValidMonth(s: string): boolean { return /^\d{4}-\d{2}$/.test(s); }
 
-// ── 이 shop_name 을 이 스코프 계정이 다뤄도 되는가 (agency=자기 자신, branch=자기 지사 소속, hq/franchise=허용) ──
+/** 🔒 (2026-09-11 사장님 결정) 이 shop_name 에 «쓰기»(청구서 생성/보강·개별 포함·제외 토글·
+ *  결제 주문 생성)를 할 수 있는가 — 본사와 그 대리점 본인 계정뿐이다. 지사는 못 한다
+ *  (지사는 «보기» 만 — 그건 아래 shopAllowed() 가 맡는다. GET /invoice·/history 는
+ *  이 함수를 쓰지 않는다).
+ *  ⚠️ `getScope(env, request)` 가 돌려주는 (드릴다운 승격된) scope 로 판정하면 안 된다 —
+ *  지사 계정이 `?as=agency:<산하 대리점>` 을 붙이면 agency 로 승격돼 이 판정을 통과해
+ *  버린다(실제로 그랬다, 2026-09-11 발견). 그래서 반드시 `noDrillDown` 으로 «드릴다운
+ *  전 원래 로그인 계정 스코프» 를 다시 물어 그걸로만 판정한다.
+ *  ⚠️ 세 호출부(checkout·invoice/generate·invoice/item) 가 전부 이 함수 하나를 거치게
+ *  한다 — 판정을 복제하면 한 곳만 고쳐지고 나머지가 조용히 예전 구멍으로 남는다.
+ *  ⚠️ 조회 실패 시 폴백은 «막는 쪽»('none') 이다 — 결제 주문 생성처럼 되돌릴 수 없는
+ *  조작의 가드는 모르면 막아야 한다(CLAUDE.md 「가드에 필요한 값을 safe(…, null) 로
+ *  조회할 때」). getScope() 내부가 지금은 전부 s_safe() 로 감싸여 있어 이 폴백이 실제로는
+ *  안 밟히는 죽은 경로지만, 나중에 던지게 되는 순간을 대비해 미리 잠가 둔다. */
+async function writeAllowed(env: Env, request: Request, shopName: string): Promise<boolean> {
+  const raw = await safe(async () => await getScope(env, request, { noDrillDown: true }),
+    { type: 'none', value: null, label: '권한 없음' } as Scope);
+  return raw.type === 'hq' || (raw.type === 'agency' && raw.value === shopName);
+}
+
+// ── 이 shop_name 을 이 스코프 계정이 «볼» 수 있는가 (agency=자기 자신, branch=자기 지사 소속, hq/franchise=허용) ──
+//    ⚠️ 조회 전용이다 — 쓰기(생성·수정·결제)는 위 writeAllowed() 를 쓴다. 얘로 쓰기를 판정하면
+//    지사가 산하 대리점 것을 고칠 수 있게 된다(2026-09-11 사장님이 막기로 한 바로 그것).
 async function shopAllowed(env: Env, scope: Scope, shopName: string): Promise<boolean> {
   if (scope.type === 'hq' || scope.type === 'none') return true;
   if (scope.type === 'agency') return scope.value === shopName;
@@ -360,7 +382,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     let shopName = String(b?.shop_name || '').trim();
     if (scope.type === 'agency') shopName = scope.value || '';
     if (!shopName) return err('shop_name required');
-    if (!(await shopAllowed(env, scope, shopName))) return err('forbidden', 403);
+    if (!(await writeAllowed(env, request, shopName))) return err('forbidden', 403);
     const month = String(b?.month || monthAdd(currentMonthKST(), 1));
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     const r = await generateOrRefreshInvoice(env, shopName, month, scope.label || 'admin');
@@ -376,7 +398,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!invoiceId || !studentUid) return err('invoice_id, student_user_id required');
     const inv = await env.DB.prepare(`SELECT id, shop_name, status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<any>();
     if (!inv) return err('invoice not found', 404);
-    if (!(await shopAllowed(env, scope, inv.shop_name))) return err('forbidden', 403);
+    if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
     await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`)
       .bind(included, invoiceId, studentUid).run();
@@ -407,15 +429,8 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
       `SELECT id, shop_name, billing_month, rate_krw, status FROM ai_billing_invoices WHERE id = ?`
     ).bind(invoiceId).first<any>();
     if (!inv) return err('invoice not found', 404);
-    /* 결제 주문을 만들 수 있는 것은 그 대리점 담당자 본인과 본사다.
-       ⚠️ 다만 «지사도 못 만든다» 고 읽지 마세요 — 그건 사실이 아닙니다. `getScope`(scope.ts)는
-          지사 계정의 `?as=agency:<산하 대리점>` 드릴다운을 **agency 스코프로 승격**시키므로
-          (그 대리점이 자기 산하인지 DB 로 확인한 뒤에만 — 남의 지사 것은 승격 안 됨),
-          지사 계정이 그 파라미터를 붙이면 이 조건을 통과해 산하 대리점의 주문을 만들 수 있습니다.
-          돈이 실제로 나가려면 사람이 토스 결제창을 끝까지 눌러야 하고, 대상도 «자기 산하» 뿐이라
-          권한 상승은 아닙니다. 「지사는 대신 결제하면 안 된다」로 정하려면 여기서 스코프가 아니라
-          **세션 본래 스코프**로 판정해야 합니다 — 정책이라 사람이 정할 일입니다(2026-09-11 미결). */
-    if (!(scope.type === 'hq' || (scope.type === 'agency' && scope.value === inv.shop_name))) return err('forbidden', 403);
+    // 🔒 (2026-09-11 사장님 결정) 결제 주문 생성 — writeAllowed() 하나로 판정한다(위 정의부 참고).
+    if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {
       const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`).bind(invoiceId).first<{ n: number }>();
