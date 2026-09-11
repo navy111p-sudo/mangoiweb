@@ -9219,7 +9219,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 👁 (2026-08-20) 참관 안전장치 + «직접 입장» 카메라 끄기(&vc_cam=off).
      관리자·매니저만 쓰는 기능이라 defer. idx-main.js 는 한 줄도 안 고친다(첫 화면 예산·캐시).
      되돌리기: 이 줄만 지우면 즉시 원복된다. -->
-<script src="/js/vc-observe-guard.js?v=9" defer></script><!-- v=9: ⑩ 참관자 얼굴 칸(이름표 「참가자」) 안 만들기 (2026-09-01) -->
+<script src="/js/vc-observe-guard.js?v=11" defer></script><!-- v=11: ⑫ 이름을 지어낸 상대의 얼굴 칸을 만들지 않는다 (2026-09-11) -->
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -9261,8 +9261,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   function toKakao(){
     if (window.openKakao) return window.openKakao();
     var url = (window.KAKAO_CHANNEL_URL || 'https://pf.kakao.com/_xlqnSxd'), w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
-    if (!w) { try { location.href = url; } catch(_){} }
+    try { w = window.open(url, '_blank'); } catch(e){}
+    if (w) { try{ w.opener=null; }catch(e){} } else { try{ location.href=url; }catch(_){} }
     return false;
   }
 
@@ -14170,8 +14170,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   window.KAKAO_CHANNEL_URL = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID;
   window.openKakao = function(){
     var url = window.KAKAO_CHANNEL_URL, w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
-    if (!w) { try { location.href = url; } catch(_){} }   // 팝업차단·인앱 브라우저
+    try { w = window.open(url, '_blank'); } catch(e){}
+    if (w) { try{ w.opener=null; }catch(e){} } else { try{ location.href=url; }catch(_){} }   // 팝업차단·인앱
     return false;
   };
 })();

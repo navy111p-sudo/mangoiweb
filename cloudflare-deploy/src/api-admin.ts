@@ -37,7 +37,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
-import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
+import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -9439,7 +9439,7 @@ LIMIT $limit`;
     //      (:Center)=대리점·학원 → centers 로 넣는다. 테이블명을 지금 바꾸면 정산·회계까지
     //      번지므로 «화면 라벨만» 바로잡았다(2026-08-08). 테이블명 변경은 별도 작업.
     //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
-    if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
+    if ((method === 'GET' || method === 'POST' || method === 'PATCH') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
 
       /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03) — 조직을 «대표지사 › 지사 › 대리점» 으로 세운다.
@@ -9481,7 +9481,10 @@ LIMIT $limit`;
             `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
                FROM master_branches m${mWhere} ORDER BY m.active DESC, m.name ASC`
           ).bind(..._fCond.binds).all();
-          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond });
+          // ✏️ (2026-09-11) 지사·대리점(centers/franchises)과 같은 이유로 can_edit 을 함께 준다 —
+          // 화면이 이걸 보고 «수정» 버튼을 그릴지 정한다(안 주면 지사장 화면에도 버튼이 그려졌다가
+          // 눌렀을 때만 403 이 나는 어색한 경험이 된다).
+          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond, can_edit: canEditOrg(_fSc) });
         }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
         if (cols === 'id, name') {
@@ -9503,11 +9506,132 @@ LIMIT $limit`;
         return json({ ok: true, items: rs.results || [], scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
       }
 
-      /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성 전부. 화면에서 버튼을 감추는 것만으로는
+      /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성·수정 전부. 화면에서 버튼을 감추는 것만으로는
          URL 로 그대로 뚫린다(지사장이 남의 지사를 자기 대표지사에 붙일 수 있게 된다). */
       if (!canEditOrg(_fSc)) {
         return json({ ok: false, error: 'forbidden_scope', scope: _fSc.type, message: '조직 정보 수정은 본사만 할 수 있습니다.' }, 403);
       }
+
+      if (method === 'PATCH') {
+        /* ✏️ (2026-09-11 신설 — 사장님 제보 「지사도 대리점과 마찬가지로 수정 메뉴가 없다」)
+           지사 이름·대표자·전화·주소·개설일을 한 번에 고치는 «부분 수정» — 대리점(centers)
+           PATCH 와 같은 방식·같은 위험을 그대로 옮긴 것이다. */
+        const b = await parseJsonBody(request);
+        const fid = parseInt(String(b?.id || ''), 10);
+        if (!fid) return invalidBody(['id']);
+        const has = (k: string) => !!b && Object.prototype.hasOwnProperty.call(b, k);
+
+        /* 🔑 name·address·phone·owner_name 은 카페24가 매일 밤 덮어쓰는 칸이다(아래 참고,
+           cafe24-sync.ts importCafe24Org 의 insF UPSERT — opened_at 만 제외). «실제로 바뀐
+           칸만» 정정표에 남겨야 한다. 이 폼은 등록 폼을 그대로 재사용해 매번 다섯 칸을
+           전부 보내므로, 안 그러면 개설일 하나만 고치려고 열었다가 이름·주소·전화·대표자가
+           전부 «지금 값에 못 박히는» 사고가 난다. */
+        const touchesCafe24Field = has('name') || has('address') || has('phone') || has('owner_name');
+        let before: { name: string; address: string | null; phone: string | null; owner_name: string | null } | null = null;
+        if (touchesCafe24Field) {
+          before = await env.DB.prepare(`SELECT name, address, phone, owner_name FROM franchises WHERE id = ?`)
+            .bind(fid).first<{ name: string; address: string | null; phone: string | null; owner_name: string | null }>() as any;
+        }
+
+        const sets: string[] = [];
+        const binds: any[] = [];
+        let newName: string | undefined;
+        if (has('name')) {
+          newName = String(b.name || '').trim();
+          if (!newName) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(newName);
+        }
+        let newOwner: string | null | undefined;
+        if (has('owner_name')) { newOwner = String(b.owner_name || '').trim() || null; sets.push('owner_name = ?'); binds.push(newOwner); }
+        let newPhone: string | null | undefined;
+        if (has('phone')) { newPhone = String(b.phone || '').trim() || null; sets.push('phone = ?'); binds.push(newPhone); }
+        let newAddress: string | null | undefined;
+        if (has('address')) { newAddress = String(b.address || '').trim() || null; sets.push('address = ?'); binds.push(newAddress); }
+        if (has('opened_at')) { sets.push('opened_at = ?'); binds.push(String(b.opened_at || '').trim() || null); }
+        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 이 지사에 로그인 계정(scope_type='branch')이 있으면 admin_scope.scope_value 가
+           «옛 이름» 을 그대로 들고 있다 — scope.ts scopeFranchiseCond(branch) 는 그 값을
+           «접두어(LIKE)» 로 지사 이름과 맞춘다. centers 판(agency, 정확일치)과 같은 이유로
+           scope_value 는 옮기지 않는다 — students_erp.franchise 도 카페24가 독립적으로
+           채우는 값이라(shop_name 과 같은 사정) 옮겨도 안 따라오고, 옮기면 그 계정이
+           «자기 학생이 0명» 으로 보이는 사고가 된다. 옛 이름이 이 지사 하나뿐일 때만
+           «이 계정이 이 지사 것» 이라고 확신할 수 있다(여럿이면 모호하니 건너뛴다). */
+        let oldNameUnique = false;
+        if (has('name') && before && before.name && before.name !== newName) {
+          const dup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM franchises WHERE name = ?`)
+            .bind(before.name).first<{ n: number }>();
+          oldNameUnique = Number(dup?.n || 0) <= 1;
+        }
+        let linkedAccount: { username: string } | null = null;
+        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
+          linkedAccount = await env.DB.prepare(
+            `SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value = ? LIMIT 1`
+          ).bind(before.name).first<{ username: string }>();
+          // 🏢 지사본사(scope_type='franchise') 계정은 scope_value 가 콤마로 여러 지사 이름을
+          //   담은 목록이라 위 정확일치로는 안 잡힌다 — scope.ts scopeFranchiseCond('franchise')
+          //   가 쓰는 것과 같은 콤마-경계 LIKE 로 「그 목록 안에 이 지사의 옛 이름이 있는가」를
+          //   본다(부분일치 방지: 양쪽에 콤마를 붙여 «노원»이 «노원구지사»에 안 걸리게 한다).
+          //   빠뜨리면 지사본사 계정이 경고 하나 없이 조용히 이 지사에 대한 가시성을 잃는다.
+          if (!linkedAccount) {
+            linkedAccount = await env.DB.prepare(
+              `SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || ? || ',%') LIMIT 1`
+            ).bind(before.name).first<{ username: string }>();
+          }
+          if (linkedAccount) {
+            const nameDup = await env.DB.prepare(`SELECT id FROM franchises WHERE name = ? AND id != ? LIMIT 1`)
+              .bind(newName, fid).first<{ id: number }>();
+            if (nameDup) {
+              return json({ ok: false, error: 'duplicate_franchise_name',
+                message: `이 지사에는 로그인 계정(${linkedAccount.username})이 연결돼 있는데, 새 이름 "${newName}"을(를) 쓰는 다른 지사가 이미 있습니다. 그대로 바꾸면 그 계정이 두 지사 자료를 함께 보게 됩니다 — 이름을 다르게 정하거나 계정을 먼저 정리하세요.` }, 409);
+            }
+          }
+        }
+
+        sets.push('updated_at = ?'); binds.push(Date.now());
+        binds.push(fid);
+        await env.DB.prepare(`UPDATE franchises SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+        /* 🏢 카페24 야간 동기화(cafe24-sync.ts importCafe24Org)가 name·address·phone·owner_name 을
+           «카페24가 정본» 이라 매일 밤 03:00 KST 에 덮어쓴다(UPSERT). 사람이 방금 고친 칸을
+           정정표에도 함께 적어야 그날 밤 이후에도 지켜진다 — «값이 실제로 달라진 칸만» 적는다
+           (매번 다 적으면 안 바뀐 칸까지 못 박혀서, 나중에 카페24 쪽 정당한 변경이 영영 안
+           먹는 반대쪽 사고가 난다). opened_at 은 카페24가 안 건드리는 칸이라 대상이 아니다. */
+        if (before) {
+          const changedName = newName !== undefined && newName !== (before.name || '');
+          const changedAddr = newAddress !== undefined && newAddress !== (before.address || null);
+          const changedPhone = newPhone !== undefined && newPhone !== (before.phone || null);
+          const changedOwner = newOwner !== undefined && newOwner !== (before.owner_name || null);
+          if (changedName || changedAddr || changedPhone || changedOwner) {
+            await ensureFranchiseOverrideTable(env);
+            await env.DB.prepare(
+              `INSERT INTO franchise_manual_override (franchise_id, name, address, phone, owner_name, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(franchise_id) DO UPDATE SET
+                 name = CASE WHEN ? THEN excluded.name ELSE franchise_manual_override.name END,
+                 address = CASE WHEN ? THEN excluded.address ELSE franchise_manual_override.address END,
+                 phone = CASE WHEN ? THEN excluded.phone ELSE franchise_manual_override.phone END,
+                 owner_name = CASE WHEN ? THEN excluded.owner_name ELSE franchise_manual_override.owner_name END,
+                 updated_at = excluded.updated_at`
+            ).bind(
+              fid,
+              changedName ? newName : null,
+              changedAddr ? newAddress : null,
+              changedPhone ? newPhone : null,
+              changedOwner ? newOwner : null,
+              Date.now(),
+              changedName ? 1 : 0, changedAddr ? 1 : 0, changedPhone ? 1 : 0, changedOwner ? 1 : 0
+            ).run();
+          }
+        }
+
+        return json({
+          ok: true, id: fid,
+          // ⚠️ 화면이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을 찾습니다」를
+          // 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다(centers 와 같은 이유).
+          login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
+        });
+      }
+
       const b = await parseJsonBody(request);
       const now = Date.now();
 
@@ -9544,6 +9668,36 @@ LIMIT $limit`;
         await env.DB.prepare(`UPDATE master_branches SET active = ?, updated_at = ? WHERE id = ?`)
           .bind(b.active ? 1 : 0, now, mid).run();
         return json({ ok: true, id: mid, active: b.active ? 1 : 0 });
+      }
+      /* ✏️ 대표지사 수정 (2026-09-11 신설 — 사장님 제보 「대표지사도 수정하는 버튼이 없다」)
+         master_branches 는 카페24에 없는 «우리만의 표» 다(위 9325행 주석) — franchises·centers
+         와 달리 매일 밤 동기화가 덮어쓰지 않으므로, 그 둘에 쓴 override 표(franchise_manual_override
+         등) 짝이 여기엔 필요 없다. 그냥 UPDATE 하면 그대로 남는다.
+         ⚠️ scope.ts 의 Scope 타입에는 'master' 가 없다 — admin_scope 는 이 표의 name 을 기준으로
+         아무것도 매칭하지 않는다(franchises/centers 이름과 달리 로그인 계정과 안 엮인다). 그래서
+         지사·대리점 PATCH 에 있던 「이름 바뀌면 연결된 계정이 조용히 못 찾게 된다」 걱정이 여기엔
+         없다 — grep 으로 확인: master_branches·franchise_master_map 을 쓰는 곳은 이 파일 하나뿐. */
+      if (b && b.kind === 'master_edit') {
+        const mid = parseInt(String(b.id || ''), 10);
+        if (!mid) return invalidBody(['id']);
+        await ensureMaster();
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
+        const sets: string[] = [];
+        const binds: any[] = [];
+        if (has('name')) {
+          const nm = String(b.name || '').trim();
+          if (!nm) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(nm);
+        }
+        if (has('region')) { sets.push('region = ?'); binds.push(String(b.region || '').trim() || null); }
+        if (has('tier')) { sets.push('tier = ?'); binds.push(String(b.tier || '').trim() || null); }
+        if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
+        if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
+        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+        sets.push('updated_at = ?'); binds.push(now);
+        binds.push(mid);
+        await env.DB.prepare(`UPDATE master_branches SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        return json({ ok: true, id: mid });
       }
 
       if (!b || !b.name) return invalidBody(['name']);
@@ -9652,6 +9806,9 @@ LIMIT $limit`;
       //    CREATE 에 넣지 않는 이유: schema_drift 하니스가 «운영 실제에 없는 CREATE 컬럼» 을 막는다.
       //    NULL = 미지정. #03 의 B2B/B2C 결제 리스트 분리가 이 값을 필터 기준으로 쓴다.
       try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN payment_type TEXT`); } catch {}
+      // 📞 (2026-09-11) 대리점 연락처 — 카페24 :Center 에는 없는 칸이라(Cypher 에 phone 이 없다)
+      //    매일 밤 UPSERT 가 이 값을 «안 건드린다». payment_type 과 같은 이유로 멱등 ALTER.
+      try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN phone TEXT`); } catch {}
       /* 💰 (2026-08-22) 아래 목록이 대리점별 수강료를 함께 내려준다. 그 표가 없는
          환경에서 조인이 실패하면 **대리점 목록이 통째로 안 뜬다** — 표를 먼저 보장한다.
          DDL 정본은 org-settlement.ts 한 곳이다(복사하지 말 것). */
@@ -9674,14 +9831,143 @@ LIMIT $limit`;
       }
 
       if (method === 'PATCH') {
-        // 기존 대리점의 결제유형 지정 — centers 에는 수정 API 가 없었어서 이번에 신설(경로 재사용).
+        /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
+           대리점 이름·지사·국가·담당자·연락처·주소·결제유형을 한 번에 고치는 «부분 수정» —
+           보낸 칸만 고치고 나머지는 그대로 둔다. 예전부터 있던 {id, payment_type} 만
+           보내는 호출(표의 결제유형 드롭다운, ctSetPayType)도 그대로 동작해야 한다. */
         const b = await parseJsonBody(request);
         const cid = parseInt(String(b?.id || ''), 10);
         if (!cid) return invalidBody(['id']);
-        const pt = _normPayType(b?.payment_type);
-        await env.DB.prepare(`UPDATE centers SET payment_type = ?, updated_at = ? WHERE id = ?`)
-          .bind(pt, Date.now(), cid).run();
-        return json({ ok: true, id: cid, payment_type: pt });
+        const has = (k: string) => !!b && Object.prototype.hasOwnProperty.call(b, k);
+
+        /* 🔑 name·address·manager·franchise_id 는 카페24가 매일 밤 덮어쓰는 칸이라(아래 참고),
+           «실제로 바뀐 칸만» 정정표에 남겨야 한다. 그래서 UPDATE 전에 지금 값을 먼저 읽어 둔다.
+           이 폼은 등록 폼을 그대로 재사용해 «매번 네 칸을 전부» 보내므로, 안 그러면 연락처
+           하나만 고치려고 열었다가 이름·주소·담당자·지사가 전부 «지금 값에 못 박히는» 사고가 난다
+           (되면 카페24가 나중에 정당하게 고쳐도 그 칸은 영영 안 먹는다). */
+        const touchesCafe24Field = has('name') || has('address') || has('manager') || has('franchise_id');
+        let before: { name: string; address: string | null; manager: string | null; franchise_id: number | null } | null = null;
+        if (touchesCafe24Field) {
+          before = await env.DB.prepare(`SELECT name, address, manager, franchise_id FROM centers WHERE id = ?`)
+            .bind(cid).first<{ name: string; address: string | null; manager: string | null; franchise_id: number | null }>() as any;
+        }
+
+        const sets: string[] = [];
+        const binds: any[] = [];
+        let ptOut: string | null = null;
+        if (has('payment_type')) { ptOut = _normPayType(b.payment_type); sets.push('payment_type = ?'); binds.push(ptOut); }
+
+        let newName: string | undefined;
+        if (has('name')) {
+          newName = String(b.name || '').trim();
+          if (!newName) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(newName);
+        }
+        let newFid = 0;
+        if (has('franchise_id')) {
+          newFid = b.franchise_id ? parseInt(String(b.franchise_id), 10) : 0;
+          sets.push('franchise_id = ?'); binds.push(newFid || null);
+        }
+        let newAddress: string | null | undefined;
+        if (has('address')) { newAddress = String(b.address || '').trim() || null; sets.push('address = ?'); binds.push(newAddress); }
+        let newManager: string | null | undefined;
+        if (has('manager')) { newManager = String(b.manager || '').trim() || null; sets.push('manager = ?'); binds.push(newManager); }
+        if (has('country')) { sets.push('country = ?'); binds.push(String(b.country || '').trim() || null); }
+        if (has('phone'))   { sets.push('phone = ?');   binds.push(String(b.phone   || '').trim() || null); }
+        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 이 대리점에 로그인 계정이 있으면 admin_scope.scope_value 가 «옛 이름» 을 그대로
+           들고 있다(scope.ts scopeCenterCond 는 id 가 아니라 이름으로 대리점을 가른다).
+           ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이
+           통째로 안 잡힘」과 같은 뿌리) — 옛 이름을 가진 대리점이 이것 하나뿐일 때만
+           «이 계정이 바로 이 대리점 것» 이라고 확신할 수 있다. 여럿이면 모호하니 아래
+           검사·경고 둘 다 건너뛴다(모르면 손대지 않는 쪽이 안전하다). */
+        let oldNameUnique = false;
+        if (has('name') && before && before.name && before.name !== newName) {
+          const dup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`)
+            .bind(before.name).first<{ n: number }>();
+          oldNameUnique = Number(dup?.n || 0) <= 1;
+        }
+        /* 🔑 scope_value 를 새 이름으로 «옮기지 않는다» — centers.name 은 이렇게 고칠 수 있지만
+           students_erp.shop_name 은 카페24가 독립적으로 채우는 값이라(921건 중 744건만 이
+           둘이 글자 그대로 일치 — 원래도 완전히 안 맞았다) 옮겨도 옛 이름 그대로 남는다.
+           scopeStudentCond(agency) 는 «shop_name = scope_value» 로 그 계정의 학생을 찾으므로,
+           옮기면 그 계정이 «자기 학생이 0명» 으로 보이는 확정적인 사고가 된다 — 안 옮기는
+           쪽이 안전하다(옮겨도 어차피 카페24 쪽 학생 명부는 못 따라오니 «완전히 맞는» 선택은
+           없고, 학생을 볼 수 없게 되는 쪽이 더 나쁘다). 대신 그런 계정이 있으면 ①같은 새
+           이름을 쓰는 다른 대리점이 있을 때만 막고(POST 의 duplicate_center_name 방어와
+           같은 이유 — 두 대리점이 같은 scope_value 를 공유하게 되는 것을 막는다)
+           ②그 계정 아이디를 응답에 실어 화면이 사람에게 알리게 한다. */
+        let linkedAccount: { username: string } | null = null;
+        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
+          linkedAccount = await env.DB.prepare(
+            `SELECT username FROM admin_scope WHERE scope_type = 'agency' AND scope_value = ? LIMIT 1`
+          ).bind(before.name).first<{ username: string }>();
+          if (linkedAccount) {
+            const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? AND id != ? LIMIT 1`)
+              .bind(newName, cid).first<{ id: number }>();
+            if (nameDup) {
+              return json({ ok: false, error: 'duplicate_center_name',
+                message: `이 대리점에는 로그인 계정(${linkedAccount.username})이 연결돼 있는데, 새 이름 "${newName}"을(를) 쓰는 다른 대리점이 이미 있습니다. 그대로 바꾸면 그 계정이 두 대리점 자료를 함께 보게 됩니다 — 이름을 다르게 정하거나 계정을 먼저 정리하세요.` }, 409);
+            }
+          }
+        }
+
+        sets.push('updated_at = ?'); binds.push(Date.now());
+        binds.push(cid);
+        await env.DB.prepare(`UPDATE centers SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+        /* 🏢 카페24 야간 동기화(cafe24-sync.ts importCafe24Org)가 name·address·manager·
+           franchise_id 를 «카페24가 정본» 이라 매일 밤 03:00 KST 에 덮어쓴다(UPSERT). 사람이
+           방금 고친 칸을 정정표에도 함께 적어야 그날 밤 이후에도 지켜진다 — 안 적으면
+           CLAUDE.md 「학생 이름을 D1 에서 고쳤는데 다음날 원복됨」과 같은 사고가 centers 판으로
+           그대로 재현된다. payment_type·phone·country 는 카페24가 안 건드리는 칸이라 대상이 아니다.
+           ⚠️ «값이 실제로 달라진 칸만» 적는다 — 매번 다 적으면 안 바뀐 칸까지 못 박혀서,
+           나중에 카페24 쪽 정당한 변경이 영영 안 먹는 반대쪽 사고가 난다. */
+        if (before) {
+          const changedName = newName !== undefined && newName !== (before.name || '');
+          const changedAddr = newAddress !== undefined && newAddress !== (before.address || null);
+          const changedMgr  = newManager !== undefined && newManager !== (before.manager || null);
+          if (changedName || changedAddr || changedMgr) {
+            await ensureCenterOverrideTables(env);
+            await env.DB.prepare(
+              `INSERT INTO center_manual_override (center_id, name, address, manager, updated_at) VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(center_id) DO UPDATE SET
+                 name = CASE WHEN ? THEN excluded.name ELSE center_manual_override.name END,
+                 address = CASE WHEN ? THEN excluded.address ELSE center_manual_override.address END,
+                 manager = CASE WHEN ? THEN excluded.manager ELSE center_manual_override.manager END,
+                 updated_at = excluded.updated_at`
+            ).bind(
+              cid,
+              changedName ? newName : null,
+              changedAddr ? newAddress : null,
+              changedMgr ? newManager : null,
+              Date.now(),
+              changedName ? 1 : 0, changedAddr ? 1 : 0, changedMgr ? 1 : 0
+            ).run();
+          }
+          const oldFid = before.franchise_id || 0;
+          if (has('franchise_id') && newFid !== oldFid) {
+            await ensureCenterOverrideTables(env);
+            if (newFid) {
+              await env.DB.prepare(
+                `INSERT INTO center_franchise_override (center_id, franchise_id, prev_franchise_id, reason, updated_at) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(center_id) DO UPDATE SET franchise_id = excluded.franchise_id, prev_franchise_id = excluded.prev_franchise_id, updated_at = excluded.updated_at`
+              ).bind(cid, newFid, oldFid || null, '관리자 화면 수정', Date.now()).run();
+            } else {
+              // 지사를 «미지정» 으로 되돌리면 정정표에서도 지운다 — franchise_id 는 NOT NULL 이라
+              // 0/NULL 을 못 박아 둘 수 없고, 남겨 두면 다음 카페24 동기화가 지운 지사를 다시 심는다.
+              await env.DB.prepare(`DELETE FROM center_franchise_override WHERE center_id = ?`).bind(cid).run();
+            }
+          }
+        }
+
+        return json({
+          ok: true, id: cid, payment_type: ptOut,
+          // ⚠️ 화면(saveCenter)이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을
+          // 찾습니다」를 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다.
+          login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
+        });
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();

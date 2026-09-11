@@ -8281,22 +8281,35 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
                data-ko="대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요."
                data-en="A master branch groups several branches. Assign one per branch in the “🏢 Branch” table below.">대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요.</div>
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 지사(fr-form-wrap)
+               와 같은 방식(js/adm-core.js 의 mbrEdit/saveMasterBranch/mbrResetForm).
+               ontoggle 로 «닫힐 때만» mbrResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _mbrEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 대표지사를 덮어쓰게 된다. -->
+          <details id="mbr-form-wrap" ontoggle="if(!this.open&&window.mbrResetForm)window.mbrResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
             <div class="menu-form">
               <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
               <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              <!-- 🪤 (2026-09-11 trap-check 지적) value 속성이 없는 <option>+data-ko/data-en 은
+                   위험하다 — value 없는 option 의 .value 는 표준상 textContent 를 그대로 따라가는데,
+                   i18n 엔진(toggleAdminLang)이 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로
+                   화면을 영어로 바꾸는 순간 .value 도 "골드"→"Gold" 로 조용히 바뀐다. mbrEdit() 가
+                   그 뒤 DB 값("골드")으로 .value 를 되돌리려 하면 일치하는 옵션이 없어(selectedIndex
+                   -1) 등급이 빈 채로 열리고, 그대로 저장하면 tier 가 NULL 로 덮인다(재현 확인됨).
+                   ct-paytype 처럼 언어와 무관한 고정 value 를 명시해 이 함정을 원천 차단한다. -->
               <select id="mbr-tier" style="width:140px;">
                 <option value="" data-ko="등급…" data-en="Tier…">등급…</option>
-                <option data-ko="플래티넘" data-en="Platinum">플래티넘</option><option data-ko="골드" data-en="Gold">골드</option><option data-ko="실버" data-en="Silver">실버</option><option data-ko="일반" data-en="Standard">일반</option>
+                <option value="플래티넘" data-ko="플래티넘" data-en="Platinum">플래티넘</option><option value="골드" data-ko="골드" data-en="Gold">골드</option><option value="실버" data-ko="실버" data-en="Silver">실버</option><option value="일반" data-ko="일반" data-en="Standard">일반</option>
               </select>
               <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
               <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
               <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
+              <button id="mbr-cancel-btn" onclick="mbrResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
-          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
-            <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="mbranches-table"><tr><td colspan="9" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -8305,7 +8318,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <details class="sub-item" id="sub-branches">
         <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 대리점(학원)
+               ct-form-wrap 과 같은 방식(js/adm-core.js 의 frEdit/saveFranchise/frResetForm).
+               ontoggle 로 «닫힐 때만» frResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _frEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 지사를 덮어쓰게 된다. -->
+          <details id="fr-form-wrap" ontoggle="if(!this.open&&window.frResetForm)window.frResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 신규 등록" data-en="+ Add Branch">+ 지사 신규 등록</summary>
             <div class="menu-form">
               <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
@@ -8314,10 +8331,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
               <input id="fr-opened" type="date" />
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
+              <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
-          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
-            <tbody id="franchises-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="franchises-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
 
           <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
                지사를 고르면 그 지사 «소속» 대리점만 나온다. 이름으로 찾던 예전 방식은
@@ -8357,13 +8376,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
         <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
         <div data-gc="➕ 등록·목록" data-gc-en="Register & List" class="sub-body">
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 표의 ✏️ 수정
+               버튼(ctEdit)이 이 칸을 열고 값을 채운 뒤 버튼 글자만 «💾 수정 저장」 으로 바꾼다
+               (js/adm-core.js 의 🏯 본사 관리 hqEdit/saveHqOrg 와 같은 방식). id 는 ct-form-wrap. -->
+          <!-- ⚠️ ontoggle 로 «닫힐 때만» ctResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _ctEditId 가 그대로 남아, 새로 등록하려 한 것이 방금 보던 대리점을 덮어쓰게 된다.
+               (열릴 때도 이 이벤트가 뜨므로 반드시 !this.open 을 먼저 본다 — ctEdit() 이
+               wrap.open=true 로 여는 그 순간에 되돌리면 안 된다.) -->
+          <details id="ct-form-wrap" ontoggle="if(!this.open&&window.ctResetForm)window.ctResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대리점(학원) 신규 등록" data-en="+ Add Agency">+ 대리점(학원) 신규 등록</summary>
             <div class="menu-form">
               <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
               <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
               <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
               <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
+              <!-- 📞 (2026-09-11 신설) 연락처 — centers.phone, 카페24가 안 주는 칸이라 매일 밤 동기화가 안 건드린다. -->
+              <input id="ct-phone"    placeholder="연락처"          data-ko-placeholder="연락처"          data-en-placeholder="Phone" style="width:130px;" />
               <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
               <!-- 💳 (2026-08-12 수정요청 #05) 결제 유형 — B2B(학원이 본사·대리점에 결제) / B2C(학부모 직접 결제) -->
               <select id="ct-paytype" title="이 대리점의 결제 방식 — B2B/B2C 결제 리스트 분리의 기준이 됩니다" style="width:130px;">
@@ -8374,16 +8402,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <!-- 🔑 (2026-08-19 사장님 요청) 대리점 로그인 계정 — 둘 다 채워야 계정이 만들어진다.
                    비워 두면 등록만 되고 로그인 계정은 만들지 않는다(기존 동작 유지).
                    서버가 admin_account + admin_scope(scope_type='agency') 를 실제로 만든다
-                   (addCenter() → POST /api/admin/centers, api-admin.ts). -->
-              <input id="ct-login-id" placeholder="대리점 로그인 아이디 (선택)" autocomplete="off"
-                     data-ko-placeholder="대리점 로그인 아이디 (선택)" data-en-placeholder="Agency login ID (optional)"
-                     style="width:150px;" />
-              <input id="ct-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
-                     data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
-                     style="width:140px;" />
+                   (saveCenter() → POST /api/admin/centers, api-admin.ts).
+                   ✏️ 수정 모드에서는 이 칸을 숨긴다(ctEdit) — 계정은 «새로 만드는» 것이라
+                   기존 대리점 수정과는 별개 작업이다. -->
+              <span id="ct-login-wrap" style="display:inline-flex;gap:6px;">
+                <input id="ct-login-id" placeholder="대리점 로그인 아이디 (선택)" autocomplete="off"
+                       data-ko-placeholder="대리점 로그인 아이디 (선택)" data-en-placeholder="Agency login ID (optional)"
+                       style="width:150px;" />
+                <input id="ct-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+                       data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
+                       style="width:140px;" />
+              </span>
               <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표, 🏯 본사 관리의 hq-cancel-btn 과 같은 방식). -->
+              <button id="ct-cancel-btn" onclick="ctResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
-            <div style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+            <div id="ct-login-hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
                  data-ko="※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다."
                  data-en="※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.">※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.</div>
           </details>
@@ -8403,8 +8437,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
             <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
           </div>
-          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="주1회 수강료" data-en="Weekly-1 tuition">주1회 수강료</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
-            <tbody id="centers-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="주1회 수강료" data-en="Weekly-1 tuition">주1회 수강료</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="연락처" data-en="Phone">연락처</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="centers-table"><tr><td colspan="10" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -10162,7 +10196,31 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=207" defer></script><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=206: 2026-09-10 수강신청 «목록» 에도 번호 표시·수정(📞/📵) — 등록 화면 칸은 앞으로 등록되는 학생용이라, 이미 등록된 학생(테스트 명단 9명)에게 번호를 넣을 자리가 없었다 · v=205: 2026-09-10 수강신청 등록 표에 「학부모 연락처」 칸 — 수업 30분 전 리마인더가 최근 7일 671건을 감지하고도 번호가 없어 0건 발송이던 것. 서버가 student_erp_override 에 적고(동기화가 못 덮는 자리) 저장 실패는 화면이 말한다) (v=204: 2026-09-09 「녹화」 검색이 실시간 수업(활성 룸) 카드로 가던 것 — 별칭 한 줄에 «녹화»와 «활성방»이 함께 묶여 있어 라벨 「녹화·활성 방」이 1순위였다. 두 줄로 갈라 녹화는 card-recording-storage 로) (원복: 이 파일을 이 위치에 인라인)</script><!-- 분할추출:adm-core (v=205: 2026-09-10 card-ai-billing CARD_POLICY 등록(mgrOrUp)) (v=204: 2026-09-09 「녹화」 검색이 실시간 수업(활성 룸) 카드로 가던 것 — 별칭 한 줄에 «녹화»와 «활성방»이 함께 묶여 있어 라벨 「녹화·활성 방」이 1순위였다. 두 줄로 갈라 녹화는 card-recording-storage 로) (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=211" defer></script><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
+     버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
+     등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
+     는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간
+     동기화가 안 덮어쓴다 — 대리점·지사와 달리 정정표(override table)가 필요 없다. scope.ts 의
+     Scope 타입에도 'master' 가 없어(admin_scope 가 이 표의 name 으로 아무것도 매칭하지 않음)
+     이름을 바꿔도 로그인 계정이 조용히 못 찾게 되는 걱정도 없다 — 그냥 UPDATE 한다) (v=209: 2026-09-11 지사 «수정» 메뉴 신설 — 사장님 제보 「지사도 대리점과
+     마찬가지로 수정 메뉴가 없다」. 대리점(v=208)과 같은 방식·같은 위험을 그대로 옮겼다 — 표
+     마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다(saveFranchise/frEdit/
+     frResetForm). 이름·대표자·전화·주소는 카페24 야간 동기화가 매일 밤 덮어써서(cafe24-sync.ts
+     의 insF UPSERT) 서버가 정정표(franchise_manual_override)에 함께 적어야 다음날 원복되지
+     않는다(개설일만 카페24가 안 건드리는 칸). 이름을 바꿔도 그 지사 로그인 계정(scope_type=
+     'branch')의 admin_scope.scope_value 는 옮기지 않는다 — students_erp.franchise 도 카페24가
+     독립적으로 채우는 값이라 안 따라오고, 옮기면 그 계정이 «학생이 0명» 으로 보이는 사고가
+     된다. 이름이 겹치는 다른 지사가 이미 있으면(연결된 계정이 있을 때만) 막는다) (v=208: 2026-09-11 대리점(학원) «수정» 메뉴 신설 — 사장님 제보 「대리점을 수정할
+     수 있는 메뉴가 없다」. 표 마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다
+     (saveCenter/ctEdit/ctResetForm, hqEdit 과 같은 방식). 이름·지사·국가·담당자·연락처(신설
+     ct-phone)·주소를 한 번에 고친다 — 이름·지사·주소·담당자는 카페24 야간 동기화가 매일 밤
+     덮어써서(cafe24-sync.ts), 서버가 정정표(center_manual_override·center_franchise_override)에
+     함께 적어야 다음날 원복되지 않는다. ⚠️ 이름을 바꿔도 그 대리점 로그인 계정의 admin_scope.
+     scope_value 는 «옮기지 않는다» — students_erp.shop_name 은 카페24가 독립적으로 채우는
+     값이라 옮겨도 안 따라오고, 옮기면 그 계정이 «학생이 0명» 으로 보이는 확정적인 사고가
+     된다(trap-check 검토로 v=207 에서 되돌림). 대신 연결된 계정이 있으면 새 이름이 다른
+     대리점과 겹칠 때 막고(POST 의 duplicate_center_name 방어와 같은 이유), 화면이 그 계정
+     아이디를 사람에게 알린다) (v=206: 2026-09-10 수강신청 «목록» 에도 번호 표시·수정(📞/📵) — 등록 화면 칸은 앞으로 등록되는 학생용이라, 이미 등록된 학생(테스트 명단 9명)에게 번호를 넣을 자리가 없었다 · v=205: 2026-09-10 수강신청 등록 표에 「학부모 연락처」 칸 — 수업 30분 전 리마인더가 최근 7일 671건을 감지하고도 번호가 없어 0건 발송이던 것. 서버가 student_erp_override 에 적고(동기화가 못 덮는 자리) 저장 실패는 화면이 말한다) (v=204: 2026-09-09 「녹화」 검색이 실시간 수업(활성 룸) 카드로 가던 것 — 별칭 한 줄에 «녹화»와 «활성방»이 함께 묶여 있어 라벨 「녹화·활성 방」이 1순위였다. 두 줄로 갈라 녹화는 card-recording-storage 로) (원복: 이 파일을 이 위치에 인라인)
    · v=199: 2026-09-02 녹화 보관기간 3개월 → 6개월(신규분부터). 화면 문구에서 «3개월/90-day» 숫자를 뺐다 —
      기존 2,098건 3개월 + 신규 6개월이 섞여 한 숫자로 말하면 어느 쪽이든 거짓이 되기 때문.
      「30일 내 만료」 타일 단위는 «곧 만료»(이미 만료가 아니다 — 그 집계는 아직 만료 안 된 건수다)
