@@ -1005,12 +1005,20 @@ async function loadData(){
                 var have={};(exist0.students||[]).forEach(function(x){have[x.uid||x.name]=1;});
                 (s.students||[]).forEach(function(x){if(!have[x.uid||x.name]){exist0.students.push(x);have[x.uid||x.name]=1;}});
                 if((exist0.students||[]).length>1)exist0.type='group';
+                /* 🆔 (2026-09-11) 합쳐 넣은 «서버 행» 의 id 도 함께 모은다.
+                   그룹 수업은 서버에 «학생마다 한 행» 이라(바로 위 주석) id 가 여러 개인데,
+                   id 를 하나만 들고 있으면 드래그 이동이 그 한 명만 옮겨 **수업이 쪼개진다**
+                   — 화면은 한 칸이라 그 사고가 눈에 보이지도 않는다. */
+                if(!exist0.ids)exist0.ids=(exist0.id?[exist0.id]:[]);
+                if(s.id&&exist0.ids.indexOf(s.id)<0)exist0.ids.push(s.id);
                 return;
               }
               addSlot(s.teacher_id,s.date,hh,{
                 /* 🆔 서버 행 id — 없으면 deleteSlotConfirm 의 서버 DELETE 분기가 영영 안 타서
                    «화면에서 지웠는데 새로고침하면 되살아나는» 반쪽이 된다(2026-08-27 발견) */
                 id:s.id,
+                /* 🆔 이 칸이 가리키는 서버 행 전부(그룹이면 여럿). 위 «합치기» 가 여기에 더한다. */
+                ids:(s.id?[s.id]:[]),
                 type:s.type||'1on1',students:s.students||[],
                 start_date:s.start_date,end_date:s.end_date,note:s.note,
                 duration_min:Number(s.duration_min)>0?Number(s.duration_min):20,
@@ -1827,6 +1835,10 @@ function showMoveConfirm(ctx){
         '</div>'+
       '</div>'+
       (ctx.movedTeacher?'<div style="margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;color:#fde68a;font-size:12.5px;text-align:center">⚡ '+(L?'담당 교사도 함께 변경됩니다':'Teacher will also change')+'</div>':'')+
+      /* 🔁 (2026-09-11) 반복 수업은 «이 주» 가 아니라 요일 자체가 바뀐다 — 저장이 실제로
+         일어나기 시작했으므로 그 사실을 누르기 «전» 에 말해야 한다. 예전에는 아무것도
+         저장되지 않아 무해했지만 이제는 매주가 함께 움직인다. */
+      (ctx.srcData.slot.recurring?'<div style="margin-top:8px;padding:8px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);border-radius:8px;color:#bfdbfe;font-size:12.5px;text-align:center">🔁 '+(L?'매주 반복 수업입니다 — 모든 주가 함께 바뀝니다':'Weekly class — every week moves together')+'</div>':'')+
     '</div>'+
     '<div class="modal-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
       '<button class="modal-btn ghost" onclick="cancelMove()" style="font-size:15px;padding:14px">❌ '+(L?'아니요':'No')+'</button>'+
@@ -1841,20 +1853,95 @@ window.cancelMove=function(){
   showDndToast((L?'↩️ 변경 취소됨':'↩️ Move cancelled'),'');
   window.__moveCtx=null;
 };
-window.confirmMoveDo=function(){
+/* 💾 (2026-09-11 실사고) 드래그 이동을 «서버에» 저장한다.
+ *
+ *  [고치기 전] 이 함수가 하는 일은 메모리 한 줄(SLOTS[key]=slot)이 전부였다. 그런데
+ *  확인 모달은 「⚡ 담당 교사도 함께 변경됩니다」라고 약속하고 끝에는 「✅ 이동됨」까지
+ *  띄웠다 — 요청은 한 건도 나가지 않으므로 **새로고침하면 조용히 되돌아간다.**
+ *  2026-09-11: 사장님이 정우영 학생의 금 14:20 수업을 강선생님 → MAIMAI 로 옮기셨는데
+ *  홈 화면은 계속 강선생님을 가리켰다(class_schedules 2332 의 teacher_id 는 '29' 그대로).
+ *  같은 병의 형제가 이 저장소에 이미 둘 있다 — 「화면에서 수업을 잡았는데 학생은
+ *  «오늘 수업 없음»」(2026-08-24 saveNewSlot)·「직원을 등록했는데 로그인이 안 돼요」.
+ *
+ *  ⛔ 저장 «전» 에 화면을 옮겨 그리지 말 것 — 서버가 거절해도 옮겨진 것처럼 보여
+ *     고치려던 사고가 그대로 남는다(CLAUDE.md 「저장 전에 addSlot 으로 그리지 마세요」).
+ *  ⛔ 판정을 «실패라고 말했는가»(d.ok===false)로 쓰지 말 것 — 종단 404 본문에는 ok 칸이
+ *     아예 없어 undefined===false 가 거짓이라 그냥 통과한다. **«성공이라고 말했는가»**
+ *     (r.ok && d.ok===true)로 묻는다.
+ *  ⚠️ 그룹 수업은 서버에 «학생마다 한 행» 이라 slot.ids 가 여럿이다 — 전부 보낸다.
+ *  ⚠️ 반복(recurring)과 일회성은 보내는 칸이 다르다. 섞으면 안 된다 — sessions/today 는
+ *     scheduled_date 가 있으면 그쪽이 이기므로, 반복 행에 날짜를 넣으면 그 주 한 번만
+ *     열리고 «매주» 가 죽는다. */
+window.confirmMoveDo=async function(){
   var L=currentLang==='ko';
   var ctx=window.__moveCtx;
   if(!ctx){closeModal();return;}
-  // 실제 이동
+  var slot=(ctx.srcData&&ctx.srcData.slot)||{};
+
+  /* 🚫 근무불가 차단은 다른 표(teacher_unavailability)라 이 API 로 못 옮긴다.
+     예전엔 화면에서만 옮겨져 «옮긴 것처럼» 보였다. 이제 사실대로 말한다. */
+  if(slot.type==='blocked'||slot.source==='unavailability'){
+    closeModal();
+    showDndToast((L?'⚠️ 근무불가 차단은 드래그로 옮길 수 없어요. 지운 뒤 다시 등록해 주세요.'
+                   :'⚠️ Blocked time cannot be moved by drag. Delete it and add again.'),'bad');
+    window.__moveCtx=null; return;
+  }
+  /* 🆔 서버에 저장된 수업인가 — 자리표시(LMS·시드)는 id 가 없다. */
+  var ids=(slot.ids&&slot.ids.length)?slot.ids.slice():(slot.id?[slot.id]:[]);
+  if(!ids.length){
+    closeModal();
+    showDndToast((L?'⚠️ 이 칸은 서버에 저장된 수업이 아니라 옮길 수 없어요.'
+                   :'⚠️ This slot is not a saved class — it cannot be moved.'),'bad');
+    window.__moveCtx=null; return;
+  }
+
+  var body={ start_time: minLabel(ctx.dstCoords.startMin) };
+  if(slot.recurring){
+    /* 🗓 요일은 UTC 로 파싱해 뽑는다 — 로컬 시간대에 따라 하루가 밀리면 «월요일로 옮겼는데
+       일요일» 이 된다. 서버 normDow 가 'Mon' 표기를 받는다. */
+    var _d=new Date(String(ctx.dstCoords.dateISO)+'T00:00:00Z');
+    body.day_of_week=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][_d.getUTCDay()];
+  }else{
+    body.scheduled_date=String(ctx.dstCoords.dateISO);
+  }
+  if(ctx.movedTeacher) body.teacher_id=String(ctx.dstTeacher.id);
+
+  closeModal();
+  showDndToast((L?'💾 저장 중…':'💾 Saving…'),'');
+
+  var fails=[];
+  for(var i=0;i<ids.length;i++){
+    try{
+      var r=await fetch('/api/admin/class-schedules/'+encodeURIComponent(ids[i]),{
+        method:'PATCH', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      var d=null; try{ d=await r.json(); }catch(e2){}
+      if(!(r.ok && d && d.ok===true)) fails.push((d&&(d.message||d.error))||('HTTP '+r.status));
+    }catch(e){ fails.push(String((e&&e.message)||e)); }
+  }
+
+  window.__moveCtx=null;
+
+  if(fails.length){
+    /* ❌ 하나라도 실패하면 화면을 손으로 옮기지 않는다. 부분 성공일 수 있으므로
+       서버에서 다시 읽어 «진실» 을 보여 준다 — 화면이 거짓말하던 것이 이 사고의 뿌리다. */
+    showDndToast((L?'❌ 저장하지 못했습니다: ':'❌ Could not save: ')+escapeHtml(fails[0])
+      +(ids.length>1?('<br>'+(L?'(총 '+ids.length+'건 중 '+fails.length+'건 실패 — 화면을 다시 불러옵니다)'
+                              :'('+fails.length+' of '+ids.length+' failed — reloading)')):''),'bad');
+    try{ await reloadAndRender(); }catch(e3){}
+    return;
+  }
+
+  // ✅ 저장된 뒤에만 화면을 옮긴다
   // ⏱ 10분 격자 — 키가 «시» 가 아니라 «분» 이다. 분을 빼먹으면 원본이 안 지워져 «복사» 가 된다.
   delete SLOTS[slotKey(ctx.srcTeacher.id,ctx.srcCoords.dateISO,ctx.srcCoords.hour*60+(ctx.srcCoords.minute||0))];
-  addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot,ctx.dstCoords.minute||0);
-  closeModal();
+  addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,slot,ctx.dstCoords.minute||0);
   var msg=L
     ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin)+' 으로 이동됨')
     : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin));
   showDndToast(msg,'ok');
-  window.__moveCtx=null;
   render();
 };
 window.showMoveConfirm=showMoveConfirm;

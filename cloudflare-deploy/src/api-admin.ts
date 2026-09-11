@@ -7168,10 +7168,86 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (body.scheduled_date != null && /^\d{4}-\d{2}-\d{2}$/.test(String(body.scheduled_date))) {
         sets.push('scheduled_date = ?'); binds.push(String(body.scheduled_date));
       }
-      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
-      // 📜 이동 전 정보(이력용) + 행위자
+      // 📜 이동 전 정보(이력용) + 행위자 — 담당 강사 가드가 이 둘을 쓰므로 sets 검사보다 «앞» 이다.
       const _pchActor = await getAdminActor(request, env as any);
       const _pchRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+
+      /* 🧑‍🏫 (2026-09-11) 담당 강사 변경 — 드래그로 «다른 강사 열» 에 놓았을 때.
+       *
+       *  [왜 생겼나] 주간 전체 스케줄(admin/weekly-schedule.html)의 드래그는 확인 모달에
+       *  「⚡ 담당 교사도 함께 변경됩니다」라고 **약속하고 「✅ 이동됨」까지 띄웠지만**,
+       *  하는 일은 메모리 객체 한 줄(SLOTS[key]=slot)이 전부였다 — 서버에 요청이 한 건도
+       *  나가지 않아 새로고침하면 조용히 되돌아갔다. 2026-09-11 실사고: 사장님이 정우영
+       *  학생의 금 14:20 수업을 강선생님 → MAIMAI 로 옮기셨는데 홈 화면은 계속 강선생님을
+       *  가리켰다(class_schedules 2332 의 teacher_id 는 '29' 그대로였다).
+       *  같은 병의 형제가 이 저장소에 이미 둘 있다 — 「화면에서 수업을 잡았는데 학생은
+       *  «오늘 수업 없음»」(2026-08-24)·「직원을 등록했는데 로그인이 안 돼요」(2026-08-18).
+       *
+       *  🔒 [왜 여기만 게이트가 더 센가] 이 PATCH 는 TEACHER_BLOCKED_PREFIXES 에 없어서
+       *     **강사도 부를 수 있다.** 요일·시각 이동은 그대로 두더라도 «담당 강사» 는
+       *     다르다 — 수업이 곧 급여라(no-show-truth.ts·payroll) 강사가 남의 수업을
+       *     자기에게 가져오거나 남에게 떠넘길 수 있다. CLAUDE.md 가 «수업 강사 변경» 을
+       *     되돌릴 수 없는 조작의 예로 직접 들고 있다.
+       *  ⛔ canEditOrg() 로 막으면 안 된다 — 그 함수는 scope 'none'(내부직원·**교사**)에도
+       *     true 라 강사를 못 막는다(CLAUDE.md 2장 「본사 전용으로 막았는데 강사가 그대로
+       *     실행됨」). 그래서 enrollAdminHqOnly 와 «같은 모양» 으로 판정한다.
+       *  🔴 «모른다» 를 «본사» 로 읽지 않는다 — getAdminActor 는 스코프를 못 구해도
+       *     scopeType='none' → resolveRole 이 'staff'(본사 동급)로 떨어뜨린다. 그래서
+       *     근거(admin_scope.scope_type)를 **삼키지 않고 한 번 더 읽고, 못 읽으면 막는다.**
+       *  ⚠️ 판정을 복제하지 않는다 — «조직인가» 는 정본 isOrgScopedRole() 이 답한다.
+       *     (enroll-ops.ts 의 enrollAdminHqOnly 는 그 파일 밖으로 내보내지 않는 비공개
+       *      함수다 — 같은 판정을 여기 옆에 두는 것이 이 저장소의 방식이다.
+       *      NOT_PLACEHOLDER 가 다섯 파일에 복제돼 있는 것과 같은 사정.)
+       *  ℹ️ 강사를 «안 바꾸는» 요청(요일·시각만)은 이 블록을 통째로 비켜 간다 — 기존
+       *     드래그 이동의 권한은 한 톨도 좁히지 않았다. */
+      if (body.teacher_id != null && String(body.teacher_id).trim() !== '') {
+        const _tid = String(body.teacher_id).trim();
+        if (!/^\d+$/.test(_tid)) {
+          return json({ ok: false, error: 'invalid_teacher_id', message: '담당 강사 번호가 올바르지 않습니다.' }, 400);
+        }
+        const _cur = String(_pchRow?.teacher_id ?? '').trim();
+        if (_cur !== _tid) {                       // 같은 강사면 바꿀 것이 없다 — 게이트도 안 탄다
+          if (!_pchActor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+          if (_pchActor.isTeacher) {
+            return json({ ok: false, error: 'forbidden_teacher', message: '담당 강사 변경은 강사 권한으로 할 수 없습니다.' }, 403);
+          }
+          let _scopeType: string | null = null;
+          try {
+            const _sr: any = await env.DB.prepare(
+              `SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`
+            ).bind(_pchActor.username).first();
+            const _st = _sr ? String(_sr.scope_type ?? '').trim() : '';
+            _scopeType = _st || null;              // 행이 없거나 칸이 비면 «모름»
+          } catch (e: any) {
+            console.warn('[class-schedules] teacher move scope:', e?.message);
+            _scopeType = null;
+          }
+          if (_scopeType === null) {
+            return json({ ok: false, error: 'scope_unknown', message: '권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 403);
+          }
+          if (_scopeType === 'teacher') {
+            return json({ ok: false, error: 'forbidden_teacher', message: '담당 강사 변경은 강사 권한으로 할 수 없습니다.' }, 403);
+          }
+          if (isOrgScopedRole(_scopeType)) {
+            return json({ ok: false, error: 'forbidden_scope', message: '담당 강사 변경은 본사만 할 수 있습니다.' }, 403);
+          }
+          /* 🆔 실재하는 강사인가 — 없는 번호를 넣으면 그 수업은 «강사가 누구인지 모르는» 행이
+             되고, 화면·급여·노쇼 판정이 전부 이름을 못 붙인다. 모르면 안 바꾼다.
+             ⚠️ class_schedules.teacher_id 는 teachers.id 도메인이다(카페24 강사번호가 아니다
+                — CLAUDE.md 2장 「강사 번호가 세 벌」). 화면 목록도 /api/admin/teachers 의 id 다. */
+          const _trow: any = await env.DB.prepare(
+            `SELECT CAST(id AS TEXT) AS tid, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`
+          ).bind(_tid).first().catch(() => null);
+          if (!_trow) {
+            return json({ ok: false, error: 'teacher_not_found', message: '그 번호의 강사를 찾을 수 없습니다.' }, 400);
+          }
+          sets.push('teacher_id = ?'); binds.push(_tid);
+          (body as any).__teacher_from = _pchRow?.teacher_id ?? null;
+          (body as any).__teacher_to_name = _trow.name || _tid;
+        }
+      }
+
+      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
       /* 🪞 (2026-08-31) 「사람 손이 이긴다」 도장 — 사장님 결정.
          카페24 미러가 만든 행(source='c24-mirror')을 사람이 고치면 그 자리에서
          'c24-mirror:manual' 로 바꾼다. 그 뒤로 미러는 그 행을 **영영 안 건드린다**
@@ -7185,10 +7261,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       binds.push(id);
       try {
         await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-        // 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일이 바뀐 경우만 기록
-        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null) {
+        /* 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일 «또는 담당 강사» 가 바뀐 경우.
+           ⚠️ 강사 변경을 여기서 빼면 급여가 걸린 변경이 아무 데도 안 남는다. */
+        const _tchChanged = (body as any).__teacher_to_name != null;
+        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null || _tchChanged) {
           const _newDate = body.scheduled_date != null ? String(body.scheduled_date) : (_pchRow ? _pchRow.scheduled_date : null);
           const _newTime = body.start_time != null ? String(body.start_time) : (_pchRow ? _pchRow.start_time : null);
+          const _tchLine = _tchChanged
+            ? ` · 담당 강사 ${String((body as any).__teacher_from ?? '?')} → ${String((body as any).__teacher_to_name)}`
+            : '';
           await writeClassAudit(env, {
             action: 'reschedule', schedule_id: id,
             teacher_name: _pchRow ? (_pchRow.teacher_name || null) : null,
@@ -7198,7 +7279,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             actor: _pchActor.name || '관리자',
             actor_role: _pchActor.isTeacher ? 'teacher' : 'admin',
             source: 'ui',
-            detail: `→ ${_newDate || ''} ${_newTime || ''}`.trim(),
+            detail: (`→ ${_newDate || ''} ${_newTime || ''}`.trim() + _tchLine).trim(),
           });
         }
         return json({ ok: true, id, updated_fields: sets.length - 1 });
