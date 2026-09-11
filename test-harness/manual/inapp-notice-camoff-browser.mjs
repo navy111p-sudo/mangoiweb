@@ -189,9 +189,13 @@ ok('⛔ 자동 이동(openExternal)을 부르지 않았다 — 로그인이 안 
   for (let i = src.indexOf('{', at); i < src.length; i++) {
     if (src[i] === '{') d++; else if (src[i] === '}') { d--; if (d === 0) { end = i; break; } }
   }
-  const body = at >= 0 && end > at ? src.slice(at, end) : '';
+  /* ⚠️ 부정 검사는 «주석을 벗겨 낸 사본» 으로 — 「⛔ 여기서 openExternal 금지」 같은
+     설명 주석 한 줄에 검사가 자기 주석을 잡습니다(CLAUDE.md 2장 그 항목). */
+  const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const body = at >= 0 && end > at ? strip(src.slice(at, end)) : '';
   ok('⓬절을 오려 냈다 (전제)', body.length > 200, `${body.length}자`);
-  ok('⓬절 소스에 openExternal 호출이 없다', body.length > 200 && !/openExternal/.test(body));
+  ok('⓬절 소스에 openExternal 호출이 없다 (주석 제외)',
+    body.length > 200 && !/openExternal/.test(body));
 }
 if (b1.hasRow) {
   ok('우상단 칩 줄을 배너 밑으로 내렸다', b1.rowTop >= b1.h, `칩 top ${b1.rowTop} ≥ 배너 ${b1.h}`);
