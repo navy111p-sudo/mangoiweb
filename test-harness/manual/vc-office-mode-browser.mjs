@@ -244,12 +244,19 @@ ok(fallback.armed && fallback.live === 'live' && fallback.realMic === true,
 ok(fallback.on === false, '그때도 «꺼짐» 이다');
 
 console.log('\n⑧ 켜기가 실패하면 «켜기 전» 으로 되돌아가는가 (안전 원칙)');
+/* 🔴 (2026-09-11) 실패를 «getUserMedia 거부» 로만 만들면 안 된다 — 마이크를 빌려 쓰게 된 뒤로는
+   그 경로를 아예 안 지나서 켜기가 «성공» 해 버리고, 이 절 셋이 통째로 거짓 FAIL 이 난다(실측).
+   ⇒ 경로와 무관하게 반드시 실패하는 자리(AudioContext)를 함께 막는다. 둘 다 막으면
+      빌려 쓰든 새로 열든 어느 쪽으로 가도 «켜기 실패» 가 만들어진다. */
 const failsafe = await ev(`(async () => {
   var orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  var OrigAC = window.AudioContext, OrigWAC = window.webkitAudioContext;
   var beforeId = window.vcLocalStream.getAudioTracks()[0].id;
   navigator.mediaDevices.getUserMedia = function(){ return Promise.reject(new Error('테스트: 마이크 거부')); };
+  window.AudioContext = window.webkitAudioContext = function(){ throw new Error('테스트: AudioContext 거부'); };
   var r = await window.vcSetOfficeMode(true);
   navigator.mediaDevices.getUserMedia = orig;
+  window.AudioContext = OrigAC; window.webkitAudioContext = OrigWAC;
   var t = window.vcLocalStream.getAudioTracks()[0];
   return { r: r, on: window.vcOfficeModeOn(), sameTrack: t && t.id === beforeId,
            live: t ? t.readyState : null, saved: localStorage.getItem('mangoi_vc_office') };
@@ -685,6 +692,85 @@ ok(dflt.studentFresh === false,
 ok(dflt.freshSaved === null,
    "ⓓ 자동으로 켜져도 저장값을 «쓰지» 않는다 — '1' 을 쓰면 첫 수업에 전원이 «사람이 켰음» 으로 굳어 기본값을 되돌릴 수 없다",
    JSON.stringify(dflt));
+
+/* ⑱ (2026-09-11) 마이크를 «두 번» 열지 않는가 — 교사만 입장이 느리던 이유.
+   [무엇을 지키나] 예전에는 켤 때도 끌 때도 getUserMedia 를 새로 불렀다(수업 한 번에 2회 추가).
+     지금은 첫 마이크를 «AGC 를 끈 채로» 열어 두고(hookGum) 사무실 모드가 그것을 그대로 빌린다.
+   ⛔ 「안 부른다」만 세면 «아무것도 안 하기» 도 통과한다 — «그런데도 실제로 켜졌는가» 를 짝으로 둔다.
+   ⚠️ 이 절은 «실제로 켜고 끄면서» 호출 횟수를 센다. 문자열로는 볼 수 없는 보장이다. */
+console.log('\n⑱ 마이크를 «두 번» 열지 않는가 (교사 입장 지연 — 2026-09-11)');
+const once = await ev(`(async () => {
+  try { await window.vcSetOfficeMode(false); } catch(e){}
+  /* 🔴 전제 — «수업 안» 이어야 한다. ⑰ 이 홈으로 끝내는데, 수업 밖에서 enable() 은
+     «수업에 들어갈 때 다시 건다» 며 아무 일도 안 하고 true 를 돌려준다. 그대로 재면
+     이 절이 통째로 헛돌며 «켜졌다» 로 보인다(2026-09-11 실측). */
+  try { localStorage.removeItem('mangoi_vc_office'); } catch(e){}
+  window.vcMyRole = 'teacher';
+  try { window.showView('view-videocall-call'); } catch(e){}
+  document.body.classList.add('vc-in-call');
+  try { window.vcLocalStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+  window.vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  await new Promise(r => setTimeout(r, 300));
+  try { await window.vcSetOfficeMode(false); } catch(e){}
+  var t0 = window.vcLocalStream.getAudioTracks()[0];
+  var s0 = (t0 && t0.getSettings && t0.getSettings()) || {};
+  var n = 0;
+  var orig = navigator.mediaDevices.getUserMedia;
+  navigator.mediaDevices.getUserMedia = function(){ n++; return orig.apply(navigator.mediaDevices, arguments); };
+  var onR = await window.vcSetOfficeMode(true);
+  var nOn = n;
+  var tOn = window.vcLocalStream.getAudioTracks()[0];
+  var proc = (${IS_PROC})(tOn);
+  await window.vcSetOfficeMode(false);
+  var nOff = n - nOn;
+  var tOff = window.vcLocalStream.getAudioTracks()[0];
+  navigator.mediaDevices.getUserMedia = orig;
+  return { inCall: document.body.classList.contains('vc-in-call'),
+           agcOff: s0.autoGainControl === false, onR: onR, nOn: nOn, proc: proc, nOff: nOff,
+           offProc: (${IS_PROC})(tOff), offLive: tOff ? tOff.readyState : null };
+})()`);
+ok(once.inCall === true,
+   'ⓐ 전제: «수업 안» 에서 쟀다 — 수업 밖이면 enable 이 아무 일도 안 하고 true 를 준다', JSON.stringify(once));
+ok(once.agcOff === true,
+   'ⓑ 전제: 첫 마이크가 «AGC 를 끈 채로» 열려 있다 — 이게 아니면 아래가 통째로 헛돈다', JSON.stringify(once));
+ok(once.nOn === 0,
+   'ⓒ 켤 때 마이크를 새로 «열지 않는다» — 이미 열린 것을 빌린다', JSON.stringify(once));
+ok(once.onR === true && once.proc === true,
+   'ⓓ 그런데도 «실제로» 켜졌고 마이크가 가공 트랙으로 갈렸다 — 짝이 없으면 «안 켜기» 도 통과한다',
+   JSON.stringify(once));
+ok(once.nOff === 0,
+   'ⓔ 끌 때도 마이크를 새로 «열지 않는다» — 되돌리기도 즉시 끝난다', JSON.stringify(once));
+ok(once.offProc === false && once.offLive === 'live',
+   'ⓕ 끈 뒤 «진짜 마이크» 로 돌아왔고 살아 있다 — 짝이 없으면 «안 되돌리기» 도 통과한다',
+   JSON.stringify(once));
+
+/* ⓕ 학생 마이크는 말없이 건드리지 않는다 — hookGum 의 가드. 없으면 조용히 말하는 아이 소리가 작아진다. */
+/* ⓖⓗ 는 «깨끗한 페이지» 에서 잰다.
+   🔴 왜 굳이 다시 여는가 — 크로미움은 같은 입력 장치를 다시 열면 **앞서 연 트랙의 오디오 처리
+      설정을 그대로 준다**. 위에서 교사로 AGC 를 끈 뒤라, 같은 페이지에서 학생으로 다시 열면
+      학생인데도 꺼진 것처럼 보인다(2026-09-11 실측: 장치를 다 놓고 800ms 기다려도 같았다).
+      그 상태로 두면 «멀쩡한 코드가 FAIL» 이라 다음 사람이 없는 버그를 쫓는다.
+   ⚠️ 이 절이 마지막이라 페이지를 다시 열어도 뒤 검사를 깨지 않는다 — 앞으로 옮기지 말 것. */
+async function freshAgc(role) {
+  await cdp('Page.navigate', { url: BASE + '/index.html?_nc=' + Date.now() });
+  await new Promise(r => setTimeout(r, 3500));
+  return await ev(`(async () => {
+    try { localStorage.removeItem('mangoi_vc_office'); } catch(e){}
+    window.vcMyRole = '${role}';
+    var s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true }, video: false });
+    var st = s.getAudioTracks()[0].getSettings();
+    s.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+    return { agc: st.autoGainControl, staff: (typeof window.vcIsStaffNow === 'function') ? window.vcIsStaffNow() : null };
+  })()`);
+}
+const stuAgc = await freshAgc('student');
+const tchAgc = await freshAgc('teacher');
+ok(stuAgc.staff === false && stuAgc.agc !== false,
+   'ⓖ 학생 마이크의 자동 게인은 끄지 않는다 — 교사 기능이 아이 마이크에 새지 않는다',
+   JSON.stringify(stuAgc));
+ok(tchAgc.staff === true && tchAgc.agc === false,
+   'ⓗ 그래도 교사 마이크는 «처음부터» 꺼진 채로 열린다 — 짝이 없으면 «아무에게도 안 걸기» 도 통과한다',
+   JSON.stringify(tchAgc));
 
 console.log(`\n════════════════════════════════\n  PASS ${pass}  FAIL ${fail}\n════════════════════════════════`);
 try { ws.close(); } catch (e) {}
