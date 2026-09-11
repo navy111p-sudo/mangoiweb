@@ -44,10 +44,12 @@
      ═══════════════════════════════════════════════════════════════════ -->
 <style>
 :root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#8b5cf6;--c-g:#ec4899;--c-t:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5);
-  /* 🪟 일간 뷰 격자 — ⛔ 테마별로 «불투명 색» 을 갈라 두지 말 것. 이 페이지는 테마가 dark 여도
-     adm-light-surfaces.js 페인터가 화면을 밝게 칠해 두는 «모순 상태» 라(2026-09-11 실측:
-     dark 인데 셀 배경 rgb(230,236,244)), 다크용 어두운 값을 주면 그 행만 검게 남아 대비 14:1
-     짝짝이가 된다. 그래서 «지금 화면이 무슨 색이든 그보다 조금 어둡게» 인 반투명 한 벌로 둔다. */
+  /* 🪟 일간 뷰 격자 — ⛔ 테마별로 «불투명 색» 을 갈라 두지 말 것. 이 페이지는 data-admin-theme 이
+     dark 여도 화면이 밝다 — 범인은 페인터가 아니라 adm-light-theme.css 가 :root 의 --bg2 를
+     #e6ecf4 로, --bd 를 #e4e9f2 로 !important 덮는 것이라 테마와 무관하게 무조건 적용된다
+     (2026-09-11 실측: dark 로 바꿔도 · ?nolight=1 로 페인터를 꺼도 셀 배경 rgb(230,236,244) 그대로).
+     그 위에 다크용 어두운 값을 주면 그 행만 검게 남아 대비 14:1 짝짝이가 된다.
+     그래서 «지금 화면이 무슨 색이든 그보다 조금 어둡게» 인 반투명 한 벌로 둔다. */
   --grid-line:rgba(15,23,42,.20);--grid-hour:rgba(15,23,42,.34);--stripe:rgba(15,23,42,.045)}
 
 /* ============================================================
@@ -337,12 +339,16 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
    ⛔ 이 주석에 CJK 홑낫표(U+300C·U+300D)를 쓰지 말 것 — admin_lazyload_harness ②-3 은
       <style> 안 CSS 주석을 «화면 글자» 로 세어 «한자 폰트 983KB 를 받는 화면» 으로 판정한다
       (2026-09-11 에 실제로 밟아 CI 가 잡았습니다). 인용은 « » 로.
-   [왜] 선이 «없던» 게 아니라 --bd(#E9ECEF)가 흰 배경 대비 1.05 : 1 이라 안 보였다(잰 값).
+   [왜] 선이 «없던» 게 아니라 안 보였다 — 이 페이지의 --bd 는 위 ivory 블록의 #E9ECEF 가 아니라
+        adm-light-theme.css 가 !important 로 덮은 #e4e9f2 이고, 셀이 비쳐 보이는 배경도 같은 파일이
+        덮은 --bg2(#e6ecf4) 라 둘의 대비가 1.03 : 1 이다(잰 값. 거의 같은 색).
         교사 25행 × 10분 84칸인데 가로·세로 기준이 없어 한 덩어리로 읽혔다.
    [무엇] 시안 4종 중 사장님이 고르신 B(격자) + C(줄무늬) 합본.
    ⛔ 10분 칸마다 세로선을 두지 말 것 — 84줄이 되어 오히려 못 읽는다. 정시(:00)에만 둔다.
-   ⛔ 줄무늬를 td 에 칠하지 말 것 — «오늘 열»(.col-today)의 반투명 앰버를 덮어
-      짝수 행에서 오늘 강조가 사라진다. tr 에 칠하면 td 배경이 그 위에 겹쳐 둘 다 산다.
+   ⛔ 줄무늬를 td 에 칠하지 말 것 — .col-today 의 반투명 앰버를 덮어 짝수 행에서 오늘 강조가
+      사라진다. tr 에 칠하면 td 배경이 그 위에 겹쳐 둘 다 산다.
+      ⚠️ 일간 뷰는 «열» 이 시간이라 오늘을 열면 그 표의 «모든 칸» 이 .col-today 다(주간 뷰의
+         «오늘 열» 과 다르다) — 한 줄만 걸리는 문제로 읽지 말 것.
    ⚠️ 색 셋은 :root 에 «반투명 한 벌» 이다 — 테마별 불투명 색으로 가르지 말 것(그 줄 주석에 이유). */
 .dgv td.slot{border-right-color:transparent;border-bottom:1px solid var(--grid-line)}
 .dgv td.slot.dg-hour-edge{border-left:1px solid var(--grid-hour)}
@@ -350,9 +356,13 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 .dgv tbody tr:nth-child(even){background:var(--stripe)}
 /* ⚠️ 이름 칸은 sticky 라 «불투명» 해야 한다(반투명이면 스크롤 때 셀이 비쳐 지나간다).
    그래서 배경색은 그대로 두고 줄무늬를 inset 그림자로 «위에 얹는다».
-   ⛔ background-image 로 얹지 말 것 — adm-light-surfaces.js 는 backgroundImage 의 «알파를 안 보고»
-      색 휘도만 보므로(그 파일 127~139행) rgba(15,23,42,.045) 를 «어두운 면» 으로 읽어 밝게 덮는다.
-      배경색(알파 0.045)과 이 그림자는 그 페인터가 원래 안 건드린다(알파 0.35 이하는 건너뜀). */
+   ⛔ background-image 로 얹지 말 것 — adm-light-surfaces.js 의 lightenSurface() 는 backgroundImage 만은
+      «알파를 안 보고» 색 휘도만 보므로 rgba(15,23,42,.045) 를 «어두운 면» 으로 읽어 밝게 덮는다.
+      (⛔ 그 파일을 행 번호로 가리키지 말 것 — 계속 자라서 곧 어긋난다. 함수 이름으로 찾을 것)
+   ⚠️ 지금 이 그림자가 안 지워지는 이유는 «알파가 낮아서» 가 아니다 — 그 페인터는 배경을 실제로
+      밝혔을 때만(changed) box-shadow 까지 덮어쓰는데, 여기 이름칸 배경(--bg2)이 이미 밝아 안 걸린다.
+      ⟹ 어두운 면에 같은 수법을 쓰면 조용히 안 먹는다. (tr 배경 쪽은 별개로 안전하다 — 그 판정은
+         알파 0.35 초과만 보므로 0.045 는 원래 건너뛴다) */
 .dgv tbody tr:nth-child(even) .tl-td-name{box-shadow:inset 0 0 0 100vh var(--stripe)}
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{font-size:0}   /* 빈 10분 칸엔 글자를 넣지 않는다 */
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
