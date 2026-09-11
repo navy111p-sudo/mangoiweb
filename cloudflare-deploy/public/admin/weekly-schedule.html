@@ -43,7 +43,12 @@
      ⚠️ 되살리려면 자체 호스팅 + 서브셋으로.
      ═══════════════════════════════════════════════════════════════════ -->
 <style>
-:root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#8b5cf6;--c-g:#ec4899;--c-t:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5)}
+:root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#8b5cf6;--c-g:#ec4899;--c-t:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5);
+  /* 🪟 일간 뷰 격자 — ⛔ 테마별로 «불투명 색» 을 갈라 두지 말 것. 이 페이지는 테마가 dark 여도
+     adm-light-surfaces.js 페인터가 화면을 밝게 칠해 두는 «모순 상태» 라(2026-09-11 실측:
+     dark 인데 셀 배경 rgb(230,236,244)), 다크용 어두운 값을 주면 그 행만 검게 남아 대비 14:1
+     짝짝이가 된다. 그래서 «지금 화면이 무슨 색이든 그보다 조금 어둡게» 인 반투명 한 벌로 둔다. */
+  --grid-line:rgba(15,23,42,.20);--grid-hour:rgba(15,23,42,.34);--stripe:rgba(15,23,42,.045)}
 
 /* ============================================================
    ☀️ 라이트 모드 (밝게 / ivory) — '색상 밝게' 클릭 시 적용
@@ -64,6 +69,7 @@ html[data-admin-theme="ivory"]{
   --cell-1on1:#E4DCFB;   /* 연보라 — 1:1 */
   --cell-group:#FBDCEA;  /* 연분홍 — 그룹 */
   --cell-temp:#D8ECFB;   /* 연하늘 — 대체/임시 */
+  /* 🪟 일간 뷰 격자 값은 :root 에 «반투명 한 벌» 로 둔다 — 여기서 테마별로 덮지 말 것(그 줄 주석 참고) */
 }
 /* 흰 배경 위에서 #fff 로 하드코딩된 글자들을 짙은 회색으로 보정 */
 html[data-admin-theme="ivory"] h1,
@@ -239,7 +245,9 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 /* ══════════════════════════════════════════════════════════════════════
    📊 리소스 타임라인 (2026-07-28 개편)
    · 교사 = 행, 시간 = 열. 시간축을 화면에 딱 한 벌만 그린다.
-   · 주간 뷰(.tlv) = 개요 / 일간 뷰(.dgv) = 실제 작업면(드래그·배정 전부 여기)
+   · 주간 뷰(.tl-scroll) = 개요 / 일간 뷰(.tl-scroll.dgv) = 실제 작업면(드래그·배정 전부 여기)
+     ⚠️ 2026-09-11 까지 이 줄은 «.tlv / .dgv» 라고 적혀 있었지만 그 클래스는 어디에도 안 붙어
+        있었다(적어 둔 것 ≠ 사실). 지금은 일간 뷰에 dgv 를 실제로 붙여 두었다.
    · ⚠️ 일간 뷰 셀은 반드시 data-tid/data-date/data-hour 를 달아야 한다.
      상세모달·드래그이동·학생배정이 전부 그 세 값으로 셀을 해석한다.
    ══════════════════════════════════════════════════════════════════════ */
@@ -325,6 +333,24 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 /* ⏱ 10분 칸 — 정시(:00) 칸 왼쪽에만 진한 선을 둬서 «한 시간» 이 눈에 남게 한다.
    이게 없으면 10분 칸 6개가 균일해서 시간 경계를 못 읽는다. */
 .tl-scroll td.slot.dg-hour-edge{border-left:1px solid var(--bd2)}
+/* ══ 🪟 (2026-09-11) 일간 뷰 격자 — 사장님 「얇은 실선이 필요할 것 같아, 잘 구분이 되지 않아」
+   [왜] 선이 «없던» 게 아니라 --bd(#E9ECEF)가 흰 배경 대비 1.05 : 1 이라 안 보였다(잰 값).
+        교사 25행 × 10분 84칸인데 가로·세로 기준이 없어 한 덩어리로 읽혔다.
+   [무엇] 시안 4종 중 사장님이 고르신 B(격자) + C(줄무늬) 합본.
+   ⛔ 10분 칸마다 세로선을 두지 말 것 — 84줄이 되어 오히려 못 읽는다. 정시(:00)에만 둔다.
+   ⛔ 줄무늬를 td 에 칠하지 말 것 — «오늘 열»(.col-today)의 반투명 앰버를 덮어
+      짝수 행에서 오늘 강조가 사라진다. tr 에 칠하면 td 배경이 그 위에 겹쳐 둘 다 산다.
+   ⚠️ 색 셋은 :root 에 «반투명 한 벌» 이다 — 테마별 불투명 색으로 가르지 말 것(그 줄 주석에 이유). */
+.dgv td.slot{border-right-color:transparent;border-bottom:1px solid var(--grid-line)}
+.dgv td.slot.dg-hour-edge{border-left:1px solid var(--grid-hour)}
+.dgv .tl-td-name{border-bottom:1px solid var(--grid-line)}
+.dgv tbody tr:nth-child(even){background:var(--stripe)}
+/* ⚠️ 이름 칸은 sticky 라 «불투명» 해야 한다(반투명이면 스크롤 때 셀이 비쳐 지나간다).
+   그래서 배경색은 그대로 두고 줄무늬를 inset 그림자로 «위에 얹는다».
+   ⛔ background-image 로 얹지 말 것 — adm-light-surfaces.js 는 backgroundImage 의 «알파를 안 보고»
+      색 휘도만 보므로(그 파일 127~139행) rgba(15,23,42,.045) 를 «어두운 면» 으로 읽어 밝게 덮는다.
+      배경색(알파 0.045)과 이 그림자는 그 페인터가 원래 안 건드린다(알파 0.35 이하는 건너뜀). */
+.dgv tbody tr:nth-child(even) .tl-td-name{box-shadow:inset 0 0 0 100vh var(--stripe)}
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{font-size:0}   /* 빈 10분 칸엔 글자를 넣지 않는다 */
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
 .tl-scroll td.slot:hover{outline:2px solid var(--ac);outline-offset:-2px;z-index:4}
@@ -1360,7 +1386,9 @@ function renderDayGrid(list){
   }
   /* ⏱ (2026-08-12) 한 시간 = 10분짜리 칸 6개. 헤더는 정시 하나가 6칸을 덮는다(colspan).
      20분 수업이 기본인데 칸이 1시간이라 «한 칸에 세 수업» 이 겹쳐도 하나만 보이던 것을 고친다. */
-  var head='<div class="tl-scroll"><table><colgroup><col style="width:var(--nameW)">';
+  /* 🪟 dgv = 일간 뷰 표식. CSS 의 «일간 뷰 격자»(가로 실선 + 정시 세로선 + 줄무늬)가 이 클래스에 걸린다.
+     ⛔ 떼지 말 것 — 떼면 격자가 통째로 사라져 25행이 다시 한 덩어리로 보인다. */
+  var head='<div class="tl-scroll dgv"><table><colgroup><col style="width:var(--nameW)">';
   for(var c=GRID_H0;c<GRID_H1;c++)for(var cs=0;cs<STEPS_PER_HOUR;cs++)head+='<col style="width:16px">';
   head+='</colgroup><thead><tr><th class="tl-th-name">'+
     dn[curDow]+' '+d.getDate()+(L?'일 · 교사 ':' · ')+list.length+(L?'명':' teachers')+
