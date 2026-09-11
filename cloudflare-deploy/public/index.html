@@ -6420,7 +6420,20 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           <span class="hf-n">4</span><span class="hf-t" data-ko="평가표 · 복습" data-en="Report & review">평가표 · 복습</span>
         </button>
       </div>
-      <button type="button" id="hero-guest-quiet" onclick="showView('view-videocall-lobby')"
+      <!-- 🔴 (2026-09-10 사장님 제보) 이 링크는 '이미 수강 중' 인 사람(=계정이 있는 학생)에게만
+           보인다(비회원 전용 — 위 스크립트가 로그인하면 숨긴다). 그런데 그동안 showView 로
+           바로 '화상통화 로비'(아이디/비번 수동 입력 칸)로 보내고 있었다. 그 화면은 실제로는
+           아무 인증도 하지 않는다(비밀번호는 로컬 저장뿐, 서버 검증 없음 — vcJoinRoom 참고) —
+           로그인 안 한 채로 '아이디' 칸에 계정 아이디(예: jye46712)를 치면, 서버는 그 값을
+           예약표의 '학생 이름'과 대조하므로(이름≠아이디) 매칭에 실패해 "오늘 예약된 수업이
+           없어요" 로 튕기거나 엉뚱한 공용방으로 들어갔다.
+           ⛔ 반면 위쪽 헤더의 '로그인' 버튼(openLoginModal)은 실제 계정으로 로그인해
+              getCurrentUser().uid 를 채우고, 그 uid 로 예약을 정확히 찾는다 — 그래서 그 경로만
+              "정상적으로 로그인 및 수업 입장이 됨".
+           ✅ 그래서 이 링크도 실제 로그인 모달을 열도록 통일한다. 로그인 뒤에는 회원용 화면의
+              큰 '수업 입장' 버튼(uid 기반 매칭)으로 들어가면 된다. -->
+      <button type="button" id="hero-guest-quiet"
+              onclick="if(window.getCurrentUser&&window.getCurrentUser())showView('view-videocall-lobby');else if(window.openLoginModal)openLoginModal();else showView('view-videocall-lobby')"
               data-ko="이미 수강 중이신가요? 수업 입장 →" data-en="Already enrolled? Enter class →">이미 수강 중이신가요? 수업 입장 →</button>
       <style>
         .home-flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;margin:14px auto 0;max-width:640px}

@@ -89,7 +89,18 @@ async function autoSeedOne(env: ScopeEnv, username: string): Promise<Scope> {
  *                   이걸 쓴다. 바깥 요청은 index.ts 의 관리자 인증 게이트가 먼저 401 로
  *                   막으므로 노출되지 않는다(2026-08-07 라이브 401 확인).
  *                   ⚠️ 새 라우트에 'hq' 를 붙일 땐 그 경로가 게이트 뒤인지 반드시 확인할 것. */
-export interface GetScopeOpts { noSessionScope?: 'none' | 'hq'; }
+export interface GetScopeOpts {
+  noSessionScope?: 'none' | 'hq';
+  /* 🔒 (2026-09-11) ?as= 드릴다운을 건너뛰고 «로그인 계정 원래 스코프» 만 돌려준다.
+     지사(branch) 계정이 ?as=agency:<산하 대리점> 으로 agency 스코프로 «승격» 되는 것은
+     화면 조회(대리점별 현황 드릴다운)에는 맞지만, «지사가 학원 대신 결제 주문을 만드는»
+     것처럼 승격된 스코프로 쓰기 권한까지 얻으면 안 되는 자리가 있다(ai-billing.ts
+     invoice/checkout — 사장님 결정 2026-09-11: 지사는 결제 여부를 볼 수는 있어도 결제
+     요청은 만들 수 없다). 그런 자리는 이 옵션으로 «원래 계정이 무엇인가» 를 한 번 더
+     물어서 판정한다 — 조회용 scope 변수를 이걸로 바꿔치기하지 말 것(그러면 드릴다운
+     조회 자체가 막힌다). */
+  noDrillDown?: boolean;
+}
 
 export async function getScope(env: ScopeEnv, request: Request, opts: GetScopeOpts = {}): Promise<Scope> {
   await ensureScope(env);
@@ -102,6 +113,8 @@ export async function getScope(env: ScopeEnv, request: Request, opts: GetScopeOp
   const row = await s_safe(async () => await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username=? LIMIT 1`).bind(sess.username).first<{ scope_type: string; scope_value: string | null }>(), null as any);
   const base: Scope = row ? { type: row.scope_type as any, value: row.scope_value, label: scopeLabel(row.scope_type, row.scope_value) }
                           : await autoSeedOne(env, sess.username);
+
+  if (opts.noDrillDown) return base;
 
   if (base.type === 'hq') {
     const as = new URL(request.url).searchParams.get('as');

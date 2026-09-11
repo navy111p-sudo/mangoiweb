@@ -475,6 +475,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
+  <!-- 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — 대리점(agency) 계정에만 보인다.
+       paintMonth() 가 scope.type==='agency' 일 때만 hidden 을 푼다. 서버(ai-billing.ts)가
+       shop_name 을 요청 파라미터가 아니라 로그인 스코프에서 직접 정하므로, 여기서
+       엉뚱한 대리점 값을 보낼 방법이 없다(남의 청구서를 볼 수 없다). -->
+  <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
+      <summary><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></summary>
+      <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        🏢 본사 매니저 전용 (Maimai · Melca · Karl)
          세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
@@ -833,6 +842,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       sc.type === 'agency' ? T('Agency', '대리점') : sc.type === 'branch' ? T('Branch', '지사') : T('Manager', '매니저');
     document.getElementById('scopeName').textContent = sc.label || sc.value || '';
     document.getElementById('monthLbl').textContent = m.period || '';
+    // 🏢 (2026-09-10) AI 사용료 청구서 — 대리점 계정에만. 본사·지사는 admin.html 「AI 사용료 관리」에서 본다.
+    var _aib = document.getElementById('c-aibill');
+    if (_aib) _aib.hidden = (sc.type !== 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     if (sc.type === 'hq') {
@@ -1002,6 +1014,125 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            + '<span class="muted">' + esc(w.wish_time || w.preferred_time || '') + '</span>'
            + '<span class="muted">' + esc(w.status || '') + '</span></div>';
     }).join('');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — scope.type==='agency' 일 때만 보인다.
+  //   금액은 절대 이 화면이 계산해서 보내지 않는다 — 서버(ai-billing.ts)가 그 순간의
+  //   재원 학생 수 × 단가로 다시 계산해 결제창을 연다(클라이언트 값은 표시용일 뿐).
+  // ══════════════════════════════════════════════════════════════════════════
+  window.loadAiBill = function(){
+    var el = document.getElementById('aibillBody');
+    el.textContent = T('Loading...', '불러오는 중...');
+    Promise.all([
+      get('/api/admin/ai-billing/invoice', 'aibill'),
+      get('/api/admin/ai-billing/history', 'aibillHist'),
+    ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
+      .catch(function(e){ failBox(el, e); });
+  };
+  window.aiBillGenerate = function(btn){
+    if (btn) { btn.disabled = true; }
+    fetch('/api/admin/ai-billing/invoice/generate', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j || !j.ok) { alert(T('Could not create the invoice.', '청구서를 만들지 못했습니다.')); return; }
+      D.aibill = null; loadAiBill();
+    }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
+      .then(function(){ if (btn) btn.disabled = false; });
+  };
+  window.aiBillToggleItem = function(cb, invoiceId, uid){
+    cb.disabled = true;
+    fetch('/api/admin/ai-billing/invoice/item', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: invoiceId, student_user_id: uid, included: cb.checked ? 1 : 0 })
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j || !j.ok) { cb.checked = !cb.checked; alert(T('Could not save.', '저장하지 못했습니다.')); return; }
+      D.aibill = null; loadAiBill();   // 총액을 다시 정확히 받아온다(화면에서 암산하지 않는다)
+    }).catch(function(){ cb.checked = !cb.checked; alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
+      .then(function(){ cb.disabled = false; });
+  };
+  window.aiBillPay = function(btn){
+    var j = D.aibill;
+    if (!j || !j.exists || !j.invoice) return;
+    if (btn) btn.disabled = true;
+    fetch('/api/admin/ai-billing/invoice/checkout', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: j.invoice.id })
+    }).then(function(r){ return r.json(); }).then(async function(o){
+      if (!o || !o.ok) { alert((o && o.error) || T('Could not start payment.', '결제를 시작하지 못했습니다.')); if (btn) btn.disabled = false; return; }
+      // 서버가 준 키만 쓴다(/api/pay/config — 개인 결제창과 같은 정본, 테스트/실결제 전환이 여기서 자동 반영된다).
+      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      try {
+        var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); });
+        if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey;
+      } catch (e) {}
+      if (!window.TossPayments) {
+        try {
+          await new Promise(function(resolve, reject){
+            var s = document.createElement('script');
+            s.src = 'https://js.tosspayments.com/v1/payment';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        } catch (e) { alert(T('Could not load the payment module.', '결제 모듈을 불러오지 못했습니다.')); if (btn) btn.disabled = false; return; }
+      }
+      try {
+        var tp = window.TossPayments(ck);
+        await tp.requestPayment('카드', {
+          amount: o.amount, orderId: o.order_id, orderName: o.order_name,
+          customerName: (document.getElementById('scopeName') || {}).textContent || j.invoice.shop_name,
+          successUrl: location.origin + '/payment-success.html',
+          failUrl: location.origin + '/payment-fail.html',
+        });
+      } catch (e) {
+        if (e && e.code !== 'USER_CANCEL') alert(T('Could not open the payment window: ', '결제창을 열 수 없습니다: ') + (e.message || 'unknown'));
+      }
+      if (btn) btn.disabled = false;
+    }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
+  };
+  function paintAiBill(){
+    var j = D.aibill; if (!j) return;
+    var el = document.getElementById('aibillBody');
+    el.className = '';
+    var html = '';
+    if (!j.exists) {
+      html += '<p class="muted">' + T('This month’s invoice has not been created yet.', '아직 이번 청구서가 만들어지지 않았습니다.') + '</p>'
+        + '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(j.billing_month) + '</b></div>'
+        + '<div class="row"><span>' + T('Enrolled now (preview)', '지금 재원 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
+        + '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(j.rate_krw) + T('/student', '/명') + '</b></div>'
+        + '<div class="row"><span>' + T('Estimated total', '예상 총액') + '</span><b>' + won(j.preview_total) + '</b></div>'
+        + '<button type="button" class="btn-primary" onclick="aiBillGenerate(this)" style="margin-top:10px">' + T('Create invoice', '청구서 만들기') + '</button>';
+    } else {
+      var inv = j.invoice, items = j.items || [];
+      var paid = inv.status === 'paid';
+      html += '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(inv.billing_month) + '</b></div>'
+        + '<div class="row"><span>' + T('Rate (fixed at creation)', '단가(생성 시점 고정)') + '</span><b>' + won(inv.rate_krw) + T('/student', '/명') + '</b></div>'
+        + '<div class="row"><span>' + T('Included students', '포함 인원') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+        + '<div class="row"><span>' + T('Total', '총액') + '</span><b>' + won(inv.total_krw) + '</b></div>';
+      if (paid) {
+        html += '<div class="row" style="color:#4ade80"><span>' + T('Status', '상태') + '</span><b>✅ ' + T('Paid', '결제 완료') + '</b></div>';
+      } else {
+        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + items.map(function(it){
+          return '<label class="row" style="cursor:pointer"><span>' + esc(it.student_name || it.student_user_id)
+            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + '</span>'
+            + '<input type="checkbox" ' + (it.included ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')"></label>';
+        }).join('') + '</div>'
+        + '<div style="display:flex;gap:8px;margin-top:10px">'
+        + '<button type="button" class="btn-ghost" onclick="aiBillGenerate(this)">' + T('Check for new students', '인원 다시 확인') + '</button>'
+        + '<button type="button" class="btn-primary" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>' + T('Pay now', '결제하기') + '</button>'
+        + '</div>'
+        + '<p class="muted" style="font-size:11px;margin-top:6px">' + T('Uncheck a student who has withdrawn from the academy — they will be removed before payment.', '학원을 퇴원한 학생은 체크를 풀어 주세요 — 결제 전에 명단에서 빠집니다.') + '</p>';
+      }
+    }
+    var hist = (D.aibillHist && D.aibillHist.rows) || [];
+    if (hist.length) {
+      html += '<div class="row" style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.2);padding-top:10px"><b>' + T('Past invoices', '지난 청구서') + '</b></div>'
+        + hist.slice(0, 12).map(function(h){
+            var badge = h.status === 'paid' ? '✅' : '⏳';
+            return '<div class="row"><span>' + esc(h.billing_month) + '</span><span class="muted">' + n0(h.included_count) + T('students', '명') + '</span><b>' + won(h.total_krw) + '</b><span>' + badge + '</span></div>';
+          }).join('');
+    }
+    el.innerHTML = html;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1577,6 +1708,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.live) paintLive();
     if (D.outage) paintOutage();
     if (D.bugs) paintBugs();
+    // 🏢 AI 사용료 청구서도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
+    //    applyLang() 이 textContent 를 통째로 갈아끼운다. 여기서 다시 안 그리면 🌐 한 번에
+    //    명세·인원 체크박스·「결제하기」가 「펼치면 불러옵니다.」로 지워지고, <details> 가 이미
+    //    열려 있어 ontoggle 도 재발화하지 않아 되돌릴 방법이 없다(CLAUDE.md 2장 「그릇에 달았더니
+    //    그린 내용이 통째로 사라짐」).
+    if (D.aibill) paintAiBill();
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
     //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
     try { paintTodo(); } catch (e) {}
