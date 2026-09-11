@@ -477,6 +477,36 @@ html, body { overscroll-behavior: contain; }
 .dnd-toast.hide-anim{transform:translateX(-50%) translateY(10px)}
 .dnd-toast.ok{border-color:#10b981}
 .dnd-toast.bad{border-color:#ef4444}
+/* 🔒 편집 잠금 (2026-09-11 사장님 지시 A안) — 기본은 «보기 전용» 이라 카드가 끌리지 않는다. */
+.ws-lock{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:99px;
+  border:1.5px solid var(--bd);background:rgba(148,163,184,.10);color:var(--tx2);
+  font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
+.ws-lock:hover{border-color:var(--ac);color:var(--tx)}
+/* ⚠️ 이 화면은 adm-light-theme.css 를 싣는 «밝은» 화면이다 — 다크 전제의 연노랑(#fde68a)을
+   쓰면 흰 바탕에서 대비 1.02 로 «안 읽힌다»(2026-09-11 브라우저 실측).
+   ⛔ 페인터(adm-light-surfaces.js)의 구제에 기대지 말고 처음부터 이 화면 톤으로 고른다. */
+.ws-lock.on{border-color:#b45309;background:rgba(251,191,36,.18);color:#7c2d12}
+.ws-lock .cd{font-variant-numeric:tabular-nums;font-size:11.5px}
+/* ↩︎ 되돌리기 토스트 — dnd-toast 는 pointer-events:none 이라 «버튼을 넣어도 못 누른다».
+   그래서 누를 수 있는 전용 토스트를 따로 둔다(CLAUDE.md «보이는데 안 눌림»). */
+/* ⚠️ 밝은 화면이라 어두운 알약(#0f172a)으로 두면 페인터가 «배경만» 밝게 눌러
+   흰 글자가 그대로 남는다 — 실측 대비 1.08. 처음부터 밝은 톤으로 고른다. */
+/* ⛔ bottom 을 .dnd-toast(24px) 와 같은 값으로 두지 말 것 — 저장 성공 토스트
+   «✅ 담당 강사 변경: MAIMAI» 를 «무엇을 바꿨는지» 가 안 보이게 덮는다(실측 65%). */
+.undo-toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:#ffffff;border:2px solid #10b981;border-radius:99px;padding:9px 12px 9px 20px;
+  color:#111827;font-weight:700;font-size:13.5px;box-shadow:var(--shL);z-index:9901;
+  display:flex;align-items:center;gap:12px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:auto}
+.undo-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.undo-toast button{border:0;border-radius:99px;padding:7px 15px;cursor:pointer;
+  background:#047857;color:#ffffff;font-weight:800;font-size:12.5px;white-space:nowrap}
+.undo-toast button:disabled{opacity:.55;cursor:default}
+.undo-toast .cd{font-variant-numeric:tabular-nums;color:#475467;font-size:12px}
+.undo-toast{max-width:calc(100vw - 32px)}
+/* 잠긴 채로 끌었을 때 «어디를 눌러야 하는지» 를 1초쯤 가리킨다. */
+.ws-lock.nudge{animation:wsNudge .45s ease-in-out 2}
+@keyframes wsNudge{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:0 0 0 4px rgba(251,191,36,.45)}}
+@media (prefers-reduced-motion:reduce){.ws-lock.nudge{animation:none;border-color:var(--ac)}}
 
 /* ═══ FAB / 위저드 / 클릭형 UI ═══ */
 .fab{position:fixed;bottom:24px;right:24px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;color:#1a1a1a;font-size:30px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.5),0 0 0 0 rgba(251,191,36,.6);z-index:300;transition:transform .15s,box-shadow .15s;display:flex;align-items:center;justify-content:center;animation:fabPulse 2.5s infinite}
@@ -702,7 +732,7 @@ body.dragging{cursor:crosshair}
       <div class="breadcrumb"><a href="/admin.html" data-ko="← 관리자 대시보드" data-en="← Admin Dashboard">← 관리자 대시보드</a></div>
       <h1><span class="icon">📅</span><span data-ko="주간 전체 스케줄" data-en="Weekly Schedule Overview">주간 전체 스케줄</span><span class="sub" data-ko="모든 교사 한눈에" data-en="All teachers at a glance">모든 교사 한눈에</span><span id="demo-badge" style="display:none;margin-left:10px;padding:3px 10px;background:rgba(251,191,36,.18);border:1.5px solid var(--ac);border-radius:999px;color:#fde68a;font-size:11px;font-weight:800">DEMO MODE</span></h1>
     </div>
-    <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><span id="lang-home-group" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0"><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button><a href="/" id="header-home-btn" title="학생 홈페이지로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:12.5px;border-radius:99px;box-shadow:0 4px 14px -3px rgba(245,158,11,.55);transition:transform .15s,box-shadow .15s;white-space:nowrap" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px -3px rgba(245,158,11,.7)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px -3px rgba(245,158,11,.55)'">🏠 <span data-ko="홈페이지" data-en="Homepage">홈페이지</span></a></span>
+    <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button type="button" class="ws-lock" id="ws-lock-btn" aria-pressed="false" title="잠겨 있으면 카드가 끌리지 않습니다" data-ko-title="잠겨 있으면 카드가 끌리지 않습니다" data-en-title="While locked, cards cannot be dragged"><span id="ws-lock-ico">🔒</span><span id="ws-lock-label" data-ko="잠김" data-en="Locked">잠김</span><span class="cd" id="ws-lock-cd"></span></button><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><span id="lang-home-group" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0"><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button><a href="/" id="header-home-btn" title="학생 홈페이지로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:12.5px;border-radius:99px;box-shadow:0 4px 14px -3px rgba(245,158,11,.55);transition:transform .15s,box-shadow .15s;white-space:nowrap" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px -3px rgba(245,158,11,.7)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px -3px rgba(245,158,11,.55)'">🏠 <span data-ko="홈페이지" data-en="Homepage">홈페이지</span></a></span>
   </div>
 </header>
 <!-- 📊 요약 — KPI 카드 4장을 한 줄로 압축(2026-07-28). id 는 그대로 두어 render() 를 건드리지 않음 -->
@@ -1667,6 +1697,149 @@ function getCellCoords(td){
   return {dateISO:fmtISO(d),hour:hour,minute:0,startMin:hour*60,dow:colIdx-1};
 }
 
+/* ═══ 🔒 편집 잠금(A안) + ↩️ 되돌리기(D안) — 2026-09-11 사장님 지시 ═══
+ *
+ *  왜 생겼나: 이 화면의 드래그는 2026-09-11 까지 «아무것도 저장하지 않아» 실수로 끌어도
+ *  무해했다. 그 저장을 고친 그 순간부터는 반대로 «한 번 끌면 그대로 나간다» —
+ *  수업 시각·담당 강사가 바뀌면 결정론적 방 번호(class-{id}-{YYYYMMDD})는 그대로인데
+ *  학생 홈의 「수업 입장」 카드와 리마인더가 따라 바뀐다. 그래서 두 겹을 둔다.
+ *    A) 기본은 «잠김»(보기 전용). 편집하려면 버튼을 눌러야 하고, WS_EDIT_MS 동안
+ *       아무 저장도 없으면 다시 잠긴다.
+ *    D) 저장된 뒤 WS_UNDO_MS 동안 「되돌리기」 — 서버에 원래 값을 다시 보낸다.
+ *
+ *  ⛔ 잠금을 «드래그 시작» 에만 걸지 말 것 — 우클릭 「수업 연기/변경」·「이동」 모달이
+ *     같은 저장 경로를 쓴다. 최종 방어선은 persistSlotMove 한 곳이다(입구가 셋).
+ *  ⛔ 되돌리기는 잠금에 걸리면 안 된다 — 15초 사이에 자동 잠금이 오면 «되돌릴 수 없는»
+ *     상태가 되는데 그건 이 기능을 만든 이유와 정반대다(opts.undo 예외).
+ *  ⛔ 되돌리기를 «화면만» 되돌리는 방식으로 만들지 말 것 — 그것이 이 사고의 뿌리다.
+ *     서버에 다시 보내고, 끝나면 서버에서 다시 읽는다.
+ *  ⛔ 상주 setInterval 을 두지 말 것 — 초읽기 타이머는 «편집 중» 에만 살고 잠그면 멈춘다.
+ */
+var WS_EDIT_MS = 3*60*1000;   // 이만큼 저장이 없으면 자동으로 다시 잠근다
+var WS_UNDO_MS = 15*1000;     // 되돌리기 창
+var wsEditUntil = 0;          // 0 = 잠김 (Date.now() 기준 만료 시각)
+var wsLockTimer = null;
+var wsLockHintAt = 0;
+
+function wsEditing(){ return Date.now() < wsEditUntil; }
+
+function wsLockPaint(){
+  var btn = document.getElementById('ws-lock-btn');
+  if(!btn) return;
+  var L  = (currentLang==='ko');
+  var on = wsEditing();
+  var ico = document.getElementById('ws-lock-ico');
+  var lab = document.getElementById('ws-lock-label');
+  var cd  = document.getElementById('ws-lock-cd');
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on?'true':'false');
+  if(ico) ico.textContent = on ? '✏️' : '🔒';
+  if(lab){
+    /* 🌐 applyLang 이 [data-ko] 의 textContent 를 갈아끼우므로 «그릴 때 두 속성도 함께»
+       갱신한다 — 안 그러면 EN 으로 바꾸는 순간 라벨이 옛 상태로 되돌아간다. */
+    lab.setAttribute('data-ko', on?'편집 중':'잠김');
+    lab.setAttribute('data-en', on?'Editing':'Locked');
+    lab.textContent = on ? (L?'편집 중':'Editing') : (L?'잠김':'Locked');
+  }
+  if(cd){
+    if(on){
+      var s = Math.max(0, Math.ceil((wsEditUntil - Date.now())/1000));
+      cd.textContent = Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+    } else cd.textContent = '';
+  }
+}
+
+function wsSetEditing(on, opt){
+  opt = opt || {};
+  var L = (currentLang==='ko');
+  if(on){
+    wsEditUntil = Date.now() + WS_EDIT_MS;
+    if(!wsLockTimer) wsLockTimer = setInterval(wsLockTick, 1000);
+    if(!opt.quiet) showDndToast(L?('✏️ 편집을 켰습니다 — '+Math.round(WS_EDIT_MS/60000)+'분 동안 조작이 없으면 다시 잠깁니다')
+                                 :('✏️ Editing on — auto-locks after '+Math.round(WS_EDIT_MS/60000)+' min idle'),'ok');
+  }else{
+    var was = wsEditUntil > 0;
+    wsEditUntil = 0;
+    if(wsLockTimer){ clearInterval(wsLockTimer); wsLockTimer = null; }
+    if(was && !opt.quiet){
+      showDndToast(opt.auto ? (L?'🔒 조작이 없어 다시 잠갔습니다':'🔒 Auto-locked after idle')
+                            : (L?'🔒 잠갔습니다 — 이제 끌어도 옮겨지지 않아요':'🔒 Locked — dragging no longer moves classes'),'');
+    }
+  }
+  wsLockPaint();
+}
+
+function wsLockTick(){
+  if(!wsEditing()){ wsSetEditing(false, {auto:true}); return; }
+  wsLockPaint();
+}
+
+/** 저장이 실제로 일어났으면 편집 시간을 다시 채운다. */
+function wsBumpEdit(){ if(wsEditing()){ wsEditUntil = Date.now() + WS_EDIT_MS; wsLockPaint(); } }
+
+/** 잠긴 채로 끌었을 때 «왜 안 되는지 + 무엇을 눌러야 하는지» 를 말한다.
+ *  ⚠️ 되풀이 시도로 토스트가 쌓이지 않게 잠깐 쉰다. */
+function wsLockHint(){
+  var now = Date.now();
+  if(now - wsLockHintAt < 2000) return;
+  wsLockHintAt = now;
+  var L = (currentLang==='ko');
+  showDndToast(L?'🔒 잠겨 있어 옮기지 않았습니다 — 위 <b>🔒 잠김</b> 버튼을 눌러 편집을 켜 주세요'
+                :'🔒 Locked — press the <b>🔒 Locked</b> button above to start editing','bad');
+  var btn = document.getElementById('ws-lock-btn');
+  if(btn){ btn.classList.add('nudge'); setTimeout(function(){ btn.classList.remove('nudge'); }, 1000); }
+}
+
+/* ↩️ 되돌리기 토스트 — .dnd-toast 는 pointer-events:none 이라 «버튼을 넣어도 못 눌린다».
+   그래서 누를 수 있는 전용 토스트를 따로 쓴다. */
+var wsUndoTimer = null, wsUndoEl = null;
+function wsUndoDismiss(){
+  if(wsUndoTimer){ clearInterval(wsUndoTimer); wsUndoTimer = null; }
+  var el = wsUndoEl; wsUndoEl = null;
+  if(el){ el.classList.remove('show'); setTimeout(function(){ if(el.parentNode) el.remove(); }, 350); }
+}
+function wsOfferUndo(info){
+  wsUndoDismiss();
+  var L = (currentLang==='ko');
+  var until = Date.now() + WS_UNDO_MS;
+  var el = document.createElement('div');
+  el.className = 'undo-toast';
+  el.innerHTML = '<span>'+(L?'✅ 저장했습니다':'✅ Saved')+(info.what?(' · '+escapeHtml(info.what)):'')+'</span>'+
+                 '<span class="cd"></span>'+
+                 '<button type="button">↩️ '+(L?'되돌리기':'Undo')+'</button>';
+  document.body.appendChild(el);
+  wsUndoEl = el;
+  requestAnimationFrame(function(){ el.classList.add('show'); });
+  var cd = el.querySelector('.cd');
+  function tick(){
+    var s = Math.max(0, Math.ceil((until - Date.now())/1000));
+    if(cd) cd.textContent = s + (L?'초':'s');
+    if(s <= 0) wsUndoDismiss();
+  }
+  tick();
+  wsUndoTimer = setInterval(tick, 1000);
+  el.querySelector('button').addEventListener('click', async function(){
+    var b = this;
+    if(b.disabled) return;
+    b.disabled = true;
+    if(wsUndoTimer){ clearInterval(wsUndoTimer); wsUndoTimer = null; }
+    b.textContent = (L?'되돌리는 중…':'Undoing…');
+    var res = await persistSlotMove(info.slot, info.prev.dateISO, info.prev.startMin,
+                                    info.prev.teacherId, null, {undo:true});
+    wsUndoDismiss();
+    showDndToast(res.ok ? (L?'↩️ 되돌렸습니다':'↩️ Reverted') : slotMoveFailMsg(res, L), res.ok?'ok':'bad');
+    /* 🔄 성공이든 실패든 서버에서 다시 읽는다 — 부분 실패를 화면이 감추지 않게. */
+    try{ await reloadAndRender(); }catch(e){}
+  });
+}
+
+(function(){
+  var btn = document.getElementById('ws-lock-btn');
+  if(!btn) return;
+  btn.addEventListener('click', function(){ wsSetEditing(!wsEditing()); });
+  wsLockPaint();
+})();
+
 function showDndToast(msg,kind){
   var t=document.createElement('div');
   t.className='dnd-toast '+(kind||'');
@@ -1698,6 +1871,16 @@ document.addEventListener('mousemove', function(e){
   if(!dnd.sourceEl)return;
   var dx=e.clientX-dnd.startX, dy=e.clientY-dnd.startY;
   if(!dnd.active && (dx*dx+dy*dy) > 64){ // > 8px
+    /* 🔒 잠겨 있으면 아예 끌리지 않는다.
+       ⚠️ 판정을 mousedown 에 두면 «카드를 눌러 상세를 여는» 평범한 클릭마다 경고가 뜬다 —
+          실제로 끌기 시작한 이 자리에서만 막는다.
+       ⚠️ moved=true 로 두어 뒤따르는 click 이 삼켜지게 한다(바로 아래 근무불가 분기와 같은 방식) —
+          안 그러면 잠금 경고와 상세 모달이 함께 뜬다. */
+    if(!wsEditing()){
+      dnd.sourceEl=null; dnd.sourceData=null; dnd.moved=true;
+      wsLockHint();
+      return;
+    }
     /* 🚫 근무불가 차단(teacher_unavailability)은 드래그 이동 금지 — 서버가 id 를 일부러
        안 내려주므로(수업 id 와 겹침) 옮겨도 저장할 곳이 없고, 메모리만 옮기면 새로고침 때 되돌아온다.
        지우고 다시 등록하는 것이 정본 경로다. */
@@ -1865,9 +2048,17 @@ window.cancelMove=function(){
  *     사장님이 다음에 다른 입구를 쓰는 순간 같은 사고가 글자 그대로 재현된다.
  *
  *  반환 { ok, reason, fails } — ⛔ 부르는 쪽은 **ok 일 때만** 화면을 옮길 것.
+ *
+ *  prev = {dateISO, startMin, teacherId} — 되돌리기용 «원래 자리». 성공하면 15초짜리
+ *  「되돌리기」를 내놓는다. opts.undo 면 그 되돌리기 자신이라 잠금·재제안을 건너뛴다.
  */
-async function persistSlotMove(slot, dstDateISO, startMin, newTeacherId){
+async function persistSlotMove(slot, dstDateISO, startMin, newTeacherId, prev, opts){
   slot = slot || {};
+  opts = opts || {};
+  /* 🔒 잠겨 있으면 «세 입구» 어디서 왔든 저장하지 않는다 — 드래그만 막으면 우클릭
+     「수업 연기/변경」·「이동」 모달이 그대로 나간다.
+     ⛔ 되돌리기(opts.undo)는 예외다 — 15초 사이에 자동 잠금이 오면 되돌릴 길이 사라진다. */
+  if(!opts.undo && !wsEditing()) return { ok:false, reason:'locked', fails:[] };
   /* 🚫 근무불가 차단은 다른 표(teacher_unavailability)라 이 API 로 못 옮긴다. */
   if(slot.type==='blocked'||slot.source==='unavailability') return { ok:false, reason:'blocked', fails:[] };
   /* 🆔 서버에 저장된 행인가. 그룹 수업은 «학생마다 한 행» 이라 ids 가 여럿이다 — 전부 옮긴다.
@@ -1907,11 +2098,26 @@ async function persistSlotMove(slot, dstDateISO, startMin, newTeacherId){
       if(!(r.ok && d && d.ok===true)) fails.push((d&&(d.message||d.error))||('HTTP '+r.status));
     }catch(e){ fails.push(String((e&&e.message)||e)); }
   }
-  return { ok: fails.length===0, reason: fails.length?'failed':'', fails: fails, count: ids.length };
+  var out = { ok: fails.length===0, reason: fails.length?'failed':'', fails: fails, count: ids.length };
+  if(out.ok && !opts.undo){
+    wsBumpEdit();   // 방금 저장했으니 자동 잠금까지의 시간을 다시 채운다
+    if(prev && prev.dateISO){
+      if(newTeacherId && !prev.teacherId){
+        /* ⛔ 강사를 바꿨는데 «원래 강사» 를 모르면 되돌리기를 내놓지 않는다 —
+           «시간만 원래대로, 강사는 새 사람» 이라는 반쯤 되돌린 상태가 더 나쁘다. */
+        try{ console.warn('[ws-undo] prev.teacherId 없음 — 되돌리기 생략'); }catch(e4){}
+      }else{
+        wsOfferUndo({ slot:slot, prev:prev, what:(opts.what||'') });
+      }
+    }
+  }
+  return out;
 }
 
 /** 저장 실패 사유를 사람 말로. */
 function slotMoveFailMsg(res, L){
+  if(res.reason==='locked') return L?'🔒 잠겨 있어 저장하지 않았습니다 — 위 <b>🔒 잠김</b> 버튼을 눌러 편집을 켜 주세요.'
+                                   :'🔒 Locked — nothing was saved. Press the <b>🔒 Locked</b> button above to start editing.';
   if(res.reason==='blocked') return L?'⚠️ 근무불가 차단은 여기서 옮길 수 없어요. 지운 뒤 다시 등록해 주세요.'
                                     :'⚠️ Blocked time cannot be moved here. Delete it and add again.';
   if(res.reason==='no_id') return L?'⚠️ 이 칸은 서버에 저장된 수업이 아니라 옮길 수 없어요.'
@@ -1953,7 +2159,11 @@ window.confirmMoveDo=async function(){
   showDndToast((L?'💾 저장 중…':'💾 Saving…'),'');
 
   var res=await persistSlotMove(slot, ctx.dstCoords.dateISO, ctx.dstCoords.startMin,
-                                ctx.movedTeacher?ctx.dstTeacher.id:null);
+                                ctx.movedTeacher?ctx.dstTeacher.id:null,
+                                { dateISO: ctx.srcCoords.dateISO,
+                                  startMin: ctx.srcCoords.hour*60+(ctx.srcCoords.minute||0),
+                                  teacherId: ctx.movedTeacher ? ctx.srcTeacher.id : null },
+                                { what: ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin) });
   if(!res.ok){
     showDndToast(slotMoveFailMsg(res,L),'bad');
     /* ❌ 부분 성공일 수 있으므로 화면을 손으로 옮기지 않고 서버에서 다시 읽는다 —
@@ -2871,7 +3081,11 @@ window.rscConfirm = async function(){
   window.__rescheduleCtx = null;
   showDndToast((L?'💾 저장 중…':'💾 Saving…'),'');
 
-  var res = await persistSlotMove(slot, dstDate, dstHour*60 + dstMin, newTid);
+  var res = await persistSlotMove(slot, dstDate, dstHour*60 + dstMin, newTid,
+                                  { dateISO: ctx.origDate,
+                                    startMin: ctx.origHour*60 + (ctx.origMinute||0),
+                                    teacherId: newTid ? ctx.teacher.id : null },
+                                  { what: actionLabel });
   if(!res.ok){
     showDndToast(slotMoveFailMsg(res,L),'bad');
     if(res.reason==='failed'){ try{ await reloadAndRender(); }catch(e){} }
@@ -2998,7 +3212,11 @@ window.confirmMove=async function(newDate,newHour){
   closeModal();
   showDndToast((L?'💾 저장 중…':'💾 Saving…'),'');
 
-  var res=await persistSlotMove(mv.slot, newDate, newHour*60, null);
+  var res=await persistSlotMove(mv.slot, newDate, newHour*60, null,
+                                { dateISO: mv.oldDate,
+                                  startMin: mv.oldHour*60+(mv.oldMinute||0),
+                                  teacherId: null },
+                                { what: newDate+' '+minLabel(newHour*60) });
   if(!res.ok){
     showDndToast(slotMoveFailMsg(res,L),'bad');
     if(res.reason==='failed'){ try{ await reloadAndRender(); }catch(e){} }
@@ -4105,6 +4323,8 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
     var dx = e.clientX - pdnd.startX, dy = e.clientY - pdnd.startY;
     // 8px 이상 움직이면 드래그 시작
     if(!pdnd.active && (dx*dx + dy*dy) > 64){
+      /* 🔒 이 드래그는 «수업을 새로 잡는다» — 옮기기와 같은 잠금을 받는다. */
+      if(!wsEditing()){ pdnd.chip=null; pdnd.data=null; wsLockHint(); return; }
       pdnd.active = true;
       pdnd.chip.classList.add('is-dragging');
       document.body.classList.add('cell-dragging');
@@ -4167,6 +4387,8 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
   // ── 8) 배정 처리 + 학부모 알림톡 큐 적재 + 토스트 ────────────────────
   async function assignStudent(stu, info){
     var L2=(currentLang==='ko');
+    /* 🔒 최종 방어선 — 드래그 말고 다른 길로 들어와도 잠금을 지난다. */
+    if(!wsEditing()){ wsLockHint(); return; }
     var dur2=(typeof defaultDuration!=='undefined'?defaultDuration:20);
     var note2=(L2?'대기 풀에서 배정':'Assigned from pool');
     /* 💾 (2026-08-24) 대기 풀 배정도 «서버에» 저장한다 — 예전엔 addSlot 만 하고
