@@ -9604,29 +9604,44 @@ LIMIT $limit`;
 
         /* 🔑 이 대리점에 로그인 계정이 있으면 admin_scope.scope_value 가 «옛 이름» 을 그대로
            들고 있다(scope.ts scopeCenterCond 는 id 가 아니라 이름으로 대리점을 가른다).
-           이름이 실제로 바뀌었을 때만 옮긴다 — 안 옮기면 그 계정은 다음 로그인부터 «자기
-           학생·자료가 통째로 사라진» 것처럼 보인다.
            ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이
-           통째로 안 잡힘」과 같은 뿌리) — 옛 이름을 가진 대리점이 이것 하나뿐일 때만 옮긴다.
-           여럿이면 그 scope_value 가 «어느 대리점을 가리키는지» 이미 모호한 상태이고,
-           여기서 새 이름으로 옮기면 전혀 다른 대리점들 쪽으로 잘못 이어질 수 있다 —
-           모르면(모호하면) 손대지 않는 쪽이 안전하다. */
+           통째로 안 잡힘」과 같은 뿌리) — 옛 이름을 가진 대리점이 이것 하나뿐일 때만
+           «이 계정이 바로 이 대리점 것» 이라고 확신할 수 있다. 여럿이면 모호하니 아래
+           검사·경고 둘 다 건너뛴다(모르면 손대지 않는 쪽이 안전하다). */
         let oldNameUnique = false;
         if (has('name') && before && before.name && before.name !== newName) {
           const dup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`)
             .bind(before.name).first<{ n: number }>();
           oldNameUnique = Number(dup?.n || 0) <= 1;
         }
+        /* 🔑 scope_value 를 새 이름으로 «옮기지 않는다» — centers.name 은 이렇게 고칠 수 있지만
+           students_erp.shop_name 은 카페24가 독립적으로 채우는 값이라(921건 중 744건만 이
+           둘이 글자 그대로 일치 — 원래도 완전히 안 맞았다) 옮겨도 옛 이름 그대로 남는다.
+           scopeStudentCond(agency) 는 «shop_name = scope_value» 로 그 계정의 학생을 찾으므로,
+           옮기면 그 계정이 «자기 학생이 0명» 으로 보이는 확정적인 사고가 된다 — 안 옮기는
+           쪽이 안전하다(옮겨도 어차피 카페24 쪽 학생 명부는 못 따라오니 «완전히 맞는» 선택은
+           없고, 학생을 볼 수 없게 되는 쪽이 더 나쁘다). 대신 그런 계정이 있으면 ①같은 새
+           이름을 쓰는 다른 대리점이 있을 때만 막고(POST 의 duplicate_center_name 방어와
+           같은 이유 — 두 대리점이 같은 scope_value 를 공유하게 되는 것을 막는다)
+           ②그 계정 아이디를 응답에 실어 화면이 사람에게 알리게 한다. */
+        let linkedAccount: { username: string } | null = null;
+        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
+          linkedAccount = await env.DB.prepare(
+            `SELECT username FROM admin_scope WHERE scope_type = 'agency' AND scope_value = ? LIMIT 1`
+          ).bind(before.name).first<{ username: string }>();
+          if (linkedAccount) {
+            const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? AND id != ? LIMIT 1`)
+              .bind(newName, cid).first<{ id: number }>();
+            if (nameDup) {
+              return json({ ok: false, error: 'duplicate_center_name',
+                message: `이 대리점에는 로그인 계정(${linkedAccount.username})이 연결돼 있는데, 새 이름 "${newName}"을(를) 쓰는 다른 대리점이 이미 있습니다. 그대로 바꾸면 그 계정이 두 대리점 자료를 함께 보게 됩니다 — 이름을 다르게 정하거나 계정을 먼저 정리하세요.` }, 409);
+            }
+          }
+        }
 
         sets.push('updated_at = ?'); binds.push(Date.now());
         binds.push(cid);
         await env.DB.prepare(`UPDATE centers SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-
-        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
-          await env.DB.prepare(
-            `UPDATE admin_scope SET scope_value = ?, updated_at = ? WHERE scope_type = 'agency' AND scope_value = ?`
-          ).bind(newName, Date.now(), before.name).run();
-        }
 
         /* 🏢 카페24 야간 동기화(cafe24-sync.ts importCafe24Org)가 name·address·manager·
            franchise_id 를 «카페24가 정본» 이라 매일 밤 03:00 KST 에 덮어쓴다(UPSERT). 사람이
@@ -9673,7 +9688,12 @@ LIMIT $limit`;
           }
         }
 
-        return json({ ok: true, id: cid, payment_type: ptOut });
+        return json({
+          ok: true, id: cid, payment_type: ptOut,
+          // ⚠️ 화면(saveCenter)이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을
+          // 찾습니다」를 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다.
+          login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
+        });
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();

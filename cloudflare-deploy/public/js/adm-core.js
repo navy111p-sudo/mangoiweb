@@ -5729,6 +5729,7 @@ async function saveCenter() {
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   if (_ctEditId) {
     // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
+    let d;
     try {
       const r = await fetch('/api/admin/centers', {
         method: 'PATCH', credentials: 'include',
@@ -5742,14 +5743,26 @@ async function saveCenter() {
           payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,
         })
       });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+      d = await r.json().catch(() => ({}));
+      // 서버가 사람이 읽을 message 를 주면 그걸 우선한다 — d.error 는 'duplicate_center_name'
+      // 같은 코드뿐이라 뜻이 안 통한다(_menuPost 와 같은 규칙).
+      if (!r.ok || d.ok === false) throw new Error(d.message || d.error || ('HTTP ' + r.status));
     } catch (err) {
       alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
       return;
     }
     ctResetForm();
     loadCenters();
+    // 🔑 이름을 바꿨는데 그 대리점에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛
+    // 이름» 기준으로 학생을 찾는다(서버가 일부러 안 옮긴다 — 위 api-admin.ts 주석 참고).
+    // 조용히 넘어가면 나중에 그 계정이 「내 학생이 안 보인다」로 제보하게 된다.
+    if (d && d.login_account_note) {
+      alert(adminLang==='en'
+        ? ('Note: agency account "' + d.login_account_note.username + '" still looks up students by the OLD name ("'
+            + d.login_account_note.old_name + '"). Please review that account manually if needed.')
+        : ('참고: 이 대리점의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
+            + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
+    }
     return;
   }
   // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
