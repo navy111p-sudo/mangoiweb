@@ -575,13 +575,28 @@
             <div class="form-row"><label data-ko="학교"           data-en="School">학교</label><input id="cSchool" type="text"></div>
             <div class="form-row"><label data-ko="학년"           data-en="Grade">학년</label><input id="cGrade" type="text" placeholder="초3·중1·고2…"></div>
             <div class="form-row"><label data-ko="생년월일"       data-en="Birth Date">생년월일</label><input id="cBirth" type="date"></div>
-            <div class="form-row"><label data-ko="가맹점"         data-en="Franchise">가맹점</label><input id="cFranchise" type="text"></div>
-            <div class="form-row"><label data-ko="지점"           data-en="Branch">지점</label><input id="cShop" type="text"></div>
+            <!-- ⚠️ 이 두 칸만 «지켜지지 않는다». 정산 트리를 만드는 값이라 카페24를 정본으로 둔다
+                 (src/student-override.ts 머리말 「무엇을 지키고 무엇을 안 지키나」). 화면이 그렇다고 말해 준다. -->
+            <div class="form-row"><label data-ko="가맹점 ⚠️"      data-en="Franchise ⚠️">가맹점 ⚠️</label><input id="cFranchise" type="text" title="소속은 카페24가 정본입니다 — 여기서 고쳐도 다음 날 카페24 값으로 돌아갑니다."></div>
+            <div class="form-row"><label data-ko="지점 ⚠️"        data-en="Branch ⚠️">지점 ⚠️</label><input id="cShop" type="text" title="소속은 카페24가 정본입니다 — 여기서 고쳐도 다음 날 카페24 값으로 돌아갑니다."></div>
             <div class="form-row"><label data-ko="새 비밀번호"     data-en="New Password">새 비밀번호</label><input id="cPassword" type="text" autocomplete="new-password" placeholder="변경하지 않으려면 비워 두세요 (6자 이상)"></div>
             <div class="form-row"><label data-ko="비밀번호 확인"   data-en="Confirm Password">비밀번호 확인</label><input id="cPasswordConfirm" type="text" autocomplete="new-password" placeholder="새 비밀번호를 한 번 더 입력"></div>
           </div>
           <div class="form-row"><label data-ko="주소"     data-en="Address">주소</label><input id="cAddress" type="text"></div>
           <div class="form-row"><label data-ko="특이사항" data-en="Notes">특이사항</label><textarea id="cNotes" placeholder="알레르기·관심사·학습 성향 등"></textarea></div>
+          <!-- 🧷 (2026-09-11) 「고쳤는데 다음 날 비어 있다」를 없앤 뒤, 그 규칙을 화면에 적어 둔다.
+               ⛔ 이 안내를 지우지 말 것 — 가맹점·지점은 지금도 되돌아가고, 말해 주지 않으면
+                  사람은 «저장이 안 됐다» 고 읽는다(그게 이 작업을 시작하게 만든 제보다). -->
+          <div class="form-row" style="display:block;font-size:12.5px;line-height:1.65;background:rgba(16,185,129,.10);border:1px solid rgba(16,185,129,.35);border-radius:8px;padding:10px 12px;margin-top:6px">
+            <b data-ko="🧷 여기서 고친 값은 그대로 남습니다." data-en="🧷 What you change here stays.">🧷 여기서 고친 값은 그대로 남습니다.</b>
+            <span data-ko="전화·카톡ID·학교·학년·생년월일·주소·특이사항·비밀번호는 매일 밤 카페24 동기화가 와도 지켜집니다. 칸을 비워서 저장하면 지정이 풀려 카페24 값으로 돌아갑니다."
+                  data-en="Phone, Kakao ID, school, grade, birthday, address, notes and password are kept through the nightly Cafe24 sync. Clearing a field and saving releases it back to the Cafe24 value.">전화·카톡ID·학교·학년·생년월일·주소·특이사항·비밀번호는 매일 밤 카페24 동기화가 와도 지켜집니다. 칸을 비워서 저장하면 지정이 풀려 카페24 값으로 돌아갑니다.</span>
+            <br><b style="color:#b45309" data-ko="⚠️ 가맹점·지점은 예외입니다." data-en="⚠️ Franchise and Branch are the exception.">⚠️ 가맹점·지점은 예외입니다.</b>
+            <span data-ko="소속은 정산 수수료가 걸린 값이라 카페24가 정본입니다 — 여기서 고쳐도 다음 날 되돌아갑니다. 소속을 옮기려면 카페24에서 바꿔 주세요."
+                  data-en="Org membership drives settlement fees, so Cafe24 is the source of truth — an edit here reverts overnight. Change it in Cafe24 instead.">소속은 정산 수수료가 걸린 값이라 카페24가 정본입니다 — 여기서 고쳐도 다음 날 되돌아갑니다. 소속을 옮기려면 카페24에서 바꿔 주세요.</span>
+            <br><span style="color:#78716c" data-ko="🔒 아이디는 출결·포인트 등 50개 기록의 열쇠라 여기서 바꿀 수 없습니다."
+                  data-en="🔒 The login ID is the key that 50 record tables hang on, so it cannot be changed here.">🔒 아이디는 출결·포인트 등 50개 기록의 열쇠라 여기서 바꿀 수 없습니다.</span>
+          </div>
           <div class="form-actions"><button class="btn-add" id="cSaveBtn" data-ko="💾 저장" data-en="💾 Save">💾 저장</button></div>
         </div>
       </div>

@@ -173,6 +173,48 @@ console.log('\n[ ⑦ 서버 쿼리 — 학생 한 명마다 테이블을 다시 
     /ORDER BY COALESCE\(p\.created_at,0\) DESC, p\._rid DESC/.test(uni));
 }
 
+/* ═══ ✏️ 학생 정보 수정 입구 (2026-09-11 사장님 지시) ═══════════════════════════
+   [제보] 「학생 목록에서 학생 정보 수정하게 해 줘 — 수정하는 란이 없어」
+   [실제] 폼은 이미 있었다(`admin/student.html` 의 「연락처·정보」 탭, 주소 포함 13칸).
+          **목록에서 그 자리로 가는 길만 없었다.** 그래서 새 폼을 만들지 않고 링크를 냈다.
+   ⛔ 이 링크를 지우면 「수정하는 란이 없어」가 그대로 돌아온다.
+   ⛔ 폼을 «한 벌 더» 만들지 말 것 — 두 벌이 어긋나면 화면마다 답이 달라진다(CLAUDE.md). */
+{
+  const row = /_smRowHtml = \(s\) => \{([\s\S]*?)\n  \};/.exec(core);
+  const rowHtml = row ? row[1] : '';
+  check('행 그리는 코드를 찾았다 (아래 검사의 전제)', rowHtml.length > 200);
+  check('✏️ 수정 링크가 학생 목록 행에 있다',
+    /tab=contact/.test(rowHtml), '없으면 목록에서 정보를 고칠 길이 사라진다');
+  check('그 링크가 «연락처·정보» 탭으로 곧장 연다 (탭 딥링크)',
+    /\/admin\/student\?uid=\$\{uidEnc\}&amp;tab=contact/.test(rowHtml), rowHtml.slice(0, 200));
+  check('기존 🎓 상세 링크도 그대로 남아 있다',
+    /\/admin\/student\?uid=\$\{uidEnc\}"/.test(rowHtml));
+  /* ⚠️ 열 너비는 table-layout:fixed 로 못 박혀 있다 — 좁으면 두 링크가 겹쳐 못 누른다.
+     80px 시절에 그대로 두 개를 넣으면 이 검사가 잡는다. */
+  const cgw = /<table id="sm-students-table"[\s\S]{0,1400}?<colgroup>([\s\S]*?)<\/colgroup>/.exec(html);
+  const widths = cgw ? (cgw[1].match(/width:(\d+)px/g) || []).map(x => Number(x.match(/\d+/)[0])) : [];
+  check('상세·수정 열이 두 링크를 담을 만큼 넓다 (≥120px)',
+    widths.length > 2 && widths[2] >= 120, '3번째 열 = ' + (widths[2] ?? '?') + 'px');
+
+  /* 🧷 저장이 «다음 날에도» 남는가 — 화면이 아니라 서버 쪽 짝이다.
+     PATCH 가 students_erp 만 고치고 끝나면 오늘 밤 카페24 동기화가 전부 되돌린다. */
+  const mango = rd('../cloudflare-deploy/src/api-mango.ts');
+  const ci = mango.indexOf("/contact$/");
+  const ce = ci >= 0 ? mango.indexOf('/extend$/', ci) : -1;
+  const contact = (ci >= 0 && ce > ci) ? mango.slice(ci, ce) : '';
+  check('연락처 저장 핸들러를 찾았다 (아래 검사의 전제)', contact.length > 400);
+  check('🧷 저장이 «지켜지는 표» 에도 적는다 — 없으면 다음 날 아침 전부 빈칸이 된다',
+    /rememberStudentOverrides\(/.test(contact));
+  check('정본 user_id 로 적는다 (별칭으로 적으면 아무것도 안 지켜진다)',
+    /SELECT user_id FROM students_erp WHERE user_id = \?/.test(contact));
+  check('비밀번호도 지킨다 (안 지키면 다음 날 학생이 로그인 못 한다)',
+    /kept\.password_hash/.test(contact));
+  const ov = rd('../cloudflare-deploy/src/student-override.ts');
+  check('⛔ 대리점·지사는 지키는 목록에 «없다» — 넣으면 정산 수수료가 옛 대리점으로 간다',
+    /OVERRIDE_COLS\s*=\s*\[[^\]]*\]/.test(ov) &&
+    !/OVERRIDE_COLS\s*=\s*\[[^\]]*'(shop_name|franchise)'/.test(ov));
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

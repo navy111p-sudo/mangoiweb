@@ -34,7 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
-import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, rememberStudentOverrides } from './student-override';   // 🧹 중복 학생계정 숨김 + 🧷 개인정보 야간 덮어쓰기 방지
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3016,11 +3016,14 @@ ${numbered}`;
         const allowed = ['student_phone','parent_phone','teacher_phone','school','grade','kakao_id','parent_kakao_id','address','birth_date','notes','shop_name','franchise'];
         const PII_GUARD = new Set(['student_phone','parent_phone','teacher_phone','kakao_id','parent_kakao_id']);
         const sets: string[] = []; const vals: any[] = []; const skippedMasked: string[] = [];
+        /* 🧷 (2026-09-11) 실제로 저장한 칸을 따로 모은다 — 아래에서 «지켜지는 표» 에 한 벌 더 적는다.
+           여기 students_erp 만 고치면 오늘 밤 03:00 카페24 동기화가 되돌린다(정본: student-override.ts). */
+        const kept: Record<string, any> = {};
         for (const k of allowed) {
           if (b[k] === undefined) continue;
           // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
-          sets.push(`${k} = ?`); vals.push(b[k]);
+          sets.push(`${k} = ?`); vals.push(b[k]); kept[k] = b[k];
         }
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
@@ -3030,6 +3033,7 @@ ${numbered}`;
           const buf = await crypto.subtle.digest('SHA-256', enc);
           const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
           sets.push('password_hash = ?'); vals.push(ph);
+          kept.password_hash = ph;   // 비밀번호도 지켜야 한다 — 안 그러면 다음 날 로그인이 안 된다
           passwordChanged = true;
         }
         if (sets.length === 0) {
@@ -3038,12 +3042,29 @@ ${numbered}`;
             : json({ ok: false, error: 'nothing_to_update' }, 400);
         }
         sets.push('updated_at = ?'); vals.push(Date.now());
-        // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
-        vals.push(uid, uid, uid);
+        /* user_id 우선, 없으면 student_id·login_id·username 으로 매칭.
+           ⚠️ user_id 를 맨 앞에 넣은 것은 2026-09-11 보강이다 — 직접 등록된 학생은 student_id 가
+              비어 있을 수 있어서, 예전 조건만으로는 «에러도 없이 0행 수정» 이 될 수 있었다. */
+        vals.push(uid, uid, uid, uid);
         await env.DB.prepare(
-          `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
+          `UPDATE students_erp SET ${sets.join(', ')} WHERE user_id = ? OR student_id = ? OR login_id = ? OR username = ?`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged });
+
+        /* 🧷 오늘 밤 지워지지 않게 «지켜지는 표» 에도 같은 값을 적는다.
+           위 UPDATE 는 «오늘 화면에 보이게», 이쪽은 «내일도 남게» 하는 일이라 둘 다 필요하다.
+           ⚠️ 반드시 정본 user_id 로 적는다 — 야간 동기화가 user_id 로 행을 다시 만들기 때문에,
+              별칭(student_id 등)으로 적으면 아무것도 안 지켜진다.
+           ⚠️ 대리점(shop_name)·지사(franchise)는 일부러 안 지킨다. 정산 트리를 만드는 값이라
+              고정하면 학생이 옮겨가도 수수료가 옛 대리점으로 간다(student-override.ts 머리말). */
+        let pinned = 0;
+        try {
+          const canon = await env.DB.prepare(
+            `SELECT user_id FROM students_erp WHERE user_id = ? OR student_id = ? OR login_id = ? LIMIT 1`
+          ).bind(uid, uid, uid).first<{ user_id: string }>();
+          pinned = await rememberStudentOverrides(env as any, String(canon?.user_id || uid), kept);
+        } catch { /* 지정 실패가 연락처 저장 자체를 깨면 안 된다 */ }
+
+        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged, pinned_fields: pinned });
       }
     }
 

@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=12"><!-- admin.html head 스타일 (가독성 CSS 앞)
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=13"><!-- admin.html head 스타일 (가독성 CSS 앞)
    · v=12: 2026-08-18 차트 4종이 창 폭에 따라 상자를 벗어나던 것 — .charts 를 auto-fit 로, .chart-card 에 min-width:0 상시 적용
    · v=11: 2026-08-18 #admin-main-scale{min-width:0} — 「학생관리」가 창 밖으로 나가던 것 -->
 
@@ -1823,7 +1823,9 @@
                  (사장님 "자꾸 왔다갔다 움직인다"). 여기 고정폭 + CSS table-layout:fixed 로 못 박는다.
                  넘치는 값은 …으로 잘리고 원문은 각 칸 title(마우스 올리면 전체)로 볼 수 있다. -->
             <colgroup>
-              <col style="width:200px"><col style="width:100px"><col style="width:80px"><col style="width:88px">
+              <!-- 3번째(상세·수정) 80 → 148px : 2026-09-11 「✏️ 수정」 링크를 나란히 넣으면서 넓힘.
+                   ⚠️ 좁히면 두 링크가 겹쳐 눌리는 칸이 사라진다(열 너비는 table-layout:fixed 로 못 박혀 있다). -->
+              <col style="width:200px"><col style="width:100px"><col style="width:148px"><col style="width:88px">
               <col style="width:104px"><col style="width:104px"><col style="width:88px"><col style="width:96px">
               <col style="width:100px"><col style="width:84px"><col style="width:92px"><col style="width:104px">
               <col style="width:104px"><col style="width:112px"><col style="width:160px"><col style="width:120px">
@@ -1832,7 +1834,7 @@
             <thead><tr>
               <th class="sortable" data-sort-key="user_id" data-ko="아이디" data-en="ID">아이디<span class="sort-indicator"></span></th>
               <th class="sortable" data-sort-key="username" data-ko="학생명" data-en="Name">학생명<span class="sort-indicator"></span></th>
-              <th data-ko="상세보기" data-en="Details">상세보기</th>
+              <th data-ko="상세 · 수정" data-en="Details · Edit">상세 · 수정</th>
               <th data-ko="결제타입" data-en="Pay Type">결제타입</th>
               <th class="sortable" data-sort-key="signup_date" data-sort-default-dir="desc" data-ko="수강 시작일" data-en="Start">수강 시작일<span class="sort-indicator"></span></th>
               <th class="sortable" data-sort-key="end_date" data-sort-default-dir="desc" data-ko="수강 종료일" data-en="End">수강 종료일<span class="sort-indicator"></span></th>
@@ -1859,6 +1861,7 @@
       <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:12px;color:#92400e;line-height:1.6">
         💡 <strong data-ko="설계 안내" data-en="Design Note">설계 안내</strong> ·
         <span data-ko="이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 상세보기에 들어가 16개 탭에서 진행하세요." data-en="This menu shows aggregate views across all students. For deep work on one student (extension, evaluation, counseling, messaging) click 🔍 to open the details view's 16 tabs.">이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 상세보기에 들어가 16개 탭에서 진행하세요.</span>
+        <br><span style="display:inline-block;margin-top:4px" data-ko="✏️ 학생 정보 수정(전화·학교·학년·주소·생년월일·카톡ID·메모·비밀번호)은 각 행의 「✏️ 수정」을 누르면 바로 그 칸으로 열립니다." data-en="✏️ To edit a student's info (phone, school, grade, address, birthday, KakaoTalk ID, memo, password) click “✏️ Edit” on that row — it opens straight to that form.">✏️ 학생 정보 수정(전화·학교·학년·주소·생년월일·카톡ID·메모·비밀번호)은 각 행의 「✏️ 수정」을 누르면 바로 그 칸으로 열립니다.</span>
       </div>
 
       <!-- ⏰ 만료 임박 학생 — 종료일 D-30 이내 -->
@@ -9326,7 +9329,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=154" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=155" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=154: 2026-08-22 대리점 목록에 「주1회 수강료」 칸 — 수강료를 정하면 본사 요율이
      18,000 ÷ 수강료 로 자동 계산된다(가맹점을 코드에 특정하지 않는다)
    · v=153: 2026-08-22 가맹점별 정산서 수수료율을 정산관리와 하나로 (하드코딩 15% 제거) + 요율 칸 추가.

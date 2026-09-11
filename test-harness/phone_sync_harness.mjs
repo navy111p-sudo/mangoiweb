@@ -112,14 +112,22 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   const M = await import(pathToFileURL(join(tmp, 'cafe24-sync.ts')).href);
 
   const sq = new DatabaseSync(':memory:');
+  /* 🧷 (2026-09-11) 개인정보 칸을 실제 운영과 같게 붙여 둔다 — 야간 동기화의 INSERT OR REPLACE
+     컬럼 목록에 «없는» 칸들이다. 즉 아래 검사는 「목록에 없는 칸이 NULL 이 되는가」를 재현한다. */
   sq.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, student_id TEXT, login_id TEXT,
     username TEXT, korean_name TEXT, grade TEXT, school TEXT, status TEXT, signup_date TEXT,
     end_date TEXT, shop_name TEXT, franchise TEXT, hq_name TEXT, points INTEGER,
-    parent_phone TEXT, student_phone TEXT, phone TEXT, created_at INTEGER, updated_at INTEGER)`);
+    parent_phone TEXT, student_phone TEXT, phone TEXT, created_at INTEGER, updated_at INTEGER,
+    teacher_phone TEXT, kakao_id TEXT, parent_kakao_id TEXT, birth_date TEXT,
+    address TEXT, notes TEXT, password_hash TEXT)`);
+  /* ⚠️ first() 도 흉내 내야 한다 — ensureStudentOverrideTable 이 「address 칸이 있나」를
+     그걸로 탐침한다. 없으면 TypeError 가 나고, 그 catch 가 «칸 없음» 으로 읽어 ALTER 를 돌린다.
+     즉 빼먹어도 통과하지만, 그러면 «탐침이 도는지» 를 검사하지 못한다. */
   const DB = {
     exec: async (s) => { try { sq.exec(s); } catch {} },
     prepare: (sql) => { const mk = (b) => ({ sql, _b: b, bind: (...a) => mk(a),
-        run: async () => { sq.prepare(sql).run(...b); return { success: true }; } }); return mk([]); },
+        run: async () => { sq.prepare(sql).run(...b); return { success: true }; },
+        first: async () => { const st = sq.prepare(sql); return st.get(...b) ?? null; } }); return mk([]); },
     batch: async (st) => { for (const s of st) sq.prepare(s.sql).run(...s._b); },
   };
   globalThis.__PHGRAPH = {
@@ -130,13 +138,19 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
       { user_id:'s5', name:'정예은', shop_name:'강남점', student_phone:'010-5555-6666' },
       // 🧹 이름 덮어쓰기 대상 — 카페24는 'jeong' 을 주는데 우리는 '정우영' 으로 보여야 한다
       { user_id:'s6', name:'jeong', shop_name:'강남점' },
+      // 🧷 개인정보 지키기 대상 — 카페24는 학교만 주고 주소·생일·메모는 주지 않는다
+      { user_id:'s7', name:'박서준', shop_name:'강남점', school:'카페24초' },
     ],
     parentPhones: { s1:'010-1111-2222', s2:'   ' },
   };
   /* 🧹 지정을 미리 넣어 둔다. 동기화가 s6 의 이름을 'jeong' 으로 덮어쓴 «뒤»
      applyStudentErpOverrides 가 '정우영' 으로 되돌리는지가 아래 검사의 핵심이다. */
+  /* ⚠️ 일부러 «옛 스키마» 로 만든다(개인정보 칸 없음) — 이미 운영에 있는 표가 이 모양이다.
+     ensureStudentOverrideTable 이 ALTER 로 칸을 붙이는지까지 여기서 함께 확인된다. */
   sq.exec(`CREATE TABLE IF NOT EXISTS student_erp_override (user_id TEXT PRIMARY KEY, korean_name TEXT, hidden INTEGER NOT NULL DEFAULT 0, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER)`);
   sq.exec(`INSERT INTO student_erp_override (user_id, korean_name, hidden, created_at) VALUES ('s6','정우영',0,1)`);
+  /* 🧷 s7 — 관리자가 「연락처·정보」 탭에서 고친 학생. 카페24는 이 값들을 아예 주지 않는다.
+     칸을 붙이는 것은 위 ALTER 가 하므로, 지정 넣기는 동기화 «전» 에 할 수 없다 → 아래에서 넣는다. */
   let off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   const g = (u,c) => sq.prepare(`SELECT ${c} v FROM students_erp WHERE user_id=?`).get(u)?.v;
 
@@ -159,6 +173,49 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   check('다시 동기화해도 번호가 남아 있다 (야간 재실행)', g('s1','parent_phone') === '010-1111-2222',
         '재실행에서 지워지면 매일 밤 전멸한다');
+
+  /* ═══ 🧷 E절 — 관리자가 고친 개인정보가 다음 날에도 남는가 (2026-09-11) ═══════════
+     [무엇을 재현하나] 관리자가 「연락처·정보」 탭에서 주소·생일·메모·비밀번호를 넣고 저장하면
+       ① students_erp 에 바로 들어가고(오늘 화면) ② student_erp_override 에도 한 벌 적힌다(내일).
+     그 ②가 없으면 오늘 밤 INSERT OR REPLACE 가 «컬럼 목록에 없는 칸» 을 전부 NULL 로 만든다.
+     2026-08-18 에 전화번호가 그렇게 전멸했고, 나머지 칸은 그때 안 고쳐져 계속 사라지고 있었다.
+     ⚠️ 이 검사가 FAIL 이면 「주소를 넣고 다음 날 열면 비어 있다」가 그대로 돌아온 것이다. */
+  const OV = await import(pathToFileURL(join(tmp, 'student-override.ts')).href);
+  const pinned = {
+    address: '경기 안양시 동안구 …', birth_date: '2014-03-11',
+    notes: '수·금 저녁반', kakao_id: 'seojun_k', password_hash: 'deadbeef',
+    school: '사람이고친초', student_phone: '010-7777-8888',
+  };
+  // 관리자 저장이 하는 일 그대로 — students_erp 에 넣고, 지켜지는 표에도 적는다
+  sq.prepare(`UPDATE students_erp SET address=?, birth_date=?, notes=?, kakao_id=?, password_hash=?, school=?, student_phone=? WHERE user_id='s7'`)
+    .run(pinned.address, pinned.birth_date, pinned.notes, pinned.kakao_id, pinned.password_hash, pinned.school, pinned.student_phone);
+  const wrote = await OV.rememberStudentOverrides({ DB }, 's7', { ...pinned, shop_name: '내가고친점', franchise: '내가고친가맹' });
+
+  check('지켜지는 칸만 적힌다 (대리점·지사는 일부러 제외)', wrote === 7, '적힌 칸 수 ' + wrote);
+  check('저장 직후에는 화면에 그대로 보인다', g('s7','address') === pinned.address, String(g('s7','address')));
+
+  // 🌙 오늘 밤 03:00 — 카페24 동기화가 통째로 돈다
+  off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
+
+  check('주소가 다음 날에도 남아 있다', g('s7','address') === pinned.address,
+        '카페24가 안 주는 칸이라 예전에는 NULL 이 됐다 — 지금 값: ' + JSON.stringify(g('s7','address')));
+  check('생년월일이 남아 있다',   g('s7','birth_date') === pinned.birth_date, String(g('s7','birth_date')));
+  check('특이사항이 남아 있다',   g('s7','notes') === pinned.notes, String(g('s7','notes')));
+  check('카톡 ID 가 남아 있다',   g('s7','kakao_id') === pinned.kakao_id, String(g('s7','kakao_id')));
+  check('비밀번호가 남아 있다 (없으면 다음 날 로그인이 안 된다)',
+        g('s7','password_hash') === pinned.password_hash, String(g('s7','password_hash')));
+  check('사람이 고친 학교가 카페24 값을 이긴다',
+        g('s7','school') === '사람이고친초', '카페24 값(카페24초)으로 돌아갔다: ' + String(g('s7','school')));
+  check('사람이 고친 전화번호가 남아 있다',
+        g('s7','student_phone') === pinned.student_phone, String(g('s7','student_phone')));
+  /* ⛔ 여기가 뒤집히면 정산 사고다 — 소속을 고정하면 학생이 옮겨가도 수수료가 옛 대리점으로 간다. */
+  check('대리점은 «지키지 않는다» — 카페24 값으로 돌아간다',
+        g('s7','shop_name') === '강남점', '소속을 고정하면 정산이 엉뚱한 곳으로 간다: ' + String(g('s7','shop_name')));
+  // 지정이 없는 학생이 덩달아 덮이지 않는가 (COALESCE 가 칸마다 따로 판단하는지)
+  check('지정이 없는 학생은 아무것도 안 바뀐다',
+        g('s1','school') == null && g('s1','parent_phone') === '010-1111-2222', String(g('s1','school')));
+  check('이름 지정은 그대로 함께 동작한다 (기존 기능 회귀)',
+        g('s6','korean_name') === '정우영', String(g('s6','korean_name')));
 } catch (e) {
   check('실제 실행 검사', false, e?.message);
 } finally {

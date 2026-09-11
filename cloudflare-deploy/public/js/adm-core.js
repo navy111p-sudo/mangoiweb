@@ -8835,7 +8835,12 @@ function renderStudentTable() {
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
       <td title="${safeName}"><b>${safeName}</b></td>
-      <td style="text-align:center"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a></td>
+      <td class="sm-actions" style="text-align:center">
+        <a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a>
+        <a href="/admin/student?uid=${uidEnc}&amp;tab=contact" target="_blank" class="sm-edit-link"
+           title="${_L?'Edit contact & personal info (phone, school, address, birthday, password)':'연락처·개인정보 수정 (전화·학교·주소·생년월일·비밀번호)'}"
+           >✏️ ${_L?'Edit':'수정'}</a>
+      </td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>
