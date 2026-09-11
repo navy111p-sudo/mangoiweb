@@ -19,6 +19,13 @@
      · «성공하면 화면을 옮긴다» ↔ «실패하면 화면을 옮기지 않는다»(거짓 성공 금지)
      · «강사를 바꾸면 싣는다»  ↔ «시간만 옮기면 안 싣는다»(권한을 넓히지 않는다)
      · «반복은 요일»          ↔ «일회성은 날짜»(섞으면 «매주» 가 죽는다)
+     · «잠기면 저장 안 한다»  ↔ «편집을 켜면 저장한다»(전부 막기도 «통과» 가 된다)
+     · «되돌리기가 원래 값을» ↔ «되돌리기가 또 되돌리기를 내놓지 않는다»(무한 왕복 금지)
+
+   [🔒 편집 잠금 + ↩️ 되돌리기 — 2026-09-11 사장님 지시]
+     저장을 고친 그 순간부터 «실수로 한 번 끌면 그대로 나간다». 그래서 기본을 «잠김» 으로
+     두고(A안), 저장 뒤 15초 동안 되돌릴 수 있게 했다(D안). 이 절들은 그 두 겹을
+     **실제로 돌려서** 본다 — 잠금 판정도 되돌리기도 화면 코드를 오려 내 그대로 쓴다.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -52,6 +59,26 @@ function sliceStmt(src, anchor) {
   return '';
 }
 
+/** 앵커부터 «function ...{ }» 한 덩어리만 오려 낸다(리스너 안의 핸들러용). */
+function sliceFnAt(src, at) {
+  const f = src.indexOf('function', at);
+  if (f < 0) return '';
+  const b = src.indexOf('{', f);
+  if (b < 0) return '';
+  let d = 0;
+  for (let j = b; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(f, j + 1); }
+  }
+  return '';
+}
+
+/* 🔒 잠금·되돌리기 모듈은 showDndToast 바로 «앞» 에 통째로 있다 — 그대로 오려 내 돌린다.
+   ⛔ 판정을 하니스에 베껴 적지 말 것(그러면 소스를 한 번도 안 보고 통과한다). */
+const LOCK_A = html.indexOf('var WS_EDIT_MS');
+const LOCK_B = html.indexOf('function showDndToast(msg,kind){');
+const LOCK_SRC = (LOCK_A > 0 && LOCK_B > LOCK_A) ? html.slice(LOCK_A, LOCK_B) : '';
+
 /* 저장은 공용 함수 한 곳(persistSlotMove)에 있고 세 입구가 그것을 부른다 — 함께 오려 낸다. */
 const PERSIST_SRC = sliceStmt(html, 'async function persistSlotMove(');
 const FAILMSG_SRC = sliceStmt(html, 'function slotMoveFailMsg(');
@@ -64,6 +91,71 @@ ok(MOVE_SRC.length > 800, 'confirmMoveDo/persistSlotMove 를 오려 내지 못�
 ok(/fetch\(/.test(MOVE_SRC), '오려 낸 코드에 fetch 가 없다 — 범위가 어긋났거나 저장을 안 한다');
 ok(PERSIST_SRC.length > 400 && FAILMSG_SRC.length > 100, '공용 저장 함수를 오려 내지 못했다');
 ok(RSC_SRC.length > 400 && CMOVE_SRC.length > 200, '형제 입구(rscConfirm·confirmMove)를 오려 내지 못했다');
+ok(LOCK_SRC.length > 1500 && /function wsEditing\(/.test(LOCK_SRC) && /function wsOfferUndo\(/.test(LOCK_SRC),
+  '잠금·되돌리기 모듈을 오려 내지 못했다 (길이 ' + LOCK_SRC.length + ') — ⑩⑪절이 전부 헛돈다');
+
+/* ─────────────────────────────────────────────────────────────────────────
+   가짜 DOM·가짜 시계 — 잠금은 Date.now() 와 버튼 DOM 으로 돌아간다.
+   ⛔ 진짜 setInterval 을 주면 하니스가 안 끝난다. 기록만 하고 손으로 돌린다.
+   ───────────────────────────────────────────────────────────────────────── */
+function mkEl(tag) {
+  const set = new Set();
+  const e = {
+    tagName: String(tag).toUpperCase(), style: {}, _attrs: {}, _l: {}, _q: {},
+    className: '', innerHTML: '', textContent: '', disabled: false, parentNode: null,
+    classList: {
+      add() { for (const c of arguments) set.add(c); },
+      remove() { for (const c of arguments) set.delete(c); },
+      toggle(c, on) { if (on === undefined) on = !set.has(c); if (on) set.add(c); else set.delete(c); },
+      contains(c) { return set.has(c); },
+    },
+    setAttribute(k, v) { this._attrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k) ? this._attrs[k] : null; },
+    addEventListener(t, f) { (this._l[t] = this._l[t] || []).push(f); },
+    removeEventListener() {},
+    appendChild(c) { c.parentNode = this; return c; },
+    remove() { this.parentNode = null; },
+    querySelectorAll() { return []; },
+    closest() { return null; },
+    querySelector(sel) {
+      if (!this._q[sel]) { this._q[sel] = mkEl(sel.replace(/[^a-z]/gi, '') || 'div'); this._q[sel].parentNode = this; }
+      return this._q[sel];
+    },
+    fire(t) { return Promise.all((this._l[t] || []).map(f => f.call(this, { type: t, preventDefault() {}, stopPropagation() {} }))); },
+  };
+  return e;
+}
+function mkDom() {
+  const byId = {}, created = [];
+  const el = (tag) => { const e = mkEl(tag); created.push(e); return e; };
+  for (const id of ['ws-lock-btn', 'ws-lock-ico', 'ws-lock-label', 'ws-lock-cd', 'pool-queue-count']) byId[id] = mkEl(id);
+  const body = mkEl('body');
+  return {
+    byId, created, body,
+    document: {
+      body,
+      getElementById: (id) => byId[id] || null,
+      createElement: el,
+      querySelector: () => null, querySelectorAll: () => [],
+      elementFromPoint: () => null,
+      addEventListener: () => {}, removeEventListener: () => {},
+    },
+  };
+}
+function mkClock(t0) {
+  const c = { now: t0 || 1757500000000 };
+  class FDate extends Date { static now() { return c.now; } }
+  c.Date = FDate;
+  return c;
+}
+function mkTimers() {
+  const t = { list: [], seq: 0 };
+  t.setInterval = (fn, ms) => { t.seq++; t.list.push({ id: t.seq, fn, ms }); return t.seq; };
+  t.clearInterval = (id) => { t.list = t.list.filter(x => x.id !== id); };
+  t.setTimeout = () => 0;
+  t.clearTimeout = () => {};
+  return t;
+}
 
 /** confirmMoveDo 를 가짜 환경에서 실제로 돌린다. */
 async function run(opts) {
@@ -84,9 +176,17 @@ async function run(opts) {
   const slotKey = (t, d, m) => t + '__' + d + '__' + m;
   SLOTS[slotKey('29', '2026-09-11', 14 * 60 + 20)] = o.slot;
 
+  const dom = mkDom(), clock = mkClock(), timers = mkTimers();
+  const warns = [];
   const sandbox = {
-    window: {}, console,
+    window: {},
+    /* ⚠️ «원래 강사를 모른다» 경고는 일부러 만든 판에서 나온다 — 결과를 가리지 않게 모아만 둔다. */
+    console: { log: console.log, error: console.error, warn: (...a) => warns.push(a.join(' ')) },
     currentLang: 'ko',
+    document: dom.document, Date: clock.Date,
+    setInterval: timers.setInterval, clearInterval: timers.clearInterval,
+    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+    requestAnimationFrame: (f) => { f(); return 0; },
     SLOTS, slotKey,
     addSlot: (tid, d, h, s, m) => { added.push({ tid, d, h, m }); SLOTS[slotKey(tid, d, h * 60 + (m || 0))] = s; },
     render: () => { rendered++; },
@@ -107,7 +207,11 @@ async function run(opts) {
   };
   // SLOTS 에서 지우는 것을 잡으려고 delete 를 감시하는 대신 실행 뒤 키 존재로 판정한다
   vm.createContext(sandbox);
-  new vm.Script(o.src).runInContext(sandbox);
+  /* 🔒 잠금 모듈을 «소스 그대로» 함께 돌린다 — 판정을 베껴 적으면 소스를 안 보게 된다. */
+  new vm.Script(o.full || (LOCK_SRC + '\n' + o.src)).runInContext(sandbox);
+  /* 기본은 «편집 켬» — 아래 ①~⑨절은 «저장 경로» 를 보는 절이다.
+     잠금 자체는 ⑩절이 locked:true 로 따로 본다. */
+  if (!o.locked) sandbox.wsSetEditing(true, { quiet: true });
 
   sandbox.window.__moveCtx = {
     srcTeacher: { id: '29', name: '중국어 강선생님' },
@@ -119,8 +223,14 @@ async function run(opts) {
     srcData: { slot: o.slot },
   };
   await sandbox.window.confirmMoveDo();
-  const srcGone = !(slotKey('29', '2026-09-11', 14 * 60 + 20) in SLOTS);
-  return { calls, added, removed, toasts, reloaded, rendered, srcGone, SLOTS };
+  /* ⚠️ 숫자를 «그때 값» 으로 담으면 되돌리기를 누른 뒤를 못 잰다 — 살아 있는 게터로 준다. */
+  return {
+    calls, added, removed, toasts, SLOTS, dom, clock, timers, sandbox, warns,
+    get reloaded() { return reloaded; },
+    get rendered() { return rendered; },
+    get srcGone() { return !(slotKey('29', '2026-09-11', 14 * 60 + 20) in SLOTS); },
+    get undos() { return dom.created.filter(e => e.className === 'undo-toast'); },
+  };
 }
 
 sec('① 저장이 실제로 나가는가 (이 사고의 본체)');
@@ -396,6 +506,261 @@ sec('⑨ 형제 입구 — 같은 일을 하는 다른 길도 «서버에» 저�
     ok(iFail > 0 && iFail < iAdd, name + ' 의 실패 처리가 화면 반영보다 뒤에 있다');
   }
   ok(/alert\(/.test(CMOVE_SRC) === false, 'confirmMove 가 아직 alert 로 «변경됐다» 고 말한다(저장과 무관하게)');
+}
+
+sec('⑩ 편집 잠금 — 잠기면 저장하지 않는가 / 켜면 저장하는가 (짝)');
+/* 🔴 짝이 없으면 «전부 막기» 도 통과한다. 그리고 이 화면에서 «전부 막기» 는
+   사장님이 수업을 아예 못 옮기는 상태라 고치려던 것보다 나쁘다. */
+{
+  const locked = await run({ locked: true });
+  ok(locked.calls.length === 0, '잠겨 있는데 저장 요청이 나갔다 (' + locked.calls.length + '건)');
+  ok(locked.added.length === 0 && !locked.srcGone, '잠겨 있는데 화면을 옮겼다 — «화면만 바뀌는» 그 사고가 그대로다');
+  ok(locked.toasts.some(t => t.kind === 'bad' && /🔒/.test(t.msg)),
+    '잠겨서 안 했다는 말을 안 한다 — 사람에게는 «고장» 으로 보인다');
+  ok(locked.undos.length === 0, '저장도 안 했는데 되돌리기를 내놓는다');
+
+  const open = await run({});   // 기본은 편집 켬
+  ok(open.calls.length === 1, '편집을 켰는데 저장이 안 나간다 — 잠금이 «전부 막기» 가 됐다');
+
+  /* 세 입구 모두 같은 저장 함수를 쓰므로 잠금도 한 곳에서 걸린다 — 실제로 돌려 확인한다. */
+  for (const [name, src] of [['rscConfirm', RSC_SRC], ['confirmMove', CMOVE_SRC]]) {
+    const bare = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+    ok(/persistSlotMove\s*\(/.test(bare), name + ' 가 공용 저장 함수를 안 쓴다 — 잠금을 비켜 간다');
+  }
+}
+
+sec('⑩-2 자동 잠금 — 조용하면 다시 잠기는가 / 저장하면 시간이 늘어나는가');
+{
+  const r = await run({});
+  const S = r.sandbox;
+  ok(S.wsEditing() === true, '저장 직후인데 편집이 꺼져 있다');
+
+  /* ⏱ 저장이 편집 시간을 다시 채운다(wsBumpEdit) — 한 건 옮길 때마다 다시 잠기면 못 쓴다. */
+  r.clock.now += S.WS_EDIT_MS - 1000;
+  ok(S.wsEditing() === true, '자동 잠금까지 남았는데 이미 잠겼다');
+  r.clock.now += 2000;
+  ok(S.wsEditing() === false, 'WS_EDIT_MS 가 지났는데 아직 편집 중이다 — 자동 잠금이 안 돈다');
+
+  /* 초읽기 타이머는 «편집 중» 에만 산다 — 잠기면 멈춰야 한다(상주 타이머 금지). */
+  const before = r.timers.list.length;
+  ok(before >= 1, '편집을 켰는데 초읽기 타이머가 없다');
+  r.timers.list[0].fn();                       // wsLockTick — 만료를 보고 스스로 잠근다
+  ok(r.timers.list.length === before - 1, '자동 잠금 뒤에도 타이머가 남아 있다 — 상주 타이머가 된다');
+  ok(r.toasts.some(t => /🔒/.test(t.msg)), '자동으로 잠갔다고 말하지 않는다');
+
+  /* 잠긴 뒤에는 같은 화면에서 더 저장되지 않는다 */
+  const n0 = r.calls.length;
+  const res = await S.persistSlotMove({ id: 99, ids: [99], moveField: 'scheduled_date' }, '2026-09-12', 600, null);
+  ok(res.ok === false && res.reason === 'locked', '자동 잠금 뒤에도 저장이 나간다');
+  ok(r.calls.length === n0, '자동 잠금 뒤에 요청이 더 나갔다');
+}
+
+sec('⑩-3 잠금 버튼 — 눌러서 켜고 끄는가 / 라벨이 두 언어를 따라오는가');
+{
+  const r = await run({ locked: true });
+  const S = r.sandbox, btn = r.dom.byId['ws-lock-btn'], lab = r.dom.byId['ws-lock-label'];
+  ok(S.wsEditing() === false, '처음부터 편집이 켜져 있다 — 기본은 «잠김» 이어야 한다');
+  ok(btn._l.click && btn._l.click.length === 1, '잠금 버튼에 동작이 안 붙었다 — 켤 방법이 없다');
+  await btn.fire('click');
+  ok(S.wsEditing() === true, '버튼을 눌러도 편집이 안 켜진다');
+  ok(lab.getAttribute('data-en') === 'Editing' && lab.getAttribute('data-ko') === '편집 중',
+    '라벨에 data-ko/data-en 을 함께 안 적는다 — 🌐 를 누르면 옛 상태로 되돌아간다');
+  await btn.fire('click');
+  ok(S.wsEditing() === false, '버튼을 다시 눌러도 안 잠긴다');
+  ok(lab.getAttribute('data-en') === 'Locked', '잠근 뒤 라벨이 안 따라온다');
+}
+
+sec('⑪ 되돌리기 — 원래 «값» 을 서버에 다시 보내는가');
+{
+  const r = await run({ movedTeacher: true, dstHour: 15 });
+  ok(r.undos.length === 1, '저장했는데 되돌리기가 안 뜬다 (' + r.undos.length + ')');
+  const btn = r.undos[0].querySelector('button');
+  ok(!!btn && btn._l.click && btn._l.click.length === 1, '되돌리기 버튼에 동작이 없다 — 보이는데 안 눌린다');
+
+  const n0 = r.calls.length;
+  await btn.fire('click');
+  ok(r.calls.length === n0 + 1, '되돌리기를 눌렀는데 요청이 안 나간다 — 화면만 되돌리면 그게 이 사고다');
+  const u = r.calls[r.calls.length - 1];
+  ok(u.method === 'PATCH' && /\/class-schedules\/11$/.test(u.url), '되돌리기가 엉뚱한 곳으로 간다: ' + u.url);
+  ok(u.body.start_time === '14:20', '되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
+  ok(u.body.scheduled_date === '2026-09-11', '되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
+  ok(u.body.teacher_id === '29', '강사를 바꿨는데 되돌리기가 «원래 강사» 를 안 보낸다 — 반쯤 되돌린 상태가 남는다');
+  ok(r.reloaded >= 1, '되돌린 뒤 서버에서 다시 읽지 않는다 — 부분 실패를 화면이 감춘다');
+  ok(r.undos.length === 1, '되돌리기가 또 되돌리기를 내놓는다 — 무한 왕복이 된다');
+}
+
+sec('⑪-2 되돌리기 — 자동 잠금 뒤에도 되는가 / 강사를 모르면 안 내놓는가');
+{
+  /* 🔴 15초 사이에 자동 잠금이 오면 되돌릴 길이 사라진다 — 그건 이 기능의 이유와 정반대다. */
+  const r = await run({ movedTeacher: true });
+  r.clock.now += r.sandbox.WS_EDIT_MS + 5000;      // 저장 뒤 자동 잠금이 왔다고 치자
+  ok(r.sandbox.wsEditing() === false, '전제가 깨졌다 — 시간을 넘겼는데 아직 편집 중이다');
+  const n0 = r.calls.length;
+  await r.undos[0].querySelector('button').fire('click');
+  ok(r.calls.length === n0 + 1, '자동 잠금 뒤에는 되돌릴 수 없다 — 되돌리기 창(15초)이 헛것이 된다');
+
+  /* ⛔ 시간만 원래대로 + 강사는 새 사람 = 반쯤 되돌린 상태. 그럴 바엔 안 내놓는다. */
+  const half = await run({ movedTeacher: true, src: MOVE_SRC.replace('teacherId: ctx.movedTeacher ? ctx.srcTeacher.id : null', 'teacherId: null') });
+  ok(half.calls.length === 1, '전제가 깨졌다 — 그 판에서 저장이 안 나갔다');
+  ok(half.undos.length === 0, '원래 강사를 모르는데 되돌리기를 내놓는다 — 반쯤 되돌린 상태가 남는다');
+
+  /* 실패했을 때는 되돌릴 것이 없다 */
+  const bad = await run({ reply: { status: 200, json: { ok: false, error: 'x' } } });
+  ok(bad.undos.length === 0, '저장이 실패했는데 되돌리기를 내놓는다');
+}
+
+sec('⑫ 드래그 자체가 안 끌리는가 — 잠금 판정을 «실제로 돌려» 본다');
+/* 🪤 「그 글자가 있는가」로 물으면 조건을 뒤집어도 통과한다. 그래서 mousemove 핸들러를
+   오려 내 가짜 이벤트로 돌리고, «끌리기 시작했는가»(dnd.active)로 판정한다. */
+{
+  const iBody = html.indexOf('if(!dnd.sourceEl)return;');
+  const iAt = html.lastIndexOf("document.addEventListener('mousemove'", iBody);
+  const MM_SRC = (iBody > 0 && iAt > 0) ? sliceFnAt(html, iAt) : '';
+  ok(MM_SRC.length > 500 && /dnd\.active=true/.test(MM_SRC), 'mousemove 핸들러를 오려 내지 못했다 (길이 ' + MM_SRC.length + ')');
+
+  async function drag(locked) {
+    const dom = mkDom(), clock = mkClock(), timers = mkTimers();
+    const hints = [], toasts = [];
+    const sourceEl = mkEl('td');
+    const dnd = { sourceEl, sourceData: { slot: { type: '1on1', students: [{ name: '정우영' }] } }, startX: 0, startY: 0, active: false, moved: false, ghost: null, lastTarget: null };
+    const sb = {
+      window: {}, console, currentLang: 'ko', dnd,
+      document: dom.document, Date: clock.Date,
+      setInterval: timers.setInterval, clearInterval: timers.clearInterval,
+      setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+      requestAnimationFrame: (f) => { f(); return 0; },
+      escapeHtml: (x) => String(x == null ? '' : x),
+      showDndToast: (m, k) => { toasts.push({ msg: String(m), kind: k || '' }); },
+    };
+    vm.createContext(sb);
+    new vm.Script(LOCK_SRC).runInContext(sb);
+    if (!locked) sb.wsSetEditing(true, { quiet: true });
+    const h = vm.runInContext('(' + MM_SRC + ')', sb);
+    h({ clientX: 40, clientY: 40, preventDefault() {}, stopPropagation() {} });
+    return { dnd, toasts, sb };
+  }
+
+  if (MM_SRC) {
+    const L = await drag(true);
+    ok(L.dnd.active === false, '잠겨 있는데 드래그가 시작됐다');
+    ok(L.dnd.sourceEl === null && L.dnd.moved === true,
+      '잠금으로 막은 뒤 뒷정리를 안 했다 — moved 를 안 세우면 잠금 경고와 상세 모달이 함께 뜬다');
+    ok(L.toasts.some(t => /🔒/.test(t.msg)), '왜 안 끌리는지 말하지 않는다');
+
+    const O = await drag(false);
+    ok(O.dnd.active === true, '편집을 켰는데도 드래그가 안 된다 — 잠금이 «전부 막기» 가 됐다');
+  }
+
+  /* 대기 풀 배정(«수업을 새로 잡는» 길)도 같은 잠금을 받는가 */
+  const ASSIGN_SRC = sliceStmt(html, 'async function assignStudent(stu, info){');
+  ok(ASSIGN_SRC.length > 400, 'assignStudent 를 오려 내지 못했다 (길이 ' + ASSIGN_SRC.length + ')');
+  async function assign(locked) {
+    const dom = mkDom(), clock = mkClock(), timers = mkTimers();
+    const posted = [];
+    const sb = {
+      window: { postClassScheduleAsk: async (p) => { posted.push(p); return { ok: true, j: {} }; }, render: () => {} },
+      console, currentLang: 'ko', defaultDuration: 20,
+      document: dom.document, Date: clock.Date,
+      setInterval: timers.setInterval, clearInterval: timers.clearInterval,
+      setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+      requestAnimationFrame: (f) => { f(); return 0; },
+      POOL: [{ uid: 'a', name: '가' }], notifyQueue: [],
+      renderPool: () => {}, addSlot: () => {},
+      escapeHtml: (x) => String(x == null ? '' : x),
+      minLabel: (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
+      showDndToast: () => {},
+      fetch: async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) }),
+    };
+    vm.createContext(sb);
+    new vm.Script(LOCK_SRC + '\n' + ASSIGN_SRC).runInContext(sb);
+    if (!locked) sb.wsSetEditing(true, { quiet: true });
+    await sb.assignStudent({ uid: 'a', name: '가' }, { teacher: { id: '27', name: 'M' }, dateISO: '2026-09-12', hour: 15, minute: 0 });
+    return posted;
+  }
+  if (ASSIGN_SRC) {
+    ok((await assign(true)).length === 0, '잠겨 있는데 대기 풀 배정이 수업을 새로 잡았다');
+    ok((await assign(false)).length === 1, '편집을 켰는데 대기 풀 배정이 안 된다 — 되던 것이 깨졌다');
+  }
+}
+
+sec('⑬ 변이시험 — 잠금·되돌리기를 되돌리면 실제로 FAIL 나는가');
+{
+  const lmuts = [
+    ['잠금 게이트 제거', t => t.replace(/if\(!opts\.undo && !wsEditing\(\)\) return \{ ok:false, reason:'locked', fails:\[\] \};/, '')],
+    ['잠금 조건 뒤집기(항상 통과)', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!opts.undo && false && !wsEditing())')],
+    ['기본을 «편집 켬» 으로', t => t.replace('var wsEditUntil = 0;', 'var wsEditUntil = 8640000000000000;')],
+    ['되돌리기를 안 내놓기', t => t.replace('wsOfferUndo({ slot:slot, prev:prev, what:(opts.what||\'\') });', '')],
+    ['되돌리기도 잠금에 걸리게', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!wsEditing())')],
+    /* ⚠️ 이 변이는 «두 줄» 을 함께 되돌린다 — 되돌리기를 막는 것은 사실상
+       «되돌리기 호출이 prev 를 안 넘긴다» 쪽이고, opts.undo 는 그 위의 한 겹이다.
+       한 줄만 바꾸면 나머지 한 겹이 받아 내 «변이인데 멀쩡한» 판이 된다(실측). */
+    ['되돌리기가 또 되돌리기를 내놓게', t => t.replace('if(out.ok && !opts.undo){', 'if(out.ok){')
+      .replace('info.prev.teacherId, null, {undo:true});', "info.prev.teacherId, {dateISO:'2026-09-20',startMin:900,teacherId:'27'}, {undo:true});")],
+    ['자동 잠금 타이머를 안 끄기', t => t.replace('if(wsLockTimer){ clearInterval(wsLockTimer); wsLockTimer = null; }', '')],
+    ['반쯤 되돌리기를 그대로 내놓기', t => t.replace('if(newTeacherId && !prev.teacherId){', 'if(false){')],
+  ];
+  const FULL = LOCK_SRC + '\n' + MOVE_SRC;
+
+  /** 잠금·되돌리기가 «약속대로 도는가» 를 한 벌로 재고, 어긋나면 true 를 준다. */
+  async function probeLock(src) {
+    let broke = false;
+      try {
+        // 잠긴 채로도 저장이 나가는가 / 자동 잠금이 도는가 / 되돌리기가 제대로 붙는가
+        const lk = await run({ locked: true, full: src });
+        if (lk.calls.length !== 0 || lk.added.length || lk.srcGone) broke = true;
+        const op = await run({ full: src, movedTeacher: true });
+        if (op.calls.length !== 1) broke = true;
+        if (op.undos.length !== 1) broke = true;
+        if (op.sandbox.wsEditing() !== true) broke = true;
+        // 되돌리기: 원래 값을 다시 보내고, 또 내놓지 않는다
+        if (op.undos.length === 1) {
+          await op.undos[0].querySelector('button').fire('click');
+          const u = op.calls[op.calls.length - 1] || { body: {} };
+          if (op.calls.length !== 2) broke = true;
+          if (u.body.start_time !== '14:20' || u.body.teacher_id !== '29') broke = true;
+          if (op.undos.length !== 1) broke = true;
+        }
+        // 자동 잠금 뒤: 타이머가 멈추고 저장이 막힌다
+        const au = await run({ full: src });
+        au.clock.now += au.sandbox.WS_EDIT_MS + 5000;
+        /* ⚠️ 타이머는 «둘» 이다 — 잠금 초읽기(먼저 걸림)와 되돌리기 초읽기.
+           «0개» 로 못 박으면 멀쩡한 코드가 FAIL 한다(실측). 잠금 쪽이 스스로 멈추는지만 본다. */
+        const n = au.timers.list.length;
+        if (n < 1) broke = true;
+        else {
+          au.timers.list[0].fn();                       // = wsLockTick
+          if (au.timers.list.length !== n - 1) broke = true;
+        }
+        if (au.sandbox.wsEditing() !== false) broke = true;
+        /* ↩️ 자동 잠금이 온 «뒤» 에도 되돌아가야 한다 — 15초 창이 헛것이 되면 안 된다.
+           ⚠️ 이 판이 없으면 «되돌리기도 잠금에 걸리게» 변이가 그대로 통과한다(실측). */
+        const lt = await run({ full: src, movedTeacher: true });
+        lt.clock.now += lt.sandbox.WS_EDIT_MS + 5000;
+        if (lt.undos.length !== 1) broke = true;
+        else {
+          const c0 = lt.calls.length;
+          await lt.undos[0].querySelector('button').fire('click');
+          if (lt.calls.length !== c0 + 1) broke = true;
+        }
+        /* «원래 강사를 모르는» 판 — 반쯤 되돌리기를 내놓지 않아야 한다. */
+        const halfSrc = src.replace('teacherId: ctx.movedTeacher ? ctx.srcTeacher.id : null', 'teacherId: null');
+        if (halfSrc !== src) {
+          const half = await run({ full: halfSrc, movedTeacher: true });
+          if (half.undos.length !== 0) broke = true;
+        }
+      } catch (_) { broke = true; }
+    return broke;
+  }
+
+  /* 🪤 전제 — 원본이 이 검사를 «통과해야» 아래 변이 판정에 뜻이 생긴다.
+     이 줄이 없으면 검사가 늘 broke 를 내도 「변이 8종 전부 FAIL」로 보인다. */
+  ok((await probeLock(FULL)) === false, '원본이 잠금·되돌리기 검사를 통과하지 못한다 — 아래 변이 판정이 전부 헛돈다');
+
+  for (const [name, f] of lmuts) {
+    const src = f(FULL);
+    ok(src !== FULL, '변이 «' + name + '» 의 치환이 안 먹었다 — 그 줄이 리팩터된 것이다(검사가 헛돈다)');
+    ok(src === FULL || (await probeLock(src)), '변이 «' + name + '» 가 그대로 통과했다 — 잠금·되돌리기를 지키지 못한다');
+  }
 }
 
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);
