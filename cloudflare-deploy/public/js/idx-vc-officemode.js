@@ -75,6 +75,9 @@
      ⛔ 못 끄면(브라우저가 무시·미지원) 재사용을 «포기» 하고 예전처럼 새로 연다 — AGC 가 켜진 채로
         쓰면 이 기능의 ①번 효과가 통째로 죽는데 소리는 정상이라 아무도 모른다. */
   var borrowed = null;
+  /* 🔴 되돌리는 «동안» 은 hookGum 이 손을 떼야 한다 — 안 그러면 「켜기 전으로 되돌리려고」 새로 여는
+     그 마이크의 AGC 를 훅이 **또 꺼서** 영영 안 돌아온다(켜기 실패 경로에서 실제로 그랬다). */
+  var restoring = false;
   var procTrack = null;   // peer 에게 실제로 보내는 가공 트랙
   var timer = null, buf = null, floorDb = -60, openUntil = 0, isOpen = false;
   var srcMicId = '';      // 켜기 «전» 에 쓰던 «진짜» 마이크 장치 id — 되돌릴 때 이것으로 다시 잡는다
@@ -282,7 +285,8 @@
        (2026-09-11 실측). 그래서 «열고 나서 고치기» 는 원리상 불가능하고, «열 때 정하기» 만 된다.
      ⛔ 학생에게는 절대 걸지 않는다(isStaff) — 사무실 모드는 교사 기능이고, 학생 마이크의
         자동 게인을 말없이 끄면 조용히 말하는 아이 소리가 작아진다.
-     ⛔ 사람이 꺼 둔 경우(wantOn=false)·이 페이지에서 이미 실패한 경우(autoFailed)에는 손대지 않는다.
+     ⛔ 사람이 꺼 둔 경우(wantOn=false)·이 페이지에서 이미 실패한 경우(autoFailed)·
+        «되돌리는 중»(restoring)에는 손대지 않는다.
      ⚠️ 호출자가 넘긴 객체를 «고치지» 않고 사본을 만든다 — 그 객체를 재사용하는 코드가 있다. */
   function hookGum() {
     var md = navigator.mediaDevices;
@@ -290,7 +294,7 @@
     var orig = md.getUserMedia.bind(md);
     md.getUserMedia = function (c) {
       try {
-        if (c && c.audio && isStaff() && wantOn() && !autoFailed) {
+        if (c && c.audio && !restoring && isStaff() && wantOn() && !autoFailed) {
           var a = (c.audio === true) ? {} : c.audio;
           if (a && typeof a === 'object' && a.autoGainControl !== false) {
             var c2 = {}; for (var k in c) { if (Object.prototype.hasOwnProperty.call(c, k)) c2[k] = c[k]; }
@@ -428,27 +432,44 @@
         ⛔ 장치 지정을 «먼저» 포기하지는 않는다 — 교사가 고른 마이크가 아닌 것으로 바뀌면 그것도 사고다. */
   async function restorePlainMic() {
     if (!inCall() || !localStream()) return;
-    /* 🚀 (2026-09-11) 빌려 쓰던 트랙이 아직 살아 있으면 «제약만» 되돌리고 그대로 쓴다 —
-       장치를 다시 열지 않으므로 끄기도 즉시 끝난다(예전에는 여기서도 getUserMedia 를 했다).
-       ⚠️ 조금이라도 어긋나면 곧바로 아래 예전 경로로 내려간다 — 여기는 실패하면 무음이 되는 자리다. */
-    var b = borrowed;
-    if (b && b.readyState === 'live') {
-      try {
-        if (typeof b.applyConstraints === 'function') await b.applyConstraints(micConstraints(false, '').audio);
-        if (swapTrack(b)) { borrowed = null; return; }
-      } catch (e) {
-        console.warn('[office] 빌린 마이크로 못 되돌렸습니다 — 새로 잡습니다:', e && e.name);
+    restoring = true;
+    try {
+      /* 🚀 (2026-09-11) 빌려 쓰던 트랙이 아직 살아 있으면 «제약만» 되돌려 그대로 쓸 수 있는지 본다 —
+         되면 장치를 다시 열지 않아도 끄기가 끝난다.
+         🔴 그런데 크로미움은 이 방향도 조용히 무시한다(2026-09-11 실측: AGC 를 끈 채로 연 트랙에
+            applyConstraints({autoGainControl:true}) → 예외 없음 · getSettings 는 여전히 false).
+            그대로 믿고 쓰면 «껐는데 AGC 는 꺼진 채» 로 그 세션 내내 가서, 조용히 말할 때
+            교사 소리가 작아진다 — 「켜기 전으로 되돌아간다」가 거짓이 된다.
+         ⚠️ 그래서 openSource 와 «같은 규칙» 을 쓴다: 에러가 안 난 것을 성공으로 읽지 않고
+            getSettings 로 실제 값을 확인하고서만 그 트랙을 쓴다. 아니면 아래 예전 경로로 내려간다. */
+      var b = borrowed;
+      if (b && b.readyState === 'live') {
+        try {
+          if (typeof b.applyConstraints === 'function') await b.applyConstraints(micConstraints(false, '').audio);
+          var bs = (typeof b.getSettings === 'function' ? b.getSettings() : null) || {};
+          if (bs.autoGainControl !== false && swapTrack(b)) { borrowed = null; return; }
+          console.log('[office] AGC 가 안 돌아와 마이크를 새로 엽니다 (autoGainControl=' + bs.autoGainControl + ')');
+        } catch (e) {
+          console.warn('[office] 빌린 마이크로 못 되돌렸습니다 — 새로 잡습니다:', e && e.name);
+        }
       }
-    }
-    var s = null;
-    var id = srcMicId || currentMicId();
-    if (id) {
-      try { s = await navigator.mediaDevices.getUserMedia(micConstraints(false, id)); }
-      catch (e) { console.warn('[office] 원래 장치로 못 잡음 — 기본 마이크로 되돌립니다:', e && e.name); s = null; }
-    }
-    if (!s) s = await navigator.mediaDevices.getUserMedia(micConstraints(false, ''));
-    var t = s.getAudioTracks()[0];
-    if (t) swapTrack(t);
+      /* 🔴 새로 열기 «전» 에 빌린 트랙을 놓는다 — 같은 장치가 아직 열려 있으면 크로미움이
+         **그 트랙의 오디오 설정을 새 트랙에도 그대로 준다.** 그러면 「AGC 를 켜 달라」고
+         제대로 요청해도 꺼진 채로 열려, 껐는데도 교사 소리가 계속 작아진다(2026-09-11 실측:
+         놓기 전 false · 놓고 나면 true). 놓아도 무음이 되지 않는다 — 지금 내보내는 것은
+         아직 가공 트랙이고, 바로 아래에서 새 트랙으로 갈아끼운다.
+         ⚠️ releaseBorrowed 안의 가드(지금 쓰는 중이면 stop 안 함)는 그대로 지나간다. */
+      releaseBorrowed();
+      var s = null;
+      var id = srcMicId || currentMicId();
+      if (id) {
+        try { s = await navigator.mediaDevices.getUserMedia(micConstraints(false, id)); }
+        catch (e) { console.warn('[office] 원래 장치로 못 잡음 — 기본 마이크로 되돌립니다:', e && e.name); s = null; }
+      }
+      if (!s) s = await navigator.mediaDevices.getUserMedia(micConstraints(false, ''));
+      var t = s.getAudioTracks()[0];
+      if (t) swapTrack(t);
+    } finally { restoring = false; }
   }
 
   /* keepPref=true 면 저장값을 «켜짐» 그대로 둔다.
@@ -468,11 +489,13 @@
       catch (e) {
         /* 🔴 여기까지 왔으면 무음이 될 수 있다 — 조용히 넘기지 않는다. 마지막으로 한 번 더 잡아 본다. */
         console.error('[office] 🔴 마이크 되돌리기 실패 — 소리가 안 나갈 수 있습니다:', e);
+        restoring = true;   // 이 마지막 시도도 «켜기 전» 이어야 한다 — hookGum 이 AGC 를 또 끄면 안 된다
         try {
           var s2 = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           var t2 = s2.getAudioTracks()[0];
           if (t2) swapTrack(t2);
         } catch (e2) { console.error('[office] 🔴 마지막 시도도 실패:', e2); }
+        finally { restoring = false; }
       }
     }
     releaseBorrowed();   // 되돌리기가 다 쓴 뒤 정리 — 지금 쓰는 중이면 stop 하지 않는다(그 안의 가드)
@@ -531,6 +554,12 @@
     pending = setInterval(function () {
       tries++;
       if (tries > 40) { clearInterval(pending); pending = null; return; }   // 20초면 포기
+      /* 🔴 «이미 도는» 폴링도 실패를 봐야 한다 — autoFailed 를 진입할 때만 보면, 사람이 스위치를
+         눌러 실패한 직후(저장값은 forget 으로 «아직 안 정함» = 기본 켜짐) 이 폴링이 곧바로 다시 켠다.
+         그러면 「이 페이지에서는 자동으로 다시 시도하지 않는다」는 이 파일의 약속이 깨지고,
+         되돌려 놓은 마이크를 다시 가공 트랙으로 갈아끼워 «켜기 전» 복구도 무효가 된다
+         (2026-09-11 브라우저 검사 ⓙ-2 가 실제로 잡았다). */
+      if (autoFailed) { clearInterval(pending); pending = null; return; }
       if (inCall()) sawCall = true;
       else if (sawCall) { clearInterval(pending); pending = null; return; } // 들어갔다 나갔으면 그만
       if (!sawCall) return;                                                  // 아직 입장 전 — 더 기다린다
