@@ -109,7 +109,7 @@
   /** 카드 한 장을 만든다. 숫자는 나중에 채운다(서버 응답 전에도 화면이 서 있어야 한다). */
   function build(c) {
     var el = document.createElement(c.preset ? 'a' : 'div');
-    el.className = 'sc-card' + (c.preset ? '' : ' sc-static');
+    el.className = 'sc-tile' + (c.preset ? '' : ' sc-static');
     el.setAttribute('data-sc', c.key);
     if (c.preset) {
       /* 🔗 href 로 둔다 — JS 가 죽어도 열리고, 가운데클릭·새 탭이 동작한다.
@@ -184,6 +184,8 @@
     }
   }
 
+  var lastData = null;   /* 마지막으로 성공한 응답 */
+
   function load(root) {
     fetch(EP, { credentials: 'include' })
       .then(function (r) {
@@ -200,6 +202,7 @@
         /* 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 —
            종단 404 본문에는 ok 칸이 없어 d.ok === false 검사는 그냥 통과한다(CLAUDE.md). */
         if (d.ok !== true) { fill(root, null, T('숫자를 읽지 못했습니다', 'Could not load the figures')); return; }
+        lastData = d;          /* 🌐 전환 때 다시 쓰려고 들고 있는다 — D1 을 또 긁지 않는다 */
         fill(root, d, null);
       })
       .catch(function () {
@@ -208,7 +211,7 @@
   }
 
   function init() {
-    var root = document.getElementById('sc-cards');
+    var root = document.getElementById('sc-tiles');
     if (!root || root.getAttribute('data-built') === '1') return;
     root.setAttribute('data-built', '1');
     for (var i = 0; i < CARDS.length; i++) root.appendChild(build(CARDS[i]));
@@ -223,7 +226,10 @@
         var el = root.querySelector('[data-sc="' + c.key + '"] .sc-lb');
         if (el) el.textContent = T(c.ko, c.en);
       }
-      load(root);   /* 부제·단위가 언어를 타므로 다시 채운다 */
+      /* 부제·단위가 언어를 타므로 다시 채운다. ⛔ 다시 fetch 하지 말 것 —
+         🌐 를 누를 때마다 D1 조회가 다시 돈다. 마지막 응답을 그대로 쓴다. */
+      if (lastData) fill(root, lastData, null);
+      else load(root);
     };
     document.addEventListener('mangoi:lang-changed', redraw);
     window.addEventListener('mangoi:lang-changed', redraw);

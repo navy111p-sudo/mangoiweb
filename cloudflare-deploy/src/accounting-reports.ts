@@ -627,6 +627,9 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     //    src/index.ts(공동 금지구역)를 한 줄도 안 건드린다(바로 아래 월 마감과 같은 사정).
     //    ⛔ 계산은 이 파일에 적지 말 것 — 정본은 src/schedule-summary.ts 하나다.
     if (p === 'schedule-summary') {
+      /* 읽기 전용이다. 메서드를 안 가리면 나중에 이 경로에 다른 뜻이 붙을 때
+         «모르는 요청» 이 조용히 흘러 들어간다(CLAUDE.md 「비어 있는 메서드에 얹을 때」). */
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
       const s = await buildScheduleSummary(env as any);
       return new Response(JSON.stringify({ ok: true, ...s }), {
         headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' },

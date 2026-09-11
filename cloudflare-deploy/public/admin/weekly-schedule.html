@@ -3960,7 +3960,15 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
         + 'font-size:16px;cursor:pointer;padding:0 4px;line-height:1';
       x.textContent = '✕';
       x.setAttribute('aria-label', 'clear preset');
-      x.onclick = function(){ location.href = location.pathname; };   /* 파라미터를 떼고 기본 화면으로 */
+      /* ⛔ location.pathname 으로 통째로 날리지 말 것 — ?q=·?role=student 같은 딴 파라미터가
+         함께 사라진다. preset 하나만 뗀다. */
+      x.onclick = function(){
+        try{
+          var u = new URL(location.href);
+          u.searchParams.delete('preset');
+          location.href = u.pathname + (u.search || '') + (u.hash || '');
+        }catch(_e){ location.href = location.pathname; }
+      };
       box.appendChild(txt); box.appendChild(x);
       host.parentNode.insertBefore(box, host);
     }

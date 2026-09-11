@@ -154,7 +154,33 @@ chk(oldHandlers <= 1,
     oldHandlers <= 1
       ? `파라미터 없는 같은 주소가 ${oldHandlers}개다 (아래 「시간표 보기」 버튼 한 개까지만 허용)`
       : `파라미터 없는 같은 주소가 ${oldHandlers}개다 — 사고가 되돌아왔다`);
-chk(cardBlock.includes('id="sc-cards"'), '카드를 그릴 자리(#sc-cards)가 있다');
+chk(cardBlock.includes('id="sc-tiles"'), '카드를 그릴 자리(#sc-tiles)가 있다');
+/* 🔴 admin-inline-c.css 의 ph105 블록이 이 접미사들을 «어두운 남색 + 파란 테두리» 로
+   !important 덮는다(`[id^="card-"] [class*="-card"]…`). 그러면 .sc-alert 의 «빨간 경고
+   테두리» 까지 파랑이 되어 「안 나간 알림」 칸이 다른 카드와 구별되지 않는다.
+   ⚠️ 문자열도 하니스도 «누가 이기는가» 는 못 본다 — 그래서 «이름을 쓰지 않았는가» 로 막는다.
+      (2026-09-11 실제로 밟음: sc-card → sc-tile) */
+{
+  const BANNED = ['-card', '-box', '-row', '-panel', '-form', '-light', '-input-group'];
+  /* ⚠️ 소스 전체에서 «그 글자» 를 찾으면 «왜 이름을 바꿨는지» 적은 주석이 걸려
+     멀쩡한 코드가 빨간불이 된다(2026-09-11 에 이 줄을 넣으면서 실제로 밟았습니다).
+     그래서 «실제로 클래스로 쓰이는 자리» 만 본다 — HTML 의 class= 와 JS 가 붙이는 이름. */
+  const used = new Set();
+  for (const m of cardBlock.matchAll(/class="([^"]*)"/g)) {
+    for (const c of m[1].split(/\s+/)) if (/^sc-/.test(c)) used.add(c);
+  }
+  for (const m of cardsSrc.matchAll(/(?:className\s*=|classList\.(?:add|remove|toggle)\()\s*'([^']*)'/g)) {
+    for (const c of m[1].split(/\s+/)) if (/^sc-/.test(c)) used.add(c);
+  }
+  /* 문자열 조립형(`'sc-tile' + (…)`)도 잡는다 */
+  for (const m of cardsSrc.matchAll(/'(sc-[a-z0-9-]+)'/g)) used.add(m[1]);
+  chk(used.size > 0, `클래스 이름을 뽑아 냈다 (${[...used].sort().join(' ')})`);
+  const hit = [...used].filter((c) => BANNED.some((b) => c.includes(b)));
+  chk(hit.length === 0,
+      hit.length ? `ph105 이 덮는 접미사를 쓴 클래스가 있다: ${hit.join(', ')}` : 'ph105 이 덮는 접미사(-card·-box·-row…)를 쓰지 않는다');
+}
+chk(/text-decoration\s*:\s*none\s*!important/.test(cardBlock),
+    '링크 밑줄을 !important 로 끈다 (details.menu-card a 가 !important 로 넣는다)');
 chk(/adm-schedule-cards\.js\?v=\d+/.test(cardBlock), '카드 스크립트를 ?v= 와 함께 싣는다');
 chk(!cardBlock.includes('주간/월간'), '없는 「월간」 뷰를 더는 약속하지 않는다');
 
