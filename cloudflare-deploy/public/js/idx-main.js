@@ -1513,11 +1513,11 @@ function vcApplyRemoteCamHint(userId) {
             if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
             box.appendChild(el);
         }
-        var en = miIsEn();
+        /* 🌐 한/영 병기 — 260910 작업기록. 모양은 vc-refresh.css 의 .vc-camoff-hint i */
         el.innerHTML = (why === 'aao')
-            ? '📶<span>' + (en ? 'Weak connection — audio only for now.<br>The class continues.'
-                               : '연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.') + '</span>'
-            : '📷<span>' + (en ? 'Camera is off' : '상대가 카메라를 껐어요') + '</span>';
+            ? '📶<span>연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.'
+                + '<i>Weak connection — audio only for now. The class continues.</i></span>'
+            : '📷<span>상대가 카메라를 껐어요<i>Camera is off</i></span>';
         // 예전 '영상 준비 중' 안내가 남아 있으면 중복이므로 제거
         var old = box.querySelector('.vc-black-hint'); if (old) old.remove();
     } catch (_) {}

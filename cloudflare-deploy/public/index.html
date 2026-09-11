@@ -9199,7 +9199,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=54"></script>
+<script src="/js/idx-main.js?v=55"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
@@ -15147,7 +15147,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · mango-gaze.js (시선)
      · mango-i18n.js (다국어)
      ============================================================ -->
-<link rel="stylesheet" href="/css/vc-refresh.css?v=11"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
+<link rel="stylesheet" href="/css/vc-refresh.css?v=12"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=3" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
 <script src="/js/vc-dock.js?v=27" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
@@ -16415,12 +16415,12 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <!-- 📱 (2026-08-25) 휴대폰 수업 화면 수리 묶음 — 교재 선명도(화면 배율)·핀치 확대 유지·확대 버튼·
      배경화면 탭 접힘·중국어 안내. defer 필수: index.html 첫 화면 예산 여유가 104바이트뿐이라
      idx-main.js 에는 한 줄도 못 넣는다(first_paint_budget_harness). -->
-<script defer src="/js/idx-vc-mobilefix.js?v=27"></script>
+<script defer src="/js/idx-vc-mobilefix.js?v=29"></script>
 <!-- 📶 (2026-08-26) 회선품질 로깅 — idx-main.js 에서 «떼어 낸» 것이다(새 기능이 아니다).
      849KB blocking 에서 1.5KB 를 덜어 첫 화면 예산이 오히려 늘었다.
      같이 고친 것: 영상 표본이 없는 사람(카메라 끔·영상 죽음)도 이제 기록이 남는다 —
      그 사각지대 때문에 「끊긴다」 제보를 숫자로 확인할 수가 없었다. 사연은 그 파일 머리말에. -->
-<script defer src="/js/idx-vc-qlog.js?v=11"></script>
+<script defer src="/js/idx-vc-qlog.js?v=12"></script>
 <!-- 📡 (2026-09-04) SFU(서버 경유) 경로 — ⛔ 기본은 꺼져 있다. 서버 시크릿이 있고 «그 탭이»
      ?sfu=1 로 켰을 때만 동작하며, 실패하면 조용히 지금 방식(mesh)으로 되돌아간다.
      [왜] 그날 실측: 기록된 46건 전부가 TURN «중계», 볼 수 있는 35건 전부가 «TCP», UDP 0건.
