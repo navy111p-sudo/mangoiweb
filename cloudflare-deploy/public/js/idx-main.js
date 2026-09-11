@@ -5183,19 +5183,17 @@ function vcAAOApply() {
     if (typeof vcCamOn === 'undefined') return;
     if (!A.active && A.sev >= 3 && (A.floor || A.sev >= 5) && vcCamOn !== false) {
         A.active = true; A.good = 0;
-        try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
+        vcBroadcastCamState(false, 'aao');   // ⚠️ «끄기 전» 에 알린다 — 늦으면 상대가 «검은영상=장애» 로 보고 재협상을 건다(대역폭 위기에 최악)
+        try { vcAAOVideo(0); } catch (_) { try { vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_2) {} }   // 📶 js/idx-vc-qlog.js ⑤ — 검정 대신 «마지막 장면 멈춤»
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
         /* 🌐 (2026-08-08 Ness ③ 「카메라가 갑자기 꺼진다」) 강사 다수가 필리핀이다.
            이 안내가 한국어뿐이라, 회선이 나빠 **일부러** 끈 것을 «고장» 으로 신고해 왔다.
            한/영을 함께 적는다 — 라벨만 영어이고 내용이 한국어면 읽을 수 없다(사장님 지시). */
         vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b> The class continues; video returns automatically.<br>인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속되고, 회복되면 영상이 자동으로 돌아옵니다.');
-        // 상대에게도 알린다. 안 알리면 상대 화면에서 '검은 영상 = 장애' 로 오인해 재협상이 돈다
-        // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
-        vcBroadcastCamState(false, 'aao');
         console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
     } else if (A.active && A.good >= 8) {
         A.active = false; A.sev = 0;
-        try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
+        try { if (vcCamOn !== false) vcAAOVideo(1); } catch (_) { try { if (vcCamOn !== false) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_2) {} }
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
         vcAAONotify('📶 <b>Connection recovered — video is back on.</b><br>연결이 회복되어 <b>영상을 다시 켭니다</b>');
         vcBroadcastCamState(vcCamOn !== false, 'aao');   // 사용자가 따로 꺼 둔 상태면 그건 존중
