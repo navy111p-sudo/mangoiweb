@@ -3961,6 +3961,113 @@ window.editSlotPrompt=editSlotPrompt;
 
 reloadAndRender();
 
+// ═══════════════════════════════════════════════════════════════
+// 🔗 프리셋 딥링크 (2026-09-11) — 관리자 대시보드 「통합 시간표」 카드가 ?preset= 으로 보낸다.
+//   [왜] 그 카드 여섯 장이 전부 파라미터 없는 같은 주소였다. 무엇을 눌러도 같은 첫 화면이
+//        나와서 사장님이 「이거 누르면 모두 똑같은 강사스케줄들이 나와」라고 하셨다.
+//   [어떻게] 상태를 «흉내내지» 않고 화면에 이미 있는 «진짜 조작» 을 누른다 —
+//        그래야 그 버튼 동작이 나중에 바뀌어도 프리셋이 저절로 따라간다.
+//   ⛔ 이 키 목록은 /js/adm-schedule-cards.js 의 CARDS[].preset 과 «짝» 이다.
+//      한쪽만 고치면 카드가 화면이 모르는 값을 보내 조용히 아무 일도 안 일어난다.
+//      하니스 schedule_entry_preset_harness 가 두 파일을 대조해 어긋나면 FAIL 낸다.
+// ═══════════════════════════════════════════════════════════════
+var PRESET_KEYS = ['week','today','teacher','student','free'];
+(function applyPreset(){
+  try{
+    var raw = new URLSearchParams(location.search).get('preset');
+    if(!raw) return;
+    var key = String(raw).trim().toLowerCase();
+    if(PRESET_KEYS.indexOf(key) < 0) return;   /* 모르는 값은 조용히 무시 — 옛 링크가 안 깨진다 */
+
+    /* 배지는 문서 흐름 «안» 에 넣는다 — position:fixed 로 띄우면 다른 것을 덮는다
+       (「보이는데 안 눌린다」 계열 함정). */
+    function badge(ko, en){
+      var host = document.getElementById('main');
+      if(!host || !host.parentNode) return;
+      var box = document.createElement('div');
+      box.id = 'preset-badge';
+      box.style.cssText = 'display:flex;align-items:center;gap:9px;margin:10px 0 0;padding:9px 13px;'
+        + 'background:rgba(251,191,36,.14);border:1.5px solid var(--ac);border-radius:10px;'
+        + 'color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.45';
+      /* ⚠️ data-ko 는 «글자만 담은» span 에만 단다 — applyLang 이 textContent 를 통째로
+         갈아끼우므로 상자에 달면 ✕ 버튼이 DOM 에서 사라진다. */
+      var txt = document.createElement('span');
+      txt.setAttribute('data-ko', ko);
+      txt.setAttribute('data-en', en);
+      txt.textContent = (currentLang === 'en') ? en : ko;
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.style.cssText = 'margin-left:auto;background:transparent;border:none;color:#cbd5e1;'
+        + 'font-size:16px;cursor:pointer;padding:0 4px;line-height:1';
+      x.textContent = '✕';
+      x.setAttribute('aria-label', 'clear preset');
+      /* ⛔ location.pathname 으로 통째로 날리지 말 것 — ?q=·?role=student 같은 딴 파라미터가
+         함께 사라진다. preset 하나만 뗀다. */
+      x.onclick = function(){
+        try{
+          var u = new URL(location.href);
+          u.searchParams.delete('preset');
+          location.href = u.pathname + (u.search || '') + (u.hash || '');
+        }catch(_e){ location.href = location.pathname; }
+      };
+      box.appendChild(txt); box.appendChild(x);
+      host.parentNode.insertBefore(box, host);
+    }
+
+    /* 실제 버튼을 누른다. 렌더가 끝난 뒤라야 버튼이 서 있다. */
+    setTimeout(function(){
+      try{
+        if(key === 'today'){
+          var dayBtn = document.querySelector('.view-toggle button[data-view="day"]');
+          if(dayBtn) dayBtn.click();
+          /* ⚠️ 「끌면 바뀝니다」로 단정하지 말 것 — 2026-09-11 PR #934 로 이 화면은
+             «기본이 보기 전용»(🔒 잠김, 자동 잠금 3분)이 됐다. 실수로 끌리지 않게 넣은
+             방어라 ⛔ 프리셋이 그 잠금을 대신 풀어 주면 안 된다(링크 하나로 방어가 죽는다).
+             화면이 할 일은 «다음에 무엇을 눌러야 하는지» 를 사실대로 말하는 것뿐이다. */
+          badge('🔄 오늘 수업 — 칸을 끌어 옮기려면 위 🔒 잠김 을 눌러 편집을 켜세요',
+                '🔄 Today — to drag a cell, press 🔒 Locked above to start editing');
+        } else if(key === 'free'){
+          var freeBtn = document.getElementById('btn-free');
+          if(freeBtn && !freeBtn.classList.contains('on')) freeBtn.click();
+          badge('🟩 빈자리만 보는 중 — 배정할 수 있는 칸만 남았습니다',
+                '🟩 Open slots only — showing cells you can assign');
+        } else if(key === 'teacher' || key === 'student'){
+          var box2 = document.getElementById('search-input');
+          if(box2){
+            var pko = (key === 'teacher') ? '강사 이름을 입력하세요…' : '학생 이름·아이디를 입력하세요…';
+            var pen = (key === 'teacher') ? 'Type a teacher name…' : 'Type a student name or ID…';
+            /* placeholder 도 applyLang 이 갈아끼우므로 속성까지 함께 바꿔 둔다 */
+            box2.setAttribute('data-ko-placeholder', pko);
+            box2.setAttribute('data-en-placeholder', pen);
+            box2.placeholder = (currentLang === 'en') ? pen : pko;
+            if(!box2.value) box2.focus();
+            box2.style.transition = 'box-shadow .5s';
+            box2.style.boxShadow = '0 0 0 3px rgba(251,191,36,.55)';
+            setTimeout(function(){ try{ box2.style.boxShadow=''; }catch(_e){} }, 2400);
+          }
+          if(key === 'teacher'){
+            /* 배정이 덜 된 강사를 찾는 것이 이 화면의 실제 용도라(정렬 주석) 그쪽으로 세워 둔다.
+               ⛔ 사람이 이미 다른 정렬을 골라 뒀으면 건드리지 않는다. */
+            var sort = document.getElementById('sort-select');
+            if(sort && (!sort.value || sort.value === 'name')){
+              sort.value = 'util_low';
+              sort.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            badge('👨‍🏫 강사별 보기 — 이름을 입력하면 그 강사만 남습니다 (가동률 낮은 순)',
+                  '👨‍🏫 Teacher view — type a name to narrow it down (lowest utilization first)');
+          } else {
+            badge('👨‍🎓 학생별 보기 — 이름이나 아이디를 입력하면 그 학생 수업만 남습니다',
+                  '👨‍🎓 Student view — type a name or ID to see just that student');
+          }
+        } else {   /* week — 기본 화면. 어디서 왔는지만 알려 준다 */
+          badge('📆 이번 주 전체 — 가로 한 줄이 강사 한 명의 일주일입니다',
+                '📆 The whole week — each row is one teacher');
+        }
+      }catch(_){}
+    }, 760);   /* 위 딥링크(?q=)의 700ms 렌더보다 뒤 */
+  }catch(_){}
+})();
+
 
 // ═══════════════════════════════════════════════════════════════
 // 🎓 학생 모드 필터링 v2 (?role=student) - 강화판
