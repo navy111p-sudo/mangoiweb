@@ -5158,7 +5158,7 @@ async function loadFranchises() {
   // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·대표자·전화·주소·개설일을
   // 고친다(frEdit). can_edit 은 GET 이 이미 알려 준다(본사만 true).
   const _frActCell = f => _frCanEdit
-    ? `<button type="button" onclick="frEdit(${Number(f.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+    ? `<button type="button" onclick="frEdit(${Number(f.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
   if (tb) tb.innerHTML = d.items.map(f =>
@@ -5187,7 +5187,7 @@ async function loadMasterBranches() {
   // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·권역·등급·대표자·전화를
   // 고친다(mbrEdit). _mbrCanEdit 은 GET(view=master) 이 이미 알려 준다(본사만 true).
   const _mbrActCell = m => _mbrCanEdit
-    ? `<button type="button" onclick="mbrEdit(${Number(m.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+    ? `<button type="button" onclick="mbrEdit(${Number(m.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
   tb.innerHTML = _masterBranches.map(m => {
@@ -5195,7 +5195,7 @@ async function loadMasterBranches() {
     return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td><td>${_esc(m.region)||'—'}</td>`
       + `<td>${_esc(m.tier)||'—'}</td><td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
       + `<td>${Number(m.branch_count)||0}</td>`
-      + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
+      + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" class="org-rowact" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
       + (on ? (adminLang==='en'?'🟢 active':'🟢 사용중') : (adminLang==='en'?'⏸ paused':'⏸ 중지')) + '</button></td>'
       + `<td style="white-space:nowrap">${_mbrActCell(m)}</td></tr>`;
   }).join('');
@@ -5620,6 +5620,11 @@ window.hqDelete = hqDelete;
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
 var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
+/* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
+   함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
+   (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
+var _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
+
 // ✏️ (2026-09-11) 지금 화면에 그려진 페이지(최대 50건) 원본 — ctEdit(id) 이 여기서 찾는다.
 //    또 fetch 하지 않는 이유: 수정 버튼을 누른 순간과 목록을 다시 불러온 순간 사이에
 //    다른 사람이 그 대리점을 고쳐도, 지금 «화면에 보이는» 값 그대로 편집을 시작해야
@@ -5674,7 +5679,6 @@ async function loadCenters(opts) {
        그래서 요율은 손으로 적지 않고 «18,000 ÷ 수강료» 로 서버가 낸다(40,000 → 45%).
      ⚠️ 안 정한 곳은 값이 비어서 온다. 그때 30,000 을 «저장된 값처럼» 보여 주면
         사람이 정한 것과 기본값을 구분할 수 없다 → 회색 placeholder 로만 보여 준다. */
-  const _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
   const _tuCell = c => {
     const v = (c.tuition_krw == null || c.tuition_krw === '') ? '' : Number(c.tuition_krw);
     const eff = Math.round((_CT_HQ_UNIT / (v || _CT_STD_TUITION)) * 1000) / 10;   // 본사 요율 %
@@ -5690,7 +5694,7 @@ async function loadCenters(opts) {
   //    지사·대리점 계정에겐 표를 감추지 않고 «이 버튼만» 뺀다(그 계정으로 눌러도 서버가
   //    canEditOrg() 로 403 을 주긴 하지만, 눌러도 안 되는 버튼을 아예 안 보이게 하는 것뿐이다).
   const _actCell = c => _ctCanEdit
-    ? `<button type="button" onclick="ctEdit(${Number(c.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+    ? `<button type="button" onclick="ctEdit(${Number(c.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
   tb.innerHTML = d.items.map(c =>
@@ -5728,22 +5732,47 @@ window.ctSetPayType = ctSetPayType;
 /* 💰 수강료 저장 — 서버가 이 값으로 «본사 요율» 을 계산해 정산에 바로 반영한다.
    비우고 저장하면 설정을 지워 표준 30,000원(=60%)으로 돌아간다.
    ⚠️ 실패하면 화면 값을 되돌리고 알린다 — 조용한 반쪽 성공 금지(결제유형 저장과 같은 규칙). */
+/* 💰 수강료 저장 «정본» — 표 안 칸과 수정 폼이 **같은 이 함수**를 쓴다.
+   ⛔ 여기 말고 다른 곳에서 rate-config 를 직접 부르지 말 것 — 두 벌이 되면
+      «비우면 표준값으로 되돌린다(reset)» 같은 뜻이 한쪽에서만 지켜진다.
+   ⚠️ 정본 표는 settlement_rate_override 이고 scope_key 는 «대리점 이름» 이다
+      (centers 에 칸을 만들지 않는다 — api-admin.ts 주석 참고). 그래서 이름을 바꾸는
+      저장에서는 반드시 **바뀐 뒤 이름**으로 불러야 한다.
+
+   🔴 [사람이 정할 일 — 2026-09-11 함정 대조가 찾음] «대리점 이름을 바꾸면» 이 설정이
+      화면에서 사라져 보인다. 목록이 `WHERE o.scope_key = c.name` 으로 잇기 때문이다.
+      그런데 **정산 계산은 centers.name 이 아니라 students_erp.shop_name 으로 찾는다**
+      (accounting-reports.ts 의 resolveHqRate(ov, branch, agency) — agency = shop_name).
+      두 값은 원래도 921건 중 744건만 일치한다(api-admin.ts PATCH 주석의 실측).
+      ⟹ 여기서 키를 «새 이름으로 옮기면» 화면은 맞아 보이지만 **정산에는 오히려 안 걸리게**
+         된다. 그래서 옮기지 않는다 — 안 옮기는 쪽이 돈 계산에는 맞다.
+      ⛔ 확신 없이 «옮기기» 를 넣지 말 것. 근본 해결은 scope_key 를 이름이 아니라 id 로
+         바꾸는 것이고, 그건 정산 계산까지 걸린 별건이다.
+      📌 2026-09-11 실측: settlement_rate_override **0행** — 아직 아무도 설정하지 않았다.
+         그래서 지금은 피해가 없다. 첫 설정이 들어가는 날 이 줄을 다시 읽을 것. */
+async function _ctPostTuition(name, raw) {
+  const v = String(raw == null ? '' : raw).trim();
+  const body = v === ''
+    ? { scope_type: 'agency', scope_key: name, reset: true }              // 비우면 표준값으로
+    : { scope_type: 'agency', scope_key: name, tuition_krw: Number(v) };
+  const r = await fetch('/api/admin/settlement/rate-config', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.ok === false) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+  return d;
+}
+window._ctPostTuition = _ctPostTuition;
+
 async function ctSetTuition(id, inp) {
   const prev = inp.getAttribute('data-prev') || '';
   const name = inp.getAttribute('data-name') || '';
   const raw = String(inp.value || '').trim();
   const en = (adminLang === 'en');
   if (!name) { alert(en ? 'Agency name missing' : '대리점 이름을 알 수 없습니다'); inp.value = prev; return; }
-  const body = raw === ''
-    ? { scope_type: 'agency', scope_key: name, reset: true }              // 비우면 표준값으로
-    : { scope_type: 'agency', scope_key: name, tuition_krw: Number(raw) };
   try {
-    const r = await fetch('/api/admin/settlement/rate-config', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+    await _ctPostTuition(name, raw);
   } catch (e) {
     inp.value = prev;
     alert((en ? 'Failed to save tuition: ' : '수강료 저장 실패: ') + e.message);
@@ -5808,6 +5837,9 @@ function ctSearch(v) {
 // ✏️ (2026-09-11) 수정 모드 — 0 이면 등록, >0 이면 그 id 를 고치는 중.
 //    🏯 본사 관리(hqEdit/saveHqOrg/_hqSetBtnLabel)와 같은 방식이라 그대로 본떴다.
 var _ctEditId = 0;
+/* 💰 수정 폼을 열 때의 «원래» 수강료. 저장할 때 **달라졌을 때만** rate-config 를 부른다 —
+   안 그러면 연락처 하나만 고쳐도 정산 설정표에 행이 새로 생기거나(설정 안 한 곳) 지워진다. */
+var _ctTuitionPrev = '';
 function _ctSetBtnLabel(btn, ko, en) {
   // 🪤 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다 — data-ko/en 도 함께 갱신한다.
   if (!btn) return;
@@ -5818,7 +5850,8 @@ function _ctSetBtnLabel(btn, ko, en) {
 function ctResetForm() {
   _ctEditId = 0;
   const e = id => document.getElementById(id);
-  ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-tuition','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  _ctTuitionPrev = '';
   if (e('ct-franchise')) e('ct-franchise').value = '';
   if (e('ct-paytype')) e('ct-paytype').value = '';
   const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = '';
@@ -5844,6 +5877,9 @@ function ctEdit(id) {
   if (e('ct-phone')) e('ct-phone').value = c.phone == null ? '' : c.phone;
   if (e('ct-address')) e('ct-address').value = c.address == null ? '' : c.address;
   if (e('ct-paytype')) e('ct-paytype').value = c.payment_type || '';
+  // 💰 안 정한 곳은 빈 칸 그대로 둔다 — 30,000 을 채워 넣으면 «사람이 정한 값» 처럼 보인다.
+  _ctTuitionPrev = (c.tuition_krw == null || c.tuition_krw === '') ? '' : String(Number(c.tuition_krw));
+  if (e('ct-tuition')) e('ct-tuition').value = _ctTuitionPrev;
   if (e('ct-login-id')) e('ct-login-id').value = '';
   if (e('ct-login-pw')) e('ct-login-pw').value = '';
   const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = 'none';
@@ -5859,6 +5895,8 @@ async function saveCenter() {
   const e = id => document.getElementById(id);
   const name = (e('ct-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  // 💰 ctResetForm() 이 칸을 비우므로 «비우기 전에» 읽어 둔다.
+  const tuitionNow = e('ct-tuition') ? String(e('ct-tuition').value || '').trim() : '';
   if (_ctEditId) {
     // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
     let d;
@@ -5883,8 +5921,22 @@ async function saveCenter() {
       alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
       return;
     }
+    /* 💰 (2026-09-11) 수강료 — 대리점 저장이 **끝난 뒤**, «바뀐 뒤 이름» 으로 따로 보낸다.
+       정본 표가 settlement_rate_override 라(scope_key = 대리점 이름) 요청이 둘로 나뉘고,
+       그래서 «반쪽 성공» 이 생길 수 있다 — 조용히 넘기지 말고 무엇이 됐고 무엇이 안 됐는지
+       사람에게 그대로 말한다(CLAUDE.md 「보냈습니다라고 하는데 아무 데도 안 갔음」). */
+    let tuitionErr = '';
+    if (tuitionNow !== _ctTuitionPrev) {
+      try { await _ctPostTuition(name, tuitionNow); }
+      catch (err2) { tuitionErr = err2.message; }
+    }
     ctResetForm();
     loadCenters();
+    if (tuitionErr) {
+      alert(adminLang==='en'
+        ? ('Agency info was saved, but the tuition was NOT saved: ' + tuitionErr)
+        : ('대리점 정보는 저장했지만 «수강료» 는 저장하지 못했습니다: ' + tuitionErr));
+    }
     // 🔑 이름을 바꿨는데 그 대리점에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛
     // 이름» 기준으로 학생을 찾는다(서버가 일부러 안 옮긴다 — 위 api-admin.ts 주석 참고).
     // 조용히 넘어가면 나중에 그 계정이 「내 학생이 안 보인다」로 제보하게 된다.
@@ -5915,7 +5967,16 @@ async function saveCenter() {
     login_username: loginId || null, login_password: loginPw || null
   });
   if (d) {
-    ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    // 💰 등록도 같은 규칙 — 값을 적었을 때만 따로 보낸다(안 적었으면 표준 30,000원).
+    if (tuitionNow !== '') {
+      try { await _ctPostTuition(name, tuitionNow); }
+      catch (err3) {
+        alert(adminLang==='en'
+          ? ('Agency was created, but the tuition was NOT saved: ' + err3.message)
+          : ('대리점은 등록했지만 «수강료» 는 저장하지 못했습니다: ' + err3.message));
+      }
+    }
+    ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-tuition','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
     if (d.login_created) {
       alert(adminLang==='en' ? ('Agency login account created: ' + loginId)
                               : ('대리점 로그인 계정을 만들었습니다: ' + loginId));
