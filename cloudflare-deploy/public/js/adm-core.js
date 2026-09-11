@@ -5141,16 +5141,28 @@ function _masterOptions(cur) {
     .filter(m => m.active !== 0 || Number(m.id) === Number(cur))
     .map(m => `<option value="${m.id}"${Number(m.id)===Number(cur)?' selected':''}>${_esc(m.name)}</option>`).join('');
 }
+// ✏️ (2026-09-11) 지금 화면에 그려진 목록 원본 + can_edit — 대리점(centers)과 같은 이유·같은 방식.
+var _frRows = [];
+var _frCanEdit = true;
 async function loadFranchises() {
   const tb = document.getElementById('franchises-table');
   await _ensureMasterBranches();
   const r = await fetch('/api/admin/franchises',{cache:'no-store',credentials:'include'});
   const d = await r.json().catch(()=>({}));
-  if (!d.ok || !d.items || d.items.length === 0) { if (tb) tb.innerHTML='<tr><td colspan="7" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
+  if (typeof d.can_edit === 'boolean') _frCanEdit = d.can_edit;
+  if (!d.ok || !d.items || d.items.length === 0) { _frRows = []; if (tb) tb.innerHTML='<tr><td colspan="8" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
+  _frRows = d.items;
+  // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·대표자·전화·주소·개설일을
+  // 고친다(frEdit). can_edit 은 GET 이 이미 알려 준다(본사만 true).
+  const _frActCell = f => _frCanEdit
+    ? `<button type="button" onclick="frEdit(${Number(f.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+        style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
+    : '';
   if (tb) tb.innerHTML = d.items.map(f =>
     `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td>`
     + `<td><select onchange="assignMasterBranch(${f.id}, this.value, this)" style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;max-width:150px">${_masterOptions(f.master_branch_id)}</select></td>`
-    + `<td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td></tr>`
+    + `<td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td>`
+    + `<td style="white-space:nowrap">${_frActCell(f)}</td></tr>`
   ).join('');
   _populateFranchiseSelect(d.items);
 }
@@ -5279,16 +5291,80 @@ async function _ensureFranchiseSelect() {
     if (d && d.ok && Array.isArray(d.items)) _populateFranchiseSelect(d.items);
   } catch (e) { /* 목록 없이도 등록은 가능(지사 미지정) */ }
 }
-async function addFranchise() {
+// ✏️ (2026-09-11) 수정 모드 — 대리점(centers)의 _ctEditId/ctResetForm/ctEdit 와 같은 방식.
+var _frEditId = 0;
+function frResetForm() {
+  _frEditId = 0;
+  const e = id => document.getElementById(id);
+  ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
+  const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
+}
+window.frResetForm = frResetForm;
+
+/* ✏️ (2026-09-11 신설 — 사장님 제보 「지사도 대리점과 마찬가지로 수정 메뉴가 없다」)
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다(대리점 ctEdit 과 같은 방식). */
+function frEdit(id) {
+  const f = _frRows.filter(x => String(x.id) === String(id))[0];
+  if (!f) return;
+  const e = k => document.getElementById(k);
+  _frEditId = f.id;
+  if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
+  if (e('fr-owner')) e('fr-owner').value = f.owner_name == null ? '' : f.owner_name;
+  if (e('fr-phone')) e('fr-phone').value = f.phone == null ? '' : f.phone;
+  if (e('fr-address')) e('fr-address').value = f.address == null ? '' : f.address;
+  if (e('fr-opened')) e('fr-opened').value = f.opened_at == null ? '' : f.opened_at;
+  const wrap = e('fr-form-wrap'); if (wrap) wrap.open = true;
+  _ctSetBtnLabel(e('fr-add-btn'), '💾 수정 저장', '💾 Save');
+  const cancel = e('fr-cancel-btn'); if (cancel) cancel.style.display = '';
+  if (e('fr-name')) e('fr-name').focus();
+}
+window.frEdit = frEdit;
+
+async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  if (_frEditId) {
+    let d;
+    try {
+      const r = await fetch('/api/admin/franchises', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: _frEditId, name,
+          owner_name: e('fr-owner').value || null, phone: e('fr-phone').value || null,
+          address: e('fr-address').value || null, opened_at: e('fr-opened').value || null
+        })
+      });
+      d = await r.json().catch(() => ({}));
+      // 서버가 사람이 읽을 message 를 주면 그걸 우선한다 — d.error 는 'duplicate_franchise_name'
+      // 같은 코드뿐이라 뜻이 안 통한다(_menuPost 와 같은 규칙).
+      if (!r.ok || d.ok === false) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+    } catch (err) {
+      alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
+      return;
+    }
+    frResetForm();
+    loadFranchises();
+    // 🔑 이름을 바꿨는데 그 지사에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛 이름»
+    // 기준으로 학생을 찾는다(서버가 일부러 안 옮긴다 — 대리점(centers)과 같은 이유).
+    if (d && d.login_account_note) {
+      alert(adminLang==='en'
+        ? ('Note: branch account "' + d.login_account_note.username + '" still looks up students by the OLD name ("'
+            + d.login_account_note.old_name + '"). Please review that account manually if needed.')
+        : ('참고: 이 지사의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
+            + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
+    }
+    return;
+  }
   const d = await _menuPost('/api/admin/franchises', {
     name, owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
   if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
+window.saveFranchise = saveFranchise;
 
 // ── 🏯 본사 관리 (hq_orgs) ────────────────────────────────────────────
 /* (2026-08-18 수정요청 #13) 「시스템 › 조직 관리 › 본사 관리」에 본사 정보가 없다.
@@ -11505,7 +11581,7 @@ window.bulkCopyContacts = function() {
 (function bindPhase9Menus(){
   const e = id => document.getElementById(id);
   if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);
-  if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
+  if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', saveFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', saveCenter);
   // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)
   if (e('hq-add-btn'))      e('hq-add-btn').addEventListener('click', saveHqOrg);

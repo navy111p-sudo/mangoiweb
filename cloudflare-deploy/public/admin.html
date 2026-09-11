@@ -8305,7 +8305,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <details class="sub-item" id="sub-branches">
         <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 대리점(학원)
+               ct-form-wrap 과 같은 방식(js/adm-core.js 의 frEdit/saveFranchise/frResetForm).
+               ontoggle 로 «닫힐 때만» frResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _frEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 지사를 덮어쓰게 된다. -->
+          <details id="fr-form-wrap" ontoggle="if(!this.open&&window.frResetForm)window.frResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 신규 등록" data-en="+ Add Branch">+ 지사 신규 등록</summary>
             <div class="menu-form">
               <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
@@ -8314,10 +8318,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
               <input id="fr-opened" type="date" />
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
+              <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
-          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
-            <tbody id="franchises-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="franchises-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
 
           <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
                지사를 고르면 그 지사 «소속» 대리점만 나온다. 이름으로 찾던 예전 방식은
@@ -10177,7 +10183,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=208" defer></script><!-- 분할추출:adm-core (v=208: 2026-09-11 대리점(학원) «수정» 메뉴 신설 — 사장님 제보 「대리점을 수정할
+<script src="/js/adm-core.js?v=209" defer></script><!-- 분할추출:adm-core (v=209: 2026-09-11 지사 «수정» 메뉴 신설 — 사장님 제보 「지사도 대리점과
+     마찬가지로 수정 메뉴가 없다」. 대리점(v=208)과 같은 방식·같은 위험을 그대로 옮겼다 — 표
+     마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다(saveFranchise/frEdit/
+     frResetForm). 이름·대표자·전화·주소는 카페24 야간 동기화가 매일 밤 덮어써서(cafe24-sync.ts
+     의 insF UPSERT) 서버가 정정표(franchise_manual_override)에 함께 적어야 다음날 원복되지
+     않는다(개설일만 카페24가 안 건드리는 칸). 이름을 바꿔도 그 지사 로그인 계정(scope_type=
+     'branch')의 admin_scope.scope_value 는 옮기지 않는다 — students_erp.franchise 도 카페24가
+     독립적으로 채우는 값이라 안 따라오고, 옮기면 그 계정이 «학생이 0명» 으로 보이는 사고가
+     된다. 이름이 겹치는 다른 지사가 이미 있으면(연결된 계정이 있을 때만) 막는다) (v=208: 2026-09-11 대리점(학원) «수정» 메뉴 신설 — 사장님 제보 「대리점을 수정할
      수 있는 메뉴가 없다」. 표 마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다
      (saveCenter/ctEdit/ctResetForm, hqEdit 과 같은 방식). 이름·지사·국가·담당자·연락처(신설
      ct-phone)·주소를 한 번에 고친다 — 이름·지사·주소·담당자는 카페24 야간 동기화가 매일 밤

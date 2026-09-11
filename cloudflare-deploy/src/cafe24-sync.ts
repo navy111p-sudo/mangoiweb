@@ -46,6 +46,13 @@ export async function ensureCenterOverrideTables(env: SyncEnv): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_manual_override (center_id INTEGER PRIMARY KEY, name TEXT, address TEXT, manager TEXT, updated_at INTEGER NOT NULL);`);
 }
 
+/** 🏢 지사(franchises) 수동 정정 표 — 카페24 UPSERT 가 매일 밤 덮어쓰는 name·address·phone·
+ *  owner_name 을, 관리자가 화면에서 고친 뒤에도 지키기 위한 표다. 위 center_manual_override
+ *  와 같은 이유·같은 방식(2026-09-11 신설, 지사 ✏️ 수정 메뉴). DDL 정본은 여기 하나. */
+export async function ensureFranchiseOverrideTable(env: SyncEnv): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_manual_override (franchise_id INTEGER PRIMARY KEY, name TEXT, address TEXT, phone TEXT, owner_name TEXT, updated_at INTEGER NOT NULL);`);
+}
+
 /** 🏢 지사(240)·센터(916) → D1 franchises/centers. cafe24 ID 를 D1 id 로 보존. */
 export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: number; centers: number }> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
@@ -67,6 +74,26 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
     const rows = rowsToObjects(br.fields, br.values.slice(i, i + 200));
     await env.DB.batch(rows.map(r => insF.bind(Number(r.id), r.name || '(무명지사)', r.address || null, r.phone || null, r.manager || null, Number(r.active) ? 1 : 0, '[cafe24]', nowMs, nowMs)));
   }
+
+  /* 🏢 지사 이름·주소·전화·대표자 «수동 정정» 을 다시 입힌다 (2026-09-11 신설, 관리자 화면
+     ✏️ 수정 메뉴). 바로 위 UPSERT 의 SET 목록에 name·address·phone·owner_name 이 전부 있어서
+     (줄 62~63) 카페24가 매일 밤 덮어쓴다 — 관리자가 화면에서 지사 정보를 고쳐도 그날 밤이면
+     원래 값으로 되돌아가는 사고를 막는다(centers 판 center_manual_override 와 같은 이유).
+     ⚠️ 실제로 바뀐 칸만 덮는다(COALESCE) — 아래에서 실제로 달라진 값만 override 에 남긴다. */
+  try {
+    await ensureFranchiseOverrideTable(env);
+    await env.DB.prepare(
+      `UPDATE franchises SET
+         name = COALESCE((SELECT o.name FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), name),
+         address = COALESCE((SELECT o.address FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), address),
+         phone = COALESCE((SELECT o.phone FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), phone),
+         owner_name = COALESCE((SELECT o.owner_name FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), owner_name)
+        WHERE id IN (SELECT franchise_id FROM franchise_manual_override)`
+    ).run();
+  } catch (e: any) {
+    console.warn('[cafe24-sync] 지사 이름·주소·전화·대표자 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
+  }
+
   const ce = await runCypher(env, `MATCH (c:Center) RETURN c.center_id AS id, c.branch_id AS branch_id, c.name AS name, c.address AS address, c.manager AS manager, c.active AS active ORDER BY c.center_id`, {}, 'READ');
   // ⚠️ 여기가 «대리점 B2B/B2C 지정이 매일 밤 사라지던» 자리다(2026-08-14 발견).
   //    centers.payment_type 은 카페24에 없는, D1 에서만 사람이 지정하는 값인데
