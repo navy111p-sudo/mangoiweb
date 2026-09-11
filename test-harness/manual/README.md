@@ -837,7 +837,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 
 ---
 
-## vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠 (45건 · 2026-09-11)
+## vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠 (46건 · 2026-09-11)
 
 회선이 무너져 영상을 끄면 상대 타일이 **마지막 장면에서 멈추고** 위쪽에 띠가 붙는다
 (`.vc-aao-freeze` — 「📶 영상 멈춤 · 소리는 정상 · N초 전 모습」).

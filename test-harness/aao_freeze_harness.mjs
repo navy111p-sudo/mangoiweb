@@ -326,7 +326,15 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   const t6 = addTile(e6, 'u1', 320);
   e6.win.vcRemoteCamOff = { u1: 'aao' };
   e6.win.vcApplyRemoteCamHint('u1');
-  ok(/ago/.test(t6.box.querySelector('.vc-aao-freeze').textContent), 'C-16 EN 화면에는 영어로 적는다');
+  /* 🌐 2026-09-11 — 「EN 화면에는 «영어로» 적는다」던 단정을 버렸다.
+     사장님 지시가 «한/영 병기» 이고(9/10 제보: 폰 언어가 EN 인 한국인이 영어만 받음),
+     언어로 «갈라» 쓰는 것이 바로 그 사고였다. 새 경계는 «두 말이 늘 함께 있다» 이다.
+     ⚠️ 짝으로 묻는다 — 앞만 보면 «한국어만» 도 통과하고, 뒤만 보면 «영어만» 도 통과한다. */
+  const s16 = t6.box.querySelector('.vc-aao-freeze').textContent;
+  ok(/Video paused/.test(s16), 'C-16 EN 화면에도 영어가 들어 있다');
+  ok(/영상 멈춤/.test(s16), 'C-16b 그때도 한국어가 함께 있다(병기)');
+  const s16k = t.box.querySelector('.vc-aao-freeze').textContent;
+  ok(/Video paused/.test(s16k) && /영상 멈춤/.test(s16k), 'C-16c KO 화면에서도 두 말이 함께');
 
   // ⑦ 늦게 들어온 상대에게도 다시 건다
   const e7 = boot(five);
@@ -446,7 +454,7 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
     ['트랙을 비우는 방식으로 바꾸기', five.replace('p.encodings[0].active = want;', 's.replaceTrack(null);')],
     ['사람이 끈 카메라에도 멈춤 띠 붙이기', five.replace("if (why !== 'aao') {", 'if (false) {')],
     ['보여 줄 장면이 없어도 «멈춤» 이라 말하기', five.replace('if (!v || !v.videoWidth) {', 'if (false) {')],
-    ['«N초 전» 을 빼기', five.replace(" + sec + '초 전 모습'", " + ''")],
+    ['«N초 전» 을 빼기', five.replace(" + sec + '초 전 / ", " + '' + '")],
     ['흑백을 빼기', five.replace("v.style.filter = 'grayscale(1)'", "v.style.filter = ''")],
     ['화면공유 보호를 빼기(교재가 사라진다)', five.replace('window.__vcScreenSharing ? true : !!on', '!!on')],
     ['내 타일 표시를 빼기', five.replace('try { vcAaoSelfMark(!want); } catch (_) {}', '')],
