@@ -5488,6 +5488,12 @@ window.hqDelete = hqDelete;
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
 var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
+// ✏️ (2026-09-11) 지금 화면에 그려진 페이지(최대 50건) 원본 — ctEdit(id) 이 여기서 찾는다.
+//    또 fetch 하지 않는 이유: 수정 버튼을 누른 순간과 목록을 다시 불러온 순간 사이에
+//    다른 사람이 그 대리점을 고쳐도, 지금 «화면에 보이는» 값 그대로 편집을 시작해야
+//    사람이 방금 본 것과 폼에 채워진 값이 어긋나지 않는다.
+var _ctRows = [];
+var _ctCanEdit = true;   // GET 이 알려 준 can_edit — 강사·지사·대리점 계정에겐 ✏️ 수정 버튼을 안 그린다
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
@@ -5506,6 +5512,7 @@ async function loadCenters(opts) {
   } catch (e) { d = {}; }
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
+  if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
   _ctRenderPtFilter();
   // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
   // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
@@ -5513,11 +5520,13 @@ async function loadCenters(opts) {
     return loadCenters({ offset: Math.max(0, _ctState.total - _ctState.limit) });
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="8" class="empty">'
+    _ctRows = [];
+    tb.innerHTML = '<tr><td colspan="10" class="empty">'
       + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
+  _ctRows = d.items;
   // 💳 (2026-08-12 수정요청 #05) 결제유형 컬럼 — 행에서 바로 바꿀 수 있는 드롭다운.
   //    centers 엔 수정 API 가 없었어서, 기존 921건에 유형을 지정할 방법이 이것뿐이다.
   const _ptCell = c => {
@@ -5544,8 +5553,16 @@ async function loadCenters(opts) {
       style="width:96px;padding:2px 6px;font-size:12px;text-align:right;border:1px solid ${v?'#7c3aed':'#d1d5db'};border-radius:6px;background:${v?'#f5f3ff':'#fff'};color:${v?'#5b21b6':'#6b7280'};font-weight:${v?'700':'400'}">
       <span style="font-size:10px;color:#9ca3af"> ${eff.toFixed(0)}%</span>`;
   };
+  // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·지사·국가·담당자·연락처·주소를
+  //    고친다(ctEdit). 서버가 이미 GET 에서 알려 주는 can_edit(=본사만 true)로 가린다 —
+  //    지사·대리점 계정에겐 표를 감추지 않고 «이 버튼만» 뺀다(그 계정으로 눌러도 서버가
+  //    canEditOrg() 로 403 을 주긴 하지만, 눌러도 안 되는 버튼을 아예 안 보이게 하는 것뿐이다).
+  const _actCell = c => _ctCanEdit
+    ? `<button type="button" onclick="ctEdit(${Number(c.id)})" data-ko="✏️ 수정" data-en="✏️ Edit"
+        style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
+    : '';
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
@@ -5656,10 +5673,85 @@ function ctSearch(v) {
   clearTimeout(_ctSearchTimer);
   _ctSearchTimer = setTimeout(() => loadCenters({ q: v }), 250);
 }
-async function addCenter() {
+// ✏️ (2026-09-11) 수정 모드 — 0 이면 등록, >0 이면 그 id 를 고치는 중.
+//    🏯 본사 관리(hqEdit/saveHqOrg/_hqSetBtnLabel)와 같은 방식이라 그대로 본떴다.
+var _ctEditId = 0;
+function _ctSetBtnLabel(btn, ko, en) {
+  // 🪤 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다 — data-ko/en 도 함께 갱신한다.
+  if (!btn) return;
+  btn.setAttribute('data-ko', ko);
+  btn.setAttribute('data-en', en);
+  btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
+}
+function ctResetForm() {
+  _ctEditId = 0;
+  const e = id => document.getElementById(id);
+  ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  if (e('ct-franchise')) e('ct-franchise').value = '';
+  if (e('ct-paytype')) e('ct-paytype').value = '';
+  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = '';
+  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = '';
+  _ctSetBtnLabel(e('ct-add-btn'), '+ 등록', '+ Register');
+  const c = e('ct-cancel-btn'); if (c) c.style.display = 'none';
+}
+window.ctResetForm = ctResetForm;
+
+/* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다. 로그인 계정 만들기 칸은 숨긴다 —
+   계정을 «새로 붙이는» 일은 대리점 정보 수정과는 다른 작업이고, 이미 로그인 계정이 있는
+   대리점에서 이 칸을 다시 채워 저장하면 «이미 있는 아이디» 로 걸려 헷갈리기만 한다. */
+function ctEdit(id) {
+  const c = _ctRows.filter(x => String(x.id) === String(id))[0];
+  if (!c) return;
+  const e = k => document.getElementById(k);
+  _ctEditId = c.id;
+  if (e('ct-franchise')) e('ct-franchise').value = c.franchise_id == null ? '' : String(c.franchise_id);
+  if (e('ct-name')) e('ct-name').value = c.name == null ? '' : c.name;
+  if (e('ct-country')) e('ct-country').value = c.country == null ? '' : c.country;
+  if (e('ct-manager')) e('ct-manager').value = c.manager == null ? '' : c.manager;
+  if (e('ct-phone')) e('ct-phone').value = c.phone == null ? '' : c.phone;
+  if (e('ct-address')) e('ct-address').value = c.address == null ? '' : c.address;
+  if (e('ct-paytype')) e('ct-paytype').value = c.payment_type || '';
+  if (e('ct-login-id')) e('ct-login-id').value = '';
+  if (e('ct-login-pw')) e('ct-login-pw').value = '';
+  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = 'none';
+  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = 'none';
+  const wrap = e('ct-form-wrap'); if (wrap) wrap.open = true;
+  _ctSetBtnLabel(e('ct-add-btn'), '💾 수정 저장', '💾 Save');
+  const cancel = e('ct-cancel-btn'); if (cancel) cancel.style.display = '';
+  if (e('ct-name')) e('ct-name').focus();
+}
+window.ctEdit = ctEdit;
+
+async function saveCenter() {
   const e = id => document.getElementById(id);
   const name = (e('ct-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  if (_ctEditId) {
+    // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
+    try {
+      const r = await fetch('/api/admin/centers', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: _ctEditId,
+          franchise_id: e('ct-franchise').value || null, name,
+          country: e('ct-country').value || null, manager: e('ct-manager').value || null,
+          phone: e('ct-phone') ? (e('ct-phone').value || null) : null,
+          address: e('ct-address').value || null,
+          payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,
+        })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+    } catch (err) {
+      alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
+      return;
+    }
+    ctResetForm();
+    loadCenters();
+    return;
+  }
   // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
   //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
   const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
@@ -5672,12 +5764,13 @@ async function addCenter() {
   const d = await _menuPost('/api/admin/centers', {
     franchise_id: e('ct-franchise').value || null, name,
     country: e('ct-country').value||null, manager: e('ct-manager').value||null,
+    phone: e('ct-phone') ? (e('ct-phone').value || null) : null,
     address: e('ct-address').value||null,
     payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,   // 💳 (2026-08-12 수정요청 #05)
     login_username: loginId || null, login_password: loginPw || null
   });
   if (d) {
-    ['ct-name','ct-country','ct-manager','ct-address','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    ['ct-name','ct-country','ct-manager','ct-phone','ct-address','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
     if (d.login_created) {
       alert(adminLang==='en' ? ('Agency login account created: ' + loginId)
                               : ('대리점 로그인 계정을 만들었습니다: ' + loginId));
@@ -5685,6 +5778,7 @@ async function addCenter() {
     loadCenters();
   }
 }
+window.saveCenter = saveCenter;
 
 // ── 레벨테스트 ───────────────────────────────────────────────────────
 async function loadLevelTests() {
@@ -11399,7 +11493,7 @@ window.bulkCopyContacts = function() {
   const e = id => document.getElementById(id);
   if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
-  if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', addCenter);
+  if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', saveCenter);
   // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)
   if (e('hq-add-btn'))      e('hq-add-btn').addEventListener('click', saveHqOrg);
   if (e('hq-cancel-btn'))   e('hq-cancel-btn').addEventListener('click', hqResetForm);

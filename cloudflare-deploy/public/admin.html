@@ -8357,13 +8357,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
         <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
         <div data-gc="➕ 등록·목록" data-gc-en="Register & List" class="sub-body">
-          <details>
+          <!-- ✏️ (2026-09-11 신설) 이 details 하나가 «등록» 과 «수정» 을 겸한다 — 표의 ✏️ 수정
+               버튼(ctEdit)이 이 칸을 열고 값을 채운 뒤 버튼 글자만 «💾 수정 저장」 으로 바꾼다
+               (js/adm-core.js 의 🏯 본사 관리 hqEdit/saveHqOrg 와 같은 방식). id 는 ct-form-wrap. -->
+          <!-- ⚠️ ontoggle 로 «닫힐 때만» ctResetForm — 수정 중이던 폼을 그냥 닫고 다시 열면
+               _ctEditId 가 그대로 남아, 새로 등록하려 한 것이 방금 보던 대리점을 덮어쓰게 된다.
+               (열릴 때도 이 이벤트가 뜨므로 반드시 !this.open 을 먼저 본다 — ctEdit() 이
+               wrap.open=true 로 여는 그 순간에 되돌리면 안 된다.) -->
+          <details id="ct-form-wrap" ontoggle="if(!this.open&&window.ctResetForm)window.ctResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대리점(학원) 신규 등록" data-en="+ Add Agency">+ 대리점(학원) 신규 등록</summary>
             <div class="menu-form">
               <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
               <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
               <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
               <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
+              <!-- 📞 (2026-09-11 신설) 연락처 — centers.phone, 카페24가 안 주는 칸이라 매일 밤 동기화가 안 건드린다. -->
+              <input id="ct-phone"    placeholder="연락처"          data-ko-placeholder="연락처"          data-en-placeholder="Phone" style="width:130px;" />
               <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
               <!-- 💳 (2026-08-12 수정요청 #05) 결제 유형 — B2B(학원이 본사·대리점에 결제) / B2C(학부모 직접 결제) -->
               <select id="ct-paytype" title="이 대리점의 결제 방식 — B2B/B2C 결제 리스트 분리의 기준이 됩니다" style="width:130px;">
@@ -8374,16 +8383,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <!-- 🔑 (2026-08-19 사장님 요청) 대리점 로그인 계정 — 둘 다 채워야 계정이 만들어진다.
                    비워 두면 등록만 되고 로그인 계정은 만들지 않는다(기존 동작 유지).
                    서버가 admin_account + admin_scope(scope_type='agency') 를 실제로 만든다
-                   (addCenter() → POST /api/admin/centers, api-admin.ts). -->
-              <input id="ct-login-id" placeholder="대리점 로그인 아이디 (선택)" autocomplete="off"
-                     data-ko-placeholder="대리점 로그인 아이디 (선택)" data-en-placeholder="Agency login ID (optional)"
-                     style="width:150px;" />
-              <input id="ct-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
-                     data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
-                     style="width:140px;" />
+                   (saveCenter() → POST /api/admin/centers, api-admin.ts).
+                   ✏️ 수정 모드에서는 이 칸을 숨긴다(ctEdit) — 계정은 «새로 만드는» 것이라
+                   기존 대리점 수정과는 별개 작업이다. -->
+              <span id="ct-login-wrap" style="display:inline-flex;gap:6px;">
+                <input id="ct-login-id" placeholder="대리점 로그인 아이디 (선택)" autocomplete="off"
+                       data-ko-placeholder="대리점 로그인 아이디 (선택)" data-en-placeholder="Agency login ID (optional)"
+                       style="width:150px;" />
+                <input id="ct-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+                       data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
+                       style="width:140px;" />
+              </span>
               <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+              <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표, 🏯 본사 관리의 hq-cancel-btn 과 같은 방식). -->
+              <button id="ct-cancel-btn" onclick="ctResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
-            <div style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+            <div id="ct-login-hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
                  data-ko="※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다."
                  data-en="※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.">※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.</div>
           </details>
@@ -8403,8 +8418,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
             <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
           </div>
-          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="주1회 수강료" data-en="Weekly-1 tuition">주1회 수강료</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
-            <tbody id="centers-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="주1회 수강료" data-en="Weekly-1 tuition">주1회 수강료</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="연락처" data-en="Phone">연락처</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="centers-table"><tr><td colspan="10" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -10162,7 +10177,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=206" defer></script><!-- 분할추출:adm-core (v=206: 2026-09-10 수강신청 «목록» 에도 번호 표시·수정(📞/📵) — 등록 화면 칸은 앞으로 등록되는 학생용이라, 이미 등록된 학생(테스트 명단 9명)에게 번호를 넣을 자리가 없었다 · v=205: 2026-09-10 수강신청 등록 표에 「학부모 연락처」 칸 — 수업 30분 전 리마인더가 최근 7일 671건을 감지하고도 번호가 없어 0건 발송이던 것. 서버가 student_erp_override 에 적고(동기화가 못 덮는 자리) 저장 실패는 화면이 말한다) (v=204: 2026-09-09 「녹화」 검색이 실시간 수업(활성 룸) 카드로 가던 것 — 별칭 한 줄에 «녹화»와 «활성방»이 함께 묶여 있어 라벨 「녹화·활성 방」이 1순위였다. 두 줄로 갈라 녹화는 card-recording-storage 로) (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=207" defer></script><!-- 분할추출:adm-core (v=207: 2026-09-11 대리점(학원) «수정» 메뉴 신설 — 사장님 제보 「대리점을 수정할
+     수 있는 메뉴가 없다」. 표 마지막 칸에 ✏️ 수정 버튼을 달아 등록 폼을 수정 모드로 재사용한다
+     (saveCenter/ctEdit/ctResetForm, hqEdit 과 같은 방식). 이름·지사·국가·담당자·연락처(신설
+     ct-phone)·주소를 한 번에 고친다 — 이름·지사·주소·담당자는 카페24 야간 동기화가 매일 밤
+     덮어써서(cafe24-sync.ts), 서버가 정정표(center_manual_override·center_franchise_override)에
+     함께 적어야 다음날 원복되지 않는다. 이름을 바꾸면 그 대리점 로그인 계정의 admin_scope.
+     scope_value 도 함께 옮긴다(안 옮기면 그 계정이 «자기 자료가 사라진» 것처럼 보인다)) (v=206: 2026-09-10 수강신청 «목록» 에도 번호 표시·수정(📞/📵) — 등록 화면 칸은 앞으로 등록되는 학생용이라, 이미 등록된 학생(테스트 명단 9명)에게 번호를 넣을 자리가 없었다 · v=205: 2026-09-10 수강신청 등록 표에 「학부모 연락처」 칸 — 수업 30분 전 리마인더가 최근 7일 671건을 감지하고도 번호가 없어 0건 발송이던 것. 서버가 student_erp_override 에 적고(동기화가 못 덮는 자리) 저장 실패는 화면이 말한다) (v=204: 2026-09-09 「녹화」 검색이 실시간 수업(활성 룸) 카드로 가던 것 — 별칭 한 줄에 «녹화»와 «활성방»이 함께 묶여 있어 라벨 「녹화·활성 방」이 1순위였다. 두 줄로 갈라 녹화는 card-recording-storage 로) (원복: 이 파일을 이 위치에 인라인)
    · v=199: 2026-09-02 녹화 보관기간 3개월 → 6개월(신규분부터). 화면 문구에서 «3개월/90-day» 숫자를 뺐다 —
      기존 2,098건 3개월 + 신규 6개월이 섞여 한 숫자로 말하면 어느 쪽이든 거짓이 되기 때문.
      「30일 내 만료」 타일 단위는 «곧 만료»(이미 만료가 아니다 — 그 집계는 아직 만료 안 된 건수다)

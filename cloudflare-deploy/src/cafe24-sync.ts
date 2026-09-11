@@ -37,6 +37,15 @@ const normPhone = (v: any): string | null => {
   return t ? t : null;
 };
 
+/** 🏪 대리점(centers) 수동 정정 표 둘 — 카페24 UPSERT 가 매일 밤 덮어쓰는 franchise_id·
+ *  name·address·manager 를, 관리자가 화면에서 고친 뒤에도 지키기 위한 표다.
+ *  DDL 정본은 여기 하나 — 다른 파일(api-admin.ts)에서 복사해 만들지 말고 이 함수를 부를 것
+ *  (schema_drift_harness 의 «같은 표가 여러 벌» 검사가 그걸 잡는다). */
+export async function ensureCenterOverrideTables(env: SyncEnv): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_franchise_override (center_id INTEGER PRIMARY KEY, franchise_id INTEGER NOT NULL, prev_franchise_id INTEGER, reason TEXT, updated_at INTEGER NOT NULL);`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_manual_override (center_id INTEGER PRIMARY KEY, name TEXT, address TEXT, manager TEXT, updated_at INTEGER NOT NULL);`);
+}
+
 /** 🏢 지사(240)·센터(916) → D1 franchises/centers. cafe24 ID 를 D1 id 로 보존. */
 export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: number; centers: number }> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
@@ -93,7 +102,7 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
      ⚠️ 정본은 어디까지나 카페24다. 여기 적는 것은 «카페24를 고치기 전까지의 임시 정정»
         이며, 카페24에서 고치고 나면 이 표의 행을 지우는 것이 맞다. */
   try {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_franchise_override (center_id INTEGER PRIMARY KEY, franchise_id INTEGER NOT NULL, prev_franchise_id INTEGER, reason TEXT, updated_at INTEGER NOT NULL);`);
+    await ensureCenterOverrideTables(env);
     await env.DB.prepare(
       `UPDATE centers SET franchise_id = (SELECT o.franchise_id FROM center_franchise_override o WHERE o.center_id = centers.id)
         WHERE id IN (SELECT center_id FROM center_franchise_override)
@@ -101,6 +110,25 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
     ).run();
   } catch (e: any) {
     console.warn('[cafe24-sync] 대리점 지사 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
+  }
+
+  /* 🏪 대리점 이름·주소·담당자 «수동 정정» 을 다시 입힌다 (2026-09-11 신설, 관리자 화면 ✏️ 수정 메뉴).
+     바로 위 franchise_id override 와 같은 이유 — 위 UPSERT 의 SET 목록에 name·address·manager 가
+     있어서(줄 71) 카페24가 매일 밤 덮어쓴다. 관리자가 화면에서 대리점 이름을 고쳐도 그날 밤이면
+     원래 이름으로 되돌아가는 사고를 막는다(CLAUDE.md 「학생 이름을 D1 에서 고쳤는데 다음날
+     원복됨」과 같은 뿌리 — centers 판이다). ⚠️ 세 칸 중 사람이 실제로 고친 칸만 덮는다
+     (COALESCE) — 이름만 고쳤는데 주소·담당자까지 override 에 «비어 있음» 으로 박히면
+     다음 카페24 수정이 그 두 칸에는 영영 안 먹는다. */
+  try {
+    await env.DB.prepare(
+      `UPDATE centers SET
+         name = COALESCE((SELECT o.name FROM center_manual_override o WHERE o.center_id = centers.id), name),
+         address = COALESCE((SELECT o.address FROM center_manual_override o WHERE o.center_id = centers.id), address),
+         manager = COALESCE((SELECT o.manager FROM center_manual_override o WHERE o.center_id = centers.id), manager)
+        WHERE id IN (SELECT center_id FROM center_manual_override)`
+    ).run();
+  } catch (e: any) {
+    console.warn('[cafe24-sync] 대리점 이름·주소·담당자 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
   }
 
   return { franchises: br.values.length, centers: ce.values.length };
