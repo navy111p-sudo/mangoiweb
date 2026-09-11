@@ -173,6 +173,12 @@ chk(/getElementById\(['"]btn-free['"]\)[\s\S]{0,200}\.click\(\)/.test(presetBloc
 chk(/data-view="day"[\s\S]{0,200}\.click\(\)/.test(presetBlock),
     '오늘은 일간 뷰 버튼을 실제로 누른다');
 chk(presetBlock.includes('search-input'), '강사·학생은 검색창을 세워 준다');
+/* 🔒 편집 잠금(PR #934)과의 짝 — 이 화면은 «기본이 보기 전용» 이다.
+   ⛔ 프리셋이 그 잠금을 대신 풀면 «실수로 끌리지 않게» 넣은 방어가 링크 하나로 죽는다.
+   ⛔ 그렇다고 「끌면 바뀝니다」로 단정해도 안 된다 — 잠긴 상태에서는 거짓말이 된다.
+      (그 거짓 약속이 바로 이번 수리가 없앤 병이다) */
+chk(!/ws-lock-btn/.test(presetBlock), '프리셋이 편집 잠금을 대신 풀지 않는다');
+chk(/🔒|잠김|Locked/.test(presetBlock), '드래그 안내가 «먼저 편집을 켜라» 고 말한다');
 /* 배지는 흐름 안에 넣어야 한다 — fixed 로 띄우면 다른 것을 덮는다 */
 chk(!/position\s*:\s*fixed/.test(presetBlock), '배지를 position:fixed 로 띄우지 않는다');
 /* 상주 타이머 금지 — 홈을 통째로 멎게 한 전력 */

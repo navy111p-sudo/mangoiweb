@@ -3971,8 +3971,12 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
         if(key === 'today'){
           var dayBtn = document.querySelector('.view-toggle button[data-view="day"]');
           if(dayBtn) dayBtn.click();
-          badge('🔄 오늘 수업 — 칸을 끌어다 놓으면 시간·강사가 바뀝니다',
-                '🔄 Today — drag a cell to change its time or teacher');
+          /* ⚠️ 「끌면 바뀝니다」로 단정하지 말 것 — 2026-09-11 PR #934 로 이 화면은
+             «기본이 보기 전용»(🔒 잠김, 자동 잠금 3분)이 됐다. 실수로 끌리지 않게 넣은
+             방어라 ⛔ 프리셋이 그 잠금을 대신 풀어 주면 안 된다(링크 하나로 방어가 죽는다).
+             화면이 할 일은 «다음에 무엇을 눌러야 하는지» 를 사실대로 말하는 것뿐이다. */
+          badge('🔄 오늘 수업 — 칸을 끌어 옮기려면 위 🔒 잠김 을 눌러 편집을 켜세요',
+                '🔄 Today — to drag a cell, press 🔒 Locked above to start editing');
         } else if(key === 'free'){
           var freeBtn = document.getElementById('btn-free');
           if(freeBtn && !freeBtn.classList.contains('on')) freeBtn.click();
