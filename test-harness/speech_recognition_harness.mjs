@@ -138,6 +138,7 @@ async function testAiFriend() {
   // record({lang, onState}) 를 정확히 부르고, 결과 텍스트로 sendMsg 가 호출되는지 확인.
   const doc = makeFakeDoc(['msgInput', 'micBtn']);
   const sent = [];
+  const barge = { stops: 0 };
   let lastRecordOpts = null, resolveRecord = null;
   const FakeMangoiVoice = {
     supported: () => true,
@@ -151,6 +152,9 @@ async function testAiFriend() {
     setTimeout: (cb) => cb(),   // 이 배선 검증엔 실제 지연이 필요 없음
     clearTimeout: () => {},
     isEn: () => false,
+    /* ⏹ B (2026-09-11) — 마이크를 열면 AI 낭독을 멈춥니다. 그 정지가 «정본 한 곳» 으로 모이면서
+       이 배선에도 들어왔습니다. 스텁으로 두되 «실제로 불렸는가» 를 아래에서 셉니다. */
+    stopSpeakingNow: () => { barge.stops++; },
     sendMsg: () => { const v = (doc.els.msgInput.value || '').trim(); if (v) sent.push(v); doc.els.msgInput.value = ''; },
     console,
   };
@@ -161,6 +165,10 @@ async function testAiFriend() {
   // 1회차
   toggleMic();
   check('toggleMic → MangoiVoice.record 호출', !!lastRecordOpts, '녹음이 시작되지 않음');
+
+  /* ⏹ B — 말을 걸었으면 AI 낭독이 멈춰야 합니다. ⛔ 안 멈추면 학생 목소리와 AI 목소리가 겹치고,
+     A-1 의 문장 큐가 살아 있으면 «멈춘 척» 했다가 다음 문장을 이어서 말합니다. */
+  check('마이크를 열면 AI 낭독을 멈춘다 (B)', barge.stops >= 1, '정지 ' + barge.stops + '회');
   check('영어 힌트로 호출됨', lastRecordOpts && lastRecordOpts.lang === 'en', JSON.stringify(lastRecordOpts));
   resolveRecord('I like dogs');
   await flush();

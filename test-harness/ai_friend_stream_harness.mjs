@@ -131,7 +131,13 @@ console.log('\n③ 화면 — 문장 큐와 중복 낭독');
 const U = strip(UI);
 ok('stream: 1 을 보낸다', /stream: 1/.test(U));
 ok('Content-Type 으로 옛 서버와 가른다', /text\/event-stream/.test(U));
-ok('새 턴이 시작되면 앞 턴 큐를 끊는다', /stmReset\(\);\s*\n\s*appendMsg\('user'/.test(U));
+/* ⚠️ «바로 다음 줄» 로 못 박지 마세요 — B(끼어들기)가 그 사이에 한 줄을 넣자 보장은 그대로인데
+   검사만 깨졌습니다(2026-09-11). 물어야 할 것은 «학생 말풍선을 그리기 «전» 에 끊는가» 입니다. */
+(function(){
+  var i = U.indexOf("appendMsg('user', msg)");
+  var head = i > 0 ? U.slice(Math.max(0, i - 600), i) : '';
+  ok('새 턴이 시작되면 앞 턴 큐를 끊는다', /stmReset\(\)/.test(head), head.slice(-120));
+})();
 /* ⛔ 연달아 부르면 발화 순번이 앞 문장을 끊습니다 — «앞 문장이 끝나면 다음» 이어야 합니다. */
 ok('문장 큐가 앞 문장이 끝나기를 기다린다', /_stmChain = _stmChain\.then/.test(U));
 ok('speakText 가 끝 콜백을 받는다', /function speakText\(text, btn, row, onDone\)/.test(U));

@@ -2111,8 +2111,26 @@ function saveApi(v){
   try{ localStorage.setItem('mangoi_api_base', API_BASE); }catch(e){}
   location.reload();   // 설정 반영을 위해 새로고침(연결 상태/첫 인사 갱신)
 }
+/* ⏹ B (2026-09-11) — 글로 말을 걸 때도 AI 낭독을 멈춥니다.
+   ℹ️ 마이크로 말을 걸 때는 이미 멈춥니다(startMic 의 _stopSpeak).
+   ⛔ 음성으로 «자동» 감지하지 않습니다 — 스피커로 들으면 AI 가 자기 말에 끼어듭니다
+      (2026-07-23 「음성인식이 AI 말을 받아 적던」 사고와 같은 뿌리).
+   ⚠️ «한 번만» 멈춥니다 — 매 글자마다 부르면 발화 순번(_speakSeq)만 계속 오릅니다. */
+(function armWarmupTypingBarge(){
+  var inp = document.getElementById('inp');
+  if(!inp || inp._bargeBound) return;
+  inp._bargeBound = true;
+  inp.addEventListener('input', function(){
+    if(!inp.value) return;                 // 지우는 것은 말을 거는 것이 아닙니다
+    if(inp._bargeDone) return;
+    inp._bargeDone = true;
+    _stopSpeak();
+  });
+})();
+
 async function sendMsg(){
   var inp = document.getElementById('inp');
+  inp._bargeDone = false;                  // ⏹ 다음 답변에도 끼어들 수 있게
   var text = (inp.value||'').trim();
   if(!text || sending) return;
   /* 🎤 (2026-07-27) 마이크가 아직 듣는 중인데 사용자가 보내기/엔터로 먼저 전송하면(급한 마음에

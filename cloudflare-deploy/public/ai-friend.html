@@ -1242,6 +1242,14 @@
       if (_stmRow && _stmRow.parentNode) _stmRow.parentNode.removeChild(_stmRow);
       _stmRow = null;
     }
+    /* ⏹ B (2026-09-11) — «AI 가 말하는 중에 학생이 말을 걸면 멈춘다».
+       ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
+          재생해, 멈춘 것처럼 보였다가 곧 다시 말합니다. 정지는 반드시 이 한 곳으로. */
+    function stopSpeakingNow() {
+      stmReset();                                   // 큐·미리보기·세대 번호
+      try { window.MangoiTTS && MangoiTTS.stop && MangoiTTS.stop(); } catch(e){}
+      try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
+    }
     function stmSpeak(sen) {
       if (!isSoundOn()) return;
       var my = _stmGen;
@@ -1383,8 +1391,7 @@
       }
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
       _whisperOn = true; _recognizing = true; updateMicUI();
-      try { if (window.MangoiTTS && MangoiTTS.stop) MangoiTTS.stop(); } catch(e){}
-      try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
+      stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
       const said = await MangoiVoice.record({
         lang: 'en',
         onState: (s, info) => {
@@ -1578,6 +1585,7 @@
       /* 📡 새 턴 — 앞 턴의 문장 큐·미리보기를 끊습니다.
          ⛔ 안 끊으면 학생이 다음 말을 보냈는데 «앞 답» 이 계속 읽힙니다. */
       stmReset();
+      try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
       sndPop();
       appendTyping();
@@ -1649,6 +1657,24 @@
       document.getElementById('sendBtn').disabled = false;
       input.focus();
     }
+    /* ⏹ B — 글로 말을 걸 때도 멈춥니다(마이크가 없거나 조용한 곳에서 쓰는 학생).
+       ⚠️ «한 번만» 멈춥니다 — 매 글자마다 부르면 발화 순번만 계속 오릅니다.
+       ⛔ 음성으로 «자동» 감지하지 않습니다 — 스피커로 들으면 AI 가 자기 말에 끼어듭니다
+          (2026-07-23 「음성인식이 AI 말을 받아 적던」 사고와 같은 뿌리). 학생의 «몸짓» 에만 반응합니다. */
+    (function armTypingBarge(){
+      var inp = document.getElementById('msgInput');
+      if (!inp || inp._bargeBound) return;
+      inp._bargeBound = true;
+      inp.addEventListener('input', function(){
+        if (!inp.value) return;                     // 지워지는 것은 말을 거는 것이 아닙니다
+        if (inp._bargeDone) return;
+        inp._bargeDone = true;
+        stopSpeakingNow();
+      });
+      /* 보내고 나면 다음 답변에 다시 끼어들 수 있어야 합니다. */
+      inp.addEventListener('mangoi:turn-sent', function(){ inp._bargeDone = false; });
+    })();
+
     function quickSend(text) {
       document.getElementById('msgInput').value = text;
       sendMsg();
