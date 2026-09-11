@@ -9261,8 +9261,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   function toKakao(){
     if (window.openKakao) return window.openKakao();
     var url = (window.KAKAO_CHANNEL_URL || 'https://pf.kakao.com/_xlqnSxd'), w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
-    if (!w) { try { location.href = url; } catch(_){} }
+    try { w = window.open(url, '_blank'); } catch(e){}
+    if (w) { try{ w.opener=null; }catch(e){} } else { try{ location.href=url; }catch(_){} }
     return false;
   }
 
@@ -14170,8 +14170,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   window.KAKAO_CHANNEL_URL = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID;
   window.openKakao = function(){
     var url = window.KAKAO_CHANNEL_URL, w = null;
-    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
-    if (!w) { try { location.href = url; } catch(_){} }   // 팝업차단·인앱 브라우저
+    try { w = window.open(url, '_blank'); } catch(e){}
+    if (w) { try{ w.opener=null; }catch(e){} } else { try{ location.href=url; }catch(_){} }   // 팝업차단·인앱
     return false;
   };
 })();
