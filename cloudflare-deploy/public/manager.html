@@ -1132,10 +1132,18 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
   function reqErrOf(st, j){
     var e = (j && j.error) || '';
+    /* 🔴 (2026-09-11) 강사 판정을 «맨 앞» 으로 옮겼다 — 서버는 forbidden_teacher 를 **403** 으로
+       주는데, 아래 `st === 403` 줄이 먼저 걸려 이 갈래가 **한 번도 닿지 않는 죽은 줄**이었다.
+       그래서 강사가 눌러도 「다른 지사·대리점 요청입니다」라는 엉뚱한 말이 나왔다(하니스가 잡음).
+       ⛔ 다시 아래로 내리지 말 것. 코드로 먼저 가르고, 모르는 것만 상태값으로 떨어뜨린다.
+       🪪 계정 한 줄은 서버가 완성해 준 who_line 을 붙이기만 한다 — ⛔ 문장을 베껴 적지 말 것 */
+    if (e === 'forbidden_teacher') {
+      var _w = (j && (EN() ? j.who_line_en : j.who_line)) || '';
+      return T('Teachers cannot decide.', '강사는 승인·거절할 수 없습니다.') + (_w ? ' ' + _w : '');
+    }
     if (st === 403 || e === 'forbidden_scope')  return T('Not your branch’s request.', '다른 지사·대리점 요청입니다.');
     if (st === 409 || e === 'already_decided')  return T('Already handled.', '이미 처리된 요청입니다.');
     if (st === 404 || e === 'request_not_found')return T('Request not found.', '요청을 찾을 수 없습니다.');
-    if (e === 'forbidden_teacher')              return T('Teachers cannot decide.', '강사는 승인·거절할 수 없습니다.');
     return T('Failed. Try again.', '처리하지 못했습니다. 다시 눌러 주세요.');
   }
 
@@ -1372,7 +1380,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](ok && typeof window.mangoiOpenBulkTextbook === 'function');
     };
     var sc = document.createElement('script');
-    sc.src = '/js/adm-bulkbook.js?v=10';
+    sc.src = '/js/adm-bulkbook.js?v=11';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

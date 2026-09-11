@@ -501,7 +501,7 @@ console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인)
     const blk = blockAt(R, "if (p.startsWith('c24-mirror/'))");
     check('⑫ 쓰기 블록을 찾았다', blk.length > 800, blk.length);
     check('⑫ 쓰기는 POST 만 받는다', /method[\s\S]{0,40}!== 'POST'/.test(blk));
-    check('🔴 ⑫ 강사를 막는다(getAdminActor.isTeacher)', /actor\.isTeacher\)? return json\(\{ ok: false, error: 'forbidden_teacher'/.test(blk));
+    check('🔴 ⑫ 강사를 막는다(getAdminActor.isTeacher)', /actor\.isTeacher\)? return json\((?:\{ ok: false, error: 'forbidden_teacher'|forbiddenTeacherBody\()/.test(blk));
     check('🔴 ⑫ 지사·대리점을 막는다(isOrgScopedRole)', /isOrgScopedRole\([\s\S]{0,80}forbidden_scope/.test(blk));
     check('⑫ canEditOrg 로 막지 않는다(그 함수는 교사에게도 true)', !/canEditOrg/.test(blk));
     check('⑫ dry_run 은 «false 일 때만» 실행', /dry_run: body\?\.dry_run === false \? false : true/.test(blk));

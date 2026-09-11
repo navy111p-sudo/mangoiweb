@@ -242,7 +242,10 @@
       return T('대상이 ' + n + '명으로 너무 많아 막았습니다. 학생 검색어로 범위를 좁혀 주세요.',
                'Blocked: ' + n + ' targets is too many. Narrow it down with the student filter.');
     }
-    if (FAIL_TEXT[code]) return isEn() ? FAIL_TEXT[code][1] : FAIL_TEXT[code][0];
+    /* 🪪 «지금 누구로 들어와 있는가» — 서버가 완성해 준 who_line 을 붙이기만 한다.
+       ⛔ 그 문장을 이 파일에 베껴 적지 말 것(정본은 src/forbidden-teacher.ts 하나). */
+    var whoLine = (j && (isEn() ? j.who_line_en : j.who_line)) || '';
+    if (FAIL_TEXT[code]) return (isEn() ? FAIL_TEXT[code][1] : FAIL_TEXT[code][0]) + (whoLine ? ' ' + whoLine : '');
     if (code) return T('실패 (' + code + ')', 'Failed (' + code + ')');
     if (status) return T('서버가 ' + status + ' 로 거절했습니다.', 'The server refused with HTTP ' + status + '.');
     return T('실패', 'Failed');

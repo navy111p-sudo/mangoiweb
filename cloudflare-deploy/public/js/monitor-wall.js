@@ -25,6 +25,10 @@
   var EN = false;
   try { EN = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
   var L = function(ko, en){ return EN ? en : ko; };
+  /* 🪪 「지금 로그인한 계정: …」 — 서버(src/forbidden-teacher.ts)가 완성해 준 한 문장.
+     ⛔ 그 문장을 이 파일에 베껴 적지 말 것. 서버가 안 줬으면 빈 문자열이고, 그때는
+        계정 줄 없이 예전 문구 그대로 나간다(모르는 것을 지어내지 않는다). */
+  function whoLineNow(){ return (EN ? state.forbiddenWhoEn : state.forbiddenWho) || ''; }
   /* 세션은 클릭 «시점» 에 읽는다 — 페이지가 세션보다 먼저 열려 있어도 기록이 빠지지 않게 */
   function myUid(){
     try { return String((JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid||'').trim(); }
@@ -41,7 +45,7 @@
   }
 
   var state = { rooms:[], sched:[], counts:null, alerts:{}, names:{}, quality:{},
-                turn:'', authFail:false, forbidden:false, lastAt:0, turnAt:0 };
+                turn:'', authFail:false, forbidden:false, forbiddenWho:'', forbiddenWhoEn:'', lastAt:0, turnAt:0 };
   var hoverGrid = false;   /* 마우스가 표 위에 있는 동안 재렌더 금지 — 오클릭 방지 */
   var pendingRender = false;
 
@@ -67,6 +71,10 @@
       state.authFail = !(cn && cn.ok === true);
       /* 🚷 강사 계정 — 서버가 이름으로 거절한다. 목록 자체를 그리지 않는다(아래 render) */
       state.forbidden = !!(cn && cn.ok === false && cn.error === 'forbidden_teacher');
+      /* 🪪 «지금 누구로 들어와 있는가» — 서버가 완성해 준 한 문장을 그대로 들고만 있는다.
+         ⛔ 문장을 여기에 베껴 적지 말 것(정본은 src/forbidden-teacher.ts 하나). */
+      state.forbiddenWho   = (state.forbidden && cn && cn.who_line)    ? String(cn.who_line)    : '';
+      state.forbiddenWhoEn = (state.forbidden && cn && cn.who_line_en) ? String(cn.who_line_en) : '';
       state.sched  = (cn && cn.ok === true && Array.isArray(cn.classes)) ? cn.classes : [];
       state.counts = (cn && cn.ok === true) ? (cn.counts || null) : null;
       var alerts = {};
@@ -198,7 +206,8 @@
 
     $('auth-warn').innerHTML = state.forbidden
       ? '<div class="err">' + L('이 화면은 본사·매니저 전용입니다. 강사 계정으로는 볼 수 없습니다.',
-                                'This screen is for HQ and managers only. Teacher accounts cannot view it.') + '</div>'
+                                'This screen is for HQ and managers only. Teacher accounts cannot view it.')
+        + (whoLineNow() ? ' ' + esc(whoLineNow()) : '') + '</div>'
       : (state.authFail
         ? '<div class="err">' + L('관리자 로그인이 필요하거나 예약 정보를 불러오지 못했습니다. 화상방 목록만 표시 중 — ',
                                   'Admin login required, or booked-class info failed to load. Showing video rooms only — ')

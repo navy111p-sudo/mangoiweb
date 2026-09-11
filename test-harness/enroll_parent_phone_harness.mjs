@@ -374,7 +374,7 @@ check('H-5 그 경로도 저장 결과를 응답에 싣는다', /phone_saved/.te
 check('H-10 목록이 강사에게는 번호를 안 실어 준다',
   /isTeacher/.test(strip(enrollRoute)) && /maySeePhones/.test(strip(enrollRoute)));
 check('H-11 번호 수정은 강사를 막는다(403)',
-  /isTeacher/.test(patchStrip) && /forbidden_teacher/.test(patchStrip));
+  /isTeacher/.test(patchStrip) && /forbidden_teacher|forbiddenTeacherBody/.test(patchStrip));
 check('H-12 역할을 못 물어보면 «막는 쪽» 으로 실패한다',
   /let mayEditPhone = false/.test(patchStrip) && /let maySeePhones = false/.test(strip(enrollRoute)),
   '기본값이 true 면 조회 한 번 실패에 그대로 새어 나간다');
