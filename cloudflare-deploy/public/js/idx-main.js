@@ -6608,7 +6608,8 @@ function attachStreamMonitor(box, stream) {
 /* 🔇 (2026-08-07 강사 건의 1) "마이크는 켜져 있는데 소리가 안 들어온다"를 타일 위에 그대로 적는다.
    [왜 필요한가] 강사가 가장 답답해하는 순간은 «학생이 말을 안 하는 건지, 마이크가 죽은 건지» 모를 때다.
    음소거(🎤 ✖)와 «켜져 있는데 무음»은 완전히 다른 상황인데 화면에서 구분이 안 됐다.
-   문구는 한/영 두 벌 — 강사 다수가 필리핀이다. */
+   문구는 한/영 두 벌 — 강사 다수가 필리핀이다.
+   ⛔ 2026-09-11 지시 — 학생·관찰자에겐 안 띄운다(8초 침묵에도 떴다). 강사 버튼만 남긴다. */
 function vcMarkNoSound(box, on) {
     if (!box) return;
     let b = box.querySelector('.vc-nosound-badge');
@@ -6619,20 +6620,17 @@ function vcMarkNoSound(box, on) {
     const uid = (box.id || '').replace('vc-video-', '');
     /* 강사에게는 «누를 수 있는» 배지로 준다 — 이 한 번의 클릭이 학생 브라우저에서 마이크를
        다시 잡게 한다(건의 1의 "학생 기기 설정을 바꾸고 싶다"에 대한 가장 가벼운 답).
-       학생·관찰자에게는 그냥 안내 문구. */
+       학생·관찰자에게는 안 띄운다(위 ⛔). */
     const staff = (typeof vcIsStaffNow === 'function') ? vcIsStaffNow() : false;
-    b = document.createElement(staff && uid ? 'button' : 'div');
+    if (!(staff && uid)) return;
+    b = document.createElement('button');
     b.className = 'vc-nosound-badge';
-    b.textContent = staff && uid
-        ? (en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기')
-        : (en ? '🔇 No sound coming in' : '🔇 소리가 안 들어와요');
+    b.textContent = en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기';
     b.title = en
         ? 'Mic is on but nothing is heard. Tapping asks their browser to pick up the microphone again.'
         : '마이크는 켜져 있는데 소리가 없어요. 누르면 학생 브라우저가 마이크를 다시 잡습니다.';
-    if (staff && uid) {
-        b.type = 'button';
-        b.addEventListener('click', function (e) { e.stopPropagation(); vcRequestMicFix(uid, b); });
-    }
+    b.type = 'button';
+    b.addEventListener('click', function (e) { e.stopPropagation(); vcRequestMicFix(uid, b); });
     box.appendChild(b);
 }
 
