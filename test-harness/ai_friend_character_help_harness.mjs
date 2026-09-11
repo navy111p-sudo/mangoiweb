@@ -105,8 +105,43 @@ check('첫 화면(빈 화면)에서 친구를 먼저 고르게 한다',
   /오늘은 누구랑 이야기할까요\?/.test(aif) && aif.indexOf('friendCards()') < aif.indexOf('모험 주제를 골라볼까요?'));
 check('고르면 지금 고른 카드에 표시가 옮겨간다(정적 카드도)',
   /friend-card\[data-v\][\s\S]{0,120}classList\.toggle\('on'/.test(aif));
+/* ⚠️ 「식 모양」을 글자 그대로 못 박지 말 것 — 2026-09-10 에 «인사 중복»(누를 때마다 쌓임)을
+      고치느라 이 블록이 여러 줄이 되자, 보장은 오히려 세졌는데 이 검사만 빨간불이 났다
+      (CLAUDE.md 「하니스가 «객체 모양» 을 정규식으로 못 박아 두어」).
+      물어야 할 것은 «인사를 붙이는가»·«소리를 켠 사람에게만 읽어 주는가» 다. */
+const greetBlock = (() => {
+  const i = aif.search(/if\s*\(\s*greet\s*\)\s*\{/);
+  if (i < 0) return '';
+  const st = aif.indexOf('{', i);
+  let d = 0;
+  for (let k = st; k < aif.length; k++) {
+    if (aif[k] === '{') d++;
+    else if (aif[k] === '}') { d--; if (d === 0) return aif.slice(st, k + 1); }
+  }
+  return '';
+})();
+check('«고르면 인사» 블록을 찾았다', greetBlock.length > 0);
 check('고르면 그 친구가 자기 목소리로 인사한다(귀로도 확인)',
-  /if \(greet\) \{ appendMsg\('ai', f\.hi\); if \(isSoundOn\(\)\) speakText/.test(aif));
+  /appendMsg\(\s*'ai'\s*,\s*f\.hi\s*\)/.test(greetBlock)
+  && /isSoundOn\(\)[\s\S]{0,60}speakText\(/.test(greetBlock));
+/* 🧹 (2026-09-10) 인사는 «한 번에 하나» — 전에는 카드를 누를 때마다 덧붙어 같은 인사가 쌓였다
+      (사장님 화면 실측 2줄). ⚠️ 여기서 재는 것은 «그렇게 짜여 있는가» 까지다.
+      «정말 안 쌓이는가» 는 브라우저로만 볼 수 있다:
+        test-harness/manual/ai-friend-greet-rate-browser.mjs (사람이 부릅니다) */
+check('인사를 «맨 끝 것만» 갈아끼운다(눌러도 안 쌓인다)',
+  /friendGreet/.test(greetBlock) && /lastElementChild/.test(greetBlock) && /\.remove\(\)/.test(greetBlock));
+/* ⛔ 이 부정 검사를 «이름»(friendGreet)이나 «한 가지 모양»(querySelectorAll)으로 물으면 놓친다 —
+      2026-09-10 변이시험 실측: 속성 형태 `[data-friend-greet]` 로 바꾸거나
+      `[...chatEl.children].filter(…).forEach(x=>x.remove())` 로 쓰면 둘 다 통과했다.
+      ✅ 그래서 «지우는 대상이 무엇인가» 로 묻는다 — 블록 안의 모든 `.remove(` 가
+         «맨 끝»(lastElementChild)을 지우는 것이어야 한다.
+      ⚠️ 한계: `const last = chatEl.lastElementChild; … last.remove();` 처럼 둘을 멀리
+         떼어 놓으면 거짓 FAIL 이 난다. 그때는 이 검사를 느슨하게 하지 말고 붙여 쓰거나,
+         «정말 안 쌓이는가» 를 브라우저 하니스로 확인하고 여기 근거를 적을 것. */
+const removals = [...greetBlock.matchAll(/\.remove\(/g)].map((m) => m.index);
+check('지우는 것이 «맨 끝» 하나뿐이다(앞의 진짜 대화는 안 건드린다)',
+  removals.length > 0 && removals.every((i) => /lastElementChild/.test(greetBlock.slice(Math.max(0, i - 120), i))),
+  removals.map((i) => greetBlock.slice(Math.max(0, i - 60), i + 9)));
 check('고르면 얼굴도 같이 바뀐다', /setFriend[\s\S]{0,700}?syncAvatarToVoice\(\)/.test(aif));
 
 /* ═══════════════════════════════════════════════════════════

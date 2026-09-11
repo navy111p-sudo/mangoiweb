@@ -225,7 +225,10 @@ console.log('\nC. 이름표(로스터) 등록을 늦게라도 해내는가');
     is(b.account_uid === 'stu9' && b.room && b.peer_id, 'C-1d 방·번호·계정을 함께 보낸다');
   }
 
-  // C-2 학생 로그인이 없으면 관리자 세션에서 계정을 빌린다
+  /* C-2 ⛔ 관리자 세션으로 계정을 «빌려 오지» 않는다.
+     처음 판에 그 폴백을 넣었다가 함정 대조에서 뺐다 — 닿지 않거나(관리자 세션이 있으면
+     vcMyRole=admin 이라 위 교사 가드에서 물러난다), 닿으면 **학생 자리를 선생님 계정으로**
+     올려 그 방 칭찬 포인트가 관리자에게 간다. 1P = 1원이라 되돌리기 어렵다. */
   {
     const { env, g } = makeEnv({ adminSession: { uid: 'jeong', name: '정우영' } });
     g.getCurrentUser = () => null;
@@ -234,9 +237,10 @@ console.log('\nC. 이름표(로스터) 등록을 늦게라도 해내는가');
     g.window.vcRegisterRosterIdentity();
     env.fire();
     await new Promise((r2) => setImmediate(r2));
-    is(env.posts.length >= 1 && env.posts[0].body.account_uid === 'jeong',
-      'C-2 학생 키가 없으면 관리자 세션 uid 로 등록한다',
+    is(env.posts.length === 0, 'C-2 학생 키가 없으면 관리자 세션으로 등록하지 «않는다»',
       `실제 ${env.posts.length}회 ${JSON.stringify(env.posts[0] && env.posts[0].body)}`);
+    is(!/mangoi_admin_session/.test(ROSTER.replace(/\/\*[\s\S]*?\*\//g, '')),
+      'C-2b 관리자 세션 키를 읽지 않는다(주석은 벗겨 내고 판정)');
   }
 
   // C-3 ⛔ 짝 검사 — 교사는 등록하지 않는다 (칭찬을 «받는» 쪽이 아니다)
@@ -292,54 +296,97 @@ console.log('\nD. 번호가 죽었을 때 이름으로 찾되 «유일할 때만
   })();
   is(ROUTE.length > 200, 'D-0a award-praise 라우트를 잘라 냈다', '못 자르면 아래가 전부 헛돈다');
 
-  /* 🪤 «유일할 때만» 판정을 하니스에 **베껴 적으면 안 된다** — 소스를 한 번도 안 보고
-     내가 적은 값만 보게 되어, 소스에서 조건을 풀어도 초록불이 된다(실제로 그 상태였다).
-     그래서 조건식을 소스에서 «읽어» 그대로 평가한다(CLAUDE.md 2장 「자기가 새로 만든 상수를 잡아 통과」). */
-  const condSrc = (ROUTE.match(/if\s*\((uniq\.size[^)]*)\)\s*rr\s*=\s*rows\[0\]/) || [])[1] || '';
-  is(!!condSrc, 'D-0b 「후보가 몇이면 받는가」 조건식을 소스에서 읽었다', '못 읽으면 D-1·D-2 가 헛돈다');
-  const uniqOk = condSrc ? new Function('uniq', `return (${condSrc});`) : () => false;
+  /* 🪤 후보 세기를 하니스에 **베껴 적으면 안 된다** — 소스를 한 번도 안 보고 내가 적은
+     값만 보게 되어, 소스에서 조건을 풀어도 초록불이 된다(실제로 그 상태였다).
+     그래서 SQL 도 조건도 소스에서 «읽어» 진짜 SQLite 에 돌린다. */
+  const countSql = (ROUTE.match(/SELECT account_uid FROM vc_roster[\s\S]*?GROUP BY account_uid[^`]*/) || [])[0] || '';
+  const pickSql = (ROUTE.match(/SELECT account_uid, name, role FROM vc_roster\s+WHERE room_id=\? AND account_uid=\?[^`]*/) || [])[0] || '';
+  is(!!countSql, 'D-0b 후보를 세는 SQL 을 소스에서 읽었다', '못 읽으면 D-1~D-3 이 헛돈다');
+  is(!!pickSql, 'D-0c 확정된 계정의 행을 가져오는 SQL 을 소스에서 읽었다');
+  const condSrc = (ROUTE.match(/if\s*\((rows\.length[^)]*)\)\s*\{/) || [])[1] || '';
+  is(!!condSrc, 'D-0d 「후보가 몇이면 받는가」 조건식을 소스에서 읽었다');
+  const uniqOk = condSrc ? new Function('rows', `return (${condSrc});`) : () => false;
 
-  const m = API.match(/SELECT account_uid, name, role FROM vc_roster\s+WHERE room_id=\? AND name=\?[\s\S]*?LIMIT 20/);
-  is(!!m, 'D-0 award-praise 의 이름 폴백 SQL 을 오려 냈다', '못 오려 내면 아래가 헛돈다');
-  if (m) {
+  try {
     const db = new DatabaseSync(':memory:');
     db.exec(`CREATE TABLE vc_roster (room_id TEXT, peer_id TEXT, account_uid TEXT, name TEXT, role TEXT, updated_at INTEGER, PRIMARY KEY(room_id, peer_id));`);
-    const add = (peer, uid, name) => db.prepare(
-      `INSERT INTO vc_roster VALUES (?,?,?,?,'student',?)`
-    ).run('R', peer, uid, name, Date.now());
-    add('p-old', 'stu9', '민준');      // 죽은 번호
-    add('p-new', 'stu9', '민준');      // 같은 사람이 다시 들어옴 = 새 번호
-    add('p-x', 'other1', '민서');
-    add('p-y', 'other2', '민서');      // 동명이인 — 계정이 둘
+    let seq = 0;
+    const add = (uid, name, when) => db.prepare(
+      `INSERT INTO vc_roster VALUES ('R',?,?,?,'student',?)`
+    ).run('p' + (++seq), uid, name, when);
 
-    const sql = m[0].replace(/\s+/g, ' ');
+    /* 🔴 이 fixture 가 이번 사고의 핵심이다.
+       vc_roster 는 PRIMARY KEY(room_id, peer_id) 라 **재접속 한 번 = 행 한 개**다.
+       2026-09-10 실측: 한 방의 한 학생이 **31행**(mangoi-class · jeong).
+       처음 판은 최근 20행만 가져와 Set 으로 세었고, 그러면 오래된 동명이인 행이
+       잘려 나가 «후보가 하나» 가 참이 된다 — 막으려던 그 일이 일어난다.
+       ⛔ 이 시나리오를 «2행짜리» 로 줄이지 말 것. 그러면 절단이 안 일어나
+          검사가 통째로 헛돈다(처음에 그 상태였고 함정 대조가 잡았다). */
+    add('stuB', '민서', 1);                                  // 동명이인 — 오래된 쪽
+    for (let i = 0; i < 25; i++) add('stuA', '민서', 100 + i); // 재접속 25번 — 최근 쪽
+    for (let i = 0; i < 25; i++) add('stu9', '민준', 200 + i); // 이름이 유일한 학생
+
     const pick = (name) => {
-      const rows = db.prepare(sql).all('R', name);
-      const uniq = new Set(rows.map((r) => String(r.account_uid)));
-      return uniqOk(uniq) && rows.length ? rows[0].account_uid : null;   // 소스에 적힌 조건 그대로
+      const rows = db.prepare(countSql.replace(/\s+/g, ' ')).all('R', name);
+      if (!uniqOk(rows)) return null;                        // 소스에 적힌 조건 그대로
+      const r = db.prepare(pickSql.replace(/\s+/g, ' ')).get('R', String(rows[0].account_uid));
+      return r ? r.account_uid : null;
     };
-    is(pick('민준') === 'stu9', 'D-1 번호가 죽어도 이름이 유일하면 그 계정을 찾는다');
-    is(pick('민서') === null, 'D-2 동명이인이면 붙이지 않는다(모르는 것보다 틀린 게 나쁘다)');
+    is(pick('민준') === 'stu9', 'D-1 번호가 죽어도 이름이 유일하면 그 계정을 찾는다 (25행)');
+    is(pick('민서') === null,
+      'D-2 동명이인이면 붙이지 않는다 — **행이 20개를 넘어도**',
+      '재접속이 잦은 방에서 오래된 동명이인이 잘려 나가면 남의 포인트가 간다');
     is(pick('없는이름') === null, 'D-3 없는 이름이면 붙이지 않는다');
     db.close();
+  } catch (e) {
+    /* ⚠️ 여기서 던지면 스택만 남고 «무엇이 깨졌는지» 가 안 보인다 — 깔끔한 FAIL 로.
+       (CLAUDE.md 2장 「부를 때를 안 감싸면 하니스를 크래시시킨다」) */
+    no('D-1~D-3 동명이인 시나리오를 돌렸다', '소스의 SQL 모양이 바뀌어 못 돌렸다: ' + (e && e.message));
   }
 
-  // D-4 «유일할 때만» 이 코드에 실제로 있는가 — 이것이 D-2 의 근거다
-  is(/uniq\.size\s*===\s*1/.test(API), 'D-4 후보가 정확히 하나일 때만 받는다',
-    '이 줄이 빠지면 동명이인에게 남의 포인트가 간다');
-  is(/AND name=\?/.test(API) && !/LIKE/.test(m ? m[0] : ''),
+  // D-4 세는 방식이 «행» 이 아니라 «계정» 인가 — 이것이 D-2 의 근거다
+  is(/GROUP BY account_uid/.test(countSql),
+    'D-4 GROUP BY account_uid 로 «계정» 을 센다',
+    '행을 세면 재접속 횟수만큼 부풀어 절단이 일어난다');
+  is(!/ORDER BY updated_at DESC LIMIT (?!2\b)\d+/.test(countSql),
+    'D-4b 후보 세기에 «최근 N행» 절단을 쓰지 않는다',
+    'LIMIT 을 키워서 푸는 것도 안 된다 — 재접속이 잦을수록 또 넘는다');
+  is(/AND name=\?/.test(countSql) && !/LIKE/.test(countSql),
     'D-5 이름은 완전일치로만 찾는다(LIKE·부분일치 금지)');
   is(/target_name/.test(FIX), 'D-6 화면이 폴백용 이름을 함께 보낸다',
     '안 보내면 서버 폴백이 영영 안 돈다');
+
   // D-7 폴백은 «못 찾았을 때만» 돈다 — 늘 이름으로 찾으면 번호를 보내는 뜻이 사라진다
   const peerFirst = ROUTE.indexOf('AND peer_id=?');
   const nameNext = ROUTE.indexOf('AND name=?');
   is(peerFirst > 0 && nameNext > peerFirst,
     'D-7b 번호로 먼저 찾고, 못 찾았을 때만 이름을 본다',
     `peer=${peerFirst} name=${nameNext}`);
-  is(/if\s*\(!rr\?\.account_uid\)\s*\{[\s\S]{0,600}?AND name=\?/.test(ROUTE),
-    'D-7c 이름 폴백이 «번호로 못 찾았을 때» 분기 안에 있다',
-    '분기 밖에 있으면 늘 이름으로도 찾는다');
+  /* D-7c 이름 폴백이 «번호로 못 찾았을 때» 분기 «안» 인가.
+     ⛔ 길이 창(…{0,600})으로 보지 말 것 — 주석 한 줄만 늘어도 검사가 깨진다
+        (CLAUDE.md 「검사 범위를 길이로 자르지 마세요」. 실제로 밟아 고쳤다).
+     ✅ 그 분기를 중괄호 짝으로 잘라 그 «안» 에 있는지 본다. */
+  const guardBlock = (() => {
+    const a = ROUTE.indexOf('if (!rr?.account_uid) {');
+    if (a < 0) return '';
+    let i = ROUTE.indexOf('{', a), depth = 0;
+    for (let j = i; j < ROUTE.length; j++) {
+      if (ROUTE[j] === '{') depth++;
+      else if (ROUTE[j] === '}') { depth--; if (depth === 0) return ROUTE.slice(a, j + 1); }
+    }
+    return '';
+  })();
+  is(guardBlock.length > 100, 'D-7c1 「번호로 못 찾았을 때」 분기를 잘라 냈다');
+  /* 🔴 D-4c — 옛 «최근 N행을 그대로 후보로» 방식으로 되돌리는 것을 «직접» 잡는다.
+     D-4b 는 countSql 을 읽어야 도는데, 되돌리면 그 SQL 자체가 사라져 빈 문자열이 되고
+     검사가 조용히 비켜난다. 그래서 분기 «전체» 에 대고 한 번 더 묻는다.
+     (LIMIT 1 은 계정을 확정한 «뒤» 한 행을 집는 것이라 절단이 아니다) */
+  is(!/ORDER BY updated_at DESC\s+LIMIT (?!1\b)\d+/.test(guardBlock),
+    'D-4c 이름 폴백에서 «최근 N행» 을 그대로 후보로 쓰지 않는다',
+    'vc_roster 는 재접속 1회 = 행 1개다(실측 한 학생 31행). 절단되면 동명이인이 잘려 나가 남의 계정에 별이 붙는다');
+  is(/AND name=\?/.test(guardBlock),
+    'D-7c2 이름 폴백이 그 분기 «안» 에 있다',
+    '분기 밖에 있으면 번호로 찾았을 때도 늘 이름으로 또 찾는다');
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

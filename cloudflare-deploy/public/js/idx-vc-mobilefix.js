@@ -1858,11 +1858,9 @@
        2026-09-10 실측: 아침 회의방 이름표 **0장**(같은 시각 다른 방은 정상) →
        같은 날 오후에는 12장. 즉 «늘 안 되는» 것이 아니라 «되다 안 되다» 였다.
      [무엇을 하나] 같은 등록을 **끝이 있는** 일정(1·6·20·60초)으로 몇 번 더 시도하고,
-       한 번 성공하면 그 뒤 타이머는 스스로 물러난다.
+       한 번 성공하면 그 뒤 타이머는 스스로 물러난다. 늦게 로그인 정보가 읽히면 그때 붙는다.
      ⛔ 상주 setInterval·MutationObserver 를 두지 않는다 — 홈 전체가 멎은 전력이 있다.
-     ⛔ 관리자에게 학생 로그인 키(mangoi_logged_user)를 «만들어 주는» 방식은 쓰지 않는다.
-        그 키 하나로 학생 전용 기능이 통째로 열린다(CLAUDE.md 2장 「로그인 세션이 두 갈래」).
-        여기서는 «등록에 쓸 계정 이름» 만 관리자 세션에서 읽는다.
+     ⛔ 계정을 «관리자 세션» 에서 빌려 오지 않는다 — 아래 myAccount() 주석 참고.
      ⚠️ 교사·참관자는 원본과 똑같이 건너뛴다 — 칭찬을 «받는» 쪽이 아니다.
      ═══════════════════════════════════════════════════════════════════ */
   (function praiseRosterRetry() {
@@ -1871,15 +1869,19 @@
         || window.vcRegisterRosterIdentity.__mgRetry) return;
     var orig = window.vcRegisterRosterIdentity;
 
-    /* 학생 로그인 키가 먼저. 없을 때만 관리자 세션에서 «이름» 을 빌린다. */
+    /* 계정은 «학생 로그인 키» 하나만 본다 — 원본과 같은 근거다.
+       ⛔ 관리자 세션(mangoi_admin_session)으로 떨어지는 폴백을 넣지 말 것.
+          처음 판에 넣었다가 함정 대조에서 빼냈다. 두 가지 이유다 —
+          ⓐ 닿지 않는다: idx-main.js 가 «관리자 세션이 있으면 vcMyRole = admin» 으로
+             정하므로, 그 세션이 있는 사람은 위 amIStudentHere() 에서 이미 물러난다.
+          ⓑ 닿으면 틀린다: 그래도 닿는 구석(vcMyRole 은 student 인데 학생 키만 없는
+             경우)에서는 **그 학생 자리를 선생님 계정으로** 로스터에 올린다 →
+             그 방 칭찬 포인트가 관리자 계정으로 간다. 서버는 관리자 쿠키를 통과시키므로
+             막히지 않는다. 1P = 1원이라 되돌리기 어렵다. */
     function myAccount() {
       try {
         var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
         if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid) };
-      } catch (e) {}
-      try {
-        var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null');
-        if (s && s.uid) return { uid: String(s.uid), name: String(s.name || s.uid) };
       } catch (e) {}
       return null;
     }
@@ -1917,5 +1919,65 @@
     window.vcRegisterRosterIdentity.__mgRetry = 1;
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 준비됨'); } catch (e) {}
+  /* ⓬ (2026-09-10) 인앱 브라우저(카톡·네이버…)면 «수업에 들어가기 전에» 알린다.
+     [왜] class-1896-20260910 — 원장님이 카톡 인앱으로 45분 수업, 73분 중 릴레이 60분(82%),
+          최악 RTT 8,840ms · 소리끊김 51.3%. 안내 배너는 inapp-escape.js 에 «이미» 있는데
+          그 선제 조건이 `/video-call` 경로 또는 window.MANGO_VIDEO_PAGE 이고, 그 값은
+          precheck.html «한 곳에만» 있다. 수업은 `/`(index.html)에서 돌아가므로 그 배너는
+          getUserMedia 가 «실패할 때만» 떴다 — 카메라가 되면 영영 안 뜬다. 근거: 260910 작업기록.
+     ⛔ 수업 «중» 에는 띄우지 않는다 — 배너가 top:0 고정인데 수업 툴바는 36px 이라
+        「나가기」·언어 버튼을 통째로 덮는다(index.html 의 body.vc-in-call .toolbar).
+     ⛔ 자동 이동(openExternal) 금지 — 브라우저가 바뀌면 localStorage 가 달라
+        학생 로그인이 안 넘어간다(CLAUDE.md 「로그인했는데 또 로그인하래요」).
+     ⚠️ 홈 우상단 칩 줄(#ph50-chip-row)은 position:fixed 라 배너가 덮는다 → 배너 높이만큼 내린다.
+        그 줄은 ph50MoveChips 가 «나중에» 만들므로 지금·1.2초 뒤·resize 에 다시 잰다.
+        ⛔ 상주 MutationObserver·setInterval 금지(홈 전체를 멎게 한 전력). */
+  (function mgInAppNotice() {
+    try {
+      var E = window.MangoEscape;
+      if (!E || !E.isInApp || typeof E.showBanner !== 'function') return;
+      var OFF = 'mangoi_inapp_notice_off', chipT = null;
+      function banner() { return document.getElementById('mango-inapp-banner'); }
+      function place() {
+        var row = document.getElementById('ph50-chip-row'); if (!row) return;
+        var b = banner();
+        row.style.top = b ? (Math.round(b.getBoundingClientRect().height) + 10) + 'px' : '';
+      }
+      function hide() {
+        var b = banner(); if (b && b.parentNode) b.parentNode.removeChild(b);
+        try { document.body.style.paddingTop = ''; } catch (_) {}
+        place();
+      }
+      function show() {
+        if (banner()) return;
+        if (document.body && document.body.classList.contains('vc-in-call')) return;
+        try { if (sessionStorage.getItem(OFF) === '1') return; } catch (_) {}
+        E.showBanner();
+        var x = document.getElementById('mango-inapp-close');
+        if (x) x.addEventListener('click', function () {
+          try { sessionStorage.setItem(OFF, '1'); } catch (_) {}
+          place();
+        });
+        place();
+        if (chipT) clearTimeout(chipT);
+        chipT = setTimeout(place, 1200);
+      }
+      window.addEventListener('resize', place);
+      show();
+      var orig = window.showView;
+      if (typeof orig === 'function' && !orig.__mgInApp) {
+        window.showView = function (id) {
+          var r = orig.apply(this, arguments);
+          /* ⚠️ 로비(view-videocall-lobby)에서는 남긴다 — 덮어서 곤란한 것은 «수업 화면» 의
+             36px 툴바뿐이고, 카톡 링크로 들어온 사람은 로비가 그것을 읽을 유일한 시간이다
+             (그렇게 안 하면 겨냥한 사람에게 0.6초만 보인다 — 함정 대조 실측). */
+          try { if (String(id || '').indexOf('videocall-call') !== -1) hide(); } catch (_) {}
+          return r;
+        };
+        window.showView.__mgInApp = true;
+      }
+    } catch (e) {}
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 준비됨'); } catch (e) {}
 })();

@@ -810,6 +810,15 @@
     try { known = !!(window.vcRemoteCamOff && window.vcRemoteCamOff[uid]); } catch (_) {}
     if (known || box.querySelector('.vc-camoff-hint') || box.querySelector('.vc-black-hint')) return null;
 
+    /* 🔒 음성전용(AAO) «영상 멈춤» 도 정본이 따로 있다 — js/idx-vc-qlog.js ⑤ 가 타일 위쪽에
+       「📶 영상 멈춤 · 소리 정상 · N초 전」 띠(.vc-aao-freeze)를 붙이고 그림을 흑백으로 멈춘다
+       (2026-09-10 사장님 「얼굴을 안 보이게 하는 것보단 차라리 화면 멈춤」 → PR #929·#932).
+       ⛔ 그 칸에서 우리가 「영상이 멈췄습니다 — 다시 받는 중」이라고 하면 «거짓말» 이다 —
+          고장이 아니라 «일부러» 멈춘 것이고, 다시 받는 중도 아니다. 정본이 아는 칸에서는 손을 뗀다.
+       ⚠️ 클래스 «둘 다» 본다: 띠(.vc-aao-freeze)는 지워졌는데 상태 클래스(vc-aao-on)만 남는
+          중간 순간이 있고, 그 반대도 마찬가지다. 어느 쪽이든 보이면 판정을 미룬다. */
+    if (box.querySelector('.vc-aao-freeze') || box.classList.contains('vc-aao-on')) return null;
+
     var vts = ms.getVideoTracks() || [];
     if (!vts.length) return 'nocam';                       // 비디오 트랙 자체가 없다
     var t = vts[0];
@@ -893,4 +902,116 @@
   [500, 1500, 3000, 6000, 12000, 20000].forEach(function (ms) {
     setTimeout(function () { if (obs()) start(); }, ms);
   });
+})();
+
+/* ============================================================================
+   ⑫ 이름을 «지어낸» 상대의 얼굴 칸은 만들지 않는다   (2026-09-11 사장님 지시)
+   ----------------------------------------------------------------------------
+   [제보] 「왜 이렇게 계속 참가자가 보여?」 — 수업 화면 얼굴 열에 이름표가 「참가자」인
+     **온통 검은 칸**이 하나 더. 이어서 「관찰을 하더라도 저게 아예 나타나지 않게 해줘」.
+
+   [뿌리 — 잰 것] 「참가자」는 사람 이름이 아니라 **서버가 «이름을 모를 때» 채워 넣는 글자**다.
+     · src/video-call-room.ts handleOffer: `fromUsername: fromObserver ? '' : (usernameOf(userId) || '참가자')`
+     · usernameOf 는 «입장(joined)한 소켓» 이 없으면 null 을 준다(재접속으로 밀려난 소켓·이미 닫힌 소켓).
+     · handleJoinRoom 이 `if (!username) → error` 로 막으므로 **정상 입장한 사람은 이름이 반드시 있다.**
+     ⟹ 이름이 비어 오는 상대는 ⓐ 참관자(일부러 비움) ⓑ 이미 끊긴 소켓 둘뿐이고,
+        **둘 다 영상을 보내지 않는다.** 그런데 화면은 이름이 «있다» 고 보고 칸을 깔아 버렸다.
+     받는 쪽 js/idx-main.js vcHandleOffer: `const fromName = data.fromUsername || '참가자'`
+     → vcEnsureParticipantBox(…, '참가자') → 이름표 「참가자」 + 영영 검은 칸.
+
+   [무엇을 고쳤나] 이름을 모르는 상대는 **영상이 실제로 도착할 때까지 칸을 만들지 않는다.**
+     · 참관자·끊긴 소켓은 영상을 안 보내므로 **칸이 애초에 안 생긴다.**
+     · 진짜 참가자는 두 길 중 하나로 반드시 칸이 생긴다 —
+         ① 명단(existing-users·user-joined)이 **진짜 이름**으로 vcEnsureParticipantBox 를 부른다
+            → 그 순간 표시를 지우고 평소대로 만든다.
+         ② 영상이 도착하면 vcAddRemoteVideo 가 **자기 힘으로** 칸을 만든다(그 함수는
+            vcEnsureParticipantBox 를 거치지 않고 직접 그린다 — 실측).
+     ⟹ «없는 사람» 만 사라지고 «있는 사람» 은 그대로다.
+
+   ⛔ 「이름이 참가자인 칸을 지운다」로 풀지 말 것 — 이름이 아직 안 붙은 진짜 학생의 칸까지 지운다.
+      판정 근거는 «그 offer 가 이름을 갖고 왔는가» 하나뿐이고, 추측으로는 채우지 않는다.
+   ⛔ vcRemovePeer(id,'left') 로 지우지 말 것 — index.html 이 'left' 를 «수업 종료» 로 읽어
+      학생 화면에 「수업이 끝났어요」가 뜬다(CLAUDE.md 2장). 여기서는 «안 만드는» 것뿐이다.
+   ⛔ answer 는 그대로 보낸다 — 참관 자체를 막는 것이 아니다(⑩절과 같은 판단).
+   ⛔ 상주 setInterval·body class MutationObserver 금지(홈 전체가 멎은 전력 2회).
+   ⚠️ 이 절은 **수업 화면(강사·학생)에서 돌아야 한다** — ?observe= 로 걸러서는 안 된다(⑩절과 같다).
+   ⚠️ 서버(src/video-call-room.ts)는 한 줄도 안 고쳤다 — 공동 금지구역이다. 그래서 판정은
+      «이름이 비었나» 가 아니라 «비었거나 서버가 지어낸 그 글자인가» 로 한다.
+      📌 근본 수리는 서버가 «모른다» 를 그대로 보내는 것(`|| '참가자'` 제거 + 표시 한 칸)이고,
+         그건 금지구역이라 **사람이 정할 일**로 남긴다. 그때 아래 UNKNOWN_NAMES 는 지워도 된다.
+   ============================================================================ */
+(function () {
+  'use strict';
+  if (window.__vcNamelessTileGuard) return;
+  window.__vcNamelessTileGuard = true;
+
+  /* 서버가 «이름을 모를 때» 내보내는 값. ⛔ 늘리지 말 것 — 진짜로 그 이름을 쓰는 학생이
+     있으면 그 사람의 칸이 늦게 생긴다(영상이 오면 생기므로 사라지지는 않는다). */
+  var UNKNOWN_NAMES = ['', '참가자'];
+
+  /* 이름을 모르는 채로 offer 만 온 peer id. 추측으로는 절대 채우지 않는다. */
+  var UNK = (window.__vcNamelessPeers = window.__vcNamelessPeers || {});
+
+  function nameless(n) {
+    var s = (n == null ? '' : String(n)).trim();
+    for (var i = 0; i < UNKNOWN_NAMES.length; i++) if (s === UNKNOWN_NAMES[i]) return true;
+    return false;
+  }
+
+  function hasTrack(stream) {
+    try {
+      if (!stream || typeof stream.getTracks !== 'function') return false;
+      var ts = stream.getTracks() || [];
+      for (var i = 0; i < ts.length; i++) if (ts[i] && ts[i].readyState === 'live') return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /* (가) offer 가 이름 없이 오면 표시해 둔다. 원래 처리는 그대로 이어서 한다(answer 는 보낸다). */
+  var _offer = window.vcHandleOffer;
+  if (typeof _offer === 'function') {
+    window.vcHandleOffer = function (data) {
+      try {
+        if (data && data.fromUserId && (data.fromObserver || nameless(data.fromUsername))) {
+          UNK[data.fromUserId] = true;
+        }
+      } catch (_) {}
+      return _offer.apply(this, arguments);
+    };
+  }
+
+  /* (나) 자리만 미리 까는 경로를 막는다. ⚠️ «이미 있는 칸» 은 건드리지 않는다 —
+     명단으로 먼저 생긴 진짜 칸을 이 절이 지우면 안 된다(여기는 «안 만드는» 절이다). */
+  var _ensure = window.vcEnsureParticipantBox;
+  if (typeof _ensure === 'function') {
+    window.vcEnsureParticipantBox = function (userId, username) {
+      try {
+        if (userId && UNK[userId]) {
+          if (!nameless(username)) delete UNK[userId];          // 명단이 진짜 이름을 줬다 → 평소대로
+          else if (!document.getElementById('vc-video-' + userId)) return null;
+        }
+      } catch (_) {}
+      return _ensure.apply(this, arguments);
+    };
+  }
+
+  /* (다) 🔴 **여기가 진짜 통로다.** offer 로 알게 된 상대의 칸은 vcEnsureParticipantBox 가
+     아니라 **이 함수가 «자기 힘으로» 만든다**(실측: vcEnsureParticipantBox 를 부르는 곳은
+     명단 두 곳뿐 — idx-main.js 4091·4162. offer → vcCreatePeer → ontrack → 여기).
+     ⛔ 그래서 (나)만 막으면 아무것도 안 막힌다 — 처음에 그렇게 짰다가 호출부를 세어 보고 고쳤다.
+     · 살아 있는 트랙이 왔다 = 보여 줄 것이 있다 → 표시를 지우고 평소대로 그린다.
+     · 줄 것이 없는데 칸도 아직 없다 → **만들지 않는다.**
+     ⚠️ 트랙이 muted 여도 readyState 는 live 다 — 「카메라만 끈 진짜 사람」은 그대로 나온다. */
+  var _add = window.vcAddRemoteVideo;
+  if (typeof _add === 'function') {
+    window.vcAddRemoteVideo = function (userId, username, stream) {
+      try {
+        if (userId && UNK[userId]) {
+          if (hasTrack(stream)) delete UNK[userId];
+          else if (!document.getElementById('vc-video-' + userId)) return;
+        }
+      } catch (_) {}
+      return _add.apply(this, arguments);
+    };
+  }
 })();

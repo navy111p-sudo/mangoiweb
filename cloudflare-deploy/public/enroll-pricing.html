@@ -52,6 +52,10 @@ async function load(){
     var r = await fetch('/api/pay/enroll/admin/prices', { cache:'no-store' });
     if (r.status === 401) { msg.innerHTML = '관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fenroll-pricing.html">로그인 하러 가기</a>'; return; }
     var j = await r.json();
+    /* 🔒 (2026-09-10) 이 화면은 본사 전용이 됐다(enrollAdminHqOnly). 403 일 때
+       «오류: forbidden_scope» 같은 코드를 띄우면 쓰는 사람에게는 «고장» 으로 읽힌다 —
+       서버가 실어 보낸 사람 말(message)을 그대로 보여 준다. */
+    if (r.status === 403) { msg.textContent = '🔒 ' + (j.message || '이 기능은 본사 계정만 사용할 수 있습니다.'); return; }
     if (!j.ok) { msg.textContent = '오류: ' + (j.error||r.status); return; }
     DEF = j.default_price || 60000;
     var shops = j.shops || [];
@@ -78,7 +82,9 @@ async function load(){
         var rr = await fetch('/api/pay/enroll/admin/prices', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ shop_name: shop, weekly1_price: val }) });
         var jj = await rr.json();
-        tr.querySelector('.st').innerHTML = (jj && jj.ok) ? '<span class="saved">✅ 저장됨</span>' : '<span style="color:#dc2626">실패</span>';
+        var why = (rr.status === 403) ? (jj && jj.message || '본사 계정만 저장할 수 있습니다.') : '';
+        tr.querySelector('.st').innerHTML = (jj && jj.ok) ? '<span class="saved">✅ 저장됨</span>'
+          : '<span style="color:#dc2626">' + (why ? '🔒 ' + why.replace(/[&<>"]/g,'') : '실패') + '</span>';
       } catch(e){ tr.querySelector('.st').innerHTML = '<span style="color:#dc2626">오류</span>'; }
       b.disabled = false;
     });

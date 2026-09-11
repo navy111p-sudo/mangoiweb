@@ -14,6 +14,7 @@
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
 import { json, parseJsonBody } from './api-util';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 // 수업 길이·격자·요금배수는 전부 class-policy 한 곳에서 온다 (여기 복사 금지)
 import {
@@ -856,11 +857,106 @@ export async function runHolidayShiftSweep(env: any, opts?: { dry?: boolean }): 
 
 /* ═══════════════ 라우터 ═══════════════ */
 
+/** 🔒 `/api/pay/enroll/admin/*` 중 **자기 게이트를 이미 가진** 경로.
+ *  ⛔ 여기에 경로를 더하는 것은 「본사 전용에서 뺀다」는 뜻이다 — 그 경로가 스스로
+ *     강사·조직 계정을 막는지 확인한 뒤에만 넣을 것. */
+const ENROLL_ADMIN_SELF_GATED = new Set([
+  /* 이 둘은 2026-08-30 사장님 지시로 «차단» 이 아니라 «스코프로 자르기» 를 택한
+     자리다(subScopeDenied). 조직 계정이 「오늘 수업」 카드에서 실제로 쓰고 있다. */
+  '/api/pay/enroll/admin/substitute-candidates',
+  '/api/pay/enroll/admin/substitute',
+]);
+
+/** 🔒 본사(내부 계정)만 통과. 강사·지사·대리점·지사본사는 403.
+ *
+ *  🔴 «모른다» 를 «본사» 로 읽지 않는 것이 이 함수의 핵심이다.
+ *     `getAdminActor()` 는 스코프를 «못 구해도» `scopeType='none'` 으로 떨어지고,
+ *     `resolveRole('none', …)` 이 그것을 **`staff`(본사 동급)** 으로 판정한다.
+ *     ⚠️ 그 자리는 `auth-admin.ts` 의 try/catch «만» 이 아니다 — `getScope()` 안의
+ *        D1 접근이 전부 `s_safe`(scope.ts)로 감싸여 있어 **던지지 않고 조용히 null 을**
+ *        돌려주고, 그러면 `autoSeedOne()` 이 이름으로 추측하며 이름마저 못 읽으면
+ *        `type='none'` 이다. ⛔ 그러니 그 try/catch 를 걷어내는 것으로는 «고쳤다» 가 아니다.
+ *     ⟹ `isOrgScopedRole(actor.role)` «하나만» 보면 D1 이 한 번 흔들릴 때
+ *        지사 계정이 그대로 통과한다 — 이 함수가 막으려던 바로 그 일이다.
+ *        (CLAUDE.md 「가드에 필요한 값을 safe(…, null) 로 조회하면 fail-open」)
+ *  ✅ 그래서 근거(`admin_scope.scope_type`)를 **삼키지 않고** 한 번 더 읽고,
+ *     못 읽으면 «모름» 으로 **막는 쪽으로** 실패한다. 이 경로에는 학부모에게
+ *     문자를 보내는 스윕·하루치 수업의 강사 변경이 있어 «되돌릴 수 없는» 쪽이다.
+ *  ℹ️ 행이 없을 걱정은 안 해도 된다 — 바로 위 `getAdminActor()` 가 `getScope()` 를
+ *     부르고, 그것이 행이 없으면 `autoSeedOne()` 으로 **심어 놓는다**.
+ *     그러고도 없으면 심기까지 실패한 것이라 그때도 막는 쪽이 맞다.
+ *     (2026-09-10 실측: 계정 49개 중 4개가 `admin_scope` 행이 없었고 전부
+ *      이름으로 정확히 추측됐다 — 즉 평소에는 잘 돌고 흔들릴 때만 샌다)
+ *  🪤 **이 재조회로도 «못» 막는 변종이 하나 있다** — `autoSeedOne()` 은 이름을 못 읽어
+ *     `type='none'` 이 된 값을 `INSERT OR IGNORE` 로 **admin_scope 에 영구히 심는다.**
+ *     그 뒤로는 이 재조회가 그 'none' 을 «정상적으로» 읽어 통과시킨다. 즉 여기서 막는
+ *     것은 «못 읽는 순간» 이지 «잘못 심긴 값» 이 아니다. 정본 수리는 `autoSeedOne` 이
+ *     «이름을 못 읽었으면 아무것도 안 쓰게» 하는 쪽인데 반경이 있어 **사람이 정할 일**
+ *     이다(2026-09-10 함정 대조 지적). ⚠️ 그 조건에 닿을 수 있는 것은 `admin_scope` 행이
+ *     없는 넷 중 조직 계정 둘(`agency_sc002`·`capitown`)이다.
+ *  ⚠️ 판정을 여기서 복제하지 않는다 — «조직인가» 는 정본 `isOrgScopedRole()` 이 답한다. */
+async function enrollAdminHqOnly(request: Request, env: any): Promise<Response | null> {
+  const actor = await getAdminActor(request, env as any);
+  if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+  const denyTeacher = () => json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
+  if (actor.isTeacher) return denyTeacher();
+
+  let scopeType: string | null = null;
+  try {
+    const r: any = await env.DB.prepare(
+      `SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`
+    ).bind(actor.username).first();
+    /* 행이 없거나 칸이 비어 있으면 null — 둘 다 «모름» 으로 다룬다. */
+    const st = r ? String(r.scope_type ?? '').trim() : '';
+    scopeType = st || null;
+  } catch (e) {
+    console.warn('[enroll] enrollAdminHqOnly scope:', (e as any)?.message);
+    scopeType = null;
+  }
+  if (scopeType === null) {
+    return json({ ok: false, error: 'scope_unknown', message: '권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 403);
+  }
+  /* 이름 기반 강사 판정을 못 탄 계정까지 여기서 한 번 더 막는다. */
+  if (scopeType === 'teacher') return denyTeacher();
+  if (isOrgScopedRole(scopeType)) {
+    return json({ ok: false, error: 'forbidden_scope', message: '본사만 사용할 수 있는 기능입니다.' }, 403);
+  }
+  return null;
+}
+
 export async function handleEnrollApi(request: Request, url: URL, env: any): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
   if (!path.startsWith('/api/pay/enroll/')) return null;
   await ensureEnrollTables(env);
+
+  /* ══ 🔒 (2026-09-10 사장님 「수강 운영 게이트 달아줘」) ═══════════════════════
+     「수강 운영」(/enroll-ops.html)·「대리점 단가」(/enroll-pricing.html)가 부르는
+     `/api/pay/enroll/admin/*` 는 **본사 전용**이다. 그런데 그동안 게이트가
+     `checkAdminSession` 하나뿐이라 **로그인한 강사·지사·대리점이 그대로 실행**했다.
+
+     ⚠️ 왜 미들웨어가 안 잡았나 — `src/index.ts` 의 강사 차단(TEACHER_BLOCKED_PREFIXES)과
+        스코프 차단(forbidden_scope)은 **`/api/admin/` 접두사에만** 걸린다. 이 경로는
+        `/api/pay/` 밑이라 그 둘을 통째로 비켜 간다(같은 사정이 이 파일
+        `subScopeDenied` 주석에도 적혀 있다).
+     ⚠️ `admin_write_guard_harness` 도 `/api/admin/*` 만 훑는다 — 그래서 이 구멍이
+        「강사가 부를 수 있는 새 쓰기 API」 감시에 한 번도 안 걸렸다.
+
+     [잰 것 — 2026-09-10] 열려 있던 것: 활성 강사 300명의 이름·급여 배율·긴 수업
+       정원 읽기/쓰기 · 회사 전체 공휴일 등록·삭제 · 전국 만료 임박 학생 명단 ·
+       하루치 수업의 담당 강사 통째 변경 · **학부모에게 문자를 실제로 보내는 스윕**
+       (expiry-sweep?dry=0) · 환불 계산 · 전국 학원별 단가 읽기/쓰기.
+
+     ✅ 제외 목록 방식이다 — 이 접두사에 새 엔드포인트가 생기면 아무것도 안 해도
+        본사 전용이 된다. 허용 목록으로 짰다면 새 API 가 조용히 열린 채 나간다 —
+        이 파일이 방금 그래서 뚫려 있었다.
+     ⚠️ 화면 감추기는 짝이다 — 사이드바 「수강 운영」 항목에도 같은 날 `hideFrom` 을
+        달았다(js/adm-ia6.js). 서버만 있으면 «눌러도 안 되는 버튼» 이 남고,
+        화면만 있으면 URL 로 뚫린다(CLAUDE.md). */
+  if (path.startsWith('/api/pay/enroll/admin/') && !ENROLL_ADMIN_SELF_GATED.has(path)) {
+    const denied = await enrollAdminHqOnly(request, env);
+    if (denied) return denied;
+  }
 
   /* ── (a) 강사 목록 (공개 — 이름·사진·MBTI) ── */
   //   🔗 (2026-07-30) 제보 #2-1: teachers(급여·스케줄용)엔 사진·MBTI 컬럼이 아예 없다.
@@ -1260,7 +1356,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
        GET 도 남의 수업 정보를 보여주므로 함께 막는다). */
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
     await ensureEnrollTables(env);
     const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
     const date = String(url.searchParams.get('date') || '').trim();
@@ -1330,7 +1426,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     // 🔴 (2026-08-28 trap-check 지적) 위 GET 과 같은 이유 — 강사는 이 쓰기 API 를 아예 못 쓴다.
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
     await ensureEnrollTables(env);
     const body = await parseJsonBody(request) || {};
     const scheduleId = Number(body.schedule_id || 0);
