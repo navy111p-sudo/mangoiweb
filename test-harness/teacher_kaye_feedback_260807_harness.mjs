@@ -231,33 +231,46 @@ console.log('\n[건의1] 문제가 학생 쪽인지 우리 쪽인지 구분되�
     check('vcMarkNoSound 를 잘라 냈다(전제 — 못 자르면 아래가 조용히 통과한다)', fn.length > 200);
     /* 가짜 DOM 으로 실제 실행 — «누구에게 무엇이 그려지는가» 는 글자로 볼 수 없다 */
     const run = (staff, boxId, lang) => {
-      let added = null;
+      let added = null, fixedUid = null;
       const box = { id: boxId, style: {}, querySelector: () => null, appendChild: (el) => { added = el; } };
       const sandbox = {
         console: { warn(){}, log(){} },
         getComputedStyle: () => ({ position: 'relative' }),
         getLang: () => lang,
         vcIsStaffNow: () => staff,
-        vcRequestMicFix: () => {},
-        document: { createElement: (tag) => ({ tag, className: '', textContent: '', title: '', type: '', addEventListener(){} }) },
+        vcRequestMicFix: (u) => { fixedUid = u; },
+        /* 🪤 리스너를 «빈 함수» 로 두면 「누를 수 있는 버튼이다」가 배선이 끊겨도 통과한다
+           (함정 대조 실측 — addEventListener 줄을 통째로 지워도 68/0 초록이었다).
+           그래서 «달아 둔 핸들러를 실제로 눌러» 본다. */
+        document: { createElement: (tag) => ({ tag, className: '', textContent: '', title: '', type: '',
+          __on: {}, addEventListener(ev, f) { this.__on[ev] = f; } }) },
         __box: box,
       };
       sandbox.window = sandbox;
       vm.createContext(sandbox);
       try { vm.runInContext(fn + '\n}\nvcMarkNoSound(__box, true);', sandbox, { timeout: 2000 }); }
       catch (e) { return { err: String(e && e.message || e) }; }
-      return added;
+      if (added && added.__on && added.__on.click) {
+        try { added.__on.click({ stopPropagation() {} }); } catch (_) {}
+      }
+      return added ? Object.assign(added, { fixedUid }) : null;
     };
     const stu   = run(false, 'vc-video-u1', 'ko');
     const tea   = run(true,  'vc-video-u1', 'ko');
     const teaEn = run(true,  'vc-video-u1', 'en');
     const noUid = run(true,  '',            'ko');
-    check('학생·관찰자 화면에는 무음 배지를 안 띄운다', stu === null,
+    /* ⚠️ 경계는 «학생/관찰자» 가 아니라 «staff 판정»(vcIsStaffNow) 이다 —
+       vcJoinAsObserver 는 window.vcMyRole 을 안 정하므로 관찰자도 저장된 역할·관리자 세션에
+       따라 staff 로 잡힐 수 있다. 단정하지 말고 잰 것만 적는다. */
+    check('staff 가 아닌 화면에는 무음 배지를 안 띄운다', stu === null,
           '8초 침묵마다 «소리가 안 들어와요» 가 떠서 정상 수업이 고장으로 보였다');
     check('그래도 강사에게는 뜬다(짝 — 이게 없으면 «전부 끄기» 도 통과한다)',
           !!tea && /눌러서 고치기/.test(tea.textContent || ''));
     check('강사 배지 문구는 한/영 두 벌', !!teaEn && /Tap to fix/.test(teaEn.textContent || ''));
     check('강사 배지는 누를 수 있는 버튼이다', !!tea && tea.tag === 'button' && tea.type === 'button');
+    check('눌러 보면 그 학생의 마이크를 다시 잡는다(배선 — 핸들러를 실제로 실행)',
+          !!tea && tea.fixedUid === 'u1',
+          '배지가 그려지고 눌려도 핸들러가 없으면 «보이는데 아무 일도 안 하는» 버튼이 된다');
     check('uid 를 못 구하면 아무에게도 안 띄운다(누구 마이크인지 모르는 채 «고치기» 를 주지 않는다)',
           noUid === null);
     /* 부정 검사는 주석을 벗겨 낸 사본으로 — 「왜 지웠는지」 적은 주석이 자기를 잡는다 */
