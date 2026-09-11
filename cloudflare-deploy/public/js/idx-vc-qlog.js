@@ -678,11 +678,16 @@ function vcAaoStripEl(box) {
 function vcAaoLabel(el, id) {
     var t0 = __vcAaoSince[id] || Date.now();
     var sec = Math.max(0, Math.round((Date.now() - t0) / 1000));
-    var ko = '📶 영상 멈춤 · 소리는 정상 · ' + sec + '초 전 모습';
-    var en = '📶 Video paused · audio is fine · ' + sec + 's ago';
-    el.setAttribute('data-ko', ko);
-    el.setAttribute('data-en', en);
-    el.textContent = (typeof miIsEn === 'function' && miIsEn()) ? en : ko;
+    /* 🌐 한/영을 «한 문자열에» 함께 적는다 — 2026-08-08 「상대 타일 안내도 병기」 지시.
+       ⛔ 언어로 «갈라» 쓰면 안 된다: 폰 언어가 EN 인 한국인 원장님이 영어만 받은 것이
+       9/10 제보의 뿌리였다(idx-main.js 의 vcApplyRemoteCamHint 가 같은 이유로 병기다).
+       ⛔ <i> 자식으로 두 줄을 만들지도 말 것 — 두 i18n 엔진이 이 요소의 textContent 를
+       통째로 갈아끼워 자식이 사라진다(CLAUDE.md 2장 「아이콘 버튼에 달았더니」).
+       ⚠️ 그래서 data-ko 와 data-en 이 «같은 값» 이다 — 🌐 를 눌러도 두 말이 다 남는다. */
+    var both = '📶 영상 멈춤 · 소리 정상 · ' + sec + '초 전 / Video paused · audio OK';
+    el.setAttribute('data-ko', both);
+    el.setAttribute('data-en', both);
+    el.textContent = both;
 }
 
 /* 상대 타일을 «멈춤» 으로 만들거나 되돌린다. */
