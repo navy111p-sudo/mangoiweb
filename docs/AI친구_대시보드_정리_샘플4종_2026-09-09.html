@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>대시보드 정리 4안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap">
+<style>
+:root{
+  --paper:#eef1f6; --surface:#ffffff; --surface2:#e4e9f2; --sunk:#dae1ed;
+  --ink:#101a2c; --ink2:#33405a; --muted:#5b6b85; --line:#cfd8e6;
+  --accent:#c9781a; --accent-soft:#fbecd8; --accent-line:#e5b475;
+  --good:#0e7a63; --good-soft:#dcf0ea;
+  --warn:#b3541e; --warn-soft:#fbe8db;
+  --bad:#a8322a; --bad-soft:#f8e2df;
+  --shadow:0 1px 2px rgba(16,26,44,.06), 0 10px 30px -18px rgba(16,26,44,.35);
+  --f-disp:"Gothic A1","Apple SD Gothic Neo",sans-serif;
+  --f-body:"IBM Plex Sans KR",-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d1219; --surface:#151c27; --surface2:#1d2634; --sunk:#111823;
+    --ink:#e8edf5; --ink2:#c3ccdb; --muted:#8d9aae; --line:#2a3543;
+    --accent:#eda44a; --accent-soft:#3a2a12; --accent-line:#7a5a29;
+    --good:#4cc0a6; --good-soft:#123029; --warn:#e08a53; --warn-soft:#382213;
+    --bad:#e5766a; --bad-soft:#3a1d1a;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d1219; --surface:#151c27; --surface2:#1d2634; --sunk:#111823;
+  --ink:#e8edf5; --ink2:#c3ccdb; --muted:#8d9aae; --line:#2a3543;
+  --accent:#eda44a; --accent-soft:#3a2a12; --accent-line:#7a5a29;
+  --good:#4cc0a6; --good-soft:#123029; --warn:#e08a53; --warn-soft:#382213;
+  --bad:#e5766a; --bad-soft:#3a1d1a;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.9);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-weight:400;
+  line-height:1.72;-webkit-font-smoothing:antialiased}
+.page{max-width:1120px;margin:0 auto;padding:0 28px 110px}
+@media(max-width:640px){.page{padding:0 16px 72px}}
+
+/* 표지 */
+.cover{padding:60px 0 34px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+h1{font-family:var(--f-disp);font-weight:900;font-size:clamp(30px,5vw,49px);line-height:1.16;
+  letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
+.sub{font-size:clamp(15px,1.9vw,18px);color:var(--ink2);max-width:60ch;margin:0 0 26px;font-weight:300}
+.meta{display:flex;flex-wrap:wrap;gap:6px 26px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.meta b{color:var(--ink2);font-weight:500}
+
+section{padding-top:58px}
+h2{font-family:var(--f-disp);font-weight:900;font-size:clamp(20px,2.8vw,27px);line-height:1.34;
+  margin:0 0 8px;letter-spacing:-.015em;display:flex;gap:13px;align-items:baseline;text-wrap:balance}
+h2 .n{font-family:var(--f-mono);font-size:12.5px;font-weight:600;color:var(--accent);flex:0 0 auto;letter-spacing:.05em}
+.lede{color:var(--muted);font-size:14.5px;margin:0 0 26px;padding-left:32px;max-width:68ch}
+@media(max-width:640px){.lede{padding-left:0}}
+h3{font-family:var(--f-disp);font-weight:700;font-size:17px;margin:32px 0 10px;letter-spacing:-.01em}
+p{margin:0 0 14px;max-width:66ch}
+strong{font-weight:600}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* 실측 막대 */
+.bars{display:flex;flex-direction:column;gap:2px;margin:22px 0 8px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;box-shadow:var(--shadow)}
+.barrow{display:grid;grid-template-columns:132px 1fr 104px;gap:14px;align-items:center;padding:7px 0}
+@media(max-width:640px){.barrow{grid-template-columns:1fr;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .barrow:last-child{border-bottom:0}}
+.barname{font-family:var(--f-mono);font-size:12px;color:var(--ink2)}
+.bartrack{height:22px;border-radius:4px;background:var(--sunk);display:flex;overflow:hidden}
+.seg{height:100%;display:flex;align-items:center;padding:0 7px;font-size:11px;font-weight:600;
+  white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.seg-head{background:var(--bad-soft);color:var(--bad);box-shadow:inset -1px 0 0 var(--line)}
+.seg-chat{background:var(--good-soft);color:var(--good)}
+.seg-bar{background:var(--surface2);color:var(--muted)}
+.barval{font-family:var(--f-mono);font-size:12.5px;font-weight:600;text-align:right;color:var(--ink)}
+.barval.hot{color:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--muted);margin-top:12px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* 표 */
+.tablewrap{overflow-x:auto;margin:20px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--surface2);font-family:var(--f-disp);font-weight:700;font-size:12.5px;
+  letter-spacing:.02em;color:var(--ink2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* 진단 항목 */
+.finds{display:grid;gap:12px;margin:22px 0}
+.find{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 9px 9px 0;padding:15px 18px}
+.find h4{font-family:var(--f-disp);font-weight:700;font-size:15px;margin:0 0 5px}
+.find p{font-size:14px;color:var(--ink2);margin:0;max-width:none}
+.find .cite{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);display:block;margin-top:7px}
+
+/* 안 카드 */
+.plan{margin:34px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow)}
+.plan-head{padding:19px 22px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;
+  gap:10px 16px;align-items:baseline}
+.plan-tag{font-family:var(--f-mono);font-size:12px;font-weight:600;color:#fff;background:var(--ink);
+  padding:3px 9px;border-radius:5px;letter-spacing:.04em}
+.plan-name{font-family:var(--f-disp);font-weight:900;font-size:21px;letter-spacing:-.015em}
+.plan-one{color:var(--muted);font-size:14.5px;flex:1 1 260px;min-width:0;line-height:1.6}
+.plan-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0}
+@media(max-width:900px){.plan-body{grid-template-columns:1fr}}
+.plan-demo{padding:22px;background:var(--sunk);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;gap:13px}
+@media(max-width:900px){.plan-demo{border-right:0;border-bottom:1px solid var(--line)}}
+.plan-notes{padding:20px 22px}
+.plan-notes h5{font-family:var(--f-disp);font-weight:700;font-size:13px;margin:0 0 7px;
+  letter-spacing:.02em;text-transform:uppercase}
+.plan-notes h5.get{color:var(--good)}
+.plan-notes h5.lose{color:var(--warn);margin-top:18px}
+.plan-notes ul{margin:0;padding-left:17px;font-size:13.5px;color:var(--ink2);line-height:1.62}
+.plan-notes li{margin-bottom:5px}
+.hnum{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hnum b{color:var(--ink);font-weight:600;font-size:14px}
+
+/* 폰/PC 전환 */
+.wtabs{display:inline-flex;gap:3px;background:var(--surface2);padding:3px;border-radius:8px}
+.wtabs button{font-family:var(--f-mono);font-size:11.5px;font-weight:600;border:0;cursor:pointer;
+  padding:5px 13px;border-radius:6px;background:transparent;color:var(--muted)}
+.wtabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.wtabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ══ 목업 (실제 화면 색을 그대로 씁니다) ══ */
+.mock{--m-bg1:#2a4d9e;--m-bg2:#1a2f6b;--m-bg3:#122350;--m-tx:#e6ecff;--m-tx2:#a3b3d1;
+  --m-gold:#fbbf24;--m-card:rgba(255,255,255,.10);--m-line:rgba(255,255,255,.14);
+  width:360px;height:600px;flex:0 0 auto;border-radius:22px;overflow:hidden;position:relative;
+  background:radial-gradient(125% 100% at 50% -8%,var(--m-bg1) 0%,var(--m-bg2) 42%,var(--m-bg3) 100%);
+  color:var(--m-tx);font-family:var(--f-body);font-size:13px;line-height:1.5;
+  border:7px solid #0a0f1c;box-shadow:0 18px 42px -20px rgba(10,15,28,.85);
+  display:flex;flex-direction:column;transition:width .22s ease}
+.mock[data-w="pc"]{width:min(100%,660px);height:420px;border-radius:12px;border-width:8px}
+.mock *{box-sizing:border-box}
+.mock button{font:inherit;color:inherit;cursor:pointer}
+
+/* 목업 - 헤더 */
+.mk-top{display:flex;align-items:center;gap:8px;padding:9px 11px;background:rgba(20,33,59,.72);
+  border-bottom:1px solid var(--m-line);flex:0 0 auto}
+.mk-face{width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,#fbbf24,#f97316);
+  display:grid;place-items:center;font-size:16px;flex:0 0 auto}
+.mk-who{min-width:0;flex:1 1 auto}
+.mk-name{font-family:var(--f-disp);font-weight:700;font-size:14px;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-sub{font-size:10.5px;color:var(--m-tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-ico{width:30px;height:30px;border-radius:9px;border:1px solid var(--m-line);background:var(--m-card);
+  display:grid;place-items:center;font-size:14px;flex:0 0 auto;padding:0}
+.mk-ico.on{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.55)}
+.mk-chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-mono);font-size:10.5px;
+  font-weight:600;padding:4px 8px;border-radius:99px;background:var(--m-card);
+  border:1px solid var(--m-line);white-space:nowrap;flex:0 0 auto}
+.mk-chip.gold{color:var(--m-gold);border-color:rgba(251,191,36,.42);background:rgba(251,191,36,.13)}
+
+/* 목업 - 대화 */
+.mk-chat{flex:1 1 auto;overflow:hidden;padding:12px 11px;display:flex;flex-direction:column;gap:9px;
+  position:relative}
+.mk-msg{max-width:82%;padding:8px 11px;border-radius:13px;font-size:12.5px;line-height:1.5}
+.mk-msg.ai{background:rgba(255,255,255,.13);border-top-left-radius:4px;align-self:flex-start}
+.mk-msg.me{background:rgba(251,191,36,.9);color:#22160a;font-weight:500;
+  border-top-right-radius:4px;align-self:flex-end}
+.mk-note{align-self:center;font-family:var(--f-mono);font-size:10px;color:var(--m-tx2);
+  background:rgba(255,255,255,.07);padding:3px 10px;border-radius:99px}
+.mk-card{background:var(--m-card);border:1px solid var(--m-line);border-radius:12px;padding:10px 12px}
+.mk-card b{color:var(--m-gold)}
+.mk-card .ct{font-family:var(--f-disp);font-weight:700;font-size:12.5px;margin-bottom:6px;display:block}
+.mk-qline{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:3px 0;
+  color:var(--m-tx2)}
+.mk-qline b{font-family:var(--f-mono);font-size:11px}
+
+/* 목업 - 입력 */
+.mk-input{display:flex;gap:7px;padding:9px 11px;border-top:1px solid var(--m-line);
+  background:rgba(20,33,59,.72);flex:0 0 auto;align-items:center}
+.mk-input .box{flex:1 1 auto;background:rgba(255,255,255,.1);border:1px solid var(--m-line);
+  border-radius:99px;padding:8px 13px;font-size:12px;color:var(--m-tx2)}
+.mk-send{width:34px;height:34px;border-radius:99px;border:0;background:var(--m-gold);color:#22160a;
+  font-size:15px;display:grid;place-items:center;flex:0 0 auto;padding:0}
+
+/* 목업 - 옛 화면 재현 */
+.mk-opts{display:flex;flex-wrap:wrap;gap:4px;padding:7px 10px;background:rgba(20,33,59,.6);
+  border-bottom:1px solid var(--m-line);flex:0 0 auto}
+.mk-lab{font-size:9.5px;color:var(--m-tx2);align-self:center;margin-right:2px;white-space:nowrap}
+.mk-opt{font-size:9.5px;padding:3px 7px;border-radius:7px;background:var(--m-card);
+  border:1px solid var(--m-line);white-space:nowrap;line-height:1.3}
+.mk-opt.on{background:rgba(251,191,36,.9);color:#22160a;font-weight:600;border-color:transparent}
+.mk-hud{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px;flex:0 0 auto}
+
+/* 목업 - 시트 */
+.mk-sheet{position:absolute;left:0;right:0;bottom:0;background:#16213e;
+  border-top:1px solid var(--m-line);border-radius:16px 16px 0 0;padding:12px 13px 15px;
+  transform:translateY(100%);transition:transform .26s cubic-bezier(.22,.8,.3,1);
+  max-height:86%;overflow-y:auto;z-index:5;box-shadow:0 -14px 34px -14px rgba(0,0,0,.7)}
+.mock.sheet-open .mk-sheet{transform:translateY(0)}
+.mk-grip{width:34px;height:4px;border-radius:99px;background:rgba(255,255,255,.3);margin:0 auto 11px}
+.mk-sec{margin-bottom:13px}
+.mk-sec:last-child{margin-bottom:0}
+.mk-sec>span{font-family:var(--f-disp);font-weight:700;font-size:11.5px;color:var(--m-tx2);
+  display:block;margin-bottom:6px}
+.mk-row{display:flex;flex-wrap:wrap;gap:5px}
+.mk-pill{font-size:11.5px;padding:6px 11px;border-radius:9px;background:var(--m-card);
+  border:1px solid var(--m-line)}
+.mk-pill.on{background:rgba(251,191,36,.92);color:#22160a;font-weight:600;border-color:transparent}
+.mk-scrim{position:absolute;inset:0;background:rgba(6,11,24,.55);opacity:0;pointer-events:none;
+  transition:opacity .26s;z-index:4}
+.mock.sheet-open .mk-scrim{opacity:1}
+
+/* 목업 - 아래 탭 */
+.mk-tabs{display:flex;border-top:1px solid var(--m-line);background:rgba(20,33,59,.85);flex:0 0 auto}
+.mk-tab{flex:1 1 0;border:0;background:transparent;padding:7px 4px 8px;display:flex;
+  flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--m-tx2);position:relative}
+.mk-tab .ti{font-size:17px;line-height:1}
+.mk-tab[aria-selected="true"]{color:var(--m-gold)}
+.mk-tab[aria-selected="true"]::before{content:"";position:absolute;top:0;left:26%;right:26%;height:2px;
+  background:var(--m-gold);border-radius:0 0 3px 3px}
+.mk-badge{position:absolute;top:4px;right:calc(50% - 20px);background:#ef4444;color:#fff;
+  font-family:var(--f-mono);font-size:8.5px;font-weight:600;min-width:14px;height:14px;
+  border-radius:99px;display:grid;place-items:center;padding:0 3px}
+.mk-pane{flex:1 1 auto;overflow:hidden;display:none;flex-direction:column}
+.mk-pane.on{display:flex}
+.mk-pane-pad{padding:12px 11px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+
+/* 목업 - 서랍 */
+.mk-drawer{overflow:hidden;max-height:0;transition:max-height .26s ease;flex:0 0 auto;
+  background:rgba(20,33,59,.55);border-bottom:1px solid transparent}
+.mock.drawer-open .mk-drawer{max-height:230px;border-bottom-color:var(--m-line);overflow-y:auto}
+.mk-pull{display:flex;align-items:center;justify-content:center;gap:5px;padding:2px 0 5px;
+  font-size:10px;color:var(--m-tx2);background:transparent;border:0;width:100%}
+
+.demo-cap{font-size:12.5px;color:var(--muted);text-align:center;max-width:34ch;line-height:1.55;margin:0}
+.demo-cap b{color:var(--ink2);font-weight:600}
+
+/* 추천 */
+.pick{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:13px;
+  padding:22px 24px;margin:26px 0 0}
+.pick h3{margin:0 0 9px;color:var(--accent)}
+.pick p{color:var(--ink2);font-size:14.5px}
+.pick p:last-child{margin-bottom:0}
+.steps{counter-reset:s;list-style:none;padding:0;margin:20px 0 0;display:grid;gap:11px}
+.steps li{counter-increment:s;position:relative;padding-left:38px;font-size:14.5px;color:var(--ink2)}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:25px;height:25px;
+  border-radius:7px;background:var(--ink);color:var(--paper);font-family:var(--f-mono);
+  font-size:12px;font-weight:600;display:grid;place-items:center}
+.steps b{color:var(--ink)}
+
+.foot{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--muted)}
+.foot p{max-width:none;margin:0 0 5px}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+</style>
+
+<div class="page">
+
+<header class="cover">
+  <p class="eyebrow">A.i 친구하기 · 화면 정리 제안</p>
+  <h1>대화가 주인공이 되는<br>대시보드 네 가지</h1>
+  <p class="sub">지금 상단이 화면의 절반을 먹고 있습니다. 무엇을 줄일지 네 가지 방향으로 만들어
+    나란히 놓았습니다. 폰과 PC 를 전환해 가며 직접 눌러 보실 수 있습니다.</p>
+  <div class="meta">
+    <span><b>대상</b> ai-friend.html 상단</span>
+    <span><b>실측</b> 2026-09-09 · Chromium 4개 화면</span>
+    <span><b>고르실 것</b> A · B · C · D 중 하나</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="n">01</span>지금 화면이 실제로 이렇습니다</h2>
+  <p class="lede">「복잡하다」는 느낌을 숫자로 먼저 재 봤습니다. 네 가지 화면 크기에서
+    상단이 차지하는 높이와, 정작 대화에 남는 높이입니다.</p>
+
+  <div class="bars">
+    <div class="barrow">
+      <span class="barname">PC 1920×1080</span>
+      <span class="bartrack" role="img" aria-label="상단 36%, 대화창 52%, 입력줄 12%">
+        <span class="seg seg-head" style="width:36.1%">상단 36%</span>
+        <span class="seg seg-chat" style="width:51.5%">대화 52%</span>
+        <span class="seg seg-bar" style="width:12.4%"></span>
+      </span>
+      <span class="barval">390px</span>
+    </div>
+    <div class="barrow">
+      <span class="barname">PC 1280×800</span>
+      <span class="bartrack" role="img" aria-label="상단 49%, 대화창 35%, 입력줄 16%">
+        <span class="seg seg-head" style="width:48.8%">상단 49%</span>
+        <span class="seg seg-chat" style="width:34.5%">대화 35%</span>
+        <span class="seg seg-bar" style="width:16.7%"></span>
+      </span>
+      <span class="barval hot">390px</span>
+    </div>
+    <div class="barrow">
+      <span class="barname">폰 390×844</span>
+      <span class="bartrack" role="img" aria-label="상단 41%, 대화창 47%, 입력줄 12%">
+        <span class="seg seg-head" style="width:40.5%">상단 41%</span>
+        <span class="seg seg-chat" style="width:47.0%">대화 47%</span>
+        <span class="seg seg-bar" style="width:12.5%"></span>
+      </span>
+      <span class="barval">342px</span>
+    </div>
+    <div class="barrow">
+      <span class="barname">폰 360×640</span>
+      <span class="bartrack" role="img" aria-label="상단 53%, 대화창 31%, 입력줄 16%">
+        <span class="seg seg-head" style="width:53.4%">상단 53%</span>
+        <span class="seg seg-chat" style="width:30.8%">대화 31%</span>
+        <span class="seg seg-bar" style="width:15.8%"></span>
+      </span>
+      <span class="barval hot">342px</span>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--bad-soft)"></i>상단(설정·상태·퀘스트)</span>
+      <span><i style="background:var(--good-soft)"></i>대화창</span>
+      <span><i style="background:var(--surface2)"></i>입력줄</span>
+      <span>· 설정을 펼친 상태 = 지금 보고 계신 화면</span>
+    </div>
+  </div>
+
+  <p><strong>작은 폰에서는 상단이 화면의 53%</strong>입니다. 아이가 보는 대화는 31% 뿐입니다.
+    상단에서 누를 수 있는 것은 <span class="mono">38개</span>이고, 그중
+    <span class="mono">25개</span>가 설정 버튼(레벨 8 · 스타일 4 · 속도 5 · 친구 5 · 자막 3)입니다.</p>
+
+  <h3>왜 이렇게 됐나 — 네 가지</h3>
+  <div class="finds">
+    <div class="find">
+      <h4>한 번 정하는 것과 늘 보는 것이 한자리에 있습니다</h4>
+      <p>레벨·친구·스타일·속도·자막은 한 번 고르면 며칠씩 그대로 씁니다. 그런데 그 25개가
+        대화하는 내내 자리를 차지합니다. 반대로 포인트·연속일처럼 매번 달라지는 것은 작은 칩으로 밀려 있습니다.</p>
+    </div>
+    <div class="find">
+      <h4>접는 기능은 이미 있는데 «전부 아니면 전무» 입니다</h4>
+      <p>⚙ 버튼으로 접을 수 있고 기본값도 «접힘» 입니다. 그런데 자막 하나만 바꾸려 해도 25개가 한꺼번에 나옵니다.
+        그래서 한 번 펼친 뒤로는 그냥 펼쳐 두게 됩니다.</p>
+      <span class="cite">접었을 때도 상단은 여전히 화면의 25~38% 입니다 — 접기만으로는 해결되지 않습니다.</span>
+    </div>
+    <div class="find">
+      <h4>같은 말을 두 곳에서 합니다</h4>
+      <p>「오늘의 단어」가 상태 칩과 퀘스트에 각각 있고, 포인트도 「오늘 +0P」와 「+5P」·「+1P」로 나뉘어 있습니다.
+        읽는 사람은 두 곳을 훑어야 같은 사실을 압니다.</p>
+    </div>
+    <div class="find">
+      <h4>글자가 작습니다</h4>
+      <p>「레벨:」·「스타일:」 같은 라벨이 <span class="mono">11px</span> 입니다.
+        이 화면을 쓰는 학생 대부분이 초등학생입니다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">02</span>네 가지 안</h2>
+  <p class="lede">방향이 서로 다르도록 만들었습니다. 각 목업은 실제로 눌립니다 —
+    ⚙ 를 누르면 설정이 올라오고, 탭을 누르면 화면이 바뀝니다.
+    <b>[폰]</b>·<b>[PC]</b> 를 눌러 두 화면을 비교해 보세요.</p>
+
+  <!-- ══════════ A안 ══════════ -->
+  <article class="plan">
+    <div class="plan-head">
+      <span class="plan-tag">A안</span>
+      <span class="plan-name">말끔한 한 줄</span>
+      <span class="plan-one">상단은 한 줄만. 설정 25개는 ⚙ 를 누르면 아래에서 올라옵니다.</span>
+    </div>
+    <div class="plan-body">
+      <div class="plan-demo">
+        <div class="wtabs" role="group" aria-label="A안 화면 크기">
+          <button type="button" data-w="phone" data-target="mockA" aria-pressed="true">폰</button>
+          <button type="button" data-w="pc" data-target="mockA" aria-pressed="false">PC</button>
+        </div>
+        <div class="mock" id="mockA" data-w="phone">
+          <div class="mk-top">
+            <span class="mk-ico" aria-hidden="true">←</span>
+            <span class="mk-face" aria-hidden="true">🥭</span>
+            <span class="mk-who"><span class="mk-name">Emma</span>
+              <span class="mk-sub">눌러서 친구 바꾸기</span></span>
+            <span class="mk-chip">🔥 3</span>
+            <span class="mk-chip gold">⭐ 12P</span>
+            <button type="button" class="mk-ico" data-sheet="mockA" aria-label="설정 열기">⚙</button>
+          </div>
+          <div class="mk-chat">
+            <div class="mk-card">
+              <span class="ct">✨ 오늘의 단어 · <b>together</b> (함께)</span>
+              <span style="font-size:11.5px;color:var(--m-tx2)">대화에 쓰면 +5P · 눌러서 발음 듣기</span>
+            </div>
+            <div class="mk-msg ai">Hi! What did you do today?</div>
+            <div class="mk-msg me">I played soccer with my friend.</div>
+            <div class="mk-msg ai">Nice! Did you play together?</div>
+            <div class="mk-note">+1P · 오늘 13P</div>
+          </div>
+          <div class="mk-input">
+            <span class="box">영어로 말해 보세요…</span>
+            <span class="mk-ico" aria-hidden="true">🎤</span>
+            <span class="mk-send" aria-hidden="true">↑</span>
+          </div>
+          <div class="mk-scrim" data-sheet="mockA"></div>
+          <div class="mk-sheet">
+            <div class="mk-grip"></div>
+            <div class="mk-sec"><span>🏆 오늘의 할 일 · 1/4</span>
+              <div class="mk-qline"><span>💬 영어 수다 5번</span><b>2/5</b></div>
+              <div class="mk-qline"><span>✨ 오늘의 단어 쓰기</span><b>+5P</b></div>
+              <div class="mk-qline"><span>🎤 목소리로 말하기</span><b>완료</b></div>
+            </div>
+            <div class="mk-sec"><span>🪜 레벨</span>
+              <div class="mk-row"><span class="mk-pill">1 A1</span><span class="mk-pill">2 A2</span>
+                <span class="mk-pill">3 A2+</span><span class="mk-pill on">4 B1</span>
+                <span class="mk-pill">5 B1+</span><span class="mk-pill">…</span></div></div>
+            <div class="mk-sec"><span>🧑 친구</span>
+              <div class="mk-row"><span class="mk-pill on">👩 Emma</span><span class="mk-pill">🦸 Jake</span>
+                <span class="mk-pill">👧 Lily</span><span class="mk-pill">👦 Noah</span></div></div>
+            <div class="mk-sec"><span>🔊 말하기</span>
+              <div class="mk-row"><span class="mk-pill">🐢 느리게</span><span class="mk-pill on">보통</span>
+                <span class="mk-pill">🐇 빠르게</span></div></div>
+            <div class="mk-sec"><span>👁 자막</span>
+              <div class="mk-row"><span class="mk-pill on">보이기</span><span class="mk-pill">가리기</span>
+                <span class="mk-pill">끄기</span></div></div>
+          </div>
+        </div>
+        <p class="demo-cap"><b>⚙ 를 눌러 보세요.</b> 설정이 아래에서 올라옵니다.</p>
+      </div>
+      <div class="plan-notes">
+        <h5 class="get">얻는 것</h5>
+        <ul>
+          <li>상단이 <b>한 줄</b>로 줄어 대화창이 지금의 두 배 가까이 넓어집니다</li>
+          <li>연속일·포인트는 <b>늘 보입니다</b> — 아이가 계속 보게 만드는 두 가지</li>
+          <li>설정 시트는 폰에서 익숙한 방식이라 따로 배울 것이 없습니다</li>
+          <li>지금 구조를 가장 적게 흔듭니다 — 버튼과 기능은 그대로 자리만 옮깁니다</li>
+        </ul>
+        <h5 class="lose">잃는 것 · 감수할 것</h5>
+        <ul>
+          <li>레벨·자막을 바꾸려면 <b>두 번</b> 눌러야 합니다(⚙ → 고르기)</li>
+          <li>지금 어떤 레벨인지 한눈에 안 보입니다 — ⚙ 옆에 「4 B1」을 작게 붙이면 해결됩니다</li>
+        </ul>
+        <p class="hnum">상단 높이 <b>56px</b> (폰) · <b>64px</b> (PC)<br>
+          지금 342px → 약 <b>1/6</b></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ══════════ B안 ══════════ -->
+  <article class="plan">
+    <div class="plan-head">
+      <span class="plan-tag">B안</span>
+      <span class="plan-name">대화만 남기기</span>
+      <span class="plan-one">상단에는 친구 이름만. 포인트는 받는 순간에만 대화 사이에 나타납니다.</span>
+    </div>
+    <div class="plan-body">
+      <div class="plan-demo">
+        <div class="wtabs" role="group" aria-label="B안 화면 크기">
+          <button type="button" data-w="phone" data-target="mockB" aria-pressed="true">폰</button>
+          <button type="button" data-w="pc" data-target="mockB" aria-pressed="false">PC</button>
+        </div>
+        <div class="mock" id="mockB" data-w="phone">
+          <div class="mk-top" style="padding:7px 11px">
+            <span class="mk-ico" aria-hidden="true">←</span>
+            <span class="mk-face" aria-hidden="true">🥭</span>
+            <span class="mk-who"><span class="mk-name">Emma</span></span>
+            <button type="button" class="mk-ico" data-sheet="mockB" aria-label="설정 열기">⚙</button>
+          </div>
+          <div class="mk-chat">
+            <div class="mk-msg ai">Hi! What did you do today?</div>
+            <div class="mk-msg me">I played soccer with my friend.</div>
+            <div class="mk-note">⭐ +1P · 오늘 13P · 🔥 3일 연속</div>
+            <div class="mk-msg ai">Nice! Did you play together?</div>
+            <div class="mk-msg me">Yes, we played together!</div>
+            <div class="mk-note">✨ 오늘의 단어를 썼어요 +5P</div>
+            <div class="mk-msg ai">Great job! Was it fun?</div>
+          </div>
+          <div class="mk-input">
+            <span class="box">영어로 말해 보세요…</span>
+            <span class="mk-ico" aria-hidden="true">🎤</span>
+            <span class="mk-send" aria-hidden="true">↑</span>
+          </div>
+          <div class="mk-scrim" data-sheet="mockB"></div>
+          <div class="mk-sheet">
+            <div class="mk-grip"></div>
+            <div class="mk-sec"><span>🏆 오늘 · 13P · 🔥 3일 연속</span>
+              <div class="mk-qline"><span>💬 영어 수다 5번</span><b>2/5</b></div>
+              <div class="mk-qline"><span>🎧 자막 없이 듣기</span><b>+1P</b></div>
+            </div>
+            <div class="mk-sec"><span>🪜 레벨</span>
+              <div class="mk-row"><span class="mk-pill">1 A1</span><span class="mk-pill">2 A2</span>
+                <span class="mk-pill">3 A2+</span><span class="mk-pill on">4 B1</span>
+                <span class="mk-pill">5 B1+</span><span class="mk-pill">…</span></div></div>
+            <div class="mk-sec"><span>🧑 친구</span>
+              <div class="mk-row"><span class="mk-pill on">👩 Emma</span><span class="mk-pill">🦸 Jake</span>
+                <span class="mk-pill">👧 Lily</span><span class="mk-pill">👦 Noah</span></div></div>
+            <div class="mk-sec"><span>👁 자막</span>
+              <div class="mk-row"><span class="mk-pill on">보이기</span><span class="mk-pill">가리기</span>
+                <span class="mk-pill">끄기</span></div></div>
+          </div>
+        </div>
+        <p class="demo-cap">상태가 <b>대화 사이에 흘러갑니다</b> — 위쪽은 늘 비어 있습니다.</p>
+      </div>
+      <div class="plan-notes">
+        <h5 class="get">얻는 것</h5>
+        <ul>
+          <li>대화창이 <b>가장 넓습니다</b> — 작은 폰에서도 화면의 3/4</li>
+          <li>포인트를 <b>받는 순간</b>에 보여 주니 「방금 뭘 해서 받았는지」가 분명합니다</li>
+          <li>화면에 남는 글자가 가장 적어 어린 학생이 덜 헤맵니다</li>
+        </ul>
+        <h5 class="lose">잃는 것 · 감수할 것</h5>
+        <ul>
+          <li>연속일·오늘 포인트가 <b>늘 보이지 않습니다</b> — 「몇 점 모았나」를 확인하려면 ⚙ 를 열어야 합니다</li>
+          <li>모으는 재미로 붙잡아 두던 힘이 약해질 수 있습니다. 되돌리려면 A안으로 옮기면 됩니다</li>
+          <li>퀘스트를 스스로 찾아 보는 아이는 드뭅니다 — 대화 시작 카드로 한 번 더 알려 줘야 합니다</li>
+        </ul>
+        <p class="hnum">상단 높이 <b>48px</b> (폰·PC 같음)<br>
+          지금 342px → 약 <b>1/7</b></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ══════════ C안 ══════════ -->
+  <article class="plan">
+    <div class="plan-head">
+      <span class="plan-tag">C안</span>
+      <span class="plan-name">아래 탭 세 개</span>
+      <span class="plan-one">대화 · 오늘 · 설정을 아래 탭으로 나눕니다. 엄지가 닿는 자리입니다.</span>
+    </div>
+    <div class="plan-body">
+      <div class="plan-demo">
+        <div class="wtabs" role="group" aria-label="C안 화면 크기">
+          <button type="button" data-w="phone" data-target="mockC" aria-pressed="true">폰</button>
+          <button type="button" data-w="pc" data-target="mockC" aria-pressed="false">PC</button>
+        </div>
+        <div class="mock" id="mockC" data-w="phone">
+          <div class="mk-top" style="padding:6px 11px">
+            <span class="mk-ico" aria-hidden="true">←</span>
+            <span class="mk-face" style="width:26px;height:26px;font-size:14px" aria-hidden="true">🥭</span>
+            <span class="mk-who"><span class="mk-name" style="font-size:13px">Emma</span></span>
+            <span class="mk-ico" aria-hidden="true">🔊</span>
+          </div>
+
+          <div class="mk-pane on" data-pane="chat">
+            <div class="mk-chat">
+              <div class="mk-msg ai">Hi! What did you do today?</div>
+              <div class="mk-msg me">I played soccer with my friend.</div>
+              <div class="mk-msg ai">Nice! Did you play together?</div>
+              <div class="mk-msg me">Yes! It was so fun.</div>
+              <div class="mk-msg ai">That sounds great. Who won?</div>
+            </div>
+            <div class="mk-input">
+              <span class="box">영어로 말해 보세요…</span>
+              <span class="mk-ico" aria-hidden="true">🎤</span>
+              <span class="mk-send" aria-hidden="true">↑</span>
+            </div>
+          </div>
+
+          <div class="mk-pane" data-pane="today">
+            <div class="mk-pane-pad">
+              <div class="mk-card" style="text-align:center;padding:14px">
+                <span style="font-family:var(--f-mono);font-size:26px;font-weight:600;color:var(--m-gold)">13P</span>
+                <div style="font-size:11.5px;color:var(--m-tx2);margin-top:2px">오늘 모은 포인트 · 🔥 3일 연속</div>
+              </div>
+              <div class="mk-card">
+                <span class="ct">✨ 오늘의 단어 · <b>together</b> (함께)</span>
+                <span style="font-size:11.5px;color:var(--m-tx2)">대화에 쓰면 +5P</span>
+              </div>
+              <div class="mk-card">
+                <span class="ct">🏆 오늘의 할 일 · 1/4</span>
+                <div class="mk-qline"><span>💬 영어 수다 5번</span><b>2/5</b></div>
+                <div class="mk-qline"><span>✨ 오늘의 단어 쓰기</span><b>+5P</b></div>
+                <div class="mk-qline"><span>🎤 목소리로 말하기</span><b>완료</b></div>
+                <div class="mk-qline"><span>🎧 자막 없이 듣기</span><b>+1P</b></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mk-pane" data-pane="set">
+            <div class="mk-pane-pad">
+              <div class="mk-sec"><span>🪜 레벨</span>
+                <div class="mk-row"><span class="mk-pill">1 A1</span><span class="mk-pill">2 A2</span>
+                  <span class="mk-pill">3 A2+</span><span class="mk-pill on">4 B1</span>
+                  <span class="mk-pill">5 B1+</span><span class="mk-pill">6 B2</span></div></div>
+              <div class="mk-sec"><span>🧑 친구</span>
+                <div class="mk-row"><span class="mk-pill on">👩 Emma</span><span class="mk-pill">🦸 Jake</span>
+                  <span class="mk-pill">👧 Lily</span><span class="mk-pill">👦 Noah</span></div></div>
+              <div class="mk-sec"><span>👁 자막</span>
+                <div class="mk-row"><span class="mk-pill on">보이기</span><span class="mk-pill">가리기</span>
+                  <span class="mk-pill">끄기</span></div></div>
+            </div>
+          </div>
+
+          <div class="mk-tabs" role="tablist">
+            <button type="button" class="mk-tab" role="tab" aria-selected="true" data-tab="chat" data-mock="mockC">
+              <span class="ti" aria-hidden="true">💬</span>대화</button>
+            <button type="button" class="mk-tab" role="tab" aria-selected="false" data-tab="today" data-mock="mockC">
+              <span class="ti" aria-hidden="true">🏆</span>오늘<span class="mk-badge">3</span></button>
+            <button type="button" class="mk-tab" role="tab" aria-selected="false" data-tab="set" data-mock="mockC">
+              <span class="ti" aria-hidden="true">⚙</span>설정</button>
+          </div>
+        </div>
+        <p class="demo-cap"><b>아래 탭을 눌러 보세요.</b> 「오늘」에 남은 할 일 개수가 배지로 붙습니다.</p>
+      </div>
+      <div class="plan-notes">
+        <h5 class="get">얻는 것</h5>
+        <ul>
+          <li>설정과 퀘스트가 <b>화면을 다 써서</b> 크고 시원합니다 — 글자를 키울 자리가 생깁니다</li>
+          <li>조작이 <b>아래</b>에 모여 폰에서 엄지로 닿습니다</li>
+          <li>배지(빨간 숫자 3)가 「아직 할 일이 있다」를 조용히 알려 줍니다</li>
+          <li>학생이 이미 아는 방식입니다 — 대부분의 앱이 이렇게 생겼습니다</li>
+        </ul>
+        <h5 class="lose">잃는 것 · 감수할 것</h5>
+        <ul>
+          <li>대화 중에는 포인트가 <b>안 보입니다</b>(배지로만) — 탭을 옮겨야 확인합니다</li>
+          <li>PC 에서는 아래 탭이 어색합니다. 넓은 화면에서는 옆으로 붙여야 합니다</li>
+          <li>화면이 셋으로 나뉘어 <b>가장 크게 바꾸는 안</b>입니다</li>
+        </ul>
+        <p class="hnum">상단 높이 <b>42px</b> + 아래 탭 <b>50px</b><br>
+          대화 탭 기준 지금 342px → <b>1/8</b></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ══════════ D안 ══════════ -->
+  <article class="plan">
+    <div class="plan-head">
+      <span class="plan-tag">D안</span>
+      <span class="plan-name">당기는 서랍</span>
+      <span class="plan-one">한 줄 + 상태 칩 한 줄은 그대로 두고, 그 아래를 당기면 설정이 내려옵니다.</span>
+    </div>
+    <div class="plan-body">
+      <div class="plan-demo">
+        <div class="wtabs" role="group" aria-label="D안 화면 크기">
+          <button type="button" data-w="phone" data-target="mockD" aria-pressed="true">폰</button>
+          <button type="button" data-w="pc" data-target="mockD" aria-pressed="false">PC</button>
+        </div>
+        <div class="mock" id="mockD" data-w="phone">
+          <div class="mk-top">
+            <span class="mk-ico" aria-hidden="true">←</span>
+            <span class="mk-face" aria-hidden="true">🥭</span>
+            <span class="mk-who"><span class="mk-name">Emma</span>
+              <span class="mk-sub">눌러서 친구 바꾸기</span></span>
+            <span class="mk-ico" aria-hidden="true">🔊</span>
+            <span class="mk-ico" aria-hidden="true">🚀</span>
+          </div>
+          <div class="mk-hud">
+            <span class="mk-chip">🪜 4 B1</span>
+            <span class="mk-chip">🔥 3일</span>
+            <span class="mk-chip gold">⭐ 13P</span>
+            <span class="mk-chip">✨ together</span>
+          </div>
+          <button type="button" class="mk-pull" data-drawer="mockD">
+            <span data-pulltext>설정·오늘의 할 일 열기</span> <span aria-hidden="true">⌄</span>
+          </button>
+          <div class="mk-drawer">
+            <div style="padding:4px 11px 11px">
+              <div class="mk-sec"><span>🏆 오늘의 할 일 · 1/4</span>
+                <div class="mk-qline"><span>💬 영어 수다 5번</span><b>2/5</b></div>
+                <div class="mk-qline"><span>✨ 오늘의 단어 쓰기</span><b>+5P</b></div>
+              </div>
+              <div class="mk-sec"><span>🪜 레벨</span>
+                <div class="mk-row"><span class="mk-pill">1 A1</span><span class="mk-pill">2 A2</span>
+                  <span class="mk-pill">3 A2+</span><span class="mk-pill on">4 B1</span>
+                  <span class="mk-pill">5 B1+</span><span class="mk-pill">…</span></div></div>
+              <div class="mk-sec"><span>🧑 친구</span>
+                <div class="mk-row"><span class="mk-pill on">👩 Emma</span><span class="mk-pill">🦸 Jake</span>
+                  <span class="mk-pill">👧 Lily</span><span class="mk-pill">👦 Noah</span></div></div>
+              <div class="mk-sec"><span>👁 자막</span>
+                <div class="mk-row"><span class="mk-pill on">보이기</span><span class="mk-pill">가리기</span>
+                  <span class="mk-pill">끄기</span></div></div>
+            </div>
+          </div>
+          <div class="mk-chat">
+            <div class="mk-msg ai">Hi! What did you do today?</div>
+            <div class="mk-msg me">I played soccer with my friend.</div>
+            <div class="mk-msg ai">Nice! Did you play together?</div>
+          </div>
+          <div class="mk-input">
+            <span class="box">영어로 말해 보세요…</span>
+            <span class="mk-ico" aria-hidden="true">🎤</span>
+            <span class="mk-send" aria-hidden="true">↑</span>
+          </div>
+        </div>
+        <p class="demo-cap"><b>「설정·오늘의 할 일 열기」를 눌러 보세요.</b></p>
+      </div>
+      <div class="plan-notes">
+        <h5 class="get">얻는 것</h5>
+        <ul>
+          <li>지금 화면과 <b>가장 비슷합니다</b> — 쓰던 분들이 다시 배울 것이 없습니다</li>
+          <li>레벨·연속일·포인트·오늘의 단어가 <b>네 칩으로 늘 보입니다</b></li>
+          <li>바꾸는 폭이 작아 <b>가장 빨리·안전하게</b> 적용됩니다</li>
+        </ul>
+        <h5 class="lose">잃는 것 · 감수할 것</h5>
+        <ul>
+          <li>상단이 <b>여전히 두 줄</b>입니다 — 네 안 중 대화창이 가장 좁습니다</li>
+          <li>「당기는 서랍」은 못 보고 지나치기 쉽습니다. 글자로 안내해야 합니다</li>
+          <li>근본 원인(늘 보는 것과 가끔 바꾸는 것이 섞임)은 절반만 풀립니다</li>
+        </ul>
+        <p class="hnum">상단 높이 <b>96px</b> (폰) · <b>104px</b> (PC)<br>
+          지금 342px → 약 <b>1/3.5</b></p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section>
+  <h2><span class="n">03</span>나란히 놓고 보기</h2>
+  <p class="lede">같은 화면(폰 360×640)에서 잰 값과, 각 안이 무엇을 내주는지입니다.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>안</th><th>상단 높이</th><th>대화창</th><th>바로 보이는 상태</th>
+        <th>설정까지</th><th>바꾸는 폭</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><b>지금</b></td><td class="num">342px</td><td class="num">31%</td>
+          <td>전부(칩 4 + 퀘스트 4)</td><td class="num">0번</td><td>—</td>
+        </tr>
+        <tr>
+          <td><b>A안</b> 말끔한 한 줄</td><td class="num">56px</td><td class="num">약 74%</td>
+          <td>연속일 · 포인트</td><td class="num">1번</td><td>작음</td>
+        </tr>
+        <tr>
+          <td><b>B안</b> 대화만</td><td class="num">48px</td><td class="num">약 76%</td>
+          <td>없음(받을 때만)</td><td class="num">1번</td><td>중간</td>
+        </tr>
+        <tr>
+          <td><b>C안</b> 아래 탭</td><td class="num">42+50px</td><td class="num">약 70%</td>
+          <td>배지 숫자만</td><td class="num">1번</td><td>큼</td>
+        </tr>
+        <tr>
+          <td><b>D안</b> 당기는 서랍</td><td class="num">96px</td><td class="num">약 60%</td>
+          <td>레벨 · 연속일 · 포인트 · 단어</td><td class="num">1번</td><td>가장 작음</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:13px;color:var(--muted)">대화창 비율은 상단 높이에서 계산한 값입니다. 실제 적용 뒤에는 다시 재서 확인합니다.</p>
+
+  <div class="pick">
+    <h3>제 추천은 A안입니다</h3>
+    <p>상단을 <strong>1/6로 줄이면서</strong> 아이를 붙잡아 두는 두 가지(연속일·포인트)는 그대로 남기기 때문입니다.
+      B안은 대화창이 가장 넓지만 「며칠 연속」이 사라지는 값이 큽니다 —
+      그건 화면 문제가 아니라 계속 오게 만드는 장치입니다.</p>
+    <p>C안은 가장 시원하지만 <strong>대화 중에 상태가 안 보이고</strong> 화면이 셋으로 나뉩니다.
+      바꾸는 폭이 제일 커서, A안을 먼저 써 보고 그래도 좁으면 그때 옮기는 편이 안전합니다.</p>
+    <p>D안은 지금과 가장 비슷해 안전하지만, 상단이 두 줄로 남아
+      <strong>「복잡하다」는 느낌이 절반만 풀립니다.</strong></p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">04</span>고르신 뒤에 할 일</h2>
+  <p class="lede">어느 안이든 순서는 같습니다. 화면만 바꾸고 기능·데이터는 건드리지 않습니다.</p>
+  <ol class="steps">
+    <li><b>A~D 중 하나를 골라 주세요.</b> 「A안인데 레벨 칩은 D안처럼 늘 보이게」처럼 섞으셔도 됩니다.</li>
+    <li>고른 안으로 <b>ai-friend.html 상단만</b> 고칩니다. 버튼·기능은 그대로 자리만 옮깁니다.</li>
+    <li>고친 뒤 <b>같은 네 화면에서 다시 재서</b> 상단이 실제로 줄었는지 숫자로 확인합니다.</li>
+    <li>학생이 설정을 못 찾는 일이 없게 <b>「⚙ 를 눌러 보세요」 안내를 첫 방문 때 한 번</b> 띄웁니다.</li>
+    <li>같은 정리를 <b>웜업·음성코치 화면</b>에도 이어서 적용할지는 그때 결정합니다.</li>
+  </ol>
+</section>
+
+<footer class="foot">
+  <p>실측: 2026-09-09 · Chromium · PC 1920×1080 / 1280×800 · 폰 390×844 / 360×640</p>
+  <p>목업은 실제 화면의 색·글자 크기를 그대로 쓴 것이며, 대화 내용은 예시입니다.</p>
+  <p>상단 높이 예상치는 각 안의 구성 요소로 계산한 값이고, 적용 뒤 다시 잽니다.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-w]');
+    if (t && t.dataset.target) {
+      var mock = document.getElementById(t.dataset.target);
+      if (mock) mock.dataset.w = t.dataset.w;
+      t.parentNode.querySelectorAll('button').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === t));
+      });
+      return;
+    }
+    var s = e.target.closest('[data-sheet]');
+    if (s) {
+      var m = document.getElementById(s.dataset.sheet);
+      if (m) m.classList.toggle('sheet-open');
+      return;
+    }
+    var d = e.target.closest('[data-drawer]');
+    if (d) {
+      var md = document.getElementById(d.dataset.drawer);
+      if (md) {
+        var open = md.classList.toggle('drawer-open');
+        var label = d.querySelector('[data-pulltext]');
+        if (label) label.textContent = open ? '닫기' : '설정·오늘의 할 일 열기';
+      }
+      return;
+    }
+    var tab = e.target.closest('[data-tab]');
+    if (tab) {
+      var mk = document.getElementById(tab.dataset.mock);
+      if (!mk) return;
+      mk.querySelectorAll('[data-tab]').forEach(function (b) {
+        b.setAttribute('aria-selected', String(b === tab));
+      });
+      mk.querySelectorAll('[data-pane]').forEach(function (p) {
+        p.classList.toggle('on', p.dataset.pane === tab.dataset.tab);
+      });
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

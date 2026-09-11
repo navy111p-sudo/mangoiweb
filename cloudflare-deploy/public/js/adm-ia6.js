@@ -42,6 +42,40 @@
         같은 이름을 쓰면 항목 감춤이 항목 클릭 한 번에 통째로 풀린다. */
   var ROLE_HIDE = 'ia6-role-hide';
 
+  /* 🔐 (2026-09-09) 딴 페이지로 가는 항목(href)의 역할 감춤.
+     [무엇이 문제였나] applyRoleFilter 는 «가리키는 카드가 전부 감춰졌나» 로 판정하는데,
+       href 항목은 카드가 아예 없어서 known=0 → 언제나 «남긴다» 였다. 그래서 서버가 403 으로
+       막는 화면인데도 강사·지사·대리점 사이드바에 그대로 떠서, 눌러야만 「권한이 없습니다」를
+       봤다. 이 파일 안 두 곳(위 monitor-wall · 아래 환불)에 그 사실이 주석으로 적혀 있었다.
+     [무엇을 바꾸나] 항목이 `hideFrom` 을 들면 그 역할에게만 감춘다.
+     ⛔ 허용목록(«이 역할만 보인다»)으로 뒤집지 말 것 — 나중에 역할이 하나 늘면 그 사람의
+        메뉴가 «조용히» 사라진다. 빠지는 쪽이 훨씬 나쁘다. 그래서 **금지목록**이고,
+        모르는 역할·신원 미도착은 언제나 «보인다» 로 떨어진다(서버가 최종 판정).
+     ⚠️ 여기 적는 역할 어휘는 서버 `resolveRole()` 의 것이다 —
+        teacher · hq · staff · franchise · branch · agency.
+        카드 쪽(`_applyMenuVisibility` 의 hq_exec·hq_mgr…)과 **어휘가 다르다.** 섞지 말 것.
+     ✅ 값의 근거는 «그 화면이 부르는 API 를 서버가 실제로 막는가» 다(2026-09-09 실측).
+        추측으로 늘리지 말고, 막는 코드를 확인하고 그 자리를 주석에 적을 것.
+     🔴 **`hideFrom` 값은 «순수 리터럴» 이어야 합니다** — 상수 이름(`ORG_ROLES` 같은 것)을 쓰면
+        하니스 셋이 깨집니다. `today_menu_split_harness`·`admin_site_structure_sync_harness`·
+        `admin_sidebar_ia6_click_harness` 는 이 `GROUPS` 블록만 오려 내 **`eval`** 하기 때문에
+        블록 «밖» 의 이름은 정의되지 않아 통째로 `null` 이 됩니다(2026-09-09 실제로 밟았습니다 —
+        게다가 그 셋은 **실패해도 종료코드가 0** 이라 «하니스를 하나씩 돌려 exit 를 보는» 방식으로는
+        안 잡히고 CI 에서야 드러났습니다). 조직 계정 셋은 `src/auth-admin.ts` 의
+        `isOrgScopedRole()` 과 같은 값이며, 어긋나면 브라우저 검사가 잡습니다. */
+
+  /* 지금 로그인한 사람의 역할. **이번 방문에 서버가 확인해 준 `window.__ADM_ME` 만** 본다.
+     아직 안 왔으면 빈 문자열 — 그때는 아무것도 감추지 않는다(adm-today-classes.js 와 같은 방식).
+     ⛔ `admIdentity()` 로 떨어뜨리지 말 것 — 그 함수는 `localStorage['admin_session']` 에
+        `__fromServer` 표식이 있으면 **지난 방문 값**을 돌려준다. 공용 PC 에서 앞사람이 강사였다면
+        본사 사람이 열 때 잠시 «강사» 로 판정돼 **메뉴가 사라집니다** — 이 파일이 피하기로 한
+        바로 그 방향(빠지는 쪽)입니다. 신원이 오면 `mangoi:identity` 로 곧 제자리로 옵니다. */
+  function myRole() {
+    var me = null;
+    try { me = window.__ADM_ME; } catch (e) {}
+    return (me && me.role) ? String(me.role) : '';
+  }
+
   // ── 6그룹 40항목 (2026-08-17 「수업 길이 변경」·「수강 운영」 +2) ─────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
   //   cards[0] 이 그 항목의 «대표 카드» — 누르면 이것부터 펼친다.
@@ -101,10 +135,21 @@
         { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
         /* 🗼 (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
            줄마다 참관·입장·종료까지 하는 별도 화면. 별도 페이지라 href 다(「수업 길이 변경」과 같은 꼴).
-           ⚠️ href 항목은 카드가 없어 역할 필터(applyRoleFilter)를 못 받는다 — 강사·지사에게도 «보인다».
-              그래서 화면 쪽이 스스로 막는다: monitor-wall 은 classes-now 가 forbidden_teacher 로
-              답하면 목록을 아예 안 그린다(그 화면 머리말 참고). */
+           🔐 (2026-09-09) 강사에게는 감춘다 — 이 화면의 **뼈대**(목록·알림·참관·회선)가 강사 차단이라
+              눌러도 빈 표만 나온다(src/index.ts TEACHER_BLOCKED_PREFIXES 의
+              `/api/admin/classes-now` · `/api/admin/alerts` · `/api/admin/ghost` · `/api/admin/vc/`).
+           ⛔ 「이 화면이 부르는 API 가 **전부** 막힌다」로 적지 말 것 — 사실이 아니다.
+              `monitor-wall.js` 는 여섯을 부르는데 **`/api/admin/live-classes` 와 `/api/admin/room/` 은
+              차단목록에 없습니다.** 특히 `POST /api/admin/room/:id/force-end` 는 핸들러에도 강사 가드가
+              없어 **강사가 URL 로 수업을 강제 종료할 수 있습니다**(이번 변경이 만든 것이 아니고,
+              메뉴를 감춰도 그대로입니다 — 서버 가드는 별건. 2026-09-09 함정 대조가 찾음).
+           ⚠️ 지사·대리점에게는 **감추지 않는다** — `classes-now` 가 그들에게 열려 있고
+              (isAgencyAllowedApi) 핸들러가 자기 학생 수업만 잘라서 줍니다.
+              ⛔ 「참관만 403」이 아닙니다 — 조직 계정에게 열린 것은 **`classes-now` 하나뿐**이고
+                 `alerts`·`ghost/start`·`live-classes`·`room/`·`vc/quality` 는 전부 forbidden_scope 입니다.
+                 그래도 «목록은 되므로» 감추지 않습니다(되는 것을 메뉴에서 빼는 쪽이 더 나쁩니다). */
         { ko: '수업 관제탑', en: 'Control tower', href: '/admin/monitor-wall.html',
+          hideFrom: ['teacher'],
           tip: '🗼 지금 열린 수업을 한 표로 — 참관·입장·종료·순회 참관',
           tipEn: '🗼 Every live class in one table - observe, enter, end, rotate' },
         { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
@@ -154,7 +199,12 @@
            ⚠️ id 는 그 파일에 진짜로 있어야 한다 — 손으로 적은 목록이라 어긋나면 조용히
               페이지 맨 위만 열린다. `sidebar_three_level_harness.mjs` 가 파일을 열어 확인한다.
            ⛔ 없는 구역 이름을 지어 넣지 말 것(2026-08-18 「데모 매핑」 사고와 같은 함정). */
+        /* 🔐 (2026-09-09) 지사·대리점에게는 감춘다 — `/api/admin/duration-requests` 는
+           isAgencyAllowedApi 허용목록에 없어 src/index.ts 가 forbidden_scope(403) 를 낸다.
+           ⚠️ 강사에게는 **감추지 않는다** — 그 경로는 TEACHER_BLOCKED_PREFIXES 에 없고
+              핸들러도 checkAdminSession 만 본다. 즉 강사는 실제로 쓸 수 있다. */
         { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html',
+          hideFrom: ['franchise', 'branch', 'agency'],
           tip: '📅 20·30·40분 변경 신청 — 매달 1일에 한꺼번에 반영',
           tipEn: '📅 Class-length requests — applied on the 1st of each month',
           secs: [
@@ -174,6 +224,14 @@
         /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
            /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
         { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
+          /* 🔐 (2026-09-10) 이 화면의 여섯 탭이 전부 «회사 전체» 운영이다 — 강사 급여
+             배율·회사 공휴일·전국 만료 임박 명단·하루치 수업의 강사 통째 변경·학부모
+             문자 스윕·환불 계산. 서버도 같은 날 본사 전용이 됐다(enrollAdminHqOnly).
+             ⚠️ 그전에는 서버 가드가 없어서 «일부러 안 감췄다» — 감추면 진짜 문제가
+                눈에서 사라지기 때문. 이제 서버가 막으므로 화면도 함께 감춘다(짝).
+             ⛔ 값은 순수 리터럴로 둘 것 — 상수 이름을 쓰면 GROUPS 를 오려 내 eval 하는
+                하니스 셋에서 GROUPS 가 통째로 null 이 된다(PR #912 에서 실제로 밟음). */
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산',
           tipEn: '📚 Teacher rates, long-class capacity, holidays, refunds',
           secs: [
@@ -221,17 +279,21 @@
            (위 「수업 길이 변경」·「수강 운영」과 같은 꼴, 주소는 확장자까지 적는다 —
             확장자를 빼면 site_map_drift_harness 가 «죽은 링크» 로 FAIL 낸다).
            자리 — 「결제」 바로 아래. 결제의 반대 방향 동작이라 나란히 두는 것이 찾기 쉽다.
-           ⚠️ 이 항목은 **역할 필터를 받지 않는다** — applyRoleFilter 가 `[data-cards]` 인
-              항목만 보기 때문에 카드가 없는 href 항목은 강사·지사에게도 «보인다».
-              기존 href 항목 셋(수업 길이 변경·수강 운영·영업 실적·평가)도 같은 상태다.
-              들어가도 자료는 안 나온다 — 서버(api-pay-refund.ts refundGate)가 강사는
-              forbidden_teacher, 지사·대리점은 forbidden_scope 로 막고 화면이 그 이유를 띄운다.
-              «메뉴를 아예 감추는» 일을 하려면 href 항목용 역할 판정을 새로 만들어야 하고,
-              그건 사이드바 공용 로직이라 별건이다(반경이 네 항목 전부).
+           📜 (~2026-09-08) 여기에는 「이 항목은 역할 필터를 받지 않는다 — 카드가 없는 href
+              항목은 강사·지사에게도 보인다」고 적혀 있었다. **지금은 사실이 아니다.**
+              2026-09-09 에 항목별 금지목록(`hideFrom`)을 만들었고, 2026-09-10 에
+              「수강 운영」까지 붙어 **href 항목 다섯이 전부** 역할 필터를 받는다.
+              ⛔ 그 옛 문장을 근거로 `hideFrom` 을 지우지 말 것.
+              ℹ️ 그래도 화면 감춤은 «둘 중 하나» 일 뿐이다 — 들어가도 자료는 안 나온다
+                 (서버 refundGate 가 강사는 forbidden_teacher, 지사·대리점은
+                  forbidden_scope 로 막고 화면이 그 이유를 띄운다).
            ⚠️ secs 의 id 는 refunds.html 에 진짜로 있어야 한다(하니스가 파일을 열어 대조).
            ⛔ 「② 확인」(#pv-card)은 secs 에 넣지 않았다 — 주문을 불러오기 전에는 `hide` 라
               그리로 보내면 «눌러도 아무 일도 안 일어난» 것으로 보인다. */
         { ko: '환불 처리', en: 'Refunds', href: '/admin/refunds.html',
+          /* 🔐 (2026-09-09) 위 ⚠️ 에 적힌 «별건» 을 이제 한다 — api-pay-refund.ts 의 refundGate 가
+             강사는 forbidden_teacher, 지사·대리점·지사본사는 forbidden_scope 로 막는다. 그 둘 그대로. */
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '💸 결제를 되돌리고 그 사실을 장부에 남깁니다 (본사 전용)',
           tipEn: '💸 Cancel a payment and record it (HQ only)',
           secs: [
@@ -265,6 +327,9 @@
               FAIL 낸다(그 하니스가 실제로 잡아 줬다). 이 파일의 다른 항목들과 같이 실제
               파일 경로를 쓴다(/admin/duration-requests.html · /enroll-ops.html). */
         { ko: '영업 실적·평가', en: 'Sales & review', href: '/admin/sales-hr.html',
+          /* 🔐 (2026-09-09) `/api/admin/sales/` 는 강사 차단(TEACHER_BLOCKED_PREFIXES)이고
+             isAgencyAllowedApi 에도 없어 지사·대리점은 forbidden_scope 다. 둘 다 빈 화면만 본다. */
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '🚗 영업담당자 방문·계약·성과급·반기 평가',
           tipEn: '🚗 Sales rep visits, deals, incentives, half-year review',
           secs: [
@@ -632,6 +697,21 @@
       var hide = known > 0 && blocked === known;
       if (hide) d.classList.add(ROLE_HIDE); else d.classList.remove(ROLE_HIDE);
     }
+    /* 🔐 (2026-09-09) 카드가 없는 항목(딴 페이지로 가는 href)은 위 판정이 원리상 못 본다
+       (known 이 0 이라 언제나 «남긴다»). 그 항목들은 자기가 든 금지목록으로 판정한다.
+       ⚠️ 역할을 아직 모르면(신원 미도착·조회 실패) **아무것도 감추지 않는다** —
+          그 사이 눌러도 서버가 거절하고, 신원이 오면 아래 `mangoi:identity` 로 다시 돈다. */
+    var role = myRole();
+    var hrefs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-ia6-hide-from]');
+    for (var h = 0; h < hrefs.length; h++) {
+      /* ⚠️ 이름을 `e` 로 두지 않는다 — 이 파일은 ES5 스타일(`var`)이라 함수에 칸이 하나뿐이고,
+            나중에 같은 함수에 `catch (e)` 가 생기면 그 줄부터 조용히 다른 값이 된다
+            (CLAUDE.md 「헬퍼를 잘 넘겼는데 앞쪽 호출은 되고 «뒤쪽만» 죽음」). */
+      var hEl = hrefs[h];
+      var deny = (hEl.getAttribute('data-ia6-hide-from') || '').split(' ');
+      var off = !!role && deny.indexOf(role) >= 0;
+      if (off) hEl.classList.add(ROLE_HIDE); else hEl.classList.remove(ROLE_HIDE);
+    }
     // 그룹 머리 — 그 안 항목이 하나도 안 남으면 그룹째 감춘다(빈 아코디언을 남기지 않는다)
     var grps = bar.querySelectorAll('.ph85-group[data-ia6]');
     for (var g = 0; g < grps.length; g++) {
@@ -862,6 +942,9 @@
            손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
            그 항목만 손자가 없는 «2단짜리» 로 남는다. */
         if (it.href) d.setAttribute('data-ia6-href', it.href);
+        /* 🔐 (2026-09-09) 이 항목을 감춰야 하는 역할. 사이드바는 통째로 다시 그려질 수 있어서
+           («리스너를 붙이지 않는다» 바로 아래 주석과 같은 사정) 판정 근거를 DOM 에 실어 둔다. */
+        if (it.hideFrom && it.hideFrom.length) d.setAttribute('data-ia6-hide-from', it.hideFrom.join(' '));
         /* 💬 (2026-08-19) 이 항목만의 설명. 툴팁을 붙이는 곳은 adm-s15.js 한 곳인데, 거기는
            «대표 카드» 기준이라 ① 카드를 여럿 맡거나 ② 같은 카드의 다른 칸을 가리키거나
            ③ 카드가 아예 없는(딴 페이지) 항목에서는 엉뚱하거나 빈 설명이 된다.
@@ -1172,7 +1255,27 @@
       // 옛 9그룹을 인라인 style 로 감추면 admin.html 의 검색 핸들러가
       // g.style.display='' 로 되돌려 놓는다(실측으로 잡힘). 그래서 CSS 로 못박는다.
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
-      // 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter). id 를 앞에 붙여 확실히 이기게 한다.
+      /* 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter).
+         🔴 (2026-09-09 실측) id 를 앞에 붙이는 것만으로는 **못 이긴다.**
+            `admin-inline-c.css` 에 겨루는 규칙이 **셋** 있고(⛔ 행 번호로 적지 말 것 — 그 파일은
+            계속 자랍니다. 선택자로 찾으세요): `#ph85-sidebar .ph85-group{display:block!important}` ·
+            `#ph85-sidebar .ph85-sub{display:block!important}` · `#ph85-sidebar .ph85-sub{display:flex!important}`.
+            전부 특이성 (1,1,0) 이라 **문서 순서상 뒤가 이긴다.**
+            게다가 그 블록의 자기 주석이 「권한 시스템이 어떤 역할로 hide 해도 ph85 사이드바는 강제 visible」
+            이라 **역할 감춤을 이기려고 만들어진 규칙**이다. 그런데 그 파일은
+            `<head>` 가 아니라 **`<body>` 안**에서 링크된다(admin.html) — 이 <style> 은
+            document.head 에 붙으므로 언제나 «앞» 이고, 그래서 **언제나 진다.**
+            [잰 것] class 는 붙었는데(`ia6-role-hide`) computed display 가 `flex` 였다.
+                    ⟹ 역할 감춤이 «한 번도 안 먹고 있었다».
+         ✅ 클래스를 하나 더 붙여 (1,2,0) 으로 올려 이긴다. 마지막 줄은 `.ph85-sub` 도
+            `.ph85-group` 도 아닌 것(예: 나중에 생길 항목)을 위한 폴백이다.
+         ⛔ admin-inline-c.css 의 그 규칙을 지워서 풀지 말 것 — 사이드바 항목 전체의
+            배치(별점·말풍선 정렬)가 걸려 있다.
+         ⚠️ 확인은 «규칙이 있는가» 가 아니라 브라우저에서 `getComputedStyle(el).display` 를
+            재는 것뿐이다. 문자열 하니스는 이 함정을 원리상 못 본다 —
+            감시: test-harness/manual/admin-sidebar-role-hide-browser.mjs */
+      '#ph85-sidebar .ph85-sub.' + ROLE_HIDE + ',' +
+      '#ph85-sidebar .ph85-group.' + ROLE_HIDE + ',' +
       '#ph85-sidebar .' + ROLE_HIDE + '{display:none !important}' +
       '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}' +
       /* 📐 (2026-08-15) 그룹 줄을 조금 낮춰 «6그룹 + 메뉴 지도»가 첫 화면에 다 들어오게 한다.
@@ -1312,6 +1415,14 @@
         ⛔ setInterval 로 계속 돌리지 않는다. 사이드바 스크롤이 끊긴 전례가 있다(위 ph85 주석). */
   document.addEventListener('mangoi:menu-visibility', function () {
     try { applyRoleFilter(); } catch (e) { /* 무시 — 사이드바를 못 그리게 만들지 않는다 */ }
+  });
+  /* ③ (2026-09-09) 신원이 도착했을 때 — href 항목의 금지목록 판정은 `window.__ADM_ME.role` 을
+        보는데, 그것은 `/api/admin/me` 응답이 온 뒤에야 채워진다. 그 전에는 «모름 = 안 감춤» 이라
+        이 줄이 없으면 늦게 로그인 정보가 온 화면에서 영영 안 감춰진다.
+     ⚠️ 이 이벤트의 발행처는 `window` 가 아니라 **`document`** 다(adm-identity.js) —
+        CustomEvent 는 기본이 bubbles:false 라 window 에서 들으면 영원히 침묵한다(CLAUDE.md 2장). */
+  document.addEventListener('mangoi:identity', function () {
+    try { applyRoleFilter(); } catch (e) { /* 무시 */ }
   });
   setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 1500);
   setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 3500);

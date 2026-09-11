@@ -98,6 +98,9 @@ const PRICES: Record<string, { name: string; amount: number }> = {
   'manager':        { name: '학습 매니저',      amount: 50000 },
   'group_class':    { name: '원어민 그룹 클래스', amount: 60000 },
   'pron_ai':        { name: 'AI 발음 코치',     amount: 15000 },
+  // 🤖 (2026-09-09) 화상수업 없이 AI 학습도구만 쓰는 1개월 이용권. pron_ai 와 같은 방식
+  // (activateEnrollment 가 enrollments 행만 만들고 class_schedules 는 안 건드림 — enroll_json 이 없으므로).
+  'ai_content':     { name: 'AI 콘텐츠 전용 (1개월)', amount: 10000 },
 };
 
 async function ensurePayTable(env: any): Promise<void> {

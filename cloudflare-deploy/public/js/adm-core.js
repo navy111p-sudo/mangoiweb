@@ -6387,6 +6387,59 @@ async function loadEnrollments() {
   _renderEnrollments();
 }
 
+/* 📞 (2026-09-10 사장님 지시) 수업 30분 전 안내문자가 «갈 번호» 를 목록에서 바로 보고 고친다.
+   [왜 목록에도 필요한가] 등록 화면의 연락처 칸은 «앞으로 등록되는» 학생용이다. 이미 등록을
+     마친 학생(테스트 명단 9명이 그렇다)에게 번호를 넣을 자리가 없으면, 그 아이들에게는
+     안내문자를 영영 못 보낸다.
+   ⚠️ 여기 그리는 값은 `notify_phone` — «지금 발송이 실제로 읽는» 번호다(student_erp_override).
+      신청서에 적힌 `parent_phone` 을 그리면 두 값이 갈렸을 때 화면이 옛 값을 말하게 된다.
+   ⚠️ 번호가 없으면 «—» 가 아니라 «문자 안 감» 이라고 적는다. 빈칸은 «고장» 이나 «모름» 으로
+      읽히는데, 이 자리에서 빈칸의 뜻은 «이 학생에게는 안내가 안 나간다» 로 분명하다. */
+function _enPhoneCell(it) {
+  var en = (adminLang === 'en');
+  var p = String(it.notify_phone || '');
+  var label = p
+    ? '📞 ' + _esc(p.replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3'))
+    : (en ? '📵 no SMS — add number' : '📵 문자 안 감 · 번호 넣기');
+  return '<br><a href="#" onclick="enEditPhone(event,' + it.id + ')" ' +
+    'style="font-size:11px;color:' + (p ? '#0f6b4a' : '#b45309') + ';text-decoration:none;border-bottom:1px dashed currentColor" ' +
+    'title="' + (en ? 'Where the 30-minutes-before class reminder is sent' : '수업 30분 전 안내문자가 갈 번호') + '">' +
+    label + '</a>';
+}
+
+/* 번호를 고친다. 서버가 신청서와 «발송이 읽는 자리» 둘 다에 적고 결과를 돌려준다.
+   ⛔ 성공을 지어내지 않는다 — `phone_saved.ok` 가 false 면 그대로 사람에게 말한다.
+      (조용히 넘기면 「넣었으니 가겠지」로 믿게 되는데 안 가고, 아무도 이유를 모른다.) */
+async function enEditPhone(ev, id) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  var en = (adminLang === 'en');
+  var cur = (_enItems.find(function (x) { return x.id === id; }) || {}).notify_phone || '';
+  var v = prompt(en
+    ? 'Guardian phone for class reminders (empty = remove):'
+    : '수업 전 안내문자를 받을 학부모 번호 (비우면 삭제):', cur);
+  if (v === null) return;                       // 취소 — 아무것도 안 한다
+  var digits = String(v).replace(/[^0-9]/g, '');
+  if (digits && digits.length < 9) {
+    alert(en ? 'That number looks too short.' : '번호가 너무 짧습니다.');
+    return;
+  }
+  try {
+    var r = await fetch('/api/admin/enrollments/' + id, {
+      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_phone: digits })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok || d.ok === false) throw new Error((d && d.error) || ('HTTP ' + r.status));
+    if (d.phone_saved && d.phone_saved.ok === false) {
+      alert((en ? 'Not saved: ' : '저장되지 않았습니다: ') + (d.phone_saved.reason || (en ? 'unknown' : '사유 불명')) +
+            (en ? '\nReminders will not be sent to this student.' : '\n이 학생에게는 안내문자가 안 나갑니다.'));
+    }
+    await loadEnrollments();
+  } catch (e) {
+    alert((en ? 'Failed: ' : '실패: ') + (e.message || e));
+  }
+}
+
 function _renderEnrollments() {
   const en = (adminLang === 'en');
   const tb = document.getElementById('enrollments-table');
@@ -6480,7 +6533,7 @@ function _renderEnrollments() {
 
     return '<tr>' +
       '<td style="white-space:nowrap">' + _fmtDate(it.created_at) + '</td>' +
-      '<td><b>' + _esc(it.student_name) + '</b>' + dupBadge + (who ? '<br>' + who : '') + '</td>' +
+      '<td><b>' + _esc(it.student_name) + '</b>' + dupBadge + (who ? '<br>' + who : '') + _enPhoneCell(it) + '</td>' +
       '<td>' + _esc(it.package || '—') + (sub ? '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span>' : '') + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
       '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
@@ -7429,6 +7482,18 @@ function _addEnrollmentRow(prefill) {
     '<td class="en-c en-c-dur" data-label="' + (_enrIsEn ? 'Class period' : '수업 기간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
       '<div class="en-row-dur-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
+    /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — «수업 30분 전 안내문자» 가 갈 번호.
+       [왜 칸이 생겼나] 리마인더는 살아 있는데(최근 7일 671건 감지) 문자가 0건이었다.
+         학생 명부의 번호 칸이 29,485행 전부 비어 있고, 카페24 원본에 번호가 없기 때문이다.
+       ⚠️ 필수가 아니다 — 비워도 등록은 그대로 된다(모르는 번호를 지어내는 것이 더 나쁘다).
+       ⚠️ 서버는 이 값을 `student_erp_override` 에 적는다. 학생 명부에 적으면 카페24 동기화가
+          매일 밤 덮어써서 하룻밤이면 사라진다(체험계정 3개가 실제로 그렇게 잃었다). */
+    '<td class="en-c en-c-phone" data-label="' + (_enrIsEn ? 'Guardian phone' : '학부모 연락처') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<input class="en-row-phone" type="tel" inputmode="numeric" autocomplete="off" ' +
+        'placeholder="' + (_enrIsEn ? '010-0000-0000 (optional)' : '010-0000-0000 (선택)') + '" value="' + _esc(v.parent_phone || v.phone || '') + '" ' +
+        'title="' + (_enrIsEn ? 'Where the 30-minutes-before class reminder is sent. Optional.' : '수업 30분 전 안내문자가 갈 번호입니다. 비워 두어도 등록됩니다.') + '" ' +
+        'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+      '<div class="en-row-phone-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px"></div></td>' +
     '<td class="en-c en-c-del" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
   tbody.appendChild(tr);
   // 행 삭제 — 마지막 1행은 항상 유지
@@ -8102,9 +8167,15 @@ function _readEnrollmentRows() {
     if (types.length === 1 && types[0] === 'level') category = 'test_only';
     else if (types.length === 3) category = 'full';
     else if (types.length > 0) category = types.join('+');
+    /* 📞 (2026-09-10) 학부모 연락처 — 숫자만 남기고 9자리 미만은 «없는 것» 으로 본다.
+       서버·notify-contacts·student-override 가 전부 같은 규칙이다(한 곳이라도 다르면
+       「화면엔 넣었는데 저장이 안 된」 것처럼 보인다). 빈 값이면 안 보낸다 = 예전 그대로. */
+    const phoneRaw = (tr.querySelector('.en-row-phone')?.value || '').replace(/[^0-9]/g, '');
+    const parentPhone = phoneRaw.length >= 9 ? phoneRaw : '';
     out.push({
       student_name: name,
       student_user_id: uid || null,
+      parent_phone: parentPhone || null,
       package: pkg || (typesKo.join('+') || '미정'), // 패키지 비어있으면 유형으로 자동 채움
       monthly_fee_krw: fee ? parseInt(fee, 10) : null,
       started_at: start ? new Date(start).getTime() : null,
@@ -8203,6 +8274,8 @@ async function addEnrollment() {
     const d = await _menuPost('/api/admin/enrollments', {
       student_name: r.student_name,
       student_user_id: r.student_user_id,
+      // 📞 (2026-09-10) 수업 전 안내문자가 갈 번호. 서버가 student_erp_override 에 적는다.
+      parent_phone: r.parent_phone,
       package: r.package,
       monthly_fee_krw: r.monthly_fee_krw,
       started_at: r.started_at,
@@ -8247,6 +8320,15 @@ async function addEnrollment() {
           ? (adminLang==='en' ? '✅ Registered and confirmed' : '✅ 등록·확정 완료 (강사 배정·시간표 생성됨)')
           : (adminLang==='en' ? '⚠️ Registered, but not confirmed — open ▸ why' : '⚠️ 등록은 됐지만 확정이 안 됐습니다 — 목록의 「▸ 확정 안 됨」 을 눌러 이유를 보세요');
         status.style.color = cf.ok ? '#059669' : '#b45309';
+        /* 📞 (2026-09-10) 번호 저장이 실패하면 **그 자리에서 말한다.**
+           조용히 넘기면 「번호를 넣었으니 수업 전 문자가 가겠지」로 믿게 되는데 실제로는
+           안 간다 — 그리고 아무 데도 표시가 없어 영영 모른다(규칙서 2장 그 항목). */
+        if (d.phone_saved && d.phone_saved.ok === false) {
+          status.textContent += (adminLang==='en'
+            ? ' · ⚠️ Phone not saved (' + (d.phone_saved.reason || 'unknown') + ') — reminders will not be sent'
+            : ' · ⚠️ 연락처가 저장되지 않았습니다 (' + (d.phone_saved.reason || '사유 불명') + ') — 수업 전 안내문자는 안 나갑니다');
+          status.style.color = '#b45309';
+        }
       }
       if (!cf.ok && cf.failed && cf.failed.length) {
         console.warn('[enroll] 확정 실패 단계:', cf.failed.map(s => s.step + ': ' + s.detail).join(' / '));
@@ -8261,7 +8343,7 @@ async function addEnrollment() {
   // N>1 — 일괄 등록 (Phase 23 의 _bulkRegisterEnrollments 와 동일 패턴)
   if (!confirm((adminLang==='en' ? 'Register ' : '') + records.length + (adminLang==='en' ? ' students at once?' : '명 학생을 동시에 등록하시겠습니까?'))) return;
   if (status) status.textContent = '⏳ 일괄 등록 중… (0 / ' + records.length + ')';
-  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [];
+  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [], phoneFail = [];
   const successList = [];
   for (let i = 0; i < records.length; i++) {
     const r = records[i];
@@ -8272,6 +8354,7 @@ async function addEnrollment() {
         body: JSON.stringify({
           student_name: r.student_name,
           student_user_id: r.student_user_id,
+          parent_phone: r.parent_phone,   // 📞 (2026-09-10) 단건 경로와 같은 값 — 한쪽만 보내면 일괄 등록만 번호를 잃는다
           package: r.package,
           monthly_fee_krw: r.monthly_fee_krw,
           started_at: r.started_at,
@@ -8286,6 +8369,9 @@ async function addEnrollment() {
       const j = await res.json().catch(() => ({}));
       if (res.ok && j.ok !== false) {
         ok++;
+        /* 📞 (2026-09-10) 번호 저장 실패는 «등록 실패» 가 아니라 조용히 지나간다 —
+           그래서 여기서 따로 세어 아래 요약이 말하게 한다(안 세면 아무도 모른다). */
+        if (j.phone_saved && j.phone_saved.ok === false) phoneFail.push(r.student_user_id + ': ' + (j.phone_saved.reason || '사유 불명'));
         /* 💰 (2026-08-26) 일괄 등록의 내보내기도 «서버가 저장한 최종 금액» 을 쓴다
            (위 단건 경로와 같은 이유 — 폼 값은 곱하기 «전» 기준가라 문서만 절반이 된다). */
         successList.push((j.fee && j.fee.monthlyFeeKrw != null)
@@ -8307,8 +8393,12 @@ async function addEnrollment() {
   if (status) {
     status.textContent = '✅ 등록 ' + ok + '명 · 확정 ' + confirmed + '명' +
       (notConfirmed.length ? ' · ⚠️ 확정 보류 ' + notConfirmed.length + '명' : '') +
+      (phoneFail.length ? ' · ⚠️ 연락처 저장 실패 ' + phoneFail.length + '명' : '') +
       (fail ? ' · ❌ 실패 ' + fail + '명' : '');
-    status.style.color = (fail || notConfirmed.length) ? '#b45309' : '#059669';
+    status.style.color = (fail || notConfirmed.length || phoneFail.length) ? '#b45309' : '#059669';
+  }
+  if (phoneFail.length) {
+    alert('⚠️ 연락처가 저장되지 않은 건 (수업 전 안내문자가 안 나갑니다):\n\n' + phoneFail.join('\n'));
   }
   if (notConfirmed.length) {
     alert('⚠️ 등록은 됐지만 확정이 보류된 건:\n\n' + notConfirmed.join('\n') +
@@ -11987,7 +12077,15 @@ function buildMenuIndex() {
     { kw:'칭찬 스티커 칭찬스티커 praise', card:'card-praise-stats', label:'칭찬 스티커 통계' },
     { kw:'정기결제 구독 자동결제 recurring', card:'card-recurring-billing', label:'정기 결제' },
     { kw:'미납 독촉 미수금 dunning', card:'card-auto-dunning', label:'미납 추적' },
-    { kw:'녹화 녹화본 활성방 recording', card:'card-active-rooms', label:'녹화·활성 방' },
+    /* 🎥 (2026-09-09) 「녹화」가 «실시간 수업(활성 룸)» 으로 가던 것을 바로잡는다.
+       한 줄에 «녹화» 와 «활성방» 이 함께 묶여 있었고 라벨이 「녹화·활성 방」이라
+       「녹화」로 시작해 정렬 1위가 됐다 → Enter·➡️ 가 card-active-rooms 로 갔다
+       (실측: ➡️ 클릭 뒤 card-active-rooms 가 화면 맨 위, card-recording-storage 는 display:none).
+       ⛔ 두 줄을 다시 합치지 말 것 — 서로 다른 화면이다.
+       ⚠️ top:true 는 «이름이 그 말로 시작할 때만» 걸리므로 라벨에 이모지를 붙이지 말 것
+          (「🎥 녹화 관리」로 적으면 indexOf('녹화')!==0 이라 조용히 안 걸린다). */
+    { kw:'녹화 녹화본 녹화영상 수업영상 다시보기 보관 recording record', card:'card-recording-storage', label:'녹화 관리', en:'Recordings', top:true },
+    { kw:'활성방 활성 룸 실시간 수업 지금 진행중 라이브 active rooms live', card:'card-active-rooms', label:'실시간 수업 (활성 룸)', en:'Live Classes (Active Rooms)' },
     { kw:'가족 가족계정 family', card:'card-family-mgmt', label:'가족 계정' },
     { kw:'동영상 비디오 영상 유튜브 youtube 비디오관리 video', card:'sub-mango-videos', label:'망고아이 비디오 관리 (YouTube)' },
     { kw:'콘텐츠 컨텐츠 교재 자료 content', card:'card-textbooks', label:'교재 콘텐츠 관리' },

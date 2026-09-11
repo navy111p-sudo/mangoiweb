@@ -59,7 +59,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 html,body{margin:0;padding:0}
 body{
   font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Malgun Gothic",Arial,sans-serif;
-  font-size:16px;line-height:1.5;color:#16202c;background:#f4f6f8;
+  font-size:17px;line-height:1.5;color:#16202c;background:#f4f6f8;
   -webkit-text-size-adjust:100%;
 }
 html.dark body{color:#e6edf3;background:#0f1620}
@@ -70,10 +70,10 @@ html.dark body{color:#e6edf3;background:#0f1620}
       (2026-08-17 사장님 화면 1920px 에서 확인). 휴대폰에서는 둘 다 꽉 차서 티가 안 났다.
       띠 배경은 그대로 화면 전체를 쓰고, **안쪽 내용만** 본문과 같은 폭·같은 축으로 맞춘다.
       ⚠️ .wrap 의 max-width 를 바꾸면 여기도 같이 바꿔야 한다. 두 값은 늘 같아야 한다. */
-.top>h1,.top>.tbar{max-width:820px;margin-left:auto;margin-right:auto}
-.offbar,.outbox{padding-left:max(14px,calc((100% - 820px) / 2))}
+.top>h1,.top>.tbar{max-width:1100px;margin-left:auto;margin-right:auto}
+.offbar,.outbox{padding-left:max(14px,calc((100% - 1100px) / 2))}
 html.dark .top{background:#16202c;border-bottom-color:#26313f}
-.top h1{margin:0 auto 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top h1{margin:0 auto 8px;font-size:23px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tbar{display:flex;gap:6px;flex-wrap:wrap}
 .tbtn{
   font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
@@ -105,9 +105,21 @@ html.dark .offbar{background:#3a2c10;color:#f0cf8a;border-bottom-color:#5a4620}
 html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
 
 /* ── 본문 ───────────────────────────────────────────────── */
-.wrap{max-width:820px;margin:0 auto;padding:12px 12px 60px}
-h2{margin:20px 0 8px;font-size:15px;font-weight:700;color:#4a5765;display:flex;align-items:center;gap:8px}
-html.dark h2{color:#9fb0c2}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 12px 60px}
+/* 🔠 구역 제목 (2026-09-09 사장님 지시) — 옛 값은 15px·700·#4a5765 였다.
+   그때 본문이 16px 이었으니 제목이 본문보다 «작았고» 회청색이라 제목으로 안 읽혔다.
+   브라우저 실측 대비 6.82:1 → 16.38:1 (라이트) · 8.19:1 → 14.37:1 (다크).
+   지금은 21px·800·먹색 + 왼쪽 초록 막대로 구역을 나눈다.
+   ⚠️ ::before 는 이 flex 상자의 «첫 칸» 이 된다 — gap:8px 이 그대로 붙는다.
+   ⚠️ display:flex 라서 이 파일 위쪽의 [hidden]{display:none!important} 한 줄이 «있어야만»
+        감춘 제목(#urgentHead·#ackHead)이 실제로 숨는다. 그 줄을 지우면 «확인할 것» 이 늘 보인다. */
+h2{margin:30px 0 8px;font-size:21px;font-weight:800;color:#101828;display:flex;align-items:center;gap:8px;
+   padding-bottom:6px;border-bottom:1px solid #e3e9ee}
+h2::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;border-radius:2px;background:#0b6e63}
+/* ⚠️ 다크에서 막대를 #0b6e63 그대로 두면 배경(#0f1620) 대비 2.96:1 이라 안 보인다 —
+      막대의 존재 이유가 «구역을 나누는 것» 이므로 밝은 쪽으로 바꾼다(10.2:1). */
+html.dark h2{color:#dbe6f2;border-bottom-color:#2f3d4d}
+html.dark h2::before{background:#6fd3ad}
 .empty{color:#7b8794;font-size:14px;padding:14px 2px}
 html.dark .empty{color:#8b98a8}
 
@@ -126,8 +138,8 @@ html.dark .chip{background:#233043;color:#a8bcd2}
 html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
 .chip.late{background:#f7dfdc;color:#8e2b20}
 html.dark .chip.late{background:#3a1a16;color:#f0907c}
-.ititle{font-weight:650;font-size:15.5px;flex:1;min-width:140px;word-break:break-word}
-.iamt{font-weight:700;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ititle{font-weight:650;font-size:17px;flex:1;min-width:140px;word-break:break-word}
+.iamt{font-weight:700;font-size:17.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
 html.dark .imeta{color:#8b98a8}
 .isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
@@ -139,11 +151,18 @@ html.dark .flag{background:#3a2c10;color:#f0cf8a}
 html.dark .flag.info{background:#233043;color:#a8bcd2}
 .steps{font-size:12.5px;color:#7b8794;margin-top:4px}
 html.dark .steps{color:#8b98a8}
+/* 💳 «대신 결재» 접힘 안내 — 승인 버튼을 안 그린 «유일한 설명» 이라 다른 안내보다 진하다.
+   흐린 회색(#7b8794)은 흰 카드 위 대비 3.66 으로 본문 기준(4.5)에 못 미쳤다.
+   ⛔ .steps 전체를 진하게 바꾸지 말 것 — 나머지 안내의 무게까지 함께 올라간다. */
+.proxynote{color:#667085}
+html.dark .proxynote{color:#aab6c4}
 
 /* 📂 결재 문서함 (2026-09-04) — 지난 결재 찾기.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
+/* ⚠️ h2 가 display:flex 라 float 은 «무시된다»(표준). 오른쪽 정렬은 margin-left:auto 로.
+      폭이 1100px 로 넓어지면서 버튼이 제목 옆에 붙어 있는 것이 눈에 띄었다. */
 h2 .findtoggle{
-  float:right; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
+  margin-left:auto; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
   border:1px solid #bcc6d2; background:#fff; color:#2f3d4d; cursor:pointer
 }
 html.dark h2 .findtoggle{background:#16202c;border-color:#33414f;color:#c3cfdb}
@@ -210,8 +229,10 @@ html.dark .repcard .rl{color:#8b98a8}
 .repcard .rv{font-size:17px;font-weight:700;color:#101828;line-height:1.25;word-break:break-word}
 html.dark .repcard .rv{color:#e8eef5}
 .repcard .rn{font-size:12px;color:#7b8794;margin-top:2px}
-.repsec{font-size:13px;font-weight:700;color:#4a5765;margin:11px 0 5px}
-html.dark .repsec{color:#9fb0c2}
+/* 소제목도 «제목» 이다 — 2026-09-09 에 h2 를 고치면서 여기가 옛 값(13px·700·#4a5765)으로
+   남아 있었다. h2(21px)보다는 작게 두되 색·무게는 같은 기준으로 맞춘다. */
+.repsec{font-size:15px;font-weight:800;color:#101828;margin:14px 0 5px}
+html.dark .repsec{color:#dbe6f2}
 /* 표는 상자 안에서 굴린다 — 문서가 옆으로 밀리면 폰에서 화면 전체가 흔들린다 */
 .reptbl{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
 .reptbl td{padding:7px 4px;border-top:1px solid #eef1f5;vertical-align:top}
@@ -239,11 +260,18 @@ html.dark .tile{background:#16202c;border-color:#26313f}
 /* ⚠️ 색을 옅게 두지 말 것 — .tn 이 «전체 / 내가 올린 것»(어느 범위인지)과
    「금액 없음 N건」을 적는 줄이다. 안 읽히면 그 타일의 숫자가 무슨 범위인지 알 수 없다.
    2026-09-04 실측: 옛 색은 흰 카드 3.66 · hot 카드 3.46 · 다크 4.49 로 전부 미달이었다. */
-.tile .tl{font-size:12px;color:#5a6673;margin-bottom:3px;display:block}
+.tile .tl{font-size:12.5px;color:#5a6673;margin-bottom:3px;display:block}
 html.dark .tile .tl{color:#9db0c4}
-.tile .tv{font-size:19px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
+.tile .tv{font-size:23px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
 html.dark .tile .tv{color:#e8eef5}
-.tile .tn{font-size:11.5px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+.tile .tn{font-size:12px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+/* 📏 아주 좁은 폰에서만 타일 숫자를 한 단계 내린다 (2026-09-09).
+   23px 이면 8자리 원화가 «숫자 한가운데» 에서 끊긴다 — .tv 에 word-break:break-word 가
+   있어 «₩12,345,67 / 8» 이 된다. 금액이 끊기면 자릿수를 잘못 세므로 «크게» 보다 «안 끊기게» 가 먼저다.
+   실측(₩12,345,678 · 줄 수): 320~350px 에서 23px=2줄 · 20px=1줄, 360px 이상은 23px 도 1줄.
+   ⚠️ 잘림 검사(scrollWidth>clientWidth)로는 이 사고가 원리상 «안 보인다» — 잘리는 게 아니라
+      흐르기 때문이다. 확인은 «칸 높이 ÷ lineHeight» 로 줄 수를 세는 것뿐이다. */
+@media (max-width:359px){ .tile .tv{font-size:20px} }
 html.dark .tile .tn{color:#9db0c4}
 /* 결재 보관함 타일 — 다른 넷과 «같은 물건» 이지만 여는 문이라 색을 한 톤 다르게 */
 .tile.arch{border-color:#9fc7b6;background:#f2faf6}
@@ -389,8 +417,8 @@ html.dark .whynote{color:#9db0c4}
 /* ── 올리기 ─────────────────────────────────────────────── */
 .kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
 .kind{
-  font:inherit;font-size:15px;font-weight:650;padding:16px 10px;border-radius:9px;
-  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:58px;color:#16202c
+  font:inherit;font-size:16px;font-weight:650;padding:16px 10px;border-radius:9px;
+  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:62px;color:#16202c
 }
 html.dark .kind{background:#16202c;border-color:#33404f;color:#e6edf3}
 .kind:hover{background:#eef2f6}
@@ -655,6 +683,7 @@ var CACHE_KEY = 'mangoi_work_home_v1';
 var D = null;                       // 마지막으로 받은 /api/approval/home
 var PICK = null;                    // 고른 분류
 var CUR = 'PHP';
+var PROXY_OPEN = {};                // 💳 「대신 결재」를 펼쳐 둔 건 id — 60초마다 다시 그려도 안 접히게
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
@@ -760,9 +789,21 @@ function repaint(){
   paintOutbox();
   paintPushBtn();
   // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
-  if (!pushOn && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+  // ⚠️ pushSilentTried — repaint() 는 자주 도는데, 실패하면 pushOn 이 다시 false 로
+  //    되돌아오므로 가드가 없으면 그릴 때마다 발급요청·SW등록·POST 가 다시 나간다.
+  //    한 번 실패했으면 이 페이지가 살아 있는 동안은 다시 안 묻는다.
+  //    ⛔ 버튼(askPush)은 이 가드에 걸리지 않는다 — 사람이 누르면 언제든 다시 시도한다.
+  if (!pushOn && !pushSilentTried && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+    pushSilentTried = true;
     pushOn = true;                       // 중복 호출 방지 — 실패하면 아래에서 되돌린다
-    subscribePush().then(function(ok){ if (!ok) pushOn = false; paintPushBtn(); });
+    subscribePush().then(function(r){
+      if (!r.ok) pushOn = false;
+      // ⚠️ «끊김» 은 저절로 낫는 실패다 — 가드를 풀어 회선이 돌아오면 다음 회차에 붙게 한다.
+      //    (이 화면은 60초마다 load()→repaint() 한다. 태풍·정전 때 열면 첫 회차가 net 으로
+      //     실패하는데, 여기서 가드를 걸면 그 탭이 사는 동안 영영 안 붙는다.)
+      if (!r.ok && r.step === 'net') pushSilentTried = false;
+      paintPushBtn();
+    });
   }
   if (FOCUS_ID) {
     var el = document.getElementById('req-' + FOCUS_ID);
@@ -1866,9 +1907,47 @@ function itemHtml(r, decidable, ackable){
          '</div><div id="ack-' + r.id + '"></div>';
   }
 
-  if (decidable) {
-    /* 💳 「대신 결재」 — 서버가 «내가 주 결재자가 아니다» 라고 알려 준 단계.
-       ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다). */
+  /* 💳 「대신 결재」를 **접어 둔** 상태 — 서버가 «내가 주 결재자가 아니다»(by_proxy)라고
+     알려 준 단계다. 돈 나가는 건의 'mgr'(결재권자) 단계를 경영진이 보고 있을 때만 참이다.
+
+     ⛔ 승인·반려 버튼을 «바로» 그리지 않는다 — 2026-09-10 사장님 지시
+        「₱5,000 미만은 장 부장님만 결재하고 저는 확인만」. 버튼이 그대로 보이면 소액 건이
+        대표님 결재함에서 «내가 눌러야 할 일» 로 읽힌다. 묶음 승인도 같은 이유로 뺀다(cleanOnes).
+     ⛔ 그렇다고 목록에서 통째로 빼지는 않는다 — 결재권자가 휴가·출장이면 그 건이 그대로
+        멈춘다(8/30 긴급 건이 그렇게 5일 서 있었다). 한 번 더 눌러 펼치면 예전과 같다.
+     ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다) — 서버 by_proxy 하나만 본다. */
+  if (decidable && r.by_proxy && !PROXY_OPEN[r.id]) {
+    /* 🔴 «그다음이 무엇인가» 를 말해야 한다 — 큰돈(₱5,000 이상) 건도 1단계는 결재권자라
+       여기로 옵니다. 그 건은 대표님이 **2단계를 직접 결재**하셔야 하고 「확인」은 영영 안
+       뜹니다(needsExecAck 는 `decided_by === me` 면 false). 그래서 한 문장으로 뭉치면
+       하필 사장님 지시의 그 부류에 **정반대 말**을 하게 됩니다(2026-09-10 함정 대조가 잡음).
+       ⛔ 금액 기준(TWO_STEP_THRESHOLD)을 화면에 베끼지 말 것 — 서버가 이미 실어 보낸
+          «남은 단계»(steps·stage_total)로만 가른다. 규칙이 바뀌어도 저절로 따라온다.
+       ⚠️ 뒤에 단계가 남았는데 그 역할을 모르면 **지어내지 않는다**(가운데 갈래). */
+    var mgrLater = (r.steps || []).filter(function(s){
+      return Number(s.seq) > Number(r.stage_seq || 1);
+    });
+    var mgrLaterExec = false;
+    for (var mi = 0; mi < mgrLater.length; mi++) {
+      if (String(mgrLater[mi].role) === 'exec') { mgrLaterExec = true; break; }
+    }
+    var mgrMoreAfter = mgrLater.length > 0 ||
+                       Number(r.stage_total || 1) > Number(r.stage_seq || 1);
+    h += '<div class="steps proxynote">' + esc(
+      mgrLaterExec
+        ? T('The approver decides this stage — you decide the next one yourself.',
+            '이 단계는 결재권자가 결재합니다. 그다음 단계는 대표님이 직접 결재하십니다.')
+        : mgrMoreAfter
+          ? T('The approver decides this stage — another stage follows.',
+              '이 단계는 결재권자가 결재합니다. 이 뒤에 결재 단계가 더 있습니다.')
+          : T('The approver decides this one. You only confirm it after it is approved.',
+              '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
+    h += '<div class="acts">' +
+         '<button class="mini" onclick="proxyOpen(' + r.id + ')">' +
+         esc(T('Decide on their behalf', '대신 결재하기')) + '</button>' +
+         '</div>';
+  } else if (decidable) {
+    /* 💳 펼친 「대신 결재」 — 자리를 비운 결재권자를 대신해 누르는 자리. */
     if (r.by_proxy) {
       h += '<div class="steps">' + esc(
         T('The approver normally decides this one. You can decide on their behalf.',
@@ -1906,6 +1985,11 @@ function cleanOnes(){
   return (D.inbox || []).filter(function(r){
     if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
     if (r.same_decider) return false;                     // 🖐 서버가 막는 건 — 묶으면 조용히 빠진다
+    /* 💳 내가 «주» 결재자가 아닌 단계는 묶지 않는다 — 한 번 누르면 결재권자 몫까지 함께
+       승인되어 「소액은 장 부장님만 결재」가 그 자리에서 무너진다(2026-09-10 사장님 지시).
+       ⛔ 펼쳤는지(PROXY_OPEN)와 무관하게 뺀다 — 묶음 승인은 «건 하나» 를 보고 누르는
+          버튼이 아니라 목록 전체를 쓰는 버튼이다. 대신 결재는 그 건의 버튼으로 한다. */
+    if (r.by_proxy) return false;
     var f = r.flags || [];
     for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
     return true;
@@ -2238,6 +2322,13 @@ window.doReverse = function(id){
   });
 };
 
+/* 💳 「대신 결재하기」 — 접어 둔 승인·반려 버튼을 펼친다.
+   ⚠️ 펼침을 PROXY_OPEN 에 남기고 다시 그린다 — 이 화면은 60초마다 repaint 하므로,
+      안 남기면 펼쳐 놓은 것이 눈앞에서 도로 접힌다. */
+window.proxyOpen = function(id){
+  PROXY_OPEN[id] = true;
+  repaint();
+};
 window.askWhy = function(id){
   var host = document.getElementById('why-' + id);
   if (!host) return;
@@ -3097,6 +3188,7 @@ function paintPushBtn(){
   b.hidden = (Notification.permission === 'granted' && pushOn);
 }
 var pushOn = false;
+var pushSilentTried = false;   // 위 «조용한 되살리기» 가드(버튼은 안 걸린다)
 window.askPush = function(){
   if (!pushReady()) {
     toast(T('This device cannot receive notifications. On iPhone, add this page to the Home Screen first.',
@@ -3105,19 +3197,57 @@ window.askPush = function(){
   }
   Notification.requestPermission().then(function(p){
     if (p !== 'granted') { toast(T('Notifications are turned off.', '알림이 꺼져 있습니다.')); return; }
-    return subscribePush().then(function(ok){
-      toast(ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.')
-               : T('Could not turn on notifications.', '알림을 켜지 못했습니다.'));
+    return subscribePush().then(function(r){
+      // ⚠️ 실패를 한 줄로 뭉개지 않는다 — 사람이 «내 폰 문제인지 서버 설정 문제인지» 를
+      //    가릴 수 있어야 다음 할 일이 정해진다(2026-09-10 사장님 제보).
+      toast(r.ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.') : r.why);
     });
   }).catch(function(){});
 };
+/* 몸통이 네 단계라 실패도 네 가지다. 그것을 한 줄로 뭉개면
+   보는 사람은 다음에 무엇을 해야 하는지 알 방법이 없다 — 서버 설정인지,
+   이 브라우저인지, 마지막 저장만 안 된 것인지가 전부 같은 문장이 된다.
+   그래서 { ok, why } 를 돌려준다.
+   ⚠️ 불리언이 아니다 — 호출부에서 `if (!ok)` 로 쓰면 반대로 동작한다.
+      지금 호출부는 둘(askPush · 조용한 되살리기)이고 둘 다 `r.ok` 를 본다. */
+function pushWhy(step, code){
+  if (step === 'key')  return T('The server has no notification key yet (VAPID). An administrator must register it.',
+                                '서버에 알림 키(VAPID)가 아직 없습니다. 관리자가 등록해야 합니다.');
+  // ⛔ HTTP 오류를 'key' 로 읽으면 「관리자가 등록해야 합니다」가 되어 **엉뚱한 곳으로 보낸다.**
+  //    fetch 는 404·500 에도 reject 하지 않으므로 'net' 갈래로도 안 온다 — 따로 봐야 한다.
+  if (step === 'http') return T('The server could not return the notification key (HTTP ' + code + '). Try again in a moment.',
+                                '서버가 알림 키를 주지 못했습니다 (HTTP ' + code + '). 잠시 뒤 다시 눌러 주세요.');
+  if (step === 'sw')   return T('This browser could not start the background worker for notifications.',
+                                '이 브라우저에서 알림용 백그라운드 등록에 실패했습니다.');
+  if (step === 'subscribe') return T('This browser refused the notification subscription.',
+                                '이 브라우저가 알림 구독을 거절했습니다.');
+  if (step === 'save') return T('Registered on this device, but the server did not save it.',
+                                '이 기기에서는 등록됐지만 서버가 저장하지 못했습니다.');
+  if (step === 'net')  return T('Could not reach the server. Check your connection and try again.',
+                                '서버에 닿지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+  // ⚠️ 단계를 새로 넣고 이 표를 잊으면 **틀린 문구가 조용히** 나간다 — 모르면 모른다고 말한다.
+  return T('Could not turn on notifications (unknown step: ' + step + ').',
+           '알림을 켜지 못했습니다 (알 수 없는 단계: ' + step + ').');
+}
 function subscribePush(){
+  var step = 'key', code = 0;
   return fetch('/api/push/vapid-public-key', { credentials: 'same-origin' })
-    .then(function(r){ return r.json(); })
+    // ⛔ 연결 실패를 'key' 로 읽으면 «서버에 키가 없다» 고 말하게 되어 관리자를
+    //    엉뚱한 곳(시크릿 등록)으로 보낸다. 끊긴 것과 없는 것은 다른 사실이다.
+    .catch(function(e){ step = 'net'; throw e; })
+    .then(function(r){
+      // 🔴 fetch 는 404·500·502 에도 **reject 하지 않는다** — 위 .catch 를 그냥 지나간다.
+      //    여기서 안 가르면 서버 장애가 「관리자가 키를 등록해야 합니다」로 나간다.
+      if (!r.ok) { code = r.status; step = 'http'; throw new Error('http_' + r.status); }
+      // 본문이 JSON 이 아니면(오류페이지 등) null 로 떨어뜨린다. 이 시점의 step 은 'key' 다.
+      return r.json().catch(function(){ return null; });
+    })
     .then(function(j){
       if (!j || !j.key) throw new Error('no_key');
+      step = 'sw';
       return navigator.serviceWorker.register('/sw.js').then(function(reg){
         return navigator.serviceWorker.ready.then(function(){
+          step = 'subscribe';
           return reg.pushManager.getSubscription().then(function(sub){
             if (sub) return sub;
             return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(j.key) });
@@ -3126,16 +3256,24 @@ function subscribePush(){
       });
     })
     .then(function(sub){
+      step = 'save';
       var s = sub.toJSON ? sub.toJSON() : sub;
       return fetch('/api/push/subscribe', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         // ⚠️ user_id 에 **관리자 계정명**을 넣는다. 서버(api-approval notify)가 이 값으로 찾는다.
         body: JSON.stringify({ subscription: s, user_id: (D && D.me && D.me.username) || null, ua: navigator.userAgent })
-      }).then(function(r){ return r.json(); });
+      }).then(function(r){ return r.json().catch(function(){ return null; }); });
     })
-    .then(function(j){ pushOn = !!(j && j.ok); paintPushBtn(); return pushOn; })
-    .catch(function(){ return false; });
+    .then(function(j){
+      pushOn = !!(j && j.ok); paintPushBtn();
+      return pushOn ? { ok: true, why: '', step: '' } : { ok: false, why: pushWhy('save', code), step: 'save' };
+    })
+    .catch(function(err){
+      // ⚠️ 토스트는 몇 초 뒤 사라진다 — 진짜 예외는 콘솔에도 남긴다.
+      try { console.warn('[push] 실패 step=' + step, err); } catch (e) {}
+      return { ok: false, why: pushWhy(step, code), step: step };
+    });
 }
 
 /* ── 시작 ─────────────────────────────────────────────────────────────────── */

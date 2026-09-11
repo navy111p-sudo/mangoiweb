@@ -32,6 +32,11 @@
  *      이 목차에 빠져 있어 병합하며 함께 채웠다).
  *   ⑭ 「👥 학생 제어」 이름표가 세로폰 ☰ 기능 메뉴에서 «죽은 버튼» 처럼 보이던 것 —
  *      그 메뉴에서만 한 줄짜리 소제목으로 그린다(2026-08-28 사장님 확인 요청).
+ *   ⑮ ⭐ 칭찬 별이 «조용히» 실패하던 것 — 학생 확인이 3.5초 안에 안 오면 서버에 한 번
+ *      물어 «들어갔는지 / 왜 안 들어갔는지» 를 선생님 화면 글자로 말한다
+ *      (2026-09-10 사장님 「교사가 prize 를 줘도 점수도 소리도 변화가 없어」).
+ *   ⑯ 🏷 이름표(로스터) 등록을 «끝이 있는» 일정으로 몇 번 더 시도한다 — 두 번 만에
+ *      포기하면 그 수업 내내 칭찬을 넣을 계정이 없다(같은 날 아침 실측 0장).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -1743,5 +1748,236 @@
     };
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps 준비됨'); } catch (e) {}
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑮ ⭐ 칭찬 별 — «조용한 실패» 를 없앤다 (2026-09-10 사장님 「눌러도 아무 변화가 없어」)
+
+     [증상] 별을 눌러도 학생 화면에 소리·색종이가 안 나고 점수도 그대로인데,
+       선생님 화면도 «⭐ 전송 중…» 이 1.6초 뒤 사라질 뿐 아무 말을 안 한다.
+     [왜 조용한가] 실패하는 길이 셋인데 셋 다 화면에 한 글자도 안 그린다 —
+       ⓐ 학생이 방금 다시 들어와 타일 번호(peer id)가 죽었다.
+          2026-09-10 실측: 사장님 화면이 **2분 15초마다** 새 번호로 다시 들어오고 있었다
+          (vc_roster 의 meet-1234 peer_id 12개가 전부 다른 값). 별은 그 번호를 콕 집어
+          보내므로, 번호가 바뀐 뒤 옛 타일의 별을 누르면 **아무에게도 안 간다**.
+       ⓑ 학생 계정이 vc_roster 에 없어 서버가 넣을 곳을 못 찾는다(account_not_registered).
+       ⓒ 선생님 쿠키 세션이 없어 서버가 거절한다(auth_required).
+       원본 vcAwardPoint 는 서버 응답을 .catch(function(){}) 로 버리고, 학생 확인(ack)이
+       영영 안 오면 그냥 조용하다. 그래서 셋 중 어느 쪽인지조차 알 수 없었다.
+     [무엇을 하나] 학생 확인이 3.5초 안에 안 오면, 그때 **한 번만** 서버에 물어
+       ① 포인트가 실제로 들어갔는지 ② 안 들어갔으면 왜인지 를 화면 글자로 말한다.
+     ⛔ 평소에는 요청이 늘지 않는다 — 학생이 제때 답하면 이 절은 아무 일도 안 한다.
+     ⛔ 같은 award_id 로 묻기 때문에 포인트가 두 번 들어가지 않는다(서버 point_awards 멱등).
+     ⚠️ 여기서 «들어갔다» 고 말할 때도 학생 화면 연출은 못 본 것이다 — 그렇게 적는다.
+        「+1P」 라고만 하면 선생님이 학생도 봤다고 오해한다.
+     ⚠️ idx-main.js 는 blocking 이고 첫 화면 여유가 **187바이트**뿐이라(2026-09-10 실측)
+        그 파일은 한 줄도 못 고친다. 그래서 여기(defer)에서 밖에서 감싼다.
+        약점은 «그 이름이 바뀌면 조용히 헛돈다» 는 것 —
+        test-harness/praise_silent_fail_harness.mjs 가 이름과 배선을 못 박는다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseSilentFail() {
+    var WAIT_MS = 3500;          // 학생 확인을 기다리는 시간. 회선이 느린 필리핀·중국을 감안한 값
+    if (typeof window.vcAwardPoint !== 'function' || window.vcAwardPoint.__mgSay) return;
+    var orig = window.vcAwardPoint;
+
+    function say(toast, msg) {
+      try { if (typeof vcShowStarToast === 'function') vcShowStarToast(toast, msg); } catch (e) {}
+    }
+    /* 타일 라벨에서 이름을 읽는다 — 번호가 죽었을 때 서버가 «이름» 으로 한 번 더 찾게 한다.
+       ⛔ 이름만으로 사람을 정하지는 않는다. 서버가 그 방 로스터 안에서 «완전일치 + 후보가
+          정확히 하나» 일 때만 받아들인다(api-points.ts). 동명이인이면 안 붙는다. */
+    function tileName(uid) {
+      try {
+        var el = document.querySelector('#vc-video-' + uid + ' .video-label');
+        return el ? String(el.textContent || '').replace(/\s*\(.*\)\s*$/, '').trim() : '';
+      } catch (e) { return ''; }
+    }
+    function reasonText(d) {
+      var e = (d && d.error) || '';
+      if (e === 'auth_required')          return '⚠️ 선생님 로그인이 풀렸어요 — 다시 로그인해 주세요';
+      if (e === 'account_not_registered') return '⚠️ 이 학생은 로그인이 안 돼 있어 포인트를 못 받아요';
+      if (e === 'target_not_student')     return '⚠️ 이 사람은 학생이 아니라 포인트를 못 받아요';
+      if (e === 'daily_cap_reached')      return '오늘 한도에 닿았어요';
+      return '⚠️ 전달되지 않았어요' + (e ? ' (' + e + ')' : '');
+    }
+
+    window.vcAwardPoint = function (targetUserId, btn, toast) {
+      /* 원본이 만든 awardId 를 알아내려고 «부르기 전후» 의 대기 목록을 견준다.
+         (원본이 awardId 를 돌려주지 않고, 그 파일은 고칠 수 없다) */
+      var before = {};
+      try { var q0 = window._vcPendingAwards || {}; for (var k0 in q0) before[k0] = 1; } catch (e) {}
+      var ret = orig.apply(this, arguments);
+      var id = null;
+      try {
+        var q1 = window._vcPendingAwards || {};
+        for (var k1 in q1) if (!before[k1]) { id = k1; break; }
+      } catch (e) {}
+      if (!id) return ret;                       // 원본 모양이 바뀌었다 — 조용히 옛 동작 그대로
+
+      setTimeout(function () {
+        var q = window._vcPendingAwards || {};
+        var p = q[id];
+        if (!p) return;                          // 학생이 답했다 — 원본이 이미 결과를 말했다
+        delete q[id];
+
+        var room = '', from = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { from = (typeof vcUsername !== 'undefined' && vcUsername) || '선생님'; } catch (e) {}
+        if (!room) { say(p.toast, '⚠️ 전달되지 않았어요'); return; }
+
+        fetch('/api/points/award-praise', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({
+            room: room, target_peer_id: p.targetUserId, award_id: id,
+            from_name: from, target_name: tileName(p.targetUserId)
+          })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) {
+            /* 포인트는 들어갔다. 학생 화면 연출만 못 본 것이라 그대로 말한다. */
+            try {
+              window._vcAwardCounts = window._vcAwardCounts || {};
+              window._vcAwardCounts[p.targetUserId] = (window._vcAwardCounts[p.targetUserId] || 0) + 1;
+              if (typeof vcSyncAwardUI === 'function') vcSyncAwardUI(p.targetUserId);
+            } catch (e) {}
+            say(p.toast, '⭐ +1P 들어갔어요 (학생 화면 연출은 못 봤어요)');
+          } else {
+            say(p.toast, reasonText(d));
+          }
+        }).catch(function () { say(p.toast, '⚠️ 전달되지 않았어요 (통신 오류)'); });
+      }, WAIT_MS);
+
+      return ret;
+    };
+    window.vcAwardPoint.__mgSay = 1;
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑯ 🏷 이름표(로스터) 등록 보강 — «넣을 저금통이 없다» 를 줄인다
+
+     [왜] vcRegisterRosterIdentity 는 입장 때 «즉시 + 3초 뒤» 딱 두 번 시도하고,
+       그 두 번 다 로그인 정보를 못 읽으면 그 수업 내내 영영 등록하지 않는다.
+       그러면 선생님이 별을 눌러도 서버가 넣을 계정을 못 찾는다.
+       2026-09-10 실측: 아침 회의방 이름표 **0장**(같은 시각 다른 방은 정상) →
+       같은 날 오후에는 12장. 즉 «늘 안 되는» 것이 아니라 «되다 안 되다» 였다.
+     [무엇을 하나] 같은 등록을 **끝이 있는** 일정(1·6·20·60초)으로 몇 번 더 시도하고,
+       한 번 성공하면 그 뒤 타이머는 스스로 물러난다. 늦게 로그인 정보가 읽히면 그때 붙는다.
+     ⛔ 상주 setInterval·MutationObserver 를 두지 않는다 — 홈 전체가 멎은 전력이 있다.
+     ⛔ 계정을 «관리자 세션» 에서 빌려 오지 않는다 — 아래 myAccount() 주석 참고.
+     ⚠️ 교사·참관자는 원본과 똑같이 건너뛴다 — 칭찬을 «받는» 쪽이 아니다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseRosterRetry() {
+    var DELAYS = [1000, 6000, 20000, 60000];   // 원본(0초·3초) 뒤를 이어 붙인다
+    if (typeof window.vcRegisterRosterIdentity !== 'function'
+        || window.vcRegisterRosterIdentity.__mgRetry) return;
+    var orig = window.vcRegisterRosterIdentity;
+
+    /* 계정은 «학생 로그인 키» 하나만 본다 — 원본과 같은 근거다.
+       ⛔ 관리자 세션(mangoi_admin_session)으로 떨어지는 폴백을 넣지 말 것.
+          처음 판에 넣었다가 함정 대조에서 빼냈다. 두 가지 이유다 —
+          ⓐ 닿지 않는다: idx-main.js 가 «관리자 세션이 있으면 vcMyRole = admin» 으로
+             정하므로, 그 세션이 있는 사람은 위 amIStudentHere() 에서 이미 물러난다.
+          ⓑ 닿으면 틀린다: 그래도 닿는 구석(vcMyRole 은 student 인데 학생 키만 없는
+             경우)에서는 **그 학생 자리를 선생님 계정으로** 로스터에 올린다 →
+             그 방 칭찬 포인트가 관리자 계정으로 간다. 서버는 관리자 쿠키를 통과시키므로
+             막히지 않는다. 1P = 1원이라 되돌리기 어렵다. */
+    function myAccount() {
+      try {
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid) };
+      } catch (e) {}
+      return null;
+    }
+    function amIStudentHere() {
+      try { if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false; } catch (e) {}
+      try { if (typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) return false; } catch (e) {}
+      return true;
+    }
+
+    window.vcRegisterRosterIdentity = function () {
+      var ret;
+      try { ret = orig.apply(this, arguments); } catch (e) {}
+      var done = false;
+      function tryOnce() {
+        if (done) return;
+        if (!amIStudentHere()) { done = true; return; }      // 대상이 아니다 — 더 볼 것 없다
+        var room = '', peer = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { peer = (typeof vcUserId !== 'undefined' && vcUserId) || ''; } catch (e) {}
+        if (!room || !peer) return;                          // 아직 방이 없다 — 다음 차례에
+        var me = myAccount();
+        if (!me) return;                                     // 아직 계정을 못 읽었다 — 다음 차례에
+        var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+        fetch('/api/vc/roster', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ room: room, peer_id: peer, account_uid: me.uid,
+                                 token: tok, name: me.name, role: 'student' })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) done = true;
+        }).catch(function () {});
+      }
+      try { DELAYS.forEach(function (ms) { setTimeout(tryOnce, ms); }); } catch (e) {}
+      return ret;
+    };
+    window.vcRegisterRosterIdentity.__mgRetry = 1;
+  })();
+
+  /* ⓬ (2026-09-10) 인앱 브라우저(카톡·네이버…)면 «수업에 들어가기 전에» 알린다.
+     [왜] class-1896-20260910 — 원장님이 카톡 인앱으로 45분 수업, 73분 중 릴레이 60분(82%),
+          최악 RTT 8,840ms · 소리끊김 51.3%. 안내 배너는 inapp-escape.js 에 «이미» 있는데
+          그 선제 조건이 `/video-call` 경로 또는 window.MANGO_VIDEO_PAGE 이고, 그 값은
+          precheck.html «한 곳에만» 있다. 수업은 `/`(index.html)에서 돌아가므로 그 배너는
+          getUserMedia 가 «실패할 때만» 떴다 — 카메라가 되면 영영 안 뜬다. 근거: 260910 작업기록.
+     ⛔ 수업 «중» 에는 띄우지 않는다 — 배너가 top:0 고정인데 수업 툴바는 36px 이라
+        「나가기」·언어 버튼을 통째로 덮는다(index.html 의 body.vc-in-call .toolbar).
+     ⛔ 자동 이동(openExternal) 금지 — 브라우저가 바뀌면 localStorage 가 달라
+        학생 로그인이 안 넘어간다(CLAUDE.md 「로그인했는데 또 로그인하래요」).
+     ⚠️ 홈 우상단 칩 줄(#ph50-chip-row)은 position:fixed 라 배너가 덮는다 → 배너 높이만큼 내린다.
+        그 줄은 ph50MoveChips 가 «나중에» 만들므로 지금·1.2초 뒤·resize 에 다시 잰다.
+        ⛔ 상주 MutationObserver·setInterval 금지(홈 전체를 멎게 한 전력). */
+  (function mgInAppNotice() {
+    try {
+      var E = window.MangoEscape;
+      if (!E || !E.isInApp || typeof E.showBanner !== 'function') return;
+      var OFF = 'mangoi_inapp_notice_off', chipT = null;
+      function banner() { return document.getElementById('mango-inapp-banner'); }
+      function place() {
+        var row = document.getElementById('ph50-chip-row'); if (!row) return;
+        var b = banner();
+        row.style.top = b ? (Math.round(b.getBoundingClientRect().height) + 10) + 'px' : '';
+      }
+      function hide() {
+        var b = banner(); if (b && b.parentNode) b.parentNode.removeChild(b);
+        try { document.body.style.paddingTop = ''; } catch (_) {}
+        place();
+      }
+      function show() {
+        if (banner()) return;
+        if (document.body && document.body.classList.contains('vc-in-call')) return;
+        try { if (sessionStorage.getItem(OFF) === '1') return; } catch (_) {}
+        E.showBanner();
+        var x = document.getElementById('mango-inapp-close');
+        if (x) x.addEventListener('click', function () {
+          try { sessionStorage.setItem(OFF, '1'); } catch (_) {}
+          place();
+        });
+        place();
+        if (chipT) clearTimeout(chipT);
+        chipT = setTimeout(place, 1200);
+      }
+      window.addEventListener('resize', place);
+      show();
+      var orig = window.showView;
+      if (typeof orig === 'function' && !orig.__mgInApp) {
+        window.showView = function (id) {
+          var r = orig.apply(this, arguments);
+          /* ⚠️ 로비(view-videocall-lobby)에서는 남긴다 — 덮어서 곤란한 것은 «수업 화면» 의
+             36px 툴바뿐이고, 카톡 링크로 들어온 사람은 로비가 그것을 읽을 유일한 시간이다
+             (그렇게 안 하면 겨냥한 사람에게 0.6초만 보인다 — 함정 대조 실측). */
+          try { if (String(id || '').indexOf('videocall-call') !== -1) hide(); } catch (_) {}
+          return r;
+        };
+        window.showView.__mgInApp = true;
+      }
+    } catch (e) {}
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 준비됨'); } catch (e) {}
 })();

@@ -78,10 +78,25 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){retur
 function won(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 function needLogin(){ $('body').innerHTML = '<div class="msg">관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fenroll-ops.html">로그인 하러 가기</a></div>'; }
 
+/* 🔒 (2026-09-10) 이 화면은 «본사 전용» 이 됐다 — 서버가 강사·지사·대리점에게 403 을 준다
+   (enrollAdminHqOnly, src/enroll-ops.ts). 그 403 을 «그대로 흘리면 안 된다»:
+   아래 렌더러들이 전부 `j.holidays||[]` · `j.result||{}` 처럼 «없으면 빈 값» 으로 받아서
+   「등록된 공휴일이 없습니다」·「검사한 수강생 0명」 같은 **정상 문구**로 그린다.
+   ⟹ «못 본다» 가 «없다» 로 읽힌다(CLAUDE.md 「404 는 「Not Found」로 안 보일 수 있습니다 —
+      화면 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로」와 같은 뿌리).
+   ⚠️ 사이드바에서 감춘 것으로는 못 막는다 — 이 화면은 /admin/ 밖이라 로그인 게이트가 없고
+      조직 계정이 북마크·주소로 그대로 들어온다. 화면이 **이유를 말해야** 한다. */
+function denied(msg){
+  $('body').innerHTML = '<div class="msg">🔒 ' + esc(msg || '이 기능은 본사 계정만 사용할 수 있습니다.') + '</div>';
+}
+
 async function api(path, opts){
   var r = await fetch(path, Object.assign({ cache:'no-store' }, opts||{}));
   if (r.status === 401) { needLogin(); throw new Error('auth'); }
-  return await r.json();
+  var j = null;
+  try { j = await r.json(); } catch (e) { j = null; }
+  if (r.status === 403) { denied(j && j.message); throw new Error('forbidden'); }
+  return j || {};
 }
 
 document.querySelector('.tabs').addEventListener('click', function(ev){

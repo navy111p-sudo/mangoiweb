@@ -1618,12 +1618,27 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
          ⛔ openPostpone()·btn-post CSS 는 **일부러 남겨 둔다** — 지금은 아무 데서도 부르지 않는다.
             「아플 때 알릴 길까지 막지 말라」는 판단이 나오면 이 블록 3줄만 되살리면 되게 하기 위해서다.
             (버튼을 되살릴 땐 [수업 입장] 과 붙지 않게 줄을 나눌 것 — 오탭이 원래 문제였다) */
+      /* 🚪 (2026-09-10 사장님 지시) 「오늘은 이 방으로」 — 이 수업만 하루 다른 회의방으로 돌린다.
+         ⚠️ [수업 입장] 과 **줄을 나눠** 둔다 — 2026-08-08 에 [연기] 를 뺀 이유가 «바로 옆이라
+            잘못 누른다» 였다. 같은 실수를 반복하지 않는다(작은 글씨 · 아래 줄).
+         정본·주의사항은 src/class-room-override.ts. */
+      if (c.schedule_id) {
+        h += '<div style="margin-top:6px;display:flex;justify-content:flex-end">'
+          +  '<button type="button" data-roomset="' + i + '" '
+          +    'style="background:transparent;border:1px solid rgba(148,163,184,.45);color:#94a3b8;'
+          +    'border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer" title="'
+          +    esc(T('Move only today\'s class to a meeting room. The student joins with no extra steps.',
+                     '오늘 이 수업만 회의방으로 옮깁니다. 학생은 평소처럼 «수업 입장» 만 누르면 됩니다.')) + '">'
+          +    esc(T('🚪 Today: another room', '🚪 오늘은 다른 방으로')) + '</button></div>';
+      }
       h += '</div></div>';
     }
     box.innerHTML = h;
 
     var b = box.querySelectorAll('[data-join]');
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
+    var rs = box.querySelectorAll('[data-roomset]');
+    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(list[+this.getAttribute('data-roomset')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
     // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
@@ -2100,6 +2115,76 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     d.textContent = msg;
     document.body.appendChild(d);
     setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 3000);
+  }
+
+  /* ══ 🚪 「오늘은 이 방으로」 ══════════════════════════════════════════════════
+     오늘 이 수업 한 건만 회의방으로 돌린다. 학생은 **평소처럼 «수업 입장» 만** 누르면
+     그 방으로 들어간다 — 서버가 `/api/class/sessions/today` 의 답을 바꾸기 때문이다.
+     정본·주의사항: src/class-room-override.ts · 지정 API: PUT /api/admin/class-schedules
+
+     ⚠️ 링크도 함께 준다 — 학생이 카톡으로 받아 «누르기만» 하는 길이 이미 있고,
+        도메인은 서버가 SITE_ORIGIN 정본으로 만들어 내려 준다(화면이 조립하지 않는다).
+     ⛔ QR 은 넣지 않았다 — 이 저장소가 admin.html 에서 쓰는 api.qrserver.com 은
+        **아이 수업 링크를 제3자에게 보내는** 것이고 중국 회선에서 막히면 그 자리가 조용히
+        빈다. 손으로 만든 QR 인코더는 이 환경에서 «맞는지 재 볼 방법이 없어» 안 만들었다. */
+  function openRoomOverride(c) {
+    if (!c || !c.schedule_id) return;
+    var who = c.student_name || c.student_uid || '';
+    var cur = prompt(
+      T('Room number for today only (e.g. 1234). Leave empty to cancel the assignment.',
+        '오늘 하루만 쓸 방 번호를 넣으세요 (예: 1234).\n비우고 확인하면 지정을 취소합니다.')
+      + (who ? '\n\n' + T('Student', '학생') + ': ' + who : ''), '');
+    if (cur === null) return;   // 사람이 «취소» 를 눌렀다 — 아무것도 안 한다
+    var code = String(cur).trim();
+    var body = code
+      ? { action: 'room_override', schedule_id: c.schedule_id, room_code: code }
+      : { action: 'room_override_clear', schedule_id: c.schedule_id };
+    fetch('/api/admin/class-schedules', {
+      method: 'PUT', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) {
+        /* ⛔ 「실패라고 말했는가」가 아니라 **「성공이라고 말했는가」** 로 가른다 —
+           라우팅이 빠지면 종단 404 본문에 ok 칸이 아예 없어서 d.ok === false 가
+           거짓이 되고 «정상» 으로 흘러간다(CLAUDE.md 2장 「새 API 추가」). */
+        if (d.ok !== true) {
+          alert(T('Could not set the room. ', '방을 지정하지 못했습니다. ') + (d.message || d.error || ''));
+          return;
+        }
+        if (d.cleared) { alert(T('Assignment cleared. The class goes back to its usual room.',
+                                 '지정을 취소했어요. 원래 수업방으로 돌아갑니다.')); return; }
+        var link = d.link || '';
+        alert(T('Done. Today this class meets in room ', '됐어요. 오늘 이 수업은 ')
+          + String(d.room_id || '').replace(/^meet-/, '')
+          + T('.\n\nThe student does NOT need to do anything - just tap "Join Class" as usual.',
+              '번 방에서 합니다.\n\n학생은 아무것도 안 해도 됩니다 — 평소처럼 「수업 입장」만 누르면 돼요.')
+          + T('\n\n[!] Points and the review quiz are off in a meeting room.',
+              '\n\n⚠️ 회의방에서는 포인트·복습퀴즈가 쉽니다.')
+          + (link ? '\n\n' + link : ''));
+        /* 링크를 «보내는» 길.
+           🔴 (2026-09-10 함정 대조) `navigator.share` 를 **alert 뒤**에 부르면 그 시점엔
+              사용자 제스처(transient activation)가 이미 사라져 `NotAllowedError` 로 거절되고,
+              `.catch(function(){})` 가 그것을 **조용히 삼킵니다.** 데스크톱 크롬도
+              `navigator.share` 가 있어서 클립보드 폴백으로도 안 갑니다 — 즉 «보냈다고 생각하는데
+              아무 데도 안 가는» 모양입니다. ⟹ **클립보드를 먼저** 시도하고(제스처가 필요 없습니다),
+              공유 시트는 **사람이 한 번 더 누를 때** 엽니다.
+           ⛔ window.open 으로 열지 말 것(인앱 브라우저는 예외 없이 null 만 돌려줍니다). */
+        if (link) {
+          var copied = false;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(link).then(function () { copied = true; }).catch(function () {});
+            }
+          } catch (e) {}
+          if (navigator.share && confirm(T('Send this link now?', '이 링크를 지금 보낼까요?'))) {
+            /* confirm 을 사람이 «누른» 그 제스처 안에서 연다 — 그래야 공유 시트가 실제로 뜬다. */
+            try { navigator.share({ text: link }).catch(function () {}); } catch (e) {}
+          }
+        }
+      })
+      .catch(function () { alert(T('Network error. Please try again.', '통신이 불안정합니다. 다시 시도해 주세요.')); });
   }
 
   function joinClass(c){
@@ -3441,8 +3526,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
 <script>
 (function(){
   var FILES = [
-    '/js/idx-main.js?v=53',                  /* 851KB — 홈+화상수업이 같이 든 가장 큰 파일 */
-    '/js/idx-vc-room.js?v=2',
+    '/js/idx-main.js?v=57',                  /* 851KB — 홈+화상수업이 같이 든 가장 큰 파일 */
+    '/js/idx-vc-room.js?v=3',
     '/js/idx-vc-chat.js?v=2',
     '/js/idx-vc-textbook.js?v=1',
     '/js/idx-vc-screenmode.js?v=1',
