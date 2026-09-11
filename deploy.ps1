@@ -179,7 +179,7 @@ if (-not $ForceNow) {
         Write-Host ""
         Write-Host "      · 위에 적힌 수업 시간대가 지난 뒤 다시 실행하세요." -ForegroundColor Yellow
         Write-Host "      · 지금 꼭 나가야 하면:  powershell -File deploy.ps1 -ForceNow" -ForegroundColor Yellow
-        Write-Host "      · 급하지 않으면 main 에 push 만 해 두세요 — 창이 닫힌 뒤 CI 가 몰아서 배포합니다(하루 네 번)." -ForegroundColor Yellow
+        Write-Host "      · 급하지 않으면 main 에 push 만 해 두세요 — 창이 닫힌 뒤 CI 가 몰아서 배포합니다(하루 여러 차례)." -ForegroundColor Yellow
         exit 1
     }
     if ($cwCode -ne 0) {
