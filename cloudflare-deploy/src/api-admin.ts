@@ -6116,7 +6116,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const kind = url.searchParams.get('kind') || 'all';
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
 
-      const where: string[] = [`status != 'cancelled'`];
+      /* 🔴 (2026-09-11) WHERE 의 컬럼에는 반드시 `cs.` 를 붙인다 — `teachers` 에도
+         **`status` 와 `user_id` 가 있어서**(실측 스키마) JOIN 을 붙이는 순간
+         `ambiguous column name: status` 로 아래 sqlWithJoin 이 통째로 죽는다.
+         그러면 catch 가 «JOIN 없는» 폴백으로 떨어뜨려 teacher_name 칸이 응답에서
+         사라지고, 화면은 «번호는 있는데 이름이 없다» 로 읽어 모든 예약을
+         「강사 미확인」으로 그린다(2026-09-11 실사고 — `status != 'cancelled'` 기준 1,262건 전부).
+         ⛔ 서브쿼리 «안»(students_erp)의 user_id 에는 붙이지 말 것 — 붙이면 상관
+            서브쿼리가 되어 매 행마다 전수 스캔한다(2026-08-27 그 사고).
+         ✅ 감시: test-harness/class_schedules_join_harness.mjs 가 두 SQL 을 오려 내
+            운영과 같은 스키마의 진짜 SQLite 에 실제로 돌린다. */
+      const where: string[] = [`cs.status != 'cancelled'`];
       const binds: any[] = [];
 
       // ★ Phase 7b: user_id 또는 student_name 둘 다로 동명 학생 통합 조회 (강화)
@@ -6176,10 +6186,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const SAME_NAME_UIDS =
           `SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?`;
         if (effectiveName) {
-          where.push(`(user_id = ? OR user_id IN (${SAME_NAME_UIDS}) OR student_name = ?)`);
+          where.push(`(cs.user_id = ? OR cs.user_id IN (${SAME_NAME_UIDS}) OR cs.student_name = ?)`);
           binds.push(userId, effectiveName, effectiveName, effectiveName);
         } else {
-          where.push('user_id = ?');
+          where.push('cs.user_id = ?');
           binds.push(userId);
         }
       } else if (studentName) {
@@ -6189,19 +6199,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //     동명이인이 하나도 없으면 IN 이 공집합이라 student_name 조건만 남습니다 — 기존과 동일.
         where.push(
           // ⚠️ (2026-08-27) 위 SAME_NAME_UIDS 와 같은 상관 서브쿼리 문제 — id 제거로 해소.
-          `(user_id IN (SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?) OR student_name = ?)`);
+          `(cs.user_id IN (SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?) OR cs.student_name = ?)`);
         binds.push(studentName, studentName, studentName);
       }
-      if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
-      if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
-      if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
-      else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
+      if (fromDate) { where.push('(cs.scheduled_date IS NULL OR cs.scheduled_date >= ?)'); binds.push(fromDate); }
+      if (toDate) { where.push('(cs.scheduled_date IS NULL OR cs.scheduled_date <= ?)'); binds.push(toDate); }
+      if (kind === 'recurring') where.push(`cs.schedule_kind = 'recurring'`);
+      else if (kind === 'one_off') where.push(`cs.schedule_kind = 'one_off'`);
 
       binds.push(limit);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       try {
         let rows;
         try {
