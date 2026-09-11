@@ -85,7 +85,7 @@ check('두 갈래를 mergeClassesNow 로 합친다', /mergeClassesNow\(/.test(hS
 check('요일 판정은 정본 admDowMatches 를 주입해 쓴다', /dowMatches:\s*admDowMatches/.test(hStrip));
 check('요일 파서를 이 파일에서 새로 만들지 않았다', !/DOW_MAP/.test(stripComments(mod)));
 /* 🔒 강사 차단 — 전사 학생 이름이 한 화면에 모인다 */
-check('강사에게는 닫혀 있다(forbidden_teacher)', /isTeacher\)\s*return json\(\{\s*ok:\s*false,\s*error:\s*'forbidden_teacher'/.test(hStrip));
+check('강사에게는 닫혀 있다(forbidden_teacher)', /isTeacher\)\s*return json\(\s*(?:\{\s*ok:\s*false,\s*error:\s*'forbidden_teacher'|forbiddenTeacherBody\()/.test(hStrip));
 /* 🔒 지사·대리점 격리 — 새로 넣은 class_schedules 조회에도 스코프가 걸려야 한다 */
 const schedSql = (hStrip.match(/SELECT cs\.id[\s\S]*?`\s*\)\s*\.bind\(\.\.\.stu\.binds\)/) || [])[0] || '';
 check('class_schedules 조회에 스코프 조건이 붙어 있다',
