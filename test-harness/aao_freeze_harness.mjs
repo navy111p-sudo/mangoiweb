@@ -66,25 +66,45 @@ function sectionFive(qlog) {
 
 /* ── 아주 작은 가짜 DOM. querySelector 는 '.클래스' 와 'video' 만 안다 ── */
 function makeDom() {
-  const mk = (tag, cls) => ({
-    tagName: tag, className: cls || '', textContent: '', videoWidth: 0,
-    style: { cssText: '', filter: '', position: '' }, _attr: {}, children: [], parent: null,
-    setAttribute(k, v) { this._attr[k] = v; }, getAttribute(k) { return this._attr[k]; },
-    appendChild(c) { c.parent = this; this.children.push(c); return c; },
-    remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); },
-    querySelector(sel) {
-      const hit = (n) => sel.startsWith('.') ? (' ' + n.className + ' ').includes(' ' + sel.slice(1) + ' ') : n.tagName === sel;
-      const walk = (n) => { for (const c of n.children) { if (hit(c)) return c; const r = walk(c); if (r) return r; } return null; };
-      return walk(this);
-    }
-  });
-  const byId = {};
-  const doc = {
-    getElementById: (id) => byId[id] || null,
-    createElement: (t) => mk(t),
-    body: mk('body')
+  const mk = (tag, cls) => {
+    const props = {};                                   // style.setProperty 로 넣은 사용자 정의 속성
+    const node = {
+      tagName: tag, className: cls || '', textContent: '', videoWidth: 0, id: '',
+      /* offsetHeight — 가짜 DOM 은 배치를 안 하므로 «띠 한 줄» 을 흉내 낸 값.
+         진짜 높이·가림 여부는 test-harness/manual/vc-aao-freeze-browser.mjs 가 브라우저에서 잰다. */
+      offsetHeight: 24,
+      style: {
+        cssText: '', filter: '', position: '',
+        setProperty(k, v) { props[k] = v; },
+        removeProperty(k) { delete props[k]; },
+        getPropertyValue(k) { return props[k] || ''; }
+      },
+      classList: {
+        _s: new Set(),
+        add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); }
+      },
+      _attr: {}, children: [], parent: null,
+      setAttribute(k, v) { this._attr[k] = v; }, getAttribute(k) { return this._attr[k]; },
+      appendChild(c) { c.parent = this; this.children.push(c); return c; },
+      remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); },
+      querySelector(sel) {
+        const hit = (n) => sel.startsWith('.') ? (' ' + n.className + ' ').includes(' ' + sel.slice(1) + ' ') : n.tagName === sel;
+        const walk = (n) => { for (const c of n.children) { if (hit(c)) return c; const r = walk(c); if (r) return r; } return null; };
+        return walk(this);
+      }
+    };
+    return node;
   };
-  return { doc, byId, mk };
+  const byId = {};
+  const head = mk('head');
+  const doc = {
+    getElementById: (id) => byId[id] || (head.children.find(c => c.id === id) || null),
+    createElement: (t) => mk(t),
+    body: mk('body'),
+    head,
+    documentElement: mk('html')
+  };
+  return { doc, byId, mk, head };
 }
 
 /* ── 가짜 peer 하나. setParameters/replaceTrack/addTrack 호출을 센다 ── */
@@ -108,7 +128,7 @@ function makePc(opts = {}) {
 
 /* ── ⑤절을 돌릴 수 있는 세계를 만든다 ── */
 function boot(code, { screenSharing = false, en = false } = {}) {
-  const { doc, byId, mk } = makeDom();
+  const { doc, byId, mk, head } = makeDom();
   const origCalls = [], bcast = [];
   const win = {
     __vcScreenSharing: screenSharing,
@@ -126,7 +146,7 @@ function boot(code, { screenSharing = false, en = false } = {}) {
   ctx.Object = Object; ctx.JSON = JSON; ctx.Promise = Promise; ctx.console = { log() {}, warn() {} };
   ctx.vcqRxStart = win.vcqRxStart; ctx.miIsEn = win.miIsEn; ctx.vcBroadcastCamState = win.vcBroadcastCamState;
   vm.runInContext(code, ctx);
-  return { ctx, win, doc, byId, mk, origCalls, bcast };
+  return { ctx, win, doc, byId, mk, head, origCalls, bcast };
 }
 
 /* 타일 하나를 세계에 등록한다 */
@@ -346,6 +366,76 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   ok(!('u1' in e10.ctx.__vcAaoSince), 'C-20 타일이 사라지면 그 상대의 기준 시각도 지운다');
 }
 
+let CORNER_BASES = [];
+sec('Ⓔ 비켜서기 — 띠가 타일의 «누를 것» 을 덮지 않게');
+{
+  /* ⚠️ 가짜 DOM 은 «배치» 를 못 한다 — 실제로 가려졌는지는 브라우저가 잰다
+        (test-harness/manual/vc-aao-freeze-browser.mjs, 픽셀로 확인).
+     여기서는 «배선» 과 «CSS 가 소스와 같은 말을 하는가» 만 본다. */
+  const e = boot(five);
+  const t = addTile(e, 'u1', 320);
+  e.win.vcRemoteCamOff = { u1: 'aao' };
+  e.win.vcApplyRemoteCamHint('u1');
+  ok(t.box.classList.contains('vc-aao-on'), 'E-1 멈추면 타일에 vc-aao-on 이 붙는다(위쪽 버튼을 내리는 스위치)');
+  ok(t.box.style.getPropertyValue('--aao-h') === '24px', 'E-2 잰 띠 높이를 --aao-h 로 넘긴다');
+  ok(!!e.head.children.find(c => c.id === 'vc-aao-css'), 'E-3 비켜서기 CSS 를 한 번 주입한다');
+
+  e.win.vcRemoteCamOff = {};
+  e.win.vcApplyRemoteCamHint('u1');
+  ok(!t.box.classList.contains('vc-aao-on'), 'E-4 회복하면 클래스를 뗀다 (짝 — 없으면 «전부 내리기» 도 통과한다)');
+  ok(t.box.style.getPropertyValue('--aao-h') === '', 'E-5 --aao-h 도 지운다 — 남으면 다음에 «이미 비킨» 채로 또 내려간다');
+
+  /* 높이를 못 쟀으면(아직 안 그려진 타일) 아무것도 하지 않는다 — 0 을 넣으면 «안 비킨» 것과 같다 */
+  const e2 = boot(five);
+  const t2 = addTile(e2, 'u1', 320);
+  const mkOrig = e2.doc.createElement;
+  e2.doc.createElement = (tag) => { const n = mkOrig(tag); n.offsetHeight = 0; return n; };   // 아직 안 그려진 타일
+  e2.win.vcRemoteCamOff = { u1: 'aao' };
+  e2.win.vcApplyRemoteCamHint('u1');
+  ok(!t2.box.classList.contains('vc-aao-on'), 'E-6 띠 높이가 0이면 «비켰다» 고 표시하지 않는다');
+
+  /* 내 타일도 같다 */
+  const e3 = boot(five, { screenSharing: false });
+  const t3 = addTile(e3, 'self', 320);
+  e3.win.vcPeerConnections = { u1: makePc() };
+  e3.ctx.vcAAOVideo(0);
+  ok(t3.box.classList.contains('vc-aao-on'), 'E-7 내 타일(PIP)도 같은 방식으로 비킨다');
+  e3.ctx.vcAAOVideo(1);
+  ok(!t3.box.classList.contains('vc-aao-on'), 'E-8 내 타일도 회복하면 되돌린다');
+
+  /* ── 주입한 CSS 가 «소스에 실재하는» 모서리 조각과 같은 말을 하는가 ──
+     ⛔ 숫자를 여기에 베껴 적지 않는다. 두 쪽 모두 소스에서 읽어 대조한다
+        (CLAUDE.md 「검사에 설정표를 손으로 적으면 소스를 한 번도 안 본다」). */
+  const css = e.head.children.find(c => c.id === 'vc-aao-css').textContent;
+  const src = indexHtml + '\n' + idxMain;
+  const CORNERS = ['vc-star-btn', 'vc-dm-btn', 'vc-devhelp-btn', 'vc-star-toast', 'vc-point-basket', 'vpb-fly', 'vc-ss-badge'];
+  const baseTop = (name) => {
+    let i = -1;
+    while ((i = src.indexOf(name, i + 1)) >= 0) {
+      const win = src.slice(i, i + 320);
+      if (!/position\s*:\s*absolute/.test(win)) continue;      // 주석·다른 언급은 건너뛴다
+      const m = win.match(/top\s*:\s*(\d+)px/);
+      if (m) return Number(m[1]);
+    }
+    return null;
+  };
+  const found = CORNERS.map(n => [n, baseTop(n)]).filter(([, v]) => v !== null);
+  CORNER_BASES = found;                                     // Ⓓ 변이시험이 그대로 쓴다
+  ok(found.length === CORNERS.length,
+     `E-9 전제: 모서리 조각 ${CORNERS.length}개의 base top 을 소스에서 읽었다 (못 읽으면 아래가 헛돈다)`,
+     CORNERS.filter(n => baseTop(n) === null).join(' / '));
+  let bad = [];
+  for (const [name, base] of found) {
+    const re = new RegExp('\\.video-box\\.vc-aao-on \\.' + name + '[^{]*\\{top:calc\\((\\d+)px \\+ var\\(--aao-h');
+    const m = css.match(re);
+    if (!m) { bad.push(name + ' (비켜서기 목록에 없음)'); continue; }
+    if (Number(m[1]) !== base) bad.push(`${name} (소스 ${base}px ≠ 비켜서기 ${m[1]}px)`);
+  }
+  ok(bad.length === 0,
+     'E-10 위쪽 모서리 조각이 «전부» 같은 만큼 내려간다 — 하나만 두면 그 밑칸에 올라탄다',
+     bad.join(' / '));
+}
+
 sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
 {
   const mut = [
@@ -360,7 +450,10 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
     ['화면공유 가드를 옛 «조기 return» 으로 되돌리기',
       five.replace('var want = window.__vcScreenSharing ? true : !!on;', 'if (window.__vcScreenSharing) return;\n    var want = !!on;')],
     ['4초 타이머의 «AAO 일 때만» 가드를 빼기', five.replace('if (A && A.active) {', 'if (true) {')],
-    ['「N초 전」 갱신을 빼기', five.replace('if (el) vcAaoLabel(el, id);', 'if (el) { /* 갱신 없음 */ }')],
+    ['「N초 전」 갱신을 빼기', five.replace('if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }', 'if (el) { /* 갱신 없음 */ }')],
+    ['위쪽 버튼 비켜서기를 빼기', five.replace(/\n\s*vcAaoShift\(box, el\);/g, '\n    /* 없음 */')],
+    ['비켜서기 CSS 에서 장치 도우미를 빼기',
+      five.replace("+ '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'\n        ", '')],
     ['나간 상대의 기준 시각 정리를 빼기', five.replace('else delete __vcAaoSince[id];', '')]
   ];
   for (const [name, code] of mut) {
@@ -394,6 +487,15 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       const st = t4.box.querySelector('.vc-aao-freeze');
       if (!st || !/초 전/.test(st.textContent)) broke = true;
       if (t4.v.style.filter !== 'grayscale(1)') broke = true;
+      if (!t4.box.classList.contains('vc-aao-on')) broke = true;          // 위쪽 버튼을 비켜 주는 스위치
+      if (t4.box.style.getPropertyValue('--aao-h') !== '24px') broke = true;
+      /* 비켜서기 목록이 «소스에 실재하는 모서리 조각» 을 전부 담는가 — 하나만 빠져도 그 밑칸에 올라탄다 */
+      const css4 = (e4.head.children.find(c => c.id === 'vc-aao-css') || { textContent: '' }).textContent;
+      for (const [nm, bs] of CORNER_BASES) {
+        const re4 = new RegExp('\\.video-box\\.vc-aao-on \\.' + nm + '[^{]*\\{top:calc\\((\\d+)px \\+ var\\(--aao-h');
+        const m4 = css4.match(re4);
+        if (!m4 || Number(m4[1]) !== bs) { broke = true; break; }
+      }
 
       const e5 = boot(code, { screenSharing: true });
       const pc5 = makePc(); e5.win.vcPeerConnections = { u1: pc5 };

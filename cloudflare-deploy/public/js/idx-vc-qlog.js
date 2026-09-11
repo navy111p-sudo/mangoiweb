@@ -658,9 +658,36 @@ window.vcAAOVideo = vcAAOVideo;
 /* 「N초 전」의 기준 시각 — 상대 uid 별로 «멈춘 순간» */
 var __vcAaoSince = {};
 
+/* 띠가 덮는 자리를 그 타일의 «위쪽 모서리 버튼» 에게 비켜 준다.
+   ⚠️ 처음에는 이 줄이 없었고, 브라우저 실측에서 ⭐ 칭찬 버튼과 개별채팅 버튼이 **픽셀 단위로 통째로**
+      띠에 덮여 있었다(390px 폰 · 별버튼 중앙 픽셀이 띠의 갈색 rgb(121,53,15)). 띠가 pointer-events:none
+      이라 «눌리기는 하는데 안 보이는» 상태였다 — 1P=1원 포인트를 주는 버튼이라 반경이 작지 않다.
+   ✅ 버튼을 «띠 높이만큼» 내린다. 높이는 타일 폭에 따라 1~2줄로 달라지므로 CSS 에 숫자를 박지 않고
+      vcAaoFreeze 가 잰 값을 --aao-h 로 넘긴다. 클래스는 «버튼» 이 아니라 «타일» 에 붙으므로
+      vcRefreshPraiseUI 가 버튼을 다시 그려도 살아남는다.
+   ⚠️ !important 가 필요하다 — #vc-local-box .vc-star-btn{top:6px}(id 포함)이 특이성으로 이긴다. */
+function vcAaoStyleOnce() {
+    if (document.getElementById('vc-aao-css')) return;
+    var st = document.createElement('style');
+    st.id = 'vc-aao-css';
+    /* ⚠️ «위쪽 모서리» 는 한 칸이 아니라 «세로로 쌓인 칸» 이다 — 하나만 내리면 그 밑칸에 올라탄다.
+       실측(2026-09-11 390px 폰, 타일 위에서 잰 값): ⭐6 · 💬8 · 🎛40 · +1P토스트 48.
+       처음에 ⭐·💬 만 내렸다가 💬 가 🎛(장치 도우미) 위에 얹혀 «가려진 것을 옮겨 또 가리는» 상태가 됐다.
+       ⛔ 목록을 줄이지 말 것. 새 모서리 버튼을 만들면 여기에 함께 적는다 —
+          브라우저 검사가 «AAO 중에 두 조각이 서로 겹치지 않는가» 로 못 박는다. */
+    st.textContent = '.video-box.vc-aao-on .vc-star-btn,.video-box.vc-aao-on .vc-point-basket,'
+        + '.video-box.vc-aao-on .vc-ss-badge{top:calc(6px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-dm-btn{top:calc(8px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-star-toast,.video-box.vc-aao-on .vpb-fly'
+        + '{top:calc(48px + var(--aao-h,0px))!important}';
+    (document.head || document.documentElement).appendChild(st);
+}
+
 /* 멈춤 띠. 타일 «위쪽» 에 붙인다 — 아래쪽은 이름표·소리 안내·저화질 배지가 이미 쓴다(bottom 8/34/58px).
    ⛔ display:flex 를 쓰지 않는다 — 짧은 문장이 좁은 타일에서 낱글자로 쪼개진다(CLAUDE.md 2장). */
 function vcAaoStripEl(box) {
+    vcAaoStyleOnce();
     var el = box.querySelector('.vc-aao-freeze');
     if (el) return el;
     el = document.createElement('div');
@@ -692,13 +719,28 @@ function vcAaoFreeze(box, id, on) {
     if (!on) {
         delete __vcAaoSince[id];
         var old = box.querySelector('.vc-aao-freeze'); if (old) old.remove();
+        try { box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); } catch (_) {}
         try { if (v) v.style.filter = ''; } catch (_) {}
         return;
     }
     if (!__vcAaoSince[id]) __vcAaoSince[id] = Date.now();
     /* 흑백 — «지금» 으로 오인되지 않게. 멈춘 그림이라 새로 그리지 않으므로 비용이 거의 없다. */
     try { if (v) v.style.filter = 'grayscale(1)'; } catch (_) {}
-    vcAaoLabel(vcAaoStripEl(box), id);
+    var el = vcAaoStripEl(box);
+    vcAaoLabel(el, id);
+    vcAaoShift(box, el);
+}
+
+/* 잰 띠 높이를 타일에 넘겨 위쪽 버튼을 그만큼 내린다.
+   ⚠️ 「줄 수가 바뀌면」 높이도 바뀐다(「9초 전」 → 「12초 전」에 줄이 늘 수 있다) — 매 틱 다시 잰다.
+   ⚠️ 타일이 아직 안 그려졌으면(offsetHeight 0) 아무것도 하지 않는다 — 0 을 넣으면 «안 비킨» 것과 같다. */
+function vcAaoShift(box, el) {
+    try {
+        var h = el && el.offsetHeight;
+        if (!h) return;
+        box.style.setProperty('--aao-h', h + 'px');
+        box.classList.add('vc-aao-on');
+    } catch (_) {}
 }
 
 /* 내 타일 — 내가 «음성만» 을 보내는 동안. 흑백은 안 입힌다(내 미리보기는 실제로 살아 움직인다). */
@@ -707,12 +749,13 @@ function vcAaoSelfMark(on) {
         var box = document.getElementById('vc-local-box');
         if (!box) return;
         var el = box.querySelector('.vc-aao-freeze');
-        if (!on) { if (el) el.remove(); return; }
+        if (!on) { if (el) el.remove(); box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); return; }
         el = vcAaoStripEl(box);
         var ko = '📶 영상 안 나감';          // ⚠️ PIP 는 폰에서 130px — 길면 핵심이 잘린다
         var en = '📶 Video not sent';
         el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
         el.textContent = (typeof miIsEn === 'function' && miIsEn()) ? en : ko;
+        vcAaoShift(box, el);
     } catch (_) {}
 }
 
@@ -749,7 +792,7 @@ function vcAaoTick() {
     Object.keys(__vcAaoSince).forEach(function (id) {
         var box = document.getElementById('vc-video-' + id);
         var el = box && box.querySelector('.vc-aao-freeze');
-        if (el) vcAaoLabel(el, id);
+        if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }    // ⚠️ 줄 수가 바뀔 수 있으니 높이도 다시 잰다
         else delete __vcAaoSince[id];                           // 타일이 사라졌다 = 그 상대가 나갔다
     });
 }

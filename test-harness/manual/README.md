@@ -834,3 +834,39 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-sidebar-badge-live-browser.mjs
 ---
 
 - `hero-cta-and-cefr-bar-browser.mjs` — 홈 큰 버튼(골드 채움·오늘 상태 줄·대비)과 레벨테스트 CEFR 막대가 «실제로 그려지는가» (2026-09-09)
+
+---
+
+## vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠 (37건 · 2026-09-11)
+
+회선이 무너져 영상을 끄면 상대 타일이 **마지막 장면에서 멈추고** 위쪽에 띠가 붙는다
+(`.vc-aao-freeze` — 「📶 영상 멈춤 · 소리는 정상 · N초 전 모습」).
+자동 하니스(`aao_freeze_harness`)는 가짜 DOM 이라 **배치를 원리상 못 잰다** — 그래서 여기서 픽셀로 잰다.
+**정적 서버가 필요하다**(`cd cloudflare-deploy/public && python3 -m http.server 8899`).
+
+왜 필요했나 — 2026-09-10 배포 뒤 실제로 그려 보니 그 띠가 **⭐ 칭찬 버튼과 💬 개별채팅 버튼을 통째로
+덮고** 있었다(390px 폰: 별버튼 중앙 픽셀이 띠의 갈색 `rgb(121,53,15)`). 띠가 `pointer-events:none` 이라
+**눌리기는 하는데 안 보이는** 상태였고, 하필 1P=1원 포인트를 주는 자리였다.
+⚠️ `elementFromPoint` 는 `pointer-events:none` 을 건너뛰므로 **「맨 위가 누구인가」만 물으면 «정상» 이라
+답한다** — 이 사고는 «칠해진 색» 으로만 드러난다.
+
+실제로 재는 것:
+
+- 띠·⭐·💬·🎛(장치 도우미)·이름표가 **실재하는가**(전제 — 없으면 아래가 조용히 헛돈다)
+- 스크린샷 픽셀로 **⭐·💬·이름표가 띠 색이 아닌가**, 그리고 띠와 겹치면서 띠보다 «아래» 에 깔린 조각이 0인가
+- **누를 수 있는 조각끼리 서로 겹치지 않는가** ← ⭐·💬 만 내렸다가 💬 가 🎛 위에 올라앉은 것을 잡은 검사
+- 「보인다」와 「눌린다」는 다른 값 — 세 버튼 중앙의 `elementFromPoint` 가 자기 자신인가
+- 글자가 안 잘리는가(`scrollHeight ≤ clientHeight` — `overflow:hidden` 이라 잘려도 티가 안 난다)
+- 띠 글자 대비 ≥ 4.5 — **글자를 `color:transparent` 로 지우고 그 자리를 찍어** 진짜 배경을 구한다
+- 흑백(`grayscale(1)`)이 걸리는가 · 320px 폰에서도 같은가
+- 회복하면 띠·흑백·`vc-aao-on`·`--aao-h` 가 **전부** 지워지고 ⭐ 가 제자리(44px → 6px)로 돌아오는가
+- 짝 — `reason='user'`(사람이 끔)와 `videoWidth 0`(한 프레임도 안 온 상대)에는 **멈춤 띠를 안 쓰고**
+  옛 전면 안내(`.vc-camoff-hint`)가 그대로 뜨는가
+
+**변이시험(2026-09-11 실제로 돌려 본 것)** — `vcAaoShift` 를 빼면 ❌(버튼이 실제로 띠에 덮인다,
+하니스 안에 내장) · 비켜서기 CSS 에서 **🎛 한 줄만** 빼면 ❌ **3건**(💬 가 🎛 위에 올라앉는다).
+
+```bash
+cd cloudflare-deploy/public && python3 -m http.server 8899 &
+node test-harness/manual/vc-aao-freeze-browser.mjs
+```
