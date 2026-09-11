@@ -20,11 +20,15 @@
 //     D. 고친 js 를 부르는 HTML 의 ?v= 가 **두 곳 모두** 같은지 (index.html · teacher.html preload).
 //
 //   [변이시험 — 손으로 돌려 «실제로» FAIL 나는 것을 확인했다 (2026-09-11)]
-//     · 바닥(Math.max) 제거            → A-3·A-5 FAIL   (간격 0분인 287회차가 지금보다 짧아짐)
-//     · 다음수업 상한(Math.min) 제거   → A-4 FAIL
-//     · 강사 분기 제거                 → A-1·A-2 FAIL
-//     · idx-main.js 를 옛 코드로 되돌림 → C-1·C-2 FAIL
-//     · enterBlockedMsg 를 한국어 전용으로 → A-11·A-12 FAIL
+//     ⚠️ 대응 번호는 **실제로 돌려 나온 것**만 적는다. 처음엔 눈대중으로 적었다가 4/5 가 틀렸고
+//        함정 대조가 잡았다 — 「N종 전부 FAIL」이라고 적을 때 그 N 을 세어 보라는 그 규칙이다.
+//     · 바닥(Math.max) 제거              → A-7·A-11 FAIL  (간격 0분인 287회차가 지금보다 짧아짐)
+//     · 다음수업 상한(Math.min) 제거     → A-7·A-8·A-9·A-11 FAIL
+//     · 강사 분기 제거                   → A-1·A-2·A-3 FAIL
+//     · enterBlockedMsg 를 한국어 전용으로 → A-17·A-19 FAIL
+//     · idx-main.js 를 옛 코드로 되돌림   → C-1~C-6 FAIL
+//     · **조건 뒤집기** canEnterNow → return true → A-12·A-15 FAIL
+//     · 선택 목록 조건을 옛 `&& !current` 로 되돌림 → C-8 FAIL
 
 import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -152,6 +156,15 @@ console.log('\nA. src/class-entry-window.ts — 경계값을 넣어 실제로 �
     check('A-21 다음수업: 뒤에 없으면 null', o.nextNone);
     check('A-22 다음수업: 목록이 정렬 안 돼 있어도 가장 이른 것', o.nextUnsorted);
   }
+  /* 🔗 「여러 곳이 서로 같은 말을 하는가」 — 바닥의 뜻은 「지금보다 짧아지지 않는다」이고
+     «지금» 의 정본은 api-mango.ts 의 LATE_AFTER 다. 둘을 각각 15 리터럴로 못 박으면
+     한쪽을 20분으로 바꿔도 둘 다 초록이 된다(그 순간 바닥이 «지금» 보다 짧아진다). */
+  const mapi = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
+  const cew = readFileSync(join(SRC, 'class-entry-window.ts'), 'utf8');
+  const la = /const LATE_AFTER = (\d+) \* 60 \* 1000;/.exec(mapi);
+  const fl = /ENTER_FLOOR_MS = (\d+) \* 60 \* 1000;/.exec(cew);
+  check('A-23 전제: 두 상수를 둘 다 찾았다', !!la && !!fl);
+  check('A-23 바닥이 «지금»(api-mango LATE_AFTER)과 같은 값이다', !!la && !!fl && la[1] === fl[1]);
 }
 
 // ═══════════════ B. 서버 배선 ═══════════════
@@ -204,6 +217,16 @@ console.log('\nC. js/idx-main.js — 「문」은 can_enter, 「라벨」은 sta
   // 강사용 수업 선택 목록
   check('C-6 고를 수 있나 = can_enter', /var dis = s\.can_enter === false;/.test(bare));
   check('C-7 짝: 「종료」 라벨은 status 로 그대로 그린다', /s\.status === 'ended' \?/.test(bare));
+
+  /* 🔴 (2026-09-11 함정 대조가 잡은 결함) 뒤에 수업이 하나라도 남으면 서버 `current` 가
+     그 «다음 수업»(status='early')으로 채워진다. 옛 조건 `&& !current` 면 선택 목록이 안 뜨고
+     아래 `status==='early'` 분기가 먼저 잡혀 **카운트다운(닫기만 가능)** 으로 빠진다 —
+     끝난 수업으로 돌아갈 길이 없다. 수업이 하나뿐인 강사에게만 수리가 닿고 있었다.
+     ⛔ `&& !current` 로 되돌리지 말 것. */
+  check('C-8 뒤에 수업이 남아도 끝난 수업을 고를 수 있다 (선택 목록이 뜬다)',
+    /sessions\.length > 1 && \(!current \|\| current\.status === 'early'\)/.test(bareBody));
+  // 짝 — 지금 들어갈 수업이 있으면 예전처럼 바로 입장한다(매번 고르게 만들지 않는다)
+  check('C-9 짝: 지금 들어갈 수업이 있으면 목록을 안 띄운다', /!current \|\| current\.status === 'early'/.test(bareBody));
 }
 
 // ═══════════════ D. 캐시 버전 ═══════════════

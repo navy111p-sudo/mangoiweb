@@ -2248,7 +2248,7 @@ async function vcJoinMyClass() {
             return;
         }
         // 교사가 오늘 여러 수업이고 지금 바로 들어갈 것이 애매하면 → 목록에서 선택
-        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && !current) {
+        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && (!current || current.status === 'early')) {
             vcShowSessionPicker(sessions, name, role); return;
         }
         var target = current || sessions[0];

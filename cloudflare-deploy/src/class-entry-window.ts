@@ -47,7 +47,9 @@
  *     방 번호만 알면 언제든 열린다. 이 파일이 정하는 것은 «화면이 방 번호를 찾아 주느냐» 다.
  */
 
-/** 기존 보장 — 창은 어떤 경우에도 이보다 짧아지지 않는다(위 ⚠️ 참고). */
+/** 기존 보장 — 창은 어떤 경우에도 이보다 짧아지지 않는다(위 ⚠️ 참고).
+ *  ⚠️ 이 값의 «지금» 정본은 api-mango.ts 의 `LATE_AFTER` 다. 한쪽만 바꾸면 바닥이
+ *     조용히 «지금» 보다 짧아진다 — class_entry_window_harness A-23 이 둘을 대조한다. */
 export const ENTER_FLOOR_MS = 15 * 60 * 1000;
 /** 마무리·연장 상한 — 이보다 길게 열지 않는다. */
 export const ENTER_MAX_MS = 60 * 60 * 1000;
@@ -105,8 +107,9 @@ export function enterBlockedMsg(w: EntryWindow, now: number): string {
     return '아직 입장 시간이 아니에요. ⏰\n조금 뒤에 다시 눌러 주세요.\n\n'
       + "It's not time to join yet.\nPlease try again shortly.";
   }
-  return '이 수업은 입장 시간이 지났어요. ⏹\n그래도 들어가야 한다면 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
-    + 'The join window for this class has closed.\nIf you still need to join, ask your manager for the room code and enter it below.';
+  // ⚠️ 「아래에」라고 쓰지 않는다 — 방 코드 입력칸은 이 버튼 «위» 에 있다(index.html 8140 < 8167).
+  return '이 수업은 입장 시간이 지났어요. ⏹\n그래도 들어가야 한다면 매니저에게 방 번호를 받아 「방 코드 직접 입력」에 넣어 주세요.\n\n'
+    + 'The join window for this class has closed.\nIf you still need to join, ask your manager for the room code and use "Enter room code".';
 }
 
 /**
