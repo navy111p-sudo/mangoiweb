@@ -221,7 +221,50 @@ console.log('\n[건의1] 문제가 학생 쪽인지 우리 쪽인지 구분되�
         /talking !== mon\.talking/.test(loop) && /dead !== mon\.dead/.test(loop));
   check('마이크는 켜져 있는데 무음이면 경고', /vcMarkNoSound/.test(loop));
   check('음소거(의도된 무음)는 경고하지 않는다', /if \(muted \|\| talking\) mon\.soundAt/.test(loop));
-  check('경고 문구가 한/영', /No sound coming in/.test(html) && /소리가 안 들어와요/.test(html));
+  /* 🔁 (2026-09-11 사장님 지시) 옛 단정은 「학생·관찰자에게도 «🔇 소리가 안 들어와요» 를 한/영으로
+     띄운다」였다. 그런데 이 판정은 «상대가 8초 동안 조용하다» 이므로 학생이 문제를 푸는 동안
+     강사 타일에, 강사가 듣는 동안 학생 타일에 그대로 떴다 — «듣고 있는 중» 이 «고장» 으로 읽혔다
+     (사장님 화면 제보). 그래서 안내 판은 끄고 «강사가 눌러서 고치는» 배지만 남긴다.
+     ⛔ 학생·관찰자 판을 되살리지 말 것. 검사는 글자가 아니라 함수를 실제로 돌려서 본다. */
+  {
+    const fn = slice(html, 'function vcMarkNoSound(box, on) {', '\n}\n');
+    check('vcMarkNoSound 를 잘라 냈다(전제 — 못 자르면 아래가 조용히 통과한다)', fn.length > 200);
+    /* 가짜 DOM 으로 실제 실행 — «누구에게 무엇이 그려지는가» 는 글자로 볼 수 없다 */
+    const run = (staff, boxId, lang) => {
+      let added = null;
+      const box = { id: boxId, style: {}, querySelector: () => null, appendChild: (el) => { added = el; } };
+      const sandbox = {
+        console: { warn(){}, log(){} },
+        getComputedStyle: () => ({ position: 'relative' }),
+        getLang: () => lang,
+        vcIsStaffNow: () => staff,
+        vcRequestMicFix: () => {},
+        document: { createElement: (tag) => ({ tag, className: '', textContent: '', title: '', type: '', addEventListener(){} }) },
+        __box: box,
+      };
+      sandbox.window = sandbox;
+      vm.createContext(sandbox);
+      try { vm.runInContext(fn + '\n}\nvcMarkNoSound(__box, true);', sandbox, { timeout: 2000 }); }
+      catch (e) { return { err: String(e && e.message || e) }; }
+      return added;
+    };
+    const stu   = run(false, 'vc-video-u1', 'ko');
+    const tea   = run(true,  'vc-video-u1', 'ko');
+    const teaEn = run(true,  'vc-video-u1', 'en');
+    const noUid = run(true,  '',            'ko');
+    check('학생·관찰자 화면에는 무음 배지를 안 띄운다', stu === null,
+          '8초 침묵마다 «소리가 안 들어와요» 가 떠서 정상 수업이 고장으로 보였다');
+    check('그래도 강사에게는 뜬다(짝 — 이게 없으면 «전부 끄기» 도 통과한다)',
+          !!tea && /눌러서 고치기/.test(tea.textContent || ''));
+    check('강사 배지 문구는 한/영 두 벌', !!teaEn && /Tap to fix/.test(teaEn.textContent || ''));
+    check('강사 배지는 누를 수 있는 버튼이다', !!tea && tea.tag === 'button' && tea.type === 'button');
+    check('uid 를 못 구하면 아무에게도 안 띄운다(누구 마이크인지 모르는 채 «고치기» 를 주지 않는다)',
+          noUid === null);
+    /* 부정 검사는 주석을 벗겨 낸 사본으로 — 「왜 지웠는지」 적은 주석이 자기를 잡는다 */
+    const bare = fn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+    check('학생용 문구가 코드에 남아 있지 않다',
+          !/소리가 안 들어와요/.test(bare) && !/No sound coming in/.test(bare));
+  }
   check('강사는 그 배지를 눌러 학생 마이크를 다시 잡게 할 수 있다',
         /vcRequestMicFix/.test(html) && /type:\s*'device-fix'/.test(html));
   check('서버가 device-fix / device-report 를 릴레이한다',
