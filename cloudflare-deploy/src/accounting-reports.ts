@@ -25,9 +25,11 @@
 
 import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 // 🧾 수수료율 판정은 정산관리(org-settlement)와 **같은 것**을 쓴다 — 그 파일 주석 참고
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
+import { buildScheduleSummary } from './schedule-summary';        // 📅 시간표 카드 숫자(회계 아님 — 라우터만 빌려 씀)
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher, clearMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
 import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
@@ -621,6 +623,19 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
   const fmt = url.searchParams.get('format') || 'json';
 
   try {
+    // 📅 시간표 요약 — 회계가 아니라 «관리자 대시보드 시간표 카드의 숫자» 다.
+    //    여기 얹은 이유는 하나뿐이다: 이 prefix 가 ①인증 ②라우팅 ③강사 차단을 이미 들고 있어
+    //    src/index.ts(공동 금지구역)를 한 줄도 안 건드린다(바로 아래 월 마감과 같은 사정).
+    //    ⛔ 계산은 이 파일에 적지 말 것 — 정본은 src/schedule-summary.ts 하나다.
+    if (p === 'schedule-summary') {
+      /* 읽기 전용이다. 메서드를 안 가리면 나중에 이 경로에 다른 뜻이 붙을 때
+         «모르는 요청» 이 조용히 흘러 들어간다(CLAUDE.md 「비어 있는 메서드에 얹을 때」). */
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
+      const s = await buildScheduleSummary(env as any);
+      return new Response(JSON.stringify({ ok: true, ...s }), {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' },
+      });
+    }
     if (p === 'monthly')   return await monthlyReport(env, url, fmt);
     if (p === 'quarterly') return await quarterlyReport(env, url, fmt);
     if (p === 'annual')    return await annualReport(env, url, fmt);
@@ -677,7 +692,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p.startsWith('c24-mirror/')) {
       if (request.method.toUpperCase() !== 'POST') return err('method not allowed', 405);
       const actor = await getAdminActor(request, env as any);
-      if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor), 403);
       if (isOrgScopedRole((actor as any).role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
       const body: any = await request.json().catch(() => ({}));
 

@@ -346,7 +346,7 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {}; __vcAaoSince = {};
                 /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
                 try { vcqSaveRttBase(); } catch (_) {}   // ② 다음 수업의 «낮게 시작» 근거(7일)
@@ -354,6 +354,7 @@ function vcqRxStart() {
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
+            try { vcAaoTick(); } catch (_) {}
         }, 4000);
     } catch (_) {}
 }
@@ -578,4 +579,237 @@ function vcQualityAcc(loss, rtt) {
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
     window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
+}
+
+/* ═══ ⑤ 음성전용(AAO) «화면 멈춤» ═══════════════════════════════════════════════════
+   2026-09-10 사장님 「선생님 얼굴이 안 보이게 하는 것보단 차라리 화면 멈춤으로 하면 어떨까」
+
+   [무엇이 문제였나] 회선이 무너지면 소리를 살리려고 영상을 끈다(AAO — idx-main.js vcAAOApply).
+     그 판단은 옳다: class-850-20260910 실측에서 강사 송신 손실이 19.7~21.4%(최대 65.5%)였고
+     같은 시각 학생이 받은 소리의 40~43%가 끊겨 있었다. 영상을 안 껐으면 소리까지 무너졌다.
+     문제는 «끈 뒤 화면이 하는 말» 이었다 — 받는 쪽 타일을 불투명도 82% 상자(.vc-camoff-hint)로
+     통째로 덮어 얼굴이 아예 사라졌다. 30일 실측 50개 방 중 16개(32%), 최장 12분 연속.
+
+   [왜 «덮개만 걷으면» 안 되나 — 잰 것 2026-09-10, Chromium 1194 WebRTC 루프백, 30ms 픽셀 측정]
+     · track.enabled = false (옛 방식)   → 받는 쪽이 49ms 만에 «완전 검정»(밝기 0). 마지막 장면이 안 남는다.
+                                           게다가 검은 프레임을 계속 보낸다 — 실측 약 10 kbps.
+     · encodings[0].active = false (지금) → 받는 쪽이 «마지막 장면에서 멈춘다»(7초 뒤까지 픽셀 동일).
+                                           보내는 바이트 정확히 0. 재협상 0회. 복구 96ms.
+     ⟹ «신호를 받고 나서» 마지막 장면을 붙잡는 것은 원리상 불가능하다(영상 49ms 대 cam-state 는 WS 두 홉).
+        끄는 «방법» 자체를 바꾸는 것이 유일한 길이었다.
+
+   [왜 replaceTrack(null) 이 아니라 active=false 인가]
+     replaceTrack(null) 도 같은 «멈춤» 을 준다(실측). 그런데 sender.track 이 비어서, 이 저장소에서
+     영상 sender 를 `s.track && s.track.kind==='video'` 로 찾는 코드 10곳 넘게가 조용히 헛돈다.
+     특히 화면공유 시작은 sender 를 못 찾으면 addTrack + 재협상으로 빠진다(대역폭 위기에 최악).
+     active=false 는 트랙을 그대로 두므로 그 코드들이 전부 그대로 산다.
+     덤: 가상배경·얼굴꾸미기는 sender 가 «캔버스 트랙» 을 쥐고 있는데 이 방식은 무엇을 쥐고 있든
+     상관하지 않는다. AAO 중에 배경을 바꿔도 vcSwapVideoTrack 이 정상 동작하고,
+     그 함수가 getParameters→수정→setParameters 라서 active=false 를 그대로 물고 간다.
+
+   ⛔ 화면공유 중에는 손대지 않는다 — 그때 sender 가 쥔 것은 «화면» 이라 끄면 교재가 사라진다.
+      (옛 코드도 결과적으로 그랬다: enabled=false 는 카메라 트랙에 걸렸고 sender 는 화면 트랙이었다.)
+   ⛔ track.enabled=false 를 «함께» 쓰지 않는다 — 검은 프레임 한 장이 먼저 나가면 그 검정에서 얼어붙는다.
+   ⛔ reason==='user'(사람이 일부러 끔)에는 절대 적용하지 않는다 — 껐는데 얼굴이 남으면 프라이버시 사고다.
+   ⚠️ 멈춘 그림이 «지금» 으로 오인되면 이 저장소가 가장 나쁘다고 못 박은 방향이 된다(모르는 것을
+      그럴듯하게 채우기). 그래서 셋을 함께 붙인다 — 지워지지 않는 띠 + 흑백 + «N초 전» 경과 시간.
+   ⚠️ 이제 강사 자기 미리보기는 살아 있다(카메라를 끄지 않으므로). 그대로 두면 «내 쪽은 멀쩡한데?» 가
+      되므로 자기 타일에도 «지금 상대에게 안 나갑니다» 를 적는다.
+   ⚠️ 늦게 들어온 상대의 sender 는 active 가 켜진 채로 만들어진다 — 아래 vcAaoTick() 이 4초마다 다시 건다.
+   감시: test-harness/aao_freeze_harness.mjs
+   ══════════════════════════════════════════════════════════════════════════════════ */
+
+/* 화면공유 때문에 «끄기» 가 뒤집힌 상태인가 — 뒤집힘이 바뀔 때만 상대에게 다시 알린다 */
+var __vcAaoOver = false;
+
+/* 영상 «보내기» 만 멈추거나 되살린다. 트랙은 건드리지 않는다. on=0 끔 / on=1 켬 */
+function vcAAOVideo(on) {
+    /* 🖥 화면공유 중에는 «언제나 보낸다» — 그때 sender 가 쥔 것은 카메라가 아니라 교재 화면이다.
+       ⛔ 여기서 그냥 `return` 하면 «켜기» 까지 막혀 영상이 영영 안 돌아옵니다. `active=true` 로
+          되돌리는 코드는 저장소에 이 함수 한 곳뿐이고 `vcAAOVideo(1)` 을 부르는 곳도 한 곳뿐이라,
+          회복 시점에 공유 중이면 그 뒤로 아무도 되살리지 않습니다(함정 대조가 잡은 실제 결함).
+          «상태를 지정» 하는 방식이라 공유가 시작·종료되는 순간도 4초 타이머가 저절로 따라잡습니다. */
+    var want = window.__vcScreenSharing ? true : !!on;
+    var pcs = window.vcPeerConnections || {};
+    Object.keys(pcs).forEach(function (id) {
+        try {
+            var pc = pcs[id];
+            var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+            if (!s || !s.getParameters) return;
+            var p = s.getParameters();
+            if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+            var cur = p.encodings[0].active !== false;      // 값이 없으면 «보내는 중» 이 기본이다
+            if (cur === want) return;                       // 바뀔 때만 — 불필요한 setParameters 는 인코더를 흔든다
+            p.encodings[0].active = want;
+            s.setParameters(p).catch(function () {});
+        } catch (_) {}
+    });
+    /* 공유가 시작·끝나 «실제로 보내는가» 가 뒤집히면 상대에게 다시 알린다 — 안 그러면
+       살아 움직이는 교재 위에 «N초 전 모습» 이 얹히고(거짓말), 반대로 멈춘 화면에 아무 안내도 없게 된다. */
+    var over = (want !== !!on);
+    if (over !== __vcAaoOver) {
+        __vcAaoOver = over;
+        try { if (typeof vcBroadcastCamState === 'function') vcBroadcastCamState(want, 'aao'); } catch (_) {}
+    }
+    try { vcAaoSelfMark(!want); } catch (_) {}
+}
+window.vcAAOVideo = vcAAOVideo;
+
+/* 「N초 전」의 기준 시각 — 상대 uid 별로 «멈춘 순간» */
+var __vcAaoSince = {};
+
+/* 띠가 덮는 자리를 그 타일의 «위쪽 모서리 버튼» 에게 비켜 준다.
+   ⚠️ 처음에는 이 줄이 없었고, 브라우저 실측에서 ⭐ 칭찬 버튼과 개별채팅 버튼이 **픽셀 단위로 통째로**
+      띠에 덮여 있었다(390px 폰 · 별버튼 중앙 픽셀이 띠의 갈색 rgb(121,53,15)). 띠가 pointer-events:none
+      이라 «눌리기는 하는데 안 보이는» 상태였다 — 1P=1원 포인트를 주는 버튼이라 반경이 작지 않다.
+   ✅ 버튼을 «띠 높이만큼» 내린다. 높이는 타일 폭에 따라 1~2줄로 달라지므로 CSS 에 숫자를 박지 않고
+      vcAaoFreeze 가 잰 값을 --aao-h 로 넘긴다. 클래스는 «버튼» 이 아니라 «타일» 에 붙으므로
+      vcRefreshPraiseUI 가 버튼을 다시 그려도 살아남는다.
+   ⚠️ !important 가 필요하다 — #vc-local-box .vc-star-btn{top:6px}(id 포함)이 특이성으로 이긴다. */
+function vcAaoStyleOnce() {
+    if (document.getElementById('vc-aao-css')) return;
+    var st = document.createElement('style');
+    st.id = 'vc-aao-css';
+    /* ⚠️ «위쪽 모서리» 는 한 칸이 아니라 «세로로 쌓인 칸» 이다 — 하나만 내리면 그 밑칸에 올라탄다.
+       실측(2026-09-11, 타일 위에서 잰 값): ⭐6 · ⇱분리6 · 바구니6 · 🖥배지6 · 💬8 · 📶경고8 · 🎛40 · +1P토스트48 · vpb-fly48.
+       처음에 ⭐·💬 만 내렸다가 💬 가 🎛(장치 도우미) 위에 얹혀 «가려진 것을 옮겨 또 가리는» 상태가 됐고,
+       그다음 판에서도 ⇱분리(z-index 5)와 📶경고(z-index 9·pointer-events:none)가 빠져 그대로 덮여 있었다.
+       ⛔ 목록을 줄이지 말 것. 새 모서리 조각을 만들면 여기에 함께 적는다.
+       ⚠️ «눌리는 것» 만 적으면 안 된다 — 배지처럼 pointer-events:none 이거나 띠와 z-index 가 같은
+          조각은 «겹침» 검사에 안 걸린다. 그래서 브라우저 검사가 «띠와 겹친 조각이 전부 자기 색으로
+          칠해졌는가» 를 픽셀로 따로 본다(그 검사가 이 둘을 잡았다). */
+    st.textContent = '.video-box.vc-aao-on .vc-star-btn,.video-box.vc-aao-on .vc-point-basket,'
+        + '.video-box.vc-aao-on .vc-ss-badge,.video-box.vc-aao-on .video-detach-btn'
+        + '{top:calc(6px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-dm-btn,.video-box.vc-aao-on .vc-netlow-hint'
+        + '{top:calc(8px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-star-toast,.video-box.vc-aao-on .vpb-fly'
+        + '{top:calc(48px + var(--aao-h,0px))!important}';
+    /* ⚠️ 한계 — base 는 «첫 정의» 한 값이다. 같은 조각에 모드별 override 가 있으면 그것까지는 안 본다
+       (실측 예: mg-uni-on 통합바에서 #vc-local-box .vc-star-toast 는 44px 이라 여기서는 4px 더 내려간다.
+        해롭지 않아 그대로 두지만, 그런 override 를 새로 만들 때는 이 줄을 함께 보라). */
+    (document.head || document.documentElement).appendChild(st);
+}
+
+/* 멈춤 띠. 타일 «위쪽» 에 붙인다 — 아래쪽은 이름표·소리 안내·저화질 배지가 이미 쓴다(bottom 8/34/58px).
+   ⛔ display:flex 를 쓰지 않는다 — 짧은 문장이 좁은 타일에서 낱글자로 쪼개진다(CLAUDE.md 2장). */
+function vcAaoStripEl(box) {
+    vcAaoStyleOnce();
+    var el = box.querySelector('.vc-aao-freeze');
+    if (el) return el;
+    el = document.createElement('div');
+    el.className = 'vc-aao-freeze';
+    el.style.cssText = 'position:absolute;left:0;right:0;top:0;z-index:9;display:block;text-align:center;'
+        + 'padding:5px 8px;background:rgba(120,53,15,.92);color:#fff7ed;font-size:11px;font-weight:700;'
+        + 'line-height:1.25;white-space:normal;overflow:hidden;pointer-events:none;';
+    box.style.position = 'relative';
+    box.appendChild(el);
+    return el;
+}
+
+/* 글자를 다시 쓴다. ⚠️ data-ko/data-en 도 함께 갱신해야 🌐 를 눌러도 따라온다(CLAUDE.md 2장
+   「JS 로 그린 라벨」). 이 요소는 글자만 담으므로 두 i18n 엔진이 textContent 를 갈아도 안전하다. */
+function vcAaoLabel(el, id) {
+    var t0 = __vcAaoSince[id] || Date.now();
+    var sec = Math.max(0, Math.round((Date.now() - t0) / 1000));
+    /* 🌐 한/영을 «한 문자열에» 함께 적는다 — 2026-08-08 「상대 타일 안내도 병기」 지시.
+       ⛔ 언어로 «갈라» 쓰면 안 된다: 폰 언어가 EN 인 한국인 원장님이 영어만 받은 것이
+       9/10 제보의 뿌리였다(idx-main.js 의 vcApplyRemoteCamHint 가 같은 이유로 병기다).
+       ⛔ <i> 자식으로 두 줄을 만들지도 말 것 — 두 i18n 엔진이 이 요소의 textContent 를
+       통째로 갈아끼워 자식이 사라진다(CLAUDE.md 2장 「아이콘 버튼에 달았더니」).
+       ⚠️ 그래서 data-ko 와 data-en 이 «같은 값» 이다 — 🌐 를 눌러도 두 말이 다 남는다. */
+    var both = '📶 영상 멈춤 · 소리 정상 · ' + sec + '초 전 / Video paused · audio OK';
+    el.setAttribute('data-ko', both);
+    el.setAttribute('data-en', both);
+    el.textContent = both;
+}
+
+/* 상대 타일을 «멈춤» 으로 만들거나 되돌린다. */
+function vcAaoFreeze(box, id, on) {
+    if (!box) return;
+    var v = box.querySelector('video');
+    if (!on) {
+        delete __vcAaoSince[id];
+        var old = box.querySelector('.vc-aao-freeze'); if (old) old.remove();
+        try { box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); } catch (_) {}
+        try { if (v) v.style.filter = ''; } catch (_) {}
+        return;
+    }
+    if (!__vcAaoSince[id]) __vcAaoSince[id] = Date.now();
+    /* 흑백 — «지금» 으로 오인되지 않게. 멈춘 그림이라 새로 그리지 않으므로 비용이 거의 없다. */
+    try { if (v) v.style.filter = 'grayscale(1)'; } catch (_) {}
+    var el = vcAaoStripEl(box);
+    vcAaoLabel(el, id);
+    vcAaoShift(box, el);
+}
+
+/* 잰 띠 높이를 타일에 넘겨 위쪽 버튼을 그만큼 내린다.
+   ⚠️ 「줄 수가 바뀌면」 높이도 바뀐다(「9초 전」 → 「12초 전」에 줄이 늘 수 있다) — 매 틱 다시 잰다.
+   ⚠️ 타일이 아직 안 그려졌으면(offsetHeight 0) 아무것도 하지 않는다 — 0 을 넣으면 «안 비킨» 것과 같다. */
+function vcAaoShift(box, el) {
+    try {
+        var h = el && el.offsetHeight;
+        if (!h) return;
+        box.style.setProperty('--aao-h', h + 'px');
+        box.classList.add('vc-aao-on');
+    } catch (e) {
+        /* 실패해도 «고치기 전»(버튼이 덮인 상태)으로 떨어질 뿐이라 새 위험은 없다.
+           다만 조용하면 「⭐ 가 안 보인다」가 영영 안 밝혀지므로 한 번은 남긴다. */
+        if (!vcAaoShift._warned) { vcAaoShift._warned = 1; try { console.warn('[vc-aao] shift 실패 — 위쪽 버튼이 띠에 가릴 수 있습니다', e); } catch (_) {} }
+    }
+}
+
+/* 내 타일 — 내가 «음성만» 을 보내는 동안. 흑백은 안 입힌다(내 미리보기는 실제로 살아 움직인다). */
+function vcAaoSelfMark(on) {
+    try {
+        var box = document.getElementById('vc-local-box');
+        if (!box) return;
+        var el = box.querySelector('.vc-aao-freeze');
+        if (!on) { if (el) el.remove(); box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); return; }
+        el = vcAaoStripEl(box);
+        var ko = '📶 영상 안 나감';          // ⚠️ PIP 는 폰에서 130px — 길면 핵심이 잘린다
+        var en = '📶 Video not sent';
+        el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+        el.textContent = (typeof miIsEn === 'function' && miIsEn()) ? en : ko;
+        vcAaoShift(box, el);
+    } catch (_) {}
+}
+
+/* 받는 쪽 안내 갈아끼우기 — idx-main.js 의 vcApplyRemoteCamHint 를 «밖에서» 덮는다.
+   그 함수는 최상위 함수 선언이라 window 속성이고, 부르는 쪽(cam-state 핸들러·vcRemoteBlackWatch)이
+   맨이름으로 부르므로 여기서 덮으면 그쪽까지 따라온다(CLAUDE.md 2장 「blocking 파일을 못 고칠 때」).
+   ⚠️ 그 이름이 바뀌면 조용히 헛돈다 — 하니스가 «그 이름이 아직 있는가» 를 대조한다.
+   ⛔ 'user'(사람이 껐음)는 원본 그대로 — 전면 덮개가 맞다. */
+var __vcHintOrig = window.vcApplyRemoteCamHint;
+window.vcApplyRemoteCamHint = function (userId) {
+    try {
+        var box = document.getElementById('vc-video-' + userId);
+        var why = (window.vcRemoteCamOff || {})[userId];
+        if (why !== 'aao') {                                   // 카메라를 껐거나 다시 켰다 → 옛 동작
+            vcAaoFreeze(box, userId, false);
+            if (__vcHintOrig) __vcHintOrig(userId);
+            return;
+        }
+        var v = box && box.querySelector('video');
+        /* 보여 줄 «마지막 장면» 이 애초에 없으면(한 프레임도 안 온 상대) 옛 전면 안내가 맞다 —
+           검은 바탕에 «영상 멈춤» 이라고 적으면 거짓말이 된다. */
+        if (!v || !v.videoWidth) { vcAaoFreeze(box, userId, false); if (__vcHintOrig) __vcHintOrig(userId); return; }
+        var cover = box.querySelector('.vc-camoff-hint'); if (cover) cover.remove();
+        var black = box.querySelector('.vc-black-hint'); if (black) black.remove();
+        vcAaoFreeze(box, userId, true);
+        vcqRxStart();                                          // 「N초 전」을 세어 줄 타이머(수업 중에만 산다)
+    } catch (_) {}
+};
+
+/* 4초 타이머(vcqRxStart)가 부른다. ⛔ 여기서 새 setInterval 을 만들지 않는다(홈이 멎은 전력 2회). */
+function vcAaoTick() {
+    var A = window.__vcAAO;
+    if (A && A.active) { try { vcAAOVideo(0); } catch (_) {} }   // 늦게 들어온 상대의 sender 에도 다시 건다
+    Object.keys(__vcAaoSince).forEach(function (id) {
+        var box = document.getElementById('vc-video-' + id);
+        var el = box && box.querySelector('.vc-aao-freeze');
+        if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }    // ⚠️ 줄 수가 바뀔 수 있으니 높이도 다시 잰다
+        else delete __vcAaoSince[id];                           // 타일이 사라졌다 = 그 상대가 나갔다
+    });
 }

@@ -456,7 +456,7 @@ console.log('\n[ E. 배선 ]');
   const bc = stripComments(block);
 
   check('강사를 막는다 (⛔ canEditOrg 는 \'none\'=교사에 true 라 못 막는다)',
-    /isTeacher/.test(bc) && /forbidden_teacher/.test(bc));
+    /isTeacher/.test(bc) && /forbidden_teacher|forbiddenTeacherBody/.test(bc));
   check('지사·대리점을 막는다', /isOrgScopedRole/.test(bc) && /forbidden_scope/.test(bc));
   check('막는 것이 DB·R2 를 만지기 «전» 이다',
     bc.indexOf('isOrgScopedRole') >= 0 && bc.indexOf('RECORDINGS') >= 0

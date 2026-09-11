@@ -15,6 +15,7 @@ import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바�
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
+import { entryWindow, canEnterNow, enterBlockedMsg, nextStartAfter } from './class-entry-window';  // 🚪 「문을 열어 줄 것인가」 정본 («수업 시간인가» 와 별개)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -1914,6 +1915,30 @@ export async function handleMangoApi(
          **학생이 하는 일은 평소와 똑같다.** 정본·주의사항은 src/class-room-override.ts.
          ⚠️ 이 호출은 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. */
       await applyRoomOverrides(env.DB, sessions, ymd);
+
+      /* 🚪 「문을 열어 줄 것인가」 — «지금이 수업 시간인가»(join_open)와 **다른 질문**이다.
+         (2026-09-11 마이마이 제보 「나가면 다시 못 들어온다」) 강사 포털은 2026-08-07 부터 하루 종일
+         열려 있는데 이 API 만 종료+15분에 닫혀, 수업에서 나간 강사가 홈에서 다시 못 들어왔다.
+         ⛔ close_at_ts 는 손대지 않는다 — 상태 라벨·카운트다운·「지금 진행 중인 수업」이 거기 걸려 있다.
+         규칙·근거는 src/class-entry-window.ts 한 곳에 있다. */
+      {
+        const dayStartTs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;
+        const starts = sessions.map((x: any) => x.start_ts);
+        for (const s2 of sessions) {
+          const w = entryWindow({
+            isTeacher,
+            dayStartTs,
+            openAtTs: s2.open_at_ts,
+            endTs: s2.end_ts,
+            nextStartTs: nextStartAfter(starts, s2.start_ts),
+          });
+          s2.enter_from_ts = w.from;
+          s2.enter_until_ts = w.until;
+          s2.can_enter = canEnterNow(w, now);
+          // 막을 때 보여 줄 문구를 **서버가** 만든다 — 한/영 병기 + 첫 화면 예산(여유 70바이트) 보호.
+          if (!s2.can_enter) s2.enter_msg = enterBlockedMsg(w, now);
+        }
+      }
 
       // 자동 입장 대상(current): 지금 입장 가능한 것 우선(진행중/열림), 없으면 가장 가까운 예정 수업
       let current: any = null;

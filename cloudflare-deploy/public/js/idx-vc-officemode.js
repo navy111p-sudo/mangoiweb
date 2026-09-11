@@ -66,7 +66,18 @@
      ⚠️ 저장값('0')으로 적지 않는 이유는 아래 enable() 의 실패 처리 주석에 있다. */
   var autoFailed = false;
   var ctx = null, srcNode = null, hpNode = null, gainNode = null, anaNode = null, destNode = null;
-  var rawStream = null;   // 우리가 새로 잡은 원본 마이크 (AGC off)
+  var rawStream = null;   // 우리가 «새로» 잡은 원본 마이크 (AGC off) — 재사용에 성공하면 null 이다
+  /* 🚀 (2026-09-11) «이미 열려 있는» 마이크를 빌려 쓸 때 그 트랙. 우리 것이 아니므로 함부로 stop 하지 않는다.
+     [왜] 예전에는 켤 때도 끌 때도 getUserMedia 를 새로 불렀다 = 수업 한 번에 마이크를 두 번 더 연다.
+          그 시간이 그대로 «교사만 입장이 느린» 이유였다(느린 환경 실측 438ms — 가짜 장치 기준이라
+          진짜 마이크는 더 길다. 학생에게는 이 경로가 아예 없다).
+     [지금] 이미 열린 트랙에 applyConstraints 로 AGC 만 끄고 그대로 쓴다 — 장치를 다시 열지 않는다.
+     ⛔ 못 끄면(브라우저가 무시·미지원) 재사용을 «포기» 하고 예전처럼 새로 연다 — AGC 가 켜진 채로
+        쓰면 이 기능의 ①번 효과가 통째로 죽는데 소리는 정상이라 아무도 모른다. */
+  var borrowed = null;
+  /* 🔴 되돌리는 «동안» 은 hookGum 이 손을 떼야 한다 — 안 그러면 「켜기 전으로 되돌리려고」 새로 여는
+     그 마이크의 AGC 를 훅이 **또 꺼서** 영영 안 돌아온다(켜기 실패 경로에서 실제로 그랬다). */
+  var restoring = false;
   var procTrack = null;   // peer 에게 실제로 보내는 가공 트랙
   var timer = null, buf = null, floorDb = -60, openUntil = 0, isOpen = false;
   var srcMicId = '';      // 켜기 «전» 에 쓰던 «진짜» 마이크 장치 id — 되돌릴 때 이것으로 다시 잡는다
@@ -145,13 +156,21 @@
 
   /* 모든 상대에게 보내는 오디오를 새 트랙으로 갈아끼운다.
      ⚠️ 음소거 상태를 물려주지 않으면 «음소거했는데 소리가 나가는» 사고가 된다. */
-  function swapTrack(next) {
+  /* keepOld=true 면 «빼기만» 하고 stop 하지 않는다 — 그 트랙을 우리가 WebAudio 소스로 계속 쓰기 때문이다.
+     ⛔ 여기서 stop 해 버리면 빌려 쓰기가 원리상 불가능하다(그 자리가 마이크를 두 번 열던 이유). */
+  function swapTrack(next, keepOld) {
     var stream = localStream();
     if (!stream || !next) return false;
     var old = audioTrack();
+    /* 🔴 (2026-09-11) 같은 트랙을 «자기 자신» 으로 갈아끼우면 아무것도 하지 않는다.
+       [실제 사고] 마이크를 빌려 쓰게 된 뒤, 켜기가 도중에 실패해 되돌릴 때 old 와 next 가
+       같은 트랙이 된다. 그대로 두면 아래에서 그 트랙을 stop 하고 «죽은 것» 을 다시 넣어
+       교사가 무음이 된다 — 이 기능이 가장 피하려는 실패 방향이다.
+       (브라우저 검사 ⑧ 「실패해도 마이크가 살아 있다」가 실제로 잡았다.) */
+    if (old === next) return true;
     try { next.enabled = old ? old.enabled : true; } catch (e) {}
     try {
-      if (old) { stream.removeTrack(old); try { old.stop(); } catch (e) {} }
+      if (old) { stream.removeTrack(old); if (!keepOld) { try { old.stop(); } catch (e) {} } }
       stream.addTrack(next);
     } catch (e) { console.warn('[office] 스트림 교체 실패:', e); return false; }
     try {
@@ -197,7 +216,23 @@
     }
   }
 
-  function teardown() {
+  /* 빌려 쓴 트랙을 놓는다.
+     ⛔ «지금 vcLocalStream 이 쓰고 있으면» 절대 stop 하지 않는다 — 그건 되돌려 놓은 진짜 마이크다.
+        그 가드가 없으면 사무실 모드를 끈 직후 교사가 무음이 된다. */
+  function releaseBorrowed() {
+    var b = borrowed; borrowed = null;
+    if (!b) return;
+    try {
+      var s = localStream();
+      var live = s && s.getAudioTracks && s.getAudioTracks().indexOf(b) >= 0;
+      if (!live) b.stop();
+    } catch (e) {}
+  }
+
+  /* keepBorrowed=true 면 빌린 트랙을 남겨 둔다 — 되돌리기(restorePlainMic)가 그것을 다시 쓴다.
+     ⚠️ 남의 기능이 마이크를 갈아끼우는 경로(rewrap)에서는 기본값으로 불러 «놓아» 줘야 한다.
+        안 그러면 stream 에서 빠진 옛 트랙이 stop 되지 않고 남아 마이크가 켜진 채 유령이 된다. */
+  function teardown(keepBorrowed) {
     if (timer) { clearInterval(timer); timer = null; }
     try { if (srcNode) srcNode.disconnect(); } catch (e) {}
     try { if (hpNode) hpNode.disconnect(); } catch (e) {}
@@ -205,6 +240,7 @@
     try { if (anaNode) anaNode.disconnect(); } catch (e) {}
     try { if (ctx && ctx.state !== 'closed') ctx.close(); } catch (e) {}
     try { if (rawStream) rawStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); } catch (e) {}
+    if (keepBorrowed !== true) releaseBorrowed();
     ctx = srcNode = hpNode = gainNode = anaNode = destNode = null;
     rawStream = null; procTrack = null; buf = null;
     floorDb = -60; isOpen = false; openUntil = 0;
@@ -242,6 +278,68 @@
     return { audio: a, video: false };
   }
 
+  /* 🚀 (2026-09-11) 마이크를 «처음 열 때부터» AGC 를 끈 채로 연다 — 그래야 사무실 모드가 장치를
+     다시 열지 않아도 된다. 이 한 줄이 «교사만 마이크를 두 번 여는» 것을 없앤다.
+     [왜 이 방법뿐인가] 이미 열린 트랙에 applyConstraints 로 AGC 를 끄는 길은 **크로미움이
+       조용히 무시한다** — 에러도 안 나고 getSettings().autoGainControl 이 true 그대로다
+       (2026-09-11 실측). 그래서 «열고 나서 고치기» 는 원리상 불가능하고, «열 때 정하기» 만 된다.
+     ⛔ 학생에게는 절대 걸지 않는다(isStaff) — 사무실 모드는 교사 기능이고, 학생 마이크의
+        자동 게인을 말없이 끄면 조용히 말하는 아이 소리가 작아진다.
+     ⛔ 사람이 꺼 둔 경우(wantOn=false)·이 페이지에서 이미 실패한 경우(autoFailed)·
+        «되돌리는 중»(restoring)에는 손대지 않는다.
+     ⚠️ 호출자가 넘긴 객체를 «고치지» 않고 사본을 만든다 — 그 객체를 재사용하는 코드가 있다. */
+  function hookGum() {
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getUserMedia !== 'function' || md.__officeGum) return;
+    var orig = md.getUserMedia.bind(md);
+    md.getUserMedia = function (c) {
+      try {
+        if (c && c.audio && !restoring && isStaff() && wantOn() && !autoFailed) {
+          var a = (c.audio === true) ? {} : c.audio;
+          if (a && typeof a === 'object' && a.autoGainControl !== false) {
+            var c2 = {}; for (var k in c) { if (Object.prototype.hasOwnProperty.call(c, k)) c2[k] = c[k]; }
+            var a2 = {}; for (var k2 in a) { if (Object.prototype.hasOwnProperty.call(a, k2)) a2[k2] = a[k2]; }
+            a2.autoGainControl = false;
+            c2.audio = a2;
+            c = c2;
+          }
+        }
+      } catch (e) {}
+      return orig(c);
+    };
+    md.__officeGum = 1;
+  }
+
+  /* 🚀 (2026-09-11) 소리 소스를 확보한다 — ① 이미 열려 있는 마이크를 «빌려» AGC 만 끄고,
+     ② 그게 안 될 때만 예전처럼 새로 연다.
+     ⚠️ 반드시 «실제로 꺼졌는가» 를 getSettings 로 확인하고서만 빌린다. applyConstraints 는
+        브라우저가 조용히 무시할 수 있는데, 그대로 빌려 쓰면 ①번 효과(AGC off)가 통째로 죽고
+        소리는 정상이라 아무도 못 알아챈다 — 그건 «느린 것» 보다 나쁘다.
+     ⛔ 여기에 deviceId 를 넣지 않는다 — 이미 그 장치로 열린 트랙이고, exact 를 얹으면
+        OverconstrainedError 로 멀쩡한 재사용이 실패한다. */
+  async function openSource(id) {
+    var t = audioTrack();
+    if (t && t.readyState === 'live' && typeof t.getSettings === 'function') {
+      try {
+        var st = t.getSettings() || {};
+        /* 위 hookGum 덕분에 대개 여기서 끝난다 — 이미 AGC 가 꺼진 트랙이므로 그대로 빌린다. */
+        if (st.autoGainControl === false) { borrowed = t; return new MediaStream([t]); }
+        /* 아니면 한 번 부탁해 본다. 크로미움은 무시하지만 다른 브라우저는 받아 줄 수 있다.
+           ⚠️ «에러가 안 났다» 를 성공으로 읽지 않는다 — 반드시 getSettings 로 다시 확인한다. */
+        if (typeof t.applyConstraints === 'function') {
+          await t.applyConstraints(micConstraints(true, '').audio);
+          st = t.getSettings() || {};
+          if (st.autoGainControl === false) { borrowed = t; return new MediaStream([t]); }
+        }
+        console.log('[office] AGC 가 안 꺼져 마이크를 새로 엽니다 (autoGainControl=' + st.autoGainControl + ')');
+      } catch (e) {
+        console.log('[office] 기존 마이크를 못 빌렸습니다 — 새로 엽니다:', e && e.name);
+      }
+    }
+    rawStream = await navigator.mediaDevices.getUserMedia(micConstraints(true, id));
+    return rawStream;
+  }
+
   /* byUser=true 는 «사람이 스위치를 눌렀다» 는 뜻이다.
      🔴 자동으로 켜졌을 때 remember(true) 를 쓰면 **첫 수업 한 번에 전 교사의 저장값이 '1'** 이 되어
         «아직 안 정함» 과 «사람이 켰음» 이 구별되지 않는다 — 나중에 기본값을 되돌릴 때 이미 켜진 채로
@@ -260,7 +358,7 @@
     try {
       var id = currentMicId();
       srcMicId = id;   // 되돌릴 때 쓸 «진짜» 장치 id — 켜고 나면 트랙에서 못 읽는다
-      rawStream = await navigator.mediaDevices.getUserMedia(micConstraints(true, id));
+      var srcStream = await openSource(id);   // 빌리거나(빠름) · 못 빌리면 새로 연다(예전 동작)
 
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) throw new Error('AudioContext 없음');
@@ -269,7 +367,7 @@
       if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
       if (ctx.state !== 'running') throw new Error('AudioContext 가 running 이 아님');
 
-      srcNode  = ctx.createMediaStreamSource(rawStream);
+      srcNode  = ctx.createMediaStreamSource(srcStream);
       hpNode   = ctx.createBiquadFilter();  hpNode.type = 'highpass'; hpNode.frequency.value = 120;  // ②
       gainNode = ctx.createGain();          gainNode.gain.value = 1;                                 // ③
       anaNode  = ctx.createAnalyser();      anaNode.fftSize = 1024; anaNode.smoothingTimeConstant = 0;
@@ -293,15 +391,18 @@
          여기서 사무실 모드를 끄면 표준 마이크로 돌아가고, 그때부터 자가치유가 다시 일한다.
          ⚠️ 저장값은 «켜짐» 으로 둔다(keepPref) — 사람이 끈 것이 아니다. */
       try {
-        var rawT = rawStream.getAudioTracks()[0];
-        if (rawT) rawT.onended = function () {
+        var rawT = srcStream.getAudioTracks()[0];
+        /* ⛔ onended 에 «대입» 하지 않는다 — 빌려 쓰는 경우 그 트랙은 남의 것이라, 다른 코드가
+           걸어 둔 처리를 덮어써 버린다. 듣기만 하고 남의 것은 건드리지 않는다. */
+        if (rawT) rawT.addEventListener('ended', function () {
           if (!on) return;
           console.warn('[office] 원본 마이크가 끊겨 사무실 모드를 해제합니다 — 마이크 자가치유에 넘깁니다');
           try { disable(true); } catch (e) {}
-        };
+        });
       } catch (e) {}
 
-      if (!swapTrack(procTrack)) throw new Error('트랙 교체 실패');
+      /* 빌린 트랙이면 stop 하지 않고 «빼기만» 한다 — 그것이 지금 WebAudio 의 소스다. */
+      if (!swapTrack(procTrack, !!borrowed)) throw new Error('트랙 교체 실패');
 
       /* 한 번이라도 성공했으면 «이 기기에서는 된다» 는 뜻 — 자동 적용 차단을 푼다.
          (사람이 스위치로 켜서 성공한 경우도 여기로 온다.) */
@@ -312,8 +413,9 @@
       return true;
     } catch (e) {
       console.warn('[office] 켜기 실패 — 원래대로 되돌립니다:', e);
-      teardown(); on = false; busy = false;
+      teardown(true); on = false; busy = false;   // 빌린 트랙은 남긴다 — 되돌리기가 그것을 쓴다
       try { await restorePlainMic(); } catch (e2) {}
+      releaseBorrowed();
       /* ⛔ remember(false) 로 적지 않는다 — 그러면 «일시 장애» 가 «사람이 껐다» 로 굳어
          기본 켜짐(2026-09-09)이 그 브라우저에서 영영 사라진다. 「아직 안 정함」으로 되돌린다.
          ⚠️ 대신 이 페이지에서는 «자동으로» 다시 시도하지 않는다 — 계속 실패하는 기기에서
@@ -330,15 +432,44 @@
         ⛔ 장치 지정을 «먼저» 포기하지는 않는다 — 교사가 고른 마이크가 아닌 것으로 바뀌면 그것도 사고다. */
   async function restorePlainMic() {
     if (!inCall() || !localStream()) return;
-    var s = null;
-    var id = srcMicId || currentMicId();
-    if (id) {
-      try { s = await navigator.mediaDevices.getUserMedia(micConstraints(false, id)); }
-      catch (e) { console.warn('[office] 원래 장치로 못 잡음 — 기본 마이크로 되돌립니다:', e && e.name); s = null; }
-    }
-    if (!s) s = await navigator.mediaDevices.getUserMedia(micConstraints(false, ''));
-    var t = s.getAudioTracks()[0];
-    if (t) swapTrack(t);
+    restoring = true;
+    try {
+      /* 🚀 (2026-09-11) 빌려 쓰던 트랙이 아직 살아 있으면 «제약만» 되돌려 그대로 쓸 수 있는지 본다 —
+         되면 장치를 다시 열지 않아도 끄기가 끝난다.
+         🔴 그런데 크로미움은 이 방향도 조용히 무시한다(2026-09-11 실측: AGC 를 끈 채로 연 트랙에
+            applyConstraints({autoGainControl:true}) → 예외 없음 · getSettings 는 여전히 false).
+            그대로 믿고 쓰면 «껐는데 AGC 는 꺼진 채» 로 그 세션 내내 가서, 조용히 말할 때
+            교사 소리가 작아진다 — 「켜기 전으로 되돌아간다」가 거짓이 된다.
+         ⚠️ 그래서 openSource 와 «같은 규칙» 을 쓴다: 에러가 안 난 것을 성공으로 읽지 않고
+            getSettings 로 실제 값을 확인하고서만 그 트랙을 쓴다. 아니면 아래 예전 경로로 내려간다. */
+      var b = borrowed;
+      if (b && b.readyState === 'live') {
+        try {
+          if (typeof b.applyConstraints === 'function') await b.applyConstraints(micConstraints(false, '').audio);
+          var bs = (typeof b.getSettings === 'function' ? b.getSettings() : null) || {};
+          if (bs.autoGainControl !== false && swapTrack(b)) { borrowed = null; return; }
+          console.log('[office] AGC 가 안 돌아와 마이크를 새로 엽니다 (autoGainControl=' + bs.autoGainControl + ')');
+        } catch (e) {
+          console.warn('[office] 빌린 마이크로 못 되돌렸습니다 — 새로 잡습니다:', e && e.name);
+        }
+      }
+      /* 🔴 새로 열기 «전» 에 빌린 트랙을 놓는다 — 같은 장치가 아직 열려 있으면 크로미움이
+         **그 트랙의 오디오 설정을 새 트랙에도 그대로 준다.** 그러면 「AGC 를 켜 달라」고
+         제대로 요청해도 꺼진 채로 열려, 껐는데도 교사 소리가 계속 작아진다(2026-09-11 실측:
+         놓기 전 false · 놓고 나면 true). 놓아도 무음이 되지 않는다 — 지금 내보내는 것은
+         아직 가공 트랙이고, 바로 아래에서 새 트랙으로 갈아끼운다.
+         ⚠️ releaseBorrowed 안의 가드(지금 쓰는 중이면 stop 안 함)는 그대로 지나간다. */
+      releaseBorrowed();
+      var s = null;
+      var id = srcMicId || currentMicId();
+      if (id) {
+        try { s = await navigator.mediaDevices.getUserMedia(micConstraints(false, id)); }
+        catch (e) { console.warn('[office] 원래 장치로 못 잡음 — 기본 마이크로 되돌립니다:', e && e.name); s = null; }
+      }
+      if (!s) s = await navigator.mediaDevices.getUserMedia(micConstraints(false, ''));
+      var t = s.getAudioTracks()[0];
+      if (t) swapTrack(t);
+    } finally { restoring = false; }
   }
 
   /* keepPref=true 면 저장값을 «켜짐» 그대로 둔다.
@@ -351,20 +482,23 @@
     busy = true;
     var was = on;
     on = false;
-    teardown();
+    teardown(true);                              // 빌린 트랙은 남긴다 — 되돌리기가 그것을 쓴다
     if (keepPref !== true) remember(false);
     if (was) {
       try { await restorePlainMic(); }
       catch (e) {
         /* 🔴 여기까지 왔으면 무음이 될 수 있다 — 조용히 넘기지 않는다. 마지막으로 한 번 더 잡아 본다. */
         console.error('[office] 🔴 마이크 되돌리기 실패 — 소리가 안 나갈 수 있습니다:', e);
+        restoring = true;   // 이 마지막 시도도 «켜기 전» 이어야 한다 — hookGum 이 AGC 를 또 끄면 안 된다
         try {
           var s2 = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           var t2 = s2.getAudioTracks()[0];
           if (t2) swapTrack(t2);
         } catch (e2) { console.error('[office] 🔴 마지막 시도도 실패:', e2); }
+        finally { restoring = false; }
       }
     }
+    releaseBorrowed();   // 되돌리기가 다 쓴 뒤 정리 — 지금 쓰는 중이면 stop 하지 않는다(그 안의 가드)
     srcMicId = '';
     console.log('[office] 사무실 모드 꺼짐');
     busy = false;
@@ -420,6 +554,12 @@
     pending = setInterval(function () {
       tries++;
       if (tries > 40) { clearInterval(pending); pending = null; return; }   // 20초면 포기
+      /* 🔴 «이미 도는» 폴링도 실패를 봐야 한다 — autoFailed 를 진입할 때만 보면, 사람이 스위치를
+         눌러 실패한 직후(저장값은 forget 으로 «아직 안 정함» = 기본 켜짐) 이 폴링이 곧바로 다시 켠다.
+         그러면 「이 페이지에서는 자동으로 다시 시도하지 않는다」는 이 파일의 약속이 깨지고,
+         되돌려 놓은 마이크를 다시 가공 트랙으로 갈아끼워 «켜기 전» 복구도 무효가 된다
+         (2026-09-11 브라우저 검사 ⓙ-2 가 실제로 잡았다). */
+      if (autoFailed) { clearInterval(pending); pending = null; return; }
       if (inCall()) sawCall = true;
       else if (sawCall) { clearInterval(pending); pending = null; return; } // 들어갔다 나갔으면 그만
       if (!sawCall) return;                                                  // 아직 입장 전 — 더 기다린다
@@ -456,12 +596,16 @@
 
   function boot() {
     bootWraps();
+    hookGum();
     if (!hookShowView()) setTimeout(hookShowView, 1500);
     /* 이미 수업 중에 이 파일이 늦게 실린 경우 — armOnce 가 스스로 «입장했나» 를 확인하므로 그냥 건다. */
     /* ⚠️ 여기에 조건이 없으면 «홈을 여는 모든 방문자»(학생 29,000명 포함)가 20초 폴링을 시작한다.
        이 자리의 목적은 주석 그대로 «이미 수업 중일 때» 하나뿐이고, 수업 진입은 showView 훅이 맡는다. */
     if (wantOn() && inCall()) armOnce();
   }
+  /* ⚠️ gUM 훅만은 DOMContentLoaded 를 기다리지 않는다 — 그 사이에 마이크가 열리면
+     (자동입장 링크가 그렇다) AGC 가 켜진 트랙이 잡혀 이 수리가 통째로 헛돈다. */
+  hookGum();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();

@@ -7,6 +7,7 @@
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
@@ -123,9 +124,9 @@ export async function handlePointsApi(
   const denyTeacher = async (): Promise<Response | null> => {
     const a = await getAdminActor(request, env as any);
     if (!a.isTeacher) return null;
-    return json({ ok: false, error: 'forbidden_teacher',
-      message: '강사 권한으로는 변경할 수 없습니다.',
-      message_en: 'This change is not available with a teacher account.' }, 403);
+    return json(forbiddenTeacherBody(a,
+      '강사 권한으로는 변경할 수 없습니다.',
+      'This change is not available with a teacher account.'), 403);
   };
 
     // ═══════════════════════════════════════════════════════════════
@@ -423,14 +424,28 @@ export async function handlePointsApi(
         if (!rr?.account_uid) {
           const tName = String(body.target_name || '').trim();
           if (tName) {
+            /* 🪤 «후보가 몇 명인가» 는 반드시 **GROUP BY 로 계정을 세어** 판정한다.
+               [실제로 밟을 뻔한 함정] 처음에는 최근 행 20개를 가져와 Set 으로 셌는데,
+                 vc_roster 는 PRIMARY KEY(room_id, peer_id) 라 **재접속 한 번 = 행 한 개**다.
+                 2026-09-10 실측: 한 방의 한 학생이 31행(mangoi-class · jeong).
+                 그러면 오래된 동명이인 행이 LIMIT 에 잘려 나가 «후보가 하나» 가 참이 되고,
+                 막으려던 바로 그 일(남의 계정에 별이 붙는 것)이 일어난다.
+               ⛔ LIMIT 을 키워서 풀지 말 것 — 재접속이 잦을수록 행이 늘어 언젠가 또 넘는다.
+               ✅ LIMIT 2 는 «계정» 을 세는 것이라 안전하다: 1이면 유일, 2면 그 자리에서 거절. */
             const cand = await env.DB.prepare(
-              `SELECT account_uid, name, role FROM vc_roster
+              `SELECT account_uid FROM vc_roster
                 WHERE room_id=? AND name=? AND account_uid IS NOT NULL AND TRIM(account_uid)<>''
-                ORDER BY updated_at DESC LIMIT 20`
+                GROUP BY account_uid LIMIT 2`
             ).bind(room, tName).all();
             const rows = (cand?.results || []) as any[];
-            const uniq = new Set(rows.map((r) => String(r.account_uid)));
-            if (uniq.size === 1) rr = rows[0];
+            /* 계정이 «정확히 하나» 일 때만. 동명이인이면 붙이지 않는다
+               (CLAUDE.md 2장 「남의 이름이 뜸」 — 모르는 것보다 틀린 게 나쁘다). */
+            if (rows.length === 1) {
+              rr = await env.DB.prepare(
+                `SELECT account_uid, name, role FROM vc_roster
+                  WHERE room_id=? AND account_uid=? ORDER BY updated_at DESC LIMIT 1`
+              ).bind(room, String(rows[0].account_uid)).first();
+            }
           }
         }
         if (!rr?.account_uid) return json({ ok: false, error: 'account_not_registered' }, 200);

@@ -1513,11 +1513,11 @@ function vcApplyRemoteCamHint(userId) {
             if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
             box.appendChild(el);
         }
-        var en = miIsEn();
+        /* 🌐 한/영 병기 — 260910 작업기록. 모양은 vc-refresh.css 의 .vc-camoff-hint i */
         el.innerHTML = (why === 'aao')
-            ? '📶<span>' + (en ? 'Weak connection — audio only for now.<br>The class continues.'
-                               : '연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.') + '</span>'
-            : '📷<span>' + (en ? 'Camera is off' : '상대가 카메라를 껐어요') + '</span>';
+            ? '📶<span>연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.'
+                + '<i>Weak connection — audio only for now. The class continues.</i></span>'
+            : '📷<span>상대가 카메라를 껐어요<i>Camera is off</i></span>';
         // 예전 '영상 준비 중' 안내가 남아 있으면 중복이므로 제거
         var old = box.querySelector('.vc-black-hint'); if (old) old.remove();
     } catch (_) {}
@@ -2248,12 +2248,12 @@ async function vcJoinMyClass() {
             return;
         }
         // 교사가 오늘 여러 수업이고 지금 바로 들어갈 것이 애매하면 → 목록에서 선택
-        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && !current) {
+        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && (!current || current.status === 'early')) {
             vcShowSessionPicker(sessions, name, role); return;
         }
         var target = current || sessions[0];
         if (target.status === 'early') { vcShowClassGate(target, name, role); return; }
-        if (target.status === 'ended') { alert('오늘 수업은 이미 종료되었어요.'); return; }
+        if (target.can_enter === false) { alert(target.enter_msg || 'Cannot join now.'); return; }
         vcEnterResolvedRoom(target, name, role);
     } catch (e) {
         console.warn('[vcJoinMyClass] err', e);
@@ -2316,7 +2316,7 @@ function vcShowSessionPicker(sessions, name, role) {
     var items = sessions.map(function (s) {
         var t = new Date(s.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         var badge = s.status === 'live' ? '<span style="color:#34d399">● 진행중</span>' : s.status === 'open' ? '<span style="color:#7dd3fc">입장 가능</span>' : s.status === 'ended' ? '<span style="color:#64748b">종료</span>' : '<span style="color:#fbbf24">' + t + ' 예정</span>';
-        var dis = s.status === 'ended';
+        var dis = s.can_enter === false;
         return '<button class="vc-pick" data-room="' + s.room_id + '" ' + (dis ? 'disabled' : '') + ' style="display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;color:#e2e8f0;cursor:' + (dis ? 'not-allowed' : 'pointer') + ';opacity:' + (dis ? '.5' : '1') + '"><span style="font-weight:700">' + t + ' · ' + (s.student_name || '학생') + '</span><span style="font-size:12px">' + badge + '</span></button>';
     }).join('');
     ov.innerHTML = '<div style="max-width:440px;width:92%;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:24px;padding:28px 24px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)"><div style="font-size:18px;font-weight:800;margin-bottom:4px">오늘 수업 선택</div><div style="font-size:13px;color:#94a3b8;margin-bottom:18px">입장할 수업을 선택하면 학생과 같은 방으로 연결됩니다</div>' + items + '<button id="vc-pick-close" style="width:100%;background:transparent;color:#64748b;border:none;padding:10px;font-size:13px;cursor:pointer;margin-top:4px">닫기</button></div>';
@@ -5183,19 +5183,17 @@ function vcAAOApply() {
     if (typeof vcCamOn === 'undefined') return;
     if (!A.active && A.sev >= 3 && (A.floor || A.sev >= 5) && vcCamOn !== false) {
         A.active = true; A.good = 0;
-        try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
+        vcBroadcastCamState(false, 'aao');   // ⚠️ «끄기 전» 에 알린다 — 늦으면 상대가 «검은영상=장애» 로 보고 재협상을 건다(대역폭 위기에 최악)
+        try { vcAAOVideo(0); } catch (_) { try { vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_2) {} }   // 📶 js/idx-vc-qlog.js ⑤ — 검정 대신 «마지막 장면 멈춤»
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
         /* 🌐 (2026-08-08 Ness ③ 「카메라가 갑자기 꺼진다」) 강사 다수가 필리핀이다.
            이 안내가 한국어뿐이라, 회선이 나빠 **일부러** 끈 것을 «고장» 으로 신고해 왔다.
            한/영을 함께 적는다 — 라벨만 영어이고 내용이 한국어면 읽을 수 없다(사장님 지시). */
         vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b> The class continues; video returns automatically.<br>인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속되고, 회복되면 영상이 자동으로 돌아옵니다.');
-        // 상대에게도 알린다. 안 알리면 상대 화면에서 '검은 영상 = 장애' 로 오인해 재협상이 돈다
-        // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
-        vcBroadcastCamState(false, 'aao');
         console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
     } else if (A.active && A.good >= 8) {
         A.active = false; A.sev = 0;
-        try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
+        try { if (vcCamOn !== false) vcAAOVideo(1); } catch (_) { try { if (vcCamOn !== false) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_2) {} }
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
         vcAAONotify('📶 <b>Connection recovered — video is back on.</b><br>연결이 회복되어 <b>영상을 다시 켭니다</b>');
         vcBroadcastCamState(vcCamOn !== false, 'aao');   // 사용자가 따로 꺼 둔 상태면 그건 존중
