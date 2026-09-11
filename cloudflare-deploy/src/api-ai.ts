@@ -25,6 +25,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
+import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 
 export async function handleAiApi(
   request: Request,
@@ -746,6 +747,20 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         return json({ ok: false, error: 'AI_binding_missing', detail: 'env.AI binding not configured' }, 503);
       }
 
+      /* 📡 A-1 (2026-09-11) — «답이 다 만들어진 뒤에» 읽기 시작하던 것을, 문장이 끝날 때마다
+         먼저 흘려보냅니다. 학생 121명 중 41명(34%)이 1턴만 하고 나가는데(D1 실측), 그것이
+         «느려서» 인지 가리려고 A-3 로 재기 시작했고 이 갈래가 그 기다림을 줄입니다.
+
+         ⛔ 옛 화면은 이 갈래를 모릅니다 — `stream` 을 안 보내면 지금까지와 «한 글자도»
+            다르지 않습니다(응답 계약 유지). 스트리밍은 옵트인입니다.
+         ⚠️ 아래 본 처리는 «들여쓰기를 일부러 안 바꿨습니다» — 함수로 감싸기만 해서
+            diff 가 «앞뒤 몇 줄» 로 끝나게(340행을 밀면 무엇이 바뀌었는지 못 읽습니다).
+         ⚠️ 스트리밍으로 보내는 것은 «미리보기» 이고 정본은 done 이벤트의 reply 입니다 —
+            재시도(반복·이름·눈높이)가 돌면 답이 바뀌기 때문입니다(그때 replaced:1). */
+      const wantStream = (b.stream === 1 || b.stream === true || b.stream === '1');
+      let sseSend: ((o: any) => void) | null = null;
+
+      const runTurn = async (): Promise<any> => {
       // 여러 모델 후보로 폴백 — 일부 모델이 지역/계정에서 사용 불가일 수 있음
       const models = [
         '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
@@ -804,9 +819,73 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         return parsed.reply;
       };
       const commitFix = () => { rawFix = stagedFix; };
+      /* 📡 스트리밍 호출 (A-1) — «첫 모델에만» 씁니다.
+         ⛔ 폴백·재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞입니다. 그것들은 비스트리밍으로
+            돌고, 답이 바뀌면 done 의 replaced:1 로 화면이 다시 읽습니다.
+         ⛔ 모델 조각을 그대로 내보내지 않습니다 — JSON 모드라 `{"reply":"Hi th` 같은 부분
+            JSON 이 옵니다. createJsonTextTap 이 «값 문자열 안» 글자만 통과시켜 구조 문자가
+            학생 화면에 못 갑니다(2026-09-08 에 두 번 낸 사고의 방어).
+         ⛔ 문장이 끝나기 «전» 에는 안 보냅니다 — 운율이 문장 단위라 토막 내 읽으면 소리가 깨집니다. */
+      let streamedText = '';
+      let streamTried = false;
+      const runFriendStreaming = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
+        const mT0 = Date.now();
+        latTries++;
+        try {
+          const st: any = await env.AI.run(model, { ...friendAIOpts(msgs, maxTokens, temperature), stream: true });
+          /* 스트림이 아니면(모델·계정이 지원 안 함) 그대로 돌려줘 옛 경로가 받습니다. */
+          if (!st || typeof st.getReader !== 'function') return st;
+          const tap = createJsonTextTap('reply');
+          const rd = st.getReader();
+          const dec = new TextDecoder();
+          let line = '', raw = '', pend = '';
+          for (;;) {
+            const { value, done } = await rd.read();
+            if (done) break;
+            line += dec.decode(value, { stream: true });
+            let nl: number;
+            while ((nl = line.indexOf('\n')) >= 0) {
+              const one = line.slice(0, nl).trim();
+              line = line.slice(nl + 1);
+              if (!one.startsWith('data:')) continue;
+              const pay = one.slice(5).trim();
+              if (!pay || pay === '[DONE]') continue;
+              let t = '';
+              try { const ev: any = JSON.parse(pay); t = String(ev?.response ?? ''); } catch { continue; }
+              if (!t) continue;
+              raw += t;
+              pend += tap.push(t);
+              const cut = takeSentences(pend);
+              pend = cut.rest;
+              for (const sen of cut.out) {
+                streamedText += (streamedText ? ' ' : '') + sen;
+                if (sseSend) sseSend({ t: sen });
+              }
+            }
+          }
+          const tail = String(pend || '').trim();
+          if (tail) { streamedText += (streamedText ? ' ' : '') + tail; if (sseSend) sseSend({ t: tail }); }
+          return { response: raw };
+        } finally {
+          latModelMs += Date.now() - mT0;
+        }
+      };
       for (const m of models) {
         try {
-          const resp: any = await runFriend(m, messages, 300, 0.8);
+          /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
+             이득만 잃고 동작은 그대로입니다(최악이어도 고치기 전과 같음). */
+          let resp: any;
+          if (wantStream && sseSend && !streamTried) {
+            streamTried = true;
+            try {
+              resp = await runFriendStreaming(m, messages, 300, 0.8);
+            } catch (se: any) {
+              console.warn('[chat-friend] stream call failed, falling back:', se?.message || se);
+              resp = await runFriend(m, messages, 300, 0.8);
+            }
+          } else {
+            resp = await runFriend(m, messages, 300, 0.8);
+          }
           reply = takeFriendReply(resp);
           if (reply) { usedModel = m; commitFix(); break; }
         } catch (e: any) {
@@ -1109,11 +1188,42 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         console.error('[chat-friend] recordAiLatency failed:', e?.message || e);
       }
 
-      return json({ ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
+      return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
                     // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
                     //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
                     ...(usedFallback ? { ai_unavailable: true } : {}),
-                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat });
+                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+                    // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
+                    ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}) };
+      };
+
+      /* 📡 옛 경로 — stream 을 안 보내면 지금까지와 똑같습니다. */
+      if (!wantStream) return json(await runTurn());
+
+      /* 📡 새 경로 — SSE. ⚠️ Response 를 «먼저» 돌려줘야 브라우저가 받기 시작합니다.
+         start() 는 async 여도 Response 는 즉시 나갑니다. */
+      const enc = new TextEncoder();
+      return new Response(new ReadableStream({
+        async start(c) {
+          sseSend = (o: any) => { try { c.enqueue(enc.encode('data: ' + JSON.stringify(o) + '\n\n')); } catch {} };
+          try {
+            const out = await runTurn();
+            sseSend({ done: 1, ...out });
+          } catch (e: any) {
+            /* ⛔ 조용히 닫으면 화면이 «영영 기다립니다» — 무슨 일인지 말하고 닫습니다.
+               화면은 이 이벤트를 받으면 옛 경로로 다시 물어봅니다. */
+            console.error('[chat-friend] stream turn failed:', e?.message || e);
+            try { sseSend({ done: 1, ok: false, error: 'stream_failed' }); } catch {}
+          } finally {
+            try { c.close(); } catch {}
+          }
+        },
+      }), { headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'private, no-store',   // ⛔ 자격증명 섞인 응답은 캐시 금지
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',              // 중간 버퍼가 모아 두면 스트리밍이 헛돕니다
+      } });
     }
 
     if (method === 'GET' && path === '/api/ai/chat-history') {
