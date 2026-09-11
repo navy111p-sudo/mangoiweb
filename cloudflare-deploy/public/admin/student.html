@@ -2744,6 +2744,22 @@ if (_initTab) {
 }
 
 
+/* 👩‍🏫 담당 교사 이름 — 스케줄 카드가 쓰는 한 곳(2026-09-11 사장님 지시).
+   ℹ️ teacher_name 은 서버가 teachers 원부를 LEFT JOIN 해 넣어 준다
+      (GET /api/admin/class-schedules · api-admin.ts).
+   ⛔ 못 풀었다고 번호(teacher_id)를 이름 자리에 그리지 말 것 — 강사 번호는 체계가 세 벌이라
+      (카페24 번호 · 원부 teachers.id · 프로필 번호) 숫자를 그대로 보여 주면 «누구인지» 를
+      잘못 읽는다. CLAUDE.md 2장 「강사 이름을 붙였는데 남의 이름이 뜸」.
+   ⛔ 빈칸으로 두지도 말 것 — 빈칸은 «고장» 으로 읽힌다. 모르면 모른다고 적는다.
+   📌 실측(2026-09-11, 운영 D1): 취소 아닌 예약 1,263건이 전부 원부로 풀린다 —
+      «강사 미확인» 은 지금 0건이고, 원부에 없는 번호가 들어오는 날을 위한 자리다. */
+function teacherLabel(it) {
+  var nm = (it && it.teacher_name != null) ? String(it.teacher_name).trim() : '';
+  if (nm) return esc(nm);
+  var tid = (it && it.teacher_id != null) ? String(it.teacher_id).trim() : '';
+  return tid ? '강사 미확인' : '미배정';
+}
+
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
   const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
@@ -2780,12 +2796,16 @@ async function loadAiSchedules() {
       const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
       /* 📅 (2026-08-18 사장님 수정요청 #01) 수업연기 — 상세보기 스케줄에서 바로 날짜·시간을 옮긴다.
          지금까지는 «취소하고 다시 등록» 뿐이라, 연기 한 번에 수업 이력이 끊겼다. */
+      /* 👩‍🏫 (2026-09-11 사장님 지시) 담당 교사 이름 — 서버가 이미 teachers 원부를 LEFT JOIN 해
+         teacher_name 을 실어 주는데(GET /api/admin/class-schedules) 화면만 안 그리고 있었다.
+         판정은 아래 teacherLabel() 한 곳. */
       return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + '분 · ' : '') + (statusName[it.status] || it.status) + '</span>'
+        + '<span class="mgt-chip" style="color:#94a3b8;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
         + '<button onclick="openReschedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #38bdf8;background:transparent;color:#38bdf8;border-radius:6px;cursor:pointer;font-size:11px">📅 일정변경</button>'
         + '<button onclick="cancelAiSchedule(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
         + '</div>'
