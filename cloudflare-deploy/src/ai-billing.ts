@@ -407,15 +407,16 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
       `SELECT id, shop_name, billing_month, rate_krw, status FROM ai_billing_invoices WHERE id = ?`
     ).bind(invoiceId).first<any>();
     if (!inv) return err('invoice not found', 404);
-    /* 결제 주문을 만들 수 있는 것은 그 대리점 담당자 본인과 본사다.
-       ⚠️ 다만 «지사도 못 만든다» 고 읽지 마세요 — 그건 사실이 아닙니다. `getScope`(scope.ts)는
-          지사 계정의 `?as=agency:<산하 대리점>` 드릴다운을 **agency 스코프로 승격**시키므로
-          (그 대리점이 자기 산하인지 DB 로 확인한 뒤에만 — 남의 지사 것은 승격 안 됨),
-          지사 계정이 그 파라미터를 붙이면 이 조건을 통과해 산하 대리점의 주문을 만들 수 있습니다.
-          돈이 실제로 나가려면 사람이 토스 결제창을 끝까지 눌러야 하고, 대상도 «자기 산하» 뿐이라
-          권한 상승은 아닙니다. 「지사는 대신 결제하면 안 된다」로 정하려면 여기서 스코프가 아니라
-          **세션 본래 스코프**로 판정해야 합니다 — 정책이라 사람이 정할 일입니다(2026-09-11 미결). */
-    if (!(scope.type === 'hq' || (scope.type === 'agency' && scope.value === inv.shop_name))) return err('forbidden', 403);
+    /* 🔒 (2026-09-11 사장님 결정) 결제 주문을 만들 수 있는 것은 그 대리점 담당자 본인과
+       본사뿐이다 — 지사는 대신 결제 요청을 만들 수 없다(볼 수는 있다: GET /invoice·/history
+       는 그대로 열려 있다). 위 `scope` 는 지사 계정의 `?as=agency:<산하 대리점>` 드릴다운을
+       agency 로 «승격» 시킨 값이라(scope.ts getScope) 그걸로 이 쓰기 게이트를 판정하면
+       지사가 산하 대리점인 척 결제 주문을 만들 수 있었다(실제로 그랬다 — 2026-09-11 발견).
+       그래서 여기만 `noDrillDown` 으로 «원래 로그인 계정이 무엇인가» 를 한 번 더 물어
+       그걸로 판정한다 — 조회에 쓰는 `scope` 는 그대로 두고(드릴다운 조회는 계속 되어야
+       한다), 이 한 곳의 판정에만 raw 값을 쓴다. */
+    const rawScope = await safe(async () => await getScope(env, request, { noDrillDown: true }), scope);
+    if (!(rawScope.type === 'hq' || (rawScope.type === 'agency' && rawScope.value === inv.shop_name))) return err('forbidden', 403);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {
       const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`).bind(invoiceId).first<{ n: number }>();
