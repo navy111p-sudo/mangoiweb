@@ -1,17 +1,7 @@
 /**
- * monitor-wall.js — 🗼 수업 관제탑(/admin/monitor-wall.html)의 화면 코드  (2026-09-02 인라인에서 분리)
- *
- * [왜 «/admin/» 밖인가] `public/admin/` 밑에 js·css 를 두면 isAdminPath 의 default-deny 가
- *   그 «자산 요청까지» 로그인 게이트로 삼켜 화면이 조용히 반쪽이 된다. 규칙은 「인라인으로 넣거나
- *   /js·/css 루트에 두라」이고 이 파일이 그 루트 쪽이다 — 같은 화면이 이미 /css/mangoi-han.css 를
- *   그렇게 쓰고, admin.html 의 JS 도 전부 공개 /js/ 에 있다(adm-core.js 등). 새로운 노출이 아니다.
- *
- * [왜 뺐나] HTML 이 33.7KB 를 이고 있어 상한에 여유가 1.4KB 였다. 빼면 HTML 은 10KB 가 되고,
- *   덤으로 이 파일은 ?v= 로 «캐시된다»(전에는 새로고침마다 33KB 재수신).
- *
- * ⛔ 상한이 «사라진» 것이 아니다 — 그건 게이트 우회다. monitor_wall_harness ①이
- *    **HTML + 이 파일을 합쳐서** 잰다. 내용 검사도 두 파일을 함께 읽어 판정한다.
- * ⚠️ 이 파일을 고치면 monitor-wall.html 의 ?v= 를 함께 올릴 것(asset_version_harness).
+ * monitor-wall.js — 🗼 수업 관제탑(/admin/monitor-wall.html)의 화면 코드 (2026-09-02 인라인에서 분리).
+ * /admin/ 밑에 js 를 두면 로그인 게이트가 자산까지 삼키므로 /js 루트에 둔다(경위: docs/작업기록/260902_관제탑_화면코드_js분리.md).
+ * ⛔ 상한은 안 사라졌다 — monitor_wall_harness ①이 HTML+이 파일을 합쳐 잰다. 고치면 HTML 의 ?v= 를 함께 올릴 것.
  */
 (function(){
   'use strict';
@@ -167,26 +157,55 @@
   }
 
   /* ── 그리기 ──────────────────────────────────────────────────────── */
+  /* 🔢 요약 띠(2026-09-13 D안) — 큰 숫자 넷을 맨 위에. 타일 = «라벨<b>숫자</b>» 한 덩어리
+     (meet_room_split_harness ⑩ 이 «수업방<b>N</b>» 모양을 그대로 읽는다 — 라벨과 <b> 사이에 태그를 넣지 말 것). */
   function renderChips(){
     var alertCount = Object.keys(state.alerts).length;
+    var tile = function(cls, label, n){ return '<div class="k' + (cls ? ' ' + cls : '') + '">' + label + '<b>' + n + '</b></div>'; };
     var chips = [];
-    if (state.counts) chips.push('<span class="chip">' + L('📅 예약 기준 지금 수업', '📅 Booked now')
-      + '<b>' + (state.counts.now || 0) + '</b></span>');
     /* 🔢 합치지 말 것 — 회의방이 «수업 건수» 로 읽힌다 */
     var sp = splitRooms(state.rooms);
-    chips.push('<span class="chip">' + L('🎥 수업방', '🎥 Class rooms') + '<b>' + sp.cls.length + '</b></span>');
-    if (sp.meet.length) chips.push('<span class="chip">' + L('👥 회의방', '👥 Meeting rooms') + '<b>' + sp.meet.length + '</b></span>');
-    chips.push('<span class="chip' + (alertCount ? ' st-bad' : '') + '">' + L('🚨 이상 알림', '🚨 Alerts')
-      + '<b>' + alertCount + '</b></span>');
-    /* 회의방을 함께 세면 이 칩이 늘 켜져 있다(«혼자» 가 흔하고 끝나는 시각이 없다) */
+    chips.push(tile('', L('🎥 수업방', '🎥 Class rooms'), sp.cls.length));
+    chips.push(tile(alertCount ? 'st-bad' : '', L('🚨 이상 알림', '🚨 Alerts'), alertCount));
+    /* 회의방을 함께 세면 이 칸이 늘 켜져 있다(«혼자» 가 흔하고 끝나는 시각이 없다) */
     var alone = sp.cls.filter(function(r){ return r.userCount === 1; }).length;
-    if (alone) chips.push('<span class="chip st-bad">' + L('⚠ 혼자 대기', '⚠ Waiting alone') + '<b>' + alone + '</b></span>');
+    chips.push(tile(alone ? 'st-warn' : '', L('⚠ 혼자 대기', '⚠ Waiting alone'), alone));
     if (state.turn) {
       var bad = state.turn.indexOf('public-fallback') === 0;
-      chips.push('<span class="chip ' + (bad ? 'st-bad' : 'st-good') + '" title="' + esc(state.turn) + '">'
-        + (bad ? L('📡 영상 중계 이상', '📡 Relay degraded') : L('📡 영상 중계 정상', '📡 Relay OK')) + '</span>');
+      chips.push('<div class="k ' + (bad ? 'st-bad' : 'st-good') + '" title="' + esc(state.turn) + '">'
+        + (bad ? L('📡 영상 중계 이상', '📡 Relay degraded') : L('📡 영상 중계 정상', '📡 Relay OK'))
+        + '<b class="sm">' + esc(state.turn.split(' · ')[0]) + '</b></div>');
     }
+    if (sp.meet.length) chips.push(tile('', L('👥 회의방', '👥 Meeting rooms'), sp.meet.length));
+    if (state.counts) chips.push(tile('', L('📅 예약 기준 지금 수업', '📅 Booked now'), state.counts.now || 0));
     $('chips').innerHTML = chips.join('');
+  }
+
+  /* 🚨 「지금 손봐야 할 방」(2026-09-13 D안) — 심각도 1 이상인 «수업방» 만 따로 뽑아 위에 둔다.
+     정상 수업은 아래 표에 그대로 있다(«봐야 할 것» 과 «참고» 를 가른다). 회의방은 안 넣는다.
+     ⛔ 표를 대신하지 않는다 — 버튼은 위임 리스너가 data-room 을 읽으므로 여기서도 그대로 듣는다. */
+  function reasonHtml(rm){
+    var rid = String(rm.roomId), al = state.alerts[rid], q = state.quality[rid];
+    if (al) return '<span class="why">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
+    if (q && (q.avg_loss >= 5 || q.avg_rtt >= 400))
+      return '<span class="why">📶 ' + L('회선 나쁨', 'bad line') + ' · ' + (q.avg_rtt != null ? q.avg_rtt + 'ms' : '—')
+        + ' · ' + (q.avg_loss != null ? q.avg_loss + '%' : '—') + '</span>';
+    return '<span class="why warn">⚠ ' + L('혼자 대기중 (1명)', 'waiting alone (1 person)') + '</span>';
+  }
+  function renderUrgent(){
+    var box = $('urgent');
+    if (!box) return;
+    var list = state.forbidden ? [] : visibleRooms().filter(function(rm){ return severity(rm) > 0; });
+    box.hidden = !list.length;
+    if (!list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h3>🚨 ' + L('지금 손봐야 할 방 ' + list.length, list.length + ' rooms need attention') + '</h3>'
+      + list.map(function(rm){
+        var rid = String(rm.roomId), sc = state.names[rid] || {};
+        var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ') || rid;
+        return '<div class="u"><span class="t">' + esc(sc.start_time || '—') + '</span><b>' + esc(who) + '</b>'
+          + reasonHtml(rm)
+          + '<button type="button" class="go" data-act="observe" data-room="' + esc(rid) + '">' + L('👁 참관', '👁 Observe') + '</button></div>';
+      }).join('');
   }
 
   function render(){
@@ -219,6 +238,7 @@
       L('인원', 'People'), L('회선', 'Line'), L('액션', 'Actions')
     ].map(function(h){ return '<th>' + h + '</th>'; }).join('');
 
+    renderUrgent();
     var sp = splitRooms(state.rooms);
     var list = visibleRooms();
     $('rooms').innerHTML = list.length ? list.map(function(rm){ return rowHtml(rm, false); }).join('')
@@ -277,7 +297,10 @@
   function renderTools(){
     $('q').placeholder = L('🔎 강사 · 학생 · 방 번호 검색', '🔎 Search teacher / student / room');
     $('lb-sort').textContent = L('정렬', 'Sort');
-    $('lb-poll').textContent = L('자동 새로고침', 'Auto refresh');
+    /* 두 «초» 설정은 서로 다른 것이다(2026-09-13 사장님 「1번과 2번의 차이가 뭔지 모르겠다」):
+       poll = 이 화면의 표를 다시 읽는 주기 · dwell = 순회 창이 한 방에 머무는 시간. 각각 이름표를 단다. */
+    $('lb-poll').innerHTML = L('🔄 표 새로고침<small>이 화면을 다시 읽는 주기</small>', '🔄 Table refresh<small>re-read this page every</small>');
+    $('lb-dwell').innerHTML = L('한 방에 머물기<small>그 뒤 다음 방으로</small>', 'stay per room<small>then hop to next</small>');
     var so = $('sel-sort').options;
     so[0].textContent = L('심각한 것부터', 'Most urgent first');
     so[1].textContent = L('시작 시각', 'Start time');
@@ -285,9 +308,9 @@
     so[3].textContent = L('강사·학생 이름', 'Teacher / student');
     var po = $('sel-poll').options;
     po[0].textContent = L('안함', 'Off');
-    for (var i = 1; i < po.length; i++) po[i].textContent = po[i].value + L('초', 's');
+    for (var i = 1; i < po.length; i++) po[i].textContent = po[i].value + L('초마다', 's');
     var d = $('sel-dwell').options;
-    for (var j = 0; j < d.length; j++) d[j].textContent = d[j].value + L('초씩', 's each');
+    for (var j = 0; j < d.length; j++) d[j].textContent = d[j].value + L('초', 's');
     $('btn-rot').textContent = rot.on ? L('⏹ 순회 정지', '⏹ Stop rotation') : L('🔁 순회 참관', '🔁 Rotate');
   }
 
