@@ -16,131 +16,118 @@
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
-<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
+  /* ═══ 2026-09-13 «B · 망고 카드» 디자인 — 사장님이 4종 시안 중 고른 안.
+     그전 다크(남색 반투명 카드) 판은 «어두운 배경 위 어두운 카드 · 9~13px 글자» 라 잘 안 보였다.
+     글자·상자 색은 아래 토큰 한 곳에서만 정한다 — 본문 인라인 style 도 var(--pd-…) 로 쓴다.
+     예외(그대로 hex): 버튼 그라데이션 위 진한 글자(#1a1a1a 류)·카카오 브랜드색(#fee500)·공용 바(mango-i18n.js)·우하단 오디오 토스트(다크 상자). */
+  :root {
+    --pd-bg: #fff7e0;            /* 페이지 바탕 (연한 망고 크림) */
+    --pd-surface: #ffffff;       /* 카드 */
+    --pd-tint: #fff7e0;          /* 카드 안 상자 */
+    --pd-tint-strong: #ffe4a8;   /* 강조 상자·획득 배지 */
+    --pd-line: #ffe4a8;          /* 테두리 */
+    --pd-line-strong: #f5c96a;
+    --pd-ink: #2a2418;           /* 본문 글자 */
+    --pd-ink2: #4a3f2c;          /* 보조 글자 */
+    --pd-muted: #7a6a4f;         /* 흐린 글자 (흰 바탕 대비 4.6:1) */
+    --pd-gold: #b45309;          /* 강조 글자 — ⛔ #fbbf24 는 흰 바탕 대비 1.67 이라 글자에 못 쓴다 */
+    --pd-gold-fill: #d97706;     /* 막대·점 채움 (흰 바탕 대비 3.0 — 비텍스트 기준) */
+    --pd-accent: #a35a00;        /* 제목·링크 */
+    --pd-green: #15803d;
+    --pd-green-tint: #e8f7ee;
+    --pd-green-line: #b7e4c7;
+    --pd-red: #b91c1c;           /* 연분홍 상자 위에서도 4.5 이상 */
+    --pd-red-tint: #fdecec;
+    --pd-red-line: #f5b5b5;
+    --pd-blue: #1d4ed8;
+    --pd-blue-tint: #e8f0fe;
+    --pd-btn: linear-gradient(135deg,#ffc94d,#ff9f1c);
+    --pd-btn-ink: #3a2200;
+  }
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    position: relative;
     min-height: 100vh;
-    /* 즉시 표시용 남색 폴백 — 배경 웹툰이 늦게 뜨는 순간에도 검정 화면 없이 바로 그려짐 */
-    background: #0a0e1a;
-    color: #f1f5f9;
+    background: var(--pd-bg);
+    color: var(--pd-ink);
     font-family: MangoiHanSC,'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
+    font-size: 15px; line-height: 1.5;
     letter-spacing: -0.2px;
     padding-bottom: 80px;
   }
-  /* 🌌 실사 딥필드 배경(Higgsfield, 홈과 동일 자산 — 40KB, 이미 방문했다면 브라우저 캐시 재사용) */
-  body::before {
-    content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
-    background: url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;
-    filter: blur(2px) brightness(0.55) saturate(1.15);
-    transform: scale(1.06);
-  }
-  /* 텍스트 대비 확보용 비네트 — 카드가 많은 화면이라 홈보다 한 단계 더 눌러줌 */
-  body::after {
-    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background:
-      radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),
-      radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95));
-  }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 18px; }
-  .brand { text-align: center; margin-bottom: 24px; }
-  .brand-logo {
-    font-family: MangoiHanSC,'Cormorant Garamond', serif; font-style: italic; font-weight: 700;
-    background: linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    font-size: 32px; letter-spacing: 1px; display: block; line-height: 1;
-  }
-  .brand-sub {
-    font-family: MangoiHanSC,'Noto Sans KR', -apple-system, sans-serif;
-    font-weight: 800;
-    font-size: 16px; letter-spacing: -0.4px; margin-top: 6px;
-    background: linear-gradient(135deg,#fde68a 0%,#fbbf24 35%,#f59e0b 100%);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 18px; }
+  .brand { text-align: center; margin-bottom: 20px; }
+  .brand-sub { font-weight: 900; font-size: 22px; letter-spacing: -0.4px; color: var(--pd-accent); }
 
+  /* 자녀 헤더 — 망고 그라데이션 띠 */
   .child-card {
-    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06));
-    border: 1px solid rgba(251,191,36,0.3);
-    border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 12px;
+    background: var(--pd-btn); color: var(--pd-btn-ink);
+    border-radius: 22px; padding: 20px 22px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 24px -12px rgba(255,159,28,0.6);
   }
-  .child-avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg,#fbbf24,#f59e0b); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 6px 12px -4px rgba(245,158,11,0.4); flex-shrink: 0; }
+  .child-avatar { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; overflow: hidden; }
   .child-info { min-width: 0; }
-  .child-info h1 { font-size: 17px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .child-info p { font-size: 12px; color: #cbd5e1; margin-top: 2px; }
+  .child-info h1 { font-size: 24px; font-weight: 900; color: var(--pd-btn-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+  .child-info p { font-size: 14px; color: var(--pd-btn-ink); opacity: .9; margin-top: 4px; }
   .child-pts { margin-left: auto; text-align: right; flex-shrink: 0; }
-  .child-pts-num { font-size: 18px; font-weight: 900; background: linear-gradient(180deg,#fff4cc,#fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .child-pts-label { font-size: 9px; color: #94a3b8; letter-spacing: 0.5px; }
+  .child-pts-num { font-size: 32px; font-weight: 900; color: var(--pd-btn-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+  .child-pts-label { font-size: 12px; color: var(--pd-btn-ink); opacity: .9; letter-spacing: 0.5px; margin-top: 4px; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .card {
-    background: rgba(20, 26, 43, 0.7);
-    border: 1px solid rgba(139, 92, 246, 0.15);
-    border-radius: 14px;
-    padding: 18px 20px;
-    backdrop-filter: blur(8px);
+    background: var(--pd-surface);
+    border: 2px solid var(--pd-line);
+    border-radius: 22px;
+    padding: 20px 22px;
+    box-shadow: 0 4px 0 var(--pd-line);
+    min-width: 0;
   }
-  .card h3 { font-size: 14px; font-weight: 800; color: #c4b5fd; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(139,92,246,0.08); font-size: 13px; }
+  .card h3 { font-size: 19px; font-weight: 900; color: var(--pd-ink); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 2px dotted var(--pd-tint-strong); font-size: 15px; color: var(--pd-ink2); }
   .stat:last-child { border-bottom: 0; }
-  .stat .v { font-weight: 700; color: #fff; }
-  .stat .v.gold { color: #fbbf24; }
-  .stat .v.green { color: #34d399; }
-  .stat .v.red { color: #f87171; }
+  .stat .v { font-weight: 800; color: var(--pd-ink); font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stat .v.gold { color: var(--pd-gold); }
+  .stat .v.green { color: var(--pd-green); }
+  .stat .v.red { color: var(--pd-red); }
 
-  .eval-item {
-    padding: 12px 14px;
-    background: rgba(139,92,246,0.08);
-    border-radius: 10px;
-    margin-bottom: 8px;
-    border-left: 3px solid #a78bfa;
-  }
-  .eval-score { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; }
-  .eval-date { font-size: 11px; color: #94a3b8; margin-left: 6px; }
-  .eval-text { font-size: 12px; color: #e6e9f5; margin-top: 6px; line-height: 1.5; }
+  .eval-item { padding: 14px 16px; background: var(--pd-tint); border-radius: 16px; margin-bottom: 10px; border: 2px solid var(--pd-line); }
+  .eval-score { display: inline-block; padding: 3px 12px; border-radius: 99px; font-size: 13px; font-weight: 800; background: var(--pd-btn); color: var(--pd-btn-ink); }
+  .eval-date { font-size: 13px; color: var(--pd-muted); margin-left: 6px; }
+  .eval-text { font-size: 14px; color: var(--pd-ink); margin-top: 6px; line-height: 1.55; }
 
-  /* 상단 우측 이모지 아이콘 (간격 띄워 겹침 방지) */
-  .top-icons { position: fixed; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 10px; align-items: center; }
-  .icon-btn {
-    width: 40px; height: 40px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; line-height: 1; padding: 0; cursor: pointer; text-decoration: none;
-    border: 1px solid rgba(148,163,184,0.4);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  }
-  .icon-btn.home-btn  { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color: rgba(245,158,11,0.5); box-shadow: 0 4px 12px -2px rgba(245,158,11,0.45); }
-  .icon-btn.lang-btn  { background: rgba(20,41,80,0.9); color:#7dd3fc; }
-  .icon-btn.audio-btn { background: rgba(20,41,80,0.9); color:#fbbf24; border-color: rgba(251,191,36,0.45); }
   /* 우하단 카카오 상담 (이모지 원형) */
   .kakao-fab { position: fixed; right: 16px; bottom: 16px; z-index: 1000; width: 54px; height: 54px; border-radius: 50%;
     background: linear-gradient(135deg,#fee500,#f6cc00); color:#191919; border:0; cursor:pointer; font-size: 24px;
     display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 20px -4px rgba(254,229,0,0.55); }
 
   .uid-input {
-    width: 100%; max-width: 400px; padding: 10px 14px; font-size: 14px;
-    background: rgba(20,26,43,0.8); color: #fff;
-    border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; margin-bottom: 10px;
+    width: 100%; max-width: 400px; padding: 12px 14px; font-size: 16px;
+    background: var(--pd-surface); color: var(--pd-ink);
+    border: 2px solid var(--pd-line); border-radius: 12px; margin-bottom: 10px;
   }
-  .uid-go { padding: 10px 24px; background: linear-gradient(135deg,#a78bfa,#7c3aed); color: #fff; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; }
+  .uid-input:focus { outline: 2px solid var(--pd-gold-fill); outline-offset: 1px; }
+  .uid-go { padding: 12px 26px; background: var(--pd-btn); color: var(--pd-btn-ink); border: 0; border-radius: 999px; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 0 #d97706; }
 
-  .empty { padding: 24px; text-align: center; color: #94a3b8; font-size: 13px; background: rgba(20,26,43,0.5); border-radius: 10px; }
-  .att-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 1px; background: rgba(255,255,255,0.05); }
-  .att-dot.present { background: #34d399; }
-  .att-dot.on-time { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+  .empty { padding: 22px 12px; text-align: center; color: var(--pd-muted); font-size: 14px; background: var(--pd-tint); border: 2px dashed var(--pd-line); border-radius: 14px; }
+  .att-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 1px; background: var(--pd-tint-strong); }
+  .att-dot.present { background: var(--pd-green); }
+  .att-dot.on-time { background: var(--pd-gold-fill); }
 
   /* 🖼 실사 아이콘(Higgsfield, build-parent-icons.py 로 재생성) — 이모지 대체, 404 시 이모지로 자동 복귀 */
-  .pd-ico { width: 26px; height: 26px; object-fit: contain; border-radius: 7px; display: block; }
-  .pd-ico-sm { width: 19px; height: 19px; object-fit: contain; border-radius: 5px; vertical-align: -4px; display: inline-block; }
+  .pd-ico { width: 30px; height: 30px; object-fit: contain; border-radius: 8px; display: block; }
+  .pd-ico-sm { width: 26px; height: 26px; object-fit: contain; border-radius: 8px; vertical-align: -6px; display: inline-block; background: var(--pd-tint-strong); padding: 3px; }
   .pd-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
   @media (max-width: 640px) {
-    .brand-logo { font-size: 26px; }
-    /* 모바일에서도 한 줄 슬림 헤더 유지 (세로로 쌓지 않음) */
-    .child-card { flex-direction: row; text-align: left; }
-    .child-info h1 { font-size: 16px; }
-    .child-pts-num { font-size: 17px; }
+    body { font-size: 14px; }
+    .wrap { padding-top: 60px; } /* 우상단 공용 바(🔊·홈·EN) 아래로 */
+    .brand-sub { font-size: 19px; }
+    .child-card { flex-direction: row; text-align: left; padding: 16px; }
+    .child-info h1 { font-size: 19px; }
+    .child-pts-num { font-size: 26px; }
+    .card { padding: 16px; border-radius: 18px; }
+    .card h3 { font-size: 17px; }
   }
 </style>
 </head>
@@ -176,7 +163,7 @@
       text: '<span id="parent-audio-icon">🔊</span>',
       title: '음성 켜기/끄기',
       color: '#fbbf24',
-      borderColor: 'rgba(251,191,36,0.45)',
+      borderColor: 'var(--pd-line-strong)',
       onclick: window.toggleParentAudio
     });
     setTimeout(updateBtn, 120);
@@ -231,18 +218,18 @@ window.shareToKakao = async function() {
 function showKakaoShareDialog(url) {
   const isEn = window.getLang && window.getLang() === 'en';
   const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);font-family:MangoiHanSC,"Noto Sans KR",sans-serif';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;font-family:MangoiHanSC,"Noto Sans KR",sans-serif';
   modal.innerHTML = `
-    <div style="background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(251,191,36,0.35);border-radius:18px;padding:28px;max-width:440px;width:100%;color:#e6ecff;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
+    <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:18px;padding:28px;max-width:440px;width:100%;color:var(--pd-ink);text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
       <div style="font-size:48px;margin-bottom:10px">💬</div>
-      <h2 style="font-size:20px;font-weight:800;color:#fbbf24;margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
-      <p style="font-size:13px;color:#a3b3d1;margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 학부모 대시보드 링크가 공유됩니다.'}</p>
-      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1;word-break:break-all;margin-bottom:18px">${url}</div>
+      <h2 style="font-size:20px;font-weight:800;color:var(--pd-gold);margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
+      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 학부모 대시보드 링크가 공유됩니다.'}</p>
+      <div style="background:var(--pd-tint);border:1px solid var(--pd-tint);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:13px;color:var(--pd-muted);word-break:break-all;margin-bottom:18px">${url}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:13px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:rgba(99,102,241,0.25);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
+        <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
       </div>
-      <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:#a3b3d1;border:0;padding:6px 12px;cursor:pointer;font-size:12px">${isEn?'Close':'닫기'}</button>
+      <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:var(--pd-muted);border:0;padding:6px 12px;cursor:pointer;font-size:14px">${isEn?'Close':'닫기'}</button>
     </div>`;
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
@@ -257,93 +244,93 @@ function showKakaoShareDialog(url) {
   <div id="entry">
     <!-- 🌟 환영 메시지 + 안내 -->
     <div style="text-align:center;padding:24px 20px 12px">
-      <div style="display:inline-block;padding:6px 14px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:99px;font-size:11.5px;color:#fbbf24;font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👨‍👩‍👧 학부모 전용 화면" data-en="👨‍👩‍👧 PARENT DASHBOARD">👨‍👩‍👧 학부모 전용 화면</div>
-      <h1 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4" data-ko="자녀의 학습 한눈에 보기" data-en="See Your Child's Progress at a Glance">자녀의 학습 한눈에 보기</h1>
-      <p style="color:#a3b3d1;font-size:13.5px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter your child's ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
+      <div style="display:inline-block;padding:6px 14px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:99px;font-size:13px;color:var(--pd-gold);font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👨‍👩‍👧 학부모 전용 화면" data-en="👨‍👩‍👧 PARENT DASHBOARD">👨‍👩‍👧 학부모 전용 화면</div>
+      <h1 style="font-size:24px;font-weight:800;color:var(--pd-ink);margin-bottom:8px;line-height:1.4" data-ko="자녀의 학습 한눈에 보기" data-en="See Your Child's Progress at a Glance">자녀의 학습 한눈에 보기</h1>
+      <p style="color:var(--pd-muted);font-size:15px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter your child's ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
     </div>
 
     <!-- 📋 ID 입력 박스 -->
-    <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
-      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
+    <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
+      <label style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
       <input id="uid-input" class="uid-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button id="uid-go-btn" class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
-      <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid rgba(139,92,246,0.2);padding-top:16px">
-        <label id="pw-label" style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
+      <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid var(--pd-line-strong);padding-top:16px">
+        <label id="pw-label" style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
         <input id="pw-input" class="uid-input" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="margin:0 auto 8px;display:block" />
-        <div id="pw-hint" style="display:none;font-size:11.5px;color:#fde68a;line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
+        <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
         <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
-        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:#94a3b8;margin:0 auto 12px;cursor:pointer;user-select:none">
-          <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#8b5cf6;cursor:pointer">
+        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 12px;cursor:pointer;user-select:none">
+          <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#ff9f1c;cursor:pointer">
           이 기기에서 30일간 로그인 유지 (체크 안 하면 다음에도 비밀번호를 입력해요)
         </label>
         <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
       </div>
-      <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
+      <div style="margin-top:14px;font-size:13px;color:var(--pd-muted);line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
     </div>
 
     <!-- 🎯 보여드릴 기능 안내 (8개 카드) -->
     <div style="max-width:680px;margin:24px auto 0">
-      <h3 style="text-align:center;color:#fbbf24;font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
+      <h3 style="text-align:center;color:var(--pd-gold);font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
-        <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
         </div>
-        <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
         </div>
-        <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
         </div>
-        <div style="background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
         </div>
-        <div style="background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
         </div>
-        <div style="background:rgba(236,72,153,0.10);border:1px solid rgba(236,72,153,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
         </div>
-        <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.30);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
         </div>
-        <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📄" src="/img/menu/report.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
         </div>
       </div>
     </div>
 
     <!-- ❓ 자주 묻는 질문 -->
-    <details style="max-width:680px;margin:24px auto;background:rgba(20,41,80,0.5);border:1px solid rgba(99,102,241,0.20);border-radius:12px">
-      <summary style="cursor:pointer;padding:14px 18px;font-size:13px;font-weight:700;color:#fbbf24;touch-action:manipulation" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
-      <div style="padding:0 18px 18px;font-size:12.5px;color:#cbd5e1;line-height:1.7">
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q2. 자녀가 여러 명이에요" data-en="Q2. I have multiple children">Q2. 자녀가 여러 명이에요</b><br><span data-ko="URL 에 자녀 ID 만 바꾸면 됩니다 — /parent.html?uid=다른자녀ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 자녀 ID 만 바꾸면 됩니다 — <code style="background:rgba(99,102,241,0.15);padding:2px 6px;border-radius:4px;color:#c4b5fd">/parent.html?uid=다른자녀ID</code></span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
-        <div><b style="color:#fbbf24" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
+    <details style="max-width:680px;margin:24px auto;background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:12px">
+      <summary style="cursor:pointer;padding:14px 18px;font-size:14px;font-weight:700;color:var(--pd-gold);touch-action:manipulation" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
+      <div style="padding:0 18px 18px;font-size:14px;color:var(--pd-ink2);line-height:1.7">
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q2. 자녀가 여러 명이에요" data-en="Q2. I have multiple children">Q2. 자녀가 여러 명이에요</b><br><span data-ko="URL 에 자녀 ID 만 바꾸면 됩니다 — /parent.html?uid=다른자녀ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 자녀 ID 만 바꾸면 됩니다 — <code style="background:var(--pd-tint);padding:2px 6px;border-radius:4px;color:var(--pd-accent)">/parent.html?uid=다른자녀ID</code></span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
+        <div><b style="color:var(--pd-gold)" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
       </div>
     </details>
 
     <!-- 🔒 개인정보 보호 안내 -->
-    <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:rgba(99,102,241,0.06);border-left:3px solid #6366f1;border-radius:8px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
-      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요." data-en="Your child's info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password can view it.">자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요.</span>
+    <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:var(--pd-tint);border-left:3px solid var(--pd-accent);border-radius:8px;font-size:13px;color:var(--pd-muted);line-height:1.6">
+      🔒 <b style="color:var(--pd-accent)" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요." data-en="Your child's info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password can view it.">자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요.</span>
     </div>
   </div>
 
@@ -367,7 +354,7 @@ function showKakaoShareDialog(url) {
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
         <div class="stat"><span data-ko="출석률" data-en="Attendance rate">출석률</span><span class="v gold" id="pd-att-rate">—</span></div>
-        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:11px;color:#94a3b8"></span></span></div>
+        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:13px;color:var(--pd-muted)"></span></span></div>
         <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
         <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">—</span></div>
         <div id="pd-att-grid" style="margin-top:10px"></div>
@@ -379,14 +366,14 @@ function showKakaoShareDialog(url) {
         <div class="stat"><span data-ko="누적 적립" data-en="Lifetime earned">누적 적립</span><span class="v green">+<span id="pd-earned">0</span> P</span></div>
         <div class="stat"><span data-ko="누적 사용" data-en="Lifetime spent">누적 사용</span><span class="v red">-<span id="pd-spent">0</span> P</span></div>
         <div class="stat"><span data-ko="현재 잔액" data-en="Current balance">현재 잔액</span><span class="v gold"><span id="pd-balance2">0</span> P</span></div>
-        <div id="pd-tx" style="margin-top:10px;font-size:11.5px;color:#94a3b8"></div>
+        <div id="pd-tx" style="margin-top:10px;font-size:13px;color:var(--pd-muted)"></div>
       </div>
 
       <!-- 결제 카드 -->
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
-        <div id="pd-pays" style="font-size:12.5px"></div>
-        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
+        <div id="pd-pays" style="font-size:14px"></div>
+        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:var(--pd-btn);color:var(--pd-btn-ink);text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
       </div>
 
     </div>
@@ -407,8 +394,8 @@ function showKakaoShareDialog(url) {
     <!-- 🌟 성적표(오각형 리포트) 바로가기 — 있을 때만 표시(기획안 Phase 4) -->
     <div class="card" id="pd-monthly-report-card" style="margin-top:16px;display:none">
       <h3>🌟 <span data-ko="이번 기간 성적표" data-en="This Period's Report">이번 기간 성적표</span></h3>
-      <p style="font-size:12.5px;color:#94a3b8;margin-bottom:10px" data-ko="발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요." data-en="See pronunciation, vocabulary, sentences, attitude and participation at a glance on a pentagon chart.">발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요.</p>
-      <a id="pd-monthly-report-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;font-size:13px">📄 <span data-ko="성적표 보기" data-en="View Report">성적표 보기</span></a>
+      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:10px" data-ko="발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요." data-en="See pronunciation, vocabulary, sentences, attitude and participation at a glance on a pentagon chart.">발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요.</p>
+      <a id="pd-monthly-report-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:var(--pd-btn);color:var(--pd-btn-ink);padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;font-size:14px">📄 <span data-ko="성적표 보기" data-en="View Report">성적표 보기</span></a>
     </div>
 
     <!-- 🆕 AI 음성 코칭 진도 -->
@@ -429,23 +416,23 @@ function showKakaoShareDialog(url) {
       <!-- 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반·즉시 로드). 데이터 없으면 숨김 -->
       <div id="pd-weekrec" style="display:none"></div>
       <div id="pd-recommend"><div class="empty">아래 버튼을 눌러 AI 학습 플랜을 받아보세요</div>
-        <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
+        <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:var(--pd-btn);color:var(--pd-btn-ink);border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
       </div>
     </div>
 
     <!-- 😊 패스키(얼굴/지문) 로그인 관리 -->
     <div class="card" style="margin-top:16px">
       <h3>😊 <span data-ko="얼굴/지문 로그인 (패스키)" data-en="Face/Fingerprint Login (Passkey)">얼굴/지문 로그인 (패스키)</span></h3>
-      <div style="color:#94a3b8;font-size:12px;margin-bottom:10px" data-ko="얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!" data-en="Biometrics never leave the device. Register once for one-tap login!">얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!</div>
+      <div style="color:var(--pd-muted);font-size:14px;margin-bottom:10px" data-ko="얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!" data-en="Biometrics never leave the device. Register once for one-tap login!">얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!</div>
       <div id="pd-passkeys"><div class="empty" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
       <div style="text-align:center;margin-top:12px">
-        <button id="pd-pk-add" onclick="pdPkAdd()" style="display:none;padding:9px 20px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
+        <button id="pd-pk-add" onclick="pdPkAdd()" style="display:none;padding:9px 20px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:9px;font-weight:800;font-size:14px;cursor:pointer" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
       </div>
     </div>
 
     <div style="text-align:center;margin-top:24px">
-      <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
+      <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
     </div>
   </div>
 </div>
@@ -602,30 +589,30 @@ async function pdLeveltest(){
   const isEn = window.getLang && window.getLang() === 'en';
   // [한, 영, 색] — 상태는 서버 status 그대로 매핑. 모르는 값은 그대로 노출(숨기지 않음).
   const ST = {
-    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요', 'Received — finding a teacher', '#fbbf24'],
-    proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', '#a78bfa'],
-    confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', '#34d399'],
-    done:      ['테스트 완료', 'Test completed', '#60a5fa'],
-    cancelled: ['취소됨', 'Cancelled', '#94a3b8']
+    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요', 'Received — finding a teacher', 'var(--pd-gold)'],
+    proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', 'var(--pd-accent)'],
+    confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', 'var(--pd-green)'],
+    done:      ['테스트 완료', 'Test completed', 'var(--pd-blue)'],
+    cancelled: ['취소됨', 'Cancelled', 'var(--pd-muted)']
   };
   const rows = items.map(a => {
-    const st = ST[a.status] || [a.status || '-', a.status || '-', '#94a3b8'];
+    const st = ST[a.status] || [a.status || '-', a.status || '-', 'var(--pd-muted)'];
     const when = [a.desired_date, a.desired_time].filter(Boolean).join(' ');
     const bits = [];
-    if (a.assigned_teacher) bits.push((isEn ? 'Teacher: ' : '담당 선생님: ') + '<b style="color:#fde68a">' + esc(a.assigned_teacher) + '</b>');
-    if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:#fbbf24">' + a.ai_score + '</b>');
-    if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + a.pron_score + '</b>');
-    if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:#fbbf24">' + a.teacher_score + '</b>');
-    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:#6ee7b7">' + esc(a.final_level) + '</b>');
-    const guide = a.next_class_guide ? '<div style="font-size:12px;color:#94e2c5;margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
-    const book  = a.recommended_textbook ? '<div style="font-size:12px;color:#94e2c5;margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
-    return '<div style="padding:12px 14px;margin-bottom:10px;background:rgba(148,163,184,0.07);border-left:4px solid ' + st[2] + ';border-radius:8px">' +
-      '<div style="font-weight:800;font-size:13px;color:' + st[2] + '">' + esc(isEn ? st[1] : st[0]) + '</div>' +
-      (when ? '<div style="font-size:12.5px;color:#e6e9f5;margin-top:5px">🗓 ' + esc(when) + '</div>' : '') +
-      (bits.length ? '<div style="font-size:12.5px;color:#cbd5e1;margin-top:5px;line-height:1.7">' + bits.join(' · ') + '</div>' : '') +
+    if (a.assigned_teacher) bits.push((isEn ? 'Teacher: ' : '담당 선생님: ') + '<b style="color:var(--pd-gold)">' + esc(a.assigned_teacher) + '</b>');
+    if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:var(--pd-gold)">' + a.ai_score + '</b>');
+    if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:var(--pd-gold)">' + a.pron_score + '</b>');
+    if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:var(--pd-gold)">' + a.teacher_score + '</b>');
+    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:var(--pd-green)">' + esc(a.final_level) + '</b>');
+    const guide = a.next_class_guide ? '<div style="font-size:14px;color:var(--pd-green);margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
+    const book  = a.recommended_textbook ? '<div style="font-size:14px;color:var(--pd-green);margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
+    return '<div style="padding:12px 14px;margin-bottom:10px;background:var(--pd-tint);border-left:4px solid ' + st[2] + ';border-radius:8px">' +
+      '<div style="font-weight:800;font-size:14px;color:' + st[2] + '">' + esc(isEn ? st[1] : st[0]) + '</div>' +
+      (when ? '<div style="font-size:14px;color:var(--pd-ink);margin-top:5px">🗓 ' + esc(when) + '</div>' : '') +
+      (bits.length ? '<div style="font-size:14px;color:var(--pd-ink2);margin-top:5px;line-height:1.7">' + bits.join(' · ') + '</div>' : '') +
       book + guide +
       // ⚠ 공용 fmtDate 는 'ko-KR' 고정이라 영어 화면에서 «Applied 8월 5일» 처럼 섞인다 → 여기선 언어에 맞춘다
-      '<div style="font-size:11px;color:#6b7a99;margin-top:6px">' + (isEn ? 'Applied ' : '신청일 ') +
+      '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + (isEn ? 'Applied ' : '신청일 ') +
         (a.created_at ? new Date(a.created_at).toLocaleDateString(isEn ? 'en-US' : 'ko-KR', { month:'short', day:'numeric' }) : '-') + '</div>' +
     '</div>';
   }).join('');
@@ -633,11 +620,11 @@ async function pdLeveltest(){
   // 아직 AI 진단을 안 본 신청이 있으면 바로 볼 수 있게 안내 (희망 톤)
   const needsAi = items.some(a => a.ai_score == null && a.status !== 'cancelled');
   const cta = needsAi
-    ? '<div style="margin-top:4px;padding:11px 13px;background:rgba(99,102,241,0.10);border-radius:8px;font-size:12.5px;color:#c7d2fe;line-height:1.6">' +
+    ? '<div style="margin-top:4px;padding:11px 13px;background:var(--pd-tint);border-radius:8px;font-size:14px;color:var(--pd-ink2);line-height:1.6">' +
         (isEn
           ? 'Take the 5-minute AI placement check first — your teacher can then start at exactly the right level. '
           : '먼저 5분짜리 AI 자동 진단을 받아보세요. 선생님이 딱 맞는 지점에서 시작할 수 있어요. ') +
-        '<a href="/level-test-ai.html" style="color:#a5b4fc;font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
+        '<a href="/level-test-ai.html" style="color:var(--pd-accent);font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
     : '';
   el.innerHTML = rows + cta;
   card.style.display = '';
@@ -655,13 +642,13 @@ async function pdWeekRec(){
     if (!d.ok || d.status === 'no_data') { el.style.display = 'none'; return; }
     const isEn = window.getLang && window.getLang() === 'en';
     const parts = [];
-    if (d.accuracy != null) parts.push((isEn ? 'Game accuracy ' : '게임 정답률 ') + '<b style="color:#fbbf24">' + d.accuracy + '%</b>');
-    if (d.pron != null) parts.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + d.pron + (isEn ? '/100' : '점') + '</b>');
+    if (d.accuracy != null) parts.push((isEn ? 'Game accuracy ' : '게임 정답률 ') + '<b style="color:var(--pd-gold)">' + d.accuracy + '%</b>');
+    if (d.pron != null) parts.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:var(--pd-gold)">' + d.pron + (isEn ? '/100' : '점') + '</b>');
     const weak = (d.weak || []).slice(0, 5);
     const chips = weak.map(w => {
       const t = esc(String(w.item || ''));
       const ko = esc(String(w.ko || ''));
-      return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#fde68a;font-size:11.5px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
+      return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);color:var(--pd-gold);font-size:13px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
     }).join('');
     // 가정 안내 문구 — 학부모 눈높이 (자녀에게 시켜볼 수 있는 것)
     const TIP = {
@@ -672,10 +659,10 @@ async function pdWeekRec(){
     };
     const tip = TIP[d.focus] || TIP.keep_going;
     el.innerHTML =
-      '<div style="padding:12px 14px;background:rgba(52,211,153,0.08);border-left:4px solid #34d399;border-radius:8px;margin-bottom:12px">' +
-        '<div style="font-weight:700;color:#6ee7b7;margin-bottom:4px;font-size:12.5px">📊 ' + (isEn ? 'This Week at a Glance (auto)' : '이번 주 학습 한눈에 (자동 진단)') + '</div>' +
-        (parts.length ? '<div style="font-size:12.5px;color:#e6e9f5;line-height:1.7">' + parts.join(' · ') + '</div>' : '') +
-        '<div style="font-size:12px;color:#94e2c5;margin-top:4px">' + (isEn ? tip[1] : tip[0]) + '</div>' +
+      '<div style="padding:12px 14px;background:var(--pd-green-tint);border-left:4px solid var(--pd-green);border-radius:8px;margin-bottom:12px">' +
+        '<div style="font-weight:700;color:var(--pd-green);margin-bottom:4px;font-size:14px">📊 ' + (isEn ? 'This Week at a Glance (auto)' : '이번 주 학습 한눈에 (자동 진단)') + '</div>' +
+        (parts.length ? '<div style="font-size:14px;color:var(--pd-ink);line-height:1.7">' + parts.join(' · ') + '</div>' : '') +
+        '<div style="font-size:14px;color:var(--pd-green);margin-top:4px">' + (isEn ? tip[1] : tip[0]) + '</div>' +
         (chips ? '<div style="margin-top:6px">' + chips + '</div>' : '') +
       '</div>';
     el.style.display = '';
@@ -704,13 +691,13 @@ async function pdPkLoad(){
     if (!d.ok) throw new Error(d.message || d.error);
     if (!d.items.length) { box.innerHTML = '<div class="empty">등록된 패스키가 없어요. 아래 버튼으로 이 기기를 등록해보세요!</div>'; return; }
     box.innerHTML = d.items.map(it =>
-      '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:9px;margin-bottom:7px">'+
+      '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--pd-green-tint);border:1px solid var(--pd-green-line);border-radius:9px;margin-bottom:7px">'+
         '<span style="font-size:20px">🔑</span>'+
         '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:12.5px;font-weight:700;color:#d1fae5">'+esc(it.device_label || '내 기기')+'</div>'+
-          '<div style="font-size:11px;color:#94a3b8">등록 '+fmtDate(it.created_at)+(it.last_used_at ? ' · 마지막 사용 '+fmtDate(it.last_used_at) : '')+'</div>'+
+          '<div style="font-size:14px;font-weight:700;color:var(--pd-ink)">'+esc(it.device_label || '내 기기')+'</div>'+
+          '<div style="font-size:13px;color:var(--pd-muted)">등록 '+fmtDate(it.created_at)+(it.last_used_at ? ' · 마지막 사용 '+fmtDate(it.last_used_at) : '')+'</div>'+
         '</div>'+
-        '<button onclick="pdPkRemove(\''+esc(it.credential_id)+'\')" style="padding:6px 12px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:7px;font-size:11.5px;cursor:pointer;font-weight:700">삭제</button>'+
+        '<button onclick="pdPkRemove(\''+esc(it.credential_id)+'\')" style="padding:6px 12px;background:var(--pd-red-tint);color:var(--pd-red);border:1px solid var(--pd-red-line);border-radius:7px;font-size:13px;cursor:pointer;font-weight:700">삭제</button>'+
       '</div>').join('');
   } catch(e) {
     box.innerHTML = '<div class="empty">목록을 불러오지 못했어요 ('+esc(e.message||e)+')</div>';
@@ -786,8 +773,8 @@ function pdRender(d){
   // 포인트 거래 최근 5건
   const tx = (pts.recent_tx || []).slice(0, 5);
   document.getElementById('pd-tx').innerHTML = tx.length
-    ? '<div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'#34d399':'#f87171'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
-    : '<div style="color:#6b7280">거래 내역 없음</div>';
+    ? '<div style="font-weight:700;color:var(--pd-accent);margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'var(--pd-green)':'var(--pd-red)'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
+    : '<div style="color:var(--pd-muted)">거래 내역 없음</div>';
 
   // 출석
   const att = d.attendance || {};
@@ -816,7 +803,7 @@ function pdRender(d){
   // 결제
   const pays = (d.payments || []).slice(0, 4);
   document.getElementById('pd-pays').innerHTML = pays.length
-    ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.08);display:flex;justify-content:space-between"><span style="color:#cbd5e1">${esc(p.method||'결제')} <span style="font-size:11px;color:#94a3b8">${fmtDate(p.paid_at)}</span></span><b style="color:#fbbf24">${fmt(p.amount_krw)}원</b></div>`).join('')
+    ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--pd-tint);display:flex;justify-content:space-between"><span style="color:var(--pd-ink2)">${esc(p.method||'결제')} <span style="font-size:13px;color:var(--pd-muted)">${fmtDate(p.paid_at)}</span></span><b style="color:var(--pd-gold)">${fmt(p.amount_krw)}원</b></div>`).join('')
     : '<div class="empty">결제 내역 없음</div>';
 
   /* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사 1분 수업일지(/api/eval/create·bulk-create)는
@@ -832,8 +819,8 @@ function pdRender(d){
     ? evals.map(e => `<div class="eval-item">
         <span class="eval-score">${e.score_overall||0}/${pdEvalMax(e.score_overall)}</span>
         <span class="eval-date">${esc(e.lesson_date||'-')} · ${esc(e.teacher_name||'-')}</span>
-        <div class="eval-text"><b style="color:#34d399">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
-        <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
+        <div class="eval-text"><b style="color:var(--pd-green)">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
+        <div class="eval-text"><b style="color:var(--pd-gold)">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
       </div>`).join('')
     : '<div class="empty">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>';
 
@@ -859,13 +846,13 @@ function pdRender(d){
     if (!bdata.ok) return;
     const badges = bdata.badges || [];
     el.innerHTML = `
-      <div style="margin-bottom:10px;font-size:12px;color:#94a3b8">획득 <b style="color:#fbbf24">${bdata.earned_count}</b> / ${bdata.total_count}</div>
+      <div style="margin-bottom:10px;font-size:14px;color:var(--pd-muted)">획득 <b style="color:var(--pd-gold)">${bdata.earned_count}</b> / ${bdata.total_count}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
         ${badges.map(b => `
-          <div style="background:${b.earned?'linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08))':'rgba(255,255,255,0.04)'};border:1px solid ${b.earned?'rgba(251,191,36,0.4)':'rgba(148,163,184,0.15)'};border-radius:10px;padding:10px;text-align:center;opacity:${b.earned?'1':'0.35'};transition:transform .15s" title="${esc(b.desc)}">
-            <div style="font-size:28px;line-height:1">${b.icon}</div>
-            <div style="font-weight:700;font-size:11px;color:${b.earned?'#fbbf24':'#94a3b8'};margin-top:6px">${esc(b.name)}</div>
-            ${b.earned?`<div style="font-size:9px;color:#94a3b8;margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:9px;color:#6b7280;margin-top:2px">미획득</div>`}
+          <div style="background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;;transition:transform .15s" title="${esc(b.desc)}">
+            <div style="font-size:28px;line-height:1;${b.earned?'':'filter:grayscale(1);opacity:.55'}">${b.icon}</div>
+            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-btn-ink)':'var(--pd-muted)'};margin-top:6px">${esc(b.name)}</div>
+            ${b.earned?`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">미획득</div>`}
           </div>`).join('')}
       </div>`;
   }).catch(()=>{}));
@@ -885,15 +872,15 @@ function pdRender(d){
       // 서버는 recommendations 를 ' | ' 연결 문자열로 저장 — 배열/문자열 모두 수용 (기존 버그: 문자열이면 목록이 안 보였음)
       const recs = Array.isArray(a.recommendations) ? a.recommendations : String(a.recommendations || '').split(' | ').filter(Boolean);
       el.innerHTML = `
-        <div style="padding:14px;background:rgba(167,139,250,0.1);border-left:4px solid #a78bfa;border-radius:8px;margin-bottom:10px">
-          <div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">📝 AI 진단</div>
-          <div style="font-size:12.5px;color:#e6e9f5;line-height:1.6">${esc(a.summary||'데이터가 부족합니다')}</div>
+        <div style="padding:14px;background:var(--pd-tint);border-left:4px solid var(--pd-accent);border-radius:8px;margin-bottom:10px">
+          <div style="font-weight:700;color:var(--pd-accent);margin-bottom:4px">📝 AI 진단</div>
+          <div style="font-size:14px;color:var(--pd-ink);line-height:1.6">${esc(a.summary||'데이터가 부족합니다')}</div>
         </div>
-        ${recs.length ? `<div style="padding:14px;background:rgba(59,130,246,0.1);border-left:4px solid #3b82f6;border-radius:8px">
-          <div style="font-weight:700;color:#60a5fa;margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
-          <ul style="margin:0;padding-left:20px;color:#93c5fd;font-size:12.5px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        ${recs.length ? `<div style="padding:14px;background:var(--pd-blue-tint);border-left:4px solid var(--pd-blue);border-radius:8px">
+          <div style="font-weight:700;color:var(--pd-blue);margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
+          <ul style="margin:0;padding-left:20px;color:var(--pd-ink2);font-size:14px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
         </div>` : ''}
-        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
+        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:var(--pd-btn);color:var(--pd-btn-ink);border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
       `;
     } catch(e) {
       el.innerHTML = '<div class="empty">AI 분석 실패: ' + e.message + '</div>';
@@ -905,39 +892,39 @@ function pdRender(d){
     const el = document.getElementById('pd-voice-stats');
     if (!el) return;
     if (!stats.ok || stats.total_sessions === 0) {
-      el.innerHTML = '<div class="empty">아직 음성 코칭 기록이 없습니다.<br><a href="/speech-coach.html" style="color:#fbbf24;font-weight:700;margin-top:8px;display:inline-block">🎙 지금 시작하기</a></div>';
+      el.innerHTML = '<div class="empty">아직 음성 코칭 기록이 없습니다.<br><a href="/speech-coach.html" style="color:var(--pd-gold);font-weight:700;margin-top:8px;display:inline-block">🎙 지금 시작하기</a></div>';
       return;
     }
     // 일별 점수 막대 차트
     const maxScore = Math.max(...stats.daily.map(d => d.overall), 100);
     const bars = stats.daily.slice(-14).map(d => {
       const h = Math.max(8, (d.overall / maxScore) * 70);
-      const color = d.overall >= 80 ? '#34d399' : d.overall >= 60 ? '#fbbf24' : '#f87171';
-      return `<div title="${d.date}: ${d.overall}점 (${d.count}회)" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-        <div style="font-size:10px;color:#fbbf24;font-weight:700">${d.overall}</div>
+      const color = d.overall >= 80 ? 'var(--pd-green)' : d.overall >= 60 ? 'var(--pd-gold-fill)' : 'var(--pd-red)';
+      return `<div title="${d.date}: ${d.overall}점 (${d.count}회)" style="flex:1 1 0;max-width:72px;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:12px;color:var(--pd-gold);font-weight:700">${d.overall}</div>
         <div style="width:100%;height:${h}px;background:${color};border-radius:3px 3px 0 0"></div>
-        <div style="font-size:9px;color:#94a3b8">${d.date.slice(5)}</div>
+        <div style="font-size:11px;color:var(--pd-muted)">${d.date.slice(5)}</div>
       </div>`;
     }).join('');
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <div style="text-align:center;padding:10px;background:rgba(139,92,246,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#a78bfa">${stats.total_sessions}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">TOTAL</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-accent)">${stats.total_sessions}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">TOTAL</div>
         </div>
-        <div style="text-align:center;padding:10px;background:rgba(251,191,36,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#fbbf24">${stats.best_score}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">BEST</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-gold)">${stats.best_score}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">BEST</div>
         </div>
-        <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#34d399">${stats.latest_score}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">LATEST</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-green-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-green)">${stats.latest_score}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">LATEST</div>
         </div>
       </div>
-      <div style="display:flex;align-items:flex-end;gap:3px;height:90px;padding:0 4px">${bars}</div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:#94a3b8">최근 14일 일별 종합 점수</div>
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;height:90px;padding:0 4px">${bars}</div>
+      <div style="text-align:center;margin-top:8px;font-size:13px;color:var(--pd-muted)">최근 14일 일별 종합 점수</div>
       <div style="text-align:center;margin-top:12px">
-        <a href="/speech-coach.html" style="display:inline-block;padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:12.5px">🎙 더 연습하기</a>
+        <a href="/speech-coach.html" style="display:inline-block;padding:8px 16px;background:var(--pd-btn);color:var(--pd-btn-ink);text-decoration:none;border-radius:8px;font-weight:700;font-size:14px">🎙 더 연습하기</a>
       </div>`;
   }).catch(e => {
     const el = document.getElementById('pd-voice-stats');
