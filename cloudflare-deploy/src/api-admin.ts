@@ -13077,11 +13077,31 @@ LIMIT $limit`;
     //      세션이 없거나(학생·비로그인) 조회가 던지면 본문 값 그대로 — 신고가 막히는 쪽이 더 나쁘다.
     //   ⛔ index.html(공동 금지구역·첫 화면 여유 9B)은 손대지 않는다 — 서버 한 곳으로 두 화면
     //      (홈 FAB · teacher.html)이 함께 고쳐진다. 감시: test-harness/bug_report_identity_harness.mjs
+    //   ⚠️ 남은 구멍(막힌 것이 아니다): 세션이 «없는» 요청의 uid·name 은 여전히 본문 그대로 저장된다 —
+    //      이 경로는 무인증이라 누구나 아무 이름으로 신고할 수 있고, 그것은 고치기 «전» 과 같다.
+    //      막지 않는 이유: 학생·비로그인 신고를 받아야 하고, 접수함은 관리자만 보는 화면이라 값이
+    //      «권한» 을 만들지 않는다. 그 값을 판정·발송에 쓰게 되는 날에는 다시 봐야 한다.
+    //   ⚠️ 같은 거짓 전제가 src/index.ts 의 허용목록 주석(「교사에겐 admin 세션 없음」)에 한 줄 더
+    //      있다 — 공동 금지구역이라 여기서 못 고쳤다(담당 A). 판정에는 안 쓰이는 주석뿐이다.
     // ═══════════════════════════════════════════════════════════════
     const ensureBugTable = async () => {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS bug_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_role TEXT, reporter_uid TEXT, reporter_name TEXT, category TEXT, message TEXT NOT NULL, page_url TEXT, user_agent TEXT, status TEXT DEFAULT 'new', admin_note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
       } catch {}
+    };
+    /* 🪪 «신고자로 무엇을 보여 줄까» — 그리는 화면이 둘(admin.html 접수함 · manager.html)이라
+         서버가 한 번 정해 내려준다(화면마다 답이 다른 사고 방지).
+         ① name ② 없으면 uid ③ 둘 다 없으면 page_url 의 `vc_name`(2026-09-13 «이전» 행 — 화상수업
+            입장 때 주소에 실린 «표기» 이지 계정이 아니다 → via:'url', 화면이 «주소에서» 라고 적는다)
+         ⛔ 지어내지 않는다 — 셋 다 없으면 '' (화면이 「-」). ⛔ D1 은 안 건드린다(읽을 때만 보탠다). */
+    const bugReporterView = (r: any) => {
+      const name = String(r?.reporter_name || '').trim();
+      const uid = String(r?.reporter_uid || '').trim();
+      if (name) return { shown: name, via: 'name' };
+      if (uid) return { shown: uid, via: 'uid' };
+      let fromUrl = '';
+      try { fromUrl = String(new URL(String(r?.page_url || '')).searchParams.get('vc_name') || '').trim(); } catch {}
+      return fromUrl ? { shown: fromUrl, via: 'url' } : { shown: '', via: '' };
     };
 
     if (method === 'POST' && path === '/api/bug-report') {
@@ -13098,7 +13118,8 @@ LIMIT $limit`;
         if (actor.ok && actor.username) {
           reporterUid = actor.username.slice(0, 80);
           reporterName = (actor.name || reporterName || actor.username).slice(0, 80);
-          reporterRole = actor.isTeacher ? 'teacher' : 'admin';
+          // 라벨용(권한 판정 아님): 강사 → teacher · 지사/대리점/지사본사 → 그 역할 그대로 · 나머지(본사·내부직원) → admin
+          reporterRole = actor.isTeacher ? 'teacher' : (isOrgScopedRole(actor.role) ? actor.role : 'admin');
         }
       } catch (e) { console.warn('[bug-report] actor lookup:', (e as any)?.message); }
       const category = (String(body?.category || '').trim().slice(0, 40)) || 'bug';
@@ -13127,7 +13148,8 @@ LIMIT $limit`;
         const cs: any = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM bug_reports GROUP BY status`).all();
         (cs?.results || []).forEach((r: any) => { counts[r.status || 'new'] = r.n; });
       } catch {}
-      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], counts });
+      const rows = (rs.results || []).map((r: any) => { const v = bugReporterView(r); return { ...r, reporter_shown: v.shown, reporter_via: v.via }; });
+      return json({ ok: true, count: rows.length, rows, counts });
     }
 
     if (method === 'PATCH' && /^\/api\/admin\/bug-reports\/\d+$/.test(path)) {
