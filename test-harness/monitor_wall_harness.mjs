@@ -109,6 +109,12 @@ check('⑤-3 직접 입장은 카메라 꺼짐 + 확인창 (학생에게 보이�
 /* ── ⑥ 오클릭 방지 — 2026-08-12 «자동 갱신이 조준한 행을 갈아치우던» 사고의 재발 방지 ── */
 check('⑥ 마우스가 표 위에 있는 동안 재렌더하지 않는다 (pointerenter/leave + hoverGrid)',
       /pointerenter/.test(bare) && /pointerleave/.test(bare) && /hoverGrid/.test(bare));
+/* 🚨 (2026-09-13 D안) 「손봐야 할 방」 상자는 .tablewrap 밖이라 표의 게이트를 못 받는다 — 함정 대조가 잡음 */
+check('⑥-3 「손봐야 할 방」 상자(#urgent)도 같은 hover 게이트를 받는다',
+      /\['rooms',\s*'urgent'\]/.test(bare) && /function renderUrgent/.test(bare));
+check('⑥-4 그 상자의 참관 버튼도 정원 규칙을 따른다 (정원 차면 disabled · 2명 이상이면 🎧 소리만)',
+      /function renderUrgent[\s\S]{0,1500}?full \? ' disabled'/.test(bare)
+      && /function renderUrgent[\s\S]{0,1500}?busy \? 'observe-audio' : 'observe'/.test(bare));
 check('⑥-2 클릭은 위임으로 «클릭된 요소» 의 data-room 을 읽는다',
       /closest\('\[data-room\]'\)/.test(bare) && /getAttribute\('data-room'\)/.test(bare));
 

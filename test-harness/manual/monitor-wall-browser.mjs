@@ -151,6 +151,23 @@ async function main() {
     const overflow = await c.evalJs(`document.documentElement.scrollWidth <= window.innerWidth + 1`);
     check('①-7 표가 넓어도 문서가 옆으로 밀리지 않는다 (상자 안에서 스크롤)', overflow === true);
 
+    /* ── 1-b · 「🚨 지금 손봐야 할 방」 상자 (2026-09-13 D안 · 함정 대조 후속) ── */
+    const urgN = await c.evalJs(`document.querySelectorAll('#urgent .u').length`);
+    check(`①-8 급한 방 상자에 심각도 1 이상인 수업방만 뜬다 — 알림 1 + 혼자 1 (실측 ${urgN}줄)`, urgN === 2);
+    const urgFirst = await c.evalJs(`document.querySelector('#urgent .u button[data-room]')?.getAttribute('data-room')`);
+    check(`①-9 상자 첫 줄이 알림 있는 방이고 버튼이 data-room 을 든다 (실측 ${urgFirst})`, urgFirst === 'class-182-20260830');
+    const urgObs = await c.evalJs(`document.querySelector('#urgent .u .badge')?.textContent || ''`);
+    check(`①-10 상자에도 참관 인원(관찰 1/4)이 보인다 (실측 «${urgObs}»)`, /1\/4/.test(urgObs));
+    /* hover 게이트 — 상자 위에 마우스가 있는 동안은 표도 상자도 다시 그리지 않는다 */
+    await c.evalJs(`(function(){ document.getElementById('urgent').dispatchEvent(new PointerEvent('pointerenter'));
+      const q=document.getElementById('q'); q.value='Len'; q.dispatchEvent(new Event('input')); return 1; })()`);
+    const heldRows = await c.evalJs(`document.querySelectorAll('#rooms tr[data-room]').length`);
+    check(`①-11 상자 위에 마우스가 있으면 검색해도 표가 갈리지 않는다 (실측 ${heldRows}줄, 3이어야)`, heldRows === 3);
+    await c.evalJs(`(function(){ document.getElementById('urgent').dispatchEvent(new PointerEvent('pointerleave')); return 1; })()`);
+    const releasedRows = await c.evalJs(`document.querySelectorAll('#rooms tr[data-room]').length`);
+    check(`①-12 마우스가 떠나면 미뤄 둔 그리기가 바로 된다 (실측 ${releasedRows}줄, 1이어야)`, releasedRows === 1);
+    await c.evalJs(`(function(){ const q=document.getElementById('q'); q.value=''; q.dispatchEvent(new Event('input')); return 1; })()`);
+
     /* ── 2부 · 검색·정렬이 실제로 듣는가 ── */
     await c.evalJs(`(function(){ const q=document.getElementById('q'); q.value='Len';
       q.dispatchEvent(new Event('input')); return 1; })()`);
