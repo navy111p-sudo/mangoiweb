@@ -17,6 +17,28 @@
   const CAT_LABEL = (c) => (_isEn()?CAT_LABEL_EN:CAT_LABEL_KO)[c] || (c||'');
   const ROLE_LABEL = (r) => ({ teacher:_isEn()?'Teacher':'교사', admin:_isEn()?'Admin':'관리자', student:_isEn()?'Student':'학생' }[r] || (r||'-'));
 
+  /* 🪪 신고자 칸 — «무엇을 이름으로 보여 줄까» (2026-09-13)
+       서버가 2026-09-13 부터 세션으로 uid·name 을 채우지만, 그 «전» 에 쌓인 행은 둘 다 NULL 이다
+       (실측 4건). 그 행은 화면이 「-」 대신 알 수 있는 데까지 말한다:
+         ① name  ② 없으면 uid  ③ 둘 다 없으면 page_url 의 `vc_name`(화상수업 입장 표시이름)
+       ③ 은 «주소에 적힌 표기» 일 뿐 계정이 아니므로 그렇다고 함께 적는다(sub 에 «주소에서»).
+       ⛔ D1 을 UPDATE 로 «채우지» 않는다 — 읽을 때만 보탠다. */
+  function brReporterOf(b){
+    b = b || {};
+    const name = String(b.reporter_name || '').trim();
+    const uid = String(b.reporter_uid || '').trim();
+    let fromUrl = '';
+    if (!name && !uid) {
+      try { fromUrl = String(new URL(String(b.page_url || '')).searchParams.get('vc_name') || '').trim(); } catch (e) {}
+    }
+    const shown = name || uid || fromUrl || '-';
+    const sub = ROLE_LABEL(b.reporter_role)
+      + (uid && uid !== shown ? (' · ' + uid) : '')
+      + (fromUrl ? (' · ' + (_isEn() ? 'from page URL' : '주소에서')) : '');
+    return { shown, sub, fromUrl };
+  }
+  window.brReporterOf = brReporterOf;
+
   window.brLoad = async function(){
     const el = document.getElementById('br-list');
     if (!el) return;
@@ -56,7 +78,7 @@
           const pagePath = (function(){ try { return new URL(pageUrl).pathname + (new URL(pageUrl).hash||''); } catch(e){ return pageUrl; } })();
           return `<tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:9px 12px;white-space:nowrap"><span style="color:${c};font-weight:800;font-size:11.5px">${STATUS_LABEL(st)}</span></td>
-            <td style="padding:9px 12px"><b>${esc(b.reporter_name||'-')}</b><br><span style="font-size:11px;color:#6b7280">${esc(ROLE_LABEL(b.reporter_role))}${b.reporter_uid?(' · '+esc(b.reporter_uid)):''}</span></td>
+            <td style="padding:9px 12px">${(function(){ const rp = brReporterOf(b); return `<b>${esc(rp.shown)}</b><br><span style="font-size:11px;color:#6b7280">${esc(rp.sub)}</span>`; })()}</td>
             <td style="padding:9px 12px;white-space:nowrap;font-size:11.5px">${CAT_LABEL(b.category||'bug')}</td>
             <td style="padding:9px 12px;font-size:12px;color:#111827;max-width:320px">${esc((b.message||'')).replace(/\n/g,'<br>')}${pageUrl?`<br><span style="font-size:10.5px;color:#9ca3af" title="${esc(pageUrl)}">📍 ${esc(pagePath.slice(0,60))}</span>`:''}</td>
             <td style="padding:9px 12px;font-size:11.5px;color:#9ca3af;white-space:nowrap">${fmtDate(b.created_at)}</td>

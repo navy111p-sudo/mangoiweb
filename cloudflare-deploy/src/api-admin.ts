@@ -13061,9 +13061,22 @@ LIMIT $limit`;
 
     // ═══════════════════════════════════════════════════════════════
     // 🐞 Phase BUG — 교사 버그/피드백 신고 (교사 제출 → 관리자 접수함)
-    //   POST  /api/bug-report          (공개 — 교사에겐 admin 세션이 없어 신원은 clientside 전달)
+    //   POST  /api/bug-report          (공개 — 로그인 없이도 받는다. 신원은 아래 규칙)
     //   GET   /api/admin/bug-reports   (관리자 인증 — 목록 + 상태별 카운트)
     //   PATCH /api/admin/bug-reports/:id  (상태/메모 변경) · DELETE /:id
+    //
+    // 🪪 신고자 신원 (2026-09-13 수리) — «서버 세션이 먼저, 본문 값은 폴백»
+    //   ⚠️ 이 자리에 오래 「교사에겐 admin 세션이 없어 신원은 clientside 전달」이라고 적혀
+    //      있었는데 **사실이 아니다** — 교사·본사·지사는 `mangoi_admin_session` 쿠키로 로그인한다
+    //      (CLAUDE.md 2장 「로그인 세션이 두 갈래」). 그 거짓 전제 위에서 홈 화면 FAB(index.html)
+    //      가 `getCurrentUser()`(= 학생 전용 키 `mangoi_logged_user`)로 이름을 읽어 보냈고,
+    //      교사는 그 키가 없으니 uid·name 이 **늘 빈 값**으로 저장됐다(2026-09-13 D1 실측:
+    //      접수 4건 전부 reporter_uid·reporter_name NULL → 접수함 「신고자」 칸이 「-」).
+    //   ✅ 그래서 서버가 세션 쿠키(`getAdminActor`)로 «누가 보냈나» 를 직접 채운다.
+    //      세션이 있으면 그 값이 본문보다 «먼저» 다(본문에 남의 이름을 적어도 무시).
+    //      세션이 없거나(학생·비로그인) 조회가 던지면 본문 값 그대로 — 신고가 막히는 쪽이 더 나쁘다.
+    //   ⛔ index.html(공동 금지구역·첫 화면 여유 9B)은 손대지 않는다 — 서버 한 곳으로 두 화면
+    //      (홈 FAB · teacher.html)이 함께 고쳐진다. 감시: test-harness/bug_report_identity_harness.mjs
     // ═══════════════════════════════════════════════════════════════
     const ensureBugTable = async () => {
       try {
@@ -13076,9 +13089,18 @@ LIMIT $limit`;
       const body: any = await request.json().catch(() => ({}));
       const message = String(body?.message || '').trim().slice(0, 2000);
       if (!message) return json({ ok: false, error: 'message 는 필수입니다.' }, 400);
-      const reporterRole = (String(body?.reporter_role || '').trim().slice(0, 20)) || 'unknown';
-      const reporterUid = (String(body?.reporter_uid || '').trim().slice(0, 80)) || null;
-      const reporterName = (String(body?.reporter_name || '').trim().slice(0, 80)) || null;
+      let reporterRole = (String(body?.reporter_role || '').trim().slice(0, 20)) || 'unknown';
+      let reporterUid = (String(body?.reporter_uid || '').trim().slice(0, 80)) || null;
+      let reporterName = (String(body?.reporter_name || '').trim().slice(0, 80)) || null;
+      // 🪪 세션이 있으면 서버가 아는 신원이 이긴다(머리말 참고). 실패는 삼킨다 — 신고는 받아야 한다.
+      try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.ok && actor.username) {
+          reporterUid = actor.username.slice(0, 80);
+          reporterName = (actor.name || reporterName || actor.username).slice(0, 80);
+          reporterRole = actor.isTeacher ? 'teacher' : 'admin';
+        }
+      } catch (e) { console.warn('[bug-report] actor lookup:', (e as any)?.message); }
       const category = (String(body?.category || '').trim().slice(0, 40)) || 'bug';
       const pageUrl = (String(body?.page_url || '').trim().slice(0, 500)) || null;
       const ua = (String(request.headers.get('user-agent') || '').slice(0, 300)) || null;
