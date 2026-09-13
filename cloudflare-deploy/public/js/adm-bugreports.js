@@ -15,27 +15,25 @@
   const CAT_LABEL_KO = { bug:'🐛 버그', improve:'💡 개선', etc:'💬 기타', unknown:'❓' };
   const CAT_LABEL_EN = { bug:'🐛 Bug', improve:'💡 Improve', etc:'💬 Other', unknown:'❓' };
   const CAT_LABEL = (c) => (_isEn()?CAT_LABEL_EN:CAT_LABEL_KO)[c] || (c||'');
-  const ROLE_LABEL = (r) => ({ teacher:_isEn()?'Teacher':'교사', admin:_isEn()?'Admin':'관리자', student:_isEn()?'Student':'학생' }[r] || (r||'-'));
+  const ROLE_LABEL = (r) => ({ teacher:_isEn()?'Teacher':'교사', admin:_isEn()?'Admin':'관리자', student:_isEn()?'Student':'학생',
+                               branch:_isEn()?'Branch':'지사', agency:_isEn()?'Agency':'대리점', franchise:_isEn()?'Franchise HQ':'지사본사' }[r] || (r||'-'));
 
   /* 🪪 신고자 칸 — «무엇을 이름으로 보여 줄까» (2026-09-13)
-       서버가 2026-09-13 부터 세션으로 uid·name 을 채우지만, 그 «전» 에 쌓인 행은 둘 다 NULL 이다
-       (실측 4건). 그 행은 화면이 「-」 대신 알 수 있는 데까지 말한다:
-         ① name  ② 없으면 uid  ③ 둘 다 없으면 page_url 의 `vc_name`(화상수업 입장 표시이름)
-       ③ 은 «주소에 적힌 표기» 일 뿐 계정이 아니므로 그렇다고 함께 적는다(sub 에 «주소에서»).
+       판정 정본은 서버(`api-admin.ts` bugReporterView)다 — 목록 행에 `reporter_shown`·`reporter_via`
+       (name/uid/url) 로 실려 온다. 서버가 2026-09-13 부터 세션으로 uid·name 을 채우지만 그 «전» 에
+       쌓인 행은 둘 다 NULL 이라(실측 4건) 서버가 page_url 의 `vc_name` 으로 떨어뜨리고 via:'url' 을
+       준다 — «주소에 적힌 표기» 이지 계정이 아니므로 화면은 «주소에서» 라고 함께 적는다.
+       ⛔ 여기서 URL 을 다시 파싱하지 않는다(정본이 두 벌이 되면 manager.html 과 갈린다).
        ⛔ D1 을 UPDATE 로 «채우지» 않는다 — 읽을 때만 보탠다. */
   function brReporterOf(b){
     b = b || {};
-    const name = String(b.reporter_name || '').trim();
     const uid = String(b.reporter_uid || '').trim();
-    let fromUrl = '';
-    if (!name && !uid) {
-      try { fromUrl = String(new URL(String(b.page_url || '')).searchParams.get('vc_name') || '').trim(); } catch (e) {}
-    }
-    const shown = name || uid || fromUrl || '-';
+    const shown = String(b.reporter_shown || b.reporter_name || uid || '').trim() || '-';
+    const via = String(b.reporter_via || '');
     const sub = ROLE_LABEL(b.reporter_role)
       + (uid && uid !== shown ? (' · ' + uid) : '')
-      + (fromUrl ? (' · ' + (_isEn() ? 'from page URL' : '주소에서')) : '');
-    return { shown, sub, fromUrl };
+      + (via === 'url' ? (' · ' + (_isEn() ? 'from page URL' : '주소에서')) : '');
+    return { shown, sub, via };
   }
   window.brReporterOf = brReporterOf;
 
