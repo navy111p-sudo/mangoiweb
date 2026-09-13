@@ -12086,6 +12086,53 @@ function _rsBytes(n) {
   if (n >= 1048576)    return Math.round(n / 1048576) + ' MB';
   return Math.round(n / 1024) + ' KB';
 }
+/* 카드 상태 표시 — attn(빨강) / ok(초록) 둘 다 클래스로만(색은 CSS 꼬리 블록). 실패 카드의
+   「실패 목록 보기」 버튼은 attn 일 때만 보인다. 모르면(조회 실패) 둘 다 뗀다. */
+function _rsMark(cardId, attn, ok) {
+  var card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.toggle('rs-attn', !!attn);
+  card.classList.toggle('rs-ok', !!ok);
+  var act = card.querySelector('.rs-act');
+  if (act) act.hidden = !attn;
+}
+/* 「실패 목록 보기」 — 새 조회를 만들지 않고 이미 있는 상태 필터(upload_failed)를 골라 검색을 누른 것과 같게 한다. */
+window.rsShowFailed = function () {
+  var st = document.getElementById('rec-status-2');
+  if (st) st.value = 'upload_failed';
+  /* 목록이 닫혀 있으면 «열기만» 한다 — ⛔ 「전체」 칩을 누르지 말 것. 그 칩은 토글(열림이면 닫음)이고,
+     닫힌 상태에서 누르면 status='all' 로 loadRecordings() 를 먼저 띄워 아래 apply 의 upload_failed 조회와
+     «마지막 응답이 이기는» 경합이 된다(함정 대조 지적). 여는 동작(표 보이기·안내 감추기·칩 강조)만 흉내 낸다. */
+  var wrap = document.getElementById('rec-table-wrap');
+  if (wrap && wrap.style.display === 'none') {
+    wrap.style.display = '';
+    var promptEl = document.getElementById('rec-prompt-empty');
+    if (promptEl) promptEl.style.display = 'none';
+    _currentRecFilter = 'all';
+    document.querySelectorAll('.rec-filter').forEach(function (b) {
+      var on = b.getAttribute('data-filter') === 'all';
+      b.classList.toggle('active', on);
+      b.style.background = on ? '#111827' : '#fff';
+      b.style.color = on ? '#fff' : '#111827';
+    });
+  }
+  var apply = document.getElementById('rec-apply');   /* applyCurrent → status 를 읽어 loadRecordings 한 번 */
+  if (apply) apply.click();
+  var sec = document.getElementById('rs-sec-list');
+  if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  var tab = document.querySelector('#rs-tabs .rs-tab[data-rs="rs-sec-list"]');
+  if (tab && window.rsJump) window.rsJump(tab);
+};
+/* 구역 탭 — «감추는 탭» 이 아니라 그 구역 머리글로 내려가는 링크(세 구역 전부 그대로 보인다).
+   감추면 사이드바 손자(data-gc) 점프가 숨은 상자로 가서 «아무 일도 안 일어난다». */
+window.rsJump = function (a) {
+  try {
+    document.querySelectorAll('#rs-tabs .rs-tab').forEach(function (t) { t.classList.toggle('on', t === a); });
+    var sec = document.getElementById(a && a.getAttribute('data-rs'));
+    if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {}
+  return false;
+};
 window.refreshStorageStats = async function () {
   var ids = ['rs-r2-size','rs-r2-files','rs-d1-size','rs-d1-tables','rs-rec-failed','rs-rec-failed-u','rs-rec-expiring','rs-rec-expiring-u'];
   ids.forEach(function (i) { var e = document.getElementById(i); if (e) e.textContent = '…'; });
@@ -12113,23 +12160,33 @@ window.refreshStorageStats = async function () {
       _rsPut('rs-d1-tables', en ? cEn : cKo, cKo, cEn);
 
       _rsPut('rs-rec-failed', n(d.d1.failed));
-      var fKo = '건 · 영상이 없는 기록', fEn = 'rows with no video';
+      var fKo = '영상이 없는 기록', fEn = 'rows with no video';
       _rsPut('rs-rec-failed-u', en ? fEn : fKo, fKo, fEn);
-      var fv = document.getElementById('rs-rec-failed');
-      if (fv) fv.style.color = (d.d1.failed > 0) ? '#b91c1c' : '';
+      /* 2026-09-13 D안 — 실패가 있을 때만 카드를 빨강(.rs-attn)으로, 없으면 초록(.rs-ok).
+         ⚠️ 인라인 color 로 칠하면 [id^="card-"] 의 #101828 !important 에 눌린다(CLAUDE.md 2장) →
+            색은 admin-inline-c.css 맨 끝 #card-recording-storage 블록이 클래스로 정한다. */
+      _rsMark('rs-kpi-failed', d.d1.failed > 0, d.d1.failed === 0);
+      var tag = document.getElementById('rs-rec-failed-tag');
+      if (tag) {
+        var tKo = d.d1.failed > 0 ? '확인 필요' : '', tEn = d.d1.failed > 0 ? 'needs review' : '';
+        tag.textContent = en ? tEn : tKo; tag.setAttribute('data-ko', tKo); tag.setAttribute('data-en', tEn);
+      }
 
       _rsPut('rs-rec-expiring', n(d.d1.expiring30d));
       /* ⚠️ 이 타일은 «아직 만료 안 됐고 30일 안에 만료될» 건수다(src/index.ts 의 expiring 집계).
    «이미 만료» 로 적으면 라벨(30일 내 만료)과 정반대를 말하게 된다.
    그리고 보관기간이 기존 3개월·신규 6개월로 섞여 있어 숫자를 적으면 어느 쪽이든 거짓이다. */
-      var eKo = '건 · 곧 만료', eEn = 'rows · expiring soon';
+      var eKo = d.d1.expiring30d > 0 ? '곧 만료' : '곧 만료되는 녹화 없음', eEn = d.d1.expiring30d > 0 ? 'expiring soon' : 'nothing expiring soon';
       _rsPut('rs-rec-expiring-u', en ? eEn : eKo, eKo, eEn);
+      _rsMark('rs-kpi-expiring', false, d.d1.expiring30d === 0);
     } else {
       ['rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
       _rsPut('rs-d1-tables', en ? 'query failed' : '조회 실패', '조회 실패', 'query failed');
+      _rsMark('rs-kpi-failed', false); _rsMark('rs-kpi-expiring', false);
     }
   } catch (e) {
     console.warn('[admin] 저장소 상태 조회 실패:', e);
+    _rsMark('rs-kpi-failed', false); _rsMark('rs-kpi-expiring', false);
     var enq = (adminLang === 'en');
     ['rs-r2-size','rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
     ['rs-r2-files','rs-d1-tables','rs-rec-failed-u','rs-rec-expiring-u'].forEach(function (i) {
