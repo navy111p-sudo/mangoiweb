@@ -2216,6 +2216,9 @@ function spSpeakStep(){
   mic.disabled=false; mic.classList.add('submit'); mic.textContent='✅ 다 말했어요';
   spToolsEnable(false);              // 듣는 중에 소리를 내면 내 말 위에 겹친다
   document.getElementById('spState').textContent='🎤 듣는 중… 다 말하면 버튼을 누르세요';
+  /* 지난 시도의 「들린 말」을 지운다 — 남겨 두면 새 시도가 «반응이 없는» 것으로 읽힌다(2026-09-13 사장님 제보).
+     듣는 동안은 listenOnce 가 이 줄에 실시간으로 들리는 말을 그린다. */
+  document.getElementById('spHeard').textContent='🎧 …';
   listenOnce(function(ok, heard){
     mic.classList.remove('submit'); mic.textContent='🎤 따라 말하기';
     spToolsEnable(true);
@@ -2234,7 +2237,12 @@ function spSpeakStep(){
       /* 🌱 "다시 한 번"만으로는 뭘 바꿔야 할지 모른 채 같은 말을 반복한다.
          한국인 취약 발음(R/L·TH·끝소리…)이 잡히면 그 처방으로 대체한다. */
       var _fix2=''; try{ if(typeof _spkCoach==='function') _fix2=_spkCoach(heard, _spkTarget(), false); }catch(_e){}
-      document.getElementById('spState').textContent = _fix2 || '다시 한 번! 천천히 또박또박 🙂';
+      /* 취약 발음이 안 잡히면 채점기의 한 줄 피드백(빠뜨린 낱말·다르게 말한 낱말)을 그대로 보여 준다.
+         「다시 한 번」만으로는 왜 떨어졌는지 몰라 «반응이 없다» 로 읽힌다(2026-09-13). */
+      var _tip=''; try{ if(heard && window.MangoiScore) _tip=(MangoiScore.grade(heard, _spkTarget()).tip||''); }catch(_e){}
+      document.getElementById('spState').textContent = _fix2
+        || (!heard ? '아무 말도 못 들었어요 · No speech heard 🎤 마이크 가까이에서 말해 보세요'
+            : (_tip ? (_tip+' · 다시 한 번! Try again') : '조금 달랐어요 · 다시 한 번! Try again 🙂'));
       document.getElementById('micBtn').disabled=false;
     }
   });
@@ -2291,6 +2299,12 @@ function listenOnce(cb){
   function heardNow(){ return (acc+' '+interim).replace(/\s+/g,' ').trim(); }
   var startedAt = Date.now(), endAt = startedAt+MS;
   var elC=document.getElementById('spCount');
+  /* 🎧 듣는 동안 «지금까지 들린 말» 을 실시간으로 그린다 — 무전 교신 카드(SP)가 열려 있을 때만.
+     이게 없으면 카운트다운 말고는 아무 변화가 없어 «말해도 반응이 없다» 로 보인다(2026-09-13 사장님 제보).
+     에이스 결투(SP 없음)는 카드가 없으므로 그리지 않는다. */
+  var elH=document.getElementById('spHeard');
+  function live(){ if(!elH || !SP || done) return; var h=heardNow();
+    elH.textContent = h ? ('🎧 지금 들리는 말 · hearing: “'+h+'”') : '🎧 …'; }
 
   function paint(){
     if(!elC) return;
@@ -2334,6 +2348,7 @@ function listenOnce(cb){
       else interim=t0;
     }
     best=heardNow();
+    live();
   };
   rec.onerror=function(e){
     // no-speech / aborted 는 흔한 일시 오류다. 시간이 남아 있으면 계속 듣는다
