@@ -10262,7 +10262,7 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
  [주의 카드] .rs-attn 은 JS(refreshStorageStats)가 저장 실패 > 0 일 때만 붙인다. 배경은
       background-color 로(«background:#f…» 는 옛 다크 규칙에 잡혀 투명이 된다).
  [버튼] details.menu-card button 의 인디고 알약 !important 를 id 접두로 되살린다(#en-multi-table 선례).
- [페인터] 빨강 #b91c1c 위 #fee2e2 는 대비 5.9 라 adm-s12(밝은 글자만)·adm-s13/light-surfaces(대비<3·4.5 만)
+ [페인터] 빨강 #b91c1c 위 #fee2e2 는 대비 5.2(WCAG 계산 · 브라우저 실측 5.3)라 adm-s12(밝은 글자만)·adm-s13/light-surfaces(대비<3·4.5 만)
       가 안 건드린다 — 그래서 SKIP_SEL 등재 없이 CSS 만으로 된다(등재하면 JS 3벌+HTML 18곳 ?v= 가 걸린다).
  ⛔ hover 에 transform 금지(1-3). ⛔ [hidden] 버튼은 반드시 display:none — 아래 규칙이 UA 의 [hidden] 을 이긴다. */
 #card-recording-storage .rs-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e7ec; margin:2px 0 16px; }

@@ -12100,13 +12100,23 @@ function _rsMark(cardId, attn, ok) {
 window.rsShowFailed = function () {
   var st = document.getElementById('rec-status-2');
   if (st) st.value = 'upload_failed';
-  /* 「전체」 칩은 «토글»(열림이면 닫는다) — 목록이 닫혀 있을 때만 눌러 연다. */
+  /* 목록이 닫혀 있으면 «열기만» 한다 — ⛔ 「전체」 칩을 누르지 말 것. 그 칩은 토글(열림이면 닫음)이고,
+     닫힌 상태에서 누르면 status='all' 로 loadRecordings() 를 먼저 띄워 아래 apply 의 upload_failed 조회와
+     «마지막 응답이 이기는» 경합이 된다(함정 대조 지적). 여는 동작(표 보이기·안내 감추기·칩 강조)만 흉내 낸다. */
   var wrap = document.getElementById('rec-table-wrap');
   if (wrap && wrap.style.display === 'none') {
-    var chipAll = document.querySelector('.rec-filter[data-filter="all"]');
-    if (chipAll) chipAll.click();
+    wrap.style.display = '';
+    var promptEl = document.getElementById('rec-prompt-empty');
+    if (promptEl) promptEl.style.display = 'none';
+    _currentRecFilter = 'all';
+    document.querySelectorAll('.rec-filter').forEach(function (b) {
+      var on = b.getAttribute('data-filter') === 'all';
+      b.classList.toggle('active', on);
+      b.style.background = on ? '#111827' : '#fff';
+      b.style.color = on ? '#fff' : '#111827';
+    });
   }
-  var apply = document.getElementById('rec-apply');
+  var apply = document.getElementById('rec-apply');   /* applyCurrent → status 를 읽어 loadRecordings 한 번 */
   if (apply) apply.click();
   var sec = document.getElementById('rs-sec-list');
   if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -12155,7 +12165,7 @@ window.refreshStorageStats = async function () {
       /* 2026-09-13 D안 — 실패가 있을 때만 카드를 빨강(.rs-attn)으로, 없으면 초록(.rs-ok).
          ⚠️ 인라인 color 로 칠하면 [id^="card-"] 의 #101828 !important 에 눌린다(CLAUDE.md 2장) →
             색은 admin-inline-c.css 맨 끝 #card-recording-storage 블록이 클래스로 정한다. */
-      _rsMark('rs-kpi-failed', d.d1.failed > 0);
+      _rsMark('rs-kpi-failed', d.d1.failed > 0, d.d1.failed === 0);
       var tag = document.getElementById('rs-rec-failed-tag');
       if (tag) {
         var tKo = d.d1.failed > 0 ? '확인 필요' : '', tEn = d.d1.failed > 0 ? 'needs review' : '';
