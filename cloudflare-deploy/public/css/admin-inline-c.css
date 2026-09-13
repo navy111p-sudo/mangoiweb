@@ -2124,12 +2124,17 @@
 /* ── [style#no-id-31] ── */
 
       @keyframes rsPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; transition:transform .2s,box-shadow .2s }
-      .rs-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
-      .rs-kpi .icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:8px }
-      .rs-kpi .label { font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px }
-      .rs-kpi .value { font-size:20px; font-weight:900; color:#0f172a; font-variant-numeric:tabular-nums; line-height:1.1 }
-      .rs-kpi .unit { font-size:11px; font-weight:600; color:#94a3b8; margin-top:3px }
+      /* 📊 저장소 상태 타일 — 2026-09-13 D안으로 키움(라벨 11→13.5px · 숫자 20→34px). 색·탭·머리글은
+         파일 맨 끝 #card-recording-storage 블록(인라인·클래스만으론 [id^="card-"] 규칙에 눌린다).
+         ⛔ hover translate 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」(옛 규칙에 있었다). */
+      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:14px; padding:18px 20px 16px; display:flex; flex-direction:column; gap:6px; min-height:132px; transition:box-shadow .15s }
+      .rs-kpi:hover { box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
+      .rs-kpi .label { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; color:#475467 }
+      .rs-kpi .label .icon { font-size:20px; line-height:1 }
+      .rs-kpi .label .tagline { font-size:12px; font-weight:700; color:#b91c1c; margin-left:auto }
+      .rs-kpi .value { font-size:34px; font-weight:900; color:#101828; font-variant-numeric:tabular-nums; line-height:1.05; display:flex; align-items:baseline; gap:4px }
+      .rs-kpi .value small { font-size:15px; font-weight:700; color:#667085 }
+      .rs-kpi .unit { font-size:13px; font-weight:600; color:#667085 }
       /* 📱 모바일 — 녹화관리 헤더/카운트/버튼 세로 정렬 (글자 쪼개짐 방지) */
       @media (max-width: 768px) {
         #card-recording-storage > summary { flex-wrap: wrap !important; align-items: flex-start !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -2137,8 +2142,9 @@
         #card-recording-storage #rec-counts { display:block !important; width: 100% !important; white-space: normal !important; word-break: keep-all !important; line-height: 1.6 !important; font-size: 12px !important; }
         #card-recording-storage #rs-refresh-btn, #card-recording-storage #rs-diag-btn { flex: 1 1 0 !important; justify-content: center !important; min-width: 110px !important; padding: 10px 12px !important; font-size: 13px !important; }
         #card-recording-storage #rs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-        #card-recording-storage .rs-kpi .label { font-size: 10.5px !important; }
-        #card-recording-storage .rs-kpi .value { font-size: 18px !important; }
+        #card-recording-storage .rs-kpi .label { font-size: 12.5px !important; }
+        #card-recording-storage .rs-kpi .value { font-size: 28px !important; }
+        #card-recording-storage .rs-tab { font-size: 14px !important; padding: 10px 12px !important; }
       }
       /* 🎨 [요청] 새로고침·진단 버튼 — 아이보리(밝게) 테마에서만 파스텔 배경 + 어두운 글자.
          다크 테마에서는 기본 파란 버튼(어두운 바탕+흰 글자) 유지. */
@@ -10248,3 +10254,46 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
   box-shadow: none !important;
   transform: none !important;
 }
+
+/* ═══ 🎥 녹화 관리 «저장소 상태» D안 — 2026-09-13 (사장님 「너무 작아서 크게 · 찾기 어려움」)
+ [왜 여기] 카드 안 글자색은 html[…ivory][…slate] [id^="card-"] … :is(span,div,…){color:#101828!important}
+      (클래스 10)에 눌린다. 인라인 color 도 진다. id 하나(1,x,0)면 이긴다 — .tr-st-badge 선례.
+ [탭 줄] .rs-tabs 는 «감추는 탭» 이 아니라 그 구역으로 내려가는 링크다(세 구역 전부 보임).
+ [주의 카드] .rs-attn 은 JS(refreshStorageStats)가 저장 실패 > 0 일 때만 붙인다. 배경은
+      background-color 로(«background:#f…» 는 옛 다크 규칙에 잡혀 투명이 된다).
+ [버튼] details.menu-card button 의 인디고 알약 !important 를 id 접두로 되살린다(#en-multi-table 선례).
+ [페인터] 빨강 #b91c1c 위 #fee2e2 는 대비 5.9 라 adm-s12(밝은 글자만)·adm-s13/light-surfaces(대비<3·4.5 만)
+      가 안 건드린다 — 그래서 SKIP_SEL 등재 없이 CSS 만으로 된다(등재하면 JS 3벌+HTML 18곳 ?v= 가 걸린다).
+ ⛔ hover 에 transform 금지(1-3). ⛔ [hidden] 버튼은 반드시 display:none — 아래 규칙이 UA 의 [hidden] 을 이긴다. */
+#card-recording-storage .rs-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e7ec; margin:2px 0 16px; }
+/* 탭 글자·밑줄은 카드 안 «a 링크» 규칙(파랑+밑줄)이 span 까지 덮으므로 !important 로 되살린다(실측: 세 탭이 전부 파랑·밑줄). */
+#card-recording-storage .rs-tab, #card-recording-storage .rs-tab span { color:#667085 !important; text-decoration:none !important; }
+#card-recording-storage .rs-tab { display:inline-flex; align-items:center; gap:7px; padding:10px 16px; margin-bottom:-2px; font-size:15px; font-weight:800; border-bottom:3px solid transparent; cursor:pointer; }
+#card-recording-storage .rs-tab .ic { font-size:16px; line-height:1; }
+#card-recording-storage .rs-tab:hover, #card-recording-storage .rs-tab:hover span { color:#344054 !important; }
+#card-recording-storage .rs-tab.on, #card-recording-storage .rs-tab.on span { color:#1e3a8a !important; }
+#card-recording-storage .rs-tab.on { border-bottom-color:#1e3a8a; }
+/* 숫자는 한 줄로(«28.1 GB» 가 좁은 칸에서 두 줄로 꺾였다). PC 는 zoom 1.3 이라 1500px 미만이면 2×2 가 더 넉넉하다. */
+#card-recording-storage .rs-kpi .value { white-space:nowrap; }
+@media (max-width:1499px) and (min-width:769px) { #card-recording-storage #rs-kpi-grid { grid-template-columns:1fr 1fr !important; } }
+#card-recording-storage .rs-sec { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:900; color:#101828; margin:6px 0 10px; scroll-margin-top:calc(var(--adm-jump-offset,0px) + 8px); }
+#card-recording-storage .rs-sec .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; font-size:16px; background:#e6ecff; color:#1e3a8a; }
+#card-recording-storage .rs-sec .rule { flex:1; height:1px; background:#e4e7ec; }
+#card-recording-storage .rs-kpi .label { color:#475467 !important; }
+#card-recording-storage .rs-kpi .value, #card-recording-storage .rs-kpi .value span { color:#101828 !important; }
+#card-recording-storage .rs-kpi .value small { color:#667085 !important; }
+#card-recording-storage .rs-kpi .unit, #card-recording-storage .rs-kpi .unit span { color:#667085 !important; }
+#card-recording-storage .rs-kpi.rs-attn { background-color:#fee2e2 !important; background-image:none !important; border-color:#fca5a5 !important; }
+#card-recording-storage .rs-kpi.rs-attn .label, #card-recording-storage .rs-kpi.rs-attn .label span,
+#card-recording-storage .rs-kpi.rs-attn .value, #card-recording-storage .rs-kpi.rs-attn .value span, #card-recording-storage .rs-kpi.rs-attn .value small,
+#card-recording-storage .rs-kpi.rs-attn .unit, #card-recording-storage .rs-kpi.rs-attn .unit span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi.rs-ok .value, #card-recording-storage .rs-kpi.rs-ok .value span { color:#15803d !important; }
+#card-recording-storage .rs-kpi button.rs-act {
+  display:inline-flex !important; align-items:center !important; align-self:flex-start; margin-top:auto;
+  background-color:transparent !important; background-image:none !important; color:#b91c1c !important;
+  border:1.5px solid #b91c1c !important; border-radius:8px !important; padding:6px 12px !important;
+  font-size:13px !important; font-weight:700 !important; line-height:1.4 !important; box-shadow:none !important; cursor:pointer !important;
+}
+#card-recording-storage .rs-kpi button.rs-act span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi button.rs-act:hover { background-color:#fecaca !important; transform:none !important; box-shadow:none !important; }
+#card-recording-storage .rs-kpi button.rs-act[hidden] { display:none !important; }
