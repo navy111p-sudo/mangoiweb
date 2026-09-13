@@ -8,7 +8,7 @@
 <!--
   🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시 「전체 상황을 한눈에 + 최대한 가볍게」
   · 화면 코드는 /js/monitor-wall.js (2026-09-02 분리). CSS 는 여기 인라인 — /admin/ 밑에는 js·css 를 두지 않는다.
-  · 상한: HTML 12KB · HTML+JS 50KB (monitor_wall_harness ①). 설계 경위·결정은 docs/작업기록/260827·260830·260902·260913 참고.
+  · 상한: HTML 12KB · HTML+JS 52KB (monitor_wall_harness ① — 2026-09-13 D안으로 50→52). 설계 경위·결정은 docs/작업기록/260827·260830·260902·260913 참고.
   · 2026-09-13 D안(상황판): 본문 17px, 위 요약 띠(#chips), 「손봐야 할 방」 상자(#urgent), 두 «초» 설정에 이름표.
   · 동적 영역에 data-ko/data-en 을 달지 않는다(본문 갈아끼우기 함정) — 언어는 JS 가 직접 그림.
 -->
@@ -188,6 +188,6 @@ footer{ margin-top:26px; font-size:14.5px; color:var(--muted); line-height:1.75;
   <footer id="ft"></footer>
 </div>
 
-<script src="/js/monitor-wall.js?v=5" defer></script><!-- v=5: D안 상황판 — 요약 띠·급한 방 상자·두 «초» 라벨 (2026-09-13) -->
+<script src="/js/monitor-wall.js?v=6" defer></script><!-- v=6: 손봐야 할 방 상자 — hover 재렌더 금지·참관 정원 (2026-09-13 함정 대조) -->
 </body>
 </html>
