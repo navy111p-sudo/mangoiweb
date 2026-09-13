@@ -6,117 +6,116 @@
 <title>수업 관제탑 — 망고아이</title>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
 <!--
-  🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시
-  「관리자가 신속하게 전체 상황을 한눈에 보면서 수업도 모니터링」 (보다 솔루션 벤치마킹)
-
-  📌 2026-08-30 2차 (사장님 「STEP 1 + 순회 참관」) — 보다 「개설된 룸 목록」에 맞춰 표로 바꾸고
-     검색·정렬·자동 새로고침 주기·강제 종료·회선 신호등을 얹었다. 그리고 보다에 없는 «순회 참관»:
-     창 하나가 정해진 초마다 방을 옮겨 다닌다(탭을 여러 개 열지 않아도 전 교실을 훑는다).
-
-  [설계 원칙 — 왜 이렇게 가벼운가]
-  · admin.html(1.3MB) 에 얹지 않고 «별도 초경량 한 파일» — manager.html 과 같은 정신.
-  · /admin/ 밑은 default-deny 라 이 화면도 자동으로 로그인 게이트가 걸린다(index.ts 무수정).
-    ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙(index.ts isAdminPath 주석) — 그 규칙은
-       «public/admin/ 디렉터리» 에만 걸린다. 그래서 CSS 는 인라인, 화면 코드는 **/js 루트**에 둔다
-       (2026-09-02 분리: /js/monitor-wall.js?v=2). /js·/css 루트는 게이트 밖이라
-       이 화면이 이미 /css/mangoi-han.css 를 그렇게 쓰고 있고 admin.html 의 JS 도 전부 거기에 있다.
-       ⛔ 뺐다고 «가벼움» 상한이 사라진 것이 아니다 — monitor_wall_harness ①이 HTML 을 따로,
-          HTML+JS 를 합쳐서 두 번 잰다(둘 중 하나만 재면 게이트 우회가 된다).
-  · 새 서버 API 0개가 원칙이었는데, 2차에서 «방 단위 회선 지표» 하나만 기존 엔드포인트에
-    모드로 더했다(/api/admin/vc/quality?live=1). 새 경로가 아니라 이미 관문 3곳에 등록된
-    /api/admin/vc/ 밑이라 등록 누락 함정에 걸리지 않는다.
-  · 영상은 «상시» 로 틀지 않는다 — 타일에서 골라 눌렀을 때만 /?observe= 새 탭.
-    (전 방 영상 상주는 화상수업 DO·강사 업로드 회선에 부담 — 제안서에서 제외한 유일한 무거운 것)
-  · 폴링 주기는 사람이 고른다(기본 15초) + 탭이 숨겨지면 일시정지(visibilitychange).
-  · 표 위에 마우스가 있는 동안은 다시 그리지 않는다 — 자동 갱신이 조준한 줄을 갈아치워
-    «엉뚱한 방을 누르게» 되던 사고(2026-08-12 수정요청 #01)의 재발 방지.
-    클릭은 위임 리스너가 «실제로 클릭된 줄» 의 data-room 을 읽는다.
+  🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시 「전체 상황을 한눈에 + 최대한 가볍게」
+  · 화면 코드는 /js/monitor-wall.js (2026-09-02 분리). CSS 는 여기 인라인 — /admin/ 밑에는 js·css 를 두지 않는다.
+  · 상한: HTML 12KB · HTML+JS 50KB (monitor_wall_harness ①). 설계 경위·결정은 docs/작업기록/260827·260830·260902·260913 참고.
+  · 2026-09-13 D안(상황판): 본문 17px, 위 요약 띠(#chips), 「손봐야 할 방」 상자(#urgent), 두 «초» 설정에 이름표.
   · 동적 영역에 data-ko/data-en 을 달지 않는다(본문 갈아끼우기 함정) — 언어는 JS 가 직접 그림.
-  · 강사 계정은 이 화면을 못 본다 — classes-now 가 forbidden_teacher 로 답하면 목록 자체를
-    안 그린다(사이드바 href 항목은 역할 필터를 못 받으므로 화면이 스스로 막는다).
 -->
 <style>
 /* comments in this block stay ASCII or « » - CJK corner brackets here trip the hanzi-font harness */
 :root{
-  --paper:#f5f6fa; --card:#ffffff; --ink:#101828; --sub:#475467; --muted:#667085;
-  --line:#e4e7ec; --accent:#b45309; --violet:#6d28d9; --violet-bg:#f3eefe;
-  --ok:#15803d; --ok-bg:#e8f5ec; --warn:#b45309; --warn-bg:#fdf3e2;
-  --crit:#b91c1c; --crit-bg:#fdecea; --mono:Consolas,"Courier New",monospace;
+  --paper:#f5f6fa; --card:#ffffff; --ink:#0f172a; --sub:#475467; --muted:#64748b;
+  --line:#e2e8f0; --navy:#1e2a44; --navy-bg:#e8edf7; --violet:#6d28d9; --violet-bg:#f3eefe;
+  --ok:#15803d; --ok-bg:#e6f4ea; --warn:#b45309; --warn-bg:#fdf1de;
+  --crit:#b91c1c; --crit-bg:#fceaea; --mono:Consolas,"Courier New",monospace;
 }
 *{ box-sizing:border-box; }
 body{ margin:0; background:var(--paper); color:var(--ink);
-      font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:14px; line-height:1.6; }
-.wrap{ max-width:1180px; margin:0 auto; padding:18px 16px 60px; }
-header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
-h1{ font-size:19px; margin:0; }
-.hd-note{ font-size:12px; color:var(--muted); }
+      font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:16px; line-height:1.5; }
+.wrap{ max-width:1240px; margin:0 auto; padding:20px 18px 60px; }
+header{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+h1{ font-size:26px; margin:0; }
+.hd-note{ font-size:15px; color:var(--muted); }
 .hd-right{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-button, .btn{ font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line);
-  background:var(--card); color:var(--ink); padding:6px 12px; font-size:12.5px; font-weight:700; }
+button, .btn{ font:inherit; cursor:pointer; border-radius:10px; border:1.5px solid #cbd5e1;
+  background:var(--card); color:var(--ink); padding:9px 16px; font-size:16px; font-weight:700; line-height:1.2; text-decoration:none; }
+button:disabled{ opacity:.45; cursor:not-allowed; }
 button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
-.chips{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px; }
-.chip{ background:var(--card); border:1px solid var(--line); border-radius:999px;
-  padding:5px 14px; font-size:12.5px; font-weight:700; color:var(--sub); }
-.chip b{ font-size:15px; margin-left:4px; font-variant-numeric:tabular-nums; }
-.chip.st-bad{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
-.chip.st-good{ background:var(--ok-bg); border-color:var(--ok); color:var(--ok); }
 
-/* toolbar - search / sort / refresh interval / rotation */
-.tools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 10px; }
-.tools input[type=search]{ font:inherit; font-size:12.5px; padding:6px 11px; border-radius:8px;
-  border:1px solid var(--line); background:var(--card); color:var(--ink); flex:1 1 210px; min-width:150px; }
-.tools select{ font:inherit; font-size:12.5px; padding:6px 9px; border-radius:8px;
-  border:1px solid var(--line); background:var(--card); color:var(--ink); font-weight:700; }
-.tools .lbl{ font-size:12px; color:var(--muted); }
-.tools .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
-.rotbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 12px;
-  padding:8px 12px; border:1px solid var(--violet); background:var(--violet-bg);
-  border-radius:10px; font-size:12.5px; color:var(--violet); font-weight:700; }
+/* KPI band - big numbers first (2026-09-13 D) */
+.band{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); gap:2px;
+  background:var(--navy); border-radius:16px; overflow:hidden; margin:0 0 18px; }
+.band:empty{ display:none; }
+.k{ padding:14px 18px; color:#fff; background:var(--navy); font-size:13.5px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; }
+.k b{ display:block; font-size:36px; font-weight:900; line-height:1.1; margin-top:4px;
+  letter-spacing:0; font-variant-numeric:tabular-nums; }
+.k b.sm{ font-size:17px; margin-top:12px; text-transform:none; }
+.k.st-bad{ background:#7f1d1d; }
+.k.st-warn{ background:#7c2d12; }
+.k.st-good{ background:#14532d; }
+
+/* toolbar - search / sort / refresh interval / rotation (two second-settings, each boxed and labelled) */
+.tools{ display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; margin:0 0 14px; }
+.tools input[type=search]{ font:inherit; font-size:16px; padding:10px 14px; border-radius:10px;
+  border:1.5px solid #cbd5e1; background:var(--card); color:var(--ink); flex:1 1 260px; min-width:180px; }
+.tools select{ font:inherit; font-size:16px; padding:9px 12px; border-radius:10px;
+  border:1.5px solid #cbd5e1; background:var(--card); color:var(--ink); font-weight:700; }
+.grp{ display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:12px;
+  border:1.5px dashed #94a3b8; background:#f8fafc; }
+.grp.rot{ border-color:var(--navy); background:var(--navy-bg); }
+.grp .lbl{ font-size:14px; font-weight:700; color:var(--sub); white-space:nowrap; }
+.grp.rot .lbl{ color:var(--navy); }
+.grp .lbl small{ display:block; font-weight:500; font-size:12.5px; opacity:.8; }
+.tools .go, .acts .go{ background:var(--navy); border-color:var(--navy); color:#fff; }
+.rotbar{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:0 0 14px;
+  padding:10px 14px; border:1.5px solid var(--violet); background:var(--violet-bg);
+  border-radius:12px; font-size:16px; color:var(--violet); font-weight:700; }
 .rotbar .rb-now{ font-family:var(--mono); }
 .rotbar .rb-left{ font-variant-numeric:tabular-nums; }
 [hidden]{ display:none !important; }
 
+/* urgent box - only rooms that need a hand (2026-09-13 D) */
+.urgent{ border:2px solid var(--crit); border-radius:14px; padding:12px 16px; margin:0 0 16px; background:#fff5f5; }
+.urgent h3{ margin:0 0 6px; font-size:17px; color:var(--crit); }
+.urgent .u{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:17px; padding:8px 0; border-top:1px solid #fecaca; }
+.urgent .u:first-of-type{ border-top:0; }
+.urgent .u .t{ font-family:var(--mono); font-weight:700; font-variant-numeric:tabular-nums; }
+.urgent .u .why{ font-weight:700; color:var(--crit); }
+.urgent .u .why.warn{ color:var(--warn); }
+.urgent .u button{ margin-left:auto; }
+
 /* room table */
-.tablewrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
-table{ border-collapse:collapse; width:100%; min-width:820px; }
-th, td{ text-align:left; padding:8px 12px; border-top:1px solid var(--line); vertical-align:top; font-size:13px; }
-thead th{ border-top:0; background:#f8f9fc; color:var(--sub); font-size:12px; white-space:nowrap; }
-tbody tr{ border-left:5px solid transparent; }
+.tablewrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:14px; }
+table{ border-collapse:collapse; width:100%; min-width:900px; }
+th, td{ text-align:left; padding:13px 14px; border-top:1px solid var(--line); vertical-align:middle; font-size:17px; }
+thead th{ border-top:0; background:#f1f5f9; color:var(--sub); font-size:13.5px; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+tbody tr{ border-left:6px solid transparent; }
 tbody tr.st-ok{ border-left-color:var(--ok); }
 tbody tr.st-alone{ border-left-color:var(--warn); background:var(--warn-bg); }
 tbody tr.st-alert{ border-left-color:var(--crit); background:var(--crit-bg); }
 tbody tr.st-rot{ box-shadow:inset 0 0 0 2px var(--violet); }
-td.t{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
-td.who b{ font-size:13.5px; }
-td.rid{ font-family:var(--mono); font-size:11.5px; color:var(--muted); word-break:break-all; }
+td.t{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:19px; font-weight:700; }
+td.who b{ font-size:18px; }
+td.rid{ font-family:var(--mono); font-size:13px; color:var(--muted); word-break:break-all; }
 td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
 td.acts{ white-space:nowrap; }
-td.acts button{ padding:5px 9px; font-size:12px; margin:1px 2px 1px 0; }
-.badge{ display:inline-block; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; }
-.badge.alone{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
-.badge.alert{ background:var(--crit-bg); color:var(--crit); border:1px solid var(--crit); }
+td.acts button{ padding:8px 12px; font-size:15px; margin:2px 4px 2px 0; }
+.badge{ display:inline-block; font-size:13.5px; font-weight:800; border-radius:999px; padding:2px 10px; border:1.5px solid transparent; }
+.badge.alone{ background:var(--warn-bg); color:var(--warn); border-color:var(--warn); }
+.badge.alert{ background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }
 .badge.obs{ background:var(--violet-bg); color:var(--violet); }
-.badge.mute{ background:var(--card); color:var(--muted); border:1px solid var(--line); }
+.badge.mute{ background:var(--card); color:var(--muted); border-color:var(--line); }
 .sig-ok{ color:var(--ok); font-weight:700; }
 .sig-warn{ color:var(--warn); font-weight:700; }
 .sig-bad{ color:var(--crit); font-weight:800; }
-.acts .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
 .acts .go2{ background:var(--violet-bg); border-color:var(--violet); color:var(--violet); }
 .acts .enter{ background:#fff7ed; border-color:#f0c48a; color:var(--warn); }
 .acts .kill{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
-.sec{ margin-top:22px; }
-.sec h2{ font-size:14.5px; margin:0 0 4px; color:var(--sub); }
-.sec .note{ font-size:12px; color:var(--muted); margin:0 0 8px; }
-.rows{ background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:7px 12px;
-  border-top:1px solid var(--line); font-size:13px; }
+.sec{ margin-top:26px; }
+.sec h2, .sec summary{ font-size:19px; font-weight:700; margin:0 0 4px; color:#334155; }
+.sec .note{ font-size:14.5px; color:var(--muted); margin:0 0 10px; }
+.rows{ background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.row{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:11px 16px;
+  border-top:1px solid var(--line); font-size:16px; }
 .row:first-child{ border-top:0; }
-.row .t{ font-weight:800; font-variant-numeric:tabular-nums; }
-.row .st{ font-size:12px; font-weight:700; }
-.empty{ padding:14px; color:var(--muted); font-size:13px; }
-.err{ padding:12px 14px; border:1px solid var(--crit); background:var(--crit-bg);
-  color:var(--crit); border-radius:10px; margin:10px 0; font-size:13px; }
-footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
+.row .t{ font-family:var(--mono); font-weight:700; font-size:18px; font-variant-numeric:tabular-nums; }
+.row .st{ font-size:14px; font-weight:700; }
+.empty{ padding:16px; color:var(--muted); font-size:16px; }
+.err{ padding:12px 16px; border:1.5px solid var(--crit); background:var(--crit-bg);
+  color:var(--crit); border-radius:12px; margin:10px 0; font-size:16px; }
+footer{ margin-top:26px; font-size:14.5px; color:var(--muted); line-height:1.75; max-width:96ch; }
 </style>
 </head>
 <body>
@@ -132,36 +131,38 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     </div>
   </header>
 
-  <div class="chips" id="chips"></div>
+  <div class="band" id="chips"></div>
   <div id="auth-warn"></div>
 
   <div class="tools" id="tools">
     <input type="search" id="q" autocomplete="off">
-    <span class="lbl" id="lb-sort"></span>
+    <div class="grp"><span class="lbl" id="lb-sort"></span>
     <select id="sel-sort">
       <option value="sev"></option>
       <option value="time"></option>
       <option value="people"></option>
       <option value="name"></option>
-    </select>
-    <span class="lbl" id="lb-poll"></span>
+    </select></div>
+    <div class="grp"><span class="lbl" id="lb-poll"></span>
     <select id="sel-poll">
       <option value="0"></option>
       <option value="10"></option>
       <option value="15" selected></option>
       <option value="30"></option>
       <option value="60"></option>
-    </select>
-    <button type="button" class="go" id="btn-rot"></button>
+    </select></div>
+    <div class="grp rot"><button type="button" class="go" id="btn-rot"></button><span class="lbl" id="lb-dwell"></span>
     <select id="sel-dwell">
       <option value="15"></option>
       <option value="20" selected></option>
       <option value="30"></option>
       <option value="60"></option>
-    </select>
+    </select></div>
   </div>
 
   <div class="rotbar" id="rotbar" hidden></div>
+
+  <div class="urgent" id="urgent" hidden></div>
 
   <div class="tablewrap">
     <table>
@@ -187,6 +188,6 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
   <footer id="ft"></footer>
 </div>
 
-<script src="/js/monitor-wall.js?v=4" defer></script><!-- v=4: 강사 차단 안내에 «지금 로그인한 계정» 한 줄 (2026-09-11) -->
+<script src="/js/monitor-wall.js?v=5" defer></script><!-- v=5: D안 상황판 — 요약 띠·급한 방 상자·두 «초» 라벨 (2026-09-13) -->
 </body>
 </html>
