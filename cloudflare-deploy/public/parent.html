@@ -19,7 +19,8 @@
 <style>
   /* ═══ 2026-09-13 «B · 망고 카드» 디자인 — 사장님이 4종 시안 중 고른 안.
      그전 다크(남색 반투명 카드) 판은 «어두운 배경 위 어두운 카드 · 9~13px 글자» 라 잘 안 보였다.
-     색은 아래 토큰 한 곳에서만 정한다 — 본문 인라인 style 도 var(--pd-…) 만 쓴다(직접 hex 금지). */
+     글자·상자 색은 아래 토큰 한 곳에서만 정한다 — 본문 인라인 style 도 var(--pd-…) 로 쓴다.
+     예외(그대로 hex): 버튼 그라데이션 위 진한 글자(#1a1a1a 류)·카카오 브랜드색(#fee500)·공용 바(mango-i18n.js)·우하단 오디오 토스트(다크 상자). */
   :root {
     --pd-bg: #fff7e0;            /* 페이지 바탕 (연한 망고 크림) */
     --pd-surface: #ffffff;       /* 카드 */
@@ -31,12 +32,12 @@
     --pd-ink2: #4a3f2c;          /* 보조 글자 */
     --pd-muted: #7a6a4f;         /* 흐린 글자 (흰 바탕 대비 4.6:1) */
     --pd-gold: #b45309;          /* 강조 글자 — ⛔ #fbbf24 는 흰 바탕 대비 1.67 이라 글자에 못 쓴다 */
-    --pd-gold-fill: #f5a300;     /* 막대·점 채움 */
+    --pd-gold-fill: #d97706;     /* 막대·점 채움 (흰 바탕 대비 3.0 — 비텍스트 기준) */
     --pd-accent: #a35a00;        /* 제목·링크 */
     --pd-green: #15803d;
     --pd-green-tint: #e8f7ee;
     --pd-green-line: #b7e4c7;
-    --pd-red: #dc2626;
+    --pd-red: #b91c1c;           /* 연분홍 상자 위에서도 4.5 이상 */
     --pd-red-tint: #fdecec;
     --pd-red-line: #f5b5b5;
     --pd-blue: #1d4ed8;
@@ -68,10 +69,10 @@
   .child-avatar { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; overflow: hidden; }
   .child-info { min-width: 0; }
   .child-info h1 { font-size: 24px; font-weight: 900; color: var(--pd-btn-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-  .child-info p { font-size: 14px; color: var(--pd-btn-ink); opacity: .8; margin-top: 4px; }
+  .child-info p { font-size: 14px; color: var(--pd-btn-ink); opacity: .9; margin-top: 4px; }
   .child-pts { margin-left: auto; text-align: right; flex-shrink: 0; }
   .child-pts-num { font-size: 32px; font-weight: 900; color: var(--pd-btn-ink); line-height: 1; font-variant-numeric: tabular-nums; }
-  .child-pts-label { font-size: 12px; color: var(--pd-btn-ink); opacity: .75; letter-spacing: 0.5px; margin-top: 4px; }
+  .child-pts-label { font-size: 12px; color: var(--pd-btn-ink); opacity: .9; letter-spacing: 0.5px; margin-top: 4px; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .card {
@@ -226,7 +227,7 @@ function showKakaoShareDialog(url) {
       <div style="background:var(--pd-tint);border:1px solid var(--pd-tint);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:13px;color:var(--pd-muted);word-break:break-all;margin-bottom:18px">${url}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:var(--pd-line-strong);color:var(--pd-accent);border:1px solid var(--pd-line-strong);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
       </div>
       <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:var(--pd-muted);border:0;padding:6px 12px;cursor:pointer;font-size:14px">${isEn?'Close':'닫기'}</button>
     </div>`;
@@ -372,7 +373,7 @@ function showKakaoShareDialog(url) {
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
         <div id="pd-pays" style="font-size:14px"></div>
-        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
+        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:var(--pd-btn);color:var(--pd-btn-ink);text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
       </div>
 
     </div>
@@ -430,7 +431,7 @@ function showKakaoShareDialog(url) {
     </div>
 
     <div style="text-align:center;margin-top:24px">
-      <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-line-strong);color:var(--pd-accent);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
     </div>
   </div>
@@ -848,9 +849,9 @@ function pdRender(d){
       <div style="margin-bottom:10px;font-size:14px;color:var(--pd-muted)">획득 <b style="color:var(--pd-gold)">${bdata.earned_count}</b> / ${bdata.total_count}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
         ${badges.map(b => `
-          <div style="background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;opacity:${b.earned?'1':'0.6'};transition:transform .15s" title="${esc(b.desc)}">
-            <div style="font-size:28px;line-height:1">${b.icon}</div>
-            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-gold)':'var(--pd-muted)'};margin-top:6px">${esc(b.name)}</div>
+          <div style="background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;;transition:transform .15s" title="${esc(b.desc)}">
+            <div style="font-size:28px;line-height:1;${b.earned?'':'filter:grayscale(1);opacity:.55'}">${b.icon}</div>
+            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-btn-ink)':'var(--pd-muted)'};margin-top:6px">${esc(b.name)}</div>
             ${b.earned?`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">미획득</div>`}
           </div>`).join('')}
       </div>`;
@@ -879,7 +880,7 @@ function pdRender(d){
           <div style="font-weight:700;color:var(--pd-blue);margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
           <ul style="margin:0;padding-left:20px;color:var(--pd-ink2);font-size:14px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
         </div>` : ''}
-        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
+        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:var(--pd-btn);color:var(--pd-btn-ink);border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
       `;
     } catch(e) {
       el.innerHTML = '<div class="empty">AI 분석 실패: ' + e.message + '</div>';
