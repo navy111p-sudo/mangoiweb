@@ -157,8 +157,7 @@
   }
 
   /* ── 그리기 ──────────────────────────────────────────────────────── */
-  /* 🔢 요약 띠(2026-09-13 D안) — 큰 숫자 넷을 맨 위에. 타일 = «라벨<b>숫자</b>» 한 덩어리
-     (meet_room_split_harness ⑩ 이 «수업방<b>N</b>» 모양을 그대로 읽는다 — 라벨과 <b> 사이에 태그를 넣지 말 것). */
+  /* 🔢 요약 띠(D안) — 타일 = «라벨<b>숫자</b>» 한 덩어리. meet_room_split ⑩ 이 그 모양을 읽는다(사이에 태그 금지) */
   function renderChips(){
     var alertCount = Object.keys(state.alerts).length;
     var tile = function(cls, label, n){ return '<div class="k' + (cls ? ' ' + cls : '') + '">' + label + '<b>' + n + '</b></div>'; };
@@ -181,9 +180,7 @@
     $('chips').innerHTML = chips.join('');
   }
 
-  /* 🚨 「지금 손봐야 할 방」(2026-09-13 D안) — 심각도 1 이상인 «수업방» 만 따로 뽑아 위에 둔다.
-     정상 수업은 아래 표에 그대로 있다(«봐야 할 것» 과 «참고» 를 가른다). 회의방은 안 넣는다.
-     ⛔ 표를 대신하지 않는다 — 버튼은 위임 리스너가 data-room 을 읽으므로 여기서도 그대로 듣는다. */
+  /* 🚨 「지금 손봐야 할 방」(D안) — 심각도 1 이상인 수업방만 위에 따로. 표를 대신하지 않는다(회의방 제외) */
   function reasonHtml(rm){
     var rid = String(rm.roomId), al = state.alerts[rid], q = state.quality[rid];
     if (al) return '<span class="why">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
@@ -202,9 +199,13 @@
       + list.map(function(rm){
         var rid = String(rm.roomId), sc = state.names[rid] || {};
         var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ') || rid;
+        /* 참관 정원은 표(rowHtml)와 같은 규칙 — 차면 disabled, 2명 이상이면 🎧 소리만 */
+        var obs = rm.observerCount || 0, full = obs >= OBS_MAX, busy = obs >= OBS_BUSY;
         return '<div class="u"><span class="t">' + esc(sc.start_time || '—') + '</span><b>' + esc(who) + '</b>'
           + reasonHtml(rm)
-          + '<button type="button" class="go" data-act="observe" data-room="' + esc(rid) + '">' + L('👁 참관', '👁 Observe') + '</button></div>';
+          + (obs ? ' <span class="badge ' + (busy ? 'alone' : 'obs') + '">' + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (full ? L(' 정원 참', ' full') : '') + '</span>' : '')
+          + '<button type="button" class="go" data-act="' + (busy ? 'observe-audio' : 'observe') + '" data-room="' + esc(rid) + '"'
+          + (full ? ' disabled' : '') + '>' + (busy ? L('🎧 소리만', '🎧 Audio') : L('👁 참관', '👁 Observe')) + '</button></div>';
       }).join('');
   }
 
@@ -582,9 +583,12 @@
     if (ms) timer = setInterval(tick, ms);
   }
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
-  var grid = $('rooms');
-  grid.addEventListener('pointerenter', function(){ hoverGrid = true; });
-  grid.addEventListener('pointerleave', function(){ hoverGrid = false; if (pendingRender) render(); });
+  /* #rooms 와 #urgent 둘 다 — 상자만 빼면 그쪽 버튼이 마우스 아래에서 갈린다 */
+  ['rooms', 'urgent'].forEach(function(id){
+    var el = $(id); if (!el) return;
+    el.addEventListener('pointerenter', function(){ hoverGrid = true; });
+    el.addEventListener('pointerleave', function(){ hoverGrid = false; if (pendingRender) render(); });
+  });
   $('btn-refresh').addEventListener('click', load);
   $('btn-lang').addEventListener('click', function(){
     EN = !EN;   /* 저장하지 않는다 — 정본(mangoi_lang) 저장은 admin.html 의 🌐 담당 */
