@@ -1636,7 +1636,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var i = msg.lastIndexOf('[PC]');
       var body = i >= 0 ? msg.slice(0, i).trim() : msg;
       var spec = i >= 0 ? msg.slice(i + 4).trim() : '';
-      return '<div class="row"><b>' + esc(r.reporter_name || r.reporter_uid || '-') + '</b>'
+      return '<div class="row"><b>' + esc(r.reporter_shown || r.reporter_name || r.reporter_uid || '-') + (r.reporter_via === 'url' ? ' <span class="muted">(' + esc(T('from page URL', '주소에서')) + ')</span>' : '') + '</b>'
            + '<span class="muted">' + esc(String(r.created_at || '').slice(0, 16)) + '</span>'
            + '<span class="tag">' + esc(r.category || '') + '</span></div>'
            + (body ? '<div class="muted" style="padding:0 0 4px">' + esc(body.slice(0, 200)) + '</div>' : '')
