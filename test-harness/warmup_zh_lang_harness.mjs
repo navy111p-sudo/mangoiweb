@@ -824,20 +824,28 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
           검사가 실패 분기에 남은 글자를 보고 넘어갔기 때문입니다.
        ✅ 그래서 play 를 오려 내 **가짜 부품으로 실제로 돌려** «어디로 가는가» 를 답으로 봅니다.
           _speakSeq 를 SEQ() 로 바꿔 넣어 «굽는 사이 번호가 바뀌는» 상황까지 재현합니다. */
-    const playBody = bodyOf(HTMLC, 'var play=function(u){');
+    /* ⚠️ 인자 목록을 «글자 그대로» 못 박지 마세요 — 인자를 하나 더하는 정당한 수리에
+       전제가 깨져 그 아래 검사가 통째로 빨간불이 됩니다(2026-09-14 `(u)` → `(u, eng)` 로
+       실제로 밟았습니다). «그 이름의 함수» 로 찾고 몸통은 중괄호 짝으로 자릅니다. */
+    const playSig = (HTMLC.match(/var play\s*=\s*function\s*\([^)]*\)\s*\{/) || [''])[0];
+    check('전제: play 선언을 찾았다', !!playSig, '못 찾으면 아래가 조용히 사라집니다');
+    const playBody = playSig ? bodyOf(HTMLC, playSig) : '';
     check('전제: play 몸통을 잘라 냈다', playBody.length > 50, 'len=' + playBody.length);
     if (playBody) {
-      const playSrc = ('var play=function(u){' + playBody + '};').replace(/_speakSeq/g, 'SEQ()');
-      const runPlay = async (wantMale, deepOk, bumpSeq) => {
+      /* ⚠️ 선언을 손으로 다시 적지 않는다 — 인자가 늘면 몸통이 «없는 이름» 을 보고 죽는다
+         (2026-09-14 `eng` 을 더하자 ERR:eng is not defined 로 두 검사가 거짓 FAIL). */
+      const playSrc = (playSig + playBody + '};').replace(/_speakSeq/g, 'SEQ()');
+      const runPlay = async (wantMale, deepOk, bumpSeq, eng) => {
         const log = []; let seq = 0;
         try {
-          new Function('_zhMaleWanted', 'SEQ', '_zhDeepen', 'play0', '_zhDeepFailedOnce',
-            playSrc + '\nplay("SRC");')(
+          new Function('_zhMaleWanted', 'SEQ', '_zhDeepen', 'play0', '_zhDeepFailedOnce', 'ENG',
+            playSrc + '\nplay("SRC", ENG);')(
             () => wantMale,
             () => seq,
             (u) => { if (bumpSeq) seq++; return deepOk ? Promise.resolve('DEEP:' + u) : Promise.reject(new Error('x')); },
             (u, deep) => log.push((deep ? 'deep:' : 'plain:') + u),
-            () => log.push('told'));
+            () => log.push('told'),
+            eng);
         } catch (e) { return ['ERR:' + e.message]; }
         await new Promise((r) => setTimeout(r, 0));
         return log;
@@ -861,6 +869,19 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       const rLateNg = await runPlay(true, false, true);
       check('굽는 사이 다음 말이 오면 물러난다 — 실패 분기 (짝)',
         rLateNg.length === 0, '실제: ' + JSON.stringify(rLateNg));
+      /* 🎙 2026-09-14 — 서버가 «진짜 남성 성우»(Azure)를 보내 주면 굽지 않아야 한다.
+         또 낮추면 ZH_MALE_PITCH 만큼 한 번 더 내려가 «괴물 목소리» 가 된다.
+         ⚠️ 판정 근거는 «성우를 달라고 했나» 가 아니라 «무엇이 만들어 왔나» 다. */
+      const rAz = await runPlay(true, true, false, 'azure');
+      check('진짜 성우(azure)가 오면 굽지 않는다',
+        rAz.length === 1 && rAz[0] === 'plain:SRC', '실제: ' + JSON.stringify(rAz));
+      const rAzC = await runPlay(true, true, false, 'r2-cache:azure');
+      check('그 캐시본도 굽지 않는다', rAzC.length === 1 && rAzC[0] === 'plain:SRC',
+        '실제: ' + JSON.stringify(rAzC));
+      /* 🔴 짝 — 없으면 «전부 안 굽기» 도 통과해 폴백 여자 목소리가 그대로 납니다 */
+      const rGt = await runPlay(true, true, false, 'gtts');
+      check('폴백(gtts)이면 예전처럼 굵게 굽는다 (짝)',
+        rGt.length === 1 && rGt[0] === 'deep:DEEP:SRC', '실제: ' + JSON.stringify(rGt));
     }
     /* 🚤 「그 이름이 있는가」로 물으면 «저장하는 줄» 만 남겨도 통과한다(실측으로 밟음).
        물어야 할 것은 «읽어서 그 자리에서 돌아가는가» 다. */

@@ -17,9 +17,11 @@
      → 있었습니다. 이 화면은 그 뒤로 «두 갈래» 를 나란히 들려줍니다.
 
   ① 🎙 진짜 남성 성우 — Azure Speech (정본 src/azure-tts.ts)
-     AZURE_SPEECH_KEY 는 이미 이 서비스에 있습니다(발음 코칭이 그 키로 채점합니다 —
-     D1 실측 2026-09-14: 최근 60일 voice_coaching 410건 중 136건이 azure_used=1).
-     Speech 리소스 하나가 «인식·발음평가·합성» 을 다 하므로 따로 계약할 것이 없습니다.
+     AZURE_SPEECH_KEY 는 «워커에» 있습니다. ⛔ 근거를 「azure_used=1 이니까」로 적지 마세요 —
+     그 진단은 `ok(sdk)`, 즉 «브라우저» 가 성공했다는 뜻입니다. 워커에 있다는 근거는
+     그 브라우저 SDK 가 쓰는 임시 토큰을 워커가 그 키로 발급한다는 것입니다
+     (GET /api/voice/azure-token — 키가 없으면 503). 실측 2026-09-14: 최근 60일 410건 중 136건.
+     Speech 리소스 하나가 «인식·발음평가·합성» 을 다 하므로 따로 계약할 것은 없습니다.
      ⚠️ 그래도 «그 키로 합성까지 되는가» 는 요금제·지역에 달려 있어 사람이 눌러야 압니다.
         안 되면 서버가 예전 경로로 내려가고 화면이 X-TTS-Fallback 사유를 말합니다.
 
@@ -334,7 +336,11 @@ function play(item, btn){
 (function(){
   var box = document.getElementById('azcards');
   var azst = document.getElementById('azst');
-  var cache = {}, cur = null;
+  /* 🔴 «지금 눌린 버튼» 은 반드시 공용 _curBtn 으로 추적합니다 — 이 절만 따로
+     들고 있으면 stopNow() 가 그것을 모릅니다. 2026-09-14 실사고: 성우 카드를
+     차례로 누르자 눌렀던 버튼이 전부 «■ 멈추기» 인 채로 남았습니다
+     (stopNow 가 _seq 를 올리므로 그 뒤의 reset() 은 영영 못 돕니다). */
+  var cache = {};
   function say2(t){ azst.textContent = t; }
   AZ_LIST.forEach(function(v){
     var d = document.createElement('div'); d.className = 'card';
@@ -345,13 +351,13 @@ function play(item, btn){
     var b = document.createElement('button'); b.className = 'play';
     b.dataset.label = '▶ 듣기'; b.textContent = '▶ 듣기';
     b.addEventListener('click', function(){
-      if(cur === b){ stopNow(); say2('멈췄습니다.'); return; }
+      if(_curBtn === b){ stopNow(); say2('멈췄습니다.'); return; }
       stopNow();
       var mine = _seq;
-      cur = b; b.classList.add('on'); b.textContent = '■ 멈추기';
+      _curBtn = b; b.classList.add('on'); b.textContent = '■ 멈추기';
       var reset = function(){
         if(mine !== _seq) return false;
-        b.classList.remove('on'); b.textContent = b.dataset.label; cur = null; return true;
+        b.classList.remove('on'); b.textContent = b.dataset.label; _curBtn = null; return true;
       };
       var go = function(u){
         if(mine !== _seq) return;
@@ -365,7 +371,7 @@ function play(item, btn){
         say2('🔊 ' + v.name + ' 재생 중 — 속도 ' + rate() + '배');
         _audio.play().catch(function(){ if(reset()) say2('소리를 재생하지 못했습니다. 한 번 더 눌러 주세요.'); });
       };
-      if(cache[v.id]){ go(cache[v.id]); return; }
+      if(cache[v.id]){ go(cache[v.id]); return; }  /* azure 로 확인된 것만 담깁니다(아래) */
       say2('🔊 ' + v.name + ' 를 서버에서 만드는 중…');
       fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ text:TEXT, lang:'zh', speaker:'long', azure_voice:v.id }) })
@@ -383,8 +389,12 @@ function play(item, btn){
           if(mine !== _seq) return;
           if(o.eng.indexOf('azure') < 0){
             reset();
-            say2('⚠️ 이 계정에서는 Azure 성우를 못 받았습니다'
-                 + (o.why ? ' (' + o.why + ')' : '') + ' — 아래 «지금 방식» 으로 들어 보세요.');
+            /* ⛔ 여기서 소리를 내지 않습니다 — 여자 목소리를 «윈시» 로 듣고 고르시게 됩니다.
+               사유(o.why)는 서버가 X-TTS-Fallback 으로 준 «이름» 뿐이고 키·응답 본문은
+               들어가지 않습니다. 그 글자가 무엇을 고쳐야 하는지 가리킵니다. */
+            say2('⚠️ ' + v.name + ' — Azure 성우를 못 받았습니다. 사유: '
+                 + (o.why || (o.eng ? o.eng : '알 수 없음'))
+                 + ' · 이 글자를 알려 주시면 고칩니다. 지금은 아래 «지금 방식» 으로 들어 보세요.');
             return;
           }
           cache[v.id] = o.url; go(o.url);

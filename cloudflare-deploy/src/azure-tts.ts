@@ -7,9 +7,15 @@
  *    브라우저에서 «굵게» 만들어 남자처럼 들리게 했습니다(warmup.html 의 _zhDeepen).
  *    Azure Speech 에는 중국어 «남성 성우» 가 여럿 있어 그 우회가 필요 없습니다.
  *
- * 🔑 키는 이미 있습니다 — AZURE_SPEECH_KEY · AZURE_SPEECH_REGION.
- *    발음 코칭(src/azure-pronunciation.ts)이 그 키로 채점하고 있고,
- *    Speech 리소스 하나가 «인식 · 발음평가 · 합성» 을 모두 담당합니다.
+ * 🔑 키는 워커에 있습니다 — AZURE_SPEECH_KEY · AZURE_SPEECH_REGION.
+ *    [근거의 사슬 — 「azure_used=1 이니까」로 건너뛰면 틀립니다]
+ *      그 칸이 1 이어도 진단은 `ok(sdk)`, 즉 «브라우저» 가 Azure SDK 로 성공했다는 뜻이지
+ *      워커에 키가 있다는 뜻이 아닙니다. 워커에 있다고 말할 수 있는 근거는 «그 SDK 가 쓰는
+ *      임시 토큰을 워커가 AZURE_SPEECH_KEY 로 발급한다» 는 것입니다
+ *      (GET /api/voice/azure-token — 키가 없으면 503 azure_not_configured).
+ *      실측 2026-09-14: voice_coaching 최근 60일 410건 중 136건이 azure_used=1 · ok(sdk)
+ *      ⟹ 그 횟수만큼 토큰 발급이 성공했다 ⟹ 워커에 키가 있다.
+ *    ⚠️ 여기까지가 «잰 것» 입니다 — «그 키로 «합성(TTS)» 까지 되는가» 는 별개입니다.
  *    ⚠️ 그래도 «TTS 가 실제로 되는가» 는 요금제·지역에 달려 있어 사람이 한 번 확인해야 합니다.
  *       실패하면 이 함수는 null 을 돌려주고 부르는 쪽이 예전 경로로 갑니다(소리는 계속 납니다).
  *

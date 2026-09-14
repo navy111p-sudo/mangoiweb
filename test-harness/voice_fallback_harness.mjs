@@ -210,14 +210,31 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
   /* ⚠️ `if (hit) return new Response(hit.body …` 는 이 파일에 여러 곳 있다(다른 캐시 경로).
      그냥 match 하면 «첫 번째» 가 걸려 엉뚱한 응답을 검사한다(실제로 밟았습니다) —
      /api/voice/tts 라우트 안으로 먼저 좁힌다. */
+  /* 🚤 2026-09-14(두 번째) — 위 «식 모양» 함정을 자르는 자리에서 또 밟았다.
+     `if (hit) return new Response(hit.body …` 로 잘랐더니, 캐시 적중이 «저장된 표시» 를
+     읽도록(`if (hit) { const hitEng = …; return … }`) 고치는 순간 잘라내기가 깨져
+     보장은 더 세졌는데 검사만 빨간불이 났다.
+     ⛔ 반환문 «모양» 으로 자르지 마세요 — «그 캐시를 읽는 자리» 로 자릅니다. */
+  /* ⛔ «길이» 로 자르지 마세요 — 그 창이 블록을 지나 옆 선언까지 먹고, 블록에 줄이 늘면
+     보장은 그대로인데 검사만 깨집니다(2026-09-14 함정 대조가 700자 창에서 실측).
+     **중괄호 짝**으로 자릅니다. `if (cacheKey && r2) {` 도 이 파일에 둘이라 라우트로 먼저 좁힙니다. */
+  const braceBlock = (src, anchor, from) => {
+    const i = src.indexOf(anchor, from || 0);
+    if (i < 0) return '';
+    let d = 0, j = i + anchor.length - 1;
+    for (; j < src.length; j++) {
+      if (src[j] === '{') d++;
+      else if (src[j] === '}') { d--; if (!d) break; }
+    }
+    return src.slice(i, j + 1);
+  };
   const ttsAt = G.indexOf("path === '/api/voice/tts'");
   ok(ttsAt > 0, '전제: /api/voice/tts 라우트를 찾았다');
-  const hitBlock = ttsAt > 0
-    ? G.slice(ttsAt).match(/if \(hit\) return new Response\(hit\.body[\s\S]{0,400}?\}\);/) : null;
-  ok(!!hitBlock, '전제: 캐시 적중 응답을 잘라 냈다');
+  const hitBlock = ttsAt > 0 ? braceBlock(G, 'if (cacheKey && r2) {', ttsAt) : '';
+  ok(hitBlock.length > 200, '전제: 캐시 적중 응답을 잘라 냈다');
   if (hitBlock) {
-    ok(/'X-TTS-Engine':/.test(hitBlock[0]) && /r2-cache/.test(hitBlock[0])
-       && /'X-TTS-Speaker':/.test(hitBlock[0]),
+    ok(/'X-TTS-Engine':/.test(hitBlock) && /r2-cache/.test(hitBlock)
+       && /'X-TTS-Speaker':/.test(hitBlock),
       '캐시 적중 응답에도 진단 헤더를 실어 준다',
       '없으면 화면이 「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다');
   }

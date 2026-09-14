@@ -2471,20 +2471,28 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           //     앱 네이티브 TTS/브라우저 음성을 우선하도록 정리됨. 서버 zh 는 최후 폴백일 뿐.
           // v4: Aura-1 폴백 음성이 «요청 화자» 키로 저장되던 오염 제거(2026-08-31).
           //     Lily(delia)가 한 번 폴백하면 그 문장은 영영 Emma 목소리(asteria)로 재생됐다.
-          const spk0 = azVoice ? 'azure:' + azVoice : String(b.speaker || 'asteria');
+          // v4a: gtts 폴백이 «azure:…» 키에 여성 음성을 써 넣던 오염을 버리려고
+          //      azure 쪽 키 세대만 올립니다(영어·일반 중국어 캐시는 그대로 삽니다).
+          const spk0 = azVoice ? 'azure2:' + azVoice : String(b.speaker || 'asteria');
           const enc = new TextEncoder().encode('v4|' + lang + '|' + spk0 + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
         if (cacheKey && r2) {
-          /* 캐시본은 «실제로 쓴 화자» 키로만 저장하므로(아래 폴백 블록) 이 바이트는
-             요청 화자 그대로다 → 진단 헤더도 그렇게 실어 준다. 없으면 화면이
-             「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다. */
+          /* 🔴 「요청이 azure 였나」로 판정하면 안 됩니다 — 그건 «무엇을 달라고 했나» 이지
+             «무엇이 저장돼 있나» 가 아닙니다. 2026-09-14 실사고: 폴백이 여성 음성을
+             azure 키에 써 넣자, 그다음부터 캐시 적중이 그 여성 음성을 «azure» 라고
+             말하며 내보냈고 화면은 아무 경고도 못 했습니다(성우 4명이 전부 여자 목소리).
+             ⟹ 저장할 때 붙여 둔 표시(customMetadata.eng)를 «읽어서» 말합니다.
+             ⚠️ 표시가 없는 옛 캐시본은 «모름»(r2-cache)이라 화면이 정직하게 경고합니다. */
           try {
             const hit = await r2.get(cacheKey);
-            if (hit) return new Response(hit.body, { headers: { ...audioHeaders,
-              'X-TTS-Engine': azVoice ? 'r2-cache:azure' : 'r2-cache',
-              'X-TTS-Speaker': (azVoice || String(b.speaker || 'asteria')).toLowerCase() } });
+            if (hit) {
+              const hitEng = String((hit as any)?.customMetadata?.eng || '').trim().toLowerCase();
+              return new Response(hit.body, { headers: { ...audioHeaders,
+                'X-TTS-Engine': hitEng ? 'r2-cache:' + hitEng : 'r2-cache',
+                'X-TTS-Speaker': (azVoice || String(b.speaker || 'asteria')).toLowerCase() } });
+            }
           } catch {}
         }
         /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
@@ -2494,9 +2502,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           const d = await crypto.subtle.digest('SHA-256', e);
           return 'tts/' + [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         };
-        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array) => {
+        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array, eng?: string) => {
           if (!key || !r2) return;
-          try { await r2.put(key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+          /* eng = «이 바이트를 무엇이 만들었나». 캐시 적중 때 그대로 되읽어 진단 헤더로
+             말해 줍니다 — 안 적어 두면 「요청이 azure 였나」로 넘겨짚게 됩니다(위 블록). */
+          const meta: any = { httpMetadata: { contentType: 'audio/mpeg' } };
+          if (eng) meta.customMetadata = { eng };
+          try { await r2.put(key, bytes, meta); } catch {}
         };
         const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes);
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
@@ -2528,7 +2540,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           if (!gr.ok) throw new Error('gtts_' + gr.status);
           const gb = await gr.arrayBuffer();
           if (!gb || gb.byteLength < 300) throw new Error('gtts_empty');
-          await putCache(gb);
+          /* 🔴 여기서 putCache(=«요청» 키) 를 쓰면 안 됩니다 — Azure 성우를 콕 집은 요청이
+             실패해 이 폴백으로 내려오면 «여성 구글 만다린» 이 «azure:윈시» 키에 저장되고,
+             그다음부터 그 문장은 영영 여자 목소리로 재생됩니다(2026-09-14 실사고).
+             이 저장소가 2026-08-31 Lily→Emma 건에서 이미 밟은 바로 그 함정입니다.
+             ⟹ 언제나 «실제로 쓴 화자»(구글 만다린) 키로만 저장합니다.
+             ℹ️ azVoice 가 없을 때는 이 키가 cacheKey 와 글자까지 같습니다(동작 변화 없음). */
+          await putCacheAs(await ttsKey(String(b.speaker || 'asteria')), gb, 'gtts');
           return new Response(gb, { headers: audioHeaders });
         };
 
@@ -2547,7 +2565,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           if (azVoice) {
             const az = await azureTts(env as any, text, azVoice, 'zh-CN');
             if (az.ok) {
-              await putCache(az.bytes);
+              await putCacheAs(cacheKey, az.bytes, 'azure');
               return new Response(az.bytes, { headers: { ...audioHeaders,
                 'X-TTS-Engine': 'azure', 'X-TTS-Speaker': azVoice.toLowerCase() } });
             }
