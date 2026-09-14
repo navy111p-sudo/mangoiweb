@@ -202,9 +202,25 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
       '뉴런 소진(429)에는 재시도하지 않는다',
       '답이 같은데 시간만 늘어난다 — 학생은 그만큼 오래 기다린다');
   }
-  ok(/'X-TTS-Engine': 'r2-cache'/.test(G),
-    '캐시 적중 응답에도 진단 헤더를 실어 준다',
-    '없으면 화면이 「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다');
+  /* 🚤 2026-09-14: 이 검사는 `'X-TTS-Engine': 'r2-cache'` 라는 «식 모양» 을 글자 그대로
+     못 박고 있었다. 그래서 캐시 적중 때 «어느 엔진의 캐시본인가» 까지 밝히도록 값을
+     정확하게 고치자(중국어 Azure 성우가 붙으면서) 보장은 오히려 세졌는데 검사만 빨간불이 났다.
+     ⛔ 다시 글자로 못 박지 마세요 — 물어야 할 것은 «그 응답이 두 진단 헤더를 싣고,
+        엔진 값이 «캐시본» 이라고 말하는가» 입니다(CLAUDE.md 「뜻으로 묻도록 고치세요」). */
+  /* ⚠️ `if (hit) return new Response(hit.body …` 는 이 파일에 여러 곳 있다(다른 캐시 경로).
+     그냥 match 하면 «첫 번째» 가 걸려 엉뚱한 응답을 검사한다(실제로 밟았습니다) —
+     /api/voice/tts 라우트 안으로 먼저 좁힌다. */
+  const ttsAt = G.indexOf("path === '/api/voice/tts'");
+  ok(ttsAt > 0, '전제: /api/voice/tts 라우트를 찾았다');
+  const hitBlock = ttsAt > 0
+    ? G.slice(ttsAt).match(/if \(hit\) return new Response\(hit\.body[\s\S]{0,400}?\}\);/) : null;
+  ok(!!hitBlock, '전제: 캐시 적중 응답을 잘라 냈다');
+  if (hitBlock) {
+    ok(/'X-TTS-Engine':/.test(hitBlock[0]) && /r2-cache/.test(hitBlock[0])
+       && /'X-TTS-Speaker':/.test(hitBlock[0]),
+      '캐시 적중 응답에도 진단 헤더를 실어 준다',
+      '없으면 화면이 「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다');
+  }
 
   const WU2 = readFileSync(join(PUB, 'warmup.html'), 'utf8');
   const sp = WU2.match(/function _ttsSpeak\([\s\S]*?\n\}/);
