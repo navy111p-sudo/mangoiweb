@@ -76,7 +76,8 @@ if (!esbuildApi) {
 }
 if (M) {
   const { cefrDisplay, CEFR_LADDER, bandFromCefr } = M;
-  ok('CEFR_LADDER 가 6칸이고 C2 로 끝난다', Array.isArray(CEFR_LADDER) && CEFR_LADDER.length === 6 && CEFR_LADDER[5] === 'C2', JSON.stringify(CEFR_LADDER));
+  ok('CEFR_LADDER 는 A1 로 시작해 C2 로 끝난다', Array.isArray(CEFR_LADDER) && CEFR_LADDER.length >= 2 && CEFR_LADDER[0] === 'A1' && CEFR_LADDER[CEFR_LADDER.length - 1] === 'C2', JSON.stringify(CEFR_LADDER));
+  const N = CEFR_LADDER.length;   // 칸 수는 상수로 못 박지 않는다 — «of 가 사다리 길이와 같은가» 로 묻는다
   // BAND_SPECS 이름표는 번들이 내보내지 않으니 judgment-level 을 따로 번들해 «같은 답» 인지 본다
   const out2 = join(mkdtempSync(join(tmpdir(), 'cefr-')), 'j.mjs');
   esbuildApi.buildSync({ entryPoints: [join(CF, 'src/judgment-level.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: out2, logLevel: 'silent' });
@@ -84,14 +85,14 @@ if (M) {
   CEFR_LADDER.forEach((L, i) => {
     const d = cefrDisplay(L);
     const band = bandFromCefr(L);
-    ok(`${L} → ${i + 1}/6 · 이름 «${d && d.ko}» = BAND_SPECS 밴드 ${band} 이름`,
-      !!d && d.step === i + 1 && d.of === 6 && d.cefr === L && band != null
+    ok(`${L} → ${i + 1}/${N} · 이름 «${d && d.ko}» = BAND_SPECS 밴드 ${band} 이름`,
+      !!d && d.step === i + 1 && d.of === N && d.cefr === L && band != null
         && d.ko === J.bandName(band, 'ko') && d.en === J.bandName(band, 'en')
         && Array.isArray(d.ladder) && d.ladder.join(',') === CEFR_LADDER.join(','),
       JSON.stringify(d));
   });
   const c2 = cefrDisplay('C2');
-  ok('C2 는 사다리 맨 위(6/6)이고 이름은 가장 높은 밴드의 것', !!c2 && c2.step === 6 && c2.ko === J.bandName(J.BAND_COUNT, 'ko'), JSON.stringify(c2));
+  ok('C2 는 사다리 맨 위(N/N)이고 이름은 가장 높은 밴드의 것', !!c2 && c2.step === N && c2.of === N && c2.ko === J.bandName(J.BAND_COUNT, 'ko'), JSON.stringify(c2));
   ok('소문자 «c2» 도 같은 답 (대소문자 무시)', JSON.stringify(cefrDisplay('c2')) === JSON.stringify(c2));
   ok('앞뒤 공백도 같은 답', JSON.stringify(cefrDisplay('  C2 ')) === JSON.stringify(c2));
   const st = cefrDisplay('Starter');
@@ -108,6 +109,7 @@ if (M) {
 console.log('\n③ 채점(CEFR_ORDER)과 게이지(CEFR_LADDER)가 «한 배열»');
 const admS = strip(ADMIN);
 ok('api-admin 의 CEFR_ORDER 가 CEFR_LADDER 에서 온다', /const CEFR_ORDER[^=\n]*=\s*\[\s*\.\.\.CEFR_LADDER\s*\]/.test(admS));
+ok('채점 가중치(CEFR_WEIGHT)도 사다리 순번에서 만든다 — 손으로 적은 { A1: 1, … } 가 없다', /CEFR_WEIGHT[^=\n]*=\s*Object\.fromEntries\(CEFR_ORDER\.map/.test(admS) && !/\{\s*A1:\s*1\s*,/.test(admS));
 ok('api-admin 에 A1…C2 배열 리터럴을 다시 적지 않았다', !/\[\s*'A1'\s*,\s*'A2'\s*,\s*'B1'\s*,\s*'B2'\s*,\s*'C1'\s*,\s*'C2'\s*\]/.test(admS));
 ok('CEFR_LADDER 정의는 student-placement.ts 한 곳뿐', (strip(PLACE).match(/export const CEFR_LADDER\b/g) || []).length === 1 && !/const CEFR_LADDER\b/.test(admS));
 ok('api-admin 이 cefrDisplay·CEFR_LADDER 를 정본에서 import 한다', /import \{[^}]*\bcefrDisplay\b[^}]*\} from '\.\/student-placement'/.test(admS) && /import \{[^}]*\bCEFR_LADDER\b[^}]*\} from '\.\/student-placement'/.test(admS));
