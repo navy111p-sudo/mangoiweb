@@ -64,6 +64,13 @@ export const WARMUP_LOG_ALTERS: Array<{ column: string; sql: string }> = [
 
 /** 아이솔레이트당 1회만 스키마를 확인한다(발화마다 CREATE 를 보내지 않기 위해). */
 let _schemaReady = false;
+/** 🀄 나중에 붙인 칸이 «실제로 있는가». ALTER 가 실패했으면 그 칸 없이 적는다.
+ *  🔴 이것이 없으면 ALTER 한 번 실패에 **세션 기록 전체가 조용히 죽습니다** —
+ *     INSERT 가 `lang` 을 요구해 `no such column` 으로 던지고, 그것을 바깥 catch 가
+ *     삼킵니다. 그러면 이 파일이 존재하는 이유(「몇 단계로 쓰는가」·「입을 뗐는가」)가
+ *     통째로 사라지는데 화면은 아무 말도 안 합니다.
+ *  ⚠️ 「lang 없이라도 남긴다」가 맞는 방향입니다 — 언어 한 칸 때문에 분모를 잃지 않습니다. */
+let _hasLangCol = true;
 
 async function ensureWarmupLogSchema(env: any): Promise<void> {
   if (_schemaReady || !env || !env.DB) return;
@@ -78,10 +85,14 @@ async function ensureWarmupLogSchema(env: any): Promise<void> {
     for (const { column, sql } of WARMUP_LOG_ALTERS) {
       if (have.has(column)) continue;
       await env.DB.prepare(sql).run();
+      have.add(column);
     }
+    _hasLangCol = have.has('lang');
   } catch (e: any) {
-    // 칸이 없으면 아래 INSERT 가 실패하고 그 자리에서 또 로그가 남는다 — 여기서는 사유만 남긴다.
-    console.error('warmup-log: 칸 추가 실패 —', String(e && e.message || e));
+    /* 칸을 못 붙였으면 «그 칸 없이» 적는다 — 기록을 통째로 잃는 것보다 낫다.
+       ⛔ 여기서 조용히 넘기지 않는다(사유가 없으면 「학생이 안 왔다」와 구분이 안 된다). */
+    _hasLangCol = false;
+    console.error('warmup-log: lang 칸 추가 실패 — lang 없이 기록합니다:', String(e && e.message || e));
   }
   _schemaReady = true;
 }
@@ -109,21 +120,30 @@ export async function logWarmupSessionStart(env: any, o: {
   const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : null;
   try {
     await ensureWarmupLogSchema(env);
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO warmup_session_log
-         (session_id, user_id, difficulty, age_group, textbook, level, lang, started_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(
+    const base = [
       sessionId,
       _trim(o && o.userId, 100) || null,
       difficulty,
       _trim(o && o.ageGroup, 20) || null,
       _trim(o && o.textbook, 200) || null,
       _trim(o && o.level, 100) || null,
-      // 🀄 모르는 값은 «영어» 로 적는다 — 화면 기본값과 서버 normalizeWarmupLang 이 그렇다.
-      (_trim(o && o.lang, 10) === 'zh') ? 'zh' : 'en',
-      Date.now(),
-    ).run();
+    ];
+    // 🀄 모르는 값은 «영어» 로 적는다 — 화면 기본값과 서버 normalizeWarmupLang 이 그렇다.
+    const lang = (_trim(o && o.lang, 10) === 'zh') ? 'zh' : 'en';
+    if (_hasLangCol) {
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO warmup_session_log
+           (session_id, user_id, difficulty, age_group, textbook, level, lang, started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(...base, lang, Date.now()).run();
+    } else {
+      /* 칸을 못 붙인 환경 — 언어만 잃고 나머지는 그대로 남긴다(위 _hasLangCol 주석 참고). */
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO warmup_session_log
+           (session_id, user_id, difficulty, age_group, textbook, level, started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(...base, Date.now()).run();
+    }
   } catch (e: any) {
     // ⚠️ 삼키되 «조용히» 삼키지는 않는다 — 기록이 통째로 안 들어오는 것과 「학생이 안 왔다」는
     //    숫자로 구분이 안 된다. 이 워커는 관찰 가능성이 켜져 있어 Workers 로그에 남는다.

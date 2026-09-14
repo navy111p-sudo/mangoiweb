@@ -228,17 +228,24 @@ export async function zhStudentByTeacher(env: { DB: any }, userId: string): Prom
  */
 export const WARMUP_ZH_STUCK_CHIPS: string[] = ['再说一遍。', '我不知道。'];
 
-/** 영어와 같은 눈금: 보기를 주는 것은 1~3단계까지(그 위는 스스로 답하는 것이 훈련). */
-export const WARMUP_ZH_CHIP_MAX_LEVEL = 3;
+/**
+ * 중국어에서 «대답 보기» 를 주는 마지막 단계.
+ * ⚠️ 영어(`WARMUP_CHIP_MAX_LEVEL` = 3)보다 **한 칸 낮습니다** — 영어는 3단계에서
+ *    「A还是B」 같은 양자택일을 «유도해» 만들 수 있지만 중국어에는 그 방법이 없어서,
+ *    여기서 줄 수 있는 것은 1·2단계의 «막혔을 때» 탈출구뿐입니다.
+ * ⛔ 3 으로 되돌리지 마세요 — 아래 함수가 이 값을 «실제로 씁니다». 숫자만 바꾸면
+ *    3단계에 탈출구가 붙는데, 그 단계는 스스로 답하는 것이 훈련입니다.
+ */
+export const WARMUP_ZH_CHIP_MAX_LEVEL = 2;
 
 /**
- * 중국어 «대답 보기». 1·2단계에만 탈출구를 주고 그 밖에는 빈 배열.
+ * 중국어 «대답 보기». `WARMUP_ZH_CHIP_MAX_LEVEL` 까지만 탈출구를 주고 그 밖에는 빈 배열.
  * ⚠️ `aiText` 는 «지금은» 안 쓴다 — 쓰는 척하는 인자를 남겨 두면 다음 사람이
  *    「여기서 질문을 보고 있다」고 오해한다. 그래서 이름을 `_aiText` 로 둔다.
  */
 export function warmupZhAnswerChips(_aiText: unknown, level: unknown): string[] {
   const lv = Math.floor(Number(level));
-  if (!(lv >= 1 && lv <= 2)) return [];
+  if (!(lv >= 1 && lv <= WARMUP_ZH_CHIP_MAX_LEVEL)) return [];
   return WARMUP_ZH_STUCK_CHIPS.slice();
 }
 

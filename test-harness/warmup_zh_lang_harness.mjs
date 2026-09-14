@@ -167,8 +167,11 @@ if (SANMOD) {
 
 console.log('\n[ ⑦ 기록 — 「중국어로 몇 명이 쓰는가」를 셀 수 있다 ]');
 check('세션 기록표에 lang 칸이 있다', /column: 'lang'/.test(LOG));
+/* ⚠️ 부정 검사는 «주석을 벗겨 낸 사본» 으로 — 원문으로 보면 CREATE 와 lang 사이에 설명
+   주석 한 줄만 들어가도 자기 주석을 잡습니다(CLAUDE.md 2장). 창(400자)도 함께 넓힙니다. */
 check('⛔ CREATE 를 고치지 않고 ALTER 로 붙였다 (이미 만들어진 표는 CREATE 를 다시 안 본다)',
-  !/CREATE TABLE IF NOT EXISTS warmup_session_log[\s\S]{0,400}lang/.test(LOG));
+  !/CREATE TABLE IF NOT EXISTS warmup_session_log[\s\S]*?\)`/.test(strip(LOG).replace(/[\s\S]*?(CREATE TABLE IF NOT EXISTS warmup_session_log)/, '$1').split('`,')[0] + '`') ||
+  !/lang/.test((strip(LOG).match(/CREATE TABLE IF NOT EXISTS warmup_session_log[\s\S]*?\)`/) || [''])[0]));
 check('이미 있는 칸은 다시 붙이지 않는다(PRAGMA 로 먼저 물어본다)',
   /PRAGMA table_info/.test(LOG) && !/ADD COLUMN[\s\S]{0,120}catch\s*\{\s*\}/.test(strip(LOG)));
 check('서버가 그 값을 실제로 기록한다', /lang: ctxLang,/.test(IDXC));
@@ -239,6 +242,139 @@ check('힌트는 저장하지 않는다(setWarmLang 을 쓰지 않는다)',
   '저장하면 «학생이 고른 것» 이 되어 나중에 기본값을 되돌릴 수 없습니다');
 check('힌트 요청은 세션 기록을 남기지 않는다(session_id 를 안 보낸다)',
   /context\?hint=1&user_id=/.test(HTMLC) && !/hint=1[^\n]*session_id/.test(HTMLC));
+
+console.log('\n[ ⑪ 🔴 중국어 교정이 «실제로 통과하는가» — 배선이 아니라 결과로 묻는다 ]');
+{
+  /* 📜 2026-09-13 함정 대조가 잡은 것: 새로 만든 중국어 교정 규칙·축·배선이 전부 있는데
+     `verifyWarmupFix` 가 `isEnglishText` 로 재서 **중국어 교정이 한 건도 통과하지 못했습니다.**
+     ⛔ 그래서 이 절은 「그 함수를 부르는가」로 묻지 않습니다 — **돌려서 답을 봅니다.** */
+  const CORRMOD = await loadTs('src/warmup-correction.ts', 'corr');
+  if (esb) check('전제: warmup-correction 을 번들해 실제로 돌렸다', !!CORRMOD);
+  if (CORRMOD) {
+    const V = CORRMOD.verifyWarmupFix;
+    const zhOpts = { majorTags: CORRMOD.ZH_MEANING_CHANGING_TAGS, lang: 'zh' };
+    const zhCases = [
+      ['어순(时间词)', { was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간을 나타내는 말은 앞에 와요.', tag: 'word_order' }, '我去学校昨天。'],
+      ['양사',         { was: '一个书',      now: '一本书',        why_ko: '책에는 本 을 써요.',              tag: 'word_choice' }, '我有一个书。'],
+      ['了',           { was: '我吃饭',      now: '我吃了饭',      why_ko: '이미 한 일이니 了 를 붙여요.',    tag: 'verb_form' }, '昨天我吃饭。'],
+    ];
+    for (const [name, fix, said] of zhCases) {
+      const got = V(fix, said, zhOpts);
+      check('중국어 교정이 통과한다 — ' + name, !!got && got.now === fix.now,
+        got ? JSON.stringify(got) : 'null (버려짐)');
+    }
+    /* 짝 ① — 뜻이 달라지는 축은 major 로 올라와야 한다(모델이 minor 라 해도) */
+    const sev = V({ was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말이 앞이에요.', tag: 'word_order', severity: 'minor' }, '我去学校昨天。', zhOpts);
+    check('중국어 «뜻이 달라지는» 축은 major 로 본다 (짝)', !!sev && sev.severity === 'major',
+      sev ? sev.severity : 'null');
+    /* 짝 ② — 지어낸 교정은 중국어에서도 버린다(학생이 말하지 않은 것) */
+    check('학생이 말하지 않은 중국어 교정은 버린다 (짝)',
+      V({ was: '一个书', now: '一本书', why_ko: '책에는 本 을 써요.', tag: 'word_choice' }, '你好吗？', zhOpts) === null);
+    check('한국어가 섞인 중국어 교정은 버린다 (짝)',
+      V({ was: '나는 학교', now: '我去学校', why_ko: '이렇게 써요.', tag: 'word_order' }, '나는 학교', zhOpts) === null);
+    /* 🔴 짝 ③ — 영어 경로가 한 글자도 안 바뀌었는가. lang 을 안 넘기면 예전 그대로여야 한다. */
+    check('영어 교정은 예전 그대로 통과한다 (짝)',
+      !!V({ was: 'I go to school yesterday', now: 'I went to school yesterday', why_ko: '어제 일이니 과거형이에요.', tag: 'past_tense' },
+           'I go to school yesterday.'),
+      '영어가 깨지면 이 변경은 되돌려야 합니다');
+    check('영어 경로에 중국어를 넣으면 여전히 버린다 (짝)',
+      V({ was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말이 앞이에요.', tag: 'word_order' }, '我去学校昨天。') === null,
+      'lang 을 안 넘겼는데 통과하면 영어 게이트가 풀린 것입니다');
+  }
+  /* 배선 — 서버가 그 언어를 «실제로 넘기는가» */
+  check('서버가 검증기에 lang 을 넘긴다',
+    /verifyWarmupFix\([\s\S]{0,300}lang: 'zh'/.test(IDXC),
+    '안 넘기면 중국어 교정이 100% 버려집니다');
+}
+
+console.log('\n[ ⑫ 🀄 «영어 고정» 지시문이 중국어 프롬프트에 남지 않았는가 ]');
+{
+  /* 🔴 이 줄들은 warmupZhSystem() 의 「중국어로 말해」 **뒤에** 붙어서 더 뒤·더 구체적인
+     지시가 이깁니다 — 영어 고정으로 두면 중국어 대화에 「아주 쉬운 영어 질문」이 들어갑니다. */
+  check('교재 소재 안내가 언어를 탄다',
+    /핵심 중국어 표현 예시/.test(IDXC) && /핵심 영어 문장 예시/.test(IDXC));
+  check('웜업 방식 안내가 언어를 탄다',
+    /아주 쉬운 중국어\(간체자\) 질문/.test(IDXC) && /아주 쉬운 영어 질문/.test(IDXC));
+  check('「질문 골라 보기」도 교재 소재를 그 언어로 읽는다',
+    /warmupLessonContextCached\(env, sessionId, \{[^}]*lang: qLang/.test(IDXC),
+    '빠지면 캐시 키가 |en 이 되어 영어 문장이 중국어 질문 프롬프트로 들어갑니다');
+}
+
+console.log('\n[ ⑬ 🔴 «어느 쪽이 나오는가» — 삼항식을 실제로 평가한다 ]');
+{
+  /* 📜 2026-09-13 함정 대조: 「영어 정본이 있는가 + 중국어 정본이 있는가」 짝만으로는
+     **영·중을 뒤바꾼 변이**(`ctxLang === 'zh' ? 영어 : 중국어`)가 둘 다 통과합니다.
+     ⇒ 식을 오려 내 «zh 일 때 무엇이 나오는가» 를 **실제로 평가**합니다.
+     ⚠️ 상수 이름을 그대로 평가하면 `… is not defined` 로 죽어 조용히 catch 로 빠집니다 —
+        이름을 표식으로 바꿔 넣고, 「식을 찾아 평가했다」를 **전제 검사로** 둡니다
+        (안 두면 식이 안 잡혔을 때 검사가 통째로 사라집니다). */
+  const pick = (re, enName, zhName) => {
+    const m = IDXC.match(re);
+    if (!m) return { found: false };
+    const src = m[1].split(zhName).join('"ZH"').split(enName).join('"EN"');
+    try {
+      const f = new Function('ctxLang', 'return (' + src + ');');
+      return { found: true, zh: f('zh'), en: f('en') };
+    } catch (e) { return { found: true, err: e.message }; }
+  };
+  const cases = [
+    ['난이도 표', /\[난이도\] \$\{\((ctxLang === 'zh' \? \w+ : \w+)\)\[ctxDifficulty\]\}/,
+      'WARMUP_LEVELS', 'WARMUP_ZH_LEVELS'],
+    ['교정 규칙', /sys \+= '\\n' \+ \((ctxLang === 'zh' \? \w+ : \w+)\);/,
+      'WARMUP_CORRECTION_RULE', 'WARMUP_ZH_CORRECTION_RULE'],
+    /* ⚠️ 여기는 «함수 호출» 이라 인자까지 평가하면 `aiText is not defined` 로 죽습니다 —
+       호출부를 통째로 표식으로 바꿔 «어느 함수를 고르는가» 만 봅니다. */
+    ['대답 보기', /answer_chips: (ctxLang === 'zh' \? \w+\(aiText, ctxDifficulty\) : \w+\(aiText, ctxDifficulty\))/,
+      'warmupAnswerChips(aiText, ctxDifficulty)', 'warmupZhAnswerChips(aiText, ctxDifficulty)'],
+  ];
+  for (const [name, re, en, zh] of cases) {
+    const r = pick(re, en, zh);
+    check(`전제: ${name} 식을 찾아 평가했다`, r.found && !r.err, r.err || (r.found ? '' : '식을 못 찾음'));
+    if (r.found && !r.err) {
+      check(`${name} — 중국어면 중국어를 고른다 (뒤바꿈 변이 차단)`, r.zh === 'ZH', 'zh→' + r.zh);
+      check(`${name} — 영어면 영어를 고른다 (짝)`, r.en === 'EN', 'en→' + r.en);
+    }
+  }
+}
+
+console.log('\n[ ⑭ 🀄 언어를 바꾸면 폴백 목소리도 다시 고르는가 ]');
+{
+  /* 🔴 `pickVoice()` 는 로드 때와 voiceschanged 에만 돕니다 — 언어 전환을 안 따라옵니다.
+     그러면 같은 페이지에서 중국어로 바꾼 학생이 서버 TTS 실패로 폴백할 때
+     **한자를 영어 목소리로 읽습니다**(이 코드 자신의 주석이 금지한 상태). */
+  const body = (() => {
+    const i = HTMLC.indexOf('function setWarmLang(');
+    if (i < 0) return '';
+    const o = HTMLC.indexOf('{', i);
+    let d = 0;
+    for (let k = o; k < HTMLC.length; k++) {
+      if (HTMLC[k] === '{') d++;
+      else if (HTMLC[k] === '}') { d--; if (!d) return HTMLC.slice(o, k + 1); }
+    }
+    return '';
+  })();
+  check('전제: setWarmLang 몸통을 잘라 냈다', body.length > 60, 'len=' + body.length);
+  check('언어가 바뀌면 _enVoice 를 비우고 다시 고른다',
+    /_enVoice\s*=\s*null/.test(body) && /pickVoice\(\)/.test(body),
+    '안 하면 이전 언어 목소리가 남아 한자를 영어 발음으로 읽습니다');
+  /* 짝 — «바뀔 때만» 해야 한다(매번 비우면 고른 성별·화자 선택이 흔들린다) */
+  check('바뀌지 않았으면 건드리지 않는다 (짝)', /if\(changed\)\{[^}]*_enVoice=null/.test(body));
+}
+
+console.log('\n[ ⑮ 기록 — 칸을 못 붙여도 세션 기록을 통째로 잃지 않는가 ]');
+{
+  /* 🔴 ALTER 가 한 번 실패하면 INSERT 가 `no such column` 으로 던지고 바깥 catch 가 삼켜
+     **「몇 단계로 쓰는가」·「입을 뗐는가」 분모가 통째로** 사라집니다(화면은 아무 말도 안 함). */
+  /* ⚠️ 「그 이름이 있는가」로 묻지 않습니다 — `if (true) {` 로 바꿔도 이름은 남습니다(실측).
+     **그 lang INSERT 를 «감싸는 조건» 이 _hasLangCol 인가** 로 묻고, lang 없는 갈래도 짝으로 봅니다. */
+  check('lang 을 적는 INSERT 가 «칸이 있을 때만» 돈다',
+    /if \([^)]*_hasLangCol[^)]*\)\s*\{[\s\S]{0,500}?lang, Date\.now\(\)/.test(LOG),
+    'if (true) 로 바꾸면 칸이 없는 환경에서 세션 기록이 통째로 사라집니다');
+  check('칸이 없으면 lang 없이라도 적는다 (짝)',
+    /\(session_id, user_id, difficulty, age_group, textbook, level, started_at\)/.test(LOG),
+    '언어 한 칸 때문에 기록 전체를 잃지 않습니다');
+  check('그 실패를 조용히 넘기지 않는다', /lang 칸 추가 실패[\s\S]{0,80}console\.error|console\.error[\s\S]{0,120}lang 칸 추가 실패/.test(LOG));
+}
 
 console.log('\n════════════════════════════════════════════════════════════');
 console.log(`  🀄 중국어 대화 하니스: ✅ ${pass} 통과 / ❌ ${fail} 실패`);

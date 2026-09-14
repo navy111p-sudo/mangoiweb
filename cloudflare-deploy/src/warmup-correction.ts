@@ -251,9 +251,24 @@ function normEn(s: unknown): string {
      통과해야 할 진짜 교정: 0.48 ~ 0.96  (가장 낮은 것이 "I don't went" → "I didn't go" 0.48)
      막아야 할 창작:        0.00 ~ 0.09  ("I go" → "Pizza tastes wonderful" 0.00)
    간격이 다섯 배라 0.35 로 가른다. 낱말 겹침(0.5)과 «둘 중 하나» 면 통과시킨다. */
-function charDice(a: string, b: string): number {
+/**
+ * 🀄 중국어 정규화 — `normEn` 의 중국어 판.
+ * ⚠️ `normEn` 을 중국어에 쓰면 **빈 문자열**이 됩니다(`[^a-z0-9' ]` 가 한자를 전부 지웁니다).
+ *    2026-09-13 에 그래서 중국어 교정이 **한 건도 통과하지 못했습니다**(아래 verifyWarmupFix 참고).
+ * ⚠️ 중국어에는 띄어쓰기가 없으므로 단위가 «낱말» 이 아니라 **«글자»** 입니다 —
+ *    공백은 뜻이 없어 통째로 지웁니다(모델이 넣기도, 안 넣기도 합니다).
+ * ⛔ 성조·병음은 보지 않습니다 — 그건 «맞는가» 이고 여기서는 알 수 없습니다.
+ */
+function normZh(s: unknown): string {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .replace(/[\u3000\s]+/g, '')                       // 전각·반각 공백 전부
+    .replace(/[^\u3400-\u9fffa-z0-9]+/g, '');          // 한자·라틴·숫자만 남긴다(구두점 제거)
+}
+
+function charDice(a: string, b: string, norm: (v: unknown) => string = normEn): number {
   const bg = (x: string) => { const o: string[] = []; for (let i = 0; i < x.length - 1; i++) o.push(x.slice(i, i + 2)); return o; };
-  const A = bg(normEn(a)), B = bg(normEn(b));
+  const A = bg(norm(a)), B = bg(norm(b));
   if (!A.length || !B.length) return 0;
   const m = new Map<string, number>();
   for (const x of B) m.set(x, (m.get(x) || 0) + 1);
@@ -263,9 +278,14 @@ function charDice(a: string, b: string): number {
 }
 
 /** 낱말이 얼마나 겹치나 — 통째로 다시 쓴 문장(교정이 아니라 창작)을 걸러 낸다. */
-function wordOverlap(a: string, b: string): number {
-  const A = normEn(a).split(' ').filter(Boolean);
-  const B = normEn(b).split(' ').filter(Boolean);
+/** ⚠️ 중국어에는 띄어쓰기가 없어 `split(' ')` 이 «문장 한 덩어리 = 1낱말» 을 줍니다.
+ *     그래서 중국어에서는 «글자» 로 자릅니다(`splitZh`). 영어 경로는 한 글자도 안 바뀝니다. */
+function splitZh(s: string): string[] { return s.split(''); }
+function wordOverlap(a: string, b: string,
+                     norm: (v: unknown) => string = normEn,
+                     cut: (v: string) => string[] = (v) => v.split(' ')): number {
+  const A = cut(norm(a)).filter(Boolean);
+  const B = cut(norm(b)).filter(Boolean);
   if (!A.length || !B.length) return 0;
   const setB = new Set(B);
   let hit = 0;
@@ -280,7 +300,7 @@ function wordOverlap(a: string, b: string): number {
 export function verifyWarmupFix(
   fixRaw: any,
   studentInput: unknown,
-  opts?: { majorTags?: readonly string[] },
+  opts?: { majorTags?: readonly string[]; lang?: 'en' | 'zh' },
 ): WarmupFix | null {
   if (!fixRaw || typeof fixRaw !== 'object') return null;
 
@@ -292,30 +312,53 @@ export function verifyWarmupFix(
   if (!was || !now || !whyKo || !said) return null;
   if (was.length > 200 || now.length > 200 || whyKo.length > 200) return null;
 
-  /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
-     상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
-     (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
-  if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+  /* 🀄 언어 축 (2026-09-13). 아래 모든 판정이 여기서 갈린다.
+     🔴 이 축이 없던 동안 **중국어 교정은 한 건도 통과하지 못했습니다** —
+        `isEnglishText` 가 한자를 100% 떨어뜨리고, 그 아래 `normEn` 이 한 번 더
+        빈 문자열을 만들어 **두 겹으로** 막혀 있었습니다. 에러는 안 났고 교정 카드가
+        «그냥 안 뜨는» 것으로만 보였습니다(CLAUDE.md 2장 「기능이 «있는데» 아무 일도 안 일어남」).
+     ⚠️ 그래서 이 자리는 «규칙을 넣었다» 가 아니라 **«실제로 통과하는가» 로 검사**해야 합니다. */
+  const zhMode = !!(opts && opts.lang === 'zh');
+  const norm = zhMode ? normZh : normEn;
+
+  if (zhMode) {
+    /* 중국어 문장이어야 한다 — «한자가 있고 한글·가나가 없다».
+       ⛔ `isEnglishText` 를 쓰지 마세요(한자를 전부 버립니다).
+       ⛔ 「맞는 중국어인가」는 묻지 않습니다 — 알 수 없고, 모르면 버리지 않는 쪽이 맞습니다. */
+    const zhOk = (t: string) => /[\u3400-\u9fff]/.test(t) && !/[가-힣\u3040-\u30ff]/.test(t);
+    if (!zhOk(was) || !zhOk(now)) return null;
+    if (was.length > 120 || now.length > 120) return null;
+  } else {
+    /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
+       상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
+       (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
+    if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+  }
 
   // why_ko 는 한국어여야 한다(한글이 한 글자도 없으면 모델이 영어로 쓴 것 → 버린다)
   if (!/[가-힣]/.test(whyKo)) return null;
 
-  const nWas = normEn(was);
-  const nNow = normEn(now);
-  const nSaid = normEn(said);
+  const nWas = norm(was);
+  const nNow = norm(now);
+  const nSaid = norm(said);
   if (!nWas || !nNow) return null;
 
   // 🔴 핵심 — was 가 학생 원문에 «있어야» 한다. 없으면 모델이 지어낸 것이다.
   /* ⚠️ 낱말 경계로 본다 — 그냥 includes 면 'o to sch' 같은 «낱말 조각» 이 통과해
-     화면에 뜻 없는 교정이 그려진다(CLAUDE.md 2장 「«부분문자열» 로 보면」). */
-  if (!(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
+     화면에 뜻 없는 교정이 그려진다(CLAUDE.md 2장 「«부분문자열» 로 보면」).
+     ⚠️ 중국어에는 «낱말 경계» 가 없다 — 띄어쓰기가 없어 공백으로 감쌀 수가 없다. 그래서
+        그대로 포함 검사를 한다. 맞바꿈: 한 글자짜리 was 도 통과할 수 있다(영어처럼 «뜻 없는
+        철자 조각» 이 되지는 않는다 — 한자 한 글자는 그 자체로 낱말이다). */
+  if (zhMode ? !nSaid.includes(nWas) : !(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
   // 고친 것이 없으면 교정이 아니다
   if (nWas === nNow) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
      흔한 교정이 0.33 으로 묻힌다(함정 대조가 실측으로 잡았다). 둘 중 하나면 통과. */
-  if (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35) return null;
+  if (zhMode
+        ? (wordOverlap(nWas, nNow, normZh, splitZh) < 0.5 && charDice(nWas, nNow, normZh) < 0.35)
+        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35)) return null;
 
   const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
   /* 🔴 severity 를 모델에게 맡기지 않는다 (2026-09-09 사장님 「I ate pizza yesterday 인데

@@ -4173,8 +4173,16 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
         if (lc.textbook || lc.level || lc.sentences.length) {
           if (lc.student_name) sys += ` 학생 이름은 '${lc.student_name}' 이야.`;
           sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
-          if (lc.sentences.length) sys += ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
-          sys += " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
+          /* 🀄 교재 소재를 «감싸는 말» 도 언어를 타야 한다 (2026-09-13).
+         🔴 이 두 줄은 `warmupZhSystem()` 의 「[언어] 반드시 중국어 간체자로 말해」 **뒤에** 붙는다.
+            더 뒤에 있고 더 구체적인 지시가 이기므로, 영어 고정으로 두면 중국어 대화에
+            「아주 쉬운 **영어** 질문을 물어봐」가 그대로 들어간다(CLAUDE.md 2장 「한 화면이 정반대를 말한다」). */
+          if (lc.sentences.length) sys += ctxLang === 'zh'
+            ? ` 오늘 배울 핵심 중국어 표현 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`
+            : ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
+          sys += ctxLang === 'zh'
+            ? " 웜업 방식: 이 교재 내용(위 표현들의 단어·주제)을 활용해서 아주 쉬운 중국어(간체자) 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘."
+            : " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
         }
         // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 우선 복습 질문.
         //    Aura 는 외부 HTTP 라 세션당 1회만 조회하고 KV 에 30분 캐시(매 메시지 호출 방지).
@@ -4407,7 +4415,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
          안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
       const verified = verifyWarmupFix(rawFix, studentInput,
-        ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS } : undefined);
+        /* 🀄 lang 을 빼면 검증기가 «영어 문장인가» 로 재서 **중국어 교정이 100% 버려집니다**
+           (isEnglishText 가 한자를 떨어뜨리고 normEn 이 빈 문자열을 만듭니다 — 에러 없음). */
+        ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
       if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
@@ -4518,7 +4528,11 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     // ── 학생 컨텍스트 (배정 교재/레벨/오늘 문장) ──
     let lc = { textbook: reqTextbook, level: reqLevel, lesson_no: lessonNo, student_name: '', sentences: [] as string[] };
     // 채팅과 같은 캐시를 공유한다 — 같은 세션이면 추가 질문 생성 때 D1 을 다시 보지 않는다
-    try { lc = await warmupLessonContextCached(env, sessionId, { userId, textbook: reqTextbook, level: reqLevel, lessonNo }); } catch {}
+    /* 🀄 lang 을 빼면 캐시 키가 «|en» 이 되어 **영어 교재 문장**(isEnglishQuestion 게이트를 지난
+       review_quizzes)을 읽고, 그것이 아래 「오늘 배울 핵심 문장」으로 중국어 질문 프롬프트에
+       들어간다. 대화(handleWarmupChat)는 넘기는데 여기만 빠져 있었다 — CLAUDE.md 2장
+       「같은 배정을 두 API 가 서로 다른 방식으로 확인」·「한 곳만 고치면 반쪽」. */
+    try { lc = await warmupLessonContextCached(env, sessionId, { userId, textbook: reqTextbook, level: reqLevel, lessonNo, lang: qLang }); } catch {}
 
     // ── 반복 방지: 이 세션에서 이미 생성/사용한 질문 목록 (KV, 6시간) ──
     const qkey = sessionId ? ('warmupq:' + sessionId) : '';
