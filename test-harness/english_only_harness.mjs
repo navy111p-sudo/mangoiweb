@@ -66,10 +66,16 @@ check('⛔ 규칙(문자범위)을 다른 파일에 복사하지 않았다',
    ✅ 지켜야 할 것은 그대로입니다 — 화면이 «무슨 말인지 스스로 가리지» 않는다:
       ① 게이트 이름(isEnglishText/isEnglishQuestion)을 쓰지 않는다
       ② 언어를 가르는 «문자범위 정규식» 을 화면에 복사하지 않는다
-   ⛔ 이 검사를 「중국어 글자가 없다」로 되돌리지 마세요 — 인사말이 실제로 중국어입니다. */
+   ⛔ 이 검사를 「중국어 글자가 없다」로 되돌리지 마세요 — 인사말이 실제로 중국어입니다.
+   📜 2026-09-14 — ①도 «주석을 벗겨 낸 사본» 으로 판정하도록 고쳤습니다. 원문으로 보면
+      「이 소재는 서버가 isEnglishText 로 걸러 영어만 준다」는 «왜 그렇게 했는지» 설명
+      주석 한 줄에 빨간불이 났습니다(CLAUDE.md 2장 «부정 검사가 자기 주석을 잡는다»).
+      ②는 처음부터 strip 을 쓰고 있었으니, 둘의 기준을 맞춘 것이기도 합니다.
+      ✅ 지키는 것은 그대로입니다 — «코드가» 그 이름을 쓰면 여전히 빨간불입니다. */
+const warmupHtmlC = strip(warmupHtml);
 check('⛔ 화면(warmup.html)에는 판정 규칙을 복사하지 않았다 (서버가 거른 것을 그대로 그린다)',
-  !/isEnglish/.test(warmupHtml)
-  && !/\\u3040-\\u30ff|\\u4e00-\\u9fff|\\u3400-\\u9fff/.test(strip(warmupHtml)));
+  !/isEnglish/.test(warmupHtmlC)
+  && !/\\u3040-\\u30ff|\\u4e00-\\u9fff|\\u3400-\\u9fff/.test(warmupHtmlC));
 
 console.log('\n[ ② ETL 세 입구가 모두 게이트를 지난다 ]');
 check('교재 문장 추출(extractSentences)이 문항 게이트를 먼저 지난다',

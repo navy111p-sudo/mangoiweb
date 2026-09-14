@@ -376,15 +376,35 @@ console.log('\n[ ⑮ 기록 — 칸을 못 붙여도 세션 기록을 통째로 
   check('그 실패를 조용히 넘기지 않는다', /lang 칸 추가 실패[\s\S]{0,80}console\.error|console\.error[\s\S]{0,120}lang 칸 추가 실패/.test(LOG));
 }
 
-console.log('\n[ ⑯ 중국어 교사 «메이» — 언어에 맞는 친구가 나오는가 ]');
+console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 메이 한 사람 ]');
 {
   /* 🔴 왜 이 검사가 필요한가
-     중국어 TTS 는 화자를 안 가린다(구글 만다린 한 목소리). 그래서 중국어에서 영어 친구
-     네 명을 그대로 늘어놓으면 「골랐는데 목소리가 같다」는 «화면이 하는 거짓말» 이 된다.
-     ⚠️ 그리고 이런 것은 문자열로 못 본다 — 표도 함수도 다 «있고» 틀린 것은 «무슨 답이
-        나오는가» 뿐이다. 그래서 오려 내 실제로 돌린다. */
+     중국어 TTS 는 화자를 안 가린다(구글 만다린 한 목소리). 그래서 중국어에서 친구를
+     여럿 늘어놓으면 「골랐는데 목소리가 같다」는 «화면이 하는 거짓말» 이 된다.
+     📜 2026-09-14 지시 변경 — 처음(같은 날 오전)에는 «중국어에서는 메이 버튼 하나만 보인다»
+        였다. 사장님이 화면을 보고 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」
+        으로 정하셔서, 경계를 «버튼 하나만 보인다» → «고르는 칸 자체가 없다» 로 옮겨 적는다.
+        ⛔ 옛 경계(메이 버튼이 보인다)로 되돌리지 마세요 — 그건 검사를 느슨하게 푸는 것이
+           아니라 사람이 바꾼 결정을 되돌리는 것입니다.
+     ⚠️ 이런 것은 문자열로 못 본다 — 표도 함수도 다 «있고» 틀린 것은 «무슨 답이 나오는가»
+        뿐이다. 그래서 오려 내 실제로 돌린다. */
+
+  /** 중괄호 짝으로 함수 몸통을 자른다 — «앞 N자» 로 자르면 옆 함수가 딸려 든다. */
+  const bodyOf = (src, sig) => {
+    const i = src.indexOf(sig);
+    if (i < 0) return '';
+    const o = src.indexOf('{', i + sig.length - 1);
+    if (o < 0) return '';
+    let d = 0;
+    for (let k = o; k < src.length; k++) {
+      if (src[k] === '{') d++;
+      else if (src[k] === '}') { d--; if (!d) return src.slice(o + 1, k); }
+    }
+    return '';
+  };
+
   const modesSrc = HTML.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
-  const fnSrc = HTML.match(/function voiceForLang\(lang, savedEn, savedZh\)\{[\s\S]*?\n\}/);
+  const fnSrc = HTML.match(/function voiceForLang\(lang, savedEn\)\{[\s\S]*?\n\}/);
   check('전제: VOICE_MODES 와 voiceForLang 을 오려 냈다', !!modesSrc && !!fnSrc,
     'modes=' + !!modesSrc + ' fn=' + !!fnSrc);
   let vf = null, MODES = null;
@@ -400,56 +420,120 @@ console.log('\n[ ⑯ 중국어 교사 «메이» — 언어에 맞는 친구가 
     /* 짝 — 영어 친구에 zh 가 붙으면 영어 화면에서 그 사람이 사라진다 */
     check('영어 네 친구에는 zh 표시가 없다 (짝)',
       ['emma', 'jake', 'lily', 'noah'].every((k) => MODES[k] && !MODES[k].zh));
-    check('중국어면 메이가 나온다', vf('zh', 'lily', 'mei') === 'mei');
-    check('중국어인데 기억이 없어도 메이로 떨어진다', vf('zh', 'lily', undefined) === 'mei');
-    check('중국어 자리에 영어 사람이 저장돼 있어도 메이로 떨어진다', vf('zh', 'lily', 'emma') === 'mei');
+    check('중국어면 메이가 나온다', vf('zh', 'lily') === 'mei');
+    check('중국어는 «저장값을 아예 안 본다» — 무엇이 들어와도 메이',
+      ['emma', 'jake', 'lily', 'noah', 'mix', 'mei', undefined, null, '', 'zzz']
+        .every((v) => vf('zh', v) === 'mei'),
+      '하나라도 다른 답이 나오면 「선택 없이 메이」가 깨집니다');
     /* 🔴 짝이 없으면 «언제나 메이» 도 통과한다 — 영어가 그대로인지 반드시 함께 본다 */
-    check('영어면 «영어에서 마지막에 고른 사람» 이 그대로다 (짝)', vf('en', 'lily', 'mei') === 'lily');
-    check('영어면 「번갈아」도 그대로다 (짝)', vf('en', 'mix', 'mei') === 'mix');
-    check('영어 자리에 중국어 사람이 저장돼 있으면 Emma 로 떨어진다', vf('en', 'mei', 'mei') === 'emma');
+    check('영어면 «영어에서 마지막에 고른 사람» 이 그대로다 (짝)', vf('en', 'lily') === 'lily');
+    check('영어면 「번갈아」도 그대로다 (짝)', vf('en', 'mix') === 'mix');
+    check('영어 자리에 중국어 사람이 저장돼 있으면 Emma 로 떨어진다', vf('en', 'mei') === 'emma');
+  }
+
+  /* «지금 누가 말하나» — 옛 저장값이 무엇이든 중국어면 메이여야 한다.
+     ⚠️ 이 함수가 «중국어 = 메이» 의 정본이다. 언어를 어느 경로로 켜든(버튼·서버 힌트·옛 값)
+        여기서 한 번에 막히므로, 여기가 뚫리면 나머지 검사는 전부 뜻을 잃는다. */
+  const personSrc = HTML.match(/function _voicePerson\(\)\{[\s\S]*?\n\}/);
+  check('전제: _voicePerson 을 오려 냈다', !!personSrc);
+  if (personSrc) {
+    const who = (zh, mode, idx) => {
+      try {
+        return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx',
+          personSrc[0] + '\nreturn _voicePerson();')(
+          () => zh, mode, ['emma', 'jake', 'lily', 'noah'], idx || 0);
+      } catch (e) { return 'ERR:' + e.message; }
+    };
+    check('중국어에서는 옛 저장값이 무엇이든 메이가 말한다',
+      ['emma', 'jake', 'lily', 'noah', 'mix', 'mei'].every((m) => who(true, m) === 'mei'),
+      '실제: ' + ['emma', 'jake', 'lily', 'noah', 'mix', 'mei'].map((m) => m + '→' + who(true, m)).join(' '));
+    /* 🔴 짝 — 없으면 «언제나 메이» 도 통과한다 */
+    check('영어에서는 고른 사람이 그대로 말한다 (짝)', who(false, 'lily') === 'lily');
+    check('영어 「번갈아」는 순번이 가리키는 사람이다 (짝)',
+      who(false, 'mix', 0) === 'emma' && who(false, 'mix', 2) === 'lily',
+      '실제: ' + who(false, 'mix', 0) + ',' + who(false, 'mix', 2));
   }
 
   /* 화면에서 «감추는가» — 가짜 DOM 으로 실제로 돌린다 */
   const syncSrc = HTML.match(/function syncVoiceBtnsForLang\(\)\{[\s\S]*?\n\}/);
   check('전제: syncVoiceBtnsForLang 을 오려 냈다', !!syncSrc);
   if (syncSrc && MODES) {
+    /* ⚠️ try/catch 로 감싼다 — 안 감싸면 «던지는» 변이(없는 DOM 메서드를 부르는 등)가
+          깔끔한 FAIL 이 아니라 하니스 크래시가 되어 결과줄조차 안 나온다(실측). */
     const run = (zh) => {
-      const btns = ['emma', 'jake', 'lily', 'noah', 'mix', 'mei']
-        .map((v) => ({ v, hidden: false, getAttribute: (k) => (k === 'data-v' ? v : null) }));
-      const note = { hidden: null };
-      const doc = { getElementById: (id) => (id === 'voiceBtns' ? { querySelectorAll: () => btns } : (id === 'voiceZhNote' ? note : null)) };
-      new Function('document', 'isZh', 'VOICE_MODES', syncSrc[0] + '\nsyncVoiceBtnsForLang();')
-        (doc, () => zh, MODES);
-      return { btns, note };
+      const box = { hidden: null }, note = { hidden: null };
+      const doc = { getElementById: (id) => (id === 'voiceBtns' ? box : (id === 'voiceZhNote' ? note : null)) };
+      let err = null;
+      try {
+        new Function('document', 'isZh', 'VOICE_MODES', syncSrc[0] + '\nsyncVoiceBtnsForLang();')
+          (doc, () => zh, MODES);
+      } catch (e2) { err = e2.message; }
+      return { box, note, err };
     };
     const z = run(true), e = run(false);
-    check('중국어에서는 메이만 보인다',
-      z.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') === 'mei',
-      '보이는 것: ' + z.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') || '없음');
-    check('중국어에서는 «목소리가 한 가지» 안내가 뜬다', z.note.hidden === false,
-      '감추면 「왜 하나뿐이지?」를 학생이 혼자 추측하게 됩니다');
+    check('전제: syncVoiceBtnsForLang 이 «던지지 않고» 돌았다', !z.err && !e.err,
+      'zh=' + (z.err || '-') + ' en=' + (e.err || '-'));
+    check('중국어에서는 «고르는 칸» 이 통째로 감춰진다', z.box.hidden === true,
+      '한 사람만 남겨 보여 주면 「고를 수 있는 것」처럼 보입니다');
+    check('중국어에서는 «메이 한 분» 안내가 뜬다', z.note.hidden === false,
+      '감추면 「왜 못 고르지?」를 학생이 혼자 추측하게 됩니다');
     /* 🔴 짝 — 없으면 «전부 감추기» 도 통과한다 */
-    check('영어에서는 네 친구와 번갈아가 그대로 보인다 (짝)',
-      e.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') === 'emma,jake,lily,noah,mix',
-      '보이는 것: ' + e.btns.filter((b) => !b.hidden).map((b) => b.v).join(','));
-    check('영어에서는 메이가 감춰진다 (짝)', e.btns.find((b) => b.v === 'mei').hidden === true);
+    check('영어에서는 고르는 칸이 그대로 보인다 (짝)', e.box.hidden === false,
+      '실제 hidden=' + e.box.hidden);
     check('영어에서는 그 안내가 안 뜬다 (짝)', e.note.hidden === true);
   }
 
+  /* 마크업 — 중국어 버튼을 되살리면 «고를 수 있는 것» 으로 돌아간다 */
+  check('친구 고르기 칸에 중국어 버튼이 없다',
+    !/data-v="mei"/.test(HTMLC),
+    '중국어는 칸 자체를 감추므로, 버튼을 두면 영어 화면에서 보이거나 죽은 코드가 됩니다');
+  check('영어 다섯 버튼은 그대로다 (짝)',
+    ['emma', 'jake', 'lily', 'noah', 'mix'].every((v) => HTMLC.includes('data-v="' + v + '"')));
+
   /* 배선 — «그 함수를 실제로 부르는가». 호출이 없으면 위 검사가 전부 헛돈다. */
   check('언어를 바꾸면 친구도 그 언어의 사람으로 바꾼다',
-    /if\(changed\) setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn, _savedVoiceZh\)\)/.test(HTMLC),
+    /if\(changed\) setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn\)\)/.test(HTMLC),
     '안 부르면 중국어를 골라도 Emma 얼굴이 그대로 남습니다');
   check('부팅도 «지금 언어» 의 사람으로 시작한다',
-    /^setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn, _savedVoiceZh\)\);/m.test(HTMLC));
-  check('setVoiceMode 가 끝에 버튼 감추기를 부른다', /syncVoiceBtnsForLang\(\);/.test(HTMLC));
-  /* 🔴 저장 칸이 하나면 언어를 오갈 때 서로를 지운다 — 영어로 돌아오면 Emma 로 초기화된다 */
-  check('고른 친구를 언어별로 따로 적는다',
-    /mangoi_warmup_voice_zh/.test(HTMLC) && /VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,160}mangoi_warmup_voice_zh/.test(HTMLC),
-    '한 칸에 담으면 중국어에서 메이를 고른 순간 영어 선택이 사라집니다');
-  check('「번갈아」가 중국어에서 영어 얼굴을 부르지 않는다',
-    /_voiceMode==='mix'\) return isZh\(\) \? 'mei'/.test(HTMLC),
-    '옛 저장값이 mix 인 채 중국어에 들어오면 영어 얼굴이 나옵니다');
+    /^setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn\)\);/m.test(HTMLC));
+  /* 🔴 «파일 어딘가에 그 글자가 있는가» 로 물으면 if(false){…} 로 감싸도 통과한다
+        (2026-09-14 함정 대조 실측). 그 함수 «몸통 안» 에서 불리는지로 묻는다. */
+  const svmBody = bodyOf(HTMLC, 'function setVoiceMode(m, announce){');
+  check('전제: setVoiceMode 몸통을 잘라 냈다', svmBody.length > 100, 'len=' + svmBody.length);
+  check('setVoiceMode 가 «자기 몸통 안에서» 버튼 감추기를 부른다',
+    /(^|[^.\w])syncVoiceBtnsForLang\(\);/m.test(svmBody),
+    '안 부르면 언어를 바꿔도 영어 버튼이 그대로 남습니다');
+  check('setVoiceMode 가 «자기 몸통 안에서» 얼굴을 입힌다',
+    /(^|[^.\w])applyVoiceFace\(\);/m.test(svmBody));
+
+  /* 🔴 서버 힌트로 중국어가 켜지는 «주 경로» — 여기를 빼면 첫 화면이 영어 친구 그대로다
+        (2026-09-14 함정 대조가 실측으로 잡은 자리). */
+  const probeBody = bodyOf(HTMLC, 'function probeSuggestLang(){');
+  check('전제: probeSuggestLang 몸통을 잘라 냈다', probeBody.length > 100, 'len=' + probeBody.length);
+  check('서버가 «중국어 학생» 이라고 알려 줘도 화면·얼굴이 함께 맞춰진다',
+    /(^|[^.\w])syncVoiceBtnsForLang\(\);/m.test(probeBody) && /(^|[^.\w])applyVoiceFace\(\);/m.test(probeBody),
+    'renderSetup 은 친구 칸을 안 그립니다 — 그 칸은 정적 HTML 이라 영어 그대로 남습니다');
+  check('그 경로는 «저장하지 않는다» (짝)',
+    !/setVoiceMode\(/.test(probeBody) && !/localStorage\.setItem/.test(probeBody),
+    '저장하면 서버 힌트가 「학생이 고른 것」으로 굳습니다');
+
+  /* 저장 — 중국어는 «고른 것» 이 없으므로 적을 것도 없다 */
+  check('중국어용 저장 칸을 두지 않는다',
+    !/mangoi_warmup_voice_zh/.test(HTMLC) && !/_savedVoiceZh/.test(HTMLC),
+    '적으면 「학생이 고른 것」으로 굳어 나중에 기본을 되돌릴 수 없습니다');
+  check('영어에서 고른 사람은 그대로 기억한다 (짝)',
+    /!VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,160}mangoi_warmup_voice/.test(HTMLC),
+    '안 적으면 다음에 들어올 때 Emma 로 초기화됩니다');
+
+  /* 🀄 스크린샷 제보(2026-09-14) — 중국어 수업에 영어 단어(fast·moon·big)가 떴다 */
+  check('게임 취약 단어를 «그 언어의 기록» 으로 묻는다',
+    /games\/recommend[\s\S]{0,200}&lang=' \+ rlang/.test(HTMLC) && !/games\/recommend[^']*&lang=en/.test(HTMLC),
+    'lang=en 하드코딩이면 중국어 수업에 영어 단어가 올라옵니다');
+  check('기다리는 사이 언어가 바뀌면 그리지 않는다',
+    /rlang !== \(isZh\(\) \? 'zh' : 'en'\)\) return;/.test(HTMLC));
+  check('영어 전용 소재(연습 포인트)는 중국어에서 안 그린다',
+    /if\(!isZh\(\) && WCTX\.weak && WCTX\.weak\.length\)/.test(HTMLC),
+    'getWeakSentences 는 isEnglishText 로 걸러 영어 문장만 돌려줍니다');
 }
 
 console.log('\n════════════════════════════════════════════════════════════');

@@ -57,8 +57,13 @@ async function open(url) {
   await page.waitForTimeout(800);
   return { ctx, page };
 }
-/** 「보인다」는 hidden 값이 아니라 «자리를 차지하는가» 로 잰다. */
+/** 「보인다」는 hidden 값이 아니라 «자리를 차지하는가» 로 잰다.
+ *  📜 2026-09-14 지시 변경 — 처음에는 «중국어에서 메이 버튼 하나만 보인다» 였는데,
+ *     사장님이 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」으로 정하셔서
+ *     «고르는 칸 자체가 없다» 로 경계를 옮겼다. 그래서 box 도 함께 잰다. */
 const btnState = () => ({
+  box: (() => { const b = document.getElementById('voiceBtns');
+    return b ? b.getBoundingClientRect().height > 0 : null; })(),
   shown: [...document.querySelectorAll('#voiceBtns button')]
     .filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.getAttribute('data-v')),
   note: (() => { const n = document.getElementById('voiceZhNote'); return n ? getComputedStyle(n).display !== 'none' : null; })(),
@@ -66,25 +71,27 @@ const btnState = () => ({
   char: window.__avChar || null,
 });
 
-console.log('\n[ 1. 영어(기본) — 네 친구 + 번갈아가 그대로, 메이는 안 보인다 ]');
+console.log('\n[ 1. 영어(기본) — 고르는 칸이 그대로 보인다 ]');
 {
   const { ctx, page } = await open('/warmup.html');
   const s = await page.evaluate(btnState);
+  check('영어에서는 고르는 칸이 보인다', s.box === true, String(s.box));
   check('영어에서는 네 친구와 번갈아가 보인다', s.shown.join(',') === 'emma,jake,lily,noah,mix', s.shown.join(','));
-  check('영어에서는 메이가 안 보인다 (짝)', !s.shown.includes('mei'), s.shown.join(','));
-  check('영어에서는 «목소리 한 가지» 안내가 안 뜬다 (짝)', s.note === false, String(s.note));
+  check('영어에서는 중국어 안내가 안 뜬다 (짝)', s.note === false, String(s.note));
   await ctx.close();
 }
 
-console.log('\n[ 2. 중국어 — 메이 하나, 그리고 왜 하나뿐인지 화면이 말한다 ]');
+console.log('\n[ 2. 중국어 — 고르는 칸이 «통째로» 사라지고 왜 그런지 화면이 말한다 ]');
 {
   const { ctx, page } = await open('/warmup.html?lang=zh');
   const s = await page.evaluate(btnState);
-  check('중국어에서는 메이만 보인다', s.shown.join(',') === 'mei', s.shown.join(','));
-  check('중국어에서는 «목소리가 한 가지» 안내가 뜬다', s.note === true, String(s.note));
+  check('중국어에서는 고르는 칸이 통째로 감춰진다', s.box === false, String(s.box));
+  check('중국어에서는 버튼이 한 개도 안 보인다', s.shown.length === 0, s.shown.join(',') || '없음');
+  check('중국어에서는 «메이 한 분» 안내가 뜬다', s.note === true, String(s.note));
   check('지금 친구 표시가 메이다', /메이/.test(s.label), s.label);
   const noteText = await page.evaluate(() => (document.getElementById('voiceZhNote') || {}).textContent || '');
-  check('그 안내가 한국어·영어 둘 다로 적혀 있다', /한 가지/.test(noteText) && /single voice/i.test(noteText), noteText.slice(0, 70));
+  check('그 안내가 한국어·중국어 둘 다로 적혀 있다',
+    /메이 선생님/.test(noteText) && /美美老师/.test(noteText), noteText.slice(0, 80));
   await ctx.close();
 }
 
@@ -156,13 +163,17 @@ console.log('\n[ 4. 오갈 때 — 영어에서 고른 사람이 안 지워진�
   await page.evaluate(() => setVoiceMode('lily', false));
   await page.evaluate(() => setWarmLang('zh', false));
   const zh = await page.evaluate(btnState);
-  check('중국어로 바꾸면 메이가 된다', /메이/.test(zh.label) && zh.shown.join(',') === 'mei', zh.label + ' / ' + zh.shown.join(','));
+  check('중국어로 바꾸면 메이가 되고 고르는 칸이 사라진다',
+    /메이/.test(zh.label) && zh.box === false, zh.label + ' / box=' + zh.box);
   await page.evaluate(() => setWarmLang('en', false));
   const en = await page.evaluate(btnState);
   check('영어로 돌아오면 «내가 골랐던 Lily» 가 그대로다 (짝)', /Lily/.test(en.label), en.label);
   check('그때 네 친구 버튼이 다시 보인다 (짝)', en.shown.join(',') === 'emma,jake,lily,noah,mix', en.shown.join(','));
   const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_voice'), localStorage.getItem('mangoi_warmup_voice_zh')]);
-  check('저장 칸이 언어별로 갈려 있다', saved[0] === 'lily' && saved[1] === 'mei', JSON.stringify(saved));
+  /* 🔒 중국어는 «고른 것» 이 없으므로 적을 것도 없다 — 적으면 나중에 중국어 친구를 늘릴 때
+        옛 값이 「학생이 고른 것」으로 굳어 기본값을 되돌릴 수 없다(2026-09-14). */
+  check('영어에서 고른 사람만 기억한다', saved[0] === 'lily', JSON.stringify(saved));
+  check('중국어용 저장 칸은 아예 안 생긴다 (짝)', saved[1] == null, JSON.stringify(saved));
   await ctx.close();
 }
 
