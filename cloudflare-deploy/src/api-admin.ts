@@ -9375,7 +9375,7 @@ LIMIT $limit`;
       }
 
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
-      for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
+      for (const [col, type] of [['student_id', 'TEXT'], ['login_id', 'TEXT'], ['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
                                   ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'], ['phone', 'TEXT'],
                                   ['updated_at', 'INTEGER']] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}

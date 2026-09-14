@@ -68,7 +68,7 @@ console.log('\n════ ① ERP_BY_UID 정본 조각 ════');
 const fragM = /const ERP_BY_UID = `([^`]+)`;/.exec(mango);
 check('소스에서 ERP_BY_UID 조각을 찾았다', !!fragM);
 const FRAG = fragM ? fragM[1] : '';
-const bindsM = /const erpUidBinds = \(uid: string\): string\[\] => (\[[^\]]*\]);/.exec(mango);
+const bindsM = /const erpUidBinds = \(uid[^)]*\)[^=]*=> (\[[^\]]*\]);/.exec(mango);
 check('소스에서 erpUidBinds 를 찾았다', !!bindsM);
 let binds = null;
 try { binds = bindsM ? new Function('uid', 'return ' + bindsM[1] + ';')('X') : null; } catch { binds = null; }
@@ -108,7 +108,7 @@ if (FRAG && binds) {
   check('[대조] 옛 조건은 그 행을 실제로 못 찾는다 (이 검사가 사고를 재현하고 있다는 증거)', oldY === undefined);
 
   // 수강 연장 UPDATE 문을 소스에서 오려 내 돌린다 — 0행 갱신이던 자리
-  const upM = /`UPDATE students_erp SET end_date = \?, updated_at = \?\s*\n\s*WHERE \$\{ERP_BY_UID\}`/.exec(mango);
+  const upM = /`UPDATE students_erp SET end_date = \?, updated_at = \?\s+WHERE \$\{ERP_BY_UID\}`/.exec(mango);  // 줄바꿈 자리는 못 박지 않는다(리플로우는 무해)
   check('소스에서 연장 UPDATE 문을 찾았다', !!upM);
   if (upM) {
     const sql = upM[0].slice(1, -1).replace('${ERP_BY_UID}', FRAG).replace(/\s+/g, ' ');
@@ -121,21 +121,30 @@ if (FRAG && binds) {
 /* ══ ④ 「학생 등록」 INSERT 를 오려 내 돌리고, 그 행을 옛 조건으로도 찾을 수 있는 모양인지 본다 ══ */
 console.log('\n════ ④ 관리자 「학생 등록」이 만드는 행의 모양 ════');
 {
-  const m = /`INSERT INTO students_erp \(user_id, student_id, login_id,[^`]*'admin_manual'[^`]*`\s*\)\.bind\(([\s\S]*?)\)\.run\(\);/.exec(admin);
+  // 앵커는 «students/create 의 INSERT»(source 'admin_manual') 하나 — 컬럼 순서·줄바꿈은 못 박지 않는다.
+  const m = /`INSERT INTO students_erp \(([^)]*)\)[^`]*'admin_manual'[^`]*`\s*\)\.bind\(([\s\S]*?)\)\.run\(\);/.exec(admin);
   check('소스에서 students/create 의 INSERT 문을 찾았다', !!m);
   if (m) {
     const sql = m[0].slice(1, m[0].indexOf('`', 1)).replace(/\s+/g, ' ');
+    const cols = m[1].split(',').map((c) => c.trim());
+    check('INSERT 컬럼 목록에 user_id·student_id·login_id 가 «들어 있다» (순서는 안 묻는다)',
+      ['user_id', 'student_id', 'login_id'].every((c) => cols.includes(c)), cols);
     const nQ = (sql.match(/\?/g) || []).length;
-    const nBind = m[1].split(',').map((s) => s.trim()).filter(Boolean).length;
-    check('INSERT 의 ? 개수 == bind 인자 개수 (어긋나면 등록 자체가 D1 오류로 죽는다)', nQ === nBind, { nQ, nBind });
+    /* 바인드 인자를 «소스 그대로» 실제로 평가한다 — 값을 손으로 적으면 순서가 뒤바뀐 진짜 버그
+       (student_id 에 이름이 들어가는 것)를 원리상 못 잡는다(trap-check 변이 A 가 잡음). */
+    let args = null;
+    try {
+      args = new Function('uid', 'name', 'today', 'studentPhone', 'parentPhone', 'shopName', 'notes', 'pwdHash', 'now',
+        'return [' + m[2] + '];')('newkid', '새학생', () => '2026-09-14', null, null, '망고학원', null, 'HASH', 1);
+    } catch (e) { args = null; }
+    check('bind 인자 목록을 소스에서 오려 내 평가했다 (모르는 이름이 생기면 여기서 FAIL)', Array.isArray(args));
+    check('INSERT 의 ? 개수 == bind 인자 개수 (어긋나면 등록 자체가 D1 오류로 죽는다)', !!args && nQ === args.length, { nQ, n: args && args.length });
     const db = new DatabaseSync(':memory:'); db.exec(SCHEMA);
-    // bind 순서는 소스 그대로: uid, uid, uid, name, name, name, today, studentPhone, parentPhone, shopName, notes, pwdHash, now, now
-    let ok = true, err = '';
-    try { db.prepare(sql).run('newkid', 'newkid', 'newkid', '새학생', '새학생', '새학생', '2026-09-14', null, null, '망고학원', null, 'HASH', 1, 1); }
-    catch (e) { ok = false; err = String(e?.message || e); }
+    let ok = !!args, err = '';
+    try { if (args) db.prepare(sql).run(...args); } catch (e) { ok = false; err = String(e?.message || e); }
     check('INSERT 가 실제 SQLite 에서 돈다', ok, err);
     const row = db.prepare(`SELECT * FROM students_erp WHERE user_id = ?`).get('newkid');
-    check('새 행의 student_id·login_id 가 user_id 와 같다 (카페24 행 29,494건과 같은 모양)',
+    check('새 행의 student_id·login_id 가 user_id 와 같다 (카페24 행 29,494건과 같은 모양 — 바인드 «순서» 까지 실측)',
       !!row && row.student_id === 'newkid' && row.login_id === 'newkid');
     check('username 에는 여전히 이름이 들어간다 (다른 화면이 username=이름 을 전제한다)', !!row && row.username === '새학생');
     if (FRAG && binds) {
@@ -143,6 +152,13 @@ console.log('\n════ ④ 관리자 「학생 등록」이 만드는 행�
       check('그 행을 학생 상세 조회 정본으로 찾는다 (끝에서 끝까지)', found?.user_id === 'newkid');
     }
   }
+}
+
+{
+  const alt = /for \(const \[col, type\] of \[([^\]]*(?:\]\s*,\s*\[[^\]]*)*)\]\] as \[string, string\]\[\]\)/.exec(admin.slice(admin.indexOf("'/api/admin/students/create'")));
+  const altCols = alt ? [...alt[1].matchAll(/\['([a-z_]+)'/g)].map((x) => x[1]) : [];
+  check('students/create 의 지연 ALTER 목록에 student_id·login_id 가 있다 (동기화가 한 번도 안 돈 DB 에서 등록이 죽지 않게)',
+    altCols.includes('student_id') && altCols.includes('login_id'), altCols);
 }
 
 console.log('\n' + '─'.repeat(58));
