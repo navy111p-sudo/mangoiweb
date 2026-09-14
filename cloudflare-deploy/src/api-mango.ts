@@ -39,6 +39,16 @@ import { broadcastWebPush } from './web-push';
 import { ipToNet, asLabel } from './net-prefix';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
+
+/* 🔎 «학생 상세» 가 students_erp 에서 한 학생을 찾는 조건 — 정본 한 벌.
+   ⚠️ 2026-09-14 실사고(yahee): 옛 조건이 `student_id OR login_id OR username` 뿐이라 **`user_id`(PK) 를 안 봤다.**
+   카페24 동기화 행(29,494)은 세 칸이 user_id 와 같아 우연히 걸렸지만, 관리자 「학생 등록」으로 만든 행은
+   student_id·login_id 가 NULL 이고 username 이 한글 이름이라 **어느 조건에도 안 걸려** 카드가 전부 «—» 였고,
+   같은 조건을 쓰는 수정(UPDATE)·수강 연장도 0행 갱신으로 조용히 안 먹었다(에러 없음).
+   ⛔ 아래 다섯 자리에 조건을 각각 다시 적지 말 것 — 한 곳만 고쳐지는 사고가 그대로 재현된다.
+   감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
+const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
+const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
 import { hiddenExcludeCond, ensureStudentOverrideTable } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
@@ -3602,7 +3612,7 @@ ${numbered}`;
 
         const queries = await Promise.allSettled([
           // 1. erp 정보 (학생 마스터)
-          env.DB.prepare(`SELECT * FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`).bind(uid, uid, uid).first(),
+          env.DB.prepare(`SELECT * FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`).bind(...erpUidBinds(uid)).first(),
           // 2. 출석 프로필 + 요약
           env.DB.prepare(
             `SELECT user_id, COALESCE(MAX(username), user_id) AS username, COALESCE(MAX(role),'student') AS role,
@@ -3966,12 +3976,12 @@ ${numbered}`;
            → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
            (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다. */
         const preRow = nameChanged ? await env.DB.prepare(
-          `SELECT user_id FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
-        ).bind(uid, uid, uid).first<{ user_id: string }>().catch(() => null) : null;
-        // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
-        vals.push(uid, uid, uid);
+          `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
+        // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
+        vals.push(...erpUidBinds(uid));
         await env.DB.prepare(
-          `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
+          `UPDATE students_erp SET ${sets.join(', ')} WHERE ${ERP_BY_UID}`
         ).bind(...vals).run();
         // 🧹 이름을 바꿨으면 student_erp_override 에도 적어 둔다 — 안 그러면 카페24 야간
         //   동기화(03:00 KST)가 하룻밤 만에 원래 이름으로 되돌린다(CLAUDE.md 2장 「학생 이름·
@@ -4011,8 +4021,8 @@ ${numbered}`;
 
         // 현재 end_date 조회
         const cur = await env.DB.prepare(
-          `SELECT end_date FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
-        ).bind(uid, uid, uid).first<{ end_date: string }>();
+          `SELECT end_date FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ end_date: string }>();
 
         // 새 종료일 계산
         let newEnd: string;
@@ -4034,8 +4044,8 @@ ${numbered}`;
         // students_erp.end_date 갱신
         await env.DB.prepare(
           `UPDATE students_erp SET end_date = ?, updated_at = ?
-           WHERE student_id = ? OR login_id = ? OR username = ?`
-        ).bind(newEnd, Date.now(), uid, uid, uid).run();
+           WHERE ${ERP_BY_UID}`
+        ).bind(newEnd, Date.now(), ...erpUidBinds(uid)).run();
 
         // enrollments 도 함께 연장 (활성 행 1개) — KST 기준 종료시각 ms
         const newEndMs = new Date(newEnd + 'T23:59:59+09:00').getTime();
