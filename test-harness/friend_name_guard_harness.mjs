@@ -221,6 +221,54 @@ ok(/history\.length \?\s*history\s*:/.test(warm),
 ok(/role: 'assistant', content: `Hi! I'm \$\{ctxFriend\}/.test(warm),
   '그 인사가 «고른 친구 이름» 을 담는다(고정 문자열이 아니다)');
 
+/* ── ⑧ 🀄 중국어 자기소개 (2026-09-14 사장님 제보 「你好，我是Emma！」) ──────────
+   위 ①②③ 은 전부 영어 문형이라 중국어 답장에서는 원리상 한 번도 안 걸린다.
+   문장을 가르는 [.!?] 도 중국어 종결부호(。！？)를 모른다.
+
+   🔴 이 절의 핵심도 «잡는가» 가 아니라 «평범한 중국어를 안 버리는가» 다.
+      「我是老师」(나는 선생이야)·「我是韩国人」 은 「我是Emma」 와 문장 구조가 «완전히 같다» —
+      한자로는 이름과 보통명사를 구조로 가를 수 없다. 그래서 정본은 «아는 이름» 일 때만 잡는다.
+   ⛔ 아래 ZH_GOOD 을 «비슷한 것» 으로 바꾸지 마세요 — 거짓경보가 나면 학생은 자기 질문에 대한
+      답 대신 «이름 정정» 을 받습니다. */
+console.log('\n[ ⑧ 🀄 중국어 자기소개 ]');
+const MEI = F.AI_FRIEND_NAMES && F.AI_FRIEND_NAMES.mei;   // ⛔ 하니스에 이름을 손으로 적지 않는다
+ok(!!MEI, '정본 표에서 메이의 이름을 읽었다', MEI);
+if (MEI) {
+  /* 잡는다 — 사장님이 실제로 보신 모양과 그 사촌들 */
+  const ZH_BAD = [
+    ['你好！我是Emma。很高兴认识你！', 'Emma'],     // ← 제보된 그 문장
+    ['我叫Lily。', 'Lily'],
+    ['我的名字是Mango。', 'Mango'],
+    ['我的名字叫Noah，你呢？', 'Noah'],
+    ['你好呀！我是 Jake。', 'Jake'],                 // 이름 앞 공백
+  ];
+  for (const [t, want] of ZH_BAD) {
+    ok(F.wrongSelfName(t, MEI) === want, `잡는다: 「${t}」 → ${want}`, F.wrongSelfName(t, MEI));
+  }
+  /* 짝 — 안 잡는다. 이 짝이 없으면 «전부 잡기» 도 통과한다 */
+  const ZH_GOOD = [
+    '你好！我是美美老师。很高兴认识你！',   // 기대한 이름 그대로
+    '我是美美老师，今天我们聊聊你的周末吧！',
+    '我是老师。',              // ⛔ 보통명사
+    '我是韩国人。',
+    '我是你的中文朋友。',
+    '我叫什么名字呢？你猜猜看！',
+    '这是我的书。',
+    '我是很开心的！',
+    '你好！今天过得怎么样？',
+  ];
+  let zhFalse = 0;
+  for (const t of ZH_GOOD) {
+    const got = F.wrongSelfName(t, MEI);
+    if (got) { zhFalse++; console.log(`     · 거짓경보: 「${t}」 → ${got}`); }
+  }
+  ok(zhFalse === 0, `평범한 중국어 ${ZH_GOOD.length}종에 거짓경보가 없다`, zhFalse);
+  /* 영어 동작은 한 글자도 안 바뀌었는가 — 중국어 가드를 더하면서 영어를 깨지 않았는가 */
+  ok(F.wrongSelfName("Hi! I'm Emma. Let's talk!", 'Lily') === 'Emma', '영어 판정은 그대로 잡는다');
+  ok(F.wrongSelfName("I'm Taiwanese.", 'Lily') === '', '영어 거짓경보 방어도 그대로');
+  ok(F.wrongSelfName('我是Emma。', 'Emma') === '', '중국어로 «자기 이름» 을 말하면 통과');
+}
+
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${pass} · 실패 ${fail}`);
 if (fail) console.log('  ' + FAILS.join('\n  '));

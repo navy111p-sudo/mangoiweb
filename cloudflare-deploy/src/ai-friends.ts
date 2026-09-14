@@ -23,6 +23,16 @@ export const AI_FRIEND_NAMES: Record<string, string> = {
   jake: 'Jake',
   lily: 'Lily',
   noah: 'Noah',
+  /* 🀄 메이 — 중국어 웜업 전용(2026-09-14). 값이 «중국어 이름» 인 이유:
+     이 값은 그대로 「너는 '…' 야」·「이름을 물으면 '…' 라고 답해」로 중국어 프롬프트에
+     들어간다. 'Mei' 라고 적으면 AI 가 중국어 문장 한가운데에 로마자를 섞어 읽는다.
+     화면의 첫 인사(warmup.html VOICE_MODES.mei.hi)도 「我是美美老师」 이므로 같은 말이다.
+     ⚠️ 화면 이름표는 한국어 「메이 선생님」 이다 — 학생이 보는 글자와 AI 가 말하는
+        이름이 다른 언어인 것은 «어긋남» 이 아니라 같은 사람의 두 언어 표기다.
+     ⛔ 이 줄을 지우지 마세요 — 지우면 resolveFriendName('mei') 가 모르는 값이 되어
+        조용히 기본값 'Mango' 로 떨어지고, 중국어 수업에서 AI 가 「我是Mango」 라고 말합니다
+        (2026-09-14 사장님 제보 「你好，我是Emma」의 사촌이고, 에러는 안 납니다). */
+  mei: '美美老师',
 };
 
 /** 아무도 안 골랐거나 모르는 값일 때 — 네 친구가 생기기 전의 이름을 그대로 쓴다 */
@@ -200,6 +210,36 @@ export function wrongSelfName(reply: unknown, expected: string, opts?: SelfNameO
       const low = got.toLowerCase();
       if (low === want) continue;
       if (known.indexOf(low) >= 0) return got;
+    }
+  }
+
+  /* ④ 🀄 중국어 자기소개 — 「我是Emma」 (2026-09-14 사장님 제보)
+
+     위 ①②③ 는 전부 영어 문형이라 중국어 답장에서는 한 번도 안 걸린다 —
+     문장을 가를 때 쓰는 [.!?] 도 중국어 종결부호(。！？)를 모른다.
+     그래서 「你好！我是Emma。」가 그대로 통과했다.
+
+     ⛔ 「我是」 뒤의 글자를 «이름» 으로 뽑지 마세요 — 「我是老师」(나는 선생이야)·
+        「我是韩国人」 같은 평범한 문장이 전부 걸립니다. 한자는 이름과 보통명사를
+        구조로 가를 수 없습니다 — 이 파일 ② 가 영어에서 이미 두 번 밟은 바로 그 함정입니다
+        (「I'm Taiwanese.」과 「I'm Louie.」는 구조가 같습니다).
+     ✅ 그래서 «우리가 아는 이름» 일 때만 잡습니다(②ⓐ 와 같은 근거). 그런 이름이
+        나왔다면 모델이 다른 친구를 지어낸 것이 확실합니다.
+     ⚠️ 긴 이름이 먼저 맞아야 합니다 — 짧은 이름이 긴 이름의 앞가리일 때
+        (例: 'Mei' 와 'Meimei') 짧은 쪽이 먼저 걸리면 «기대한 이름» 을 «남» 으로 읽습니다. */
+  const zhKnown = Object.keys(AI_FRIEND_NAMES)
+    .map((k) => String(AI_FRIEND_NAMES[k] || ''))
+    .concat([AI_FRIEND_DEFAULT])
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);   // ⚠️ 긴 이름 먼저
+  const ZH_LEAD = /(?:我是|我叫|我的名字(?:是|叫))\s*/g;
+  let zm: RegExpExecArray | null;
+  while ((zm = ZH_LEAD.exec(t))) {
+    const rest = t.slice(zm.index + zm[0].length);
+    for (const nm of zhKnown) {
+      if (rest.slice(0, nm.length).toLowerCase() !== nm.toLowerCase()) continue;
+      if (nm.toLowerCase() === want) break;   // 기대한 이름이다 — 어긴 것이 아니다
+      return nm;
     }
   }
 

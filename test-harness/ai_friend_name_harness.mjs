@@ -141,5 +141,37 @@ if (NAMES) {
   }
 }
 
+/* ── ⑥ 🀄 중국어 «메이» — 화면이 보내는 값을 서버가 아는가 (2026-09-14) ──────────
+   사장님 제보 「你好，我是Emma！」의 뿌리가 여기다. 화면은 중국어에서 friend='mei' 를
+   보내는데 정본 표에 그 칸이 없어 resolveFriendName 이 «모르는 값 → 기본값» 으로
+   떨어뜨렸다. 에러는 안 나고 AI 가 자기를 다른 이름으로 소개할 뿐이다.
+   ⚠️ 「표에 mei 가 있는가」만 묻지 말 것 — 값이 «로마자» 면 중국어 문장 한가운데에
+      로마자가 섞인다. 그래서 «한자인가» 와 «화면 인사와 같은 말인가» 를 짝으로 묻는다. */
+console.log('\n[ ⑥ 🀄 중국어 메이 ]');
+if (NAMES) {
+  ok(!!NAMES.mei, `정본 표에 mei 가 있다 (${NAMES.mei || '없음'})`,
+    "없으면 중국어 수업에서 AI 가 자기를 '" + DEF + "' 라고 말한다");
+  ok(resolve('mei') === NAMES.mei && resolve('mei') !== DEF,
+    `resolveFriendName('mei') 가 기본값으로 안 떨어진다 (${resolve('mei')})`);
+  ok(/[\u4e00-\u9fff]/.test(String(NAMES.mei || '')),
+    `메이의 이름이 한자다 (${NAMES.mei})`,
+    '로마자면 「我是Mei」처럼 중국어 문장에 로마자가 섞여 읽힌다');
+  /* 짝 — 화면 첫 인사와 같은 말인가. 어긋나면 화면은 「我是美美老师」 라고 인사해 놓고
+     학생이 이름을 물으면 AI 가 다른 이름을 댄다(2026-08-31 Lily 건과 같은 모양). */
+  const hiM = W.match(/mei:\s*\{[\s\S]*?hi:\s*"([^"]*)"/);
+  ok(!!hiM, '웜업 화면에서 메이의 첫 인사를 읽었다');
+  if (hiM && NAMES.mei) {
+    ok(hiM[1].indexOf(NAMES.mei) >= 0,
+      `화면 첫 인사가 정본 이름을 담는다 (인사 「${hiM[1]}」 / 정본 ${NAMES.mei})`);
+  }
+  /* 짝 — 영어 넷은 한 글자도 안 바뀌었다(중국어를 더하면서 영어를 건드리지 않았는가) */
+  ok(NAMES.emma === 'Emma' && NAMES.jake === 'Jake' && NAMES.lily === 'Lily' && NAMES.noah === 'Noah',
+    '영어 네 이름은 그대로다');
+}
+/* 화면이 중국어에서 그 값을 실제로 보내는가 — «표에만 있고 안 보내면» 서버는 영영 기본값 */
+ok(/if\s*\(\s*isZh\(\)\s*\)\s*return\s*'mei'/.test(W),
+  '웜업이 중국어에서 «메이» 를 보낸다 (_voicePerson 첫 줄)',
+  '이 줄이 없으면 표를 고쳐도 서버는 영영 영어 친구 이름을 받는다');
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
