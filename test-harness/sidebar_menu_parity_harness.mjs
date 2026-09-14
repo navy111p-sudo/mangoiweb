@@ -163,17 +163,26 @@ console.log('\n⑤ 공용에서 «홈으로 가기만 하는» 메뉴가 없는�
 const homeOnly = M.ITEMS.filter(it => M.URLS[it.go] === '/');
 let waiting = 0;
 for (const it of homeOnly) {
-  if (HOME_ONLY_ALLOW[it.go]) { waiting++; console.log(`  ..  ${it.ko} — ${HOME_ONLY_ALLOW[it.go]}`); }
+  if (HOME_ONLY_ALLOW[it.go]) { waiting++; console.log(`  🟡 남은 자리 — ${it.ko}: ${HOME_ONLY_ALLOW[it.go]}`); }
   else bad(`${it.ko}('${it.go}') — 주소가 '/' 뿐이다. 눌러도 홈으로만 가고 아무것도 안 열린다`);
 }
 ok(`'/' 로 가는 항목 ${homeOnly.length}개 — 그중 ${waiting}개가 «사람 결정 대기» 로 적혀 있다`);
+/* 🪤 ALLOW 가 «죽은 항목» 으로 남지 않게 — 그 메뉴가 고쳐지거나 사라지면 그 줄은
+   아무것도 안 잡으면서 «아직 남은 일이 있다» 고 거짓으로 말한다(CLAUDE.md 「죽은 검사」). */
+for (const go of Object.keys(HOME_ONLY_ALLOW)) {
+  homeOnly.some(it => it.go === go)
+    ? ok(`ALLOW '${go}' — 아직 실재하는 자리다`)
+    : bad(`ALLOW '${go}' — 이제 '/' 로 가지 않는다(고쳐졌거나 사라짐). 그 줄을 지우세요`);
+}
 
 /* ── ⑥ ?menu=X 로 보내 놓고 «받는 쪽» 이 없지 않은가 ─────────
    ⑤의 뒷면이다. 주소를 '/?menu=all-menu' 로 바꿔 두고 받는 절(js/idx-allmenu.js)을
    지우면, 버튼은 «갈 곳이 있으니» ③·⑤를 그대로 통과하는데 홈에 도착해서는 아무 일도
    일어나지 않는다 — 고친 것과 똑같은 죽은 버튼이 된다. 짝으로 묻는다.
-   ⚠️ «그 글자가 있는가» 가 아니라 «menu 파라미터를 읽는 줄에 그 코드가 있는가» 로
-      묻는다(`=== 'x'` 와 `!== 'x'` 둘 다 받는다 — 홈의 payment 갈래가 후자다). */
+   ⚠️ 이 절이 증명하는 것은 «받는 절이 «있다»» 까지다 — 조건을 `false &&` 로 막거나
+      뒤집어도 그 글자는 남으므로 여기서는 통과한다. «실제로 무슨 일이 일어나는가» 는
+      **⑦절이 오려 내 돌려서** 본다. 짝으로 읽을 것.
+   ⚠️ `=== 'x'` 와 `!== 'x'` 를 둘 다 받는다 — 홈의 payment 갈래가 후자다. */
 console.log('\n⑥ 공용이 ?menu= 로 보내는 곳마다 홈에 «받는 절» 이 있는가');
 const receivers = new Set();
 for (const f of [`${PUB}/index.html`, ...fs.readdirSync(`${PUB}/js`).filter(n => n.endsWith('.js')).map(n => `${PUB}/js/${n}`)]) {
@@ -192,6 +201,73 @@ for (const [go, url] of Object.entries(M.URLS)) {
 }
 sent >= 1 ? ok(`?menu= 로 보내는 주소 ${sent}개를 전부 대조했다`)
           : bad(`?menu= 주소를 한 개도 못 찾았다 — 읽기가 깨졌다(이 절이 헛돈다)`);
+
+/* ── ⑦ 받는 절을 «오려 내 실제로 돌린다» ─────────────────────
+   🪤 ⑥은 «그 코드가 menu 를 읽는 줄에 있는가» 까지만 본다. 조건을 `false &&` 로 막거나
+      `===` 를 `!==` 로 **뒤집어도** `'all-menu'` 라는 글자는 그 줄에 그대로 남아
+      ③·⑤·⑥이 **전부 통과합니다**(2026-09-14 함정 대조 → 실측 재현: 두 변이 다
+      PASS 38 / exit 0). CLAUDE.md 「그 게이트를 라우트 «안» 에만 두지 마세요 …
+      조건을 뒤집어도 그 글자가 그대로 남아 통과합니다」가 바로 이 자리다.
+   🔴 하필 `!==` 뒤집기는 «파라미터가 없는 평범한 홈 방문마다 전체메뉴가 저절로 뜨는»
+      회귀라, 걸리는 것이 학생 29,000명 전원의 첫 화면이다.
+   ✅ 그래서 그 절을 소스에서 «오려 내» 가짜 location·history 로 **실제로 돌리고**
+      «무슨 일이 일어나는가» 를 본다.
+   ⚠️ 「열린다」 옆에 **«파라미터가 없으면 안 열린다» 를 짝으로** 둔다 —
+      짝이 없으면 «언제나 열기» 도 통과한다.
+   ⚠️ 「오려 냈다」를 **전제 검사 한 줄**로 박아 둔다 — 앵커가 어긋나면 아래가
+      빈 문자열을 보고 조용히 통과한다. */
+console.log('\n⑦ 받는 절(js/idx-allmenu.js)을 오려 내 실제로 돌린다');
+const amSrc = fs.readFileSync(`${PUB}/js/idx-allmenu.js`, 'utf8');
+const amAt = amSrc.indexOf('var _amQ = new URLSearchParams(location.search);');
+let amBody = '';
+if (amAt >= 0) {
+  /* 중괄호 «짝» 으로 자른다 — 길이로 자르면 남의 코드가 딸려 온다(CLAUDE.md) */
+  let d = 0, seen = false, end = -1;
+  for (let i = amAt; i < amSrc.length; i++) {
+    const c = amSrc[i];
+    if (c === '{') { d++; seen = true; }
+    else if (c === '}') { d--; if (seen && d === 0) { end = i + 1; break; } }
+  }
+  if (end > 0) amBody = amSrc.slice(amAt, end);
+}
+amBody.includes('openAllMenuOverlay()') && amBody.includes('replaceState')
+  ? ok(`전제: 받는 절을 ${amBody.length}자 오려 냈다`)
+  : bad('전제: 받는 절을 못 오려 냈다 — 아래 ⑦ 검사가 헛돈다(앵커 확인)');
+
+/* 가짜 화면에서 한 번 돌려 본다. 돌려주는 것: 몇 번 열었나 · 남은 주소 */
+function runReceiver(search) {
+  const calls = [];
+  const loc = { search, pathname: '/', hash: '' };
+  const hist = { replaceState: (_a, _b, url) => { calls.push('url:' + url); } };
+  let opened = 0;
+  /* ⚠️ 부르는 자리까지 try 로 감싼다 — 변이가 문법을 깨뜨렸을 때 하니스가
+     크래시하면 «무엇이 깨졌는지» 가 안 보인다(깔끔한 FAIL 로 떨어뜨린다) */
+  try {
+    new Function('location', 'history', 'openAllMenuOverlay', amBody)(
+      loc, hist, () => { opened++; });
+  } catch (e) { return { opened: -1, url: 'ERR:' + e.message }; }
+  const u = calls.filter(x => x.startsWith('url:')).pop();
+  return { opened, url: u ? u.slice(4) : null };
+}
+
+if (amBody) {
+  const a = runReceiver('?menu=all-menu&x=1');
+  a.opened === 1 ? ok('?menu=all-menu → 전체메뉴를 한 번 연다')
+                 : bad(`?menu=all-menu 인데 ${a.opened}번 열었다 — 조건이 무력화됐다`);
+  a.url === '/?x=1' ? ok('주소에서 menu «만» 지운다(다른 쿼리는 남긴다)')
+                    : bad(`주소 정리가 틀렸다: ${JSON.stringify(a.url)} (기대 "/?x=1")`);
+
+  /* 🪤 짝 — 이것이 없으면 «언제나 열기» 변이가 그대로 통과한다 */
+  const b = runReceiver('?x=1');
+  b.opened === 0 ? ok('파라미터가 없으면 «안» 연다(평범한 홈 방문은 그대로)')
+                 : bad(`파라미터가 없는데 ${b.opened}번 열었다 — 홈을 여는 학생 전원이 걸린다`);
+  b.url === null ? ok('파라미터가 없으면 주소를 건드리지 않는다')
+                 : bad(`파라미터가 없는데 주소를 바꿨다: ${JSON.stringify(b.url)}`);
+
+  const c = runReceiver('');
+  c.opened === 0 ? ok('쿼리가 아예 없어도 «안» 연다')
+                 : bad(`쿼리가 없는데 ${c.opened}번 열었다`);
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
