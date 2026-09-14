@@ -19,14 +19,20 @@
      ⟹ «다른 사람 4명» 은 만들 수 없습니다. 낼 수 있는 선택지는
         ① 그 한 목소리를 «굵게» 만든 단계들  ② 기기에 깔린 중국어 음성 뿐입니다.
 
-  ⚠️ 굽는 방법·재생 배속 보정은 warmup.html 의 _zhDeepen / play0 과 «같은 식» 입니다
-     (OfflineAudioContext playbackRate=P 로 다시 그리고, 재생할 때 preservesPitch=true +
-      playbackRate = S/P 로 길이만 되돌림). 그래서 여기서 들은 소리 = 수업에서 날 소리입니다.
+  ⚠️ 굽는 방법·재생 배속 보정·기기 목소리 음높이는 warmup.html 의
+     _zhDeepen / play0 / _synthSpeak 와 «같은 값·같은 식» 입니다. 그래야 여기서 들은 소리가
+     수업에서 날 소리와 같습니다.
      ⛔ 여기 식을 «더 좋게» 고치지 마세요 — 고치는 순간 이 화면이 거짓말을 합니다.
-        정본을 바꾸려면 warmup.html 의 ZH_MALE_PITCH 를 바꾸고 이 화면도 함께 맞추세요.
+        정본을 바꾸려면 warmup.html 을 바꾸고 이 화면도 함께 맞추세요.
+     ✅ 어긋나면 warmup_zh_lang_harness 가 FAIL 냅니다(굵기 값·목록·굽는 식·기기 음높이).
+
+  ⚠️ 기기 목소리 쪽 판정(«수업이 어느 목소리를 고르는가»)도 정본을 그대로 옮겼습니다.
+     ⛔ «목록에 남자가 있는가» 로 넓히지 마세요 — 정본은 «점수가 가장 높은 그 하나가
+        남자 이름인가» 입니다. 넓히면 화면이 못 지킬 약속을 합니다(2026-09-14 실제로 밟음).
 
   ℹ️ 사이트 지도에 올리지 않습니다 — mango-logo-preview.html 과 같은 «견본» 화면입니다
      (admin_site_structure_sync_harness ⑦ 의 ALLOW 에 근거와 함께 적어 두었습니다).
+     고르신 값을 넣고 나면 이 파일과 그 ALLOW 줄을 함께 지우면 됩니다.
 -->
 <style>
   :root{
@@ -72,13 +78,16 @@
     font-size:15px; padding:9px 16px; border-radius:8px; cursor:pointer;
     background:#2563eb; color:#fff; border:0; min-height:40px;
   }
+  .play.sm{font-size:13px; padding:2px 12px; min-height:36px}
   .play:disabled{opacity:.55; cursor:default}
   .play.on{background:var(--ok); color:#06281d}
   .st{font-size:12.5px; color:var(--tx2); margin:8px 0 0; min-height:18px}
+  .hint{font-size:12.5px; color:var(--tx2); margin:14px 0 0}
   h2{font-size:15px; margin:22px 0 6px}
   .dev{font-size:13px; color:var(--tx2)}
   .dev ul{margin:6px 0 0; padding-left:18px}
-  .dev li{margin:3px 0}
+  .dev li{margin:7px 0}
+  .pick{color:var(--ok); font-weight:700}
   .home{
     display:inline-block; margin-top:26px; color:var(--tx2); font-size:13.5px;
     text-decoration:none; border:1px solid var(--line); border-radius:8px; padding:8px 14px;
@@ -96,7 +105,7 @@
     <b>한 사람뿐</b>입니다(구글 만다린, 여성). 그래서 «서로 다른 사람 네 명»은
     만들 수 없습니다.</p>
     <p style="margin:0">대신 그 목소리를 브라우저에서 <b>굵게 만든 네 단계</b>를 들려드립니다.
-    아래에서 들으시는 소리가 <b>실제 수업에서 나는 소리와 같습니다</b>(굽는 방법이 같습니다).
+    아래에서 들으시는 소리가 <b>실제 수업에서 나는 소리와 같습니다</b>(굽는 식이 같습니다).
     A~D 중 하나를 골라 말씀해 주시면 그 값으로 바꿔 배포하겠습니다.</p>
   </div>
 
@@ -112,6 +121,8 @@
 
   <div id="cards"></div>
   <p class="st" id="st">▶ 버튼을 누르면 서버에서 소리를 한 번 받아 옵니다(처음 한 번만 조금 걸립니다).</p>
+  <p class="hint">ℹ️ 어느 것이 좋은지는 <b>들어 보셔야 압니다</b> — 저(클로드)는 이 환경에서 소리를
+  들을 수 없어, 각 단계가 어떻게 들리는지는 판단하지 않았습니다. 적어 둔 것은 잰 값(음높이 비율)뿐입니다.</p>
 
   <h2>📱 이 기기에 깔린 중국어 목소리</h2>
   <div class="dev" id="dev">확인하는 중…</div>
@@ -120,16 +131,20 @@
 </div>
 
 <script>
-/* ⚠️ 아래 _wavBlob · deepen · 재생 배속 보정은 warmup.html 의 것과 «같은 식» 입니다.
+/* ⚠️ 아래 _wavBlob · deepen · 재생 배속 보정 · 기기 음높이(DEV_PITCH) 는
+   warmup.html 의 것과 «같은 값·같은 식» 입니다.
    한쪽만 고치면 이 화면이 «수업에서 날 소리» 를 더는 들려주지 않습니다. */
 var NOW_PITCH = 0.78;   /* 지금 배포된 값 — warmup.html 의 ZH_MALE_PITCH 와 같아야 합니다 */
+var DEV_PITCH = 0.85;   /* 기기 목소리를 읽힐 때의 음높이 — warmup.html _synthSpeak 의 _pit 와 같아야 합니다 */
 var TEXT = '你好！我是龙老师。今天我们一起学中文，好吗？';
+/* ⛔ desc 에 «자연스럽다»·«눌린 느낌» 같은 «들어 본 판단» 을 적지 마세요 —
+   클로드는 이 환경에서 소리를 못 듣습니다. 적는 것은 «잰 것»(음높이 비율)까지입니다. */
 var LIST = [
   { tag:'원본', pitch:1,    name:'굵게 만들기 전 (여자 목소리)', desc:'서버가 주는 소리 그대로입니다. 비교용이에요.' },
-  { tag:'A',    pitch:0.90, name:'살짝만 굵게',                  desc:'가장 자연스럽지만 «남자» 로 안 들릴 수 있습니다.' },
-  { tag:'B',    pitch:0.84, name:'조금 굵게',                    desc:'자연스러움과 굵기의 중간입니다.' },
-  { tag:'C',    pitch:0.78, name:'지금 쓰는 값',                 desc:'★ 지금 수업에서 나는 소리입니다.' },
-  { tag:'D',    pitch:0.72, name:'가장 굵게',                    desc:'가장 남자 같지만 소리가 굵게 눌린 느낌이 납니다.' }
+  { tag:'A',    pitch:0.90, name:'살짝만 굵게',                  desc:'음높이를 원본보다 10% 낮춥니다.' },
+  { tag:'B',    pitch:0.84, name:'조금 굵게',                    desc:'음높이를 원본보다 16% 낮춥니다.' },
+  { tag:'C',    pitch:0.78, name:'그보다 굵게',                  desc:'음높이를 원본보다 22% 낮춥니다.' },
+  { tag:'D',    pitch:0.72, name:'가장 굵게',                    desc:'음높이를 원본보다 28% 낮춥니다.' }
 ];
 /* ⛔ 0.7 미만은 넣지 않습니다 — «괴물 목소리» 가 되고, 재생 보정 배속(S/P)이 커져
    시간축 늘이기 왜곡(«뚜벅뚜벅»)도 함께 커집니다. */
@@ -200,8 +215,11 @@ function deepen(u, P){
   });
 }
 
+/* ⛔ 기기 목소리(speechSynthesis)도 여기서 함께 끊으세요 — 안 끊으면 카드 ▶ 와
+   기기 ▶ 가 동시에 납니다(정지 경로가 «상태를 하나 더» 모르는 그 사고). */
 function stopNow(){
   _seq++;
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_audio){ _audio.onended=null; _audio.onerror=null; _audio.pause(); } }catch(e){}
   if(_curBtn){ _curBtn.classList.remove('on'); _curBtn.textContent = _curBtn.dataset.label; _curBtn = null; }
 }
@@ -218,19 +236,32 @@ function play(item, btn){
   }).then(function(u){
     if(mine !== _seq || !u) return;
     if(!_audio) _audio = new Audio();
-    var done = function(){
-      if(mine !== _seq) return;
+    var reset = function(){
+      if(mine !== _seq) return false;
       btn.classList.remove('on'); btn.textContent = btn.dataset.label; _curBtn = null;
+      return true;
+    };
+    /* 🔴 «끝까지 들었다» 와 «재생하다 실패했다» 를 같은 함수로 받지 마세요 —
+       이 화면은 사장님이 «들은 것» 을 근거로 값을 고르는 자리라,
+       못 들은 것을 「들으신 것: C」 라고 말하면 선택이 잘못된 근거 위에 섭니다. */
+    _audio.onended = function(){
+      if(!reset()) return;
       say('들으신 것: ' + item.tag + ' (' + item.pitch.toFixed(2) + ')  —  다른 것도 들어 보세요.');
     };
-    _audio.onended = done; _audio.onerror = done;
+    _audio.onerror = function(){
+      if(!reset()) return;
+      say('⚠️ ' + item.tag + ' 를 재생하다 멈췄습니다. 한 번 더 눌러 주세요.');
+    };
     _audio.src = u;
     /* 굵게 만든 판은 길이가 1/P 로 늘어나 있다 — 배속을 P 로 나눠 되돌린다.
        preservesPitch=true 가 그 되돌림에서 음높이를 다시 올리지 않게 막는다. */
     _audio.playbackRate = rate() / item.pitch;
     try{ _audio.preservesPitch = true; _audio.webkitPreservesPitch = true; }catch(e){}
     say('🔊 ' + item.tag + ' 재생 중 — 속도 ' + rate() + '배');
-    _audio.play().catch(function(){ done(); say('소리를 재생하지 못했습니다. 한 번 더 눌러 주세요.'); });
+    _audio.play().catch(function(){
+      if(!reset()) return;
+      say('소리를 재생하지 못했습니다. 한 번 더 눌러 주세요.');
+    });
   }).catch(function(err){
     if(mine !== _seq) return;
     btn.classList.remove('on'); btn.textContent = btn.dataset.label; _curBtn = null;
@@ -238,17 +269,22 @@ function play(item, btn){
   });
 }
 
-/* 카드 그리기 */
+/* 카드 그리기
+   ⛔ «★ 지금 쓰는 값» 을 목록에 손으로 적지 마세요 — NOW_PITCH 를 바꿀 때 한쪽만 고쳐져
+      한 화면이 서로 다른 두 칸을 «지금» 이라고 가리키게 됩니다(테두리는 옮겨 가는데 글자는 남음). */
 (function(){
   var box = document.getElementById('cards');
   LIST.forEach(function(item){
+    var isNow = item.pitch === NOW_PITCH;
     var d = document.createElement('div');
-    d.className = 'card' + (item.pitch === NOW_PITCH ? ' now' : '');
+    d.className = 'card' + (isNow ? ' now' : '');
     var hd = document.createElement('p'); hd.className = 'hd';
     var tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = item.tag;
     hd.appendChild(tg);
-    hd.appendChild(document.createTextNode(item.name + '  ·  ' + item.pitch.toFixed(2)));
-    var ds = document.createElement('p'); ds.className = 'd'; ds.textContent = item.desc;
+    hd.appendChild(document.createTextNode(
+      item.name + (isNow ? ' ★ 지금 쓰는 값' : '') + '  ·  ' + item.pitch.toFixed(2)));
+    var ds = document.createElement('p'); ds.className = 'd';
+    ds.textContent = item.desc + (isNow ? ' — 지금 수업에서 나는 소리입니다.' : '');
     var b = document.createElement('button'); b.className = 'play';
     b.dataset.label = '▶ 듣기';
     b.textContent = '▶ 듣기';
@@ -261,8 +297,31 @@ function play(item, btn){
   });
 })();
 
-/* 📱 이 기기에 깔린 중국어 음성 — 있으면 그쪽이 수업에서 «1순위» 로 쓰입니다
-   (warmup.html 의 _zhMaleVoiceReady). 그래서 함께 들어 보실 수 있게 둡니다. */
+/* 📱 이 기기에 깔린 중국어 목소리
+   🔴 «목록에 남자가 있으면 수업이 그것을 쓴다» 가 아닙니다 —
+      정본(warmup.html 의 _zhMaleVoiceReady)은 «점수가 가장 높은 그 하나가 남자 이름인가» 입니다.
+      그래서 Kangkang(남자)이 목록에 보여도 Google 음성이 점수에서 이기면 안 쓰입니다.
+   ⛔ 조건을 넓게 옮겨 적지 마세요 — 화면이 못 지킬 약속을 하게 됩니다.
+   아래 ZH_MALE_RE·scoreVoice·pickVoice 는 warmup.html 에서 그대로 옮긴 것입니다
+   (룽 선생님 = 중국어 «남자» 를 고른 상태 기준). */
+var ZH_MALE_RE   = /(\b(kangkang|yunxi|yunyang|yunjian|yunfeng|yunhao|yunze|li-?mu|male)\b|男)/i;
+var ZH_FEMALE_RE = /(\b(huihui|yaoyao|xiaoxiao|xiaoyi|xiaomo|xiaohan|tingting|meijia|sinji|female)\b|女)/i;
+function scoreVoice(v){
+  var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+  if(lang==='zh-cn') s+=40; else if(lang.slice(0,2)==='zh') s+=18; else s-=120;
+  if(/natural|neural/.test(n)) s+=70;
+  if(/google/.test(n)) s+=60;
+  if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|samantha|alex|allison)\b/.test(n)) s+=46;
+  var isMale = /\b(guy|christopher|brian|tom|nathan|evan|daniel|ryan|william|james|eric|steffan|liam|noah|male)\b/.test(n)
+             || ZH_MALE_RE.test(n);
+  var isFemale = /\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|zira|hazel|susan|catherine|linda|heera|female|woman)\b/.test(n)
+             || ZH_FEMALE_RE.test(n);
+  if(isMale) s+=80; else if(isFemale) s-=40;    /* 룽 = 남자를 고른 상태 */
+  if(/online|premium|enhanced|plus/.test(n)) s+=24;
+  if(v.localService===false) s+=30;
+  if(/zira|david|mark|hazel|george|desktop|compact|espeak/.test(n)) s-=50;
+  return s;
+}
 (function(){
   var box = document.getElementById('dev');
   function draw(){
@@ -274,26 +333,46 @@ function play(item, btn){
       box.textContent = '이 기기에는 중국어 음성이 없습니다. 그래서 위의 «굵게 만든 소리» 가 쓰입니다.';
       return;
     }
-    var p = document.createElement('p');
-    p.style.margin = '0';
-    p.textContent = zh.length + '개 있습니다. 이 중에 남자 목소리가 있으면 수업에서 그것이 먼저 쓰입니다.';
+    var best = null, bs = -1e9;
+    zh.forEach(function(v){ var sc = scoreVoice(v); if(sc > bs){ bs = sc; best = v; } });
+    var useDevice = !!best && ZH_MALE_RE.test(String(best.name || ''));
+
+    var p = document.createElement('p'); p.style.margin = '0';
+    p.textContent = zh.length + '개 있습니다. 수업은 이 중 «점수가 가장 높은 하나»만 봅니다 — '
+      + '지금 고르는 것은 「' + (best ? best.name : '없음') + '」 입니다.';
     box.appendChild(p);
+
+    var p2 = document.createElement('p'); p2.style.margin = '6px 0 0';
+    p2.textContent = useDevice
+      ? '그 목소리가 남자 이름이라, 이 기기의 룽 선생님은 «기기 목소리» 로 읽습니다(위 굵게 만든 소리 대신).'
+      : '그 목소리는 남자 이름이 아니라서, 이 기기의 룽 선생님은 «위에서 굵게 만든 소리» 로 읽습니다.';
+    box.appendChild(p2);
+
     var ul = document.createElement('ul');
     zh.forEach(function(v){
       var li = document.createElement('li');
-      li.appendChild(document.createTextNode(v.name + ' (' + v.lang + ')  '));
+      var label = document.createElement('span');
+      label.textContent = v.name + ' (' + v.lang + ')  ';
+      li.appendChild(label);
+      if(v === best){
+        var pk = document.createElement('span'); pk.className = 'pick';
+        pk.textContent = (useDevice ? '← 수업이 쓰는 목소리  ' : '← 수업이 고르지만 남자가 아님  ');
+        li.appendChild(pk);
+      }
       var b = document.createElement('button');
-      b.className = 'play';
-      b.style.fontSize = '13px'; b.style.padding = '4px 10px'; b.style.minHeight = '0';
+      b.className = 'play sm';
       b.textContent = '▶ 듣기';
       b.addEventListener('click', function(){
         stopNow();
         try{
-          window.speechSynthesis.cancel();
           var u = new SpeechSynthesisUtterance(TEXT);
           u.voice = v; u.lang = v.lang; u.rate = rate();
+          /* 🀄 정본 _synthSpeak 이 중국어 «남자» 에 주는 음높이와 같은 값이어야
+             여기서 들은 소리가 수업에서 날 소리와 같습니다. */
+          u.pitch = DEV_PITCH;
           window.speechSynthesis.speak(u);
-          say('🔊 기기 목소리 재생 중 — ' + v.name);
+          say('🔊 기기 목소리 재생 중 — ' + v.name
+              + (v === best && useDevice ? ' (수업이 쓰는 목소리)' : ' (참고용 — 수업에서는 안 쓰입니다)'));
         }catch(e){ say('이 목소리는 재생하지 못했습니다.'); }
       });
       li.appendChild(b);
