@@ -708,6 +708,65 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       check('너무 낮추지는 않는다 (P >= 0.7)', P >= 0.7, '실제 P=' + P);
     }
 
+    /* 🀄 견본 화면(/zh-voice-sample.html)이 «지금 수업에서 나는 소리» 를 사실대로 들려주는가.
+       그 화면은 사장님이 A~D 를 직접 듣고 고르시라고 만든 것이라, 정본이 바뀌면
+       ★ 표시와 굽는 식이 «지금 수업에서 나는 소리» 가 아닌 것을 가리키게 된다 —
+       CLAUDE.md 「문서에 «고쳤다» 고 적혀 있는데 같은 사고가 또 남」 그대로다.
+       ⚠️ 그 화면은 고르신 값을 넣고 나면 지워도 되는 견본이다 — 없으면 건너뛴다
+          (있는데 어긋난 것만 잡는다. «없다» 를 FAIL 로 만들면 지울 수가 없어진다). */
+    let sample = null;
+    try { sample = read('cloudflare-deploy/public/zh-voice-sample.html'); } catch { sample = null; }
+    if (sample && pitchDecl) {
+      const P = Number(pitchDecl[1]);
+      const now = sample.match(/var NOW_PITCH = ([0-9.]+);/);
+      check('견본 화면이 말하는 «지금 쓰는 값» 이 정본과 같다',
+        !!now && Number(now[1]) === P,
+        '견본=' + (now ? now[1] : '없음') + ' / 정본=' + P);
+      /* 🔴 짝 — 없으면 «★ 만 맞고 그 굵기를 들어 볼 수는 없는» 화면도 통과한다 */
+      const list = sample.match(/var LIST = \[([\s\S]*?)\n\];/);
+      const pitches = list ? [...list[1].matchAll(/pitch:\s*([0-9.]+)/g)].map((m) => Number(m[1])) : [];
+      check('견본 목록에 그 값을 실제로 들어 볼 수 있는 칸이 있다 (짝)',
+        pitches.some((x) => x === P), '목록=' + JSON.stringify(pitches) + ' 정본=' + P);
+
+      /* 🔴 숫자 하나만 맞아도 «굽는 식» 이 어긋나면 다른 소리가 납니다.
+         화면 머리말이 「여기 식을 고치지 마세요」라고 적어 두었지만, 그것을 지키게 하는 것은
+         이 검사뿐입니다(적어 둔 것 ≠ 지켜지는 것). */
+      const sDeep = bodyOf(sample, 'function deepen(u, P){');
+      check('전제: 견본의 굽는 함수를 잘라 냈다', sDeep.length > 200, 'len=' + sDeep.length);
+      check('견본도 정본과 «같은 식» 으로 굽는다 (다시 그리기)',
+        /playbackRate\.value = P/.test(sDeep) && /buf\.length \/ P/.test(sDeep),
+        '한쪽만 P 면 길이가 어긋나 뒷부분이 잘리거나 무음이 붙습니다');
+      check('견본도 재생할 때 배속을 P 로 나눠 길이를 되돌린다',
+        /playbackRate = rate\(\) \/ item\.pitch/.test(sample),
+        '이 나눗셈이 없으면 «느리고 낮은» 소리가 되어 사장님이 다른 것을 듣게 됩니다');
+      check('견본도 «음높이 유지» 로 재생한다 (preservesPitch=true)',
+        /preservesPitch = true/.test(sample) && !/preservesPitch\s*=\s*false/.test(sample),
+        'false 면 속도 토글이 그대로 음높이 토글이 됩니다');
+
+      /* 🀄 기기 목소리 쪽도 짝이다 — 정본 _synthSpeak 이 중국어 남자에게 주는 음높이와
+         견본의 DEV_PITCH 가 같아야 «여기서 들은 기기 목소리» 가 수업의 그것과 같다. */
+      const devP = sample.match(/var DEV_PITCH = ([0-9.]+);/);
+      const pitSrc2 = HTMLC.match(/var _pit = ([^;]+);/);
+      const canonPit = pitSrc2 ? (() => {
+        try { return new Function('isZh', '_voiceGender', 'return ' + pitSrc2[1])(() => true, () => 'male'); }
+        catch { return null; }
+      })() : null;
+      check('견본의 기기 목소리 음높이가 정본과 같다',
+        !!devP && canonPit !== null && Number(devP[1]) === canonPit,
+        '견본=' + (devP ? devP[1] : '없음') + ' / 정본=' + canonPit);
+      /* 🔴 정본은 «점수가 가장 높은 그 하나가 남자 이름인가» 로 판정한다 —
+         «목록에 남자가 있는가» 로 넓혀 적으면 화면이 못 지킬 약속을 한다(2026-09-14 실제로 밟음). */
+      check('견본이 정본의 목소리 고르기 규칙을 그대로 옮겼다',
+        /function scoreVoice\(v\)/.test(sample) && /ZH_MALE_RE/.test(sample)
+          && /sc > bs/.test(sample),
+        '«목록에 남자가 있으면 쓴다» 로 넓히면 Kangkang 이 보여도 실제로는 안 쓰입니다');
+      /* 🔴 짝 — 못 들었는데 「들으신 것」 이라고 말하면 선택이 잘못된 근거 위에 선다 */
+      const onerr = sample.match(/_audio\.onerror = function\(\)\{([\s\S]*?)\n    \};/);
+      check('재생하다 실패하면 「들으신 것」 이라고 말하지 않는다 (짝)',
+        !!onerr && !/들으신 것/.test(onerr[1]),
+        '이 화면은 «들은 것» 을 근거로 값을 고르는 자리입니다');
+    }
+
     if (wantSrc) {
       const wanted = (zh, g) => {
         try {
