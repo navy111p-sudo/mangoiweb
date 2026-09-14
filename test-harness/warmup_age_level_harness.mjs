@@ -91,8 +91,15 @@ console.log('\n[ D. 서버 배선 — 받은 연령대가 프롬프트까지 가
   check('추가질문(handleWarmupQuestions)도 age_group 을 읽는다', /normalizeWarmupAge\(body\.age_group\)/.test(qs));
   check('추가질문 프롬프트에도 연령대 줄이 들어간다', /warmupAgeLine\(ageGroup\)/.test(qs));
   // 난이도와 «독립» 인 축이어야 한다 — 하나로 묶으면 「성인인데 유아 문장」이 생긴다
+  /* 📜 2026-09-13 — 중국어가 붙으며 이 줄이 «언어로 표를 고르는» 모양이 됐습니다
+     (`${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`).
+     지켜야 할 것은 그대로입니다 — «난이도 줄은 ctxDifficulty 로 고른다»(연령대가 아니다).
+     ⛔ 식 모양으로 다시 못 박지 마세요(CLAUDE.md 2장). */
   check('연령대가 난이도(WARMUP_LEVELS)를 덮어쓰지 않는다',
-    /if \(ctxDifficulty\) sys \+= ` \[난이도\] \$\{WARMUP_LEVELS\[ctxDifficulty\]\}`/.test(chat));
+    /if \(ctxDifficulty\) sys \+= ` \[난이도\] \$\{[^`]*WARMUP_LEVELS[^`]*\[ctxDifficulty\][^`]*\}`/.test(chat));
+  check('🀄 중국어면 중국어 레벨표를 쓴다 (짝)',
+    /\[난이도\][^`]*WARMUP_ZH_LEVELS/.test(chat),
+    '이 짝이 없으면 중국어 대화가 «영어 낱말 수» 기준으로 길이를 받습니다');
 }
 
 console.log('\n[ E. 화면 — 고르기 전에는 대화가 시작되지 않는가 ]');
@@ -293,8 +300,33 @@ console.log('\n[ H. 📊 웜업 기록 — 「몇 단계로 쓰는가」를 셀 
   check('그 실패가 조용히 묻히지 않는다(로그 한 줄)', catches.every((c) => /console\.(error|warn)/.test(c)));
 
   // ── 배선: 서버 두 곳 · 화면 ──
+  /* 📜 2026-09-13 — 「앞 900자 안에 있나」로 묻던 것을 «그 함수 몸통 안에 있나» 로 바꿨습니다.
+     중국어 언어 힌트(hint=1) 갈래가 앞에 들어오자 900자를 넘겨 «보장은 그대로인데»
+     빨간불이 났습니다(CLAUDE.md 2장 「검사 범위를 «길이» 로 자르지 마세요」). */
+  const ctxBody = (() => {
+    const i = IDX.indexOf('async function handleWarmupContext');
+    if (i < 0) return '';
+    const o = IDX.indexOf('{', IDX.indexOf(')', i));   // 인자 목록 뒤의 여는 중괄호
+    let d = 0;
+    for (let k = o; k < IDX.length; k++) {
+      if (IDX[k] === '{') d++;
+      else if (IDX[k] === '}') { d--; if (!d) return IDX.slice(o, k + 1); }
+    }
+    return '';
+  })();
+  check('전제: handleWarmupContext 몸통을 잘라 냈다', ctxBody.length > 200, 'len=' + ctxBody.length);
   check('세션 시작을 /api/warmup/context 에서 기록한다',
-    /handleWarmupContext[\s\S]{0,900}logWarmupSessionStart\(env, \{/.test(IDX));
+    /logWarmupSessionStart\(env, \{/.test(ctxBody));
+  /* ⚠️ «위치» 로 묻는 검사는 주석을 벗겨 낸 사본으로 판정한다 — 그러지 않으면 이 함수의
+     설명 주석에 적힌 logWarmupSessionStart 가 «먼저» 잡혀 늘 FAIL 이다(실제로 밟았다). */
+  const ctxCode = ctxBody.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('🀄 언어 힌트(hint=1)는 세션 시작을 기록하지 않는다',
+    (() => {
+      const h = ctxCode.indexOf("searchParams.get('hint')");
+      const l = ctxCode.indexOf('logWarmupSessionStart');
+      return h >= 0 && l >= 0 && h < l && /return new Response[\s\S]{0,200}suggest_lang/.test(ctxCode.slice(h, l));
+    })(),
+    '힌트 갈래가 기록보다 앞에서 돌아가지 않으면 세션 시작이 «설정 화면을 열 때» 남습니다');
   check('그때 화면이 고른 수준·연령대를 받는다',
     /searchParams\.get\('diff'\)/.test(IDX) && /normalizeWarmupAge\(u\.searchParams\.get\('age'\)\)/.test(IDX));
   check('대화 첫 턴에도 안전망 기록이 있다(비로그인 세션)',
@@ -381,8 +413,17 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
   }
 
   // ⑦ 배선 — 서버 세 자리, 화면 네 자리
-  check('대화 응답이 보기를 함께 내려준다', /answer_chips: warmupAnswerChips\(aiText, ctxDifficulty\)/.test(IDX));
-  check('고른 질문(pick)에도 보기를 내려준다', /picked: pick, answer_chips: warmupAnswerChips\(pick, difficulty\)/.test(IDX));
+  /* 📜 2026-09-13 — 언어마다 칩 정본이 달라져(영어 warmupAnswerChips · 중국어 warmupZhAnswerChips)
+     식 모양 대신 «그 값으로 칩을 만들어 싣는가» 로 묻습니다.
+     ⚠️ 중국어에 영어 정본을 쓰면 1·2단계에서 «막혔을 때» 영어 칩이 조건 없이 붙습니다. */
+  check('대화 응답이 보기를 함께 내려준다',
+    /answer_chips:[^\n]*\bwarmupAnswerChips\(aiText, ctxDifficulty\)/.test(IDX));
+  check('🀄 중국어 대화는 중국어 칩 정본을 쓴다 (짝)',
+    /answer_chips:[^\n]*\bwarmupZhAnswerChips\(aiText, ctxDifficulty\)/.test(IDX));
+  check('고른 질문(pick)에도 보기를 내려준다',
+    /picked: pick,[\s\S]{0,160}warmupAnswerChips\(pick, difficulty\)/.test(IDX));
+  check('🀄 고른 질문도 중국어면 중국어 칩 (짝)',
+    /picked: pick,[\s\S]{0,160}warmupZhAnswerChips\(pick, difficulty\)/.test(IDX));
   check('화면이 목록을 «만들지» 않고 받아서 그린다',
     !/Yes, I do\./.test(HTML.replace(/chips:\s*\[[^\]]*\]/g, '')), '화면에 칩 문구가 흩어져 있으면 정본이 둘이 된다');
   for (const [name, re] of [['첫 인사', /showAnswerChips\(g\.chips\)/], ['대화 답변', /showAnswerChips\(d\.answer_chips\)/],

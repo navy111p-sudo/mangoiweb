@@ -203,11 +203,17 @@ function testWarmupMic() {
   const timers = makeTimers();
   const sent = [];
 
+  /* 🀄 2026-09-13 — 웜업에 «대화 언어» 축이 생겨 이 조각이 바깥의 isZh() 를 부른다.
+     그 이름이 없으면 조각이 통째로 ReferenceError 로 죽는다(검사가 «못 봤다» 가 된다).
+     ⇒ 가짜로 물려 주고, 아래에서 «그 값을 실제로 따라가는가» 를 짝으로 확인한다. */
+  let fakeZh = false;
   const sandbox = {
     document: doc,
     window: { SpeechRecognition: FakeSR },
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     unlockAudio: () => {}, _stopSpeak: () => {}, addMsg: () => {},
+    isZh: () => fakeZh,
+    _warmLang: 'en',
     sendMsg: () => { const v = (doc.els.inp.value || '').trim(); if (v) sent.push(v); doc.els.inp.value = ''; },
     console,
   };
@@ -215,6 +221,16 @@ function testWarmupMic() {
   vm.runInContext(code + '\n;globalThis.__toggleMic = toggleMic;', sandbox);
   const toggleMic = sandbox.__toggleMic;
   const last = () => FakeSR.instances[FakeSR.instances.length - 1];
+
+  /* 🀄 마이크가 «고른 말» 로 듣는가 — 「막힌다·안 막힌다」가 아니라 «짝» 으로 묻는다.
+     한쪽만 두면 「언제나 en-US」·「언제나 zh-CN」 어느 쪽으로 고장 나도 통과한다. */
+  fakeZh = false; toggleMic();
+  check('영어면 마이크가 en-US 로 듣는다', last().lang === 'en-US', 'lang=' + last().lang);
+  toggleMic(); timers.fire();
+  fakeZh = true; toggleMic();
+  check('🀄 중국어면 마이크가 zh-CN 으로 듣는다 (짝)', last().lang === 'zh-CN', 'lang=' + last().lang);
+  toggleMic(); timers.fire();
+  fakeZh = false; sent.length = 0; doc.els.inp.value = '';
 
   // 평소대로 한 문장 말하고 조용해지면 전송
   toggleMic();

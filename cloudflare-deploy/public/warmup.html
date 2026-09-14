@@ -251,6 +251,9 @@
     background:radial-gradient(125% 100% at 50% -8%,#2a4d9e 0%,#1a2f6b 42%,#122350 100%);
     padding:20px 16px 44px}
   .wu-setup[hidden]{display:none !important}
+  /* 🀄 중국어를 고르면 «내 수준 찾아줄까요?» 를 감춘다 — 그 버튼에도 작성자 display 가 걸려 있어
+        같은 이유로 한 줄이 더 필요하다(위 ⚠️ 와 같은 함정). */
+  .wus-find[hidden]{display:none !important}
   .wus-box{max-width:640px;margin:0 auto}
   /* ⬅️🏠 설정 화면 전용 «나가는 길» (2026-08-26)
      이 화면은 position:fixed 로 상단바(.top)를 통째로 덮는다 — 그래서 여기에 두지 않으면
@@ -391,6 +394,14 @@
       <div id="wusMain">
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 웜업 설정</div>
         <div class="wus-lead">먼저 <b>누가</b> · <b>어느 수준으로</b> 이야기할지 정해요.<br>대화 중에도 오른쪽 위 <b>⋮</b> 에서 언제든 바꿀 수 있어요.</div>
+
+        <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
+             ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
+                달라진다(영어는 낱말 수, 중국어는 글자 수). 언어를 나중에 고르게 하면 방금 읽은
+                설명이 말없이 바뀐다. -->
+        <div class="wus-sub">🗣️ 무슨 말로 이야기할까요?</div>
+        <div class="wus-hint">고른 언어로 <b>AI 가 말하고, 마이크도 그 말을 듣습니다</b>.</div>
+        <div class="wus-grid" id="wusLangs"></div>
 
         <div class="wus-sub">🧑‍🎓 누가 웜업하나요?</div>
         <div class="wus-hint">고른 나이대에 맞춰 <b>이야기 소재와 말투</b>가 달라져요. (영어 수준과는 별개예요)</div>
@@ -921,22 +932,25 @@ function maybeAdjustRate(text){
       무시된다(CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
 var LEVEL_CATALOG = [
   {n:1, ko:'첫걸음', lv:'Lv 1-4',   cefr:'A1',  d:'아주 짧은 문장 (3~5단어)',
-   s:'I like apples.'},
+   s:'I like apples.', dz:'아주 짧은 문장 (3~5자)'},
   {n:2, ko:'기초',   lv:'Lv 5-8',   cefr:'A2',  d:'짧고 쉬운 문장 (5~7단어)',
-   s:'I can ride my bike now.'},
+   s:'I can ride my bike now.', dz:'짧고 쉬운 문장 (6~8자)'},
   {n:3, ko:'초급',   lv:'Lv 9-12',  cefr:'A2+', d:'과거형이 나오는 문장 (7~9단어)',
-   s:'I went to the park with my friend.'},
+   s:'I went to the park with my friend.', dz:'기본 문형이 나와요 (9~12자)'},
   {n:4, ko:'초중급', lv:'Lv 13-17', cefr:'B1',  d:'두 문장이 이어진 문장 (9~12단어)',
-   s:'I wanted to go outside, but it started raining very hard.'},
+   s:'I wanted to go outside, but it started raining very hard.', dz:'了·过·접속사가 나와요 (13~16자)'},
   {n:5, ko:'중급',   lv:'Lv 18-21', cefr:'B1+', d:'조금 긴 문장 (12~15단어)',
-   s:'My brother keeps borrowing my headphones without asking, and it really annoys me.'},
+   s:'My brother keeps borrowing my headphones without asking, and it really annoys me.', dz:'比·得 비교 표현 (17~20자)'},
   {n:6, ko:'중고급', lv:'Lv 22-25', cefr:'B2',  d:'관계절·가정법이 나와요 (15~18단어)',
-   s:'If I had known that the museum closes early on Mondays, I would have gone on Sunday.'},
+   s:'If I had known that the museum closes early on Mondays, I would have gone on Sunday.', dz:'把·被 구문이 나와요 (21~26자)'},
   {n:7, ko:'고급',   lv:'Lv 26-30', cefr:'B2+', d:'관용표현이 섞여요 (18~22단어)',
-   s:'She was on the fence about taking the job, so we talked it through until she finally made up her mind.'},
+   s:'She was on the fence about taking the job, so we talked it through until she finally made up her mind.', dz:'성어·구어 표현이 섞여요 (27~32자)'},
   {n:8, ko:'최상급', lv:'Lv 31-34', cefr:'C1',  d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
-   s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.'}
+   s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.', dz:'가장 긴 문장 · 뉘앙스 중심'}
 ];
+/* 🀄 dz — 같은 여덟 칸을 «중국어로 잴 때» 의 설명. d(영어·낱말 수)를 «대체» 하지 않고 나란히 둔다.
+   ⚠️ 괄호 안 글자 수는 서버 정본 `WARMUP_ZH_CHAR_CAP`(src/warmup-zh.ts)과 «짝» 이다.
+      한쪽만 고치면 화면과 AI 가 서로 다른 말을 한다 — 하니스가 두 값을 대조한다. */
 var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
 /* 🏷️ 「4단계 · 초중급 · B1」처럼 CEFR 까지 붙인 한 줄. ⋮ 설정 패널·안내 문구가 함께 씁니다.
    ⛔ 이름을 손으로 적지 마세요 — 여기 한 곳에서만 만들어야 설정 화면과 어긋나지 않습니다
@@ -990,6 +1004,46 @@ setLevel(_warmLevel);   // 저장된 레벨로 눈금/표시 초기화
    ⚠️ id 는 서버(src/warmup-audience.ts WARMUP_AGE_IDS)와 «짝» 이다. 여기에만
       늘리면 서버가 모르는 값이라 조용히 기본값(child)으로 떨어진다.
    ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   🀄 대화 언어 — «무슨 말로 이야기하는가» (2026-09-13)
+     난이도(문장 길이·문법)·연령대(소재·말투)와 «독립» 인 세 번째 축이다.
+   ⚠️ id 는 서버(src/warmup-zh.ts 의 normalizeWarmupLang)와 «짝» 이다. 여기에만 늘리면
+      서버가 모르는 값이라 조용히 «영어» 로 떨어진다(CLAUDE.md 2장 「화면에서 골랐는데
+      그 값만 저장이 안 됨」).
+   ⚠️ «모르면 영어» 다 — 중국어로 밀어붙이지 않는다. 학생 대부분은 영어 수업이다.
+   ⛔ 함수 이름을 setLang 으로 하지 마세요 — js/mango-i18n.js 가 같은 이름의 전역
+      (setLang/getLang/toggleLang)을 쓰고, 이 화면이 나중에 그 파일을 싣게 되면
+      화면 언어 토글이 통째로 덮입니다(CLAUDE.md 2장 「언어 판정」).
+   ══════════════════════════════════════════════════════════════════ */
+var LANG_CATALOG = [
+  {id:'en', ic:'🇺🇸', ko:'영어',   d:'영어로 이야기해요 (기본)'},
+  {id:'zh', ic:'🇨🇳', ko:'중국어', d:'간체자로 이야기해요 · 낮은 단계는 병음과 뜻을 함께 보여줘요'}
+];
+var _warmLang = 'en';
+/* «학생이 직접 골랐는가» — 안 골랐을 때만 서버 힌트(suggest_lang)로 기본값을 바꾼다.
+   ⛔ 고른 뒤에도 힌트로 덮으면, 중국어 수업 학생이 영어로 연습하려는 것을 매번 되돌린다. */
+var _warmLangChosen = false;
+try{
+  var _qL = String(Q.get('lang')||'').toLowerCase();
+  var _sL = String(localStorage.getItem('mangoi_warmup_lang')||'').toLowerCase();
+  if(_qL==='zh' || _qL==='en'){ _warmLang=_qL; _warmLangChosen=true; }
+  else if(_sL==='zh' || _sL==='en'){ _warmLang=_sL; _warmLangChosen=true; }
+}catch(e){}
+function langInfo(id){
+  for(var i=0;i<LANG_CATALOG.length;i++) if(LANG_CATALOG[i].id===id) return LANG_CATALOG[i];
+  return LANG_CATALOG[0];   // 모르는 값 → 영어(예전 동작)
+}
+function isZh(){ return _warmLang === 'zh'; }
+function setWarmLang(l, announce){
+  l = (l==='zh') ? 'zh' : 'en';
+  var changed = (l !== _warmLang);
+  _warmLang = l; _warmLangChosen = true;
+  try{ localStorage.setItem('mangoi_warmup_lang', l); }catch(e){}
+  if(announce && changed && typeof addMsg==='function'){
+    addMsg('🗣️ 이제 ' + langInfo(l).ko + '로 이야기해요. 다음 대화부터 바뀌어요!', 'sys');
+  }
+}
+
 var AGE_CATALOG = [
   {id:'kid',   ic:'🧒',   ko:'유아·초등 저학년', sh:'유아·초등 저',   d:'놀이·동물·가족처럼 아주 익숙한 이야기로'},
   {id:'child', ic:'🧑‍🎓', ko:'초등 고학년·중학생', sh:'초등 고·중',    d:'학교·친구·취미 같은 또래 이야기로 (기본)'},
@@ -1049,6 +1103,20 @@ var _warmStarted = false;      // 첫 인사가 이미 나갔는가(= 대화가 
 function setupEl(){ return document.getElementById('wuSetup'); }
 function renderSetup(){
   var box = setupEl(); if(!box || box.hidden) return;
+  var langs = document.getElementById('wusLangs');
+  if(langs){
+    langs.innerHTML = LANG_CATALOG.map(function(a){
+      var on = (a.id === _warmLang);
+      return '<button type="button" class="wus-card'+(on?' on':'')+'" data-lang="'+a.id+'">'
+        + '<span class="wus-name">'+a.ic+' '+a.ko+(on?'<span class="wus-now">지금</span>':'')+'</span>'
+        + '<span class="wus-desc">'+a.d+'</span></button>';
+    }).join('');
+  }
+  /* 🎯 「내 수준 찾아줄까요?」는 «영어 문장 3개를 읽어 보고» 재는 것이라 중국어에는 뜻이 없다.
+     ⛔ 중국어 문장으로 바꿔서 살리지 마세요 — 그러려면 여덟 단계 중국어 예문을 손으로 만들어야
+        하고, 그건 별건입니다. 지금은 «없는 것» 을 감추는 편이 거짓말을 안 합니다. */
+  var find = document.getElementById('wusFind');
+  if(find) find.hidden = isZh();
   var ages = document.getElementById('wusAges');
   if(ages){
     ages.innerHTML = AGE_CATALOG.map(function(a){
@@ -1065,7 +1133,7 @@ function renderSetup(){
       return '<button type="button" class="wus-item'+(on?' on':'')+'" data-lvl="'+b.n+'">'
         + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'
         + ' <span class="wus-cefr">'+b.cefr+'</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
-        + '<span class="wus-desc">'+b.d+'</span></button>';
+        + '<span class="wus-desc">'+(isZh() ? (b.dz||b.d) : b.d)+'</span></button>';
     }).join('');
   }
   var cta = document.getElementById('wusStart');
@@ -1082,6 +1150,26 @@ function openSetup(fromMenu){
   box.hidden = false;
   try{ box.scrollTop = 0; }catch(e){}
   renderSetup();
+  probeSuggestLang();
+}
+/* 🀄 «이 학생은 중국어 수업을 듣는가» — 기본값을 무엇으로 켤지에만 쓰는 힌트 (2026-09-13).
+   ⚠️ 학생이 한 번이라도 «직접 고른» 적이 있으면 묻지 않는다 — 그 선택을 덮으면 안 된다.
+   ⚠️ hint=1 은 서버에서 D1 한 줄만 읽고 끝나는 갈래다(세션 시작 기록·교재 조회를 건너뛴다).
+      session_id 를 «보내지 않는» 것이 그 계약의 일부다 — 보내면 시작 기록이 여기서 남는다.
+   ⚠️ 실패하면 아무것도 안 한다(영어 그대로) — 모를 때 중국어로 밀어붙이지 않는다. */
+var _langProbed = false;
+function probeSuggestLang(){
+  if(_langProbed || _warmLangChosen) return;
+  var uid = getLoginId(); if(!uid) return;
+  _langProbed = true;
+  fetch((API_BASE||'') + '/api/warmup/context?hint=1&user_id=' + encodeURIComponent(uid))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.ok || d.suggest_lang !== 'zh') return;
+      if(_warmLangChosen) return;          // 그 사이 학생이 골랐다 — 덮지 않는다
+      _warmLang = 'zh';                    // ⛔ setWarmLang 을 쓰지 않는다: 저장하면 «학생이 고른 것» 이 된다
+      renderSetup();
+    }).catch(function(){});
 }
 /* ⬅️ 뒤로 — 앞 화면이 «우리 사이트» 일 때만 되돌아가고, 아니면 홈으로 간다.
    ⚠️ history.back() 만 쓰면 밖에서 바로 들어온 사람(카톡 링크·주소 입력)은 아무 데도 못 간다.
@@ -1110,8 +1198,11 @@ function closeSetup(){
 (function wireSetup(){
   var box = setupEl(); if(!box) return;
   box.addEventListener('click', function(e){
-    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl]') : null;
+    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl],[data-lang]') : null;
     if(!t || !box.contains(t)) return;
+    /* 🀄 언어를 바꾸면 수준 설명(낱말 수 ↔ 글자 수)과 «수준 찾기» 표시가 함께 달라진다 —
+          그래서 여기서는 return 하지 않고 아래 renderSetup() 까지 내려간다. */
+    if(t.getAttribute('data-lang')) { setWarmLang(t.getAttribute('data-lang'), false); renderSetup(); return; }
     if(t.getAttribute('data-age')) { setAge(t.getAttribute('data-age'), false); return; }
     var n = parseInt(t.getAttribute('data-lvl'),10);
     if(n>=1 && n<=8) setLevel(n, false);
@@ -1214,7 +1305,11 @@ setAge(_warmAge);   // 저장된 연령대로 메뉴 버튼/표시 초기화
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
-  if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
+  if(isZh()){
+    // 🀄 만다린 간체(zh-CN)가 1순위. 광둥어(zh-HK)·대만(zh-TW)은 발음이 달라 뒤로 민다.
+    if(lang==='zh-cn') s+=40; else if(lang.slice(0,2)==='zh') s+=18; else s-=120;
+  }
+  else if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
   else if(lang.slice(0,2)==='en') s+=18; else s-=120;
   if(/natural|neural/.test(n)) s+=70;
   if(/google/.test(n)) s+=60;
@@ -1232,10 +1327,14 @@ function _scoreVoice(v){
 function pickVoice(){
   try{
     var vs=window.speechSynthesis.getVoices(); if(!vs.length) return;
-    var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
-    if(!en.length){ _enVoice=null; return; }
+    /* 🀄 중국어를 «영어 목소리» 로 읽히면 안 된다 — 글자를 알파벳으로 읽어 소리가 뭉개진다.
+       중국어 보이스가 없으면 _enVoice 를 비워 둔다 → _synthSpeak 이 조용히 물러나고
+       «소리가 안 났다» 는 사실이 화면 문구로 나간다(지어낸 소리를 내지 않는다). */
+    var want = isZh() ? 'zh' : 'en';
+    var pool=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()===want; });
+    if(!pool.length){ _enVoice=null; return; }
     var best=null, bs=-1e9;
-    en.forEach(function(v){ var sc=_scoreVoice(v); if(sc>bs){ bs=sc; best=v; } });
+    pool.forEach(function(v){ var sc=_scoreVoice(v); if(sc>bs){ bs=sc; best=v; } });
     _enVoice=best;
   }catch(e){}
 }
@@ -1261,8 +1360,11 @@ function _synthSpeak(text, btn, onDone){
   try{
     if(!window.speechSynthesis || !_speechOn || !text) { if(onDone) onDone(); return; }
     if(!_enVoice) pickVoice();
+    /* 🀄 중국어인데 중국어 보이스가 하나도 없으면 «읽지 않는다» — 영어 목소리가 한자를
+       알파벳으로 읽으면 학생이 그 발음을 따라 하게 된다(음성코칭 중국어 화면과 같은 판단). */
+    if(isZh() && !_enVoice){ if(onDone) onDone(); return; }
     var u=new SpeechSynthesisUtterance(String(text));
-    u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
+    u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
     u.onstart=function(){ _speechEverStarted=true; };
     u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
@@ -1304,7 +1406,10 @@ function _speechText(s){
 var _ttsFellBack=false;   // 이 세션에서 기기 목소리로 읽은 적이 있는가(안내는 한 번만)
 function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
   fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
+      /* 🀄 lang — 서버가 이 값으로 «무슨 목소리로 읽을지» 를 정한다(src/api-games.ts 의 /api/voice/tts).
+         ⚠️ zh 는 speaker 를 안 본다(구글 만다린 한 목소리) — 그래서 중국어에서는 «네 친구» 를
+            골라도 목소리가 같다. 얼굴·이름은 그대로 바뀐다. 아는 채로 둔 한계다. */
+      body: JSON.stringify({ text:text, lang:_warmLang, speaker:spk }) })
     .then(function(r){
       var ct=r.headers.get('content-type')||'';
       if(!r.ok || ct.indexOf('audio')<0){
@@ -1447,7 +1552,7 @@ function setMicState(on){
   if(ind){
     ind.style.display = on ? 'flex' : 'none';
     // 켤 때마다 기본 문구로 되돌린다 (녹음 모드가 바꿔 둔 문구가 남지 않게)
-    if(on && !_whisperOn) ind.innerHTML='<span class="dot"></span> 🎙️ 듣는 중… 영어로 말해보세요';
+    if(on && !_whisperOn) ind.innerHTML='<span class="dot"></span> 🎙️ 듣는 중… '+(isZh()?'중국어':'영어')+'로 말해보세요';
   }
 }
 /* 🎤 브라우저 음성인식이 없는 환경(앱 WebView·카카오 인앱 브라우저·구형 iOS)에서는
@@ -1465,7 +1570,7 @@ async function micViaWhisper(){
   if(_whisperOn){ MangoiVoice.stop(); return; }      // ⏹ — 지금까지 녹음분으로 전사
   _whisperOn=true; setMicState(true);
   var said = await MangoiVoice.record({
-    lang: 'en',
+    lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     onState: function(s, info){
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
       else if(s==='waiting')  _setListenLabel('🎙️ 지금 말해보세요! 천천히 해도 괜찮아요');
@@ -1497,7 +1602,7 @@ function toggleMic(){
 function _startSttSession(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _recog=new SR();
-  _recog.lang='en-US';                 // 기본은 영어 연습 (한국어 질문도 대부분 인식됨)
+  _recog.lang=isZh() ? 'zh-CN' : 'en-US';   // 🀄 고른 언어로 듣는다 (기본은 영어 연습)
   _recog.interimResults=true;
   _recog.maxAlternatives=1;
   // 🎤 말 중간에 잠깐 숨을 쉬어도 안 끊기게 continuous=true. 브라우저의 성급한 자동종료(엔드포인팅)를
@@ -1695,6 +1800,35 @@ var BEGINNER_GREETINGS = {
        ko: '안녕하세요, {name} 예요. 요즘 마음에 걸리는 게 있어요? 자꾸 다시 떠오르는 일이요.',
        chips: [] }
 };
+/* 🀄 중국어 고정 인사말 — 위 여덟 칸과 «짝» 이다 (2026-09-13).
+   ⚠️ 이 표가 없으면 중국어를 고른 학생이 «영어 인사» 로 시작한다. 여기는 교재 조회가 실패했을
+      때 오는 안전망이라 조용히 새기 쉽다(모델이 아니라 화면이 쓰는 고정 문장이다).
+   ⚠️ 문장 길이는 서버 `WARMUP_ZH_CHAR_CAP`(5·8·12·16·20·26·32·무제한)과 «짝» 이다.
+   ⚠️ 1~3단계만 괄호에 병음·뜻을 붙인다 — `WARMUP_ZH_LEVELS` 가 그렇게 지시하고 있어서다.
+      괄호 안은 «자막에만» 보인다(`_speechText()` 가 낭독에서 걸러 낸다).
+   ⛔ chips 에는 괄호·한국어를 넣지 마세요 — 누르면 그 글자가 그대로 학생 발화로 전송됩니다
+      (`pickAnswer()`). 4단계부터는 «스스로 답하는 것이 훈련» 이라 영어와 같이 빈 배열입니다. */
+var BEGINNER_GREETINGS_ZH = {
+  1: { zh: '你好！我是{name}。🥭 你开心吗？(nǐ kāixīn ma — 기분 좋아요?)',
+       ko: '안녕하세요! 저는 {name} 예요 🥭 오늘 기분 좋아요?',
+       chips: ['开心。', '不开心。', '再说一遍。'] },
+  2: { zh: '你好！我是{name}。🥭 你今天开心还是累？(kāixīn háishi lèi — 기분 좋아요, 피곤해요?)',
+       ko: '안녕하세요! 저는 {name} 예요 🥭 오늘 기분이 좋아요, 아니면 피곤해요?',
+       chips: ['我很开心。', '我很累。', '我不知道。'] },
+  3: { zh: '你好，我是{name}！🥭 你喜欢运动还是音乐？(xǐhuan — 좋아하다)',
+       ko: '안녕하세요, 저는 {name} 예요! 🥭 운동이 좋아요, 아니면 음악이 좋아요?',
+       chips: ['我喜欢运动。', '我喜欢音乐。'] },
+  4: { zh: '你好，我是{name}！🥭 你今天在学校做了什么？',
+       ko: '안녕하세요, 저는 {name} 예요! 🥭 오늘 학교에서 뭐 했어요?', chips: [] },
+  5: { zh: '嗨，我是{name}！🥭 最近有什么事让你觉得很开心？',
+       ko: '안녕하세요, 저는 {name} 예요! 🥭 요즘 기분 좋았던 일이 있어요?', chips: [] },
+  6: { zh: '嗨，我是{name}！🥭 如果可以去任何地方旅行，你最想去哪里？为什么？',
+       ko: '안녕하세요, 저는 {name} 예요! 🥭 어디든 여행 갈 수 있다면 어디에 가고 싶어요? 왜요?', chips: [] },
+  7: { zh: '嗨，我是{name}！🥭 今天要是能改一件事，你会改哪一件？为什么？',
+       ko: '안녕하세요, 저는 {name} 예요! 🥭 오늘 하루에서 딱 하나를 바꿀 수 있다면 뭘 바꾸고 싶어요? 왜요?', chips: [] },
+  8: { zh: '嗨，我是{name}。🥭 最近有什么事一直放在你心里，就算你想不去想它？',
+       ko: '안녕하세요, 저는 {name} 예요. 🥭 요즘 마음에 걸리는 게 있어요? 자꾸 다시 떠오르는 일이요.', chips: [] }
+};
 /* 지금 말할 친구의 표시 이름 — 이름표·인사말이 같은 값을 쓰게 한 곳으로 모은다 */
 function _friendLabelNow(){
   try{ var p = _voicePerson();
@@ -1702,11 +1836,11 @@ function _friendLabelNow(){
   catch(e){ return 'Mango'; }
 }
 function fallbackGreeting(){
-  var g = BEGINNER_GREETINGS[_warmLevel];
+  var g = (isZh() ? BEGINNER_GREETINGS_ZH : BEGINNER_GREETINGS)[_warmLevel];
   if(g){
     // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
     var _fn = _friendLabelNow();
-    var gEn = g.en.replace(/\{name\}/g, _fn), gKo = g.ko.replace(/\{name\}/g, _fn);
+    var gEn = String(g.zh || g.en).replace(/\{name\}/g, _fn), gKo = g.ko.replace(/\{name\}/g, _fn);
     _koCache[gEn] = gKo;
     addMsg(gEn, 'ai');
     /* ⚠️ 여기에 「아래 보기를 눌러 보세요」 같은 안내 줄을 «따로» 두지 마세요 —
@@ -1720,8 +1854,11 @@ function fallbackGreeting(){
      ⚠️ 여기도 «고른 친구 이름» 을 쓴다. 예전에는 "your Mangoi AI friend" 로 박혀 있어서
         Lily 를 골라도 다른 이름을 말했다. */
   var _fb = _friendLabelNow();
-  var fbEn = "Hi! I'm " + _fb + ". 🥭 " + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '')
-    + "Let's warm up before class. How are you today?";
+  var fbEn = isZh()
+    ? ('你好！我是' + _fb + '。🥭 ' + (LESSON_TOPIC ? ('今天的主题是《'+LESSON_TOPIC+'》。') : '')
+       + '上课前我们先热热身吧。你今天怎么样？')
+    : ("Hi! I'm " + _fb + ". 🥭 " + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '')
+       + "Let's warm up before class. How are you today?");
   _koCache[fbEn] = '안녕하세요! 저는 ' + _fb + ' 예요 🥭 '
     + (LESSON_TOPIC ? ('오늘의 주제는 "' + LESSON_TOPIC + '"예요. ') : '')
     + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
@@ -1731,6 +1868,8 @@ function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
   body.age_group = _warmAge;      // 🧑‍🎓 현재 연령대(kid/child/teen/adult) — 소재·말투 축
+  body.lang = _warmLang;          // 🀄 현재 대화 언어(en/zh) — 이 한 곳이 모든 요청의 정본이다
+                                  //    (대화·「질문 골라 보기」·pick 이 전부 withCtx 를 지난다)
   // 🧑 지금 말할 친구 — 서버가 「너는 Lily 야」로 프롬프트를 만든다.
   //    ⚠️ 안 보내면 AI 는 자기가 'Mango' 인 줄 알고, 「Hi! I'm Lily」로 인사해 놓고
   //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
@@ -1762,6 +1901,7 @@ async function initGreeting(){
     qs.set('session_id', SESSION_ID);
     qs.set('diff', String(_warmLevel));
     qs.set('age', _warmAge);
+    qs.set('lang', _warmLang);      // 🀄 교재 소재를 «그 언어로» 골라 온다(zh 는 zh_vocab·zh_passage)
     if(WCTX.textbook) qs.set('textbook', WCTX.textbook);
     if(WCTX.level) qs.set('level', WCTX.level);
     if(WCTX.lesson_no) qs.set('lesson', String(WCTX.lesson_no));
@@ -1806,8 +1946,14 @@ async function initGreeting(){
          서버가 「학생이 입을 뗐다」로 세지 않게 표시해서 보낸다(src/warmup-log.ts).
          ⚠️ 아래 낮은 단계 한 줄은 «보조» 다 — 지시만으로는 안 지켜진다는 게 이 저장소의 반복
             실측이라, 실패해도 되도록 되어 있다(교재 조회가 실패하면 고정 인사말로 떨어진다). */
-      var kick = "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson.";
-      if(_warmLevel <= 2) kick += " I am a beginner: keep every sentence under 7 words, and make the question a yes/no question or an either/or question so the answer is inside your question.";
+      /* 🀄 이 문장은 «학생이 한 말» 이 아니라 모델에게 시키는 지시문이다 — 그래서 무슨 말로
+         인사할지도 여기서 정해 줘야 한다. 안 바꾸면 중국어 대화가 영어 인사로 시작한다. */
+      var kick = isZh()
+        ? "Let's start today's pre-class warm-up! Greet me briefly in Simplified Chinese and ask me ONE very easy question about today's lesson. Write your whole reply in Simplified Chinese."
+        : "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson.";
+      if(_warmLevel <= 2) kick += isZh()
+        ? " I am a beginner: keep every sentence under 8 Chinese characters, and make the question a yes/no (吗) question or an A还是B question so the answer is inside your question. Add pinyin and the Korean meaning in parentheses."
+        : " I am a beginner: keep every sentence under 7 words, and make the question a yes/no question or an either/or question so the answer is inside your question.";
       var body = withCtx({ session_id: SESSION_ID, kickoff: 1, student_input: kick });
       var kr = await fetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       typing.remove();

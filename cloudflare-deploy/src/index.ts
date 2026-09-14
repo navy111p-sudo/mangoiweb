@@ -52,8 +52,10 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
-import { WARMUP_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
+         warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
@@ -3198,7 +3200,7 @@ const WARMUP_WORD_CAP: Record<number, number> = { 1: 5, 2: 7, 3: 9, 4: 12, 5: 15
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
  * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
  * 문장 샘플은 해당 교재(→레벨) 복습퀴즈 은행의 audio_text/answer_text 에서 추출. */
-async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null }) {
+async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null; lang?: string }) {
   let textbook = String(o.textbook || '').trim();
   let level = String(o.level || '').trim();
   const lessonNo = (Number(o.lessonNo) > 0) ? Number(o.lessonNo) : null;
@@ -3214,6 +3216,14 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
     } catch {}
   }
   const sentences: string[] = [];
+  /* 🀄 중국어 갈래(2026-09-13) — 소재를 zh_vocab·zh_passage 에서 읽는다.
+     ⛔ 아래 영어 경로로 내려보내지 말 것: isEnglishQuestion·isEnglishText 게이트가
+        중국어 문장을 통째로 걸러 소재가 늘 0개가 된다(그 게이트는 영어 화면에 병음이
+        섞이는 것을 막는 것이라 그대로 둔다). 정본 src/warmup-zh.ts */
+  if (String(o.lang || '') === 'zh') {
+    const zs = await zhWarmupSentences(env as any, { textbook, lessonNo });
+    return { textbook, level, lesson_no: lessonNo, student_name: studentName, sentences: zs };
+  }
   try {
     if (textbook || level) {
       const tries: Array<{ sql: string; binds: any[] }> = [];
@@ -3256,9 +3266,11 @@ type WarmupLessonCtx = Awaited<ReturnType<typeof warmupLessonContext>>;
 async function warmupLessonContextCached(
   env: Env,
   sessionId: string,
-  o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null },
+  o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null; lang?: string },
 ): Promise<WarmupLessonCtx> {
-  const sig = [o.userId || '', o.textbook || '', o.level || '', o.lessonNo || 0].join('|');
+  /* ⚠️ lang 이 키에 들어가야 한다 — 안 넣으면 같은 세션에서 언어를 바꿨을 때
+        앞 언어의 소재가 캐시에서 그대로 나온다(중국어 대화에 영어 문장이 섞인다). */
+  const sig = [o.userId || '', o.textbook || '', o.level || '', o.lessonNo || 0, o.lang || 'en'].join('|');
   const ckey = 'warmupctx:' + String(sessionId || 'noses').slice(0, 120) + ':' + sig.slice(0, 260);
   if (env.SESSION_STATE) {
     try {
@@ -3276,11 +3288,23 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
   try {
     const u = new URL(request.url);
     const userId = (u.searchParams.get('user_id') || '').trim();
+    const ctxLang = normalizeWarmupLang(u.searchParams.get('lang'));
+    /* 🀄 hint=1 — 설정 화면이 «기본 언어를 무엇으로 켤까» 만 물어볼 때 (2026-09-13).
+       ⚠️ 여기서 끝내는 이유는 셋이다: ① 세션 시작 기록(logWarmupSessionStart)은 «설정을 닫은 뒤»
+          한 번만 남아야 한다 ② 교재 조회·Neo4j 취약문장은 이 물음에 필요 없다 ③ 그래서 이 갈래는
+          D1 을 한 줄(zhStudentByTeacher)만 읽는다.
+       ⚠️ 새 파라미터라 기존 호출자는 이 갈래로 오지 않는다(옛 화면은 예전과 똑같이 동작). */
+    if (u.searchParams.get('hint') === '1') {
+      let hintLang = 'en';
+      try { if (await zhStudentByTeacher(env as any, userId)) hintLang = 'zh'; } catch {}
+      return new Response(JSON.stringify({ ok: true, suggest_lang: hintLang }), { status: 200, headers: _MS_JSON });
+    }
     const ctx = await warmupLessonContext(env, {
       userId,
       textbook: (u.searchParams.get('textbook') || '').trim(),
       level: (u.searchParams.get('level') || '').trim(),
       lessonNo: parseInt(u.searchParams.get('lesson') || '0', 10) || null,
+      lang: ctxLang,
     });
     // 📊 세션 시작 기록 — 설정 화면을 «닫은 뒤» 오는 호출이라 여기 diff/age 가 학생이 고른 값이다.
     //    이 한 줄이 「낮은 단계 학생이 실제로 몇 단계로 쓰는가」와 「입을 뗐는가」의 분모다.
@@ -3292,13 +3316,21 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
       ageGroup: normalizeWarmupAge(u.searchParams.get('age')),
       textbook: ctx.textbook,
       level: ctx.level,
+      lang: ctxLang,     // 🀄 「중국어로 몇 명이 쓰는가」를 셀 수 있게 (2026-09-13)
     });
     // 🕸️ 개인화(Neo4j): 자주 틀린 문장 — 미설정/장애 시 빈 배열 (페이지 로드당 1회 호출이라 캐시 불필요)
     let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
     if (userId && env.NEO4J_QUERY_URL) {
       try { weak = await getWeakSentences(env as any, userId, ctx.textbook || '', 5); } catch {}
     }
-    return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak }), { status: 200, headers: _MS_JSON });
+    /* 🀄 기본 언어 힌트(2026-09-13) — 중국어 강사 수업이 잡힌 학생이면 'zh'.
+       ⚠️ «힌트» 일 뿐이다: 최종 결정은 화면에서 학생이 고른 값이고, 서버는 대화 요청에
+          실려 온 lang 을 그대로 따른다. 못 읽으면 'en'(영어) 쪽으로 실패한다.
+       ⚠️ 학생 명부의 교재 칸으로는 못 가린다 — 29,492행 전부 비어 있다(2026-09-13 실측).
+       ℹ️ 이 조회는 페이지 로드당 1회다(대화 발화마다가 아니다). */
+    let suggestLang = 'en';
+    try { if (await zhStudentByTeacher(env as any, userId)) suggestLang = 'zh'; } catch {}
+    return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak, suggest_lang: suggestLang }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4086,6 +4118,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
     //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
     const ctxAge = normalizeWarmupAge(body && body.age_group);
+    /* 🀄 대화 언어(2026-09-13) — 화면이 보낸 값만 따른다. 판정 정본 src/warmup-zh.ts.
+       ⚠️ 모르는 값·미지정은 'en' 이므로 옛 화면의 요청은 지금과 똑같이 동작한다. */
+    const ctxLang = normalizeWarmupLang(body && body.lang);
     // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
     //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
     const ctxKickoff = !!(body && body.kickoff);
@@ -4126,15 +4161,15 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = warmupSystem(ctxFriend);
+    let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
-    if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
+    if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
       try {
         // 세션당 1회만 D1 을 본다(30분 캐시) — 매 발화마다 재조회하던 것이 지연의 한 축이었다
-        const lc = await warmupLessonContextCached(env, sessionId, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo });
+        const lc = await warmupLessonContextCached(env, sessionId, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo, lang: ctxLang });
         if (lc.textbook || lc.level || lc.sentences.length) {
           if (lc.student_name) sys += ` 학생 이름은 '${lc.student_name}' 이야.`;
           sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
@@ -4170,7 +4205,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
           takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
           중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
-    sys += '\n' + WARMUP_CORRECTION_RULE;
+    sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4275,7 +4310,11 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          ⚠️ 느슨한 쪽으로 실패한다 — 멀쩡한 답을 버리면 대화가 그 자리에서 끊기고, 그건 학생에게
             깨진 문장 하나보다 나쁘다. 그래서 «누가 봐도 무너진» 것만 잡는다(거짓경보 0 을 하니스가 못 박는다).
          ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다. 아이가 따라 읽을 문장을 코드가 지어내면 안 된다. */
-      const sanityCap = WARMUP_WORD_CAP[ctxDifficulty] || 0;
+      /* ⚠️ 중국어는 0(끔) — replyRejectReason 의 길이 판정이 «낱말 수» 인데 중국어 문장은
+            공백이 없어 늘 1~2낱말로 세어져 상한에 원리상 안 걸린다. 잘못된 단위로 재느니
+            안 재는 편이 낫다(길이 외 판정은 그대로 돈다). 글자 기준 상한은
+            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건. */
+      const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
       let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
       if (broke) {
         /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
@@ -4365,7 +4404,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     let showFix: any = null;
     let offerRepeat = false;
     try {
-      const verified = verifyWarmupFix(rawFix, studentInput);
+      /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
+         안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
+      const verified = verifyWarmupFix(rawFix, studentInput,
+        ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS } : undefined);
       if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
@@ -4393,7 +4435,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
     return new Response(JSON.stringify({
       session_id: sessionId, ai_response: aiText, turn_count: turnCount,
-      answer_chips: warmupAnswerChips(aiText, ctxDifficulty),
+      /* 💬 «대답 보기» — 언어마다 정본이 다르다.
+         ⛔ 영어 정본을 중국어에 쓰지 말 것: 1·2단계에서 영어 «막혔을 때» 칩이 조건 없이 붙어
+            중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
+      answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
       fix: showFix, repeat: offerRepeat,
     }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
@@ -4444,6 +4489,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const rawDiff = Math.floor(Number(body.difficulty));
     const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
     const ageGroup = normalizeWarmupAge(body.age_group);   // 🧑‍🎓 대화와 같은 연령대 축(소재·말투)
+    const qLang = normalizeWarmupLang(body.lang);          // 🀄 대화와 같은 언어 축 (모르면 영어)
     const rawCount = Math.floor(Number(body.count));
     const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
 
@@ -4460,7 +4506,8 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
         } catch {}
       }
       // 고른 질문도 곧바로 AI 발화가 되므로 «대답 보기» 를 같이 내려준다(대화 응답과 같은 규칙).
-      return new Response(JSON.stringify({ ok: true, picked: pick, answer_chips: warmupAnswerChips(pick, difficulty) }),
+      return new Response(JSON.stringify({ ok: true, picked: pick,
+          answer_chips: qLang === 'zh' ? warmupZhAnswerChips(pick, difficulty) : warmupAnswerChips(pick, difficulty) }),
         { status: 200, headers: _MS_JSON });
     }
 
@@ -4481,8 +4528,11 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     }
 
     // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
-    const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
-    let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
+    const levelDesc = difficulty ? (qLang === 'zh' ? WARMUP_ZH_LEVELS[difficulty] : WARMUP_LEVELS[difficulty])
+                                 : (lc.level ? `학생 레벨: ${lc.level}` : '');
+    let prompt = qLang === 'zh'
+      ? `당신은 전문 화상 중국어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 중국어(간체자) 질문을 만듭니다.\n`
+      : `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
     prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
@@ -4508,7 +4558,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
         prompt += `  → 이 표현들의 단어·문형을 학생이 대답에서 자연스럽게 다시 쓰게 만드는 질문을 1~2개 포함하세요(틀렸다는 언급은 금지).\n`;
       }
     }
-    prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 영어로 생성하세요. `;
+    prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 ${qLang === 'zh' ? WARMUP_ZH_QUESTION_LANG : '영어로'} 생성하세요. `;
     prompt += `각 질문은 한 문장으로 짧게, 서로 다른 각도(경험 묻기, 양자택일, 상상 질문 등)로 만드세요. `;
     prompt += `결과는 반드시 JSON 문자열 배열만 반환하세요. 예: ["...", "...", "..."]`;
 
@@ -4569,7 +4619,10 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (!questions.length) {
       // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
       const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
-      questions = WARMUP_FALLBACK_QUESTIONS[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+      /* ⚠️ 안전망도 «고른 말» 로 준다 — 영어 목록을 그대로 쓰면 중국어 대화에 영어 질문이
+            세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
+      const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
+      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)

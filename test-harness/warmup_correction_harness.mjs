@@ -41,8 +41,17 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
         'start=' + start + ' end=' + end);
   const H = start > 0 && end > start ? INDEX.slice(start, end) : '';
 
+  /* 📜 2026-09-13 — 중국어 대화가 붙으면서 이 줄이 «언어에 따라 고르는» 모양이 됐습니다
+     (`sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);`).
+     옛 검사는 «식 모양» 을 글자 그대로 못 박아 두어, 보장이 오히려 세졌는데 검사만 빨간불이
+     났습니다(CLAUDE.md 2장 「하니스가 «객체 모양» 을 정규식으로 못 박아 두어」).
+     ⇒ «뜻» 으로 묻습니다: 시스템 프롬프트에 교정 절을 «붙이는가»(+=), 그리고
+        그 자리에 영어 정본이 들어 있는가. ⛔ 다시 식 모양으로 못 박지 마세요. */
   check('A-1 [교정] 절을 시스템 프롬프트에 주입한다',
-        /sys\s*\+=\s*'\\n'\s*\+\s*WARMUP_CORRECTION_RULE\s*;/.test(H));
+        /sys\s*\+=\s*'\\n'\s*\+[^;]*\bWARMUP_CORRECTION_RULE\b[^;]*;/.test(H));
+  check('A-1z 🀄 중국어면 중국어 교정 절을 붙인다 (짝)',
+        /sys\s*\+=\s*'\\n'\s*\+[^;]*\bWARMUP_ZH_CORRECTION_RULE\b[^;]*;/.test(H),
+        '이 짝이 없으면 중국어 대화가 «영어를 고쳐 주는» 지시를 받습니다');
   /* ⚠️ 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말합니다 — JSON 지시와 정면으로
      부딪히므로, 어느 쪽이 이기는지 «프롬프트가 직접» 말해야 합니다. */
   check('A-1b 🔴 [출력형식] 이 [형식] 보다 우선한다고 프롬프트가 직접 말한다',
@@ -150,8 +159,12 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
           '인자: ' + (arg.trim() || '(못 찾음)'));
   }
 
+  /* 📜 2026-09-13 — `verifyWarmupFix(rawFix, studentInput, opts?)` 로 세 번째 인자(중국어
+     교정 축)가 생겼습니다. 인자 «개수» 를 못 박으면 정당한 확장에 빨간불이 나므로
+     «그 두 값을 그 순서로 넘기는가» 까지만 묻습니다. 지켜야 할 것은 그대로입니다 —
+     모델이 준 rawFix 가 검증을 «거치지 않고» 응답에 실리면 안 된다. */
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
-        /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*\)/.test(H) && !/fix:\s*rawFix/.test(H));
+        /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*[,)]/.test(H) && !/fix:\s*rawFix/.test(H));
 
   check('A-5 응답에 검증·게이트를 통과한 것만 싣는다', /fix:\s*showFix\s*,\s*repeat:\s*offerRepeat/.test(H));
 

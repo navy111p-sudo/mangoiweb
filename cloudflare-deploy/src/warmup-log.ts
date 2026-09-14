@@ -48,12 +48,41 @@ export const WARMUP_LOG_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_warmup_log_started ON warmup_session_log (started_at)`,
 ];
 
+/**
+ * 나중에 붙인 칸 — «이미 만들어진 표는 CREATE 를 다시 안 봅니다».
+ * ⛔ 위 `WARMUP_LOG_DDL` 의 CREATE 에 칸을 더하지 마세요. 그러면 새 DB 에만 생기고 운영 표는
+ *    그대로라, 같은 코드가 환경에 따라 다르게 동작합니다(CLAUDE.md 2장 attendance.host 와 같은 방식).
+ * ⚠️ 그래서 **첫 기록이 들어와야 칸이 생깁니다** — 배포 직후 `SELECT lang …` 은
+ *    `no such column: lang` 이 납니다. 배포 실패가 아닙니다.
+ * 🀄 lang — 2026-09-13 중국어 대화를 붙이며 추가. 이 칸이 없으면 「중국어로 몇 명이 쓰는가」를
+ *    셀 방법이 없고, 그러면 「친구하기에도 붙일까」를 숫자로 판단할 수 없습니다
+ *    (CLAUDE.md 2장 「자동화하려는 축마다 원료가 있는지 먼저 세어 보세요」).
+ */
+export const WARMUP_LOG_ALTERS: Array<{ column: string; sql: string }> = [
+  { column: 'lang', sql: `ALTER TABLE warmup_session_log ADD COLUMN lang TEXT` },
+];
+
 /** 아이솔레이트당 1회만 스키마를 확인한다(발화마다 CREATE 를 보내지 않기 위해). */
 let _schemaReady = false;
 
 async function ensureWarmupLogSchema(env: any): Promise<void> {
   if (_schemaReady || !env || !env.DB) return;
   for (const sql of WARMUP_LOG_DDL) await env.DB.prepare(sql).run();
+  /* ⚠️ «이미 있는 칸» 을 먼저 물어보고 없는 것만 붙인다.
+     ⛔ try/catch 로 duplicate 를 삼키는 방식으로 쓰지 마세요 — 그러면 «정상적인 중복» 과
+        «진짜 실패» 가 같은 글자가 되어 조용히 묻힙니다(이 파일이 지키려는 바로 그것).
+     ℹ️ PRAGMA 는 아이솔레이트당 1회입니다(_schemaReady 가 막습니다). */
+  try {
+    const info: any = await env.DB.prepare(`PRAGMA table_info(${WARMUP_LOG_TABLE})`).all();
+    const have = new Set((info && info.results ? info.results : []).map((r: any) => String(r && r.name)));
+    for (const { column, sql } of WARMUP_LOG_ALTERS) {
+      if (have.has(column)) continue;
+      await env.DB.prepare(sql).run();
+    }
+  } catch (e: any) {
+    // 칸이 없으면 아래 INSERT 가 실패하고 그 자리에서 또 로그가 남는다 — 여기서는 사유만 남긴다.
+    console.error('warmup-log: 칸 추가 실패 —', String(e && e.message || e));
+  }
   _schemaReady = true;
 }
 
@@ -72,7 +101,7 @@ function _trim(v: any, n: number): string {
  */
 export async function logWarmupSessionStart(env: any, o: {
   sessionId?: string; userId?: string; difficulty?: number; ageGroup?: string;
-  textbook?: string; level?: string;
+  textbook?: string; level?: string; lang?: string;
 }): Promise<void> {
   const sessionId = _trim(o && o.sessionId, 200);
   if (!sessionId || !env || !env.DB) return;
@@ -82,8 +111,8 @@ export async function logWarmupSessionStart(env: any, o: {
     await ensureWarmupLogSchema(env);
     await env.DB.prepare(
       `INSERT OR IGNORE INTO warmup_session_log
-         (session_id, user_id, difficulty, age_group, textbook, level, started_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+         (session_id, user_id, difficulty, age_group, textbook, level, lang, started_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       sessionId,
       _trim(o && o.userId, 100) || null,
@@ -91,6 +120,8 @@ export async function logWarmupSessionStart(env: any, o: {
       _trim(o && o.ageGroup, 20) || null,
       _trim(o && o.textbook, 200) || null,
       _trim(o && o.level, 100) || null,
+      // 🀄 모르는 값은 «영어» 로 적는다 — 화면 기본값과 서버 normalizeWarmupLang 이 그렇다.
+      (_trim(o && o.lang, 10) === 'zh') ? 'zh' : 'en',
       Date.now(),
     ).run();
   } catch (e: any) {
