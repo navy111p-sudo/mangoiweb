@@ -149,6 +149,139 @@ d=JSON.parse(r);
 t('⑧ 되돌리면 payload 에 textbook 없음', !('textbook' in d), Object.keys(d));
 t('⑧ 되돌리면 payload 에 lesson_topic 없음', !('lesson_topic' in d), Object.keys(d));
 
+// ════════════════════════════════════════════════════════════════════
+//  ⑨ 📖 «오늘 배울 과» — 교재의 진짜 문장이 실제로 붙는가 (2026-09-15)
+//  ⚠️ 자동 하니스는 «답» 만 봅니다. 여기서는 화면에 그려지고·눌리고·
+//     서버로 나가는 payload 에 D1 교재 이름이 실리는지를 봅니다.
+//  ⛔ «붙는다» 만 재지 마세요 — «못 받으면 예전 그대로» 를 짝으로 봅니다(⑨-4).
+// ════════════════════════════════════════════════════════════════════
+await open(`${BASE}/warmup.html?_nc=${Date.now()+9}`);
+await evaluate("try{localStorage.removeItem('mangoi_warmup_bts');localStorage.removeItem('mangoi_warmup_bts_lesson')}catch(e){}");
+await open(`${BASE}/warmup.html?_nc=${Date.now()+10}`);
+/* 정적서버에는 /api 가 없으므로 그 주소만 가로챕니다(나머지 요청은 그대로 둡니다). */
+await evaluate(`(function(){
+  window.__origFetch = window.__origFetch || window.fetch;
+  window.__lsnCalls = [];
+  window.fetch = function(u){
+    var s = String(u||'');
+    if(s.indexOf('/api/games/lessons') === 0){
+      window.__lsnCalls.push(s);
+      var b = window.__lsnReply ? window.__lsnReply(s) : { ok:true, lessons:[], courses:[] };
+      return Promise.resolve({ ok:true, json:function(){ return Promise.resolve(b); } });
+    }
+    return window.__origFetch.apply(window, arguments);
+  };
+  return 'ok';
+})()`);
+const L1K = 'BTS 1 001 (Welcome to school)', L4K = 'BTS 1 004 (School Stuff)';
+await evaluate(`window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 1',count:8}], lessons:[
+  {seq:1,title:'Welcome to school',key:${JSON.stringify(L1K)},sentences:[{en:'Hello, I am a student.'},{en:'I like school.'}],words:[]},
+  {seq:4,title:'School Stuff',key:${JSON.stringify(L4K)},sentences:[{en:'I have a pencil'}],words:[]}
+]};}; 'ok'`);
+
+// ⑨-1 권을 고르면 과 줄이 그려지고 D1 이름이 실린다
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="1"], #wusBooks details [data-bts="1"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({
+  tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  rowShown: (function(){var x=document.querySelector('#wusLessonSec .wus-lsn-row'); return !!x && getComputedStyle(x).display!=='none';})(),
+  opts: [].map.call(document.querySelectorAll('#wusLesson option'), function(o){return o.value;}),
+  sel: (document.getElementById('wusLesson')||{}).value,
+  note: (document.getElementById('wusLessonNote')||{}).textContent,
+  offsetOk: !!(document.getElementById('wusLessonSec')||{}).offsetParent,
+  calls: window.__lsnCalls.length
+})`);
+d = JSON.parse(r);
+t('⑨ WCTX.textbook 이 D1 교재 이름이 된다', d.tb === L1K, d.tb);
+t('⑨ 주제가 «과 제목» 으로 좁혀진다', d.topic === 'Welcome to school', d.topic);
+t('⑨ 과 줄이 화면에 보인다', d.secShown === true, d);
+t('⑨ 실제로 레이아웃에 올라와 있다', d.offsetOk === true, d.offsetOk);
+t('⑨ 과가 둘이면 고르개가 보인다', d.rowShown === true, d.rowShown);
+t('⑨ 고르개에 과가 그대로 들어간다', JSON.stringify(d.opts) === JSON.stringify([L1K, L4K]), d.opts);
+t('⑨ 첫 과가 골라져 있다', d.sel === L1K, d.sel);
+t('⑨ 안내가 문장 수를 말한다', /2개/.test(d.note || ''), d.note);
+t('⑨ 안내가 실제 교재 문장을 보여 준다', /Hello, I am a student\./.test(d.note || ''), d.note);
+t('⑨ 한 번만 물어본다', d.calls === 1, d.calls);
+
+// ⑨-2 사람이 과를 고르면 그 자리에서 바뀌고 저장된다
+await evaluate(`(function(){var s=document.getElementById('wusLesson'); s.value=${JSON.stringify(L4K)};
+  s.dispatchEvent(new Event('change',{bubbles:true})); return 'ok';})()`);
+await sleep(200);
+r = await evaluate("JSON.stringify({tb:WCTX.textbook,topic:LESSON_TOPIC,saved:localStorage.getItem('mangoi_warmup_bts_lesson'),note:(document.getElementById('wusLessonNote')||{}).textContent})");
+d = JSON.parse(r);
+t('⑨ 고른 과의 D1 이름으로 바뀐다', d.tb === L4K, d.tb);
+t('⑨ 주제도 그 과 제목으로', d.topic === 'School Stuff', d.topic);
+t('⑨ «권|키» 로 저장된다', d.saved === '1|' + L4K, d.saved);
+t('⑨ 안내도 그 과의 문장 수로', /1개/.test(d.note || ''), d.note);
+r = await evaluate("JSON.stringify(withCtx({session_id:'x',student_input:'hi'}))");
+d = JSON.parse(r);
+t('⑨ 서버로 나가는 payload 에 D1 교재 이름이 실린다', d.textbook === L4K, d.textbook);
+
+// ⑨-3 새로고침해도 그 과로 이어진다 (강사 없이)
+await open(`${BASE}/warmup.html?_nc=${Date.now()+11}`);
+await evaluate(`(function(){
+  window.__origFetch = window.__origFetch || window.fetch;
+  window.__lsnCalls = [];
+  window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 1',count:8}], lessons:[
+    {seq:1,title:'Welcome to school',key:${JSON.stringify(L1K)},sentences:[{en:'Hello, I am a student.'}],words:[]},
+    {seq:4,title:'School Stuff',key:${JSON.stringify(L4K)},sentences:[{en:'I have a pencil'}],words:[]}]};};
+  window.fetch = function(u){ var s=String(u||'');
+    if(s.indexOf('/api/games/lessons')===0){ window.__lsnCalls.push(s);
+      var b=window.__lsnReply(s); return Promise.resolve({ok:true,json:function(){return Promise.resolve(b);}}); }
+    return window.__origFetch.apply(window, arguments); };
+  return 'ok';
+})()`);
+await evaluate("applyBtsBook(1,false,false)"); await sleep(350);
+r = await evaluate("JSON.stringify({tb:WCTX.textbook,vol:_btsVol})");
+d = JSON.parse(r);
+t('⑨ 새로고침 뒤에도 지난번 과로 이어진다', d.tb === L4K, d.tb);
+
+// ⑨-4 (짝) 못 받으면 «고치기 전» 그대로 — 이 갈래가 깨지면 더 나빠집니다
+await evaluate(`window.__lsnReply = function(){ return { ok:false }; }; 'ok'`);
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="5"], #wusBooks details [data-bts="5"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none' })`);
+d = JSON.parse(r);
+t('⑨ 못 받으면 권 이름 그대로 보낸다', /^BTS 5 \(/.test(d.tb || ''), d.tb);
+t('⑨ 못 받으면 과 줄을 그리지 않는다', d.secShown === false, d.secShown);
+
+// ⑨-5 (짝) 자유 대화로 되돌리면 과도 함께 사라진다
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+await sleep(200);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  saved: localStorage.getItem('mangoi_warmup_bts_lesson') })`);
+d = JSON.parse(r);
+t('⑨ 자유 대화로 되돌리면 교재가 비어 있다', d.tb === '', d.tb);
+t('⑨ 자유 대화에서는 과 줄이 없다', d.secShown === false, d.secShown);
+t('⑨ 과 저장값도 지워진다', d.saved === null, d.saved);
+
+// ⑨-6 과가 하나뿐이면 고르개는 감추고 안내만 (짝)
+await evaluate(`window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 2 Korea (Shapes and colors)',count:1}],
+  lessons:[{seq:0,title:'',key:'BTS 2 Korea (Shapes and colors)',sentences:[{en:'It is red.'}],words:[]}] }; }; 'ok'`);
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="2"], #wusBooks details [data-bts="2"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  rowShown: (function(){var x=document.querySelector('#wusLessonSec .wus-lsn-row'); return !!x && getComputedStyle(x).display!=='none';})(),
+  note: (document.getElementById('wusLessonNote')||{}).textContent })`);
+d = JSON.parse(r);
+/* ⛔ 과 줄이 교재 상자 «안» 에 있어야 중국어 화면에서 함께 감춰집니다(구조로 보장). */
+r = await evaluate(`(function(){var s=document.getElementById('wusLessonSec');
+  var b=document.getElementById('wusBooksSec');
+  return JSON.stringify({inside: !!(b && s && b.contains(s))});})()`);
+t('⑨ 과 줄이 교재 상자 안에 있다(중국어에서 함께 감춰짐)', JSON.parse(r).inside === true, r);
+t('⑨ 이름 모양이 달라도 그 key 를 쓴다', d.tb === 'BTS 2 Korea (Shapes and colors)', d.tb);
+t('⑨ 과 제목이 없으면 권 주제를 그대로', d.topic === 'Shapes and colors, Adjectives', d.topic);
+t('⑨ 과가 하나면 고르개는 감춘다', d.rowShown === false, d.rowShown);
+t('⑨ 그래도 안내는 보여 준다(문장이 붙었다는 사실)', d.secShown === true && /1개/.test(d.note || ''), d);
+
 const label = 'warmup-bts-book-browser';
 console.log(`\n▶ ${label}`);
 P.forEach(x => console.log('  ✅ ' + x));
