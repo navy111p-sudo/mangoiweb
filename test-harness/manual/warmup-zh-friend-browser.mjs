@@ -270,6 +270,65 @@ console.log('\n[ 5. 부팅 — 고른 얼굴이 «처음부터» 나오는가 (�
     af.some((h) => /teacher-avatar/.test(h)), af.filter((h) => /img\//.test(h)).join(',') || '요청 없음');
 }
 
+/* ══ 💪 중국어 «남자» 목소리 — 음높이가 실제로 내려가는가 (2026-09-14) ══
+   [잰 것] 서버 zh TTS 는 구글 만다린 «한 목소리»(여성)뿐이라, 받은 소리를 브라우저에서
+           «음높이만» 내려 남자로 만든다. 이 절은 그것을 «실제로 돌려» 잰다.
+   ⚠️ 문자열 하니스로는 원리상 못 봅니다 — 함수도 값도 다 «있고» 틀린 것은 «무슨 소리가
+      나는가» 뿐입니다. 그래서 220Hz 사인파를 통과시켜 영교차로 기본주파수를 셉니다.
+   ⚠️ 소리의 «자연스러움» 은 여전히 사람이 들어야 합니다(이 환경에는 오디오 디코더가 없습니다). */
+{
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/warmup.html?lang=zh', { waitUntil: 'load' });
+  await page.waitForTimeout(1200);
+  const R = await page.evaluate(async () => {
+    const out = { hasFn: typeof _zhDeepen === 'function', P: (typeof ZH_MALE_PITCH === 'number') ? ZH_MALE_PITCH : null };
+    if (!out.hasFn) return out;
+    const sr = 24000, dur = 2, n = sr * dur, F0 = 220;
+    const dv = new DataView(new ArrayBuffer(44 + n * 2)); let o = 0;
+    const str = (t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o++, t.charCodeAt(i)); };
+    const u32 = (v) => { dv.setUint32(o, v, true); o += 4; };
+    const u16 = (v) => { dv.setUint16(o, v, true); o += 2; };
+    str('RIFF'); u32(36 + n * 2); str('WAVE'); str('fmt '); u32(16); u16(1); u16(1);
+    u32(sr); u32(sr * 2); u16(2); u16(16); str('data'); u32(n * 2);
+    for (let i = 0; i < n; i++) { const v = Math.sin(2 * Math.PI * F0 * i / sr) * 0.5;
+      dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7FFF, true); o += 2; }
+    const srcUrl = URL.createObjectURL(new Blob([dv.buffer], { type: 'audio/wav' }));
+    try {
+      const deep = await _zhDeepen(srcUrl);
+      const ab = await (await fetch(deep)).arrayBuffer();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const c = new AC();
+      const buf = await new Promise((res, rej) => c.decodeAudioData(ab, res, rej));
+      c.close();
+      const ch = buf.getChannelData(0); let zc = 0;
+      for (let i = 1; i < ch.length; i++) if (ch[i - 1] < 0 && ch[i] >= 0) zc++;
+      out.f0 = zc / buf.duration;
+      out.ratio = out.f0 / F0;
+      out.deepSec = buf.duration;
+      /* 재생 배속은 play0 이 쓰는 식 그대로 — 들리는 «길이» 가 원본과 같아야 한다 */
+      const S = (typeof AUDIO_RATE !== 'undefined' ? (AUDIO_RATE[2] || 1) : 1);
+      out.playSec = buf.duration / (S / out.P);
+      out.wantSec = dur / S;
+      out.cached = (_zhDeepCache[srcUrl] === deep);
+    } catch (e) { out.err = String(e && e.message || e); }
+    return out;
+  });
+  await ctx.close();
+  check('굵게 만드는 함수가 실제로 돈다', R.hasFn && !R.err, R.err || ('P=' + R.P));
+  check('음높이가 실제로 내려간다 (여성 220Hz → 남성역)',
+    R.ratio > 0.7 && R.ratio < 0.95,
+    '실제 ' + (R.f0 || 0).toFixed(1) + 'Hz (비율 ' + (R.ratio || 0).toFixed(3) + ')');
+  check('지정한 음높이와 «같은 비율» 로 내려간다',
+    Math.abs((R.ratio || 0) - (R.P || 0)) < 0.02,
+    '실제 ' + (R.ratio || 0).toFixed(3) + ' / 지정 ' + R.P);
+  /* 🔴 짝 — 이것이 없으면 «느리고 낮은 소리» 도 통과한다(고치려던 것의 절반) */
+  check('들리는 길이는 원본을 그 배속으로 들은 것과 같다 (짝)',
+    Math.abs((R.playSec || 0) - (R.wantSec || 0)) < 0.05,
+    '실제 ' + (R.playSec || 0).toFixed(3) + 's / 기대 ' + (R.wantSec || 0).toFixed(3) + 's');
+  check('같은 소리를 다시 굽지 않는다 (캐시)', R.cached === true, String(R.cached));
+}
+
 await browser.close();
 server.close();
 console.log(`\n  🀄 중국어 교사 브라우저 검사: ✅ ${pass} / ❌ ${fail}`);

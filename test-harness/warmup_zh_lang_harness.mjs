@@ -595,13 +595,21 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
     /if\(VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,140}mangoi_warmup_voice_zh[\s\S]{0,160}mangoi_warmup_voice'/.test(HTMLC),
     '갈라 적지 않으면 한쪽이 다른 쪽을 덮어씁니다');
 
-  /* ══ 🔊 목소리 갈래 — «남자를 골랐는데 여자 목소리» 를 어떻게 다루는가 (2026-09-14 오후) ══
+  /* ══ 🔊 목소리 갈래 — 중국어 «남자» 를 어떻게 내는가 (2026-09-14) ══
      [잰 것] src/api-games.ts 의 /api/voice/tts 는 zh 를 만나면 gtts(text,'zh-CN') 로만 간다.
              그 함수에 화자 인자가 없다 = 구글 만다린 «한 목소리»(여성)뿐이고 speaker 를 안 본다.
-     ⟹ 룽의 «남자 목소리» 는 기기 음성(zh-CN 남성)으로만 낼 수 있다. 그래서 세 가지를 짝으로
-        못 박는다: ⓐ 기기에 남자 음성이 있으면 그것을 «먼저» 쓴다 ⓑ 없으면 서버로 가되 그
-        사실을 «말한다» ⓒ 메이(여자)·영어는 예전 그대로 서버를 쓴다.
-     ⛔ ⓒ 가 없으면 «중국어 전부 기기 목소리» 도 통과한다 — 그건 메이의 소리를 나쁘게 바꾼다. */
+     📜 오후 판은 여기서 멈춰 「ⓑ 기기에 남자 음성이 없으면 그 사실을 말한다」를 못 박았다.
+        그런데 사장님 PC 에 그 음성이 없어 실제로 안내만 뜨고 «여자 목소리» 가 났고,
+        저녁에 「너가 알아서 중국어 말하는 남자목소리 넣어줘, 아무나」로 지시가 바뀌었다.
+        ⟹ 그 검사는 «헛돈 것» 이 아니라 «지키던 전제를 사람이 바꾼 것» 이라, 느슨하게 푸는 대신
+           새 경계로 옮겨 적는다(CLAUDE.md 「기본값을 바꾸면 그 값을 읽는 검사를 전부 다시」).
+     ⟹ 지금 보장은 넷이고 짝으로 묻는다:
+        ⓐ 기기에 진짜 남자 음성이 있으면 그것을 «먼저» 쓴다(가장 자연스러움)
+        ⓑ 없으면 서버 목소리를 _zhDeepen 으로 «굵게» 만들어 읽는다 → 어느 기기에서나 남자
+        ⓒ 굵게 만든 판은 길이가 1/P 로 늘어나므로 재생 배속을 P 로 나눠 되돌린다
+        ⓓ 메이(여자)·영어는 예전 그대로 손대지 않는다
+     ⛔ ⓓ 가 없으면 «중국어 전부» 로 넓힌 변이가 통과한다 — 메이 소리가 함께 굵어진다.
+     ⛔ ⓒ 가 없으면 «느리고 낮은» 소리가 된다(고치려던 것의 절반). */
   {
     const vrSrc = HTML.match(/function _zhMaleVoiceReady\(\)\{[\s\S]*?\n\}/);
     const zmSrc = HTML.match(/var ZH_MALE_RE\s+=\s+\/.*?\/i;/);
@@ -641,12 +649,23 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
     check('speak 이 그 판정을 실제로 부른다', iReady >= 0);
     check('그 갈래가 «서버 TTS 보다 앞» 이다', iReady >= 0 && iTts >= 0 && iReady < iTts,
       'ready=' + iReady + ' tts=' + iTts + ' — 뒤에 있으면 서버가 먼저 읽어 버립니다');
+    /* 🔴 «캐시 단축» 보다도 앞이어야 한다 — 뒤로 옮기면 한 번 캐시된 문장은
+       영영 기기 목소리를 안 씁니다(2026-09-14 함정 대조가 그 변이를 실제로 통과시켰습니다). */
+    const iCache = spBody.indexOf('_ttsCache[key]');
+    check('그 갈래가 «캐시 단축» 보다도 앞이다',
+      iReady >= 0 && iCache >= 0 && iReady < iCache,
+      'ready=' + iReady + ' cache=' + iCache);
     check('그 갈래가 기기 목소리로 읽고 «거기서 끝낸다»',
       /_zhMaleVoiceReady\(\)[\s\S]{0,120}_synthSpeak\([\s\S]{0,60}return;/.test(spBody),
       'return 이 없으면 기기 목소리와 서버 목소리가 «겹쳐» 재생됩니다');
-    check('기기에 남자 음성이 없으면 그 사실을 «한 번» 말한다',
-      /_zhMaleToldOnce/.test(spBody) && /addMsg\(/.test(spBody),
-      '아무 말도 없으면 「남자를 골랐는데 왜 여자 목소리지?」가 고장으로 읽힙니다');
+    /* 📜 옛 검사: 「기기에 남자 음성이 없으면 그 사실을 한 번 말한다」(_zhMaleToldOnce).
+       2026-09-14 저녁 지시로 «항상» 남자 목소리가 나므로 그 안내는 거짓말이 되었다 — 새 경계로 옮김. */
+    /* 🚤 이 부정 검사를 «파일 전체» 에 돌리면 화면 카피(「메이는 여자 목소리…」)까지 잡아
+       뜻이 같은 무해한 재배열에 거짓 FAIL 이 납니다(함정 대조 실측). 그래서 둘로 좁힙니다 —
+       ⓐ 옛 플래그 이름이 사라졌는가(그 안내를 만들던 코드) ⓑ speak 안에서 안 말하는가. */
+    check('「기기에 없어서 여자 목소리」 안내를 되살리지 않았다',
+      !/_zhMaleToldOnce/.test(HTMLC) && !/기기에는 중국어 남자 목소리가 없어서/.test(HTMLC),
+      '사유가 다릅니다 — 지금은 «굵게 만들지 못함» 이지 «기기에 음성이 없음» 이 아닙니다');
     /* 🔴 짝 — 없으면 «중국어 전체» 로 넓힌 변이가 통과한다 */
     check('그 갈래는 «남자일 때만» 탄다 (짝)',
       /isZh\(\)\s*&&\s*_voiceGender\(\)\s*===\s*'male'/.test(spBody),
@@ -668,6 +687,134 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
         pit(false, 'male') === 1.02 && pit(true, 'female') === 1.02,
         '실제 en-male=' + pit(false, 'male') + ' zh-female=' + pit(true, 'female'));
     }
+
+    /* ── 💪 서버 목소리를 «굵게» 만드는 길 (2026-09-14 저녁) ──
+       기기에 중국어 남자 음성이 없는 사람(= 대부분)에게 실제로 닿는 경로다. */
+    const pitchDecl = HTMLC.match(/var ZH_MALE_PITCH = ([0-9.]+);/);
+    /* 🚤 이 함수는 «한 줄» 이라 정규식 `[\s\S]*?\}` 로 자르면 try 블록의 첫 `}` 에서
+       끊겨 「Missing catch or finally」로 죽는다(실제로 밟았습니다 — CLAUDE.md 「중괄호 짝으로」). */
+    const wantBody = bodyOf(HTMLC, 'function _zhMaleWanted(){');
+    const wantSrc = wantBody ? ['function _zhMaleWanted(){' + wantBody + '}'] : null;
+    const rateExpr = HTMLC.match(/_ttsAudio\.playbackRate=([^;]+);/);
+    check('전제: 음높이 상수·판정·재생배속 식을 오려 냈다',
+      !!pitchDecl && !!wantSrc && !!rateExpr,
+      'P=' + !!pitchDecl + ' want=' + !!wantSrc + ' rate=' + !!rateExpr);
+
+    if (pitchDecl) {
+      const P = Number(pitchDecl[1]);
+      check('음높이를 실제로 내린다 (P < 1)', P < 1, '실제 P=' + P);
+      /* 🔴 짝 — 없으면 «0.2» 같은 괴물 목소리도 통과한다.
+         그리고 P 가 작을수록 아래 S/P 보정 배속이 커져 time-stretch 왜곡이 함께 커진다. */
+      check('너무 낮추지는 않는다 (P >= 0.7)', P >= 0.7, '실제 P=' + P);
+    }
+
+    if (wantSrc) {
+      const wanted = (zh, g) => {
+        try {
+          return new Function('isZh', '_voiceGender',
+            wantSrc[0] + '\nreturn _zhMaleWanted();')(() => zh, () => g);
+        } catch (e) { return 'ERR:' + e.message; }
+      };
+      check('중국어 «남자» 를 골랐을 때만 굵게 만든다',
+        wanted(true, 'male') === true, '실제: ' + wanted(true, 'male'));
+      /* 🔴 짝 — 없으면 «중국어 전부» 나 «전부» 굵게 만드는 변이가 통과한다 */
+      check('메이(중국어 여자)와 영어는 손대지 않는다 (짝)',
+        wanted(true, 'female') === false && wanted(false, 'male') === false,
+        '실제 zh-female=' + wanted(true, 'female') + ' en-male=' + wanted(false, 'male'));
+    }
+
+    if (rateExpr && pitchDecl) {
+      const P = Number(pitchDecl[1]);
+      const rate = (lv, deep) => {
+        try {
+          return new Function('AUDIO_RATE', '_rateLevel', 'ZH_MALE_PITCH', 'deep',
+            'return ' + rateExpr[1])({ 2: 0.65, 4: 1.0 }, lv, P, deep);
+        } catch (e) { return 'ERR:' + e.message; }
+      };
+      /* ⓒ 굵게 만든 판은 길이가 1/P 로 늘어나 있다 — 배속을 P 로 나눠야 «원래 길이» 가 된다.
+         ⛔ 이 나눗셈을 빼면 사장님이 듣는 소리가 «느리고 낮은» 것이 된다(절반만 고친 상태). */
+      check('굵게 만든 판은 배속을 P 로 나눠 길이를 되돌린다',
+        Math.abs(rate(2, true) - 0.65 / P) < 1e-9,
+        '실제: ' + rate(2, true) + ' / 기대: ' + (0.65 / P));
+      /* 🔴 짝 — 없으면 «항상 나누기» 도 통과한다(영어·메이가 빨라진다) */
+      check('굵게 만들지 않은 판은 예전 배속 그대로다 (짝)',
+        rate(2, false) === 0.65 && rate(4, false) === 1.0,
+        '실제 lv2=' + rate(2, false) + ' lv4=' + rate(4, false));
+    }
+
+    /* 🔴 이 화면은 들어올 때 항상 2단계(0.65)에서 시작한다 — preservesPitch 를 false 로
+       되돌리면 0.65×P = 0.5 가 되어 «귀신 목소리» 가 된다(오후에 그렇게 짜려다 표를 보고 멈췄다). */
+    check('재생은 «음높이 유지» 로 한다 (preservesPitch=true)',
+      /preservesPitch=true/.test(HTMLC) && !/preservesPitch\s*=\s*false/.test(HTMLC),
+      'false 로 두면 속도 슬라이더가 그대로 음높이 슬라이더가 됩니다');
+
+    /* _zhDeepen 의 두 단계가 «같은 P» 를 써야 길이 계산이 맞는다 */
+    const deepBody = bodyOf(HTMLC, 'function _zhDeepen(u){');
+    check('전제: _zhDeepen 몸통을 잘라 냈다', deepBody.length > 200, 'len=' + deepBody.length);
+    check('굽는 두 값이 같은 음높이를 쓴다',
+      /playbackRate\.value = P/.test(deepBody) && /buf\.length \/ P/.test(deepBody),
+      '한쪽만 P 면 길이가 어긋나 뒷부분이 잘리거나 무음이 붙습니다');
+    check('굽기가 실패하면 원본 그대로 읽는다',
+      /_zhDeepen\([\s\S]{0,200}play0\(u, false\)/.test(HTMLC),
+      '소리가 아예 안 나는 것이 최악입니다');
+    /* 🔴 ── 배선 — «그 판정을 실제로 부르고 그 결과로 굽는가» ──
+       ⛔ 「판정 함수가 옳은가」만 보면 **아무것도 안 지켜집니다.**
+          2026-09-14 함정 대조 실측: `if(!_zhMaleWanted())` 를 `if(true)` 로 한 글자 바꿔
+          굽기를 통째로 끄자 이 하니스가 **126건 전부 초록**이었습니다(룽이 다시 여자 목소리).
+          같은 이유로 «성공 분기의 seq 가드만» 지운 변이도 통과했습니다 — 아래 «글자가 있는가»
+          검사가 실패 분기에 남은 글자를 보고 넘어갔기 때문입니다.
+       ✅ 그래서 play 를 오려 내 **가짜 부품으로 실제로 돌려** «어디로 가는가» 를 답으로 봅니다.
+          _speakSeq 를 SEQ() 로 바꿔 넣어 «굽는 사이 번호가 바뀌는» 상황까지 재현합니다. */
+    const playBody = bodyOf(HTMLC, 'var play=function(u){');
+    check('전제: play 몸통을 잘라 냈다', playBody.length > 50, 'len=' + playBody.length);
+    if (playBody) {
+      const playSrc = ('var play=function(u){' + playBody + '};').replace(/_speakSeq/g, 'SEQ()');
+      const runPlay = async (wantMale, deepOk, bumpSeq) => {
+        const log = []; let seq = 0;
+        try {
+          new Function('_zhMaleWanted', 'SEQ', '_zhDeepen', 'play0', '_zhDeepFailedOnce',
+            playSrc + '\nplay("SRC");')(
+            () => wantMale,
+            () => seq,
+            (u) => { if (bumpSeq) seq++; return deepOk ? Promise.resolve('DEEP:' + u) : Promise.reject(new Error('x')); },
+            (u, deep) => log.push((deep ? 'deep:' : 'plain:') + u),
+            () => log.push('told'));
+        } catch (e) { return ['ERR:' + e.message]; }
+        await new Promise((r) => setTimeout(r, 0));
+        return log;
+      };
+      const rDeep = await runPlay(true, true, false);
+      check('중국어 남자면 «굵게 구운» 소리를 재생한다 (배선)',
+        rDeep.length === 1 && rDeep[0] === 'deep:DEEP:SRC', '실제: ' + JSON.stringify(rDeep));
+      /* 🔴 짝 — 없으면 «전부 굽기» 도 통과한다(메이·영어 소리가 함께 바뀝니다) */
+      const rPlain = await runPlay(false, true, false);
+      check('그 밖은 굽지 않고 원본을 재생한다 (짝)',
+        rPlain.length === 1 && rPlain[0] === 'plain:SRC', '실제: ' + JSON.stringify(rPlain));
+      const rFail = await runPlay(true, false, false);
+      check('굽기가 실패하면 원본을 재생하고 «그 사실을 말한다»',
+        rFail.indexOf('plain:SRC') >= 0 && rFail.indexOf('told') >= 0,
+        '화면은 「룽 선생님은 남자 목소리」라고 약속해 두었습니다: ' + JSON.stringify(rFail));
+      /* 굽는 사이 다음 말이 오면 «양쪽 분기 모두» 물러나야 한다 —
+         한쪽만 가드하면 그 경로로 옛 문장이 겹쳐 재생됩니다. */
+      const rLateOk = await runPlay(true, true, true);
+      check('굽는 사이 다음 말이 오면 물러난다 — 성공 분기',
+        rLateOk.length === 0, '실제: ' + JSON.stringify(rLateOk));
+      const rLateNg = await runPlay(true, false, true);
+      check('굽는 사이 다음 말이 오면 물러난다 — 실패 분기 (짝)',
+        rLateNg.length === 0, '실제: ' + JSON.stringify(rLateNg));
+    }
+    /* 🚤 「그 이름이 있는가」로 물으면 «저장하는 줄» 만 남겨도 통과한다(실측으로 밟음).
+       물어야 할 것은 «읽어서 그 자리에서 돌아가는가» 다. */
+    check('같은 문장을 다시 굽지 않는다 (캐시를 읽고 돌아간다)',
+      /_zhDeepCache\[u\]\)\s*return/.test(deepBody) && /_zhDeepPut\(u,/.test(deepBody),
+      '발화마다 다시 구우면 느리고 배터리를 씁니다');
+    /* 🔴 짝 — 담기는 것이 «비압축 WAV blob» 이라 상한이 없으면 긴 수업에서 계속 쌓인다
+       ([어림] 6초 발화 0.35MB × 60발화 = 21MB). 폰에서 위험합니다. */
+    const putBody = bodyOf(HTMLC, 'function _zhDeepPut(u, bu){');
+    check('굽기 캐시에 개수 상한이 있다 (짝)',
+      /ZH_DEEP_MAX/.test(putBody) && /revokeObjectURL/.test(putBody)
+        && /delete _zhDeepCache\[/.test(putBody),
+      '상한이 없으면 수업이 길수록 메모리가 쌓입니다: len=' + putBody.length);
   }
 
   /* 🀄 스크린샷 제보(2026-09-14) — 중국어 수업에 영어 단어(fast·moon·big)가 떴다 */

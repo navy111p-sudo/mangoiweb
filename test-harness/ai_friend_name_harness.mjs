@@ -172,6 +172,16 @@ if (NAMES && WMODES) {
     const hi = String((WMODES[k] || {}).hi || '');
     ok(NAMES[k] && hi.indexOf(NAMES[k]) >= 0,
       `${k} 의 화면 첫 인사가 정본 이름을 담는다 (인사 「${hi}」 / 정본 ${NAMES[k]})`);
+    /* 🀄 말풍선에 찍히는 이름 — 2026-09-14 사장님 화면에 「Mango」로 찍혔다.
+       _friendLabelNow() 가 라벨에서 /^[^A-Za-z]+/ 로 앞을 잘라내는데 중국어 선생님 라벨
+       「👨‍🏫 룽 선생님」에는 영문자가 한 글자도 없어 «전부» 지워지고 폴백으로 떨어졌다.
+       메이도 같은 상태였다 — 그래서 표의 zhName 과 정본을 대조한다. */
+    ok(!!(WMODES[k] || {}).zhName,
+      `${k} 에 zhName 이 있다 (${(WMODES[k] || {}).zhName || '없음'})`,
+      '없으면 말풍선 이름이 영문자 잘라내기에 걸려 기본값으로 떨어집니다');
+    ok((WMODES[k] || {}).zhName === NAMES[k],
+      `${k} 의 말풍선 이름과 AI 가 대는 이름이 같다`,
+      `화면 ${(WMODES[k] || {}).zhName} / 정본 ${NAMES[k]} — 갈리면 「이름이 왜 두 개죠?」`);
   }
   /* 짝 — 영어 넷은 한 글자도 안 바뀌었다(중국어를 더하면서 영어를 건드리지 않았는가) */
   ok(NAMES.emma === 'Emma' && NAMES.jake === 'Jake' && NAMES.lily === 'Lily' && NAMES.noah === 'Noah',
@@ -201,6 +211,28 @@ if (NAMES && WMODES) {
     ok(['emma', 'jake', 'lily', 'noah', 'mix'].every((m) => ZH_KEYS.includes(who(m))),
       '중국어에서 «영어 친구» 는 서버로 안 보낸다 (짝)',
       '보내면 서버가 영어 프롬프트를 돌려 중국어 수업이 영어로 답합니다');
+
+    /* 말풍선 이름을 «실제로 돌려» 본다 — 「표에 zhName 이 있다」만으로는
+       그 값을 진짜로 쓰는지 알 수 없다(읽는 줄을 지워도 통과한다). */
+    const lSrc = W.match(/function _friendLabelNow\(\)\{[\s\S]*?\n\}/);
+    ok(!!lSrc, '웜업의 _friendLabelNow 를 오려 냈다');
+    if (lSrc) {
+      const label = (zh, mode) => {
+        try {
+          return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx', 'VOICE_MODES',
+            pSrc[0] + '\n' + lSrc[0] + '\nreturn _friendLabelNow();')(
+            () => zh, mode, ['emma', 'jake', 'lily', 'noah'], 0, WMODES);
+        } catch (e) { return 'ERR:' + e.message; }
+      };
+      ok(ZH_KEYS.every((k) => label(true, k) === NAMES[k]),
+        '중국어 말풍선에 그 선생님의 중국어 이름이 찍힌다',
+        '실제: ' + ZH_KEYS.map((k) => k + '→' + label(true, k)).join(' ')
+          + ' (「' + DEF + '」 로 떨어지면 사장님 화면의 그 사고입니다)');
+      /* 🔴 짝 — 없으면 «전부 한자 이름» 이나 «전부 기본값» 도 통과한다 */
+      ok(label(false, 'emma') === 'Emma' && label(false, 'jake') === 'Jake',
+        '영어 친구 이름은 예전 그대로다 (짝)',
+        '실제 emma=' + label(false, 'emma') + ' jake=' + label(false, 'jake'));
+    }
   }
 }
 
