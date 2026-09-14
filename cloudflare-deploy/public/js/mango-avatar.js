@@ -137,7 +137,17 @@
     //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
     mei:  { frames:{ closed:'/img/mei-closed.webp', medium:'/img/mei-mid.webp', wide:'/img/mei-wide.webp' },
             still:'/img/mei-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'emma' }
+            aspect:0.8, keyed:false, fallback:'emma' },
+    /* 🀄 long(龙老师·룽 선생님) — 중국어 «남자» 교사(2026-09-14 사장님 「남자 교사도 한명더」).
+       메이와 같은 규격입니다(입모양 3장·4:5·투명 WebP). fallback 이 jake 인 까닭은
+       그림을 못 받았을 때 «남자» 얼굴로 떨어져야 목소리와 어긋나지 않기 때문입니다.
+       [잰 것 — 2026-09-14 러너] 세 장의 «바뀐 픽셀»: closed-mid 0.5% · closed-wide 1.96% ·
+       mid-wide 1.42%, 세로 10칸 중 입 부근 두 칸(10.6%·9.6%)에 몰림.
+       (메이 0.33~1.32% · Lily 2.4~3.4% · Emma 사고 11.4~18.3%로 10칸 전부)
+       ⛔ 세 장을 각각 따로 다시 뽑아 갈아 끼우지 마세요 — 그 순간 이 숫자가 무너집니다. */
+    long: { frames:{ closed:'/img/long-closed.webp', medium:'/img/long-mid.webp', wide:'/img/long-wide.webp' },
+            still:'/img/long-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:0.8, keyed:false, fallback:'jake' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.

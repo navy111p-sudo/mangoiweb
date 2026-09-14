@@ -376,16 +376,21 @@ console.log('\n[ ⑮ 기록 — 칸을 못 붙여도 세션 기록을 통째로 
   check('그 실패를 조용히 넘기지 않는다', /lang 칸 추가 실패[\s\S]{0,80}console\.error|console\.error[\s\S]{0,120}lang 칸 추가 실패/.test(LOG));
 }
 
-console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 메이 한 사람 ]');
+console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]');
 {
   /* 🔴 왜 이 검사가 필요한가
      중국어 TTS 는 화자를 안 가린다(구글 만다린 한 목소리). 그래서 중국어에서 친구를
      여럿 늘어놓으면 「골랐는데 목소리가 같다」는 «화면이 하는 거짓말» 이 된다.
-     📜 2026-09-14 지시 변경 — 처음(같은 날 오전)에는 «중국어에서는 메이 버튼 하나만 보인다»
-        였다. 사장님이 화면을 보고 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」
-        으로 정하셔서, 경계를 «버튼 하나만 보인다» → «고르는 칸 자체가 없다» 로 옮겨 적는다.
-        ⛔ 옛 경계(메이 버튼이 보인다)로 되돌리지 마세요 — 그건 검사를 느슨하게 푸는 것이
-           아니라 사람이 바꾼 결정을 되돌리는 것입니다.
+     📜 2026-09-14 지시가 하루에 세 번 바뀐 자리다 — «메이 버튼 하나만 보인다»(오전) →
+        「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」(낮, 고르는 칸 삭제) →
+        「**남자 교사도 한명더 추가해줘. 남자목소리로**」(오후, 룽 추가 + 고르는 칸 복원).
+        그래서 경계를 «언제나 메이» → **«그 언어의 선생님만 말한다»** 로 옮겨 적는다.
+        ⛔ 「언제나 메이」로 되돌리지 마세요 — 그건 검사를 조이는 것이 아니라 룽을 지우는 것입니다.
+        ⛔ 반대로 «아무나 말해도 된다» 로 느슨하게 풀지도 마세요 — 중국어에서 영어 친구가
+           나오면 서버가 영어 프롬프트를 돌려 「중국어 수업인데 영어로 답하는」 상태가 됩니다.
+     🔴 목소리의 한계는 그대로다 — 서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고 speaker 를
+        안 본다. 룽의 «남자 목소리» 는 기기 음성으로만 나오고, 없으면 서버로 떨어지며 화면이
+        그 사실을 말한다. 아래 «목소리 갈래» 검사가 그 셋을 짝으로 못 박는다.
      ⚠️ 이런 것은 문자열로 못 본다 — 표도 함수도 다 «있고» 틀린 것은 «무슨 답이 나오는가»
         뿐이다. 그래서 오려 내 실제로 돌린다. */
 
@@ -404,7 +409,7 @@ console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 
   };
 
   const modesSrc = HTML.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
-  const fnSrc = HTML.match(/function voiceForLang\(lang, savedEn\)\{[\s\S]*?\n\}/);
+  const fnSrc = HTML.match(/function voiceForLang\(lang, savedEn, savedZh\)\{[\s\S]*?\n\}/);
   check('전제: VOICE_MODES 와 voiceForLang 을 오려 냈다', !!modesSrc && !!fnSrc,
     'modes=' + !!modesSrc + ' fn=' + !!fnSrc);
   let vf = null, MODES = null;
@@ -420,33 +425,42 @@ console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 
     /* 짝 — 영어 친구에 zh 가 붙으면 영어 화면에서 그 사람이 사라진다 */
     check('영어 네 친구에는 zh 표시가 없다 (짝)',
       ['emma', 'jake', 'lily', 'noah'].every((k) => MODES[k] && !MODES[k].zh));
-    check('중국어면 메이가 나온다', vf('zh', 'lily') === 'mei');
-    check('중국어는 «저장값을 아예 안 본다» — 무엇이 들어와도 메이',
-      ['emma', 'jake', 'lily', 'noah', 'mix', 'mei', undefined, null, '', 'zzz']
-        .every((v) => vf('zh', v) === 'mei'),
-      '하나라도 다른 답이 나오면 「선택 없이 메이」가 깨집니다');
+    const zhKeys = Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh);
+    check('중국어 선생님이 둘 이상이다 (고를 수 있다)', zhKeys.length >= 2,
+      '실제: ' + zhKeys.join(', ') + ' — 한 명뿐이면 아래 «고르는 칸» 검사가 뜻을 잃습니다');
+    check('중국어 저장값이 중국어 선생님이면 그대로다',
+      zhKeys.every((k) => vf('zh', 'lily', k) === k),
+      '실제: ' + zhKeys.map((k) => k + '→' + vf('zh', 'lily', k)).join(' '));
+    check('중국어 저장값이 «중국어 사람이 아니면» 메이로 떨어진다',
+      ['emma', 'jake', 'lily', 'noah', 'mix', undefined, null, '', 'zzz', '__proto__']
+        .every((v) => vf('zh', 'lily', v) === 'mei'),
+      '영어 친구가 새어 나오면 서버가 영어 프롬프트를 돌립니다');
     /* 🔴 짝이 없으면 «언제나 메이» 도 통과한다 — 영어가 그대로인지 반드시 함께 본다 */
-    check('영어면 «영어에서 마지막에 고른 사람» 이 그대로다 (짝)', vf('en', 'lily') === 'lily');
-    check('영어면 「번갈아」도 그대로다 (짝)', vf('en', 'mix') === 'mix');
-    check('영어 자리에 중국어 사람이 저장돼 있으면 Emma 로 떨어진다', vf('en', 'mei') === 'emma');
+    check('영어면 «영어에서 마지막에 고른 사람» 이 그대로다 (짝)', vf('en', 'lily', 'long') === 'lily');
+    check('영어면 「번갈아」도 그대로다 (짝)', vf('en', 'mix', 'long') === 'mix');
+    check('영어 자리에 중국어 사람이 저장돼 있으면 Emma 로 떨어진다', vf('en', 'mei', 'mei') === 'emma');
   }
 
-  /* «지금 누가 말하나» — 옛 저장값이 무엇이든 중국어면 메이여야 한다.
-     ⚠️ 이 함수가 «중국어 = 메이» 의 정본이다. 언어를 어느 경로로 켜든(버튼·서버 힌트·옛 값)
-        여기서 한 번에 막히므로, 여기가 뚫리면 나머지 검사는 전부 뜻을 잃는다. */
+  /* «지금 누가 말하나» — 중국어면 «중국어 선생님» 이어야 한다.
+     ⚠️ 이 함수가 정본이다. 언어를 어느 경로로 켜든(버튼·서버 힌트·옛 값) 여기서 한 번에
+        걸러지므로, 여기가 뚫리면 나머지 검사는 전부 뜻을 잃는다. */
   const personSrc = HTML.match(/function _voicePerson\(\)\{[\s\S]*?\n\}/);
   check('전제: _voicePerson 을 오려 냈다', !!personSrc);
   if (personSrc) {
     const who = (zh, mode, idx) => {
       try {
-        return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx',
+        return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx', 'VOICE_MODES',
           personSrc[0] + '\nreturn _voicePerson();')(
-          () => zh, mode, ['emma', 'jake', 'lily', 'noah'], idx || 0);
+          () => zh, mode, ['emma', 'jake', 'lily', 'noah'], idx || 0, MODES);
       } catch (e) { return 'ERR:' + e.message; }
     };
-    check('중국어에서는 옛 저장값이 무엇이든 메이가 말한다',
-      ['emma', 'jake', 'lily', 'noah', 'mix', 'mei'].every((m) => who(true, m) === 'mei'),
-      '실제: ' + ['emma', 'jake', 'lily', 'noah', 'mix', 'mei'].map((m) => m + '→' + who(true, m)).join(' '));
+    check('중국어에서 «영어 친구·번갈아» 가 저장돼 있으면 메이가 말한다',
+      ['emma', 'jake', 'lily', 'noah', 'mix'].every((m) => who(true, m) === 'mei'),
+      '실제: ' + ['emma', 'jake', 'lily', 'noah', 'mix'].map((m) => m + '→' + who(true, m)).join(' '));
+    /* 🔴 짝 — 없으면 «중국어는 언제나 메이»(룽을 지우는 것) 도 통과한다 */
+    check('중국어에서 고른 중국어 선생님은 그대로 말한다 (짝)',
+      Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh).every((k) => who(true, k) === k),
+      '실제: ' + Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh).map((k) => k + '→' + who(true, k)).join(' '));
     /* 🔴 짝 — 없으면 «언제나 메이» 도 통과한다 */
     check('영어에서는 고른 사람이 그대로 말한다 (짝)', who(false, 'lily') === 'lily');
     check('영어 「번갈아」는 순번이 가리키는 사람이다 (짝)',
@@ -461,41 +475,91 @@ console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 
     /* ⚠️ try/catch 로 감싼다 — 안 감싸면 «던지는» 변이(없는 DOM 메서드를 부르는 등)가
           깔끔한 FAIL 이 아니라 하니스 크래시가 되어 결과줄조차 안 나온다(실측). */
     const run = (zh) => {
-      const box = { hidden: null }, note = { hidden: null };
-      const doc = { getElementById: (id) => (id === 'voiceBtns' ? box : (id === 'voiceZhNote' ? note : null)) };
+      const box = { hidden: null }, zbox = { hidden: null }, note = { hidden: null };
+      const doc = { getElementById: (id) => (id === 'voiceBtns' ? box
+        : (id === 'voiceBtnsZh' ? zbox : (id === 'voiceZhNote' ? note : null))) };
       let err = null;
       try {
         new Function('document', 'isZh', 'VOICE_MODES', syncSrc[0] + '\nsyncVoiceBtnsForLang();')
           (doc, () => zh, MODES);
       } catch (e2) { err = e2.message; }
-      return { box, note, err };
+      return { box, zbox, note, err };
     };
     const z = run(true), e = run(false);
     check('전제: syncVoiceBtnsForLang 이 «던지지 않고» 돌았다', !z.err && !e.err,
       'zh=' + (z.err || '-') + ' en=' + (e.err || '-'));
-    check('중국어에서는 «고르는 칸» 이 통째로 감춰진다', z.box.hidden === true,
-      '한 사람만 남겨 보여 주면 「고를 수 있는 것」처럼 보입니다');
-    check('중국어에서는 «메이 한 분» 안내가 뜬다', z.note.hidden === false,
-      '감추면 「왜 못 고르지?」를 학생이 혼자 추측하게 됩니다');
-    /* 🔴 짝 — 없으면 «전부 감추기» 도 통과한다 */
-    check('영어에서는 고르는 칸이 그대로 보인다 (짝)', e.box.hidden === false,
+    check('중국어에서는 «영어 친구» 칸이 감춰진다', z.box.hidden === true,
+      '보이면 중국어 수업에서 Emma 를 고를 수 있게 됩니다');
+    check('중국어에서는 «중국어 선생님» 칸이 보인다', z.zbox.hidden === false,
+      '감추면 룽을 고를 방법이 없습니다 — 2026-09-14 오후 지시가 그대로 무너집니다');
+    check('중국어에서는 목소리 한계 안내가 뜬다', z.note.hidden === false,
+      '감추면 「남자를 골랐는데 왜 여자 목소리지?」를 학생이 혼자 추측하게 됩니다');
+    /* 🔴 짝 — 없으면 «전부 감추기»·«전부 보이기» 도 통과한다 */
+    check('영어에서는 영어 친구 칸이 그대로 보인다 (짝)', e.box.hidden === false,
       '실제 hidden=' + e.box.hidden);
+    check('영어에서는 중국어 선생님 칸이 안 보인다 (짝)', e.zbox.hidden === true,
+      '실제 hidden=' + e.zbox.hidden);
     check('영어에서는 그 안내가 안 뜬다 (짝)', e.note.hidden === true);
   }
 
-  /* 마크업 — 중국어 버튼을 되살리면 «고를 수 있는 것» 으로 돌아간다 */
-  check('친구 고르기 칸에 중국어 버튼이 없다',
-    !/data-v="mei"/.test(HTMLC),
-    '중국어는 칸 자체를 감추므로, 버튼을 두면 영어 화면에서 보이거나 죽은 코드가 됩니다');
+  /* 마크업 — 두 묶음이 «서로 다른 상자» 여야 한다.
+     📜 2026-09-14 낮에는 「중국어 버튼이 없다」가 옳은 답이었습니다(고르는 칸 자체를 없앴을 때).
+        같은 날 오후 「남자 교사도 한명더」로 다시 고르게 되어 경계를 뒤집어 옮겨 적습니다. */
+  const zhBoxHtml = (HTMLC.match(/<div class="voice-btns" id="voiceBtnsZh"[\s\S]*?<\/div>/) || [''])[0];
+  check('전제: 중국어 선생님 상자를 잘라 냈다', zhBoxHtml.length > 50, 'len=' + zhBoxHtml.length);
+  if (MODES) {
+    const zhKeys = Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh);
+    check('중국어 상자에 «표의 중국어 선생님» 이 전부 있다',
+      zhKeys.every((k) => zhBoxHtml.includes('data-v="' + k + '"')),
+      '실제: ' + zhKeys.map((k) => k + (zhBoxHtml.includes('data-v="' + k + '"') ? '✓' : '✗')).join(' '));
+    /* 🔴 짝 — 없으면 «한 상자에 다 넣기» 도 통과한다 */
+    check('중국어 상자에 영어 친구가 섞여 있지 않다 (짝)',
+      ['emma', 'jake', 'lily', 'noah', 'mix'].every((v) => !zhBoxHtml.includes('data-v="' + v + '"')),
+      '섞이면 중국어 수업에서 Emma 를 고를 수 있게 됩니다');
+    const enBoxHtml = (HTMLC.match(/<div class="voice-btns" id="voiceBtns"[\s\S]*?<\/div>/) || [''])[0];
+    check('영어 상자에 중국어 선생님이 섞여 있지 않다 (짝)',
+      zhKeys.every((k) => !enBoxHtml.includes('data-v="' + k + '"')));
+  }
   check('영어 다섯 버튼은 그대로다 (짝)',
     ['emma', 'jake', 'lily', 'noah', 'mix'].every((v) => HTMLC.includes('data-v="' + v + '"')));
 
   /* 배선 — «그 함수를 실제로 부르는가». 호출이 없으면 위 검사가 전부 헛돈다. */
   check('언어를 바꾸면 친구도 그 언어의 사람으로 바꾼다',
-    /if\(changed\) setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn\)\)/.test(HTMLC),
+    /if\(changed\) applyVoiceForLang\(\);/.test(HTMLC),
     '안 부르면 중국어를 골라도 Emma 얼굴이 그대로 남습니다');
   check('부팅도 «지금 언어» 의 사람으로 시작한다',
-    /^setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn\)\);/m.test(HTMLC));
+    /^applyVoiceForLang\(\);/m.test(HTMLC));
+  /* 🔴 «저장하지 않고 맞추기만» — 부팅·언어변경·서버힌트 셋이 이 함수 하나를 쓴다.
+     📜 2026-09-14 오후 함정 대조가 잡은 자리: 서버 힌트 경로가 _voiceMode 를 안 건드려
+        저장해 둔 룽이 무시되고 늘 메이가 나왔고, 두 버튼 중 어느 쪽도 «고름» 표시가 없었다.
+     ⛔ 이 셋을 setVoiceMode 로 되돌리지 마세요 — 아무도 안 골랐는데 기본값이 저장돼 굳습니다. */
+  const avlSrc = HTML.match(/function applyVoiceForLang\(\)\{[\s\S]*?\n\}/);
+  check('전제: applyVoiceForLang 을 오려 냈다', !!avlSrc);
+  if (avlSrc && fnSrc && MODES) {
+    const pick = (lang, en, zh) => {
+      try {
+        return new Function('_warmLang', '_savedVoiceEn', '_savedVoiceZh', '_voiceMode', '_mixIdx',
+          'VOICE_MODES', 'document', 'isZh', 'applyVoiceFace', 'syncVoiceBtnsForLang', 'pickVoice', '_enVoice',
+          fnSrc[0] + '\n' + avlSrc[0] + '\napplyVoiceForLang();\nreturn _voiceMode;')(
+          lang, en, zh, 'zzz-시작값', 0, MODES, { querySelectorAll: () => [] },
+          () => lang === 'zh', () => {}, () => {}, () => {}, null);
+      } catch (e) { return 'ERR:' + e.message; }
+    };
+    check('서버 힌트로 중국어가 켜져도 «저장해 둔 중국어 선생님» 을 그대로 쓴다',
+      Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh).every((k) => pick('zh', 'lily', k) === k),
+      '실제: ' + Object.keys(MODES).filter((k) => MODES[k] && MODES[k].zh)
+        .map((k) => k + '→' + pick('zh', 'lily', k)).join(' '));
+    /* 🔴 짝 — 없으면 «언제나 저장값» 도 통과한다(영어에서 중국어 선생님이 나옵니다) */
+    check('영어로 돌아오면 영어에서 고른 사람이다 (짝)', pick('en', 'lily', 'long') === 'lily',
+      '실제: ' + pick('en', 'lily', 'long'));
+    check('그 함수는 «저장하지 않는다» (짝)', !/localStorage\.setItem/.test(avlSrc[0]),
+      '저장하면 「아직 안 정함」이 「학생이 고른 것」으로 굳습니다');
+    check('그 함수가 화면·얼굴을 함께 맞춘다',
+      /(^|[^.\w])syncVoiceBtnsForLang\(\);/m.test(avlSrc[0])
+        && /(^|[^.\w])applyVoiceFace\(\);/m.test(avlSrc[0]));
+    check('그 함수가 «고름» 표시(.on)도 갈아 끼운다', /classList\.toggle\('on'/.test(avlSrc[0]),
+      '안 하면 두 버튼 중 어느 쪽도 고른 표시가 없어 「아무도 안 골랐다」로 보입니다');
+  }
   /* 🔴 «파일 어딘가에 그 글자가 있는가» 로 물으면 if(false){…} 로 감싸도 통과한다
         (2026-09-14 함정 대조 실측). 그 함수 «몸통 안» 에서 불리는지로 묻는다. */
   const svmBody = bodyOf(HTMLC, 'function setVoiceMode(m, announce){');
@@ -511,19 +575,100 @@ console.log('\n[ ⑯ 중국어 교사 «메이» — 중국어는 선택 없이 
   const probeBody = bodyOf(HTMLC, 'function probeSuggestLang(){');
   check('전제: probeSuggestLang 몸통을 잘라 냈다', probeBody.length > 100, 'len=' + probeBody.length);
   check('서버가 «중국어 학생» 이라고 알려 줘도 화면·얼굴이 함께 맞춰진다',
-    /(^|[^.\w])syncVoiceBtnsForLang\(\);/m.test(probeBody) && /(^|[^.\w])applyVoiceFace\(\);/m.test(probeBody),
+    /(^|[^.\w])applyVoiceForLang\(\);/m.test(probeBody),
     'renderSetup 은 친구 칸을 안 그립니다 — 그 칸은 정적 HTML 이라 영어 그대로 남습니다');
   check('그 경로는 «저장하지 않는다» (짝)',
     !/setVoiceMode\(/.test(probeBody) && !/localStorage\.setItem/.test(probeBody),
     '저장하면 서버 힌트가 「학생이 고른 것」으로 굳습니다');
 
-  /* 저장 — 중국어는 «고른 것» 이 없으므로 적을 것도 없다 */
-  check('중국어용 저장 칸을 두지 않는다',
-    !/mangoi_warmup_voice_zh/.test(HTMLC) && !/_savedVoiceZh/.test(HTMLC),
-    '적으면 「학생이 고른 것」으로 굳어 나중에 기본을 되돌릴 수 없습니다');
-  check('영어에서 고른 사람은 그대로 기억한다 (짝)',
-    /!VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,160}mangoi_warmup_voice/.test(HTMLC),
-    '안 적으면 다음에 들어올 때 Emma 로 초기화됩니다');
+  /* 저장 — «언어별로» 갈려 있어야 한다.
+     📜 2026-09-14 낮에는 「중국어 저장 칸을 두지 않는다」가 옳았습니다(고를 수 없었으니까).
+        오후에 고를 수 있게 되어 경계를 «두 칸이 서로를 안 지운다» 로 옮겨 적습니다.
+     ⛔ 한 칸으로 합치지 마세요 — 중국어에서 룽을 고르면 영어의 Lily 선택이 사라집니다. */
+  check('중국어 선택을 기억하는 칸이 있다', /mangoi_warmup_voice_zh/.test(HTMLC),
+    '없으면 룽을 골라도 다음에 들어올 때 메이로 되돌아갑니다');
+  check('영어 칸과 중국어 칸이 «다른 키» 다',
+    /localStorage\.setItem\('mangoi_warmup_voice',/.test(HTMLC)
+      && /localStorage\.setItem\('mangoi_warmup_voice_zh',/.test(HTMLC),
+    '한 키로 합치면 언어를 오갈 때 서로를 지웁니다');
+  check('중국어 사람은 중국어 칸에, 영어 사람은 영어 칸에 적는다',
+    /if\(VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,140}mangoi_warmup_voice_zh[\s\S]{0,160}mangoi_warmup_voice'/.test(HTMLC),
+    '갈라 적지 않으면 한쪽이 다른 쪽을 덮어씁니다');
+
+  /* ══ 🔊 목소리 갈래 — «남자를 골랐는데 여자 목소리» 를 어떻게 다루는가 (2026-09-14 오후) ══
+     [잰 것] src/api-games.ts 의 /api/voice/tts 는 zh 를 만나면 gtts(text,'zh-CN') 로만 간다.
+             그 함수에 화자 인자가 없다 = 구글 만다린 «한 목소리»(여성)뿐이고 speaker 를 안 본다.
+     ⟹ 룽의 «남자 목소리» 는 기기 음성(zh-CN 남성)으로만 낼 수 있다. 그래서 세 가지를 짝으로
+        못 박는다: ⓐ 기기에 남자 음성이 있으면 그것을 «먼저» 쓴다 ⓑ 없으면 서버로 가되 그
+        사실을 «말한다» ⓒ 메이(여자)·영어는 예전 그대로 서버를 쓴다.
+     ⛔ ⓒ 가 없으면 «중국어 전부 기기 목소리» 도 통과한다 — 그건 메이의 소리를 나쁘게 바꾼다. */
+  {
+    const vrSrc = HTML.match(/function _zhMaleVoiceReady\(\)\{[\s\S]*?\n\}/);
+    const zmSrc = HTML.match(/var ZH_MALE_RE\s+=\s+\/.*?\/i;/);
+    check('전제: _zhMaleVoiceReady 와 이름 목록을 오려 냈다', !!vrSrc && !!zmSrc,
+      'fn=' + !!vrSrc + ' re=' + !!zmSrc);
+    if (vrSrc && zmSrc) {
+      const ready = (voice, speechOn) => {
+        try {
+          return new Function('window', '_speechOn', '_enVoice', 'pickVoice',
+            zmSrc[0] + '\n' + vrSrc[0] + '\nreturn _zhMaleVoiceReady();')(
+            { speechSynthesis: {} }, speechOn !== false, voice, () => {});
+        } catch (e) { return 'ERR:' + e.message; }
+      };
+      check('중국어 «남자» 음성이 있으면 기기 목소리를 쓴다',
+        ready({ lang: 'zh-CN', name: 'Microsoft Kangkang - Chinese (Simplified, PRC)' }) === true
+          && ready({ lang: 'zh-CN', name: 'Microsoft Yunxi Online (Natural)' }) === true,
+        '실제: ' + ready({ lang: 'zh-CN', name: 'Microsoft Kangkang - Chinese (Simplified, PRC)' }));
+      /* 🔴 짝 — 없으면 «중국어면 무조건 기기 목소리» 도 통과한다 */
+      check('중국어 «여자» 음성뿐이면 기기 목소리를 안 쓴다 (짝)',
+        ready({ lang: 'zh-CN', name: 'Microsoft Huihui - Chinese (Simplified, PRC)' }) === false
+          && ready({ lang: 'zh-CN', name: 'Tingting' }) === false);
+      check('성별을 알 수 없는 이름이면 안 쓴다 (안드로이드 구글 음성)',
+        ready({ lang: 'zh-CN', name: 'Chinese (China)' }) === false,
+        '「중국어 음성이면 남자겠지」로 넓히면 얼굴과 목소리가 어긋납니다');
+      check('영어 남자 음성은 이 갈래에 안 걸린다 (짝)',
+        ready({ lang: 'en-US', name: 'Microsoft Guy Online (Natural)' }) === false);
+      check('음성이 아예 없으면 안 쓴다', ready(null) === false);
+      check('소리가 꺼져 있으면 안 쓴다', ready({ lang: 'zh-CN', name: 'Kangkang' }, false) === false);
+    }
+
+    /* 배선 — «그 갈래가 speak() 안에서 서버보다 «먼저» 오는가».
+       ⛔ 식 모양을 글자 그대로 못 박지 마세요(무해한 정리에 빨간불) — 위치와 구조로 묻습니다. */
+    const spBody = bodyOf(HTMLC, 'function speak(text, btn){');
+    check('전제: speak 몸통을 잘라 냈다', spBody.length > 300, 'len=' + spBody.length);
+    const iReady = spBody.indexOf('_zhMaleVoiceReady()');
+    const iTts = spBody.indexOf('_ttsSpeak(');
+    check('speak 이 그 판정을 실제로 부른다', iReady >= 0);
+    check('그 갈래가 «서버 TTS 보다 앞» 이다', iReady >= 0 && iTts >= 0 && iReady < iTts,
+      'ready=' + iReady + ' tts=' + iTts + ' — 뒤에 있으면 서버가 먼저 읽어 버립니다');
+    check('그 갈래가 기기 목소리로 읽고 «거기서 끝낸다»',
+      /_zhMaleVoiceReady\(\)[\s\S]{0,120}_synthSpeak\([\s\S]{0,60}return;/.test(spBody),
+      'return 이 없으면 기기 목소리와 서버 목소리가 «겹쳐» 재생됩니다');
+    check('기기에 남자 음성이 없으면 그 사실을 «한 번» 말한다',
+      /_zhMaleToldOnce/.test(spBody) && /addMsg\(/.test(spBody),
+      '아무 말도 없으면 「남자를 골랐는데 왜 여자 목소리지?」가 고장으로 읽힙니다');
+    /* 🔴 짝 — 없으면 «중국어 전체» 로 넓힌 변이가 통과한다 */
+    check('그 갈래는 «남자일 때만» 탄다 (짝)',
+      /isZh\(\)\s*&&\s*_voiceGender\(\)\s*===\s*'male'/.test(spBody),
+      '중국어 전체로 넓히면 메이(여자)까지 기기 목소리가 되어 소리가 나빠집니다');
+
+    /* 음높이 — «젊고 굵은» (2026-09-14 사장님). 기기 목소리에만 걸린다. */
+    const pitSrc = HTMLC.match(/var _pit = ([^;]+);/);
+    check('전제: 음높이 식을 오려 냈다', !!pitSrc);
+    if (pitSrc) {
+      const pit = (zh, g) => {
+        try { return new Function('isZh', '_voiceGender', 'return ' + pitSrc[1])(() => zh, () => g); }
+        catch (e) { return 'ERR:' + e.message; }
+      };
+      check('중국어 남자는 음높이를 낮춘다 (굵은 목소리)', pit(true, 'male') < 1,
+        '실제: ' + pit(true, 'male'));
+      check('너무 낮추지는 않는다', pit(true, 'male') >= 0.7, '실제: ' + pit(true, 'male'));
+      /* 🔴 짝 — 없으면 «전부 낮추기» 도 통과한다(영어 폴백 목소리가 함께 바뀝니다) */
+      check('영어와 중국어 여자는 예전 값 그대로다 (짝)',
+        pit(false, 'male') === 1.02 && pit(true, 'female') === 1.02,
+        '실제 en-male=' + pit(false, 'male') + ' zh-female=' + pit(true, 'female'));
+    }
+  }
 
   /* 🀄 스크린샷 제보(2026-09-14) — 중국어 수업에 영어 단어(fast·moon·big)가 떴다 */
   check('게임 취약 단어를 «그 언어의 기록» 으로 묻는다',
