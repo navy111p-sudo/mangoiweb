@@ -4460,9 +4460,14 @@ ${numbered}`;
           + "                               AND COALESCE(t.name,'') LIKE ?)"
           + "                 OR EXISTS (SELECT 1 FROM teacher_account_links tal"
           + "                             WHERE CAST(tal.teacher_id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
-          + "                               AND COALESCE(tal.username,'') LIKE ?))))");
+          + "                               AND COALESCE(tal.username,'') LIKE ?)"
+          /* 🎓 2026-09-14 — 「학생」 칸의 첫 근거는 예약표(cs.user_id·cs.student_name,
+             src/recording-students.ts)인데 여기 검색은 participant_* 만 봐서, 동의 안 한
+             학생은 화면에 이름이 보이는데 그 이름으로 검색하면 0건이었다. */
+          + "                 OR COALESCE(cs.student_name,'') LIKE ?"
+          + "                 OR COALESCE(cs.user_id,'') LIKE ?)))");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p, p, p, p, p);
+        whereBinds.push(p, p, p, p, p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');

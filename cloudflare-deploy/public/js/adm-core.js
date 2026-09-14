@@ -831,7 +831,7 @@ var _recBlobTruncated = false;   // R2 목록이 상한에 걸려 «잘렸는가
         감추면 「전체를 걸렀다」로 읽혀 없는 결론을 내리게 된다.
    ⚠️ 점수 계산(총 참여도)은 여기 _recPartScore 하나뿐이다. 그리는 쪽도 이것을 쓴다 —
       같은 판정을 두 곳에 복사하면 한쪽만 고쳐진다(CLAUDE.md 2장). */
-var _recColF = { text: '', part: 'all', dur: 'all', size: 'all', users: 'all', play: 'all' };
+var _recColF = { text: '', student: '', part: 'all', dur: 'all', size: 'all', users: 'all', play: 'all' };
 var _recSort = { key: '', dir: 0 };   // dir: 1=올림순 ▲ / -1=내림순 ▼ / 0=원래 순서(서버가 준 최신순)
 
 /* 총 참여도 — 시선·말하기의 평균. 한쪽만 있으면 그쪽 값. 둘 다 없으면 null. */
@@ -862,6 +862,15 @@ function _recPassColF(r) {
                 return String((s && s.name) || '') + ' ' + String((s && s.uid) || '');
               }).join(' ');
     if (hay.toLowerCase().indexOf(F.text.toLowerCase()) < 0) return false;
+  }
+  if (F.student) {
+    /* 🎓 2026-09-14 — 학생 «전용» 칸(recf-student). 학생 이름·아이디(r.students)만 본다.
+       ⛔ 여기에 교사·방 번호를 섞지 말 것 — 위 text 칸이 그 몫이고, 섞으면 「학생 칸에
+          교사 이름을 쳤는데 걸린다」가 되어 두 칸이 같은 칸이 된다. */
+    var sh = (r.students || []).map(function (s) {
+      return String((s && s.name) || '') + ' ' + String((s && s.uid) || '');
+    }).join(' ');
+    if (sh.toLowerCase().indexOf(F.student.toLowerCase()) < 0) return false;
   }
   if (F.part !== 'all') {
     var p = _recPartScore(r);
@@ -1631,28 +1640,30 @@ document.addEventListener('click', function(ev) {
    ⚠️ 서버를 다시 부르지 않는다 — 이미 받아 온 «이 쪽» 을 다시 그릴 뿐이라 즉시 반응한다.
    ⚠️ 초기화는 정렬(_recSort)까지 함께 지운다. 필터만 지우면 «왜 순서가 이상하지» 가 남는다. */
 (function bindRecColFilter() {
-  const ids = { text: 'recf-text', part: 'recf-part', dur: 'recf-dur',
+  const ids = { text: 'recf-text', student: 'recf-student', part: 'recf-part', dur: 'recf-dur',
                 size: 'recf-size', users: 'recf-users', play: 'recf-play' };
+  /* 글자 칸(방·교사 / 학생)은 input 마다, 고르는 칸은 change 마다. */
+  const isTxt = function (k) { return k === 'text' || k === 'student'; };
   function pull() {
     Object.keys(ids).forEach(function (k) {
       const el = document.getElementById(ids[k]);
       if (!el) return;
-      _recColF[k] = (k === 'text') ? String(el.value || '').trim() : (el.value || 'all');
+      _recColF[k] = isTxt(k) ? String(el.value || '').trim() : (el.value || 'all');
     });
     renderRecordingsTable();
   }
   Object.keys(ids).forEach(function (k) {
     const el = document.getElementById(ids[k]);
     if (!el) return;
-    el.addEventListener(k === 'text' ? 'input' : 'change', pull);
+    el.addEventListener(isTxt(k) ? 'input' : 'change', pull);
   });
 
   const resetBtn = document.getElementById('recf-reset');
   if (resetBtn) resetBtn.addEventListener('click', function () {
     Object.keys(ids).forEach(function (k) {
       const el = document.getElementById(ids[k]);
-      if (el) el.value = (k === 'text') ? '' : 'all';
-      _recColF[k] = (k === 'text') ? '' : 'all';
+      if (el) el.value = isTxt(k) ? '' : 'all';
+      _recColF[k] = isTxt(k) ? '' : 'all';
     });
     _recSort.key = ''; _recSort.dir = 0;
     _recSyncSortHead();
