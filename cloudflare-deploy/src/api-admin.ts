@@ -63,6 +63,7 @@ import { handlePaymentsBoardApi } from './payments-board';                   // 
 import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
+import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -9375,7 +9376,7 @@ LIMIT $limit`;
 
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
       for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
-                                  ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'],
+                                  ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'], ['phone', 'TEXT'],
                                   ['updated_at', 'INTEGER']] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -9398,6 +9399,41 @@ LIMIT $limit`;
             ? `이미 «${dup.user_id}» 가 있습니다(대소문자만 다릅니다). 학생 로그인은 대소문자를 구분하지 않으니 다른 아이디를 쓰세요.`
             : '이미 사용 중인 아이디입니다.',
           existing: dup.user_id }, 409);
+      }
+
+      /* 👥 (2026-09-14 사장님 지시) «같은 사람이 이미 있는가» 를 한 번 더 본다.
+         실사고: 정예희 학생이 yahee·yahee1·yahee2 세 계정으로 1분 안에 세 번 등록됐다(전부
+         admin_manual · 각각 비밀번호 있음 → 셋 다 로그인됨). 아이디 중복 검사(위)는 «아이디» 만
+         보므로 번호를 붙여 다시 누르면 그대로 통과한다. 뿌리는 «첫 등록이 됐는지 몰라서 또 누른 것»
+         이라 막는 자리는 로그인이 아니라 «등록» 이다.
+         ✅ 판정 정본은 src/student-duplicate.ts 의 duplicateGate(순수 함수) — 이름 완전일치 + 부모/학생 번호가
+            «숫자만 남겨» 같을 때만. ⛔ 이름만으로 막지 말 것(동명이인 실재 — 「김사랑」 계정 6개).
+            ⛔ «묻는가» 결정을 이 라우트의 if 에 다시 적지 말 것 — 조건 뒤집기 변이가 문자열 검사를 통과한다.
+         ✅ 막지 않고 «묻는다»(409 possible_duplicate + existing 목록) — 화면이 「그래도 등록」을 누르면
+            force:true 로 다시 오고 그때는 통과. 진짜 다른 아이(형제 등)일 수 있어 사람이 정한다.
+         ⚠️ 조회가 실패하면 «묻지 않고» 통과(예전 동작) — 등록 자체가 막히는 쪽이 더 나쁘다.
+            조용히 넘기지 않는다: console.warn + 성공 응답 dup_check:'skipped'.
+         ⚠️ LIMIT 을 두지 말 것 — 동명이인이 50명 넘는 이름(김민서 71명)에서 진짜 중복이 조회 밖으로 빠진다. */
+      let sameRows: any[] | null = null;
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT user_id, student_name, korean_name, parent_phone, student_phone, phone, source
+             FROM students_erp
+            WHERE student_name = ? OR korean_name = ? OR username = ?`
+        ).bind(name, name, name).all();
+        sameRows = rs.results || [];
+      } catch (e: any) {
+        // 조회 실패 = «묻지 않고» 통과(예전 동작). ⚠️ 조용히 넘기지 않는다 — 로그 + 응답 표식(dup_check:'skipped').
+        console.warn('[students/create] dup-check query failed — skipping duplicate check:', e?.message || e);
+        sameRows = null;
+      }
+      const gate = duplicateGate(body?.force, name, parentPhone, studentPhone, sameRows);
+      if (gate.ask) {
+        const ids = gate.existing.map(c => c.user_id).join(', ');
+        return json({ ok: false, error: 'possible_duplicate',
+          message: `이미 같은 이름·같은 연락처의 학생이 있습니다: ${ids}. 같은 학생이면 그 아이디를 쓰고, 다른 학생이면 「그래도 등록」을 누르세요.`,
+          message_en: `A student with the same name and phone already exists: ${ids}. Use that ID if it is the same student, or press "Register anyway".`,
+          existing: gate.existing }, 409);
       }
 
       // 비밀번호 — 직접 입력했으면 그대로, 아니면 임시 비밀번호를 만든다.
@@ -9423,6 +9459,7 @@ LIMIT $limit`;
 
       return json({
         ok: true, user_id: uid, name,
+        dup_check: gate.check,   // 'skipped' 면 중복 확인을 못 한 채 등록된 것 — 화면이 그 사실을 말한다
         temp_password: tempPw,
         message: '학생을 등록했습니다. 아래 임시 비밀번호는 지금 이 화면에서만 보입니다 — 학생·학부모에게 전달하세요.',
       });
