@@ -50,9 +50,12 @@
           → 「화·목 7:20 강선생님」). 시각이나 강사가 다르면 절대 합치지 않는다.
      [정렬] 다음 수업이 가장 가까운 줄이 맨 위 + 앰버 강조. 날짜를 못 구한 줄은 맨 아래.
      ⛔ 강사 이름은 DB 값이다 — 반드시 esc() 를 거친다. ⛔ hover 확대(scale/translate) 금지. */
-  function fmtShortDate(ymd) {
+  /** «9/18(금)» — 날짜 옆에 요일(사장님 지시 2026-09-14). 요일은 UTC 자정으로 계산해 시간대에 안 흔들린다. */
+  function fmtShortDate(ymd, ko) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
-    return Number(m[2]) + '/' + Number(m[3]);
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+    var DOW = ko ? ['일', '월', '화', '수', '목', '금', '토'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return Number(m[2]) + '/' + Number(m[3]) + '(' + DOW[d] + ')';
   }
   /** 서버 schedules[] → 화면 줄 목록. 순수 함수(하니스가 오려 내 돌린다). */
   function buildRows(list, ko) {
@@ -78,12 +81,13 @@
     return order.map(function (g, i) {
       var days = g.days.slice().sort(function (a, b) { return dowIdx(a) - dowIdx(b); });
       return {
-        dayLabel: g.once ? fmtShortDate(g.once) : days.join(ko ? '·' : '/'),
+        dayLabel: g.once ? fmtShortDate(g.once, ko) : days.join(ko ? '·' : '/'),
         time: g.start_time ? fmtTime12(g.start_time) : '',
         teacher: g.teacher,
         isNext: i === 0 && g.next_ts != null,
+        once: !!g.once,
         // 일회성은 요일 칸이 이미 날짜라 «다음» 줄일 때만 오른쪽에 한 번 더 적는다(같은 날짜 두 번 금지)
-        nextShort: g.next_date && (!g.once || (i === 0 && g.next_ts != null)) ? fmtShortDate(g.next_date) : '',
+        nextShort: g.next_date && (!g.once || (i === 0 && g.next_ts != null)) ? fmtShortDate(g.next_date, ko) : '',
         weeklyCount: g.once ? 0 : g.days.length
       };
     });
@@ -94,8 +98,8 @@
     var st = document.createElement('style'); st.id = 'nms-style';
     st.textContent = '.ncc-card.nms-card{padding:12px 16px;text-align:left;min-width:280px;max-width:min(360px,calc(100vw - 32px));display:flex;flex-direction:column;gap:6px}'
       + '.nms-head{display:flex;justify-content:flex-start;align-items:baseline;gap:10px}'
-      + '.nms-head .ncc-sub{margin-left:auto}'
-      + '.nms-head .ncc-top{margin-bottom:0}.nms-head .ncc-sub{margin-top:0}'
+      + '.nms-head .ncc-top{margin-bottom:0}'
+      + '.nms-side{margin-left:auto;font-size:11.5px;color:#94a3b8;white-space:nowrap}'
       + '.nms-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:12px;border:1px solid transparent}'
       + '.nms-row.nms-next{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.55)}'
       + '.nms-day{flex:0 0 auto;min-width:46px;box-sizing:border-box;text-align:center;font-size:12px;font-weight:800;color:#cbd5e1;padding:3px 6px;border-radius:8px;background:rgba(148,163,184,.14);font-variant-numeric:tabular-nums;white-space:nowrap}'
@@ -131,13 +135,23 @@
       ensureStyle();
       var html = '<div class="ncc-card nms-card">'
         + '<div class="nms-head"><span class="ncc-top">' + esc(head) + '</span>'
-        + (side ? ('<span class="ncc-sub">' + esc(side) + '</span>') : '') + '</div>';
+        + (side ? ('<span class="nms-side">' + esc(side) + '</span>') : '') + '</div>';
+      /* 🤝 계약: js/idx-cta-status.js 가 이 카드의 «.ncc-sub 첫 요소» 글자를 읽어 「수업 입장」 버튼
+         아래 한 줄로 씁니다(«다음 수업: …»). 첫 판에서 머리글 「강사 N명」에 .ncc-sub 를 달았다가
+         버튼이 「강사 2명」이라고 말했습니다(2026-09-14 사장님 캡처). 줄 목록이 이미 같은 정보를
+         보여 주므로 화면에는 안 그리고(display:none) 글자만 둡니다. ⛔ 이 클래스를 다른 요소에 달지 말 것. */
+      var nx = rows[0] && rows[0].isNext ? rows[0] : null;
+      if (nx) {
+        html += '<span class="ncc-sub nms-contract" style="display:none">'
+          + esc((ko ? '다음 수업: ' : 'Next class: ') + nx.nextShort + ' ' + nx.time + (nx.teacher ? (' · ' + nx.teacher) : ''))
+          + '</span>';
+      }
       rows.forEach(function (r) {
         html += '<div class="nms-row' + (r.isNext ? ' nms-next' : '') + '">'
           + '<span class="nms-day">' + esc(r.dayLabel || '—') + '</span>'
           + '<span class="nms-time">' + esc(r.time) + '</span>'
           + '<span class="nms-teacher">' + esc(r.teacher) + '</span>'
-          + (r.nextShort ? ('<span class="nms-date">' + (r.isNext ? esc((ko ? '다음 · ' : 'Next · ') + r.nextShort) : esc(r.nextShort)) + '</span>') : '')
+          + (r.nextShort ? ('<span class="nms-date">' + (r.isNext ? esc(r.once ? (ko ? '다음' : 'Next') : ((ko ? '다음 · ' : 'Next · ') + r.nextShort)) : esc(r.nextShort)) + '</span>') : '')
           + '</div>';
       });
       c.innerHTML = html + '</div>';
