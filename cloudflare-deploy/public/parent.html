@@ -271,11 +271,13 @@ function showKakaoShareDialog(url) {
           <button id="pw-eye" class="pw-eye" type="button" onclick="pdTogglePw()" aria-pressed="false" aria-label="비밀번호 보기" title="비밀번호 보기" data-ko-aria="비밀번호 보기" data-en-aria="Show password" data-ko-title="비밀번호 보기" data-en-title="Show password"><span id="pw-eye-ico" aria-hidden="true">👁</span><span id="pw-eye-txt" data-ko="보기" data-en="Show">보기</span></button>
         </div>
         <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 이 학습 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
-        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
-        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 12px;cursor:pointer;user-select:none">
+        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 «이 화면의» 30일 토큰이 남는다.
+             ⚠ (2026-09-14) 홈에 로그인돼 있으면 그 로그인(mango_token)으로 비밀번호 없이 열린다 — 아래 문구가 그것을 함께 말한다. -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 6px;cursor:pointer;user-select:none">
           <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#ff9f1c;cursor:pointer">
-          이 기기에서 30일간 로그인 유지 (체크 안 하면 다음에도 비밀번호를 입력해요)
+          이 기기에서 30일간 로그인 유지
         </label>
+        <div style="font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:0 auto 12px;max-width:400px">체크 안 하면 다음에도 비밀번호를 입력해요. 단, <b>홈에 로그인돼 있는 동안</b>은 이 화면도 비밀번호 없이 열려요 (잠그려면 홈에서 로그아웃).</div>
         <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
       </div>
       <div style="margin-top:14px;font-size:13px;color:var(--pd-muted);line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
@@ -445,6 +447,9 @@ function showKakaoShareDialog(url) {
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 ID 로 조회" data-en="Switch ID">다른 ID 로 조회</button>
+      <!-- 🔓 홈 로그인으로 «자동으로» 열렸을 때만 보인다 — 「다른 ID 로 조회」는 이 탭만 쉬게 하지 홈 로그인을 끊지 않으므로,
+           잠그려면 홈에서 로그아웃해야 한다는 사실을 화면이 말한다(안 말하면 그 버튼이 «잠금» 으로 오해된다). -->
+      <div id="pd-home-note" style="display:none;font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:10px auto 0;max-width:520px" data-ko="🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요." data-en="🔓 Opened with your home login. To lock it, log out on the home page.">🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요.</div>
     </div>
   </div>
 </div>
@@ -457,6 +462,7 @@ const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'s
 let _currentUid = null;
 let _token = null;        // 🔐 로그인 토큰(비밀번호 인증 후 발급)
 let _pwMode = null;       // 'set'(최초 잠그기) | 'enter'(비번 입력)
+let _autoHome = false;    // 🔑 홈 로그인 토큰으로 «자동» 조회 중인가 — 실패해도 경고창 없이 입력화면으로만
 
 function getQueryParam(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
@@ -539,6 +545,7 @@ async function pdLogin(pw){
     const d = await r.json();
     if (!d.ok || !d.token) { alert('❌ ' + (d.message || '비밀번호가 일치하지 않습니다.')); return; }
     _token = d.token;
+    try { sessionStorage.removeItem('mangoi_parent_switch'); } catch(e){}   // 사람이 직접 로그인했으니 자동 조회 다시 허용
     /* 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증, 체크박스를 켰을 때만 로그인 유지.
        이전엔 최초 인증 성공 시 무조건 30일 토큰을 저장해서, 자녀가 같은 기기로 비밀번호 없이
        학부모 페이지를 열 수 있었다. 체크 안 하면 이번 탭에서만 열람되고(_token 메모리 변수),
@@ -568,6 +575,8 @@ async function pdLogin(pw){
 window.pdLogout = function(){
   _currentUid = null; _token = null;
   try { localStorage.removeItem('mangoi_parent_uid'); localStorage.removeItem('mangoi_parent_token'); } catch(e){}
+  // 「다른 ID 로 조회」 — 홈 로그인은 그대로 두되(홈 세션을 여기서 끊지 않는다) 이 탭에서는 자동 조회를 쉰다.
+  try { sessionStorage.setItem('mangoi_parent_switch', '1'); } catch(e){}
   location.reload();
 };
 
@@ -590,17 +599,31 @@ async function pdLoad(){
     const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token || ''));
     const d = await r.json();
     if (!d.ok) {
-      if (d.error === 'auth_required' || d.error === 'password_not_set') {
-        pdBackToEntry('🔒 다시 로그인해주세요. (학생 ID 입력 후 비밀번호 확인)');
+      if (d.error === 'password_not_set') {
+        /* 계정은 맞는데 마이페이지 비밀번호가 아직 없다 → 「조회하기」를 또 누르게 하지 말고 설정 단계를 바로 연다.
+           (홈 로그인만 된 학생은 여기서 4자 이상 정하면 그 자리에서 열린다) */
+        const wasAuto = _autoHome; _autoHome = false;
+        pdBackToEntry(null);
+        pdShowPwStep(true);
+        if (!wasAuto) alert('🔒 학습 정보를 잠글 비밀번호를 먼저 설정해주세요. (4자 이상)');
         return;
       }
+      if (d.error === 'auth_required') {
+        const wasAuto = _autoHome; _autoHome = false;
+        pdBackToEntry(wasAuto ? null : '🔒 다시 로그인해주세요. (학생 ID 입력 후 비밀번호 확인)');
+        return;
+      }
+      _autoHome = false;
       throw new Error(d.error || 'load_fail');
     }
+    { const hn = document.getElementById('pd-home-note'); if (hn) hn.style.display = _autoHome ? '' : 'none'; }
+    _autoHome = false;
     pdRender(d);
     pdWeekRec(); // 🎯 주간 학습 진단 요약(룰 기반·즉시) — AI 버튼과 별개로 자동 로드
     pdPkLoad();  // 😊 패스키 목록도 함께 갱신
     pdLeveltest(); // 🎯 레벨테스트 신청 현황 — 신청건 없으면 카드째 숨김
   } catch(e) {
+    if (_autoHome) { _autoHome = false; pdBackToEntry(null); return; }   // 자동 시도는 실패해도 조용히(직접 조회 때만 경고창)
     alert('❌ ' + e.message);
   }
 }
@@ -1023,7 +1046,7 @@ function pdRender(d){
   function loggedInUid(){
     try {
       const raw = localStorage.getItem('mangoi_logged_user');
-      if (raw) { const u = JSON.parse(raw); if (u && u.uid) return u.uid; }
+      if (raw) { const u = JSON.parse(raw); const v = u && (u.uid || u.user_id || u.id); if (v) return String(v); }
     } catch(e){}
     try { const alt = localStorage.getItem('mangoi_uid'); if (alt) return alt; } catch(e){}
     return null;
@@ -1032,15 +1055,28 @@ function pdRender(d){
   const fromUrl = getQueryParam('uid');
   let saved = null;
   try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
-  const uid = fromUrl || saved || loggedInUid();
+  const homeUid = loggedInUid();
+  const uid = fromUrl || saved || homeUid;
   let savedToken = ''; try { savedToken = localStorage.getItem('mangoi_parent_token') || ''; } catch(e){}
+  /* 🔑 (2026-09-14 사장님 「로그인 하면 다시 로그인 안 해도 바로 마이페이지 내용이 보이게」)
+     홈에서 로그인한 학생은 이미 서버 서명 토큰(mango_token)을 갖고 있고, 그 토큰은 이 화면의
+     30일 토큰과 «같은 함수»(signUidToken)로 발급·검증된다. 그런데 여기서는 mangoi_parent_token 만
+     보고 있어서, 홈 로그인 뒤 마이페이지에 오면 ID 만 채워 주고 비밀번호를 «또» 물었다.
+     → 보려는 uid 가 «홈에 로그인한 그 계정»(대소문자까지 정확일치) 일 때만 그 토큰으로 바로 조회한다(남의 uid 는 그대로 비밀번호).
+     ⚠ 2026-07-30 제보 #3(자녀가 비번 없이 열람)은 안 깨진다 — 홈 로그인 자체가 비밀번호가 있는 계정이면
+       비밀번호를 요구하므로(/api/student/login 의 password_required) 보호 수준이 홈과 같아질 뿐이다.
+     ⚠ 「다른 ID 로 조회」를 눌렀으면 이 탭에서는 자동 조회를 쉰다(sessionStorage 표시 — 아니면 되돌아올 길이 없다). */
+  let homeToken = ''; try { homeToken = localStorage.getItem('mango_token') || ''; } catch(e){}
+  let switched = false; try { switched = sessionStorage.getItem('mangoi_parent_switch') === '1'; } catch(e){}
+  const sameAsHome = !!(uid && homeUid && String(uid) === String(homeUid));   // 정확일치 — Kim/kim 은 다른 계정(대소문자만 다른 행이 실재)
   if (uid) {
     _currentUid = uid;
     const inp = document.getElementById('uid-input');
     if (inp) inp.value = uid;
     // 저장된 로그인 토큰이 있으면 자동 조회(만료·무효면 pdLoad 가 입력화면으로 되돌림).
-    // 토큰이 없으면 입력화면 유지 → 학부모가 '조회하기' 눌러 비밀번호 단계로.
+    // 없으면 홈 로그인 토큰(같은 계정일 때만). 둘 다 없으면 입력화면 유지 → '조회하기' → 비밀번호 단계.
     if (savedToken) { _token = savedToken; pdLoad(); }
+    else if (homeToken && sameAsHome && !switched) { _token = homeToken; _autoHome = true; pdLoad(); }
   }
 })();
 </script>
