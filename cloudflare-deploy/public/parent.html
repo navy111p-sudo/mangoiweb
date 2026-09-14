@@ -271,11 +271,13 @@ function showKakaoShareDialog(url) {
           <button id="pw-eye" class="pw-eye" type="button" onclick="pdTogglePw()" aria-pressed="false" aria-label="비밀번호 보기" title="비밀번호 보기" data-ko-aria="비밀번호 보기" data-en-aria="Show password" data-ko-title="비밀번호 보기" data-en-title="Show password"><span id="pw-eye-ico" aria-hidden="true">👁</span><span id="pw-eye-txt" data-ko="보기" data-en="Show">보기</span></button>
         </div>
         <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 이 학습 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
-        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
-        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 12px;cursor:pointer;user-select:none">
+        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 «이 화면의» 30일 토큰이 남는다.
+             ⚠ (2026-09-14) 홈에 로그인돼 있으면 그 로그인(mango_token)으로 비밀번호 없이 열린다 — 아래 문구가 그것을 함께 말한다. -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 6px;cursor:pointer;user-select:none">
           <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#ff9f1c;cursor:pointer">
-          이 기기에서 30일간 로그인 유지 (체크 안 하면 다음에도 비밀번호를 입력해요)
+          이 기기에서 30일간 로그인 유지
         </label>
+        <div style="font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:0 auto 12px;max-width:400px">체크 안 하면 다음에도 비밀번호를 입력해요. 단, <b>홈에 로그인돼 있는 동안</b>은 이 화면도 비밀번호 없이 열려요 (잠그려면 홈에서 로그아웃).</div>
         <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
       </div>
       <div style="margin-top:14px;font-size:13px;color:var(--pd-muted);line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
@@ -445,6 +447,9 @@ function showKakaoShareDialog(url) {
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 ID 로 조회" data-en="Switch ID">다른 ID 로 조회</button>
+      <!-- 🔓 홈 로그인으로 «자동으로» 열렸을 때만 보인다 — 「다른 ID 로 조회」는 이 탭만 쉬게 하지 홈 로그인을 끊지 않으므로,
+           잠그려면 홈에서 로그아웃해야 한다는 사실을 화면이 말한다(안 말하면 그 버튼이 «잠금» 으로 오해된다). -->
+      <div id="pd-home-note" style="display:none;font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:10px auto 0;max-width:520px" data-ko="🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요." data-en="🔓 Opened with your home login. To lock it, log out on the home page.">🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요.</div>
     </div>
   </div>
 </div>
@@ -611,12 +616,14 @@ async function pdLoad(){
       _autoHome = false;
       throw new Error(d.error || 'load_fail');
     }
+    { const hn = document.getElementById('pd-home-note'); if (hn) hn.style.display = _autoHome ? '' : 'none'; }
     _autoHome = false;
     pdRender(d);
     pdWeekRec(); // 🎯 주간 학습 진단 요약(룰 기반·즉시) — AI 버튼과 별개로 자동 로드
     pdPkLoad();  // 😊 패스키 목록도 함께 갱신
     pdLeveltest(); // 🎯 레벨테스트 신청 현황 — 신청건 없으면 카드째 숨김
   } catch(e) {
+    if (_autoHome) { _autoHome = false; pdBackToEntry(null); return; }   // 자동 시도는 실패해도 조용히(직접 조회 때만 경고창)
     alert('❌ ' + e.message);
   }
 }
@@ -1055,13 +1062,13 @@ function pdRender(d){
      홈에서 로그인한 학생은 이미 서버 서명 토큰(mango_token)을 갖고 있고, 그 토큰은 이 화면의
      30일 토큰과 «같은 함수»(signUidToken)로 발급·검증된다. 그런데 여기서는 mangoi_parent_token 만
      보고 있어서, 홈 로그인 뒤 마이페이지에 오면 ID 만 채워 주고 비밀번호를 «또» 물었다.
-     → 보려는 uid 가 «홈에 로그인한 그 계정» 일 때만 그 토큰으로 바로 조회한다(남의 uid 는 그대로 비밀번호).
+     → 보려는 uid 가 «홈에 로그인한 그 계정»(대소문자까지 정확일치) 일 때만 그 토큰으로 바로 조회한다(남의 uid 는 그대로 비밀번호).
      ⚠ 2026-07-30 제보 #3(자녀가 비번 없이 열람)은 안 깨진다 — 홈 로그인 자체가 비밀번호가 있는 계정이면
        비밀번호를 요구하므로(/api/student/login 의 password_required) 보호 수준이 홈과 같아질 뿐이다.
      ⚠ 「다른 ID 로 조회」를 눌렀으면 이 탭에서는 자동 조회를 쉰다(sessionStorage 표시 — 아니면 되돌아올 길이 없다). */
   let homeToken = ''; try { homeToken = localStorage.getItem('mango_token') || ''; } catch(e){}
   let switched = false; try { switched = sessionStorage.getItem('mangoi_parent_switch') === '1'; } catch(e){}
-  const sameAsHome = !!(uid && homeUid && String(uid).toLowerCase() === String(homeUid).toLowerCase());
+  const sameAsHome = !!(uid && homeUid && String(uid) === String(homeUid));   // 정확일치 — Kim/kim 은 다른 계정(대소문자만 다른 행이 실재)
   if (uid) {
     _currentUid = uid;
     const inp = document.getElementById('uid-input');

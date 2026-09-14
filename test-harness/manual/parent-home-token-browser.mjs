@@ -18,6 +18,8 @@
  *   ③ 홈 토큰이 만료 → 조용히 입력화면(경고창 0) — ID 는 채워져 있는가
  *   ④ 「다른 ID 로 조회」 뒤 새로고침 → 자동 조회를 «쉬는가»(짝: 없으면 되돌아올 길이 없다)
  *   ⑤ 홈 로그인은 jeong 인데 ?uid=다른사람 → 홈 토큰을 «쓰지 않는가»(짝: 없으면 «언제나 자동» 도 통과)
+ *      ⑤-2 대소문자만 다른 uid 도 «남» — ⑤-3 옛 모양(user_id)의 mangoi_logged_user 도 알아봄
+ *      ①-2 자동으로 열리면 «홈에서 로그아웃해야 잠김» 안내(짝: 직접 로그인 때는 없음) — ③-2 네트워크 예외도 조용히
  *   ⑥ 홈 로그인 없음 → 옛 동작 그대로(입력화면·경고창 0)
  * ⚠️ 캐시를 «두 겹» 다 끈다 — 서비스워커는 setCacheDisabled 로 안 꺼진다(CLAUDE.md).
  */
@@ -64,6 +66,7 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: `(function(){
     window.__calls.push(url);
     if (url.indexOf('/api/parent/dashboard') === 0) {
       var q = new URL(url, location.origin).searchParams, tok = q.get('token'), cu = q.get('child_uid');
+      if (mode === 'throw') return Promise.reject(new TypeError('Failed to fetch'));
       if (mode === 'nopw') return J({ ok:false, error:'password_not_set' }, 401);
       if (mode === 'stale' || !tok || tok === 'DEAD' || cu !== 'jeong') return J({ ok:false, error:'auth_required' }, 401);
       return J({ ok:true, child:{ user_id:'jeong', student_name:'정우영', program:'Regular' }, points:{ balance:120, lifetime_earned:200, lifetime_spent:80, recent_tx:[] }, evaluations:[], attendance:[], payments:[], next_class:null });
@@ -147,6 +150,29 @@ console.log('\n⑥ 홈 로그인 없음 — 옛 동작 그대로');
 await prep({ __stubmode:'ok' }); await go('?_nc=' + Date.now());
 s = await state();
 t('입력화면', s.entry, true); t('dashboard 호출 0건', s.dashCalls.length, 0); t('경고창 0', dialogs.length, 0);
+
+console.log('\n⑤-2 대소문자만 다른 uid(?uid=Jeong) — 홈 토큰을 쓰지 않는가(Kim/kim 처럼 다른 계정이 실재)');
+await prep({ ...HOME, __stubmode:'ok' }); await go('?uid=Jeong&_nc=' + Date.now());
+s = await state();
+t('입력화면(자동 조회 없음)', s.entry, true); t('dashboard 호출 0건', s.dashCalls.length, 0);
+
+console.log('\n⑤-3 옛 모양(user_id 만 있는 mangoi_logged_user)도 홈 로그인으로 알아보는가');
+await prep({ mangoi_logged_user: JSON.stringify({ user_id:'jeong', name:'정우영' }), mango_token:'HOME_TOK', __stubmode:'ok' }); await go('?_nc=' + Date.now());
+s = await state();
+t('대시보드', s.dash, true); t('홈 토큰으로 조회', s.dashCalls.some(u => u.includes('token=HOME_TOK')), true);
+
+console.log('\n①-2 자동으로 열렸을 때 «홈에서 로그아웃해야 잠긴다» 안내가 보이는가 / 직접 로그인 때는 안 보이는가');
+await prep({ ...HOME, __stubmode:'ok' }); await go('?_nc=' + Date.now());
+t('자동 열림 → 안내 보임', await evalJs(`!!(document.getElementById('pd-home-note')||{}).offsetParent`), true);
+await prep({ __stubmode:'ok' }); await go('?_nc=' + Date.now());
+await evalJs(`(document.getElementById('uid-input').value='jeong', pdGo())`); await new Promise(r => setTimeout(r, 800));
+await evalJs(`(document.getElementById('pw-input').value='1234', pdPwGo())`); await new Promise(r => setTimeout(r, 1500));
+s = await state(); t('(전제) 직접 로그인으로 열렸다', s.dash, true);
+t('직접 로그인 → 안내 숨김', await evalJs(`!!(document.getElementById('pd-home-note')||{}).offsetParent`), false);
+
+console.log('\n③-2 자동 시도 중 네트워크 예외 — 경고창 없이 입력화면');
+await prep({ ...HOME, __stubmode:'throw' }); await go('?_nc=' + Date.now());
+s = await state(); t('입력화면', s.entry, true); t('경고창 0', dialogs.length, 0);
 
 console.log('\n⑦ 저장된 30일 토큰(옛 방식)은 여전히 먼저 쓰인다');
 await prep({ ...HOME, mangoi_parent_uid:'jeong', mangoi_parent_token:'PARENT_TOK', __stubmode:'ok' }); await go('?_nc=' + Date.now());
