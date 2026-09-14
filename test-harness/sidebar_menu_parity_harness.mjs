@@ -147,5 +147,51 @@ for (const [ko, h] of homeMap) {
 }
 if (!pending) console.log('  (없음 — 옮길 수 있는 메뉴는 전부 옮겨져 있다)');
 
+/* ── ⑤ «도착지가 홈» 인 죽은 버튼이 없는가 ───────────────────
+   🪤 ③은 «주소가 «없는»가» 만 물어서 이 결함을 원리상 못 봤다. 「전체메뉴」는 주소가
+      없는 게 아니라 «홈» 이라 `URLS[go]` 가 truthy 였고, ①도 홈·공용이 둘 다 '/' 라
+      «일치» 로 통과시켰으며, ④는 «갈 곳이 있다» 며 건너뛰었다 — 세 절이 나란히 초록불인
+      채로 사장님이 「전체 메뉴 누르면 홈화면으로만 가」를 제보하셨다(2026-09-14).
+      공용 사이드바는 «주소로만» 옮겨 가므로(mgGo → location.href), 주소가 '/' 뿐이면
+      그 화면에서 그 메뉴는 홈으로 «가기만» 하고 아무것도 열지 못한다.
+   ⛔ ALLOW 를 «조용히 넘기는 자리» 로 쓰지 말 것 — 이름과 «왜 아직 그대로인가» 를 함께
+      적고, 목록에 없는 것이 새로 생기면 FAIL 로 잡는다. */
+const HOME_ONLY_ALLOW = {
+  'about': '홈 퀵버튼 openAboutMangoi() 를 부른다 — ?menu=about 을 낼지 사람이 결정(2026-09-14)',
+};
+console.log('\n⑤ 공용에서 «홈으로 가기만 하는» 메뉴가 없는가');
+const homeOnly = M.ITEMS.filter(it => M.URLS[it.go] === '/');
+let waiting = 0;
+for (const it of homeOnly) {
+  if (HOME_ONLY_ALLOW[it.go]) { waiting++; console.log(`  ..  ${it.ko} — ${HOME_ONLY_ALLOW[it.go]}`); }
+  else bad(`${it.ko}('${it.go}') — 주소가 '/' 뿐이다. 눌러도 홈으로만 가고 아무것도 안 열린다`);
+}
+ok(`'/' 로 가는 항목 ${homeOnly.length}개 — 그중 ${waiting}개가 «사람 결정 대기» 로 적혀 있다`);
+
+/* ── ⑥ ?menu=X 로 보내 놓고 «받는 쪽» 이 없지 않은가 ─────────
+   ⑤의 뒷면이다. 주소를 '/?menu=all-menu' 로 바꿔 두고 받는 절(js/idx-allmenu.js)을
+   지우면, 버튼은 «갈 곳이 있으니» ③·⑤를 그대로 통과하는데 홈에 도착해서는 아무 일도
+   일어나지 않는다 — 고친 것과 똑같은 죽은 버튼이 된다. 짝으로 묻는다.
+   ⚠️ «그 글자가 있는가» 가 아니라 «menu 파라미터를 읽는 줄에 그 코드가 있는가» 로
+      묻는다(`=== 'x'` 와 `!== 'x'` 둘 다 받는다 — 홈의 payment 갈래가 후자다). */
+console.log('\n⑥ 공용이 ?menu= 로 보내는 곳마다 홈에 «받는 절» 이 있는가');
+const receivers = new Set();
+for (const f of [`${PUB}/index.html`, ...fs.readdirSync(`${PUB}/js`).filter(n => n.endsWith('.js')).map(n => `${PUB}/js/${n}`)]) {
+  for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+    if (line.indexOf("get('menu')") < 0) continue;
+    for (const m of line.matchAll(/'([a-z0-9-]+)'/g)) receivers.add(m[1]);
+  }
+}
+let sent = 0;
+for (const [go, url] of Object.entries(M.URLS)) {
+  const m = /^\/\?menu=([a-z0-9-]+)$/.exec(url || '');
+  if (!m) continue;
+  sent++;
+  receivers.has(m[1]) ? ok(`?menu=${m[1]} — 받는 절이 있다`)
+                      : bad(`?menu=${m[1]} — 보내기만 하고 홈에 받는 절이 없다(도착해도 아무 일도 안 일어난다)`);
+}
+sent >= 1 ? ok(`?menu= 로 보내는 주소 ${sent}개를 전부 대조했다`)
+          : bad(`?menu= 주소를 한 개도 못 찾았다 — 읽기가 깨졌다(이 절이 헛돈다)`);
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
