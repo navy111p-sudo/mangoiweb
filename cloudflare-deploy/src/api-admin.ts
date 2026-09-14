@@ -26,7 +26,7 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
+import { applyPlacementLevel, loadTextbookChoices, cefrDisplay, CEFR_LADDER } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
 import { probeImage, ocrGate } from './textbook-ocr';
 import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
@@ -10649,6 +10649,9 @@ LIMIT $limit`;
       const items = mine.map(a => ({
         ...a,
         assigned_teacher: (a.status === 'confirmed' || a.status === 'done') ? a.assigned_teacher : null,
+        /* 🏷️ (2026-09-14) «C2» 를 사람이 읽게 — 이름·사다리 칸 수는 서버 정본(cefrDisplay)이 만든다.
+           화면(idx-leveltest-card.js)은 그리기만 한다. 모르는 값이면 null → 화면은 원문 그대로. */
+        level_display: cefrDisplay(a.final_level),
       }));
       return json({ ok: true, items });
     }
@@ -11132,8 +11135,9 @@ LIMIT $limit`;
       { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0 },
       { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0 },
     ];
-    const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    const CEFR_WEIGHT: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    const CEFR_ORDER: string[] = [...CEFR_LADDER];   // 정본은 student-placement.ts — 홈 카드 게이지와 같은 눈금
+    // 가중치 = 사다리 순번(A1=1 … C2=6). ⛔ 손으로 다시 적지 말 것 — 사다리가 바뀌면 여기만 옛것으로 남는다(2026-09-14 함정 대조 지적)
+    const CEFR_WEIGHT: Record<string, number> = Object.fromEntries(CEFR_ORDER.map((L, i) => [L, i + 1]));
     if (method === 'GET' && path === '/api/leveltest/questions') {
       // 정답(a)·skill 은 숨기고 문항만 전달
       const questions = CEFR_BANK.map(x => ({ id: x.id, cefr: x.cefr, q: x.q, choices: x.choices }));
