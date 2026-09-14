@@ -215,10 +215,22 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
      읽도록(`if (hit) { const hitEng = …; return … }`) 고치는 순간 잘라내기가 깨져
      보장은 더 세졌는데 검사만 빨간불이 났다.
      ⛔ 반환문 «모양» 으로 자르지 마세요 — «그 캐시를 읽는 자리» 로 자릅니다. */
+  /* ⛔ «길이» 로 자르지 마세요 — 그 창이 블록을 지나 옆 선언까지 먹고, 블록에 줄이 늘면
+     보장은 그대로인데 검사만 깨집니다(2026-09-14 함정 대조가 700자 창에서 실측).
+     **중괄호 짝**으로 자릅니다. `if (cacheKey && r2) {` 도 이 파일에 둘이라 라우트로 먼저 좁힙니다. */
+  const braceBlock = (src, anchor, from) => {
+    const i = src.indexOf(anchor, from || 0);
+    if (i < 0) return '';
+    let d = 0, j = i + anchor.length - 1;
+    for (; j < src.length; j++) {
+      if (src[j] === '{') d++;
+      else if (src[j] === '}') { d--; if (!d) break; }
+    }
+    return src.slice(i, j + 1);
+  };
   const ttsAt = G.indexOf("path === '/api/voice/tts'");
   ok(ttsAt > 0, '전제: /api/voice/tts 라우트를 찾았다');
-  const getAt = ttsAt > 0 ? G.indexOf('r2.get(cacheKey)', ttsAt) : -1;
-  const hitBlock = getAt > 0 ? G.slice(getAt, getAt + 700) : '';
+  const hitBlock = ttsAt > 0 ? braceBlock(G, 'if (cacheKey && r2) {', ttsAt) : '';
   ok(hitBlock.length > 200, '전제: 캐시 적중 응답을 잘라 냈다');
   if (hitBlock) {
     ok(/'X-TTS-Engine':/.test(hitBlock) && /r2-cache/.test(hitBlock)
