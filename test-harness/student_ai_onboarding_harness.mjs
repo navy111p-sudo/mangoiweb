@@ -118,9 +118,13 @@ if (M) {
   /* 🔒 전수 — 레벨테스트가 실제로 낼 수 있는 값이 하나도 빠지지 않는가.
      ⛔ 「내가 아는 것만」 검사하면 안 된다. 값 목록을 **그 핸들러 소스에서 읽어 온다.** */
   const admin = rd('cloudflare-deploy/src/api-admin.ts');
-  const orderLine = (admin.match(/const CEFR_ORDER = \[([^\]]*)\]/) || [])[1] || '';
+  /* 🪜 (2026-09-14) 채점 순서의 정본이 student-placement.ts 의 CEFR_LADDER 로 옮겨갔다(홈 카드 게이지와 같은 눈금).
+     api-admin 의 CEFR_ORDER 는 그것을 펼친 것뿐이라 리터럴이 없다 — 정본에서 읽고, api-admin 이 그것을 쓰는지 짝으로 본다. */
+  const place = rd('cloudflare-deploy/src/student-placement.ts');
+  const orderLine = (place.match(/export const CEFR_LADDER[^=]*=\s*\[([^\]]*)\]/) || [])[1] || '';
   const orders = orderLine.split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
-  check(`레벨테스트의 CEFR_ORDER 를 소스에서 읽었다 (${orders.length}개)`, orders.length >= 5);
+  check(`레벨테스트의 CEFR 사다리(CEFR_LADDER)를 정본에서 읽었다 (${orders.length}개)`, orders.length >= 5);
+  check('채점(api-admin CEFR_ORDER)이 그 사다리를 그대로 쓴다', /const CEFR_ORDER[^=\n]*=\s*\[\s*\.\.\.CEFR_LADDER\s*\]/.test(admin));
   const seedLine = (admin.match(/let level = '([^']+)'/) || [])[1] || '';
   check(`레벨테스트의 «못 넘겼을 때» 초기값을 소스에서 읽었다 ('${seedLine}')`, !!seedLine);
   const unmapped = [...orders, seedLine].filter((v) => v && !L(v));
