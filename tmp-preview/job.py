@@ -1,82 +1,168 @@
+# 중국어 교사 아바타 — 「같은 얼굴에서 입만 다른 3장」 만들기
+#  ⚠️ 생성 모델은 «입만» 바꿔 주지 않는다(실측: 얼굴 크기·위치가 장마다 다름).
+#     그래서 한 장(closed)을 기준으로 나머지를 «정렬» 한 뒤, 달라진 곳(=입)만 오려 얹는다.
+#     ⟹ 입 밖은 세 장이 픽셀 단위로 같아진다 = lily·noah 와 같은 성질.
 import urllib.request, io, os, subprocess
-from PIL import Image, ImageChops, ImageStat
+import numpy as np
+from PIL import Image, ImageFilter
 
 B = "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/"
-U = {
- "closed": B + "hf_20260914_071255_34dd51cf-050e-4b17-8665-56fc1f422042.png",
- "mid":    B + "hf_20260914_071256_879173e1-b851-47b7-9bbd-933c3f7853e9.png",
- "wide":   B + "hf_20260914_071257_cf92036d-b09d-41e6-a288-b413f7f8ce71.png",
-}
+U = {"closed": B + "hf_20260914_071255_34dd51cf-050e-4b17-8665-56fc1f422042.png",
+     "mid":    B + "hf_20260914_071256_879173e1-b851-47b7-9bbd-933c3f7853e9.png",
+     "wide":   B + "hf_20260914_071257_cf92036d-b09d-41e6-a288-b413f7f8ce71.png"}
 ORDER = ["closed", "mid", "wide"]
-ims = {}
+src = {}
 for k in ORDER:
-    raw = urllib.request.urlopen(U[k], timeout=180).read()
-    im = Image.open(io.BytesIO(raw)).convert("RGBA")
-    ims[k] = im
-    print("DL", k, im.size, len(raw))
+    src[k] = Image.open(io.BytesIO(urllib.request.urlopen(U[k], timeout=180).read())).convert("RGBA")
+    print("DL", k, src[k].size)
+W, H = src["closed"].size
 
-# ── 세 장의 알파 경계 «합집합» 으로 같은 좌표계를 잡는다 (lily·noah 와 같은 방식)
-def bbox(im, thr=16):
-    a = im.getchannel("A").point(lambda v: 255 if v > thr else 0)
-    return a.getbbox()
-bbs = {k: bbox(ims[k]) for k in ORDER}
-for k in ORDER:
-    print("BBOX", k, bbs[k])
-L = min(b[0] for b in bbs.values()); T = min(b[1] for b in bbs.values())
-R = max(b[2] for b in bbs.values()); Bo = max(b[3] for b in bbs.values())
-print("UNION", (L, T, R, Bo))
+def gray(im):
+    w = Image.alpha_composite(Image.new("RGBA", im.size, (255, 255, 255, 255)), im)
+    return np.asarray(w.convert("L"), dtype=np.float32)
 
-W0, H0 = ims["closed"].size
-# 머리 위 여백을 조금 — 카드에서 정수리가 닿지 않게
-pad_top = int((Bo - T) * 0.05)
-T = max(0, T - pad_top)
-w, h = R - L, Bo - T
-# 4:5 로 맞추기 (모자라는 쪽을 늘림 · 원본 밖은 투명으로 채움)
-if w / h > 0.8:
-    nh = int(round(w / 0.8)); dy = nh - h; T -= dy // 2; Bo += dy - dy // 2
-else:
-    nw = int(round(h * 0.8)); dx = nw - w; L -= dx // 2; R += dx - dx // 2
-print("FRAME", (L, T, R, Bo), "size", (R - L, Bo - T), "ratio", round((R - L) / (Bo - T), 4))
+# SSD 에서 «입·턱» 은 뺀다 — 거기가 바뀌는 곳이라 정렬 기준이 될 수 없다
+mask = np.ones((H, W), dtype=bool)
+mask[int(0.40 * H):int(0.64 * H), :] = False
+gb_full = gray(src["closed"])
 
-os.makedirs("cloudflare-deploy/public/img", exist_ok=True)
+def best_fit(vk, scales, drange, step, div, seed=(1.0, 0, 0)):
+    """div 배율로 줄여서 (scale,dx,dy) 를 찾는다. 좌표는 «원본» 기준으로 돌려준다."""
+    h, w = H // div, W // div
+    base = np.asarray(Image.fromarray(gb_full).resize((w, h), Image.BILINEAR), dtype=np.float32)
+    m = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).resize((w, h), Image.NEAREST)) > 127
+    best = (1e18, seed)
+    for s in scales:
+        sw, sh = int(round(w * s)), int(round(h * s))
+        v = np.asarray(Image.fromarray(gray(src[vk])).resize((sw, sh), Image.BILINEAR), dtype=np.float32)
+        # 확대/축소로 생긴 여백은 흰색으로 채워 같은 크기 캔버스에 중앙 정렬
+        pad = np.full((h + 2 * abs(drange) + sh, w + 2 * abs(drange) + sw), 255.0, dtype=np.float32)
+        oy, ox = abs(drange) + (h - sh) // 2, abs(drange) + (w - sw) // 2
+        pad[oy:oy + sh, ox:ox + sw] = v
+        for dy in range(-drange, drange + 1, step):
+            for dx in range(-drange, drange + 1, step):
+                cut = pad[abs(drange) + dy:abs(drange) + dy + h, abs(drange) + dx:abs(drange) + dx + w]
+                d = (cut - base)[m]
+                e = float(np.dot(d, d)) / d.size
+                if e < best[0]:
+                    best = (e, (s, dx * div, dy * div))
+    return best
+
+warped, info = {"closed": src["closed"]}, {}
+for k in ["mid", "wide"]:
+    e1, (s1, dx1, dy1) = best_fit(k, [0.90 + 0.01 * i for i in range(21)], 20, 1, 4)
+    print("COARSE", k, round(e1, 1), round(s1, 3), dx1, dy1)
+    fine = [s1 + 0.0025 * i for i in range(-4, 5)]
+    # 미세조정: 원본 해상도에서 ±6px
+    h, w = H, W
+    base = gb_full
+    best = (1e18, (s1, dx1, dy1))
+    for s in fine:
+        sw, sh = int(round(w * s)), int(round(h * s))
+        v = np.asarray(Image.fromarray(gray(src[k])).resize((sw, sh), Image.BILINEAR), dtype=np.float32)
+        R = 8 + max(abs(dx1), abs(dy1))
+        pad = np.full((h + 2 * R + sh, w + 2 * R + sw), 255.0, dtype=np.float32)
+        oy, ox = R + (h - sh) // 2, R + (w - sw) // 2
+        pad[oy:oy + sh, ox:ox + sw] = v
+        for dy in range(dy1 - 6, dy1 + 7):
+            for dx in range(dx1 - 6, dx1 + 7):
+                cut = pad[R + dy:R + dy + h, R + dx:R + dx + w]
+                d = (cut - base)[mask]
+                e = float(np.dot(d, d)) / d.size
+                if e < best[0]:
+                    best = (e, (s, dx, dy))
+    e2, (s, dx, dy) = best
+    print("FINE  ", k, round(e2, 1), round(s, 4), dx, dy)
+    info[k] = (round(s, 4), dx, dy, round(e2, 1))
+    sw, sh = int(round(W * s)), int(round(H * s))
+    v = src[k].resize((sw, sh), Image.LANCZOS)
+    canv = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    canv.paste(v, ((W - sw) // 2 + dx, (H - sh) // 2 + dy))
+    warped[k] = canv
+
+# ── 달라진 곳 = 입. 자동으로 찾는다(좌표를 손으로 적지 않는다).
+base_g = gb_full
+region = None
+for k in ["mid", "wide"]:
+    d = np.abs(gray(warped[k]) - base_g)
+    d = np.asarray(Image.fromarray(d.astype(np.uint8)).filter(ImageFilter.GaussianBlur(6)), dtype=np.float32)
+    ys, xs = np.where(d > 22)
+    if len(xs) == 0:
+        continue
+    # 입은 화면 가운데 아래쪽에 있다 — 머리카락 가장자리 잡음을 배제
+    sel = (ys > 0.30 * H) & (ys < 0.70 * H) & (xs > 0.25 * W) & (xs < 0.75 * W)
+    ys, xs = ys[sel], xs[sel]
+    bb = (xs.min(), ys.min(), xs.max(), ys.max())
+    print("DIFFBOX", k, bb, "px", len(xs))
+    region = bb if region is None else (min(region[0], bb[0]), min(region[1], bb[1]),
+                                        max(region[2], bb[2]), max(region[3], bb[3]))
+mx = int((region[2] - region[0]) * 0.22); my = int((region[3] - region[1]) * 0.30)
+MR = (max(0, region[0] - mx), max(0, region[1] - my), min(W, region[2] + mx), min(H, region[3] + my))
+print("MOUTH REGION", MR, "of", (W, H))
+
+m = Image.new("L", (W, H), 0)
+from PIL import ImageDraw
+ImageDraw.Draw(m).ellipse(MR, fill=255)
+m = m.filter(ImageFilter.GaussianBlur(max(6, (MR[2] - MR[0]) // 12)))
+
 out = {}
+os.makedirs("cloudflare-deploy/public/img", exist_ok=True)
 for k in ORDER:
-    canvas = Image.new("RGBA", (R - L, Bo - T), (0, 0, 0, 0))
-    canvas.paste(ims[k], (-L, -T))
-    canvas = canvas.resize((640, 800), Image.LANCZOS)
-    out[k] = canvas
+    im = src["closed"].copy() if k != "closed" else src["closed"].copy()
+    if k != "closed":
+        im = Image.composite(warped[k], im, m)
+        im.putalpha(src["closed"].getchannel("A"))     # 알파는 언제나 기준 장의 것
+    out[k] = im
+
+# ── 4:5 로 잘라 640x800
+def bbox(im, thr=16):
+    return im.getchannel("A").point(lambda v: 255 if v > thr else 0).getbbox()
+bb = bbox(out["closed"])
+print("BBOX", {k: bbox(out[k]) for k in ORDER})
+L, T, R, Bo = bb
+T = max(0, T - int((Bo - T) * 0.05))
+w, h = R - L, Bo - T
+if w / h > 0.8:
+    nh = int(round(w / 0.8)); d = nh - h; T -= d // 2; Bo += d - d // 2
+else:
+    nw = int(round(h * 0.8)); d = nw - w; L -= d // 2; R += d - d // 2
+print("FRAME", (L, T, R, Bo), (R - L, Bo - T))
+fin = {}
+for k in ORDER:
+    c = Image.new("RGBA", (R - L, Bo - T), (0, 0, 0, 0))
+    c.paste(out[k], (-L, -T))
+    c = c.resize((640, 800), Image.LANCZOS)
+    fin[k] = c
     p = "/tmp/mei-%s.png" % k
-    canvas.save(p)
-    dst = "cloudflare-deploy/public/img/mei-%s.webp" % ("closed" if k == "closed" else ("mid" if k == "mid" else "wide"))
+    c.save(p)
+    dst = "cloudflare-deploy/public/img/mei-%s.webp" % k
     subprocess.run(["cwebp", "-quiet", "-q", "86", "-alpha_q", "100", "-metadata", "none", p, "-o", dst], check=True)
-    print("WEBP", dst, os.path.getsize(dst), "bytes")
+    print("WEBP", dst, os.path.getsize(dst))
 
-# ── «입만 움직이는가» 를 숫자로 (mango-avatar.js v8 이 잰 것과 같은 방식)
-def diff(a, b):
-    A = Image.alpha_composite(Image.new("RGBA", a.size, (255, 255, 255, 255)), a).convert("L")
-    Bb = Image.alpha_composite(Image.new("RGBA", b.size, (255, 255, 255, 255)), b).convert("L")
-    d = ImageChops.difference(A, Bb)
-    mean = ImageStat.Stat(d).mean[0]
-    px = d.point(lambda v: 255 if v > 24 else 0)
-    changed = ImageStat.Stat(px).mean[0] / 255 * 100
-    rows = []
-    for i in range(10):
-        band = px.crop((0, i * 80, 640, (i + 1) * 80))
-        rows.append(round(ImageStat.Stat(band).mean[0] / 255 * 100, 1))
-    return round(mean, 2), round(changed, 2), rows
-for pair in [("closed", "mid"), ("closed", "wide"), ("mid", "wide")]:
-    m, c, rows = diff(out[pair[0]], out[pair[1]])
-    print("DIFF %s-%s mean=%s changed=%s%% rows=%s" % (pair[0], pair[1], m, c, rows))
+# ── 「입만 움직이는가」 를 숫자로 (mango-avatar.js v8 의 방식)
+def diffstat(a, b):
+    A = np.asarray(Image.alpha_composite(Image.new("RGBA", a.size, (255,) * 4), a).convert("L"), dtype=np.float32)
+    Bb = np.asarray(Image.alpha_composite(Image.new("RGBA", b.size, (255,) * 4), b).convert("L"), dtype=np.float32)
+    d = np.abs(A - Bb)
+    ch = (d > 24)
+    rows = [round(float(ch[i * 80:(i + 1) * 80].mean()) * 100, 1) for i in range(10)]
+    return round(float(d.mean()), 2), round(float(ch.mean()) * 100, 2), rows
+for p in [("closed", "mid"), ("closed", "wide"), ("mid", "wide")]:
+    print("DIFF %s-%s mean=%s changed=%s%% rows=%s" % ((p[0], p[1]) + diffstat(fin[p[0]], fin[p[1]])))
+print("ALIGN", info)
 
-# ── 미리보기 (회색 바탕에 얹어 알파 경계를 눈으로 볼 수 있게)
 sheet = Image.new("RGB", (3 * 320 + 20, 400), (225, 228, 232))
 for i, k in enumerate(ORDER):
-    t = out[k].resize((320, 400), Image.LANCZOS)
+    t = fin[k].resize((320, 400), Image.LANCZOS)
     sheet.paste(Image.alpha_composite(Image.new("RGBA", t.size, (225, 228, 232, 255)), t).convert("RGB"), (i * 330, 0))
 sheet.save("tmp-preview/mei-sheet.jpg", quality=90)
-mouths = Image.new("RGB", (3 * 260 + 20, 260), (255, 255, 255))
+# 입 부근 확대 — 좌표를 손으로 적지 않고 위에서 찾은 MR 을 그대로 쓴다
+sx, sy = 640 / (R - L), 800 / (Bo - T)
+mz = (int((MR[0] - L) * sx) - 30, int((MR[1] - T) * sy) - 30, int((MR[2] - L) * sx) + 30, int((MR[3] - T) * sy) + 30)
+mo = Image.new("RGB", (3 * 300 + 20, 300), (255, 255, 255))
 for i, k in enumerate(ORDER):
-    c = out[k].crop((220, 430, 420, 560)).resize((260, 169), Image.LANCZOS)
-    mouths.paste(Image.alpha_composite(Image.new("RGBA", c.size, (255, 255, 255, 255)), c).convert("RGB"), (i * 270, 40))
-mouths.save("tmp-preview/mei-mouths.jpg", quality=92)
-print("preview saved")
+    c = fin[k].crop(mz)
+    c = c.resize((300, max(1, int(300 * c.height / c.width))), Image.LANCZOS)
+    mo.paste(Image.alpha_composite(Image.new("RGBA", c.size, (255,) * 4), c).convert("RGB"), (i * 310, 20))
+mo.save("tmp-preview/mei-mouths.jpg", quality=92)
+print("preview saved", mz)
