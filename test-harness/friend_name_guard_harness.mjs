@@ -267,6 +267,59 @@ if (MEI) {
   ok(F.wrongSelfName("Hi! I'm Emma. Let's talk!", 'Lily') === 'Emma', '영어 판정은 그대로 잡는다');
   ok(F.wrongSelfName("I'm Taiwanese.", 'Lily') === '', '영어 거짓경보 방어도 그대로');
   ok(F.wrongSelfName('我是Emma。', 'Emma') === '', '중국어로 «자기 이름» 을 말하면 통과');
+
+  /* ⑧-2 «표에서 자동 생성한 반례» — 정본 ④절의 세 줄(대소문자 무시 · 긴 이름 먼저 · break)을
+         각각 겨냥합니다.
+     🔴 왜 필요한가 (2026-09-14 함정 대조 실측): 위 ZH_BAD 5종이 «전부 정확한 대소문자» 이고,
+        지금 표의 이름 중 «서로 앞가리인 쌍이 하나도 없어서»(Mango·Emma·Jake·Lily·Noah·美美老师)
+        ⓐ `.toLowerCase()` 를 빼도 ⓑ `.sort(긴 이름 먼저)` 를 지워도 ⓒ `break` 를 `continue` 로
+        바꿔도 «세 변이가 전부 통과» 했습니다 — 세 줄이 «지켜진다» 고 주석에 적혀 있는데
+        그것을 재는 검사가 한 줄도 없었습니다.
+     ⛔ 여기에 이름을 손으로 적지 마세요 — 표를 «읽어» 만들어야 친구가 늘어도 따라옵니다. */
+  const TBL = Object.keys(F.AI_FRIEND_NAMES).map((k) => String(F.AI_FRIEND_NAMES[k] || ''));
+  const MEI_L = String(MEI).toLowerCase();
+
+  /* (가) 대소문자를 무시하는가 — 「我是emma」·「我是EMMA」 */
+  let caseMiss = 0, caseTried = 0;
+  for (const nm of TBL.concat([F.AI_FRIEND_DEFAULT])) {
+    if (!/^[A-Za-z]+$/.test(nm) || nm.toLowerCase() === MEI_L) continue;
+    for (const v of [nm.toLowerCase(), nm.toUpperCase()]) {
+      if (v === nm) continue;
+      caseTried++;
+      const got = F.wrongSelfName(`我是${v}。`, MEI);
+      if (got !== nm) { caseMiss++; console.log(`     · 놓침: 「我是${v}。」 → ${JSON.stringify(got)} (${nm} 이어야)`); }
+    }
+  }
+  ok(caseTried >= 4, `대소문자 반례를 표에서 ${caseTried}종 만들었다`, caseTried);
+  ok(caseMiss === 0, '대소문자가 달라도 «아는 이름» 으로 잡는다', caseMiss);
+
+  /* (나) 이름끼리 «앞가리» 일 때 — 지금 표에는 그런 쌍이 없어서, «앞으로 생길» 이름 둘을
+         잠깐 표에 넣어 봅니다(정본이 표를 «부를 때마다» 읽으므로 그대로 걸립니다).
+     ⚠️ 표를 건드리므로 반드시 finally 로 되돌립니다. */
+  const SHORT = String(MEI).slice(0, Math.max(1, String(MEI).length - 2));   // 기대 이름의 «앞가리»
+  const LONG = String(MEI) + String(MEI).slice(-1);                          // 기대 이름을 «품는» 더 긴 이름
+  ok(SHORT !== MEI && LONG !== MEI && String(MEI).length >= 3,
+    `앞가리 반례를 만들 수 있다 (${SHORT} ⊂ ${MEI} ⊂ ${LONG})`);
+  if (SHORT !== MEI && LONG !== MEI) {
+    try {
+      F.AI_FRIEND_NAMES.__zzq_short = SHORT;
+      F.AI_FRIEND_NAMES.__zzq_long = LONG;
+      ok(F.wrongSelfName(`我是${LONG}。`, MEI) === LONG,
+        `긴 이름이 먼저다 — 「我是${LONG}。」 를 «기대 이름» 으로 오독하지 않는다`,
+        F.wrongSelfName(`我是${LONG}。`, MEI));
+      ok(F.wrongSelfName(`我是${MEI}。`, MEI) === '',
+        `기대 이름을 말하면 «앞가리(${SHORT})» 로 되짚어 잡지 않는다`,
+        F.wrongSelfName(`我是${MEI}。`, MEI));
+    } finally {
+      delete F.AI_FRIEND_NAMES.__zzq_short;
+      delete F.AI_FRIEND_NAMES.__zzq_long;
+    }
+    ok(!('__zzq_short' in F.AI_FRIEND_NAMES) && !('__zzq_long' in F.AI_FRIEND_NAMES),
+      '시험용 이름을 표에서 되돌렸다 — 뒤의 검사가 오염되지 않는다');
+    ok(F.wrongSelfName(`我是${SHORT}。`, MEI) === '',
+      `되돌린 뒤에는 «${SHORT}» 를 아는 이름으로 보지 않는다`,
+      F.wrongSelfName(`我是${SHORT}。`, MEI));
+  }
 }
 
 console.log('\n─────────────────────────────────────────────');
