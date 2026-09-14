@@ -708,6 +708,27 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       check('너무 낮추지는 않는다 (P >= 0.7)', P >= 0.7, '실제 P=' + P);
     }
 
+    /* 🀄 견본 화면(/zh-voice-sample.html)이 «지금 쓰는 값» 을 사실대로 말하는가.
+       그 화면은 사장님이 A~D 를 직접 듣고 고르시라고 만든 것이라, 정본이 바뀌면
+       ★ 표시가 «지금 수업에서 나는 소리» 가 아닌 것을 가리키게 된다 —
+       CLAUDE.md 「문서에 «고쳤다» 고 적혀 있는데 같은 사고가 또 남」 그대로다.
+       ⚠️ 그 화면은 고르신 값을 넣고 나면 지워도 되는 견본이다 — 없으면 건너뛴다
+          (있는데 어긋난 것만 잡는다. «없다» 를 FAIL 로 만들면 지울 수가 없어진다). */
+    let sample = null;
+    try { sample = read('cloudflare-deploy/public/zh-voice-sample.html'); } catch { sample = null; }
+    if (sample && pitchDecl) {
+      const P = Number(pitchDecl[1]);
+      const now = sample.match(/var NOW_PITCH = ([0-9.]+);/);
+      check('견본 화면이 말하는 «지금 쓰는 값» 이 정본과 같다',
+        !!now && Number(now[1]) === P,
+        '견본=' + (now ? now[1] : '없음') + ' / 정본=' + P);
+      /* 🔴 짝 — 없으면 «★ 만 맞고 그 굵기를 들어 볼 수는 없는» 화면도 통과한다 */
+      const list = sample.match(/var LIST = \[([\s\S]*?)\n\];/);
+      const pitches = list ? [...list[1].matchAll(/pitch:\s*([0-9.]+)/g)].map((m) => Number(m[1])) : [];
+      check('견본 목록에 그 값을 실제로 들어 볼 수 있는 칸이 있다 (짝)',
+        pitches.some((x) => x === P), '목록=' + JSON.stringify(pitches) + ' 정본=' + P);
+    }
+
     if (wantSrc) {
       const wanted = (zh, g) => {
         try {
