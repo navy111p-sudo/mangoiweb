@@ -297,6 +297,17 @@
   .wus-now{background:var(--accent);color:#04283a;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800}
   .wus-desc{margin-top:4px;font-size:14px;color:var(--text2);line-height:1.5}
   .wus-list{display:flex;flex-direction:column;gap:8px}
+  /* 📘 BTS 교재 고르기 — 기존 .wus-item 을 그대로 쓰고 «접기» 만 더한다 */
+  .wus-opt{font-weight:400;font-size:12px;opacity:.7;margin-left:4px}
+  .wus-more{margin-top:8px;border:1px solid rgba(148,163,184,.3);border-radius:10px;overflow:hidden}
+  .wus-more>summary{cursor:pointer;padding:10px 13px;font-size:13.5px;font-weight:600;
+    color:#cbd5e1;background:rgba(30,41,59,.4);list-style:none}
+  .wus-more>summary::-webkit-details-marker{display:none}
+  .wus-more>summary::before{content:'▸ ';color:#38bdf8}
+  .wus-more[open]>summary::before{content:'▾ '}
+  .wus-more>.wus-list{padding:8px}
+  .wus-bts-topic{color:#7dd3fc}
+  #wusBooksSec[hidden]{display:none!important}
   .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
   .wus-find:hover{background:rgba(251,191,36,.24)}
   .wus-find .wus-name{color:#fcd34d}
@@ -423,6 +434,12 @@
           <span class="wus-desc">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
         <div class="wus-list" id="wusLevels"></div>
+
+        <div id="wusBooksSec">
+          <div class="wus-sub">📘 오늘 배울 교재 <span class="wus-opt">(안 골라도 돼요)</span></div>
+          <div class="wus-hint">BTS 교재를 고르면 <b>그 권의 주제로</b> 이야기해요. 안 고르면 지금처럼 <b>자유 대화</b>예요.</div>
+          <div id="wusBooks"></div>
+        </div>
 
         <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
       </div>
@@ -1051,6 +1068,67 @@ var LEVEL_CATALOG = [
 /* 🀄 dz — 같은 여덟 칸을 «중국어로 잴 때» 의 설명. d(영어·낱말 수)를 «대체» 하지 않고 나란히 둔다.
    ⚠️ 괄호 안 글자 수는 서버 정본 `WARMUP_ZH_CHAR_CAP`(src/warmup-zh.ts)과 «짝» 이다.
       한쪽만 고치면 화면과 AI 가 서로 다른 말을 한다 — 하니스가 두 값을 대조한다. */
+/* 📘 BTS 교재 — «권 번호 → 주제» 표 (이 화면의 정본)
+   [근거] 값은 지어낸 것이 아니라 운영 D1 `textbook_files` 의 «책 이름» 에서 읽었습니다
+     (2026-09-14 실측, 활성 12,783장). 파일 이름이 `[BTS 3 Korea (My family)]` 처럼
+     권·레벨·주제를 한 줄에 담고 있어 그 괄호 안을 그대로 옮겼습니다.
+   ⚠️ Lv 10·11 은 «미분류» 묶음에만 있어 주제를 알 수 없어 뺐습니다(337장).
+      지어내지 않습니다 — 필리핀 매니저에게 확인 요청을 보냈습니다.
+   ⛔ 여기에 한국어 주제를 «번역» 으로만 적지 마세요. en 이 AI 에게 가는 값이고
+      ko 는 학생이 고를 때 읽는 안내입니다.
+   ⛔ 교재가 늘면 이 표에 줄을 더하세요 — 화면이 이 표만 보고 그립니다. */
+var BTS_BOOKS = [
+  {v:1,  en:'Welcome to school, School Stuff, My classroom',     ko:'학교 첫날 · 학용품 · 교실'},
+  {v:2,  en:'Shapes and colors, Adjectives',                     ko:'모양과 색깔 · 꾸미는 말'},
+  {v:3,  en:'My family, How old are you',                        ko:'우리 가족 · 몇 살이야?'},
+  {v:4,  en:'Food and meals',                                    ko:'음식과 식사'},
+  {v:5,  en:'Days of the Week, Seasons, Telling Time',           ko:'요일 · 계절 · 시간 말하기'},
+  {v:6,  en:'Bedroom, living room',                              ko:'내 방 · 거실'},
+  {v:7,  en:'My Head, Face, Body',                               ko:'머리 · 얼굴 · 몸'},
+  {v:8,  en:'Playing soccer',                                    ko:'축구하기'},
+  {v:9,  en:'Night and Day, Time',                               ko:'밤과 낮 · 시간'},
+  {v:12, en:'Jobs, Going to work',                               ko:'직업 · 출근'},
+  {v:13, en:'Past tense',                                        ko:'과거형으로 말하기'},
+  {v:14, en:'Future tense',                                      ko:'미래형으로 말하기'},
+  {v:15, en:'True Stories, Fiction',                             ko:'실화와 지어낸 이야기'},
+  {v:16, en:'Choices, Inventions, Promises',                     ko:'선택 · 발명 · 약속'},
+  {v:17, en:'Hobbies And Activities, Follow Directions, Comparative adjectives', ko:'취미 · 길 안내 · 비교하는 말'},
+  {v:18, en:'Animals',                                           ko:'동물'},
+  {v:19, en:'Job, Skills and Training',                          ko:'직업 · 기술 · 훈련'},
+  {v:20, en:'Food and Restaurants, Taste, Special orders',       ko:'식당 · 맛 · 주문하기'},
+  {v:21, en:'Holidays',                                          ko:'휴일과 명절'},
+  {v:22, en:"My Body, I'm sick, Staying Healthy",                ko:'몸 · 아플 때 · 건강 지키기'},
+  {v:23, en:"What's on TV, News, Commercial",                    ko:'TV · 뉴스 · 광고'},
+  {v:24, en:'Fantasy Worlds, If I were a millionaire',           ko:'상상의 세계 · 만약 부자라면'},
+  {v:25, en:'Great Inventions',                                  ko:'위대한 발명'},
+  {v:26, en:'Animals in their Habitats',                         ko:'동물이 사는 곳'},
+  {v:27, en:'Fashion',                                           ko:'패션'},
+  {v:28, en:'Travel in Asia',                                    ko:'아시아 여행'},
+  {v:29, en:'Heroes, Money, friends, lying',                     ko:'영웅 · 돈 · 친구 · 거짓말'},
+  {v:30, en:'Living Abroad, My Free Time, My Career, Exploring Space', ko:'해외 생활 · 여가 · 진로 · 우주'},
+  {v:31, en:'Movies, Pets, School uniforms',                     ko:'영화 · 반려동물 · 교복'},
+  {v:32, en:'Bad habits, Being different, holidays, stress',     ko:'나쁜 습관 · 다름 · 휴일 · 스트레스'},
+  {v:33, en:'Computer Games, Popular Music, Professional Sports, Public Transportation', ko:'게임 · 음악 · 프로스포츠 · 대중교통'},
+  {v:34, en:'Taking Risks, Possibilities, Music, Hopes and Dreams', ko:'도전 · 가능성 · 음악 · 꿈'}
+];
+function btsBookOf(v){
+  v = parseInt(v,10); if(!(v>0)) return null;
+  for(var i=0;i<BTS_BOOKS.length;i++){ if(BTS_BOOKS[i].v === v) return BTS_BOOKS[i]; }
+  return null;
+}
+/* 🪜 권 번호 → 대화 단계(1~8).
+   ⛔ 구간 숫자를 손으로 적지 마세요 — 바로 아래 LEVEL_CATALOG 의 lv («Lv 1-4»)를
+      «읽어서» 구합니다. 그래야 눈금이 바뀌어도 두 곳이 어긋나지 않습니다
+      (서버 정본은 src/judgment-level.ts 의 BAND_SPECS 이고 그 표와 같은 눈금입니다).
+   ⚠️ 못 찾으면 0 을 돌려줍니다 — «모르면 손대지 않는다» 쪽으로 실패합니다. */
+function btsBandOf(v){
+  v = parseInt(v,10); if(!(v>0)) return 0;
+  for(var i=0;i<LEVEL_CATALOG.length;i++){
+    var m = String(LEVEL_CATALOG[i].lv||'').match(/(\d+)\s*[-~]\s*(\d+)/);
+    if(m && v >= parseInt(m[1],10) && v <= parseInt(m[2],10)) return LEVEL_CATALOG[i].n;
+  }
+  return 0;
+}
 var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
 /* 🏷️ 「4단계 · 초중급 · B1」처럼 CEFR 까지 붙인 한 줄. ⋮ 설정 패널·안내 문구가 함께 씁니다.
    ⛔ 이름을 손으로 적지 마세요 — 여기 한 곳에서만 만들어야 설정 화면과 어긋나지 않습니다
@@ -1247,6 +1325,12 @@ function renderSetup(){
         + '<span class="wus-desc">'+(isZh() ? (b.dz||b.d) : b.d)+'</span></button>';
     }).join('');
   }
+  /* 📘 오늘 배울 교재 — 중국어에는 BTS 가 없으므로 섹션째 감춘다.
+     ⛔ 중국어 교재로 바꿔서 살리지 마세요 — BTS 는 영어 교재입니다(없는 것을 만들지 않습니다). */
+  var bsec = document.getElementById('wusBooksSec');
+  if(bsec) bsec.hidden = isZh();
+  var bks = document.getElementById('wusBooks');
+  if(bks && !isZh()) bks.innerHTML = btsListHtml();
   var cta = document.getElementById('wusStart');
   if(cta) cta.textContent = _warmStarted ? '✅ 이 설정으로 계속하기' : '🚀 이 설정으로 웜업 시작하기';
 }
@@ -1313,12 +1397,20 @@ function closeSetup(){
 (function wireSetup(){
   var box = setupEl(); if(!box) return;
   box.addEventListener('click', function(e){
-    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl],[data-lang]') : null;
+    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl],[data-lang],[data-bts]') : null;
     if(!t || !box.contains(t)) return;
     /* 🀄 언어를 바꾸면 수준 설명(낱말 수 ↔ 글자 수)과 «수준 찾기» 표시가 함께 달라진다 —
           그래서 여기서는 return 하지 않고 아래 renderSetup() 까지 내려간다. */
     if(t.getAttribute('data-lang')) { setWarmLang(t.getAttribute('data-lang'), false); renderSetup(); return; }
     if(t.getAttribute('data-age')) { setAge(t.getAttribute('data-age'), false); return; }
+    /* 📘 교재 고르기 — 0 이면 «교재 없이 자유 대화»(예전 동작)로 되돌린다.
+       ⚠️ data-lvl 검사보다 «앞» 에 둔다 — 아래 parseInt 는 없는 속성에 NaN 이지만
+          여기서 끝내는 편이 뜻이 분명하다. */
+    if(t.hasAttribute('data-bts')){
+      var bv = parseInt(t.getAttribute('data-bts'),10) || 0;
+      if(bv) applyBtsBook(bv, false, true); else clearBtsBook(false);
+      renderSetup(); return;
+    }
     var n = parseInt(t.getAttribute('data-lvl'),10);
     if(n>=1 && n<=8) setLevel(n, false);
     renderSetup();
@@ -1409,13 +1501,93 @@ function startWarmup(){
   closeSetup();
   if(_warmStarted){
     if(typeof addMsg==='function'){
-      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + levelLabel(_warmLevel) + ' 로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
+      var _bb = btsBookOf(_btsVol);
+      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + levelLabel(_warmLevel)
+        + (_bb ? (' · 📘 BTS ' + _bb.v + ' ' + _bb.ko) : ' · 💬 자유 대화')
+        + ' 로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
     }
     return;
   }
   _warmStarted = true;
   try{ initGreeting(); }catch(e){}
 }
+/* ── 📘 오늘 배울 교재 (BTS) ────────────────────────────────────
+   [왜] 지금까지 웜업은 학생 명부의 배정 교재를 서버에서 읽어 왔는데,
+     그 칸이 «29,498명 중 0건» 이라(2026-09-14 D1 실측) 한 번도 채워진 적이 없습니다.
+     그래서 교재 축이 통째로 비어 있었습니다.
+   [방식] 강사가 참여하지 않아도 돌아가야 하므로 **학생이 직접 고르고, 고른 것을 기억합니다.**
+     서버는 한 줄도 바뀌지 않습니다 — 이미 있는 통로(lesson_topic·textbook·level)에
+     화면이 값을 채워 보낼 뿐입니다.
+   ⛔ 자유 대화를 건드리지 마세요. 교재를 «안 고르면» 저장값이 없어 예전과 똑같이 동작합니다
+      (사장님 지시 2026-09-14 «지금 하고 있는 자유대화는 그대로 나두고»). */
+var BTS_KEY = 'mangoi_warmup_bts';
+var LESSON_TOPIC_URL = LESSON_TOPIC;   /* 교재를 풀면 되돌릴 «원래» 주제(?topic=/?unit=) */
+var _btsVol = 0;                       /* 0 = 안 고름 = 자유 대화 */
+
+/* @param syncBand 권에 맞는 대화 단계로 맞출지.
+   ⚠️ 고를 때만 true 입니다. 복원(부팅)에서는 false — 학생이 그 뒤에 직접 바꾼 단계를
+      덮으면 «내가 고른 수준이 매번 되돌아간다» 가 됩니다. */
+function applyBtsBook(v, announce, syncBand){
+  var b = btsBookOf(v); if(!b) return false;
+  _btsVol = b.v;
+  WCTX.textbook  = 'BTS ' + b.v + ' (' + b.en + ')';
+  WCTX.level     = 'Lv ' + b.v;
+  WCTX.lesson_no = 0;
+  LESSON_TOPIC   = b.en;
+  try{ localStorage.setItem(BTS_KEY, String(b.v)); }catch(e){}
+  var band = syncBand ? btsBandOf(b.v) : 0;
+  if(band) setLevel(band, false);
+  if(typeof updateTopicChip === 'function') updateTopicChip();
+  if(announce && typeof addMsg === 'function'){
+    addMsg('📘 오늘 교재를 «BTS ' + b.v + ' · ' + b.ko + '» 로 정했어요'
+      + (band ? (' · 대화는 ' + levelLabel(band)) : '')
+      + '\n이 권의 주제로 이야기할게요!', 'sys');
+  }
+  return true;
+}
+function clearBtsBook(announce){
+  _btsVol = 0;
+  WCTX.textbook = ''; WCTX.level = ''; WCTX.lesson_no = 0; WCTX.sentences = [];
+  LESSON_TOPIC = LESSON_TOPIC_URL;
+  try{ localStorage.removeItem(BTS_KEY); }catch(e){}
+  if(typeof updateTopicChip === 'function') updateTopicChip();
+  /* ⛔ 대화 단계는 되돌리지 않습니다 — 학생이 직접 고른 값일 수 있습니다. */
+  if(announce && typeof addMsg === 'function') addMsg('💬 교재 없이 자유 대화로 이야기할게요!', 'sys');
+}
+/* 설정 화면 목록 — 지금 단계에 맞는 권을 위에, 나머지는 접어 둡니다(32권이라 다 펴면 깁니다) */
+function btsListHtml(){
+  var near = [], rest = [];
+  for(var i=0;i<BTS_BOOKS.length;i++){
+    (btsBandOf(BTS_BOOKS[i].v) === _warmLevel ? near : rest).push(BTS_BOOKS[i]);
+  }
+  function item(b){
+    var on = (b.v === _btsVol);
+    return '<button type="button" class="wus-item'+(on?' on':'')+'" data-bts="'+b.v+'">'
+      + '<span class="wus-name">BTS ' + b.v + ' <span class="wus-lv">(Lv ' + b.v + ')</span>'
+      + (on ? '<span class="wus-now">지금</span>' : '') + '</span>'
+      + '<span class="wus-desc"><span class="wus-bts-topic">' + escapeHtml(b.en) + '</span><br>'
+      + escapeHtml(b.ko) + '</span></button>';
+  }
+  var h = '<div class="wus-list">'
+    + '<button type="button" class="wus-item'+(_btsVol?'':' on')+'" data-bts="0">'
+    + '<span class="wus-name">💬 교재 없이 자유 대화'+(_btsVol?'':'<span class="wus-now">지금</span>')+'</span>'
+    + '<span class="wus-desc">지금까지처럼 일상 주제로 이야기해요</span></button>'
+    + near.map(item).join('') + '</div>';
+  if(rest.length){
+    h += '<details class="wus-more"><summary>전체 교재 보기 (' + BTS_BOOKS.length + '권)</summary>'
+       + '<div class="wus-list">' + rest.map(item).join('') + '</div></details>';
+  }
+  return h;
+}
+/* 🔁 지난번에 고른 교재로 «강사 없이» 이어서 시작합니다.
+   ⚠️ ?textbook= 이 있으면 그쪽이 우선 — 강사가 링크로 지정한 것을 덮지 않습니다.
+   ⚠️ 저장값이 없으면 아무 일도 하지 않습니다 = 예전 그대로 자유 대화. */
+(function restoreBtsBook(){
+  if(WCTX.textbook) return;
+  var v = 0; try{ v = parseInt(localStorage.getItem(BTS_KEY)||'0',10); }catch(e){}
+  if(btsBookOf(v)) applyBtsBook(v, false, false);
+})();
+
 setAge(_warmAge);   // 저장된 연령대로 메뉴 버튼/표시 초기화
 /* 🀄 기기 음성 이름으로 «중국어 남자/여자» 를 가른다 (2026-09-14 룽 선생님).
    [왜 이름인가] 브라우저 SpeechSynthesisVoice 에는 성별 칸이 없습니다. 이름뿐입니다.
