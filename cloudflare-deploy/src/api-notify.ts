@@ -453,12 +453,15 @@ export async function handleNotifyApi(
         : `${teacherName} 강사님이 '${lessonTitle}' 방에서 기다리고 있어요. 지금 입장하세요.`;
       if (teacherLive) push = { skipped: true, reason: 'teacher_present' };
       else if (waitingFor === 'teacher') {
-        /* 🔔 (2026-09-14) 강사는 «본문의 teacher_uid» 만 믿지 않는다 — 학생 화면이 강사 계정을 모를 때가
-           많고(실측 missing_uid 가 비는 행이 흔하다), 예약이 가리키는 **원부 강사**(teachers.id)에 이어진
-           계정 전부에 보낸다. 본문 uid 는 «덤» 으로 합친다(중복은 한 번만). 정본 teacher-push.ts. */
+        /* 🔔 (2026-09-14) 강사는 «본문의 teacher_uid» 만 믿지 않는다 — 그 값은 학생 화면이 보내는 것이라
+           비어 있을 수 있고(잰 것은 아니다 — 구조상 그렇다), 예약이 가리키는 **원부 강사**(teachers.id)에 이어진
+           계정 전부에 보낸다. 본문 uid 는 «덤» 으로 합친다(중복은 한 번만). 정본 teacher-push.ts.
+           ⚠️ `ok` 는 «실제로 나갔는가»(sent > 0) — 아래 기록의 notified_push 가 그것을 읽는다. 정본의 ok 는
+              «던지지 않았다» 는 뜻이라 spread 를 «먼저» 두고 ok 로 덮는다(반대로 두면 구독이 없어도 1 로
+              기록된다 — 함정 대조가 실제로 잡음). */
         const pr = await pushToTeacher(env, _parties?.teacherId, pushTitle, pushBody, roomUrl, `no-show-${roomId}`,
                                        missingUid ? [missingUid] : []);
-        push = { ok: pr.sent > 0, ...pr };
+        push = { ...pr, ok: pr.sent > 0 };
       }
       else if (missingUid) push = await sendPushToUser(env, missingUid, pushTitle, pushBody, roomUrl, `no-show-${roomId}`);
 

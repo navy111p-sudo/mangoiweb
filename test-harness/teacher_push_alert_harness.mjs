@@ -208,7 +208,17 @@ console.log('\nC. /api/notify/no-show — 강사는 «원부 계정 전부» 에
   const liveAt = blk.indexOf("if (teacherLive) push = { skipped: true, reason: 'teacher_present' }");
   const pushAt = blk.indexOf('pushToTeacher(env, _parties?.teacherId');
   check('C-4 «강사가 방에 있으면 안 보낸다» 가 pushToTeacher 보다 먼저 판정된다', liveAt > 0 && liveAt < pushAt);
-  check('C-5 결과의 ok 를 «실제로 나갔는가»(sent > 0) 로 정한다 — 기록의 notified_push 가 그것을 읽는다', /push = \{ ok: pr\.sent > 0, \.\.\.pr \}/.test(blk));
+  /* C-5 는 «식을 오려 내 실제로 평가» — `{ ok: pr.sent > 0, ...pr }` 처럼 spread 가 뒤에 오면 정본의
+     ok(=던지지 않았다, 늘 true)가 덮어써서 구독이 없어도 notified_push=1 이 된다. 글자로만 보면 초록이었다(함정 대조 실측). */
+  // ⚠️ 앵커는 pushToTeacher 호출 «뒤» — 앞쪽 `let push: any = { skipped: true }` 가 먼저 걸려 헛돈다(실측)
+  const pm = blk.slice(blk.indexOf('pushToTeacher(env, _parties?.teacherId')).match(/push = (\{[^;]*?\});/);
+  check('C-5 push 결과 조립식이 있다', !!pm);
+  if (pm) {
+    const mk = new Function('pr', `return (${pm[1]});`);
+    check('C-5a 구독 없음(sent 0, 정본 ok true) → push.ok false (notified_push 0)', mk({ ok: true, sent: 0, why: 'no_subscription' }).ok === false);
+    check('C-5b 실제로 나감(sent 1) → push.ok true (짝)', mk({ ok: true, sent: 1, why: '' }).ok === true);
+    check('C-5c why 가 함께 실린다', mk({ ok: true, sent: 0, why: 'no_linked_account' }).why === 'no_linked_account');
+  }
 }
 
 // ═══════════════ D. 연락처 연결 API + 화면 ═══════════════
