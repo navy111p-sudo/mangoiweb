@@ -22,6 +22,7 @@ import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
 import { sendEmail, emailLayout } from './email';
+import { pushToTeacher } from './teacher-push';   // 🔔 강사 웹푸시(정본) — 카카오는 필리핀 번호에 안 닿는다(2026-09-14)
 import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
@@ -262,6 +263,20 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
            (실측: 프로필 전화 22건 중 21건이 09xx 필리핀 번호, 한국 번호 0건 · SOLAPI 는 국제 미지원).
            한국 번호일 때만 문자를 쓴다. 둘 다 없으면 조용히 넘기지 않고 운영자에게 이유를 올린다. */
         const isKr = (p: any) => /^(\+?82|0)10/.test(String(p || '').replace(/[\s-]/g, ''));
+        /* 🔔 (2026-09-14) 웹푸시를 «먼저, 그리고 이메일과 함께» 보낸다 — 강사 화면(teacher.html)에서
+           「알림 받기」를 켠 강사의 폰에 카톡 알림처럼 뜬다. 카카오톡 자동 발송은 필리핀 번호에 «구조적으로»
+           안 닿아(teacher-push.ts 머리말) 사장님이 이쪽을 고르셨다.
+           ⚠️ 푸시는 «켠 사람에게만» 가고 폰이 꺼져 있으면 못 받는다 — 그래서 이메일을 «대신» 하지 않고
+              «더한다». 아래 이메일/문자 갈래는 한 글자도 안 바뀐다.
+           ⚠️ 못 보낸 이유(no_linked_account / no_subscription …)는 detail 에 그대로 남긴다. */
+        let pushOk = false;
+        try {
+          const pr = await pushToTeacher(env, c.teacher_id,
+            '⏰ ' + name + ' has not joined · 학생 미입장 (' + hhmm + ')', bodyEn + '\n' + bodyKo,
+            '/teacher', 'absent-' + c.room_id);
+          pushOk = pr.sent > 0;
+          detail.teacher_push = pushOk ? 'sent' : (pr.why || 'failed');
+        } catch (e: any) { detail.teacher_push = 'error:' + String(e?.message || e).slice(0, 80); }
         if (tc.email) {
           try {
             const r2 = await sendEmail(env as any, {
@@ -281,7 +296,8 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
         } else {
           const why = tc.phone && !isKr(tc.phone) ? 'phone_is_overseas_no_email' : tc.why;
           detail.teacher_sms = why;                       // no_phone_in_roster / ambiguous / 해외번호뿐 …
-          ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${why}`);
+          // 🔔 푸시가 실제로 나갔으면 «못 보냄» 이 아니다 — 운영자 경고는 «아무 데도 안 닿았을 때» 만.
+          if (!pushOk) ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${why}`);
         }
       } catch (e: any) { detail.teacher_sms = 'error:' + String(e?.message || e).slice(0, 80); }
     }

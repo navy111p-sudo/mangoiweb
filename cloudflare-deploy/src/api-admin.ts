@@ -47,6 +47,7 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
+import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사 웹푸시 구독 여부(연락처 연결 화면용, 2026-09-14)
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
@@ -15145,6 +15146,8 @@ LIMIT $limit`;
         ]);
         const roster = (rosterRs.results || []) as any[];
         const profiles = (profRs.results || []) as any[];
+        // 🔔 (2026-09-14) 강사 화면에서 「알림 받기」를 켠 원부 강사 — 계정 다리(teacher_account_links)를 거친다.
+        const pushIds = await teacherIdsWithPush(env);
 
         const items = roster.map((t: any) => {
           const target = normName(t.name);
@@ -15173,8 +15176,12 @@ LIMIT $limit`;
             phone_region: phone ? (isPhPhone(phone) ? 'PH' : isKrPhone(phone) ? 'KR' : 'other') : null,
             /* 🔔 «자동 알림이 실제로 가는가» — 화면에 그대로 보여 준다.
                email 이면 국제 가능, 한국 번호면 문자도 가능, 필리핀 번호·카톡ID 뿐이면 자동은 불가. */
-            reachable: !!email || (phone ? isKrPhone(phone) : false),
-            reach_by: email ? 'email' : (phone && isKrPhone(phone) ? 'sms' : null),
+            /* 🔔 (2026-09-14) 웹푸시가 셋째 수단이다 — 카카오는 필리핀 번호에 «구조적으로» 안 닿아(teacher-push.ts)
+               사장님이 웹푸시를 고르셨다. 푸시는 «켠 사람에게만» 가므로 이메일·문자와 «함께» 세고, 둘 다 없을 때는
+               푸시 하나로도 «닿는다» 로 본다(그 강사에게 실제로 결석 알림이 갑니다 — absent-sweep.ts). */
+            push_on: pushIds.has(String(t.id)),
+            reachable: !!email || (phone ? isKrPhone(phone) : false) || pushIds.has(String(t.id)),
+            reach_by: email ? 'email' : (phone && isKrPhone(phone) ? 'sms' : (pushIds.has(String(t.id)) ? 'push' : null)),
             candidates: cands.map((p: any) => ({
               id: String(p.id), name: p.english_name || p.korean_name,
               email: p.email || null, phone: p.phone || null, kakao_id: p.kakao_id || null,
