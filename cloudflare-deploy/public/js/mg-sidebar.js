@@ -15,7 +15,11 @@
 
   // 메뉴 코드 → 이동 URL (index.html URLS 맵과 일치)
   var URLS = {
-    'about':'/', 'all-menu':'/', 'home':'/',
+    'about':'/', 'home':'/',
+    /* 🏠 «전체메뉴»는 홈에서만 도는 함수(openAllMenuOverlay)라 줄 주소가 없어 오래도록
+       '/' 였다 — 눌러도 «홈으로 가기만 하고» 오버레이는 아무도 안 열었다(2026-09-14 수리).
+       ⛔ '/' 로 되돌리지 말 것. 받는 쪽은 js/idx-allmenu.js 의 ?menu=all-menu 절(짝). */
+    'all-menu':'/?menu=all-menu',
     'leveltest':'/?menu=leveltest',   // 2026-08-07: 신청서 통일 — 옛 /level-test.html 폐지, 홈 모달로
 
     'admin':'/admin.html',
