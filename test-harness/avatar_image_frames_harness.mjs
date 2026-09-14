@@ -230,6 +230,32 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
     const scBtns = [...SC.matchAll(/data-p="(\w+)"/g)].map(m => m[1]);
     ok(people.every(k => scBtns.includes(k)),
       `음성코치 햄버거에 네 친구가 다 있다 (${scBtns.join(', ')})`);
+
+    /* 🀄 언어별 친구 (2026-09-14) — 웜업에 중국어가 붙으면서 «중국어 교사» 가 생겼다.
+       중국어 TTS 는 화자를 안 가리므로(구글 만다린 한 목소리) 중국어에서는 한 사람만 둔다.
+       ⚠️ 여기서는 «표가 서로 같은 말을 하는가» 만 본다 — «무슨 답이 나오는가» 는
+          warmup_zh_lang_harness ⑯ 이 함수를 실제로 돌려서 본다. */
+    const zhPeople = Object.keys(WUV).filter(k => WUV[k] && WUV[k].zh);
+    ok(zhPeople.length >= 1, `웜업에 중국어 친구가 있다 (${zhPeople.join(', ') || '없음'})`);
+    for (const k of zhPeople) {
+      ok(!!CH[WUV[k].char] && !!CH[WUV[k].char].frames,
+        `${k}: 그 얼굴(${WUV[k].char})이 실재하는 이미지 캐릭터다`,
+        '표만 고치고 그림을 안 넣으면 폴백이 조용히 돌아 «얼굴이 안 바뀐다»');
+      ok(!faces.includes(WUV[k].char),
+        `${k}: 영어 네 친구와 얼굴이 겹치지 않는다 (${WUV[k].char})`,
+        '겹치면 «중국어를 골랐는데 영어 친구 얼굴» 이 되고 에러는 안 난다');
+      /* 🔴 그 화면이 «중국어를 아는가» 와 짝이어야 한다.
+         ⛔ 「ai-friend 에는 없어야 한다」로 못 박지 마세요 — 나중에 그 화면에 중국어가
+            붙으면 올바른 수리가 오히려 빨간불이 됩니다(CLAUDE.md 「본보기가 정책에 딸려 다님」).
+         물어야 할 것은 «중국어 친구를 둔 화면은 중국어를 실제로 말할 수 있는가» 입니다. */
+      for (const [fname, src] of [['ai-friend.html', AF], ['speech-coach.html', SC]]) {
+        const listed = new RegExp(`\\b${k}\\s*:\\s*\\{[^}]*char\\s*:`).test(src);
+        const knowsZh = /lang\s*:\s*['"]zh['"]|_aiLang|mangoi_aifriend_lang|mangoi_sc_lang/.test(src);
+        ok(!listed || knowsZh,
+          `${fname}: 중국어 친구를 뒀다면 그 화면이 중국어를 말할 수 있다 (있음=${listed} · 중국어축=${knowsZh})`,
+          '중국어 얼굴이 영어로 말하면 「누구지?」가 됩니다 — 화면에 중국어를 먼저 붙이세요');
+      }
+    }
   }
 }
 

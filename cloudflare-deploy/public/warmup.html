@@ -203,6 +203,15 @@
         <style> 안의 그 글자를 «한자 폰트 983KB 를 받는 화면» 으로 판정한다(실제로 밟았다). */
   .voice-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
   .voice-btns button[data-v="mix"]{grid-column:1/-1}
+  /* 🀄 중국어에서는 «고르는 칸 자체» 가 사라집니다 — 메이 선생님 한 사람 고정(2026-09-14 사장님 지시).
+     ⚠️ [hidden] 은 UA 기본 규칙이라 작성자 CSS 에 집니다 — 바로 위에서 .voice-btns 에 display:grid 를
+        정했으므로 !important 로 못 박아야 실제로 감춰집니다(CLAUDE.md 2장 «el.hidden 인데 그대로 보임»).
+     ⛔ 이 주석에 CJK 홑낫표를 쓰지 마세요 — 한자 폰트 검사 둘이 «이 화면이 983KB 한자 폰트를
+        받는다» 로 판정합니다(2026-09-14 에 실제로 밟았습니다). « » 를 씁니다. */
+  .voice-btns[hidden]{display:none!important}
+  .voice-btns button[hidden]{display:none!important}
+  .voice-zh-note{margin-top:6px;font-size:11.5px;line-height:1.45;color:var(--text2);opacity:.92}
+  .voice-zh-note[hidden]{display:none!important}
   .voice-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
     padding:10px 0;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
     color:var(--text2);font-size:14px;font-weight:800;transition:transform .08s,background .15s,color .15s}
@@ -373,7 +382,7 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=17" defer></script>
+<script src="/js/mango-avatar.js?v=18" defer></script>
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
@@ -462,7 +471,11 @@
         </div>
 
         <!-- 🎙️ AI 친구: 네 명 중 고르기 + 번갈아(네 명이 돌아가며).
-             고르면 «목소리와 얼굴이 함께» 바뀐다 — 그래서 이름표가 「목소리」가 아니라 「친구」다. -->
+             고르면 «목소리와 얼굴이 함께» 바뀐다 — 그래서 이름표가 「목소리」가 아니라 「친구」다.
+             🀄 중국어에서는 이 칸이 통째로 감춰지고 «메이 선생님» 한 사람으로 고정된다
+                (2026-09-14 사장님 지시 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」).
+                까닭은 아래 voiceForLang 주석 — 중국어 TTS 는 화자를 안 가려서, 네 명을 늘어놓으면
+                「골랐는데 목소리가 같다」는 거짓말이 된다. -->
         <div class="menu-group">
           <div class="menu-label"><span>🎙️ AI 친구 (목소리·얼굴)</span><span class="ls-now" id="voiceVal">👩 Emma</span></div>
           <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 친구 선택">
@@ -472,6 +485,7 @@
             <button type="button" data-v="noah" onclick="setVoiceMode('noah',true)">👦 Noah</button>
             <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
           </div>
+          <div class="voice-zh-note" id="voiceZhNote" hidden>🀄 중국어는 <b>메이 선생님</b> 한 분이 이야기해요 — 고르지 않아도 돼요.<br>中文课由美美老师一位老师来说。</div>
         </div>
 
         <!-- 👁 자막: 듣기 훈련용. 「가리기」는 탭하면 그 말풍선만 다시 보인다 -->
@@ -761,7 +775,18 @@ var VOICE_MODES = {
   noah: { label:'👦 Noah', speaker:'aries',   g:'male',   char:'noah',
           hi:"Hey! I'm Noah. Let's talk!" },
   mix:  { label:'🔀 번갈아',
-          hi:"Cool! We will take turns talking to you!" }
+          hi:"Cool! We will take turns talking to you!" },
+  /* 🀄 메이 — 중국어 전용 친구(2026-09-14). zh:true 가 «어느 언어의 사람인가» 의 정본입니다.
+     ⚠️ 중국어 TTS 는 화자를 안 가립니다(구글 만다린 한 목소리 — _ttsSpeak 주석 참고).
+        그래서 중국어에서 네 명을 늘어놓으면 「골랐는데 목소리가 같다」는 거짓말이 됩니다.
+     🔒 그래서 중국어에는 «고르는 칸이 없습니다» — 메이 한 사람 고정(2026-09-14 사장님 지시).
+        판정 정본은 _voicePerson() 의 첫 줄 하나뿐이고, 화면은 syncVoiceBtnsForLang() 이 감춥니다.
+     ⛔ 여기에 중국어 친구를 한 명 더 넣어도 화면에는 안 나옵니다 — 늘리려면 그 두 곳과
+        하니스 ⑯을 함께 고치세요(지금 상태를 «버그» 로 읽고 버튼을 되살리지 마세요).
+     ⛔ speaker 를 지우지 마세요 — 지금은 zh 가 안 보지만, 나중에 중국어 화자가 생기면
+        여기 한 줄이 그 자리입니다(목록은 위 VOICE_TRY_F 와 같은 서버 허용목록). */
+  mei:  { label:'👩‍🏫 메이 선생님', speaker:'asteria', g:'female', char:'mei', zh:true,
+          hi:"你好！我是美美老师。很高兴认识你！" }
 };
 try{
   var _vq = new URLSearchParams(location.search);
@@ -769,35 +794,76 @@ try{
   if(VOICE_TRY_F[_vfTry]) VOICE_MODES.lily.speaker = _vfTry;
   if(VOICE_TRY_M[_vmTry]) VOICE_MODES.noah.speaker = _vmTry;
 }catch(e){}
-var _voiceMode = 'emma', _mixIdx = 0;
+/* 🀄 기억하는 것은 «영어에서 고른 사람» 하나뿐이다 — 중국어는 고르는 칸이 없으므로
+   기억할 선택 자체가 없다(2026-09-14). 그래서 언어를 오가도 영어 선택이 안 지워진다.
+   ⛔ 중국어용 저장 칸을 다시 만들지 마세요 — 저장하면 «학생이 고른 것» 이 되어,
+      나중에 중국어 친구를 늘릴 때 옛 값이 이미 굳어 있습니다. */
+var _voiceMode = 'emma', _mixIdx = 0, _savedVoiceEn = 'emma';
 try{
   var _sv = localStorage.getItem('mangoi_warmup_voice');
   // 옛 저장값 이어받기 — 「여자」를 쓰던 학생은 Emma, 「남자」는 Jake 로 그대로 간다.
   if(_sv === 'female') _sv = 'emma'; else if(_sv === 'male') _sv = 'jake';
-  if(VOICE_MODES[_sv]) _voiceMode = _sv;
+  if(VOICE_MODES[_sv] && !VOICE_MODES[_sv].zh) _savedVoiceEn = _sv;
 }catch(e){}
+_voiceMode = _savedVoiceEn;   // ⚠️ 이 줄에서는 _warmLang 이 아직 안 정해졌다 — 언어 맞추기는 아래 부팅 줄에서.
+/* 🀄 «이 언어에서는 누가 말하나». 순수 함수로 둔 이유 — 하니스가 오려 내 실제로 돌립니다.
+   🔒 중국어는 저장값을 «보지 않습니다» — 고르는 칸이 없으니 언제나 메이입니다(2026-09-14).
+   ⛔ 모르는 값을 «그 언어의 사람» 으로 넘겨짚지 마세요: 영어는 Emma 로 떨어집니다. */
+function voiceForLang(lang, savedEn){
+  if(lang === 'zh') return 'mei';
+  return (VOICE_MODES[savedEn] && !VOICE_MODES[savedEn].zh) ? savedEn : 'emma';
+}
+/* 🀄 중국어면 «고르는 칸» 을 통째로 감추고 안내 한 줄만 둔다(영어면 반대).
+   ⛔ 버튼만 하나 남겨 보이는 방식으로 되돌리지 마세요 — 그러면 «고를 수 있는 것» 처럼 보입니다. */
+function syncVoiceBtnsForLang(){
+  var zh = isZh(), box = document.getElementById('voiceBtns');
+  if(box) box.hidden = zh;
+  var note = document.getElementById('voiceZhNote');
+  if(note) note.hidden = !zh;
+}
 // 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
-function _voicePerson(){ return _voiceMode==='mix' ? VOICE_PEOPLE[_mixIdx % VOICE_PEOPLE.length] : _voiceMode; }
+function _voicePerson(){
+  /* 🔒 중국어는 무조건 메이 — 저장값이 무엇이든(옛 'mix'·'lily' 포함) 여기서 막힌다.
+     이 한 줄이 «중국어 = 메이 한 사람» 의 정본이라, 언어를 어느 경로로 켜든
+     (버튼·서버 힌트 probeSuggestLang·옛 저장값) 얼굴과 목소리가 함께 메이가 된다. */
+  if(isZh()) return 'mei';
+  if(_voiceMode==='mix') return VOICE_PEOPLE[_mixIdx % VOICE_PEOPLE.length];
+  return _voiceMode;
+}
+/* 🀄 «지금 말할 사람» 의 얼굴·이름표를 화면에 입힌다 — 저장은 하지 않는다.
+   ⚠️ 저장 없이 부를 수 있어야 한다: probeSuggestLang(서버 힌트로 중국어가 켜지는 «주 경로») 이
+      setVoiceMode 를 쓰면 「학생이 고른 것」으로 굳는다. 그래서 얼굴 입히기만 따로 뗐다.
+   ⚠️ 이름표는 «고른 것» 을 보여 준다(「번갈아」면 그대로 「🔀 번갈아」) — 중국어는 고를 수
+      없으므로 말하는 사람 그대로 메이가 찍힌다. */
+function applyVoiceFace(){
+  var m = VOICE_MODES[_voicePerson()] || VOICE_MODES.emma;
+  var lm = isZh() ? m : (VOICE_MODES[_voiceMode] || m);
+  var v = document.getElementById('voiceVal'); if(v) v.textContent = lm.label;
+  try{ window.__mgAvatarWant = m.char; }catch(e){}
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m.char); }catch(e){}
+}
 // ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
 function _voiceGender(){ return (VOICE_MODES[_voicePerson()] || VOICE_MODES.emma).g; }
 function nextSpeaker(){
   var p = _voicePerson();
-  if(_voiceMode==='mix') _mixIdx = (_mixIdx + 1) % VOICE_PEOPLE.length;   // 다음 차례로
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[p].char); }catch(e){}  // 얼굴도 그 사람으로
+  applyVoiceFace();                                                        // 얼굴도 그 사람으로
+  if(_voiceMode==='mix' && !isZh()) _mixIdx = (_mixIdx + 1) % VOICE_PEOPLE.length;   // 다음 차례로
   return VOICE_MODES[p].speaker;
 }
 function setVoiceMode(m, announce){
-  if(!VOICE_MODES[m]) m = 'emma';
+  if(!VOICE_MODES[m]) m = isZh() ? 'mei' : 'emma';
   var changed = (m !== _voiceMode);
   _voiceMode = m; _mixIdx = 0;
-  try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){}
+  /* 🀄 «영어에서 고른 사람» 만 적는다 — 중국어는 고르는 칸이 없어 적을 선택이 없다.
+     ⛔ 중국어를 적으면 그 값이 「학생이 고른 것」으로 굳어, 나중에 중국어 친구를 늘릴 때
+        기본값을 되돌릴 수 없습니다(CLAUDE.md 2장 «기본 켜짐을 저장값으로 구현하지 말 것»). */
+  if(!VOICE_MODES[m].zh){ _savedVoiceEn = m; try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){} }
   var box = document.getElementById('voiceBtns');
   if(box){ var bs = box.querySelectorAll('button');
     for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
-  var v = document.getElementById('voiceVal'); if(v) v.textContent = VOICE_MODES[m].label;
-  // 고른 사람의 얼굴로 즉시 교체(다음 답변까지 기다리지 않게). 번갈아면 첫 차례 사람.
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[_voicePerson()].char); }catch(e){}
+  syncVoiceBtnsForLang();
+  applyVoiceFace();     // 이름표 + 고른 사람 얼굴로 즉시 교체(다음 답변까지 기다리지 않게)
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
   // 바꾸자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
   if(announce && changed) speak(VOICE_MODES[m].hi);
@@ -1047,6 +1113,9 @@ function setWarmLang(l, announce){
         「중국어 보이스가 없으면 읽지 않는다」 가드까지 함께 비켜 갑니다).
      ℹ️ 같은 두 줄이 `setVoiceMode` 에도 있습니다(성별이 바뀔 때 같은 이유). */
   if(changed){ _enVoice=null; try{ pickVoice(); }catch(e){} }
+  /* 🀄 친구도 그 언어의 사람으로 — 중국어면 메이, 영어면 «영어에서 마지막에 고른 사람».
+     ⛔ announce 를 주지 마세요: 언어 안내 바로 뒤에 인사 음성까지 겹칩니다. */
+  if(changed) setVoiceMode(voiceForLang(_warmLang, _savedVoiceEn));
   if(announce && changed && typeof addMsg==='function'){
     addMsg('🗣️ 이제 ' + langInfo(l).ko + '로 이야기해요. 다음 대화부터 바뀌어요!', 'sys');
   }
@@ -1176,6 +1245,10 @@ function probeSuggestLang(){
       if(!d || !d.ok || d.suggest_lang !== 'zh') return;
       if(_warmLangChosen) return;          // 그 사이 학생이 골랐다 — 덮지 않는다
       _warmLang = 'zh';                    // ⛔ setWarmLang 을 쓰지 않는다: 저장하면 «학생이 고른 것» 이 된다
+      /* 🀄 화면도 그 언어로 맞춘다 — renderSetup 은 언어·연령·단계 칸만 다시 그리고
+         친구 칸은 정적 HTML 이라 «영어 그대로» 남는다. 저장 없이 둘만 맞춘다.
+         ⛔ 여기서 setVoiceMode 를 부르지 마세요 — 그 순간 저장이 일어나 위 ⛔ 가 깨집니다. */
+      syncVoiceBtnsForLang(); applyVoiceFace();
       renderSetup();
     }).catch(function(){});
 }
@@ -1347,7 +1420,9 @@ function pickVoice(){
   }catch(e){}
 }
 try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
-setVoiceMode(_voiceMode);   // 저장된 목소리 선택으로 버튼/표시 초기화 (announce 없음)
+// 저장된 목소리 선택으로 버튼/표시 초기화 (announce 없음).
+// 🀄 «지금 언어» 에 맞는 사람으로 — 이 줄이 도는 시점에는 _warmLang 이 이미 정해져 있다.
+setVoiceMode(voiceForLang(_warmLang, _savedVoiceEn));
 setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초기화
 
 /* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
@@ -1928,20 +2003,32 @@ async function initGreeting(){
     }
   }catch(e){}
   updateTopicChip();
-  // 🎯 개인화(Neo4j): 이 학생의 복습 포인트가 있으면 긍정 프레임으로 안내 (AI도 이 표현을 우선 질문함)
-  if(WCTX.weak && WCTX.weak.length){
+  /* 🎯 개인화(Neo4j): 이 학생의 복습 포인트가 있으면 긍정 프레임으로 안내 (AI도 이 표현을 우선 질문함)
+     🀄 중국어에서는 안 그린다 — 이 소재(getWeakSentences)는 서버가 isEnglishText 로 걸러
+        «영어 문장만» 돌려준다(warmup-graph.ts). 그래서 중국어 수업에 영어 문장이 올라온다.
+     ⛔ 중국어 문장으로 바꿔서 살리지 마세요 — 중국어 취약문장을 쌓는 경로가 아직 없습니다.
+        지금은 «없는 것» 을 감추는 편이 거짓말을 안 합니다(위 wusFind 와 같은 판단). */
+  if(!isZh() && WCTX.weak && WCTX.weak.length){
     var pts = WCTX.weak.slice(0,3).map(function(w){ return '"'+w.text+'"'; }).join(' · ');
     addMsg('🎯 오늘의 연습 포인트: ' + pts + '\n이 표현들이 나오면 자신 있게 말해보세요!', 'sys');
   }
-  // 💪 게임 취약 단어(/api/games/recommend, 룰 기반): 비차단 로드 — 인사를 지연시키지 않고 도착하면 한 줄 안내
+  /* 💪 게임 취약 단어(/api/games/recommend, 룰 기반): 비차단 로드 — 인사를 지연시키지 않고 도착하면 한 줄 안내
+     🀄 «그 언어의 게임 기록» 만 본다(2026-09-14 사장님 제보 — 중국어 수업에 fast·moon·big 이 떴다).
+        옛 코드는 lang=en 하드코딩이었다. 서버는 game_progress.lang 으로 이미 갈라 두고 있어서
+        화면이 언어를 실어 보내기만 하면 된다(handleGamesRecommend).
+     ⚠️ 중국어 게임 기록이 없으면 d.weak 가 비어 이 줄이 «아예 안 뜬다» — 영어 단어가
+        중국어 수업에 올라오는 일은 그 자리에서 사라진다. 없는 것을 지어내지 않는다. */
   (function(){
     var ruid = getLoginId(); if(!ruid) return;
-    fetch((API_BASE||'') + '/api/games/recommend?user_id=' + encodeURIComponent(ruid) + '&lang=en')
+    var rlang = isZh() ? 'zh' : 'en';
+    fetch((API_BASE||'') + '/api/games/recommend?user_id=' + encodeURIComponent(ruid) + '&lang=' + rlang)
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if(!d || !d.ok || !d.weak || !d.weak.length) return;
+        // ⚠️ 기다리는 사이 학생이 언어를 바꿨으면 그리지 않는다 — 다른 언어 단어가 올라온다.
+        if(rlang !== (isZh() ? 'zh' : 'en')) return;
         var ws = d.weak.slice(0,3).map(function(w){ return w.item + (w.ko ? '(' + w.ko + ')' : ''); }).join(' · ');
-        addMsg('💪 게임에서 어려웠던 단어: ' + ws + '\n오늘 대화에서 한 번씩 써보면 금방 익숙해져요!', 'sys');
+        addMsg('💪 ' + (rlang === 'zh' ? '중국어 ' : '') + '게임에서 어려웠던 단어: ' + ws + '\n오늘 대화에서 한 번씩 써보면 금방 익숙해져요!', 'sys');
       }).catch(function(){});
   })();
   // 오늘 교재가 확인되면 → AI가 교재 기반 첫 질문으로 시작
