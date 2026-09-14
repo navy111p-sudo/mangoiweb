@@ -10009,7 +10009,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
   <!-- 🔎 녹화 검색 + 페이지네이션 (Phase 3) -->
   <div data-gc="🔍 녹화 검색" data-gc-en="Search" id="rec-search-bar" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 8px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
-    <input id="rec-q" type="search" placeholder="방 ID / 교사 이름 또는 ID" data-ko-placeholder="방 ID / 교사 이름 또는 ID" data-en-placeholder="Room ID / Teacher name or ID" style="flex:2;min-width:200px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
+    <input id="rec-q" type="search" placeholder="방 ID / 교사·학생 이름 또는 ID" data-ko-placeholder="방 ID / 교사·학생 이름 또는 ID" data-en-placeholder="Room ID / teacher or student name / ID" style="flex:2;min-width:200px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
     <input id="rec-date-from" type="date" title="시작 날짜" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
     <span style="color:#6b7280;font-size:12px;">~</span>
     <input id="rec-date-to"   type="date" title="종료 날짜" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
@@ -10074,6 +10074,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <input id="recf-text" type="search" placeholder="방 · 교사 글자"
            data-ko-placeholder="방 · 교사 글자" data-en-placeholder="Room · teacher text"
            title="지금 쪽에 있는 방 번호·교사 이름에서 찾습니다" data-ko-title="지금 쪽에 있는 방 번호·교사 이름에서 찾습니다" data-en-title="Search room id / teacher within the loaded page"
+           style="flex:0 1 170px;min-width:120px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px;" />
+
+    <!-- 🎓 2026-09-14 사장님 「학생이름도 검색칸을 만들어줘」 — 학생 «전용» 칸.
+         위 칸도 학생을 함께 보지만(2026-09-04) 안내가 「방 · 교사」라 아무도 몰랐다.
+         이 칸은 학생 이름·아이디(r.students)만 본다 — 교사 이름을 쳐도 안 걸린다(판정 _recPassColF). -->
+    <input id="recf-student" type="search" placeholder="학생 이름 · 아이디"
+           data-ko-placeholder="학생 이름 · 아이디" data-en-placeholder="Student name · ID"
+           title="지금 쪽에 있는 학생 이름·아이디에서 찾습니다" data-ko-title="지금 쪽에 있는 학생 이름·아이디에서 찾습니다" data-en-title="Search student name / ID within the loaded page"
            style="flex:0 1 170px;min-width:120px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px;" />
 
     <select id="recf-part" title="총 참여도" data-ko-title="총 참여도로 거릅니다" data-en-title="Filter by engagement" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px;">
@@ -10223,7 +10231,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=213" defer></script><!-- v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
+<script src="/js/adm-core.js?v=214" defer></script><!-- v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
      버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
      등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
      는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간

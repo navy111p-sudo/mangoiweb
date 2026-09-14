@@ -18,6 +18,7 @@
    ⚠️ 고친 파일을 다시 잴 때는 캐시를 우회한다(?_nc=) — 편집 전 사본이 그대로 나온다.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -41,9 +42,9 @@ const RECS = [
   // id, room, teacher, 시작, 길이, 참가자, 점수, file_url
   { id: 1, room_id: 'class-901', teacher_name: 'Zed',    started_at: T0 - 5000, duration_ms:  30 * 1000,      size_bytes: 0,                  participant_names: '[]',                 consented_user_ids: '[]',      status: 'aborted',       gaze_score: null, speaking_score: null, file_url: null },
   { id: 2, room_id: 'class-902', teacher_name: 'Anna',   started_at: T0 - 4000, duration_ms:  5 * 60 * 1000,  size_bytes: 3 * 1048576,        participant_names: '["a"]',              consented_user_ids: '["a"]',   status: 'completed',     gaze_score: 92,   speaking_score: 88,   file_url: 'class-902/x.webm' },
-  { id: 3, room_id: 'class-903', teacher_name: 'Bella',  started_at: T0 - 3000, duration_ms: 20 * 60 * 1000,  size_bytes: 40 * 1048576,       participant_names: '["a","b"]',          consented_user_ids: '["a"]',   status: 'completed',     gaze_score: 60,   speaking_score: 60,   file_url: 'class-903/x.webm' },
+  { id: 3, room_id: 'class-903', teacher_name: 'Bella',  started_at: T0 - 3000, duration_ms: 20 * 60 * 1000,  size_bytes: 40 * 1048576,       participant_names: '["a","b"]',          consented_user_ids: '["a"]',   status: 'completed',     gaze_score: 60,   speaking_score: 60,   file_url: 'class-903/x.webm', students: [{ name: '김하나', uid: 'kimhana' }] },
   { id: 4, room_id: 'class-904', teacher_name: 'Carl',   started_at: T0 - 2000, duration_ms: 45 * 60 * 1000,  size_bytes: 300 * 1048576,      participant_names: '["a","b","c"]',      consented_user_ids: '["a"]',   status: 'completed',     gaze_score: 20,   speaking_score: 30,   file_url: 'class-904/x.webm' },
-  { id: 5, room_id: 'class-905', teacher_name: 'Dora',   started_at: T0 - 1000, duration_ms: 12 * 60 * 1000,  size_bytes: 15 * 1048576,       participant_names: '["a","b"]',          consented_user_ids: '[]',      status: 'upload_failed', gaze_score: null, speaking_score: null, file_url: null },
+  { id: 5, room_id: 'class-905', teacher_name: 'Dora',   started_at: T0 - 1000, duration_ms: 12 * 60 * 1000,  size_bytes: 15 * 1048576,       participant_names: '["a","b"]',          consented_user_ids: '[]',      status: 'upload_failed', gaze_score: null, speaking_score: null, file_url: null, students: [{ name: '박두리', uid: 'parkduri' }] },
   { id: 6, room_id: 'class-906', teacher_name: 'Emma',   started_at: T0 - 500,  duration_ms:  8 * 60 * 1000,  size_bytes: 9 * 1048576,        participant_names: '["a"]',              consented_user_ids: '[]',      status: 'completed',     gaze_score: 70,   speaking_score: null, file_url: 'class-906/x.webm' },
 ];
 const BLOBS = RECS.filter(r => r.file_url).map(r => ({ key: r.file_url, url: '/blob/' + r.file_url, size: r.size_bytes, uploaded: new Date(r.started_at + r.duration_ms).toISOString() }));
@@ -94,6 +95,12 @@ async function main() {
 
   const c = await cdp();
   await c.send('Page.enable'); await c.send('Runtime.enable');
+  /* ⚠️ 크롬 프로필이 실행 사이에 남아 adm-core.js?v=… 를 HTTP 캐시에서 준다 — ?_nc= 는 HTML 에만
+     걸린다. 그대로 두면 «고친 JS 를 되돌려도 통과»(2026-09-14 변이시험에서 실측 43/43 초록).
+     CLAUDE.md 2장: 캐시와 서비스워커 «둘 다» 끈다. */
+  await c.send('Network.enable');
+  await c.send('Network.setCacheDisabled', { cacheDisabled: true });
+  await c.send('Network.setBypassServiceWorker', { bypass: true });
   await c.send('Page.addScriptToEvaluateOnNewDocument', { source: BOOT });
   await c.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/admin.html?_nc=${Date.now()}` });
   await sleep(5000);
@@ -110,7 +117,20 @@ async function main() {
   await sleep(1500);
 
   const roomsOf = () => ev('[...document.querySelectorAll("#recordings-table tr")].map(t=>(t.children[0]||{}).textContent||"").join(",")');
-  const setF = async (id, v) => { await ev(`(function(){var e=document.getElementById("${id}");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("${id === 'recf-text' ? 'input' : 'change'}"));})()`); await sleep(150); };
+  const setF = async (id, v) => { await ev(`(function(){var e=document.getElementById("${id}");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("${/^recf-(text|student)$/.test(id) ? 'input' : 'change'}"));})()`); await sleep(150); };
+
+  /* 전제 — 브라우저가 «지금 디스크의» 판정 함수를 실행하는가. 캐시가 옛 사본을 주면 아래
+     검사가 전부 헛돈다(변이를 넣어도 초록). 소스에서 오려 낸 함수 본문과 글자를 대조한다. */
+  {
+    const src = readFileSync(join(PUBLIC, 'js', 'adm-core.js'), 'utf8');
+    const f0 = src.indexOf('function _recPassColF(r) {');
+    let d = 0, e = -1;
+    for (let i = src.indexOf('{', f0); i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}') { d--; if (!d) { e = i + 1; break; } } }
+    const onDisk = src.slice(f0, e).replace(/\s+/g, ' ');
+    const inPage = String(await ev('typeof _recPassColF === "function" ? _recPassColF.toString() : ""')).replace(/\s+/g, ' ');
+    check('전제: 브라우저가 지금 디스크의 _recPassColF 를 실행한다(캐시 아님)', onDisk.length > 50 && onDisk === inPage,
+      'disk=' + onDisk.length + ' page=' + inPage.length);
+  }
 
   console.log('\n── ① 표와 필터 줄이 «보이는가» ──────────────────────');
   check('6건이 최신순으로 그려졌다', (await roomsOf()) === 'class-906,class-905,class-904,class-903,class-902,class-901', await roomsOf());
@@ -165,6 +185,27 @@ async function main() {
   check('「녹화가 없다」가 아니라 「필터에 맞는 것이 없다」로 말한다', /표 안 필터에 맞는/.test(empty) && /6건 있음/.test(empty), empty);
   await setF('recf-text', '');
 
+  /* 🎓 2026-09-14 — 학생 «전용» 칸(recf-student). 「걸린다」 옆에 「교사 이름으로는 안 걸린다」를
+     짝으로 둔다 — 앞만 보면 옛 text 칸(학생도 봄)을 그대로 이어도 통과한다. */
+  console.log('\n── ③-2 학생 전용 칸 ────────────────────────────────');
+  const stuVis = await ev('(function(){var e=document.getElementById("recf-student");return e?JSON.stringify({op:!!e.offsetParent,ph:e.placeholder}):null})()');
+  check('학생 칸이 화면에 붙어 있고 안내가 「학생」을 말한다', /"op":true/.test(stuVis) && /학생/.test(stuVis), stuVis);
+  await setF('recf-student', '하나');
+  check('학생 이름 일부 → 903 만', (await roomsOf()) === 'class-903', await roomsOf());
+  await setF('recf-student', 'PARKDURI');
+  check('학생 아이디(대소문자 무시) → 905 만', (await roomsOf()) === 'class-905', await roomsOf());
+  await setF('recf-student', 'Bella');
+  /* ⚠️ 0건일 때 표에는 «필터에 맞는 것이 없다» 한 줄(td.empty)이 남으므로 roomsOf 는 빈 문자열이 아니다 — 그 줄로 판정 */
+  check('교사 이름을 학생 칸에 치면 0건 (짝 — 두 칸이 같은 칸이 아니다)', /표 안 필터에 맞는/.test(await roomsOf()) && !/class-/.test(await roomsOf()), await roomsOf());
+  const emptyS = await ev('(document.querySelector("#recordings-table td.empty")||{}).textContent');
+  check('   그때도 「필터에 맞는 것이 없다」로 말한다', /표 안 필터에 맞는/.test(emptyS) && /6건 있음/.test(emptyS), emptyS);
+  await setF('recf-student', '하나'); await setF('recf-text', 'bell');
+  check('방·교사 칸과 학생 칸은 AND 로 겹친다 → 903', (await roomsOf()) === 'class-903', await roomsOf());
+  await setF('recf-text', 'zed');
+  check('   한쪽만 어긋나도 0건', /표 안 필터에 맞는/.test(await roomsOf()) && !/class-/.test(await roomsOf()), await roomsOf());
+  await setF('recf-text', ''); await setF('recf-student', '');
+  check('둘 다 비우면 6건 전부', (await roomsOf()) === 'class-906,class-905,class-904,class-903,class-902,class-901', await roomsOf());
+
   console.log('\n── ④ 머리글 정렬 ───────────────────────────────────');
   await ev('window.recSortBy("dur")'); await sleep(150);
   check('시간 ▲ (짧은 것부터)', (await roomsOf()) === 'class-901,class-902,class-906,class-905,class-903,class-904', await roomsOf());
@@ -194,12 +235,14 @@ async function main() {
   check('그린 값이 내림차순으로 읽힌다 (90.0,70.0,60.0,25.0,—,—)', drawn === '90.0%,70.0%,60.0%,25.0%,—,—', drawn);
 
   console.log('\n── ⑥ 초기화 / 정렬 표시 / 언어 ─────────────────────');
-  await setF('recf-part', 'high');
+  await setF('recf-part', 'high'); await setF('recf-student', '하나');
   await ev('(function(){document.getElementById("recf-reset").click()})()'); await sleep(200);
   check('초기화 → 6건 전부 돌아온다', (await roomsOf()) === 'class-906,class-905,class-904,class-903,class-902,class-901', await roomsOf());
   check('   정렬도 함께 지워진다', (await ev('document.querySelectorAll("#card-recording-storage th.rec-sort-on").length')) === 0);
   check('   선택 상자도 전부 「전체」로 돌아온다',
     (await ev('["recf-part","recf-dur","recf-size","recf-users","recf-play"].map(i=>document.getElementById(i).value).join(",")')) === 'all,all,all,all,all');
+  check('   학생 칸도 비워진다',
+    (await ev('document.getElementById("recf-student").value + "|" + document.getElementById("recf-text").value')) === '|');
 
   await ev('window.recSortBy("size")'); await sleep(150);
   const onCls = await ev('(function(){var t=document.querySelector("#card-recording-storage th[data-sk=\'size\']");return JSON.stringify({on:t.classList.contains("rec-sort-on"),cur:getComputedStyle(t).cursor,af:getComputedStyle(t,"::after").content})})()');
