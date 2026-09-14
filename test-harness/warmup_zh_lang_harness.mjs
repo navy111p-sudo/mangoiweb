@@ -376,6 +376,82 @@ console.log('\n[ ⑮ 기록 — 칸을 못 붙여도 세션 기록을 통째로 
   check('그 실패를 조용히 넘기지 않는다', /lang 칸 추가 실패[\s\S]{0,80}console\.error|console\.error[\s\S]{0,120}lang 칸 추가 실패/.test(LOG));
 }
 
+console.log('\n[ ⑯ 중국어 교사 «메이» — 언어에 맞는 친구가 나오는가 ]');
+{
+  /* 🔴 왜 이 검사가 필요한가
+     중국어 TTS 는 화자를 안 가린다(구글 만다린 한 목소리). 그래서 중국어에서 영어 친구
+     네 명을 그대로 늘어놓으면 「골랐는데 목소리가 같다」는 «화면이 하는 거짓말» 이 된다.
+     ⚠️ 그리고 이런 것은 문자열로 못 본다 — 표도 함수도 다 «있고» 틀린 것은 «무슨 답이
+        나오는가» 뿐이다. 그래서 오려 내 실제로 돌린다. */
+  const modesSrc = HTML.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
+  const fnSrc = HTML.match(/function voiceForLang\(lang, savedEn, savedZh\)\{[\s\S]*?\n\}/);
+  check('전제: VOICE_MODES 와 voiceForLang 을 오려 냈다', !!modesSrc && !!fnSrc,
+    'modes=' + !!modesSrc + ' fn=' + !!fnSrc);
+  let vf = null, MODES = null;
+  if (modesSrc && fnSrc) {
+    try {
+      const f = new Function(modesSrc[0] + '\n' + fnSrc[0] + '\nreturn { voiceForLang, VOICE_MODES };')();
+      vf = f.voiceForLang; MODES = f.VOICE_MODES;
+    } catch (e) { check('voiceForLang 을 평가할 수 있다', false, e.message); }
+  }
+  if (vf && MODES) {
+    check('중국어 친구(zh:true)가 표에 있다', Object.keys(MODES).some((k) => MODES[k] && MODES[k].zh),
+      '없으면 아래 검사가 전부 뜻을 잃습니다');
+    /* 짝 — 영어 친구에 zh 가 붙으면 영어 화면에서 그 사람이 사라진다 */
+    check('영어 네 친구에는 zh 표시가 없다 (짝)',
+      ['emma', 'jake', 'lily', 'noah'].every((k) => MODES[k] && !MODES[k].zh));
+    check('중국어면 메이가 나온다', vf('zh', 'lily', 'mei') === 'mei');
+    check('중국어인데 기억이 없어도 메이로 떨어진다', vf('zh', 'lily', undefined) === 'mei');
+    check('중국어 자리에 영어 사람이 저장돼 있어도 메이로 떨어진다', vf('zh', 'lily', 'emma') === 'mei');
+    /* 🔴 짝이 없으면 «언제나 메이» 도 통과한다 — 영어가 그대로인지 반드시 함께 본다 */
+    check('영어면 «영어에서 마지막에 고른 사람» 이 그대로다 (짝)', vf('en', 'lily', 'mei') === 'lily');
+    check('영어면 「번갈아」도 그대로다 (짝)', vf('en', 'mix', 'mei') === 'mix');
+    check('영어 자리에 중국어 사람이 저장돼 있으면 Emma 로 떨어진다', vf('en', 'mei', 'mei') === 'emma');
+  }
+
+  /* 화면에서 «감추는가» — 가짜 DOM 으로 실제로 돌린다 */
+  const syncSrc = HTML.match(/function syncVoiceBtnsForLang\(\)\{[\s\S]*?\n\}/);
+  check('전제: syncVoiceBtnsForLang 을 오려 냈다', !!syncSrc);
+  if (syncSrc && MODES) {
+    const run = (zh) => {
+      const btns = ['emma', 'jake', 'lily', 'noah', 'mix', 'mei']
+        .map((v) => ({ v, hidden: false, getAttribute: (k) => (k === 'data-v' ? v : null) }));
+      const note = { hidden: null };
+      const doc = { getElementById: (id) => (id === 'voiceBtns' ? { querySelectorAll: () => btns } : (id === 'voiceZhNote' ? note : null)) };
+      new Function('document', 'isZh', 'VOICE_MODES', syncSrc[0] + '\nsyncVoiceBtnsForLang();')
+        (doc, () => zh, MODES);
+      return { btns, note };
+    };
+    const z = run(true), e = run(false);
+    check('중국어에서는 메이만 보인다',
+      z.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') === 'mei',
+      '보이는 것: ' + z.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') || '없음');
+    check('중국어에서는 «목소리가 한 가지» 안내가 뜬다', z.note.hidden === false,
+      '감추면 「왜 하나뿐이지?」를 학생이 혼자 추측하게 됩니다');
+    /* 🔴 짝 — 없으면 «전부 감추기» 도 통과한다 */
+    check('영어에서는 네 친구와 번갈아가 그대로 보인다 (짝)',
+      e.btns.filter((b) => !b.hidden).map((b) => b.v).join(',') === 'emma,jake,lily,noah,mix',
+      '보이는 것: ' + e.btns.filter((b) => !b.hidden).map((b) => b.v).join(','));
+    check('영어에서는 메이가 감춰진다 (짝)', e.btns.find((b) => b.v === 'mei').hidden === true);
+    check('영어에서는 그 안내가 안 뜬다 (짝)', e.note.hidden === true);
+  }
+
+  /* 배선 — «그 함수를 실제로 부르는가». 호출이 없으면 위 검사가 전부 헛돈다. */
+  check('언어를 바꾸면 친구도 그 언어의 사람으로 바꾼다',
+    /if\(changed\) setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn, _savedVoiceZh\)\)/.test(HTMLC),
+    '안 부르면 중국어를 골라도 Emma 얼굴이 그대로 남습니다');
+  check('부팅도 «지금 언어» 의 사람으로 시작한다',
+    /^setVoiceMode\(voiceForLang\(_warmLang, _savedVoiceEn, _savedVoiceZh\)\);/m.test(HTMLC));
+  check('setVoiceMode 가 끝에 버튼 감추기를 부른다', /syncVoiceBtnsForLang\(\);/.test(HTMLC));
+  /* 🔴 저장 칸이 하나면 언어를 오갈 때 서로를 지운다 — 영어로 돌아오면 Emma 로 초기화된다 */
+  check('고른 친구를 언어별로 따로 적는다',
+    /mangoi_warmup_voice_zh/.test(HTMLC) && /VOICE_MODES\[m\]\.zh\)\{[\s\S]{0,160}mangoi_warmup_voice_zh/.test(HTMLC),
+    '한 칸에 담으면 중국어에서 메이를 고른 순간 영어 선택이 사라집니다');
+  check('「번갈아」가 중국어에서 영어 얼굴을 부르지 않는다',
+    /_voiceMode==='mix'\) return isZh\(\) \? 'mei'/.test(HTMLC),
+    '옛 저장값이 mix 인 채 중국어에 들어오면 영어 얼굴이 나옵니다');
+}
+
 console.log('\n════════════════════════════════════════════════════════════');
 console.log(`  🀄 중국어 대화 하니스: ✅ ${pass} 통과 / ❌ ${fail} 실패`);
 console.log('════════════════════════════════════════════════════════════');

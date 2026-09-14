@@ -74,7 +74,20 @@
        ⛔ Lily·Noah 를 함께 늦추지 마세요 — 그쪽은 사장님이 «이렇게 해 달라» 고 하신 기준입니다.
        ⛔ 입모양 «장 자체» 를 바꿔서 풀 수는 없습니다(원본 영상의 그 순간들입니다).
           근본 해결은 Emma 도 Lily 처럼 «같은 얼굴에서 입만 다른 3장» 으로 만드는 것이고,
-          그건 얼굴을 새로 만드는 별건입니다(사람이 정할 일). */
+          그건 얼굴을 새로 만드는 별건입니다(사람이 정할 일).
+
+   v9: (2026-09-14) 사장님 「중국어 교사는 중국인 얼굴로 하나 만들어 입모양 자연스럽게」 →
+       mei(메이 선생님) 추가. 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
+       🔴 만드는 방법이 중요합니다 — 생성 모델은 «입만» 바꿔 주지 않습니다. 같은 프롬프트로
+          입모양만 다르게 세 장을 뽑으면 얼굴 크기·위치·눈썹이 함께 달라지고, 그러면 v8 이
+          적어 둔 Emma 사고(「입이 빠르다」가 아니라 «얼굴이 덜덜거린다»)가 그대로 재현됩니다.
+       ✅ 그래서 한 장(closed)을 기준으로 나머지를 정렬한 뒤 «입 부위만 오려 얹었습니다» —
+          입 밖은 세 장이 픽셀 단위로 같습니다.
+          [잰 것 — 2026-09-14, 만든 세 장을 그대로 픽셀 비교]
+            closed↔mid  평균 차 0.43 · 바뀐 픽셀 0.33% · 세로 10칸 중 4·5칸만(입 부근)
+            closed↔wide 평균 차 1.01 · 바뀐 픽셀 1.32% · 4·5·6칸만
+          견줄 값(v8 실측): Lily 3.4~4.1 / 2.4~3.4% · Emma(사고) 10.8~15.3 / 11.4~18.3% 전 칸.
+       ⛔ 입모양 세 장을 «각각 따로» 다시 뽑아 넣지 마세요 — 그 순간 위 숫자가 무너집니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -118,7 +131,13 @@
             aspect:0.8, keyed:false, fallback:'emma' },
     noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
             still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' }
+            aspect:0.8, keyed:false, fallback:'jake' },
+    // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
+    //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
+    //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
+    mei:  { frames:{ closed:'/img/mei-closed.webp', medium:'/img/mei-mid.webp', wide:'/img/mei-wide.webp' },
+            still:'/img/mei-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:0.8, keyed:false, fallback:'emma' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
@@ -133,8 +152,21 @@
     if(!video || !canvas) return;
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
-    var curChar = 'emma', cropRect = CHARACTERS.emma.rect;
-    var curPoses = CHARACTERS.emma.poses || CHARACTERS.emma.frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
+    /* 🕐 «모듈이 오기 전에 화면이 고른 얼굴» 을 이어받는다 (2026-09-14).
+       이 파일은 defer 라 화면의 인라인 스크립트가 «먼저» 돕니다. 그때 화면은
+       `window.MangoAvatar && MangoAvatar.setCharacter(...)` 를 부르는데 아직 이 객체가
+       없어서 그 요청이 통째로 버려졌습니다.
+       [잰 것 — 2026-09-14, 저장된 친구를 lily 로 두고 웜업을 연 실측(origin/main 기준)]
+         lily 그림 요청 0건 · teacher-avatar.png·webm(942KB) 요청 2건
+       ⟹ Lily 를 고른 학생도 «첫 답변이 나올 때까지» Emma 얼굴이 보이고, 그 사이 안 쓸
+          942KB 를 받습니다(필리핀 회선). 중국어에서는 «중국어를 골랐는데 서양 얼굴» 이 됩니다.
+       ⚠️ 이 값이 없거나 모르는 이름이면 예전 그대로 emma 로 떨어집니다 — 이 줄을 안 세우는
+          화면(ai-friend·speech-coach)의 동작은 한 글자도 바뀌지 않습니다. */
+    var bootChar = null;
+    try{ bootChar = CHAR_ALIAS[window.__mgAvatarWant] || window.__mgAvatarWant; }catch(e){}
+    if(!CHARACTERS[bootChar]) bootChar = 'emma';
+    var curChar = bootChar, cropRect = CHARACTERS[bootChar].rect;
+    var curPoses = CHARACTERS[bootChar].poses || CHARACTERS[bootChar].frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
     // 🎞 잡음성 순간 변동으로 너무 자주(덜덜) 바뀌는 것 방지 — 한 음절 정도의 최소 유지시간(ms).
     //   FADE_MS 는 전환할 때 앞 화면과 섞는 시간(keyFrame 이 씁니다).
     //   ⚠️ 이 둘은 «안 적은 캐릭터» 의 기본값입니다 — 캐릭터별 값은 CHARACTERS 의 hold/fade.
@@ -147,7 +179,7 @@
     var curHold = MIN_SWITCH_MS, curFade = FADE_MS;
     // 🖼 v6 이미지 캐릭터 상태 — imgFrames 가 null 이 아니면 «영상이 아니라 그림» 을 그리는 중이다.
     var imgFrames = null, imgCur = null, imgAspectDone = false;
-    var keyedNow = (CHARACTERS.emma.keyed !== false);   // 초록 제거가 필요한 캐릭터인가
+    var keyedNow = (CHARACTERS[bootChar].keyed !== false);   // 초록 제거가 필요한 캐릭터인가
     // 캐릭터의 crop 사각형에 맞춰 캔버스 해상도 + 카드 화면비를 함께 갱신(왜곡 방지).
     //   같은 <canvas> 를 여러 캐릭터가 공유하므로, 비율이 다른 캐릭터로 바뀌어도
     //   "캔버스 내부 해상도"와 "화면에 보이는 CSS 박스"가 항상 같은 비율을 유지해야 늘어나 보이지 않는다.
