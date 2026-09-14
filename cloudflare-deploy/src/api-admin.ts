@@ -63,6 +63,7 @@ import { handlePaymentsBoardApi } from './payments-board';                   // 
 import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
+import { studentDuplicateCandidates } from './student-duplicate';         // 👥 학생 수동 등록 «같은 사람» 판정 정본
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -9398,6 +9399,37 @@ LIMIT $limit`;
             ? `이미 «${dup.user_id}» 가 있습니다(대소문자만 다릅니다). 학생 로그인은 대소문자를 구분하지 않으니 다른 아이디를 쓰세요.`
             : '이미 사용 중인 아이디입니다.',
           existing: dup.user_id }, 409);
+      }
+
+      /* 👥 (2026-09-14 사장님 지시) «같은 사람이 이미 있는가» 를 한 번 더 본다.
+         실사고: 정예희 학생이 yahee·yahee1·yahee2 세 계정으로 1분 안에 세 번 등록됐다(전부
+         admin_manual · 각각 비밀번호 있음 → 셋 다 로그인됨). 아이디 중복 검사(위)는 «아이디» 만
+         보므로 번호를 붙여 다시 누르면 그대로 통과한다. 뿌리는 «첫 등록이 됐는지 몰라서 또 누른 것»
+         이라 막는 자리는 로그인이 아니라 «등록» 이다.
+         ✅ 판정 정본은 studentDuplicateCandidates(순수 함수, 아래) — 이름 완전일치 + 부모/학생 번호가
+            «숫자만 남겨» 같을 때만. ⛔ 이름만으로 막지 말 것(동명이인 실재 — 「김사랑」 계정 6개).
+         ✅ 막지 않고 «묻는다»(409 possible_duplicate + existing 목록) — 화면이 「그래도 등록」을 누르면
+            force:true 로 다시 오고 그때는 통과. 진짜 다른 아이(형제 등)일 수 있어 사람이 정한다.
+         ⚠️ 조회가 실패하면 «묻지 않고» 통과(예전 동작) — 등록 자체가 막히는 쪽이 더 나쁘다. */
+      const force = body?.force === true || body?.force === 1 || body?.force === '1';
+      if (!force) {
+        let sameRows: any[] = [];
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT user_id, student_name, korean_name, parent_phone, student_phone, phone, source
+               FROM students_erp
+              WHERE student_name = ? OR korean_name = ? OR username = ?
+              LIMIT 50`
+          ).bind(name, name, name).all();
+          sameRows = rs.results || [];
+        } catch { sameRows = []; }
+        const cands = studentDuplicateCandidates(name, parentPhone, studentPhone, sameRows);
+        if (cands.length) {
+          return json({ ok: false, error: 'possible_duplicate',
+            message: `이미 같은 이름·같은 연락처의 학생이 있습니다: ${cands.map(c => c.user_id).join(', ')}. 같은 학생이면 그 아이디를 쓰고, 다른 학생이면 「그래도 등록」을 누르세요.`,
+            message_en: `A student with the same name and phone already exists: ${cands.map(c => c.user_id).join(', ')}. Use that ID if it is the same student, or press "Register anyway".`,
+            existing: cands }, 409);
+        }
       }
 
       // 비밀번호 — 직접 입력했으면 그대로, 아니면 임시 비밀번호를 만든다.

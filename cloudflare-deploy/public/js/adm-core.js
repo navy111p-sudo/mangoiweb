@@ -11373,7 +11373,11 @@ document.addEventListener('click', (ev) => {
     if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) window.smCloseRegisterModal(); });
   });
 
-  window.smSubmitRegisterStudent = async function () {
+  /* 👥 (2026-09-14) opts.force — 서버가 «같은 이름·같은 연락처의 학생이 이미 있다»(409 possible_duplicate)
+     고 물어 왔을 때, 사람이 「그래도 등록」을 눌러 다시 보내는 길. 처음 누를 때는 절대 force 를 싣지
+     않는다(그러면 묻는 기능이 통째로 죽는다). 실사고: 정예희 yahee·yahee1·yahee2 — 1분 안에 세 번 등록. */
+  window.smSubmitRegisterStudent = async function (opts) {
+    const force = !!(opts && opts.force === true);
     const $ = id => document.getElementById(id);
     const uid = ($('sm-reg-uid')?.value || '').trim();
     const name = ($('sm-reg-name')?.value || '').trim();
@@ -11408,9 +11412,26 @@ document.addEventListener('click', (ev) => {
       const r = await fetch('/api/admin/students/create', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid, name: name, password: password || undefined, student_phone: phone, parent_phone: parentPhone, shop_name: shop, notes: notes })
+        body: JSON.stringify({ user_id: uid, name: name, password: password || undefined, student_phone: phone, parent_phone: parentPhone, shop_name: shop, notes: notes, force: force ? true : undefined })
       });
       const j = await r.json().catch(() => ({}));
+      if (j && j.error === 'possible_duplicate' && Array.isArray(j.existing) && j.existing.length) {
+        // 같은 사람일 가능성 — 막지 않고 «묻는다». 기존 아이디를 보여 주고, 다른 학생이면 「그래도 등록」.
+        const ids = j.existing.map(c => '<b style="font-family:MangoiHanSC,Consolas,monospace">' + _esc(String(c.user_id || '')) + '</b>').join(', ');
+        show(
+          '<div style="font-size:12.5px;line-height:1.7">' +
+            (_L ? '⚠️ A student with the same name and phone already exists: ' : '⚠️ 같은 이름·같은 연락처의 학생이 이미 있습니다: ') + ids + '<br>' +
+            (_L ? 'If this is the same student, use that ID instead of creating another. Only register again if this is a different student (e.g. a sibling).'
+                : '같은 학생이면 새로 만들지 말고 그 아이디를 쓰세요. 다른 학생(형제 등)일 때만 다시 등록하세요.') +
+          '</div>' +
+          '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
+            '<button type="button" class="sm-reg-force" style="padding:6px 12px;font-size:12px;border:1px solid #b91c1c;background:#fff;color:#b91c1c;border-radius:6px;cursor:pointer;font-weight:700">' +
+              (_L ? 'Register anyway (different student)' : '그래도 등록 (다른 학생입니다)') + '</button>' +
+          '</div>');
+        const fb = msg && msg.querySelector('.sm-reg-force');
+        if (fb) fb.addEventListener('click', function () { window.smSubmitRegisterStudent({ force: true }); });
+        return;
+      }
       if (!r.ok || !j.ok) {
         show('⚠️ ' + (j.message || j.error || (_L ? 'Could not register the student.' : '등록하지 못했습니다.')));
         return;
