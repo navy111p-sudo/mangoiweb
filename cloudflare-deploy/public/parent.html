@@ -107,6 +107,14 @@
     border: 2px solid var(--pd-line); border-radius: 12px; margin-bottom: 10px;
   }
   .uid-input:focus { outline: 2px solid var(--pd-gold-fill); outline-offset: 1px; }
+  /* 👁 비밀번호 보기 (2026-09-14) — 입력칸 «안» 오른쪽 끝. 폰에서는 손가락 표적 40px 이상 */
+  .pw-wrap { position: relative; max-width: 400px; margin: 0 auto 8px; }
+  .pw-wrap .uid-input { margin: 0; padding-right: 92px; }
+  .pw-eye { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); height: 36px; padding: 0 10px;
+    display: inline-flex; align-items: center; gap: 4px; background: var(--pd-tint); color: var(--pd-gold);
+    border: 1px solid var(--pd-line-strong); border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; line-height: 1; white-space: nowrap; }
+  .pw-eye:hover { background: var(--pd-tint-strong); }
+  .pw-eye:focus-visible { outline: 2px solid var(--pd-gold-fill); outline-offset: 1px; }
   .uid-go { padding: 12px 26px; background: var(--pd-btn); color: var(--pd-btn-ink); border: 0; border-radius: 999px; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 0 #d97706; }
 
   .empty { padding: 22px 12px; text-align: center; color: var(--pd-muted); font-size: 14px; background: var(--pd-tint); border: 2px dashed var(--pd-line); border-radius: 14px; }
@@ -257,7 +265,11 @@ function showKakaoShareDialog(url) {
       <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
       <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid var(--pd-line-strong);padding-top:16px">
         <label id="pw-label" style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
-        <input id="pw-input" class="uid-input" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="margin:0 auto 8px;display:block" />
+        <!-- 👁 비밀번호 보기 (2026-09-14 사장님 요청) — 아이콘·글자를 «따로» 두고 data-ko/data-en 은 글자 span 에만 (i18n 엔진이 textContent 를 통째로 갈아끼움) -->
+        <div class="pw-wrap">
+          <input id="pw-input" class="uid-input" type="password" autocomplete="current-password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="display:block" />
+          <button id="pw-eye" class="pw-eye" type="button" onclick="pdTogglePw()" aria-pressed="false" aria-label="비밀번호 보기" title="비밀번호 보기" data-ko-aria="비밀번호 보기" data-en-aria="Show password" data-ko-title="비밀번호 보기" data-en-title="Show password"><span id="pw-eye-ico" aria-hidden="true">👁</span><span id="pw-eye-txt" data-ko="보기" data-en="Show">보기</span></button>
+        </div>
         <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
         <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
         <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 12px;cursor:pointer;user-select:none">
@@ -479,8 +491,33 @@ function pdShowPwStep(isSet){
     : '🔑 비밀번호 입력';
   document.getElementById('pw-hint').style.display = isSet ? '' : 'none';
   document.getElementById('pw-go-btn').textContent = isSet ? '🔒 설정하고 열기' : '🔓 확인';
-  const p = document.getElementById('pw-input'); if (p) { p.value=''; p.focus(); }
+  const p = document.getElementById('pw-input');
+  if (p) { p.value=''; p.autocomplete = isSet ? 'new-password' : 'current-password'; p.focus(); }   // 설정(claim) 모드는 «새» 비밀번호 — 브라우저 자동완성 힌트만 다름
+  pdSetPwVisible(false);   // 단계가 다시 열릴 때는 늘 «가린» 상태에서 시작
 }
+
+// 👁 비밀번호 보기/가리기 — type 만 바꾼다(값·Enter 제출·pdPwGo 는 그대로).
+// 라벨은 상태마다 바뀌므로 textContent 와 data-ko/data-en 을 «함께» 갱신한다(CLAUDE.md 「JS 로 그린 라벨」).
+function pdSetPwVisible(show){
+  const p = document.getElementById('pw-input'), b = document.getElementById('pw-eye');
+  if (!p || !b) return;
+  p.type = show ? 'text' : 'password';
+  const en = (window.getLang && getLang() === 'en');
+  const ko = show ? '가리기' : '보기', enTxt = show ? 'Hide' : 'Show';
+  const koA = show ? '비밀번호 가리기' : '비밀번호 보기', enA = show ? 'Hide password' : 'Show password';
+  const ico = document.getElementById('pw-eye-ico'), txt = document.getElementById('pw-eye-txt');
+  if (ico) ico.textContent = show ? '🙈' : '👁';
+  if (txt) { txt.setAttribute('data-ko', ko); txt.setAttribute('data-en', enTxt); txt.textContent = en ? enTxt : ko; }
+  b.setAttribute('data-ko-aria', koA); b.setAttribute('data-en-aria', enA);
+  b.setAttribute('data-ko-title', koA); b.setAttribute('data-en-title', enA);
+  b.setAttribute('aria-label', en ? enA : koA); b.title = en ? enA : koA;
+  b.setAttribute('aria-pressed', show ? 'true' : 'false');
+}
+window.pdTogglePw = function(){
+  const p = document.getElementById('pw-input'); if (!p) return;
+  pdSetPwVisible(p.type === 'password');
+  try { p.focus(); } catch(e){}
+};
 
 // 2단계: 비밀번호 설정(claim) 또는 입력 → 로그인 토큰 발급 → 대시보드
 window.pdPwGo = async function(){
