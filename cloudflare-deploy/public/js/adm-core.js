@@ -5201,10 +5201,10 @@ async function loadFranchises() {
 async function loadMasterBranches() {
   const tb = document.getElementById('mbranches-table');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
+  tb.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중…</td></tr>';
   await _ensureMasterBranches(true);
   if (!_masterBranches.length) {
-    tb.innerHTML = '<tr><td colspan="9" class="empty">'
+    tb.innerHTML = '<tr><td colspan="8" class="empty">'
       + (adminLang==='en' ? 'No master branches yet. Add one above.' : '등록된 대표지사가 없습니다. 위에서 등록하세요.')
       + '</td></tr>';
     return;
@@ -5229,8 +5229,11 @@ async function loadMasterBranches() {
   };
   tb.innerHTML = _masterBranches.map(m => {
     const on = m.active !== 0;
-    return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td>`
-      + `<td style="white-space:nowrap">${_mbrLoginCell(m)}</td><td>${_esc(m.region)||'—'}</td>`
+    /* 🪪 (2026-09-14 2차) 첫 칸은 «행 번호(m.id)» 가 아니라 로그인 아이디 — 사장님이 «1,2,3 이 들어가
+       있는 그 칸에 실제 아이디를» 이라 하셨는데 1차(#969)는 그 번호 칸을 두고 옆에 칸을 더했다.
+       번호는 화면에서 빠지고(수정·상태 버튼은 onclick 인자로 m.id 를 계속 들고 간다) 칸은 8개. */
+    return `<tr${on?'':' style="opacity:.55"'}><td style="white-space:nowrap">${_mbrLoginCell(m)}</td><td><b>${_esc(m.name)}</b></td>`
+      + `<td>${_esc(m.region)||'—'}</td>`
       + `<td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
       + `<td>${Number(m.branch_count)||0}</td>`
       + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" class="org-rowact" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
