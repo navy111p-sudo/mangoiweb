@@ -11429,7 +11429,14 @@ document.addEventListener('click', (ev) => {
               (_L ? 'Register anyway (different student)' : '그래도 등록 (다른 학생입니다)') + '</button>' +
           '</div>');
         const fb = msg && msg.querySelector('.sm-reg-force');
-        if (fb) fb.addEventListener('click', function () { window.smSubmitRegisterStudent({ force: true }); });
+        if (fb) {
+          // 이 모달은 details.menu-card 안이라 admin-inline-c.css 의 «버튼 전역 인디고 !important» 가
+          // 인라인 style 을 이긴다(CLAUDE.md 「관리자 버튼에 색을 줬는데 화면에는 흰색·파랑」).
+          // 인라인 !important 만이 작성자 !important 를 이기므로 setProperty 로 «경고 버튼» 모양을 되살린다.
+          [['background', '#fff'], ['background-image', 'none'], ['color', '#b91c1c'], ['border', '1px solid #b91c1c'],
+           ['padding', '6px 12px'], ['box-shadow', 'none']].forEach(function (kv) { fb.style.setProperty(kv[0], kv[1], 'important'); });
+          fb.addEventListener('click', function () { window.smSubmitRegisterStudent({ force: true }); });
+        }
         return;
       }
       if (!r.ok || !j.ok) {
@@ -11448,7 +11455,11 @@ document.addEventListener('click', (ev) => {
         '</div>' +
         '<div style="margin-top:8px;font-size:12px;line-height:1.7">' +
           (_L ? 'Pass it on to the student/parent and have them change the password after logging in.' : '학생·학부모에게 전달하고, 로그인 후 비밀번호를 바꾸라고 안내하세요.') +
-        '</div>', true);
+        '</div>' +
+        // 서버가 «같은 사람» 확인을 못 한 채 등록했으면(조회 실패) 그 사실을 말한다 — 조용히 넘기면 아무도 모른다.
+        (j.dup_check === 'skipped'
+          ? '<div style="margin-top:6px;font-size:11.5px;color:#92400e">' + (_L ? '⚠️ Duplicate check could not run (lookup failed) — please check the roster for an existing account with the same name.' : '⚠️ 같은 이름·연락처 중복 확인을 못 한 채 등록됐습니다(조회 실패) — 명부에서 같은 이름의 계정이 없는지 한 번 봐 주세요.') + '</div>'
+          : ''), true);
       // 목록을 새로 불러와 방금 등록한 학생이 바로 보이게 한다.
       if (typeof loadStudentList === 'function') loadStudentList();
     } catch (e) {

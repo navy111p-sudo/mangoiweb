@@ -28,6 +28,14 @@ export interface StudentRowLike {
   source?: string | null;
 }
 
+export interface DuplicateGateResult {
+  /** true = 409 로 «묻는다» · false = 등록을 진행한다 */
+  ask: boolean;
+  existing: DuplicateCandidate[];
+  /** 'checked' = 후보를 실제로 셌다 · 'skipped' = 조회가 실패해 묻지 않고 통과(예전 동작) */
+  check: 'checked' | 'skipped';
+}
+
 export interface DuplicateCandidate {
   user_id: string;
   name: string;
@@ -70,4 +78,26 @@ export function studentDuplicateCandidates(
     out.push({ user_id: uid, name: nm, matched_on: matched, source: r?.source == null ? null : String(r.source) });
   }
   return out;
+}
+
+/**
+ * «묻는가» 결정 정본 — 라우트(api-admin.ts)는 이 답만 보고 409 를 돌려준다.
+ *   - force 가 true 면 무엇이 있어도 통과(사람이 「그래도 등록」을 누른 것).
+ *   - rows 가 null 이면 «조회가 실패했다» — 묻지 않고 통과하되 check:'skipped' 로 밝힌다
+ *     (등록 자체가 막히는 쪽이 더 나쁘다 — 그렇다고 조용히 넘기지는 않는다).
+ * ⚠️ 라우트 안의 `if` 에 이 판단을 다시 적지 말 것 — 조건 뒤집기 변이가 문자열 검사를 그대로
+ *    통과한다(2026-09-14 함정 대조 실측). 하니스가 이 함수를 실제로 돌린다.
+ */
+export function duplicateGate(
+  force: unknown,
+  name: string,
+  parentPhone: string | null | undefined,
+  studentPhone: string | null | undefined,
+  rows: StudentRowLike[] | null,
+): DuplicateGateResult {
+  const isForce = force === true || force === 1 || force === '1';
+  if (rows == null) return { ask: false, existing: [], check: 'skipped' };
+  const existing = studentDuplicateCandidates(name, parentPhone, studentPhone, rows);
+  if (isForce) return { ask: false, existing, check: 'checked' };
+  return { ask: existing.length > 0, existing, check: 'checked' };
 }
