@@ -9500,16 +9500,30 @@ LIMIT $limit`;
            화면이 없다. 지사장님들에게 각자 아이디를 공지해야 하는데 공지를 할 수가 없다」)
            지사에는 로그인 계정을 «새로 만드는» 등록칸이 없다(대리점 POST 의 login_username 과
            달리 이 표엔 그런 칸이 처음부터 없었다) — 계정은 admin_scope 에 이름으로 이어질 뿐이라,
-           그 연결을 찾아 «읽기 전용 아이디 칸» 으로 보여 준다. 바로 위 PATCH 의 linkedAccount
-           조회와 **같은 두 조건·같은 정확일치**를 그대로 재사용한다(scope_type='branch' 정확일치
-           우선, 없으면 scope_type='franchise'(지사본사) 콤마목록 안에 있는지 콤마-경계 LIKE로).
-           ⚠️ 후보가 둘 이상이면(같은 이름의 지사가 여럿) 아무거나 하나를 고르지 않는다 —
+           그 연결을 찾아 «읽기 전용 아이디 칸» 으로 보여 준다.
+
+           ⚠️ (trap-check 지적 반영) 처음엔 바로 위 PATCH 의 linkedAccount 조회처럼 branch 쪽을
+           «정확일치»(scope_value = f.name)로 썼는데, 그 값을 실제로 채우는 유일한 경로인
+           scope.ts autoSeedOne() 은 계정 표시이름에서 「지사」를 뗀 «첫 낱말만»(예: "노원 지사"
+           → "노원") scope_value 로 저장하고, 그 값을 실제로 소비하는 scopeFranchiseCond('branch')
+           는 처음부터 **접두어(LIKE value||'%')** 로 지사를 찾는다(org_scope_harness.mjs 의
+           전제도 그렇다). franchises.name 이 "노원지사"처럼 그 접두어보다 길면 정확일치는
+           늘 거짓이라 자동시드된 지사 계정 대부분에서 아이디가 —로 떴을 것이다(PATCH 의 그
+           정확일치는 «이름 바뀔 때 드물게만 도는 경고문» 이라 아무도 못 봤을 뿐, 매번 도는
+           이 표시 칸에서는 기능 자체가 무너진다) — 그래서 여기는 scopeFranchiseCond 와
+           **같은 접두어 매칭**을 쓴다. franchise(지사본사) 쪽은 원래도 접두어가 아니라
+           콤마-경계 LIKE(부분일치 아님)라 그대로 둔다.
+           ⚠️ 후보가 둘 이상이면(같은 접두어를 쓰는 계정이 여럿) 아무거나 하나를 고르지 않는다 —
            남의 지사 아이디가 뜨는 것보다 «—» 로 비워 두는 쪽이 안전하다(CLAUDE.md
-           「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙: 부분일치·모호하면 안 붙임). */
+           「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙: 부분일치·모호하면 안 붙임).
+           ⚠️ (trap-check 지적 반영) franchises.name 은 유일하지 않다(UNIQUE 제약 없음,
+           등록 API 도 중복을 막지 않는다 — CLAUDE.md 의 centers.name 미유일 사례와 같은 구조).
+           같은 이름의 지사 행이 둘 이상이면 어느 쪽 것인지 알 수 없으니 둘 다 —로 비운다. */
         const rs = await env.DB.prepare(
           `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name,
-             (CASE WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'branch' AND scope_value = f.name) = 1
-                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value = f.name LIMIT 1)
+             (CASE WHEN (SELECT COUNT(*) FROM franchises WHERE name = f.name) > 1 THEN NULL
+                   WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%') = 1
+                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%' LIMIT 1)
                    WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%')) = 1
                    THEN (SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%') LIMIT 1)
                    ELSE NULL END) AS login_id
@@ -9518,7 +9532,16 @@ LIMIT $limit`;
              LEFT JOIN master_branches m ON m.id = mm.master_id${_fWhere}
             ORDER BY f.active DESC, f.name ASC`
         ).bind(..._fCond.binds).all();
-        return json({ ok: true, items: rs.results || [], scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
+        const _frItems = rs.results || [];
+        /* 🔒 (trap-check 지적 반영) 로그인 계정명은 «본사가 공지하려고» 보는 정보다.
+           지사·대리점 스코프 계정은 이미 이 API 를 스코프가 잘린 채로 쓸 수 있는데(위 _fWhere),
+           branch 계정은 접두어 매칭이라 «형제 지사」까지 함께 보일 수 있고, agency 계정은
+           자기가 속한 지사의 로그인 아이디를 이 API 에서 «처음으로» 보게 된다 — 새로 넣는
+           칸이니 굳이 넓힐 이유가 없다. 본사(hq/none)에게만 싣는다. */
+        if (!canEditOrg(_fSc)) {
+          for (const it of _frItems as any[]) delete it.login_id;
+        }
+        return json({ ok: true, items: _frItems, scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
       }
 
       /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성·수정 전부. 화면에서 버튼을 감추는 것만으로는
