@@ -491,7 +491,8 @@ function pdShowPwStep(isSet){
     : '🔑 비밀번호 입력';
   document.getElementById('pw-hint').style.display = isSet ? '' : 'none';
   document.getElementById('pw-go-btn').textContent = isSet ? '🔒 설정하고 열기' : '🔓 확인';
-  const p = document.getElementById('pw-input'); if (p) { p.value=''; p.focus(); }
+  const p = document.getElementById('pw-input');
+  if (p) { p.value=''; p.autocomplete = isSet ? 'new-password' : 'current-password'; p.focus(); }   // 설정(claim) 모드는 «새» 비밀번호 — 브라우저 자동완성 힌트만 다름
   pdSetPwVisible(false);   // 단계가 다시 열릴 때는 늘 «가린» 상태에서 시작
 }
 
