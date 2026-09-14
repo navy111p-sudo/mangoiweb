@@ -16,6 +16,7 @@ import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판�
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
+import { azureZhVoice, azureTts } from './azure-tts';  // 🀄 중국어 «진짜 남성 성우»(키 없으면 자동으로 건너뜀)
 import type { MangoEnv } from './api-mango';
 // ✒️ 문장 종결부호 정본 — 문제문·해설·읽을 문장에만 씁니다(2026-08-26).
 //    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
@@ -2456,6 +2457,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 🔁 R2 캐시: 같은 단어/문장은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공.
         //   무료 뉴런 소진(429) 후에도 캐시본이 있으면 계속 소리가 난다.
         const r2: any = (env as any).RECORDINGS;
+        /* 🀄 «진짜 남성 성우» 를 콕 집어 달라는 요청인가(Azure Speech).
+           ⛔ 본문 값을 그대로 쓰지 마세요 — 돈이 나가는 API 라 아는 이름만 받습니다.
+              모르는 값이면 null 이 되어 예전 경로(구글 만다린 여성)로 그대로 갑니다.
+           ⚠️ 캐시 키를 «실제로 쓴 목소리» 로 갈라 둡니다 — 안 가르면 같은 문장의
+              옛 여성 캐시본이 먼저 걸려 남자 목소리가 영영 안 나옵니다. */
+        const azVoice = (lang.startsWith('zh') || lang === 'cn') ? azureZhVoice(b.azure_voice) : null;
         let cacheKey = '';
         try {
           // v2: 영어 TTS 를 Aura-2 로 올리면서 캐시 세대 교체 (v1 캐시본은 구형 Aura-1 음성)
@@ -2464,7 +2471,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           //     앱 네이티브 TTS/브라우저 음성을 우선하도록 정리됨. 서버 zh 는 최후 폴백일 뿐.
           // v4: Aura-1 폴백 음성이 «요청 화자» 키로 저장되던 오염 제거(2026-08-31).
           //     Lily(delia)가 한 번 폴백하면 그 문장은 영영 Emma 목소리(asteria)로 재생됐다.
-          const enc = new TextEncoder().encode('v4|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          const spk0 = azVoice ? 'azure:' + azVoice : String(b.speaker || 'asteria');
+          const enc = new TextEncoder().encode('v4|' + lang + '|' + spk0 + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
@@ -2475,7 +2483,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           try {
             const hit = await r2.get(cacheKey);
             if (hit) return new Response(hit.body, { headers: { ...audioHeaders,
-              'X-TTS-Engine': 'r2-cache', 'X-TTS-Speaker': String(b.speaker || 'asteria').toLowerCase() } });
+              'X-TTS-Engine': azVoice ? 'r2-cache:azure' : 'r2-cache',
+              'X-TTS-Speaker': (azVoice || String(b.speaker || 'asteria')).toLowerCase() } });
           } catch {}
         }
         /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
@@ -2527,8 +2536,31 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         //   불량 WAV(51KB짜리 "앙캉캉캉" 잡음)를 반환해 크기검사로도 못 거른다. 그래서 zh 는
         //   Google 번역 TTS(원어민 만다린 MP3)를 1순위로 쓰고, 실패 시에만 MeloTTS 로 폴백한다.
         if (lang.startsWith('zh') || lang === 'cn') {
+          /* 🀄 중국어 «진짜 남성 성우» — 2026-09-14 사장님 「남자목소리를 가져올 방법??」
+             그전에는 이 갈래가 구글 만다린 «한 목소리»(여성)뿐이라, 화면이 그 소리를
+             브라우저에서 굵게 만들어 남자처럼 들리게 했습니다(warmup.html 의 _zhDeepen).
+             ⛔ 이 갈래를 «중국어 전부» 로 넓히지 마세요 — 메이(여자)는 지금 소리가 맞고,
+                지금 잘 나는 것을 바꾸는 변경이 됩니다. 이름을 콕 집었을 때만 탑니다.
+             ⚠️ 실패하면 «아래 예전 경로» 로 그대로 내려갑니다 — 소리가 아예 안 나는 것이 최악입니다.
+                왜 실패했는지는 응답 헤더(X-TTS-Fallback)로 말해 줍니다(추측하지 않게). */
+          let azFail = '';
+          if (azVoice) {
+            const az = await azureTts(env as any, text, azVoice, 'zh-CN');
+            if (az.ok) {
+              await putCache(az.bytes);
+              return new Response(az.bytes, { headers: { ...audioHeaders,
+                'X-TTS-Engine': 'azure', 'X-TTS-Speaker': azVoice.toLowerCase() } });
+            }
+            azFail = az.reason;
+            console.warn('[voice/tts] azure zh failed:', azFail);
+          }
+          const zhHeaders = azFail
+            ? { 'X-TTS-Engine': 'gtts', 'X-TTS-Fallback': azFail }
+            : { 'X-TTS-Engine': 'gtts' };
           try {
-            return await gtts(text, 'zh-CN');
+            const gr = await gtts(text, 'zh-CN');
+            for (const [k, v] of Object.entries(zhHeaders)) gr.headers.set(k, v);
+            return gr;
           } catch (gErr: any) {
             console.warn('[voice/tts] google zh failed, fallback melotts:', gErr?.message);
             try {

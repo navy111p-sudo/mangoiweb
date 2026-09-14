@@ -13,11 +13,20 @@
      이 컨테이너에는 오디오 디코더가 없어 클로드는 소리를 들을 수 없습니다 —
      값을 혼자 고르는 방식은 원리상 실패합니다. 그래서 선택권을 사람에게 넘깁니다.
 
-  🔴 서버 중국어 TTS 는 목소리가 «하나» 뿐입니다(구글 만다린, 여성).
+  📜 2026-09-14 저녁 사장님 「그럼 혹시 다른 방법은 없니?? 남자목소리를 가져올 방법??」
+     → 있었습니다. 이 화면은 그 뒤로 «두 갈래» 를 나란히 들려줍니다.
+
+  ① 🎙 진짜 남성 성우 — Azure Speech (정본 src/azure-tts.ts)
+     AZURE_SPEECH_KEY 는 이미 이 서비스에 있습니다(발음 코칭이 그 키로 채점합니다 —
+     D1 실측 2026-09-14: 최근 60일 voice_coaching 410건 중 136건이 azure_used=1).
+     Speech 리소스 하나가 «인식·발음평가·합성» 을 다 하므로 따로 계약할 것이 없습니다.
+     ⚠️ 그래도 «그 키로 합성까지 되는가» 는 요금제·지역에 달려 있어 사람이 눌러야 압니다.
+        안 되면 서버가 예전 경로로 내려가고 화면이 X-TTS-Fallback 사유를 말합니다.
+
+  ② 🔊 여자 목소리를 굵게 만든 것 — 옛 방식이자 ①이 안 될 때의 폴백
      src/api-games.ts 의 /api/voice/tts 는 lang 이 zh 면 gtts(text,'zh-CN') 한 줄이고
      그 함수에 화자 인자가 없습니다 — speaker 는 캐시 키에만 쓰입니다.
-     ⟹ «다른 사람 4명» 은 만들 수 없습니다. 낼 수 있는 선택지는
-        ① 그 한 목소리를 «굵게» 만든 단계들  ② 기기에 깔린 중국어 음성 뿐입니다.
+     그래서 그동안은 그 «한 목소리»(여성)를 브라우저에서 굵게 만들어 썼습니다.
 
   ⚠️ 굽는 방법·재생 배속 보정·기기 목소리 음높이는 warmup.html 의
      _zhDeepen / play0 / _synthSpeak 와 «같은 값·같은 식» 입니다. 그래야 여기서 들은 소리가
@@ -25,6 +34,8 @@
      ⛔ 여기 식을 «더 좋게» 고치지 마세요 — 고치는 순간 이 화면이 거짓말을 합니다.
         정본을 바꾸려면 warmup.html 을 바꾸고 이 화면도 함께 맞추세요.
      ✅ 어긋나면 warmup_zh_lang_harness 가 FAIL 냅니다(굵기 값·목록·굽는 식·기기 음높이).
+     ✅ Azure 쪽은 azure_tts_zh_harness 가 봅니다(아는 이름만 받는가·실패해도 소리가 나는가·
+        「소리가 났다」를 「그 성우로 났다」로 읽지 않는가·이미 남자인 소리를 또 굽지 않는가).
 
   ⚠️ 기기 목소리 쪽 판정(«수업이 어느 목소리를 고르는가»)도 정본을 그대로 옮겼습니다.
      ⛔ «목록에 남자가 있는가» 로 넓히지 마세요 — 정본은 «점수가 가장 높은 그 하나가
@@ -101,12 +112,14 @@
   <p class="sub">中文声音选择 — 웜업(수업 전 대화)에서 쓸 «룽 선생님» 목소리</p>
 
   <div class="note">
-    <p style="margin:0 0 6px"><b>먼저 알려 드릴 것</b> — 서버에 있는 중국어 목소리는
-    <b>한 사람뿐</b>입니다(구글 만다린, 여성). 그래서 «서로 다른 사람 네 명»은
-    만들 수 없습니다.</p>
-    <p style="margin:0">대신 그 목소리를 브라우저에서 <b>굵게 만든 네 단계</b>를 들려드립니다.
-    아래에서 들으시는 소리가 <b>실제 수업에서 나는 소리와 같습니다</b>(굽는 식이 같습니다).
-    A~D 중 하나를 골라 말씀해 주시면 그 값으로 바꿔 배포하겠습니다.</p>
+    <p style="margin:0 0 6px"><b>두 가지를 들려드립니다</b> — 위쪽은 <b>진짜 남자 성우</b>(Azure Speech,
+    네 사람), 아래쪽은 지금 쓰는 <b>여자 목소리를 굵게 만든 것</b>(네 단계)입니다.</p>
+    <p style="margin:0 0 6px">그동안 굵게 만들어 썼던 이유는, 서버가 쓰던 구글 만다린 창구에
+    <b>목소리가 한 사람(여성)뿐</b>이고 화자를 고를 수가 없었기 때문입니다.
+    오늘 <b>Azure 길을 새로 붙였습니다</b> — 발음 코칭이 이미 쓰고 있는 그 키라 따로 계약할 것이 없습니다.</p>
+    <p style="margin:0">⚠️ 다만 그 키로 <b>합성(TTS)까지 되는지는 눌러 봐야 압니다</b>(요금제·지역에 달려 있습니다).
+    안 되면 화면이 사유를 말하고 아래 «지금 방식» 이 그대로 쓰입니다 — 소리가 안 나는 일은 없습니다.
+    <b>마음에 드는 것 하나를 말씀해 주시면</b> 그것으로 바꿔 배포하겠습니다.</p>
   </div>
 
   <div class="say">
@@ -119,10 +132,19 @@
     <label><input type="radio" name="rate" value="1"> 보통 속도 (1.0배)</label>
   </div>
 
+  <h2 style="margin-top:0">🎙 진짜 남성 성우 (Azure Speech)</h2>
+  <p class="sub" style="margin:0 0 10px">여자 목소리를 굵게 만든 것이 아니라 <b>처음부터 남자 사람 목소리</b>입니다.
+  발음 코칭이 쓰는 그 키로 나오는 소리라 따로 계약할 것이 없습니다.</p>
+  <div id="azcards"></div>
+  <p class="st" id="azst">▶ 를 누르면 서버가 Azure 로 만들어 보냅니다.</p>
+
+  <h2>🔊 지금 방식 — 서버 여자 목소리를 굵게 만든 것</h2>
+  <p class="sub" style="margin:0 0 10px">위 성우를 못 쓰게 되면 이쪽이 쓰입니다. 비교해서 들어 보세요.</p>
   <div id="cards"></div>
   <p class="st" id="st">▶ 버튼을 누르면 서버에서 소리를 한 번 받아 옵니다(처음 한 번만 조금 걸립니다).</p>
   <p class="hint">ℹ️ 어느 것이 좋은지는 <b>들어 보셔야 압니다</b> — 저(클로드)는 이 환경에서 소리를
-  들을 수 없어, 각 단계가 어떻게 들리는지는 판단하지 않았습니다. 적어 둔 것은 잰 값(음높이 비율)뿐입니다.</p>
+  들을 수 없어, 각 후보가 어떻게 들리는지는 판단하지 않았습니다. 적어 둔 것은 잰 값(음높이 비율)과
+  Azure 가 밝힌 목소리 성격뿐입니다.</p>
 
   <h2>📱 이 기기에 깔린 중국어 목소리</h2>
   <div class="dev" id="dev">확인하는 중…</div>
@@ -148,6 +170,17 @@ var LIST = [
 ];
 /* ⛔ 0.7 미만은 넣지 않습니다 — «괴물 목소리» 가 되고, 재생 보정 배속(S/P)이 커져
    시간축 늘이기 왜곡(«뚜벅뚜벅»)도 함께 커집니다. */
+
+/* 🎙 진짜 남성 성우 — 서버가 Azure Speech 로 만들어 줍니다(정본 src/azure-tts.ts).
+   ⛔ 여기 이름을 늘릴 때는 서버의 AZURE_ZH_VOICES 에도 함께 넣으세요 —
+      서버는 «아는 이름» 만 받고 모르면 예전 여자 목소리로 그냥 내려갑니다(돈이 나가는 API).
+   ⛔ 이 소리는 «이미 남자» 라 굽지 않습니다 — 굽으면 두 번 낮아져 «괴물 목소리» 가 됩니다. */
+var AZ_LIST = [
+  { id:'yunxi',   name:'윈시 (Yunxi)',   desc:'젊고 밝은 남성 — 수업 톤에 가장 가깝습니다.' },
+  { id:'yunjian', name:'윈젠 (Yunjian)', desc:'힘있고 또렷한 남성.' },
+  { id:'yunyang', name:'윈양 (Yunyang)', desc:'차분한 남성 — 뉴스 아나운서 톤.' },
+  { id:'yunfeng', name:'윈펑 (Yunfeng)', desc:'담백한 남성.' }
+];
 
 var st = document.getElementById('st');
 function say(t){ st.textContent = t; }
@@ -291,6 +324,76 @@ function play(item, btn){
     b.addEventListener('click', function(){
       if(_curBtn === b){ stopNow(); say('멈췄습니다.'); return; }
       play(item, b);
+    });
+    d.appendChild(hd); d.appendChild(ds); d.appendChild(b);
+    box.appendChild(d);
+  });
+})();
+
+/* 🎙 Azure 성우 — 서버에서 받아 그대로 재생한다(굽지 않는다). */
+(function(){
+  var box = document.getElementById('azcards');
+  var azst = document.getElementById('azst');
+  var cache = {}, cur = null;
+  function say2(t){ azst.textContent = t; }
+  AZ_LIST.forEach(function(v){
+    var d = document.createElement('div'); d.className = 'card';
+    var hd = document.createElement('p'); hd.className = 'hd';
+    var tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = '🎙';
+    hd.appendChild(tg); hd.appendChild(document.createTextNode(v.name));
+    var ds = document.createElement('p'); ds.className = 'd'; ds.textContent = v.desc;
+    var b = document.createElement('button'); b.className = 'play';
+    b.dataset.label = '▶ 듣기'; b.textContent = '▶ 듣기';
+    b.addEventListener('click', function(){
+      if(cur === b){ stopNow(); say2('멈췄습니다.'); return; }
+      stopNow();
+      var mine = _seq;
+      cur = b; b.classList.add('on'); b.textContent = '■ 멈추기';
+      var reset = function(){
+        if(mine !== _seq) return false;
+        b.classList.remove('on'); b.textContent = b.dataset.label; cur = null; return true;
+      };
+      var go = function(u){
+        if(mine !== _seq) return;
+        if(!_audio) _audio = new Audio();
+        _audio.onended = function(){ if(reset()) say2('들으신 것: ' + v.name + '  —  다른 성우도 들어 보세요.'); };
+        _audio.onerror = function(){ if(reset()) say2('⚠️ ' + v.name + ' 를 재생하다 멈췄습니다. 한 번 더 눌러 주세요.'); };
+        _audio.src = u;
+        /* ⛔ 여기서 배속을 나누지 마세요 — 굽지 않은 소리라 나눌 것이 없습니다. */
+        _audio.playbackRate = rate();
+        try{ _audio.preservesPitch = true; _audio.webkitPreservesPitch = true; }catch(e){}
+        say2('🔊 ' + v.name + ' 재생 중 — 속도 ' + rate() + '배');
+        _audio.play().catch(function(){ if(reset()) say2('소리를 재생하지 못했습니다. 한 번 더 눌러 주세요.'); });
+      };
+      if(cache[v.id]){ go(cache[v.id]); return; }
+      say2('🔊 ' + v.name + ' 를 서버에서 만드는 중…');
+      fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ text:TEXT, lang:'zh', speaker:'long', azure_voice:v.id }) })
+        .then(function(r){
+          var ct = r.headers.get('content-type') || '';
+          if(!r.ok || ct.indexOf('audio') < 0) throw new Error('tts ' + r.status);
+          /* 🔴 «소리가 났다» 를 «그 성우로 났다» 로 읽지 마세요 — 서버는 Azure 가 안 되면
+             예전 여자 목소리를 그대로 내려보냅니다(소리가 아예 안 나는 것이 최악이라).
+             그때 X-TTS-Engine 이 gtts 이고 X-TTS-Fallback 에 사유가 실립니다. */
+          var eng = String(r.headers.get('X-TTS-Engine') || '').toLowerCase();
+          var why = r.headers.get('X-TTS-Fallback') || '';
+          return r.blob().then(function(bl){ return { url:URL.createObjectURL(bl), eng:eng, why:why }; });
+        })
+        .then(function(o){
+          if(mine !== _seq) return;
+          if(o.eng.indexOf('azure') < 0){
+            reset();
+            say2('⚠️ 이 계정에서는 Azure 성우를 못 받았습니다'
+                 + (o.why ? ' (' + o.why + ')' : '') + ' — 아래 «지금 방식» 으로 들어 보세요.');
+            return;
+          }
+          cache[v.id] = o.url; go(o.url);
+        })
+        .catch(function(err){
+          if(mine !== _seq) return;
+          reset();
+          say2('⚠️ ' + v.name + ' 를 받지 못했습니다 (' + (err && err.message ? err.message : '알 수 없는 이유') + ').');
+        });
     });
     d.appendChild(hd); d.appendChild(ds); d.appendChild(b);
     box.appendChild(d);
