@@ -9376,7 +9376,7 @@ LIMIT $limit`;
       }
 
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
-      for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
+      for (const [col, type] of [['student_id', 'TEXT'], ['login_id', 'TEXT'], ['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
                                   ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'], ['phone', 'TEXT'],
                                   ['updated_at', 'INTEGER']] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
@@ -9453,10 +9453,13 @@ LIMIT $limit`;
 
       const now = Date.now();
       await env.DB.prepare(
-        `INSERT INTO students_erp (user_id, korean_name, student_name, username, status, signup_date,
+        /* student_id·login_id 도 user_id 로 함께 채운다 — 카페24 동기화 행 29,494건이 전부 그 모양이고,
+           비워 두면 그 두 칸으로 찾는 옛 조회(학생 상세·수정·연장)에서 «없는 학생» 이 된다(2026-09-14 yahee 사고).
+           읽는 쪽도 user_id 를 보게 고쳤지만(api-mango.ts ERP_BY_UID) 행 모양까지 맞춰 두 겹으로 막는다. */
+        `INSERT INTO students_erp (user_id, student_id, login_id, korean_name, student_name, username, status, signup_date,
            student_phone, parent_phone, shop_name, notes, source, password_hash, created_at, updated_at)
-         VALUES (?, ?, ?, ?, '정상', ?, ?, ?, ?, ?, 'admin_manual', ?, ?, ?)`
-      ).bind(uid, name, name, name, today(), studentPhone, parentPhone, shopName, notes, pwdHash, now, now).run();
+         VALUES (?, ?, ?, ?, ?, ?, '정상', ?, ?, ?, ?, ?, 'admin_manual', ?, ?, ?)`
+      ).bind(uid, uid, uid, name, name, name, today(), studentPhone, parentPhone, shopName, notes, pwdHash, now, now).run();
 
       return json({
         ok: true, user_id: uid, name,
