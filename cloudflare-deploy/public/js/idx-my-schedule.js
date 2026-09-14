@@ -26,10 +26,6 @@
     if (L()) return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + mi;
     return (((h % 12) || 12) + ':' + mi + ' ' + (h < 12 ? 'AM' : 'PM'));
   }
-  function fmtNextDate(ymd) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
-    return L() ? (Number(m[2]) + '월 ' + Number(m[3]) + '일') : (Number(m[2]) + '/' + Number(m[3]));
-  }
 
   var weekly = { uid: null, fetched: false, fetching: false, schedules: [] };
   function fetchWeeklyOnce(u) {
@@ -76,9 +72,13 @@
       if (a.next_ts == null) return 1; if (b.next_ts == null) return -1;
       return a.next_ts - b.next_ts;
     });
+    // 요일은 «도착 순» 이 아니라 «주 순서» 로 — 서버가 다음 날짜순으로 주므로 수요일에 보면 목이 화보다 먼저 온다
+    var DOW = ko ? ['월', '화', '수', '목', '금', '토', '일'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    var dowIdx = function (d) { var i = DOW.indexOf(d); return i < 0 ? 99 : i; };
     return order.map(function (g, i) {
+      var days = g.days.slice().sort(function (a, b) { return dowIdx(a) - dowIdx(b); });
       return {
-        dayLabel: g.once ? fmtShortDate(g.once) : g.days.join(ko ? '·' : '/'),
+        dayLabel: g.once ? fmtShortDate(g.once) : days.join(ko ? '·' : '/'),
         time: g.start_time ? fmtTime12(g.start_time) : '',
         teacher: g.teacher,
         isNext: i === 0 && g.next_ts != null,
@@ -93,7 +93,8 @@
     if (document.getElementById('nms-style')) return;
     var st = document.createElement('style'); st.id = 'nms-style';
     st.textContent = '.ncc-card.nms-card{padding:12px 16px;text-align:left;min-width:280px;max-width:min(360px,calc(100vw - 32px));display:flex;flex-direction:column;gap:6px}'
-      + '.nms-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}'
+      + '.nms-head{display:flex;justify-content:flex-start;align-items:baseline;gap:10px}'
+      + '.nms-head .ncc-sub{margin-left:auto}'
       + '.nms-head .ncc-top{margin-bottom:0}.nms-head .ncc-sub{margin-top:0}'
       + '.nms-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:12px;border:1px solid transparent}'
       + '.nms-row.nms-next{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.55)}'

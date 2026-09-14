@@ -38,8 +38,9 @@ console.log('▶ my_schedule_rows_harness — 홈 «내 수업» 카드 세로 �
 {
   // ① 사고 재현 입력: 강사·시간이 다른 수업 넷 (강선생님 화·목 7:20 / Kaye 수 5:00 / Farrah 금 8:40)
   const r = await render([
-    S(1, D.화, '19:20', '중국어 강선생님', '2026-09-15', 1), S(2, D.목, '19:20', '중국어 강선생님', '2026-09-17', 3),
-    S(3, D.수, '17:00', 'Teacher Kaye', '2026-09-16', 2), S(4, D.금, '20:40', 'Teacher Farrah', '2026-09-18', 4),
+    // ⚠️ 일부러 «역순» 으로 넣는다 — 생성 순서가 정렬 결과와 같으면 sort 를 지워도 통과한다(함정 대조 실측)
+    S(4, D.금, '20:40', 'Teacher Farrah', '2026-09-18', 4), S(3, D.수, '17:00', 'Teacher Kaye', '2026-09-16', 2),
+    S(2, D.목, '19:20', '중국어 강선생님', '2026-09-17', 3), S(1, D.화, '19:20', '중국어 강선생님', '2026-09-15', 1),
   ]);
   ok(r.first === false && r.drawn === true && r.display === 'block', '① 조회 전엔 false, 조회 뒤엔 그려서 true');
   const rows = rowsOf(r.html);
@@ -81,6 +82,9 @@ console.log('▶ my_schedule_rows_harness — 홈 «내 수업» 카드 세로 �
   // ⑥ 수업이 0건이면 false(호출부가 hide)
   const r = await render([]);
   ok(r.drawn === false, '⑥ 수업 0건이면 false');
+  // 전부 날짜를 못 구했으면 «다음» 강조가 없다
+  const r2 = await render([S(1, D.화, '19:20', 'A', null, null), S(2, D.수, '10:00', 'B', null, null)]);
+  ok(rowsOf(r2.html).length === 2 && !/nms-next/.test(r2.html), '⑥ 다음 날짜가 전부 없으면 강조 줄 없음');
 }
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
