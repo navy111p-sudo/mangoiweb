@@ -28,10 +28,15 @@
 
   /* 연락 수단 배지 — «있다/없다» 가 아니라 «자동으로 갈 수 있나» 를 말한다. */
   function reachBadge(r) {
-    if (r.reach_by === 'email') return { txt: T('📧 이메일로 자동 발송', '📧 auto — email'), bg: '#dcfce7', fg: '#166534' };
-    if (r.reach_by === 'sms') return { txt: T('📱 문자로 자동 발송', '📱 auto — SMS'), bg: '#dcfce7', fg: '#166534' };
+    /* 🔔 (2026-09-14) 웹푸시는 «더해지는» 수단 — 이메일·문자가 있으면 그 옆에 «+ 푸시» 로 붙고,
+       둘 다 없어도 푸시를 켠 강사에게는 결석 알림이 «실제로» 갑니다(absent-sweep.ts). 그래서 초록.
+       ⛔ 카카오ID 만 있는 강사를 초록으로 그리지 않는다 — 그건 자동으로 닿는 수단이 아니다. */
+    var plus = r.push_on ? T(' + 🔔 푸시', ' + 🔔 push') : '';
+    if (r.reach_by === 'email') return { txt: T('📧 이메일로 자동 발송', '📧 auto — email') + plus, bg: '#dcfce7', fg: '#166534' };
+    if (r.reach_by === 'sms') return { txt: T('📱 문자로 자동 발송', '📱 auto — SMS') + plus, bg: '#dcfce7', fg: '#166534' };
+    if (r.reach_by === 'push') return { txt: T('🔔 푸시로 자동 발송 (강사가 켬)', '🔔 auto — push (teacher opted in)'), bg: '#dcfce7', fg: '#166534' };
     if (!r.linked_profile_id) return { txt: T('연결 안 됨 — 알림 못 감', 'Not linked — no alerts'), bg: '#fee2e2', fg: '#991b1b' };
-    return { txt: T('자동 발송 불가 — 이메일 없음', 'No auto alert — needs email'), bg: '#fef3c7', fg: '#92400e' };
+    return { txt: T('자동 발송 불가 — 이메일 없음 · 강사가 화면에서 🔔 알림 받기를 켜면 갑니다', 'No auto alert — needs email, or the teacher turns on 🔔 alerts'), bg: '#fef3c7', fg: '#92400e' };
   }
 
   function contactCell(r) {

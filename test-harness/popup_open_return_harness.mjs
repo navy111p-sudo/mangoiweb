@@ -19,6 +19,8 @@
    · 반환값을 «쓰는» 호출에는 'noopener' 를 기능 문자열로 주지 않는다.
      대신 연 뒤에 `w.opener = null` 로 같은 보호를 건다.
    · 반환값을 안 쓰는 호출(그냥 열기만)은 'noopener' 를 그대로 둬도 무해하다.
+   · 그렇다고 **폴백(`location.href`)을 없애지 않는다** — 인앱 브라우저는 진짜로 null 을
+     돌려주므로, 지우면 그 사람들에게 «아무 일도 안 일어난다»(④절이 짝으로 못 박는다).
 
    실행: node test-harness/popup_open_return_harness.mjs
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -118,19 +120,33 @@ check(`①-2 못 고친 자리가 «목록에 적힌 그만큼뿐» 이다 (실�
       (opener 보호를 그쪽까지 넓히는 것은 별건 — 사람이 정할 일). */
 /* 🪤 앵커는 «선언» 모양으로 잡는다 — 이름만으로 찾으면 **호출부가 먼저 걸린다**
       (`adm-core.js` 는 1968행 호출이 1991행 정의보다 위라 엉뚱한 자리를 검사했다).
-   🪤 그리고 «블록주석» 을 벗긴 사본에서 찾는다 — 주석에 적어 둔 설명용 예시
+   🪤 그리고 «주석» 을 벗긴 사본에서 찾는다 — 주석에 적어 둔 설명용 예시
       `window.open(u,'_blank','noopener')` 가 첫 매치로 걸린다(`adm-promo-setup.js` 에서 실측).
-      ⚠️ 정규식 한 줄로 지우지 말 것(CLAUDE.md) — 줄 단위로 «지금 블록 안인가» 를 추적한다. */
-const stripBlock = (t) => {
-  let inb = false;
-  return t.split('\n').map((ln) => {
-    let out = '', i = 0;
-    while (i < ln.length) {
-      if (inb) { const e = ln.indexOf('*/', i); if (e < 0) { i = ln.length; } else { inb = false; i = e + 2; } }
-      else { const s = ln.indexOf('/*', i); if (s < 0) { out += ln.slice(i); i = ln.length; } else { out += ln.slice(i, s); inb = true; i = s + 2; } }
+      ⚠️ 정규식 한 줄로 지우지 말 것(CLAUDE.md) — 글자를 훑으며 «지금 어디 안인가» 를 추적한다.
+
+   🪤 (2026-09-11 정정) 예전엔 **블록주석만** 벗겼다. 그래서 가드를 지우는 대신
+      `// w.opener=null` 로 **줄주석 처리만 해도** ②절이 그 주석을 보고 통과했다
+      (함정 대조 지적 → 제가 되돌려 실측: 그 변이가 **21/21 초록**이었다).
+      CLAUDE.md 「부정 검사는 주석을 벗겨 낸 사본으로」의 바로 그 자리다.
+   ⚠️ 그렇다고 `//` 를 무턱대고 지우면 **문자열 안의 `https://`** 가 잘려 나가
+      멀쩡한 코드가 «없다» 로 판정된다. 그래서 따옴표(`'` `"` 백틱) 안인지도 함께 추적한다. */
+const stripComments = (t) => {
+  let out = '', i = 0, inBlock = false, q = ''; // q: 지금 열려 있는 따옴표(없으면 '')
+  while (i < t.length) {
+    const c = t[i], n = t[i + 1];
+    if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i += 2; } else { i++; } continue; }
+    if (q) {                                    // 문자열 안 — 주석으로 보지 않는다
+      if (c === '\\') { out += c + (n ?? ''); i += 2; continue; }
+      if (c === q) q = '';
+      if (c === '\n' && q !== '`') q = '';       // ' " 는 줄을 못 넘는다(깨진 코드 방어)
+      out += c; i++; continue;
     }
-    return out;
-  }).join('\n');
+    if (c === '/' && n === '*') { inBlock = true; i += 2; continue; }
+    if (c === '/' && n === '/') { while (i < t.length && t[i] !== '\n') i++; continue; }
+    if (c === '\'' || c === '"' || c === '`') q = c;
+    out += c; i++;
+  }
+  return out;
 };
 const GUARDED = [
   ['cloudflare-deploy/public/js/adm-core.js', 'function mangoiOpenTab'],
@@ -146,8 +162,20 @@ const GUARDED = [
   ['cloudflare-deploy/public/index.html', 'function toKakao'],
   ['cloudflare-deploy/public/index.html', 'window.openKakao = function'],
 ];
+/* ④ «막힌다» 의 짝 — 진짜로 막혔을 때 «나가는 길» 이 남아 있는가.
+   noopener 를 뺀 것은 «반환값을 믿을 수 있게» 하려던 것이지 폴백을 없애려던 것이 아니다.
+   그 폴백(`location.href`)이 애초에 이 코드가 생긴 이유다 — 카톡·문자앱 인앱 브라우저는
+   진짜로 null 을 돌려주므로, 지우면 그 사람들에게 **조용히 아무 일도 안 일어난다.**
+   🪤 ②만 두면 «폴백을 통째로 지우는» 변이가 그대로 통과한다(2026-09-11 실측 21/21 초록).
+   ⚠️ 목록을 넓히지 말 것 — 나머지 네 자리는 폴백이 «안내 상자» 라 구조가 다르다
+      (실측: 그 넷의 창에는 location.href 가 없다). 넓히면 멀쩡한 코드가 빨간불이 된다. */
+const FALLBACK_KEPT = new Set([
+  'cloudflare-deploy/public/index.html|function toKakao',
+  'cloudflare-deploy/public/index.html|window.openKakao = function',
+]);
+
 for (const [rel, anchor] of GUARDED) {
-  const src = stripBlock(readFileSync(join(ROOT, rel), 'utf8'));
+  const src = stripComments(readFileSync(join(ROOT, rel), 'utf8'));
   const name = rel.split('/').pop() + (anchor ? ` (${anchor})` : '');
   const from = anchor ? src.indexOf(anchor) : 0;
   /* 전제: 앵커를 못 찾으면 아래 검사가 통째로 헛돈다 — 그것부터 FAIL 로 드러낸다 */
@@ -159,6 +187,11 @@ for (const [rel, anchor] of GUARDED) {
   const win = start === undefined ? '' : src.slice(start, Math.min(next ?? Infinity, start + 600));
   check(`② ${name} 이 opener 를 끊는다 (noopener 를 뺀 만큼 손으로 건다)`,
     /\.opener\s*=\s*null/.test(win));
+  if (FALLBACK_KEPT.has(`${rel}|${anchor}`)) {
+    check(`④ ${name} 이 «진짜로 막혔을 때 나가는 길» 을 그대로 둔다 (인앱 브라우저)`,
+      /location\.href/.test(win),
+      '      · 인앱 브라우저는 진짜로 null 을 돌려줍니다 — 지우면 그 사람들에게 아무 일도 안 일어납니다');
+  }
 }
 
 /* ── ③ 헛경고를 다시 만들지 않았는가 — «막혔다» 판정이 반환값 하나에만 걸려 있어도
