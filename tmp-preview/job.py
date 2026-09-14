@@ -80,30 +80,31 @@ for k in ["mid", "wide"]:
     canv.paste(v, ((W - sw) // 2 + dx, (H - sh) // 2 + dy))
     warped[k] = canv
 
-# ── 달라진 곳 = 입. 자동으로 찾는다(좌표를 손으로 적지 않는다).
+# ── 입 «부위» 찾기 — 가장 센 변화(입 안: 어두운 구멍 + 이)가 기준.
+#    ⚠️ 그냥 «달라진 곳» 으로 잡으면 볼·눈썹까지 딸려 와 얼굴 전체를 갈아 끼우게 된다(실측).
 base_g = gb_full
-region = None
-for k in ["mid", "wide"]:
-    d = np.abs(gray(warped[k]) - base_g)
-    d = np.asarray(Image.fromarray(d.astype(np.uint8)).filter(ImageFilter.GaussianBlur(6)), dtype=np.float32)
-    ys, xs = np.where(d > 22)
-    if len(xs) == 0:
-        continue
-    # 입은 화면 가운데 아래쪽에 있다 — 머리카락 가장자리 잡음을 배제
-    sel = (ys > 0.30 * H) & (ys < 0.70 * H) & (xs > 0.25 * W) & (xs < 0.75 * W)
-    ys, xs = ys[sel], xs[sel]
-    bb = (xs.min(), ys.min(), xs.max(), ys.max())
-    print("DIFFBOX", k, bb, "px", len(xs))
-    region = bb if region is None else (min(region[0], bb[0]), min(region[1], bb[1]),
-                                        max(region[2], bb[2]), max(region[3], bb[3]))
-mx = int((region[2] - region[0]) * 0.22); my = int((region[3] - region[1]) * 0.30)
-MR = (max(0, region[0] - mx), max(0, region[1] - my), min(W, region[2] + mx), min(H, region[3] + my))
+dw = np.abs(gray(warped["wide"]) - base_g)
+dw = np.asarray(Image.fromarray(dw.astype(np.uint8)).filter(ImageFilter.GaussianBlur(4)), dtype=np.float32)
+sel = np.zeros_like(dw, dtype=bool)
+sel[int(0.38 * H):int(0.72 * H), int(0.28 * W):int(0.72 * W)] = True
+cand = dw * sel
+thr = max(45.0, float(np.percentile(cand[sel], 99.5)) * 0.55)
+ys, xs = np.where(cand > thr)
+print("MOUTHCORE thr=%.1f px=%d" % (thr, len(xs)))
+assert len(xs) > 200, "입을 못 찾았습니다"
+x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+print("CORE", (x0, y0, x1, y1))
+w0, h0 = x1 - x0, y1 - y0
+# 입만 오려 얹으면 «턱은 닫힌 채 입만 벌어진» 얼굴이 된다 → 아래쪽(턱)을 넉넉히 포함
+MR = (max(0, x0 - int(w0 * 0.35)), max(0, y0 - int(h0 * 0.55)),
+      min(W, x1 + int(w0 * 0.35)), min(H, y1 + int(h0 * 0.95)))
+MR = tuple(int(v) for v in MR)
 print("MOUTH REGION", MR, "of", (W, H))
 
 m = Image.new("L", (W, H), 0)
 from PIL import ImageDraw
 ImageDraw.Draw(m).ellipse(MR, fill=255)
-m = m.filter(ImageFilter.GaussianBlur(max(6, (MR[2] - MR[0]) // 12)))
+m = m.filter(ImageFilter.GaussianBlur(int(max(8, (MR[2] - MR[0]) // 10))))
 
 out = {}
 os.makedirs("cloudflare-deploy/public/img", exist_ok=True)
@@ -155,6 +156,10 @@ sheet = Image.new("RGB", (3 * 320 + 20, 400), (225, 228, 232))
 for i, k in enumerate(ORDER):
     t = fin[k].resize((320, 400), Image.LANCZOS)
     sheet.paste(Image.alpha_composite(Image.new("RGBA", t.size, (225, 228, 232, 255)), t).convert("RGB"), (i * 330, 0))
+# 입 부위 마스크가 «정말 입만» 인지 눈으로 볼 수 있게 기준 장에 테두리를 그린다
+dbg = Image.alpha_composite(Image.new("RGBA", src["closed"].size, (225, 228, 232, 255)), src["closed"]).convert("RGB")
+ImageDraw.Draw(dbg).ellipse(MR, outline=(255, 0, 0), width=5)
+dbg.thumbnail((420, 420)); dbg.save("tmp-preview/mei-mask.jpg", quality=90)
 sheet.save("tmp-preview/mei-sheet.jpg", quality=90)
 # 입 부근 확대 — 좌표를 손으로 적지 않고 위에서 찾은 MR 을 그대로 쓴다
 sx, sy = 640 / (R - L), 800 / (Bo - T)
