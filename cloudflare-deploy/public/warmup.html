@@ -382,7 +382,7 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=18" defer></script>
+<script src="/js/mango-avatar.js?v=19" defer></script>
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
@@ -472,10 +472,9 @@
 
         <!-- 🎙️ AI 친구: 네 명 중 고르기 + 번갈아(네 명이 돌아가며).
              고르면 «목소리와 얼굴이 함께» 바뀐다 — 그래서 이름표가 「목소리」가 아니라 「친구」다.
-             🀄 중국어에서는 이 칸이 통째로 감춰지고 «메이 선생님» 한 사람으로 고정된다
-                (2026-09-14 사장님 지시 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」).
-                까닭은 아래 voiceForLang 주석 — 중국어 TTS 는 화자를 안 가려서, 네 명을 늘어놓으면
-                「골랐는데 목소리가 같다」는 거짓말이 된다. -->
+             🀄 중국어에서는 이 칸이 감춰지고 «아래 중국어 상자» 가 대신 보인다
+                (syncVoiceBtnsForLang). 영어 친구를 중국어에서 고를 수 있으면 서버가 영어
+                프롬프트를 돌려 「중국어 수업인데 영어로 답하는」 상태가 되기 때문이다. -->
         <div class="menu-group">
           <div class="menu-label"><span>🎙️ AI 친구 (목소리·얼굴)</span><span class="ls-now" id="voiceVal">👩 Emma</span></div>
           <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 친구 선택">
@@ -485,7 +484,15 @@
             <button type="button" data-v="noah" onclick="setVoiceMode('noah',true)">👦 Noah</button>
             <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
           </div>
-          <div class="voice-zh-note" id="voiceZhNote" hidden>🀄 중국어는 <b>메이 선생님</b> 한 분이 이야기해요 — 고르지 않아도 돼요.<br>中文课由美美老师一位老师来说。</div>
+          <!-- 🀄 중국어 선생님 — 영어와 «다른 묶음» 입니다. 언어에 맞는 쪽만 보입니다(syncVoiceBtnsForLang).
+               📜 2026-09-14 오전에는 «중국어는 메이 한 사람 고정» 이라 이 칸이 아예 없었습니다. 같은 날
+                  사장님 「남자 교사도 한명더 추가해줘」로 다시 고를 수 있게 됐습니다(교사가 둘이니까).
+               ⛔ 여기에 «번갈아» 를 넣지 마세요 — 지시는 «한 명 더» 이지 «돌아가며» 가 아닙니다. -->
+          <div class="voice-btns" id="voiceBtnsZh" role="radiogroup" aria-label="중국어 선생님 선택" hidden>
+            <button type="button" data-v="mei" onclick="setVoiceMode('mei',true)">👩‍🏫 메이</button>
+            <button type="button" data-v="long" onclick="setVoiceMode('long',true)">👨‍🏫 룽</button>
+          </div>
+          <div class="voice-zh-note" id="voiceZhNote" hidden>🀄 중국어는 두 분 중에 고를 수 있어요. <b>룽 선생님</b>의 남자 목소리는 기기에 중국어 남자 음성이 있을 때만 나와요 — 없으면 여자 목소리로 읽어 드려요.<br>中文可选两位老师。男声取决于您的设备。</div>
         </div>
 
         <!-- 👁 자막: 듣기 훈련용. 「가리기」는 탭하면 그 말풍선만 다시 보인다 -->
@@ -776,17 +783,21 @@ var VOICE_MODES = {
           hi:"Hey! I'm Noah. Let's talk!" },
   mix:  { label:'🔀 번갈아',
           hi:"Cool! We will take turns talking to you!" },
-  /* 🀄 메이 — 중국어 전용 친구(2026-09-14). zh:true 가 «어느 언어의 사람인가» 의 정본입니다.
-     ⚠️ 중국어 TTS 는 화자를 안 가립니다(구글 만다린 한 목소리 — _ttsSpeak 주석 참고).
-        그래서 중국어에서 네 명을 늘어놓으면 「골랐는데 목소리가 같다」는 거짓말이 됩니다.
-     🔒 그래서 중국어에는 «고르는 칸이 없습니다» — 메이 한 사람 고정(2026-09-14 사장님 지시).
-        판정 정본은 _voicePerson() 의 첫 줄 하나뿐이고, 화면은 syncVoiceBtnsForLang() 이 감춥니다.
-     ⛔ 여기에 중국어 친구를 한 명 더 넣어도 화면에는 안 나옵니다 — 늘리려면 그 두 곳과
-        하니스 ⑯을 함께 고치세요(지금 상태를 «버그» 로 읽고 버튼을 되살리지 마세요).
-     ⛔ speaker 를 지우지 마세요 — 지금은 zh 가 안 보지만, 나중에 중국어 화자가 생기면
-        여기 한 줄이 그 자리입니다(목록은 위 VOICE_TRY_F 와 같은 서버 허용목록). */
+  /* 🀄 중국어 선생님 둘 — zh:true 가 «어느 언어의 사람인가» 의 정본입니다.
+     📜 2026-09-14 오전에는 메이 한 사람 고정이었습니다(그때는 고르는 칸도 없었습니다).
+        같은 날 사장님 「남자 교사도 한명더 추가해줘. 남자목소리로」로 룽이 들어왔고,
+        교사가 둘이 되었으니 고르는 칸도 함께 되살렸습니다.
+     🔴 목소리의 한계 — 서버 TTS 의 zh 갈래는 «구글 만다린 한 목소리»(여성)이고 speaker 를
+        아예 안 봅니다(src/api-games.ts 의 /api/voice/tts). 그래서 룽의 «남자 목소리» 는
+        기기 목소리(zh-CN 남성)로만 낼 수 있고, 그런 음성이 없는 기기에서는 서버 여자
+        목소리로 떨어집니다. speak() 가 그 갈림을 하고 화면이 그 사실을 한 번 말합니다.
+     ⛔ speaker 를 지우지 마세요 — 지금 zh 는 안 보지만, 중국어 화자가 생기면 여기가 그 자리입니다.
+     ⚠️ 이름(hi 의 «我是…»)은 src/ai-friends.ts 의 AI_FRIEND_NAMES 와 «같은 말» 이어야 합니다 —
+        어긋나면 화면은 「我是龙老师」라고 인사하는데 AI 는 다른 이름을 댑니다. */
   mei:  { label:'👩‍🏫 메이 선생님', speaker:'asteria', g:'female', char:'mei', zh:true,
-          hi:"你好！我是美美老师。很高兴认识你！" }
+          hi:"你好！我是美美老师。很高兴认识你！" },
+  long: { label:'👨‍🏫 룽 선생님', speaker:'apollo', g:'male', char:'long', zh:true,
+          hi:"你好！我是龙老师。很高兴认识你！" }
 };
 try{
   var _vq = new URLSearchParams(location.search);
@@ -794,39 +805,62 @@ try{
   if(VOICE_TRY_F[_vfTry]) VOICE_MODES.lily.speaker = _vfTry;
   if(VOICE_TRY_M[_vmTry]) VOICE_MODES.noah.speaker = _vmTry;
 }catch(e){}
-/* 🀄 기억하는 것은 «영어에서 고른 사람» 하나뿐이다 — 중국어는 고르는 칸이 없으므로
-   기억할 선택 자체가 없다(2026-09-14). 그래서 언어를 오가도 영어 선택이 안 지워진다.
-   ⛔ 중국어용 저장 칸을 다시 만들지 마세요 — 저장하면 «학생이 고른 것» 이 되어,
-      나중에 중국어 친구를 늘릴 때 옛 값이 이미 굳어 있습니다. */
-var _voiceMode = 'emma', _mixIdx = 0, _savedVoiceEn = 'emma';
+/* 🀄 기억하는 칸을 «언어별로» 둔다 — 한 칸으로 합치면 언어를 오갈 때 서로를 지운다
+   (중국어에서 룽을 고르면 영어의 Lily 선택이 사라지는 식). 2026-09-14 오후 신설.
+   📜 오전 판에는 중국어 칸이 없었습니다(고를 수 없었으니 기억할 선택도 없었습니다). */
+var _voiceMode = 'emma', _mixIdx = 0, _savedVoiceEn = 'emma', _savedVoiceZh = 'mei';
 try{
   var _sv = localStorage.getItem('mangoi_warmup_voice');
   // 옛 저장값 이어받기 — 「여자」를 쓰던 학생은 Emma, 「남자」는 Jake 로 그대로 간다.
   if(_sv === 'female') _sv = 'emma'; else if(_sv === 'male') _sv = 'jake';
   if(VOICE_MODES[_sv] && !VOICE_MODES[_sv].zh) _savedVoiceEn = _sv;
+  var _svz = localStorage.getItem('mangoi_warmup_voice_zh');
+  if(VOICE_MODES[_svz] && VOICE_MODES[_svz].zh) _savedVoiceZh = _svz;
 }catch(e){}
 _voiceMode = _savedVoiceEn;   // ⚠️ 이 줄에서는 _warmLang 이 아직 안 정해졌다 — 언어 맞추기는 아래 부팅 줄에서.
 /* 🀄 «이 언어에서는 누가 말하나». 순수 함수로 둔 이유 — 하니스가 오려 내 실제로 돌립니다.
-   🔒 중국어는 저장값을 «보지 않습니다» — 고르는 칸이 없으니 언제나 메이입니다(2026-09-14).
-   ⛔ 모르는 값을 «그 언어의 사람» 으로 넘겨짚지 마세요: 영어는 Emma 로 떨어집니다. */
-function voiceForLang(lang, savedEn){
-  if(lang === 'zh') return 'mei';
+   ⛔ 모르는 값을 «그 언어의 사람» 으로 넘겨짚지 마세요 — 언어가 안 맞으면 그 언어의
+      기본값으로 떨어집니다(영어 Emma · 중국어 메이). 섞으면 「중국어인데 영어 얼굴」입니다.
+   ⚠️ 중국어 기본이 메이인 것은 «먼저 있던 선생님» 이기 때문입니다(2026-09-14 오전). */
+function voiceForLang(lang, savedEn, savedZh){
+  if(lang === 'zh') return (VOICE_MODES[savedZh] && VOICE_MODES[savedZh].zh) ? savedZh : 'mei';
   return (VOICE_MODES[savedEn] && !VOICE_MODES[savedEn].zh) ? savedEn : 'emma';
 }
-/* 🀄 중국어면 «고르는 칸» 을 통째로 감추고 안내 한 줄만 둔다(영어면 반대).
-   ⛔ 버튼만 하나 남겨 보이는 방식으로 되돌리지 마세요 — 그러면 «고를 수 있는 것» 처럼 보입니다. */
+/* 🀄 «그 언어의 선생님» 묶음만 보인다 — 영어 다섯 칸과 중국어 두 칸은 서로 다른 상자다.
+   ⛔ 한 상자에 섞어 넣지 마세요 — 중국어에서 Emma 를 고를 수 있게 되고, 그러면 서버가
+      영어 프롬프트를 돌려 「중국어 수업인데 영어로 답하는」 상태가 됩니다. */
 function syncVoiceBtnsForLang(){
   var zh = isZh(), box = document.getElementById('voiceBtns');
   if(box) box.hidden = zh;
+  var zbox = document.getElementById('voiceBtnsZh');
+  if(zbox) zbox.hidden = !zh;
   var note = document.getElementById('voiceZhNote');
   if(note) note.hidden = !zh;
 }
+/* 🀄 «저장하지 않고» 그 언어의 사람으로 맞춘다 (2026-09-14 오후 신설).
+   [왜] 서버 힌트로 중국어가 켜지는 주 경로(probeSuggestLang)가 _voiceMode 를 안 건드려서,
+        저장해 둔 중국어 선생님(룽)이 무시되고 늘 메이가 나왔다. 게다가 두 버튼 중 어느 쪽도
+        «고름» 표시가 없어 화면이 「아무도 안 골랐다」로 보였다(함정 대조가 잡은 자리).
+   ⛔ 여기서 setVoiceMode 를 쓰지 마세요 — 그 순간 저장이 일어나 「서버가 정한 것」·
+      「아직 안 정함」이 「학생이 고른 것」으로 굳습니다(CLAUDE.md 2장 «기본 켜짐을 저장값으로
+      구현하지 말 것»). 그래서 «저장하는 쪽»(setVoiceMode)과 «맞추기만 하는 쪽»을 갈라 둡니다.
+   ⟹ setVoiceMode 는 이제 «사람이 버튼을 누른 순간» 에만 불립니다. */
+function applyVoiceForLang(){
+  _voiceMode = voiceForLang(_warmLang, _savedVoiceEn, _savedVoiceZh); _mixIdx = 0;
+  try{ var bs = document.querySelectorAll('#voiceBtns button, #voiceBtnsZh button');
+    for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===_voiceMode);
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }catch(e){}
+  syncVoiceBtnsForLang();
+  applyVoiceFace();
+  _enVoice = null; pickVoice();     // 기기 폴백 목소리도 그 사람 성별로 다시 고른다
+}
 // 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
 function _voicePerson(){
-  /* 🔒 중국어는 무조건 메이 — 저장값이 무엇이든(옛 'mix'·'lily' 포함) 여기서 막힌다.
-     이 한 줄이 «중국어 = 메이 한 사람» 의 정본이라, 언어를 어느 경로로 켜든
-     (버튼·서버 힌트 probeSuggestLang·옛 저장값) 얼굴과 목소리가 함께 메이가 된다. */
-  if(isZh()) return 'mei';
+  /* 🔒 중국어에서는 «중국어 선생님» 만 말한다 — 저장값이 영어 친구거나 옛 'mix' 여도
+     여기서 메이로 떨어진다. 이 한 줄이 정본이라, 언어를 어느 경로로 켜든
+     (버튼·서버 힌트 probeSuggestLang·옛 저장값) 얼굴과 목소리가 함께 맞는다.
+     ⛔ 중국어에 «번갈아» 를 넣지 마세요 — 지시는 «한 명 더» 였습니다. */
+  if(isZh()) return (VOICE_MODES[_voiceMode] && VOICE_MODES[_voiceMode].zh) ? _voiceMode : 'mei';
   if(_voiceMode==='mix') return VOICE_PEOPLE[_mixIdx % VOICE_PEOPLE.length];
   return _voiceMode;
 }
@@ -854,14 +888,14 @@ function setVoiceMode(m, announce){
   if(!VOICE_MODES[m]) m = isZh() ? 'mei' : 'emma';
   var changed = (m !== _voiceMode);
   _voiceMode = m; _mixIdx = 0;
-  /* 🀄 «영어에서 고른 사람» 만 적는다 — 중국어는 고르는 칸이 없어 적을 선택이 없다.
-     ⛔ 중국어를 적으면 그 값이 「학생이 고른 것」으로 굳어, 나중에 중국어 친구를 늘릴 때
-        기본값을 되돌릴 수 없습니다(CLAUDE.md 2장 «기본 켜짐을 저장값으로 구현하지 말 것»). */
-  if(!VOICE_MODES[m].zh){ _savedVoiceEn = m; try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){} }
-  var box = document.getElementById('voiceBtns');
-  if(box){ var bs = box.querySelectorAll('button');
+  /* 🀄 «그 언어에서 고른 사람» 을 그 언어 칸에 적는다 — 한 칸으로 합치면 서로를 지운다
+     (중국어에서 룽을 고르면 영어의 Lily 선택이 사라지는 식). */
+  if(VOICE_MODES[m].zh){ _savedVoiceZh = m; try{ localStorage.setItem('mangoi_warmup_voice_zh', m); }catch(e){} }
+  else { _savedVoiceEn = m; try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){} }
+  /* 두 묶음을 «모두» 훑는다 — 한쪽만 보면 언어를 바꾼 뒤 옛 묶음에 on 표시가 남는다. */
+  try{ var bs = document.querySelectorAll('#voiceBtns button, #voiceBtnsZh button');
     for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
-      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }catch(e){}
   syncVoiceBtnsForLang();
   applyVoiceFace();     // 이름표 + 고른 사람 얼굴로 즉시 교체(다음 답변까지 기다리지 않게)
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
@@ -1115,7 +1149,7 @@ function setWarmLang(l, announce){
   if(changed){ _enVoice=null; try{ pickVoice(); }catch(e){} }
   /* 🀄 친구도 그 언어의 사람으로 — 중국어면 메이, 영어면 «영어에서 마지막에 고른 사람».
      ⛔ announce 를 주지 마세요: 언어 안내 바로 뒤에 인사 음성까지 겹칩니다. */
-  if(changed) setVoiceMode(voiceForLang(_warmLang, _savedVoiceEn));
+  if(changed) applyVoiceForLang();
   if(announce && changed && typeof addMsg==='function'){
     addMsg('🗣️ 이제 ' + langInfo(l).ko + '로 이야기해요. 다음 대화부터 바뀌어요!', 'sys');
   }
@@ -1246,9 +1280,9 @@ function probeSuggestLang(){
       if(_warmLangChosen) return;          // 그 사이 학생이 골랐다 — 덮지 않는다
       _warmLang = 'zh';                    // ⛔ setWarmLang 을 쓰지 않는다: 저장하면 «학생이 고른 것» 이 된다
       /* 🀄 화면도 그 언어로 맞춘다 — renderSetup 은 언어·연령·단계 칸만 다시 그리고
-         친구 칸은 정적 HTML 이라 «영어 그대로» 남는다. 저장 없이 둘만 맞춘다.
+         친구 칸은 정적 HTML 이라 «영어 그대로» 남는다. 저장 없이 맞추기만 한다.
          ⛔ 여기서 setVoiceMode 를 부르지 마세요 — 그 순간 저장이 일어나 위 ⛔ 가 깨집니다. */
-      syncVoiceBtnsForLang(); applyVoiceFace();
+      applyVoiceForLang();
       renderSetup();
     }).catch(function(){});
 }
@@ -1383,6 +1417,24 @@ function startWarmup(){
   try{ initGreeting(); }catch(e){}
 }
 setAge(_warmAge);   // 저장된 연령대로 메뉴 버튼/표시 초기화
+/* 🀄 기기 음성 이름으로 «중국어 남자/여자» 를 가른다 (2026-09-14 룽 선생님).
+   [왜 이름인가] 브라우저 SpeechSynthesisVoice 에는 성별 칸이 없습니다. 이름뿐입니다.
+   ⚠️ 안드로이드 구글 음성은 이름이 「Chinese (China)」 처럼 성별을 안 담습니다 → 판별 «불가»
+      이고, 그런 기기는 서버(구글 만다린 여성)로 갑니다. 화면이 그 사실을 한 번 말합니다.
+   ⛔ 「중국어 음성이면 남자겠지」로 넓히지 마세요 — 기본 음성은 대개 여자라 얼굴과 어긋납니다.
+   ⚠️ 「男」은 낱말 경계(\b)가 CJK 에서 안 먹으므로 괄호 밖에 따로 둡니다(CLAUDE.md 2장). */
+var ZH_MALE_RE   = /(\b(kangkang|yunxi|yunyang|yunjian|yunfeng|yunhao|yunze|li-?mu|male)\b|男)/i;
+var ZH_FEMALE_RE = /(\b(huihui|yaoyao|xiaoxiao|xiaoyi|xiaomo|xiaohan|tingting|meijia|sinji|female)\b|女)/i;
+var _zhMaleToldOnce = false;
+function _zhMaleVoiceReady(){
+  try{
+    if(!window.speechSynthesis || !_speechOn) return false;
+    if(!_enVoice) pickVoice();
+    if(!_enVoice) return false;
+    if(String(_enVoice.lang||'').slice(0,2).toLowerCase() !== 'zh') return false;
+    return ZH_MALE_RE.test(String(_enVoice.name||''));
+  }catch(e){ return false; }
+}
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
@@ -1396,8 +1448,10 @@ function _scoreVoice(v){
   if(/google/.test(n)) s+=60;
   if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|samantha|alex|allison)\b/.test(n)) s+=46;
   // 🎙️ 선택된 성별(여자/남자/번갈아)에 맞는 보이스 우선 — 서버 TTS 실패 폴백 시에도 성별 유지
-  var isMale = /\b(guy|christopher|brian|tom|nathan|evan|daniel|ryan|william|james|eric|steffan|liam|noah|male)\b/.test(n);
-  var isFemale = /\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|zira|hazel|susan|catherine|linda|heera|female|woman)\b/.test(n);
+  var isMale = /\b(guy|christopher|brian|tom|nathan|evan|daniel|ryan|william|james|eric|steffan|liam|noah|male)\b/.test(n)
+             || (isZh() && ZH_MALE_RE.test(n));      // 🀄 중국어 남자 이름도 «남자» 로 센다
+  var isFemale = /\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|zira|hazel|susan|catherine|linda|heera|female|woman)\b/.test(n)
+             || (isZh() && ZH_FEMALE_RE.test(n));
   if(_voiceGender()==='male'){ if(isMale) s+=80; else if(isFemale) s-=40; }
   else { if(isFemale) s+=80; else if(isMale) s-=40; }
   if(/online|premium|enhanced|plus/.test(n)) s+=24;
@@ -1422,7 +1476,8 @@ function pickVoice(){
 try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
 // 저장된 목소리 선택으로 버튼/표시 초기화 (announce 없음).
 // 🀄 «지금 언어» 에 맞는 사람으로 — 이 줄이 도는 시점에는 _warmLang 이 이미 정해져 있다.
-setVoiceMode(voiceForLang(_warmLang, _savedVoiceEn));
+/* ⛔ setVoiceMode 로 시작하지 마세요 — 아무도 안 골랐는데 기본값이 저장돼 굳습니다. */
+applyVoiceForLang();
 setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초기화
 
 /* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
@@ -1447,7 +1502,11 @@ function _synthSpeak(text, btn, onDone){
        알파벳으로 읽으면 학생이 그 발음을 따라 하게 된다(음성코칭 중국어 화면과 같은 판단). */
     if(isZh() && !_enVoice){ if(onDone) onDone(); return; }
     var u=new SpeechSynthesisUtterance(String(text));
-    u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
+    /* 🀄 «젊고 굵은» 남자 목소리(2026-09-14 사장님) — 기기 음성은 음높이를 낮출 수 있다.
+       ⛔ 서버 TTS(오디오 파일)에는 이 길이 없습니다. 그래서 이 줄은 기기 목소리에만 걸립니다.
+       ⚠️ 영어 친구는 건드리지 않습니다 — 지금 잘 나고 있는 소리를 바꾸는 변경이 됩니다. */
+    var _pit = (isZh() && _voiceGender()==='male') ? 0.85 : 1.02;
+    u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=_pit;
     if(_enVoice) u.voice=_enVoice;
     u.onstart=function(){ _speechEverStarted=true; };
     u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
@@ -1551,6 +1610,16 @@ function speak(text, btn){
     }catch(e){ done(); _synthSpeak(text, btn, done); }
   };
   var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
+  /* 🀄 중국어 «남자» 는 서버로 낼 수 없다 — 서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고
+     speaker 를 아예 안 본다(src/api-games.ts 의 /api/voice/tts). 그래서 기기에 중국어 «남자»
+     음성이 있을 때만 그것으로 읽고, 없으면 예전 그대로 서버로 가되 그 사실을 한 번 말한다.
+     ⛔ 이 갈래를 «중국어 전체» 로 넓히지 마세요 — 메이(여자)는 서버 목소리가 더 낫습니다. */
+  if(isZh() && _voiceGender()==='male'){
+    if(_zhMaleVoiceReady()){ _synthSpeak(text, btn, done); return; }
+    if(!_zhMaleToldOnce){ _zhMaleToldOnce = true;
+      try{ if(typeof addMsg==='function')
+        addMsg('🔊 이 기기에는 중국어 남자 목소리가 없어서 여자 목소리로 읽어 드려요. 얼굴과 이름은 룽 선생님 그대로예요.', 'sys'); }catch(e3){} }
+  }
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key]); return; }
   // _stopSpeak() 이 방금 올려 둔 번호 — 늦게 온 응답이 새 발화를 덮지 않게 함께 넘긴다

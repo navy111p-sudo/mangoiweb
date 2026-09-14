@@ -15,9 +15,20 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { requireBrowser } from './_pw.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
+/* 🀄 «중국어 선생님이 누구누구인가» 는 화면 표에서 읽는다(2026-09-14 룽 추가).
+   ⛔ 여기에 이름을 손으로 적지 마세요 — 선생님이 늘면 그 사람만 조용히 검사에서 빠집니다. */
+const ZH_TEACHERS = (() => {
+  try {
+    const w = readFileSync(join(__dir, '..', '..', 'cloudflare-deploy', 'public', 'warmup.html'), 'utf8');
+    const m = w.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
+    const M = new Function(m[0] + '\nreturn VOICE_MODES;')();
+    return Object.keys(M).filter((k) => M[k] && M[k].zh).map((k) => ({ k, char: M[k].char || k }));
+  } catch (e) { return []; }
+})();
 const PUB = join(__dir, '../../cloudflare-deploy/public');
 const { chromium, exe } = requireBrowser();
 
@@ -58,14 +69,21 @@ async function open(url) {
   return { ctx, page };
 }
 /** 「보인다」는 hidden 값이 아니라 «자리를 차지하는가» 로 잰다.
- *  📜 2026-09-14 지시 변경 — 처음에는 «중국어에서 메이 버튼 하나만 보인다» 였는데,
- *     사장님이 「중국어는 목소리와 얼굴 선택없이 무조건 메이 한 교사만」으로 정하셔서
- *     «고르는 칸 자체가 없다» 로 경계를 옮겼다. 그래서 box 도 함께 잰다. */
+ *  📜 2026-09-14 지시가 하루에 세 번 바뀐 자리다 — «메이 버튼 하나만»(오전) →
+ *     「선택없이 무조건 메이 한 교사만」(낮, 칸 삭제) → 「**남자 교사도 한명더 추가해줘**」
+ *     (오후, 룽 추가 + 칸 복원). 그래서 지금 경계는 «그 언어의 상자만 보인다» 이다.
+ *  ⛔ 「중국어에는 칸이 없다」로 되돌리지 마세요 — 검사를 조이는 것이 아니라 룽을 지우는 것입니다. */
 const btnState = () => ({
   box: (() => { const b = document.getElementById('voiceBtns');
     return b ? b.getBoundingClientRect().height > 0 : null; })(),
+  zbox: (() => { const b = document.getElementById('voiceBtnsZh');
+    return b ? b.getBoundingClientRect().height > 0 : null; })(),
   shown: [...document.querySelectorAll('#voiceBtns button')]
     .filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.getAttribute('data-v')),
+  zshown: [...document.querySelectorAll('#voiceBtnsZh button')]
+    .filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.getAttribute('data-v')),
+  on: [...document.querySelectorAll('#voiceBtns button.on, #voiceBtnsZh button.on')]
+    .map((b) => b.getAttribute('data-v')),
   note: (() => { const n = document.getElementById('voiceZhNote'); return n ? getComputedStyle(n).display !== 'none' : null; })(),
   label: (document.getElementById('voiceVal') || {}).textContent || '',
   char: window.__avChar || null,
@@ -77,44 +95,87 @@ console.log('\n[ 1. 영어(기본) — 고르는 칸이 그대로 보인다 ]');
   const s = await page.evaluate(btnState);
   check('영어에서는 고르는 칸이 보인다', s.box === true, String(s.box));
   check('영어에서는 네 친구와 번갈아가 보인다', s.shown.join(',') === 'emma,jake,lily,noah,mix', s.shown.join(','));
+  /* 🔴 짝 — 없으면 «두 상자를 늘 함께 보이기» 도 통과한다(중국어에서 Emma 를 고르게 됩니다) */
+  check('영어에서는 중국어 선생님 칸이 «안» 보인다 (짝)', s.zbox === false, String(s.zbox));
+  check('영어에서는 중국어 선생님 버튼이 한 개도 안 보인다 (짝)', s.zshown.length === 0, s.zshown.join(',') || '없음');
   check('영어에서는 중국어 안내가 안 뜬다 (짝)', s.note === false, String(s.note));
   await ctx.close();
 }
 
-console.log('\n[ 2. 중국어 — 고르는 칸이 «통째로» 사라지고 왜 그런지 화면이 말한다 ]');
+console.log('\n[ 2. 중국어 — «그 언어의 선생님» 칸으로 갈아 끼워지고 고를 수 있다 ]');
 {
   const { ctx, page } = await open('/warmup.html?lang=zh');
   const s = await page.evaluate(btnState);
-  check('중국어에서는 고르는 칸이 통째로 감춰진다', s.box === false, String(s.box));
-  check('중국어에서는 버튼이 한 개도 안 보인다', s.shown.length === 0, s.shown.join(',') || '없음');
-  check('중국어에서는 «메이 한 분» 안내가 뜬다', s.note === true, String(s.note));
-  check('지금 친구 표시가 메이다', /메이/.test(s.label), s.label);
+  check('중국어에서는 «영어 친구» 칸이 감춰진다', s.box === false, String(s.box));
+  check('중국어에서는 영어 친구 버튼이 한 개도 안 보인다', s.shown.length === 0, s.shown.join(',') || '없음');
+  check('중국어에서는 «중국어 선생님» 칸이 보인다', s.zbox === true, String(s.zbox));
+  check('표의 중국어 선생님이 전부 버튼으로 보인다',
+    ZH_TEACHERS.length >= 1 && ZH_TEACHERS.every((t) => s.zshown.includes(t.k)),
+    '보임: ' + (s.zshown.join(',') || '없음') + ' / 표: ' + ZH_TEACHERS.map((t) => t.k).join(','));
+  check('중국어에서는 목소리 한계 안내가 뜬다', s.note === true, String(s.note));
+  check('기본은 메이다 (먼저 있던 선생님)', /메이/.test(s.label), s.label);
+  check('고른 사람에 «고름» 표시가 하나 있다', s.on.length === 1, s.on.join(',') || '없음');
   const noteText = await page.evaluate(() => (document.getElementById('voiceZhNote') || {}).textContent || '');
   check('그 안내가 한국어·중국어 둘 다로 적혀 있다',
-    /메이 선생님/.test(noteText) && /美美老师/.test(noteText), noteText.slice(0, 80));
+    /[가-힣]/.test(noteText) && /[\u4e00-\u9fff]/.test(noteText), noteText.slice(0, 90));
+
+  /* 🔴 «눌러 보면 그 선생님이 되는가» — 이것이 2026-09-14 오후 지시의 핵심이다.
+     자동 하니스는 가짜 DOM 이라 «보이는가·눌리는가» 를 원리상 못 본다. */
+  const other = ZH_TEACHERS.find((t) => t.k !== 'mei') || ZH_TEACHERS[0];
+  if (other) {
+    const covered = await page.evaluate((k) => {
+      const b = document.querySelector('#voiceBtnsZh button[data-v="' + k + '"]');
+      if (!b) return { err: 'no button' };
+      const r = b.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { mine: !!(top && b.contains(top)), tag: top ? top.tagName + '.' + top.className : null };
+    }, other.k);
+    check(`«${other.k}» 버튼이 «맨 위» 라 손이 닿는다`, covered.mine === true, JSON.stringify(covered));
+    await page.click('#voiceBtnsZh button[data-v="' + other.k + '"]');
+    await page.waitForTimeout(700);
+    const s2 = await page.evaluate(btnState);
+    check(`«${other.k}» 를 누르면 «고름» 표시가 그 사람으로 옮겨간다`,
+      s2.on.length === 1 && s2.on[0] === other.k, s2.on.join(',') || '없음');
+    check(`«${other.k}» 를 누르면 얼굴도 그 사람이 된다`, s2.char === other.char,
+      'char=' + s2.char + ' / 기대=' + other.char);
+    /* 🔴 짝 — 새로고침해도 그대로여야 «고른 것» 이 지켜진다 */
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    const s3 = await page.evaluate(btnState);
+    check(`다시 열어도 «${other.k}» 가 그대로다 (언어별로 기억한다)`,
+      s3.on.length === 1 && s3.on[0] === other.k, s3.on.join(',') || '없음');
+  }
   await ctx.close();
 }
 
 console.log('\n[ 3. 얼굴 — 그림 세 장이 «정말 받아지고» 캔버스에 그려지는가 ]');
-{
+check('전제: 화면 표에서 중국어 선생님을 읽었다', ZH_TEACHERS.length >= 1,
+  '못 읽으면 아래 그림 검사가 통째로 건너뛰어집니다: ' + JSON.stringify(ZH_TEACHERS));
+for (const T of ZH_TEACHERS) {
+  const WHO = T.char;
+  console.log(`  — ${T.k} (${WHO})`);
   const { ctx, page } = await open('/warmup.html?lang=zh');
+  /* 고른 선생님으로 갈아 끼우고 그 얼굴이 실제로 그려질 때까지 기다린다 */
+  await page.evaluate((w) => { try { window.__mgAvatarWant = w;
+    window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(w); } catch (e) {} }, WHO);
+  await page.waitForTimeout(900);
   /* ⚠️ «요청이 몇 건인가» 로 재지 마세요 — 부팅(⑤절)이 이미 받아 뒀고 브라우저가 캐시에서
      주므로 다시 받지 않습니다. 물어야 할 것은 «그 파일이 닿고 그려지는가» 입니다. */
-  const loaded = await page.evaluate(() => Promise.all(['closed', 'mid', 'wide'].map((k) => new Promise((r) => {
+  const loaded = await page.evaluate((w) => Promise.all(['closed', 'mid', 'wide'].map((k) => new Promise((r) => {
     const im = new Image();
     im.onload = () => r({ k, w: im.naturalWidth, h: im.naturalHeight });
     im.onerror = () => r({ k, w: 0, h: 0 });
-    im.src = '/img/mei-' + k + '.webp';
-  }))));
+    im.src = '/img/' + w + '-' + k + '.webp';
+  }))), WHO);
   for (const g of loaded) {
-    check(`mei-${g.k}.webp 가 640×800 으로 열린다`, g.w === 640 && g.h === 800, JSON.stringify(g));
+    check(`${WHO}-${g.k}.webp 가 640×800 으로 열린다`, g.w === 640 && g.h === 800, JSON.stringify(g));
   }
   /* 🔴 「세 장이 서로 다른가 · 다른 곳이 입뿐인가」 — 이 저장소가 Emma 사고(v8)로 배운 성질이다.
      세 장을 각각 따로 뽑아 넣으면 얼굴째 움직이고, 그때 화면은 «입이 빠르다» 가 아니라
      «덜덜거린다» 로 보인다. 그림을 갈아 끼울 때 이 숫자가 무너지면 여기서 걸린다. */
-  const band = await page.evaluate(() => {
+  const band = await page.evaluate((w) => {
     const load = (u) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = u; });
-    return Promise.all(['closed', 'mid', 'wide'].map((k) => load('/img/mei-' + k + '.webp'))).then((ims) => {
+    return Promise.all(['closed', 'mid', 'wide'].map((k) => load('/img/' + w + '-' + k + '.webp'))).then((ims) => {
       const px = ims.map((im) => {
         const c = document.createElement('canvas'); c.width = 640; c.height = 800;
         const g = c.getContext('2d'); g.drawImage(im, 0, 0);
@@ -130,7 +191,7 @@ console.log('\n[ 3. 얼굴 — 그림 세 장이 «정말 받아지고» 캔버�
       };
       return { cm: diff(px[0], px[1]), cw: diff(px[0], px[2]) };
     });
-  });
+  }, WHO);
   check('세 장이 서로 «다른» 그림이다 (같은 파일을 세 번 넣지 않았다)',
     band.cm.pct > 0.05 && band.cw.pct > 0.2, JSON.stringify(band));
   check('달라진 곳이 «입 부근» 뿐이다 (얼굴째 움직이지 않는다)',
@@ -142,7 +203,7 @@ console.log('\n[ 3. 얼굴 — 그림 세 장이 «정말 받아지고» 캔버�
 
   /* ⛔ 「폴백으로 조용히 되돌아가지 않았는가」 — 그림이 없으면 옛 얼굴(emma 영상)로 떨어진다.
      그때도 화면은 멀쩡해 보이므로 «옛 얼굴 파일을 안 받았다» 를 짝으로 본다. */
-  check('메이로 바꾼 뒤 옛 얼굴(teacher-avatar)을 다시 받지 않았다 = 폴백이 안 돌았다',
+  check(`${WHO} 로 바꾼 뒤 옛 얼굴(teacher-avatar)을 다시 받지 않았다 = 폴백이 안 돌았다`,
     !hits.some((x) => /teacher-avatar/.test(x[0])), hits.filter((x) => /teacher-avatar/.test(x[0])).map((x) => x[0]).join(','));
   const px = await page.evaluate(() => {
     const c = document.getElementById('tavatar-canvas');
