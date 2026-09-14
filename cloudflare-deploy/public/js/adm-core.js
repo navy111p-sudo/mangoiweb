@@ -5215,10 +5215,23 @@ async function loadMasterBranches() {
     ? `<button type="button" onclick="mbrEdit(${Number(m.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
+  /* 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
+     실제 아이디가 들어가게 해달라」) 지사의 _frLoginCell 과 «보이는 모습» 은 같지만(같은
+     글꼴·복사버튼) 값의 출처가 다르다 — 지사는 서버가 admin_scope 에서 자동으로 찾아 읽기
+     전용으로 주고, 대표지사는 admin_scope 에 연결할 길이 아예 없어(scope.ts 에 'master' 없음)
+     본사가 직접 입력해 저장한 login_username 을 그대로 보여준다. */
+  const _mbrLoginCell = m => {
+    if (!m.login_username) return '<span style="color:#9ca3af">—</span>';
+    const safe = String(m.login_username).replace(/['\\]/g, '');
+    return `<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px">${_esc(m.login_username)}</span>`
+      + `<button type="button" onclick="ltCopyTicket(this,'${safe}')" title="${adminLang==='en'?'Copy login ID':'아이디 복사'}"
+          style="margin-left:5px;padding:1px 7px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">📋</button>`;
+  };
   tb.innerHTML = _masterBranches.map(m => {
     const on = m.active !== 0;
-    return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td><td>${_esc(m.region)||'—'}</td>`
-      + `<td>${_esc(m.tier)||'—'}</td><td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
+    return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td>`
+      + `<td style="white-space:nowrap">${_mbrLoginCell(m)}</td><td>${_esc(m.region)||'—'}</td>`
+      + `<td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
       + `<td>${Number(m.branch_count)||0}</td>`
       + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" class="org-rowact" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
       + (on ? (adminLang==='en'?'🟢 active':'🟢 사용중') : (adminLang==='en'?'⏸ paused':'⏸ 중지')) + '</button></td>'
@@ -5229,7 +5242,7 @@ var _mbrEditId = 0;
 function mbrResetForm() {
   _mbrEditId = 0;
   const e = id => document.getElementById(id);
-  ['mbr-name','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('mbr-add-btn'), '+ 등록', '+ Add');
   const c = e('mbr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5243,6 +5256,7 @@ function mbrEdit(id) {
   const e = k => document.getElementById(k);
   _mbrEditId = m.id;
   if (e('mbr-name')) e('mbr-name').value = m.name == null ? '' : m.name;
+  if (e('mbr-login')) e('mbr-login').value = m.login_username == null ? '' : m.login_username;
   if (e('mbr-region')) e('mbr-region').value = m.region == null ? '' : m.region;
   if (e('mbr-tier')) e('mbr-tier').value = m.tier == null ? '' : m.tier;
   if (e('mbr-manager')) e('mbr-manager').value = m.owner_name == null ? '' : m.owner_name;
@@ -5263,6 +5277,7 @@ async function saveMasterBranch() {
     // «옛 이름으로 이 계정을 찾는다» 류 경고가 없다 — 그냥 저장하고 목록만 다시 그린다.
     const d = await _menuPost('/api/admin/franchises', {
       kind: 'master_edit', id: _mbrEditId, name,
+      login_username: ((e('mbr-login')||{}).value||'').trim() || null,
       region: (e('mbr-region')||{}).value || null,
       tier: (e('mbr-tier')||{}).value || null,
       owner_name: (e('mbr-manager')||{}).value || null,
@@ -5277,13 +5292,14 @@ async function saveMasterBranch() {
   }
   const d = await _menuPost('/api/admin/franchises', {
     kind: 'master', name,
+    login_username: ((e('mbr-login')||{}).value||'').trim() || null,
     region: (e('mbr-region')||{}).value || null,
     tier: (e('mbr-tier')||{}).value || null,
     owner_name: (e('mbr-manager')||{}).value || null,
     phone: (e('mbr-phone')||{}).value || null
   });
   if (d) {
-    ['mbr-name','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
     await loadMasterBranches();
     if (document.getElementById('franchises-table')) loadFranchises();
   }

@@ -9456,7 +9456,13 @@ LIMIT $limit`;
             새 /api 경로는 src/index.ts 의 라우팅 게이트·인증 게이트를 둘 다 통과해야 하는데
             index.ts 는 공동 금지구역이다. 이미 세 관문이 다 열려 있는 이 경로에 붙인다. */
       const ensureMaster = async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, login_username TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        /* 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
+           실제 아이디가 들어가게 해달라」) 지사와 달리 master_branches 는 admin_scope 에 이어 줄
+           길이 없다(scope.ts 의 Scope 타입에 'master' 가 없음 — 위 master_edit 주석 참고). 그래서
+           «접두어로 찾아 보여주기» 가 아니라 **직접 입력해 저장하는 칸**을 새로 둔다(기존 DB 에는
+           없을 수 있어 지연 ALTER — 이미 있으면 SQLite 가 throw → 흡수). */
+        try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       };
 
@@ -9481,10 +9487,18 @@ LIMIT $limit`;
             `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
                FROM master_branches m${mWhere} ORDER BY m.active DESC, m.name ASC`
           ).bind(..._fCond.binds).all();
+          const _mbrItems = rs.results || [];
+          /* 🔒 (2026-09-14, 위 login_username 주석과 짝) 로그인 계정명은 지사 login_id 와 같은
+             이유로 본사(hq/none)에게만 싣는다 — 지사·대리점 스코프 계정은 이 API 를 이미 스코프가
+             잘린 채로 쓰지만, 남는 한 줄(자기 대표지사)에도 «다른 사람(대표지사 관리자)» 의 계정명이
+             실려 있으니 굳이 넓힐 이유가 없다. */
+          if (!canEditOrg(_fSc)) {
+            for (const it of _mbrItems as any[]) delete it.login_username;
+          }
           // ✏️ (2026-09-11) 지사·대리점(centers/franchises)과 같은 이유로 can_edit 을 함께 준다 —
           // 화면이 이걸 보고 «수정» 버튼을 그릴지 정한다(안 주면 지사장 화면에도 버튼이 그려졌다가
           // 눌렀을 때만 403 이 나는 어색한 경험이 된다).
-          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond, can_edit: canEditOrg(_fSc) });
+          return json({ ok: true, items: _mbrItems, scoped: !!_fCond.cond, can_edit: canEditOrg(_fSc) });
         }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
         if (cols === 'id, name') {
@@ -9678,8 +9692,9 @@ LIMIT $limit`;
         if (!b.name) return invalidBody(['name']);
         await ensureMaster();
         const r = await env.DB.prepare(
-          `INSERT INTO master_branches (name, region, tier, owner_name, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null, now, now).run();
+          `INSERT INTO master_branches (name, region, tier, owner_name, phone, login_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null,
+               String(b.login_username || '').trim() || null, now, now).run();
         return json({ ok: true, id: r.meta.last_row_id });
       }
       // 🏛️ 지사 → 대표지사 배정 (master_id 가 비면 배정 해제)
@@ -9731,6 +9746,7 @@ LIMIT $limit`;
         if (has('tier')) { sets.push('tier = ?'); binds.push(String(b.tier || '').trim() || null); }
         if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
         if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
+        if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
         if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
         sets.push('updated_at = ?'); binds.push(now);
         binds.push(mid);
