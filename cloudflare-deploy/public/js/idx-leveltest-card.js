@@ -98,6 +98,19 @@
                 if (!withResult) { el.hidden = true; return; }
                 el.classList.remove('is-open');
                 el.href = '/parent.html?uid=' + encodeURIComponent(myUid);
+                /* 🤖 (2026-09-14) «AI 자가 진단» 만 돌린 행 — 신청서가 아니다.
+                   /api/leveltest/diagnose 는 pending 신청이 없으면 source='ai-diagnosis' 로
+                   날짜 없는 행을 새로 만든다. 그 행을 신청처럼 그리면 「일정 협의 중 /
+                   테스트 완료」 가 되어 «신청한 적 없는데 협의 중» 이라는 거짓말이 된다
+                   (2026-09-14 사장님 화면, D1 id 24). 사실대로 «AI 진단 완료 · 레벨» 로 적는다.
+                   ⚠️ 판정은 서버가 준 source 로 — 날짜가 없다는 것만으로 짐작하지 않는다. */
+                if (withResult.source === 'ai-diagnosis' && !withResult.desired_date) {
+                  var lv = String(withResult.final_level || '');
+                  put(whenEl, 'AI 진단 완료 · ' + lv, 'AI diagnosis done · ' + lv);
+                  put(subEl, '결과 보기 →', 'See result →');
+                  el.hidden = false;
+                  return;
+                }
                 put(whenEl, label(withResult.desired_date, withResult.desired_time, false),
                             label(withResult.desired_date, withResult.desired_time, true));
                 put(subEl, '테스트 완료 — 결과 보기 →', 'Test completed — see result →');

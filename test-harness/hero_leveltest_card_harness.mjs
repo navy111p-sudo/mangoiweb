@@ -137,6 +137,20 @@ const app = (o) => Object.assign({ id: 15, status: 'proposed', desired_date: ymd
   check('취소된 건은 «다가올 수업» 으로 세지 않는다 (회귀 0)', r.el.hidden === true, 'sub=' + r.sub);
 }
 
+{
+  // 🤖 (2026-09-14) AI 자가 진단만 돌린 행(source='ai-diagnosis', 날짜 없음) — 신청서가 아니다.
+  //    옛 코드는 「일정 협의 중 / 테스트 완료」 로 그려 «신청한 적 없는데 협의 중» 이 됐다(사장님 화면).
+  const r = await run({ ls: { ...MEMBER_LS }, my: { ok: true, items: [app({ status: 'pending', desired_date: null, desired_time: null, final_level: 'C2', source: 'ai-diagnosis' })] } });
+  check('AI 진단만 한 행은 «AI 진단 완료 · 레벨» 로 사실대로 적는다', r.el.hidden === false && r.when === 'AI 진단 완료 · C2', 'when=' + r.when);
+  check('«일정 협의 중» 이라고 말하지 않는다', !/협의 중/.test(r.when) && !/테스트 완료/.test(r.sub), 'when=' + r.when + ' sub=' + r.sub);
+  check('영어도 같이 바뀐다', r.whenEl._attr['data-en'] === 'AI diagnosis done · C2' && r.subEl._attr['data-en'] === 'See result →', r.whenEl._attr['data-en']);
+}
+{
+  // 짝: 날짜만 없고 source 가 신청서(폼)면 예전 그대로 — «날짜 없음» 만으로 짐작하지 않는다
+  const r = await run({ ls: { ...MEMBER_LS }, my: { ok: true, items: [app({ status: 'done', desired_date: null, desired_time: null, final_level: 'B1', source: 'form' })] } });
+  check('신청서 행은 source 가 달라 예전 문구 그대로 (회귀 0)', r.el.hidden === false && /테스트 완료/.test(r.sub) && /협의 중/.test(r.when), 'when=' + r.when + ' sub=' + r.sub);
+}
+
 console.log('\n[ ③ 🚫 신청이 없으면 아무 요청도 안 한다 (홈 첫 화면 비용 0) ]');
 {
   let called = 0;

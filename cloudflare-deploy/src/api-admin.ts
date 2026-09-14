@@ -10593,7 +10593,7 @@ LIMIT $limit`;
       const rs = await env.DB.prepare(
         `SELECT id, student_name, desired_date, desired_time, status, assigned_teacher, teacher_confirmed_at,
                 ai_score, pron_score, teacher_score, final_level,
-                recommended_textbook, next_class_guide, schedule_id, created_at, updated_at
+                recommended_textbook, next_class_guide, schedule_id, source, created_at, updated_at
            FROM leveltest_applications
           WHERE student_uid = ? OR (student_uid IS NULL AND student_name = ?)
           ORDER BY created_at DESC LIMIT 20`
