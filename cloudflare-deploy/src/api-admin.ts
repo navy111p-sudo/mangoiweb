@@ -9496,8 +9496,23 @@ LIMIT $limit`;
         }
         // 전체 목록에는 «어느 대표지사 소속인지» 를 함께 실어 준다(표에 컬럼 하나가 는다).
         await ensureMaster();
+        /* 🪪 (2026-09-14 신설 — 사장님 제보 「지사 관리 페이지에 지사 아이디를 볼 수 있는
+           화면이 없다. 지사장님들에게 각자 아이디를 공지해야 하는데 공지를 할 수가 없다」)
+           지사에는 로그인 계정을 «새로 만드는» 등록칸이 없다(대리점 POST 의 login_username 과
+           달리 이 표엔 그런 칸이 처음부터 없었다) — 계정은 admin_scope 에 이름으로 이어질 뿐이라,
+           그 연결을 찾아 «읽기 전용 아이디 칸» 으로 보여 준다. 바로 위 PATCH 의 linkedAccount
+           조회와 **같은 두 조건·같은 정확일치**를 그대로 재사용한다(scope_type='branch' 정확일치
+           우선, 없으면 scope_type='franchise'(지사본사) 콤마목록 안에 있는지 콤마-경계 LIKE로).
+           ⚠️ 후보가 둘 이상이면(같은 이름의 지사가 여럿) 아무거나 하나를 고르지 않는다 —
+           남의 지사 아이디가 뜨는 것보다 «—» 로 비워 두는 쪽이 안전하다(CLAUDE.md
+           「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙: 부분일치·모호하면 안 붙임). */
         const rs = await env.DB.prepare(
-          `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name
+          `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name,
+             (CASE WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'branch' AND scope_value = f.name) = 1
+                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value = f.name LIMIT 1)
+                   WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%')) = 1
+                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%') LIMIT 1)
+                   ELSE NULL END) AS login_id
              FROM franchises f
              LEFT JOIN franchise_master_map mm ON mm.franchise_id = f.id
              LEFT JOIN master_branches m ON m.id = mm.master_id${_fWhere}

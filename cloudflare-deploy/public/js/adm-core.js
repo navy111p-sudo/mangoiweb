@@ -5164,7 +5164,7 @@ async function loadFranchises() {
   const r = await fetch('/api/admin/franchises',{cache:'no-store',credentials:'include'});
   const d = await r.json().catch(()=>({}));
   if (typeof d.can_edit === 'boolean') _frCanEdit = d.can_edit;
-  if (!d.ok || !d.items || d.items.length === 0) { _frRows = []; if (tb) tb.innerHTML='<tr><td colspan="8" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
+  if (!d.ok || !d.items || d.items.length === 0) { _frRows = []; if (tb) tb.innerHTML='<tr><td colspan="9" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
   _frRows = d.items;
   // ✏️ (2026-09-11) 수정 버튼 — 등록 폼을 그대로 재사용해 이름·대표자·전화·주소·개설일을
   // 고친다(frEdit). can_edit 은 GET 이 이미 알려 준다(본사만 true).
@@ -5172,8 +5172,22 @@ async function loadFranchises() {
     ? `<button type="button" onclick="frEdit(${Number(f.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
+  /* 🪪 (2026-09-14 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를
+     못 한다」) 서버가 준 login_id 를 그대로 보여 준다 — 지사에는 로그인 계정을 만드는 칸
+     자체가 없어(대리점과 달리) 여기서 «새로 만들» 방법은 없고, 이미 있는 연결을 «보여만»
+     준다. 복사 버튼은 레벨테스트 화면의 ltCopyTicket 을 그대로 재사용한다(같은 뜻의 함수를
+     새로 만들지 않는다). ⚠️ 아이디에 따옴표·역슬래시가 있을 일은 없지만(계정명은 영숫자·
+     밑줄뿐) onclick 문자열 안에 그대로 박아 넣는 다른 화면들과 같은 방식으로 방어한다. */
+  const _frLoginCell = f => {
+    if (!f.login_id) return '<span style="color:#9ca3af">—</span>';
+    const safe = String(f.login_id).replace(/['\\]/g, '');
+    return `<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px">${_esc(f.login_id)}</span>`
+      + `<button type="button" onclick="ltCopyTicket(this,'${safe}')" title="${adminLang==='en'?'Copy login ID':'아이디 복사'}"
+          style="margin-left:5px;padding:1px 7px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">📋</button>`;
+  };
   if (tb) tb.innerHTML = d.items.map(f =>
     `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td>`
+    + `<td style="white-space:nowrap">${_frLoginCell(f)}</td>`
     + `<td><select onchange="assignMasterBranch(${f.id}, this.value, this)" style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;max-width:150px">${_masterOptions(f.master_branch_id)}</select></td>`
     + `<td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td>`
     + `<td style="white-space:nowrap">${_frActCell(f)}</td></tr>`

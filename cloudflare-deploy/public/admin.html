@@ -8335,8 +8335,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
-          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
-            <tbody id="franchises-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="아이디" data-en="Login ID">아이디</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="franchises-table"><tr><td colspan="9" class="empty">—</td></tr></tbody></table>
 
           <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
                지사를 고르면 그 지사 «소속» 대리점만 나온다. 이름으로 찾던 예전 방식은
@@ -10231,7 +10231,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=214" defer></script><!-- v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
+<script src="/js/adm-core.js?v=216" defer></script><!-- v=216: 2026-09-14 지사 목록에 「아이디」 칸 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를 못 한다」. 서버가 admin_scope 를 이름으로 이어 읽기전용으로 보여주고(복사 버튼은 ltCopyTicket 재사용), 후보가 둘 이상이면 «—»(모르면 안 붙임) · v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
      버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
      등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
      는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간
