@@ -649,14 +649,23 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
     check('speak 이 그 판정을 실제로 부른다', iReady >= 0);
     check('그 갈래가 «서버 TTS 보다 앞» 이다', iReady >= 0 && iTts >= 0 && iReady < iTts,
       'ready=' + iReady + ' tts=' + iTts + ' — 뒤에 있으면 서버가 먼저 읽어 버립니다');
+    /* 🔴 «캐시 단축» 보다도 앞이어야 한다 — 뒤로 옮기면 한 번 캐시된 문장은
+       영영 기기 목소리를 안 씁니다(2026-09-14 함정 대조가 그 변이를 실제로 통과시켰습니다). */
+    const iCache = spBody.indexOf('_ttsCache[key]');
+    check('그 갈래가 «캐시 단축» 보다도 앞이다',
+      iReady >= 0 && iCache >= 0 && iReady < iCache,
+      'ready=' + iReady + ' cache=' + iCache);
     check('그 갈래가 기기 목소리로 읽고 «거기서 끝낸다»',
       /_zhMaleVoiceReady\(\)[\s\S]{0,120}_synthSpeak\([\s\S]{0,60}return;/.test(spBody),
       'return 이 없으면 기기 목소리와 서버 목소리가 «겹쳐» 재생됩니다');
     /* 📜 옛 검사: 「기기에 남자 음성이 없으면 그 사실을 한 번 말한다」(_zhMaleToldOnce).
        2026-09-14 저녁 지시로 «항상» 남자 목소리가 나므로 그 안내는 거짓말이 되었다 — 새 경계로 옮김. */
+    /* 🚤 이 부정 검사를 «파일 전체» 에 돌리면 화면 카피(「메이는 여자 목소리…」)까지 잡아
+       뜻이 같은 무해한 재배열에 거짓 FAIL 이 납니다(함정 대조 실측). 그래서 둘로 좁힙니다 —
+       ⓐ 옛 플래그 이름이 사라졌는가(그 안내를 만들던 코드) ⓑ speak 안에서 안 말하는가. */
     check('「기기에 없어서 여자 목소리」 안내를 되살리지 않았다',
-      !/_zhMaleToldOnce/.test(HTMLC) && !/여자 목소리로 읽어/.test(HTMLC),
-      '이제 항상 남자 목소리라 그 안내는 거짓말입니다');
+      !/_zhMaleToldOnce/.test(HTMLC) && !/기기에는 중국어 남자 목소리가 없어서/.test(HTMLC),
+      '사유가 다릅니다 — 지금은 «굵게 만들지 못함» 이지 «기기에 음성이 없음» 이 아닙니다');
     /* 🔴 짝 — 없으면 «중국어 전체» 로 넓힌 변이가 통과한다 */
     check('그 갈래는 «남자일 때만» 탄다 (짝)',
       /isZh\(\)\s*&&\s*_voiceGender\(\)\s*===\s*'male'/.test(spBody),
@@ -748,9 +757,52 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
     check('굽기가 실패하면 원본 그대로 읽는다',
       /_zhDeepen\([\s\S]{0,200}play0\(u, false\)/.test(HTMLC),
       '소리가 아예 안 나는 것이 최악입니다');
-    check('굽는 사이 다음 말이 오면 스스로 물러난다',
-      /mySeq\s*=\s*_speakSeq/.test(HTMLC) && /mySeq\s*===\s*_speakSeq/.test(HTMLC),
-      '늦게 도착한 옛 문장이 새 문장 위로 겹쳐 재생됩니다');
+    /* 🔴 ── 배선 — «그 판정을 실제로 부르고 그 결과로 굽는가» ──
+       ⛔ 「판정 함수가 옳은가」만 보면 **아무것도 안 지켜집니다.**
+          2026-09-14 함정 대조 실측: `if(!_zhMaleWanted())` 를 `if(true)` 로 한 글자 바꿔
+          굽기를 통째로 끄자 이 하니스가 **126건 전부 초록**이었습니다(룽이 다시 여자 목소리).
+          같은 이유로 «성공 분기의 seq 가드만» 지운 변이도 통과했습니다 — 아래 «글자가 있는가»
+          검사가 실패 분기에 남은 글자를 보고 넘어갔기 때문입니다.
+       ✅ 그래서 play 를 오려 내 **가짜 부품으로 실제로 돌려** «어디로 가는가» 를 답으로 봅니다.
+          _speakSeq 를 SEQ() 로 바꿔 넣어 «굽는 사이 번호가 바뀌는» 상황까지 재현합니다. */
+    const playBody = bodyOf(HTMLC, 'var play=function(u){');
+    check('전제: play 몸통을 잘라 냈다', playBody.length > 50, 'len=' + playBody.length);
+    if (playBody) {
+      const playSrc = ('var play=function(u){' + playBody + '};').replace(/_speakSeq/g, 'SEQ()');
+      const runPlay = async (wantMale, deepOk, bumpSeq) => {
+        const log = []; let seq = 0;
+        try {
+          new Function('_zhMaleWanted', 'SEQ', '_zhDeepen', 'play0', '_zhDeepFailedOnce',
+            playSrc + '\nplay("SRC");')(
+            () => wantMale,
+            () => seq,
+            (u) => { if (bumpSeq) seq++; return deepOk ? Promise.resolve('DEEP:' + u) : Promise.reject(new Error('x')); },
+            (u, deep) => log.push((deep ? 'deep:' : 'plain:') + u),
+            () => log.push('told'));
+        } catch (e) { return ['ERR:' + e.message]; }
+        await new Promise((r) => setTimeout(r, 0));
+        return log;
+      };
+      const rDeep = await runPlay(true, true, false);
+      check('중국어 남자면 «굵게 구운» 소리를 재생한다 (배선)',
+        rDeep.length === 1 && rDeep[0] === 'deep:DEEP:SRC', '실제: ' + JSON.stringify(rDeep));
+      /* 🔴 짝 — 없으면 «전부 굽기» 도 통과한다(메이·영어 소리가 함께 바뀝니다) */
+      const rPlain = await runPlay(false, true, false);
+      check('그 밖은 굽지 않고 원본을 재생한다 (짝)',
+        rPlain.length === 1 && rPlain[0] === 'plain:SRC', '실제: ' + JSON.stringify(rPlain));
+      const rFail = await runPlay(true, false, false);
+      check('굽기가 실패하면 원본을 재생하고 «그 사실을 말한다»',
+        rFail.indexOf('plain:SRC') >= 0 && rFail.indexOf('told') >= 0,
+        '화면은 「룽 선생님은 남자 목소리」라고 약속해 두었습니다: ' + JSON.stringify(rFail));
+      /* 굽는 사이 다음 말이 오면 «양쪽 분기 모두» 물러나야 한다 —
+         한쪽만 가드하면 그 경로로 옛 문장이 겹쳐 재생됩니다. */
+      const rLateOk = await runPlay(true, true, true);
+      check('굽는 사이 다음 말이 오면 물러난다 — 성공 분기',
+        rLateOk.length === 0, '실제: ' + JSON.stringify(rLateOk));
+      const rLateNg = await runPlay(true, false, true);
+      check('굽는 사이 다음 말이 오면 물러난다 — 실패 분기 (짝)',
+        rLateNg.length === 0, '실제: ' + JSON.stringify(rLateNg));
+    }
     /* 🚤 「그 이름이 있는가」로 물으면 «저장하는 줄» 만 남겨도 통과한다(실측으로 밟음).
        물어야 할 것은 «읽어서 그 자리에서 돌아가는가» 다. */
     check('같은 문장을 다시 굽지 않는다 (캐시를 읽고 돌아간다)',
