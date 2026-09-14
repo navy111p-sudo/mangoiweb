@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<title>중국어 목소리 고르기 · 中文声音选择 — 망고아이</title>
+<!--
+  🀄 중국어 웜업 «남자 목소리 굵기» 견본 화면 (2026-09-14)
+
+  📜 왜 만들었나 — 사장님 「중국인 목소리 샘플 4개정도 들려줘. 여기서 선택할께.」
+     그전에 제가 굵기 값을 혼자 골라 배포했더니 「목소리가 이상해」가 두 번 왔습니다.
+     이 컨테이너에는 오디오 디코더가 없어 클로드는 소리를 들을 수 없습니다 —
+     값을 혼자 고르는 방식은 원리상 실패합니다. 그래서 선택권을 사람에게 넘깁니다.
+
+  🔴 서버 중국어 TTS 는 목소리가 «하나» 뿐입니다(구글 만다린, 여성).
+     src/api-games.ts 의 /api/voice/tts 는 lang 이 zh 면 gtts(text,'zh-CN') 한 줄이고
+     그 함수에 화자 인자가 없습니다 — speaker 는 캐시 키에만 쓰입니다.
+     ⟹ «다른 사람 4명» 은 만들 수 없습니다. 낼 수 있는 선택지는
+        ① 그 한 목소리를 «굵게» 만든 단계들  ② 기기에 깔린 중국어 음성 뿐입니다.
+
+  ⚠️ 굽는 방법·재생 배속 보정은 warmup.html 의 _zhDeepen / play0 과 «같은 식» 입니다
+     (OfflineAudioContext playbackRate=P 로 다시 그리고, 재생할 때 preservesPitch=true +
+      playbackRate = S/P 로 길이만 되돌림). 그래서 여기서 들은 소리 = 수업에서 날 소리입니다.
+     ⛔ 여기 식을 «더 좋게» 고치지 마세요 — 고치는 순간 이 화면이 거짓말을 합니다.
+        정본을 바꾸려면 warmup.html 의 ZH_MALE_PITCH 를 바꾸고 이 화면도 함께 맞추세요.
+
+  ℹ️ 사이트 지도에 올리지 않습니다 — mango-logo-preview.html 과 같은 «견본» 화면입니다
+     (admin_site_structure_sync_harness ⑦ 의 ALLOW 에 근거와 함께 적어 두었습니다).
+-->
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155;
+    --tx:#e2e8f0; --tx2:#94a3b8; --am:#fbbf24; --ok:#34d399;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:16px 16px 48px;
+    font-family:MangoiHanSC,'Pretendard','Noto Sans KR',system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--tx); line-height:1.6;
+  }
+  .wrap{max-width:640px; margin:0 auto}
+  h1{font-size:20px; margin:4px 0 2px}
+  .sub{color:var(--tx2); font-size:13px; margin:0 0 14px}
+  .note{
+    background:rgba(251,191,36,.10); border:1px solid rgba(251,191,36,.45);
+    border-radius:10px; padding:12px 14px; margin:0 0 16px; font-size:13.5px;
+  }
+  .note b{color:var(--am)}
+  .say{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin:0 0 14px;
+  }
+  .say .cn{font-size:18px; margin:0 0 4px}
+  .say .ko{font-size:13px; color:var(--tx2); margin:0}
+  .rate{margin:0 0 14px; font-size:13.5px}
+  .rate label{margin-right:14px; cursor:pointer}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin:0 0 10px;
+  }
+  .card.now{border-color:var(--am)}
+  .card .hd{margin:0 0 2px}
+  .tag{
+    display:inline-block; min-width:26px; text-align:center; font-weight:700;
+    background:#0b1220; border:1px solid var(--line); border-radius:6px;
+    padding:1px 7px; margin-right:8px; color:var(--am);
+  }
+  .card .d{font-size:12.5px; color:var(--tx2); margin:0 0 9px}
+  .play{
+    font-family:MangoiHanSC,'Pretendard','Noto Sans KR',system-ui,sans-serif;
+    font-size:15px; padding:9px 16px; border-radius:8px; cursor:pointer;
+    background:#2563eb; color:#fff; border:0; min-height:40px;
+  }
+  .play:disabled{opacity:.55; cursor:default}
+  .play.on{background:var(--ok); color:#06281d}
+  .st{font-size:12.5px; color:var(--tx2); margin:8px 0 0; min-height:18px}
+  h2{font-size:15px; margin:22px 0 6px}
+  .dev{font-size:13px; color:var(--tx2)}
+  .dev ul{margin:6px 0 0; padding-left:18px}
+  .dev li{margin:3px 0}
+  .home{
+    display:inline-block; margin-top:26px; color:var(--tx2); font-size:13.5px;
+    text-decoration:none; border:1px solid var(--line); border-radius:8px; padding:8px 14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🀄 중국어 목소리 고르기</h1>
+  <p class="sub">中文声音选择 — 웜업(수업 전 대화)에서 쓸 «룽 선생님» 목소리</p>
+
+  <div class="note">
+    <p style="margin:0 0 6px"><b>먼저 알려 드릴 것</b> — 서버에 있는 중국어 목소리는
+    <b>한 사람뿐</b>입니다(구글 만다린, 여성). 그래서 «서로 다른 사람 네 명»은
+    만들 수 없습니다.</p>
+    <p style="margin:0">대신 그 목소리를 브라우저에서 <b>굵게 만든 네 단계</b>를 들려드립니다.
+    아래에서 들으시는 소리가 <b>실제 수업에서 나는 소리와 같습니다</b>(굽는 방법이 같습니다).
+    A~D 중 하나를 골라 말씀해 주시면 그 값으로 바꿔 배포하겠습니다.</p>
+  </div>
+
+  <div class="say">
+    <p class="cn">你好！我是龙老师。今天我们一起学中文，好吗？</p>
+    <p class="ko">안녕하세요! 저는 룽 선생님이에요. 오늘 우리 같이 중국어 배워요, 어때요?</p>
+  </div>
+
+  <div class="rate">
+    <label><input type="radio" name="rate" value="0.65" checked> 수업 기본 속도 (0.65배 — 들어가면 이 속도입니다)</label>
+    <label><input type="radio" name="rate" value="1"> 보통 속도 (1.0배)</label>
+  </div>
+
+  <div id="cards"></div>
+  <p class="st" id="st">▶ 버튼을 누르면 서버에서 소리를 한 번 받아 옵니다(처음 한 번만 조금 걸립니다).</p>
+
+  <h2>📱 이 기기에 깔린 중국어 목소리</h2>
+  <div class="dev" id="dev">확인하는 중…</div>
+
+  <a class="home" href="/">🏠 홈으로</a>
+</div>
+
+<script>
+/* ⚠️ 아래 _wavBlob · deepen · 재생 배속 보정은 warmup.html 의 것과 «같은 식» 입니다.
+   한쪽만 고치면 이 화면이 «수업에서 날 소리» 를 더는 들려주지 않습니다. */
+var NOW_PITCH = 0.78;   /* 지금 배포된 값 — warmup.html 의 ZH_MALE_PITCH 와 같아야 합니다 */
+var TEXT = '你好！我是龙老师。今天我们一起学中文，好吗？';
+var LIST = [
+  { tag:'원본', pitch:1,    name:'굵게 만들기 전 (여자 목소리)', desc:'서버가 주는 소리 그대로입니다. 비교용이에요.' },
+  { tag:'A',    pitch:0.90, name:'살짝만 굵게',                  desc:'가장 자연스럽지만 «남자» 로 안 들릴 수 있습니다.' },
+  { tag:'B',    pitch:0.84, name:'조금 굵게',                    desc:'자연스러움과 굵기의 중간입니다.' },
+  { tag:'C',    pitch:0.78, name:'지금 쓰는 값',                 desc:'★ 지금 수업에서 나는 소리입니다.' },
+  { tag:'D',    pitch:0.72, name:'가장 굵게',                    desc:'가장 남자 같지만 소리가 굵게 눌린 느낌이 납니다.' }
+];
+/* ⛔ 0.7 미만은 넣지 않습니다 — «괴물 목소리» 가 되고, 재생 보정 배속(S/P)이 커져
+   시간축 늘이기 왜곡(«뚜벅뚜벅»)도 함께 커집니다. */
+
+var st = document.getElementById('st');
+function say(t){ st.textContent = t; }
+
+var _srcUrl = null, _srcWait = null, _cache = {}, _seq = 0, _audio = null, _curBtn = null;
+
+function rate(){
+  var r = document.querySelector('input[name=rate]:checked');
+  return r ? Number(r.value) : 1;
+}
+
+/* 서버에서 중국어 소리를 한 번만 받아 둔다(같은 문장을 다섯 번 받지 않게) */
+function srcUrl(){
+  if(_srcUrl) return Promise.resolve(_srcUrl);
+  if(_srcWait) return _srcWait;
+  say('🔊 서버에서 소리를 받아오는 중…');
+  _srcWait = fetch('/api/voice/tts', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:TEXT, lang:'zh', speaker:'mei' })
+    }).then(function(r){
+      var ct = r.headers.get('content-type') || '';
+      if(!r.ok || ct.indexOf('audio') < 0) throw new Error('tts ' + r.status);
+      return r.blob();
+    }).then(function(b){
+      _srcUrl = URL.createObjectURL(b); _srcWait = null; return _srcUrl;
+    }, function(e){ _srcWait = null; throw e; });
+  return _srcWait;
+}
+
+function wavBlob(buf){
+  var nCh=buf.numberOfChannels, len=buf.length, sr=buf.sampleRate;
+  var dv=new DataView(new ArrayBuffer(44+len*nCh*2)), o=0;
+  function str(t){ for(var i=0;i<t.length;i++) dv.setUint8(o++, t.charCodeAt(i)); }
+  function u32(v){ dv.setUint32(o,v,true); o+=4; }
+  function u16(v){ dv.setUint16(o,v,true); o+=2; }
+  str('RIFF'); u32(36+len*nCh*2); str('WAVE'); str('fmt '); u32(16); u16(1); u16(nCh);
+  u32(sr); u32(sr*nCh*2); u16(nCh*2); u16(16); str('data'); u32(len*nCh*2);
+  var ch=[]; for(var c=0;c<nCh;c++) ch.push(buf.getChannelData(c));
+  for(var i=0;i<len;i++){ for(var c2=0;c2<nCh;c2++){
+    var v=Math.max(-1,Math.min(1,ch[c2][i])); dv.setInt16(o, v<0 ? v*0x8000 : v*0x7FFF, true); o+=2; } }
+  return new Blob([dv.buffer], {type:'audio/wav'});
+}
+
+/* 음높이만 P 배로 내린다 — ① 여기서 다시 그리고(길이 1/P 배)
+   ② 재생할 때 playbackRate = S/P 로 길이를 되돌린다(아래 play). */
+function deepen(u, P){
+  if(P >= 0.999) return Promise.resolve(u);
+  var k = 'p' + P;
+  if(_cache[k]) return Promise.resolve(_cache[k]);
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if(!AC || !OC) return Promise.reject(new Error('no-audio-api'));
+  return fetch(u).then(function(r){ return r.arrayBuffer(); }).then(function(ab){
+    var ctx = new AC();
+    return new Promise(function(res, rej){ ctx.decodeAudioData(ab, res, rej); })
+      .then(function(buf){ try{ ctx.close(); }catch(e){} return buf; },
+            function(e){ try{ ctx.close(); }catch(e2){} throw e; });
+  }).then(function(buf){
+    var off = new OC(buf.numberOfChannels, Math.ceil(buf.length / P), buf.sampleRate);
+    var src = off.createBufferSource(); src.buffer = buf; src.playbackRate.value = P;
+    src.connect(off.destination); src.start(0);
+    return off.startRendering();
+  }).then(function(out){
+    _cache[k] = URL.createObjectURL(wavBlob(out)); return _cache[k];
+  });
+}
+
+function stopNow(){
+  _seq++;
+  try{ if(_audio){ _audio.onended=null; _audio.onerror=null; _audio.pause(); } }catch(e){}
+  if(_curBtn){ _curBtn.classList.remove('on'); _curBtn.textContent = _curBtn.dataset.label; _curBtn = null; }
+}
+
+function play(item, btn){
+  stopNow();
+  var mine = _seq;
+  btn.classList.add('on'); btn.textContent = '■ 멈추기';
+  _curBtn = btn;
+  say('🔊 ' + item.tag + ' 준비하는 중…');
+  srcUrl().then(function(u){
+    if(mine !== _seq) return null;
+    return deepen(u, item.pitch);
+  }).then(function(u){
+    if(mine !== _seq || !u) return;
+    if(!_audio) _audio = new Audio();
+    var done = function(){
+      if(mine !== _seq) return;
+      btn.classList.remove('on'); btn.textContent = btn.dataset.label; _curBtn = null;
+      say('들으신 것: ' + item.tag + ' (' + item.pitch.toFixed(2) + ')  —  다른 것도 들어 보세요.');
+    };
+    _audio.onended = done; _audio.onerror = done;
+    _audio.src = u;
+    /* 굵게 만든 판은 길이가 1/P 로 늘어나 있다 — 배속을 P 로 나눠 되돌린다.
+       preservesPitch=true 가 그 되돌림에서 음높이를 다시 올리지 않게 막는다. */
+    _audio.playbackRate = rate() / item.pitch;
+    try{ _audio.preservesPitch = true; _audio.webkitPreservesPitch = true; }catch(e){}
+    say('🔊 ' + item.tag + ' 재생 중 — 속도 ' + rate() + '배');
+    _audio.play().catch(function(){ done(); say('소리를 재생하지 못했습니다. 한 번 더 눌러 주세요.'); });
+  }).catch(function(err){
+    if(mine !== _seq) return;
+    btn.classList.remove('on'); btn.textContent = btn.dataset.label; _curBtn = null;
+    say('⚠️ ' + item.tag + ' 를 만들지 못했습니다 (' + (err && err.message ? err.message : '알 수 없는 이유') + '). 잠시 뒤 다시 눌러 주세요.');
+  });
+}
+
+/* 카드 그리기 */
+(function(){
+  var box = document.getElementById('cards');
+  LIST.forEach(function(item){
+    var d = document.createElement('div');
+    d.className = 'card' + (item.pitch === NOW_PITCH ? ' now' : '');
+    var hd = document.createElement('p'); hd.className = 'hd';
+    var tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = item.tag;
+    hd.appendChild(tg);
+    hd.appendChild(document.createTextNode(item.name + '  ·  ' + item.pitch.toFixed(2)));
+    var ds = document.createElement('p'); ds.className = 'd'; ds.textContent = item.desc;
+    var b = document.createElement('button'); b.className = 'play';
+    b.dataset.label = '▶ 듣기';
+    b.textContent = '▶ 듣기';
+    b.addEventListener('click', function(){
+      if(_curBtn === b){ stopNow(); say('멈췄습니다.'); return; }
+      play(item, b);
+    });
+    d.appendChild(hd); d.appendChild(ds); d.appendChild(b);
+    box.appendChild(d);
+  });
+})();
+
+/* 📱 이 기기에 깔린 중국어 음성 — 있으면 그쪽이 수업에서 «1순위» 로 쓰입니다
+   (warmup.html 의 _zhMaleVoiceReady). 그래서 함께 들어 보실 수 있게 둡니다. */
+(function(){
+  var box = document.getElementById('dev');
+  function draw(){
+    var vs = [];
+    try{ vs = (window.speechSynthesis && window.speechSynthesis.getVoices()) || []; }catch(e){}
+    var zh = vs.filter(function(v){ return /^zh/i.test(v.lang || ''); });
+    box.textContent = '';
+    if(!zh.length){
+      box.textContent = '이 기기에는 중국어 음성이 없습니다. 그래서 위의 «굵게 만든 소리» 가 쓰입니다.';
+      return;
+    }
+    var p = document.createElement('p');
+    p.style.margin = '0';
+    p.textContent = zh.length + '개 있습니다. 이 중에 남자 목소리가 있으면 수업에서 그것이 먼저 쓰입니다.';
+    box.appendChild(p);
+    var ul = document.createElement('ul');
+    zh.forEach(function(v){
+      var li = document.createElement('li');
+      li.appendChild(document.createTextNode(v.name + ' (' + v.lang + ')  '));
+      var b = document.createElement('button');
+      b.className = 'play';
+      b.style.fontSize = '13px'; b.style.padding = '4px 10px'; b.style.minHeight = '0';
+      b.textContent = '▶ 듣기';
+      b.addEventListener('click', function(){
+        stopNow();
+        try{
+          window.speechSynthesis.cancel();
+          var u = new SpeechSynthesisUtterance(TEXT);
+          u.voice = v; u.lang = v.lang; u.rate = rate();
+          window.speechSynthesis.speak(u);
+          say('🔊 기기 목소리 재생 중 — ' + v.name);
+        }catch(e){ say('이 목소리는 재생하지 못했습니다.'); }
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+  draw();
+  try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = draw; }catch(e){}
+})();
+</script>
+</body>
+</html>
