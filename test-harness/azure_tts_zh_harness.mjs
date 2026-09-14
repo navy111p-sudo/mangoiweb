@@ -167,8 +167,11 @@ if (azLine) {
   check('영어는 이 갈래를 타지 않는다 (짝)',
     decide('en', { azure_voice: 'yunxi' }) === null, '실제: ' + decide('en', { azure_voice: 'yunxi' }));
 }
-/* 🔴 캐시를 안 가르면 같은 문장의 «옛 여성 캐시본» 이 먼저 걸려 남자 목소리가 영영 안 난다 */
-check('캐시 키를 «실제로 쓴 목소리» 로 가른다', /azVoice \? 'azure:' \+ azVoice/.test(GAMES),
+/* 🔴 캐시를 안 가르면 같은 문장의 «옛 여성 캐시본» 이 먼저 걸려 남자 목소리가 영영 안 난다.
+   ⛔ 접두사 글자(`'azure:'`)를 못 박지 않는다 — 오염분을 버리려고 세대를 올리는
+      정당한 수리가 빨간불이 된다(2026-09-14 실제로 밟음). «가르는가» 로 묻는다. */
+check('캐시 키를 «실제로 쓴 목소리» 로 가른다',
+  /azVoice \?\s*'[a-z0-9:-]*'\s*\+\s*azVoice\s*:/.test(stripComments(GAMES)),
   '안 가르면 옛 여성 캐시본이 이겨 이 변경이 통째로 헛돕니다');
 
 if (SAMPLE) {
@@ -195,6 +198,192 @@ if (SAMPLE) {
     '이미 남자라 또 낮추면 두 번 낮아집니다');
   check('Azure 소리는 배속을 나누지 않는다', /_audio\.playbackRate = rate\(\);/.test(azBlock),
     '굽지 않았으니 되돌릴 것도 없습니다');
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ⑥ 캐시가 «누구 목소리인가» 를 거짓말하지 않는가  (2026-09-14 실사고)
+
+   사장님 「이거 4개 모두 여자 목소리야.」 — 사슬이 둘이었다.
+     ⓐ gtts 폴백이 «요청» 키(=azure:윈시)에 여성 음성을 써 넣었다(캐시 오염).
+     ⓑ 캐시 적중 헤더가 «요청이 azure 였나» 로 판정해 그 여성 음성을
+        «azure» 라고 말했다 → 화면이 경고를 못 하고 그대로 들려줬다.
+   ⚠️ 문자열로 「putCache 가 있는가」를 물으면 못 잡는다 — 둘 다 «있었다».
+      물어야 할 것은 «어느 키에 쓰는가»·«무엇을 읽어 판정하는가» 이다.
+   ───────────────────────────────────────────────────────────────────────── */
+console.log('\n[ ⑥ 캐시가 «누구 목소리인가» 를 거짓말하지 않는가 ]');
+
+const gttsBody = bodyAt(GAMES, 'const gtts = async (txt: string, tl: string) => {');
+check('전제: gtts 몸통을 잘라 냈다', gttsBody.length > 200, 'len=' + gttsBody.length);
+const gttsCode = stripComments(gttsBody);
+check('전제: gtts 에서 주석을 벗겨 냈다', gttsCode.length < gttsBody.length,
+  'code=' + gttsCode.length + ' / raw=' + gttsBody.length);
+/* 🔴 putCache(=요청 키) 를 쓰면 azure 키에 여성 음성이 들어간다 */
+check('gtts 폴백은 «요청» 키에 저장하지 않는다',
+  !/\bputCache\s*\(/.test(gttsCode),
+  'putCache 는 cacheKey(요청 키)다 — Azure 를 콕 집은 요청이 실패하면 그 키가 azure 키다');
+/* 🔴 짝 — 없으면 «아예 저장 안 하기» 도 통과한다(매번 구글을 다시 불러 느려진다) */
+check('그래도 «실제로 쓴 화자» 키에는 저장한다 (짝)',
+  /putCacheAs\(\s*await ttsKey\(/.test(gttsCode),
+  '저장을 통째로 없애면 같은 문장을 매번 새로 만듭니다');
+check('그 저장분에 «무엇이 만들었나» 를 적어 둔다',
+  /putCacheAs\([^;]*,\s*'gtts'\s*\)/.test(gttsCode),
+  '안 적으면 캐시 적중 때 «모름» 이 되어 azure 로 넘겨짚게 됩니다');
+
+/* 🔴 `r2.get(cacheKey)` 는 이 파일에 «둘» 이다 — 그냥 indexOf 하면 다른 라우트의
+   캐시 블록이 걸려 엉뚱한 응답을 검사한다(2026-09-14 실제로 밟음). 라우트로 먼저 좁힌다. */
+const hitBlock = (() => {
+  const r = GAMES.indexOf("path === '/api/voice/tts'");
+  if (r < 0) return '';
+  const i = GAMES.indexOf('const hit = await r2.get(cacheKey);', r);
+  return i < 0 ? '' : GAMES.slice(i, i + 700);
+})();
+check('전제: 캐시 적중 블록을 잘라 냈다', hitBlock.length > 200, 'len=' + hitBlock.length);
+const hitCode = stripComments(hitBlock);
+/* 🔴 「요청이 azure 였나」로 넘겨짚으면 폴백 바이트가 azure 로 둔갑한다 */
+check('캐시 적중은 «저장된 표시» 를 읽어 엔진을 말한다',
+  /customMetadata\s*\?\.\s*eng|customMetadata\)\s*\?\./.test(hitCode) || /customMetadata/.test(hitCode),
+  '저장할 때 붙인 표시를 안 읽으면 «무엇이 들어 있나» 를 알 방법이 없습니다');
+check('요청 값(azVoice)으로 엔진을 넘겨짚지 않는다',
+  !/azVoice\s*\?\s*'r2-cache/.test(hitCode),
+  '그것은 «무엇을 달라고 했나» 이지 «무엇이 저장돼 있나» 가 아닙니다');
+/* 🔴 «그 글자가 있는가» 로는 «조건 뒤집기» 를 못 본다(`false &&` 한 번이면 통과).
+   식을 오려 내 «실제로 돌려» 답으로 묻는다. */
+{
+  const m = hitCode.match(/'X-TTS-Engine':\s*([^,\n]+)/);
+  check('전제: 캐시 적중의 엔진 식을 오려 냈다', !!m, '못 찾으면 아래가 조용히 통과합니다');
+  let f0 = null;
+  try { f0 = m ? new Function('hitEng', 'return (' + m[1] + ');') : null; } catch { f0 = null; }
+  /* ⚠️ «만들기» 만 감싸면 안 된다 — 부를 때 던지는 변이(밖의 값을 참조)가
+     깔끔한 FAIL 이 아니라 하니스 크래시가 되어 결과줄조차 안 나온다(실제로 밟음). */
+  const f = (v) => { try { return String(f0(v)); } catch (e) { return 'THREW:' + (e && e.message); } };
+  let live = false;
+  try { if (f0) { f0('azure'); live = true; } } catch { live = false; }
+  check('전제: 그 식을 «불러» 볼 수 있다', live,
+    (m ? m[1] : '(없음)') + ' → ' + (f0 ? f('azure') : '(만들기 실패)'));
+  if (live) {
+    check('저장된 표시가 azure 면 azure 라고 말한다',
+      f('azure').indexOf('azure') >= 0, '실제: ' + f('azure'));
+    /* 🔴 짝 — 없으면 «언제나 azure» 도 통과한다(바로 이번 사고) */
+    check('표시가 없으면 azure 라고 말하지 않는다 (짝)',
+      f('').indexOf('azure') < 0, '실제: ' + f(''));
+    check('표시가 gtts 면 gtts 라고 말한다 (짝)',
+      f('gtts').indexOf('azure') < 0 && f('gtts').indexOf('gtts') >= 0, '실제: ' + f('gtts'));
+  }
+}
+/* 🔴 짝 — 진단 헤더 자체가 사라지면 화면이 판정할 근거를 잃는다 */
+check('캐시 적중에도 진단 헤더 둘을 싣는다 (짝)',
+  /'X-TTS-Engine':/.test(hitCode) && /'X-TTS-Speaker':/.test(hitCode),
+  '빼면 화면이 「지금 소리가 고른 목소리인가」를 캐시 때만 못 봅니다');
+
+/* 🔴 «넘기는가» 만 보면 구멍이 남는다 — putCacheAs 가 그 인자를 «무시» 해도 통과한다
+   (변이 실측: 표시를 안 적게 바꿔도 58/0 초록이었다). «받아서 쓰는가» 를 함께 묻는다.
+   그러면 azure 성공분에 표시가 안 붙어, 두 번째 재생부터 화면이 «못 받았다» 는
+   거짓 경고를 하게 된다(성우가 나오는데도 못 듣게 됩니다). */
+{
+  const putBody = bodyAt(GAMES, 'const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array, eng?: string) => {');
+  check('전제: putCacheAs 몸통을 잘라 냈다', putBody.length > 120, 'len=' + putBody.length);
+  const putCode = stripComments(putBody);
+  check('putCacheAs 는 받은 표시(eng)를 실제로 적는다',
+    /customMetadata/.test(putCode) && /\beng\b/.test(putCode),
+    '인자만 받고 안 쓰면 캐시 적중이 언제나 «모름» 이 되어 거짓 경고가 납니다');
+}
+check('Azure 성공분에는 «azure» 표시를 달아 저장한다',
+  /putCacheAs\(\s*cacheKey\s*,\s*az\.bytes\s*,\s*'azure'\s*\)/.test(stripComments(zhBlock)),
+  '표시가 없으면 다음 요청의 캐시 적중이 그것을 «모름» 으로 봅니다');
+/* 🔴 이미 오염된 옛 항목을 그대로 쓰면 고쳐도 사장님 화면은 그대로다 */
+check('오염된 옛 azure 캐시 항목을 버렸다(키 세대)',
+  /'azure2:'\s*\+\s*azVoice/.test(stripComments(GAMES)) && !/'azure:'\s*\+\s*azVoice/.test(stripComments(GAMES)),
+  "옛 키(azure:)를 그대로 두면 이미 저장된 여성 음성이 계속 나옵니다");
+
+if (SAMPLE) {
+  /* 🔴 견본 화면 — 눌렀던 버튼이 «■ 멈추기» 인 채 남던 것(사장님 사진에 4개 전부) */
+  const sc = stripComments(SAMPLE);
+  check('성우 버튼도 공용 _curBtn 으로 추적한다',
+    /_curBtn === b/.test(sc) && /_curBtn = b;/.test(sc),
+    'stopNow() 가 _curBtn 만 되돌리므로 따로 들고 있으면 영영 «멈추기» 로 남습니다');
+  check('그 절에 지역 변수 cur 이 남아 있지 않다 (짝)',
+    !/\bvar\s+cache\s*=\s*\{\}\s*,\s*cur\b/.test(sc) && !/\bcur\s*=\s*b;/.test(sc),
+    '둘이 같이 있으면 어느 쪽이 참인지 화면이 모릅니다');
+  check('폴백일 때 소리를 내지 않는다',
+    /indexOf\('azure'\)\s*<\s*0\)\s*\{[\s\S]{0,400}?return;/.test(sc),
+    '여자 목소리를 «윈시» 로 듣고 고르시게 됩니다');
+  /* 🔴 위 검사는 «조건 뒤집기» 를 못 본다 — `if(false && o.eng.indexOf('azure')<0)` 로
+     막아도 그 글자가 그대로 남는다. 조건을 오려 내 실제로 돌려 답으로 묻는다. */
+  {
+    /* ⚠️ `[^{]*` 로 잡으면 앞 문장(`if(mine !== _seq) return;`)까지 딸려 온다 —
+       세미콜론·줄바꿈을 막아 «가장 가까운 if» 만 잡는다(실제로 밟음). */
+    const m = sc.match(/if\s*\(([^{};\n]*indexOf\('azure'\)[^{};\n]*)\)\s*\{/);
+    check('전제: 견본의 폴백 판정 조건을 오려 냈다', !!m, '못 찾으면 아래가 조용히 통과합니다');
+    let g0 = null;
+    try { g0 = m ? new Function('o', 'return (' + m[1] + ');') : null; } catch { g0 = null; }
+    /* ⚠️ 위와 같은 이유로 «부를 때» 도 감싼다 — 크래시는 FAIL 이 아니라 «안 보임» 이다. */
+    const g = (o) => { try { return g0(o); } catch (e) { return 'THREW:' + (e && e.message); } };
+    let glive = false;
+    try { if (g0) { g0({ eng: 'gtts' }); glive = true; } } catch { glive = false; }
+    check('전제: 그 조건을 «불러» 볼 수 있다', glive,
+      (m ? m[1] : '(없음)') + ' → ' + (g0 ? String(g({ eng: 'gtts' })) : '(만들기 실패)'));
+    if (glive) {
+      check('폴백(gtts)이면 «못 받았다» 로 간다', g({ eng: 'gtts', why: 'http_401' }) === true,
+        '실제: ' + g({ eng: 'gtts', why: 'http_401' }));
+      /* 🔴 짝 — 없으면 «전부 경고» 도 통과해 성우가 나와도 못 듣게 된다 */
+      check('진짜 성우면 그대로 들려준다 (짝)', g({ eng: 'azure', why: '' }) === false,
+        '실제: ' + g({ eng: 'azure', why: '' }));
+      check('azure 캐시본도 그대로 들려준다 (짝)', g({ eng: 'r2-cache:azure', why: '' }) === false,
+        '실제: ' + g({ eng: 'r2-cache:azure', why: '' }));
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ⑦ 웜업이 그 성우를 «실제로» 쓰는가  (2026-09-14 사장님 지시로 윈시 배선)
+
+   🔴 여기서 틀리면 «두 번 낮아진 괴물 목소리» 가 된다 — 진짜 남성 성우를 받아 놓고
+      또 굵게 구우면 ZH_MALE_PITCH 만큼 한 번 더 내려간다.
+   ⚠️ 판정 근거는 «성우를 달라고 했나» 가 아니라 «무엇이 만들어 왔나»(X-TTS-Engine) 다.
+      서버가 못 만들면 여성 음성이 그대로 내려오고, 그때는 굽기가 «있어야» 남자가 된다.
+   ───────────────────────────────────────────────────────────────────────── */
+console.log('\n[ ⑦ 웜업이 그 성우를 실제로 쓰는가 ]');
+const WARM = (() => { try { return read('cloudflare-deploy/public/warmup.html'); } catch { return null; } })();
+if (!WARM) { check('전제: warmup.html 을 읽었다', false, '못 읽으면 아래가 조용히 사라집니다'); }
+else {
+  const wc = stripComments(WARM);
+  const nameM = wc.match(/var ZH_MALE_AZURE\s*=\s*'([a-z]+)'/);
+  check('웜업이 쓸 성우 이름이 있다', !!nameM, '없으면 예전처럼 여성 음성을 굽기만 합니다');
+  /* 🔴 모르는 이름이면 서버가 null 로 보고 조용히 예전 경로로 간다 — 에러가 안 난다 */
+  check('그 이름을 서버가 안다 (정본 목록과 대조)',
+    !!nameM && AZURE_ZH_VOICES && Object.prototype.hasOwnProperty.call(AZURE_ZH_VOICES, nameM[1]),
+    '실제: ' + (nameM ? nameM[1] : '(없음)') + ' / 아는 이름: ' + Object.keys(AZURE_ZH_VOICES || {}).join(','));
+  check('요청 본문에 그 이름을 싣는다', /azure_voice:\s*_zhMaleWanted\(\)\s*\?\s*ZH_MALE_AZURE/.test(wc),
+    '안 실으면 서버가 예전 경로로만 갑니다');
+  /* 🔴 짝 — 조건 없이 실으면 메이(여자)·영어까지 남자 성우가 된다 */
+  check('중국어 «남자» 일 때만 싣는다 (짝)',
+    /azure_voice:[^,\n]*_zhMaleWanted\(\)/.test(wc) && !/azure_voice:\s*ZH_MALE_AZURE\s*[,}]/.test(wc),
+    '조건 없이 실으면 메이(여자)와 영어까지 남자 목소리가 됩니다');
+  check('응답에서 «무엇이 만들었나» 를 읽는다',
+    /eng\s*=\s*String\(\s*r\.headers\.get\('X-TTS-Engine'/.test(wc),
+    '안 읽으면 진짜 성우인지 폴백인지 구별할 방법이 없습니다');
+
+  /* «굽는가» 판정을 오려 내 실제로 돌린다 — 글자로 물으면 조건 뒤집기를 못 본다 */
+  const gm = wc.match(/if\s*\(([^{};\n]*indexOf\('azure'\)[^{};\n]*)\)\s*\{\s*play0\(u,\s*false\)/);
+  check('전제: 웜업의 굽기 판정을 오려 냈다', !!gm, '못 찾으면 아래가 조용히 통과합니다');
+  let w0 = null;
+  try { w0 = gm ? new Function('eng', 'return (' + gm[1] + ');') : null; } catch { w0 = null; }
+  const w = (v) => { try { return w0(v); } catch (e) { return 'THREW:' + (e && e.message); } };
+  let wlive = false;
+  try { if (w0) { w0('azure'); wlive = true; } } catch { wlive = false; }
+  check('전제: 그 판정을 «불러» 볼 수 있다', wlive, gm ? gm[1] : '(없음)');
+  if (wlive) {
+    check('진짜 성우(azure)면 굽지 않는다', w('azure') === true, '실제: ' + w('azure'));
+    check('캐시본(r2-cache:azure)도 굽지 않는다', w('r2-cache:azure') === true, '실제: ' + w('r2-cache:azure'));
+    /* 🔴 짝 — 없으면 «전부 안 굽기» 도 통과해 여자 목소리가 그대로 납니다(고치기 전 상태) */
+    check('폴백(gtts)이면 예전처럼 굵게 굽는다 (짝)', w('gtts') === false, '실제: ' + w('gtts'));
+    check('헤더가 없어도(옛 배포) 굵게 굽는다 (짝)', w('') === false, '실제: ' + w(''));
+  }
+  /* 🔴 캐시가 엔진을 안 기억하면 «두 번째 재생부터» 또 굽는다 — 첫 재생만 들어 보면 못 본다 */
+  check('캐시가 «무엇이 만들었나» 를 함께 기억한다', /_ttsEng\[key\]\s*=\s*o\.eng/.test(wc),
+    '안 기억하면 캐시에서 꺼낼 때 진짜 성우를 또 굽습니다');
+  check('캐시 적중 때 그것을 함께 넘긴다 (짝)', /play\(_ttsCache\[key\],\s*_ttsEng\[key\]\)/.test(wc),
+    '기억만 하고 안 넘기면 아무 일도 안 합니다');
 }
 
 console.log('\n─────────────────────────────────────────────');

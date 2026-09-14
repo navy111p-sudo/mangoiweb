@@ -1482,7 +1482,9 @@ setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초�
 /* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
    speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
    실패(네트워크/429 등) 시에만 브라우저 음성합성으로 폴백. */
-var _ttsCache={}, _ttsAudio=null;
+/* _ttsEng — 그 캐시본을 «무엇이 만들었나»(azure / gtts …). _ttsCache 와 «짝» 입니다:
+   한쪽만 비우면 캐시에서 꺼낸 진짜 남자 성우를 또 굵게 굽습니다(괴물 목소리). */
+var _ttsCache={}, _ttsEng={}, _ttsAudio=null;
 /* 🀄 중국어 «남자» 목소리 — 서버가 못 내 주므로 브라우저에서 «음높이만» 내린다.
    서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고 화자 인자가 아예 없다
    (src/api-games.ts 의 /api/voice/tts — speaker 는 캐시 키에만 쓰입니다).
@@ -1494,6 +1496,15 @@ var _ttsCache={}, _ttsAudio=null;
    ⛔ ②를 빼고 ①만 하면 «느리고 낮은» 소리입니다(속도까지 함께 내려감).
    ⚠️ 실패하면 원본 그대로 재생합니다(여자 목소리) — 소리가 아예 안 나는 것이 최악입니다.
    ⚠️ 기기에 진짜 중국어 남자 음성이 있으면 그쪽(_synthSpeak)이 먼저입니다 — 더 자연스럽습니다. */
+/* 🎙 중국어 «남자» 를 서버에 부탁할 때 콕 집는 진짜 남성 성우(Azure Speech).
+   2026-09-14 사장님 「너가 생각하기에 가장 얼굴에 맞고 수업에 잘 맞는 남자 성우로」
+   → 윈시(Yunxi). 룽 선생님 얼굴이 «젊은 남자 선생님» 이라 «젊고 밝은 남성» 이 맞고,
+     뉴스 톤(윈양)·강한 톤(윈젠)은 수업 «대화» 에 무겁습니다.
+   ⚠️ 이것은 Azure 가 적어 둔 목소리 성격을 근거로 «고른» 것입니다 — 소리는 제가 못 듣습니다.
+      바꾸시려면 이 한 줄만 고치면 됩니다(아는 이름: yunxi·yunjian·yunyang·yunfeng).
+   ⛔ 모르는 이름을 적지 마세요 — 서버가 null 로 보고 예전 경로(여성)로 그대로 갑니다.
+   ⛔ 메이(여자)·영어에는 실리지 않습니다 — 지금 잘 나는 소리를 바꾸는 변경이 됩니다. */
+var ZH_MALE_AZURE = 'yunxi';
 var ZH_MALE_PITCH = 0.78;     /* 1 보다 작을수록 굵은 목소리.
    📐 [잰 것 — 2026-09-14, 크로미움에서 220Hz 사인파를 실제로 통과시켜 영교차로 셈]
       0.84 → 184.4Hz(비율 0.838) · 0.78 → 171.2Hz(비율 0.778).
@@ -1633,22 +1644,30 @@ function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
       /* 🀄 lang — 서버가 이 값으로 «무슨 목소리로 읽을지» 를 정한다(src/api-games.ts 의 /api/voice/tts).
          ⚠️ zh 는 speaker 를 안 본다(구글 만다린 한 목소리) — 그래서 중국어에서는 «네 친구» 를
             골라도 목소리가 같다. 얼굴·이름은 그대로 바뀐다. 아는 채로 둔 한계다. */
-      body: JSON.stringify({ text:text, lang:_warmLang, speaker:spk }) })
+      body: JSON.stringify({ text:text, lang:_warmLang, speaker:spk,
+        /* 🀄 중국어 «남자» 일 때만 진짜 성우를 콕 집는다. 서버는 아는 이름일 때만 받고
+           안 되면 예전 경로(구글 만다린 여성)로 내려가며 X-TTS-Engine 으로 알려 준다. */
+        azure_voice: _zhMaleWanted() ? ZH_MALE_AZURE : undefined }) })
     .then(function(r){
       var ct=r.headers.get('content-type')||'';
       if(!r.ok || ct.indexOf('audio')<0){
         var e=new Error('tts'); e.noRetry=(r.status===429||r.status===503); throw e;
       }
       var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(e2){}
-      return r.blob().then(function(b){ return { blob:b, got:got }; });
+      /* 🔴 «내가 성우를 달라고 했나» 가 아니라 «무엇이 만들어 왔나» 를 읽는다.
+         이것으로 «또 굵게 구울지» 가 갈린다 — 진짜 남자를 또 낮추면 «괴물 목소리» 다. */
+      var eng=''; try{ eng=String(r.headers.get('X-TTS-Engine')||'').toLowerCase(); }catch(e3){}
+      return r.blob().then(function(b){ return { blob:b, got:got, eng:eng }; });
     })
     .then(function(o){
       if(seq!==_speakSeq) return;                 // 그 사이 다음 말이 시작됐다 — 물러난다
       var u=URL.createObjectURL(o.blob);
       // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
       // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
-      if(!o.got || o.got===spk) _ttsCache[key]=u;
-      play(u);
+      /* ⚠️ 엔진도 함께 기억해야 한다 — 안 그러면 캐시에서 꺼내 재생할 때
+         «진짜 남자 성우» 를 또 굵게 굽는다(두 번 낮아져 괴물 목소리). */
+      if(!o.got || o.got===spk){ _ttsCache[key]=u; _ttsEng[key]=o.eng; }
+      play(u, o.eng);
     })
     .catch(function(err){
       if(seq!==_speakSeq) return;
@@ -1699,7 +1718,11 @@ function speak(text, btn){
      ⚠️ 그 사이 학생이 다음 말을 보낼 수 있으므로 _speakSeq 로 스스로 물러난다 —
         안 그러면 옛 문장이 새 문장 위로 겹쳐 재생됩니다(_stopSpeak 이 있어도 늦게 도착합니다).
      ⚠️ 굽기가 실패하면 원본 그대로 재생합니다 — 소리가 아예 안 나는 것이 최악입니다. */
-  var play=function(u){
+  var play=function(u, eng){
+    /* 🔴 진짜 남성 성우(Azure)가 왔으면 그대로 읽는다 — 또 낮추면 두 번 낮아진다.
+       ⛔ 판정을 «성우를 달라고 했나» 로 바꾸지 마세요. 서버가 못 만들면 여성 음성이
+          그대로 내려오는데, 그때는 «굵게 굽기» 가 있어야 남자 목소리가 납니다. */
+    if(String(eng||'').indexOf('azure')>=0){ play0(u, false); return; }
     if(!_zhMaleWanted()){ play0(u, false); return; }
     var mySeq=_speakSeq;
     _zhDeepen(u).then(function(bu){ if(mySeq===_speakSeq) play0(bu, true); },
@@ -1716,7 +1739,7 @@ function speak(text, btn){
      ⛔ 이 갈래를 «중국어 전체» 로 넓히지 마세요 — 메이(여자)는 서버 목소리 그대로가 맞습니다. */
   if(isZh() && _voiceGender()==='male' && _zhMaleVoiceReady()){ _synthSpeak(text, btn, done); return; }
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
-  if(_ttsCache[key]){ play(_ttsCache[key]); return; }
+  if(_ttsCache[key]){ play(_ttsCache[key], _ttsEng[key]); return; }
   // _stopSpeak() 이 방금 올려 둔 번호 — 늦게 온 응답이 새 발화를 덮지 않게 함께 넘긴다
   _ttsSpeak(text, spk, key, btn, _speakSeq, done, play, 0);
 }
