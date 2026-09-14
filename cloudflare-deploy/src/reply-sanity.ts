@@ -64,6 +64,25 @@ export function replyBreakReason(text: string): string {
     if (w.length / enders >= 60) return 'runon';
   }
 
+  /* ⑤ 🀄 한자 문장 — 위 ①~③ 은 이 자리에서 **원리상 아무것도 못 봅니다.**
+        `words()` 가 `[a-z가-힣0-9' ]` 밖을 전부 지워서 순수 중국어 문장은 `w` 가 «빈 배열» 이
+        되고, 길이 조건(12·25·40)에 한 번도 안 걸려 무슨 죽이 와도 그대로 통과합니다
+        (2026-09-13 중국어 대화를 붙이며 실측). 그래서 «글자» 로 같은 질문을 한 번 더 합니다.
+        ⚠️ 임계값은 영어보다 훨씬 느슨하게 둡니다 — 중국어는 的·了 처럼 한 글자가 원래 자주
+           나오고, 멀쩡한 문장을 버리면 대화가 끊겨서 깨진 문장 하나보다 나쁩니다(이 파일 머리말).
+        ⛔ 성조·병음·번체자 검사는 하지 않습니다 — 그건 «무너졌는가» 가 아니라 «맞는가» 이고,
+           맞는지는 여기서 알 수 없습니다. */
+  const han = t.replace(/[^\u3400-\u9fff]/g, '');
+  if (han.length >= 30) {
+    const hc: Record<string, number> = Object.create(null);
+    for (const ch of han) hc[ch] = (hc[ch] || 0) + 1;
+    let htop = '', hn = 0;
+    for (const k of Object.keys(hc)) if (hc[k] > hn) { hn = hc[k]; htop = k; }
+    if (hn >= 12 && hn / han.length >= 0.2) return 'zhrepeat:' + htop + 'x' + hn;
+    // 40자를 넘겼는데 문장이 한 번도 안 끝났다 — max_tokens 로 잘린 답의 지문
+    if (han.length >= 40 && !/[。！？!?.]/.test(t)) return 'zhnostop';
+  }
+
   /* ④ 제어문자·역슬래시가 섞임 — 실사고 문장에 «\ering» 이 있었다.
         ⛔ 철자 검사는 하지 않는다 — 고유명사·아이 이름이 걸린다. */
   if (/\\/.test(t)) return 'backslash';

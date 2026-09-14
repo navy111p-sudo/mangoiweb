@@ -199,7 +199,11 @@ let RULES = null;
     const b = CORR.indexOf('export function isRfRejection');
     const body = CORR.slice(a, b)
       .replace(/\bexport /g, '')
-      .replace(/\(replyDesc: string\): string/, '(replyDesc)');
+      /* ⚠️ 타입 제거는 «이름» 이 아니라 «자리» 로 한다 (CLAUDE.md 2장).
+         2026-09-13 에 fixJsonLine 이 인자를 하나 더 받게 되자, 이름을 글자 그대로
+         적어 둔 옛 치환이 안 맞아 «규칙을 못 만들어 냈다» 로 조용히 FAIL 났다. */
+      .replace(/function fixJsonLine\([\s\S]*?\)\s*:\s*string/,
+               (m) => m.replace(/:\s*string(?=\s*[,)=])/g, '').replace(/\)\s*:\s*string$/, ')'));
     const f = new Function('"use strict";' + body
       + ' return { W: WARMUP_CORRECTION_RULE, A: AI_FRIEND_CORRECTION_RULE };');
     RULES = f();

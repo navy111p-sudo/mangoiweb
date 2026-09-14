@@ -59,8 +59,17 @@ check('index.ts 도 같은 정본을 import 한다 (웜업·게임이 한 규칙
   /import \{ isEnglishText, isEnglishQuestion \} from '\.\/english-only'/.test(indexSrc));
 check('⛔ 규칙(문자범위)을 다른 파일에 복사하지 않았다',
   !/\\u3040-\\u30ff/.test(graphCode) && !/\\u3040-\\u30ff/.test(indexCode));
+/* 📜 2026-09-13 — 웜업 화면에 «대화 언어» 축(영어/중국어)이 생겼습니다. 그래서 화면에는
+   중국어 고정 인사말과 모델에게 보내는 지시문("Add pinyin …")이 «데이터로» 들어 있습니다.
+   ⇒ 「pinyin 이라는 낱말이 있는가」는 더 이상 «판정 규칙을 복사했는가» 를 묻지 못합니다
+      (그 낱말 하나로 멀쩡한 지시문이 빨간불이 됐습니다).
+   ✅ 지켜야 할 것은 그대로입니다 — 화면이 «무슨 말인지 스스로 가리지» 않는다:
+      ① 게이트 이름(isEnglishText/isEnglishQuestion)을 쓰지 않는다
+      ② 언어를 가르는 «문자범위 정규식» 을 화면에 복사하지 않는다
+   ⛔ 이 검사를 「중국어 글자가 없다」로 되돌리지 마세요 — 인사말이 실제로 중국어입니다. */
 check('⛔ 화면(warmup.html)에는 판정 규칙을 복사하지 않았다 (서버가 거른 것을 그대로 그린다)',
-  !/isEnglish/.test(warmupHtml) && !/병음|pinyin/i.test(strip(warmupHtml)));
+  !/isEnglish/.test(warmupHtml)
+  && !/\\u3040-\\u30ff|\\u4e00-\\u9fff|\\u3400-\\u9fff/.test(strip(warmupHtml)));
 
 console.log('\n[ ② ETL 세 입구가 모두 게이트를 지난다 ]');
 check('교재 문장 추출(extractSentences)이 문항 게이트를 먼저 지난다',

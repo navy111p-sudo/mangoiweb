@@ -38,6 +38,18 @@ export const WARMUP_FIX_TAGS = [
  *     「사소한 것까지 매번 잡히면 학생이 말문이 막힌다」가 그대로 재현됩니다. */
 export const MEANING_CHANGING_TAGS = ['past_tense', 'verb_form', 'subject_verb', 'question_form'] as const;
 
+/* 🀄 중국어 교정 축 (2026-09-13) — 영어의 넷(시제·동사꼴·주어동사 일치·의문문 어순)은
+   중국어에 **없는 축**이다. 태그 «이름» 은 영어와 같은 것을 재사용한다(화면·기록이 그
+   열쇠로 세고, fixJsonLine 의 tag 목록에 이미 들어 있다) — 담는 뜻만 중국어로 옮긴다:
+     word_order = 어순(시간을 나타내는 말의 자리·把/被) · verb_form = 완료 了 / 경험 过
+     word_choice = 양사(一个书 → 一本书)
+   ⛔ 이 배열을 영어 MEANING_CHANGING_TAGS 에 합치지 말 것 — word_order·word_choice 가
+      영어 쪽에 들어가면 「사소한 것까지 매 턴 교정」이 그대로 재현된다(바로 위 ⛔ 주석).
+   ⛔ 성조는 넣지 않는다 — 초급에서 성조까지 빨간 줄을 그으면 아이가 입을 닫고, 성조는
+      중국어 음성코치의 음소평가가 훨씬 정확하게 잡는다. 역할을 나눈 것이다.
+   ⚠️ 최종 결정은 강선생님 몫이다. 바꿀 때는 이 한 줄만 고치면 된다. */
+export const ZH_MEANING_CHANGING_TAGS = ['word_order', 'verb_form', 'word_choice'] as const;
+
 export type WarmupFix = {
   was: string;
   now: string;
@@ -62,9 +74,9 @@ export type WarmupFixMemo = {
 /** JSON 계약 — "reply" 설명만 화면마다 다르고 **"fix" 는 완전히 같다**.
     ⛔ 화면마다 스키마를 따로 적지 말 것 — 그 순간 한쪽만 조용히 어긋나고,
        parseWarmupOutput·verifyWarmupFix 한 벌이 두 화면을 다 받는다는 전제가 깨진다. */
-function fixJsonLine(replyDesc: string): string {
+function fixJsonLine(replyDesc: string, nowDesc = '<고친 영어>'): string {
   return '{"reply":"' + replyDesc + '","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>",'
-    + '"now":"<고친 영어>","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>",'
+    + '"now":"' + nowDesc + '","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>",'
     + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other",'
     + '"severity":"major|minor"}}';
 }
@@ -83,6 +95,21 @@ export const WARMUP_CORRECTION_RULE = [
   '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)까지 매번 잡지는 마. 매번 잡히면 학생이 말문이 막힌다.',
   '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   fixJsonLine('<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>'),
+  ...FIX_COMMON_RULES,
+].join('\n');
+
+/* 🀄 중국어 웜업·친구하기 용 같은 계약 — 2026-09-13
+   ⚠️ 여기에 두는 이유는 AI 영어친구와 같다 — fix 스키마와 판정(parse·verify·gate)을
+      두 곳에 복제하면 한쪽만 고쳐진다. 프롬프트만 언어별로 다르고 그릇은 한 벌이다.
+   ⚠️ 지시문은 한국어로 쓴다(웜업 영어판과 같은 방식) — 이 화면의 시스템 프롬프트가
+      한국어이고, 모델이 말할 언어는 [언어] 규칙이 따로 못 박는다. */
+export const WARMUP_ZH_CORRECTION_RULE = [
+  '[교정] 학생 문장에 중국어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
+  '예: 학생 "我去学校昨天" → "哦，你昨天去学校了！在那儿做什么了？"',
+  '한 번에 한 가지만 고쳐. 다만 «어순(시간을 나타내는 말의 자리)·완료의 了 와 경험의 过·양사» 는 뜻이 통해도 «반드시» 고쳐 줘 — 그 셋은 그대로 두면 학생이 틀린 채로 굳는다(예: "一个书" → "一本书").',
+  '⛔ 성조 표기나 발음은 지적하지 마 — 그건 다른 시간에 배운다. 학생이 한국어로만 말했으면 교정을 넣지 마.',
+  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  fixJsonLine('<학생에게 할 중국어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>', '<고친 중국어(간체자)>'),
   ...FIX_COMMON_RULES,
 ].join('\n');
 
@@ -224,9 +251,24 @@ function normEn(s: unknown): string {
      통과해야 할 진짜 교정: 0.48 ~ 0.96  (가장 낮은 것이 "I don't went" → "I didn't go" 0.48)
      막아야 할 창작:        0.00 ~ 0.09  ("I go" → "Pizza tastes wonderful" 0.00)
    간격이 다섯 배라 0.35 로 가른다. 낱말 겹침(0.5)과 «둘 중 하나» 면 통과시킨다. */
-function charDice(a: string, b: string): number {
+/**
+ * 🀄 중국어 정규화 — `normEn` 의 중국어 판.
+ * ⚠️ `normEn` 을 중국어에 쓰면 **빈 문자열**이 됩니다(`[^a-z0-9' ]` 가 한자를 전부 지웁니다).
+ *    2026-09-13 에 그래서 중국어 교정이 **한 건도 통과하지 못했습니다**(아래 verifyWarmupFix 참고).
+ * ⚠️ 중국어에는 띄어쓰기가 없으므로 단위가 «낱말» 이 아니라 **«글자»** 입니다 —
+ *    공백은 뜻이 없어 통째로 지웁니다(모델이 넣기도, 안 넣기도 합니다).
+ * ⛔ 성조·병음은 보지 않습니다 — 그건 «맞는가» 이고 여기서는 알 수 없습니다.
+ */
+function normZh(s: unknown): string {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .replace(/[\u3000\s]+/g, '')                       // 전각·반각 공백 전부
+    .replace(/[^\u3400-\u9fffa-z0-9]+/g, '');          // 한자·라틴·숫자만 남긴다(구두점 제거)
+}
+
+function charDice(a: string, b: string, norm: (v: unknown) => string = normEn): number {
   const bg = (x: string) => { const o: string[] = []; for (let i = 0; i < x.length - 1; i++) o.push(x.slice(i, i + 2)); return o; };
-  const A = bg(normEn(a)), B = bg(normEn(b));
+  const A = bg(norm(a)), B = bg(norm(b));
   if (!A.length || !B.length) return 0;
   const m = new Map<string, number>();
   for (const x of B) m.set(x, (m.get(x) || 0) + 1);
@@ -236,9 +278,14 @@ function charDice(a: string, b: string): number {
 }
 
 /** 낱말이 얼마나 겹치나 — 통째로 다시 쓴 문장(교정이 아니라 창작)을 걸러 낸다. */
-function wordOverlap(a: string, b: string): number {
-  const A = normEn(a).split(' ').filter(Boolean);
-  const B = normEn(b).split(' ').filter(Boolean);
+/** ⚠️ 중국어에는 띄어쓰기가 없어 `split(' ')` 이 «문장 한 덩어리 = 1낱말» 을 줍니다.
+ *     그래서 중국어에서는 «글자» 로 자릅니다(`splitZh`). 영어 경로는 한 글자도 안 바뀝니다. */
+function splitZh(s: string): string[] { return s.split(''); }
+function wordOverlap(a: string, b: string,
+                     norm: (v: unknown) => string = normEn,
+                     cut: (v: string) => string[] = (v) => v.split(' ')): number {
+  const A = cut(norm(a)).filter(Boolean);
+  const B = cut(norm(b)).filter(Boolean);
   if (!A.length || !B.length) return 0;
   const setB = new Set(B);
   let hit = 0;
@@ -250,7 +297,11 @@ function wordOverlap(a: string, b: string): number {
  * 모델이 준 fix 를 결정론으로 검증한다. 하나라도 어긋나면 **null**(= 교정 없음).
  * ⛔ 여기서 문장을 «고쳐 쓰지» 않는다 — 통과시키거나 버리기만 한다.
  */
-export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix | null {
+export function verifyWarmupFix(
+  fixRaw: any,
+  studentInput: unknown,
+  opts?: { majorTags?: readonly string[]; lang?: 'en' | 'zh' },
+): WarmupFix | null {
   if (!fixRaw || typeof fixRaw !== 'object') return null;
 
   const was = String(fixRaw.was == null ? '' : fixRaw.was).trim();
@@ -261,30 +312,53 @@ export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix |
   if (!was || !now || !whyKo || !said) return null;
   if (was.length > 200 || now.length > 200 || whyKo.length > 200) return null;
 
-  /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
-     상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
-     (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
-  if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+  /* 🀄 언어 축 (2026-09-13). 아래 모든 판정이 여기서 갈린다.
+     🔴 이 축이 없던 동안 **중국어 교정은 한 건도 통과하지 못했습니다** —
+        `isEnglishText` 가 한자를 100% 떨어뜨리고, 그 아래 `normEn` 이 한 번 더
+        빈 문자열을 만들어 **두 겹으로** 막혀 있었습니다. 에러는 안 났고 교정 카드가
+        «그냥 안 뜨는» 것으로만 보였습니다(CLAUDE.md 2장 「기능이 «있는데» 아무 일도 안 일어남」).
+     ⚠️ 그래서 이 자리는 «규칙을 넣었다» 가 아니라 **«실제로 통과하는가» 로 검사**해야 합니다. */
+  const zhMode = !!(opts && opts.lang === 'zh');
+  const norm = zhMode ? normZh : normEn;
+
+  if (zhMode) {
+    /* 중국어 문장이어야 한다 — «한자가 있고 한글·가나가 없다».
+       ⛔ `isEnglishText` 를 쓰지 마세요(한자를 전부 버립니다).
+       ⛔ 「맞는 중국어인가」는 묻지 않습니다 — 알 수 없고, 모르면 버리지 않는 쪽이 맞습니다. */
+    const zhOk = (t: string) => /[\u3400-\u9fff]/.test(t) && !/[가-힣\u3040-\u30ff]/.test(t);
+    if (!zhOk(was) || !zhOk(now)) return null;
+    if (was.length > 120 || now.length > 120) return null;
+  } else {
+    /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
+       상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
+       (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
+    if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+  }
 
   // why_ko 는 한국어여야 한다(한글이 한 글자도 없으면 모델이 영어로 쓴 것 → 버린다)
   if (!/[가-힣]/.test(whyKo)) return null;
 
-  const nWas = normEn(was);
-  const nNow = normEn(now);
-  const nSaid = normEn(said);
+  const nWas = norm(was);
+  const nNow = norm(now);
+  const nSaid = norm(said);
   if (!nWas || !nNow) return null;
 
   // 🔴 핵심 — was 가 학생 원문에 «있어야» 한다. 없으면 모델이 지어낸 것이다.
   /* ⚠️ 낱말 경계로 본다 — 그냥 includes 면 'o to sch' 같은 «낱말 조각» 이 통과해
-     화면에 뜻 없는 교정이 그려진다(CLAUDE.md 2장 「«부분문자열» 로 보면」). */
-  if (!(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
+     화면에 뜻 없는 교정이 그려진다(CLAUDE.md 2장 「«부분문자열» 로 보면」).
+     ⚠️ 중국어에는 «낱말 경계» 가 없다 — 띄어쓰기가 없어 공백으로 감쌀 수가 없다. 그래서
+        그대로 포함 검사를 한다. 맞바꿈: 한 글자짜리 was 도 통과할 수 있다(영어처럼 «뜻 없는
+        철자 조각» 이 되지는 않는다 — 한자 한 글자는 그 자체로 낱말이다). */
+  if (zhMode ? !nSaid.includes(nWas) : !(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
   // 고친 것이 없으면 교정이 아니다
   if (nWas === nNow) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
      흔한 교정이 0.33 으로 묻힌다(함정 대조가 실측으로 잡았다). 둘 중 하나면 통과. */
-  if (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35) return null;
+  if (zhMode
+        ? (wordOverlap(nWas, nNow, normZh, splitZh) < 0.5 && charDice(nWas, nNow, normZh) < 0.35)
+        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35)) return null;
 
   const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
   /* 🔴 severity 를 모델에게 맡기지 않는다 (2026-09-09 사장님 「I ate pizza yesterday 인데
@@ -297,8 +371,11 @@ export function verifyWarmupFix(fixRaw: any, studentInput: unknown): WarmupFix |
      「같은 실수 두 번째부터」로 미뤄서, 학생의 첫 실수가 그대로 지나갑니다.
      ⛔ 이 넷은 그대로 두면 학생이 틀린 채로 굳는 것들이라 «작은 실수» 가 아닙니다.
         모델이 minor 라고 해도 우리가 major 로 확정합니다 — 「지시만으로는 안 지켜진다」. */
+  /* ⚠️ 어느 표를 «뜻이 달라지는 축» 으로 볼지는 언어마다 다르다. 안 넘기면 영어 표 —
+        기존 호출부(영어 웜업·AI 영어친구)는 한 글자도 안 바뀐다. */
+  const majorTags = (opts && opts.majorTags) || (MEANING_CHANGING_TAGS as readonly string[]);
   const severity: 'major' | 'minor' =
-    (MEANING_CHANGING_TAGS as readonly string[]).includes(tag) ? 'major'
+    (majorTags as readonly string[]).includes(tag) ? 'major'
       : (String(fixRaw.severity) === 'major' ? 'major' : 'minor');
 
   return { was, now, why_ko: whyKo, tag, severity };
