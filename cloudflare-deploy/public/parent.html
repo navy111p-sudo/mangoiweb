@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>학부모 대시보드 — 망고아이</title>
+<title>마이 페이지 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
@@ -202,8 +202,8 @@ window.toggleParentAudio = function() {
 // 📲 카카오 공유 — Web Share API 우선, 안 되면 카카오톡 앱 호출 또는 URL 복사
 window.shareToKakao = async function() {
   const url = location.href; // 현재 페이지 (uid 포함)
-  const title = '망고아이 학부모 대시보드';
-  const text = '자녀의 학습 진도를 한눈에 확인하세요. 출석·평가서·AI 음성 코칭·배지·AI 추천까지 모두!';
+  const title = '망고아이 마이 페이지';
+  const text = '학습 진도를 한눈에 확인하세요. 출석·평가서·AI 음성 코칭·배지·AI 추천까지 모두!';
 
   // 1) 모바일/지원 브라우저 — Web Share API (카카오톡 선택 가능)
   if (navigator.share) {
@@ -231,7 +231,7 @@ function showKakaoShareDialog(url) {
     <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:18px;padding:28px;max-width:440px;width:100%;color:var(--pd-ink);text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
       <div style="font-size:48px;margin-bottom:10px">💬</div>
       <h2 style="font-size:20px;font-weight:800;color:var(--pd-gold);margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
-      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 학부모 대시보드 링크가 공유됩니다.'}</p>
+      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 마이 페이지 링크가 공유됩니다.'}</p>
       <div style="background:var(--pd-tint);border:1px solid var(--pd-tint);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:13px;color:var(--pd-muted);word-break:break-all;margin-bottom:18px">${url}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
@@ -252,14 +252,14 @@ function showKakaoShareDialog(url) {
   <div id="entry">
     <!-- 🌟 환영 메시지 + 안내 -->
     <div style="text-align:center;padding:24px 20px 12px">
-      <div style="display:inline-block;padding:6px 14px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:99px;font-size:13px;color:var(--pd-gold);font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👨‍👩‍👧 학부모 전용 화면" data-en="👨‍👩‍👧 PARENT DASHBOARD">👨‍👩‍👧 학부모 전용 화면</div>
-      <h1 style="font-size:24px;font-weight:800;color:var(--pd-ink);margin-bottom:8px;line-height:1.4" data-ko="자녀의 학습 한눈에 보기" data-en="See Your Child's Progress at a Glance">자녀의 학습 한눈에 보기</h1>
-      <p style="color:var(--pd-muted);font-size:15px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter your child's ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
+      <div style="display:inline-block;padding:6px 14px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:99px;font-size:13px;color:var(--pd-gold);font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👤 학생·학부모 마이 페이지" data-en="👤 STUDENT · PARENT MY PAGE">👤 학생·학부모 마이 페이지</div>
+      <h1 style="font-size:24px;font-weight:800;color:var(--pd-ink);margin-bottom:8px;line-height:1.4" data-ko="내 학습 한눈에 보기" data-en="My Learning at a Glance">내 학습 한눈에 보기</h1>
+      <p style="color:var(--pd-muted);font-size:15px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter the student ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
     </div>
 
     <!-- 📋 ID 입력 박스 -->
     <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
-      <label style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
+      <label style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px" data-ko="👤 학생 ID" data-en="👤 Student ID">👤 학생 ID</label>
       <input id="uid-input" class="uid-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button id="uid-go-btn" class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
@@ -270,7 +270,7 @@ function showKakaoShareDialog(url) {
           <input id="pw-input" class="uid-input" type="password" autocomplete="current-password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="display:block" />
           <button id="pw-eye" class="pw-eye" type="button" onclick="pdTogglePw()" aria-pressed="false" aria-label="비밀번호 보기" title="비밀번호 보기" data-ko-aria="비밀번호 보기" data-en-aria="Show password" data-ko-title="비밀번호 보기" data-en-title="Show password"><span id="pw-eye-ico" aria-hidden="true">👁</span><span id="pw-eye-txt" data-ko="보기" data-en="Show">보기</span></button>
         </div>
-        <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
+        <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 이 학습 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
         <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
         <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 12px;cursor:pointer;user-select:none">
           <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#ff9f1c;cursor:pointer">
@@ -288,7 +288,7 @@ function showKakaoShareDialog(url) {
         <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
-          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When classes were attended">언제 수업 들었는지 한눈에</div>
         </div>
         <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt="" loading="lazy" decoding="async"></div>
@@ -333,7 +333,7 @@ function showKakaoShareDialog(url) {
       <summary style="cursor:pointer;padding:14px 18px;font-size:14px;font-weight:700;color:var(--pd-gold);touch-action:manipulation" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
       <div style="padding:0 18px 18px;font-size:14px;color:var(--pd-ink2);line-height:1.7">
         <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
-        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q2. 자녀가 여러 명이에요" data-en="Q2. I have multiple children">Q2. 자녀가 여러 명이에요</b><br><span data-ko="URL 에 자녀 ID 만 바꾸면 됩니다 — /parent.html?uid=다른자녀ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 자녀 ID 만 바꾸면 됩니다 — <code style="background:var(--pd-tint);padding:2px 6px;border-radius:4px;color:var(--pd-accent)">/parent.html?uid=다른자녀ID</code></span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q2. 볼 학생 ID 가 여러 개예요 (자녀가 여러 명 등)" data-en="Q2. More than one student ID (e.g. several children)">Q2. 볼 학생 ID 가 여러 개예요 (자녀가 여러 명 등)</b><br><span data-ko="URL 에 학생 ID 만 바꾸면 됩니다 — /parent.html?uid=다른ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 학생 ID 만 바꾸면 됩니다 — <code style="background:var(--pd-tint);padding:2px 6px;border-radius:4px;color:var(--pd-accent)">/parent.html?uid=다른ID</code></span></div>
         <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
         <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
         <div><b style="color:var(--pd-gold)" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
@@ -342,12 +342,12 @@ function showKakaoShareDialog(url) {
 
     <!-- 🔒 개인정보 보호 안내 -->
     <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:var(--pd-tint);border-left:3px solid var(--pd-accent);border-radius:8px;font-size:13px;color:var(--pd-muted);line-height:1.6">
-      🔒 <b style="color:var(--pd-accent)" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요." data-en="Your child's info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password can view it.">자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요.</span>
+      🔒 <b style="color:var(--pd-accent)" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="학습 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 사람(본인·학부모)만 볼 수 있어요." data-en="Learning info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password (the student or parent) can view it.">학습 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 사람(본인·학부모)만 볼 수 있어요.</span>
     </div>
   </div>
 
   <div id="dashboard" style="display:none">
-    <!-- 자녀 헤더 카드 -->
+    <!-- 학생 헤더 카드 -->
     <div class="child-card">
       <div class="child-avatar"><img class="pd-avatar-img pd-ico-fb" data-emoji="👧" src="/img/menu/students.webp" alt="" loading="lazy" decoding="async"></div>
       <div class="child-info">
@@ -418,7 +418,7 @@ function showKakaoShareDialog(url) {
 
     <!-- 🆕 Phase BG — 배지 진열장 -->
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"> <span data-ko="자녀의 배지" data-en="My Child's Badges">자녀의 배지</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"> <span data-ko="획득한 배지" data-en="Badges Earned">획득한 배지</span></h3>
       <div id="pd-badges"></div>
     </div>
 
@@ -444,7 +444,7 @@ function showKakaoShareDialog(url) {
 
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
+      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 ID 로 조회" data-en="Switch ID">다른 ID 로 조회</button>
     </div>
   </div>
 </div>
@@ -463,7 +463,7 @@ function getQueryParam(k){ try { return new URLSearchParams(location.search).get
 // 1단계: ID 입력 → 계정에 비밀번호가 있는지 확인 → 설정/입력 안내
 window.pdGo = async function(){
   const uid = document.getElementById('uid-input').value.trim();
-  if (!uid) { alert('자녀의 학생 ID를 입력하세요'); return; }
+  if (!uid) { alert('학생 ID를 입력하세요'); return; }
   _currentUid = uid;
   let r, d;
   try {
@@ -487,7 +487,7 @@ function pdShowPwStep(isSet){
   const uidBtn = document.getElementById('uid-go-btn'); if (uidBtn) uidBtn.style.display = 'none';
   document.getElementById('pw-step').style.display = '';
   document.getElementById('pw-label').textContent = isSet
-    ? '🔒 비밀번호 설정 — 자녀 정보를 잠그세요 (4자 이상)'
+    ? '🔒 비밀번호 설정 — 학습 정보를 잠그세요 (4자 이상)'
     : '🔑 비밀번호 입력';
   document.getElementById('pw-hint').style.display = isSet ? '' : 'none';
   document.getElementById('pw-go-btn').textContent = isSet ? '🔒 설정하고 열기' : '🔓 확인';
@@ -591,7 +591,7 @@ async function pdLoad(){
     const d = await r.json();
     if (!d.ok) {
       if (d.error === 'auth_required' || d.error === 'password_not_set') {
-        pdBackToEntry('🔒 다시 로그인해주세요. (자녀 ID 입력 후 비밀번호 확인)');
+        pdBackToEntry('🔒 다시 로그인해주세요. (학생 ID 입력 후 비밀번호 확인)');
         return;
       }
       throw new Error(d.error || 'load_fail');
@@ -687,12 +687,12 @@ async function pdWeekRec(){
       const ko = esc(String(w.ko || ''));
       return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);color:var(--pd-gold);font-size:13px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
     }).join('');
-    // 가정 안내 문구 — 학부모 눈높이 (자녀에게 시켜볼 수 있는 것)
+    // 안내 문구 — 학생·학부모 공용(2026-09-14 «마이 페이지» 로 중립화 — 「자녀에게 시키세요」 어투 금지)
     const TIP = {
-      pronunciation: [ '자녀에게 말하기 퀴즈(스피치 코치)로 발음 연습을 권해주세요.', 'Encourage your child to practice pronunciation in the Speaking Quiz.' ],
+      pronunciation: [ '말하기 퀴즈(스피치 코치)로 발음 연습을 해 보세요.', 'Practice pronunciation in the Speaking Quiz.' ],
       weak_words:    [ '아래 단어들을 게임으로 복습하면 큰 도움이 됩니다.', 'Reviewing the words below in a game will help a lot.' ],
-      advanced:      [ '아주 잘하고 있어요! 더 어려운 게임 도전을 응원해주세요.', 'Doing great! Cheer them on to try harder challenges.' ],
-      keep_going:    [ '꾸준히 잘하고 있어요. 지금 페이스를 응원해주세요!', 'Steady progress! Keep encouraging the current pace.' ]
+      advanced:      [ '아주 잘하고 있어요! 더 어려운 게임에 도전해 보세요.', 'Doing great! Try harder challenges next.' ],
+      keep_going:    [ '꾸준히 잘하고 있어요. 지금 페이스를 이어가세요!', 'Steady progress! Keep up the current pace.' ]
     };
     const tip = TIP[d.focus] || TIP.keep_going;
     el.innerHTML =
@@ -800,7 +800,8 @@ window.pdPkAdd = async function(){
 function pdRender(d){
   const c = d.child || {};
   document.getElementById('pd-name').textContent = c.student_name || _currentUid;
-  document.getElementById('pd-meta').textContent = (c.program||'-') + ' · ' + (c.parent_name||'-') + ' 학부모 · ID: ' + _currentUid;
+  // 학부모 이름은 «있을 때만» — 학생 본인이 볼 때 「- 학부모」로 찍히지 않게(2026-09-14)
+  document.getElementById('pd-meta').textContent = (c.program||'-') + (c.parent_name ? ' · 학부모 ' + c.parent_name : '') + ' · ID: ' + _currentUid;
   const pts = d.points || {};
   document.getElementById('pd-balance').textContent = fmt(pts.balance);
   document.getElementById('pd-balance2').textContent = fmt(pts.balance);
@@ -980,6 +981,7 @@ function pdRender(d){
   if (!shouldPlay) return;
   try { sessionStorage.removeItem('mangoi_play_parent_audio'); } catch(e){}
 
+  // ⚠️ 이 녹음은 아직 «학부모 대시보드» 라고 말합니다(2026-09-14 화면은 «마이 페이지» 로 중립화). 파일을 다시 녹음해 갈아 끼우기 전까지는 글자와 소리가 다릅니다 — 사람이 정할 일.
   const audio = new Audio('/audio/학부모대시보드.wav');
   audio.volume = 0.5;
   audio.play().catch(() => {});
@@ -989,7 +991,7 @@ function pdRender(d){
   toast.id = 'mangoi-parent-audio-toast';
   toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:rgba(20,41,80,0.95);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:12px 16px;font-size:13px;font-family:MangoiHanSC,"Noto Sans KR",sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:mpt-slide 0.35s ease-out';
   toast.innerHTML = `
-    <span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>학부모 대시보드 안내</b></span>
+    <span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>마이 페이지 안내</b></span>
     <button id="mpt-stop" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e6ecff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">⏸ 멈춤</button>
     <button id="mpt-mute" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">🔇 다음부터 끄기</button>
   `;
