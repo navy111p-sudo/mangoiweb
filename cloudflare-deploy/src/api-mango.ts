@@ -3978,7 +3978,12 @@ ${numbered}`;
           if (b[k] === undefined) continue;
           // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
-          sets.push(`${k} = ?`); vals.push(b[k]);
+          /* 📞 (2026-09-16) 번호 칸의 «빈 문자열» 은 «지우겠다» 는 «뜻» 이지 저장할 «값» 이 아니다.
+             students_erp 에는 지금까지와 똑같이 NULL 을 쓴다 — 29,485행짜리 표에 새 값 모양('')을
+             들이지 않는다(읽는 자리가 `IS NOT NULL` 만 보면 그런 날 갈린다).
+             «지우겠다» 는 아래 _ovStu/_ovPar 가 override 쪽으로 따로 들고 간다. */
+          const _isPhoneCol = (k === 'student_phone' || k === 'parent_phone' || k === 'teacher_phone');
+          sets.push(`${k} = ?`); vals.push((_isPhoneCol && b[k] === '') ? null : b[k]);
         }
         // 🥭 학생 이름 — korean_name·username 을 «함께» 고친다(이 페이지 왼쪽 카드는 username 만 읽는다).
         //   빈 문자열이면 손대지 않는다 — 이름을 NULL 로 지우면 화면 전체가 uid 로 떨어진다.
@@ -4013,10 +4018,11 @@ ${numbered}`;
            📞 전화번호·🏢 가맹점·소속도 override 에 적으려면 «진짜 user_id» 가 필요하다.
            `_ovTouch`·`_orgTouch` 는 마스킹에 안 걸린 칸이 하나라도 «문자열로» 왔는가
            (= 사람이 실제로 고쳤는가) — null 은 빈 문자열과 다르다. 🔴 (trap-check, 2026-09-15)
-           이 화면(admin/student.html)의 폼은 빈 칸을 `value || null` 로 보내므로 반드시
-           `typeof === 'string'` 로 걸러야 한다 — `String(v ?? '').trim()` 으로 null 까지 ''로
-           뭉개면 «안 건드린 칸» 이 «지우려는 칸」으로 오판된다(식을 오려 내 실제 payload 로
-           돌려 확인). */
+           이 화면(admin/student.html)의 폼(`phoneOut`)은 «원래 비어 있던 칸» 을 `null` 로,
+           «값이 있었는데 사람이 비운 칸» 만 `''` 로 보낸다(2026-09-16 부터. 그전에는 둘 다
+           `value || null` 이라 `''` 가 아예 안 왔다) — 그래서 반드시 `typeof === 'string'` 로
+           걸러야 한다. `String(v ?? '').trim()` 으로 null 까지 '' 로 뭉개면 «안 건드린 칸» 이
+           «지우려는 칸» 으로 오판된다(식을 오려 내 실제 payload 로 돌려 확인). */
         const _ovStu = (typeof b.student_phone === 'string' && !isMaskedValue(b.student_phone)) ? String(b.student_phone).trim() : undefined;
         const _ovPar = (typeof b.parent_phone  === 'string' && !isMaskedValue(b.parent_phone))  ? String(b.parent_phone).trim()  : undefined;
         const _ovTouch = (_ovStu !== undefined || _ovPar !== undefined);
@@ -4056,18 +4062,28 @@ ${numbered}`;
               그래서 7일간 671건의 수업을 정확히 찾고도 한 통도 못 보냈다(2026-09-10).
            ✅ 수업 전 안내문자가 읽는 정본은 notify-contacts.ts 의 `phonesForStudent` 이고
               그것이 이 표를 «먼저» 본다 — 여기 적어야 실제로 문자가 간다.
-           🔴 **«빈 칸으로 지우기» 는 지금 닿지 않는다 — 사실대로 적는다.**
-              유일한 호출부(`public/admin/student.html` 의 «연락처·정보» 탭)는 빈 칸을
-              `value || null` 로 보내므로 `typeof v === 'string'` 이 거짓 → `_ovTouch=false`
-              → override 를 안 건드린다(식을 오려 내 실제 payload 로 돌려 확인, 2026-09-15).
-              ⟹ 빈 칸으로 저장하면 `students_erp` 만 NULL 이 되고 override 는 옛 번호를 들고 있어
-                 **명부에서는 지웠는데 문자는 계속 그 번호로 간다.** 아래 `clear` 갈래는 화면이
-                 «지우겠다» 를 명시적으로 보내기 시작할 때를 위한 것이고 지금은 죽어 있다.
-              ⛔ 이것을 「`null` 도 지우기로 받기」로 고치지 말 것 — 그 폼은 `students_erp` 값으로
-                 칸을 채우는데 그 칸은 카페24가 매일 밤 비워 **실측상 29,485행 전부 비어 있다.**
-                 그러면 번호를 넣어 둔 학생의 폼을 열어 «학교만» 고쳐 저장해도 번호 칸이 빈 채로
-                 가서 **어제 넣은 번호가 오늘 지워진다**(이 기능이 막으려던 바로 그 피해).
-                 제대로 고치려면 폼이 override 번호를 «보여주는» 것이 먼저다 — 사람이 정할 일.
+           ✅ **«빈 칸으로 지우기» 가 2026-09-16 에 닿았다.** 이 자리에는 그전까지
+              「지금은 닿지 않는다 · 사람이 정할 일」이라고 적혀 있었다(#993). 먼저였던 전제는
+              「폼이 override 번호를 보여주는 것」이었고 그것이 #996 에서 들어왔다(GET /full 이
+              getOverridePhones 로 덮어 보여준다) — 그래서 이제 이 갈래를 열 수 있었다.
+           ✅ 화면(`public/admin/student.html` 의 `phoneOut`)은 «원래 비어 있던 칸» 은 여전히
+              `null` 로 보내고(= 이 칸을 안 건드림), «값이 있었는데 사람이 비운 칸» 만 빈 문자열로
+              보낸다 — 그래서 아래 `del`/`clear` 갈래는 «사람이 지우려 했을 때» 만 돈다.
+           ⛔ 이것을 「`null` 도 지우기로 받기」로 넓히지 말 것 — override 읽기가 실패해(fail-open)
+              칸이 빈 채로 뜨는 날 «학교만» 고쳐 저장하는 것만으로 어제 넣은 번호가 지워진다
+              (그 갈림은 화면이 «로드 때 값» 을 기억해서 내며, 서버는 null/'' 만 보고 판정한다).
+           🔴 **«지웠다» 가 «문자가 안 간다» 는 아니다 — 학생 쪽은 폴백이 «세 겹» 이다.**
+              `phonesForStudent`(notify-contacts.ts)가 `ovStudent || student_phone || **phone**`
+              순으로 읽는데 이 PATCH 의 `allowed` 에는 **`phone` 칸이 없다.** 게다가 카페24 야간
+              동기화가 학생 번호를 `student_phone` «과» `phone` **두 칸에** 넣는다(cafe24-sync.ts
+              의 `sPhone, sPhone`) ⟹ override 를 지우고 `student_phone` 을 NULL 로 만들어도
+              `phone` 이 남아 **문자가 계속 간다**(그 칸이 채워진 학생에게만. 실측 기록은
+              cafe24-sync.ts 의 「phone 9개」이고 오늘 값은 D1 로 확인할 것).
+              ⚠️ 학부모 쪽은 폴백이 `ovParent || parent_phone` 둘뿐이라 지우기가 그대로 먹는다 —
+                 **학생·학부모가 비대칭이다.** 그래서 화면 문구는 «문자가 안 갑니다» 라고
+                 단정하지 않고 «남은 번호가 있으면 그 번호로 갑니다» 라고만 말한다.
+              ⛔ `phone` 을 `allowed` 에 넣어 풀려 하지 말 것 — 카페24 정본 칸이라 그날 밤 다시
+                 채워진다(정본을 카페24에서 고쳐야 하는 별건. 사람이 정할 일).
            ⚠️ 마스킹된 표시값(***)은 위 PII_GUARD 에서 이미 걸러져 여기 안 온다.
            ⚠️ 실패해도 저장 자체는 막지 않는다 — 대신 «조용히» 넘기지 않고 `phone_kept` 로
               응답에 실어 화면이 사람에게 말하게 한다. */

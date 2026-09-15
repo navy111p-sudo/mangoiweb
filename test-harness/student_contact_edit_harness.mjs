@@ -253,8 +253,9 @@ if (!ovErr && OV.both) {
      그래서 「빈 칸 = 지우기」를 여기서만 초록으로 만들면 검사 이름이 실제 보장보다 넓어진다
      (함정 대조가 실제로 그 상태를 잡았다). 만드는 줄은 아래 ⑤-b 절이 따로 돌린다.
      ⚠️ 그러니 이 검사의 뜻은 「_ovStu 가 '' 로 «오면» 지우기로 넘긴다」까지다 —
-        지금 화면은 그 값을 보내지 않으므로 **이 경로는 살아 있는 코드가 아니다.** */
-  check('_ovStu 가 빈 문자열로 «오면» 지우기로 넘긴다 (지금 화면은 이 값을 안 보낸다 — ⑤-b)',
+        화면이 실제로 그 값을 보내는가는 ⑤-b 가 «화면 코드를 오려 내 돌려» 따로 본다
+        (2026-09-16 부터 보낸다. 그전에는 이 경로가 살아 있는 코드가 아니었다). */
+  check('_ovStu 가 빈 문자열로 «오면» 지우기로 넘긴다 (화면이 보내는가는 ⑤-b)',
     OV.clear.calls.length === 1 && OV.clear.calls[0].phones.clear === true
     && OV.clear.calls[0].phones.student === '' && OV.clear.calls[0].phones.parent === '');
   check('하나는 넣고 하나는 지우는 것도 «둘 다» 반영한다',
@@ -270,9 +271,79 @@ if (!ovErr && OV.both) {
   check('보관이 던져도 저장 자체는 안 막는다(안 던지고 false)', OV.threw.kept === false);
 }
 
+console.log('\n[ ⑤-a 화면이 «빈 칸» 을 무엇으로 보내는가 — phoneOut() 을 오려 내 실제로 돌린다 ]');
+/* 🔴 이 기능의 전부가 «빈 칸의 뜻을 어떻게 가르는가» 다. 그래서 문자열로 묻지 않는다 —
+   「그 글자가 있는가」로 쓰면 `return ''` 한 줄로 뒤집어도 통과한다(2026-09-16). */
+const pStart = detail.indexOf('function phoneOut(');
+const pEnd = pStart >= 0 ? detail.indexOf('\n}', pStart) : -1;
+const pJs = (pStart >= 0 && pEnd > pStart) ? detail.slice(pStart, pEnd + 2) : '';
+check('전제: 화면의 phoneOut() 을 오려 냈다', pJs.length > 60);
+let pOut = null;
+try {
+  pOut = (cur, loaded) => new Function('CUR', 'LOADED',
+    'var _cPhoneLoaded = { x: LOADED };\nvar $ = function(){ return { value: CUR }; };\n'
+    + pJs + '\nreturn phoneOut("x");')(cur, loaded);
+} catch (e) { console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: phoneOut() 을 돌렸다', typeof pOut === 'function');
+if (typeof pOut === 'function') {
+  check('원래 비어 있던 칸을 그대로 두면 null — 서버가 그 칸을 안 건드린다', pOut('', '') === null);
+  /* 짝 — 위만 보면 «언제나 null»(= 지우기 불가) 도 통과한다. */
+  check('값이 있었는데 사람이 비우면 빈 문자열 — «지우겠다»', pOut('', '010-1111-2222') === '');
+  check('공백만 남겨도 «지우겠다» 로 본다', pOut('   ', '010-1111-2222') === '');
+  /* 🔴 이 줄이 fail-safe 의 핵심 — override 읽기가 실패해 칸이 빈 채로 뜬 날
+     «학교만» 고쳐 저장하는 것이 번호를 지우면 안 된다. */
+  check('원래 비어 있었고 공백만 넣었으면 여전히 null(안 건드림)', pOut('   ', '') === null);
+  check('번호를 적으면 그 값이 그대로 간다(화면)', pOut('010-3333-4444', '010-1111-2222') === '010-3333-4444');
+  /* 🔴 마스킹된 표시값(***)이 뜬 칸을 비운 것을 «지우겠다» 로 보면 사람이 보지도 못한
+     진짜 번호가 지워진다. 서버는 마스킹 «저장» 만 막고 «지우기» 는 안 막으므로 여기서 막는다. */
+  check('마스킹된 번호가 뜬 칸을 비워도 지우지 않는다', pOut('', '010-****-2222') === null);
+  /* 짝 — 앞만 보면 «마스킹이면 아무것도 못 보냄» 도 통과한다. 새로 적은 번호는 가야 한다. */
+  check('마스킹된 칸에 새 번호를 적으면 그 값은 간다', pOut('010-5555-6666', '010-****-2222') === '010-5555-6666');
+}
+/* 🔴 «판정이 옳은가» 만 보면 아무것도 안 지켜진다 — phoneOut() 을 그대로 둔 채
+   저장 payload 만 `value || null` 로 되돌리면 위 검사가 «전부» 통과한다.
+   그래서 «그 함수를 실제로 부르는가» 와 «옛 모양으로 다시 조립하지 않는가» 를 짝으로 둔다. */
+check('저장 payload 가 두 칸 모두에 phoneOut() 을 쓴다',
+  /student_phone:\s*phoneOut\('cStudentPhone'\)/.test(detail)
+  && /parent_phone:\s*phoneOut\('cParentPhone'\)/.test(detail));
+/* 부정 검사는 «주석을 벗겨 낸 사본» 으로 — 「예전에는 `value || null` 이었다」는 설명 주석이
+   달리면 멀쩡한 코드가 FAIL 한다(CLAUDE.md 2장. 함정 대조 2026-09-16 지적). */
+const detailNoCmt = detail.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+check('그 두 칸을 `value || null` 로 다시 조립하지 않는다',
+  !/cStudentPhone'\)\.value\s*\|\|\s*null/.test(detailNoCmt)
+  && !/cParentPhone'\)\.value\s*\|\|\s*null/.test(detailNoCmt));
+/* 🔴 «로드 때 값» 을 기억하지 않으면 loaded 가 언제나 '' 이라 지우기가 영영 안 된다.
+   ⚠️ 「그 줄이 있는가」로 물으면 `_cPhoneLoaded.cStudentPhone = '';`(줄은 남기고 빈 값)로
+      기능을 통째로 죽여도 통과한다 — 함정 대조가 그 변이로 PASS 84/FAIL 0 을 실측했다.
+      그래서 snapPhones() 를 오려 내 «가짜 칸» 으로 돌려 «그 칸의 값에서 오는가» 를 본다. */
+const sStart = detail.indexOf('function snapPhones(');
+const sEnd = sStart >= 0 ? detail.indexOf('\n}', sStart) : -1;
+const sJs = (sStart >= 0 && sEnd > sStart) ? detail.slice(sStart, sEnd + 2) : '';
+check('전제: snapPhones() 를 오려 냈다', sJs.length > 60);
+let snapOf = null;
+try {
+  snapOf = (stu, par) => new Function('STU', 'PAR',
+    "var _cPhoneLoaded = { cStudentPhone: 'X', cParentPhone: 'X' };\n"
+    + "var $ = function(id){ return { value: (id === 'cStudentPhone' ? STU : PAR) }; };\n"
+    + sJs + '\nsnapPhones();\nreturn _cPhoneLoaded;')(stu, par);
+  snapOf('a', 'b');
+} catch (e) { snapOf = null; console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: snapPhones() 를 돌렸다', typeof snapOf === 'function');
+if (typeof snapOf === 'function') {
+  const snapped = snapOf('010-1111-2222', '010-3333-4444');
+  check('snapPhones() 가 두 칸의 «지금 값» 을 그대로 기준으로 찍는다',
+    snapped.cStudentPhone === '010-1111-2222' && snapped.cParentPhone === '010-3333-4444');
+  /* 짝 — 앞만 보면 «언제나 그 값» 도 통과한다. 빈 칸은 빈 값으로 찍혀야 한다. */
+  check('빈 칸은 빈 값으로 찍는다', snapOf('', '').cStudentPhone === '');
+}
+check('renderContact() 가 snapPhones() 를 부른다', /function renderContact\(\)\{[\s\S]{0,900}?snapPhones\(\)/.test(detail));
+/* 🔴 그리고 «저장 뒤» 에도 찍어야 한다 — loadFull() 은 이름을 바꿨을 때만 다시 돌므로,
+   안 찍으면 같은 자리에서 «넣었다가 다시 비우는» 두 번째 동작이 조용히 아무 일도 안 한다. */
+check('저장이 성공하면 기준을 다시 찍는다', /j\.phone_kept\s*!==\s*false\)\s*snapPhones\(\)/.test(detail));
+
 console.log('\n[ ⑤-b 그 값을 «만드는» 줄 — 화면이 실제로 보내는 payload 로 돌린다 ]');
-/* 🔴 위 절은 _ovStu 를 직접 주입하므로 «만드는 줄» 을 한 번도 안 본다.
-   화면(public/admin/student.html)은 빈 칸을 `value || null` 로 보내므로 여기서 갈린다. */
+/* 🔴 위 ⑤ 절은 _ovStu 를 직접 주입하므로 «만드는 줄» 을 한 번도 안 본다.
+   화면은 «안 고친 칸» 을 null, «비운 칸» 을 '' 로 보내므로(⑤-a) 여기서 갈린다. */
 const dStart = cSrc.indexOf('const _ovStu =');
 const dEnd = cSrc.indexOf('const preRow = (nameChanged', dStart);
 const dJs = (dStart >= 0 && dEnd > dStart) ? cSrc.slice(dStart, dEnd).replace(/:\s*any\b/g, '').replace(/\s+as\s+any\b/g, '') : '';
@@ -284,10 +355,13 @@ try {
 } catch (e) { console.log('    (평가 실패: ' + e.message + ')'); }
 check('전제: 그 줄을 평가했다', typeof derive === 'function');
 if (typeof derive === 'function') {
-  /* 화면이 «실제로» 보내는 모양 — public/admin/student.html 의 `$('cStudentPhone').value || null` */
+  /* 화면이 «실제로» 보내는 두 모양 — ⑤-a 가 잰 그대로 */
   const asScreen = derive({ student_phone: null, parent_phone: null });
-  check('화면이 보내는 빈 칸(null)으로는 override 를 안 건드린다 — 즉 «빈 칸 = 지우기» 는 지금 닿지 않는다',
-    asScreen.touch === false);
+  check('화면이 «안 고친 칸» 으로 보내는 null 은 override 를 안 건드린다', asScreen.touch === false);
+  /* 짝 — 앞만 보면 «언제나 안 건드림»(= 지우기가 영영 안 닿음) 도 통과한다. */
+  const cleared = derive({ student_phone: '', parent_phone: null });
+  check('화면이 «지우겠다» 로 보내는 빈 문자열은 override 를 건드린다',
+    cleared.touch === true && cleared.stu === '');
   const typed = derive({ student_phone: '010-1111-2222', parent_phone: null });
   check('번호를 적으면 그 값이 그대로 간다', typed.touch === true && typed.stu === '010-1111-2222');
   const masked = derive({ student_phone: '010-****-2222' });
@@ -296,13 +370,109 @@ if (typeof derive === 'function') {
   check('번호 칸을 안 보낸 저장은 override 를 안 건드린다', nothing.touch === false);
 }
 
-console.log('\n[ ⑤-c 화면이 «보관 실패» 를 말하는가 — 조용히 넘기면 아무도 모른다 ]');
+console.log('\n[ ⑤-b2 빈 문자열이 students_erp 칸에 «값» 으로 들어가지 않는가 ]');
+/* «지우겠다» 는 override 쪽으로만 가고, 명부 칸에는 예전처럼 NULL 이 들어가야 한다 —
+   29,485행짜리 표에 새 값 모양('')을 들이면 `IS NOT NULL` 만 보는 자리에서 갈린다. */
+const lStart = cSrc.indexOf("const allowed = ['student_phone'");
+const lEnd = cSrc.indexOf('// 🥭 학생 이름', lStart);
+const lJs = (lStart >= 0 && lEnd > lStart)
+  ? cSrc.slice(lStart, lEnd).replace(/:\s*string\[\]/g, '').replace(/:\s*any\[\]/g, '') : '';
+check('전제: students_erp SET 목록을 만드는 루프를 오려 냈다', lJs.length > 120);
+let runLoop = null;
+try {
+  runLoop = (b) => new Function('b', 'isMaskedValue', lJs + '\nreturn { sets, vals };')(
+    b, (v) => typeof v === 'string' && /[*]/.test(v));
+} catch (e) { console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: 그 루프를 돌렸다', typeof runLoop === 'function');
+if (typeof runLoop === 'function') {
+  const c1 = runLoop({ student_phone: '' });
+  check('번호 칸의 빈 문자열은 students_erp 에 NULL 로 간다',
+    c1.sets.length === 1 && c1.vals.length === 1 && c1.vals[0] === null);
+  const c2 = runLoop({ student_phone: '010-1' });
+  check('적은 번호는 그대로 간다', c2.vals[0] === '010-1');
+  /* ⚠️ student_phone 만 넣어 보면 `_isPhoneCol` 을 그 한 칸으로 좁히는 변이가 통과한다
+     (함정 대조 2026-09-16 실측 Ⓛ: PASS 84 / FAIL 0). 세 칸을 «전부» 넣는다. */
+  const c2b = runLoop({ parent_phone: '', teacher_phone: '' });
+  check('parent_phone·teacher_phone 의 빈 문자열도 NULL 로 간다',
+    c2b.vals.length === 2 && c2b.vals[0] === null && c2b.vals[1] === null);
+  /* 짝 — 앞만 보면 «모든 빈 문자열을 NULL 로» 도 통과한다. 번호가 아닌 칸은 예전 그대로여야 한다. */
+  const c3 = runLoop({ school: '' });
+  check('번호가 아닌 칸의 빈 문자열은 예전 그대로다(NULL 로 바꾸지 않는다)', c3.vals[0] === '');
+}
+
+console.log('\n[ ⑤-c 화면이 «보관 실패»·«지웠다» 를 갈라 말하는가 — 조용히 넘기면 아무도 모른다 ]');
 /* `phone_kept:false` 는 흔히 «숫자 9자리 미만» 이다. 그때 「저장되었습니다」만 띄우면
    번호는 students_erp 에만 들어가 그날 밤 사라지고 문자는 영영 안 간다. */
 check('상세 화면이 phone_kept 를 읽는다', /j\.phone_kept\s*===\s*false/.test(detail));
 check('그때 사람에게 «보관 안 됨» 을 말한다', /phoneNotKept/.test(detail) && /phoneNotKept:\{ko:/.test(detail));
 /* 짝 — 앞만 보면 «언제나 경고» 도 통과한다. 번호를 안 고친 저장(null)은 조용해야 한다. */
 check('번호를 안 고친 저장(phone_kept=null)에는 경고하지 않는다', !/j\.phone_kept\s*!==\s*true/.test(detail));
+check('사전에 «지웠다»·«변경 실패» 문구가 있다',
+  /phoneCleared:\{ko:/.test(detail) && /phoneChangeFailed:\{ko:/.test(detail));
+/* 🔴 «지웠다» 가 «문자가 안 간다» 는 아니다 — 학생 쪽은 폴백이 세 겹이고(`ovStudent ||
+   student_phone || phone`) 이 PATCH 는 `phone` 칸을 안 건드린다. 게다가 한쪽만 지웠을 수도
+   있다(`_cPhoneCleared` 는 OR). 그러니 문구가 그것을 «단정» 하면 거짓이 된다
+   (2026-09-16 함정 대조가 그 거짓 문구를 잡았다). */
+check('«문자가 가지 않습니다» 라고 단정하지 않는다', !/문자가 가지 않습니다/.test(detailNoCmt));
+check('짝 — 그래도 «지웠다» 는 사실은 말한다', /번호를 지웠습니다/.test(detailNoCmt));
+/* 서버 정본이 그 폴백을 «적어 두었는가» — 안 적으면 다음 사람이 또 «문자가 멈춘다» 로 읽는다. */
+check('서버 주석이 phone 칸 폴백을 적어 두었다',
+  /phonesForStudent/.test(cSrc) && /allowed[^\n]*에는 \*\*`phone` 칸이 없다/.test(cSrc));
+/* 🔴 아래 토스트 검사는 `_cPhoneCleared` 를 «인자로 주입» 하므로 그 값을 «만드는» 줄을
+   한 번도 안 본다 — 그래서 `var _cPhoneCleared = true;` 로 바꿔도 전부 통과했다
+   (2026-09-16 변이시험 실측 Ⓖ: PASS 77 / FAIL 0). 만드는 줄도 따로 돌린다. */
+const ccStart = detail.indexOf('var _cPhoneCleared =');
+const ccEnd = ccStart >= 0 ? detail.indexOf('\n', ccStart) : -1;
+const ccJs = (ccStart >= 0 && ccEnd > ccStart) ? detail.slice(ccStart, ccEnd) : '';
+check('전제: _cPhoneCleared 를 «만드는» 줄을 오려 냈다', /body\./.test(ccJs));
+let clearedOf = null;
+try {
+  clearedOf = (body) => new Function('body', ccJs + '\nreturn _cPhoneCleared;')(body);
+  clearedOf({ student_phone: null, parent_phone: null });
+} catch (e) { clearedOf = null; console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: 그 줄을 돌렸다', typeof clearedOf === 'function');
+if (typeof clearedOf === 'function') {
+  check('«지우겠다»(빈 문자열)를 보낼 때만 지우기로 본다',
+    clearedOf({ student_phone: '', parent_phone: null }) === true
+    && clearedOf({ student_phone: null, parent_phone: '' }) === true);
+  /* 짝 — 앞만 보면 «언제나 지우기» 도 통과한다(그 상태를 실제로 밟았다). */
+  check('짝 — 안 고친 저장(null)은 지우기가 아니다',
+    clearedOf({ student_phone: null, parent_phone: null }) === false);
+  check('짝 — 번호를 적은 저장도 지우기가 아니다',
+    clearedOf({ student_phone: '010-1', parent_phone: null }) === false);
+}
+/* 🔴 문구가 «있는가» 로는 모자란다 — «언제 무슨 말을 하는가» 가 이 절의 뜻이다.
+   지우기 실패에 「숫자 9자리 이상인지 확인해 주세요」를 말하면 그건 틀린 안내다(지울 게 없다).
+   그래서 토스트를 만드는 줄을 오려 내 네 경우를 실제로 돌린다. */
+const tStart = detail.indexOf("var _cMsg = t('contactSaved')");
+const tEnd = tStart >= 0 ? detail.indexOf('\n', detail.indexOf('toast(_cMsg,', tStart)) : -1;
+const tJs = (tStart >= 0 && tEnd > tStart) ? detail.slice(tStart, tEnd) : '';
+check('전제: 토스트를 만드는 줄을 오려 냈다', /phoneCleared/.test(tJs) && /toast\(_cMsg,/.test(tJs));
+let msgOf = null;
+try {
+  msgOf = (j, cleared) => {
+    let out = null;
+    new Function('j', '_cPhoneCleared', 't', 'toast', tJs)(
+      j, cleared, (k) => '|' + k + '|', (m, bad) => { out = { m: String(m), bad: !!bad }; });
+    return out;
+  };
+  msgOf({ phone_kept: null }, false);   // 한 번 돌려 본다 — 못 돌면 아래 전제가 잡는다
+} catch (e) { msgOf = null; console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: 그 줄을 돌렸다', typeof msgOf === 'function');
+if (typeof msgOf === 'function') {
+  const okC = msgOf({ phone_kept: true }, true);
+  check('지우기가 성공하면 «지웠다» 고 말한다',
+    !!okC && okC.m.includes('|phoneCleared|') && !okC.m.includes('|phoneNotKept|') && okC.bad === false);
+  const badC = msgOf({ phone_kept: false }, true);
+  check('지우기가 실패하면 «예전 번호로 간다» 고 말한다 — «9자리» 안내를 하지 않는다',
+    !!badC && badC.m.includes('|phoneChangeFailed|') && !badC.m.includes('|phoneNotKept|') && badC.bad === true);
+  const notKept = msgOf({ phone_kept: false }, false);
+  check('번호를 «넣다가» 실패하면 예전처럼 «보관 안 됨» 을 말한다',
+    !!notKept && notKept.m.includes('|phoneNotKept|') && notKept.bad === true);
+  const quiet = msgOf({ phone_kept: null }, false);
+  check('짝 — 번호를 안 고친 저장에는 번호 이야기를 아예 안 한다',
+    !!quiet && !quiet.m.includes('|phone') && quiet.bad === false);
+}
 
 console.log('\n════════════════════════════════════════════');
 console.log(`  결과: PASS ${PASS} / FAIL ${FAIL}`);
