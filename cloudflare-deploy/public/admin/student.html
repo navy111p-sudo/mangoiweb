@@ -2779,6 +2779,35 @@ function teacherLabel(it) {
   return tid ? '강사 미확인' : '미배정';
 }
 
+/* 🏷 (2026-09-15 사장님 제보) 「학생 홈에는 수업이 있는데 관리자 › 수강신청 › 신청 목록엔
+   그 수업이 안 보인다」 — 고장이 아니다. enrollments(수강신청 신청 목록)와
+   class_schedules(이 탭이 보여주는 실제 수업표)는 완전히 다른 표다. class_schedules 는
+   결제 확정 말고도 카페24 미러·레벨테스트 신청·AI 명령·관리자 직접 등록 등 여러 경로로
+   생기므로, 「수강신청에 없다」와 「수업이 없다」는 다른 사실이다 — 여기서 그 출처를
+   바로 보여줘 다음에 같은 제보가 오면 이 탭 하나로 끝나게 한다.
+   ⚠️ 값은 실제 INSERT 문(enroll-ops.ts·enroll-activate.ts·c24-mirror.ts·
+      leveltest-schedule.ts·ai-command.ts·api-admin.ts)에서 확인한 것만 적는다 —
+      모르는 값은 지어내지 않고 원문 그대로 보여준다(CLAUDE.md 「부분일치 금지」와 같은 정신).
+   ⛔ class="mgt-chip" 재사용 금지 — test-harness/manual/schedule-teacher-name-browser.mjs 가
+      그 클래스를 «카드마다 정확히 하나» 로 세는 훅이라, 재사용하면 그 검사의 칩 개수가 깨진다. */
+function sourceLabel(it) {
+  var s = (it && it.source != null) ? String(it.source).trim() : '';
+  if (!s) return '출처 미상';
+  if (s.indexOf('adm-enroll:') === 0) return '수강신청 확정';
+  if (s.indexOf('enroll:') === 0) return '결제 확정';
+  if (s === 'c24-mirror') return '카페24 연동(자동)';
+  if (s === 'c24-mirror:manual') return '카페24 연동 → 수정됨';
+  if (s === 'leveltest_app') return '레벨테스트 신청';
+  if (s === 'admin_ui') return '관리자 직접 등록';
+  if (s === 'ai_command' || s === 'ai_enroll') return 'AI 명령으로 등록';
+  if (s === 'ai_auto') return 'AI 자동배정(확인 필요)';
+  if (s === 'attendance_seed') return '출석기록 기반 자리표시';
+  if (s === 'demo_seed') return '데모 자료(자리표시)';
+  if (s === 'lms_import_w26') return '구 LMS 이전(자리표시)';
+  if (s.indexOf('type_seed') === 0) return '시연 데이터(자리표시)';
+  return esc(s);
+}
+
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
   const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
@@ -2831,6 +2860,7 @@ async function loadAiSchedules() {
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + '분 · ' : '') + (statusName[it.status] || it.status) + '</span>'
         + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
+        + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.">🔖 ' + sourceLabel(it) + '</span>'
         + '<button onclick="openReschedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #38bdf8;background:transparent;color:#38bdf8;border-radius:6px;cursor:pointer;font-size:11px">📅 일정변경</button>'
         + '<button onclick="cancelAiSchedule(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
         + '</div>'
