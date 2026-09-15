@@ -186,6 +186,125 @@ else {
   }
 }
 
+
+/* ═══ ③ (2026-09-15) 종료 흐름을 한 번 지난 뒤에도 나갈 수 있는가 ═══════════════════
+   사장님 「나가기가 되지 않아」
+
+   [무엇이 문제였나] index.html:4341 의 학생 방아쇠는 `STATE.triggered` 가 참이면 나가기
+     이벤트를 **영구히 삼킨다**. 그 값을 되돌리는 코드가 저장소 어디에도 없어서, 종료 흐름이
+     «화면을 안 떠나고» 끝나는 경로를 한 번 지나면 그 뒤로 나가기가 영영 안 먹는다.
+     🔬 이 검사로 실측(2026-09-15): 나가기 → 평가 ⭐ 제출 → 복습퀴즈 「예」 → 복습퀴즈 «탭» 으로
+        가고 수업 화면에 그대로 남는다 → 다시 나가기 → **무반응**(vc-in-call 이 계속 true).
+   [고침] js/vc-dock.js 의 나가기 버튼에 안전망 — «손을 뗀 것»(pointerup)은 그 방아쇠가 안 잡는
+     이벤트라 버튼까지 온다. 700ms 뒤에도 수업 화면 그대로고 모달이 하나도 없으면 직접 내보낸다.
+   ⚠️ 왜 .click() 이 아니라 실제 좌표로 누르나 — .click() 은 pointerup 을 만들지 않는다.
+   🪤 회차마다 sessionStorage 를 비운다 — 앞 회차의 «이미 평가함» 표시가 남으면 복습퀴즈 모달이
+      미리 떠서 그 덮개가 클릭을 가로채고, 검사가 통째로 헛돈다(여기서 실제로 밟았다). */
+console.log('\n═══ ③ 종료 흐름을 한 번 지난 뒤에도 나갈 수 있는가 ═══');
+async function realClick(sel) {
+  const b = await ev(`(function(){var e=document.querySelector('${sel}');if(!e)return null;
+    var r=e.getBoundingClientRect(); if(!r.width) return null;
+    return JSON.stringify({x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)});})()`);
+  if (!b) return false;
+  const { x, y } = JSON.parse(b);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1, buttons: 1, pointerType: 'mouse' });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, buttons: 0, pointerType: 'mouse' });
+  return true;
+}
+await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+await send('Page.navigate', { url: URL + '?_nc=' + Date.now() });
+await sleep(6500);
+await ev(`(function(){
+  try{ sessionStorage.clear(); }catch(e){}
+  localStorage.setItem('mangoi_logged_user', JSON.stringify({uid:'testkid',name:'테스트학생',role:'student'}));
+  localStorage.setItem('mangoi_onboard_v1','skip:0');
+  window.vcMyRole='student'; window.vcRoomId='class-999-20260915';
+  document.body.classList.add('vc-in-call'); return 'ok'; })()`);
+await sleep(2500);
+await ev(`(function(){ try{ if(typeof window.vcNukeRotationOverlays==='function') window.vcNukeRotationOverlays(); }catch(e){}
+  var o=document.getElementById('vc-orientation-overlay'); if(o&&o.parentNode) o.parentNode.removeChild(o); return 'ok'; })()`);
+await sleep(500);
+ok(await ev(`typeof window.__mangoLeaveClassSPA === 'function'`), '③-0 전제: SPA 종료 함수가 있다');
+ok(!(await ev(`!!document.getElementById('vc-rate-modal')||!!document.getElementById('vc-rq-end-modal')`)),
+   '③-1 전제: 시작 시점에 모달이 없다(있으면 그 덮개가 클릭을 가로채 검사가 헛돈다)');
+
+await realClick('#vc-dock-leave');
+await sleep(900);
+ok(await ev(`!!document.getElementById('vc-rate-modal')`),
+   '③-2 첫 나가기 → 평가 ⭐ 가 뜬다 — ⛔ 안전망이 이 흐름을 건너뛰게 하지 않는다');
+ok(await ev(`document.body.classList.contains('vc-in-call')`),
+   '③-3 평가 중에는 수업에 남는다 — 안전망이 억지로 내보내지 않는다');
+
+await ev(`(function(){var s=document.querySelector('#vc-rate-stars .vc-rate-star[data-v="7"]');if(s)s.click();
+  var b=document.getElementById('vc-rate-submit');if(b)b.click();return 'ok';})()`);
+await sleep(2200);
+ok(await ev(`!!document.getElementById('vc-rq-yes')`), '③-4 평가 제출 → 복습퀴즈 🧠 안내가 뜬다');
+await ev(`document.getElementById('vc-rq-yes').click()`);
+await sleep(1200);
+ok(await ev(`document.body.classList.contains('vc-in-call')`)
+   && !(await ev(`!!document.getElementById('vc-rate-modal')||!!document.getElementById('vc-rq-end-modal')`)),
+   '③-5 「예」 → 복습퀴즈 탭으로 가고 수업 화면에 남는다(= 가드가 굳은 상태)');
+
+await realClick('#vc-dock-leave');
+await sleep(1600);
+ok(!(await ev(`document.body.classList.contains('vc-in-call')`)),
+   '③-6 🚪 그 뒤에 나가기를 누르면 실제로 나간다(수리 전에는 몇 번을 눌러도 무반응)');
+
+/* 🖐 짝 검사 — «나간다» 옆에 «엉뚱하게는 안 나간다» 를 둔다.
+   교재를 쓸어넘기다 손가락이 독까지 내려와 나가기 «위에서» 떨어지는 경우다.
+   브라우저는 그때 click 을 안 내므로 **예전에는 아무 일도 안 일어났다** — 안전망이 그것까지
+   나가기로 오해하면 수업이 끊긴다(고치려던 것보다 나쁜 사고). ⛔ 이 검사를 빼지 마세요. */
+await send('Page.navigate', { url: URL + '?_nc=' + Date.now() });
+await sleep(6500);
+await ev(`(function(){
+  try{ sessionStorage.clear(); }catch(e){}
+  localStorage.setItem('mangoi_logged_user', JSON.stringify({uid:'testkid',name:'테스트학생',role:'student'}));
+  localStorage.setItem('mangoi_onboard_v1','skip:0');
+  window.vcMyRole='student'; window.vcRoomId='class-998-20260915';
+  document.body.classList.add('vc-in-call'); return 'ok'; })()`);
+await sleep(2500);
+await ev(`(function(){ try{ if(typeof window.vcNukeRotationOverlays==='function') window.vcNukeRotationOverlays(); }catch(e){}
+  var o=document.getElementById('vc-orientation-overlay'); if(o&&o.parentNode) o.parentNode.removeChild(o); return 'ok'; })()`);
+await sleep(500);
+const lb = await ev(`(function(){var e=document.getElementById('vc-dock-leave');if(!e)return null;
+  var r=e.getBoundingClientRect(); if(!r.width) return null;
+  return JSON.stringify({x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)});})()`);
+if (!lb) { ok(false, '③-7 전제: 나가기 버튼을 찾지 못했다'); }
+else {
+  const { x, y } = JSON.parse(lb);
+  /* 화면 가운데(교재 쪽)에서 눌러 버튼 위까지 끌고 와서 뗀다 */
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(x / 2), y: 200, button: 'left', clickCount: 1, buttons: 1, pointerType: 'mouse' });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1, pointerType: 'mouse' });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, buttons: 0, pointerType: 'mouse' });
+  await sleep(1600);
+  ok(await ev(`document.body.classList.contains('vc-in-call')`),
+     '③-7 🖐 딴 데서 시작해 나가기 «위에서» 손을 뗀 것으로는 나가지 않는다(쓸어넘기기 오인 방지)');
+  ok(!(await ev(`!!document.getElementById('vc-rate-modal')`)),
+     '③-8 그때 평가 모달도 안 뜬다 — 아무 일도 일어나지 않는 것이 맞다');
+
+  /* 🐢 **느린** 드래그 — 처음 판은 «2초 안에 딴 데서 시작했으면 스와이프» 라는 시간 창이라
+     2초보다 느리게 끄는 드래그가 그대로 빠져나가 **수업이 끊겼다**(함정 대조가 실제로 잡음).
+     지금은 시간이 아니라 «그 pointerup 의 짝이 되는 down 을 우리가 봤는가»(pointerId)로 가른다.
+     ⛔ 이 검사를 빼지 마세요 — 시간 창으로 되돌리면 여기서만 빨간불이 납니다. */
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(x / 2), y: 200, button: 'left', clickCount: 1, buttons: 1, pointerType: 'mouse' });
+  await sleep(2400);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1, pointerType: 'mouse' });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, buttons: 0, pointerType: 'mouse' });
+  await sleep(1600);
+  ok(await ev(`document.body.classList.contains('vc-in-call')`),
+     '③-9 🐢 «2초보다 느린» 드래그로 나가기 위에서 손을 떼도 나가지 않는다(시간 창 되돌리기 방지)');
+  ok(!(await ev(`!!document.getElementById('vc-rate-modal')`)),
+     '③-10 그때도 평가 모달은 안 뜬다');
+
+  /* 🚪 그러고도 «진짜 나가기» 는 여전히 된다 — 짝이 없으면(down 이 삼켜졌으면) 안전망이 돈다.
+     ⚠️ 이 짝 검사가 없으면 «전부 손 떼기»(안전망을 아예 죽이기) 도 통과합니다. */
+  await realClick('#vc-dock-leave');
+  await sleep(900);
+  ok(await ev(`!!document.getElementById('vc-rate-modal')`),
+     '③-11 🚪 느린 드래그 뒤에도 진짜 나가기는 평상시대로 평가 ⭐ 로 간다');
+}
+
+
 await ev(`document.body.classList.remove('vc-in-call');'ok'`);
 ws.close();
 console.log('────────────────────────────────');

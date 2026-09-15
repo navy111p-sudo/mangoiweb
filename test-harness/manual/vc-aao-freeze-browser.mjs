@@ -380,6 +380,94 @@ const mz = await evalJs(MEASURE);
 ok(!mz.strip, '한 프레임도 안 온 상대(videoWidth 0)에는 «멈춤» 이라 말하지 않는다 — 검은 바탕에 적으면 거짓말');
 ok(mz.cover === true, '그때는 옛 전면 안내가 그대로 뜬다');
 
+
+/* ───────── ⑪ 마지막 모습 — 영상이 «죽어도» 얼굴이 남는가 (2026-09-15) ─────────
+   사장님 「음성만 나올 땐 화면은 교사의 얼굴이 멈춤 상태라도 나오게 해줘. 검게 하지 말고
+   반드시 마지막 모습이 계속 나오게 할 수 있지??」
+
+   [왜 브라우저가 필요한가] 자동 하니스(aao_freeze_harness Ⓕ)는 가짜 canvas 로 «배선과 답» 을
+     본다. 그런데 진짜로 궁금한 것은 **toDataURL 이 실제 <video> 에서 던지지 않는가**(tainted)와
+     «그림이 화면에 실제로 붙는가» 이고, 그 둘은 가짜 DOM 이 원리상 못 잰다.
+   ⚠️ 진짜 MediaStream 을 쓴다 — canvas.captureStream() 이라 카메라 권한이 없어도 프레임이 흐른다. */
+console.log('\n⑪ 마지막 모습 — 영상이 죽어도 얼굴이 남는가');
+await open(390, 844);
+await evalJs(SETUP({ why: 'aao', vw: 640 }));
+/* 그 타일의 <video> 에 «진짜로 흐르는» 영상을 물린다 */
+const s1 = await evalJs(`(async () => {
+  const box = document.getElementById('vc-video-u1');
+  const v = box.querySelector('video');
+  /* 🪤 SETUP 은 videoWidth 를 «가짜 getter»(Object.defineProperty)로 고정한다 — 그대로 두면
+     진짜 영상을 물려도 값이 안 바뀌고, 이 절이 통째로 헛돈다(여기서 실제로 밟았다).
+     ⚠️ 그리고 SETUP 이 이미 AAO 를 걸어 둬서 «멈춤 중» 이다 — 그 상태에서는 일부러 안 뜬다.
+        둘 다 걷고 «살아 있는 수업» 으로 되돌린 뒤에 재야 한다. */
+  try { delete v.videoWidth; } catch (e) {}
+  window.vcRemoteCamOff = {};
+  try { window.vcApplyRemoteCamHint('u1'); } catch (e) {}
+  const c = document.createElement('canvas'); c.width = 320; c.height = 180;
+  const g = c.getContext('2d'); g.fillStyle = '#e0552b'; g.fillRect(0, 0, 320, 180);
+  v.srcObject = c.captureStream(5);
+  try { await v.play(); } catch (e) {}
+  await new Promise(r => setTimeout(r, 800));
+  const w0 = v.videoWidth;
+  try { vcAaoTick(); } catch (e) { return { err: String(e) }; }
+  const st = (typeof __vcAaoStill !== 'undefined') ? __vcAaoStill['u1'] : null;
+  return { vw: w0, got: !!st, head: st ? st.slice(0, 22) : '', len: st ? st.length : 0 };
+})()`);
+ok(s1 && s1.vw > 0, '⑪-0 전제: 타일의 영상이 실제로 흐른다(videoWidth=' + (s1 && s1.vw) + ')');
+ok(s1 && s1.got, '⑪-1 📷 진짜 <video> 에서 한 장을 뜬다 — toDataURL 이 tainted 로 던지지 않는다', s1 && s1.err);
+ok(s1 && /^data:image\/jpeg/.test(s1.head || ''), '⑪-2 JPEG dataURL 이다 (' + (s1 && s1.len) + '자 — 타일당 이 정도만 들고 있는다)');
+
+/* 그 뒤 영상이 «죽는다»(트랙 유실) — 예전에는 여기서 전면 덮개로 떨어져 새까매졌다 */
+const s2 = await evalJs(`(async () => {
+  const box = document.getElementById('vc-video-u1');
+  const v = box.querySelector('video');
+  /* 🔎 «어떻게 맞출지» 는 타일마다 다르다(가상배경·화면공유는 contain, 폰 세로 상대 타일은 cover).
+     정본 vcSmartFitVideo 가 살아 있을 때 인라인으로 박아 두는 값을 흉내낸다. */
+  v.style.setProperty('object-fit', 'contain', 'important');
+  v.srcObject = null;
+  await new Promise(r => setTimeout(r, 400));
+  window.vcRemoteCamOff = window.vcRemoteCamOff || {};
+  window.vcRemoteCamOff['u1'] = 'aao';
+  window.vcApplyRemoteCamHint('u1');
+  await new Promise(r => setTimeout(r, 300));
+  const img = box.querySelector('.vc-aao-still');
+  const r = img ? img.getBoundingClientRect() : null;
+  return {
+    vw: v.videoWidth,
+    still: !!img,
+    src: img ? /^data:image\\/jpeg/.test(img.getAttribute('src') || '') : false,
+    w: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0,
+    z: img ? getComputedStyle(img).zIndex : '',
+    gray: img ? /grayscale/.test(getComputedStyle(img).filter || '') : false,
+    fit: img ? getComputedStyle(img).objectFit : '',
+    cover: !!box.querySelector('.vc-camoff-hint'),
+    strip: !!box.querySelector('.vc-aao-freeze')
+  };
+})()`);
+ok(s2 && s2.vw === 0, '⑪-3 전제: 영상이 실제로 죽었다(videoWidth=0)');
+ok(s2 && s2.still && s2.src, '⑪-4 📷 영상이 죽어도 «마지막 모습» 이 타일에 남는다');
+ok(s2 && s2.w > 0 && s2.h > 0, '⑪-5 그 그림이 «실제로 그려졌다»(' + (s2 && s2.w) + '×' + (s2 && s2.h) + ') — 0 이면 붙기만 한 것');
+ok(s2 && !s2.cover, '⑪-6 ⛔ 옛 전면 덮개(.vc-camoff-hint)로 떨어지지 않는다');
+ok(s2 && s2.strip, '⑪-7 멈춤 띠도 함께 붙는다 — «지금» 으로 오인되지 않게');
+ok(s2 && s2.gray, '⑪-8 흑백으로 깐다(띠와 같은 이유)');
+ok(s2 && String(s2.z) === '2', '⑪-9 z-index 2 — 이름표(3)·띠(9) 아래라 그 둘을 가리지 않는다');
+ok(s2 && s2.fit === 'contain',
+   '⑪-10 🔎 «어떻게 맞출지» 를 그 영상에게서 베낀다 — contain 이던 타일은 contain (지금 ' + (s2 && s2.fit) + ')');
+
+/* 짝 — «전부 contain» 이 아니라 «그 영상을 따라간다» 는 것을 본다.
+   ⛔ 한쪽만 두면 cover 를 박아 넣은 옛 코드도, «전부 contain» 인 엉터리 수리도 통과합니다. */
+const s2b = await evalJs(`(async () => {
+  const box = document.getElementById('vc-video-u1');
+  const v = box.querySelector('video');
+  v.style.setProperty('object-fit', 'cover', 'important');
+  window.vcApplyRemoteCamHint('u1');
+  await new Promise(r => setTimeout(r, 200));
+  const img = box.querySelector('.vc-aao-still');
+  return { fit: img ? getComputedStyle(img).objectFit : '' };
+})()`);
+ok(s2b && s2b.fit === 'cover',
+   '⑪-11 🔎 (짝) cover 이던 타일은 cover — 한쪽으로 박아 두지 않는다 (지금 ' + (s2b && s2b.fit) + ')');
+
 /* ───────── ⑩ 변이시험 — 이 검사가 헛돌지 않는가 ───────── */
 console.log('\n⑩ 변이시험 — 비켜서기를 되돌리면 실제로 빨간불이 나는가');
 let mutDone = false;

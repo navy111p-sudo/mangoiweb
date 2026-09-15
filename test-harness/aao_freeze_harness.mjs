@@ -91,8 +91,23 @@ function makeDom() {
         const hit = (n) => sel.startsWith('.') ? (' ' + n.className + ' ').includes(' ' + sel.slice(1) + ' ') : n.tagName === sel;
         const walk = (n) => { for (const c of n.children) { if (hit(c)) return c; const r = walk(c); if (r) return r; } return null; };
         return walk(this);
+      },
+      /* 📷 (2026-09-15) 마지막 모습 스냅샷 절이 쓴다 — 배열이라 forEach 가 그대로 산다 */
+      querySelectorAll(sel) {
+        const hit = (n) => sel.startsWith('.') ? (' ' + n.className + ' ').includes(' ' + sel.slice(1) + ' ') : n.tagName === sel;
+        const out = [];
+        const walk = (n) => { for (const c of n.children) { if (hit(c)) out.push(c); walk(c); } };
+        walk(this);
+        return out;
       }
     };
+    /* 📷 캔버스 — 스냅샷을 «실제로 뜨는지» 를 재려면 이 둘이 필요하다.
+       drawImage 가 받은 폭·높이를 남겨 두어 «축소해서 뜨는가» 까지 본다. */
+    if (tag === 'canvas') {
+      node._drew = null;
+      node.getContext = () => ({ drawImage: (src, x, y, w, h) => { node._drew = { src, w, h }; } });
+      node.toDataURL = (type) => 'data:' + (type || 'image/png') + ';base64,SNAP' + (node.width || 0) + 'x' + (node.height || 0);
+    }
     return node;
   };
   const byId = {};
@@ -447,13 +462,220 @@ sec('Ⓔ 비켜서기 — 띠가 타일의 «누를 것» 을 덮지 않게');
      bad.join(' / '));
 }
 
+sec('Ⓕ 마지막 모습 — 영상이 «검어져도» 얼굴이 남는가 (2026-09-15)');
+{
+  /* [무엇을 지키나] 사장님 「음성만 나올 땐 화면은 교사의 얼굴이 멈춤 상태라도 나오게 해줘.
+       검게 하지 말고 반드시 마지막 모습이 계속 나오게 할 수 있지??」
+     [왜 필요했나] encodings.active=false 는 «대개» <video> 를 마지막 프레임에 멈춰 세운다.
+       그 «대개» 가 아닌 경우(트랙이 죽거나 첫 프레임 전)에는 videoWidth 가 0 이고, 그러면
+       아래 게이트가 옛 전면 덮개로 떨어져 얼굴이 통째로 사라졌다(2026-09-15 사장님 화면).
+     [짝으로 묻는다 — 한쪽만 두면 엉터리 수리가 통과한다]
+       · «검어지면 마지막 모습을 깐다»   ↔ «살아 있으면 안 깐다»(같은 그림을 덧그릴 이유가 없다)
+       · «떠 둔 것이 있으면 멈춤으로»     ↔ «한 장도 없으면 옛 전면 안내»(검은 바탕에 «멈춤» 은 거짓말)
+       · «영상이 살아 있을 때 떠 둔다»   ↔ «사람이 끈 카메라의 그림은 버린다»(프라이버시) */
+  const e = boot(five);
+  const grid = e.mk('div'); grid.id = 'vc-video-grid';
+  e.byId['vc-video-grid'] = grid;
+  const t = addTile(e, 'u1', 640);
+  t.v.videoHeight = 360;
+  grid.appendChild(t.box); t.box.id = 'vc-video-u1';
+  e.win.__vcAAO = { active: false };
+
+  /* ① 영상이 살아 있는 동안 4초 틱이 한 장을 떠 둔다 */
+  e.ctx.vcAaoTick();
+  const still = e.ctx.__vcAaoStill || {};
+  ok(!!still.u1, 'F-1 영상이 살아 있으면 4초 틱이 «마지막 모습» 을 한 장 떠 둔다');
+  ok(/^data:image\/jpeg/.test(String(still.u1 || '')), 'F-2 JPEG 로 뜬다(폭 320 으로 줄여 dataURL 비용을 낮춘다)');
+
+  /* ② 그 상태에서 AAO 로 전환 + 영상이 검어짐(videoWidth 0) → 덮개가 아니라 «마지막 모습 + 띠» */
+  t.v.videoWidth = 0;
+  /* 🔎 살아 있을 때 정본 vcSmartFitVideo 가 인라인으로 박아 둔 값(타일마다 다르다) */
+  t.v.style.objectFit = 'contain';
+  e.win.vcRemoteCamOff = { u1: 'aao' };
+  e.win.vcApplyRemoteCamHint('u1');
+  const img = t.box.querySelector('.vc-aao-still');
+  ok(!!img, 'F-3 영상이 검어져도 떠 둔 마지막 모습을 깐다');
+  ok(!!img && img.getAttribute('src') === still.u1, 'F-4 깔린 그림이 «그때 떠 둔 그 한 장» 이다');
+  ok(!!t.box.querySelector('.vc-aao-freeze'), 'F-5 멈춤 띠도 함께 붙는다(«지금» 으로 오인되지 않게)');
+  ok(e.origCalls.length === 0, 'F-6 ⛔ 옛 전면 덮개(vcApplyRemoteCamHint 원본)로 떨어지지 않는다');
+  ok(/z-index:2/.test(String(img.style.cssText)) && /grayscale/.test(String(img.style.cssText)),
+     'F-7 이름표(3)·띠(9) 아래에 깔고 흑백으로 — 가리지 않고, «지금» 으로도 안 보이게');
+  /* 🔎 «어떻게 맞출지» 는 그 영상에게서 베낀다 — 내 타일의 가상배경·화면공유는 contain,
+     폰 세로의 상대 타일은 cover 다. 여기에 한쪽을 박아 두면 «멈추는 순간 그림이 확 커지거나 잘려»
+     방금 보던 그 화면이 아니게 된다. ⛔ 「contain 이다」만 묻지 말고 짝으로 물을 것 —
+     한쪽만 두면 «전부 cover»(옛 코드)도, «전부 contain»(엉터리 수리)도 통과한다. */
+  ok(img.style.objectFit === 'contain',
+     'F-7b 🔎 contain 이던 타일의 마지막 모습도 contain (잰 값: ' + img.style.objectFit + ')');
+  t.v.style.objectFit = 'cover';
+  e.win.vcApplyRemoteCamHint('u1');
+  ok(t.box.querySelector('.vc-aao-still').style.objectFit === 'cover',
+     'F-7c 🔎 (짝) cover 이던 타일은 cover — 한쪽으로 박아 두지 않는다');
+  t.v.style.objectFit = 'contain';
+
+  /* ③ 짝 — 영상이 «살아 있으면» 안 깐다 */
+  const e2 = boot(five);
+  const g2 = e2.mk('div'); g2.id = 'vc-video-grid'; e2.byId['vc-video-grid'] = g2;
+  const t2 = addTile(e2, 'u1', 640); t2.v.videoHeight = 360;
+  g2.appendChild(t2.box); t2.box.id = 'vc-video-u1';
+  e2.ctx.vcAaoTick();
+  e2.win.vcRemoteCamOff = { u1: 'aao' };
+  e2.win.vcApplyRemoteCamHint('u1');
+  ok(!t2.box.querySelector('.vc-aao-still'),
+     'F-8 ⛔ 멈춘 영상이 살아 있으면(videoWidth>0) 안 깐다 — <video> 가 이미 그 장면을 붙잡고 있다');
+
+  /* ④ 짝 — 한 프레임도 안 온 상대는 예전처럼 «전면 안내»(사실이 그렇다) */
+  const e3 = boot(five);
+  const g3 = e3.mk('div'); g3.id = 'vc-video-grid'; e3.byId['vc-video-grid'] = g3;
+  const t3 = addTile(e3, 'u1', 0);
+  g3.appendChild(t3.box); t3.box.id = 'vc-video-u1';
+  e3.ctx.vcAaoTick();
+  e3.win.vcRemoteCamOff = { u1: 'aao' };
+  e3.win.vcApplyRemoteCamHint('u1');
+  ok(!t3.box.querySelector('.vc-aao-still') && e3.origCalls.length === 1,
+     'F-9 한 장도 떠 둔 적 없으면 옛 전면 안내 그대로 — 검은 바탕에 «영상 멈춤» 은 거짓말이다');
+
+  /* ⑤ 짝 — 사람이 «일부러» 끈 카메라의 그림은 갖고 있지 않는다(프라이버시) */
+  const e4 = boot(five);
+  const g4 = e4.mk('div'); g4.id = 'vc-video-grid'; e4.byId['vc-video-grid'] = g4;
+  const t4 = addTile(e4, 'u1', 640); t4.v.videoHeight = 360;
+  g4.appendChild(t4.box); t4.box.id = 'vc-video-u1';
+  e4.ctx.vcAaoTick();
+  ok(!!(e4.ctx.__vcAaoStill || {}).u1, 'F-10 (전제) 켜져 있는 동안에는 떠 둔다');
+  e4.win.vcRemoteCamOff = { u1: 'user' };
+  e4.ctx.vcAaoTick();
+  ok(!(e4.ctx.__vcAaoStill || {}).u1,
+     'F-11 🔒 사람이 카메라를 끄면 떠 둔 그림을 버린다 — 껐는데 얼굴이 남으면 프라이버시 사고다');
+
+  /* ⑥ 해제하면 걷는다 · 나간 상대는 정리한다 */
+  const e5 = boot(five);
+  const g5 = e5.mk('div'); g5.id = 'vc-video-grid'; e5.byId['vc-video-grid'] = g5;
+  const t5 = addTile(e5, 'u1', 640); t5.v.videoHeight = 360;
+  g5.appendChild(t5.box); t5.box.id = 'vc-video-u1';
+  e5.ctx.vcAaoTick();
+  t5.v.videoWidth = 0;
+  e5.win.vcRemoteCamOff = { u1: 'aao' };
+  e5.win.vcApplyRemoteCamHint('u1');
+  ok(!!t5.box.querySelector('.vc-aao-still'), 'F-12 (전제) 깔렸다');
+  t5.v.videoWidth = 640;
+  e5.win.vcRemoteCamOff = {};
+  e5.win.vcApplyRemoteCamHint('u1');
+  ok(!t5.box.querySelector('.vc-aao-still'), 'F-13 회복되면 걷는다 — 살아 있는 영상이 다시 보여야 한다');
+  delete e5.byId['vc-video-u1'];
+  g5.children = [];
+  e5.ctx.vcAaoTick();
+  ok(!(e5.ctx.__vcAaoStill || {}).u1, 'F-14 나간 상대의 그림은 버린다(메모리·프라이버시)');
+
+  /* ⑦ 멈춤 중에는 다시 뜨지 않는다 — 뜨면 «멈춘 그림» 을 떠서 덮어쓴다 */
+  const e6 = boot(five);
+  const g6 = e6.mk('div'); g6.id = 'vc-video-grid'; e6.byId['vc-video-grid'] = g6;
+  const t6 = addTile(e6, 'u1', 640); t6.v.videoHeight = 360;
+  g6.appendChild(t6.box); t6.box.id = 'vc-video-u1';
+  e6.ctx.vcAaoTick();
+  const first = (e6.ctx.__vcAaoStill || {}).u1;
+  t6.v.videoWidth = 0;
+  e6.win.vcRemoteCamOff = { u1: 'aao' };
+  e6.win.vcApplyRemoteCamHint('u1');
+  t6.v.videoWidth = 999; t6.v.videoHeight = 999;      // 멈춘 뒤에 «새 그림» 이 온 척
+  e6.ctx.vcAaoTick();
+  ok((e6.ctx.__vcAaoStill || {}).u1 === first,
+     'F-15 ⛔ 멈춤 중인 타일은 다시 뜨지 않는다 — 떠 두는 것은 «멈추기 직전» 의 모습이어야 한다');
+
+  /* ⑧ 변이시험 — 되돌리면 이 절이 «실제로» 빨간불을 내는가.
+     ⚠️ 치환이 안 먹으면 아무것도 안 돌리고 통과한다 — 「치환이 일어났는가」를 따로 FAIL 로 둔다. */
+  function stillScene(code, { camOff = 'aao' } = {}) {
+    const e = boot(code);
+    const g = e.mk('div'); g.id = 'vc-video-grid'; e.byId['vc-video-grid'] = g;
+    const tt = addTile(e, 'u1', 640); tt.v.videoHeight = 360;
+    g.appendChild(tt.box); tt.box.id = 'vc-video-u1';
+    e.ctx.vcAaoTick();                     // 살아 있는 동안 한 장을 떠 둔다
+    tt.v.videoWidth = 0;                   // 그 뒤 검어졌다(트랙이 죽음)
+    e.win.vcRemoteCamOff = { u1: camOff };
+    e.win.vcApplyRemoteCamHint('u1');
+    return { e, tt, img: tt.box.querySelector('.vc-aao-still'), orig: e.origCalls.length };
+  }
+  const fm = [
+    ['옛 게이트로 되돌리기(떠 둔 한 장을 안 봄)',
+      five.replace(/if \(!\(v && v\.videoWidth\) && ![A-Za-z_$]+\[userId\]\)/, 'if (!(v && v.videoWidth))'),
+      (c) => { const r = stillScene(c); return !r.img && r.orig === 1; }],
+    ['한 장도 떠 두지 않기',
+      five.replace(/__vcAaoStill\[id\] = c\.toDataURL\([^)]*\);/, ''),
+      (c) => !stillScene(c).img],
+    ['살아 있는 영상 위에도 덧그리기',
+      five.replace('vcAaoStill(box, id, !(v && v.videoWidth));', 'vcAaoStill(box, id, true);'),
+      (c) => {
+        const e = boot(c);
+        const g = e.mk('div'); g.id = 'vc-video-grid'; e.byId['vc-video-grid'] = g;
+        const tt = addTile(e, 'u1', 640); tt.v.videoHeight = 360;
+        g.appendChild(tt.box); tt.box.id = 'vc-video-u1';
+        e.ctx.vcAaoTick();
+        e.win.vcRemoteCamOff = { u1: 'aao' };
+        e.win.vcApplyRemoteCamHint('u1');
+        return !!tt.box.querySelector('.vc-aao-still');     // 살아 있는데 깔렸다 = 잡아야 한다
+      }],
+    ['🔒 사람이 끈 카메라의 그림을 그대로 갖고 있기',
+      five.replace(/if \(off\[pid\] === 'user'\) \{ delete __vcAaoStill\[pid\]; return; \}/, ''),
+      (c) => {
+        const e = boot(c);
+        const g = e.mk('div'); g.id = 'vc-video-grid'; e.byId['vc-video-grid'] = g;
+        const tt = addTile(e, 'u1', 640); tt.v.videoHeight = 360;
+        g.appendChild(tt.box); tt.box.id = 'vc-video-u1';
+        e.ctx.vcAaoTick();
+        e.win.vcRemoteCamOff = { u1: 'user' };
+        e.ctx.vcAaoTick();
+        return !!(e.ctx.__vcAaoStill || {}).u1;              // 껐는데 얼굴이 남았다 = 잡아야 한다
+      }],
+    ['멈춤 중인 타일도 다시 뜨기(멈춘 그림을 덮어씀)',
+      five.replace('if (!__vcAaoSince[pid]) vcAaoSnapOne(pid, b.querySelector(\'video\'));',
+                   'vcAaoSnapOne(pid, b.querySelector(\'video\'));'),
+      (c) => {
+        const e = boot(c);
+        const g = e.mk('div'); g.id = 'vc-video-grid'; e.byId['vc-video-grid'] = g;
+        const tt = addTile(e, 'u1', 640); tt.v.videoHeight = 360;
+        g.appendChild(tt.box); tt.box.id = 'vc-video-u1';
+        e.ctx.vcAaoTick();
+        const first = (e.ctx.__vcAaoStill || {}).u1;
+        tt.v.videoWidth = 0; e.win.vcRemoteCamOff = { u1: 'aao' };
+        e.win.vcApplyRemoteCamHint('u1');
+        tt.v.videoWidth = 999; tt.v.videoHeight = 999;
+        e.ctx.vcAaoTick();
+        return (e.ctx.__vcAaoStill || {}).u1 !== first;       // 멈춘 뒤 새로 떴다 = 잡아야 한다
+      }],
+    ['나간 상대의 그림을 안 버리기',
+      five.replace(/Object\.keys\(__vcAaoStill\)\.forEach\(function \(pid\) \{ if \(!live\[pid\]\) delete __vcAaoStill\[pid\]; \}\);/, ''),
+      (c) => {
+        const e = boot(c);
+        const g = e.mk('div'); g.id = 'vc-video-grid'; e.byId['vc-video-grid'] = g;
+        const tt = addTile(e, 'u1', 640); tt.v.videoHeight = 360;
+        g.appendChild(tt.box); tt.box.id = 'vc-video-u1';
+        e.ctx.vcAaoTick();
+        delete e.byId['vc-video-u1']; g.children = [];
+        e.ctx.vcAaoTick();
+        return !!(e.ctx.__vcAaoStill || {}).u1;               // 나갔는데 남았다 = 잡아야 한다
+      }]
+  ];
+  for (const [name, code, broke] of fm) {
+    if (code === five) { fail++; console.log('  ❌ 변이 «' + name + '» 가 소스에 안 걸렸다(검사가 헛돈다)'); continue; }
+    /* 🪤 «원본에서는 조용한가» 를 먼저 본다 — 판정 함수가 «언제나 참» 이면 이 절이 통째로 헛돈다.
+       (CLAUDE.md 2장 「«변이 N종 전부 FAIL» 이라 적기 전에 원본이 통과하는지 전제 검사로 두세요」) */
+    let base = false;
+    try { base = !!broke(five); } catch (_) { base = true; }
+    ok(!base, 'F-전제 «' + name + '» 판정이 원본에서는 조용하다');
+    let caught = false;
+    try { caught = !!broke(code); } catch (_) { caught = true; }   // 던져도 «달라졌다» 로 본다
+    ok(caught, 'F-변이 «' + name + '» 를 이 절이 잡는다');
+  }
+}
+
 sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
 {
   const mut = [
     ['영상을 아예 안 끄게 되돌리기', five.replace('p.encodings[0].active = want;', 'p.encodings[0].active = true;')],
     ['트랙을 비우는 방식으로 바꾸기', five.replace('p.encodings[0].active = want;', 's.replaceTrack(null);')],
     ['사람이 끈 카메라에도 멈춤 띠 붙이기', five.replace("if (why !== 'aao') {", 'if (false) {')],
-    ['보여 줄 장면이 없어도 «멈춤» 이라 말하기', five.replace('if (!v || !v.videoWidth) {', 'if (false) {')],
+    /* ⚠️ 이 셋은 예전에 «식 모양» 을 글자 그대로 적어 두었다가 2026-09-15 수리(마지막 모습 스냅샷)에
+       보장은 그대로인데 앵커만 어긋나 «검사가 헛돈다» 3건이 났다 — 뜻으로 묻도록 정규식으로 바꿨다. */
+    ['보여 줄 장면이 없어도 «멈춤» 이라 말하기',
+      five.replace(/if \(![^\n]*videoWidth[^\n]*\) \{ vcAaoFreeze\(box, userId, false\);/, 'if (false) { vcAaoFreeze(box, userId, false);')],
     ['«N초 전» 을 빼기', five.replace(" + sec + '초 전 / ", " + '' + '")],
     ['흑백을 빼기', five.replace("v.style.filter = 'grayscale(1)'", "v.style.filter = ''")],
     ['화면공유 보호를 빼기(교재가 사라진다)', five.replace('window.__vcScreenSharing ? true : !!on', '!!on')],
@@ -461,11 +683,16 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
     ['화면공유 가드를 옛 «조기 return» 으로 되돌리기',
       five.replace('var want = window.__vcScreenSharing ? true : !!on;', 'if (window.__vcScreenSharing) return;\n    var want = !!on;')],
     ['4초 타이머의 «AAO 일 때만» 가드를 빼기', five.replace('if (A && A.active) {', 'if (true) {')],
-    ['「N초 전」 갱신을 빼기', five.replace('if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }', 'if (el) { /* 갱신 없음 */ }')],
+    ['「N초 전」 갱신을 빼기', five.replace('vcAaoLabel(el, id); vcAaoShift(box, el);', '/* 갱신 없음 */')],
     ['위쪽 버튼 비켜서기를 빼기', five.replace(/\n\s*vcAaoShift\(box, el\);/g, '\n    /* 없음 */')],
     ['비켜서기 CSS 에서 장치 도우미를 빼기',
       five.replace("+ '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'\n        ", '')],
-    ['나간 상대의 기준 시각 정리를 빼기', five.replace('else delete __vcAaoSince[id];', '')]
+    ['나간 상대의 기준 시각 정리를 빼기', five.replace(/else \{? ?delete __vcAaoSince\[id\];[^\n]*/, '')],
+    /* «어떻게 맞출지» 를 한쪽으로 박으면 멈추는 순간 그림이 확 커지거나 잘린다 — 양방향으로 본다 */
+    ['마지막 모습의 맞춤을 cover 로 박기',
+      five.replace(/img\.style\.objectFit = \(fit[^\n]*/, "img.style.objectFit = 'cover';")],
+    ['마지막 모습의 맞춤을 contain 으로 박기',
+      five.replace(/img\.style\.objectFit = \(fit[^\n]*/, "img.style.objectFit = 'contain';")]
   ];
   for (const [name, code] of mut) {
     if (code === five) { fail++; console.log('  ❌ 변이 «' + name + '» 가 소스에 안 걸렸다(검사가 헛돈다)'); continue; }
@@ -536,6 +763,18 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       delete e8.byId['vc-video-u1'];
       e8.ctx.vcAaoTick();
       if ('u1' in e8.ctx.__vcAaoSince) broke = true;
+
+      /* 🔎 마지막 모습의 «맞춤» 은 그 영상을 따라가야 한다 — 짝으로 본다(한쪽만 보면 반대로 박아도 통과) */
+      for (const want of ['contain', 'cover']) {
+        const e9 = boot(code);
+        const t9 = addTile(e9, 'u1', 0);
+        e9.ctx.__vcAaoStill = { u1: 'data:image/jpeg;base64,zz' };
+        t9.v.style.objectFit = want;
+        e9.win.vcRemoteCamOff = { u1: 'aao' };
+        e9.win.vcApplyRemoteCamHint('u1');
+        const im9 = t9.box.querySelector('.vc-aao-still');
+        if (!im9 || im9.style.objectFit !== want) { broke = true; break; }
+      }
     } catch (_) { broke = true; }
     ok(broke, '변이 «' + name + '» 가 그대로 통과했다 — 이 검사는 그것을 못 막는다');
   }
