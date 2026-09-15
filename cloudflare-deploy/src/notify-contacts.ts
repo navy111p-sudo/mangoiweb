@@ -76,7 +76,8 @@ export async function phonesForStudent(env: any, uid: string): Promise<{ student
   const u = String(uid || '').trim();
   if (!u || !env?.DB) return { student: '', parent: '' };
   /* 📞 (2026-09-10) **우리가 받아 둔 번호를 «먼저» 본다.**
-     `students_erp` 의 번호 칸은 카페24 동기화가 매일 밤 덮으므로(실측 29,485행 전부 0건),
+     `students_erp` 의 번호 칸은 카페24 동기화가 매일 밤 덮었고(실측 2026-09-10: 29,485행 전부 0건
+     — 그 «무조건 덮기» 는 2026-09-15 에 cafe24-sync.ts 에서 막았지만 카페24가 값을 주면 그쪽이 이긴다),
      화면에서 받은 번호는 `student_erp_override` 에 둔다 — 정본·이유는 src/student-override.ts.
      ⚠️ 칸 단위로 떨어진다: 학부모 번호만 받아 뒀으면 학생 번호는 그대로 명부에서 찾는다.
      ⚠️ 이 조회는 실패해도 throw 하지 않는다(빈 값) — 그러면 아래 명부 조회로 이어져
