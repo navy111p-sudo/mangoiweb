@@ -49,12 +49,13 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
    감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
-import { hiddenExcludeCond, ensureStudentOverrideTable } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, ensureStudentOverrideTable, setOverridePhones } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3309,6 +3310,15 @@ ${numbered}`;
           return r;
         });
         const _piiItems = applyPIIScope(items, _swErp.scope);  // 🔒 권한별 PII 마스킹(hq/none=원본, 지사/대리점=마스킹)
+        /* 📘 (2026-09-15) 「예약」 칸 — `students_erp` 의 수강 칸(signup_date·end_date·
+           classes_per_week·payment_type)은 **카페24가 정본**이라, 관리자 화면에서 수업을
+           넣어도(그건 class_schedules 에만 쓴다) 이 목록은 늘 «—» 였다.
+           ⚠️ 기존 칸을 이 값으로 «채우지» 않는다 — 뜻이 다르다(정본 머리말 참고).
+           ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
+        const _schedMap = await loadSchedSummaryMap(env as any);
+        for (const _it of (_piiItems as any[])) {
+          _it.sched = _schedMap.get(String(_it?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
+        }
         return json({ ok: true, items: _piiItems, can_view_pii: canViewPII(_swErp.scope) });
       } catch (e: any) {
         // 어떤 에러든 빈 배열로 graceful — UI 가 "데이터 없음" 으로 표시
@@ -3743,10 +3753,14 @@ ${numbered}`;
           console.warn('[student/full] cafe24 성적 조회 실패:', e?.message || e);
         }
 
+        // 📘 (2026-09-15) 「예약 수업」 — 목록과 «같은 정본» 을 쓴다(화면마다 답이 다르면 안 된다)
+        const _fullSched = await loadSchedSummaryOne(env as any, uid);
+
         return json({
           ok: true,
           user_id: uid,
           period_days: days,
+          sched: _fullSched,
           erp: _fullErpPII,
           can_view_pii: canViewPII(_fullScope),
           profile: pick(1),
@@ -3975,7 +3989,12 @@ ${numbered}`;
            «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
            → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
            (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다. */
-        const preRow = nameChanged ? await env.DB.prepare(
+        /* 📞 (2026-09-15) 번호 칸 — override 에도 적으려면 «진짜 user_id» 가 필요하다.
+           `_ovTouch` 는 마스킹에 안 걸린 번호 칸이 하나라도 왔는가(= 사람이 고쳤는가). */
+        const _ovStu = (typeof b.student_phone === 'string' && !isMaskedValue(b.student_phone)) ? String(b.student_phone).trim() : undefined;
+        const _ovPar = (typeof b.parent_phone  === 'string' && !isMaskedValue(b.parent_phone))  ? String(b.parent_phone).trim()  : undefined;
+        const _ovTouch = (_ovStu !== undefined || _ovPar !== undefined);
+        const preRow = (nameChanged || _ovTouch) ? await env.DB.prepare(
           `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
         ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
         // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
@@ -4001,7 +4020,44 @@ ${numbered}`;
             }
           } catch { /* 이름 고정 실패 — 오늘은 바뀌고 내일 밤 되돌아갈 뿐, 저장 자체는 막지 않는다 */ }
         }
-        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged });
+        /* 📞 (2026-09-15) 번호는 `student_erp_override` 에도 «함께» 적는다.
+           ⛔ students_erp 에만 쓰면 매일 밤 03:00 KST 카페24 UPSERT 가 parent_phone·
+              student_phone·phone 을 덮어 **하룻밤이면 사라진다**(cafe24-sync.ts 의 SET 목록).
+              실측 선례: 8월에 리마인더 문자가 나갔던 체험계정 lt15·lt16·lt18 이 그렇게 번호를 잃었고,
+              그래서 7일간 671건의 수업을 정확히 찾고도 한 통도 못 보냈다(2026-09-10).
+           ✅ 수업 전 안내문자가 읽는 정본은 notify-contacts.ts 의 `phonesForStudent` 이고
+              그것이 이 표를 «먼저» 본다 — 여기 적어야 실제로 문자가 간다.
+           ⚠️ 빈 칸으로 저장한 것은 «지우기» 다. `clear` 없이 빈 값을 넘기면 그 칸을 안 건드려
+              override 에 옛 번호가 남고, 명부에서는 지웠는데 **문자는 계속 옛 번호로 간다.**
+           ⚠️ 마스킹된 표시값(***)은 위 PII_GUARD 에서 이미 걸러져 여기 안 온다.
+           ⚠️ 실패해도 저장 자체는 막지 않는다 — 대신 «조용히» 넘기지 않고 `phone_kept` 로
+              응답에 실어 화면이 사람에게 말하게 한다. */
+        let phoneKept: boolean | null = null;
+        if (_ovTouch) {
+          phoneKept = false;
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (realUid) {
+              const put: any = {}, del: any = {};
+              if (_ovStu !== undefined) { if (_ovStu) put.student = _ovStu; else del.student = ''; }
+              if (_ovPar !== undefined) { if (_ovPar) put.parent  = _ovPar;  else del.parent  = ''; }
+              let okAll = true;
+              if (put.student !== undefined || put.parent !== undefined) {
+                const r1 = await setOverridePhones(env as any, String(realUid), put, 'admin-edit');
+                if (!r1.ok) okAll = false;
+              }
+              if (del.student !== undefined || del.parent !== undefined) {
+                const r2 = await setOverridePhones(env as any, String(realUid), { ...del, clear: true }, 'admin-edit');
+                if (!r2.ok) okAll = false;
+              }
+              phoneKept = okAll;
+            }
+          } catch (e: any) {
+            console.warn('[student/contact] 번호 보관 실패:', e?.message || e);
+            phoneKept = false;
+          }
+        }
+        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept });
       }
     }
 

@@ -452,6 +452,106 @@ console.log('\n[ J. 🇰🇷 낮은 단계 자동 뜻 — 탭하지 않아도 �
     /try\{ toggleMeaning\(text, mb, d\); \}catch\(e\)\{\}/.test(HTML));
 }
 
+console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지 (2026-09-15) ]');
+{
+  /* 📜 사장님 「PC에서 너무 밑에 있어서 잘 보이지 않고 오른쪽 카드에서도 찾기가 힘들어」.
+     재 보니 «안 보인다» 가 아니라 «화면 밖» 이었다 — ⋮ 카드가 792px 고정이라 아래 끝이 853px 인데
+     1280x800 · 1366x768 노트북은 화면이 그보다 짧고 카드에 스크롤도 없었다.
+     2번안(상단바 지름길) + 3번안(안쪽만 스크롤 + 바닥 고정)을 함께 넣었다.
+     ⚠️ 여기서 재는 것은 «되돌아가지 않았는가» 까지다 — «실제로 화면에 들어오는가 · 눌리는가» 는
+        문자열로 원리상 못 본다. 그쪽은 manual/warmup-setup-reach-browser.mjs 가 좌표로 잰다
+        (자동으로 안 돕니다, 사람이 부릅니다). */
+  const css = (HTML.match(/\.menu-panel\{[\s\S]*?\}/) || [''])[0];
+  check('⋮ 카드가 화면 높이를 넘지 않게 묶여 있다', /max-height:calc\(100[sv]h - \d+px\)/.test(css), css.slice(0, 80));
+  check('카드가 flex 라 안쪽만 굴러간다', /display:flex/.test(css) && /flex-direction:column/.test(css));
+  const sc = (HTML.match(/\.menu-scroll\{[\s\S]*?\}/) || [''])[0];
+  check('굴러가는 칸(.menu-scroll)이 있다', /overflow-y:auto/.test(sc), sc.slice(0, 80));
+  /* ⚠️ 카드를 실제로 붙잡는 것은 바로 위의 overflow-y:auto 입니다 — 그것만 되돌리면
+     1366x768 에서 «다시 고르기» 가 다시 화면 밖으로 나갑니다(변이시험 실측).
+     min-height:0 은 안전벨트입니다: flex 자식의 자동 최소 크기는 계산된 overflow 가
+     visible 일 때만 걸리므로 지금은 겹쳐 있는 보호이고, overflow 를 되돌리는 날 일합니다.
+     ⛔ 「min-height:0 을 빼면 아무것도 안 고쳐진다」로 적지 마세요 — 제가 그렇게 적었다가
+        그 줄만 지운 판이 브라우저 검사 72/0 으로 통과하는 것을 보고 정정했습니다. */
+  check('그 칸에 min-height:0 도 함께 있다(overflow 를 되돌릴 때의 안전벨트)', /min-height:0/.test(sc));
+  check('마크업에도 그 칸이 있다', /<div class="menu-scroll">/.test(HTML));
+
+  const re = (HTML.match(/\.menu-reopen\{[\s\S]*?\}/) || [''])[0];
+  /* ⛔ 회색으로 되돌리면 위 설정 버튼들과 구분이 안 되어 «찾기 힘들다» 던 그 상태가 된다 */
+  check('«다시 고르기» 가 눈에 띄는 색이다(회색 아님)',
+    /linear-gradient/.test(re) && !/rgba\(255,255,255,\.06\)/.test(re), re.slice(0, 90));
+  /* ⛔ 카드 안 버튼을 빼지 마세요 — 늘 하던 자리에서도 찾을 수 있어야 하고,
+     manual/warmup-setup-browser.mjs 가 .menu-reopen 을 «실제로 눌러» 검사합니다. */
+  check('카드 안 «다시 고르기» 버튼이 그대로 있다',
+    /class="menu-reopen" onclick="openSetup\(true\)"/.test(HTML));
+
+  // 🎚️ 상단바 지름길 — ⋮ 를 열지 않고 한 번에
+  const tune = (HTML.match(/<button id="setupBtn"[\s\S]{0,260}?<\/button>/) || [''])[0];
+  check('상단바에 🎚️ 지름길 버튼이 있다', tune.length > 20, '(못 찾음)');
+  check('그 버튼이 설정 화면을 연다', /onclick="openSetup\(true\)"/.test(tune));
+  check('그 버튼에 설명이 달려 있다(폰에는 hover 가 없다)',
+    /title="[^"]+"/.test(tune) && /aria-label="[^"]+"/.test(tune));
+  /* ⛔ 아이콘 버튼에 data-ko/data-en 을 달지 마세요 — 두 i18n 엔진이 textContent 를 통째로
+     갈아끼워 34px 상자에 문장이 들어앉습니다(CLAUDE.md 2장). 설명은 title/aria-label 로. */
+  check('그 버튼에 data-ko/data-en 이 없다(아이콘이 문장으로 바뀌는 함정)',
+    !/data-(ko|en)=/.test(tune));
+  /* 🔗 두 입구가 «같은 말» 을 해야 합니다 — 카드 안 버튼은 2026-09-15 에 «교재» 를 넣어
+     「이 이름이 교재를 암시하지 않아 아무도 못 찾는다」를 고쳤는데(#987), 새로 낸 상단바
+     지름길이 옛 말을 그대로 쓰면 그 수리가 새 입구에서 되살아납니다.
+     ⛔ 기대 글자를 여기 손으로 적지 마세요 — 둘을 «서로» 대조해야 한쪽만 바꿔도 잡힙니다. */
+  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>([^<]+)</) || [, ''])[1] || '')
+    .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
+  const tuneLabel = ((tune.match(/title="([^"]+)"/) || [, ''])[1] || '')
+    .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
+  check('상단바 지름길과 카드 안 버튼이 같은 말을 한다',
+    !!tuneLabel && tuneLabel === reopenLabel, `상단바 "${tuneLabel}" / 카드 "${reopenLabel}"`);
+  /* 📌 «교재» 라는 낱말은 2026-09-15 결정입니다 — 그 전 이름(연령·수준 다시 고르기)은
+     교재를 암시하지 않아, 대화 중에 교재를 바꾸는 유일한 길인데도 아무도 못 찾았습니다(#987).
+     ⛔ 지워서 짧게 만들지 마세요. 위 대조만으로는 «둘 다» 옛 말로 돌아가면 잡지 못합니다. */
+  check('그 이름이 교재를 바꾸는 길이라고 말해 준다(#987)',
+    /교재/.test(reopenLabel) && /교재/.test(tuneLabel), `카드 "${reopenLabel}"`);
+
+  // 🎗️ 설정 화면 확정 버튼을 띠로 감싸 «여기서 끝» 이라고 말해 준다
+  const bar = (HTML.match(/\.wus-ctabar\{[\s\S]*?\}/) || [''])[0];
+  check('확정 버튼이 띠에 담겨 바닥에 붙는다', /position:sticky/.test(bar), bar.slice(0, 80));
+  check('마크업에도 그 띠가 있다', /<div class="wus-ctabar">/.test(HTML));
+  /* ⛔ 값을 못 구하면 「—」를 남기지 말고 줄째 감춘다(빈 값은 «고장» 으로 읽힌다).
+     ⚠️ 이것을 «pick.hidden = !parts.length» 라는 식 모양으로 못 박지 마세요 —
+        뜻이 같은 리팩터(parts.length === 0)에 거짓 FAIL 이 납니다(CLAUDE.md 2장).
+        그 블록을 오려 내 «실제로 돌려» 답으로 묻습니다. 그래야 조건을 뒤집는 변이
+        (pick.hidden = false)도 잡힙니다 — 글자로 물으면 그 변이가 그대로 통과합니다. */
+  const pickSrc = (HTML.match(/var pick = document\.getElementById\('wusPickNow'\);[\s\S]*?\n  \}/) || [''])[0];
+  check('«고른 것» 줄을 채우는 코드를 오려 냈다(전제)', pickSrc.length > 80, pickSrc.slice(0, 70));
+  if (pickSrc.length > 80) {
+    const runPick = (lv, ag) => {
+      const el = { textContent: '(안 건드림)', hidden: '(안 건드림)' };
+      const doc = { getElementById: (id) => (id === 'wusPickNow' ? el : null) };
+      const LEV = [{ n: 3, ko: '기초' }, { n: 4, ko: '중급' }];
+      const AGE = [{ id: 'kid', ko: '유아' }, { id: 'adult', ko: '어른' }];
+      try {
+        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', pickSrc)(doc, LEV, AGE, lv, ag);
+      } catch (e) { return { err: String((e && e.message) || e) }; }
+      return el;
+    };
+    const both = runPick(3, 'kid');
+    check('고른 값이 있으면 그 이름을 적고 줄을 보여 준다',
+      both.hidden === false && /기초/.test(String(both.textContent)) && /유아/.test(String(both.textContent)),
+      JSON.stringify(both));
+    // ⛔ 짝 — 이것이 없으면 «언제나 보여주기»(조건 뒤집기) 변이가 통과합니다
+    const none = runPick(99, 'zzz');
+    check('값을 하나도 못 구하면 줄째 감춘다(빈 값을 남기지 않음)',
+      none.hidden === true && !/고른 것/.test(String(none.textContent)),
+      JSON.stringify(none));
+    const half = runPick(3, 'zzz');
+    check('한쪽만 알아도 아는 것만 적고 보여 준다',
+      half.hidden === false && /기초/.test(String(half.textContent)) && !/zzz/.test(String(half.textContent)),
+      JSON.stringify(half));
+  }
+  /* ⛔ 마크업에 «고른 것: —» 를 적어 두지 마세요 — 첫 렌더 전(또는 renderSetup 이 예외로
+     빠졌을 때) 그 글자가 그대로 남아 위 ⛔ 와 정면으로 어긋납니다. */
+  check('마크업의 그 줄은 처음부터 감춰져 있다(«—» 잔상 방지)',
+    /<p class="wus-hint2" id="wusPickNow" hidden><\/p>/.test(HTML));
+}
+
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`웜업 연령·수준 하니스: ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
 if (FAIL) { console.log('\n실패 항목:'); FAILS.forEach((f) => console.log('  · ' + f)); }

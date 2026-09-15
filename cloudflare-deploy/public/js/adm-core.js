@@ -10850,7 +10850,7 @@ async function loadStudentList(q, opts) {
   //   대신 인원수 라벨 옆에만 조용히 표시한다.
   const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
   if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
-  else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  else tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let d = null;
@@ -10930,7 +10930,7 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
     return;
   }
   _smStudents = merged.map(s => ({
@@ -11047,6 +11047,79 @@ async function aiOpenAnalysis(uid, name){
 }
 window.aiOpenAnalysis = aiOpenAnalysis;
 
+/* ✏️ (2026-09-15 사장님 지시) 「정보수정 → 상세 안의 연락처·정보」 — 고치는 화면으로 «바로» 보낸다.
+   ⛔ 목록에 수정 폼을 새로 만들지 말 것(사장님 「위에 것 말고」). 학생 정보를 고치는 화면은
+      /admin/student 의 «👨‍👩‍👧 연락처·정보» 탭 **하나뿐**이고, 그 탭은 `?tab=contact` 딥링크를
+      이미 받는다(student.html 의 _initTab). 같은 폼을 두 벌 만들면 한쪽만 고쳐지는 사고가 난다
+      (CLAUDE.md 「같은 기능이 두 벌이 되면 화면마다 답이 다른 사고가 시작된다」).
+   ⛔ 주소를 여기저기서 조립하지 말 것 — 입구가 둘(표의 행 ✏️ · 도구 줄 「✏️ 정보 수정」)이라
+      한 곳만 고치면 조용히 갈린다. 이 함수가 정본이다. */
+function smContactUrl(uid) {
+  return '/admin/student?uid=' + encodeURIComponent(String(uid == null ? '' : uid)) + '&tab=contact';
+}
+window.smContactUrl = smContactUrl;
+
+/* 도구 줄 「✏️ 정보 수정」 — 그 버튼은 «어느 학생» 인지 모른다.
+     · 지금 목록(검색·필터가 끝난 _smRows)이 한 명 → 묻지 않고 바로 연다(사장님 「빨리 신속하게」).
+     · 여러 명 → 고르게 한다. ⚠️ 고르기 줄은 <a> 다 — <button> 으로 만들면
+       admin-inline-c.css 의 «버튼 전역 인디고 !important» 가 파란 알약으로 만든다.
+     · 아직 안 불러왔으면 → 「불러오기」를 눌러 준다(안내만 하면 한 번 더 누르게 된다). */
+window.smOpenContactEdit = function () {
+  var _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  var rows = (typeof _smRows !== 'undefined' && _smRows && _smRows.length) ? _smRows : [];
+  if (!rows.length) {
+    var lb = document.getElementById('sm-load-students');
+    if (lb) { lb.click(); alert(_L ? 'Loading the student list — press “✏️ Edit Info” again once it appears.' : '학생 목록을 불러옵니다 — 목록이 뜨면 «✏️ 정보 수정» 을 다시 눌러 주세요.'); }
+    else alert(_L ? 'Load the student list first.' : '먼저 «🧮 불러오기» 로 학생 목록을 불러오세요.');
+    return;
+  }
+  if (rows.length === 1) { mangoiOpenTab(smContactUrl(rows[0].user_id), _L ? 'Edit student' : '학생 정보 수정'); return; }
+  smShowContactPicker(rows, _L);
+};
+
+/* 고르기 창 — 지금 화면에 걸린 검색·필터 결과에서 한 명을 고른다.
+   ⚠️ 너무 많으면 고르는 것이 검색보다 느리다 → 앞의 60명만 보이고 «검색으로 좁히라» 고 말한다. */
+function smShowContactPicker(rows, _L) {
+  var MAX = 60;
+  var old = document.getElementById('sm-contact-picker');
+  if (old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'sm-contact-picker';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(15,23,42,.62);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px';
+  var list = rows.slice(0, MAX).map(function (s) {
+    var uid = String(s.user_id || '');
+    var nm = _esc(s.username || uid);
+    var shop = _esc(s.shop_name || '');
+    return '<a href="' + _esc(smContactUrl(uid)) + '" target="_blank" class="sm-cp-item" '
+      + 'style="display:flex;gap:10px;align-items:baseline;padding:9px 12px;border-bottom:1px solid #eef2f7;text-decoration:none;color:#1e293b">'
+      + '<b style="min-width:120px;font-size:13px">' + nm + '</b>'
+      + '<code style="font-size:11.5px;color:#64748b">' + _esc(uid) + '</code>'
+      + (shop ? '<span style="font-size:11px;color:#94a3b8;margin-left:auto">' + shop + '</span>' : '')
+      + '</a>';
+  }).join('');
+  var more = rows.length > MAX
+    ? '<div style="padding:8px 12px;font-size:11.5px;color:#92400e;background:rgba(245,158,11,.1)">'
+      + (_L ? ('Showing ' + MAX + ' of ' + rows.length + ' — narrow it down with the search box above.')
+            : (rows.length.toLocaleString() + '명 중 ' + MAX + '명만 보입니다 — 위 검색칸으로 좁혀 주세요.')) + '</div>'
+    : '';
+  ov.innerHTML =
+    '<div style="background:#fff;width:100%;max-width:480px;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:0 auto">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,#0EA5E9,#0369A1);color:#fff">'
+    + '<b style="font-size:15px">✏️ ' + (_L ? 'Which student?' : '어느 학생의 정보를 고칠까요?') + '</b>'
+    + '<span id="sm-cp-x" style="cursor:pointer;font-size:22px;line-height:1">×</span></div>'
+    + '<div style="padding:10px 14px 4px;font-size:11.5px;color:#475467">'
+    + (_L ? 'Opens Details › Contact for that student.' : '고른 학생의 «상세 › 연락처·정보» 가 열립니다.') + '</div>'
+    + more + '<div style="max-height:62vh;overflow:auto">' + list + '</div></div>';
+  ov.addEventListener('click', function (e) {
+    if (e.target === ov || (e.target && e.target.id === 'sm-cp-x')) ov.remove();
+    else if (e.target && e.target.closest && e.target.closest('.sm-cp-item')) setTimeout(function () { ov.remove(); }, 60);
+  });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { var n = document.getElementById('sm-contact-picker'); if (n) n.remove(); document.removeEventListener('keydown', esc); }
+  });
+  document.body.appendChild(ov);
+}
+
 function renderStudentTable() {
   const _L = adminLang === 'en';
   const tb = document.getElementById('sm-students-tbody');
@@ -11073,7 +11146,7 @@ function renderStudentTable() {
   if (!_filtered.length) {
     const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
-    tb.innerHTML = '<tr><td colspan="19" class="empty">' + _why + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -11131,6 +11204,18 @@ function renderStudentTable() {
   const _d = v => v ? _esc(String(v).slice(0,10)) : '—';
   // 🔤 열 너비를 고정(table-layout:fixed)했으므로 넘치는 값은 …으로 잘린다 → 원문을 title 로 붙여 둔다.
   const _ct = v => { const x = _esc(v == null ? '' : v); return x ? `<td title="${x}">${x}</td>` : '<td>—</td>'; };
+  /* 📘 (2026-09-15) 「예약」 칸 — 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)은
+     students_erp 의 칸이고 카페24가 정본이라, 관리자가 수업을 넣어도(class_schedules)
+     늘 «—» 였다. 이 칸만 실제 예약을 본다.
+     ⛔ 문장을 여기서 조립하지 말 것 — 학생 상세 카드도 같은 값을 그리므로 서버
+        (src/student-schedule-summary.ts)가 만든 label_ko/label_en 을 «고르기만» 한다. */
+  const _schedTd = (s) => {
+    const q = s && s.sched;
+    const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
+    if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
+    const x = _esc(txt);
+    return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -11139,13 +11224,14 @@ function renderStudentTable() {
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
       <td title="${safeName}"><b>${safeName}</b></td>
-      <td style="text-align:center"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a></td>
+      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>
       ${_ct(s.summary)}
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
+      ${_schedTd(s)}
       <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
       ${_ct(s.enroll_req)}
       <td>${_c(_piiPhone(s.student_phone))}</td>
@@ -11175,7 +11261,7 @@ function renderStudentTable() {
 function _smMoreRow(_L) {
   const left = _smRows.length - _smShown;
   if (left <= 0) return '';
-  return '<tr id="sm-more-row"><td colspan="19" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+  return '<tr id="sm-more-row"><td colspan="20" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
        + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
        + '</td></tr>';
 }
@@ -11223,6 +11309,7 @@ function smExportStudentsCsv() {
     ['요약',          s => s.summary],
     ['가입일',        s => _date(s.created_at)],
     ['수업회수(주)',  s => s.classes_per_week],
+    ['예약',          s => (s.sched && s.sched.label_ko && s.sched.label_ko !== '—') ? s.sched.label_ko : ''],
     ['포인트',        s => Number(s.points) || 0],
     ['수강신청',      s => s.enroll_req],
     ['학생번호',      s => _piiPhone(s.student_phone)],

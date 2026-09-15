@@ -282,6 +282,114 @@ t('⑨ 과 제목이 없으면 권 주제를 그대로', d.topic === 'Shapes and
 t('⑨ 과가 하나면 고르개는 감춘다', d.rowShown === false, d.rowShown);
 t('⑨ 그래도 안내는 보여 준다(문장이 붙었다는 사실)', d.secShown === true && /1개/.test(d.note || ''), d);
 
+/* ── ⑩ 📘 «지금 교재» 줄 — 교재 자리가 첫 화면 «밖» 이라는 사고 (2026-09-15) ──────
+   [왜] 교재 섹션은 8단계 수준 목록 «아래» 라 실측상 PC 1920x1040 에서 top 1380px ·
+     폰 390x844 에서 1577px = 첫 화면 밖입니다. 그런데 시작 버튼은 sticky 라 늘 보입니다
+     ⟹ 사람이 스크롤할 이유가 없어 교재를 한 번도 못 보고 시작합니다. 사장님이 실제로
+     그렇게 «자유 대화» 로 시작하시고 「아직 아무것도 안되어 있는데」라고 하셨습니다.
+     기능이 멀쩡해도 «찾아갈 길이 없으면» 없는 것과 같습니다(CLAUDE.md 2장).
+   ⚠️ 이 절은 «무엇이 그려지는가» 가 아니라 «어디에 그려지는가·눌리는가» 를 봅니다 —
+     문자열 하니스로는 원리상 못 봅니다.
+   ⛔ 「첫 화면 안에 있다」만 두지 마세요 — «누르면 교재 자리로 간다»·«중국어에서는 감춘다»
+     를 짝으로 둬야 «전부 보이기»·«전부 감추기» 도 통과하는 일이 없습니다.
+   ⚠️ 회차 사이에 localStorage(교재·언어)가 넘어가면 다음 폭이 «중국어» 로 시작해 이 절이
+     통째로 헛돕니다(2026-09-15 실측 — 거짓 FAIL 6건). 폭마다 지우고 다시 엽니다. */
+for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'노트북']]) {
+  await cmd('Emulation.setDeviceMetricsOverride', { width:vw, height:vh, deviceScaleFactor:1, mobile:false });
+  await open(`${BASE}/warmup.html?_nc=w${Date.now()}`);
+  await evaluate("try{localStorage.clear()}catch(e){}");
+  await open(`${BASE}/warmup.html?_nc=${Date.now()}`);
+  await sleep(400);
+
+  r = await evaluate(`(function(){
+    var q=function(x){return document.querySelector(x)};
+    var R=function(el){var b=el.getBoundingClientRect();return{t:Math.round(b.top),b:Math.round(b.bottom),w:Math.round(b.width),l:Math.round(b.left)};};
+    var bn=q('#wusBookNow'), st=q('#wusStart');
+    if(!bn||!st) return JSON.stringify({err:'no-el'});
+    var rb=R(bn), rs=R(st);
+    var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
+    return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+      inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
+      isMine: !!(top && bn.contains(top)), booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
+  })()`);
+  d = JSON.parse(r);
+  /* ⛔ 전제 — 교재 자리가 «첫 화면 밖» 이 아니면 이 절이 지키려는 사고 자체가 없습니다.
+        (섹션 순서를 바꿔 해결했다면 이 줄이 먼저 빨간불이 되어 알려 줍니다.) */
+  t(`⑩ [${wlabel}] 전제: 교재 자리는 여전히 첫 화면 밖이다`, d.booksTop >= d.view, d);
+  /* ⛔ 전제 — 감춰져 있으면 getBoundingClientRect 가 전부 0이라 아래 «위치» 검사 셋이
+        (0<=innerHeight · 0>=0 · gap=시작버튼top · 0>시작버튼top 거짓) 무의미하게 통과합니다.
+        버튼을 아예 없애는 변이가 그렇게 빠져나갔습니다(2026-09-15 함정 대조 실측). */
+  t(`⑩ [${wlabel}] 전제: 그 줄이 실제로 그려져 있다(높이 > 0)`, d.hidden === false && d.h > 0, d);
+  t(`⑩ [${wlabel}] «지금 교재» 줄이 첫 화면 안에 있다`, d.inFirst === true, d);
+  t(`⑩ [${wlabel}] 시작 버튼과 겹치지 않는다`, d.overlaps === false && d.gap >= 0, d);
+  t(`⑩ [${wlabel}] 그 자리에서 맨 위가 그 줄이다(눌린다)`, d.isMine === true, d);
+  t(`⑩ [${wlabel}] 안 골랐으면 «자유 대화» 라고 말한다`, /자유 대화/.test(d.text||''), d.text);
+
+  await evaluate("document.getElementById('wusBookNow').click()");
+  await sleep(800);
+  r = await evaluate(`(function(){var b=document.getElementById('wusBooksSec').getBoundingClientRect();
+    return JSON.stringify({seen: b.top<innerHeight && b.bottom>0, t:Math.round(b.top)});})()`);
+  d = JSON.parse(r);
+  t(`⑩ [${wlabel}] 누르면 교재 자리가 화면에 들어온다`, d.seen === true, d);
+
+  // (짝) 교재를 고르면 그 사실을 말한다 — 없으면 «전부 자유 대화» 도 통과합니다
+  await evaluate(`document.querySelector('#wusBooks [data-bts="1"], #wusBooks details [data-bts="1"]').click()`);
+  await sleep(500);
+  r = await evaluate(`JSON.stringify({text:(document.getElementById('wusBookNow').textContent||'').trim()})`);
+  t(`⑩ [${wlabel}] 교재를 고르면 «BTS 1» 을 말한다(짝)`, /BTS 1/.test(JSON.parse(r).text||''), r);
+
+  // (짝) 중국어에서는 교재 섹션과 함께 감춘다 — BTS 는 영어 교재입니다
+  await evaluate(`(function(){var z=document.querySelector('#wusLangs [data-lang="zh"]'); if(z) z.click();})()`);
+  await sleep(500);
+  r = await evaluate(`JSON.stringify({bn:document.getElementById('wusBookNow').hidden, bs:document.getElementById('wusBooksSec').hidden})`);
+  d = JSON.parse(r);
+  t(`⑩ [${wlabel}] 중국어에서는 교재 섹션과 짝으로 감춘다`, d.bn === true && d.bs === true, d);
+}
+/* 🧹 뒷정리 — 이 절은 마지막에 «중국어» 로 끝납니다. 그대로 두면 다음 실행의 ①~⑨ 절이
+      교재 섹션이 감춰진 화면을 보고 «통째로» 거짓 FAIL 납니다(2026-09-15 실측 37건).
+   ⛔ 지우는 키를 골라 적지 마세요 — ① 절이 두 개만 지워서 이 사고가 났습니다. */
+await evaluate("try{localStorage.clear()}catch(e){}");
+/* ⚖️ «내가 남을 덮는가» — sticky 바는 스크롤 중에 그 아래 것을 가립니다.
+   [잰 것 — 2026-09-15] 시작 버튼이 이미 같은 일을 하고 있었고(PC 7곳 중 4곳 · 폰 11곳 중 5곳),
+     이 줄이 더해져 PC 8곳 중 7곳 · 폰 11곳 중 8곳이 됐습니다. 폰에서는 «누를 것» 두 개가
+     동시에 가려지는 구간이 생깁니다(바 ~40px + 시작버튼 ~49px).
+   ⚠️ 새로 생긴 «종류» 의 사고는 아니지만 면적이 거의 두 배입니다 — 스크롤로 비켜 갈 수 있는
+     수준 버튼이라 감수하는 맞바꿈인지는 **사람이 정할 일**입니다.
+   ⛔ FAIL 로 만들지 않습니다 — 무관한 PR 이 전부 빨간불이 됩니다(선례 popup_open_return_harness).
+     대신 «몇 개를 덮는가» 를 찍어 두어 다음 사람이 숫자를 보고 판단하게 합니다. */
+{
+  await cmd('Emulation.setDeviceMetricsOverride', { width:390, height:844, deviceScaleFactor:1, mobile:false });
+  await open(`${BASE}/warmup.html?_nc=cov${Date.now()}`);
+  await evaluate("try{localStorage.clear()}catch(e){}");
+  await open(`${BASE}/warmup.html?_nc=cov2${Date.now()}`);
+  await sleep(400);
+  r = await evaluate(`(function(){
+    var box=document.getElementById('wuSetup'), bn=document.getElementById('wusBookNow');
+    if(!box||!bn||bn.hidden) return JSON.stringify({skip:true});
+    var worst=0, steps=0;
+    for(var y=0; y<box.scrollHeight; y+=200){
+      box.scrollTop=y; steps++;
+      var rb=bn.getBoundingClientRect(), n=0;
+      var all=box.querySelectorAll('button,select,a,input');
+      for(var i=0;i<all.length;i++){
+        var e=all[i]; if(e===bn) continue;
+        var q=e.getBoundingClientRect(); if(q.width<1||q.height<1) continue;
+        var cx=q.left+q.width/2, cy=q.top+q.height/2;
+        if(cy>=rb.top && cy<=rb.bottom && cx>=rb.left && cx<=rb.right){
+          if(document.elementFromPoint(cx,cy)!==e) n++;
+        }
+      }
+      if(n>worst) worst=n;
+    }
+    box.scrollTop=0;
+    return JSON.stringify({worst:worst, steps:steps});
+  })()`);
+  d = JSON.parse(r);
+  if (!d.skip) console.log(`  ℹ️  ⑩ [폰] «지금 교재» 줄이 동시에 가리는 «누를 것» 최대 ${d.worst}개 (스크롤 ${d.steps}지점) — 사람 결정 대기`);
+}
+await evaluate("try{localStorage.clear()}catch(e){}");
+await cmd('Emulation.clearDeviceMetricsOverride');
+
 const label = 'warmup-bts-book-browser';
 console.log(`\n▶ ${label}`);
 P.forEach(x => console.log('  ✅ ' + x));

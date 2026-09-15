@@ -66,12 +66,24 @@ check('min-width: max-content 를 되살리지 않았다',
   !/#sm-students-table\s*\{[^}]*min-width:\s*max-content/.test(css));
 const cg = /<table id="sm-students-table"[\s\S]{0,1200}?<colgroup>([\s\S]*?)<\/colgroup>/.exec(html);
 const cols = cg ? (cg[1].match(/<col\b/g) || []).length : 0;
-check(`colgroup 의 <col> 이 19개 (열 수와 같음) — ${cols}개`, cols === 19);
 const ths = (/<tbody id="sm-students-tbody"/.test(html) &&
   (/<table id="sm-students-table"[\s\S]*?<thead><tr>([\s\S]*?)<\/tr><\/thead>/.exec(html)?.[1].match(/<th\b/g) || []).length) || 0;
-check(`thead 의 <th> 도 19개 — ${ths}개`, ths === 19);
+/* 🔢 (2026-09-15) 열 수를 «19» 로 못 박아 두었더니, 칸을 하나 더하는 정당한 수리
+   (「예약」 칸 — students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)에
+   **보장은 그대로인데 검사만** 빨간불이 났다. CLAUDE.md 2장 「개수로 못 박지 마세요」.
+   ⟹ 물어야 할 것은 «몇 개인가» 가 아니라 «네 곳이 서로 같은가» 다.
+   ⚠️ 한 줄의 <td> 를 셀 때 `<td` 만 세면 안 된다 — 헬퍼(_ct·_schedTd …)가 한 칸을
+      통째로 돌려준다. 그래서 «줄 전체가 ${_헬퍼(s…)} 인 줄» 도 한 칸으로 센다
+      (⛔ 헬퍼 «이름» 을 적지 말 것 — 새 헬퍼가 생기면 그 순간 또 어긋난다). */
+const rowSrc = /_smRowHtml = \(s\) => \{[\s\S]*?\n  \};/.exec(core)?.[0] || '';
+check('전제: _smRowHtml 몸통을 오려 냈다', rowSrc.length > 200);
+const tds = (rowSrc.match(/<td\b/g) || []).length
+          + (rowSrc.match(/^\s*\$\{_\w+\(s[^\n]*\}$/gm) || []).length;
+const colspan = Number(/<tbody id="sm-students-tbody"><tr><td colspan="(\d+)"/.exec(html)?.[1] || 0);
+check(`열 수가 네 곳에서 같다 — col ${cols} · th ${ths} · td ${tds} · colspan ${colspan}`,
+  cols > 0 && cols === ths && ths === tds && tds === colspan);
 
-console.log('\n[ ⑤ 통짜 렌더 금지 — 1000행 × 19열을 매번 다시 그리지 않기 ]');
+console.log('\n[ ⑤ 통짜 렌더 금지 — 1000행 × 스무 남짓한 열을 매번 다시 그리지 않기 ]');
 check('청크 크기 상수가 있다', /const SM_CHUNK\s*=\s*\d+/.test(core));
 check('첫 렌더는 청크만 그린다', /arr\.slice\(0, _smShown\)/.test(core));
 check('이어붙이기 함수가 노출돼 있다', /window\.smAppendRows\s*=\s*smAppendRows/.test(core));
