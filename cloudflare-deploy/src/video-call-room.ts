@@ -124,6 +124,17 @@ export class VideoCallRoom {
         학생 화면은 이를 'dropped'(재연결 대기)로 받는다 — 오판이어도 수업이 끝나지 않는다. */
   private static readonly LIVENESS_ALARM_MS = 45 * 1000;    // 점검 주기
   private static readonly LIVENESS_STALE_MS = 120 * 1000;   // 이 시간 넘게 조용하면 죽은 소켓
+  /* 🔴 (2026-09-15) ping 자동응답 근거를 «한 번도» 못 잡은 소켓에만 쓰는 넉넉한 상한.
+     [사고] 9/15 수업 3건 전원이 20~30분에 8~9번씩 끊겼다(재접속 간격 123·135·137·137·137·160초
+       = 아래 STALE+ALARM 구간과 정확히 겹침). 그때 회선은 멀쩡했다 — 학생 RTT 57ms·손실 0%.
+       즉 «죽은 소켓 청소» 가 살아 있는 학생을 2분마다 끊어내고 있었다.
+     [원인] 위 설계는 getAutoResponseTimestamp 를 «생존 판단의 정본» 으로 삼는데,
+       ping 이 자동응답으로 처리되면 webSocketMessage 가 안 불려 나머지 두 근거
+       (lastSeen·att.seenAt)가 갱신되지 않는다. 그래서 그 정본이 비면 남는 바닥값이
+       «입장 시각» 뿐이라 **입장 120초 뒤 끊기고, 재접속 후 또 120초 뒤 끊긴다.**
+     ⛔ 그러니 «조용하다» 를 그 정본 없이 단정하지 말 것 — 근거가 없으면 끊지 말고 더 기다린다.
+        영원히 살려 두지는 않는다(유령이 남으면 2026-08-20 사고가 되살아난다). */
+  private static readonly LIVENESS_NOPING_STALE_MS = 600 * 1000;
   /** 소켓별 마지막 수신 시각(메모리). hibernation 으로 비면 autoResponse 시각·attachment 로 대체한다. */
   private lastSeen: Map<WebSocket, number> = new Map();
 
@@ -337,6 +348,31 @@ export class VideoCallRoom {
     return t;
   }
 
+  /** ping 자동응답이 «실제로 한 번이라도» 일어난 시각(0 = 근거 없음).
+      ⚠️ 위 lastSeenOf 와 같은 값을 읽지만 묻는 것이 다르다 — 저기는 «가장 최근이 언제인가»,
+         여기는 «ping 근거를 쓸 수 있는가» 다. 한쪽만 고치지 말 것. */
+  private autoSeenOf(ws: WebSocket): number {
+    try {
+      const auto = (ws as any).getAutoResponseTimestamp?.();
+      if (auto) return auto instanceof Date ? auto.getTime() : Number(auto) || 0;
+    } catch {}
+    return 0;
+  }
+
+  /** 「이 소켓을 끊어도 되는가」 판정. 'alive' = 살아 있음 · 'grace' = 근거가 없어 더 기다림 · 'kill' = 정리.
+      ⛔ 이 조건을 alarm() 안에 되돌려 넣지 말 것 — 순수 함수라야 하니스가 «실제로 돌려»
+         경계값과 «조건 뒤집기» 를 본다. 문자열 검사로는 `if (false && ...)` 한 글자를 못 잡는다. */
+  static livenessVerdict(now: number, seen: number, autoAt: number,
+                         staleMs: number, nopingMs: number): 'alive' | 'grace' | 'kill' {
+    /* 시각을 하나도 못 구한 소켓(=붙자마자 알람이 돈 경우)은 건드리지 않는다. */
+    if (!seen) return 'alive';
+    const silent = now - seen;
+    if (silent <= staleMs) return 'alive';
+    /* ping 자동응답 근거가 없으면 «조용하다» 를 단정할 수 없다 → 넉넉한 상한까지 기다린다. */
+    if (!autoAt && silent <= nopingMs) return 'grace';
+    return 'kill';
+  }
+
   async alarm(): Promise<void> {
     const now = Date.now();
     let alive = 0, killed = 0;
@@ -348,14 +384,27 @@ export class VideoCallRoom {
       if (!this.roomId && att.roomId) this.roomId = att.roomId;
       if (ws.readyState !== WebSocket.OPEN) continue;
       const seen = this.lastSeenOf(ws, att);
-      /* 시각을 하나도 못 구한 소켓(=붙자마자 알람이 돈 경우)은 이번 판에서 건드리지 않는다.
-         다음 알람 때는 seenAt(입장 시각)이 있으므로 반드시 판정된다. */
-      if (!seen) { alive++; continue; }
-      if (now - seen <= VideoCallRoom.LIVENESS_STALE_MS) { alive++; continue; }
+      const autoAt = this.autoSeenOf(ws);
+      /* 💓 (2026-09-15) 판정은 순수 함수 한 곳에서만 한다(위 livenessVerdict 주석 참고). */
+      const verdict = VideoCallRoom.livenessVerdict(now, seen, autoAt,
+        VideoCallRoom.LIVENESS_STALE_MS, VideoCallRoom.LIVENESS_NOPING_STALE_MS);
+      if (verdict === 'alive') { alive++; continue; }
+      if (verdict === 'grace') {
+        alive++;
+        try {
+          console.log(`[VideoChat][liveness] room=${this.roomId || '-'} uid=${att.userId} `
+            + `silent=${Math.round((now - seen) / 1000)}s auto=없음 → 유예(ping 근거 없음)`);
+        } catch {}
+        continue;
+      }
       killed++;
+      /* ⚠️ 세 근거를 각각 남긴다 — 「왜 끊었나」를 사후에 가르려면 합친 값(silent)만으로는 모자란다. */
       try {
         console.log(`[VideoChat][liveness] room=${this.roomId || '-'} uid=${att.userId} role=${att.role || '-'} `
-          + `silent=${Math.round((now - seen) / 1000)}s → 정리`);
+          + `silent=${Math.round((now - seen) / 1000)}s `
+          + `auto=${autoAt ? Math.round((now - autoAt) / 1000) + 's' : '없음'} `
+          + `mem=${this.lastSeen.get(ws) ? Math.round((now - (this.lastSeen.get(ws) as number)) / 1000) + 's' : '없음'} `
+          + `att=${att.seenAt ? Math.round((now - att.seenAt) / 1000) + 's' : '없음'} → 정리`);
       } catch {}
       /* ⚠️ 1000(정상 종료)이 아니라 4003 으로 닫는다 — 학생 화면이 'dropped'(재연결 대기)로 받아야
          오판이어도 수업이 즉시 끝나지 않는다. handleLeaveRoom 도 같은 이유로 'dropped'. */

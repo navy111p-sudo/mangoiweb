@@ -88,6 +88,83 @@ ok('생존 시각을 attachment 에도 주기적으로 적는다(hibernation 대
    /_now - \(att\.seenAt \|\| 0\) > \d+/.test(DO) && /serializeAttachment\(\{ \.\.\.att, seenAt: _now \}/.test(DO));
 ok('알람이 roomId 를 되살린다(안 하면 청소 로그가 room=- 로 남아 추적 불가)',
    /if \(!this\.roomId && att\.roomId\) this\.roomId = att\.roomId;/.test(DO));
+
+/* ──────────────────────────────────────────────────────────────────────────
+   💓 (2026-09-15) 「멀쩡한 학생을 2분마다 끊어내던」 오판 방지 — 실제로 돌려서 본다.
+
+   [사고] 9/15 수업 3건 전원이 20~30분에 8~9번씩 끊겼다. 재접속 간격이
+     123·135·137·137·137·160초로 STALE(120초)+ALARM(45초) 구간과 정확히 겹쳤고,
+     그때 회선은 멀쩡했다(학생 RTT 57ms·손실 0%). 배포도 무죄였다 —
+     그 수업 시간대 배포 2건은 보류 게이트에 걸려 skipped 였다.
+   [뿌리] 생존 판단의 정본인 getAutoResponseTimestamp 가 비면 남는 바닥값이
+     «입장 시각» 뿐이라, 입장 120초 뒤 끊고 재접속 후 또 120초 뒤 끊는 순환이 된다.
+   ⛔ 문자열로 「그 조건이 있는가」만 물으면 `if (false && ...)` 한 글자에 뚫린다.
+      그래서 판정 함수를 오려 내 **실제로 돌려** 답으로 묻는다. */
+{
+  function blockAt(src, openIdx) {
+    let d = 0;
+    for (let i = openIdx; i < src.length; i++) {
+      if (src[i] === '{') d++;
+      else if (src[i] === '}') { d--; if (d === 0) return src.slice(openIdx + 1, i); }
+    }
+    return '';
+  }
+  let verdict = null, cutErr = '';
+  try {
+    const sig = DO.match(/static livenessVerdict\(([\s\S]*?)\)\s*:/);
+    const open = DO.indexOf('{', DO.indexOf('static livenessVerdict'));
+    const body = open > 0 ? blockAt(DO, open) : '';
+    if (sig && body) {
+      const params = sig[1].replace(/:\s*number/g, '').split(',').map(x => x.trim()).filter(Boolean);
+      verdict = new Function(...params, body);
+    }
+  } catch (e) { cutErr = (e && e.message) || String(e); }
+
+  /* 🔴 전제 — 못 오려 내면 아래 검사가 통째로 «빈 문자열» 을 보고 조용히 통과한다. */
+  ok('판정 함수(livenessVerdict)를 오려 내 실행할 수 있다' + (cutErr ? ' — ' + cutErr : ''),
+     typeof verdict === 'function');
+
+  if (typeof verdict === 'function') {
+    const STALE = 120000, NOPING = 600000, now = 1000000;
+    const V = (silentSec, autoAt) => {
+      try { return verdict(now, now - silentSec * 1000, autoAt, STALE, NOPING); }
+      catch (e) { return 'ERR:' + ((e && e.message) || e); }
+    };
+    const AUTO = now - 30000;   // ping 근거가 잡힌 소켓
+
+    // ── 예전 동작은 그대로여야 한다(짝이 없으면 «전부 유예» 도 통과한다) ──
+    ok('ping 근거가 있고 조용한 지 얼마 안 됐으면 살아 있음', V(60, AUTO) === 'alive');
+    ok('ping 근거가 있는데 STALE 을 넘겼으면 예전대로 정리한다(유령 청소가 죽지 않았다)',
+       V(200, AUTO) === 'kill');
+    ok('시각을 하나도 못 구한 소켓은 건드리지 않는다', verdict(now, 0, 0, STALE, NOPING) === 'alive');
+
+    // ── 이번 수리: ping 근거가 없으면 «조용하다» 를 단정하지 않는다 ──
+    ok('ping 근거가 없으면 STALE 을 넘겨도 바로 끊지 않는다(실사고 137초)',
+       V(137, 0) === 'grace');
+    ok('ping 근거가 없어도 경계 직전까지는 기다린다', V(599, 0) === 'grace');
+
+    // ── 그래도 영원히 살려 두지는 않는다(2026-08-20 유령 사고 재발 방지) ──
+    ok('ping 근거가 없어도 상한을 넘기면 정리한다', V(601, 0) === 'kill');
+
+    /* ⚠️ 「끊지 않는다」만 재면 «전부 살려 두기» 가 통과한다 — 위 kill 두 줄이 그 짝이다. */
+  }
+}
+
+/* 상한 값 자체도 못 박는다 — 너무 짧으면 이번 사고가 되살아나고,
+   너무 길면(=사실상 무한) 죽은 소켓이 수업 내내 남아 2026-08-20 사고가 된다. */
+{
+  const st = Number((DO.match(/LIVENESS_STALE_MS\s*=\s*(\d+)\s*\*\s*1000/) || [])[1] || 0);
+  const np = Number((DO.match(/LIVENESS_NOPING_STALE_MS\s*=\s*(\d+)\s*\*\s*1000/) || [])[1] || 0);
+  ok(`ping 근거 없을 때의 상한이 기본 상한보다 넉넉하다 (${np || '없음'}초 > ${st}초)`, np > st);
+  ok(`그 상한이 «사실상 무한» 은 아니다 (${np || '없음'}초 <= 1800초)`, np > 0 && np <= 1800);
+}
+
+/* ⛔ 판정을 alarm() 안에 도로 복제하면 위 «실제로 돌리는» 검사가 헛돈다. */
+ok('알람은 판정을 복제하지 않고 순수 함수를 부른다',
+   /const verdict = VideoCallRoom\.livenessVerdict\(/.test(DO)
+   && !/if \(now - seen <= VideoCallRoom\.LIVENESS_STALE_MS\)/.test(DO));
+ok('끊을 때 세 근거를 각각 남긴다(「왜 끊었나」를 사후에 가르려면 합친 값만으론 모자람)',
+   /silent=\$\{[\s\S]{0,400}auto=\$\{[\s\S]{0,300}mem=\$\{[\s\S]{0,300}att=\$\{/.test(DO));
 /* ⛔ 이모지는 Unicode 13 이상 금지(Win10 에서 두부로 보임 — CLAUDE.md 1-4).
    이 파일이 처음 짜였을 때 심장 이모지(U+1FAC0, Unicode 13.0)를 8곳에 썼다가 걸렸다.
    경계를 U+1FAC0 으로 잡는 이유 — 같은 블록(Extended-A) 안에서도 U+1FA70~1FA9F 는
