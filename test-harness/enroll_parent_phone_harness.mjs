@@ -411,6 +411,108 @@ console.log('\n[G] 자산 버전');
 check('G-1 adm-core.js 를 부르는 ?v= 가 있다', /adm-core\.js\?v=\d+/.test(adminHtml));
 check('G-2 admin-inline-c.css 를 부르는 ?v= 가 있다', /admin-inline-c\.css\?v=\d+/.test(adminHtml));
 
+
+// ══════════════════════════════════════════════════════════════
+//  I절 — 수강 만료 안내(7·3일 전)도 «우리가 받아 둔 번호» 를 본다 (2026-09-15)
+//
+//  실사고: 그 sweep 이 `students_erp` 를 직접 읽어 번호를 정했다. 그 칸은 카페24 동기화가
+//  매일 밤 덮어서 실측 0건이라, 화면에서 번호를 받아도 이 안내는 영영 skip 됐다
+//  (2026-09-15 실측: 그날 23건 시도 / 번호를 찾은 학생 1명).
+//
+//  ⚠️ 문자열로 「그 함수를 부르는가」만 물으면 안 된다 — 부르고 «결과를 안 쓰는» 변이가
+//     그대로 통과한다. 그래서 이 절은 함수를 **오려 내 가짜 부품으로 실제로 돌려**
+//     «어느 번호로 문자가 나갔는가» 를 답으로 본다.
+// ══════════════════════════════════════════════════════════════
+console.log('\n[I] 만료 안내 — 번호 판정 정본 배선');
+
+const enrollTs = read(join(SRC, 'enroll-ops.ts'));
+
+check('I-1 enroll-ops.ts 가 번호 정본을 import 한다',
+  /import\s*\{[^}]*\bphonesForStudent\b[^}]*\}\s*from\s*'\.\/notify-contacts'/.test(strip(enrollTs)));
+
+/* 함수 몸통을 «중괄호 짝» 으로 자른다 — 길이나 첫 `\n}` 로 자르면 엉뚱한 조각이 나온다. */
+function bodyOf(src, needle) {
+  const i = src.indexOf(needle);
+  if (i < 0) return '';
+  const open = src.indexOf('{', src.indexOf(')', i));
+  if (open < 0) return '';
+  let d = 0;
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
+const sweepSrc = bodyOf(enrollTs, 'export async function runEnrollExpirySweep');
+check('I-0 (전제) runEnrollExpirySweep 을 오려 냈다', sweepSrc.length > 300, `${sweepSrc.length}자`);
+
+/* 타입 표기만 걷어내 그대로 돌린다(컴파일 없이). */
+const sweepJs = sweepSrc
+  .replace(/^export\s+/, '')
+  .replace(/\(env:\s*any,\s*opts\?:\s*\{[^}]*\}\)/, '(env, opts)')
+  .replace(/:\s*Promise<[^>]*>/g, '')
+  /* ⚠️ 배열 표기를 «먼저» 지운다 — ` as any` 를 먼저 지우면 `(x as any[])` 가 `(x[])` 가 되어
+        문법이 깨진다(그러면 이 절이 통째로 «실행 실패» 로 죽는다. 실제로 밟았다). */
+  .replace(/\s+as\s+any\[\]/g, '')
+  .replace(/:\s*any\[\]/g, '')
+  .replace(/:\s*any\b/g, '')
+  .replace(/\s+as\s+any\b/g, '');
+
+function runSweep({ ov = {}, erp = {}, throwCore = false }) {
+  const sent = [];
+  const rows = [{ user_id: 'yahee', last_date: '2026-09-18', remaining: 2 }];
+  const db = {
+    prepare(sql) {
+      const api = {
+        bind: () => api,
+        all: async () => ({ results: /GROUP BY user_id/.test(sql) ? rows : [] }),
+        first: async () => {
+          if (/FROM enroll_notify_log/.test(sql)) return null;          // 아직 안 보냄
+          if (/FROM students_erp/.test(sql)) {
+            const r = erp[Object.keys(erp)[0]] ? erp : null;
+            return r ? { ph: erp.parent_phone || erp.phone || null, nm: erp.name || '정예희' } : { ph: null, nm: '정예희' };
+          }
+          return null;
+        },
+        run: async () => ({}),
+      };
+      return api;
+    },
+    exec: async () => ({}),
+  };
+  const factory = new Function(
+    'kstToday', 'daysBetween', 'ensureEnrollTables', 'sendPlainSms', 'siteUrl', 'phonesForStudent',
+    `${sweepJs}\nreturn runEnrollExpirySweep;`
+  );
+  const fn = factory(
+    () => '2026-09-15',
+    () => 3,                                   // exp3 창에 들어오게
+    async () => {},
+    async (_e, phone) => { sent.push(String(phone)); return { ok: true }; },
+    () => 'https://mangoi.ai/enroll.html',
+    async () => { if (throwCore) throw new Error('boom'); return { parent: ov.parent || '', student: ov.student || '' }; },
+  );
+  return fn({ DB: db }).then((out) => ({ out, sent }));
+}
+
+let I = { a: null, b: null, c: null, d: null, err: '' };
+try {
+  I.a = await runSweep({ ov: { parent: '01011112222' } });                      // 우리가 받아 둔 번호만 있다
+  I.b = await runSweep({});                                                      // 아무 번호도 없다
+  I.c = await runSweep({ erp: { parent_phone: '01033334444', name: '정예희' } }); // 명부에만 있다(옛 경로)
+  I.d = await runSweep({ throwCore: true, erp: { parent_phone: '01055556666' } });// 정본이 던진다
+} catch (e) { I.err = String(e?.message || e); }
+
+check('I-2 (전제) 함수가 실제로 돌았다', !I.err, I.err);
+check('I-3 우리가 받아 둔 번호(override)로 문자가 나간다',
+  !!I.a && I.a.sent.length === 1 && I.a.sent[0] === '01011112222', I.a ? JSON.stringify(I.a.sent) : '실행 실패');
+check('I-4 (짝) 번호가 아무 데도 없으면 문자를 안 보낸다',
+  !!I.b && I.b.sent.length === 0, I.b ? JSON.stringify(I.b.sent) : '실행 실패');
+check('I-5 (짝) 명부에만 번호가 있어도 예전처럼 나간다',
+  !!I.c && I.c.sent.length === 1 && I.c.sent[0] === '01033334444', I.c ? JSON.stringify(I.c.sent) : '실행 실패');
+check('I-6 정본이 던져도 명부 번호로 떨어진다(fail-open)',
+  !!I.d && I.d.sent.length === 1 && I.d.sent[0] === '01055556666', I.d ? JSON.stringify(I.d.sent) : '실행 실패');
+
 // ══════════════════════════════════════════════════════════════
 console.log('\n════════════════════════════════════════');
 console.log(`  결과: PASS ${pass} / FAIL ${fail}`);

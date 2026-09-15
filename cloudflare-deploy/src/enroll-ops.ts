@@ -50,6 +50,9 @@ export async function authUidOrAdminSession(request: Request, url: URL, env: any
   return null;
 }
 import { sendPlainSms } from './solapi-client';
+import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
+// ⚠️ 의존 방향: enroll-ops → notify-contacts → absent-sweep. absent-sweep 에서 이 파일을
+//    import 하면 순환이 된다(선례: absent-sweep → api-notify → notify-contacts → absent-sweep).
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 🔗 1회용 연장 링크 — 학부모 폰에 학생 로그인이 없어도 «이 학생의 연장» 만 되게 하는 좁은 권한.
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
@@ -733,13 +736,28 @@ export async function runEnrollExpirySweep(env: any, opts?: { dry?: boolean }): 
       const dup: any = await env.DB.prepare(`SELECT uid FROM enroll_notify_log WHERE uid=? AND kind=? AND day=? LIMIT 1`).bind(uid, kind, today).first();
       if (dup) { out.skipped++; continue; }
 
+      /* 📞 전화번호는 판정 정본 `phonesForStudent`(notify-contacts.ts) 하나로 찾는다 (2026-09-15).
+         ⛔ 여기서 `students_erp` 를 직접 읽어 번호를 «정하지» 말 것 — 카페24 원본에 번호가 없어
+            그 칸은 실측 0건이고(2026-09-15, 29,496행), 우리 화면에서 받은 번호는
+            `student_erp_override` 에 있다. 정본이 그 둘을 «override 먼저» 로 본다.
+            ℹ️ 명부 칸이 «밤에 덮이던» 것은 2026-09-15 에 막혔다(#995, cafe24-sync.ts) —
+               그래도 정본을 지나는 것이 맞다. override 는 «우리가 받은 값» 이라 카페24가 나중에
+               번호를 채워도 뜻이 갈리지 않고, 판정이 한 곳에 남는다.
+            이 배선이 없던 동안 이 안내는 번호를 못 찾아 계속 skip 됐다
+            (2026-09-15 실측: 그날 23건 시도 / 번호를 찾은 학생 1명).
+         ⚠️ 학부모 번호가 없으면 학생 번호로 보내는 기존 동작은 그대로 지킨다.
+         ⚠️ 정본이 실패하면 아래 명부 조회로 떨어져 «고치기 전» 과 똑같이 동작한다(fail-open). */
       let phone = '', name = '';
+      try {
+        const p = await phonesForStudent(env, uid);
+        phone = String(p.parent || p.student || '').replace(/[^0-9]/g, '');
+      } catch (_) { /* fail-open — 아래 명부 조회가 받는다 */ }
       try {
         const s: any = await env.DB.prepare(
           `SELECT COALESCE(parent_phone, phone) AS ph, COALESCE(korean_name, english_name, username) AS nm
            FROM students_erp WHERE user_id = ? LIMIT 1`
         ).bind(uid).first();
-        phone = String(s?.ph || '').replace(/[^0-9]/g, '');
+        if (!phone) phone = String(s?.ph || '').replace(/[^0-9]/g, '');
         name = String(s?.nm || '');
       } catch (_) {}
       await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?,?,?,?)`).bind(uid, kind, today, Date.now()).run();
