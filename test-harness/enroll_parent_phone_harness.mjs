@@ -264,7 +264,9 @@ console.log('\n[C] 번호를 «동기화가 못 덮는 자리» 에 쓴다');
 const setBody = strip(setFn);
 check('C-1 저장 정본은 student_erp_override 에 쓴다', /INSERT INTO student_erp_override/.test(setBody));
 check('C-2 저장 정본이 students_erp 를 건드리지 않는다',
-  !/students_erp/.test(setBody), 'students_erp 에 쓰면 카페24 동기화가 매일 밤 덮는다');
+  !/students_erp/.test(setBody),
+  'students_erp 에 쓰면 읽는 정본(phonesForStudent)이 먼저 보는 표와 갈린다 — 게다가 카페24가 번호를 ' +
+  '주기 시작하면 그 값이 이긴다(2026-09-15 전에는 카페24가 빈 값으로 매일 밤 덮었다)');
 
 // 등록 API 도 마찬가지 — 그 라우트 안에서 students_erp 번호 칸을 UPDATE 하면 같은 사고다
 /* ⚠️ 범위를 «길이» 로 자르면 안 된다 — 그 블록에 줄이 몇 개 늘기만 해도 뒷부분이 잘려
