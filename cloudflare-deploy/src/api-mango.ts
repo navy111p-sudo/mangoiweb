@@ -49,7 +49,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
    감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
-import { hiddenExcludeCond, ensureStudentOverrideTable } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(카페24 야간 동기화가 못 건드리는 자리)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -3697,6 +3697,18 @@ ${numbered}`;
 
         const _fullScope = await getScope(env as any, request);  // 🔒 PII 열람 권한 판정
         const _erpRow: any = pick(0);
+        /* 📞 (2026-09-15) students_erp 의 전화번호 칸은 카페24가 정본이라 매일 밤 03:00 KST
+           동기화가 덮는다(student-override.ts 머리말 — 9/10 파일럿테스트 학생 번호가 그렇게
+           사라진 사고와 같은 뿌리). 화면이 보여주는 값은 «문자 발송이 실제로 읽는 값» 이어야
+           하므로 phonesForStudent(notify-contacts.ts)와 같은 우선순위로 덮어 보여준다 —
+           override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). fail-open. */
+        if (_erpRow) {
+          try {
+            const _ovPhones = await getOverridePhones(env as any, String(_erpRow.user_id || uid));
+            if (_ovPhones.parent) _erpRow.parent_phone = _ovPhones.parent;
+            if (_ovPhones.student) _erpRow.student_phone = _ovPhones.student;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+        }
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
         // 🎓 카페24 성적(그래프DB) — 월말평가(상세 코멘트5)·일별·교재퀴즈·레벨테스트·포인트. Neo4j 미연결 시 조용히 빈배열.
@@ -3953,11 +3965,19 @@ ${numbered}`;
         const allowed = ['student_phone','parent_phone','teacher_phone','school','grade','kakao_id','parent_kakao_id','address','birth_date','notes','shop_name','franchise'];
         const PII_GUARD = new Set(['student_phone','parent_phone','teacher_phone','kakao_id','parent_kakao_id']);
         const sets: string[] = []; const vals: any[] = []; const skippedMasked: string[] = [];
+        /* 📞 (2026-09-15) 여기서 실제로 «적용되는» student_phone/parent_phone 값만 따로 담아 둔다.
+           students_erp 는 카페24가 정본이라 이 UPDATE 만으로는 야간 동기화(03:00 KST)가 그대로
+           덮는다 — korean_name 과 같은 성질이고, 실제로 9/10 파일럿테스트 학생 번호가 이렇게
+           사라졌다(CLAUDE.md 2장). student_erp_override 에도 함께 적어야 살아남는다 —
+           정본은 setOverridePhones(student-override.ts). ⛔ 판정을 여기서 복제하지 않는다. */
+        const phoneTouched: { parent?: string; student?: string } = {};
         for (const k of allowed) {
           if (b[k] === undefined) continue;
           // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
           sets.push(`${k} = ?`); vals.push(b[k]);
+          if (k === 'parent_phone') phoneTouched.parent = String(b[k] ?? '').trim();
+          if (k === 'student_phone') phoneTouched.student = String(b[k] ?? '').trim();
         }
         // 🥭 학생 이름 — korean_name·username 을 «함께» 고친다(이 페이지 왼쪽 카드는 username 만 읽는다).
         //   빈 문자열이면 손대지 않는다 — 이름을 NULL 로 지우면 화면 전체가 uid 로 떨어진다.
@@ -3988,8 +4008,10 @@ ${numbered}`;
            이름을 바꾸면 SET 에 `username = ?` 가 들어가는데, 그 행이 세 갈래 중
            «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
            → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
-           (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다. */
-        const preRow = nameChanged ? await env.DB.prepare(
+           (이 블록이 막으려던 바로 그 사고). 에러가 나지 않아 조용히 재현된다.
+           📞 전화번호를 고쳤을 때도 같은 이유로 필요하다(위 phoneTouched). */
+        const _needsRealUid = nameChanged || Object.keys(phoneTouched).length > 0;
+        const preRow = _needsRealUid ? await env.DB.prepare(
           `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
         ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
         // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
@@ -4015,7 +4037,46 @@ ${numbered}`;
             }
           } catch { /* 이름 고정 실패 — 오늘은 바뀌고 내일 밤 되돌아갈 뿐, 저장 자체는 막지 않는다 */ }
         }
-        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged });
+        // 📞 전화번호를 고쳤으면 student_erp_override 에도 함께 적는다 — 안 그러면 오늘 밤
+        //   카페24 동기화가 지운다(위 phoneTouched 주석 참고). 판정은 setOverridePhones 정본이 한다.
+        //   ⚠️ 저장 실패를 삼키지 않는다 — 응답에 phone_override_warning 으로 실어 화면이 사람에게 말한다
+        //   (CLAUDE.md: 「넣었으니 가겠지」로 믿고 조용히 넘기지 말 것).
+        let phoneOverrideWarning: string | undefined;
+        const phoneWasTouched = Object.keys(phoneTouched).length > 0;
+        if (phoneWasTouched) {
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (!realUid) {
+              phoneOverrideWarning = 'uid_not_resolved';
+            } else {
+              const payload: { parent?: string; student?: string; clear?: boolean } = {};
+              let clear = false;
+              if (phoneTouched.parent !== undefined) {
+                payload.parent = phoneTouched.parent;
+                if (!phoneTouched.parent) clear = true;
+              }
+              if (phoneTouched.student !== undefined) {
+                payload.student = phoneTouched.student;
+                if (!phoneTouched.student) clear = true;
+              }
+              if (clear) payload.clear = true;
+              const sv = await setOverridePhones(env as any, realUid, payload, 'student-contact');
+              if (!sv.ok) phoneOverrideWarning = sv.reason || 'override_save_failed';
+            }
+          } catch (e: any) {
+            console.warn('[student/contact] override 전화번호 저장 실패:', e?.message, 'uid=', uid);
+            phoneOverrideWarning = String(e?.message || e).slice(0, 120);
+          }
+        }
+        return json({
+          ok: true,
+          updated_fields: sets.length - 1 - (nameChanged ? 1 : 0),
+          skipped_masked: skippedMasked,
+          password_changed: passwordChanged,
+          name_changed: nameChanged,
+          phone_override_saved: phoneWasTouched && !phoneOverrideWarning,
+          phone_override_warning: phoneOverrideWarning,
+        });
       }
     }
 

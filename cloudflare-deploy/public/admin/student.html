@@ -566,6 +566,9 @@
       <div class="panel" data-panel="contact">
         <div class="add-form-card">
           <h4 data-ko="👨‍👩‍👧 학생 정보 편집" data-en="👨‍👩‍👧 Edit Student Info">👨‍👩‍👧 학생 정보 편집</h4>
+          <p style="font-size:11.5px;color:var(--mut);margin:0 0 12px"
+             data-ko="📞 학생·부모님 전화번호는 여기서 저장하면 문자·리마인더 발송이 실제로 읽는 값이 되고, 카페24 야간 동기화(매일 밤 3시)에도 지워지지 않습니다."
+             data-en="📞 Saving student/parent phone here is what texts and reminders actually use — it survives the nightly Cafe24 sync (3am daily).">📞 학생·부모님 전화번호는 여기서 저장하면 문자·리마인더 발송이 실제로 읽는 값이 되고, 카페24 야간 동기화(매일 밤 3시)에도 지워지지 않습니다.</p>
           <div class="grid-2">
             <div class="form-row"><label data-ko="학생 이름"      data-en="Student Name">학생 이름</label><input id="cName" type="text"></div>
             <div class="form-row"><label data-ko="학생 전화"      data-en="Student Phone">학생 전화</label><input id="cStudentPhone" type="tel"></div>
@@ -832,6 +835,8 @@ const T = {
   pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
   pwTooShort:{ko:'비밀번호는 4자 이상이어야 합니다', en:'Password must be at least 4 characters'},
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
+  phoneOverrideWarn:{ko:'⚠ 전화번호는 화면에는 저장됐지만 안전 보관에는 실패했습니다 — 오늘 밤 카페24 동기화 때 다시 지워질 수 있습니다. 다시 저장해 보세요.',
+                     en:'⚠ Phone saved to the page, but not to safe storage — it may be wiped again by tonight\'s Cafe24 sync. Try saving again.'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1698,6 +1703,10 @@ $('cSaveBtn').addEventListener('click', async () => {
     const j = await r.json();
     if (r.ok && j.ok) {
       toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
+      // 📞 전화번호를 고쳤는데 안전 보관(student_erp_override)이 실패했으면 조용히 넘기지 않는다 —
+      //   students_erp 만 바뀐 채로 두면 오늘 밤 카페24 동기화가 그대로 지운다(9/10 파일럿테스트
+      //   학생 사고와 같은 뿌리). 화면 저장 자체는 성공이라 별도 토스트로 덧붙인다.
+      if (j.phone_override_warning) setTimeout(() => toast(t('phoneOverrideWarn'), true), 1200);
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
       // 🥭 이름을 바꿨으면 왼쪽 카드·상단 이름도 즉시 새로 읽어온다(안 하면 새로고침 전까지 옛 이름).
       if (j.name_changed) await loadFull();
