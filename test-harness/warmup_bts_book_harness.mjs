@@ -386,7 +386,11 @@ async function wiringSection() {
     const sec = el('wusLessonSec'); sec.querySelector = () => row;
     const sel = el('wusLesson'), note = el('wusLessonNote'), box = el('setup');
     box.contains = () => true;
-    const MAP = { wusLessonSec: sec, wusLesson: sel, wusLessonNote: note };
+    /* 📘 «지금 교재» 줄이 데려갈 자리 — scrollIntoView 가 실제로 불렸는지 기록합니다.
+       ⛔ 이 자리가 없으면 아래 ⑧-a 가 «불렀는가» 를 물을 수 없어 문자열 검사로 되돌아갑니다. */
+    const booksSec = el('wusBooksSec'); booksSec.scrolled = 0;
+    booksSec.scrollIntoView = () => { booksSec.scrolled += 1; };
+    const MAP = { wusLessonSec: sec, wusLesson: sel, wusLessonNote: note, wusBooksSec: booksSec };
     const doc = { getElementById: (id) => (MAP[id] || null),
                   createElement: () => ({ set textContent(v) { this._t = v; } }) };
     const fake = (url) => { calls.push(url);
@@ -414,7 +418,13 @@ async function wiringSection() {
       H['setup:click']({ target: { closest: () => node } });
     };
     const change = (v) => { sel.value = v; H['wusLesson:change'](); };
-    return { api, calls, store, clickBts, change, sel, sec, row, note, hooked: H };
+    /* 📘 «지금 교재» 줄을 누른다 — 위임 클릭이 보는 모양 그대로. */
+    const clickJump = () => {
+      const node = { getAttribute: (n) => (n === 'data-jump' ? 'books' : null),
+                     hasAttribute: (n) => n === 'data-jump' };
+      H['setup:click']({ target: { closest: () => node } });
+    };
+    return { api, calls, store, clickBts, change, clickJump, sel, sec, row, note, booksSec, hooked: H };
   }
 
   // ── ⑦-1 권을 누르면 조회가 «실제로» 나가고 그 답이 붙는가 (짝) ──────
@@ -481,6 +491,27 @@ async function wiringSection() {
     m.clickBts(1); await tick(); await tick();
     t('⑦ 중국어 화면에서는 과 줄을 감춘다', m.sec.hidden === true, m.sec.hidden);
   } catch (e) { no('⑦ 중국어 갈래를 돌려 봤다', String(e && e.message)); }
+
+  // ── ⑧-a «지금 교재» 줄을 눌러 «실제로» 교재 자리로 가는가 ────────────
+  //  🔴 [왜 실행으로 묻나] 이 자리를 문자열(`/\[data-jump\]/`·`'books'`)로 물었더니
+  //     `if(false && t.getAttribute('data-jump') === 'books'){` 한 글자 변이가
+  //     **PASS 74 / FAIL 0 으로 그대로 통과**했습니다(2026-09-15 함정 대조 실측).
+  //     그 변이는 버튼을 완전히 죽이는 것 = 이번 변경의 존재 이유가 사라지는 것입니다.
+  //  ⛔ 문자열 검사로 되돌리지 마세요.
+  try {
+    const m = mk2();
+    m.clickJump();
+    t('⑧ «지금 교재» 줄을 누르면 교재 자리로 실제로 데려간다', m.booksSec.scrolled === 1, m.booksSec.scrolled);
+    /* (짝) 아무 일도 안 하는 클릭은 데려가지 않는다 — 없으면 «언제나 스크롤» 도 통과합니다. */
+    const m2 = mk2();
+    m2.clickBts(1);
+    t('⑧ 교재를 고르는 클릭은 그 자리로 안 데려간다(짝)', m2.booksSec.scrolled === 0, m2.booksSec.scrolled);
+    /* ⛔ 교재 섹션이 감춰져 있으면(중국어) 데려가지 않는다 — 없는 곳으로 보내면 안 됩니다. */
+    const m3 = mk2({ zh: true });
+    m3.booksSec.hidden = true;
+    m3.clickJump();
+    t('⑧ 교재 자리가 감춰져 있으면 데려가지 않는다', m3.booksSec.scrolled === 0, m3.booksSec.scrolled);
+  } catch (e) { no('⑧ «지금 교재» 줄 누르기를 돌려 봤다', String(e && e.message)); }
 }
 await wiringSection();
 
@@ -499,23 +530,37 @@ await wiringSection();
   /* ⛔ 전제 — 못 오려 내면 아래가 빈 문자열을 보고 조용히 통과합니다. */
   t('⑧ btsRenderBookNow 를 오려 냈다', !!bnSrc && bnSrc.includes('wusBookNow'), !!bnSrc);
   if (bnSrc) {
+    /* ⛔ 정본이 쓰는 escapeHtml 을 «소스에서 오려 내» 넣습니다 — 손으로 베끼면
+          정본이 바뀔 때 검사만 옛 동작을 보게 됩니다(CLAUDE.md 「값을 베껴 적지 마세요」). */
+    const escSrc = fnSrc('function escapeHtml(');
     const run = (vol, zh, lesson) => {
-      const el = { id: 'wusBookNow', hidden: false, innerHTML: '',
+      /* ⚠️ 마크업이 `<button … hidden>` 이므로 시작 상태는 «true» 입니다.
+         false 로 두면 `el.hidden = false;` 를 지우는 변이(= 버튼이 영영 안 보임)가
+         그대로 통과합니다(2026-09-15 함정 대조 실측 74/0). */
+      const el = { id: 'wusBookNow', hidden: true, innerHTML: '',
                    get textContent() { return String(this.innerHTML).replace(/<[^>]*>/g, ''); } };
       const doc = { getElementById: (id) => (id === 'wusBookNow' ? el : null) };
       const f = new Function('document', 'isZh', '_btsVol', 'btsLessonNow',
-        `${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
+        `${escSrc || ''}\n${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
            text: document.getElementById('wusBookNow').textContent };`);
       return f(doc, () => zh, vol, () => lesson);
     };
-    const free = run(0, false, null);
-    const book = run(1, false, null);
-    const lsn  = run(1, false, { seq: 2, title: 'School Stuff' });
-    const zh   = run(1, true, null);
-    t('⑧ 안 골랐으면 «자유 대화» 라고 말한다', free.hidden === false && /자유 대화/.test(free.text), free);
-    t('⑧ 골랐으면 «BTS 1» 이라고 말한다(짝)', book.hidden === false && /BTS 1/.test(book.text), book);
-    t('⑧ 과까지 골랐으면 «제 2과» 도 말한다', /제 2과/.test(lsn.text), lsn);
-    t('⑧ 중국어면 감춘다(교재 섹션과 짝)', zh.hidden === true, zh);
+    t('⑧ escapeHtml 을 오려 냈다(정본이 쓰는 그것)', !!escSrc, !!escSrc);
+    try {
+      const free = run(0, false, null);
+      const book = run(1, false, null);
+      const lsn  = run(1, false, { seq: 2, title: 'School Stuff' });
+      const zh   = run(1, true, null);
+      t('⑧ 안 골랐으면 «자유 대화» 라고 말한다', free.hidden === false && /자유 대화/.test(free.text), free);
+      t('⑧ 골랐으면 «BTS 1» 이라고 말한다(짝)', book.hidden === false && /BTS 1/.test(book.text), book);
+      t('⑧ 과까지 골랐으면 «제 2과» 도 말한다', /제 2과/.test(lsn.text), lsn);
+      t('⑧ 중국어면 감춘다(교재 섹션과 짝)', zh.hidden === true, zh);
+      /* 🛡️ 서버가 준 값은 이스케이프해서 넣는가 — 지금 서버는 정수를 주지만
+            안전이 «서버 한 줄» 에만 기대지 않게 합니다. */
+      const evil = run(1, false, { seq: '<img src=x onerror=1>', title: 'x' });
+      t('⑧ 서버가 준 과 번호를 그대로 태그로 넣지 않는다',
+        evil.text.indexOf('<img') < 0 && String(evil.text).indexOf('&lt;img') >= 0, evil.text);
+    } catch (e) { no('⑧ btsRenderBookNow 를 돌려 봤다', String(e && e.message)); }
     /* ⚠️ «감춘다» 만 두면 «전부 감추기» 도 통과합니다 — 위 세 줄이 그 짝입니다. */
   }
   /* 🔌 배선 — 그 함수를 «부르는 곳» 이 살아 있는가.
@@ -529,11 +574,7 @@ await wiringSection();
   t('⑧ 그 갱신이 조기 return 보다 «앞» 이다',
     lrClean.indexOf('btsRenderBookNow') >= 0 && lrClean.indexOf('btsRenderBookNow') < lrClean.indexOf('return'),
     [lrClean.indexOf('btsRenderBookNow'), lrClean.indexOf('return')]);
-  /* 🖱️ 눌러서 교재 자리로 가는 길 — 위임 선택자에 그 표식이 살아 있는가. */
-  const wireClean = strip(wireSrc || '');
-  t('⑧ 위임 클릭이 data-jump 를 받는다', /\[data-jump\]/.test(wireClean), wireClean.length);
-  t('⑧ data-jump=books 를 교재 자리로 보낸다',
-    /data-jump'?\)\s*===\s*'books'/.test(wireClean) && /wusBooksSec/.test(wireClean), wireClean.length);
+  /* 🖱️ 눌러서 교재 자리로 가는 길은 ⑧-a 가 «실제로 눌러» 봅니다 — 문자열로 묻지 않습니다. */
   /* 🧷 화면에 그 줄이 «시작 버튼보다 앞» 에 있는가(문서 순서) — sticky 로 위에 붙습니다. */
   const iBn = S.indexOf('id="wusBookNow"'), iSt = S.indexOf('id="wusStart"');
   t('⑧ 마크업에서 시작 버튼보다 앞에 있다', iBn > 0 && iSt > 0 && iBn < iSt, [iBn, iSt]);

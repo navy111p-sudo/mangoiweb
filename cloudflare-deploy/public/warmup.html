@@ -1742,11 +1742,14 @@ function btsRenderBookNow(){
   el.hidden = false;
   var go = '<span class="wus-bn-go">고르기 ↓</span>';
   if(!_btsVol){
-    el.innerHTML = '💬 지금은 <b>교재 없이 자유 대화</b>' + go;
+    el.innerHTML = '💬 지금은 <b>교재 없이 자유 대화</b> ' + go;
     return;
   }
   var l = btsLessonNow();
-  var lsn = (l && l.seq) ? (' 제 ' + l.seq + '과') : '';
+  /* ⚠️ l.seq 는 `/api/games/lessons` 응답입니다 — 로컬 상수가 아닙니다.
+     지금 서버(parseEn)가 parseInt 로 정수를 주지만, 안전이 «서버 한 줄» 에만
+     기대게 두지 않습니다. 같은 파일의 btsListHtml 도 상수에조차 escapeHtml 을 겁니다. */
+  var lsn = (l && l.seq) ? (' 제 ' + escapeHtml(String(l.seq)) + '과') : '';
   el.innerHTML = '📘 지금 교재 <b>BTS ' + _btsVol + lsn + '</b> '
     + '<span class="wus-bn-go">바꾸기 ↓</span>';
 }

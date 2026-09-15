@@ -308,7 +308,7 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
     if(!bn||!st) return JSON.stringify({err:'no-el'});
     var rb=R(bn), rs=R(st);
     var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
-    return JSON.stringify({ hidden:bn.hidden, text:(bn.textContent||'').trim(),
+    return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
       inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
       isMine: !!(top && bn.contains(top)), booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
   })()`);
@@ -316,6 +316,10 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
   /* ⛔ 전제 — 교재 자리가 «첫 화면 밖» 이 아니면 이 절이 지키려는 사고 자체가 없습니다.
         (섹션 순서를 바꿔 해결했다면 이 줄이 먼저 빨간불이 되어 알려 줍니다.) */
   t(`⑩ [${wlabel}] 전제: 교재 자리는 여전히 첫 화면 밖이다`, d.booksTop >= d.view, d);
+  /* ⛔ 전제 — 감춰져 있으면 getBoundingClientRect 가 전부 0이라 아래 «위치» 검사 셋이
+        (0<=innerHeight · 0>=0 · gap=시작버튼top · 0>시작버튼top 거짓) 무의미하게 통과합니다.
+        버튼을 아예 없애는 변이가 그렇게 빠져나갔습니다(2026-09-15 함정 대조 실측). */
+  t(`⑩ [${wlabel}] 전제: 그 줄이 실제로 그려져 있다(높이 > 0)`, d.hidden === false && d.h > 0, d);
   t(`⑩ [${wlabel}] «지금 교재» 줄이 첫 화면 안에 있다`, d.inFirst === true, d);
   t(`⑩ [${wlabel}] 시작 버튼과 겹치지 않는다`, d.overlaps === false && d.gap >= 0, d);
   t(`⑩ [${wlabel}] 그 자리에서 맨 위가 그 줄이다(눌린다)`, d.isMine === true, d);
@@ -344,6 +348,45 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
 /* 🧹 뒷정리 — 이 절은 마지막에 «중국어» 로 끝납니다. 그대로 두면 다음 실행의 ①~⑨ 절이
       교재 섹션이 감춰진 화면을 보고 «통째로» 거짓 FAIL 납니다(2026-09-15 실측 37건).
    ⛔ 지우는 키를 골라 적지 마세요 — ① 절이 두 개만 지워서 이 사고가 났습니다. */
+await evaluate("try{localStorage.clear()}catch(e){}");
+/* ⚖️ «내가 남을 덮는가» — sticky 바는 스크롤 중에 그 아래 것을 가립니다.
+   [잰 것 — 2026-09-15] 시작 버튼이 이미 같은 일을 하고 있었고(PC 7곳 중 4곳 · 폰 11곳 중 5곳),
+     이 줄이 더해져 PC 8곳 중 7곳 · 폰 11곳 중 8곳이 됐습니다. 폰에서는 «누를 것» 두 개가
+     동시에 가려지는 구간이 생깁니다(바 ~40px + 시작버튼 ~49px).
+   ⚠️ 새로 생긴 «종류» 의 사고는 아니지만 면적이 거의 두 배입니다 — 스크롤로 비켜 갈 수 있는
+     수준 버튼이라 감수하는 맞바꿈인지는 **사람이 정할 일**입니다.
+   ⛔ FAIL 로 만들지 않습니다 — 무관한 PR 이 전부 빨간불이 됩니다(선례 popup_open_return_harness).
+     대신 «몇 개를 덮는가» 를 찍어 두어 다음 사람이 숫자를 보고 판단하게 합니다. */
+{
+  await cmd('Emulation.setDeviceMetricsOverride', { width:390, height:844, deviceScaleFactor:1, mobile:false });
+  await open(`${BASE}/warmup.html?_nc=cov${Date.now()}`);
+  await evaluate("try{localStorage.clear()}catch(e){}");
+  await open(`${BASE}/warmup.html?_nc=cov2${Date.now()}`);
+  await sleep(400);
+  r = await evaluate(`(function(){
+    var box=document.getElementById('wuSetup'), bn=document.getElementById('wusBookNow');
+    if(!box||!bn||bn.hidden) return JSON.stringify({skip:true});
+    var worst=0, steps=0;
+    for(var y=0; y<box.scrollHeight; y+=200){
+      box.scrollTop=y; steps++;
+      var rb=bn.getBoundingClientRect(), n=0;
+      var all=box.querySelectorAll('button,select,a,input');
+      for(var i=0;i<all.length;i++){
+        var e=all[i]; if(e===bn) continue;
+        var q=e.getBoundingClientRect(); if(q.width<1||q.height<1) continue;
+        var cx=q.left+q.width/2, cy=q.top+q.height/2;
+        if(cy>=rb.top && cy<=rb.bottom && cx>=rb.left && cx<=rb.right){
+          if(document.elementFromPoint(cx,cy)!==e) n++;
+        }
+      }
+      if(n>worst) worst=n;
+    }
+    box.scrollTop=0;
+    return JSON.stringify({worst:worst, steps:steps});
+  })()`);
+  d = JSON.parse(r);
+  if (!d.skip) console.log(`  ℹ️  ⑩ [폰] «지금 교재» 줄이 동시에 가리는 «누를 것» 최대 ${d.worst}개 (스크롤 ${d.steps}지점) — 사람 결정 대기`);
+}
 await evaluate("try{localStorage.clear()}catch(e){}");
 await cmd('Emulation.clearDeviceMetricsOverride');
 
