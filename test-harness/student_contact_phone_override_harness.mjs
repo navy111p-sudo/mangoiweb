@@ -31,6 +31,13 @@
  *   Ⓑ _needsRealUid 조건에서 phoneTouched 를 뺀다   → ②-3 FAIL (realUid 가 항상 null)
  *   Ⓒ /full 이 override 값을 안 덮어쓴다             → ③-1 FAIL
  *   Ⓓ 응답에서 phone_override_warning 을 뺀다        → ②-5 FAIL
+ *
+ * 📌 (2026-09-15, trap-check 후속) — 처음 판은 parent·student 를 **한 번의 setOverridePhones
+ *    호출**에 함께 넘겼다. setOverridePhones 의 `clear` 는 «필드별» 이 아니라 «전역 하나» 라,
+ *    한쪽을 비워 clear:true 가 되면 다른 쪽에 9자리 미만 값(마스킹은 아닌, 그냥 짧은/오타 값)이
+ *    남아 있을 때 그 필드도 «넘겨졌다» 는 이유만으로 같은 clear 취급을 받아 **멀쩡히 저장돼
+ *    있던 값이 조용히 NULL 로 지워졌다**(진짜 SQLite 로 재현됨 — ④-7). 고침은 api-admin.ts
+ *    의 기존 두 호출부(11494·11564행)처럼 **필드마다 따로** 부르는 것 — ②-7·④절이 이를 본다.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -144,6 +151,18 @@ check('②-5 저장 실패를 응답에 실어 화면이 말하게 한다(phone_
     guardIdx >= 0 && touchedIdx > guardIdx, `guard=${guardIdx} touched=${touchedIdx}`);
 }
 
+// 🔴 (trap-check 지적) parent·student 를 «한 payload 에 합쳐서» 한 번만 부르면 안 된다 —
+//   setOverridePhones 의 clear 는 전역 하나라, 그러면 한쪽을 지울 때 다른 쪽의 짧은/오타 값도
+//   같은 clear 취급을 받아 조용히 지워진다. **필드마다 따로** 불러야 한다.
+{
+  const callCount = (contactStrip.match(/setOverridePhones\s*\(/g) || []).length;
+  check('②-7 setOverridePhones 를 필드마다 «따로» 부른다(두 번 이상 — 한 번에 합치지 않는다)',
+    callCount >= 2, `호출 ${callCount}회`);
+  check('②-7b 한 호출의 payload 에 parent 와 student 를 «함께» 담지 않는다(교차 오염 방지)',
+    !/\{\s*parent:\s*phoneTouched\.parent[^}]*student:/.test(contactStrip)
+    && !/\{\s*student:\s*phoneTouched\.student[^}]*parent:/.test(contactStrip));
+}
+
 // ══════════════════════════════════════════════════════════════
 //  ③ 읽는 쪽 — GET …/full 이 override 값을 «먼저» 보여주는가
 // ══════════════════════════════════════════════════════════════
@@ -173,55 +192,118 @@ check('③-6 override 조회를 try/catch 로 감싼다(실패해도 학생 상�
   /try\s*\{[\s\S]{0,200}getOverridePhones\([\s\S]{0,300}\}\s*catch/.test(fullRoute));
 
 // ══════════════════════════════════════════════════════════════
-//  ④ 결정 로직을 실제로 평가한다 — 어떤 body 가 왔을 때 무엇을 override 에 넘기는가
+//  ④ 각 필드 호출의 payload 조립 — 실제로 평가한다 (parent 호출 · student 호출 «따로»)
 // ══════════════════════════════════════════════════════════════
-console.log('\n[④] payload 조립 — 실제로 평가한다');
+console.log('\n[④] 필드별 payload 조립 — 실제로 평가한다');
 
-const buildStart = contactRoute.indexOf('const payload: { parent?: string; student?: string; clear?: boolean } = {};');
-const buildEndAnchor = 'if (clear) payload.clear = true;';
-const buildEnd = contactRoute.indexOf(buildEndAnchor, buildStart);
-const buildSnippet = (buildStart >= 0 && buildEnd >= 0)
-  ? contactRoute.slice(buildStart, buildEnd + buildEndAnchor.length)
-  : '';
-check('④-1 payload 조립 조각을 오려 냈다(전제)', buildSnippet.length > 100, `길이 ${buildSnippet.length}`);
+/* 각 호출의 두 번째 인자(삼항식)만 오려 낸다 — «phoneTouched.parent ? {...} : {...}」 모양.
+   ⛔ 손으로 다시 적지 않는다 — 소스에서 그 식 그대로를 오려 내 평가한다. */
+const parentExprM = contactRoute.match(/phoneTouched\.parent\s*\?\s*\{\s*parent:\s*phoneTouched\.parent\s*\}\s*:\s*\{\s*parent:\s*'',\s*clear:\s*true\s*\}/);
+const studentExprM = contactRoute.match(/phoneTouched\.student\s*\?\s*\{\s*student:\s*phoneTouched\.student\s*\}\s*:\s*\{\s*student:\s*'',\s*clear:\s*true\s*\}/);
+check('④-1 parent 호출의 payload 식을 소스에서 오려 냈다(전제)', !!parentExprM, contactRoute.length);
+check('④-1b student 호출의 payload 식을 소스에서 오려 냈다(전제)', !!studentExprM, contactRoute.length);
 
-/* new Function 은 TS 를 모른다 — «const payload: {...} = {}」의 타입 표기만 벗겨 낸다.
-   ⛔ 값·조건은 한 글자도 안 건드린다(그러면 검사가 소스가 아니라 내가 다시 쓴 코드를 재는 꼴이다). */
-const buildSnippetJs = buildSnippet.replace(
-  /const payload:\s*\{[^}]*\}\s*=\s*\{\};/,
-  'const payload = {};'
-);
-check('④-1b 타입 표기를 벗겼다(전제 — 못 벗기면 아래는 SyntaxError 로 죽는다)',
-  buildSnippetJs !== buildSnippet && buildSnippetJs.length > 0);
-
-function buildPayload(phoneTouched) {
+function evalExpr(expr, phoneTouched) {
   // eslint-disable-next-line no-new-func
-  return new Function('phoneTouched', buildSnippetJs + '\nreturn payload;')(phoneTouched);
+  return new Function('phoneTouched', 'return (' + expr + ');')(phoneTouched);
 }
 
+if (parentExprM && studentExprM) {
+  try {
+    const pp1 = evalExpr(parentExprM[0], { parent: '01011112222' });
+    check('④-2 parent 에 실제 값이면 clear 없이 그 값만', pp1.parent === '01011112222' && !pp1.clear, JSON.stringify(pp1));
+
+    const pp2 = evalExpr(parentExprM[0], { parent: '' });
+    check('④-3 parent 를 비우면 그 호출만 clear:true(다른 필드는 이 식에 아예 없다)',
+      pp2.parent === '' && pp2.clear === true && !('student' in pp2), JSON.stringify(pp2));
+
+    const ss1 = evalExpr(studentExprM[0], { parent: '', student: '0103' });
+    check('④-4 parent 가 비어 있어도 student 호출의 payload 에는 parent 가 안 실린다(교차 오염 없음)',
+      ss1.student === '0103' && !('parent' in ss1) && !ss1.clear, JSON.stringify(ss1));
+  } catch (e) {
+    check('④-2~④-4 필드별 payload 를 실제로 평가했다', false, String(e?.message || e).slice(0, 200));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ④-5 «끝에서 끝까지» — 진짜 SQLite 로 trap-check 가 잡은 그 사고를 재현/대조한다
+//      (한쪽을 비우고, 다른 쪽에 9자리 미만 «가비지» 값이 남아 있을 때)
+// ══════════════════════════════════════════════════════════════
+console.log('\n[④-5] 실제 SQLite — 「한쪽 비움 + 다른쪽 가비지」 시나리오');
+
 try {
-  const p1 = buildPayload({ parent: '01011112222' });
-  check('④-2 학부모 번호만 실제 값이면 clear 없이 그 값만 넘긴다',
-    p1.parent === '01011112222' && p1.student === undefined && !p1.clear, JSON.stringify(p1));
+  const { DatabaseSync } = await import('node:sqlite');
+  const setFn = (overrideTs.match(/export async function setOverridePhones[\s\S]*?\n\}/) || [])[0] || '';
+  const sqlTplM = /`INSERT INTO student_erp_override[\s\S]*?`/.exec(setFn);
+  check('④-5a setOverridePhones 의 저장 SQL 을 소스에서 오려 냈다(전제)', !!sqlTplM);
 
-  const p2 = buildPayload({ parent: '' });
-  check('④-3 학부모 칸을 비워서 저장하면 clear:true 로 넘긴다(지운다는 뜻)',
-    p2.parent === '' && p2.clear === true, JSON.stringify(p2));
+  if (sqlTplM) {
+    const sqlTpl = sqlTplM[0];
+    /* 소스의 `${clearParent ? … }` 를 실제로 평가한다 — normPhone 도 소스에서 그대로 오려 쓴다
+       (손으로 다시 적으면 «내가 적은 규칙» 을 재는 꼴이 된다 — CLAUDE.md 2장). */
+    const normPhoneM = /function normPhone\(v: any\): string \{[\s\S]*?\n\}/.exec(overrideTs);
+    check('④-5b normPhone 도 소스에서 오려 냈다(전제)', !!normPhoneM);
+    // TS 타입 표기만 벗긴다(값·조건은 한 글자도 안 건드린다) — string.replace 는 첫 일치만 바꾸므로
+    // 앞선 치환이 뒤의 패턴을 어긋나게 만들 걱정이 없다.
+    const normPhoneJs = (normPhoneM ? normPhoneM[0] : '').replace('(v: any)', '(v)').replace(': string {', ' {');
+    let normPhone = (v) => String(v ?? '').replace(/[^0-9]/g, '');
+    if (normPhoneJs) {
+      const body = normPhoneJs.replace(/^function normPhone\(v\)\s*\{/, '').replace(/\}$/, '');
+      try { normPhone = new Function('v', body); } catch { /* 폴백 유지 — 아래 ④-5b 가 이미 FAIL 을 남긴다 */ }
+    }
 
-  const p3 = buildPayload({ parent: '01011112222', student: '01033334444' });
-  check('④-4 둘 다 실제 값이면 둘 다 값 그대로, clear 는 없다',
-    p3.parent === '01011112222' && p3.student === '01033334444' && !p3.clear, JSON.stringify(p3));
+    const sqlFor = (clearParent, clearStudent) =>
+      new Function('clearParent', 'clearStudent', 'return ' + sqlTpl)(clearParent, clearStudent);
 
-  const p4 = buildPayload({ parent: '01011112222', student: '' });
-  check('④-5 한쪽만 지워도 clear:true(전체) — 그래도 실제 값이 있는 칸은 그대로 값이 실린다(setOverridePhones 가 그 값으로 직접 SET)',
-    p4.parent === '01011112222' && p4.student === '' && p4.clear === true, JSON.stringify(p4));
+    const db = new DatabaseSync(':memory:');
+    db.exec(`CREATE TABLE student_erp_override (user_id TEXT PRIMARY KEY, korean_name TEXT, hidden INTEGER NOT NULL DEFAULT 0, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, parent_phone TEXT, student_phone TEXT, phone_by TEXT, phone_at INTEGER)`);
+    const get = (uid) => db.prepare(`SELECT parent_phone, student_phone FROM student_erp_override WHERE user_id=?`).get(uid) || {};
+    const now = () => Date.now();
 
-  const p5 = buildPayload({});
-  check('④-6 아무 것도 안 건드렸으면 빈 객체(그 필드는 override 에서도 손대지 않는다)',
-    Object.keys(p5).length === 0, JSON.stringify(p5));
+    /* setOverridePhones(env, uid, {parent?, student?, clear?}, by) 를 «진짜와 같은 모양» 으로 흉내 낸다 —
+       normPhone·SQL 은 소스에서 오려 왔으니 여기서 다시 만드는 것은 얕은 «호출 배선» 뿐이다. */
+    function callSetOverridePhones(uid, phones) {
+      const parent = normPhone(phones?.parent);
+      const student = normPhone(phones?.student);
+      const clear = !!phones?.clear;
+      const clearParent = clear && phones?.parent !== undefined;
+      const clearStudent = clear && phones?.student !== undefined;
+      const t = now();
+      db.prepare(sqlFor(clearParent, clearStudent)).run(
+        uid, parent || null, student || null, 'test', t, t, t,
+        clearParent ? (parent || null) : parent,
+        clearStudent ? (student || null) : student,
+        'test', t, t,
+      );
+    }
+
+    // 시드 — 학부모·학생 번호 둘 다 유효하게 저장돼 있다.
+    db.exec(`DELETE FROM student_erp_override`);
+    db.prepare(`INSERT INTO student_erp_override (user_id, hidden, parent_phone, student_phone, created_at) VALUES (?,0,?,?,?)`)
+      .run('pilot9', '01011112222', '01033334444', now());
+
+    // ── (A) 옛 방식 — 한 번의 호출에 두 필드를 함께 담는다(trap-check 가 재현한 그 사고) ──
+    callSetOverridePhones('pilot9', { parent: '', student: '0103', clear: true });
+    const afterOld = get('pilot9');
+    check('④-5c [대조] 옛 방식(한 번에 합침)은 실제로 학생 번호까지 지운다(이 검사가 사고를 재현하고 있다는 증거)',
+      afterOld.parent_phone === null && afterOld.student_phone === null, JSON.stringify(afterOld));
+
+    // 다시 시드
+    db.exec(`DELETE FROM student_erp_override`);
+    db.prepare(`INSERT INTO student_erp_override (user_id, hidden, parent_phone, student_phone, created_at) VALUES (?,0,?,?,?)`)
+      .run('pilot9', '01011112222', '01033334444', now());
+
+    // ── (B) 새 방식 — 필드마다 따로 부른다(지금 코드) ──
+    callSetOverridePhones('pilot9', { parent: '', clear: true });      // parent 만 지운다
+    callSetOverridePhones('pilot9', { student: '0103' });               // student 는 가비지값 — clear 안 씀
+    const afterNew = get('pilot9');
+    check('④-5d 새 방식(필드별 호출)은 학부모만 지워지고 학생 번호는 살아남는다(수리 확인)',
+      afterNew.parent_phone === null && afterNew.student_phone === '01033334444', JSON.stringify(afterNew));
+
+    db.close();
+  }
 } catch (e) {
-  // 크래시 대신 «깔끔한 FAIL» 로 — 스택만 남으면 무엇이 깨졌는지 안 보인다(CLAUDE.md 2장).
-  check('④-2~④-6 payload 조립을 실제로 평가했다', false, String(e?.message || e).slice(0, 200));
+  check('④-5 SQLite 재현 절 자체가 돌았다', false, String(e?.message || e).slice(0, 300));
 }
 
 // ══════════════════════════════════════════════════════════════

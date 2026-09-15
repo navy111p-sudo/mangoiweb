@@ -4041,33 +4041,49 @@ ${numbered}`;
         //   카페24 동기화가 지운다(위 phoneTouched 주석 참고). 판정은 setOverridePhones 정본이 한다.
         //   ⚠️ 저장 실패를 삼키지 않는다 — 응답에 phone_override_warning 으로 실어 화면이 사람에게 말한다
         //   (CLAUDE.md: 「넣었으니 가겠지」로 믿고 조용히 넘기지 말 것).
-        let phoneOverrideWarning: string | undefined;
+        //   🔴 (trap-check 지적, 2026-09-15) parent·student 를 «한 번의 호출»에 함께 넘기면 안 된다 —
+        //      setOverridePhones 의 clear 는 «필드별» 이 아니라 «전역 하나» 다. 한쪽을 비워 clear:true 가
+        //      되면, 다른 쪽에 9자리 미만의 값(가입 도중 오타 등 — 마스킹은 아님)이 남아 있을 때
+        //      normPhone() 이 그것을 ''로 정규화하면서도 그 필드가 «넘겨졌다» 는 이유만으로 같은 clear
+        //      취급을 받아 **멀쩡히 저장돼 있던 반대편 값이 조용히 NULL 로 지워진다**(진짜 SQLite 로
+        //      재현 확인됨). api-admin.ts 의 기존 두 호출부(11494·11564행)처럼 **필드마다 따로** 불러야
+        //      이 교차 오염이 원천적으로 없다. ⛔ 두 필드를 한 payload 에 합치지 말 것.
         const phoneWasTouched = Object.keys(phoneTouched).length > 0;
+        const phoneWarnings: string[] = [];
         if (phoneWasTouched) {
-          try {
-            const realUid = preRow && preRow.user_id;
-            if (!realUid) {
-              phoneOverrideWarning = 'uid_not_resolved';
-            } else {
-              const payload: { parent?: string; student?: string; clear?: boolean } = {};
-              let clear = false;
-              if (phoneTouched.parent !== undefined) {
-                payload.parent = phoneTouched.parent;
-                if (!phoneTouched.parent) clear = true;
+          const realUid = preRow && preRow.user_id;
+          if (!realUid) {
+            phoneWarnings.push('uid_not_resolved');
+          } else {
+            if (phoneTouched.parent !== undefined) {
+              try {
+                const sv = await setOverridePhones(
+                  env as any, realUid,
+                  phoneTouched.parent ? { parent: phoneTouched.parent } : { parent: '', clear: true },
+                  'student-contact',
+                );
+                if (!sv.ok) phoneWarnings.push('parent:' + (sv.reason || 'override_save_failed'));
+              } catch (e: any) {
+                console.warn('[student/contact] override 학부모 번호 저장 실패:', e?.message, 'uid=', uid);
+                phoneWarnings.push('parent:' + String(e?.message || e).slice(0, 100));
               }
-              if (phoneTouched.student !== undefined) {
-                payload.student = phoneTouched.student;
-                if (!phoneTouched.student) clear = true;
-              }
-              if (clear) payload.clear = true;
-              const sv = await setOverridePhones(env as any, realUid, payload, 'student-contact');
-              if (!sv.ok) phoneOverrideWarning = sv.reason || 'override_save_failed';
             }
-          } catch (e: any) {
-            console.warn('[student/contact] override 전화번호 저장 실패:', e?.message, 'uid=', uid);
-            phoneOverrideWarning = String(e?.message || e).slice(0, 120);
+            if (phoneTouched.student !== undefined) {
+              try {
+                const sv = await setOverridePhones(
+                  env as any, realUid,
+                  phoneTouched.student ? { student: phoneTouched.student } : { student: '', clear: true },
+                  'student-contact',
+                );
+                if (!sv.ok) phoneWarnings.push('student:' + (sv.reason || 'override_save_failed'));
+              } catch (e: any) {
+                console.warn('[student/contact] override 학생 번호 저장 실패:', e?.message, 'uid=', uid);
+                phoneWarnings.push('student:' + String(e?.message || e).slice(0, 100));
+              }
+            }
           }
         }
+        const phoneOverrideWarning = phoneWarnings.length ? phoneWarnings.join(';') : undefined;
         return json({
           ok: true,
           updated_fields: sets.length - 1 - (nameChanged ? 1 : 0),
