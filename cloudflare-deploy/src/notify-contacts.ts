@@ -29,9 +29,12 @@
  *      살리려면 화면이 body 에 `student_uid` 를 함께 실어야 하는데, 그건 첫 화면 예산·담당
  *      영역이 걸린 별건이다. no-show 만 uid 를 보낸다.
  *
- * ⚠️ `students_erp` 의 phone·student_phone·parent_phone 은 **여전히 0건**이다
- *    (2026-09-10 재실측 29,485행). 카페24 원본에 번호가 없고, 우리가 그 표에 손으로 넣어도
- *    동기화 UPSERT 가 매일 밤 덮는다. 적재 요청은
+ * ⚠️ `students_erp` 의 phone·student_phone·parent_phone 은 **사실상 비어 있다**
+ *    (2026-09-16 재실측 29,512행 중 번호가 든 행은 **4행**뿐 — 카페24 원본에 번호가 없다).
+ *    📞 (2026-09-15) 「우리가 손으로 넣어도 동기화가 **매일 밤 덮는다**」는 이제 옛말이다 —
+ *    `cafe24-sync.ts` 의 UPSERT 가 COALESCE 로, DELETE 보존 목록에 번호 세 칸이 들어갔다.
+ *    ⛔ 그래도 아래 «override 에 둔다» 는 **그대로**다: 카페24가 번호를 주기 시작하면 그쪽이 이기고
+ *       (정본이 카페24라 맞는 동작), 그 순간 우리가 넣은 값이 덮인다. 적재 요청은
  *    `docs/구서버_Neo4j_전화번호_적재요청_2차_2026-08-30.md`.
  * ✅ (2026-09-10) 그래서 «우리 화면에서 받은 번호» 는 `student_erp_override` 에 두고
  *    `phonesForStudent` 가 그것을 **먼저** 본다(정본 `src/student-override.ts`).

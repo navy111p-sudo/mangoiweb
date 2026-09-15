@@ -190,8 +190,9 @@ console.log('\n[ ④ 표 칸 수 — col·th·td·colspan 이 서로 같은가 ]
 }
 
 console.log('\n[ ⑤ 서버 — 고친 번호가 «밤에» 사라지지 않는가 ]');
-/* students_erp 의 parent_phone·student_phone·phone 은 카페24 UPSERT SET 목록에 있어
-   매일 밤 덮인다. 그래서 override 에도 함께 적어야 수업 안내문자가 그 번호로 간다. */
+/* students_erp 의 parent_phone·student_phone·phone 은 카페24가 정본이라, 카페24가 값을 주면
+   그쪽이 이긴다(2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것만 멈췄다).
+   그래서 override 에도 함께 적어야 수업 안내문자가 그 번호로 간다. */
 const cIdx = mango.indexOf("const m = path.match(/^\\/api\\/admin\\/student\\/([^\\/]+)\\/contact$/)");
 const cSrc = cIdx >= 0 ? mango.slice(cIdx, mango.indexOf('\n    // /api/admin/student/:uid/extend', cIdx)) : '';
 check('전제: contact PATCH 블록을 잘라 냈다', cSrc.length > 500);
