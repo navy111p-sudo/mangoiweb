@@ -69,6 +69,7 @@ const cut = (name, open, close) => {
 
 // ── ⓪ 전제: 표와 함수를 실제로 오려 냈는가 ────────────────────────
 const btsSrc = cut('var BTS_BOOKS = [', '[', ']');
+const siuSrc = cut('var SIU_BOOKS = [', '[', ']');
 const lvlSrc = cut('var LEVEL_CATALOG = [', '[', ']');
 const bandSrc = (() => {
   const i = S.indexOf('function btsBandOf(');
@@ -78,12 +79,15 @@ t('⓪ BTS_BOOKS 를 오려 냈다', !!btsSrc);
 t('⓪ LEVEL_CATALOG 를 오려 냈다', !!lvlSrc);
 t('⓪ btsBandOf 를 오려 냈다', !!bandSrc && bandSrc.includes('LEVEL_CATALOG'));
 
-let BOOKS = null, CAT = null, bandOf = null;
+let BOOKS = null, CAT = null, bandOf = null, SIUB = null, ALL = [];
 try {
   BOOKS = new Function('return ' + btsSrc)();
+  SIUB = siuSrc ? new Function('return ' + siuSrc)() : null;
+  ALL = (BOOKS || []).concat(SIUB || []);
   CAT = new Function('return ' + lvlSrc)();
   bandOf = new Function('LEVEL_CATALOG', bandSrc + '; return btsBandOf;')(CAT);
 } catch (e) { no('⓪ 평가 실패', String(e && e.message)); }
+t('⓪ SIU_BOOKS 를 오려 냈다', Array.isArray(SIUB) && SIUB.length > 0, SIUB && SIUB.length);
 
 if (BOOKS && CAT && bandOf) {
   // ── ① 표 자체 ──────────────────────────────────────────────────
@@ -363,6 +367,14 @@ const fnSrc = (name) => {
 const applySrc = fnSrc('function applyBtsBook(');
 const clearSrc = fnSrc('function clearBtsBook(');
 const wireSrc  = fnSrc('function wireSetup(');
+/* 📗 SIU 를 더하면서 생긴 공용 헬퍼 — «손으로 베끼지 말고» 소스에서 오려 내 주입합니다.
+   ⛔ 안 넣으면 샌드박스가 그 이름을 몰라 «깔끔한 FAIL» 이 아니라 크래시가 납니다
+      (2026-09-15 실측: bookIdOf is not defined 로 9건이 한꺼번에 죽었습니다). */
+const idSrc    = fnSrc('function bookIdOf(');
+const titleSrc = fnSrc('function bookTitleOf(');
+const allSrc   = fnSrc('function allBooks(');
+const bookOfSrc= fnSrc('function btsBookOf(');
+const HELPERS  = [idSrc, titleSrc].filter(Boolean).join('\n');
 /* ⛔ 전제 — 못 오려 내면 아래 검사가 «빈 문자열» 을 보고 조용히 통과합니다. */
 t('⑦ applyBtsBook·clearBtsBook·wireSetup 을 오려 냈다',
   !!applySrc && !!clearSrc && !!wireSrc && wireSrc.includes('addEventListener'));
@@ -398,6 +410,7 @@ async function wiringSection() {
       return Promise.resolve({ json: () => (r && typeof r.then === 'function' ? r : Promise.resolve(r)) }); };
     const src = `var WCTX = {}; var LESSON_TOPIC = ''; var LESSON_TOPIC_URL = '원래주제';
        var BTS_KEY = 'mangoi_warmup_bts'; var _btsVol = 0;
+       ${HELPERS}
        ${lsnSrc}
        ${applySrc}
        ${clearSrc}
@@ -408,7 +421,8 @@ async function wiringSection() {
     const f = new Function('btsBookOf', 'btsBandOf', 'setLevel', 'levelLabel', 'addMsg',
       'updateTopicChip', 'setupEl', 'document', 'localStorage', 'fetch', 'isZh',
       'startWarmup', 'startProbe', 'setupGoBack', 'setAge', 'setWarmLang', 'renderSetup', src);
-    const api = f((v) => (BOOKS.find((b) => b.v === Number(v)) || null), () => 0, () => {},
+    /* ⛔ Number(v) 로 견주지 마세요 — SIU id('siu015')가 NaN 이 되어 영영 안 걸립니다. */
+    const api = f((v) => (ALL.find((b) => String(b.v) === String(v)) || null), () => 0, () => {},
       () => '', () => {}, () => {}, () => box, doc, LS, fake, () => !!o.zh,
       () => {}, () => {}, () => {}, () => {}, () => {}, () => {});
     /* «화면을 누른다» — 위임 클릭이 보는 모양 그대로 만든다. */
@@ -541,7 +555,9 @@ await wiringSection();
                    get textContent() { return String(this.innerHTML).replace(/<[^>]*>/g, ''); } };
       const doc = { getElementById: (id) => (id === 'wusBookNow' ? el : null) };
       const f = new Function('document', 'isZh', '_btsVol', 'btsLessonNow',
-        `${escSrc || ''}\n${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
+        `${escSrc || ''}\nvar BTS_BOOKS = ${btsSrc || '[]'};\nvar SIU_BOOKS = ${siuSrc || '[]'};
+         ${allSrc || ''}\n${idSrc || ''}\n${titleSrc || ''}\n${bookOfSrc || ''}
+         ${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
            text: document.getElementById('wusBookNow').textContent };`);
       return f(doc, () => zh, vol, () => lesson);
     };
@@ -579,6 +595,130 @@ await wiringSection();
   const iBn = S.indexOf('id="wusBookNow"'), iSt = S.indexOf('id="wusStart"');
   t('⑧ 마크업에서 시작 버튼보다 앞에 있다', iBn > 0 && iSt > 0 && iBn < iSt, [iBn, iSt]);
 }
+
+/* ══ ⑨ 📗 SIU BASIC — 단계로 갈라 보여 준다 (2026-09-15) ═══════════════════
+   [왜] Mai 가 SIU BASIC 29권을 올렸고 사장님이 «단계별로 나눠서» 를 고르셨습니다.
+     BTS 는 «권 번호 = 레벨» 인데 SIU 는 전부 같은 한 레벨이라, 그 구조에 그냥
+     못 넣습니다. 섞으면 7살 학생 목록에 «Job interview» 가 올라옵니다.
+   ⛔ «그 글자가 있는가» 로 묻지 마세요 — 목록 함수를 오려 내 «실제로 돌려»
+      무슨 HTML 이 나오는지 봅니다. 그리고 「SIU 가 위」 옆에 **「BTS 는 그대로」를
+      짝으로** 둡니다 — 짝이 없으면 «전부 SIU 로 바꾸기» 도 통과합니다. */
+if (Array.isArray(SIUB) && SIUB.length) {
+  // ── 표 자체 ──────────────────────────────────────────────────────
+  t('⑨ SIU 권이 하나 이상', SIUB.length > 0, SIUB.length);
+  t('⑨ 모든 권에 D1 이름(book)', SIUB.every(b => typeof b.book === 'string' && /^SIU BASIC \d{3} - /.test(b.book)),
+    SIUB.filter(b => !/^SIU BASIC \d{3} - /.test(String(b.book || ''))).map(b => b.v));
+  t('⑨ 모든 권에 영어 주제', SIUB.every(b => typeof b.en === 'string' && b.en.trim()),
+    SIUB.filter(b => !(b.en || '').trim()).map(b => b.v));
+  t('⑨ 모든 권에 한국어 안내', SIUB.every(b => typeof b.ko === 'string' && b.ko.trim()),
+    SIUB.filter(b => !(b.ko || '').trim()).map(b => b.v));
+  t('⑨ 영어 주제에 한글이 없다(AI 에게 가는 값)', SIUB.every(b => !/[가-힣]/.test(b.en)),
+    SIUB.filter(b => /[가-힣]/.test(b.en)).map(b => b.v));
+  t('⑨ 모든 권에 s:"SIU" 표시', SIUB.every(b => b.s === 'SIU'), SIUB.filter(b => b.s !== 'SIU').map(b => b.v));
+  const ids = ALL.map(b => String(b.v));
+  t('⑨ 두 표를 합쳐도 id 가 겹치지 않는다', new Set(ids).size === ids.length,
+    ids.length - new Set(ids).size);
+  /* ⚠️ 012 는 서버에 없습니다 — 없는 교재를 목록에 만들면 «골랐는데 아무것도 없는» 교재가 됩니다. */
+  t('⑨ 서버에 없는 012 를 지어내지 않았다', !SIUB.some(b => /^SIU BASIC 012\b/.test(String(b.book || ''))),
+    SIUB.filter(b => /012/.test(String(b.book || ''))).map(b => b.book));
+
+  // ── bookIdOf — parseInt 함정 ─────────────────────────────────────
+  if (idSrc) {
+    const idOf = new Function(idSrc + '; return bookIdOf;')();
+    t('⑨ bookIdOf — BTS 는 숫자', idOf('5') === 5 && idOf(5) === 5, [idOf('5'), idOf(5)]);
+    t('⑨ bookIdOf — SIU 는 문자열 그대로', idOf('siu015') === 'siu015', idOf('siu015'));
+    t('⑨ bookIdOf — 0·빈값은 «안 고름»', idOf('0') === 0 && idOf('') === 0 && idOf(null) === 0,
+      [idOf('0'), idOf(''), idOf(null)]);
+    /* 🪤 이 한 줄이 이 절의 핵심입니다 — parseInt 로 되돌리면 SIU 가 0 이 됩니다. */
+    t('⑨ bookIdOf — SIU 가 0 으로 떨어지지 않는다(짝)', idOf('siu015') !== 0, idOf('siu015'));
+  } else no('⑨ bookIdOf 를 오려 내지 못했다');
+
+  // ── btsBookOf — 두 표를 다 찾는가 ───────────────────────────────
+  if (bookOfSrc && idSrc && allSrc) {
+    const find = new Function('BTS_BOOKS', 'SIU_BOOKS',
+      `${allSrc}\n${idSrc}\n${bookOfSrc}\nreturn btsBookOf;`)(BOOKS, SIUB);
+    const anySiu = SIUB[0];
+    t('⑨ btsBookOf — BTS 를 찾는다', !!find(BOOKS[0].v), !!find(BOOKS[0].v));
+    t('⑨ btsBookOf — SIU 도 찾는다(짝)', !!find(anySiu.v) && find(anySiu.v).s === 'SIU', anySiu.v);
+    /* ⚠️ localStorage 에서 복원하면 «언제나 문자열» 입니다 — === 로 견주면 BTS 가 안 걸립니다. */
+    t('⑨ btsBookOf — 문자열로 복원해도 BTS 를 찾는다', !!find(String(BOOKS[0].v)), String(BOOKS[0].v));
+    t('⑨ btsBookOf — 모르는 값은 못 찾는다(짝)', find('siu999') === null && find(0) === null,
+      [find('siu999'), find(0)]);
+  } else no('⑨ btsBookOf/allBooks 를 오려 내지 못했다');
+
+  // ── 목록 — 단계로 갈리는가 ──────────────────────────────────────
+  const listSrc = fnSrc('function btsListHtml(');
+  t('⑨ btsListHtml 을 오려 냈다', !!listSrc && listSrc.includes('SIU_BAND_MIN'), !!listSrc);
+  const minM = S.match(/var\s+SIU_BAND_MIN\s*=\s*(\d+)/);
+  t('⑨ SIU_BAND_MIN 을 소스에서 읽었다', !!minM, minM && minM[1]);
+  if (listSrc && minM && bandOf) {
+    const MIN = Number(minM[1]);
+    const runList = (band) => {
+      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_BAND_MIN', '_warmLevel', '_btsVol',
+        'btsBandOf', 'escapeHtml', 'bookTitleOf',
+        `${listSrc}\nreturn btsListHtml();`);
+      return f(BOOKS, SIUB, MIN, band, 0, bandOf,
+        (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
+        new Function(titleSrc + '; return bookTitleOf;')());
+    };
+    /* «위에 펼쳐진 목록» 만 떼어 본다 — <details> 안은 접혀 있는 쪽이다. */
+    const openPart = (h) => { const i = h.indexOf('<details'); return i < 0 ? h : h.slice(0, i); };
+    try {
+      const low  = runList(1);          // 1단계 — BTS 가 먼저여야
+      const high = runList(MIN);        // 5단계 — SIU 가 먼저여야
+      const lowOpen = openPart(low), highOpen = openPart(high);
+      t('⑨ 낮은 단계에서는 BTS 가 위에 펼쳐진다',
+        /data-bts="\d+"/.test(lowOpen) && !/data-bts="siu/.test(lowOpen), lowOpen.slice(0, 120));
+      t('⑨ 높은 단계에서는 SIU 가 위에 펼쳐진다(짝)',
+        /data-bts="siu/.test(highOpen), highOpen.slice(0, 160));
+      /* ⛔ «안 보이게» 가 아니라 «접어 둔다» — 어느 단계에서든 다 고를 수 있어야 합니다. */
+      t('⑨ 낮은 단계에서도 SIU 를 고를 수는 있다(접힌 채)', /data-bts="siu/.test(low), null);
+      t('⑨ 높은 단계에서도 BTS 를 고를 수는 있다(접힌 채)', /data-bts="\d+"/.test(high.slice(high.indexOf('<details'))), null);
+      /* 짝 — «전부 SIU 로 바꾸기» 를 막습니다. */
+      t('⑨ 낮은 단계 목록에 BTS 가 실제로 있다(짝)',
+        (lowOpen.match(/data-bts="\d+"/g) || []).length >= 2, (lowOpen.match(/data-bts="\d+"/g) || []).length);
+      t('⑨ «자유 대화» 는 두 단계 모두에 남아 있다',
+        /data-bts="0"/.test(low) && /data-bts="0"/.test(high), null);
+      t('⑨ SIU 권 수만큼 다 그린다',
+        (high.match(/data-bts="siu/g) || []).length === SIUB.length,
+        (high.match(/data-bts="siu/g) || []).length);
+    } catch (e) { no('⑨ 목록 평가 실패', String(e && e.message)); }
+  }
+
+  // ── applyBtsBook — SIU 는 D1 이름을 «그대로» 보낸다 ─────────────
+  if (applySrc && idSrc && titleSrc && allSrc && bookOfSrc) {
+    const runApply = (v) => {
+      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'setLevel', 'levelLabel', 'addMsg',
+        'updateTopicChip', 'localStorage', 'btsRenderLessonRow', 'btsLoadLessons', 'btsBandOf',
+        `var WCTX = {}; var LESSON_TOPIC = ''; var BTS_KEY = 'k'; var BTS_LSN_KEY = 'k2';
+         var _btsVol = 0, _btsLessons = [], _btsLessonKey = '', _btsFetchSeq = 0;
+         var _lessonCalls = 0;
+         ${allSrc}\n${idSrc}\n${titleSrc}\n${bookOfSrc}
+         var _realLoad = btsLoadLessons; btsLoadLessons = function(x){ _lessonCalls++; };
+         ${applySrc}
+         var ok = applyBtsBook(${JSON.stringify(v)}, false, true);
+         return { ok: ok, wctx: WCTX, topic: LESSON_TOPIC, vol: _btsVol, lessonCalls: _lessonCalls };`);
+      return f(BOOKS, SIUB, () => {}, () => '', () => {}, () => {},
+        { setItem(){}, removeItem(){} }, () => {}, () => {}, bandOf);
+    };
+    try {
+      const siu = runApply(SIUB[0].v);
+      const bts = runApply(BOOKS[0].v);
+      t('⑨ SIU 를 고르면 WCTX.textbook 이 D1 이름 «그대로»',
+        siu.wctx.textbook === SIUB[0].book, siu.wctx.textbook);
+      /* ⛔ 없는 Lv 를 지어내면 서버가 엉뚱한 레벨로 문장을 찾습니다. */
+      t('⑨ SIU 에는 Lv 를 지어내지 않는다', siu.wctx.level === '', JSON.stringify(siu.wctx.level));
+      t('⑨ SIU 는 과를 부르지 않는다(한 권 = 한 과)', siu.lessonCalls === 0, siu.lessonCalls);
+      t('⑨ SIU 주제가 AI 에게 간다', siu.topic === SIUB[0].en, siu.topic);
+      /* ── 짝: BTS 는 한 글자도 안 바뀌어야 한다 ── */
+      t('⑨ BTS 는 예전처럼 «BTS N (주제)» 를 보낸다(짝)',
+        bts.wctx.textbook === 'BTS ' + BOOKS[0].v + ' (' + BOOKS[0].en + ')', bts.wctx.textbook);
+      t('⑨ BTS 는 Lv 를 그대로 보낸다(짝)', bts.wctx.level === 'Lv ' + BOOKS[0].v, bts.wctx.level);
+      t('⑨ BTS 는 과를 부른다(짝)', bts.lessonCalls === 1, bts.lessonCalls);
+    } catch (e) { no('⑨ applyBtsBook 평가 실패', String(e && e.message)); }
+  } else no('⑨ applyBtsBook 주변을 오려 내지 못했다');
+} else no('⑨ SIU_BOOKS 를 못 읽어 이 절을 돌리지 못했다');
 
 const label = 'warmup_bts_book_harness';
 console.log(`\n▶ ${label}`);

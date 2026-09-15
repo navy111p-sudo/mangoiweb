@@ -1212,9 +1212,72 @@ var BTS_BOOKS = [
   {v:33, en:'Computer Games, Popular Music, Professional Sports, Public Transportation', ko:'게임 · 음악 · 프로스포츠 · 대중교통'},
   {v:34, en:'Taking Risks, Possibilities, Music, Hopes and Dreams', ko:'도전 · 가능성 · 음악 · 꿈'}
 ];
+/* 📗 SIU BASIC — 청소년·성인 회화 교재 (2026-09-15 사장님 결정으로 추가)
+   [근거] 지어낸 값이 아니라 운영 D1 `textbook_files` 의 «책 이름» 실측입니다
+     (2026-09-15 · 29권 438장 · 전부 active). Mai 가 그날 올린 것입니다.
+   ⚠️ book 은 D1 이름 «그대로» 여야 합니다 — 나중에 이 교재의 복습퀴즈(review_quizzes)가
+      생기면 서버(warmupLessonContext)가 LOWER(textbook)=LOWER(?) «정확일치» 로 그 이름을
+      찾아 «오늘 배울 핵심 문장» 을 붙입니다. 008·011·026 의 공백 두 칸은 오타가 아니라
+      «지금 D1 에 그렇게 들어 있는 값» 입니다.
+      ⛔ D1 을 고치면 이 표도 «함께» 고치세요 — 한쪽만 고치면 조용히 안 붙습니다.
+   ⚠️ 012 는 서버에 없어서 뺐습니다 — 없는 교재를 목록에 만들지 않습니다.
+   ⛔ BTS 처럼 «번호 = 레벨» 이 아닙니다. SIU BASIC 은 전부 같은 한 레벨이라
+      권마다 난이도를 매기지 않습니다(그런 자료가 없습니다 — 지어내지 않습니다).
+      대신 SIU_BAND_MIN 한 줄로 «이 단계 이상에서 먼저 보인다» 만 정합니다.
+   ⛔ en 은 AI 에게 가는 주제이고 ko 는 학생이 고를 때 읽는 안내입니다 — 번역으로만 적지 마세요. */
+var SIU_BAND_MIN = 5;   /* 5단계(중급) 이상 — 2026-09-15 사장님 결정. BTS 는 낮은 단계, SIU 는 높은 단계 */
+var SIU_BOOKS = [
+  {v:'siu001', s:'SIU', book:'SIU BASIC 001 - A talk with you', en:'A talk with you', ko:'서로 이야기 나누기'},
+  {v:'siu002', s:'SIU', book:'SIU BASIC 002 - About you', en:'About you', ko:'나에 대해 말하기'},
+  {v:'siu003', s:'SIU', book:'SIU BASIC 003 - Are there reasons why', en:'Are there reasons why', ko:'이유를 들어 말하기'},
+  {v:'siu004', s:'SIU', book:'SIU BASIC 004 - Are you', en:'Are you', ko:'나는 어떤 사람인가'},
+  {v:'siu005', s:'SIU', book:'SIU BASIC 005 - At a certain age', en:'At a certain age', ko:'나이와 시기'},
+  {v:'siu006', s:'SIU', book:'SIU BASIC 006 - All around me', en:'All around me', ko:'내 주변 이야기'},
+  {v:'siu007', s:'SIU', book:'SIU BASIC 007 - At School', en:'At School', ko:'학교에서'},
+  {v:'siu008', s:'SIU', book:'SIU BASIC 008 - Celebrations  Special Days', en:'Celebrations, Special Days', ko:'기념일과 특별한 날'},
+  {v:'siu009', s:'SIU', book:'SIU BASIC 009 - Concerning You', en:'Concerning You', ko:'나와 관련된 것들'},
+  {v:'siu010', s:'SIU', book:'SIU BASIC 010 - Does it matter', en:'Does it matter', ko:'중요한 것과 아닌 것'},
+  {v:'siu011', s:'SIU', book:'SIU BASIC 011 - Fashion  and Appearance', en:'Fashion and Appearance', ko:'패션과 겉모습'},
+  {v:'siu013', s:'SIU', book:'SIU BASIC 013 - Food & eating', en:'Food and eating', ko:'음식과 식사'},
+  {v:'siu014', s:'SIU', book:'SIU BASIC 014 - Friends', en:'Friends', ko:'친구'},
+  {v:'siu015', s:'SIU', book:'SIU BASIC 015 - Habits', en:'Habits', ko:'습관'},
+  {v:'siu016', s:'SIU', book:'SIU BASIC 016 - I would like to', en:'I would like to', ko:'하고 싶은 것 말하기'},
+  {v:'siu017', s:'SIU', book:'SIU BASIC 017 - Internet', en:'Internet', ko:'인터넷'},
+  {v:'siu018', s:'SIU', book:'SIU BASIC 018 - Health', en:'Health', ko:'건강'},
+  {v:'siu019', s:'SIU', book:'SIU BASIC 019 - Jobs', en:'Jobs', ko:'직업'},
+  {v:'siu020', s:'SIU', book:'SIU BASIC 020 - Korea', en:'Korea', ko:'한국'},
+  {v:'siu021', s:'SIU', book:'SIU BASIC 021 - Likes and Dislikes', en:'Likes and Dislikes', ko:'좋아하는 것과 싫어하는 것'},
+  {v:'siu022', s:'SIU', book:'SIU BASIC 022 - Manners and Meeting People', en:'Manners and Meeting People', ko:'예절과 사람 만나기'},
+  {v:'siu023', s:'SIU', book:'SIU BASIC 023 - Miscellaneous', en:'Miscellaneous', ko:'여러 가지 주제'},
+  {v:'siu024', s:'SIU', book:'SIU BASIC 024 - Money and Shopping', en:'Money and Shopping', ko:'돈과 쇼핑'},
+  {v:'siu025', s:'SIU', book:'SIU BASIC 025 - Personality', en:'Personality', ko:'성격'},
+  {v:'siu026', s:'SIU', book:'SIU BASIC 026 - Should  you', en:'Should you', ko:'해야 할까 말까'},
+  {v:'siu027', s:'SIU', book:'SIU BASIC 027 - Weather and the Seasons', en:'Weather and the Seasons', ko:'날씨와 계절'},
+  {v:'siu028', s:'SIU', book:'SIU BASIC 028 - When did you first', en:'When did you first', ko:'처음 해 본 일'},
+  {v:'siu029', s:'SIU', book:'SIU BASIC 029 - Would you ever', en:'Would you ever', ko:'해 볼 의향 있나요'},
+  {v:'siu030', s:'SIU', book:'SIU BASIC 030 - Greatest, Most and Best', en:'Greatest, Most and Best', ko:'최고 · 최상급으로 말하기'},
+];
+/* 두 시리즈를 한 번에 훑을 때 쓴다. ⛔ 여기서 새 배열을 만들어 캐시하지 마세요 —
+   표가 늘어도 화면이 그대로 따라오게 «부를 때마다» 이어 붙입니다(29+34 라 비용이 없습니다). */
+function allBooks(){ return BTS_BOOKS.concat(SIU_BOOKS); }
+/* 🔑 교재 id — BTS 는 숫자(5), SIU 는 문자열('siu015').
+   ⛔ parseInt 로 읽지 마세요 — SIU 가 NaN → 0 이 되어 «자유 대화» 로 조용히 떨어집니다. */
+function bookIdOf(raw){
+  var t = String(raw == null ? '' : raw).trim();
+  if(!t || t === '0') return 0;
+  return /^\d+$/.test(t) ? parseInt(t,10) : t;
+}
+/* 이 교재를 화면에 뭐라고 적을까 — «SIU BASIC 015» · «BTS 5» */
+function bookTitleOf(b){
+  if(!b) return '';
+  if(b.s === 'SIU') return String(b.book || '').split(' - ')[0];
+  return 'BTS ' + b.v;
+}
 function btsBookOf(v){
-  v = parseInt(v,10); if(!(v>0)) return null;
-  for(var i=0;i<BTS_BOOKS.length;i++){ if(BTS_BOOKS[i].v === v) return BTS_BOOKS[i]; }
+  var id = bookIdOf(v); if(!id) return null;
+  var all = allBooks();
+  /* ⛔ === 로 견주지 마세요 — 저장소에서 읽은 값은 언제나 문자열이라 BTS 가 안 걸립니다. */
+  for(var i=0;i<all.length;i++){ if(String(all[i].v) === String(id)) return all[i]; }
   return null;
 }
 /* 🪜 권 번호 → 대화 단계(1~8).
@@ -1532,7 +1595,8 @@ function closeSetup(){
        ⚠️ data-lvl 검사보다 «앞» 에 둔다 — 아래 parseInt 는 없는 속성에 NaN 이지만
           여기서 끝내는 편이 뜻이 분명하다. */
     if(t.hasAttribute('data-bts')){
-      var bv = parseInt(t.getAttribute('data-bts'),10) || 0;
+      /* ⛔ parseInt 로 읽지 마세요 — SIU id('siu015')가 0 이 되어 «자유 대화» 로 떨어집니다. */
+      var bv = bookIdOf(t.getAttribute('data-bts'));
       if(bv) applyBtsBook(bv, false, true); else clearBtsBook(false);
       renderSetup(); return;
     }
@@ -1631,7 +1695,7 @@ function startWarmup(){
     if(typeof addMsg==='function'){
       var _bb = btsBookOf(_btsVol);
       addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + levelLabel(_warmLevel)
-        + (_bb ? (' · 📘 BTS ' + _bb.v + ' ' + _bb.ko) : ' · 💬 자유 대화')
+        + (_bb ? (' · ' + (_bb.s==='SIU'?'📗':'📘') + ' ' + bookTitleOf(_bb) + ' ' + _bb.ko) : ' · 💬 자유 대화')
         + ' 로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
     }
     return;
@@ -1657,23 +1721,32 @@ var _btsVol = 0;                       /* 0 = 안 고름 = 자유 대화 */
       덮으면 «내가 고른 수준이 매번 되돌아간다» 가 됩니다. */
 function applyBtsBook(v, announce, syncBand){
   var b = btsBookOf(v); if(!b) return false;
+  var isSiu = (b.s === 'SIU');
   _btsVol = b.v;
-  WCTX.textbook  = 'BTS ' + b.v + ' (' + b.en + ')';
-  WCTX.level     = 'Lv ' + b.v;
+  /* 📗 SIU 는 «한 권 = 한 과» 라 D1 이름을 그대로 보냅니다 — 그래서 나중에 그 교재의
+     복습퀴즈가 생기면 서버가 정확일치로 찾아 문장을 붙입니다(화면은 고칠 것이 없습니다).
+     📘 BTS 는 «권» 이라 과를 고른 뒤에야 D1 이름이 정해집니다(btsPickLesson). */
+  WCTX.textbook  = isSiu ? b.book : ('BTS ' + b.v + ' (' + b.en + ')');
+  /* ⛔ SIU 에 Lv 를 지어내지 마세요 — 권마다 난이도가 없습니다. 모르면 비워 둡니다. */
+  WCTX.level     = isSiu ? '' : ('Lv ' + b.v);
   WCTX.lesson_no = 0;
   LESSON_TOPIC   = b.en;
   try{ localStorage.setItem(BTS_KEY, String(b.v)); }catch(e){}
+  /* ⚠️ SIU 는 btsBandOf 가 0 입니다(권=레벨이 아님) → 단계를 건드리지 않습니다.
+     학생이 이미 고른 단계를 «교재를 골랐다» 는 이유로 바꾸면 안 됩니다. */
   var band = syncBand ? btsBandOf(b.v) : 0;
   if(band) setLevel(band, false);
   /* 권이 바뀌면 «과» 는 처음부터 — 옛 권의 과를 물고 있으면 남의 교재 문장을 보냅니다. */
   _btsLessons = []; _btsLessonKey = ''; _btsFetchSeq++;
   btsRenderLessonRow();
-  btsLoadLessons(b.v);
+  /* ⛔ SIU 는 과를 부르지 않습니다 — 한 권이 곧 한 과라 WCTX.textbook 이 이미 최종 이름입니다.
+     부르면 서버가 «그런 코스 없음» 을 돌려줘 과 줄이 빈 채로 깜빡일 뿐입니다. */
+  if(!isSiu) btsLoadLessons(b.v);
   if(typeof updateTopicChip === 'function') updateTopicChip();
   if(announce && typeof addMsg === 'function'){
-    addMsg('📘 오늘 교재를 «BTS ' + b.v + ' · ' + b.ko + '» 로 정했어요'
+    addMsg((isSiu?'📗':'📘') + ' 오늘 교재를 «' + bookTitleOf(b) + ' · ' + b.ko + '» 로 정했어요'
       + (band ? (' · 대화는 ' + levelLabel(band)) : '')
-      + '\n이 권의 주제로 이야기할게요!', 'sys');
+      + '\n이 ' + (isSiu?'과':'권') + '의 주제로 이야기할게요!', 'sys');
   }
   return true;
 }
@@ -1690,25 +1763,49 @@ function clearBtsBook(announce){
 }
 /* 설정 화면 목록 — 지금 단계에 맞는 권을 위에, 나머지는 접어 둡니다(32권이라 다 펴면 깁니다) */
 function btsListHtml(){
+  /* 📗📘 시리즈를 단계로 가른다 (2026-09-15 사장님 결정)
+       낮은 단계(1~4) → BTS(어린이 주제)를 먼저, SIU 는 접어 둔다
+       높은 단계(5~8) → SIU BASIC(회화 주제)을 먼저, BTS 는 접어 둔다
+     ⛔ 둘을 한 목록에 섞지 마세요 — 7살 학생 목록에 «Job interview» 가 올라옵니다.
+     ⛔ 「안 보이게」가 아니라 「접어 둔다」입니다 — 어느 단계에서든 다 고를 수 있어야 합니다
+        (어른이 쉬운 교재를, 아이가 어려운 교재를 고르는 일이 실제로 있습니다). */
+  var siuFirst = (_warmLevel >= SIU_BAND_MIN);
   var near = [], rest = [];
-  for(var i=0;i<BTS_BOOKS.length;i++){
-    (btsBandOf(BTS_BOOKS[i].v) === _warmLevel ? near : rest).push(BTS_BOOKS[i]);
+  if(siuFirst){
+    near = SIU_BOOKS.slice(); rest = BTS_BOOKS.slice();
+  } else {
+    for(var i=0;i<BTS_BOOKS.length;i++){
+      (btsBandOf(BTS_BOOKS[i].v) === _warmLevel ? near : rest).push(BTS_BOOKS[i]);
+    }
+    rest = rest.concat(SIU_BOOKS);
   }
   function item(b){
-    var on = (b.v === _btsVol);
-    return '<button type="button" class="wus-item'+(on?' on':'')+'" data-bts="'+b.v+'">'
-      + '<span class="wus-name">BTS ' + b.v + ' <span class="wus-lv">(Lv ' + b.v + ')</span>'
+    /* ⛔ === 로 견주지 마세요 — 저장소에서 복원한 값은 문자열일 수 있습니다. */
+    var on = (String(b.v) === String(_btsVol));
+    var siu = (b.s === 'SIU');
+    return '<button type="button" class="wus-item'+(on?' on':'')+'" data-bts="'+escapeHtml(String(b.v))+'">'
+      + '<span class="wus-name">' + escapeHtml(bookTitleOf(b))
+      + ' <span class="wus-lv">(' + (siu ? '회화' : ('Lv ' + b.v)) + ')</span>'
       + (on ? '<span class="wus-now">지금</span>' : '') + '</span>'
       + '<span class="wus-desc"><span class="wus-bts-topic">' + escapeHtml(b.en) + '</span><br>'
       + escapeHtml(b.ko) + '</span></button>';
   }
-  var h = '<div class="wus-list">'
+  /* 고른 교재가 «접힌 쪽» 에 있으면 그 상자를 펴 둔다 — 안 그러면 «지금» 표시가 숨습니다. */
+  var pickInRest = false;
+  for(var j=0;j<rest.length;j++){ if(String(rest[j].v) === String(_btsVol)) pickInRest = true; }
+  var h = '<div class="wus-hint" style="margin:2px 0 8px">'
+    + (siuFirst ? '📗 <b>SIU BASIC</b> — 청소년·성인 회화 주제 ' + SIU_BOOKS.length + '권'
+                : '📘 <b>BTS</b> — 지금 단계에 맞는 권')
+    + '</div>'
+    + '<div class="wus-list">'
     + '<button type="button" class="wus-item'+(_btsVol?'':' on')+'" data-bts="0">'
     + '<span class="wus-name">💬 교재 없이 자유 대화'+(_btsVol?'':'<span class="wus-now">지금</span>')+'</span>'
     + '<span class="wus-desc">지금까지처럼 일상 주제로 이야기해요</span></button>'
     + near.map(item).join('') + '</div>';
   if(rest.length){
-    h += '<details class="wus-more"><summary>전체 교재 보기 (' + BTS_BOOKS.length + '권)</summary>'
+    h += '<details class="wus-more"'+(pickInRest?' open':'')+'><summary>'
+       + (siuFirst ? '📘 BTS 교재도 보기' : '📗 SIU 회화 교재도 보기')
+       + ' (' + rest.length + '권)</summary>'
        + '<div class="wus-list">' + rest.map(item).join('') + '</div></details>';
   }
   return h;
@@ -1829,7 +1926,12 @@ function btsRenderBookNow(){
      지금 서버(parseEn)가 parseInt 로 정수를 주지만, 안전이 «서버 한 줄» 에만
      기대게 두지 않습니다. 같은 파일의 btsListHtml 도 상수에조차 escapeHtml 을 겁니다. */
   var lsn = (l && l.seq) ? (' 제 ' + escapeHtml(String(l.seq)) + '과') : '';
-  el.innerHTML = '📘 지금 교재 <b>BTS ' + _btsVol + lsn + '</b> '
+  /* 📗 SIU 는 한 권이 곧 한 과라 과 번호가 없습니다 — 없는 것을 지어내지 않습니다. */
+  var _b = btsBookOf(_btsVol);
+  var siu = !!(_b && _b.s === 'SIU');
+  el.innerHTML = (siu?'📗':'📘') + ' 지금 교재 <b>'
+    + escapeHtml(_b ? bookTitleOf(_b) : ('BTS ' + _btsVol))
+    + (siu ? '' : lsn) + '</b> '
     + '<span class="wus-bn-go">바꾸기 ↓</span>';
 }
 /* 과 고르개 — 과가 «둘 이상» 일 때만 보여 줍니다(하나뿐이면 고를 것이 없습니다).
@@ -1877,7 +1979,7 @@ function btsRenderLessonRow(){
    ⚠️ 저장값이 없으면 아무 일도 하지 않습니다 = 예전 그대로 자유 대화. */
 (function restoreBtsBook(){
   if(WCTX.textbook) return;
-  var v = 0; try{ v = parseInt(localStorage.getItem(BTS_KEY)||'0',10); }catch(e){}
+  var v = 0; try{ v = bookIdOf(localStorage.getItem(BTS_KEY)||'0'); }catch(e){}
   if(btsBookOf(v)) applyBtsBook(v, false, false);
 })();
 
