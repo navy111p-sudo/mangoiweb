@@ -100,15 +100,17 @@ ok('알람이 roomId 를 되살린다(안 하면 청소 로그가 room=- 로 남
      «입장 시각» 뿐이라, 입장 120초 뒤 끊고 재접속 후 또 120초 뒤 끊는 순환이 된다.
    ⛔ 문자열로 「그 조건이 있는가」만 물으면 `if (false && ...)` 한 글자에 뚫린다.
       그래서 판정 함수를 오려 내 **실제로 돌려** 답으로 묻는다. */
-{
-  function blockAt(src, openIdx) {
-    let d = 0;
-    for (let i = openIdx; i < src.length; i++) {
-      if (src[i] === '{') d++;
-      else if (src[i] === '}') { d--; if (d === 0) return src.slice(openIdx + 1, i); }
-    }
-    return '';
+/** 여는 괄호 위치에서 짝이 맞는 닫는 괄호까지 잘라 낸다(길이로 자르면 옆 코드를 먹는다). */
+function pairAt(src, openIdx, open = '{', close = '}') {
+  let d = 0;
+  for (let i = openIdx; i < src.length; i++) {
+    if (src[i] === open) d++;
+    else if (src[i] === close) { d--; if (d === 0) return src.slice(openIdx + 1, i); }
   }
+  return '';
+}
+const blockAt = (src, i) => pairAt(src, i, '{', '}');
+{
   let verdict = null, cutErr = '';
   try {
     const sig = DO.match(/static livenessVerdict\(([\s\S]*?)\)\s*:/);
@@ -159,12 +161,56 @@ ok('알람이 roomId 를 되살린다(안 하면 청소 로그가 room=- 로 남
   ok(`그 상한이 «사실상 무한» 은 아니다 (${np || '없음'}초 <= 1800초)`, np > 0 && np <= 1800);
 }
 
-/* ⛔ 판정을 alarm() 안에 도로 복제하면 위 «실제로 돌리는» 검사가 헛돈다. */
-ok('알람은 판정을 복제하지 않고 순수 함수를 부른다',
-   /const verdict = VideoCallRoom\.livenessVerdict\(/.test(DO)
-   && !/if \(now - seen <= VideoCallRoom\.LIVENESS_STALE_MS\)/.test(DO));
-ok('끊을 때 세 근거를 각각 남긴다(「왜 끊었나」를 사후에 가르려면 합친 값만으론 모자람)',
-   /silent=\$\{[\s\S]{0,400}auto=\$\{[\s\S]{0,300}mem=\$\{[\s\S]{0,300}att=\$\{/.test(DO));
+/* ──────────────────────────────────────────────────────────────────────────
+   🔴 (2026-09-15) «배선» 검사 — 판정 함수가 옳아도 alarm() 이 그것을 안 쓰면 아무것도 안 지켜진다.
+   [실측] 이 절을 넣기 «전» 에는 아래 셋이 **전부 51/0 초록**이었다:
+     ⓐ grace 갈래 통째 삭제(= 수리가 no-op)  ⓑ `if (verdict === 'grace')` → `if (false)`
+     ⓒ `const autoAt = this.autoSeenOf(ws)` → `const autoAt = 0`
+   ⓒ 가 제일 나쁘다 — **모든** 소켓이 600초 유예를 받아 2026-08-20 유령 보호가 통째로 풀리는데
+   «고치려던 것과 반대 방향» 사고다. 그래서 «부르는가» 가 아니라 «무엇을 넘기는가» 로 묻는다. */
+{
+  const ai = DO.indexOf('async alarm()');
+  const alarmBody = ai > 0 ? blockAt(DO, DO.indexOf('{', ai)) : '';
+  ok('알람 몸통을 중괄호 짝으로 잘라 냈다(전제 — 못 자르면 아래가 빈 문자열을 보고 조용히 통과)',
+     alarmBody.length > 200);
+
+  /* 판정 호출의 인자 묶음만 괄호 짝으로 오려 낸다(길이로 자르면 옆 줄을 먹는다). */
+  const ci = alarmBody.indexOf('VideoCallRoom.livenessVerdict(');
+  const args = ci >= 0 ? pairAt(alarmBody, alarmBody.indexOf('(', ci), '(', ')') : '';
+  const parts = [];
+  { let d = 0, cur = '';
+    for (const ch of args) {
+      if (ch === '(' || ch === '[') d++;
+      else if (ch === ')' || ch === ']') d--;
+      if (ch === ',' && d === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) parts.push(cur.trim()); }
+  /* ⛔ 변수 이름을 하니스에 적지 말고 «소스에서 읽어» 쓴다(이름만 바꾸는 리팩터에 거짓 FAIL 방지). */
+  const av = (alarmBody.match(/const\s+(\w+)\s*=\s*this\.autoSeenOf\(/) || [])[1];
+  ok('알람이 ping 근거를 autoSeenOf() 로 구한다', !!av);
+  ok('판정에 넘기는 ping 근거가 «그 변수» 다(리터럴 0 을 넘기면 유령 보호가 전 소켓으로 풀린다)',
+     parts.length >= 5 && !!av && parts[2] === av);
+
+  /* 유예 갈래가 «있고 안 끊는가» — 그리고 짝으로, 끊는 길이 여전히 있는가. */
+  const gi = alarmBody.indexOf("verdict === 'grace'");
+  const graceBody = gi > 0 ? blockAt(alarmBody, alarmBody.indexOf('{', gi)) : '';
+  ok('유예 갈래가 남아 있다(이 갈래가 없으면 수리가 통째로 no-op)', gi > 0);
+  ok('유예 갈래는 아무것도 닫지 않고 넘어간다', /continue;/.test(graceBody) && !/ws\.close\(/.test(graceBody));
+  ok('그래도 끊는 길은 남아 있다(짝 — 없으면 «전부 살려 두기» 도 통과)',
+     /killed\+\+/.test(alarmBody) && /ws\.close\(4003, 'liveness-timeout'\)/.test(alarmBody));
+
+  /* 끊을 때의 로그만 잘라서 본다 — 파일 전체에 길이 창을 걸면 유예 로그와 섞여 «순서만» 보게 된다. */
+  const kb = alarmBody.slice(alarmBody.indexOf('killed++'));
+  ok('끊을 때 세 근거를 각각 남긴다(「왜 끊었나」를 사후에 가르려면 합친 값만으론 모자람)',
+     /auto=\$\{/.test(kb) && /mem=\$\{/.test(kb) && /att=\$\{/.test(kb) && /silent=\$\{/.test(kb));
+
+  /* ⛔ 판정을 alarm() 안에 도로 복제하면 위 «실제로 돌리는» 검사가 헛돈다.
+     ⚠️ 부정 검사라 주석을 벗겨 낸 사본으로 판정한다 — 「예전엔 이랬다」고 주석에 적으면 거짓 FAIL. */
+  const bare = alarmBody.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok('알람은 판정을 복제하지 않고 순수 함수를 부른다',
+     /const verdict = VideoCallRoom\.livenessVerdict\(/.test(bare)
+     && !/if \(now - seen <= VideoCallRoom\.LIVENESS_STALE_MS\)/.test(bare));
+}
 /* ⛔ 이모지는 Unicode 13 이상 금지(Win10 에서 두부로 보임 — CLAUDE.md 1-4).
    이 파일이 처음 짜였을 때 심장 이모지(U+1FAC0, Unicode 13.0)를 8곳에 썼다가 걸렸다.
    경계를 U+1FAC0 으로 잡는 이유 — 같은 블록(Extended-A) 안에서도 U+1FA70~1FA9F 는
