@@ -518,7 +518,10 @@
 
         <div id="wusBooksSec">
           <div class="wus-sub">📘 오늘 배울 교재 <span class="wus-opt">(안 골라도 돼요)</span></div>
-          <div class="wus-hint">BTS 교재를 고르면 <b>그 권의 주제로</b> 이야기해요. 안 고르면 지금처럼 <b>자유 대화</b>예요.</div>
+          <!-- ⚠️ 한 화면이 한 가지를 말해야 합니다 — 5단계 이상에서는 이 줄 «바로 밑» 이 SIU 목록입니다.
+               「BTS 교재를 고르면」이라고만 적으면 그 학생에게는 화면이 딴말을 합니다(2026-09-15).
+               어느 시리즈인지는 btsListHtml 이 그리는 동적 안내 줄이 말합니다. -->
+          <div class="wus-hint">교재를 고르면 <b>그 교재의 주제로</b> 이야기해요. 안 고르면 지금처럼 <b>자유 대화</b>예요.</div>
           <div id="wusBooks"></div>
           <div id="wusLessonSec" hidden>
             <label class="wus-lsn-row">
@@ -1276,7 +1279,10 @@ function bookTitleOf(b){
 function btsBookOf(v){
   var id = bookIdOf(v); if(!id) return null;
   var all = allBooks();
-  /* ⛔ === 로 견주지 마세요 — 저장소에서 읽은 값은 언제나 문자열이라 BTS 가 안 걸립니다. */
+  /* ℹ️ 바로 위 bookIdOf 가 이미 «숫자 or 문자열» 로 맞춰 주므로 === 로도 맞습니다.
+     String() 은 그 전제가 나중에 깨져도 안 틀리게 두는 방어용 중복입니다 —
+     이것만 되돌려도 동작은 같습니다(2026-09-15 변이시험 실측: 등가 변형).
+     ⛔ 대신 bookIdOf 를 parseInt 로 되돌리는 것은 «진짜» 회귀입니다(SIU 가 0 이 됩니다). */
   for(var i=0;i<all.length;i++){ if(String(all[i].v) === String(id)) return all[i]; }
   return null;
 }
@@ -1780,7 +1786,8 @@ function btsListHtml(){
     rest = rest.concat(SIU_BOOKS);
   }
   function item(b){
-    /* ⛔ === 로 견주지 마세요 — 저장소에서 복원한 값은 문자열일 수 있습니다. */
+    /* ℹ️ _btsVol 은 «0 또는 표의 v» 뿐이라(대입 3곳 전부 그렇습니다) === 로도 맞습니다 —
+       String() 은 방어용 중복입니다. 되돌려도 동작은 같습니다(등가 변형). */
     var on = (String(b.v) === String(_btsVol));
     var siu = (b.s === 'SIU');
     return '<button type="button" class="wus-item'+(on?' on':'')+'" data-bts="'+escapeHtml(String(b.v))+'">'
@@ -1892,7 +1899,10 @@ function btsPickLesson(key, save){
   if(!l && _btsLessons.length) l = _btsLessons[0];
   _btsLessonKey = l ? String(l.key || '') : '';
   if(b){
-    WCTX.textbook = _btsLessonKey || ('BTS ' + b.v + ' (' + b.en + ')');
+    /* 📗 SIU 는 여기로 오지 않습니다(한 권 = 한 과라 과 목록을 안 부릅니다) — 그런데 혹시
+       오면 «BTS siu015 (Habits)» 가 되어, 「D1 이름 그대로 보낸다」는 이 기능의 전제가
+       **에러 없이** 무너집니다. 가드가 풀리는 날을 위한 한 줄입니다(2026-09-15 함정 대조). */
+    WCTX.textbook = _btsLessonKey || (b.s === 'SIU' ? b.book : ('BTS ' + b.v + ' (' + b.en + ')'));
     /* 과 제목이 있으면 그것이 «더 좁은 진짜 주제» 입니다(권 주제의 한 부분). 없으면 권 주제. */
     LESSON_TOPIC = (l && l.title) ? String(l.title) : b.en;
   }

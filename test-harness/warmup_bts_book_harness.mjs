@@ -573,6 +573,15 @@ await wiringSection();
       t('⑧ 중국어면 감춘다(교재 섹션과 짝)', zh.hidden === true, zh);
       /* 🛡️ 서버가 준 값은 이스케이프해서 넣는가 — 지금 서버는 정수를 주지만
             안전이 «서버 한 줄» 에만 기대지 않게 합니다. */
+      /* 📗 SIU 도 한 번 그려 봅니다 — 안 넣으면 그 갈래를 되돌려 화면이
+         「📘 지금 교재 BTS siu015」라는 «눈에 보이는 거짓말» 을 해도 110/0 통과합니다
+         (2026-09-15 함정 대조 실측). 브라우저는 잡지만 게이트가 안 물어 갑니다. */
+      if (Array.isArray(SIUB) && SIUB.length) {
+        const sb = run(SIUB[0].v, false, null);
+        t('⑧ SIU 를 고르면 그 교재 이름을 말한다', /SIU BASIC/.test(sb.text), sb.text);
+        t('⑧ SIU 를 «BTS …» 라고 부르지 않는다(짝)', !/BTS/.test(sb.text), sb.text);
+        t('⑧ SIU 에는 과 번호를 지어내지 않는다', !/제 .*과/.test(sb.text), sb.text);
+      }
       const evil = run(1, false, { seq: '<img src=x onerror=1>', title: 'x' });
       t('⑧ 서버가 준 과 번호를 그대로 태그로 넣지 않는다',
         evil.text.indexOf('<img') < 0 && String(evil.text).indexOf('&lt;img') >= 0, evil.text);
@@ -653,11 +662,15 @@ if (Array.isArray(SIUB) && SIUB.length) {
   t('⑨ SIU_BAND_MIN 을 소스에서 읽었다', !!minM, minM && minM[1]);
   if (listSrc && minM && bandOf) {
     const MIN = Number(minM[1]);
-    const runList = (band) => {
+    /* ⚠️ vol 을 «반드시» 넘길 수 있어야 합니다 — 0 으로만 부르면 item() 의 `on`(「지금」 표시)과
+       pickInRest(고른 교재가 접힌 쪽이면 펴 두기) **두 갈래가 원리상 한 번도 안 돕니다**
+       (2026-09-15 함정 대조 실측: ` open` 을 지워도 110/0 통과). CLAUDE.md 「그 가드가
+       «실제로 일하는» 상태를 만들어 주세요」. */
+    const runList = (band, vol) => {
       const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_BAND_MIN', '_warmLevel', '_btsVol',
         'btsBandOf', 'escapeHtml', 'bookTitleOf',
         `${listSrc}\nreturn btsListHtml();`);
-      return f(BOOKS, SIUB, MIN, band, 0, bandOf,
+      return f(BOOKS, SIUB, MIN, band, vol === undefined ? 0 : vol, bandOf,
         (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
         new Function(titleSrc + '; return bookTitleOf;')());
@@ -683,6 +696,18 @@ if (Array.isArray(SIUB) && SIUB.length) {
       t('⑨ SIU 권 수만큼 다 그린다',
         (high.match(/data-bts="siu/g) || []).length === SIUB.length,
         (high.match(/data-bts="siu/g) || []).length);
+
+      /* ── 고른 교재가 «접힌 쪽» 에 있을 때 ── 낮은 단계에서 SIU 를 고른 상태.
+         ⛔ 이 두 검사가 없으면 ` open` 과 `on` 을 지워도 초록입니다(실측). */
+      const lowPicked = runList(1, SIUB[0].v);
+      t('⑨ 고른 교재가 접힌 쪽이면 그 상자를 펴 둔다', /<details[^>]*\sopen/.test(lowPicked),
+        (lowPicked.match(/<details[^>]*>/) || [''])[0]);
+      t('⑨ 고른 교재에 «지금» 표시가 붙는다',
+        new RegExp('class="wus-item on"[^>]*data-bts="' + SIUB[0].v + '"').test(lowPicked)
+        || /wus-item on[\s\S]{0,200}wus-now/.test(lowPicked), null);
+      /* 짝 — 안 고른 상태에서는 «저절로» 펴지지 않아야 합니다(「언제나 open」 을 막습니다). */
+      t('⑨ 아무것도 안 골랐으면 접힌 채로 둔다(짝)', !/<details[^>]*\sopen/.test(low),
+        (low.match(/<details[^>]*>/) || [''])[0]);
     } catch (e) { no('⑨ 목록 평가 실패', String(e && e.message)); }
   }
 
