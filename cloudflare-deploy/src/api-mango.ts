@@ -4018,10 +4018,11 @@ ${numbered}`;
            📞 전화번호·🏢 가맹점·소속도 override 에 적으려면 «진짜 user_id» 가 필요하다.
            `_ovTouch`·`_orgTouch` 는 마스킹에 안 걸린 칸이 하나라도 «문자열로» 왔는가
            (= 사람이 실제로 고쳤는가) — null 은 빈 문자열과 다르다. 🔴 (trap-check, 2026-09-15)
-           이 화면(admin/student.html)의 폼은 빈 칸을 `value || null` 로 보내므로 반드시
-           `typeof === 'string'` 로 걸러야 한다 — `String(v ?? '').trim()` 으로 null 까지 ''로
-           뭉개면 «안 건드린 칸» 이 «지우려는 칸」으로 오판된다(식을 오려 내 실제 payload 로
-           돌려 확인). */
+           이 화면(admin/student.html)의 폼(`phoneOut`)은 «원래 비어 있던 칸» 을 `null` 로,
+           «값이 있었는데 사람이 비운 칸» 만 `''` 로 보낸다(2026-09-16 부터. 그전에는 둘 다
+           `value || null` 이라 `''` 가 아예 안 왔다) — 그래서 반드시 `typeof === 'string'` 로
+           걸러야 한다. `String(v ?? '').trim()` 으로 null 까지 '' 로 뭉개면 «안 건드린 칸» 이
+           «지우려는 칸» 으로 오판된다(식을 오려 내 실제 payload 로 돌려 확인). */
         const _ovStu = (typeof b.student_phone === 'string' && !isMaskedValue(b.student_phone)) ? String(b.student_phone).trim() : undefined;
         const _ovPar = (typeof b.parent_phone  === 'string' && !isMaskedValue(b.parent_phone))  ? String(b.parent_phone).trim()  : undefined;
         const _ovTouch = (_ovStu !== undefined || _ovPar !== undefined);
@@ -4071,6 +4072,18 @@ ${numbered}`;
            ⛔ 이것을 「`null` 도 지우기로 받기」로 넓히지 말 것 — override 읽기가 실패해(fail-open)
               칸이 빈 채로 뜨는 날 «학교만» 고쳐 저장하는 것만으로 어제 넣은 번호가 지워진다
               (그 갈림은 화면이 «로드 때 값» 을 기억해서 내며, 서버는 null/'' 만 보고 판정한다).
+           🔴 **«지웠다» 가 «문자가 안 간다» 는 아니다 — 학생 쪽은 폴백이 «세 겹» 이다.**
+              `phonesForStudent`(notify-contacts.ts)가 `ovStudent || student_phone || **phone**`
+              순으로 읽는데 이 PATCH 의 `allowed` 에는 **`phone` 칸이 없다.** 게다가 카페24 야간
+              동기화가 학생 번호를 `student_phone` «과» `phone` **두 칸에** 넣는다(cafe24-sync.ts
+              의 `sPhone, sPhone`) ⟹ override 를 지우고 `student_phone` 을 NULL 로 만들어도
+              `phone` 이 남아 **문자가 계속 간다**(그 칸이 채워진 학생에게만. 실측 기록은
+              cafe24-sync.ts 의 「phone 9개」이고 오늘 값은 D1 로 확인할 것).
+              ⚠️ 학부모 쪽은 폴백이 `ovParent || parent_phone` 둘뿐이라 지우기가 그대로 먹는다 —
+                 **학생·학부모가 비대칭이다.** 그래서 화면 문구는 «문자가 안 갑니다» 라고
+                 단정하지 않고 «남은 번호가 있으면 그 번호로 갑니다» 라고만 말한다.
+              ⛔ `phone` 을 `allowed` 에 넣어 풀려 하지 말 것 — 카페24 정본 칸이라 그날 밤 다시
+                 채워진다(정본을 카페24에서 고쳐야 하는 별건. 사람이 정할 일).
            ⚠️ 마스킹된 표시값(***)은 위 PII_GUARD 에서 이미 걸러져 여기 안 온다.
            ⚠️ 실패해도 저장 자체는 막지 않는다 — 대신 «조용히» 넘기지 않고 `phone_kept` 로
               응답에 실어 화면이 사람에게 말하게 한다. */

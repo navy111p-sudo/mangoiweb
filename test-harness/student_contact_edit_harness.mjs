@@ -306,17 +306,40 @@ if (typeof pOut === 'function') {
 check('저장 payload 가 두 칸 모두에 phoneOut() 을 쓴다',
   /student_phone:\s*phoneOut\('cStudentPhone'\)/.test(detail)
   && /parent_phone:\s*phoneOut\('cParentPhone'\)/.test(detail));
+/* 부정 검사는 «주석을 벗겨 낸 사본» 으로 — 「예전에는 `value || null` 이었다」는 설명 주석이
+   달리면 멀쩡한 코드가 FAIL 한다(CLAUDE.md 2장. 함정 대조 2026-09-16 지적). */
+const detailNoCmt = detail.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 check('그 두 칸을 `value || null` 로 다시 조립하지 않는다',
-  !/cStudentPhone'\)\.value\s*\|\|\s*null/.test(detail)
-  && !/cParentPhone'\)\.value\s*\|\|\s*null/.test(detail));
-/* 🔴 그리고 «로드 때 값» 을 기억하지 않으면 loaded 가 언제나 '' 이라 지우기가 영영 안 된다.
-   renderContact() «안» 인지까지 본다 — 딴 곳에 적혀 있으면 화면을 다시 그릴 때 어긋난다. */
-const rcStart = detail.indexOf('function renderContact(){');
-const rcEnd = rcStart >= 0 ? detail.indexOf('\n}', rcStart) : -1;
-const rcJs = (rcStart >= 0 && rcEnd > rcStart) ? detail.slice(rcStart, rcEnd) : '';
-check('전제: renderContact() 를 오려 냈다', rcJs.length > 100);
-check('renderContact() 가 두 칸의 «로드 때 값» 을 기억한다',
-  /_cPhoneLoaded\.cStudentPhone\s*=/.test(rcJs) && /_cPhoneLoaded\.cParentPhone\s*=/.test(rcJs));
+  !/cStudentPhone'\)\.value\s*\|\|\s*null/.test(detailNoCmt)
+  && !/cParentPhone'\)\.value\s*\|\|\s*null/.test(detailNoCmt));
+/* 🔴 «로드 때 값» 을 기억하지 않으면 loaded 가 언제나 '' 이라 지우기가 영영 안 된다.
+   ⚠️ 「그 줄이 있는가」로 물으면 `_cPhoneLoaded.cStudentPhone = '';`(줄은 남기고 빈 값)로
+      기능을 통째로 죽여도 통과한다 — 함정 대조가 그 변이로 PASS 84/FAIL 0 을 실측했다.
+      그래서 snapPhones() 를 오려 내 «가짜 칸» 으로 돌려 «그 칸의 값에서 오는가» 를 본다. */
+const sStart = detail.indexOf('function snapPhones(');
+const sEnd = sStart >= 0 ? detail.indexOf('\n}', sStart) : -1;
+const sJs = (sStart >= 0 && sEnd > sStart) ? detail.slice(sStart, sEnd + 2) : '';
+check('전제: snapPhones() 를 오려 냈다', sJs.length > 60);
+let snapOf = null;
+try {
+  snapOf = (stu, par) => new Function('STU', 'PAR',
+    "var _cPhoneLoaded = { cStudentPhone: 'X', cParentPhone: 'X' };\n"
+    + "var $ = function(id){ return { value: (id === 'cStudentPhone' ? STU : PAR) }; };\n"
+    + sJs + '\nsnapPhones();\nreturn _cPhoneLoaded;')(stu, par);
+  snapOf('a', 'b');
+} catch (e) { snapOf = null; console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: snapPhones() 를 돌렸다', typeof snapOf === 'function');
+if (typeof snapOf === 'function') {
+  const snapped = snapOf('010-1111-2222', '010-3333-4444');
+  check('snapPhones() 가 두 칸의 «지금 값» 을 그대로 기준으로 찍는다',
+    snapped.cStudentPhone === '010-1111-2222' && snapped.cParentPhone === '010-3333-4444');
+  /* 짝 — 앞만 보면 «언제나 그 값» 도 통과한다. 빈 칸은 빈 값으로 찍혀야 한다. */
+  check('빈 칸은 빈 값으로 찍는다', snapOf('', '').cStudentPhone === '');
+}
+check('renderContact() 가 snapPhones() 를 부른다', /function renderContact\(\)\{[\s\S]{0,900}?snapPhones\(\)/.test(detail));
+/* 🔴 그리고 «저장 뒤» 에도 찍어야 한다 — loadFull() 은 이름을 바꿨을 때만 다시 돌므로,
+   안 찍으면 같은 자리에서 «넣었다가 다시 비우는» 두 번째 동작이 조용히 아무 일도 안 한다. */
+check('저장이 성공하면 기준을 다시 찍는다', /j\.phone_kept\s*!==\s*false\)\s*snapPhones\(\)/.test(detail));
 
 console.log('\n[ ⑤-b 그 값을 «만드는» 줄 — 화면이 실제로 보내는 payload 로 돌린다 ]');
 /* 🔴 위 ⑤ 절은 _ovStu 를 직접 주입하므로 «만드는 줄» 을 한 번도 안 본다.
@@ -367,6 +390,11 @@ if (typeof runLoop === 'function') {
     c1.sets.length === 1 && c1.vals.length === 1 && c1.vals[0] === null);
   const c2 = runLoop({ student_phone: '010-1' });
   check('적은 번호는 그대로 간다', c2.vals[0] === '010-1');
+  /* ⚠️ student_phone 만 넣어 보면 `_isPhoneCol` 을 그 한 칸으로 좁히는 변이가 통과한다
+     (함정 대조 2026-09-16 실측 Ⓛ: PASS 84 / FAIL 0). 세 칸을 «전부» 넣는다. */
+  const c2b = runLoop({ parent_phone: '', teacher_phone: '' });
+  check('parent_phone·teacher_phone 의 빈 문자열도 NULL 로 간다',
+    c2b.vals.length === 2 && c2b.vals[0] === null && c2b.vals[1] === null);
   /* 짝 — 앞만 보면 «모든 빈 문자열을 NULL 로» 도 통과한다. 번호가 아닌 칸은 예전 그대로여야 한다. */
   const c3 = runLoop({ school: '' });
   check('번호가 아닌 칸의 빈 문자열은 예전 그대로다(NULL 로 바꾸지 않는다)', c3.vals[0] === '');
@@ -381,6 +409,15 @@ check('그때 사람에게 «보관 안 됨» 을 말한다', /phoneNotKept/.tes
 check('번호를 안 고친 저장(phone_kept=null)에는 경고하지 않는다', !/j\.phone_kept\s*!==\s*true/.test(detail));
 check('사전에 «지웠다»·«변경 실패» 문구가 있다',
   /phoneCleared:\{ko:/.test(detail) && /phoneChangeFailed:\{ko:/.test(detail));
+/* 🔴 «지웠다» 가 «문자가 안 간다» 는 아니다 — 학생 쪽은 폴백이 세 겹이고(`ovStudent ||
+   student_phone || phone`) 이 PATCH 는 `phone` 칸을 안 건드린다. 게다가 한쪽만 지웠을 수도
+   있다(`_cPhoneCleared` 는 OR). 그러니 문구가 그것을 «단정» 하면 거짓이 된다
+   (2026-09-16 함정 대조가 그 거짓 문구를 잡았다). */
+check('«문자가 가지 않습니다» 라고 단정하지 않는다', !/문자가 가지 않습니다/.test(detailNoCmt));
+check('짝 — 그래도 «지웠다» 는 사실은 말한다', /번호를 지웠습니다/.test(detailNoCmt));
+/* 서버 정본이 그 폴백을 «적어 두었는가» — 안 적으면 다음 사람이 또 «문자가 멈춘다» 로 읽는다. */
+check('서버 주석이 phone 칸 폴백을 적어 두었다',
+  /phonesForStudent/.test(cSrc) && /allowed[^\n]*에는 \*\*`phone` 칸이 없다/.test(cSrc));
 /* 🔴 아래 토스트 검사는 `_cPhoneCleared` 를 «인자로 주입» 하므로 그 값을 «만드는» 줄을
    한 번도 안 본다 — 그래서 `var _cPhoneCleared = true;` 로 바꿔도 전부 통과했다
    (2026-09-16 변이시험 실측 Ⓖ: PASS 77 / FAIL 0). 만드는 줄도 따로 돌린다. */
