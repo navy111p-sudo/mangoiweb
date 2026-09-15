@@ -2570,8 +2570,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
                 문자열 검사가 그대로 통과합니다(CLAUDE.md 「비용이 나가는 API」).
              ⚠️ 이 자리가 «캐시 적중 뒤» 인 것이 중요합니다 — 이미 만들어 둔 소리는
                 Azure 를 안 부르므로 세지 않습니다. 세는 것은 진짜로 돈이 나가는 호출뿐입니다.
-             ⚠️ 막혀도 **소리는 그대로 납니다** — 아래 «예전 경로»(구글 만다린)로 내려가고
-                화면은 X-TTS-Fallback 으로 사유를 말합니다. 429 로 끊지 않습니다. */
+             ⚠️ 막혀도 **소리는 그대로 납니다** — 아래 «예전 경로»(구글 만다린)로 내려갑니다.
+                429 로 끊지 않습니다(끊으면 학생 화면이 통째로 조용해집니다).
+             ⚠️ 사유(X-TTS-Fallback)를 «읽는» 화면은 성우 견본(zh-voice-sample.html)뿐입니다 —
+                학생이 쓰는 warmup.html 은 X-TTS-Engine 만 보고, 아무 말 없이 예전처럼
+                «굵게 구운» 소리를 냅니다(= 2026-09-14 이전 동작).
+                ⛔ 거기에 안내를 새로 띄우지 마세요 — CLAUDE.md 가 「그 안내를 되살리지 마세요,
+                   이제 «항상» 남자 목소리라 거짓말이 됩니다」로 못 박아 둔 자리입니다. */
           if (azVoice) {
             const capKey = azureTtsCapKey(request.headers.get('cf-connecting-ip'), Date.now());
             let capUsed: any = null;

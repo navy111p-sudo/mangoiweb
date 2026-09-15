@@ -15,20 +15,30 @@
 //       (소리가 아예 안 나는 것이 최악 — azure-tts.ts 머리말과 같은 방향)
 //    ② 못 세면 **막지 않는다**(fail-open) — 고장 난 가드가 기능을 영구히 막는 쪽이 나쁘다.
 //
-// 변이시험 (전부 실제 FAIL 확인 — 2026-09-15, ⑥절이 스스로 돌린다)
-//   Ⓐ `return n < cap` → `return true`            → ①절 FAIL (상한 무력화)
-//   Ⓑ `n < cap` → `n < cap * 1000`                → ①절 FAIL (상한 1000배)
-//   Ⓒ `return n < cap` → `return n < cap && false`→ ①절 FAIL (짝: 전부 막기)
-//   Ⓓ fail-open 줄 지우기                          → ①절 FAIL
-//   Ⓔ 키에서 IP 무시(전역 카운터)                   → ②절 FAIL
-//   Ⓕ 키에서 KST 보정 지우기                        → ②절 FAIL
-//   Ⓖ 라우트 `if (!azureTtsAllowed(...))` → `if (false && ...)` → ③⑤절 FAIL 3건
-//   Ⓗ 라우트 `if (azVoice && !azFail)` → `if (azVoice)`          → ③절 FAIL
-//   Ⓘ 카운터 put 한 줄 지우기(안 셈 = 상한이 영영 안 걸림)        → ④-2절 FAIL
-//      🔴 Ⓘ 는 처음에 **통과했다**(58/0). 「SESSION_STATE 가 있는가」로 물었기 때문이다 —
-//         get 만 남아도 그 글자는 있다. 그래서 ④-2 가 블록을 오려 내 가짜 KV 로 돌린다.
-//   Ⓙ 올리는 값을 하드코딩(String(1))                            → ④-2절 FAIL
-//   Ⓚ 막힌 요청도 카운터를 올리기                                 → ④-2절 FAIL (짝 검사)
+// 변이시험 — 전부 «실제로 넣어» FAIL 을 확인했다 (2026-09-15)
+//
+//   ⓐ 정본 변이 7종 — **⑥절이 스스로 돌린다**(파일을 안 건드린다)
+//     Ⓐ `return n < cap` → `return true`             (상한 무력화)
+//     Ⓑ `n < cap` → `n < cap * 1000`                 (상한 1000배)
+//     Ⓒ `return n < cap` → `return n < cap && false` (짝: 전부 막기)
+//     Ⓓ fail-open 줄 지우기
+//     Ⓔ 키에서 IP 무시(전역 카운터가 됨)
+//     Ⓕ 키에서 KST 보정 지우기
+//     Ⓖ **부정 뒤집기** `n < cap` → `n >= cap`
+//
+//   ⓑ 라우트 변이 7종 — 사람이 손으로 넣어 확인했다(파일을 고쳐야 해서 자동이 아니다)
+//     Ⓗ `if (!azureTtsAllowed(...))` → `if (false && ...)`   → ③⑤절 FAIL 3건
+//     Ⓘ **부정 뒤집기** `!` 제거                              → FAIL 12건
+//     Ⓙ `if (azVoice && !azFail)` → `if (azVoice)`           → ③절 FAIL
+//     Ⓚ 카운터 put 한 줄 지우기(안 셈 = 상한이 영영 안 걸림)  → ④-2절 FAIL 5건
+//        🔴 Ⓚ 는 처음에 **통과했다**(58/0). 「SESSION_STATE 가 있는가」로 물었기 때문이다 —
+//           get 만 남아도 그 글자는 있다. 그래서 ④-2 가 블록을 오려 내 가짜 KV 로 돌린다.
+//     Ⓛ 올리는 값을 하드코딩(String(1))                      → ④-2절 FAIL
+//     Ⓜ 막힌 요청도 카운터를 올리기                           → ④-2절 FAIL (짝 검사)
+//     Ⓝ **429 로 끊기**(`return json(..., 429)`)             → ④-2·⑤절 FAIL 4건
+//        🔴 Ⓝ 는 처음에 «크래시» 였다 — `결과:` 줄조차 안 나와 무엇이 깨졌는지 안 보였다.
+//           runCap 이 async IIFE 의 Promise 를 돌려주는데 그것을 await 하는 자리가
+//           try «밖» 이었다. 「만들기만 try 로 감싸면 안 된다」는 그 함정 그대로다.
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -169,7 +179,7 @@ console.log('\n④-2 진짜로 «세는가» — 카운터 블록을 가짜 KV �
    카운터를 «안 세는» 변이(put 한 줄 삭제)는 상한을 영영 못 걸리게 만드는데,
    문자열 검사는 그대로 통과한다(2026-09-15 실측: 변이 Ⓘ 가 58/0 으로 통과).
    CLAUDE.md 「«세는 쪽» 과 «막는 쪽» 은 짝입니다」 — 그래서 실제로 돌려 본다. */
-function runCap(stored, opts) {
+async function runCap(stored, opts) {
   const o = opts || {};
   const js = azBlockRaw
     .replace(/\(env as any\)/g, 'env')
@@ -184,28 +194,33 @@ function runCap(stored, opts) {
   try {
     mk = new Function('azVoice', 'request', 'env', 'azureTtsCapKey', 'azureTtsAllowed', 'console',
       'return (async function(){ let azFail = ""; ' + js + ' return azFail; })();');
-  } catch (e) { return { err: 'BUILD:' + (e && e.message), puts }; }
+  } catch (e) { return { azFail: 'BUILD:' + (e && e.message), puts }; }
   const req = { headers: { get: () => '1.2.3.4' } };
+  /* 🔴 «만들기» 만 try 로 감싸면 안 된다 — 이 블록은 async IIFE 를 돌려주므로
+     그 Promise 를 await 하는 자리까지 try «안» 이어야 한다. 밖에 두면 라우트에
+     없는 이름을 쓰는 변이(예: 429 로 끊기 = `return json(...)`)가 «깔끔한 FAIL» 이
+     아니라 **하니스 크래시**가 되어 `결과:` 줄조차 안 나온다(2026-09-15 실측). */
   try {
-    return { p: mk(true, req, { SESSION_STATE: kv }, G.azureTtsCapKey, G.azureTtsAllowed, { warn() {} }), puts };
-  } catch (e) { return { err: 'CALL:' + (e && e.message), puts }; }
+    const azFail = await mk(true, req, { SESSION_STATE: kv }, G.azureTtsCapKey, G.azureTtsAllowed, { warn() {} });
+    return { azFail, puts };
+  } catch (e) { return { azFail: 'THREW:' + (e && e.message), puts }; }
 }
 if (G && azBlockRaw.length > 100) {
   const CAP = G.AZURE_TTS_MAX_PER_IP_DAY;
-  const r1 = await (async () => { const r = runCap('5'); return { ...r, azFail: r.p ? await r.p : r.err }; })();
+  const r1 = await runCap('5');
   ok(r1.azFail === '', '전제: 상한 아래에서는 막지 않는다 (' + r1.azFail + ')');
   ok(r1.puts.length === 1, `상한 아래에서 카운터를 실제로 쓴다 (${r1.puts.length}회)`);
   ok(r1.puts.length === 1 && r1.puts[0].v === '6', `기존값에서 하나 올린다 (${r1.puts[0] && r1.puts[0].v}) — 하드코딩이 아니다`);
   ok(r1.puts.length === 1 && /1\.2\.3\.4/.test(String(r1.puts[0].k)), '그 IP 칸에 쓴다');
   ok(r1.puts.length === 1 && Number(r1.puts[0].meta && r1.puts[0].meta.expirationTtl) > 0, '만료를 함께 준다');
 
-  const r2 = await (async () => { const r = runCap(String(CAP)); return { ...r, azFail: r.p ? await r.p : r.err }; })();
+  const r2 = await runCap(String(CAP));
   ok(r2.azFail === 'ip_cap', `상한에 닿으면 막는다 (azFail=${r2.azFail})`);
   ok(r2.puts.length === 0, '짝: 막힌 요청은 카운터를 더 올리지 않는다');
 
-  const r3 = await (async () => { const r = runCap(null, { getThrows: true }); return { ...r, azFail: r.p ? await r.p : r.err }; })();
+  const r3 = await runCap(null, { getThrows: true });
   ok(r3.azFail === '', 'KV 를 못 읽으면 막지 않는다(fail-open)');
-  const r4 = await (async () => { const r = runCap('1', { putThrows: true }); return { ...r, azFail: r.p ? await r.p : r.err }; })();
+  const r4 = await runCap('1', { putThrows: true });
   ok(r4.azFail === '', 'KV 쓰기가 죽어도 요청은 그대로 흐른다');
 } else {
   ok(false, '전제: 카운터 블록을 돌릴 수 없었다');
@@ -217,7 +232,10 @@ ok(capBlock.length > 10, `전제: 막는 분기를 잘라 냈다 (len=${capBlock
 ok(!/return\s/.test(capBlock), '막을 때 그 자리에서 return 하지 않는다(폴백으로 내려간다)');
 ok(!/429/.test(capBlock), '막을 때 429 로 끊지 않는다');
 ok(/azFail\s*=/.test(capBlock), '막힌 사유를 azFail 에 적는다');
-ok(/X-TTS-Fallback/.test(route), '짝: 그 사유가 화면에 전달된다(X-TTS-Fallback)');
+/* ⚠️ 「화면이 사유를 말한다」로 적으면 사실이 아니다 — 그 헤더를 읽는 것은 성우 견본
+   페이지(zh-voice-sample.html)뿐이고, 학생이 쓰는 warmup.html 은 X-TTS-Engine 만 본다.
+   학생 화면은 아무 말 없이 예전처럼 «굵게 구운» 소리를 낸다(= 9/14 이전 동작). */
+ok(/X-TTS-Fallback/.test(route), '짝: 응답에 사유를 싣는다(X-TTS-Fallback)');
 ok(/gtts\s*\(/.test(route), '짝: 예전 경로(구글 만다린)가 그대로 살아 있다');
 
 console.log('\n⑥ 변이 자가시험 — 이 검사가 실제로 잡는가');
@@ -228,6 +246,9 @@ const mutants = [
   ['Ⓓ fail-open 지우기', (s) => s.replace('if (!isFinite(n) || n < 0) return true;', '')],
   ['Ⓔ 키에서 IP 무시(전역 카운터)', (s) => s.replace("const who = String(ip || '').trim() || 'unknown';", "const who = 'all';")],
   ['Ⓕ KST 보정 지우기', (s) => s.replace('Math.floor((t + 9 * 3600000) / 86400000)', 'Math.floor(t / 86400000)')],
+  /* ⚠️ 「변이 N종 전부 FAIL」이라고 적기 전에 그 N 에 «조건 뒤집기» 가 실제로 들어 있는지 세어 볼 것
+     (CLAUDE.md — 저자가 5종이라 적었는데 거기 뒤집기가 없던 전례). 이것이 그 자리다. */
+  ['Ⓖ 부정 뒤집기 (n < cap → n >= cap)', (s) => s.replace('return n < cap;', 'return n >= cap;')],
 ];
 for (const [name, mut] of mutants) {
   const src = mut(TS);
