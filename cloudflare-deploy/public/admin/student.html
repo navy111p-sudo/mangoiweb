@@ -837,6 +837,8 @@ const T = {
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
   phoneOverrideWarn:{ko:'⚠ 전화번호는 화면에는 저장됐지만 안전 보관에는 실패했습니다 — 오늘 밤 카페24 동기화 때 다시 지워질 수 있습니다. 다시 저장해 보세요.',
                      en:'⚠ Phone saved to the page, but not to safe storage — it may be wiped again by tonight\'s Cafe24 sync. Try saving again.'},
+  orgOverrideWarn:{ko:'⚠ 가맹점·소속은 화면에는 저장됐지만 안전 보관에는 실패했습니다 — 오늘 밤 카페24 동기화 때 다시 지워질 수 있습니다. 다시 저장해 보세요.',
+                    en:'⚠ Franchise/shop saved to the page, but not to safe storage — it may be wiped again by tonight\'s Cafe24 sync. Try saving again.'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1028,7 +1030,14 @@ function renderCard(){
 
   const rows = [
     [t('qStudentId'), erp.student_id || uid],
-    [t('qSignup'), erp.signup_date || '—'],
+    /* 📅 (2026-09-15) 「가입일」은 `signup_date`(=카페24 «수강 시작일», 목록 표의 그 이름과 다른
+       열)가 아니라 **`created_at`**(행이 실제로 생긴 시각)이다 — 관리자 학생 명부 표가 이미 그렇게
+       정해 두고 있다(adm-core.js `_smSort` 주석 「실제 표에 있는 열(가입일 = created_at)로
+       명시한다」, th data-sort-key="created_at" data-ko="가입일"). 이 카드만 signup_date 를 보고
+       있어서 카페24 원본에 그 값이 없는 학생은 명부엔 날짜가 뜨는데 이 카드는 늘 «—» 였다
+       (사장님 제보 — 「왼쪽에 가입일이 비어있다」). ⛔ signup_date 를 지우지 않는다 — «수강
+       시작일» 이라는 별개의 사실이고 다른 화면이 그 뜻으로 쓸 수 있다. 여기서는 폴백으로만 쓴다. */
+    [t('qSignup'), erp.signup_date || fmtDay(erp.created_at)],
     [t('qEnd'), erp.end_date || '—'],
     [t('qClassesPW'), (erp.classes_per_week||'—') + (_lang==='en'?'':'회')],
     /* 📘 (2026-09-15) 바로 윗줄까지(수강 종료·주당 수업·결제 유형)는 students_erp 의 칸이고
@@ -1707,6 +1716,7 @@ $('cSaveBtn').addEventListener('click', async () => {
       //   students_erp 만 바뀐 채로 두면 오늘 밤 카페24 동기화가 그대로 지운다(9/10 파일럿테스트
       //   학생 사고와 같은 뿌리). 화면 저장 자체는 성공이라 별도 토스트로 덧붙인다.
       if (j.phone_override_warning) setTimeout(() => toast(t('phoneOverrideWarn'), true), 1200);
+      if (j.org_override_warning) setTimeout(() => toast(t('orgOverrideWarn'), true), 1200);
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
       // 🥭 이름을 바꿨으면 왼쪽 카드·상단 이름도 즉시 새로 읽어온다(안 하면 새로고침 전까지 옛 이름).
       if (j.name_changed) await loadFull();
@@ -1794,7 +1804,7 @@ function renderExtension(){
     <div class="kpi ${endStatus==='red'?'red':endStatus==='yellow'?'yellow':endStatus==='green'?'green':''}"><div class="lab">${_lang==='en'?'End Date':'수강 종료일'}</div><div class="val">${endStr || '—'}</div><div class="sub">${endStatusLabel}</div></div>
     <div class="kpi blue"><div class="lab">${_lang==='en'?'Days Left':'남은 일수'}</div><div class="val">${dDay}</div></div>
     <div class="kpi yellow"><div class="lab">${_lang==='en'?'Active Package':'활성 패키지'}</div><div class="val" style="font-size:16px">${esc(activeEnroll?.package)||'—'}</div><div class="sub">${activeEnroll?.monthly_fee_krw?fmtKrw(activeEnroll.monthly_fee_krw)+(_lang==='en'?'/mo':'/월'):'—'}</div></div>
-    <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date)||'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date || fmtDay(erp.created_at))}</div></div>
   `;
 
   // 연장 이력 fetch

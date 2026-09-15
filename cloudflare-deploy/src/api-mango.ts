@@ -49,7 +49,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
    감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
-import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(카페24 야간 동기화가 못 건드리는 자리)
+import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관 + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -3708,6 +3708,15 @@ ${numbered}`;
             if (_ovPhones.parent) _erpRow.parent_phone = _ovPhones.parent;
             if (_ovPhones.student) _erpRow.student_phone = _ovPhones.student;
           } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+          /* 🏢 (2026-09-15) 가맹점·소속도 같은 이유로 같은 자리에서 덮어 보여준다 — students_erp.franchise/
+             shop_name 은 카페24가 정본이라 매일 밤 덮인다. applyStudentErpOverrides() 가 동기화 직후
+             다시 입히지만, 그 재적용과 이 화면 사이의 짧은 창(또는 재적용 실패)에도 화면은 방금
+             저장한 값을 보여줘야 한다 — override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). */
+          try {
+            const _ovOrg = await getOverrideOrg(env as any, String(_erpRow.user_id || uid));
+            if (_ovOrg.franchise) _erpRow.franchise = _ovOrg.franchise;
+            if (_ovOrg.shop_name) _erpRow.shop_name = _ovOrg.shop_name;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
         }
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
@@ -3971,6 +3980,11 @@ ${numbered}`;
            사라졌다(CLAUDE.md 2장). student_erp_override 에도 함께 적어야 살아남는다 —
            정본은 setOverridePhones(student-override.ts). ⛔ 판정을 여기서 복제하지 않는다. */
         const phoneTouched: { parent?: string; student?: string } = {};
+        /* 🏢 (2026-09-15) franchise·shop_name 도 전화번호와 같은 사정이다(위 주석) — 카페24 UPSERT
+           의 SET 목록에 있어 오늘 고쳐도 내일 밤 03:00 KST 에 그대로 덮인다(사장님 제보: 학생 상세
+           화면 왼쪽 가입일·가맹점이 비어 있음). student_erp_override 에도 함께 적어야 살아남는다 —
+           정본은 setOverrideOrgField(student-override.ts). ⛔ 판정을 여기서 복제하지 않는다. */
+        const orgTouched: { franchise?: string; shop_name?: string } = {};
         for (const k of allowed) {
           if (b[k] === undefined) continue;
           // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
@@ -3978,6 +3992,8 @@ ${numbered}`;
           sets.push(`${k} = ?`); vals.push(b[k]);
           if (k === 'parent_phone') phoneTouched.parent = String(b[k] ?? '').trim();
           if (k === 'student_phone') phoneTouched.student = String(b[k] ?? '').trim();
+          if (k === 'franchise') orgTouched.franchise = String(b[k] ?? '').trim();
+          if (k === 'shop_name') orgTouched.shop_name = String(b[k] ?? '').trim();
         }
         // 🥭 학생 이름 — korean_name·username 을 «함께» 고친다(이 페이지 왼쪽 카드는 username 만 읽는다).
         //   빈 문자열이면 손대지 않는다 — 이름을 NULL 로 지우면 화면 전체가 uid 로 떨어진다.
@@ -4009,8 +4025,8 @@ ${numbered}`;
            «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
            → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
            (이 블록이 막으려던 바로 그 사고). 에러가 나지 않아 조용히 재현된다.
-           📞 전화번호를 고쳤을 때도 같은 이유로 필요하다(위 phoneTouched). */
-        const _needsRealUid = nameChanged || Object.keys(phoneTouched).length > 0;
+           📞 전화번호·🏢 가맹점·소속을 고쳤을 때도 같은 이유로 필요하다(위 phoneTouched·orgTouched). */
+        const _needsRealUid = nameChanged || Object.keys(phoneTouched).length > 0 || Object.keys(orgTouched).length > 0;
         const preRow = _needsRealUid ? await env.DB.prepare(
           `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
         ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
@@ -4084,6 +4100,39 @@ ${numbered}`;
           }
         }
         const phoneOverrideWarning = phoneWarnings.length ? phoneWarnings.join(';') : undefined;
+        // 🏢 가맹점·소속을 고쳤으면 student_erp_override 에도 함께 적는다 — 안 그러면 오늘 밤
+        //   카페24 동기화가 지운다(위 orgTouched 주석 참고). 정본은 setOverrideOrgField.
+        //   franchise·shop_name 은 **서로 다른 필드**라 한쪽만 고쳐도 다른 쪽은 안 건드린다
+        //   (setOverridePhones 의 교차 오염을 막으려고 setOverrideOrgField 자체가 한 번에
+        //   한 필드만 받도록 만들어져 있어, 여기서도 필드마다 따로 부른다).
+        const orgWasTouched = Object.keys(orgTouched).length > 0;
+        const orgWarnings: string[] = [];
+        if (orgWasTouched) {
+          const realUid = preRow && preRow.user_id;
+          if (!realUid) {
+            orgWarnings.push('uid_not_resolved');
+          } else {
+            if (orgTouched.franchise !== undefined) {
+              try {
+                const sv = await setOverrideOrgField(env as any, realUid, 'franchise', orgTouched.franchise, 'student-contact');
+                if (!sv.ok) orgWarnings.push('franchise:' + (sv.reason || 'override_save_failed'));
+              } catch (e: any) {
+                console.warn('[student/contact] override 가맹점 저장 실패:', e?.message, 'uid=', uid);
+                orgWarnings.push('franchise:' + String(e?.message || e).slice(0, 100));
+              }
+            }
+            if (orgTouched.shop_name !== undefined) {
+              try {
+                const sv = await setOverrideOrgField(env as any, realUid, 'shop_name', orgTouched.shop_name, 'student-contact');
+                if (!sv.ok) orgWarnings.push('shop_name:' + (sv.reason || 'override_save_failed'));
+              } catch (e: any) {
+                console.warn('[student/contact] override 소속 저장 실패:', e?.message, 'uid=', uid);
+                orgWarnings.push('shop_name:' + String(e?.message || e).slice(0, 100));
+              }
+            }
+          }
+        }
+        const orgOverrideWarning = orgWarnings.length ? orgWarnings.join(';') : undefined;
         return json({
           ok: true,
           updated_fields: sets.length - 1 - (nameChanged ? 1 : 0),
@@ -4092,6 +4141,8 @@ ${numbered}`;
           name_changed: nameChanged,
           phone_override_saved: phoneWasTouched && !phoneOverrideWarning,
           phone_override_warning: phoneOverrideWarning,
+          org_override_saved: orgWasTouched && !orgOverrideWarning,
+          org_override_warning: orgOverrideWarning,
         });
       }
     }
