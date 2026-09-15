@@ -484,6 +484,61 @@ async function wiringSection() {
 }
 await wiringSection();
 
+// ════════════════════════════════════════════════════════════════════
+// ⑧ 📘 «지금 교재» 줄 — 교재 자리가 첫 화면 «밖» 이라는 사고 (2026-09-15)
+//  [왜] 교재 섹션은 8단계 수준 목록 «아래» 라 실측상 PC 1920x1040 에서 top 1380px ·
+//    폰 390x844 에서 1577px = 첫 화면 밖입니다. 그런데 시작 버튼은 sticky 라 늘 보입니다
+//    ⟹ 스크롤할 이유가 없어 교재를 한 번도 못 보고 시작합니다(사장님 실제 사고).
+//  ⚠️ «어디에 그려지는가» 는 여기서 못 봅니다 — 그건 manual/warmup-bts-book-browser ⑩절.
+//    이 절은 «무슨 글자가 나오는가 · 배선이 살아 있는가» 만 봅니다.
+//  ⛔ 「그 함수가 있는가」로 묻지 마세요 — `if(false)` 한 줄이면 그대로 통과합니다.
+//    오려 내 «실제로 돌려» 답으로 묻고, «짝»(안 골랐을 때 / 골랐을 때 / 중국어)을 둡니다.
+// ════════════════════════════════════════════════════════════════════
+{
+  const bnSrc = fnSrc('function btsRenderBookNow(');
+  /* ⛔ 전제 — 못 오려 내면 아래가 빈 문자열을 보고 조용히 통과합니다. */
+  t('⑧ btsRenderBookNow 를 오려 냈다', !!bnSrc && bnSrc.includes('wusBookNow'), !!bnSrc);
+  if (bnSrc) {
+    const run = (vol, zh, lesson) => {
+      const el = { id: 'wusBookNow', hidden: false, innerHTML: '',
+                   get textContent() { return String(this.innerHTML).replace(/<[^>]*>/g, ''); } };
+      const doc = { getElementById: (id) => (id === 'wusBookNow' ? el : null) };
+      const f = new Function('document', 'isZh', '_btsVol', 'btsLessonNow',
+        `${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
+           text: document.getElementById('wusBookNow').textContent };`);
+      return f(doc, () => zh, vol, () => lesson);
+    };
+    const free = run(0, false, null);
+    const book = run(1, false, null);
+    const lsn  = run(1, false, { seq: 2, title: 'School Stuff' });
+    const zh   = run(1, true, null);
+    t('⑧ 안 골랐으면 «자유 대화» 라고 말한다', free.hidden === false && /자유 대화/.test(free.text), free);
+    t('⑧ 골랐으면 «BTS 1» 이라고 말한다(짝)', book.hidden === false && /BTS 1/.test(book.text), book);
+    t('⑧ 과까지 골랐으면 «제 2과» 도 말한다', /제 2과/.test(lsn.text), lsn);
+    t('⑧ 중국어면 감춘다(교재 섹션과 짝)', zh.hidden === true, zh);
+    /* ⚠️ «감춘다» 만 두면 «전부 감추기» 도 통과합니다 — 위 세 줄이 그 짝입니다. */
+  }
+  /* 🔌 배선 — 그 함수를 «부르는 곳» 이 살아 있는가.
+     ⛔ 개수로 못 박지 마세요(정당하게 늘 수 있습니다) — «두 자리에 다 있는가» 로 묻습니다. */
+  const rsBody = (() => { const i = S.indexOf('function renderSetup('); return i < 0 ? '' : (matchFrom(S, i, '{', '}') || ''); })();
+  const lrBody = (() => { const i = S.indexOf('function btsRenderLessonRow('); return i < 0 ? '' : (matchFrom(S, i, '{', '}') || ''); })();
+  t('⑧ renderSetup 이 그 줄을 갱신한다', /btsRenderBookNow\s*\(/.test(strip(rsBody)), rsBody.length);
+  t('⑧ btsRenderLessonRow 도 갱신한다(교재를 껐을 때)', /btsRenderBookNow\s*\(/.test(strip(lrBody)), lrBody.length);
+  /* ⛔ 조기 return «앞» 이어야 합니다 — 뒤에 두면 «교재 없음» 으로 바꿔도 줄이 안 바뀝니다. */
+  const lrClean = strip(lrBody);
+  t('⑧ 그 갱신이 조기 return 보다 «앞» 이다',
+    lrClean.indexOf('btsRenderBookNow') >= 0 && lrClean.indexOf('btsRenderBookNow') < lrClean.indexOf('return'),
+    [lrClean.indexOf('btsRenderBookNow'), lrClean.indexOf('return')]);
+  /* 🖱️ 눌러서 교재 자리로 가는 길 — 위임 선택자에 그 표식이 살아 있는가. */
+  const wireClean = strip(wireSrc || '');
+  t('⑧ 위임 클릭이 data-jump 를 받는다', /\[data-jump\]/.test(wireClean), wireClean.length);
+  t('⑧ data-jump=books 를 교재 자리로 보낸다',
+    /data-jump'?\)\s*===\s*'books'/.test(wireClean) && /wusBooksSec/.test(wireClean), wireClean.length);
+  /* 🧷 화면에 그 줄이 «시작 버튼보다 앞» 에 있는가(문서 순서) — sticky 로 위에 붙습니다. */
+  const iBn = S.indexOf('id="wusBookNow"'), iSt = S.indexOf('id="wusStart"');
+  t('⑧ 마크업에서 시작 버튼보다 앞에 있다', iBn > 0 && iSt > 0 && iBn < iSt, [iBn, iSt]);
+}
+
 const label = 'warmup_bts_book_harness';
 console.log(`\n▶ ${label}`);
 P.forEach(x => console.log('  ✅ ' + x));
