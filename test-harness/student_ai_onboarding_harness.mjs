@@ -360,10 +360,17 @@ console.log('\n[ E. 야간 동기화 보존 — 진짜 SQLite 에 돌려서 확�
     check('오려 낸 DELETE 문이 이 fixture 에서 실제로 돈다', delRan,
       'no such column 이면 fixture 에 그 칸을 더할 것 — 실제 students_erp 에는 있다');
     const alive = (u) => !!db.prepare(`SELECT 1 FROM students_erp WHERE user_id = ?`).get(u);
-    check('레벨이 적힌 카페24 학생은 밤에 안 지워진다', alive('c24_lv'),
-      '지워지면 다시 INSERT 될 때 level 이 NULL 이 된다 — 배정이 매일 밤 사라진다');
-    check('교재가 배정된 카페24 학생도 안 지워진다', alive('c24_book'),
-      '「📚 일괄 교재 배정」이 매일 밤 초기화된다');
+    /* ⚠️ DELETE 가 못 돌았으면 «아무도 안 지워졌기 때문에» 아래 둘이 ✅ 로 나온다 —
+       「확인 안 한 것」이 「문제없음」으로 섞인다. 그때는 통과시키지 말고 건너뛴 것으로 센다. */
+    if (!delRan) {
+      skip('레벨이 적힌 카페24 학생은 밤에 안 지워진다 (DELETE 가 못 돌아 판정 불가)');
+      skip('교재가 배정된 카페24 학생도 안 지워진다 (DELETE 가 못 돌아 판정 불가)');
+    } else {
+      check('레벨이 적힌 카페24 학생은 밤에 안 지워진다', alive('c24_lv'),
+        '지워지면 다시 INSERT 될 때 level 이 NULL 이 된다 — 배정이 매일 밤 사라진다');
+      check('교재가 배정된 카페24 학생도 안 지워진다', alive('c24_book'),
+        '「📚 일괄 교재 배정」이 매일 밤 초기화된다');
+    }
     check('  값이 없는 행은 예전대로 지워진다 (동기화가 멈추면 그것대로 사고다)', !alive('c24_bare'));
   }
 
