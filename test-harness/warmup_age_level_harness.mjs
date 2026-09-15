@@ -452,6 +452,53 @@ console.log('\n[ J. 🇰🇷 낮은 단계 자동 뜻 — 탭하지 않아도 �
     /try\{ toggleMeaning\(text, mb, d\); \}catch\(e\)\{\}/.test(HTML));
 }
 
+console.log('\n[ J. 다시 고르기에 손이 닿는가 — 되돌리기 방지 (2026-09-15) ]');
+{
+  /* 📜 사장님 「PC에서 너무 밑에 있어서 잘 보이지 않고 오른쪽 카드에서도 찾기가 힘들어」.
+     재 보니 «안 보인다» 가 아니라 «화면 밖» 이었다 — ⋮ 카드가 792px 고정이라 아래 끝이 853px 인데
+     1280x800 · 1366x768 노트북은 화면이 그보다 짧고 카드에 스크롤도 없었다.
+     2번안(상단바 지름길) + 3번안(안쪽만 스크롤 + 바닥 고정)을 함께 넣었다.
+     ⚠️ 여기서 재는 것은 «되돌아가지 않았는가» 까지다 — «실제로 화면에 들어오는가 · 눌리는가» 는
+        문자열로 원리상 못 본다. 그쪽은 manual/warmup-setup-reach-browser.mjs 가 좌표로 잰다
+        (자동으로 안 돕니다, 사람이 부릅니다). */
+  const css = (HTML.match(/\.menu-panel\{[\s\S]*?\}/) || [''])[0];
+  check('⋮ 카드가 화면 높이를 넘지 않게 묶여 있다', /max-height:calc\(100[sv]h - \d+px\)/.test(css), css.slice(0, 80));
+  check('카드가 flex 라 안쪽만 굴러간다', /display:flex/.test(css) && /flex-direction:column/.test(css));
+  const sc = (HTML.match(/\.menu-scroll\{[\s\S]*?\}/) || [''])[0];
+  check('굴러가는 칸(.menu-scroll)이 있다', /overflow-y:auto/.test(sc), sc.slice(0, 80));
+  // ⚠️ min-height:0 이 없으면 flex 자식이 내용만큼 부풀어 카드가 다시 화면을 넘는다
+  check('그 칸에 min-height:0 이 있다(안 넣으면 다시 넘침)', /min-height:0/.test(sc));
+  check('마크업에도 그 칸이 있다', /<div class="menu-scroll">/.test(HTML));
+
+  const re = (HTML.match(/\.menu-reopen\{[\s\S]*?\}/) || [''])[0];
+  /* ⛔ 회색으로 되돌리면 위 설정 버튼들과 구분이 안 되어 «찾기 힘들다» 던 그 상태가 된다 */
+  check('«다시 고르기» 가 눈에 띄는 색이다(회색 아님)',
+    /linear-gradient/.test(re) && !/rgba\(255,255,255,\.06\)/.test(re), re.slice(0, 90));
+  /* ⛔ 카드 안 버튼을 빼지 마세요 — 늘 하던 자리에서도 찾을 수 있어야 하고,
+     manual/warmup-setup-browser.mjs 가 .menu-reopen 을 «실제로 눌러» 검사합니다. */
+  check('카드 안 «다시 고르기» 버튼이 그대로 있다',
+    /class="menu-reopen" onclick="openSetup\(true\)"/.test(HTML));
+
+  // 🎚️ 상단바 지름길 — ⋮ 를 열지 않고 한 번에
+  const tune = (HTML.match(/<button id="setupBtn"[\s\S]{0,260}?<\/button>/) || [''])[0];
+  check('상단바에 🎚️ 지름길 버튼이 있다', tune.length > 20, '(못 찾음)');
+  check('그 버튼이 설정 화면을 연다', /onclick="openSetup\(true\)"/.test(tune));
+  check('그 버튼에 설명이 달려 있다(폰에는 hover 가 없다)',
+    /title="[^"]+"/.test(tune) && /aria-label="[^"]+"/.test(tune));
+  /* ⛔ 아이콘 버튼에 data-ko/data-en 을 달지 마세요 — 두 i18n 엔진이 textContent 를 통째로
+     갈아끼워 34px 상자에 문장이 들어앉습니다(CLAUDE.md 2장). 설명은 title/aria-label 로. */
+  check('그 버튼에 data-ko/data-en 이 없다(아이콘이 문장으로 바뀌는 함정)',
+    !/data-(ko|en)=/.test(tune));
+
+  // 🎗️ 설정 화면 확정 버튼을 띠로 감싸 «여기서 끝» 이라고 말해 준다
+  const bar = (HTML.match(/\.wus-ctabar\{[\s\S]*?\}/) || [''])[0];
+  check('확정 버튼이 띠에 담겨 바닥에 붙는다', /position:sticky/.test(bar), bar.slice(0, 80));
+  check('마크업에도 그 띠가 있다', /<div class="wus-ctabar">/.test(HTML));
+  /* ⛔ 값을 못 구하면 「—」를 남기지 말고 줄째 감춘다(빈 값은 «고장» 으로 읽힌다) */
+  check('«고른 것» 줄을 실제 값으로 채운다',
+    /wusPickNow/.test(HTML) && /pick\.hidden = !parts\.length/.test(HTML));
+}
+
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`웜업 연령·수준 하니스: ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
 if (FAIL) { console.log('\n실패 항목:'); FAILS.forEach((f) => console.log('  · ' + f)); }

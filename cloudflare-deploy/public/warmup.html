@@ -58,17 +58,40 @@
   .icon-btn:hover{background:rgba(56,189,248,.24)}
   .icon-btn:active{transform:scale(.92)}
   .icon-btn.off{background:rgba(148,163,184,.12);color:var(--text2);border-color:rgba(148,163,184,.3)}
+  /* 🎚️ 연령·수준 다시 고르기 — 상단바 지름길 (2026-09-15 사장님 지시).
+     ⋮ 를 열지 않고 «한 번에» 설정 화면으로 간다.
+     📜 왜 만들었나 — ⋮ 카드가 792px 고정이라 1280x800 노트북에서 카드 맨 아래
+        «다시 고르기» 가 화면 «밖»(792~834px)이었다. 카드에 스크롤도 없어 누를 방법이 없었다.
+     ⛔ ⋮ 카드 안의 같은 버튼(.menu-reopen)을 빼지 마세요 — 늘 하던 자리에서도 찾을 수 있어야 하고,
+        manual/warmup-setup-browser.mjs 가 그 버튼을 실제로 눌러 검사합니다.
+     ⛔ 아이콘 버튼이라 data-ko/data-en 을 달지 마세요 — 두 i18n 엔진이 textContent 를 통째로
+        갈아끼워 34px 상자에 문장이 들어앉습니다(CLAUDE.md 2장). 설명은 title/aria-label 로. */
+  .icon-btn.tune{background:linear-gradient(135deg,#fbbf24,#f59e0b);border-color:#fbbf24;color:#3d2500;
+    box-shadow:0 2px 10px rgba(251,191,36,.42)}
+  .icon-btn.tune:hover{background:linear-gradient(135deg,#fcd34d,#fbbf24)}
   .icon-btn.kebab{font-size:24px;font-weight:900;letter-spacing:2px}
   .icon-btn.kebab[aria-expanded="true"]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04283a;border-color:var(--accent)}
   /* ── ⋮ 드롭다운(듣기 속도 · 대화 레벨) ── */
   .menu-wrap{position:relative;flex:0 0 auto}
   .menu-mask{display:none;position:fixed;inset:0;z-index:60;background:rgba(4,10,26,.35)}
   .menu-mask.open{display:block}
+  /* ⚙️ 설정 카드 — 화면보다 길어지지 않게 «가운데만» 스크롤한다 (2026-09-15).
+     📜 그 전에는 높이가 792px 로 고정이라 카드 아래 끝이 853px 였다. 브라우저 창 세로가
+        그보다 짧으면(1280x800 · 1366x768) 맨 아래 «다시 고르기» 가 잘려 못 눌렀다.
+        중국어 선생님 칸이 보이는 학생은 926px 라 1440x900 에서도 잘렸다.
+     ⛔ 카드 «전체» 에 overflow 를 주지 마세요 — 말풍선 꼬리(.menu-caret)가 카드 밖
+        top:-7px 에 있어 통째로 잘립니다. 그래서 안쪽 .menu-scroll 만 구릅니다. */
   .menu-panel{position:absolute;top:calc(100% + 12px);right:-4px;z-index:70;width:300px;max-width:calc(100vw - 24px);
+    display:flex;flex-direction:column;
+    max-height:calc(100vh - 76px);max-height:calc(100svh - 76px);
     background:linear-gradient(180deg,#182a4e,#12203f);border:1px solid rgba(56,189,248,.28);
     border-radius:18px;padding:16px 16px 18px;box-shadow:0 22px 50px -14px rgba(0,0,0,.7);
     transform-origin:top right;opacity:0;transform:scale(.94) translateY(-6px);pointer-events:none;
     transition:opacity .16s ease,transform .16s ease}
+  /* ⚠️ min-height:0 이 없으면 flex 자식이 «내용만큼» 부풀어 카드가 다시 화면을 넘습니다
+     (그리드 칸의 min-width:0 과 같은 함정 — CLAUDE.md 2장). */
+  .menu-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    margin:0 -5px;padding:0 5px}
   .menu-panel.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
   .menu-caret{position:absolute;top:-7px;right:20px;width:14px;height:14px;
     background:#182a4e;border-left:1px solid rgba(56,189,248,.28);border-top:1px solid rgba(56,189,248,.28);
@@ -323,11 +346,19 @@
      (CLAUDE.md 2장의 «html/body overflow 로 sticky 가 죽는» 자리가 아니다).
      ⚠️ 이 주석에 홑낫표를 쓰지 말 것 — admin_lazyload/subtitle 하니스가 <style> 안 장식 문자를
         «한자 폰트를 부르는 화면» 으로 세어 FAIL 낸다(CLAUDE.md 2장). */
-  .wus-cta{position:sticky;bottom:-2px;width:100%;margin-top:22px;padding:16px;border:0;border-radius:14px;
+  .wus-cta{width:100%;margin-top:22px;padding:16px;border:0;border-radius:14px;
     cursor:pointer;font-family:inherit;
     background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;font-size:18px;font-weight:900;
     box-shadow:0 8px 22px -4px rgba(4,10,26,.75)}
   .wus-cta:active{transform:scale(.98)}
+  /* 🎗️ 확정 버튼을 «띠» 로 감싼다 (2026-09-15) — 버튼만 떠 있으면 화면 맨 아래 가장자리라
+     눈에 안 들어온다는 지적이었다. 띠가 뒤 내용을 덮어 «여기서 끝» 이라고 말해 준다.
+     스크롤 상자가 .wu-setup 자신이라 여기서 sticky 가 정상 동작한다(CLAUDE.md 2장의
+     html/body overflow 로 sticky 가 죽는 자리가 아니다).
+     ⛔ 이 sticky 를 .wus-cta 로 되돌리지 마세요 — 그러면 띠 없이 버튼만 떠서 원래대로입니다. */
+  .wus-ctabar{position:sticky;bottom:-20px;z-index:2;margin:0 -16px -28px;padding:2px 16px 20px;
+    background:linear-gradient(180deg,rgba(16,31,71,0),rgba(16,31,71,.93) 38%,#101f47 66%)}
+  .wus-ctabar .wus-hint2{margin:7px 0 0;text-align:center;font-size:12.5px;font-weight:700;color:#93c5fd}
   /* 🎯 수준 찾기(3문항) — 문장을 보여주고 «편하게 읽히는지»만 묻는다. 서버를 부르지 않는다 */
   .wus-probe-q{font-size:14px;font-weight:800;color:var(--accent);margin:4px 0 10px}
   .wus-sent{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;
@@ -358,9 +389,15 @@
   .age-btns button:active{transform:scale(.92)}
   .age-btns button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));
     color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
-  .menu-reopen{width:100%;margin-top:14px;padding:11px;border-radius:11px;cursor:pointer;font-family:inherit;
-    font-size:14px;font-weight:800;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text)}
-  .menu-reopen:hover{background:rgba(56,189,248,.16)}
+  /* 🎚️ 카드 맨 아래 «다시 고르기» — 위 항목을 아무리 굴려도 여기 그대로 남는다(flex 고정).
+     ⛔ 회색(rgba(255,255,255,.06))으로 되돌리지 마세요 — 위 설정 버튼들과 구분이 안 되어
+        «찾기 힘들다» 던 그 상태로 돌아갑니다(2026-09-15 사장님 지시). */
+  .menu-reopen{flex:0 0 auto;width:100%;margin-top:12px;padding:12px;border-radius:11px;cursor:pointer;
+    font-family:inherit;font-size:14px;font-weight:900;border:0;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#2563eb);
+    box-shadow:0 5px 14px -3px rgba(37,99,235,.6)}
+  .menu-reopen:hover{filter:brightness(1.08)}
+  .menu-reopen:active{transform:scale(.97)}
   /* 📱 모바일(≤640px): 머리글 한 줄 유지 + 글자 크기 정돈 — 화면에 문장이 온전히 보이게 */
   @media (max-width:640px){
     .top{padding:9px 12px;gap:8px}
@@ -374,7 +411,9 @@
     .meta{font-size:12px;padding:8px 12px 2px;gap:6px}
     .meta .chip{padding:3px 9px}
     .meta .chip.topic{font-size:13px}
-    .menu-panel{width:284px;right:-2px;padding:14px}
+    .menu-panel{width:284px;right:-2px;padding:14px;
+      max-height:calc(100vh - 68px);max-height:calc(100svh - 68px)}
+    .wus-ctabar{margin:0 -12px -24px;padding:2px 12px 16px}
     .msg{font-size:16px;padding:10px 13px;max-width:88%}
     .msg.sys{font-size:13px}
     .msg .who{font-size:12px}
@@ -455,7 +494,10 @@
           </div>
         </div>
 
-        <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
+        <div class="wus-ctabar">
+          <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
+          <p class="wus-hint2" id="wusPickNow">고른 것: —</p>
+        </div>
       </div>
       <!-- 🎯 수준 찾기 — 서버를 부르지 않고 문장을 보여주며 3번만 묻는다 -->
       <div id="wusProbe" hidden></div>
@@ -467,6 +509,9 @@
     <a href="/" class="back home" title="홈으로" aria-label="홈으로 가기">🏠</a>
     <h1><span class="ttl-emoji">🗣️</span> 수업 전 AI 웜업</h1>
     <button id="spkToggle" class="icon-btn" type="button" onclick="toggleSpeech()" title="AI 답변 음성 켜기/끄기">🔊</button>
+    <!-- 🎚️ 연령·수준 다시 고르기 — ⋮ 를 열지 않고 한 번에. 자세한 사정은 .icon-btn.tune 주석 -->
+    <button id="setupBtn" class="icon-btn tune" type="button" onclick="openSetup(true)"
+      title="연령·수준 다시 고르기" aria-label="연령·수준 다시 고르기">🎚️</button>
     <div class="menu-wrap">
       <button id="menuBtn" class="icon-btn kebab" type="button" onclick="toggleMenu(event)"
         aria-haspopup="true" aria-expanded="false" title="듣기 속도 · 대화 레벨 설정">⋮</button>
@@ -475,6 +520,9 @@
       <div id="menuPanel" class="menu-panel" role="menu" aria-label="웜업 설정">
         <div class="menu-caret"></div>
         <div class="menu-head">⚙️ 웜업 설정</div>
+
+        <!-- 여기부터가 «굴러가는» 칸 — 맨 아래 «다시 고르기» 는 이 밖이라 늘 보인다(.menu-scroll 주석) -->
+        <div class="menu-scroll">
 
         <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(아주 느리게) ~ 5(아주 빠르게) -->
         <div class="menu-group">
@@ -536,6 +584,8 @@
           </div>
           <div class="ls-ends"><span>🌱 읽으며</span><span>귀로만 👂</span></div>
         </div>
+
+        </div><!-- /.menu-scroll -->
 
         <button type="button" class="menu-reopen" onclick="openSetup(true)">🎚️ 연령·수준 다시 고르기</button>
       </div>
@@ -1350,6 +1400,20 @@ function renderSetup(){
   if(bks && !isZh()) bks.innerHTML = btsListHtml();
   var cta = document.getElementById('wusStart');
   if(cta) cta.textContent = _warmStarted ? '✅ 이 설정으로 계속하기' : '🚀 이 설정으로 웜업 시작하기';
+  /* 🎗️ 확정 띠 아래 «고른 것» 한 줄 — 누르기 «전에» 무엇으로 시작하는지 알려 준다 (2026-09-15).
+     ⛔ 값을 못 구하면 「—」를 남기지 말고 줄째 감추세요 — 빈 값은 «고장» 으로 읽힙니다
+        (CLAUDE.md 2장 «측정할 수 없는 값을 그럴듯하게 채우고 싶을 때»).
+     ⚠️ 교재는 «안 골라도 되는» 축이고 중국어에서는 칸째 감춰지므로 여기 넣지 않습니다. */
+  var pick = document.getElementById('wusPickNow');
+  if(pick){
+    var lvB = LEVEL_CATALOG.filter(function(b){ return b.n === _warmLevel; })[0];
+    var agB = AGE_CATALOG.filter(function(a){ return a.id === _warmAge; })[0];
+    var parts = [];
+    if(lvB) parts.push(lvB.ko);
+    if(agB) parts.push(agB.ko);
+    pick.textContent = parts.length ? ('고른 것: ' + parts.join(' · ')) : '';
+    pick.hidden = !parts.length;
+  }
 }
 function openSetup(fromMenu){
   // ⋮ 메뉴에서 열었으면 메뉴는 함께 닫는다(설정 화면 위에 메뉴가 겹쳐 남지 않게)
