@@ -498,18 +498,21 @@ sec('Ⓕ 마지막 모습 — 영상이 «검어져도» 얼굴이 남는가 (20
   ok(!!img && img.getAttribute('src') === still.u1, 'F-4 깔린 그림이 «그때 떠 둔 그 한 장» 이다');
   ok(!!t.box.querySelector('.vc-aao-freeze'), 'F-5 멈춤 띠도 함께 붙는다(«지금» 으로 오인되지 않게)');
   ok(e.origCalls.length === 0, 'F-6 ⛔ 옛 전면 덮개(vcApplyRemoteCamHint 원본)로 떨어지지 않는다');
-  ok(/z-index:2/.test(String(img.style.cssText)) && /grayscale/.test(String(img.style.cssText)),
+  /* ⚠️ img 가 없을 때 «크래시» 가 아니라 «깔끔한 FAIL» 이어야 한다 — 크래시하면 결과줄조차 안 나와
+     «검출 못 함» 이 «통과» 로 위장한다(함정 대조가 이 자리에서 실제로 잡았다). */
+  ok(!!img && /z-index:2/.test(String(img.style.cssText)) && /grayscale/.test(String(img.style.cssText)),
      'F-7 이름표(3)·띠(9) 아래에 깔고 흑백으로 — 가리지 않고, «지금» 으로도 안 보이게');
   /* 🔎 «어떻게 맞출지» 는 그 영상에게서 베낀다 — 내 타일의 가상배경·화면공유는 contain,
      폰 세로의 상대 타일은 cover 다. 여기에 한쪽을 박아 두면 «멈추는 순간 그림이 확 커지거나 잘려»
      방금 보던 그 화면이 아니게 된다. ⛔ 「contain 이다」만 묻지 말고 짝으로 물을 것 —
      한쪽만 두면 «전부 cover»(옛 코드)도, «전부 contain»(엉터리 수리)도 통과한다. */
-  ok(img.style.objectFit === 'contain',
-     'F-7b 🔎 contain 이던 타일의 마지막 모습도 contain (잰 값: ' + img.style.objectFit + ')');
+  ok(!!img && img.style.objectFit === 'contain',
+     'F-7b 🔎 contain 이던 타일의 마지막 모습도 contain (잰 값: ' + (img ? img.style.objectFit : '그림 없음') + ')');
   t.v.style.objectFit = 'cover';
   e.win.vcApplyRemoteCamHint('u1');
-  ok(t.box.querySelector('.vc-aao-still').style.objectFit === 'cover',
-     'F-7c 🔎 (짝) cover 이던 타일은 cover — 한쪽으로 박아 두지 않는다');
+  const img2 = t.box.querySelector('.vc-aao-still');
+  ok(!!img2 && img2.style.objectFit === 'cover',
+     'F-7c 🔎 (짝) cover 이던 타일은 cover — 한쪽으로 박아 두지 않는다 (잰 값: ' + (img2 ? img2.style.objectFit : '그림 없음') + ')');
   t.v.style.objectFit = 'contain';
 
   /* ③ 짝 — 영상이 «살아 있으면» 안 깐다 */
