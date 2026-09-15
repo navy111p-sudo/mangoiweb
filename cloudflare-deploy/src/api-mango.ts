@@ -54,7 +54,8 @@ import { resolveRecordingStudents } from './recording-students';   // 🎓 녹�
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
-import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { applyRoomOverrides } from './class-room-override';
+import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 는 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3309,6 +3310,15 @@ ${numbered}`;
           return r;
         });
         const _piiItems = applyPIIScope(items, _swErp.scope);  // 🔒 권한별 PII 마스킹(hq/none=원본, 지사/대리점=마스킹)
+        /* 📘 (2026-09-15) 「예약」 칸 — `students_erp` 의 수강 칸(signup_date·end_date·
+           classes_per_week·payment_type)은 **카페24가 정본**이라, 관리자 화면에서 수업을
+           넣어도(그건 class_schedules 에만 쓴다) 이 목록은 늘 «—» 였다.
+           ⚠️ 기존 칸을 이 값으로 «채우지» 않는다 — 뜻이 다르다(정본 머리말 참고).
+           ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
+        const _schedMap = await loadSchedSummaryMap(env as any);
+        for (const _it of (_piiItems as any[])) {
+          _it.sched = _schedMap.get(String(_it?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
+        }
         return json({ ok: true, items: _piiItems, can_view_pii: canViewPII(_swErp.scope) });
       } catch (e: any) {
         // 어떤 에러든 빈 배열로 graceful — UI 가 "데이터 없음" 으로 표시
@@ -3743,10 +3753,14 @@ ${numbered}`;
           console.warn('[student/full] cafe24 성적 조회 실패:', e?.message || e);
         }
 
+        // 📘 (2026-09-15) 「예약 수업」 — 목록과 «같은 정본» 을 쓴다(화면마다 답이 다르면 안 된다)
+        const _fullSched = await loadSchedSummaryOne(env as any, uid);
+
         return json({
           ok: true,
           user_id: uid,
           period_days: days,
+          sched: _fullSched,
           erp: _fullErpPII,
           can_view_pii: canViewPII(_fullScope),
           profile: pick(1),

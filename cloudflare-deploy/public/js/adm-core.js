@@ -11131,6 +11131,18 @@ function renderStudentTable() {
   const _d = v => v ? _esc(String(v).slice(0,10)) : '—';
   // 🔤 열 너비를 고정(table-layout:fixed)했으므로 넘치는 값은 …으로 잘린다 → 원문을 title 로 붙여 둔다.
   const _ct = v => { const x = _esc(v == null ? '' : v); return x ? `<td title="${x}">${x}</td>` : '<td>—</td>'; };
+  /* 📘 (2026-09-15) 「예약」 칸 — 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)은
+     students_erp 의 칸이고 카페24가 정본이라, 관리자가 수업을 넣어도(class_schedules)
+     늘 «—» 였다. 이 칸만 실제 예약을 본다.
+     ⛔ 문장을 여기서 조립하지 말 것 — 학생 상세 카드도 같은 값을 그리므로 서버
+        (src/student-schedule-summary.ts)가 만든 label_ko/label_en 을 «고르기만» 한다. */
+  const _schedTd = (s) => {
+    const q = s && s.sched;
+    const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
+    if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
+    const x = _esc(txt);
+    return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -11146,6 +11158,7 @@ function renderStudentTable() {
       ${_ct(s.summary)}
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
+      ${_schedTd(s)}
       <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
       ${_ct(s.enroll_req)}
       <td>${_c(_piiPhone(s.student_phone))}</td>
@@ -11223,6 +11236,7 @@ function smExportStudentsCsv() {
     ['요약',          s => s.summary],
     ['가입일',        s => _date(s.created_at)],
     ['수업회수(주)',  s => s.classes_per_week],
+    ['예약',          s => (s.sched && s.sched.label_ko && s.sched.label_ko !== '—') ? s.sched.label_ko : ''],
     ['포인트',        s => Number(s.points) || 0],
     ['수강신청',      s => s.enroll_req],
     ['학생번호',      s => _piiPhone(s.student_phone)],
