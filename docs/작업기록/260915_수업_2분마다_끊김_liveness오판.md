@@ -97,7 +97,7 @@ static livenessVerdict(now, seen, autoAt, staleMs, nopingMs): 'alive' | 'grace' 
 ## 6. 확인한 방법
 
 - 타입체크 `tsc --noEmit` — 통과(종료 0)
-- 회귀 `node test-harness/run.mjs --fast` — **PASS 343 / FAIL 0 / SKIP 20**(기준선 유지 — 최신 main 병합 뒤 재측정)
+- 회귀 `node test-harness/run.mjs --fast` — **PASS 346 / FAIL 0 / SKIP 20**(기준선 유지 — 2026-09-15 최신 main #996 병합 뒤 재측정. ⚠️ 이 숫자는 main 이 자랄 때마다 올라갑니다 — 볼 것은 「FAIL 0」과 「SKIP 20 이하」입니다)
 - `vc_ghost_liveness_harness` — 40 → **57 통과 / 0 실패**(기존 계약 그대로)
 - **변이시험 8종 전부 실제 FAIL** (순수 함수 5 + 배선 3)
 
