@@ -9482,6 +9482,17 @@ LIMIT $limit`;
     //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
     if ((method === 'GET' || method === 'POST' || method === 'PATCH') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      /* 🪪 (2026-09-15 신설 — 사장님 제보 「지사 아이디가 —로 비어 있다. 카페24에 데이터가
+         있으니 가져와라」) 실측: 카페24 (:Branch) 노드에는 branch_id·name·address·phone·
+         manager·active 만 있고 로그인 계정/아이디 개념 자체가 없다(cafe24-sync.ts 의
+         importCafe24Org Cypher 가 그 다섯 칸만 읽는다) — 그래서 「가져올」 원본이 카페24에
+         없다. 아래 admin_scope 접두어 매칭(login_id CASE)은 «추정» 일 뿐이고 계정이 아예
+         없거나 접두어가 모호한 지사는 늘 —로 남는다. master_branches(대표지사)의
+         login_username 과 같은 방식으로 **본사가 직접 입력해 저장하는 칸**을 새로 둔다
+         — 카페24 야간 동기화(insF UPSERT)의 컬럼 목록에 없으므로 덮어써지지 않는다
+         (franchise_manual_override 같은 별도 표가 필요 없다). 기존 DB 에는 없을 수 있어
+         지연 ALTER(이미 있으면 SQLite 가 throw → 흡수, master_branches 와 같은 방식). */
+      try { await env.DB.exec(`ALTER TABLE franchises ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
 
       /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03) — 조직을 «대표지사 › 지사 › 대리점» 으로 세운다.
          화면(조직 관리 카드)에는 2026-07 부터 «🏛️ 대표지사» 칸이 있었지만 **배선이 하나도 없어서**
@@ -9573,10 +9584,15 @@ LIMIT $limit`;
            「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙: 부분일치·모호하면 안 붙임).
            ⚠️ (trap-check 지적 반영) franchises.name 은 유일하지 않다(UNIQUE 제약 없음,
            등록 API 도 중복을 막지 않는다 — CLAUDE.md 의 centers.name 미유일 사례와 같은 구조).
-           같은 이름의 지사 행이 둘 이상이면 어느 쪽 것인지 알 수 없으니 둘 다 —로 비운다. */
+           같은 이름의 지사 행이 둘 이상이면 어느 쪽 것인지 알 수 없으니 둘 다 —로 비운다.
+
+           🪪 (2026-09-15 추가) f.login_username(본사가 직접 입력한 값, 위 ALTER)이 있으면
+           그것을 최우선으로 쓴다 — 사람이 «이 지사는 이 계정이다» 라고 확정한 값이라 접두어
+           매칭보다 확실하다. 비어 있을 때만 아래 admin_scope 추정으로 떨어진다. */
         const rs = await env.DB.prepare(
           `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name,
-             (CASE WHEN (SELECT COUNT(*) FROM franchises WHERE name = f.name) > 1 THEN NULL
+             (CASE WHEN f.login_username IS NOT NULL AND f.login_username <> '' THEN f.login_username
+                   WHEN (SELECT COUNT(*) FROM franchises WHERE name = f.name) > 1 THEN NULL
                    WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%') = 1
                    THEN (SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%' LIMIT 1)
                    WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%')) = 1
@@ -9592,9 +9608,11 @@ LIMIT $limit`;
            지사·대리점 스코프 계정은 이미 이 API 를 스코프가 잘린 채로 쓸 수 있는데(위 _fWhere),
            branch 계정은 접두어 매칭이라 «형제 지사」까지 함께 보일 수 있고, agency 계정은
            자기가 속한 지사의 로그인 아이디를 이 API 에서 «처음으로» 보게 된다 — 새로 넣는
-           칸이니 굳이 넓힐 이유가 없다. 본사(hq/none)에게만 싣는다. */
+           칸이니 굳이 넓힐 이유가 없다. 본사(hq/none)에게만 싣는다.
+           ⚠️ (2026-09-15) f.login_username 은 f.* 로 딸려 나온 원본 칸이라 이것도 함께 지운다
+           — 안 지우면 login_id 는 가려도 같은 값이 login_username 으로 그대로 샌다. */
         if (!canEditOrg(_fSc)) {
-          for (const it of _frItems as any[]) delete it.login_id;
+          for (const it of _frItems as any[]) { delete it.login_id; delete it.login_username; }
         }
         return json({ ok: true, items: _frItems, scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
       }
@@ -9641,6 +9659,8 @@ LIMIT $limit`;
         let newAddress: string | null | undefined;
         if (has('address')) { newAddress = String(b.address || '').trim() || null; sets.push('address = ?'); binds.push(newAddress); }
         if (has('opened_at')) { sets.push('opened_at = ?'); binds.push(String(b.opened_at || '').trim() || null); }
+        // 🪪 (2026-09-15) 로그인 아이디 — 카페24 필드가 아니라 touchesCafe24Field/override 대상이 아니다.
+        if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
         if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
 
         /* 🔑 이 지사에 로그인 계정(scope_type='branch')이 있으면 admin_scope.scope_value 가
@@ -9797,8 +9817,9 @@ LIMIT $limit`;
 
       if (!b || !b.name) return invalidBody(['name']);
       const r = await env.DB.prepare(
-        `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
+        `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, login_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null,
+             String(b.login_username || '').trim() || null, now, now).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }
 
