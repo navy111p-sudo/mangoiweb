@@ -17,6 +17,7 @@ import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // �
 import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
 import { azureZhVoice, azureTts } from './azure-tts';  // 🀄 중국어 «진짜 남성 성우»(키 없으면 자동으로 건너뜀)
+import { azureTtsAllowed, azureTtsCapKey } from './voice-tts-cap';  // 💸 돈 상한 판정 정본(무인증 API)
 import type { MangoEnv } from './api-mango';
 // ✒️ 문장 종결부호 정본 — 문제문·해설·읽을 문장에만 씁니다(2026-08-26).
 //    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
@@ -2562,7 +2563,36 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
              ⚠️ 실패하면 «아래 예전 경로» 로 그대로 내려갑니다 — 소리가 아예 안 나는 것이 최악입니다.
                 왜 실패했는지는 응답 헤더(X-TTS-Fallback)로 말해 줍니다(추측하지 않게). */
           let azFail = '';
+          /* 💸 (2026-09-15 사장님 지시) 이 API 는 **무인증**입니다 — 한 번에 나가는 돈은
+             이미 막혀 있었지만(300자 · 아는 성우만 · 캐시) «몇 번 부를 수 있나» 가 안 막혀
+             있었습니다. 판정 정본은 src/voice-tts-cap.ts 입니다.
+             ⛔ 그 조건을 여기에 옮겨 적지 마세요 — 라우트 안에 두면 조건을 뒤집어도
+                문자열 검사가 그대로 통과합니다(CLAUDE.md 「비용이 나가는 API」).
+             ⚠️ 이 자리가 «캐시 적중 뒤» 인 것이 중요합니다 — 이미 만들어 둔 소리는
+                Azure 를 안 부르므로 세지 않습니다. 세는 것은 진짜로 돈이 나가는 호출뿐입니다.
+             ⚠️ 막혀도 **소리는 그대로 납니다** — 아래 «예전 경로»(구글 만다린)로 내려갑니다.
+                429 로 끊지 않습니다(끊으면 학생 화면이 통째로 조용해집니다).
+             ⚠️ 사유(X-TTS-Fallback)를 «읽는» 화면은 성우 견본(zh-voice-sample.html)뿐입니다 —
+                학생이 쓰는 warmup.html 은 X-TTS-Engine 만 보고, 아무 말 없이 예전처럼
+                «굵게 구운» 소리를 냅니다(= 2026-09-14 이전 동작).
+                ⛔ 거기에 안내를 새로 띄우지 마세요 — CLAUDE.md 가 「그 안내를 되살리지 마세요,
+                   이제 «항상» 남자 목소리라 거짓말이 됩니다」로 못 박아 둔 자리입니다. */
           if (azVoice) {
+            const capKey = azureTtsCapKey(request.headers.get('cf-connecting-ip'), Date.now());
+            let capUsed: any = null;
+            try { capUsed = await (env as any).SESSION_STATE?.get?.(capKey); } catch {}
+            if (!azureTtsAllowed(capUsed)) {
+              azFail = 'ip_cap';
+              console.warn('[voice/tts] azure ip cap:', capKey, capUsed);
+            } else {
+              /* 부르기 «전» 에 셉니다 — 실패도 세야 남용이 실패를 무한정 낼 수 없고,
+                 실패 사유 중 empty_n 은 이미 과금됐을 수 있습니다. */
+              try {
+                await (env as any).SESSION_STATE?.put?.(capKey, String((Number(capUsed) || 0) + 1), { expirationTtl: 172800 });
+              } catch { /* KV 장애로 정상 학생이 막히면 안 되므로 통과 */ }
+            }
+          }
+          if (azVoice && !azFail) {
             const az = await azureTts(env as any, text, azVoice, 'zh-CN');
             if (az.ok) {
               await putCacheAs(cacheKey, az.bytes, 'azure');
