@@ -437,6 +437,9 @@ const s2 = await evalJs(`(async () => {
     still: !!img,
     src: img ? /^data:image\\/jpeg/.test(img.getAttribute('src') || '') : false,
     w: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0,
+    /* 🪤 상자 크기(w·h)만 보면 «깨진 dataURL» 도 200×120 짜리 빈 상자로 통과한다.
+       그림이 «진짜로 디코딩됐는가» 는 naturalWidth 뿐이다(디코딩 전이면 0). */
+    nw: img ? (img.naturalWidth || 0) : 0, nh: img ? (img.naturalHeight || 0) : 0,
     z: img ? getComputedStyle(img).zIndex : '',
     gray: img ? /grayscale/.test(getComputedStyle(img).filter || '') : false,
     fit: img ? getComputedStyle(img).objectFit : '',
@@ -446,7 +449,10 @@ const s2 = await evalJs(`(async () => {
 })()`);
 ok(s2 && s2.vw === 0, '⑪-3 전제: 영상이 실제로 죽었다(videoWidth=0)');
 ok(s2 && s2.still && s2.src, '⑪-4 📷 영상이 죽어도 «마지막 모습» 이 타일에 남는다');
-ok(s2 && s2.w > 0 && s2.h > 0, '⑪-5 그 그림이 «실제로 그려졌다»(' + (s2 && s2.w) + '×' + (s2 && s2.h) + ') — 0 이면 붙기만 한 것');
+ok(s2 && s2.nw > 0 && s2.nh > 0,
+   '⑪-5 그 그림이 «실제로 디코딩됐다»(naturalWidth ' + (s2 && s2.nw) + '×' + (s2 && s2.nh) + ') — 0 이면 깨진 dataURL',
+   '상자 크기(' + (s2 && s2.w) + '×' + (s2 && s2.h) + ')만 보면 깨진 그림도 통과합니다');
+ok(s2 && s2.w > 0 && s2.h > 0, '⑪-5b 그리고 화면에 자리를 차지한다(' + (s2 && s2.w) + '×' + (s2 && s2.h) + ')');
 ok(s2 && !s2.cover, '⑪-6 ⛔ 옛 전면 덮개(.vc-camoff-hint)로 떨어지지 않는다');
 ok(s2 && s2.strip, '⑪-7 멈춤 띠도 함께 붙는다 — «지금» 으로 오인되지 않게');
 ok(s2 && s2.gray, '⑪-8 흑백으로 깐다(띠와 같은 이유)');

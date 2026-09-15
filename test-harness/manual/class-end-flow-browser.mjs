@@ -177,6 +177,13 @@ else {
     수업중: document.body.classList.contains('vc-in-call'),
     튕김: /[?&](_e|_exit)=/.test(location.search) })`);
   ok(mid.평가모달, 'touchstart 에서 평가 모달이 뜬다(고침이 터치에도 닿는다)');
+  /* 🔗 짝 — 나가기 안전망(js/vc-dock.js)이 «평가 흐름을 건너뛰지 않는가».
+     터치에서는 touchend 가 버튼까지 pointerup 을 보내므로 안전망이 실제로 깨어난다
+     (마우스에서는 모달이 버튼을 덮어 pointerup 이 0회라 이 가드가 실행조차 안 된다 — 실측).
+     그때 «평가·복습퀴즈 모달이 떠 있으면 손을 뗀다» 두 줄이 없으면 700ms 뒤 수업이 끝나
+     평가 모달이 떠 있는 채로 학생이 홈으로 나간다. ⛔ 이 줄을 지우면 그 변이가 안 잡힙니다. */
+  ok(end.수업중, 'touchend 700ms 뒤에도 수업에 남는다 — 안전망이 평가 흐름을 건너뛰지 않는다',
+     '잰 값: 수업중=' + end.수업중 + ' · 평가모달=' + end.평가모달);
   if (end.평가모달 && !end.튕김) {
     ok(true, 'touchend 뒤에도 평가 모달이 남아 있다 — 터치 경로까지 완결');
   } else {

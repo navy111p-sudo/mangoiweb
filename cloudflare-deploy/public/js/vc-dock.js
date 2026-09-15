@@ -962,6 +962,9 @@
        이 줄보다 앞서 읽습니다 — 순서를 바꾸면 그 판정이 통째로 헛돕니다.
        ⚠️ pointercancel 도 함께 — 안 지우면 «놓지 않은 채 취소된» 기록이 남아 다음 진짜 나가기를 삼킵니다. */
     function clearDown(){ downId = null; downOnLeave = false; }
+    /* ⚠️ 이 둘은 window 의 «버블» 단계입니다 — 누군가 pointerup 을 캡처에서
+       stopPropagation 하면 기록이 안 지워져 안전망이 조용히 죽습니다
+       (2026-09-15 실측: 저장소 전체에 그런 코드 0건. 새로 만들 때 이 줄을 떠올릴 것). */
     window.addEventListener('pointerup', clearDown, false);
     window.addEventListener('pointercancel', clearDown, false);
 
