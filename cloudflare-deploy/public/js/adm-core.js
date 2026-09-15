@@ -7797,7 +7797,15 @@ function _addEnrollmentRow(prefill) {
     '<td class="en-c en-c-prio" data-label="' + (_enrIsEn ? 'Matching priority' : '배정 우선순위') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
       teacherSel +
-      '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
+      '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div>' +
+      /* 🔀 (2026-09-15 사장님 지시) 「여러 강사로 나눠 배정」 — 예: Kes 강사 화 14:00 + Win 강사
+         목 14:00 을 한 학생에게 한 번에. ⛔ 새 열을 만들지 않는다(요구사항 그대로 ③ 배정
+         우선순위 칸 안에 딸린 칸으로 둔다 — 위 teacherSel 주석과 같은 이유). */
+      '<button type="button" class="en-row-multi-teacher-btn" title="' +
+        (_enrIsEn ? 'Split this student across several teacher/day/time slots at once'
+                  : '이 학생을 강사·요일·시간이 다른 여러 건으로 한 번에 등록합니다') + '">' +
+        (_enrIsEn ? '🔀 Split across teachers' : '🔀 여러 강사로 배정') + '</button>' +
+      '<div class="en-row-multi-teacher-summary" style="font-size:10.5px;color:#6d28d9;margin-top:3px;font-weight:600"></div></td>' +
     '<td class="en-c en-c-day" data-label="' + (_enrIsEn ? 'Days' : '요일') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
     '<td class="en-c en-c-time" data-label="' + (_enrIsEn ? 'Time' : '시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
       /* 🕐 (2026-08-21 사장님 지시) ⏰ 를 «입력칸 안쪽 오른쪽 끝» 에 넣는다.
@@ -7861,6 +7869,10 @@ function _addEnrollmentRow(prefill) {
       const prio = tr.querySelector('.en-row-priority'); if (prio) prio.value = 'schedule';
       const dur = tr.querySelector('.en-row-duration'); if (dur) dur.value = '';
       const tsel = tr.querySelector('.en-row-teacher'); if (tsel) tsel.value = '';
+      // 🔀 (2026-09-15) 나눠 배정 계획도 함께 지운다 — 안 지우면 「비운 행」인데 옛 계획이 살아남는다
+      delete tr.dataset.enMultiTeacherPlan;
+      tr.classList.remove('en-row-multi-active');
+      const mtSum = tr.querySelector('.en-row-multi-teacher-summary'); if (mtSum) mtSum.textContent = '';
       _enPrioNote(tr);
       _enDurNote(tr);
     } else {
@@ -7877,6 +7889,14 @@ function _addEnrollmentRow(prefill) {
     btn.disabled = true; btn.textContent = '…';
     try { await _openTimeBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
   });
+  // 🔀 (2026-09-15) 여러 강사로 나눠 배정 — 모달 열기
+  tr.querySelector('.en-row-multi-teacher-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const orig = btn.textContent;
+    btn.disabled = true;
+    try { await _openMultiTeacherBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
+  });
+  _enRenderMultiTeacherSummary(tr);
   // 🧭 (2026-08-12) ③ 우선순위 — 고른 값이 «다음 단계에서 무슨 뜻인지» 한 줄로 알려 준다
   tr.querySelector('.en-row-priority').addEventListener('change', () => _enPrioNote(tr));
   _enPrioNote(tr);
@@ -8451,6 +8471,179 @@ async function _openTimeBuilder(tr) {
   });
 }
 
+/* 🔀 (2026-09-15 사장님 지시) 「여러 강사로 나눠 배정」 — 한 학생을 강사·요일·시간이 다른
+   여러 건으로 한 번에 등록한다. 예: 「Kes 강사 화요일 2시, Win 강사 목요일 2시」.
+   ⚠️ 서버 파이프라인(enroll-activate.ts buildEnrollPlan/runActivate)은 «신청 1건 = 강사 1명»
+      을 그대로 전제하고 있어 손대지 않는다 — 여기서는 화면이 «건을 미리 나눠서»
+      _readEnrollmentRows() 가 이 행을 조합(combo) 수만큼의 독립된 레코드로 쪼개고,
+      addEnrollment() 의 기존 다건 등록 경로(POST 여러 번 + 각각 확정)로 흘려보낸다.
+      즉 조합마다 완전히 별개인 enrollments 행 + class_schedules 행이 생긴다 — 오늘 사람이
+      같은 학생으로 행을 두 번 만들어도 똑같이 일어나는 일이라(요금도 각자 계산됨),
+      이 기능은 «데이터를 두 번 치는 수고» 만 없앤다.
+   ⚠️ 강사 목록은 _enLoadTeachers() 가 이미 캐시해 둔 __enTeachers 를 그대로 쓴다
+      (판정을 복제하지 않는다 — 위 teacherSel 과 같은 출처). */
+async function _openMultiTeacherBuilder(tr) {
+  if (!__enTeachers) { await _enLoadTeachers(); }
+  const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
+  const dayLabels = ['월','화','수','목','금','토','일'];
+
+  let existing = [];
+  try { existing = JSON.parse(tr.dataset.enMultiTeacherPlan || '[]'); } catch (e) { existing = []; }
+  if (!Array.isArray(existing)) existing = [];
+  if (existing.length === 0) {
+    // 처음 여는 것이면 이미 채워 둔 단일 강사/요일/시간을 첫 조합으로 미리 채워 준다(편의)
+    const curTeacher = (tr.querySelector('.en-row-teacher')?.value || '').trim();
+    const curDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
+    const curTimeRaw = (tr.querySelector('.en-row-time')?.value || '').trim();
+    const curTime = /^\d{1,2}\s*:\s*\d{2}$/.test(curTimeRaw) ? curTimeRaw : '';
+    existing = [{ teacher: curTeacher, days: curDays, time: curTime }];
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'multi-teacher-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);padding:20px';
+
+  const teacherOptions = (cur) => '<option value="">— 강사 선택 —</option>' +
+    (__enTeachers || []).map(t => '<option value="' + _esc(t.name) + '"' + (t.name === cur ? ' selected' : '') + '>' + _esc(t.name) + '</option>').join('');
+
+  const comboHtml = (combo, idx) => {
+    const days = Array.isArray(combo.days) ? combo.days : [];
+    return (
+      '<div class="mtb-combo" data-idx="' + idx + '" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;background:#fafafa">' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">' +
+          '<span style="font-size:11px;font-weight:700;color:#6b7280;min-width:14px">' + (idx + 1) + '.</span>' +
+          '<select class="mtb-teacher" style="flex:1;padding:5px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">' + teacherOptions(combo.teacher || '') + '</select>' +
+          '<button type="button" class="mtb-combo-del" title="이 배정 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 4px">✕</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:5px;margin-bottom:8px">' +
+          dayCodes.map((c, i) => (
+            '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer">' +
+              '<input type="checkbox" class="mtb-day" value="' + c + '"' + (days.includes(c) ? ' checked' : '') + ' style="margin:0 0 1px"/>' + dayLabels[i] +
+            '</label>'
+          )).join('') +
+        '</div>' +
+        '<input type="text" class="mtb-time" placeholder="예: 14:00" value="' + _esc(combo.time || '') + '" ' +
+          'style="width:100%;padding:5px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px" />' +
+      '</div>'
+    );
+  };
+
+  let html =
+    '<div style="background:#fff;border-radius:14px;padding:22px 26px;width:420px;max-width:92vw;max-height:86vh;overflow-y:auto;box-shadow:0 24px 60px -10px rgba(0,0,0,0.3)">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span style="font-size:24px">🔀</span>' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:15px;color:#1f2937">여러 강사로 나눠 배정</div>' +
+          '<div style="font-size:11px;color:#6b7280">이 학생 하나를 강사·요일·시간이 다른 여러 건으로 등록합니다</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="background:#f5f3ff;padding:8px 12px;border-radius:6px;font-size:11px;color:#5b21b6;margin-bottom:12px">' +
+        '💡 예: Kes 강사 · 화 14:00  /  Win 강사 · 목 14:00 — 각각 별도 수강신청 건으로 등록·확정됩니다' +
+      '</div>' +
+      '<div id="mtb-combos">' + existing.map(comboHtml).join('') + '</div>' +
+      '<button type="button" id="mtb-add" style="width:100%;padding:8px;font-size:12px;background:#fff;border:1px dashed #8b5cf6;color:#7c3aed;border-radius:8px;cursor:pointer;margin-bottom:14px">+ 강사 추가</button>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button type="button" id="mtb-cancel" style="flex:1;padding:8px 14px;font-size:13px;background:#e5e7eb;color:#374151;border:0;border-radius:8px;cursor:pointer">취소</button>' +
+        '<button type="button" id="mtb-confirm" style="flex:1;padding:8px 14px;font-size:13px;background:#7c3aed;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">적용</button>' +
+      '</div>' +
+    '</div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+
+  let comboSeq = existing.length;
+  const combosBox = overlay.querySelector('#mtb-combos');
+  const wireDel = (el) => {
+    el.querySelector('.mtb-combo-del').addEventListener('click', () => {
+      if (combosBox.children.length <= 1) { alert('최소 1건은 남아 있어야 합니다. 전부 지우려면 「취소」를 누르세요.'); return; }
+      el.remove();
+    });
+  };
+  combosBox.querySelectorAll('.mtb-combo').forEach(wireDel);
+  overlay.querySelector('#mtb-add').addEventListener('click', () => {
+    const div = document.createElement('div');
+    div.innerHTML = comboHtml({ teacher: '', days: [], time: '' }, comboSeq++);
+    const el = div.firstElementChild;
+    combosBox.appendChild(el);
+    wireDel(el);
+  });
+
+  const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  overlay.querySelector('#mtb-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#mtb-confirm').addEventListener('click', () => {
+    const combos = [];
+    const partial = [];
+    combosBox.querySelectorAll('.mtb-combo').forEach((el) => {
+      const teacher = (el.querySelector('.mtb-teacher')?.value || '');
+      const days = Array.from(el.querySelectorAll('.mtb-day:checked')).map(c => c.value);
+      const timeRaw = (el.querySelector('.mtb-time')?.value || '');
+      const r = _mtbClassifyCombo(teacher, days, timeRaw);
+      if (r.kind === 'empty') return;         // 완전히 빈 조합은 건너뜀(추가만 해 두고 안 쓴 칸)
+      if (r.kind === 'partial') { partial.push(r.teacher); return; }
+      combos.push(r.combo);
+    });
+    if (partial.length > 0) {
+      alert('⚠️ 강사·요일·시간을 모두 채워야 합니다 (미완성 ' + partial.length + '건):\n' + partial.join(', '));
+      return;
+    }
+    // 🔴 같은 강사·같은 요일이 두 번 들어가면 어느 시간으로도 확실히 등록되지 않을 수 있어 미리 막는다
+    const dupe = _mtbFindDupe(combos);
+    if (dupe) {
+      alert('⚠️ ' + dupe.teacher + ' 강사 · ' + dupe.dayKo + '요일이 두 번 이상 들어 있습니다. 한 번씩만 넣어 주세요.');
+      return;
+    }
+    if (combos.length === 0) {
+      delete tr.dataset.enMultiTeacherPlan;
+      tr.classList.remove('en-row-multi-active');
+    } else {
+      tr.dataset.enMultiTeacherPlan = JSON.stringify(combos);
+      tr.classList.add('en-row-multi-active');
+    }
+    _enRenderMultiTeacherSummary(tr);
+    close();
+  });
+}
+
+/* 🔀 조합 하나(강사·요일·시간)의 입력을 판정 — 빈 칸 / 미완성 / 유효 셋 중 하나.
+   ⚠️ 순수 함수로 뺀 이유 — 하니스가 DOM 없이 이 판정을 실제로 돌려 확인할 수 있게
+      (판단력을 화면 코드 안에 묻으면 문자열 검사로만 남고, 그건 조건을 뒤집어도 못 잡는다). */
+function _mtbClassifyCombo(teacher, days, timeRaw) {
+  teacher = (teacher || '').trim();
+  days = Array.isArray(days) ? days : [];
+  timeRaw = (timeRaw || '').trim();
+  const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
+  if (!teacher && days.length === 0 && !timeRaw) return { kind: 'empty' };
+  if (!teacher || days.length === 0 || !time) return { kind: 'partial', teacher: teacher || '(강사 미선택)' };
+  return { kind: 'valid', combo: { teacher, days, time } };
+}
+
+/* 🔀 같은 강사·같은 요일이 두 번 이상 들어 있으면 어느 조합인지 알려 준다(없으면 null) */
+function _mtbFindDupe(combos) {
+  const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+  const seen = Object.create(null);
+  for (const c of combos) {
+    for (const d of c.days) {
+      const key = c.teacher + '|' + d;
+      if (seen[key]) return { teacher: c.teacher, day: d, dayKo: dayKo[d] || d };
+      seen[key] = true;
+    }
+  }
+  return null;
+}
+
+// 🔀 위 계획을 사람이 읽을 수 있는 한 줄로 그린다 — 「② 배정 우선순위」 칸 아래에 붙는다
+function _enRenderMultiTeacherSummary(tr) {
+  const box = tr.querySelector('.en-row-multi-teacher-summary');
+  if (!box) return;
+  let plan = [];
+  try { plan = JSON.parse(tr.dataset.enMultiTeacherPlan || '[]'); } catch (e) { plan = []; }
+  if (!Array.isArray(plan) || plan.length === 0) { box.textContent = ''; return; }
+  const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+  box.textContent = '🔀 ' + plan.length + '건 나눠 배정: ' +
+    plan.map(c => c.teacher + '(' + (Array.isArray(c.days) ? c.days : []).map(d => dayKo[d] || d).join('') + ' ' + c.time + ')').join(' · ');
+}
+
 // 시간 텍스트 파싱 — "10:30" 또는 "월 7:30, 수 8:00" 형식
 // 반환: { mon:'07:30', wed:'08:00', _common:'10:30' } 형태
 function _parseScheduleText(text) {
@@ -8521,6 +8714,53 @@ function _readEnrollmentRows() {
        「화면엔 넣었는데 저장이 안 된」 것처럼 보인다). 빈 값이면 안 보낸다 = 예전 그대로. */
     const phoneRaw = (tr.querySelector('.en-row-phone')?.value || '').replace(/[^0-9]/g, '');
     const parentPhone = phoneRaw.length >= 9 ? phoneRaw : '';
+    const endDateFor = (duration, start) => (duration && duration !== 'unlimited' && start) ? _enAddMonths(start, parseInt(duration, 10)) : null;
+    const endedAtFor = (duration, start) => (duration && duration !== 'unlimited' && start)
+      ? (new Date(_enAddMonths(start, parseInt(duration, 10))).getTime() || null) : null;
+    /* 🔀 (2026-09-15 사장님 지시) 「여러 강사로 나눠 배정」 계획이 있으면 이 행을 «조합 수만큼»
+       독립된 레코드로 쪼갠다 — 강사·요일·시간만 조합마다 다르고, 나머지(학생·레벨구분·인원·
+       수업시간·시작일·기간·연락처)는 그대로 공유한다. 아래 단일-강사 읽기(priority/wantTeacher/
+       days/time)는 이 계획이 있으면 건너뛴다 — 두 값을 동시에 쓰면 어느 쪽이 진짜인지 갈린다. */
+    let multiPlan = [];
+    try { multiPlan = JSON.parse(tr.dataset.enMultiTeacherPlan || '[]'); } catch (e) { multiPlan = []; }
+    if (!Array.isArray(multiPlan)) multiPlan = [];
+    if (multiPlan.length > 0) {
+      multiPlan.forEach((combo) => {
+        const comboDays = Array.isArray(combo.days) ? combo.days : [];
+        const comboDaysKo = comboDays.map(d => DAY_LABELS[d] || d);
+        out.push({
+          student_name: name,
+          student_user_id: uid || null,
+          parent_phone: parentPhone || null,
+          package: pkg || (typesKo.join('+') || '미정'),
+          monthly_fee_krw: fee ? parseInt(fee, 10) : null,
+          started_at: start ? new Date(start).getTime() : null,
+          days_of_week: comboDaysKo.join('') || null,
+          time: combo.time || null,
+          class_size: classSize || null,
+          duration_min: classMin,
+          type: typesKo.join('+') || null,
+          // 🔀 계획에서 고른 조합은 강사가 이미 정해져 있으므로 「강사 우선」으로 보낸다
+          assign_priority: 'teacher',
+          teacher_name: combo.teacher || null,
+          duration_months: duration || null,
+          end_date: endDateFor(duration, start),
+          ended_at: endedAtFor(duration, start),
+          _types: types,
+          _types_ko: typesKo,
+          _days: comboDays,
+          _days_ko: comboDaysKo,
+          _time: combo.time || '',
+          _class_size: classSize,
+          _started_at_str: start,
+          _fee_raw: fee,
+          _category: category,
+          _duration: duration,
+          _want_teacher: combo.teacher || ''
+        });
+      });
+      return;
+    }
     out.push({
       student_name: name,
       student_user_id: uid || null,
@@ -8543,10 +8783,8 @@ function _readEnrollmentRows() {
       teacher_name: wantTeacher || null,
       // 🗓️ (2026-08-14) ⑥ 수업 기간. 'unlimited' 면 종료일 없음, 숫자면 시작일 + N개월을 끝으로 잡는다.
       duration_months: duration || null,
-      end_date: (duration && duration !== 'unlimited' && start)
-        ? _enAddMonths(start, parseInt(duration, 10)) : null,
-      ended_at: (duration && duration !== 'unlimited' && start)
-        ? (new Date(_enAddMonths(start, parseInt(duration, 10))).getTime() || null) : null,
+      end_date: endDateFor(duration, start),
+      ended_at: endedAtFor(duration, start),
       // 추가 메타 (자동 export·import 시 사용)
       _types: types,
       _types_ko: typesKo,
@@ -8690,7 +8928,16 @@ async function addEnrollment() {
   }
 
   // N>1 — 일괄 등록 (Phase 23 의 _bulkRegisterEnrollments 와 동일 패턴)
-  if (!confirm((adminLang==='en' ? 'Register ' : '') + records.length + (adminLang==='en' ? ' students at once?' : '명 학생을 동시에 등록하시겠습니까?'))) return;
+  /* 🔀 (2026-09-15) 「여러 강사로 나눠 배정」을 쓰면 학생 1명이 records 여러 건으로 쪼개져
+     온다 — «N명 학생을 등록하시겠습니까?»는 그럴 땐 거짓말이 된다(실제로는 1명인데 2건).
+     겹치는 아이디 수를 세어 사람 수와 건수가 다를 때만 문구를 갈라 말한다. */
+  const _enUniqUids = new Set(records.map(r => r.student_user_id || Math.random())).size;
+  const _enConfirmMsg = (_enUniqUids === records.length)
+    ? ((adminLang==='en' ? 'Register ' : '') + records.length + (adminLang==='en' ? ' students at once?' : '명 학생을 동시에 등록하시겠습니까?'))
+    : (adminLang==='en'
+        ? ('Register ' + records.length + ' enrollment(s) for ' + _enUniqUids + ' student(s) at once?')
+        : (_enUniqUids + '명 학생에게 총 ' + records.length + '건의 수업을 나눠 등록하시겠습니까?'));
+  if (!confirm(_enConfirmMsg)) return;
   if (status) status.textContent = '⏳ 일괄 등록 중… (0 / ' + records.length + ')';
   let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [], phoneFail = [];
   const successList = [];

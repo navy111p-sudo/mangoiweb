@@ -203,7 +203,11 @@ check('보관 실패를 «조용히» 넘기지 않는다 (phone_kept 를 응답
    그 낱말이 남아 통과한다(변이시험에서 실제로 뚫렸다). 그래서 그 절을 오려 내
    타입만 지우고 **가짜 setOverridePhones 로 실제로 돌려** «무엇을 몇 번 부르는가» 를 본다. */
 const bStart = cSrc.indexOf('let phoneKept');
-const bEnd = cSrc.indexOf('return json({ ok: true, updated_fields');
+/* ⚠️ (2026-09-15 병합) 끝을 `return json(...)` 로 잡으면, 그 사이에 나중에 끼워진 다른 블록
+   (가맹점·소속의 orgKept)까지 함께 오려져 이 절이 «모르는 변수»(_orgTouch 등)를 만나 던진다 —
+   길이로 자르지 말고 그 다음 블록이 시작하는 자리(고유한 주석)까지만 본다. */
+const bEnd0 = cSrc.indexOf('/* 🏢', bStart);
+const bEnd = bEnd0 >= 0 ? bEnd0 : cSrc.indexOf('return json({ ok: true, updated_fields');
 const bSrc = (bStart >= 0 && bEnd > bStart) ? cSrc.slice(bStart, bEnd) : '';
 check('전제: 번호 보관 절을 오려 냈다', bSrc.length > 200);
 const bJs = bSrc
