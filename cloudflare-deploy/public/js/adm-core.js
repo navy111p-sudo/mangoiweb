@@ -8486,7 +8486,6 @@ async function _openMultiTeacherBuilder(tr) {
   if (!__enTeachers) { await _enLoadTeachers(); }
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = ['월','화','수','목','금','토','일'];
-  const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
 
   let existing = [];
   try { existing = JSON.parse(tr.dataset.enMultiTeacherPlan || '[]'); } catch (e) { existing = []; }
@@ -8576,29 +8575,23 @@ async function _openMultiTeacherBuilder(tr) {
     const combos = [];
     const partial = [];
     combosBox.querySelectorAll('.mtb-combo').forEach((el) => {
-      const teacher = (el.querySelector('.mtb-teacher')?.value || '').trim();
+      const teacher = (el.querySelector('.mtb-teacher')?.value || '');
       const days = Array.from(el.querySelectorAll('.mtb-day:checked')).map(c => c.value);
-      const timeRaw = (el.querySelector('.mtb-time')?.value || '').trim();
-      const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
-      if (!teacher && days.length === 0 && !timeRaw) return;   // 완전히 빈 조합은 건너뜀(추가만 해 두고 안 쓴 칸)
-      if (!teacher || days.length === 0 || !time) { partial.push(teacher || '(강사 미선택)'); return; }
-      combos.push({ teacher, days, time });
+      const timeRaw = (el.querySelector('.mtb-time')?.value || '');
+      const r = _mtbClassifyCombo(teacher, days, timeRaw);
+      if (r.kind === 'empty') return;         // 완전히 빈 조합은 건너뜀(추가만 해 두고 안 쓴 칸)
+      if (r.kind === 'partial') { partial.push(r.teacher); return; }
+      combos.push(r.combo);
     });
     if (partial.length > 0) {
       alert('⚠️ 강사·요일·시간을 모두 채워야 합니다 (미완성 ' + partial.length + '건):\n' + partial.join(', '));
       return;
     }
     // 🔴 같은 강사·같은 요일이 두 번 들어가면 어느 시간으로도 확실히 등록되지 않을 수 있어 미리 막는다
-    const seen = Object.create(null);
-    for (const c of combos) {
-      for (const d of c.days) {
-        const key = c.teacher + '|' + d;
-        if (seen[key]) {
-          alert('⚠️ ' + c.teacher + ' 강사 · ' + (dayKo[d] || d) + '요일이 두 번 이상 들어 있습니다. 한 번씩만 넣어 주세요.');
-          return;
-        }
-        seen[key] = true;
-      }
+    const dupe = _mtbFindDupe(combos);
+    if (dupe) {
+      alert('⚠️ ' + dupe.teacher + ' 강사 · ' + dupe.dayKo + '요일이 두 번 이상 들어 있습니다. 한 번씩만 넣어 주세요.');
+      return;
     }
     if (combos.length === 0) {
       delete tr.dataset.enMultiTeacherPlan;
@@ -8610,6 +8603,33 @@ async function _openMultiTeacherBuilder(tr) {
     _enRenderMultiTeacherSummary(tr);
     close();
   });
+}
+
+/* 🔀 조합 하나(강사·요일·시간)의 입력을 판정 — 빈 칸 / 미완성 / 유효 셋 중 하나.
+   ⚠️ 순수 함수로 뺀 이유 — 하니스가 DOM 없이 이 판정을 실제로 돌려 확인할 수 있게
+      (판단력을 화면 코드 안에 묻으면 문자열 검사로만 남고, 그건 조건을 뒤집어도 못 잡는다). */
+function _mtbClassifyCombo(teacher, days, timeRaw) {
+  teacher = (teacher || '').trim();
+  days = Array.isArray(days) ? days : [];
+  timeRaw = (timeRaw || '').trim();
+  const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
+  if (!teacher && days.length === 0 && !timeRaw) return { kind: 'empty' };
+  if (!teacher || days.length === 0 || !time) return { kind: 'partial', teacher: teacher || '(강사 미선택)' };
+  return { kind: 'valid', combo: { teacher, days, time } };
+}
+
+/* 🔀 같은 강사·같은 요일이 두 번 이상 들어 있으면 어느 조합인지 알려 준다(없으면 null) */
+function _mtbFindDupe(combos) {
+  const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+  const seen = Object.create(null);
+  for (const c of combos) {
+    for (const d of c.days) {
+      const key = c.teacher + '|' + d;
+      if (seen[key]) return { teacher: c.teacher, day: d, dayKo: dayKo[d] || d };
+      seen[key] = true;
+    }
+  }
+  return null;
 }
 
 // 🔀 위 계획을 사람이 읽을 수 있는 한 줄로 그린다 — 「② 배정 우선순위」 칸 아래에 붙는다
