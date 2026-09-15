@@ -308,6 +308,13 @@
   .wus-more>.wus-list{padding:8px}
   .wus-bts-topic{color:#7dd3fc}
   #wusBooksSec[hidden]{display:none!important}
+  #wusLessonSec[hidden]{display:none!important}
+  .wus-lsn-row{display:flex;align-items:center;gap:8px;margin-top:9px}
+  .wus-lsn-row[hidden]{display:none!important}
+  .wus-lsn-lb{font-size:13px;font-weight:600;color:#cbd5e1;white-space:nowrap}
+  .wus-lsn-sel{flex:1;min-width:0;background:rgba(30,41,59,.75);color:#e2e8f0;font-family:inherit;
+    border:1px solid rgba(148,163,184,.35);border-radius:9px;padding:8px 9px;font-size:13.5px}
+  .wus-lsn-note{margin-top:6px;font-size:12.5px;line-height:1.45;color:#7dd3fc}
   .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
   .wus-find:hover{background:rgba(251,191,36,.24)}
   .wus-find .wus-name{color:#fcd34d}
@@ -439,6 +446,13 @@
           <div class="wus-sub">📘 오늘 배울 교재 <span class="wus-opt">(안 골라도 돼요)</span></div>
           <div class="wus-hint">BTS 교재를 고르면 <b>그 권의 주제로</b> 이야기해요. 안 고르면 지금처럼 <b>자유 대화</b>예요.</div>
           <div id="wusBooks"></div>
+          <div id="wusLessonSec" hidden>
+            <label class="wus-lsn-row">
+              <span class="wus-lsn-lb">📖 오늘 배울 과</span>
+              <select id="wusLesson" class="wus-lsn-sel"></select>
+            </label>
+            <div class="wus-lsn-note" id="wusLessonNote"></div>
+          </div>
         </div>
 
         <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
@@ -1327,6 +1341,9 @@ function renderSetup(){
   }
   /* 📘 오늘 배울 교재 — 중국어에는 BTS 가 없으므로 섹션째 감춘다.
      ⛔ 중국어 교재로 바꿔서 살리지 마세요 — BTS 는 영어 교재입니다(없는 것을 만들지 않습니다). */
+  /* 📖 «오늘 배울 과»(#wusLessonSec)는 이 상자 «안» 에 있습니다 — 그래서 중국어에서 함께 감춰지고,
+     여기서 다시 그릴 필요가 없습니다(그리는 자리는 btsPickLesson·applyBtsBook 한 곳입니다).
+     ⛔ 그 줄을 이 상자 밖으로 옮기지 마세요 — 옮기는 순간 중국어 화면에 영어 교재 과가 남습니다. */
   var bsec = document.getElementById('wusBooksSec');
   if(bsec) bsec.hidden = isZh();
   var bks = document.getElementById('wusBooks');
@@ -1417,6 +1434,9 @@ function closeSetup(){
   });
   var st = document.getElementById('wusStart');
   if(st) st.addEventListener('click', function(){ startWarmup(); });
+  /* 📖 과 고르기 — <select> 는 다시 그려지지 않고 <option> 만 갈립니다(리스너가 새지 않습니다) */
+  var ls = document.getElementById('wusLesson');
+  if(ls) ls.addEventListener('change', function(){ btsPickLesson(ls.value, true); });
   var fd = document.getElementById('wusFind');
   if(fd) fd.addEventListener('click', function(){ startProbe(); });
   var bk = document.getElementById('wusNavBack');
@@ -1537,6 +1557,10 @@ function applyBtsBook(v, announce, syncBand){
   try{ localStorage.setItem(BTS_KEY, String(b.v)); }catch(e){}
   var band = syncBand ? btsBandOf(b.v) : 0;
   if(band) setLevel(band, false);
+  /* 권이 바뀌면 «과» 는 처음부터 — 옛 권의 과를 물고 있으면 남의 교재 문장을 보냅니다. */
+  _btsLessons = []; _btsLessonKey = ''; _btsFetchSeq++;
+  btsRenderLessonRow();
+  btsLoadLessons(b.v);
   if(typeof updateTopicChip === 'function') updateTopicChip();
   if(announce && typeof addMsg === 'function'){
     addMsg('📘 오늘 교재를 «BTS ' + b.v + ' · ' + b.ko + '» 로 정했어요'
@@ -1549,7 +1573,9 @@ function clearBtsBook(announce){
   _btsVol = 0;
   WCTX.textbook = ''; WCTX.level = ''; WCTX.lesson_no = 0; WCTX.sentences = [];
   LESSON_TOPIC = LESSON_TOPIC_URL;
-  try{ localStorage.removeItem(BTS_KEY); }catch(e){}
+  _btsLessons = []; _btsLessonKey = ''; _btsFetchSeq++;
+  try{ localStorage.removeItem(BTS_KEY); localStorage.removeItem(BTS_LSN_KEY); }catch(e){}
+  btsRenderLessonRow();
   if(typeof updateTopicChip === 'function') updateTopicChip();
   /* ⛔ 대화 단계는 되돌리지 않습니다 — 학생이 직접 고른 값일 수 있습니다. */
   if(announce && typeof addMsg === 'function') addMsg('💬 교재 없이 자유 대화로 이야기할게요!', 'sys');
@@ -1578,6 +1604,139 @@ function btsListHtml(){
        + '<div class="wus-list">' + rest.map(item).join('') + '</div></details>';
   }
   return h;
+}
+/* ── 📖 오늘 배울 «과» — 교재의 진짜 문장을 웜업에 붙인다 (2026-09-15) ──────
+   [왜] 서버는 오래전부터 review_quizzes 에서 «오늘 배울 핵심 영어 문장 예시» 를 뽑아
+     프롬프트에 넣습니다(src/index.ts 의 warmupLessonContext → sys += …).
+     그런데 그 조회가 LOWER(textbook)=LOWER(?) «정확일치» 라, 화면이 보내던
+     «BTS 1 (Welcome to school, School Stuff, My classroom)» 은 D1 의 어느 이름과도
+     안 맞아 한 번도 안 걸렸습니다 — 서버 코드는 멀쩡한데 이름이 안 맞아 죽어 있었습니다.
+     [잰 것 — 2026-09-15 운영 D1 review_quizzes active=1] 실제 이름은
+       BTS 1 001 (Welcome to school) … BTS 1 008 (My classroom)  ← 과마다 40문항
+       BTS 2 Korea (Shapes and colors) · BTS 12 Korea (Jobs, Going to work)
+     BTS 1 001 의 문장 예: «Hello, I am a student.» «My name is Mango.» «I like school.»
+   [방식] 이름을 화면이 «지어내지» 않습니다. 이미 있는 학생용 API 가 알려 줍니다 —
+     GET /api/games/lessons?glang=en&course=…  →  lessons:[{seq,title,key,sentences:[…]}]
+     그 key 가 곧 D1 의 교재 이름이라, WCTX.textbook 으로 보내면 서버의 정확일치가 걸립니다.
+   ⛔ 서버는 한 줄도 안 고쳤습니다(src/index.ts 는 공동 금지구역).
+   ⛔ 못 받거나 0개면 WCTX.textbook 은 «권 이름» 그대로 = 고치기 전과 똑같습니다.
+      자유 대화는 애초에 이 길을 타지 않습니다(_btsVol 이 0 이면 아무것도 안 부릅니다).
+   ⚠️ 과 이름을 화면에 손으로 적지 마세요 — 교재가 늘거나 이름이 바뀌면 조용히 어긋납니다. */
+var BTS_LSN_KEY = 'mangoi_warmup_bts_lesson';   /* «권|키» — 권이 바뀌면 그 값은 안 씁니다 */
+var _btsLessons = [];      /* 지금 권에서 «실제 문장이 있는» 과들(서버가 그렇게 걸러 줍니다) */
+var _btsLessonKey = '';    /* 고른 과의 D1 교재 이름. '' = 없음 = 권 이름으로 보냄 */
+var _btsFetchSeq = 0;      /* 늦게 온 응답이 새 선택을 덮지 않게 */
+
+/* 코스 목록에서 «이 권» 을 찾습니다.
+   ⚠️ 서버 파서(parseEn)가 이름 모양에 따라 코스명을 다르게 만듭니다 —
+      «BTS 1 001 (…)» 은 코스 «BTS 1», «BTS 2 Korea (…)» 는 문자열 전체가 코스명입니다.
+      그래서 «BTS 2» 로 물으면 안 걸립니다. 목록에서 찾아야 합니다.
+   ⛔ 뒤가 숫자면 다른 권입니다 — «BTS 1» 이 «BTS 10»·«BTS 12» 를 물면 남의 교재가 됩니다. */
+function btsCourseMatch(list, v){
+  var re = new RegExp('^BTS\\s*0*' + v + '(?!\\d)', 'i');
+  for(var i=0;i<(list||[]).length;i++){
+    var c = String((list[i]||{}).course || '');
+    if(re.test(c)) return c;
+  }
+  return '';
+}
+function btsLessonsUrl(course){
+  return '/api/games/lessons?glang=en&course=' + encodeURIComponent(course);
+}
+/* 지난번에 고른 과 — «같은 권» 일 때만 씁니다. */
+function btsRestoredLessonKey(v){
+  var raw = ''; try{ raw = localStorage.getItem(BTS_LSN_KEY) || ''; }catch(e){}
+  var p = raw.indexOf('|');
+  if(p < 0) return '';
+  return (parseInt(raw.slice(0,p),10) === v) ? raw.slice(p+1) : '';
+}
+/* 이 권의 «문장이 있는 과» 목록을 받아 옵니다. 실패·0개면 조용히 예전 그대로.
+   ⚠️ 첫 요청의 course 는 «짐작»(BTS N)입니다. 안 맞아도 응답의 courses 로 다시 찾습니다. */
+function btsLoadLessons(v){
+  var my = ++_btsFetchSeq;
+  var guess = 'BTS ' + v;
+  function done(list){
+    if(my !== _btsFetchSeq || _btsVol !== v) return;   /* 그 사이 학생이 바꿨으면 버립니다 */
+    _btsLessons = list || [];
+    btsPickLesson(btsRestoredLessonKey(v), false);
+  }
+  if(typeof fetch !== 'function'){ done([]); return; }
+  fetch(btsLessonsUrl(guess)).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || d.ok !== true){ done([]); return; }
+    if((d.lessons||[]).length){ done(d.lessons); return; }
+    var c = btsCourseMatch(d.courses, v);
+    if(!c || c === guess){ done([]); return; }
+    return fetch(btsLessonsUrl(c)).then(function(r){ return r.json(); }).then(function(d2){
+      done((d2 && d2.ok === true && d2.lessons) ? d2.lessons : []);
+    });
+  }).catch(function(){ done([]); });
+}
+function btsLessonNow(){
+  for(var i=0;i<_btsLessons.length;i++){ if(_btsLessons[i].key === _btsLessonKey) return _btsLessons[i]; }
+  return null;
+}
+/* 고른 과를 «실제로 보내는 값» 에 반영합니다.
+   ⛔ 목록에 없는 키는 쓰지 않습니다 — 서버가 못 찾으면 문장이 0개인데 화면은
+      «문장 N개» 라고 말하게 됩니다(거짓말).
+   @param save 사람이 직접 고른 것만 true. 자동으로 첫 과를 쓴 것은 저장하지 않습니다
+      («아직 안 정함» 과 «사람이 골랐음» 을 같은 값으로 굳히지 않기 위해). */
+function btsPickLesson(key, save){
+  var b = btsBookOf(_btsVol);
+  var l = null;
+  for(var i=0;i<_btsLessons.length;i++){ if(_btsLessons[i].key === key){ l = _btsLessons[i]; break; } }
+  if(!l && _btsLessons.length) l = _btsLessons[0];
+  _btsLessonKey = l ? String(l.key || '') : '';
+  if(b){
+    WCTX.textbook = _btsLessonKey || ('BTS ' + b.v + ' (' + b.en + ')');
+    /* 과 제목이 있으면 그것이 «더 좁은 진짜 주제» 입니다(권 주제의 한 부분). 없으면 권 주제. */
+    LESSON_TOPIC = (l && l.title) ? String(l.title) : b.en;
+  }
+  if(save === true && _btsVol){
+    try{
+      if(_btsLessonKey) localStorage.setItem(BTS_LSN_KEY, _btsVol + '|' + _btsLessonKey);
+      else localStorage.removeItem(BTS_LSN_KEY);
+    }catch(e){}
+  }
+  if(typeof updateTopicChip === 'function') updateTopicChip();
+  btsRenderLessonRow();
+}
+/* 과 고르개 — 과가 «둘 이상» 일 때만 보여 줍니다(하나뿐이면 고를 것이 없습니다).
+   ⚠️ 안내 줄은 과가 하나여도 보여 줍니다 — 교재 문장이 붙었다는 사실은 알려야 합니다. */
+function btsRenderLessonRow(){
+  var sec = document.getElementById('wusLessonSec');
+  if(!sec) return;
+  var row  = sec.querySelector('.wus-lsn-row');
+  var sel  = document.getElementById('wusLesson');
+  var note = document.getElementById('wusLessonNote');
+  var l = btsLessonNow();
+  var zh = (typeof isZh === 'function') ? isZh() : false;
+  if(zh || !_btsVol || !l){
+    sec.hidden = true;
+    if(sel) sel.innerHTML = '';
+    if(note) note.textContent = '';
+    return;
+  }
+  sec.hidden = false;
+  if(row) row.hidden = (_btsLessons.length < 2);
+  if(sel){
+    sel.innerHTML = '';
+    for(var i=0;i<_btsLessons.length;i++){
+      var x = _btsLessons[i];
+      var o = document.createElement('option');
+      o.value = String(x.key || '');
+      o.textContent = (x.seq ? ('제 ' + x.seq + '과') : '전체')
+        + (x.title ? (' · ' + String(x.title)) : '');
+      if(x.key === _btsLessonKey) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+  if(note){
+    var ss = l.sentences || [];
+    var ex = String((ss[0] || {}).en || '').trim();
+    note.textContent = ss.length
+      ? ('📖 이 과의 교재 문장 ' + ss.length + '개로 이야기해요' + (ex ? (' · 예: ' + ex) : ''))
+      : '';
+  }
 }
 /* 🔁 지난번에 고른 교재로 «강사 없이» 이어서 시작합니다.
    ⚠️ ?textbook= 이 있으면 그쪽이 우선 — 강사가 링크로 지정한 것을 덮지 않습니다.
