@@ -245,7 +245,12 @@ if (!ovErr && OV.both) {
   check('성공하면 phone_kept 가 참이다', OV.both.kept === true);
   /* 빈 칸 = «지우기». clear 없이 빈 값을 넘기면 override 에 옛 번호가 남아
      명부에서는 지웠는데 **문자는 계속 옛 번호로 간다.** */
-  check('빈 칸으로 저장하면 «지우기» 로 넘긴다',
+  /* 🔴 이 절은 `_ovStu` 를 «직접 주입» 한다 — 그 값을 «만드는» 줄은 안 돌린다.
+     그래서 「빈 칸 = 지우기」를 여기서만 초록으로 만들면 검사 이름이 실제 보장보다 넓어진다
+     (함정 대조가 실제로 그 상태를 잡았다). 만드는 줄은 아래 ⑤-b 절이 따로 돌린다.
+     ⚠️ 그러니 이 검사의 뜻은 「_ovStu 가 '' 로 «오면» 지우기로 넘긴다」까지다 —
+        지금 화면은 그 값을 보내지 않으므로 **이 경로는 살아 있는 코드가 아니다.** */
+  check('_ovStu 가 빈 문자열로 «오면» 지우기로 넘긴다 (지금 화면은 이 값을 안 보낸다 — ⑤-b)',
     OV.clear.calls.length === 1 && OV.clear.calls[0].phones.clear === true
     && OV.clear.calls[0].phones.student === '' && OV.clear.calls[0].phones.parent === '');
   check('하나는 넣고 하나는 지우는 것도 «둘 다» 반영한다',
@@ -260,6 +265,40 @@ if (!ovErr && OV.both) {
   check('보관이 실패하면 사실대로 phone_kept=false', OV.failed.kept === false);
   check('보관이 던져도 저장 자체는 안 막는다(안 던지고 false)', OV.threw.kept === false);
 }
+
+console.log('\n[ ⑤-b 그 값을 «만드는» 줄 — 화면이 실제로 보내는 payload 로 돌린다 ]');
+/* 🔴 위 절은 _ovStu 를 직접 주입하므로 «만드는 줄» 을 한 번도 안 본다.
+   화면(public/admin/student.html)은 빈 칸을 `value || null` 로 보내므로 여기서 갈린다. */
+const dStart = cSrc.indexOf('const _ovStu =');
+const dEnd = cSrc.indexOf('const preRow = (nameChanged', dStart);
+const dJs = (dStart >= 0 && dEnd > dStart) ? cSrc.slice(dStart, dEnd).replace(/:\s*any\b/g, '').replace(/\s+as\s+any\b/g, '') : '';
+check('전제: _ovStu/_ovPar/_ovTouch 를 만드는 줄을 오려 냈다', dJs.length > 80);
+let derive = null;
+try {
+  derive = (b) => new Function('b', 'isMaskedValue', dJs + '; return { stu:_ovStu, par:_ovPar, touch:_ovTouch };')(
+    b, (v) => typeof v === 'string' && /[*]/.test(v));
+} catch (e) { console.log('    (평가 실패: ' + e.message + ')'); }
+check('전제: 그 줄을 평가했다', typeof derive === 'function');
+if (typeof derive === 'function') {
+  /* 화면이 «실제로» 보내는 모양 — public/admin/student.html 의 `$('cStudentPhone').value || null` */
+  const asScreen = derive({ student_phone: null, parent_phone: null });
+  check('화면이 보내는 빈 칸(null)으로는 override 를 안 건드린다 — 즉 «빈 칸 = 지우기» 는 지금 닿지 않는다',
+    asScreen.touch === false);
+  const typed = derive({ student_phone: '010-1111-2222', parent_phone: null });
+  check('번호를 적으면 그 값이 그대로 간다', typed.touch === true && typed.stu === '010-1111-2222');
+  const masked = derive({ student_phone: '010-****-2222' });
+  check('마스킹된 표시값은 만드는 줄에서 이미 걸린다', masked.touch === false);
+  const nothing = derive({ school: '망고초' });
+  check('번호 칸을 안 보낸 저장은 override 를 안 건드린다', nothing.touch === false);
+}
+
+console.log('\n[ ⑤-c 화면이 «보관 실패» 를 말하는가 — 조용히 넘기면 아무도 모른다 ]');
+/* `phone_kept:false` 는 흔히 «숫자 9자리 미만» 이다. 그때 「저장되었습니다」만 띄우면
+   번호는 students_erp 에만 들어가 그날 밤 사라지고 문자는 영영 안 간다. */
+check('상세 화면이 phone_kept 를 읽는다', /j\.phone_kept\s*===\s*false/.test(detail));
+check('그때 사람에게 «보관 안 됨» 을 말한다', /phoneNotKept/.test(detail) && /phoneNotKept:\{ko:/.test(detail));
+/* 짝 — 앞만 보면 «언제나 경고» 도 통과한다. 번호를 안 고친 저장(null)은 조용해야 한다. */
+check('번호를 안 고친 저장(phone_kept=null)에는 경고하지 않는다', !/j\.phone_kept\s*!==\s*true/.test(detail));
 
 console.log('\n════════════════════════════════════════════');
 console.log(`  결과: PASS ${PASS} / FAIL ${FAIL}`);
