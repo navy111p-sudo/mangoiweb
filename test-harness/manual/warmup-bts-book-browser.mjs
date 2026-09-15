@@ -24,6 +24,7 @@
  *   /json/list 의 «이미 있는 탭» 을 Page.navigate 로 씁니다(CLAUDE.md 2장).
  * ⚠️ 캐시는 HTTP 와 서비스워커 «둘 다» 꺼야 고친 파일이 반영됩니다.
  */
+import fs from 'node:fs';
 const PORT = Number(process.env.WBB_PORT || 8931);
 const CDP  = Number(process.env.WBB_CDP  || 9931);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -85,7 +86,25 @@ r=await evaluate(`JSON.stringify({
 })`);
 d=JSON.parse(r);
 t('② 교재 섹션이 화면에 보임', d.secVisible===true, d);
-t('② 교재 버튼 33개(자유대화1+32권)', d.btnCount===33, d.btnCount);
+/* ⛔ 「33개」처럼 «개수» 를 못 박지 마세요 — SIU 29권이 정당하게 늘자 보장은 오히려
+      세졌는데 검사만 빨간불이 났습니다(2026-09-15 실측 62). 물어야 할 것은 «몇 개인가» 가
+      아니라 «표에 있는 교재가 하나도 안 빠졌는가» 입니다. 기대값은 화면 정본에서 «읽어» 옵니다. */
+const _WSRC = fs.readFileSync(new URL('../../cloudflare-deploy/public/warmup.html', import.meta.url), 'utf8');
+const _cntTable = (name) => {
+  const i = _WSRC.indexOf('var ' + name + ' = [');
+  if (i < 0) return 0;
+  let d2 = 0;
+  for (let k = _WSRC.indexOf('[', i); k < _WSRC.length; k++) {
+    if (_WSRC[k] === '[') d2++;
+    else if (_WSRC[k] === ']') { d2--; if (!d2) return (_WSRC.slice(i, k + 1).match(/\{\s*v\s*:/g) || []).length; }
+  }
+  return 0;
+};
+const _nBts = _cntTable('BTS_BOOKS'), _nSiu = _cntTable('SIU_BOOKS');
+/* ⛔ 전제 — 표를 못 읽으면 아래가 «0 + 0 + 1» 을 기대해 조용히 통과합니다. */
+t('② 교재 표를 소스에서 읽었다(전제)', _nBts > 0 && _nSiu > 0, [_nBts, _nSiu]);
+t('② 교재 버튼 = 자유대화 1 + BTS ' + _nBts + ' + SIU ' + _nSiu,
+  d.btnCount === 1 + _nBts + _nSiu, [d.btnCount, 1 + _nBts + _nSiu]);
 t('② 기본 선택이 «자유 대화»', d.freeOn===true, d.freeOn);
 t('② 나머지 권은 접혀 있음', d.hasDetails===true, d.hasDetails);
 t('② 실제로 레이아웃에 올라와 있음', d.offsetOk===true, d.offsetOk);
@@ -389,6 +408,81 @@ await evaluate("try{localStorage.clear()}catch(e){}");
 }
 await evaluate("try{localStorage.clear()}catch(e){}");
 await cmd('Emulation.clearDeviceMetricsOverride');
+
+/* ══ ⑪ 📗 SIU — 단계를 바꾸면 목록이 실제로 갈리는가 (2026-09-15) ═══════════
+   [왜] 자동 하니스는 btsListHtml 을 «직접» 돌려 봅니다. 그런데 «단계를 누르면
+     renderSetup 이 그 목록을 다시 그리는가» 는 브라우저에서만 보입니다 —
+     배선이 끊기면 함수는 멀쩡한데 화면만 안 바뀝니다.
+   ⛔ 「SIU 가 위에 온다」만 두지 마세요 — «전부 SIU 로 바꾸기» 도 통과합니다.
+      «낮은 단계에서는 BTS 가 위» 를 짝으로 둡니다. */
+{
+  const topList = async () => JSON.parse(await evaluate(`JSON.stringify((function(){
+    var box = document.getElementById('wusBooks'); if(!box) return null;
+    var det = box.querySelector('details');
+    var open = [];
+    var all = box.querySelectorAll('[data-bts]');
+    for(var i=0;i<all.length;i++){ if(!det || !det.contains(all[i])) open.push(all[i].getAttribute('data-bts')); }
+    var inDet = det ? Array.prototype.map.call(det.querySelectorAll('[data-bts]'), function(x){ return x.getAttribute('data-bts'); }) : [];
+    return { open: open, folded: inDet, head: (box.querySelector('.wus-hint')||{}).textContent || '' };
+  })())`));
+  const setBand = async (n) => {
+    await evaluate(`document.querySelector('[data-lvl="${n}"]').click()`);
+    await sleep(120);
+  };
+
+  await setBand(1);
+  const low = await topList();
+  t('⑪ 1단계 — 위에 펼쳐진 것이 BTS 다',
+    !!low && low.open.some(v => /^\d+$/.test(v) && v !== '0') && !low.open.some(v => /^siu/.test(v)),
+    low && low.open.slice(0, 6));
+  t('⑪ 1단계 — 안내 줄이 BTS 라고 말한다', !!low && /BTS/.test(low.head), low && low.head);
+  t('⑪ 1단계 — SIU 는 «접힌 채로» 고를 수 있다(없애지 않았다)',
+    !!low && low.folded.some(v => /^siu/.test(v)), low && low.folded.length);
+
+  await setBand(5);
+  const high = await topList();
+  t('⑪ 5단계 — 위에 펼쳐진 것이 SIU 다(짝)',
+    !!high && high.open.some(v => /^siu/.test(v)), high && high.open.slice(0, 6));
+  t('⑪ 5단계 — 안내 줄이 SIU 라고 말한다', !!high && /SIU/.test(high.head), high && high.head);
+  t('⑪ 5단계 — BTS 는 «접힌 채로» 고를 수 있다(짝)',
+    !!high && high.folded.some(v => /^\d+$/.test(v) && v !== '0'), high && high.folded.length);
+  t('⑪ 두 단계가 실제로 다른 목록을 그린다',
+    !!low && !!high && JSON.stringify(low.open) !== JSON.stringify(high.open), null);
+
+  /* 🖱️ SIU 를 실제로 눌러 본다 — «지금 교재» 줄과 선택 표시가 따라오는가 */
+  const firstSiu = high && high.open.find(v => /^siu/.test(v));
+  if (firstSiu) {
+    await evaluate(`document.querySelector('#wusBooks [data-bts="${firstSiu}"]').click()`);
+    await sleep(150);
+    const after = JSON.parse(await evaluate(`JSON.stringify({
+      now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      on: !!document.querySelector('#wusBooks [data-bts="${firstSiu}"].on'),
+      saved: localStorage.getItem('mangoi_warmup_bts') || ''
+    })`));
+    t('⑪ SIU 를 누르면 그 버튼이 «지금» 으로 표시된다', after.on === true, after);
+    /* ⚠️ 이름만 보면 약합니다 — bookTitleOf 는 갈래와 무관하게 «SIU BASIC …» 을 돌려주므로
+       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0). 📗 표시까지 짝으로 묻습니다. */
+    t('⑪ SIU 를 누르면 «지금 교재» 줄이 SIU 라고 말한다', /SIU BASIC/.test(after.now), after.now);
+    t('⑪ 그 줄이 SIU 갈래로 그려진다(📗 · 짝)', after.now.indexOf('📗') >= 0, after.now);
+    t('⑪ SIU 선택이 저장된다(새로고침해도 남게)', after.saved === firstSiu, after.saved);
+    /* ⛔ 짝 — BTS 로 되돌리는 길이 살아 있어야 합니다. */
+    await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+    await sleep(120);
+    const cleared = JSON.parse(await evaluate(`JSON.stringify({
+      now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      saved: localStorage.getItem('mangoi_warmup_bts') || '' })`));
+    t('⑪ 자유 대화로 되돌아간다(짝)', /자유 대화/.test(cleared.now) && !cleared.saved, cleared);
+  } else {
+    /* ⛔ 여기서 예외를 던지면 «결과줄조차 안 나옵니다» — 못 재면 FAIL 로 말합니다. */
+    t('⑪ 5단계 목록에서 SIU 버튼을 찾았다(전제)', false, high && high.open);
+  }
+
+  /* 뒷정리 — 다음 절·다음 실행이 5단계에서 시작하지 않게 되돌린다.
+     ⛔ 이 줄을 지우지 마세요 — 폭·절 사이 오염이 거짓 FAIL 을 냅니다(CLAUDE.md). */
+  await setBand(3);
+  await evaluate(`try{ localStorage.removeItem('mangoi_warmup_bts'); localStorage.removeItem('mangoi_warmup_bts_lesson'); }catch(e){}`);
+}
+
 
 const label = 'warmup-bts-book-browser';
 console.log(`\n▶ ${label}`);
