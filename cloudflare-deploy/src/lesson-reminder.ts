@@ -311,7 +311,8 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
 
     /* 전화번호 — 판정 정본은 `phonesForStudent`(notify-contacts.ts) 하나다.
        📞 (2026-09-10) 그 함수가 «우리 화면에서 받아 둔 번호»(student_erp_override)를 **먼저** 보고
-          없으면 학생 명부로 떨어진다. 명부 번호는 카페24 동기화가 매일 밤 덮어서 실측 0건이라,
+          없으면 학생 명부로 떨어진다. 명부 번호는 카페24 동기화가 매일 밤 덮어서 실측 0건이었고
+          (2026-09-15 에 그 «무조건 덮기» 는 막았지만 이미 비어 있던 29,485행은 그대로다),
           이 배선이 없으면 아래 발송은 영영 'no_phone' 으로 끝난다(7일간 671건 감지 / 0건 발송).
        ⛔ 같은 판정을 여기에 복제하지 말 것 — 두 곳이 갈리면 「어떤 학생만 안 나가는」 사고가 된다. */
     let parentPhone = '', studentPhone = '';

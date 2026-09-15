@@ -835,10 +835,8 @@ const T = {
   pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
   pwTooShort:{ko:'비밀번호는 4자 이상이어야 합니다', en:'Password must be at least 4 characters'},
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
-  phoneOverrideWarn:{ko:'⚠ 전화번호는 화면에는 저장됐지만 안전 보관에는 실패했습니다 — 오늘 밤 카페24 동기화 때 다시 지워질 수 있습니다. 다시 저장해 보세요.',
-                     en:'⚠ Phone saved to the page, but not to safe storage — it may be wiped again by tonight\'s Cafe24 sync. Try saving again.'},
-  orgOverrideWarn:{ko:'⚠ 가맹점·소속은 화면에는 저장됐지만 안전 보관에는 실패했습니다 — 오늘 밤 카페24 동기화 때 다시 지워질 수 있습니다. 다시 저장해 보세요.',
-                    en:'⚠ Franchise/shop saved to the page, but not to safe storage — it may be wiped again by tonight\'s Cafe24 sync. Try saving again.'},
+  phoneNotKept:{ko:' · ⚠️ 전화번호는 보관되지 않았습니다(오늘 밤 사라집니다) — 숫자 9자리 이상인지 확인해 주세요', en:' · ⚠️ Phone was NOT kept (it will vanish tonight) — check it has at least 9 digits'},
+  orgNotKept:{ko:' · ⚠️ 가맹점·소속은 보관되지 않았습니다(오늘 밤 사라집니다) — 다시 저장해 보세요', en:' · ⚠️ Franchise/shop was NOT kept (it will vanish tonight) — try saving again'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1711,12 +1709,18 @@ $('cSaveBtn').addEventListener('click', async () => {
     });
     const j = await r.json();
     if (r.ok && j.ok) {
-      toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
-      // 📞 전화번호를 고쳤는데 안전 보관(student_erp_override)이 실패했으면 조용히 넘기지 않는다 —
-      //   students_erp 만 바뀐 채로 두면 오늘 밤 카페24 동기화가 그대로 지운다(9/10 파일럿테스트
-      //   학생 사고와 같은 뿌리). 화면 저장 자체는 성공이라 별도 토스트로 덧붙인다.
-      if (j.phone_override_warning) setTimeout(() => toast(t('phoneOverrideWarn'), true), 1200);
-      if (j.org_override_warning) setTimeout(() => toast(t('orgOverrideWarn'), true), 1200);
+      /* 📞🏢 (2026-09-15) 번호·가맹점·소속 «보관» 실패를 조용히 넘기지 않는다.
+         students_erp 의 이 칸들은 카페24 야간 UPSERT 가 덮으므로, 서버는 그것과 «함께»
+         student_erp_override 에도 적는다(수업 안내문자가 읽는 정본이 그 표를 먼저 본다).
+         그 보관이 실패하면 `phone_kept`/`org_kept` 가 각각 false 로 온다 — 번호의 흔한 경우는
+         숫자 9자리 미만이라 setOverridePhones 가 «번호로 안 보는» 것. 그때 「저장되었습니다」만
+         띄우면 값은 students_erp 에만 들어가 **그날 밤 사라지고 문자는 영영 안 간다**
+         (2026-09-10 실사고: 671건의 수업을 찾고도 한 통도 못 보냄).
+         ⚠️ null 은 «그 칸을 안 고친 저장» 이라 아무 말도 하지 않는다. */
+      var _cMsg = t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : '');
+      if (j.phone_kept === false) _cMsg += t('phoneNotKept');
+      if (j.org_kept === false) _cMsg += t('orgNotKept');
+      toast(_cMsg, j.phone_kept === false || j.org_kept === false);
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
       // 🥭 이름을 바꿨으면 왼쪽 카드·상단 이름도 즉시 새로 읽어온다(안 하면 새로고침 전까지 옛 이름).
       if (j.name_changed) await loadFull();

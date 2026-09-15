@@ -33,6 +33,13 @@
  *      «따로» 두 UPDATE 문으로 franchise·shop_name 을 각자 재적용한다. `api-mango.ts` 의 PATCH
  *      …/contact 와 GET …/full 이 전화번호와 같은 짝(쓰는 쪽·읽는 쪽)으로 이를 쓴다.
  *
+ * 📌 (2026-09-15, origin/main 병합) — 전화번호 쪽이 병렬로 더 나은 설계(`_ovStu`/`_ovPar`/
+ *    `_ovTouch`/`phoneKept`)로 다시 짜여 병합됐다. `typeof b.x === 'string'` 로 갈라야 하는 이유는
+ *    이 화면(admin/student.html)의 폼이 빈 칸을 `value || null` 로 보내기 때문 — `String(v ?? '')`
+ *    로 null 까지 ''로 뭉개면 «안 건드린 칸» 이 «지우려는 칸」으로 오판된다(전화번호 쪽에서 실제로
+ *    있었던 결함). 가맹점·소속도 **같은 폼, 같은 직렬화**라 같은 함정이라 그 패턴을 그대로 따랐다 —
+ *    `_ovFran`/`_ovShop`/`_orgTouch`/`org_kept`. ⛔ `String(b[k] ?? '').trim()` 로 되돌리지 말 것.
+ *
  * [왜 문자열 검사만으로는 모자란가]
  *   함수도 호출도 다 «있고» 틀릴 수 있는 것은 «어느 순서로 부르는가»·«한 필드씩인가»·«실제로
  *   재적용이 되는가» 뿐이다. 그래서 라우트 블록은 **중괄호 짝**으로 오려 내고, «가입일 폴백» 은
@@ -43,7 +50,7 @@
  * 변이시험으로 실제 FAIL 확인(수리 전 상태로 되돌려 봄):
  *   Ⓐ 「가입일」 폴백을 지우고 signup_date 만 보게 되돌린다      → ①-2 / ①-3 FAIL
  *   Ⓑ setOverrideOrgField 호출을 지운다                        → ②-2 FAIL
- *   Ⓒ _needsRealUid 조건에서 orgTouched 를 뺀다                → ②-3 FAIL
+ *   Ⓒ preRow 조건에서 _orgTouch 를 뺀다                        → ②-3 FAIL
  *   Ⓓ applyStudentErpOverrides 에서 franchise 재적용 UPDATE 를 뺀다→ ⑤-2 FAIL(SQLite 실측)
  *   Ⓔ applyStudentErpOverrides 에서 shop_name 재적용 UPDATE 를 뺀다 → ⑤-3 FAIL(SQLite 실측)
  *   Ⓕ setOverrideOrgField 시그니처를 두 필드를 한 번에 받게 바꾼다  → ②-8 FAIL
@@ -160,13 +167,21 @@ const contactRoute = blockFrom(mango, '// /api/admin/student/:uid/contact (PATCH
 check('전제: PATCH …/contact 라우트를 잘라 냈다', contactRoute.length > 800, `길이 ${contactRoute.length}`);
 const contactStrip = strip(contactRoute);
 
-check('②-1 가맹점·소속이 손에 닿았는지 따로 추적한다(orgTouched)', /orgTouched/.test(contactStrip));
+check('②-1 가맹점·소속이 손에 닿았는지 따로 추적한다(_ovFran/_ovShop/_orgTouch)',
+  /_ovFran/.test(contactStrip) && /_ovShop/.test(contactStrip) && /_orgTouch/.test(contactStrip));
 check('②-2 정본 setOverrideOrgField 를 실제로 부른다(판정을 복제하지 않는다)',
   /setOverrideOrgField\s*\(/.test(contactStrip));
 
-const needsRealUidM = contactStrip.match(/const _needsRealUid\s*=\s*([^;]+);/);
-check('②-3 「진짜 user_id 를 구하는」 조건이 가맹점·소속 변경도 본다(안 그러면 realUid 가 늘 null)',
-  !!needsRealUidM && /orgTouched/.test(needsRealUidM[1]), needsRealUidM && needsRealUidM[1]);
+// 🔴 (병합, 2026-09-15) null 을 빈 문자열로 뭉개지 않는가 — 전화번호 쪽이 겪은 바로 그 결함.
+//    이 폼은 빈 칸을 `value || null` 로 보내므로 typeof 로 걸러야 한다.
+check('②-1b _ovFran/_ovShop 는 typeof === \'string\' 으로 가른다(null 을 지우기로 오판하지 않는다)',
+  /typeof\s+b\.franchise\s*===\s*'string'/.test(contactStrip) && /typeof\s+b\.shop_name\s*===\s*'string'/.test(contactStrip));
+check('②-1c String(v ?? \'\').trim() 처럼 null 을 뭉개는 옛 방식으로 되돌아가지 않았다(가맹점·소속 자리)',
+  !/franchise\s*=\s*String\(b\[k\]\s*\?\?/.test(contactStrip));
+
+const preRowCondM = contactStrip.match(/const preRow\s*=\s*\(([^)]+)\)/);
+check('②-3 preRow 를 구하는 조건이 가맹점·소속 변경도 본다(안 그러면 realUid 가 늘 null)',
+  !!preRowCondM && /_orgTouch/.test(preRowCondM[1]), preRowCondM && preRowCondM[1]);
 
 {
   const iPreRow = contactStrip.indexOf('const preRow');
@@ -177,8 +192,8 @@ check('②-3 「진짜 user_id 를 구하는」 조건이 가맹점·소속 변�
     `preRow=${iPreRow} UPDATE=${iUpdate} setOverrideOrgField=${iSetOverride}`);
 }
 
-check('②-5 저장 실패를 응답에 실어 화면이 말하게 한다(org_override_warning)',
-  /org_override_warning/.test(contactStrip));
+check('②-5 저장 실패를 응답에 실어 화면이 말하게 한다(org_kept)',
+  /org_kept/.test(contactStrip));
 
 {
   const callCount = (contactStrip.match(/setOverrideOrgField\s*\(/g) || []).length;
@@ -186,9 +201,10 @@ check('②-5 저장 실패를 응답에 실어 화면이 말하게 한다(org_ov
 }
 
 // franchise 호출과 shop_name 호출이 서로 다른 값을 넘기는지 — 한 호출에 두 필드를 합치지 않았는가.
-check('②-7 franchise 호출은 franchise 값만, shop_name 호출은 shop_name 값만 넘긴다(교차 오염 없음)',
-  /setOverrideOrgField\([^)]*'franchise'\s*,\s*orgTouched\.franchise/.test(contactStrip)
-  && /setOverrideOrgField\([^)]*'shop_name'\s*,\s*orgTouched\.shop_name/.test(contactStrip));
+// ⚠️ [^)]* 로 자르면 String(realUid) 안의 ')' 에서 끊긴다(실제로 밟음) — ')' 대신 줄 끝(';')까지 본다.
+check('②-7 franchise 호출은 _ovFran 값만, shop_name 호출은 _ovShop 값만 넘긴다(교차 오염 없음)',
+  /setOverrideOrgField\([^;]*'franchise'\s*,\s*_ovFran/.test(contactStrip)
+  && /setOverrideOrgField\([^;]*'shop_name'\s*,\s*_ovShop/.test(contactStrip));
 
 // ══════════════════════════════════════════════════════════════
 //  ②-8 setOverrideOrgField 시그니처 — 한 번에 한 필드만 받는가 (전화번호 사고를 구조로 막는다)
@@ -228,8 +244,10 @@ check('③-6 override 조회를 try/catch 로 감싼다(실패해도 학생 상�
 // ══════════════════════════════════════════════════════════════
 console.log('\n[④] 화면 — 실패를 조용히 넘기지 않는다');
 
-check('④-1 화면이 org_override_warning 을 읽는다', /j\.org_override_warning/.test(studentHtml));
-check('④-2 그 경고 문구가 사전에 있다(한/영)', /orgOverrideWarn/.test(studentHtml));
+check('④-1 화면이 org_kept 를 읽는다', /j\.org_kept\s*===\s*false/.test(studentHtml));
+check('④-2 그 경고 문구가 사전에 있다(한/영)', /orgNotKept:\{ko:/.test(studentHtml));
+// 짝 — 앞만 보면 «언제나 경고» 도 통과한다. 가맹점·소속을 안 고친 저장(org_kept=null)은 조용해야 한다.
+check('④-3 가맹점·소속을 안 고친 저장(org_kept=null)에는 경고하지 않는다', !/j\.org_kept\s*!==\s*true/.test(studentHtml));
 
 // ══════════════════════════════════════════════════════════════
 //  ⑤ 재적용 — 진짜 SQLite 로 「야간 동기화 뒤 되살아나는가」를 재현한다
