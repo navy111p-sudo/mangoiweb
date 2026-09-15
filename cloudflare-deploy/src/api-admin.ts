@@ -9526,6 +9526,55 @@ LIMIT $limit`;
       const _fWhere = _fCond.cond ? ` WHERE ${_fCond.cond}` : '';
 
       if (method === 'GET') {
+        /* 🔍 (2026-09-15 신설 — 사장님이 mangoi.co.kr/lms/branch_list.php(구 LMS)에서 지사마다
+           로그인 아이디(jinu007 등)를 직접 확인해 주셨다 — 「LOFTY(전국)」관리자 이태연이
+           우리 D1 franchises.id=242 와 정확히 같은 지사·같은 대표자다. 그 아이디가 «어딘가»에는
+           실재한다는 뜻인데, 지금 cafe24-sync.ts 가 읽는 Cypher(`b.branch_id·name·address·phone·
+           manager·active` 여섯 칸)에는 그 필드가 없다 — 이름이 다른 칸(login_id·account·
+           manager_id·username 등)에 들어 있거나, :Branch 가 아니라 이어진 다른 노드에 있을 수
+           있다. 추측으로 필드명을 짚어 코드에 박기 전에, :Branch 노드에 **실제로 어떤 속성 이름이
+           있는지** 를 먼저 읽어서 보여준다(c24_expense_filter 의 prop_keys 진단과 같은 방식).
+           ⛔ 이 결과로 곧바로 franchises 를 UPDATE 하지 않는다 — 어떤 칸인지 사람이 보고
+           확인한 뒤에 실제 동기화(cafe24-sync.ts importCafe24Org)에 그 칸을 추가해야
+           «전체 241개 지사에 매일 자동으로» 채워진다(수동 입력 없이).
+           본사만(canEditOrg) — 원본 그래프의 날 것 그대로의 칸 이름·값을 보여주므로. */
+        if (url.searchParams.get('debug') === 'cafe24_props') {
+          if (!canEditOrg(_fSc)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+          try {
+            const idParam = url.searchParams.get('id');
+            if (idParam) {
+              // 한 지사만 콕 집어 — 자기 속성 + 바로 이어진 다른 노드(계정·직원 등)까지 함께.
+              const rs = await runCypher(env, `
+                MATCH (b:Branch {branch_id: $id})
+                OPTIONAL MATCH (b)-[rel]-(x)
+                RETURN properties(b) AS branch_props,
+                       collect(DISTINCT {rel_type: type(rel), other_labels: labels(x), other_props: properties(x)}) AS linked`,
+                { id: Number(idParam) }, 'READ');
+              const row = rs.values[0] || [];
+              const idx = (k: string) => rs.fields.indexOf(k);
+              return json({
+                ok: true, id: Number(idParam),
+                branch_props: row[idx('branch_props')] || null,
+                linked_nodes: (row[idx('linked')] || []).filter((l: any) => l && l.rel_type),
+              });
+            }
+            // id 없이 부르면 전체 지사에서 «어떤 속성 이름이 실제로 쓰이는지» 만 모아 준다
+            // (240여 개 값을 일일이 보는 대신, 이름 목록 + 예시 3건).
+            const rs = await runCypher(env, `MATCH (b:Branch) RETURN properties(b) AS props`, {}, 'READ');
+            const idx2 = rs.fields.indexOf('props');
+            const keySet = new Set<string>();
+            const sample: any[] = [];
+            for (const row of rs.values) {
+              const p = row[idx2] as Record<string, any> | null;
+              if (p) Object.keys(p).forEach(k => keySet.add(k));
+              if (p && sample.length < 3) sample.push(p);
+            }
+            return json({ ok: true, branch_count: rs.values.length, all_property_keys: Array.from(keySet).sort(), sample_rows: sample });
+          } catch (e: any) {
+            if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+            return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+          }
+        }
         // 🏛️ view=master → 대표지사 목록 (+ 산하 지사 수)
         if (url.searchParams.get('view') === 'master') {
           await ensureMaster();
