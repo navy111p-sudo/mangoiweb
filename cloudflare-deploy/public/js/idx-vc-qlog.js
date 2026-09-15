@@ -621,6 +621,17 @@ function vcQualityAcc(loss, rtt) {
 
 /* 화면공유 때문에 «끄기» 가 뒤집힌 상태인가 — 뒤집힘이 바뀔 때만 상대에게 다시 알린다 */
 var __vcAaoOver = false;
+/* 🎥 마지막으로 «영상 보내기» 를 되살린 시각(0 = 없음). 아래 vcAaoVerify 가 그 뒤 30초만 확인한다. */
+var __vcAaoOnAt = 0;
+/* 상대별 마지막 framesSent 와 «안 늘어난 틱» 수 */
+var __vcAaoTx = {};
+
+/* SFU 가 mesh 영상 송신을 끊어 둔 상태인가(idx-vc-sfu.js cutMeshVideo).
+   ⚠️ 그쪽은 «같은» vcPeerConnections 의 영상 sender 에 encodings[].active=false 를 건다.
+      그 동안 여기서 켜면 영상이 두 갈래(mesh+SFU)로 나간다 — 켜는 쪽만 손을 뗀다. */
+function vcAaoSfuCut() {
+    try { return !!(window.__vcSfu && window.__vcSfu.meshCut); } catch (_) { return false; }
+}
 
 /* 영상 «보내기» 만 멈추거나 되살린다. 트랙은 건드리지 않는다. on=0 끔 / on=1 켬 */
 function vcAAOVideo(on) {
@@ -641,7 +652,12 @@ function vcAAOVideo(on) {
             var cur = p.encodings[0].active !== false;      // 값이 없으면 «보내는 중» 이 기본이다
             if (cur === want) return;                       // 바뀔 때만 — 불필요한 setParameters 는 인코더를 흔든다
             p.encodings[0].active = want;
-            s.setParameters(p).catch(function () {});
+            if (want) __vcAaoOnAt = Date.now();             // 🎥 «켰다» 를 적어 둔다 — 아래 vcAaoVerify 가 그 뒤 «실제로 나가는가» 를 본다
+            /* ⛔ 실패를 삼키지 말 것 — 이 거절 하나가 «소리는 오는데 얼굴이 멈춘 채» 를 수업 끝까지 만든다.
+               아래 4초 재적용이 다시 걸어 주지만, «왜 한 번 거절됐나» 는 이 줄로만 남는다. */
+            s.setParameters(p).catch(function (e) {
+                try { console.warn('[vc-aao] setParameters 거절 — uid', id, want ? '켜기' : '끄기', (e && e.message) || e); } catch (_) {}
+            });
         } catch (_) {}
     });
     /* 공유가 시작·끝나 «실제로 보내는가» 가 뒤집히면 상대에게 다시 알린다 — 안 그러면
@@ -802,10 +818,53 @@ window.vcApplyRemoteCamHint = function (userId) {
     } catch (_) {}
 };
 
+/* 🎥 (2026-09-15) «켰다» 와 «나간다» 는 다르다 — 되살린 뒤 프레임이 실제로 다시 늘어나는지 본다.
+   [왜] active=true 로 되돌려도 인코더가 안 살아나거나 트랙이 죽어 있으면 받는 쪽은 여전히 멈춘 그림이다.
+        그런데 그 상태는 소리가 멀쩡해서 «수업은 되는데 얼굴만 안 돌아온다» 로만 보이고, 아무 데도 안 남는다.
+   ⛔ 여기서 재협상·restartIce 를 걸지 말 것 — 이 자리는 «회선이 방금 나빴던» 곳이라
+      연결을 다시 맺는 것이 최악이다(idx-main.js 화면공유 주석과 같은 이유).
+      되살리는 일은 아래 4초 재적용이 이미 한다. 여기는 «안 돌아온다» 를 «말하는» 자리다.
+   ⚠️ 사람이 카메라를 끈 경우·죽은 트랙·통계 없음은 보지 않는다 — 거짓 경보가 더 나쁘다. */
+function vcAaoVerify() {
+    if (!__vcAaoOnAt || Date.now() - __vcAaoOnAt > 30000) { __vcAaoTx = {}; return; }
+    var pcs = window.vcPeerConnections || {};
+    Object.keys(pcs).forEach(function (id) {
+        try {
+            var pc = pcs[id];
+            var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+            if (!s || !s.getStats) return;
+            if (s.track.readyState !== 'live' || s.track.enabled === false) return;
+            s.getStats().then(function (st) {
+                var f = -1;
+                st.forEach(function (r) { if (r.type === 'outbound-rtp' && typeof r.framesSent === 'number') f = Math.max(f, r.framesSent); });
+                if (f < 0) return;                                   // 통계가 없으면 «모름» — 단정하지 않는다
+                var prev = __vcAaoTx[id];
+                var stuck = (prev && f <= prev.f) ? (prev.stuck || 0) + 1 : 0;
+                __vcAaoTx[id] = { f: f, stuck: stuck };
+                if (stuck === 3) {                                   // 3틱 ≈ 12초
+                    try { console.warn('[vc-aao] 영상을 되살린 뒤 12초 동안 프레임이 안 나갑니다 — uid', id, '· framesSent', f); } catch (_) {}
+                }
+            }).catch(function () {});
+        } catch (_) {}
+    });
+}
+
 /* 4초 타이머(vcqRxStart)가 부른다. ⛔ 여기서 새 setInterval 을 만들지 않는다(홈이 멎은 전력 2회). */
 function vcAaoTick() {
     var A = window.__vcAAO;
-    if (A && A.active) { try { vcAAOVideo(0); } catch (_) {} }   // 늦게 들어온 상대의 sender 에도 다시 건다
+    /* 🔴 (2026-09-15) «끄기» 만 4초마다 다시 걸고 «켜기» 는 한 번뿐이면, 그 한 번이 거절됐을 때
+       영상이 수업 끝까지 안 돌아온다. active=true 로 되돌리는 코드는 저장소에 vcAAOVideo 한 곳뿐이고
+       vcAAOVideo(1) 을 부르는 곳도 vcAAOApply 의 복구 갈래(idx-main.js) 한 곳뿐이기 때문이다.
+       하필 그 한 번은 «회선이 회복된 그 틱» 에 일어나는데, 같은 4초 주기의 applyStep 도
+       같은 sender 에 getParameters→setParameters 를 건다 → 스냅샷이 어긋나면 한쪽이 거절되고,
+       그 거절은 조용하다(에러도 화면도 없다).
+       ⟹ vcAAOVideo 가 스스로 적어 둔 설계(«상태를 지정»)대로 양방향을 4초마다 다시 건다.
+          바뀔 때만 실제로 쓰므로(cur === want 조기반환) 평소에는 아무 일도 하지 않는다.
+       ⛔ 켜는 쪽을 되돌리지 말 것 — 되돌리면 「소리는 오는데 얼굴이 멈춘 채」가 그대로 재현된다.
+       ⚠️ SFU 가 mesh 를 끊어 둔 동안에는 «켜지» 않는다(vcAaoSfuCut) — 그쪽이 일부러 끈 것이다. */
+    var want = (A && A.active) ? 0 : 1;
+    if (!(want && vcAaoSfuCut())) { try { vcAAOVideo(want); } catch (_) {} }
+    try { vcAaoVerify(); } catch (_) {}
     Object.keys(__vcAaoSince).forEach(function (id) {
         var box = document.getElementById('vc-video-' + id);
         var el = box && box.querySelector('.vc-aao-freeze');
