@@ -5396,7 +5396,7 @@ var _frEditId = 0;
 function frResetForm() {
   _frEditId = 0;
   const e = id => document.getElementById(id);
-  ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
   const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5410,6 +5410,10 @@ function frEdit(id) {
   const e = k => document.getElementById(k);
   _frEditId = f.id;
   if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
+  // 🪪 (2026-09-15) 화면에 보이는 login_id 는 «추정값» 일 수 있다(admin_scope 접두어 매칭) —
+  // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
+  // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
+  if (e('fr-login')) e('fr-login').value = f.login_username == null ? '' : f.login_username;
   if (e('fr-owner')) e('fr-owner').value = f.owner_name == null ? '' : f.owner_name;
   if (e('fr-phone')) e('fr-phone').value = f.phone == null ? '' : f.phone;
   if (e('fr-address')) e('fr-address').value = f.address == null ? '' : f.address;
@@ -5425,6 +5429,7 @@ async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  const loginUsername = (e('fr-login')||{}).value || null;
   if (_frEditId) {
     let d;
     try {
@@ -5432,7 +5437,7 @@ async function saveFranchise() {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: _frEditId, name,
+          id: _frEditId, name, login_username: loginUsername,
           owner_name: e('fr-owner').value || null, phone: e('fr-phone').value || null,
           address: e('fr-address').value || null, opened_at: e('fr-opened').value || null
         })
@@ -5459,10 +5464,10 @@ async function saveFranchise() {
     return;
   }
   const d = await _menuPost('/api/admin/franchises', {
-    name, owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
+    name, login_username: loginUsername, owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
-  if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
+  if (d) { ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
 window.saveFranchise = saveFranchise;
 

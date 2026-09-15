@@ -8287,15 +8287,26 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                _mbrEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 대표지사를 덮어쓰게 된다. -->
           <details id="mbr-form-wrap" ontoggle="if(!this.open&&window.mbrResetForm)window.mbrResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
+            <!-- 🏷️ (2026-09-15 신설) 지사(fr-form-wrap)와 같은 이유로 <label> 을 추가 — 값이 채워지면
+                 placeholder 가 숨어 «수정» 모드에서 어느 칸이 무엇인지 알 수 없었다. -->
             <div class="menu-form">
-              <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-name" style="font-size:10.5px" data-ko="대표지사 이름" data-en="Master branch name">대표지사 이름</label>
+                <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
+              </span>
               <!-- 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
                    실제 아이디가 들어가게 해달라」) 지사(franchises)는 admin_scope 를 이름으로 이어서
                    «읽기 전용» 으로 보여줄 수 있었지만(위 서버 login_id CASE), master_branches 는
                    scope.ts 의 Scope 타입에 'master' 가 없어 그 연결이 원리상 없다 — 그래서 여기는
                    «직접 입력해 저장하는» 칸이다(login_username, master_branches 자체 컬럼). -->
-              <input id="mbr-login" placeholder="로그인 아이디 (선택)" data-ko-placeholder="로그인 아이디 (선택)" data-en-placeholder="Login ID (optional)" style="width:140px;font-family:MangoiHanSC,ui-monospace,monospace;" />
-              <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-login" style="font-size:10.5px" data-ko="로그인 아이디" data-en="Login ID">로그인 아이디</label>
+                <input id="mbr-login" placeholder="로그인 아이디 (선택)" data-ko-placeholder="로그인 아이디 (선택)" data-en-placeholder="Login ID (optional)" style="width:140px;font-family:MangoiHanSC,ui-monospace,monospace;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-region" style="font-size:10.5px" data-ko="담당 권역" data-en="Region">담당 권역</label>
+                <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              </span>
               <!-- 🪤 (2026-09-11 trap-check 지적) value 속성이 없는 <option>+data-ko/data-en 은
                    위험하다 — value 없는 option 의 .value 는 표준상 textContent 를 그대로 따라가는데,
                    i18n 엔진(toggleAdminLang)이 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로
@@ -8303,15 +8314,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                    그 뒤 DB 값("골드")으로 .value 를 되돌리려 하면 일치하는 옵션이 없어(selectedIndex
                    -1) 등급이 빈 채로 열리고, 그대로 저장하면 tier 가 NULL 로 덮인다(재현 확인됨).
                    ct-paytype 처럼 언어와 무관한 고정 value 를 명시해 이 함정을 원천 차단한다. -->
-              <select id="mbr-tier" style="width:140px;">
-                <option value="" data-ko="등급…" data-en="Tier…">등급…</option>
-                <option value="플래티넘" data-ko="플래티넘" data-en="Platinum">플래티넘</option><option value="골드" data-ko="골드" data-en="Gold">골드</option><option value="실버" data-ko="실버" data-en="Silver">실버</option><option value="일반" data-ko="일반" data-en="Standard">일반</option>
-              </select>
-              <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
-              <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
-              <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-tier" style="font-size:10.5px" data-ko="등급" data-en="Tier">등급</label>
+                <select id="mbr-tier" style="width:140px;">
+                  <option value="" data-ko="등급…" data-en="Tier…">등급…</option>
+                  <option value="플래티넘" data-ko="플래티넘" data-en="Platinum">플래티넘</option><option value="골드" data-ko="골드" data-en="Gold">골드</option><option value="실버" data-ko="실버" data-en="Silver">실버</option><option value="일반" data-ko="일반" data-en="Standard">일반</option>
+                </select>
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-manager" style="font-size:10.5px" data-ko="대표자" data-en="Representative">대표자</label>
+                <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-phone" style="font-size:10.5px" data-ko="전화번호" data-en="Phone">전화번호</label>
+                <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
+              </span>
+              <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;align-self:flex-end" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
               <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
-              <button id="mbr-cancel-btn" onclick="mbrResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
+              <button id="mbr-cancel-btn" onclick="mbrResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;align-self:flex-end" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
           <!-- 🪪 (2026-09-14 2차) 첫 칸이 «행 번호 1,2,3» 이었다 — 사장님 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있어. 여기에 실제 아이디가 들어가게 해줘」의 «여기» 가 바로 이 칸. 1차(#969)는 옆에 「아이디」 칸을 하나 «더» 만들어 번호 칸이 그대로 남았다. 번호 칸을 없애고 첫 칸을 로그인 아이디로 — 칸 8개, colspan 도 8. -->
@@ -8331,15 +8351,46 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                _frEditId 가 그대로 남아 새로 등록하려던 것이 방금 보던 지사를 덮어쓰게 된다. -->
           <details id="fr-form-wrap" ontoggle="if(!this.open&&window.frResetForm)window.frResetForm();">
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 신규 등록" data-en="+ Add Branch">+ 지사 신규 등록</summary>
+            <!-- 🏷️ (2026-09-15 신설 — 사장님 제보 「수정 버튼을 누르면 값만 채워진 칸들이 나오는데
+                 어떤 칸이 뭔지 설명이 없다」) 값이 채워지면 placeholder 가 안 보여서, 등록 때는
+                 placeholder 로 버티던 안내가 «수정» 때는 사라졌다. 항상 보이는 <label> 을 값 위에
+                 따로 둔다 — .menu-form label 은 이미 admin-inline-c.css 에 색이 정의돼 있다. -->
             <div class="menu-form">
-              <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
-              <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
-              <input id="fr-phone" placeholder="전화번호" style="width:140px;" />
-              <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
-              <input id="fr-opened" type="date" />
-              <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-login" style="font-size:10.5px" data-ko="로그인 아이디" data-en="Login ID">로그인 아이디</label>
+                <!-- 🪪 (2026-09-15 신설 — 사장님 제보 「지사 아이디가 —로 비어 있다. 카페24에
+                     데이터가 있으니 가져와라」) 실측: 카페24 (:Branch) 노드는 branch_id·name·
+                     address·phone·manager·active 뿐이고 로그인 계정 개념 자체가 없다
+                     (cafe24-sync.ts importCafe24Org 의 Cypher 가 그 다섯 칸만 읽는다) — 그래서
+                     「가져올」 원본이 카페24에 없다. 대신 대표지사(mbr-login)와 같은 방식으로
+                     **본사가 직접 입력해 저장하는 칸**을 새로 둔다(franchises.login_username,
+                     지연 ALTER). 이름으로 admin_scope 를 접두어 매칭해 «추정» 하던 기존 읽기전용
+                     칸(login_id)은 그대로 두되, 이 칸에 값이 있으면 그 값을 우선한다. -->
+                <input id="fr-login" placeholder="로그인 아이디 (선택)" data-ko-placeholder="로그인 아이디 (선택)" data-en-placeholder="Login ID (optional)" style="width:140px;font-family:MangoiHanSC,ui-monospace,monospace;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-name" style="font-size:10.5px" data-ko="지사 이름" data-en="Branch name">지사 이름</label>
+                <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-owner" style="font-size:10.5px" data-ko="대표자" data-en="Representative">대표자</label>
+                <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-phone" style="font-size:10.5px" data-ko="전화번호" data-en="Phone">전화번호</label>
+                <input id="fr-phone" placeholder="전화번호" style="width:140px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-address" style="font-size:10.5px" data-ko="주소" data-en="Address">주소</label>
+                <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-opened" style="font-size:10.5px" data-ko="개설일" data-en="Opened">개설일</label>
+                <input id="fr-opened" type="date" />
+              </span>
+              <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;align-self:flex-end" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
               <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
-              <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="취소" data-en="Cancel">취소</button>
+              <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;align-self:flex-end" data-ko="취소" data-en="Cancel">취소</button>
             </div>
           </details>
           <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="아이디" data-en="Login ID">아이디</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
@@ -10238,7 +10289,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=220" defer></script><!-- v=220: 2026-09-14 학생 등록 모달 — 서버가 «같은 이름·같은 연락처가 이미 있다»(409 possible_duplicate)고 물으면 기존 아이디를 보여 주고 「그래도 등록」(force:true)으로만 통과. 실사고 정예희 yahee·yahee1·yahee2 · v=218: 2026-09-14 대표지사 목록 첫 칸 «행 번호 1,2,3» 을 없애고 로그인 아이디를 첫 칸으로(사장님 제보의 «여기» 가 그 칸 — #969 는 옆에 하나 더 만든 것이라 번호가 그대로 남았음). 칸 9→8 · v=217: 2026-09-14 대표지사 목록 — 「아이디」 칸 신설(직접 입력·저장, login_username) + 「등급」 칸 제거. 지사와 달리 admin_scope 로 이을 길이 없어(scope.ts 에 'master' 없음) 읽기전용 대신 편집 가능한 칸을 새로 뒀다 · v=216: 2026-09-14 지사 목록에 「아이디」 칸 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를 못 한다」. 서버가 admin_scope 를 이름으로 이어 읽기전용으로 보여주고(복사 버튼은 ltCopyTicket 재사용), 후보가 둘 이상이면 «—»(모르면 안 붙임) · v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
+<script src="/js/adm-core.js?v=221" defer></script><!-- v=221: 2026-09-15 지사 등록/수정 폼에 항상 보이는 <label> 추가(값이 채워지면 placeholder 가 사라져 어느 칸인지 몰랐던 문제) + 「로그인 아이디」 직접 입력 칸(fr-login) 신설 — 카페24 (:Branch) 에는 계정 개념 자체가 없어(branch_id·name·address·phone·manager·active 뿐) admin_scope 접두어 추정만으로는 —가 자주 뜸. 대표지사(login_username)와 같은 방식 · v=220: 2026-09-14 학생 등록 모달 — 서버가 «같은 이름·같은 연락처가 이미 있다»(409 possible_duplicate)고 물으면 기존 아이디를 보여 주고 「그래도 등록」(force:true)으로만 통과. 실사고 정예희 yahee·yahee1·yahee2 · v=218: 2026-09-14 대표지사 목록 첫 칸 «행 번호 1,2,3» 을 없애고 로그인 아이디를 첫 칸으로(사장님 제보의 «여기» 가 그 칸 — #969 는 옆에 하나 더 만든 것이라 번호가 그대로 남았음). 칸 9→8 · v=217: 2026-09-14 대표지사 목록 — 「아이디」 칸 신설(직접 입력·저장, login_username) + 「등급」 칸 제거. 지사와 달리 admin_scope 로 이을 길이 없어(scope.ts 에 'master' 없음) 읽기전용 대신 편집 가능한 칸을 새로 뒀다 · v=216: 2026-09-14 지사 목록에 「아이디」 칸 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를 못 한다」. 서버가 admin_scope 를 이름으로 이어 읽기전용으로 보여주고(복사 버튼은 ltCopyTicket 재사용), 후보가 둘 이상이면 «—»(모르면 안 붙임) · v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는
      버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
      등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
      는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간
