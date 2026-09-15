@@ -88,8 +88,13 @@
     border-radius:18px;padding:16px 16px 18px;box-shadow:0 22px 50px -14px rgba(0,0,0,.7);
     transform-origin:top right;opacity:0;transform:scale(.94) translateY(-6px);pointer-events:none;
     transition:opacity .16s ease,transform .16s ease}
-  /* ⚠️ min-height:0 이 없으면 flex 자식이 «내용만큼» 부풀어 카드가 다시 화면을 넘습니다
-     (그리드 칸의 min-width:0 과 같은 함정 — CLAUDE.md 2장). */
+  /* ⚠️ 카드가 화면을 안 넘게 하는 것은 이 줄의 overflow-y:auto 입니다 — 되돌리면 실제로
+     1366x768 에서 «다시 고르기» 가 다시 화면 밖으로 나갑니다(2026-09-15 변이시험 실측).
+     min-height:0 은 안전벨트입니다: flex 자식의 «자동 최소 크기» 는 계산된 overflow 가
+     visible 일 때만 걸리므로(CSS Flexbox 4.5) 지금은 overflow-y:auto 만으로도 0 이지만,
+     나중에 overflow 를 visible 로 되돌리면 그때부터 이 줄이 일합니다.
+     ⛔ «min-height:0 을 빼면 아무것도 안 고쳐진다» 로 적지 마세요 — 제가 그렇게 적었다가
+        함정 대조 실측(그 줄만 지운 판이 72/0 통과)으로 정정했습니다. */
   .menu-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
     margin:0 -5px;padding:0 5px}
   .menu-panel.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
@@ -383,7 +388,11 @@
      교재 줄을 띠 «안» 으로 들여 시작 버튼 바로 위에 나란히 둔다. 그 줄의 sticky 는 그대로
      두었다 — 띠가 이미 바닥에 붙어 있어 안에서는 일반 흐름처럼 놓이고, 지우면 #987 의
      하니스(«sticky 가 있는가»)가 빨간불이 되기 때문이다. 겹치지 않는 것은 브라우저로 쟀다. */
-  .wus-ctabar .wus-booknow{margin-top:0;margin-bottom:9px;box-shadow:none}
+  .wus-ctabar .wus-booknow{margin-top:0;margin-bottom:12px;box-shadow:none}
+  /* ⛔ 이 한 줄을 지우지 마세요 — .wus-cta 의 margin-top:22px 는 «버튼이 홀로 떠 있던» 시절
+     값이라, 띠 안에서는 그만큼 띠가 불투명하게 높아져 그 밑 수준 버튼을 더 가립니다
+     (2026-09-15 실측 175 → 153px). 버튼 사이 간격은 위 .wus-booknow 의 margin-bottom 이 냅니다. */
+  .wus-ctabar .wus-cta{margin-top:0}
   /* 🎯 수준 찾기(3문항) — 문장을 보여주고 «편하게 읽히는지»만 묻는다. 서버를 부르지 않는다 */
   .wus-probe-q{font-size:14px;font-weight:800;color:var(--accent);margin:4px 0 10px}
   .wus-sent{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;
@@ -524,7 +533,7 @@
           <!-- 📘 «지금 교재»(#987) — 띠 안, 시작 버튼 바로 위. 누르면 교재 자리로 갑니다 -->
           <button type="button" class="wus-booknow" id="wusBookNow" data-jump="books" hidden></button>
           <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
-          <p class="wus-hint2" id="wusPickNow">고른 것: —</p>
+          <p class="wus-hint2" id="wusPickNow" hidden></p>
         </div>
       </div>
       <!-- 🎯 수준 찾기 — 서버를 부르지 않고 문장을 보여주며 3번만 묻는다 -->
@@ -537,9 +546,9 @@
     <a href="/" class="back home" title="홈으로" aria-label="홈으로 가기">🏠</a>
     <h1><span class="ttl-emoji">🗣️</span> 수업 전 AI 웜업</h1>
     <button id="spkToggle" class="icon-btn" type="button" onclick="toggleSpeech()" title="AI 답변 음성 켜기/끄기">🔊</button>
-    <!-- 🎚️ 연령·수준 다시 고르기 — ⋮ 를 열지 않고 한 번에. 자세한 사정은 .icon-btn.tune 주석 -->
+    <!-- 🎚️ 연령·수준·교재 다시 고르기 — ⋮ 를 열지 않고 한 번에. 자세한 사정은 .icon-btn.tune 주석 -->
     <button id="setupBtn" class="icon-btn tune" type="button" onclick="openSetup(true)"
-      title="연령·수준 다시 고르기" aria-label="연령·수준 다시 고르기">🎚️</button>
+      title="연령·수준·교재 다시 고르기" aria-label="연령·수준·교재 다시 고르기">🎚️</button>
     <div class="menu-wrap">
       <button id="menuBtn" class="icon-btn kebab" type="button" onclick="toggleMenu(event)"
         aria-haspopup="true" aria-expanded="false" title="듣기 속도 · 대화 레벨 설정">⋮</button>
