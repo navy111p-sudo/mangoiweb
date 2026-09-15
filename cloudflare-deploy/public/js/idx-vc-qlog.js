@@ -782,7 +782,17 @@ function vcAaoSelfMark(on) {
         var box = document.getElementById('vc-local-box');
         if (!box) return;
         var el = box.querySelector('.vc-aao-freeze');
-        if (!on) { if (el) el.remove(); box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); return; }
+        if (!on) {
+            if (el) el.remove();
+            /* ⚠️ (2026-09-15) 4초 타이머가 «켜기» 도 다시 걸게 되면서 이 갈래가 «평상시에도» 매 틱 돈다.
+               CLAUDE.md 실측: «없는 토큰 remove() 도 class 속성을 다시 써서 관찰자를 1회 깨운다»
+               (mango-worldclock.js 가 documentElement 에 subtree 로 걸려 있어 그 대상이다).
+               무한루프는 아니지만(그 콜백은 toggle(t, force) 라 상태가 같으면 0회) 수업 중 4초마다
+               남의 관찰자를 깨울 이유가 없다 — 홈이 두 번 멎은 뿌리가 이 계열이다. 바뀔 때만 쓴다. */
+            if (box.classList.contains('vc-aao-on')) box.classList.remove('vc-aao-on');
+            if (box.style.getPropertyValue('--aao-h')) box.style.removeProperty('--aao-h');
+            return;
+        }
         el = vcAaoStripEl(box);
         var ko = '📶 영상 안 나감';          // ⚠️ PIP 는 폰에서 130px — 길면 핵심이 잘린다
         var en = '📶 Video not sent';

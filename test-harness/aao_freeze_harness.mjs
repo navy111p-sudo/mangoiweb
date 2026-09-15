@@ -80,8 +80,8 @@ function makeDom() {
         getPropertyValue(k) { return props[k] || ''; }
       },
       classList: {
-        _s: new Set(),
-        add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); }
+        _s: new Set(), _rm: 0,                            // _rm — «없는 토큰 remove» 도 관찰자를 깨우므로 횟수를 센다
+        add(c) { this._s.add(c); }, remove(c) { this._rm++; this._s.delete(c); }, contains(c) { return this._s.has(c); }
       },
       _attr: {}, children: [], parent: null,
       setAttribute(k, v) { this._attr[k] = v; }, getAttribute(k) { return this._attr[k]; },
@@ -116,7 +116,11 @@ function makePc(opts = {}) {
   const sender = {
     track,
     getParameters: () => opts.throwOnGet ? (() => { throw new Error('boom'); })() : JSON.parse(JSON.stringify(p)),
-    setParameters: (np) => { calls.setParameters++; p.encodings = np.encodings; return Promise.resolve(); },
+    setParameters: (np) => {
+      calls.setParameters++;
+      if (opts.rejectSet) return Promise.reject(new Error('InvalidStateError'));   // 스냅샷 어긋남 재현
+      p.encodings = np.encodings; return Promise.resolve();
+    },
     replaceTrack: (t) => { calls.replaceTrack++; sender.track = t; return Promise.resolve(); }
   };
   /* 🎥 프레임 확인용 — opts.frames 를 준 검사에서만 붙는다(다른 검사의 동작은 그대로) */
@@ -432,6 +436,36 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   for (let i = 0; i < 5; i++) { e15.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
   ok(!e15.warns.some(w => /프레임이 안 나갑니다/.test(w)),
      'C-25 사람이 끈 카메라에는 경보하지 않는다', e15.warns.join(' | '));
+
+  /* ⛔ 거절을 삼키면 «왜 영상이 안 돌아왔나» 를 사후에 가릴 근거가 통째로 사라진다.
+     CLAUDE.md 가 규칙으로 못 박은 자리인데 이 검사가 없으면 옛 .catch(function(){}) 로
+     되돌려도 초록불이다(함정 대조 실측). */
+  const e16 = boot(five);
+  const rej = makePc({ rejectSet: true });          // 켜져 있는 상태에서 «끄기» → 실제로 setParameters 가 불린다
+  e16.win.vcPeerConnections = { u1: rej };
+  e16.ctx.vcAAOVideo(0);
+  await new Promise(r => setTimeout(r, 0));
+  ok(e16.warns.some(w => /setParameters 거절/.test(w)),
+     'C-26 setParameters 거절을 삼키지 않고 말한다 — 원인을 사후에 가릴 유일한 근거', e16.warns.join(' | '));
+
+  /* 🔴 4초 타이머가 «켜기» 도 다시 걸면서 평상시에도 이 갈래가 돈다.
+     «없는 토큰 remove()» 도 class 속성을 다시 써서 관찰자를 1회 깨운다(홈이 두 번 멎은 뿌리). */
+  const e17 = boot(five);
+  const t17 = addTile(e17, 'self', 320);
+  e17.win.__vcAAO = { active: false };
+  e17.ctx.vcAaoTick(); e17.ctx.vcAaoTick(); e17.ctx.vcAaoTick();
+  ok(t17.box.classList._rm === 0,
+     'C-27 평상시 4초 틱이 «없는 클래스» 를 지우지 않는다 — 남의 관찰자를 4초마다 깨우지 않게',
+     'remove 호출 ' + t17.box.classList._rm + '회');
+
+  /* 짝 — 진짜로 켜져 있던 상태에서는 제대로 지운다(가드가 «영영 안 지움» 이 되면 안 된다) */
+  const e18 = boot(five);
+  const t18 = addTile(e18, 'self', 320);
+  e18.ctx.vcAaoSelfMark(true);
+  ok(t18.box.classList.contains('vc-aao-on'), 'C-28 전제: 켜면 실제로 클래스가 붙는다');
+  e18.ctx.vcAaoSelfMark(false);
+  ok(!t18.box.classList.contains('vc-aao-on') && !t18.box.querySelector('.vc-aao-freeze'),
+     'C-29 짝 — 붙어 있던 상태에서는 제대로 지운다');
 }
 
 let CORNER_BASES = [];
@@ -531,6 +565,12 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       five.replace('if (!(want && vcAaoSfuCut()))', 'if (true)')],
     ['프레임 확인을 통째로 빼기', five.replace('try { vcAaoVerify(); } catch (_) {}', '')],
     ['프레임이 안 늘어도 말하지 않기', five.replace('if (stuck === 3) {', 'if (false) {')],
+    /* 🔴 함정 대조가 잡은 무방비 — CLAUDE.md 가 «삼키지 말 것» 을 규칙으로 못 박은 자리다 */
+    ['setParameters 거절을 도로 삼키기',
+      five.replace("try { console.warn('[vc-aao] setParameters 거절", "try { void ('[vc-aao] setParameters 거절")],
+    ['평상시 틱의 «바뀔 때만» 가드 빼기(관찰자를 4초마다 깨움)',
+      five.replace("if (box.classList.contains('vc-aao-on')) box.classList.remove('vc-aao-on');",
+                   "box.classList.remove('vc-aao-on');")],
     ['「N초 전」 갱신을 빼기', five.replace('if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }', 'if (el) { /* 갱신 없음 */ }')],
     ['위쪽 버튼 비켜서기를 빼기', five.replace(/\n\s*vcAaoShift\(box, el\);/g, '\n    /* 없음 */')],
     ['비켜서기 CSS 에서 장치 도우미를 빼기',
@@ -631,6 +671,24 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       e11m.win.__vcAAO = { active: false };
       for (let i = 0; i < 5; i++) { e11m.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
       if (!e11m.warns.some(w => /프레임이 안 나갑니다/.test(w))) broke = true;
+
+      /* setParameters 거절을 말하는가 */
+      const e12m = boot(code);
+      const rej12 = makePc({ rejectSet: true });
+      e12m.win.vcPeerConnections = { u1: rej12 };
+      e12m.ctx.vcAAOVideo(0);
+      await new Promise(r => setTimeout(r, 0));
+      if (!e12m.warns.some(w => /setParameters 거절/.test(w))) broke = true;
+
+      /* 평상시 틱이 «없는 클래스» 를 지우지 않는가 + 짝(붙어 있으면 지우는가) */
+      const e13m = boot(code);
+      const t13m = addTile(e13m, 'self', 320);
+      e13m.win.__vcAAO = { active: false };
+      e13m.ctx.vcAaoTick(); e13m.ctx.vcAaoTick();
+      if (t13m.box.classList._rm !== 0) broke = true;
+      e13m.ctx.vcAaoSelfMark(true);
+      e13m.ctx.vcAaoSelfMark(false);
+      if (t13m.box.classList.contains('vc-aao-on')) broke = true;
     } catch (_) { broke = true; }
     ok(broke, '변이 «' + name + '» 가 그대로 통과했다 — 이 검사는 그것을 못 막는다');
   }
