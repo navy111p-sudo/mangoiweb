@@ -49,7 +49,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
    감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
-import { hiddenExcludeCond, ensureStudentOverrideTable, setOverridePhones } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -3697,6 +3697,27 @@ ${numbered}`;
 
         const _fullScope = await getScope(env as any, request);  // 🔒 PII 열람 권한 판정
         const _erpRow: any = pick(0);
+        /* 📞 (2026-09-15) students_erp 의 전화번호 칸은 카페24가 정본이라 매일 밤 03:00 KST
+           동기화가 덮는다(student-override.ts 머리말 — 9/10 파일럿테스트 학생 번호가 그렇게
+           사라진 사고와 같은 뿌리). 화면이 보여주는 값은 «문자 발송이 실제로 읽는 값» 이어야
+           하므로 phonesForStudent(notify-contacts.ts)와 같은 우선순위로 덮어 보여준다 —
+           override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). fail-open. */
+        if (_erpRow) {
+          try {
+            const _ovPhones = await getOverridePhones(env as any, String(_erpRow.user_id || uid));
+            if (_ovPhones.parent) _erpRow.parent_phone = _ovPhones.parent;
+            if (_ovPhones.student) _erpRow.student_phone = _ovPhones.student;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+          /* 🏢 (2026-09-15) 가맹점·소속도 같은 이유로 같은 자리에서 덮어 보여준다 — students_erp.franchise/
+             shop_name 은 카페24가 정본이라 매일 밤 덮인다. applyStudentErpOverrides() 가 동기화 직후
+             다시 입히지만, 그 재적용과 이 화면 사이의 짧은 창(또는 재적용 실패)에도 화면은 방금
+             저장한 값을 보여줘야 한다 — override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). */
+          try {
+            const _ovOrg = await getOverrideOrg(env as any, String(_erpRow.user_id || uid));
+            if (_ovOrg.franchise) _erpRow.franchise = _ovOrg.franchise;
+            if (_ovOrg.shop_name) _erpRow.shop_name = _ovOrg.shop_name;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+        }
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
         // 🎓 카페24 성적(그래프DB) — 월말평가(상세 코멘트5)·일별·교재퀴즈·레벨테스트·포인트. Neo4j 미연결 시 조용히 빈배열.
@@ -3988,13 +4009,21 @@ ${numbered}`;
            이름을 바꾸면 SET 에 `username = ?` 가 들어가는데, 그 행이 세 갈래 중
            «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
            → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
-           (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다. */
-        /* 📞 (2026-09-15) 번호 칸 — override 에도 적으려면 «진짜 user_id» 가 필요하다.
-           `_ovTouch` 는 마스킹에 안 걸린 번호 칸이 하나라도 왔는가(= 사람이 고쳤는가). */
+           (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다.
+           📞 전화번호·🏢 가맹점·소속도 override 에 적으려면 «진짜 user_id» 가 필요하다.
+           `_ovTouch`·`_orgTouch` 는 마스킹에 안 걸린 칸이 하나라도 «문자열로» 왔는가
+           (= 사람이 실제로 고쳤는가) — null 은 빈 문자열과 다르다. 🔴 (trap-check, 2026-09-15)
+           이 화면(admin/student.html)의 폼은 빈 칸을 `value || null` 로 보내므로 반드시
+           `typeof === 'string'` 로 걸러야 한다 — `String(v ?? '').trim()` 으로 null 까지 ''로
+           뭉개면 «안 건드린 칸» 이 «지우려는 칸」으로 오판된다(식을 오려 내 실제 payload 로
+           돌려 확인). */
         const _ovStu = (typeof b.student_phone === 'string' && !isMaskedValue(b.student_phone)) ? String(b.student_phone).trim() : undefined;
         const _ovPar = (typeof b.parent_phone  === 'string' && !isMaskedValue(b.parent_phone))  ? String(b.parent_phone).trim()  : undefined;
         const _ovTouch = (_ovStu !== undefined || _ovPar !== undefined);
-        const preRow = (nameChanged || _ovTouch) ? await env.DB.prepare(
+        const _ovFran = (typeof b.franchise === 'string') ? String(b.franchise).trim() : undefined;
+        const _ovShop = (typeof b.shop_name === 'string') ? String(b.shop_name).trim() : undefined;
+        const _orgTouch = (_ovFran !== undefined || _ovShop !== undefined);
+        const preRow = (nameChanged || _ovTouch || _orgTouch) ? await env.DB.prepare(
           `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
         ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
         // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
@@ -4067,7 +4096,38 @@ ${numbered}`;
             phoneKept = false;
           }
         }
-        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept });
+        /* 🏢 (2026-09-15) 가맹점·소속도 같은 이유로 student_erp_override 에 함께 적는다(위 phoneKept
+           와 같은 사정 — cafe24-sync.ts 의 UPSERT 가 `franchise = excluded.franchise`,
+           `shop_name = excluded.shop_name` 으로 **무조건** 덮는다. 전화번호와 달리 COALESCE 보호조차
+           없다). 정본은 setOverrideOrgField — franchise·shop_name 은 **서로 다른 필드**라 한 번에
+           한 필드씩만 받는다(setOverridePhones 의 교차오염을 원천적으로 피하려고 시그니처 자체가
+           그렇게 돼 있다 — CLAUDE.md 「지정 값을 저장하는 setter 에 두 필드를 한 번에 넘기고…」).
+           빈 문자열은 그 자체로 «지운다» 는 뜻이라(함수 docstring) phones 같은 별도 clear 플래그가
+           필요 없다. ⚠️ 실패해도 저장 자체는 막지 않는다 — org_kept 로 응답에 실어 화면이 사람에게
+           말하게 한다. */
+        let orgKept: boolean | null = null;
+        if (_orgTouch) {
+          orgKept = false;
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (realUid) {
+              let okAll = true;
+              if (_ovFran !== undefined) {
+                const r1 = await setOverrideOrgField(env as any, String(realUid), 'franchise', _ovFran, 'admin-edit');
+                if (!r1.ok) okAll = false;
+              }
+              if (_ovShop !== undefined) {
+                const r2 = await setOverrideOrgField(env as any, String(realUid), 'shop_name', _ovShop, 'admin-edit');
+                if (!r2.ok) okAll = false;
+              }
+              orgKept = okAll;
+            }
+          } catch (e: any) {
+            console.warn('[student/contact] 가맹점·소속 보관 실패:', e?.message || e);
+            orgKept = false;
+          }
+        }
+        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept, org_kept: orgKept });
       }
     }
 

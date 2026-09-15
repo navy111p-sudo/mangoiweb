@@ -3442,6 +3442,29 @@ button.chip:hover,
     color: #b91c1c !important;
     transform: none !important; box-shadow: none !important;
   }
+  /* 🔀 (2026-09-15) 「여러 강사로 나눠 배정」 버튼 — 위 두 버튼과 같은 함정(전역 인디고 알약)
+     이라 같은 방식(ID 접두)으로 되살린다. hover 는 색만(1-3 「hover 확대 금지」). */
+  #en-multi-table td button.en-row-multi-teacher-btn {
+    display: block !important; width: 100% !important; margin-top: 6px !important;
+    padding: 4px 6px !important; box-sizing: border-box !important;
+    background: #f5f3ff !important; background-image: none !important;
+    border: 1px solid #c4b5fd !important; border-radius: 4px !important;
+    color: #6d28d9 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
+  #en-multi-table td button.en-row-multi-teacher-btn:hover {
+    background: #ede9fe !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  /* 🔀 계획이 적용된 행은 단일-강사/요일/시간 칸이 더는 읽히지 않는다(_readEnrollmentRows 가
+     건너뜀) — 그대로 두면 «칸엔 값이 있는데 등록엔 안 쓰인다» 는 혼란이 생기므로 흐리게 하고
+     손을 뗀다(값은 지우지 않는다 — 계획을 지우면 그대로 되살아나야 하므로). */
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-priority,
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-teacher,
+  #en-multi-table tr.en-row-multi-active td.en-c-day,
+  #en-multi-table tr.en-row-multi-active td.en-c-time {
+    opacity: .35 !important; pointer-events: none !important;
+  }
 
   /* ══════════════════════════════════════════════════════════════════════
      🗓️ (2026-08-20 사장님 지시) 수강신청 등록 표 → 「카드 두 줄」 배치

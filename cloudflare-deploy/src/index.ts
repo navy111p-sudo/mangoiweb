@@ -135,38 +135,53 @@ function applySecurityHeaders(resp: Response): Response {
 
 // 🏷️ HTML 전용 ETag — Cloudflare Assets 는 .js/.css 에는 ETag 를 주지만 HTML 에는 주지 않는다.
 //   그래서 index.html(약 430KB 압축)이 수업 시작마다 통째로 다시 내려가고 있었다.
-//   deploy.ps1 이 배포마다 모든 HTML 에 BUILD 스탬프를 새로 찍으므로, BUILD_STAMP 는
-//   'HTML 이 바뀌었는가'와 정확히 일치하는 검증자다 → 안전하게 304 를 줄 수 있다.
 //   반환값이 있으면 그대로 응답(304), null 이면 호출부가 정상 200 을 이어서 만든다.
+//
+// 🔴 (2026-09-15 수정) — 예전엔 검증자가 BUILD_STAMP(전체 배포 시각) 하나뿐이었다.
+//   '배포마다 모든 HTML 스탬프를 새로 찍으니 BUILD_STAMP 가 곧 HTML 변경 여부'라고
+//   여겼는데, 그 전제가 틀렸다 — BUILD_STAMP 는 '그 파일이 바뀌었는가'가 아니라
+//   '사이트 어딘가가 배포됐는가'다. 이 저장소는 하루에도 여러 번 배포되므로, admin.html
+//   을 한 글자도 안 고친 배포에도 그 화면 전체가 매번 처음부터 다시 내려가고 있었다
+//   (「작업할 때마다 로딩이 심해서 시간이 든다」 제보의 원인). 지금은 Cloudflare Assets 가
+//   워커 안에서 실어 주는 **파일별** ETag(아래 headers.get('ETag') — 바로 밑 주석대로
+//   이 시점에는 아직 살아 있다)를 검증 기준으로 쓴다 — 같은 내용이면 배포가 몇 번이든
+//   그 파일의 ETag 는 그대로라 304 가 나간다. BUILD_STAMP 는 native ETag 를 못 구했을
+//   때만 쓰는 폴백(예전 동작 그대로 — 안전망일 뿐 주력 경로가 아니다).
 function htmlEtag304(request: Request, path: string, env: Env, headers: Headers): Response | null {
   if (!path.endsWith('.html')) return null;
   const stamp = env.BUILD_STAMP;
-  if (!stamp) return null;
+  // 🆕 (2026-09-15) CF Assets 가 실어 준 파일별 ETag 우선(없으면 stamp 폴백) — 위 설명 참고.
+  const nativeTag = (headers.get('ETag') || '').replace(/^W\//, '').replace(/^"|"$/g, '');
+  const basis = nativeTag || stamp;
+  if (!basis) return null;
   // ⚠️ 기존의 `headers.has('ETag')` 조기반환 제거(26-07-22) — Assets 가 워커 안에서는
   //   HTML 에도 ETag 를 실어 주는데 CF 가 밖으로 나갈 때 떼는 경우, 이 가드에 걸려
   //   우리 검증자(ETag+Last-Modified)를 한 번도 못 싣고 있었다. 항상 덮어쓴다.
-  const tag = `W/"b-${stamp}"`;
+  const tag = `W/"b-${basis}"`;
   headers.set('ETag', tag);
   // 🆕 Last-Modified 폴백(26-07-22) — 실측 결과 CF 가 text/html 응답의 ETag 를 떼어
   //   브라우저에 안 닿는다(= If-None-Match 가 영영 안 옴 = 1.3MB HTML 매번 전체 다운로드).
   //   같은 검증자(빌드 스탬프 시각)를 Last-Modified 로도 실어 보내고, 브라우저가
   //   If-Modified-Since 를 보내오면 스탬프와 비교해 304(본문 0바이트)로 응답한다.
   //   Last-Modified 가 마저 잘려도 동작은 기존과 동일(무해).
+  //   ⚠️ (2026-09-15) 이 값은 여전히 stamp(배포 시각) 기준 — 주력 검증은 위 ETag 비교다.
   let lastMod = '';
-  if (/^\d{14}$/.test(stamp)) {
-    // BUILD_STAMP = KST(yyyymmddHHMMSS) → UTC 로 변환해 HTTP 날짜 생성
-    const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
-                       +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
-    lastMod = new Date(t).toUTCString();
-  } else {
-    // 실제 wrangler.toml 의 BUILD_STAMP 는 ISO("2026-07-22T00:59:14Z") — Date.parse 로 처리
-    const t = Date.parse(stamp);
-    if (!isNaN(t)) lastMod = new Date(t).toUTCString();
+  if (stamp) {
+    if (/^\d{14}$/.test(stamp)) {
+      // BUILD_STAMP = KST(yyyymmddHHMMSS) → UTC 로 변환해 HTTP 날짜 생성
+      const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
+                         +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
+      lastMod = new Date(t).toUTCString();
+    } else {
+      // 실제 wrangler.toml 의 BUILD_STAMP 는 ISO("2026-07-22T00:59:14Z") — Date.parse 로 처리
+      const t = Date.parse(stamp);
+      if (!isNaN(t)) lastMod = new Date(t).toUTCString();
+    }
   }
   if (lastMod) headers.set('Last-Modified', lastMod);
   // If-None-Match 는 콤마 목록일 수 있고 약한 검증자 접두사(W/)가 붙을 수 있다.
   const inm = request.headers.get('If-None-Match') || '';
-  const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${stamp}"`);
+  const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${basis}"`);
   if (matched) return new Response(null, { status: 304, headers });
   // HTTP 스펙: If-None-Match 가 있으면 If-Modified-Since 는 무시해야 한다 → !inm 가드
   const ims = request.headers.get('If-Modified-Since') || '';
