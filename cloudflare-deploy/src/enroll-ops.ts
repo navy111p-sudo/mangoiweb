@@ -746,6 +746,9 @@ export async function runEnrollExpirySweep(env: any, opts?: { dry?: boolean }): 
             이 배선이 없던 동안 이 안내는 번호를 못 찾아 계속 skip 됐다
             (2026-09-15 실측: 그날 23건 시도 / 번호를 찾은 학생 1명).
          ⚠️ 학부모 번호가 없으면 학생 번호로 보내는 기존 동작은 그대로 지킨다.
+         ⚠️ **대상이 조금 넓어졌다**(둘 다 «더 보내는» 방향): 옛 `COALESCE(parent_phone, phone)` 는
+            `student_phone` 을 아예 안 봤고, `parent_phone` 이 **빈 문자열**이면 그것을 반환해
+            `phone` 으로 못 떨어졌다. 정본은 둘을 모두 본다(실측상 `student_phone` 은 0건이라 오늘 반경 ~0).
          ⚠️ 정본이 실패하면 아래 명부 조회로 떨어져 «고치기 전» 과 똑같이 동작한다(fail-open). */
       let phone = '', name = '';
       try {
@@ -757,7 +760,11 @@ export async function runEnrollExpirySweep(env: any, opts?: { dry?: boolean }): 
           `SELECT COALESCE(parent_phone, phone) AS ph, COALESCE(korean_name, english_name, username) AS nm
            FROM students_erp WHERE user_id = ? LIMIT 1`
         ).bind(uid).first();
-        if (!phone) phone = String(s?.ph || '').replace(/[^0-9]/g, '');
+        /* ⚠️ 폴백 기준을 «비었나» 가 아니라 **아래 발송 게이트와 «같은» 10자리**로 맞춘다.
+              `normPhone`(notify-contacts.ts)은 9자리도 통과시키므로, «비었나» 로 물으면
+              9자리 override 하나가 명부의 멀쩡한 11자리를 가로막고 그대로 skip 된다
+              (= 이 수리가 «되던 것» 을 깨는 유일한 방향. 2026-09-15 함정 대조 지적). */
+        if (phone.length < 10) phone = String(s?.ph || '').replace(/[^0-9]/g, '');
         name = String(s?.nm || '');
       } catch (_) {}
       await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?,?,?,?)`).bind(uid, kind, today, Date.now()).run();
