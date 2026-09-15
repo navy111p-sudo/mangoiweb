@@ -25,6 +25,14 @@
    ⚠️ 「주 N회」와 「단건 M회」를 한 숫자로 합치지 않는다 — 뜻이 다르고, 상세
       화면의 스케줄 탭은 «지난 것까지» 총 N건으로 세므로 합치면 두 화면 숫자가
       어긋난 것처럼 보인다. 글자로 뜻을 밝혀 둔다.
+
+   ⚠️ 그 「📅 스케줄」 탭(`GET /api/admin/class-schedules`)과는 축이 **셋** 다르다 —
+      두 숫자를 «같아야 하는 것» 으로 읽지 말 것:
+        ① 상태      여기 status='active'  · 탭 status != 'cancelled'(proposed 등 포함)
+        ② 자리표시  여기 lms·type_seed 제외 · 탭 제외하지 않음
+        ③ 동명 계정 여기 user_id 정확일치 · 탭은 «이름으로 통합» 하는 길이 있음
+                    (그 경로의 STUDENT_NAME 이 저장소 어디에서도 대입되지 않아 지금은
+                     이름이 유일한 학생에서만 켜진다 — 그때 탭이 더 많이 센다)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** 활성 예약만 · LMS/시드 자리표시 제외.
@@ -69,7 +77,12 @@ export function summarizeStudentSchedules(
 ): SchedSummary {
   let weekly = 0, upcoming = 0, past = 0;
   for (const r of rows || []) {
-    const kind = String(r?.schedule_kind || '').toLowerCase();
+    /* ⚠️ 빈 값은 «반복» 으로 봅니다 — 표 DEFAULT 가 'recurring' 이고 읽는 쪽도
+       `schedule_kind || 'recurring'`(api-mango.ts 두 곳)이라 저장소 관례가 그쪽입니다.
+       ⛔ 반대로 두면(모르면 단건) 스키마가 다른 DB·옛 행에서 **반복 수업이 「단건」으로**
+          찍힙니다. 지금 INSERT 8곳은 전부 값을 명시하므로 실피해는 0이고 방향만 맞춥니다.
+       ℹ️ 'dated'(수강신청 확정 회차행)는 날짜가 있으니 그대로 단건으로 셉니다. */
+    const kind = String(r?.schedule_kind || 'recurring').toLowerCase();
     if (kind === 'recurring') { weekly++; continue; }
     // 일회성 — 날짜가 없으면 «언제인지 모름» 이므로 지난 것으로 세지 않는다.
     const d = String(r?.scheduled_date || '').slice(0, 10);

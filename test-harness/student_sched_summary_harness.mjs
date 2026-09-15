@@ -82,6 +82,14 @@ if (!NO_ESBUILD) {
   check('날짜 없는 일회성은 «지난 것» 으로 버리지 않는다',
     r([{ schedule_kind: 'one_off', scheduled_date: null }]).upcoming === 1);
 
+  /* ⚠️ 빈 값의 방향 — 저장소 관례는 «모르면 recurring»(표 DEFAULT · api-mango 두 곳의
+     `schedule_kind || 'recurring'`). 반대로 두면 반복 수업이 「단건」으로 찍힌다. */
+  check('schedule_kind 가 비면 «반복» 으로 센다 (저장소 관례와 같은 방향)',
+    r([{ schedule_kind: null, scheduled_date: null }]).weekly === 1 &&
+    r([{ schedule_kind: '',   scheduled_date: null }]).weekly === 1);
+  check("짝: 'dated'(수강신청 확정 회차행)는 날짜로 판정한다",
+    r([{ schedule_kind: 'dated', scheduled_date: '2026-09-30' }]).upcoming === 1);
+
   const both = r([
     { schedule_kind: 'recurring', scheduled_date: null },
     { schedule_kind: 'one_off',   scheduled_date: '2026-09-30' },
@@ -109,15 +117,36 @@ if (!NO_ESBUILD) {
   check('상세도 던지지 않고 «—» 를 준다',
     !oneThrew && one && one.label_ko === '—' && one.total === 0);
 
-  // 짝 — «제대로 찾는다» 가 없으면 위 둘은 «늘 빈 값» 인 헛돎도 통과시킨다
-  const fake = { DB: { prepare: () => ({
+  /* 짝 — «제대로 찾는다» 가 없으면 위 둘은 «늘 빈 값» 인 헛돎도 통과시킨다.
+     🔴 그리고 가짜 DB 가 **질의문을 무시하면** 그 사이가 통째로 안 검사된다 —
+        함정 대조 실측으로 변이 3종이 조용히 통과했다: ⓐ WHERE 절 삭제(취소된 예약·
+        자리표시까지 셈) ⓑ 자리표시 제외만 제거 ⓒ **`user_id = ?` 제거**(= 남의 예약이
+        그 학생 카드에 뜸 — 셋 중 제일 나쁘다).
+        CLAUDE.md 「가짜 DB 는 질의문을 보고 답을 바꾸세요」. 그래서 받은 SQL 을 적어 둔다. */
+  const seen = [];
+  const fake = { DB: { prepare: (sql) => { seen.push(String(sql || '')); return {
     bind: () => ({ all: async () => ({ results: [{ user_id: 'lee', schedule_kind: 'one_off', scheduled_date: '2099-01-01' }] }) }),
     all: async () => ({ results: [{ user_id: 'lee', schedule_kind: 'recurring', scheduled_date: null }] }),
-  }) } };
+  }; } } };
   const okMap = await M.loadSchedSummaryMap(fake);
   check('짝: 행이 있으면 실제로 센다 (map)', okMap.get('lee')?.weekly === 1);
+  const mapSql = seen[seen.length - 1] || '';
+  seen.length = 0;
   const okOne = await M.loadSchedSummaryOne(fake, 'lee');
   check('짝: 행이 있으면 실제로 센다 (one)', okOne.upcoming === 1);
+  const oneSql = seen[seen.length - 1] || '';
+
+  /* ⚠️ 조건절을 «선언 텍스트» 로만 읽으면(③절) 그것을 쓰지 않는 질의문을 못 본다.
+        실제로 나간 SQL 이 그 조건을 «담고 있는가» 로 묻는다. */
+  const wantWhere = /export const SCHED_SUMMARY_WHERE\s*=\s*\n?\s*`([^`]*)`/.exec(TS)?.[1] || '';
+  const norm = t => String(t).replace(/\s+/g, ' ').trim();
+  check('전제: 두 질의문을 받아 냈다', mapSql.length > 20 && oneSql.length > 20);
+  check('목록 질의문이 그 조건절을 실제로 쓴다 (취소·자리표시가 안 섞인다)',
+    !!wantWhere && norm(mapSql).includes(norm(wantWhere)));
+  check('상세 질의문도 그 조건절을 쓴다',
+    !!wantWhere && norm(oneSql).includes(norm(wantWhere)));
+  /* 🔴 이것이 빠지면 «남의 예약이 그 학생 카드에» 뜨는 변이가 조용히 통과한다. */
+  check('상세 질의문은 그 학생으로 좁힌다 (user_id = ?)', /user_id\s*=\s*\?/.test(oneSql));
 }
 
 console.log('\n[ ③ 조회 조건 — 활성만 · LMS/시드 자리표시 제외 ]');
@@ -137,9 +166,16 @@ check('목록(erp-list)이 정본 Map 을 부른다', /loadSchedSummaryMap\(/.te
 check('상세(student/:uid/full)가 정본 One 을 부른다', /loadSchedSummaryOne\(/.test(MANGO));
 check('정본에서 import 한다 (판정을 복제하지 않았다)',
   /from '\.\/student-schedule-summary'/.test(MANGO));
-/* ⚠️ «부르는가» 만 보면 결과를 안 실어도 통과한다 — 응답에 실리는지까지 본다. */
-check('목록 응답의 행에 sched 가 실린다', /_it\.sched\s*=/.test(MANGO));
-check('상세 응답에 sched 가 실린다', /\n\s*sched:\s*_fullSched,/.test(MANGO));
+/* ⚠️ «부르는가» 만 보면 결과를 안 실어도 통과한다 — 응답에 실리는지까지 본다.
+   ⛔ 그때 변수 «이름» 을 글자 그대로 못 박지 말 것 — 이름만 바꾸는 무해한 리팩터에
+      거짓 FAIL 이 난다(함정 대조 실측). 이름은 **소스에서 읽어** 쓴다. */
+const oneVar = /const\s+(\w+)\s*=\s*await\s+loadSchedSummaryOne\(/.exec(MANGO)?.[1] || '';
+const mapVar = /const\s+(\w+)\s*=\s*await\s+loadSchedSummaryMap\(/.exec(MANGO)?.[1] || '';
+check('전제: 두 호출의 결과 변수를 읽어 냈다', !!oneVar && !!mapVar);
+check('목록 응답의 행에 그 Map 에서 꺼낸 값이 실린다',
+  !!mapVar && new RegExp('\\.sched\\s*=\\s*' + mapVar + '\\.get\\(').test(MANGO));
+check('상세 응답에 그 값이 실린다',
+  !!oneVar && new RegExp('sched:\\s*' + oneVar + '\\b').test(MANGO));
 
 console.log('\n[ ⑤ 화면 — 문장을 화면이 조립하지 않는다 ]');
 /* 두 화면이 각자 조립하면 한쪽만 고쳐져 「화면마다 답이 다른」 상태가 된다. */
@@ -150,11 +186,24 @@ check('상세도 서버 라벨을 고르기만 한다', /q\.label_en\s*:\s*q\.la
 /* ⚠️ 부정 검사를 «파일 전체» 에 걸면 무관한 코드를 잡는다 — 실제로 adm-core.js 의
       딴 기능(10899행 `schedule: '주 ' + classes_per_week + '회'`)이 걸려 거짓 FAIL 이
       났다. 그 칸을 그리는 «그 자리» 만 잘라서 본다. */
-const cut = (t, anchor, len) => { const i = t.indexOf(anchor); return i < 0 ? '' : t.slice(i, i + len); };
-const schedTd = cut(coreNC, 'const _schedTd', 420);
+/* ⛔ 범위를 «길이» 로 자르지 말 것(CLAUDE.md) — 실측으로 두 창이 이미 옆 코드를 먹고
+   있었고(앞은 _smRowHtml 머리까지, 뒤는 qPayType·qFranchise·qSessions 세 줄까지),
+   그 함수가 조금만 자라면 정작 볼 부분이 창 «밖» 으로 나가 **거짓 통과**한다.
+   중괄호 짝으로 자른다. */
+const cut = (t, anchor) => {
+  const i = t.indexOf(anchor); if (i < 0) return '';
+  const j = t.indexOf('{', i); if (j < 0) return '';
+  let d = 0;
+  for (let k = j; k < t.length; k++) {
+    if (t[k] === '{') d++;
+    else if (t[k] === '}') { d--; if (d === 0) return t.slice(i, k + 1); }
+  }
+  return '';
+};
+const schedTd = cut(coreNC, 'const _schedTd');
 check('전제: 목록의 「예약」 칸 코드를 잘라 냈다', schedTd.length > 100);
 check('목록이 «주 N회» 문장을 그 칸에서 만들지 않는다', !!schedTd && !/'주 '\s*\+/.test(schedTd));
-const bookedRow = cut(detailNC, "[t('qBooked')", 320);
+const bookedRow = cut(detailNC, "[t('qBooked')");
 check('전제: 상세의 「예약 수업」 줄을 잘라 냈다', bookedRow.length > 60);
 check('상세가 «주 N회» 문장을 그 줄에서 만들지 않는다', !!bookedRow && !/'주 '\s*\+/.test(bookedRow));
 
