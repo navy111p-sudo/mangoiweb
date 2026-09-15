@@ -206,6 +206,13 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
           — 낮에는 멀쩡히 보이고 다음 날 조용히 «미배정» 으로 돌아온다(에러 없음). */
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN level TEXT`); } catch {}
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN textbook TEXT`); } catch {}
+    /* 📞 (2026-09-15) 번호 세 칸도 같은 이유로 먼저 있게 만든다 — 아래 DELETE 가 이 칸을 읽는다.
+       ⚠️ INSERT 컬럼 목록에 이미 있으니 «당연히 있겠지» 로 두면 안 된다: DELETE 가 «먼저» 돌기
+          때문에, 칸이 없는 DB 에서는 `no such column` 이 나고 그 예외를 nightlyCafe24Refresh 가
+          삼켜 **학생 29,000명 동기화가 조용히 멈춘다**(위 password_hash 와 같은 함정). */
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN parent_phone TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN student_phone TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN phone TEXT`); } catch {}
     /* 🔒 (2026-08-28) «우리가 D1 에서만 관리하는 값» 이 든 행은 지우지 않는다.
        [왜] 이 DELETE 는 카페24 학생 전원(현재 29,428행)을 매일 밤 지우고 다시 넣는다.
             아래 INSERT 컬럼 목록에 없는 칸은 그때 전부 사라진다 — 그 목록에 없는 칸이 25개고
@@ -219,6 +226,15 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
             ON CONFLICT 가 영영 발동하지 않아 UPSERT 가 무의미해진다.
        ⚠️ 카페24를 떠난 학생인데 이 칸들에 값이 있으면 행이 남는다(status 갱신도 멈춘다).
           그 편이 «비밀번호·학부모 연결을 파괴하는 것» 보다 낫다는 판단이다.
+       📞 (2026-09-15) **번호 세 칸을 보존 목록에 더했다.** 이유는 아래 UPSERT 의 COALESCE 와 짝이다 —
+            DELETE 가 그 행을 먼저 지워 버리면 UPSERT 가 ON CONFLICT 가 아니라 «새 INSERT» 로 떨어져
+            COALESCE 가 **한 번도 발동하지 않는다.** 즉 이 두 줄이 없으면 위 수리는 카페24 학생
+            29,462명 전원에게 아무 효과가 없다(「순서가 전부다」가 여기에도 그대로 걸린다).
+       ⚠️ 대가: 카페24를 떠난 학생이라도 번호가 들어 있으면 행이 남는다(status 갱신도 멈춘다).
+            위 다섯 칸이 이미 같은 성질이고, 「번호를 파괴하는 것」보다 낫다는 같은 판단이다.
+       ⚠️ 카페24가 «번호를 채우기 시작하면» 그 행들도 함께 남게 된다(실측 2026-09-10 기준
+            students_erp 29,485행의 번호 칸은 네 개 모두 0건이라 지금은 잃을 것이 없다).
+            그때는 이 조건을 다시 볼 것 — 사람이 정할 일이다.
        📜 같은 수리를 franchises·centers 는 2026-08-14 에 이미 했다(위 UPSERT). 학생만 남아 있었다. */
     await env.DB.prepare(
       `DELETE FROM students_erp
@@ -227,7 +243,10 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
           AND (parent_user_id IS NULL OR TRIM(parent_user_id) = '')
           AND (eval_band      IS NULL OR TRIM(eval_band)      = '')
           AND (level          IS NULL OR TRIM(level)          = '')
-          AND (textbook       IS NULL OR TRIM(textbook)       = '')`
+          AND (textbook       IS NULL OR TRIM(textbook)       = '')
+          AND (parent_phone   IS NULL OR TRIM(parent_phone)   = '')
+          AND (student_phone  IS NULL OR TRIM(student_phone)  = '')
+          AND (phone          IS NULL OR TRIM(phone)          = '')`
     ).bind(CAFE24_STUDENT_SENTINEL).run();
   }
   /* 📞 (2026-08-18 사장님) 학부모·학생 전화번호를 함께 가져온다.
@@ -264,7 +283,24 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
      이 컬럼 목록에 없는 25개 칸이 매일 밤 NULL 이 된다(전화번호가 그렇게 전멸했던 것이 2026-08-18 건).
      카페24가 주는 칸만 덮어쓰고 우리가 관리하는 칸은 보존한다 — franchises 와 같은 방식(2026-08-14).
      ⛔ created_at 은 갱신하지 않는다: 그 값이 «카페24가 정본» 임을 나타내는 표식이라,
-        로컬에서 만든 행(체험계정 lt* 등)을 이 동기화가 자기 것으로 바꿔 버리면 안 된다. */
+        로컬에서 만든 행(체험계정 lt* 등)을 이 동기화가 자기 것으로 바꿔 버리면 안 된다.
+     📞 (2026-09-15) **번호 세 칸은 «카페24가 값을 줄 때만» 덮는다**(COALESCE).
+        [왜] 그전에는 `parent_phone = excluded.parent_phone` 로 **무조건** 덮었다. 그런데
+             카페24 원본의 번호 칸은 실측상 비어 있어(2026-09-10: 29,485행 네 칸 전부 0건),
+             우리 화면에서 받아 students_erp 에 넣은 번호가 그날 밤 **빈 값으로 되돌아갔다.**
+             에러가 한 줄도 안 나고 「전화번호가 그냥 사라진」 것처럼만 보인다.
+             8월에 리마인더 문자가 실제로 나갔던 체험계정 lt15·lt16·lt18 이 그렇게 번호를 잃었고,
+             그래서 7일간 671건의 수업을 정확히 찾고도 한 통도 못 보냈다.
+        ✅ 이제 카페24가 번호를 주면 그대로 갱신하고(카페24가 정본이라는 원칙은 그대로),
+           빈 값을 주면 **우리가 갖고 있던 값을 지킨다.**
+        ⛔ 방향을 뒤집지 말 것 — `COALESCE(students_erp.x, excluded.x)` 로 쓰면 한 번 값이 들어간
+           뒤로는 카페24 갱신이 **영영 안 온다**(번호가 바뀐 학생이 옛 번호로 굳는다).
+        ⚠️ 이것만으로는 반쪽이다 — 위 DELETE 의 보존 조건이 짝이다. 거기서 행이 먼저 지워지면
+           이 SET 절은 발동조차 하지 않는다.
+        ⚠️ 그래도 **번호를 여기에만 두지 말 것.** 화면에서 받은 번호의 보관 정본은
+           `student_erp_override`(src/student-override.ts) 이고, 문자가 읽는 정본은
+           `phonesForStudent`(src/notify-contacts.ts) 가 그 표를 «먼저» 보는 것이다.
+           이 수리는 «두 번째 겹» 이지 그 정본을 대신하지 않는다. */
   const ins = env.DB.prepare(
     `INSERT INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, parent_phone, student_phone, phone, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -273,8 +309,10 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
        korean_name = excluded.korean_name, grade = excluded.grade, school = excluded.school,
        status = excluded.status, signup_date = excluded.signup_date, end_date = excluded.end_date,
        shop_name = excluded.shop_name, franchise = excluded.franchise, hq_name = excluded.hq_name,
-       points = excluded.points, parent_phone = excluded.parent_phone,
-       student_phone = excluded.student_phone, phone = excluded.phone,
+       points = excluded.points,
+       parent_phone  = COALESCE(NULLIF(TRIM(excluded.parent_phone),  ''), students_erp.parent_phone),
+       student_phone = COALESCE(NULLIF(TRIM(excluded.student_phone), ''), students_erp.student_phone),
+       phone         = COALESCE(NULLIF(TRIM(excluded.phone),         ''), students_erp.phone),
        updated_at = excluded.updated_at`);
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {

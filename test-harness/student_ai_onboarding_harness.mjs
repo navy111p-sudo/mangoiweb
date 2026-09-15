@@ -341,14 +341,24 @@ console.log('\n[ E. 야간 동기화 보존 — 진짜 SQLite 에 돌려서 확�
 
   if (delSql && sentinel) {
     const db = new DatabaseSync(':memory:');
+    /* ⚠️ (2026-09-15) 이 fixture 는 «DELETE 가 읽는 칸» 을 전부 갖고 있어야 한다. 하나라도 빠지면
+       `no such column` 이 나고, 그건 이 절의 판정이 아니라 **하니스 자체의 크래시**라
+       아래 검사들이 통째로 사라진다(번호 세 칸이 보존 목록에 더해질 때 실제로 밟았다). */
     db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, created_at INTEGER,
-      password_hash TEXT, parent_user_id TEXT, eval_band TEXT, level TEXT, textbook TEXT)`);
+      password_hash TEXT, parent_user_id TEXT, eval_band TEXT, level TEXT, textbook TEXT,
+      parent_phone TEXT, student_phone TEXT, phone TEXT)`);
     // 카페24 학생(센티넬) 셋 — 레벨만 / 교재만 / 아무것도 없음
     db.exec(`INSERT INTO students_erp (user_id, created_at, level, textbook) VALUES
       ('c24_lv',   ${sentinel}, 'Lv 13', NULL),
       ('c24_book', ${sentinel}, NULL,    'BTS 1 001 (Welcome to school)'),
       ('c24_bare', ${sentinel}, NULL,    NULL)`);
-    db.prepare(delSql).run(sentinel);
+    /* ⛔ 감싸지 않으면 «깔끔한 FAIL» 이 아니라 스택트레이스만 남고 그 아래 검사가 사라진다 —
+       무엇이 깨졌는지 안 보인다(규칙서 2장 「하니스를 크래시시키지 마세요」). */
+    let delRan = true;
+    try { db.prepare(delSql).run(sentinel); }
+    catch (e) { delRan = false; }
+    check('오려 낸 DELETE 문이 이 fixture 에서 실제로 돈다', delRan,
+      'no such column 이면 fixture 에 그 칸을 더할 것 — 실제 students_erp 에는 있다');
     const alive = (u) => !!db.prepare(`SELECT 1 FROM students_erp WHERE user_id = ?`).get(u);
     check('레벨이 적힌 카페24 학생은 밤에 안 지워진다', alive('c24_lv'),
       '지워지면 다시 INSERT 될 때 level 이 NULL 이 된다 — 배정이 매일 밤 사라진다');
@@ -359,7 +369,7 @@ console.log('\n[ E. 야간 동기화 보존 — 진짜 SQLite 에 돌려서 확�
 
   /* ⚠️ 보존 조건이 읽는 칸은 «지연 ALTER» 로 생긴다 — 없는 DB 에서는 DELETE 가
      no such column 으로 죽고 그 예외를 nightlyCafe24Refresh 가 삼켜 동기화가 조용히 멈춘다. */
-  for (const col of ['level', 'textbook']) {
+  for (const col of ['level', 'textbook', 'parent_phone', 'student_phone', 'phone']) {
     check(`${col} 에 멱등 ALTER 가 DELETE 앞에 있다`,
       sync.indexOf(`ADD COLUMN ${col} TEXT`) > 0 &&
       sync.indexOf(`ADD COLUMN ${col} TEXT`) < sync.indexOf('DELETE FROM students_erp'));

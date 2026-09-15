@@ -209,6 +209,18 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   sq.prepare(`UPDATE students_erp SET password_hash=?, parent_user_id=?, eval_band=?, last_login_at=? WHERE user_id='s1'`)
     .run('HASH_KEEP_ME', 'parent_s1', 'band3', 1700000000000);
 
+  /* 📞 (2026-09-15) **우리가 화면에서 넣은 번호가 야간 동기화를 넘기는가.**
+     [왜 검사하나] 카페24 원본의 번호 칸은 비어 있다(실측 29,485행 네 칸 전부 0건). 그런데
+        UPSERT 가 `parent_phone = excluded.parent_phone` 로 **무조건** 덮고 있어서, 우리가 넣은
+        번호가 그날 밤 빈 값으로 되돌아갔다 — 에러 없이 「그냥 사라진」 것처럼만 보인다.
+     [문자열로는 못 잡는다] SET 절도 «있고» 칸 이름도 맞다. 틀리는 것은 «다시 돌린 뒤 남아 있는가»
+        뿐이라 실제로 넣고 두 번 돌려서 본다.
+     ⚠️ s2 는 카페24가 «공백» 을 주는 학생이다 — 그래서 이 시나리오가 성립한다.
+        s1 은 반대로 카페24가 번호를 주는 학생이라 «갱신이 계속 오는가» 의 짝 검사가 된다. */
+  sq.prepare(`UPDATE students_erp SET parent_phone=?, student_phone=?, phone=? WHERE user_id='s2'`)
+    .run('010-7777-8888', '010-3333-4444', '010-3333-4444');
+  sq.prepare(`UPDATE students_erp SET parent_phone=? WHERE user_id='s1'`).run('010-0000-0000');
+
   // 야간 동기화가 매일 도는 상황 — 두 번 돌려도 지워지면 안 된다
   off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   check('다시 동기화해도 번호가 남아 있다 (야간 재실행)', g('s1','parent_phone') === '010-1111-2222',
@@ -222,6 +234,22 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   check('그래도 카페24 값은 계속 덮어쓴다 (동기화가 죽으면 안 된다)',
         g('s1','shop_name') === '강남점' && g('s1','korean_name') === '김민준',
         '보존을 넣느라 카페24 갱신이 멈추면 그것대로 사고다');
+
+  /* 📞 우리가 넣은 번호 — 카페24가 «빈 값» 을 주는 학생(s2). 여기가 이번 수리의 본체다.
+     DELETE 보존을 빼면 행이 통째로 지워져 새 INSERT 로 들어오고, COALESCE 를 빼면 행은 남되
+     SET 이 NULL 로 덮는다. **두 경로 어느 쪽을 되돌려도 이 세 줄이 FAIL 난다.** */
+  check('야간 동기화가 우리가 넣은 학부모 번호를 지우지 않는다',
+        g('s2','parent_phone') === '010-7777-8888', String(g('s2','parent_phone')));
+  check('야간 동기화가 우리가 넣은 학생 번호를 지우지 않는다 (student_phone)',
+        g('s2','student_phone') === '010-3333-4444', String(g('s2','student_phone')));
+  check('야간 동기화가 우리가 넣은 학생 번호를 지우지 않는다 (phone)',
+        g('s2','phone') === '010-3333-4444', String(g('s2','phone')));
+  /* 🔗 **짝 검사** — 위만 두면 「번호는 영영 안 덮는다」로 고쳐도 통과한다. 그러면 번호가 바뀐
+     학생이 옛 번호로 굳는다(COALESCE 의 인자 순서를 뒤집으면 정확히 그렇게 된다).
+     카페24가 «값을 주는» 학생은 그 값으로 되돌아와야 한다 — 카페24가 정본이라는 원칙 그대로. */
+  check('카페24가 번호를 주면 그 값으로 계속 갱신된다 (덮어쓰기 방향)',
+        g('s1','parent_phone') === '010-1111-2222',
+        '우리가 임의로 바꾼 010-0000-0000 이 남아 있으면 카페24 갱신이 영영 안 오는 것이다: ' + String(g('s1','parent_phone')));
 } catch (e) {
   check('실제 실행 검사', false, e?.message);
 } finally {
