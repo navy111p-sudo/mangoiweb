@@ -18038,6 +18038,11 @@ window.rebuildGlobalSearchIndex = function() {
     // 'card-meeting-minutes': removed
     'card-data-export':       'agency',   // 데이터 내보내기
     'card-daily-charts':      'agency',   // 일자별 차트
+    // 🤖 (2026-09-16) AI 학습도구 사용 학생 — 서버가 studentScopeWhere() 로 자기 소속만
+    //   자르므로 카드 등급도 학생관리와 같은 'agency'. ⚠️ 'hq_teacher' 도 isHQ(=role.startsWith('hq'))
+    //   판정을 통과해 카드는 «보이지만», 실제 데이터는 src/index.ts TEACHER_BLOCKED_PREFIXES 가
+    //   서버에서 403 으로 막는다(card-students-mgmt 등 다른 'agency' 카드와 같은 이중 구조).
+    'card-ai-usage':          'agency',
   };
   /* 🏢 조직 관리 카드 — 본사 전용 칸을 지사·대리점에게 감춘다 (2026-08-18 수정요청 #03·#04)
      카드 등급(CARD_POLICY)은 **카드 한 장 단위**라, 카드를 열면 그 안이 통째로 열린다.

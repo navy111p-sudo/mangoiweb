@@ -1582,6 +1582,9 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/textbooks') || path === '/api/lesson-video'
         || path.startsWith('/api/get-lesson-video/') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/students/') || path.startsWith('/api/admin/selfscore/')
+        // 🤖 (2026-09-16) AI 학습도구 8종 사용 학생 목록 — 핸들러는 api-admin.ts 에 있다.
+        //    ⚠️ 안 적으면 handleAdminApi 까지 못 가서 404(위 여러 줄과 같은 함정).
+        || path.startsWith('/api/admin/ai-usage')
         || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
         // 🚷 (2026-08-13 수정요청 #05) 장기 결석생 — 핸들러는 api-admin.ts 에 있다.
         //    ⚠️ 여기 안 적으면 handleAdminApi 까지 못 가서 **404** 다. 바로 위 teacher-contacts 가
