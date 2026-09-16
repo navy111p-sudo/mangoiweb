@@ -112,6 +112,12 @@ const frames = () => page.evaluate(async () => {
   st.forEach(r => { if (r.type === 'inbound-rtp' && r.kind === 'video' && typeof r.framesDecoded === 'number') f = Math.max(f, r.framesDecoded); });
   return f;
 });
+/* 🔊 받는 쪽 «소리» — 이 기능 이름이 «음성전용» 이므로 소리는 끊기면 안 된다 */
+const audioPkts = () => page.evaluate(async () => {
+  const st = await window.__pc2.getStats(); let n = 0;
+  st.forEach(r => { if (r.type === 'inbound-rtp' && r.kind === 'audio' && typeof r.packetsReceived === 'number') n = Math.max(n, r.packetsReceived); });
+  return n;
+});
 /* 받는 쪽 화면의 «밝기» — 가짜 카메라는 움직이는 색 무늬, 끈 카메라는 검정 */
 const luma = () => page.evaluate(() => {
   const v = document.getElementById('vremote');
@@ -143,6 +149,8 @@ const f0 = await frames(); await sleep(1500); const f1 = await frames();
 ok(f1 > f0, 'A-4 평상시 영상이 실제로 흐른다 — framesDecoded 가 는다', f0 + ' → ' + f1);
 const l0 = await luma();
 ok(l0 > 8, 'A-5 받는 화면이 검지 않다(가짜 카메라 무늬가 실제로 그려진다)', 'luma ' + l0.toFixed(1));
+const a0 = await audioPkts(); await sleep(1200); const a1_ = await audioPkts();
+ok(a1_ > a0, 'A-6 전제: 소리도 실제로 흐른다(아래 «소리는 그대로» 짝이 헛돌지 않게)', a0 + ' → ' + a1_);
 
 sec('② 평상시 틱 — 이미 켜져 있는 sender 를 건드리지 않는가 (사용자 확인 ②·⑤)');
 await setAao(false);
@@ -164,6 +172,13 @@ const fA = await frames(); await sleep(1500); const fB = await frames();
 ok(fB - fA <= 2, 'C-2 받는 쪽 프레임이 실제로 멈춘다', fA + ' → ' + fB + ' (증가 ' + (fB - fA) + ')');
 ok(await page.evaluate(() => window.__vsender.track.readyState === 'live' && window.__vsender.track.enabled === true),
    'C-3 그래도 트랙은 살아 있다 — 되살릴 때 재협상이 필요 없어야 한다');
+/* 🔊 이 기능의 이름이 «음성전용» 이다 — 영상만 멈추고 «소리는 그대로» 가야 한다.
+   ⛔ 이 짝이 없으면 오디오 인코딩까지 함께 끄는 변이가 그대로 통과한다(실측: 27/0 무방비).
+      그 변이가 실서비스에 들어가면 음성전용 구간에서 수업이 통째로 무음이 되는데,
+      「영상이 멈춘다」·「다시 나간다」·「프라이버시」는 전부 초록이라 아무도 못 본다. */
+const aA = await audioPkts(); await sleep(1500); const aB = await audioPkts();
+ok(aB - aA >= 10, 'C-4 짝 — 영상만 멈추고 «소리는 그대로» 간다(기능 이름이 «음성전용» 이다)',
+   aA + ' → ' + aB + ' (증가 ' + (aB - aA) + ')');
 
 sec('④ 네트워크 회복 → 새로고침 없이 영상이 돌아오는가 (사용자 확인 ③ · 이 수리의 핵심)');
 await setAao(false);
