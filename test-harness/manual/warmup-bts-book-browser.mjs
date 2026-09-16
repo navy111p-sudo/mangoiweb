@@ -77,15 +77,30 @@ t('① 칩이 «자유 대화»', d.chip==='자유 대화', d.chip);
 // ── ② 설정 화면에 교재 목록이 실제로 그려지는가 ──
 await evaluate("openSetup(false)");
 await new Promise(r=>setTimeout(r,300));
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 교재 칸은 이제 언어 «바로 다음» 이고
+   기본은 «접힘» 입니다. 먼저 「교재로 웜업」 을 눌러야 목록이 펼쳐집니다.
+   ⛔ 이 전제를 그냥 지우지 마세요 — 「처음엔 접혀 있다」·「누르면 펼쳐진다」 두 줄이
+      그 갈래가 실제로 도는지 보는 유일한 자리입니다(짝). */
+let d0=JSON.parse(await evaluate(`JSON.stringify({
+  booksHidden: document.getElementById('wusBooksSec').hidden,
+  twoCards: document.querySelectorAll('#wusTwoWay .wus-twoc').length,
+  nowFree: !!document.querySelector('#wusTwoWay [data-way="free"] .wus-now')
+})`));
+t('② 처음엔 교재 목록이 접혀 있다', d0.booksHidden===true, d0);
+t('② 두 갈래 카드가 둘 다 있다', d0.twoCards===2, d0);
+t('② 기본 선택이 «자유 대화»', d0.nowFree===true, d0);
+await evaluate(`document.querySelector('#wusTwoWay [data-way="book"]').click()`);
+await new Promise(r=>setTimeout(r,350));
 r=await evaluate(`JSON.stringify({
   secVisible: !!document.getElementById('wusBooksSec') && getComputedStyle(document.getElementById('wusBooksSec')).display!=='none',
   btnCount: document.querySelectorAll('#wusBooks [data-bts]').length,
-  freeOn: !!document.querySelector('#wusBooks [data-bts="0"].on'),
+  freeInList: !!document.querySelector('#wusBooks [data-bts="0"]'),
   hasDetails: !!document.querySelector('#wusBooks details'),
   offsetOk: !!document.getElementById('wusBooks').offsetParent
 })`);
 d=JSON.parse(r);
-t('② 교재 섹션이 화면에 보임', d.secVisible===true, d);
+t('② 「교재로 웜업」 을 누르면 목록이 펼쳐진다(짝)', d.secVisible===true, d);
+t('② 목록 안에 «교재 없이 자유 대화» 중복이 없다', d.freeInList===false, d.freeInList);
 /* ⛔ 「33개」처럼 «개수» 를 못 박지 마세요 — SIU 29권이 정당하게 늘자 보장은 오히려
       세졌는데 검사만 빨간불이 났습니다(2026-09-15 실측 62). 물어야 할 것은 «몇 개인가» 가
       아니라 «표에 있는 교재가 하나도 안 빠졌는가» 입니다. 기대값은 화면 정본에서 «읽어» 옵니다. */
@@ -104,9 +119,9 @@ const _nBts = _cntTable('BTS_BOOKS'), _nSiu = _cntTable('SIU_BOOKS'),
       _nAdv = _cntTable('SIU_ADV_BOOKS');
 /* ⛔ 전제 — 표를 못 읽으면 아래가 «0 + 0 + 1» 을 기대해 조용히 통과합니다. */
 t('② 교재 표를 소스에서 읽었다(전제)', _nBts > 0 && _nSiu > 0 && _nAdv > 0, [_nBts, _nSiu, _nAdv]);
-t('② 교재 버튼 = 자유대화 1 + BTS ' + _nBts + ' + SIU ' + _nSiu + ' + ADVANCE ' + _nAdv,
-  d.btnCount === 1 + _nBts + _nSiu + _nAdv, [d.btnCount, 1 + _nBts + _nSiu + _nAdv]);
-t('② 기본 선택이 «자유 대화»', d.freeOn===true, d.freeOn);
+/* 🔄 «자유대화 1» 은 2026-09-16 에 두 갈래 카드로 옮겼으므로 더하지 않습니다. */
+t('② 교재 버튼 = BTS ' + _nBts + ' + SIU ' + _nSiu + ' + ADVANCE ' + _nAdv,
+  d.btnCount === _nBts + _nSiu + _nAdv, [d.btnCount, _nBts + _nSiu + _nAdv]);
 t('② 나머지 권은 접혀 있음', d.hasDetails===true, d.hasDetails);
 t('② 실제로 레이아웃에 올라와 있음', d.offsetOk===true, d.offsetOk);
 
@@ -134,7 +149,9 @@ t('④ 복원이 학생이 고른 단계를 덮지 않음', d.lvl===5, d.lvl);
 
 // ── ⑤ 자유 대화로 되돌리면 완전히 예전 상태 ──
 await evaluate("openSetup(false)"); await new Promise(r=>setTimeout(r,250));
-await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
 await new Promise(r=>setTimeout(r,200));
 r=await evaluate("JSON.stringify({tb:WCTX.textbook,lv:WCTX.level,topic:LESSON_TOPIC,vol:_btsVol,lvl:_warmLevel,chip:(document.getElementById('m-topic')||{}).textContent,saved:localStorage.getItem('mangoi_warmup_bts')})");
 d=JSON.parse(r);
@@ -163,7 +180,9 @@ t('⑦ payload.difficulty 가 밴드6', d.difficulty===6, d.difficulty);
 
 // ── ⑧ 되돌리면 payload 도 예전 그대로 ──
 await evaluate("openSetup(false)"); await new Promise(r=>setTimeout(r,250));
-await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
 r=await evaluate("JSON.stringify(withCtx({session_id:'x',student_input:'hi'}))");
 d=JSON.parse(r);
 t('⑧ 되돌리면 payload 에 textbook 없음', !('textbook' in d), Object.keys(d));
@@ -271,7 +290,9 @@ t('⑨ 못 받으면 과 줄을 그리지 않는다', d.secShown === false, d.se
 
 // ⑨-5 (짝) 자유 대화로 되돌리면 과도 함께 사라진다
 await evaluate("openSetup(false)"); await sleep(250);
-await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
 await sleep(200);
 r = await evaluate(`JSON.stringify({ tb: WCTX.textbook,
   secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
@@ -330,12 +351,16 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
     var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
     return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
       inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
-      isMine: !!(top && bn.contains(top)), booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
+      isMine: !!(top && bn.contains(top)), booksHidden: q('#wusBooksSec').hidden,
+      booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
   })()`);
   d = JSON.parse(r);
-  /* ⛔ 전제 — 교재 자리가 «첫 화면 밖» 이 아니면 이 절이 지키려는 사고 자체가 없습니다.
-        (섹션 순서를 바꿔 해결했다면 이 줄이 먼저 빨간불이 되어 알려 줍니다.) */
-  t(`⑩ [${wlabel}] 전제: 교재 자리는 여전히 첫 화면 밖이다`, d.booksTop >= d.view, d);
+  /* 🔄 2026-09-16 — 옛 전제는 「교재 자리가 첫 화면 «밖»」 이었습니다. 시안 3안으로 교재를
+        언어 바로 다음으로 올리면서 그 전제가 사실이 아니게 되었고, 이 줄이 실제로 먼저
+        빨간불이 되어 알려 줬습니다(주석이 약속한 그대로).
+     ⛔ 느슨하게 풀지 말고 «새 경계» 로 옮겨 적습니다 — 이 절이 지키는 뜻은 그대로입니다:
+        «안 골랐으면 화면이 그 사실을 말하고, 누르면 교재 자리에 닿는다». */
+  t(`⑩ [${wlabel}] 전제: 고르기 전에는 교재 목록이 접혀 있다`, d.booksHidden === true, d);
   /* ⛔ 전제 — 감춰져 있으면 getBoundingClientRect 가 전부 0이라 아래 «위치» 검사 셋이
         (0<=innerHeight · 0>=0 · gap=시작버튼top · 0>시작버튼top 거짓) 무의미하게 통과합니다.
         버튼을 아예 없애는 변이가 그렇게 빠져나갔습니다(2026-09-15 함정 대조 실측). */
@@ -468,7 +493,9 @@ await cmd('Emulation.clearDeviceMetricsOverride');
     t('⑪ 그 줄이 SIU 갈래로 그려진다(📗 · 짝)', after.now.indexOf('📗') >= 0, after.now);
     t('⑪ SIU 선택이 저장된다(새로고침해도 남게)', after.saved === firstSiu, after.saved);
     /* ⛔ 짝 — BTS 로 되돌리는 길이 살아 있어야 합니다. */
-    await evaluate(`document.querySelector('#wusBooks [data-bts="0"]').click()`);
+    /* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
     await sleep(120);
     const cleared = JSON.parse(await evaluate(`JSON.stringify({
       now: (document.getElementById('wusBookNow')||{}).textContent || '',
