@@ -1298,8 +1298,11 @@ var SIU_ADV_BOOKS = [
   {v:'adv019', s:'SIU', book:'SIU ADVANCE 019 - Travel', en:'Travel', ko:'여행'},
   {v:'adv020', s:'SIU', book:'SIU ADVANCE 020 - Relationship  and Love', en:'Relationship and Love', ko:'관계와 사랑'},
 ];
-/* 두 시리즈를 한 번에 훑을 때 쓴다. ⛔ 여기서 새 배열을 만들어 캐시하지 마세요 —
-   표가 늘어도 화면이 그대로 따라오게 «부를 때마다» 이어 붙입니다(29+34 라 비용이 없습니다). */
+/* 세 시리즈(BTS · SIU BASIC · SIU ADVANCE)를 한 번에 훑을 때 쓴다.
+   ⛔ 여기서 새 배열을 만들어 캐시하지 마세요 — 표가 늘어도 화면이 그대로 따라오게
+   «부를 때마다» 이어 붙입니다(2026-09-16 실측 32+29+20=81권이라 비용이 없습니다).
+   ⛔ 시리즈를 더하면 이 줄에 concat 을 «반드시» 더하세요 — 빠지면 그 교재를 골라도
+      btsBookOf 가 못 찾아 «자유 대화» 로 조용히 떨어집니다(에러가 안 납니다). */
 function allBooks(){ return BTS_BOOKS.concat(SIU_BOOKS).concat(SIU_ADV_BOOKS); }
 /* 🔑 교재 id — BTS 는 숫자(5), SIU 는 문자열('siu015').
    ⛔ parseInt 로 읽지 마세요 — SIU 가 NaN → 0 이 되어 «자유 대화» 로 조용히 떨어집니다. */
@@ -1818,16 +1821,23 @@ function btsListHtml(){
         ADVANCE 가 영영 위로 안 옵니다(에러는 안 납니다). */
   var advFirst = (_warmLevel >= SIU_ADV_BAND_MIN);
   var siuFirst = (_warmLevel >= SIU_BAND_MIN);
-  var near = [], rest = [];
+  var near = [], rest = [], restLabel = '';
+  /* 🔑 접힘 라벨을 rest 와 «같은 자리에서» 정한다 — 딴 곳에서 다시 적으면
+     시리즈가 늘 때 조용히 어긋납니다(2026-09-16 실제로 그랬습니다: 갈래만 3단으로
+     고치고 summary 는 2단으로 남아 7단계 학생에게 «BTS 교재도 보기 (61권)» 라고
+     말했는데 그 안에 BASIC 29권이 들어 있었습니다 — 2장 «이름표가 사실과 다름»). */
   if(advFirst){
     near = SIU_ADV_BOOKS.slice(); rest = SIU_BOOKS.concat(BTS_BOOKS);
+    restLabel = '📗 SIU BASIC · 📘 BTS 교재도 보기';
   } else if(siuFirst){
     near = SIU_BOOKS.slice(); rest = BTS_BOOKS.concat(SIU_ADV_BOOKS);
+    restLabel = '📘 BTS · 📕 SIU ADVANCE 교재도 보기';
   } else {
     for(var i=0;i<BTS_BOOKS.length;i++){
       (btsBandOf(BTS_BOOKS[i].v) === _warmLevel ? near : rest).push(BTS_BOOKS[i]);
     }
     rest = rest.concat(SIU_BOOKS).concat(SIU_ADV_BOOKS);
+    restLabel = '📘 BTS · 📗 SIU BASIC · 📕 SIU ADVANCE 교재도 보기';
   }
   function item(b){
     /* ℹ️ _btsVol 은 «0 또는 표의 v» 뿐이라(대입 3곳 전부 그렇습니다) === 로도 맞습니다 —
@@ -1856,7 +1866,7 @@ function btsListHtml(){
     + near.map(item).join('') + '</div>';
   if(rest.length){
     h += '<details class="wus-more"'+(pickInRest?' open':'')+'><summary>'
-       + (siuFirst ? '📘 BTS 교재도 보기' : '📗 SIU 회화 교재도 보기')
+       + restLabel
        + ' (' + rest.length + '권)</summary>'
        + '<div class="wus-list">' + rest.map(item).join('') + '</div></details>';
   }
