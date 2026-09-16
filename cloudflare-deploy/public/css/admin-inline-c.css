@@ -8627,6 +8627,18 @@ button.chip:hover,
   #legacy-cards .sub-body{ padding-left: 8px !important; padding-right: 8px !important; }
 }
 
+/* 📋 수강신청 목록 표(#en-list-table) — 폭 좁은 폰에서 「학생」·「패키지」 칸의 글이
+   낱말 단위로 쪼개져 여러 줄로 무너지던 것(2026-09-16 사장님 화면 제보). 그 두 칸에만
+   white-space:nowrap 이 없어서 그랬다(신청일·월수강료는 JS 가 이미 인라인으로 붙여 뒀음).
+   ⛔ width·min-width 는 안 건드린다 — 이 표는 위 전역 규칙(details.menu-card table)이
+   이미 display:block + overflow-x:auto 로 «자기 자신이 스크롤 상자» 를 겸하고 있어서,
+   여기에 width:max-content 를 주면 상자가 콘텐츠 크기에 맞춰 늘어나 스크롤할 여백이
+   사라진다(CLAUDE.md 「표를 좁은 화면에서 굴리려고 min-width 를 숫자로 박았더니…」와
+   같은 뿌리 — 그 표는 별도 wrapper div 를 썼지만 이 표는 <table> 자신이 wrapper 다). */
+@media (max-width:640px){
+  #en-list-table th, #en-list-table td { white-space: nowrap !important; }
+}
+
 
 /* ── [style#no-id-113] ── */
 
