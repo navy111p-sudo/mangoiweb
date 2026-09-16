@@ -28,5 +28,16 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: |
           node test-harness/manual/warmup-two-way-browser.mjs
-          node test-harness/manual/warmup-bts-book-browser.mjs
+          python3 -m http.server 8931 --bind 127.0.0.1 --directory cloudflare-deploy/public > "$RUNNER_TEMP/warmup-http.log" 2>&1 &
+          SERVER_PID=$!
+          "$RUNNER_TEMP/warmup-browser/installed/chrome-linux/chrome" --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=9931 --no-sandbox --disable-dev-shm-usage --user-data-dir="$RUNNER_TEMP/warmup-cdp" about:blank > "$RUNNER_TEMP/warmup-chrome.log" 2>&1 &
+          BROWSER_PID=$!
+          trap 'kill "$SERVER_PID" "$BROWSER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8931/warmup.html -o /dev/null && curl -fsS http://127.0.0.1:9931/json/list -o /dev/null; then break; fi
+            sleep 1
+          done
+          set -o pipefail
+          node test-harness/manual/warmup-bts-book-browser.mjs | tee "$RUNNER_TEMP/warmup-bts.log"
+          grep -Eq 'warmup-bts-book-browser — PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/warmup-bts.log"
           node test-harness/manual/warmup-two-way-mutation.mjs
