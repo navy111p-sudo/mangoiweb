@@ -209,3 +209,61 @@ CLAUDE.md 가 「한글을 `\uXXXX` 로 손으로 적지 마세요 — 조용히
 near/rest 를 3단으로 고치면서 안내 줄(`.wus-hint`)은 3단으로 고쳤는데
 summary 만 빠뜨렸습니다 — 2장 「같은 단정을 여러 곳에 적어 뒀으면 한 곳만
 고쳐서는 안 끝납니다」의 화면판입니다.
+
+---
+
+## 8. 후속 실측 (2026-09-16, 다른 세션)
+
+### 8-1. §6-5 「교재 OCR 이나 사람 입력이 필요」는 **절반만 맞습니다**
+
+`review_quizzes` 에 0건인 것은 맞지만, **저장소에 ADVANCE 문장이 이미 있습니다** —
+`cloudflare-deploy/public/js/speech-data-siu-advance.js` 의 `SIU_ADVANCE_SENTENCES`
+가 **20과 × 100문장 = 2,000문장**(417KB)이고, 쓰는 곳은 발음 코칭
+(`speech-coach.html` 이 BASIC 파일과 나란히 싣습니다) 하나뿐입니다.
+
+전날 BASIC 에서 제가 똑같이 「문장 0건」이라고 적었다가 정정한 것과 같은 자리입니다
+(CLAUDE.md 2장 「그 기능이 없어요」 제보 — 이미 있는데 딴 화면에 있음).
+
+### 8-2. ⛔ 그래도 «번호로» 이으면 안 됩니다 — ADVANCE 는 BASIC 보다 훨씬 나쁩니다
+
+D1 이름과 정본 과 제목을 견준 실측(대소문자·기호 무시):
+
+| 잇는 방법 | 맞는 권 |
+|---|---|
+| 번호(`D1 008` ↔ `정본 8과`) | **4 / 20** |
+| 이름 완전일치 | **6 / 20** |
+
+번호로 이었을 때 실제로 붙는 짝(❌ 는 남의 과):
+
+```
+003 Make your point        ↔ Storytelling        ❌
+004 Environment            ↔ Presentation        ❌
+005 Technology and Inven.. ↔ Medical Appointment ❌
+008 Politics and govern..  ↔ Business Meeting    ❌
+016 Animals                ↔ Entertainment       ❌
+020 Relationship and Love  ↔ Future              ❌
+```
+
+**번호로 이으면 20권 중 16권에 남의 과 문장이 붙습니다.**
+BASIC 은 22/29 가 이름으로 맞았는데 ADVANCE 는 6/20 입니다 — 두 자료가
+같은 순서로 만들어지지 않았습니다. 정본에만 있는 과도 14개입니다
+(Storytelling · Presentation · Medical Appointment · Restaurant · Shopping ·
+Business Meeting · Travel Planning · Real Estate · Customer Service ·
+Friendship · Health · Finance · Technology · Future).
+
+✅ 잇는다면 **이름 완전일치로만**, 안 맞으면 «모름» 으로 두어야 합니다.
+⚠️ 그 2,000문장이 «교재 원문» 인지는 여전히 **안 쟀습니다**(상급 문형 연습문으로 읽힙니다).
+웜업에 붙일지는 **사람이 정할 일**입니다.
+
+### 8-3. D1 실측 (SELECT 만)
+
+| 항목 | 값 |
+|---|---|
+| SIU ADVANCE | 20권 · **291장** · 2026-09-16 12:48 KST 업로드 |
+| 이름에 겹공백 | **020 `Relationship  and Love` 1권** |
+| SIU BASIC 026 | **두 묶음** — `Should you` 15장(9/15 수리분) + `Should  you` 15장(9/16 12:44 재업로드) |
+| 026 중복의 성격 | 페이지마다 `size_bytes` 동일 = **byte 동일 중복** |
+| SIU BASIC 012 | **0장**(여전히 없음) |
+| `review_quizzes` SIU 문장 | **0건**(무관한 `SIU BOOKS` 1행뿐) |
+
+§6 의 「사람이 정할 일」 네 가지는 그대로 남아 있습니다.
