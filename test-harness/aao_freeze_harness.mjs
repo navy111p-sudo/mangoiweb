@@ -437,6 +437,23 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   ok(!e15.warns.some(w => /프레임이 안 나갑니다/.test(w)),
      'C-25 사람이 끈 카메라에는 경보하지 않는다', e15.warns.join(' | '));
 
+  /* 🔒 (2026-09-16) 프라이버시 짝 — «켜기» 를 4초마다 다시 걸게 된 뒤로 반드시 있어야 하는 검사.
+     사람이 카메라를 끈 것은 «트랙»(track.enabled=false) 이고 AAO 는 «인코딩»(encodings.active) 이라
+     축이 다르다 — 그래서 회복 틱이 active=true 로 되돌려도 나가는 것은 검은 프레임뿐이고 얼굴은
+     돌아오지 않는다. 그 전제가 코드로 지켜지는지 여기서 직접 잰다(추론으로 두지 않는다).
+     ⛔ 이 검사가 없으면 vcAAOVideo 에 «s.track.enabled = true» 한 줄을 더하는 변이가 초록불이다
+        (= 카메라를 끈 사람의 얼굴이 4초 뒤 상대에게 나가는 프라이버시 사고). */
+  const e15b = boot(five);
+  const priv = makePc({ active: false });     // AAO 로 꺼져 있던 상태
+  priv._track.enabled = false;                // 그 사이에 사람이 카메라를 껐다
+  e15b.win.vcPeerConnections = { u1: priv };
+  e15b.win.__vcAAO = { active: false };       // 회선이 회복됐다
+  e15b.ctx.vcAaoTick();
+  ok(priv._track.enabled === false,
+     'C-25b 회복 틱이 «사람이 끈 카메라» 를 다시 켜지 않는다(프라이버시 — 트랙은 건드리지 않는다)');
+  ok(priv._p.encodings[0].active === true,
+     'C-25c 짝 — 그래도 인코딩은 되살린다(카메라를 다시 켜면 그 순간 바로 나가야 한다)');
+
   /* ⛔ 거절을 삼키면 «왜 영상이 안 돌아왔나» 를 사후에 가릴 근거가 통째로 사라진다.
      CLAUDE.md 가 규칙으로 못 박은 자리인데 이 검사가 없으면 옛 .catch(function(){}) 로
      되돌려도 초록불이다(함정 대조 실측). */
@@ -568,6 +585,10 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
     /* 🔴 함정 대조가 잡은 무방비 — CLAUDE.md 가 «삼키지 말 것» 을 규칙으로 못 박은 자리다 */
     ['setParameters 거절을 도로 삼키기',
       five.replace("try { console.warn('[vc-aao] setParameters 거절", "try { void ('[vc-aao] setParameters 거절")],
+    /* 🔒 프라이버시 — «영상을 확실히 되살리자» 고 트랙까지 건드리는 그럴듯한 변이.
+       카메라를 끈 사람의 얼굴이 4초 뒤 상대에게 나간다 — 이것이 안 잡히면 그 사고가 무방비다. */
+    ['회복 틱이 트랙까지 다시 켜기(카메라를 끈 사람의 얼굴이 나간다)',
+      five.replace('p.encodings[0].active = want;', 'p.encodings[0].active = want; if (want) s.track.enabled = true;')],
     ['평상시 틱의 «바뀔 때만» 가드 빼기(관찰자를 4초마다 깨움)',
       five.replace("if (box.classList.contains('vc-aao-on')) box.classList.remove('vc-aao-on');",
                    "box.classList.remove('vc-aao-on');")],
@@ -689,6 +710,16 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       e13m.ctx.vcAaoSelfMark(true);
       e13m.ctx.vcAaoSelfMark(false);
       if (t13m.box.classList.contains('vc-aao-on')) broke = true;
+
+      /* 🔒 프라이버시 — 회복 틱이 «사람이 끈 카메라» 를 다시 켜지 않는가 + 짝 */
+      const e14m = boot(code);
+      const priv14 = makePc({ active: false });
+      priv14._track.enabled = false;
+      e14m.win.vcPeerConnections = { u1: priv14 };
+      e14m.win.__vcAAO = { active: false };
+      e14m.ctx.vcAaoTick();
+      if (priv14._track.enabled !== false) broke = true;          // 트랙을 다시 켜면 프라이버시 사고
+      if (priv14._p.encodings[0].active !== true) broke = true;   // 짝 — 인코딩은 되살아나야 한다
     } catch (_) { broke = true; }
     ok(broke, '변이 «' + name + '» 가 그대로 통과했다 — 이 검사는 그것을 못 막는다');
   }
