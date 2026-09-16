@@ -100,11 +100,12 @@ const _cntTable = (name) => {
   }
   return 0;
 };
-const _nBts = _cntTable('BTS_BOOKS'), _nSiu = _cntTable('SIU_BOOKS');
+const _nBts = _cntTable('BTS_BOOKS'), _nSiu = _cntTable('SIU_BOOKS'),
+      _nAdv = _cntTable('SIU_ADV_BOOKS');
 /* ⛔ 전제 — 표를 못 읽으면 아래가 «0 + 0 + 1» 을 기대해 조용히 통과합니다. */
-t('② 교재 표를 소스에서 읽었다(전제)', _nBts > 0 && _nSiu > 0, [_nBts, _nSiu]);
-t('② 교재 버튼 = 자유대화 1 + BTS ' + _nBts + ' + SIU ' + _nSiu,
-  d.btnCount === 1 + _nBts + _nSiu, [d.btnCount, 1 + _nBts + _nSiu]);
+t('② 교재 표를 소스에서 읽었다(전제)', _nBts > 0 && _nSiu > 0 && _nAdv > 0, [_nBts, _nSiu, _nAdv]);
+t('② 교재 버튼 = 자유대화 1 + BTS ' + _nBts + ' + SIU ' + _nSiu + ' + ADVANCE ' + _nAdv,
+  d.btnCount === 1 + _nBts + _nSiu + _nAdv, [d.btnCount, 1 + _nBts + _nSiu + _nAdv]);
 t('② 기본 선택이 «자유 대화»', d.freeOn===true, d.freeOn);
 t('② 나머지 권은 접혀 있음', d.hasDetails===true, d.hasDetails);
 t('② 실제로 레이아웃에 올라와 있음', d.offsetOk===true, d.offsetOk);
@@ -475,6 +476,53 @@ await cmd('Emulation.clearDeviceMetricsOverride');
   } else {
     /* ⛔ 여기서 예외를 던지면 «결과줄조차 안 나옵니다» — 못 재면 FAIL 로 말합니다. */
     t('⑪ 5단계 목록에서 SIU 버튼을 찾았다(전제)', false, high && high.open);
+  }
+
+  /* ══ ⑪-a 📕 SIU ADVANCE — 더 높은 단계에서 먼저 (2026-09-16) ═════════════
+     ⛔ 「ADVANCE 가 위」만 두지 마세요 — «전부 ADVANCE» 도 통과합니다.
+        «중간 단계에서는 ADVANCE 가 위에 «없다»» 를 짝으로 둡니다(순서 뒤집기 방지).
+     ⛔ 단계 숫자를 여기 베껴 적지 마세요 — 화면 정본에서 «읽어» 옵니다. */
+  {
+    const _advMinM = _WSRC.match(/var\s+SIU_ADV_BAND_MIN\s*=\s*(\d+)/);
+    t('⑪-a SIU_ADV_BAND_MIN 을 소스에서 읽었다(전제)', !!_advMinM, _advMinM && _advMinM[1]);
+    if (_advMinM) {
+      const ADVMIN = Number(_advMinM[1]);
+      const hasBtn = await evaluate(`!!document.querySelector('[data-lvl="${ADVMIN}"]')`);
+      t('⑪-a 그 단계 버튼이 화면에 있다(전제)', hasBtn === 'true' || hasBtn === true, hasBtn);
+      await setBand(ADVMIN);
+      const adv = await topList();
+      t('⑪-a 높은 단계 — 위에 펼쳐진 것이 ADVANCE 다',
+        !!adv && adv.open.some(v => /^adv/.test(v)), adv && adv.open.slice(0, 6));
+      t('⑪-a 높은 단계 — BASIC 은 위에 없다(짝 · 순서 뒤집기)',
+        !!adv && !adv.open.some(v => /^siu/.test(v)), adv && adv.open.slice(0, 6));
+      t('⑪-a 중간 단계(5) — ADVANCE 는 위에 없었다(짝)',
+        !!high && !high.open.some(v => /^adv/.test(v)), high && high.open.slice(0, 6));
+      t('⑪-a 1단계에서도 ADVANCE 를 «접힌 채로» 고를 수 있다',
+        !!low && low.folded.some(v => /^adv/.test(v)), low && low.folded.length);
+      t('⑪-a 높은 단계에서도 BASIC 을 «접힌 채로» 고를 수 있다(짝)',
+        !!adv && adv.folded.some(v => /^siu/.test(v)), adv && adv.folded.length);
+      t('⑪-a 안내 줄이 ADVANCE 라고 말한다', !!adv && /ADVANCE/.test(adv.head), adv && adv.head);
+      t('⑪-a 권 수만큼 다 그린다(펼친 쪽)',
+        !!adv && adv.open.filter(v => /^adv/.test(v)).length === _nAdv,
+        adv && adv.open.filter(v => /^adv/.test(v)).length);
+
+      /* 🖱️ 실제로 눌러 본다 — 저장·«지금 교재» 줄이 따라오는가 */
+      const firstAdv = adv && adv.open.find(v => /^adv/.test(v));
+      if (firstAdv) {
+        await evaluate(`document.querySelector('#wusBooks [data-bts="${firstAdv}"]').click()`);
+        await sleep(150);
+        const af = JSON.parse(await evaluate(`JSON.stringify({
+          now: (document.getElementById('wusBookNow')||{}).textContent || '',
+          on: !!document.querySelector('#wusBooks [data-bts="${firstAdv}"].on'),
+          saved: localStorage.getItem('mangoi_warmup_bts') || '' })`));
+        t('⑪-a ADVANCE 를 누르면 그 버튼이 «지금» 으로 표시된다', af.on === true, af);
+        t('⑪-a «지금 교재» 줄이 ADVANCE 라고 말한다', /SIU ADVANCE/.test(af.now), af.now);
+        t('⑪-a BASIC 이라고 잘못 말하지 않는다(짝)', !/SIU BASIC/.test(af.now), af.now);
+        t('⑪-a ADVANCE 선택이 저장된다', af.saved === firstAdv, af.saved);
+      } else {
+        t('⑪-a 높은 단계 목록에서 ADVANCE 버튼을 찾았다(전제)', false, adv && adv.open);
+      }
+    }
   }
 
   /* 뒷정리 — 다음 절·다음 실행이 5단계에서 시작하지 않게 되돌린다.
