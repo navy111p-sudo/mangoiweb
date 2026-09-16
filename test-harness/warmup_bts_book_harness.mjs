@@ -70,6 +70,7 @@ const cut = (name, open, close) => {
 // ── ⓪ 전제: 표와 함수를 실제로 오려 냈는가 ────────────────────────
 const btsSrc = cut('var BTS_BOOKS = [', '[', ']');
 const siuSrc = cut('var SIU_BOOKS = [', '[', ']');
+const advSrc = cut('var SIU_ADV_BOOKS = [', '[', ']');
 const lvlSrc = cut('var LEVEL_CATALOG = [', '[', ']');
 const bandSrc = (() => {
   const i = S.indexOf('function btsBandOf(');
@@ -79,15 +80,17 @@ t('⓪ BTS_BOOKS 를 오려 냈다', !!btsSrc);
 t('⓪ LEVEL_CATALOG 를 오려 냈다', !!lvlSrc);
 t('⓪ btsBandOf 를 오려 냈다', !!bandSrc && bandSrc.includes('LEVEL_CATALOG'));
 
-let BOOKS = null, CAT = null, bandOf = null, SIUB = null, ALL = [];
+let BOOKS = null, CAT = null, bandOf = null, SIUB = null, ADVB = null, ALL = [];
 try {
   BOOKS = new Function('return ' + btsSrc)();
   SIUB = siuSrc ? new Function('return ' + siuSrc)() : null;
-  ALL = (BOOKS || []).concat(SIUB || []);
+  ADVB = advSrc ? new Function('return ' + advSrc)() : null;
+  ALL = (BOOKS || []).concat(SIUB || []).concat(ADVB || []);
   CAT = new Function('return ' + lvlSrc)();
   bandOf = new Function('LEVEL_CATALOG', bandSrc + '; return btsBandOf;')(CAT);
 } catch (e) { no('⓪ 평가 실패', String(e && e.message)); }
 t('⓪ SIU_BOOKS 를 오려 냈다', Array.isArray(SIUB) && SIUB.length > 0, SIUB && SIUB.length);
+t('⓪ SIU_ADV_BOOKS 를 오려 냈다', Array.isArray(ADVB) && ADVB.length > 0, ADVB && ADVB.length);
 
 if (BOOKS && CAT && bandOf) {
   // ── ① 표 자체 ──────────────────────────────────────────────────
@@ -555,7 +558,7 @@ await wiringSection();
                    get textContent() { return String(this.innerHTML).replace(/<[^>]*>/g, ''); } };
       const doc = { getElementById: (id) => (id === 'wusBookNow' ? el : null) };
       const f = new Function('document', 'isZh', '_btsVol', 'btsLessonNow',
-        `${escSrc || ''}\nvar BTS_BOOKS = ${btsSrc || '[]'};\nvar SIU_BOOKS = ${siuSrc || '[]'};
+        `${escSrc || ''}\nvar BTS_BOOKS = ${btsSrc || '[]'};\nvar SIU_BOOKS = ${siuSrc || '[]'};\nvar SIU_ADV_BOOKS = ${advSrc || '[]'};
          ${allSrc || ''}\n${idSrc || ''}\n${titleSrc || ''}\n${bookOfSrc || ''}
          ${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
            text: document.getElementById('wusBookNow').textContent };`);
@@ -631,6 +634,62 @@ if (Array.isArray(SIUB) && SIUB.length) {
   t('⑨ 서버에 없는 012 를 지어내지 않았다', !SIUB.some(b => /^SIU BASIC 012\b/.test(String(b.book || ''))),
     SIUB.filter(b => /012/.test(String(b.book || ''))).map(b => b.book));
 
+  /* ══ ⑨-a 📕 SIU ADVANCE (2026-09-16) ════════════════════════════════
+     [왜] Mai 가 ADVANCE 20권을 올렸습니다. BASIC 과 «같은 배열» 에 넣지 않은 것이 핵심이라,
+       그 갈라짐 자체를 검사합니다. ⛔ 이 절이 없으면 표를 통째로 비워도 초록입니다. */
+  if (Array.isArray(ADVB) && ADVB.length) {
+    t('⑨-a ADVANCE 권이 하나 이상', ADVB.length > 0, ADVB.length);
+    t('⑨-a 모든 권에 D1 이름(book)',
+      ADVB.every(b => typeof b.book === 'string' && /^SIU ADVANCE \d{3} - /.test(b.book)),
+      ADVB.filter(b => !/^SIU ADVANCE \d{3} - /.test(String(b.book || ''))).map(b => b.v));
+    t('⑨-a 모든 권에 영어 주제', ADVB.every(b => typeof b.en === 'string' && b.en.trim()),
+      ADVB.filter(b => !(b.en || '').trim()).map(b => b.v));
+    t('⑨-a 모든 권에 한국어 안내', ADVB.every(b => typeof b.ko === 'string' && b.ko.trim()),
+      ADVB.filter(b => !(b.ko || '').trim()).map(b => b.v));
+    t('⑨-a 영어 주제에 한글이 없다(AI 에게 가는 값)', ADVB.every(b => !/[가-힣]/.test(b.en)),
+      ADVB.filter(b => /[가-힣]/.test(b.en)).map(b => b.v));
+    t('⑨-a 모든 권에 s:"SIU" 표시(회화 갈래)', ADVB.every(b => b.s === 'SIU'),
+      ADVB.filter(b => b.s !== 'SIU').map(b => b.v));
+    /* 🔑 두 시리즈를 «섞지 않았는가» — BASIC 표에 ADVANCE 가 들어가면 위 ⑨ 의
+       /^SIU BASIC \d{3} - / 가 잡고, 그 반대는 이 줄이 잡습니다(짝). */
+    t('⑨-a BASIC 표에 ADVANCE 가 섞이지 않았다(짝)',
+      !SIUB.some(b => /ADVANCE/.test(String(b.book || ''))),
+      SIUB.filter(b => /ADVANCE/.test(String(b.book || ''))).map(b => b.v));
+    /* ⛔ id 가 겹치면 btsBookOf 가 «먼저 만난 쪽» 을 줘서 조용히 남의 교재가 붙습니다. */
+    const ids = ALL.map(b => String(b.v));
+    t('⑨-a 교재 id 가 세 표에서 하나도 안 겹친다',
+      new Set(ids).size === ids.length,
+      ids.filter((v, i) => ids.indexOf(v) !== i));
+    /* 화면·AI 에 가는 en 은 «깨끗한» 이름 — D1 오타(공백 두 칸)를 물려받지 않습니다.
+       ⚠️ book 쪽은 반대로 D1 그대로여야 하므로 여기서 겹공백을 금지하면 안 됩니다. */
+    t('⑨-a en 에는 공백 두 칸이 없다(화면에 보이는 이름)',
+      ADVB.every(b => !/ {2}/.test(String(b.en || ''))),
+      ADVB.filter(b => / {2}/.test(String(b.en || ''))).map(b => b.en));
+    /* 🪤 「book 이 D1 이름 그대로인가」는 이 하니스가 **원리상 못 잡습니다** — D1 을 모릅니다
+       (2026-09-16 변이시험 실측: 020 의 겹공백을 «다듬는» 변이 Ⓓ 가 그대로 통과).
+       대신 잡을 수 있는 것은 «표 안에서 둘이 같은 책을 가리키는가» 입니다 —
+       en 에 딴 낱말을 적거나 번호를 어긋나게 적는 진짜 오타는 여기서 걸립니다.
+       ⛔ 「겹공백이 든 권이 N권」처럼 개수로 못 박지 마세요 — D1 을 고치는 정당한
+          수리가 빨간불이 됩니다(그때는 이 표도 함께 고치는 것이 맞습니다). */
+    const tailOf = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+    /* ⛔ id 와 book 의 번호가 어긋나면 저장값(_btsVol)과 화면 이름이 다른 책을 가리킵니다. */
+    t('⑨-a id 번호와 book 번호가 서로 맞는다',
+      ADVB.every(b => {
+        const iv = String(b.v || '').match(/^adv(\d{3})$/);
+        const ib = String(b.book || '').match(/^SIU ADVANCE (\d{3}) - /);
+        return !!iv && !!ib && iv[1] === ib[1];
+      }),
+      ADVB.filter(b => {
+        const iv = String(b.v || '').match(/^adv(\d{3})$/);
+        const ib = String(b.book || '').match(/^SIU ADVANCE (\d{3}) - /);
+        return !iv || !ib || iv[1] !== ib[1];
+      }).map(b => b.v + ' / ' + b.book));
+    t('⑨-a book 과 en 이 같은 책을 가리킨다(공백만 다를 수 있다)',
+      ADVB.every(b => tailOf(String(b.book || '').replace(/^SIU ADVANCE \d{3} - /, '')) === tailOf(b.en)),
+      ADVB.filter(b => tailOf(String(b.book || '').replace(/^SIU ADVANCE \d{3} - /, '')) !== tailOf(b.en))
+        .map(b => b.v + ': ' + b.book + ' / ' + b.en));
+  } else no('⑨-a SIU_ADV_BOOKS 를 못 읽어 이 절을 돌리지 못했다');
+
   // ── bookIdOf — parseInt 함정 ─────────────────────────────────────
   if (idSrc) {
     const idOf = new Function(idSrc + '; return bookIdOf;')();
@@ -644,8 +703,8 @@ if (Array.isArray(SIUB) && SIUB.length) {
 
   // ── btsBookOf — 두 표를 다 찾는가 ───────────────────────────────
   if (bookOfSrc && idSrc && allSrc) {
-    const find = new Function('BTS_BOOKS', 'SIU_BOOKS',
-      `${allSrc}\n${idSrc}\n${bookOfSrc}\nreturn btsBookOf;`)(BOOKS, SIUB);
+    const find = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_ADV_BOOKS',
+      `${allSrc}\n${idSrc}\n${bookOfSrc}\nreturn btsBookOf;`)(BOOKS, SIUB, ADVB);
     const anySiu = SIUB[0];
     t('⑨ btsBookOf — BTS 를 찾는다', !!find(BOOKS[0].v), !!find(BOOKS[0].v));
     t('⑨ btsBookOf — SIU 도 찾는다(짝)', !!find(anySiu.v) && find(anySiu.v).s === 'SIU', anySiu.v);
@@ -659,18 +718,27 @@ if (Array.isArray(SIUB) && SIUB.length) {
   const listSrc = fnSrc('function btsListHtml(');
   t('⑨ btsListHtml 을 오려 냈다', !!listSrc && listSrc.includes('SIU_BAND_MIN'), !!listSrc);
   const minM = S.match(/var\s+SIU_BAND_MIN\s*=\s*(\d+)/);
+  const advMinM = S.match(/var\s+SIU_ADV_BAND_MIN\s*=\s*(\d+)/);
   t('⑨ SIU_BAND_MIN 을 소스에서 읽었다', !!minM, minM && minM[1]);
-  if (listSrc && minM && bandOf) {
+  t('⑨ SIU_ADV_BAND_MIN 을 소스에서 읽었다', !!advMinM, advMinM && advMinM[1]);
+  /* ⛔ 숫자를 여기 베껴 적지 마세요 — 사장님이 그 한 줄을 바꾸면 이 검사가 거짓 FAIL 입니다.
+     물어야 할 것은 «몇인가» 가 아니라 «BASIC 보다 높은가»(= 더 어려운 교재가 더 위 단계) 입니다. */
+  t('⑨ ADVANCE 가 BASIC 보다 높은 단계에서 먼저 온다',
+    !!minM && !!advMinM && Number(advMinM[1]) > Number(minM[1]),
+    minM && advMinM && (minM[1] + ' < ' + advMinM[1]));
+  if (listSrc && minM && advMinM && bandOf) {
     const MIN = Number(minM[1]);
+    const ADVMIN = Number(advMinM[1]);
     /* ⚠️ vol 을 «반드시» 넘길 수 있어야 합니다 — 0 으로만 부르면 item() 의 `on`(「지금」 표시)과
        pickInRest(고른 교재가 접힌 쪽이면 펴 두기) **두 갈래가 원리상 한 번도 안 돕니다**
        (2026-09-15 함정 대조 실측: ` open` 을 지워도 110/0 통과). CLAUDE.md 「그 가드가
        «실제로 일하는» 상태를 만들어 주세요」. */
     const runList = (band, vol) => {
-      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_BAND_MIN', '_warmLevel', '_btsVol',
+      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_ADV_BOOKS',
+        'SIU_BAND_MIN', 'SIU_ADV_BAND_MIN', '_warmLevel', '_btsVol',
         'btsBandOf', 'escapeHtml', 'bookTitleOf',
         `${listSrc}\nreturn btsListHtml();`);
-      return f(BOOKS, SIUB, MIN, band, vol === undefined ? 0 : vol, bandOf,
+      return f(BOOKS, SIUB, ADVB, MIN, ADVMIN, band, vol === undefined ? 0 : vol, bandOf,
         (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
         new Function(titleSrc + '; return bookTitleOf;')());
@@ -708,13 +776,68 @@ if (Array.isArray(SIUB) && SIUB.length) {
       /* 짝 — 안 고른 상태에서는 «저절로» 펴지지 않아야 합니다(「언제나 open」 을 막습니다). */
       t('⑨ 아무것도 안 골랐으면 접힌 채로 둔다(짝)', !/<details[^>]*\sopen/.test(low),
         (low.match(/<details[^>]*>/) || [''])[0]);
+
+      /* ── ⑨-a 📕 ADVANCE 는 더 높은 단계에서 먼저 ──────────────────
+         ⛔ 「ADVANCE 가 위」만 두지 마세요 — «전부 ADVANCE 로 바꾸기» 도 통과합니다.
+            «중간 단계에서는 BASIC 이 위» 를 짝으로 둡니다. 이 짝이 곧
+            advFirst/siuFirst «순서» 를 잽니다(뒤집으면 7단계에도 BASIC 이 옵니다). */
+      if (Array.isArray(ADVB) && ADVB.length) {
+        const adv = runList(ADVMIN);
+        const advOpen = openPart(adv);
+        t('⑨-a 높은 단계에서는 ADVANCE 가 위에 펼쳐진다', /data-bts="adv/.test(advOpen),
+          advOpen.slice(0, 160));
+        t('⑨-a 그때 BASIC 은 위에 없다(짝 · 순서 뒤집기 방지)', !/data-bts="siu/.test(advOpen),
+          advOpen.slice(0, 200));
+        t('⑨-a 중간 단계에서는 BASIC 이 위이고 ADVANCE 는 아니다(짝)',
+          /data-bts="siu/.test(highOpen) && !/data-bts="adv/.test(highOpen), highOpen.slice(0, 200));
+        /* ⛔ «안 보이게» 가 아니라 «접어 둔다» — 어느 단계에서든 다 고를 수 있어야 합니다. */
+        t('⑨-a 낮은 단계에서도 ADVANCE 를 고를 수는 있다(접힌 채)', /data-bts="adv/.test(low), null);
+        t('⑨-a 중간 단계에서도 ADVANCE 를 고를 수는 있다(접힌 채)', /data-bts="adv/.test(high), null);
+        t('⑨-a 높은 단계에서도 BASIC·BTS 를 고를 수는 있다(접힌 채)',
+          /data-bts="siu/.test(adv) && /data-bts="\d+"/.test(adv.slice(adv.indexOf('<details'))), null);
+        t('⑨-a ADVANCE 권 수만큼 다 그린다',
+          (adv.match(/data-bts="adv/g) || []).length === ADVB.length,
+          (adv.match(/data-bts="adv/g) || []).length);
+        t('⑨-a 안내 줄이 ADVANCE 라고 말한다', /ADVANCE/.test(advOpen), advOpen.slice(0, 120));
+
+        /* ── ⑨-b 📂 접힘 라벨이 «그 안에 실제로 든 것» 과 맞는가 ─────────────
+           [왜] 2026-09-16 에 갈래만 3단으로 고치고 <summary> 는 2단으로 남겨,
+             7단계 학생에게 «📘 BTS 교재도 보기 (61권)» 라고 말하면서 그 안에
+             BASIC 29권을 넣어 두었습니다. 그때 이 자리를 보는 검사가 **두 하니스
+             모두 0건**이라 아무도 못 잡았습니다(자동은 openPart 로 <details 앞만
+             보고, 브라우저는 .wus-hint 만 읽습니다).
+           ⛔ 「라벨에 다 적혔는가」만 두지 마세요 — «세 시리즈를 늘 다 적기» 도
+              통과합니다. **«없는 것은 안 적혔는가» 를 짝으로** 둡니다. */
+        const summaryOf = (h) => { const m = h.match(/<summary>([\s\S]*?)<\/summary>/); return m ? m[1] : ''; };
+        const foldedOf = (h) => { const i = h.indexOf('<details'); return i < 0 ? '' : h.slice(i); };
+        const SERIES = [
+          ['BTS', (f) => /data-bts="(?!0")\d+"/.test(f)],
+          ['BASIC', (f) => /data-bts="siu/.test(f)],
+          ['ADVANCE', (f) => /data-bts="adv/.test(f)],
+        ];
+        [['낮은', low], ['중간', high], ['높은', adv]].forEach(([nm, h]) => {
+          const fold = foldedOf(h), lab = summaryOf(h);
+          t(`⑨-b ${nm} 단계 — 접힘 라벨을 읽었다(전제)`, !!lab, lab.slice(0, 80));
+          SERIES.forEach(([name, hasFn]) => {
+            const inFold = hasFn(fold);
+            const inLabel = lab.indexOf(name) >= 0;
+            t(`⑨-b ${nm} 단계 — ${name} ${inFold ? '가 접혀 있으니 라벨에 적혀야' : '는 없으니 라벨에도 없어야'}`,
+              inFold === inLabel, `접힘=${inFold} 라벨=${inLabel} · ${lab.slice(0, 70)}`);
+          });
+          /* 권 수도 말합니다 — 「(N권)」이 접힌 쪽 실제 개수와 같아야 합니다. */
+          const nm2 = lab.match(/\((\d+)권\)/);
+          const cnt = (fold.match(/data-bts="/g) || []).length;
+          t(`⑨-b ${nm} 단계 — 라벨의 권 수가 접힌 쪽 실제 개수와 같다`,
+            !!nm2 && Number(nm2[1]) === cnt, nm2 && [nm2[1], cnt]);
+        });
+      }
     } catch (e) { no('⑨ 목록 평가 실패', String(e && e.message)); }
   }
 
   // ── applyBtsBook — SIU 는 D1 이름을 «그대로» 보낸다 ─────────────
   if (applySrc && idSrc && titleSrc && allSrc && bookOfSrc) {
     const runApply = (v) => {
-      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'setLevel', 'levelLabel', 'addMsg',
+      const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_ADV_BOOKS', 'setLevel', 'levelLabel', 'addMsg',
         'updateTopicChip', 'localStorage', 'btsRenderLessonRow', 'btsLoadLessons', 'btsBandOf',
         `var WCTX = {}; var LESSON_TOPIC = ''; var BTS_KEY = 'k'; var BTS_LSN_KEY = 'k2';
          var _btsVol = 0, _btsLessons = [], _btsLessonKey = '', _btsFetchSeq = 0;
@@ -724,7 +847,7 @@ if (Array.isArray(SIUB) && SIUB.length) {
          ${applySrc}
          var ok = applyBtsBook(${JSON.stringify(v)}, false, true);
          return { ok: ok, wctx: WCTX, topic: LESSON_TOPIC, vol: _btsVol, lessonCalls: _lessonCalls };`);
-      return f(BOOKS, SIUB, () => {}, () => '', () => {}, () => {},
+      return f(BOOKS, SIUB, ADVB, () => {}, () => '', () => {}, () => {},
         { setItem(){}, removeItem(){} }, () => {}, () => {}, bandOf);
     };
     try {
@@ -741,6 +864,22 @@ if (Array.isArray(SIUB) && SIUB.length) {
         bts.wctx.textbook === 'BTS ' + BOOKS[0].v + ' (' + BOOKS[0].en + ')', bts.wctx.textbook);
       t('⑨ BTS 는 Lv 를 그대로 보낸다(짝)', bts.wctx.level === 'Lv ' + BOOKS[0].v, bts.wctx.level);
       t('⑨ BTS 는 과를 부른다(짝)', bts.lessonCalls === 1, bts.lessonCalls);
+      /* ── ⑨-a ADVANCE 도 D1 이름을 «그대로» 보내는가 ────────────────
+         🔑 «공백 두 칸이 든 권» 을 일부러 골라 봅니다 — 그 권이 곧 D1 오타를
+            물려받아야 하는 자리이고, 여기서 다듬으면 나중에 복습퀴즈가 생겨도
+            서버의 정확일치가 조용히 안 맞습니다. */
+      if (Array.isArray(ADVB) && ADVB.length) {
+        const advPick = ADVB.find(b => / {2}/.test(String(b.book || ''))) || ADVB[0];
+        const a = runApply(advPick.v);
+        t('⑨-a ADVANCE 를 고르면 WCTX.textbook 이 D1 이름 «그대로»',
+          a.wctx.textbook === advPick.book, JSON.stringify(a.wctx.textbook));
+        t('⑨-a ADVANCE 에는 Lv 를 지어내지 않는다', a.wctx.level === '', JSON.stringify(a.wctx.level));
+        t('⑨-a ADVANCE 는 과를 부르지 않는다', a.lessonCalls === 0, a.lessonCalls);
+        t('⑨-a ADVANCE 주제가 AI 에게 간다', a.topic === advPick.en, a.topic);
+        /* 🪤 이 한 줄이 allBooks() 의 concat 을 지키는 자리입니다 —
+           빼면 ADVANCE 를 골라도 «자유 대화» 로 조용히 떨어집니다. */
+        t('⑨-a ADVANCE 를 실제로 찾아냈다(allBooks 배선)', a.vol === advPick.v, a.vol);
+      }
     } catch (e) { no('⑨ applyBtsBook 평가 실패', String(e && e.message)); }
   } else no('⑨ applyBtsBook 주변을 오려 내지 못했다');
 } else no('⑨ SIU_BOOKS 를 못 읽어 이 절을 돌리지 못했다');

@@ -496,11 +496,23 @@ function vcNetPeerMark(userId, bad) {
 var VC_LOWQ_STEP = 3;    // idx-main.js STEPS[3] = 0.2 — 여기부터 사람 눈에 «흐림» 이 보인다(하니스가 STEPS 와 대조)
 var VC_LOWQ_RATIO = 2.5; // 받는 영상 가로폭이 «본 최대 폭» 의 1/2.5 이하 = SCALE[3]=3 부터(2단계 1/2 는 안 잡음)
 var VC_LOWQ_ABS = 240;   // 최대 폭을 아직 못 봤을 때의 절대 하한(px)
+/* 🔕 (2026-09-15) 사장님 「"저화질로 받는 중" 글자 안나오게 해줘」 — 배지를 «화면에 그리지 않는다».
+   [왜 껐나] 이 배지는 얼굴 타일 «위에» 얹히는 글자다. 회선이 나쁠수록 오래 떠 있으므로
+     정작 상대 얼굴이 제일 안 보일 때 그 얼굴을 가장 크게 가린다(2026-09-15 사장님 화면 실측:
+     교사 타일의 «받는 중» 과 내 타일의 «보내는 중» 이 동시에 떠 있었다).
+   ⛔ 판정은 한 줄도 안 바꾼다 — L.self·L[id] 카운터도, vc_quality 로그(화질·단계·경로)도 그대로 쌓인다.
+      «왜 흐린지» 는 관리자 「📶 강사 회선품질」 화면에서 그대로 읽는다.
+   ⚠️ «보내는 중»(내 타일)도 함께 껐다 — 같은 함수가 그리는 같은 배지이고, 하나만 남기면
+      얼굴은 여전히 가려진다. 한쪽만 되살리려면 그 호출부에서 정하는 것이 아니라 여기서 정한다.
+   ✅ 되돌리는 길: 콘솔에서 `window.__vcLowQBadge = true` (그 자리에서 다시 붙는다).
+   ⛔ 이 게이트를 지워서 되살리지 마세요 — 사장님 지시로 끈 것입니다. 감시: vc_quality_blindspot_harness ⑪ */
+function vcLowQBadgeOn() { try { return window.__vcLowQBadge === true; } catch (_) { return false; } }
 function vcLowQMark(box, on, text) {
     try {
         if (!box) return;
         var el = box.querySelector('.vc-lowq-hint');
-        if (!on) { if (el) el.remove(); return; }
+        /* 🔕 꺼짐이 기본. «이미 붙어 있던 것»(옛 사본이 붙였을 수 있다)도 이 자리에서 뗀다. */
+        if (!on || !vcLowQBadgeOn()) { if (el) el.remove(); return; }
         if (el) return;
         el = document.createElement('div');
         el.className = 'vc-lowq-hint';
@@ -674,6 +686,83 @@ window.vcAAOVideo = vcAAOVideo;
 /* 「N초 전」의 기준 시각 — 상대 uid 별로 «멈춘 순간» */
 var __vcAaoSince = {};
 
+/* 📷 (2026-09-15) 「마지막 모습」 — uid → dataURL 한 장.
+   사장님 「음성만 나올 땐 화면은 교사의 얼굴이 멈춤 상태라도 나오게 해줘. 검게 하지 말고
+   반드시 마지막 모습이 계속 나오게 할 수 있지??」
+
+   [무엇이 문제였나] encodings.active=false 로 끄면 «대개» <video> 가 마지막 프레임에서 멈춘다(위 ⑤ 실측).
+     그런데 그 «대개» 가 아닌 경우가 실제로 있었다 — 트랙이 죽거나(회선 붕괴·재협상) 첫 프레임이
+     아직 한 장도 안 왔으면 videoWidth 가 0 이고, 아래 게이트가 옛 전면 덮개(.vc-camoff-hint,
+     불투명 82%)로 떨어져 **얼굴이 통째로 사라진다.** 2026-09-15 사장님 화면(class-848, 05:54)이
+     정확히 그 상태였다: 교사 자리가 「연결이 약해 지금은 음성만 전송 중이에요」 글자만 남고 새까맸다.
+   [고침] 영상이 살아 있는 동안 4초마다 한 장을 떠 두고, 검어지면 그 그림을 깐다.
+     한 번이라도 얼굴이 온 상대라면 그 뒤로는 무엇이 끊겨도 마지막 모습이 남는다.
+   ⚠️ 한 프레임도 안 온 상대는 원리상 보여 줄 것이 없다 — 그때는 옛 전면 안내가 «사실» 이라 그대로 둔다.
+   🔒 사람이 카메라를 «일부러» 끈 상대(cam-state 'user')의 그림은 갖고 있지 않는다 —
+      껐는데 얼굴이 남으면 프라이버시 사고다(⑤ 머리말의 ⛔ 와 같은 줄기).
+   ⚠️ 새 타이머를 만들지 않는다 — 이미 있는 4초 틱(vcqRxStart→vcAaoTick)에 얹는다(홈이 멎은 전력 2회).
+   💰 [비용 — 잰 것 2026-09-15, 이 컨테이너 헤드리스(소프트웨어 렌더)] 1280x720 을 320폭으로 뜨는 데
+      **한 장 5.03ms**(1:1 이면 4초마다 그만큼 = 약 0.13%), **4명이면 16.76ms**(약 0.42%), 메모리 4명에 26KB.
+      «공짜가 아닙니다» — 화상수업 CPU 는 영상 인코더와 경쟁합니다(녹화 fps 를 60→10 으로 낮춘 것과 같은 자리).
+      1:1 이 정상 사용이라 그대로 두었지만, 그룹이 커지면 «한 틱에 한 명씩 돌아가며» 뜨는 쪽을 먼저 보세요. */
+var __vcAaoStill = {};
+var VC_AAO_STILL_W = 320;   // 떠 두는 폭(px). 얼굴 칸은 크게 잡아야 400px 안팎이라 이만하면 눈에 같다
+
+/* 살아 있는 영상에서 한 장을 뜬다. ⚠️ toDataURL 은 tainted canvas 에서 던진다 —
+   WebRTC 스트림은 same-origin 이라 안 걸리지만, 걸려도 «고치기 전»(덮개)으로 떨어지게 감싼다. */
+function vcAaoSnapOne(id, v) {
+    try {
+        if (!v || !v.videoWidth || !v.videoHeight) return;
+        var w = Math.min(VC_AAO_STILL_W, v.videoWidth);
+        var h = Math.round(v.videoHeight * (w / v.videoWidth));
+        if (!w || !h) return;
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(v, 0, 0, w, h);
+        __vcAaoStill[id] = c.toDataURL('image/jpeg', 0.7);
+    } catch (_) {}
+}
+
+/* 떠 둔 한 장을 타일에 깐다 — <video> 가 «검어졌을 때만».
+   멈춘 영상이 살아 있으면(videoWidth>0) 손대지 않는다: 같은 그림이라 덧그릴 이유가 없다.
+   ⚠️ z-index 2 = 영상 위 · 이름표(.video-label 은 3)와 멈춤 띠(9) 아래. 그 둘을 가리면 안 된다. */
+function vcAaoStill(box, id, on) {
+    try {
+        if (!box) return;
+        var img = box.querySelector('.vc-aao-still');
+        var url = on ? __vcAaoStill[id] : '';
+        if (!url) { if (img) img.remove(); return; }
+        if (!img) {
+            img = document.createElement('img');
+            img.className = 'vc-aao-still';
+            img.alt = '';
+            img.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;'
+                + 'z-index:2;filter:grayscale(1);pointer-events:none;';
+            box.style.position = 'relative';
+            box.appendChild(img);
+        }
+        if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+        /* 🔎 «어떻게 맞출지» 는 내가 정하지 않고 «그 영상» 에게서 베낀다.
+           [왜] 정본 vcSmartFitVideo(js/idx-main.js)가 타일마다 cover/contain 을 따로 정한다 —
+             내 타일의 가상배경은 contain(턱·목 잘림 방지 2026-07-13), 화면공유도 contain(좌우 잘림 방지),
+             폰 세로의 상대 타일은 cover(2026-07-14 사장님 지시). 여기에 cover 를 박아 두면
+             **멈추는 순간 그림이 확 커지거나 잘려** «방금 보던 그 화면» 이 아니게 된다.
+           ✅ 그 함수는 videoWidth 가 0 이면 첫 줄에서 돌아가므로, 검어진 뒤에도 인라인 값은
+             «살아 있던 마지막 판정» 그대로 남아 있다 — 그것을 그대로 쓴다.
+           ⚠️ 모르면 예전처럼 cover 로 둔다(빈 값·엉뚱한 값에 화면이 깨지지 않게). */
+        try {
+            var lv = box.querySelector('video');
+            var fit = lv && lv.style ? lv.style.objectFit : '';
+            if (!fit && lv && window.getComputedStyle) fit = getComputedStyle(lv).objectFit || '';
+            img.style.objectFit = (fit === 'contain' || fit === 'cover') ? fit : 'cover';
+            if (lv && window.getComputedStyle) {
+                var pos = getComputedStyle(lv).objectPosition || '';
+                if (pos) img.style.objectPosition = pos;
+            }
+        } catch (_) {}
+    } catch (_) {}
+}
+
 /* 띠가 덮는 자리를 그 타일의 «위쪽 모서리 버튼» 에게 비켜 준다.
    ⚠️ 처음에는 이 줄이 없었고, 브라우저 실측에서 ⭐ 칭찬 버튼과 개별채팅 버튼이 **픽셀 단위로 통째로**
       띠에 덮여 있었다(390px 폰 · 별버튼 중앙 픽셀이 띠의 갈색 rgb(121,53,15)). 띠가 pointer-events:none
@@ -750,11 +839,15 @@ function vcAaoFreeze(box, id, on) {
         var old = box.querySelector('.vc-aao-freeze'); if (old) old.remove();
         try { box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); } catch (_) {}
         try { if (v) v.style.filter = ''; } catch (_) {}
+        vcAaoStill(box, id, false);        // 📷 깔아 둔 마지막 모습을 걷는다(살아 있는 영상이 다시 보여야 한다)
         return;
     }
     if (!__vcAaoSince[id]) __vcAaoSince[id] = Date.now();
     /* 흑백 — «지금» 으로 오인되지 않게. 멈춘 그림이라 새로 그리지 않으므로 비용이 거의 없다. */
     try { if (v) v.style.filter = 'grayscale(1)'; } catch (_) {}
+    /* 📷 영상이 검어졌으면(트랙이 죽었거나 첫 프레임 전) 떠 둔 마지막 모습을 깐다.
+       ⚠️ videoWidth 가 살아 있으면 안 깐다 — 그 경우 <video> 자신이 이미 마지막 장면을 붙잡고 있다. */
+    vcAaoStill(box, id, !(v && v.videoWidth));
     var el = vcAaoStripEl(box);
     vcAaoLabel(el, id);
     vcAaoShift(box, el);
@@ -819,8 +912,10 @@ window.vcApplyRemoteCamHint = function (userId) {
         }
         var v = box && box.querySelector('video');
         /* 보여 줄 «마지막 장면» 이 애초에 없으면(한 프레임도 안 온 상대) 옛 전면 안내가 맞다 —
-           검은 바탕에 «영상 멈춤» 이라고 적으면 거짓말이 된다. */
-        if (!v || !v.videoWidth) { vcAaoFreeze(box, userId, false); if (__vcHintOrig) __vcHintOrig(userId); return; }
+           검은 바탕에 «영상 멈춤» 이라고 적으면 거짓말이 된다.
+           📷 (2026-09-15) 영상이 «검어졌어도» 떠 둔 한 장이 있으면 그것으로 보여 준다 —
+              예전에는 여기서 곧바로 전면 덮개로 떨어져 교사 얼굴이 통째로 사라졌다(위 __vcAaoStill 머리말). */
+        if (!(v && v.videoWidth) && !__vcAaoStill[userId]) { vcAaoFreeze(box, userId, false); if (__vcHintOrig) __vcHintOrig(userId); return; }
         var cover = box.querySelector('.vc-camoff-hint'); if (cover) cover.remove();
         var black = box.querySelector('.vc-black-hint'); if (black) black.remove();
         vcAaoFreeze(box, userId, true);
@@ -875,10 +970,32 @@ function vcAaoTick() {
     var want = (A && A.active) ? 0 : 1;
     if (!(want && vcAaoSfuCut())) { try { vcAAOVideo(want); } catch (_) {} }
     try { vcAaoVerify(); } catch (_) {}
+    /* 📷 살아 있는 상대 영상에서 «마지막 모습» 을 한 장씩 떠 둔다(2026-09-15 — 위 __vcAaoStill 머리말).
+       ⛔ 멈춤 중인 타일(__vcAaoSince)은 건너뛴다 — 뜰 것이 없고, 뜨면 멈춘 그림을 다시 떠 덮어쓴다.
+       🔒 사람이 카메라를 «일부러» 끈 상대('user')의 그림은 그 자리에서 버린다 — 껐는데 얼굴이 남으면 사고다. */
+    try {
+        var grid = document.getElementById('vc-video-grid');
+        if (grid) {
+            var live = {}, off = (window.vcRemoteCamOff || {});
+            grid.querySelectorAll('.video-box').forEach(function (b) {
+                var pid = (b.id || '').replace('vc-video-', '');
+                if (!pid || b.id === 'vc-local-box') return;
+                live[pid] = 1;
+                if (off[pid] === 'user') { delete __vcAaoStill[pid]; return; }
+                if (!__vcAaoSince[pid]) vcAaoSnapOne(pid, b.querySelector('video'));
+            });
+            Object.keys(__vcAaoStill).forEach(function (pid) { if (!live[pid]) delete __vcAaoStill[pid]; });
+        }
+    } catch (_) {}
     Object.keys(__vcAaoSince).forEach(function (id) {
         var box = document.getElementById('vc-video-' + id);
         var el = box && box.querySelector('.vc-aao-freeze');
-        if (el) { vcAaoLabel(el, id); vcAaoShift(box, el); }    // ⚠️ 줄 수가 바뀔 수 있으니 높이도 다시 잰다
-        else delete __vcAaoSince[id];                           // 타일이 사라졌다 = 그 상대가 나갔다
+        if (el) {
+            vcAaoLabel(el, id); vcAaoShift(box, el);            // ⚠️ 줄 수가 바뀔 수 있으니 높이도 다시 잰다
+            /* 📷 영상이 «뒤늦게» 검어질 수 있다(멈춘 줄 알았던 트랙이 죽는다) — 그때 떠 둔 한 장으로 바꿔 깐다. */
+            var vv = box.querySelector('video');
+            vcAaoStill(box, id, !(vv && vv.videoWidth));
+        }
+        else { delete __vcAaoSince[id]; delete __vcAaoStill[id]; }   // 타일이 사라졌다 = 그 상대가 나갔다
     });
 }
