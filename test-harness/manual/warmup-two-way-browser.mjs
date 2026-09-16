@@ -60,6 +60,16 @@ const ck = (n, c, x) => { if (c) { pass++; console.log('  ✅ ' + n); }
 
 const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 const errs = [];
+// A broken preceding action must report FAIL, not terminate the suite on a long timeout.
+async function tap(page, selector) {
+  try {
+    await page.locator(selector).first().click({ timeout: 1500 });
+    return true;
+  } catch (error) {
+    ck('클릭 가능: ' + selector, false, error.message.split('\n')[0]);
+    return false;
+  }
+}
 
 /* 화면 상태를 «한 번에» 읽는다 — 「보인다」·「지금이다」·「어디에 있다」는 다른 값이다. */
 const readState = (page) => page.evaluate(() => {
@@ -105,7 +115,7 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
   ck(`① [${label}] 처음엔 «자유 대화» 가 지금(짝)`, d.nowWay === 'free' && d.onWay === 'free', [d.onWay, d.nowWay]);
   ck(`① [${label}] 가로 넘침이 없다`, !d.hscroll);
 
-  await page.click('#wusTwoWay [data-way="book"]');
+  await tap(page, '#wusTwoWay [data-way="book"]');
   await page.waitForTimeout(700);
   d = await readState(page);
   ck(`② [${label}] 「교재로 웜업」 을 누르면 펼쳐진다`, !d.booksHidden && d.booksDisp !== 'none', [d.booksHidden, d.booksDisp]);
@@ -119,7 +129,7 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
   ck(`② [${label}] 교재가 실제로 그려졌다(전제)`, d.items > 5, d.items);
   const order0 = d.order;
 
-  await page.click('#wusBooks [data-bts]:not([data-bts="0"])');
+  await tap(page, '#wusBooks [data-bts]:not([data-bts="0"])');
   await page.waitForTimeout(600);
   d = await readState(page);
   ck(`③ [${label}] 고르면 「지금」 이 «교재로» 로 옮겨간다`, d.nowWay === 'book', d.nowWay);
@@ -134,7 +144,7 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
     JSON.stringify(order0) === JSON.stringify(d.order), [order0, d.order]);
   ck(`④ [${label}] 고른 교재는 그대로 «지금»`, d.nowWay === 'book', d.nowWay);
 
-  await page.click('#wusTwoWay [data-way="free"]');
+  await tap(page, '#wusTwoWay [data-way="free"]');
   await page.waitForTimeout(500);
   d = await readState(page);
   ck(`⑤ [${label}] 「자유 대화」 를 누르면 접힌다`, d.booksHidden === true, d.booksHidden);
@@ -142,7 +152,7 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
   ck(`⑤ [${label}] 하단 줄도 자유 대화(짝)`, /자유 대화/.test(d.bn), d.bn.slice(0, 40));
 
   /* 하단 «고르기 ↑» 는 접힌 자리로 데려가야 한다 — 접힌 채 스크롤만 하면 아무 일도 안 일어난다. */
-  await page.click('#wusBookNow');
+  await tap(page, '#wusBookNow');
   await page.waitForTimeout(700);
   d = await readState(page);
   ck(`⑥ [${label}] 하단 «고르기 ↑» 를 누르면 펼쳐진다`, d.booksHidden === false, d.booksHidden);
