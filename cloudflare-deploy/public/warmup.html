@@ -1260,9 +1260,47 @@ var SIU_BOOKS = [
   {v:'siu029', s:'SIU', book:'SIU BASIC 029 - Would you ever', en:'Would you ever', ko:'해 볼 의향 있나요'},
   {v:'siu030', s:'SIU', book:'SIU BASIC 030 - Greatest, Most and Best', en:'Greatest, Most and Best', ko:'최고 · 최상급으로 말하기'},
 ];
+
+/* 📕 SIU ADVANCE — 토론·시사 주제 교재 (2026-09-16 Mai 업로드)
+   [근거] 지어낸 값이 아니라 운영 D1 `textbook_files` 의 «책 이름» 실측입니다
+     (2026-09-16 · 20권 291장 · 001~020).
+   ⚠️ book 은 D1 이름 «그대로» 입니다 — 020 의 공백 두 칸은 오타가 아니라
+      «지금 D1 에 그렇게 들어 있는 값» 입니다(Mai 폴더명 오타).
+      ⛔ D1 을 고치면 이 표도 «함께» 고치세요 — 한쪽만 고치면 나중에 복습퀴즈가
+      생겨도 서버(warmupLessonContext)의 LOWER(textbook)=LOWER(?) 정확일치가 조용히 안 맞습니다.
+   ⚠️ en 은 화면·AI 에 가는 «깨끗한» 이름입니다(020 은 공백 하나) — book 과 다릅니다.
+   ⛔ BASIC 과 한 목록에 섞지 마세요 — 주제가 Politics·Crime·Philosophy 라
+      중학생 목록 맨 앞에 올라오면 고르기가 오히려 어려워집니다.
+   ⛔ 권마다 난이도를 매기지 않습니다(BASIC 과 같은 이유 — 그럴 자료가 없습니다).
+      SIU_ADV_BAND_MIN 한 줄로 «이 단계 이상에서 먼저 보인다» 만 정합니다.
+   ❓ 7 은 «8단계 중 상급 두 칸» 이라는 제 제안입니다 — 사장님이 6 이나 8 로
+      정하시면 이 숫자 한 줄만 바꾸면 됩니다. */
+var SIU_ADV_BAND_MIN = 7;   /* 7단계(상급) 이상 — 기본값 제안. BASIC 은 5, ADVANCE 는 그보다 위 */
+var SIU_ADV_BOOKS = [
+  {v:'adv001', s:'SIU', book:'SIU ADVANCE 001 - Explain', en:'Explain', ko:'이유를 풀어 설명하기'},
+  {v:'adv002', s:'SIU', book:'SIU ADVANCE 002 - Job interview', en:'Job interview', ko:'면접에서 말하기'},
+  {v:'adv003', s:'SIU', book:'SIU ADVANCE 003 - Make your point', en:'Make your point', ko:'내 주장 분명히 말하기'},
+  {v:'adv004', s:'SIU', book:'SIU ADVANCE 004 - Environment', en:'Environment', ko:'환경 문제'},
+  {v:'adv005', s:'SIU', book:'SIU ADVANCE 005 - Technology and Inventions', en:'Technology and Inventions', ko:'기술과 발명'},
+  {v:'adv006', s:'SIU', book:'SIU ADVANCE 006 - Meaning of life', en:'Meaning of life', ko:'삶의 의미'},
+  {v:'adv007', s:'SIU', book:'SIU ADVANCE 007 - Advantages and disadvantages', en:'Advantages and disadvantages', ko:'장점과 단점 따져 말하기'},
+  {v:'adv008', s:'SIU', book:'SIU ADVANCE 008 - Politics and government', en:'Politics and government', ko:'정치와 정부'},
+  {v:'adv009', s:'SIU', book:'SIU ADVANCE 009 - Goals and dreams', en:'Goals and dreams', ko:'목표와 꿈'},
+  {v:'adv010', s:'SIU', book:'SIU ADVANCE 010 - Beauty', en:'Beauty', ko:'아름다움이란 무엇인가'},
+  {v:'adv011', s:'SIU', book:'SIU ADVANCE 011 - Crime', en:'Crime', ko:'범죄'},
+  {v:'adv012', s:'SIU', book:'SIU ADVANCE 012 - Family', en:'Family', ko:'가족'},
+  {v:'adv013', s:'SIU', book:'SIU ADVANCE 013 - Education', en:'Education', ko:'교육'},
+  {v:'adv014', s:'SIU', book:'SIU ADVANCE 014 - Entertainment', en:'Entertainment', ko:'영화 · 공연 · 즐길 거리'},
+  {v:'adv015', s:'SIU', book:'SIU ADVANCE 015 - Philosophy', en:'Philosophy', ko:'철학적인 질문'},
+  {v:'adv016', s:'SIU', book:'SIU ADVANCE 016 - Animals', en:'Animals', ko:'동물'},
+  {v:'adv017', s:'SIU', book:'SIU ADVANCE 017 - Punishment', en:'Punishment', ko:'처벌과 정의'},
+  {v:'adv018', s:'SIU', book:'SIU ADVANCE 018 - Work', en:'Work', ko:'일과 직장'},
+  {v:'adv019', s:'SIU', book:'SIU ADVANCE 019 - Travel', en:'Travel', ko:'여행'},
+  {v:'adv020', s:'SIU', book:'SIU ADVANCE 020 - Relationship  and Love', en:'Relationship and Love', ko:'관계와 사랑'},
+];
 /* 두 시리즈를 한 번에 훑을 때 쓴다. ⛔ 여기서 새 배열을 만들어 캐시하지 마세요 —
    표가 늘어도 화면이 그대로 따라오게 «부를 때마다» 이어 붙입니다(29+34 라 비용이 없습니다). */
-function allBooks(){ return BTS_BOOKS.concat(SIU_BOOKS); }
+function allBooks(){ return BTS_BOOKS.concat(SIU_BOOKS).concat(SIU_ADV_BOOKS); }
 /* 🔑 교재 id — BTS 는 숫자(5), SIU 는 문자열('siu015').
    ⛔ parseInt 로 읽지 마세요 — SIU 가 NaN → 0 이 되어 «자유 대화» 로 조용히 떨어집니다. */
 function bookIdOf(raw){
@@ -1769,21 +1807,27 @@ function clearBtsBook(announce){
 }
 /* 설정 화면 목록 — 지금 단계에 맞는 권을 위에, 나머지는 접어 둡니다(32권이라 다 펴면 깁니다) */
 function btsListHtml(){
-  /* 📗📘 시리즈를 단계로 가른다 (2026-09-15 사장님 결정)
-       낮은 단계(1~4) → BTS(어린이 주제)를 먼저, SIU 는 접어 둔다
-       높은 단계(5~8) → SIU BASIC(회화 주제)을 먼저, BTS 는 접어 둔다
-     ⛔ 둘을 한 목록에 섞지 마세요 — 7살 학생 목록에 «Job interview» 가 올라옵니다.
+  /* 📘📗📕 시리즈를 단계로 가른다 (2026-09-15 사장님 결정 · 2026-09-16 ADVANCE 추가)
+       낮은 단계(1~4) → BTS(어린이 주제)를 먼저
+       중간 단계(5~6) → SIU BASIC(회화 주제)을 먼저
+       높은 단계(7~8) → SIU ADVANCE(토론·시사)를 먼저
+     ⛔ 셋을 한 목록에 섞지 마세요 — 7살 학생 목록에 «Job interview» 가 올라옵니다.
      ⛔ 「안 보이게」가 아니라 「접어 둔다」입니다 — 어느 단계에서든 다 고를 수 있어야 합니다
-        (어른이 쉬운 교재를, 아이가 어려운 교재를 고르는 일이 실제로 있습니다). */
+        (어른이 쉬운 교재를, 아이가 어려운 교재를 고르는 일이 실제로 있습니다).
+     ⚠️ advFirst 를 siuFirst «앞» 에서 보세요 — 7단계는 둘 다 참이라 순서가 뒤집히면
+        ADVANCE 가 영영 위로 안 옵니다(에러는 안 납니다). */
+  var advFirst = (_warmLevel >= SIU_ADV_BAND_MIN);
   var siuFirst = (_warmLevel >= SIU_BAND_MIN);
   var near = [], rest = [];
-  if(siuFirst){
-    near = SIU_BOOKS.slice(); rest = BTS_BOOKS.slice();
+  if(advFirst){
+    near = SIU_ADV_BOOKS.slice(); rest = SIU_BOOKS.concat(BTS_BOOKS);
+  } else if(siuFirst){
+    near = SIU_BOOKS.slice(); rest = BTS_BOOKS.concat(SIU_ADV_BOOKS);
   } else {
     for(var i=0;i<BTS_BOOKS.length;i++){
       (btsBandOf(BTS_BOOKS[i].v) === _warmLevel ? near : rest).push(BTS_BOOKS[i]);
     }
-    rest = rest.concat(SIU_BOOKS);
+    rest = rest.concat(SIU_BOOKS).concat(SIU_ADV_BOOKS);
   }
   function item(b){
     /* ℹ️ _btsVol 은 «0 또는 표의 v» 뿐이라(대입 3곳 전부 그렇습니다) === 로도 맞습니다 —
@@ -1801,7 +1845,8 @@ function btsListHtml(){
   var pickInRest = false;
   for(var j=0;j<rest.length;j++){ if(String(rest[j].v) === String(_btsVol)) pickInRest = true; }
   var h = '<div class="wus-hint" style="margin:2px 0 8px">'
-    + (siuFirst ? '📗 <b>SIU BASIC</b> — 청소년·성인 회화 주제 ' + SIU_BOOKS.length + '권'
+    + (advFirst ? '📕 <b>SIU ADVANCE</b> — 토론·시사 주제 ' + SIU_ADV_BOOKS.length + '권'
+      : siuFirst ? '📗 <b>SIU BASIC</b> — 청소년·성인 회화 주제 ' + SIU_BOOKS.length + '권'
                 : '📘 <b>BTS</b> — 지금 단계에 맞는 권')
     + '</div>'
     + '<div class="wus-list">'
