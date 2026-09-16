@@ -424,7 +424,8 @@ await cmd('Emulation.clearDeviceMetricsOverride');
     var all = box.querySelectorAll('[data-bts]');
     for(var i=0;i<all.length;i++){ if(!det || !det.contains(all[i])) open.push(all[i].getAttribute('data-bts')); }
     var inDet = det ? Array.prototype.map.call(det.querySelectorAll('[data-bts]'), function(x){ return x.getAttribute('data-bts'); }) : [];
-    return { open: open, folded: inDet, head: (box.querySelector('.wus-hint')||{}).textContent || '' };
+    return { open: open, folded: inDet, head: (box.querySelector('.wus-hint')||{}).textContent || '',
+             sum: (box.querySelector('details > summary')||{}).textContent || '' };
   })())`));
   const setBand = async (n) => {
     await evaluate(`document.querySelector('[data-lvl="${n}"]').click()`);
@@ -502,6 +503,15 @@ await cmd('Emulation.clearDeviceMetricsOverride');
       t('⑪-a 높은 단계에서도 BASIC 을 «접힌 채로» 고를 수 있다(짝)',
         !!adv && adv.folded.some(v => /^siu/.test(v)), adv && adv.folded.length);
       t('⑪-a 안내 줄이 ADVANCE 라고 말한다', !!adv && /ADVANCE/.test(adv.head), adv && adv.head);
+      /* 📂 접힘 라벨 — 화면에 실제로 그려진 <summary> 가 그 안에 든 것을 말하는가.
+         ⛔ 「BASIC 이라고 적혔나」만 두지 마세요 — 세 시리즈를 늘 다 적어도 통과합니다.
+            «중간 단계에서는 BASIC 이 안 적혀 있다(접힌 쪽에 없으므로)» 를 짝으로 둡니다. */
+      t('⑪-a 높은 단계 접힘 라벨이 BASIC 을 말한다(안에 있으므로)',
+        !!adv && /BASIC/.test(adv.sum), adv && adv.sum);
+      t('⑪-a 중간 단계 접힘 라벨은 BASIC 을 말하지 않는다(짝)',
+        !!high && !/BASIC/.test(high.sum), high && high.sum);
+      t('⑪-a 중간 단계 접힘 라벨이 ADVANCE 를 말한다(안에 있으므로)',
+        !!high && /ADVANCE/.test(high.sum), high && high.sum);
       t('⑪-a 권 수만큼 다 그린다(펼친 쪽)',
         !!adv && adv.open.filter(v => /^adv/.test(v)).length === _nAdv,
         adv && adv.open.filter(v => /^adv/.test(v)).length);

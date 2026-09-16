@@ -799,6 +799,37 @@ if (Array.isArray(SIUB) && SIUB.length) {
           (adv.match(/data-bts="adv/g) || []).length === ADVB.length,
           (adv.match(/data-bts="adv/g) || []).length);
         t('⑨-a 안내 줄이 ADVANCE 라고 말한다', /ADVANCE/.test(advOpen), advOpen.slice(0, 120));
+
+        /* ── ⑨-b 📂 접힘 라벨이 «그 안에 실제로 든 것» 과 맞는가 ─────────────
+           [왜] 2026-09-16 에 갈래만 3단으로 고치고 <summary> 는 2단으로 남겨,
+             7단계 학생에게 «📘 BTS 교재도 보기 (61권)» 라고 말하면서 그 안에
+             BASIC 29권을 넣어 두었습니다. 그때 이 자리를 보는 검사가 **두 하니스
+             모두 0건**이라 아무도 못 잡았습니다(자동은 openPart 로 <details 앞만
+             보고, 브라우저는 .wus-hint 만 읽습니다).
+           ⛔ 「라벨에 다 적혔는가」만 두지 마세요 — «세 시리즈를 늘 다 적기» 도
+              통과합니다. **«없는 것은 안 적혔는가» 를 짝으로** 둡니다. */
+        const summaryOf = (h) => { const m = h.match(/<summary>([\s\S]*?)<\/summary>/); return m ? m[1] : ''; };
+        const foldedOf = (h) => { const i = h.indexOf('<details'); return i < 0 ? '' : h.slice(i); };
+        const SERIES = [
+          ['BTS', (f) => /data-bts="(?!0")\d+"/.test(f)],
+          ['BASIC', (f) => /data-bts="siu/.test(f)],
+          ['ADVANCE', (f) => /data-bts="adv/.test(f)],
+        ];
+        [['낮은', low], ['중간', high], ['높은', adv]].forEach(([nm, h]) => {
+          const fold = foldedOf(h), lab = summaryOf(h);
+          t(`⑨-b ${nm} 단계 — 접힘 라벨을 읽었다(전제)`, !!lab, lab.slice(0, 80));
+          SERIES.forEach(([name, hasFn]) => {
+            const inFold = hasFn(fold);
+            const inLabel = lab.indexOf(name) >= 0;
+            t(`⑨-b ${nm} 단계 — ${name} ${inFold ? '가 접혀 있으니 라벨에 적혀야' : '는 없으니 라벨에도 없어야'}`,
+              inFold === inLabel, `접힘=${inFold} 라벨=${inLabel} · ${lab.slice(0, 70)}`);
+          });
+          /* 권 수도 말합니다 — 「(N권)」이 접힌 쪽 실제 개수와 같아야 합니다. */
+          const nm2 = lab.match(/\((\d+)권\)/);
+          const cnt = (fold.match(/data-bts="/g) || []).length;
+          t(`⑨-b ${nm} 단계 — 라벨의 권 수가 접힌 쪽 실제 개수와 같다`,
+            !!nm2 && Number(nm2[1]) === cnt, nm2 && [nm2[1], cnt]);
+        });
       }
     } catch (e) { no('⑨ 목록 평가 실패', String(e && e.message)); }
   }
