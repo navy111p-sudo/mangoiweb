@@ -31,8 +31,8 @@
       ko: { t: 'AI와 친구하기', d: '「AI와 친구하기」에서 AI 친구와 영어 수다, 게임, 발음 연습, 판단력 훈련까지 — 매일 조금씩 하면 실력이 쑥쑥!' },
       en: { t: 'Play with AI', d: 'In "Play with AI": chat with your AI friend, play games, practice pronunciation, and train judgment — a little every day goes a long way!' } },
     { icon: '🧭',
-      ko: { t: '길을 잃으면?', d: '왼쪽 메뉴를 열거나, 화면의 MANGO AI 검색창에 말로 물어보세요. "숙제 어디서 해?"라고 치면 바로 데려다줘요.' },
-      en: { t: 'Lost?', d: 'Open the left menu, or just ask the MANGO AI search bar. Type "Where is my homework?" and it takes you right there.' } }
+      ko: { t: '길을 잃으면?', d: '왼쪽 메뉴를 열거나, 홈 화면 맨 아래 「🔍 찾는 게 있나요?」를 눌러 검색창을 여세요. "숙제 어디서 해?"라고 치면 바로 데려다줘요.' },
+      en: { t: 'Lost?', d: 'Open the left menu, or tap 「🔍 Looking for something?」 at the bottom of the home screen. Type "Where is my homework?" and it takes you right there.' } }
   ];
 
   function show() {
