@@ -6137,41 +6137,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
-      <div class="ai-search-box">
-        <span class="ai-search-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-            <circle cx="11" cy="11" r="7"></circle>
-            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-          </svg>
-        </span>
-        <input id="ai-home-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="ai-home-q-nofill" readonly onfocus="this.removeAttribute('readonly')"
-               placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
-               data-ko-placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
-               data-en-placeholder="🤖 Ask AI - tell me what you need." value="" />
-        <button class="ai-search-mic" id="ai-home-mic" type="button" title="음성 검색 — 클릭 후 말하세요" data-ko-title="음성 검색 — 클릭 후 말하세요" data-en-title="Voice search — click then speak" aria-label="Voice search">
-          <span class="mic-ring mic-ring-1"></span>
-          <span class="mic-ring mic-ring-2"></span>
-          <span class="mic-ring mic-ring-3"></span>
-          <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-            <rect x="9" y="2" width="6" height="13" rx="3"></rect>
-            <path d="M5 11a7 7 0 0 0 14 0"></path>
-            <line x1="12" y1="18" x2="12" y2="22"></line>
-            <line x1="8" y1="22" x2="16" y2="22"></line>
-          </svg>
-          <!-- ph(2026-06-21) 마이크 누르면(녹음 중) 뜨는 안내 말풍선 — .listening 클래스로 CSS 자동 토글 -->
-          <span class="mic-say-bubble" id="ai-home-mic-bubble" aria-hidden="true"
-                data-ko="말씀하시고 다시 눌러주세요"
-                data-en="Speak, then tap again">말씀하시고 다시 눌러주세요</span>
-        </button>
-        <!-- ph272 (2026-06-03) — 검색창 화살표(→) 삭제: 엔터/마이크로 검색, 화살표 불필요 -->
-      </div>
-      <script>(function(){function c(){var i=document.getElementById("ai-home-input");if(i&&i.value){i.value="";}}c();document.addEventListener("DOMContentLoaded",c);window.addEventListener("load",function(){c();setTimeout(c,150);setTimeout(c,600);setTimeout(c,1500);});})();</script>
-      <div id="ai-home-listening" class="ai-listening" style="display:none"
-           data-ko="🎙 듣고 있습니다… 말씀해주세요"
-           data-en="🎙 Listening… please speak">
-        🎙 듣고 있습니다… 말씀해주세요
-      </div>
-      <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
+      <!-- 🔍 (2026-09-16 사장님 «C안») 여기 있던 검색 입력줄은 **히어로 맨 아래**(카운트다운 밑)로
+           내려가 <details id="hs"> 안에 «한 줄» 로 접혀 있습니다. 같은 파일 아래쪽 #hs 를 보세요.
+           [왜] 검색창이 680×60 + 네온 2종 애니메이션으로 화면에서 가장 컸는데, 정작 눌러야 할 것은
+                「수업 입장」·「오늘의 A.i 학습」 이었습니다. 크기·위치가 할 일과 반대였습니다.
+           ⛔ 없앤 것이 아닙니다 — 메뉴가 빠뜨린 기능을 찾는 «유일한 길» 이었던 전례가 있습니다
+              (「원격수리 어디야?」 — 그때 살아 있던 길은 검색창에 «원격» 을 치는 것뿐이었습니다).
+           ⚠️ .ai-quick(빠른 버튼 12개)은 여기 그대로 둡니다 — display:none 이지만 mgGo()·사이드바가
+              .ai-quick-btn[data-go=…] 를 찾아 .click() 으로 대신 눌러 씁니다. -->
       <div class="ai-quick">
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
         <button class="ai-quick-btn" data-go="about" onclick="event.preventDefault();openAboutMangoi();return false;"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em" loading="lazy" decoding="async"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
@@ -6545,6 +6518,84 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       <!-- 📅 (2026-08-24) 오늘 수업이 없는 학생에게 요일·시간 안내 — 위 카드가 비면 이 defer 파일이 채운다.
            idx-next-class.js 는 defer 를 못 붙이는 파일이라(첫 화면 blocking) 여기서 나머지를 맡는다. -->
       <script defer src="/js/idx-my-schedule.js?v=3"></script>
+      <!-- ═══ 🔍 검색 — 한 줄로 접어 둠 (2026-09-16 사장님 «C안») ═══════════════════
+           ✅ <details> 라 **JS 가 하나도 없어도** 열립니다(펼치기는 브라우저 기본 동작).
+              js/idx-hero-search.js 는 «펼치면 커서를 넣어 주는» 편의만 맡습니다 — 그 파일이
+              못 와도 검색은 그대로 열리고 동작합니다(안전한 실패 방향).
+           ⛔ 여기에 등장 애니메이션(fade/slide)을 넣지 마세요 — 위 «🔒 붙박이» 규칙
+              (2026-07-22 사장님 지시)이 그대로 걸려 있습니다. opacity 0→1 은 저전력·백그라운드
+              탭에서 투명(0)에 영영 멈춰 «안 보인다» 는 치명적 신고를 낸 전력이 있습니다.
+           ⚠️ 첫 화면 예산: 이 블록은 마크업·스타일뿐이라 0바이트입니다 — 하니스는 «인라인
+              스크립트 본문» 과 blocking 외부 스크립트만 셉니다. 새 코드는 defer 파일에 두세요.
+           ⛔ 주석에도 «script» 여는 태그를 글자 그대로 적지 마세요 — 하니스 정규식이 그것을
+              진짜 태그로 읽어 그 뒤 수천 줄을 «인라인 본문» 으로 셉니다(+5KB, 이번에 실제로 밟음). -->
+      <style>
+        #hs{ width:100%; max-width:520px; margin:18px auto 0; }
+        #hs > summary{
+          list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+          gap:6px; width:fit-content; margin:0 auto; padding:3px 6px;
+          font-size:13px; font-weight:600; color:rgba(253,230,138,.8);
+          border-bottom:1px dashed rgba(253,230,138,.42);
+          -webkit-tap-highlight-color:transparent;
+        }
+        /* 브라우저 기본 삼각형(▸) 제거 — 두 줄 다 필요합니다(사파리/크로미움) */
+        #hs > summary::-webkit-details-marker{ display:none; }
+        #hs > summary::marker{ content:""; }
+        #hs > summary:hover{ color:#fde68a; border-bottom-color:rgba(253,230,138,.75); }
+        #hs > summary:focus-visible{ outline:2px solid rgba(251,191,36,.85); outline-offset:3px; border-radius:4px; }
+        #hs[open] > summary{ color:#fde68a; border-bottom-color:transparent; margin-bottom:6px; }
+        /* 펼친 크기 — 520 × 48 (접기 전 680 × 60 보다 작게).
+           ⚠️ 폰(≤640px)에서는 #ai-home-input{…!important} 가 이겨 그쪽 값이 그대로 쓰입니다. */
+        #hs .ai-search-box{ max-width:520px; margin:0 auto; padding:4px 6px 4px 16px; border-radius:14px; }
+        #hs #ai-home-input{ padding:10px 6px; font-size:15px; }
+        #hs .ai-search-mic{ width:36px; height:36px; border-radius:10px; }
+        #hs #ai-home-listening, #hs #ai-home-suggest{ max-width:520px; margin-left:auto; margin-right:auto; }
+      </style>
+      <details id="hs">
+        <!-- ⚠️ data-ko/data-en 은 «글자만 담은 span» 에만 답니다 — i18n 엔진이 그 요소의
+             textContent 를 통째로 갈아끼우므로, summary 에 직접 달면 🔍 아이콘이 사라집니다. -->
+        <summary id="hs-sum">
+          <span aria-hidden="true">🔍</span>
+          <span data-ko="찾는 게 있나요? 눌러서 검색" data-en="Looking for something? Tap to search">찾는 게 있나요? 눌러서 검색</span>
+        </summary>
+        <div class="ai-search-box">
+          <span class="ai-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+            </svg>
+          </span>
+          <input id="ai-home-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="ai-home-q-nofill" readonly onfocus="this.removeAttribute('readonly')"
+                 placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
+                 data-ko-placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
+                 data-en-placeholder="🤖 Ask AI - tell me what you need." value="" />
+          <button class="ai-search-mic" id="ai-home-mic" type="button" title="음성 검색 — 클릭 후 말하세요" data-ko-title="음성 검색 — 클릭 후 말하세요" data-en-title="Voice search — click then speak" aria-label="Voice search">
+            <span class="mic-ring mic-ring-1"></span>
+            <span class="mic-ring mic-ring-2"></span>
+            <span class="mic-ring mic-ring-3"></span>
+            <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+              <rect x="9" y="2" width="6" height="13" rx="3"></rect>
+              <path d="M5 11a7 7 0 0 0 14 0"></path>
+              <line x1="12" y1="18" x2="12" y2="22"></line>
+              <line x1="8" y1="22" x2="16" y2="22"></line>
+            </svg>
+            <!-- ph(2026-06-21) 마이크 누르면(녹음 중) 뜨는 안내 말풍선 — .listening 클래스로 CSS 자동 토글 -->
+            <span class="mic-say-bubble" id="ai-home-mic-bubble" aria-hidden="true"
+                  data-ko="말씀하시고 다시 눌러주세요"
+                  data-en="Speak, then tap again">말씀하시고 다시 눌러주세요</span>
+          </button>
+          <!-- ph272 (2026-06-03) — 검색창 화살표(→) 삭제: 엔터/마이크로 검색, 화살표 불필요 -->
+        </div>
+        <script>(function(){function c(){var i=document.getElementById("ai-home-input");if(i&&i.value){i.value="";}}c();document.addEventListener("DOMContentLoaded",c);window.addEventListener("load",function(){c();setTimeout(c,150);setTimeout(c,600);setTimeout(c,1500);});})();</script>
+        <div id="ai-home-listening" class="ai-listening" style="display:none"
+             data-ko="🎙 듣고 있습니다… 말씀해주세요"
+             data-en="🎙 Listening… please speak">
+          🎙 듣고 있습니다… 말씀해주세요
+        </div>
+        <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
+      </details>
+      <script defer src="/js/idx-hero-search.js?v=1"></script>
+      <!-- ═══ 🔍 검색 끝 ═════════════════════════════════════════════════════════ -->
       <!-- 🐞 교사 버그/피드백 신고 FAB — 교사(vcIsTeacherRole)에게만 노출, POST /api/bug-report -->
       <script>
       (function bugReportFab(){
