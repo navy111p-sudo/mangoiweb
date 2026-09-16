@@ -101,12 +101,82 @@ function vcqWho() {
 /* 📥 수신 통계 — «내가 받는 화면·소리» 를 잰다(원인 ② 참고).
    ⚠️ 델타 기준값(__vcRxPrev)은 60초 전송으로 초기화되는 Q 와 따로 둔다.
       Q 안에 두면 전송 직후 한 틱이 통째로 버려진다. */
+/* 🎞️ 수신 영상 빠른 복구 — 실제 decoded frame을 근거로만 UI/element를 회복한다.
+   [2026-09-17] v15는 실제 수업에서 수동 조작 없이 영상이 돌아왔지만, 검은 덮개가
+   cam-state 신호를 기다려 실제 프레임이 이미 온 뒤에도 남을 수 있었다. 여기서는 기존
+   4초 수신 통계 틱을 재사용한다. 새 timer/observer/ICE restart/재협상은 만들지 않는다.
+   🔒 'user'(사람이 카메라 OFF)는 절대 지우지 않는다. track/sender enabled도 건드리지 않는다. */
+function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
+    try {
+        if (!id || !sample) return;
+        var all = window.__vcRxRecovery || (window.__vcRxRecovery = {});
+        var R = all[id] || (all[id] = { seq: -1, bad: 0, attempts: 0, lastAttempt: 0 });
+        if (R.seq !== seq) { R.seq = seq; R.video = null; R.audio = null; }
+        if (kind === 'video') R.video = { dfr: sample.dfr, known: sample.known, track: receiver && receiver.track };
+        else if (kind === 'audio') R.audio = { dr: sample.dr };
+
+        if (kind === 'video' && sample.known && sample.dfr > 0) {
+            R.bad = 0; R.attempts = 0;
+            var off = window.vcRemoteCamOff || {};
+            if (off[id] === 'aao') {
+                delete off[id];
+                try { if (typeof window.vcApplyRemoteCamHint === 'function') window.vcApplyRemoteCamHint(id); } catch (_) {}
+                try { console.log('[vc-recovery] recovered-overlay', id); } catch (_) {}
+            }
+        }
+        if (!R.video || !R.audio) return;
+
+        var why = (window.vcRemoteCamOff || {})[id];
+        if (why) { R.bad = 0; return; }
+        var cs = pc && pc.connectionState, ice = pc && pc.iceConnectionState;
+        if (cs && cs !== 'connected') { R.bad = 0; return; }
+        if (ice && ice !== 'connected' && ice !== 'completed') { R.bad = 0; return; }
+        var tr = R.video.track;
+        if (!tr || tr.readyState !== 'live' || tr.muted) { R.bad = 0; return; }
+        if (!(R.audio.dr > 0) || !R.video.known || R.video.dfr > 0) { R.bad = 0; return; }
+
+        R.bad++;
+        if (R.bad < 2) return;
+        var now = Date.now();
+        if (R.attempts >= 3 || now - (R.lastAttempt || 0) < 12000) return;
+        R.lastAttempt = now; R.attempts++;
+
+        var box = document.getElementById('vc-video-' + id);
+        var v = box && box.querySelector && box.querySelector('video');
+        if (!v) return;
+        try {
+            var ms = v.srcObject;
+            var has = false;
+            if (ms && typeof ms.getVideoTracks === 'function') {
+                var old = ms.getVideoTracks();
+                for (var i = 0; i < old.length; i++) if (old[i] === tr || (old[i].id && old[i].id === tr.id)) has = true;
+            }
+            if (!has && typeof MediaStream !== 'undefined') {
+                var next = (ms && typeof ms.getTracks === 'function') ? ms : new MediaStream();
+                if (typeof next.getVideoTracks === 'function' && typeof next.removeTrack === 'function') {
+                    next.getVideoTracks().forEach(function (t) { if (t !== tr && (!t.id || t.id !== tr.id)) next.removeTrack(t); });
+                }
+                if (typeof next.addTrack === 'function') next.addTrack(tr);
+                v.srcObject = next;
+            }
+            var pr = v.play && v.play();
+            if (pr && typeof pr.catch === 'function') pr.catch(function (e) {
+                try { console.warn('[vc-recovery] video-play-rejected', id, e && e.message || e); } catch (_) {}
+            });
+            try { console.log('[vc-recovery] video-element-recover', id, 'attempt=' + R.attempts); } catch (_) {}
+        } catch (e) {
+            try { console.warn('[vc-recovery] element-recover-error', id, e && e.message || e); } catch (_) {}
+        }
+    } catch (_) {}
+}
+
 function vcqRxTick() {
     var Q = window.__vcQ; if (!Q) return;
     var pcs = window.vcPeerConnections || {};
     var ids = Object.keys(pcs);
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    var rxSeq = (window.__vcRxSeq = (window.__vcRxSeq || 0) + 1);
     try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     try { vcqDupTabWatch(); } catch (_) {}   // 👥 같은 계정 둘째 탭(③)
     try { vcqWrapCreatePeer(); } catch (_) {}   // ② 로드 순서상 아직 못 감쌌으면 여기서
@@ -137,6 +207,9 @@ function vcqRxTick() {
                     if (kind === 'video') {
                         try { vcLowQRemote(id, s.frameWidth || 0, dr > 0); } catch (_) {}   // 📶 저화질로 받는 중이면 그 타일에 배지
                         var fz = s.freezeCount || 0;
+                        var frKnown = (typeof s.framesDecoded === 'number');
+                        var fr = frKnown ? s.framesDecoded : 0;
+                        var dfr = (prev && frKnown && typeof prev.fr === 'number') ? Math.max(0, fr - prev.fr) : 0;
                         if (prev) {
                             if (dl + dr >= 25) {
                                 var lp = 100 * dl / (dl + dr);
@@ -149,7 +222,8 @@ function vcqRxTick() {
                             }
                             Q.rxf += Math.max(0, fz - (prev.fz || 0));
                         }
-                        prevAll[key] = { lost: lost, rec: rec, fz: fz };
+                        prevAll[key] = { lost: lost, rec: rec, fz: fz, fr: frKnown ? fr : null };
+                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: !!(prev && frKnown && typeof prev.fr === 'number') }, pc, r, rxSeq); } catch (_) {}
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
                         if (prev) {
@@ -160,6 +234,7 @@ function vcqRxTick() {
                             if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
                         }
                         prevAll[key] = { lost: lost, rec: rec, cs: cs, ts: ts };
+                        try { vcqRxRecoverySample(id, 'audio', { dr: dr }, pc, r, rxSeq); } catch (_) {}
                     }
                 });
             }).catch(function () {});
