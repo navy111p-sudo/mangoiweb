@@ -684,11 +684,36 @@ console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으�
      '칸이 아직 없는 DB 에서는 옛 질의로 떨어진다(화면 전체가 «조회 실패» 가 되지 않는다)');
 }
 
-console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지» 를 타일에 적는다(크기는 안 건드린다) ════════');
+console.log('\n════════ ⑪ 저화질 배지 — 2026-09-15 지시로 «화면에는 안 그린다»(판정은 그대로) ════════');
 {
+  /* 🔕 [바뀐 전제 — 2026-09-15] 옛 경계는 「2틱 이어지면 그 타일에 배지가 붙는다」였다.
+     사장님 「"저화질로 받는 중" 글자 안나오게 해줘」로 **기본이 «안 그림»** 이 되었다.
+     이 절은 «검사가 헛돌아서» 가 아니라 **그 검사가 지키던 전제를 사람이 바꿔서** 고친 것이다
+     (CLAUDE.md 2장 「못 박힌 것이 «설계 단정» 일 때」) — 그래서 느슨하게 풀지 않고 경계를 둘로 나눈다:
+       ⓐ 기본(스위치 off)에서는 어떤 경우에도 안 그린다        ← 새 지시
+       ⓑ 스위치를 켜면 옛 판정이 «그대로» 살아 있다             ← 끈 것이지 망가뜨린 것이 아니다
+     ⛔ ⓑ를 지우지 말 것 — 지우면 폰 1단계를 저화질로 오인하는 류의 판정 회귀를 아무도 안 본다. */
+  const off = runQlog({ student: { uid: 'jeong', name: 'jeong', role: 'student' } });
+  const offLocal = off.doc.createElement('div'); offLocal.id = 'vc-local-box';
+  const offBox = off.doc.__addBox('p1');
+  off.win.vcPeerConnections = { a: { __qStep: 5 } };
+  off.api.lowqSelf(); off.api.lowqSelf(); off.api.lowqSelf();
+  ok(!offLocal.querySelector('.vc-lowq-hint'), '🔕 기본: 단계가 바닥이어도 «저화질로 보내는 중» 을 안 그린다');
+  off.api.lowqRemote('p1', 1280, true); off.api.lowqRemote('p1', 213, true);
+  off.api.lowqRemote('p1', 213, true); off.api.lowqRemote('p1', 213, true);
+  ok(!offBox.querySelector('.vc-lowq-hint'), '🔕 기본: 1280→213px(1/6) 로 떨어져도 «저화질로 받는 중» 을 안 그린다');
+  /* 옛 사본이 붙여 둔 배지가 남아 있어도 이 자리에서 뗀다 — 캐시로 옛 js 를 물고 있던 화면 대비 */
+  const stale = off.doc.__addBox('stale');
+  const staleEl = off.doc.createElement('div'); staleEl.className = 'vc-lowq-hint'; stale.appendChild(staleEl);
+  off.api.lowqRemote('stale', 1280, true); off.api.lowqRemote('stale', 213, true); off.api.lowqRemote('stale', 213, true);
+  ok(!stale.querySelector('.vc-lowq-hint'), '🔕 이미 붙어 있던 배지도 뗀다(옛 사본이 붙였을 수 있다)');
+
   const t = runQlog({ student: { uid: 'jeong', name: 'jeong', role: 'student' } });
+  t.win.__vcLowQBadge = true;   // ⓑ — 되살리는 스위치를 켜고 «옛 판정이 그대로인가» 를 잰다
   const local = t.doc.createElement('div'); local.id = 'vc-local-box';
   const badge = (box) => box.querySelector('.vc-lowq-hint');
+  t.api.lowqSelf();
+  ok(!badge(local), '스위치를 켜도 한 틱만으로는 안 붙는다(아래는 전부 «스위치 켠» 상태의 옛 경계)');
 
   /* 보내는 쪽 — 상대 하나라도 3단계 이상이면 내 타일에 */
   t.win.vcPeerConnections = { a: { __qStep: 2 }, b: { __qStep: 0 } };
@@ -747,6 +772,7 @@ console.log('\n════════ ⑪ 저화질 배지 — «왜 흐린지
   ok(!badge(cold2), '정상 폭을 본 적 없는 320px 는 «모름» — 폰 정상(480 세로)과 못 가르므로 안 붙는다');
   /* 음성전용 중에는 «보내는 중» 을 안 붙인다 */
   const aaoT = runQlog({ student: { uid: 'a', name: 'a', role: 'student' } });
+  aaoT.win.__vcLowQBadge = true;   // ⓑ — 판정을 보려면 스위치를 켜야 한다(기본은 안 그림)
   const aaoLocal = aaoT.doc.createElement('div'); aaoLocal.id = 'vc-local-box';
   aaoT.win.vcPeerConnections = { x: { __qStep: 4 } };
   aaoT.win.__vcAAO = { active: true };
