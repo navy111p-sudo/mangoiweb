@@ -80,8 +80,8 @@ function makeDom() {
         getPropertyValue(k) { return props[k] || ''; }
       },
       classList: {
-        _s: new Set(),
-        add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); }
+        _s: new Set(), _rm: 0,                            // _rm — «없는 토큰 remove» 도 관찰자를 깨우므로 횟수를 센다
+        add(c) { this._s.add(c); }, remove(c) { this._rm++; this._s.delete(c); }, contains(c) { return this._s.has(c); }
       },
       _attr: {}, children: [], parent: null,
       setAttribute(k, v) { this._attr[k] = v; }, getAttribute(k) { return this._attr[k]; },
@@ -131,13 +131,34 @@ function makePc(opts = {}) {
   const sender = {
     track,
     getParameters: () => opts.throwOnGet ? (() => { throw new Error('boom'); })() : JSON.parse(JSON.stringify(p)),
-    setParameters: (np) => { calls.setParameters++; p.encodings = np.encodings; return Promise.resolve(); },
+    setParameters: (np) => {
+      calls.setParameters++;
+      if (opts.rejectSet) return Promise.reject(new Error('InvalidStateError'));   // 스냅샷 어긋남 재현
+      p.encodings = np.encodings; return Promise.resolve();
+    },
     replaceTrack: (t) => { calls.replaceTrack++; sender.track = t; return Promise.resolve(); }
   };
+  /* 🎥 프레임 확인용 — opts.frames 를 준 검사에서만 붙는다(다른 검사의 동작은 그대로) */
+  if (opts.frames) {
+    let i = 0;
+    sender.getStats = () => {
+      const f = opts.frames[Math.min(i, opts.frames.length - 1)]; i++;
+      return Promise.resolve({ forEach: (cb) => cb({ type: 'outbound-rtp', framesSent: f }) });
+    };
+  }
+  /* 🔊 오디오 sender — «음성전용» 이 이름값을 하는지 재려고 «안정된 객체» 로 둔다.
+     ⛔ 매번 새 객체를 돌려주면 «건드렸는가» 를 셀 수가 없어, 오디오까지 끄는 변이가 무방비가 된다. */
+  const aParams = { encodings: [{}] };
+  const aCalls = { setParameters: 0 };
+  const aSender = {
+    track: { kind: 'audio', enabled: true, readyState: 'live' },
+    getParameters: () => JSON.parse(JSON.stringify(aParams)),
+    setParameters: (np) => { aCalls.setParameters++; aParams.encodings = np.encodings; return Promise.resolve(); }
+  };
   return {
-    getSenders: () => [sender, { track: { kind: 'audio' }, getParameters: () => ({ encodings: [{}] }), setParameters: () => Promise.resolve() }],
+    getSenders: () => [sender, aSender],
     addTrack: () => { calls.addTrack++; }, removeTrack: () => { calls.removeTrack++; },
-    _p: p, _calls: calls, _sender: sender, _track: track
+    _p: p, _calls: calls, _sender: sender, _track: track, _aParams: aParams, _aCalls: aCalls, _aSender: aSender
   };
 }
 
@@ -158,10 +179,12 @@ function boot(code, { screenSharing = false, en = false } = {}) {
   win.__bcast = bcast;
   const ctx = vm.createContext(win);
   ctx.window = win; ctx.document = doc; ctx.Date = Date; ctx.Math = Math;
-  ctx.Object = Object; ctx.JSON = JSON; ctx.Promise = Promise; ctx.console = { log() {}, warn() {} };
+  const warns = [];
+  ctx.Object = Object; ctx.JSON = JSON; ctx.Promise = Promise;
+  ctx.console = { log() {}, warn(...a) { warns.push(a.map(String).join(' ')); } };
   ctx.vcqRxStart = win.vcqRxStart; ctx.miIsEn = win.miIsEn; ctx.vcBroadcastCamState = win.vcBroadcastCamState;
   vm.runInContext(code, ctx);
-  return { ctx, win, doc, byId, mk, head, origCalls, bcast };
+  return { ctx, win, doc, byId, mk, head, origCalls, bcast, warns };
 }
 
 /* 타일 하나를 세계에 등록한다 */
@@ -227,6 +250,18 @@ sec('Ⓑ 끄고 켜기 — 실제로 돌려서');
      'B-2 트랙은 그대로 둔다 — 비우면 영상 sender 를 track 으로 찾는 코드 10곳이 헛돈다');
   ok(pc._calls.addTrack === 0 && pc._calls.removeTrack === 0, 'B-3 재협상을 부르는 addTrack/removeTrack 이 없다');
   ok(pc._track.enabled === true, 'B-4 track.enabled 는 건드리지 않는다 — 검은 프레임이 먼저 나가면 검정에서 얼어붙는다');
+
+  /* 🔊 (2026-09-16) 이 기능의 이름이 «음성전용» 이다 — 영상만 멈추고 «소리는 그대로» 가야 한다.
+     ⛔ 이 짝이 없으면 오디오 인코딩까지 함께 끄는 한 줄이 **한 건도 안 걸립니다**(실측: 92/0 무방비).
+        그 변이가 실서비스에 들어가면 음성전용 구간에서 수업이 통째로 무음이 되는데,
+        「영상이 멈춘다」·「다시 나간다」·「프라이버시」는 전부 초록이라 아무도 못 봅니다.
+     ⚠️ 브라우저 검사(manual/vc-aao-realpc-browser C-4)가 같은 것을 «받는 쪽 패킷» 으로 재지만
+        그쪽은 manual/ 이라 게이트가 물어 가지 않는다 — 자동으로 막는 것은 여기뿐이다. */
+  ok(pc._aCalls.setParameters === 0,
+     'B-4b 짝 — 오디오 sender 는 아예 건드리지 않는다(«음성전용» 이 이름값을 해야 한다)',
+     '오디오 setParameters ' + pc._aCalls.setParameters + '회');
+  ok(pc._aParams.encodings[0].active === undefined,
+     'B-4c 짝 — 오디오 인코딩은 «보내는 중» 그대로다');
 
   const n = pc._calls.setParameters;
   e.ctx.vcAAOVideo(0);
@@ -387,6 +422,103 @@ sec('Ⓒ 받는 쪽 화면 — 실제로 돌려서');
   delete e10.byId['vc-video-u1'];
   e10.ctx.vcAaoTick();
   ok(!('u1' in e10.ctx.__vcAaoSince), 'C-20 타일이 사라지면 그 상대의 기준 시각도 지운다');
+
+  /* 🔴 (2026-09-15) 이 수리의 핵심 — «켜기» 도 4초마다 다시 건다.
+     옛 코드는 «끄기» 만 다시 걸고 «켜기» 는 복구 순간 딱 한 번이라, 그 한 번이 거절되면
+     (같은 4초 틱의 applyStep 과 setParameters 스냅샷이 어긋나면 실제로 거절된다)
+     소리는 오는데 얼굴만 멈춘 채로 수업이 끝났다. 되돌리면 이 검사가 빨간불이 난다. */
+  const e11 = boot(five);
+  const off = makePc({ active: false });          // «복구 때 한 번 거절돼 꺼진 채로 남은» 상태
+  e11.win.vcPeerConnections = { off };
+  e11.win.__vcAAO = { active: false };            // AAO 는 이미 복구로 판단했다
+  e11.ctx.vcAaoTick();
+  ok(off._p.encodings[0].active === true,
+     'C-21 복구 뒤 꺼진 채 남은 sender 를 4초 타이머가 다시 켠다(한 번 거절돼도 영상이 돌아온다)');
+
+  /* 짝 — SFU 가 mesh 송신을 일부러 끊어 둔 동안에는 켜지 않는다(켜면 두 갈래로 나간다) */
+  const e12 = boot(five);
+  const cut = makePc({ active: false });
+  e12.win.vcPeerConnections = { cut };
+  e12.win.__vcAAO = { active: false };
+  e12.win.__vcSfu = { meshCut: true };
+  e12.ctx.vcAaoTick();
+  ok(cut._p.encodings[0].active === false && cut._calls.setParameters === 0,
+     'C-22 짝 — SFU 가 mesh 를 끊어 둔 동안에는 4초 타이머가 켜지 않는다');
+
+  /* 🎥 «켰다» 와 «나간다» 는 다르다 — 프레임이 안 늘면 말해야 한다 */
+  const e13 = boot(five);
+  const stuckPc = makePc({ active: false, frames: [100, 100, 100, 100, 100, 100] });
+  e13.win.vcPeerConnections = { u1: stuckPc };
+  e13.win.__vcAAO = { active: false };
+  for (let i = 0; i < 5; i++) { e13.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
+  ok(e13.warns.some(w => /프레임이 안 나갑니다/.test(w)),
+     'C-23 되살린 뒤 프레임이 실제로 안 나가면 «안 돌아온다» 고 말한다', e13.warns.join(' | '));
+
+  /* 짝 — 프레임이 실제로 늘면 아무 말도 하지 않는다(거짓 경보가 더 나쁘다) */
+  const e14 = boot(five);
+  const finePc = makePc({ active: false, frames: [100, 130, 160, 190, 220, 250] });
+  e14.win.vcPeerConnections = { u1: finePc };
+  e14.win.__vcAAO = { active: false };
+  for (let i = 0; i < 5; i++) { e14.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
+  ok(!e14.warns.some(w => /프레임이 안 나갑니다/.test(w)),
+     'C-24 짝 — 프레임이 실제로 늘면 경보하지 않는다', e14.warns.join(' | '));
+
+  /* 사람이 카메라를 끈 경우엔 보지 않는다 — 안 그러면 카메라 끈 학생마다 12초마다 거짓 경보 */
+  const e15 = boot(five);
+  const camOff = makePc({ active: false, frames: [7, 7, 7, 7, 7, 7] });
+  camOff._track.enabled = false;
+  e15.win.vcPeerConnections = { u1: camOff };
+  e15.win.__vcAAO = { active: false };
+  for (let i = 0; i < 5; i++) { e15.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
+  ok(!e15.warns.some(w => /프레임이 안 나갑니다/.test(w)),
+     'C-25 사람이 끈 카메라에는 경보하지 않는다', e15.warns.join(' | '));
+
+  /* 🔒 (2026-09-16) 프라이버시 짝 — «켜기» 를 4초마다 다시 걸게 된 뒤로 반드시 있어야 하는 검사.
+     사람이 카메라를 끈 것은 «트랙»(track.enabled=false) 이고 AAO 는 «인코딩»(encodings.active) 이라
+     축이 다르다 — 그래서 회복 틱이 active=true 로 되돌려도 나가는 것은 검은 프레임뿐이고 얼굴은
+     돌아오지 않는다. 그 전제가 코드로 지켜지는지 여기서 직접 잰다(추론으로 두지 않는다).
+     ⛔ 이 검사가 없으면 vcAAOVideo 에 «s.track.enabled = true» 한 줄을 더하는 변이가 초록불이다
+        (= 카메라를 끈 사람의 얼굴이 4초 뒤 상대에게 나가는 프라이버시 사고). */
+  const e15b = boot(five);
+  const priv = makePc({ active: false });     // AAO 로 꺼져 있던 상태
+  priv._track.enabled = false;                // 그 사이에 사람이 카메라를 껐다
+  e15b.win.vcPeerConnections = { u1: priv };
+  e15b.win.__vcAAO = { active: false };       // 회선이 회복됐다
+  e15b.ctx.vcAaoTick();
+  ok(priv._track.enabled === false,
+     'C-25b 회복 틱이 «사람이 끈 카메라» 를 다시 켜지 않는다(프라이버시 — 트랙은 건드리지 않는다)');
+  ok(priv._p.encodings[0].active === true,
+     'C-25c 짝 — 그래도 인코딩은 되살린다(카메라를 다시 켜면 그 순간 바로 나가야 한다)');
+
+  /* ⛔ 거절을 삼키면 «왜 영상이 안 돌아왔나» 를 사후에 가릴 근거가 통째로 사라진다.
+     CLAUDE.md 가 규칙으로 못 박은 자리인데 이 검사가 없으면 옛 .catch(function(){}) 로
+     되돌려도 초록불이다(함정 대조 실측). */
+  const e16 = boot(five);
+  const rej = makePc({ rejectSet: true });          // 켜져 있는 상태에서 «끄기» → 실제로 setParameters 가 불린다
+  e16.win.vcPeerConnections = { u1: rej };
+  e16.ctx.vcAAOVideo(0);
+  await new Promise(r => setTimeout(r, 0));
+  ok(e16.warns.some(w => /setParameters 거절/.test(w)),
+     'C-26 setParameters 거절을 삼키지 않고 말한다 — 원인을 사후에 가릴 유일한 근거', e16.warns.join(' | '));
+
+  /* 🔴 4초 타이머가 «켜기» 도 다시 걸면서 평상시에도 이 갈래가 돈다.
+     «없는 토큰 remove()» 도 class 속성을 다시 써서 관찰자를 1회 깨운다(홈이 두 번 멎은 뿌리). */
+  const e17 = boot(five);
+  const t17 = addTile(e17, 'self', 320);
+  e17.win.__vcAAO = { active: false };
+  e17.ctx.vcAaoTick(); e17.ctx.vcAaoTick(); e17.ctx.vcAaoTick();
+  ok(t17.box.classList._rm === 0,
+     'C-27 평상시 4초 틱이 «없는 클래스» 를 지우지 않는다 — 남의 관찰자를 4초마다 깨우지 않게',
+     'remove 호출 ' + t17.box.classList._rm + '회');
+
+  /* 짝 — 진짜로 켜져 있던 상태에서는 제대로 지운다(가드가 «영영 안 지움» 이 되면 안 된다) */
+  const e18 = boot(five);
+  const t18 = addTile(e18, 'self', 320);
+  e18.ctx.vcAaoSelfMark(true);
+  ok(t18.box.classList.contains('vc-aao-on'), 'C-28 전제: 켜면 실제로 클래스가 붙는다');
+  e18.ctx.vcAaoSelfMark(false);
+  ok(!t18.box.classList.contains('vc-aao-on') && !t18.box.querySelector('.vc-aao-freeze'),
+     'C-29 짝 — 붙어 있던 상태에서는 제대로 지운다');
 }
 
 let CORNER_BASES = [];
@@ -685,7 +817,34 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
     ['내 타일 표시를 빼기', five.replace('try { vcAaoSelfMark(!want); } catch (_) {}', '')],
     ['화면공유 가드를 옛 «조기 return» 으로 되돌리기',
       five.replace('var want = window.__vcScreenSharing ? true : !!on;', 'if (window.__vcScreenSharing) return;\n    var want = !!on;')],
-    ['4초 타이머의 «AAO 일 때만» 가드를 빼기', five.replace('if (A && A.active) {', 'if (true) {')],
+    /* ⚠️ 옛 판의 «if (A && A.active) {» 를 글자로 못 박고 있었다 — 2026-09-15 에 타이머가
+       «상태를 지정» 하는 모양으로 바뀌자 보장은 오히려 세졌는데 이 변이만 안 걸렸다.
+       뜻으로 묻도록 고친다: «AAO 가 아닐 때도 끄게» 되돌리면 잡혀야 한다. */
+    ['4초 타이머가 AAO 가 아닐 때도 «끄게» 되돌리기', five.replace('var want = (A && A.active) ? 0 : 1;', 'var want = 0;')],
+    ['4초 타이머의 «켜기» 재적용을 옛 한쪽짜리로 되돌리기(이 수리의 핵심)',
+      five.replace('if (!(want && vcAaoSfuCut())) { try { vcAAOVideo(want); } catch (_) {} }',
+                   'if (want === 0) { try { vcAAOVideo(0); } catch (_) {} }')],
+    ['SFU 가 mesh 를 끊어 둔 동안에도 켜기(영상이 두 갈래로 나간다)',
+      five.replace('if (!(want && vcAaoSfuCut()))', 'if (true)')],
+    ['프레임 확인을 통째로 빼기', five.replace('try { vcAaoVerify(); } catch (_) {}', '')],
+    ['프레임이 안 늘어도 말하지 않기', five.replace('if (stuck === 3) {', 'if (false) {')],
+    /* 🔴 함정 대조가 잡은 무방비 — CLAUDE.md 가 «삼키지 말 것» 을 규칙으로 못 박은 자리다 */
+    ['setParameters 거절을 도로 삼키기',
+      five.replace("try { console.warn('[vc-aao] setParameters 거절", "try { void ('[vc-aao] setParameters 거절")],
+    /* 🔊 «음성전용» 인데 소리까지 끊는 변이 — 수업이 통째로 무음이 된다.
+       영상 검사만 촘촘히 두면 이것이 한 건도 안 걸린다(넣기 전 실측 92/0 통과). */
+    ['오디오 인코딩까지 «함께» 끄기(수업이 통째로 무음)',
+      five.replace('        } catch (_) {}\n    });',
+        "            var as_ = pc.getSenders().find(function (x) { return x.track && x.track.kind === 'audio'; });\n"
+      + "            if (as_ && as_.getParameters) { var ap = as_.getParameters(); if (!ap.encodings || !ap.encodings.length) ap.encodings = [{}]; ap.encodings[0].active = want; as_.setParameters(ap).catch(function () {}); }\n"
+      + '        } catch (_) {}\n    });')],
+    /* 🔒 프라이버시 — «영상을 확실히 되살리자» 고 트랙까지 건드리는 그럴듯한 변이.
+       카메라를 끈 사람의 얼굴이 4초 뒤 상대에게 나간다 — 이것이 안 잡히면 그 사고가 무방비다. */
+    ['회복 틱이 트랙까지 다시 켜기(카메라를 끈 사람의 얼굴이 나간다)',
+      five.replace('p.encodings[0].active = want;', 'p.encodings[0].active = want; if (want) s.track.enabled = true;')],
+    ['평상시 틱의 «바뀔 때만» 가드 빼기(관찰자를 4초마다 깨움)',
+      five.replace("if (box.classList.contains('vc-aao-on')) box.classList.remove('vc-aao-on');",
+                   "box.classList.remove('vc-aao-on');")],
     ['「N초 전」 갱신을 빼기', five.replace('vcAaoLabel(el, id); vcAaoShift(box, el);', '/* 갱신 없음 */')],
     ['위쪽 버튼 비켜서기를 빼기', five.replace(/\n\s*vcAaoShift\(box, el\);/g, '\n    /* 없음 */')],
     ['비켜서기 CSS 에서 장치 도우미를 빼기',
@@ -708,6 +867,8 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       if (pc._p.encodings[0].active !== false) broke = true;
       if (pc._calls.replaceTrack !== 0) broke = true;
       if (!e.doc.getElementById('vc-local-box').querySelector('.vc-aao-freeze')) broke = true;
+      if (pc._aCalls.setParameters !== 0) broke = true;                    // 🔊 오디오를 건드리면 «음성전용» 이 아니다
+      if (pc._aParams.encodings[0].active !== undefined) broke = true;     //    짝 — 오디오 인코딩은 그대로
 
       const e2 = boot(code);
       const t2 = addTile(e2, 'u1', 320);
@@ -767,6 +928,58 @@ sec('Ⓓ 변이시험 — 되돌리면 실제로 빨간불이 나는가');
       e8.ctx.vcAaoTick();
       if ('u1' in e8.ctx.__vcAaoSince) broke = true;
 
+      /* 🔴 복구 뒤 꺼진 채 남은 sender 를 4초 타이머가 다시 켜는가(이 수리의 핵심) */
+      const e9m = boot(code);
+      const off9 = makePc({ active: false });
+      e9m.win.vcPeerConnections = { off9 };
+      e9m.win.__vcAAO = { active: false };
+      e9m.ctx.vcAaoTick();
+      if (off9._p.encodings[0].active !== true) broke = true;
+
+      /* 짝 — SFU 가 mesh 를 끊어 둔 동안에는 켜지 않는가 */
+      const e10m = boot(code);
+      const cut10 = makePc({ active: false });
+      e10m.win.vcPeerConnections = { cut10 };
+      e10m.win.__vcAAO = { active: false };
+      e10m.win.__vcSfu = { meshCut: true };
+      e10m.ctx.vcAaoTick();
+      if (cut10._p.encodings[0].active !== false) broke = true;
+
+      /* 되살린 뒤 프레임이 안 나가면 말하는가 */
+      const e11m = boot(code);
+      const s11 = makePc({ active: false, frames: [5, 5, 5, 5, 5, 5] });
+      e11m.win.vcPeerConnections = { u1: s11 };
+      e11m.win.__vcAAO = { active: false };
+      for (let i = 0; i < 5; i++) { e11m.ctx.vcAaoTick(); await new Promise(r => setTimeout(r, 0)); }
+      if (!e11m.warns.some(w => /프레임이 안 나갑니다/.test(w))) broke = true;
+
+      /* setParameters 거절을 말하는가 */
+      const e12m = boot(code);
+      const rej12 = makePc({ rejectSet: true });
+      e12m.win.vcPeerConnections = { u1: rej12 };
+      e12m.ctx.vcAAOVideo(0);
+      await new Promise(r => setTimeout(r, 0));
+      if (!e12m.warns.some(w => /setParameters 거절/.test(w))) broke = true;
+
+      /* 평상시 틱이 «없는 클래스» 를 지우지 않는가 + 짝(붙어 있으면 지우는가) */
+      const e13m = boot(code);
+      const t13m = addTile(e13m, 'self', 320);
+      e13m.win.__vcAAO = { active: false };
+      e13m.ctx.vcAaoTick(); e13m.ctx.vcAaoTick();
+      if (t13m.box.classList._rm !== 0) broke = true;
+      e13m.ctx.vcAaoSelfMark(true);
+      e13m.ctx.vcAaoSelfMark(false);
+      if (t13m.box.classList.contains('vc-aao-on')) broke = true;
+
+      /* 🔒 프라이버시 — 회복 틱이 «사람이 끈 카메라» 를 다시 켜지 않는가 + 짝 */
+      const e14m = boot(code);
+      const priv14 = makePc({ active: false });
+      priv14._track.enabled = false;
+      e14m.win.vcPeerConnections = { u1: priv14 };
+      e14m.win.__vcAAO = { active: false };
+      e14m.ctx.vcAaoTick();
+      if (priv14._track.enabled !== false) broke = true;          // 트랙을 다시 켜면 프라이버시 사고
+      if (priv14._p.encodings[0].active !== true) broke = true;   // 짝 — 인코딩은 되살아나야 한다
       /* 🔎 마지막 모습의 «맞춤» 은 그 영상을 따라가야 한다 — 짝으로 본다(한쪽만 보면 반대로 박아도 통과) */
       for (const want of ['contain', 'cover']) {
         const e9 = boot(code);
