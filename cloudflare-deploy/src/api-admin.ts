@@ -9334,6 +9334,98 @@ LIMIT $limit`;
       return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
     }
 
+    /* 🤖 (2026-09-16 신설) AI 학습도구 8종을 실제로 쓴 학생 — 도구별 횟수·마지막 사용일.
+       GET /api/admin/ai-usage/students?q=&tool=all|judgment|warmup|friend|write|speech|review|vocab|micro&days=30
+
+       정본 8개 표는 src/api-students.ts 의 "오늘 도구별 활동" 목록(`/api/student/today`)과
+       완전히 같다 — 판단력훈련·웜업·AI영어친구·AI글쓰기·AI음성코치·복습퀴즈·단어장·AI단어퀴즈.
+       학생게임(game_sessions)은 그 목록에도 있지만 「AI 학습도구」라는 이름과 성격이 달라(게임 허브는
+       AI 채점·생성이 아니라 사전 제작 퀴즈 위주) 여기서는 뺐다 — 필요하면 사람이 정할 일.
+
+       ⚠️ 게스트(guest%)는 실재 학생이 아니므로 전부 제외한다 — CLAUDE.md 2장 "「동의 안 함」이
+          「거절했다」인지 「안 물어봤다」인지" 및 judgment_events 게스트 오염 실사고(2026-09-05)와
+          같은 뿌리: 이 칸에 로그인 안 한 방문자의 값이 섞여 「없는 학생」이 명단에 뜬다.
+       ⚠️ 부분일치 없음 — uid 는 students_erp.user_id 완전일치로만 잇는다(강사 이름처럼
+          "번호가 세 벌이라 조용히 남의 것이 붙는" 함정과 같은 뿌리를 피하려고).
+       ⚠️ 표가 없으면(아직 안 쓴 도구) 그 표만 건너뛴다(fail-open) — 조회 실패로 명단 전체가
+          비면 「AI 를 아무도 안 쓴다」는 거짓 결론이 된다. */
+    if (method === 'GET' && path === '/api/admin/ai-usage/students') {
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const toolFilter = (url.searchParams.get('tool') || 'all').trim();
+      const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+      const since = Date.now() - days * 86400000;
+      const _ssw = await studentScopeWhere(env, request);   // ⚠️ alias 없음 — students_erp 원래 칸 이름 기준
+
+      const TOOL_DEFS: { key: string; ko: string; table: string; col: string; ts: string; extra?: string }[] = [
+        { key: 'judgment', ko: '판단력 훈련',   table: 'judgment_events',        col: 'student_uid', ts: 'created_at' },
+        { key: 'warmup',   ko: 'AI 웜업',       table: 'warmup_session_log',     col: 'user_id',     ts: 'started_at' },
+        { key: 'friend',   ko: 'AI 영어친구',   table: 'ai_friend_chats',        col: 'student_uid', ts: 'created_at', extra: `role='user'` },
+        { key: 'write',    ko: 'AI 글쓰기',     table: 'ai_writing_corrections', col: 'student_uid', ts: 'created_at' },
+        { key: 'speech',   ko: '발음코칭',      table: 'voice_coaching',         col: 'student_uid', ts: 'created_at' },
+        { key: 'review',   ko: '복습퀴즈',      table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
+        { key: 'vocab',    ko: '단어장',        table: 'vocab_review_log',       col: 'user_id',     ts: 'reviewed_at' },
+        { key: 'micro',    ko: 'AI 단어 퀴즈',  table: 'vocab_quizzes',          col: 'user_id',     ts: 'completed_at', extra: `completed=1` },
+      ];
+      const wanted = toolFilter === 'all' ? TOOL_DEFS : TOOL_DEFS.filter((t) => t.key === toolFilter);
+      if (!wanted.length) return json({ ok: false, error: 'unknown_tool' }, 400);
+
+      const byUid: Record<string, { tools: Record<string, { n: number; last_ts: number }>; total: number; last_ts: number }> = {};
+      for (const t of wanted) {
+        const scopeSub = _ssw.cond ? ` AND ${t.col} IN (SELECT user_id FROM students_erp WHERE ${_ssw.cond})` : '';
+        const sql = `SELECT ${t.col} AS uid, COUNT(*) n, MAX(${t.ts}) last_ts
+                       FROM ${t.table}
+                      WHERE ${t.col} IS NOT NULL AND ${t.col} <> '' AND ${t.col} NOT LIKE 'guest%'
+                        ${t.extra ? `AND ${t.extra}` : ''}
+                        AND ${t.ts} >= ?${scopeSub}
+                      GROUP BY ${t.col}`;
+        let rows: any[] = [];
+        try { rows = ((await env.DB.prepare(sql).bind(since, ..._ssw.binds).all()).results || []) as any[]; }
+        catch (e) { console.warn('[ai-usage] ' + t.key + ' 조회 실패(표가 아직 없을 수 있음):', (e as any)?.message || e); continue; }
+        for (const r of rows) {
+          const uid = String(r.uid || '');
+          if (!uid) continue;
+          const rec = byUid[uid] || (byUid[uid] = { tools: {}, total: 0, last_ts: 0 });
+          const n = Number(r.n) || 0, lt = Number(r.last_ts) || 0;
+          rec.tools[t.key] = { n, last_ts: lt };
+          rec.total += n;
+          if (lt > rec.last_ts) rec.last_ts = lt;
+        }
+      }
+
+      const uids = Object.keys(byUid);
+      const nameRows = uids.length ? await selectInChunks<any>(env.DB, uids, (ph) =>
+        `SELECT user_id, COALESCE(korean_name, student_name, username, user_id) AS name,
+                english_name, shop_name, franchise, level
+           FROM students_erp WHERE user_id IN (${ph})`) : [];
+      const nameByUid: Record<string, any> = {};
+      for (const r of nameRows) nameByUid[String(r.user_id)] = r;
+
+      let list = uids.map((uid) => {
+        const info = nameByUid[uid] || {};
+        return {
+          uid,
+          name: info.name || uid,
+          english_name: info.english_name || '',
+          shop_name: info.shop_name || '',
+          franchise: info.franchise || '',
+          level: info.level || '',
+          tools: byUid[uid].tools,
+          tool_count: Object.keys(byUid[uid].tools).length,
+          total: byUid[uid].total,
+          last_ts: byUid[uid].last_ts,
+        };
+      });
+      if (q) {
+        list = list.filter((s) =>
+          s.uid.toLowerCase().includes(q) || String(s.name).toLowerCase().includes(q) ||
+          String(s.english_name).toLowerCase().includes(q) || String(s.shop_name).toLowerCase().includes(q));
+      }
+      list.sort((a, b) => b.last_ts - a.last_ts);
+
+      const summary = wanted.map((t) => ({ key: t.key, ko: t.ko, students: list.filter((s) => s.tools[t.key]).length }));
+      return json({ ok: true, days, tool: toolFilter, count: list.length, students: list.slice(0, 500), summary });
+    }
+
     // ➕ 학생 수동 등록 — 카페24 명부에 없는 학생(체험·특수 케이스)을 관리자가 직접 만든다.
     //   POST /api/admin/students/create  body:{ user_id, name, student_phone?, parent_phone?, shop_name?, notes? }
     //   ⚠️ students_erp 는 카페24가 매일 밤 DELETE+INSERT 로 갈아엎지만(CLAUDE.md 2장 「학생 이름·계정을

@@ -449,6 +449,9 @@ const worker = {
             //    카페24 예약까지 합쳐 주게 되면서 한 화면에 모이는 양이 더 늘었다.
             //    핸들러도 403 을 내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
             '/api/admin/classes/today',
+            // ── 🤖 AI 학습도구 사용 학생 (2026-09-16) — 전사 학생 이름·소속이 도구 사용 이력과
+            //    함께 한 화면에 모인다(classes-now 와 같은 사유). 강사는 자기 반 학생만 봐야 한다.
+            '/api/admin/ai-usage',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -1361,6 +1364,9 @@ const worker = {
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
+        // 🤖 (2026-09-16) AI 학습도구 8종 사용 학생 목록 — 판단력훈련·웜업·AI영어친구·AI글쓰기·
+        //    발음코칭·복습퀴즈·단어장·AI단어퀴즈. 정본은 src/api-admin.ts, 위임은 api-mango.ts.
+        path === '/api/admin/ai-usage/students' ||
         // 📚 교재 일괄 배정 (학생관리 카드)
         path === '/api/admin/students/bulk-assign-textbook' ||
         // ➕ 학생 수동 등록 (학생관리 카드 「학생 등록」 버튼)
@@ -6038,6 +6044,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/attendance/import-cafe24') return true; // 📅 카페24 출석 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
+  // 🤖 (2026-09-16) AI 학습도구 사용 학생 목록 — 인증 필수(내용은 TEACHER_BLOCKED_PREFIXES 로도 이중 차단)
+  if (path === '/api/admin/ai-usage/students') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
   if (path.startsWith('/api/admin/homework/')) return true;
   // 🔁 Streak 일괄 정합화 수동 트리거 — HQ 관리자 전용 (agency 허용목록에 없어 403)
@@ -6155,6 +6163,10 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/capitown/',
     // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
     '/api/admin/game-insights',
+    // 🤖 (2026-09-16) AI 학습도구 사용 학생 — 핸들러가 studentScopeWhere() 로 자기 소속
+    //   학생만 자르므로(2장 「관리자 API 를 만들었는데 지사·대리점이 그대로 씁니다」 참고,
+    //   scopeStudentCond 를 실제로 지나는지 확인함) 지사·대리점도 자기 학생 몫만 본다.
+    '/api/admin/ai-usage/',
     // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
     //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
     '/api/admin/menu-hit',
