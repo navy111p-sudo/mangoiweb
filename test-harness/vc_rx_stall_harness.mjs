@@ -44,17 +44,20 @@ const vr = { track: vtrack };
 
 windowObj.vcRemoteCamOff.p1 = 'aao';
 f('p1', 'video', { dfr: 1, known: true }, pc, vr, 1);
-assert.equal(windowObj.vcRemoteCamOff.p1, undefined, 'decoded frame clears stale AAO only');
-assert.equal(hintCalls, 1, 'AAO hint refreshes after self-clear');
+assert.equal(windowObj.vcRemoteCamOff.p1, 'aao', 'same-tick pre-AAO frames must not clear overlay');
+assert.equal(hintCalls, 0, 'same-tick frames do not refresh AAO hint');
+f('p1', 'video', { dfr: 1, known: true }, pc, vr, 2);
+assert.equal(windowObj.vcRemoteCamOff.p1, undefined, 'post-AAO frames clear stale overlay');
+assert.equal(hintCalls, 1, 'post-AAO recovery refreshes hint');
 
 windowObj.vcRemoteCamOff.p1 = 'user';
-f('p1', 'video', { dfr: 1, known: true }, pc, vr, 2);
+f('p1', 'video', { dfr: 1, known: true }, pc, vr, 3);
 assert.equal(windowObj.vcRemoteCamOff.p1, 'user', 'manual camera OFF must never be cleared');
 delete windowObj.vcRemoteCamOff.p1;
 
 windowObj.__vcRxRecovery = {};
 playCount = 0;
-video.srcObject = new FakeStream();
+video.srcObject = new FakeStream([vtrack]);
 f('p1', 'video', { dfr: 0, known: true }, pc, vr, 10);
 f('p1', 'audio', { dr: 8 }, pc, null, 10);
 assert.equal(playCount, 0, 'one stalled tick does not recover');
@@ -62,7 +65,15 @@ now += 4000;
 f('p1', 'video', { dfr: 0, known: true }, pc, vr, 11);
 f('p1', 'audio', { dr: 8 }, pc, null, 11);
 assert.equal(playCount, 1, 'two paired stalled ticks recover video element');
-assert.equal(video.srcObject.getVideoTracks()[0], vtrack, 'live receiver video track is attached');
+assert.equal(video.srcObject.getVideoTracks()[0], vtrack, 'existing live receiver track stays attached');
+
+windowObj.__vcRxRecovery = {};
+playCount = 0;
+video.srcObject = new FakeStream();
+now += 20000;
+f('p1', 'video', { dfr: 5, known: true }, pc, vr, 15);
+assert.equal(playCount, 1, 'decoded frames reattach a missing video-element track immediately');
+assert.equal(video.srcObject.getVideoTracks()[0], vtrack, 'missing live receiver track is reattached');
 
 now += 4000;
 f('p1', 'video', { dfr: 0, known: true }, pc, vr, 12);
@@ -88,4 +99,4 @@ f('p1', 'video', { dfr: 0, known: true }, pc, vr, 31);
 f('p1', 'audio', { dr: 8 }, pc, null, 31);
 assert.equal(playCount, 0, 'manual camera OFF blocks recovery loop');
 
-console.log('vc_rx_stall_harness: PASS 10 / FAIL 0');
+console.log('vc_rx_stall_harness: PASS 14 / FAIL 0');
