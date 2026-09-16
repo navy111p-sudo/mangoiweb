@@ -630,9 +630,24 @@ if (Array.isArray(SIUB) && SIUB.length) {
   const ids = ALL.map(b => String(b.v));
   t('⑨ 두 표를 합쳐도 id 가 겹치지 않는다', new Set(ids).size === ids.length,
     ids.length - new Set(ids).size);
-  /* ⚠️ 012 는 서버에 없습니다 — 없는 교재를 목록에 만들면 «골랐는데 아무것도 없는» 교재가 됩니다. */
-  t('⑨ 서버에 없는 012 를 지어내지 않았다', !SIUB.some(b => /^SIU BASIC 012\b/.test(String(b.book || ''))),
-    SIUB.filter(b => /012/.test(String(b.book || ''))).map(b => b.book));
+  /* 📌 2026-09-16: 옛 검사는 「012 를 지어내지 않았다」였습니다 — 그날까지 서버에 012 가
+     없었기 때문입니다. 그런데 Mai 가 14:54 KST 에 012(15장)를 올려 그 전제가 사실이 아니게
+     됐습니다. ⛔ 그렇다고 검사를 지우지 마세요 — 지키려던 것은 «D1 에 없는 교재를 지어내지
+     않는다» 이고, 하니스는 D1 을 못 읽으니 대신 «번호가 빠짐없이 이어진다» 로 옮겨 적습니다
+     (빠진 번호를 메우려고 없는 권을 지어내거나, 있는 권을 빠뜨리면 여기서 걸립니다). */
+  const siuNos = SIUB.map(b => (String(b.book || '').match(/^SIU BASIC (\d{3}) - /) || [])[1])
+    .filter(Boolean).map(Number);
+  t('⑨ 권 번호를 전부 읽었다(전제)', siuNos.length === SIUB.length, [siuNos.length, SIUB.length]);
+  t('⑨ 같은 번호가 두 번 없다', new Set(siuNos).size === siuNos.length,
+    siuNos.filter((n, i) => siuNos.indexOf(n) !== i));
+  /* ⚠️ 연속성만으로는 «맨 끝에 없는 권을 지어내는» 것을 못 잡습니다(031 을 더하면 1~31 이라
+     그대로 이어집니다 — 실측으로 확인). 하니스는 D1 을 못 읽으므로 «그날 실측한 권 수» 를
+     함께 못 박습니다. ⛔ 교재가 늘어 이 숫자가 빨간불이면 «검사를 고치지» 말고 먼저 D1 을
+     실측하세요 — 그 실측이 이 숫자의 유일한 근거입니다(2026-09-16 · SIU BASIC 001~030). */
+  t('⑨ 권 수가 D1 실측(30권)과 같다', SIUB.length === 30, SIUB.length);
+  t('⑨ 001 부터 빠진 번호 없이 이어진다', siuNos.length > 0 && Math.min.apply(null, siuNos) === 1
+    && Math.max.apply(null, siuNos) === siuNos.length,
+    siuNos.length ? [Math.min.apply(null, siuNos), Math.max.apply(null, siuNos), siuNos.length] : []);
 
   /* ══ ⑨-a 📕 SIU ADVANCE (2026-09-16) ════════════════════════════════
      [왜] Mai 가 ADVANCE 20권을 올렸습니다. BASIC 과 «같은 배열» 에 넣지 않은 것이 핵심이라,
