@@ -110,28 +110,70 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
     try {
         if (!id || !sample) return;
         var all = window.__vcRxRecovery || (window.__vcRxRecovery = {});
-        var R = all[id] || (all[id] = { seq: -1, bad: 0, attempts: 0, lastAttempt: 0 });
+        var R = all[id] || (all[id] = { seq: -1, bad: 0, attempts: 0, lastAttempt: 0, aaoSeenSeq: -1 });
         if (R.seq !== seq) { R.seq = seq; R.video = null; R.audio = null; }
         if (kind === 'video') R.video = { dfr: sample.dfr, known: sample.known, track: receiver && receiver.track };
         else if (kind === 'audio') R.audio = { dr: sample.dr };
 
-        if (kind === 'video' && sample.known && sample.dfr > 0) {
-            R.bad = 0; R.attempts = 0;
-            var off = window.vcRemoteCamOff || {};
-            if (off[id] === 'aao') {
+        var off = window.vcRemoteCamOff || {};
+        if (off[id] === 'aao') {
+            if (R.aaoSeenSeq < 0) R.aaoSeenSeq = seq;
+            /* AAO 전환과 같은 4초 표본에 섞인 옛 프레임은 회복 근거가 아니다.
+               AAO를 한 번 관측한 뒤의 «다음 표본»에서도 프레임이 늘어야만 덮개를 걷는다. */
+            if (kind === 'video' && sample.known && sample.dfr > 0 && seq > R.aaoSeenSeq) {
                 delete off[id];
+                R.aaoSeenSeq = -1; R.bad = 0; R.attempts = 0;
                 try { if (typeof window.vcApplyRemoteCamHint === 'function') window.vcApplyRemoteCamHint(id); } catch (_) {}
                 try { console.log('[vc-recovery] recovered-overlay', id); } catch (_) {}
             }
+        } else {
+            R.aaoSeenSeq = -1;
+            if (kind === 'video' && sample.known && sample.dfr > 0) { R.bad = 0; R.attempts = 0; }
         }
-        if (!R.video || !R.audio) return;
 
-        var why = (window.vcRemoteCamOff || {})[id];
-        if (why) { R.bad = 0; return; }
+        var why = off[id];
         var cs = pc && pc.connectionState, ice = pc && pc.iceConnectionState;
-        if (cs && cs !== 'connected') { R.bad = 0; return; }
-        if (ice && ice !== 'connected' && ice !== 'completed') { R.bad = 0; return; }
-        var tr = R.video.track;
+        var tr = R.video && R.video.track;
+        var connected = (!cs || cs === 'connected') && (!ice || ice === 'connected' || ice === 'completed');
+        var live = tr && tr.readyState === 'live' && !tr.muted;
+
+        /* 디코더와 <video>는 별개다. framesDecoded가 늘어도 srcObject에서 트랙이
+           빠졌으면 검은 화면이므로, 멈춤 판정과 무관하게 즉시 다시 붙인다. */
+        if (kind === 'video' && !why && connected && live && sample.known && sample.dfr > 0) {
+            var attachBox = document.getElementById('vc-video-' + id);
+            var attachVideo = attachBox && attachBox.querySelector && attachBox.querySelector('video');
+            var attachStream = attachVideo && attachVideo.srcObject;
+            var attached = false;
+            if (attachStream && typeof attachStream.getVideoTracks === 'function') {
+                var attachedTracks = attachStream.getVideoTracks();
+                for (var ai = 0; ai < attachedTracks.length; ai++) {
+                    if (attachedTracks[ai] === tr || (attachedTracks[ai].id && attachedTracks[ai].id === tr.id)) attached = true;
+                }
+            }
+            if (attachVideo && !attached && typeof MediaStream !== 'undefined') {
+                var attachNow = Date.now();
+                if (R.attempts < 3 && attachNow - (R.lastAttempt || 0) >= 12000) {
+                    R.lastAttempt = attachNow; R.attempts++;
+                    var nextStream = (attachStream && typeof attachStream.getTracks === 'function') ? attachStream : new MediaStream();
+                    if (typeof nextStream.getVideoTracks === 'function' && typeof nextStream.removeTrack === 'function') {
+                        nextStream.getVideoTracks().forEach(function (t) { if (t !== tr && (!t.id || t.id !== tr.id)) nextStream.removeTrack(t); });
+                    }
+                    if (typeof nextStream.addTrack === 'function') nextStream.addTrack(tr);
+                    attachVideo.srcObject = nextStream;
+                    var attachPlay = attachVideo.play && attachVideo.play();
+                    if (attachPlay && typeof attachPlay.catch === 'function') attachPlay.catch(function (e) {
+                        try { console.warn('[vc-recovery] video-play-rejected', id, e && e.message || e); } catch (_) {}
+                    });
+                    try { console.log('[vc-recovery] video-track-reattach', id, 'attempt=' + R.attempts); } catch (_) {}
+                }
+            }
+        }
+
+        if (!R.video || !R.audio) return;
+        why = off[id];
+        if (why) { R.bad = 0; return; }
+        if (!connected) { R.bad = 0; return; }
+        tr = R.video.track;
         if (!tr || tr.readyState !== 'live' || tr.muted) { R.bad = 0; return; }
         if (!(R.audio.dr > 0) || !R.video.known || R.video.dfr > 0) { R.bad = 0; return; }
 
@@ -145,20 +187,6 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
         var v = box && box.querySelector && box.querySelector('video');
         if (!v) return;
         try {
-            var ms = v.srcObject;
-            var has = false;
-            if (ms && typeof ms.getVideoTracks === 'function') {
-                var old = ms.getVideoTracks();
-                for (var i = 0; i < old.length; i++) if (old[i] === tr || (old[i].id && old[i].id === tr.id)) has = true;
-            }
-            if (!has && typeof MediaStream !== 'undefined') {
-                var next = (ms && typeof ms.getTracks === 'function') ? ms : new MediaStream();
-                if (typeof next.getVideoTracks === 'function' && typeof next.removeTrack === 'function') {
-                    next.getVideoTracks().forEach(function (t) { if (t !== tr && (!t.id || t.id !== tr.id)) next.removeTrack(t); });
-                }
-                if (typeof next.addTrack === 'function') next.addTrack(tr);
-                v.srcObject = next;
-            }
             var pr = v.play && v.play();
             if (pr && typeof pr.catch === 'function') pr.catch(function (e) {
                 try { console.warn('[vc-recovery] video-play-rejected', id, e && e.message || e); } catch (_) {}
