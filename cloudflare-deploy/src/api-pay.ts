@@ -372,7 +372,9 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
 
 /** 📨 자동청구 사전고지 — next_billing_at 이 3일 안인 활성 구독의 학부모 폰에 금액·날짜·해지 안내.
  *  멱등: enroll_notify_log (uid, kind='prebill', day=결제예정일) — 같은 결제일에 두 번 보내지 않는다.
- *  전화번호 조회는 만료문자(runEnrollExpirySweep)와 같은 곳(students_erp 의 parent_phone→phone). */
+ *  ⚠️ 전화번호 조회가 만료문자(runEnrollExpirySweep)와 «같은 곳» 이던 것은 2026-09-15 까지다 —
+ *     그쪽은 판정 정본 `phonesForStudent`(override 먼저)로 옮겼고 **이 경로는 아직 `students_erp` 직접 조회**다.
+ *     그래서 우리 화면에서 받은 번호(`student_erp_override`)를 이 문자는 못 본다(사람이 정할 일 — 돈이 걸린 경로). */
 async function sendPrebillNotices(env: any): Promise<number> {
   const now = Date.now();
   const rs: any = await env.DB.prepare(

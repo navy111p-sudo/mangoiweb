@@ -411,6 +411,165 @@ console.log('\n[G] 자산 버전');
 check('G-1 adm-core.js 를 부르는 ?v= 가 있다', /adm-core\.js\?v=\d+/.test(adminHtml));
 check('G-2 admin-inline-c.css 를 부르는 ?v= 가 있다', /admin-inline-c\.css\?v=\d+/.test(adminHtml));
 
+
+// ══════════════════════════════════════════════════════════════
+//  I절 — 수강 만료 안내(7·3일 전)도 «우리가 받아 둔 번호» 를 본다 (2026-09-15)
+//
+//  실사고: 그 sweep 이 `students_erp` 를 직접 읽어 번호를 정했다. 우리 화면에서 받은 번호는
+//  `student_erp_override` 에 있는데 그 경로가 정본을 지나지 않아 영영 못 봤다
+//  (2026-09-15 실측: 그날 23건 시도 / 번호를 찾은 학생 1명).
+//  ℹ️ 명부 칸이 «밤마다 덮이던» 것은 같은 날 #995 로 막혔다 — 그래도 정본을 지나는 것이 맞다
+//     (override 는 «우리가 받은 값» 이고, 판정이 한 곳에 남는다).
+//
+//  이 절이 이렇게 생긴 이유(전부 실측으로 뚫렸던 것):
+//   ⚠️ 「그 함수를 부르는가」로 물으면 부르고 «결과를 안 쓰는» 변이가 통과한다.
+//   ⚠️ «override 만»·«명부만» 두 시나리오로는 부족하다 — 그 둘이 배타적이라 「누가 이기는가」가
+//      원리상 안 검사되고, **정본을 폴백으로 내리는 변이**(= 이 수리를 통째로 되돌리는 것)와
+//      **학생 번호 폴백 삭제**·**우선순위 뒤집기** 셋이 그대로 통과했다.
+//   ⚠️ 가짜 D1 이 «표 이름» 만 보면 `WHERE user_id = ?` 를 지우는 변이(= 남의 번호로 문자가
+//      나간다)가 통과한다 → 이 가짜는 **질의문을 보고** 답을 바꾼다.
+// ══════════════════════════════════════════════════════════════
+console.log('\n[I] 만료 안내 — 번호 판정 정본 배선');
+
+const enrollTs = read(join(SRC, 'enroll-ops.ts'));
+
+check('I-1 enroll-ops.ts 가 번호 정본을 import 한다',
+  /import\s*\{[^}]*\bphonesForStudent\b[^}]*\}\s*from\s*'\.\/notify-contacts'/.test(strip(enrollTs)));
+
+/* 함수 몸통을 «중괄호 짝» 으로 자른다 — 길이나 첫 `\n}` 로 자르면 엉뚱한 조각이 나온다.
+   ⚠️ 문자열·주석 안의 중괄호는 추적하지 않는다. 지금 본문은 균형이 맞아 무해하고,
+      어긋나면 아래 I-0·I-2 «전제» 검사가 조용한 통과를 막는다. */
+function bodyOf(src, needle) {
+  const i = src.indexOf(needle);
+  if (i < 0) return '';
+  const open = src.indexOf('{', src.indexOf(')', i));
+  if (open < 0) return '';
+  let d = 0;
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
+const sweepSrc = bodyOf(enrollTs, 'export async function runEnrollExpirySweep');
+check('I-0 (전제) runEnrollExpirySweep 을 오려 냈다', sweepSrc.length > 300, `${sweepSrc.length}자`);
+
+/* 타입 표기만 걷어내 그대로 돌린다(컴파일 없이). */
+const sweepJs = sweepSrc
+  .replace(/^export\s+/, '')
+  .replace(/\(env:\s*any,\s*opts\?:\s*\{[^}]*\}\)/, '(env, opts)')
+  .replace(/:\s*Promise<[^>]*>/g, '')
+  /* ⚠️ 배열 표기를 «먼저» 지운다 — ` as any` 를 먼저 지우면 `(x as any[])` 가 `(x[])` 가 되어
+        문법이 깨진다(그러면 이 절이 통째로 «실행 실패» 로 죽는다. 실제로 밟았다). */
+  .replace(/\s+as\s+any\[\]/g, '')
+  .replace(/:\s*any\[\]/g, '')
+  .replace(/:\s*any\b/g, '')
+  .replace(/\s+as\s+any\b/g, '');
+
+const SW_UID = 'sweep_fixture_1';        // ⛔ 실계정·실명을 박지 말 것(선례: approval_policy_harness 의 mgr_jjw)
+const SW_OTHER = '01099998888';          // «남의 학생» 번호 — 질의가 그 학생으로 좁히지 않으면 이것이 잡힌다
+
+function runSweep(opt) {
+  const { ovParent = '', ovStudent = '', erpParent = '', erpPhone = '', throwCore = false } = opt || {};
+  const sent = [];
+  let narrowed = null;
+  const rows = [{ user_id: SW_UID, last_date: '2026-09-18', remaining: 2 }];
+  const db = {
+    prepare(sql) {
+      const binds = [];
+      const api = {
+        bind: (...a) => { binds.push(...a); return api; },
+        all: async () => ({ results: /FROM\s+class_schedules/i.test(sql) ? rows : [] }),
+        first: async () => {
+          if (/FROM\s+enroll_notify_log/i.test(sql)) return null;        // 아직 안 보냄
+          if (/FROM\s+students_erp/i.test(sql)) {
+            /* 그 학생으로 «좁히는» 질의만 그 학생 행을 받는다. 좁히지 않으면 실제 D1 은
+               아무 행(=남의 학생)을 주므로 그 사고를 여기서 재현한다. */
+            narrowed = /\buser_id\s*=\s*\?/i.test(sql) && binds.includes(SW_UID);
+            if (!narrowed) return { ph: SW_OTHER, nm: '남의학생' };
+            return { ph: (erpParent || erpPhone || null), nm: '테스트' };  // COALESCE 흉내
+          }
+          return null;
+        },
+        run: async () => ({}),
+      };
+      return api;
+    },
+    exec: async () => ({}),
+  };
+  const factory = new Function(
+    'kstToday', 'daysBetween', 'ensureEnrollTables', 'sendPlainSms', 'siteUrl', 'phonesForStudent',
+    `${sweepJs}\nreturn runEnrollExpirySweep;`
+  );
+  const fn = factory(
+    () => '2026-09-15',
+    () => 3,                                   // exp3 창에 들어오게
+    async () => {},
+    async (_e, phone) => { sent.push(String(phone)); return { ok: true }; },
+    () => 'https://mangoi.ai/enroll.html',
+    async () => { if (throwCore) throw new Error('boom'); return { parent: ovParent, student: ovStudent }; },
+  );
+  return fn({ DB: db }).then((out) => ({ out, sent, narrowed }));
+}
+
+const I = {};
+let Ierr = '';
+try {
+  I.ovOnly  = await runSweep({ ovParent: '01011112222' });                                  // 우리가 받아 둔 번호만
+  I.none    = await runSweep({});                                                            // 아무 데도 없다
+  I.erpOnly = await runSweep({ erpParent: '01033334444' });                                  // 명부에만(옛 경로)
+  I.thrown  = await runSweep({ throwCore: true, erpParent: '01055556666' });                 // 정본이 던진다
+  I.both    = await runSweep({ ovParent: '01011112222', erpParent: '01033334444' });         // 둘 다 있다
+  I.ovStu   = await runSweep({ ovStudent: '01077778888' });                                  // override 학생만
+  I.ovBoth  = await runSweep({ ovParent: '01011112222', ovStudent: '01077778888' });         // 학부모+학생
+  I.short   = await runSweep({ ovParent: '010111222', erpParent: '01033334444' });           // override 9자리
+} catch (e) { Ierr = String(e?.message || e); }
+
+const one = (r) => (r && r.sent.length === 1 ? r.sent[0] : JSON.stringify(r ? r.sent : null));
+
+check('I-2 (전제) 함수가 실제로 돌았다', !Ierr, Ierr);
+check('I-3 우리가 받아 둔 번호(override)로 문자가 나간다',
+  one(I.ovOnly) === '01011112222', one(I.ovOnly));
+check('I-4 (짝) 번호가 아무 데도 없으면 문자를 안 보낸다',
+  !!I.none && I.none.sent.length === 0, one(I.none));
+check('I-5 (짝) 명부에만 번호가 있어도 예전처럼 나간다',
+  one(I.erpOnly) === '01033334444', one(I.erpOnly));
+check('I-6 정본이 던져도 명부 번호로 떨어진다(fail-open)',
+  one(I.thrown) === '01055556666', one(I.thrown));
+/* ↓ 여기부터가 2026-09-15 함정 대조가 «뚫렸다» 고 실측한 자리들이다. 지우지 말 것. */
+check('I-7 override 와 명부가 «둘 다» 있으면 override 가 이긴다 (정본을 폴백으로 내리는 변이 방지)',
+  one(I.both) === '01011112222', one(I.both));
+check('I-8 override 에 «학생» 번호만 있어도 그 번호로 나간다 (학생 폴백 삭제 변이 방지)',
+  one(I.ovStu) === '01077778888', one(I.ovStu));
+check('I-9 학부모·학생이 둘 다 있으면 «학부모» 가 이긴다 (우선순위 뒤집기 변이 방지)',
+  one(I.ovBoth) === '01011112222', one(I.ovBoth));
+check('I-10 명부 조회가 «그 학생» 으로 좁혀진다 — 남의 번호로 절대 안 나간다',
+  !!I.none && I.none.narrowed === true
+    && Object.values(I).every((r) => r && !r.sent.includes(SW_OTHER)),
+  I.none ? `narrowed=${I.none.narrowed}` : '실행 실패');
+check('I-11 override 가 9자리면 명부의 멀쩡한 번호로 떨어진다 (되던 것을 깨지 않는다)',
+  one(I.short) === '01033334444', one(I.short));
+
+/* ℹ️ 아직 정본을 «안» 보는 학부모 문자 경로 — FAIL 로 만들지 않는다(무관한 PR 이 전부 빨간불이 된다.
+      선례: popup_open_return_harness). 대신 **이름을 찍어** 다음 사람이 보게 한다.
+      ⛔ 「그 배선 누락은 닫혔다」로 읽히게 두지 말 것 — 닫힌 것은 아래 둘뿐이다. */
+const NOT_YET = [
+  ['api-lessons.ts', '수업일지 → /api/eval/create (강사 화면이 매 일지마다 부른다)'],
+  ['api-pay.ts', '자동결제 사전안내(prebill) — 돈이 걸린 경로'],
+  ['api-admin.ts', 'AI 초안 승인 → feedback-drafts/approve'],
+  ['enroll-activate.ts', '등록 확정 안내 (화면 기본값 OFF)'],
+  ['api-games.ts', 'microlearn 안내 (parent_phone 만)'],
+];
+console.log('  ℹ️ 아직 번호 정본을 안 보는 학부모 문자 경로 (사람 결정 대기 — FAIL 아님):');
+for (const [f, what] of NOT_YET) {
+  /* ⚠️ **주석을 벗긴 사본**으로 묻는다 — 그러지 않으면 「왜 아직 안 고쳤나」를 적은
+        설명 주석이 잡혀 «이미 고쳐졌다» 고 거짓으로 찍힌다(2026-09-15 api-pay.ts 에서 실제로 밟았다).
+     ⚠️ 그리고 «import 가 있는가» 가 아니라 **«부르는가»** 로 묻는다(안 쓰는 import 가 있다). */
+  const src = strip(read(join(SRC, f)));
+  const wired = /\bphonesForStudent\s*\(/.test(src);
+  console.log(`     ${wired ? '✅ 이제 정본을 봅니다 — 이 목록에서 빼세요' : '·'} ${f} — ${what}`);
+}
+
 // ══════════════════════════════════════════════════════════════
 console.log('\n════════════════════════════════════════');
 console.log(`  결과: PASS ${pass} / FAIL ${fail}`);
