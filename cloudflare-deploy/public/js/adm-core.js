@@ -5396,7 +5396,7 @@ var _frEditId = 0;
 function frResetForm() {
   _frEditId = 0;
   const e = id => document.getElementById(id);
-  ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
   const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5414,6 +5414,9 @@ function frEdit(id) {
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
   if (e('fr-login')) e('fr-login').value = f.login_username == null ? '' : f.login_username;
+  // 🔑 (2026-09-17) 비밀번호는 절대 채워 넣지 않는다 — 서버가 해시만 들고 있어 원문을
+  // 돌려줄 방법도 없고(주지도 않는다), 비워 두는 것 자체가 «바꾸지 않음» 의 신호다.
+  if (e('fr-login-pw')) e('fr-login-pw').value = '';
   if (e('fr-owner')) e('fr-owner').value = f.owner_name == null ? '' : f.owner_name;
   if (e('fr-phone')) e('fr-phone').value = f.phone == null ? '' : f.phone;
   if (e('fr-address')) e('fr-address').value = f.address == null ? '' : f.address;
@@ -5425,11 +5428,26 @@ function frEdit(id) {
 }
 window.frEdit = frEdit;
 
+// 🔑 (2026-09-17) «계정을 만들었다/비밀번호를 바꿨다» 를 사람이 읽을 말로 — 대리점(centers)의
+// login_created 알림과 같은 자리.
+function _frPasswordAlert(result) {
+  if (result === 'created') {
+    alert(adminLang==='en' ? 'Login account created — this ID can now sign in.' : '로그인 계정을 만들었습니다 — 이제 이 아이디로 실제 로그인이 됩니다.');
+  } else if (result === 'reset') {
+    alert(adminLang==='en' ? 'Password changed for this branch’s account.' : '이 지사 계정의 비밀번호를 바꿨습니다.');
+  }
+}
+
 async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   const loginUsername = (e('fr-login')||{}).value || null;
+  // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다
+  // (wantsPasswordAction 판정, api-admin.ts). 저장 성공 뒤 반드시 지운다 — 그대로 두면
+  // «수정» 을 다시 열 때 남의 비밀번호가 이 칸에 남아 있는 것처럼 보인다(frEdit 이 이미
+  // 비우지만, 창을 안 닫고 같은 지사를 연달아 저장하는 경우까지 여기서 한 번 더 막는다).
+  const loginPassword = (e('fr-login-pw') || {}).value || '';
   if (_frEditId) {
     let d;
     try {
@@ -5437,7 +5455,7 @@ async function saveFranchise() {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: _frEditId, name, login_username: loginUsername,
+          id: _frEditId, name, login_username: loginUsername, login_password: loginPassword,
           owner_name: e('fr-owner').value || null, phone: e('fr-phone').value || null,
           address: e('fr-address').value || null, opened_at: e('fr-opened').value || null
         })
@@ -5461,13 +5479,26 @@ async function saveFranchise() {
         : ('참고: 이 지사의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
             + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
     }
+    if (d) _frPasswordAlert(d.password_result);
     return;
   }
   const d = await _menuPost('/api/admin/franchises', {
-    name, login_username: loginUsername, owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
+    name, login_username: loginUsername, login_password: loginPassword,
+    owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
-  if (d) { ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
+  if (d) {
+    ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value='');
+    loadFranchises();
+    // ⚠️ 지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
+    // (아이디 중복·동명이인 지사 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
+    if (d.login_error) {
+      alert((adminLang==='en' ? 'Branch was registered, but the login account was NOT created: '
+                              : '지사는 등록했지만 «로그인 계정» 은 만들지 못했습니다: ') + (d.login_message || d.login_error));
+    } else {
+      _frPasswordAlert(d.password_result);
+    }
+  }
 }
 window.saveFranchise = saveFranchise;
 
