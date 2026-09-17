@@ -5245,7 +5245,7 @@ var _mbrEditId = 0;
 function mbrResetForm() {
   _mbrEditId = 0;
   const e = id => document.getElementById(id);
-  ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['mbr-name','mbr-login','mbr-login-pw','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('mbr-add-btn'), '+ 등록', '+ Add');
   const c = e('mbr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5260,6 +5260,9 @@ function mbrEdit(id) {
   _mbrEditId = m.id;
   if (e('mbr-name')) e('mbr-name').value = m.name == null ? '' : m.name;
   if (e('mbr-login')) e('mbr-login').value = m.login_username == null ? '' : m.login_username;
+  // 🔑 (2026-09-17) 비밀번호는 절대 채워 넣지 않는다 — 지사 frEdit 과 같은 이유(서버가
+  // 해시만 들고 있어 원문을 돌려줄 방법이 없고, 비워 두는 것 자체가 «바꾸지 않음» 의 신호다).
+  if (e('mbr-login-pw')) e('mbr-login-pw').value = '';
   if (e('mbr-region')) e('mbr-region').value = m.region == null ? '' : m.region;
   if (e('mbr-tier')) e('mbr-tier').value = m.tier == null ? '' : m.tier;
   if (e('mbr-manager')) e('mbr-manager').value = m.owner_name == null ? '' : m.owner_name;
@@ -5271,16 +5274,29 @@ function mbrEdit(id) {
 }
 window.mbrEdit = mbrEdit;
 
+// 🔑 (2026-09-17) 「계정을 만들었다/비밀번호를 바꿨다」 를 사람이 읽을 말로 — 지사 _frPasswordAlert 와
+// 같은 자리(대표지사는 문구가 「이 지사」가 아니라 「이 대표지사」라 따로 둔다).
+function _mbrPasswordAlert(result) {
+  if (result === 'created') {
+    alert(adminLang==='en' ? 'Login account created — this ID can now sign in.' : '로그인 계정을 만들었습니다 — 이제 이 아이디로 실제 로그인이 됩니다.');
+  } else if (result === 'reset') {
+    alert(adminLang==='en' ? 'Password changed for this master branch’s account.' : '이 대표지사 계정의 비밀번호를 바꿨습니다.');
+  }
+}
+
 async function saveMasterBranch() {
   const e = id => document.getElementById(id);
   const name = ((e('mbr-name')||{}).value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'대표지사 이름은 필수입니다'); return; }
+  // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다.
+  const loginPassword = ((e('mbr-login-pw')||{}).value||'');
   if (_mbrEditId) {
     // ✏️ master_branches 는 카페24와 무관한 D1 전용 표라(위 서버 주석) 대리점·지사와 달리
     // «옛 이름으로 이 계정을 찾는다» 류 경고가 없다 — 그냥 저장하고 목록만 다시 그린다.
     const d = await _menuPost('/api/admin/franchises', {
       kind: 'master_edit', id: _mbrEditId, name,
       login_username: ((e('mbr-login')||{}).value||'').trim() || null,
+      login_password: loginPassword,
       region: (e('mbr-region')||{}).value || null,
       tier: (e('mbr-tier')||{}).value || null,
       owner_name: (e('mbr-manager')||{}).value || null,
@@ -5290,21 +5306,31 @@ async function saveMasterBranch() {
       mbrResetForm();
       await loadMasterBranches();
       if (document.getElementById('franchises-table')) loadFranchises();
+      _mbrPasswordAlert(d.password_result);
     }
     return;
   }
   const d = await _menuPost('/api/admin/franchises', {
     kind: 'master', name,
     login_username: ((e('mbr-login')||{}).value||'').trim() || null,
+    login_password: loginPassword,
     region: (e('mbr-region')||{}).value || null,
     tier: (e('mbr-tier')||{}).value || null,
     owner_name: (e('mbr-manager')||{}).value || null,
     phone: (e('mbr-phone')||{}).value || null
   });
   if (d) {
-    ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    ['mbr-name','mbr-login','mbr-login-pw','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
     await loadMasterBranches();
     if (document.getElementById('franchises-table')) loadFranchises();
+    // ⚠️ 대표지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
+    // (아이디 중복 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
+    if (d.login_error) {
+      alert((adminLang==='en' ? 'Master branch was registered, but the login account was NOT created: '
+                              : '대표지사는 등록했지만 «로그인 계정» 은 만들지 못했습니다: ') + (d.login_message || d.login_error));
+    } else {
+      _mbrPasswordAlert(d.password_result);
+    }
   }
 }
 async function setMasterBranchActive(id, active) {

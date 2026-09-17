@@ -9603,11 +9603,49 @@ LIMIT $limit`;
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, login_username TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
         /* 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
            실제 아이디가 들어가게 해달라」) 지사와 달리 master_branches 는 admin_scope 에 이어 줄
-           길이 없다(scope.ts 의 Scope 타입에 'master' 가 없음 — 위 master_edit 주석 참고). 그래서
-           «접두어로 찾아 보여주기» 가 아니라 **직접 입력해 저장하는 칸**을 새로 둔다(기존 DB 에는
-           없을 수 있어 지연 ALTER — 이미 있으면 SQLite 가 throw → 흡수). */
+           «지사 이름 하나짜리 접두어 매칭» 이 안 통한다(대표지사는 지사 여러 개를 묶으므로).
+           그래서 login_username 은 여전히 **직접 입력해 저장하는 칸**이다(기존 DB 에는 없을 수
+           있어 지연 ALTER — 이미 있으면 SQLite 가 throw → 흡수).
+           🔑 (2026-09-17 신설 — 사장님 제보 「대표지사도 비밀번호 넣는 곳이 없다」) 그 아이디는
+           2026-09-14 까지는 라벨일 뿐이었다 — scope.ts 의 Scope 타입에 'master' 가 없어 admin_scope
+           로 이을 길이 없다고 여기 적혀 있었는데, 그건 «지사(branch, 접두어 1개)» 를 기준으로
+           본 것이고 실은 scope.ts 에 **'franchise'(지사본사) 타입이 이미 있다** — scope_value 에
+           지사 «이름 여러 개를 콤마로» 담는, 대표지사가 하려는 일과 정확히 같은 모양이다.
+           그래서 새 Scope 타입을 만들지 않고 이것을 재사용한다: 비밀번호를 설정하면
+           scope_type='franchise' + scope_value=산하 지사 이름 목록(franchise_master_map 에서 계산)
+           으로 계정을 만든다. ⚠️ scope_value 는 «그 시점의 스냅샷» 이라 지사 배정이 바뀌면 따라가지
+           않는다 — master_assign 이 배정을 바꿀 때마다 이 계정의 scope_value 를 다시 계산해 준다
+           (refreshMasterScopeValue). ⚠️ scope_value 만으로는 «이 admin_scope 행이 어느 대표지사
+           것인지» 구분이 안 된다(이름 목록이라 master_id 가 안 남는다) — 그래서 admin_scope 에
+           **master_id 칸을 새로 추가**한다(지연 ALTER). 이게 없으면 비밀번호 재설정 때 «이미 이
+           대표지사 계정인지» 를 확인할 방법이 없어, 남의 계정(예: 강사)의 비밀번호를 그대로
+           덮어쓰는 사고가 난다(CLAUDE.md 「이미 다른 계정이 쓰고 있는 아이디」 판정과 같은 이유).
+           admin_scope 를 읽는 다른 모든 곳은 scope_type/scope_value 만 SELECT 해서(전체 SELECT * 는
+           0곳 — grep 확인) 이 칸을 몰라도 그대로 동작한다. */
         try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        try { await env.DB.exec(`ALTER TABLE admin_scope ADD COLUMN master_id INTEGER;`); } catch { /* duplicate column — 정상 */ }
+      };
+
+      /* 🏛️ (2026-09-17) 대표지사 login_password 계정의 scope_value(콤마 지사 이름 목록)를
+         「지금 franchise_master_map 이 말하는 산하 지사」로 다시 맞춘다 — master_assign 이 배정을
+         바꿀 때마다 부른다. 링크된 계정이 없으면(비밀번호를 아직 안 만든 대표지사) 조용히
+         아무 일도 안 한다. ⛔ 실패를 삼키지 않는다 — 삼키면 «지사를 뺐는데 그 계정이 계속 보는»
+         (막았어야 할 접근이 조용히 남는) 쪽으로 실패하게 된다. 학생 데이터가 걸린 자리라
+         «막는 쪽» 으로 실패해야 하므로, 여기서 던지면 master_assign 요청 전체가 실패로
+         보고된다(사람이 다시 시도하게). */
+      const refreshMasterScopeValue = async (masterId: number) => {
+        if (!masterId) return;
+        const linked = await env.DB.prepare(
+          `SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND master_id = ? LIMIT 1`
+        ).bind(masterId).first<{ username: string }>();
+        if (!linked) return;
+        const rows = await env.DB.prepare(
+          `SELECT f.name AS name FROM franchise_master_map mm JOIN franchises f ON f.id = mm.franchise_id WHERE mm.master_id = ?`
+        ).bind(masterId).all();
+        const names = ((rows.results || []) as any[]).map(r => r.name).filter(Boolean);
+        await env.DB.prepare(`UPDATE admin_scope SET scope_value = ?, updated_at = ? WHERE username = ?`)
+          .bind(names.join(',') || null, Date.now(), linked.username).run();
       };
 
       /* 🔒 (2026-08-18) 지사·대리점 계정에게 이 API 를 열면서 «자기 것만» 으로 자른다.
@@ -9681,6 +9719,57 @@ LIMIT $limit`;
            ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
         ).bind(loginUsername, franchiseName, now).run();
         return { ok: true, result: 'created' };
+      };
+
+      /* 🏛️ (2026-09-17) 대표지사 판 — 위 createOrResetBranchLogin 과 같은 검증·모양이지만
+         소속 지사가 «하나」가 아니라 «여러 개(콤마 목록)» 라 scope_type='franchise' 를 쓰고,
+         «이미 이 대표지사 것인가» 를 이름 대신 admin_scope.master_id 로 확인한다(위 ensureMaster
+         주석 참고 — scope_value 는 지사 배정이 바뀌면 달라지므로 신원 확인에 못 쓴다). */
+      const createOrResetMasterLogin = async (username: string, password: string, masterId: number, masterName: string):
+        Promise<{ ok: boolean; result?: 'created' | 'reset'; error?: string; message?: string; status?: number; branch_count?: number }> => {
+        const loginUsername = username.trim();
+        const loginPassword = password;
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
+          return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
+        }
+        if (loginPassword.length < 6) {
+          return { ok: false, error: 'too_short', message: '비밀번호는 6자 이상이어야 합니다.', status: 400 };
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
+          return { ok: false, error: 'reserved_username', message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.', status: 403 };
+        }
+        const branchRows = await env.DB.prepare(
+          `SELECT f.name AS name FROM franchise_master_map mm JOIN franchises f ON f.id = mm.franchise_id WHERE mm.master_id = ?`
+        ).bind(masterId).all();
+        const branchNames = ((branchRows.results || []) as any[]).map(r => r.name).filter(Boolean);
+        const scopeValue = branchNames.join(',') || null;
+        const existing = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
+          .bind(loginUsername).first<{ username: string }>();
+        const now = Date.now();
+        if (existing) {
+          const linkedScope = await env.DB.prepare(`SELECT scope_type, master_id FROM admin_scope WHERE username = ? LIMIT 1`)
+            .bind(existing.username).first<{ scope_type: string; master_id: number | null }>();
+          const isOwnMaster = !!linkedScope && linkedScope.scope_type === 'franchise' && Number(linkedScope.master_id) === masterId;
+          if (!isOwnMaster) {
+            return { ok: false, error: 'already_exists',
+              message: '이미 다른 계정이 쓰고 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          // 🔑 이미 이 대표지사에 연결된 계정 — 비밀번호를 재설정하면서 scope_value 도
+          // 지금 배정 기준으로 다시 맞춘다(그동안 산하 지사가 바뀌었을 수 있으므로).
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(await hashPassword(loginPassword), now, existing.username).run();
+          await env.DB.prepare(`UPDATE admin_scope SET scope_value = ?, updated_at = ? WHERE username = ?`)
+            .bind(scopeValue, now, existing.username).run();
+          return { ok: true, result: 'reset', branch_count: branchNames.length };
+        }
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(loginUsername, await hashPassword(loginPassword), masterName || '대표지사', now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO admin_scope (username, scope_type, scope_value, master_id, updated_at) VALUES (?, 'franchise', ?, ?, ?)
+           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, master_id = excluded.master_id, updated_at = excluded.updated_at`
+        ).bind(loginUsername, scopeValue, masterId, now).run();
+        return { ok: true, result: 'created', branch_count: branchNames.length };
       };
 
       if (method === 'GET') {
@@ -9985,11 +10074,29 @@ LIMIT $limit`;
       if (b && b.kind === 'master') {
         if (!b.name) return invalidBody(['name']);
         await ensureMaster();
+        const newMasterLoginUsername = String(b.login_username || '').trim();
+        const newMasterLoginPassword = String(b.login_password || '');
+        // 🔑 (2026-09-17) 지사·대리점 등록과 같은 규칙 — 아이디·비밀번호는 «둘 다» 채웠을 때만
+        // 계정을 만든다. 하나만 채우면 등록 자체를 막는다(대표지사만 생기고 로그인은 안 되는
+        // 반쪽 상태를 피한다).
+        if ((newMasterLoginUsername && !newMasterLoginPassword) || (!newMasterLoginUsername && newMasterLoginPassword)) {
+          return json({ ok: false, error: 'login_fields_incomplete',
+            message: '로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
+        }
         const r = await env.DB.prepare(
           `INSERT INTO master_branches (name, region, tier, owner_name, phone, login_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null,
-               String(b.login_username || '').trim() || null, now, now).run();
-        return json({ ok: true, id: r.meta.last_row_id });
+               newMasterLoginUsername || null, now, now).run();
+        const newMasterId = Number(r.meta.last_row_id);
+        let masterLoginResult: 'created' | 'reset' | undefined;
+        if (newMasterLoginUsername && newMasterLoginPassword) {
+          const pr = await createOrResetMasterLogin(newMasterLoginUsername, newMasterLoginPassword, newMasterId, String(b.name).trim());
+          // ⚠️ 지사·대리점과 같은 판단 — 등록 자체는 막지 않는다(방금 만든 대표지사가 그대로
+          // 사라지면 더 나쁘다). 계정만 못 만들었다고 사람에게 알린다.
+          if (pr.ok) masterLoginResult = pr.result;
+          else return json({ ok: true, id: newMasterId, login_error: pr.error, login_message: pr.message });
+        }
+        return json({ ok: true, id: newMasterId, password_result: masterLoginResult });
       }
       // 🏛️ 지사 → 대표지사 배정 (master_id 가 비면 배정 해제)
       if (b && b.kind === 'master_assign') {
@@ -9997,6 +10104,13 @@ LIMIT $limit`;
         if (!fid) return invalidBody(['franchise_id']);
         await ensureMaster();
         const mid = parseInt(String(b.master_id || ''), 10);
+        // 🔑 (2026-09-17) 이 배정이 바뀌기 «전» 의 대표지사를 먼저 알아 둔다 — 배정을 바꾼 뒤에
+        // 옛 대표지사·새 대표지사 양쪽에 로그인 계정이 있으면 scope_value(산하 지사 목록)를
+        // 다시 계산해 준다. 빠뜨리면 지사를 빼도 그 대표지사 계정이 계속 그 지사 학생을 본다
+        // (막았어야 할 접근이 조용히 남는 쪽 — CLAUDE.md 가 가장 나쁘다고 못 박은 방향).
+        const oldRow = await env.DB.prepare(`SELECT master_id FROM franchise_master_map WHERE franchise_id = ?`)
+          .bind(fid).first<{ master_id: number }>();
+        const oldMasterId = Number(oldRow?.master_id || 0);
         if (mid) {
           await env.DB.prepare(
             `INSERT INTO franchise_master_map (franchise_id, master_id, updated_at) VALUES (?, ?, ?)
@@ -10005,6 +10119,8 @@ LIMIT $limit`;
         } else {
           await env.DB.prepare(`DELETE FROM franchise_master_map WHERE franchise_id = ?`).bind(fid).run();
         }
+        if (oldMasterId && oldMasterId !== mid) await refreshMasterScopeValue(oldMasterId);
+        if (mid) await refreshMasterScopeValue(mid);
         return json({ ok: true, franchise_id: fid, master_id: mid || null });
       }
       // 🏛️ 대표지사 «비활성» — 지우지 않는다. 산하 지사 매핑이 통째로 끊기면 되돌릴 길이 없다.
@@ -10020,10 +10136,11 @@ LIMIT $limit`;
          master_branches 는 카페24에 없는 «우리만의 표» 다(위 9325행 주석) — franchises·centers
          와 달리 매일 밤 동기화가 덮어쓰지 않으므로, 그 둘에 쓴 override 표(franchise_manual_override
          등) 짝이 여기엔 필요 없다. 그냥 UPDATE 하면 그대로 남는다.
-         ⚠️ scope.ts 의 Scope 타입에는 'master' 가 없다 — admin_scope 는 이 표의 name 을 기준으로
-         아무것도 매칭하지 않는다(franchises/centers 이름과 달리 로그인 계정과 안 엮인다). 그래서
-         지사·대리점 PATCH 에 있던 「이름 바뀌면 연결된 계정이 조용히 못 찾게 된다」 걱정이 여기엔
-         없다 — grep 으로 확인: master_branches·franchise_master_map 을 쓰는 곳은 이 파일 하나뿐. */
+         🔑 (2026-09-17 갱신) 위 «admin_scope 와 아무것도 안 엮인다」 는 더 이상 사실이 아니다 —
+         비밀번호를 설정하면 admin_scope(scope_type='franchise', master_id=이 행) 로 실제로 엮인다
+         (위 ensureMaster·createOrResetMasterLogin 주석 참고). 다만 이름이 바뀌어도 그 연결은 안
+         끊긴다 — scope_value 는 지사 «이름 목록» 이 아니라 master_id 로 다시 찾으므로 지사·대리점
+         PATCH 의 「이름 바뀌면 연결된 계정이 조용히 못 찾게 된다」 걱정은 여기 없다. */
       if (b && b.kind === 'master_edit') {
         const mid = parseInt(String(b.id || ''), 10);
         if (!mid) return invalidBody(['id']);
@@ -10031,9 +10148,11 @@ LIMIT $limit`;
         const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
         const sets: string[] = [];
         const binds: any[] = [];
+        let editedName: string | undefined;
         if (has('name')) {
           const nm = String(b.name || '').trim();
           if (!nm) return invalidBody(['name']);
+          editedName = nm;
           sets.push('name = ?'); binds.push(nm);
         }
         if (has('region')) { sets.push('region = ?'); binds.push(String(b.region || '').trim() || null); }
@@ -10041,11 +10160,35 @@ LIMIT $limit`;
         if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
         if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
         if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
-        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
-        sets.push('updated_at = ?'); binds.push(now);
-        binds.push(mid);
-        await env.DB.prepare(`UPDATE master_branches SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-        return json({ ok: true, id: mid });
+        // 🔑 (2026-09-17) 비밀번호만 바꾸는 요청(다른 칸은 하나도 안 보냄)도 유효한 요청이다 —
+        // sets 가 비어도 no_fields 로 막지 않는다(지사 PATCH 와 같은 규칙, 아래에서 처리).
+        const wantsMasterPasswordAction = has('login_password') && String(b.login_password || '').length > 0;
+        if (!sets.length && !wantsMasterPasswordAction) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+        if (sets.length) {
+          sets.push('updated_at = ?'); binds.push(now);
+          binds.push(mid);
+          await env.DB.prepare(`UPDATE master_branches SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        }
+
+        let masterPasswordResult: 'created' | 'reset' | undefined;
+        if (wantsMasterPasswordAction) {
+          let effectiveMasterUsername = has('login_username') ? String(b.login_username || '').trim() : '';
+          let effectiveMasterName = editedName;
+          if (!effectiveMasterUsername || effectiveMasterName === undefined) {
+            const cur = await env.DB.prepare(`SELECT login_username, name FROM master_branches WHERE id = ?`)
+              .bind(mid).first<{ login_username: string | null; name: string }>();
+            if (!effectiveMasterUsername) effectiveMasterUsername = String(cur?.login_username || '').trim();
+            if (effectiveMasterName === undefined) effectiveMasterName = cur?.name || '';
+          }
+          if (!effectiveMasterUsername) {
+            return json({ ok: false, error: 'login_username_required',
+              message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
+          }
+          const pr = await createOrResetMasterLogin(effectiveMasterUsername, String(b.login_password), mid, effectiveMasterName);
+          if (!pr.ok) return json({ ok: false, error: pr.error, message: pr.message }, pr.status as any);
+          masterPasswordResult = pr.result;
+        }
+        return json({ ok: true, id: mid, password_result: masterPasswordResult });
       }
 
       if (!b || !b.name) return invalidBody(['name']);
