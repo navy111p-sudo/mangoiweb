@@ -4,6 +4,7 @@ on:
     paths:
       - 'cloudflare-deploy/public/warmup.html'
       - 'test-harness/manual/warmup*'
+      - 'test-harness/manual/_pw.mjs'
       - '.github/workflows/warmup-browser.yml'
 permissions:
   contents: read
