@@ -9623,6 +9623,12 @@ LIMIT $limit`;
            admin_scope 를 읽는 다른 모든 곳은 scope_type/scope_value 만 SELECT 해서(전체 SELECT * 는
            0곳 — grep 확인) 이 칸을 몰라도 그대로 동작한다. */
         try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
+        /* 🏢 (2026-09-17 신설 — 사장님 「영업본부는 engmaster, 이병엽 이사, 본사직영 이렇게
+           3개」) 대표지사 «위» 계층. 옛 LMS 의 「본사명」 칸과는 다른 축이라(같은 대표지사명이
+           하나도 안 겹쳤다) 자유 입력 칸으로 둔다 — <select> 로 만들면 값 없는 <option>+
+           data-ko/data-en 조합이 i18n 언어 전환 때 .value 를 조용히 깨뜨리는 이 저장소의 문서화된
+           함정(mbr-tier 주석 참고)을 다시 밟는다. 사람이 직접 세 값 중 하나를 그대로 타이핑한다. */
+        try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN division TEXT;`); } catch { /* duplicate column — 정상 */ }
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
         try { await env.DB.exec(`ALTER TABLE admin_scope ADD COLUMN master_id INTEGER;`); } catch { /* duplicate column — 정상 */ }
       };
@@ -10084,9 +10090,9 @@ LIMIT $limit`;
             message: '로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
         }
         const r = await env.DB.prepare(
-          `INSERT INTO master_branches (name, region, tier, owner_name, phone, login_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO master_branches (name, region, tier, owner_name, phone, login_username, division, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null,
-               newMasterLoginUsername || null, now, now).run();
+               newMasterLoginUsername || null, String(b.division || '').trim() || null, now, now).run();
         const newMasterId = Number(r.meta.last_row_id);
         let masterLoginResult: 'created' | 'reset' | undefined;
         if (newMasterLoginUsername && newMasterLoginPassword) {
@@ -10160,6 +10166,7 @@ LIMIT $limit`;
         if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
         if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
         if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
+        if (has('division')) { sets.push('division = ?'); binds.push(String(b.division || '').trim() || null); }
         // 🔑 (2026-09-17) 비밀번호만 바꾸는 요청(다른 칸은 하나도 안 보냄)도 유효한 요청이다 —
         // sets 가 비어도 no_fields 로 막지 않는다(지사 PATCH 와 같은 규칙, 아래에서 처리).
         const wantsMasterPasswordAction = has('login_password') && String(b.login_password || '').length > 0;
