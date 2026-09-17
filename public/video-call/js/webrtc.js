@@ -1,126 +1,106 @@
-/**
- * webrtc.js – WebRTC 피어 연결 관리
- * 비트레이트 상한(F)/ICE 재시작(G)/적응형 화질 로직은 media-utils.js 로 분리(테스트 가능)
- */
-const peerConnections = new Map(); // peerId -> RTCPeerConnection
-// STUN + TURN(릴레이) 구성. media-utils.js 의 buildIceServers() 사용.
-// (까다로운 NAT/방화벽에서도 통화가 성사되도록 TURN 폴백 포함)
-// 기본은 정적 폴백. 입장 시 app.js 가 /api/turn-config 결과로 교체한다.
+/** WebRTC peer connection management — video-call-first recovery. */
+const peerConnections = new Map();
 var ICE_SERVERS = buildIceServers();
+const connectionHealth = new Map();
 
-// 현재 연결된 상대 수에 맞춰 모든 송신 화질을 재조정한다.
-// (입장으로 사람이 늘면 화질↓, 퇴장으로 줄면 화질↑ — 1:4 교사 업로드 병목 완화)
 function recapAllSenders() {
-  const peerCount = peerConnections.size; // 내가 영상을 보내는 상대 수
+  const peerCount = peerConnections.size;
   const mobile = isMobileUA(navigator.userAgent);
   peerConnections.forEach((pc) => capSenderBitrate(pc, mobile, peerCount));
 }
 
-// ── 기존 참가자 목록 수신 → 각각에게 Offer 전송 ──
-socket.on('existing-users', (users) => {
-  users.forEach(({ userId, username: name }) => {
-    createPeerConnection(userId, name, true);
-  });
-});
-
-// ── 새 참가자 입장 → Answer 준비 ──
-socket.on('user-joined', ({ userId, username: name }) => {
-  createPeerConnection(userId, name, false);
-});
-
-// ── Offer 수신 ──
+socket.on('existing-users', (users) => users.forEach(({ userId, username: name }) => createPeerConnection(userId, name, true)));
+socket.on('user-joined', ({ userId, username: name }) => createPeerConnection(userId, name, false));
 socket.on('offer', async ({ from, offer }) => {
   const pc = peerConnections.get(from) || createPeerConnection(from, '', false);
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
+  const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
   socket.emit('answer', { to: from, answer });
 });
-
-// ── Answer 수신 ──
-socket.on('answer', async ({ from, answer }) => {
-  const pc = peerConnections.get(from);
-  if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
-});
-
-// ── ICE Candidate 수신 ──
+socket.on('answer', async ({ from, answer }) => { const pc = peerConnections.get(from); if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer)); });
 socket.on('ice-candidate', async ({ from, candidate }) => {
   const pc = peerConnections.get(from);
-  if (pc && candidate) {
-    try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-    catch (e) { console.warn('ICE 후보 추가 실패:', e); }
-  }
+  if (pc && candidate) try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) { console.warn('ICE 후보 추가 실패:', e); }
 });
-
-// ── 참가자 퇴장 ──
 socket.on('user-left', ({ userId }) => {
-  const pc = peerConnections.get(userId);
-  if (pc) {
-    pc.close();
-    peerConnections.delete(userId);
-  }
-  const el = document.getElementById('video-' + userId);
-  if (el) el.remove();
-  // 사람이 줄었으니 남은 연결의 화질을 다시 올릴 수 있다.
-  recapAllSenders();
+  const pc = peerConnections.get(userId); if (pc) pc.close();
+  peerConnections.delete(userId); connectionHealth.delete(userId);
+  const el = document.getElementById('video-' + userId); if (el) el.remove(); recapAllSenders();
 });
 
-// ── 피어 연결 생성 ──
 function createPeerConnection(peerId, peerName, isInitiator) {
-  // [버그 C] 동일 peer 에 대해 PC 를 2개 만들면 영상 중복/협상 충돌(glare)이
-  // 난다. 이미 있으면 기존 연결을 재사용한다.
-  const existing = peerConnections.get(peerId);
-  if (existing) return existing;
-
-  const pc = new RTCPeerConnection(ICE_SERVERS);
-  peerConnections.set(peerId, pc);
-
-  // 로컬 트랙 추가
-  if (localStream) {
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-  }
-
-  // [버그 G] ICE 실패 시 자동 재시작
-  attachIceRestart(pc);
-
-  // [버그 F + 적응형] 현재 인원에 맞춰 모든 연결의 송신 화질을 재조정.
-  recapAllSenders();
-
-  // ICE 후보 전송
-  pc.onicecandidate = (event) => {
-    if (event.candidate) {
-      socket.emit('ice-candidate', { to: peerId, candidate: event.candidate });
-    }
+  const existing = peerConnections.get(peerId); if (existing) return existing;
+  const pc = new RTCPeerConnection(ICE_SERVERS); peerConnections.set(peerId, pc);
+  connectionHealth.set(peerId, { lastBytes: 0, lastProgress: Date.now(), recoveries: 0, timer: null });
+  if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  attachIceRestart(pc); recapAllSenders();
+  pc.onicecandidate = (event) => { if (event.candidate) socket.emit('ice-candidate', { to: peerId, candidate: event.candidate }); };
+  pc.onconnectionstatechange = () => {
+    logConnectionEvent(peerId, 'connection-state', { state: pc.connectionState, ice: pc.iceConnectionState });
+    if (pc.connectionState === 'failed') requestRecovery(peerId, pc, 'connection-failed');
   };
-
-  // 원격 트랙 수신 → 비디오 요소 생성
+  pc.oniceconnectionstatechange = () => {
+    logConnectionEvent(peerId, 'ice-state', { state: pc.iceConnectionState });
+    if (pc.iceConnectionState === 'failed') requestRecovery(peerId, pc, 'ice-failed');
+  };
   pc.ontrack = (event) => {
     let videoEl = document.getElementById('video-' + peerId);
     if (!videoEl) {
-      const grid = document.getElementById('video-grid');
-      const wrapper = document.createElement('div');
-      wrapper.className = 'video-item';
-      wrapper.id = 'video-' + peerId;
-      wrapper.innerHTML = `
-        <video autoplay playsinline></video>
-        <span class="video-label">${peerName || '참가자'}</span>
-      `;
-      grid.appendChild(wrapper);
-      videoEl = wrapper;
+      const grid = document.getElementById('video-grid'); const wrapper = document.createElement('div');
+      wrapper.className = 'video-item'; wrapper.id = 'video-' + peerId;
+      wrapper.innerHTML = `<video autoplay playsinline></video><span class="video-label">${peerName || '참가자'}</span>`;
+      grid.appendChild(wrapper); videoEl = wrapper;
     }
-    videoEl.querySelector('video').srcObject = event.streams[0];
+    const video = videoEl.querySelector('video'); video.srcObject = event.streams[0];
+    video.onplaying = () => { const h = connectionHealth.get(peerId); if (h) h.lastProgress = Date.now(); };
+    startBlackScreenWatch(peerId, pc, video);
   };
-
-  // Initiator → Offer 전송
-  if (isInitiator) {
-    pc.onnegotiationneeded = async () => {
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('offer', { to: peerId, offer });
-      } catch (e) { console.error('Offer 생성 실패:', e); }
-    };
-  }
-
+  if (isInitiator) pc.onnegotiationneeded = async () => {
+    try { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); socket.emit('offer', { to: peerId, offer }); }
+    catch (e) { console.error('Offer 생성 실패:', e); }
+  };
   return pc;
 }
+
+function startBlackScreenWatch(peerId, pc, video) {
+  const health = connectionHealth.get(peerId); if (!health || health.timer) return;
+  health.timer = setInterval(async () => {
+    if (!peerConnections.has(peerId) || pc.connectionState === 'closed') { clearInterval(health.timer); return; }
+    if (document.hidden || pc.connectionState !== 'connected') return;
+    try {
+      const stats = await pc.getStats(); let bytes = 0, packetsLost = 0, packetsReceived = 0, rtt = null, relay = false;
+      stats.forEach(r => {
+        if (r.type === 'inbound-rtp' && r.kind === 'video' && !r.isRemote) { bytes += r.bytesReceived || 0; packetsLost += r.packetsLost || 0; packetsReceived += r.packetsReceived || 0; }
+        if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime != null) rtt = Math.round(r.currentRoundTripTime * 1000);
+        if ((r.type === 'local-candidate' || r.type === 'remote-candidate') && r.candidateType === 'relay') relay = true;
+      });
+      if (bytes > health.lastBytes) { health.lastBytes = bytes; health.lastProgress = Date.now(); }
+      const stalledMs = Date.now() - health.lastProgress;
+      const visualStall = video.readyState < 2 || video.videoWidth === 0;
+      if (stalledMs >= 7000 && visualStall) requestRecovery(peerId, pc, 'black-screen-stall');
+      logConnectionEvent(peerId, 'quality', { rtt, packetsLost, packetsReceived, relay, stalledMs: Math.min(stalledMs, 60000) });
+    } catch (_) {}
+  }, 3000);
+}
+
+function requestRecovery(peerId, pc, reason) {
+  const health = connectionHealth.get(peerId); if (!health) return;
+  const now = Date.now(); if (health.lastRecovery && now - health.lastRecovery < 10000) return;
+  health.lastRecovery = now; health.recoveries++;
+  logConnectionEvent(peerId, 'recovery', { reason, attempt: health.recoveries });
+  try { pc.restartIce(); } catch (_) {}
+  // ICE restart re-runs candidate selection, allowing configured TURN relay candidates to win when direct routes fail.
+  if (pc.signalingState === 'stable') {
+    pc.createOffer({ iceRestart: true }).then(o => pc.setLocalDescription(o).then(() => socket.emit('offer', { to: peerId, offer: o }))).catch(() => {});
+  }
+}
+
+function logConnectionEvent(peerId, type, data) {
+  const entry = { ts: new Date().toISOString(), peerId, type, ...data };
+  window.__mangoConnectionLog = window.__mangoConnectionLog || [];
+  window.__mangoConnectionLog.push(entry); if (window.__mangoConnectionLog.length > 300) window.__mangoConnectionLog.shift();
+  if (type !== 'quality') console.info('[MangoAI connection]', entry);
+}
+
+window.MangoAI = window.MangoAI || {};
+window.MangoAI.getConnectionDiagnostics = () => (window.__mangoConnectionLog || []).slice();
