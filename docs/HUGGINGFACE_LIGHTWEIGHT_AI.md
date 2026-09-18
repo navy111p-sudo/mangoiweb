@@ -1,5 +1,30 @@
 # MangoAI Hugging Face lightweight AI
 
+## Deployment status and activation hold (2026-09-18 review)
+
+PR #1017 is merged, but its Node/Express files (`modules/`, root `public/`,
+`server.js`) are legacy, not the production Cloudflare application. Repository
+maintenance rules prohibit modifying or deploying that legacy application.
+The Cloudflare deployment does not demonstrate that Hugging Face is active.
+
+Do not enable this PoC or describe an AI-disabled call as an AI safety pass:
+- The legacy HTML requests `lightweight-ai.js`, while the file is `ai-lightweight.js`.
+- The legacy API lacks caller authentication and request limiting.
+- Unknown RTT is permitted, and recording/request overlap is not fully guarded.
+- #1017 also changes legacy WebRTC recovery code, despite its original description.
+
+Production integration is a separate change requiring authenticated internal-only
+access, a default-off flag, bounded requests, verified active-peer quality and
+recording cleanup. Never copy the legacy WebRTC recovery implementation into the
+production call path as part of enabling AI.
+
+Acceptance requires evidence of a real HF request and response first, followed by
+the same Korea–Philippines call with AI off / five short clips / AI off. Record
+audio interruptions, reconnects, RTT, interval packet loss and CPU/memory. Exercise
+AI timeout, unavailable service, repeat clicks and degraded call quality. Any
+reproducible AI-triggered call interruption blocks activation. These live tests
+have not been performed by this code review.
+
 ## Goal
 Add AI without putting the teacher/student WebRTC call at risk.
 
@@ -27,4 +52,6 @@ Add AI without putting the teacher/student WebRTC call at risk.
 5. Add post-class summaries only after pronunciation PoC is stable.
 
 ## Important
-This branch adds the isolated AI gateway and browser helper. It intentionally does not alter the live media path or automatically enable AI during calls.
+The sections above describe the PoC design, not verified production behavior.
+Production activation remains on hold until the missing controls and live-call
+acceptance checks are completed.

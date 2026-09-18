@@ -395,6 +395,71 @@ console.log('\n🎲 장소 다양화');
   }
 }
 
+/* 13. PR #1016 실제 클릭·재시도·이전 세션 콜백 회귀 */
+{
+  const g = boot(); g.click('btnStart'); g.click('scene');
+  check('그림 클릭으로 듣기가 시작된다', g.sr.made === 1 && g.win.recActive);
+  g.click('scene');
+  check('듣는 중 그림 연타는 인식을 중복 생성하지 않는다', g.sr.made === 1);
+  g.sr.last.say(g.win.G.steps[0].hints[2]);
+  g.click('scene'); g.clock.tick(300);
+  check('내레이션 중 그림 클릭도 다음 단계에서 듣기를 시작한다', g.win.G.i === 1 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart'); g.click('scene');
+  g.clock.tick(15000);
+  check('침묵 뒤 그림 클릭 안내가 복구된다', g.els.scene._cls.has('readyToSpeak'));
+}
+{
+  const g = boot(); g.click('btnStart'); g.click('micBtn');
+  const old = g.sr.last;
+  g.win.lose();
+  check('시간 종료 시 음성인식을 정리한다', old.stopped && !g.win.recActive);
+  g.click('btnAgain');
+  old.say(g.win.G.steps[0].hints[2]);
+  check('이전 판의 늦은 인식 결과는 새 판에 적용되지 않는다', g.win.G.utter === 0 && !g.win.G.busy);
+  g.click('scene');
+  check('재시작 후 새 마이크를 바로 열 수 있다', g.sr.made === 2 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart');
+  g.win.submitSaid(g.win.G.steps[0].hints[2]);
+  g.win.lose(); g.click('btnAgain'); g.clock.tick(6500);
+  check('이전 판의 단계 이동 타이머가 새 판을 건너뛰지 않는다', g.win.G.i === 0);
+}
+{
+  const g = boot(); g.click('btnStart');
+  for (let i = 1; i <= 3; i++) {
+    g.win.submitSaid('banana');
+    check('실패 '+i+'회 안내', i < 3 ? /Almost!/.test(g.txt('heard')) : /example below/.test(g.txt('heard')));
+  }
+  g.win.submitSaid(g.win.G.steps[0].hints[2]); g.clock.tick(6500);
+  g.win.submitSaid('banana');
+  check('다음 단계에서 재시도 횟수가 초기화된다', /Almost!/.test(g.txt('heard')) && g.win.G.stepWrong === 1);
+  const step = { accept: [['open', 'drawer']] };
+  check('한 글자 조각으로 정답을 통과하지 않는다', !g.win.matchStep('o d', step));
+  check('허용한 STT 오인식은 계속 통과한다', g.win.matchStep('open the draw', step));
+  check('정상 어형 변화도 통과한다', g.win.matchStep('opening the boxes', {accept:[['open','box']]}));
+}
+
+{
+  const g = boot(); let spoken = 0;
+  g.win.speechSynthesis.speak = () => { spoken++; };
+  g.click('btnStart'); g.click('scene');
+  await new Promise(resolve => setImmediate(resolve));
+  check('듣기 시작 후 늦게 실패한 TTS 요청이 예문을 재생하지 않는다', spoken === 0 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart');
+  let all = true;
+  for (const loc of g.win.LOCATIONS) {
+    for (const step of loc.build(g.win.G.code)) {
+      if (!g.win.matchStep(step.hints[2], step)) all = false;
+    }
+  }
+  check('6개 장소의 모든 예문은 정답으로 인정된다', all);
+}
+
 /* ══ 결과 ═══════════════════════════════════════════════════════════════ */
 console.log('\n' + '═'.repeat(60));
 if (fail === 0) console.log(`  ✅ PASS ${pass}    ⚠ FAIL 0   (총 ${pass})`);
