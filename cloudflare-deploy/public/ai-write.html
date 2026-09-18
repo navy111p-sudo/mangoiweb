@@ -467,6 +467,22 @@
       <div class="pic-hint" id="picHint" aria-live="polite"></div>
     </div>
 
+    <details class="go-card" id="sentenceCoach" open>
+      <summary class="go-title" data-ko="✏️ 한 문장부터 차근차근" data-en="✏️ Build your sentence step by step">✏️ 한 문장부터 차근차근</summary>
+      <p id="coachLevel" class="go-sub"></p>
+      <p id="coachFrame" style="font-weight:800;overflow-wrap:anywhere"></p>
+      <button type="button" class="topic-chip" id="coachUseFrame" data-ko="이 문장 틀로 시작" data-en="Start with this frame">이 문장 틀로 시작</button>
+      <button type="button" class="topic-chip" id="coachHint" aria-expanded="false" data-ko="예문 힌트 보기" data-en="Show example hint">예문 힌트 보기</button>
+      <p id="coachExample" hidden></p>
+      <label for="coachSentence" class="go-sub" style="display:block;margin-top:12px" data-ko="내 문장 — 빈칸을 영어로 채워 주세요" data-en="My sentence — replace the blanks in English">내 문장 — 빈칸을 영어로 채워 주세요</label>
+      <textarea id="coachSentence" rows="3" maxlength="500" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="A boy is ..."></textarea>
+      <p id="coachQuestion" aria-live="polite" class="go-sub"></p>
+      <button type="button" class="topic-chip" id="coachNext" data-ko="다음 확장 질문" data-en="Next expansion question">다음 확장 질문</button>
+      <button type="button" class="topic-chip" id="coachFromDraft" data-ko="내 글의 마지막 문장 가져오기" data-en="Bring in my last sentence">내 글의 마지막 문장 가져오기</button>
+      <button type="button" class="topic-chip" id="coachAdd" data-ko="내 글 끝에 추가" data-en="Append to my writing">내 글 끝에 추가</button>
+      <p id="coachStatus" role="status" class="go-sub"></p>
+    </details>
+
     <!-- 🎲 오늘의 글감 -->
     <div class="topic-row" id="topicRow">
       <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="🎲 오늘의 글감:" data-en="🎲 Today's topics:">🎲 오늘의 글감:</span>
@@ -862,6 +878,7 @@
       img.alt = (window.getLang && window.getLang() === 'en') ? (sc.altEn || sc.en) : (sc.altKo || sc.ko);
       img.src = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
       renderPicMotion(sc);
+      if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
       if (img.complete && img.naturalWidth) img.classList.add('on');
       const cap = document.getElementById('picCapTxt');
@@ -1080,8 +1097,73 @@
         document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentLevel = btn.dataset.level;
+        if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       };
     });
+
+    // Sentence practice stays separate from the student's writing until explicit append.
+    (function initSentenceCoach() {
+      const el = id => document.getElementById(id);
+      const box = el('coachSentence');
+      let step = 0, hint = false, lastAdded = '';
+      const tr = (ko, en) => window.getLang && window.getLang() === 'en' ? en : ko;
+      const questions = [
+        ['누가 무엇을 하고 있나요? 한 문장을 직접 써 보세요.', 'Who is doing what? Write one sentence yourself.'],
+        ['어디에서 하나요? 장소를 넣어 문장을 다시 써 보세요.', 'Where is it happening? Rewrite your sentence with a place.'],
+        ['누구와 함께 하나요? 함께하는 사람을 넣어 보세요.', 'Who is with them? Add who they are with.'],
+        ['어떤 기분일까요? 표정이나 행동을 보고 설명해 보세요.', 'How might they feel? Use clues from their face or actions.'],
+        ['왜 그럴까요? 상상한 이유는 생각이라는 점이 드러나게 써 보세요.', 'Why might this happen? Make clear when a reason is your own idea.'],
+        ['다음에는 무슨 일이 생길까요? 새로운 문장을 이어 보세요.', 'What might happen next? Continue with a new sentence.']
+      ];
+      function scene() { return PIC_SCENES[_picIdx] || {}; }
+      function frame() {
+        const example = scene().example || 'Someone is doing something.';
+        const m = example.match(/^(.+?\s(?:is|are))\s/);
+        const start = m ? m[1] : 'Someone is';
+        if (currentLevel === 'A1') return start + ' ____.';
+        if (currentLevel === 'A2') return start + ' ____ in ____.';
+        if (currentLevel === 'B1') return start + ' ____ because ____.';
+        if (currentLevel === 'B2') return 'While ____, ____.';
+        return 'The scene suggests ____; one possible explanation is ____.';
+      }
+      function refresh() {
+        el('coachLevel').textContent = tr('선택한 수준: ', 'Your level: ') + currentLevel + tr(' · 틀은 힌트예요. 내 생각으로 바꿔 써도 좋아요.', ' · The frame is a hint. You can write your own idea.');
+        el('coachFrame').textContent = frame();
+        el('coachExample').textContent = tr('동작 예문: ', 'Action example: ') + (scene().example || scene().starter || '');
+        el('coachExample').hidden = !hint;
+        el('coachHint').setAttribute('aria-expanded', String(hint));
+        el('coachQuestion').textContent = (step + 1) + '/6 · ' + tr(...questions[step]);
+      }
+      window.refreshSentenceCoach = function() { hint = false; refresh(); };
+      el('coachHint').onclick = function() { hint = !hint; refresh(); };
+      el('coachNext').onclick = function() { step = (step + 1) % questions.length; refresh(); box.focus(); };
+      function replacePractice(value) {
+        if (box.value.trim() && box.value !== value && !confirm(tr('연습 중인 문장을 바꿀까요? 아래 내 글은 그대로 유지됩니다.', 'Replace your practice sentence? Your writing below will stay unchanged.'))) return;
+        box.value = value; lastAdded = ''; el('coachStatus').textContent = ''; box.focus();
+      }
+      el('coachUseFrame').onclick = function() { replacePractice(frame()); };
+      el('coachFromDraft').onclick = function() {
+        const text = el('text').value.trim();
+        const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+        if (!sentences.length) { el('coachStatus').textContent = tr('아래 글쓰기 칸에 먼저 한 문장을 써 주세요.', 'Write a sentence in the writing box below first.'); return; }
+        replacePractice(sentences[sentences.length - 1].trim());
+      };
+      el('coachAdd').onclick = function() {
+        const value = box.value.trim();
+        if (!/[a-z]/i.test(value) || /[가-힣ㄱ-ㅎㅏ-ㅣ一-龯ぁ-ゟ゠-ヿ]/.test(value) || /_{2,}|\.{3}|…/.test(value)) {
+          el('coachStatus').textContent = tr('빈칸을 모두 채워 영어 문장으로 써 주세요.', 'Fill every blank and write your sentence in English.'); return;
+        }
+        const draft = el('text');
+        if (value === lastAdded || draft.value.trim().endsWith(value)) { el('coachStatus').textContent = tr('이미 추가한 문장이에요. 내용을 더해 바꿔 보세요.', 'This sentence is already added. Try expanding it.'); return; }
+        const next = draft.value + (draft.value && !/\s$/.test(draft.value) ? '\n' : '') + value;
+        if (next.length > 2000) { el('coachStatus').textContent = tr('글이 2,000자를 넘어요. 문장을 조금 줄여 주세요.', 'Your writing would exceed 2,000 characters. Please shorten it.'); return; }
+        draft.value = next; draft.dispatchEvent(new Event('input', { bubbles: true })); lastAdded = value;
+        el('coachStatus').textContent = tr('내 글 끝에 추가했어요. 기존 문장은 유지됩니다. 아래에서 읽고 다듬어 보세요.', 'Added to the end. Existing sentences are preserved. Read and revise your writing below.');
+      };
+      window.addEventListener('mangoi:langchange', function() { el('coachStatus').textContent = ''; refresh(); });
+      refresh();
+    })();
+
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
@@ -1939,3 +2021,4 @@
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>
+
