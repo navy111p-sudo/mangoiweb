@@ -8205,7 +8205,8 @@ function _addEnrollmentRow(prefill) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
   const dayChecks = '<div style="display:flex;gap:5px">' + dayCodes.map((c, i) =>
-    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:0 0 1px"/>' + dayLabels[i] + '</label>'
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer">' +
+      '<span>' + dayLabels[i] + '</span><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:3px 0 0"/></label>'
   ).join('') + '</div>';
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
@@ -19069,3 +19070,4 @@ window.recRestoreExpiredBulk = async function recRestoreExpiredBulk() {
     if (btn) btn.disabled = false;
   }
 };
+
