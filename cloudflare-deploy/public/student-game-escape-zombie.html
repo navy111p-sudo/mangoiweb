@@ -247,7 +247,7 @@ var ACTION_CLIPS={
   threat:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_901fa17d-1daf-4972-bb41-23173a5eac8a.mp4',
   door:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_6011861f-5814-41d5-b200-22385c1cd88b.mp4'
 };
-Object.keys(ACTION_CLIPS).forEach(function(k){ var v=document.createElement('video'); v.preload='metadata'; v.src=ACTION_CLIPS[k]; });
+if(document.createElement) Object.keys(ACTION_CLIPS).forEach(function(k){ var v=document.createElement('video'); v.preload='metadata'; v.src=ACTION_CLIPS[k]; });
 
 /* ════════════════════════════════════════════════════════════
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
@@ -415,7 +415,8 @@ function playActionClip(key,cb){
   function finish(){ if(done)return; done=true; clearTimeout(timer); v.classList.remove('show');
     setTimeout(function(){ try{v.pause(); v.removeAttribute('src'); v.load();}catch(_){} if(cb)cb(); },220); }
   v.onended=finish; v.onerror=finish; v.src=src; v.currentTime=0; v.classList.add('show');
-  var p=v.play(); if(p&&p.catch)p.catch(finish); timer=setTimeout(finish,5600);
+  if(typeof v.play!=='function'){ finish(); return; }
+  var p; try{ p=v.play(); }catch(_){ finish(); return; } if(p&&p.catch)p.catch(finish); timer=setTimeout(finish,5600);
 }
 function setScene(k,pos,size){
   var el=$('scene');
