@@ -692,7 +692,7 @@ function digitsOf(words){
   });
   return out;
 }
-var HEARD_AS={cabinet:['cabin','cabinet'],drawer:['draw','drawer'],painting:['picture','painting'],toolbox:['toolbox','tool'],scoreboard:['scoreboard','score'],computer:['computer','pc'],open:['open','opened','opening'],take:['take','get','grab','pick'],move:['move','remove'],look:['look','see','check'],read:['read','reed'],unlock:['unlock','open']};
+var HEARD_AS={book:['book','bookshelf','bookshelves'],shelf:['shelf','bookshelf','bookshelves'],cabinet:['cabin','cabinet'],drawer:['draw','drawer'],painting:['picture','painting'],toolbox:['toolbox','tool'],scoreboard:['scoreboard','score'],computer:['computer','pc'],open:['open','opened','opening'],take:['take','get','grab','pick'],move:['move','remove'],look:['look','see','check'],read:['read','reed'],unlock:['unlock','open']};
 function editDistance(a,b){var prev=[],cur=[],i,j;for(j=0;j<=b.length;j++)prev[j]=j;for(i=1;i<=a.length;i++){cur=[i];for(j=1;j<=b.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}return prev[b.length];}
 function keywordSeen(words,k){var variants=HEARD_AS[k]||[k];return variants.some(function(v){return words.some(function(x){
   if(x===v || x===v+'s' || x===v+'es' || x===v+'ed' || x===v+'ing')return true;

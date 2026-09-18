@@ -439,6 +439,8 @@ console.log('\n🎲 장소 다양화');
   const step = { accept: [['open', 'drawer']] };
   check('한 글자 조각으로 정답을 통과하지 않는다', !g.win.matchStep('o d', step));
   check('허용한 STT 오인식은 계속 통과한다', g.win.matchStep('open the draw', step));
+  check('책장이라는 정상 복합명사를 인정한다', ['Examine the bookshelf','Check the bookshelf','Read the bookshelf'].every(s => g.win.matchStep(s, {accept:[['examine','book'],['check','book'],['read','book']]})));
+  check('key와 keyboard를 혼동하지 않는다', !g.win.matchStep('take the keyboard', {accept:[['take','key']]}));
   check('정상 어형 변화도 통과한다', g.win.matchStep('opening the boxes', {accept:[['open','box']]}));
 }
 
