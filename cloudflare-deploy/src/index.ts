@@ -48,6 +48,7 @@ import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
+import { warmupGuidanceRule, parseSpeakingHelp } from './warmup-guidance';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
@@ -3181,6 +3182,7 @@ const warmupSystem = (friendName: string) => [
    끊긴다. ⚠️ 지연·비용은 «실제로 생성한 만큼» 만 늘어난다(상한은 «넘지 마라» 이지 «채워라» 가 아님).
    ⚠️ 「보통 답장이 몇 토큰인가」는 재지 않았다 — 재려면 배포 뒤 Workers 로그를 보아야 한다. */
 const WARMUP_MAX_TOKENS = 320;
+const WARMUP_HELP_TOKENS = 120; // Bounded help fields in the same response.
 const WARMUP_MAX_TURNS = 20;   // 저장할 최근 대화(사용자/AI) 최대 개수
 /* 🔴 2026-09-03 — 12(=6턴)에서 20(=10턴)으로 넓혔다. 벨잉글리시 원장님 제보
    「대화가 매끄럽게 이어지지 않는다」의 한 갈래 — 조금만 길어지면 앞 얘기를 잊는다.
@@ -4235,6 +4237,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
           중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
     sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
+    sys += '\n' + warmupGuidanceRule(body, ctxLang);
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4259,6 +4262,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
     let rawFix: any = null;
     let stagedFix: any = null;
+    let rawHelp: any = null, stagedHelp: any = null;
     /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
        「테스트 했는데 이전과 달라진게 없는데」(교정 카드 미표시) 제보를 고치는 회귀 수리라
        범위를 이 핸들러 안으로 한정했다. 다른 두 WARMUP_MODEL 호출(3662·4456행)은 안 건드린다
@@ -4274,7 +4278,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     let warmupEmpty = 0;
     let warmupRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: api-sales-hr.ts)
     const warmupAIOpts = (msgs: any[], temperature: number): any => {
-      const o: any = { messages: msgs, max_tokens: WARMUP_MAX_TOKENS, temperature };
+      const o: any = { messages: msgs, max_tokens: WARMUP_MAX_TOKENS + (body.guided === 1 ? WARMUP_HELP_TOKENS : 0), temperature };
       if (warmupRF) o.response_format = { type: 'json_object' };
       return o;
     };
@@ -4308,6 +4312,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
       const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
       stagedFix = parsed.fix;
+      stagedHelp = body.guided === 1 ? parseSpeakingHelp(r?.response ?? r?.result?.response ?? '', ctxLang) : null;
       /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
          보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.
          빈 응답은 이 저장소가 이미 아는 별개 현상이고 바로 아래에서 재시도한다. */
@@ -4318,7 +4323,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
        재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
        화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
-    const commitFix = () => { rawFix = stagedFix; };
+    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; };
     try {
       const result: any = await runWarmup(messages, 0.7);
       aiText = takeWarmupReply(result); commitFix();
@@ -4404,7 +4409,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
       /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
          「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
-      rawFix = null;
+      rawFix = null; rawHelp = null;
     }
 
     /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
@@ -4470,7 +4475,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          ⛔ 영어 정본을 중국어에 쓰지 말 것: 1·2단계에서 영어 «막혔을 때» 칩이 조건 없이 붙어
             중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
       answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
-      fix: showFix, repeat: offerRepeat,
+      fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
     }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });

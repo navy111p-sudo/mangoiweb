@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'cloudflare-deploy/public/warmup.html'
+      - 'cloudflare-deploy/public/js/warmup-guide.js'
+      - 'cloudflare-deploy/public/css/warmup-guide.css'
+      - 'cloudflare-deploy/public/video/warmup-scenes/**'
+      - 'cloudflare-deploy/src/warmup-guidance.ts'
       - 'test-harness/manual/warmup*'
       - 'test-harness/manual/_pw.mjs'
       - '.github/workflows/warmup-browser.yml'
@@ -29,6 +33,7 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: |
           node test-harness/manual/warmup-two-way-browser.mjs
+          node test-harness/manual/warmup-guided-browser.mjs
           python3 -m http.server 8931 --bind 127.0.0.1 --directory cloudflare-deploy/public > "$RUNNER_TEMP/warmup-http.log" 2>&1 &
           SERVER_PID=$!
           "$RUNNER_TEMP/warmup-browser/installed/chrome-linux/chrome" --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=9931 --no-sandbox --disable-dev-shm-usage --user-data-dir="$RUNNER_TEMP/warmup-cdp" about:blank > "$RUNNER_TEMP/warmup-chrome.log" 2>&1 &

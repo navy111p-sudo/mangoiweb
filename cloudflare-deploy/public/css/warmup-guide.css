@@ -1,0 +1,85 @@
+/* This page owns its layout; shared avatar and classroom styles stay unchanged. */
+body .wrap{max-width:940px;height:calc(100svh - 62px);min-height:520px;padding:12px 20px;gap:10px;box-sizing:border-box}
+body #tavatar-wrap{position:static;transform:none;margin:0;flex-direction:row;gap:10px;z-index:auto}
+body #tavatar-wrap #tavatar-ring{width:64px!important;height:80px!important;border-radius:16px;flex:none}
+body #tavatar-status{font-size:12px;max-width:150px;line-height:1.5}
+.wg-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.wg-progress{font-size:14px;color:#cbd5e1;text-align:right;line-height:1.6}
+.wg-progress strong{display:block;color:#f8fafc;font-size:19px}
+body .meta{padding:0;gap:6px}
+body .meta .chip.dim{display:none}
+.wg-card{background:#152746;border:1px solid #3b557b;border-radius:20px;padding:16px}
+.wg-card p{margin:6px 0 10px;line-height:1.5}
+.wg-card summary{cursor:pointer;font-weight:800;line-height:1.5}
+.wg-muted{color:#cbd5e1;font-size:14px}
+.wg-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.wg-choice{overflow:hidden;border:2px solid #39577c;border-radius:14px;background:#1b3458;color:#f8fafc;cursor:pointer;padding:0;font:inherit;text-align:left;min-width:0}
+.wg-choice img{display:block;width:100%;height:104px;object-fit:cover}
+.wg-choice span{display:block;padding:9px;font-size:14px;font-weight:700}
+.wg-choice[aria-pressed="true"]{border-color:#7dd3fc;background:#124b68}
+.wg-choice:hover{border-color:#7dd3fc}
+.wg-scene{margin:12px 0 0}
+.wg-scene img,.wg-scene video{width:100%;height:clamp(150px,25svh,230px);object-fit:contain;display:block;border-radius:12px;background:#0b192e}
+.wg-scene figcaption{margin-top:8px;font-size:14px;color:#cbd5e1}
+.wg-scene .wg-btn{margin-top:8px}
+#wgVideoNotice:empty{display:none}
+.wg-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.wg-btn{background:#223c61;border:1px solid #56759a;border-radius:12px;padding:10px 13px;color:#f8fafc;font:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}
+.wg-btn:hover{background:#30517d}
+.wg-btn:disabled{opacity:.55;cursor:default}
+.wg-btn-primary{background:#087a61;border-color:#40c9a5;color:white}
+.wg-btn-primary:hover{background:#086b55}
+.wg-btn:focus-visible,.wg-choice:focus-visible{outline:3px solid #fcd34d;outline-offset:3px}
+.wg-workspace{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:12px;padding:0 4px 6px 0}
+.wg-workspace>*{flex-shrink:0}
+body #log{flex:none;min-height:0;max-height:none;overflow:visible;padding:4px 0;gap:10px;scrollbar-gutter:auto}
+body #log .msg{max-width:95%;font-size:20px;animation:none}
+body #log .msg.ai{width:100%;max-width:100%;box-sizing:border-box}
+body #log:not(.wg-history-open) .wg-past{display:none}
+.wg-history-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wg-history-bar .wg-btn{font-size:13px;padding:7px 10px}
+.wg-help{border-left:3px solid #6ee7b7;background:#122e32;border-radius:12px;padding:12px 14px}
+.wg-help p{margin:0 0 10px;color:#e2f4ef;line-height:1.5}
+.wg-help-output{font-size:18px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.wg-help button{margin:8px 5px 0 0}
+.wg-composer{background:#12213e;border:1px solid #3b557b;border-radius:16px;padding:8px}
+body .inbar{border:0;padding:4px;background:transparent}
+body .inbar input{font-size:17px;padding:13px 12px;min-width:0}
+body .inbar button{min-width:48px;min-height:48px;padding:0 13px}
+body .hint{font-size:13px;padding:8px 5px 0;margin:0}
+body #listening{margin:0 4px 8px}
+body .qs-row{padding:0;gap:8px;justify-content:space-between}
+.wg-state{color:#bfe4ff;font-size:14px;line-height:1.5;margin:0 4px 8px;min-height:21px}
+body .after{max-width:940px;padding:0 20px 24px}
+.wg-summary{border:0;padding:0;width:min(580px,calc(100vw - 24px));max-height:90svh;border-radius:20px;color:#f8fafc;background:#162a48;box-shadow:0 24px 80px #0008}
+.wg-summary::backdrop{background:#071124c9}
+.wg-summary-inner{padding:22px}
+.wg-summary h2{margin:0 0 8px;font-size:23px}
+.wg-summary pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:15px;line-height:1.65;padding:14px;background:#0c1d36;border-radius:12px;max-height:45svh;overflow:auto}
+[hidden]{display:none!important}
+@media(max-width:640px){
+ body .wrap{padding:10px 12px 16px;height:calc(100svh - 56px);min-height:520px;gap:8px}
+ body #tavatar-wrap #tavatar-ring{width:44px!important;height:55px!important}
+ body #tavatar-status{font-size:11px;max-width:100px}
+ .wg-progress strong{font-size:16px}.wg-progress{font-size:12px}
+ .wg-card{padding:12px;border-radius:16px}.wg-choices{gap:7px}
+ .wg-choice img{height:76px}.wg-choice span{font-size:12px;padding:7px}
+ body #log .msg{font-size:18px;padding:12px}
+ body #log{max-height:none}
+ body .after{padding:0 12px 20px}
+ .wg-composer{flex-shrink:0}
+ .wg-header{align-items:center}.wg-scene img,.wg-scene video{height:170px}
+}
+@media(prefers-reduced-motion:reduce){body .wrap *,body .wrap *::after{animation:none!important;transition:none!important}}
+
+.wg-conversation{display:flex;flex-direction:column;gap:12px;min-width:0}
+.wg-visual{min-width:0}
+@media(min-width:900px){
+ .wg-workspace{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:18px;align-content:start}
+ .wg-choices{grid-template-columns:1fr}
+ .wg-choice{display:flex;align-items:center}
+ .wg-choice img{width:44%;height:66px;flex:none}
+ .wg-choice span{padding:10px}
+ .wg-scene img,.wg-scene video{height:200px}
+ .wg-history-bar{align-items:stretch}
+}

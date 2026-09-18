@@ -145,6 +145,7 @@
 
 | 함정 | 실제로 이렇습니다 |
 |---|---|
+| 수업 안 웜업 iframe을 숨겼는데 마이크가 계속 동작함 | 부모가 탭을 CSS로 숨기면 자식의 `visibilitychange`는 발생하지 않습니다. `warmup.html`은 같은 오리진 부모의 iframe 조상 표시 상태도 관찰하고, 웜업 STT·Whisper·TTS와 지연 콜백만 종료합니다. 다시 보일 때 마이크를 자동 재시작하지 않습니다. 회귀: `manual/warmup-guided-browser.mjs`의 embedded 검사. |
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
 | 배포 후 curl 검증 | 주소는 **`https://mangoi.ai`**(`test.mangoi.co.kr` 도 같은 Worker 라 둘 다 됩니다). `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
