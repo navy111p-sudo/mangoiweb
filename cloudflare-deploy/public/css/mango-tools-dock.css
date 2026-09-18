@@ -296,3 +296,40 @@ body.vc-in-call #tab-pdf .pdf-controls #pdf-zoom-info {
   #mango-class-time .mct-clock { font-size: 14px !important; line-height: 1 !important; }
   #mango-rec-badge .mango-rec-stop { font-size: 13px !important; line-height: 1 !important; }
 }
+
+/* Portrait: the visible call view and explicit dock state also cover the
+ * interval before vc-in-call / the deferred dock script have initialized.
+ * Never expose both toolbars underneath the textbook during that interval. */
+@media (max-width: 920px) and (orientation: portrait) {
+  body:has(#view-videocall-call.active) #ph50-chip-row,
+  body:has(#view-videocall-call.active) .hero-chip {
+    display: none !important;
+  }
+  #view-videocall-call #tab-pdf .pdf-controls[data-mango-dock-open="false"],
+  #view-videocall-call #tab-pdf .pdf-anno-bar[data-mango-dock-open="false"] {
+    display: none !important;
+  }
+  #view-videocall-call #tab-pdf .pdf-controls[data-mango-dock-open="true"],
+  #view-videocall-call #tab-pdf .pdf-anno-bar[data-mango-dock-open="true"],
+  #view-videocall-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open {
+    position: fixed !important;
+    left: var(--mango-dock-left, 8px) !important;
+    top: var(--mango-dock-top, 64px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    box-sizing: border-box !important;
+    width: min(300px, calc(100vw - 16px)) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: min(55dvh, calc(100dvh - var(--mango-dock-top, 64px) - 88px)) !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    background: #172033 !important;
+    padding: 10px !important;
+    margin: 0 !important;
+    z-index: 99994 !important;
+  }
+}
