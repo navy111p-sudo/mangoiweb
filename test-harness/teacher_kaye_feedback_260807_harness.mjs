@@ -66,7 +66,9 @@ console.log('\n[0] 역할 확정 — 로비 입장 강사도 강사로 인식되
         글자로 찾았다. 그런데 그 조건문 자체가 버그였다 — 한 번 강사였던 창은 계정이 바뀌어도
         영영 강사로 남았다(Teacher Ana ① 「먼저 들어온 학생이 강사가 된다」).
         고치자 이 하네스가 깨졌다. 검사를 «그 글자» 가 아니라 «규칙» 으로 다시 쓴다. */
+  const normalize = slice(html, 'window.vcNormalizeClassRole = function(raw)', '\n\nfunction vcIsTeacherRole()');
   const blk = slice(html, 'if (!window.__vcRoleFromUrl) {', '\n    } catch (_) {}');
+  check('역할 정규화 정본을 찾았다', normalize.length > 100);
   check('역할 판정 블록을 찾았다', blk.length > 100);
   if (blk.length > 100) {
     const run = (accountRole, name, stored) => {
@@ -84,6 +86,7 @@ console.log('\n[0] 역할 확정 — 로비 입장 강사도 강사로 인식되
       sandbox.vcRoleStored = () => storedRole;
       sandbox.vcRoleRemember = (r) => { storedRole = r; };
       vm.createContext(sandbox);
+      vm.runInContext(normalize, sandbox, { timeout: 2000 });
       vm.runInContext('try {\n' + blk + '\n} catch (_) {}', sandbox, { timeout: 2000 });
       return sandbox.window.vcMyRole;
     };
