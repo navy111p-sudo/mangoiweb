@@ -9,10 +9,11 @@
 
 // ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
+import { forbiddenTeacherBody } from './forbidden-teacher';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
 import { entryWindow, canEnterNow, enterBlockedMsg, nextStartAfter } from './class-entry-window';  // 🚪 「문을 열어 줄 것인가」 정본 («수업 시간인가» 와 별개)
@@ -3970,6 +3971,12 @@ ${numbered}`;
     {
       const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/contact$/);
       if (m && method === 'PATCH') {
+        // Student contact/password edits must reject teacher sessions before any DB writes.
+        const actor = await getAdminActor(request, env as any);
+        if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        if (actor.isTeacher) return json(forbiddenTeacherBody(actor,
+          '강사 권한으로는 학생 정보를 수정할 수 없습니다.',
+          'Teachers cannot edit student contact details or passwords.'), 403);
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         const b = await parseJsonBody(request);
@@ -5290,3 +5297,4 @@ ${numbered}`;
     return json({ ok: false, error: e?.message || 'mango_api_unhandled' }, 500);
   }
 }
+
