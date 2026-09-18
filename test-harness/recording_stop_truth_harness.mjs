@@ -45,8 +45,8 @@ const recR2 = read('cloudflare-deploy/src/recordings-r2.ts');
 console.log('① /api/recordings/stop 의 UPDATE 문을 소스에서 찾는다');
 const stopIdx = apiMango.indexOf("path === '/api/recordings/stop'");
 check('/api/recordings/stop 핸들러가 있다', stopIdx > 0);
-const stopBlock = apiMango.slice(stopIdx, stopIdx + 6000);
-const sqlMatch = /`(UPDATE recordings[\s\S]*?WHERE id = \?)`/.exec(stopBlock);
+const stopBlock = apiMango.slice(stopIdx, apiMango.indexOf("if (path === '/api/recordings' && method === 'GET')", stopIdx));
+const sqlMatch = [...stopBlock.matchAll(/`(UPDATE recordings[\s\S]*?WHERE id = \?)`/g)].find(m => /status = CASE/.test(m[1]));
 check('UPDATE 문을 오려 냈다', !!sqlMatch);
 if (!sqlMatch) { console.log(`\n💥 FAIL ${FAIL}`); process.exit(1); }
 const SQL = sqlMatch[1];
@@ -186,7 +186,7 @@ console.log('\n⑧ 업로드 실패도 «잃은 크기» 를 남기는가 (진�
         db2.exec(`DELETE FROM recordings`);
         db2.prepare(`INSERT INTO recordings (id, file_url, status, storage, duration_ms, size_bytes)
                      VALUES (1,'rec/r/1.webm',?, 'r2', ?, ?)`).run(before, prevDur, prevSize);
-        db2.prepare(FSQL).run(1757000000000, sentDur, sentSize, 1);
+        db2.prepare(FSQL).run('upload_failed', 'r2_failed', 1757000000000, sentDur, sentSize, 1);
         return db2.prepare(`SELECT status, ended_at, duration_ms, size_bytes FROM recordings WHERE id = 1`).get();
       } catch (e) {
         return { status: 'SQL_ERR:' + (e && e.message), ended_at: 0, duration_ms: -1, size_bytes: -1 };
@@ -214,7 +214,7 @@ console.log('\n⑧ 업로드 실패도 «잃은 크기» 를 남기는가 (진�
     check(`전제 확인: SQL 만으로는 못 막는다 — 문자열 "0" 은 MAX() 를 뚫는다 (실측 duration=${e2.duration_ms})`,
       Number(e2.duration_ms) === 0);
     check('그래서 «바인드 전에» Number 로 강제한다 (recordings-r2.ts)',
-      /\.bind\(now, Math\.max\(0, Number\(b\.duration_ms\) \|\| 0\), Math\.max\(0, Number\(b\.size_bytes\) \|\| 0\), b\.recording_id\)/.test(failBlock));
+      /now, Math\.max\(0, Number\(b\.duration_ms\) \|\| 0\), Math\.max\(0, Number\(b\.size_bytes\) \|\| 0\), b\.recording_id\)/.test(failBlock));
 
     // 이미 완료·삭제된 행은 건드리지 않는다
     const c2 = runFail('completed', 613000, 4537345, 0, 0);

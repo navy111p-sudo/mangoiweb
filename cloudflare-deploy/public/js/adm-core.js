@@ -1046,6 +1046,8 @@ async function loadRecordings() {
       id: r.id,         // D1 recordings.id — Phase 4 삭제/복원 PATCH 에 필요
       source,           // 'both' | 'd1only' | 'orphan'
       startedAt: r.started_at || 0,
+      endedAt: r.ended_at || 0,
+      storage: r.storage || '',
       room_id: r.room_id,
       /* 🧑‍🏫 교사 (2026-09-04) — 서버(/api/recordings)가 예약→원부→계정을 타고 풀어 준다.
          ⛔ `r.teacher_name || r.teacher_id` 로 되돌리지 말 것 — 앞의 것은 «방을 먼저 켠 사람»
@@ -1180,6 +1182,25 @@ function renderRecordingsPagination() {
   next.disabled = _recOffset + _recLimit >= _recTotal;
 }
 
+function recPendingLabel(r, lang) {
+  const en = lang === 'en';
+  if (r.endedAt > 0) return en ? 'Finishing save' : '저장 마무리 중';
+  if (r.startedAt > 0 && Date.now() - r.startedAt >= 4 * 3600000)
+    return en ? 'Status needs checking' : '종료 확인 필요';
+  return en ? 'Recording' : '녹화중';
+}
+
+// Refresh pending rows only while the recordings table is visible.
+let _recRefreshBusy = false;
+setInterval(function () {
+  const card = document.getElementById('card-recording-storage');
+  const table = document.getElementById('rec-table-wrap');
+  if (_recRefreshBusy || document.visibilityState !== 'visible' || !card || !card.getClientRects().length ||
+      !table || !table.getClientRects().length || !_unifiedRecRows.some(r => r.status === 'recording')) return;
+  _recRefreshBusy = true;
+  loadRecordings().finally(() => { _recRefreshBusy = false; });
+}, 60000);
+
 function renderRecordingsTable() {
   const tb = document.getElementById('recordings-table');
   const rows = _unifiedRecRows || [];
@@ -1257,8 +1278,8 @@ function renderRecordingsTable() {
     // 상태 배지 — 파스텔 대신 진한 단색 필 + 흰 글씨로 한눈에 보이게
     const badgeBase = 'display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;line-height:1.4;white-space:nowrap;';
     let statusBadge;
-    if (r.status === 'completed')      statusBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;">'+(adminLang==='en'?'Done':'완료')+'</span>';
-    else if (r.status === 'recording') statusBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;">'+(adminLang==='en'?'● Recording':'● 녹화중')+'</span>';
+    if (r.status === 'completed')      statusBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;">'+(r.storage === 'r2_snapshot' ? (adminLang==='en'?'Partial recovery':'임시본 복구') : (adminLang==='en'?'Done':'완료'))+'</span>';
+    else if (r.status === 'recording') statusBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;">'+recPendingLabel(r, adminLang)+'</span>';
     /* 2026-08-28 — 같은 줄의 저장소 배지·재생 칸은 회색(사고 아님)인데 여기만 빨강이라
        한 줄이 서로 다른 말을 했다. 색과 말을 맞춘다. */
     else if (r.status === 'deleted')   statusBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간이 지났거나 관리자가 목록에서 내린 녹화입니다.">'+(adminLang==='en'?'Off the list':'목록에서 내림')+'</span>';
@@ -1271,7 +1292,7 @@ function renderRecordingsTable() {
 
     // 스토리지 배지 (D1=메타데이터 DB, R2=파일 저장소) — 진한 단색 필로 판독성 확보
     let storageBadge;
-    if (r.source === 'both')         storageBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;" title="영상 파일과 기록 모두 정상">'+(adminLang==='en'?'✔ Healthy':'✔ 정상')+'</span>';
+    if (r.source === 'both')         storageBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;" title="'+(r.storage === 'r2_snapshot' ? (adminLang==='en'?'Recovered snapshot; the full lesson may not be present.':'임시 저장본입니다. 수업 전체가 담기지 않았을 수 있습니다.') : '영상 파일과 기록 모두 정상')+'">'+(r.storage === 'r2_snapshot' ? (adminLang==='en'?'Partial video':'부분 영상') : (adminLang==='en'?'✔ Healthy':'✔ 정상'))+'</span>';
     else if (r.source === 'd1only') {
       /* 🔴 2026-08-28 — 「⚠ 영상 없음」도 위 재생 칸과 같은 병을 앓고 있었다. 파일이 없는
          이유가 «사고» 인지 «규정대로 지운 것» 인지 가리지 않아, 보관만료분까지 경고색으로
@@ -1281,7 +1302,7 @@ function renderRecordingsTable() {
       else if (r.status === 'upload_failed')
         storageBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다. 다시 올라오지 않습니다.">'+(adminLang==='en'?'⚠ Save failed':'⚠ 저장 실패')+'</span>';
       else if (r.status === 'recording')
-        storageBadge = '<span style="'+badgeBase+'background:#b45309;color:#fff;" title="아직 녹화 중이라 파일이 없는 것이 정상입니다. 수업이 끝나면 올라갑니다.">'+(adminLang==='en'?'Uploading later':'수업 중')+'</span>';
+        storageBadge = '<span style="'+badgeBase+'background:#b45309;color:#fff;" title="'+(adminLang==='en'?'A completed video has not been confirmed.':'완성된 영상 파일을 아직 확인하지 못했습니다.')+'">'+recPendingLabel(r, adminLang)+'</span>';
       else if (r.status === 'aborted')
         storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="찍힌 것이 없어 올릴 파일도 없습니다(들어왔다 바로 나감). 사고가 아닙니다.">'+(adminLang==='en'?'Nothing to store':'저장할 것 없음')+'</span>';
       else
@@ -1344,8 +1365,8 @@ function renderRecordingsTable() {
       var _pL = (adminLang === 'en');
       var pend;
       if (r.status === 'recording')
-        pend = { t: _pL ? 'Recording' : '녹화중', c: '#b45309',
-                 h: _pL ? 'Still recording. It is uploaded when the class ends.' : '아직 녹화 중입니다. 수업이 끝나면 올라갑니다.' };
+        pend = { t: recPendingLabel(r, adminLang), c: '#b45309',
+                 h: _pL ? 'A completed video has not been confirmed.' : '완성된 영상 파일을 아직 확인하지 못했습니다.' };
       else if (r.status === 'upload_failed')
         pend = { t: _pL ? 'Save failed' : '저장 실패', c: '#b42318',
                  h: _pL ? 'Upload failed - the video is not in the cloud and will NOT arrive later. There is nothing to wait for.' : '업로드가 실패해 클라우드에 영상이 없습니다. 나중에도 올라오지 않습니다 — 기다릴 것이 없습니다.' };
