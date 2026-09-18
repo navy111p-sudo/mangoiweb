@@ -3119,6 +3119,42 @@ button.chip:hover,
   #legacy-cards .rbac-hide,
   .rbac-hide { display: none !important; }
 
+  /* ═══ 🗂️ 카드 안 손자 폼은 실제로 접힌다 (2026-09-18) ═══════════════════════════
+     사장님 제보 「대리점을 누르면 등록/검색/목록이 한 번에 다 나와서 스크롤만 하면
+     다 보인다 — 메뉴 하나당 하나만 노출되게. 대리점만이 아니라 모든 메뉴」.
+     원인은 위 «카드들 보이게» 복구 규칙(#legacy-cards details{display:block!important},
+     3038·3084행)이 #legacy-cards 안의 «모든» <details> 를 open 속성과 무관하게 강제로
+     펴기 때문이다 — 「+ 대리점(학원) 신규 등록」처럼 원래 접혀 있어야 할 details(ct-form-
+     wrap 등)가 늘 펼쳐진 채로 보인다.
+
+     ⛔ 그 복구 규칙 자체는 지우지 않는다(위 3107행 경고와 같은 이유 — ph87 이 legacy-cards
+        를 통째로 숨겼던 사고의 재발 방지책이다).
+     ✅ 그래서 사이드바 레벨1(.sub-item)의 «본문»(.sub-body) «안에 있는» details 에만
+        특정도를 더 높여 native open/closed 를 실제로 존중하게 되돌린다:
+          #legacy-cards .sub-body details:not([open]) → 특정도 (1,2,1) > 복구 규칙 (1,0,1)
+        .rbac-hide 가 감추는 레벨0(.menu-card)·레벨1(.sub-item) 자체는 .sub-body «밖» 이라
+        이 규칙과 특정도 경쟁을 하지 않는다 — 역할별 카드 숨김에 영향 없음.
+
+     ⚠️ .sub-body 안에 details 가 «둘 이상» 인 곳은 87곳 중 5곳뿐이고(2026-09-18 조사),
+        그중 3곳(대표지사·지사·강사의 「등록 폼 vs 엑셀 일괄 등록」)은 이 규칙이 정확히
+        의도한 대로 작동한다 — 둘 다 원래 닫혀 있던 폼이라 기본이 둘 다 닫힘이 된다.
+        나머지 2곳(가맹점 정산의 「수수료 설정+상세표」·「배정 못 한 결제/B2B/지출분류
+        3종 할일 목록」)은 직원이 «동시에» 열어 두고 대조·처리하는 화면이라, admin.html
+        본문에서 그 details 들에 open 속성을 그대로 살려 두었다(예: acc-payer-box) —
+        그래서 이 규칙 아래에서도 기존처럼 기본이 열림이다. ⛔ 그 open 속성을 지우지 말 것.
+     ⚠️ 형제 details 를 자동으로 닫는 JS 로직은 «넣지 않는다» — 위 예외 2곳처럼 여러
+        details 를 동시에 열어 둬야 하는 화면이 있어, 하나가 열리면 남을 강제로 닫으면
+        그 업무 흐름이 깨진다. 여기서는 «닫혀 있던 것이 열리면 보인다» 만 되돌리고,
+        기본값(열림/닫힘)은 admin.html 이 각 details 에 open 속성을 붙였는지로 정해진다.
+     ⚠️ 검색창·목록 표처럼 <details> 가 아닌(data-gc 만 붙은) 요소는 이 규칙과 무관하다 —
+        대리점의 「🔎 검색」이 「🏪 목록」표를 필터링하는 짝이라, 둘을 따로 접었다 펴면
+        검색 결과를 볼 수 없게 된다(기능 회귀). 그래서 둘은 손대지 않고 그대로 함께
+        보인다 — 「메뉴 하나당 하나만」은 «접고 펴는 details» 에만 적용한다.
+     미디어쿼리 밖에 둔다 — 모바일(<1024px)은 원래 이 강제 규칙이 없어(위 두 복구 규칙이
+     전부 min-width:1024px 안에만 있음) 이 규칙이 native 동작과 같은 값을 내려 무해하다. */
+  #legacy-cards .sub-body details[open] { display: block !important; }
+  #legacy-cards .sub-body details:not([open]) { display: none !important; }
+
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
   #legacy-cards details, #legacy-cards .table-card {
