@@ -96,20 +96,21 @@ function boot() {
   clock.hasDelayNear = (target, tol) => clock.delays.some(d => Math.abs(d - target) <= (tol == null ? 400 : tol));
 
   /* 가짜 DOM — 이 화면은 getElementById 로만 요소를 만진다 */
-  const els = {};
+  const els = {}; let dynSeq = 0;
   const mkEl = id => ({
-    id, textContent: '', innerHTML: '', value: '', style: {}, _cls: new Set(), _on: {},
+    id, textContent: '', innerHTML: '', value: '', style: {}, _cls: new Set(), _on: {}, children: [],
     classList: {
       add(c) { els[id]._cls.add(c); }, remove(c) { els[id]._cls.delete(c); },
       contains(c) { return els[id]._cls.has(c); },
       toggle(c, on) { if (on === undefined) on = !els[id]._cls.has(c); on ? els[id]._cls.add(c) : els[id]._cls.delete(c); },
     },
     addEventListener(ev, fn) { (els[id]._on[ev] = els[id]._on[ev] || []).push(fn); },
+    appendChild(ch) { this.children.push(ch); }, setAttribute() {},
     focus() {}, offsetWidth: 1,
   });
   ['scene','vig','flash','utterN','utterOk','timeVal','goalTxt','goalKo','heard','micBtn','hintBtn',
    'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain',
-   'noteCard','noteEn','noteKo','eventMsg']
+   'noteCard','noteEn','noteKo','eventMsg','exploreZone','comboHud']
     .forEach(id => { els[id] = mkEl(id); });
   const click = id => (els[id]._on.click || []).forEach(fn => fn.call(els[id], {}));
   const txt = id => (els[id].innerHTML || els[id].textContent || '').replace(/<[^>]*>/g, '');
@@ -148,12 +149,31 @@ function boot() {
     navigator: { sendBeacon: () => true },
     FileReader: function () { this.readAsDataURL = () => {}; },
     addEventListener() {}, MangoiSTT: undefined,
-    document: { getElementById: id => els[id] || (els[id] = mkEl(id)), activeElement: null },
+    document: { getElementById: id => els[id] || (els[id] = mkEl(id)),
+      createElement: tag => { const id='dyn'+(++dynSeq); return (els[id]=mkEl(id)); }, activeElement: null },
   };
   win.window = win;
   vm.createContext(win);
   vm.runInContext(code, win, { filename: 'student-game-escape-voice.html' });
   return { win, els, click, txt, sr, clock };
+}
+
+/* ══ 2-1. 새 탐색 물건 선택 UI ═══════════════════════════════════════════ */
+{
+  const g = boot(); g.click('btnStart');
+  const buttons = g.els.exploreZone.children;
+  check('단계마다 탐색 물건 3개를 만든다', buttons.length === 3, 'count=' + buttons.length);
+  const step = g.win.G.steps[0];
+  const target = g.win.stepObject(step);
+  const correctLabel = g.win.OBJECT_LABELS[target] || target;
+  const correct = buttons.find(b => b.textContent.includes(correctLabel));
+  const wrong = buttons.find(b => b !== correct);
+  if (wrong) (wrong._on.click || []).forEach(fn => fn({ stopPropagation() {} }));
+  check('잘못된 물건은 진행시키지 않고 Nothing is here를 보여준다',
+    g.win.G.utterOk === 0 && /Nothing is here/.test(g.txt('heard')), g.txt('heard'));
+  if (correct) (correct._on.click || []).forEach(fn => fn({ stopPropagation() {} }));
+  check('올바른 물건은 말할 영어 예문을 보여준다',
+    /Say this|이렇게 말해보세요/.test(g.txt('hint')), g.txt('hint'));
 }
 
 /* ══ 3. 마이크 대기시간 — 이번 결함의 핵심 ════════════════════════════════ */
