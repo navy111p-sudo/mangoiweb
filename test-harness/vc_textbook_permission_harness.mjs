@@ -53,7 +53,7 @@ const role = body(js, 'function vcIsTeacherRole()', 'window.vcIsStaffNow');
 check('vcIsTeacherRole 을 찾았다', role.length > 300);
 
 /* 재발 방지 핵심: 역할 별칭을 여러 곳의 정규식으로 복사하지 않고 한 함수에서만 정한다. */
-const normalizeSrc = body(js, 'window.vcNormalizeClassRole = function(raw)', '\n};');
+const normalizeSrc = body(js, 'window.vcNormalizeClassRole = function(raw)', '\n\nfunction vcIsTeacherRole()');
 let normalizeRole = null;
 try {
   const win = {};
