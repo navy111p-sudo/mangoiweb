@@ -2629,8 +2629,9 @@ async function vcJoinRoom(skipUI) {
            ② 관리자 세션이 없으면 이 블록은 아무것도 바꾸지 않는다 = 기존과 100% 동일. */
         var _admUid = '';
         try { _admUid = String((JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || '').trim(); } catch (_) {}
-        if (/teacher|tutor|instructor|교사|강사/.test(_rr)) window.vcMyRole = 'teacher';
-        else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
+        var _normalizedRole = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(_rr) : '';
+        if (_normalizedRole === 'teacher') window.vcMyRole = 'teacher';
+        else if (_normalizedRole === 'admin') window.vcMyRole = 'admin';
         else if (_rr) {
           window.vcMyRole = 'student';
           if (_admUid) {
@@ -5634,6 +5635,25 @@ function vcAddRemoteVideo(userId, username, stream) {
 // 🔧 (2026-07-05) 강사 판별 강화 — 로그인 role 뿐 아니라 URL 파라미터(vc_role), localStorage,
 //   MangoV3, 그리고 자동입장처럼 로그인이 없을 때를 대비해 '이름 휴리스틱(교사/강사/선생님/teacher)'
 //   까지 함께 본다. 하나라도 강사로 판단되면 강사 UI(별 버튼)를 보여준다.
+/* 🎭 수업 역할 정규화의 단일 정본.
+   화면 노출·교재 제어·WebSocket join-room 이 반드시 같은 답을 쓰게 한다.
+   부분 문자열 정규식은 student_teacher 같은 값을 강사로 올릴 수 있어 명시 목록만 허용한다. */
+window.vcNormalizeClassRole = function(raw){
+    try {
+        var r = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\\s-]+/g, '_');
+        var teachers = {
+            teacher:1, tutor:1, instructor:1, '교사':1, '강사':1,
+            hq_teacher:1, head_teacher:1, english_teacher:1, chinese_teacher:1,
+            foreign_teacher:1, native_teacher:1
+        };
+        var admins = { admin:1, hq:1, hq_admin:1 };
+        if (teachers[r]) return 'teacher';
+        if (admins[r]) return 'admin';
+        if (r === 'student' || r === 'observer') return r;
+    } catch(_){}
+    return '';
+};
+
 function vcIsTeacherRole(){
     try {
         var r = '';
@@ -5644,7 +5664,8 @@ function vcIsTeacherRole(){
         if (!r) { try { r = window.vcRoleStored ? window.vcRoleStored() : ''; } catch(e){} }
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
-        if (/teacher|tutor|instructor|교사|강사/.test(String(r).toLowerCase()) || r === 'admin') return true;
+        var _nr = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(r) : '';
+        if (_nr === 'teacher' || _nr === 'admin') return true;
         /* 🚫 (2026-08-12 Melca 6번 「학생 화면에 자물쇠 아이콘이 보인다」)
            역할이 **이미 정해져 있으면** 이름 추측을 쓰지 않는다.
            이름 휴리스틱은 «아무 정보도 없을 때» 쓰는 마지막 수단인데, 아래 두 경우에
