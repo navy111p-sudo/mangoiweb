@@ -31,6 +31,9 @@
   #vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
   #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
+  #sceneVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3;
+    opacity:0;pointer-events:none;background:#07090c;transition:opacity .18s}
+  #sceneVideo.show{opacity:1}
   /* 쪽지 카드 — 서랍/책 속 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
   #noteCard{position:absolute;left:50%;top:44%;z-index:15;width:min(78%,320px);
     transform:translate(-50%,-50%) rotate(-3deg) scale(.85);opacity:0;pointer-events:none;
@@ -186,6 +189,7 @@
 <body>
 <div id="wrap">
   <div id="scene"></div>
+  <video id="sceneVideo" muted playsinline preload="none" aria-hidden="true"></video>
   <div id="vig"></div>
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
@@ -279,6 +283,15 @@ var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
              playground:'/img/escape-loc-playground.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+/* Higgsfield 4초 반응 영상 — 실패·저속 환경에서는 기존 정지 이미지/효과가 그대로 동작한다. */
+var ACTION_CLIPS={
+  intro:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d8b0fd58-a8bf-4eb4-955e-52556a0b620e.mp4',
+  drawer:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_9f5e7319-ce9f-43be-b324-dedf018d3374.mp4',
+  books:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_b8d6689c-fcfe-43c8-95fe-74fcaf73cb2a.mp4',
+  safe:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_572eacd6-6774-4b00-a8af-9fe0b3b5c9b1.mp4',
+  tension:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_9156ef72-c44a-470f-8246-553bdab25dea.mp4',
+  escape:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d0c881f5-8870-45ee-a5d1-6de08ee53626.mp4'
+};
 
 /* ════════════════════════════════════════════════════════════
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
@@ -661,6 +674,24 @@ function setScene(k,pos,size){
   el.style.backgroundPosition=pos||'center';
   el.style.backgroundSize=size||'cover';
 }
+var _clipTimer=null,_clipEpoch=0;
+function stopActionClip(){
+  _clipEpoch++; clearTimeout(_clipTimer); _clipTimer=null;
+  var v=$('sceneVideo'); if(!v)return;
+  try{v.pause();v.removeAttribute('src');v.load();}catch(_){}
+  v.classList.remove('show');
+}
+function playActionClip(kind){
+  var v=$('sceneVideo'),url=ACTION_CLIPS[kind]; if(!v||!url||typeof v.play!=='function')return false;
+  stopActionClip(); var epoch=_clipEpoch;
+  function done(){if(epoch!==_clipEpoch)return;clearTimeout(_clipTimer);v.classList.remove('show');try{v.pause();}catch(_){}}
+  try{
+    v.muted=true;v.playsInline=true;v.src=url;v.currentTime=0;v.classList.add('show');
+    v.onended=done;v.onerror=done;
+    var p=v.play();if(p&&p.catch)p.catch(done);
+    _clipTimer=setTimeout(done,4800);return true;
+  }catch(_){done();return false;}
+}
 function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko; }
 function heard(html){ $('heard').innerHTML=html||''; }
 function hintTxt(html){ $('hint').innerHTML=html||''; }
@@ -713,7 +744,7 @@ function fireMidEvent(){
   var ev=MID_EVENTS[Math.floor(Math.random()*MID_EVENTS.length)];
   if(ev.flicker){ var sc=$('scene'); sc.classList.add('flicker');
     setTimeout(function(){ sc.classList.remove('flicker'); },950); }
-  ev.sfx();
+  ev.sfx(); playActionClip('tension');
   var m=$('eventMsg');
   m.innerHTML='<div class="eEn">⚡ '+ev.en+'</div><div class="eKo">⚡ '+ev.ko+'</div>';
   m.classList.add('show');
@@ -808,6 +839,8 @@ function advance(){
   if(G.combo===3){G.t=Math.min(TIME_LIMIT,G.t+10);G.bonusTime+=10;reward=' · ⏱ 보너스 10초!';}
   if(G.combo===5){G.freeHint=true;reward=' · 🗝 다음 단계 비밀 힌트 획득!';}
   updateCombo(); sndOk(); flash();
+  var clipKind=s.id==='drawer'?'drawer':(s.id==='books'?'books':((s.id==='code'||s.id==='key')?'safe':(s.id==='door'?'escape':'')));
+  if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);
   // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(study는 전용 클로즈업 사진으로,
@@ -918,7 +951,7 @@ function scheduleListen(ms){
   },ms);
 }
 function clearGameActivity(){
-  stopListening(); clearHotspots();
+  stopListening(); stopActionClip(); clearHotspots();
   if(G){ clearTimeout(G._advT); G._skip=null; }
   $('scene').classList.remove('readyToSpeak');
 }
@@ -1083,7 +1116,7 @@ function startGame(){
   clearTimeout(_eventT); $('eventMsg').classList.remove('show');
   $('scene').classList.remove('flicker');
   $('locTag').textContent=G.loc.nameKo+' · '+G.loc.nameEn;
-  applyDim(); showStep();
+  applyDim(); showStep(); playActionClip('intro');
   try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
   startTimer();
   speak('You are locked in. Look around the '+G.loc.nameEn+'.');
