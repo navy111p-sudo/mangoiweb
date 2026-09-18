@@ -547,16 +547,17 @@ function newGame(){
 /* ════════════════════════════════════════════════════════════
    2. 음성 (TTS) — 서버 원어민 우선, 실패 시 기기 음성
    ════════════════════════════════════════════════════════════ */
-var _ttsAudio=null, _ttsCache={};
-function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.pause(); } }catch(_){}
+var _ttsAudio=null, _ttsCache={}, _ttsEpoch=0;
+function _ttsStop(){ _ttsEpoch++; try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(_){}
   try{ speechSynthesis.cancel(); }catch(_){} }
 function speak(text, cb){
   _ttsStop();
-  function fallback(){ try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
-    u.onend=function(){ if(cb)cb(); }; u.onerror=function(){ if(cb)cb(); };
+  var epoch=_ttsEpoch;
+  function fallback(){ if(epoch!==_ttsEpoch)return; try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
+    u.onend=function(){ if(epoch===_ttsEpoch && cb)cb(); }; u.onerror=function(){ if(epoch===_ttsEpoch && cb)cb(); };
     speechSynthesis.speak(u); }catch(_){ if(cb)cb(); } }
-  function play(url){ try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
-      _ttsAudio.onended=function(){ if(cb)cb(); };
+  function play(url){ if(epoch!==_ttsEpoch)return; try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
+      _ttsAudio.onended=function(){ if(epoch===_ttsEpoch && cb)cb(); };
       _ttsAudio.onerror=function(){ fallback(); };
       var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fallback(); });
     }catch(_){ fallback(); } }
@@ -691,9 +692,13 @@ function digitsOf(words){
   });
   return out;
 }
-var HEARD_AS={cabinet:['cabin','cabinet'],drawer:['draw','drawer'],painting:['picture','painting'],toolbox:['toolbox','tool'],scoreboard:['scoreboard','score'],computer:['computer','pc'],open:['open','opened','opening'],take:['take','get','grab','pick'],move:['move','remove'],look:['look','see','check'],read:['read','reed'],unlock:['unlock','open']};
+var HEARD_AS={book:['book','bookshelf','bookshelves'],shelf:['shelf','bookshelf','bookshelves'],cabinet:['cabin','cabinet'],drawer:['draw','drawer'],painting:['picture','painting'],toolbox:['toolbox','tool'],scoreboard:['scoreboard','score'],computer:['computer','pc'],open:['open','opened','opening'],take:['take','get','grab','pick'],move:['move','remove'],look:['look','see','check'],read:['read','reed'],unlock:['unlock','open']};
 function editDistance(a,b){var prev=[],cur=[],i,j;for(j=0;j<=b.length;j++)prev[j]=j;for(i=1;i<=a.length;i++){cur=[i];for(j=1;j<=b.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}return prev[b.length];}
-function keywordSeen(words,k){var variants=HEARD_AS[k]||[k];return variants.some(function(v){return words.some(function(x){if(x===v||x.indexOf(v)===0||v.indexOf(x)===0)return true;return x.length>=4&&v.length>=4&&editDistance(x,v)<=1;});});}
+function keywordSeen(words,k){var variants=HEARD_AS[k]||[k];return variants.some(function(v){return words.some(function(x){
+  if(x===v || x===v+'s' || x===v+'es' || x===v+'ed' || x===v+'ing')return true;
+  if(/e$/.test(v) && (x===v+'d' || x===v.slice(0,-1)+'ing'))return true;
+  return x.length>=4&&v.length>=4&&editDistance(x,v)<=1;
+});});}
 function matchStep(said, step){
   var w=normalize(said);
   if(!w.length) return false;
@@ -740,6 +745,8 @@ function showStep(){
   } else armIdle(14000);
 }
 function advance(){
+  stopListening();
+  var game=G;
   var s=curStep();
   G.busy=true; clearIdle();
   var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.remove('readyToSpeak');
@@ -752,7 +759,7 @@ function advance(){
   if(s.id==='door'){
     if(study) setScene('doorCU');
     sndKeyTurn();
-    setTimeout(function(){ setScene(study?s.scene:G.loc.id); }, 650);
+    setTimeout(function(){ if(G===game && game.running && !game.over) setScene(study?s.scene:game.loc.id); }, 650);
   } else {
     setScene(study?s.scene:G.loc.id);
     if(s.id==='drawer'||s.id==='painting') sndCreak();
@@ -762,8 +769,9 @@ function advance(){
   //    콜백과 타임아웃 중 먼저 오는 쪽으로 1회만 진행한다.
   var moved=false;
   function go(){
-    if(moved) return; moved=true;
+    if(moved || G!==game || !game.running || game.over) return; moved=true;
     clearTimeout(G._advT);
+    G._skip=null;
     G.busy=false;
     G.i++;
     if(G.i>=G.steps.length){ win(); return; }
@@ -838,6 +846,24 @@ function showHint(auto,noSpeak){
    ════════════════════════════════════════════════════════════ */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var recActive=false;
+var cancelRecognition=null, listenTimer=null;
+function stopListening(){
+  clearTimeout(listenTimer); listenTimer=null;
+  if(cancelRecognition){ var cancel=cancelRecognition; cancelRecognition=null; cancel(); }
+  recActive=false; micLabel(false);
+}
+function scheduleListen(ms){
+  var game=G;
+  clearTimeout(listenTimer);
+  listenTimer=setTimeout(function(){ listenTimer=null;
+    if(G===game && game.running && !game.over) listen();
+  },ms);
+}
+function clearGameActivity(){
+  stopListening();
+  if(G){ clearTimeout(G._advT); G._skip=null; }
+  $('scene').classList.remove('readyToSpeak');
+}
 /* 🎤 마이크 버튼 문구 — 상태가 바뀔 때마다 여기로만 바꾼다(문구가 흩어지면 한쪽만 고쳐진다) */
 var MIC_IDLE='🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span>';
 var MIC_REC ='🔴 지금 말하세요!<span class="mSub">Speak now — I am listening</span>';
@@ -852,24 +878,31 @@ function listen(){
   if(!G||!G.running||G.over) return;
   var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.remove('readyToSpeak');
   // 방이 이야기하는 중 마이크를 누르면 → 아무 반응 없이 무시하지 말고, 내레이션을 건너뛰고 바로 듣는다
-  if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); setTimeout(listen,80); } return; }
+  if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); scheduleListen(80); } return; }
   // 🔊 오류 수정(2026-07-31): 힌트 음성이 재생 중일 때 바로 듣기 시작하면 스피커 소리가 마이크로
   //    새어 들어가 "방이 말한 문장"을 학생이 말한 것으로 오인식해 자동으로 다음 단계로 넘어가버렸다.
   //    먼저 음성을 끄고 잠깐(에코가 가라앉을 시간) 기다린 뒤에 듣기 시작한다.
   var speaking=false;
   try{ speaking=(_ttsAudio&&!_ttsAudio.paused)||(window.speechSynthesis&&speechSynthesis.speaking); }catch(_){}
-  if(speaking){ _ttsStop(); setTimeout(listen,220); return; }
+  if(speaking){ _ttsStop(); scheduleListen(220); return; }
+  // 아직 도착하지 않은 TTS 응답도 취소해야 듣는 중 예문이 뒤늦게 재생되지 않는다.
+  _ttsStop();
   if(!SR){ enableTyping('이 브라우저는 음성인식을 지원하지 않아요 — 타이핑으로 진행하세요'); return; }
   if(recActive) return;
   var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
   rec.lang='en-US'; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
   var done=false, best='', matched=false, sil=null, started=false, denied=false;
+  var game=G, stepIndex=G.i;
+  cancelRecognition=function(){ done=true; if(sil)clearTimeout(sil); try{rec.abort();}catch(_){} };
   micLabel(true);
   heard('<span style="color:#8fa6bd">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
   recActive=true;
   function finish(){ if(done)return; done=true; recActive=false;
+    cancelRecognition=null;
     if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
     micLabel(false);
+    if(G!==game || !game.running || game.over || game.i!==stepIndex) return;
+    $('scene').classList.add('readyToSpeak');
     if(best) submitSaid(best);
     else if(denied) enableTyping('마이크 권한이 꺼져 있어요 — 타이핑으로도 할 수 있어요');
     else {
@@ -879,10 +912,10 @@ function listen(){
       showHint(true);
     }
   }
-  function arm(){ if(sil)clearTimeout(sil);
-    sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, best?SIL_AFTER:SIL_FIRST); }
-  rec.onstart=function(){ started=true; arm(); };
-  rec.onresult=function(e){ if(done)return; started=true;
+  function arm(){ if(done)return; if(sil)clearTimeout(sil);
+    sil=setTimeout(function(){ finish(); }, best?SIL_AFTER:SIL_FIRST); }
+  rec.onstart=function(){ if(done)return; started=true; arm(); };
+  rec.onresult=function(e){ if(done || G!==game || !game.running || game.over || game.i!==stepIndex)return; started=true;
     for(var i=e.resultIndex;i<e.results.length;i++){
       var alts=e.results[i];
       for(var j=0;j<alts.length;j++){
@@ -902,13 +935,14 @@ function listen(){
   rec.onend=function(){ finish(); };
   try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,
     {isDone:function(){return done;},onRestart:arm,maxRestarts:3,maxMs:SIL_FIRST+6000}); }catch(_){}
-  try{ rec.start(); }catch(_){ recActive=false; micLabel(false);
+  try{ rec.start(); }catch(_){ stopListening();
     enableTyping('마이크 권한이 필요해요 — 타이핑으로도 가능해요'); return; }
   // 마이크가 아예 열리지 않는 경우(권한 대화상자 방치 등)만 여기서 정리한다
   setTimeout(function(){ if(!started && !done) finish(); }, 12000);
 }
 /* 타이핑 폴백 — 마이크가 안 되는 환경에서 게임이 막히지 않게 */
 function enableTyping(msg){
+  if(G && G.running && !G.over) $('scene').classList.add('readyToSpeak');
   $('typeRow').classList.add('on');
   if(msg) heard('<span class="no">'+esc(msg)+'</span>');
   setTimeout(function(){ try{ $('typeIn').focus(); }catch(_){} },50);
@@ -938,6 +972,7 @@ function startTimer(){
   tick=setInterval(tickOnce,1000);
 }
 function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
+  clearGameActivity();
   setScene(G.loc.id==='study' ? 'escape' : G.loc.id);
   $('scene').style.filter='brightness(1) saturate(1)';
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
@@ -947,9 +982,11 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
     '<span style="font-size:13px;color:#8fa6bd">힌트 '+G.hintUsed+'회 사용</span>';
   $('endOv').classList.remove('hide');
   flushProg(true);
-  setTimeout(function(){ speak('Well done! You escaped!'); },400);
+  var game=G;
+  setTimeout(function(){ if(G===game && game.over) speak('Well done! You escaped!'); },400);
 }
 function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
+  clearGameActivity();
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
   $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+G.steps.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
@@ -976,6 +1013,8 @@ function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
 function startGame(){
+  if(G) G.running=false;
+  clearGameActivity(); _ttsStop();
   $('startOv').classList.add('hide'); $('endOv').classList.add('hide');
   $('typeRow').classList.remove('on');
   clearIdle(); micLabel(false);
@@ -995,7 +1034,7 @@ function startGame(){
 /* 내레이션 중 화면 탭 = 건너뛰기 (기다리기 싫은 학생 배려) */
 $('scene').addEventListener('click', function(){
   if(!G||!G.running||G.over) return;
-  if(G.busy && G._skip){ _ttsStop(); G._skip(); return; }
+  if(G.busy){ listen(); return; }
   // 그림 클릭이 곧 조작 시작: 필요한 영어를 보여주고 같은 클릭으로 듣기를 시작한다.
   G.hintLv=2; showHint(true,true); listen();
 });
