@@ -221,6 +221,19 @@ for (const recovers of [true, false]) {
   for(let i=0;i<6;i++)await h.tick({a:0});
   check(h.counts().rebuilds===1,'rebuild budget survives replacement of the peer object');
 }
+{
+  const h=setup();await h.boot();await h.tick();
+  const seq=h.state().seq;
+  h.ctx.vcqRxRecoverySample('z','video',{dr:0,dfr:0,known:true},h.pc,h.vr,seq+1);
+  await h.tick();await h.tick();
+  check(h.counts().plays===1,'paired sample completes the same sequence only once');
+  h.ctx.__vcRxRecovery={};
+  for(const n of [10,13]) {
+    h.ctx.vcqRxRecoverySample('z','video',{dr:0,dfr:0,known:true},h.pc,h.vr,n);
+    h.ctx.vcqRxRecoverySample('z','audio',{dr:8,known:true},h.pc,h.ar,n);
+  }
+  check(h.state().bad===1,'missing sample sequence resets consecutive stall count');
+}
 check(!/setInterval\(|MutationObserver/.test(helpers), 'no new interval or MutationObserver');
 check(server.includes("case 'video-recovery':") && server.includes('!this.isJoined(target)')
   && server.includes('recovery: data?.recovery === true'), 'server routes only joined in-room peers and preserves recovery offer flag');

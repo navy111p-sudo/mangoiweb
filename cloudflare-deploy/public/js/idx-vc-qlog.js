@@ -290,7 +290,10 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
         }
         R.pc = pc;
         if (seq < R.seq) return;
-        if (R.seq !== seq) { R.seq = seq; R.video = null; R.audio = null; }
+        if (R.seq !== seq) {
+            if (R.seq >= 0 && (seq !== R.seq + 1 || R.consumed !== R.seq)) { R.bad = 0; R.dead = 0; }
+            R.seq = seq; R.video = null; R.audio = null;
+        }
         if (kind === 'video') R.video = { dr: sample.dr, dfr: sample.dfr, known: sample.known,
             stalledKnown: sample.stalledKnown == null ? sample.known : sample.stalledKnown,
             progress: sample.progress == null ? sample.dfr : sample.progress, packetsKnown: sample.packetsKnown !== false, track: receiver && receiver.track };
