@@ -5996,11 +5996,30 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           <span class="mango-logo__text">&nbsp;AI</span>
         </span>
       </h1>
+      <!-- Home hero: static HTML/CSS adds no blocking JavaScript. Total HTML bytes do increase. -->
+      <p class="home-slogan" data-ko="재미가 의지를 이깁니다!" data-en="Let the fun keep you learning!">재미가 의지를 이깁니다!</p>
       <p id="home-tagline" class="home-tagline">
         <span data-ko="AI로 생각하고 결정하는 영어, 망고아이" data-en="Think and decide in English — Mango Ai">AI로 생각하고 결정하는 영어, 망고아이</span>
       </p>
+      <ul class="home-highlights" aria-label="망고아이 학습" data-ko-aria="망고아이 학습" data-en-aria="Learning with Mango AI">
+        <li><strong>1:1 · 1:2</strong><span data-ko="맞춤 화상수업" data-en="Live language lessons">맞춤 화상수업</span></li>
+        <li><strong>AI</strong><span data-ko="예습부터 복습까지" data-en="Prepare and review">예습부터 복습까지</span></li>
+        <li><strong data-ko="4단계" data-en="4 steps">4단계</strong><span data-ko="상담부터 학습까지" data-en="From consult to learning">상담부터 학습까지</span></li>
+      </ul>
     </div>
     <style>
+      .home-slogan{margin:14px 12px 6px;text-align:center;color:#fff;font-size:clamp(23px,4.8vw,34px);font-weight:800;line-height:1.3;word-break:keep-all;text-shadow:0 2px 4px #101827,0 0 16px #101827}
+      .home-highlights{display:flex;justify-content:center;gap:clamp(8px,2vw,24px);list-style:none;margin:18px 12px 0;padding:12px 16px;max-width:calc(100% - 24px);box-sizing:border-box;border-radius:16px;background:rgba(15,23,42,.78);color:#fff;text-align:center}
+      .home-highlights li{flex:1;min-width:0;line-height:1.35}
+      .home-highlights strong{display:block;font-size:clamp(18px,3vw,24px);font-weight:800;white-space:nowrap}
+      .home-highlights li>span{display:block;margin-top:4px;font-size:clamp(12px,2.4vw,14px);word-break:keep-all;color:#f1f5f9;text-shadow:0 1px 3px #0f172a}
+      .home-search-fold{margin:0 0 14px;min-width:0}
+      .home-search-fold>summary{display:list-item;box-sizing:border-box;width:fit-content;max-width:100%;min-height:44px;margin:0 auto;padding:11px 16px;cursor:pointer;color:#fff;background:rgba(15,23,42,.78);border:1px solid rgba(255,255,255,.4);border-radius:24px;font-size:14px;font-weight:700;line-height:1.5;text-shadow:0 1px 3px #0f172a}
+      .home-search-fold>summary:hover{background:rgba(15,23,42,.92)}
+      .home-search-fold>summary:focus-visible{outline:3px solid #fbbf24;outline-offset:4px}
+      .home-search-fold[open]>summary{margin-bottom:14px}
+      .home-search-fold[open] .ai-quick{display:grid !important}
+      .home-search-fold .ai-quick-btn{background:rgba(15,23,42,.78) !important;color:#fff;white-space:normal;word-break:keep-all}
       .home-tagline {
         margin: 0.2rem 0 0;
         text-align: center;
@@ -6137,6 +6156,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
+      <!-- Keep guest/member CTAs and .home-flow outside this native disclosure. -->
+      <details class="home-search-fold">
+        <summary data-ko="AI 검색 · 바로가기" data-en="AI search & shortcuts">AI 검색 · 바로가기</summary>
       <div class="ai-search-box">
         <span class="ai-search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
@@ -6191,6 +6213,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
+      </details>
       <script defer src="/js/idx-about.js?v=8"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
