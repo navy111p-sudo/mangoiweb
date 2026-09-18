@@ -426,8 +426,8 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
     /picked: pick,[\s\S]{0,160}warmupZhAnswerChips\(pick, difficulty\)/.test(IDX));
   check('화면이 목록을 «만들지» 않고 받아서 그린다',
     !/Yes, I do\./.test(HTML.replace(/chips:\s*\[[^\]]*\]/g, '')), '화면에 칩 문구가 흩어져 있으면 정본이 둘이 된다');
-  for (const [name, re] of [['첫 인사', /showAnswerChips\(g\.chips\)/], ['대화 답변', /showAnswerChips\(d\.answer_chips\)/],
-                            ['교재 첫 인사', /showAnswerChips\(kd\.answer_chips\)/], ['고른 질문', /showAnswerChips\(d\.answer_chips\)/]]) {
+  for (const [name, re] of [['첫 인사', /showAnswerChips\(g\.chips\)/], ['대화 답변', /showAnswerChips\(d\.answer_chips\s*,\s*d\.speaking_help\)/],
+                            ['교재 첫 인사', /showAnswerChips\(kd\.answer_chips\s*,\s*kd\.speaking_help\)/], ['고른 질문', /showAnswerChips\(d\.answer_chips\)/]]) {
     check(`${name} 뒤에 보기를 그린다`, re.test(HTML));
   }
   check('누르면 «평소 전송 경로»로 보낸다(콤보·마이크 정리가 갈라지지 않게)',

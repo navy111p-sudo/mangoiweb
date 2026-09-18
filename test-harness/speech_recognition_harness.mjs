@@ -70,6 +70,7 @@ function makeFakeDoc(ids) {
                    toggle(c,on){ on ? this._s.add(c) : this._s.delete(c); },
                    contains(c){return this._s.has(c);} },
       addEventListener() {},
+      setAttribute(name, value) { this[name] = String(value); },
     };
   }
   const mk = () => ({ style:{}, classList:{add(){},remove(){},toggle(){}}, appendChild(){}, remove(){},
@@ -214,6 +215,7 @@ function testWarmupMic() {
     unlockAudio: () => {}, _stopSpeak: () => {}, addMsg: () => {},
     isZh: () => fakeZh,
     _warmLang: 'en',
+    _warmPaused: false, _warmEpoch: 0, _warmVoiceEpoch: 0, sending: false, _warmMicCancel: null,
     sendMsg: () => { const v = (doc.els.inp.value || '').trim(); if (v) sent.push(v); doc.els.inp.value = ''; },
     console,
   };
