@@ -5640,7 +5640,7 @@ function vcAddRemoteVideo(userId, username, stream) {
    부분 문자열 정규식은 student_teacher 같은 값을 강사로 올릴 수 있어 명시 목록만 허용한다. */
 window.vcNormalizeClassRole = function(raw){
     try {
-        var r = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\\s-]+/g, '_');
+        var r = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
         var teachers = {
             teacher:1, tutor:1, instructor:1, '교사':1, '강사':1,
             hq_teacher:1, head_teacher:1, english_teacher:1, chinese_teacher:1,
