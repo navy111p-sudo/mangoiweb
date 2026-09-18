@@ -92,6 +92,7 @@ if (role.length > 300) {
       MangoV3: null,
     };
     g.window.vcRoleStored = g.vcRoleStored;
+    g.window.vcNormalizeClassRole = normalizeRole;
     g.window.MangoV3 = null;
     g.window.vcMyRole = opts.myRole || '';
     g.window.__vcRoleFromUrl = !!opts.fromUrl;
