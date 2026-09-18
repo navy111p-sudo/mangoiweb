@@ -1,0 +1,53 @@
+name: Video recovery browser verification
+on:
+  push:
+    branches: [fix/webrtc-fast-video-recovery]
+  workflow_dispatch:
+env:
+  TZ: Asia/Seoul
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install and typecheck
+        working-directory: cloudflare-deploy
+        run: |
+          npm ci --legacy-peer-deps
+          npx tsc --noEmit
+      - name: Required recovery regressions
+        run: |
+          node test-harness/aao_freeze_harness.mjs
+          node test-harness/vc_ghost_liveness_harness.mjs
+          node test-harness/body_class_observer_harness.mjs
+          node test-harness/observer_camera_guard_harness.mjs
+          node test-harness/vc_quality_blindspot_harness.mjs
+          node test-harness/asset_version_harness.mjs
+          node test-harness/vc_rx_stall_harness.mjs
+          node test-harness/vc_fast_recovery_harness.mjs
+      - name: Install isolated browser dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/vc-pw" playwright@1.58.2
+          "$RUNNER_TEMP/vc-pw/node_modules/.bin/playwright" install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/vc-browser/installed/chrome-linux"
+          PW_ROOT="$RUNNER_TEMP/vc-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/vc-browser/installed/chrome-linux/chrome");'
+      - name: Real peer frame recovery timing
+        env:
+          PW_DIR: ${{ runner.temp }}/vc-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/vc-browser
+        run: |
+          set -o pipefail
+          node test-harness/manual/vc-aao-realpc-browser.mjs | tee "$RUNNER_TEMP/vc-realpc.log"
+          grep -Eq '결과: PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/vc-realpc.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vc-recovery-browser-log
+          path: ${{ runner.temp }}/vc-realpc.log
+          if-no-files-found: ignore

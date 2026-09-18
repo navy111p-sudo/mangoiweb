@@ -6,9 +6,10 @@ const src = fs.readFileSync(new URL('../cloudflare-deploy/public/js/idx-vc-qlog.
 const a = src.indexOf('function vcqRxRecoverySample(');
 const b = src.indexOf('\nfunction vcqRxTick()', a);
 assert.ok(a >= 0 && b > a, 'recovery helper must exist before vcqRxTick');
-const helper = src.slice(a, b);
+const helper = src.slice(src.indexOf('function vcRecoveryLog('), b);
+const sampleOnly = src.slice(a, b);
 for (const bad of ['restartIce(', 'createOffer(', '.close(', 'setInterval(', 'MutationObserver', 'track.enabled', 'replaceTrack(', 'setParameters(']) {
-  assert.equal(helper.includes(bad), false, `helper must not contain ${bad}`);
+  assert.equal(sampleOnly.includes(bad), false, `helper must not contain ${bad}`);
 }
 
 class FakeStream {
@@ -34,6 +35,7 @@ const context = vm.createContext({
   Date: FakeDate,
   console,
   Promise,
+  vcAaoSfuCut: () => false,
 });
 vm.runInContext(helper, context);
 const f = context.vcqRxRecoverySample;

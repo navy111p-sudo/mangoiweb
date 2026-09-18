@@ -550,6 +550,15 @@ export class VideoCallRoom {
           this.broadcast(userId, { type: 'screen-share-state', data: { ...(msg.data || {}), fromUserId: userId } });
           break;
         }
+        case 'video-recovery': {
+          const d = msg.data || {};
+          const target = typeof d.targetUserId === 'string' ? d.targetUserId : '';
+          if (!this.isJoined(userId) || !this.isJoined(target) || target === userId) break;
+          if (!['sender-reapply', 'ready', 'camera-off', 'aao', 'renegotiate', 'ice-restart'].includes(String(d.action))) break;
+          if (typeof d.token !== 'string' || d.token.length > 160) break;
+          this.sendTo(target, { type: 'video-recovery', data: { fromUserId: userId, action: d.action, token: d.token } });
+          break;
+        }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
         case 'answer':          this.handleAnswer(userId, msg.data as any); break;
         case 'ice-candidate':   this.handleIceCandidate(userId, msg.data as any); break;
@@ -1153,6 +1162,7 @@ export class VideoCallRoom {
         fromUserId: userId,
         fromUsername: fromObserver ? '' : (this.usernameOf(userId) || '참가자'),
         fromObserver,
+        recovery: data?.recovery === true,
         sdp,
       },
     });
