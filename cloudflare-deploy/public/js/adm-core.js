@@ -5193,6 +5193,10 @@ async function loadFranchises() {
     + `<td style="white-space:nowrap">${_frActCell(f)}</td></tr>`
   ).join('');
   _populateFranchiseSelect(d.items);
+  // 🏛️ (2026-09-18) 등록/수정 폼의 대표지사 칸도 같은 목록으로 채운다 — 지금 골라 둔 값은
+  // 지킨다(수정 폼을 여는 중에 표가 다시 그려지는 경우를 대비).
+  const frMasterSel = document.getElementById('fr-master');
+  if (frMasterSel) { const keep = frMasterSel.value; frMasterSel.innerHTML = _masterOptions(''); if (keep) frMasterSel.value = keep; }
 }
 
 /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03)
@@ -5427,6 +5431,7 @@ function frResetForm() {
   _frEditId = 0;
   const e = id => document.getElementById(id);
   ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  if (e('fr-master')) e('fr-master').value = '';
   _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
   const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5440,6 +5445,8 @@ function frEdit(id) {
   const e = k => document.getElementById(k);
   _frEditId = f.id;
   if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
+  // 🏛️ (2026-09-18) 지금 배정된 대표지사 — 표 칸(assignMasterBranch)과 같은 값(f.master_branch_id).
+  if (e('fr-master')) e('fr-master').value = f.master_branch_id == null ? '' : String(f.master_branch_id);
   // 🪪 (2026-09-15) 화면에 보이는 login_id 는 «추정값» 일 수 있다(admin_scope 접두어 매칭) —
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
@@ -5472,6 +5479,9 @@ async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  // 🏛️ (2026-09-18) 대표지사 선택값 — 저장 성공 뒤 kind=master_assign 으로 한 번 더 보낸다
+  // (등록 API 자체는 안 건드린다 — assignMasterBranch 가 이미 하는 일을 그대로 재사용).
+  const masterVal = (e('fr-master')||{}).value || '';
   const loginUsername = (e('fr-login')||{}).value || null;
   // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다
   // (wantsPasswordAction 판정, api-admin.ts). 저장 성공 뒤 반드시 지운다 — 그대로 두면
@@ -5498,6 +5508,8 @@ async function saveFranchise() {
       alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
       return;
     }
+    // 🏛️ (2026-09-18) frResetForm 이 fr-master 값을 지우기 «전» 에 배정을 보낸다.
+    await assignMasterBranch(_frEditId, masterVal);
     frResetForm();
     loadFranchises();
     // 🔑 이름을 바꿨는데 그 지사에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛 이름»
@@ -5518,7 +5530,11 @@ async function saveFranchise() {
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
   if (d) {
+    // 🏛️ (2026-09-18) 방금 만든 지사(d.id)에 고른 대표지사를 배정한다 — «미지정» 이면
+    // 새로 만든 지사에는 애초에 매핑 행이 없으므로 부르지 않는다(불필요한 요청 생략).
+    if (masterVal) await assignMasterBranch(d.id, masterVal);
     ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value='');
+    if (e('fr-master')) e('fr-master').value = '';
     loadFranchises();
     // ⚠️ 지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
     // (아이디 중복·동명이인 지사 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
