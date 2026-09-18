@@ -86,6 +86,22 @@
   #scene{cursor:pointer}
   #scene.readyToSpeak::after{content:'👆 그림을 클릭하고 영어로 말하세요  ·  Click the picture, then speak';position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);z-index:5;width:min(86%,430px);box-sizing:border-box;padding:11px 15px;border-radius:12px;background:rgba(7,14,22,.88);border:1px solid rgba(255,224,122,.72);color:#ffe9a8;text-align:center;font-size:13px;font-weight:900;line-height:1.45;box-shadow:0 8px 26px rgba(0,0,0,.48);animation:cuePulse 1.5s ease-in-out infinite;pointer-events:none}
   @keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.025)}}
+  #exploreZone{position:absolute;inset:82px 12px 150px;z-index:7;pointer-events:none}
+  .hotspot{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;min-width:92px;
+    padding:9px 11px;border-radius:999px;border:1px solid rgba(255,224,122,.82);
+    background:rgba(7,14,22,.8);color:#fff;font-weight:900;font-size:12px;cursor:pointer;
+    box-shadow:0 0 0 0 rgba(255,224,122,.35),0 7px 22px rgba(0,0,0,.45);
+    animation:hotPulse 1.8s ease-in-out infinite}
+  .hotspot:nth-child(2){animation-delay:.35s}.hotspot:nth-child(3){animation-delay:.7s}
+  .hotspot:active{transform:translate(-50%,-50%) scale(.94)}
+  .hotspot.wrong{border-color:#ff8a8a;background:rgba(90,12,18,.88);animation:hotShake .3s}
+  .hotspot.correct{border-color:#a3e635;background:rgba(30,80,25,.9);animation:hotBurst .42s}
+  @keyframes hotPulse{50%{box-shadow:0 0 0 9px rgba(255,224,122,0),0 7px 22px rgba(0,0,0,.45)}}
+  @keyframes hotShake{25%{margin-left:-7px}75%{margin-left:7px}}
+  @keyframes hotBurst{50%{transform:translate(-50%,-50%) scale(1.18)}}
+  #comboHud{margin-top:2px;color:#ffd479;font-size:11px;font-weight:900;min-height:14px}
+  #scene.reactSuccess{animation:sceneReact .5s ease}
+  @keyframes sceneReact{45%{transform:scale(1.035);filter:brightness(1.22) saturate(1.15)}}
   #heard b{color:#7fd1ff}
   #heard .ok{color:#a3e635;font-weight:800}
   #heard .no{color:#ff8a8a;font-weight:800}
@@ -174,8 +190,9 @@
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
   <div id="eventMsg"></div>
+  <div id="exploreZone" aria-label="탐색할 물건 선택"></div>
 
-  <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
+  <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span><div id="comboHud"></div></div>
   <div id="timeWrap"><div id="timeVal">5:00</div></div>
 
   <div id="goalBar">
@@ -541,7 +558,7 @@ function newGame(){
   var loc=LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
       utter:0, utterOk:0, hintUsed:0, wrong:0, stepWrong:0, prog:[], hintLv:0, busy:false,
-      code:code, loc:loc, steps:loc.build(code), eventFired:false };
+      code:code, loc:loc, steps:loc.build(code), eventFired:false, combo:0, bestCombo:0, bonusTime:0, hotspotOrder:{} };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -648,6 +665,39 @@ function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko
 function heard(html){ $('heard').innerHTML=html||''; }
 function hintTxt(html){ $('hint').innerHTML=html||''; }
 function flash(){ var f=$('flash'); f.style.opacity='.55'; setTimeout(function(){ f.style.opacity='0'; },160); }
+var OBJECT_LABELS={desk:'책상 · Desk',drawer:'서랍 · Drawer',painting:'그림 · Painting',books:'책장 · Books',book:'책 · Book',safe:'금고 · Safe',key:'열쇠 · Key',door:'문 · Door',cabinet:'사물함 · Cabinet',map:'지도 · Map',mirror:'거울 · Mirror',toolbox:'공구함 · Toolbox',ladder:'사다리 · Ladder',box:'정비함 · Box',pipe:'배관 · Pipe',shed:'창고 · Shed',scoreboard:'스코어보드',computer:'컴퓨터',note:'쪽지 · Note',gate:'출입문 · Gate',keypad:'암호판 · Keypad'};
+var DECOYS=['책상 · Desk','그림 · Painting','책장 · Books','시계 · Clock','화분 · Plant','의자 · Chair','창문 · Window','상자 · Box'];
+var HOT_POS=[[22,34],[73,30],[50,66]];
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function stepObject(step){
+  if(step.numMode)return 'keypad';
+  var keys=(step.accept&&step.accept[0])||[]; return keys[keys.length-1]||step.id||'door';
+}
+function updateCombo(){
+  var el=$('comboHud'); if(!el)return;
+  el.textContent=G&&G.combo>1 ? '🔥 '+G.combo+' COMBO'+(G.bonusTime?' · 보너스 +'+G.bonusTime+'초':'') : '';
+}
+function clearHotspots(){var z=$('exploreZone');if(z)z.innerHTML='';}
+function renderHotspots(){
+  var z=$('exploreZone'); if(!z||!G||!G.running||G.over)return;
+  z.innerHTML='';
+  var s=curStep(),target=stepObject(s),correct=OBJECT_LABELS[target]||target;
+  var labels=[correct],pool=shuffle(DECOYS.slice()).filter(function(x){return x!==correct;});
+  labels.push(pool[0],pool[1]); shuffle(labels);
+  labels.forEach(function(label,i){
+    var b=document.createElement('button'); b.className='hotspot'; b.type='button';
+    b.style.left=HOT_POS[i][0]+'%'; b.style.top=HOT_POS[i][1]+'%'; b.textContent='🔎 '+label;
+    b.setAttribute('aria-label',label);
+    b.addEventListener('click',function(e){e.stopPropagation();
+      if(!G||!G.running||G.over||G.busy)return;
+      if(label!==correct){b.classList.add('wrong');heard('여기에는 아무것도 없어요 · <b>Nothing is here.</b>');sndNo();setTimeout(function(){b.classList.remove('wrong');},450);return;}
+      b.classList.add('correct'); G.hintLv=2; showHint(true,true);
+      heard('찾았어요! 영어로 말해 움직여 보세요 · <b>Now say it in English!</b>');
+      setTimeout(function(){listen();},80);
+    });
+    z.appendChild(b);
+  });
+}
 /* 쪽지 카드 — 서랍 속 단서를 잠깐 실물처럼 띄운다 */
 var _noteT=null;
 function showNote(en,ko){
@@ -738,6 +788,7 @@ function showStep(){
   setGoal(s.goal, s.goalKo);
   G.hintLv=0; G.stepWrong=0; hintTxt('');
   var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.add('readyToSpeak');
+  renderHotspots();
   if(G.i<=1){
     // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
     // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
@@ -748,10 +799,15 @@ function advance(){
   stopListening();
   var game=G;
   var s=curStep();
-  G.busy=true; clearIdle();
-  var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.remove('readyToSpeak');
-  sndOk(); flash();
-  heard('<span class="ok">정확해요! · Correct!</span>');
+  G.busy=true; clearIdle(); clearHotspots();
+  var sceneEl=$('scene'); if(sceneEl){sceneEl.classList.remove('readyToSpeak');sceneEl.classList.remove('reactSuccess');void sceneEl.offsetWidth;sceneEl.classList.add('reactSuccess');}
+  G.combo++; if(G.combo>G.bestCombo)G.bestCombo=G.combo;
+  var reward='';
+  if(G.combo===2) reward=' · 🔥 연속 성공!';
+  if(G.combo===3){G.t=Math.min(TIME_LIMIT,G.t+10);G.bonusTime+=10;reward=' · ⏱ 보너스 10초!';}
+  if(G.combo===5){G.hintLv=2;reward=' · 🗝 비밀 힌트 획득!';}
+  updateCombo(); sndOk(); flash();
+  heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);
   // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(study는 전용 클로즈업 사진으로,
   // 나머지 장소는 사진이 1장뿐이라 소리·효과만으로 그 박자를 준다)
@@ -812,12 +868,13 @@ function _pronCoach(said, step, ok){
   }catch(_){ return ''; }
 }
 function wrongTry(said){
-  G.wrong++; G.stepWrong=(G.stepWrong||0)+1;
+  G.wrong++; G.stepWrong=(G.stepWrong||0)+1; G.combo=0; updateCombo();
   sndNo();
   var retry=G.stepWrong<3 ? '<span style="color:#fcd34d;font-weight:800">거의 맞았어요! 힘주어 말하지 말고 자연스럽게 한 번 더 · Almost! Try once more.</span>' : '<span class="no">조금 다르게 들렸어요 · Let’s use the example below.</span>';
   heard('들린 말: <b>'+esc(said)+'</b><br>'+retry + (typeof _pronCoach==='function' ? _pronCoach(said, curStep(), false) : ''));
   showHint(true);
   var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.add('readyToSpeak');
+  renderHotspots();
   armIdle(12000);
 }
 function submitSaid(said){
@@ -860,7 +917,7 @@ function scheduleListen(ms){
   },ms);
 }
 function clearGameActivity(){
-  stopListening();
+  stopListening(); clearHotspots();
   if(G){ clearTimeout(G._advT); G._skip=null; }
   $('scene').classList.remove('readyToSpeak');
 }
@@ -978,7 +1035,7 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
   var used=TIME_LIMIT-G.t, m=Math.floor(used/60), s=used%60;
   $('resStat').innerHTML='탈출 시간 <b>'+m+'분 '+(s<10?'0':'')+s+'초</b><br>'+
-    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회<br>'+
+    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회<br>최고 연속 성공 <b>'+G.bestCombo+'</b>회 · 보너스 <b>'+G.bonusTime+'</b>초<br>'+
     '<span style="font-size:13px;color:#8fa6bd">힌트 '+G.hintUsed+'회 사용</span>';
   $('endOv').classList.remove('hide');
   flushProg(true);
@@ -1000,7 +1057,7 @@ function flushProg(cleared){
     var body=JSON.stringify({ user_id:UID, lang:'en', game:'escape-voice',
       events:G.prog.slice(0,60),
       meta:{ utter:G.utter, utterOk:G.utterOk, hints:G.hintUsed, cleared:!!cleared,
-             steps:G.i, timeUsed:TIME_LIMIT-G.t } });
+             steps:G.i, timeUsed:TIME_LIMIT-G.t, bestCombo:G.bestCombo, bonusTime:G.bonusTime } });
     if(navigator.sendBeacon) navigator.sendBeacon('/api/games/progress', new Blob([body],{type:'application/json'}));
     else fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
   }catch(_){}
@@ -1019,7 +1076,7 @@ function startGame(){
   $('typeRow').classList.remove('on');
   clearIdle(); micLabel(false);
   newGame(); G.running=true;
-  $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
+  $('utterN').textContent='0'; $('utterOk').textContent='성공 0'; updateCombo();
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
   heard(''); hintTxt('');
   clearTimeout(_eventT); $('eventMsg').classList.remove('show');
