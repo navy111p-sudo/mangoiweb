@@ -101,99 +101,256 @@ function vcqWho() {
 /* 📥 수신 통계 — «내가 받는 화면·소리» 를 잰다(원인 ② 참고).
    ⚠️ 델타 기준값(__vcRxPrev)은 60초 전송으로 초기화되는 Q 와 따로 둔다.
       Q 안에 두면 전송 직후 한 틱이 통째로 버려진다. */
-/* 🎞️ 수신 영상 빠른 복구 — 실제 decoded frame을 근거로만 UI/element를 회복한다.
-   [2026-09-17] v15는 실제 수업에서 수동 조작 없이 영상이 돌아왔지만, 검은 덮개가
-   cam-state 신호를 기다려 실제 프레임이 이미 온 뒤에도 남을 수 있었다. 여기서는 기존
-   4초 수신 통계 틱을 재사용한다. 새 timer/observer/ICE restart/재협상은 만들지 않는다.
-   🔒 'user'(사람이 카메라 OFF)는 절대 지우지 않는다. track/sender enabled도 건드리지 않는다. */
+/* Fast receive recovery shares vcqRxTick's reports. No timer, observer or extra getStats.
+   A confirmed incident owns each level once; a recovered incident has a 30s cooldown.
+   AAO hysteresis and peer liveness remain separate and unchanged. */
+function vcRecoveryLog(event, id, pc, R, level) {
+    try {
+        console.log('[vc-recovery] ' + event, {
+            roomId: typeof vcRoomId === 'undefined' ? '' : vcRoomId,
+            peerId: id, role: window.vcMyRole || vcqWho().role || '',
+            iceState: pc && pc.iceConnectionState, connectionState: pc && pc.connectionState,
+            audioPacketsDelta: R && R.audio ? R.audio.dr : null,
+            videoPacketsDelta: R && R.video ? R.video.dr : null,
+            framesDecodedDelta: R && R.video ? R.video.dfr : null,
+            track: { readyState: R && R.video && R.video.track && R.video.track.readyState,
+                enabled: R && R.video && R.video.track && R.video.track.enabled },
+            elapsedMs: R && R.started ? Date.now() - R.started : 0,
+            recoveryLevel: level == null ? (R && R.level || 0) : level,
+            path: R && R.path || 'sender'
+        });
+    } catch (_) {}
+}
+function vcRecoveryOwnsPeer(id, pc) {
+    var R = (window.__vcRxRecovery || {})[id];
+    return !!(R && (R.pc === pc || R.rebuilding) && R.managed && !vcAaoSfuCut());
+}
+function vcRecoverySend(id, action, token) {
+    try {
+        if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
+        vcConn.send({ type: 'video-recovery', data: { targetUserId: id, action: action, token: token } });
+        return true;
+    } catch (_) { return false; }
+}
+function vcRecoveryVideoWanted(pc) {
+    var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+    if (!s || s.track.readyState !== 'live' || s.track.enabled === false || vcAaoSfuCut()) return null;
+    if (!window.__vcScreenSharing && ((typeof vcCamOn !== 'undefined' && vcCamOn === false)
+        || (window.__vcAAO && window.__vcAAO.active))) return null;
+    return s;
+}
+async function vcRecoveryMessage(data) {
+    if (!data || !document.body || !document.body.classList.contains('vc-in-call')) return;
+    var id = data.fromUserId, pc = (window.vcPeerConnections || {})[id];
+    if (!pc || pc.connectionState === 'closed' || vcAaoSfuCut()) return;
+    var R = (window.__vcRxRecovery || {})[id];
+    if (data.action === 'ready') {
+        if (R && R.token === data.token) { pc.__vcRecoveryCapable = true; }
+        return;
+    }
+    if (data.action === 'camera-off' || data.action === 'aao') {
+        if (!R || R.token !== data.token) return;
+        (window.vcRemoteCamOff || (window.vcRemoteCamOff = {}))[id] = data.action === 'aao' ? 'aao' : 'user';
+        vcRecoveryCancel(R); R.bad = 0; R.started = 0; R.level = -1;
+        try { window.vcApplyRemoteCamHint(id); } catch (_) {}
+        return;
+    }
+    if (!['sender-reapply', 'renegotiate', 'ice-restart'].includes(data.action)) return;
+    var sender = vcRecoveryVideoWanted(pc);
+    var current = pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+    var manualOff = !window.__vcScreenSharing && ((typeof vcCamOn !== 'undefined' && vcCamOn === false)
+        || (current && current.track.enabled === false));
+    var aaoOff = !window.__vcScreenSharing && window.__vcAAO && window.__vcAAO.active;
+    if (manualOff || aaoOff) {
+        vcRecoverySend(id, manualOff ? 'camera-off' : 'aao', data.token);
+        return; // Missing/ended sender is NOT evidence that a person turned the camera off.
+    }
+    var seen = pc.__vcRecoveryCommands || (pc.__vcRecoveryCommands = {});
+    var last = seen[data.action];
+    if (last && (last.token === data.token || Date.now() - last.at < 12000)) return;
+    seen[data.action] = { token: data.token, at: Date.now() };
+    pc.__vcRecoveryCapable = true;
+    if (data.action === 'sender-reapply') {
+        try {
+            if (!sender) throw new Error('No live video sender');
+            var p = sender.getParameters();
+            if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+            // Keep current adaptive bitrate, fps and scale; never restore high-quality defaults.
+            p.encodings[0].active = true;
+            await sender.setParameters(p);
+            vcRecoveryLog('sender-reapply', id, pc, R, 0);
+        } catch (_) {} // The v15 4s reapply remains the retry path.
+        if ((window.vcPeerConnections || {})[id] === pc) vcRecoverySend(id, 'ready', data.token);
+    } else {
+        // Only the smaller ID offers. The other endpoint requests that owner to negotiate.
+        if (typeof vcUserId !== 'undefined' && String(vcUserId) < String(id)) {
+            await vcRecoveryNegotiate(id, pc, data.action === 'ice-restart', R, true);
+        }
+    }
+}
+async function vcRecoveryNegotiate(id, pc, ice, R, requested) {
+    if (!pc.__vcRecoveryCapable || pc.__vcRecoveryOffering || pc.signalingState !== 'stable') return false;
+    if ((window.vcPeerConnections || {})[id] !== pc || !vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
+    if ((window.vcRemoteCamOff || {})[id] || vcAaoSfuCut()) return false;
+    if (pc.__vcRecoveryNegoAt && Date.now() - pc.__vcRecoveryNegoAt < 12000) return false;
+    if (ice && !(pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed')) return false;
+    if (ice && R && R.audio && R.audio.dr > 0) return false;
+    if (!ice && !requested && typeof vcUserId !== 'undefined' && String(vcUserId) > String(id)) {
+        return vcRecoverySend(id, ice ? 'ice-restart' : 'renegotiate', R.token);
+    }
+    pc.__vcRecoveryOffering = true;
+    pc.__vcRecoveryNegoAt = Date.now();
+    try {
+        if (ice) pc.restartIce();
+        var offer = await pc.createOffer(ice ? { iceRestart: true } : undefined);
+        // An incoming offer may have won while createOffer was pending. Do not overwrite it.
+        if (pc.signalingState !== 'stable' || (window.vcPeerConnections || {})[id] !== pc || (window.vcRemoteCamOff || {})[id]) return false;
+        if (typeof vcTuneAudioSdp === 'function') offer.sdp = vcTuneAudioSdp(offer.sdp);
+        await pc.setLocalDescription(offer);
+        if ((window.vcPeerConnections || {})[id] !== pc) return false;
+        vcConn.send({ type: 'offer', data: { targetUserId: id, sdp: pc.localDescription, recovery: true } });
+        vcRecoveryLog(ice ? 'ice-restart' : 'renegotiate', id, pc, R, ice ? 3 : 2);
+        return true;
+    } catch (_) { return false; }
+    finally { pc.__vcRecoveryOffering = false; }
+}
+function vcRecoveryCancel(R) {
+    if (R && R.frameVideo && R.frameCallback != null && R.frameVideo.cancelVideoFrameCallback) {
+        try { R.frameVideo.cancelVideoFrameCallback(R.frameCallback); } catch (_) {}
+    }
+    if (R) { R.frameCallback = null; R.frameVideo = null; }
+}
+function vcRecoveryClearOverlay(id) {
+    if ((window.vcRemoteCamOff || {})[id] === 'user') return;
+    var box = document.getElementById('vc-video-' + id);
+    var off = window.vcRemoteCamOff || {};
+    if (off[id] === 'aao') {
+        delete off[id];
+        try { window.vcApplyRemoteCamHint(id); } catch (_) {}
+    }
+    if (!box || !box.querySelector) return;
+    if (box.querySelector('.vc-aao-still') || box.querySelector('.vc-aao-freeze')
+        || (box.classList && box.classList.contains('vc-aao-on'))) {
+        try { vcAaoFreeze(box, id, false); } catch (_) {}
+    }
+    ['.vc-black-hint', '.vc-camoff-hint'].forEach(function (sel) { var e = box.querySelector(sel); if (e) e.remove(); });
+}
+function vcRecoveryRecovered(id, pc, R) {
+    if ((window.vcRemoteCamOff || {})[id] === 'user') return;
+    vcRecoveryClearOverlay(id);
+    if (R.started) {
+        vcRecoveryLog('recovered', id, pc, R);
+        R.cooldown = Date.now() + 30000;
+    }
+    vcRecoveryCancel(R);
+    R.bad = 0; R.dead = 0; R.started = 0; R.level = -1; R.done = {}; R.rebuilding = false;
+}
+function vcRecoveryElement(id, pc, R) {
+    var tr = R.video && R.video.track;
+    var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+    if (!tr || tr.readyState !== 'live' || !v || (window.vcRemoteCamOff || {})[id]) return false;
+    var s = v.srcObject;
+    if (!s || !s.getVideoTracks || !s.getVideoTracks().some(function (t) { return t === tr; })) {
+        if (typeof MediaStream === 'undefined') return false;
+        if (!s || !s.addTrack) s = new MediaStream();
+        s.getVideoTracks().forEach(function (t) { if (t !== tr) s.removeTrack(t); });
+        s.addTrack(tr); v.srcObject = s;
+    }
+    try { var p = v.play && v.play(); if (p && p.catch) p.catch(function () {}); } catch (_) {}
+    vcRecoveryLog('video-element-recover', id, pc, R, 1);
+    return true;
+}
+function vcRecoveryWatchFrame(id, pc, R) {
+    if (R.frameCallback != null) return;
+    var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+    if (!v || !v.requestVideoFrameCallback) return;
+    R.frameVideo = v;
+    R.frameCallback = v.requestVideoFrameCallback(function () {
+        R.frameCallback = null;
+        if ((window.__vcRxRecovery || {})[id] !== R || (window.vcPeerConnections || {})[id] !== pc) return;
+        if ((window.vcRemoteCamOff || {})[id]) return; // AAO needs a later stats sample, not a buffered old callback.
+        vcRecoveryRecovered(id, pc, R);
+    });
+}
+
 function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
     try {
         if (!id || !sample) return;
         var all = window.__vcRxRecovery || (window.__vcRxRecovery = {});
-        var R = all[id] || (all[id] = { seq: -1, bad: 0, attempts: 0, lastAttempt: 0, aaoSeenSeq: -1 });
+        var R = all[id];
+        if (!R || (R.pc !== pc && !R.rebuilding)) {
+            vcRecoveryCancel(R);
+            R = all[id] = { pc: pc, seq: -1, bad: 0, dead: 0, level: -1, done: {}, aaoSeenSeq: -1 };
+        }
+        R.pc = pc;
+        if (seq < R.seq) return;
         if (R.seq !== seq) { R.seq = seq; R.video = null; R.audio = null; }
-        if (kind === 'video') R.video = { dfr: sample.dfr, known: sample.known, track: receiver && receiver.track };
-        else if (kind === 'audio') R.audio = { dr: sample.dr };
-
-        var off = window.vcRemoteCamOff || {};
-        if (off[id] === 'aao') {
-            if (R.aaoSeenSeq < 0) R.aaoSeenSeq = seq;
-            /* AAO 전환과 같은 4초 표본에 섞인 옛 프레임은 회복 근거가 아니다.
-               AAO를 한 번 관측한 뒤의 «다음 표본»에서도 프레임이 늘어야만 덮개를 걷는다. */
-            if (kind === 'video' && sample.known && sample.dfr > 0 && seq > R.aaoSeenSeq) {
-                delete off[id];
-                R.aaoSeenSeq = -1; R.bad = 0; R.attempts = 0;
-                try { if (typeof window.vcApplyRemoteCamHint === 'function') window.vcApplyRemoteCamHint(id); } catch (_) {}
-                try { console.log('[vc-recovery] recovered-overlay', id); } catch (_) {}
-            }
-        } else {
-            R.aaoSeenSeq = -1;
-            if (kind === 'video' && sample.known && sample.dfr > 0) { R.bad = 0; R.attempts = 0; }
-        }
-
-        var why = off[id];
-        var cs = pc && pc.connectionState, ice = pc && pc.iceConnectionState;
+        if (kind === 'video') R.video = { dr: sample.dr, dfr: sample.dfr, known: sample.known,
+            stalledKnown: sample.stalledKnown == null ? sample.known : sample.stalledKnown,
+            progress: sample.progress == null ? sample.dfr : sample.progress, track: receiver && receiver.track };
+        else if (kind === 'audio') R.audio = { dr: sample.dr, known: sample.known !== false };
+        var off = window.vcRemoteCamOff || {}, why = off[id];
+        if (why === 'user') { vcRecoveryCancel(R); R.bad = 0; R.dead = 0; R.started = 0; return; }
         var tr = R.video && R.video.track;
-        var connected = (!cs || cs === 'connected') && (!ice || ice === 'connected' || ice === 'completed');
-        var live = tr && tr.readyState === 'live' && !tr.muted;
-
-        /* 디코더와 <video>는 별개다. framesDecoded가 늘어도 srcObject에서 트랙이
-           빠졌으면 검은 화면이므로, 멈춤 판정과 무관하게 즉시 다시 붙인다. */
-        if (kind === 'video' && !why && connected && live && sample.known && sample.dfr > 0) {
-            var attachBox = document.getElementById('vc-video-' + id);
-            var attachVideo = attachBox && attachBox.querySelector && attachBox.querySelector('video');
-            var attachStream = attachVideo && attachVideo.srcObject;
-            var attached = false;
-            if (attachStream && typeof attachStream.getVideoTracks === 'function') {
-                var attachedTracks = attachStream.getVideoTracks();
-                for (var ai = 0; ai < attachedTracks.length; ai++) {
-                    if (attachedTracks[ai] === tr || (attachedTracks[ai].id && attachedTracks[ai].id === tr.id)) attached = true;
-                }
-            }
-            if (attachVideo && !attached && typeof MediaStream !== 'undefined') {
-                var attachNow = Date.now();
-                if (R.attempts < 3 && attachNow - (R.lastAttempt || 0) >= 12000) {
-                    R.lastAttempt = attachNow; R.attempts++;
-                    var nextStream = (attachStream && typeof attachStream.getTracks === 'function') ? attachStream : new MediaStream();
-                    if (typeof nextStream.getVideoTracks === 'function' && typeof nextStream.removeTrack === 'function') {
-                        nextStream.getVideoTracks().forEach(function (t) { if (t !== tr && (!t.id || t.id !== tr.id)) nextStream.removeTrack(t); });
-                    }
-                    if (typeof nextStream.addTrack === 'function') nextStream.addTrack(tr);
-                    attachVideo.srcObject = nextStream;
-                    var attachPlay = attachVideo.play && attachVideo.play();
-                    if (attachPlay && typeof attachPlay.catch === 'function') attachPlay.catch(function (e) {
-                        try { console.warn('[vc-recovery] video-play-rejected', id, e && e.message || e); } catch (_) {}
-                    });
-                    try { console.log('[vc-recovery] video-track-reattach', id, 'attempt=' + R.attempts); } catch (_) {}
-                }
+        var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+        var total = v && v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality().totalVideoFrames : null;
+        var displayed = kind === 'video' && v === R.lastVideo && typeof total === 'number' && typeof R.total === 'number' && total > R.total;
+        if (kind === 'video') { R.lastVideo = v; R.total = total; }
+        var fresh = kind === 'video' && ((sample.known && sample.dfr > 0) || displayed);
+        if (why === 'aao') {
+            if (R.aaoSeenSeq < 0) R.aaoSeenSeq = seq;
+            if (fresh && seq > R.aaoSeenSeq) { vcRecoveryRecovered(id, pc, R); why = off[id]; }
+            else { R.bad = 0; R.dead = 0; return; }
+        } else R.aaoSeenSeq = -1;
+        var connected = pc && pc.connectionState === 'connected'
+            && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed');
+        if (fresh) {
+            vcRecoveryRecovered(id, pc, R);
+            // Decoding can be healthy while the video element lost its track.
+            var attached = v && v.srcObject && v.srcObject.getVideoTracks && v.srcObject.getVideoTracks().includes(tr);
+            if (connected && tr && tr.readyState === 'live' && (!attached || v.paused)
+                && (!R.attachAt || Date.now() - R.attachAt >= 12000)) {
+                R.attachAt = Date.now(); vcRecoveryElement(id, pc, R);
             }
         }
-
-        if (!R.video || !R.audio) return;
-        why = off[id];
-        if (why) { R.bad = 0; return; }
-        if (!connected) { R.bad = 0; return; }
+        if (!R.video || !R.audio || R.consumed === seq) return;
+        R.consumed = seq;
         tr = R.video.track;
-        if (!tr || tr.readyState !== 'live' || tr.muted) { R.bad = 0; return; }
-        if (!(R.audio.dr > 0) || !R.video.known || R.video.dfr > 0) { R.bad = 0; return; }
-
-        R.bad++;
-        if (R.bad < 2) return;
-        var now = Date.now();
-        if (R.attempts >= 3 || now - (R.lastAttempt || 0) < 12000) return;
-        R.lastAttempt = now; R.attempts++;
-
-        var box = document.getElementById('vc-video-' + id);
-        var v = box && box.querySelector && box.querySelector('video');
-        if (!v) return;
-        try {
-            var pr = v.play && v.play();
-            if (pr && typeof pr.catch === 'function') pr.catch(function (e) {
-                try { console.warn('[vc-recovery] video-play-rejected', id, e && e.message || e); } catch (_) {}
+        R.managed = R.rebuilding || !!(tr && tr.readyState === 'live' && R.video.stalledKnown && R.audio.known);
+        if (!R.managed || tr.enabled === false || vcAaoSfuCut()) { R.bad = 0; R.dead = 0; return; }
+        if (R.video.progress > 0 || displayed) { R.bad = 0; R.dead = 0; return; }
+        var videoOnly = connected && R.audio.dr > 0;
+        var transportDead = (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed')
+            && R.audio.dr === 0 && R.video.dr === 0;
+        R.bad = videoOnly ? R.bad + 1 : 0;
+        R.dead = transportDead ? R.dead + 1 : 0;
+        if (!videoOnly && !transportDead) return; // Silence/DTX on connected ICE is not a dead path.
+        if (R.cooldown && Date.now() < R.cooldown) return;
+        if (!R.started) {
+            R.started = Date.now(); R.token = id + ':' + R.started; R.done = {}; R.level = 0;
+            R.path = videoOnly ? 'video-only' : 'media-path-dead';
+            if (vcRecoverySend(id, 'sender-reapply', R.token)) vcRecoveryLog('sender-reapply', id, pc, R, 0);
+            vcRecoveryWatchFrame(id, pc, R);
+        }
+        if (R.bad >= 2 && !R.done[1]) {
+            R.path = 'VIDEO_STALLED'; R.level = 1; R.done[1] = Date.now();
+            vcRecoveryLog('video-stalled', id, pc, R);
+            vcRecoveryElement(id, pc, R);
+            vcRecoveryWatchFrame(id, pc, R);
+        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            R.level = 2; R.done[2] = Date.now();
+            vcRecoveryNegotiate(id, pc, false, R);
+        }
+        if (R.dead >= 2 && !R.done[3] && !R.icePending && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            R.path = 'media-path-dead'; R.level = 3; R.icePending = true;
+            vcRecoveryNegotiate(id, pc, true, R).then(function (sent) {
+                R.icePending = false;
+                if (sent && R.started) R.done[3] = Date.now();
             });
-            try { console.log('[vc-recovery] video-element-recover', id, 'attempt=' + R.attempts); } catch (_) {}
-        } catch (e) {
-            try { console.warn('[vc-recovery] element-recover-error', id, e && e.message || e); } catch (_) {}
+        } else if (R.dead >= 2 && R.done[3] && !R.done[4] && Date.now() - R.done[3] >= 12000) {
+            R.level = 4; R.done[4] = Date.now(); R.rebuilding = true;
+            vcRecoveryLog('peer-rebuild', id, pc, R);
+            if (typeof vcReconnectPeer === 'function') vcReconnectPeer(id);
         }
     } catch (_) {}
 }
@@ -204,6 +361,10 @@ function vcqRxTick() {
     var ids = Object.keys(pcs);
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    var recovery = window.__vcRxRecovery || {};
+    Object.keys(recovery).forEach(function (id) {
+        if (!pcs[id] && (!recovery[id].rebuilding || Date.now() - recovery[id].done[4] > 30000)) { vcRecoveryCancel(recovery[id]); delete recovery[id]; }
+    });
     var rxSeq = (window.__vcRxSeq = (window.__vcRxSeq || 0) + 1);
     try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     try { vcqDupTabWatch(); } catch (_) {}   // 👥 같은 계정 둘째 탭(③)
@@ -214,14 +375,17 @@ function vcqRxTick() {
         try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
         if (!pc || !pc.getReceivers) return;
         pc.getReceivers().forEach(function (r) {
-            if (!r || !r.track || !r.getStats) return;
+            if (!r || !r.track || !r.getStats || r.__vcRxReading) return;
             var kind = r.track.kind;
             if (kind !== 'video' && kind !== 'audio') return;
-            r.getStats().then(function (st) {
+            r.__vcRxReading = true;
+            Promise.resolve().then(function () { return r.getStats(); }).then(function (st) {
+                if ((window.vcPeerConnections || {})[id] !== pc) return;
                 st.forEach(function (s) {
-                    if (s.type !== 'inbound-rtp') return;
+                    if (s.type !== 'inbound-rtp' || ((s.kind || s.mediaType) && (s.kind || s.mediaType) !== kind)) return;
                     var key = id + ':' + kind;
                     var prev = prevAll[key];
+                    var sameMedia = prev && prev.pc === pc && prev.statId === s.id && prev.trackId === r.track.id;
                     var lost = s.packetsLost || 0, rec = s.packetsReceived || 0;
                     var dl = Math.max(0, lost - ((prev && prev.lost) || 0));
                     var dr = Math.max(0, rec - ((prev && prev.rec) || 0));
@@ -237,7 +401,10 @@ function vcqRxTick() {
                         var fz = s.freezeCount || 0;
                         var frKnown = (typeof s.framesDecoded === 'number');
                         var fr = frKnown ? s.framesDecoded : 0;
-                        var dfr = (prev && frKnown && typeof prev.fr === 'number') ? Math.max(0, fr - prev.fr) : 0;
+                        var frameKnown = !!(sameMedia && frKnown && typeof prev.fr === 'number' && fr >= prev.fr);
+                        var dfr = frameKnown ? fr - prev.fr : 0;
+                        var receivedKnown = !!(sameMedia && typeof s.framesReceived === 'number' && typeof prev.received === 'number' && s.framesReceived >= prev.received);
+                        var progress = frKnown ? dfr : receivedKnown ? s.framesReceived - prev.received : 0;
                         if (prev) {
                             if (dl + dr >= 25) {
                                 var lp = 100 * dl / (dl + dr);
@@ -250,8 +417,8 @@ function vcqRxTick() {
                             }
                             Q.rxf += Math.max(0, fz - (prev.fz || 0));
                         }
-                        prevAll[key] = { lost: lost, rec: rec, fz: fz, fr: frKnown ? fr : null };
-                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: !!(prev && frKnown && typeof prev.fr === 'number') }, pc, r, rxSeq); } catch (_) {}
+                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, fz: fz, fr: frKnown ? fr : null, received: s.framesReceived };
+                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: frameKnown, stalledKnown: frKnown ? frameKnown : receivedKnown, progress: progress }, pc, r, rxSeq); } catch (_) {}
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
                         if (prev) {
@@ -261,11 +428,11 @@ function vcqRxTick() {
                                표본이 너무 적으면(무음·DTX) 비율이 튀므로 버린다. */
                             if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
                         }
-                        prevAll[key] = { lost: lost, rec: rec, cs: cs, ts: ts };
-                        try { vcqRxRecoverySample(id, 'audio', { dr: dr }, pc, r, rxSeq); } catch (_) {}
+                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, cs: cs, ts: ts };
+                        try { vcqRxRecoverySample(id, 'audio', { dr: dr, known: !!sameMedia && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
                     }
                 });
-            }).catch(function () {});
+            }).catch(function () {}).finally(function () { r.__vcRxReading = false; });
         });
     });
 }
@@ -449,6 +616,8 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
+                Object.keys(window.__vcRxRecovery || {}).forEach(function (id) { vcRecoveryCancel(window.__vcRxRecovery[id]); });
+                window.__vcRxRecovery = {};
                 window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {}; __vcAaoSince = {};
                 /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
@@ -770,6 +939,7 @@ function vcAAOVideo(on) {
             if (want) __vcAaoOnAt = Date.now();             // 🎥 «켰다» 를 적어 둔다 — 아래 vcAaoVerify 가 그 뒤 «실제로 나가는가» 를 본다
             /* ⛔ 실패를 삼키지 말 것 — 이 거절 하나가 «소리는 오는데 얼굴이 멈춘 채» 를 수업 끝까지 만든다.
                아래 4초 재적용이 다시 걸어 주지만, «왜 한 번 거절됐나» 는 이 줄로만 남는다. */
+            try { if (want) vcRecoveryLog('sender-reapply', id, pc, (window.__vcRxRecovery || {})[id], 0); } catch (_) {}
             s.setParameters(p).catch(function (e) {
                 try { console.warn('[vc-aao] setParameters 거절 — uid', id, want ? '켜기' : '끄기', (e && e.message) || e); } catch (_) {}
             });

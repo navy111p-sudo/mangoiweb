@@ -62,7 +62,7 @@ const BASE = 'http://127.0.0.1:' + server.address().port + '/';
 const { chromium, exe } = requireBrowser();
 const browser = await chromium.launch({
   executablePath: exe,
-  args: ['--no-sandbox', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+  args: ['--no-sandbox', '--allow-loopback-in-peer-connection', '--disable-features=WebRtcHideLocalIpsWithMdns', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
          '--autoplay-policy=no-user-gesture-required']
 });
 const page = await browser.newPage();
@@ -237,8 +237,9 @@ const offer = await page.evaluate(async () => {
   const pc = new RTCPeerConnection();
   window.__stream.getTracks().forEach(t => pc.addTrack(t, window.__stream));
   await pc.setLocalDescription(await pc.createOffer());
-  await new Promise(r => { if (pc.iceGatheringState === 'complete') return r();
-    pc.onicegatheringstatechange = () => pc.iceGatheringState === 'complete' && r(); });
+  await new Promise((r, reject) => { if (pc.iceGatheringState === 'complete') return r();
+    const t=setTimeout(()=>reject(new Error('ICE gathering timed out')),10000);
+    pc.onicegatheringstatechange = () => { if(pc.iceGatheringState === 'complete') {clearTimeout(t);r();} }; });
   window.__pcA = pc;
   window.vcPeerConnections = { u2: pc };          // 이 파일이 보는 정본을 새 연결로 바꾼다
   const vs = pc.getSenders().find(x => x.track && x.track.kind === 'video');
@@ -250,8 +251,9 @@ const answer = await pageB.evaluate(async (sdp) => {
   pc.ontrack = e => { document.getElementById('v').srcObject = e.streams[0]; };
   await pc.setRemoteDescription({ type: 'offer', sdp });
   await pc.setLocalDescription(await pc.createAnswer());
-  await new Promise(r => { if (pc.iceGatheringState === 'complete') return r();
-    pc.onicegatheringstatechange = () => pc.iceGatheringState === 'complete' && r(); });
+  await new Promise((r, reject) => { if (pc.iceGatheringState === 'complete') return r();
+    const t=setTimeout(()=>reject(new Error('ICE gathering timed out')),10000);
+    pc.onicegatheringstatechange = () => { if(pc.iceGatheringState === 'complete') {clearTimeout(t);r();} }; });
   window.__pcB = pc;
   return pc.localDescription.sdp;
 }, offer);
@@ -276,6 +278,144 @@ ok(g3 - g2 <= 2, 'G-3 음성전용 — 다른 탭의 프레임이 멈춘다', g2
 await setAao(false); await tick(1); await sleep(2000);
 const g4 = await framesB(); await sleep(1500); const g5 = await framesB();
 ok(g5 - g4 >= 5, 'G-4 회복 — 새로고침 없이 다른 탭에 영상이 돌아온다 (사용자 시나리오 그대로)', g4 + ' → ' + g5 + ' (증가 ' + (g5 - g4) + ')');
+
+sec('⑧ receiver recovery — production samples/signaling, real 4s ticks and actual frames');
+// Load the actual offer/answer functions. Signaling transport is local; both PCs/media are real.
+const mainSrc = readFileSync(join(ROOT, 'cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+const offerHandler = mainSrc.slice(mainSrc.indexOf('async function vcHandleOffer('), mainSrc.indexOf('/** 원격 참가자의 비디오'));
+await pageB.addScriptTag({ content: readFileSync(QLOG, 'utf8') });
+for (const [p, selfId, peerId, pcName] of [[page,'u1','u2','__pcA'], [pageB,'u2','u1','__pcB']]) {
+  await p.evaluate(({selfId,peerId,pcName}) => {
+    window.vcUserId=selfId; window.vcRoomId='realpc-harness'; window.vcMyRole='student'; window.vcCamOn=true;
+    window.vcPeerConnections={[peerId]:window[pcName]}; window.vcRemoteCamOff={}; window.__vcAAO={active:false};
+    window.__vcRxRecovery={}; window.__vcRxPrev={}; window.__vcRxSeq=0;
+    window.__vcQ={p:[],rxv:[],rxa:[],rxc:[],rxf:0};
+    document.body.classList.add('vc-in-call');
+    window.vcTuneAudioSdp=s=>s; window.vcPendingCandidates={}; window.vcFlushPendingIce=()=>{}; window.vcEnsureIceServers=()=>Promise.resolve();
+    window.vcCreatePeer=()=>{throw new Error('Unexpected peer rebuild');};
+    window.vcReconnectPeer=()=>{window.__rebuilds++;};
+    window.__offers=0;window.__restarts=0;window.__rebuilds=0;
+    const pc=window[pcName], origOffer=pc.createOffer.bind(pc),origRestart=pc.restartIce.bind(pc);
+    pc.createOffer=(o)=>{window.__offers++;return origOffer(o);};
+    pc.restartIce=()=>{window.__restarts++;return origRestart();};
+    window.vcConn={ws:{readyState:1},send:m=>window.__signal(m)};
+    pc.onicecandidate=e=>{if(e.candidate)vcConn.send({type:'ice-candidate',data:{candidate:e.candidate.toJSON()}});};
+    // Stop unrelated wrappers from replacing our narrowly scoped test transport.
+    window.vcqWrapCreatePeer=()=>{};window.vcqWrapAAONotify=()=>{};
+  },{selfId,peerId,pcName});
+  await p.addScriptTag({content:offerHandler});
+}
+await pageB.evaluate(()=>{
+  const v=document.getElementById('v');
+  const b=document.createElement('div');b.id='vc-video-u1';b.className='video-box';
+  v.replaceWith(b);b.appendChild(v);v.id='vremote';
+  const originalLog=console.log;
+  window.__recoveryEvents=[];
+  console.log=(...args)=>{if(String(args[0]).startsWith('[vc-recovery]')) window.__recoveryEvents.push({event:args[0],data:args[1],at:Date.now()});originalLog(...args);};
+});
+const route = async (target, from, m) => {
+  await target.evaluate(async ({from,m})=>{
+    const d={...m.data,fromUserId:from};
+    if(m.type==='video-recovery') await vcRecoveryMessage(d);
+    else if(m.type==='offer') await vcHandleOffer(d);
+    else if(m.type==='answer') await vcHandleAnswer(d);
+    else if(m.type==='ice-candidate') await vcHandleIce(d);
+  },{from,m});
+};
+await page.exposeFunction('__signal',m=>route(pageB,'u1',m));
+await pageB.exposeFunction('__signal',m=>route(page,'u2',m));
+const primeReceiver = async () => {
+  await pageB.evaluate(()=>{Object.values(window.__vcRxRecovery||{}).forEach(vcRecoveryCancel);
+    window.__vcRxRecovery={};window.__vcRxPrev={};window.__recoveryEvents=[];vcqRxTick();});
+  await sleep(100);
+};
+const startReceiverTicks=()=>pageB.evaluate(()=>{window.__rxTimer=setInterval(vcqRxTick,4000);});
+const stopReceiverTicks=()=>pageB.evaluate(()=>clearInterval(window.__rxTimer));
+const waitNewFrame=async(timeout=15000)=>{
+  await pageB.waitForFunction(()=>window.__frameReturnedAt>0,null,{timeout});
+  return pageB.evaluate(()=>({elapsedMs:window.__frameReturnedAt-window.__measureAt,events:window.__recoveryEvents,
+    offers:window.__offers,restarts:window.__restarts,rebuilds:window.__rebuilds}));
+};
+const measureFrame=()=>pageB.evaluate(()=>{
+  window.__measureAt=Date.now();window.__frameReturnedAt=0;
+  document.getElementById('vremote').requestVideoFrameCallback(()=>{window.__frameReturnedAt=Date.now();});
+});
+await page.evaluate(async()=>{const s=window.__vsender,p=s.getParameters();p.encodings[0].active=false;await s.setParameters(p);});
+await sleep(1000); await primeReceiver();
+const frozenStart=await framesB(); await sleep(400); const frozenEnd=await framesB();
+ok(frozenEnd===frozenStart,'H-1 real inactive sender stops decoded frames before measurement');
+const recvAudio=()=>pageB.evaluate(async()=>{let a=0;(await window.__pcB.getStats()).forEach(s=>{if(s.type==='inbound-rtp'&&s.kind==='audio')a=s.packetsReceived;});return a;});
+const liveAudio0=await recvAudio();
+await measureFrame(); await startReceiverTicks();
+const fastResult=await waitNewFrame(); await stopReceiverTicks();
+console.log('  MEASURE sender-active recovery: '+JSON.stringify(fastResult));
+ok(fastResult.elapsedMs<6500,'H-2 next 4s tick restores actual receiver frame',String(fastResult.elapsedMs));
+ok(await recvAudio()>liveAudio0,'H-3 audio stayed alive during video stall');
+ok(fastResult.events.some(e=>e.event==='[vc-recovery] sender-reapply'),'H-4 receiver requested real sender reapply');
+ok(!fastResult.events.some(e=>e.event==='[vc-recovery] video-stalled')&&fastResult.offers===0&&fastResult.restarts===0,
+  'H-5 L0 succeeds without element repair, renegotiation or ICE restart');
+
+sec('⑨ lost attachment/placeholder — decoder healthy, real element frames return');
+await pageB.evaluate(()=>{
+  const b=document.getElementById('vc-video-u1'),v=document.getElementById('vremote');
+  v.srcObject=new MediaStream();
+  ['vc-aao-still','vc-aao-freeze','vc-black-hint','vc-camoff-hint'].forEach(c=>{const e=document.createElement('div');e.className=c;b.appendChild(e);});
+});
+await primeReceiver(); await sleep(300);
+await measureFrame(); await startReceiverTicks();
+const attachment=await waitNewFrame(); await stopReceiverTicks();
+console.log('  MEASURE element-attachment recovery: '+JSON.stringify(attachment));
+ok(attachment.elapsedMs<6500,'I-1 production sampler reattaches real receiver stream by next tick');
+ok(await pageB.evaluate(()=>!document.querySelector('.vc-aao-still,.vc-aao-freeze,.vc-black-hint,.vc-camoff-hint')),
+  'I-2 stale image, strip and black covers are all removed');
+ok(attachment.offers===0&&attachment.restarts===0,'I-3 no negotiation needed for attachment repair');
+
+sec('⑩ real replaceTrack stall — stalled source cannot be cured by play; one safe renegotiation');
+await page.evaluate(async()=>{
+  window.__sourceTrack=window.__vsender.track;
+  const c=document.createElement('canvas');c.width=320;c.height=240;
+  const g=c.getContext('2d');g.fillStyle='#20a080';g.fillRect(0,0,320,240);
+  window.__stillStream=c.captureStream(0);await window.__vsender.replaceTrack(window.__stillStream.getVideoTracks()[0]);
+  window.__stillStream.getVideoTracks()[0].requestFrame();
+});
+await sleep(1000); await primeReceiver();
+await startReceiverTicks();
+await pageB.waitForFunction(()=>window.__recoveryEvents.some(e=>e.event==='[vc-recovery] video-stalled'),null,{timeout:12000});
+await page.waitForFunction(()=>window.__offers===1,null,{timeout:8000});
+await sleep(500);
+const stoppedSource=await pageB.evaluate(()=>({events:window.__recoveryEvents,restarts:window.__restarts,rebuilds:window.__rebuilds,state:window.__pcB.connectionState}));
+console.log('  MEASURE source-stall escalation: '+JSON.stringify(stoppedSource));
+ok(stoppedSource.state==='connected'&&stoppedSource.restarts===0&&stoppedSource.rebuilds===0,'J-1 video-only source stall keeps PC and audio connected');
+ok(stoppedSource.events.some(e=>e.event==='[vc-recovery] video-element-recover'),'J-2 L1 runs before renegotiation');
+ok(await page.evaluate(()=>window.__offers===1&&window.__restarts===0),'J-3 smaller-ID owner renegotiated once without ICE restart');
+// Release the deliberately frozen source. This is fault removal, not claimed as automatic source repair.
+await measureFrame();
+await page.evaluate(async()=>{await window.__vsender.replaceTrack(window.__sourceTrack);window.__stillStream.getTracks().forEach(t=>t.stop());});
+const sourceRelease=await waitNewFrame();await stopReceiverTicks();
+console.log('  MEASURE after explicit frozen-source release: '+sourceRelease.elapsedMs+'ms');
+ok(sourceRelease.elapsedMs<4000,'J-4 actual frames resume after the injected source fault is released');
+
+sec('⑪ synthetic ICE failed signal on real PC — actual restartIce + offer, no rebuild after frames');
+// The failure STATE is synthetic. SDP negotiation/restartIce/frame decoding remain real.
+await primeReceiver();
+await pageB.evaluate(async()=>{
+  const pc=window.__pcB;
+  Object.defineProperty(pc,'iceConnectionState',{configurable:true,value:'failed'});
+  Object.defineProperty(pc,'connectionState',{configurable:true,value:'failed'});
+  pc.__vcRecoveryCapable=true;
+  const vr=pc.getReceivers().find(r=>r.track.kind==='video');
+  const seq=window.__vcRxSeq+10;
+  for(let i=0;i<2;i++) {
+    vcqRxRecoverySample('u1','video',{dr:0,dfr:0,known:true},pc,vr,seq+i);
+    vcqRxRecoverySample('u1','audio',{dr:0,known:true},pc,null,seq+i);
+  }
+});
+await pageB.waitForFunction(()=>window.__restarts===1,null,{timeout:4000});
+await sleep(1000);
+await pageB.evaluate(()=>{delete window.__pcB.iceConnectionState;delete window.__pcB.connectionState;});
+const restartBefore=await framesB();await sleep(1200);const restartAfter=await framesB();
+ok(restartAfter>restartBefore,'K-1 actual frames continue after real ICE restart negotiation');
+ok(await pageB.evaluate(()=>window.__restarts===1&&window.__rebuilds===0),'K-2 ICE path runs once, recovered PC is not rebuilt');
 
 } catch (e) {
   fail++;

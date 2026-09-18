@@ -1219,6 +1219,7 @@ async function vcOnAppResume(reason) {
         const pc = vcPeerConnections[userId];
         const s = pc.iceConnectionState;
         if (s === 'disconnected' || s === 'failed') {
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) continue;
             console.log('[app-resume] 피어 재연결:', s, userId);
             try { pc.restartIce(); } catch(_) {}
             vcReconnectPeer(userId);
@@ -1540,6 +1541,7 @@ window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
         var connected = pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed' || pc.connectionState === 'connected');
         var hint = box.querySelector('.vc-black-hint');
         if (!connected) { delete blackSince[id]; if (hint) hint.remove(); return; }   // 아직 연결 전 = #19 워치독 담당
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         var rv = pc.getReceivers().find(function(r){ return r.track && r.track.kind === 'video'; });
         if (!rv || !rv.track) { delete blackSince[id]; if (hint) hint.remove(); return; }  // 상대가 영상 안 보냄 = 개입 금지
         var v = box.querySelector('video');
@@ -1759,6 +1761,7 @@ function vcToggleSoundBanner(show) {
             const box = document.getElementById('vc-video-' + id);
             const v = box && box.querySelector('video');
             if (!pc || !v || !v.srcObject) continue;
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) continue;
             const st = pc.iceConnectionState;
             if (st !== 'connected' && st !== 'completed') { pc.__vfz = null; continue; }
             const vt = (v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks() : [])[0];
@@ -1812,6 +1815,7 @@ setInterval(() => {
     if (!wakeLock && document.visibilityState === 'visible') { try { requestWakeLock(); } catch(_) {} }
     Object.keys(vcPeerConnections).forEach(id => {
         const pc = vcPeerConnections[id]; if (!pc) return;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         const s = pc.iceConnectionState;
         if (s === 'failed') { vcReconnectPeer(id); pc.__discSince = 0; }
         else if (s === 'disconnected') {
@@ -1841,6 +1845,7 @@ window.addEventListener('online', () => {
     try { if (vcConn && vcConn.ws && vcConn.ws.readyState !== WebSocket.OPEN && typeof vcConn.reconnectNow === 'function') vcConn.reconnectNow(); } catch(_) {}
     Object.keys(vcPeerConnections).forEach(id => {
         const st = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, vcPeerConnections[id])) return;
         if (st !== 'connected' && st !== 'completed') vcReconnectPeer(id);
     });
     try { vcResumeAllVideos(); } catch(_) {}
@@ -4127,6 +4132,10 @@ function vcHandleMessage(msg) {
             break;
 
         // 📷 (2026-07-24) 상대의 카메라 on/off 통보 — 검은 화면의 '이유' 를 확정해 준다.
+        case 'video-recovery':
+            try { if (typeof vcRecoveryMessage === 'function') vcRecoveryMessage(msg.data); } catch (_) {}
+            break;
+
         case 'cam-state': {
             const _csId = msg.data && msg.data.userId;
             if (_csId) {
@@ -5304,6 +5313,7 @@ function vcCreatePeer(userId, username) {
             console.log('[vc-webrtc] ✅ ICE 연결 성공:', userId);
             try { if (window.__vcForceRelay) delete window.__vcForceRelay[userId]; } catch(_) {}   // 성공 → 다음엔 다시 직접연결부터 시도
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (st === 'failed') {
             console.warn('[vc-webrtc] ❌ ICE 실패 → 재연결:', userId);
             try { (window.__vcForceRelay || (window.__vcForceRelay = {}))[userId] = true; } catch(_) {}   // 다음 재연결은 TURN 릴레이 강제(직접 실패 → 릴레이가 더 확실)
@@ -5314,7 +5324,8 @@ function vcCreatePeer(userId, username) {
             console.warn('[vc-webrtc] ⚠ ICE 끊김:', userId, '5초 후 재시도');
             try { pc.restartIce(); } catch(_) {}      // 일시적 끊김은 restartIce 로 회복될 수도
             setTimeout(() => {
-                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected') {
+                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected'
+                    && !(typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc))) {
                     console.warn('[vc-webrtc] ICE 여전히 끊김 → 재연결:', userId);
                     vcReconnectPeer(userId);
                 }
@@ -5327,6 +5338,7 @@ function vcCreatePeer(userId, username) {
         if (pc.connectionState === 'connected') {
             console.log('[vc-webrtc] ✅ P2P 연결 완료!', userId);
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (pc.connectionState === 'failed') {
             console.error('[vc-webrtc] ❌ P2P 연결 실패:', userId);
             /* 🔧 (2026-07-21) 예전엔 로그만 남기고 복구를 안 했다.
@@ -5424,9 +5436,11 @@ async function vcHandleOffer(data) {
             }
         }
 
-        // 기존 PC가 있으면 정리
-        try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
-        const pc = vcCreatePeer(fromId, fromName);
+        // A recovery offer reuses the existing PC; ordinary initial/rebuild offers keep the old path.
+        const reuse = data.recovery === true && existingPc && existingPc.signalingState === 'stable'
+            && existingPc.connectionState !== 'closed';
+        if (!reuse) { try { await vcEnsureIceServers(); } catch(_) {} }
+        const pc = reuse ? existingPc : vcCreatePeer(fromId, fromName);
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
         vcFlushPendingIce(fromId, pc);
         const answer = await pc.createAnswer();
