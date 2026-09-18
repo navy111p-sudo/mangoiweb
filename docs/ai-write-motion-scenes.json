@@ -1,0 +1,269 @@
+{
+  "status": "runway_connected_but_generation_tools_not_exposed",
+  "delivery": "Reviewed silent 4-6 second MP4 clips; natural repeat; static camera; no zoom-only animation. Keep people and action objects visible. Pause available. No runtime generation.",
+  "workflow": "For existing empty backgrounds, first create an action-filled keyframe with the listed people. Generate clip from that keyframe, inspect anatomy and action, commit MP4 and matching poster; then set PIC_SCENES motionSrc. Do not point motionSrc at missing clips.",
+  "scenes": [
+    {
+      "img": "birthday-action",
+      "ko": "생일 파티! 친구들은 무엇을 하고 있나요?",
+      "en": "Birthday party! What are the friends doing?",
+      "action": "Child blows out candles; two friends clap; friend offers a gift.",
+      "status": "not_generated"
+    },
+    {
+      "img": "playground-action",
+      "ko": "운동장 놀이! 누가 공을 차고 있나요?",
+      "en": "Playground fun! Who is kicking the ball?",
+      "action": "Children pass a soccer ball; child jumps rope; friend cheers.",
+      "status": "not_generated"
+    },
+    {
+      "img": "cooking-action",
+      "ko": "가족 요리! 각자 무엇을 만들고 있나요?",
+      "en": "Cooking together! What is each person doing?",
+      "action": "Child stirs batter; child places berries; parent flips a pancake.",
+      "status": "not_generated"
+    },
+    {
+      "img": "helping-action",
+      "ko": "함께 가꾸는 공원! 친구들은 어떻게 돕나요?",
+      "en": "Helping in the park! How are the friends helping?",
+      "action": "Child picks up litter; friend holds bag; child waters flowers.",
+      "status": "not_generated"
+    },
+    {
+      "img": "dino-school",
+      "ko": "공룡이 학교에 왔어요! 무슨 일이 벌어질까?",
+      "en": "A dinosaur came to school! What happens next?",
+      "action": "Friendly dinosaur waves; teacher points to board; children raise hands.",
+      "status": "not_generated"
+    },
+    {
+      "img": "space",
+      "ko": "우주로 떠나는 여행! 무엇이 보일까?",
+      "en": "A trip into space! What can you see?",
+      "action": "Astronaut waves; child fastens a seat belt; astronaut points to Earth.",
+      "status": "not_generated"
+    },
+    {
+      "img": "beach",
+      "ko": "신나는 바닷가! 오늘 뭐 하고 놀까?",
+      "en": "A sunny beach! What will you do today?",
+      "action": "Children build a sandcastle; parent carries water; child tosses a beach ball.",
+      "status": "not_generated"
+    },
+    {
+      "img": "jungle",
+      "ko": "정글 탐험! 어떤 동물을 만났을까?",
+      "en": "Jungle adventure! Which animals did you meet?",
+      "action": "Guide points to a monkey; child looks through binoculars; monkey swings.",
+      "status": "not_generated"
+    },
+    {
+      "img": "castle",
+      "ko": "마법의 성! 용과 마법사가 있어요.",
+      "en": "A magic castle! There is a dragon and a wizard.",
+      "action": "Wizard waves a wand; friendly dragon flaps wings; child opens a gate.",
+      "status": "not_generated"
+    },
+    {
+      "img": "restaurant",
+      "ko": "맛있는 레스토랑! 무엇을 주문할까?",
+      "en": "A tasty restaurant! What will you order?",
+      "action": "Waiter serves food; child points to menu; another child drinks water.",
+      "status": "not_generated"
+    },
+    {
+      "img": "ocean",
+      "ko": "바닷속 세상! 물고기 친구들을 만나요.",
+      "en": "Under the sea! Meet your fish friends.",
+      "action": "Diver waves; turtle swims; school of fish turns together.",
+      "status": "not_generated"
+    },
+    {
+      "img": "robot",
+      "ko": "로봇 공장! 나만의 로봇을 만들어요.",
+      "en": "A robot workshop! Build your own robot.",
+      "action": "Child tightens a robot screw; friend passes a tool; robot waves.",
+      "status": "not_generated"
+    },
+    {
+      "img": "circus",
+      "ko": "서커스에 왔어요! 제일 재미있는 건 뭘까?",
+      "en": "The circus is here! What is the most fun part?",
+      "action": "Juggler tosses balls; acrobat balances; audience claps.",
+      "status": "not_generated"
+    },
+    {
+      "img": "soccer",
+      "ko": "축구 경기! 우리 팀이 이길 수 있을까?",
+      "en": "The big game! Can your team win?",
+      "action": "Player kicks ball; goalkeeper reaches; teammate cheers.",
+      "status": "not_generated"
+    },
+    {
+      "img": "birthday",
+      "ko": "생일 파티! 소원을 빌어볼까?",
+      "en": "A birthday party! What will you wish for?",
+      "action": "Child blows out candles; friends clap and give presents.",
+      "status": "not_generated"
+    },
+    {
+      "img": "haunted",
+      "ko": "유령의 집! 용감하게 들어가 볼까?",
+      "en": "A haunted house! Are you brave enough to go in?",
+      "action": "Children open a door; friendly ghost waves; child points at ghost.",
+      "status": "not_generated"
+    },
+    {
+      "img": "farm",
+      "ko": "농장의 아침! 어떤 동물이 있을까?",
+      "en": "Morning at the farm! Which animals are there?",
+      "action": "Child feeds chickens; farmer carries basket; child picks vegetables.",
+      "status": "not_generated"
+    },
+    {
+      "img": "zoo",
+      "ko": "동물원 나들이! 제일 보고 싶은 동물은?",
+      "en": "A day at the zoo! Which animal do you want to see most?",
+      "action": "Keeper feeds giraffe; children point and take a photo.",
+      "status": "not_generated"
+    },
+    {
+      "img": "bakery",
+      "ko": "빵집에 왔어요! 무엇을 고를까?",
+      "en": "At the bakery! What will you choose?",
+      "action": "Baker kneads dough; child chooses bread; clerk hands over a bag.",
+      "status": "not_generated"
+    },
+    {
+      "img": "library",
+      "ko": "도서관! 어떤 책을 읽을까?",
+      "en": "At the library! Which book will you read?",
+      "action": "Child turns pages; librarian hands a book; friend writes notes.",
+      "status": "not_generated"
+    },
+    {
+      "img": "playground",
+      "ko": "놀이터! 친구들과 무엇을 하고 놀까?",
+      "en": "The playground! What will you play with your friends?",
+      "action": "Child slides; friend swings; two children play catch.",
+      "status": "not_generated"
+    },
+    {
+      "img": "snow",
+      "ko": "눈 오는 날! 무엇을 만들어 볼까?",
+      "en": "A snowy day! What will you build?",
+      "action": "Children roll snowball; friend places carrot nose; child waves.",
+      "status": "not_generated"
+    },
+    {
+      "img": "rain",
+      "ko": "비 오는 날! 우산 쓰고 어디 갈까?",
+      "en": "A rainy day! Where will you go with your umbrella?",
+      "action": "Child opens umbrella; friend steps around puddle; parent shares umbrella.",
+      "status": "not_generated"
+    },
+    {
+      "img": "market",
+      "ko": "시장 구경! 무엇을 살까?",
+      "en": "At the market! What will you buy?",
+      "action": "Seller weighs apples; parent pays; child carries a basket.",
+      "status": "not_generated"
+    },
+    {
+      "img": "camping",
+      "ko": "캠핑장의 밤! 모닥불 앞에서 무슨 이야기를 할까?",
+      "en": "A night at the campsite! What story will you tell?",
+      "action": "Parent pitches tent; child unrolls sleeping bag; friend shines flashlight.",
+      "status": "not_generated"
+    },
+    {
+      "img": "train",
+      "ko": "기차 여행! 창밖에 무엇이 보일까?",
+      "en": "A train trip! What can you see out the window?",
+      "action": "Child waves through window; parent points outside; conductor checks tickets.",
+      "status": "not_generated"
+    },
+    {
+      "img": "airport",
+      "ko": "공항에 왔어요! 어디로 떠날까?",
+      "en": "At the airport! Where are you flying to?",
+      "action": "Family rolls suitcases; staff scans boarding pass; child waves goodbye.",
+      "status": "not_generated"
+    },
+    {
+      "img": "clinic",
+      "ko": "병원에 갔어요! 의사 선생님이 뭐라고 하실까?",
+      "en": "A visit to the clinic! What will the doctor say?",
+      "action": "Doctor listens with stethoscope; child breathes deeply; parent comforts child.",
+      "status": "not_generated"
+    },
+    {
+      "img": "firestation",
+      "ko": "소방서 견학! 소방차를 타 볼까?",
+      "en": "A visit to the fire station! Will you ride the fire truck?",
+      "action": "Firefighter demonstrates hose; child tries helmet; classmates clap.",
+      "status": "not_generated"
+    },
+    {
+      "img": "aquarium",
+      "ko": "아쿠아리움! 어떤 물고기를 만났을까?",
+      "en": "At the aquarium! Which fish did you meet?",
+      "action": "Children point to passing fish; guide explains; child draws a turtle.",
+      "status": "not_generated"
+    },
+    {
+      "img": "musicroom",
+      "ko": "음악실! 어떤 악기를 연주해 볼까?",
+      "en": "The music room! Which instrument will you play?",
+      "action": "Child plays drums; friend strums guitar; teacher conducts.",
+      "status": "not_generated"
+    },
+    {
+      "img": "artroom",
+      "ko": "미술 시간! 무엇을 그릴까?",
+      "en": "Art class! What will you draw?",
+      "action": "Child paints; friend shapes clay; teacher displays artwork.",
+      "status": "not_generated"
+    },
+    {
+      "img": "sportsday",
+      "ko": "운동회 날! 우리 팀이 이길 수 있을까?",
+      "en": "Sports day! Can your team win?",
+      "action": "Children run relay; runner passes baton; friends cheer.",
+      "status": "not_generated"
+    },
+    {
+      "img": "picnic",
+      "ko": "공원 소풍! 도시락에 무엇이 들었을까?",
+      "en": "A picnic in the park! What is in your lunch box?",
+      "action": "Parent pours water; child passes sandwiches; friend spreads blanket.",
+      "status": "not_generated"
+    },
+    {
+      "img": "treehouse",
+      "ko": "나무 위 오두막! 여기서 무엇을 할까?",
+      "en": "A treehouse! What will you do up there?",
+      "action": "Child climbs ladder; friend opens door; child hoists basket with rope.",
+      "status": "not_generated"
+    },
+    {
+      "img": "balloon",
+      "ko": "열기구를 타고 하늘로! 아래에 무엇이 보일까?",
+      "en": "Up in a hot air balloon! What can you see below?",
+      "action": "Pilot checks burner; child waves from basket; parent points to hills.",
+      "status": "not_generated"
+    }
+  ],
+  "still_assets": {
+    "method": "Built-in image_gen; converted to 1200px WebP at quality 84 with Sharp",
+    "prompt_template": "Use case: illustration-story. English writing lesson picture for children aged 7-12. One landscape 3:2 warm painted children’s book illustration. People large and central; clear everyday actions and expressions; hands and relevant objects visible; background secondary. Realistic anatomy. No text, logos, panels or border.",
+    "scene_prompts": {
+      "birthday-action": "Child blows out candles; two friends clap; friend offers a gift.",
+      "playground-action": "Children pass a soccer ball; child jumps rope; friend cheers.",
+      "cooking-action": "Child stirs batter; child places berries; parent flips a pancake.",
+      "helping-action": "Child picks up litter; friend holds bag; child waters flowers."
+    }
+  }
+}
