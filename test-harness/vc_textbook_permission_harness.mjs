@@ -83,6 +83,11 @@ if (role.length > 300) {
   check('④  진짜 강사는 그대로 강사다 (계정 역할)',
         run({ user: { role: 'teacher' }, name: 'Melca' }) === true,
         '내리기만 해야지, 진짜 강사를 막으면 수업이 멈춘다');
+  check('④-1 중국어 강사 instructor 역할도 강사다',
+        run({ user: { role: 'instructor' }, name: '강선생님' }) === true,
+        '화면 이름은 교사여도 계정 역할 별칭을 놓치면 교재 공유가 서버에서 거절된다');
+  check('④-2 한국어 교사 역할값도 강사다',
+        run({ user: { role: '교사' }, name: '강선생님' }) === true);
   check('⑤  역할이 «아무것도 없을» 때는 예전처럼 이름으로 백업 판정한다',
         run({ name: '교사 홍길동' }) === true,
         '관리자 임베드·데모 입장(로그인 없음)이 이 길로 들어온다');
@@ -101,6 +106,9 @@ check('거절할 때 이유를 말해 준다 (한/영)',
       /Only the teacher can change the textbook/.test(js),
       '조용히 무시하면 학생 눈에는 고장난 버튼이 된다');
 check('잔소리 도배 방지 (4초에 한 번)', /__vcTbDenyAt[\s\S]{0,120}4000/.test(js));
+check('입장 직전 역할 정규화도 instructor·교사 별칭을 teacher 로 바꾼다',
+      /teacher\|tutor\|instructor\|교사\|강사/.test(js),
+      '화면 권한과 WebSocket join-room 역할이 같은 규칙을 써야 한다');
 
 const GATED = [
   ['업로드 버튼',        'function triggerUpload(kind) {'],

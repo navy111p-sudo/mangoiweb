@@ -5201,10 +5201,10 @@ async function loadFranchises() {
 async function loadMasterBranches() {
   const tb = document.getElementById('mbranches-table');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중…</td></tr>';
+  tb.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
   await _ensureMasterBranches(true);
   if (!_masterBranches.length) {
-    tb.innerHTML = '<tr><td colspan="8" class="empty">'
+    tb.innerHTML = '<tr><td colspan="9" class="empty">'
       + (adminLang==='en' ? 'No master branches yet. Add one above.' : '등록된 대표지사가 없습니다. 위에서 등록하세요.')
       + '</td></tr>';
     return;
@@ -5234,6 +5234,7 @@ async function loadMasterBranches() {
        번호는 화면에서 빠지고(수정·상태 버튼은 onclick 인자로 m.id 를 계속 들고 간다) 칸은 8개. */
     return `<tr${on?'':' style="opacity:.55"'}><td style="white-space:nowrap">${_mbrLoginCell(m)}</td><td><b>${_esc(m.name)}</b></td>`
       + `<td>${_esc(m.region)||'—'}</td>`
+      + `<td>${_esc(m.division)||'—'}</td>`
       + `<td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
       + `<td>${Number(m.branch_count)||0}</td>`
       + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" class="org-rowact" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
@@ -5245,7 +5246,7 @@ var _mbrEditId = 0;
 function mbrResetForm() {
   _mbrEditId = 0;
   const e = id => document.getElementById(id);
-  ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['mbr-name','mbr-login','mbr-login-pw','mbr-region','mbr-division','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('mbr-add-btn'), '+ 등록', '+ Add');
   const c = e('mbr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5260,7 +5261,11 @@ function mbrEdit(id) {
   _mbrEditId = m.id;
   if (e('mbr-name')) e('mbr-name').value = m.name == null ? '' : m.name;
   if (e('mbr-login')) e('mbr-login').value = m.login_username == null ? '' : m.login_username;
+  // 🔑 (2026-09-17) 비밀번호는 절대 채워 넣지 않는다 — 지사 frEdit 과 같은 이유(서버가
+  // 해시만 들고 있어 원문을 돌려줄 방법이 없고, 비워 두는 것 자체가 «바꾸지 않음» 의 신호다).
+  if (e('mbr-login-pw')) e('mbr-login-pw').value = '';
   if (e('mbr-region')) e('mbr-region').value = m.region == null ? '' : m.region;
+  if (e('mbr-division')) e('mbr-division').value = m.division == null ? '' : m.division;
   if (e('mbr-tier')) e('mbr-tier').value = m.tier == null ? '' : m.tier;
   if (e('mbr-manager')) e('mbr-manager').value = m.owner_name == null ? '' : m.owner_name;
   if (e('mbr-phone')) e('mbr-phone').value = m.phone == null ? '' : m.phone;
@@ -5271,17 +5276,31 @@ function mbrEdit(id) {
 }
 window.mbrEdit = mbrEdit;
 
+// 🔑 (2026-09-17) 「계정을 만들었다/비밀번호를 바꿨다」 를 사람이 읽을 말로 — 지사 _frPasswordAlert 와
+// 같은 자리(대표지사는 문구가 「이 지사」가 아니라 「이 대표지사」라 따로 둔다).
+function _mbrPasswordAlert(result) {
+  if (result === 'created') {
+    alert(adminLang==='en' ? 'Login account created — this ID can now sign in.' : '로그인 계정을 만들었습니다 — 이제 이 아이디로 실제 로그인이 됩니다.');
+  } else if (result === 'reset') {
+    alert(adminLang==='en' ? 'Password changed for this master branch’s account.' : '이 대표지사 계정의 비밀번호를 바꿨습니다.');
+  }
+}
+
 async function saveMasterBranch() {
   const e = id => document.getElementById(id);
   const name = ((e('mbr-name')||{}).value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'대표지사 이름은 필수입니다'); return; }
+  // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다.
+  const loginPassword = ((e('mbr-login-pw')||{}).value||'');
   if (_mbrEditId) {
     // ✏️ master_branches 는 카페24와 무관한 D1 전용 표라(위 서버 주석) 대리점·지사와 달리
     // «옛 이름으로 이 계정을 찾는다» 류 경고가 없다 — 그냥 저장하고 목록만 다시 그린다.
     const d = await _menuPost('/api/admin/franchises', {
       kind: 'master_edit', id: _mbrEditId, name,
       login_username: ((e('mbr-login')||{}).value||'').trim() || null,
+      login_password: loginPassword,
       region: (e('mbr-region')||{}).value || null,
+      division: (e('mbr-division')||{}).value || null,
       tier: (e('mbr-tier')||{}).value || null,
       owner_name: (e('mbr-manager')||{}).value || null,
       phone: (e('mbr-phone')||{}).value || null
@@ -5290,21 +5309,32 @@ async function saveMasterBranch() {
       mbrResetForm();
       await loadMasterBranches();
       if (document.getElementById('franchises-table')) loadFranchises();
+      _mbrPasswordAlert(d.password_result);
     }
     return;
   }
   const d = await _menuPost('/api/admin/franchises', {
     kind: 'master', name,
     login_username: ((e('mbr-login')||{}).value||'').trim() || null,
+    login_password: loginPassword,
     region: (e('mbr-region')||{}).value || null,
+    division: (e('mbr-division')||{}).value || null,
     tier: (e('mbr-tier')||{}).value || null,
     owner_name: (e('mbr-manager')||{}).value || null,
     phone: (e('mbr-phone')||{}).value || null
   });
   if (d) {
-    ['mbr-name','mbr-login','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    ['mbr-name','mbr-login','mbr-login-pw','mbr-region','mbr-division','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
     await loadMasterBranches();
     if (document.getElementById('franchises-table')) loadFranchises();
+    // ⚠️ 대표지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
+    // (아이디 중복 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
+    if (d.login_error) {
+      alert((adminLang==='en' ? 'Master branch was registered, but the login account was NOT created: '
+                              : '대표지사는 등록했지만 «로그인 계정» 은 만들지 못했습니다: ') + (d.login_message || d.login_error));
+    } else {
+      _mbrPasswordAlert(d.password_result);
+    }
   }
 }
 async function setMasterBranchActive(id, active) {
@@ -5396,7 +5426,7 @@ var _frEditId = 0;
 function frResetForm() {
   _frEditId = 0;
   const e = id => document.getElementById(id);
-  ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
   _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
   const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5414,6 +5444,9 @@ function frEdit(id) {
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
   if (e('fr-login')) e('fr-login').value = f.login_username == null ? '' : f.login_username;
+  // 🔑 (2026-09-17) 비밀번호는 절대 채워 넣지 않는다 — 서버가 해시만 들고 있어 원문을
+  // 돌려줄 방법도 없고(주지도 않는다), 비워 두는 것 자체가 «바꾸지 않음» 의 신호다.
+  if (e('fr-login-pw')) e('fr-login-pw').value = '';
   if (e('fr-owner')) e('fr-owner').value = f.owner_name == null ? '' : f.owner_name;
   if (e('fr-phone')) e('fr-phone').value = f.phone == null ? '' : f.phone;
   if (e('fr-address')) e('fr-address').value = f.address == null ? '' : f.address;
@@ -5425,11 +5458,26 @@ function frEdit(id) {
 }
 window.frEdit = frEdit;
 
+// 🔑 (2026-09-17) «계정을 만들었다/비밀번호를 바꿨다» 를 사람이 읽을 말로 — 대리점(centers)의
+// login_created 알림과 같은 자리.
+function _frPasswordAlert(result) {
+  if (result === 'created') {
+    alert(adminLang==='en' ? 'Login account created — this ID can now sign in.' : '로그인 계정을 만들었습니다 — 이제 이 아이디로 실제 로그인이 됩니다.');
+  } else if (result === 'reset') {
+    alert(adminLang==='en' ? 'Password changed for this branch’s account.' : '이 지사 계정의 비밀번호를 바꿨습니다.');
+  }
+}
+
 async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   const loginUsername = (e('fr-login')||{}).value || null;
+  // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다
+  // (wantsPasswordAction 판정, api-admin.ts). 저장 성공 뒤 반드시 지운다 — 그대로 두면
+  // «수정» 을 다시 열 때 남의 비밀번호가 이 칸에 남아 있는 것처럼 보인다(frEdit 이 이미
+  // 비우지만, 창을 안 닫고 같은 지사를 연달아 저장하는 경우까지 여기서 한 번 더 막는다).
+  const loginPassword = (e('fr-login-pw') || {}).value || '';
   if (_frEditId) {
     let d;
     try {
@@ -5437,7 +5485,7 @@ async function saveFranchise() {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: _frEditId, name, login_username: loginUsername,
+          id: _frEditId, name, login_username: loginUsername, login_password: loginPassword,
           owner_name: e('fr-owner').value || null, phone: e('fr-phone').value || null,
           address: e('fr-address').value || null, opened_at: e('fr-opened').value || null
         })
@@ -5461,15 +5509,406 @@ async function saveFranchise() {
         : ('참고: 이 지사의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
             + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
     }
+    if (d) _frPasswordAlert(d.password_result);
     return;
   }
   const d = await _menuPost('/api/admin/franchises', {
-    name, login_username: loginUsername, owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
+    name, login_username: loginUsername, login_password: loginPassword,
+    owner_name: e('fr-owner').value||null, phone: e('fr-phone').value||null,
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
-  if (d) { ['fr-name','fr-login','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
+  if (d) {
+    ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value='');
+    loadFranchises();
+    // ⚠️ 지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
+    // (아이디 중복·동명이인 지사 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
+    if (d.login_error) {
+      alert((adminLang==='en' ? 'Branch was registered, but the login account was NOT created: '
+                              : '지사는 등록했지만 «로그인 계정» 은 만들지 못했습니다: ') + (d.login_message || d.login_error));
+    } else {
+      _frPasswordAlert(d.password_result);
+    }
+  }
 }
 window.saveFranchise = saveFranchise;
+
+/* 📥 지사 엑셀 일괄 매칭 (2026-09-17 신설 — 사장님 요청 「지사 236곳을 엑셀로 보낼 테니
+   매칭해서 자동으로 입력해줘」). 새 서버 경로를 만들지 않는다 — 이미 있는 PATCH(로그인
+   아이디·관리자·전화, saveFranchise 의 _frEditId 분기와 같은 요청)와 kind=master_assign
+   (assignMasterBranch 와 같은 요청)을 화면에서 매칭한 만큼 반복 호출할 뿐이다. 그래서 서버
+   쪽 사고 반경이 0이고(새 SQL 없음), 「매칭이 맞는지」는 여기(클라이언트)의 문제로 좁혀진다.
+   ⛔ 지사명 부분일치·추정 매칭 금지 — franchises.name 은 유일하지 않다(UNIQUE 없음).
+   같은 이름이 둘 이상이면 «어느 쪽인지 몰라 건너뛴다» 로 처리한다(CLAUDE.md 「강사 이름을
+   붙였는데 남의 이름이 뜸」·centers.name 미유일 사례와 같은 규칙). */
+var _frBulkPlan = null;
+function _frBulkNorm(s) { return String(s == null ? '' : s).trim().replace(/\s+/g, ' '); }
+
+/* 붙여넣은 TSV(엑셀 복사 형식)를 파싱한다. 헤더 줄에서 「지사명」(또는 「지사」)을 찾아
+   그 줄부터 아래를 데이터로 본다 — 열 순서를 추측해 못 박지 않는다(CLAUDE.md 「검사 범위를
+   «길이» 로 자르지 마세요」와 같은 이유: 위치가 아니라 이름으로 찾아야 어긋나지 않는다). */
+function _frBulkParseRows(raw) {
+  const lines = String(raw || '').replace(/\r/g, '').split('\n')
+    .map(l => l.split('\t'))
+    .filter(cells => cells.some(c => String(c == null ? '' : c).trim() !== ''));
+  if (!lines.length) return { error: adminLang === 'en' ? 'No data pasted.' : '붙여넣은 데이터가 없습니다.' };
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 3); i++) {
+    if (lines[i].some(c => { const t = String(c == null ? '' : c).trim(); return t === '지사명' || t === '지사'; })) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) {
+    return { error: adminLang === 'en'
+      ? 'Could not find a "지사명" header — copy the header row too.'
+      : '「지사명」 머리글 줄을 못 찾았습니다 — 머리글 줄도 함께 복사해 붙여넣으세요.' };
+  }
+  const header = lines[headerIdx].map(c => String(c == null ? '' : c).trim());
+  const idx = name => header.indexOf(name);
+  const iName = idx('지사명') >= 0 ? idx('지사명') : idx('지사');
+  const iLogin = idx('아이디');
+  const iOwner = idx('관리자') >= 0 ? idx('관리자') : idx('대표');
+  const iPhone = idx('전화번호') >= 0 ? idx('전화번호') : idx('휴대폰');
+  const iMaster = idx('대표지사명') >= 0 ? idx('대표지사명') : idx('대표지사');
+  if (iName < 0) return { error: adminLang === 'en' ? '"지사명" column not found.' : '「지사명」 칸을 못 찾았습니다.' };
+  const rows = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cells = lines[i];
+    const name = String(cells[iName] == null ? '' : cells[iName]).trim();
+    if (!name) continue;
+    rows.push({
+      name,
+      login: iLogin >= 0 ? String(cells[iLogin] == null ? '' : cells[iLogin]).trim() : '',
+      owner: iOwner >= 0 ? String(cells[iOwner] == null ? '' : cells[iOwner]).trim() : '',
+      phone: iPhone >= 0 ? String(cells[iPhone] == null ? '' : cells[iPhone]).trim() : '',
+      master: iMaster >= 0 ? String(cells[iMaster] == null ? '' : cells[iMaster]).trim() : '',
+    });
+  }
+  if (!rows.length) return { error: adminLang === 'en' ? 'No data rows under the header.' : '머리글 아래에 데이터 줄이 없습니다.' };
+  return { rows };
+}
+
+async function frBulkPreview() {
+  const resEl = document.getElementById('fr-bulk-result');
+  const runBtn = document.getElementById('fr-bulk-run-btn');
+  if (!resEl || !runBtn) return;
+  runBtn.disabled = true; runBtn.style.background = '#9ca3af'; runBtn.style.cursor = 'not-allowed';
+  _frBulkPlan = null;
+  const raw = (document.getElementById('fr-bulk-paste') || {}).value || '';
+  const parsed = _frBulkParseRows(raw);
+  if (parsed.error) { resEl.innerHTML = `<span style="color:#ef4444">${_esc(parsed.error)}</span>`; return; }
+  if (!_frRows.length) await loadFranchises();
+  const wantOwnerPhone = !!(document.getElementById('fr-bulk-owner-phone') || {}).checked;
+  const wantMaster = !!(document.getElementById('fr-bulk-master') || {}).checked;
+  if (wantMaster) await _ensureMasterBranches(true);
+
+  // 지사명 → 후보 목록(정확일치·공백 정규화). 후보가 하나일 때만 매칭한다.
+  const byName = {};
+  for (const f of _frRows) { const k = _frBulkNorm(f.name); (byName[k] = byName[k] || []).push(f); }
+  const masterByName = {};
+  if (wantMaster) for (const m of (_masterBranches || [])) { const k = _frBulkNorm(m.name); (masterByName[k] = masterByName[k] || []).push(m); }
+
+  const updates = [];
+  const skipped = [];
+  let noChange = 0;
+  for (const row of parsed.rows) {
+    const key = _frBulkNorm(row.name);
+    const cands = byName[key] || [];
+    if (cands.length === 0) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'not found in system' : '시스템에 없는 지사명' }); continue; }
+    if (cands.length > 1) { skipped.push({ name: row.name, reason: adminLang === 'en' ? `ambiguous — ${cands.length} branches share this name` : `같은 이름의 지사가 ${cands.length}곳 있어 판단 보류` }); continue; }
+    const f = cands[0];
+    const change = { id: f.id, name: f.name };
+    let anything = false;
+    if (row.login && row.login !== (f.login_username || '')) { change.login = row.login; anything = true; }
+    if (wantOwnerPhone) {
+      if (row.owner && row.owner !== (f.owner_name || '')) { change.owner = row.owner; anything = true; }
+      if (row.phone && row.phone !== (f.phone || '')) { change.phone = row.phone; anything = true; }
+    }
+    if (wantMaster && row.master) {
+      const mk = _frBulkNorm(row.master);
+      const mcands = masterByName[mk] || [];
+      if (mcands.length === 1 && Number(mcands[0].id) !== Number(f.master_branch_id || 0)) {
+        change.masterId = mcands[0].id; change.masterName = mcands[0].name; anything = true;
+      } else if (mcands.length === 0) {
+        change.masterMissing = row.master; // 새로 만들지 않고 사람에게만 알린다
+      }
+    }
+    if (anything) updates.push(change);
+    else if (change.masterMissing) updates.push(change);
+    else noChange++;
+  }
+  _frBulkPlan = { updates, wantOwnerPhone, wantMaster };
+  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId).length;
+  let html = '<div style="font-weight:600;margin-bottom:4px">'
+    + (adminLang === 'en'
+        ? `Preview: ${parsed.rows.length} rows read · ${nUpdate} branch(es) will be updated · ${noChange} already up to date · ${skipped.length} skipped`
+        : `미리보기: 총 ${parsed.rows.length}행 읽음 · ${nUpdate}곳 갱신 예정 · ${noChange}곳 이미 최신 · ${skipped.length}곳 건너뜀`)
+    + '</div>';
+  if (updates.length) {
+    html += '<table style="margin-top:6px"><thead><tr>'
+      + '<th data-ko="지사" data-en="Branch">지사</th><th data-ko="아이디" data-en="Login ID">아이디</th>'
+      + '<th data-ko="관리자" data-en="Manager">관리자</th><th data-ko="전화" data-en="Phone">전화</th>'
+      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th></tr></thead><tbody>'
+      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}</td>`
+        + `<td>${u.owner ? _esc(u.owner) : '—'}</td><td>${u.phone ? _esc(u.phone) : '—'}</td>`
+        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td></tr>`).join('')
+      + '</tbody></table>';
+    if (updates.length > 60) html += `<div style="color:#6b7280;margin-top:4px">${adminLang === 'en' ? `…and ${updates.length - 60} more` : `…외 ${updates.length - 60}건 더`}</div>`;
+  }
+  if (skipped.length) {
+    html += `<details style="margin-top:8px"><summary style="cursor:pointer;color:#b45309">${adminLang === 'en' ? `⚠ ${skipped.length} skipped — click to see why` : `⚠ 건너뛴 ${skipped.length}곳 — 눌러서 사유 보기`}</summary>`
+      + '<table style="margin-top:4px"><thead><tr><th data-ko="지사명" data-en="Branch name">지사명</th><th data-ko="사유" data-en="Reason">사유</th></tr></thead><tbody>'
+      + skipped.map(s => `<tr><td>${_esc(s.name)}</td><td>${_esc(s.reason)}</td></tr>`).join('')
+      + '</tbody></table></details>';
+  }
+  resEl.innerHTML = html;
+  if (nUpdate > 0) {
+    runBtn.disabled = false; runBtn.style.background = ''; runBtn.style.cursor = 'pointer';
+    runBtn.classList.add('primary');
+  }
+}
+window.frBulkPreview = frBulkPreview;
+
+async function frBulkRun() {
+  if (!_frBulkPlan || !_frBulkPlan.updates.length) return;
+  const runBtn = document.getElementById('fr-bulk-run-btn');
+  const previewBtn = document.getElementById('fr-bulk-preview-btn');
+  const resEl = document.getElementById('fr-bulk-result');
+  if (!runBtn || !resEl) return;
+  runBtn.disabled = true; runBtn.textContent = adminLang === 'en' ? '⏳ Running…' : '⏳ 실행 중…';
+  if (previewBtn) previewBtn.disabled = true;
+  let ok = 0, fail = 0;
+  const errors = [];
+  for (const u of _frBulkPlan.updates) {
+    // ⚠️ masterMissing 만 있고 login/owner/phone/masterId 가 전부 없는 행은 «미리보기에서
+    // 눈에 띄라고» 넣어 둔 정보성 줄이다 — 아무 요청도 안 보내면서 «성공」으로 세면 실행
+    // 결과가 부풀려진다(직접 돌려서 잡은 실제 결함 — run_test.mjs). 실제로 할 일이 있는
+    // 행만 센다.
+    if (!(u.login || u.owner || u.phone || u.masterId)) continue;
+    let rowOk = true;
+    if (u.login || u.owner || u.phone) {
+      try {
+        const body = { id: u.id };
+        if (u.login) body.login_username = u.login;
+        if (u.owner) body.owner_name = u.owner;
+        if (u.phone) body.phone = u.phone;
+        const r = await fetch('/api/admin/franchises', {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.ok === false) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+      } catch (e) { rowOk = false; errors.push(`${u.name}: ${e.message || e}`); }
+    }
+    if (rowOk && u.masterId) {
+      try {
+        const r2 = await fetch('/api/admin/franchises', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'master_assign', franchise_id: u.id, master_id: u.masterId })
+        });
+        const d2 = await r2.json().catch(() => ({}));
+        if (!r2.ok || d2.ok === false) throw new Error(d2.message || d2.error || ('HTTP ' + r2.status));
+      } catch (e) { rowOk = false; errors.push(`${u.name} (대표지사 배정): ${e.message || e}`); }
+    }
+    if (rowOk) ok++; else fail++;
+  }
+  runBtn.textContent = adminLang === 'en' ? '▶ Run' : '▶ 실행';
+  runBtn.disabled = true; runBtn.style.background = '#9ca3af'; runBtn.style.cursor = 'not-allowed'; // 재실행하려면 다시 미리보기
+  if (previewBtn) previewBtn.disabled = false;
+  let summary = `<div style="font-weight:600;color:${fail ? '#b45309' : '#16a34a'}">`
+    + (adminLang === 'en' ? `Done: ${ok} succeeded, ${fail} failed` : `완료: 성공 ${ok}건, 실패 ${fail}건`)
+    + '</div>';
+  if (errors.length) summary += '<ul style="margin:4px 0 0;padding-left:18px;color:#ef4444">' + errors.slice(0, 30).map(e => `<li>${_esc(e)}</li>`).join('') + '</ul>';
+  resEl.innerHTML = summary + resEl.innerHTML;
+  _frBulkPlan = null;
+  loadFranchises();
+}
+window.frBulkRun = frBulkRun;
+
+function frBulkReset() {
+  const p = document.getElementById('fr-bulk-paste'); if (p) p.value = '';
+  const r = document.getElementById('fr-bulk-result'); if (r) r.innerHTML = '';
+  const btn = document.getElementById('fr-bulk-run-btn');
+  if (btn) { btn.disabled = true; btn.style.background = '#9ca3af'; btn.style.cursor = 'not-allowed'; btn.classList.remove('primary'); btn.textContent = adminLang === 'en' ? '▶ Run' : '▶ 실행'; }
+  const pb = document.getElementById('fr-bulk-preview-btn'); if (pb) pb.disabled = false;
+  _frBulkPlan = null;
+}
+window.frBulkReset = frBulkReset;
+
+/* 🏛️ (2026-09-17 신설 — 사장님이 옛 LMS 의 27건짜리 실제 대표지사 목록을 엑셀로 주심)
+   위 frBulk* 와 같은 붙여넣기 파싱 방식이지만 뜻이 다르다 — 저건 «이미 있는 지사에 값을
+   채우는 갱신», 이건 «아직 없는 대표지사를 새로 만드는 등록» 이다. 그래서 이름이 이미
+   있으면 덮어쓰지 않고 건너뛴다(실수로 같은 이름을 두 번 만들지 않는다).
+   공백 정규화는 지사·대표지사가 다를 이유가 없어 _frBulkNorm 을 그대로 재사용한다. */
+var _mbrBulkNorm = _frBulkNorm;
+var _mbrBulkPlan = null;
+
+function _mbrBulkParseRows(raw) {
+  const lines = String(raw || '').replace(/\r/g, '').split('\n')
+    .map(l => l.split('\t'))
+    .filter(cells => cells.some(c => String(c == null ? '' : c).trim() !== ''));
+  if (!lines.length) return { error: adminLang === 'en' ? 'No data pasted.' : '붙여넣은 데이터가 없습니다.' };
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 3); i++) {
+    if (lines[i].some(c => { const t = String(c == null ? '' : c).trim(); return t === '대표지사명' || t === '대표지사'; })) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) {
+    return { error: adminLang === 'en'
+      ? 'Could not find a "대표지사명" header — copy the header row too.'
+      : '「대표지사명」 머리글 줄을 못 찾았습니다 — 머리글 줄도 함께 복사해 붙여넣으세요.' };
+  }
+  const header = lines[headerIdx].map(c => String(c == null ? '' : c).trim());
+  const idx = name => header.indexOf(name);
+  const iName = idx('대표지사명') >= 0 ? idx('대표지사명') : idx('대표지사');
+  const iLogin = idx('아이디');
+  const iOwner = idx('관리자') >= 0 ? idx('관리자') : idx('대표');
+  const iPhone = idx('전화번호') >= 0 ? idx('전화번호') : idx('휴대폰');
+  const iStatus = idx('상태');
+  if (iName < 0) return { error: adminLang === 'en' ? '"대표지사명" column not found.' : '「대표지사명」 칸을 못 찾았습니다.' };
+  const rows = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cells = lines[i];
+    const name = String(cells[iName] == null ? '' : cells[iName]).trim();
+    if (!name) continue;
+    rows.push({
+      name,
+      login: iLogin >= 0 ? String(cells[iLogin] == null ? '' : cells[iLogin]).trim() : '',
+      owner: iOwner >= 0 ? String(cells[iOwner] == null ? '' : cells[iOwner]).trim() : '',
+      phone: iPhone >= 0 ? String(cells[iPhone] == null ? '' : cells[iPhone]).trim() : '',
+      status: iStatus >= 0 ? String(cells[iStatus] == null ? '' : cells[iStatus]).trim() : '',
+    });
+  }
+  if (!rows.length) return { error: adminLang === 'en' ? 'No data rows under the header.' : '머리글 아래에 데이터 줄이 없습니다.' };
+  return { rows };
+}
+
+async function mbrBulkPreview() {
+  const resEl = document.getElementById('mbr-bulk-result');
+  const runBtn = document.getElementById('mbr-bulk-run-btn');
+  if (!resEl || !runBtn) return;
+  runBtn.disabled = true; runBtn.style.background = '#9ca3af'; runBtn.style.cursor = 'not-allowed';
+  _mbrBulkPlan = null;
+  const raw = (document.getElementById('mbr-bulk-paste') || {}).value || '';
+  const parsed = _mbrBulkParseRows(raw);
+  if (parsed.error) { resEl.innerHTML = `<span style="color:#ef4444">${_esc(parsed.error)}</span>`; return; }
+  await _ensureMasterBranches(true);
+
+  // 이름 → 후보 목록(정확일치·공백 정규화). 후보가 하나라도 있으면(이미 존재) 새로 안 만들고
+  // 건너뛴다 — 「갱신」 이 아니라 「등록」 이라 겹치는 이름을 덮어쓰면 안 된다.
+  const byName = {};
+  for (const m of (_masterBranches || [])) { const k = _mbrBulkNorm(m.name); (byName[k] = byName[k] || []).push(m); }
+
+  const creates = [];
+  const skipped = [];
+  const seenInBatch = {};
+  for (const row of parsed.rows) {
+    const key = _mbrBulkNorm(row.name);
+    if (byName[key] && byName[key].length) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'already exists — skipped' : '이미 있음 — 건너뜀' }); continue; }
+    if (seenInBatch[key]) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'duplicate in pasted list' : '붙여넣은 목록 안에서 중복' }); continue; }
+    seenInBatch[key] = true;
+    // ⛔ 상태(status) 값을 함부로 추측하지 않는다 — 「중지」·「폐업」류로 뚜렷이 읽히는 값만
+    // 비활성으로 본다. 애매하면(빈 값·다른 문구) 활성으로 만든다 — 실은 정상 운영 중인
+    // 대표지사를 처음부터 감춰 버리는 쪽이, 나중에 목록에서 직접 끄는 것보다 훨씬 나쁘다.
+    const inactive = !!(row.status && /중지|폐업|휴면|폐지/.test(row.status));
+    creates.push({ name: row.name, login: row.login, owner: row.owner, phone: row.phone, inactive });
+  }
+  _mbrBulkPlan = { creates };
+  let html = '<div style="font-weight:600;margin-bottom:4px">'
+    + (adminLang === 'en'
+        ? `Preview: ${parsed.rows.length} rows read · ${creates.length} new master branch(es) will be created · ${skipped.length} skipped`
+        : `미리보기: 총 ${parsed.rows.length}행 읽음 · ${creates.length}곳 새로 등록 예정 · ${skipped.length}곳 건너뜀`)
+    + '</div>';
+  if (creates.length) {
+    html += '<table style="margin-top:6px"><thead><tr>'
+      + '<th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="아이디" data-en="Login ID">아이디</th>'
+      + '<th data-ko="관리자" data-en="Manager">관리자</th><th data-ko="전화" data-en="Phone">전화</th>'
+      + '<th data-ko="상태" data-en="Status">상태</th></tr></thead><tbody>'
+      + creates.slice(0, 60).map(c => `<tr><td>${_esc(c.name)}</td><td>${c.login ? _esc(c.login) : '—'}</td>`
+        + `<td>${c.owner ? _esc(c.owner) : '—'}</td><td>${c.phone ? _esc(c.phone) : '—'}</td>`
+        + `<td>${c.inactive ? (adminLang === 'en' ? '⏸ paused' : '⏸ 중지') : (adminLang === 'en' ? '🟢 active' : '🟢 사용중')}</td></tr>`).join('')
+      + '</tbody></table>';
+    if (creates.length > 60) html += `<div style="color:#6b7280;margin-top:4px">${adminLang === 'en' ? `…and ${creates.length - 60} more` : `…외 ${creates.length - 60}건 더`}</div>`;
+  }
+  if (skipped.length) {
+    html += `<details style="margin-top:8px"><summary style="cursor:pointer;color:#b45309">${adminLang === 'en' ? `⚠ ${skipped.length} skipped — click to see why` : `⚠ 건너뛴 ${skipped.length}곳 — 눌러서 사유 보기`}</summary>`
+      + '<table style="margin-top:4px"><thead><tr><th data-ko="대표지사명" data-en="Master branch name">대표지사명</th><th data-ko="사유" data-en="Reason">사유</th></tr></thead><tbody>'
+      + skipped.map(s => `<tr><td>${_esc(s.name)}</td><td>${_esc(s.reason)}</td></tr>`).join('')
+      + '</tbody></table></details>';
+  }
+  resEl.innerHTML = html;
+  if (creates.length > 0) {
+    runBtn.disabled = false; runBtn.style.background = ''; runBtn.style.cursor = 'pointer';
+    runBtn.classList.add('primary');
+  }
+}
+window.mbrBulkPreview = mbrBulkPreview;
+
+async function mbrBulkRun() {
+  if (!_mbrBulkPlan || !_mbrBulkPlan.creates.length) return;
+  const runBtn = document.getElementById('mbr-bulk-run-btn');
+  const previewBtn = document.getElementById('mbr-bulk-preview-btn');
+  const resEl = document.getElementById('mbr-bulk-result');
+  if (!runBtn || !resEl) return;
+  runBtn.disabled = true; runBtn.textContent = adminLang === 'en' ? '⏳ Running…' : '⏳ 실행 중…';
+  if (previewBtn) previewBtn.disabled = true;
+  let ok = 0, fail = 0;
+  const errors = [];
+  for (const c of _mbrBulkPlan.creates) {
+    try {
+      // 🔑 (2026-09-17) login_username 을 등록(POST) 요청에 같이 보내지 않는다 — 서버는
+      // «아이디·비밀번호가 둘 다 있거나 둘 다 없어야만» 등록을 받아 준다(login_fields_incomplete,
+      // 400). 여기서는 비밀번호를 절대 만들지 않으므로 아이디를 같이 보내면 27건 전부가 그
+      // 자리에서 거절된다. 먼저 아이디 없이 만들고, 아이디는 아래에서 master_edit 로 «따로»
+      // 붙인다(master_edit 은 비밀번호 없이 login_username 만 바꾸는 것을 그대로 허용한다).
+      const body = { kind: 'master', name: c.name };
+      if (c.owner) body.owner_name = c.owner;
+      if (c.phone) body.phone = c.phone;
+      const r = await fetch('/api/admin/franchises', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.ok === false) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+      const newId = d.id;
+      if (c.login && newId) {
+        const r2 = await fetch('/api/admin/franchises', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'master_edit', id: newId, login_username: c.login })
+        });
+        const d2 = await r2.json().catch(() => ({}));
+        if (!r2.ok || d2.ok === false) throw new Error(`${c.name} (${adminLang === 'en' ? 'ID' : '아이디'}): ` + (d2.message || d2.error || ('HTTP ' + r2.status)));
+      }
+      if (c.inactive && newId) {
+        const r3 = await fetch('/api/admin/franchises', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'master_active', id: newId, active: 0 })
+        });
+        const d3 = await r3.json().catch(() => ({}));
+        if (!r3.ok || d3.ok === false) throw new Error(`${c.name} (${adminLang === 'en' ? 'status' : '상태'}): ` + (d3.message || d3.error || ('HTTP ' + r3.status)));
+      }
+      ok++;
+    } catch (e) { fail++; errors.push(`${c.name}: ${e.message || e}`); }
+  }
+  runBtn.textContent = adminLang === 'en' ? '▶ Run' : '▶ 실행';
+  runBtn.disabled = true; runBtn.style.background = '#9ca3af'; runBtn.style.cursor = 'not-allowed'; // 재실행하려면 다시 미리보기
+  if (previewBtn) previewBtn.disabled = false;
+  let summary = `<div style="font-weight:600;color:${fail ? '#b45309' : '#16a34a'}">`
+    + (adminLang === 'en' ? `Done: ${ok} succeeded, ${fail} failed` : `완료: 성공 ${ok}건, 실패 ${fail}건`)
+    + '</div>';
+  if (errors.length) summary += '<ul style="margin:4px 0 0;padding-left:18px;color:#ef4444">' + errors.slice(0, 30).map(e => `<li>${_esc(e)}</li>`).join('') + '</ul>';
+  resEl.innerHTML = summary + resEl.innerHTML;
+  _mbrBulkPlan = null;
+  await loadMasterBranches();
+  if (document.getElementById('franchises-table')) loadFranchises();
+}
+window.mbrBulkRun = mbrBulkRun;
+
+function mbrBulkReset() {
+  const p = document.getElementById('mbr-bulk-paste'); if (p) p.value = '';
+  const r = document.getElementById('mbr-bulk-result'); if (r) r.innerHTML = '';
+  const btn = document.getElementById('mbr-bulk-run-btn');
+  if (btn) { btn.disabled = true; btn.style.background = '#9ca3af'; btn.style.cursor = 'not-allowed'; btn.classList.remove('primary'); btn.textContent = adminLang === 'en' ? '▶ Run' : '▶ 실행'; }
+  const pb = document.getElementById('mbr-bulk-preview-btn'); if (pb) pb.disabled = false;
+  _mbrBulkPlan = null;
+}
+window.mbrBulkReset = mbrBulkReset;
 
 // ── 🏯 본사 관리 (hq_orgs) ────────────────────────────────────────────
 /* (2026-08-18 수정요청 #13) 「시스템 › 조직 관리 › 본사 관리」에 본사 정보가 없다.
@@ -7766,7 +8205,8 @@ function _addEnrollmentRow(prefill) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
   const dayChecks = '<div style="display:flex;gap:5px">' + dayCodes.map((c, i) =>
-    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:0 0 1px"/>' + dayLabels[i] + '</label>'
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer">' +
+      '<span>' + dayLabels[i] + '</span><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:3px 0 0"/></label>'
   ).join('') + '</div>';
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
@@ -12113,7 +12553,11 @@ window.bulkCopyContacts = function() {
 (function bindPhase9Menus(){
   const e = id => document.getElementById(id);
   if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', saveMasterBranch);
+  if (e('mbr-bulk-preview-btn')) e('mbr-bulk-preview-btn').addEventListener('click', mbrBulkPreview);
+  if (e('mbr-bulk-run-btn'))     e('mbr-bulk-run-btn').addEventListener('click', mbrBulkRun);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', saveFranchise);
+  if (e('fr-bulk-preview-btn')) e('fr-bulk-preview-btn').addEventListener('click', frBulkPreview);
+  if (e('fr-bulk-run-btn'))     e('fr-bulk-run-btn').addEventListener('click', frBulkRun);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', saveCenter);
   // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)
   if (e('hq-add-btn'))      e('hq-add-btn').addEventListener('click', saveHqOrg);
@@ -18038,6 +18482,11 @@ window.rebuildGlobalSearchIndex = function() {
     // 'card-meeting-minutes': removed
     'card-data-export':       'agency',   // 데이터 내보내기
     'card-daily-charts':      'agency',   // 일자별 차트
+    // 🤖 (2026-09-16) AI 학습도구 사용 학생 — 서버가 studentScopeWhere() 로 자기 소속만
+    //   자르므로 카드 등급도 학생관리와 같은 'agency'. ⚠️ 'hq_teacher' 도 isHQ(=role.startsWith('hq'))
+    //   판정을 통과해 카드는 «보이지만», 실제 데이터는 src/index.ts TEACHER_BLOCKED_PREFIXES 가
+    //   서버에서 403 으로 막는다(card-students-mgmt 등 다른 'agency' 카드와 같은 이중 구조).
+    'card-ai-usage':          'agency',
   };
   /* 🏢 조직 관리 카드 — 본사 전용 칸을 지사·대리점에게 감춘다 (2026-08-18 수정요청 #03·#04)
      카드 등급(CARD_POLICY)은 **카드 한 장 단위**라, 카드를 열면 그 안이 통째로 열린다.
@@ -18621,3 +19070,4 @@ window.recRestoreExpiredBulk = async function recRestoreExpiredBulk() {
     if (btn) btn.disabled = false;
   }
 };
+

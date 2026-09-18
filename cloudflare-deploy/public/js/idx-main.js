@@ -2624,7 +2624,7 @@ async function vcJoinRoom(skipUI) {
            ② 관리자 세션이 없으면 이 블록은 아무것도 바꾸지 않는다 = 기존과 100% 동일. */
         var _admUid = '';
         try { _admUid = String((JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || '').trim(); } catch (_) {}
-        if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
+        if (/teacher|tutor|instructor|교사|강사/.test(_rr)) window.vcMyRole = 'teacher';
         else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
         else if (_rr) {
           window.vcMyRole = 'student';
@@ -5628,7 +5628,7 @@ function vcIsTeacherRole(){
         if (!r) { try { r = window.vcRoleStored ? window.vcRoleStored() : ''; } catch(e){} }
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
-        if (r === 'teacher' || r === 'admin') return true;
+        if (/teacher|tutor|instructor|교사|강사/.test(String(r).toLowerCase()) || r === 'admin') return true;
         /* 🚫 (2026-08-12 Melca 6번 「학생 화면에 자물쇠 아이콘이 보인다」)
            역할이 **이미 정해져 있으면** 이름 추측을 쓰지 않는다.
            이름 휴리스틱은 «아무 정보도 없을 때» 쓰는 마지막 수단인데, 아래 두 경우에

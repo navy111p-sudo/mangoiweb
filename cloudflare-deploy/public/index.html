@@ -3687,7 +3687,7 @@
 <!-- 화상수업 라이트(파스텔) 테마 [초안] — body.vc-theme-light 일 때 적용 -->
 <link rel="stylesheet" href="/css/mango-theme-light.css?v=2">
 <!-- 복습퀴즈 옆 교재도구/필기도구 토글 도킹 [초안] -->
-<link rel="stylesheet" href="/css/mango-tools-dock.css?v=7">
+<link rel="stylesheet" href="/css/mango-tools-dock.css?v=8">
 <!-- 가로(landscape) 상단 정리: 수업중·녹화를 EN 옆으로 (추가형 / 빼면 즉시 원복) -->
 <link rel="stylesheet" href="/css/mango-landscape-topbar.css?v=1">
 
@@ -8609,7 +8609,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- PDF 탭 — ★ (2026-07-20) 입장 기본 탭(첫 화면 = 교재, 입장 직후 배정 교재 자동 로드) -->
         <div class="tab-panel active" id="tab-pdf">
             <div class="pdf-container">
-                <div class="pdf-controls">
+                <div class="pdf-controls" data-mango-dock-open="false">
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
                     <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (여러 장 선택 가능)" data-en="📁 Upload · 교재 업로드 (select several at once)" title="여러 장을 한 번에 고를 수 있어요 — Ctrl+A(전체) 또는 Ctrl/Shift+클릭 · Select several pages at once">📁 교재 업로드 · Upload (여러 장 선택 가능)</button>
                     <!-- multiple (2026-07-22, 강사 피드백 #4) — 수업 중 교재를 한 장씩만 올릴 수 있어 불편했다. -->
@@ -8644,7 +8644,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                     <button onclick="pdfStopShare()" style="background:rgba(239,68,68,0.2);color:#ef4444;" data-ko="공유 중지 (Stop Share)" data-en="Stop Share (공유 중지)">공유 중지 (Stop Share)</button>
                 </div>
                 <!-- PDF 위에 그리기 (주석) 툴바 -->
-                <div class="pdf-anno-bar">
+                <div class="pdf-anno-bar" data-mango-dock-open="false">
                     <!-- 🔴 (2026-07-31 강사 요청 "포인터를 넣어주세요")
                          레이저 포인터는 예전부터 있었으나 켜는 버튼이 없어(보기 모드에서 마우스를 움직이면
                          동작) 강사가 존재 자체를 알 수 없었다. '보기'를 '포인터'로 승격해 입구를 만든다.
@@ -9212,7 +9212,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=58"></script>
+<script src="/js/idx-main.js?v=59"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
@@ -15169,7 +15169,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
-<script src="/js/mango-tools-dock.js?v=6" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
+<script src="/js/mango-tools-dock.js?v=7" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
 <script src="/js/mango-attendance.js?v=36" defer></script>
 <!-- 🎥 녹화 동의 — 학생이 수업에 들어갈 때 한 번 묻는다.
      vcJoinRoom 에 이 파일이 «스스로» 붙는다(idx-main.js 는 안 건드린다 — 두 사람이 같이 만지는
@@ -16433,7 +16433,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      849KB blocking 에서 1.5KB 를 덜어 첫 화면 예산이 오히려 늘었다.
      같이 고친 것: 영상 표본이 없는 사람(카메라 끔·영상 죽음)도 이제 기록이 남는다 —
      그 사각지대 때문에 「끊긴다」 제보를 숫자로 확인할 수가 없었다. 사연은 그 파일 머리말에. -->
-<script defer src="/js/idx-vc-qlog.js?v=15"></script>
+<script defer src="/js/idx-vc-qlog.js?v=17"></script>
 <!-- 📡 (2026-09-04) SFU(서버 경유) 경로 — ⛔ 기본은 꺼져 있다. 서버 시크릿이 있고 «그 탭이»
      ?sfu=1 로 켰을 때만 동작하며, 실패하면 조용히 지금 방식(mesh)으로 되돌아간다.
      [왜] 그날 실측: 기록된 46건 전부가 TURN «중계», 볼 수 있는 35건 전부가 «TCP», UDP 0건.
@@ -17157,7 +17157,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     #mangoi-widget { width:104px !important; height:104px !important; }
     #mangoi-toggle { width:104px !important; height:104px !important; border-width:5px !important; }
     #mangoi-label  { bottom:116px !important; font-size:17px !important; padding:6px 15px !important; }
-    .ai-cta-row    { margin-bottom:260px !important; }
+    .ai-cta-row    { margin-bottom:140px !important; }
   }
   /* 🕳 481~560px 틈새 — 칩은 모바일 2×2(max-width:560)인데 아바타는 태블릿 크기(min-width:481)라
      둘의 브레이크포인트가 어긋나 아바타가 오른쪽 열 칩(2·4번)을 덮는다.

@@ -83,6 +83,9 @@
   #panel{position:absolute;left:0;right:0;bottom:0;z-index:8;padding:12px 14px 16px;
     background:linear-gradient(0deg,rgba(6,10,14,.96) 62%,rgba(6,10,14,0))}
   #heard{min-height:26px;text-align:center;font-size:14.5px;color:#cdd9e6;margin-bottom:8px}
+  #scene{cursor:pointer}
+  #scene.readyToSpeak::after{content:'👆 그림을 클릭하고 영어로 말하세요  ·  Click the picture, then speak';position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);z-index:5;width:min(86%,430px);box-sizing:border-box;padding:11px 15px;border-radius:12px;background:rgba(7,14,22,.88);border:1px solid rgba(255,224,122,.72);color:#ffe9a8;text-align:center;font-size:13px;font-weight:900;line-height:1.45;box-shadow:0 8px 26px rgba(0,0,0,.48);animation:cuePulse 1.5s ease-in-out infinite;pointer-events:none}
+  @keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.025)}}
   #heard b{color:#7fd1ff}
   #heard .ok{color:#a3e635;font-weight:800}
   #heard .no{color:#ff8a8a;font-weight:800}
@@ -204,10 +207,10 @@
       <span class="en">This room listens. Speak English and it moves.</span></div>
     <div class="rule">
       <div class="stp"><span class="num">1</span>
-        <div><b>노란 버튼</b>을 누르세요<br>
-          <span class="en">Press the yellow button</span></div></div>
+        <div><b>그림 속 물건</b>을 클릭하세요<br>
+          <span class="en">Click an object in the picture</span></div></div>
       <div class="stp"><span class="num">2</span>
-        <div>화면에 보이는 문장을 <b>그대로 소리 내어</b> 읽으세요<br>
+        <div>나타난 영어 문장을 <b>자연스럽게 말하세요</b><br>
           <span class="ex2">Look at the desk</span><br>
           <span class="en">Read the sentence on the screen out loud</span></div></div>
       <div class="stp"><span class="num">3</span>
@@ -537,7 +540,7 @@ function newGame(){
   var code=randCode();
   var loc=LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
-      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false,
+      utter:0, utterOk:0, hintUsed:0, wrong:0, stepWrong:0, prog:[], hintLv:0, busy:false,
       code:code, loc:loc, steps:loc.build(code), eventFired:false };
 }
 
@@ -688,19 +691,15 @@ function digitsOf(words){
   });
   return out;
 }
+var HEARD_AS={cabinet:['cabin','cabinet'],drawer:['draw','drawer'],painting:['picture','painting'],toolbox:['toolbox','tool'],scoreboard:['scoreboard','score'],computer:['computer','pc'],open:['open','opened','opening'],take:['take','get','grab','pick'],move:['move','remove'],look:['look','see','check'],read:['read','reed'],unlock:['unlock','open']};
+function editDistance(a,b){var prev=[],cur=[],i,j;for(j=0;j<=b.length;j++)prev[j]=j;for(i=1;i<=a.length;i++){cur=[i];for(j=1;j<=b.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}return prev[b.length];}
+function keywordSeen(words,k){var variants=HEARD_AS[k]||[k];return variants.some(function(v){return words.some(function(x){if(x===v||x.indexOf(v)===0||v.indexOf(x)===0)return true;return x.length>=4&&v.length>=4&&editDistance(x,v)<=1;});});}
 function matchStep(said, step){
   var w=normalize(said);
   if(!w.length) return false;
-  if(step.numMode){
-    var d=digitsOf(w).join('');
-    return d.indexOf(G.code.join(''))>=0;
-  }
-  // accept 후보 중 하나라도 모든 키워드가 들어있으면 통과
-  return step.accept.some(function(keys){
-    return keys.every(function(k){
-      return w.some(function(x){ return x===k || x.indexOf(k)===0 || k.indexOf(x)===0; });
-    });
-  });
+  if(step.numMode){var d=digitsOf(w).join('');return d.indexOf(G.code.join(''))>=0;}
+  // 핵심 행동+대상만 전달되면 통과. 흔한 STT 오인식과 한 글자 차이도 허용한다.
+  return step.accept.some(function(keys){return keys.every(function(k){return keywordSeen(w,k);});});
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -732,7 +731,8 @@ function showStep(){
   }
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
-  G.hintLv=0; hintTxt('');
+  G.hintLv=0; G.stepWrong=0; hintTxt('');
+  var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.add('readyToSpeak');
   if(G.i<=1){
     // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
     // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
@@ -742,6 +742,7 @@ function showStep(){
 function advance(){
   var s=curStep();
   G.busy=true; clearIdle();
+  var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.remove('readyToSpeak');
   sndOk(); flash();
   heard('<span class="ok">정확해요! · Correct!</span>');
   logProg(s.id, true);
@@ -803,11 +804,12 @@ function _pronCoach(said, step, ok){
   }catch(_){ return ''; }
 }
 function wrongTry(said){
-  G.wrong++;
+  G.wrong++; G.stepWrong=(G.stepWrong||0)+1;
   sndNo();
-  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요 · Try again</span>'
-        + (typeof _pronCoach==='function' ? _pronCoach(said, curStep(), false) : ''));   // 🗣 뭘 고치면 되는지 한 줄 (부가기능이 본 안내를 못 막게 typeof 로 감싼다)
-  showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다(예전엔 3번 틀려야 나왔다)
+  var retry=G.stepWrong<3 ? '<span style="color:#fcd34d;font-weight:800">거의 맞았어요! 힘주어 말하지 말고 자연스럽게 한 번 더 · Almost! Try once more.</span>' : '<span class="no">조금 다르게 들렸어요 · Let’s use the example below.</span>';
+  heard('들린 말: <b>'+esc(said)+'</b><br>'+retry + (typeof _pronCoach==='function' ? _pronCoach(said, curStep(), false) : ''));
+  showHint(true);
+  var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.add('readyToSpeak');
   armIdle(12000);
 }
 function submitSaid(said){
@@ -848,6 +850,7 @@ function micLabel(rec){ var b=$('micBtn'); if(!b)return;
 var SIL_FIRST=10000, SIL_AFTER=2400;
 function listen(){
   if(!G||!G.running||G.over) return;
+  var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.remove('readyToSpeak');
   // 방이 이야기하는 중 마이크를 누르면 → 아무 반응 없이 무시하지 말고, 내레이션을 건너뛰고 바로 듣는다
   if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); setTimeout(listen,80); } return; }
   // 🔊 오류 수정(2026-07-31): 힌트 음성이 재생 중일 때 바로 듣기 시작하면 스피커 소리가 마이크로
@@ -990,7 +993,12 @@ function startGame(){
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
 }
 /* 내레이션 중 화면 탭 = 건너뛰기 (기다리기 싫은 학생 배려) */
-$('scene').addEventListener('click', function(){ if(G && G.busy && G._skip){ _ttsStop(); G._skip(); } });
+$('scene').addEventListener('click', function(){
+  if(!G||!G.running||G.over) return;
+  if(G.busy && G._skip){ _ttsStop(); G._skip(); return; }
+  // 그림 클릭이 곧 조작 시작: 필요한 영어를 보여주고 같은 클릭으로 듣기를 시작한다.
+  G.hintLv=2; showHint(true,true); listen();
+});
 $('btnStart').addEventListener('click', startGame);
 $('btnAgain').addEventListener('click', startGame);
 $('micBtn').addEventListener('click', listen);
