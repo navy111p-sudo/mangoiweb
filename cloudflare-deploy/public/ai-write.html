@@ -13,6 +13,7 @@
   <title>✍️ AI 영작 첨삭 — Mangoi</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
+  <script src="/js/write-scene-media.js?v=1"></script>
   <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/mango-i18n.js" defer></script>
 <script src="/js/session-guard.js" defer></script>
@@ -447,10 +448,9 @@
       <div class="mission-words" id="missionWords"></div>
     </div>
 
-    <!-- 행동 묘사를 기본으로, 기존 배경은 상상 글쓰기용으로 선택 가능 -->
-    <div class="topic-row" role="group" aria-label="그림 종류 / Picture type">
-      <button class="topic-chip" id="picActionMode" aria-pressed="true" onclick="setPicMode('action')" data-ko="🧒 사람·동작 그림" data-en="🧒 People & actions">🧒 사람·동작 그림</button>
-      <button class="topic-chip" id="picImagineMode" aria-pressed="false" onclick="setPicMode('imagine')" data-ko="✨ 상상·배경 그림" data-en="✨ Imagine a story">✨ 상상·배경 그림</button>
+    <div class="topic-row">
+      <label for="picChoice" data-ko="🎬 장면 선택" data-en="🎬 Choose a scene">🎬 장면 선택</label>
+      <select id="picChoice" class="topic-chip" onchange="choosePic(Number(this.value))" style="max-width:100%"></select>
     </div>
     <div class="pic-card" id="picCard">
       <div class="pic-scene" id="picScene">
@@ -784,19 +784,30 @@
       { img:'treehouse',   bg:'#4a6b2f', ko:'나무 위 오두막! 여기서 무엇을 할까?', en:'A treehouse! What will you do up there?', starter:'I climbed the rope ladder up to my treehouse. ' },
       { img:'balloon',     bg:'#7a5f9c', ko:'열기구를 타고 하늘로! 아래에 무엇이 보일까?', en:'Up in a hot air balloon! What can you see below?', starter:'The hot air balloon lifted me above the hills. ' },
     ];
+    PIC_SCENES.forEach(sc => {
+      const media = (window.WRITE_SCENE_MEDIA || {})[sc.img];
+      if (media) Object.assign(sc, media, { action: true });
+    });
+    const picChoice = document.getElementById('picChoice');
+    PIC_SCENES.forEach((sc, idx) => {
+      const option = document.createElement('option');
+      option.value = idx;
+      option.setAttribute('data-ko', sc.ko); option.setAttribute('data-en', sc.en);
+      option.textContent = sc.ko;
+      picChoice.appendChild(option);
+    });
     let _picIdx = -1;
-    let _picMode = 'action';
     let _picRemaining = [];
     // Set motionSrc only after the generated clip has been reviewed and committed.
     // Missing / failed clips always retain the matching still; no runtime AI requests.
     function renderPicMotion(sc) {
       const video = document.getElementById('picVideo');
       const button = document.getElementById('picMotionToggle');
+      video.oncanplay = video.onerror = null;
       video.pause(); video.removeAttribute('src'); video.load();
       video.hidden = true; button.hidden = true;
-      video.oncanplay = video.onerror = null;
       if (!sc.motionSrc) return;
-      video.poster = '/img/write-scenes/' + sc.img + '.webp';
+      video.poster = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
       video.muted = true;
       video.oncanplay = function() { video.hidden = false; };
       video.onerror = function() { video.hidden = true; button.hidden = true; };
@@ -828,11 +839,12 @@
       if (document.hidden) document.getElementById('picVideo').pause();
     });
     function picPool() {
-      return PIC_SCENES.map((sc, idx) => idx).filter(idx => !!PIC_SCENES[idx].action === (_picMode === 'action'));
+      return PIC_SCENES.map((sc, idx) => idx);
     }
     function renderPic(idx) {
       const sc = PIC_SCENES[idx];
       _picIdx = idx;
+      picChoice.value = String(idx);
       const scene = document.getElementById('picScene');
       const img = document.getElementById('picPhoto');
       /* 로딩 중엔 씬 대표색을 깔아 흰 화면이 번쩍이지 않게 한다 */
@@ -848,7 +860,7 @@
         hint.textContent = (window.getLang && window.getLang() === 'en') ? hint.getAttribute('data-en') : hint.getAttribute('data-ko');
       };
       img.alt = (window.getLang && window.getLang() === 'en') ? (sc.altEn || sc.en) : (sc.altKo || sc.ko);
-      img.src = '/img/write-scenes/' + sc.img + '.webp';
+      img.src = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
       renderPicMotion(sc);
       /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
       if (img.complete && img.naturalWidth) img.classList.add('on');
@@ -871,15 +883,9 @@
       const n = _picRemaining.splice(Math.floor(Math.random() * _picRemaining.length), 1)[0];
       renderPic(n);
     };
-    window.setPicMode = function(mode) {
-      if (mode !== 'action' && mode !== 'imagine') return;
-      if (_picMode === mode) return;
-      _picMode = mode;
-      document.getElementById('picActionMode').setAttribute('aria-pressed', String(mode === 'action'));
-      document.getElementById('picImagineMode').setAttribute('aria-pressed', String(mode === 'imagine'));
-      const pool = picPool();
-      const idx = pool[Math.floor((Date.now() + 9*3600*1000) / 86400000) % pool.length];
-      _picRemaining = pool.filter(n => n !== idx);
+    window.choosePic = function(idx) {
+      if (!Number.isInteger(idx) || !PIC_SCENES[idx]) return;
+      _picRemaining = picPool().filter(n => n !== idx);
       renderPic(idx);
     };
     window.usePicPrompt = function(){
@@ -894,9 +900,9 @@
       ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
       try { flowMark(1); } catch(e){}
     };
-    // 오늘의 그림은 하루 동안 고정 (KST 날짜 기반)
+    // Start with birthday actions; allow selection from all reviewed scenes.
     const initialPicPool = picPool();
-    const initialPic = initialPicPool[Math.floor((Date.now() + 9*3600*1000) / 86400000) % initialPicPool.length];
+    const initialPic = 0; // Start with the action-rich birthday scene; all 36 scenes are selectable.
     _picRemaining = initialPicPool.filter(idx => idx !== initialPic);
     renderPic(initialPic);
     window.addEventListener('mangoi:langchange', function() {
