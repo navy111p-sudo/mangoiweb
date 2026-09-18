@@ -558,7 +558,7 @@ function newGame(){
   var loc=LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
       utter:0, utterOk:0, hintUsed:0, wrong:0, stepWrong:0, prog:[], hintLv:0, busy:false,
-      code:code, loc:loc, steps:loc.build(code), eventFired:false, combo:0, bestCombo:0, bonusTime:0, hotspotOrder:{} };
+      code:code, loc:loc, steps:loc.build(code), eventFired:false, combo:0, bestCombo:0, bonusTime:0, freeHint:false, hotspotOrder:{} };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -682,8 +682,8 @@ function renderHotspots(){
   var z=$('exploreZone'); if(!z||!G||!G.running||G.over)return;
   z.innerHTML='';
   var s=curStep(),target=stepObject(s),correct=OBJECT_LABELS[target]||target;
-  var labels=[correct],pool=shuffle(DECOYS.slice()).filter(function(x){return x!==correct;});
-  labels.push(pool[0],pool[1]); shuffle(labels);
+  var labels=G.hotspotOrder[G.i];
+  if(!labels){var pool=shuffle(DECOYS.slice()).filter(function(x){return x!==correct;});labels=[correct,pool[0],pool[1]];shuffle(labels);G.hotspotOrder[G.i]=labels.slice();}
   labels.forEach(function(label,i){
     var b=document.createElement('button'); b.className='hotspot'; b.type='button';
     b.style.left=HOT_POS[i][0]+'%'; b.style.top=HOT_POS[i][1]+'%'; b.textContent='🔎 '+label;
@@ -789,6 +789,7 @@ function showStep(){
   G.hintLv=0; G.stepWrong=0; hintTxt('');
   var sceneEl=$('scene'); if(sceneEl) sceneEl.classList.add('readyToSpeak');
   renderHotspots();
+  if(G.freeHint){G.freeHint=false;G.hintLv=2;showHint(true,true);}
   if(G.i<=1){
     // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
     // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
@@ -805,7 +806,7 @@ function advance(){
   var reward='';
   if(G.combo===2) reward=' · 🔥 연속 성공!';
   if(G.combo===3){G.t=Math.min(TIME_LIMIT,G.t+10);G.bonusTime+=10;reward=' · ⏱ 보너스 10초!';}
-  if(G.combo===5){G.hintLv=2;reward=' · 🗝 비밀 힌트 획득!';}
+  if(G.combo===5){G.freeHint=true;reward=' · 🗝 다음 단계 비밀 힌트 획득!';}
   updateCombo(); sndOk(); flash();
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);
