@@ -3687,7 +3687,7 @@
 <!-- 화상수업 라이트(파스텔) 테마 [초안] — body.vc-theme-light 일 때 적용 -->
 <link rel="stylesheet" href="/css/mango-theme-light.css?v=2">
 <!-- 복습퀴즈 옆 교재도구/필기도구 토글 도킹 [초안] -->
-<link rel="stylesheet" href="/css/mango-tools-dock.css?v=7">
+<link rel="stylesheet" href="/css/mango-tools-dock.css?v=8">
 <!-- 가로(landscape) 상단 정리: 수업중·녹화를 EN 옆으로 (추가형 / 빼면 즉시 원복) -->
 <link rel="stylesheet" href="/css/mango-landscape-topbar.css?v=1">
 
@@ -8609,7 +8609,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- PDF 탭 — ★ (2026-07-20) 입장 기본 탭(첫 화면 = 교재, 입장 직후 배정 교재 자동 로드) -->
         <div class="tab-panel active" id="tab-pdf">
             <div class="pdf-container">
-                <div class="pdf-controls">
+                <div class="pdf-controls" data-mango-dock-open="false">
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
                     <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (여러 장 선택 가능)" data-en="📁 Upload · 교재 업로드 (select several at once)" title="여러 장을 한 번에 고를 수 있어요 — Ctrl+A(전체) 또는 Ctrl/Shift+클릭 · Select several pages at once">📁 교재 업로드 · Upload (여러 장 선택 가능)</button>
                     <!-- multiple (2026-07-22, 강사 피드백 #4) — 수업 중 교재를 한 장씩만 올릴 수 있어 불편했다. -->
@@ -8644,7 +8644,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                     <button onclick="pdfStopShare()" style="background:rgba(239,68,68,0.2);color:#ef4444;" data-ko="공유 중지 (Stop Share)" data-en="Stop Share (공유 중지)">공유 중지 (Stop Share)</button>
                 </div>
                 <!-- PDF 위에 그리기 (주석) 툴바 -->
-                <div class="pdf-anno-bar">
+                <div class="pdf-anno-bar" data-mango-dock-open="false">
                     <!-- 🔴 (2026-07-31 강사 요청 "포인터를 넣어주세요")
                          레이저 포인터는 예전부터 있었으나 켜는 버튼이 없어(보기 모드에서 마우스를 움직이면
                          동작) 강사가 존재 자체를 알 수 없었다. '보기'를 '포인터'로 승격해 입구를 만든다.
@@ -15169,7 +15169,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
-<script src="/js/mango-tools-dock.js?v=6" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
+<script src="/js/mango-tools-dock.js?v=7" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
 <script src="/js/mango-attendance.js?v=36" defer></script>
 <!-- 🎥 녹화 동의 — 학생이 수업에 들어갈 때 한 번 묻는다.
      vcJoinRoom 에 이 파일이 «스스로» 붙는다(idx-main.js 는 안 건드린다 — 두 사람이 같이 만지는
