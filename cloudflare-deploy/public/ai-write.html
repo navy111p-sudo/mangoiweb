@@ -13,6 +13,7 @@
   <title>✍️ AI 영작 첨삭 — Mangoi</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
+  <script src="/js/write-scene-media.js?v=1"></script>
   <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/mango-i18n.js" defer></script>
 <script src="/js/session-guard.js" defer></script>
@@ -146,25 +147,21 @@
     .pic-card { position: relative; border-radius: 20px; overflow: hidden; margin-bottom: 18px;
       border: 1px solid rgba(125,211,252,0.32);
       box-shadow: 0 18px 40px -18px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.05) inset; }
-    /* 사진 자체 — 21:9 원본을 잘라 쓰므로 object-fit: cover 필수.
-       ⚠️ aspect-ratio + max-height 조합 금지: 크롬이 높이 제한을 폭에 되먹여서
-          사진이 카드 폭보다 좁아진다. 높이를 clamp 로 직접 준다. */
-    .pic-scene { position: relative; height: clamp(200px, 23vw, 300px);
+    /* 손·발·행동 소품을 자르지 않고 전체 그림을 보여 준다. */
+    .pic-scene { position: relative; height: clamp(220px, 42vw, 460px);
       overflow: hidden; user-select: none; background: #0b1a2b; }
-    .pic-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-      opacity: 0; transform: scale(1.06); transition: opacity .55s ease, transform 6s ease-out; }
-    .pic-photo.on { opacity: 1; transform: scale(1); }
-    /* 사진 위 글씨가 항상 읽히도록 아래쪽에 어두운 그라데이션 스크림 */
-    .pic-scene::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(180deg, rgba(2,6,23,0.42) 0%, rgba(2,6,23,0) 32%,
-                  rgba(2,6,23,0.15) 55%, rgba(2,6,23,0.82) 100%); }
-    .pic-badge { position: absolute; top: 12px; left: 14px; z-index: 2;
+    .pic-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      opacity: 0; transition: opacity .2s ease; }
+    .pic-photo.on { opacity: 1; }
+    .pic-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #0b1a2b; }
+    .pic-video[hidden], #picMotionToggle[hidden] { display: none; }
+    .pic-badge { position: absolute; top: 8px; left: 8px; z-index: 2;
       display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 99px;
       background: rgba(2,6,23,0.5); backdrop-filter: blur(8px);
       border: 1px solid rgba(255,255,255,0.22); color: #e0f2fe;
       font-size: 12.5px; font-weight: 800; letter-spacing: .2px; }
-    /* 캡션+버튼은 사진 위에 겹쳐 올린다 (세로 공간 절약) */
-    .pic-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+    /* 캡션과 버튼은 그림 아래에 두어 인물과 손동작을 가리지 않는다. */
+    .pic-cap { position: relative; background: var(--card);
       display: flex; align-items: center; gap: 12px; padding: 14px 18px; flex-wrap: wrap; }
     .pic-cap-txt { flex: 1; min-width: 190px; font-size: 17px; font-weight: 900; color: #fff;
       text-shadow: 0 2px 10px rgba(0,0,0,0.85), 0 1px 2px rgba(0,0,0,0.9); line-height: 1.35; }
@@ -176,9 +173,11 @@
       box-shadow: 0 6px 18px -6px rgba(37,99,235,0.9); }
     .pic-btn.shuffle { background: rgba(15,23,42,0.55); color: #e0f2fe; backdrop-filter: blur(8px);
       border: 1px solid rgba(255,255,255,0.3); }
+    .topic-chip[aria-pressed="true"] { background: var(--gold); color: #17213b; border-color: var(--gold); }
+    .pic-hint { padding: 0 18px 14px; background: var(--card); color: #bfdbfe; font-size: 14px; }
+    .pic-hint:empty { display: none; }
     @media (max-width: 560px) {
-      /* 모바일은 캡션+버튼 2줄이 사진 아래를 덮으므로 높이를 조금 더 준다 */
-      .pic-scene { height: clamp(215px, 62vw, 280px); }
+      .pic-scene { height: clamp(185px, 60vw, 320px); }
       .pic-cap { padding: 12px 14px; gap: 8px; }
       .pic-cap-txt { font-size: 15px; min-width: 100%; }
       .pic-btn { flex: 1; padding: 10px 12px; font-size: 13.5px; }
@@ -449,17 +448,23 @@
       <div class="mission-words" id="missionWords"></div>
     </div>
 
-    <!-- 📸 오늘의 그림 글감 — 그림(이모지 씬)을 보고 영어로 묘사하기 -->
+    <div class="topic-row">
+      <label for="picChoice" data-ko="🎬 장면 선택" data-en="🎬 Choose a scene">🎬 장면 선택</label>
+      <select id="picChoice" class="topic-chip" onchange="choosePic(Number(this.value))" style="max-width:100%"></select>
+    </div>
     <div class="pic-card" id="picCard">
       <div class="pic-scene" id="picScene">
         <img class="pic-photo" id="picPhoto" alt="" decoding="async">
+        <video class="pic-video" id="picVideo" muted loop playsinline preload="none" hidden></video>
         <span class="pic-badge">📸 <span data-ko="오늘의 그림" data-en="Today's picture">오늘의 그림</span></span>
+      </div>
         <div class="pic-cap">
           <span class="pic-cap-txt" id="picCapTxt">—</span>
           <button class="pic-btn go" onclick="usePicPrompt()">🖼 <span data-ko="이 장면으로 쓰기" data-en="Write this scene">이 장면으로 쓰기</span></button>
           <button class="pic-btn shuffle" onclick="shufflePic()">🔀 <span data-ko="다른 그림" data-en="Another picture">다른 그림</span></button>
+          <button class="pic-btn shuffle" id="picMotionToggle" onclick="togglePicMotion()" hidden></button>
         </div>
-      </div>
+      <div class="pic-hint" id="picHint" aria-live="polite"></div>
     </div>
 
     <!-- 🎲 오늘의 글감 -->
@@ -736,6 +741,11 @@
        예전엔 이모지 조합이었는데 "그림"으로 안 보여서 실사 사진으로 교체했다.
        tone: 아이가 보는 화면이라 무섭지 않고 밝은 장면만 쓴다. */
     const PIC_SCENES = [
+      // Reviewed action illustrations: people, expressions and at least three visible actions.
+      { img:'birthday-action', action:true, bg:'#503626', ko:'생일 파티! 친구들은 무엇을 하고 있나요?', en:'Birthday party! What are the friends doing?', starter:'The children are celebrating a birthday. ', verbs:'blow out candles · clap · give a gift', example:'A boy is blowing out the candles.', altKo:'아이가 케이크의 촛불을 불고, 친구 두 명이 박수를 치고, 다른 친구가 선물을 건네요.', altEn:'A child blows out cake candles, two friends clap, and another friend offers a gift.' },
+      { img:'playground-action', action:true, bg:'#345b32', ko:'운동장 놀이! 누가 공을 차고 있나요?', en:'Playground fun! Who is kicking the ball?', starter:'The children are playing outside. ', verbs:'kick · jump rope · cheer', example:'A girl is jumping rope.', altKo:'두 아이가 축구를 하고, 한 아이는 줄넘기를 하고, 다른 아이는 두 팔을 들고 응원해요.', altEn:'Two children play soccer, one jumps rope, and another cheers with raised arms.' },
+      { img:'cooking-action', action:true, bg:'#705334', ko:'가족 요리! 각자 무엇을 만들고 있나요?', en:'Cooking together! What is each person doing?', starter:'The family is making pancakes together. ', verbs:'stir · put berries on · flip', example:'A boy is stirring the batter.', altKo:'아이는 반죽을 젓고, 다른 아이는 팬케이크에 과일을 올리고, 아빠는 팬케이크를 뒤집어요.', altEn:'A child stirs batter, another puts berries on pancakes, and their dad flips a pancake.' },
+      { img:'helping-action', action:true, bg:'#395830', ko:'함께 가꾸는 공원! 친구들은 어떻게 돕나요?', en:'Helping in the park! How are the friends helping?', starter:'The children are taking care of the park. ', verbs:'pick up · hold · water', example:'A boy is watering the flowers.', altKo:'아이가 집게로 종이컵을 줍고, 친구는 쓰레기봉투를 잡고, 다른 친구는 꽃에 물을 줘요.', altEn:'A child picks up a cup with a grabber, a friend holds a rubbish bag, and another waters flowers.' },
       { img:'dino-school', bg:'#2f6fb0', ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', en:'A dinosaur came to school! What happens next?', starter:'One day, a dinosaur came to my school. ' },
       { img:'space',       bg:'#151a3a', ko:'우주로 떠나는 여행! 무엇이 보일까?', en:'A trip into space! What can you see?', starter:'I am flying to space in my rocket. ' },
       { img:'beach',       bg:'#2fa6c8', ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', en:'A sunny beach! What will you do today?', starter:'I went to the beach with my family. ' },
@@ -774,31 +784,109 @@
       { img:'treehouse',   bg:'#4a6b2f', ko:'나무 위 오두막! 여기서 무엇을 할까?', en:'A treehouse! What will you do up there?', starter:'I climbed the rope ladder up to my treehouse. ' },
       { img:'balloon',     bg:'#7a5f9c', ko:'열기구를 타고 하늘로! 아래에 무엇이 보일까?', en:'Up in a hot air balloon! What can you see below?', starter:'The hot air balloon lifted me above the hills. ' },
     ];
+    PIC_SCENES.forEach(sc => {
+      const media = (window.WRITE_SCENE_MEDIA || {})[sc.img];
+      if (media) Object.assign(sc, media, { action: true });
+    });
+    const picChoice = document.getElementById('picChoice');
+    PIC_SCENES.forEach((sc, idx) => {
+      const option = document.createElement('option');
+      option.value = idx;
+      option.setAttribute('data-ko', sc.ko); option.setAttribute('data-en', sc.en);
+      option.textContent = sc.ko;
+      picChoice.appendChild(option);
+    });
     let _picIdx = -1;
+    let _picRemaining = [];
+    // Set motionSrc only after the generated clip has been reviewed and committed.
+    // Missing / failed clips always retain the matching still; no runtime AI requests.
+    function renderPicMotion(sc) {
+      const video = document.getElementById('picVideo');
+      const button = document.getElementById('picMotionToggle');
+      video.oncanplay = video.onerror = null;
+      video.pause(); video.removeAttribute('src'); video.load();
+      video.hidden = true; button.hidden = true;
+      if (!sc.motionSrc) return;
+      video.poster = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
+      video.muted = true;
+      video.oncanplay = function() { video.hidden = false; };
+      video.onerror = function() { video.hidden = true; button.hidden = true; };
+      video.src = sc.motionSrc;
+      video.preload = 'metadata';
+      video.setAttribute('aria-label', sc.altEn || sc.en);
+      button.hidden = false;
+      updatePicMotionLabel();
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const saveData = navigator.connection && navigator.connection.saveData;
+      if (!reduce && !saveData && !document.hidden) video.play().catch(function() {});
+    }
+    function updatePicMotionLabel() {
+      const video = document.getElementById('picVideo');
+      const button = document.getElementById('picMotionToggle');
+      const ko = video.paused ? '▶ 동작 보기' : '⏸ 멈추고 관찰하기';
+      const en = video.paused ? '▶ Play actions' : '⏸ Pause and look';
+      button.setAttribute('data-ko', ko); button.setAttribute('data-en', en);
+      button.textContent = window.getLang && window.getLang() === 'en' ? en : ko;
+    }
+    window.togglePicMotion = function() {
+      const video = document.getElementById('picVideo');
+      if (!video.getAttribute('src')) return;
+      if (video.paused) video.play().catch(updatePicMotionLabel); else video.pause();
+    };
+    document.getElementById('picVideo').addEventListener('play', updatePicMotionLabel);
+    document.getElementById('picVideo').addEventListener('pause', updatePicMotionLabel);
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) document.getElementById('picVideo').pause();
+    });
+    function picPool() {
+      return PIC_SCENES.map((sc, idx) => idx);
+    }
     function renderPic(idx) {
       const sc = PIC_SCENES[idx];
       _picIdx = idx;
+      picChoice.value = String(idx);
       const scene = document.getElementById('picScene');
       const img = document.getElementById('picPhoto');
       /* 로딩 중엔 씬 대표색을 깔아 흰 화면이 번쩍이지 않게 한다 */
       scene.style.background = sc.bg;
       img.classList.remove('on');
-      img.onload = () => img.classList.add('on');
-      img.alt = sc.ko;
-      img.src = '/img/write-scenes/' + sc.img + '.webp';
+      img.onload = () => { img.classList.add('on'); };
+      img.onerror = () => {
+        if (_picIdx !== idx) return;
+        img.classList.remove('on');
+        const hint = document.getElementById('picHint');
+        hint.setAttribute('data-ko', '그림을 불러오지 못했어요. ‘다른 그림’을 눌러 주세요.');
+        hint.setAttribute('data-en', 'The picture could not load. Please choose another picture.');
+        hint.textContent = (window.getLang && window.getLang() === 'en') ? hint.getAttribute('data-en') : hint.getAttribute('data-ko');
+      };
+      img.alt = (window.getLang && window.getLang() === 'en') ? (sc.altEn || sc.en) : (sc.altKo || sc.ko);
+      img.src = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
+      renderPicMotion(sc);
       /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
       if (img.complete && img.naturalWidth) img.classList.add('on');
       const cap = document.getElementById('picCapTxt');
       cap.setAttribute('data-ko', '🖼 ' + sc.ko);
       cap.setAttribute('data-en', '🖼 ' + sc.en);
       cap.textContent = '🖼 ' + sc.ko;
+      const hint = document.getElementById('picHint');
+      const hintKo = sc.action ? '누가 → 무엇을 하고 있나요?  ' + sc.verbs : '그림 속에서 일어날 이야기를 상상해 보세요.';
+      const hintEn = sc.action ? 'Who → is doing what?  ' + sc.verbs : 'Imagine a story that could happen in this picture.';
+      hint.setAttribute('data-ko', hintKo);
+      hint.setAttribute('data-en', hintEn);
+      hint.textContent = hintKo;
       try { window.applyI18n && window.applyI18n(document.getElementById('picCard')); } catch(e){}
-      /* 다음 장면 미리 받아두기 — '다른 그림' 눌렀을 때 바로 뜨게 */
-      const nx = new Image(); nx.src = '/img/write-scenes/' + PIC_SCENES[(idx + 1) % PIC_SCENES.length].img + '.webp';
     }
     window.shufflePic = function(){
-      let n; do { n = Math.floor(Math.random() * PIC_SCENES.length); } while (n === _picIdx && PIC_SCENES.length > 1);
+      // Visit every other scene before repeating; never immediately repeat the current picture.
+      if (!_picRemaining.length) _picRemaining = picPool().filter(idx => idx !== _picIdx);
+      if (!_picRemaining.length) return;
+      const n = _picRemaining.splice(Math.floor(Math.random() * _picRemaining.length), 1)[0];
       renderPic(n);
+    };
+    window.choosePic = function(idx) {
+      if (!Number.isInteger(idx) || !PIC_SCENES[idx]) return;
+      _picRemaining = picPool().filter(n => n !== idx);
+      renderPic(idx);
     };
     window.usePicPrompt = function(){
       /* 🔗 (2026-08-31) 예전엔 글쓰기 칸에 시작 문장 한 줄만 넣었다.
@@ -812,8 +900,16 @@
       ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
       try { flowMark(1); } catch(e){}
     };
-    // 오늘의 그림은 하루 동안 고정 (KST 날짜 기반)
-    renderPic(Math.floor((Date.now() + 9*3600*1000) / 86400000) % PIC_SCENES.length);
+    // Start with birthday actions; allow selection from all reviewed scenes.
+    const initialPicPool = picPool();
+    const initialPic = 0; // Start with the action-rich birthday scene; all 36 scenes are selectable.
+    _picRemaining = initialPicPool.filter(idx => idx !== initialPic);
+    renderPic(initialPic);
+    window.addEventListener('mangoi:langchange', function() {
+      const sc = PIC_SCENES[_picIdx];
+      if (!sc) return;
+      document.getElementById('picPhoto').alt = (window.getLang && window.getLang() === 'en') ? (sc.altEn || sc.en) : (sc.altKo || sc.ko);
+    });
 
     // ═══ 🎤 말로 쓰기 — 브라우저 내장 음성인식 (영어) ═══
     let _rec = null, _recOn = false;
@@ -1528,7 +1624,12 @@
     function goThemeFromScene(idx) {
       const sc = PIC_SCENES[idx]; if (!sc) return null;
       return { id: 'pic:' + sc.img, icon: '🖼', ko: sc.ko, en: sc.en, set: 'scene',
-               srcKo: '오늘의 그림', srcEn: "Today's picture", open: String(sc.starter || '').trim() };
+               srcKo: '오늘의 그림', srcEn: "Today's picture", open: String(sc.starter || '').trim(),
+               q: sc.action ? {
+                 what: { ko:'💡 What — 누가 무엇을 하고 있나요?', en:'💡 What — Who is doing what?', starter:'', ph:sc.example },
+                 why: { ko:'❓ Why — 왜 그 행동을 할까요? 상상해 보세요.', en:'❓ Why — Why might they be doing that? Imagine.', starter:'I think it is because ', ph:'they want to help their friends' },
+                 how: { ko:'💗 How — 표정을 보고 기분을 써 보세요.', en:'💗 How — Look at their faces. How do they feel?', starter:'They look ', ph:'happy · excited · proud' }
+               } : {} };
     }
     function goThemeFromTopic(idx) {
       const t = TOPICS[idx]; if (!t) return null;
