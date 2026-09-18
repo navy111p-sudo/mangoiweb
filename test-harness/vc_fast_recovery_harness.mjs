@@ -180,9 +180,46 @@ for (const recovers of [true, false]) {
   h.ctx.vcUserId='zz';
   await h.ctx.vcHandleOffer({fromUserId:'z',recovery:true,sdp:{type:'offer',sdp:'ignored'}});
   check(h.pc.remoteDescription.sdp==='glare', 'larger ID preserves existing impolite glare behavior');
+  h.pc.signalingState='have-remote-offer';
+  await h.ctx.vcHandleOffer({fromUserId:'z',recovery:true,sdp:{type:'offer',sdp:'busy'}});
+  check(made===0, 'recovery offer during pending remote offer cannot rebuild');
   h.pc.signalingState='stable';
   await h.ctx.vcHandleOffer({fromUserId:'z',sdp:{type:'offer',sdp:'rebuild'}});
   check(made===1, 'ordinary rebuild offer still uses original path');
+}
+{
+  const h=setup(); await h.boot(); h.sender.track=null;
+  await h.ctx.vcRecoveryMessage({fromUserId:'z',action:'sender-reapply',token:'missing'});
+  check(h.sent.some(m=>m.data.action==='ready')&&!h.sent.some(m=>m.data.action==='camera-off'), 'missing sender is a fault, not manual camera OFF');
+}
+{
+  const h=setup(); await h.boot(); h.ctx.vcUserId='zz';
+  h.pc.iceConnectionState='failed';h.pc.connectionState='failed';
+  await h.tick({a:0});await h.tick({a:0});
+  check(h.counts().restarts===1, 'ICE-failed endpoint restarts locally even when it has larger ID');
+}
+{
+  const h=setup();await h.boot();h.ctx.vcRemoteCamOff.z='aao';
+  for(let i=0;i<3;i++)await h.tick();
+  check(h.sent.length===0,'AAO with flowing audio never starts video recovery');
+  h.pc.iceConnectionState='failed';h.pc.connectionState='failed';
+  await h.tick({a:0});await h.tick({a:0});
+  check(h.counts().restarts===1&&h.sender.sets===0,'AAO still permits dead-transport recovery without enabling video');
+}
+{
+  const h=setup();await h.boot();await h.tick({f:2,v:8});
+  h.ctx.pc=h.pc;h.ctx.userId='z';
+  vm.runInContext(main.slice(main.indexOf('    pc.oniceconnectionstatechange = () => {'),main.indexOf('    pc.ontrack =')),h.ctx);
+  h.pc.iceConnectionState='failed';h.pc.connectionState='failed';
+  h.pc.oniceconnectionstatechange();h.pc.onconnectionstatechange();
+  check(h.counts().restarts===0&&h.counts().rebuilds===0,'established peer ICE events defer to staged recovery instead of immediate rebuild');
+  const other={connectionState:'connected'};h.ctx.vcPeerConnections.other=other;
+  await h.tick({a:0});await h.tick({a:0});
+  for(let i=0;i<4;i++)await h.tick({a:0});
+  check(h.counts().rebuilds===1&&h.ctx.vcPeerConnections.other===other,'L4 rebuild targets one peer and preserves other participants');
+  h.ctx.vcPeerConnections.z={...h.pc};
+  for(let i=0;i<6;i++)await h.tick({a:0});
+  check(h.counts().rebuilds===1,'rebuild budget survives replacement of the peer object');
 }
 check(!/setInterval\(|MutationObserver/.test(helpers), 'no new interval or MutationObserver');
 check(server.includes("case 'video-recovery':") && server.includes('!this.isJoined(target)')

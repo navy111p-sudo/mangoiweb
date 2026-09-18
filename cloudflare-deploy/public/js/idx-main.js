@@ -5436,6 +5436,8 @@ async function vcHandleOffer(data) {
             }
         }
 
+        if (data.recovery === true && (!existingPc || existingPc.signalingState !== 'stable'
+            || existingPc.connectionState === 'closed')) return;
         // A recovery offer reuses the existing PC; ordinary initial/rebuild offers keep the old path.
         const reuse = data.recovery === true && existingPc && existingPc.signalingState === 'stable'
             && existingPc.connectionState !== 'closed';
