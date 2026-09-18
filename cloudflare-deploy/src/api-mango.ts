@@ -9,6 +9,7 @@
 
 // ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
+import { forbiddenTeacherBody } from './forbidden-teacher';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -3973,7 +3974,9 @@ ${numbered}`;
         // Student contact/password edits must reject teacher sessions before any DB writes.
         const actor = await getAdminActor(request, env as any);
         if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-        if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        if (actor.isTeacher) return json(forbiddenTeacherBody(actor,
+          '강사 권한으로는 학생 정보를 수정할 수 없습니다.',
+          'Teachers cannot edit student contact details or passwords.'), 403);
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         const b = await parseJsonBody(request);
