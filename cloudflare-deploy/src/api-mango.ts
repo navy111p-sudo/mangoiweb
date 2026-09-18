@@ -4499,6 +4499,15 @@ ${numbered}`;
       const b = await request.json() as any;
       const now = Date.now();
 
+      // Capture has stopped; preserve upload eligibility while the final chunks drain.
+      if (b.finalize_pending === true) {
+        await env.DB.prepare(
+          `UPDATE recordings SET ended_at = COALESCE(ended_at, ?)
+            WHERE id = ? AND status = 'recording' AND file_url IS ?`
+        ).bind(now, b.recording_id, b.recording_key || null).run();
+        return json({ ok: true, finalize_pending: true });
+      }
+
       /* 🔴 2026-08-26: 예전엔 R2 업로드가 됐든 안 됐든 **무조건 'completed'** 로 적었다.
          그래서 클라우드에 한 조각도 안 올라간 녹화가 목록에 초록색 「완료 · 2.1MB」로 떴다
          (그 용량은 브라우저가 잰 «로컬» 값이다). 8/25 에 1,692건이 전부 「완료」인데
@@ -4513,16 +4522,26 @@ ${numbered}`;
       // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
       const curKey = String(cur?.file_url || '');
       const looksLikeKey = !!curKey && !curKey.startsWith('CLIENT_ERR:') && !curKey.startsWith('DEBUG:');
+      let partialAvailable = false;
       let headProven = false;    // 실물을 «봤다» — 이때만 완료로 올려준다(자가복구 포함)
       let headChecked = false;   // 조회가 성립했는가 — 예외면 판단을 보류한다
       const recBucket = (env as any).RECORDINGS as R2Bucket | undefined;
       if (looksLikeKey && recBucket) {
-        try { headProven = !!(await recBucket.head(curKey)); headChecked = true; } catch { headChecked = false; }
+        try {
+          const object = await recBucket.head(curKey);
+          partialAvailable = object?.customMetadata?.recoveredFrom === 'snapshot';
+          headProven = !!object && !partialAvailable;
+          headChecked = true;
+        } catch { headChecked = false; }
       }
 
       /* ⚠️ 강등은 «없다고 밝혀졌을 때» 만 한다. 조회를 못 했으면 예전 동작(완료)을 유지한다 —
          이 경로는 수업이 끝날 때마다 도는 곳이라, 막는 쪽이 아니라 통과시키는 쪽으로 실패해야
          멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
+      // A late stop must not replace the clip's unknown duration with class duration.
+      if (partialAvailable && cur?.status === 'completed') {
+        return json({ ok: true, status: 'completed', storage: 'r2_snapshot', cloud_verified: true });
+      }
       const provenMissing = headChecked && !headProven;
       const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
       /* 🔢 본문 값은 «숫자로 강제» 해서만 쓴다 — 아래 SQL 의 MAX() 보호가 숫자일 때만
@@ -4539,9 +4558,19 @@ ${numbered}`;
       const recordedBytes = Math.max(stopSizeB, Number(cur?.size_bytes) || 0);
       const recordedMs = Math.max(stopDurMs, Number(cur?.duration_ms) || 0);
       const nothingRecorded = !(recordedMs > 0) && !(recordedBytes > 0);
-      const fallbackStatus = (provenMissing || clientSaysFailed)
+      let fallbackStatus = (provenMissing || clientSaysFailed)
         ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
         : 'completed';
+
+      // Failed completion remains retryable while any recovery source survives.
+      if (!headProven && curKey.startsWith('rec/') && cur?.status === 'recording') {
+        try {
+          const part = await env.DB.prepare(`SELECT 1 AS n FROM recording_parts WHERE recording_id = ? LIMIT 1`)
+            .bind(b.recording_id).first();
+          const snapshot = recBucket ? await recBucket.head(curKey + '.snap') : null;
+          if (part || snapshot || partialAvailable || !headChecked) fallbackStatus = 'recording';
+        } catch { fallbackStatus = 'recording'; }
+      }
 
       /* ⚠️ duration_ms·size_bytes 를 «덮어쓰지» 않는다(MAX) — 이 요청이 0 으로 와도
          조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다.
@@ -4563,7 +4592,8 @@ ${numbered}`;
           WHERE id = ?`
       ).bind(now, stopDurMs, stopSizeB,
              headProven ? 1 : 0, fallbackStatus,
-             b.file_url || null, b.storage || null, b.recording_id).run();
+             curKey.startsWith('rec/') ? null : (b.file_url || null),
+             curKey.startsWith('rec/') ? null : (b.storage || null), b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
       return json({

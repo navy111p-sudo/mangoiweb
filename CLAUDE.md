@@ -145,6 +145,7 @@
 
 | 함정 | 실제로 이렇습니다 |
 |---|---|
+| 수업 종료 후 `recording`이 남을 때 | 2026-09-19: 임시본 복구는 12시간 대기인데 야간 정리는 6시간 후 실패로 내려 복구 대상에서 빼고 있었습니다. 청소는 파트·임시본·저장소 조회 오류를 보류하고, 복구기는 종료 힌트와 5분 무활동(구 클라이언트는 시작 4시간·30분 무활동)을 확인합니다. 임시본은 조건부 쓰기로 정상 파일을 보호하고 `r2_snapshot`으로 구분합니다. 승격된 임시본을 multipart 완료 증거로 쓰지 마세요. base cron의 DO는 prod와 달라 빈 방 판정에 쓸 수 없습니다. 검증: `recording_finalize_recovery_harness.mjs`. |
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
 | 배포 후 curl 검증 | 주소는 **`https://mangoi.ai`**(`test.mangoi.co.kr` 도 같은 Worker 라 둘 다 됩니다). `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
