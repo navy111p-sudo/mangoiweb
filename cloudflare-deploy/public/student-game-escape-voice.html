@@ -913,7 +913,7 @@ function listen(){
     }
   }
   function arm(){ if(done)return; if(sil)clearTimeout(sil);
-    sil=setTimeout(finish, best?SIL_AFTER:SIL_FIRST); }
+    sil=setTimeout(function(){ finish(); }, best?SIL_AFTER:SIL_FIRST); }
   rec.onstart=function(){ if(done)return; started=true; arm(); };
   rec.onresult=function(e){ if(done || G!==game || !game.running || game.over || game.i!==stepIndex)return; started=true;
     for(var i=e.resultIndex;i<e.results.length;i++){
