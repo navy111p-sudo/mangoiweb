@@ -100,17 +100,29 @@ const SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024;   // 버퍼는 5MiB + 조각 하나�
 /** `<key>.snap` 이 있으면 진짜 키로 옮기고 그 크기를 돌려준다. 없으면 0. */
 async function promoteSnapshot(env: Env, key: string): Promise<number> {
   try {
+    const existing = await env.RECORDINGS.head(key);
+    if (existing?.size) return existing.size;
     const snap = await env.RECORDINGS.get(key + SNAPSHOT_SUFFIX);
     if (!snap) return 0;
     const buf = await snap.arrayBuffer();
     if (!buf || buf.byteLength === 0) { await dropSnapshot(env, key); return 0; }
-    await env.RECORDINGS.put(key, buf, { httpMetadata: { contentType: 'video/webm' } });
+    // A normal completion wins; a short snapshot must never overwrite it.
+    const put = await env.RECORDINGS.put(key, buf, {
+      httpMetadata: { contentType: 'video/webm' },
+      customMetadata: { recoveredFrom: 'snapshot' },
+      onlyIf: new Headers({ 'If-None-Match': '*' }),
+    });
+    if (!put) {
+      const winner = await env.RECORDINGS.head(key);
+      if (!winner?.size) throw new Error('snapshot promotion not confirmed');
+      return winner.size;
+    }
     await dropSnapshot(env, key);
     console.log(`[recordings-r2] 스냅샷 되살림 key=${key} size=${buf.byteLength}`);
     return buf.byteLength;
   } catch (e: any) {
     console.error(`[recordings-r2] 스냅샷 되살리기 실패 key=${key}: ${e?.message || e}`);
-    return 0;
+    throw e; // a storage error must defer recovery, not classify the recording as empty
   }
 }
 
@@ -328,7 +340,7 @@ export async function handleRecordingUpload(
       if (head) break;
       if (i === 0) await new Promise((r) => setTimeout(r, 300));
     }
-    if (head) {
+    if (head && head.customMetadata?.recoveredFrom !== 'snapshot') {
       failReason = "";                                  // 실물이 있다 = 업로드는 성공한 것
       if (!obj) obj = { size: head.size };
     } else if (!failReason) {
@@ -348,17 +360,22 @@ export async function handleRecordingUpload(
          → 실패해도 «무엇을 얼마나 잃었는지» 는 남긴다. 상태만 실패로 둔다.
          ⚠️ 값을 «덮어쓰지» 않는다(COALESCE·MAX) — 이 경로는 beforeunload 비콘으로도 오고
             늦게 도착한 중복 요청이 이미 적힌 값을 0 으로 지우면 안 된다. */
+      let recoverable = true;
+      try {
+        const part = await env.DB.prepare(`SELECT 1 AS n FROM recording_parts WHERE recording_id = ? LIMIT 1`)
+          .bind(b.recording_id).first();
+        recoverable = !!part || !!(await env.RECORDINGS.head(b.key + SNAPSHOT_SUFFIX));
+      } catch { /* retain eligibility when evidence cannot be read */ }
       await env.DB.prepare(
         `UPDATE recordings
-            SET status = 'upload_failed', storage = 'r2_failed',
+            SET status = ?, storage = ?,
                 ended_at    = COALESCE(ended_at, ?),
                 duration_ms = MAX(COALESCE(duration_ms, 0), ?),
                 size_bytes  = MAX(COALESCE(size_bytes, 0), ?)
           WHERE id = ? AND status NOT IN ('completed','deleted')`
-      ).bind(now, Math.max(0, Number(b.duration_ms) || 0), Math.max(0, Number(b.size_bytes) || 0), b.recording_id).run();
-      // 🧹 이 행은 'upload_failed' 라 어느 경로도 스냅샷을 되살리지 않는다(되살리면 «앞부분만
-      //   담긴 파일» 을 완성본인 척 내놓게 된다). 그러니 남겨 둘 이유가 없다 — 지운다.
-      await dropSnapshot(env, b.key);
+      ).bind(recoverable ? 'recording' : 'upload_failed', recoverable ? 'r2' : 'r2_failed',
+             now, Math.max(0, Number(b.duration_ms) || 0), Math.max(0, Number(b.size_bytes) || 0), b.recording_id).run();
+      // Keep the snapshot and multipart ledger for scheduled retry.
       return J({ ok: false, error: failReason }, 500);
     }
 
@@ -402,15 +419,18 @@ export async function handleRecordingUpload(
     const snapSize = await promoteSnapshot(env, b.key);
     if (snapSize > 0) {
       const nowMs = Date.now();
+      const recoveredObject = await env.RECORDINGS.head(b.key);
+      const partial = recoveredObject?.customMetadata?.recoveredFrom === 'snapshot';
       const st = await env.DB.prepare(`SELECT started_at FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ started_at: number | null }>();
       const startedAt = Number(st?.started_at) || nowMs;
       await env.DB.prepare(
         `UPDATE recordings
             SET ended_at = COALESCE(ended_at, ?), duration_ms = ?, size_bytes = ?,
-                status = 'completed', storage = 'r2'
+                status = 'completed', storage = ?
           WHERE id = ? AND status NOT IN ('completed','deleted')`
-      ).bind(nowMs, Math.max(0, nowMs - startedAt), snapSize, b.recording_id).run();
+      ).bind(nowMs, partial ? null : Math.max(0, nowMs - startedAt), snapSize,
+             partial ? 'r2_snapshot' : 'r2', b.recording_id).run();
       await clearParts(env, b.recording_id);
       return J({ ok: true, recovered: 'snapshot', size: snapSize });
     }
@@ -429,7 +449,7 @@ export async function handleRecordingUpload(
   if (path.startsWith("/api/recordings/stream/") && method === "GET") {
     const id = parseInt(path.replace("/api/recordings/stream/", ""), 10);
     const row = await env.DB.prepare(
-      `SELECT file_url, status FROM recordings WHERE id = ? AND storage = 'r2'`
+      `SELECT file_url, status FROM recordings WHERE id = ? AND storage IN ('r2','r2_snapshot')`
     )
       .bind(id)
       .first<{ file_url: string; status: string }>();
@@ -634,10 +654,11 @@ export async function handleRecordingUpload(
 // ═══════════════════════════════════════════════════════════════════════════
 const MIN_AGE_MS = 4 * 60 * 60 * 1000;    // 시작 후 4시간(최장 수업 2시간 남짓의 두 배)
 const QUIET_MS = 30 * 60 * 1000;          // 마지막 파트 후 30분 조용
+const STOP_QUIET_MS = 5 * 60 * 1000; // explicit end + five quiet minutes
 const MAX_PER_RUN = 10;
 // 조각이 하나도 없이 오래 남은 'recording' = 빈 껍데기(데이터가 어디에도 없음).
 // 학생 목록에 ⏳준비중 으로 영원히 뜨므로 'aborted' 로 정리한다.
-const EMPTY_AGE_MS = 12 * 60 * 60 * 1000;
+const EMPTY_AGE_MS = MIN_AGE_MS;
 
 export async function runRecordingFinalizeSweep(
   env: Env,
@@ -666,22 +687,24 @@ export async function runRecordingFinalizeSweep(
   const limit = opts?.limit ?? MAX_PER_RUN;
   const ageCut = now - (opts?.minAgeMs ?? MIN_AGE_MS);
   const quietCut = now - (opts?.quietMs ?? QUIET_MS);
+  const stopCut = now - STOP_QUIET_MS;
 
   let cands: any[] = [];
   try {
     const rs = await env.DB.prepare(
       `SELECT p.recording_id AS rid, p.r2_key AS r2key, p.upload_id AS uid,
               COUNT(*) AS n, MAX(p.created_at) AS last_at, SUM(p.size_bytes) AS total,
-              r.started_at AS started_at
+              r.started_at AS started_at, r.ended_at AS ended_at
          FROM recording_parts p
          JOIN recordings r ON r.id = p.recording_id
         WHERE r.status = 'recording'
           AND r.started_at IS NOT NULL AND r.started_at < ?
+          AND (r.started_at < ? OR (r.ended_at >= r.started_at AND r.ended_at < ?))
         GROUP BY p.recording_id, p.r2_key, p.upload_id
-       HAVING MAX(p.created_at) < ?
+       HAVING MAX(p.created_at) < CASE WHEN r.ended_at >= r.started_at AND r.ended_at < ? THEN ? ELSE ? END
         ORDER BY MAX(p.created_at) ASC
         LIMIT ?`
-    ).bind(ageCut, quietCut, limit).all();
+    ).bind(now, ageCut, stopCut, stopCut, stopCut, quietCut, limit).all();
     cands = (rs.results || []) as any[];
   } catch (e: any) {
     // 🔴 2026-08-05: 여기서 조용히 return 하는 바람에 **아래 빈 껍데기 정리까지 통째로 건너뛰고**
@@ -708,6 +731,13 @@ export async function runRecordingFinalizeSweep(
       let failReason = "";
       let size = 0;
       try {
+        const latest = await env.DB.prepare(`SELECT MAX(created_at) AS at FROM recording_parts WHERE recording_id = ?`)
+          .bind(rid).first<{ at: number }>();
+        const cutoff = c.ended_at >= c.started_at && c.ended_at < stopCut ? stopCut : quietCut;
+        if (!latest || Number(latest.at) >= cutoff) continue;
+        const current = await env.DB.prepare(`SELECT status FROM recordings WHERE id = ?`)
+          .bind(rid).first<{ status: string }>();
+        if (current?.status !== 'recording') continue;
         const mp = env.RECORDINGS.resumeMultipartUpload(String(c.r2key), String(c.uid));
         const obj = await mp.complete(parts);
         size = obj.size;
@@ -717,17 +747,13 @@ export async function runRecordingFinalizeSweep(
       // 실패했어도 실물이 있으면 성공 (누군가 이미 마무리했을 수 있다)
       let head: R2Object | null = null;
       try { head = await env.RECORDINGS.head(String(c.r2key)); } catch { head = null; }
-      if (head) { failReason = ""; size = size || head.size; }
+      if (head && head.customMetadata?.recoveredFrom !== 'snapshot') { failReason = ""; size = size || head.size; }
 
       if (failReason) {
         out.failed++;
         out.details.push({ rid, ok: false, parts: parts.length, error: failReason });
         console.error(`[rec-finalize] 실패 id=${rid} key=${c.r2key} parts=${parts.length}: ${failReason}`);
-        await env.DB.prepare(
-          `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
-            WHERE id = ? AND status NOT IN ('completed','deleted')`
-        ).bind(rid).run();
-        await clearParts(env, rid);
+        // Retain the ledger: a transient error is not proof of data loss.
         continue;
       }
 
@@ -750,57 +776,63 @@ export async function runRecordingFinalizeSweep(
     }
   }
 
-  // 🛟 스냅샷 되살리기 (2026-08-25) — 탭이 닫힐 때 abort 비콘조차 못 간 경우의 마지막 안전망.
-  //   조각은 하나도 없지만 `<키>.snap` 은 올라가 있을 수 있다. 그 행은 아래 «빈 껍데기 정리»
-  //   조건(size_bytes IS NULL)에 안 걸리므로 여기서 챙기지 않으면 영원히 'recording' 으로 남는다.
-  //   ⚠️ 이 행들은 multipart 를 마무리할 근거(장부)가 없어 complete 가 영영 안 온다.
-  //      그래서 진짜 키에 써도 «완성본을 덮어쓸» 위험이 없다.
+  // No multipart ledger: repair a real object, recover a quiet snapshot, or settle an empty row.
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, file_url, started_at FROM recordings
-        WHERE status = 'recording'
-          AND started_at IS NOT NULL AND started_at < ?
-          AND file_url IS NOT NULL AND file_url <> ''
+      `SELECT id, file_url, started_at, ended_at, size_bytes, duration_ms FROM recordings
+        WHERE status = 'recording' AND started_at IS NOT NULL AND started_at < ?
+          AND (started_at < ? OR (ended_at >= started_at AND ended_at < ?))
           AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)
         ORDER BY started_at ASC LIMIT ?`
-    ).bind(now - EMPTY_AGE_MS, limit).all();
+    ).bind(now, now - EMPTY_AGE_MS, stopCut, limit).all();
     for (const r of ((rs.results || []) as any[])) {
-      const key = String(r.file_url || '');
-      if (!key.startsWith('rec/')) continue;
-      let hasReal: R2Object | null = null;
-      try { hasReal = await env.RECORDINGS.head(key); } catch { hasReal = null; }
-      if (hasReal) continue;                       // 실물이 이미 있으면 손대지 않는다
-      const size = await promoteSnapshot(env, key);
-      if (!size) continue;
-      await env.DB.prepare(
-        `UPDATE recordings
-            SET ended_at = COALESCE(ended_at, ?), duration_ms = COALESCE(duration_ms, 0),
-                size_bytes = ?, status = 'completed', storage = 'r2'
-          WHERE id = ? AND status NOT IN ('completed','deleted')`
-      ).bind(now, size, r.id).run();
-      out.finalized++;
-      out.details.push({ rid: Number(r.id), ok: true, snapshot: true, size });
+      try {
+        const key = String(r.file_url || '');
+        if (key && !key.startsWith('rec/')) continue; // do not reinterpret legacy/debug keys
+        const cutoff = r.ended_at >= r.started_at && r.ended_at < stopCut ? stopCut : quietCut;
+        let size = 0;
+        let fromSnapshot = false;
+        if (key) {
+          const real = await env.RECORDINGS.head(key);
+          size = real?.size || 0;
+          fromSnapshot = real?.customMetadata?.recoveredFrom === 'snapshot';
+          if (!size) {
+            const snap = await env.RECORDINGS.head(key + SNAPSHOT_SUFFIX);
+            if (snap?.size) {
+              const uploaded = new Date(snap.uploaded).getTime();
+              if (!Number.isFinite(uploaded) || uploaded >= cutoff) continue;
+              const part = await env.DB.prepare(`SELECT 1 AS n FROM recording_parts WHERE recording_id = ? LIMIT 1`)
+                .bind(r.id).first();
+              if (part) continue;
+              size = await promoteSnapshot(env, key);
+              const recovered = await env.RECORDINGS.head(key);
+              fromSnapshot = recovered?.customMetadata?.recoveredFrom === 'snapshot';
+            }
+          }
+        }
+        const nextStatus = size > 0 ? 'completed'
+          : (Number(r.size_bytes) > 0 || Number(r.duration_ms) > 0 ? 'upload_failed' : 'aborted');
+        const update = await env.DB.prepare(
+          `UPDATE recordings SET status = ?, ended_at = COALESCE(ended_at, ?),
+              size_bytes = CASE WHEN ? > 0 THEN ? ELSE size_bytes END,
+              duration_ms = CASE WHEN ? THEN NULL ELSE duration_ms END,
+              storage = CASE WHEN ? > 0 THEN ? ELSE storage END
+            WHERE id = ? AND status = 'recording' AND file_url IS ? AND ended_at IS ?
+              AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)`
+        ).bind(nextStatus, now, size, size, fromSnapshot ? 1 : 0, size,
+               fromSnapshot ? 'r2_snapshot' : 'r2', r.id, r.file_url, r.ended_at).run();
+        if (!update.meta?.changes) continue;
+        if (size > 0) out.finalized++;
+        else if (nextStatus === 'aborted') out.emptied++;
+        else out.failed++;
+        out.details.push({ rid: Number(r.id), ok: size > 0, status: nextStatus, snapshot: fromSnapshot, size });
+      } catch (e: any) {
+        out.failed++;
+        out.details.push({ rid: Number(r.id), ok: false, deferred: true, error: String(e?.message || e) });
+      }
     }
   } catch (e: any) {
-    out.error = (out.error ? out.error + ' / ' : '') + '스냅샷 되살리기 실패: ' + String(e?.message || e);
-    console.error('[rec-finalize]', out.error);
-  }
-
-  // 🧹 빈 껍데기 정리 — 조각이 하나도 없이 EMPTY_AGE_MS 넘게 'recording' 으로 남은 행.
-  //   R2 에 데이터가 아예 없으므로 복구 대상이 아니고, 그대로 두면 학생 목록에
-  //   ⏳준비중 으로 영원히 남는다. 되살릴 게 있는 행(장부에 조각이 있는 행)은 건드리지 않는다.
-  try {
-    const r = await env.DB.prepare(
-      `UPDATE recordings SET status = 'aborted'
-        WHERE status = 'recording'
-          AND started_at IS NOT NULL AND started_at < ?
-          AND size_bytes IS NULL
-          AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)`
-    ).bind(now - EMPTY_AGE_MS).run();
-    out.emptied = r.meta?.changes || 0;
-    if (out.emptied) console.log(`[rec-finalize] 빈 껍데기 ${out.emptied}건 정리(aborted)`);
-  } catch (e: any) {
-    out.error = (out.error ? out.error + ' / ' : '') + '빈 껍데기 정리 실패: ' + String(e?.message || e);
+    out.error = (out.error ? out.error + ' / ' : '') + '미완료 녹화 복구 조회 실패: ' + String(e?.message || e);
     console.error('[rec-finalize]', out.error);
   }
 

@@ -43,7 +43,11 @@ check('재생 칸 판정부를 소스에서 찾았다', !!mBlock,
   '이 하니스가 판정부를 못 찾으면 아래 검사는 전부 무의미하다 — 모양이 바뀌었으면 여기부터 고칠 것');
 
 if (mBlock) {
-  const body = mBlock[0];
+  const pending = CORE.match(/function recPendingLabel\(r, lang\) \{[\s\S]*?\n\}/)[0];
+  const pendingLabel = new Function(pending + '; return recPendingLabel;')();
+  check('종료 확인된 녹화는 저장 마무리 중', pendingLabel({endedAt: 1}, 'ko') === '저장 마무리 중');
+  check('오래된 미확인 녹화는 종료 확인 필요', pendingLabel({startedAt:Date.now()-5*3600000},'ko') === '종료 확인 필요');
+  const body = pending + mBlock[0];
   // eslint 없이 그대로 실행 — adminLang·r·playBtn 만 있으면 도는 조각이다
   const runLabel = (status, lang) => {
     const fn = new Function('adminLang', 'r', 'var playBtn;' + body + 'return playBtn;');
