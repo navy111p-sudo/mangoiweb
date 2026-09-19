@@ -38,6 +38,19 @@
   #vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 46%,rgba(30,20,10,.5) 100%)}
   #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
+  #sceneVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3;
+    opacity:0;pointer-events:none;background:#2b2015;transition:opacity .18s}
+  #sceneVideo.show{opacity:1}
+  @keyframes schoolFlicker{0%,100%{filter:brightness(1)}12%{filter:brightness(.72)}24%{filter:brightness(1)}
+    42%{filter:brightness(.82)}56%{filter:brightness(1)}70%{filter:brightness(.76)}84%{filter:brightness(1)}}
+  #scene.schoolFlicker{animation:schoolFlicker 1s steps(1,end) 1}
+  #eventMsg{position:absolute;left:50%;top:37%;z-index:16;max-width:82%;
+    transform:translate(-50%,-50%) scale(.92);opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;padding:11px 20px;border-radius:11px;
+    background:rgba(74,47,12,.91);border:1px solid rgba(255,210,63,.62);
+    box-shadow:0 10px 28px rgba(0,0,0,.4);color:#fff7e4;font-weight:900;text-align:center}
+  #eventMsg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #eventMsg .eEn{font-size:14.5px}.eKo{font-size:12px;color:#ffe19a;margin-top:3px}
   /* 쪽지 카드 — 포스트잇 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
   #noteCard{position:absolute;left:50%;top:44%;z-index:15;width:min(78%,320px);
     transform:translate(-50%,-50%) rotate(-3deg) scale(.85);opacity:0;pointer-events:none;
@@ -155,7 +168,9 @@
 <body>
 <div id="wrap">
   <div id="scene"></div>
+  <video id="sceneVideo" muted playsinline preload="none" aria-hidden="true"></video>
   <div id="vig"></div>
+  <div id="eventMsg"></div>
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
 
@@ -226,6 +241,7 @@
         두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
         내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
 <script defer src="/js/game-standalone-exit.js?v=5"></script>
+<script src="/js/escape-school-audio.js?v=1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    0. 파라미터 · 상태
@@ -239,6 +255,13 @@ var SCENES={ room:'/img/escape-school-classroom.jpg?v=1', escape:'/img/escape-sc
              noteCU:'/img/escape-school-note.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+/* Higgsfield 4초 반응 영상 — 네트워크가 느리거나 영상이 실패해도 정지 이미지 게임은 그대로 진행된다. */
+var ACTION_CLIPS={
+  intro:'',
+  door:'',
+  computer:'',
+  escape:''
+};
 
 /* ════════════════════════════════════════════════════════════
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
@@ -308,7 +331,7 @@ var STEPS=[
 var G=null;
 function newGame(){
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
-      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false };
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false, eventFired:false };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -316,14 +339,16 @@ function newGame(){
    ════════════════════════════════════════════════════════════ */
 var _ttsAudio=null, _ttsCache={};
 function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.pause(); } }catch(_){}
-  try{ speechSynthesis.cancel(); }catch(_){} }
+  try{ speechSynthesis.cancel(); }catch(_){}
+  try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(false); }catch(_){} }
 function speak(text, cb){
   _ttsStop();
+  try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(true); }catch(_){}
   function fallback(){ try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
-    u.onend=function(){ if(cb)cb(); }; u.onerror=function(){ if(cb)cb(); };
+    u.onend=function(){ try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(false); }catch(_){} if(cb)cb(); }; u.onerror=function(){ try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(false); }catch(_){} if(cb)cb(); };
     speechSynthesis.speak(u); }catch(_){ if(cb)cb(); } }
   function play(url){ try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
-      _ttsAudio.onended=function(){ if(cb)cb(); };
+      _ttsAudio.onended=function(){ try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(false); }catch(_){} if(cb)cb(); };
       _ttsAudio.onerror=function(){ fallback(); };
       var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fallback(); });
     }catch(_){ fallback(); } }
@@ -345,18 +370,18 @@ function beep(freq,dur,type,vol){ var a=ac(); if(!a)return; var t=a.currentTime;
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.01);
   g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(a.destination);
   o.start(t); o.stop(t+dur+0.02); }
-function sndOk(){ beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
-function sndNo(){ beep(200,.18,'sawtooth',.14); }
+function sndOk(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('success');return;} beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
+function sndNo(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('wrong');return;} beep(200,.18,'sawtooth',.14); }
 function sndUnlock(){ beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
   setTimeout(function(){beep(760,.3,'triangle',.2);},230); }
-function sndAlarm(){ beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
-function sndTick(){ beep(1300,.025,'square',.05); }
-function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
+function sndAlarm(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('alarm');return;} beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
+function sndTick(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('tick');return;} beep(1300,.025,'square',.05); }
+function sndCreak(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('doorRattle');return;} beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
   setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
-function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
+function sndKeyTurn(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('keyTurn');return;} beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
   setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
 /* 컴퓨터 전원 — 예전 CRT 켜지는 느낌의 상승 삐 3음(이 게임에만 있는 소품, 무섭지 않게) */
-function sndPowerOn(){ beep(200,.08,'sine',.12); setTimeout(function(){beep(340,.08,'sine',.14);},90);
+function sndPowerOn(){ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('computerOn');return;} beep(200,.08,'sine',.12); setTimeout(function(){beep(340,.08,'sine',.14);},90);
   setTimeout(function(){beep(520,.14,'sine',.16);},190); }
 /* 이 테마는 escape-voice와 달리 무서우면 안 된다 — 저음 드론(스산함)은 일부러 넣지 않았다.
    긴장감은 마지막 1분의 초침 소리(sndTick, 타이머에서 처리)만으로 충분하다. */
@@ -377,6 +402,20 @@ function setScene(k,pos,size){
   el.style.backgroundPosition=pos||'center';
   el.style.backgroundSize=size||'cover';
 }
+var _clipTimer=null,_clipEpoch=0;
+function stopActionClip(){
+  _clipEpoch++; clearTimeout(_clipTimer); _clipTimer=null;
+  var v=$('sceneVideo'); if(!v)return;
+  try{v.pause();v.removeAttribute('src');v.load();}catch(_){}
+  v.classList.remove('show');
+}
+function playActionClip(kind){
+  var v=$('sceneVideo'),url=ACTION_CLIPS[kind]; if(!v||!url||typeof v.play!=='function')return false;
+  stopActionClip(); var epoch=_clipEpoch;
+  function done(){if(epoch!==_clipEpoch)return;clearTimeout(_clipTimer);v.classList.remove('show');try{v.pause();}catch(_){}}
+  try{v.muted=true;v.playsInline=true;v.src=url;v.currentTime=0;v.classList.add('show');v.onended=done;v.onerror=done;
+    var p=v.play();if(p&&p.catch)p.catch(done);_clipTimer=setTimeout(done,4800);return true;}catch(_){done();return false;}
+}
 function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko; }
 function heard(html){ $('heard').innerHTML=html||''; }
 function hintTxt(html){ $('hint').innerHTML=html||''; }
@@ -388,6 +427,20 @@ function showNote(en,ko){
   $('noteEn').textContent=en; $('noteKo').textContent=ko;
   c.classList.add('show');
   clearTimeout(_noteT); _noteT=setTimeout(function(){ c.classList.remove('show'); },3600);
+}
+var _eventT=null;
+var SCHOOL_EVENTS=[
+  {en:'Footsteps echo in the hallway. Someone may be nearby.',ko:'복도에서 발소리가 들려요. 누군가 가까이 있을지도 몰라요!',sfx:'footsteps',flicker:false},
+  {en:'The classroom lights flicker. Stay focused!',ko:'교실 불이 잠깐 깜빡였어요. 집중해서 계속해요!',sfx:'flicker',flicker:true},
+  {en:'A locker closes somewhere down the hall.',ko:'복도 어딘가에서 사물함 닫히는 소리가 났어요.',sfx:'locker',flicker:false},
+  {en:'A faint school bell rings in the distance.',ko:'멀리서 학교 종소리가 희미하게 들려요.',sfx:'bell',flicker:false}
+];
+function fireSchoolEvent(){
+  var ev=SCHOOL_EVENTS[Math.floor(Math.random()*SCHOOL_EVENTS.length)];
+  if(ev.flicker){$('scene').classList.add('schoolFlicker');setTimeout(function(){$('scene').classList.remove('schoolFlicker');},1050);}
+  try{if(window.EscapeSchoolAudio)EscapeSchoolAudio.sfx(ev.sfx);}catch(_){}
+  var m=$('eventMsg');m.innerHTML='<div class="eEn">⚡ '+ev.en+'</div><div class="eKo">⚡ '+ev.ko+'</div>';m.classList.add('show');
+  clearTimeout(_eventT);_eventT=setTimeout(function(){m.classList.remove('show');},2600);
 }
 /* 시간이 줄어도 이 테마는 살짝만 어두워진다(공포 연출 금지) — 최저 밝기를 0.35가 아니라 0.6으로 */
 function applyDim(){ if(!G)return;
@@ -463,17 +516,20 @@ function advance(){
   var s=curStep();
   G.busy=true; clearIdle();
   sndOk(); flash();
+  try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.step(s.id); }catch(_e){}
+  var clipKind=(s.id==='door1')?'door':((s.id==='computer'||s.id==='password'||s.id==='email')?'computer':(s.id==='door2'?'escape':''));
+  if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!</span>');
   logProg(s.id, true);
   // 결과 장면으로 전환 — door2는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
   if(s.id==='door2'){
     setScene('doorCU');
-    sndKeyTurn();
+    if(!window.EscapeSchoolAudio) sndKeyTurn();
     setTimeout(function(){ setScene(s.scene); }, 650);
   } else {
     setScene(s.scene);
-    if(s.id==='door1') sndCreak();
-    if(s.id==='computer') sndPowerOn();
+    if(s.id==='door1' && !window.EscapeSchoolAudio) sndCreak();
+    if(s.id==='computer' && !window.EscapeSchoolAudio) sndPowerOn();
   }
   if(s.id==='note') showNote('The password is three, three, five.','비밀번호는 3, 3, 5');
   // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
@@ -581,7 +637,9 @@ function listen(){
   micLabel(true);
   heard('<span style="color:#e0c99a">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
   recActive=true;
+  try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(true); }catch(_){}
   function finish(){ if(done)return; done=true; recActive=false;
+    try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.duck(false); }catch(_){}
     if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
     micLabel(false);
     if(best) submitSaid(best);
@@ -641,12 +699,15 @@ function startTimer(){
     var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
     el.classList.toggle('warn', G.t<=60);
     if(G.t===60||G.t===30||G.t===10) sndAlarm();
-    else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로만 긴장감(드론은 안 씀)
+    else if(G.t<=60 && G.t>0) sndTick();
+    try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.setTension(1-(G.t/TIME_LIMIT)); }catch(_){}
+    if(!G.eventFired && G.t<=Math.floor(TIME_LIMIT*.5)){G.eventFired=true;fireSchoolEvent();}
     applyDim();
     if(G.t<=0) lose();
   },1000);
 }
-function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
+function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopActionClip();
+  try{ if(window.EscapeSchoolAudio){EscapeSchoolAudio.sfx('relief');EscapeSchoolAudio.stop();} }catch(_){}
   setScene('escape');
   $('scene').style.filter='brightness(1) saturate(1)';
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
@@ -658,7 +719,8 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
   flushProg(true);
   setTimeout(function(){ speak('Well done! You escaped!'); },400);
 }
-function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
+function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopActionClip();
+  try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.stop(); }catch(_){}
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
   $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
@@ -691,9 +753,10 @@ function startGame(){
   newGame(); G.running=true;
   $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
-  heard(''); hintTxt('');
-  setScene('room'); applyDim(); showStep();
+  heard(''); hintTxt(''); clearTimeout(_eventT); $('eventMsg').classList.remove('show'); $('scene').classList.remove('schoolFlicker');
+  setScene('room'); applyDim(); showStep(); playActionClip('intro');
   try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); }catch(_){}
+  try{ if(window.EscapeSchoolAudio){EscapeSchoolAudio.start();EscapeSchoolAudio.setTension(0);} }catch(_){}
   startTimer();
   speak('You stayed after school and the door is locked. Look around the classroom.');
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
@@ -714,6 +777,7 @@ window.addEventListener('keydown', function(e){
     e.preventDefault(); listen(); } });
 
 setScene('room');
+try{ if(window.EscapeSchoolAudio) EscapeSchoolAudio.ensureUI(); }catch(_){}
 </script>
 <!-- BUILD:dev -->
 <!-- BUILD:20260813015745 -->
