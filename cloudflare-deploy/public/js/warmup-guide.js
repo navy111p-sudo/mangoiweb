@@ -6,9 +6,16 @@
   var contextKey = '', videoEpoch = 0;
   var startedAt = 0, firstReplyMs = null, historyOpen = false, lastQuestion = '';
   var scenes = [
-    { id:'cooking', img:'cooking-action', ko:'요리하기', en:'Cooking', zh:'做饭', noun:'cooking', zhQ:'做饭', alt:'가족이 주방에서 함께 팬케이크를 만들고 있어요.' },
-    { id:'soccer', img:'soccer-motion', ko:'축구하기', en:'Soccer', zh:'足球', noun:'soccer', zhQ:'足球', alt:'아이들이 밖에서 축구를 하고 있어요.' },
-    { id:'train', img:'train', ko:'여행하기', en:'Travelling', zh:'旅行', noun:'travelling', zhQ:'旅行', alt:'기차 여행 장면이에요.' }
+    { id:'cooking', img:'cooking-action', ko:'요리하기', en:'Cooking', zh:'做饭', noun:'cooking', zhQ:'做饭', learn:'to cook', zhLearn:'做饭', alt:'가족이 주방에서 함께 팬케이크를 만들고 있어요.' },
+    { id:'soccer', img:'soccer-motion', ko:'축구하기', en:'Soccer', zh:'足球', noun:'soccer', zhQ:'踢足球', learn:'to play soccer', zhLearn:'踢足球', alt:'아이들이 밖에서 축구를 하고 있어요.' },
+    { id:'train', img:'train', ko:'여행하기', en:'Travelling', zh:'旅行', noun:'travelling', zhQ:'旅行', learn:'to plan a trip', zhLearn:'计划旅行', alt:'기차 여행 장면이에요.' },
+    { id:'cycling', img:'warmup-cycling', ko:'자전거 타기', en:'Cycling', zh:'骑自行车', noun:'riding a bike', zhQ:'骑自行车', learn:'to ride a bike', zhLearn:'骑自行车', alt:'헬멧을 쓴 아이가 공원에서 자전거를 타고 있어요.' },
+    { id:'pets', img:'warmup-pets', ko:'반려동물 돌보기', en:'Caring for pets', zh:'照顾宠物', noun:'caring for pets', zhQ:'照顾宠物', learn:'to care for pets', zhLearn:'照顾宠物', alt:'아이가 정원에서 강아지의 털을 부드럽게 빗어 주고 있어요.' },
+    { id:'painting', img:'warmup-painting', ko:'그림 그리기', en:'Painting', zh:'画画', noun:'painting', zhQ:'画画', learn:'to paint', zhLearn:'画画', alt:'아이가 붓으로 해와 하늘을 그리고 있어요.' },
+    { id:'music', img:'warmup-music', ko:'음악 연주', en:'Playing music', zh:'演奏音乐', noun:'playing music', zhQ:'演奏音乐', learn:'to play the piano', zhLearn:'弹钢琴', alt:'아이가 피아노 앞에 앉아 건반을 누르고 있어요.' },
+    { id:'gardening', img:'warmup-gardening', ko:'정원 가꾸기', en:'Gardening', zh:'园艺', noun:'gardening', zhQ:'种花', learn:'to grow flowers', zhLearn:'种花', alt:'아이가 물뿌리개로 꽃에 물을 주고 있어요.' },
+    { id:'shopping', img:'warmup-shopping', ko:'장보기', en:'Shopping', zh:'买东西', noun:'shopping for food', zhQ:'买水果', learn:'to shop for food', zhLearn:'买食物', alt:'부모와 아이가 시장에서 과일을 고르고 있어요.' },
+    { id:'beach', img:'warmup-beach', ko:'해변 놀이', en:'Beach play', zh:'海边玩耍', noun:'playing at the beach', zhQ:'在海边玩', learn:'to build a sandcastle', zhLearn:'堆沙堡', alt:'아이들이 해변의 모래 위에서 모래성을 만들고 있어요.' }
   ];
   function zh() { return typeof isZh === 'function' && isZh(); }
   function tr(ko, en) { return typeof getLang === 'function' && getLang() === 'en' ? en : ko; }
@@ -85,7 +92,7 @@
     if(!ok){scene='';resetSceneMedia();$('wgScene').hidden=true;renderChoices();return;}
     // Authored hint matches this exact authored question; it never pretends to be an answer.
     receiveHelp(goals && _warmLevel>=3
-      ? {words:zh()?['想','学习']:['learn',s.noun],frame:zh()?'我想学____。':'I want to learn ____.',example:zh()?'我想学做饭。':'I want to learn something new.'}
+      ? {words:zh()?['想',s.zhLearn]:['learn',s.learn],frame:zh()?'我想学____。':'I want to learn ____.',example:zh()?'我想学'+s.zhLearn+'。':'I want to learn '+s.learn+'.'}
       : {words:zh()?['喜欢','不喜欢']:['yes','no'],frame:zh()?'我____。':'Yes, I ____.',example:zh()?'我喜欢。':'Yes, I do.'},[]);
     var current=$('log').querySelector('.msg.ai:last-of-type');
     if(current)current.scrollIntoView({block:'nearest'});

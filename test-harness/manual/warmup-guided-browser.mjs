@@ -106,6 +106,51 @@ try{
     ck('Chinese scene labels',await page.locator('[data-scene=cooking]').innerText()==='做饭');
     ck('Chinese has no runtime errors',errors.length===0);await page.close();
   }
+  // All added cards must be reachable, select their own topic and play real media.
+  // AI remains stubbed; these assertions exercise the shipped images and MP4 files.
+  for(const lang of ['en','zh']){
+    const {page,requests,mediaRequests,errors}=await setup(390,844,'&lang='+lang);
+    const topics=[
+      ['cooking','cooking','做饭'],['soccer','soccer','踢足球'],['train','travelling','旅行'],
+      ['cycling','riding a bike','骑自行车'],['pets','caring for pets','照顾宠物'],
+      ['painting','painting','画画'],['music','playing music','演奏音乐'],
+      ['gardening','gardening','种花'],['shopping','shopping for food','买水果'],
+      ['beach','playing at the beach','在海边玩']
+    ];
+    ck(lang+' ten distinct scene choices',await page.locator('#wgChoices button').count()===10 &&
+      await page.locator('#wgChoices button').evaluateAll(bs=>new Set(bs.map(b=>b.dataset.scene)).size===10));
+    ck(lang+' scene picker has a bounded scroll area',await page.locator('#wgChoices').evaluate(e=>e.scrollHeight>e.clientHeight&&e.clientHeight<=200));
+    await page.evaluate(()=>{_warmLevel=1;});
+    for(const [id,en,zh] of topics){
+      await page.locator('#wgScenes').evaluate(e=>e.open=true);
+      const choice=page.locator('[data-scene='+id+']');await choice.scrollIntoViewIfNeeded();
+      await choice.locator('img').evaluate(img=>img.decode());
+      await choice.click();await page.waitForFunction(()=>!sending);
+      const q=lang==='zh'?'你喜欢'+zh+'吗？':'Do you like '+en+'?';
+      ck(lang+' '+id+' sends its own easy question and scene',requests.some(r=>r.scene_id===id&&r.pick===q)&&
+        (await page.locator('#log .msg.ai:visible').innerText()).includes(q));
+      ck(lang+' '+id+' shows a loaded matching picture',await page.locator('#wgSceneImage').evaluate(img=>img.complete&&img.naturalWidth>0)&&
+        await choice.getAttribute('aria-pressed')==='true');
+      ck(lang+' '+id+' microphone remains reachable',await page.locator('#micBtn').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
+      if(lang==='en'){
+        ck(id+' clip has not been prefetched',!mediaRequests.includes('/video/warmup-scenes/'+id+'.mp4'));
+        await page.locator('#wgScenePlay').click();
+        await page.waitForFunction(()=>document.querySelector('#wgSceneVideo').currentTime>0.1);
+        ck(id+' real clip plays muted',await page.locator('#wgSceneVideo').evaluate(v=>!v.paused&&v.muted&&v.videoWidth>0&&v.duration>=4.9&&v.duration<=5.1));
+        await page.locator('#wgScenePlay').click();
+      }
+    }
+    ck(lang+' exploring scenes never submits student answers',await page.locator('#log .msg.me').count()===0);
+    if(lang==='zh')ck('Chinese scene selection never preloads videos',mediaRequests.length===0);
+    await page.evaluate(()=>{_warmLevel=3;});
+    await page.locator('#wgScenes').evaluate(e=>e.open=true);
+    await page.locator('[data-scene=music]').click();await page.waitForFunction(()=>!sending);
+    await page.locator('#wgHelpOpen').click();
+    for(let i=0;i<3;i++)await page.locator('#wgHelpNext').click();
+    ck(lang+' goal example matches music scene',(await page.locator('#wgHelpOutput').innerText()).includes(lang==='zh'?'我想学弹钢琴。':'I want to learn to play the piano.'));
+    ck(lang+' all ten scenes have no runtime errors',errors.length===0);
+    await page.close();
+  }
   {
     const {page,requests}=await setup(1366,768);
     let release;const delayed=new Promise(r=>release=r);
