@@ -3,6 +3,13 @@ const SCENES: Record<string, string> = {
   cooking: 'A family is making pancakes together in a kitchen.',
   soccer: 'Children are playing soccer outside.',
   train: 'An empty train carriage has seats beside a window with countryside outside.',
+  cycling: 'A child wearing a helmet is riding a bicycle on a park path.',
+  pets: 'A child is gently brushing a dog in a garden.',
+  painting: 'A child is painting a sun and sky with a brush at an art table.',
+  music: 'A child is sitting at a piano and playing the keys.',
+  gardening: 'A child is watering flowers with a watering can in a garden.',
+  shopping: 'A parent and child are choosing fruit at a market stall with a shopping basket.',
+  beach: 'Children are building a sandcastle on dry sand with the sea in the background.',
 };
 
 export function warmupGuidanceRule(body: any, lang: string): string {
