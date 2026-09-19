@@ -265,6 +265,7 @@
         두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
         내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
 <script defer src="/js/game-standalone-exit.js?v=5"></script>
+<script src="/js/escape-audio.js?v=1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    0. 파라미터 · 상태
@@ -579,15 +580,17 @@ function newGame(){
    ════════════════════════════════════════════════════════════ */
 var _ttsAudio=null, _ttsCache={}, _ttsEpoch=0;
 function _ttsStop(){ _ttsEpoch++; try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(_){}
-  try{ speechSynthesis.cancel(); }catch(_){} }
+  try{ speechSynthesis.cancel(); }catch(_){}
+  try{ if(window.EscapeAudio) EscapeAudio.duck(false); }catch(_){} }
 function speak(text, cb){
   _ttsStop();
+  try{ if(window.EscapeAudio) EscapeAudio.duck(true); }catch(_){}
   var epoch=_ttsEpoch;
   function fallback(){ if(epoch!==_ttsEpoch)return; try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
-    u.onend=function(){ if(epoch===_ttsEpoch && cb)cb(); }; u.onerror=function(){ if(epoch===_ttsEpoch && cb)cb(); };
+    u.onend=function(){ try{ if(window.EscapeAudio) EscapeAudio.duck(false); }catch(_){} if(epoch===_ttsEpoch && cb)cb(); }; u.onerror=function(){ try{ if(window.EscapeAudio) EscapeAudio.duck(false); }catch(_){} if(epoch===_ttsEpoch && cb)cb(); };
     speechSynthesis.speak(u); }catch(_){ if(cb)cb(); } }
   function play(url){ if(epoch!==_ttsEpoch)return; try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
-      _ttsAudio.onended=function(){ if(epoch===_ttsEpoch && cb)cb(); };
+      _ttsAudio.onended=function(){ try{ if(window.EscapeAudio) EscapeAudio.duck(false); }catch(_){} if(epoch===_ttsEpoch && cb)cb(); };
       _ttsAudio.onerror=function(){ fallback(); };
       var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fallback(); });
     }catch(_){ fallback(); } }
@@ -609,31 +612,31 @@ function beep(freq,dur,type,vol){ var a=ac(); if(!a)return; var t=a.currentTime;
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.01);
   g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(a.destination);
   o.start(t); o.stop(t+dur+0.02); }
-function sndOk(){ beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
-function sndNo(){ beep(200,.18,'sawtooth',.14); }
-function sndUnlock(){ beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
+function sndOk(){ if(window.EscapeAudio){EscapeAudio.sfx('success');return;} beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
+function sndNo(){ if(window.EscapeAudio){EscapeAudio.sfx('wrong');return;} beep(200,.18,'sawtooth',.14); }
+function sndUnlock(){ if(window.EscapeAudio){EscapeAudio.sfx('unlock');return;} beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
   setTimeout(function(){beep(760,.3,'triangle',.2);},230); }
-function sndAlarm(){ beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
-function sndTick(){ beep(1300,.025,'square',.05); }
-function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
+function sndAlarm(){ if(window.EscapeAudio){EscapeAudio.sfx('alarm');return;} beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
+function sndTick(){ if(window.EscapeAudio){EscapeAudio.sfx('tick');return;} beep(1300,.025,'square',.05); }
+function sndCreak(){ if(window.EscapeAudio){EscapeAudio.sfx('creak');return;} beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
   setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
-function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
+function sndKeyTurn(){ if(window.EscapeAudio){EscapeAudio.sfx('keyTurn');return;} beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
   setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
-function sndEvent(){ beep(140,.3,'sawtooth',.22); setTimeout(function(){beep(90,.4,'sawtooth',.22);},260); }
+function sndEvent(){ if(window.EscapeAudio){EscapeAudio.sfx('event');return;} beep(140,.3,'sawtooth',.22); setTimeout(function(){beep(90,.4,'sawtooth',.22);},260); }
 /* 🎭 긴장 이벤트 효과음 풀(2026-07-31) — "발자국·피아노·TV·물방울·책·커튼" 피드백. 전부 합성음이라
    새 파일 없음. TV·가스불처럼 실제로 위험/무서운 인상을 주는 건 순한 쪽으로 눌러서 만들었다
    (가스불→물방울 소리로 대체: 불 이미지는 아이 대상 서비스에 안 어울린다고 판단, 2026-07-31). */
-function sndFootsteps(){ [0,340,620,1010].forEach(function(dt,i){
+function sndFootsteps(){ if(window.EscapeAudio){EscapeAudio.sfx('footsteps');return;} [0,340,620,1010].forEach(function(dt,i){
   setTimeout(function(){ beep(92+i*3,.09,'square',.12); },dt); }); }
-function sndPiano(){ [392,523,466,587].forEach(function(f,i){
+function sndPiano(){ if(window.EscapeAudio){EscapeAudio.sfx('piano');return;} [392,523,466,587].forEach(function(f,i){
   setTimeout(function(){ beep(f,.5,'triangle',.1); },i*380); }); }
-function sndTVStatic(){ for(var i=0;i<6;i++){ (function(i){
+function sndTVStatic(){ if(window.EscapeAudio){EscapeAudio.sfx('tvStatic');return;} for(var i=0;i<6;i++){ (function(i){
   setTimeout(function(){ beep(200+Math.random()*3000,.04,'sawtooth',.08); },i*45); })(i); }
   setTimeout(function(){ beep(150,.05,'square',.12); },380); }
-function sndDrip(){ [0,520,980].forEach(function(dt,i){
+function sndDrip(){ if(window.EscapeAudio){EscapeAudio.sfx('drip');return;} [0,520,980].forEach(function(dt,i){
   setTimeout(function(){ beep(1400-i*80,.06,'sine',.09); },dt); }); }
-function sndBookFall(){ beep(70,.14,'square',.2); setTimeout(function(){ beep(1800,.03,'sine',.05); },90); }
-function sndCurtain(){ [260,220,240,200].forEach(function(f,i){
+function sndBookFall(){ if(window.EscapeAudio){EscapeAudio.sfx('bookFall');return;} beep(70,.14,'square',.2); setTimeout(function(){ beep(1800,.03,'sine',.05); },90); }
+function sndCurtain(){ if(window.EscapeAudio){EscapeAudio.sfx('curtain');return;} [260,220,240,200].forEach(function(f,i){
   setTimeout(function(){ beep(f,.18,'sawtooth',.05); },i*90); }); }
 var MID_EVENTS=[
   { flicker:true, sfx:sndEvent, en:'The lights flicker. Time is running out!', ko:'조명이 깜빡인다. 시간이 얼마 남지 않았다!' },
@@ -646,7 +649,7 @@ var MID_EVENTS=[
 ];
 /* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
 var _drone=null;
-function startAmbience(){ var a=ac(); if(!a||_drone) return;
+function startAmbience(){ if(window.EscapeAudio){EscapeAudio.start(G&&G.loc?G.loc.id:'study');return;} var a=ac(); if(!a||_drone) return;
   try{
     var o1=a.createOscillator(), o2=a.createOscillator(), g=a.createGain(), lfo=a.createOscillator(), lfoG=a.createGain();
     o1.type='sine'; o1.frequency.value=54; o2.type='sine'; o2.frequency.value=55.6;
@@ -655,7 +658,7 @@ function startAmbience(){ var a=ac(); if(!a||_drone) return;
     o1.start(); o2.start(); lfo.start(); _drone={o1:o1,o2:o2,lfo:lfo};
   }catch(_){}
 }
-function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
+function stopAmbience(){ if(window.EscapeAudio){EscapeAudio.stop();return;} if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
 
 /* ════════════════════════════════════════════════════════════
    3. 화면
@@ -839,6 +842,7 @@ function advance(){
   if(G.combo===3){G.t=Math.min(TIME_LIMIT,G.t+10);G.bonusTime+=10;reward=' · ⏱ 보너스 10초!';}
   if(G.combo===5){G.freeHint=true;reward=' · 🗝 다음 단계 비밀 힌트 획득!';}
   updateCombo(); sndOk(); flash();
+  try{ if(window.EscapeAudio) EscapeAudio.step(s.id,G.loc.id); }catch(_e){}
   var clipKind=s.id==='drawer'?'drawer':(s.id==='books'?'books':((s.id==='code'||s.id==='key')?'safe':(s.id==='door'?'escape':'')));
   if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
@@ -852,7 +856,7 @@ function advance(){
     setTimeout(function(){ if(G===game && game.running && !game.over) setScene(study?s.scene:game.loc.id); }, 650);
   } else {
     setScene(study?s.scene:G.loc.id);
-    if(s.id==='drawer'||s.id==='painting') sndCreak();
+    if((s.id==='drawer'||s.id==='painting') && !window.EscapeAudio) sndCreak();
   }
   if(s.note) showNote(s.note, s.noteKo);
   // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
@@ -988,7 +992,9 @@ function listen(){
   micLabel(true);
   heard('<span style="color:#8fa6bd">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
   recActive=true;
+  try{ if(window.EscapeAudio) EscapeAudio.duck(true); }catch(_){}
   function finish(){ if(done)return; done=true; recActive=false;
+    try{ if(window.EscapeAudio) EscapeAudio.duck(false); }catch(_){}
     cancelRecognition=null;
     if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
     micLabel(false);
@@ -1143,6 +1149,7 @@ window.addEventListener('keydown', function(e){
     e.preventDefault(); listen(); } });
 
 setScene('room');
+try{ if(window.EscapeAudio) EscapeAudio.ensureUI(); }catch(_){}
 </script>
 <!-- BUILD:dev -->
 <!-- BUILD:20260813015745 -->
