@@ -51,7 +51,10 @@ const goto = async () => {
   await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/index.html?_nc=${Date.now()}` });
   for (let i = 0; i < 60; i++) { await sleep(200); if (await ev('document.readyState==="complete"')) break; }
   /* 빈 브라우저는 «첫 방문자» 입니다 — 코치마크가 히어로를 덮습니다(CLAUDE.md 2장). */
-  await ev(`try{localStorage.setItem('mangoi_onboard_v1','skip:0');localStorage.setItem('mangoi_lang','ko');}catch(e){}`);
+  /* ⚠️ 앞 회차의 localStorage 가 넘어오면 그 뒤 검사가 통째로 헛돕니다 —
+     실제로 `mangoi_zh_learner` 가 남아 「감춰진 칸이 한 칸」이 []로 나왔습니다(CLAUDE.md 2장).
+     ⟹ 회차마다 «지금 재려는 상태» 를 명시적으로 세웁니다(③이 zh 를 따로 켭니다). */
+  await ev(`try{localStorage.setItem('mangoi_onboard_v1','skip:0');localStorage.setItem('mangoi_lang','ko');localStorage.removeItem('mangoi_zh_learner');}catch(e){}`);
   await sleep(1100);
 };
 const clickTrack = async () => {
@@ -107,24 +110,37 @@ try {
   ok('목록이 열렸다', o.open === true, JSON.stringify(o).slice(0, 200));
   ok('제목이 「AI와 친구하기」다', (o.title || '').trim() === 'AI와 친구하기', o.title);
   ok('같은 화면에서 열린다 (주소로 안 나간다)', !/menu=aitools/.test(o.search || ''), o.search);
-  ok('A.i 학습 도구가 «모두» 나온다 (8칸)', o.shown.length === 8, o.shown.length + '칸: ' + o.shown.join(' / '));
-  /* 🇨🇳 2026-08-24 학원장 검수로 «중국어 수강생에게만» 보이는 칸입니다(idx-allmenu.js 의 hideZhLearner).
-     ⛔ 「모두 나오게」를 이유로 그 결정을 지우지 마세요 — 사람이 승인한 결정입니다. */
-  ok('짝: 중국어 복습퀴즈는 «지워진 게 아니라 감춰져» 있다',
+  /* ⛔ «몇 칸인가» 를 숫자로 못 박지 마세요 — 열 번째 도구를 정당하게 더하면
+     보장은 세지는데 검사만 빨간불입니다(CLAUDE.md 2장 「목록·개수를 못 박은 검사」).
+     물어야 할 것은 «전부 나오는가»(= 감춰진 것 말고 전부) 입니다. */
+  const total = o.shown.length + o.hidden.length;
+  ok('전제: 목록이 비어 있지 않다', total >= 8, total + '칸');
+  ok('A.i 학습 도구가 «모두» 나온다 (감춰진 것 말고 전부)',
+    o.shown.length === total - o.hidden.length && o.shown.length > 0,
+    o.shown.length + '/' + total + '칸: ' + o.shown.join(' / '));
+  /* 🇨🇳 2026-08-24 학원장 검수로 «중국어 수강생에게만» 보이는 칸입니다(idx-allmenu.js 의 hideZhStaticEntries).
+     ⛔ 「모두 나오게」를 이유로 그 결정을 지우지 마세요 — 사람이 승인한 결정입니다.
+     ⚠️ 이 짝 검사는 «지금 정책» 을 계약으로 굳힙니다 — 사람이 「모두에게 보이기」로 정하는 날
+        이 줄이 «먼저» 빨간불이 됩니다. 그때는 느슨하게 풀지 말고 **새 경계로 옮겨 적으세요.** */
+  ok('짝: 감춰진 것은 중국어 복습퀴즈 «한 칸뿐» 이다 (지워진 게 아니다)',
     o.hidden.length === 1 && /중국어|Chinese/.test(o.hidden[0] || ''), JSON.stringify(o.hidden));
 
   /* ── ③ 짝 — 중국어 수강생에게는 9칸이 나온다 (게이트가 «늘 감추기» 가 아님) ── */
   console.log('\n③ 짝: 중국어 수강생에게는 그 칸도 나온다');
   await goto();
+  /* ⚠️ goto() 가 zh 를 지우므로 «켜고 나서 다시 goto 하면» 안 됩니다 —
+     새로고침 없이 그 자리에서 켜고 오버레이만 다시 엽니다. */
   await ev(`try{localStorage.setItem('mangoi_zh_learner','1')}catch(e){}`);
-  await goto();
+  await ev(`(function(){var o=document.getElementById('ai-friends-ov'); if(o&&o.parentNode) o.parentNode.removeChild(o);})()`);
   await clickTrack();
   const z = await ev(`(function(){
     var ov=document.getElementById('ai-friends-ov'); if(!ov) return {n:-1};
-    var n=0; [].forEach.call(ov.querySelectorAll('.aif-item'),function(b){var r=b.getBoundingClientRect(); if(r.width>0&&r.height>0) n++;});
-    return {n:n};
+    var all=ov.querySelectorAll('.aif-item'), n=0;
+    [].forEach.call(all,function(b){var r=b.getBoundingClientRect(); if(r.width>0&&r.height>0) n++;});
+    return {n:n, total:all.length};
   })()`);
-  ok('중국어 수강생에게는 9칸이 보인다', z.n === 9, z.n + '칸');
+  ok('중국어 수강생에게는 «하나도 안 감춰진다» (보이는 수 = 전체 수)',
+    z.n > 0 && z.n === z.total && z.n === total, `보임 ${z.n} / 전체 ${z.total} (앞에서 잰 전체 ${total})`);
   await ev(`try{localStorage.removeItem('mangoi_zh_learner')}catch(e){}`);
 
   /* ── ④ 🌐 를 눌러도 두 줄과 › 가 살아남는다 ────────────────────── */

@@ -17,7 +17,9 @@
  */
 import { readFileSync } from 'node:fs';
 
-const HTML = 'cloudflare-deploy/public/index.html';
+/* ⛔ 변이시험 때 저장소 파일(공동 금지구역)을 직접 고쳤다 되돌리지 마세요 —
+   HERO_SRC=<사본 경로> 로 가리킬 수 있습니다(CLAUDE.md 2장 「사본으로 되돌리세요」). */
+const HTML = process.env.HERO_SRC || 'cloudflare-deploy/public/index.html';
 const src = readFileSync(HTML, 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c, d = '') => { c ? (pass++, console.log('  ✅ ' + n)) : (fail++, console.log('  ❌ ' + n + (d ? ' — ' + d : ''))); };
@@ -47,7 +49,29 @@ ok('짝: 안쪽 둘째 줄 라벨도 data-ko/data-en 을 가진다', /<span data
 const what = /<span class="ht-what">([\s\S]*?)<\/span><\/a>/.exec(block.replace(/\s*<\/a>\s*$/, '</a>'));
 const whatInner = what ? what[1] : (/<span class="ht-what">([\s\S]*)$/.exec(block) || ['', ''])[1];
 ok('› 표시가 있다', /class="ht-go"[^>]*>(&rsaquo;|›)</.test(block), whatInner.slice(0, 160));
-ok('› 는 data-ko 요소 «안» 에 있지 않다', !/<span data-ko="[^"]*"[^>]*>[^<]*<i class="ht-go"/.test(block));
+/* 🔴 «<a> 자신» 만 보면 반쪽입니다 — data-ko 를 «중간 어느 조상» 에 달아도 같은 사고가 납니다.
+   두 i18n 엔진은 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로, 그 «안» 에 있는
+   <b>8</b> 과 <i>›</i> 가 DOM 에서 사라집니다(CLAUDE.md 2장 결재함 배지 건).
+   ⚠️ 처음엔 이 검사가 `<span data-ko="…">…<i class="ht-go"` 라는 «모양» 만 봐서,
+      .ht-what 에 data-ko 를 덧붙이는 변이를 20/0 으로 통과시켰습니다(실측).
+      그래서 «조상 전부» 를 태그 짝으로 세어 봅니다. */
+function elsWithDataKo(html) {
+  const out = []; const re = /<(\w+)\b([^>]*?)(\/?)>/g; let m;
+  while ((m = re.exec(html))) {
+    if (m[3] === '/') continue;
+    if (!/\sdata-(ko|en)=/.test(m[2])) continue;
+    const name = m[1]; let depth = 1, end = -1;
+    const tg = new RegExp('<(\\/?)' + name + '\\b[^>]*>', 'g'); tg.lastIndex = re.lastIndex;
+    let t; while ((t = tg.exec(html))) { if (t[1]) { if (!--depth) { end = t.index; break; } } else depth++; }
+    out.push({ name, attrs: m[2], inner: end >= 0 ? html.slice(re.lastIndex, end) : html.slice(re.lastIndex) });
+  }
+  return out;
+}
+const koEls = elsWithDataKo(block);
+ok('전제: 트랙 안에 data-ko 요소가 실제로 있다 (라벨은 여전히 번역된다)', koEls.length >= 2, koEls.length + '개');
+const swallow = koEls.filter(e => /<b\b/.test(e.inner) || /ht-go/.test(e.inner));
+ok('⛔ <b>8</b>·<i>›</i> 를 «품은» data-ko 요소가 하나도 없다 (조상 전부)',
+  swallow.length === 0, swallow.map(e => '<' + e.name + e.attrs + '>').join(' | ').slice(0, 180));
 
 /* ── ② onclick 을 «실제로 돌려» 본다 ───────────────────────────────────── */
 console.log('\n② onclick 을 오려 내 실제로 실행');

@@ -7854,7 +7854,12 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       /* 🎯 [2026-09-20] 2번 트랙은 «누를 수 있는 것» 이다 — 그 사실을 화면이 말해야 한다.
          ⛔ 금색(#fbbf24)을 쓰지 말 것 — 그건 밑의 CTA 버튼 몫이고, 여기서 쓰면
             «지금 누를 것» 이 둘로 갈린다(바로 위 주석과 같은 이유). 트랙 색(보라)을 그대로 쓴다.
-         ⚠️ 가림막 위에 얹는 밝힘이라 대비는 오히려 올라간다 — 낮추는 방향이 아니다. */
+         🔴 hover·focus 는 «배경을 밝히는» 것이라 **대비가 내려간다**(올라가지 않는다).
+            [쟬 것 — 2026-09-20, 390×844 · 글자를 color:transparent 로 지우고 스크린샷 픽셀을 읽어 합성]
+            「종 A.i 학습」 17.60 → 13.87 · 「8」 9.45 → 7.45 · 「›」 9.44 → 7.43 ·
+            「혼자서 · 아무 때나」 13.77 → 10.84. **전부 4.5 위라 감수한 값**이다.
+            ⛔ 글자를 더 낮추거나 hover 를 더 밝히려거든 **픽셀로 다시 재라** — CSS 만 보면
+               이 줄은 배경이 «사진» 이라 원리상 못 잰다(CLAUDE.md 2장 「배경이 «사진» 이면」). */
       .home-tracks a.ht-track{
         display: block; text-decoration: none; color: inherit; cursor: pointer;
         border-radius: 10px; transition: background .15s;
