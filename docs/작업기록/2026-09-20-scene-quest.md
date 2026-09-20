@@ -20,7 +20,7 @@
 - 탭/부모 iframe이 숨겨지면 영상, 발음, 보너스 타이머를 멈추며 사용자가 이어하기를 눌러 재개한다.
 
 ## 검증
-- `node test-harness/scene_quest_harness.mjs`: 354개 assertion 통과. 실제 정답 판정과 이벤트 핸들러를 실행한다.
+- `node test-harness/scene_quest_harness.mjs`: 355개 assertion 통과. 실제 정답 판정과 이벤트 핸들러를 실행한다.
 - 정답 변형, 오타/부정문/무관한 입력, 중복 제출 방지, 정답 공개 시 0점, 최종 구문 문제, 복습 보상 중복 방지, 타이머 일시정지/만료, 영상 재생 실패와 늦은 재생 콜백 정지 확인.
 - 전용 JS 두 파일 `node --check` 통과.
 - GitHub main의 자산 목록과 대조: 그림 12개/동영상 12개 모두 존재.
