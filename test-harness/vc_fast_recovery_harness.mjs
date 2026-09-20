@@ -129,6 +129,50 @@ for (const recovers of [true, false]) {
   await h.tick({f:5});
   check(!h.ctx.vcRemoteCamOff.z && h.overlays.size===0, 'K: actual new frame removes all stale AAO and black placeholders');
 }
+// Ownership must be released when the remote person turned their camera off, because
+// vcqRxRecoverySample returns at why==='user' before R.managed is recomputed and does
+// nothing further. idx-main's five watchdogs (5s ICE sweep, oniceconnectionstatechange,
+// onconnectionstatechange, app-resume, online) all early-return on vcRecoveryOwnsPeer,
+// so claiming a peer we never act on strands a camera-off student with a dead transport
+// -- audio included. AAO is the paired opposite: there the ladder DOES keep running.
+{
+  const h=setup(); await h.boot();
+  for(let i=0;i<2;i++) await h.tick({a:8,v:30,f:12});
+  check(h.state().managed===true && h.ctx.vcRecoveryOwnsPeer('z',h.pc)===true,
+    'healthy peer is owned by the recovery module (watchdogs stand down)');
+  h.ctx.vcRemoteCamOff.z='user';
+  for(let i=0;i<3;i++) await h.tick({a:8,v:0,f:0});
+  check(h.ctx.vcRecoveryOwnsPeer('z',h.pc)===false,
+    'remote manual camera-off releases ownership so idx-main can still reconnect a dead transport');
+  check(h.sent.length===0 && h.counts().offers===0 && h.counts().restarts===0 && h.counts().rebuilds===0,
+    'and releasing ownership still starts no recovery of its own for a manual camera-off');
+}
+{
+  const h=setup(); await h.boot();
+  for(let i=0;i<2;i++) await h.tick({a:8,v:30,f:12});
+  h.ctx.vcRemoteCamOff.z='aao';
+  for(let i=0;i<3;i++) await h.tick({a:8,v:0,f:0});
+  check(h.ctx.vcRecoveryOwnsPeer('z',h.pc)===true,
+    'intentional AAO keeps ownership - this module still owns that dead-transport ladder');
+}
+// vcRecoveryElement is safe for ANY caller while the remote reports camera-off.
+// It once read `ice` (only a parameter of vcRecoveryNegotiate), so it threw a
+// ReferenceError that vcqRxRecoverySample's catch(_) swallowed - killing the rest
+// of that tick's level machine. Ask for the answer, not for the absent identifier.
+{
+  const h=setup(); await h.boot();
+  const R={video:{track:h.vt}};
+  for(const why of ['user','aao']){
+    h.ctx.vcRemoteCamOff.z=why;
+    let threw=null, ret;
+    try { ret=h.ctx.vcRecoveryElement('z',h.pc,R); } catch(e){ threw=e; }
+    check(!threw, 'vcRecoveryElement does not throw while remote camOff=' + why
+      + (threw ? ' (' + threw.constructor.name + ': ' + threw.message + ')' : ''));
+    check(ret===false, 'vcRecoveryElement declines to touch the element while camOff=' + why);
+  }
+  delete h.ctx.vcRemoteCamOff.z;
+  check(h.ctx.vcRecoveryElement('z',h.pc,R)===true, 'and still repairs the element once no camOff is reported');
+}
 // Negative evidence / async ordering / attachment / fallback frame sources.
 {
   const h=setup(); await h.boot();

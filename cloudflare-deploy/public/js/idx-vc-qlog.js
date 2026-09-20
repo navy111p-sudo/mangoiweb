@@ -124,6 +124,20 @@ function vcRecoveryLog(event, id, pc, R, level) {
 }
 function vcRecoveryOwnsPeer(id, pc) {
     if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+    /* ⛔ «사람이» 카메라를 끈 상대는 이 모듈이 아무것도 안 한다 — vcqRxRecoverySample 이
+       why === 'user' 에서 곧바로 돌아간다. 그런데 R.managed 는 «그 직전 건강한 틱» 의
+       true 가 그대로 남아(그 return 이 managed 재계산보다 앞이다) 여기서 true 가 나온다.
+       그러면 idx-main 이 전부 «복구 모듈이 맡았다» 며 손을 떼는데
+       [잰 것 — 2026-09-20, `grep -c` 로 idx-main.js 전수] 손을 떼는 «호출부» 는 여덟이다:
+       1222(앱 재개)·1544·1764(영상멈춤 감시)·1818(5초 ICE 감시)·1848(online)·
+       5317(oniceconnectionstatechange)·5329(그 5초 뒤 재확인)·5342(onconnectionstatechange).
+       ⚠️ «감시견» 으로 묶으면 다섯이지만 그 숫자만 적으면 어디까지 센 것인지 알 수 없다.
+       정작 맡은 쪽은 아무 일도 안 한다 ⟹ 카메라를 끈 학생의 전송이 죽으면 **소리까지**
+       영영 안 돌아온다. 카메라 끄기는 흔한 조작이라 전제가 쉽게 성립한다.
+       ⚠️ 'aao'(음성전용)는 다르다 — 그때는 이 모듈이 transportDead 사다리를 계속 타므로
+          (vcRecoveryNegotiate 의 `ice && off === 'aao'` 예외) 그대로 맡아야 한다.
+       ⛔ 이 줄은 «소유권» 만 놓는다. 끈 카메라를 다시 켜지 않는다. */
+    if ((window.vcRemoteCamOff || {})[id] === 'user') return false;
     var R = (window.__vcRxRecovery || {})[id];
     return !!(R && (R.pc === pc || R.rebuilding) && R.managed && !vcAaoSfuCut());
 }
@@ -254,7 +268,11 @@ function vcRecoveryRecovered(id, pc, R) {
 function vcRecoveryElement(id, pc, R) {
     var tr = R.video && R.video.track;
     var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
-    if (!tr || tr.readyState !== 'live' || !v || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+    // ⛔ `ice` 를 여기서 보지 않는다 — 그 이름은 vcRecoveryNegotiate 의 «인자» 라
+    //    여기선 선언조차 없어 ReferenceError 로 죽고, 부르는 쪽 catch(_) 가 삼켜
+    //    그 틱의 단계 기계가 통째로 멈춘다. 이 함수는 «요소 다시 붙이기» 뿐이라
+    //    상대가 껐다고(user·aao) 알려 왔으면 어느 사유든 손대지 않는 것이 맞다.
+    if (!tr || tr.readyState !== 'live' || !v || (window.vcRemoteCamOff || {})[id]) return false;
     var s = v.srcObject;
     if (!s || !s.getVideoTracks || !s.getVideoTracks().some(function (t) { return t === tr; })) {
         if (typeof MediaStream === 'undefined') return false;
