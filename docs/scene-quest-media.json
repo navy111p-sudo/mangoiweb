@@ -1,0 +1,412 @@
+{
+  "created": "2026-09-20",
+  "provider": "Higgsfield",
+  "imageModel": "recraft_v4_1",
+  "videoModel": "minimax_hailuo",
+  "videoVariant": "minimax-2.3",
+  "requestedVideoSeconds": 6,
+  "notes": [
+    "AI-generated fictional scenes, not footage of real events.",
+    "All clips use their matching generated still as the start frame.",
+    "Game files are optimized WebP and H.264/yuv420p MP4 with faststart, no audio.",
+    "Frames at 0.5, 2.5 and 4.5 seconds were visually reviewed; this is not in-browser playback QA."
+  ],
+  "scenes": [
+    {
+      "id": "space",
+      "subject": "An adult male astronaut with an authentic white spacesuit and clear helmet inside a bright realistic spacecraft. Earth visible through a round window. Waist-up, his right gloved hand raised in a friendly wave, palm facing camera. Only one person, hand and helmet fully visible.",
+      "motion": "The astronaut slowly waves his raised right gloved hand side to side three times in greeting. His body and helmet remain still. The fingers remain natural. Keep the Earth outside the window stable.",
+      "image": {
+        "index": 1,
+        "job_id": "6f1a507e-8c6d-4d76-88db-1ca84a6d7d4a",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103908_6f1a507e-8c6d-4d76-88db-1ca84a6d7d4a.png",
+        "webPath": "/img/scene-quest/space.webp"
+      },
+      "video": {
+        "index": 13,
+        "job_id": "44e62baf-acef-4e86-b8b8-3c3651bdebf4",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_44e62baf-acef-4e86-b8b8-3c3651bdebf4.mp4",
+        "webPath": "/videos/scene-quest/space.mp4",
+        "measurement": {
+          "id": "space",
+          "duration": 5.875,
+          "size": 415918,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "castle",
+      "subject": "A friendly adult male stage wizard in a textured deep blue robe standing in an ancient sunlit stone castle hall. Medium shot. He holds one slender wooden magic wand in his right hand at chest height, fully visible from grip to tip. Warm practical golden light, believable live action fantasy film set.",
+      "motion": "The friendly wizard gently waves the single wooden wand in a short arc left and right twice. His gripping hand stays anatomically correct. Tiny subtle warm sparks trail the wand tip. Keep the wand visible and unchanged throughout.",
+      "image": {
+        "index": 2,
+        "job_id": "d6caf3c3-1d45-4143-a557-e497f8be99de",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103908_d6caf3c3-1d45-4143-a557-e497f8be99de.png",
+        "webPath": "/img/scene-quest/castle.webp"
+      },
+      "video": {
+        "index": 14,
+        "job_id": "095e355b-333c-425a-a18b-a56c19b5fb0e",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_095e355b-333c-425a-a18b-a56c19b5fb0e.mp4",
+        "webPath": "/videos/scene-quest/castle.mp4",
+        "measurement": {
+          "id": "castle",
+          "duration": 5.875,
+          "size": 277615,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "jungle",
+      "subject": "An adult male wildlife guide in a khaki shirt on the left side of a lush sunlit tropical forest scene. A clearly visible small brown monkey sitting on a low branch on the right, at the guide's shoulder height with safe separation. The guide's extended right index finger points clearly toward the monkey. Both guide and monkey fully in the medium-wide frame.",
+      "motion": "The guide extends his right arm and points his index finger at the monkey on the branch. The monkey looks around gently without leaving the branch. The guide continues pointing. Keep both subjects visible.",
+      "image": {
+        "index": 3,
+        "job_id": "85d43206-d625-400d-a0bb-92bea9d65bf8",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103907_85d43206-d625-400d-a0bb-92bea9d65bf8.png",
+        "webPath": "/img/scene-quest/jungle.webp"
+      },
+      "video": {
+        "index": 15,
+        "job_id": "558b8da5-5fc5-4c68-8e1b-47de1a99601e",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_558b8da5-5fc5-4c68-8e1b-47de1a99601e.mp4",
+        "webPath": "/videos/scene-quest/jungle.mp4",
+        "measurement": {
+          "id": "jungle",
+          "duration": 5.875,
+          "size": 372786,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "ocean",
+      "subject": "An adult scuba diver in a full blue wetsuit, clear diving mask and breathing regulator floating upright in clear turquoise water above a shallow reef. Waist-up medium shot. One gloved hand is raised with open palm facing the camera, ready to wave hello. Sun rays penetrate the water, small fish in the distant background.",
+      "motion": "The diver slowly waves one raised hand side to side in a friendly greeting. Small realistic air bubbles rise from the regulator. Keep the diver's body steady and the face mask unchanged.",
+      "image": {
+        "index": 4,
+        "job_id": "d3eb92a4-367d-45db-a56d-d657b41502de",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103907_d3eb92a4-367d-45db-a56d-d657b41502de.png",
+        "webPath": "/img/scene-quest/ocean.webp"
+      },
+      "video": {
+        "index": 16,
+        "job_id": "a16284fe-79de-4c8b-bf44-ccecafe87179",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_a16284fe-79de-4c8b-bf44-ccecafe87179.mp4",
+        "webPath": "/videos/scene-quest/ocean.mp4",
+        "measurement": {
+          "id": "ocean",
+          "duration": 5.875,
+          "size": 547596,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "birthday-action",
+      "subject": "A happy 10-year-old boy fully dressed in a plain blue shirt seated at a birthday table. Medium close shot showing his face and a small cake with exactly three lit candles clearly visible in front of him. He leans gently toward the candles, about to blow them out. Cozy natural afternoon window light. No other people.",
+      "motion": "The boy leans forward and blows one gentle breath toward the three lit candles on the cake. The flames go out and a little smoke rises. He then smiles. Keep the boy, cake and all candles clearly in frame.",
+      "image": {
+        "index": 5,
+        "job_id": "6ac92273-f791-433c-b677-90da4592b958",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103907_6ac92273-f791-433c-b677-90da4592b958.png",
+        "webPath": "/img/scene-quest/birthday-action.webp"
+      },
+      "video": {
+        "index": 17,
+        "job_id": "d25309b5-ff98-451f-bd32-da9dd0628313",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_d25309b5-ff98-451f-bd32-da9dd0628313.mp4",
+        "webPath": "/videos/scene-quest/birthday-action.mp4",
+        "measurement": {
+          "id": "birthday-action",
+          "duration": 5.875,
+          "size": 525673,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "cooking-action",
+      "subject": "A 10-year-old boy wearing a clean orange apron over a plain white shirt at a bright home kitchen table. Medium shot of face, hands and a glass bowl of pale pancake batter. His right hand grips a wooden spoon inserted in the batter and left hand steadies the bowl. No heat, stove or sharp tools. Natural window light.",
+      "motion": "The boy slowly stirs the pale batter in the glass bowl in two complete circles with the wooden spoon. His other hand holds the bowl steady. Keep the spoon in the batter throughout and preserve natural hand anatomy.",
+      "image": {
+        "index": 6,
+        "job_id": "239284a3-5ff5-4625-94e1-0d7c5d6a000a",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103907_239284a3-5ff5-4625-94e1-0d7c5d6a000a.png",
+        "webPath": "/img/scene-quest/cooking-action.webp"
+      },
+      "video": {
+        "index": 18,
+        "job_id": "a9ec0fc7-04df-4ac3-acb5-e4e9930927e5",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104355_a9ec0fc7-04df-4ac3-acb5-e4e9930927e5.mp4",
+        "webPath": "/videos/scene-quest/cooking-action.mp4",
+        "measurement": {
+          "id": "cooking-action",
+          "duration": 5.875,
+          "size": 358999,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "library",
+      "subject": "A 10-year-old girl in a teal sweater seated at a wooden table in a beautiful sunlit library. Medium shot. An open hardback book is clearly held in both hands with its pages facing her. She looks down at the pages attentively. Book text is tiny and unreadable. Soft background bookshelves.",
+      "motion": "The girl quietly reads the open book, her eyes moving gently across the pages. She carefully turns one page with her right hand and continues reading. The book stays open and fully visible.",
+      "image": {
+        "index": 7,
+        "job_id": "cc7ac05a-d458-4db2-88c5-15d4db85de97",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_cc7ac05a-d458-4db2-88c5-15d4db85de97.png",
+        "webPath": "/img/scene-quest/library.webp"
+      },
+      "video": {
+        "index": 19,
+        "job_id": "502279d1-39b5-4887-a6d4-a8421e82548c",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_502279d1-39b5-4887-a6d4-a8421e82548c.mp4",
+        "webPath": "/videos/scene-quest/library.mp4",
+        "measurement": {
+          "id": "library",
+          "duration": 5.875,
+          "size": 349768,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "soccer",
+      "subject": "An adult soccer player wearing a plain yellow sports shirt and navy shorts on a vivid green grass pitch. Full-body side view, a single black and white football clearly on the grass near his right foot, preparing to kick. No team logos or sponsors. Afternoon sunlight, goal softly visible in background.",
+      "motion": "The player swings his right foot forward and kicks the single football once. The ball rolls clearly across the grass to the right while the player follows through naturally. Wide locked camera keeps the whole action visible.",
+      "image": {
+        "index": 8,
+        "job_id": "d3cd3f53-20be-4e7a-bb15-7dd1a3815804",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_d3cd3f53-20be-4e7a-bb15-7dd1a3815804.png",
+        "webPath": "/img/scene-quest/soccer.webp"
+      },
+      "video": {
+        "index": 20,
+        "job_id": "0a572e46-5ab6-4624-a33a-50c7a7eb4c2c",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_0a572e46-5ab6-4624-a33a-50c7a7eb4c2c.mp4",
+        "webPath": "/videos/scene-quest/soccer.mp4",
+        "measurement": {
+          "id": "soccer",
+          "duration": 5.875,
+          "size": 530567,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "beach",
+      "subject": "Two 10-year-old children, a boy and girl in colorful fully covering summer shirts and shorts, kneeling on a sunny sandy beach. Medium-wide shot. A clearly recognizable sandcastle with two towers sits between them and one child pats a tower with both hands. Calm turquoise sea softly visible behind. Joyful documentary photography.",
+      "motion": "The two children gently build the sandcastle together, one shapes a small tower with both hands while the other pats the wall. The sandcastle keeps its stable shape and the children remain kneeling.",
+      "image": {
+        "index": 9,
+        "job_id": "41d1ed32-b289-4054-9d30-ee9b67869119",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_41d1ed32-b289-4054-9d30-ee9b67869119.png",
+        "webPath": "/img/scene-quest/beach.webp"
+      },
+      "video": {
+        "index": 21,
+        "job_id": "40fb36eb-b30e-49b3-a574-de2acb1a06df",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_40fb36eb-b30e-49b3-a574-de2acb1a06df.mp4",
+        "webPath": "/videos/scene-quest/beach.mp4",
+        "measurement": {
+          "id": "beach",
+          "duration": 5.875,
+          "size": 912057,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "zoo",
+      "subject": "An adult male zookeeper in a plain olive uniform on the left, holding a small bunch of leafy greens toward one giraffe on the right across a safe wooden feeding rail. The giraffe's long neck and head are clearly visible reaching toward the greens. Sunlit spacious wildlife enclosure, medium-wide documentary shot.",
+      "motion": "The zookeeper extends the leafy greens toward the giraffe. The giraffe gently takes the leaves and chews. The keeper keeps his fingers safely away from its mouth. Both remain clearly visible.",
+      "image": {
+        "index": 10,
+        "job_id": "8dee2de4-6b3a-443d-8150-209dea6c6ac2",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_8dee2de4-6b3a-443d-8150-209dea6c6ac2.png",
+        "webPath": "/img/scene-quest/zoo.webp"
+      },
+      "video": {
+        "index": 22,
+        "job_id": "7882a908-aba9-425e-83db-c34d6319d76c",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_7882a908-aba9-425e-83db-c34d6319d76c.mp4",
+        "webPath": "/videos/scene-quest/zoo.mp4",
+        "measurement": {
+          "id": "zoo",
+          "duration": 5.875,
+          "size": 502944,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "farm",
+      "subject": "A 10-year-old child wearing a plaid shirt and overalls standing in a bright clean farmyard with three healthy brown chickens on the ground. Medium-wide shot showing the child's hands and all chickens. The child holds a small bowl of grain in one hand and a small pinch of grain in the other. Warm morning light.",
+      "motion": "The child gently scatters a small handful of grain onto the ground. The three chickens walk a few small steps and peck at the grain. The child keeps holding the bowl. Calm natural motion.",
+      "image": {
+        "index": 11,
+        "job_id": "28cdc69e-20b2-4334-9f07-7772edaaef90",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_28cdc69e-20b2-4334-9f07-7772edaaef90.png",
+        "webPath": "/img/scene-quest/farm.webp"
+      },
+      "video": {
+        "index": 23,
+        "job_id": "65910afc-2249-4b0f-a998-e1d25267c00f",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_65910afc-2249-4b0f-a998-e1d25267c00f.mp4",
+        "webPath": "/videos/scene-quest/farm.mp4",
+        "measurement": {
+          "id": "farm",
+          "duration": 5.875,
+          "size": 579023,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    },
+    {
+      "id": "snow",
+      "subject": "Two 10-year-old children in warm red and blue winter jackets, hats and gloves outdoors in a sunlit snowy park. Medium-wide shot. A recognizable snowman made of two large snowballs is between them, with a smaller snowball ready to become its head. No falling snow obscuring the action, realistic soft winter light.",
+      "motion": "The two children carefully lift the small snowball together and place it on top of the snowman's body as its head. They gently pat it into place. Keep the snowman stable and the action simple and clearly visible.",
+      "image": {
+        "index": 12,
+        "job_id": "bb8860e5-614d-42f2-b53e-3c9659b05af7",
+        "status": "completed",
+        "type": "image",
+        "model": "recraft_v4_1",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_103909_bb8860e5-614d-42f2-b53e-3c9659b05af7.png",
+        "webPath": "/img/scene-quest/snow.webp"
+      },
+      "video": {
+        "index": 24,
+        "job_id": "bd7e2ee5-12d5-44bb-b7a9-5de8df7c491c",
+        "status": "completed",
+        "type": "video",
+        "model": "minimax_hailuo",
+        "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260920_104357_bd7e2ee5-12d5-44bb-b7a9-5de8df7c491c.mp4",
+        "webPath": "/videos/scene-quest/snow.mp4",
+        "measurement": {
+          "id": "snow",
+          "duration": 5.875,
+          "size": 673835,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "pixelFormat": "yuv420p",
+          "streams": 1
+        }
+      }
+    }
+  ]
+}
