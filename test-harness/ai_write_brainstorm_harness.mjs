@@ -61,7 +61,9 @@ const cut = (re, label) => {
   return m ? m[0] : '';
 };
 const SRC = [
+  'const window = {};\n' + read('cloudflare-deploy/public/js/write-scene-media.js'),
   cut(/const PIC_SCENES = \[[\s\S]*?\n    \];/, 'PIC_SCENES'),
+  cut(/PIC_SCENES\.forEach\(sc => \{[\s\S]*?\n    \}\);/, 'scene media merge'),
   cut(/const TOPICS = \[[\s\S]*?\n    \];/, 'TOPICS'),
   cut(/const GO_BASE = \[[\s\S]*?\n    \];/, 'GO_BASE'),
   cut(/const GO_SCENE_Q = \[[\s\S]*?\n    \];/, 'GO_SCENE_Q'),
@@ -158,11 +160,13 @@ if (outline) {
     line1({ topic: meta_topics.findIndex(t => t.starter === 'My school is ') }, 'what', 'my school is big'));
 
   /* ⑥ 🔗 그림·글감에서 온 주제 — 목록은 셋이어도 뼈대는 같은 규칙으로 만들어진다 */
-  const pic = RUN({ pic: 3 }, { where: 'a jungle', who: 'a lion', what: 'the elephant walked to me', how: 'we ran away' });
+  const jungleIdx = RUN(null, {}).scenes.findIndex(s => s.img === 'jungle');
+  check('정글 장면을 이름으로 찾는다', jungleIdx >= 0);
+  const pic = RUN({ pic: jungleIdx }, { where: 'a jungle', who: 'a lion', what: 'the elephant walked to me', how: 'we ran away' });
   check('⑥ 그림 주제는 장면용 5문항 (언제는 묻지 않는다)',
     pic.qs.map(q => q.k).join(',') === 'where,who,what,why,how', pic.qs.map(q => q.k).join(','));
   check('⑥ 그림 주제의 첫 문장 = 그 장면의 시작 문장',
-    pic.out.text.indexOf('In the jungle, I saw many animals.') === 0, pic.out.text.slice(0, 60));
+    pic.out.text.indexOf('The guide is pointing at a monkey.') === 0, pic.out.text.slice(0, 60));
   check('⑥ 그림 주제도 3문단', pic.out.text.split('\n\n').length === 3);
   check('⑥ 그림 주제에 «어디서 왔는지» 가 붙는다', pic.theme.srcKo === '오늘의 그림' && pic.theme.icon === '🖼');
 
@@ -174,7 +178,7 @@ if (outline) {
   check('⑦ 글감 주제도 3문단', top.out.text.split('\n\n').length === 3);
 
   /* ⑧ 한글 답은 그림·글감에서도 글에 안 들어간다 (빈 줄도 남기지 않는다) */
-  const koPic = RUN({ pic: 3 }, { who: '사자' }), koTop = RUN({ topic: 0 }, { what: '피자', why: '맛있어서' });
+  const koPic = RUN({ pic: jungleIdx }, { who: '사자' }), koTop = RUN({ topic: 0 }, { what: '피자', why: '맛있어서' });
   check('⑧ 그림 주제 — 한글 답이 뼈대 글에 없다', !HANGUL.test(koPic.out.text), koPic.out.text);
   check('⑧ 글감 주제 — 한글 답이 뼈대 글에 없다', !HANGUL.test(koTop.out.text), koTop.out.text);
   check('⑧ 한글 답은 메모로 남는다',

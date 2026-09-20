@@ -28,6 +28,10 @@
   /* ── 장면 ── */
   #scene{position:absolute;inset:0;background-size:cover;background-position:center;
     transition:background-image .35s,filter 1.2s linear,background-position .6s ease,background-size .6s ease}
+  #actionClip{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;
+    opacity:0;pointer-events:none;background:#020604;transition:opacity .22s ease}
+  #actionClip.show{opacity:1}
+  #soundBtn.muted{opacity:.58;color:#91a99a}
   #vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
   #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
@@ -148,6 +152,7 @@
 <body>
 <div id="wrap">
   <div id="scene"></div>
+  <video id="actionClip" muted playsinline preload="metadata" aria-hidden="true"></video>
   <div id="vig"></div>
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
@@ -165,6 +170,7 @@
     <div id="micRow">
       <button id="micBtn">🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span></button>
       <button class="sBtn" id="hintBtn">💡 힌트<span class="sub2">Hint</span></button>
+      <button class="sBtn" id="soundBtn" aria-label="배경음 끄기">🔊<span class="sub2">Sound</span></button>
       <button class="sBtn" id="typeBtn">⌨️</button>
     </div>
     <div id="typeRow">
@@ -233,6 +239,15 @@ var SCENES={ room:'/img/escape-zombie-lab.jpg?v=1', safe:'/img/escape-zombie-vau
              doorCU:'/img/escape-zombie-door.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+var ACTION_CLIPS={
+  intro:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_d976734b-a71a-460a-b335-f524ed815547.mp4',
+  cabinet:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_8e2d2750-70b4-4e0d-bad3-e21d6a9b3bea.mp4',
+  computer:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_83af0ac9-263c-4008-bff6-eea29803f423.mp4',
+  code:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171556_ba87dcf1-2a01-449a-92dc-a01f66627ce0.mp4',
+  threat:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_901fa17d-1daf-4972-bb41-23173a5eac8a.mp4',
+  door:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_171555_6011861f-5814-41d5-b200-22385c1cd88b.mp4'
+};
+if(document.createElement) Object.keys(ACTION_CLIPS).forEach(function(k){ var v=document.createElement('video'); v.preload='metadata'; v.src=ACTION_CLIPS[k]; });
 
 /* ════════════════════════════════════════════════════════════
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
@@ -301,7 +316,8 @@ var STEPS=[
 var G=null;
 function newGame(){
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
-      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false, groaned:false };
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false, groaned:false,
+      threatShown:false };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -352,18 +368,36 @@ function sndAirlock(){ beep(1400,.05,'sawtooth',.05); setTimeout(function(){beep
 /* 낮은 신음소리 — 게임당 딱 1번만 재생(보관함을 연 직후). 점프스케어 아님, 아주 작게. */
 function sndGroan(){ beep(140,.35,'sawtooth',.08); setTimeout(function(){beep(110,.4,'sawtooth',.07);},220);
   setTimeout(function(){beep(80,.5,'sawtooth',.06);},480); }
-/* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
-var _drone=null;
+/* 저작권 없는 실시간 합성 배경음: 저음 드론 + 환풍기 공명 + 느린 맥박.
+   남은 시간이 줄면 조금씩 강해지며, 마이크 사용 중에는 자동으로 낮춘다. */
+var _drone=null, soundOn=true;
+function ambienceLevel(){ if(!_drone||!G) return; var a=ac(), r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
+  var target=soundOn ? (.018+(1-r)*.032) : .0001;
+  try{ _drone.master.gain.cancelScheduledValues(a.currentTime);
+    _drone.master.gain.linearRampToValueAtTime(target,a.currentTime+.25); }catch(_){} }
+function duckAmbience(duck){ if(!_drone||!soundOn) return; var a=ac();
+  try{ _drone.master.gain.cancelScheduledValues(a.currentTime);
+    _drone.master.gain.linearRampToValueAtTime(duck?.006:(.018+(1-Math.max(0,G.t/TIME_LIMIT))*.032),a.currentTime+.18); }catch(_){} }
 function startAmbience(){ var a=ac(); if(!a||_drone) return;
   try{
-    var o1=a.createOscillator(), o2=a.createOscillator(), g=a.createGain(), lfo=a.createOscillator(), lfoG=a.createGain();
-    o1.type='sine'; o1.frequency.value=54; o2.type='sine'; o2.frequency.value=55.6;
-    g.gain.value=.026; lfo.frequency.value=.11; lfoG.gain.value=.011;
-    lfo.connect(lfoG); lfoG.connect(g.gain); o1.connect(g); o2.connect(g); g.connect(a.destination);
-    o1.start(); o2.start(); lfo.start(); _drone={o1:o1,o2:o2,lfo:lfo};
+    var master=a.createGain(), low=a.createBiquadFilter(), o1=a.createOscillator(), o2=a.createOscillator();
+    var hum=a.createOscillator(), lfo=a.createOscillator(), lfoG=a.createGain();
+    master.gain.value=.018; low.type='lowpass'; low.frequency.value=380; low.Q.value=1.2;
+    o1.type='sine'; o1.frequency.value=43; o2.type='triangle'; o2.frequency.value=57.3;
+    hum.type='sine'; hum.frequency.value=92; lfo.type='sine'; lfo.frequency.value=.075; lfoG.gain.value=.008;
+    lfo.connect(lfoG); lfoG.connect(master.gain);
+    o1.connect(low); o2.connect(low); hum.connect(low); low.connect(master); master.connect(a.destination);
+    o1.start(); o2.start(); hum.start(); lfo.start();
+    _drone={o1:o1,o2:o2,hum:hum,lfo:lfo,master:master};
+    ambienceLevel();
   }catch(_){}
 }
-function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
+function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.hum.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
+function toggleSound(){ soundOn=!soundOn; var b=$('soundBtn'); if(b){ b.classList.toggle('muted',!soundOn);
+  b.innerHTML=(soundOn?'🔊':'🔇')+'<span class="sub2">Sound</span>'; b.setAttribute('aria-label',soundOn?'배경음 끄기':'배경음 켜기'); }
+  if(soundOn){ startAmbience(); ambienceLevel(); } else if(_drone){ try{ _drone.master.gain.value=.0001; }catch(_){} } }
+function sndHeartbeat(){ if(!soundOn)return; beep(58,.10,'sine',.08); setTimeout(function(){beep(52,.12,'sine',.065);},145); }
+function sndMetal(){ if(!soundOn)return; beep(720,.04,'triangle',.028); setTimeout(function(){beep(410,.12,'sine',.018);},45); }
 
 /* ════════════════════════════════════════════════════════════
    3. 화면
@@ -375,6 +409,15 @@ var FOCUS={ lab:['50% 58%','130%'], computer:['52% 40%','150%'],
   code:['50% 45%','130%'], vaccine:['50% 45%','120%'] };
 /* 단계 id → 전용 클로즈업 사진(있으면 공용 사진 대신 이걸 쓴다) */
 var CLOSEUP={ cabinet:'cabinetCU', logs:'logsCU', door:'doorCU' };
+function playActionClip(key,cb){
+  var v=$('actionClip'), src=ACTION_CLIPS[key]; if(!v||!src){ if(cb)cb(); return; }
+  var done=false, timer=null;
+  function finish(){ if(done)return; done=true; clearTimeout(timer); v.classList.remove('show');
+    setTimeout(function(){ try{v.pause(); v.removeAttribute('src'); v.load();}catch(_){} if(cb)cb(); },220); }
+  v.onended=finish; v.onerror=finish; v.src=src; v.currentTime=0; v.classList.add('show');
+  if(typeof v.play!=='function'){ finish(); return; }
+  var p; try{ p=v.play(); }catch(_){ finish(); return; } if(p&&p.catch)p.catch(finish); timer=setTimeout(finish,5600);
+}
 function setScene(k,pos,size){
   var el=$('scene');
   el.style.backgroundImage='url('+SCENES[k]+')';
@@ -478,6 +521,7 @@ function advance(){
   heard('<span class="ok">정확해요! · Correct!</span>');
   logProg(s.id, true);
   // 결과 장면으로 전환 — door는 "닫힘 → 에어락 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
+  playActionClip(s.id);
   if(s.id==='door'){
     setScene('doorCU');
     sndAirlock();
@@ -595,12 +639,12 @@ function listen(){
   var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
   rec.lang='en-US'; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
   var done=false, best='', matched=false, sil=null, started=false, denied=false;
-  micLabel(true);
+  micLabel(true); duckAmbience(true);
   heard('<span style="color:#8fbda1">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
   recActive=true;
   function finish(){ if(done)return; done=true; recActive=false;
     if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
-    micLabel(false);
+    micLabel(false); duckAmbience(false);
     if(best) submitSaid(best);
     else if(denied) enableTyping('마이크 권한이 꺼져 있어요 — 타이핑으로도 할 수 있어요');
     else {
@@ -659,7 +703,11 @@ function startTimer(){
     el.classList.toggle('warn', G.t<=60);
     if(G.t===60||G.t===30||G.t===10) sndAlarm();
     else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감
-    applyDim();
+    if(G.t<=60 && G.t>0 && G.t%4===0) sndHeartbeat();
+    if(G.t>60 && G.t%37===0) sndMetal();
+    if(!G.threatShown && (G.t<=180 || G.i>=3)){ G.threatShown=true; playActionClip('threat'); sndAlarm(); flickerLights();
+      heard('<span class="no">⚠ 격리 장치가 흔들립니다 · Containment unstable</span>'); }
+    ambienceLevel(); applyDim();
     if(G.t<=0) lose();
   },1000);
 }
@@ -711,6 +759,7 @@ function startGame(){
   heard(''); hintTxt('');
   setScene('room'); applyDim(); showStep();
   try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
+  playActionClip('intro');
   startTimer();
   speak('You are locked in the lab. Look around.');
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
@@ -721,6 +770,7 @@ $('btnStart').addEventListener('click', startGame);
 $('btnAgain').addEventListener('click', startGame);
 $('micBtn').addEventListener('click', listen);
 $('hintBtn').addEventListener('click', function(){ showHint(false); armIdle(12000); });
+$('soundBtn').addEventListener('click', toggleSound);
 $('typeBtn').addEventListener('click', function(){ $('typeRow').classList.toggle('on'); });
 $('typeGo').addEventListener('click', function(){ var v=$('typeIn').value.trim();
   if(v){ $('typeIn').value=''; submitSaid(v); } });

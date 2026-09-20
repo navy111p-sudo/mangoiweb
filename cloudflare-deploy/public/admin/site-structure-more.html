@@ -217,7 +217,7 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
       <div><b class="num">3</b><span>화면 (파일)</span></div>
       <div><b class="num">3</b><span>큰 묶음</span></div>
       <div><b class="num">11</b><span>중분류</span></div>
-      <div><b class="num">54</b><span>항목</span></div>
+      <div><b class="num">55</b><span>항목</span></div>
       <div><b class="num">2</b><span>확인 필요</span></div>
     </div>
 
@@ -246,7 +246,7 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
       </li>
       <li>
         <b>학생 게임은 파일 수와 게임 수가 다릅니다.</b> <code>student-game-*.html</code> 파일은
-        13개인데 게임은 <b>21종</b>입니다. 4종(문장 벽돌·단어 매칭·빈칸 채우기·풍선 터뜨리기)은
+        14개인데 게임은 <b>22종</b>입니다. 4종(문장 벽돌·단어 매칭·빈칸 채우기·풍선 터뜨리기)은
         파일 없이 <code>student-games.html</code> <b>안에서 바로 돌고</b>, 나머지는
         <code>battle-3d.html</code>·<code>english-mastery-suite.html</code>·<code>suspect-mystery.html</code>·
         <code>speaking-quiz.html</code> 처럼 <b>게임 전용이 아닌 파일</b>을 함께 씁니다.
@@ -334,11 +334,11 @@ var SURFACES = [
 
 {
   code:"G", title:"학생 게임", file:"public/student-games.html",
-  note:"학생 홈에서 «🎮 학생게임»을 누르면 열리는 게임 판. 파일 13개보다 게임 수가 많습니다.",
+  note:"학생 홈에서 «🎮 학생게임»을 누르면 열리는 게임 판. 파일 14개보다 게임 수가 많습니다.",
   secs:[
-    { code:"G1", t:"게임 21종 + 게임 밖 재미 3", d:"«따로 열리는 게임»과 «이 화면 안에서 도는 게임»이 섞여 있습니다",
+    { code:"G1", t:"게임 22종 + 게임 밖 재미 3", d:"«따로 열리는 게임»과 «이 화면 안에서 도는 게임»이 섞여 있습니다",
       k:[
-        {t:"따로 열리는 게임 (iframe)", id:"kind:\"iframe\" — 17종", g:[
+        {t:"따로 열리는 게임 (iframe)", id:"kind:\"iframe\" — 18종", g:[
           {t:"우주 괴물 사냥 (Space Monster)", w:"🛸·NEW", id:"/student-game-space-monster.html"},
           {t:"아바타 키우기 (Avatar Quest)", w:"육성·NEW", id:"/student-game-avatar.html"},
           {t:"문법 피자 마스터 (Grammar Pizza)", w:"문법·NEW", id:"/student-game-grammar-pizza.html"},
@@ -355,7 +355,8 @@ var SURFACES = [
           {t:"말하기 퀴즈", w:"맞춤·말하기", id:"/speaking-quiz.html"},
           {t:"워드 파이터", w:"문장", id:"/student-game-wordfighter.html"},
           {t:"단어 테트리스", w:"문장·NEW", id:"/student-game-tetris.html"},
-          {t:"망고 구조선의 대항해", w:"3D·NEW", id:"/student-game-rescue-voyage.html"}
+          {t:"망고 구조선의 대항해", w:"3D·NEW", id:"/student-game-rescue-voyage.html"},
+          {t:"장면 탐험대 (Scene Quest)", w:"영어쓰기·NEW — 그림·영상 입력 미션", id:"/student-game-scene-quest.html"}
         ]},
         {t:"이 화면 안에서 도는 게임 (inline)", id:"kind:\"inline\" — 파일 없음, 4종", g:[
           {t:"문장 벽돌", w:"단어 브릭을 순서대로 쌓아 문장 완성", id:"student-games.html 내부"},
@@ -509,3 +510,4 @@ function tnBack(ev){
 </script>
 </body>
 </html>
+

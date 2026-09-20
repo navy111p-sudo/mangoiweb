@@ -1219,6 +1219,7 @@ async function vcOnAppResume(reason) {
         const pc = vcPeerConnections[userId];
         const s = pc.iceConnectionState;
         if (s === 'disconnected' || s === 'failed') {
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) continue;
             console.log('[app-resume] 피어 재연결:', s, userId);
             try { pc.restartIce(); } catch(_) {}
             vcReconnectPeer(userId);
@@ -1540,6 +1541,7 @@ window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
         var connected = pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed' || pc.connectionState === 'connected');
         var hint = box.querySelector('.vc-black-hint');
         if (!connected) { delete blackSince[id]; if (hint) hint.remove(); return; }   // 아직 연결 전 = #19 워치독 담당
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         var rv = pc.getReceivers().find(function(r){ return r.track && r.track.kind === 'video'; });
         if (!rv || !rv.track) { delete blackSince[id]; if (hint) hint.remove(); return; }  // 상대가 영상 안 보냄 = 개입 금지
         var v = box.querySelector('video');
@@ -1759,6 +1761,7 @@ function vcToggleSoundBanner(show) {
             const box = document.getElementById('vc-video-' + id);
             const v = box && box.querySelector('video');
             if (!pc || !v || !v.srcObject) continue;
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) continue;
             const st = pc.iceConnectionState;
             if (st !== 'connected' && st !== 'completed') { pc.__vfz = null; continue; }
             const vt = (v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks() : [])[0];
@@ -1812,6 +1815,7 @@ setInterval(() => {
     if (!wakeLock && document.visibilityState === 'visible') { try { requestWakeLock(); } catch(_) {} }
     Object.keys(vcPeerConnections).forEach(id => {
         const pc = vcPeerConnections[id]; if (!pc) return;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         const s = pc.iceConnectionState;
         if (s === 'failed') { vcReconnectPeer(id); pc.__discSince = 0; }
         else if (s === 'disconnected') {
@@ -1841,6 +1845,7 @@ window.addEventListener('online', () => {
     try { if (vcConn && vcConn.ws && vcConn.ws.readyState !== WebSocket.OPEN && typeof vcConn.reconnectNow === 'function') vcConn.reconnectNow(); } catch(_) {}
     Object.keys(vcPeerConnections).forEach(id => {
         const st = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, vcPeerConnections[id])) return;
         if (st !== 'connected' && st !== 'completed') vcReconnectPeer(id);
     });
     try { vcResumeAllVideos(); } catch(_) {}
@@ -2624,8 +2629,9 @@ async function vcJoinRoom(skipUI) {
            ② 관리자 세션이 없으면 이 블록은 아무것도 바꾸지 않는다 = 기존과 100% 동일. */
         var _admUid = '';
         try { _admUid = String((JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || '').trim(); } catch (_) {}
-        if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
-        else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
+        var _normalizedRole = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(_rr) : '';
+        if (_normalizedRole === 'teacher') window.vcMyRole = 'teacher';
+        else if (_normalizedRole === 'admin') window.vcMyRole = 'admin';
         else if (_rr) {
           window.vcMyRole = 'student';
           if (_admUid) {
@@ -4127,6 +4133,10 @@ function vcHandleMessage(msg) {
             break;
 
         // 📷 (2026-07-24) 상대의 카메라 on/off 통보 — 검은 화면의 '이유' 를 확정해 준다.
+        case 'video-recovery':
+            try { if (typeof vcRecoveryMessage === 'function') vcRecoveryMessage(msg.data); } catch (_) {}
+            break;
+
         case 'cam-state': {
             const _csId = msg.data && msg.data.userId;
             if (_csId) {
@@ -5304,6 +5314,7 @@ function vcCreatePeer(userId, username) {
             console.log('[vc-webrtc] ✅ ICE 연결 성공:', userId);
             try { if (window.__vcForceRelay) delete window.__vcForceRelay[userId]; } catch(_) {}   // 성공 → 다음엔 다시 직접연결부터 시도
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (st === 'failed') {
             console.warn('[vc-webrtc] ❌ ICE 실패 → 재연결:', userId);
             try { (window.__vcForceRelay || (window.__vcForceRelay = {}))[userId] = true; } catch(_) {}   // 다음 재연결은 TURN 릴레이 강제(직접 실패 → 릴레이가 더 확실)
@@ -5314,7 +5325,8 @@ function vcCreatePeer(userId, username) {
             console.warn('[vc-webrtc] ⚠ ICE 끊김:', userId, '5초 후 재시도');
             try { pc.restartIce(); } catch(_) {}      // 일시적 끊김은 restartIce 로 회복될 수도
             setTimeout(() => {
-                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected') {
+                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected'
+                    && !(typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc))) {
                     console.warn('[vc-webrtc] ICE 여전히 끊김 → 재연결:', userId);
                     vcReconnectPeer(userId);
                 }
@@ -5327,6 +5339,7 @@ function vcCreatePeer(userId, username) {
         if (pc.connectionState === 'connected') {
             console.log('[vc-webrtc] ✅ P2P 연결 완료!', userId);
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (pc.connectionState === 'failed') {
             console.error('[vc-webrtc] ❌ P2P 연결 실패:', userId);
             /* 🔧 (2026-07-21) 예전엔 로그만 남기고 복구를 안 했다.
@@ -5424,9 +5437,13 @@ async function vcHandleOffer(data) {
             }
         }
 
-        // 기존 PC가 있으면 정리
-        try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
-        const pc = vcCreatePeer(fromId, fromName);
+        if (data.recovery === true && (!existingPc || existingPc.signalingState !== 'stable'
+            || existingPc.connectionState === 'closed')) return;
+        // A recovery offer reuses the existing PC; ordinary initial/rebuild offers keep the old path.
+        const reuse = data.recovery === true && existingPc && existingPc.signalingState === 'stable'
+            && existingPc.connectionState !== 'closed';
+        if (!reuse) { try { await vcEnsureIceServers(); } catch(_) {} }
+        const pc = reuse ? existingPc : vcCreatePeer(fromId, fromName);
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
         vcFlushPendingIce(fromId, pc);
         const answer = await pc.createAnswer();
@@ -5618,6 +5635,25 @@ function vcAddRemoteVideo(userId, username, stream) {
 // 🔧 (2026-07-05) 강사 판별 강화 — 로그인 role 뿐 아니라 URL 파라미터(vc_role), localStorage,
 //   MangoV3, 그리고 자동입장처럼 로그인이 없을 때를 대비해 '이름 휴리스틱(교사/강사/선생님/teacher)'
 //   까지 함께 본다. 하나라도 강사로 판단되면 강사 UI(별 버튼)를 보여준다.
+/* 🎭 수업 역할 정규화의 단일 정본.
+   화면 노출·교재 제어·WebSocket join-room 이 반드시 같은 답을 쓰게 한다.
+   부분 문자열 정규식은 student_teacher 같은 값을 강사로 올릴 수 있어 명시 목록만 허용한다. */
+window.vcNormalizeClassRole = function(raw){
+    try {
+        var r = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        var teachers = {
+            teacher:1, tutor:1, instructor:1, '교사':1, '강사':1,
+            hq_teacher:1, head_teacher:1, english_teacher:1, chinese_teacher:1,
+            foreign_teacher:1, native_teacher:1
+        };
+        var admins = { admin:1, hq:1, hq_admin:1 };
+        if (teachers[r]) return 'teacher';
+        if (admins[r]) return 'admin';
+        if (r === 'student' || r === 'observer') return r;
+    } catch(_){}
+    return '';
+};
+
 function vcIsTeacherRole(){
     try {
         var r = '';
@@ -5628,7 +5664,8 @@ function vcIsTeacherRole(){
         if (!r) { try { r = window.vcRoleStored ? window.vcRoleStored() : ''; } catch(e){} }
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
-        if (r === 'teacher' || r === 'admin') return true;
+        var _nr = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(r) : '';
+        if (_nr === 'teacher' || _nr === 'admin') return true;
         /* 🚫 (2026-08-12 Melca 6번 「학생 화면에 자물쇠 아이콘이 보인다」)
            역할이 **이미 정해져 있으면** 이름 추측을 쓰지 않는다.
            이름 휴리스틱은 «아무 정보도 없을 때» 쓰는 마지막 수단인데, 아래 두 경우에

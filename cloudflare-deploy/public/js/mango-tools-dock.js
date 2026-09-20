@@ -20,6 +20,11 @@
   // 열림 상태 기억 (클릭으로만 변경) — 기본 둘 다 닫힘
   var openState = { materials: false, write: false };
 
+  function setAttr(el, name, value) {
+    value = String(value);
+    if (el.getAttribute(name) !== value) el.setAttribute(name, value);
+  }
+
   // 칠판 탭이 현재 활성인가?
   function isWhiteboardActive() {
     var wb = document.getElementById('tab-whiteboard');
@@ -63,6 +68,7 @@
     if (chip.classList.contains('open') !== openState[which]) {
       chip.classList.toggle('open', openState[which]);
     }
+    setAttr(chip, 'aria-expanded', openState[which]);
   }
 
   // 도구바(bar)를 해당 칩(which) 바로 아래로 드롭다운 배치
@@ -72,6 +78,17 @@
     if (!bar || !chip || !pane) return;
     var pr = pane.getBoundingClientRect();
     var cr = chip.getBoundingClientRect();
+    // Portrait panels use viewport coordinates, not the scrolling textbook's
+    // coordinates. Clamp a chip that has scrolled partly off the tab strip.
+    if (window.matchMedia('(max-width:920px) and (orientation:portrait)').matches) {
+      var width = Math.min(300, window.innerWidth - 16);
+      var x = Math.max(8, Math.min(cr.left, window.innerWidth - width - 8));
+      var y = Math.max(8, Math.min(cr.bottom + 6, window.innerHeight * 0.35));
+      var coordinates = { '--mango-dock-left': Math.round(x) + 'px', '--mango-dock-top': Math.round(y) + 'px' };
+      Object.keys(coordinates).forEach(function (key) {
+        if (bar.style.getPropertyValue(key) !== coordinates[key]) bar.style.setProperty(key, coordinates[key]);
+      });
+    }
     var left = Math.max(8, Math.round(cr.left - pr.left)) + 'px';
     var top = Math.round(cr.bottom - pr.top + 6) + 'px';
     // 🔧 깜박임 방지: 위치가 실제로 달라졌을 때만 inline 스타일 갱신 (매 틱 재설정 금지)
@@ -84,6 +101,7 @@
   function applyMaterialsState() {
     var bar = pdfControls();
     if (bar) {
+      setAttr(bar, 'data-mango-dock-open', openState.materials);
       var collapsed = bar.classList.contains('ph49-collapsed');
       if (openState.materials) {
         if (collapsed) bar.classList.remove('ph49-collapsed');
@@ -116,6 +134,7 @@
     // PDF 주석 도구바 — 필기도구가 열려 있고 '칠판이 아닌' 탭(=교재)일 때만 표시
     if (anno) {
       var annoShow = open && !onWb;
+      setAttr(anno, 'data-mango-dock-open', annoShow);
       var collapsed = anno.classList.contains('ph49-collapsed');
       if (annoShow) {
         if (collapsed) anno.classList.remove('ph49-collapsed');

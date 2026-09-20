@@ -1,0 +1,3 @@
+Cloudflare Git auto-deploy verification marker.
+Updated 2026-09-18 after PR #1026 tablet spacing fix.
+Deployment trigger only; no runtime behavior change.

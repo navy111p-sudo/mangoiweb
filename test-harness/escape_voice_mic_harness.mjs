@@ -96,20 +96,21 @@ function boot() {
   clock.hasDelayNear = (target, tol) => clock.delays.some(d => Math.abs(d - target) <= (tol == null ? 400 : tol));
 
   /* 가짜 DOM — 이 화면은 getElementById 로만 요소를 만진다 */
-  const els = {};
+  const els = {}; let dynSeq = 0;
   const mkEl = id => ({
-    id, textContent: '', innerHTML: '', value: '', style: {}, _cls: new Set(), _on: {},
+    id, textContent: '', innerHTML: '', value: '', style: {}, _cls: new Set(), _on: {}, children: [],
     classList: {
       add(c) { els[id]._cls.add(c); }, remove(c) { els[id]._cls.delete(c); },
       contains(c) { return els[id]._cls.has(c); },
       toggle(c, on) { if (on === undefined) on = !els[id]._cls.has(c); on ? els[id]._cls.add(c) : els[id]._cls.delete(c); },
     },
     addEventListener(ev, fn) { (els[id]._on[ev] = els[id]._on[ev] || []).push(fn); },
+    appendChild(ch) { this.children.push(ch); }, setAttribute() {},
     focus() {}, offsetWidth: 1,
   });
   ['scene','vig','flash','utterN','utterOk','timeVal','goalTxt','goalKo','heard','micBtn','hintBtn',
    'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain',
-   'noteCard','noteEn','noteKo','eventMsg']
+   'noteCard','noteEn','noteKo','eventMsg','exploreZone','comboHud']
     .forEach(id => { els[id] = mkEl(id); });
   const click = id => (els[id]._on.click || []).forEach(fn => fn.call(els[id], {}));
   const txt = id => (els[id].innerHTML || els[id].textContent || '').replace(/<[^>]*>/g, '');
@@ -148,12 +149,31 @@ function boot() {
     navigator: { sendBeacon: () => true },
     FileReader: function () { this.readAsDataURL = () => {}; },
     addEventListener() {}, MangoiSTT: undefined,
-    document: { getElementById: id => els[id] || (els[id] = mkEl(id)), activeElement: null },
+    document: { getElementById: id => els[id] || (els[id] = mkEl(id)),
+      createElement: tag => { const id='dyn'+(++dynSeq); return (els[id]=mkEl(id)); }, activeElement: null },
   };
   win.window = win;
   vm.createContext(win);
   vm.runInContext(code, win, { filename: 'student-game-escape-voice.html' });
   return { win, els, click, txt, sr, clock };
+}
+
+/* ══ 2-1. 새 탐색 물건 선택 UI ═══════════════════════════════════════════ */
+{
+  const g = boot(); g.click('btnStart');
+  const buttons = g.els.exploreZone.children;
+  check('단계마다 탐색 물건 3개를 만든다', buttons.length === 3, 'count=' + buttons.length);
+  const step = g.win.G.steps[0];
+  const target = g.win.stepObject(step);
+  const correctLabel = g.win.OBJECT_LABELS[target] || target;
+  const correct = buttons.find(b => b.textContent.includes(correctLabel));
+  const wrong = buttons.find(b => b !== correct);
+  if (wrong) (wrong._on.click || []).forEach(fn => fn({ stopPropagation() {} }));
+  check('잘못된 물건은 진행시키지 않고 Nothing is here를 보여준다',
+    g.win.G.utterOk === 0 && /Nothing is here/.test(g.txt('heard')), g.txt('heard'));
+  if (correct) (correct._on.click || []).forEach(fn => fn({ stopPropagation() {} }));
+  check('올바른 물건은 말할 영어 예문을 보여준다',
+    /Say this|이렇게 말해보세요/.test(g.txt('hint')), g.txt('hint'));
 }
 
 /* ══ 3. 마이크 대기시간 — 이번 결함의 핵심 ════════════════════════════════ */
@@ -393,6 +413,73 @@ console.log('\n🎲 장소 다양화');
     const bg = g.els.scene.style.backgroundImage || '';
     check(`[${id}] 장면 사진이 정상적으로 설정된다(빈 값 아님)`, bg.length > 0, 'backgroundImage=' + bg);
   }
+}
+
+/* 13. PR #1016 실제 클릭·재시도·이전 세션 콜백 회귀 */
+{
+  const g = boot(); g.click('btnStart'); g.click('scene');
+  check('그림 클릭으로 듣기가 시작된다', g.sr.made === 1 && g.win.recActive);
+  g.click('scene');
+  check('듣는 중 그림 연타는 인식을 중복 생성하지 않는다', g.sr.made === 1);
+  g.sr.last.say(g.win.G.steps[0].hints[2]);
+  g.click('scene'); g.clock.tick(300);
+  check('내레이션 중 그림 클릭도 다음 단계에서 듣기를 시작한다', g.win.G.i === 1 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart'); g.click('scene');
+  g.clock.tick(15000);
+  check('침묵 뒤 그림 클릭 안내가 복구된다', g.els.scene._cls.has('readyToSpeak'));
+}
+{
+  const g = boot(); g.click('btnStart'); g.click('micBtn');
+  const old = g.sr.last;
+  g.win.lose();
+  check('시간 종료 시 음성인식을 정리한다', old.stopped && !g.win.recActive);
+  g.click('btnAgain');
+  old.say(g.win.G.steps[0].hints[2]);
+  check('이전 판의 늦은 인식 결과는 새 판에 적용되지 않는다', g.win.G.utter === 0 && !g.win.G.busy);
+  g.click('scene');
+  check('재시작 후 새 마이크를 바로 열 수 있다', g.sr.made === 2 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart');
+  g.win.submitSaid(g.win.G.steps[0].hints[2]);
+  g.win.lose(); g.click('btnAgain'); g.clock.tick(6500);
+  check('이전 판의 단계 이동 타이머가 새 판을 건너뛰지 않는다', g.win.G.i === 0);
+}
+{
+  const g = boot(); g.click('btnStart');
+  for (let i = 1; i <= 3; i++) {
+    g.win.submitSaid('banana');
+    check('실패 '+i+'회 안내', i < 3 ? /Almost!/.test(g.txt('heard')) : /example below/.test(g.txt('heard')));
+  }
+  g.win.submitSaid(g.win.G.steps[0].hints[2]); g.clock.tick(6500);
+  g.win.submitSaid('banana');
+  check('다음 단계에서 재시도 횟수가 초기화된다', /Almost!/.test(g.txt('heard')) && g.win.G.stepWrong === 1);
+  const step = { accept: [['open', 'drawer']] };
+  check('한 글자 조각으로 정답을 통과하지 않는다', !g.win.matchStep('o d', step));
+  check('허용한 STT 오인식은 계속 통과한다', g.win.matchStep('open the draw', step));
+  check('책장이라는 정상 복합명사를 인정한다', ['Examine the bookshelf','Check the bookshelf','Read the bookshelf'].every(s => g.win.matchStep(s, {accept:[['examine','book'],['check','book'],['read','book']]})));
+  check('key와 keyboard를 혼동하지 않는다', !g.win.matchStep('take the keyboard', {accept:[['take','key']]}));
+  check('정상 어형 변화도 통과한다', g.win.matchStep('opening the boxes', {accept:[['open','box']]}));
+}
+
+{
+  const g = boot(); let spoken = 0;
+  g.win.speechSynthesis.speak = () => { spoken++; };
+  g.click('btnStart'); g.click('scene');
+  await new Promise(resolve => setImmediate(resolve));
+  check('듣기 시작 후 늦게 실패한 TTS 요청이 예문을 재생하지 않는다', spoken === 0 && g.win.recActive);
+}
+{
+  const g = boot(); g.click('btnStart');
+  let all = true;
+  for (const loc of g.win.LOCATIONS) {
+    for (const step of loc.build(g.win.G.code)) {
+      if (!g.win.matchStep(step.hints[2], step)) all = false;
+    }
+  }
+  check('6개 장소의 모든 예문은 정답으로 인정된다', all);
 }
 
 /* ══ 결과 ═══════════════════════════════════════════════════════════════ */

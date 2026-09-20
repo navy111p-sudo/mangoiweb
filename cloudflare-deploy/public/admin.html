@@ -8358,15 +8358,34 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <!-- 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
                    실제 아이디가 들어가게 해달라」) 지사(franchises)는 admin_scope 를 이름으로 이어서
                    «읽기 전용» 으로 보여줄 수 있었지만(위 서버 login_id CASE), master_branches 는
-                   scope.ts 의 Scope 타입에 'master' 가 없어 그 연결이 원리상 없다 — 그래서 여기는
-                   «직접 입력해 저장하는» 칸이다(login_username, master_branches 자체 컬럼). -->
+                   지사 하나짜리 접두어 매칭이 안 통해 이 칸은 «직접 입력해 저장하는» 칸이다
+                   (login_username, master_branches 자체 컬럼).
+                   🔑 (2026-09-17 신설 — 사장님 제보 「대표지사도 비밀번호 넣는 곳이 없다」) 그 칸은
+                   라벨일 뿐이었는데, 바로 옆 비밀번호 칸을 채우면 실제 로그인 계정이 된다(지사·
+                   대리점과 같은 방식 — 산하 지사 학생만 보이게 scope_type='franchise' 로 만든다). -->
               <span style="display:flex;flex-direction:column;gap:2px">
                 <label for="mbr-login" style="font-size:10.5px" data-ko="로그인 아이디" data-en="Login ID">로그인 아이디</label>
                 <input id="mbr-login" placeholder="로그인 아이디 (선택)" data-ko-placeholder="로그인 아이디 (선택)" data-en-placeholder="Login ID (optional)" style="width:140px;font-family:MangoiHanSC,ui-monospace,monospace;" />
               </span>
               <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-login-pw" style="font-size:10.5px" data-ko="비밀번호" data-en="Password">비밀번호</label>
+                <input id="mbr-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+                       data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
+                       style="width:140px;" />
+              </span>
+              <span style="display:flex;flex-direction:column;gap:2px">
                 <label for="mbr-region" style="font-size:10.5px" data-ko="담당 권역" data-en="Region">담당 권역</label>
                 <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              </span>
+              <!-- 🏢 (2026-09-17 신설 — 사장님 「학생은 대리점, 대리점은 지사, 지사는 대표지사,
+                   대표지사는 영업본부에 소속되는 개념」의 맨 위 계층. 값은 engmaster/이병엽 이사/
+                   본사직영 셋으로 정하셨지만, 대표지사마다 어디에 속하는지는 아직 안 알려 주셨고
+                   그중 둘(이병엽 이사·본사직영)은 사장님도 "딱히 구분이 없다"고 하신 값이라
+                   <select> 로 강제하지 않는다 — 자유 입력(위 mbr-tier 주석의 <option>+i18n 함정을
+                   피하는 이유도 같다). 배정이 정해지는 대로 사람이 직접 채운다. -->
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="mbr-division" style="font-size:10.5px" data-ko="영업본부" data-en="Sales Division">영업본부</label>
+                <input id="mbr-division" placeholder="영업본부 (예: engmaster)" data-ko-placeholder="영업본부 (예: engmaster)" data-en-placeholder="Sales division (e.g. engmaster)" style="width:150px;" />
               </span>
               <!-- 🪤 (2026-09-11 trap-check 지적) value 속성이 없는 <option>+data-ko/data-en 은
                    위험하다 — value 없는 option 의 .value 는 표준상 textContent 를 그대로 따라가는데,
@@ -8394,10 +8413,39 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
               <button id="mbr-cancel-btn" onclick="mbrResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;align-self:flex-end" data-ko="취소" data-en="Cancel">취소</button>
             </div>
+            <div id="mbr-login-hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+                 data-ko="※ 비밀번호를 입력하면 이 아이디로 실제 로그인이 되는 계정을 만들거나(처음 쓰는 아이디) 이미 이 대표지사에 연결된 계정의 비밀번호를 바꿉니다(다른 대표지사·지사·대리점이 이미 쓰는 아이디면 거절됩니다). 그 계정은 산하 지사 학생만 볼 수 있고, 지사 배정을 바꾸면 그 범위도 자동으로 따라갑니다. 비밀번호를 비워 두면 아이디는 저장돼도 로그인은 되지 않습니다."
+                 data-en="※ Fill in the password to create a real login for this ID (if it's new) or reset the password of the account already linked to this master branch (rejected if another master branch/branch/agency already uses this ID). That account can only see students under its assigned branches, and its scope follows automatically when branch assignments change. Leave it blank to save the ID as a label only — no login will work.">※ 비밀번호를 입력하면 이 아이디로 실제 로그인이 되는 계정을 만들거나(처음 쓰는 아이디) 이미 이 대표지사에 연결된 계정의 비밀번호를 바꿉니다(다른 대표지사·지사·대리점이 이미 쓰는 아이디면 거절됩니다). 그 계정은 산하 지사 학생만 볼 수 있고, 지사 배정을 바꾸면 그 범위도 자동으로 따라갑니다. 비밀번호를 비워 두면 아이디는 저장돼도 로그인은 되지 않습니다.</div>
           </details>
           <!-- 🪪 (2026-09-14 2차) 첫 칸이 «행 번호 1,2,3» 이었다 — 사장님 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있어. 여기에 실제 아이디가 들어가게 해줘」의 «여기» 가 바로 이 칸. 1차(#969)는 옆에 「아이디」 칸을 하나 «더» 만들어 번호 칸이 그대로 남았다. 번호 칸을 없애고 첫 칸을 로그인 아이디로 — 칸 8개, colspan 도 8. -->
-          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th data-ko="아이디" data-en="Login ID">아이디</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
-            <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+          <!-- 📥 (2026-09-17 신설 — 사장님이 옛 LMS(mangoi.co.kr/lms/branch_list.php)의 27건짜리
+               실제 대표지사 목록을 엑셀로 주시고 「대표지사는 여기있는게 끝이야」라 하심)
+               지사 위 fr-bulk-wrap 과 같은 방식이지만 뜻이 다르다 — 지사는 «이미 있는 지사에
+               아이디를 채우는» 매칭-갱신인데, 여긴 «아직 없는 대표지사를 새로 만드는» 등록이다.
+               이름이 정확히 같은 대표지사가 이미 있으면(옛 9건과 이 27건은 이름이 하나도 안
+               겹친다 — 확인함) 조용히 건너뛴다(같은 이름을 실수로 두 번 만들지 않는다).
+               ⛔ 비밀번호는 여기서 만들지 않는다 — 옛 LMS 비밀번호는 원문을 모르고(해시만 있어도
+               이 시스템 해시 방식과 다르면 그대로 못 씀), 27명 전원의 새 비밀번호를 한 번에
+               정할 근거가 없다. 로그인 아이디는 라벨로 채워지고, 실제 로그인은 목록에서 각자
+               ✏️ 수정으로 열어 비밀번호를 따로 정한다(위 mbr-login-hint 안내와 같음).
+               영업본부(division)는 이 목록에 없는 축이라(사장님이 「본사명」과는 다른 것이라
+               확인) 여기서 채우지 않는다 — 나중에 안내받으면 각자 ✏️ 수정으로 채운다. -->
+          <details id="mbr-bulk-wrap" style="margin-top:8px" ontoggle="if(!this.open&&window.mbrBulkReset)window.mbrBulkReset();">
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="📥 엑셀 붙여넣어 일괄 등록" data-en="📥 Bulk import from spreadsheet">📥 엑셀 붙여넣어 일괄 등록</summary>
+            <div style="padding:10px 0 0;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:11.5px;color:#6b7280"
+                   data-ko="엑셀에서 머리글 줄을 포함해 전체 범위를 복사(Ctrl+C)한 뒤 아래에 붙여넣으세요(Ctrl+V). 「대표지사명」 칸만 있으면 되고(필수) 「아이디」·「관리자」·「전화번호」는 있으면 함께 채웁니다 — 열 순서는 상관없습니다. 이름이 정확히 같은 대표지사가 이미 있으면 새로 만들지 않고 건너뜁니다(미리보기에서 보여줍니다). ⚠ 여기서는 새 대표지사만 만듭니다 — 이미 있는 대표지사의 값을 바꾸려면 목록에서 ✏️ 수정을 쓰세요. 비밀번호는 여기서 만들지 않습니다 — 등록 뒤 각자 ✏️ 수정에서 따로 설정하세요."
+                   data-en="Copy the full range from Excel including the header row (Ctrl+C), then paste below (Ctrl+V). Only 「대표지사명」 (name) is required; 「아이디」/「관리자」/「전화번호」 are filled in if present — column order doesn't matter. A master branch whose name already matches exactly is skipped, not overwritten (the preview shows this). ⚠ This only creates new master branches — to change an existing one, use ✏️ Edit in the list. No password is set here — set it separately per branch via ✏️ Edit afterward.">엑셀에서 머리글 줄을 포함해 전체 범위를 복사(Ctrl+C)한 뒤 아래에 붙여넣으세요(Ctrl+V). 「대표지사명」 칸만 있으면 되고(필수) 「아이디」·「관리자」·「전화번호」는 있으면 함께 채웁니다 — 열 순서는 상관없습니다. 이름이 정확히 같은 대표지사가 이미 있으면 새로 만들지 않고 건너뜁니다(미리보기에서 보여줍니다). ⚠ 여기서는 새 대표지사만 만듭니다 — 이미 있는 대표지사의 값을 바꾸려면 목록에서 ✏️ 수정을 쓰세요. 비밀번호는 여기서 만들지 않습니다 — 등록 뒤 각자 ✏️ 수정에서 따로 설정하세요.</div>
+              <textarea id="mbr-bulk-paste" rows="6" placeholder="여기에 엑셀 범위를 붙여넣으세요 (Ctrl+V)" data-ko-placeholder="여기에 엑셀 범위를 붙여넣으세요 (Ctrl+V)" data-en-placeholder="Paste the Excel range here (Ctrl+V)" style="width:100%;font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px;padding:8px;border:1px solid #d1d5db;border-radius:8px;resize:vertical"></textarea>
+              <div style="display:flex;gap:8px">
+                <button id="mbr-bulk-preview-btn" type="button" style="padding:6px 14px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔍 미리보기" data-en="🔍 Preview">🔍 미리보기</button>
+                <button id="mbr-bulk-run-btn" type="button" disabled style="padding:6px 14px;font-size:13px;border-radius:6px;border:0;background:#9ca3af;color:#fff;cursor:not-allowed" data-ko="▶ 실행" data-en="▶ Run">▶ 실행</button>
+              </div>
+              <div id="mbr-bulk-result" style="font-size:12px;color:#374151"></div>
+            </div>
+          </details>
+          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th data-ko="아이디" data-en="Login ID">아이디</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="영업본부" data-en="Division">영업본부</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+            <tbody id="mbranches-table"><tr><td colspan="9" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -8429,6 +8477,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                      칸(login_id)은 그대로 두되, 이 칸에 값이 있으면 그 값을 우선한다. -->
                 <input id="fr-login" placeholder="로그인 아이디 (선택)" data-ko-placeholder="로그인 아이디 (선택)" data-en-placeholder="Login ID (optional)" style="width:140px;font-family:MangoiHanSC,ui-monospace,monospace;" />
               </span>
+              <!-- 🔑 (2026-09-17 신설 — 사장님 제보 「아이디 넣는 칸은 생겼는데 비밀번호 넣는
+                   곳이 없다」) 위 fr-login 은 2026-09-15 까지 «본사가 기억해 두는 라벨» 일 뿐
+                   실제 로그인과 무관했다(admin_account 를 건드리지 않았다). 여기서 비밀번호를
+                   함께 넣으면 그제서야 실제로 로그인되는 계정을 만들거나(새 아이디) 이미 있는
+                   그 지사 계정의 비밀번호를 바꾼다(대리점 ct-login-pw 와 같은 방식 — saveFranchise
+                   → PATCH/POST /api/admin/franchises, api-admin.ts 의 createOrResetBranchLogin).
+                   비워 두면 아이디 칸만(라벨만) 저장되고 로그인 계정은 그대로다. -->
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <label for="fr-login-pw" style="font-size:10.5px" data-ko="비밀번호" data-en="Password">비밀번호</label>
+                <input id="fr-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+                       data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
+                       style="width:140px;" />
+              </span>
               <span style="display:flex;flex-direction:column;gap:2px">
                 <label for="fr-name" style="font-size:10.5px" data-ko="지사 이름" data-en="Branch name">지사 이름</label>
                 <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
@@ -8452,6 +8513,42 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;align-self:flex-end" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
               <!-- 🪤 hidden 속성이 아니라 display 로 감춘다 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표). -->
               <button id="fr-cancel-btn" onclick="frResetForm()" style="display:none;padding:5px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;align-self:flex-end" data-ko="취소" data-en="Cancel">취소</button>
+            </div>
+            <div id="fr-login-hint" style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+                 data-ko="※ 비밀번호를 입력하면 이 아이디로 실제 로그인이 되는 계정을 만들거나(처음 쓰는 아이디) 이미 이 지사에 연결된 계정의 비밀번호를 바꿉니다(다른 지사·대리점이 이미 쓰는 아이디면 거절됩니다). 비밀번호를 비워 두면 아이디는 저장돼도 로그인은 되지 않습니다."
+                 data-en="※ Fill in the password to create a real login for this ID (if it's new) or reset the password of the account already linked to this branch (rejected if another branch/agency already uses this ID). Leave it blank to save the ID as a label only — no login will work.">※ 비밀번호를 입력하면 이 아이디로 실제 로그인이 되는 계정을 만들거나(처음 쓰는 아이디) 이미 이 지사에 연결된 계정의 비밀번호를 바꿉니다(다른 지사·대리점이 이미 쓰는 아이디면 거절됩니다). 비밀번호를 비워 두면 아이디는 저장돼도 로그인은 되지 않습니다.</div>
+          </details>
+          <!-- 📥 (2026-09-17 신설 — 사장님 요청 「지사 236곳을 엑셀로 보낼 테니 매칭해서 자동 입력」)
+               지사를 하나씩 «수정» 눌러 아이디를 채우는 대신, 엑셀 범위를 그대로 복사해 붙여넣으면
+               「지사명」 정확일치로 찾아 아이디(login_username)를 한 번에 채운다. 매칭은 **정확일치만**
+               — franchises.name 은 유일하지 않아(UNIQUE 없음) 부분일치를 허용하면 남의 지사에 아이디가
+               붙는다(CLAUDE.md 「강사 이름을 붙였는데 남의 이름이 뜸」·「부분일치 금지」와 같은 규칙).
+               서버에 새 코드를 한 줄도 안 더했다 — 이미 있는 PATCH(로그인 아이디·관리자·전화)와
+               kind=master_assign(대표지사 배정) 을 화면에서 반복 호출할 뿐이라 사고 반경이 좁다.
+               ⛔ 대표지사는 «이미 있는 것에만» 배정한다 — 없는 이름을 새 대표지사로 만들지 않는다
+               (그 조직개편 결정은 사람이 직접 「+ 대표지사 등록」으로 한다). 미리보기 없이는 실행이
+               안 켜진다(dry-run 이 이 저장소의 되돌릴 수 없는 작업의 관례 — retention·textbook rebook
+               과 같은 방식). -->
+          <details id="fr-bulk-wrap" style="margin-top:8px" ontoggle="if(!this.open&&window.frBulkReset)window.frBulkReset();">
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="📥 엑셀 붙여넣어 일괄 등록" data-en="📥 Bulk import from spreadsheet">📥 엑셀 붙여넣어 일괄 등록</summary>
+            <div style="padding:10px 0 0;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:11.5px;color:#6b7280"
+                   data-ko="엑셀에서 머리글 줄을 포함해 전체 범위를 복사(Ctrl+C)한 뒤 아래에 붙여넣으세요(Ctrl+V). 「지사명」과 「아이디」 칸만 있으면 되고 열 순서는 상관없습니다. 지사명이 정확히 같은 지사에만 채워지고, 이름이 같은 지사가 여럿이거나 시스템에 없는 이름은 자동으로 건너뜁니다(미리보기에서 사유를 보여줍니다). ⚠ 여기서 채우는 아이디는 «표시용 라벨» 입니다 — 실제 로그인이 되게 하려면 위 지사 목록에서 그 지사를 ✏️ 수정으로 열어 비밀번호를 따로 입력하세요."
+                   data-en="Copy the full range from Excel including the header row (Ctrl+C), then paste below (Ctrl+V). Only 「지사명」 and 「아이디」 columns are needed — order doesn't matter. Matching is exact-name only; duplicate or unknown names are skipped automatically (the preview shows why). ⚠ The ID filled in here is a label only — to make it an actual working login, open that branch's ✏️ Edit above and set a password separately.">엑셀에서 머리글 줄을 포함해 전체 범위를 복사(Ctrl+C)한 뒤 아래에 붙여넣으세요(Ctrl+V). 「지사명」과 「아이디」 칸만 있으면 되고 열 순서는 상관없습니다. 지사명이 정확히 같은 지사에만 채워지고, 이름이 같은 지사가 여럿이거나 시스템에 없는 이름은 자동으로 건너뜁니다(미리보기에서 사유를 보여줍니다). ⚠ 여기서 채우는 아이디는 «표시용 라벨» 입니다 — 실제 로그인이 되게 하려면 위 지사 목록에서 그 지사를 ✏️ 수정으로 열어 비밀번호를 따로 입력하세요.</div>
+              <textarea id="fr-bulk-paste" rows="6" placeholder="여기에 엑셀 범위를 붙여넣으세요 (Ctrl+V)" data-ko-placeholder="여기에 엑셀 범위를 붙여넣으세요 (Ctrl+V)" data-en-placeholder="Paste the Excel range here (Ctrl+V)" style="width:100%;font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px;padding:8px;border:1px solid #d1d5db;border-radius:8px;resize:vertical"></textarea>
+              <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="fr-bulk-owner-phone" />
+                <span data-ko="관리자·전화번호도 함께 갱신 (기본은 아이디만)" data-en="Also update manager & phone (default: login ID only)">관리자·전화번호도 함께 갱신 (기본은 아이디만)</span>
+              </label>
+              <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="fr-bulk-master" checked />
+                <span data-ko="이미 등록된 대표지사에만 자동 배정 (없는 이름은 새로 만들지 않음)" data-en="Auto-assign only to an already-registered master branch (won't create new ones)">이미 등록된 대표지사에만 자동 배정 (없는 이름은 새로 만들지 않음)</span>
+              </label>
+              <div style="display:flex;gap:8px">
+                <button id="fr-bulk-preview-btn" type="button" style="padding:6px 14px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔍 미리보기" data-en="🔍 Preview">🔍 미리보기</button>
+                <button id="fr-bulk-run-btn" type="button" disabled style="padding:6px 14px;font-size:13px;border-radius:6px;border:0;background:#9ca3af;color:#fff;cursor:not-allowed" data-ko="▶ 실행" data-en="▶ Run">▶ 실행</button>
+              </div>
+              <div id="fr-bulk-result" style="font-size:12px;color:#374151"></div>
             </div>
           </details>
           <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="아이디" data-en="Login ID">아이디</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
@@ -10350,7 +10447,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=227" defer></script><!-- v=227: 2026-09-16 AI 학습도구 사용 학생 카드(card-ai-usage) CARD_POLICY 'agency' 등록 · <!-- v=226: 2026-09-15 병합 — main 이 v=223 을 「학생 목록에서 «정보 수정» 으로 바로」로 썼고, 이 브랜치가 같은 v=223~225 를 「여러 강사로 배정」 계열로 썼다. 이 파일의 선례(v=211·v=207)대로 양쪽보다 큰 번호로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). · <!-- v=225: 2026-09-15 위 v=224 커밋 뒤 「여러 강사로 배정」 모달의 조합 판정/중복 판정을 순수 함수로 뺐다(_mtbClassifyCombo· _mtbFindDupe) — 전용 하니스(test-harness/enroll_multi_teacher_harness.mjs)가 DOM 없이 실제로 돌려 확인할 수 있게. 화면 동작은 그대로(추출 전과 같은 로직을 함수로만 옮김) · v=224: 2026-09-15 위 v=223 커밋 뒤 _readEnrollmentRows 의 종료일 계산 헬퍼 매개변수 이름을 duration/start 로 되돌림(하니스가 _enAddMonths(start, parseInt(duration, 10)) 리터럴을 찾는데 dur/st 로 줄여 깨졌었다 — 뜻은 같음, 문자열만 원복) · v=223: 2026-09-15 수강신청 등록 표에 「🔀 여러 강사로 배정」 — 한 학생을 강사·요일·시간이 다른 여러 건으로 한 번에 등록(③ 배정 우선순위 칸 안, 새 열 없음). _readEnrollmentRows 가 tr.dataset.enMultiTeacherPlan 을 조합 수만큼 독립 레코드로 쪼개 기존 다건 등록 경로(POST 여러 번+각각 확정)로 흘려보낸다 — 서버·enroll-activate.ts 는 한 글자도 안 건드림. 정본 함수 _openMultiTeacherBuilder/_enRenderMultiTeacherSummary · <!-- v=223: 2026-09-15 학생 목록에서 «정보 수정» 으로 바로 — 사장님 「정보수정 → 상세 안의 연락처·정보 로 바로 가게」. 고치는 화면을 목록에 새로 만들지 않는다(「위에 것 말고」) — /admin/student 의 «연락처·정보» 탭이 이미 `?tab=contact` 딥링크를 받으므로(student.html _initTab) 주소 정본 smContactUrl() 하나로 두 입구(표의 행 ✏️ 수정 · 도구 줄 「✏️ 정보 수정」)가 같은 곳으로 간다. 도구 줄 버튼은 지금 목록이 한 명이면 묻지 않고 바로 열고 여러 명이면 고르게 한다. 곁가지: 빈 줄 colspan 이 19 로 남아 있던 것을 20 으로(9/15 「예약」 칸을 더할 때 빠짐 — col·th·td 는 전부 20) --><!-- v=222: 2026-09-15 학생 목록에 「예약」 칸 신설 — 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)은 students_erp 의 칸이고 **카페24가 정본**이라(created_at 센티넬 1751500000000) 관리자 화면에서 수업을 넣어도(그건 class_schedules 에만 쓴다) 늘 «—» 였다. 사장님 제보 lee(활성 2건)·jeong(활성 5건) 둘 다 «—». ⛔ 왼쪽 칸을 예약값으로 «채우지» 않는다 — 수강 종료일에 마지막 예약일을 넣으면 수업을 더 잡을 때마다 늘어나 거짓이 된다. 정본 src/student-schedule-summary.ts --><!-- v=221: 2026-09-15 지사 등록/수정 폼에 항상 보이는 <label> 추가(값이 채워지면 placeholder 가 사라져 어느 칸인지 몰랐던 문제) + 「로그인 아이디」 직접 입력 칸(fr-login) 신설 — 카페24 (:Branch) 에는 계정 개념 자체가 없어(branch_id·name·address·phone·manager·active 뿐) admin_scope 접두어 추정만으로는 —가 자주 뜸. 대표지사(login_username)와 같은 방식 · v=220: 2026-09-14 학생 등록 모달 — 서버가 «같은 이름·같은 연락처가 이미 있다»(409 possible_duplicate)고 물으면 기존 아이디를 보여 주고 「그래도 등록」(force:true)으로만 통과. 실사고 정예희 yahee·yahee1·yahee2 · v=218: 2026-09-14 대표지사 목록 첫 칸 «행 번호 1,2,3» 을 없애고 로그인 아이디를 첫 칸으로(사장님 제보의 «여기» 가 그 칸 — #969 는 옆에 하나 더 만든 것이라 번호가 그대로 남았음). 칸 9→8 · v=217: 2026-09-14 대표지사 목록 — 「아이디」 칸 신설(직접 입력·저장, login_username) + 「등급」 칸 제거. 지사와 달리 admin_scope 로 이을 길이 없어(scope.ts 에 'master' 없음) 읽기전용 대신 편집 가능한 칸을 새로 뒀다 · v=216: 2026-09-14 지사 목록에 「아이디」 칸 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를 못 한다」. 서버가 admin_scope 를 이름으로 이어 읽기전용으로 보여주고(복사 버튼은 ltCopyTicket 재사용), 후보가 둘 이상이면 «—»(모르면 안 붙임) · v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는     버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
+<script src="/js/adm-core.js?v=234" defer></script><!-- v=232: 2026-09-17 대표지사 「📥 엑셀 붙여넣어 일괄 등록」(mbrBulkPreview/mbrBulkRun) — 사장님이 옛 LMS(mangoi.co.kr/lms/branch_list.php)의 실제 대표지사 27건을 엑셀로 주시고 「대표지사는 여기있는게 끝이야」라 하심. 지사 v=228 frBulk* 와 같은 파싱 방식이지만 «갱신» 이 아니라 «새로 만들기» — 이름이 이미 있으면(옛 9건과 이름이 하나도 안 겹침, 확인함) 건너뛴다. 비밀번호는 여기서 안 만든다(옛 LMS 비밀번호 원문을 모름) — kind='master' 등록에 login_username 을 같이 보내면 서버가 login_fields_incomplete 로 통째로 거절하므로, 아이디 없이 먼저 만들고 kind='master_edit' 로 아이디만 «따로» 붙인다(비밀번호 없이 login_username 만 바꾸는 것은 서버가 허용). 「영업본부」(mbr-division, master_branches.division 지연 ALTER) 칸도 함께 신설 — 사장님이 세 값(engmaster/이병엽 이사/본사직영)을 정하셨지만 대표지사별 배정은 아직 안 주셔서, 위 mbr-tier 의 <option>+i18n .value 함정을 피해 자유 입력으로 두고 사람이 직접 채운다. 표 8→9칸(colspan 동반 수정) · v=231: 2026-09-17 대표지사에도 같은 비밀번호 칸(mbr-login-pw) 신설 — 사장님 제보 「대리점(실은 대표지사 화면)도 비밀번호 넣는 곳이 없다」. 위 v=230 은 지사(franchises, 지사 하나만 보는 scope_type='branch')였고 대표지사는 지사 «여러 개» 를 묶으므로 scope.ts 에 이미 있던 scope_type='franchise'(콤마 지사 이름 목록, 「지사본사」 자동시드가 쓰던 것)를 그대로 재사용했다 — 새 Scope 타입을 만들지 않음. admin_scope 에 master_id 칸을 지연 ALTER 로 추가해 «이 계정이 이 대표지사 것인지» 를 신원 확인(이름 목록은 지사 배정이 바뀌면 달라지므로 신원 확인에 못 씀). 지사 배정(kind=master_assign)이 바뀔 때마다 옛/새 대표지사 양쪽의 scope_value 를 다시 계산해 준다(refreshMasterScopeValue) — 안 하면 지사를 빼도 그 계정이 계속 그 학생을 보는 사고가 된다. 서버 정본 createOrResetMasterLogin(api-admin.ts) · v=230: 2026-09-17 지사 «로그인 아이디» 칸(fr-login) 옆에 «비밀번호» 칸(fr-login-pw) 신설 — 사장님 제보 「아이디 넣는 곳은 생겼는데 비밀번호 넣는 곳이 없다」. 그때까지 login_username 은 «본사가 기억해 두는 라벨» 뿐이라 그 아이디로 실제 로그인이 안 됐다(admin_account 를 안 건드림). 비밀번호를 함께 입력하면 대리점(centers ct-login-pw)과 같은 방식으로 실제 계정을 만들거나(새 아이디) 이미 그 지사에 연결된 계정의 비밀번호를 재설정한다 — 서버 정본 createOrResetBranchLogin(api-admin.ts), 등록(POST)·수정(PATCH) 이 함께 쓴다 · v=229: 2026-09-17 위 v=228 커밋 직후 frBulkRun 이 「대표지사 없음」 정보성 행(실제 변경 필드 없음)을 실행 결과 「성공」에 잘못 세는 것을 실제로 돌려 잡음(run_test2.mjs) — 요청을 아무것도 안 보내는 행은 카운트에서 제외 · v=228: 2026-09-17 지사(franchises) 섹션에 「📥 엑셀 붙여넣어 일괄 등록」 — 엑셀 범위를 붙여넣으면 지사명 정확일치로 매칭해 로그인 아이디·(선택)관리자·전화·대표지사 배정을 한 번에 채운다. 새 서버 SQL 없음 — 이미 있는 PATCH /api/admin/franchises 와 kind=master_assign 을 매칭된 만큼 반복 호출할 뿐. 정본 함수 frBulkPreview/frBulkRun(dry-run 필수 — 미리보기 없이는 실행 버튼이 안 켜짐) · v=227: 2026-09-16 AI 학습도구 사용 학생 카드(card-ai-usage) CARD_POLICY 'agency' 등록 · <!-- v=226: 2026-09-15 병합 — main 이 v=223 을 「학생 목록에서 «정보 수정» 으로 바로」로 썼고, 이 브랜치가 같은 v=223~225 를 「여러 강사로 배정」 계열로 썼다. 이 파일의 선례(v=211·v=207)대로 양쪽보다 큰 번호로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). · <!-- v=225: 2026-09-15 위 v=224 커밋 뒤 「여러 강사로 배정」 모달의 조합 판정/중복 판정을 순수 함수로 뺐다(_mtbClassifyCombo· _mtbFindDupe) — 전용 하니스(test-harness/enroll_multi_teacher_harness.mjs)가 DOM 없이 실제로 돌려 확인할 수 있게. 화면 동작은 그대로(추출 전과 같은 로직을 함수로만 옮김) · v=224: 2026-09-15 위 v=223 커밋 뒤 _readEnrollmentRows 의 종료일 계산 헬퍼 매개변수 이름을 duration/start 로 되돌림(하니스가 _enAddMonths(start, parseInt(duration, 10)) 리터럴을 찾는데 dur/st 로 줄여 깨졌었다 — 뜻은 같음, 문자열만 원복) · v=223: 2026-09-15 수강신청 등록 표에 「🔀 여러 강사로 배정」 — 한 학생을 강사·요일·시간이 다른 여러 건으로 한 번에 등록(③ 배정 우선순위 칸 안, 새 열 없음). _readEnrollmentRows 가 tr.dataset.enMultiTeacherPlan 을 조합 수만큼 독립 레코드로 쪼개 기존 다건 등록 경로(POST 여러 번+각각 확정)로 흘려보낸다 — 서버·enroll-activate.ts 는 한 글자도 안 건드림. 정본 함수 _openMultiTeacherBuilder/_enRenderMultiTeacherSummary · <!-- v=223: 2026-09-15 학생 목록에서 «정보 수정» 으로 바로 — 사장님 「정보수정 → 상세 안의 연락처·정보 로 바로 가게」. 고치는 화면을 목록에 새로 만들지 않는다(「위에 것 말고」) — /admin/student 의 «연락처·정보» 탭이 이미 `?tab=contact` 딥링크를 받으므로(student.html _initTab) 주소 정본 smContactUrl() 하나로 두 입구(표의 행 ✏️ 수정 · 도구 줄 「✏️ 정보 수정」)가 같은 곳으로 간다. 도구 줄 버튼은 지금 목록이 한 명이면 묻지 않고 바로 열고 여러 명이면 고르게 한다. 곁가지: 빈 줄 colspan 이 19 로 남아 있던 것을 20 으로(9/15 「예약」 칸을 더할 때 빠짐 — col·th·td 는 전부 20) --><!-- v=222: 2026-09-15 학생 목록에 「예약」 칸 신설 — 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)은 students_erp 의 칸이고 **카페24가 정본**이라(created_at 센티넬 1751500000000) 관리자 화면에서 수업을 넣어도(그건 class_schedules 에만 쓴다) 늘 «—» 였다. 사장님 제보 lee(활성 2건)·jeong(활성 5건) 둘 다 «—». ⛔ 왼쪽 칸을 예약값으로 «채우지» 않는다 — 수강 종료일에 마지막 예약일을 넣으면 수업을 더 잡을 때마다 늘어나 거짓이 된다. 정본 src/student-schedule-summary.ts --><!-- v=221: 2026-09-15 지사 등록/수정 폼에 항상 보이는 <label> 추가(값이 채워지면 placeholder 가 사라져 어느 칸인지 몰랐던 문제) + 「로그인 아이디」 직접 입력 칸(fr-login) 신설 — 카페24 (:Branch) 에는 계정 개념 자체가 없어(branch_id·name·address·phone·manager·active 뿐) admin_scope 접두어 추정만으로는 —가 자주 뜸. 대표지사(login_username)와 같은 방식 · v=220: 2026-09-14 학생 등록 모달 — 서버가 «같은 이름·같은 연락처가 이미 있다»(409 possible_duplicate)고 물으면 기존 아이디를 보여 주고 「그래도 등록」(force:true)으로만 통과. 실사고 정예희 yahee·yahee1·yahee2 · v=218: 2026-09-14 대표지사 목록 첫 칸 «행 번호 1,2,3» 을 없애고 로그인 아이디를 첫 칸으로(사장님 제보의 «여기» 가 그 칸 — #969 는 옆에 하나 더 만든 것이라 번호가 그대로 남았음). 칸 9→8 · v=217: 2026-09-14 대표지사 목록 — 「아이디」 칸 신설(직접 입력·저장, login_username) + 「등급」 칸 제거. 지사와 달리 admin_scope 로 이을 길이 없어(scope.ts 에 'master' 없음) 읽기전용 대신 편집 가능한 칸을 새로 뒀다 · v=216: 2026-09-14 지사 목록에 「아이디」 칸 신설 — 사장님 제보 「지사 아이디를 볼 수가 없어 지사장님들에게 공지를 못 한다」. 서버가 admin_scope 를 이름으로 이어 읽기전용으로 보여주고(복사 버튼은 ltCopyTicket 재사용), 후보가 둘 이상이면 «—»(모르면 안 붙임) · v=214: 2026-09-14 녹화 목록 표 안 필터에 「학생 이름 · 아이디」 전용 검색칸(recf-student) — 학생 칸(r.students)만 보고 교사 이름에는 안 걸린다 · v=213: 2026-09-13 녹화 관리 저장소 상태 D안 — 실패 카드 빨강/초록을 클래스(.rs-attn/.rs-ok)로, 「실패 목록 보기」(rsShowFailed)·구역 탭(rsJump) · v=212: 2026-09-11 대리점 수정 폼에 「수강료」 칸 + 조직 3표 액션 버튼에 org-act-btn 클래스(전역 인디고 룰에서 되살림) --><!-- v=211: 2026-09-11 병합 — main(#924)이 v=207 을 쓰고 이 브랜치가 207~210 을 써서 같은 번호가 겹쳤다. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다) --><!-- v=207: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- 분할추출:adm-core (v=210: 2026-09-11 대표지사 «수정» 메뉴 신설 — 사장님 제보 「대표지사도 수정하는     버튼이 없다」. 대리점(v=208)·지사(v=209)와 같은 방식 — 표 마지막 칸에 ✏️ 수정 버튼을 달아
      등록 폼을 수정 모드로 재사용한다(saveMasterBranch/mbrEdit/mbrResetForm). ⚠️ master_branches
      는 카페24에 없는 «우리만의 표» 라(franchise_master_map 과 함께 2026-08-18 신설) 카페24 야간
      동기화가 안 덮어쓴다 — 대리점·지사와 달리 정정표(override table)가 필요 없다. scope.ts 의
@@ -13959,3 +14056,4 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- BUILD:20260813015745 -->
 </body>
 </html>
+

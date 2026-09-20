@@ -1,0 +1,664 @@
+<meta charset="utf-8">
+<title>통합 대시보드 제안서 v2 — 망고아이 관리자</title>
+<style>
+  :root{
+    --ink:#1f2937; --ink2:#4b5563; --mute:#6b7280; --faint:#9ca3af;
+    --line:#e5e7eb; --paper:#fffdf8; --card:#fff;
+    --lav:#eef1fc; --lav2:#e3e8fa; --lavink:#3b4a8c;
+    --amber:#f59e0b; --orange:#ea580c; --red:#dc2626; --purple:#a855f7; --blue:#3b82f6; --green:#10b981;
+    --warm:#7c2d12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font-family:"Malgun Gothic","맑은 고딕",system-ui,-apple-system,sans-serif;
+       font-size:14px;line-height:1.65}
+  .wrap{max-width:1140px;margin:0 auto;padding:28px 20px 80px}
+
+  h1{font-size:25px;font-weight:900;margin:0 0 6px;letter-spacing:-.4px}
+  h2{font-size:18px;font-weight:900;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);letter-spacing:-.3px}
+  h3{font-size:14.5px;font-weight:800;margin:22px 0 8px;color:var(--warm)}
+  p{margin:8px 0}
+  .sub{color:var(--mute);font-size:13px;margin:0 0 20px}
+  .en{color:var(--faint);font-weight:600;font-size:.86em}
+
+  .verdict{background:#fffbeb;border:1px solid #f2d68a;border-radius:12px;padding:16px 18px;margin:18px 0 8px}
+  .verdict b{color:#92400e}
+  .danger{background:#fdf4f4;border:1px solid #f0c3c3;border-radius:12px;padding:16px 18px;margin:16px 0}
+  .danger b{color:#9f1239}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 6px;background:var(--card)}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--lav);color:var(--lavink);font-weight:800;font-size:12.5px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .good{color:#047857;font-weight:800}
+  .bad{color:var(--red);font-weight:800}
+  code{background:#f3f4f6;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;
+       font-family:Consolas,"D2Coding",monospace}
+  pre{background:#111827;color:#e5e7eb;border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:12px;
+      font-family:Consolas,"D2Coding",monospace;line-height:1.6;margin:8px 0}
+  pre .cm{color:#93c5fd} pre .er{color:#fca5a5;font-weight:700} pre .ok{color:#86efac;font-weight:700}
+
+  .note{background:#f7f9fd;border:1px solid #d9e2f2;
+        border-radius:10px;padding:12px 14px;margin:12px 0;font-size:13px}
+  .warn{background:#fdf4f4;border-color:#f0c3c3}
+  .okbox{background:#f2faf5;border-color:#cfe9da}
+
+  .stage{background:#f4f5f9;border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0 6px}
+  .stage-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--mute)}
+  .stage-bar b{color:var(--ink)}
+  .seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;padding:5px 11px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;
+              border-right:1px solid #e5e7eb;font-family:inherit}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--warm);color:#fff}
+
+  .mcard{background:var(--card);border:1px solid #dfe3f3;border-radius:14px;overflow:hidden;
+         box-shadow:0 1px 3px rgba(30,41,90,.06)}
+  .msum{background:var(--lav);padding:10px 16px;cursor:pointer;border-bottom:1px solid #dfe3f3;user-select:none}
+  .msum:hover{background:var(--lav2)}
+  .msum-r1{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .msum .tw{font-weight:800;font-size:14px;color:var(--lavink);white-space:nowrap}
+  .msum .caret{margin-left:auto;color:var(--lavink);font-size:12px;font-weight:800}
+  .brief1{margin-top:6px;font-size:12.5px;color:#5b4636;background:#fffaf0;border:1px solid #fbe7c6;
+          border-radius:9px;padding:6px 11px;line-height:1.55}
+  .brief1 b{color:var(--warm)}
+  .pills{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{background:#fff;border:1px solid #d7ddf5;border-radius:999px;padding:3px 10px;font-size:11.5px;
+        color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .pill b{color:var(--warm);font-weight:900;font-size:12.5px}
+  .pill .up{color:#047857;font-weight:800;font-size:10.5px}
+  .pill .dn{color:var(--red);font-weight:800;font-size:10.5px}
+
+  .mbody{padding:14px 16px 18px}
+  .mbody[hidden]{display:none}
+
+  .period{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fffaf2;border:1px solid #fde8c8;
+          border-radius:12px;padding:8px 12px;margin-bottom:12px}
+  .period .lb{font-size:12px;font-weight:800;color:var(--warm)}
+  .period input[type=date]{padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:7px;font-family:inherit}
+  .period .tot{margin-left:auto;font-size:11.5px;color:var(--mute)}
+  .period .tot b{color:#c2410c;font-size:14px;font-variant-numeric:tabular-nums}
+
+  .tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+  .tabs button{border:0;background:transparent;padding:8px 15px;font-size:13px;font-weight:800;color:var(--mute);
+               cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;white-space:nowrap}
+  .tabs button:hover{color:var(--warm)}
+  .tabs button.on{color:var(--warm);border-bottom-color:var(--amber)}
+  .tabs button[hidden]{display:none}
+  .pane[hidden]{display:none}
+
+  .briefbox{background:#fffcf3;border:1px solid #f2d68a;border-radius:12px;
+            padding:14px 16px;margin-bottom:12px}
+  .briefbox .bh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+  .briefbox .bd{font-size:11.5px;font-weight:800;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 9px}
+  .briefbox .bt{font-size:13.5px;line-height:1.75;color:#3f3020;white-space:pre-wrap}
+  .briefbox .ba{margin-left:auto;display:flex;gap:6px}
+  .briefbox button{border:1px solid #fcd34d;background:#fff;border-radius:8px;padding:4px 11px;font-size:11.5px;
+                   font-weight:700;color:#92400e;cursor:pointer;font-family:inherit}
+  .briefbox button:hover{background:#fef3c7}
+  .briefsrc{margin-top:8px;font-size:11px;color:#a1866a}
+
+  .grid{display:grid;gap:10px}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(178px,1fr))}
+  .g5{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+  /* 🎨 타일 색 규칙 (2026-08-08 재설계)
+     한쪽 테두리만 색칠하던 것을 없앴다 — 방향이 있는 선은 «여기서 잘렸나?» 처럼 보이고,
+     타일마다 다른 변이 칠해지면 눈이 줄을 못 맞춘다.
+     원칙 ① 기본은 전부 «같은 얇은 테두리 + 흰 배경 + 먹색 숫자». 색이 하나도 없다.
+     원칙 ② 색은 «지금 손봐야 하는 것»에만 쓴다. 색이 적어야 색이 눈에 띈다.
+     원칙 ③ 색을 쓸 땐 네 변 테두리와 배경을 «같은 계열»로 아주 옅게 — 선이 아니라 면으로.
+     그림자·그라데이션·hover 확대 없음(전부 CSS 두 줄, 리페인트 비용 0에 가깝다). */
+  .tile{background:#fff;border:1px solid #e8e9ee;border-radius:12px;padding:12px 14px;position:relative}
+  .tile .lb{font-size:11.5px;font-weight:800;color:var(--mute)}
+  .tile .vl{font-size:21px;font-weight:900;color:var(--ink);margin:3px 0 1px;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .tile .vl small{font-size:12px;font-weight:800;color:var(--faint)}
+  .tile .sb{font-size:11px;color:var(--faint)}
+  .tile .tr{position:absolute;top:11px;right:12px;font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px}
+  .tr.up{background:#e8f6ee;color:#047857}.tr.dn{background:#fdecec;color:#b91c1c}.tr.fl{background:#f3f4f6;color:#6b7280}
+  /* 주의가 필요한 타일 — 면으로 옅게, 네 변 모두 같은 계열 */
+  .tile.warnt{background:#fdf4f4;border-color:#f3d4d4}
+  .tile.warnt .vl{color:#b91c1c}
+  .tile.warnt .lb{color:#9a5b5b}
+  .tile.goodt{background:#f2faf5;border-color:#cfe9da}
+  .tile.goodt .vl{color:#047857}
+  .tile.goodt .lb{color:#4a7a63}
+
+  .chartbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .chartbox .ct{font-size:12.5px;font-weight:800;color:#374151;margin-bottom:8px}
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+
+  .hub{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .hubc{display:flex;gap:11px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+        border-radius:12px;padding:13px 15px;text-decoration:none;color:inherit}
+  .hubc:hover{background:#fffbeb}
+  .hubc .tt{font-weight:800;font-size:13.5px;display:block}
+  .hubc .ds{font-size:11.5px;color:var(--mute);display:block;margin-top:2px}
+  .hubc .ic{font-size:19px;line-height:1.2}
+
+  .hist{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-top:6px;font-size:12.5px}
+  .hist .d{font-weight:800;color:var(--warm);font-size:11.5px}
+  .hist .t{color:var(--ink2);margin-top:2px;line-height:1.6}
+
+  .legend{margin-top:10px;font-size:11px;color:var(--faint)}
+  .cap{font-size:12px;color:var(--mute);margin:6px 2px 0}
+  ul{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  .kbd{display:inline-block;background:#fff;border:1px solid #cbd5e1;border-bottom-width:2px;border-radius:5px;
+       padding:0 6px;font-size:11.5px;font-weight:700}
+  .tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800}
+  .t-p1{background:#fee2e2;color:#b91c1c} .t-p2{background:#ffedd5;color:#9a3412} .t-p3{background:#e0e7ff;color:#3730a3}
+</style>
+
+<div class="wrap">
+
+<h1>📊 통합 대시보드 제안서 <span style="font-size:15px;color:var(--faint)">v2 — 아침 브리핑 포함</span></h1>
+<p class="sub">상단 4개 카드(🌅 아침 브리핑 · 🤖 AI 인사이트 · 📊 운영 KPI · 📅 일자별 차트)를 하나로 · <b>2026-08-08</b> · 코드 실측 근거</p>
+
+<div class="verdict" style="background:#f2faf5;border-color:#cfe9da"><b style="color:#047857">✅ 2026-08-08 — 이 제안서는 그대로 반영되어 코드에 들어갔습니다.</b><br><b>0단계</b> 브리핑 숫자 4건 수정(위험학생 쿼리·KST 날짜·«자료 없음»·미납 정의 통일) + 권한 2겹 차단 · <code>5b8bfae69</code><br><b>1단계</b> 부팅 API 10→2 · Chart 인스턴스 9→0 · Chart.js 를 우리 서버로 · 스파크라인 SVG · 브리핑 하루 캐시 · <code>4512d4903</code><br><b>2단계</b> 카드 4→1(탭 3개) · 옛 id 이어주기 · 권한 연동 · <b>한쪽만 칠한 색 띠 전부 제거</b> · <code>b57c05e60</code><br><span style="font-size:12.5px;color:#4a7a63">아래 샘플은 실제 반영된 모습과 같습니다. 탭은 3개(오늘 / 매출·학생 추세 / AI 인사이트)로 정리했습니다 — 매출과 학생을 나누려면 기존 카드 내부를 쪼개야 해서, 위험 대비 얻는 게 없다고 판단했습니다.</span></div>
+<div class="verdict">
+  <b>결론 — 4개를 하나로 합치는 데 찬성합니다. 그리고 아침 브리핑을 넣은 건 아주 잘한 판단입니다.</b><br>
+  브리핑이 보여주는 <b>6개 숫자(신규·상담·미납·위험·출석·평균)는 전부 운영 KPI 타일과 같은 이름</b>입니다. 합칠 이유가 가장 큰 카드입니다.<br>
+  <b>다만 합치기 전에 반드시 고쳐야 할 것이 나왔습니다.</b> 브리핑 화면의 숫자가 지금 <b>세 군데가 틀렸습니다</b> —
+  그리고 AI가 그 틀린 숫자를 사실인 것처럼 문장으로 써서 원장님께 보고하고 있습니다.
+</div>
+
+<h2>1. 🔴 먼저 — 브리핑 숫자가 틀렸습니다</h2>
+<p>사장님이 보내주신 화면의 <code>위험 2809</code> · <code>출석 1%</code> · <code>평균 0</code> 은 «학원이 위험하다»가 아니라 <b>쿼리 문제</b>입니다.</p>
+
+<table>
+  <tr><th style="width:14%">화면 값</th><th style="width:40%">지금 코드</th><th>왜 그 값이 나오나</th></tr>
+  <tr>
+    <td><b class="bad">위험 2809</b></td>
+    <td><code>SELECT COUNT(DISTINCT user_id) FROM attendance WHERE joined_at &lt; (now-14일)</code></td>
+    <td><b>«14일 전에 한 번이라도 출석한 적 있는 모든 사람»</b>을 셉니다. 그 뒤에 매일 나와도 포함됩니다.<br>
+        주석은 «최근 14일간 결석한 사람»이라 적혀 있지만 <b>그 조건이 쿼리에 없습니다.</b> 그래서 사실상 전교생 수입니다.</td>
+  </tr>
+  <tr>
+    <td><b class="bad">출석 1%</b></td>
+    <td>분자 <code>attendance</code> 테이블 / 분모 <code>students_erp</code> 중 <code>status IS NULL OR status=''</code> 포함</td>
+    <td>분모에 <b>상태가 안 채워진 행까지 «활성»으로</b> 넣습니다. 분자·분모가 서로 다른 테이블이라 비율 자체가 성립하지 않습니다.</td>
+  </tr>
+  <tr>
+    <td><b class="bad">평균 0</b></td>
+    <td><code>AVG(score_overall) FROM student_evaluations WHERE created_at &gt;= (now-7일)</code></td>
+    <td>7일 안에 평가가 하나도 없으면 <code>NULL</code> → 0으로 표시됩니다. <b>«0점»이 아니라 «자료 없음»</b>인데 0점으로 보고됩니다.</td>
+  </tr>
+  <tr>
+    <td><b class="bad">날짜 08-06</b><br>(오늘 08-08)</td>
+    <td>cron <code>0 18 * * *</code>(UTC) = KST 03:00 · <code>new Date(now-86400000).toISOString()</code></td>
+    <td><b>날짜가 이틀 밀립니다.</b> KST 03시에 도는데 UTC 기준으로 하루를 빼서, KST 8일 새벽에 돌면 «어제»가 <b>6일</b>이 됩니다.
+        화면의 08-06 이 그 증거입니다.</td>
+  </tr>
+</table>
+
+<div class="danger">
+<b>가장 위험한 건 숫자가 아니라, AI가 그걸 사실로 만들어 준다는 점입니다.</b><br>
+<code>api-admin.ts:7946</code> 이 위 값들을 그대로 프롬프트에 넣고 <b>«우려되는 부분은 부드럽게 짚어주세요»</b>라고 지시합니다.
+그래서 Llama 3.3 70B 는 «위험학생 2809명은 다소 높은 편이며, 출석률 1%로 낮게 유지되고 있습니다» 라고
+<b>차분하고 그럴듯한 문장</b>으로 써 냅니다. 숫자가 틀린 줄 모르는 사람이 읽으면 <b>학원이 무너지는 줄 압니다.</b><br>
+→ <b>합치기 전에 이 4건을 먼저 고칩니다.</b> 화면을 합치면 브리핑 문장과 KPI 타일이 나란히 붙으므로,
+지금 고치지 않으면 <b>«2809 vs 2914»</b> 같은 모순이 한 화면에서 바로 보이게 됩니다.
+</div>
+
+<h2>2. 🔴 같은 이름인데 다른 곳에서 읽고 있습니다</h2>
+<p>브리핑과 KPI 대시보드는 <b>같은 단어를 쓰면서 서로 다른 테이블</b>을 봅니다. 지금은 카드가 떨어져 있어 아무도 눈치채지 못했습니다.</p>
+<table>
+  <tr><th style="width:16%">지표</th><th style="width:36%">🌅 브리핑</th><th style="width:36%">📊 운영 KPI</th><th>같은 값?</th></tr>
+  <tr><td><b>매출·미납</b></td><td><code>payments</code> 테이블<br><span class="en">핸들러가 없으면 CREATE 함</span></td><td><code>student_payments</code> 테이블</td><td class="bad">다름</td></tr>
+  <tr><td><b>출석</b></td><td><code>attendance</code> 테이블 (어제, 고유 인원)</td><td><code>point_rule_log</code> 의 <code>rule_code='attendance'</code> (이번 달, 건수)</td><td class="bad">다름</td></tr>
+  <tr><td><b>학생 수</b></td><td><code>students_erp</code> (status 미기입 포함)</td><td><code>students_erp</code> (같은 조건)</td><td class="good">같음</td></tr>
+  <tr><td><b>평가 평균</b></td><td><code>student_evaluations</code> 최근 7일</td><td>평가서 평균 (다른 집계 창)</td><td class="bad">기간 다름</td></tr>
+</table>
+<p class="cap">→ <b>합치기의 진짜 가치는 화면 정리가 아니라 여기에 있습니다.</b> «정본은 하나» 를 강제하면 두 번 다시 어긋나지 않습니다.</p>
+
+<h2>3. 🔒 그리고 브리핑 카드에는 권한이 아예 없습니다</h2>
+<div class="note warn">
+<code>card-daily-briefing</code> 은 <b>권한 매트릭스(<code>adm-q10.js</code>)에 등록돼 있지 않습니다.</b>
+<code>Object.keys(PERMS).forEach(...)</code> 방식이라 <b>목록에 없는 카드는 아무에게도 안 가려집니다.</b>
+게다가 <code>/api/admin/briefing</code> 은 <b>강사 차단 목록(<code>index.ts</code> TEACHER_BLOCKED_PREFIXES)에도 없습니다.</b>
+<p style="margin-top:8px">→ <b>강사 계정이 관리자 콘솔에 들어오면, 전사 미납·위험학생·출석률·매출 요약 문장을 그대로 볼 수 있습니다.</b>
+화면도 안 가려지고 API도 안 막힙니다. (지사·대리점은 서버가 403 을 주지만, <b>카드는 보이고 열면 에러</b>가 납니다 — 이것도 지금 상태입니다.)</p>
+<p><b>합치면 이 구멍이 저절로 막힙니다.</b> 탭에 <code>data-card</code> 를 다는 순간 권한을 «명시»하게 되기 때문입니다.
+그래도 <b>서버 쪽 차단 한 줄은 별도로 추가</b>해야 합니다 — 화면만 가리는 건 URL 로 뚫립니다.</p>
+</div>
+
+<h2>4. ⚡ 무게 — 브리핑은 지금도 가볍습니다. 합치면서 무거워지지 않게 하는 게 관건</h2>
+<div class="note okbox">
+<b>좋은 소식:</b> 브리핑 카드는 이미 <b>펼칠 때만</b> 부릅니다 (<code>admin.html:4182</code> 의 <code>toggle</code> 핸들러).
+<b>부팅 비용 0</b>입니다. 나머지 3개 카드와 정반대로 잘 만들어져 있습니다.
+</div>
+<p>그래서 «접힘 요약줄에 브리핑 한 줄을 넣자»는 아이디어는 <b>자칫 요청을 하나 늘립니다.</b> 이렇게 막습니다:</p>
+<div class="note">
+<b>브리핑은 하루에 한 번만 바뀝니다.</b> → 받은 문장을 <b>날짜를 열쇠로 <code>localStorage</code> 에 저장</b>합니다.<br>
+페이지를 열 때 저장된 날짜가 오늘 것이면 <b>요청 0건</b>, 아니면 그때만 1건. 즉 <b>하루에 브라우저당 1회</b>.<br>
+지금은 카드를 열 때마다 매번 새로 받습니다. <b>합친 뒤가 오히려 요청이 적습니다.</b>
+</div>
+
+<table>
+  <tr><th style="width:32%">항목</th><th style="width:22%">지금 (카드 4개)</th><th style="width:22%">제안 (카드 1개)</th><th>근거</th></tr>
+  <tr><td>부팅 시 API 요청</td><td class="num bad">10회</td><td class="num good">1회</td><td>브리핑은 캐시라 대부분 0, KPI 1건만</td></tr>
+  <tr><td>같은 엔드포인트 중복</td><td class="num bad">6회</td><td class="num good">0회</td><td><code>stats/revenue</code> ×6 → 스파크라인을 SVG 로</td></tr>
+  <tr><td>부팅 시 Chart 인스턴스</td><td class="num bad">9개</td><td class="num good">0개</td><td>탭 열 때만, 최대 2개</td></tr>
+  <tr><td>외부 CDN 왕복</td><td class="num bad">1건 205KB</td><td class="num good">0건</td><td><code>/vendor/chartjs/</code> 에 같은 파일이 이미 있음</td></tr>
+  <tr><td>브리핑 요청</td><td class="num">열 때마다 1회</td><td class="num good">하루 1회</td><td>날짜 키 localStorage 캐시</td></tr>
+  <tr><td>5분 자동 갱신</td><td class="num bad">접혀 있어도 돎</td><td class="num good">펼쳤을 때만</td><td><code>admin.html:1090</code></td></tr>
+  <tr><td>읽기 때 <code>CREATE TABLE</code></td><td class="num bad">매 요청</td><td class="num good">제거</td><td>조회 경로에서 DDL 왕복 삭제</td></tr>
+  <tr><td>상단 카드 수</td><td class="num">4개</td><td class="num good">1개</td><td>사이드바 4줄 → 1줄</td></tr>
+  <tr><td>중복 표시 지표</td><td class="num bad">10종</td><td class="num good">0종</td><td>브리핑 칩 6 + 기존 4</td></tr>
+</table>
+<p class="cap">※ <b>호출 «건수»는 코드에서 센 확정값</b>입니다. «몇 초 빨라진다»는 아직 말하지 않습니다 — 배포 전 하니스로 실측해 따로 보고드립니다.</p>
+
+<h2>5. 제안 구조 — 아래가 실제로 동작하는 샘플입니다</h2>
+<p><b>4개 카드 → 카드 1개 + 탭 4개.</b> 브리핑은 새 탭을 만들지 않고 <b>「오늘」 탭 맨 위</b>에 놓습니다.
+브리핑 문장과 그 근거 숫자(KPI 타일)가 <b>한 화면에</b> 있어야 «2809 vs 2914» 같은 모순이 즉시 드러납니다.
+브리핑 아래 붙어 있던 <b>칩 6개는 삭제</b>합니다 — 바로 밑 타일이 정본입니다.</p>
+
+<div class="stage">
+  <div class="stage-bar">
+    <b>👤 로그인 역할로 미리보기:</b>
+    <span class="seg" id="roleseg">
+      <button class="on" data-role="exec">본사 임원/매니저</button>
+      <button data-role="branch">지사 · 대리점</button>
+      <button data-role="teacher">강사</button>
+    </span>
+    <span id="rolehint" style="color:var(--warm);font-weight:700"></span>
+  </div>
+
+  <div class="mcard">
+    <div class="msum" id="msum">
+      <div class="msum-r1">
+        <span class="tw">📊 통합 대시보드 <span class="en">Dashboard</span></span>
+        <span class="pills" id="pills"></span>
+        <span class="caret" id="caret">▼ 펼치기</span>
+      </div>
+      <div class="brief1" id="brief1"></div>
+    </div>
+
+    <div class="mbody" id="mbody" hidden>
+
+      <div class="period">
+        <span class="lb">📅 기간 <span class="en">Period</span></span>
+        <span class="seg" id="perseg">
+          <button data-p="today">오늘</button>
+          <button class="on" data-p="7d">7일</button>
+          <button data-p="30d">30일</button>
+          <button data-p="q">분기</button>
+          <button data-p="y">연간</button>
+          <button data-p="custom">직접</button>
+        </span>
+        <input type="date" id="d1" value="2026-08-01"><span style="color:var(--faint)">~</span>
+        <input type="date" id="d2" value="2026-08-08">
+        <span class="tot">범위 매출 합계 <b id="rangetot">—</b></span>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="on" data-tab="today" data-card="card-kpi-dashboard">🌅 오늘 <span class="en">Today</span></button>
+        <button        data-tab="rev"   data-card="card-daily-charts">📈 매출·학생 추세 <span class="en">Trends</span></button>
+        <button        data-tab="ai"    data-card="card-ai-insights">🤖 AI 인사이트 <span class="en">AI</span></button>
+      </div>
+
+      <!-- 탭 1 : 오늘 = 브리핑 + 핵심 KPI -->
+      <div class="pane" id="pane-today">
+        <div class="briefbox">
+          <div class="bh">
+            <span class="bd" id="bdate">📅 2026-08-07 (어제)</span>
+            <span style="font-size:11.5px;color:#a1866a">AI 요약 · Llama 3.3 70B</span>
+            <span class="ba">
+              <button id="bregen">🔄 다시 생성</button>
+              <button id="bhist">📋 최근 7일</button>
+            </span>
+          </div>
+          <div class="bt" id="btext"></div>
+          <div class="briefsrc" id="bsrc"></div>
+          <div id="bhistbox"></div>
+        </div>
+        <div class="grid g4" id="coregrid"></div>
+        <div class="chartbox" style="margin-top:10px">
+          <div class="ct">💰 <span id="sparkTitle">최근 7일</span> 매출 추세 <span class="en">Revenue trend</span></div>
+          <div id="bigspark"></div>
+        </div>
+        <div class="legend">↻ 자동 갱신은 <b>카드가 펼쳐져 있을 때만</b> 5분 주기. 접으면 멈춥니다. 브리핑은 날짜가 바뀔 때만 다시 받습니다.</div>
+      </div>
+
+      <div class="pane" id="pane-rev" hidden>
+        <div class="grid g5" id="revgrid"></div>
+        <div class="chartbox" style="margin-top:10px">
+          <div class="ct">💰 매출 추이 (선택 기간) <span class="en">Revenue by period</span></div>
+          <div id="revchart"></div>
+        </div>
+      </div>
+
+      <div class="pane" id="pane-stu" hidden>
+        <div class="grid g4" id="stugrid"></div>
+        <div class="two" style="margin-top:10px">
+          <div class="chartbox">
+            <div class="ct">📅 일자별 출석 (고유 사용자) <span class="en">Daily attendance</span></div>
+            <div id="attchart"></div>
+          </div>
+          <div class="chartbox">
+            <div class="ct">👥 학생 흐름 (신규·탈락) <span class="en">Student flow</span></div>
+            <div id="flowchart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane" id="pane-ai" hidden>
+        <div class="hub">
+          <a class="hubc" href="#"><span class="ic">📈</span><span><span class="tt">실시간 재무 <span class="en">Live Finance</span></span><span class="ds">일·주 수입/지출 · 순이익 · 스냅샷</span></span></a>
+          <a class="hubc b2" href="#"><span class="ic">🎓</span><span><span class="tt">학습 인사이트 <span class="en">Learning</span></span><span class="ds">위험도 세그먼트 · 장기 트렌드</span></span></a>
+          <a class="hubc b3" href="#"><span class="ic">📣</span><span><span class="tt">마케팅 스튜디오 <span class="en">Marketing</span></span><span class="ds">AI 카피 생성 · 세그먼트 타겟팅</span></span></a>
+        </div>
+        <div class="legend">이 탭은 링크만 있어 API를 부르지 않습니다. 카드 한 칸 대신 탭 한 칸이면 충분합니다.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="netlog" style="margin-top:12px;background:#111827;color:#d1fae5;border-radius:10px;padding:10px 13px;
+       font-family:Consolas,monospace;font-size:11.5px;line-height:1.7;white-space:pre-wrap"></div>
+</div>
+<p class="cap">↑ 검은 칸은 <b>«지금 시점까지 실제로 나갔을 API 요청»</b>입니다. 카드를 안 열면 <b>1건</b>, 탭을 옮길 때만 딱 그 탭 것이 늘어납니다.
+「지사·대리점」·「강사」를 눌러 <b>탭이 어떻게 줄어드는지</b>도 봐 주세요.</p>
+
+<h2>6. 브리핑을 «잘 다시 연결하는» 법 — 구체적으로</h2>
+<table>
+  <tr><th style="width:26%">지금</th><th style="width:37%">합친 뒤</th><th>이유</th></tr>
+  <tr><td>카드 하나를 통째로 차지</td><td>「오늘」 탭 <b>맨 위 한 덩어리</b></td><td>브리핑은 «어제 무슨 일이 있었나»의 답 — KPI 타일과 같은 질문</td></tr>
+  <tr><td>아래 칩 6개 (신규·상담·미납·위험·출석·평균)</td><td><b>전부 삭제</b> — 바로 밑 KPI 타일이 정본</td><td>같은 숫자를 두 번 그리지 않음. 중복 6종 제거</td></tr>
+  <tr><td>「최신 브리핑」·「최근 7일」 버튼 2개</td><td>「최근 7일」 <b>하나로</b> (최신은 기본 표시)</td><td>기본이 최신인데 버튼이 또 있는 건 군더더기</td></tr>
+  <tr><td>「지금 생성」 = 누를 때마다 AI 호출 + D1 INSERT</td><td>「다시 생성」 + <b>확인 한 번</b>, 같은 날짜면 기존 것 재사용</td><td>지금은 연타하면 Llama 70B 가 연타로 돌고 행이 계속 쌓임 (비용·속도)</td></tr>
+  <tr><td>카드를 열 때마다 재요청</td><td><b>날짜 키 localStorage 캐시</b></td><td>하루 1회. 접힘 요약줄의 «브리핑 한 줄»도 공짜로 나옴</td></tr>
+  <tr><td>권한 없음(모두 노출)</td><td>탭에 <code>data-card</code> + <b>서버 차단 한 줄</b></td><td>화면만 가리면 URL 로 뚫림</td></tr>
+</table>
+
+<h2>7. 실행 순서 — 4단계, 각 단계가 혼자서도 완결</h2>
+<table>
+  <tr><th style="width:7%">단계</th><th style="width:32%">내용</th><th style="width:22%">범위</th><th>성격</th></tr>
+  <tr>
+    <td><span class="tag t-p1">0</span></td>
+    <td><b>브리핑 숫자·권한 먼저</b> — 위험학생 쿼리 수정, KST 날짜 보정, 평가 «자료 없음» 구분, 출석 분모 정리 + 강사 차단 한 줄</td>
+    <td><code>src/api-admin.ts</code> · <code>src/index.ts</code></td>
+    <td><b>합치기와 무관하게 지금 필요</b>. 틀린 숫자를 AI가 계속 보고 중</td>
+  </tr>
+  <tr>
+    <td><span class="tag t-p2">1</span></td>
+    <td><b>무게</b> — 부팅 10회→1회, Chart.js 로컬화, 스파크라인 SVG 화, 자동 갱신을 펼침 상태로 한정, 브리핑 하루 캐시</td>
+    <td><code>js/adm-core.js</code> 일부 + <code>admin.html</code> 인라인</td>
+    <td class="good">화면이 안 바뀌므로 가장 안전</td>
+  </tr>
+  <tr>
+    <td><span class="tag t-p2">2</span></td>
+    <td><b>합치기</b> — 카드 1개 + 탭 4개, 기간 바 통일, 브리핑을 「오늘」 탭으로, 중복 칩·버튼 제거</td>
+    <td><code>admin.html</code> 985~1180행 + 4111~4184행</td>
+    <td>두 덩어리를 한 덩어리로 — diff 가 깔끔</td>
+  </tr>
+  <tr>
+    <td><span class="tag t-p3">3</span></td>
+    <td><b>서버 한 번에</b> (선택) — <code>/api/admin/dashboard/unified</code> 로 남은 요청도 1회</td>
+    <td><code>src/api-admin.ts</code></td>
+    <td>1·2단계만으로 대부분의 효과가 남</td>
+  </tr>
+</table>
+
+<h3>손대지 않는 것 — «안전하게»</h3>
+<ul>
+  <li><b>D1 데이터는 건드리지 않습니다.</b> 0단계는 <b>읽는 쿼리(SELECT)만</b> 고칩니다. DELETE·UPDATE 없음.</li>
+  <li><b>권한 매트릭스는 한 글자도 안 고칩니다.</b> 탭에 <code>data-card</code> 만 답니다. (브리핑은 «없던 항목 추가»라 완화가 아니라 강화)</li>
+  <li><b>카드 id 4개를 지우지 않습니다.</b> 퀵메뉴·사이드바·통합검색·AI 명령 라우터·툴팁 사전 등 <b>10곳 이상이 참조</b>합니다. 탭 패널에 그대로 남기고 기존 링크는 «카드 열고 그 탭으로»가 되게 어댑터 한 줄.</li>
+  <li><b>일부러 뺀 것은 되살리지 않습니다</b> — hover 확대, 관리자 서비스워커 등. 강조는 색만.</li>
+  <li><b>cron 스케줄은 그대로.</b> 0단계는 <b>날짜 계산만</b> 고칩니다.</li>
+</ul>
+
+<h2>8. 사장님 결정이 필요한 것 — 4가지</h2>
+<table>
+  <tr><th style="width:24%">결정</th><th>선택지</th><th style="width:28%">제 추천</th></tr>
+  <tr><td><b>①</b> 0단계 착수 여부</td>
+      <td>(가) 합치기 전에 브리핑 숫자·권한부터 고친다 &nbsp;/&nbsp; (나) 합치기와 같이 간다</td>
+      <td><b>(가)</b> — 틀린 숫자를 AI가 매일 새벽 보고하고 있습니다. 하루라도 빨리</td></tr>
+  <tr><td><b>②</b> 접힘 요약줄</td>
+      <td>(가) 브리핑 첫 줄 + 숫자 pill 6개 &nbsp;/&nbsp; (나) 숫자 pill 만 &nbsp;/&nbsp; (다) 펼쳐야 보임</td>
+      <td><b>(가)</b> — 캐시라 공짜이고, 대부분 이 한 줄이면 카드를 열 일이 없습니다</td></tr>
+  <tr><td><b>③</b> 브리핑 과거 보관</td>
+      <td>(가) 최근 7일만 화면에 &nbsp;/&nbsp; (나) 30일 &nbsp;/&nbsp; (다) 전체</td>
+      <td><b>(가) 7일</b> — 지금과 동일. 표는 남으니 나중에 늘려도 됩니다</td></tr>
+  <tr><td><b>④</b> 강사에게 브리핑</td>
+      <td>(가) <b>차단</b> (전사 미납·매출 포함) &nbsp;/&nbsp; (나) 열어둔다</td>
+      <td><b>(가) 차단</b> — 지금 열려 있는 건 의도가 아니라 «목록에 없어서»입니다</td></tr>
+</table>
+
+<p style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line);color:var(--mute);font-size:12.5px">
+승인해 주시면 <b>0단계(브리핑 숫자·권한)부터</b> 착수해
+<code>node node_modules/typescript/bin/tsc --noEmit</code> · 회귀 하니스 · 실제 브라우저 확인까지 마치고,
+<b>«무엇으로 확인했는지»</b>와 함께 보고드리겠습니다. 배포는 그 다음입니다.
+</p>
+
+</div>
+
+<script>
+(function(){
+  var W=560,H=120;
+  function money(n){ if(n>=100000000) return (n/100000000).toFixed(1)+'억'; if(n>=10000) return Math.round(n/10000).toLocaleString('ko-KR')+'만'; return n.toLocaleString('ko-KR'); }
+  function num(n){ return n.toLocaleString('ko-KR'); }
+
+  var DATA = {
+    'today': {label:'오늘', days:['08-08'], rev:[1840000], att:[212], nw:[3], dr:[1], total:1840000},
+    '7d'   : {label:'최근 7일', days:['08-02','08-03','08-04','08-05','08-06','08-07','08-08'],
+              rev:[2140000,980000,3120000,2780000,3460000,2910000,1840000],
+              att:[268,131,301,289,318,296,212], nw:[4,1,6,3,7,5,3], dr:[1,0,2,1,1,2,1], total:17230000},
+    '30d'  : {label:'최근 30일', days:['07-10','07-15','07-20','07-25','07-30','08-04','08-08'],
+              rev:[9800000,11200000,10400000,12800000,13600000,12100000,8900000],
+              att:[1180,1290,1240,1380,1460,1310,980], nw:[18,22,19,26,31,24,17], dr:[6,4,7,5,8,6,4], total:78800000},
+    'q'    : {label:'이번 분기', days:['6월','7월','8월'], rev:[41200000,48600000,17230000],
+              att:[5240,5810,2015], nw:[74,88,31], dr:[22,26,9], total:107030000},
+    'y'    : {label:'2026년', days:['1Q','2Q','3Q'], rev:[118000000,131000000,107030000],
+              att:[15200,16400,13100], nw:[210,246,193], dr:[68,71,55], total:356030000},
+    'custom':{label:'직접 선택', days:['08-01','08-03','08-05','08-08'], rev:[2600000,980000,2780000,1840000],
+              att:[240,131,289,212], nw:[3,1,3,3], dr:[1,0,1,1], total:8200000}
+  };
+
+  var BRIEF = {
+    date:'2026-08-07',
+    text:'안녕하세요, 원장님. 어제(8월 7일) 신규 등록이 5명 있었습니다. 지난주 같은 요일보다 2명 늘어난 수치로, 상담에서 등록으로 이어지는 흐름이 살아나고 있습니다.\n' +
+         '출석률은 68%(1,982/2,914)로 전주 대비 3%p 올랐고, 최근 7일 평가 평균은 4.6점으로 안정적입니다.\n' +
+         '다만 2주 이상 결석한 학생이 46명으로 지난주보다 8명 늘었습니다. 미납도 17건 남아 있습니다.\n' +
+         '오늘은 결석 46명 중 «지난달까지 개근했던 12명»을 먼저 연락해 보시길 권합니다. 이탈 직전 신호일 가능성이 높습니다.\n' +
+         '오늘도 좋은 하루 되세요.',
+    one:'신규 5명·출석 68%(▲3%p) — 다만 <b>2주+ 결석 46명(▲8)</b>. 개근하다 멈춘 12명부터 연락 권합니다.',
+    hist:[
+      {d:'2026-08-06', t:'신규 3명, 출석 65%. 미납 19건 중 8건이 회수됐습니다. 평가 평균 4.5점 유지.'},
+      {d:'2026-08-05', t:'신규 6명으로 이번 주 최고. 출석 71%로 회복. 위험 학생 38명 중 5명이 복귀했습니다.'},
+      {d:'2026-08-04', t:'월요일 출석 74%. 신규 상담 4건 접수, 이 중 2건이 당일 등록으로 이어졌습니다.'}
+    ]
+  };
+
+  var CORE = [
+    {lb:'활동 학생', v:'2,914', sb:'이번 달 신규 +31명', tr:'up', trv:'▲ +4%'},
+    {lb:'이번 달 매출', v:'1,703만원', sb:'결제 214건', tr:'up', trv:'▲ +12%'},
+    {lb:'어제 출석', v:'1,982', sb:'출석률 68% · 전주 ▲3%p', tr:'up', trv:'▲ +3%'},
+    {lb:'평가서 평균', v:'4.6<small>/5</small>', sb:'최근 7일 412건', tr:'fl', trv:'→ 동일'},
+    {lb:'미납 학생', v:'17<small>명</small>', sb:'35일+ 미결제 · 알림 29건 발송', tr:'', trv:'', k:'warnt'},
+    {lb:'2주+ 결석', v:'46', sb:'지난주 38명 · ▲8', tr:'dn', trv:'▲ +8', k:'warnt'},
+    {lb:'신규 등록', v:'5', sb:'어제 · 상담 4건 접수', tr:'up', trv:'▲ +2'},
+    {lb:'이번 달 포인트', v:'86,400<small>P</small>', sb:'사용 51,200P', tr:'', trv:''}
+  ];
+  var REV5 = [
+    {lb:'오늘 매출', v:'184만원', sb:'최근 14일 추이', c:'#f59e0b', d:[21,9,31,27,34,29,18,24,12,30,28,35,29,18]},
+    {lb:'이번 달 매출', v:'1,723만원', sb:'최근 6개월 추이', c:'#ea580c', d:[38,41,36,48,44,17]},
+    {lb:'이번 분기 매출', v:'1억 703만', sb:'최근 6분기 추이', c:'#dc2626', d:[92,101,88,118,131,107]},
+    {lb:'반기 매출', v:'2억 490만', sb:'최근 4반기 추이', c:'#a855f7', d:[188,214,249,205]},
+    {lb:'연간 매출', v:'3억 560만', sb:'최근 5년 추이', c:'#3b82f6', d:[120,186,264,341,356]}
+  ];
+
+  function spark(d,color,w,h){
+    w=w||140;h=h||34;
+    var mx=Math.max.apply(null,d)||1,n=d.length;
+    var pts=d.map(function(v,i){ return (i/(n-1||1)*w).toFixed(1)+','+(h-2-(v/mx)*(h-6)).toFixed(1); }).join(' ');
+    return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" style="display:block">'+
+      '<polygon points="0,'+h+' '+pts+' '+w+','+h+'" fill="'+color+'" opacity=".13"/>'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function bars(labels,vals,color,fmt){
+    var mx=Math.max.apply(null,vals)||1,n=vals.length,bw=Math.min(46,(W/n)*0.62),gap=W/n;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="150" preserveAspectRatio="none" style="display:block">';
+    for(var i=0;i<n;i++){
+      var hh=Math.max(2,(vals[i]/mx)*(H-26)),x=gap*i+(gap-bw)/2;
+      s+='<rect x="'+x.toFixed(1)+'" y="'+(H-18-hh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="3" fill="'+color+'"/>';
+    }
+    return s+'</svg><div style="display:flex;font-size:10px;color:#9ca3af;margin-top:2px">'+
+      labels.map(function(l){return '<div style="flex:1;text-align:center">'+l+'</div>';}).join('')+'</div>'+
+      '<div style="font-size:10.5px;color:#9ca3af;margin-top:4px">최대 '+fmt(mx)+'</div>';
+  }
+  function dualbars(labels,a,b,ca,cb,la,lb){
+    var mx=Math.max(Math.max.apply(null,a),Math.max.apply(null,b))||1,n=a.length,gap=W/n,bw=Math.min(18,gap*0.28);
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="150" preserveAspectRatio="none" style="display:block">';
+    for(var i=0;i<n;i++){
+      var h1=Math.max(2,(a[i]/mx)*(H-26)),h2=Math.max(2,(b[i]/mx)*(H-26)),cx=gap*i+gap/2;
+      s+='<rect x="'+(cx-bw-1)+'" y="'+(H-18-h1)+'" width="'+bw+'" height="'+h1+'" rx="3" fill="'+ca+'"/>'+
+         '<rect x="'+(cx+1)+'" y="'+(H-18-h2)+'" width="'+bw+'" height="'+h2+'" rx="3" fill="'+cb+'"/>';
+    }
+    return s+'</svg><div style="display:flex;font-size:10px;color:#9ca3af;margin-top:2px">'+
+      labels.map(function(l){return '<div style="flex:1;text-align:center">'+l+'</div>';}).join('')+'</div>'+
+      '<div style="font-size:10.5px;margin-top:5px"><span style="color:'+ca+';font-weight:800">■</span> '+la+
+      ' &nbsp; <span style="color:'+cb+';font-weight:800">■</span> '+lb+'</div>';
+  }
+
+  var role='exec', open=false, period='7d', tab='today';
+  var calls=[], loaded={}, briefCached=true, histOpen=false;
+
+  function log(w){ calls.push(w); paintLog(); }
+  function paintLog(){
+    document.getElementById('netlog').textContent=
+      '▶ 지금까지 나간 API 요청: '+calls.length+'건\n'+
+      (calls.length? calls.map(function(c,i){return '  '+(i+1)+'. '+c;}).join('\n') : '  (없음)')+
+      '\n\n※ 지금 코드는 이 화면을 열자마자 무조건 10건을 부릅니다. 브리핑은 카드를 열 때마다 매번 추가로 1건.';
+  }
+  function need(k,l){ if(!loaded[k]){ loaded[k]=1; log(l); } }
+
+  function paintPills(){
+    var items = role==='exec'
+      ? [['신규','5','up'],['어제 출석','68%','up'],['이번 달 매출','1,703만','up'],
+         ['2주+ 결석','46','dn'],['미납','17건',''],['평가 평균','4.6','']]
+      : role==='branch'
+      ? [['우리 지사 매출','412만','up'],['소속 학생','286',''],['어제 출석','31','']]
+      : [['내 수업','6',''],['담당 학생','42',''],['이번 주 평가','8건','']];
+    document.getElementById('pills').innerHTML = items.map(function(p){
+      return '<span class="pill">'+p[0]+' <b>'+p[1]+'</b>'+
+             (p[2]==='up'?' <span class="up">▲</span>':p[2]==='dn'?' <span class="dn">▼</span>':'')+'</span>';
+    }).join('');
+    var b1=document.getElementById('brief1');
+    if(role==='exec'){ b1.hidden=false; b1.innerHTML='🌅 <b>'+BRIEF.date+'</b> · '+BRIEF.one+
+      ' <span style="color:#a1866a;font-size:11px">(저장된 하루치 — 요청 0건)</span>'; }
+    else { b1.hidden=true; }
+  }
+
+  function paintToday(){
+    document.getElementById('bdate').textContent='📅 '+BRIEF.date+' (어제)';
+    document.getElementById('btext').textContent=BRIEF.text;
+    document.getElementById('bsrc').textContent= briefCached
+      ? '💾 오늘 저장해 둔 브리핑을 그대로 씁니다 — 요청 0건'
+      : '🌐 날짜가 바뀌어 새로 받았습니다 — 오늘 1회';
+    document.getElementById('coregrid').innerHTML = CORE.map(function(t){
+      return '<div class="tile '+(t.k||'')+'"><div class="lb">'+t.lb+'</div><div class="vl">'+t.v+'</div>'+
+             '<div class="sb">'+t.sb+'</div>'+(t.tr?'<span class="tr '+t.tr+'">'+t.trv+'</span>':'')+'</div>';
+    }).join('');
+    var d=DATA[period];
+    document.getElementById('sparkTitle').textContent=d.label;
+    document.getElementById('bigspark').innerHTML=bars(d.days,d.rev,'#f59e0b',money);
+  }
+  function paintRev(){
+    document.getElementById('revgrid').innerHTML = REV5.map(function(t){
+      return '<div class="tile"><div class="lb">'+t.lb+'</div>'+
+             '<div class="vl">'+t.v+'</div><div class="sb">'+t.sb+'</div>'+
+             '<div style="margin-top:6px">'+spark(t.d,t.c)+'</div></div>';
+    }).join('');
+    var d=DATA[period];
+    document.getElementById('revchart').innerHTML=bars(d.days,d.rev,'#ea580c',money);
+  }
+  function paintStu(){
+    var d=DATA[period];
+    var nw=d.nw.reduce(function(a,b){return a+b;},0), dr=d.dr.reduce(function(a,b){return a+b;},0);
+    var g=[['활성 학생','2,914',''],['기간 내 신규',num(nw),''],
+           ['기간 내 탈락',num(dr),'warnt'],['순 증가','+'+num(nw-dr),'goodt']];
+    document.getElementById('stugrid').innerHTML=g.map(function(x){
+      return '<div class="tile '+x[2]+'"><div class="lb">'+x[0]+'</div>'+
+             '<div class="vl">'+x[1]+'</div></div>';
+    }).join('');
+    document.getElementById('attchart').innerHTML=bars(d.days,d.att,'#f59e0b',num);
+    document.getElementById('flowchart').innerHTML=dualbars(d.days,d.nw,d.dr,'#3b82f6','#ef4444','신규','탈락');
+  }
+
+  function paintTab(){
+    ['today','rev','stu','ai'].forEach(function(t){ document.getElementById('pane-'+t).hidden=(t!==tab); });
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'),function(b){
+      b.classList.toggle('on', b.dataset.tab===tab);
+    });
+    if(tab==='today'){ need('today:'+period,'GET /api/admin/kpi/dashboard?period='+period+'  → 오늘 탭 (브리핑은 캐시라 요청 없음)'); paintToday(); }
+    if(tab==='rev' ){ need('rev:'+period,'GET /api/admin/stats/revenue?period='+period+'  → 매출 탭'); paintRev(); }
+    if(tab==='stu' ){ need('stu:'+period,'GET /api/admin/stats/attendance+student-flow?period='+period+'  → 학생 탭'); paintStu(); }
+    document.getElementById('rangetot').textContent=money(DATA[period].total)+'원';
+  }
+
+  function applyRole(){
+    var allowed = role==='exec' ? ['today','rev','ai']
+                : role==='branch' ? ['rev']
+                : [];
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'),function(b){
+      b.hidden = allowed.indexOf(b.dataset.tab)<0;
+    });
+    if(allowed.indexOf(tab)<0) tab=allowed[0];
+    document.getElementById('rolehint').innerHTML = role==='exec'
+      ? '탭 4개 모두 보임'
+      : role==='branch'
+      ? '「오늘」·「AI」 숨김 → 「매출」로 자동 이동 (서버도 <code>kpi/dashboard</code>·<code>briefing</code> 를 403 으로 막음)'
+      : '「학생·수업」만 — <b>지금은 브리핑이 강사에게 그대로 열려 있습니다</b>. 합치면 여기서 막힙니다';
+    paintPills(); if(open) paintTab();
+  }
+
+  document.getElementById('msum').onclick=function(e){
+    if(e.target.closest('button')) return;
+    open=!open;
+    document.getElementById('mbody').hidden=!open;
+    document.getElementById('caret').textContent= open?'▲ 접기':'▼ 펼치기';
+    if(open) paintTab();
+  };
+  document.getElementById('roleseg').onclick=function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    Array.prototype.forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+    b.classList.add('on'); role=b.dataset.role;
+    loaded={}; calls=[]; briefCached=true; histOpen=false;
+    document.getElementById('bhistbox').innerHTML='';
+    log('GET /api/admin/kpi/dashboard?period='+period+'  → 접힘 요약 pill (부팅 시 유일한 요청)');
+    loaded['today:'+period]=1;
+    applyRole();
+  };
+  document.getElementById('perseg').onclick=function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    Array.prototype.forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+    b.classList.add('on'); period=b.dataset.p; paintTab();
+  };
+  document.getElementById('tabs').onclick=function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    tab=b.dataset.tab; paintTab();
+  };
+  document.getElementById('bregen').onclick=function(e){
+    e.stopPropagation();
+    if(!confirm('오늘 브리핑을 AI로 다시 만듭니다.\n(Llama 3.3 70B 를 호출하므로 몇 초 걸리고 비용이 발생합니다)\n\n계속할까요?')) return;
+    briefCached=false;
+    log('POST /api/admin/briefing/generate  → 사용자가 «다시 생성»을 확인 (확인 없이는 안 나감)');
+    paintToday();
+  };
+  document.getElementById('bhist').onclick=function(e){
+    e.stopPropagation();
+    histOpen=!histOpen;
+    var box=document.getElementById('bhistbox');
+    if(!histOpen){ box.innerHTML=''; return; }
+    need('hist','GET /api/admin/briefing/latest?limit=7  → 최근 7일 (눌렀을 때만)');
+    box.innerHTML='<div style="margin-top:10px">'+BRIEF.hist.map(function(h){
+      return '<div class="hist"><div class="d">📅 '+h.d+'</div><div class="t">'+h.t+'</div></div>';
+    }).join('')+'</div>';
+  };
+
+  log('GET /api/admin/kpi/dashboard?period='+period+'  → 접힘 요약 pill (부팅 시 유일한 요청)');
+  loaded['today:'+period]=1;
+  applyRole();
+})();
+</script>

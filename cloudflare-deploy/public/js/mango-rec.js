@@ -15,6 +15,16 @@
  
   let isRecording = false;
   let _recStartInFlight = false; // 녹화 초기화(DB insert + R2 create) 진행 중 가드
+  function sendRecordingEndHint(beacon) {
+    if (!recordingId) return;
+    const body = JSON.stringify({ recording_id: recordingId, recording_key: r2Key, finalize_pending: true });
+    try {
+      if (beacon && navigator.sendBeacon && navigator.sendBeacon('/api/recordings/stop',
+          new Blob([body], { type: 'application/json' }))) return;
+    } catch (_) {}
+    fetch('/api/recordings/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body, keepalive: true }).catch(() => {});
+  }
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordingId = null;
@@ -1010,6 +1020,7 @@
       const sendComplete = async () => {
         const res = await fetch('/api/recordings/upload/complete', {
           method: 'POST',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recording_id: recordingId,
@@ -1311,6 +1322,9 @@
     showRecBadge();
     updateRecButton();
     window.addEventListener('beforeunload', onBeforeUnload);
+    } catch (err) {
+      if (recordingId && !isRecording) sendRecordingEndHint(false);
+      throw err;
     } finally {
       // 성공/실패와 무관하게 in-flight 플래그 해제 — 다음 시도가 가능해야 함
       _recStartInFlight = false;
@@ -1323,6 +1337,7 @@
   function stopRecording() {
     if (!isRecording) return Promise.resolve({ success: false, reason: 'not-recording' });
     isRecording = false;
+    sendRecordingEndHint(false);
     if (composeRafId) cancelAnimationFrame(composeRafId);
     if (composeKeepAlive) clearInterval(composeKeepAlive);
     composeKeepAlive = null;
@@ -1503,6 +1518,13 @@
     }
   });
  
+  // pagehide confirms departure; cancelling beforeunload must not mark capture stopped.
+  window.addEventListener('pagehide', (event) => {
+    if (event.persisted) return;
+    sendRecordingEndHint(true);
+    if (isRecording) onBeforeUnload();
+  });
+
   M.startRecording = startRecording;
   M.stopRecording = stopRecording;
 })();
