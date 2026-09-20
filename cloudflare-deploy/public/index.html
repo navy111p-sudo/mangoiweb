@@ -6137,7 +6137,35 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
-      <div class="ai-search-box">
+      <!-- 🎯 [2026-09-20 사장님 결정] 슬로건 + 두 트랙 한 줄 (배치 D1 · 트랙 줄 2안)
+           [왜] 첫 화면에 «화상영어» 도 «A.i 학습» 도 한 글자가 없었다. 검색창이 주인공이라
+                처음 온 학부모는 여기가 무엇을 하는 곳인지 알 수 없었다.
+           ⛔ 「말하는 건 선생님과, 연습은 A.i 와」로 쓰지 말 것 — 역할을 갈라 버려
+              «A.i 로는 말 못 한다»·«선생님은 연습을 안 봐준다» 로 읽힌다. 둘 다 되는 것이 사실이다.
+           ⚠️ 숫자 «9» 는 오늘의 A.i 학습 도구 수(src/today-plan.ts 의 TOOLS)다.
+              도구가 늘면 이 숫자도 함께 고칠 것 — 지금은 손으로 적어 둔 값이다.
+           ⚠️ 마크업·CSS 뿐이라 첫 화면 예산(인라인 script + defer 없는 script src)에 0바이트다. -->
+      <p class="home-slogan"><span data-ko="선생님과도, A.i 와도." data-en="With a teacher. With A.i.">선생님과도, A.i 와도.</span></p>
+      <div class="home-tracks">
+        <div class="ht-track ht-live">
+          <span class="ht-when" data-ko="사람과 · 예약한 시간에" data-en="With a tutor · booked">사람과 · 예약한 시간에</span>
+          <span class="ht-what"><b>1:1</b> <span data-ko="원어민 화상수업" data-en="live lessons">원어민 화상수업</span></span>
+        </div>
+        <div class="ht-track ht-ai">
+          <span class="ht-when" data-ko="혼자서 · 아무 때나" data-en="On your own · anytime">혼자서 · 아무 때나</span>
+          <span class="ht-what"><b>9</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span></span>
+        </div>
+      </div>
+      <!-- 🔍 검색창·바로가기는 «지우지 않고» 접는다.
+           [왜] 이 칸은 검색이 아니라 메뉴로 보내는 AI 라우터다(js/idx-ai-home.js).
+                주소로 가는 19종은 사이드바·전체메뉴에도 있지만, 함수로 여는
+                랭킹·학습목표·3D배틀·음성일기 넷은 **여기가 홈에서 유일한 길**이다.
+                지우면 그 넷이 홈에서 사라진다(2026-09-20 실측).
+           ✅ <details> 라 여닫기에 JS 가 0줄이다 — 첫 화면 예산도 0바이트.
+           ⛔ 이 <details> 를 풀어 다시 펼쳐 두지 말 것. 되돌릴 때는 이 태그만 걷어내면 된다. -->
+      <details class="home-find" id="home-find">
+        <summary><span aria-hidden="true">🔍</span><span data-ko="찾기 · 바로가기" data-en="Find &amp; shortcuts">찾기 · 바로가기</span></summary>
+        <div class="ai-search-box">
         <span class="ai-search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
             <circle cx="11" cy="11" r="7"></circle>
@@ -6191,6 +6219,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
+      </details>
       <script defer src="/js/idx-about.js?v=8"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
@@ -7750,6 +7779,64 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 
     <style>
       /* Phase 8 → 그림자 사각형 박스 완전 제거 — 검색창·CTA가 우주 배경 위에 바로 떠 보이게 */
+      /* 🎯 [2026-09-20] 홈 슬로건 + 두 트랙 한 줄 (배치 D1 · 트랙 줄 2안)
+         ⚠️ font-family 는 반드시 MangoiHanSC 를 맨 앞에 — hanzi_font_harness 가 검사한다.
+         ⚠️ 금색(#fbbf24)은 밑의 CTA 버튼 몫이다. 이 줄이 금색을 쓰면 «지금 누를 것» 이 흐려진다.
+            그래서 트랙 색은 차가운 파랑·보라로 낮춰 배경에 앉혔다. */
+      .home-slogan{
+        margin: 15px auto 0; text-align: center; padding: 0 14px;
+        font-family: MangoiHanSC,'Noto Serif KR','Cormorant Garamond',Georgia,serif;
+        font-weight: 700; font-size: clamp(20px,4.4vw,27px); line-height: 1.34;
+        color: #fff4d6; letter-spacing: -0.01em; text-wrap: balance;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.45);
+      }
+      .home-tracks{
+        display: flex; justify-content: center; align-items: stretch;
+        margin: 12px auto 0; flex-wrap: nowrap;
+      }
+      .home-tracks .ht-track{ padding: 0 18px; text-align: center; min-width: 0; }
+      .home-tracks .ht-track + .ht-track{ border-left: 1px solid rgba(255,255,255,0.3); }
+      .home-tracks .ht-when{
+        display: block; margin-bottom: 4px; white-space: nowrap;
+        font-family: MangoiHanSC,ui-monospace,'SFMono-Regular',Menlo,monospace;
+        font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.45);
+      }
+      /* ⚠️ 라벨은 «흰빛에 가까운» 트랙 색으로 둔다 — 홈 배경이 밝은 사진이라
+         #8fb3ff/#c5a8ff 원색은 그 위에서 읽히지 않는다(2026-09-20 실측).
+         색 구분은 아래 숫자(1:1 / 9)가 맡는다. */
+      .home-tracks .ht-live .ht-when{ color: #cfdcff; }
+      .home-tracks .ht-ai   .ht-when{ color: #e2d5ff; }
+      .home-tracks .ht-what{
+        display: block; white-space: nowrap; letter-spacing: -0.01em;
+        font-size: 14px; font-weight: 600; color: #f2f6ff;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.45);
+      }
+      .home-tracks .ht-what b{
+        font-family: MangoiHanSC,ui-monospace,'SFMono-Regular',Menlo,monospace;
+        font-variant-numeric: tabular-nums; font-weight: 600;
+      }
+      .home-tracks .ht-live .ht-what b{ color: #8fb3ff; }
+      .home-tracks .ht-ai   .ht-what b{ color: #c5a8ff; }
+      @media (max-width:420px){
+        .home-tracks .ht-track{ padding: 0 11px; }
+        .home-tracks .ht-when{ font-size: 9px; letter-spacing: 0.09em; }
+        .home-tracks .ht-what{ font-size: 12px; }
+      }
+      /* 🔍 접힌 검색·바로가기 — 여닫기에 JS 0줄(<details>) */
+      .home-find{ margin: 15px auto 0; text-align: center; }
+      .home-find > summary{
+        display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+        list-style: none; padding: 7px 15px; border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.16); background: rgba(12,20,44,0.5);
+        color: rgba(234,240,252,0.9); font-size: 12.5px; font-weight: 600;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      }
+      .home-find > summary::-webkit-details-marker{ display: none; }
+      .home-find > summary:hover{ color: #fde68a; border-color: rgba(251,191,36,0.42); }
+      .home-find > summary:focus-visible{ outline: 2px solid rgba(251,191,36,0.7); outline-offset: 2px; }
+      .home-find[open] > summary{ margin-bottom: 12px; }
+
       .ai-search-wrap{
         padding: 0 !important;
         background: transparent !important;
