@@ -6142,8 +6142,10 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                 처음 온 학부모는 여기가 무엇을 하는 곳인지 알 수 없었다.
            ⛔ 「말하는 건 선생님과, 연습은 A.i 와」로 쓰지 말 것 — 역할을 갈라 버려
               «A.i 로는 말 못 한다»·«선생님은 연습을 안 봐준다» 로 읽힌다. 둘 다 되는 것이 사실이다.
-           ⚠️ 숫자 «9» 는 오늘의 A.i 학습 도구 수(src/today-plan.ts 의 TOOLS)다.
-              도구가 늘면 이 숫자도 함께 고칠 것 — 지금은 손으로 적어 둔 값이다.
+           ⚠️ 숫자 «8» 은 사이트 정본 표기와 맞춘 값이다 — src/today-plan.ts 의 TOOLS 는
+              항목이 9개지만 그 주석이 「도구 8종 + 단어장」이고, today.html·js/idx-allmenu.js 도
+              전부 「AI 학습도구 8종」이다. ⛔ 여기만 9 로 적지 말 것 — 전체메뉴와 홈이
+              서로 다른 말을 하게 된다. ⚠️ 손으로 적은 값이라 도구가 늘면 네 곳을 함께 고쳐야 한다.
            ⚠️ 마크업·CSS 뿐이라 첫 화면 예산(인라인 script + defer 없는 script src)에 0바이트다. -->
       <p class="home-slogan"><span data-ko="선생님과도, A.i 와도." data-en="With a teacher. With A.i.">선생님과도, A.i 와도.</span></p>
       <div class="home-tracks">
@@ -6153,18 +6155,22 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         </div>
         <div class="ht-track ht-ai">
           <span class="ht-when" data-ko="혼자서 · 아무 때나" data-en="On your own · anytime">혼자서 · 아무 때나</span>
-          <span class="ht-what"><b>9</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span></span>
+          <span class="ht-what"><b>8</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span></span>
         </div>
       </div>
-      <!-- 🔍 검색창·바로가기는 «지우지 않고» 접는다.
+      <!-- 🔍 검색창을 «지우지 않고» 접는다.
            [왜] 이 칸은 검색이 아니라 메뉴로 보내는 AI 라우터다(js/idx-ai-home.js).
-                주소로 가는 19종은 사이드바·전체메뉴에도 있지만, 함수로 여는
-                랭킹·학습목표·3D배틀·음성일기 넷은 **여기가 홈에서 유일한 길**이다.
+                그 라우터가 여는 것 중 주소로 가는 19종은 사이드바·전체메뉴에도 있지만,
+                함수로 여는 랭킹·학습목표·3D배틀·음성일기 넷은 **여기가 홈에서 유일한 길**이다.
                 지우면 그 넷이 홈에서 사라진다(2026-09-20 실측).
+           ⚠️ 안에 들어 있는 .ai-quick(바로가기 12개)은 이 변경 전부터 4792행
+              «.ai-quick{display:none !important}» 으로 이미 안 보인다. 접어도·펼쳐도 그대로다.
+              ⛔ 그래서 summary 라벨에 «바로가기» 를 적지 말 것 — 열어도 안 나오므로 거짓말이다
+              (2026-09-20 실측: 390·768·1280·1920 네 폭 전부 보이는 버튼 0/12).
            ✅ <details> 라 여닫기에 JS 가 0줄이다 — 첫 화면 예산도 0바이트.
            ⛔ 이 <details> 를 풀어 다시 펼쳐 두지 말 것. 되돌릴 때는 이 태그만 걷어내면 된다. -->
       <details class="home-find" id="home-find">
-        <summary><span aria-hidden="true">🔍</span><span data-ko="찾기 · 바로가기" data-en="Find &amp; shortcuts">찾기 · 바로가기</span></summary>
+        <summary><span aria-hidden="true">🔍</span><span data-ko="찾기" data-en="Find">찾기</span></summary>
         <div class="ai-search-box">
         <span class="ai-search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
@@ -7790,9 +7796,24 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         color: #fff4d6; letter-spacing: -0.01em; text-wrap: balance;
         text-shadow: 0 2px 10px rgba(0,0,0,0.45);
       }
+      /* 🔴 [2026-09-20] 가림막(scrim)은 장식이 아니라 «읽히게 하는 유일한 방법» 이다.
+         [쟰 것 — 2026-09-20, 390×844 · body.home-bright · 글자를 color:transparent 로 지우고
+          스크린샷 픽셀을 읽어 합성] 이 줄 밑 배경 사진이 **왼쪽은 밝고(rgb 154,168,179)
+          오른쪽은 어둡습니다(rgb 43,51,53)**. 그래서 가림막 없이는 글자색을 어떻게 골라도
+          한쪽이 반드시 미달입니다 — 실측으로 「1:1」 1.17 · 「사람과·예약한 시간에」 2.28 ·
+          「원어민 화상수업」 2.91 · 「9」 3.94 (전부 4.5 미달).
+         ⛔ «라벨을 흰빛으로 올리고 색 구분은 숫자가 맡게» 로 풀려 하지 마세요 — 한 번
+            그렇게 고쳐 놓고 «고쳤다» 고 적었는데, 정작 그 숫자가 제일 안 읽혔습니다.
+         ⛔ text-shadow 로 메꾸려 하지도 마세요 — WCAG 산식은 그 도움을 안 셉니다(둘 다 둡니다).
+         ✅ 판정은 CSS 를 읽어서가 아니라 **픽셀을 찍어** 하세요. 같은 파일의 #home-find > summary 가
+            이미 같은 수법(어두운 반투명 알약)으로 통과하고 있었습니다. */
       .home-tracks{
         display: flex; justify-content: center; align-items: stretch;
         margin: 12px auto 0; flex-wrap: nowrap;
+        width: fit-content; max-width: calc(100% - 20px);
+        padding: 8px 4px; border-radius: 14px;
+        background: rgba(9, 14, 32, 0.72);
+        border: 1px solid rgba(255,255,255,0.12);
       }
       .home-tracks .ht-track{ padding: 0 18px; text-align: center; min-width: 0; }
       .home-tracks .ht-track + .ht-track{ border-left: 1px solid rgba(255,255,255,0.3); }
@@ -7802,9 +7823,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
         text-shadow: 0 1px 4px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.45);
       }
-      /* ⚠️ 라벨은 «흰빛에 가까운» 트랙 색으로 둔다 — 홈 배경이 밝은 사진이라
-         #8fb3ff/#c5a8ff 원색은 그 위에서 읽히지 않는다(2026-09-20 실측).
-         색 구분은 아래 숫자(1:1 / 9)가 맡는다. */
+      /* ⚠️ 라벨은 «흰빛에 가까운» 트랙 색으로 둔다. 트랙별 색 구분은 숫자(1:1 / 8)가 맡고,
+         «읽히게 하는» 일은 위의 가림막이 맡는다 — 둘을 헷갈리지 말 것.
+         ⛔ 여기서 색만 다시 고쳐 대비를 맞추려 하면 배경이 좌우로 갈려 한쪽이 반드시 깨진다. */
       .home-tracks .ht-live .ht-when{ color: #cfdcff; }
       .home-tracks .ht-ai   .ht-when{ color: #e2d5ff; }
       .home-tracks .ht-what{
