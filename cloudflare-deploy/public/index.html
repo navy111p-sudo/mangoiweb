@@ -6018,10 +6018,22 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           <span class="ht-when" data-ko="사람과 · 예약한 시간에" data-en="With a tutor · booked">사람과 · 예약한 시간에</span>
           <span class="ht-what"><b>1:1</b> <span data-ko="원어민 화상수업" data-en="live lessons">원어민 화상수업</span></span>
         </div>
-        <div class="ht-track ht-ai">
+        <!-- 🎯 [2026-09-20 사장님 「2번은 A.i와 친구하기가 모두 나오게 해줘 · 이 페이지가 나오게 해줘」]
+             2번 트랙을 누르면 「AI와 친구하기」 목록이 그 자리에서 열린다(window.openAiFriendsOverlay).
+             ⛔ 이 <a> 에 data-ko/data-en 을 달지 말 것 — 두 i18n 엔진이 [data-ko] 요소의
+                textContent 를 «통째로» 갈아끼워 안쪽 두 줄이 DOM 에서 사라진다
+                (CLAUDE.md 2장 「아이콘 버튼에 달았더니 문장이 그 자리에 들어앉음」).
+                설명은 data-ko-aria/data-en-aria 로만 단다 — 그 둘은 aria-label 만 건드린다.
+             ✅ href 는 «폴백» 이다 — JS 가 아직 안 붙었으면 그 주소로 가고, 그 자리에서
+                ?menu=aitools 핸들러가 같은 목록을 연다. ⛔ href="#" 로 두지 말 것
+                (무반응 = 「버튼이 고장났다」 — CLAUDE.md 2장 「보이는데 안 되는 버튼」).
+             ✅ › 는 data-ko 가 달린 span 의 «형제» 다 — 자식으로 넣으면 🌐 한 번에 사라진다. -->
+        <a class="ht-track ht-ai" href="/?menu=aitools"
+           aria-label="AI와 친구하기 목록 열기" data-ko-aria="AI와 친구하기 목록 열기" data-en-aria="Open the Play-with-AI list"
+           onclick="if(window.openAiFriendsOverlay){event.preventDefault();window.openAiFriendsOverlay();return false;}">
           <span class="ht-when" data-ko="혼자서 · 아무 때나" data-en="On your own · anytime">혼자서 · 아무 때나</span>
-          <span class="ht-what"><b>8</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span></span>
-        </div>
+          <span class="ht-what"><b>8</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span><i class="ht-go" aria-hidden="true">&rsaquo;</i></span>
+        </a>
       </div>
     </div>
     <style>
@@ -7839,6 +7851,20 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       }
       .home-tracks .ht-live .ht-what b{ color: #8fb3ff; }
       .home-tracks .ht-ai   .ht-what b{ color: #c5a8ff; }
+      /* 🎯 [2026-09-20] 2번 트랙은 «누를 수 있는 것» 이다 — 그 사실을 화면이 말해야 한다.
+         ⛔ 금색(#fbbf24)을 쓰지 말 것 — 그건 밑의 CTA 버튼 몫이고, 여기서 쓰면
+            «지금 누를 것» 이 둘로 갈린다(바로 위 주석과 같은 이유). 트랙 색(보라)을 그대로 쓴다.
+         ⚠️ 가림막 위에 얹는 밝힘이라 대비는 오히려 올라간다 — 낮추는 방향이 아니다. */
+      .home-tracks a.ht-track{
+        display: block; text-decoration: none; color: inherit; cursor: pointer;
+        border-radius: 10px; transition: background .15s;
+      }
+      .home-tracks a.ht-track:hover{ background: rgba(197,168,255,.14); }
+      .home-tracks a.ht-track:focus-visible{
+        background: rgba(197,168,255,.14);
+        outline: 2px solid #c5a8ff; outline-offset: -2px;
+      }
+      .home-tracks .ht-go{ font-style: normal; margin-left: 5px; color: #c5a8ff; font-weight: 700; }
       @media (max-width:420px){
         .home-tracks .ht-track{ padding: 0 11px; }
         .home-tracks .ht-when{ font-size: 9px; letter-spacing: 0.09em; }
