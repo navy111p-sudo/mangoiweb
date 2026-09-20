@@ -1,4 +1,4 @@
-/* Authored targets for the existing, reviewed writing-scene media. No AI grading. */
+/* Authored targets for dedicated Higgsfield photoreal scenes. No AI grading. */
 (function(root){
   'use strict';
   var rows = [
@@ -8,7 +8,7 @@
     ['ocean','바닷속 탐험','Under the sea','adventure','잠수 장비를 착용한 사람','the person wearing diving equipment','diver|a diver|the diver','waving|wave|waving a hand','The diver is waving.|A diver is waving.|The diver waves.'],
     ['birthday-action','생일 파티','Birthday party','everyday','케이크 위에 있는 것','the things on the cake','candles|candle|the candles','blowing out the candles|blow out the candles|blowing out candles','A boy is blowing out the candles.|The boy is blowing out the candles.|He is blowing out the candles.'],
     ['cooking-action','꼬마 요리사','Little chefs','everyday','아이가 젓고 있는 반죽','the mixture the boy is stirring','batter|the batter','stirring the batter|stir the batter|stirring batter','A boy is stirring the batter.|The boy is stirring the batter.|He is stirring the batter.'],
-    ['library','비밀 도서관','Secret library','everyday','아이가 읽고 있는 것','the thing the child is reading','book|a book|the book','reading a book|read a book|reading the book','The child is reading a book.|A child is reading a book.|The boy is reading a book.|The girl is reading a book.'],
+    ['library','비밀 도서관','Secret library','everyday','아이가 읽고 있는 것','the thing the child is reading','book|a book|the book','reading a book|read a book|reading the book','The child is reading a book.|A child is reading a book.|The girl is reading a book.'],
     ['soccer','결승전의 순간','Match point','everyday','선수가 발로 차는 것','the thing the player kicks','ball|a ball|the ball|soccer ball|football','kicking the ball|kick the ball|kicking a ball','The player is kicking the ball.|A player is kicking the ball.|The player kicks the ball.'],
     ['beach','모래성 해변','Sandcastle beach','nature','아이들이 모래로 만드는 것','the thing the children build with sand','sandcastle|a sandcastle|sand castle|a sand castle','building a sandcastle|build a sandcastle|building a sand castle','The children are building a sandcastle.|The kids are building a sandcastle.|They are building a sandcastle.'],
     ['zoo','동물원 친구','Zoo friends','nature','사육사가 먹이를 주는 동물','the animal the keeper feeds','giraffe|a giraffe|the giraffe','feeding the giraffe|feed the giraffe|feeding a giraffe','The keeper is feeding the giraffe.|A keeper is feeding the giraffe.|The zookeeper is feeding the giraffe.'],
@@ -16,7 +16,7 @@
     ['snow','눈의 왕국','Snow kingdom','nature','아이들이 눈으로 만드는 것','the thing the children build with snow','snowman|a snowman|the snowman','building a snowman|build a snowman|making a snowman','The children are building a snowman.|The kids are building a snowman.|They are building a snowman.|The children are making a snowman.']
   ];
   var actions = {space:['손을 흔들어 인사해요.','Move a hand to say hello.'],castle:['마법 지팡이를 흔들어요.','Move a magic wand.'],jungle:['원숭이를 손으로 가리켜요.','Show where the monkey is with a finger.'],ocean:['손을 흔들어 인사해요.','Move a hand to say hello.'],'birthday-action':['촛불을 불어 꺼요.','Use a breath to put out the candles.'],'cooking-action':['반죽을 저어요.','Mix the batter with a spoon.'],library:['책을 읽어요.','Look at the words in a book.'],soccer:['공을 발로 차요.','Hit the ball with a foot.'],beach:['모래성을 만들어요.','Make a castle with sand.'],zoo:['기린에게 먹이를 줘요.','Give food to the giraffe.'],farm:['닭들에게 먹이를 줘요.','Give food to the chickens.'],snow:['눈사람을 만들어요.','Make a person with snow.']};
-  var scenes = rows.map(function(r){return {id:r[0],ko:r[1],en:r[2],world:r[3],actionKo:actions[r[0]][0],actionEn:actions[r[0]][1],clueKo:r[4],clueEn:r[5],answers:r.slice(6).map(function(a){return a.split('|');}),poster:'/img/write-scenes/'+r[0]+'-motion.webp',video:'/videos/write-scenes/'+r[0]+'.mp4'};});
+  var scenes = rows.map(function(r){return {id:r[0],ko:r[1],en:r[2],world:r[3],actionKo:actions[r[0]][0],actionEn:actions[r[0]][1],clueKo:r[4],clueEn:r[5],answers:r.slice(6).map(function(a){return a.split('|');}),poster:'/img/scene-quest/'+r[0]+'.webp',video:'/videos/scene-quest/'+r[0]+'.mp4'};});
   function normalize(s){return String(s||'').normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(he|she|it)'s\b/g,'$1 is').replace(/\b(they|we)'re\b/g,'$1 are').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
   function distance(a,b){var prev=Array.from({length:b.length+1},function(_,i){return i;});for(var i=1;i<=a.length;i++){var next=[i];for(var j=1;j<=b.length;j++)next[j]=Math.min(next[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=next;}return prev[b.length];}
   function check(value,scene,level){

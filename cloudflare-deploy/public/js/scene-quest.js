@@ -19,7 +19,7 @@
     text('question',r.level===0?tr('무엇이 보이나요?','What can you see?'):r.level===1?tr('어떤 행동을 하나요?','What action can you see?'):tr('장면을 한 문장으로 써 보세요.','Describe the action in a sentence.'));
     text('clue',r.level===0?tr('찾을 단서: ','Look for: ')+r.scene[ui==='ko'?'clueKo':'clueEn']:tr('동영상을 보고 중심 인물의 행동을 써 보세요.','Watch the clip and describe the main action.'));
     $('answer').placeholder=r.level===0?tr('단어를 써 보세요…','Type a word…'):r.level===1?tr('행동을 짧은 구문으로…','Type an action phrase…'):tr('누가 무엇을 하고 있나요?','Who is doing what?');
-    text('media-tag',tr('그림 + 동영상','PICTURE + CLIP'));
+    text('media-tag',tr('실사 스타일 · 6초 영상','PHOTOREAL · 6-SECOND CLIP'));
     text('gate-title',r.boss?tr('마지막 도전! 배운 장면을 더 길게 써 봐요.','Final challenge! Say more about a familiar scene.'):tr('보물문 열쇠 ','Treasure keys ')+Math.min(index,4)+' / 4');
     text('gate-copy',tr('힌트를 써도 끝까지 갈 수 있어요. 연속 정답은 보너스!','Hints help you finish. Consecutive answers earn a bonus!'));
     if(passed){text('gate-title',model());text('gate-copy',tr('정답을 듣거나 다음 장면으로 이동하세요.','Listen to the answer or continue to the next scene.'));}
