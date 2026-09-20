@@ -7863,6 +7863,20 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       .home-tracks a.ht-track{
         display: block; text-decoration: none; color: inherit; cursor: pointer;
         border-radius: 10px; transition: background .15s;
+        position: relative;   /* ↓ 손가락 표적을 넓히는 ::after 의 기준 */
+      }
+      /* 👆 [2026-09-20] 손가락 표적만 넓힌다 — «보이는 것» 은 한 픽셀도 안 바뀐다.
+         [쟬 것 — 2026-09-20] 이 트랙의 실제 높이는 360·390px 에서 34px, 430px 이상 36px 이라
+         WCAG 2.2 AA(24×24)는 넘지만 Apple 44 · Android 48 권장에는 모자랍니다.
+         ⛔ 그렇다고 padding·높이를 키우지 마세요 — 히어로 줄 높이가 함께 바뀌는데
+            그 배치는 바로 전날 사장님이 시안을 보고 고르신 것입니다(⛔ 말없이 바꾸지 말 것).
+         ✅ 절대배치 가상요소는 «흐름 밖» 이라 레이아웃에 0바이트·0픽셀로 얹힙니다.
+            위아래 5px 씩 = 34 → 44px. 좌우는 0 — 옆 트랙(1번)을 침범하지 않습니다.
+         ⚠️ 늘어난 만큼은 `.home-tracks` 의 padding(위아래 8px) 안이라 알약 밖으로 안 나갑니다.
+         ⚠️ 투명이라 «보이는가» 로는 확인할 수 없습니다 — `elementFromPoint` 로
+            «트랙 위 3px 을 찍어도 이 <a> 인가» 를 재세요(브라우저 하니스 ①-b). */
+      .home-tracks a.ht-track::after{
+        content: ''; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px;
       }
       .home-tracks a.ht-track:hover{ background: rgba(197,168,255,.14); }
       .home-tracks a.ht-track:focus-visible{

@@ -90,6 +90,37 @@ try {
   ok('아무도 안 덮는다 (맨 위가 자기 자신)', m.inside, m.topTag);
   ok('› 표시가 그려진다', m.chev.trim() === '›', JSON.stringify(m.chev));
 
+  /* ①-b 손가락 표적 — «보이는 크기» 와 «누를 수 있는 크기» 는 다른 값입니다.
+     투명한 ::after 로 넓혀 두었으므로 «보이는가» 로는 원리상 확인할 수 없습니다.
+     ⛔ 「44px 로 키웠다」로 읽지 마세요 — 상자는 34px 그대로이고 표적만 넓습니다. */
+  const hit = await ev(`(function(){
+    var a=document.querySelector('.home-tracks .ht-ai'), b=document.querySelector('.home-tracks .ht-live');
+    function rect(el){var r=el.getBoundingClientRect();return {t:Math.round(r.top),h:Math.round(r.height),l:Math.round(r.left),w:Math.round(r.width)};}
+    var on={a:rect(a),b:rect(b)};
+    var st=document.createElement('style');
+    st.textContent='.home-tracks a.ht-track::after{content:none!important}';
+    document.head.appendChild(st);
+    var off={a:rect(a),b:rect(b)};
+    st.remove();
+    var ra=a.getBoundingClientRect();
+    function hitAt(y){var el=document.elementFromPoint(ra.left+ra.width/2, y);return !!(el && (el===a || a.contains(el)));}
+    var top=ra.top, bot=ra.bottom, y;
+    for(y=Math.round(ra.top); y>Math.round(ra.top)-14; y--){ if(hitAt(y)) top=y; else break; }
+    for(y=Math.round(ra.bottom); y<Math.round(ra.bottom)+14; y++){ if(hitAt(y)) bot=y; else break; }
+    var rb=b.getBoundingClientRect();
+    var mid=document.elementFromPoint(rb.left+rb.width/2, rb.top+rb.height/2);
+    return {sameLayout: JSON.stringify(on)===JSON.stringify(off), on:on, off:off,
+      hitH:Math.round(bot-top), boxH:Math.round(ra.height),
+      liveIntact: !!(mid && b.contains(mid)), liveTag: mid?mid.tagName+'.'+(mid.className||''):'null'};
+  })()`);
+  ok('전제: 보이는 상자는 여전히 작다 (44px 로 «키운» 게 아니다)', hit.boxH > 0 && hit.boxH < 40, hit.boxH + 'px');
+  ok('손가락 표적이 44px 이상', hit.hitH >= 44, `상자 ${hit.boxH}px → 표적 ${hit.hitH}px`);
+  ok('짝: 그런데 레이아웃은 «한 픽셀도» 안 바뀐다', hit.sameLayout === true, JSON.stringify({ on: hit.on, off: hit.off }));
+  /* ⚠️ 이 줄은 «가운데» 만 봅니다 — 좌우로 몇 px 넓히는 변이는 여기서 안 걸립니다
+     (실측: left/right 를 -6px 로 열어도 ❌ 0건). 그쪽은 자동 하니스 ④절이
+     «좌우가 0인가» 로 봅니다 — 둘이 짝입니다. */
+  ok('짝: 넓힌 표적이 옆 트랙(1번)을 침범하지 않는다', hit.liveIntact === true, hit.liveTag);
+
   /* ── ② 누르면 그 페이지가 열린다 ──────────────────────────────── */
   console.log('\n② 눌러 보면 「AI와 친구하기」가 열린다');
   ok('전제: 누르기 «전» 에는 목록이 없다', (await ev(`!!document.getElementById('ai-friends-ov')`)) === false);

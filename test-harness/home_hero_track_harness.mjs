@@ -120,6 +120,17 @@ if (cssA) {
   ok('밑줄·링크색을 지운다', /text-decoration:\s*none/.test(cssA[1]) && /color:\s*inherit/.test(cssA[1]));
 }
 ok('키보드 초점 표시가 있다', /\.home-tracks a\.ht-track:focus-visible\{/.test(src));
+/* 손가락 표적을 «레이아웃을 안 바꾸고» 넓히는 자리 — 절대배치 가상요소라야 합니다.
+   ⛔ padding·height 로 키우면 히어로 줄 높이가 함께 바뀝니다(사장님이 고른 배치). */
+const hitCss = /\.home-tracks a\.ht-track::after\{([\s\S]*?)\}/.exec(src);
+ok('손가락 표적을 넓히는 ::after 가 있다', !!hitCss);
+if (hitCss) {
+  ok('그 ::after 는 «흐름 밖» 이다 (position:absolute)', /position:\s*absolute/.test(hitCss[1]), hitCss[1]);
+  ok('위아래로만 넓힌다 (좌우 0 — 옆 트랙 침범 금지)',
+    /left:\s*0/.test(hitCss[1]) && /right:\s*0/.test(hitCss[1]) && /top:\s*-\d/.test(hitCss[1]) && /bottom:\s*-\d/.test(hitCss[1]), hitCss[1]);
+  ok('짝: 그 기준이 되는 position:relative 가 <a> 에 있다',
+    !!cssA && /position:\s*relative/.test(cssA[1]));
+}
 // ⛔ 금색은 밑의 CTA 몫 — 트랙이 금색을 쓰면 «지금 누를 것» 이 둘로 갈린다.
 const goCss = /\.home-tracks \.ht-go\{([^}]*)\}/.exec(src);
 ok('› 색이 CTA 금색(#fbbf24)이 아니다', !!goCss && !/#fbbf24/i.test(goCss[1]), goCss ? goCss[1] : 'none');
