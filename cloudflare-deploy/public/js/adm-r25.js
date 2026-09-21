@@ -587,8 +587,21 @@
     if (target.tagName === 'DETAILS'){
       target.open = true;
       var par = target.parentElement;
+      /* 🔴 (2026-09-18 v=24 — trap-check 실측으로 발견) 이 형제 자동닫기는 예전부터 있었지만
+         admin-inline-c.css v=81 이전에는 <details>{display:block!important} 가 open 속성과
+         무관하게 늘 펴서 그려서 «닫아도 안 보이지 않는» 상태라 무해했다. v=81 로 native
+         open/closed 를 실제로 존중하게 되돌리자 이 줄이 처음으로 «진짜로 닫는» 일을 하게
+         됐고, 그 결과 회계 「배정 못 한 결제/B2B/지출분류」 3형제(acc-payer-box·acc-b2b-box·
+         acc-payee-box, 전부 class="sub-item")를 사이드바 손자로 하나 열 때마다 나머지 둘이
+         닫혔다 — admin.html 이 그 셋에 open 속성을 남겨 «동시 열람»을 예외로 지켜 두려던
+         것과 정반대로 깨졌다(실측: window.ph125Jump 로 하나를 열면 둘이 자동으로 닫힘).
+         ⛔ 이 자동닫기 자체를 지우지 않는다 — 등록 폼/엑셀 일괄 등록처럼 «하나만 보여야
+         하는» 형제 쌍에는 그대로 필요하다(admin-inline-c.css 3138행 주석 참고).
+         ✅ 그래서 «동시에 열려 있어야 한다»고 admin.html 이 표시해 둔 요소만 예외로 둔다 —
+         data-keep-open 속성이 있으면 건너뛴다(acc-payer-box·acc-b2b-box·acc-payee-box 셋에
+         붙여 뒀다). 새로 «동시 열람» 예외를 만들 때는 그 요소에 이 속성을 붙이면 된다. */
       if (par) [].forEach.call(par.children, function(x){
-        if (x !== target && x.tagName === 'DETAILS' && x.classList.contains('sub-item')) x.open = false;
+        if (x !== target && x.tagName === 'DETAILS' && x.classList.contains('sub-item') && !x.hasAttribute('data-keep-open')) x.open = false;
       });
     }
     /* 🪤 (2026-08-18 main) <details> 조상만 펴는 것으로는 모자란다.
