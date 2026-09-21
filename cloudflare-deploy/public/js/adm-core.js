@@ -8424,8 +8424,16 @@ function _enDurNote(tr) {
   const box = tr.querySelector('.en-row-dur-note');
   if (!box) return;
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
-  const dur = (tr.querySelector('.en-row-duration')?.value || '');
-  const start = (tr.querySelector('.en-row-start')?.value || '');
+  const durEl = tr.querySelector('.en-row-duration');
+  const startEl = tr.querySelector('.en-row-start');
+  const dur = (durEl?.value || '');
+  const start = (startEl?.value || '');
+  /* 🔴 (2026-09-21) ⑤⑥ 검증 실패 때 두 칸에 빨간 테두리를 준다(위 addEnrollment 참고).
+     그런데 그 테두리를 «지우는» 코드가 어디에도 없어서, 값을 채워도 빨간 테두리가
+     세션 내내 그대로 남았다 — 이제 테두리가 실제로 보이니(setProperty 로 !important 걸어
+     이겼다) 이 방치가 눈에 띈다. 값이 채워진 칸만 지운다(둘 중 하나만 고쳤을 수 있다). */
+  if (dur && durEl) durEl.style.removeProperty('border-color');
+  if (start && startEl) startEl.style.removeProperty('border-color');
   if (!dur) { box.textContent = en ? 'Required' : '필수 선택'; box.style.color = '#b45309'; return; }
   box.style.color = '#9ca3af';
   if (dur === 'unlimited') { box.textContent = en ? 'No end date' : '종료일 없음'; return; }
@@ -9309,7 +9317,11 @@ async function addEnrollment() {
       ? 'Please pick ⑤ Start date — ' + noStart.length + ' row(s) missing.'
       : '⑤ 시작일을 선택해 주세요 — ' + noStart.length + '건 미선택');
     const firstEmptyStart = Array.from(document.querySelectorAll('.en-row-start')).find(s => !s.value);
-    if (firstEmptyStart) { firstEmptyStart.focus(); firstEmptyStart.style.borderColor = '#ef4444'; }
+    /* 🔴 (2026-09-21) style.borderColor= 는 «작성자 !important» 규칙에 진다 — 이 칸은
+       [id^="card-"] input 계열에 !important 테두리색이 여러 겹 걸려 있어(관리자 화면
+       공통 규칙, admin-inline-c.css 특이성 꼬리) 빨간 테두리를 줘도 안 보였다.
+       setProperty(…, 'important') 로 인라인도 !important 를 걸어야 이긴다. */
+    if (firstEmptyStart) { firstEmptyStart.focus(); firstEmptyStart.style.setProperty('border-color', '#ef4444', 'important'); }
     return;
   }
   // 🗓️ (2026-08-14) ⑥ 수업 기간 미선택 — 기본값을 몰래 넣지 않고 사람에게 돌려준다.
@@ -9320,7 +9332,8 @@ async function addEnrollment() {
       ? 'Please pick ⑥ Class period (1/3/6/12 months or unlimited) — ' + noDur.length + ' row(s) missing.'
       : '⑥ 수업 기간을 선택해 주세요 (1·3·6·12개월 또는 무기한) — ' + noDur.length + '건 미선택');
     const firstEmpty = Array.from(document.querySelectorAll('.en-row-duration')).find(s => !s.value);
-    if (firstEmpty) { firstEmpty.focus(); firstEmpty.style.borderColor = '#ef4444'; }
+    // 🔴 (2026-09-21) 위 ⑤ 시작일과 같은 이유 — setProperty(…, 'important') 로 걸어야 보인다.
+    if (firstEmpty) { firstEmpty.focus(); firstEmpty.style.setProperty('border-color', '#ef4444', 'important'); }
     return;
   }
   // N=1 이면 단일 등록 + Phase 22 자동 export, N>1 이면 일괄 등록
