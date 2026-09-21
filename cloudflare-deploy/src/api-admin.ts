@@ -9332,14 +9332,14 @@ LIMIT $limit`;
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
-      /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 십는다.
+      /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 싣는다.
          2026-09-15 에 그 칸을 만들 때 erp-list 에만 실었는데, 학생 명부 표가 실제로
          부르는 것은 이쪽(unified)이라 **도입 이래 한 번도 값이 안 닿아** 늘 «—» 였다
          (사장님 제보 jeong — 활성 5건인데 «—»). 화면 쪽 매핑(adm-core.js apiItems)에도
          sched 를 옮기는 줄이 없어 **두 겹**으로 빠져 있었다 — 둘 다 고쳐야 닿는다.
          ⚠️ 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)을 이 값으로 «채우지» 않는다 —
-            뜻이 다르고 그쪽은 카페이십사가 정본이다(정본 머릿말 참고).
-         ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뚜다(fail-open). */
+            뜻이 다르고 그쪽은 카페24가 정본이다(정본 머리말 참고).
+         ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
       const _schedMap = await loadSchedSummaryMap(env as any);
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };

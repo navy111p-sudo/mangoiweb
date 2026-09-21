@@ -44,6 +44,23 @@ const braceBlock = (s, from) => {
   return '';
 };
 
+/** 부정 검사(«이 글자가 없어야 한다»)용 — 주석을 벗긴 사본.
+ *  ⛔ 안 벗기면 「⛔ … 하지 말 것」 이라고 적은 내 주석을 검사가 잡는다(CLAUDE.md 2장).
+ *  ⚠️ 문자열 안의 `https://` 가 잘리지 않게 «문자열 안인가» 도 함께 좇는다. */
+const stripComments = (src) => {
+  let out = '', i = 0, q = '';
+  while (i < src.length) {
+    const c = src[i], n = src[i + 1];
+    if (q) { if (c === '\\') { out += c + (n || ''); i += 2; continue; }
+             if (c === q) q = ''; out += c; i++; continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; out += c; i++; continue; }
+    if (c === '/' && n === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 2; out += ' '; continue; }
+    if (c === '/' && n === '/') { const e = src.indexOf('\n', i); i = e < 0 ? src.length : e; out += ' '; continue; }
+    out += c; i++;
+  }
+  return out;
+};
+
 const RUN_ESBUILD = (esbuildPath, args, opts) => (process.platform === 'win32'
   ? execFileSync(process.execPath, [esbuildPath, ...args], opts)
   : execFileSync(esbuildPath, args, opts));
@@ -172,8 +189,10 @@ ok('그 답(_oi.past)으로 «지난 수업» 칩을 만든다', /_oi\.past\s*\n
 ok('두 칩이 실제로 HTML 에 붙는다', /\+\s*_onceChip\s*\+\s*_pastChip/.test(stuRender));
 ok('EN/KO 를 함께 낸다', /_lang === 'en'/.test(stuRender));
 // ⛔ 날짜를 두 곳에서 재면 조용히 어긋난다
+/* ⚠️ 부정 검사라 «주석을 벗긴» 사본으로 판정한다 — 바로 위에 내가
+   「⛔ 여기서 날짜를 다시 재지 말 것」 이라고 적어 두었기 때문이다. */
 ok('렌더가 날짜를 다시 재지 않는다(정본은 mgsOnceInfo 한 곳)',
-  !/new Date\(\)\s*[<>]/.test(stuRender));
+  !/new Date\(\)\s*[<>]/.test(stripComments(stuRender)));
 
 /* ══════════════════════════════════════════════════════════════
    ① 학생 명부 «예약» 칸 — 값이 화면까지 닿는가
@@ -189,13 +208,23 @@ ok('그 값을 학생마다 sched 로 넣는다', /\.sched\s*=/.test(uniBlock));
 ok('넣는 자리가 응답을 만들기 «전» 이다',
   uniBlock.indexOf('.sched =') > 0 && uniBlock.indexOf('.sched =') < uniBlock.lastIndexOf('return json('));
 // ⛔ 짝 — erp-list 쪽을 대신 지우는 «수리» 를 막는다
-const erpI = ADMIN.indexOf("erp-list") >= 0 ? -1 : -1;   // erp-list 는 api-mango.ts 에 있다
-const erpBlock = MANGO.slice(MANGO.indexOf("students/erp-list"), MANGO.indexOf("students/erp-list") + 4000);
+/* ⛔ 검사 범위를 «길이» 로 자르지 않는다 — 4000자 창은 여유가 104자뿐이라
+   무해한 주석 133자만 들어와도 거짓 FAIL 이 났다(2026-09-21 함정 대조 실측).
+   라우트 블록을 중괄호 짝으로 자른다(CLAUDE.md 2장). */
+const erpI = MANGO.indexOf("students/erp-list");
+const erpBlock = erpI >= 0 ? braceBlock(MANGO, erpI) : '';
+ok('[전제] erp-list 라우트 블록을 오려 냈다', erpBlock.length > 500);
 ok('[짝] erp-list 도 여전히 그 값을 싣는다',
   /loadSchedSummaryMap\s*\(/.test(erpBlock) && /\.sched\s*=/.test(erpBlock));
 // 정본은 한 곳 — 라벨 문장을 서버·화면이 따로 만들면 반드시 어긋난다
+/* ⚠️ 부정 검사를 «파일 전체» 에 걸지 않는다 — 무관한 코드가 걸려 거짓 FAIL 이 난다.
+   예약 칸을 그리는 «그 자리»(_schedTd)만 잘라서 주석을 벗기고 본다. */
+const CORE_FOR_NEG = rd('cloudflare-deploy/public/js/adm-core.js');
+const tdNegI = CORE_FOR_NEG.indexOf('const _schedTd = (s) =>');
+const tdNeg = tdNegI >= 0 ? stripComments(braceBlock(CORE_FOR_NEG, tdNegI)) : '';
+ok('[전제] 예약 칸 렌더를 부정 검사용으로 오려 냈다', tdNeg.length > 80);
 ok('«주 N회» 문장을 서버 밖에서 조립하지 않는다',
-  !/'주 '\s*\+\s*\w*[Ww]eekly/.test(rd('cloudflare-deploy/public/js/adm-core.js')));
+  !/'주 '\s*\+/.test(tdNeg) && !/[Ww]eekly/.test(tdNeg));
 
 // 화면 매핑 — 객체를 «실제로 평가» 해 sched 가 옮겨지는지 답으로 본다
 const CORE = rd('cloudflare-deploy/public/js/adm-core.js');
