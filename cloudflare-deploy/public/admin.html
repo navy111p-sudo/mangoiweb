@@ -13461,8 +13461,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      동작한다(120ms 뒤에도 열려 있으면 닫는다).
      ⚠️ 반드시 pointerdown 이다. click 으로 걸면 ph97 이 window 캡처에서
         stopPropagation 을 하기 때문에 document 까지 내려오지 못한다 — 2026-06 부터
-        이 자리의 자동닫기가 한 번도 실행되지 않은 이유가 바로 그것이었다(실측 확인). */
+        이 자리의 자동닫기가 한 번도 실행되지 않은 이유가 바로 그것이었다(실측 확인).
+     🩹 (2026-09-21 사장님 「스크롤중인데 자꾸 닫힌다」) pointerdown 은 «누른 순간» 이라
+        목록을 손가락으로 내리는(스크롤하는) 시작점에서도 똑같이 찍힌다. 예전엔 그 순간
+        바로 120ms 뒤 닫기를 걸어서, 스크롤하려고 짚은 손가락이 메뉴 항목 위였으면
+        스크롤 도중에 드로어가 닫혀 버렸다. adm-s11.js(ph97)가 자기 클릭 핸들러에서 이미
+        쓰는 것과 같은 방식(dx/dy 12px 초과 = 드래그로 보고 무시)을 여기도 적용한다 —
+        누른 지점을 기억해 뒀다가 «뗄 때»(pointerup) 많이 안 움직였을 때만 닫고,
+        브라우저가 스크롤로 판단해 pointercancel 을 보내면 그 자리에서 포기한다. */
+  var __mgaDownX = 0, __mgaDownY = 0, __mgaArmed = false;
   document.addEventListener('pointerdown', function(e){
+    __mgaArmed = false;
     if (!isMobile() || !document.body.classList.contains('mga-open')) return;
     var t = e.target;
     if (!t || !t.closest) return;
@@ -13472,6 +13481,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           자동으로 걸렸는데, 이제는 이름을 명시해야 «펼치기를 눌렀는데 메뉴가 닫히는» 일이 없다. */
     if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
     if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
+    __mgaDownX = e.clientX; __mgaDownY = e.clientY; __mgaArmed = true;
+  }, true);
+  document.addEventListener('pointerup', function(e){
+    if (!__mgaArmed) return;
+    __mgaArmed = false;
+    var dx = Math.abs((e.clientX || 0) - __mgaDownX), dy = Math.abs((e.clientY || 0) - __mgaDownY);
+    if (dx > 12 || dy > 12) return; // 스크롤(드래그) — 닫지 않는다
     setTimeout(function(){
       /* 📱 (2026-08-19) 자식 메뉴를 눌러 «손자를 펴는 중» 이면 닫지 않는다 —
          닫으면 방금 편 손자를 아무도 못 본다. 표시는 adm-r25.js 가 남기고 800ms 뒤 저절로 풀린다.
@@ -13480,6 +13496,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       if (document.body.classList.contains('mga-open')) window.mgaClose();
     }, 120);
   }, true);
+  // 브라우저가 «이건 스크롤이다» 로 판단해 포인터를 취소하면 닫기 시도 자체를 접는다
+  document.addEventListener('pointercancel', function(){ __mgaArmed = false; }, true);
 
   // 가로로 눕히거나 태블릿 폭이 되면 드로어 상태를 남기지 않는다
   window.addEventListener('resize', function(){
