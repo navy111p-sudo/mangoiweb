@@ -73,10 +73,31 @@
   .bkfill.s0{background:rgba(248,113,113,.9)}                     /* 0점 — «측정됐다» 를 남기는 빨간 점 */
   .bkn{width:34px;text-align:right;color:#a8b3cf;font-weight:700}
   .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .cta button{flex:1 1 46%;text-align:center;border:0;border-radius:12px;padding:14px 10px;
+    font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  /* 한국어 낱말이 «나가 / 기» 로 끊기지 않게 — 좁은 폰에서 실제로 쪼개졌다 */
+  .cta a,.cta button,.resume button,.pausebtn{word-break:keep-all}
   .cta a{flex:1 1 46%;text-align:center;text-decoration:none;border-radius:12px;padding:14px 10px;font-weight:800;font-size:14px}
   .cta .voice{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1a1a}
   .cta .home{background:rgba(255,255,255,.08);color:#e6ecff;border:1px solid rgba(255,255,255,.2)}
   .note{font-size:12px;color:#7c88a8;text-align:center;margin-top:16px;line-height:1.6}
+  /* ⏸ 중간 멈춤 · 이어서 하기 (2026-09-21 제보 — 14문항 풀고 전화받고 오니 초기화)
+     ⚠ 이 «style» 안에서는 CJK 홑낫표를 쓰지 않는다 — 한자 폰트(983KB) 검사가 그것을 센다.
+        설명에 따옴표가 필요하면 « » 를 쓴다. */
+  .resume{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.42);border-radius:14px;padding:15px 16px;margin-bottom:16px}
+  .resume .rt{font-size:14.5px;font-weight:800;color:#fde68a;line-height:1.5}
+  .resume .rs{font-size:12.5px;color:#cbd5e1;line-height:1.6;margin-top:5px}
+  .resume .rb{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .resume button{flex:1 1 46%;border:0;border-radius:11px;padding:12px 10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .resume .go{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1a1a}
+  .resume .fresh{background:rgba(255,255,255,.08);color:#e6ecff;border:1px solid rgba(255,255,255,.2)}
+  .btn.secondary{background:rgba(255,255,255,.08);color:#e6ecff;border:1px solid rgba(255,255,255,.2);
+    box-shadow:none;font-size:14.5px;padding:13px}
+  .pausebtn{display:block;width:100%;margin-top:16px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.16);color:#cbd5e1;border-radius:11px;padding:11px 10px;
+    font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .pausebtn:hover{background:rgba(255,255,255,.1);border-color:rgba(251,191,36,.45);color:#fde68a}
+  .savednote{font-size:11.5px;color:#8ea0c8;text-align:center;line-height:1.6;margin-top:10px}
   .hidden{display:none}
 </style>
 <script src="/js/session-guard.js" defer></script>
@@ -95,12 +116,22 @@
 
   <!-- 시작 -->
   <div class="card" id="start-card">
+    <!-- ⏸ 풀던 진단이 있을 때만 보인다 (2026-09-21) -->
+    <div class="resume hidden" id="resume-box">
+      <div class="rt" id="rsm-txt">⏸ 풀던 진단이 있어요</div>
+      <div class="rs" id="rsm-sub"></div>
+      <div class="rb">
+        <button type="button" class="go" id="rsm-go">▶ 이어서 하기</button>
+        <button type="button" class="fresh" id="rsm-fresh">🔄 처음부터</button>
+      </div>
+    </div>
     <label for="ai-name">이름 (또는 학생 ID)</label>
     <input id="ai-name" type="text" placeholder="예: 김망고 / mango123" autocomplete="off" />
     <div class="steps">
       • <b>단어·문법·문장</b> 이해력을 레벨별로 측정해요.<br>
       • 채점은 <b>서버에서 객관적으로</b> 이뤄져 공정해요.<br>
-      • 결과는 <b>레벨테스트 신청</b>에 자동으로 연결됩니다.
+      • 결과는 <b>레벨테스트 신청</b>에 자동으로 연결됩니다.<br>
+      • <b>중간에 멈춰도 괜찮아요</b> — 푼 문항은 자동 저장돼 이어서 풀 수 있어요.
     </div>
     <button class="btn" id="ai-start">진단 시작하기</button>
   </div>
@@ -114,6 +145,25 @@
     <div class="qcefr" id="ai-qcefr">Level A1</div>
     <div class="qtext" id="ai-qtext">…</div>
     <div id="ai-choices"></div>
+    <!-- ⏸ 사장님 요청(2026-09-21): «중간 멈춤» — 자동 저장은 이미 되지만, 버튼이 없으면
+         학생이 «나가면 날아간다» 고 여겨 전화도 못 받는다. 화면이 말해 줘야 한다. -->
+    <button type="button" class="pausebtn" id="ai-pause">⏸ 잠시 멈추기 — 나중에 이어서 풀기</button>
+    <div class="savednote">푼 문항은 자동으로 저장돼요 · 전화를 받거나 앱을 닫아도 이어서 풀 수 있어요.</div>
+  </div>
+
+  <!-- ⏸ 멈춤 -->
+  <div class="card hidden" id="pause-card" style="text-align:center">
+    <div style="font-size:34px">⏸</div>
+    <div style="font-size:16px;font-weight:800;margin-top:8px;color:#fde68a">여기까지 저장했어요</div>
+    <div style="font-size:15px;font-weight:900;color:#fff;margin-top:8px" id="pause-cnt">0 / 24 문항</div>
+    <div style="font-size:13px;color:#a8b3cf;line-height:1.8;margin-top:12px">
+      나중에 이 화면에 다시 오면 <b style="color:#fde68a">▶ 이어서 하기</b> 가 보여요.<br>
+      남은 문항부터 이어서 풀면 됩니다. <b style="color:#c7d2fe">(하루 안에)</b>
+    </div>
+    <div class="cta">
+      <button type="button" class="voice" id="pause-go">▶ 이어서 풀기</button>
+      <a class="home" href="/?menu=leveltest">← 나중에 하기</a>
+    </div>
   </div>
 
   <!-- 채점 중 -->
@@ -195,26 +245,142 @@
     } catch(e){ return ''; }
   }
 
-  $('ai-start').addEventListener('click', function(){
+  /* ⏸ 중간 멈춤 · 이어서 하기 ─────────────────────────────────────────────
+     [왜] 2026-09-21 제보: 24문항 중 14문항(약 7분)을 푼 학생이 전화를 받고 돌아오니
+          처음부터였다. 진행 상태(answers·idx)가 이 화면의 JS 변수에만 있어서, 폰이
+          전화·앱 전환으로 탭을 한 번 버리면 그대로 사라졌다. 에러도 안 난다.
+     [어떻게] 답을 «고르는 즉시» localStorage 에 적는다. 서버 문항은행(CEFR_BANK)은
+          고정 24문항을 같은 순서로 주므로 답만 있으면 복구된다.
+     ⛔ 문항 «번호»(idx)로 저장하지 않는다 — 은행이 바뀌면 남의 답이 엉뚱한 문항에
+        붙는데 에러가 안 난다. 문항 «id»(a1_1 …)로 저장하고, 되살릴 때 지금 받은
+        문항에 없는 id 는 버린다.
+     ⚠ 채점은 서버가 answers[id] 를 보고 없는 답을 «틀림» 으로 세므로, 중간까지만
+        저장된 것을 그대로 제출하면 점수가 깎인다 → 이어서 «다 푼 뒤에만» 제출한다.
+     ⚠ localStorage 는 시크릿 창·저장 차단에서 던진다 — 전부 try/catch 로 감싼다
+        (실패하면 «저장이 안 될 뿐» 이고 시험은 지금까지처럼 그대로 돌아간다). */
+  var LS_KEY = 'mangoi_leveltest_ai_progress';
+  /* 하루가 지난 것은 «다른 자리» 로 본다 — 5분짜리 시험이라 새로 푸는 쪽이 정확하고,
+     며칠 전 답과 오늘 답을 섞으면 그 점수가 students_erp.level 로 들어간다.
+     ⛔ 소리 없이 지우지는 않는다 — 언제 저장한 것인지 화면에 적어 사람이 고르게 한다. */
+  var SAVE_TTL_MS = 24 * 60 * 60 * 1000;
+
+  function countDone(){ var n = 0; for (var k in answers) { if (answers[k] != null) n++; } return n; }
+
+  function saveProgress(){
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        v: 1,
+        name: ($('ai-name').value || '').trim(),
+        answers: answers,
+        done: countDone(),
+        total: questions.length || 24,
+        ts: Date.now()
+      }));
+    } catch(e){}
+  }
+  function clearSaved(){ try { localStorage.removeItem(LS_KEY); } catch(e){} }
+  function loadSaved(){
+    try {
+      var sv = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      if (!sv || sv.v !== 1 || !sv.answers || typeof sv.answers !== 'object') return null;
+      if (!sv.ts || (Date.now() - sv.ts) > SAVE_TTL_MS) { clearSaved(); return null; }
+      if (!sv.done) return null;            // 한 문항도 안 푼 것은 이어 줄 것이 없다
+      return sv;
+    } catch(e){ return null; }
+  }
+  /* «오늘 오후 3:12» — 언제 하던 것인지 모르면 이어서 할지 판단할 수 없다 */
+  function whenLabel(ts){
+    var d = new Date(ts), now = new Date();
+    var h = d.getHours(), ap = h < 12 ? '오전' : '오후', h12 = h % 12; if (h12 === 0) h12 = 12;
+    var mm = d.getMinutes(); mm = (mm < 10 ? '0' : '') + mm;
+    var ystd = new Date(now.getTime() - 86400000);
+    var day = (d.toDateString() === now.toDateString()) ? '오늘'
+            : (d.toDateString() === ystd.toDateString()) ? '어제'
+            : ((d.getMonth() + 1) + '월 ' + d.getDate() + '일');
+    return day + ' ' + ap + ' ' + h12 + ':' + mm;
+  }
+  /* 아직 답을 안 고른 첫 문항. 전부 풀었으면 -1.
+     ⚠ answers[id] 는 0(A번)일 수 있다 — falsy 로 판정하면 A를 고른 문항이 «안 푼 것» 이 된다. */
+  function firstUnanswered(){
+    for (var i = 0; i < questions.length; i++) { if (answers[questions[i].id] == null) return i; }
+    return -1;
+  }
+
+  /* 시작 화면을 저장된 진행에 맞춰 칠한다 — 첫 진입과 «채점 실패로 돌아온» 경우 둘 다 */
+  function paintStartCard(){
+    var sv = loadSaved();
+    var btn = $('ai-start');
+    if (!sv) {
+      $('resume-box').classList.add('hidden');
+      btn.textContent = '진단 시작하기'; btn.classList.remove('secondary');
+      return;
+    }
+    if (sv.name && !($('ai-name').value || '').trim()) $('ai-name').value = sv.name;
+    $('rsm-txt').textContent = '⏸ 풀던 진단이 있어요 — ' + sv.done + ' / ' + (sv.total || 24) + ' 문항';
+    $('rsm-sub').textContent = whenLabel(sv.ts) + '에 저장됨 · 이어서 하면 남은 문항부터 풀어요.';
+    $('resume-box').classList.remove('hidden');
+    /* 저장된 것이 있을 때 큰 버튼이 «시작하기» 로 남아 있으면 눌러서 날려 버린다 */
+    btn.textContent = '처음부터 새로 하기'; btn.classList.add('secondary');
+  }
+  paintStartCard();
+
+  $('rsm-go').addEventListener('click', function(){ startQuiz(true); });
+  $('rsm-fresh').addEventListener('click', function(){
+    if (!window.confirm('지금까지 푼 문항을 지우고 처음부터 시작할까요?')) return;
+    clearSaved(); answers = {}; idx = 0; paintStartCard(); $('ai-name').focus();
+  });
+  $('ai-start').addEventListener('click', function(){ startQuiz(false); });
+
+  function startQuiz(resume){
     var name = ($('ai-name').value||'').trim();
     if (!name) { $('ai-name').focus(); $('ai-name').style.borderColor = '#ef4444'; return; }
-    startQuiz();
-  });
-
-  function startQuiz(){
-    $('ai-start').disabled = true;
+    if (!resume && loadSaved() && !window.confirm('지금까지 푼 문항을 지우고 처음부터 시작할까요?')) return;
+    $('ai-start').disabled = true; $('rsm-go').disabled = true; $('rsm-fresh').disabled = true;
     fetch('/api/leveltest/questions', {cache:'no-store'})
       .then(function(r){ return r.json(); })
       .then(function(d){
         questions = (d && d.questions) || [];
-        if (!questions.length) { alert('문항을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); $('ai-start').disabled=false; return; }
+        if (!questions.length) {
+          alert('문항을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+          $('ai-start').disabled=false; $('rsm-go').disabled=false; $('rsm-fresh').disabled=false; return;
+        }
+        answers = {};
+        if (resume) {
+          var sv = loadSaved();
+          if (sv && sv.answers) questions.forEach(function(q){
+            var v = sv.answers[q.id];
+            if (v != null && !isNaN(Number(v))) answers[q.id] = Number(v);
+          });
+        } else {
+          clearSaved();
+        }
         $('start-card').classList.add('hidden');
+        idx = firstUnanswered();
+        /* 다 풀어 둔 상태 = 채점만 실패했던 경우 → 문항을 다시 보여 주지 않고 바로 채점 */
+        if (idx < 0) { finish(); return; }
         $('quiz-card').classList.remove('hidden');
-        idx = 0; answers = {};
         render();
       })
-      .catch(function(){ alert('네트워크 오류예요. 다시 시도해 주세요.'); $('ai-start').disabled=false; });
+      .catch(function(){
+        alert('네트워크 오류예요. 다시 시도해 주세요.');
+        $('ai-start').disabled=false; $('rsm-go').disabled=false; $('rsm-fresh').disabled=false;
+      });
   }
+
+  /* ⏸ 잠시 멈추기 — 저장은 이미 돼 있고, 이 화면은 «안전하다» 고 말해 주는 자리다 */
+  $('ai-pause').addEventListener('click', function(){
+    saveProgress();
+    $('pause-cnt').textContent = countDone() + ' / ' + questions.length + ' 문항';
+    $('quiz-card').classList.add('hidden');
+    $('pause-card').classList.remove('hidden');
+  });
+  $('pause-go').addEventListener('click', function(){
+    $('pause-card').classList.add('hidden');
+    idx = firstUnanswered();
+    if (idx < 0) { finish(); return; }
+    $('quiz-card').classList.remove('hidden');
+    render();
+  });
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
@@ -234,6 +400,7 @@
       b.innerHTML = '<span class="k">'+KEYS[i]+'</span>' + esc(c);
       b.addEventListener('click', function(){
         answers[q.id] = i;
+        saveProgress();              // 👈 넘어가기 «전» 에 적는다 — 마지막 한 문항이 날아가지 않게
         if (idx < questions.length - 1) { idx++; render(); }
         else finish();
       });
@@ -248,15 +415,31 @@
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ student_name: ($('ai-name').value||'').trim(), student_uid: detectUid(), token: detectToken(), answers: answers })
     })
-    .then(function(r){ return r.json(); })
-    .then(function(d){ showResult(d || {}); })
-    .catch(function(){
-      // 서버 오류여도 최소 결과는 로컬 표기 없이 안내
-      $('grading-card').classList.add('hidden');
-      $('start-card').classList.remove('hidden');
-      $('ai-start').disabled = false;
-      alert('채점 중 오류가 났어요. 다시 시도해 주세요.');
-    });
+    .then(function(r){ return r.json().catch(function(){ return null; }); })
+    .then(function(d){
+      /* 🔴 «성공이라고 말했는가» 로 가른다 — «실패라고 말했는가» 로 보면 안 된다.
+         fetch 는 500 에도 reject 하지 않으므로 아래 catch 는 «네트워크가 끊긴» 경우만 잡는다.
+         서버가 500 을 주면 d 는 {error:…} 인데, 그것을 결과로 받으면
+           ① 결과 화면이 «—» 만 찍힌 채 «끝» 으로 보이고(옛 동작)
+           ② 저장본까지 지워져 24문항이 통째로 날아간다 — 하필 다시 채점해야 할 때.
+         성공 응답은 {ok:true, level, ai_score, …} 다(api-admin.ts 의 diagnose). */
+      if (!d || d.ok !== true || !d.level) { gradeFailed(); return; }
+      /* 결과 화면은 되돌아올 수 없는 끝이다 → 여기서만 저장을 지운다.
+         ⛔ 제출 «전» 에 지우면 채점이 실패했을 때 24문항이 통째로 날아간다. */
+      clearSaved();
+      showResult(d);
+    })
+    .catch(function(){ gradeFailed(); });
+  }
+
+  function gradeFailed(){
+    /* 서버 오류여도 답은 저장돼 있다 → 시작 화면이 «이어서 하기» 를 내주고,
+       그때는 전부 답한 상태라 문항을 다시 풀지 않고 곧바로 채점만 다시 한다. */
+    $('grading-card').classList.add('hidden');
+    $('start-card').classList.remove('hidden');
+    $('ai-start').disabled = false; $('rsm-go').disabled = false; $('rsm-fresh').disabled = false;
+    paintStartCard();
+    alert('채점 중 오류가 났어요. 푼 문항은 저장돼 있으니 «이어서 하기» 를 눌러 다시 시도해 주세요.');
   }
 
   function showResult(d){
