@@ -61,13 +61,16 @@
     background-position:0 0,0 0,0 0,22% 34%,72% 44%,44% 58%,88% 70%;
     animation:gbFloat 7s ease-in-out infinite}
   #app > *{position:relative;z-index:1}
+  #app{--hub-w:min(2200px,100%)}
 
   /* ===== 헤더 ===== */
-  .hub-head{text-align:center;padding:26px 16px 10px}
-  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#b45309;margin-bottom:6px}
-  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25;color:#0b2a5e}
+  /* ⚠️ 좌우 padding 을 여기에 두면 그 만큼 .hub-panel 이 아래 카드 그리드보다 좁아져 줄이 어긋난다.
+     여백은 «글자» 쪽에 준다. */
+  .hub-head{text-align:center;padding:20px 0 6px;width:100%}
+  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#b45309;margin-bottom:6px;padding:0 16px}
+  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25;color:#0b2a5e;padding:0 16px}
   .hub-head h1 .em{color:#047857}
-  .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
+  .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600;padding:0 16px}
 
   /* ===== 🎯 오늘의 추천 카드 (맞춤 피드백 루프) — 로그인 학생 + 데이터 있을 때만 표시 ===== */
   #rec-card{display:none;width:min(720px,calc(100% - 8px));margin:4px auto 12px;padding:14px 18px;
@@ -107,12 +110,15 @@
     font-size:12px;font-weight:800;padding:0 12px;height:38px;border-radius:999px;white-space:nowrap;
     box-shadow:0 2px 8px rgba(0,0,0,.25)}
   #hub-audio-tap-hint.show{display:flex}
-  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
-    width:min(1100px,100%);margin-top:10px}
+  /* 폭 정본은 --hub-w 한 곳 — 컨트롤 패널과 카드 그리드가 «같은 폭» 이어야 줄이 맞는다.
+     2026-09-21: 전에는 min(1100px,100%) 라 1920px 화면에서도 3열 1100px 짜리 «가운데 띠» 로만
+     그려졌다(3840·7680px 에서도 1100px 그대로 — 실측). 카드 크기는 그대로 두고 열 수만 늘린다. */
+  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px;
+    width:var(--hub-w);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
 
   /* 🖐 카드 순서 바꾸기 */
-  .order-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px 2px}
+  .order-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 0 2px;align-self:flex-start}
   .order-btn{padding:7px 14px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:800;
     background:rgba(255,255,255,.9);border:1.5px solid rgba(80,110,180,.35);color:#2c3e66}
   .order-btn.on{background:#fbbf24;border-color:#e0a412;color:#3a2a00}
@@ -122,7 +128,10 @@
      아이 눈엔 "게임이 아니구나" 하고 지나가고, 어른 눈엔 바로 읽히게 한다. */
   /* ⚠️ #hub-menu 는 flex-direction:column + align-items:center 다.
      폭을 안 정하면 배너가 내용 크기(627px)로 쪼그라들고, align-self:stretch 를 주면
-     반대로 그리드(1100px)보다 넓어진다(1229px). → 게임 그리드와 **같은 식**을 쓴다. */
+     반대로 넘친다 — 그래서 폭을 못 박는다.
+     ⚠️ 2026-09-21: 카드 그리드·컨트롤 패널은 --hub-w 로 넓어졌지만 이 배너는 «일부러»
+     1100px 로 남긴다. 어른용 한 줄이라 학생 카드보다 눈에 덜 띄어야 한다(2026-08-03 결정).
+     즉 여기의 1100px 은 «그리드와 같은 폭» 이 아니라 «좁게 두는» 값이다. */
   .sci-banner{display:flex;align-items:center;gap:12px;margin:18px 0 0;padding:13px 16px;
     width:min(1100px,100%);box-sizing:border-box;
     border-radius:14px;text-decoration:none;background:rgba(255,255,255,.92);
@@ -485,8 +494,9 @@
   .gko-listen:active{transform:scale(.95)}
 
   /* ===== 🎛️ 허브 컨트롤 패널 — 산만한 버튼들을 하나의 글래스 카드로 정돈 ===== */
-  /* 🎛️ 컨트롤 패널: 아래 게임 카드 그리드와 같은 가로폭(1100px) + 또렷한 대비 + 큰 글자 */
-  .hub-panel{width:min(1100px,100%);margin:18px auto 0;background:rgba(8,15,36,.72);
+  /* 🎛️ 컨트롤 패널: 아래 게임 카드 그리드와 «같은 가로폭»(--hub-w) + 또렷한 대비 + 큰 글자.
+     ⚠️ 폭 숫자를 여기에 다시 적지 말 것 — 그리드와 어긋나면 줄이 안 맞는다. */
+  .hub-panel{width:var(--hub-w);margin:12px auto 0;background:rgba(8,15,36,.72);
     border:1px solid rgba(148,197,255,.32);border-radius:22px;padding:18px 24px;
     display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 20px;
     backdrop-filter:blur(12px) saturate(130%);
@@ -544,7 +554,22 @@
   /* ===== 📱 모바일 컨트롤 패널 정돈 — 줄바꿈 난립(랭킹 낙오·왼쪽 쏠림) 방지, 줄마다 꽉 찬 정렬 =====
      ⚠️ 반드시 스타일시트 맨 끝에 위치해야 함(위 .fun-bar 기본 규칙을 덮어써야 하므로) */
   @media(max-width:640px){
-    .hub-panel{gap:10px;padding:14px 12px 16px}
+    .hub-panel{gap:10px;padding:14px 12px 16px;margin-top:10px}
+    /* 폰에서는 머리글이 화면의 절반을 먹어 카드가 첫 화면 «밖» 으로 밀린다(실측 688px).
+       글자를 지우지 않고 여백·크기만 조인다. */
+    /* ⚠️ 좁은 화면에서는 ←/🏠/🔊 줄(.hub-topnav)이 «떠 있는» 상태라 제목 글자를 덮는다
+       (안내음성 알림 말풍선이 뜨면 더 심하다). 흐름 안으로 되돌려 겹칠 수가 없게 한다. */
+    .hub-topnav{position:static;width:100%;margin:0 0 4px}
+    .hub-head{padding:2px 0}
+    /* 🎯 퀘스트 안내 바는 폰에서 228px 이라(설명 줄이 보이는 기기) 카드가 첫 화면 밖으로
+       밀린다. 넓은 화면에서는 카드 위 그대로 두고 폰에서만 카드 «아래» 로 내린다.
+       ⚠️ order 를 쓰므로 뒤따르는 형제들의 차례도 함께 적어야 한다(기본값 0 이라 앞으로 온다). */
+    .quest-bar{order:1;margin:14px auto 0}
+    .order-bar{order:2}
+    .sci-banner{order:3}
+    .hub-tail{order:4}
+    .hub-head h1{font-size:22px}
+    .hub-head .sub{font-size:12.5px;margin-top:5px;line-height:1.5}
     /* ① 코인+룰렛/상점/랭킹 = 한 줄 4등분 그리드 (랭킹 혼자 다음 줄로 밀리던 문제) */
     .fun-bar{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-items:stretch}
     .fun-actions{display:contents}
@@ -641,6 +666,9 @@
       </div>
     </div>
 
+    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
+    <div class="quest-bar" id="quest-bar" style="display:none"></div>
+
     <!-- 🎯 오늘의 추천 — /api/games/recommend 진단(정오답·발음) 기반 맞춤 안내. 데이터 없으면 숨김 -->
     <div id="rec-card">
       <div class="rec-top">
@@ -654,8 +682,7 @@
       <button type="button" class="rec-cta" id="rec-cta" style="display:none"></button>
     </div>
 
-    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
-    <div class="quest-bar" id="quest-bar" style="display:none"></div>
+    <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
 
     <!-- 🖐 카드 순서 바꾸기 — 학생이 좋아하는 게임을 앞으로 끌어다 놓을 수 있다 -->
     <div class="order-bar">
@@ -663,8 +690,6 @@
       <button type="button" class="order-btn ghost" id="order-reset" style="display:none">↩ 기본 순서</button>
       <span class="order-tip" id="order-tip" style="display:none">카드를 끌어서 원하는 자리에 놓으세요 · Drag the cards</span>
     </div>
-
-    <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
 
     <!-- 🎓 학부모·선생님용 안내 배너 (2026-08-03)
          왜 여기인가: 이 화면의 주 사용자는 **학생**이다. 연구 자료를 게임 카드 사이나 위쪽에
@@ -681,7 +706,7 @@
     </a>
 
     <!-- 🚀 게임을 안 하고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·복습퀴즈·녹화·나가기) -->
-    <div style="text-align:center;margin-top:22px">
+    <div class="hub-tail" style="text-align:center;margin-top:22px">
       <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">다른 활동으로 이동할까요?</div>
       <button onclick="window.MangoFlow&&MangoFlow.open('game')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit">
         🚀 다음으로 이동 (수업·웜업·복습·나가기)

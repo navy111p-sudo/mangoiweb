@@ -98,6 +98,8 @@
     font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   .pausebtn:hover{background:rgba(255,255,255,.1);border-color:rgba(251,191,36,.45);color:#fde68a}
   .savednote{font-size:11.5px;color:#8ea0c8;text-align:center;line-height:1.6;margin-top:10px}
+  /* 저장이 안 되는 것이 «확인됐을 때» 만 붙는다 — 미리 겁주지 않는다 */
+  .savednote.warn{color:#fca5a5;font-size:12px;font-weight:700}
   .hidden{display:none}
 </style>
 <script src="/js/session-guard.js" defer></script>
@@ -131,7 +133,7 @@
       • <b>단어·문법·문장</b> 이해력을 레벨별로 측정해요.<br>
       • 채점은 <b>서버에서 객관적으로</b> 이뤄져 공정해요.<br>
       • 결과는 <b>레벨테스트 신청</b>에 자동으로 연결됩니다.<br>
-      • <b>중간에 멈춰도 괜찮아요</b> — 푼 문항은 자동 저장돼 이어서 풀 수 있어요.
+      <span id="ai-savehint">• <b>중간에 멈춰도 괜찮아요</b> — 푼 문항은 자동 저장돼 이어서 풀 수 있어요.</span>
     </div>
     <button class="btn" id="ai-start">진단 시작하기</button>
   </div>
@@ -148,15 +150,15 @@
     <!-- ⏸ 사장님 요청(2026-09-21): «중간 멈춤» — 자동 저장은 이미 되지만, 버튼이 없으면
          학생이 «나가면 날아간다» 고 여겨 전화도 못 받는다. 화면이 말해 줘야 한다. -->
     <button type="button" class="pausebtn" id="ai-pause">⏸ 잠시 멈추기 — 나중에 이어서 풀기</button>
-    <div class="savednote">푼 문항은 자동으로 저장돼요 · 전화를 받거나 앱을 닫아도 이어서 풀 수 있어요.</div>
+    <div class="savednote" id="ai-savednote">푼 문항은 자동으로 저장돼요 · 전화를 받거나 앱을 닫아도 이어서 풀 수 있어요.</div>
   </div>
 
   <!-- ⏸ 멈춤 -->
   <div class="card hidden" id="pause-card" style="text-align:center">
-    <div style="font-size:34px">⏸</div>
-    <div style="font-size:16px;font-weight:800;margin-top:8px;color:#fde68a">여기까지 저장했어요</div>
+    <div style="font-size:34px" id="pause-icon">⏸</div>
+    <div style="font-size:16px;font-weight:800;margin-top:8px;color:#fde68a" id="pause-title">여기까지 저장했어요</div>
     <div style="font-size:15px;font-weight:900;color:#fff;margin-top:8px" id="pause-cnt">0 / 24 문항</div>
-    <div style="font-size:13px;color:#a8b3cf;line-height:1.8;margin-top:12px">
+    <div style="font-size:13px;color:#a8b3cf;line-height:1.8;margin-top:12px" id="pause-body">
       나중에 이 화면에 다시 오면 <b style="color:#fde68a">▶ 이어서 하기</b> 가 보여요.<br>
       남은 문항부터 이어서 풀면 됩니다. <b style="color:#c7d2fe">(하루 안에)</b>
     </div>
@@ -266,6 +268,14 @@
 
   function countDone(){ var n = 0; for (var k in answers) { if (answers[k] != null) n++; } return n; }
 
+  /* 🔴 (2026-09-21 함정 대조) «저장됐다고 말하기 전에 저장됐는지 확인한다».
+     시크릿 창·저장 차단·용량 초과에서 setItem 이 던지는데 그것을 삼키고 화면이
+     «여기까지 저장했어요» 라고 말하면, 이 수리가 없애려던 사고(7분이 날아감)를
+     학생이 «안심하고 나가서» 겪는다 — 고치기 «전» 에는 화면이 아무 약속도 안 했으므로
+     거짓 약속은 그때보다 나쁘다.
+     ⛔ 조용히 return 하지 않는다 — 채점 경로에 이미 건 규칙(«성공이라고 말했는가»)을
+        저장 경로에도 건다. 부르는 쪽이 이 값을 보고 화면 글자를 정한다.
+     ⚠ setItem 이 «던지지 않고 아무것도 안 하는» 환경도 있어 다시 읽어 확인한다. */
   function saveProgress(){
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
@@ -276,7 +286,19 @@
         total: questions.length || 24,
         ts: Date.now()
       }));
-    } catch(e){}
+      return localStorage.getItem(LS_KEY) != null;
+    } catch(e){ return false; }
+  }
+  /* 저장이 안 되는 브라우저라는 것이 «확인되면» 화면이 약속을 거둔다.
+     ⛔ 미리 겁주지 않는다 — 실제로 실패한 뒤에만, 그리고 한 번만 바꾼다. */
+  var saveOk = true;
+  function markSaveBroken(){
+    if (!saveOk) return;
+    saveOk = false;
+    var n = $('ai-savednote');
+    if (n) { n.textContent = '⚠️ 이 브라우저에서는 진행 상황이 저장되지 않아요 (시크릿 창·저장 차단). 지금 이어서 끝까지 푸는 것이 안전해요.'; n.className = 'savednote warn'; }
+    var h = $('ai-savehint');
+    if (h) h.style.display = 'none';
   }
   function clearSaved(){ try { localStorage.removeItem(LS_KEY); } catch(e){} }
   function loadSaved(){
@@ -369,8 +391,19 @@
 
   /* ⏸ 잠시 멈추기 — 저장은 이미 돼 있고, 이 화면은 «안전하다» 고 말해 주는 자리다 */
   $('ai-pause').addEventListener('click', function(){
-    saveProgress();
+    /* 🔴 저장 결과를 보고 «무엇을 말할지» 를 정한다 — 안 되는데 «저장했어요» 라고 하면
+       학생이 안심하고 나가서 처음부터 다시 풀게 된다(이 화면이 고치려던 바로 그 사고). */
+    var ok = saveProgress();
+    if (!ok) markSaveBroken();
     $('pause-cnt').textContent = countDone() + ' / ' + questions.length + ' 문항';
+    $('pause-icon').textContent = ok ? '⏸' : '⚠️';
+    $('pause-title').textContent = ok ? '여기까지 저장했어요' : '저장하지 못했어요';
+    $('pause-title').style.color = ok ? '#fde68a' : '#fca5a5';
+    $('pause-body').innerHTML = ok
+      ? '나중에 이 화면에 다시 오면 <b style="color:#fde68a">▶ 이어서 하기</b> 가 보여요.<br>'
+        + '남은 문항부터 이어서 풀면 됩니다. <b style="color:#c7d2fe">(하루 안에)</b>'
+      : '이 브라우저는 <b style="color:#fca5a5">진행 상황을 저장할 수 없어요</b> (시크릿 창·저장 차단).<br>'
+        + '지금 나가면 <b style="color:#fca5a5">처음부터 다시</b> 풀어야 해요 — <b style="color:#fde68a">이어서 풀기</b> 를 눌러 끝까지 마치는 것이 안전해요.';
     $('quiz-card').classList.add('hidden');
     $('pause-card').classList.remove('hidden');
   });
@@ -400,7 +433,8 @@
       b.innerHTML = '<span class="k">'+KEYS[i]+'</span>' + esc(c);
       b.addEventListener('click', function(){
         answers[q.id] = i;
-        saveProgress();              // 👈 넘어가기 «전» 에 적는다 — 마지막 한 문항이 날아가지 않게
+        // 👈 넘어가기 «전» 에 적는다(마지막 한 문항이 날아가지 않게) + «정말 적혔는지» 를 본다
+        if (!saveProgress()) markSaveBroken();
         if (idx < questions.length - 1) { idx++; render(); }
         else finish();
       });
