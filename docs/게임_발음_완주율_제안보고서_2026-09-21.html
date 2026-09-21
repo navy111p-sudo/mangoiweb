@@ -1,0 +1,233 @@
+<title>40초 만에 나가는 이유</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --paper:#faf7f2; --surface:#fffdfa; --ink:#1c1814; --ink2:#5c534a; --ink3:#8d8278;
+    --rule:#e7e0d5; --rule2:#d6ccbd;
+    --mango:#c2660f; --mango-soft:#fbead8;
+    --bad:#a2371f; --bad-soft:#f8e5df;
+    --good:#3d6849; --good-soft:#e4efe7;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --body:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#15120d; --surface:#1e1a14; --ink:#f4eee5; --ink2:#b7ac9d; --ink3:#8c8174;
+      --rule:#2f2920; --rule2:#443c31;
+      --mango:#f0954a; --mango-soft:#3a2513;
+      --bad:#e69079; --bad-soft:#3c2019;
+      --good:#8fc5a0; --good-soft:#1b2d22;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#15120d; --surface:#1e1a14; --ink:#f4eee5; --ink2:#b7ac9d; --ink3:#8c8174;
+    --rule:#2f2920; --rule2:#443c31;
+    --mango:#f0954a; --mango-soft:#3a2513;
+    --bad:#e69079; --bad-soft:#3c2019;
+    --good:#8fc5a0; --good-soft:#1b2d22;
+  }
+  body{background:var(--paper); color:var(--ink); font-family:var(--body); line-height:1.75; margin:0;}
+  .wrap{max-width:720px; margin:0 auto; padding-inline:20px; padding-block:40px 72px;}
+  h1,h2,h3{font-family:var(--disp); text-wrap:balance; line-height:1.28; margin:0;}
+  h1{font-size:2.1rem; font-weight:800; letter-spacing:-.02em;}
+  h2{font-size:1.28rem; font-weight:800; margin-block:0 6px;}
+  h3{font-size:1.02rem; font-weight:700; margin-block:0 4px;}
+  p{margin:0;}
+  .eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--mango); margin-bottom:14px;}
+  .lede{font-size:1.06rem; color:var(--ink2); margin-top:16px;}
+  header{border-bottom:2px solid var(--ink); padding-bottom:26px;}
+  section{margin-top:44px; display:flex; flex-direction:column; gap:14px;}
+  .sec-no{font-family:var(--mono); font-size:.72rem; color:var(--ink3); letter-spacing:.1em;}
+  .quote{background:var(--surface); border-left:3px solid var(--mango); padding:16px 18px; display:flex; flex-direction:column; gap:10px; margin-top:24px;}
+  .quote p{color:var(--ink); font-size:.98rem;}
+  .quote .who{font-family:var(--mono); font-size:.72rem; color:var(--ink3); letter-spacing:.06em;}
+  .tag{display:inline-block; font-family:var(--mono); font-size:.68rem; letter-spacing:.08em; padding:2px 7px; border-radius:2px; vertical-align:2px;}
+  .tag.m{background:var(--mango-soft); color:var(--mango);}
+  .tag.j{background:transparent; color:var(--ink3); border:1px solid var(--rule2);}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule);}
+  .tile{background:var(--surface); padding:16px 14px; display:flex; flex-direction:column; gap:3px;}
+  .tile .n{font-family:var(--mono); font-size:1.6rem; font-weight:600; color:var(--mango); font-variant-numeric:tabular-nums; line-height:1.1;}
+  .tile .n small{font-size:.9rem; font-weight:400;}
+  .tile .k{font-size:.82rem; color:var(--ink2);}
+  .tile .s{font-family:var(--mono); font-size:.68rem; color:var(--ink3);}
+  .bars{display:flex; flex-direction:column; gap:9px; background:var(--surface); border:1px solid var(--rule); padding:16px;}
+  .bar{display:grid; grid-template-columns:96px 1fr 68px; gap:10px; align-items:center;}
+  .bar .lab{font-size:.82rem; color:var(--ink2);}
+  .bar .track{display:block; background:var(--rule); height:12px; border-radius:2px; overflow:hidden;}
+  .bar .fill{display:block; height:100%; min-width:3px; background:var(--mango); border-radius:2px;}
+  .bar .fill.dim{background:var(--rule2);}
+  .bar .val{font-family:var(--mono); font-size:.78rem; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums;}
+  .tbl-wrap{overflow-x:auto; border:1px solid var(--rule);}
+  table{border-collapse:collapse; width:100%; background:var(--surface); font-size:.86rem;}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule);}
+  th{font-family:var(--mono); font-size:.7rem; letter-spacing:.06em; color:var(--ink3); font-weight:400; text-transform:uppercase; white-space:nowrap;}
+  td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .prop{background:var(--surface); border:1px solid var(--rule); border-top:3px solid var(--mango); padding:18px; display:flex; flex-direction:column; gap:10px;}
+  .prop .lbl{font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; color:var(--mango);}
+  .prop ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px;}
+  .prop li{font-size:.92rem; color:var(--ink2);}
+  .prop li b{color:var(--ink); font-weight:700;}
+  .warn{background:var(--bad-soft); border-left:3px solid var(--bad); padding:12px 14px; font-size:.89rem; color:var(--ink);}
+  .ok{background:var(--good-soft); border-left:3px solid var(--good); padding:12px 14px; font-size:.89rem; color:var(--ink);}
+  .note{font-size:.84rem; color:var(--ink3);}
+  code{font-family:var(--mono); font-size:.86em; background:var(--mango-soft); color:var(--mango); padding:1px 5px; border-radius:2px;}
+  ul.plain{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px;}
+  ul.plain li{font-size:.94rem; color:var(--ink2);}
+  ul.plain li b{color:var(--ink);}
+  footer{margin-top:56px; padding-top:20px; border-top:1px solid var(--rule); font-family:var(--mono); font-size:.72rem; color:var(--ink3); line-height:1.9;}
+  @media (max-width:420px){ h1{font-size:1.7rem;} .bar{grid-template-columns:78px 1fr 58px;} }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">망고아이 · 2026-09-21 · D1 실측 보고</p>
+  <h1>40초 만에 나가는 이유</h1>
+  <p class="lede">사장님 제보 두 건을 코드와 운영 데이터로 재 봤습니다. <b>제보가 데이터와 정확히 맞습니다.</b> 한 판의 중앙값은 <b>40초</b>, 발음 연습은 하루 <b>중앙값 1문장</b>인데 화면이 내건 목표는 <b>100문장</b>입니다. 원인은 «재미»가 아니라 <b>«오늘 어디까지 하면 끝인가»를 아무 화면도 말해 주지 않는 것</b>입니다.</p>
+</header>
+
+<div class="quote">
+  <p>“게임을 하면 내가 얼만큼 더해야 하는지, 얼마나 남았는지 시각적으로 보이면 좋겠어요. 무작정 언제까지 해야 끝나는지 모르니 몇 번 하다가 나가게 돼요.”</p>
+  <p>“발음 테스트가 100문장인데 너무 많습니다. 하다가 지칩니다. 아이들에게 매일 최대 5문장씩 할 수 있도록 미션을 주면 좋을 것 같습니다.”</p>
+  <p class="who">사장님 · 2026-09-21</p>
+</div>
+
+<section>
+  <p class="sec-no">01</p>
+  <h2>잰 것 — 운영 D1, 2026-09-21</h2>
+  <p class="note">아래는 전부 <b>측정값</b>입니다. 판단은 03장에 따로 적었습니다.</p>
+
+  <div class="tiles">
+    <div class="tile"><span class="n">40<small>초</small></span><span class="k">게임 한 판 길이 중앙값</span><span class="s">n=1,127판</span></div>
+    <div class="tile"><span class="n">57.1<small>%</small></span><span class="k">1분을 못 넘긴 판</span><span class="s">643 / 1,127</span></div>
+    <div class="tile"><span class="n">1<small>문장</small></span><span class="k">발음 하루 연습량 중앙값</span><span class="s">n=136 학생-일</span></div>
+    <div class="tile"><span class="n">6<small>건</small></span><span class="k">100문장 완주 보상 (전 기간)</span><span class="s">speech_master</span></div>
+  </div>
+
+  <h3>발음 코치 — 하루에 몇 문장을 하는가</h3>
+  <div class="bars">
+    <div class="bar"><span class="lab">2문장 이하</span><span class="track"><span class="fill" style="width:78.7%"></span></span><span class="val">107일 · 79%</span></div>
+    <div class="bar"><span class="lab">5문장 이상</span><span class="track"><span class="fill dim" style="width:15.4%"></span></span><span class="val">21일 · 15%</span></div>
+    <div class="bar"><span class="lab">20문장 이상</span><span class="track"><span class="fill dim" style="width:2.9%"></span></span><span class="val">4일 · 3%</span></div>
+    <div class="bar"><span class="lab">100문장 완주</span><span class="track"><span class="fill dim" style="width:1%"></span></span><span class="val">6건 · 전기간</span></div>
+  </div>
+  <p class="note">문장을 녹음해 채점받을 때마다 <code>voice_coaching</code> 에 한 행이 쌓입니다(같은 문장을 두 번 말하면 두 행). 학생 41명 · 553행 · 136 학생-일 · 평균 4.1 · 최대 157. 발음 코치 세션 평균 길이는 178초(약 3분)입니다.</p>
+
+  <h3>게임 — 다시 오기는 하는데, 한 번이 짧습니다</h3>
+  <div class="tbl-wrap">
+    <table>
+      <tr><th>항목</th><th>값</th><th>읽는 법</th></tr>
+      <tr><td>게임 학생</td><td class="num">23명 · 151 학생-일</td><td>표본이 작습니다</td></tr>
+      <tr><td>학생당 접속 일수</td><td class="num">평균 6.6일 · 최대 36일</td><td>사흘 이상 온 학생 12/23</td></tr>
+      <tr><td>하루만 오고 만 학생</td><td class="num">6 / 23</td><td>이레 이상도 6명</td></tr>
+      <tr><td>한 판 길이 중앙값</td><td class="num">40초</td><td>절반이 40초 안에 끝납니다</td></tr>
+      <tr><td>아무 학습 기록 없이 나간 판</td><td class="num">918 / 1,127 (81.5%)</td><td>아래 ⚠️ 를 함께 보세요</td></tr>
+    </table>
+  </div>
+  <div class="warn">⚠️ <b>이 마지막 줄을 «완주율»로 읽으면 안 됩니다.</b> <code>game_sessions.finished</code> 는 «끝까지 갔다»가 아니라 «학습 항목이 하나라도 남았다»입니다(<code>game-track.js:218</code>). 그래서 학습 항목을 애초에 안 보내는 화면(웜업 403판 전부)은 구조적으로 0입니다. <b>게임끼리 완주율을 견주는 것은 지금 데이터로는 못 합니다</b> — 믿을 수 있는 것은 «판 길이»와 «발음 문장 수»뿐입니다.</div>
+</section>
+
+<section>
+  <p class="sec-no">02</p>
+  <h2>화면에 없는 것 — 코드 실측</h2>
+  <div class="tbl-wrap">
+    <table>
+      <tr><th>물어본 것</th><th>실측 결과</th></tr>
+      <tr><td>게임 화면에 «오늘» 개념이 있는가</td><td>게임 HTML 14개 중 <b>0개</b>. 날짜 기준 진행을 세는 코드가 한 줄도 없습니다</td></tr>
+      <tr><td>발음 코치에 «오늘» 개념이 있는가</td><td><b>없습니다.</b> 진행은 «유닛 전체 100문장 중 몇 개»로만 셉니다</td></tr>
+      <tr><td>발음 코치에 진행바가 없는가</td><td><b>이미 있습니다.</b> <code>1 / 100 · ✓ N</code> 과 완료율 막대가 화면에 있습니다</td></tr>
+      <tr><td>축하·보상은 언제 오는가</td><td><b>100문장을 전부 끝냈을 때 한 번뿐</b>입니다(<code>speech_master</code>)</td></tr>
+      <tr><td>서버는 «오늘 얼마나 했는지»를 아는가</td><td><b>세는 표는 있는데 «양»으로는 안 씁니다.</b> <code>today-plan.ts</code> 가 «했다 / 안 했다» 이진으로만 봅니다</td></tr>
+      <tr><td>발음 코스 규모</td><td>Phonics 26 · BTS 35 · SIU Basic 30 · SIU Advance 20 = <b>111유닛 × 100문장</b></td></tr>
+    </table>
+  </div>
+  <div class="ok">✅ <b>좋은 소식은 «셀 수 있다»는 것입니다.</b> 발음은 문장마다 <code>voice_coaching</code> 한 행, 게임은 판마다 <code>game_sessions</code> 한 행이 이미 쌓입니다. 즉 «오늘 5문장 중 2문장»을 <b>서버가 오늘 당장 셀 수 있습니다.</b> 새 기록을 만들 필요가 없습니다.</div>
+</section>
+
+<section>
+  <p class="sec-no">03</p>
+  <h2>그래서 제 판단 <span class="tag j">판단</span></h2>
+  <ul class="plain">
+    <li><b>«안 오는 것»이 아니라 «한 번이 짧은 것»입니다.</b> 학생들은 평균 6.6일 다시 옵니다. 그런데 한 판이 40초입니다. 흥미의 문제라면 재방문이 먼저 무너졌을 텐데 그렇지 않습니다 — 사장님 말씀대로 <b>«언제 끝나는지 몰라서 아무 데서나 끊는 것»</b>으로 읽는 것이 데이터와 맞습니다.</li>
+    <li><b>발음 100문장은 «많다»기보다 «닿을 수 없다»입니다.</b> 목표 100, 실제 중앙값 1 — 목표가 실제 행동의 100배입니다. 화면은 3분 연습한 학생에게 «3%»라고 말합니다. 이건 격려가 아니라 «넌 아직 멀었다»입니다.</li>
+    <li><b>그러니 5문장은 «줄이는 것»이 아니라 «처음으로 닿는 목표를 주는 것»입니다.</b> 지금 중앙값이 1이므로 5는 오히려 <b>다섯 배 높은</b> 목표입니다. 낮추는 제안이 아닙니다.</li>
+    <li><b>진행바를 새로 만들 필요가 없습니다.</b> 발음 코치에는 이미 있습니다. 없는 것은 막대가 아니라 <b>«오늘 몫»이라는 눈금</b>입니다. 분모를 100에서 5로 바꾸는 일입니다.</li>
+    <li class="note">⚠️ 표본이 작습니다(게임 23명·발음 41명). 방향은 뚜렷하지만 «몇 문장이 적정인가»를 이 숫자로 정할 수는 없습니다.</li>
+  </ul>
+</section>
+
+<section>
+  <p class="sec-no">04</p>
+  <h2>제안 — 세 단계, 각각 따로 나갈 수 있습니다</h2>
+
+  <div class="prop">
+    <p class="lbl">A · 공통</p>
+    <h3>모든 도구 맨 위에 «오늘의 몫» 한 줄</h3>
+    <ul>
+      <li><b>무엇을</b> — 「오늘 5문장 중 <b>2문장</b> · 3문장 남았어요」처럼 <b>오늘 기준</b> 숫자와 막대를 한 줄로. 전체 진행(100 중 몇)은 그 아래 작게 남깁니다.</li>
+      <li><b>어디에</b> — 판정은 <code>src/today-plan.ts</code> 한 곳에 «목표 수 / 오늘 한 수»를 더하고, 화면은 <b>그리기만</b> 합니다.</li>
+      <li><b>왜 거기에</b> — 이미 «오늘 할 일» 정본이고, 화면마다 눈금을 따로 만들면 화면마다 답이 달라지는 사고가 시작됩니다.</li>
+      <li><b>비용</b> — 새 표·새 집계 없음. 지금 세는 것을 «이진»에서 «개수»로 넓히는 일입니다.</li>
+    </ul>
+  </div>
+
+  <div class="prop">
+    <p class="lbl">B · 발음</p>
+    <h3>하루 5문장 미션 — 다 하면 그 자리에서 끝</h3>
+    <ul>
+      <li><b>무엇을</b> — 유닛 100문장은 그대로 두고, 서버가 그 중 <b>오늘 몫 5문장</b>을 골라 줍니다. 5문장을 마치면 <b>그 자리에서 축하 + 포인트</b>. 지금은 100문장을 다 해야 한 번 받습니다.</li>
+      <li><b>이어서 하기는 이미 있습니다</b> — 어디까지 했는지 기억하는 코드가 이미 있어, 그 위에 «오늘 몫»만 얹으면 됩니다.</li>
+      <li><b>더 하고 싶은 학생은 막지 않습니다</b> — 5문장 뒤에 「오늘 몫 끝! 더 할래요?」를 둡니다. 잠그면 반대 방향 사고입니다.</li>
+      <li><b>연속일과 이어 붙입니다</b> — 이미 있는 «연속 학습»에 「5문장 미션 7일 연속」을 태우면 재방문 이유가 생깁니다.</li>
+    </ul>
+    <div class="warn">⚠️ <b>맞바꿈 둘.</b> ① 보상은 반드시 기존 포인트 상한(하루 100점 · 게임 묶음 30점)을 <b>지나야</b> 합니다 — 안 지나면 상한이 조용히 뚫립니다. 그런데 그 30점 통은 단어장·복습퀴즈와 <b>나눠 씁니다</b>. 단어장을 먼저 한 날은 발음 미션 보상이 0이 될 수 있어, 「막기」가 아니라 「남은 만큼 깎기」로 걸어야 합니다. ② <b>SIU 교재는 100문장이 실제로는 310개짜리 공용 문장을 섞어 나눈 것</b>입니다(BTS·Phonics는 진짜 교재 문장). 그 코스에서는 5문장씩 뽑아도 같은 문장이 되풀이됩니다 — 미션이 만드는 체감이 코스마다 다릅니다.</div>
+  </div>
+
+  <div class="prop">
+    <p class="lbl">C · 게임</p>
+    <h3>한 판의 «끝»을 허브가 말해 준다</h3>
+    <ul>
+      <li><b>무엇을</b> — 게임 카드에 「오늘 3판 중 <b>1판</b>」을, 게임 안 상단에 「이번 판: 5문제 중 2문제」를.</li>
+      <li><b>어떻게</b> — <b>게임 14개 파일을 각각 고치지 않습니다.</b> 판을 세는 <code>game-track.js</code> 가 이미 바깥에서 붙어 있으니 같은 방식으로 얹습니다. 게임 안을 고치면 사고 반경이 게임 14개가 됩니다.</li>
+      <li><b>먼저 고쳐야 할 것</b> — 「끝까지 갔나」를 재려면 <code>finished</code> 칸의 뜻부터 바로잡아야 합니다(지금은 «학습 항목이 있었나»). <b>별건으로 봅니다.</b></li>
+      <li class="note">게임 22종은 «한 판»의 정의가 제각각입니다(스테이지형·탈출형·육성형). 전수 조사가 먼저이고, 그 전에는 «오늘 몇 판»만 공통으로 셀 수 있습니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <p class="sec-no">05</p>
+  <h2>하면 안 되는 것</h2>
+  <ul class="plain">
+    <li><b>⛔ 100문장 데이터를 지우지 마세요.</b> 5문장은 «오늘 보여 줄 몫»이지 «교재를 줄이는 것»이 아닙니다.</li>
+    <li><b>⛔ «5문장만» 으로 잠그지 마세요.</b> 더 하려는 학생을 막는 것은 고치려던 것보다 나쁩니다.</li>
+    <li><b>⛔ 0을 «폭 0» 막대로 그리지 마세요.</b> 빈 막대는 «측정 안 됨»으로 읽힙니다. 작은 표시를 남기고 숫자를 옆에 둡니다.</li>
+    <li><b>⛔ 못 세는 값을 그럴듯하게 채우지 마세요.</b> «몇 분 공부했나»는 지금 잴 수 없습니다 — 지어내면 화면이 거짓말을 시작합니다.</li>
+    <li><b>⛔ 새 눈금·새 표를 만들지 마세요.</b> 지금 있는 기록으로 다 됩니다.</li>
+  </ul>
+</section>
+
+<section>
+  <p class="sec-no">06</p>
+  <h2>사장님이 정하실 것 · 제가 못 잰 것</h2>
+  <ul class="plain">
+    <li><b>정하실 것 ①</b> — 발음 하루 몫을 <b>5문장</b>으로 할지. 지금 중앙값이 1이라 5는 다섯 배입니다. 3이 더 나을 수도 있습니다.</li>
+    <li><b>정하실 것 ②</b> — 미션을 마쳤을 때 줄 <b>포인트</b>. 1P = 1원이라 예산이 걸립니다.</li>
+    <li><b>정하실 것 ③</b> — 게임 하루 몫을 <b>몇 판</b>으로 할지.</li>
+    <li><b>못 잰 것 ①</b> — 「왜 나갔는가」(지겨움·어려움·시간)는 어느 기록에도 없습니다. 위 판단은 «길이»와 «양»에서 나온 것입니다.</li>
+    <li><b>못 잰 것 ②</b> — 게임별 완주율 비교(01장 ⚠️).</li>
+    <li><b>못 잰 것 ③</b> — 이 작업 환경에서는 배포된 실제 화면을 열 수 없습니다. 화면이 바뀌는 작업은 사람이 한 번 봐야 끝난 것입니다.</li>
+  </ul>
+</section>
+
+<footer>
+  근거 · 운영 D1 SELECT 전용 조회 (2026-09-21) — game_sessions 1,127행 / voice_coaching 553행 / point_transactions<br>
+  코드 · today-plan.ts · api-students.ts · point-policy.ts · speech-coach.html · game-track.js · student-games.html<br>
+  다음 단계 · 어느 단계를 먼저 할지 정해 주시면 그 하나만 작업해 PR 로 올리겠습니다.
+</footer>
+
+</div>
