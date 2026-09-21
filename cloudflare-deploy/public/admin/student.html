@@ -378,7 +378,7 @@
         <div style="font-size:11px;color:#94a3b8;text-align:right;margin-bottom:6px">※ 종료일자는 정규 종료일자 입니다. 연기/보강/변경 등은 종료일자 이후로도 수업이 진행됩니다.</div>
         <!-- 🔕 (2026-09-21 사장님 지시) 「신청만 있고 실제 수업이 없는」 수강신청은 캘린더에 안 그린다.
              ⛔ 이 줄을 지우지 말 것 — 감추기만 하면 「신청서와 수업이 어긋났다」를 아무도 못 본다. -->
-        <div id="d-sched-ghost-note" style="display:none;margin-bottom:6px;padding:7px 11px;border:1px solid #cbd5e1;background:#f1f5f9;border-radius:8px;font-size:11.5px;color:#475467;line-height:1.5"></div>
+        <div id="d-sched-ghost-note" style="display:none;margin-bottom:6px;padding:7px 11px;border:1px solid #94a3b8;background:#f1f5f9;border-radius:8px;font-size:11.5px;color:#475467;line-height:1.5"></div>
         <div id="d-sched-calendar" style="background:#fff;border-radius:10px;border:1px solid #475569;overflow:auto;max-height:65vh"></div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:#94a3b8">
           <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
@@ -2648,8 +2648,8 @@ function mgsSetGhostNote(n) {
   if (!n) { el.style.display = 'none'; el.textContent = ''; return; }
   el.style.display = '';
   el.textContent = (_lang === 'en')
-    ? ('🔕 ' + n + ' enrollment(s) have no live class — not drawn on this calendar.')
-    : ('🔕 신청만 있고 실제 수업이 하나도 없는 수강신청 ' + n + '건은 캘린더에 그리지 않았습니다. (신청 자체는 아래 「수강신청 이력」에 그대로 있습니다)');
+    ? ('🔕 ' + n + ' enrollment(s) have no live class — not drawn on this calendar. (They are still in the 📝 Enrollment tab.)')
+    : ('🔕 신청만 있고 실제 수업이 하나도 없는 수강신청 ' + n + '건은 캘린더에 그리지 않았습니다. (신청 자체는 「📝 등록·수강」 탭에 그대로 있습니다)');
 }
 
 function renderDSchedule() {
@@ -2706,7 +2706,6 @@ function renderDSchedWeek() {
     const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
     if (sd && we < sd) continue;
     if (enr.end_date) { const ed = new Date(enr.end_date); if (ed < ws) continue; }
-    if (!mgsEnrHasLiveClass(enr)) { _ghostIds.add(String(enr.id)); continue; }
     const daysField = String(enr.days_of_week || enr.package || '');
     const timeField = String(enr.time || '');
     for (let i = 0; i < 7; i++) {
@@ -2722,6 +2721,9 @@ function renderDSchedWeek() {
       const dayDate = days[i];
       if (sd && dayDate < sd) continue;
       if (enr.end_date) { const ed = new Date(enr.end_date); if (dayDate > ed) continue; }
+      /* 🔕 «실제로 그려졌을 칸» 을 찾은 «뒤» 에 판정한다 — ⛔ 요일·시각 매칭보다 앞에 두면
+         그 주에 원래 안 그려질 신청까지 세어 「그리지 않았습니다」가 거짓이 된다(월간과 같은 자리). */
+      if (!mgsEnrHasLiveClass(enr)) { _ghostIds.add(String(enr.id)); break; }
       const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
       const colors = typeColors[enr.type || '정규수업'] || typeColors['정규수업'];
       const top = slotIdx * ROW_H;

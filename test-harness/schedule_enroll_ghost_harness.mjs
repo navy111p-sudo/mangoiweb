@@ -244,5 +244,43 @@ const ratio = (a, b) => { const L1 = lum(a), L2 = lum(b); const hi = Math.max(L1
 const cr = (NOTE_FG && NOTE_BG) ? ratio(NOTE_FG, NOTE_BG) : 0;
 ok('안내 줄 글자 대비 ≥ 4.5 (AA)', cr >= 4.5, cr.toFixed(2));
 
+
+console.log('\n⑦ 안내 줄이 «가리키는 곳» 이 실재하는가');
+/* 🔴 처음에 「아래 «수강신청 이력»」이라 적었는데 그 표는 **다른 표**(카페24 ClassOrders)이고
+   **📋 평가서 탭** 안이며 조건부라 없을 수도 있었습니다 — 감추기를 막으려 넣은 줄이
+   «없는 곳» 으로 사람을 보냈습니다(함정 대조가 잡음).
+   ⛔ 탭 이름을 하니스에 손으로 적지 말고 **탭 버튼에서 읽어** 대조합니다. */
+const tabKo = (html.match(/data-tab="enrollment"\s+data-ko="([^"]+)"/) || [])[1] || '';
+const tabEn = (html.match(/data-tab="enrollment"[^>]*data-en="([^"]+)"/) || [])[1] || '';
+ok('[전제] 📝 등록·수강 탭 이름을 읽었다', !!(tabKo && tabEn), tabKo + ' / ' + tabEn);
+if (R.dead && R.dead.weekNote) {
+  ok('그 신청이 실제로 남아 있는 탭을 가리킨다', R.dead.weekNote.text.includes(tabKo), R.dead.weekNote.text);
+  ok('영어도 같은 곳을 가리킨다(한쪽만 사실이면 안 된다)',
+     !!(R.en && R.en.weekNote) && R.en.weekNote.text.includes(tabEn), R.en && R.en.weekNote.text);
+  ok('다른 표(「수강신청 이력」)로 보내지 않는다', !R.dead.weekNote.text.includes('수강신청 이력'));
+}
+
+console.log('\n⑧ 주간·월간이 «같은 건수» 를 말하는가');
+/* 판정 호출이 주간에서 요일·시각 매칭 «앞» 에 있으면, 그 주에 원래 안 그려질 신청까지 세어
+   「그리지 않았습니다」가 거짓이 됩니다(두 뷰가 한 화면에서 다른 답을 하는 사고). */
+const NO_DAY = [{ id: 103, status:'confirmed', type:'체험수업', days_of_week:'', time:'14:20',
+  class_size:'1:1', teacher_name:'중국어 강선생님',
+  started_at: new Date('2026-09-11T00:00:00').getTime(), end_date:'2026-10-11' }];
+/* 그 주에는 칸이 없고(월) 월간에는 있는 신청 — 주간이 세면 거짓이다. */
+const MON_ONLY = [{ id: 103, status:'confirmed', type:'체험수업', days_of_week:'월', time:'14:20',
+  class_size:'1:1', teacher_name:'중국어 강선생님',
+  started_at: new Date('2026-09-23T00:00:00').getTime(), end_date:'2026-10-11' }];
+let N = {}, M = {};
+try { N = run(NO_DAY, [], true); M = run(MON_ONLY, [], true); } catch (e) { ok('[전제] 돌았다', false, String(e && e.message)); }
+if (N.weekNote) {
+  const n = (t) => { const m = String(t||'').match(/(\d+)건/); return m ? +m[1] : (String(t||'') ? -1 : 0); };
+  ok('요일이 없는 신청 — 주간은 세지 않는다', n(N.weekNote.text) === 0, JSON.stringify(N.weekNote));
+  ok('짝 — 월간도 세지 않는다',              n(N.monthNote.text) === 0, JSON.stringify(N.monthNote));
+  ok('그 주에 칸이 없는 신청 — 주간은 세지 않는다', n(M.weekNote.text) === 0, JSON.stringify(M.weekNote));
+  ok('짝 — 월간에는 칸이 있으므로 센다',       n(M.monthNote.text) === 1, JSON.stringify(M.monthNote));
+  ok('짝 — 그래도 카드는 안 그린다(주간·월간)',
+     !M.week.includes('중국어 강선생님') && !M.month.includes('중국어 강선생님'));
+}
+
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail + '\n');
 process.exit(fail > 0 ? 1 : 0);
