@@ -1,0 +1,44 @@
+# ⚠️ 임시 워크플로 — 방탈출 「열린 상태」 그림을 러너가 받아 변환·커밋한다.
+#    이 컨테이너는 프록시가 외부 CDN 을 403 으로 막아 직접 못 받는다(CLAUDE.md 2장).
+#    ⛔ main 에 올리지 말 것. 받은 뒤 이 파일은 지운다.
+name: tmp-escape-art
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 'tmp/escape-art-**' ]
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ImageMagick
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+      - name: Fetch + convert
+        run: |
+          set -euo pipefail
+          mkdir -p cloudflare-deploy/public/img tmp-preview
+          while IFS='|' read -r name url; do
+            [ -z "$name" ] && continue
+            echo "→ $name"
+            curl -fsSL --retry 3 -o /tmp/raw.png "$url"
+            convert /tmp/raw.png -resize 1280x -quality 82 -strip "cloudflare-deploy/public/img/${name}.jpg"
+            convert "cloudflare-deploy/public/img/${name}.jpg" -resize 640x \
+              -background '#111' -fill white -pointsize 22 label:"$name" -gravity center -append \
+              "tmp-preview/${name}.jpg"
+          done < tmp-escape-urls.txt
+          ls -la cloudflare-deploy/public/img/escape-*-open.jpg || true
+      - name: Preview sheets
+        run: |
+          cd tmp-preview
+          montage escape-loc-classroom-*.jpg escape-loc-restroom-*.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-1.jpg
+          montage escape-loc-storage-*.jpg escape-loc-rooftop-*.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-2.jpg
+          montage escape-loc-playground-*.jpg escape-zombie-cabinet-open.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-3.jpg
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf tmp-preview
+          git add cloudflare-deploy/public/img/escape-*.jpg tmp-sheet-*.jpg
+          git commit -m "chore(tmp): 방탈출 열린상태 그림 22장 + 미리보기 시트"
+          git push
