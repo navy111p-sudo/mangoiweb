@@ -101,12 +101,14 @@ ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 
 /* 🧱 «한 낱말이 그림 거의 전부를 가리킨다» 면 그것은 근거가 아니라 새어 나온 틀이다.
    🔴 2026-09-21 에 이 모양으로 두 번 샜습니다 — ⓐ 틀 꼬리(light·setting·writing·subtitles)가
       prompt 를 타고 들어와 클립 «전부» 에 붙었고 ⓑ variants() 가 없는 어미를 잘라 만든 기능어
-      (thing→the · ones→on · toes→to)가 설명마다 있어 「thing」이 클립 95.5% 에 붙었습니다.
+      (thing→the · ones→on · toes→to)가 설명마다 있어 「thing」이 클립 77.6% 에 붙었습니다(549편 기준).
       둘 다 «껍데기 80%» 게이트를 비켜 갔습니다(꼬리는 80%에 못 미치고, 기능어는 낱말 쪽에서 생깁니다).
    ✅ 그래서 «결과» 로 묻습니다 — 교재 낱말 중 어느 하나도 그림의 절반을 넘게 가리키면 안 됩니다.
    ⛔ 낱말 목록을 손으로 적어 빼지 마세요(틀이 바뀌면 낡습니다) · 문턱을 올려서 풀지 마세요.
-   ⚠️ 사람 이름·흔한 사물(child·smile)은 원래 여러 그림에 나옵니다 — 실측 최대가 20.5% 라
-      절반(50%)은 «정상» 과 «샘» 사이에 넉넉히 떨어져 있습니다. */
+   ⚠️ 흔한 사물 낱말(hand·hands·handed)은 원래 여러 그림에 나옵니다 — 실측 최대가 26.0%(549편 · hand 143개)라
+      절반(50%)은 «정상» 과 «샘» 사이에 넉넉히 떨어져 있습니다.
+   ⛔ 이 두 숫자는 «클립 549편» 기준입니다 — 클립이 늘면 그대로 낡습니다(44편일 때 적은 95.5%·20.5% 가
+      그렇게 거짓이 됐습니다). 문턱을 손볼지 판단하기 전에 반드시 다시 재세요. */
 {const allWords=new Set();
  for(const list of sourceBooks.values())for(const t of list)for(const w of EV.tokens(t))if(!stopWords.has(w))allWords.add(w);
  /* ⛔ 여기서 토큰을 «다시 걸러» 세지 마세요 — 그러면 모듈이 무엇을 근거로 삼든 하니스는 제 기준만 봅니다.
@@ -139,10 +141,23 @@ ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 
  const block=n=>Math.floor(n/1000);
  const owner=new Map(clipPlan.map(c=>[c.index,c]));
  const stolen=[];
- for(const c of clipPlan){if(!c.reuseClip)continue;
+ const reuseRows=clipPlan.filter(c=>c.reuseClip);
+ /* 전제 — reuseClip 행이 0이면 아래 두 검사가 «조용히 공회전» 합니다(뜻을 잃은 채 초록). */
+ ok(reuseRows.length>0,'reuseClip 을 쓰는 클립이 있다 — 0이면 아래 검사가 뜻을 잃는다');
+ for(const c of reuseRows){
   const t=owner.get(c.reuseClip);
   if(t&&block(t.index)!==block(c.index))stolen.push(c.index+'→'+c.reuseClip);}
- ok(stolen.length===0,'reuseClip 이 가리키는 자리를 다른 묶음의 클립이 뺏지 않았다 ('+(stolen.join(',')||'0건')+')');}
+ ok(stolen.length===0,'reuseClip 이 가리키는 자리를 다른 묶음의 클립이 뺏지 않았다 ('+(stolen.join(',')||'0건')+')');
+ /* 🔒 위 검사는 «이미 뺏긴 뒤» 를 봅니다 — 같은 천 단위 안에서 뺏으면 «정당한 재사용» 과 구분되지 않아
+    원리상 못 잡습니다(2026-09-21 함정 대조가 실측으로 지적). 그래서 규약 자체를 기계가 강제합니다:
+    «임자 없는 전용 자리» 는 클립 번호가 하나도 없는 천 단위에 둔다. 그러면 새 묶음이 그 천 단위로
+    들어오는 «순간» 빨간불이라, 뺏긴 뒤가 아니라 뺏기 전에 걸립니다.
+    ⛔ 전용 자리를 클립이 쓰는 천 단위 «안» 에 두지 마세요 — 그 자리를 지켜 줄 방법이 사라집니다.
+    ⛔ 이 검사를 지우고 「새 묶음은 빈 천 단위에서」를 사람 기억에 맡기지 마세요(그렇게 한 번 밟았습니다). */
+ {const usedBlocks=new Set(clipPlan.map(c=>block(c.index)));
+  const bad=reuseRows.filter(c=>!owner.has(c.reuseClip)&&usedBlocks.has(block(c.reuseClip)))
+   .map(c=>c.reuseClip+'(클립이 쓰는 천 단위 '+block(c.reuseClip)+'xxx)');
+  ok(bad.length===0,'전용 재사용 자리는 클립이 쓰지 않는 천 단위에 있다 — 새 묶음이 뺏을 수 없게 ('+(bad.join(',')||'0건')+')');}}
 const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
 const mediaKey=new Map();
 for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
