@@ -1,5 +1,5 @@
 # ⚠️ 임시 워크플로 — 작업 컨테이너의 프록시가 그 CDN 을 403 으로 막아 여기서만 받을 수 있습니다.
-# ⛔ main 에 올리지 마세요. 끝나면 이 파일과 tools/ 의 임시 스크립트를 지웁니다.
+# ⛔ main 에 올리지 마세요. 끝나면 이 파일과 tools/scene-words/ 를 지웁니다.
 name: scene-words-fetch
 on:
   push:
@@ -7,15 +7,16 @@ on:
 permissions:
   contents: write
 jobs:
-  probe:
+  fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg webp
-      - run: bash tools/video-probe.sh
+      - run: node tools/scene-words/fetch-videos.mjs tools/scene-words/video-urls.json cloudflare-deploy/public/videos/scene-clips cloudflare-deploy/public/img/scene-clips tools/scene-words/video-result.json
+      - run: cat tools/scene-words/video-result.json
       - run: |
           git config user.name "scene-words-fetch"
           git config user.email "noreply@anthropic.com"
-          git add -A tools/video-probe-result.txt
-          git diff --cached --quiet || git commit -m "video probe [skip ci]"
+          git add -A cloudflare-deploy/public/videos/scene-clips cloudflare-deploy/public/img/scene-clips tools/scene-words/video-result.json
+          git diff --cached --quiet || git commit -m "scene clips fetch [skip ci]"
           git push origin HEAD:claude/scene-words-fetch
