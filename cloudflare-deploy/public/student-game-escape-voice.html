@@ -279,9 +279,36 @@ var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
              drawerCU:'/img/escape-room-drawer.jpg?v=1', booksCU:'/img/escape-room-books.jpg?v=1',
              doorCU:'/img/escape-room-door.jpg?v=1',
              /* 🎲 장소 다양화(2026-07-31) — "매번 같은 방만 나오면 지루하다" 피드백. 장소마다 사진 1장 */
-             classroom:'/img/escape-loc-classroom.jpg?v=1', restroom:'/img/escape-loc-restroom.jpg?v=1',
+             classroom:'/img/escape-loc-classroom.jpg?v=1',
+             /* 🚻 화장실 원본에는 청소도구함이 없어서 「사물함을 여세요」와 그림이 어긋났다.
+                도구함이 닫힌 채 서 있는 판으로 갈아 끼운다(2026-09-21). 원본 파일은 그대로 둔다. */
+             restroom:'/img/escape-loc-restroom-closed.jpg?v=1',
              storage:'/img/escape-loc-storage.jpg?v=1', rooftop:'/img/escape-loc-rooftop.jpg?v=1',
-             playground:'/img/escape-loc-playground.jpg?v=1' };
+             playground:'/img/escape-loc-playground.jpg?v=1',
+             /* 🖼 단계별 「열린 상태」 — 보관함이 열리고(Open) · 가리개 뒤 금고가 드러나고(Safe) ·
+                금고가 열려 열쇠가 보이고(Key) · 문이 열린다(Escape). STEP_ART 가 이 키를 고른다.
+                ⛔ 장소마다 사진 1장만 두지 마세요 — 그러면 무엇을 해도 그림이 그대로라
+                   「눌러도 아무 일도 안 일어난다」로 읽힙니다(2026-09-21 사장님 지적). */
+             classroomOpen:'/img/escape-loc-classroom-open.jpg?v=1',
+             classroomSafe:'/img/escape-loc-classroom-safe.jpg?v=1',
+             classroomKey:'/img/escape-loc-classroom-key.jpg?v=1',
+             classroomEscape:'/img/escape-loc-classroom-escape.jpg?v=1',
+             restroomOpen:'/img/escape-loc-restroom-open.jpg?v=1',
+             restroomSafe:'/img/escape-loc-restroom-safe.jpg?v=1',
+             restroomKey:'/img/escape-loc-restroom-key.jpg?v=1',
+             restroomEscape:'/img/escape-loc-restroom-escape.jpg?v=1',
+             storageOpen:'/img/escape-loc-storage-open.jpg?v=1',
+             storageSafe:'/img/escape-loc-storage-safe.jpg?v=1',
+             storageKey:'/img/escape-loc-storage-key.jpg?v=1',
+             storageEscape:'/img/escape-loc-storage-escape.jpg?v=1',
+             rooftopOpen:'/img/escape-loc-rooftop-open.jpg?v=1',
+             rooftopSafe:'/img/escape-loc-rooftop-safe.jpg?v=1',
+             rooftopKey:'/img/escape-loc-rooftop-key.jpg?v=1',
+             rooftopEscape:'/img/escape-loc-rooftop-escape.jpg?v=1',
+             playgroundOpen:'/img/escape-loc-playground-open.jpg?v=1',
+             playgroundSafe:'/img/escape-loc-playground-safe.jpg?v=1',
+             playgroundKey:'/img/escape-loc-playground-key.jpg?v=1',
+             playgroundEscape:'/img/escape-loc-playground-escape.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
 /* Higgsfield 4초 반응 영상 — 실패·저속 환경에서는 기존 정지 이미지/효과가 그대로 동작한다. */
@@ -671,9 +698,45 @@ var FOCUS={ desk:['28% 62%','175%'], painting:['48% 24%','185%'],
   code:['54% 46%','150%'], key:['50% 40%','130%'] };
 /* 단계 id → 전용 클로즈업 사진(있으면 공용 사진 대신 이걸 쓴다) */
 var CLOSEUP={ drawer:'drawerCU', books:'booksCU', door:'doorCU' };
+/* 🖼 단계별 장면 — 「지금 이 방이 어떤 상태인가」를 그림이 말하게 한다(2026-09-21 사장님:
+   「캐비닛을 열라고 했을 때 클릭하면 캐비닛이 열린 그림으로 바뀌는 줄 알았는데 그대로에요」).
+   before = 그 단계에 들어설 때(아직 «안» 한 상태) · after = 말해서 성공한 직후(결과).
+   ⛔ before 에 결과 그림을 쓰지 마세요 — 열기도 전에 열린 모습이 보여 순서가 뒤바뀝니다
+      (study 의 door 가 그래서 doorCU「잠긴 문」을 before 로 씁니다. 2026-07-31 피드백).
+   ⚠️ 단계 id 는 여섯 장소가 모두 같습니다(desk·drawer·painting·books·code·key·door) —
+      장소가 늘면 locArt() 한 줄만 더하면 됩니다. */
+function locArt(L){ return {
+  desk:    { before:L,          after:L           },
+  drawer:  { before:L,          after:L+'Open'    },   // 보관함이 열리고 쪽지가 보인다
+  painting:{ before:L+'Open',   after:L+'Safe'    },   // 가리개를 옮기니 금고가 드러난다
+  books:   { before:L+'Safe',   after:L+'Safe'    },
+  code:    { before:L+'Safe',   after:L+'Key'     },   // 금고가 열리고 열쇠가 보인다
+  key:     { before:L+'Key',    after:L+'Key'     },
+  door:    { before:L+'Key',    after:L+'Escape'  }    // 문이 열린다
+}; }
+var STEP_ART={
+  /* 서재는 전용 클로즈업 사진이 이미 있어 그것을 순서대로 쓴다 */
+  study:{ desk:    { before:'room',     after:'room'     },
+          drawer:  { before:'room',     after:'drawerCU' },
+          painting:{ before:'drawerCU', after:'safe'     },
+          books:   { before:'safe',     after:'booksCU'  },
+          code:    { before:'booksCU',  after:'open'     },
+          key:     { before:'open',     after:'open'     },
+          door:    { before:'doorCU',   after:'escape'   } },
+  classroom:locArt('classroom'), restroom:locArt('restroom'),
+  storage:locArt('storage'), rooftop:locArt('rooftop'), playground:locArt('playground')
+};
+/* 그림이 하나 빠져도 검은 화면이 되지 않게 — 모르는 키면 그 장소의 기본 사진으로 떨어진다 */
+function artFor(locId,stepId,phase){
+  var t=STEP_ART[locId]&&STEP_ART[locId][stepId], k=t&&t[phase];
+  if(k&&SCENES[k]) return k;
+  return SCENES[locId]?locId:'room';
+}
 function setScene(k,pos,size){
-  var el=$('scene');
-  el.style.backgroundImage='url('+SCENES[k]+')';
+  var el=$('scene'), url=SCENES[k];
+  if(!url) return;                      // 모르는 키면 지금 그림을 그대로 둔다(빈 화면보다 낫다)
+  G&&(G.curArt=k);
+  el.style.backgroundImage='url('+url+')';
   el.style.backgroundPosition=pos||'center';
   el.style.backgroundSize=size||'cover';
 }
@@ -711,6 +774,14 @@ function updateCombo(){
   var el=$('comboHud'); if(!el)return;
   el.textContent=G&&G.combo>1 ? '🔥 '+G.combo+' COMBO'+(G.bonusTime?' · 보너스 +'+G.bonusTime+'초':'') : '';
 }
+/* 🔎 찾은 물건 쪽으로 화면이 한 번 들여다본다 — 클릭에 그림이 아무 반응도 안 해
+   「눌러도 그대로에요」로 읽히던 것을 고친다(2026-09-21 사장님).
+   ⛔ 여기서 장면을 «바꾸지» 마세요 — 보관함이 실제로 열리는 것은 영어로 말한 다음입니다.
+   (되돌리기는 다음 setScene 이 pos·size 를 기본값으로 되돌려 저절로 됩니다) */
+function zoomToHotspot(i){
+  if(!G||!G.curArt||!HOT_POS[i])return;
+  setScene(G.curArt, HOT_POS[i][0]+'% '+HOT_POS[i][1]+'%', '150%');
+}
 function clearHotspots(){var z=$('exploreZone');if(z)z.innerHTML='';}
 function renderHotspots(){
   var z=$('exploreZone'); if(!z||!G||!G.running||G.over)return;
@@ -726,7 +797,8 @@ function renderHotspots(){
       if(!G||!G.running||G.over||G.busy)return;
       if(label!==correct){b.classList.add('wrong');heard('여기에는 아무것도 없어요 · <b>Nothing is here.</b>');sndNo();setTimeout(function(){b.classList.remove('wrong');},450);return;}
       b.classList.add('correct'); G.hintLv=2; showHint(true,true);
-      heard('찾았어요! 영어로 말해 움직여 보세요 · <b>Now say it in English!</b>');
+      zoomToHotspot(i);
+      heard('찾았어요! 영어로 말하면 열려요 · <b>Now say it in English!</b>');
       setTimeout(function(){listen();},80);
     });
     z.appendChild(b);
@@ -806,18 +878,11 @@ function armIdle(ms){ clearIdle();
   }, ms); }
 function showStep(){
   var s=curStep(); if(!s) return;
-  if(G.loc.id==='study'){
-    // drawer/books/door는 전용 클로즈업 사진을 쓴다. door는 특히 "아직 잠겨 있는 문 손잡이"를 보여줘야
-    // 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
-    var cu=CLOSEUP[s.id];
-    var imgKey = cu || (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
-    var f=cu ? null : FOCUS[s.id];
-    setScene(imgKey, f&&f[0], f&&f[1]);
-  } else {
-    // 새 장소들은 아직 전용 클로즈업 사진 없이 사진 1장을 그대로 쓴다(2026-07-31 — 5곳 동시 추가라
-    // 우선 비용을 낮췄다. 반응 보고 study처럼 단계별 클로즈업을 추가할 수 있음)
-    setScene(G.loc.id);
-  }
+  // 그 단계에 들어선 시점의 방 모습 — 「아직 안 한 상태」(STEP_ART 의 before)
+  var imgKey=artFor(G.loc.id,s.id,'before');
+  // 서재는 넓은 사진 한 장을 단계마다 확대·이동해서 그 물건이 보이게 한다(전용 클로즈업이면 그대로)
+  var f=(G.loc.id==='study' && !CLOSEUP[s.id]) ? FOCUS[s.id] : null;
+  setScene(imgKey, f&&f[0], f&&f[1]);
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
   G.hintLv=0; G.stepWrong=0; hintTxt('');
@@ -849,13 +914,14 @@ function advance(){
   logProg(s.id, true);
   // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(study는 전용 클로즈업 사진으로,
   // 나머지 장소는 사진이 1장뿐이라 소리·효과만으로 그 박자를 준다)
-  var study=G.loc.id==='study';
+  var afterKey=artFor(G.loc.id,s.id,'after');
   if(s.id==='door'){
-    if(study) setScene('doorCU');
+    // 「잠긴 문 → 열쇠 돌아가는 소리 → 열린 문」 한 박자
+    setScene(artFor(G.loc.id,s.id,'before'));
     sndKeyTurn();
-    setTimeout(function(){ if(G===game && game.running && !game.over) setScene(study?s.scene:game.loc.id); }, 650);
+    setTimeout(function(){ if(G===game && game.running && !game.over) setScene(afterKey); }, 650);
   } else {
-    setScene(study?s.scene:G.loc.id);
+    setScene(afterKey);
     if((s.id==='drawer'||s.id==='painting') && !window.EscapeAudio) sndCreak();
   }
   if(s.note) showNote(s.note, s.noteKo);

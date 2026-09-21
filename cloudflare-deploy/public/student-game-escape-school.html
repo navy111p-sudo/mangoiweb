@@ -252,7 +252,11 @@ var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
 
 var SCENES={ room:'/img/escape-school-classroom.jpg?v=1', escape:'/img/escape-school-hallway.jpg?v=1',
              doorCU:'/img/escape-school-door.jpg?v=1', computerCU:'/img/escape-school-computer.jpg?v=1',
-             noteCU:'/img/escape-school-note.jpg?v=1' };
+             noteCU:'/img/escape-school-note.jpg?v=1',
+             /* 🖼 성공한 «결과» 화면 — 비번이 맞으면 메일창이 열리고, 보내면 전송 확인이 뜬다.
+                이 둘이 없던 동안에는 무엇을 해도 교실 전체 사진으로 되돌아가서
+                「그림이 그대로에요」로 읽혔습니다(2026-09-21 사장님 지적). */
+             emailCU:'/img/escape-school-email.jpg?v=1', sentCU:'/img/escape-school-sent.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
 /* Higgsfield 4초 반응 영상 — 네트워크가 느리거나 영상이 실패해도 정지 이미지 게임은 그대로 진행된다. */
@@ -396,6 +400,23 @@ var FOCUS={ classroom:['46% 60%','108%'] };
 /* 단계 id → 전용 클로즈업 사진(있으면 공용 사진 대신 이걸 쓴다) */
 var CLOSEUP={ door1:'doorCU', computer:'computerCU', note:'noteCU', password:'computerCU',
               email:'computerCU', door2:'doorCU' };
+/* 🖼 단계별 장면 — before = 그 단계에 들어설 때(아직 «안» 한 상태) · after = 성공 직후(결과).
+   ⛔ 성공 후 장면을 s.scene('room')으로 되돌리지 마세요 — 매번 교실 전체로 돌아가
+      「무엇을 해도 그림이 안 바뀐다」가 됩니다. */
+var STEP_ART={
+  classroom:{ before:'room',      after:'room'      },
+  door1:    { before:'room',      after:'doorCU'    },   // 당겨 봤지만 밖에서 잠겨 있다
+  computer: { before:'doorCU',    after:'computerCU'},   // 화면이 켜지고 비밀번호를 묻는다
+  note:     { before:'computerCU',after:'noteCU'    },   // 쪽지에 3 3 5
+  password: { before:'noteCU',    after:'emailCU'   },   // 메일 프로그램이 열린다
+  email:    { before:'emailCU',   after:'sentCU'    },   // SOS 전송 완료
+  door2:    { before:'doorCU',    after:'escape'    }    // 선생님이 열어 준다
+};
+/* 그림이 하나 빠져도 검은 화면이 되지 않게 — 모르는 키면 옛 동작(단계의 scene)으로 떨어진다 */
+function artFor(stepId,phase,fallback){
+  var t=STEP_ART[stepId], k=t&&t[phase];
+  return (k&&SCENES[k]) ? k : fallback;
+}
 function setScene(k,pos,size){
   var el=$('scene');
   el.style.backgroundImage='url('+SCENES[k]+')';
@@ -500,8 +521,8 @@ function showStep(){
   // "아직 잠겨 있는 문"을 보여줘야 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이
   // 먼저 보여서 순서가 뒤바뀐다(escape-voice.html의 door 단계와 동일한 함정)
   var cu=CLOSEUP[s.id];
-  var imgKey = cu || s.scene;
-  var f=cu ? null : FOCUS[s.id];
+  var imgKey = artFor(s.id,'before', cu || s.scene);
+  var f=(imgKey===s.scene) ? FOCUS[s.id] : null;
   setScene(imgKey, f&&f[0], f&&f[1]);
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
@@ -523,11 +544,11 @@ function advance(){
   logProg(s.id, true);
   // 결과 장면으로 전환 — door2는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
   if(s.id==='door2'){
-    setScene('doorCU');
+    setScene(artFor(s.id,'before','doorCU'));
     if(!window.EscapeSchoolAudio) sndKeyTurn();
     setTimeout(function(){ setScene(s.scene); }, 650);
   } else {
-    setScene(s.scene);
+    setScene(artFor(s.id,'after', s.scene));
     if(s.id==='door1' && !window.EscapeSchoolAudio) sndCreak();
     if(s.id==='computer' && !window.EscapeSchoolAudio) sndPowerOn();
   }
