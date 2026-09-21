@@ -85,7 +85,16 @@ export function addsDetail(description,sentences,shell){
       (실측: clear·subjects 가 다시 근거가 됨) 판정이 조용히 헐거워집니다. pictureEvidence() 를 쓰세요. */
 function describeMedia({assets,clips,sceneText}){
  const describe=new Map();
- const clipRaw=c=>[c.visual,c.action,c.prompt].filter(Boolean).join(' ');
+ /* 클립이 «설명»(visual·action)을 가지고 있으면 prompt 는 보지 않는다 — 그 안에 든 것은 같은 설명 + 틀뿐이다.
+    🔴 2026-09-21 실측: 틀 낱말 중 light·setting·writing·subtitles 는 설명의 80% 에 못 미쳐 껍데기로 안 잡히는데,
+       그 넷은 교재에 실제 낱말로 있다. prompt 를 근거에 넣으면 클립 549편 «전부» 가 그 넷을 보여 준다고 판정한다
+       (= 「clear·natural·subjects 가 모든 그림에 붙는다」와 같은 사고). 좁히면 light 34 · setting 2 · writing 2 · subtitles 0.
+    ⛔ 틀 낱말 목록을 손으로 적어 빼지 마세요 — 틀이 바뀌면 조용히 낡습니다. 설명이 없을 때만 prompt 로 떨어집니다.
+    ✅ 「낱말 사진」 근거 판정(word-image 1,401건 중 1,398건 통과)과 껍데기 15개는 그대로입니다.
+       ⚠️ 「한 건도 안 바뀐다」로 적지 마세요 — 클립 그림을 근거로 삼던 🖼 줄은 바뀝니다
+          (빌드 A/B 실측: wordPictureRows 7,240 → 7,210 · 30줄. 그 30줄이 바로 「light·setting 을
+          보여 준다」던 거짓 근거이므로, 줄어드는 것이 이 수리의 목적입니다). */
+ const clipRaw=c=>((c.visual||c.action)?[c.visual,c.action]:[c.prompt]).filter(Boolean).join(' ');
  const shell=shellTokens([...assets.map(a=>a.prompt),...clips.map(clipRaw)]);
  for(const a of assets){
   const own=(a.scenes||[]).map(id=>sceneText.get(id)).filter(Boolean);
@@ -107,10 +116,19 @@ function describeMedia({assets,clips,sceneText}){
 }
 
 /* 열쇠가 가리키는 그림이 그 낱말을 보여 주는가. 설명이 없으면(메아리였으면) 언제나 false.
-   ⛔ 껍데기 낱말은 근거에서 뺀다 — 안 빼면 「clear·natural·subjects」가 모든 그림에 붙습니다. */
-function makeDepicts(describe,shell){
+   ⛔ 껍데기 낱말은 근거에서 뺀다 — 안 빼면 「clear·natural·subjects」가 모든 그림에 붙습니다.
+   ⛔ 기능어(stopwords.json)도 뺀다 — 교재가 스스로 «뜻이 없다» 고 정해 둔 낱말이라
+      그것이 설명에 있다고 무엇이 그려졌는지 한 글자도 알려 주지 않습니다.
+   🔴 2026-09-21 실측: 이것을 안 빼면 variants() 의 어미 벗기기가 «있지도 않은 어미» 를 잘라
+      기능어를 만들어 내고(thing→the · ones→on · toes→to · used→us) 그 기능어가 설명마다 있으니
+      **「thing」이 클립 그림 549개 중 426개(77.6%) · 「ones」가 312개(56.8%) 에 붙습니다**
+      (= 「clear 가 모든 그림에 붙는다」와 같은 사고). 빼면 그 둘이 0개 · 3개(0.5%)가 되고
+      교재 낱말 중 최대 비율이 77.6%(thing) → 26.0%(hand 143개) 로 떨어집니다.
+      「낱말 사진」 근거 판정은 1,398건 그대로이고, 🖼 줄은 7,211 → 7,210 한 줄 줄어듭니다(빌드 A/B 실측).
+   ⛔ variants() 에서 그 넷을 손으로 빼지 마세요 — 어미 규칙이 바뀌면 조용히 낡습니다. */
+function makeDepicts(describe,shell,stopWords){
  const cache=new Map();
- const tokenSet=key=>{if(!cache.has(key))cache.set(key,new Set(tokens(describe.get(key)).filter(t=>!shell.has(t))));return cache.get(key);};
+ const tokenSet=key=>{if(!cache.has(key))cache.set(key,new Set(tokens(describe.get(key)).filter(t=>!shell.has(t)&&!stopWords.has(t))));return cache.get(key);};
  return function depicts(word,key){
   if(!key)return false;
   const set=tokenSet(key);
@@ -120,7 +138,7 @@ function makeDepicts(describe,shell){
 }
 
 /* 🖼 정본 입구 — 빌드도 회귀 검사도 이것 «하나» 만 부른다(설명·껍데기·판정이 짝을 잃지 않게). */
-export function pictureEvidence({assets,clips,sceneText}){
+export function pictureEvidence({assets,clips,sceneText,stopWords}){
  const {describe,shell}=describeMedia({assets,clips,sceneText});
- return {describe,shell,depicts:makeDepicts(describe,shell)};
+ return {describe,shell,depicts:makeDepicts(describe,shell,stopWords instanceof Set?stopWords:new Set(stopWords||[]))};
 }
