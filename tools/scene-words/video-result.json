@@ -1,0 +1,34 @@
+[
+ {
+  "index": 6001,
+  "videoBytes": 111978,
+  "imageBytes": 27856,
+  "width": 640,
+  "height": 476,
+  "duration": 4.041667
+ },
+ {
+  "index": 6002,
+  "videoBytes": 186406,
+  "imageBytes": 34666,
+  "width": 640,
+  "height": 476,
+  "duration": 4.041667
+ },
+ {
+  "index": 6006,
+  "videoBytes": 106966,
+  "imageBytes": 20768,
+  "width": 640,
+  "height": 476,
+  "duration": 4.041667
+ },
+ {
+  "index": 6012,
+  "videoBytes": 251930,
+  "imageBytes": 32870,
+  "width": 640,
+  "height": 476,
+  "duration": 4.041667
+ }
+]
