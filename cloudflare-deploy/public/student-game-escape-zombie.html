@@ -236,7 +236,10 @@ var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
 var SCENES={ room:'/img/escape-zombie-lab.jpg?v=1', safe:'/img/escape-zombie-vault.jpg?v=1',
              open:'/img/escape-zombie-open.jpg?v=1', escape:'/img/escape-zombie-escape.jpg?v=1',
              cabinetCU:'/img/escape-zombie-cabinet.jpg?v=1', logsCU:'/img/escape-zombie-logs.jpg?v=1',
-             doorCU:'/img/escape-zombie-door.jpg?v=1' };
+             doorCU:'/img/escape-zombie-door.jpg?v=1',
+             /* 🖼 캐비닛이 «열린» 판 — 열라고 해 놓고 성공해도 그림이 그대로라
+                「눌러도 그대로에요」로 읽히던 것을 고친다(2026-09-21 사장님) */
+             cabinetOpen:'/img/escape-zombie-cabinet-open.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
 var ACTION_CLIPS={
@@ -515,6 +518,7 @@ function showStep(){
   } else armIdle(14000);
 }
 function advance(){
+  var game=G;                        // 다시 시작해도 옛 타이머가 새 판을 안 덮게
   var s=curStep();
   G.busy=true; clearIdle();
   sndOk(); flash();
@@ -527,7 +531,13 @@ function advance(){
     sndAirlock();
     setTimeout(function(){ setScene(s.scene); }, 650);
   } else {
-    setScene(s.scene);
+    // 캐비닛은 「열린 판」을 먼저 보여 준 뒤(1.6초) 다음 장면으로 — 연 결과가 눈에 보여야 한다
+    if(s.id==='cabinet' && SCENES.cabinetOpen){
+      setScene('cabinetOpen');
+      // ⛔ G 를 다시 읽는 것만으로는 부족합니다 — 1.6초 안에 «다시 시작» 하면 새 판의
+      //    장면을 이 타이머가 덮습니다. 시작 시점의 G 와 같은 판일 때만 바꿉니다.
+      setTimeout(function(){ if(G===game && game.running && !game.over) setScene(s.scene); }, 1600);
+    } else setScene(s.scene);
     if(s.id==='cabinet'||s.id==='computer') sndCreak();
   }
   if(s.id==='cabinet'){
