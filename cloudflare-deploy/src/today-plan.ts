@@ -332,15 +332,35 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     const sMin = hhmmToMin(cls.start) as number;
     const eMin = (hhmmToMin(last!.start) as number) + Math.max(10, last!.minutes || 20);
     phase = inp.nowMin < sMin ? 'before' : (inp.nowMin <= eMin ? 'in_class' : 'after');
-    for (const k of CLASS_DAY.before) steps.push(step(k, 'before', inp,
-      `${cls.start} 수업 전에 10분. 오늘 배울 문장으로 입을 풀어요.`,
-      `10 minutes before your ${cls.start} class — warm up with today's sentences.`));
-    for (const k of CLASS_DAY.after) steps.push(step(k, 'after', inp,
-      '수업이 끝난 직후가 제일 잘 남아요. 오늘 배운 것을 바로 물어봅니다.',
-      'Right after class is when it sticks — quiz on what you just learned.'));
-    for (const k of fitToBand(CLASS_DAY.home, band)) steps.push(step(k, 'home', inp,
+    /* 🔴 순서·문구는 «지금이 수업 전인가 뒤인가»(phase)로 정한다 (2026-09-21).
+       그전에는 phase 를 «계산만» 하고 읽는 곳이 저장소 전체에 0곳이라, 밤 9시에도
+       1번이 「14:00 수업 전에 10분」이었다(사장님 제보 — 그날 2시 수업이 끝난 뒤).
+       세 시각(09:20/14:10/21:20)을 넣어 돌리면 phase 는 before/in_class/after 로
+       정확히 갈렸는데 steps 는 글자 하나까지 같았다.
+       ⛔ 웜업을 목록에서 «빼지» 마세요 — 다음 수업 전에 미리 해 두는 길이 사라집니다.
+          지난 뒤에는 맨 뒤로 내리고 «다음 수업용» 이라고 말할 뿐입니다. */
+    const pre = phase === 'before';
+    const warm = CLASS_DAY.before.map(k => step(k, 'before', inp,
+      pre ? `${cls.start} 수업 전에 10분. 오늘 배울 문장으로 입을 풀어요.`
+          : (phase === 'in_class'
+              ? `지금 ${cls.start} 수업 중이에요. 웜업은 다음 수업 전에 하면 돼요.`
+              : `오늘 ${cls.start} 수업은 끝났어요. 웜업은 다음 수업 전에 하면 돼요.`),
+      pre ? `10 minutes before your ${cls.start} class — warm up with today's sentences.`
+          : (phase === 'in_class'
+              ? `Your ${cls.start} class is on now — warm up before the next one.`
+              : `Today's ${cls.start} class is over — warm up before your next one.`)));
+    const rev = CLASS_DAY.after.map(k => step(k, 'after', inp,
+      phase === 'after'
+        ? '수업이 끝났어요. 지금이 제일 잘 남습니다 — 오늘 배운 것을 바로 물어봅니다.'
+        : '수업이 끝난 직후가 제일 잘 남아요. 오늘 배운 것을 바로 물어봅니다.',
+      phase === 'after'
+        ? 'Class is over — right now is when it sticks. Quiz on what you just learned.'
+        : 'Right after class is when it sticks — quiz on what you just learned.'));
+    const home = fitToBand(CLASS_DAY.home, band).map(k => step(k, 'home', inp,
       '집에서 5분. 오늘 틀린 단어를 한 번 더 만나요.',
       '5 minutes at home — meet today\'s missed words once more.'));
+    /* 수업 전 → 웜업이 1번(예전 그대로). 수업이 시작된 뒤 → 복습이 1번, 웜업은 맨 뒤. */
+    for (const st of (pre ? [...warm, ...rev, ...home] : [...rev, ...home, ...warm])) steps.push(st);
   } else {
     mode = 'home';
     const keys = fitToBand(HOME_WEEK[inp.dow] || ['friend', 'micro'], band);
