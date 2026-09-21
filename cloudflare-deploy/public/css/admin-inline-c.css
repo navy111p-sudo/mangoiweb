@@ -3119,7 +3119,7 @@ button.chip:hover,
   #legacy-cards .rbac-hide,
   .rbac-hide { display: none !important; }
 
-  /* ═══ 🗂️ 카드 안 손자 폼은 실제로 접힌다 (2026-09-18) ═══════════════════════════
+  /* ═══ 🗂️ 카드 안 손자 폼은 실제로 접힌다 (2026-09-18, v=82 에서 재수리) ═══════════
      사장님 제보 「대리점을 누르면 등록/검색/목록이 한 번에 다 나와서 스크롤만 하면
      다 보인다 — 메뉴 하나당 하나만 노출되게. 대리점만이 아니라 모든 메뉴」.
      원인은 위 «카드들 보이게» 복구 규칙(#legacy-cards details{display:block!important},
@@ -3129,9 +3129,17 @@ button.chip:hover,
 
      ⛔ 그 복구 규칙 자체는 지우지 않는다(위 3107행 경고와 같은 이유 — ph87 이 legacy-cards
         를 통째로 숨겼던 사고의 재발 방지책이다).
-     ✅ 그래서 사이드바 레벨1(.sub-item)의 «본문»(.sub-body) «안에 있는» details 에만
-        특정도를 더 높여 native open/closed 를 실제로 존중하게 되돌린다:
-          #legacy-cards .sub-body details:not([open]) → 특정도 (1,2,1) > 복구 규칙 (1,0,1)
+
+     🔴 v=81 판의 결함(trap-check 실측으로 발견, 되돌림) — 그때는
+        「#legacy-cards .sub-body details:not([open]) { display: none !important; }」로
+        <details> «전체» 를 지웠다. 그런데 `display:none` 은 그 요소를 통째로 지우므로
+        `<summary>` 도 함께 사라져 — 닫힌 폼을 다시 열 클릭 지점이 아예 없어졌다
+        (브라우저 실측: 닫힌 summary 의 getBoundingClientRect() 가 {w:0,h:0}). 「+ 대리점
+        신규 등록」같은 19개 이상의 등록/일괄등록 폼이 클릭할 방법 없이 완전히 사라졌었다.
+     ✅ 그래서 <details> 요소 자신은 그대로 두고(→ 위 복구 규칙이 계속 적용돼 summary 가
+        항상 보임) «summary 를 뺀 내용만» 닫혀 있을 때 숨긴다:
+          #legacy-cards .sub-body details:not([open]) > :not(summary)
+          → 특정도 (1,2,2) > 복구 규칙 (1,0,1) — summary 는 :not(summary) 에 안 걸려 그대로 보임
         .rbac-hide 가 감추는 레벨0(.menu-card)·레벨1(.sub-item) 자체는 .sub-body «밖» 이라
         이 규칙과 특정도 경쟁을 하지 않는다 — 역할별 카드 숨김에 영향 없음.
 
@@ -3146,14 +3154,18 @@ button.chip:hover,
         details 를 동시에 열어 둬야 하는 화면이 있어, 하나가 열리면 남을 강제로 닫으면
         그 업무 흐름이 깨진다. 여기서는 «닫혀 있던 것이 열리면 보인다» 만 되돌리고,
         기본값(열림/닫힘)은 admin.html 이 각 details 에 open 속성을 붙였는지로 정해진다.
+        🔴 v=81 판에서 이 줄을 CSS 로는 지켰지만, adm-r25.js `reveal()` 의 «이미 있던»
+        형제 sub-item 자동닫기(사이드바 손자 클릭 시)가 이제 실제로 효과를 내 acc-payer-box
+        3형제 예외를 깨뜨렸다(trap-check 실측). 그 JS 쪽은 `data-keep-open` 속성으로
+        따로 고쳤다 — adm-r25.js `reveal()` 의 주석을 볼 것. ⛔ 여기 CSS 만 보고 「JS 는
+        안 건드렸으니 무관하다」고 판단하지 말 것 — 같은 사고의 다른 절반이다.
      ⚠️ 검색창·목록 표처럼 <details> 가 아닌(data-gc 만 붙은) 요소는 이 규칙과 무관하다 —
         대리점의 「🔎 검색」이 「🏪 목록」표를 필터링하는 짝이라, 둘을 따로 접었다 펴면
         검색 결과를 볼 수 없게 된다(기능 회귀). 그래서 둘은 손대지 않고 그대로 함께
         보인다 — 「메뉴 하나당 하나만」은 «접고 펴는 details» 에만 적용한다.
      미디어쿼리 밖에 둔다 — 모바일(<1024px)은 원래 이 강제 규칙이 없어(위 두 복구 규칙이
      전부 min-width:1024px 안에만 있음) 이 규칙이 native 동작과 같은 값을 내려 무해하다. */
-  #legacy-cards .sub-body details[open] { display: block !important; }
-  #legacy-cards .sub-body details:not([open]) { display: none !important; }
+  #legacy-cards .sub-body details:not([open]) > :not(summary) { display: none !important; }
 
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
