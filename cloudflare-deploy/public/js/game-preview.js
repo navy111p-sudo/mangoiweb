@@ -139,7 +139,11 @@
     _pvCss();
 
     var pv = GAME_PREVIEW[mode] || {};
-    var shots = (pv.shots && pv.shots.length) ? pv.shots.slice(0) : ['/img/games/' + mode + '.webp'];
+    /* 🖼 기본 그림은 «허브 카드와 같은 규칙»으로 — 카드는 g.imageSrc 를 먼저 본다(student-games.html).
+       ⚠️ 여기서 그걸 안 보면 imageSrc 를 쓰는 게임만 미리보기 그림이 깨진다
+          (2026-09-21 장면 탐험대가 그랬습니다 — 카드는 나오는데 미리보기만 이모지 폴백). */
+    var shots = (pv.shots && pv.shots.length) ? pv.shots.slice(0)
+      : [g.imageSrc || ('/img/games/' + mode + '.webp')];
     var need = _needToUnlock(mode);
     var nx = _nextPlayable();
     var ttl = (typeof _gameTitle === 'function') ? _gameTitle(g) : g.ttl;

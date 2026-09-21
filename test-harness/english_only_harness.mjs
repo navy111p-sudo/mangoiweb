@@ -59,8 +59,23 @@ check('index.ts 도 같은 정본을 import 한다 (웜업·게임이 한 규칙
   /import \{ isEnglishText, isEnglishQuestion \} from '\.\/english-only'/.test(indexSrc));
 check('⛔ 규칙(문자범위)을 다른 파일에 복사하지 않았다',
   !/\\u3040-\\u30ff/.test(graphCode) && !/\\u3040-\\u30ff/.test(indexCode));
+/* 📜 2026-09-13 — 웜업 화면에 «대화 언어» 축(영어/중국어)이 생겼습니다. 그래서 화면에는
+   중국어 고정 인사말과 모델에게 보내는 지시문("Add pinyin …")이 «데이터로» 들어 있습니다.
+   ⇒ 「pinyin 이라는 낱말이 있는가」는 더 이상 «판정 규칙을 복사했는가» 를 묻지 못합니다
+      (그 낱말 하나로 멀쩡한 지시문이 빨간불이 됐습니다).
+   ✅ 지켜야 할 것은 그대로입니다 — 화면이 «무슨 말인지 스스로 가리지» 않는다:
+      ① 게이트 이름(isEnglishText/isEnglishQuestion)을 쓰지 않는다
+      ② 언어를 가르는 «문자범위 정규식» 을 화면에 복사하지 않는다
+   ⛔ 이 검사를 「중국어 글자가 없다」로 되돌리지 마세요 — 인사말이 실제로 중국어입니다.
+   📜 2026-09-14 — ①도 «주석을 벗겨 낸 사본» 으로 판정하도록 고쳤습니다. 원문으로 보면
+      「이 소재는 서버가 isEnglishText 로 걸러 영어만 준다」는 «왜 그렇게 했는지» 설명
+      주석 한 줄에 빨간불이 났습니다(CLAUDE.md 2장 «부정 검사가 자기 주석을 잡는다»).
+      ②는 처음부터 strip 을 쓰고 있었으니, 둘의 기준을 맞춘 것이기도 합니다.
+      ✅ 지키는 것은 그대로입니다 — «코드가» 그 이름을 쓰면 여전히 빨간불입니다. */
+const warmupHtmlC = strip(warmupHtml);
 check('⛔ 화면(warmup.html)에는 판정 규칙을 복사하지 않았다 (서버가 거른 것을 그대로 그린다)',
-  !/isEnglish/.test(warmupHtml) && !/병음|pinyin/i.test(strip(warmupHtml)));
+  !/isEnglish/.test(warmupHtmlC)
+  && !/\\u3040-\\u30ff|\\u4e00-\\u9fff|\\u3400-\\u9fff/.test(warmupHtmlC));
 
 console.log('\n[ ② ETL 세 입구가 모두 게이트를 지난다 ]');
 check('교재 문장 추출(extractSentences)이 문항 게이트를 먼저 지난다',

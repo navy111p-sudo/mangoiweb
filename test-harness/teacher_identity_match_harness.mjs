@@ -140,6 +140,8 @@ check('③ 대문자 표기(TEACHER WIN → WIN)도 구제된다', resolved1('TE
 check('③ Teacher Chaine → CHAINE 도 구제된다', resolved1('Teacher Chaine', '15'));
 {
   // FAR ⊂ HT FARRAH. 완전일치가 있으니 부분일치분은 버려야 한다.
+  //  📌 (2026-09-08) 그 둘은 실은 **같은 사람**이다(사장님 확인). 그래도 이 검사는 그대로다 —
+  //     이어야 할 행은 **활성 22** 이고 3 은 퇴사 행이라, 그리로 이으면 수업·급여가 죽은 행에 붙는다.
   const c = candidates('FAR');
   check('③ 완전일치가 있으면 부분일치분(HT FARRAH)은 버린다',
     c.length > 1 && resolved1('FAR', '22'));

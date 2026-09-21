@@ -2124,12 +2124,17 @@
 /* ── [style#no-id-31] ── */
 
       @keyframes rsPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; transition:transform .2s,box-shadow .2s }
-      .rs-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
-      .rs-kpi .icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:8px }
-      .rs-kpi .label { font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px }
-      .rs-kpi .value { font-size:20px; font-weight:900; color:#0f172a; font-variant-numeric:tabular-nums; line-height:1.1 }
-      .rs-kpi .unit { font-size:11px; font-weight:600; color:#94a3b8; margin-top:3px }
+      /* 📊 저장소 상태 타일 — 2026-09-13 D안으로 키움(라벨 11→13.5px · 숫자 20→34px). 색·탭·머리글은
+         파일 맨 끝 #card-recording-storage 블록(인라인·클래스만으론 [id^="card-"] 규칙에 눌린다).
+         ⛔ hover translate 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」(옛 규칙에 있었다). */
+      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:14px; padding:18px 20px 16px; display:flex; flex-direction:column; gap:6px; min-height:132px; transition:box-shadow .15s }
+      .rs-kpi:hover { box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
+      .rs-kpi .label { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; color:#475467 }
+      .rs-kpi .label .icon { font-size:20px; line-height:1 }
+      .rs-kpi .label .tagline { font-size:12px; font-weight:700; color:#b91c1c; margin-left:auto }
+      .rs-kpi .value { font-size:34px; font-weight:900; color:#101828; font-variant-numeric:tabular-nums; line-height:1.05; display:flex; align-items:baseline; gap:4px }
+      .rs-kpi .value small { font-size:15px; font-weight:700; color:#667085 }
+      .rs-kpi .unit { font-size:13px; font-weight:600; color:#667085 }
       /* 📱 모바일 — 녹화관리 헤더/카운트/버튼 세로 정렬 (글자 쪼개짐 방지) */
       @media (max-width: 768px) {
         #card-recording-storage > summary { flex-wrap: wrap !important; align-items: flex-start !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -2137,8 +2142,9 @@
         #card-recording-storage #rec-counts { display:block !important; width: 100% !important; white-space: normal !important; word-break: keep-all !important; line-height: 1.6 !important; font-size: 12px !important; }
         #card-recording-storage #rs-refresh-btn, #card-recording-storage #rs-diag-btn { flex: 1 1 0 !important; justify-content: center !important; min-width: 110px !important; padding: 10px 12px !important; font-size: 13px !important; }
         #card-recording-storage #rs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-        #card-recording-storage .rs-kpi .label { font-size: 10.5px !important; }
-        #card-recording-storage .rs-kpi .value { font-size: 18px !important; }
+        #card-recording-storage .rs-kpi .label { font-size: 12.5px !important; }
+        #card-recording-storage .rs-kpi .value { font-size: 28px !important; }
+        #card-recording-storage .rs-tab { font-size: 14px !important; padding: 10px 12px !important; }
       }
       /* 🎨 [요청] 새로고침·진단 버튼 — 아이보리(밝게) 테마에서만 파스텔 배경 + 어두운 글자.
          다크 테마에서는 기본 파란 버튼(어두운 바탕+흰 글자) 유지. */
@@ -3113,6 +3119,54 @@ button.chip:hover,
   #legacy-cards .rbac-hide,
   .rbac-hide { display: none !important; }
 
+  /* ═══ 🗂️ 카드 안 손자 폼은 실제로 접힌다 (2026-09-18, v=82 에서 재수리) ═══════════
+     사장님 제보 「대리점을 누르면 등록/검색/목록이 한 번에 다 나와서 스크롤만 하면
+     다 보인다 — 메뉴 하나당 하나만 노출되게. 대리점만이 아니라 모든 메뉴」.
+     원인은 위 «카드들 보이게» 복구 규칙(#legacy-cards details{display:block!important},
+     3038·3084행)이 #legacy-cards 안의 «모든» <details> 를 open 속성과 무관하게 강제로
+     펴기 때문이다 — 「+ 대리점(학원) 신규 등록」처럼 원래 접혀 있어야 할 details(ct-form-
+     wrap 등)가 늘 펼쳐진 채로 보인다.
+
+     ⛔ 그 복구 규칙 자체는 지우지 않는다(위 3107행 경고와 같은 이유 — ph87 이 legacy-cards
+        를 통째로 숨겼던 사고의 재발 방지책이다).
+
+     🔴 v=81 판의 결함(trap-check 실측으로 발견, 되돌림) — 그때는
+        「#legacy-cards .sub-body details:not([open]) { display: none !important; }」로
+        <details> «전체» 를 지웠다. 그런데 `display:none` 은 그 요소를 통째로 지우므로
+        `<summary>` 도 함께 사라져 — 닫힌 폼을 다시 열 클릭 지점이 아예 없어졌다
+        (브라우저 실측: 닫힌 summary 의 getBoundingClientRect() 가 {w:0,h:0}). 「+ 대리점
+        신규 등록」같은 19개 이상의 등록/일괄등록 폼이 클릭할 방법 없이 완전히 사라졌었다.
+     ✅ 그래서 <details> 요소 자신은 그대로 두고(→ 위 복구 규칙이 계속 적용돼 summary 가
+        항상 보임) «summary 를 뺀 내용만» 닫혀 있을 때 숨긴다:
+          #legacy-cards .sub-body details:not([open]) > :not(summary)
+          → 특정도 (1,2,2) > 복구 규칙 (1,0,1) — summary 는 :not(summary) 에 안 걸려 그대로 보임
+        .rbac-hide 가 감추는 레벨0(.menu-card)·레벨1(.sub-item) 자체는 .sub-body «밖» 이라
+        이 규칙과 특정도 경쟁을 하지 않는다 — 역할별 카드 숨김에 영향 없음.
+
+     ⚠️ .sub-body 안에 details 가 «둘 이상» 인 곳은 87곳 중 5곳뿐이고(2026-09-18 조사),
+        그중 3곳(대표지사·지사·강사의 「등록 폼 vs 엑셀 일괄 등록」)은 이 규칙이 정확히
+        의도한 대로 작동한다 — 둘 다 원래 닫혀 있던 폼이라 기본이 둘 다 닫힘이 된다.
+        나머지 2곳(가맹점 정산의 「수수료 설정+상세표」·「배정 못 한 결제/B2B/지출분류
+        3종 할일 목록」)은 직원이 «동시에» 열어 두고 대조·처리하는 화면이라, admin.html
+        본문에서 그 details 들에 open 속성을 그대로 살려 두었다(예: acc-payer-box) —
+        그래서 이 규칙 아래에서도 기존처럼 기본이 열림이다. ⛔ 그 open 속성을 지우지 말 것.
+     ⚠️ 형제 details 를 자동으로 닫는 JS 로직은 «넣지 않는다» — 위 예외 2곳처럼 여러
+        details 를 동시에 열어 둬야 하는 화면이 있어, 하나가 열리면 남을 강제로 닫으면
+        그 업무 흐름이 깨진다. 여기서는 «닫혀 있던 것이 열리면 보인다» 만 되돌리고,
+        기본값(열림/닫힘)은 admin.html 이 각 details 에 open 속성을 붙였는지로 정해진다.
+        🔴 v=81 판에서 이 줄을 CSS 로는 지켰지만, adm-r25.js `reveal()` 의 «이미 있던»
+        형제 sub-item 자동닫기(사이드바 손자 클릭 시)가 이제 실제로 효과를 내 acc-payer-box
+        3형제 예외를 깨뜨렸다(trap-check 실측). 그 JS 쪽은 `data-keep-open` 속성으로
+        따로 고쳤다 — adm-r25.js `reveal()` 의 주석을 볼 것. ⛔ 여기 CSS 만 보고 「JS 는
+        안 건드렸으니 무관하다」고 판단하지 말 것 — 같은 사고의 다른 절반이다.
+     ⚠️ 검색창·목록 표처럼 <details> 가 아닌(data-gc 만 붙은) 요소는 이 규칙과 무관하다 —
+        대리점의 「🔎 검색」이 「🏪 목록」표를 필터링하는 짝이라, 둘을 따로 접었다 펴면
+        검색 결과를 볼 수 없게 된다(기능 회귀). 그래서 둘은 손대지 않고 그대로 함께
+        보인다 — 「메뉴 하나당 하나만」은 «접고 펴는 details» 에만 적용한다.
+     미디어쿼리 밖에 둔다 — 모바일(<1024px)은 원래 이 강제 규칙이 없어(위 두 복구 규칙이
+     전부 min-width:1024px 안에만 있음) 이 규칙이 native 동작과 같은 값을 내려 무해하다. */
+  #legacy-cards .sub-body details:not([open]) > :not(summary) { display: none !important; }
+
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
   #legacy-cards details, #legacy-cards .table-card {
@@ -3436,6 +3490,29 @@ button.chip:hover,
     color: #b91c1c !important;
     transform: none !important; box-shadow: none !important;
   }
+  /* 🔀 (2026-09-15) 「여러 강사로 나눠 배정」 버튼 — 위 두 버튼과 같은 함정(전역 인디고 알약)
+     이라 같은 방식(ID 접두)으로 되살린다. hover 는 색만(1-3 「hover 확대 금지」). */
+  #en-multi-table td button.en-row-multi-teacher-btn {
+    display: block !important; width: 100% !important; margin-top: 6px !important;
+    padding: 4px 6px !important; box-sizing: border-box !important;
+    background: #f5f3ff !important; background-image: none !important;
+    border: 1px solid #c4b5fd !important; border-radius: 4px !important;
+    color: #6d28d9 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
+  #en-multi-table td button.en-row-multi-teacher-btn:hover {
+    background: #ede9fe !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  /* 🔀 계획이 적용된 행은 단일-강사/요일/시간 칸이 더는 읽히지 않는다(_readEnrollmentRows 가
+     건너뜀) — 그대로 두면 «칸엔 값이 있는데 등록엔 안 쓰인다» 는 혼란이 생기므로 흐리게 하고
+     손을 뗀다(값은 지우지 않는다 — 계획을 지우면 그대로 되살아나야 하므로). */
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-priority,
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-teacher,
+  #en-multi-table tr.en-row-multi-active td.en-c-day,
+  #en-multi-table tr.en-row-multi-active td.en-c-time {
+    opacity: .35 !important; pointer-events: none !important;
+  }
 
   /* ══════════════════════════════════════════════════════════════════════
      🗓️ (2026-08-20 사장님 지시) 수강신청 등록 표 → 「카드 두 줄」 배치
@@ -3496,6 +3573,12 @@ button.chip:hover,
   #en-multi-table tbody tr td.en-c-classmin { order: 7; grid-column: span 4; }
   #en-multi-table tbody tr td.en-c-start    { order: 8; grid-column: span 6; }
   #en-multi-table tbody tr td.en-c-dur      { order: 9; grid-column: span 6; }
+  /* 📞 (2026-09-10) 학부모 연락처 — 한 줄을 통째로 쓴다(span 12).
+     ⚠️ 이 블록은 12칸 그리드라 **줄마다 합이 정확히 12** 여야 한다. 기존 세 줄
+        (3+3+4+2 / 4+4+4 / 6+6)은 이미 12로 맞아 있으므로, 새 칸을 4나 6으로 끼우면
+        그 줄들이 어긋나 배치가 통째로 무너진다(규칙서 2장 「열을 하나 더했는데 맨 앞으로 튀어나옴」).
+     ⚠️ order 를 안 주면 기본값 0 이라 학생 아이디보다 «앞» 에 놓인다. */
+  #en-multi-table tbody tr td.en-c-phone    { order: 10; grid-column: span 12; }
   @media (max-width: 1100px) {
     #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
     #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }
@@ -9486,7 +9569,11 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
 #ph85-sidebar .ph85-group.ph85-shide,
 #ph85-sidebar .ph85-sub.ph85-shide,
 #ph85-sidebar .ph125-grandchildren.ph85-shide,
-#ph85-sidebar .ph125-gc.ph85-shide { display: none !important; }
+#ph85-sidebar .ph125-gc.ph85-shide,
+/* 🧾 (2026-09-09) 결재함은 그룹 안 .ph85-sub 가 아니라 사이드바 맨 위 <a> 라
+   위 네 줄 어디에도 안 걸렸다. 검색이 그것도 걸러야 하므로 함께 못박는다.
+   ⛔ 이 줄을 지우면 검색 중에 결재함만 혼자 남아 «걸러지지 않는» 항목이 된다. */
+#ph85-sidebar #ia6-appr.ph85-shide { display: none !important; }
 
 /* ═══ ⭐ 자주 쓰는 메뉴 (2026-08-19 · js/adm-quickfav.js) ═══════════════════
    검색창 아래, 그룹 목록 위. 매일 쓰는 대여섯 개를 3번 클릭 → 1번으로.
@@ -10043,22 +10130,241 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #rec-restore-result{ width:100%; font-size:12.5px; line-height:1.6; color:#374151; }
 
 
-/* 🔵 자료실 「NEW」 배지 색 되살리기 (2026-09-03)
-   ⚠️ 5014행에 `html[data-admin-theme="ivory"] .lib-doc-t span{color:#2563eb!important}` 가
+/* 🔵 자료실 「NEW」 배지 색 되살리기 (2026-09-03 · 숫자 정정 2026-09-09)
+   ⚠️ `html[data-admin-theme="ivory"] .lib-doc-t span{color:#2563eb!important}` 가
       이미 있는데도 화면에는 검정(#101828)으로 나왔다. 페인터 탓이 아니다 —
       브라우저로 재 보니 인라인 우선순위가 비어 있었고(즉 아무도 인라인 !important 를 안 씀),
       순수하게 **특이성**에서 진 것이다:
-        · 5014행                      → (0,2,2)
-        · 8843행 [id^="card-"] :is(…) → (0,10,5)  ← 이쪽이 이겨서 #101828
-        · 8239행 (tone 미지정)        → (0,9,5)
-   ✅ 그래서 «특이성 꼬리» 로 (0,11,4) 를 만들어 둘 다 이긴다(클래스 11 > 10 > 9).
-      :not() 목록은 8843행이 스스로 들고 있는 예외 목록과 같다 —
+        · `.lib-doc-t span`                              → (0,2,2)
+        · `[…ivory][…slate] [id^="card-"] :is(…)`        → (0,10,…)  ← 이쪽이 이겨서 #101828
+        · `[…ivory] [id^="card-"] :is(…)` (tone 미지정)   → (0,9,…)
+   ⛔ 규칙을 «행 번호» 로 가리키지 말 것 — 이 파일은 계속 자라서 곧 어긋난다.
+      실제로 처음 적은 5014·8239·8843 이 그때부터 12줄씩 틀렸고 네 곳에 복제돼 있었다
+      (2026-09-09 함정 대조가 잡음). 위처럼 **선택자 문자열**로 가리킬 것.
+   ✅ 그래서 «특이성 꼬리» 로 (0,12,4) 를 만들어 둘 다 이긴다(클래스 12 > 10 > 9).
+      ⚠️ 처음엔 11 이었고, 2026-09-06 에 `:not(.lib-lvl)` 이 붙어 12 가 됐다.
+      :not() 목록은 위 :is(…) 규칙의 예외 목록을 «본뜬 것» 이지 똑같지는 않다
+      (여기엔 `:not(button *)`·`:not(.kpi-tile *)` 가 없고 `:not([hidden])` 이 더 있다 —
+       `.lib-doc .lib-doc-t span` 으로 이미 좁혀져 그 셋은 닿지 않는다).
       「색이 의도된 배지·칩」은 원래 그 규칙이 비켜 가려던 것이고, 이 배지가 정확히 그것이다.
-   ⛔ `[data-admin-tone="slate"]` 를 넣어 좁히지 말 것 — 그러면 (0,11,4)→(0,12,4) 가 되어
-      slate 에서는 이기지만, tone 이 slate 가 아닐 때 8239행(0,9,5)에 그대로 진다.
+   ⛔ `[data-admin-tone="slate"]` 를 넣어 좁히지 말 것 — (0,13,4) 가 되어 특이성으로는 이기지만,
+      tone 이 slate 가 아닐 때는 **선택자가 매치조차 안 돼서** tone 미지정 규칙이 그대로 먹는다.
+      (특이성에서 지는 것이 아니라 «안 걸리는» 것이다 — 근거를 헷갈리면 산술을 의심하게 된다.)
    ⛔ 카드 id 를 나열해서(#card-lib-agency …) 풀지 말 것 — 자료실 카드가 늘면 조용히 빠진다.
-   ℹ️ 다크 테마는 손대지 않는다(이 규칙은 ivory 에서만 걸리고, 어두울 때는 인라인 #93c5fd 가 맞다).
+   ⚠️ 아래 앰버 규칙과 **특이성이 똑같다**(둘 다 (0,12,4)). 지금은 이쪽이 `:not(.lib-lvl)` 로
+      배제해서 안 겹치지만, 그 `:not()` 을 「중복이네」 하고 지우면 정답의 근거가 «특이성» 이
+      아니라 «파일 안 순서» 가 된다(누가 앰버 블록을 위로 옮기면 조용히 파랑이 된다).
+   ℹ️ 다크 테마는 손대지 않는다(이 규칙은 ivory 에서만 걸린다).
+      ⚠️ 다만 `admin.html` 은 지금 **ivory 고정**이라(283·287행이 하드 설정, `applyAdminColor('dark')`
+         호출부 0건 — 2026-09-09 실측) 그 «어두울 때» 는 실제로 열리지 않는다.
    ℹ️ #2563eb 는 흰 카드 위에서 대비 5.17:1 — 11px 굵은 글자(본문 기준 4.5:1)를 넘는다. */
-html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(.lib-lvl):not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
   color: #2563eb !important;
 }
+
+
+/* 🙈 관리자 교재 표의 «숨김» 토글 버튼 (2026-09-07 사장님 지시)
+   [왜] 숨김은 2026-08-13 부터 /textbook-uploader.html 에만 있었다 — 그 페이지를 모르면
+        찾을 길이 없어 「숨김 버튼이 어디 있냐」가 올라왔다. 같은 API 를 교재 표에도 붙였다.
+   [함정] 이 버튼은 3363행 `details.menu-card button:not(…)`(인디고 그라데이션 !important +
+        padding 9px 18px !important)에 먹혀 «큰 파란 알약» 이 된다 — 표 안 작은 버튼이 그렇게
+        부풀면 옆 칸을 밀어낸다(CLAUDE.md 2장 «표 안의 작은 아이콘 버튼», #tp-list-table 선례).
+        그래서 조상 id 를 앞에 붙여 (1,1,2) 로 되살린다 — ID 가 1개라 (0,5,2) 를 이긴다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 않는다 — `[class$="-btn"]` 규칙(3894·9012행)에 다시 걸린다.
+   ⛔ background 단축이 아니라 background-color 로 쓴다(옛 다크 규칙이 `background:#…` 를 노린다).
+   ⛔ hover 에 transform 을 쓰지 않는다(CLAUDE.md 1-3 «hover 확대 금지» — 색·밝기만).
+   ⚠️ 색이 «구분 정보» 다(보임 초록 / 숨김 빨강). 그래서 글자색 페인터 셋 세 곳에 등재해 뒀다 —
+      adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP.
+      ℹ️ [잰 것 — 2026-09-07 브라우저 실측] **지금 팔레트에서는 그 셋이 이 버튼을 원래 안 건드린다**
+         (등재를 셋 다 빼고 다시 재도 색이 한 픽셀도 안 바뀌었다). 밝은 바탕 + 어두운 글자 + 대비 6.49~6.80 이라
+         「어두운 면 구제」·「밝게 누르기」 어느 조건에도 안 걸리기 때문이다.
+      ⟹ 등재는 «지금 막고 있는 것» 이 아니라 **팔레트를 어둡게 바꾸는 날을 위한 것**이다.
+         그러니 브라우저 검사도 이 등재를 못 잡는다 — 색을 바꿀 때는 사람이 세 곳을 함께 보라.
+   ⚠️ box-sizing 을 못 박는다 — 테두리가 폭을 밀면 좁은 칸에서 줄이 바뀐다.
+   ℹ️ 팔레트는 옆 표(.tr-st-badge)와 같은 것을 쓴다 — 한 화면에서 초록·빨강이 다른 뜻이면 헷갈린다.
+      대비: #166534 on #dcfce7 = 6.49:1 · #991b1b on #fee2e2 = 6.80:1 (본문 기준 4.5:1 초과). */
+#textbooks-table td button.tb-hide-toggle {
+  display: inline-block !important;
+  padding: 3px 10px !important;
+  margin: 0 !important;
+  border-radius: 99px !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.5 !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+}
+#textbooks-table td button.tb-hide-toggle.tb-hide-on {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+/* ⛔ hover 에 움직임을 두지 않는다(CLAUDE.md 1-3 «hover 확대 금지» — 색·밝기만).
+   ⚠️ 3374행 `details.table-card.menu-card button:not()x3:hover{ transform:translateY(-1px)!important }`
+      가 그대로 걸려 실측 1px 이 올라가고 있었다(2026-09-07 브라우저 실측 top 854.81 → 853.51).
+      «안 쓴다» 고 주석만 적어 두면 그것이 거짓이 된다 — 끄는 줄을 실제로 둔다
+      (#en-multi-table td button 선례와 같은 방식). */
+#textbooks-table td button.tb-hide-toggle:hover {
+  filter: brightness(0.95) !important;
+  transform: none !important;
+}
+#textbooks-table td button.tb-hide-toggle[disabled] { opacity: .55 !important; cursor: default !important; }
+
+/* 🟠 자료실 「쉬움」 난이도 배지는 앰버 (2026-09-06 사장님 지시 「원래 앰버로 되돌려줘」)
+   바로 위 파랑 규칙에서 `.lib-lvl` 만 빼고 여기서 따로 칠한다 —
+   같은 (0,12,4) 라 `[id^="card-"] :is(…)` 두 규칙(클래스 10·9)을 똑같이 이긴다.
+   ⚠️ 위 규칙과 **특이성이 동점**이다. 지금은 위쪽이 `:not(.lib-lvl)` 로 배제해서 안 겹치지만,
+      그 `:not()` 이 사라지면 «파일 안 순서» 로만 결정되므로 이 블록이 뒤에 있어야 한다.
+   ⚠️ 인라인의 원래 앰버 #fbbf24 를 그대로 쓰지 않는다:
+        흰 카드 위 대비 **1.67:1** 로 사실상 안 읽힌다(잰 값).
+        #b45309 는 5.02:1 — 이 파일이 ivory 에서 쓰는 앰버와 같은 값이다.
+   🔴 그래서 화면에 보이는 것은 «밝은 금색» 이 아니라 «탄 주황» 이고, 눈으로 확연히 다르다.
+      ⛔ 「다크에서는 인라인 #fbbf24 가 그대로니 원래 앰버가 어딘가엔 살아 있다」로 위안 삼지 말 것 —
+         `admin.html` 은 지금 **ivory 고정**이라(283·287행 하드 설정, `applyAdminColor('dark')`
+         호출부 0건 — 2026-09-09 실측) 그 경로가 열리지 않는다. 즉 «원래 앰버» 는 지금
+         화면 어디에도 없다. 이 이탈이 마음에 걸리면 사람에게 다시 물을 것.
+   ⛔ 이 배지에 «-btn/-chip/-pill/-tag» 로 끝나거나 `badge`·`kpi-tile` 인 클래스를 주지 말 것 —
+      위 :is(…) 규칙의 :not() 목록에 걸려 제외되면 인라인 #fbbf24 가 그대로 나와 안 읽힌다. */
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+  color: #b45309 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🔎 (2026-09-09) 히어로 «통합 검색» 드롭다운을 PC 에서 되살린다
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 무슨 일이 있었나 — 사장님 「가로 검색창에 «녹화» 를 쳤는데 아무 일도 안 일어나」.
+      실측(로컬 서버 + 크로미움, 「녹화」 입력):
+        · 폭 1600px … computed display «none» · 높이 0px · 그런데 DOM 안 항목은 12개
+        · 폭  900px … computed display «block» · 높이 482px · 항목 12개
+      즉 후보를 12개 «찾아 놓고» 화면에 한 줄도 안 그리고 있었다.
+
+   범인은 이 파일 2896행([style#ph89-clean])과 3082행의
+     @media (min-width:1024px){ .menu-search-wrap, .menu-search-input,
+       .menu-search-dropdown, .menu-search-clear, .menu-search-item{display:none!important} }
+   2026-05-25 Phase 89 「우측 메인 영역의 옛 메뉴(가나다 순) 검색 카드 제거」 규칙인데,
+   2026-06-24 에 되살린 히어로 검색창의 드롭다운이 **같은 클래스**(menu-search-dropdown)를
+   달고 있어 함께 걸린다. 작성자 !important 라 admin-inline-a.css 의
+   `.hero .hero-search-dropdown.show{display:block}`(important 없음)을 언제나 이긴다.
+   admin.html 의 ph89Clean 이 박는 **인라인** display:none 도 함께 이겨야 하는데,
+   작성자 !important 는 인라인도 이기므로 여기 한 곳으로 둘 다 해결된다.
+
+   ⛔ 위 두 규칙을 지워서 풀지 말 것 — 옛 검색 카드 제거가 통째로 풀린다.
+      (지금 admin.html 에 그 실물 마크업은 없지만, 규칙을 지우면 «왜 지웠나» 가 사라진다.)
+   ⛔ 히어로 드롭다운에서 menu-search-dropdown/menu-search-item 클래스를 떼는 방식도 금지 —
+      admin-inline-a.css 224행의 항목 모양(display:flex·padding·hover)이 그 클래스에 걸려 있다.
+   ⚠️ `.show` 없을 때는 여전히 감춰야 한다(아래 첫 줄) — 안 그러면 빈 상자가 늘 떠 있는다.
+   ✅ 확인은 코드가 아니라 브라우저에서:
+      getComputedStyle(document.getElementById('menu-search-dropdown')).display
+      감시는 test-harness/manual/admin-search-browser.mjs ①절 */
+@media (min-width: 1024px) {
+  .hero .hero-search-dropdown { display: none !important; }
+  .hero .hero-search-dropdown.show { display: block !important; }
+  .hero .hero-search-dropdown .menu-search-item { display: flex !important; }
+}
+
+/* 👥 (2026-09-10) 수업 관찰 카드 — 「⚠ 혼자 대기중」(수업방) 과 「혼자」(회의방) 의 색을 되살린다.
+   [왜] 인라인 color 는 이 카드 안에서 **한 글자도 안 먹는다** —
+        html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] :is(p,span,div,…)
+        가 #101828 !important 로 덮어(0,3,1 대 인라인) 앰버·회색이 **둘 다 검정**으로 나왔다
+        (2026-09-10 함정 대조 브라우저 실측 — 두 색이 같아 «갈라 놓았다» 는 말이 화면에서 거짓이었다).
+   [고침] 조상 id 를 앞에 붙여 (1,1,0) 으로 이긴다. 같은 파일의 .tr-st-badge(v=63) 와 같은 방식.
+   ⛔ 앰버 #fbbf24 로 되돌리지 말 것 — 흰 카드 위 대비 1.67 이라 안 읽힌다(#b45309 = 5.0).
+   ⚠️ 색은 «둘째» 신호다 — 글리프(⚠)·문구·굵기가 먼저다. 색만으로 뜻을 지고 가게 두지 말 것. */
+#card-admin-ghost .gh-alone      { color: #b45309 !important; font-weight: 800 !important; }
+#card-admin-ghost .gh-alone-meet { color: #475467 !important; font-weight: 700 !important; }
+
+/* 🏢 (2026-09-11) 조직 3표(대리점·지사·대표지사)의 «표 안 작은 버튼» 을 되살린다.
+ [왜] 전역 룰 `details.menu-card button:not(…)` 가 background 인디고 그라데이션 +
+      padding:9px 18px + color:#fff 를 **!important** 로 걸어, 작성자가 인라인으로 적어 둔
+      `padding:2px 8px;font-size:11px;background:#fff` 이 통째로 무시된다(작성자 !important >
+      인라인). 그래서 「✏️ 수정」·「🟢 사용중」·「취소」가 전부 큰 파란 알약이 되어 좁은 칸을
+      밀어낸다 — 같은 파일 #tp-list-table td button.tp-act-btn(강사 목록)·
+      #en-multi-table td button.en-row-time-builder(수강신청 표) 선례와 **똑같은 함정**이다.
+ [고침] ID 접두로 특이도를 올려 되살린다 — (1,1,2) 대 전역 (0,4,2). id 가 하나라도 있으면
+      클래스를 아무리 쌓은 규칙도 못 이긴다.
+ ⛔ 이 블록에 `display` 를 쓰지 말 것 — 「취소」 세 개는 인라인 `display:none` 으로 숨겨져
+    있고(수정 모드에서만 보인다), 여기서 display 를 정하면 **항상 보이게** 된다.
+ ⛔ hover 에 transform 을 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」.
+ ⚠️ 전역 룰 자체를 고쳐서 풀지 말 것 — 관리자 화면 버튼 «전체» 의 모양이 걸린다. */
+#centers-table td button.org-rowact,
+#franchises-table td button.org-rowact,
+#mbranches-table td button.org-rowact,
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #344054 !important;
+  border: 1px solid #D0D5DD !important;
+  border-radius: 5px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+}
+/* 「취소」는 폼 안 버튼이라 표 안 버튼보다 한 치수 크게 둔다(원래 인라인 값 그대로). */
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  padding: 5px 12px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+#centers-table td button.org-rowact:hover,
+#franchises-table td button.org-rowact:hover,
+#mbranches-table td button.org-rowact:hover,
+#ct-cancel-btn:hover, #fr-cancel-btn:hover, #mbr-cancel-btn:hover {
+  background-color: #F9FAFB !important;
+  background-image: none !important;
+  border-color: #98A2B3 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* ═══ 🎥 녹화 관리 «저장소 상태» D안 — 2026-09-13 (사장님 「너무 작아서 크게 · 찾기 어려움」)
+ [왜 여기] 카드 안 글자색은 html[…ivory][…slate] [id^="card-"] … :is(span,div,…){color:#101828!important}
+      (클래스 10)에 눌린다. 인라인 color 도 진다. id 하나(1,x,0)면 이긴다 — .tr-st-badge 선례.
+ [탭 줄] .rs-tabs 는 «감추는 탭» 이 아니라 그 구역으로 내려가는 링크다(세 구역 전부 보임).
+ [주의 카드] .rs-attn 은 JS(refreshStorageStats)가 저장 실패 > 0 일 때만 붙인다. 배경은
+      background-color 로(«background:#f…» 는 옛 다크 규칙에 잡혀 투명이 된다).
+ [버튼] details.menu-card button 의 인디고 알약 !important 를 id 접두로 되살린다(#en-multi-table 선례).
+ [페인터] 빨강 #b91c1c 위 #fee2e2 는 대비 5.2(WCAG 계산 · 브라우저 실측 5.3)라 adm-s12(밝은 글자만)·adm-s13/light-surfaces(대비<3·4.5 만)
+      가 안 건드린다 — 그래서 SKIP_SEL 등재 없이 CSS 만으로 된다(등재하면 JS 3벌+HTML 18곳 ?v= 가 걸린다).
+ ⛔ hover 에 transform 금지(1-3). ⛔ [hidden] 버튼은 반드시 display:none — 아래 규칙이 UA 의 [hidden] 을 이긴다. */
+#card-recording-storage .rs-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e7ec; margin:2px 0 16px; }
+/* 탭 글자·밑줄은 카드 안 «a 링크» 규칙(파랑+밑줄)이 span 까지 덮으므로 !important 로 되살린다(실측: 세 탭이 전부 파랑·밑줄). */
+#card-recording-storage .rs-tab, #card-recording-storage .rs-tab span { color:#667085 !important; text-decoration:none !important; }
+#card-recording-storage .rs-tab { display:inline-flex; align-items:center; gap:7px; padding:10px 16px; margin-bottom:-2px; font-size:15px; font-weight:800; border-bottom:3px solid transparent; cursor:pointer; }
+#card-recording-storage .rs-tab .ic { font-size:16px; line-height:1; }
+#card-recording-storage .rs-tab:hover, #card-recording-storage .rs-tab:hover span { color:#344054 !important; }
+#card-recording-storage .rs-tab.on, #card-recording-storage .rs-tab.on span { color:#1e3a8a !important; }
+#card-recording-storage .rs-tab.on { border-bottom-color:#1e3a8a; }
+/* 숫자는 한 줄로(«28.1 GB» 가 좁은 칸에서 두 줄로 꺾였다). PC 는 zoom 1.3 이라 1500px 미만이면 2×2 가 더 넉넉하다. */
+#card-recording-storage .rs-kpi .value { white-space:nowrap; }
+@media (max-width:1499px) and (min-width:769px) { #card-recording-storage #rs-kpi-grid { grid-template-columns:1fr 1fr !important; } }
+#card-recording-storage .rs-sec { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:900; color:#101828; margin:6px 0 10px; scroll-margin-top:calc(var(--adm-jump-offset,0px) + 8px); }
+#card-recording-storage .rs-sec .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; font-size:16px; background:#e6ecff; color:#1e3a8a; }
+#card-recording-storage .rs-sec .rule { flex:1; height:1px; background:#e4e7ec; }
+#card-recording-storage .rs-kpi .label { color:#475467 !important; }
+#card-recording-storage .rs-kpi .value, #card-recording-storage .rs-kpi .value span { color:#101828 !important; }
+#card-recording-storage .rs-kpi .value small { color:#667085 !important; }
+#card-recording-storage .rs-kpi .unit, #card-recording-storage .rs-kpi .unit span { color:#667085 !important; }
+#card-recording-storage .rs-kpi.rs-attn { background-color:#fee2e2 !important; background-image:none !important; border-color:#fca5a5 !important; }
+#card-recording-storage .rs-kpi.rs-attn .label, #card-recording-storage .rs-kpi.rs-attn .label span,
+#card-recording-storage .rs-kpi.rs-attn .value, #card-recording-storage .rs-kpi.rs-attn .value span, #card-recording-storage .rs-kpi.rs-attn .value small,
+#card-recording-storage .rs-kpi.rs-attn .unit, #card-recording-storage .rs-kpi.rs-attn .unit span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi.rs-ok .value, #card-recording-storage .rs-kpi.rs-ok .value span { color:#15803d !important; }
+#card-recording-storage .rs-kpi button.rs-act {
+  display:inline-flex !important; align-items:center !important; align-self:flex-start; margin-top:auto;
+  background-color:transparent !important; background-image:none !important; color:#b91c1c !important;
+  border:1.5px solid #b91c1c !important; border-radius:8px !important; padding:6px 12px !important;
+  font-size:13px !important; font-weight:700 !important; line-height:1.4 !important; box-shadow:none !important; cursor:pointer !important;
+}
+#card-recording-storage .rs-kpi button.rs-act span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi button.rs-act:hover { background-color:#fecaca !important; transform:none !important; box-shadow:none !important; }
+#card-recording-storage .rs-kpi button.rs-act[hidden] { display:none !important; }

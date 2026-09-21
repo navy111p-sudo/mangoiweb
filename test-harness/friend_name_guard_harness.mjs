@@ -198,7 +198,11 @@ const friend = block(AI, "case 'chat-friend'") || AI;
 ok(/wrongSelfName\(/.test(AI), 'api-ai.ts 가 판정을 불러온다');
 
 /* 두 화면 모두 «다시 뽑는» 자리여야 한다 — 그냥 버리면 대화가 끊긴다 */
-ok(/wrongSelfName[\s\S]{0,900}env\.AI\.run/.test(warm),
+/* ⚠️ «식 모양» 을 글자 그대로 못 박지 말 것 — 2026-09-08 에 모델 호출이
+      env.AI.run(...) 에서 헬퍼 runWarmup(...) 으로 모이자 보장은 그대로인데
+      이 검사만 빨간불이 났다. 물어야 할 것은 «어떤 함수를 부르는가» 가 아니라
+      «다시 뽑는가» 다. */
+ok(/wrongSelfName[\s\S]{0,900}(?:env\.AI\.run|runWarmup\()/.test(warm),
   '웜업: 이름을 어기면 «다시 뽑는다»(그냥 버리지 않는다)');
 
 /* ── ⑦ 구조적 원인 — 모델이 «자기가 한 인사» 를 보는가 ────────────────────
@@ -216,6 +220,107 @@ ok(/history\.length \?\s*history\s*:/.test(warm),
   '이 줄이 없으면 모델은 자기 이름을 한 번도 못 보고 첫 답을 만든다');
 ok(/role: 'assistant', content: `Hi! I'm \$\{ctxFriend\}/.test(warm),
   '그 인사가 «고른 친구 이름» 을 담는다(고정 문자열이 아니다)');
+
+/* ── ⑧ 🀄 중국어 자기소개 (2026-09-14 사장님 제보 「你好，我是Emma！」) ──────────
+   위 ①②③ 은 전부 영어 문형이라 중국어 답장에서는 원리상 한 번도 안 걸린다.
+   문장을 가르는 [.!?] 도 중국어 종결부호(。！？)를 모른다.
+
+   🔴 이 절의 핵심도 «잡는가» 가 아니라 «평범한 중국어를 안 버리는가» 다.
+      「我是老师」(나는 선생이야)·「我是韩国人」 은 「我是Emma」 와 문장 구조가 «완전히 같다» —
+      한자로는 이름과 보통명사를 구조로 가를 수 없다. 그래서 정본은 «아는 이름» 일 때만 잡는다.
+   ⛔ 아래 ZH_GOOD 을 «비슷한 것» 으로 바꾸지 마세요 — 거짓경보가 나면 학생은 자기 질문에 대한
+      답 대신 «이름 정정» 을 받습니다. */
+console.log('\n[ ⑧ 🀄 중국어 자기소개 ]');
+const MEI = F.AI_FRIEND_NAMES && F.AI_FRIEND_NAMES.mei;   // ⛔ 하니스에 이름을 손으로 적지 않는다
+ok(!!MEI, '정본 표에서 메이의 이름을 읽었다', MEI);
+if (MEI) {
+  /* 잡는다 — 사장님이 실제로 보신 모양과 그 사촌들 */
+  const ZH_BAD = [
+    ['你好！我是Emma。很高兴认识你！', 'Emma'],     // ← 제보된 그 문장
+    ['我叫Lily。', 'Lily'],
+    ['我的名字是Mango。', 'Mango'],
+    ['我的名字叫Noah，你呢？', 'Noah'],
+    ['你好呀！我是 Jake。', 'Jake'],                 // 이름 앞 공백
+  ];
+  for (const [t, want] of ZH_BAD) {
+    ok(F.wrongSelfName(t, MEI) === want, `잡는다: 「${t}」 → ${want}`, F.wrongSelfName(t, MEI));
+  }
+  /* 짝 — 안 잡는다. 이 짝이 없으면 «전부 잡기» 도 통과한다 */
+  const ZH_GOOD = [
+    '你好！我是美美老师。很高兴认识你！',   // 기대한 이름 그대로
+    '我是美美老师，今天我们聊聊你的周末吧！',
+    '我是老师。',              // ⛔ 보통명사
+    '我是韩国人。',
+    '我是你的中文朋友。',
+    '我叫什么名字呢？你猜猜看！',
+    '这是我的书。',
+    '我是很开心的！',
+    '你好！今天过得怎么样？',
+  ];
+  let zhFalse = 0;
+  for (const t of ZH_GOOD) {
+    const got = F.wrongSelfName(t, MEI);
+    if (got) { zhFalse++; console.log(`     · 거짓경보: 「${t}」 → ${got}`); }
+  }
+  ok(zhFalse === 0, `평범한 중국어 ${ZH_GOOD.length}종에 거짓경보가 없다`, zhFalse);
+  /* 영어 동작은 한 글자도 안 바뀌었는가 — 중국어 가드를 더하면서 영어를 깨지 않았는가 */
+  ok(F.wrongSelfName("Hi! I'm Emma. Let's talk!", 'Lily') === 'Emma', '영어 판정은 그대로 잡는다');
+  ok(F.wrongSelfName("I'm Taiwanese.", 'Lily') === '', '영어 거짓경보 방어도 그대로');
+  ok(F.wrongSelfName('我是Emma。', 'Emma') === '', '중국어로 «자기 이름» 을 말하면 통과');
+
+  /* ⑧-2 «표에서 자동 생성한 반례» — 정본 ④절의 세 줄(대소문자 무시 · 긴 이름 먼저 · break)을
+         각각 겨냥합니다.
+     🔴 왜 필요한가 (2026-09-14 함정 대조 실측): 위 ZH_BAD 5종이 «전부 정확한 대소문자» 이고,
+        지금 표의 이름 중 «서로 앞가리인 쌍이 하나도 없어서»(Mango·Emma·Jake·Lily·Noah·美美老师)
+        ⓐ `.toLowerCase()` 를 빼도 ⓑ `.sort(긴 이름 먼저)` 를 지워도 ⓒ `break` 를 `continue` 로
+        바꿔도 «세 변이가 전부 통과» 했습니다 — 세 줄이 «지켜진다» 고 주석에 적혀 있는데
+        그것을 재는 검사가 한 줄도 없었습니다.
+     ⛔ 여기에 이름을 손으로 적지 마세요 — 표를 «읽어» 만들어야 친구가 늘어도 따라옵니다. */
+  const TBL = Object.keys(F.AI_FRIEND_NAMES).map((k) => String(F.AI_FRIEND_NAMES[k] || ''));
+  const MEI_L = String(MEI).toLowerCase();
+
+  /* (가) 대소문자를 무시하는가 — 「我是emma」·「我是EMMA」 */
+  let caseMiss = 0, caseTried = 0;
+  for (const nm of TBL.concat([F.AI_FRIEND_DEFAULT])) {
+    if (!/^[A-Za-z]+$/.test(nm) || nm.toLowerCase() === MEI_L) continue;
+    for (const v of [nm.toLowerCase(), nm.toUpperCase()]) {
+      if (v === nm) continue;
+      caseTried++;
+      const got = F.wrongSelfName(`我是${v}。`, MEI);
+      if (got !== nm) { caseMiss++; console.log(`     · 놓침: 「我是${v}。」 → ${JSON.stringify(got)} (${nm} 이어야)`); }
+    }
+  }
+  ok(caseTried >= 4, `대소문자 반례를 표에서 ${caseTried}종 만들었다`, caseTried);
+  ok(caseMiss === 0, '대소문자가 달라도 «아는 이름» 으로 잡는다', caseMiss);
+
+  /* (나) 이름끼리 «앞가리» 일 때 — 지금 표에는 그런 쌍이 없어서, «앞으로 생길» 이름 둘을
+         잠깐 표에 넣어 봅니다(정본이 표를 «부를 때마다» 읽으므로 그대로 걸립니다).
+     ⚠️ 표를 건드리므로 반드시 finally 로 되돌립니다. */
+  const SHORT = String(MEI).slice(0, Math.max(1, String(MEI).length - 2));   // 기대 이름의 «앞가리»
+  const LONG = String(MEI) + String(MEI).slice(-1);                          // 기대 이름을 «품는» 더 긴 이름
+  ok(SHORT !== MEI && LONG !== MEI && String(MEI).length >= 3,
+    `앞가리 반례를 만들 수 있다 (${SHORT} ⊂ ${MEI} ⊂ ${LONG})`);
+  if (SHORT !== MEI && LONG !== MEI) {
+    try {
+      F.AI_FRIEND_NAMES.__zzq_short = SHORT;
+      F.AI_FRIEND_NAMES.__zzq_long = LONG;
+      ok(F.wrongSelfName(`我是${LONG}。`, MEI) === LONG,
+        `긴 이름이 먼저다 — 「我是${LONG}。」 를 «기대 이름» 으로 오독하지 않는다`,
+        F.wrongSelfName(`我是${LONG}。`, MEI));
+      ok(F.wrongSelfName(`我是${MEI}。`, MEI) === '',
+        `기대 이름을 말하면 «앞가리(${SHORT})» 로 되짚어 잡지 않는다`,
+        F.wrongSelfName(`我是${MEI}。`, MEI));
+    } finally {
+      delete F.AI_FRIEND_NAMES.__zzq_short;
+      delete F.AI_FRIEND_NAMES.__zzq_long;
+    }
+    ok(!('__zzq_short' in F.AI_FRIEND_NAMES) && !('__zzq_long' in F.AI_FRIEND_NAMES),
+      '시험용 이름을 표에서 되돌렸다 — 뒤의 검사가 오염되지 않는다');
+    ok(F.wrongSelfName(`我是${SHORT}。`, MEI) === '',
+      `되돌린 뒤에는 «${SHORT}» 를 아는 이름으로 보지 않는다`,
+      F.wrongSelfName(`我是${SHORT}。`, MEI));
+  }
+}
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${pass} · 실패 ${fail}`);

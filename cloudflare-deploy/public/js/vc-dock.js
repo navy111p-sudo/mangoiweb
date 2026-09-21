@@ -631,6 +631,16 @@
           '</span></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
         '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
+        /* 🏢 (2026-09-08 사장님 요청) 사무실 모드 — 옆자리 교사 목소리가 학생에게 덜 들리게 한다.
+           ⚠️ 바로 위 「잡음 제거」와 «다른 것» 이다: 그 엔진은 에어컨·키보드 같은 «일정한 잡음» 만
+              지우고 «사람 목소리» 는 원리상 못 지운다(그래서 켜 두어도 옆자리 소리가 그대로 갔다).
+              이쪽은 자동 게인을 끄고 «가까운 소리만» 통과시킨다.
+           동작 정본은 js/idx-vc-officemode.js 하나다 — 그 파일이 없으면 call() 이 조용히 아무 일도
+           안 하므로(=오늘과 같음) 여기서 따로 방어하지 않는다. */
+        '<div class="sg-row"><label data-ko="사무실 모드" data-en="Office mode">사무실 모드</label><div class="sg-sw" data-act="office"></div></div>' +
+        /* ⚠️ 설명은 «별도 요소» 로 둔다 — 라벨 안에 자식으로 넣으면 i18n 엔진이 label 의 textContent 를
+           통째로 갈아끼울 때 함께 사라진다(CLAUDE.md 「JS 로 그린 라벨」). */
+        '<div class="sg-row" data-office-note="1" style="padding-top:0;margin-top:-6px"><div class="sg-note" style="text-align:left;max-width:none" data-ko="옆자리 목소리를 줄입니다 · 헤드셋과 함께 쓰면 가장 좋습니다" data-en="Reduces nearby voices · works best with a headset">옆자리 목소리를 줄입니다 · 헤드셋과 함께 쓰면 가장 좋습니다</div></div>' +
       '</div>' +
       '<div class="sg-group">' +
         '<div class="sg-gtitle" data-ko="영상 · 녹화" data-en="Video · Recording">영상 · 녹화</div>' +
@@ -677,6 +687,25 @@
       if (n) n.textContent = outVol.value + '%';
     };
     setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
+    /* 🏢 사무실 모드 — 스위치를 «누르는 순간» 부른다: AudioContext 는 사용자 제스처 안에서만
+       resume 되기 때문이다(자동재생 정책. 위 출력 음량과 같은 사정).
+       ⚠️ 정본은 못 켰을 때 스스로 «켜기 전» 으로 되돌리고 false 를 준다 — 그때 스위치도 되돌려야
+          «켜졌다고 말하는데 아무 일도 안 하는» 상태가 안 남는다. */
+    var offSw = setPop.querySelector('[data-act="office"]');
+    if (offSw) offSw.onclick = function(){
+      var want = !this.classList.contains('on');
+      var self = this;
+      self.classList.toggle('on', want);
+      try {
+        var r = call('vcSetOfficeMode', want);
+        /* ⛔ 정본 파일이 안 실렸으면(404·옛 캐시) call() 이 undefined 를 준다 — 그때 그냥 두면
+           «켜졌다고 말하는데 아무 일도 안 하는» 상태가 된다(스위치가 없는 것보다 나쁘다). */
+        if (typeof r === 'undefined') { self.classList.toggle('on', !want); }
+        else if (r && typeof r.then === 'function') r.then(function(ok){
+          if (want && ok === false) self.classList.remove('on');
+        }).catch(function(){ self.classList.toggle('on', !want); });
+      } catch(e){ self.classList.toggle('on', !want); }
+    };
     // 영상·녹화
     setPop.querySelectorAll('#sg-quality button').forEach(function(b){
       b.onclick = function(){ setPop.querySelectorAll('#sg-quality button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); call('vcSetQuality', b.getAttribute('data-q')); };
@@ -723,6 +752,33 @@
     try {
       var n = setPop.querySelector('[data-act="noise"]');
       if (n) n.classList.toggle('on', (localStorage.getItem('mangoi_vc_noise') !== '0'));
+    } catch(_){}
+    /* 🏢 사무실 모드도 «지금 실제 상태» 를 보여준다. 정본이 살아 있으면 그쪽 값을 먼저 묻는다 —
+       켜려다 실패해 저절로 꺼진 경우 localStorage 만 보면 «켜짐» 으로 거짓말한다. */
+    try {
+      var o = setPop.querySelector('[data-act="office"]');
+      if (o) o.classList.toggle('on', (typeof window.vcOfficeModeOn === 'function')
+        ? !!window.vcOfficeModeOn()
+        : (localStorage.getItem('mangoi_vc_office') === '1'));
+    } catch(_){}
+    /* 🎭 «선생님 + 관리자 로그인» (2026-09-08 「선생님만」 → 2026-09-09 「사장님 계정도」) —
+       학생 화면에서는 이 줄이 아예 안 보인다.
+       ⚠️ «열 때마다» 다시 판정하는 것이 핵심이다: 역할은 입장 뒤에 확정될 수 있어서,
+          한 번 감추고 끝내면 역할이 늦게 온 강사에게 영영 안 보인다(다시 열면 보인다).
+       ⛔ `el.hidden` 으로 감추지 않는다 — `.sg-row{display:flex}` 가 브라우저 기본
+          `[hidden]{display:none}` 을 이겨서 그대로 보인다(CLAUDE.md 「el.hidden 인데 그대로 보임」).
+       판정 정본은 js/idx-vc-officemode.js 의 vcOfficeModeAllowed 하나뿐이다 —
+       그 파일이 없으면(404·옛 캐시) 줄을 감춘다(지시가 «막아줘» 이므로 그쪽이 맞는 실패 방향). */
+    try {
+      var offAllowed = (typeof window.vcOfficeModeAllowed === 'function') && !!window.vcOfficeModeAllowed();
+      var offSw2 = setPop.querySelector('[data-act="office"]');
+      var offRow = offSw2 && offSw2.closest('.sg-row');
+      var offNote = setPop.querySelector('[data-office-note="1"]');
+      [offRow, offNote].forEach(function(el){
+        if (!el) return;
+        if (offAllowed) el.style.removeProperty('display');
+        else el.style.setProperty('display', 'none', 'important');
+      });
     } catch(_){}
     try {
       var b = setPop.querySelector('[data-act="blur"]');
@@ -849,6 +905,87 @@
       if(_w){ try{ _w.opener=null; }catch(e){} } else location.href=u; };   // 새 창이 «진짜로» 막히면 같은 창으로
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
+
+    /* 🚪 (2026-09-15) 「나가기가 되지 않아」 — 눌러도 «아무 일도 안 일어나는» 상태의 안전망.
+       [무엇이 문제였나] index.html 의 학생 종료 방아쇠(4341행)는 `STATE.triggered` 가 참이면
+         나가기 이벤트를 **영구히 삼킨다**(preventDefault + stopPropagation + stopImmediatePropagation).
+         그 값은 한 번 참이 되면 되돌리는 코드가 저장소 어디에도 없다. 그래서 종료 흐름이
+         «화면을 안 떠나고» 끝나는 경로를 한 번이라도 지나면 그 뒤로 나가기가 영영 안 먹는다.
+         🔬 브라우저 실측(2026-09-15, 이 컨테이너): 나가기 → 평가 ⭐ 제출 → 복습퀴즈 「예」 →
+            goReviewQuiz() 가 복습퀴즈 «탭» 으로 보내고 수업 화면에 그대로 남는다(방을 안 나간다) →
+            다시 나가기 → **무반응**(vc-in-call 이 계속 true). 몇 번을 눌러도 같다.
+         같은 모양이 하나 더 있다: 평가를 이미 한 세션에서 vcReviewQuizPrompt 가 모달도 안 띄우고
+         `return true`(STATE.done) 를 주면 fallbackExit 이 안 불려 «조용히 아무 일도 안 일어난다».
+       [왜 여기서 고치나] 그 가드는 IIFE 안의 지역 변수라 밖에서 풀 수 없고, index.html 은
+         공동 금지구역이자 첫 화면 예산 여유가 8바이트다(CLAUDE.md 2장). 이 파일은 defer 라 예산 밖이다.
+       [어떻게] 나가기에서 «손을 뗀 것»(pointerup·mouseup)은 그 방아쇠가 잡지 않는 이벤트라
+         (그쪽은 pointerdown·touchstart·touchend·mousedown·click 만 잡는다) 버튼까지 정상 전파된다.
+         그 뒤 잠깐 기다려 보고 **화면이 그대로면** 직접 내보낸다.
+       ⛔ 평가·복습퀴즈를 건너뛰게 만들지 않는다 — 그 모달이 하나라도 떠 있으면 손을 뗀다.
+          둘 다 클릭과 «같은 틱» 에 동기로 붙는다(실측: 첫 나가기 600ms 뒤 평가 모달 존재 true).
+       ⛔ 강사·관찰자·관리자도 안전하다 — v35 가 SPA 종료해 vc-in-call 이 떨어지므로 여기서 손을 뗀다.
+       ⚠️ 이 안전망이 도는 것 자체가 «가드가 굳었다» 는 뜻이라 콘솔에 한 줄 남긴다(조용히 고치지 않는다).
+       ⚠️ 키보드 Enter 로 누르면 pointerup 이 없어 여기 안 걸린다 — 그 경로는 여전히 삼켜진다(알고 둔다).
+       감시: test-harness/manual/class-end-flow-browser.mjs ③절 */
+    /* 🖐 «쓸어넘기다 버튼 위에서 손을 뗀 것» 을 나가기로 오해하지 않는다.
+       [왜 필요한가] `pointerup` 은 «그 요소에서 시작하지 않은» 포인터에도 옵니다 —
+         마우스로 교재를 끌다가 커서가 독까지 내려와 나가기 위에서 버튼을 놓으면 그것도 pointerup 입니다.
+         브라우저는 그 경우 `click` 을 «안» 내므로 **예전에는 아무 일도 안 일어났는데**,
+         안전망을 그냥 달면 수업이 끊깁니다.
+       [어떻게 가르나 — «시간» 이 아니라 «짝» 으로] 이 창 버블 리스너에는
+         **«나가기 버튼에서 시작한 pointerdown» 이 안 옵니다** — 그 방아쇠(index.html:4338)가
+         캡처에서 stopImmediatePropagation 으로 삼키기 때문입니다(그게 이 안전망이 필요한 이유이기도 합니다).
+         ⟹ **기록이 남아 있고 그 짝(pointerId)이 지금 올라온 것과 같으면** 딴 데서 시작해 쓸려 온 것이고,
+            **기록이 없으면** 그 down 이 삼켜진 것 = 나가기에서 시작한 것입니다.
+       ⛔ 처음에는 «2초 안에 딴 데서 시작했으면 스와이프» 라는 **시간 창**으로 짰는데,
+          **2초보다 느리게 끄는 드래그**가 그대로 빠져나가 수업이 끊깁니다(함정 대조가 실제로 잡음).
+       ⚠️ 한 번 쓴 기록은 반드시 지웁니다 — 마우스는 pointerId 가 늘 같아서, 안 지우면 예전 기록이
+          남아 «나가기에서 시작한 것» 까지 스와이프로 오판해 안전망이 통째로 죽습니다.
+       ⛔ `mouseup` 은 **일부러 안 씁니다** — 손가락 터치 뒤에 브라우저가 «흉내내서» 보내는
+          mouse 이벤트는 «놓은 자리»(= 나가기 버튼) 에서 나는데 그 짝이 되는 mousedown 은 삼켜져서,
+          받으면 **쓸어넘긴 것을 나가기로 오해**합니다. Pointer 이벤트가 없는 아주 옛 브라우저에서는
+          이 안전망이 없을 뿐이고 «고치기 전» 과 같습니다(그쪽으로 실패하는 것이 맞는 방향).
+       ⚠️ 터치는 pointerup 이 «시작한 요소» 로 갑니다(암묵 포인터 캡처) — 그래서 교재에서 시작한
+          스와이프는 이 버튼 리스너가 **애초에 안 불립니다**. 위 판정은 마우스 쪽 방어입니다.
+       ⚠️ 가드가 굳지 않은 «정상» 일 때·강사일 때는 나가기 down 도 여기 옵니다 — 그때는
+          onLeave 가 참이라 안전망이 걸리지만, 평가 모달이 떠 있거나(학생) 이미 나갔으므로(강사)
+          아래 700ms 검사가 손을 뗍니다(무해). */
+    var downId = null, downOnLeave = false;
+    function pid(e){ try { return (e && e.pointerId !== undefined) ? ('p' + e.pointerId) : 'p?'; } catch(_){ return 'p?'; } }
+    window.addEventListener('pointerdown', function(e){
+      try {
+        downId = pid(e);
+        downOnLeave = !!(e.target && e.target.closest && e.target.closest('#vc-dock-leave'));
+      } catch(_){ downId = null; downOnLeave = false; }
+    }, false);
+    /* 한 번 쓴 기록은 버린다. ⚠️ 버튼(대상 단계)이 창 버블보다 «먼저» 도므로 아래 armLeaveFallback 이
+       이 줄보다 앞서 읽습니다 — 순서를 바꾸면 그 판정이 통째로 헛돕니다.
+       ⚠️ pointercancel 도 함께 — 안 지우면 «놓지 않은 채 취소된» 기록이 남아 다음 진짜 나가기를 삼킵니다. */
+    function clearDown(){ downId = null; downOnLeave = false; }
+    /* ⚠️ 이 둘은 window 의 «버블» 단계입니다 — 누군가 pointerup 을 캡처에서
+       stopPropagation 하면 기록이 안 지워져 안전망이 조용히 죽습니다
+       (2026-09-15 실측: 저장소 전체에 그런 코드 0건. 새로 만들 때 이 줄을 떠올릴 것). */
+    window.addEventListener('pointerup', clearDown, false);
+    window.addEventListener('pointercancel', clearDown, false);
+
+    var leaveFbT = null;
+    function armLeaveFallback(e){
+      /* 짝이 되는 down 을 «우리가 봤다» + 그것이 나가기가 아니었다 = 쓸어넘긴 것 → 나가기 의도가 아니다 */
+      if (downId && downId === pid(e) && !downOnLeave) return;
+      if (leaveFbT) clearTimeout(leaveFbT);
+      leaveFbT = setTimeout(function(){
+        leaveFbT = null;
+        try {
+          if (!document.body || !document.body.classList.contains('vc-in-call')) return;   // 이미 나갔다 = 정상
+          if (document.getElementById('vc-rate-modal')) return;      // 평가 ⭐ 가 떠 있다 = 정상 흐름
+          if (document.getElementById('vc-rq-end-modal')) return;    // 복습퀴즈 🧠 안내가 떠 있다 = 정상 흐름
+          console.warn('[vc-dock] 나가기를 눌렀는데 아무 일도 일어나지 않았습니다 — 안전망으로 수업을 종료합니다');
+          if (typeof window.__mangoLeaveClassSPA === 'function') window.__mangoLeaveClassSPA();
+          else if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom();
+        } catch(_){}
+      }, 700);
+    }
+    bLeave.addEventListener('pointerup', armLeaveFallback);
 
     [btnMic, btnCam, bShare, bFunc, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);

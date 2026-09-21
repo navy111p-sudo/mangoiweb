@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>다시 고르기 버튼 시안 4종</title>
+<style>
+  :root{ --bg:#0a1530; --text:#e6ecff; --text2:#a3b3d1;
+    --accent:#38bdf8; --accent2:#0ea5e9; --border:rgba(56,189,248,.18);
+    --paper:#f7f6f2; --ink:#101828; --ink2:#475467; --mute:#667085; --line:#e4e7ec;
+    --warn:#b45309; --warn-bg:#fff4e5; --bad:#b91c1c; --bad-bg:#fee2e2; --good:#065f46; --good-bg:#d1fae5; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+    font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 70px}
+  h1{font-size:25px;font-weight:900;margin:0 0 6px;letter-spacing:-.02em}
+  .lead{margin:0 0 4px;color:var(--ink2);max-width:74ch}
+  .askline{margin:14px 0 22px;padding:12px 16px;border-left:4px solid var(--warn);
+    background:var(--warn-bg);border-radius:0 8px 8px 0;font-size:13.5px}
+  .askline b{color:var(--warn)}
+
+  /* ── 잰 것 표 ── */
+  .measured{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .measured h2{margin:0 0 10px;font-size:16px;font-weight:900}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f2f4f7;font-weight:800;font-size:12.5px}
+  td.no{color:var(--bad);font-weight:800;background:var(--bad-bg)}
+  td.ok{color:var(--good);font-weight:700}
+  .note{font-size:12.5px;color:var(--mute);margin-top:10px}
+
+  /* ── 안(案) 카드 ── */
+  .sample{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 20px 16px;margin-bottom:24px}
+  .sample.pick{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(14,165,233,.12)}
+  .shead{display:flex;gap:13px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px}
+  .shead .no2{flex:0 0 auto;width:34px;height:34px;border-radius:9px;background:var(--ink);color:#fff;
+    font-weight:900;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .shead h2{margin:0;font-size:18px;font-weight:900;letter-spacing:-.01em}
+  .shead .tag{display:inline-block;margin-left:8px;padding:3px 10px;border-radius:999px;
+    background:#eef2ff;color:#3730a3;font-size:12px;font-weight:800;vertical-align:2px}
+  .shead .tag.best{background:#d1fae5;color:#065f46}
+  .sdesc{margin:0 0 14px 47px;color:var(--ink2);max-width:76ch}
+  @media(max-width:640px){ .sdesc{margin-left:0} }
+
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:18px;align-items:start}
+  .col h3{margin:0 0 8px;font-size:13px;font-weight:900;color:var(--mute);letter-spacing:.3px}
+
+  /* ══ 실제 화면 재현 — 웜업의 진짜 색 그대로 ══ */
+  .screen{position:relative;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;
+    background:radial-gradient(125% 100% at 50% -8%,#2a4d9e 0%,#1a2f6b 42%,#122350 100%);
+    color:var(--text);font-size:13px}
+  .screen.lap{height:400px}           /* 1280x800 노트북을 세로 절반으로 줄인 틀 */
+  .screen .cut{position:absolute;left:0;right:0;bottom:0;height:0;border-top:2px dashed #ef4444}
+  .cutlb{position:absolute;right:6px;bottom:4px;font-size:11px;font-weight:800;color:#fecaca;
+    background:rgba(127,29,29,.75);padding:2px 7px;border-radius:6px}
+
+  .bar{display:flex;align-items:center;gap:8px;padding:8px 11px;
+    background:linear-gradient(180deg,rgba(23,38,72,.98),rgba(18,31,63,.92));border-bottom:1px solid var(--border)}
+  .bar .ic{width:28px;height:28px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    border-radius:9px;background:rgba(255,255,255,.05);border:1px solid var(--border);font-size:15px}
+  .bar .ic.act{background:rgba(56,189,248,.12);color:var(--accent)}
+  .bar .ic.newbtn{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3d2500;border-color:#fbbf24;
+    box-shadow:0 2px 8px rgba(251,191,36,.45)}
+  .bar h4{margin:0;font-size:14px;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .panel{position:absolute;top:47px;right:8px;width:236px;z-index:5;
+    background:linear-gradient(180deg,#182a4e,#12203f);border:1px solid rgba(56,189,248,.28);
+    border-radius:14px;padding:11px;box-shadow:0 22px 50px -14px rgba(0,0,0,.7)}
+  .panel .ph{font-size:10.5px;font-weight:800;color:var(--text2);letter-spacing:.4px;
+    text-transform:uppercase;margin-bottom:8px}
+  .grp{margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.07)}
+  .grp:first-of-type{margin-top:0;padding-top:0;border-top:0}
+  .glb{display:flex;justify-content:space-between;gap:6px;font-size:11px;font-weight:800;margin-bottom:6px}
+  .glb .now{background:rgba(56,189,248,.16);color:#7dd3fc;border-radius:999px;padding:1px 7px;font-size:10px}
+  .pills{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .pills.two{grid-template-columns:repeat(2,1fr)}
+  .pills.three{grid-template-columns:repeat(3,1fr)}
+  .pills b{display:flex;align-items:center;justify-content:center;padding:6px 2px;border-radius:7px;
+    border:1px solid var(--border);background:rgba(56,189,248,.06);color:var(--text2);
+    font-size:10.5px;font-weight:800}
+  .pills b.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04283a;border-color:var(--accent)}
+  .slider{height:5px;border-radius:99px;background:rgba(255,255,255,.12);position:relative;margin:7px 2px}
+  .slider i{position:absolute;left:0;top:0;bottom:0;width:35%;border-radius:99px;background:var(--accent)}
+  .slider u{position:absolute;left:33%;top:-4px;width:13px;height:13px;border-radius:50%;background:#fff}
+
+  /* 지금 판(옛것) — 회색으로 묻힌 버튼 */
+  .reopen-old{width:100%;margin-top:10px;padding:8px;border-radius:9px;font-size:11.5px;font-weight:800;
+    background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);text-align:center}
+  /* 새 판 — 눈에 띄는 버튼 */
+  .reopen-new{width:100%;padding:10px 8px;border-radius:10px;font-size:12.5px;font-weight:900;text-align:center;
+    background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3d2500;border:0;
+    box-shadow:0 4px 12px rgba(251,191,36,.4)}
+  .reopen-blue{width:100%;padding:10px 8px;border-radius:10px;font-size:12.5px;font-weight:900;text-align:center;
+    background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;border:0;
+    box-shadow:0 4px 12px rgba(37,99,235,.45)}
+  .panel-scroll{max-height:214px;overflow-y:auto;padding-right:3px;margin-right:-3px}
+  .panel-foot{position:relative;margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.12)}
+  .sumcard{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:11px;
+    background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(14,165,233,.13));
+    border:1px solid var(--accent);margin-bottom:9px}
+  .sumcard .t{font-size:11px;color:#7dd3fc;font-weight:800}
+  .sumcard .v{font-size:12.5px;font-weight:900;margin-top:2px;line-height:1.35}
+  .sumcard .go{font-size:11px;color:#bae6fd;margin-top:4px;font-weight:800}
+
+  /* ── 설정 화면(wuSetup) 재현 ── */
+  .setup{position:relative;height:100%;overflow:hidden}
+  .snav{display:flex;align-items:center;gap:6px;padding:8px 11px;
+    background:rgba(23,38,72,.98);border-bottom:1px solid var(--border)}
+  .snav span.b{padding:5px 10px;border-radius:9px;font-size:11px;font-weight:800;
+    background:rgba(255,255,255,.06);border:1px solid var(--border)}
+  .snav .done{margin-left:auto;background:linear-gradient(135deg,var(--accent),#2563eb);
+    color:#fff;border:0;box-shadow:0 3px 10px rgba(37,99,235,.5)}
+  .sbody{padding:11px 13px}
+  .stt{font-size:15px;font-weight:900;margin:2px 0 7px}
+  .sitem{border:1px solid var(--border);background:rgba(56,189,248,.07);border-radius:10px;
+    padding:8px 10px;margin-bottom:6px;font-size:11.5px}
+  .sitem.on{background:linear-gradient(135deg,rgba(56,189,248,.28),rgba(14,165,233,.16));border-color:var(--accent)}
+  .sitem .nm{font-weight:800;font-size:12px}
+  .sitem .ds{color:var(--text2);font-size:10.5px;margin-top:1px}
+  .subttl{font-size:11.5px;font-weight:800;color:var(--accent);margin:11px 0 5px}
+  .cta-old{position:absolute;left:13px;right:13px;bottom:4px;padding:11px;border-radius:11px;text-align:center;
+    background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;font-size:13px;font-weight:900;
+    box-shadow:0 8px 22px -4px rgba(4,10,26,.75)}
+  .cta-band{position:absolute;left:0;right:0;bottom:0;padding:9px 13px 11px;
+    background:linear-gradient(180deg,rgba(12,26,58,0),rgba(12,26,58,.93) 38%,#0b1a3a);
+    border-top:1px solid rgba(56,189,248,.3)}
+  .cta-band .btn{display:block;padding:11px;border-radius:11px;text-align:center;
+    background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;font-size:13px;font-weight:900;
+    box-shadow:0 8px 22px -4px rgba(4,10,26,.75)}
+  .cta-band .hint{font-size:10.5px;color:#93c5fd;text-align:center;margin-top:5px;font-weight:700}
+  .topcta{display:block;padding:10px;border-radius:11px;text-align:center;margin:0 0 11px;
+    background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;font-size:12.5px;font-weight:900;
+    box-shadow:0 6px 16px -4px rgba(4,10,26,.7)}
+
+  /* 카드가 화면보다 길어 아래가 잘리는 것을 «보여주는» 띠 — 1·4번 안의 요점이다 */
+  .clipnote{position:absolute;left:0;right:0;bottom:0;padding:5px 10px 6px;z-index:8;
+    background:linear-gradient(180deg,rgba(11,26,58,0),rgba(11,26,58,.92) 45%,#0b1a3a);
+    color:#fecaca;font-size:10.5px;font-weight:800;text-align:right}
+  .arrow{position:absolute;z-index:9;font-size:11px;font-weight:900;color:#fff;
+    background:#dc2626;padding:3px 9px;border-radius:999px;box-shadow:0 3px 10px rgba(0,0,0,.5);white-space:nowrap}
+
+  .pros{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px;margin-top:15px}
+  .pros div{border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.55}
+  .pro{background:var(--good-bg);color:#064e3b}
+  .con{background:var(--warn-bg);color:#7c2d12}
+  .pros b{display:block;margin-bottom:3px;font-size:12px}
+  .files{margin-top:12px;font-size:12px;color:var(--mute);border-top:1px dashed var(--line);padding-top:9px}
+  .files code{background:#f2f4f7;padding:1px 6px;border-radius:5px;font-size:11.5px;color:#334155}
+
+  .pickbox{background:#0f172a;color:#e2e8f0;border-radius:14px;padding:20px 22px;margin-top:8px}
+  .pickbox h2{margin:0 0 8px;font-size:18px;font-weight:900;color:#fff}
+  .pickbox p{margin:0 0 6px;color:#cbd5e1;font-size:13.5px}
+  .pickbox ol{margin:10px 0 0;padding-left:20px;color:#cbd5e1;font-size:13.5px}
+  .pickbox li{margin-bottom:5px}
+  .pickbox b{color:#7dd3fc}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>웜업 «연령·수준 다시 고르기» — 찾기 쉽게 만드는 샘플 4종</h1>
+<p class="lead">사장님 지시(2026-09-15)로 만든 시안입니다. 네 가지 중 <b>번호로 하나만 말씀해 주시면</b> 그대로 만들겠습니다.
+  (두 개를 섞어도 됩니다 — 예: «2번으로 하되 설정 화면은 3번처럼»)</p>
+
+<div class="askline">
+  <b>사장님 말씀</b> — 「PC에서 너무 밑에 있어서 잘 보이지 않고, 오른쪽 카드에서도 찾기가 힘들어.」
+</div>
+
+<div class="measured">
+  <h2>먼저 잰 것 — 노트북에서는 «보이지 않는» 정도가 아니라 <span style="color:#b91c1c">아예 화면 밖</span>입니다</h2>
+  <table>
+    <tr><th>화면 크기</th><th>⋮ 설정 카드 아래 끝</th><th>「연령·수준 다시 고르기」 버튼</th><th>판정</th></tr>
+    <tr><td>1920 × 1080 (큰 모니터)</td><td>853px</td><td>792 ~ 834px</td><td class="ok">보임 (여유 246px)</td></tr>
+    <tr><td>1440 × 900</td><td>853px</td><td>792 ~ 834px</td><td class="ok">겨우 보임 (여유 66px)</td></tr>
+    <tr><td><b>1280 × 800 (노트북)</b></td><td>853px</td><td>792 ~ 834px</td><td class="no">화면 밖 · 누를 수 없음</td></tr>
+  </table>
+  <p class="note">
+    ⋮ 카드 높이가 <b>792px 로 고정</b>이라, 브라우저 창 세로가 853px 보다 짧으면 맨 아래 버튼이 잘려 나갑니다.
+    카드 안에 스크롤도 없어서 <b>끌어내릴 수도 없습니다.</b> 주소창·북마크바가 있으면 1440×900 화면도 위험합니다.<br>
+    설정 화면(두 번째 사진)의 파란 「이 설정으로 계속하기」는 바닥에 붙어 있어 <b>보이기는 합니다</b> —
+    다만 화면 맨 아래 가장자리라 눈에 잘 안 들어옵니다. 네 가지 안 모두 이 두 곳을 함께 고칩니다.
+  </p>
+</div>
+
+<!-- ══════════ 1안 ══════════ -->
+<div class="sample">
+  <div class="shead"><div class="no2">1</div>
+    <h2>맨 위로 올리기<span class="tag">가장 단순</span></h2></div>
+  <p class="sdesc">「다시 고르기」를 ⋮ 카드의 <b>맨 첫 줄</b>로 올리고 노란색으로 눈에 띄게 합니다.
+    카드가 아무리 길어도 맨 위는 언제나 보이니 잘릴 일이 없습니다.
+    설정 화면에는 위쪽에도 파란 확정 버튼을 하나 더 둡니다.</p>
+  <div class="cols">
+    <div class="col">
+      <h3>⋮ 설정 카드</h3>
+      <div class="screen lap">
+        <div class="bar"><div class="ic">←</div><div class="ic">🏠</div><h4>🗣️ 수업 전 AI 웜업</h4>
+          <div class="ic">🔊</div><div class="ic act">⋮</div></div>
+        <div class="panel">
+          <div class="ph">⚙️ 웜업 설정</div>
+          <div class="reopen-new">🎚️ 연령·수준 다시 고르기</div>
+          <div class="grp"><div class="glb"><span>🗣️ 듣기 속도</span><span class="now">2 · 느리게</span></div>
+            <div class="slider"><i></i><u></u></div></div>
+          <div class="grp"><div class="glb"><span>📊 대화 레벨</span><span class="now">3단계</span></div>
+            <div class="pills"><b>1</b><b>2</b><b class="on">3</b><b>4</b></div></div>
+          <div class="grp"><div class="glb"><span>🧑‍🎓 연령대</span><span class="now">초등 고·중</span></div>
+            <div class="pills two"><b>유아·초등 저</b><b class="on">초등 고·중</b></div></div>
+          <div class="grp"><div class="glb"><span>🎙️ AI 친구</span><span class="now">👩 Emma</span></div>
+            <div class="pills two"><b class="on">👩 Emma</b><b>🦸 Jake</b></div></div>
+        </div>
+        <div class="clipnote">↓ 카드 아래쪽은 화면 밖 — 그래도 맨 위 버튼은 보입니다</div>
+        <div class="arrow" style="top:62px;right:250px">여기 ↗</div>
+      </div>
+    </div>
+    <div class="col">
+      <h3>설정 화면</h3>
+      <div class="screen lap"><div class="setup">
+        <div class="snav"><span class="b">← 뒤로</span><span class="b">🏠 홈</span></div>
+        <div class="sbody">
+          <div class="stt">🎚️ 먼저 눈높이를 정해요</div>
+          <div class="topcta">✅ 이 설정으로 계속하기</div>
+          <div class="subttl">📊 대화 수준</div>
+          <div class="sitem on"><div class="nm">초급 (Lv 6-10) A2+</div><div class="ds">짧은 문장 · 쉬운 낱말</div></div>
+          <div class="sitem"><div class="nm">중급 (Lv 11-18) B1</div><div class="ds">두세 문장으로 이어 말해요</div></div>
+          <div class="subttl">📘 오늘 배울 교재</div>
+          <div class="sitem"><div class="nm">BTS 9 · 밤과 낮</div></div>
+          <div class="sitem"><div class="nm">BTS 12 · 직업</div></div>
+        </div>
+        <div class="cta-old">✅ 이 설정으로 계속하기</div>
+      </div>
+      <div class="arrow" style="top:60px;right:10px">위에도 하나 더 ↓</div>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div class="pro"><b>좋은 점</b>카드가 길어져도 절대 안 잘립니다. 노란색이라 한눈에 들어옵니다. 고치는 곳이 제일 적어 위험이 낮습니다.</div>
+    <div class="con"><b>맞바꾸는 것</b>「설정을 보고 → 다시 고르기」 순서가 거꾸로가 됩니다. 설정 화면 위·아래에 같은 버튼이 두 개라 조금 어수선합니다.</div>
+  </div>
+</div>
+
+<!-- ══════════ 2안 ══════════ -->
+<div class="sample pick">
+  <div class="shead"><div class="no2">2</div>
+    <h2>상단바에 전용 버튼<span class="tag best">가장 빠름 · 한 번에</span></h2></div>
+  <p class="sdesc">상단바 ⋮ 옆에 <b>🎚️ 버튼을 하나 더</b> 둡니다. ⋮ 를 열 필요 없이 <b>한 번만 누르면</b> 바로 설정 화면입니다.
+    카드 길이·화면 크기와 아무 상관이 없어집니다. 설정 화면 바닥 버튼은 «띠»로 감싸 배경과 확실히 구분합니다.</p>
+  <div class="cols">
+    <div class="col">
+      <h3>상단바 — ⋮ 를 열지 않아도 됨</h3>
+      <div class="screen lap">
+        <div class="bar"><div class="ic">←</div><div class="ic">🏠</div><h4>🗣️ 수업 전 AI 웜업</h4>
+          <div class="ic">🔊</div><div class="ic newbtn">🎚️</div><div class="ic act">⋮</div></div>
+        <div style="padding:26px 16px;color:#a3b3d1;font-size:12px;line-height:1.7">
+          <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:11px 13px;max-width:78%">
+            안녕하세요! 오늘 기분이 어때요?</div>
+          <div style="background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;border-radius:12px;
+            padding:11px 13px;max-width:60%;margin:11px 0 0 auto">I'm good!</div>
+        </div>
+        <div class="arrow" style="top:52px;right:52px">항상 여기 ↑</div>
+      </div>
+      <p style="font-size:12px;color:var(--mute);margin:8px 0 0">
+        노란 🎚️ 버튼은 수업 내내 상단에 그대로 있습니다. ⋮ 카드 안의 그 줄은 중복이라 뺍니다.</p>
+    </div>
+    <div class="col">
+      <h3>설정 화면 — 바닥 «띠»로 강조</h3>
+      <div class="screen lap"><div class="setup">
+        <div class="snav"><span class="b">← 뒤로</span><span class="b">🏠 홈</span></div>
+        <div class="sbody">
+          <div class="stt">🎚️ 먼저 눈높이를 정해요</div>
+          <div class="subttl">📊 대화 수준</div>
+          <div class="sitem on"><div class="nm">초급 (Lv 6-10) A2+</div><div class="ds">짧은 문장 · 쉬운 낱말</div></div>
+          <div class="sitem"><div class="nm">중급 (Lv 11-18) B1</div><div class="ds">두세 문장으로 이어 말해요</div></div>
+          <div class="sitem"><div class="nm">고급 (Lv 26-30) B2+</div><div class="ds">관용표현이 섞여요</div></div>
+          <div class="subttl">📘 오늘 배울 교재</div>
+          <div class="sitem"><div class="nm">BTS 9 · 밤과 낮</div></div>
+          <div class="sitem"><div class="nm">BTS 12 · 직업</div></div>
+        </div>
+        <div class="cta-band"><div class="btn">✅ 이 설정으로 계속하기</div>
+          <div class="hint">고른 것: 초급 · 초등 고·중 · Emma</div></div>
+      </div>
+      <div class="arrow" style="bottom:66px;left:100px">띠로 확실히 구분</div>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div class="pro"><b>좋은 점</b>누르는 횟수가 2번 → <b>1번</b>. 카드가 잘리는 문제 자체가 사라집니다. 「어디 있지?」 하고 찾을 일이 없습니다.</div>
+    <div class="con"><b>맞바꾸는 것</b>상단바 버튼이 5개가 됩니다. 폰 좁은 화면에서 제목이 조금 짧아집니다(확인해서 맞추겠습니다).</div>
+  </div>
+</div>
+
+<!-- ══════════ 3안 ══════════ -->
+<div class="sample">
+  <div class="shead"><div class="no2">3</div>
+    <h2>카드 안 스크롤 + 바닥 고정<span class="tag">지금 모양 그대로</span></h2></div>
+  <p class="sdesc">⋮ 카드에 <b>스크롤</b>을 주어 화면을 넘지 않게 하고, 「다시 고르기」는 <b>카드 바닥에 파랗게 붙여</b> 둡니다.
+    위 항목을 아무리 내려도 그 버튼은 항상 카드 아래에 남습니다. 지금 배치(맨 아래)는 그대로라 익숙합니다.</p>
+  <div class="cols">
+    <div class="col">
+      <h3>⋮ 설정 카드 — 화면을 넘지 않음</h3>
+      <div class="screen lap">
+        <div class="bar"><div class="ic">←</div><div class="ic">🏠</div><h4>🗣️ 수업 전 AI 웜업</h4>
+          <div class="ic">🔊</div><div class="ic act">⋮</div></div>
+        <div class="panel">
+          <div class="ph">⚙️ 웜업 설정</div>
+          <div class="panel-scroll">
+            <div class="grp"><div class="glb"><span>🗣️ 듣기 속도</span><span class="now">2 · 느리게</span></div>
+              <div class="slider"><i></i><u></u></div></div>
+            <div class="grp"><div class="glb"><span>📊 대화 레벨</span><span class="now">3단계</span></div>
+              <div class="pills"><b>1</b><b>2</b><b class="on">3</b><b>4</b></div></div>
+            <div class="grp"><div class="glb"><span>🧑‍🎓 연령대</span><span class="now">초등 고·중</span></div>
+              <div class="pills two"><b>유아·초등 저</b><b class="on">초등 고·중</b></div></div>
+            <div class="grp"><div class="glb"><span>🎙️ AI 친구</span><span class="now">👩 Emma</span></div>
+              <div class="pills two"><b class="on">👩 Emma</b><b>🦸 Jake</b></div></div>
+            <div class="grp"><div class="glb"><span>👁 자막</span><span class="now">보이기</span></div>
+              <div class="pills three"><b class="on">보이기</b><b>가리기</b><b>끄기</b></div></div>
+          </div>
+          <div class="panel-foot"><div class="reopen-blue">🎚️ 연령·수준 다시 고르기</div></div>
+        </div>
+        <div class="arrow" style="bottom:26px;right:250px">항상 카드 안 ↘</div>
+      </div>
+    </div>
+    <div class="col">
+      <h3>설정 화면 — 바닥 «띠»로 강조</h3>
+      <div class="screen lap"><div class="setup">
+        <div class="snav"><span class="b">← 뒤로</span><span class="b">🏠 홈</span></div>
+        <div class="sbody">
+          <div class="stt">🎚️ 먼저 눈높이를 정해요</div>
+          <div class="subttl">📊 대화 수준</div>
+          <div class="sitem on"><div class="nm">초급 (Lv 6-10) A2+</div><div class="ds">짧은 문장 · 쉬운 낱말</div></div>
+          <div class="sitem"><div class="nm">중급 (Lv 11-18) B1</div><div class="ds">두세 문장으로 이어 말해요</div></div>
+          <div class="sitem"><div class="nm">고급 (Lv 26-30) B2+</div><div class="ds">관용표현이 섞여요</div></div>
+          <div class="subttl">📘 오늘 배울 교재</div>
+          <div class="sitem"><div class="nm">BTS 9 · 밤과 낮</div></div>
+          <div class="sitem"><div class="nm">BTS 12 · 직업</div></div>
+        </div>
+        <div class="cta-band"><div class="btn">✅ 이 설정으로 계속하기</div>
+          <div class="hint">고른 것: 초급 · 초등 고·중 · Emma</div></div>
+      </div></div>
+    </div>
+  </div>
+  <div class="pros">
+    <div class="pro"><b>좋은 점</b>버튼 자리가 지금과 같아 익숙합니다. 화면이 아무리 작아도 잘리지 않습니다. 나중에 설정이 더 늘어도 안전합니다.</div>
+    <div class="con"><b>맞바꾸는 것</b>카드 안에 스크롤이 하나 더 생깁니다. 여전히 ⋮ 를 «먼저 열어야» 보입니다(2번보다 한 번 더 누름).</div>
+  </div>
+</div>
+
+<!-- ══════════ 4안 ══════════ -->
+<div class="sample">
+  <div class="shead"><div class="no2">4</div>
+    <h2>지금 설정을 «요약 카드»로 맨 위에<span class="tag">한눈에 확인</span></h2></div>
+  <p class="sdesc">⋮ 카드 맨 위에 <b>지금 어떤 설정인지</b>를 한 줄로 보여주고, <b>그 카드를 누르면</b> 설정 화면이 열립니다.
+    「지금 몇 단계지?」와 「바꾸고 싶다」를 한 자리에서 해결합니다.</p>
+  <div class="cols">
+    <div class="col">
+      <h3>⋮ 설정 카드</h3>
+      <div class="screen lap">
+        <div class="bar"><div class="ic">←</div><div class="ic">🏠</div><h4>🗣️ 수업 전 AI 웜업</h4>
+          <div class="ic">🔊</div><div class="ic act">⋮</div></div>
+        <div class="panel">
+          <div class="ph">⚙️ 웜업 설정</div>
+          <div class="sumcard">
+            <div class="t">지금 이렇게 하고 있어요</div>
+            <div class="v">3단계 초급 · 초등 고·중 · 👩 Emma</div>
+            <div class="go">🎚️ 눌러서 다시 고르기 →</div>
+          </div>
+          <div class="grp"><div class="glb"><span>🗣️ 듣기 속도</span><span class="now">2 · 느리게</span></div>
+            <div class="slider"><i></i><u></u></div></div>
+          <div class="grp"><div class="glb"><span>📊 대화 레벨</span><span class="now">3단계</span></div>
+            <div class="pills"><b>1</b><b>2</b><b class="on">3</b><b>4</b></div></div>
+          <div class="grp"><div class="glb"><span>🧑‍🎓 연령대</span><span class="now">초등 고·중</span></div>
+            <div class="pills two"><b>유아·초등 저</b><b class="on">초등 고·중</b></div></div>
+        </div>
+        <div class="clipnote">↓ 카드 아래쪽은 화면 밖 — 그래도 맨 위 카드는 보입니다</div>
+        <div class="arrow" style="top:70px;right:250px">누르면 열림 ↗</div>
+      </div>
+    </div>
+    <div class="col">
+      <h3>설정 화면 — 위쪽 「완료」 + 바닥 띠</h3>
+      <div class="screen lap"><div class="setup">
+        <div class="snav"><span class="b">← 뒤로</span><span class="b">🏠 홈</span><span class="b done">✅ 완료</span></div>
+        <div class="sbody">
+          <div class="stt">🎚️ 먼저 눈높이를 정해요</div>
+          <div class="subttl">📊 대화 수준</div>
+          <div class="sitem on"><div class="nm">초급 (Lv 6-10) A2+</div><div class="ds">짧은 문장 · 쉬운 낱말</div></div>
+          <div class="sitem"><div class="nm">중급 (Lv 11-18) B1</div><div class="ds">두세 문장으로 이어 말해요</div></div>
+          <div class="sitem"><div class="nm">고급 (Lv 26-30) B2+</div><div class="ds">관용표현이 섞여요</div></div>
+          <div class="subttl">📘 오늘 배울 교재</div>
+          <div class="sitem"><div class="nm">BTS 9 · 밤과 낮</div></div>
+        </div>
+        <div class="cta-band"><div class="btn">✅ 이 설정으로 계속하기</div></div>
+      </div>
+      <div class="arrow" style="top:14px;right:16px">항상 보임</div>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div class="pro"><b>좋은 점</b>「지금 몇 단계로 하고 있나」를 카드 열자마자 알 수 있습니다. 설정 화면 맨 위 「완료」는 스크롤과 무관하게 항상 보입니다.</div>
+    <div class="con"><b>맞바꾸는 것</b>새로 만드는 부분이 가장 많아 손이 제일 많이 갑니다. 아래 항목들과 내용이 조금 겹칩니다.</div>
+  </div>
+</div>
+
+<div class="pickbox">
+  <h2>어떻게 골라 주시면 되나요</h2>
+  <p><b>번호 하나만</b> 말씀해 주시면 됩니다. 「2번」처럼요.</p>
+  <p>섞으셔도 됩니다 — 예: <b>「2번인데 설정 화면은 3번처럼」</b>, <b>「2번과 4번 둘 다」</b></p>
+  <ol>
+    <li><b>1번 맨 위로</b> — 가장 단순하고 가장 빨리 됩니다.</li>
+    <li><b>2번 상단바 버튼</b> — 누르는 횟수가 제일 적습니다. (제가 보기엔 이게 사장님 말씀에 가장 맞습니다)</li>
+    <li><b>3번 카드 스크롤</b> — 지금 모양을 유지하면서 잘림만 고칩니다.</li>
+    <li><b>4번 요약 카드</b> — 지금 설정을 한눈에 보는 것까지 함께 얻습니다.</li>
+  </ol>
+  <p style="margin-top:12px;font-size:12.5px;color:#94a3b8">
+    ※ 어느 것을 고르셔도 <b>1280×800 노트북에서 버튼이 화면 밖으로 잘리는 문제</b>는 함께 고칩니다.
+    고치고 나면 노트북·큰 모니터·휴대폰 세 크기에서 실제로 눌러 보고 확인해 드리겠습니다.</p>
+</div>
+
+</div>
+</body>
+</html>

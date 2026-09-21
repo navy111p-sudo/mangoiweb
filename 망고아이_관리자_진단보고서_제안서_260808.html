@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no" class="notranslate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>망고아이 관리자 진단·개선 제안서 (2026-08-08)</title>
+<style>
+  :root{
+    --page:#eef2f7; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#e2e8f0;
+    --amber:#b45309; --amber-bg:#fff7ed; --amber-line:rgba(180,83,9,.28);
+    --blue:#2563eb; --blue-bg:#eff6ff; --green:#16a34a; --green-bg:#f0fdf4;
+    --red:#dc2626; --red-bg:#fef2f2; --orange:#ea580c; --slate:#0f172a;
+    --p1:#dc2626; --p2:#ea580c; --p3:#2563eb; --p4:#64748b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--page);color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%}
+  .wrap{max-width:960px;margin:0 auto;padding:22px 18px 80px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.4px;color:var(--slate)}
+  h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);color:var(--slate);letter-spacing:-.3px}
+  h3{font-size:16px;margin:20px 0 8px;color:var(--slate)}
+  p{margin:9px 0}
+  a{color:var(--blue)}
+  .sub{color:var(--muted);font-size:13.5px;margin:0}
+  .en{display:none}
+  html[data-lang="en"] .ko{display:none}
+  html[data-lang="en"] .en{display:revert}
+  /* top bar */
+  .top{position:sticky;top:0;z-index:20;background:rgba(238,242,247,.92);backdrop-filter:blur(6px);
+    display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 0;margin:-22px 0 14px;border-bottom:1px solid var(--line)}
+  .brand{font-weight:900;color:var(--amber);font-size:15px}
+  .langbtns button{font:inherit;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:#334155;
+    padding:6px 13px;font-size:13px;font-weight:800;border-radius:8px}
+  .langbtns button.on{background:var(--amber);border-color:var(--amber);color:#fff}
+  /* cards / boxes */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0;
+    box-shadow:0 6px 22px -16px rgba(15,23,42,.4)}
+  .box{border-radius:12px;padding:14px 16px;margin:12px 0;border:1px solid var(--line)}
+  .box.reason{background:var(--blue-bg);border-color:#bfdbfe}
+  .box.summary{background:var(--amber-bg);border-color:var(--amber-line)}
+  .box .lbl{font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;margin:0 0 4px}
+  .box.reason .lbl{color:var(--blue)}
+  .box.summary .lbl{color:var(--amber)}
+  /* KPI grid */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .kpi .n{font-size:24px;font-weight:900;color:var(--slate);letter-spacing:-.5px}
+  .kpi .n.bad{color:var(--red)}
+  .kpi .t{font-size:12px;color:var(--muted);margin-top:2px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f8fafc;font-weight:800;color:#334155}
+  td .tag{white-space:nowrap}
+  /* tags */
+  .tag{display:inline-block;font-size:11px;font-weight:900;padding:2px 9px;border-radius:999px;letter-spacing:.3px}
+  .tag.p1{background:var(--red-bg);color:var(--p1)}
+  .tag.p2{background:#fff7ed;color:var(--p2)}
+  .tag.p3{background:var(--blue-bg);color:var(--p3)}
+  .tag.p4{background:#f1f5f9;color:var(--p4)}
+  .tag.ok{background:var(--green-bg);color:var(--green)}
+  ul{margin:8px 0;padding-left:20px}
+  li{margin:5px 0}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .pill{display:inline-block;background:#f1f5f9;border:1px solid var(--line);border-radius:999px;
+    padding:3px 10px;font-size:12px;font-weight:700;color:#475569;margin:2px 4px 2px 0}
+  code{background:#f1f5f9;padding:1px 6px;border-radius:6px;font-size:12.5px;color:#be123c}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <span class="brand">🥭 MANGOI · Admin Review</span>
+    <span class="langbtns">
+      <button id="lb-ko" class="on" onclick="setLang('ko')">한국어</button>
+      <button id="lb-en" onclick="setLang('en')">English</button>
+    </span>
+  </div>
+
+  <h1>
+    <span class="ko">망고아이 관리자 사이트 진단 · 개선 제안서</span>
+    <span class="en">Mangoi Admin Site — Review &amp; Improvement Proposal</span>
+  </h1>
+  <p class="sub">
+    <span class="ko">대상: test.mangoi.co.kr/admin (실소스 <code>cloudflare-deploy/public/admin.html</code>) · 작성일 2026-08-08 · 실제 학생 약 29,000명 운영 서비스</span>
+    <span class="en">Scope: test.mangoi.co.kr/admin (source <code>cloudflare-deploy/public/admin.html</code>) · 2026-08-08 · Live service, ~29,000 students</span>
+  </p>
+
+  <!-- ══ 요약 ══ -->
+  <div class="box summary">
+    <p class="lbl">📌 <span class="ko">한 줄 요약</span><span class="en">Executive Summary</span></p>
+    <p style="margin:0">
+      <span class="ko"><b>기능은 이미 풍부하다. 문제는 “무게”와 “초점”이다.</b> 관리자 화면 한 번 여는 데 비압축 기준 약 <b>3.45MB</b>(JS 93개 개별 요청, 단일 번들 <code>adm-core.js</code> 705KB, CSS 486KB)가 실린다. 필리핀 가정의 저사양 기기·불안정 회선에서는 이 무게가 곧 로딩·버퍼링·렉으로 이어진다. 해결책은 “다시 만들기”가 아니라 <b>① 역할별 경량 진입 화면 분리 ② 번들 다이어트·지연로딩 ③ 자주 쓰는 기능 상단 고정 ④ 보안·안전 장치 보강</b>의 4단계다. 이미 존재하는 <code>manager.html</code>(50KB, 지연로딩) 이 그 방향의 좋은 출발점이다.</span>
+      <span class="en"><b>The feature set is already rich — the real problems are weight and focus.</b> Opening the admin loads about <b>3.45 MB</b> uncompressed (93 separate JS requests, a single 705 KB <code>adm-core.js</code> bundle, 486 KB of CSS). On low-end home devices and unstable connections in the Philippines, that weight becomes loading, buffering and lag. The fix is not a rewrite but four steps: <b>(1) split lightweight role-based entry screens, (2) slim the bundle with lazy-loading, (3) pin the most-used actions to the top, (4) harden security and safety.</b> The existing <code>manager.html</code> (50 KB, lazy-loaded) is a good starting point.</span>
+    </p>
+  </div>
+
+  <!-- ══ 측정치 ══ -->
+  <h2><span class="ko">1. 지금 상태 — 실측 데이터</span><span class="en">1. Current State — Measured</span></h2>
+  <div class="box reason">
+    <p class="lbl">💡 <span class="ko">왜 이 수치가 중요한가</span><span class="en">Why these numbers matter</span></p>
+    <p style="margin:0">
+      <span class="ko">아래는 추정이 아니라 실제 소스 파일을 계량한 값이다. 필리핀 교사·매니저 상당수가 가정에서 저가 안드로이드·공유 와이파이로 접속하므로, 초기 페이로드 1MB마다 체감 로딩이 눈에 띄게 늘어난다.</span>
+      <span class="en">These are measured from the actual source, not estimates. Many teachers and managers connect from home on low-cost Android phones and shared Wi-Fi, so every extra megabyte of initial payload is felt as slower loading.</span>
+    </p>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="n bad">~3.45<span style="font-size:14px">MB</span></div><div class="t"><span class="ko">초기 로드(비압축)</span><span class="en">Initial load (uncompressed)</span></div></div>
+    <div class="kpi"><div class="n bad">93</div><div class="t"><span class="ko">JS 개별 요청 수</span><span class="en">separate JS requests</span></div></div>
+    <div class="kpi"><div class="n bad">705<span style="font-size:14px">KB</span></div><div class="t"><span class="ko">단일 번들 adm-core.js</span><span class="en">single adm-core.js bundle</span></div></div>
+    <div class="kpi"><div class="n">12,514</div><div class="t"><span class="ko">admin.html 줄 수</span><span class="en">lines in admin.html</span></div></div>
+    <div class="kpi"><div class="n bad">2,685</div><div class="t"><span class="ko">인라인 style=</span><span class="en">inline style=</span></div></div>
+    <div class="kpi"><div class="n bad">468</div><div class="t"><span class="ko">인라인 onclick=</span><span class="en">inline onclick=</span></div></div>
+    <div class="kpi"><div class="n bad">62</div><div class="t"><span class="ko">aria-* (핸들러 525개 대비)</span><span class="en">aria-* (vs 525 handlers)</span></div></div>
+    <div class="kpi"><div class="n">76+</div><div class="t"><span class="ko">기능 카드 (역할 게이팅)</span><span class="en">feature cards (role-gated)</span></div></div>
+  </div>
+
+  <h3><span class="ko">무게가 어디서 오나</span><span class="en">Where the weight comes from</span></h3>
+  <table>
+    <tr><th><span class="ko">자원</span><span class="en">Asset</span></th><th><span class="ko">크기</span><span class="en">Size</span></th><th><span class="ko">메모</span><span class="en">Note</span></th></tr>
+    <tr><td>admin.html</td><td>~1.01 MB</td><td><span class="ko">단일 HTML, 인라인 스타일 2,685개</span><span class="en">Single HTML, 2,685 inline styles</span></td></tr>
+    <tr><td>JS × 93 <span class="ko">파일</span><span class="en">files</span></td><td>~2.0 MB</td><td><span class="ko"><code>adm-core.js</code> 하나가 705KB</span><span class="en"><code>adm-core.js</code> alone is 705 KB</span></td></tr>
+    <tr><td>CSS (a+c)</td><td>~486 KB</td><td><span class="ko"><code>admin-inline-c.css</code> 404KB에 @media 76개</span><span class="en"><code>admin-inline-c.css</code> is 404 KB with 76 media queries</span></td></tr>
+    <tr><td>i18n <span class="ko">사전</span><span class="en">dicts</span></td><td>~342 KB</td><td><span class="ko">한국어+영어 전체 문자열 사전 2벌</span><span class="en">Two full-string KO+EN dictionaries</span></td></tr>
+  </table>
+
+  <!-- ══ 문제점 ══ -->
+  <h2><span class="ko">2. 진단 — 6가지 핵심 문제</span><span class="en">2. Findings — 6 Core Issues</span></h2>
+
+  <div class="card">
+    <h3>① <span class="ko">경량화·속도: 모든 것을 한 번에 싣는다</span><span class="en">Weight &amp; speed: everything loads at once</span></h3>
+    <p><span class="ko">본사·지사·대리점·매니저·교사가 모두 같은 3.45MB 화면으로 들어온 뒤 역할에 따라 카드를 숨긴다(<code>CARD_POLICY/PERMS</code>). 즉 필리핀 교사가 결코 쓰지 않을 정산·급여·경영지표 코드까지 전부 내려받는다. JS 93개를 개별 요청하므로 회선이 느릴수록 손해가 커진다.</span>
+    <span class="en">HQ, branch, agency, manager and teacher all enter the same 3.45 MB screen, then cards are hidden by role (<code>CARD_POLICY/PERMS</code>). A Philippine teacher still downloads all the settlement, payroll and executive code they will never use. 93 individual JS requests make slow links even worse.</span></p>
+  </div>
+
+  <div class="card">
+    <h3>② <span class="ko">반응형·모바일: 데스크톱 확대(zoom:1.3) 전제</span><span class="en">Responsive/mobile: built around desktop zoom:1.3</span></h3>
+    <p><span class="ko">반응형 규칙이 404KB CSS 안에 76개 몰려 있고, 관리자 화면은 PC 확대(<code>zoom:1.3</code>)를 전제로 설계됐다. 가정에서 휴대폰으로 여는 교사에게는 표·사이드바가 버겁다. 카드형·세로 스택 모바일 레이아웃이 필요하다.</span>
+    <span class="en">Responsive rules are crammed (76) into a 404 KB CSS file, and the admin assumes desktop zoom (<code>zoom:1.3</code>). For a teacher opening it on a phone at home, the tables and sidebar are heavy. A card-based, vertically stacked mobile layout is needed.</span></p>
+  </div>
+
+  <div class="card">
+    <h3>③ <span class="ko">초점: 76개 카드에 “지금 할 일”이 묻힌다</span><span class="en">Focus: the day's task is buried under 76 cards</span></h3>
+    <p><span class="ko">매니저가 매일 실제로 쓰는 것은 대개 6~10개(오늘 매출·출석·결석률·진행 중 수업·연기요청·정산·대기자)다. 그런데 이 기능들이 76개 카드 사이에 흩어져 있어 탐색 비용이 크다. 상단 고정 “자주 쓰는 기능” 영역이 해법(폴더의 <code>관리자_자주쓰는기능</code> 제안과 동일 방향).</span>
+    <span class="en">A manager really uses ~6–10 things a day (today's revenue, attendance, absence rate, live classes, postpone requests, settlement, waitlist). But those are scattered across 76 cards. A pinned "Quick Access" area at the top is the fix (same direction as the existing quick-access proposal in the folder).</span></p>
+  </div>
+
+  <div class="card">
+    <h3>④ <span class="ko">보안·안전: 실수 방지 장치가 얇다</span><span class="en">Security &amp; safety: thin guardrails</span></h3>
+    <p><span class="ko"><code>innerHTML</code> 143곳은 서버 데이터가 그대로 DOM에 들어가면 XSS 위험이 된다(값 이스케이프 점검 필요). 세션 만료 401 공통 배너와 <code>pii-mask.js</code>(개인정보 마스킹)는 이미 있어 좋다. 다만 <b>관리자 로그인 2단계 인증(MFA) 부재</b>, 삭제·정산 등 되돌리기 어려운 동작의 재확인, 감사 로그(누가 언제 무엇을) 노출이 약하다. CLAUDE.md에 따르면 D1이 개발=운영 공용이라 실수 반경이 크다.</span>
+    <span class="en">143 <code>innerHTML</code> sites risk XSS if server data reaches the DOM unescaped (needs an escaping audit). The shared 401 session-expiry banner and <code>pii-mask.js</code> already exist — good. But there is <b>no admin MFA</b>, weak re-confirmation for irreversible actions (delete/settlement), and little audit-log visibility (who did what, when). Per CLAUDE.md, D1 is shared dev=prod, so the blast radius of a mistake is large.</span></p>
+  </div>
+
+  <div class="card">
+    <h3>⑤ <span class="ko">번역(EN/KO): 전체 문자열 일치 방식이라 잘 깨진다</span><span class="en">Translation: brittle full-string matching</span></h3>
+    <p><span class="ko">현재 i18n는 <code>data-ko/data-en</code> 쌍 1,734개 + 172KB 사전의 “문자열 전체 일치” 방식이라, 라벨에서 이모지만 떼도 번역이 깨진다(CLAUDE.md 명시). JS로 <code>textContent</code>로 그린 라벨은 언어 전환에 안 따라온다. 키 기반 i18n로 점진 전환하면 안정적이고 사전 용량도 준다.</span>
+    <span class="en">The current i18n uses 1,734 <code>data-ko/data-en</code> pairs plus a 172 KB dictionary keyed on the full string — so removing even an emoji from a label breaks the translation (noted in CLAUDE.md). Labels drawn via <code>textContent</code> don't follow language switches. Moving gradually to key-based i18n is more robust and shrinks the dictionary.</span></p>
+  </div>
+
+  <div class="card">
+    <h3>⑥ <span class="ko">유지보수: 스파게티화 위험 (인라인 style·onclick 대량)</span><span class="en">Maintainability: spaghetti risk (mass inline style/onclick)</span></h3>
+    <p><span class="ko">인라인 <code>style=</code> 2,685개, <code>onclick=</code> 468개는 CSS 우선순위 충돌(CLAUDE.md의 “카드 색이 안 먹음” 함정)과 이벤트 추적 어려움을 낳는다. 한 번에 걷어내면 위험하니 <b>카드 단위로 공통 클래스·이벤트 위임 전환</b>을 권장.</span>
+    <span class="en">2,685 inline <code>style=</code> and 468 <code>onclick=</code> cause CSS-priority clashes (the "card color won't apply" trap in CLAUDE.md) and hard-to-trace events. Refactoring all at once is risky, so migrate to shared classes and event delegation <b>card by card</b>.</span></p>
+  </div>
+
+  <!-- ══ 벤치마킹 ══ -->
+  <h2><span class="ko">3. 벤치마킹 — 잘 만든 곳은 어떻게 하나</span><span class="en">3. Benchmarking — what good products do</span></h2>
+  <div class="box reason">
+    <p class="lbl">💡 <span class="ko">근거</span><span class="en">Basis</span></p>
+    <p style="margin:0"><span class="ko">온라인 영어교육 플랫폼(51Talk·Preply·Cambly 계열)과 2025 어드민/모바일 대시보드 UX 가이드에서 공통되는 원칙을 뽑았다.</span><span class="en">Common principles drawn from online-English platforms (51Talk / Preply / Cambly family) and 2025 admin &amp; mobile-dashboard UX guidance.</span></p>
+  </div>
+  <table>
+    <tr><th><span class="ko">원칙</span><span class="en">Principle</span></th><th><span class="ko">업계 관행</span><span class="en">Industry practice</span></th><th><span class="ko">망고아이 적용</span><span class="en">Apply to Mangoi</span></th></tr>
+    <tr><td><span class="ko">역할별 화면</span><span class="en">Role-based views</span></td><td><span class="ko">교사/운영/경영이 각기 다른 진입 화면. 필요한 것만 렌더</span><span class="en">Teacher/ops/exec each get their own entry; render only what's needed</span></td><td><span class="ko">교사·매니저 경량 페이지 분리(본 샘플)</span><span class="en">Split light teacher/manager pages (this sample)</span></td></tr>
+    <tr><td><span class="ko">KPI 절제</span><span class="en">Fewer KPIs</span></td><td><span class="ko">첫 화면은 상위 지표 4~6개, 나머지는 드릴다운</span><span class="en">4–6 top metrics first, drill down for the rest</span></td><td><span class="ko">상단 카드 6개 + 접이식 상세</span><span class="en">6 top cards + collapsible detail</span></td></tr>
+    <tr><td><span class="ko">점진적 노출</span><span class="en">Progressive disclosure</span></td><td><span class="ko">스크롤·펼침 시 비로소 렌더(모바일 절약)</span><span class="en">Render on scroll/expand to save mobile resources</span></td><td><span class="ko"><code>manager.html</code>의 “펼치면 불러옵니다” 확대</span><span class="en">Extend manager.html's lazy "load on expand"</span></td></tr>
+    <tr><td><span class="ko">터치 타깃</span><span class="en">Touch targets</span></td><td><span class="ko">버튼 최소 44~48px, 세로 스택</span><span class="en">Buttons ≥ 44–48 px, stacked vertically</span></td><td><span class="ko">모바일 버튼·행 카드화</span><span class="en">Card-ify buttons/rows on mobile</span></td></tr>
+    <tr><td><span class="ko">로딩/오프라인 상태</span><span class="en">Loading/offline states</span></td><td><span class="ko">스켈레톤 + “다시 시도”, 오프라인 안내</span><span class="en">Skeletons + retry, offline banners</span></td><td><span class="ko">저회선 대비 명시적 상태 표시</span><span class="en">Explicit states for weak links</span></td></tr>
+    <tr><td><span class="ko">보안</span><span class="en">Security</span></td><td><span class="ko">관리자 MFA, 감사 로그, 위험 동작 재확인</span><span class="en">Admin MFA, audit logs, re-confirm risky actions</span></td><td><span class="ko">로그인 MFA·삭제 2단계 확인 도입</span><span class="en">Add login MFA &amp; two-step delete</span></td></tr>
+  </table>
+
+  <!-- ══ 로드맵 ══ -->
+  <h2><span class="ko">4. 개선 로드맵 — 안전 우선, 위험 낮은 것부터</span><span class="en">4. Roadmap — safety first, low-risk first</span></h2>
+  <p class="sub"><span class="ko">운영 파일이므로 한 번에 크게 바꾸지 않는다. 각 단계는 <b>수정 → test-harness → 배포 → 확인</b> 사이클(프로젝트 규칙 3번).</span><span class="en">This is a live file, so no big-bang changes. Each step follows edit → test-harness → deploy → verify.</span></p>
+  <table>
+    <tr><th><span class="ko">단계</span><span class="en">Phase</span></th><th><span class="ko">내용</span><span class="en">Work</span></th><th><span class="ko">효과</span><span class="en">Impact</span></th><th><span class="ko">위험</span><span class="en">Risk</span></th></tr>
+    <tr><td><span class="tag p1">P1</span></td><td><span class="ko"><b>교사·매니저 경량 진입 페이지</b> 분리(본 샘플 채택). 자주 쓰는 기능 6개 상단 고정. 스켈레톤·오프라인 상태.</span><span class="en"><b>Light teacher/manager entry pages</b> (adopt this sample). Pin 6 quick actions. Skeleton/offline states.</span></td><td><span class="ko">체감 로딩 대폭↓</span><span class="en">Big drop in perceived load</span></td><td><span class="ko">낮음(새 파일)</span><span class="en">Low (new files)</span></td></tr>
+    <tr><td><span class="tag p2">P2</span></td><td><span class="ko"><b>번들 다이어트</b>: adm-core.js 코드 분할, 93개 요청 묶기(HTTP/2 그대로여도 지연로딩·역할별 청크). i18n 사전 지연로딩.</span><span class="en"><b>Bundle diet</b>: split adm-core.js, chunk the 93 requests by role, lazy-load i18n dict.</span></td><td><span class="ko">실 페이로드↓</span><span class="en">Real payload down</span></td><td><span class="ko">중간</span><span class="en">Medium</span></td></tr>
+    <tr><td><span class="tag p3">P3</span></td><td><span class="ko"><b>보안 보강</b>: 관리자 MFA, 삭제·정산 2단계 확인, innerHTML 이스케이프 감사, 감사 로그 뷰.</span><span class="en"><b>Security</b>: admin MFA, two-step confirm for delete/settlement, innerHTML escaping audit, audit-log view.</span></td><td><span class="ko">사고 예방</span><span class="en">Prevents incidents</span></td><td><span class="ko">중간</span><span class="en">Medium</span></td></tr>
+    <tr><td><span class="tag p4">P4</span></td><td><span class="ko"><b>구조 정리</b>: 인라인 style/onclick을 카드 단위로 클래스·이벤트 위임 전환. 키 기반 i18n 점진 이행.</span><span class="en"><b>Structure</b>: migrate inline style/onclick to classes &amp; delegation, card by card. Move toward key-based i18n.</span></td><td><span class="ko">유지보수성↑</span><span class="en">Maintainability up</span></td><td><span class="ko">낮음(점진)</span><span class="en">Low (incremental)</span></td></tr>
+  </table>
+
+  <!-- ══ 샘플 안내 ══ -->
+  <h2><span class="ko">5. 함께 드리는 샘플</span><span class="en">5. The accompanying sample</span></h2>
+  <div class="box summary">
+    <p style="margin:0"><span class="ko">별도 파일 <b>「망고아이_경량관리자_샘플_260808.html」</b> 은 위 P1을 실제로 보여주는 동작 프로토타입이다. 필리핀 교사·매니저용 <b>모바일 우선 · EN/KO 토글 · 자주 쓰는 기능 상단 · 지연로딩 · 오프라인 안내</b>를 담았고, 저사양 기기에서도 가볍게 뜨도록 외부 의존성 0(단일 파일)으로 만들었다. 그대로 <code>manager.html</code>/교사 페이지 개편의 출발점으로 쓸 수 있다.</span>
+    <span class="en">The separate file <b>"Mangoi_Light_Admin_Sample_260808.html"</b> is a working prototype of P1: <b>mobile-first, EN/KO toggle, quick actions on top, lazy-load, offline notice</b>, with zero external dependencies (single file) so it stays light on low-end devices. It can serve directly as the starting point for reworking manager/teacher pages.</span></p>
+  </div>
+
+  <div class="foot">
+    <p><span class="ko"><b>다음 단계 제안:</b> P1 샘플을 <code>manager.html</code>/교사 페이지에 반영할지 결정 → 반영 시 백업 후 <code>test-harness</code>로 회귀 확인 → 배포. 원하시면 이 보고서를 Word/PDF로도 변환해 드립니다.</span>
+    <span class="en"><b>Suggested next step:</b> decide whether to fold the P1 sample into manager/teacher pages → back up, run test-harness, deploy. I can also convert this report to Word/PDF on request.</span></p>
+    <p style="margin-top:10px">
+      <span class="pill ko">근거: 실소스 계량 + 2025 UX 가이드</span><span class="pill en">Basis: source metrics + 2025 UX guidance</span>
+    </p>
+  </div>
+
+</div>
+<script>
+  function setLang(l){
+    document.documentElement.setAttribute('data-lang', l);
+    document.documentElement.lang = l;
+    document.getElementById('lb-ko').classList.toggle('on', l==='ko');
+    document.getElementById('lb-en').classList.toggle('on', l==='en');
+    try{ localStorage.setItem('mangoi_report_lang', l); }catch(e){}
+  }
+  (function(){
+    var l='ko'; try{ l = localStorage.getItem('mangoi_report_lang')||'ko'; }catch(e){}
+    setLang(l);
+  })();
+</script>
+</body>
+</html>

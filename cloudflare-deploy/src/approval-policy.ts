@@ -45,6 +45,25 @@ export const MONTHLY_BUDGET: Record<string, number> = { PHP: 150000, KRW: 360000
  */
 export const EXEC_USERNAMES = ['admin', 'mgr_jjw'];
 
+/**
+ * 💳 돈이 나가는 결재(물품 구입·지출 정산)의 **결재권자**.
+ *
+ *   📜 2026-09-09 사장님 지시 — 「결재는 장지웅 부장이 하고, 확인만 정우영 대표가 한다」.
+ *      그전에는 결재선이 «본사 사람 아무나»(staff)였다. 그래서 필리핀에서 올라온 건이
+ *      대표님 화면에도 떴고, 실측상 물품 3건(₱2,500·₱4,600·₱2,800)을 **대표님이 혼자**
+ *      찍고 계셨다.
+ *
+ *   ⚠️ 이 명단은 «주 결재자» 다. 경영진(EXEC_USERNAMES)은 여기 없어도 **대신 결재**할 수
+ *      있다(canDecideStage) — 다만 **알림은 가지 않는다**(isPrimaryApprover). 부재중에
+ *      결재가 멈추는 쪽이 훨씬 나쁘기 때문이다(8/30 긴급 건 5일 방치 전례).
+ *
+ *   ⚠️ 비우면 옛 동작(본사 누구나)으로 돌아간다 — «명단을 못 읽어 아무도 결재 못 하는»
+ *      쪽으로 실패하지 않게 한 것이다.
+ *
+ *   ⚠️ 소문자로 적을 것 — 판정이 username 을 toLowerCase() 해서 비교한다.
+ */
+export const MONEY_APPROVERS = ['mgr_jjw'];
+
 /** 소액·반복 항목 자동 승인 — 기본 꺼짐. 실제 데이터가 쌓인 뒤 항목별로 켜는 것이 안전하다. */
 export const AUTO_APPROVE_ENABLED = false;
 
@@ -54,8 +73,16 @@ export const AUTO_APPROVE_ENABLED = false;
 
 export type ReqType = 'purchase' | 'expense' | 'hr' | 'complaint' | 'urgent' | 'doc' | 'leave';
 
-/** 결재 단계의 «누가» — staff = 본사 담당, exec = 경영진, any = 먼저 본 사람(긴급 전용) */
-export type StageRole = 'staff' | 'exec' | 'any';
+/**
+ * 결재 단계의 «누가»
+ *   staff = 본사 담당 아무나 · mgr = 지정 결재권자(MONEY_APPROVERS) · exec = 경영진 ·
+ *   any   = 먼저 본 사람(긴급 전용)
+ *
+ * ⚠️ 여기 값은 **approval_steps.role 에 그대로 저장**된다. 이름을 바꾸면 옛 결재가
+ *    «알 수 없는 단계»가 되어 결재자가 0명이 된다(2026-09-04 5일 방치 건과 같은 모양).
+ *    추가만 하고 바꾸지 말 것.
+ */
+export type StageRole = 'staff' | 'mgr' | 'exec' | 'any';
 
 /** 열람 등급 — 누가 이 결재를 «볼» 수 있는가 */
 export type Visibility =
@@ -434,7 +461,8 @@ export interface Stage { seq: number; role: StageRole }
  *
  *   · 인사·급여      → 경영진 1단계 (중간을 건너뛴다. 급여 내역이 담당자를 거칠 이유가 없다)
  *   · 긴급           → 0.5단계. 먼저 본 사람이 «확인»으로 닫는다
- *   · 물품·지출 고액 → 담당 → 경영진 2단계
+ *   · 물품·지출 고액 → 결재권자 → 경영진 2단계
+ *   · 물품·지출 소액 → 결재권자 1단계 (경영진은 «확인»만 — needsExecAck)
  *   · 그 외          → 담당 1단계
  *
  * 금액 비교는 **통화별 기준값**으로 한다. 환율 변환을 넣지 않는 이유는 위 상수 주석 참고.
@@ -449,7 +477,10 @@ export function stagesFor(reqType: string, amount?: number | null, currency?: st
     const limit = TWO_STEP_THRESHOLD[cur];
     // 금액을 모르면 «큰 건일 수도 있다»고 본다 — 놓치는 쪽보다 한 번 더 보는 쪽이 안전하다.
     const big = (amount == null) ? true : (Number(amount) >= limit);
-    if (big) return [{ seq: 1, role: 'staff' }, { seq: 2, role: 'exec' }];
+    // 💳 돈이 나가는 건의 첫 도장은 «지정 결재권자»(MONEY_APPROVERS)가 찍는다.
+    //    소액이면 그 한 장으로 확정되고, 경영진은 나중에 «확인»만 한다(needsExecAck).
+    if (big) return [{ seq: 1, role: 'mgr' }, { seq: 2, role: 'exec' }];
+    return [{ seq: 1, role: 'mgr' }];
   }
   return [{ seq: 1, role: 'staff' }];
 }
@@ -512,9 +543,204 @@ export function canDecideStage(actor: ActorLike, role: StageRole, phManager: boo
   //    그래서 필리핀 매니저도 닫을 수 있어야 한다 — 현지 사고를 현지에서 못 닫으면
   //    한국이 깨어날 때까지 아무도 처리하지 못한다(시차 때문에 최대 반나절).
   if (role === 'any') return true;
-  // staff 단계는 본사 계정이면 되지만, 필리핀 매니저는 제외한다.
+  // staff·mgr 단계는 본사 계정이면 되지만, 필리핀 매니저는 제외한다.
   //   («필리핀에서 올리고 한국에서 결재한다»는 실제 흐름. 더 좁히려면 이 한 줄만 고치면 된다.)
   if (phManager) return false;
+  // 💳 'mgr' = 돈이 나가는 건의 지정 결재권자.
+  //   ⚠️ 경영진도 **대신** 결재할 수 있게 둔다 — 결재권자가 휴가·출장이면 그대로 멈추기
+  //      때문이다(8/30 긴급 건이 그렇게 5일 서 있었다). 다만 알림은 안 간다 →
+  //      isPrimaryApprover 가 «누구에게 알릴지»를 따로 판정한다.
+  //   ⚠️ 명단이 비어 있으면 막지 않는다 — 명단을 못 읽어 «아무도 결재 못 하는» 쪽으로
+  //      실패하면, 이 기능이 막으려던 것보다 나쁜 상태가 된다.
+  if (role === 'mgr') return isMoneyApprover(actor) || isExec(actor) || MONEY_APPROVERS.length === 0;
+  return true;
+}
+
+/** 지정 결재권자 명단에 있는가(대소문자 무시 — 계정 표기가 갈리는 전례가 있다). */
+export function isMoneyApprover(actor: ActorLike | null | undefined): boolean {
+  if (!actor || !actor.ok || actor.isTeacher) return false;
+  return MONEY_APPROVERS.indexOf(String(actor.username || '').toLowerCase()) >= 0;
+}
+
+/**
+ * 이 사람이 이 단계의 «주» 결재자인가 — **알림을 받을 사람**.
+ *
+ *   canDecideStage 와 갈라 둔 이유: 'mgr' 단계는 경영진도 «대신» 누를 수 있는데,
+ *   그 사람들에게까지 알림이 가면 「결재는 장 부장이 한다」가 화면에서만 참이 된다.
+ *   누를 수 있는 사람(canDecideStage)과 알려야 할 사람(여기)은 다른 질문이다.
+ */
+export function isPrimaryApprover(actor: ActorLike, role: StageRole, phManager: boolean): boolean {
+  if (!canDecideStage(actor, role, phManager)) return false;
+  if (role !== 'mgr') return true;
+  if (MONEY_APPROVERS.length === 0) return true;   // 명단이 비면 옛 동작
+  return isMoneyApprover(actor);
+}
+
+/**
+ * 전결(중간 단계를 건너뛰고 바로 최종 결재)을 허용하는 분류인가.
+ *
+ *   🔴 돈이 나가는 분류(물품·지출)에서는 **끈다**. 지정 결재권자(장지웅 부장)가
+ *      경영진 명단에도 있어서, 전결이 켜져 있으면 그가 1단계를 누르는 순간 2단계가
+ *      «건너뜀»으로 닫힌다 ⟹ **대표님 차례가 아예 열리지 않는다.**
+ *      2026-09-09 지시(「결재는 부장, 확인은 대표」)가 성립하려면 이 줄이 있어야 한다.
+ *
+ *   ⛔ 인사·급여에서는 끄지 말 것 — 그쪽은 애초에 1단계(exec)라 전결이 걸리지도 않지만,
+ *      넓혀서 끄면 「대표님이 올린 건을 아무도 결재 못 하는」 8/30 사고 쪽으로 돌아간다.
+ *
+ *   ⛔ 「장지웅을 EXEC_USERNAMES 에서 빼기」로 이 문제를 풀지 말 것. 전결은 저절로
+ *      꺼지지만 인사·급여 **열람**(visibility 'exec')까지 함께 닫혀 그 사고가 되살아난다.
+ */
+export function allowsStraightThrough(reqType: string | null | undefined): boolean {
+  const k = typeSpec(reqType).key;
+  return !(k === 'purchase' || k === 'expense');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🖐 같은 사람이 «두 단계 연달아» 못 누르게
+ *
+ *   [왜 — 2026-09-09 사장님 지시 「1번 막아주고」]
+ *     지정 결재권자(장지웅 부장)가 경영진 명단(EXEC_USERNAMES)에도 있어서, 큰돈 건에서
+ *     1단계(mgr)를 누른 그 사람이 2단계(exec)까지 이어서 누를 수 있었다. 그러면 대표님께는
+ *     «결재» 가 아니라 «확인» 으로 내려와, 「₱5,000 이상은 대표가 결재한다」가 화면에서만
+ *     참인 상태가 된다(2026-09-09 함정 대조가 정본을 돌려 확인한 실제 동작).
+ *
+ *   [대가 — 아는 채로 고른 것]
+ *     둘 중 하나가 휴가·출장이면 큰돈 결재가 그 자리에서 멈춘다. 그래도 이쪽을 고른 이유는,
+ *     막지 않으면 «두 사람 결재» 라는 규칙 자체가 없는 것과 같아지기 때문이다.
+ *     🔴 정정(2026-09-09 함정 대조) — 「지금 명단으로는 교착이 없다」고 여기 적었던 것은
+ *        **사실이 아니었다.** 정본을 실제로 돌려 재니, 경영진 둘 중 하나가 «올린» 큰돈 건은
+ *        「본인이 올린 건은 본인이 승인 못 함」과 이 규칙이 맞물려 **2단계 결재자가 0명**이
+ *        된다(예: 대표가 올림 → 1단계를 결재권자가 누름 → 2단계 후보 = 경영진 − 기안자 −
+ *        앞 단계 결재자 = 없음). 남이 올린 건은 정상이다.
+ *        ⚠️ 이 변경 «전» 에는 되던 흐름이다 — 즉 이 규칙이 만든 교착이다.
+ *        📌 실측(2026-09-09 D1): 물품·지출 4건은 전부 필리핀 매니저가 올린 소액이라,
+ *           오늘까지 이 교착에 걸린 건은 0건이다.
+ *        ✅ 화면은 그 사실을 말한다 — approverCounts 가 이 판정을 함께 세어
+ *           「이대로는 처리되지 않습니다」 배너를 띄운다(api-approval.ts).
+ *        ✅ **2026-09-09 사장님 결정: 그대로 둔다.** 「내가 직접 큰 돈을 올릴 일이 없어.
+ *           이거 아주 예외적인 경우야」 — 대표가 직접 큰돈을 올리는 것은 예외적인 경우이고,
+ *           그때는 배너를 보고 취소한 뒤 다른 사람이 올리면 된다.
+ *        ⛔ 그러니 「경영진이 올린 건은 예외로 통과」로 «고치지» 말 것 — 이미 사람이 보고
+ *           고른 것이지 «아직 안 정한 것» 이 아니다. 그건 돈이 나가는 규칙을 느슨하게 하는
+ *           일이라, 다시 열려면 사장님 지시가 한 번 더 있어야 한다.
+ *        ✅ 이 사실은 하니스가 «기안자별로 1·2단계 후보를 실제로 세어» 못 박는다
+ *           (approval_money_approver_harness Ⓔ-2). 규칙을 바꾸면 거기부터 빨간불이 된다.
+ *
+ *   ⛔ 반려(rejected)에는 걸지 않는다 — 반려는 돈이 나가지 않는 방향이고, 자기가 앞서 찍은
+ *      도장을 스스로 물리는 것을 막을 이유가 없다. 막는 것은 «승인» 뿐이다.
+ *
+ *   ⛔ 이 규칙을 분류 전체로 넓히지 말 것 — 긴급·휴가·문서까지 걸면 1단계짜리 건에는
+ *      아무 효과도 없으면서, 나중에 단계가 늘 때 엉뚱한 곳에서 멈춘다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 이 분류에 «같은 사람 연속 결재 금지» 를 거는가 — 돈이 나가는 둘만. */
+export function blocksSameDecider(reqType: string | null | undefined): boolean {
+  const k = typeSpec(reqType).key;
+  return k === 'purchase' || k === 'expense';
+}
+
+export interface SameDeciderInput {
+  reqType: string | null | undefined;
+  /**
+   * 앞 단계(seq 가 작은 단계)에서 **이미 승인 도장을 찍은** 사람들.
+   *   🔴 조회에 실패했으면 반드시 `null` 을 넘길 것 — 빈 배열로 넘기면 «앞 단계에 아무도
+   *      없다» 는 뜻이 되어 이 게이트가 조용히 통째로 풀린다. 돈이 걸린 자리라
+   *      **모르면 막는 쪽**으로 실패한다.
+   */
+  priorDeciders: (string | null | undefined)[] | null | undefined;
+  /** 지금 누르려는 사람 */
+  me: string;
+  /** 'approved' | 'rejected' — 반려는 막지 않는다. */
+  decision: string | null | undefined;
+}
+
+/** 막아야 하는가. `reason` 은 화면이 «왜» 를 말할 수 있게 갈라 둔다. */
+export function sameDeciderBlocked(inp: SameDeciderInput): { blocked: boolean; reason: string } {
+  const pass = { blocked: false, reason: '' };
+  if (!inp) return { blocked: true, reason: 'lookup_failed' };
+  if (String(inp.decision || '').trim().toLowerCase() !== 'approved') return pass;
+  if (!blocksSameDecider(inp.reqType)) return pass;
+  const me = String(inp.me || '').trim().toLowerCase();
+  if (!me) return { blocked: true, reason: 'unknown_actor' };
+  if (inp.priorDeciders == null) return { blocked: true, reason: 'lookup_failed' };
+  for (const d of inp.priorDeciders) {
+    if (String(d || '').trim().toLowerCase() === me) return { blocked: true, reason: 'same_decider' };
+  }
+  return pass;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ✅ 「확인」 — 결재가 아니라 «봤다»는 표시
+ *
+ *   [왜 있나 — 2026-09-09 사장님 지시]
+ *     「₱5,000 미만이면 나는 그냥 확인만 하게 해줘. 결재권자는 장 부장님으로.」
+ *     그런데 이 시스템이 아는 것은 «찬성»과 «반대» 둘뿐이었다. «봤습니다»가 없었다.
+ *
+ *   [결재와 무엇이 다른가]
+ *     · 결재는 **막는다** — 누르지 않으면 그 건은 진행되지 않는다.
+ *     · 확인은 **막지 않는다** — 이미 확정되어 필리핀에 통보까지 끝난 건에 도장만 찍는다.
+ *       그래서 안 눌러도 업무는 흘러간다. 놓쳐도 사고가 나지 않는 것이 설계 의도다.
+ *
+ *   ⚠️ 이 판정은 **금액을 보지 않는다** — «내가 마지막 도장을 찍었는가» 만 본다.
+ *      큰돈(₱5,000 이상)을 대표님이 직접 최종 결재하면 그래서 저절로 빠진다.
+ *
+ *   ⚠️ «큰돈은 대표가 결재한다» 를 지키는 것은 이 함수가 아니라 **sameDeciderBlocked**
+ *      (같은 사람이 두 단계 연달아 못 누름)다. 2026-09-09 그 규칙을 넣기 전에는
+ *      결재권자가 1단계에 이어 2단계까지 눌러, 대표님께 «결재» 대신 «확인» 이 왔다.
+ *      ⛔ 그 규칙을 끄면 이 문단이 다시 거짓이 된다 — 함께 보고 고칠 것.
+ *
+ *   ✅ 확인은 «결재권자가 아닌 경영진» 에게만 뜬다(isApprover) — 2026-09-09 사장님
+ *      「2번은 대표만 보이게」. 결재권자는 결재를 하는 사람이지 확인하는 사람이 아니다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface AckInput {
+  reqType: string | null | undefined;
+  status: string | null | undefined;
+  /** 마지막으로 도장을 찍은 사람 (approval_requests.decided_by) */
+  decidedBy: string | null | undefined;
+  /** 이미 확인했으면 그 시각 (approval_requests.exec_ack_at) */
+  ackAt: number | null | undefined;
+  /**
+   * 이 건을 취소시킨 «취소 결재» 의 id (approval_requests.cancelled_by_id).
+   *   ⚠️ 없애기로 한 지출에 「봤다」 도장을 찍게 하지 않는다.
+   *   ⚠️ 이 칸이 없으면 목록 SQL 과 판정이 어긋난다 — 목록에는 안 뜨는데 주소로 부르면
+   *      통과하는 상태가 된다(2026-09-09 함정 대조 지적).
+   */
+  cancelledById?: number | null;
+  /** 지금 보고 있는 사람 */
+  me: string;
+  isExec: boolean;
+  /**
+   * 이 사람이 돈 나가는 건의 **결재권자**인가(isMoneyApprover).
+   *   결재권자에게는 「확인할 것」을 띄우지 않는다 — 결재를 하는 사람이지 확인하는
+   *   사람이 아니다(2026-09-09 사장님 「확인은 대표만 보이게」).
+   *   ⚠️ 이름을 못 박지 않고 «결재권자인가» 로 묻는다 — 결재권자가 바뀌어도 규칙이
+   *      저절로 따라온다.
+   *   ⚠️ 안 넘기면 기본 false = «확인 대상» 이다. 옛 동작 그대로라 조용히 빠지지는
+   *      않지만, 새 호출부를 만들면 반드시 넘길 것(하니스가 호출부를 대조한다).
+   */
+  isApprover?: boolean;
+}
+
+/**
+ * 이 건을 지금 이 사람이 «확인»해야 하는가.
+ *
+ *   ⛔ 분류를 넓히지 말 것 — 일반 문서·휴가까지 넣으면 「확인할 것 30건」이 되고,
+ *      정작 돈이 나간 건이 그 안에 파묻힌다(이 저장소가 녹화 목록에서 이미 밟은 함정).
+ */
+export function needsExecAck(inp: AckInput): boolean {
+  if (!inp || !inp.isExec) return false;
+  // 💳 결재권자는 «확인» 대상이 아니다 — 그 사람은 결재로 이미 그 건을 봤다.
+  if (inp.isApprover) return false;
+  const k = typeSpec(inp.reqType).key;
+  if (k !== 'purchase' && k !== 'expense') return false;
+  if (String(inp.status || '').trim().toLowerCase() !== 'approved') return false;
+  if (inp.cancelledById) return false;
+  if (inp.ackAt != null && Number(inp.ackAt) > 0) return false;
+  const me = String(inp.me || '').trim().toLowerCase();
+  if (!me) return false;
+  // 내가 찍은 도장이면 이미 본 것이다 — 다시 확인할 이유가 없다.
+  if (String(inp.decidedBy || '').trim().toLowerCase() === me) return false;
   return true;
 }
 
@@ -711,7 +937,17 @@ export interface FindInput {
   q?: string; type?: string; status?: string; from?: string; to?: string;
   /** 지출 항목(CATEGORY_KEYS) */
   category?: string;
+  /** 🗂 결재자로 거른다(계정명) — «그 사람이 도장을 찍은 건». 결재 권한자에게만(호출부가 막는다) */
+  decidedBy?: string;
 }
+
+/* 🗂 「그 사람이 결재한 건」 — approval_requests.decided_by 를 쓰지 않는다.
+   그 칸은 «최종 처리자» 라 회수하면 기안자 이름이 들어가고, 다단계면 1단계 결재자가 안 남는다.
+   결재 도장은 approval_steps 에만 정직하게 남는다(승인·반려만 — 대기·건너뜀은 도장이 아니다).
+   ⚠️ 바인드 1개(계정명). 호출하는 쪽이 binds 순서를 맞춘다. */
+export const DECIDED_BY_SQL =
+  "EXISTS (SELECT 1 FROM approval_steps s WHERE s.request_id = approval_requests.id" +
+  " AND s.decided_by = ? AND s.status IN ('approved','rejected'))";
 
 export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; order: string } {
   const where: string[] = [];
@@ -729,7 +965,15 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
     where.push("status IN ('rejected','withdrawn','cancelled')");
   }
   else if (scope === 'pending')  { where.push("status = 'pending'"); where.push('requester_username != ?'); binds.push(me); }
+  /* 🗂 「내가 결재한 것」 — 내가 도장을 찍은 건(승인이든 반려든). 사장님이 2026-09-08 에
+     「내가 결재한 것·남이 결재한 것을 볼 곳이 어디냐」고 물으실 때까지 이 함이 없었다. */
+  else if (scope === 'decided')  { where.push(DECIDED_BY_SQL); binds.push(me); }
   // 'all' 은 조건 없음 — 결재자에게만 열린다(호출부가 막는다)
+
+  /* 🗂 결재자별 함 — «그 사람이 결재한 건». all 과 같이 결재 권한자에게만(호출부가 막는다).
+     계정명은 hqAccounts 목록에서 온 값이라 여기서 다시 검사하지 않고 길이만 자른다. */
+  const by = String(inp.decidedBy || '').trim().slice(0, 60);
+  if (by) { where.push(DECIDED_BY_SQL); binds.push(by); }
 
   const q = String(inp.q || '').trim().slice(0, 60);
   if (q) {
@@ -765,6 +1009,107 @@ export function buildFindQuery(inp: FindInput): { cond: string; binds: any[]; or
     order: (scope === 'pending')
       ? ' ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC'
       : " ORDER BY (status='pending') DESC, created_at DESC",
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🗂 결재 보관함 — 왼쪽 «함» 옆에 붙는 건수(2026-09-08, 시안 A)
+ *
+ *   [왜 SQL 집계를 그대로 써도 되는가]
+ *     범위 조건(archiveVisibleCond)이 canView 의 세 분기를 SQL 로 옮긴 것이라, SQL 이 준 행이
+ *     곧 «오른쪽 표에 나올 수 있는 행» 이다 — 하니스가 세 등급 모두 canView 를 행마다
+ *     실제로 불러 «같은 집합인가» 를 대조한다(approval_archive_harness ②절).
+ *     한 줄만 어긋나면 함 옆 숫자가 표와 다른 말을 한다.
+ *   ⛔ 이 조건을 «본사 직원은 전체» 로 넓히지 말 것 — 그 순간 인사·급여 건수가 함 옆에 뜬다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface ArchiveActor { exec: boolean; ph: boolean }
+
+/**
+ * canView 를 SQL 로 옮긴 것 — 세 등급이 canView 의 분기와 하나씩 짝이다.
+ *   ① 경영진        → 조건 없음(세 열람등급 전부 통과)
+ *   ② 본사 직원      → 내가 올린 것 ∪ exec 등급(인사·급여)이 아닌 전부(canView 마지막 줄 isHqStaff)
+ *   ③ 필리핀 매니저  → 내가 올린 것 ∪ 내가 도장 찍은 것 ∪ broadcast(긴급) — chain 은 결재선에 있을 때만
+ *   ⚠️ 등급을 «키 목록» 으로 SQL 에 넣는다 — instr(콤마문자열) 한 바인드(자리표시자 생성 금지 규칙).
+ *   하니스가 세 등급 모두 «SQL 이 준 행 == canView 가 참인 행» 을 실제로 대조한다.
+ */
+export function archiveVisibleCond(me: string, actor: ArchiveActor): { cond: string; binds: any[] } {
+  const u = String(me || '');
+  if (actor.exec) return { cond: '', binds: [] };
+  const csv = (vis: string) => ',' + TYPES.filter(t => t.visibility === vis).map(t => t.key).join(',') + ',';
+  if (!actor.ph) {
+    return { cond: "(requester_username = ? OR instr(?, ',' || req_type || ',') = 0)", binds: [u, csv('exec')] };
+  }
+  return {
+    cond: '(requester_username = ? OR ' + DECIDED_BY_SQL + " OR instr(?, ',' || req_type || ',') > 0)",
+    binds: [u, u, csv('broadcast')],
+  };
+}
+
+/** 기간 함 네 개 — KST 날짜(YYYY-MM-DD)로 돌려준다. today 도 KST 날짜여야 한다. */
+export function archivePeriods(today: string): Record<string, { from: string; to: string }> {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(today || ''));
+  const y = m ? Number(m[1]) : 1970, mo = m ? Number(m[2]) : 1;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = (yy: number, mm: number) => new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const ym = (yy: number, mm: number) => `${yy}-${pad(mm)}`;
+  const pm = mo === 1 ? { y: y - 1, m: 12 } : { y, m: mo - 1 };
+  const qStart = Math.floor((mo - 1) / 3) * 3 + 1;
+  return {
+    month:      { from: ym(y, mo) + '-01',        to: ym(y, mo) + '-' + pad(lastDay(y, mo)) },
+    last_month: { from: ym(pm.y, pm.m) + '-01',   to: ym(pm.y, pm.m) + '-' + pad(lastDay(pm.y, pm.m)) },
+    quarter:    { from: ym(y, qStart) + '-01',    to: ym(y, qStart + 2) + '-' + pad(lastDay(y, qStart + 2)) },
+    year:       { from: `${y}-01-01`,             to: `${y}-12-31` },
+  };
+}
+
+export interface ArchiveFacetInput { me: string; exec: boolean; ph: boolean; today: string }
+export interface SqlPiece { sql: string; binds: any[] }
+
+/**
+ * 함 옆 숫자를 세는 SQL 다섯 갈래. 라우트는 «부르기만» 하고, 하니스가 진짜 SQLite 에 돌린다.
+ *   ⚠️ 바인드 순서: SELECT 절의 ? 가 WHERE 절의 ? 보다 «먼저» 다(SQLite 는 나오는 순서).
+ */
+export function buildArchiveFacets(inp: ArchiveFacetInput): {
+  totals: SqlPiece; types: SqlPiece; approvers: SqlPiece;
+  periods: Record<string, SqlPiece>;
+} {
+  const me = String(inp.me || '');
+  const vis = archiveVisibleCond(me, { exec: !!inp.exec, ph: !!inp.ph });
+  const W = (extra: string) => {
+    const parts = [vis.cond, extra].filter(Boolean);
+    return parts.length ? (' WHERE ' + parts.join(' AND ')) : '';
+  };
+  const D = "date(created_at/1000,'unixepoch','+9 hours')";
+  const per = archivePeriods(inp.today);
+  const periods: Record<string, SqlPiece> = {};
+  for (const k of Object.keys(per)) {
+    periods[k] = {
+      sql: `SELECT COUNT(*) AS n FROM approval_requests` + W(`${D} >= ? AND ${D} <= ?`),
+      binds: [...vis.binds, per[k].from, per[k].to],
+    };
+  }
+  return {
+    // «전체 · 내가 올린 것 · 내가 결재한 것» 셋을 한 번에
+    totals: {
+      sql: `SELECT COUNT(*) AS all_n, SUM(requester_username = ?) AS mine_n, SUM(${DECIDED_BY_SQL}) AS decided_n` +
+           ` FROM approval_requests` + W(''),
+      binds: [me, me, ...vis.binds],
+    },
+    types: {
+      sql: `SELECT req_type AS k, COUNT(*) AS n FROM approval_requests` + W('') + ` GROUP BY req_type`,
+      binds: [...vis.binds],
+    },
+    /* 결재자별 — 도장(approval_steps) 기준. 같은 건에 두 번 찍었어도(다단계) 한 건으로 센다.
+       vis.cond 의 requester_username · approval_requests.id 가 조인 뒤에도 풀리도록 표 이름을 그대로 쓴다. */
+    approvers: {
+      sql: `SELECT s.decided_by AS u, COUNT(DISTINCT s.request_id) AS n` +
+           ` FROM approval_steps s JOIN approval_requests ON approval_requests.id = s.request_id` +
+           W(`s.decided_by IS NOT NULL AND s.status IN ('approved','rejected')`) +
+           ` GROUP BY s.decided_by ORDER BY n DESC, u ASC LIMIT 20`,
+      binds: [...vis.binds],
+    },
+    periods,
   };
 }
 

@@ -55,7 +55,7 @@ async function kvDel(kv: any, key: string): Promise<void> {
   try { await kv.delete(key); } catch (e: any) { console.warn('[room-split] KV delete 실패', key, e?.message); }
 }
 async function smsSafe(env: any, phone: string, text: string): Promise<{ ok: boolean; detail?: string }> {
-  try { const r = await sendPlainSms(env, phone, text); return { ok: !!r.ok, detail: r.message || r.error }; }
+  try { const r = await sendPlainSms(env, phone, text, { kind: 'room-split' }); return { ok: !!r.ok, detail: r.message || r.error }; }
   catch (e: any) { return { ok: false, detail: String(e?.message || e) }; }
 }
 

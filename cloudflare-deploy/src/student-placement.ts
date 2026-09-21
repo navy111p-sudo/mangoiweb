@@ -28,7 +28,7 @@
 //   「📚 일괄 교재 배정」(POST /api/admin/students/bulk-assign-textbook)으로 정한다.
 // ═══════════════════════════════════════════════════════════════════════
 import { AI_FRIEND_CEFR } from './ai-friend-level';
-import { BAND_SPECS, BAND_COUNT } from './judgment-level';
+import { BAND_SPECS, BAND_COUNT, bandName } from './judgment-level';
 import { resolveZhTextbook } from './zh-textbook';   // 🈶 중국어 교재 판정 정본(아래 loadTextbookChoices)
 
 /** 'S3' → 3. 그 밖은 null. */
@@ -61,6 +61,48 @@ export function bandFromCefr(raw: any): number | null {
     if (String(AI_FRIEND_CEFR[key]).toUpperCase() === s) return stepNumber(key);
   }
   return null;
+}
+
+/**
+ * 🪜 CEFR 사다리 — 레벨테스트 채점(api-admin.ts 의 CEFR_ORDER)과 홈 카드 게이지가
+ *    «같은 눈금» 을 쓰게 하는 정본. ⛔ 다른 파일에 이 배열을 다시 적지 말 것.
+ */
+export const CEFR_LADDER: readonly string[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+export interface CefrDisplay {
+  cefr: string;   // 'C2' · 'Starter'
+  ko: string;     // 사람이 읽는 이름 — BAND_SPECS 의 이름(«최상급»). 새 이름을 짓지 않는다.
+  en: string;
+  step: number;   // 사다리에서 몇 칸째인가 (Starter = 0, A1 = 1 … C2 = 6)
+  of: number;     // 사다리 칸 수 (6)
+  ladder: string[]; // 사다리 글자('A1'…'C2') — 화면이 눈금 글자를 손으로 적지 않게 함께 내려준다
+}
+
+/**
+ * 🏷️ (2026-09-14) CEFR 값 → «사람이 읽는 표시» 한 묶음.
+ *
+ * [왜] 홈 「내 레벨테스트」 카드가 「AI 진단 완료 · C2」 라고 약어만 내보내서
+ *      사장님이 「C2 가 도대체 뭐야」 하셨다. 화면이 이름·칸 수를 «지어내지» 않게
+ *      서버가 정본(bandFromCefr → BAND_SPECS 이름)에서 만들어 내려준다.
+ * ⚠️ 이름은 bandFromCefr 가 이어 주는 8칸 눈금의 것이라 C1·C2 가 «둘 다 최상급» 이다
+ *    (AI 영어친구 화면이 C1 을 «최상급» 으로 부르는 것과 같은 표). 둘은 step(5/6)으로 갈린다.
+ *    이름을 나누려면 AI_FRIEND_CEFR·BAND_SPECS 를 함께 손봐야 하는 별건 — 사람이 정할 일.
+ * ⚠️ 모르는 값(빈 값·'A2+' 같은 사다리 밖 표기)은 null — 화면은 그때 원문 그대로 적는다.
+ */
+export function cefrDisplay(raw: any): CefrDisplay | null {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  const up = s.toUpperCase();
+  const band = bandFromCefr(up);
+  if (band == null) return null;
+  let step: number;
+  if (up === 'STARTER') step = 0;
+  else {
+    const idx = CEFR_LADDER.indexOf(up);
+    if (idx < 0) return null;
+    step = idx + 1;
+  }
+  return { cefr: up === 'STARTER' ? 'Starter' : up, ko: bandName(band, 'ko'), en: bandName(band, 'en'), step, of: CEFR_LADDER.length, ladder: [...CEFR_LADDER] };
 }
 
 /**

@@ -105,7 +105,7 @@ check('②-5 매니저 화면도 같은 규칙이다',
 
 console.log('\n── 3. 강사 차단 · 지사 격리 (스코프로는 강사를 못 막는다) ──');
 check('⑨ 핸들러 첫머리에서 강사를 403 으로 끊는다',
-  /classes\/today'\)\s*\{[\s\S]{0,400}isTeacher[\s\S]{0,80}forbidden_teacher/.test(HC));
+  /classes\/today'\)\s*\{[\s\S]{0,400}isTeacher[\s\S]{0,80}(?:forbidden_teacher|forbiddenTeacherBody)/.test(HC));
 /* ⚠️ 「몇 글자 안에」로 찾지 않는다 — 목록이 길어지면 조용히 거짓 실패가 난다.
    문자 위치로도 자르지 않는다(주석을 벗기면 위치가 밀린다). **줄 단위로** 목록을 읽는다:
    그 목록이 시작하는 줄부터 `];` 로 닫히는 줄까지가 목록이다. */

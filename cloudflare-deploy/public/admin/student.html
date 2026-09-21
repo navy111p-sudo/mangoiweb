@@ -445,7 +445,7 @@
           <div id="attendCalendar" style="font-size:13px"></div>
         </div>
         <div class="chart-wrap">
-          <h3 data-ko="결석 일자" data-en="Absent Days">결석 일자</h3>
+          <h3 data-ko="수업 기록이 없는 평일" data-en="Weekdays with no class record">수업 기록이 없는 평일</h3>
           <div id="absentList"></div>
         </div>
       </div>
@@ -566,7 +566,11 @@
       <div class="panel" data-panel="contact">
         <div class="add-form-card">
           <h4 data-ko="👨‍👩‍👧 학생 정보 편집" data-en="👨‍👩‍👧 Edit Student Info">👨‍👩‍👧 학생 정보 편집</h4>
+          <p style="font-size:11.5px;color:var(--mut);margin:0 0 12px"
+             data-ko="📞 학생·부모님 전화번호는 여기서 저장하면 문자·리마인더 발송이 실제로 읽는 값이 되고, 카페24 야간 동기화(매일 밤 3시)에도 지워지지 않습니다."
+             data-en="📞 Saving student/parent phone here is what texts and reminders actually use — it survives the nightly Cafe24 sync (3am daily).">📞 학생·부모님 전화번호는 여기서 저장하면 문자·리마인더 발송이 실제로 읽는 값이 되고, 카페24 야간 동기화(매일 밤 3시)에도 지워지지 않습니다.</p>
           <div class="grid-2">
+            <div class="form-row"><label data-ko="학생 이름"      data-en="Student Name">학생 이름</label><input id="cName" type="text"></div>
             <div class="form-row"><label data-ko="학생 전화"      data-en="Student Phone">학생 전화</label><input id="cStudentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="부모님 전화"    data-en="Parent Phone">부모님 전화</label><input id="cParentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="담임 교사 전화" data-en="Teacher Phone">담임 교사 전화</label><input id="cTeacherPhone" type="tel"></div>
@@ -724,6 +728,7 @@ const T = {
   qSignup:   {ko:'📅 가입일', en:'📅 Signup'},
   qEnd:      {ko:'📅 수강 종료', en:'📅 End Date'},
   qClassesPW:{ko:'📚 주당 수업', en:'📚 Classes / wk'},
+  qBooked:   {ko:'📘 예약 수업', en:'📘 Booked'},
   qPayType:  {ko:'💰 결제 유형', en:'💰 Payment'},
   qFranchise:{ko:'🏢 가맹점', en:'🏢 Franchise'},
   qSessions: {ko:'📊 출석 세션', en:'📊 Sessions'},
@@ -830,6 +835,10 @@ const T = {
   pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
   pwTooShort:{ko:'비밀번호는 4자 이상이어야 합니다', en:'Password must be at least 4 characters'},
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
+  phoneNotKept:{ko:' · ⚠️ 전화번호는 보관되지 않았습니다(오늘 밤 사라집니다) — 숫자 9자리 이상인지 확인해 주세요', en:' · ⚠️ Phone was NOT kept (it will vanish tonight) — check it has at least 9 digits'},
+  phoneCleared:{ko:' · 🗑 비운 번호를 지웠습니다 — 남은 번호가 있으면 문자는 그 번호로 갑니다', en:' · 🗑 Cleared the emptied number — if another number remains, SMS still goes there'},
+  phoneChangeFailed:{ko:' · ⚠️ 번호 변경이 저장되지 않았습니다 — 새로 불러 확인해 주세요', en:' · ⚠️ Phone change was NOT saved — reload and check'},
+  orgNotKept:{ko:' · ⚠️ 가맹점·소속은 보관되지 않았습니다(오늘 밤 사라집니다) — 다시 저장해 보세요', en:' · ⚠️ Franchise/shop was NOT kept (it will vanish tonight) — try saving again'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1021,9 +1030,26 @@ function renderCard(){
 
   const rows = [
     [t('qStudentId'), erp.student_id || uid],
-    [t('qSignup'), erp.signup_date || '—'],
+    /* 📅 (2026-09-15) 「가입일」은 `signup_date`(=카페24 «수강 시작일», 목록 표의 그 이름과 다른
+       열)가 아니라 **`created_at`**(행이 실제로 생긴 시각)이다 — 관리자 학생 명부 표가 이미 그렇게
+       정해 두고 있다(adm-core.js `_smSort` 주석 「실제 표에 있는 열(가입일 = created_at)로
+       명시한다」, th data-sort-key="created_at" data-ko="가입일"). 이 카드만 signup_date 를 보고
+       있어서 카페24 원본에 그 값이 없는 학생은 명부엔 날짜가 뜨는데 이 카드는 늘 «—» 였다
+       (사장님 제보 — 「왼쪽에 가입일이 비어있다」). ⛔ signup_date 를 지우지 않는다 — «수강
+       시작일» 이라는 별개의 사실이고 다른 화면이 그 뜻으로 쓸 수 있다. 여기서는 폴백으로만 쓴다. */
+    [t('qSignup'), erp.signup_date || fmtDay(erp.created_at)],
     [t('qEnd'), erp.end_date || '—'],
     [t('qClassesPW'), (erp.classes_per_week||'—') + (_lang==='en'?'':'회')],
+    /* 📘 (2026-09-15) 바로 윗줄까지(수강 종료·주당 수업·결제 유형)는 students_erp 의 칸이고
+       **카페24가 정본**이라, 관리자 화면에서 수업을 넣어도(그건 class_schedules 에만 쓴다)
+       늘 «—» 였다(사장님 제보: lee·jeong 둘 다 예약이 있는데 «—»).
+       이 줄만 실제 예약을 본다. ⛔ 윗줄들을 이 값으로 채우지 말 것 — 뜻이 다르다.
+       ⛔ 문장을 여기서 조립하지 말 것 — 학생 «목록» 도 같은 값을 그린다. 서버가 만든
+          label 을 고르기만 한다(정본 src/student-schedule-summary.ts). */
+    [t('qBooked'), (function(){
+      const q = f.sched;
+      return q ? (String((_lang==='en' ? q.label_en : q.label_ko) || '—') || '—') : '—';
+    })()],
     [t('qPayType'), erp.payment_type || '—'],
     [t('qFranchise'), erp.franchise || erp.shop_name || '—'],
     [t('qSessions'), (sm.session_count||0) + (_lang==='en'?' (period)':'회 (기간 내)')],
@@ -1639,9 +1665,40 @@ $('csAddBtn').addEventListener('click', async () => {
 });
 
 // ═══════════════════════ 9. 연락처·정보 ═══════════════════════
+/* 📞 (2026-09-16) 전화번호 칸의 «빈 칸» 을 두 가지 뜻으로 가른다.
+   «원래 비어 있던 칸» → null (= 서버가 그 칸을 안 건드린다. 지금까지와 같음)
+   «값이 있었는데 사람이 비운 칸» → '' (= 지우겠다)
+   ⛔ 언제나 '' 로 보내면 안 된다 — override 읽기가 실패해 칸이 빈 채로 뜨는 날
+      «학교만» 고쳐 저장하는 것만으로 어제 넣은 번호가 지워진다.
+      그래서 «로드 때 값» 을 기억해 가르고, 모를 때는 살리는 쪽으로 실패한다. */
+var _cPhoneLoaded = { cStudentPhone: '', cParentPhone: '' };
+/* 📞 지금 화면에 보이는 값을 phoneOut() 의 «기준» 으로 찍는다.
+   ⛔ renderContact() 에서만 찍으면 안 된다 — 저장 뒤 loadFull() 은 «이름을 바꿨을 때만»
+      다시 돌기 때문에, 같은 자리에서 «번호를 넣고 저장 → 다시 비우고 저장» 하면
+      기준이 여전히 빈 값이라 두 번째가 null 로 가서 **조용히 아무 일도 안 한다**
+      (= 이 기능이 고치려던 바로 그 상태. 함정 대조 2026-09-16 지적). */
+function snapPhones(){
+  _cPhoneLoaded.cStudentPhone = ($('cStudentPhone') ? $('cStudentPhone').value : '') || '';
+  _cPhoneLoaded.cParentPhone  = ($('cParentPhone')  ? $('cParentPhone').value  : '') || '';
+}
+function phoneOut(id){
+  var el = $(id); if (!el) return null;
+  var cur = (el.value || '').trim();
+  var was = _cPhoneLoaded[id] || '';
+  /* ⛔ 마스킹된 표시값(***)이 뜨던 칸을 비운 것은 «지우겠다» 로 보지 않는다 —
+     사람이 보지도 못한 진짜 번호를 지우게 된다. 서버도 마스킹 값은 PII_GUARD 로
+     저장을 거절하니 같은 방향이다. ℹ️ 지금 이 화면에 닿는 계정은 전부 PII 열람
+     가능(hq·none·franchise)이라 «잠재» 구멍이지만, 나중에 지사·대리점에 이 경로가
+     열리는 날 그대로 사고가 된다. */
+  if (was.indexOf('*') > -1) return cur || null;
+  if (cur) return cur;
+  return was ? '' : null;
+}
+
 function renderContact(){
   const erp = _state.full.erp || {};
   const map = {
+    cName: erp.korean_name || erp.username,
     cStudentPhone: erp.student_phone, cParentPhone: erp.parent_phone, cTeacherPhone: erp.teacher_phone,
     cKakao: erp.kakao_id, cParentKakao: erp.parent_kakao_id,
     cSchool: erp.school, cGrade: erp.grade, cBirth: erp.birth_date,
@@ -1649,6 +1706,7 @@ function renderContact(){
     cAddress: erp.address, cNotes: erp.notes
   };
   Object.entries(map).forEach(([id, v]) => { if ($(id)) $(id).value = v||''; });
+  snapPhones();   // 📞 phoneOut() 이 «사람이 비운 칸» 을 가를 근거
   // 비밀번호는 해시만 저장돼 있어 원문을 보여줄 수 없으므로 항상 빈 칸으로 둔다
   $('cPassword').value = ''; $('cPasswordConfirm').value = '';
 }
@@ -1659,9 +1717,11 @@ $('cSaveBtn').addEventListener('click', async () => {
     if (pw !== pwConfirm) { toast(t('pwMismatch'), true); return; }
     if (pw.length < 4) { toast(t('pwTooShort'), true); return; }
   }
+  const newName = $('cName').value.trim();
   const body = {
-    student_phone: $('cStudentPhone').value || null,
-    parent_phone: $('cParentPhone').value || null,
+    korean_name: newName || null,
+    student_phone: phoneOut('cStudentPhone'),
+    parent_phone: phoneOut('cParentPhone'),
     teacher_phone: $('cTeacherPhone').value || null,
     kakao_id: $('cKakao').value || null,
     parent_kakao_id: $('cParentKakao').value || null,
@@ -1673,6 +1733,9 @@ $('cSaveBtn').addEventListener('click', async () => {
     address: $('cAddress').value || null,
     notes: $('cNotes').value || null
   };
+  /* 📞 사람이 번호를 «비웠는가» — 아래 토스트가 «번호를 지웠습니다» 와
+     «보관되지 않았습니다» 를 가를 근거. 둘은 사람에게 전혀 다른 말이다. */
+  var _cPhoneCleared = (body.student_phone === '' || body.parent_phone === '');
   if (pw) body.new_password = pw;
   const btn = $('cSaveBtn'); btn.disabled = true;
   try {
@@ -1682,8 +1745,26 @@ $('cSaveBtn').addEventListener('click', async () => {
     });
     const j = await r.json();
     if (r.ok && j.ok) {
-      toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
+      /* 📞🏢 (2026-09-15) 번호·가맹점·소속 «보관» 실패를 조용히 넘기지 않는다.
+         students_erp 의 이 칸들은 카페24 야간 UPSERT 가 덮으므로, 서버는 그것과 «함께»
+         student_erp_override 에도 적는다(수업 안내문자가 읽는 정본이 그 표를 먼저 본다).
+         그 보관이 실패하면 `phone_kept`/`org_kept` 가 각각 false 로 온다 — 번호의 흔한 경우는
+         숫자 9자리 미만이라 setOverridePhones 가 «번호로 안 보는» 것. 그때 「저장되었습니다」만
+         띄우면 값은 students_erp 에만 들어가 **그날 밤 사라지고 문자는 영영 안 간다**
+         (2026-09-10 실사고: 671건의 수업을 찾고도 한 통도 못 보냄).
+         ⚠️ null 은 «그 칸을 안 고친 저장» 이라 아무 말도 하지 않는다. */
+      var _cMsg = t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : '');
+      if (j.phone_kept === false) _cMsg += t(_cPhoneCleared ? 'phoneChangeFailed' : 'phoneNotKept');
+      else if (_cPhoneCleared) _cMsg += t('phoneCleared');
+      if (j.org_kept === false) _cMsg += t('orgNotKept');
+      toast(_cMsg, j.phone_kept === false || j.org_kept === false);
+      /* 📞 저장이 성공했으면 지금 값이 새 기준이다(위 snapPhones 주석).
+         ⛔ 번호 보관이 «실패» 했으면 갱신하지 않는다 — 그래야 다시 눌렀을 때
+            «지우겠다»·«이 번호로 바꾸겠다» 가 그대로 한 번 더 간다. */
+      if (j.phone_kept !== false) snapPhones();
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
+      // 🥭 이름을 바꿨으면 왼쪽 카드·상단 이름도 즉시 새로 읽어온다(안 하면 새로고침 전까지 옛 이름).
+      if (j.name_changed) await loadFull();
     }
     else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
   } catch (e) { toast(t('netError'), true); }
@@ -1768,7 +1849,7 @@ function renderExtension(){
     <div class="kpi ${endStatus==='red'?'red':endStatus==='yellow'?'yellow':endStatus==='green'?'green':''}"><div class="lab">${_lang==='en'?'End Date':'수강 종료일'}</div><div class="val">${endStr || '—'}</div><div class="sub">${endStatusLabel}</div></div>
     <div class="kpi blue"><div class="lab">${_lang==='en'?'Days Left':'남은 일수'}</div><div class="val">${dDay}</div></div>
     <div class="kpi yellow"><div class="lab">${_lang==='en'?'Active Package':'활성 패키지'}</div><div class="val" style="font-size:16px">${esc(activeEnroll?.package)||'—'}</div><div class="sub">${activeEnroll?.monthly_fee_krw?fmtKrw(activeEnroll.monthly_fee_krw)+(_lang==='en'?'/mo':'/월'):'—'}</div></div>
-    <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date)||'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date || fmtDay(erp.created_at))}</div></div>
   `;
 
   // 연장 이력 fetch
@@ -1840,17 +1921,24 @@ function renderAttendance(){
     dateMap.set(s.date, cur);
   });
 
+  /* 🔴 2026-09-21 — «결석 0» 이라고 말하면서 아래에 결석 일자를 23개 나열하던 자리입니다.
+     classes_per_week 는 «카페24가 정본인 칸» 이라 대부분 비어 있고(화면 왼쪽도 「주당 수업 —회」),
+     그러면 expected=0 → 결석 0 · 출석률 0% 가 되어 화면이 «결석이 없다» 는 틀린 사실을 말했습니다.
+     ⛔ 모르는 값을 0 으로 그리지 마세요 — «—» 와 이유를 함께 씁니다(CLAUDE.md 2장
+        「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」). */
   const cpw = parseInt(erp.classes_per_week, 10) || 0;
   const periodWeeks = (_state.days||30)/7;
   const expected = Math.round(cpw * periodWeeks);
   const attended = dateMap.size;
-  const absent = Math.max(0, expected - attended);
-  const rate = expected > 0 ? Math.round(attended / expected * 100) : 0;
+  const known = expected > 0;                     // 주당 수업 회수를 «아는가»
+  const absent = known ? Math.max(0, expected - attended) : null;
+  const rate = known ? Math.round(attended / expected * 100) : null;
+  const unknownSub = _lang==='en' ? 'weekly count unknown' : '주당 수업 회수 모름';
 
   $('attendKpis').innerHTML = `
     <div class="kpi green"><div class="lab">${_lang==='en'?'Attended':'출석'}</div><div class="val">${attended}</div><div class="sub">${_lang==='en'?'days':'일'}</div></div>
-    <div class="kpi red"><div class="lab">${_lang==='en'?'Absent':'결석'}</div><div class="val">${absent}</div><div class="sub">${_lang==='en'?'expected':'예상'} ${expected}</div></div>
-    <div class="kpi blue"><div class="lab">${_lang==='en'?'Attendance Rate':'출석률'}</div><div class="val">${rate}%</div></div>
+    <div class="kpi red"><div class="lab">${_lang==='en'?'Absent':'결석'}</div><div class="val">${known?absent:'—'}</div><div class="sub">${known?((_lang==='en'?'expected':'예상')+' '+expected):unknownSub}</div></div>
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Attendance Rate':'출석률'}</div><div class="val">${known?(rate+'%'):'—'}</div><div class="sub">${known?'':unknownSub}</div></div>
     <div class="kpi yellow"><div class="lab">${_lang==='en'?'Period':'기간'}</div><div class="val" style="font-size:18px">${_state.days}${_lang==='en'?'d':'일'}</div></div>
   `;
 
@@ -1889,9 +1977,18 @@ function renderAttendance(){
     if (wkd === 0 || wkd === 6) continue;   // 주말 제외
     if (!dateMap.has(ds)) absentDates.push(ds);
   }
+  /* ⚠️ 이 목록은 «평일인데 수업 기록이 없는 날» 입니다 — «결석» 과 같지 않습니다.
+     주 4회 수업이면 평일 하루는 원래 수업이 없는 날이라 여기에 섞입니다.
+     예약 요일(class_schedules)은 이 응답에 없어 여기서는 가릴 수 없습니다 —
+     단정하지 말고 그렇게 «말하게» 둡니다. */
   $('absentList').innerHTML = absentDates.length === 0
-    ? '<div class="empty">'+(_lang==='en'?'No absences in period (weekdays).':'기간 내 평일 결석 없음.')+'</div>'
-    : '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+    ? '<div class="empty">'+(_lang==='en'?'No weekdays without a class record.':'기간 내 평일 중 수업 기록이 없는 날 없음.')+'</div>'
+    : '<div style="font-size:11px;color:var(--mut);margin-bottom:6px">'+
+      (_lang==='en'
+        ? 'Weekdays with no class record. Not the same as absence — days with no scheduled class are included.'
+        : '평일 중 «수업 기록이 없는 날» 입니다. 원래 수업이 없는 날도 섞여 있어 결석과 같지 않습니다.')+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
       absentDates.map(d => `<span class="badge red">${d}</span>`).join('') +
       '</div>';
 }
@@ -2744,6 +2841,83 @@ if (_initTab) {
 }
 
 
+/* 👩‍🏫 담당 교사 이름 — 스케줄 카드가 쓰는 한 곳(2026-09-11 사장님 지시).
+   ℹ️ teacher_name 은 서버가 teachers 원부를 LEFT JOIN 해 넣어 준다
+      (GET /api/admin/class-schedules · api-admin.ts).
+   ⛔ 못 풀었다고 번호(teacher_id)를 이름 자리에 그리지 말 것 — 강사 번호는 체계가 세 벌이라
+      (카페24 번호 · 원부 teachers.id · 프로필 번호) 숫자를 그대로 보여 주면 «누구인지» 를
+      잘못 읽는다. CLAUDE.md 2장 「강사 이름을 붙였는데 남의 이름이 뜸」.
+   ⛔ 빈칸으로 두지도 말 것 — 빈칸은 «고장» 으로 읽힌다. 모르면 모른다고 적는다.
+   📌 실측(2026-09-11, 운영 D1): 취소 아닌 예약 1,263건이 전부 원부로 풀린다 —
+      «강사 미확인» 은 지금 0건이고, 원부에 없는 번호가 들어오는 날을 위한 자리다. */
+function teacherLabel(it) {
+  /* ⛔ source='ai_auto'(관리자 › AI 자동배정 «승인», POST /api/admin/schedule/approve)는
+        teacher_id 에 «프로필 번호»(teacher_profiles.id)를 넣는데, 위 JOIN 은 그것을
+        «원부 번호»(teachers.id)로 읽는다. 두 체계는 겹치는 구간에서 **전원 다른 사람**이라
+        이름이 «에러 없이» 남의 것으로 붙는다 — 하필 이 카드에는 학생 이름이 함께 나온다.
+        [잰 것 — 2026-09-11 운영 D1] 겹치는 번호 26개가 26개 **전부** 다른 사람:
+          프로필 27=Teacher Far ↔ 원부 27=MAIMAI · 프로필 29=Teacher Mariane ↔ 원부 29=중국어 강선생님.
+        [잰 것 — 같은 날] 그런 행(source='ai_auto', 취소 아님)은 **0건**이다.
+        그래서 이름을 «믿지 않고» 확인이 필요하다고 말한다 — 모르는 것보다 틀린 게 나쁘다.
+        ⛔ 그 행을 목록에서 «감춰서» 풀지 말 것 — 감추면 그 문제가 눈에서 사라진다.
+        📌 뿌리 수리는 writer(api-admin.ts 의 그 INSERT)가 원부 번호를 넣게 하는 것이고,
+           반경이 있어 **사람이 정할 일**이다. */
+  var src = (it && it.source != null) ? String(it.source).trim() : '';
+  if (src === 'ai_auto') return '확인 필요(AI 배정)';
+  var nm = (it && it.teacher_name != null) ? String(it.teacher_name).trim() : '';
+  if (nm) return esc(nm);
+  var tid = (it && it.teacher_id != null) ? String(it.teacher_id).trim() : '';
+  return tid ? '강사 미확인' : '미배정';
+}
+
+/* 🏷 (2026-09-15 사장님 제보) 「학생 홈에는 수업이 있는데 관리자 › 수강신청 › 신청 목록엔
+   그 수업이 안 보인다」 — 고장이 아니다. enrollments(수강신청 신청 목록)와
+   class_schedules(이 탭이 보여주는 실제 수업표)는 완전히 다른 표다. class_schedules 는
+   결제 확정 말고도 카페24 미러·레벨테스트 신청·AI 명령·관리자 직접 등록 등 여러 경로로
+   생기므로, 「수강신청에 없다」와 「수업이 없다」는 다른 사실이다 — 여기서 그 출처를
+   바로 보여줘 다음에 같은 제보가 오면 이 탭 하나로 끝나게 한다.
+   ⚠️ 값은 실제 INSERT 문(enroll-ops.ts·enroll-activate.ts·c24-mirror.ts·
+      leveltest-schedule.ts·ai-command.ts·api-admin.ts)에서 확인한 것만 적는다 —
+      모르는 값은 지어내지 않고 원문 그대로 보여준다(CLAUDE.md 「부분일치 금지」와 같은 정신).
+   ⛔ class="mgt-chip" 재사용 금지 — test-harness/manual/schedule-teacher-name-browser.mjs 가
+      그 클래스를 «카드마다 정확히 하나» 로 세는 훅이라, 재사용하면 그 검사의 칩 개수가 깨진다. */
+function sourceLabel(it) {
+  var s = (it && it.source != null) ? String(it.source).trim() : '';
+  if (!s) return '출처 미상';
+  if (s.indexOf('adm-enroll:') === 0) return '수강신청 확정';
+  if (s.indexOf('enroll:') === 0) return '결제 확정';
+  if (s === 'c24-mirror') return '카페24 연동(자동)';
+  if (s === 'c24-mirror:manual') return '카페24 연동 → 수정됨';
+  if (s === 'leveltest_app') return '레벨테스트 신청';
+  if (s === 'admin_ui') return '관리자 직접 등록';
+  if (s === 'ai_command' || s === 'ai_enroll') return 'AI 명령으로 등록';
+  if (s === 'ai_auto') return 'AI 자동배정(확인 필요)';
+  if (s === 'attendance_seed') return '출석기록 기반 자리표시';
+  if (s === 'demo_seed') return '데모 자료(자리표시)';
+  if (s === 'lms_import_w26') return '구 LMS 이전(자리표시)';
+  if (s.indexOf('type_seed') === 0) return '시연 데이터(자리표시)';
+  return esc(s);
+}
+
+/* 📅 (2026-09-21 사장님 지시) «이 날 하루만» · «지난 수업» 판정 — 최상위 함수.
+   [왜] 배지의 「정규수업」은 수업 «종류»(class_type)이지 «매주 반복» 이 아니지만
+        사람은 그렇게 읽는다. 실제 반복 여부는 schedule_kind 이고 화면에는
+        🔁/📅 아이콘 차이뿐이라, 9/14 하루짜리 수업을 «매주 도는 수업» 으로 읽으셨다.
+   [왜 지남도 말하나] 지난 날짜인데 「활성」인 행이 실측 1,808건(학생 495명)이라,
+        말해 주지 않으면 «앞으로 있을 수업» 으로 읽힌다.
+   ⚠️ 날짜는 KST 기준으로 재야 한다 — UTC 로 재면 하루가 밀린다. */
+function _mgsKstToday() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+/** 일회성(날짜 지정)인가 · 이미 지났는가. 순수 함수(하니스가 그대로 돌린다).
+    ⚠️ 날짜 형식(YYYY-MM-DD)이 맞을 때만 «지났다» 로 본다 — 모르면 안 적는 쪽으로 실패. */
+function mgsOnceInfo(scheduledDate, todayYmd) {
+  const ymd = String(scheduledDate || '').slice(0, 10);
+  const once = !!ymd;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(ymd);
+  return { once: once, past: once && valid && ymd < String(todayYmd || '') };
+}
+
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
   const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
@@ -2778,14 +2952,36 @@ async function loadAiSchedules() {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => dayNames[d] || d).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
       const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
+      /* 📅 (2026-09-21) 위 mgsOnceInfo() 가 정본 — 여기서 날짜를 다시 재지 말 것. */
+      const _oi = mgsOnceInfo(it.scheduled_date, _mgsKstToday());
+      const _onceChip = _oi.once
+        ? '<span style="color:#475467;font-size:11px">· ' + (_lang === 'en' ? 'this date only' : '이 날 하루만') + '</span>'
+        : '';
+      /* ⚠️ 색은 흰 카드에서 읽히는 탄 주황(#b45309, 대비 5.02) — 밝은 앰버(#fbbf24)는 1.67 로 안 읽힌다.
+         (이 카드는 인라인으로 어둡게 적혀 있지만 adm-light-theme.css 가 밝게 덮는다 — 이웃 칸 주석 참고) */
+      const _pastChip = _oi.past
+        ? '<span style="color:#b45309;font-size:10.5px;font-weight:700;border:1px solid #fcd34d;border-radius:6px;padding:1px 7px">⌛ ' + (_lang === 'en' ? 'Past' : '지난 수업') + '</span>'
+        : '';
       /* 📅 (2026-08-18 사장님 수정요청 #01) 수업연기 — 상세보기 스케줄에서 바로 날짜·시간을 옮긴다.
          지금까지는 «취소하고 다시 등록» 뿐이라, 연기 한 번에 수업 이력이 끊겼다. */
+      /* 👩‍🏫 (2026-09-11 사장님 지시) 담당 교사 이름 — 서버가 이미 teachers 원부를 LEFT JOIN 해
+         teacher_name 을 실어 주는데(GET /api/admin/class-schedules) 화면만 안 그리고 있었다.
+         판정은 위 teacherLabel() 한 곳.
+         ⚠️ class="mgt-chip" 은 CSS 가 아니라 **브라우저 검사가 이 칩을 찾는 훅**이다
+            (test-harness/manual/schedule-teacher-name-browser.mjs). «쓰는 CSS 가 없으니 죽은
+            클래스» 로 지우지 말 것 — 지우면 그 검사가 칩을 0개로 보고 조용해진다.
+         ⚠️ 색은 밝은 관리자 테마(adm-light-theme.css)의 보조색 #475467 이다. 이웃 칸이 쓰는
+            #94a3b8 은 흰 카드에서 대비가 모자라 adm-light-surfaces.js 페인터가 «구제» 해 주는
+            값이라, 그것을 베끼면 페인터가 안 도는 순간(첫 그림·예외)에 안 읽힌다. */
       return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
+        + _onceChip + _pastChip
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + '분 · ' : '') + (statusName[it.status] || it.status) + '</span>'
+        + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
+        + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.">🔖 ' + sourceLabel(it) + '</span>'
         + '<button onclick="openReschedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #38bdf8;background:transparent;color:#38bdf8;border-radius:6px;cursor:pointer;font-size:11px">📅 일정변경</button>'
         + '<button onclick="cancelAiSchedule(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
         + '</div>'
@@ -2965,6 +3161,6 @@ loadFull();
 </a>
 
 <script defer src="/js/back-nav.js"></script>
-<script src="/js/adm-light-surfaces.js?v=17" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=18" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>

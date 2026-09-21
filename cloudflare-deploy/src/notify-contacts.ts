@@ -29,9 +29,18 @@
  *      살리려면 화면이 body 에 `student_uid` 를 함께 실어야 하는데, 그건 첫 화면 예산·담당
  *      영역이 걸린 별건이다. no-show 만 uid 를 보낸다.
  *
- * ⚠️ 오늘 기준 `students_erp` 29,438행의 phone·student_phone·parent_phone 이 **전부 0건**이라
- *    이 함수는 늘 빈 값을 돌려준다(= 발송 0건, 지금과 같다). 적재 요청은
+ * ⚠️ `students_erp` 의 phone·student_phone·parent_phone 은 **사실상 비어 있다**
+ *    (2026-09-16 재실측 29,512행 중 번호가 든 행은 **4행**뿐 — 카페24 원본에 번호가 없다).
+ *    📞 (2026-09-15) 「우리가 손으로 넣어도 동기화가 **매일 밤 덮는다**」는 이제 옛말이다 —
+ *    `cafe24-sync.ts` 의 UPSERT 가 COALESCE 로, DELETE 보존 목록에 번호 세 칸이 들어갔다.
+ *    ⛔ 그래도 아래 «override 에 둔다» 는 **그대로**다: 카페24가 번호를 주기 시작하면 그쪽이 이기고
+ *       (정본이 카페24라 맞는 동작), 그 순간 우리가 넣은 값이 덮인다. 적재 요청은
  *    `docs/구서버_Neo4j_전화번호_적재요청_2차_2026-08-30.md`.
+ * ✅ (2026-09-10) 그래서 «우리 화면에서 받은 번호» 는 `student_erp_override` 에 두고
+ *    `phonesForStudent` 가 그것을 **먼저** 본다(정본 `src/student-override.ts`).
+ *    ⟹ 이 함수는 이제 «명부에는 없지만 우리가 받아 둔» 학생에게는 번호를 돌려준다.
+ *    ⚠️ 그래도 위 넷(lesson-started·lesson-ended·chat-summary·mention)은 호출자가 uid 를
+ *       안 보내므로 그대로 빈손이다 — 번호가 생겼다고 그 넷이 저절로 살아나지 않는다.
  * ⛔ 못 찾았다고 본문 값으로 되돌아가지 말 것 — 그러면 구멍이 그대로다.
  *    모르면 «안 보낸다» 가 맞다(규칙서: 모르는 것보다 틀린 게 나쁘다).
  *
@@ -44,6 +53,7 @@
  */
 
 import { findTeacherContact } from './absent-sweep';   // 강사 연락처 판정 정본(복제 금지)
+import { getOverridePhones } from './student-override'; // 📞 우리 화면에서 받아 둔 번호(동기화가 못 덮는 자리)
 
 /** 한 사람에게 보낼 번호 묶음. 못 찾은 자리는 빈 문자열이다(= 그 역할은 발송 안 함). */
 export interface NotifyPhones {
@@ -68,20 +78,34 @@ function normPhone(v: any): string {
 export async function phonesForStudent(env: any, uid: string): Promise<{ student: string; parent: string }> {
   const u = String(uid || '').trim();
   if (!u || !env?.DB) return { student: '', parent: '' };
+  /* 📞 (2026-09-10) **우리가 받아 둔 번호를 «먼저» 본다.**
+     `students_erp` 의 번호 칸은 카페24 동기화가 매일 밤 덮었고(실측 2026-09-10: 29,485행 전부 0건
+     — 그 «무조건 덮기» 는 2026-09-15 에 cafe24-sync.ts 에서 막았지만 카페24가 값을 주면 그쪽이 이긴다),
+     화면에서 받은 번호는 `student_erp_override` 에 둔다 — 정본·이유는 src/student-override.ts.
+     ⚠️ 칸 단위로 떨어진다: 학부모 번호만 받아 뒀으면 학생 번호는 그대로 명부에서 찾는다.
+     ⚠️ 이 조회는 실패해도 throw 하지 않는다(빈 값) — 그러면 아래 명부 조회로 이어져
+        «고치기 전» 과 똑같이 동작한다. */
+  let ovParent = '', ovStudent = '';
+  try {
+    const ov = await getOverridePhones(env, u);
+    ovParent = ov.parent; ovStudent = ov.student;
+  } catch { /* fail-open — 명부로 간다 */ }
   try {
     const row: any = await env.DB.prepare(
       `SELECT phone, student_phone, parent_phone FROM students_erp
         WHERE user_id = ? COLLATE NOCASE
         ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1`,
     ).bind(u, u).first();
-    if (!row) return { student: '', parent: '' };
+    if (!row) return { student: ovStudent, parent: ovParent };
     return {
-      student: normPhone(row.student_phone) || normPhone(row.phone),
-      parent: normPhone(row.parent_phone),
+      student: ovStudent || normPhone(row.student_phone) || normPhone(row.phone),
+      parent: ovParent || normPhone(row.parent_phone),
     };
   } catch (e: any) {
     console.warn('[notify-contacts] 학생 번호 조회 실패:', e?.message);
-    return { student: '', parent: '' };
+    /* ⚠️ 명부 조회가 깨져도 우리가 받아 둔 번호는 살아 있다 — 그것까지 버리면
+       「번호를 넣었는데 안 나간다」가 된다. */
+    return { student: ovStudent, parent: ovParent };
   }
 }
 

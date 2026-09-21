@@ -70,6 +70,7 @@ function makeFakeDoc(ids) {
                    toggle(c,on){ on ? this._s.add(c) : this._s.delete(c); },
                    contains(c){return this._s.has(c);} },
       addEventListener() {},
+      setAttribute(name, value) { this[name] = String(value); },
     };
   }
   const mk = () => ({ style:{}, classList:{add(){},remove(){},toggle(){}}, appendChild(){}, remove(){},
@@ -138,6 +139,7 @@ async function testAiFriend() {
   // record({lang, onState}) 를 정확히 부르고, 결과 텍스트로 sendMsg 가 호출되는지 확인.
   const doc = makeFakeDoc(['msgInput', 'micBtn']);
   const sent = [];
+  const barge = { stops: 0 };
   let lastRecordOpts = null, resolveRecord = null;
   const FakeMangoiVoice = {
     supported: () => true,
@@ -151,6 +153,9 @@ async function testAiFriend() {
     setTimeout: (cb) => cb(),   // 이 배선 검증엔 실제 지연이 필요 없음
     clearTimeout: () => {},
     isEn: () => false,
+    /* ⏹ B (2026-09-11) — 마이크를 열면 AI 낭독을 멈춥니다. 그 정지가 «정본 한 곳» 으로 모이면서
+       이 배선에도 들어왔습니다. 스텁으로 두되 «실제로 불렸는가» 를 아래에서 셉니다. */
+    stopSpeakingNow: () => { barge.stops++; },
     sendMsg: () => { const v = (doc.els.msgInput.value || '').trim(); if (v) sent.push(v); doc.els.msgInput.value = ''; },
     console,
   };
@@ -161,6 +166,10 @@ async function testAiFriend() {
   // 1회차
   toggleMic();
   check('toggleMic → MangoiVoice.record 호출', !!lastRecordOpts, '녹음이 시작되지 않음');
+
+  /* ⏹ B — 말을 걸었으면 AI 낭독이 멈춰야 합니다. ⛔ 안 멈추면 학생 목소리와 AI 목소리가 겹치고,
+     A-1 의 문장 큐가 살아 있으면 «멈춘 척» 했다가 다음 문장을 이어서 말합니다. */
+  check('마이크를 열면 AI 낭독을 멈춘다 (B)', barge.stops >= 1, '정지 ' + barge.stops + '회');
   check('영어 힌트로 호출됨', lastRecordOpts && lastRecordOpts.lang === 'en', JSON.stringify(lastRecordOpts));
   resolveRecord('I like dogs');
   await flush();
@@ -195,11 +204,18 @@ function testWarmupMic() {
   const timers = makeTimers();
   const sent = [];
 
+  /* 🀄 2026-09-13 — 웜업에 «대화 언어» 축이 생겨 이 조각이 바깥의 isZh() 를 부른다.
+     그 이름이 없으면 조각이 통째로 ReferenceError 로 죽는다(검사가 «못 봤다» 가 된다).
+     ⇒ 가짜로 물려 주고, 아래에서 «그 값을 실제로 따라가는가» 를 짝으로 확인한다. */
+  let fakeZh = false;
   const sandbox = {
     document: doc,
     window: { SpeechRecognition: FakeSR },
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     unlockAudio: () => {}, _stopSpeak: () => {}, addMsg: () => {},
+    isZh: () => fakeZh,
+    _warmLang: 'en',
+    _warmPaused: false, _warmEpoch: 0, _warmVoiceEpoch: 0, sending: false, _warmMicCancel: null,
     sendMsg: () => { const v = (doc.els.inp.value || '').trim(); if (v) sent.push(v); doc.els.inp.value = ''; },
     console,
   };
@@ -207,6 +223,16 @@ function testWarmupMic() {
   vm.runInContext(code + '\n;globalThis.__toggleMic = toggleMic;', sandbox);
   const toggleMic = sandbox.__toggleMic;
   const last = () => FakeSR.instances[FakeSR.instances.length - 1];
+
+  /* 🀄 마이크가 «고른 말» 로 듣는가 — 「막힌다·안 막힌다」가 아니라 «짝» 으로 묻는다.
+     한쪽만 두면 「언제나 en-US」·「언제나 zh-CN」 어느 쪽으로 고장 나도 통과한다. */
+  fakeZh = false; toggleMic();
+  check('영어면 마이크가 en-US 로 듣는다', last().lang === 'en-US', 'lang=' + last().lang);
+  toggleMic(); timers.fire();
+  fakeZh = true; toggleMic();
+  check('🀄 중국어면 마이크가 zh-CN 으로 듣는다 (짝)', last().lang === 'zh-CN', 'lang=' + last().lang);
+  toggleMic(); timers.fire();
+  fakeZh = false; sent.length = 0; doc.els.inp.value = '';
 
   // 평소대로 한 문장 말하고 조용해지면 전송
   toggleMic();

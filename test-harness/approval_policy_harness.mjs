@@ -73,9 +73,12 @@ check('소액 물품구입은 1단계',
   stagesFor('purchase', smallPhp, 'PHP').length === 1,
   JSON.stringify(stagesFor('purchase', smallPhp, 'PHP')));
 
-check('기준 금액부터는 2단계 (담당 → 경영진)',
+/* ⚠️ «역할 이름» 을 글자 그대로 못 박지 않는다 — 2026-09-09 에 돈이 나가는 건의 1단계가
+      'staff'(본사 아무나) 에서 'mgr'(지정 결재권자) 로 좁혀졌을 때, 보장은 오히려 세졌는데
+      이 검사만 빨간불이 났다. 물어야 할 것은 «두 단계인가 · 마지막이 경영진인가» 다. */
+check('기준 금액부터는 2단계 (마지막은 경영진)',
   (() => { const s = stagesFor('purchase', bigPhp, 'PHP');
-           return s.length === 2 && s[0].role === 'staff' && s[1].role === 'exec'; })(),
+           return s.length === 2 && s[0].role !== 'exec' && s[1].role === 'exec'; })(),
   JSON.stringify(stagesFor('purchase', bigPhp, 'PHP')));
 
 check('지출 정산도 같은 기준을 쓴다',
@@ -398,12 +401,113 @@ check('주간 요약의 숫자는 코드가 계산한다 (AI 아님)',
 // ══ I. 묶어서 승인 — 점검을 무력화하지 않는가 ═════════════════════════════
 console.log('\n[I] 묶어서 승인이 자동 점검을 무력화하지 않는가');
 
+/* cleanOnes 의 «몸통» 을 중괄호 짝으로 잘라 낸다.
+   ⛔ 「앞 N자 안에 그 글자가 있나」로 재지 말 것 — 주석 한 문단만 늘어도 창 밖으로 밀려
+      **보장은 그대로인데 검사만** 빨간불이 된다(2026-09-10 실제로 밟았다: 묶음 승인에서
+      «대신 결재» 건을 빼는 주석을 더하자 경고 검사가 400자 창을 넘어 FAIL).
+      CLAUDE.md 「검사 범위를 «길이» 로 자르지 마세요」. */
+const CLEAN_ONES_RAW = (() => {
+  const i = WORK_SRC.indexOf('function cleanOnes()');
+  if (i < 0) return '';
+  const open = WORK_SRC.indexOf('{', i);
+  if (open < 0) return '';
+  let depth = 0;
+  for (let k = open; k < WORK_SRC.length; k++) {
+    const c = WORK_SRC[k];
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return WORK_SRC.slice(open, k + 1); }
+  }
+  return '';
+})();
+
+const CLEAN_ONES = (() => {
+  const i = WORK_SRC.indexOf('function cleanOnes()');
+  if (i < 0) return '';
+  const open = WORK_SRC.indexOf('{', i);
+  if (open < 0) return '';
+  let depth = 0, body = '';
+  for (let k = open; k < WORK_SRC.length; k++) {
+    const c = WORK_SRC[k];
+    if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { body = WORK_SRC.slice(open, k + 1); break; } }
+  }
+  /* 🪤 주석을 벗겨 낸다 — 안 벗기면 «주석으로 막아 둔 줄» 이 검사를 통과시킨다.
+     2026-09-10 변이시험에서 실제로 밟았다: 가드를 `// (변이) if (r.by_proxy) return false;`
+     로 막았는데 그 글자가 주석에 남아 141건이 전부 초록이었다.
+     ⛔ 블록주석을 정규식 한 줄로 지우지 말 것(CLAUDE.md) — 줄 단위로 «지금 블록 안인가» 를
+        추적한다. */
+  let inBlock = false;
+  return body.split('\n').map((ln) => {
+    let out = '', k = 0;
+    while (k < ln.length) {
+      if (inBlock) {
+        const e = ln.indexOf('*/', k);
+        if (e < 0) { k = ln.length; } else { inBlock = false; k = e + 2; }
+        continue;
+      }
+      if (ln.startsWith('//', k)) break;
+      if (ln.startsWith('/*', k)) { inBlock = true; k += 2; continue; }
+      out += ln[k]; k++;
+    }
+    return out;
+  }).join('\n');
+})();
+
+check('전제 — cleanOnes 의 몸통을 잘라 냈다 (아래 검사가 헛돌지 않게)', CLEAN_ONES.length > 40);
+
 check('화면 — 경고가 붙은 건은 묶음에서 뺀다',
-  /function cleanOnes\(\)[\s\S]{0,400}level === 'warn'/.test(WORK_SRC),
+  /level === 'warn'/.test(CLEAN_ONES),
   '경고까지 쓸어 승인하면 자동 점검이 있으나 마나가 된다');
 
 check('화면 — 마감을 넘긴 건도 묶음에서 뺀다',
-  /function cleanOnes\(\)[\s\S]{0,200}isOverdue\(r\)/.test(WORK_SRC));
+  /isOverdue\(r\)/.test(CLEAN_ONES));
+
+/* 💳 2026-09-10 사장님 「₱5,000 미만은 장 부장님만 결재하고 저는 확인만」.
+   묶음 승인은 목록 전체를 한 번에 누르는 버튼이라, «내가 주 결재자가 아닌» 건이 섞여 있으면
+   그 한 번에 결재권자 몫까지 함께 승인된다 — 화면에서 그 지시가 무너지는 자리다. */
+check('화면 — «대신 결재» 건(by_proxy)은 묶음에서 뺀다',
+  /r\.by_proxy/.test(CLEAN_ONES),
+  '한 번 누르면 결재권자 몫까지 함께 승인된다');
+
+/* 🔴 위 검사는 «그 글자가 있는가» 뿐이라 **조건 뒤집기로 뚫립니다** —
+   `if (r.by_proxy && false) return false;` 로 바꾸면 가드가 한 번도 안 막는데
+   글자는 그대로라 통과합니다(2026-09-10 변이시험 실측: 141/141 초록).
+   CLAUDE.md 「그 게이트를 라우트 «안» 에만 두지 마세요 … 하니스에 「조건 뒤집기」
+   변이시험을 반드시 넣으세요」. 그래서 **필터를 실제로 돌려** 답을 봅니다.
+   ⚠️ 평가에는 «주석을 안 벗긴» 원본을 씁니다 — 벗긴 사본으로 돌리면 문자열 안의
+      `//` 같은 것에 코드가 잘릴 수 있습니다(여기엔 없지만 전제를 두지 않습니다). */
+const runClean = (rows) => {
+  const fn = new Function('D', 'isOverdue',
+    'return (function cleanOnes()' + CLEAN_ONES_RAW + ')();');
+  return fn({ inbox: rows }, (r) => !!r.__overdue).map((r) => r.id);
+};
+
+check('전제 — cleanOnes 를 실제로 돌릴 수 있다', (() => {
+  try { return Array.isArray(runClean([{ id: 1 }])); } catch { return false; }
+})());
+
+check('실행 — «대신 결재» 건이 실제로 묶음에서 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, by_proxy: true }])) === '[1]'; }
+           catch { return false; } })(),
+  '조건 뒤집기(`&& false`)를 잡는 검사');
+
+/* ⚠️ 짝 — 이게 없으면 «전부 빼기»(항상 false) 도 통과합니다. */
+check('짝 — 내 차례인 건은 묶음에 그대로 남는다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2 }])) === '[1,2]'; }
+           catch { return false; } })());
+
+check('실행 — 앞 단계를 내가 찍은 건(same_decider)도 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, same_decider: true }])) === '[1]'; }
+           catch { return false; } })());
+
+check('실행 — 경고(warn)가 붙은 건도 빠진다',
+  (() => { try { return JSON.stringify(runClean([
+             { id: 1 }, { id: 2, flags: [{ level: 'warn' }] }])) === '[1]'; }
+           catch { return false; } })());
+
+check('실행 — 마감을 넘긴 건도 빠진다',
+  (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, __overdue: true }])) === '[1]'; }
+           catch { return false; } })());
 
 check('화면 — 두 건 이상일 때만 묶음 버튼을 보여 준다',
   /list\.length < 2/.test(WORK_SRC));
@@ -460,7 +564,16 @@ check('화면 — 수업 변경은 원래 화면으로 보낸다',
   /paintSchedule/.test(WORK_SRC) && /schedule_pending/.test(WORK_SRC));
 
 // 관리자 화면(1MB)은 배지 한 줄만 — 결재 목록을 그리로 옮기면 /work 를 만든 이유가 사라진다.
-const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+/* 2026-09-09: 결재 배지 블록이 admin.html 인라인에서 /js/adm-appr-badge.js(defer)로 나갔다
+   (첫 화면 예산 — first_paint_budget_harness). CSS 는 admin.html 에, JS 는 그 파일에 있으므로
+   아래 검사들은 둘을 «합본» 으로 본다(한쪽만 보면 함수도 값도 «없다» 로 헛돈다 — CLAUDE.md 2장
+   「그 파일을 읽던 다른 하니스가 조용히 헛돕니다」). */
+const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8')
+  + '\n' + readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-appr-badge.js'), 'utf8');
+check('결재 배지 JS 는 defer 파일로 실린다 (첫 화면 예산 — 인라인 금지)',
+  /<script src="\/js\/adm-appr-badge\.js\?v=\d+" defer><\/script>/.test(ADMIN_SRC) &&
+  !/<script>\s*\(function\(\)\{\s*"use strict";\s*\/\* ⚠️ 대기가 0건이어도/.test(ADMIN_SRC),
+  'admin.html blocking 여유가 2KB 뿐이라 인라인으로 되돌리면 first_paint_budget 이 빨간불이 된다');
 const QUICK_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-quick-access.js'), 'utf8');
 const IA6_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-ia6.js'), 'utf8');
 
@@ -511,9 +624,19 @@ check('표가 늦게 그려져도 숫자를 다시 붙인다',
   /if \(!paintQuick\([^)]*\)\) \{[\s\S]{0,240}setInterval/.test(ADMIN_SRC),
   '「자주 쓰는 기능」 표는 외부 js 가 그린다 — 한 번 실패하고 넘어가면 숫자가 영영 안 뜬다');
 
-check('관리자 화면의 배지는 반복 폴링하지 않는다',
-  /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
-  '좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다');
+/* 🔁 2026-09-09 규칙 바꿈(사장님 A+B 선택) — 원래는 «반복 폴링하지 않는다» 였다.
+   그런데 화면을 연 뒤 «한 번만» 조회하니 열어 둔 사이 도착한 결재가 새로고침 전까지 안 떴다
+   (사장님 「결재가 뜨면 표시가 나게」). 지금 계약: 첫 조회는 여전히 3초 뒤(첫 화면과 경쟁 금지) ·
+   그 뒤 60초 이상 간격 · 숨은 탭에서는 건너뜀. 실제 동작은 approval_sidebar_badge_live_harness 가
+   가짜 DOM 으로 돌려 확인한다 — 여기서는 «주기가 좁아지지 않았는가» 만 못 박는다. */
+check('관리자 화면의 배지는 첫 화면과 경쟁하지 않는다 (첫 조회 3초 뒤)',
+  /setTimeout\(load, 3000\)/.test(ADMIN_SRC),
+  '첫 화면에서 결재 조회가 먼저 나가면 필리핀 회선에서 그대로 지연이 된다');
+check('주기 조회는 60초 이상 · 숨은 탭에서는 건너뛴다',
+  Number((ADMIN_SRC.match(/var POLL_MS\s*=\s*(\d+)/) || [])[1]) >= 60000 &&
+  /setInterval\(load, POLL_MS\)/.test(ADMIN_SRC) &&
+  /if \(document\.hidden \|\| loading\) return;/.test(ADMIN_SRC),
+  '좁은 회선에서 잦은 폴링은 정작 필요한 요청과 대역폭을 다툰다');
 
 // ══ K. 인사·급여 «월 확정» — 숫자를 손으로 적지 않는가 ════════════════════
 console.log('\n[K] 인사·급여 월 확정 — 급여를 다시 계산하지 않는가');

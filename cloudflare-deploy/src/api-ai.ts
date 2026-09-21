@@ -3,6 +3,7 @@
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
 import { ensurePointTables, applyPointTransaction } from './api-points';
 import { checkEarnAllowed } from './point-policy';   // 🪙 하루 상한 정본(복제 금지)
@@ -11,13 +12,20 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
-import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
+import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
+/* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
+   ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
+import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
+         decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
+import { recordAiFailure } from './ai-failure-log';
+import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
+import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 
 export async function handleAiApi(
   request: Request,
@@ -587,6 +595,12 @@ Student text: """${text}"""`;
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {
+      /* ⏱ (2026-09-11) 지연 계측 시작 — 여기가 «학생이 기다리기 시작하는» 자리입니다.
+         ⛔ warmup_session_log.first_reply_at 을 지연으로 읽지 마세요: 그 칸은 «학생이
+            첫마디를 뗀» 시각(사람 반응 시간)이지 시스템 지연이 아닙니다. 정본 ai-latency-log.ts */
+      const latT0 = Date.now();
+      let latModelMs = 0;   // 모델 호출에 실제로 든 시간의 «합»
+      let latTries = 0;     // 모델을 몇 번 불렀나 (폴백·재시도 포함)
       await ensureChatSchema();
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
@@ -612,10 +626,18 @@ Student text: """${text}"""`;
       // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
-      const [recent, st, wk]: any[] = await Promise.all([
+      const [recent, st, wk, turns]: any[] = await Promise.all([
         env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
+        /* ✏️ 교정 게이트용 «몇 번째 턴인가» — 반드시 «단조 증가» 해야 한다.
+           ⛔ history.length 로 세지 말 것: 위 조회가 LIMIT 20 이라 그 값은 곧 상한에 붙고,
+              그러면 turnCount - lastShownTurn 이 영영 0 이 되어 교정이 통째로 멎는다
+              (웜업 쪽에도 같은 모양이 남아 있다 — 아래 게이트 주석 참고).
+           ⛔ 조회가 실패해도 막지 않는다 — 0 이면 turnNo 가 1 이 되고, 뜻이 달라지는 교정(major)은
+              그때도 뜹니다. 다만 «계속» 실패하면 turnNo 가 1 에 고정되어 «작은 실수는 두 번째부터»
+              쪽이 멎는다(아래 게이트 주석). */
+        env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid = ? AND role = 'assistant'`).bind(uid).first().catch(() => null),
       ]);
       const history = (recent.results || []).reverse();
 
@@ -668,26 +690,41 @@ Student text: """${text}"""`;
          대화가 그 자리에서 끝난다. 반대로 상급에서는 매 턴 질문이 «취조» 처럼 느껴져
          「정해진 문장 안에서만 한다」의 2순위 원인이 됐다(원장님 제보).
          ⛔ 기초 쪽을 함께 풀지 말 것. */
+      /* 🔴 2026-09-09 사장님 「질문과 대답이 서로 맞지 않아」 — 화면 실측:
+           학생 "What is your favorite food?" → AI "Cool! Do you have a favorite food?"
+           학생 "What did you do yesterday?"  → AI "Ooh nice one! Did you eat food yesterday?"
+         물어본 것에 «대답» 을 하지 않고 되묻기만 했습니다. 모델이 아니라 규격 탓이었습니다 —
+         기초 단계 규칙이 「칭찬 하나 + 질문 하나가 전부」라고 못 박아 대답이 들어갈 자리가
+         아예 없었고, 트리머도 대답을 버렸습니다(ai-friend-level.ts 참고).
+         ⛔ 되묻기 강제를 «없애서» 풀지 마세요 — 기초 학생은 질문이 없으면 대화가 그 자리에서
+            끝납니다(2026-09-03 결정). 여기서 하는 일은 «물어본 턴에만» 대답을 먼저 시키는 것입니다. */
+      const studentAsked = aiFriendStudentAsked(msg);
+      const answerRule = studentAsked
+        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it first, in one short sentence, before anything else. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
+        : '';
       const askRule = lvSpec.plain
-        ? '- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.\n'
+        ? (studentAsked
+          ? '- After you answer, add ONE short follow-up question so the student speaks again. Answer first, question second.\n'
+          : '- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.\n')
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
-- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
-${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
+${answerRule}${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+${FRIEND_EMPATHY_RULE}
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
-- If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
-- The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
-- NEVER translate your own English into Korean. Do not add a Korean version of your sentence in brackets, quotes or guillemets. The student has a separate button for the meaning — showing Korean next to the English stops them from reading the English at all. The ONLY Korean allowed is the one grammar tip above.
+- NEVER write Korean inside "reply". Do not translate your own English, and do not add a grammar tip there — corrections go in the "fix" field below, which the student sees as its own card. Showing Korean next to the English stops them from reading the English at all, and they have a separate button for the meaning.
+- NEVER use Chinese characters (한자) or Japanese anywhere.
 ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 - A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
-- Never break character. Never say you are an AI. Never use words far above the student's level.`;
+- Never break character. Never say you are an AI. Never use words far above the student's level.
+${AI_FRIEND_CORRECTION_RULE}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
@@ -710,6 +747,20 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
         return json({ ok: false, error: 'AI_binding_missing', detail: 'env.AI binding not configured' }, 503);
       }
 
+      /* 📡 A-1 (2026-09-11) — «답이 다 만들어진 뒤에» 읽기 시작하던 것을, 문장이 끝날 때마다
+         먼저 흘려보냅니다. 학생 121명 중 41명(34%)이 1턴만 하고 나가는데(D1 실측), 그것이
+         «느려서» 인지 가리려고 A-3 로 재기 시작했고 이 갈래가 그 기다림을 줄입니다.
+
+         ⛔ 옛 화면은 이 갈래를 모릅니다 — `stream` 을 안 보내면 지금까지와 «한 글자도»
+            다르지 않습니다(응답 계약 유지). 스트리밍은 옵트인입니다.
+         ⚠️ 아래 본 처리는 «들여쓰기를 일부러 안 바꿨습니다» — 함수로 감싸기만 해서
+            diff 가 «앞뒤 몇 줄» 로 끝나게(340행을 밀면 무엇이 바뀌었는지 못 읽습니다).
+         ⚠️ 스트리밍으로 보내는 것은 «미리보기» 이고 정본은 done 이벤트의 reply 입니다 —
+            재시도(반복·이름·눈높이)가 돌면 답이 바뀌기 때문입니다(그때 replaced:1). */
+      const wantStream = (b.stream === 1 || b.stream === true || b.stream === '1');
+      let sseSend: ((o: any) => void) | null = null;
+
+      const runTurn = async (): Promise<any> => {
       // 여러 모델 후보로 폴백 — 일부 모델이 지역/계정에서 사용 불가일 수 있음
       const models = [
         '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
@@ -719,17 +770,124 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
       let reply = '';
       let lastErr: any = null;
       let usedModel = '';
+      /* ✏️ 교정 카드 (2026-09-09) — 모델 출력이 이제 JSON({reply,fix}) 이다.
+         ⚠️ 아래 «네 자리»(첫 호출·반복 재시도·이름 재시도·눈높이 재시도)가 전부 takeFriendReply 를
+            지나야 한다. 하나라도 빼먹으면 그 경로만 조용히 중괄호를 학생 화면·TTS 로 내보낸다
+            (웜업에서 실제로 그 사고가 났다 — "[object Object]", 2026-09-08).
+         fix 는 «그 답장을 실제로 채택했을 때만» 확정한다(commitFix) — 재시도 답장이 거절될 수
+         있는데 파싱하자마자 덮으면 화면의 답장은 옛것인데 카드만 새 답장의 것이 된다. */
+      let rawFix: any = null;
+      let stagedFix: any = null;
+      let friendPlain = 0;   // 모델이 «평문» 을 준 횟수 — 조용히 옛 동작으로 돌아가지 않게 남긴다
+      let friendEmpty = 0;   // 빈 응답 — 위와 «다른 사실» 이라 한 숫자로 뭉치지 않는다
+      let friendRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: 웜업)
+      const friendAIOpts = (msgs: any[], maxTokens: number, temperature: number): any => {
+        const o: any = { messages: msgs, max_tokens: maxTokens, temperature };
+        if (friendRF) o.response_format = { type: 'json_object' };
+        return o;
+      };
+      /* ⛔ 재시도는 «제약이 원인일 때» 만 — 판정 정본은 warmup-correction.ts 의 isRfRejection.
+         `if (!friendRF) throw` 로만 가르면 429·타임아웃까지 이 분기로 들어와, 일시 장애 한 번에
+         JSON 모드가 꺼지고 그 요청의 남은 경로가 통째로 옛 동작이 된다. */
+      const runFriend = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
+        /* ⏱ 모델 호출만 따로 잽니다 — 전체 시간에서 이것을 빼면 «우리 코드가 쓴 시간» 이 나옵니다.
+           ⚠️ 실패한 호출도 셉니다(그 시간도 학생은 기다립니다). finally 로 두는 이유입니다. */
+        const mT0 = Date.now();
+        latTries++;
+        try {
+          return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
+        } catch (rfErr: any) {
+          if (!friendRF || !isRfRejection(rfErr)) throw rfErr;
+          console.warn('[chat-friend] response_format rejected, retrying without:', rfErr?.message || rfErr);
+          friendRF = false;
+          latTries++;
+          return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
+        } finally {
+          latModelMs += Date.now() - mT0;
+        }
+      };
+      /* ⚠️ 정본에 «응답 객체» 를 통째로 넘기면 안 된다 — JSON 모드에서는 response 가 이미
+         파싱된 객체일 수 있고, 그것을 문자열로 굳히면 "[object Object]" 가 된다.
+         저장소의 다른 다섯 곳과 같은 모양으로 읽는다(2026-09-08 실사고). */
+      const takeFriendReply = (r: any): string => {
+        const parsed = parseWarmupOutput(
+          typeof r === 'string' ? r : (r?.response ?? r?.result?.response ?? r?.result ?? '')
+        );
+        stagedFix = parsed.fix;
+        if (!parsed.reply) friendEmpty++;
+        else if (!parsed.json) friendPlain++;   // 평문이 왔다 = 프롬프트가 안 먹은 것
+        return parsed.reply;
+      };
+      const commitFix = () => { rawFix = stagedFix; };
+      /* 📡 스트리밍 호출 (A-1) — «첫 모델에만» 씁니다.
+         ⛔ 폴백·재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞입니다. 그것들은 비스트리밍으로
+            돌고, 답이 바뀌면 done 의 replaced:1 로 화면이 다시 읽습니다.
+         ⛔ 모델 조각을 그대로 내보내지 않습니다 — JSON 모드라 `{"reply":"Hi th` 같은 부분
+            JSON 이 옵니다. createJsonTextTap 이 «값 문자열 안» 글자만 통과시켜 구조 문자가
+            학생 화면에 못 갑니다(2026-09-08 에 두 번 낸 사고의 방어).
+         ⛔ 문장이 끝나기 «전» 에는 안 보냅니다 — 운율이 문장 단위라 토막 내 읽으면 소리가 깨집니다. */
+      let streamedText = '';
+      let streamTried = false;
+      const runFriendStreaming = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
+        const mT0 = Date.now();
+        latTries++;
+        try {
+          const st: any = await env.AI.run(model, { ...friendAIOpts(msgs, maxTokens, temperature), stream: true });
+          /* 스트림이 아니면(모델·계정이 지원 안 함) 그대로 돌려줘 옛 경로가 받습니다. */
+          if (!st || typeof st.getReader !== 'function') return st;
+          const tap = createJsonTextTap('reply');
+          const rd = st.getReader();
+          const dec = new TextDecoder();
+          let line = '', raw = '', pend = '';
+          for (;;) {
+            const { value, done } = await rd.read();
+            if (done) break;
+            line += dec.decode(value, { stream: true });
+            let nl: number;
+            while ((nl = line.indexOf('\n')) >= 0) {
+              const one = line.slice(0, nl).trim();
+              line = line.slice(nl + 1);
+              if (!one.startsWith('data:')) continue;
+              const pay = one.slice(5).trim();
+              if (!pay || pay === '[DONE]') continue;
+              let t = '';
+              try { const ev: any = JSON.parse(pay); t = String(ev?.response ?? ''); } catch { continue; }
+              if (!t) continue;
+              raw += t;
+              pend += tap.push(t);
+              const cut = takeSentences(pend);
+              pend = cut.rest;
+              for (const sen of cut.out) {
+                streamedText += (streamedText ? ' ' : '') + sen;
+                if (sseSend) sseSend({ t: sen });
+              }
+            }
+          }
+          const tail = String(pend || '').trim();
+          if (tail) { streamedText += (streamedText ? ' ' : '') + tail; if (sseSend) sseSend({ t: tail }); }
+          return { response: raw };
+        } finally {
+          latModelMs += Date.now() - mT0;
+        }
+      };
       for (const m of models) {
         try {
-          const resp: any = await env.AI.run(m, {
-            messages, max_tokens: 300, temperature: 0.8,
-          });
-          if (typeof resp === 'string') reply = resp;
-          else if (resp && typeof resp.response === 'string') reply = resp.response;
-          else if (resp && resp.response) reply = JSON.stringify(resp.response);
-          else if (resp && resp.result && typeof resp.result === 'string') reply = resp.result;
-          reply = String(reply || '').trim();
-          if (reply) { usedModel = m; break; }
+          /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
+             이득만 잃고 동작은 그대로입니다(최악이어도 고치기 전과 같음). */
+          let resp: any;
+          if (wantStream && sseSend && !streamTried) {
+            streamTried = true;
+            try {
+              resp = await runFriendStreaming(m, messages, 300, 0.8);
+            } catch (se: any) {
+              console.warn('[chat-friend] stream call failed, falling back:', se?.message || se);
+              resp = await runFriend(m, messages, 300, 0.8);
+            }
+          } else {
+            resp = await runFriend(m, messages, 300, 0.8);
+          }
+          reply = takeFriendReply(resp);
+          if (reply) { usedModel = m; commitFix(); break; }
         } catch (e: any) {
           lastErr = e;
           console.error(`[chat-friend] model ${m} failed:`, e?.message || e);
@@ -739,28 +897,57 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
          (웜업 handleWarmupChat 과 동일한 방식. "I" 한 마디에 지난 답이 그대로 나오던 문제) */
       if (reply && usedModel && aiFriendIsRepeat(reply, history)) {
         try {
-          const retry: any = await env.AI.run(usedModel, {
-            messages: messages.concat([
-              { role: 'assistant', content: reply },
-              { role: 'user', content: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)' },
-            ]),
-            max_tokens: 220, temperature: 0.95,
-          });
-          const rt = String((retry && (retry.response || retry.result)) || '').trim();
-          if (rt && !aiFriendIsRepeat(rt, history)) reply = rt;
+          const retry: any = await runFriend(usedModel, messages.concat([
+            { role: 'assistant', content: reply },
+            { role: 'user', content: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)' },
+          ]), 220, 0.95);
+          const rt = takeFriendReply(retry);
+          if (rt && !aiFriendIsRepeat(rt, history)) { reply = rt; commitFix(); }
         } catch (e: any) {
           console.error('[chat-friend] repeat retry failed:', e?.message || e);
         }
       }
+      /* 🚨 모델이 «다» 실패한 경우 (2026-09-09 사장님 제보로 표시를 붙임).
+         [잰 것 — 2026-09-09 D1 ai_friend_chats] 그날 AI 답 35건 중 폴백 2건이고, 그 2건이
+         사장님 세션(22:33:17·22:33:37)에 «연달아» 나왔습니다. 직전 22:32:52 는 정상 답이었고
+         9/1(80건)·9/2(53건)·9/3(10건)은 폴백 0건입니다.
+         ⛔ 이 문장은 «AI 가 한 말» 이 아닙니다 — 학생이 무슨 말을 했든 똑같이 나오는 고정 문구라,
+            공룡 얘기를 하던 학생에게 「오늘 뭐 먹었어?」 라고 되물어 «이해를 못 한다» 로 보입니다
+            (사장님 화면 실측: 학생이 "I'm talking about a dinosaur." 라고 항의한 다음 턴에도 폴백).
+         ✅ 그래서 «답» 인 척하지 않고 ai_unavailable 로 밝힙니다 — 화면이 그것을 보고
+            안내로 그리고, 소리로 읽지 않고, 교정 카드도 안 붙입니다.
+         🔴 «왜 실패했나» 를 Workers 로그로 찾으려 하지 마세요 — 2026-09-09 실측:
+            `wrangler.toml` 이 `head_sampling_rate = 0.05` 라 **요청의 5% 만** 로그에 남습니다.
+            사장님 세션 3건은 그래서 한 줄도 안 남았고(대시보드에서 22:41 → 22:32 로 건너뜀),
+            제가 「로그가 정본」이라고 말씀드린 뒤에야 그 설정을 확인했습니다.
+            ⛔ 그 비율을 올려서 풀지 마세요 — `wrangler.toml` 은 공동 금지구역입니다.
+         ✅ 그래서 «실패했을 때만» 사유를 D1 에 한 줄 남깁니다(아래 recordAiFailure).
+            폴백은 드물어서(9/9 하루 2건) 표가 커질 일이 없고, 사람이 대시보드를 뒤질 필요도 없습니다. */
+      let usedFallback = false;
       if (!reply) {
-        // AI 호출이 다 실패한 경우 — 친근한 폴백
         const fallbacks = [
           "Hi! 😊 I'm here. Tell me about your day in English!",
           "Hello! Let's practice some English together. What's on your mind?",
           "Hey there! 🥭 Try writing one sentence in English about what you ate today!",
         ];
         reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        usedFallback = true;
         console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
+        /* ⛔ 기록이 대화를 막으면 안 됩니다 — 통째로 try/catch 이고 await 하지 않습니다.
+           ⛔ 학생 발화·AI 답변은 «한 글자도» 싣지 않습니다(무엇이 실패했나만). */
+        try {
+          await recordAiFailure(env, {
+            feature: 'chat-friend',
+            models: models.join(','),
+            err: String(lastErr?.message || lastErr || 'unknown'),
+            rf: friendRF ? 1 : 0,
+            plain: friendPlain,
+            empty: friendEmpty,
+            level,
+          });
+        } catch (e: any) {
+          console.error('[chat-friend] recordAiFailure failed:', e?.message || e);
+        }
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
@@ -782,18 +969,17 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
       if (badName && usedModel) {
         console.warn('[chat-friend] wrong self-name:', badName, 'expected=' + friendName);
         try {
-          const again: any = await env.AI.run(usedModel, {
-            messages: messages.concat([
-              { role: 'assistant', content: reply },
-              { role: 'user', content: `(You said your name is ${badName}, but your name is ${friendName}. Say it again correctly.)` },
-            ]),
-            max_tokens: 160, temperature: 0.5,
-          });
-          const rn = aiFriendStripHanzi(String((again && (again.response || again.result)) || '').trim());
+          const again: any = await runFriend(usedModel, messages.concat([
+            { role: 'assistant', content: reply },
+            { role: 'user', content: `(You said your name is ${badName}, but your name is ${friendName}. Say it again correctly.)` },
+          ]), 160, 0.5);
+          const rn = aiFriendStripHanzi(takeFriendReply(again));
           // 다시 뽑은 것이 «이름도 맞고 눈높이도 나빠지지 않을 때만» 받는다
           if (rn && !wrongSelfName(rn, friendName)
-              && aiFriendMeasureReply(rn, level).score <= aiFriendMeasureReply(reply, level).score) {
+              && aiFriendMeasureReply(rn, level, { answering: studentAsked }).score
+                 <= aiFriendMeasureReply(reply, level, { answering: studentAsked }).score) {
             reply = rn;
+            commitFix();
           }
         } catch (e: any) {
           console.error('[chat-friend] name retry failed:', e?.message || e);
@@ -804,30 +990,28 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
          만든 답을 실제로 세어 보고 ① 넘치면 한 번 더 뽑고 ② 그래도 넘치면 문장 «수» 만 줄입니다.
          ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
          ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
-      const lvBefore = aiFriendMeasureReply(reply, level);
+      const lvBefore = aiFriendMeasureReply(reply, level, { answering: studentAsked });
       if (!lvBefore.ok) {
         if (usedModel) {
           try {
-            const shorter: any = await env.AI.run(usedModel, {
-              messages: messages.concat([
-                { role: 'assistant', content: reply },
-                { role: 'user', content: aiFriendShortenHint(reply, level) },
-              ]),
-              max_tokens: 160, temperature: 0.4,
-            });
-            const st2 = aiFriendStripHanzi(String((shorter && (shorter.response || shorter.result)) || '').trim());
-            const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
+            const shorter: any = await runFriend(usedModel, messages.concat([
+              { role: 'assistant', content: reply },
+              { role: 'user', content: aiFriendShortenHint(reply, level) },
+            ]), 160, 0.4);
+            const st2 = aiFriendStripHanzi(takeFriendReply(shorter));
+            const m2 = st2 ? aiFriendMeasureReply(st2, level, { answering: studentAsked }) : null;
             // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
             //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
             if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
               reply = st2;
+              commitFix();
             }
           } catch (e: any) {
             console.error('[chat-friend] level shorten retry failed:', e?.message || e);
           }
         }
-        reply = aiFriendTrimSentences(reply, level) || reply;
-        const lvAfter = aiFriendMeasureReply(reply, level);
+        reply = aiFriendTrimSentences(reply, level, { answering: studentAsked }) || reply;
+        const lvAfter = aiFriendMeasureReply(reply, level, { answering: studentAsked });
         if (!lvAfter.ok) {
           /* 한 문장이 여전히 길거나 꼴이 깨져 있을 수 있다 — 낱말을 자르거나 문장을 «고쳐 쓰지» 는
              않기 때문이다(아이가 그대로 따라 읽는 문장이라 코드가 지어내면 안 된다).
@@ -839,13 +1023,32 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
         }
       }
 
+      /* 💛 (2026-09-09) 학생이 부정적인 말을 한 턴이면 답장 앞머리의 칭찬 상투구를 떼어 낸다.
+         [왜 여기인가] 길이·문법 손질이 «다 끝난 뒤» 이고 DB 에 저장하기 «전» 이라,
+         학생이 본 문장과 ai_friend_chats 에 남는 문장이 같아진다(다음 턴의 history 도 그것을 본다).
+         ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
+         ⚠️ 판정에 넣는 것은 «학생 발화»(msg)다. reply 를 넣으면 정반대가 된다.
+         ⚠️ 이 화면과 웜업은 «같은 판정» 을 써야 한다 — 한쪽만 고치면 화면마다 답이 달라진다
+            (정본 src/warmup-empathy.ts 하나. 하니스가 두 화면의 배선을 함께 본다). */
+      reply = applyEmpathyGuard(msg, reply) || reply;
+
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
       //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
-        await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+        /* ⛔ 폴백은 «AI 가 한 말» 로 남기지 않습니다.
+           [잰 것 — D1 ai_friend_chats, 사장님 세션] 22:32:52 정상답 → 22:33:17 폴백 → 22:33:37 폴백.
+             즉 폴백이 history 에 들어간 «뒤» 에 모델이 실제로 답한 턴은 한 번도 없습니다.
+           [판단 — 관측이 아니라 예방] 다음 «정상» 턴이 오면 모델이 그 고정 문구를 자기 직전
+             발언으로 보게 됩니다. 그 문구는 주제와 무관하므로(예: 음식) 대화를 끌 수 있어 미리 막습니다.
+           ✅ 학생 발화는 그대로 남깁니다 — 학생이 «말한 것» 은 사실이고, 답이 없는 턴으로 남는 것이
+              「없던 일」로 지우는 것보다 정직합니다.
+           ⚠️ 대신 폴백의 흔적이 D1 에 안 남습니다 — 이 뒤로 빈도의 정본은 아래 console.error 뿐입니다. */
+        if (!usedFallback) {
+          await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+        }
       } catch (e: any) {
         console.error('[chat-friend] DB insert failed:', e?.message || e);
         // DB 실패해도 reply는 반환
@@ -908,7 +1111,119 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
         console.error('[chat-friend] gamification failed:', e?.message || e);
       }
 
-      return json({ ok: true, reply, level, persona, model: usedModel || 'fallback', gam });
+      /* ✏️ 교정 카드 (2026-09-09) — 웜업과 «같은 판정 한 벌» 을 쓴다(warmup-correction.ts).
+         모델이 준 fix 를 믿지 않고 ① 검증하고 ② 보여 줄지까지 정한다.
+         ⛔ 매 턴 고치지 않는다 — 2026-09-03 이 화면에서 「주제를 벗어나지 마」를 세 겹으로 넣었다가
+            「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다. 교정도 같다.
+         ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
+            실패하면 fix 없이(= 고치기 전과 똑같이) 내려간다. */
+      let showFix: any = null;
+      let offerRepeat = false;
+      try {
+        const verified = verifyWarmupFix(rawFix, msg);
+        /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
+           «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
+           낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
+           ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
+        if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
+        if (verified) {
+          /* 이번 답장까지 세어 1부터 시작한다.
+             🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
+                가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
+                지금은 «한 번도 안 보여줬으면 간격이 성립하지 않는다» 로 고쳤습니다(decideWarmupFixShow).
+             ⚠️ 그래도 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정됩니다. 뜻이 달라지는 교정(major)은
+                그래도 뜨지만 «작은 실수는 두 번째부터» 쪽은 간격에 걸려 멎습니다 — 조용해서 아무도
+                모르므로 로그를 남깁니다.
+                ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
+          if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
+          const turnNo = Number((turns && (turns as any).n) || 0) + 1;
+          const mkey = 'aifriendfix:' + uid;
+          let memoIn: any = null;
+          try {
+            const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
+            if (rawMemo != null) memoIn = JSON.parse(rawMemo);
+          } catch (e: any) {
+            /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «연달아 교정 안 하기»·
+               «minor 는 두 번째부터» 가 통째로 풀려 «매 턴 교정» 이 됩니다 — 화면은 멀쩡해 보입니다.
+               쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
+            console.warn('[chat-friend] fix memo read failed:', e?.message || e);
+          }
+          const decided = decideWarmupFixShow(verified, memoIn, turnNo);
+          showFix = decided.show;
+          offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
+          try {
+            if ((env as any).SESSION_STATE) {
+              await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
+            }
+          } catch (e: any) {
+            /* 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로 풀려
+               매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
+            console.warn('[chat-friend] fix memo save failed:', e?.message || e);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[chat-friend] fix gate skipped:', e?.message || e);
+      }
+      if (friendPlain || friendEmpty) {
+        /* 조용해지지 않게 남긴다 — 「교정이 한 번도 안 뜬다」의 1순위 원인이 이것이었다. */
+        console.warn('[chat-friend] model output: plain=' + friendPlain + ' empty=' + friendEmpty + ' rf=' + friendRF);
+      }
+
+      /* ⏱ 지연 기록 (2026-09-11 · A-3) — 34% 가 «1턴만 하고 나가는» 이유가 «느려서» 인지
+         가리려면 먼저 재야 합니다. ⛔ 학생 발화·AI 답변은 한 글자도 싣지 않습니다(길이만).
+         ⛔ 기록이 대화를 막으면 안 됩니다 — 통째로 try/catch 입니다. */
+      try {
+        await recordAiLatency(env, {
+          feature: 'chat-friend',
+          model: usedModel || 'fallback',
+          ms: Date.now() - latT0,
+          model_ms: latModelMs,
+          tries: latTries,
+          chars: (reply || '').length,
+          level,
+          rf: friendRF ? 1 : 0,
+          ok: usedFallback ? 0 : 1,
+        });
+      } catch (e: any) {
+        console.error('[chat-friend] recordAiLatency failed:', e?.message || e);
+      }
+
+      return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
+                    // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
+                    //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
+                    ...(usedFallback ? { ai_unavailable: true } : {}),
+                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+                    // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
+                    ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}) };
+      };
+
+      /* 📡 옛 경로 — stream 을 안 보내면 지금까지와 똑같습니다. */
+      if (!wantStream) return json(await runTurn());
+
+      /* 📡 새 경로 — SSE. ⚠️ Response 를 «먼저» 돌려줘야 브라우저가 받기 시작합니다.
+         start() 는 async 여도 Response 는 즉시 나갑니다. */
+      const enc = new TextEncoder();
+      return new Response(new ReadableStream({
+        async start(c) {
+          sseSend = (o: any) => { try { c.enqueue(enc.encode('data: ' + JSON.stringify(o) + '\n\n')); } catch {} };
+          try {
+            const out = await runTurn();
+            sseSend({ done: 1, ...out });
+          } catch (e: any) {
+            /* ⛔ 조용히 닫으면 화면이 «영영 기다립니다» — 무슨 일인지 말하고 닫습니다.
+               화면은 이 이벤트를 받으면 옛 경로로 다시 물어봅니다. */
+            console.error('[chat-friend] stream turn failed:', e?.message || e);
+            try { sseSend({ done: 1, ok: false, error: 'stream_failed' }); } catch {}
+          } finally {
+            try { c.close(); } catch {}
+          }
+        },
+      }), { headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'private, no-store',   // ⛔ 자격증명 섞인 응답은 캐시 금지
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',              // 중간 버퍼가 모아 두면 스트리밍이 헛돕니다
+      } });
     }
 
     if (method === 'GET' && path === '/api/ai/chat-history') {
@@ -938,6 +1253,12 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
+      /* ✏️ 교정 메모도 함께 지운다 (2026-09-09 함정 대조).
+         턴 수는 위 DELETE 로 0 으로 돌아가는데 KV 의 lastShownTurn 은 6시간 남아 있어서,
+         「대화 초기화」를 누른 학생은 최대 6시간 동안 교정이 조용히 억제된다.
+         ⚠️ 실패해도 초기화 자체는 성공으로 답한다 — 메모는 6시간 뒤 저절로 사라진다. */
+      try { if ((env as any).SESSION_STATE) await (env as any).SESSION_STATE.delete('aifriendfix:' + uid); }
+      catch (e: any) { console.warn('[chat-friend] fix memo clear failed:', e?.message || e); }
       return json({ ok: true });
     }
     // ═══════════════════════════════════════════════════════════════

@@ -19,6 +19,7 @@ import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnroll
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
+import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 /* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
@@ -98,6 +99,9 @@ const PRICES: Record<string, { name: string; amount: number }> = {
   'manager':        { name: '학습 매니저',      amount: 50000 },
   'group_class':    { name: '원어민 그룹 클래스', amount: 60000 },
   'pron_ai':        { name: 'AI 발음 코치',     amount: 15000 },
+  // 🤖 (2026-09-09) 화상수업 없이 AI 학습도구만 쓰는 1개월 이용권. pron_ai 와 같은 방식
+  // (activateEnrollment 가 enrollments 행만 만들고 class_schedules 는 안 건드림 — enroll_json 이 없으므로).
+  'ai_content':     { name: 'AI 콘텐츠 전용 (1개월)', amount: 10000 },
 };
 
 async function ensurePayTable(env: any): Promise<void> {
@@ -368,7 +372,9 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
 
 /** 📨 자동청구 사전고지 — next_billing_at 이 3일 안인 활성 구독의 학부모 폰에 금액·날짜·해지 안내.
  *  멱등: enroll_notify_log (uid, kind='prebill', day=결제예정일) — 같은 결제일에 두 번 보내지 않는다.
- *  전화번호 조회는 만료문자(runEnrollExpirySweep)와 같은 곳(students_erp 의 parent_phone→phone). */
+ *  ⚠️ 전화번호 조회가 만료문자(runEnrollExpirySweep)와 «같은 곳» 이던 것은 2026-09-15 까지다 —
+ *     그쪽은 판정 정본 `phonesForStudent`(override 먼저)로 옮겼고 **이 경로는 아직 `students_erp` 직접 조회**다.
+ *     그래서 우리 화면에서 받은 번호(`student_erp_override`)를 이 문자는 못 본다(사람이 정할 일 — 돈이 걸린 경로). */
 async function sendPrebillNotices(env: any): Promise<number> {
   const now = Date.now();
   const rs: any = await env.DB.prepare(
@@ -1013,6 +1019,14 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
+  /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
+     학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —
+     ai-billing.ts 쪽에서 그렇게 정했다(스키마를 안 늘려서 이 파일의 SELECT 세 곳을
+     하나도 안 건드리기 위해서). 여기서 갈라 보내고 그 아래 개인용 로직은 그대로 둔다. */
+  if (String(orderId || '').startsWith('MGB-')) {
+    await activateB2bAiInvoicePayment(env, orderId, amount, when).catch((e: any) => console.warn('[pay] b2b activate:', e?.message));
+    return;
+  }
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
     // 멱등: 같은 주문으로 이미 활성화됐으면 두 번 만들지 않음 (confirm과 webhook이 경합해도 안전)

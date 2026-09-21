@@ -59,7 +59,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 html,body{margin:0;padding:0}
 body{
   font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Malgun Gothic",Arial,sans-serif;
-  font-size:16px;line-height:1.5;color:#16202c;background:#f4f6f8;
+  font-size:17px;line-height:1.5;color:#16202c;background:#f4f6f8;
   -webkit-text-size-adjust:100%;
 }
 html.dark body{color:#e6edf3;background:#0f1620}
@@ -70,10 +70,10 @@ html.dark body{color:#e6edf3;background:#0f1620}
       (2026-08-17 사장님 화면 1920px 에서 확인). 휴대폰에서는 둘 다 꽉 차서 티가 안 났다.
       띠 배경은 그대로 화면 전체를 쓰고, **안쪽 내용만** 본문과 같은 폭·같은 축으로 맞춘다.
       ⚠️ .wrap 의 max-width 를 바꾸면 여기도 같이 바꿔야 한다. 두 값은 늘 같아야 한다. */
-.top>h1,.top>.tbar{max-width:820px;margin-left:auto;margin-right:auto}
-.offbar,.outbox{padding-left:max(14px,calc((100% - 820px) / 2))}
+.top>h1,.top>.tbar{max-width:1100px;margin-left:auto;margin-right:auto}
+.offbar,.outbox{padding-left:max(14px,calc((100% - 1100px) / 2))}
 html.dark .top{background:#16202c;border-bottom-color:#26313f}
-.top h1{margin:0 auto 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top h1{margin:0 auto 8px;font-size:23px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tbar{display:flex;gap:6px;flex-wrap:wrap}
 .tbtn{
   font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
@@ -105,9 +105,21 @@ html.dark .offbar{background:#3a2c10;color:#f0cf8a;border-bottom-color:#5a4620}
 html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
 
 /* ── 본문 ───────────────────────────────────────────────── */
-.wrap{max-width:820px;margin:0 auto;padding:12px 12px 60px}
-h2{margin:20px 0 8px;font-size:15px;font-weight:700;color:#4a5765;display:flex;align-items:center;gap:8px}
-html.dark h2{color:#9fb0c2}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 12px 60px}
+/* 🔠 구역 제목 (2026-09-09 사장님 지시) — 옛 값은 15px·700·#4a5765 였다.
+   그때 본문이 16px 이었으니 제목이 본문보다 «작았고» 회청색이라 제목으로 안 읽혔다.
+   브라우저 실측 대비 6.82:1 → 16.38:1 (라이트) · 8.19:1 → 14.37:1 (다크).
+   지금은 21px·800·먹색 + 왼쪽 초록 막대로 구역을 나눈다.
+   ⚠️ ::before 는 이 flex 상자의 «첫 칸» 이 된다 — gap:8px 이 그대로 붙는다.
+   ⚠️ display:flex 라서 이 파일 위쪽의 [hidden]{display:none!important} 한 줄이 «있어야만»
+        감춘 제목(#urgentHead·#ackHead)이 실제로 숨는다. 그 줄을 지우면 «확인할 것» 이 늘 보인다. */
+h2{margin:30px 0 8px;font-size:21px;font-weight:800;color:#101828;display:flex;align-items:center;gap:8px;
+   padding-bottom:6px;border-bottom:1px solid #e3e9ee}
+h2::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;border-radius:2px;background:#0b6e63}
+/* ⚠️ 다크에서 막대를 #0b6e63 그대로 두면 배경(#0f1620) 대비 2.96:1 이라 안 보인다 —
+      막대의 존재 이유가 «구역을 나누는 것» 이므로 밝은 쪽으로 바꾼다(10.2:1). */
+html.dark h2{color:#dbe6f2;border-bottom-color:#2f3d4d}
+html.dark h2::before{background:#6fd3ad}
 .empty{color:#7b8794;font-size:14px;padding:14px 2px}
 html.dark .empty{color:#8b98a8}
 
@@ -126,8 +138,8 @@ html.dark .chip{background:#233043;color:#a8bcd2}
 html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
 .chip.late{background:#f7dfdc;color:#8e2b20}
 html.dark .chip.late{background:#3a1a16;color:#f0907c}
-.ititle{font-weight:650;font-size:15.5px;flex:1;min-width:140px;word-break:break-word}
-.iamt{font-weight:700;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ititle{font-weight:650;font-size:17px;flex:1;min-width:140px;word-break:break-word}
+.iamt{font-weight:700;font-size:17.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
 html.dark .imeta{color:#8b98a8}
 .isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
@@ -139,11 +151,18 @@ html.dark .flag{background:#3a2c10;color:#f0cf8a}
 html.dark .flag.info{background:#233043;color:#a8bcd2}
 .steps{font-size:12.5px;color:#7b8794;margin-top:4px}
 html.dark .steps{color:#8b98a8}
+/* 💳 «대신 결재» 접힘 안내 — 승인 버튼을 안 그린 «유일한 설명» 이라 다른 안내보다 진하다.
+   흐린 회색(#7b8794)은 흰 카드 위 대비 3.66 으로 본문 기준(4.5)에 못 미쳤다.
+   ⛔ .steps 전체를 진하게 바꾸지 말 것 — 나머지 안내의 무게까지 함께 올라간다. */
+.proxynote{color:#667085}
+html.dark .proxynote{color:#aab6c4}
 
 /* 📂 결재 문서함 (2026-09-04) — 지난 결재 찾기.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — style 안에 있으면 한자 폰트 검사가 잡는다. */
+/* ⚠️ h2 가 display:flex 라 float 은 «무시된다»(표준). 오른쪽 정렬은 margin-left:auto 로.
+      폭이 1100px 로 넓어지면서 버튼이 제목 옆에 붙어 있는 것이 눈에 띄었다. */
 h2 .findtoggle{
-  float:right; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
+  margin-left:auto; font-size:13px; font-weight:600; padding:5px 11px; border-radius:7px;
   border:1px solid #bcc6d2; background:#fff; color:#2f3d4d; cursor:pointer
 }
 html.dark h2 .findtoggle{background:#16202c;border-color:#33414f;color:#c3cfdb}
@@ -153,6 +172,53 @@ html.dark h2 .findtoggle[aria-expanded="true"]{background:#102b22;color:#6fd3ad}
   background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:11px 12px;margin-bottom:9px
 }
 html.dark .findpanel{background:#16202c;border-color:#26313f}
+/* 결재 보관함(시안 A, 2026-09-08) — 왼쪽 함 트리 + 오른쪽 표.
+   그룹웨어(카카오워크·다우오피스)처럼 함이 곧 «보는 방식» 이다. 폰(720px 아래)에서는
+   함을 가로로 굴리는 칩 줄로 접는다 — 왼쪽 기둥으로 두면 표가 3분의 2 폭이 된다. */
+.findlay{display:grid;grid-template-columns:184px minmax(0,1fr);gap:12px;align-items:start}
+.findmain{min-width:0}
+.findbox{
+  border:1px solid #e3e8ee;border-radius:9px;background:#f8fafc;padding:8px 6px;
+  font-size:13.5px;position:sticky;top:8px;max-height:calc(100vh - 24px);overflow:auto
+}
+html.dark .findbox{background:#101a24;border-color:#26313f}
+.fbgrp{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7785;margin:10px 8px 3px}
+.fbgrp:first-child{margin-top:2px}
+html.dark .fbgrp{color:#8b98a8}
+.fbitem{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;
+  font:inherit;text-align:left;color:#101828;background:transparent;border:1px solid transparent;
+  border-radius:7px;padding:6px 8px;cursor:pointer;line-height:1.35
+}
+html.dark .fbitem{color:#e8eef5}
+.fbitem:hover{background:#fff}
+html.dark .fbitem:hover{background:#16202c}
+.fbitem.on{background:#fff;border-color:#bcc6d2;font-weight:600}
+html.dark .fbitem.on{background:#16202c;border-color:#33414f}
+.fbitem .fbn{font-size:12px;color:#6b7785;font-variant-numeric:tabular-nums;flex:0 0 auto}
+html.dark .fbitem .fbn{color:#8b98a8}
+.fbitem.on .fbn{color:#0f6b4f}
+html.dark .fbitem.on .fbn{color:#6fd3ad}
+.fbclear{display:block;width:100%;margin-top:8px;font:inherit;font-size:12.5px;color:#4a5765;background:transparent;border:1px dashed #bcc6d2;border-radius:7px;padding:5px 8px;cursor:pointer}
+html.dark .fbclear{color:#9fb0c2;border-color:#33414f}
+.fbnote{font-size:12px;color:#7b8794;margin:6px 8px 2px}
+.fbwhere{font-size:12.5px;color:#4a5765;margin:0 0 8px}
+html.dark .fbwhere{color:#9fb0c2}
+.fbwhere b{color:#101828}
+html.dark .fbwhere b{color:#e8eef5}
+@media (max-width:720px){
+  .findlay{grid-template-columns:minmax(0,1fr)}
+  .findbox{position:static;max-height:none;display:flex;gap:4px;overflow-x:auto;padding:6px;
+           -webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .fbgrp{margin:0;padding:6px 4px 0 6px;flex:0 0 auto;align-self:center;font-size:10.5px}
+  .fbgrp:first-child{margin:0}
+  .fbitem{width:auto;flex:0 0 auto;white-space:nowrap;padding:5px 9px;border-color:#dde3ea;background:#fff}
+  html.dark .fbitem{border-color:#26313f;background:#16202c}
+  .fbitem.on{border-color:#0f6b4f;color:#0f6b4f}
+  html.dark .fbitem.on{color:#6fd3ad;border-color:#0f6b4f}
+  .fbclear{width:auto;flex:0 0 auto;margin:0;white-space:nowrap;align-self:center}
+  .fbnote{display:none}
+}
 /* 📊 지출 정리. ⚠️ 여기 주석에는 CJK 홑낫표를 쓰지 않는다 —
    한자 폰트 검사가 style 안의 그 글자를 세어 983KB 폰트를 받는 화면으로 본다. */
 .repcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px;margin-bottom:10px}
@@ -163,8 +229,10 @@ html.dark .repcard .rl{color:#8b98a8}
 .repcard .rv{font-size:17px;font-weight:700;color:#101828;line-height:1.25;word-break:break-word}
 html.dark .repcard .rv{color:#e8eef5}
 .repcard .rn{font-size:12px;color:#7b8794;margin-top:2px}
-.repsec{font-size:13px;font-weight:700;color:#4a5765;margin:11px 0 5px}
-html.dark .repsec{color:#9fb0c2}
+/* 소제목도 «제목» 이다 — 2026-09-09 에 h2 를 고치면서 여기가 옛 값(13px·700·#4a5765)으로
+   남아 있었다. h2(21px)보다는 작게 두되 색·무게는 같은 기준으로 맞춘다. */
+.repsec{font-size:15px;font-weight:800;color:#101828;margin:14px 0 5px}
+html.dark .repsec{color:#dbe6f2}
 /* 표는 상자 안에서 굴린다 — 문서가 옆으로 밀리면 폰에서 화면 전체가 흔들린다 */
 .reptbl{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
 .reptbl td{padding:7px 4px;border-top:1px solid #eef1f5;vertical-align:top}
@@ -192,12 +260,24 @@ html.dark .tile{background:#16202c;border-color:#26313f}
 /* ⚠️ 색을 옅게 두지 말 것 — .tn 이 «전체 / 내가 올린 것»(어느 범위인지)과
    「금액 없음 N건」을 적는 줄이다. 안 읽히면 그 타일의 숫자가 무슨 범위인지 알 수 없다.
    2026-09-04 실측: 옛 색은 흰 카드 3.66 · hot 카드 3.46 · 다크 4.49 로 전부 미달이었다. */
-.tile .tl{font-size:12px;color:#5a6673;margin-bottom:3px;display:block}
+.tile .tl{font-size:12.5px;color:#5a6673;margin-bottom:3px;display:block}
 html.dark .tile .tl{color:#9db0c4}
-.tile .tv{font-size:19px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
+.tile .tv{font-size:23px;font-weight:750;color:#101828;line-height:1.2;display:block;word-break:break-word}
 html.dark .tile .tv{color:#e8eef5}
-.tile .tn{font-size:11.5px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+.tile .tn{font-size:12px;color:#5a6673;margin-top:2px;display:block;line-height:1.45}
+/* 📏 아주 좁은 폰에서만 타일 숫자를 한 단계 내린다 (2026-09-09).
+   23px 이면 8자리 원화가 «숫자 한가운데» 에서 끊긴다 — .tv 에 word-break:break-word 가
+   있어 «₩12,345,67 / 8» 이 된다. 금액이 끊기면 자릿수를 잘못 세므로 «크게» 보다 «안 끊기게» 가 먼저다.
+   실측(₩12,345,678 · 줄 수): 320~350px 에서 23px=2줄 · 20px=1줄, 360px 이상은 23px 도 1줄.
+   ⚠️ 잘림 검사(scrollWidth>clientWidth)로는 이 사고가 원리상 «안 보인다» — 잘리는 게 아니라
+      흐르기 때문이다. 확인은 «칸 높이 ÷ lineHeight» 로 줄 수를 세는 것뿐이다. */
+@media (max-width:359px){ .tile .tv{font-size:20px} }
 html.dark .tile .tn{color:#9db0c4}
+/* 결재 보관함 타일 — 다른 넷과 «같은 물건» 이지만 여는 문이라 색을 한 톤 다르게 */
+.tile.arch{border-color:#9fc7b6;background:#f2faf6}
+html.dark .tile.arch{background:#0f2a21;border-color:#215e49}
+.tile.arch .tl,.tile.arch .tn{color:#2f5f4c}
+html.dark .tile.arch .tl,html.dark .tile.arch .tn{color:#9fd3bc}
 .tile.hot{border-color:#e6a23c;background:#fff8e6}
 html.dark .tile.hot{background:#2a2109;border-color:#5c4708}
 /* hot 카드는 바탕이 옅은 앰버라 더 진해야 한다 */
@@ -337,8 +417,8 @@ html.dark .whynote{color:#9db0c4}
 /* ── 올리기 ─────────────────────────────────────────────── */
 .kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
 .kind{
-  font:inherit;font-size:15px;font-weight:650;padding:16px 10px;border-radius:9px;
-  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:58px;color:#16202c
+  font:inherit;font-size:16px;font-weight:650;padding:16px 10px;border-radius:9px;
+  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:62px;color:#16202c
 }
 html.dark .kind{background:#16202c;border-color:#33404f;color:#e6edf3}
 .kind:hover{background:#eef2f6}
@@ -422,6 +502,11 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <h2 id="urgentHead" hidden><span data-en="Urgent" data-ko="긴급 소통">Urgent</span></h2>
   <div id="urgent"></div>
 
+  <!-- ✅ 확인할 것 — 결재가 아니라 «봤다»는 도장. 경영진에게만, 있을 때만 뜬다.
+       ⚠️ 여기 건은 이미 확정되어 필리핀에도 통보가 끝났다. 안 눌러도 업무는 진행된다. -->
+  <h2 id="ackHead" hidden><span data-en="To confirm" data-ko="확인할 것">To confirm</span></h2>
+  <div id="ackBox"></div>
+
   <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
   <div id="awayBox"></div>
   <div id="schedBox"></div>
@@ -435,37 +520,8 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 
   <h2>
     <span data-en="My requests" data-ko="내가 올린 것">My requests</span>
-    <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()"
-            data-en="Find past requests" data-ko="지난 결재 찾기">Find past requests</button>
   </h2>
   <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
-
-  <!-- 📂 결재 문서함 — 접혀 있다가 누르면 열린다.
-       ⚠️ 첫 화면은 API 한 번으로 끝낸다는 이 화면의 설계를 깨지 않으려고, 여기서는
-          사람이 «찾기» 를 눌렀을 때만 서버를 부른다. -->
-  <div id="findPanel" class="findpanel" hidden>
-    <div class="findrow">
-      <input type="search" id="fq" class="findinput" autocomplete="off"
-             data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
-      <button type="button" class="findgo" onclick="runFind(0)"
-              data-en="Search" data-ko="찾기">Search</button>
-    </div>
-    <div class="findrow">
-      <select id="fscope" class="findsel" onchange="runFind(0)"></select>
-      <select id="ftype" class="findsel" onchange="runFind(0)"></select>
-      <select id="fstat" class="findsel" onchange="runFind(0)"></select>
-      <select id="fcat" class="findsel" onchange="runFind(0)"></select>
-    </div>
-    <div class="findrow">
-      <label class="findlab" data-en="From" data-ko="시작일">From</label>
-      <input type="date" id="ffrom" class="finddate" onchange="runFind(0)">
-      <label class="findlab" data-en="To" data-ko="종료일">To</label>
-      <input type="date" id="fto" class="finddate" onchange="runFind(0)">
-      <button type="button" class="findcsv" onclick="findCsv()"
-              data-en="Excel" data-ko="엑셀 내려받기">Excel</button>
-    </div>
-    <div id="findResult"></div>
-  </div>
 
   <h2>
     <span data-en="Spending" data-ko="지출 정리">Spending</span>
@@ -484,6 +540,65 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
       <input type="date" id="rto" class="finddate" onchange="runRep()">
     </div>
     <div id="repResult"></div>
+  </div>
+
+  <h2>
+    <!-- 📂 (2026-09-08 사장님 지시) 「지출 정리」를 문서함 **위**로 올렸다.
+         왜 — 문서함이 펼쳐진 뒤로 높이가 4,336px 이라(360×640 실측) 그 아래에 있던
+              지출 정리가 화면 7.8배 밑으로 밀려 «못 찾는 것» 이 됐다.
+         ⛔ 순서를 되돌리지 말 것 — 되돌리면 그 상태가 그대로 재현된다.
+         ⚠️ 그래서 문서함에 **자기 제목**이 생겼다. 여는 버튼도 여기로 함께 왔다 —
+            버튼만 「내가 올린 것」에 두면 «누르면 저 아래 것이 접히는» 꼴이 된다. -->
+    <span data-en="Archive" data-ko="결재 문서함">Archive</span>
+    <!-- 그래서 라벨이 「접기」로 시작한다. 라벨은 paintFindBtn() 이 상태에 맞춰 다시 쓰는데,
+         ⚠️ textContent 만 쓰면 언어를 바꿀 때 applyLang 이 옛 글자로 되돌린다 —
+            data-ko/data-en 도 **함께** 갱신한다(CLAUDE.md 「JS 로 그린 라벨」). -->
+    <button type="button" id="findBtn" class="findtoggle" onclick="toggleFind()" aria-expanded="true"
+            data-en="Hide" data-ko="접기">Hide</button>
+  </h2>
+
+  <!-- 📂 결재 문서함 — **처음부터 펼쳐져 있다** (2026-09-07 사장님 지시).
+       왜 — 접혀 있고 여는 버튼이 제목 옆 작은 글씨라 「남들이 올린 것·승인 완료를
+            어디서도 못 찾겠다」는 제보가 나왔다. 그 범위 고르기가 여기에만 있다.
+       ⚠️ 그래도 **첫 화면 그리기 비용은 그대로다** — 여기서 서버를 부르지 않는다.
+          홈(/api/approval/home)을 «시도한 뒤»에 findAutoOpen() 이 딱 한 번 부른다
+          (HOME_TRIED — 캐시로 먼저 그리는 경로가 있어서 그 플래그가 꼭 필요하다).
+          ⛔ 이 자리에서 runFind 를 부르지 말 것(첫 화면에 두 요청이 동시에 나간다).
+       ⛔ hidden 을 되살리지 말 것 — 되살리면 위 제보가 그대로 재현된다.
+          접기·펴기는 사람이 「접기」 버튼으로 한다. -->
+  <div id="findPanel" class="findpanel">
+    <div class="findlay">
+      <!-- 🗂 결재 보관함 함 트리(시안 A, 2026-09-08) — 서버 facets 로 그린다. 함을 누르면 오른쪽 조건이 바뀐다. -->
+      <nav id="findBox" class="findbox" aria-label="결재 보관함"></nav>
+      <div class="findmain">
+    <div id="findWhere" class="fbwhere"></div>
+    <div class="findrow">
+      <input type="search" id="fq" class="findinput" autocomplete="off"
+             data-en-ph="Search title, content, or person" data-ko-ph="제목·내용·올린 사람으로 찾기">
+      <button type="button" class="findgo" onclick="runFind(0)"
+              data-en="Search" data-ko="찾기">Search</button>
+    </div>
+    <div class="findrow">
+      <!-- ⚠️ 범위만 fscopePick — 고른 «그 순간» 에만 기억한다(위 주석 참고). -->
+      <select id="fscope" class="findsel" onchange="fscopePick()"></select>
+      <select id="ftype" class="findsel" onchange="runFind(0)"></select>
+      <select id="fstat" class="findsel" onchange="runFind(0)"></select>
+      <select id="fcat" class="findsel" onchange="runFind(0)"></select>
+    </div>
+    <div class="findrow">
+      <label class="findlab" data-en="From" data-ko="시작일">From</label>
+      <input type="date" id="ffrom" class="finddate" onchange="runFind(0)">
+      <label class="findlab" data-en="To" data-ko="종료일">To</label>
+      <input type="date" id="fto" class="finddate" onchange="runFind(0)">
+      <button type="button" class="findcsv" onclick="findCsv()"
+              data-en="Excel" data-ko="엑셀 내려받기">Excel</button>
+    </div>
+    <!-- ⚠️ 빈 칸으로 두지 말 것 — 펼쳐진 채로 아무 글자도 없으면 «고장» 으로 읽힌다.
+         홈이 오면 곧바로 「찾는 중...」→ 결과로 바뀌고, 홈이 실패해도 findAutoOpen 이
+         한 번 불러 «연결이 좋지 않습니다» 로 바뀐다(이 글자가 남아 있는 일은 없다). -->
+    <div id="findResult"><div class="findnote" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+      </div><!-- /.findmain -->
+    </div><!-- /.findlay -->
   </div>
 
 </div>
@@ -568,6 +683,7 @@ var CACHE_KEY = 'mangoi_work_home_v1';
 var D = null;                       // 마지막으로 받은 /api/approval/home
 var PICK = null;                    // 고른 분류
 var CUR = 'PHP';
+var PROXY_OPEN = {};                // 💳 「대신 결재」를 펼쳐 둔 건 id — 60초마다 다시 그려도 안 접히게
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
@@ -588,6 +704,7 @@ function load(){
     })
     .then(function(j){
       if (!j || j.ok === false) throw new Error((j && j.error) || 'load_failed');
+      HOME_TRIED = true;              // 이제부터 문서함 자동 조회를 내보내도 된다
       D = j; offline(false);
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
       repaint();
@@ -596,6 +713,7 @@ function load(){
     })
     .catch(function(err){
       if (String(err && err.message) === 'auth') throw err;
+      HOME_TRIED = true;              // 실패도 «시도» 다 — 문서함이 영영 안 채워지면 안 된다
       offline(true);
       if (!D) {
         // 마지막으로 성공했던 값이라도 그린다 — 흰 화면보다 낫다
@@ -656,21 +774,36 @@ function repaint(){
   paintAway();
   paintSchedule();
   paintBulk();
+  paintAck();
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
   paintForm();          // 언어를 바꿔도 폼 라벨이 따라오게. 값은 paintForm 이 챙겨서 되돌린다.
   // 📂 문서함이 열려 있으면 그것도 다시 그린다 — JS 로 그린 글자는 data-ko/data-en 루프가
   //    못 건드리므로, 여기서 다시 그리지 않으면 언어를 바꿔도 영어/한국어가 섞인 채 남는다.
   var fp = document.getElementById('findPanel');
-  if (fp && !fp.hidden) { paintFindChrome(); paintFind(); }
+  if (fp && !fp.hidden) { paintFindChrome(); paintFindBox(); paintFind(); }
+  paintFindBtn();
+  findAutoOpen();       // 펼쳐진 채로 시작하므로 홈을 다 그린 뒤 한 번 찾아 둔다
   var rp = document.getElementById('repPanel');
   if (rp && !rp.hidden) { paintRepChrome(); paintRep(); }
   paintOutbox();
   paintPushBtn();
   // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
-  if (!pushOn && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+  // ⚠️ pushSilentTried — repaint() 는 자주 도는데, 실패하면 pushOn 이 다시 false 로
+  //    되돌아오므로 가드가 없으면 그릴 때마다 발급요청·SW등록·POST 가 다시 나간다.
+  //    한 번 실패했으면 이 페이지가 살아 있는 동안은 다시 안 묻는다.
+  //    ⛔ 버튼(askPush)은 이 가드에 걸리지 않는다 — 사람이 누르면 언제든 다시 시도한다.
+  if (!pushOn && !pushSilentTried && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+    pushSilentTried = true;
     pushOn = true;                       // 중복 호출 방지 — 실패하면 아래에서 되돌린다
-    subscribePush().then(function(ok){ if (!ok) pushOn = false; paintPushBtn(); });
+    subscribePush().then(function(r){
+      if (!r.ok) pushOn = false;
+      // ⚠️ «끊김» 은 저절로 낫는 실패다 — 가드를 풀어 회선이 돌아오면 다음 회차에 붙게 한다.
+      //    (이 화면은 60초마다 load()→repaint() 한다. 태풍·정전 때 열면 첫 회차가 net 으로
+      //     실패하는데, 여기서 가드를 걸면 그 탭이 사는 동안 영영 안 붙는다.)
+      if (!r.ok && r.step === 'net') pushSilentTried = false;
+      paintPushBtn();
+    });
   }
   if (FOCUS_ID) {
     var el = document.getElementById('req-' + FOCUS_ID);
@@ -688,6 +821,31 @@ function paintBadge(){
 }
 
 function typeLabel(r){ return EN() ? (r.type_en || r.req_type) : (r.type_ko || r.req_type); }
+
+/* ✅ 확인할 것 — 「결재」와 섞이지 않게 별도 구역으로 그린다.
+     ⛔ 이 목록을 결재함(inbox)에 합치지 말 것. 합치면 「내가 결재할 것 5건」이 실제로는
+        «눌러야 움직이는 것»과 «이미 끝난 것»을 섞어 세게 되어, 급한 건이 그 안에 묻힌다. */
+function paintAck(){
+  var host = document.getElementById('ackBox');
+  var head = document.getElementById('ackHead');
+  if (!host || !head) return;
+  var arr = (D && D.ack_pending) || [];
+  head.hidden = !arr.length;
+  if (!arr.length) { host.innerHTML = ''; return; }
+  var s = (D && D.summary) || {};
+  var more = s.ack_capped ? '+' : '';
+  var h = '<div class="why"><b>' +
+    esc(T('These are already approved — nothing is waiting on you.',
+          '이미 결재가 끝난 건입니다 — 대표님을 기다리는 것이 아닙니다.')) + '</b> ' +
+    esc(T('Press Confirm to mark that you have seen it. Work goes ahead either way.',
+          '보셨다는 표시만 남기시면 됩니다. 안 누르셔도 업무는 그대로 진행됩니다.')) +
+    '</div>';
+  for (var i = 0; i < arr.length; i++) h += itemHtml(arr[i], false, true);
+  if (more) {
+    h += '<div class="steps">' + esc(T('Showing the 20 most recent.', '최근 20건만 보여 줍니다.')) + '</div>';
+  }
+  host.innerHTML = h;
+}
 
 function paintList(id, arr, decidable){
   var host = document.getElementById(id);
@@ -727,7 +885,11 @@ function daysWaiting(r){
 }
 
 function roleLabel(role){
-  return role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+  if (role === 'exec') return T('Exec', '경영진');
+  /* 💳 'mgr' = 돈이 나가는 건의 지정 결재권자(서버 MONEY_APPROVERS).
+     ⛔ 사람 이름을 여기 적지 말 것 — 명단이 바뀌면 화면만 조용히 옛 이름을 말한다. */
+  if (role === 'mgr') return T('Approver', '결재권자');
+  return T('Office', '본사');
 }
 
 /* 진행 추적 줄 — 올림 → (단계마다) → 완료.
@@ -802,20 +964,225 @@ function stuckHtml(r){
 
 var FIND = null;          // 마지막 검색 결과 { items, has_more, offset }
 var FIND_BUSY = false;
+var FIND_AUTO = false;    // 펼쳐진 채로 시작하므로 «자동 첫 조회» 를 한 번만 한다
+/* 🔴 home 을 한 번은 «시도했는가». 자동 조회는 그 뒤에만 나간다.
+   왜 — 부팅 경로가 둘이다. 캐시가 있으면(재방문자는 전원 그렇다) load() «전»에
+        repaint() 가 동기로 돌아, 이 플래그가 없으면 find 가 home 보다 **먼저** 나간다.
+        [잰 것 — 2026-09-07 CDP 실측] 캐시 없음: home 33.3ms → find 113.6ms /
+        캐시 있음: **find 33.6ms → home 37.2ms**(역순, 사실상 동시).
+   ⛔ 「repaint 뒤에 부르니까 home 이 먼저」로 적지 말 것 — 그 repaint 가 어디서
+      불렸는지에 달려 있다. 실제로 그렇게 적었다가 함정 대조에서 잡혔다. */
+var HOME_TRIED = false;
+/* 🔖 마지막으로 고른 범위를 그 기기에 기억한다 (2026-09-07).
+   왜 — 펼쳐 놓아도 기본이 「내가 올린 것」이면 바로 위 목록과 같은 것이 또 보인다.
+        찾던 것은 「전체」·「승인 완료」였다. 한 번 고르면 다음에도 그대로 열린다.
+   ⚠️ 저장된 값이 목록에 **없으면**(결재 권한을 잃어 「전체」가 사라진 경우) 그냥 둔다 —
+      서버도 같은 판정으로 막으므로 «고를 수 없는 값» 이 남아 있으면 안 된다. */
+var FSCOPE_KEY = 'mangoi_work_find_scope';
+var FSCOPE_APPLIED = false;
 
 window.toggleFind = function(){
   var box = document.getElementById('findPanel');
-  var btn = document.getElementById('findBtn');
   if (!box) return;
   var open = box.hidden;                     // 지금 닫혀 있으면 연다
   box.hidden = !open;
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  paintFindBtn();
   if (open) {
     paintFindChrome();
     if (!FIND) runFind(0);                   // 처음 열 때 한 번만 부른다
+    loadFacets();                            // 함 옆 건수 — 열 때마다 새로(결재가 그사이 바뀐다)
     var q = document.getElementById('fq');
     if (q) { try { q.focus(); } catch (e) {} }
   }
+};
+
+/* 여는 버튼의 이름표 — 펼쳐져 있으면 「접기」, 접혀 있으면 「지난 결재 찾기」.
+   ⚠️ data-ko/data-en 도 함께 쓴다. applyLang 이 그 속성으로 textContent 를 갈아끼우므로,
+      textContent 만 바꾸면 🌐 를 누르는 순간 옛 글자로 되돌아간다(CLAUDE.md). */
+function paintFindBtn(){
+  var box = document.getElementById('findPanel');
+  var btn = document.getElementById('findBtn');
+  if (!box || !btn) return;
+  var open = !box.hidden;
+  var ko = open ? '접기' : '지난 결재 찾기';
+  var en = open ? 'Hide' : 'Find past requests';
+  btn.setAttribute('data-ko', ko);
+  btn.setAttribute('data-en', en);
+  btn.textContent = EN() ? en : ko;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+/* 펼쳐진 채로 시작하니 첫 조회도 우리가 한 번 해 준다.
+   ⚠️ 첫 화면 «그리기» 는 그대로 /api/approval/home 한 번이다 — 이 함수는 그 응답을
+      **시도한 뒤**에만 나간다(위 HOME_TRIED). 홈이 통째로 실패했을 때도 한 번은
+      불리도록 부팅 꼬리에서도 부른다(그 경우 화면이 «연결이 좋지 않습니다» 라고 말한다). */
+function findAutoOpen(){
+  var box = document.getElementById('findPanel');
+  if (!HOME_TRIED) return;            // 캐시로 먼저 그린 것뿐이면 아직 기다린다
+  if (!box || box.hidden || FIND || FIND_AUTO || FIND_BUSY) return;
+  FIND_AUTO = true;
+  paintFindChrome();
+  paintFindBox();            // 🗂 함 트리(건수는 곧 loadFacets 가 채운다)
+  loadFacets();
+  runFind(0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🗂 결재 보관함 — 왼쪽 함 트리(시안 A, 2026-09-08)
+
+   사장님 「내가 결재한 것·남이 결재한 것을 다 볼 수 있는 곳이 어디냐」 →
+   「보관함 카드를 열면 전체·기간별·결재자별·종류별을 한 번에」.
+   함은 «보는 방식» 이다 — 누르면 오른쪽 조건(scope · 기간 · 결재자 · 종류)이 바뀌고
+   결과는 지금 있는 runFind 가 그대로 가져온다(서버는 같은 경로, 파라미터만 늘었다).
+   ⚠️ 함 옆 건수는 서버 facets 가 센다 — 화면이 세면 15건 창 안에서만 세게 된다.
+   ⚠️ 기간 함의 날짜 경계도 서버가 준다(KST). 화면이 따로 계산하면 두 벌이 되어 어긋난다.
+   ══════════════════════════════════════════════════════════════════════════ */
+var FACETS = null;        // 서버가 준 함 옆 건수
+var FIND_BY = '';         // 결재자별 함 — 서버 파라미터 decided_by
+
+function loadFacets(){
+  fetch('/api/approval/requests?view=facets', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      // «성공이라고 말했는가» 로 판정 — 404 본문에는 ok 칸이 없다.
+      FACETS = (d && d.ok === true && d.facets) ? d.facets : { unknown: true, failed: true };
+      paintFindBox();
+    })
+    .catch(function(){ FACETS = { unknown: true, failed: true }; paintFindBox(); });
+}
+
+/** 지금 오른쪽 조건이 무엇인지 — 함의 «켜짐» 표시가 이것을 본다. */
+function fbState(){
+  var g = function(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  return { scope: g('fscope') || 'mine', from: g('ffrom'), to: g('fto'), type: g('ftype'), by: FIND_BY };
+}
+
+function paintFindBox(){
+  var box = document.getElementById('findBox');
+  if (!box) return;
+  var f = FACETS;
+  var st = fbState();
+  var canAll = !!(D && D.can_approve);
+  var n = function(v){ return (v == null) ? '—' : String(v); };
+  var item = function(on, label, count, onclick){
+    return '<button type="button" class="fbitem' + (on ? ' on' : '') + '" onclick="' + onclick + '">' +
+           '<span>' + esc(label) + '</span><span class="fbn">' + esc(count) + '</span></button>';
+  };
+  var h = '';
+  if (!f) {
+    h += '<div class="fbnote">' + esc(T('Counting...', '건수를 세는 중...')) + '</div>';
+  }
+  var noPeriod = !st.from && !st.to;
+
+  // ① 전체
+  h += '<div class="fbgrp">' + esc(T('All', '전체')) + '</div>';
+  if (canAll) {
+    h += item(st.scope === 'all' && !st.by, T('Everything', '전체 결재'), f ? n(f.all) : '', 'fbPick(\'scope\',\'all\')');
+  }
+  h += item(st.scope === 'decided' && !st.by, T('Decided by me', '내가 결재한 것'), f ? n(f.decided) : '', 'fbPick(\'scope\',\'decided\')');
+  h += item(st.scope === 'mine' && !st.by, T('My requests', '내가 올린 것'), f ? n(f.mine) : '', 'fbPick(\'scope\',\'mine\')');
+
+  // ② 기간별 — 경계는 서버가 준 것(KST)
+  var per = (f && f.periods) || null;
+  var PER = [['month', T('This month', '이번 달')], ['last_month', T('Last month', '지난 달')],
+             ['quarter', T('This quarter', '이번 분기')], ['year', T('This year', '올해')]];
+  h += '<div class="fbgrp">' + esc(T('By period', '기간별')) + '</div>';
+  for (var i = 0; i < PER.length; i++) {
+    var pk = PER[i][0], pv = per ? per[pk] : null;
+    var on = !!(pv && st.from === pv.from && st.to === pv.to);
+    h += item(on, PER[i][1], pv ? n(pv.n) : '', pv ? ('fbPick(\'period\',\'' + pk + '\')') : 'void 0');
+  }
+
+  // ③ 결재자별 — 결재 권한자에게만(서버도 approver_view 로 같은 판정)
+  var aps = (f && f.approvers) || [];
+  if (canAll && (!f || aps.length)) {
+    h += '<div class="fbgrp">' + esc(T('By approver', '결재자별')) + '</div>';
+    for (var a = 0; a < aps.length; a++) {
+      h += item(st.by === aps[a].username, aps[a].name || aps[a].username, n(aps[a].n),
+                'fbPick(\'by\',\'' + esc(aps[a].username).replace(/'/g, '') + '\')');
+    }
+    if (f && !aps.length) h += '<div class="fbnote">' + esc(T('No decisions yet', '아직 결재한 사람이 없습니다')) + '</div>';
+  }
+
+  // ④ 종류별 — 서버 목록(TYPES) 순서 그대로, 0건인 종류는 감춘다(빈 폴더는 눌러도 빈 표다)
+  var tys = (f && f.types) || [];
+  var shown = 0, th = '';
+  for (var k = 0; k < tys.length; k++) {
+    if (!tys[k].n) continue;
+    shown++;
+    th += item(st.type === tys[k].key, EN() ? (tys[k].en || tys[k].key) : (tys[k].ko || tys[k].key), n(tys[k].n),
+               'fbPick(\'type\',\'' + esc(tys[k].key) + '\')');
+  }
+  if (shown) h += '<div class="fbgrp">' + esc(T('By kind', '종류별')) + '</div>' + th;
+
+  if (st.by || st.from || st.to || st.type) {
+    h += '<button type="button" class="fbclear" onclick="fbPick(\'clear\')">' + esc(T('Clear folders', '함 조건 지우기')) + '</button>';
+  }
+  if (f && f.unknown) {
+    h += '<div class="fbnote">' + esc(T('Some counts could not be read.', '일부 건수를 읽지 못했습니다.')) + '</div>';
+  }
+  box.innerHTML = h;
+  paintFindWhere();
+}
+
+/** 오른쪽 위 한 줄 — 「지금 무엇을 보고 있나」. 함이 여러 축을 겹치면 사람이 잊는다. */
+function paintFindWhere(){
+  var el = document.getElementById('findWhere');
+  if (!el) return;
+  var st = fbState();
+  var parts = [];
+  var SC = { all: T('everything', '전체 결재'), decided: T('decided by me', '내가 결재한 것'),
+             mine: T('my requests', '내가 올린 것'), open: T('in progress', '진행 중'),
+             done: T('approved', '승인 완료'), rejected: T('not approved', '안 된 것'),
+             pending: T('waiting for me', '내가 결재할 것') };
+  parts.push(SC[st.scope] || st.scope);
+  if (st.by) {
+    var ap = ((FACETS && FACETS.approvers) || []).filter(function(x){ return x.username === st.by; })[0];
+    parts.push((EN() ? 'decided by ' : '결재자 ') + (ap ? (ap.name || ap.username) : st.by));
+  }
+  if (st.from || st.to) parts.push((st.from || '…') + ' ~ ' + (st.to || '…'));
+  if (st.type) {
+    var ty = ((D && D.types) || []).filter(function(x){ return x.key === st.type; })[0];
+    parts.push(ty ? (EN() ? ty.en : ty.ko) : st.type);
+  }
+  el.innerHTML = esc(T('Showing: ', '보는 중: ')) + '<b>' + esc(parts.join(' · ')) + '</b>';
+}
+
+/** 함을 눌렀다 — 그 축만 바꾼다(다른 축은 그대로). «전체» 함은 결재자 축을 함께 지운다. */
+window.fbPick = function(kind, val){
+  var set = function(id, v){ var e = document.getElementById(id); if (e) e.value = v; };
+  if (kind === 'scope') { set('fscope', val); FIND_BY = ''; }
+  else if (kind === 'by') { FIND_BY = (FIND_BY === val) ? '' : val; if (FIND_BY) set('fscope', 'all'); }
+  else if (kind === 'period') {
+    var pv = FACETS && FACETS.periods && FACETS.periods[val];
+    if (!pv) return;
+    var st = fbState();
+    if (st.from === pv.from && st.to === pv.to) { set('ffrom', ''); set('fto', ''); }   // 한 번 더 누르면 끄기
+    else { set('ffrom', pv.from); set('fto', pv.to); }
+  }
+  else if (kind === 'type') { var t = document.getElementById('ftype'); if (t) t.value = (t.value === val) ? '' : val; }
+  else if (kind === 'clear') { FIND_BY = ''; set('ffrom', ''); set('fto', ''); set('ftype', ''); }
+  paintFindBox();
+  runFind(0);
+};
+
+/** 오른쪽 «함» 고르기 칸을 손으로 바꿨을 때 — 결재자 함과 어긋나지 않게 */
+window.fbScopeChanged = function(){
+  var st = fbState();
+  if (st.scope !== 'all') FIND_BY = '';
+  paintFindBox();
+  runFind(0);
+};
+
+/** 맨 위 「결재 보관함」 카드 → 문서함을 열고 «전체»(권한자) 또는 «내가 올린 것» 으로 */
+window.topArchive = function(){
+  var box = document.getElementById('findPanel');
+  if (box && box.hidden && window.toggleFind) window.toggleFind();
+  var sc = document.getElementById('fscope');
+  /* «전체» 로 바꾸고 기억까지(fscopePick) — 사람이 고른 것과 같은 길을 탄다 */
+  if (sc && D && D.can_approve && sc.value !== 'all') { sc.value = 'all'; FIND_BY = ''; window.fscopePick(); }
+  var el = document.getElementById('findBtn');
+  if (el) { try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); } }
 };
 
 /* 고르는 칸을 그린다.
@@ -826,6 +1193,8 @@ function paintFindChrome(){
   if (!sc) return;
   var scopes = [
     ['mine',     T('My requests (all)', '내가 올린 것 (전체)')],
+    /* 🗂 「내가 결재한 것」 — 내가 도장을 찍은 건(2026-09-08 까지 이 함이 없었다) */
+    ['decided',  T('Decided by me',     '내가 결재한 것')],
     ['open',     T('In progress',       '진행 중')],
     ['done',     T('Approved',          '승인 완료')],
     /* 🔴 서버 scope 'rejected' 는 반려·회수·취소 **셋** 을 담는다(셋 다 «결국 안 된 것»).
@@ -838,6 +1207,20 @@ function paintFindChrome(){
     scopes.push(['all',     T('Everything',     '전체')]);
   }
   fillSel(sc, scopes);
+  /* 기억해 둔 범위를 **처음 그릴 때 한 번만** 되살린다 — 그 뒤에는 사람이 고른 값이 정본이다.
+     ⚠️ fillSel 은 «이미 골라 둔 값» 만 지켜 준다. 처음에는 그 값이 없어 첫 항목(mine)이
+        골라지므로, 여기서 따로 넣어 준다. 목록에 없는 값이면 손대지 않는다. */
+  if (!FSCOPE_APPLIED) {
+    FSCOPE_APPLIED = true;
+    try {
+      var want = localStorage.getItem(FSCOPE_KEY);
+      if (want) {
+        for (var wi = 0; wi < sc.options.length; wi++) {
+          if (sc.options[wi].value === want) { sc.value = want; break; }
+        }
+      }
+    } catch (e) {}
+  }
 
   var ty = [['', T('All kinds', '분류 전체')]];
   var list = (D && D.types) || [];
@@ -902,6 +1285,7 @@ function findParams(){
   if (g('fcat'))  p.push('category=' + encodeURIComponent(g('fcat')));
   if (g('ffrom')) p.push('from=' + encodeURIComponent(g('ffrom')));
   if (g('fto'))   p.push('to=' + encodeURIComponent(g('fto')));
+  if (FIND_BY)    p.push('decided_by=' + encodeURIComponent(FIND_BY));   // 🗂 결재자별 함
   return p.join('&');
 }
 
@@ -934,6 +1318,21 @@ window.runFind = function(offset){
     host.innerHTML = '<div class="findnote">' +
       esc(T('Network problem. Please try again.', '연결이 좋지 않습니다. 다시 눌러 주세요.')) + '</div>';
   });
+};
+
+/* 범위를 고르면 기억하고 다시 찾는다.
+   🔴 저장을 runFind 안에 두면 «사람이 고르지 않은 값» 까지 덮어쓴다 — 홈이 실패해
+      D 가 없으면 목록에 「전체」가 없어 복원이 실패하고, 그 자리의 기본값(mine)이
+      저장되어 **결재자가 골라 둔 「전체」가 영구히 지워진다**(2026-09-07 실측).
+      그래서 «사람이 고른 순간» 에만 쓴다.
+   ⚠️ 인라인 onchange 가 부르므로 반드시 window 에 둔다 — 이 파일 안 닫힌 스코프에
+      두면 ReferenceError 이고 «고쳐도 값만 조용히 안 담긴다»(CLAUDE.md). */
+window.fscopePick = function(){
+  try {
+    var fsc = document.getElementById('fscope');
+    if (fsc && fsc.value) localStorage.setItem(FSCOPE_KEY, fsc.value);
+  } catch (e) {}
+  fbScopeChanged();          // 🗂 함 트리의 «켜짐» 표시와 결재자 축을 맞춘 뒤 runFind(0)
 };
 
 window.findMore = function(){
@@ -1305,6 +1704,24 @@ function paintTop(){
     t += tile('', T('Approved this month', '이번 달 승인'), mm, mNote, 'topSpending()');
     t += tile('', T('Approved this year', '올해 누적'), yy, yNote, 'topSpending()');
   }
+
+  /* 🗂 결재 보관함(시안 A) — 다섯째 카드. 「올해 몇 건 · 마지막 결재가 언제·누구」.
+     범위는 금액 타일과 같다(서버가 같은 판정) — 카드에 그것을 적어 준다.
+     ⛔ 못 읽었으면 «0건» 이 아니라 «—». */
+  var ar = sm && sm.archive;
+  if (ar) {
+    var arScope = (sm.money_scope === 'all') ? T('everyone', '전체') : T('my requests', '내가 올린 것');
+    var arVal = (ar.year_count == null) ? '—' : (EN() ? String(ar.year_count) : (ar.year_count + '건'));
+    var arNote = arScope + ' · ' + (EN() ? 'this year' : '올해');
+    if (ar.last_decided_at) {
+      var ld = new Date(Number(ar.last_decided_at) + 9 * 3600 * 1000);
+      var who = ar.last_decided_by_name || ar.last_decided_by || '';
+      arNote += ' · ' + (EN() ? 'last decision ' : '마지막 결재 ') +
+                (ld.getUTCMonth() + 1) + '/' + ld.getUTCDate() + (who ? (' ' + who) : '');
+    }
+    if (ar.unknown) arNote = T('could not read', '읽지 못했습니다');
+    t += tile('arch', T('Archive', '결재 보관함'), arVal, arNote + ' · ' + T('open', '열기 →'), 'topArchive()');
+  }
   tileHost.innerHTML = t;
 }
 
@@ -1313,9 +1730,12 @@ window.topGo = function(id){
   var el = document.getElementById('req-' + id);
   if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (e) { el.scrollIntoView(); } return; }
   /* 최근 15건 밖이면 화면에 그 줄이 없다 — 「눌러도 아무 일도 안 일어남」이 되지 않게
-     문서함을 열어 준다. */
+     문서함을 열어 준다.
+     ⚠️ 2026-09-07 부터 문서함은 이미 펼쳐져 있다 — 그래서 «여는 것» 만으로는 화면에
+        아무 변화가 없다. 그 자리까지 **데려다 놓는다**(접어 둔 사람은 먼저 펴 준다). */
   var box = document.getElementById('findPanel');
   if (box && box.hidden && window.toggleFind) window.toggleFind();
+  if (box) { try { box.scrollIntoView({ block: 'start' }); } catch (e) { box.scrollIntoView(); } }
   toast(T('Find it in the document box below.', '아래 문서함에서 찾아 주세요.'));
 };
 
@@ -1340,7 +1760,9 @@ window.repCsv = function(){
   location.href = '/api/approval/requests?' + p.join('&');
 };
 
-function itemHtml(r, decidable){
+/* ⚠️ 세 번째 인자 ackable — «확인할 것» 구역에서만 true. 옛 호출부는 인자 두 개라
+      undefined 가 들어가 예전과 똑같이 동작한다(버튼이 안 그려진다). */
+function itemHtml(r, decidable, ackable){
   var late = isOverdue(r);
   // 🧭 «멈춤» — 서버가 결재 가능자 0명이라고 알려 준 내 건. 지연과 다른 사실이라 따로 센다.
   var stop = !decidable && isMine(r) && !!r.blocked;
@@ -1414,7 +1836,7 @@ function itemHtml(r, decidable){
     var parts = [];
     for (var k = 0; k < r.steps.length; k++) {
       var s = r.steps[k];
-      var lbl = s.role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+      var lbl = roleLabel(s.role);   // ⛔ 라벨을 여기 다시 적지 말 것(roleLabel 이 정본)
       var mark = s.status === 'approved' ? 'OK' : s.status === 'rejected' ? 'X'
                : s.status === 'skipped' ? T('skipped', '전결') : s.status === 'active' ? '...' : '-';
       parts.push(lbl + ' ' + mark);
@@ -1478,9 +1900,72 @@ function itemHtml(r, decidable){
     if (acts) h += '<div class="mineacts">' + acts + '</div><div id="act-' + r.id + '"></div>';
   }
 
-  if (decidable) {
+  /* ✅ 확인 — 결재가 아니다. 상태를 바꾸지 않고 «봤다»는 도장만 찍는다. */
+  if (ackable) {
     h += '<div class="acts">' +
-         '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>' +
+         '<button class="big ok" onclick="ackOne(' + r.id + ')">' + esc(T('Confirm', '확인')) + '</button>' +
+         '</div><div id="ack-' + r.id + '"></div>';
+  }
+
+  /* 💳 「대신 결재」를 **접어 둔** 상태 — 서버가 «내가 주 결재자가 아니다»(by_proxy)라고
+     알려 준 단계다. 돈 나가는 건의 'mgr'(결재권자) 단계를 경영진이 보고 있을 때만 참이다.
+
+     ⛔ 승인·반려 버튼을 «바로» 그리지 않는다 — 2026-09-10 사장님 지시
+        「₱5,000 미만은 장 부장님만 결재하고 저는 확인만」. 버튼이 그대로 보이면 소액 건이
+        대표님 결재함에서 «내가 눌러야 할 일» 로 읽힌다. 묶음 승인도 같은 이유로 뺀다(cleanOnes).
+     ⛔ 그렇다고 목록에서 통째로 빼지는 않는다 — 결재권자가 휴가·출장이면 그 건이 그대로
+        멈춘다(8/30 긴급 건이 그렇게 5일 서 있었다). 한 번 더 눌러 펼치면 예전과 같다.
+     ⛔ 화면이 스스로 판정하지 않는다(계정 명단도 결재 규칙도 모른다) — 서버 by_proxy 하나만 본다. */
+  if (decidable && r.by_proxy && !PROXY_OPEN[r.id]) {
+    /* 🔴 «그다음이 무엇인가» 를 말해야 한다 — 큰돈(₱5,000 이상) 건도 1단계는 결재권자라
+       여기로 옵니다. 그 건은 대표님이 **2단계를 직접 결재**하셔야 하고 「확인」은 영영 안
+       뜹니다(needsExecAck 는 `decided_by === me` 면 false). 그래서 한 문장으로 뭉치면
+       하필 사장님 지시의 그 부류에 **정반대 말**을 하게 됩니다(2026-09-10 함정 대조가 잡음).
+       ⛔ 금액 기준(TWO_STEP_THRESHOLD)을 화면에 베끼지 말 것 — 서버가 이미 실어 보낸
+          «남은 단계»(steps·stage_total)로만 가른다. 규칙이 바뀌어도 저절로 따라온다.
+       ⚠️ 뒤에 단계가 남았는데 그 역할을 모르면 **지어내지 않는다**(가운데 갈래). */
+    var mgrLater = (r.steps || []).filter(function(s){
+      return Number(s.seq) > Number(r.stage_seq || 1);
+    });
+    var mgrLaterExec = false;
+    for (var mi = 0; mi < mgrLater.length; mi++) {
+      if (String(mgrLater[mi].role) === 'exec') { mgrLaterExec = true; break; }
+    }
+    var mgrMoreAfter = mgrLater.length > 0 ||
+                       Number(r.stage_total || 1) > Number(r.stage_seq || 1);
+    h += '<div class="steps proxynote">' + esc(
+      mgrLaterExec
+        ? T('The approver decides this stage — you decide the next one yourself.',
+            '이 단계는 결재권자가 결재합니다. 그다음 단계는 대표님이 직접 결재하십니다.')
+        : mgrMoreAfter
+          ? T('The approver decides this stage — another stage follows.',
+              '이 단계는 결재권자가 결재합니다. 이 뒤에 결재 단계가 더 있습니다.')
+          : T('The approver decides this one. You only confirm it after it is approved.',
+              '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
+    h += '<div class="acts">' +
+         '<button class="mini" onclick="proxyOpen(' + r.id + ')">' +
+         esc(T('Decide on their behalf', '대신 결재하기')) + '</button>' +
+         '</div>';
+  } else if (decidable) {
+    /* 💳 펼친 「대신 결재」 — 자리를 비운 결재권자를 대신해 누르는 자리. */
+    if (r.by_proxy) {
+      h += '<div class="steps">' + esc(
+        T('The approver normally decides this one. You can decide on their behalf.',
+          '이 단계는 결재권자가 결재합니다. 자리를 비웠다면 대신 결재하실 수 있습니다.')) + '</div>';
+    }
+    /* 🖐 앞 단계를 내가 결재한 건 — 서버가 승인을 막는다(sameDeciderBlocked).
+       «승인» 버튼을 안 그리고 이유를 적는다. 안 그리면 눌렀다가 403 을 보게 되고,
+       묶음 승인에서는 조용히 빠져 건수만 줄어든다.
+       ⛔ 「반려」는 남긴다 — 돈이 나가지 않는 방향이라 서버도 막지 않는다.
+       ⛔ 화면이 스스로 판정하지 않는다(결재 규칙도 계정 명단도 모른다). */
+    if (r.same_decider) {
+      h += '<div class="steps">' + esc(
+        T('You approved an earlier stage — a different approver must decide this stage.',
+          '앞 단계를 결재하셔서 이 단계는 다른 결재자가 눌러야 합니다.')) + '</div>';
+    }
+    h += '<div class="acts">' +
+         (r.same_decider ? '' :
+           '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>') +
          '<button class="big no" onclick="askWhy(' + r.id + ')">' + esc(T('Reject', '반려')) + '</button>' +
          '</div><div id="why-' + r.id + '"></div>';
   }
@@ -1499,6 +1984,12 @@ function itemHtml(r, decidable){
 function cleanOnes(){
   return (D.inbox || []).filter(function(r){
     if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
+    if (r.same_decider) return false;                     // 🖐 서버가 막는 건 — 묶으면 조용히 빠진다
+    /* 💳 내가 «주» 결재자가 아닌 단계는 묶지 않는다 — 한 번 누르면 결재권자 몫까지 함께
+       승인되어 「소액은 장 부장님만 결재」가 그 자리에서 무너진다(2026-09-10 사장님 지시).
+       ⛔ 펼쳤는지(PROXY_OPEN)와 무관하게 뺀다 — 묶음 승인은 «건 하나» 를 보고 누르는
+          버튼이 아니라 목록 전체를 쓰는 버튼이다. 대신 결재는 그 건의 버튼으로 한다. */
+    if (r.by_proxy) return false;
     var f = r.flags || [];
     for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
     return true;
@@ -1831,6 +2322,13 @@ window.doReverse = function(id){
   });
 };
 
+/* 💳 「대신 결재하기」 — 접어 둔 승인·반려 버튼을 펼친다.
+   ⚠️ 펼침을 PROXY_OPEN 에 남기고 다시 그린다 — 이 화면은 60초마다 repaint 하므로,
+      안 남기면 펼쳐 놓은 것이 눈앞에서 도로 접힌다. */
+window.proxyOpen = function(id){
+  PROXY_OPEN[id] = true;
+  repaint();
+};
 window.askWhy = function(id){
   var host = document.getElementById('why-' + id);
   if (!host) return;
@@ -1874,6 +2372,39 @@ window.decide = function(id, decision, memo){
         load().catch(function(){});
       }
     });
+};
+
+/* ✅ 확인 — «봤다»는 도장.
+     ⛔ 못 보낸 결재 큐(outbox)에 넣지 않는다. 확인은 아무것도 막지 않으므로 다음에 열 때
+        다시 누르면 그만이고, 큐에 섞으면 로그아웃 경고의 「못 보낸 결재 N건」이 거짓이 된다. */
+window.ackOne = function(id){
+  var el = document.getElementById('ack-' + id);
+  if (el) el.innerHTML = '<div class="steps">' + esc(T('Saving...', '저장 중...')) + '</div>';
+  fetch('/api/approval/requests/' + id + '/ack', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+  .then(function(res){
+    // 이미 확인된 건은 «성공» 으로 친다 — 두 기기에서 눌렀을 때 실패로 보이지 않게.
+    if ((res.j && res.j.ok) || (res.j && res.j.error === 'already_acked')) {
+      if (D) {
+        D.ack_pending = (D.ack_pending || []).filter(function(x){ return x.id !== id; });
+        if (D.summary) D.summary.ack_pending = (D.ack_pending || []).length;
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(D)); } catch (e) {}
+      }
+      toast(T('Confirmed.', '확인했습니다.'));
+      repaint();
+      return;
+    }
+    if (el) el.innerHTML = '';
+    toast((res.j && (EN() ? res.j.message_en : res.j.message)) ||
+          T('Could not save. Please try again.', '저장하지 못했습니다. 다시 눌러 주세요.'));
+  })
+  .catch(function(){
+    if (el) el.innerHTML = '';
+    toast(T('Offline — try again when you reconnect.', '연결이 끊겼습니다 — 연결되면 다시 눌러 주세요.'));
+  });
 };
 
 /** 서버로 보내기. 네트워크 실패만 큐에 남긴다 — 서버가 «판단해서» 거절한 것은 다시 보내도 소용없다. */
@@ -2657,6 +3188,7 @@ function paintPushBtn(){
   b.hidden = (Notification.permission === 'granted' && pushOn);
 }
 var pushOn = false;
+var pushSilentTried = false;   // 위 «조용한 되살리기» 가드(버튼은 안 걸린다)
 window.askPush = function(){
   if (!pushReady()) {
     toast(T('This device cannot receive notifications. On iPhone, add this page to the Home Screen first.',
@@ -2665,19 +3197,57 @@ window.askPush = function(){
   }
   Notification.requestPermission().then(function(p){
     if (p !== 'granted') { toast(T('Notifications are turned off.', '알림이 꺼져 있습니다.')); return; }
-    return subscribePush().then(function(ok){
-      toast(ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.')
-               : T('Could not turn on notifications.', '알림을 켜지 못했습니다.'));
+    return subscribePush().then(function(r){
+      // ⚠️ 실패를 한 줄로 뭉개지 않는다 — 사람이 «내 폰 문제인지 서버 설정 문제인지» 를
+      //    가릴 수 있어야 다음 할 일이 정해진다(2026-09-10 사장님 제보).
+      toast(r.ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.') : r.why);
     });
   }).catch(function(){});
 };
+/* 몸통이 네 단계라 실패도 네 가지다. 그것을 한 줄로 뭉개면
+   보는 사람은 다음에 무엇을 해야 하는지 알 방법이 없다 — 서버 설정인지,
+   이 브라우저인지, 마지막 저장만 안 된 것인지가 전부 같은 문장이 된다.
+   그래서 { ok, why } 를 돌려준다.
+   ⚠️ 불리언이 아니다 — 호출부에서 `if (!ok)` 로 쓰면 반대로 동작한다.
+      지금 호출부는 둘(askPush · 조용한 되살리기)이고 둘 다 `r.ok` 를 본다. */
+function pushWhy(step, code){
+  if (step === 'key')  return T('The server has no notification key yet (VAPID). An administrator must register it.',
+                                '서버에 알림 키(VAPID)가 아직 없습니다. 관리자가 등록해야 합니다.');
+  // ⛔ HTTP 오류를 'key' 로 읽으면 「관리자가 등록해야 합니다」가 되어 **엉뚱한 곳으로 보낸다.**
+  //    fetch 는 404·500 에도 reject 하지 않으므로 'net' 갈래로도 안 온다 — 따로 봐야 한다.
+  if (step === 'http') return T('The server could not return the notification key (HTTP ' + code + '). Try again in a moment.',
+                                '서버가 알림 키를 주지 못했습니다 (HTTP ' + code + '). 잠시 뒤 다시 눌러 주세요.');
+  if (step === 'sw')   return T('This browser could not start the background worker for notifications.',
+                                '이 브라우저에서 알림용 백그라운드 등록에 실패했습니다.');
+  if (step === 'subscribe') return T('This browser refused the notification subscription.',
+                                '이 브라우저가 알림 구독을 거절했습니다.');
+  if (step === 'save') return T('Registered on this device, but the server did not save it.',
+                                '이 기기에서는 등록됐지만 서버가 저장하지 못했습니다.');
+  if (step === 'net')  return T('Could not reach the server. Check your connection and try again.',
+                                '서버에 닿지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+  // ⚠️ 단계를 새로 넣고 이 표를 잊으면 **틀린 문구가 조용히** 나간다 — 모르면 모른다고 말한다.
+  return T('Could not turn on notifications (unknown step: ' + step + ').',
+           '알림을 켜지 못했습니다 (알 수 없는 단계: ' + step + ').');
+}
 function subscribePush(){
+  var step = 'key', code = 0;
   return fetch('/api/push/vapid-public-key', { credentials: 'same-origin' })
-    .then(function(r){ return r.json(); })
+    // ⛔ 연결 실패를 'key' 로 읽으면 «서버에 키가 없다» 고 말하게 되어 관리자를
+    //    엉뚱한 곳(시크릿 등록)으로 보낸다. 끊긴 것과 없는 것은 다른 사실이다.
+    .catch(function(e){ step = 'net'; throw e; })
+    .then(function(r){
+      // 🔴 fetch 는 404·500·502 에도 **reject 하지 않는다** — 위 .catch 를 그냥 지나간다.
+      //    여기서 안 가르면 서버 장애가 「관리자가 키를 등록해야 합니다」로 나간다.
+      if (!r.ok) { code = r.status; step = 'http'; throw new Error('http_' + r.status); }
+      // 본문이 JSON 이 아니면(오류페이지 등) null 로 떨어뜨린다. 이 시점의 step 은 'key' 다.
+      return r.json().catch(function(){ return null; });
+    })
     .then(function(j){
       if (!j || !j.key) throw new Error('no_key');
+      step = 'sw';
       return navigator.serviceWorker.register('/sw.js').then(function(reg){
         return navigator.serviceWorker.ready.then(function(){
+          step = 'subscribe';
           return reg.pushManager.getSubscription().then(function(sub){
             if (sub) return sub;
             return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(j.key) });
@@ -2686,16 +3256,24 @@ function subscribePush(){
       });
     })
     .then(function(sub){
+      step = 'save';
       var s = sub.toJSON ? sub.toJSON() : sub;
       return fetch('/api/push/subscribe', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         // ⚠️ user_id 에 **관리자 계정명**을 넣는다. 서버(api-approval notify)가 이 값으로 찾는다.
         body: JSON.stringify({ subscription: s, user_id: (D && D.me && D.me.username) || null, ua: navigator.userAgent })
-      }).then(function(r){ return r.json(); });
+      }).then(function(r){ return r.json().catch(function(){ return null; }); });
     })
-    .then(function(j){ pushOn = !!(j && j.ok); paintPushBtn(); return pushOn; })
-    .catch(function(){ return false; });
+    .then(function(j){
+      pushOn = !!(j && j.ok); paintPushBtn();
+      return pushOn ? { ok: true, why: '', step: '' } : { ok: false, why: pushWhy('save', code), step: 'save' };
+    })
+    .catch(function(err){
+      // ⚠️ 토스트는 몇 초 뒤 사라진다 — 진짜 예외는 콘솔에도 남긴다.
+      try { console.warn('[push] 실패 step=' + step, err); } catch (e) {}
+      return { ok: false, why: pushWhy(step, code), step: step };
+    });
 }
 
 /* ── 시작 ─────────────────────────────────────────────────────────────────── */
@@ -2717,7 +3295,11 @@ var formBox = document.getElementById('form');
 formBox.addEventListener('input', draftSave);
 formBox.addEventListener('change', draftSave);
 
-load().then(restoreDraft).then(openWantedType).catch(function(){ restoreDraft(); openWantedType(); });
+/* ⚠️ 마지막 .then(f, f) 는 «홈이 실패했을 때도» 문서함을 한 번 채우기 위한 것이다.
+      성공하면 repaint 안에서 이미 불렸고 FIND_AUTO 가 막으므로 두 번 나가지 않는다. */
+load().then(restoreDraft).then(openWantedType)
+      .catch(function(){ restoreDraft(); openWantedType(); })
+      .then(findAutoOpen, findAutoOpen);
 outboxFlush();
 subFlush();
 paintQueue();

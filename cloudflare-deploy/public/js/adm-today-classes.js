@@ -45,12 +45,67 @@
       + (isEn() ? b.en : b.ko) + '</span>';
   }
 
+  /* ☎️ 번호 보기 — 저장은 «숫자만» 이다(api-retention.ts 가 정규화해 넣는다).
+     ⛔ font-family 를 주지 말 것: 한자 글꼴 통일 가드(hanzi_font_harness)가
+        «맨 앞이 MangoiHanSC 가 아니다» 로 FAIL 낸다(CLAUDE.md 2장, 실제로 밟은 함정). */
+  function telFmt(p) {
+    var d = String(p == null ? '' : p).replace(/[^0-9]/g, '');
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return d;
+  }
+
   function hhmm(ts) {
     try {
       return new Date(ts).toLocaleTimeString('ko-KR', {
         hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul'
       });
     } catch (e) { return '-'; }
+  }
+
+  /* 🌙 (2026-09-08 사장님 요청) 「23시 이후」 거르기 — 늦은 밤 수업만 따로 본다.
+     [무엇을 재나] 그 수업의 **시작 시각(KST)** 하나다. 시(hour)는 화면에 그린 벽시계 문자열
+       (hhmm 의 toLocaleTimeString)을 **다시 파싱하지 말고** «+9시간 뒤 UTC 시» 로 곧장 센다
+       — 그 문자열은 로케일·엔진이 정하는 표시용 값이라 판정의 근거로 삼을 것이 못 된다
+       (자정을 '24:00' 으로 주는 판이 있다고 알려져 있는데, **이 컨테이너 Node ICU 78 에서는
+       '00:00' 이라 재현하지 못했다** — 못 본 것을 봤다고 적지 않는다). 여기서 재는 값은
+       그래서 «표시» 와 무관하게 결정론이다.
+     ⚠️ 이 목록은 **하루치**다(날짜 칸이 정하는 그 날). 그래서 여기서 걸러지는 것은
+        23:00~23:59 이고, 자정을 넘긴 00:10 수업은 «그 날짜 목록의 맨 앞» 에 있지
+        23시 뒤에 있지 않다. 라벨도 그렇게 적어 둔다(「23시 이후」가 새벽까지 포함한다고
+        읽히면 「필터가 빠뜨린다」는 제보가 된다).
+     ⛔ 문턱을 화면 여러 곳에 적지 말 것 — 여기 한 줄이 정본이다. */
+  var LATE_FROM_HOUR = 23;
+  /* 🌙🌒 (2026-09-09 사장님 요청) 「자정 이후까지 보는 야간」 — 위 「23시 이후」의 짝이다.
+     [무엇이 다른가] 이 목록은 여전히 **하루치**이고, 그 하루의 «양 끝» 이 둘 다 밤이다:
+       새벽 00:00~05:59 (= 전날 밤에서 이어진 수업) + 밤 23:00~23:59 (= 그날 밤의 시작).
+       「23시 이후」는 뒤쪽만 보고, 「야간」은 둘 다 본다.
+     📊 [잰 것] CLAUDE.md 배포창 항목의 실측에 00:00~00:20 접속 22건 · 00:40~01:10 이 있다.
+       그것이 「23시 이후」에 안 걸리던 바로 그 수업들이다. 06시를 끝으로 둔 것은 그 실측(01:10)을
+       넉넉히 덮으면서 아침 수업과 섞이지 않는 자리라서다.
+     ⚠️ 그래도 **«자정을 넘겨 이어지는 한 판»** 을 한 화면에 모아 주지는 못한다 — 오늘 23:40 수업의
+        이어지는 00:20 은 «내일 날짜» 목록에 있다(서버가 날짜로 자른다). 그래서 화면이 그 사실을
+        말해 준다(nightNote) — 감추면 「필터가 빠뜨린다」는 제보가 된다.
+     ⛔ 문턱 둘은 여기 두 줄이 정본이다(화면 HTML 에 숫자를 다시 적지 말 것). */
+  var NIGHT_UNTIL_HOUR = 6;          // 새벽 끝(이 시각 «전» 까지) — 06:00 부터는 아침
+  function kstHour(ts) {
+    var n = Number(ts);
+    /* 모르면 «늦은 밤 아님» 으로 떨어뜨린다 — 즉 거르기를 **켜면 그 줄은 화면에서 빠진다**.
+       ⛔ 「삼키지 않는다」로 읽지 말 것: 빠지는 게 맞다(모르는 것을 «23시 이후» 라고
+          말하는 쪽이 더 나쁘다). 끄면 그대로 돌아오고, 그동안에도 «전체 N건» 에는 남는다. */
+    if (!isFinite(n) || !n) return -1;
+    return new Date(n + 9 * 3600 * 1000).getUTCHours();
+  }
+  function isLate(s) { return kstHour(s.start_ts) >= LATE_FROM_HOUR; }
+  /* 🌒 새벽 — ⛔ `h < NIGHT_UNTIL_HOUR` «만» 쓰지 말 것: 시각을 모르는 줄은 kstHour 가 -1 이라
+     그 조건을 그냥 통과해 «모르는 것» 이 새벽으로 둔갑한다(23시 쪽과 반대 방향의 사고).
+     반드시 `h >= 0` 을 짝으로 둔다. */
+  function isDawn(s) { var h = kstHour(s.start_ts); return h >= 0 && h < NIGHT_UNTIL_HOUR; }
+  /* 고른 모드에 걸리는가 — 'late' 는 밤만, 'night' 는 밤 + 새벽. 모르는 모드는 «안 거른다». */
+  function inNight(s, mode) {
+    if (mode === 'late') return isLate(s);
+    if (mode === 'night') return isLate(s) || isDawn(s);
+    return true;
   }
 
   /* 🚪 실제 참가자로 입장 — 강사가 못 들어왔을 때 매니저가 대신 맡는 용도.
@@ -241,6 +296,7 @@
   };
 
   var _rows = [];
+  var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
      [왜] 오늘 목록 166건 중 142건이 카페24라, 새로 넣은 수업이 그 안에 파묻혀 눈으로 못 찾았다.
@@ -258,12 +314,32 @@
     var el = $('tc-q');
     return el ? String(el.value || '').trim().toLowerCase() : '';
   }
+  /* 고른 시간대 — '' (전체) · 'late' (23:00~23:59) · 'night' (23:00~05:59).
+     ⛔ 모르는 값은 «전체» 로 떨어뜨린다(옛 화면이 캐시에 남아 다른 값을 보내도 줄이 안 사라진다). */
+  function nightMode() {
+    var el = $('tc-night');
+    var v = el ? String(el.value || '') : '';
+    return (v === 'late' || v === 'night') ? v : '';
+  }
+  function nightLabel(mode) {
+    return mode === 'night' ? T('🌙 야간 (23:00~05:59)', '🌙 Night (23:00–05:59)')
+         : mode === 'late'  ? T('🌙 23시 이후 (23:00~23:59)', '🌙 After 23:00 (23:00–23:59)')
+         : '';
+  }
   /* 한 줄에서 검색이 훑는 칸 — 학생·강사·강의실·교재·레벨. 옮겨 적은 방 번호로 찾는 일이 잦아
      room_id 를 반드시 포함한다(예: 「c24-512074」·「class-1015-20260901」). */
   function rowText(s) {
     return [
       s.student_name, s.student_uid, s.teacher_name, s.substituted_from,
-      s.room_id, s.textbook, s.level, s.start_time
+      s.room_id, s.textbook, s.level, s.start_time,
+      /* 🏫☎️ (2026-09-07) 학원 이름·연락처로도 찾을 수 있게 — 매니저는 「○○학원 학생들」 이나
+         번호 뒷자리로 찾는다. 칸을 화면에 그렸으면 검색도 함께 넓혀야 한다
+         (안 그러면 「보이는데 검색하면 0건」이 된다 — CLAUDE.md 2장). */
+      s.academy, s.contact_phone,
+      /* ⚠️ 화면은 번호를 끊어서 그린다(telFmt). 저장값(01012345678)만 훑으면
+         **화면에 보이는 그대로**(「010-1234-5678」·「010-1234」) 쳤을 때 0건이 된다 —
+         「보이는데 검색하면 아무것도 없다」(CLAUDE.md 2장). 둘 다 넣는다. */
+      telFmt(s.contact_phone)
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -281,18 +357,89 @@
     } catch (e) { /* 무시 */ }
   }
 
+  /* ☎️ 연락처가 «왜 대부분 비어 있는지» — 서버가 준 근거로만 말한다(_contactSrc).
+     ⛔ 화면이 스스로 판정하지 않는다: 화면은 자기 역할도, 그 표의 성격도 모른다.
+     ⚠️ 폰에는 hover 가 없어 title 로는 못 전한다 → **보이는 줄**로 그린다. */
+  /* 🌒 「야간」을 켰을 때 «날짜 경계» 를 말해 준다 — 이 목록은 하루치라 «자정을 넘겨 이어지는
+     한 판» 이 두 날짜로 갈린다. 그 사실을 감추면 「오늘 23:40 수업의 새벽이 안 보인다」가
+     그대로 「필터가 빠뜨린다」는 제보가 된다(그리고 그건 사실이다 — 필터가 아니라 목록의 성질이다).
+     ⚠️ 폰에는 hover 가 없어 title 로는 못 전한다 → **보이는 줄**로 그린다.
+     ⛔ 이 줄을 «항상» 그리지 말 것: 야간을 안 켠 사람에게는 아무 뜻도 없는 문장이다. */
+  function nightNote(mode, dawn, late) {
+    if (mode !== 'night') return '';
+    return T(
+      '🌒 야간 = 이 날짜의 새벽 ' + dawn + '건(00:00~05:59) + 밤 ' + late + '건(23:00~23:59) 입니다. '
+        + '자정을 넘겨 이어진 수업은 «다음 날짜» 목록의 새벽에 있습니다 — 날짜를 하루 넘겨 보세요.',
+      '🌒 Night = ' + dawn + ' early-morning (00:00–05:59) + ' + late + ' late-night (23:00–23:59) on this date. '
+        + 'A class that runs past midnight appears in the NEXT date\u2019s list — step the date forward by one.'
+    );
+  }
+
+  function contactNote(missing, total) {
+    if (!missing) return '';
+    if (_contactSrc === 'restricted') {
+      return T('☎ 연락처는 본사 계정에서만 보입니다.',
+               'Contact numbers are visible to HQ accounts only.');
+    }
+    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 저장돼 있지 않고, '
+           + '«관리 대상(만료·휴면)» 명단에 오른 학생만 번호가 있습니다.',
+             '☎ ' + missing + ' of ' + total + ' have no number — the student roster stores no phone numbers; '
+           + 'only students on the at-risk (expiring/inactive) list have one.');
+  }
+
+  /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
+     그 자리에서 기존 「일괄 교재 배정」 모달을 연다.
+     [왜 줄마다가 아니라 여기인가] 배지는 줄마다 뜨는데, 2026-09-08 운영 D1 실측으로
+       students_erp.textbook 이 채워진 학생이 **29,485명 중 0명**이었다. 그래서 그 노란 배지가
+       «예외 표시» 가 아니라 모든 줄의 배경색이 되어 있었고, 숫자로 한 번 말해 주지 않으면
+       아무도 «몇 건인지» 를 모른다.
+     ⛔ 배지를 눌러 «교재 업로드» 화면으로 보내지 않는다 — 같은 날 실측으로 서버에는 교재 파일이
+        이미 38,998장(2,791묶음) 있고, 비어 있는 것은 «이 학생 = 이 교재» 연결 하나다.
+        업로더는 textbook_files 에 쓰므로 아무리 올려도 이 배지는 그대로 남는다(읽는 칸이 다르다).
+     ⚠️ 배정 판정과 상한(대상 미리보기 강제 · 미배정 학생만 · 2000명 초과 force)은 전부
+        그 모달과 서버에 이미 있다. 여기서 다시 만들지 않는다 — 문만 하나 더 낸 것이다.
+     ⛔ 이 줄을 display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+  function bookNoteHtml(missing, total, ltSkipped) {
+    if (!missing) return '';
+    /* ⚠️ 짧게 쓴다 — 1500px 창에서도 이 카드 폭이 좁아(관리자 zoom 1.3) 긴 문장은 세 줄로 접힌다.
+       실측으로 세 줄이 나와 한 번 줄인 문장이다(브라우저 검사 ⑥절이 두 줄 이내로 못 박는다). */
+    /* 🧪 (2026-09-08) 레벨테스트는 «첫 수업» 이라 교재가 없는 것이 정상이다 — 세지 않는다.
+       ⛔ 대신 «세지 않았다» 를 감추지 않는다: 분모는 «화면에 보이는 줄 수» 그대로 두고
+          몇 건을 왜 뺐는지 꼬리말로 적는다. 그러지 않으면 「4건 다 노란데 왜 2건이라 하지」가 된다
+          (CLAUDE.md 2장 「«없는 것» 을 세는 칸 — 아예 존재하지 않는 종류까지 세고 있지 않은지」·
+           「두 수를 비교해 알려 줄 때 — 두 수의 모집단이 같은지부터」). */
+    var msg = T('📚 표시된 ' + total + '건 중 ' + missing + '건이 교재 미배정 — 학생 명부의 교재 칸이 비어 있습니다.'
+                  + (ltSkipped ? ' (레벨테스트 ' + ltSkipped + '건 제외)' : ''),
+                '📚 ' + missing + ' of ' + total + ' shown have no textbook — the student roster field is empty.'
+                  + (ltSkipped ? ' (' + ltSkipped + ' level test excluded)' : ''));
+    /* 🎨 클래스는 `tc-act` 를 그대로 쓴다 — admin-inline-c.css 의 특이성 꼬리 규칙이
+       전역 「카드 안 button = 파란 알약」을 이미 이기고 있어 새 CSS 를 만들지 않아도 된다.
+       ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것(같은 파일 9503행 경고 — 이 버튼만 흰 버튼이 된다). */
+    return '<div style="padding:6px 2px 8px;color:#92400e;font-size:11.5px;line-height:1.6">'
+      + esc(msg)
+      + ' <button type="button" id="tc-bulk-book" class="tc-act" title="'
+      + T('학생 교재 일괄 배정 창을 엽니다 (대상 미리보기 → 실행)',
+          'Opens bulk textbook assignment (preview targets, then run)')
+      + '">' + T('📚 일괄 배정', '📚 Bulk assign') + '</button>'
+      + '</div>';
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
     var onlyLive = !!($('tc-only-live') && $('tc-only-live').checked);
     var src = srcFilter(), q = qFilter();
+    var night = nightMode();
     var rows = _rows.filter(function (s) {
       if (onlyLive && !s.join_open) return false;
+      if (night && !inNight(s, night)) return false;
       if (src && (s.source === 'cafe24' ? 'cafe24' : 'mangoi') !== src) return false;
       if (q && rowText(s).indexOf(q) < 0) return false;
       return true;
     });
-    var filtering = !!(src || q);
+    /* 🌙 시간대 고르기도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
+       버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
+    var filtering = !!(src || q || night);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -302,6 +449,7 @@
           + ' (' + (src === 'cafe24' ? T('카페24', 'cafe24') : src === 'mangoi' ? T('망고아이', 'Mangoi') : T('전체', 'All'))
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
+          + (night ? ' · ' + nightLabel(night) : '')
           + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
       } else {
         why = onlyLive
@@ -340,11 +488,31 @@
     /* 🚪 (2026-07-24 강사 피드백) "입장 버튼이 학생 이름과 멀리 떨어져 있어 다른 방에 잘못 들어간다"
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
-    box.innerHTML = '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
+    var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    /* 🌒 «표시된 줄» 기준으로 센다 — 거르는 중이면 눈앞의 목록을 말해야 한다(교재 줄과 같은 규칙) */
+    var nNote = nightNote(night,
+      rows.filter(isDawn).length,
+      rows.filter(isLate).length);
+    /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
+       (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
+    var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test; }).length;
+    /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
+    var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
+    var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
+    box.innerHTML = (nNote
+        ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
+        : '')
+      + (note
+        ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
+        : '')
+      + bookLine
+      + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   '<th>' + T('시간', 'Time') + '</th>'
       +   '<th>' + T('상태', 'Status') + '</th>'
       +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
+      +   '<th>' + T('연락처', 'Contact') + '</th>'
+      +   '<th>' + T('학원', 'Academy') + '</th>'
       +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
       +   '<th>' + T('강사', 'Teacher') + '</th>'
       +   '<th>' + T('강의실', 'Room') + '</th>'
@@ -394,11 +562,29 @@
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
+          /* 🎯 (2026-09-08 사장님 요청) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
+             ⛔ <button> 으로 만들지 않는다 — admin-inline-c.css 의 전역
+                `details.menu-card button{ background:인디고 !important; padding:9px 18px !important }` 가
+                인라인 style 을 이겨 배지가 **파란 알약**이 된다(CLAUDE.md 2장 「표 안의 작은
+                아이콘 버튼」). `<span role="button" tabindex="0">` 은 그 규칙에 안 걸린다.
+             ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다 — 누구에게 배정할지 모르면
+                열어 봐야 «전체» 로 흐른다(그게 이 기능이 막으려는 바로 그 사고다). */
+          var canPin = !s.textbook_assigned && !!(s.student_uid && String(s.student_uid).trim());
           var bookTag = s.textbook_assigned
             ? '<span style="font-size:11px;color:#6b7280">📚 ' + esc(s.textbook) + '</span>'
-            : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
+            : '<span' + (canPin
+                  ? ' class="tc-book-pin" role="button" tabindex="0"'
+                    + ' data-uid="' + esc(s.student_uid) + '"'
+                    + ' data-who="' + esc((s.student_name || s.student_uid) + ' (' + s.student_uid + ')') + '"'
+                    + ' title="' + T('이 학생에게 교재를 배정합니다', 'Assign a textbook to this student') + '"'
+                    + ' style="cursor:pointer;'
+                  : ' style="')
+              /* ⚠️ nowrap — 좁은 칸에서 「📚 교재 미배정 ▸」가 두 줄로 접혀 배지가 48px 이 됐다(실측).
+                 한 줄짜리 상자에는 줄바꿈을 막아 둔다(CLAUDE.md 2장). */
+              + 'display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
-              + T('📚 교재 미배정', '📚 no textbook') + '</span>';
+              /* ▸ 는 «누를 수 있다» 는 표시다 — 폰에는 hover 도 title 도 없어서 글자로 말해야 한다 */
+              + T('📚 교재 미배정', '📚 no textbook') + (canPin ? ' ▸' : '') + '</span>';
           var levelTag = s.level
             ? '<span style="font-size:11px;color:#475569">' + esc(s.level) + '</span>'
             : '';
@@ -409,6 +595,24 @@
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
               + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
             : '';
+          /* ☎️🏫 (2026-09-07 매니저 요청 «student Name, ID, contact number, Academy»)
+             수업에 안 들어오는 학생을 그 줄에서 바로 찾기 위한 칸.
+             ⛔ 없을 때 다른 값으로 채우지 않는다 — «—» 와 «왜 없는지» 를 적는다
+                (빈칸은 «고장» 으로 읽힌다: CLAUDE.md 2장 「모르면 모른다고 말하게 하라」).
+             ☎ 는 tel: 링크다 — 매니저 대부분이 폰으로 이 화면을 본다. */
+          var contact = s.contact_phone
+            ? '<a href="tel:' + esc(String(s.contact_phone).replace(/[^0-9+]/g, '')) + '" '
+              + 'style="font-size:11.5px;color:#1d4ed8;text-decoration:none;white-space:nowrap" '
+              + 'title="' + T('눌러서 전화 걸기', 'Tap to call') + '">☎ ' + esc(telFmt(s.contact_phone)) + '</a>'
+            /* ⛔ 이유를 `title` 로만 달지 말 것 — title 툴팁은 **마우스 전용**이라
+               폰에서는 영원히 안 뜬다(CLAUDE.md 2장). 매니저는 대부분 폰으로 본다.
+               → 칸에는 «—» 만 두고, **이유는 목록 위에 보이는 줄로 한 번** 말한다(contactNote).
+                 줄마다 반복해 적으면 76% 의 줄이 같은 문장으로 시끄러워진다. */
+            : '<span style="color:#9ca3af;font-size:11px">—</span>';
+          var academy = s.academy
+            ? '<span style="font-size:11.5px;color:#475569;white-space:nowrap">' + esc(s.academy) + '</span>'
+            : '<span style="color:#9ca3af;font-size:11px">—</span>';
+
           /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
              예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유).
              ⛔ (2026-08-30) 클래스 이름을 «-btn» 으로 끝내지 말 것 — admin-inline-c.css 의
@@ -423,7 +627,15 @@
           return '<tr>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
-            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div></td>'
+            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
+              /* 🆔 아이디 — 이름이 같은 학생이 실재해서(동명이인) 매니저가 확정하려면 필요하다.
+                 ⛔ display:flex 로 감싸지 말 것 — 짧은 글이 낱글자로 쪼개진다(CLAUDE.md 2장). */
+              + (s.student_uid && s.student_name
+                  ? '<div style="font-size:10.5px;color:#6b7280;letter-spacing:0.2px">' + esc(s.student_uid) + '</div>'
+                  : '')
+            + '</td>'
+            + '<td>' + contact + '</td>'
+            + '<td>' + academy + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
@@ -431,6 +643,53 @@
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
+    /* 🔗 인라인 onclick 을 쓰지 않는다 — 이 파일은 IIFE 라 안쪽 함수가 전역이 아니고,
+       인라인 핸들러는 언제나 window 에서 이름을 찾아 ReferenceError 가 난다(CLAUDE.md 2장).
+       render() 가 통째로 다시 그리므로 리스너는 쌓이지 않는다. */
+    /* 🎯 배지 → «그 학생만» 배정 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다.
+       ⚠️ role="button" 이라 키보드도 받아야 한다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+    var pins = box.querySelectorAll('.tc-book-pin');
+    for (var pi = 0; pi < pins.length; pi++) {
+      (function (el) {
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          if (!uid) return;
+          if (typeof window.mangoiOpenBulkTextbook !== 'function') {
+            alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                    'Could not open the textbook assignment dialog. Please refresh and try again.'));
+            return;
+          }
+          window.mangoiOpenBulkTextbook({ userIds: [uid], who: el.getAttribute('data-who') || uid });
+        };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(pins[pi]);
+    }
+    var bulkBtn = $('tc-bulk-book');
+    if (bulkBtn) {
+      bulkBtn.addEventListener('click', function () {
+        /* ⛔ 이 화면이 배정을 «직접» 하지 않는다 — 대상 미리보기를 강제하는 그 모달로만 간다.
+           ⚠️ 함수가 없으면(스크립트 미로드·이름 변경) 조용히 넘기지 말고 사람에게 말한다 —
+              아무 일도 안 일어나면 «버튼이 고장났다» 로 읽힌다. */
+        /* 📌 «이 줄이 센 수» 와 «저 창의 기본 대상» 은 모집단이 다르다 — 이 줄은 «화면에 보이는
+           줄» 을 세는데, 저 창은 학생 검색어가 비면 «권한 범위 전체» 가 대상이다.
+           그 말을 실행 직전에 사람이 보는 자리(상태줄)에 적어 준다. 감추면 「3건인 줄 알고
+           눌렀는데 수백 명이 잡혔다」가 된다(CLAUDE.md 2장 「두 수를 비교해 알려 줄 때」).
+           ⛔ 대신 검색어를 채워 좁히지는 않는다 — 그 칸은 **부분일치**라 아이디 하나로
+              남의 계정까지 걸린다(정확일치는 서버 몫 — 다음 판). */
+        if (typeof window.mangoiOpenBulkTextbook === 'function') {
+          window.mangoiOpenBulkTextbook({ note: T(
+            '⚠ 이 창의 기본 대상은 «오늘 수업 ' + missing + '건» 이 아니라 권한 범위의 미배정 학생 전체입니다. 「대상 미리보기」로 인원을 먼저 확인하세요.',
+            '⚠ This dialog targets ALL unassigned students in your scope — not just the ' + missing + ' shown here. Preview the targets first.') });
+          return;
+        }
+        alert(T('교재 배정 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+                'Could not open the textbook assignment dialog. Please refresh and try again.'));
+      });
+    }
     announceCounts(rows.length);
   }
 
@@ -466,6 +725,8 @@
       if (!d || d.ok !== true || !Array.isArray(d.sessions)) {
         throw new Error((d && d.error) || 'load_failed');
       }
+      /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
+      _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
@@ -490,6 +751,9 @@
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
     var c = $('tc-only-live');
     if (c && !c._tcBound) { c._tcBound = true; c.addEventListener('change', render); }
+    /* 🌙 시간대(23시 이후 · 야간) — 화면 안에서만 거른다(서버를 다시 부르지 않는다). */
+    var nt = $('tc-night');
+    if (nt && !nt._tcBound) { nt._tcBound = true; nt.addEventListener('change', render); }
     /* 🔎 출처·검색은 **화면 안에서만** 거른다 — 서버를 다시 부르지 않는다(이미 받아 둔 목록이라
        한 글자 칠 때마다 요청이 나갈 이유가 없다). 날짜만 서버를 다시 부른다(아래).
        ⚠️ 입력칸은 #tc-body «밖» 이라 다시 그려도 포커스·커서가 그대로다 — 안에 두면 한 글자마다
@@ -524,4 +788,16 @@
      setInterval)는 쓰지 않는다(홈을 통째로 멎게 한 전력 — CLAUDE.md 2장). */
   document.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
   window.addEventListener('mangoi:identity', function () { syncSubHelp(); if (_rows.length) render(); });
+  /* 🌐 (2026-09-08) 🌐 EN 을 누르면 이 표도 따라오게 한다.
+     [무엇이 문제였나] 이 표는 render() 가 T() 로 글자를 «그리는» 방식이라
+       adm-core.js 의 applyAdminLangDom() 이 손댈 수 없다(그건 data-ko/data-en 요소만 본다).
+       그런데 여기엔 lang 리스너가 없어서, 매니저가 EN 을 눌러도 표 전체가 한국어로 남고
+       🔄 불러오기를 다시 눌러야 바뀌었다(함정 대조에서 잡힘).
+     ⚠️ 발행처가 화면마다 다르다 — adm-core.js 의 toggleAdminLang 은 **document** 에 쏘고
+        CustomEvent 는 기본이 bubbles:false 라 window 로 안 올라간다. **둘 다** 듣는다.
+     ⛔ data-ko/data-en 으로 풀지 말 것 — 그 줄에는 버튼이 들어 있어 두 i18n 엔진이
+        textContent 를 통째로 갈아끼우면 **버튼이 사라진다**(CLAUDE.md 2장).
+     ⛔ 서버를 다시 부르지 않는다(render() 만) — 이미 받아 둔 _rows 로 다시 그린다. */
+  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
 })();

@@ -51,7 +51,7 @@ async function checkLayer2(env: MangoEnv): Promise<{ state: 'unset' | 'ok' | 'st
       const text = stale
         ? '[망고아이] 🔕 외부 장애감시(2층)가 30분째 응답이 없습니다. 사이트는 정상이지만 감시가 한 겹뿐입니다.'
         : '[망고아이] 🔔 외부 장애감시(2층)가 정상 복구되었습니다.';
-      const r = await sendPlainSms(env, phone, text);
+      const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
       smsSent = r.ok;
     }
     try { stale ? await kv.put('watchdog2:alerted', '1') : await kv.delete('watchdog2:alerted'); } catch {}
@@ -103,7 +103,7 @@ export async function runSiteWatchdog(
       const text = isUp
         ? '[망고아이] ✅ 사이트가 정상 복구되었습니다.'
         : '[망고아이] ⚠️ 사이트 응답 없음 감지. 접속 확인이 필요합니다.';
-      const r = await sendPlainSms(env, phone, text);
+      const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
       smsSent = r.ok;
       detail = r.message || r.error;
     }
@@ -135,9 +135,20 @@ export async function handleUptimeApi(
   if (url.pathname !== '/api/uptime-hook') return null;
 
   // 1) 토큰 검증 — 아무나 호출해 문자 스팸 못 하게
-  /* 🔐 회전 완료(4/4). 후보는 새 키 하나뿐. 호출자: 카페24 /root/mangoi-watchdog.sh (2층). */
+  /* 🔐 회전 완료(4/4). 호출자: 카페24 /root/mangoi-watchdog.sh (2층) — `UPTIME_HOOK_KEY_NEW`.
+   *
+   * 🧪 (2026-09-09) `UPTIME_HOOK_KEY_TEST` — 사장님이 «알림이 실제로 나가는지» 를 직접 확인하는 칸.
+   *    [왜] `UPTIME_HOOK_KEY_NEW` 는 Cloudflare 시크릿이라 **값을 다시 볼 수 없고**, 실제 값은
+   *    카페24 서버의 `/root/.mangoi-alert.env` 안에만 있습니다. 그래서 「문자 한 통 쏴 보기」를
+   *    하려면 서버에 들어가야 했고, 대시보드에서 그 시크릿을 «바꾸면» 2층 감시견이 옛 열쇠로
+   *    막혀 감시가 멈춥니다. 칸을 하나 더 두면 **옛 열쇠를 건드리지 않고** 확인만 할 수 있습니다.
+   *    ✅ 값을 안 넣으면 `keyMatchesAny` 가 빈 후보를 무시하므로 **아무 열쇠도 안 통합니다**
+   *       (`v.length > 0` 조건) — 즉 비워 두는 것이 곧 «꺼진 상태» 이고 기본이 그것입니다.
+   *    ⛔ 이 칸을 `[vars]`(평문)로 두지 마세요 — 저장소·배포 로그에 남습니다. 시크릿으로만.
+   *    ⚠️ 두 열쇠의 권한은 «같습니다» — 어느 쪽이든 운영자에게 문자를 보낼 수 있습니다.
+   *       쓰고 나면 대시보드에서 지우는 편이 낫습니다. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!keyMatchesAny(given, (env as any).UPTIME_HOOK_KEY_NEW)) {
+  if (!keyMatchesAny(given, (env as any).UPTIME_HOOK_KEY_NEW, (env as any).UPTIME_HOOK_KEY_TEST)) {
     return json({ ok: false, error: 'forbidden' }, 403);
   }
 
@@ -225,7 +236,7 @@ export async function handleUptimeApi(
     ? `[망고아이] ✅ 사이트 정상 복구됨 (${site}).`
     : `[망고아이] ⚠️ 사이트 응답 없음 감지 (${site}). 접속 확인이 필요합니다.`;
 
-  const r = await sendPlainSms(env, phone, text);
+  const r = await sendPlainSms(env, phone, text, { kind: 'uptime' });
   // 중복방지 타이머는 '발송 성공' 시에만 건다 — 실패 시엔 재시도를 막지 않도록.
   if (kv && r.ok) { try { await kv.put(throttleKey, String(Date.now()), { expirationTtl: 300 }); } catch {} }
 

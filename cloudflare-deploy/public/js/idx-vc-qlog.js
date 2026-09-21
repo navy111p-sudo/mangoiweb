@@ -101,12 +101,282 @@ function vcqWho() {
 /* 📥 수신 통계 — «내가 받는 화면·소리» 를 잰다(원인 ② 참고).
    ⚠️ 델타 기준값(__vcRxPrev)은 60초 전송으로 초기화되는 Q 와 따로 둔다.
       Q 안에 두면 전송 직후 한 틱이 통째로 버려진다. */
+/* Fast receive recovery shares vcqRxTick's reports. No timer, observer or extra getStats.
+   A confirmed incident owns each level once; a recovered incident has a 30s cooldown.
+   AAO hysteresis and peer liveness remain separate and unchanged. */
+function vcRecoveryLog(event, id, pc, R, level) {
+    try {
+        var tr = R && R.video && R.video.track;
+        if (!tr && pc && pc.getReceivers) { var rv = pc.getReceivers().find(function (r) { return r.track && r.track.kind === 'video'; }); tr = rv && rv.track; }
+        console.log('[vc-recovery] ' + event, {
+            roomId: typeof vcRoomId === 'undefined' ? '' : vcRoomId,
+            peerId: id, role: window.vcMyRole || vcqWho().role || '',
+            iceState: pc && pc.iceConnectionState, connectionState: pc && pc.connectionState,
+            audioPacketsDelta: R && R.audio ? R.audio.dr : null,
+            videoPacketsDelta: R && R.video ? R.video.dr : null,
+            framesDecodedDelta: R && R.video ? R.video.dfr : null,
+            track: { readyState: tr ? tr.readyState : null, enabled: tr ? tr.enabled : null },
+            elapsedMs: R && R.started ? Date.now() - R.started : 0,
+            recoveryLevel: level == null ? (R && R.level || 0) : level,
+            path: R && R.path || 'sender'
+        });
+    } catch (_) {}
+}
+function vcRecoveryOwnsPeer(id, pc) {
+    if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+    var R = (window.__vcRxRecovery || {})[id];
+    return !!(R && (R.pc === pc || R.rebuilding) && R.managed && !vcAaoSfuCut());
+}
+function vcRecoverySend(id, action, token) {
+    try {
+        if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
+        vcConn.send({ type: 'video-recovery', data: { targetUserId: id, action: action, token: token } });
+        return true;
+    } catch (_) { return false; }
+}
+function vcRecoveryVideoWanted(pc) {
+    var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+    if (!s || s.track.readyState !== 'live' || s.track.enabled === false || vcAaoSfuCut()) return null;
+    if (!window.__vcScreenSharing && ((typeof vcCamOn !== 'undefined' && vcCamOn === false)
+        || (window.__vcAAO && window.__vcAAO.active))) return null;
+    return s;
+}
+async function vcRecoveryMessage(data) {
+    if (!data || !document.body || !document.body.classList.contains('vc-in-call')) return;
+    var id = data.fromUserId, pc = (window.vcPeerConnections || {})[id];
+    if (!pc || pc.connectionState === 'closed' || vcAaoSfuCut()) return;
+    var R = (window.__vcRxRecovery || {})[id];
+    if (data.action === 'ready') {
+        if (R && R.token === data.token) { pc.__vcRecoveryCapable = true; }
+        return;
+    }
+    if (data.action === 'camera-off' || data.action === 'aao') {
+        if (!R || R.token !== data.token) return;
+        (window.vcRemoteCamOff || (window.vcRemoteCamOff = {}))[id] = data.action === 'aao' ? 'aao' : 'user';
+        pc.__vcRecoveryCapable = true;
+        if (data.action === 'camera-off' || R.path !== 'media-path-dead') {
+            vcRecoveryCancel(R); R.bad = 0; R.started = 0; R.level = -1;
+        }
+        try { window.vcApplyRemoteCamHint(id); } catch (_) {}
+        return;
+    }
+    if (!['sender-reapply', 'renegotiate', 'ice-restart'].includes(data.action)) return;
+    var sender = vcRecoveryVideoWanted(pc);
+    var current = pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+    var manualOff = !window.__vcScreenSharing && ((typeof vcCamOn !== 'undefined' && vcCamOn === false)
+        || (current && current.track.enabled === false));
+    var aaoOff = !window.__vcScreenSharing && window.__vcAAO && window.__vcAAO.active;
+    if (manualOff || (aaoOff && data.action !== 'ice-restart')) {
+        vcRecoverySend(id, manualOff ? 'camera-off' : 'aao', data.token);
+        return; // Missing/ended sender is NOT evidence that a person turned the camera off.
+    }
+    var seen = pc.__vcRecoveryCommands || (pc.__vcRecoveryCommands = {});
+    var last = seen[data.action];
+    if (last && (last.token === data.token || Date.now() - last.at < 12000)) return;
+    seen[data.action] = { token: data.token, at: Date.now() };
+    pc.__vcRecoveryCapable = true;
+    if (data.action === 'sender-reapply') {
+        try {
+            if (!sender) throw new Error('No live video sender');
+            var p = sender.getParameters();
+            if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+            // Keep current adaptive bitrate, fps and scale; never restore high-quality defaults.
+            p.encodings[0].active = true;
+            await sender.setParameters(p);
+            vcRecoveryLog('sender-reapply', id, pc, R, 0);
+        } catch (_) {} // The v15 4s reapply remains the retry path.
+        if ((window.vcPeerConnections || {})[id] === pc) vcRecoverySend(id, 'ready', data.token);
+    } else {
+        // Only the smaller ID offers. The other endpoint requests that owner to negotiate.
+        if (typeof vcUserId !== 'undefined' && String(vcUserId) < String(id)) {
+            await vcRecoveryNegotiate(id, pc, data.action === 'ice-restart', R, true);
+        }
+    }
+}
+async function vcRecoveryNegotiate(id, pc, ice, R, requested) {
+    if (!pc.__vcRecoveryCapable || pc.__vcRecoveryOffering || pc.signalingState !== 'stable') return false;
+    if ((window.vcPeerConnections || {})[id] !== pc || !vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
+    var off = (window.vcRemoteCamOff || {})[id];
+    if ((off && !(ice && off === 'aao')) || vcAaoSfuCut()) return false;
+    if (pc.__vcRecoveryNegoAt && Date.now() - pc.__vcRecoveryNegoAt < 12000) return false;
+    if (ice && !(pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed')) return false;
+    if (ice && R && R.audio && R.audio.dr > 0) return false;
+    if (!ice && !requested && typeof vcUserId !== 'undefined' && String(vcUserId) > String(id)) {
+        return vcRecoverySend(id, ice ? 'ice-restart' : 'renegotiate', R.token);
+    }
+    pc.__vcRecoveryOffering = true;
+    pc.__vcRecoveryNegoAt = Date.now();
+    try {
+        if (ice) pc.restartIce();
+        var offer = await pc.createOffer(ice ? { iceRestart: true } : undefined);
+        // An incoming offer may have won while createOffer was pending. Do not overwrite it.
+        if (pc.signalingState !== 'stable' || (window.vcPeerConnections || {})[id] !== pc || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+        if (typeof vcTuneAudioSdp === 'function') offer.sdp = vcTuneAudioSdp(offer.sdp);
+        await pc.setLocalDescription(offer);
+        if ((window.vcPeerConnections || {})[id] !== pc) return false;
+        vcConn.send({ type: 'offer', data: { targetUserId: id, sdp: pc.localDescription, recovery: true } });
+        vcRecoveryLog(ice ? 'ice-restart' : 'renegotiate', id, pc, R, ice ? 3 : 2);
+        return true;
+    } catch (_) { return false; }
+    finally { pc.__vcRecoveryOffering = false; }
+}
+function vcRecoveryCancel(R) {
+    if (R && R.frameVideo && R.frameCallback != null && R.frameVideo.cancelVideoFrameCallback) {
+        try { R.frameVideo.cancelVideoFrameCallback(R.frameCallback); } catch (_) {}
+    }
+    if (R) { R.frameCallback = null; R.frameVideo = null; }
+}
+function vcRecoveryClearOverlay(id) {
+    if ((window.vcRemoteCamOff || {})[id] === 'user') return;
+    var box = document.getElementById('vc-video-' + id);
+    var off = window.vcRemoteCamOff || {};
+    if (off[id] === 'aao') {
+        delete off[id];
+        try { window.vcApplyRemoteCamHint(id); } catch (_) {}
+    }
+    if (!box || !box.querySelector) return;
+    if (box.querySelector('.vc-aao-still') || box.querySelector('.vc-aao-freeze')
+        || (box.classList && box.classList.contains('vc-aao-on'))) {
+        try { vcAaoFreeze(box, id, false); } catch (_) {}
+    }
+    ['.vc-black-hint', '.vc-camoff-hint'].forEach(function (sel) { var e = box.querySelector(sel); if (e) e.remove(); });
+}
+function vcRecoveryRecovered(id, pc, R) {
+    if ((window.vcRemoteCamOff || {})[id] === 'user') return;
+    vcRecoveryClearOverlay(id);
+    if (R.started) {
+        vcRecoveryLog('recovered', id, pc, R);
+        R.cooldown = Date.now() + 30000;
+    }
+    vcRecoveryCancel(R);
+    R.bad = 0; R.dead = 0; R.started = 0; R.level = -1; R.done = {}; R.rebuilding = false;
+}
+function vcRecoveryElement(id, pc, R) {
+    var tr = R.video && R.video.track;
+    var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+    if (!tr || tr.readyState !== 'live' || !v || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+    var s = v.srcObject;
+    if (!s || !s.getVideoTracks || !s.getVideoTracks().some(function (t) { return t === tr; })) {
+        if (typeof MediaStream === 'undefined') return false;
+        if (!s || !s.addTrack) s = new MediaStream();
+        s.getVideoTracks().forEach(function (t) { if (t !== tr) s.removeTrack(t); });
+        s.addTrack(tr); v.srcObject = s;
+    }
+    try { var p = v.play && v.play(); if (p && p.catch) p.catch(function () {}); } catch (_) {}
+    vcRecoveryLog('video-element-recover', id, pc, R, 1);
+    return true;
+}
+function vcRecoveryWatchFrame(id, pc, R) {
+    if (R.frameCallback != null) return;
+    var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+    if (!v || !v.requestVideoFrameCallback) return;
+    R.frameVideo = v;
+    R.frameCallback = v.requestVideoFrameCallback(function () {
+        R.frameCallback = null;
+        if ((window.__vcRxRecovery || {})[id] !== R || (window.vcPeerConnections || {})[id] !== pc) return;
+        if ((window.vcRemoteCamOff || {})[id]) return; // AAO needs a later stats sample, not a buffered old callback.
+        vcRecoveryRecovered(id, pc, R);
+    });
+}
+
+function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
+    try {
+        if (!id || !sample) return;
+        var all = window.__vcRxRecovery || (window.__vcRxRecovery = {});
+        var R = all[id];
+        if (!R || (R.pc !== pc && !R.rebuilding)) {
+            vcRecoveryCancel(R);
+            R = all[id] = { pc: pc, seq: -1, bad: 0, dead: 0, level: -1, done: {}, aaoSeenSeq: -1 };
+        }
+        R.pc = pc;
+        if (seq < R.seq) return;
+        if (R.seq !== seq) {
+            if (R.seq >= 0 && (seq !== R.seq + 1 || R.consumed !== R.seq)) { R.bad = 0; R.dead = 0; }
+            R.seq = seq; R.video = null; R.audio = null;
+        }
+        if (kind === 'video') R.video = { dr: sample.dr, dfr: sample.dfr, known: sample.known,
+            stalledKnown: sample.stalledKnown == null ? sample.known : sample.stalledKnown,
+            progress: sample.progress == null ? sample.dfr : sample.progress, packetsKnown: sample.packetsKnown !== false, track: receiver && receiver.track };
+        else if (kind === 'audio') R.audio = { dr: sample.dr, known: sample.known !== false };
+        var off = window.vcRemoteCamOff || {}, why = off[id];
+        if (why === 'user') { vcRecoveryCancel(R); R.bad = 0; R.dead = 0; R.started = 0; return; }
+        var tr = R.video && R.video.track;
+        var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
+        var total = v && v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality().totalVideoFrames : null;
+        var displayed = kind === 'video' && v === R.lastVideo && typeof total === 'number' && typeof R.total === 'number' && total > R.total;
+        if (kind === 'video') { R.lastVideo = v; R.total = total; }
+        var fresh = kind === 'video' && ((sample.known && sample.dfr > 0) || displayed);
+        if (why === 'aao') {
+            if (R.aaoSeenSeq < 0) R.aaoSeenSeq = seq;
+            if (fresh && seq > R.aaoSeenSeq) { vcRecoveryRecovered(id, pc, R); why = off[id]; }
+            else { R.bad = 0; } // Intentional video pause; a failed audio+video transport still needs ICE recovery.
+        } else R.aaoSeenSeq = -1;
+        var connected = pc && pc.connectionState === 'connected'
+            && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed');
+        if (fresh && why !== 'aao') {
+            vcRecoveryRecovered(id, pc, R);
+            // Decoding can be healthy while the video element lost its track.
+            var attached = v && v.srcObject && v.srcObject.getVideoTracks && v.srcObject.getVideoTracks().includes(tr);
+            if (connected && tr && tr.readyState === 'live' && (!attached || v.paused)
+                && (!R.attachAt || Date.now() - R.attachAt >= 12000)) {
+                R.attachAt = Date.now(); vcRecoveryElement(id, pc, R);
+            }
+        }
+        if (!R.video || !R.audio || R.consumed === seq) return;
+        R.consumed = seq;
+        tr = R.video.track;
+        R.managed = R.rebuilding || !!(tr && tr.readyState === 'live' && R.video.stalledKnown && R.audio.known);
+        if ((typeof vcIsObserver !== 'undefined' && vcIsObserver) || !R.managed || tr.enabled === false || vcAaoSfuCut()) { R.bad = 0; R.dead = 0; return; }
+        if (R.video.progress > 0 || displayed) { R.bad = 0; R.dead = 0; return; }
+        var videoOnly = !why && connected && R.audio.dr > 0;
+        var transportDead = (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed')
+            && R.audio.dr === 0 && R.video.packetsKnown && R.video.dr === 0;
+        R.bad = videoOnly ? R.bad + 1 : 0;
+        R.dead = transportDead ? R.dead + 1 : 0;
+        if (!videoOnly && !transportDead) return; // Silence/DTX on connected ICE is not a dead path.
+        if (R.cooldown && Date.now() < R.cooldown) return;
+        if (!R.started) {
+            R.started = Date.now(); R.token = id + ':' + R.started; R.done = {}; R.level = 0;
+            R.path = videoOnly ? 'video-only' : 'media-path-dead';
+            if (vcRecoverySend(id, 'sender-reapply', R.token)) vcRecoveryLog('sender-reapply', id, pc, R, 0);
+            vcRecoveryWatchFrame(id, pc, R);
+        }
+        if (R.bad >= 2 && !R.done[1]) {
+            R.path = 'VIDEO_STALLED'; R.level = 1; R.done[1] = Date.now();
+            vcRecoveryLog('video-stalled', id, pc, R);
+            vcRecoveryElement(id, pc, R);
+            vcRecoveryWatchFrame(id, pc, R);
+        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            R.level = 2; R.done[2] = Date.now();
+            vcRecoveryNegotiate(id, pc, false, R);
+        }
+        if (R.dead >= 2 && !R.done[3] && !R.icePending && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            R.path = 'media-path-dead'; R.level = 3; R.icePending = true;
+            vcRecoveryNegotiate(id, pc, true, R).then(function (sent) {
+                R.icePending = false;
+                if (sent && R.started) R.done[3] = Date.now();
+            });
+        } else if (R.dead >= 2 && R.done[3] && !R.done[4] && Date.now() - R.done[3] >= 12000) {
+            if (typeof __vcReconnectAt !== 'undefined' && __vcReconnectAt[id] && Date.now() - __vcReconnectAt[id] < 8000) return;
+            R.level = 4; R.done[4] = Date.now(); R.rebuilding = true;
+            (window.__vcForceRelay || (window.__vcForceRelay = {}))[id] = true;
+            vcRecoveryLog('peer-rebuild', id, pc, R);
+            if (typeof vcReconnectPeer === 'function') vcReconnectPeer(id);
+        }
+    } catch (_) {}
+}
+
 function vcqRxTick() {
     var Q = window.__vcQ; if (!Q) return;
     var pcs = window.vcPeerConnections || {};
     var ids = Object.keys(pcs);
     Q.p.push(ids.length);
     var prevAll = window.__vcRxPrev || (window.__vcRxPrev = {});
+    var recovery = window.__vcRxRecovery || {};
+    Object.keys(recovery).forEach(function (id) {
+        if (!pcs[id] && (!recovery[id].rebuilding || Date.now() - recovery[id].done[4] > 30000)) { vcRecoveryCancel(recovery[id]); delete recovery[id]; }
+    });
+    var rxSeq = (window.__vcRxSeq = (window.__vcRxSeq || 0) + 1);
     try { vcqLowQSelf(); } catch (_) {}   // 📶 내가 저화질로 보내는 중이면 내 타일에 배지
     try { vcqDupTabWatch(); } catch (_) {}   // 👥 같은 계정 둘째 탭(③)
     try { vcqWrapCreatePeer(); } catch (_) {}   // ② 로드 순서상 아직 못 감쌌으면 여기서
@@ -116,14 +386,17 @@ function vcqRxTick() {
         try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
         if (!pc || !pc.getReceivers) return;
         pc.getReceivers().forEach(function (r) {
-            if (!r || !r.track || !r.getStats) return;
+            if (!r || !r.track || !r.getStats || r.__vcRxReading) return;
             var kind = r.track.kind;
             if (kind !== 'video' && kind !== 'audio') return;
-            r.getStats().then(function (st) {
+            r.__vcRxReading = true;
+            Promise.resolve().then(function () { return r.getStats(); }).then(function (st) {
+                if ((window.vcPeerConnections || {})[id] !== pc) return;
                 st.forEach(function (s) {
-                    if (s.type !== 'inbound-rtp') return;
+                    if (s.type !== 'inbound-rtp' || ((s.kind || s.mediaType) && (s.kind || s.mediaType) !== kind)) return;
                     var key = id + ':' + kind;
                     var prev = prevAll[key];
+                    var sameMedia = prev && prev.pc === pc && prev.statId === s.id && prev.trackId === r.track.id;
                     var lost = s.packetsLost || 0, rec = s.packetsReceived || 0;
                     var dl = Math.max(0, lost - ((prev && prev.lost) || 0));
                     var dr = Math.max(0, rec - ((prev && prev.rec) || 0));
@@ -137,6 +410,12 @@ function vcqRxTick() {
                     if (kind === 'video') {
                         try { vcLowQRemote(id, s.frameWidth || 0, dr > 0); } catch (_) {}   // 📶 저화질로 받는 중이면 그 타일에 배지
                         var fz = s.freezeCount || 0;
+                        var frKnown = (typeof s.framesDecoded === 'number');
+                        var fr = frKnown ? s.framesDecoded : 0;
+                        var frameKnown = !!(sameMedia && frKnown && typeof prev.fr === 'number' && fr >= prev.fr);
+                        var dfr = frameKnown ? fr - prev.fr : 0;
+                        var receivedKnown = !!(sameMedia && typeof s.framesReceived === 'number' && typeof prev.received === 'number' && s.framesReceived >= prev.received);
+                        var progress = frKnown ? dfr : receivedKnown ? s.framesReceived - prev.received : 0;
                         if (prev) {
                             if (dl + dr >= 25) {
                                 var lp = 100 * dl / (dl + dr);
@@ -149,7 +428,8 @@ function vcqRxTick() {
                             }
                             Q.rxf += Math.max(0, fz - (prev.fz || 0));
                         }
-                        prevAll[key] = { lost: lost, rec: rec, fz: fz };
+                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, fz: fz, fr: frKnown ? fr : null, received: s.framesReceived };
+                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: frameKnown, stalledKnown: frKnown ? frameKnown : receivedKnown, progress: progress, packetsKnown: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
                         if (prev) {
@@ -159,10 +439,11 @@ function vcqRxTick() {
                                표본이 너무 적으면(무음·DTX) 비율이 튀므로 버린다. */
                             if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
                         }
-                        prevAll[key] = { lost: lost, rec: rec, cs: cs, ts: ts };
+                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, cs: cs, ts: ts };
+                        try { vcqRxRecoverySample(id, 'audio', { dr: dr, known: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
                     }
                 });
-            }).catch(function () {});
+            }).catch(function () {}).finally(function () { r.__vcRxReading = false; });
         });
     });
 }
@@ -346,7 +627,9 @@ function vcqRxStart() {
         window.__vcRxT = setInterval(function () {
             if (!document.body || !document.body.classList.contains('vc-in-call')) {
                 try { clearInterval(window.__vcRxT); } catch (_) {}
-                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {};
+                Object.keys(window.__vcRxRecovery || {}).forEach(function (id) { vcRecoveryCancel(window.__vcRxRecovery[id]); });
+                window.__vcRxRecovery = {};
+                window.__vcRxT = null; window.__vcRxPrev = {}; window.__vcPeerSilence = {}; window.__vcLowQ = {}; window.__vcPath = {}; __vcAaoSince = {};
                 /* 회선 경고의 기준 RTT·연속카운트도 함께 비운다 — 안 비우면 앞 수업의 기준값이
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
                 try { vcqSaveRttBase(); } catch (_) {}   // ② 다음 수업의 «낮게 시작» 근거(7일)
@@ -354,6 +637,7 @@ function vcqRxStart() {
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
+            try { vcAaoTick(); } catch (_) {}
         }, 4000);
     } catch (_) {}
 }
@@ -495,11 +779,23 @@ function vcNetPeerMark(userId, bad) {
 var VC_LOWQ_STEP = 3;    // idx-main.js STEPS[3] = 0.2 — 여기부터 사람 눈에 «흐림» 이 보인다(하니스가 STEPS 와 대조)
 var VC_LOWQ_RATIO = 2.5; // 받는 영상 가로폭이 «본 최대 폭» 의 1/2.5 이하 = SCALE[3]=3 부터(2단계 1/2 는 안 잡음)
 var VC_LOWQ_ABS = 240;   // 최대 폭을 아직 못 봤을 때의 절대 하한(px)
+/* 🔕 (2026-09-15) 사장님 「"저화질로 받는 중" 글자 안나오게 해줘」 — 배지를 «화면에 그리지 않는다».
+   [왜 껐나] 이 배지는 얼굴 타일 «위에» 얹히는 글자다. 회선이 나쁠수록 오래 떠 있으므로
+     정작 상대 얼굴이 제일 안 보일 때 그 얼굴을 가장 크게 가린다(2026-09-15 사장님 화면 실측:
+     교사 타일의 «받는 중» 과 내 타일의 «보내는 중» 이 동시에 떠 있었다).
+   ⛔ 판정은 한 줄도 안 바꾼다 — L.self·L[id] 카운터도, vc_quality 로그(화질·단계·경로)도 그대로 쌓인다.
+      «왜 흐린지» 는 관리자 「📶 강사 회선품질」 화면에서 그대로 읽는다.
+   ⚠️ «보내는 중»(내 타일)도 함께 껐다 — 같은 함수가 그리는 같은 배지이고, 하나만 남기면
+      얼굴은 여전히 가려진다. 한쪽만 되살리려면 그 호출부에서 정하는 것이 아니라 여기서 정한다.
+   ✅ 되돌리는 길: 콘솔에서 `window.__vcLowQBadge = true` (그 자리에서 다시 붙는다).
+   ⛔ 이 게이트를 지워서 되살리지 마세요 — 사장님 지시로 끈 것입니다. 감시: vc_quality_blindspot_harness ⑪ */
+function vcLowQBadgeOn() { try { return window.__vcLowQBadge === true; } catch (_) { return false; } }
 function vcLowQMark(box, on, text) {
     try {
         if (!box) return;
         var el = box.querySelector('.vc-lowq-hint');
-        if (!on) { if (el) el.remove(); return; }
+        /* 🔕 꺼짐이 기본. «이미 붙어 있던 것»(옛 사본이 붙였을 수 있다)도 이 자리에서 뗀다. */
+        if (!on || !vcLowQBadgeOn()) { if (el) el.remove(); return; }
         if (el) return;
         el = document.createElement('div');
         el.className = 'vc-lowq-hint';
@@ -578,4 +874,412 @@ function vcQualityAcc(loss, rtt) {
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
     window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
+}
+
+/* ═══ ⑤ 음성전용(AAO) «화면 멈춤» ═══════════════════════════════════════════════════
+   2026-09-10 사장님 「선생님 얼굴이 안 보이게 하는 것보단 차라리 화면 멈춤으로 하면 어떨까」
+
+   [무엇이 문제였나] 회선이 무너지면 소리를 살리려고 영상을 끈다(AAO — idx-main.js vcAAOApply).
+     그 판단은 옳다: class-850-20260910 실측에서 강사 송신 손실이 19.7~21.4%(최대 65.5%)였고
+     같은 시각 학생이 받은 소리의 40~43%가 끊겨 있었다. 영상을 안 껐으면 소리까지 무너졌다.
+     문제는 «끈 뒤 화면이 하는 말» 이었다 — 받는 쪽 타일을 불투명도 82% 상자(.vc-camoff-hint)로
+     통째로 덮어 얼굴이 아예 사라졌다. 30일 실측 50개 방 중 16개(32%), 최장 12분 연속.
+
+   [왜 «덮개만 걷으면» 안 되나 — 잰 것 2026-09-10, Chromium 1194 WebRTC 루프백, 30ms 픽셀 측정]
+     · track.enabled = false (옛 방식)   → 받는 쪽이 49ms 만에 «완전 검정»(밝기 0). 마지막 장면이 안 남는다.
+                                           게다가 검은 프레임을 계속 보낸다 — 실측 약 10 kbps.
+     · encodings[0].active = false (지금) → 받는 쪽이 «마지막 장면에서 멈춘다»(7초 뒤까지 픽셀 동일).
+                                           보내는 바이트 정확히 0. 재협상 0회. 복구 96ms.
+     ⟹ «신호를 받고 나서» 마지막 장면을 붙잡는 것은 원리상 불가능하다(영상 49ms 대 cam-state 는 WS 두 홉).
+        끄는 «방법» 자체를 바꾸는 것이 유일한 길이었다.
+
+   [왜 replaceTrack(null) 이 아니라 active=false 인가]
+     replaceTrack(null) 도 같은 «멈춤» 을 준다(실측). 그런데 sender.track 이 비어서, 이 저장소에서
+     영상 sender 를 `s.track && s.track.kind==='video'` 로 찾는 코드 10곳 넘게가 조용히 헛돈다.
+     특히 화면공유 시작은 sender 를 못 찾으면 addTrack + 재협상으로 빠진다(대역폭 위기에 최악).
+     active=false 는 트랙을 그대로 두므로 그 코드들이 전부 그대로 산다.
+     덤: 가상배경·얼굴꾸미기는 sender 가 «캔버스 트랙» 을 쥐고 있는데 이 방식은 무엇을 쥐고 있든
+     상관하지 않는다. AAO 중에 배경을 바꿔도 vcSwapVideoTrack 이 정상 동작하고,
+     그 함수가 getParameters→수정→setParameters 라서 active=false 를 그대로 물고 간다.
+
+   ⛔ 화면공유 중에는 손대지 않는다 — 그때 sender 가 쥔 것은 «화면» 이라 끄면 교재가 사라진다.
+      (옛 코드도 결과적으로 그랬다: enabled=false 는 카메라 트랙에 걸렸고 sender 는 화면 트랙이었다.)
+   ⛔ track.enabled=false 를 «함께» 쓰지 않는다 — 검은 프레임 한 장이 먼저 나가면 그 검정에서 얼어붙는다.
+   ⛔ reason==='user'(사람이 일부러 끔)에는 절대 적용하지 않는다 — 껐는데 얼굴이 남으면 프라이버시 사고다.
+   ⚠️ 멈춘 그림이 «지금» 으로 오인되면 이 저장소가 가장 나쁘다고 못 박은 방향이 된다(모르는 것을
+      그럴듯하게 채우기). 그래서 셋을 함께 붙인다 — 지워지지 않는 띠 + 흑백 + «N초 전» 경과 시간.
+   ⚠️ 이제 강사 자기 미리보기는 살아 있다(카메라를 끄지 않으므로). 그대로 두면 «내 쪽은 멀쩡한데?» 가
+      되므로 자기 타일에도 «지금 상대에게 안 나갑니다» 를 적는다.
+   ⚠️ 늦게 들어온 상대의 sender 는 active 가 켜진 채로 만들어진다 — 아래 vcAaoTick() 이 4초마다 다시 건다.
+   감시: test-harness/aao_freeze_harness.mjs
+   ══════════════════════════════════════════════════════════════════════════════════ */
+
+/* 화면공유 때문에 «끄기» 가 뒤집힌 상태인가 — 뒤집힘이 바뀔 때만 상대에게 다시 알린다 */
+var __vcAaoOver = false;
+/* 🎥 마지막으로 «영상 보내기» 를 되살린 시각(0 = 없음). 아래 vcAaoVerify 가 그 뒤 30초만 확인한다. */
+var __vcAaoOnAt = 0;
+/* 상대별 마지막 framesSent 와 «안 늘어난 틱» 수 */
+var __vcAaoTx = {};
+
+/* SFU 가 mesh 영상 송신을 끊어 둔 상태인가(idx-vc-sfu.js cutMeshVideo).
+   ⚠️ 그쪽은 «같은» vcPeerConnections 의 영상 sender 에 encodings[].active=false 를 건다.
+      그 동안 여기서 켜면 영상이 두 갈래(mesh+SFU)로 나간다 — 켜는 쪽만 손을 뗀다. */
+function vcAaoSfuCut() {
+    try { return !!(window.__vcSfu && window.__vcSfu.meshCut); } catch (_) { return false; }
+}
+
+/* 영상 «보내기» 만 멈추거나 되살린다. 트랙은 건드리지 않는다. on=0 끔 / on=1 켬 */
+function vcAAOVideo(on) {
+    /* 🖥 화면공유 중에는 «언제나 보낸다» — 그때 sender 가 쥔 것은 카메라가 아니라 교재 화면이다.
+       ⛔ 여기서 그냥 `return` 하면 «켜기» 까지 막혀 영상이 영영 안 돌아옵니다. `active=true` 로
+          되돌리는 코드는 저장소에 이 함수 한 곳뿐이고 `vcAAOVideo(1)` 을 부르는 곳도 한 곳뿐이라,
+          회복 시점에 공유 중이면 그 뒤로 아무도 되살리지 않습니다(함정 대조가 잡은 실제 결함).
+          «상태를 지정» 하는 방식이라 공유가 시작·종료되는 순간도 4초 타이머가 저절로 따라잡습니다. */
+    var want = window.__vcScreenSharing ? true : !!on;
+    var pcs = window.vcPeerConnections || {};
+    Object.keys(pcs).forEach(function (id) {
+        try {
+            var pc = pcs[id];
+            var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+            if (!s || !s.getParameters) return;
+            var p = s.getParameters();
+            if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+            var cur = p.encodings[0].active !== false;      // 값이 없으면 «보내는 중» 이 기본이다
+            if (cur === want) return;                       // 바뀔 때만 — 불필요한 setParameters 는 인코더를 흔든다
+            p.encodings[0].active = want;
+            if (want) __vcAaoOnAt = Date.now();             // 🎥 «켰다» 를 적어 둔다 — 아래 vcAaoVerify 가 그 뒤 «실제로 나가는가» 를 본다
+            /* ⛔ 실패를 삼키지 말 것 — 이 거절 하나가 «소리는 오는데 얼굴이 멈춘 채» 를 수업 끝까지 만든다.
+               아래 4초 재적용이 다시 걸어 주지만, «왜 한 번 거절됐나» 는 이 줄로만 남는다. */
+            try { if (want) vcRecoveryLog('sender-reapply', id, pc, (window.__vcRxRecovery || {})[id], 0); } catch (_) {}
+            s.setParameters(p).catch(function (e) {
+                try { console.warn('[vc-aao] setParameters 거절 — uid', id, want ? '켜기' : '끄기', (e && e.message) || e); } catch (_) {}
+            });
+        } catch (_) {}
+    });
+    /* 공유가 시작·끝나 «실제로 보내는가» 가 뒤집히면 상대에게 다시 알린다 — 안 그러면
+       살아 움직이는 교재 위에 «N초 전 모습» 이 얹히고(거짓말), 반대로 멈춘 화면에 아무 안내도 없게 된다. */
+    var over = (want !== !!on);
+    if (over !== __vcAaoOver) {
+        __vcAaoOver = over;
+        try { if (typeof vcBroadcastCamState === 'function') vcBroadcastCamState(want, 'aao'); } catch (_) {}
+    }
+    try { vcAaoSelfMark(!want); } catch (_) {}
+}
+window.vcAAOVideo = vcAAOVideo;
+
+/* 「N초 전」의 기준 시각 — 상대 uid 별로 «멈춘 순간» */
+var __vcAaoSince = {};
+
+/* 📷 (2026-09-15) 「마지막 모습」 — uid → dataURL 한 장.
+   사장님 「음성만 나올 땐 화면은 교사의 얼굴이 멈춤 상태라도 나오게 해줘. 검게 하지 말고
+   반드시 마지막 모습이 계속 나오게 할 수 있지??」
+
+   [무엇이 문제였나] encodings.active=false 로 끄면 «대개» <video> 가 마지막 프레임에서 멈춘다(위 ⑤ 실측).
+     그런데 그 «대개» 가 아닌 경우가 실제로 있었다 — 트랙이 죽거나(회선 붕괴·재협상) 첫 프레임이
+     아직 한 장도 안 왔으면 videoWidth 가 0 이고, 아래 게이트가 옛 전면 덮개(.vc-camoff-hint,
+     불투명 82%)로 떨어져 **얼굴이 통째로 사라진다.** 2026-09-15 사장님 화면(class-848, 05:54)이
+     정확히 그 상태였다: 교사 자리가 「연결이 약해 지금은 음성만 전송 중이에요」 글자만 남고 새까맸다.
+   [고침] 영상이 살아 있는 동안 4초마다 한 장을 떠 두고, 검어지면 그 그림을 깐다.
+     한 번이라도 얼굴이 온 상대라면 그 뒤로는 무엇이 끊겨도 마지막 모습이 남는다.
+   ⚠️ 한 프레임도 안 온 상대는 원리상 보여 줄 것이 없다 — 그때는 옛 전면 안내가 «사실» 이라 그대로 둔다.
+   🔒 사람이 카메라를 «일부러» 끈 상대(cam-state 'user')의 그림은 갖고 있지 않는다 —
+      껐는데 얼굴이 남으면 프라이버시 사고다(⑤ 머리말의 ⛔ 와 같은 줄기).
+   ⚠️ 새 타이머를 만들지 않는다 — 이미 있는 4초 틱(vcqRxStart→vcAaoTick)에 얹는다(홈이 멎은 전력 2회).
+   💰 [비용 — 잰 것 2026-09-15, 이 컨테이너 헤드리스(소프트웨어 렌더)] 1280x720 을 320폭으로 뜨는 데
+      **한 장 5.03ms**(1:1 이면 4초마다 그만큼 = 약 0.13%), **4명이면 16.76ms**(약 0.42%), 메모리 4명에 26KB.
+      «공짜가 아닙니다» — 화상수업 CPU 는 영상 인코더와 경쟁합니다(녹화 fps 를 60→10 으로 낮춘 것과 같은 자리).
+      1:1 이 정상 사용이라 그대로 두었지만, 그룹이 커지면 «한 틱에 한 명씩 돌아가며» 뜨는 쪽을 먼저 보세요. */
+var __vcAaoStill = {};
+var VC_AAO_STILL_W = 320;   // 떠 두는 폭(px). 얼굴 칸은 크게 잡아야 400px 안팎이라 이만하면 눈에 같다
+
+/* 살아 있는 영상에서 한 장을 뜬다. ⚠️ toDataURL 은 tainted canvas 에서 던진다 —
+   WebRTC 스트림은 same-origin 이라 안 걸리지만, 걸려도 «고치기 전»(덮개)으로 떨어지게 감싼다. */
+function vcAaoSnapOne(id, v) {
+    try {
+        if (!v || !v.videoWidth || !v.videoHeight) return;
+        var w = Math.min(VC_AAO_STILL_W, v.videoWidth);
+        var h = Math.round(v.videoHeight * (w / v.videoWidth));
+        if (!w || !h) return;
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(v, 0, 0, w, h);
+        __vcAaoStill[id] = c.toDataURL('image/jpeg', 0.7);
+    } catch (_) {}
+}
+
+/* 떠 둔 한 장을 타일에 깐다 — <video> 가 «검어졌을 때만».
+   멈춘 영상이 살아 있으면(videoWidth>0) 손대지 않는다: 같은 그림이라 덧그릴 이유가 없다.
+   ⚠️ z-index 2 = 영상 위 · 이름표(.video-label 은 3)와 멈춤 띠(9) 아래. 그 둘을 가리면 안 된다. */
+function vcAaoStill(box, id, on) {
+    try {
+        if (!box) return;
+        var img = box.querySelector('.vc-aao-still');
+        var url = on ? __vcAaoStill[id] : '';
+        if (!url) { if (img) img.remove(); return; }
+        if (!img) {
+            img = document.createElement('img');
+            img.className = 'vc-aao-still';
+            img.alt = '';
+            img.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;'
+                + 'z-index:2;filter:grayscale(1);pointer-events:none;';
+            box.style.position = 'relative';
+            box.appendChild(img);
+        }
+        if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+        /* 🔎 «어떻게 맞출지» 는 내가 정하지 않고 «그 영상» 에게서 베낀다.
+           [왜] 정본 vcSmartFitVideo(js/idx-main.js)가 타일마다 cover/contain 을 따로 정한다 —
+             내 타일의 가상배경은 contain(턱·목 잘림 방지 2026-07-13), 화면공유도 contain(좌우 잘림 방지),
+             폰 세로의 상대 타일은 cover(2026-07-14 사장님 지시). 여기에 cover 를 박아 두면
+             **멈추는 순간 그림이 확 커지거나 잘려** «방금 보던 그 화면» 이 아니게 된다.
+           ✅ 그 함수는 videoWidth 가 0 이면 첫 줄에서 돌아가므로, 검어진 뒤에도 인라인 값은
+             «살아 있던 마지막 판정» 그대로 남아 있다 — 그것을 그대로 쓴다.
+           ⚠️ 모르면 예전처럼 cover 로 둔다(빈 값·엉뚱한 값에 화면이 깨지지 않게). */
+        try {
+            var lv = box.querySelector('video');
+            var fit = lv && lv.style ? lv.style.objectFit : '';
+            if (!fit && lv && window.getComputedStyle) fit = getComputedStyle(lv).objectFit || '';
+            img.style.objectFit = (fit === 'contain' || fit === 'cover') ? fit : 'cover';
+            if (lv && window.getComputedStyle) {
+                var pos = getComputedStyle(lv).objectPosition || '';
+                if (pos) img.style.objectPosition = pos;
+            }
+        } catch (_) {}
+    } catch (_) {}
+}
+
+/* 띠가 덮는 자리를 그 타일의 «위쪽 모서리 버튼» 에게 비켜 준다.
+   ⚠️ 처음에는 이 줄이 없었고, 브라우저 실측에서 ⭐ 칭찬 버튼과 개별채팅 버튼이 **픽셀 단위로 통째로**
+      띠에 덮여 있었다(390px 폰 · 별버튼 중앙 픽셀이 띠의 갈색 rgb(121,53,15)). 띠가 pointer-events:none
+      이라 «눌리기는 하는데 안 보이는» 상태였다 — 1P=1원 포인트를 주는 버튼이라 반경이 작지 않다.
+   ✅ 버튼을 «띠 높이만큼» 내린다. 높이는 타일 폭에 따라 1~2줄로 달라지므로 CSS 에 숫자를 박지 않고
+      vcAaoFreeze 가 잰 값을 --aao-h 로 넘긴다. 클래스는 «버튼» 이 아니라 «타일» 에 붙으므로
+      vcRefreshPraiseUI 가 버튼을 다시 그려도 살아남는다.
+   ⚠️ !important 가 필요하다 — #vc-local-box .vc-star-btn{top:6px}(id 포함)이 특이성으로 이긴다. */
+function vcAaoStyleOnce() {
+    if (document.getElementById('vc-aao-css')) return;
+    var st = document.createElement('style');
+    st.id = 'vc-aao-css';
+    /* ⚠️ «위쪽 모서리» 는 한 칸이 아니라 «세로로 쌓인 칸» 이다 — 하나만 내리면 그 밑칸에 올라탄다.
+       실측(2026-09-11, 타일 위에서 잰 값): ⭐6 · ⇱분리6 · 바구니6 · 🖥배지6 · 💬8 · 📶경고8 · 🎛40 · +1P토스트48 · vpb-fly48.
+       처음에 ⭐·💬 만 내렸다가 💬 가 🎛(장치 도우미) 위에 얹혀 «가려진 것을 옮겨 또 가리는» 상태가 됐고,
+       그다음 판에서도 ⇱분리(z-index 5)와 📶경고(z-index 9·pointer-events:none)가 빠져 그대로 덮여 있었다.
+       ⛔ 목록을 줄이지 말 것. 새 모서리 조각을 만들면 여기에 함께 적는다.
+       ⚠️ «눌리는 것» 만 적으면 안 된다 — 배지처럼 pointer-events:none 이거나 띠와 z-index 가 같은
+          조각은 «겹침» 검사에 안 걸린다. 그래서 브라우저 검사가 «띠와 겹친 조각이 전부 자기 색으로
+          칠해졌는가» 를 픽셀로 따로 본다(그 검사가 이 둘을 잡았다). */
+    st.textContent = '.video-box.vc-aao-on .vc-star-btn,.video-box.vc-aao-on .vc-point-basket,'
+        + '.video-box.vc-aao-on .vc-ss-badge,.video-box.vc-aao-on .video-detach-btn'
+        + '{top:calc(6px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-dm-btn,.video-box.vc-aao-on .vc-netlow-hint'
+        + '{top:calc(8px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-devhelp-btn{top:calc(40px + var(--aao-h,0px))!important}'
+        + '.video-box.vc-aao-on .vc-star-toast,.video-box.vc-aao-on .vpb-fly'
+        + '{top:calc(48px + var(--aao-h,0px))!important}';
+    /* ⚠️ 한계 — base 는 «첫 정의» 한 값이다. 같은 조각에 모드별 override 가 있으면 그것까지는 안 본다
+       (실측 예: mg-uni-on 통합바에서 #vc-local-box .vc-star-toast 는 44px 이라 여기서는 4px 더 내려간다.
+        해롭지 않아 그대로 두지만, 그런 override 를 새로 만들 때는 이 줄을 함께 보라). */
+    (document.head || document.documentElement).appendChild(st);
+}
+
+/* 멈춤 띠. 타일 «위쪽» 에 붙인다 — 아래쪽은 이름표·소리 안내·저화질 배지가 이미 쓴다(bottom 8/34/58px).
+   ⛔ display:flex 를 쓰지 않는다 — 짧은 문장이 좁은 타일에서 낱글자로 쪼개진다(CLAUDE.md 2장). */
+function vcAaoStripEl(box) {
+    vcAaoStyleOnce();
+    var el = box.querySelector('.vc-aao-freeze');
+    if (el) return el;
+    el = document.createElement('div');
+    el.className = 'vc-aao-freeze';
+    el.style.cssText = 'position:absolute;left:0;right:0;top:0;z-index:9;display:block;text-align:center;'
+        + 'padding:5px 8px;background:rgba(120,53,15,.92);color:#fff7ed;font-size:11px;font-weight:700;'
+        + 'line-height:1.25;white-space:normal;overflow:hidden;pointer-events:none;';
+    box.style.position = 'relative';
+    box.appendChild(el);
+    return el;
+}
+
+/* 글자를 다시 쓴다. ⚠️ data-ko/data-en 도 함께 갱신해야 🌐 를 눌러도 따라온다(CLAUDE.md 2장
+   「JS 로 그린 라벨」). 이 요소는 글자만 담으므로 두 i18n 엔진이 textContent 를 갈아도 안전하다. */
+function vcAaoLabel(el, id) {
+    var t0 = __vcAaoSince[id] || Date.now();
+    var sec = Math.max(0, Math.round((Date.now() - t0) / 1000));
+    /* 🌐 한/영을 «한 문자열에» 함께 적는다 — 2026-08-08 「상대 타일 안내도 병기」 지시.
+       ⛔ 언어로 «갈라» 쓰면 안 된다: 폰 언어가 EN 인 한국인 원장님이 영어만 받은 것이
+       9/10 제보의 뿌리였다(idx-main.js 의 vcApplyRemoteCamHint 가 같은 이유로 병기다).
+       ⛔ <i> 자식으로 두 줄을 만들지도 말 것 — 두 i18n 엔진이 이 요소의 textContent 를
+       통째로 갈아끼워 자식이 사라진다(CLAUDE.md 2장 「아이콘 버튼에 달았더니」).
+       ⚠️ 그래서 data-ko 와 data-en 이 «같은 값» 이다 — 🌐 를 눌러도 두 말이 다 남는다. */
+    var both = '📶 영상 멈춤 · 소리 정상 · ' + sec + '초 전 / Video paused · audio OK';
+    el.setAttribute('data-ko', both);
+    el.setAttribute('data-en', both);
+    el.textContent = both;
+}
+
+/* 상대 타일을 «멈춤» 으로 만들거나 되돌린다. */
+function vcAaoFreeze(box, id, on) {
+    if (!box) return;
+    var v = box.querySelector('video');
+    if (!on) {
+        delete __vcAaoSince[id];
+        var old = box.querySelector('.vc-aao-freeze'); if (old) old.remove();
+        try { box.classList.remove('vc-aao-on'); box.style.removeProperty('--aao-h'); } catch (_) {}
+        try { if (v) v.style.filter = ''; } catch (_) {}
+        vcAaoStill(box, id, false);        // 📷 깔아 둔 마지막 모습을 걷는다(살아 있는 영상이 다시 보여야 한다)
+        return;
+    }
+    if (!__vcAaoSince[id]) __vcAaoSince[id] = Date.now();
+    /* 흑백 — «지금» 으로 오인되지 않게. 멈춘 그림이라 새로 그리지 않으므로 비용이 거의 없다. */
+    try { if (v) v.style.filter = 'grayscale(1)'; } catch (_) {}
+    /* 📷 영상이 검어졌으면(트랙이 죽었거나 첫 프레임 전) 떠 둔 마지막 모습을 깐다.
+       ⚠️ videoWidth 가 살아 있으면 안 깐다 — 그 경우 <video> 자신이 이미 마지막 장면을 붙잡고 있다. */
+    vcAaoStill(box, id, !(v && v.videoWidth));
+    var el = vcAaoStripEl(box);
+    vcAaoLabel(el, id);
+    vcAaoShift(box, el);
+}
+
+/* 잰 띠 높이를 타일에 넘겨 위쪽 버튼을 그만큼 내린다.
+   ⚠️ 「줄 수가 바뀌면」 높이도 바뀐다(「9초 전」 → 「12초 전」에 줄이 늘 수 있다) — 매 틱 다시 잰다.
+   ⚠️ 타일이 아직 안 그려졌으면(offsetHeight 0) 아무것도 하지 않는다 — 0 을 넣으면 «안 비킨» 것과 같다. */
+function vcAaoShift(box, el) {
+    try {
+        var h = el && el.offsetHeight;
+        if (!h) return;
+        box.style.setProperty('--aao-h', h + 'px');
+        box.classList.add('vc-aao-on');
+    } catch (e) {
+        /* 실패해도 «고치기 전»(버튼이 덮인 상태)으로 떨어질 뿐이라 새 위험은 없다.
+           다만 조용하면 「⭐ 가 안 보인다」가 영영 안 밝혀지므로 한 번은 남긴다. */
+        if (!vcAaoShift._warned) { vcAaoShift._warned = 1; try { console.warn('[vc-aao] shift 실패 — 위쪽 버튼이 띠에 가릴 수 있습니다', e); } catch (_) {} }
+    }
+}
+
+/* 내 타일 — 내가 «음성만» 을 보내는 동안. 흑백은 안 입힌다(내 미리보기는 실제로 살아 움직인다). */
+function vcAaoSelfMark(on) {
+    try {
+        var box = document.getElementById('vc-local-box');
+        if (!box) return;
+        var el = box.querySelector('.vc-aao-freeze');
+        if (!on) {
+            if (el) el.remove();
+            /* ⚠️ (2026-09-15) 4초 타이머가 «켜기» 도 다시 걸게 되면서 이 갈래가 «평상시에도» 매 틱 돈다.
+               CLAUDE.md 실측: «없는 토큰 remove() 도 class 속성을 다시 써서 관찰자를 1회 깨운다»
+               (mango-worldclock.js 가 documentElement 에 subtree 로 걸려 있어 그 대상이다).
+               무한루프는 아니지만(그 콜백은 toggle(t, force) 라 상태가 같으면 0회) 수업 중 4초마다
+               남의 관찰자를 깨울 이유가 없다 — 홈이 두 번 멎은 뿌리가 이 계열이다. 바뀔 때만 쓴다. */
+            if (box.classList.contains('vc-aao-on')) box.classList.remove('vc-aao-on');
+            if (box.style.getPropertyValue('--aao-h')) box.style.removeProperty('--aao-h');
+            return;
+        }
+        el = vcAaoStripEl(box);
+        var ko = '📶 영상 안 나감';          // ⚠️ PIP 는 폰에서 130px — 길면 핵심이 잘린다
+        var en = '📶 Video not sent';
+        el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+        el.textContent = (typeof miIsEn === 'function' && miIsEn()) ? en : ko;
+        vcAaoShift(box, el);
+    } catch (_) {}
+}
+
+/* 받는 쪽 안내 갈아끼우기 — idx-main.js 의 vcApplyRemoteCamHint 를 «밖에서» 덮는다.
+   그 함수는 최상위 함수 선언이라 window 속성이고, 부르는 쪽(cam-state 핸들러·vcRemoteBlackWatch)이
+   맨이름으로 부르므로 여기서 덮으면 그쪽까지 따라온다(CLAUDE.md 2장 「blocking 파일을 못 고칠 때」).
+   ⚠️ 그 이름이 바뀌면 조용히 헛돈다 — 하니스가 «그 이름이 아직 있는가» 를 대조한다.
+   ⛔ 'user'(사람이 껐음)는 원본 그대로 — 전면 덮개가 맞다. */
+var __vcHintOrig = window.vcApplyRemoteCamHint;
+window.vcApplyRemoteCamHint = function (userId) {
+    try {
+        var box = document.getElementById('vc-video-' + userId);
+        var why = (window.vcRemoteCamOff || {})[userId];
+        if (why !== 'aao') {                                   // 카메라를 껐거나 다시 켰다 → 옛 동작
+            vcAaoFreeze(box, userId, false);
+            if (__vcHintOrig) __vcHintOrig(userId);
+            return;
+        }
+        var v = box && box.querySelector('video');
+        /* 보여 줄 «마지막 장면» 이 애초에 없으면(한 프레임도 안 온 상대) 옛 전면 안내가 맞다 —
+           검은 바탕에 «영상 멈춤» 이라고 적으면 거짓말이 된다.
+           📷 (2026-09-15) 영상이 «검어졌어도» 떠 둔 한 장이 있으면 그것으로 보여 준다 —
+              예전에는 여기서 곧바로 전면 덮개로 떨어져 교사 얼굴이 통째로 사라졌다(위 __vcAaoStill 머리말). */
+        if (!(v && v.videoWidth) && !__vcAaoStill[userId]) { vcAaoFreeze(box, userId, false); if (__vcHintOrig) __vcHintOrig(userId); return; }
+        var cover = box.querySelector('.vc-camoff-hint'); if (cover) cover.remove();
+        var black = box.querySelector('.vc-black-hint'); if (black) black.remove();
+        vcAaoFreeze(box, userId, true);
+        vcqRxStart();                                          // 「N초 전」을 세어 줄 타이머(수업 중에만 산다)
+    } catch (_) {}
+};
+
+/* 🎥 (2026-09-15) «켰다» 와 «나간다» 는 다르다 — 되살린 뒤 프레임이 실제로 다시 늘어나는지 본다.
+   [왜] active=true 로 되돌려도 인코더가 안 살아나거나 트랙이 죽어 있으면 받는 쪽은 여전히 멈춘 그림이다.
+        그런데 그 상태는 소리가 멀쩡해서 «수업은 되는데 얼굴만 안 돌아온다» 로만 보이고, 아무 데도 안 남는다.
+   ⛔ 여기서 재협상·restartIce 를 걸지 말 것 — 이 자리는 «회선이 방금 나빴던» 곳이라
+      연결을 다시 맺는 것이 최악이다(idx-main.js 화면공유 주석과 같은 이유).
+      되살리는 일은 아래 4초 재적용이 이미 한다. 여기는 «안 돌아온다» 를 «말하는» 자리다.
+   ⚠️ 사람이 카메라를 끈 경우·죽은 트랙·통계 없음은 보지 않는다 — 거짓 경보가 더 나쁘다. */
+function vcAaoVerify() {
+    if (!__vcAaoOnAt || Date.now() - __vcAaoOnAt > 30000) { __vcAaoTx = {}; return; }
+    var pcs = window.vcPeerConnections || {};
+    Object.keys(pcs).forEach(function (id) {
+        try {
+            var pc = pcs[id];
+            var s = pc && pc.getSenders && pc.getSenders().find(function (x) { return x.track && x.track.kind === 'video'; });
+            if (!s || !s.getStats) return;
+            if (s.track.readyState !== 'live' || s.track.enabled === false) return;
+            s.getStats().then(function (st) {
+                var f = -1;
+                st.forEach(function (r) { if (r.type === 'outbound-rtp' && typeof r.framesSent === 'number') f = Math.max(f, r.framesSent); });
+                if (f < 0) return;                                   // 통계가 없으면 «모름» — 단정하지 않는다
+                var prev = __vcAaoTx[id];
+                var stuck = (prev && f <= prev.f) ? (prev.stuck || 0) + 1 : 0;
+                __vcAaoTx[id] = { f: f, stuck: stuck };
+                if (stuck === 3) {                                   // 3틱 ≈ 12초
+                    try { console.warn('[vc-aao] 영상을 되살린 뒤 12초 동안 프레임이 안 나갑니다 — uid', id, '· framesSent', f); } catch (_) {}
+                }
+            }).catch(function () {});
+        } catch (_) {}
+    });
+}
+
+/* 4초 타이머(vcqRxStart)가 부른다. ⛔ 여기서 새 setInterval 을 만들지 않는다(홈이 멎은 전력 2회). */
+function vcAaoTick() {
+    var A = window.__vcAAO;
+    /* 🔴 (2026-09-15) «끄기» 만 4초마다 다시 걸고 «켜기» 는 한 번뿐이면, 그 한 번이 거절됐을 때
+       영상이 수업 끝까지 안 돌아온다. active=true 로 되돌리는 코드는 저장소에 vcAAOVideo 한 곳뿐이고
+       vcAAOVideo(1) 을 부르는 곳도 vcAAOApply 의 복구 갈래(idx-main.js) 한 곳뿐이기 때문이다.
+       하필 그 한 번은 «회선이 회복된 그 틱» 에 일어나는데, 같은 4초 주기의 applyStep 도
+       같은 sender 에 getParameters→setParameters 를 건다 → 스냅샷이 어긋나면 한쪽이 거절되고,
+       그 거절은 조용하다(에러도 화면도 없다).
+       ⟹ vcAAOVideo 가 스스로 적어 둔 설계(«상태를 지정»)대로 양방향을 4초마다 다시 건다.
+          바뀔 때만 실제로 쓰므로(cur === want 조기반환) 평소에는 아무 일도 하지 않는다.
+       ⛔ 켜는 쪽을 되돌리지 말 것 — 되돌리면 「소리는 오는데 얼굴이 멈춘 채」가 그대로 재현된다.
+       ⚠️ SFU 가 mesh 를 끊어 둔 동안에는 «켜지» 않는다(vcAaoSfuCut) — 그쪽이 일부러 끈 것이다. */
+    var want = (A && A.active) ? 0 : 1;
+    if (!(want && vcAaoSfuCut())) { try { vcAAOVideo(want); } catch (_) {} }
+    try { vcAaoVerify(); } catch (_) {}
+    /* 📷 살아 있는 상대 영상에서 «마지막 모습» 을 한 장씩 떠 둔다(2026-09-15 — 위 __vcAaoStill 머리말).
+       ⛔ 멈춤 중인 타일(__vcAaoSince)은 건너뛴다 — 뜰 것이 없고, 뜨면 멈춘 그림을 다시 떠 덮어쓴다.
+       🔒 사람이 카메라를 «일부러» 끈 상대('user')의 그림은 그 자리에서 버린다 — 껐는데 얼굴이 남으면 사고다. */
+    try {
+        var grid = document.getElementById('vc-video-grid');
+        if (grid) {
+            var live = {}, off = (window.vcRemoteCamOff || {});
+            grid.querySelectorAll('.video-box').forEach(function (b) {
+                var pid = (b.id || '').replace('vc-video-', '');
+                if (!pid || b.id === 'vc-local-box') return;
+                live[pid] = 1;
+                if (off[pid] === 'user') { delete __vcAaoStill[pid]; return; }
+                if (!__vcAaoSince[pid]) vcAaoSnapOne(pid, b.querySelector('video'));
+            });
+            Object.keys(__vcAaoStill).forEach(function (pid) { if (!live[pid]) delete __vcAaoStill[pid]; });
+        }
+    } catch (_) {}
+    Object.keys(__vcAaoSince).forEach(function (id) {
+        var box = document.getElementById('vc-video-' + id);
+        var el = box && box.querySelector('.vc-aao-freeze');
+        if (el) {
+            vcAaoLabel(el, id); vcAaoShift(box, el);            // ⚠️ 줄 수가 바뀔 수 있으니 높이도 다시 잰다
+            /* 📷 영상이 «뒤늦게» 검어질 수 있다(멈춘 줄 알았던 트랙이 죽는다) — 그때 떠 둔 한 장으로 바꿔 깐다. */
+            var vv = box.querySelector('video');
+            vcAaoStill(box, id, !(vv && vv.videoWidth));
+        }
+        else { delete __vcAaoSince[id]; delete __vcAaoStill[id]; }   // 타일이 사라졌다 = 그 상대가 나갔다
+    });
 }

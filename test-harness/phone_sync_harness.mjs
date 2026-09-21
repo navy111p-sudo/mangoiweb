@@ -174,6 +174,14 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
       { user_id:'s5', name:'정예은', shop_name:'강남점', student_phone:'010-5555-6666' },
       // 🧹 이름 덮어쓰기 대상 — 카페24는 'jeong' 을 주는데 우리는 '정우영' 으로 보여야 한다
       { user_id:'s6', name:'jeong', shop_name:'강남점' },
+      /* 📞 (2026-09-15) 번호 «한 칸만» 찬 학생 — 야간 DELETE 보존이 칸마다 따로 필요하다.
+         실제 데이터가 그렇다: createTrialStudent(leveltest-schedule.ts)는 `phone` 하나만 넣고
+         (이 수리의 동기로 인용된 lt15·lt16·lt18 이 그 모양), 자가가입(api-students.ts)은
+         parent_phone+phone 만 넣는다(student_phone 없음). 세 칸이 다 찬 행만 시험하면
+         보존 조건을 «한 줄씩» 지우는 변이를 원리상 못 잡는다(실측으로 밟았다). */
+      { user_id:'s7', name:'한부모', shop_name:'강남점' },
+      { user_id:'s8', name:'한학생', shop_name:'강남점' },
+      { user_id:'s9', name:'한번호', shop_name:'강남점' },
     ],
     parentPhones: { s1:'010-1111-2222', s2:'   ' },
   };
@@ -209,6 +217,25 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   sq.prepare(`UPDATE students_erp SET password_hash=?, parent_user_id=?, eval_band=?, last_login_at=? WHERE user_id='s1'`)
     .run('HASH_KEEP_ME', 'parent_s1', 'band3', 1700000000000);
 
+  /* 📞 (2026-09-15) **우리가 화면에서 넣은 번호가 야간 동기화를 넘기는가.**
+     [왜 검사하나] 카페24 원본의 번호 칸은 비어 있다(실측 29,485행 네 칸 전부 0건). 그런데
+        UPSERT 가 `parent_phone = excluded.parent_phone` 로 **무조건** 덮고 있어서, 우리가 넣은
+        번호가 그날 밤 빈 값으로 되돌아갔다 — 에러 없이 「그냥 사라진」 것처럼만 보인다.
+     [문자열로는 못 잡는다] SET 절도 «있고» 칸 이름도 맞다. 틀리는 것은 «다시 돌린 뒤 남아 있는가»
+        뿐이라 실제로 넣고 두 번 돌려서 본다.
+     ⚠️ s2 는 카페24가 «공백» 을 주는 학생이다 — 그래서 이 시나리오가 성립한다.
+        s1 은 반대로 카페24가 번호를 주는 학생이라 «갱신이 계속 오는가» 의 짝 검사가 된다. */
+  sq.prepare(`UPDATE students_erp SET parent_phone=?, student_phone=?, phone=? WHERE user_id='s2'`)
+    .run('010-7777-8888', '010-3333-4444', '010-3333-4444');
+  /* 📞 «한 칸만» 찬 셋 — 보존 조건의 세 줄이 각각 일하는지는 이 셋으로만 드러난다. */
+  sq.prepare(`UPDATE students_erp SET parent_phone=?  WHERE user_id='s7'`).run('010-1010-1010');
+  sq.prepare(`UPDATE students_erp SET student_phone=? WHERE user_id='s8'`).run('010-2020-2020');
+  sq.prepare(`UPDATE students_erp SET phone=?         WHERE user_id='s9'`).run('010-3030-3030');
+  /* 🔗 짝 검사용 — 카페24가 «값을 주는» 학생(s4)의 번호를 임의로 바꿔 둔다.
+     ⚠️ s1 에 하면 안 된다: 바로 위 「다시 동기화해도 번호가 남아 있다」가 s1 을 보는데,
+        그 검사의 뜻이 «카페24가 덮어썼다» 로 조용히 바뀌어 원래 재던 것을 안 재게 된다. */
+  sq.prepare(`UPDATE students_erp SET parent_phone=? WHERE user_id='s4'`).run('010-0000-0000');
+
   // 야간 동기화가 매일 도는 상황 — 두 번 돌려도 지워지면 안 된다
   off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   check('다시 동기화해도 번호가 남아 있다 (야간 재실행)', g('s1','parent_phone') === '010-1111-2222',
@@ -222,6 +249,32 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   check('그래도 카페24 값은 계속 덮어쓴다 (동기화가 죽으면 안 된다)',
         g('s1','shop_name') === '강남점' && g('s1','korean_name') === '김민준',
         '보존을 넣느라 카페24 갱신이 멈추면 그것대로 사고다');
+
+  /* 📞 우리가 넣은 번호 — 카페24가 «빈 값» 을 주는 학생(s2). 여기가 이번 수리의 본체다.
+     DELETE 보존을 빼면 행이 통째로 지워져 새 INSERT 로 들어오고, COALESCE 를 빼면 행은 남되
+     SET 이 NULL 로 덮는다. **두 경로 어느 쪽을 되돌려도 이 세 줄이 FAIL 난다.** */
+  check('야간 동기화가 우리가 넣은 학부모 번호를 지우지 않는다',
+        g('s2','parent_phone') === '010-7777-8888', String(g('s2','parent_phone')));
+  check('야간 동기화가 우리가 넣은 학생 번호를 지우지 않는다 (student_phone)',
+        g('s2','student_phone') === '010-3333-4444', String(g('s2','student_phone')));
+  check('야간 동기화가 우리가 넣은 학생 번호를 지우지 않는다 (phone)',
+        g('s2','phone') === '010-3333-4444', String(g('s2','phone')));
+  /* 🔗 **짝 검사** — 위만 두면 「번호는 영영 안 덮는다」로 고쳐도 통과한다. 그러면 번호가 바뀐
+     학생이 옛 번호로 굳는다(COALESCE 의 인자 순서를 뒤집으면 정확히 그렇게 된다).
+     카페24가 «값을 주는» 학생은 그 값으로 되돌아와야 한다 — 카페24가 정본이라는 원칙 그대로. */
+  check('카페24가 번호를 주면 그 값으로 계속 갱신된다 (덮어쓰기 방향)',
+        g('s4','parent_phone') === '010-9999-0000',
+        '우리가 임의로 바꾼 010-0000-0000 이 남아 있으면 카페24 갱신이 영영 안 오는 것이다: ' + String(g('s4','parent_phone')));
+
+  /* 📞 **칸마다 따로** — 보존 조건 세 줄 중 «한 줄만» 지우는 변이는 여기서만 잡힌다.
+     위 s2 는 세 칸이 다 차 있어 한 줄만 남아도 행이 보존된다(실측: 한 줄씩 지우면 36/0 통과).
+     ⛔ 이 셋을 «세 칸 다 찬 학생» 으로 합치지 말 것 — 그 순간 이 검사가 헛돈다. */
+  check('학부모 번호«만» 있는 학생도 안 지워진다 (보존 조건 parent_phone 줄)',
+        g('s7','parent_phone') === '010-1010-1010', String(g('s7','parent_phone')));
+  check('학생 번호«만» 있는 학생도 안 지워진다 (보존 조건 student_phone 줄)',
+        g('s8','student_phone') === '010-2020-2020', String(g('s8','student_phone')));
+  check('phone «만» 있는 학생도 안 지워진다 (보존 조건 phone 줄 — 체험계정 lt* 의 모양)',
+        g('s9','phone') === '010-3030-3030', String(g('s9','phone')));
 } catch (e) {
   check('실제 실행 검사', false, e?.message);
 } finally {

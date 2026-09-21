@@ -40,6 +40,10 @@ console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해
 
 /* ── ① 경량 — 넘으면 «별도 화면으로 뺀 이유» 가 무너진 것 ──
    📜 이력: 40KB(한 파일) → 44KB(2026-09-02 참관 정원 안내) → **두 숫자**(2026-09-02 JS 분리)
+          → 합계 52KB(2026-09-13 사장님 D안 «상황판» — 본문 17px·요약 띠·「손봐야 할 방」 상자.
+            HTML 머리말·JS 머리말의 중복 이력 주석을 작업기록으로 옮겨 1.6KB 를 먼저 덜어 낸 뒤에도
+            1.2KB 가 남아 최소로 올렸다. 아래 «뺄 후보» 는 기능이라 사람이 정할 일로 남겨 두었다)
+          → ✅ **2026-09-14 사장님 「52KB 상한 그대로 유지해」** — 확정. 되돌리지 마세요.
 
    [왜 «한 숫자» 를 «두 숫자» 로 바꿨나]
    화면 코드 33.7KB 를 HTML 이 이고 있어서 여유가 1.4KB 였다. 그것을 /js/monitor-wall.js 로
@@ -47,7 +51,7 @@ console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해
      ㉠ **HTML** : 매번 새로 받는 부분(캐시 안 됨). 여기가 진짜로 작아야 한다.
      ㉡ **HTML + JS** : 화면 전체 무게. 「admin.html 에 얹지 않는다」가 지키려던 것.
    ⛔ JS 를 밖으로 뺐다고 상한이 «사라지면» 그건 게이트 우회다(CLAUDE.md 4-1-1). 그래서
-      ㉡을 그대로 유지한다. 50KB 도 admin.html(1.3MB)의 **4%** 다.
+      ㉡을 그대로 유지한다. 52KB 도 admin.html(1.3MB)의 **4%** 다.
    ⛔ 넘칠 때마다 올리지 마세요 — 다음에 넘치면 «무엇을 뺄까» 를 먼저 보세요.
       후보는 이미 재 뒀습니다: 카페24 예약 목록(~2KB, 다른 4곳에 있음) · 강제 종료(~2.5KB,
       adm-core.js 에 같은 API). ⛔ 순회 참관(4.2KB)·회선 신호등은 여기에만 있습니다. */
@@ -55,8 +59,8 @@ console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해
   const kbHtml = statSync(FILE).size / 1024;
   const kbAll = (statSync(FILE).size + statSync(JSFILE).size) / 1024;
   check(`① HTML 12KB 이하 (실측 ${kbHtml.toFixed(1)}KB) — 매번 새로 받는 부분`, kbHtml <= 12);
-  check(`①-2 HTML + JS 합계 50KB 이하 (실측 ${kbAll.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`,
-        kbAll <= 50);
+  check(`①-2 HTML + JS 합계 52KB 이하 (실측 ${kbAll.toFixed(1)}KB) — admin.html 1.3MB 에 얹지 않는 설계의 핵심`,
+        kbAll <= 52);
   check('①-3 화면이 그 JS 를 «?v= 를 달아» 부른다 (안 달면 immutable 캐시에 옛 파일이 남는다)',
         /<script src="\/js\/monitor-wall\.js\?v=\d+"/.test(html));
   check('①-4 인라인 <script> 로 되돌아가지 않았다 (되돌리면 위 두 숫자가 뜻을 잃는다)',
@@ -106,6 +110,12 @@ check('⑤-3 직접 입장은 카메라 꺼짐 + 확인창 (학생에게 보이�
 /* ── ⑥ 오클릭 방지 — 2026-08-12 «자동 갱신이 조준한 행을 갈아치우던» 사고의 재발 방지 ── */
 check('⑥ 마우스가 표 위에 있는 동안 재렌더하지 않는다 (pointerenter/leave + hoverGrid)',
       /pointerenter/.test(bare) && /pointerleave/.test(bare) && /hoverGrid/.test(bare));
+/* 🚨 (2026-09-13 D안) 「손봐야 할 방」 상자는 .tablewrap 밖이라 표의 게이트를 못 받는다 — 함정 대조가 잡음 */
+check('⑥-3 「손봐야 할 방」 상자(#urgent)도 같은 hover 게이트를 받는다',
+      /\['rooms',\s*'urgent'\]/.test(bare) && /function renderUrgent/.test(bare));
+check('⑥-4 그 상자의 참관 버튼도 정원 규칙을 따른다 (정원 차면 disabled · 2명 이상이면 🎧 소리만)',
+      /function renderUrgent[\s\S]{0,1500}?full \? ' disabled'/.test(bare)
+      && /function renderUrgent[\s\S]{0,1500}?busy \? 'observe-audio' : 'observe'/.test(bare));
 check('⑥-2 클릭은 위임으로 «클릭된 요소» 의 data-room 을 읽는다',
       /closest\('\[data-room\]'\)/.test(bare) && /getAttribute\('data-room'\)/.test(bare));
 

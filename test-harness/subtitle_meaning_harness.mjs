@@ -92,9 +92,13 @@ for (const [name, t] of [['ai-friend', aif], ['warmup', wup]]) {
     /sub-shown[\s\S]{0,220}?classList\.remove\(\s*['"]sub-shown['"]/.test(t)
     || /remove\(\s*['"]sub-shown['"]/.test(t));
 }
-// 설정 줄이 접혀 있어도 «지금 꺼져 있다»가 보여야 한다 (ai-friend 는 .opts 가 기본 접힘)
-check('ai-friend: .opts 는 기본으로 접혀 있다(전제 확인)',
-  /body:not\(\.opts-open\)\s*\.opts/.test(styleOf(aif)));
+// 설정 줄이 «늘 보이지는 않으니» 그 상태에서도 «지금 꺼져 있다»가 보여야 한다.
+// ⚠️ 전제를 옛 «접기»(body:not(.opts-open)) 한 가지로 못 박아 두었더니, 2026-09-09 에
+//    A안 «시트» 로 옮기면서 보장은 그대로인데 이 검사만 빨간불이 났다.
+//    묻는 것은 «어떤 방식인가» 가 아니라 «늘 펼쳐져 있지는 않은가» 다.
+check('ai-friend: 설정 줄이 늘 펼쳐져 있지는 않다(전제 확인)',
+  /body:not\(\.opts-open\)\s*\.opts/.test(styleOf(aif))     // 옛 방식: 접기
+  || /class="opts-sheet"|\.opts-sheet\s*\{/.test(aif));      // 지금 방식: 시트
 check('ai-friend: 접힌 상태에서도 자막이 꺼져 있으면 ⚙ 요약에 표시된다',
   /opt\.active\[data-sub\]/.test(aif) && /dataset\.sub\s*!==\s*['"]on['"]/.test(aif));
 

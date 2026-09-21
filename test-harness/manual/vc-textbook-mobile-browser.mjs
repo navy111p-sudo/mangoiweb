@@ -72,6 +72,12 @@ const AS_RETURNING_USER = `try{
 }catch(e){}`;
 
 async function load(w, h, dpr, lang) {
+  /* ⚠️ 캐시를 «두 겹» 다 꺼야 한다 — HTTP 캐시(setCacheDisabled)만 끄면 public/sw.js 가
+     cache-first 로 옛 사본을 그대로 준다. 그러면 파일을 고쳐 놓고 다시 재도 «고치기 전» 값이 나와
+     변이시험이 거짓 통과한다(CLAUDE.md 함정 — 이 방향의 거짓말이 제일 위험하다). */
+  await cdp('Network.enable');
+  await cdp('Network.setCacheDisabled', { cacheDisabled: true });
+  await cdp('Network.setBypassServiceWorker', { bypass: true });
   await cdp('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dpr, mobile: true });
   await cdp('Page.addScriptToEvaluateOnNewDocument', { source: AS_RETURNING_USER });
   await cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
@@ -376,17 +382,46 @@ const PROBE = `(function(bw,bh,vw,vh,opts){
   box.appendChild(vid);
   if(opts.share){var b=document.createElement('span');b.className='vc-ss-badge';box.appendChild(b);}
   host.appendChild(box);
-  try{ vcSmartFitVideo(vid); }catch(e){ return 'ERR:'+e.message; }
+  /* 크기바 모드를 잠깐 바꿔 잰다 — 판정(mgBigPortraitBox)이 #vc-main-row 의 모드를 본다.
+     ⚠️ 폭으로는 「교재 크게」(최대 300px)와 「기본」(최소 260px)이 겹쳐 못 가른다. */
+  var row=document.getElementById('vc-main-row'), keep=row?row.className:null;
+  if(row&&opts.mode){ row.className=row.className.replace(/video-[a-z]+/g,'').trim()+' '+opts.mode; }
+  /* 인원도 맞춰 둔다 — ⑧-2 는 «1:1 수업» 에만 걸린다(그룹은 방향이 반대가 된다). */
+  var grid=document.getElementById('vc-video-grid'), keepN=grid?grid.getAttribute('data-count'):null;
+  if(grid) grid.setAttribute('data-count', String(opts.count||2));
+  function restore(){ if(row&&keep!==null) row.className=keep;
+    if(grid){ if(keepN===null) grid.removeAttribute('data-count'); else grid.setAttribute('data-count',keepN); } }
+  try{ vcSmartFitVideo(vid); }catch(e){ restore(); return 'ERR:'+e.message; }
+  restore();
   return vid.style.objectFit||'(없음)';
 })`;
 const fit = (bw, bh, vw, vh, opts) => evalJs(`${PROBE}(${bw},${bh},${vw},${vh},${JSON.stringify(opts || {})})`);
 
-// PC·태블릿의 «오른쪽 세로 컬럼» — 사장님 화면이 이 모양이었다(교사 28.2% / 학생 42.3% 실측)
+/* 🔴 2026-09-07 사장님 지시로 «PC 의 넓은 세로 칸» 만 뜻이 뒤집혔다 —
+   「학생이 보는 교사 얼굴이 너무 크다 · 절반으로 · 선명하고 가볍게」.
+   그 칸에서 cover 는 «채우기» 가 아니라 «확대» 다 — 실측(1905x1051 · 교사 1280x720)
+   「얼굴 크게」 칸 850x938 에 그림이 1669x938 로 들어가 폭 51% 만 보였다(원본의 1.30배 업스케일).
+   확대를 멈추면 850x478 = 0.51배가 되어 「크다」·「잘린다」·「흐리다」가 함께 풀린다.
+   ⚠️ 바뀐 것은 「얼굴 크게」·「모두 보기」뿐이다. 「기본」(학생 기본값)·「교재 크게」·PIP·폰은
+      그대로다 — 실측상 「기본」에서 전체 보이기를 하면 459x258 = 칸의 27.5% 가 되어
+      2026-08-26 「얼굴이 칸의 28% 로 쪼그라든다」 신고 수치가 그대로 재현된다. */
 await load(1280, 800, 2, 'ko-KR');
-ok(await fit(345, 687, 1280, 720) === 'cover',
-  '교사의 가로(16:9) 웹캠이 세로로 긴 칸을 꽉 채운다 (고치기 전 contain·채움 28.2%)');
-ok(await fit(132, 180, 1280, 720) === 'cover', '좁은 세로 컬럼에서도 꽉 채운다 (전 contain·41.3%)');
+ok(await fit(850, 938, 1280, 720, { mode: 'video-threequarter' }) === 'contain',
+  '「얼굴 크게」 — 확대하지 않는다 (사장님 화면이 이 모양이었다 · 실측 0.51배)');
+ok(await fit(459, 938, 1280, 720, { mode: 'video-half' }) === 'cover',
+  '「기본」(학생 기본값)은 그대로 — 전체 보이기면 칸의 27.5% 가 되어 8/26 신고가 되살아난다');
+ok(await fit(132, 180, 1280, 720, { mode: 'video-quarter' }) === 'cover',
+  '「교재 크게」 좁은 세로 컬럼은 그대로 꽉 채운다 (전체 보이기면 41.3% 로 쪼그라든다)');
+ok(await fit(300, 985, 1280, 720, { mode: 'video-quarter' }) === 'cover',
+  '「교재 크게」가 넓어져 300px 이 돼도 그대로 — 폭으로 갈랐다면 「기본」과 구별되지 않는다');
 ok(await fit(295, 139, 1280, 720) === 'cover', '가로로 넓은 칸은 원래대로 꽉 찬다 (회귀 없음)');
+ok(await fit(210, 157, 1280, 720) === 'cover', '오른아래 PIP(가로로 넓다)도 그대로 꽉 찬다');
+/* 그룹 수업은 손대지 않는다 — 4인 「얼굴 크게」는 스포트라이트로 교사 타일이 가로(834x553)라
+   그대로인데 학생 타일만(273x361) 세로여서 42.7% 로 줄었다(함정 대조 실측). 방향이 반대다. */
+ok(await fit(273, 361, 1280, 720, { mode: 'video-threequarter', count: 4 }) === 'cover',
+  '4인 그룹 수업의 학생 타일 — 그대로 꽉 채운다 (그룹은 방향이 반대가 된다)');
+ok(await fit(620, 922, 1280, 720, { mode: 'video-full', count: 3 }) === 'cover',
+  '3인 「모두 보기」 — 그대로 꽉 채운다 (전원이 37.9% 가 되던 조합)');
 
 /* ⛔ 화면 공유는 잘리면 «공유한 화면의 좌우가 사라진다» — 반드시 전체 보이기 */
 ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
@@ -448,7 +483,11 @@ const TILES = `(function(mode,count,localFirst,role,observer,remote){
     var r=e.getBoundingClientRect(); return r.width*r.height; }
   var other = count>2 ? area('vc-video-a') : area('vc-video-teacher');
   var mine  = area('vc-local-box');
-  return JSON.stringify({ other:Math.round(other), mine:Math.round(mine),
+  /* ⚠️ 면적만 재면 «내 타일이 흐려지는 것»(vc-teacher-first 의 opacity:.96)을 못 잡는다 —
+     ③ 줄을 통째로 지워도 검사 4건이 전부 통과했다(2026-09-08 변이시험 실측). 그래서 함께 잰다. */
+  var lb = document.getElementById('vc-local-box');
+  var op = lb ? Number(getComputedStyle(lb).opacity) : null;
+  return JSON.stringify({ other:Math.round(other), mine:Math.round(mine), op:op,
     cls: document.body.classList.contains('mg-teacher-self'),
     ratio: mine>0 ? Math.round(other/mine*100)/100 : null,
     mineRatio: other>0 ? Math.round(mine/other*100)/100 : null });
@@ -481,34 +520,50 @@ await load(1280, 800, 2, 'ko-KR');
 let t6 = await tiles('video-half', 2);
 ok(t6.ratio > 2, `PC·학생 화면 — 상대(교사)가 전체화면, 내 타일은 오른아래 PIP (실측 ${t6.ratio}배)`, JSON.stringify(t6));
 
-/* ── 교사 화면 = «자기 자신» 이 크다 (2026-08-26 사장님 추가 지시) ─────────
-   ⚠️ 처음엔 «상대가 주인공» 으로 만들었다가 이 지시로 뒤집었다. 되돌아가면 여기가 FAIL 한다.
-   ⚠️ 폰에서 한때 2.58배가 나온 적이 있다 — PC 용 줄에 미디어쿼리가 없어 폰까지 닿아
-      상대가 «두 번» 줄어든 것이다. 그래서 상한(1.75)을 반드시 함께 본다. */
-console.log('\n⑨-2 교사 화면 — 교사 자신이 더 큰가');
+/* ── 교사 화면 = 교사·학생이 «같은 크기» (2026-09-08 사장님 지시) ─────────
+   📜 이 자리는 지시가 세 번 바뀌었다 — ① 07-14 「정확히 반반」 ② 08-26 「교사 화면에서는
+      자기 자신이 크게」 ③ 09-08 「교사 얼굴이 너무 크다, 같은 크기로 줄여라」.
+      ③은 «교사 화면만» 이라, 바로 위 ⑨절의 학생 화면 검사가 함께 살아 있어야 뜻이 있다.
+   ⚠️ 그래서 «같다» 만 세지 않고 «학생 화면은 안 바뀌었다» 를 짝으로 둔다 —
+      한쪽만 두면 「전부 반반으로 만들기」(=07-14 로 통째 회귀)도 통과한다.
+   ⚠️ 폰에서 한때 2.58배가 나온 적이 있다 — PC 용 줄에 미디어쿼리가 없어 폰까지 닿은 것이다.
+      그래서 «같다» 는 위아래 양쪽(0.85~1.15)으로 잰다. */
+console.log('\n⑨-2 교사 화면 — 교사와 학생이 같은 크기인가 (2026-09-08 지시)');
 await load(390, 844, 3, 'ko-KR');
 let s1 = await tiles('video-half', 2, false, 'teacher');
 ok(s1.cls === true, '교사로 들어오면 body 에 mg-teacher-self 가 붙는다', JSON.stringify(s1));
-ok(s1.mineRatio >= 1.5 && s1.mineRatio <= 1.75,
-  `세로폰·교사 화면 — 교사 자신이 1.6배쯤 크다 (실측 ${s1.mineRatio}배)`, JSON.stringify(s1));
+ok(Math.abs(s1.mineRatio - 1) < 0.15,
+  `세로폰·교사 화면 — 교사와 학생이 같은 크기 (실측 ${s1.mineRatio}배 · 09-08 전에는 1.6배)`, JSON.stringify(s1));
 let s1b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s1b.ratio - 1) < 0.15,
   `세로폰·교사 화면 여러 명 수업은 그대로 고르게 (실측 ${s1b.ratio}배)`, JSON.stringify(s1b));
 
 await load(844, 390, 3, 'ko-KR');
 let s2 = await tiles('video-half', 2, false, 'teacher');
-ok(s2.mineRatio >= 1.5 && s2.mineRatio <= 1.75,
-  `가로폰·교사 화면 — 교사 자신이 1.6배쯤 크다 (실측 ${s2.mineRatio}배)`, JSON.stringify(s2));
+ok(Math.abs(s2.mineRatio - 1) < 0.15,
+  `가로폰·교사 화면 — 교사와 학생이 같은 크기 (실측 ${s2.mineRatio}배 · 09-08 전에는 1.6배)`, JSON.stringify(s2));
 let s2b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s2b.ratio - 1) < 0.15,
   `가로폰·교사 화면 여러 명 수업은 그대로 고르게 (실측 ${s2b.ratio}배)`, JSON.stringify(s2b));
 
+/* PC 는 구조 자체가 바뀐다 — vc-refresh.css 의 «전체화면 + 오른아래 PIP»(절대배치)를 끄고
+   그리드 위아래 반반으로 되돌린다. 그래서 배수가 7배쯤에서 1배가 되는 것이 이 지시의 핵심이다. */
 await load(1280, 800, 2, 'ko-KR');
 let s3 = await tiles('video-half', 2, false, 'teacher');
-ok(s3.mineRatio > 2,
-  `PC·교사 화면 — 교사 자신이 전체화면, 학생이 오른아래 PIP (실측 ${s3.mineRatio}배)`, JSON.stringify(s3));
-ok(Math.abs(s3.mineRatio - t6.ratio) < 0.5,
-  `PC 는 학생 화면과 «정확히 거울» 이다 (학생 ${t6.ratio}배 / 교사 ${s3.mineRatio}배)`,
+ok(Math.abs(s3.mineRatio - 1) < 0.15,
+  `PC·교사 화면 — 교사와 학생이 같은 크기 (실측 ${s3.mineRatio}배 · 09-08 전에는 7배쯤)`, JSON.stringify(s3));
+ok(s3.mine > 0 && s3.other > 0,
+  'PC·교사 화면 — 두 타일 모두 실제로 그려진다 (반반으로 되돌리다 한쪽이 0 이 되면 안 된다)',
+  JSON.stringify(s3));
+/* ⚠️ 크기가 같아도 «내 타일만 흐린» 상태가 될 수 있다 — vc-teacher-first 의 opacity:.96 은
+   #vc-local-box 규칙에만 있어, 그것을 끄는 ③ 줄을 지워도 «면적» 검사는 전부 통과한다
+   (2026-09-08 변이시험에서 실제로 못 잡았다). 그래서 크기 옆에 이 한 줄을 짝으로 둔다. */
+ok(s3.op === 1,
+  `PC·교사 화면 — 내 타일이 흐려지지 않는다 (opacity 실측 ${s3.op} · vc-teacher-first 는 .96)`,
+  JSON.stringify(s3));
+/* ⛔ 학생 화면은 한 줄도 안 건드렸다 — 여기가 FAIL 하면 «교사 화면만» 이라는 지시를 벗어난 것이다 */
+ok(t6.ratio > 2,
+  `PC·학생 화면은 그대로 교사가 전체화면 (학생 ${t6.ratio}배 / 교사 화면 ${s3.mineRatio}배)`,
   JSON.stringify({ student: t6, teacher: s3 }));
 let s3b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s3b.ratio - 1) < 0.15,
@@ -527,8 +582,10 @@ ok(g1.ratio >= 2 && g1.mineRatio < 1,
   `참관 화면은 «수업 참가자» 가 크다 — 내 빈 타일이 아니라 (실측 상대 ${g1.ratio}배)`, JSON.stringify(g1));
 let g2 = await tiles('video-half', 2, false, 'admin', false);
 ok(g2.cls === true,
-  '참관이 아닌 관리자(직접 입장)는 «상대가 학생이면» 그대로 자기 타일이 크다 — 넓게 막지 않았다',
+  '참관이 아닌 관리자(직접 입장)는 «상대가 학생이면» 그대로 mg-teacher-self 가 붙는다 — 넓게 막지 않았다',
   JSON.stringify(g2));
+ok(Math.abs(g2.mineRatio - 1) < 0.15,
+  `그 화면도 이제 둘이 같은 크기다 (실측 ${g2.mineRatio}배 — 09-08 지시)`, JSON.stringify(g2));
 
 /* ── ⑨-4 «이 방의 교사» 가 상대편이면 내가 무엇이든 상대가 크다 ────────────
    🔴 2026-08-26 사장님 신고 — 학생 수업 입장인데 사장님 얼굴이 전체화면, 강선생님이 210px PIP.

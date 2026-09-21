@@ -16,6 +16,8 @@ import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판�
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
+import { azureZhVoice, azureTts } from './azure-tts';  // 🀄 중국어 «진짜 남성 성우»(키 없으면 자동으로 건너뜀)
+import { azureTtsAllowed, azureTtsCapKey } from './voice-tts-cap';  // 💸 돈 상한 판정 정본(무인증 API)
 import type { MangoEnv } from './api-mango';
 // ✒️ 문장 종결부호 정본 — 문제문·해설·읽을 문장에만 씁니다(2026-08-26).
 //    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
@@ -25,6 +27,7 @@ import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 //    표기가 달라 매칭이 영영 안 되던 것을 잇습니다. 표시 이름은 「중국어 마스터」(2026-08-26 사장님).
 import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
 import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
+import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
 
 
@@ -206,7 +209,7 @@ export const checkAndAwardBadges = async (env: MangoEnv, userId: string): Promis
 
       // 출석 카운트
       try {
-        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE user_id = ?`).bind(userId).first();
+        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE ${ATTENDANCE_BY_UID}`).bind(...attUidBinds(userId)).first();
         if ((att?.days || 0) >= 1) await award('attendance_1');
         if ((att?.days || 0) >= 1) await award('first_class');
         // 연속 출석 — 날짜 연결 리스트를 역방향 DFS(재귀 CTE)로 "진짜 연속"을 계산 (풀스캔 X)
@@ -2325,8 +2328,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       //    student_streaks 와 "두 수치"가 어긋나지 않도록 여기서 일원화한다.
       const attStreak = await computeAttendanceStreak(env, uid);
       const at: any = await env.DB.prepare(
-        `SELECT 1 FROM attendance WHERE user_id = ? AND date = ? LIMIT 1`
-      ).bind(uid, today).first();
+        `SELECT 1 FROM attendance WHERE ${ATTENDANCE_BY_UID} AND date = ? LIMIT 1`
+      ).bind(...attUidBinds(uid), today).first();
       const attended_today = !!at;
 
       const row: any = await env.DB.prepare(
@@ -2456,6 +2459,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 🔁 R2 캐시: 같은 단어/문장은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공.
         //   무료 뉴런 소진(429) 후에도 캐시본이 있으면 계속 소리가 난다.
         const r2: any = (env as any).RECORDINGS;
+        /* 🀄 «진짜 남성 성우» 를 콕 집어 달라는 요청인가(Azure Speech).
+           ⛔ 본문 값을 그대로 쓰지 마세요 — 돈이 나가는 API 라 아는 이름만 받습니다.
+              모르는 값이면 null 이 되어 예전 경로(구글 만다린 여성)로 그대로 갑니다.
+           ⚠️ 캐시 키를 «실제로 쓴 목소리» 로 갈라 둡니다 — 안 가르면 같은 문장의
+              옛 여성 캐시본이 먼저 걸려 남자 목소리가 영영 안 나옵니다. */
+        const azVoice = (lang.startsWith('zh') || lang === 'cn') ? azureZhVoice(b.azure_voice) : null;
         let cacheKey = '';
         try {
           // v2: 영어 TTS 를 Aura-2 로 올리면서 캐시 세대 교체 (v1 캐시본은 구형 Aura-1 음성)
@@ -2464,18 +2473,28 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           //     앱 네이티브 TTS/브라우저 음성을 우선하도록 정리됨. 서버 zh 는 최후 폴백일 뿐.
           // v4: Aura-1 폴백 음성이 «요청 화자» 키로 저장되던 오염 제거(2026-08-31).
           //     Lily(delia)가 한 번 폴백하면 그 문장은 영영 Emma 목소리(asteria)로 재생됐다.
-          const enc = new TextEncoder().encode('v4|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          // v4a: gtts 폴백이 «azure:…» 키에 여성 음성을 써 넣던 오염을 버리려고
+          //      azure 쪽 키 세대만 올립니다(영어·일반 중국어 캐시는 그대로 삽니다).
+          const spk0 = azVoice ? 'azure2:' + azVoice : String(b.speaker || 'asteria');
+          const enc = new TextEncoder().encode('v4|' + lang + '|' + spk0 + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
         if (cacheKey && r2) {
-          /* 캐시본은 «실제로 쓴 화자» 키로만 저장하므로(아래 폴백 블록) 이 바이트는
-             요청 화자 그대로다 → 진단 헤더도 그렇게 실어 준다. 없으면 화면이
-             「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다. */
+          /* 🔴 「요청이 azure 였나」로 판정하면 안 됩니다 — 그건 «무엇을 달라고 했나» 이지
+             «무엇이 저장돼 있나» 가 아닙니다. 2026-09-14 실사고: 폴백이 여성 음성을
+             azure 키에 써 넣자, 그다음부터 캐시 적중이 그 여성 음성을 «azure» 라고
+             말하며 내보냈고 화면은 아무 경고도 못 했습니다(성우 4명이 전부 여자 목소리).
+             ⟹ 저장할 때 붙여 둔 표시(customMetadata.eng)를 «읽어서» 말합니다.
+             ⚠️ 표시가 없는 옛 캐시본은 «모름»(r2-cache)이라 화면이 정직하게 경고합니다. */
           try {
             const hit = await r2.get(cacheKey);
-            if (hit) return new Response(hit.body, { headers: { ...audioHeaders,
-              'X-TTS-Engine': 'r2-cache', 'X-TTS-Speaker': String(b.speaker || 'asteria').toLowerCase() } });
+            if (hit) {
+              const hitEng = String((hit as any)?.customMetadata?.eng || '').trim().toLowerCase();
+              return new Response(hit.body, { headers: { ...audioHeaders,
+                'X-TTS-Engine': hitEng ? 'r2-cache:' + hitEng : 'r2-cache',
+                'X-TTS-Speaker': (azVoice || String(b.speaker || 'asteria')).toLowerCase() } });
+            }
           } catch {}
         }
         /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
@@ -2485,9 +2504,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           const d = await crypto.subtle.digest('SHA-256', e);
           return 'tts/' + [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         };
-        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array) => {
+        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array, eng?: string) => {
           if (!key || !r2) return;
-          try { await r2.put(key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+          /* eng = «이 바이트를 무엇이 만들었나». 캐시 적중 때 그대로 되읽어 진단 헤더로
+             말해 줍니다 — 안 적어 두면 「요청이 azure 였나」로 넘겨짚게 됩니다(위 블록). */
+          const meta: any = { httpMetadata: { contentType: 'audio/mpeg' } };
+          if (eng) meta.customMetadata = { eng };
+          try { await r2.put(key, bytes, meta); } catch {}
         };
         const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes);
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
@@ -2519,7 +2542,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           if (!gr.ok) throw new Error('gtts_' + gr.status);
           const gb = await gr.arrayBuffer();
           if (!gb || gb.byteLength < 300) throw new Error('gtts_empty');
-          await putCache(gb);
+          /* 🔴 여기서 putCache(=«요청» 키) 를 쓰면 안 됩니다 — Azure 성우를 콕 집은 요청이
+             실패해 이 폴백으로 내려오면 «여성 구글 만다린» 이 «azure:윈시» 키에 저장되고,
+             그다음부터 그 문장은 영영 여자 목소리로 재생됩니다(2026-09-14 실사고).
+             이 저장소가 2026-08-31 Lily→Emma 건에서 이미 밟은 바로 그 함정입니다.
+             ⟹ 언제나 «실제로 쓴 화자»(구글 만다린) 키로만 저장합니다.
+             ℹ️ azVoice 가 없을 때는 이 키가 cacheKey 와 글자까지 같습니다(동작 변화 없음). */
+          await putCacheAs(await ttsKey(String(b.speaker || 'asteria')), gb, 'gtts');
           return new Response(gb, { headers: audioHeaders });
         };
 
@@ -2527,8 +2556,60 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         //   불량 WAV(51KB짜리 "앙캉캉캉" 잡음)를 반환해 크기검사로도 못 거른다. 그래서 zh 는
         //   Google 번역 TTS(원어민 만다린 MP3)를 1순위로 쓰고, 실패 시에만 MeloTTS 로 폴백한다.
         if (lang.startsWith('zh') || lang === 'cn') {
+          /* 🀄 중국어 «진짜 남성 성우» — 2026-09-14 사장님 「남자목소리를 가져올 방법??」
+             그전에는 이 갈래가 구글 만다린 «한 목소리»(여성)뿐이라, 화면이 그 소리를
+             브라우저에서 굵게 만들어 남자처럼 들리게 했습니다(warmup.html 의 _zhDeepen).
+             ⛔ 이 갈래를 «중국어 전부» 로 넓히지 마세요 — 메이(여자)는 지금 소리가 맞고,
+                지금 잘 나는 것을 바꾸는 변경이 됩니다. 이름을 콕 집었을 때만 탑니다.
+             ⚠️ 실패하면 «아래 예전 경로» 로 그대로 내려갑니다 — 소리가 아예 안 나는 것이 최악입니다.
+                왜 실패했는지는 응답 헤더(X-TTS-Fallback)로 말해 줍니다(추측하지 않게). */
+          let azFail = '';
+          /* 💸 (2026-09-15 사장님 지시) 이 API 는 **무인증**입니다 — 한 번에 나가는 돈은
+             이미 막혀 있었지만(300자 · 아는 성우만 · 캐시) «몇 번 부를 수 있나» 가 안 막혀
+             있었습니다. 판정 정본은 src/voice-tts-cap.ts 입니다.
+             ⛔ 그 조건을 여기에 옮겨 적지 마세요 — 라우트 안에 두면 조건을 뒤집어도
+                문자열 검사가 그대로 통과합니다(CLAUDE.md 「비용이 나가는 API」).
+             ⚠️ 이 자리가 «캐시 적중 뒤» 인 것이 중요합니다 — 이미 만들어 둔 소리는
+                Azure 를 안 부르므로 세지 않습니다. 세는 것은 진짜로 돈이 나가는 호출뿐입니다.
+             ⚠️ 막혀도 **소리는 그대로 납니다** — 아래 «예전 경로»(구글 만다린)로 내려갑니다.
+                429 로 끊지 않습니다(끊으면 학생 화면이 통째로 조용해집니다).
+             ⚠️ 사유(X-TTS-Fallback)를 «읽는» 화면은 성우 견본(zh-voice-sample.html)뿐입니다 —
+                학생이 쓰는 warmup.html 은 X-TTS-Engine 만 보고, 아무 말 없이 예전처럼
+                «굵게 구운» 소리를 냅니다(= 2026-09-14 이전 동작).
+                ⛔ 거기에 안내를 새로 띄우지 마세요 — CLAUDE.md 가 「그 안내를 되살리지 마세요,
+                   이제 «항상» 남자 목소리라 거짓말이 됩니다」로 못 박아 둔 자리입니다. */
+          if (azVoice) {
+            const capKey = azureTtsCapKey(request.headers.get('cf-connecting-ip'), Date.now());
+            let capUsed: any = null;
+            try { capUsed = await (env as any).SESSION_STATE?.get?.(capKey); } catch {}
+            if (!azureTtsAllowed(capUsed)) {
+              azFail = 'ip_cap';
+              console.warn('[voice/tts] azure ip cap:', capKey, capUsed);
+            } else {
+              /* 부르기 «전» 에 셉니다 — 실패도 세야 남용이 실패를 무한정 낼 수 없고,
+                 실패 사유 중 empty_n 은 이미 과금됐을 수 있습니다. */
+              try {
+                await (env as any).SESSION_STATE?.put?.(capKey, String((Number(capUsed) || 0) + 1), { expirationTtl: 172800 });
+              } catch { /* KV 장애로 정상 학생이 막히면 안 되므로 통과 */ }
+            }
+          }
+          if (azVoice && !azFail) {
+            const az = await azureTts(env as any, text, azVoice, 'zh-CN');
+            if (az.ok) {
+              await putCacheAs(cacheKey, az.bytes, 'azure');
+              return new Response(az.bytes, { headers: { ...audioHeaders,
+                'X-TTS-Engine': 'azure', 'X-TTS-Speaker': azVoice.toLowerCase() } });
+            }
+            azFail = az.reason;
+            console.warn('[voice/tts] azure zh failed:', azFail);
+          }
+          const zhHeaders = azFail
+            ? { 'X-TTS-Engine': 'gtts', 'X-TTS-Fallback': azFail }
+            : { 'X-TTS-Engine': 'gtts' };
           try {
-            return await gtts(text, 'zh-CN');
+            const gr = await gtts(text, 'zh-CN');
+            for (const [k, v] of Object.entries(zhHeaders)) gr.headers.set(k, v);
+            return gr;
           } catch (gErr: any) {
             console.warn('[voice/tts] google zh failed, fallback melotts:', gErr?.message);
             try {

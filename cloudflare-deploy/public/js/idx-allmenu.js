@@ -391,6 +391,30 @@
     } catch(e){}
   }
 
+  /* 🏠 주소로 바로 열기 — /?menu=all-menu   (2026-09-14)
+     [왜] 공용 사이드바(js/mg-sidebar.js)는 «주소로만» 옮겨 갈 수 있는데(mgGo → location.href),
+          «전체메뉴»는 홈에서만 도는 «함수»(openAllMenuOverlay)라 줄 주소가 없었다. 그래서
+          공용 주소표에 '/' 라고 적혀 있었고, 홈 밖 25개 화면에서 누르면 «홈으로 가기만 하고
+          오버레이는 아무도 안 여는» 죽은 버튼이었다(2026-09-14 사장님 제보).
+     ⛔ 주소 없이 목록에 넣지 말 것(CLAUDE.md 2장) — 이 줄이 그 함정의 수리다.
+        되돌리려면 mg-sidebar.js 의 'all-menu' 주소도 함께 되돌려야 한다(짝).
+     ⚠️ 이 파일은 defer 라 여기서는 DOM 이 준비돼 있다 — 기다리는 타이머가 필요 없다.
+        (상주 setInterval 은 홈을 통째로 멎게 한 전력이 있다)
+     ⚠️ menu «만» 지운다 — pathname 으로 통째로 갈아치우면 index.html 이 수업으로
+        되돌아올 때 쓰는 ?room= 과 다른 쿼리·해시까지 조용히 잃는다.
+     ℹ️ 선례: js/idx-remote-support.js 의 ?menu=remote · index.html 의 ?menu=aitools */
+  try {
+    var _amQ = new URLSearchParams(location.search);
+    if (_amQ.get('menu') === 'all-menu') {
+      openAllMenuOverlay();
+      try {
+        _amQ.delete('menu');
+        var _amS = _amQ.toString();
+        history.replaceState(null, '', location.pathname + (_amS ? '?' + _amS : '') + location.hash);
+      } catch (_e2) {}
+    }
+  } catch (_e1) {}
+
   console.log('[v22] 전체메뉴 capture-phase 핸들러 + 패널 즉시 생성 활성');
 })();
 

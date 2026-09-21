@@ -59,7 +59,7 @@ npx wrangler@latest secret put 이름 --env production
 | 알림톡 템플릿 | `SOLAPI_TEMPLATE_ABSENCE` `_ATTENDANCE_RISK` `_CHAT_SUMMARY` `_LESSON_END` `_LESSON_START` `_MENTION` `_PAYMENT_OVERDUE` | 승인된 템플릿 ID 7종 | |
 | 기프티콘 | `GIFTISHOW_API_BASE` `GIFTISHOW_API_KEY` `GIFTISHOW_USER_ID` `GIFTISHOW_CALLBACK_URL` `GIFTISHOW_TEST_MODE` | 기프티콘 발송 | |
 | Neo4j | `NEO4J_QUERY_URL` `NEO4J_USER` `NEO4J_PASSWORD` | 카페24 Neo4j (**포트 8880**) | URL 예: `http://카페24IP:8880/db/neo4j/tx/commit` |
-| 웹푸시 | `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` `WEB_PUSH_MODE` | 브라우저 푸시 알림 | |
+| 웹푸시 | `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` `WEB_PUSH_MODE` | 브라우저 푸시 알림 | 🔴 **`VAPID_PUBLIC_KEY` 미등록**(2026-09-10 사장님이 브라우저에서 `https://mangoi.ai/api/push/vapid-public-key` 를 열어 실측 — `{"ok":true,"key":"","mode":"disabled"}`). ⟹ 결재함 「알림 받기」가 **원리상 안 켜집니다.** 켜는 절차는 아래 「웹푸시」 |
 
 ### 🔴 TURN 경로 확인 (2026-08-26 추가)
 
@@ -270,6 +270,61 @@ not yet supported」). Realtime SFU 에도 녹화 기능이 없습니다 — Web
 PCM 오디오·JPEG 프레임을 흘려 줄 뿐이라 인코딩은 우리가 해야 하는데 Worker 에서는 불가입니다.
 합성 녹화가 있는 것은 **RealtimeKit** 이고, 그건 화상수업 스택 전체를 그 SDK 로
 갈아 끼우는 일입니다(제안서의 D안).
+
+## 웹푸시 (결재함·알림) — 2026-09-10 현재 **꺼져 있습니다**
+
+### 잰 것 (2026-09-10 · 사장님이 브라우저에서 직접)
+
+```
+https://mangoi.ai/api/push/vapid-public-key
+→ {"ok":true,"key":"","mode":"disabled"}
+```
+
+`key` 가 빈 문자열입니다 ⟹ **mangoi.ai 를 서빙하는 워커에 `VAPID_PUBLIC_KEY` 가 없습니다.**
+그 값은 브라우저가 구독할 때 반드시 필요하므로, 없으면 결재함 「알림 받기」는
+**무엇을 해도 안 켜집니다**(화면이 이제 그 사유를 말합니다 — 「서버에 알림 키(VAPID)가
+아직 없습니다」).
+
+### ⚠️ 이 응답으로 «알 수 없는» 것 — 추측해서 적지 마세요
+
+- `VAPID_PRIVATE_KEY`·`VAPID_SUBJECT` 가 있는지 **모릅니다**(이 API 는 공개 키만 내려줍니다)
+- `mode:"disabled"` 는 **두 가지 원인**을 뭉칩니다 — 키가 없어서일 수도, 누가
+  `WEB_PUSH_MODE='disabled'` 를 명시로 넣어서일 수도 있습니다(`getWebPushMode()`, `src/web-push.ts`)
+- **기본 워커(`webrtc-unified-platform`)** 는 안 쟀습니다. 이 주소는 `-prod` 만 지납니다
+
+### 켜는 절차 (사람이 합니다 — 배포 권한자)
+
+1. **관리자로 로그인한 채** 브라우저에서 열면 키 한 쌍을 만들어 줍니다.
+   ```
+   https://mangoi.ai/api/admin/push/generate-vapid
+   ```
+   ⚠️ **이 화면은 한 번만 보여 줍니다** — 두 값을 안전한 곳에 먼저 저장하세요.
+   ⛔ 저장소·이 문서·PR 본문에 **값을 붙여넣지 마세요**(`.env` 규칙과 같습니다).
+
+2. **워커 두 벌 모두**에 등록합니다. ⚠️ 한쪽만 하면 도메인 배치가 바뀌는 날 조용히
+   반쪽이 됩니다(2026-08-26 TURN 때 밟은 자리).
+   ```
+   cd cloudflare-deploy
+   npx wrangler secret put VAPID_PUBLIC_KEY
+   npx wrangler secret put VAPID_PRIVATE_KEY
+   npx wrangler secret put VAPID_SUBJECT          # 예: mailto:navy111p@gmail.com
+   npx wrangler secret put VAPID_PUBLIC_KEY  --env production
+   npx wrangler secret put VAPID_PRIVATE_KEY --env production
+   npx wrangler secret put VAPID_SUBJECT     --env production
+   ```
+
+3. 확인 — 같은 주소를 다시 엽니다.
+   ```
+   https://mangoi.ai/api/push/vapid-public-key   → key 에 긴 문자열 · "mode":"real"
+   https://mangoi.ai/api/admin/push/status       → has_pub_key · mode · active_subs
+   ```
+
+4. 결재함에서 「알림 받기」를 한 번 누릅니다. 실패하면 **화면이 어느 단계인지 말합니다**
+   (`net`·`http`·`key`·`sw`·`subscribe`·`save` — `cloudflare-deploy/public/work.html` 의 `pushWhy`).
+
+5. **이 문서의 웹푸시 줄을 «확인 날짜와 방법» 과 함께 고쳐 주세요.**
+
+> ℹ️ 아이폰은 **「홈 화면에 추가」한 뒤에만** 웹푸시를 받습니다(플랫폼 제약 — 우리가 못 고칩니다).
 
 ## 새 시크릿을 추가할 때 규칙
 

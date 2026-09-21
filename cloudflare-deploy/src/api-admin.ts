@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -20,13 +21,15 @@ import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from '
 import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
 import { priceForUid } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
+import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { applyPlacementLevel, loadTextbookChoices } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
-import { probeImage, ocrGate } from './textbook-ocr';   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
+import { applyPlacementLevel, loadTextbookChoices, cefrDisplay, CEFR_LADDER } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
+import { probeImage, ocrGate } from './textbook-ocr';
+import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -35,7 +38,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
-import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
+import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -45,9 +48,13 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
+import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사 웹푸시 구독 여부(연락처 연결 화면용, 2026-09-14)
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
+import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
+import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
@@ -56,7 +63,9 @@ import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  //
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
 import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
+import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -736,7 +745,7 @@ export async function handleAdminApi(
       /* 🔐 강사 전면 차단 — canEditOrg() 는 강사를 «못 막는다»(scope.type==='none' 에 true).
          CLAUDE.md 2장 「관리자 쓰기 API 를 본사 전용으로 막았는데 강사가 그대로 실행됨」. */
       const _vrActor = await getAdminActor(request, env as any);
-      if (_vrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_vrActor.isTeacher) return json(forbiddenTeacherBody(_vrActor), 403);
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
         if (method === 'GET') {
@@ -2606,7 +2615,7 @@ export async function handleAdminApi(
       //   같은 원천을 쓰므로 출석현황과 급여가 서로 어긋날 수 없다(요청 8·22 «한곳에서»).
       //   🔐 강사는 전면 차단 — 전 강사의 단가·공제가 담긴다.
       if (url.searchParams.get('all') === '1') {
-        if (_lsActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        if (_lsActor.isTeacher) return json(forbiddenTeacherBody(_lsActor), 403);
         const dAll = await computeLessonFeeMonth(year, month);
         return json({
           ok: true, year, month, all: true,
@@ -2698,7 +2707,7 @@ export async function handleAdminApi(
     //   body: { levels: [{ code, rate_per_20min }] }
     if (method === 'POST' && path === '/api/admin/payroll/levels') {
       const _lvwActor = await getAdminActor(request, env as any);
-      if (_lvwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급 요율을 변경할 수 없습니다.' }, 403);
+      if (_lvwActor.isTeacher) return json(forbiddenTeacherBody(_lvwActor, '강사는 등급 요율을 변경할 수 없습니다.'), 403);
       await ensureTeacherLevels();
       const body: any = await request.json().catch(() => ({}));
       if (!Array.isArray(body.levels)) return json({ ok: false, error: 'levels_array_required' }, 400);
@@ -2720,7 +2729,7 @@ export async function handleAdminApi(
     //   등급 지정 시 그 강사 fee_per_10min = 등급요율/2 자동세팅(fee_per_10min 명시하면 그 값 우선).
     if (method === 'POST' && path === '/api/admin/payroll/teacher-level') {
       const _tlActor = await getAdminActor(request, env as any);
-      if (_tlActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급을 변경할 수 없습니다.' }, 403);
+      if (_tlActor.isTeacher) return json(forbiddenTeacherBody(_tlActor, '강사는 등급을 변경할 수 없습니다.'), 403);
       await ensureTeacherLevels();
       const body: any = await request.json().catch(() => ({}));
       const tid = parseInt(body.teacher_id, 10);
@@ -2751,7 +2760,7 @@ export async function handleAdminApi(
      */
     if (method === 'GET' && path === '/api/admin/payroll/late-detect') {
       const _ldActor = await getAdminActor(request, env as any);
-      if (_ldActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_ldActor.isTeacher) return json(forbiddenTeacherBody(_ldActor), 403);
       const y = parseInt(url.searchParams.get('year') || '', 10);
       const mo = parseInt(url.searchParams.get('month') || '', 10);
       if (!y || !mo || mo < 1 || mo > 12) return invalidBody(['year', 'month']);
@@ -2835,7 +2844,7 @@ export async function handleAdminApi(
     //   근태 자동로그 도입 전까지 관리자가 상세표에서 직접 기입 → late_no_extend 공제에 반영.
     if (method === 'POST' && path === '/api/admin/payroll/late-minutes') {
       const _lmActor = await getAdminActor(request, env as any);
-      if (_lmActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지각분을 입력할 수 없습니다.' }, 403);
+      if (_lmActor.isTeacher) return json(forbiddenTeacherBody(_lmActor, '강사는 지각분을 입력할 수 없습니다.'), 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS lesson_late_minutes (schedule_id INTEGER NOT NULL, lesson_date TEXT NOT NULL, minutes INTEGER DEFAULT 0, updated_by TEXT, updated_at INTEGER, PRIMARY KEY (schedule_id, lesson_date));`); } catch {}
       const body: any = await request.json().catch(() => ({}));
       const sid = parseInt(body.schedule_id, 10);
@@ -2996,7 +3005,7 @@ export async function handleAdminApi(
     //   승인: 새 일시가 있으면 class_schedules 를 그 일시로 이동, 없으면(단순 연기) status='postponed'.
     if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {
       const _srdActor = await getAdminActor(request, env as any);
-      if (_srdActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 요청을 승인·거절할 수 없습니다.' }, 403);
+      if (_srdActor.isTeacher) return json(forbiddenTeacherBody(_srdActor, '강사는 요청을 승인·거절할 수 없습니다.'), 403);
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
       const id = parseInt(body.id, 10);
@@ -3133,7 +3142,7 @@ export async function handleAdminApi(
           날짜만 바꾸면 되므로 조회를 따로 만들지 않는다(둘이 어긋날 일이 없다). */
     if (method === 'GET' && path === '/api/admin/classes/today') {
       const _ctActor = await getAdminActor(request, env as any);
-      if (_ctActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_ctActor.isTeacher) return json(forbiddenTeacherBody(_ctActor), 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
       /* 🔄 (2026-08-28) 1회성 대체강사 오버레이 표 — enroll-ops.ts 의 ensureEnrollTables() 와 같은
          정의를 여기서도 방어적으로 한 번 더 만든다(그 핸들러가 먼저 안 돌았을 수도 있어서 —
@@ -3170,7 +3179,7 @@ export async function handleAdminApi(
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
@@ -3203,6 +3212,50 @@ export async function handleAdminApi(
           subOverlay.set(String(r.schedule_id), { id: String(r.substitute_teacher_id), name: r.sub_name || null });
         }
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
+
+      /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
+            **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
+            「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
+            영원히 빈칸이라 여기서는 읽지 않는다.
+         ⚠️ `student_retention` 은 «이탈 위험 학생 스냅샷» 이지 전체 명부가 아니다 —
+            카페24 서버가 밀어 넣고(handleRetentionIngest), 이번 스냅샷에 없는 학생은 **지워진다**.
+            즉 «잘 다니는 학생은 원리상 없고», 있던 번호도 대상에서 벗어나면 사라진다.
+            실측: 223행 중 199행에 번호가 있고, 예약이 잡힌 학생 444명 기준 **105명(23.6%)**.
+            ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
+         ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
+            「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
+            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+      /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
+         지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
+         `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
+         **지사장·학원장이 처음으로 학생 전화번호를 보게 되는** 변경이 된다 —
+         매니저 요청(«managers schedule»)에 없던 일이고 **사람이 정할 일**이다.
+         ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
+         ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
+      const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
+      const phoneMap = new Map<string, string>();
+      if (_ctSeeContact) {
+        try {
+          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
+             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
+          const CONTACT_CAP = 2000;
+          const pr: any = await env.DB.prepare(
+            `SELECT user_id, phone FROM student_retention
+              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
+              ORDER BY user_id LIMIT ?`
+          ).bind(CONTACT_CAP).all();
+          const got = (pr?.results as any[]) || [];
+          for (const r of got) {
+            const u = String(r.user_id || '').trim();
+            if (u) phoneMap.set(u, String(r.phone || '').trim());
+          }
+          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
+        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
+      }
 
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
@@ -3237,6 +3290,11 @@ export async function handleAdminApi(
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           student_name: s.student_name || null,
+          /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
+             그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
+             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+          academy: s.se_shop || null,
+          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3270,7 +3328,7 @@ export async function handleAdminApi(
         const rs: any = await env.DB.prepare(
           `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
                   se.korean_name AS stu_ko, se.english_name AS stu_en,
-                  se.level AS se_level, se.textbook AS se_textbook
+                  se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
              FROM attendance a
              LEFT JOIN students_erp se ON se.user_id = a.user_id
             WHERE a.room_id LIKE 'c24-%' AND a.date = ?
@@ -3296,6 +3354,8 @@ export async function handleAdminApi(
             room_id: r.room_id,        // 표시용 식별자일 뿐 — 이 번호로 망고아이 방을 열 수 없다
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
+            academy: r.se_shop || null,
+            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
@@ -3314,8 +3374,15 @@ export async function handleAdminApi(
 
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
-      return json({
+      /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
+         ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
+           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
+      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const res = json({
         ok: true,
+        contact_source: contactSource,
+        contact_missing: sessions.filter(x => !x.contact_phone).length,
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
         now: nowMs, count: sessions.length, sessions,
@@ -3326,6 +3393,11 @@ export async function handleAdminApi(
         },
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
+      /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
+         (CLAUDE.md 2장 「자격증명을 응답에 실을 때」의 PII 판). 지금 CF 기본값은 /api/ 를
+         캐시하지 않지만, 누가 「Cache Everything」을 걸면 그 전제가 깨진다. */
+      res.headers.set('Cache-Control', 'private, no-store');
+      return res;
     }
 
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
@@ -3722,7 +3794,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { rules: [{ code, amount, enabled }] } — 금액·켜기/끄기만 수정(라벨은 시드 유지)
     if (method === 'POST' && path === '/api/admin/payroll/deduction-rules') {
       const _drActor = await getAdminActor(request, env as any);
-      if (_drActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 공제 규칙을 변경할 수 없습니다.' }, 403);
+      if (_drActor.isTeacher) return json(forbiddenTeacherBody(_drActor, '강사는 공제 규칙을 변경할 수 없습니다.'), 403);
       await ensureDeductionRules();
       const body: any = await request.json().catch(() => ({}));
       if (!Array.isArray(body.rules)) return json({ ok: false, error: 'rules_array_required' }, 400);
@@ -3743,7 +3815,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { year, month, rows: [{ teacher_id, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount?, memo? }] }
     if (method === 'POST' && path === '/api/admin/payroll/save') {
       const _svActor = await getAdminActor(request, env as any);
-      if (_svActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 정산을 저장할 수 없습니다.' }, 403);
+      if (_svActor.isTeacher) return json(forbiddenTeacherBody(_svActor, '강사는 급여 정산을 저장할 수 없습니다.'), 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const year = parseInt(body.year, 10);
@@ -3787,7 +3859,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   body: { payroll_id?, teacher_id?, year?, month?, paid_amount?, memo? }
     if (method === 'POST' && path === '/api/admin/payroll/mark-paid') {
       const _mpActor = await getAdminActor(request, env as any);
-      if (_mpActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }, 403);
+      if (_mpActor.isTeacher) return json(forbiddenTeacherBody(_mpActor, '강사는 지급 상태를 변경할 수 없습니다.'), 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const now = Date.now();
@@ -4027,7 +4099,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
        (틀리게 매칭되면 다른 강사 사진이 나가는 사고라 fuzzy 매칭은 자동 적용하지 않음). */
     if (method === 'POST' && path === '/api/admin/teacher-profiles/auto-match') {
       const _amActor = await getAdminActor(request, env as any);
-      if (_amActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_amActor.isTeacher) return json(forbiddenTeacherBody(_amActor), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
 
@@ -4086,7 +4158,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
     if (method === 'POST' && path === '/api/admin/teacher-profiles') {
       const _tpwActor = await getAdminActor(request, env as any);
-      if (_tpwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 등록할 수 없습니다.' }, 403);
+      if (_tpwActor.isTeacher) return json(forbiddenTeacherBody(_tpwActor, '강사는 강사 프로필을 등록할 수 없습니다.'), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
       const b = await parseJsonBody(request);
@@ -4124,7 +4196,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   기존행=제공된(빈칸 아닌) 필드만 UPDATE(빈값은 건너뜀·기존값 보존), 없으면 INSERT. mbti 유효시 teacher_mbti(tp-id) 동기화(+사진).
     if (method === 'POST' && path === '/api/admin/teacher-profiles/import') {
       const _impActor = await getAdminActor(request, env as any);
-      if (_impActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 임포트할 수 없습니다.' }, 403);
+      if (_impActor.isTeacher) return json(forbiddenTeacherBody(_impActor, '강사는 임포트할 수 없습니다.'), 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '스키마 실패: ' + String(e?.message || e) }, 500); }
       const body = await parseJsonBody(request);
@@ -4218,7 +4290,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // 🔐 강사: 본인 프로필 단건만 조회 가능, 수정·삭제는 불가(자기 단가·계좌 임의변경도 차단)
       const _tpiActor = await getAdminActor(request, env as any);
       if (_tpiActor.isTeacher && method !== 'GET') {
-        return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
+        return json(forbiddenTeacherBody(_tpiActor, '강사는 강사 프로필을 수정·삭제할 수 없습니다.'), 403);
       }
       if (method === 'GET') {
         /* 🔑 login_username — 목록 조회와 **똑같은 문장**을 쓴다(위 주석 참고).
@@ -4233,7 +4305,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
         if (_tpiActor.isTeacher && !sameTeacherName(_tpiActor.name, row.korean_name) && !sameTeacherName(_tpiActor.name, row.english_name)) {
-          return json({ ok: false, error: 'forbidden_teacher', message: '본인 프로필만 조회할 수 있습니다.' }, 403);
+          return json(forbiddenTeacherBody(_tpiActor, '본인 프로필만 조회할 수 있습니다.'), 403);
         }
         return json({ ok: true, item: row });
       }
@@ -4674,7 +4746,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (!it) return json({ ok: false, error: 'not_found' }, 404);
         if (_hrActor.isTeacher &&
             !sameTeacherName(_hrActor.name, it.korean_name) && !sameTeacherName(_hrActor.name, it.english_name)) {
-          return json({ ok: false, error: 'forbidden_teacher', message: '본인 인사평가만 조회할 수 있습니다.' }, 403);
+          return json(forbiddenTeacherBody(_hrActor, '본인 인사평가만 조회할 수 있습니다.'), 403);
         }
         const kn = it.korean_name || '', en = it.english_name || kn;
         it.recent_feedback = await q(
@@ -4772,6 +4844,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
       } catch {}
+      /* ⛔ 퇴사자(active=0)를 여기서 걸러 내지 말 것 — 화면(adm-teacher-links.js)이 기본으로
+         숨기고 「퇴사 강사도 보기」로 되돌릴 수 있게 해 두었다. 서버가 미리 지우면 그 체크박스가
+         조용히 무동작이 되고, 이미 퇴사자에게 이어진 계정이 「연결 안 됨」으로 보인다. */
       const tRs = await env.DB.prepare(`SELECT id, name, active FROM teachers ORDER BY active DESC, name ASC`).all();
       const aRs = await env.DB.prepare(
         `SELECT username, last_login_at FROM teacher_legacy_accounts ORDER BY last_login_at DESC`
@@ -4790,7 +4865,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 연결 저장 / 해제 — { username, teacher_id }  (teacher_id 가 비면 해제)
     if (method === 'POST' && path === '/api/admin/teachers/links') {
       const _lkActor = await getAdminActor(request, env as any);
-      if (_lkActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_lkActor.isTeacher) return json(forbiddenTeacherBody(_lkActor), 403);
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
       } catch {}
@@ -4838,7 +4913,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 강사 등록 (새 모델: name + status + years + rate_per_10min_php)
     if (method === 'POST' && path === '/api/admin/teachers') {
       const _tnActor = await getAdminActor(request, env as any);
-      if (_tnActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사를 등록할 수 없습니다.' }, 403);
+      if (_tnActor.isTeacher) return json(forbiddenTeacherBody(_tnActor, '강사는 강사를 등록할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.name || !b.status || b.rate_per_10min_php == null) {
@@ -4864,7 +4939,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 강사 수정 (부분 업데이트 — 모든 필드 선택적)
     if (method === 'PATCH' && /^\/api\/admin\/teachers\/\d+$/.test(path)) {
       const _tuActor = await getAdminActor(request, env as any);
-      if (_tuActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 정보를 수정할 수 없습니다.' }, 403);
+      if (_tuActor.isTeacher) return json(forbiddenTeacherBody(_tuActor, '강사는 강사 정보를 수정할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const m = path.match(/^\/api\/admin\/teachers\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
@@ -4892,7 +4967,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 월별 수업 수 입력 (20분 단위 수업 횟수)
     if (method === 'PUT' && path === '/api/admin/teacher-classes') {
       const _tcActor = await getAdminActor(request, env as any);
-      if (_tcActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 수업 수를 입력할 수 없습니다.' }, 403);
+      if (_tcActor.isTeacher) return json(forbiddenTeacherBody(_tcActor, '강사는 수업 수를 입력할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month || b.class_count == null) {
@@ -4923,7 +4998,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 월별 평가 입력 (5개 카테고리 점수 + 코멘트)
     if (method === 'PUT' && path === '/api/admin/teacher-evaluation') {
       const _teActor = await getAdminActor(request, env as any);
-      if (_teActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 평가를 입력할 수 없습니다.' }, 403);
+      if (_teActor.isTeacher) return json(forbiddenTeacherBody(_teActor, '강사는 평가를 입력할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month) return invalidBody(['teacher_id', 'year', 'month']);
@@ -4978,7 +5053,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const result = await calcPayrollOne(env, id, year, month);
       const _oneActor = await getAdminActor(request, env as any);
       if (_oneActor.isTeacher && !(result.ok && sameTeacherName(_oneActor.name, result.teacher_name))) {
-        return json({ ok: false, error: 'forbidden_teacher', message: '본인 급여명세서만 조회할 수 있습니다.' }, 403);
+        return json(forbiddenTeacherBody(_oneActor, '본인 급여명세서만 조회할 수 있습니다.'), 403);
       }
       return json(result, result.ok ? 200 : 404);
     }
@@ -5025,7 +5100,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // 마감 (payslips 잠금)
     if (method === 'POST' && path === '/api/admin/payroll/finalize') {
       const _finActor = await getAdminActor(request, env as any);
-      if (_finActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여를 마감할 수 없습니다.' }, 403);
+      if (_finActor.isTeacher) return json(forbiddenTeacherBody(_finActor, '강사는 급여를 마감할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.year || !b.month) return invalidBody(['year', 'month']);
@@ -5074,7 +5149,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       //   — 그 목록은 «차단 목록» 이라 새 API 의 기본값이 «강사 허용» 이기 때문이다(index.ts:313).
       //   payroll 의 다른 엔드포인트들은 각자 본인-필터로 막고 있었고, 이것만 빠져 있었다.
       const _seedActor = await getAdminActor(request, env as any);
-      if (_seedActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 데모 데이터를 생성할 수 없습니다.' }, 403);
+      if (_seedActor.isTeacher) return json(forbiddenTeacherBody(_seedActor, '강사는 급여 데모 데이터를 생성할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       const year  = (b && b.year)  ? Number(b.year)  : new Date().getFullYear();
@@ -5183,7 +5258,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
        ═══════════════════════════════════════════════════════════════════ */
     if (method === 'GET' && path === '/api/admin/payroll/auto-evaluate') {
       const _aeActor = await getAdminActor(request, env as any);
-      if (_aeActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 전체 자동 평가를 조회할 수 없습니다.' }, 403);
+      if (_aeActor.isTeacher) return json(forbiddenTeacherBody(_aeActor, '강사는 전체 자동 평가를 조회할 수 없습니다.'), 403);
       await ensurePayrollSchema(env);
       const year  = parseInt(url.searchParams.get('year')  || '0', 10);
       const month = parseInt(url.searchParams.get('month') || '0', 10);
@@ -5879,6 +5954,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           students,
           duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
           note: r.notes || '',
+          /* 🚚 (2026-09-11) 드래그로 옮길 때 «어느 칸을 고쳐야 하는가».
+             ⛔ 화면이 이 판정을 복제하면 안 된다 — 바로 아래 `kind === 'one_off' || r.scheduled_date`
+                와 한 글자라도 어긋나는 순간 조용히 틀린 칸을 고친다.
+             🔴 실제로 밟았다(2026-09-11): 화면이 `slot.recurring` 으로 갈랐는데 이 `base` 에는
+                그 칸이 **아예 없어**(recurring 은 teacher_unavailability 쪽 base2 에만 실린다)
+                진짜 수업이 예외 없이 false → **언제나 scheduled_date** 를 보냈다. 그러면
+                반복 행에 날짜가 박혀 sessions/today 가 그 하루만 열고 «매주» 가 죽는다.
+             ⚠️ 값을 바꾸면 weekly-schedule.html 의 confirmMoveDo 와 짝이 어긋난다. */
+          move_field: ((String(r.schedule_kind || 'recurring') === 'one_off') || r.scheduled_date)
+            ? 'scheduled_date' : 'day_of_week',
         };
         const kind = String(r.schedule_kind || 'recurring');
         if (kind === 'one_off' || r.scheduled_date) {
@@ -6035,7 +6120,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const kind = url.searchParams.get('kind') || 'all';
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
 
-      const where: string[] = [`status != 'cancelled'`];
+      /* 🔴 (2026-09-11) WHERE 의 컬럼에는 반드시 `cs.` 를 붙인다 — `teachers` 에도
+         **`status` 와 `user_id` 가 있어서**(실측 스키마) JOIN 을 붙이는 순간
+         `ambiguous column name: status` 로 아래 sqlWithJoin 이 통째로 죽는다.
+         그러면 catch 가 «JOIN 없는» 폴백으로 떨어뜨려 teacher_name 칸이 응답에서
+         사라지고, 화면은 «번호는 있는데 이름이 없다» 로 읽어 모든 예약을
+         「강사 미확인」으로 그린다(2026-09-11 실사고 — `status != 'cancelled'` 기준 1,262건 전부).
+         ⛔ 서브쿼리 «안»(students_erp)의 user_id 에는 붙이지 말 것 — 붙이면 상관
+            서브쿼리가 되어 매 행마다 전수 스캔한다(2026-08-27 그 사고).
+         ✅ 감시: test-harness/class_schedules_join_harness.mjs 가 두 SQL 을 오려 내
+            운영과 같은 스키마의 진짜 SQLite 에 실제로 돌린다. */
+      const where: string[] = [`cs.status != 'cancelled'`];
       const binds: any[] = [];
 
       // ★ Phase 7b: user_id 또는 student_name 둘 다로 동명 학생 통합 조회 (강화)
@@ -6095,10 +6190,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const SAME_NAME_UIDS =
           `SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?`;
         if (effectiveName) {
-          where.push(`(user_id = ? OR user_id IN (${SAME_NAME_UIDS}) OR student_name = ?)`);
+          where.push(`(cs.user_id = ? OR cs.user_id IN (${SAME_NAME_UIDS}) OR cs.student_name = ?)`);
           binds.push(userId, effectiveName, effectiveName, effectiveName);
         } else {
-          where.push('user_id = ?');
+          where.push('cs.user_id = ?');
           binds.push(userId);
         }
       } else if (studentName) {
@@ -6108,19 +6203,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //     동명이인이 하나도 없으면 IN 이 공집합이라 student_name 조건만 남습니다 — 기존과 동일.
         where.push(
           // ⚠️ (2026-08-27) 위 SAME_NAME_UIDS 와 같은 상관 서브쿼리 문제 — id 제거로 해소.
-          `(user_id IN (SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?) OR student_name = ?)`);
+          `(cs.user_id IN (SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?) OR cs.student_name = ?)`);
         binds.push(studentName, studentName, studentName);
       }
-      if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
-      if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
-      if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
-      else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
+      if (fromDate) { where.push('(cs.scheduled_date IS NULL OR cs.scheduled_date >= ?)'); binds.push(fromDate); }
+      if (toDate) { where.push('(cs.scheduled_date IS NULL OR cs.scheduled_date <= ?)'); binds.push(toDate); }
+      if (kind === 'recurring') where.push(`cs.schedule_kind = 'recurring'`);
+      else if (kind === 'one_off') where.push(`cs.schedule_kind = 'one_off'`);
 
       binds.push(limit);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       try {
         let rows;
         try {
@@ -6588,6 +6683,104 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //           start_time:'HH:MM'(필수), duration_min?, class_type?, notes?, force? }
     //   ⚠️ day_of_week 는 반드시 '숫자 0=일~6=토' 로 저장한다 — /api/class/sessions/today 가
     //      그 형식을 기준으로 오늘 수업을 계산한다. 반복 수업이 여러 요일이면 요일당 1행.
+    /* 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다 (2026-09-10 사장님 지시)
+       ─────────────────────────────────────────────────────────────────────────
+       ⚠️ **왜 PUT 인가** — 새 경로를 만들려면 `src/index.ts` 의 라우팅 허용목록에 한 줄을
+          넣어야 하는데 그 파일은 «공동 금지구역» 이다. 그 목록의 등록은 **메서드를 안 가리므로**
+          이미 등록된 `/api/admin/class-schedules`(정확일치)의 **비어 있는 메서드**에 얹는다
+          (실측: 이 경로는 GET·POST 만 쓴다). CLAUDE.md 2장 「②가 금지구역이라 못 고칠 때」.
+       ⛔ 그래서 본문에 `action` 을 두고 **모르는 값은 거절한다** — 안 그러면 나중에 이 경로에
+          다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러 들어간다.
+       판정 정본은 `src/class-room-override.ts`(방 이름 규칙은 화면과 같은 말을 해야 한다). */
+    if (method === 'PUT' && path === '/api/admin/class-schedules') {
+      const b: any = await request.json().catch(() => ({}));
+      const act = String(b.action || '').trim();
+      if (act !== 'room_override' && act !== 'room_override_clear') {
+        return json({ ok: false, error: 'unknown_action', message: '모르는 요청입니다.' }, 400);
+      }
+
+      /* 누가 지정할 수 있나 — 본사(hq) 와 **그 수업 담당 강사**.
+         ⛔ 지사·대리점은 막는다(isOrgScopedRole) — 남의 수업을 다른 방으로 돌리는 조작이다.
+         ⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'(내부직원·교사)에도 true 라 강사를 못 가린다
+            (CLAUDE.md 2장 「본사 전용으로 막았는데 강사가 그대로 실행됨」). */
+      const _roActor = await getAdminActor(request, env as any);
+      if (!_roActor || (_roActor as any).ok === false) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (isOrgScopedRole((_roActor as any).role)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사 또는 담당 강사만 지정할 수 있습니다.' }, 403);
+      }
+      /* 🔴 (2026-09-10 함정 대조) 차단목록만 두면 **fail-open 이 됩니다.**
+         `getAdminActor` 는 `getScope()`·이름 조회를 각각 try/catch 로 삼키고 실패하면
+         `scope='none'`·`name=''` 으로 떨어뜨리는데, 그러면 `resolveRole` 이 `'staff'` 를 줘서
+         `isTeacher === false` → **담당 확인이 통째로 건너뛰어집니다.** D1 이 한 번 흔들리면
+         아무나 남의 수업을 다른 방으로 돌릴 수 있다는 뜻입니다.
+         ⟹ 「본사인가」를 **양성으로** 묻고, 그 밖은 전부 담당 확인을 지나게 합니다. */
+      /* `resolveRole` 이 실제로 내는 값은 teacher·franchise·branch·agency·hq·staff 뿐이고,
+         **`'hq'` 만 본사**다(본사 매니저도 스코프가 hq 라 여기에 든다).
+         ⚠️ `'staff'` 는 «스코프를 못 읽었을 때» 떨어지는 값이기도 하다 — 그래서 본사로 안 친다. */
+      const _roIsHq = String((_roActor as any).role || '') === 'hq';
+
+      const sid = Number(b.schedule_id);
+      if (!Number.isFinite(sid) || sid <= 0) return json({ ok: false, error: 'bad_schedule_id' }, 400);
+
+      // 그 예약이 실재하는지 + 담당 강사가 누구인지
+      /* ⚠️ «못 찾았다» 와 «못 물어봤다» 를 갈라 말한다 — `.catch(() => null)` 로 뭉치면
+         D1 이 흔들렸을 뿐인데 화면이 「그 수업이 없습니다」라고 **거짓 사유**를 말한다
+         (CLAUDE.md 2장 「«모른다»(null) 를 별도 사유(`lookup_failed`)로」). 둘 다 막는 것은 같다. */
+      let row: any = null;
+      try {
+        row = await env.DB.prepare(
+          `SELECT id, user_id, student_name, teacher_id, status FROM class_schedules WHERE id = ?`
+        ).bind(sid).first();
+      } catch (e) {
+        console.warn('[room-override] 예약 조회 실패', e);
+        return json({ ok: false, error: 'lookup_failed', message: '수업 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
+      }
+      if (!row || !row.id) return json({ ok: false, error: 'schedule_not_found' }, 404);
+
+      /* 강사면 «자기 수업» 인지 확인한다. 못 확인하면 **막는 쪽으로 실패**한다 —
+         남의 학생을 다른 방으로 보내는 조작이라 「모르면 통과」가 되면 안 된다. */
+      if (!_roIsHq) {
+        const mine = await teacherOwnsSchedule(env as any, _roActor as any, row);
+        if (mine !== true) return json({ ok: false, error: 'forbidden_not_my_class', message: '내 수업만 지정할 수 있습니다.' }, 403);
+      }
+
+      const ymd = String(b.ymd || '').trim() || kstYmd(Date.now());
+      if (!/^\d{8}$/.test(ymd)) return json({ ok: false, error: 'bad_ymd' }, 400);
+      /* ⛔ 지난 날짜에는 못 건다 — 「오늘 하루」가 이 기능의 전부다. */
+      if (ymd < kstYmd(Date.now())) return json({ ok: false, error: 'past_ymd', message: '지난 날짜에는 지정할 수 없습니다.' }, 400);
+
+      await ensureRoomOverrideTable(env.DB);
+
+      if (act === 'room_override_clear') {
+        await env.DB.prepare(`DELETE FROM class_room_override WHERE schedule_id = ? AND ymd = ?`).bind(sid, ymd).run();
+        return json({ ok: true, cleared: true, schedule_id: sid, ymd });
+      }
+
+      const v = validateOverrideInput(sid, b.room_code);
+      if (!v.ok) return json({ ok: false, error: v.error || 'bad_room_code', message: '방 번호를 확인해 주세요.' }, 400);
+
+      const now = Date.now();
+      /* ⛔ 메모는 «받지 않는다». 화면이 안 보내는 죽은 칸인데 서버가 받아 저장하고
+         `room_override_note` 로 **학생 응답에 실어 보내고** 있었다 — 누가 채우는 순간
+         «선생님 메모가 학생 화면으로» 가는 길이 된다(2026-09-10 함정 대조).
+         칸은 남겨 둔다(나중에 «학생에게 보여 줄 한 줄» 로 쓸 수 있다) — 지금은 늘 null. */
+      const note: string | null = null;
+      await env.DB.prepare(
+        `INSERT INTO class_room_override (schedule_id, ymd, room_id, note, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(schedule_id, ymd) DO UPDATE SET
+           room_id = excluded.room_id, note = excluded.note,
+           created_by = excluded.created_by, created_at = excluded.created_at`
+      ).bind(sid, ymd, v.room_id, note, String((_roActor as any).username || 'unknown'), now).run();
+
+      return json({
+        ok: true, schedule_id: sid, ymd, room_id: v.room_id, note,
+        student_name: row.student_name || null,
+        /* 화면이 그대로 보여 줄 링크 — 도메인은 정본 한 곳에서만 온다(CLAUDE.md 0장). */
+        link: `${SITE_ORIGIN}/?meet=${encodeURIComponent(v.room_id.replace(/^meet-/, ''))}`,
+      });
+    }
+
     if (method === 'POST' && path === '/api/admin/class-schedules') {
       try {
         await env.DB.exec(
@@ -6847,7 +7040,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
      */
     if (method === 'POST' && path === '/api/admin/class-schedules/purge-placeholders') {
       const _pActor = await getAdminActor(request, env as any);
-      if (_pActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_pActor.isTeacher) return json(forbiddenTeacherBody(_pActor), 403);
       const _pScope = await getScope(env as any, request);
       if (!canEditOrg(_pScope)) return json({ ok: false, error: 'forbidden_scope' }, 403);
 
@@ -7000,10 +7193,103 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (body.scheduled_date != null && /^\d{4}-\d{2}-\d{2}$/.test(String(body.scheduled_date))) {
         sets.push('scheduled_date = ?'); binds.push(String(body.scheduled_date));
       }
-      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
-      // 📜 이동 전 정보(이력용) + 행위자
+      // 📜 이동 전 정보(이력용) + 행위자 — 담당 강사 가드가 이 둘을 쓰므로 sets 검사보다 «앞» 이다.
       const _pchActor = await getAdminActor(request, env as any);
       const _pchRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+
+      /* 🧑‍🏫 (2026-09-11) 담당 강사 변경 — 드래그로 «다른 강사 열» 에 놓았을 때.
+       *
+       *  [왜 생겼나] 주간 전체 스케줄(admin/weekly-schedule.html)의 드래그는 확인 모달에
+       *  「⚡ 담당 교사도 함께 변경됩니다」라고 **약속하고 「✅ 이동됨」까지 띄웠지만**,
+       *  하는 일은 메모리 객체 한 줄(SLOTS[key]=slot)이 전부였다 — 서버에 요청이 한 건도
+       *  나가지 않아 새로고침하면 조용히 되돌아갔다. 2026-09-11 실사고: 사장님이 정우영
+       *  학생의 금 14:20 수업을 강선생님 → MAIMAI 로 옮기셨는데 홈 화면은 계속 강선생님을
+       *  가리켰다(class_schedules 2332 의 teacher_id 는 '29' 그대로였다).
+       *  같은 병의 형제가 이 저장소에 이미 둘 있다 — 「화면에서 수업을 잡았는데 학생은
+       *  «오늘 수업 없음»」(2026-08-24)·「직원을 등록했는데 로그인이 안 돼요」(2026-08-18).
+       *
+       *  🔒 [왜 여기만 게이트가 더 센가] 이 PATCH 는 TEACHER_BLOCKED_PREFIXES 에 없어서
+       *     **강사도 부를 수 있다.** 요일·시각 이동은 그대로 두더라도 «담당 강사» 는
+       *     다르다 — 수업이 곧 급여라(no-show-truth.ts·payroll) 강사가 남의 수업을
+       *     자기에게 가져오거나 남에게 떠넘길 수 있다. CLAUDE.md 가 «수업 강사 변경» 을
+       *     되돌릴 수 없는 조작의 예로 직접 들고 있다.
+       *  ⛔ canEditOrg() 로 막으면 안 된다 — 그 함수는 scope 'none'(내부직원·**교사**)에도
+       *     true 라 강사를 못 막는다(CLAUDE.md 2장 「본사 전용으로 막았는데 강사가 그대로
+       *     실행됨」). 그래서 enrollAdminHqOnly 와 «같은 모양» 으로 판정한다.
+       *  🔴 «모른다» 를 «본사» 로 읽지 않는다 — getAdminActor 는 스코프를 못 구해도
+       *     scopeType='none' → resolveRole 이 'staff'(본사 동급)로 떨어뜨린다. 그래서
+       *     근거(admin_scope.scope_type)를 **삼키지 않고 한 번 더 읽고, 못 읽으면 막는다.**
+       *  ⚠️ 판정을 복제하지 않는다 — «조직인가» 는 정본 isOrgScopedRole() 이 답한다.
+       *     (enroll-ops.ts 의 enrollAdminHqOnly 는 그 파일 밖으로 내보내지 않는 비공개
+       *      함수다 — 같은 판정을 여기 옆에 두는 것이 이 저장소의 방식이다.
+       *      NOT_PLACEHOLDER 가 다섯 파일에 복제돼 있는 것과 같은 사정.)
+       *  ℹ️ 강사를 «안 바꾸는» 요청(요일·시각만)은 이 블록을 통째로 비켜 간다 — 기존
+       *     드래그 이동의 권한은 한 톨도 좁히지 않았다. */
+      /* 🗓 반복 수업에 날짜를 박으면 «매주» 가 죽는다 — 정본 moveFieldConflict 가 판정한다.
+         화면(weekly-schedule.html)이 서버의 move_field 를 그대로 쓰므로 정상 경로에서는
+         닿지 않지만, 옛 캐시 화면·다른 호출자를 위한 2차 방어다. */
+      {
+        const _mfDeny = moveFieldConflict(_pchRow, body);
+        if (_mfDeny) return json({ ok: false, error: _mfDeny.error, message: _mfDeny.message }, _mfDeny.status as any);
+      }
+
+      let _tchFrom: string | null = null;      // 감사 이력용 — ⛔ body 에 끼워 넣지 말 것(아래 주석)
+      let _tchToName: string | null = null;
+      if (body.teacher_id != null && String(body.teacher_id).trim() !== '') {
+        const _tid = String(body.teacher_id).trim();
+        if (!/^\d+$/.test(_tid)) {
+          return json({ ok: false, error: 'invalid_teacher_id', message: '담당 강사 번호가 올바르지 않습니다.' }, 400);
+        }
+        const _cur = String(_pchRow?.teacher_id ?? '').trim();
+        if (_cur !== _tid) {                       // 같은 강사면 바꿀 것이 없다 — 게이트도 안 탄다
+          /* 🪞 행을 못 읽었으면 «담당 강사» 는 바꾸지 않는다. 그 행이 카페24 미러가 만든 것이면
+             아래 「사람 손이 이긴다」 도장(source='c24-mirror:manual')이 함께 빠지고, 미러의
+             UPDATE 가 teacher_id 를 통째로 되돌린다(c24-mirror.ts) — 즉 「옮겼는데 밤에
+             되돌아감」이 급여까지 끌고 간다. 요일·시각만 바꾸는 요청은 예전대로 통과한다. */
+          if (!_pchRow) {
+            return json({ ok: false, error: 'schedule_read_failed', message: '수업 정보를 읽지 못해 담당 강사를 바꾸지 않았습니다. 잠시 후 다시 시도해 주세요.' }, 503);
+          }
+          let _scopeType: string | null = null;
+          try {
+            const _sr: any = await env.DB.prepare(
+              `SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`
+            ).bind(_pchActor.username).first();
+            const _st = _sr ? String(_sr.scope_type ?? '').trim() : '';
+            _scopeType = _st || null;              // 행이 없거나 칸이 비면 «모름»
+          } catch (e: any) {
+            console.warn('[class-schedules] teacher move scope:', e?.message);
+            _scopeType = null;
+          }
+          /* 🔒 판정 정본은 src/class-teacher-move.ts 하나다 — 라우트 안에 조건을 늘어놓으면
+             하니스가 «그 글자가 있는가» 로만 보게 되고, 조건을 뒤집어도 통과한다(실측). */
+          const _deny = teacherMoveDenyReason({ ok: _pchActor.ok, isTeacher: _pchActor.isTeacher, scopeType: _scopeType });
+          if (_deny) return json(
+            _deny.error === 'forbidden_teacher'
+              ? forbiddenTeacherBody(_pchActor, _deny.message)
+              : { ok: false, error: _deny.error, message: _deny.message },
+            _deny.status as any);
+
+          /* 🆔 실재하는 강사인가 — 없는 번호를 넣으면 그 수업은 «강사가 누구인지 모르는» 행이
+             되고, 화면·급여·노쇼 판정이 전부 이름을 못 붙인다. 모르면 안 바꾼다.
+             ⚠️ class_schedules.teacher_id 는 teachers.id 도메인이다(카페24 강사번호가 아니다
+                — CLAUDE.md 2장 「강사 번호가 세 벌」). 화면 목록도 /api/admin/teachers 의 id 다. */
+          const _trow: any = await env.DB.prepare(
+            `SELECT CAST(id AS TEXT) AS tid, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`
+          ).bind(_tid).first().catch(() => null);
+          if (!_trow) {
+            return json({ ok: false, error: 'teacher_not_found', message: '그 번호의 강사를 찾을 수 없습니다.' }, 400);
+          }
+          sets.push('teacher_id = ?'); binds.push(_tid);
+          /* ⛔ 상태를 `body` 에 끼워 넘기지 말 것 — body 는 request.json() 이라 클라이언트가
+             그 칸을 그대로 보낼 수 있다. 강사 변경이 없어도 감사 이력(class_audit_log)에
+             거짓 줄을 남길 수 있고, 이 PATCH 는 강사도 부를 수 있어 «급여 근거» 가 오염된다.
+             (2026-09-11 함정 대조 지적) */
+          _tchFrom = _pchRow?.teacher_id ?? null;
+          _tchToName = _trow.name || _tid;
+        }
+      }
+
+      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
       /* 🪞 (2026-08-31) 「사람 손이 이긴다」 도장 — 사장님 결정.
          카페24 미러가 만든 행(source='c24-mirror')을 사람이 고치면 그 자리에서
          'c24-mirror:manual' 로 바꾼다. 그 뒤로 미러는 그 행을 **영영 안 건드린다**
@@ -7017,10 +7303,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       binds.push(id);
       try {
         await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-        // 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일이 바뀐 경우만 기록
-        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null) {
+        /* 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일 «또는 담당 강사» 가 바뀐 경우.
+           ⚠️ 강사 변경을 여기서 빼면 급여가 걸린 변경이 아무 데도 안 남는다. */
+        const _tchChanged = _tchToName != null;
+        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null || _tchChanged) {
           const _newDate = body.scheduled_date != null ? String(body.scheduled_date) : (_pchRow ? _pchRow.scheduled_date : null);
           const _newTime = body.start_time != null ? String(body.start_time) : (_pchRow ? _pchRow.start_time : null);
+          const _tchLine = _tchChanged
+            ? ` · 담당 강사 ${String(_tchFrom ?? '?')} → ${String(_tchToName)}`
+            : '';
           await writeClassAudit(env, {
             action: 'reschedule', schedule_id: id,
             teacher_name: _pchRow ? (_pchRow.teacher_name || null) : null,
@@ -7030,7 +7321,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             actor: _pchActor.name || '관리자',
             actor_role: _pchActor.isTeacher ? 'teacher' : 'admin',
             source: 'ui',
-            detail: `→ ${_newDate || ''} ${_newTime || ''}`.trim(),
+            detail: (`→ ${_newDate || ''} ${_newTime || ''}`.trim() + _tchLine).trim(),
           });
         }
         return json({ ok: true, id, updated_fields: sets.length - 1 });
@@ -8865,6 +9156,32 @@ LIMIT $limit`;
       const onlyEmpty = b.only_empty !== false;   // 기본 = 미배정 학생만 (기존 배정 실수 덮어쓰기 방지)
       const dry = !!b.dry;
 
+      /* 🎯 (2026-09-08) «그 학생만» 정확일치 배정 — 매니저 「오늘 수업」의 교재 배지에서 온다.
+         ⛔ q(부분일치)로 대신하지 말 것 — 아이디 조각 하나(`kim`)로 남의 계정까지 걸리고,
+            only_empty 가 기본이며 2026-09-08 실측으로 학생 29,485명이 **전원 미배정** 이라
+            그대로 수백 명이 함께 배정된다. 그래서 정확일치 입구를 따로 둔다.
+         ⚠️ IN (?,?,…) 로 펴지 않는다 — D1 바인드 100개 한도이고, d1_bind_limit_harness 가
+            `map(() => '?')` 를 잡아 FAIL 낸다. **콤마 문자열 한 개**를 바인딩해 정확일치로 본다
+            (실측: students_erp.user_id 에 콤마 0건·빈 값 0건이라 이 방식이 성립한다).
+         ⚠️ login_id 는 보지 않는다 — 화면이 보내는 것은 class_schedules.user_id·attendance.user_id 이고
+            그 값이 students_erp.user_id 와 맞는 것을 실측했다(992/1,000 · 2,408/2,409).
+            넓히면 «다른 학생이 걸릴» 여지가 생긴다. 못 찾으면 targets 0 으로 «아무것도 안 하는» 쪽이 맞다.
+         ⚠️ 대소문자를 무시하지 않는다 — 대소문자만 다른 학생 계정이 실재한다(Kim/kim).
+            «둘 중 아무나» 집으면 남의 계정에 배정된다. */
+      /* 🔴 «배열이 아닌 모양» 을 조용히 «목록 없음» 으로 읽으면 안 된다 — 그 순간 이 조건이
+         통째로 빠져 스코프 전체가 대상이 된다(fail-open). 실측: `"jeong"`·`"a,b"`·`{0:'x',length:1}`·`123`
+         이 전부 []  로 떨어졌다. 2026-09-08 실측대로 학생이 **전원 미배정** 이라 only_empty 가
+         아무것도 못 걸러 주므로, 2,000명 미만 스코프에서는 **그 스코프 학생 전원이 한 번에**
+         배정되고 응답은 {ok:true} 다. ⟹ «모른다» 는 별도 사유로 **거절**한다
+         (CLAUDE.md 2장 「되돌릴 수 없는 조작의 가드를 fail-open 으로 두지 말 것」).
+         ⚠️ 지금 화면은 언제나 배열을 보내므로 «오늘의 사고» 가 아니라 «다음 호출자» 를 막는 것이다. */
+      if (b.user_ids != null && !Array.isArray(b.user_ids)) return json({ ok: false, error: 'invalid_user_ids' }, 400);
+      const rawIds: any[] = Array.isArray(b.user_ids) ? b.user_ids : [];
+      const userIds = Array.from(new Set(rawIds.map((v: any) => String(v == null ? '' : v).trim()).filter(Boolean)));
+      if (rawIds.length && !userIds.length) return json({ ok: false, error: 'invalid_user_ids' }, 400);
+      if (userIds.length > 50) return json({ ok: false, error: 'too_many_user_ids', count: userIds.length }, 400);
+      if (userIds.some(v => v.indexOf(',') >= 0)) return json({ ok: false, error: 'invalid_user_ids' }, 400);
+
       // textbook/level 컬럼은 기본 DDL 에 없음(운영 DB엔 있을 수 있음) → 멱등 보강
       for (const ddl of [`ALTER TABLE students_erp ADD COLUMN textbook TEXT`, `ALTER TABLE students_erp ADD COLUMN level TEXT`]) {
         try { await env.DB.exec(ddl); } catch {}
@@ -8881,11 +9198,15 @@ LIMIT $limit`;
         binds.push(like, like, like, like, like);
       }
       if (onlyEmpty) conds.push(`(textbook IS NULL OR textbook = '')`);
+      /* 🎯 정확일치 — 콤마로 감싸 «부분일치» 가 되지 않게 한다(`,jeong,` 안에 `,eon,` 은 없다) */
+      if (userIds.length) { conds.push(`instr(?, ',' || user_id || ',') > 0`); binds.push(',' + userIds.join(',') + ','); }
       const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 
       const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp ${where}`).bind(...binds).first();
       const targets = Number(cnt?.n || 0);
-      if (dry) return json({ ok: true, dry: true, targets, textbook_title: title, level: level || null, only_empty: onlyEmpty, q: q || null });
+      /* 📌 «무엇으로 좁혔는지» 를 함께 돌려준다 — 화면이 「전체가 대상」인지 「이 학생만」인지
+         사실대로 말할 수 있어야 한다(그 둘을 헷갈리면 수백 명이 한 번에 배정된다). */
+      if (dry) return json({ ok: true, dry: true, targets, textbook_title: title, level: level || null, only_empty: onlyEmpty, q: q || null, user_ids: userIds.length ? userIds : null });
       if (!targets) return json({ ok: true, updated: 0, targets: 0 });
       if (targets > 2000 && !b.force) return json({ ok: false, error: 'too_many_targets', targets, hint: 'force=true 로 재요청하면 실행합니다' }, 400);
 
@@ -8902,7 +9223,7 @@ LIMIT $limit`;
         `UPDATE students_erp SET textbook = ?, level = CASE WHEN ? = '' THEN level ELSE ? END ${where}`
       ).bind(title, level, level, ...binds).run();
       const updated = Number(upd?.meta?.changes ?? targets);
-      return json({ ok: true, updated, targets, textbook_title: title, level: level || null });
+      return json({ ok: true, updated, targets, textbook_title: title, level: level || null, user_ids: userIds.length ? userIds : null });
     }
 
     if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {
@@ -9011,7 +9332,111 @@ LIMIT $limit`;
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
+      /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 싣는다.
+         2026-09-15 에 그 칸을 만들 때 erp-list 에만 실었는데, 학생 명부 표가 실제로
+         부르는 것은 이쪽(unified)이라 **도입 이래 한 번도 값이 안 닿아** 늘 «—» 였다
+         (사장님 제보 jeong — 활성 5건인데 «—»). 화면 쪽 매핑(adm-core.js apiItems)에도
+         sched 를 옮기는 줄이 없어 **두 겹**으로 빠져 있었다 — 둘 다 고쳐야 닿는다.
+         ⚠️ 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)을 이 값으로 «채우지» 않는다 —
+            뜻이 다르고 그쪽은 카페24가 정본이다(정본 머리말 참고).
+         ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
+      const _schedMap = await loadSchedSummaryMap(env as any);
+      for (const _st of (_piiStudents as any[])) {
+        _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
+      }
       return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
+    }
+
+    /* 🤖 (2026-09-16 신설) AI 학습도구 8종을 실제로 쓴 학생 — 도구별 횟수·마지막 사용일.
+       GET /api/admin/ai-usage/students?q=&tool=all|judgment|warmup|friend|write|speech|review|vocab|micro&days=30
+
+       정본 8개 표는 src/api-students.ts 의 "오늘 도구별 활동" 목록(`/api/student/today`)과
+       완전히 같다 — 판단력훈련·웜업·AI영어친구·AI글쓰기·AI음성코치·복습퀴즈·단어장·AI단어퀴즈.
+       학생게임(game_sessions)은 그 목록에도 있지만 「AI 학습도구」라는 이름과 성격이 달라(게임 허브는
+       AI 채점·생성이 아니라 사전 제작 퀴즈 위주) 여기서는 뺐다 — 필요하면 사람이 정할 일.
+
+       ⚠️ 게스트(guest%)는 실재 학생이 아니므로 전부 제외한다 — CLAUDE.md 2장 "「동의 안 함」이
+          「거절했다」인지 「안 물어봤다」인지" 및 judgment_events 게스트 오염 실사고(2026-09-05)와
+          같은 뿌리: 이 칸에 로그인 안 한 방문자의 값이 섞여 「없는 학생」이 명단에 뜬다.
+       ⚠️ 부분일치 없음 — uid 는 students_erp.user_id 완전일치로만 잇는다(강사 이름처럼
+          "번호가 세 벌이라 조용히 남의 것이 붙는" 함정과 같은 뿌리를 피하려고).
+       ⚠️ 표가 없으면(아직 안 쓴 도구) 그 표만 건너뛴다(fail-open) — 조회 실패로 명단 전체가
+          비면 「AI 를 아무도 안 쓴다」는 거짓 결론이 된다. */
+    if (method === 'GET' && path === '/api/admin/ai-usage/students') {
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const toolFilter = (url.searchParams.get('tool') || 'all').trim();
+      const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+      const since = Date.now() - days * 86400000;
+      const _ssw = await studentScopeWhere(env, request);   // ⚠️ alias 없음 — students_erp 원래 칸 이름 기준
+
+      const TOOL_DEFS: { key: string; ko: string; table: string; col: string; ts: string; extra?: string }[] = [
+        { key: 'judgment', ko: '판단력 훈련',   table: 'judgment_events',        col: 'student_uid', ts: 'created_at' },
+        { key: 'warmup',   ko: 'AI 웜업',       table: 'warmup_session_log',     col: 'user_id',     ts: 'started_at' },
+        { key: 'friend',   ko: 'AI 영어친구',   table: 'ai_friend_chats',        col: 'student_uid', ts: 'created_at', extra: `role='user'` },
+        { key: 'write',    ko: 'AI 글쓰기',     table: 'ai_writing_corrections', col: 'student_uid', ts: 'created_at' },
+        { key: 'speech',   ko: '발음코칭',      table: 'voice_coaching',         col: 'student_uid', ts: 'created_at' },
+        { key: 'review',   ko: '복습퀴즈',      table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
+        { key: 'vocab',    ko: '단어장',        table: 'vocab_review_log',       col: 'user_id',     ts: 'reviewed_at' },
+        { key: 'micro',    ko: 'AI 단어 퀴즈',  table: 'vocab_quizzes',          col: 'user_id',     ts: 'completed_at', extra: `completed=1` },
+      ];
+      const wanted = toolFilter === 'all' ? TOOL_DEFS : TOOL_DEFS.filter((t) => t.key === toolFilter);
+      if (!wanted.length) return json({ ok: false, error: 'unknown_tool' }, 400);
+
+      const byUid: Record<string, { tools: Record<string, { n: number; last_ts: number }>; total: number; last_ts: number }> = {};
+      for (const t of wanted) {
+        const scopeSub = _ssw.cond ? ` AND ${t.col} IN (SELECT user_id FROM students_erp WHERE ${_ssw.cond})` : '';
+        const sql = `SELECT ${t.col} AS uid, COUNT(*) n, MAX(${t.ts}) last_ts
+                       FROM ${t.table}
+                      WHERE ${t.col} IS NOT NULL AND ${t.col} <> '' AND ${t.col} NOT LIKE 'guest%'
+                        ${t.extra ? `AND ${t.extra}` : ''}
+                        AND ${t.ts} >= ?${scopeSub}
+                      GROUP BY ${t.col}`;
+        let rows: any[] = [];
+        try { rows = ((await env.DB.prepare(sql).bind(since, ..._ssw.binds).all()).results || []) as any[]; }
+        catch (e) { console.warn('[ai-usage] ' + t.key + ' 조회 실패(표가 아직 없을 수 있음):', (e as any)?.message || e); continue; }
+        for (const r of rows) {
+          const uid = String(r.uid || '');
+          if (!uid) continue;
+          const rec = byUid[uid] || (byUid[uid] = { tools: {}, total: 0, last_ts: 0 });
+          const n = Number(r.n) || 0, lt = Number(r.last_ts) || 0;
+          rec.tools[t.key] = { n, last_ts: lt };
+          rec.total += n;
+          if (lt > rec.last_ts) rec.last_ts = lt;
+        }
+      }
+
+      const uids = Object.keys(byUid);
+      const nameRows = uids.length ? await selectInChunks<any>(env.DB, uids, (ph) =>
+        `SELECT user_id, COALESCE(korean_name, student_name, username, user_id) AS name,
+                english_name, shop_name, franchise, level
+           FROM students_erp WHERE user_id IN (${ph})`) : [];
+      const nameByUid: Record<string, any> = {};
+      for (const r of nameRows) nameByUid[String(r.user_id)] = r;
+
+      let list = uids.map((uid) => {
+        const info = nameByUid[uid] || {};
+        return {
+          uid,
+          name: info.name || uid,
+          english_name: info.english_name || '',
+          shop_name: info.shop_name || '',
+          franchise: info.franchise || '',
+          level: info.level || '',
+          tools: byUid[uid].tools,
+          tool_count: Object.keys(byUid[uid].tools).length,
+          total: byUid[uid].total,
+          last_ts: byUid[uid].last_ts,
+        };
+      });
+      if (q) {
+        list = list.filter((s) =>
+          s.uid.toLowerCase().includes(q) || String(s.name).toLowerCase().includes(q) ||
+          String(s.english_name).toLowerCase().includes(q) || String(s.shop_name).toLowerCase().includes(q));
+      }
+      list.sort((a, b) => b.last_ts - a.last_ts);
+
+      const summary = wanted.map((t) => ({ key: t.key, ko: t.ko, students: list.filter((s) => s.tools[t.key]).length }));
+      return json({ ok: true, days, tool: toolFilter, count: list.length, students: list.slice(0, 500), summary });
     }
 
     // ➕ 학생 수동 등록 — 카페24 명부에 없는 학생(체험·특수 케이스)을 관리자가 직접 만든다.
@@ -9056,8 +9481,8 @@ LIMIT $limit`;
       }
 
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
-      for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
-                                  ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'],
+      for (const [col, type] of [['student_id', 'TEXT'], ['login_id', 'TEXT'], ['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
+                                  ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'], ['phone', 'TEXT'],
                                   ['updated_at', 'INTEGER']] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -9082,6 +9507,41 @@ LIMIT $limit`;
           existing: dup.user_id }, 409);
       }
 
+      /* 👥 (2026-09-14 사장님 지시) «같은 사람이 이미 있는가» 를 한 번 더 본다.
+         실사고: 정예희 학생이 yahee·yahee1·yahee2 세 계정으로 1분 안에 세 번 등록됐다(전부
+         admin_manual · 각각 비밀번호 있음 → 셋 다 로그인됨). 아이디 중복 검사(위)는 «아이디» 만
+         보므로 번호를 붙여 다시 누르면 그대로 통과한다. 뿌리는 «첫 등록이 됐는지 몰라서 또 누른 것»
+         이라 막는 자리는 로그인이 아니라 «등록» 이다.
+         ✅ 판정 정본은 src/student-duplicate.ts 의 duplicateGate(순수 함수) — 이름 완전일치 + 부모/학생 번호가
+            «숫자만 남겨» 같을 때만. ⛔ 이름만으로 막지 말 것(동명이인 실재 — 「김사랑」 계정 6개).
+            ⛔ «묻는가» 결정을 이 라우트의 if 에 다시 적지 말 것 — 조건 뒤집기 변이가 문자열 검사를 통과한다.
+         ✅ 막지 않고 «묻는다»(409 possible_duplicate + existing 목록) — 화면이 「그래도 등록」을 누르면
+            force:true 로 다시 오고 그때는 통과. 진짜 다른 아이(형제 등)일 수 있어 사람이 정한다.
+         ⚠️ 조회가 실패하면 «묻지 않고» 통과(예전 동작) — 등록 자체가 막히는 쪽이 더 나쁘다.
+            조용히 넘기지 않는다: console.warn + 성공 응답 dup_check:'skipped'.
+         ⚠️ LIMIT 을 두지 말 것 — 동명이인이 50명 넘는 이름(김민서 71명)에서 진짜 중복이 조회 밖으로 빠진다. */
+      let sameRows: any[] | null = null;
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT user_id, student_name, korean_name, parent_phone, student_phone, phone, source
+             FROM students_erp
+            WHERE student_name = ? OR korean_name = ? OR username = ?`
+        ).bind(name, name, name).all();
+        sameRows = rs.results || [];
+      } catch (e: any) {
+        // 조회 실패 = «묻지 않고» 통과(예전 동작). ⚠️ 조용히 넘기지 않는다 — 로그 + 응답 표식(dup_check:'skipped').
+        console.warn('[students/create] dup-check query failed — skipping duplicate check:', e?.message || e);
+        sameRows = null;
+      }
+      const gate = duplicateGate(body?.force, name, parentPhone, studentPhone, sameRows);
+      if (gate.ask) {
+        const ids = gate.existing.map(c => c.user_id).join(', ');
+        return json({ ok: false, error: 'possible_duplicate',
+          message: `이미 같은 이름·같은 연락처의 학생이 있습니다: ${ids}. 같은 학생이면 그 아이디를 쓰고, 다른 학생이면 「그래도 등록」을 누르세요.`,
+          message_en: `A student with the same name and phone already exists: ${ids}. Use that ID if it is the same student, or press "Register anyway".`,
+          existing: gate.existing }, 409);
+      }
+
       // 비밀번호 — 직접 입력했으면 그대로, 아니면 임시 비밀번호를 만든다.
       //   해시는 /api/student/login 이 검증하는 것과 같은 방식(SHA-256 + salt).
       //   ⚠️ auth-admin.ts 의 hashPassword() 는 관리자 계정용 다른 솔트라 여기 쓰면 학생이 로그인하지 못한다.
@@ -9098,13 +9558,17 @@ LIMIT $limit`;
 
       const now = Date.now();
       await env.DB.prepare(
-        `INSERT INTO students_erp (user_id, korean_name, student_name, username, status, signup_date,
+        /* student_id·login_id 도 user_id 로 함께 채운다 — 카페24 동기화 행 29,494건이 전부 그 모양이고,
+           비워 두면 그 두 칸으로 찾는 옛 조회(학생 상세·수정·연장)에서 «없는 학생» 이 된다(2026-09-14 yahee 사고).
+           읽는 쪽도 user_id 를 보게 고쳤지만(api-mango.ts ERP_BY_UID) 행 모양까지 맞춰 두 겹으로 막는다. */
+        `INSERT INTO students_erp (user_id, student_id, login_id, korean_name, student_name, username, status, signup_date,
            student_phone, parent_phone, shop_name, notes, source, password_hash, created_at, updated_at)
-         VALUES (?, ?, ?, ?, '정상', ?, ?, ?, ?, ?, 'admin_manual', ?, ?, ?)`
-      ).bind(uid, name, name, name, today(), studentPhone, parentPhone, shopName, notes, pwdHash, now, now).run();
+         VALUES (?, ?, ?, ?, ?, ?, '정상', ?, ?, ?, ?, ?, 'admin_manual', ?, ?, ?)`
+      ).bind(uid, uid, uid, name, name, name, today(), studentPhone, parentPhone, shopName, notes, pwdHash, now, now).run();
 
       return json({
         ok: true, user_id: uid, name,
+        dup_check: gate.check,   // 'skipped' 면 중복 확인을 못 한 채 등록된 것 — 화면이 그 사실을 말한다
         temp_password: tempPw,
         message: '학생을 등록했습니다. 아래 임시 비밀번호는 지금 이 화면에서만 보입니다 — 학생·학부모에게 전달하세요.',
       });
@@ -9121,8 +9585,19 @@ LIMIT $limit`;
     //      (:Center)=대리점·학원 → centers 로 넣는다. 테이블명을 지금 바꾸면 정산·회계까지
     //      번지므로 «화면 라벨만» 바로잡았다(2026-08-08). 테이블명 변경은 별도 작업.
     //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
-    if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
+    if ((method === 'GET' || method === 'POST' || method === 'PATCH') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      /* 🪪 (2026-09-15 신설 — 사장님 제보 「지사 아이디가 —로 비어 있다. 카페24에 데이터가
+         있으니 가져와라」) 실측: 카페24 (:Branch) 노드에는 branch_id·name·address·phone·
+         manager·active 만 있고 로그인 계정/아이디 개념 자체가 없다(cafe24-sync.ts 의
+         importCafe24Org Cypher 가 그 다섯 칸만 읽는다) — 그래서 「가져올」 원본이 카페24에
+         없다. 아래 admin_scope 접두어 매칭(login_id CASE)은 «추정» 일 뿐이고 계정이 아예
+         없거나 접두어가 모호한 지사는 늘 —로 남는다. master_branches(대표지사)의
+         login_username 과 같은 방식으로 **본사가 직접 입력해 저장하는 칸**을 새로 둔다
+         — 카페24 야간 동기화(insF UPSERT)의 컬럼 목록에 없으므로 덮어써지지 않는다
+         (franchise_manual_override 같은 별도 표가 필요 없다). 기존 DB 에는 없을 수 있어
+         지연 ALTER(이미 있으면 SQLite 가 throw → 흡수, master_branches 와 같은 방식). */
+      try { await env.DB.exec(`ALTER TABLE franchises ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
 
       /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03) — 조직을 «대표지사 › 지사 › 대리점» 으로 세운다.
          화면(조직 관리 카드)에는 2026-07 부터 «🏛️ 대표지사» 칸이 있었지만 **배선이 하나도 없어서**
@@ -9138,8 +9613,58 @@ LIMIT $limit`;
             새 /api 경로는 src/index.ts 의 라우팅 게이트·인증 게이트를 둘 다 통과해야 하는데
             index.ts 는 공동 금지구역이다. 이미 세 관문이 다 열려 있는 이 경로에 붙인다. */
       const ensureMaster = async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, login_username TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        /* 🪪 (2026-09-14 신설 — 사장님 제보 「대표지사는 아이디에 1,2,3 이런 숫자가 들어가 있다.
+           실제 아이디가 들어가게 해달라」) 지사와 달리 master_branches 는 admin_scope 에 이어 줄
+           «지사 이름 하나짜리 접두어 매칭» 이 안 통한다(대표지사는 지사 여러 개를 묶으므로).
+           그래서 login_username 은 여전히 **직접 입력해 저장하는 칸**이다(기존 DB 에는 없을 수
+           있어 지연 ALTER — 이미 있으면 SQLite 가 throw → 흡수).
+           🔑 (2026-09-17 신설 — 사장님 제보 「대표지사도 비밀번호 넣는 곳이 없다」) 그 아이디는
+           2026-09-14 까지는 라벨일 뿐이었다 — scope.ts 의 Scope 타입에 'master' 가 없어 admin_scope
+           로 이을 길이 없다고 여기 적혀 있었는데, 그건 «지사(branch, 접두어 1개)» 를 기준으로
+           본 것이고 실은 scope.ts 에 **'franchise'(지사본사) 타입이 이미 있다** — scope_value 에
+           지사 «이름 여러 개를 콤마로» 담는, 대표지사가 하려는 일과 정확히 같은 모양이다.
+           그래서 새 Scope 타입을 만들지 않고 이것을 재사용한다: 비밀번호를 설정하면
+           scope_type='franchise' + scope_value=산하 지사 이름 목록(franchise_master_map 에서 계산)
+           으로 계정을 만든다. ⚠️ scope_value 는 «그 시점의 스냅샷» 이라 지사 배정이 바뀌면 따라가지
+           않는다 — master_assign 이 배정을 바꿀 때마다 이 계정의 scope_value 를 다시 계산해 준다
+           (refreshMasterScopeValue). ⚠️ scope_value 만으로는 «이 admin_scope 행이 어느 대표지사
+           것인지» 구분이 안 된다(이름 목록이라 master_id 가 안 남는다) — 그래서 admin_scope 에
+           **master_id 칸을 새로 추가**한다(지연 ALTER). 이게 없으면 비밀번호 재설정 때 «이미 이
+           대표지사 계정인지» 를 확인할 방법이 없어, 남의 계정(예: 강사)의 비밀번호를 그대로
+           덮어쓰는 사고가 난다(CLAUDE.md 「이미 다른 계정이 쓰고 있는 아이디」 판정과 같은 이유).
+           admin_scope 를 읽는 다른 모든 곳은 scope_type/scope_value 만 SELECT 해서(전체 SELECT * 는
+           0곳 — grep 확인) 이 칸을 몰라도 그대로 동작한다. */
+        try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN login_username TEXT;`); } catch { /* duplicate column — 정상 */ }
+        /* 🏢 (2026-09-17 신설 — 사장님 「영업본부는 engmaster, 이병엽 이사, 본사직영 이렇게
+           3개」) 대표지사 «위» 계층. 옛 LMS 의 「본사명」 칸과는 다른 축이라(같은 대표지사명이
+           하나도 안 겹쳤다) 자유 입력 칸으로 둔다 — <select> 로 만들면 값 없는 <option>+
+           data-ko/data-en 조합이 i18n 언어 전환 때 .value 를 조용히 깨뜨리는 이 저장소의 문서화된
+           함정(mbr-tier 주석 참고)을 다시 밟는다. 사람이 직접 세 값 중 하나를 그대로 타이핑한다. */
+        try { await env.DB.exec(`ALTER TABLE master_branches ADD COLUMN division TEXT;`); } catch { /* duplicate column — 정상 */ }
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        try { await env.DB.exec(`ALTER TABLE admin_scope ADD COLUMN master_id INTEGER;`); } catch { /* duplicate column — 정상 */ }
+      };
+
+      /* 🏛️ (2026-09-17) 대표지사 login_password 계정의 scope_value(콤마 지사 이름 목록)를
+         「지금 franchise_master_map 이 말하는 산하 지사」로 다시 맞춘다 — master_assign 이 배정을
+         바꿀 때마다 부른다. 링크된 계정이 없으면(비밀번호를 아직 안 만든 대표지사) 조용히
+         아무 일도 안 한다. ⛔ 실패를 삼키지 않는다 — 삼키면 «지사를 뺐는데 그 계정이 계속 보는»
+         (막았어야 할 접근이 조용히 남는) 쪽으로 실패하게 된다. 학생 데이터가 걸린 자리라
+         «막는 쪽» 으로 실패해야 하므로, 여기서 던지면 master_assign 요청 전체가 실패로
+         보고된다(사람이 다시 시도하게). */
+      const refreshMasterScopeValue = async (masterId: number) => {
+        if (!masterId) return;
+        const linked = await env.DB.prepare(
+          `SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND master_id = ? LIMIT 1`
+        ).bind(masterId).first<{ username: string }>();
+        if (!linked) return;
+        const rows = await env.DB.prepare(
+          `SELECT f.name AS name FROM franchise_master_map mm JOIN franchises f ON f.id = mm.franchise_id WHERE mm.master_id = ?`
+        ).bind(masterId).all();
+        const names = ((rows.results || []) as any[]).map(r => r.name).filter(Boolean);
+        await env.DB.prepare(`UPDATE admin_scope SET scope_value = ?, updated_at = ? WHERE username = ?`)
+          .bind(names.join(',') || null, Date.now(), linked.username).run();
       };
 
       /* 🔒 (2026-08-18) 지사·대리점 계정에게 이 API 를 열면서 «자기 것만» 으로 자른다.
@@ -9149,7 +9674,173 @@ LIMIT $limit`;
       const _fCond = scopeFranchiseCond(_fSc, 'f');
       const _fWhere = _fCond.cond ? ` WHERE ${_fCond.cond}` : '';
 
+      /* 🔑 (2026-09-17 신설 — 사장님 제보 「아이디 넣는 칸은 생겼는데 비밀번호 넣는 곳이
+         없다」) `franchises.login_username` 은 2026-09-15 에 «본사가 직접 입력해 저장하는
+         칸» 으로 생겼지만 그 칸은 라벨일 뿐 admin_account 를 전혀 안 건드린다 — 그 아이디로
+         실제로 로그인할 수는 없었다. 대리점(centers) 등록이 2026-08-19 에 이미 이 문제를
+         풀어 둔 방식(둘 다 채우면 admin_account+admin_scope 를 실제로 만든다)을 그대로
+         옮긴다 — «지사» 판은 여기에 «비밀번호 재설정»(이미 계정이 있는 지사) 한 겹만 더한다.
+         등록(POST)·수정(PATCH) 이 둘 다 이 도우미를 쓴다 — 검증·계정 생성 로직을 두 곳에
+         복제하면 한쪽만 고쳐지는 이 표의 반복 사고가 그대로 재현된다.
+         ⚠️ scope_value 는 franchises.name **그대로**(자르지 않음) — scopeFranchiseCond('branch')
+         가 `name LIKE scope_value || '%'` 로 찾으므로 자기 이름 전체를 쓰면 최소한 자기
+         자신은 항상 걸린다. PATCH 의 옛 계정 찾기(9822행 근처)도 이미 `scope_value = 옛이름`
+         **정확일치**로 찾고 있어 같은 값 모양이다.
+         ⛔ 지사명이 유일하지 않으면(franchises.name 에 UNIQUE 없음, CLAUDE.md 「centers.name
+         이 유일하지 않습니다」와 같은 구조) 계정을 만들지 않는다 — scope_value 가 이름 하나뿐이라
+         동명이인 지사 자료가 그대로 섞여 보인다(대리점 duplicate_center_name 검사와 같은 이유). */
+      // ⚠️ 반환 모양은 한 가지로 고정한다(판별 유니온 금지) — 이 저장소의 tsconfig 는
+      // strictNullChecks:false 라 `if (!pr.ok) return ...;` 뒤에서 판별 유니온이 좁혀지지
+      // 않는다(CLAUDE.md 「게이트 헬퍼를 판별 유니온으로 만들었더니」). 실패 필드는 전부
+      // optional 로 두고 호출부는 `pr.ok` 만 보고 나머지는 그대로 읽는다.
+      const createOrResetBranchLogin = async (username: string, password: string, franchiseName: string):
+        Promise<{ ok: boolean; result?: 'created' | 'reset'; error?: string; message?: string; status?: number }> => {
+        const loginUsername = username.trim();
+        const loginPassword = password;
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
+          return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
+        }
+        if (loginPassword.length < 6) {
+          return { ok: false, error: 'too_short', message: '비밀번호는 6자 이상이어야 합니다.', status: 400 };
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
+          return { ok: false, error: 'reserved_username', message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.', status: 403 };
+        }
+        const nameDup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM franchises WHERE name = ?`)
+          .bind(franchiseName).first<{ n: number }>();
+        if (Number(nameDup?.n || 0) > 1) {
+          return { ok: false, error: 'duplicate_franchise_name_for_login',
+            message: `이미 같은 이름("${franchiseName}")의 지사가 ${nameDup?.n}곳 있어 로그인 계정을 만들 수 없습니다 — ` +
+              `이름으로 접근 범위를 가르기 때문에 다른 지사 자료가 섞여 보일 수 있습니다. 지사 이름을 구분되게 바꾸거나, ` +
+              `계정 없이 아이디만 기록해 두고 본사에 문의하세요.`, status: 409 };
+        }
+        const existing = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
+          .bind(loginUsername).first<{ username: string }>();
+        const now = Date.now();
+        if (existing) {
+          const linkedScope = await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username = ? LIMIT 1`)
+            .bind(existing.username).first<{ scope_type: string; scope_value: string | null }>();
+          const isOwnBranch = !!linkedScope && linkedScope.scope_type === 'branch' && linkedScope.scope_value === franchiseName;
+          if (!isOwnBranch) {
+            return { ok: false, error: 'already_exists',
+              message: '이미 다른 계정이 쓰고 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          // 🔑 이미 이 지사에 연결된 계정 — 비밀번호만 재설정한다(계정을 새로 만들지 않음).
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(await hashPassword(loginPassword), now, existing.username).run();
+          return { ok: true, result: 'reset' };
+        }
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(loginUsername, await hashPassword(loginPassword), franchiseName, now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'branch', ?, ?)
+           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+        ).bind(loginUsername, franchiseName, now).run();
+        return { ok: true, result: 'created' };
+      };
+
+      /* 🏛️ (2026-09-17) 대표지사 판 — 위 createOrResetBranchLogin 과 같은 검증·모양이지만
+         소속 지사가 «하나」가 아니라 «여러 개(콤마 목록)» 라 scope_type='franchise' 를 쓰고,
+         «이미 이 대표지사 것인가» 를 이름 대신 admin_scope.master_id 로 확인한다(위 ensureMaster
+         주석 참고 — scope_value 는 지사 배정이 바뀌면 달라지므로 신원 확인에 못 쓴다). */
+      const createOrResetMasterLogin = async (username: string, password: string, masterId: number, masterName: string):
+        Promise<{ ok: boolean; result?: 'created' | 'reset'; error?: string; message?: string; status?: number; branch_count?: number }> => {
+        const loginUsername = username.trim();
+        const loginPassword = password;
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
+          return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
+        }
+        if (loginPassword.length < 6) {
+          return { ok: false, error: 'too_short', message: '비밀번호는 6자 이상이어야 합니다.', status: 400 };
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
+          return { ok: false, error: 'reserved_username', message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.', status: 403 };
+        }
+        const branchRows = await env.DB.prepare(
+          `SELECT f.name AS name FROM franchise_master_map mm JOIN franchises f ON f.id = mm.franchise_id WHERE mm.master_id = ?`
+        ).bind(masterId).all();
+        const branchNames = ((branchRows.results || []) as any[]).map(r => r.name).filter(Boolean);
+        const scopeValue = branchNames.join(',') || null;
+        const existing = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
+          .bind(loginUsername).first<{ username: string }>();
+        const now = Date.now();
+        if (existing) {
+          const linkedScope = await env.DB.prepare(`SELECT scope_type, master_id FROM admin_scope WHERE username = ? LIMIT 1`)
+            .bind(existing.username).first<{ scope_type: string; master_id: number | null }>();
+          const isOwnMaster = !!linkedScope && linkedScope.scope_type === 'franchise' && Number(linkedScope.master_id) === masterId;
+          if (!isOwnMaster) {
+            return { ok: false, error: 'already_exists',
+              message: '이미 다른 계정이 쓰고 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          // 🔑 이미 이 대표지사에 연결된 계정 — 비밀번호를 재설정하면서 scope_value 도
+          // 지금 배정 기준으로 다시 맞춘다(그동안 산하 지사가 바뀌었을 수 있으므로).
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(await hashPassword(loginPassword), now, existing.username).run();
+          await env.DB.prepare(`UPDATE admin_scope SET scope_value = ?, updated_at = ? WHERE username = ?`)
+            .bind(scopeValue, now, existing.username).run();
+          return { ok: true, result: 'reset', branch_count: branchNames.length };
+        }
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(loginUsername, await hashPassword(loginPassword), masterName || '대표지사', now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO admin_scope (username, scope_type, scope_value, master_id, updated_at) VALUES (?, 'franchise', ?, ?, ?)
+           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, master_id = excluded.master_id, updated_at = excluded.updated_at`
+        ).bind(loginUsername, scopeValue, masterId, now).run();
+        return { ok: true, result: 'created', branch_count: branchNames.length };
+      };
+
       if (method === 'GET') {
+        /* 🔍 (2026-09-15 신설 — 사장님이 mangoi.co.kr/lms/branch_list.php(구 LMS)에서 지사마다
+           로그인 아이디(jinu007 등)를 직접 확인해 주셨다 — 「LOFTY(전국)」관리자 이태연이
+           우리 D1 franchises.id=242 와 정확히 같은 지사·같은 대표자다. 그 아이디가 «어딘가»에는
+           실재한다는 뜻인데, 지금 cafe24-sync.ts 가 읽는 Cypher(`b.branch_id·name·address·phone·
+           manager·active` 여섯 칸)에는 그 필드가 없다 — 이름이 다른 칸(login_id·account·
+           manager_id·username 등)에 들어 있거나, :Branch 가 아니라 이어진 다른 노드에 있을 수
+           있다. 추측으로 필드명을 짚어 코드에 박기 전에, :Branch 노드에 **실제로 어떤 속성 이름이
+           있는지** 를 먼저 읽어서 보여준다(c24_expense_filter 의 prop_keys 진단과 같은 방식).
+           ⛔ 이 결과로 곧바로 franchises 를 UPDATE 하지 않는다 — 어떤 칸인지 사람이 보고
+           확인한 뒤에 실제 동기화(cafe24-sync.ts importCafe24Org)에 그 칸을 추가해야
+           «전체 241개 지사에 매일 자동으로» 채워진다(수동 입력 없이).
+           본사만(canEditOrg) — 원본 그래프의 날 것 그대로의 칸 이름·값을 보여주므로. */
+        if (url.searchParams.get('debug') === 'cafe24_props') {
+          if (!canEditOrg(_fSc)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+          try {
+            const idParam = url.searchParams.get('id');
+            if (idParam) {
+              // 한 지사만 콕 집어 — 자기 속성 + 바로 이어진 다른 노드(계정·직원 등)까지 함께.
+              const rs = await runCypher(env, `
+                MATCH (b:Branch {branch_id: $id})
+                OPTIONAL MATCH (b)-[rel]-(x)
+                RETURN properties(b) AS branch_props,
+                       collect(DISTINCT {rel_type: type(rel), other_labels: labels(x), other_props: properties(x)}) AS linked`,
+                { id: Number(idParam) }, 'READ');
+              const row = rs.values[0] || [];
+              const idx = (k: string) => rs.fields.indexOf(k);
+              return json({
+                ok: true, id: Number(idParam),
+                branch_props: row[idx('branch_props')] || null,
+                linked_nodes: (row[idx('linked')] || []).filter((l: any) => l && l.rel_type),
+              });
+            }
+            // id 없이 부르면 전체 지사에서 «어떤 속성 이름이 실제로 쓰이는지» 만 모아 준다
+            // (240여 개 값을 일일이 보는 대신, 이름 목록 + 예시 3건).
+            const rs = await runCypher(env, `MATCH (b:Branch) RETURN properties(b) AS props`, {}, 'READ');
+            const idx2 = rs.fields.indexOf('props');
+            const keySet = new Set<string>();
+            const sample: any[] = [];
+            for (const row of rs.values) {
+              const p = row[idx2] as Record<string, any> | null;
+              if (p) Object.keys(p).forEach(k => keySet.add(k));
+              if (p && sample.length < 3) sample.push(p);
+            }
+            return json({ ok: true, branch_count: rs.values.length, all_property_keys: Array.from(keySet).sort(), sample_rows: sample });
+          } catch (e: any) {
+            if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+            return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+          }
+        }
         // 🏛️ view=master → 대표지사 목록 (+ 산하 지사 수)
         if (url.searchParams.get('view') === 'master') {
           await ensureMaster();
@@ -9163,7 +9854,18 @@ LIMIT $limit`;
             `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
                FROM master_branches m${mWhere} ORDER BY m.active DESC, m.name ASC`
           ).bind(..._fCond.binds).all();
-          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond });
+          const _mbrItems = rs.results || [];
+          /* 🔒 (2026-09-14, 위 login_username 주석과 짝) 로그인 계정명은 지사 login_id 와 같은
+             이유로 본사(hq/none)에게만 싣는다 — 지사·대리점 스코프 계정은 이 API 를 이미 스코프가
+             잘린 채로 쓰지만, 남는 한 줄(자기 대표지사)에도 «다른 사람(대표지사 관리자)» 의 계정명이
+             실려 있으니 굳이 넓힐 이유가 없다. */
+          if (!canEditOrg(_fSc)) {
+            for (const it of _mbrItems as any[]) delete it.login_username;
+          }
+          // ✏️ (2026-09-11) 지사·대리점(centers/franchises)과 같은 이유로 can_edit 을 함께 준다 —
+          // 화면이 이걸 보고 «수정» 버튼을 그릴지 정한다(안 주면 지사장 화면에도 버튼이 그려졌다가
+          // 눌렀을 때만 403 이 나는 어색한 경험이 된다).
+          return json({ ok: true, items: _mbrItems, scoped: !!_fCond.cond, can_edit: canEditOrg(_fSc) });
         }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
         if (cols === 'id, name') {
@@ -9175,21 +9877,215 @@ LIMIT $limit`;
         }
         // 전체 목록에는 «어느 대표지사 소속인지» 를 함께 실어 준다(표에 컬럼 하나가 는다).
         await ensureMaster();
+        /* 🪪 (2026-09-14 신설 — 사장님 제보 「지사 관리 페이지에 지사 아이디를 볼 수 있는
+           화면이 없다. 지사장님들에게 각자 아이디를 공지해야 하는데 공지를 할 수가 없다」)
+           지사에는 로그인 계정을 «새로 만드는» 등록칸이 없다(대리점 POST 의 login_username 과
+           달리 이 표엔 그런 칸이 처음부터 없었다) — 계정은 admin_scope 에 이름으로 이어질 뿐이라,
+           그 연결을 찾아 «읽기 전용 아이디 칸» 으로 보여 준다.
+
+           ⚠️ (trap-check 지적 반영) 처음엔 바로 위 PATCH 의 linkedAccount 조회처럼 branch 쪽을
+           «정확일치»(scope_value = f.name)로 썼는데, 그 값을 실제로 채우는 유일한 경로인
+           scope.ts autoSeedOne() 은 계정 표시이름에서 「지사」를 뗀 «첫 낱말만»(예: "노원 지사"
+           → "노원") scope_value 로 저장하고, 그 값을 실제로 소비하는 scopeFranchiseCond('branch')
+           는 처음부터 **접두어(LIKE value||'%')** 로 지사를 찾는다(org_scope_harness.mjs 의
+           전제도 그렇다). franchises.name 이 "노원지사"처럼 그 접두어보다 길면 정확일치는
+           늘 거짓이라 자동시드된 지사 계정 대부분에서 아이디가 —로 떴을 것이다(PATCH 의 그
+           정확일치는 «이름 바뀔 때 드물게만 도는 경고문» 이라 아무도 못 봤을 뿐, 매번 도는
+           이 표시 칸에서는 기능 자체가 무너진다) — 그래서 여기는 scopeFranchiseCond 와
+           **같은 접두어 매칭**을 쓴다. franchise(지사본사) 쪽은 원래도 접두어가 아니라
+           콤마-경계 LIKE(부분일치 아님)라 그대로 둔다.
+           ⚠️ 후보가 둘 이상이면(같은 접두어를 쓰는 계정이 여럿) 아무거나 하나를 고르지 않는다 —
+           남의 지사 아이디가 뜨는 것보다 «—» 로 비워 두는 쪽이 안전하다(CLAUDE.md
+           「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙: 부분일치·모호하면 안 붙임).
+           ⚠️ (trap-check 지적 반영) franchises.name 은 유일하지 않다(UNIQUE 제약 없음,
+           등록 API 도 중복을 막지 않는다 — CLAUDE.md 의 centers.name 미유일 사례와 같은 구조).
+           같은 이름의 지사 행이 둘 이상이면 어느 쪽 것인지 알 수 없으니 둘 다 —로 비운다.
+
+           🪪 (2026-09-15 추가) f.login_username(본사가 직접 입력한 값, 위 ALTER)이 있으면
+           그것을 최우선으로 쓴다 — 사람이 «이 지사는 이 계정이다» 라고 확정한 값이라 접두어
+           매칭보다 확실하다. 비어 있을 때만 아래 admin_scope 추정으로 떨어진다. */
         const rs = await env.DB.prepare(
-          `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name
+          `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name,
+             (CASE WHEN f.login_username IS NOT NULL AND f.login_username <> '' THEN f.login_username
+                   WHEN (SELECT COUNT(*) FROM franchises WHERE name = f.name) > 1 THEN NULL
+                   WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%') = 1
+                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value IS NOT NULL AND scope_value <> '' AND f.name LIKE scope_value || '%' LIMIT 1)
+                   WHEN (SELECT COUNT(*) FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%')) = 1
+                   THEN (SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || f.name || ',%') LIMIT 1)
+                   ELSE NULL END) AS login_id
              FROM franchises f
              LEFT JOIN franchise_master_map mm ON mm.franchise_id = f.id
              LEFT JOIN master_branches m ON m.id = mm.master_id${_fWhere}
             ORDER BY f.active DESC, f.name ASC`
         ).bind(..._fCond.binds).all();
-        return json({ ok: true, items: rs.results || [], scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
+        const _frItems = rs.results || [];
+        /* 🔒 (trap-check 지적 반영) 로그인 계정명은 «본사가 공지하려고» 보는 정보다.
+           지사·대리점 스코프 계정은 이미 이 API 를 스코프가 잘린 채로 쓸 수 있는데(위 _fWhere),
+           branch 계정은 접두어 매칭이라 «형제 지사」까지 함께 보일 수 있고, agency 계정은
+           자기가 속한 지사의 로그인 아이디를 이 API 에서 «처음으로» 보게 된다 — 새로 넣는
+           칸이니 굳이 넓힐 이유가 없다. 본사(hq/none)에게만 싣는다.
+           ⚠️ (2026-09-15) f.login_username 은 f.* 로 딸려 나온 원본 칸이라 이것도 함께 지운다
+           — 안 지우면 login_id 는 가려도 같은 값이 login_username 으로 그대로 샌다. */
+        if (!canEditOrg(_fSc)) {
+          for (const it of _frItems as any[]) { delete it.login_id; delete it.login_username; }
+        }
+        return json({ ok: true, items: _frItems, scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
       }
 
-      /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성 전부. 화면에서 버튼을 감추는 것만으로는
+      /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성·수정 전부. 화면에서 버튼을 감추는 것만으로는
          URL 로 그대로 뚫린다(지사장이 남의 지사를 자기 대표지사에 붙일 수 있게 된다). */
       if (!canEditOrg(_fSc)) {
         return json({ ok: false, error: 'forbidden_scope', scope: _fSc.type, message: '조직 정보 수정은 본사만 할 수 있습니다.' }, 403);
       }
+
+      if (method === 'PATCH') {
+        /* ✏️ (2026-09-11 신설 — 사장님 제보 「지사도 대리점과 마찬가지로 수정 메뉴가 없다」)
+           지사 이름·대표자·전화·주소·개설일을 한 번에 고치는 «부분 수정» — 대리점(centers)
+           PATCH 와 같은 방식·같은 위험을 그대로 옮긴 것이다. */
+        const b = await parseJsonBody(request);
+        const fid = parseInt(String(b?.id || ''), 10);
+        if (!fid) return invalidBody(['id']);
+        const has = (k: string) => !!b && Object.prototype.hasOwnProperty.call(b, k);
+
+        /* 🔑 name·address·phone·owner_name 은 카페24가 매일 밤 덮어쓰는 칸이다(아래 참고,
+           cafe24-sync.ts importCafe24Org 의 insF UPSERT — opened_at 만 제외). «실제로 바뀐
+           칸만» 정정표에 남겨야 한다. 이 폼은 등록 폼을 그대로 재사용해 매번 다섯 칸을
+           전부 보내므로, 안 그러면 개설일 하나만 고치려고 열었다가 이름·주소·전화·대표자가
+           전부 «지금 값에 못 박히는» 사고가 난다. */
+        const touchesCafe24Field = has('name') || has('address') || has('phone') || has('owner_name');
+        let before: { name: string; address: string | null; phone: string | null; owner_name: string | null } | null = null;
+        if (touchesCafe24Field) {
+          before = await env.DB.prepare(`SELECT name, address, phone, owner_name FROM franchises WHERE id = ?`)
+            .bind(fid).first<{ name: string; address: string | null; phone: string | null; owner_name: string | null }>() as any;
+        }
+
+        const sets: string[] = [];
+        const binds: any[] = [];
+        let newName: string | undefined;
+        if (has('name')) {
+          newName = String(b.name || '').trim();
+          if (!newName) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(newName);
+        }
+        let newOwner: string | null | undefined;
+        if (has('owner_name')) { newOwner = String(b.owner_name || '').trim() || null; sets.push('owner_name = ?'); binds.push(newOwner); }
+        let newPhone: string | null | undefined;
+        if (has('phone')) { newPhone = String(b.phone || '').trim() || null; sets.push('phone = ?'); binds.push(newPhone); }
+        let newAddress: string | null | undefined;
+        if (has('address')) { newAddress = String(b.address || '').trim() || null; sets.push('address = ?'); binds.push(newAddress); }
+        if (has('opened_at')) { sets.push('opened_at = ?'); binds.push(String(b.opened_at || '').trim() || null); }
+        // 🪪 (2026-09-15) 로그인 아이디 — 카페24 필드가 아니라 touchesCafe24Field/override 대상이 아니다.
+        if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
+        // 🔑 (2026-09-17) 비밀번호만 바꾸는 요청(다른 칸은 하나도 안 보냄)도 유효한 요청이다 —
+        // sets 가 비어도 no_fields 로 막지 않는다(아래에서 처리).
+        const wantsPasswordAction = has('login_password') && String(b.login_password || '').length > 0;
+        if (!sets.length && !wantsPasswordAction) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 이 지사에 로그인 계정(scope_type='branch')이 있으면 admin_scope.scope_value 가
+           «옛 이름» 을 그대로 들고 있다 — scope.ts scopeFranchiseCond(branch) 는 그 값을
+           «접두어(LIKE)» 로 지사 이름과 맞춘다. centers 판(agency, 정확일치)과 같은 이유로
+           scope_value 는 옮기지 않는다 — students_erp.franchise 도 카페24가 독립적으로
+           채우는 값이라(shop_name 과 같은 사정) 옮겨도 안 따라오고, 옮기면 그 계정이
+           «자기 학생이 0명» 으로 보이는 사고가 된다. 옛 이름이 이 지사 하나뿐일 때만
+           «이 계정이 이 지사 것» 이라고 확신할 수 있다(여럿이면 모호하니 건너뛴다). */
+        let oldNameUnique = false;
+        if (has('name') && before && before.name && before.name !== newName) {
+          const dup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM franchises WHERE name = ?`)
+            .bind(before.name).first<{ n: number }>();
+          oldNameUnique = Number(dup?.n || 0) <= 1;
+        }
+        let linkedAccount: { username: string } | null = null;
+        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
+          linkedAccount = await env.DB.prepare(
+            `SELECT username FROM admin_scope WHERE scope_type = 'branch' AND scope_value = ? LIMIT 1`
+          ).bind(before.name).first<{ username: string }>();
+          // 🏢 지사본사(scope_type='franchise') 계정은 scope_value 가 콤마로 여러 지사 이름을
+          //   담은 목록이라 위 정확일치로는 안 잡힌다 — scope.ts scopeFranchiseCond('franchise')
+          //   가 쓰는 것과 같은 콤마-경계 LIKE 로 「그 목록 안에 이 지사의 옛 이름이 있는가」를
+          //   본다(부분일치 방지: 양쪽에 콤마를 붙여 «노원»이 «노원구지사»에 안 걸리게 한다).
+          //   빠뜨리면 지사본사 계정이 경고 하나 없이 조용히 이 지사에 대한 가시성을 잃는다.
+          if (!linkedAccount) {
+            linkedAccount = await env.DB.prepare(
+              `SELECT username FROM admin_scope WHERE scope_type = 'franchise' AND (',' || scope_value || ',') LIKE ('%,' || ? || ',%') LIMIT 1`
+            ).bind(before.name).first<{ username: string }>();
+          }
+          if (linkedAccount) {
+            const nameDup = await env.DB.prepare(`SELECT id FROM franchises WHERE name = ? AND id != ? LIMIT 1`)
+              .bind(newName, fid).first<{ id: number }>();
+            if (nameDup) {
+              return json({ ok: false, error: 'duplicate_franchise_name',
+                message: `이 지사에는 로그인 계정(${linkedAccount.username})이 연결돼 있는데, 새 이름 "${newName}"을(를) 쓰는 다른 지사가 이미 있습니다. 그대로 바꾸면 그 계정이 두 지사 자료를 함께 보게 됩니다 — 이름을 다르게 정하거나 계정을 먼저 정리하세요.` }, 409);
+            }
+          }
+        }
+
+        sets.push('updated_at = ?'); binds.push(Date.now());
+        binds.push(fid);
+        await env.DB.prepare(`UPDATE franchises SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+        /* 🏢 카페24 야간 동기화(cafe24-sync.ts importCafe24Org)가 name·address·phone·owner_name 을
+           «카페24가 정본» 이라 매일 밤 03:00 KST 에 덮어쓴다(UPSERT). 사람이 방금 고친 칸을
+           정정표에도 함께 적어야 그날 밤 이후에도 지켜진다 — «값이 실제로 달라진 칸만» 적는다
+           (매번 다 적으면 안 바뀐 칸까지 못 박혀서, 나중에 카페24 쪽 정당한 변경이 영영 안
+           먹는 반대쪽 사고가 난다). opened_at 은 카페24가 안 건드리는 칸이라 대상이 아니다. */
+        if (before) {
+          const changedName = newName !== undefined && newName !== (before.name || '');
+          const changedAddr = newAddress !== undefined && newAddress !== (before.address || null);
+          const changedPhone = newPhone !== undefined && newPhone !== (before.phone || null);
+          const changedOwner = newOwner !== undefined && newOwner !== (before.owner_name || null);
+          if (changedName || changedAddr || changedPhone || changedOwner) {
+            await ensureFranchiseOverrideTable(env);
+            await env.DB.prepare(
+              `INSERT INTO franchise_manual_override (franchise_id, name, address, phone, owner_name, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(franchise_id) DO UPDATE SET
+                 name = CASE WHEN ? THEN excluded.name ELSE franchise_manual_override.name END,
+                 address = CASE WHEN ? THEN excluded.address ELSE franchise_manual_override.address END,
+                 phone = CASE WHEN ? THEN excluded.phone ELSE franchise_manual_override.phone END,
+                 owner_name = CASE WHEN ? THEN excluded.owner_name ELSE franchise_manual_override.owner_name END,
+                 updated_at = excluded.updated_at`
+            ).bind(
+              fid,
+              changedName ? newName : null,
+              changedAddr ? newAddress : null,
+              changedPhone ? newPhone : null,
+              changedOwner ? newOwner : null,
+              Date.now(),
+              changedName ? 1 : 0, changedAddr ? 1 : 0, changedPhone ? 1 : 0, changedOwner ? 1 : 0
+            ).run();
+          }
+        }
+
+        /* 🔑 (2026-09-17) 비밀번호 처리는 다른 칸을 전부 저장한 «뒤» 에 한다 — login_username
+           을 이 요청에서 같이 바꿨으면 그 새 아이디로, 이름을 같이 바꿨으면 그 새 이름으로
+           계정을 만들거나 비밀번호를 재설정한다. */
+        let passwordResult: 'created' | 'reset' | undefined;
+        if (wantsPasswordAction) {
+          let effectiveUsername = has('login_username') ? String(b.login_username || '').trim() : '';
+          let effectiveName = newName !== undefined ? newName : (before ? before.name : '');
+          if (!effectiveUsername || !effectiveName) {
+            const cur = await env.DB.prepare(`SELECT login_username, name FROM franchises WHERE id = ?`)
+              .bind(fid).first<{ login_username: string | null; name: string }>();
+            if (!effectiveUsername) effectiveUsername = String(cur?.login_username || '').trim();
+            if (!effectiveName) effectiveName = cur?.name || '';
+          }
+          if (!effectiveUsername) {
+            return json({ ok: false, error: 'login_username_required',
+              message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
+          }
+          const pr = await createOrResetBranchLogin(effectiveUsername, String(b.login_password), effectiveName);
+          if (!pr.ok) return json({ ok: false, error: pr.error, message: pr.message }, pr.status as any);
+          passwordResult = pr.result;
+        }
+
+        return json({
+          ok: true, id: fid,
+          // ⚠️ 화면이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을 찾습니다」를
+          // 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다(centers 와 같은 이유).
+          login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
+          password_result: passwordResult,
+        });
+      }
+
       const b = await parseJsonBody(request);
       const now = Date.now();
 
@@ -9197,10 +10093,29 @@ LIMIT $limit`;
       if (b && b.kind === 'master') {
         if (!b.name) return invalidBody(['name']);
         await ensureMaster();
+        const newMasterLoginUsername = String(b.login_username || '').trim();
+        const newMasterLoginPassword = String(b.login_password || '');
+        // 🔑 (2026-09-17) 지사·대리점 등록과 같은 규칙 — 아이디·비밀번호는 «둘 다» 채웠을 때만
+        // 계정을 만든다. 하나만 채우면 등록 자체를 막는다(대표지사만 생기고 로그인은 안 되는
+        // 반쪽 상태를 피한다).
+        if ((newMasterLoginUsername && !newMasterLoginPassword) || (!newMasterLoginUsername && newMasterLoginPassword)) {
+          return json({ ok: false, error: 'login_fields_incomplete',
+            message: '로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
+        }
         const r = await env.DB.prepare(
-          `INSERT INTO master_branches (name, region, tier, owner_name, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null, now, now).run();
-        return json({ ok: true, id: r.meta.last_row_id });
+          `INSERT INTO master_branches (name, region, tier, owner_name, phone, login_username, division, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null,
+               newMasterLoginUsername || null, String(b.division || '').trim() || null, now, now).run();
+        const newMasterId = Number(r.meta.last_row_id);
+        let masterLoginResult: 'created' | 'reset' | undefined;
+        if (newMasterLoginUsername && newMasterLoginPassword) {
+          const pr = await createOrResetMasterLogin(newMasterLoginUsername, newMasterLoginPassword, newMasterId, String(b.name).trim());
+          // ⚠️ 지사·대리점과 같은 판단 — 등록 자체는 막지 않는다(방금 만든 대표지사가 그대로
+          // 사라지면 더 나쁘다). 계정만 못 만들었다고 사람에게 알린다.
+          if (pr.ok) masterLoginResult = pr.result;
+          else return json({ ok: true, id: newMasterId, login_error: pr.error, login_message: pr.message });
+        }
+        return json({ ok: true, id: newMasterId, password_result: masterLoginResult });
       }
       // 🏛️ 지사 → 대표지사 배정 (master_id 가 비면 배정 해제)
       if (b && b.kind === 'master_assign') {
@@ -9208,6 +10123,13 @@ LIMIT $limit`;
         if (!fid) return invalidBody(['franchise_id']);
         await ensureMaster();
         const mid = parseInt(String(b.master_id || ''), 10);
+        // 🔑 (2026-09-17) 이 배정이 바뀌기 «전» 의 대표지사를 먼저 알아 둔다 — 배정을 바꾼 뒤에
+        // 옛 대표지사·새 대표지사 양쪽에 로그인 계정이 있으면 scope_value(산하 지사 목록)를
+        // 다시 계산해 준다. 빠뜨리면 지사를 빼도 그 대표지사 계정이 계속 그 지사 학생을 본다
+        // (막았어야 할 접근이 조용히 남는 쪽 — CLAUDE.md 가 가장 나쁘다고 못 박은 방향).
+        const oldRow = await env.DB.prepare(`SELECT master_id FROM franchise_master_map WHERE franchise_id = ?`)
+          .bind(fid).first<{ master_id: number }>();
+        const oldMasterId = Number(oldRow?.master_id || 0);
         if (mid) {
           await env.DB.prepare(
             `INSERT INTO franchise_master_map (franchise_id, master_id, updated_at) VALUES (?, ?, ?)
@@ -9216,6 +10138,8 @@ LIMIT $limit`;
         } else {
           await env.DB.prepare(`DELETE FROM franchise_master_map WHERE franchise_id = ?`).bind(fid).run();
         }
+        if (oldMasterId && oldMasterId !== mid) await refreshMasterScopeValue(oldMasterId);
+        if (mid) await refreshMasterScopeValue(mid);
         return json({ ok: true, franchise_id: fid, master_id: mid || null });
       }
       // 🏛️ 대표지사 «비활성» — 지우지 않는다. 산하 지사 매핑이 통째로 끊기면 되돌릴 길이 없다.
@@ -9227,12 +10151,90 @@ LIMIT $limit`;
           .bind(b.active ? 1 : 0, now, mid).run();
         return json({ ok: true, id: mid, active: b.active ? 1 : 0 });
       }
+      /* ✏️ 대표지사 수정 (2026-09-11 신설 — 사장님 제보 「대표지사도 수정하는 버튼이 없다」)
+         master_branches 는 카페24에 없는 «우리만의 표» 다(위 9325행 주석) — franchises·centers
+         와 달리 매일 밤 동기화가 덮어쓰지 않으므로, 그 둘에 쓴 override 표(franchise_manual_override
+         등) 짝이 여기엔 필요 없다. 그냥 UPDATE 하면 그대로 남는다.
+         🔑 (2026-09-17 갱신) 위 «admin_scope 와 아무것도 안 엮인다」 는 더 이상 사실이 아니다 —
+         비밀번호를 설정하면 admin_scope(scope_type='franchise', master_id=이 행) 로 실제로 엮인다
+         (위 ensureMaster·createOrResetMasterLogin 주석 참고). 다만 이름이 바뀌어도 그 연결은 안
+         끊긴다 — scope_value 는 지사 «이름 목록» 이 아니라 master_id 로 다시 찾으므로 지사·대리점
+         PATCH 의 「이름 바뀌면 연결된 계정이 조용히 못 찾게 된다」 걱정은 여기 없다. */
+      if (b && b.kind === 'master_edit') {
+        const mid = parseInt(String(b.id || ''), 10);
+        if (!mid) return invalidBody(['id']);
+        await ensureMaster();
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
+        const sets: string[] = [];
+        const binds: any[] = [];
+        let editedName: string | undefined;
+        if (has('name')) {
+          const nm = String(b.name || '').trim();
+          if (!nm) return invalidBody(['name']);
+          editedName = nm;
+          sets.push('name = ?'); binds.push(nm);
+        }
+        if (has('region')) { sets.push('region = ?'); binds.push(String(b.region || '').trim() || null); }
+        if (has('tier')) { sets.push('tier = ?'); binds.push(String(b.tier || '').trim() || null); }
+        if (has('owner_name')) { sets.push('owner_name = ?'); binds.push(String(b.owner_name || '').trim() || null); }
+        if (has('phone')) { sets.push('phone = ?'); binds.push(String(b.phone || '').trim() || null); }
+        if (has('login_username')) { sets.push('login_username = ?'); binds.push(String(b.login_username || '').trim() || null); }
+        if (has('division')) { sets.push('division = ?'); binds.push(String(b.division || '').trim() || null); }
+        // 🔑 (2026-09-17) 비밀번호만 바꾸는 요청(다른 칸은 하나도 안 보냄)도 유효한 요청이다 —
+        // sets 가 비어도 no_fields 로 막지 않는다(지사 PATCH 와 같은 규칙, 아래에서 처리).
+        const wantsMasterPasswordAction = has('login_password') && String(b.login_password || '').length > 0;
+        if (!sets.length && !wantsMasterPasswordAction) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+        if (sets.length) {
+          sets.push('updated_at = ?'); binds.push(now);
+          binds.push(mid);
+          await env.DB.prepare(`UPDATE master_branches SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        }
+
+        let masterPasswordResult: 'created' | 'reset' | undefined;
+        if (wantsMasterPasswordAction) {
+          let effectiveMasterUsername = has('login_username') ? String(b.login_username || '').trim() : '';
+          let effectiveMasterName = editedName;
+          if (!effectiveMasterUsername || effectiveMasterName === undefined) {
+            const cur = await env.DB.prepare(`SELECT login_username, name FROM master_branches WHERE id = ?`)
+              .bind(mid).first<{ login_username: string | null; name: string }>();
+            if (!effectiveMasterUsername) effectiveMasterUsername = String(cur?.login_username || '').trim();
+            if (effectiveMasterName === undefined) effectiveMasterName = cur?.name || '';
+          }
+          if (!effectiveMasterUsername) {
+            return json({ ok: false, error: 'login_username_required',
+              message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
+          }
+          const pr = await createOrResetMasterLogin(effectiveMasterUsername, String(b.login_password), mid, effectiveMasterName);
+          if (!pr.ok) return json({ ok: false, error: pr.error, message: pr.message }, pr.status as any);
+          masterPasswordResult = pr.result;
+        }
+        return json({ ok: true, id: mid, password_result: masterPasswordResult });
+      }
 
       if (!b || !b.name) return invalidBody(['name']);
+      const newLoginUsername = String(b.login_username || '').trim();
+      const newLoginPassword = String(b.login_password || '');
+      // 🔑 (2026-09-17) 신규 지사 등록과 함께 로그인 계정도 만든다 — 대리점(centers) POST 와
+      // 같은 규칙: 아이디·비밀번호를 «둘 다» 채웠을 때만 만든다. 하나만 채우면 등록 자체를
+      // 막는다(지사만 만들어지고 로그인은 없는 반쪽 상태를 피한다 — CLAUDE.md 「직원을
+      // 등록했는데 로그인이 안 돼요」와 같은 뿌리).
+      if ((newLoginUsername && !newLoginPassword) || (!newLoginUsername && newLoginPassword)) {
+        return json({ ok: false, error: 'login_fields_incomplete',
+          message: '로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
+      }
       const r = await env.DB.prepare(
-        `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
-      return json({ ok: true, id: r.meta.last_row_id });
+        `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, login_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null,
+             newLoginUsername || null, now, now).run();
+      let loginResult: 'created' | 'reset' | undefined;
+      if (newLoginUsername && newLoginPassword) {
+        const pr = await createOrResetBranchLogin(newLoginUsername, newLoginPassword, String(b.name));
+        // ⚠️ 대리점(centers)과 같은 판단 — 등록 자체는 막지 않는다(방금 만든 지사가 그대로
+        // 사라지면 더 나쁘다). 계정만 못 만들었다고 사람에게 알린다.
+        if (pr.ok) loginResult = pr.result;
+        else return json({ ok: true, id: r.meta.last_row_id, login_error: pr.error, login_message: pr.message });
+      }
+      return json({ ok: true, id: r.meta.last_row_id, password_result: loginResult });
     }
 
     /* ─── 🏯 본사 관리 (2026-08-18 수정요청 #13) ─────────────────────────────────
@@ -9334,6 +10336,9 @@ LIMIT $limit`;
       //    CREATE 에 넣지 않는 이유: schema_drift 하니스가 «운영 실제에 없는 CREATE 컬럼» 을 막는다.
       //    NULL = 미지정. #03 의 B2B/B2C 결제 리스트 분리가 이 값을 필터 기준으로 쓴다.
       try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN payment_type TEXT`); } catch {}
+      // 📞 (2026-09-11) 대리점 연락처 — 카페24 :Center 에는 없는 칸이라(Cypher 에 phone 이 없다)
+      //    매일 밤 UPSERT 가 이 값을 «안 건드린다». payment_type 과 같은 이유로 멱등 ALTER.
+      try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN phone TEXT`); } catch {}
       /* 💰 (2026-08-22) 아래 목록이 대리점별 수강료를 함께 내려준다. 그 표가 없는
          환경에서 조인이 실패하면 **대리점 목록이 통째로 안 뜬다** — 표를 먼저 보장한다.
          DDL 정본은 org-settlement.ts 한 곳이다(복사하지 말 것). */
@@ -9356,14 +10361,143 @@ LIMIT $limit`;
       }
 
       if (method === 'PATCH') {
-        // 기존 대리점의 결제유형 지정 — centers 에는 수정 API 가 없었어서 이번에 신설(경로 재사용).
+        /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
+           대리점 이름·지사·국가·담당자·연락처·주소·결제유형을 한 번에 고치는 «부분 수정» —
+           보낸 칸만 고치고 나머지는 그대로 둔다. 예전부터 있던 {id, payment_type} 만
+           보내는 호출(표의 결제유형 드롭다운, ctSetPayType)도 그대로 동작해야 한다. */
         const b = await parseJsonBody(request);
         const cid = parseInt(String(b?.id || ''), 10);
         if (!cid) return invalidBody(['id']);
-        const pt = _normPayType(b?.payment_type);
-        await env.DB.prepare(`UPDATE centers SET payment_type = ?, updated_at = ? WHERE id = ?`)
-          .bind(pt, Date.now(), cid).run();
-        return json({ ok: true, id: cid, payment_type: pt });
+        const has = (k: string) => !!b && Object.prototype.hasOwnProperty.call(b, k);
+
+        /* 🔑 name·address·manager·franchise_id 는 카페24가 매일 밤 덮어쓰는 칸이라(아래 참고),
+           «실제로 바뀐 칸만» 정정표에 남겨야 한다. 그래서 UPDATE 전에 지금 값을 먼저 읽어 둔다.
+           이 폼은 등록 폼을 그대로 재사용해 «매번 네 칸을 전부» 보내므로, 안 그러면 연락처
+           하나만 고치려고 열었다가 이름·주소·담당자·지사가 전부 «지금 값에 못 박히는» 사고가 난다
+           (되면 카페24가 나중에 정당하게 고쳐도 그 칸은 영영 안 먹는다). */
+        const touchesCafe24Field = has('name') || has('address') || has('manager') || has('franchise_id');
+        let before: { name: string; address: string | null; manager: string | null; franchise_id: number | null } | null = null;
+        if (touchesCafe24Field) {
+          before = await env.DB.prepare(`SELECT name, address, manager, franchise_id FROM centers WHERE id = ?`)
+            .bind(cid).first<{ name: string; address: string | null; manager: string | null; franchise_id: number | null }>() as any;
+        }
+
+        const sets: string[] = [];
+        const binds: any[] = [];
+        let ptOut: string | null = null;
+        if (has('payment_type')) { ptOut = _normPayType(b.payment_type); sets.push('payment_type = ?'); binds.push(ptOut); }
+
+        let newName: string | undefined;
+        if (has('name')) {
+          newName = String(b.name || '').trim();
+          if (!newName) return invalidBody(['name']);
+          sets.push('name = ?'); binds.push(newName);
+        }
+        let newFid = 0;
+        if (has('franchise_id')) {
+          newFid = b.franchise_id ? parseInt(String(b.franchise_id), 10) : 0;
+          sets.push('franchise_id = ?'); binds.push(newFid || null);
+        }
+        let newAddress: string | null | undefined;
+        if (has('address')) { newAddress = String(b.address || '').trim() || null; sets.push('address = ?'); binds.push(newAddress); }
+        let newManager: string | null | undefined;
+        if (has('manager')) { newManager = String(b.manager || '').trim() || null; sets.push('manager = ?'); binds.push(newManager); }
+        if (has('country')) { sets.push('country = ?'); binds.push(String(b.country || '').trim() || null); }
+        if (has('phone'))   { sets.push('phone = ?');   binds.push(String(b.phone   || '').trim() || null); }
+        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 이 대리점에 로그인 계정이 있으면 admin_scope.scope_value 가 «옛 이름» 을 그대로
+           들고 있다(scope.ts scopeCenterCond 는 id 가 아니라 이름으로 대리점을 가른다).
+           ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이
+           통째로 안 잡힘」과 같은 뿌리) — 옛 이름을 가진 대리점이 이것 하나뿐일 때만
+           «이 계정이 바로 이 대리점 것» 이라고 확신할 수 있다. 여럿이면 모호하니 아래
+           검사·경고 둘 다 건너뛴다(모르면 손대지 않는 쪽이 안전하다). */
+        let oldNameUnique = false;
+        if (has('name') && before && before.name && before.name !== newName) {
+          const dup = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`)
+            .bind(before.name).first<{ n: number }>();
+          oldNameUnique = Number(dup?.n || 0) <= 1;
+        }
+        /* 🔑 scope_value 를 새 이름으로 «옮기지 않는다» — centers.name 은 이렇게 고칠 수 있지만
+           students_erp.shop_name 은 카페24가 독립적으로 채우는 값이라(921건 중 744건만 이
+           둘이 글자 그대로 일치 — 원래도 완전히 안 맞았다) 옮겨도 옛 이름 그대로 남는다.
+           scopeStudentCond(agency) 는 «shop_name = scope_value» 로 그 계정의 학생을 찾으므로,
+           옮기면 그 계정이 «자기 학생이 0명» 으로 보이는 확정적인 사고가 된다 — 안 옮기는
+           쪽이 안전하다(옮겨도 어차피 카페24 쪽 학생 명부는 못 따라오니 «완전히 맞는» 선택은
+           없고, 학생을 볼 수 없게 되는 쪽이 더 나쁘다). 대신 그런 계정이 있으면 ①같은 새
+           이름을 쓰는 다른 대리점이 있을 때만 막고(POST 의 duplicate_center_name 방어와
+           같은 이유 — 두 대리점이 같은 scope_value 를 공유하게 되는 것을 막는다)
+           ②그 계정 아이디를 응답에 실어 화면이 사람에게 알리게 한다. */
+        let linkedAccount: { username: string } | null = null;
+        if (before && newName !== undefined && before.name && before.name !== newName && oldNameUnique) {
+          linkedAccount = await env.DB.prepare(
+            `SELECT username FROM admin_scope WHERE scope_type = 'agency' AND scope_value = ? LIMIT 1`
+          ).bind(before.name).first<{ username: string }>();
+          if (linkedAccount) {
+            const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? AND id != ? LIMIT 1`)
+              .bind(newName, cid).first<{ id: number }>();
+            if (nameDup) {
+              return json({ ok: false, error: 'duplicate_center_name',
+                message: `이 대리점에는 로그인 계정(${linkedAccount.username})이 연결돼 있는데, 새 이름 "${newName}"을(를) 쓰는 다른 대리점이 이미 있습니다. 그대로 바꾸면 그 계정이 두 대리점 자료를 함께 보게 됩니다 — 이름을 다르게 정하거나 계정을 먼저 정리하세요.` }, 409);
+            }
+          }
+        }
+
+        sets.push('updated_at = ?'); binds.push(Date.now());
+        binds.push(cid);
+        await env.DB.prepare(`UPDATE centers SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+        /* 🏢 카페24 야간 동기화(cafe24-sync.ts importCafe24Org)가 name·address·manager·
+           franchise_id 를 «카페24가 정본» 이라 매일 밤 03:00 KST 에 덮어쓴다(UPSERT). 사람이
+           방금 고친 칸을 정정표에도 함께 적어야 그날 밤 이후에도 지켜진다 — 안 적으면
+           CLAUDE.md 「학생 이름을 D1 에서 고쳤는데 다음날 원복됨」과 같은 사고가 centers 판으로
+           그대로 재현된다. payment_type·phone·country 는 카페24가 안 건드리는 칸이라 대상이 아니다.
+           ⚠️ «값이 실제로 달라진 칸만» 적는다 — 매번 다 적으면 안 바뀐 칸까지 못 박혀서,
+           나중에 카페24 쪽 정당한 변경이 영영 안 먹는 반대쪽 사고가 난다. */
+        if (before) {
+          const changedName = newName !== undefined && newName !== (before.name || '');
+          const changedAddr = newAddress !== undefined && newAddress !== (before.address || null);
+          const changedMgr  = newManager !== undefined && newManager !== (before.manager || null);
+          if (changedName || changedAddr || changedMgr) {
+            await ensureCenterOverrideTables(env);
+            await env.DB.prepare(
+              `INSERT INTO center_manual_override (center_id, name, address, manager, updated_at) VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(center_id) DO UPDATE SET
+                 name = CASE WHEN ? THEN excluded.name ELSE center_manual_override.name END,
+                 address = CASE WHEN ? THEN excluded.address ELSE center_manual_override.address END,
+                 manager = CASE WHEN ? THEN excluded.manager ELSE center_manual_override.manager END,
+                 updated_at = excluded.updated_at`
+            ).bind(
+              cid,
+              changedName ? newName : null,
+              changedAddr ? newAddress : null,
+              changedMgr ? newManager : null,
+              Date.now(),
+              changedName ? 1 : 0, changedAddr ? 1 : 0, changedMgr ? 1 : 0
+            ).run();
+          }
+          const oldFid = before.franchise_id || 0;
+          if (has('franchise_id') && newFid !== oldFid) {
+            await ensureCenterOverrideTables(env);
+            if (newFid) {
+              await env.DB.prepare(
+                `INSERT INTO center_franchise_override (center_id, franchise_id, prev_franchise_id, reason, updated_at) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(center_id) DO UPDATE SET franchise_id = excluded.franchise_id, prev_franchise_id = excluded.prev_franchise_id, updated_at = excluded.updated_at`
+              ).bind(cid, newFid, oldFid || null, '관리자 화면 수정', Date.now()).run();
+            } else {
+              // 지사를 «미지정» 으로 되돌리면 정정표에서도 지운다 — franchise_id 는 NOT NULL 이라
+              // 0/NULL 을 못 박아 둘 수 없고, 남겨 두면 다음 카페24 동기화가 지운 지사를 다시 심는다.
+              await env.DB.prepare(`DELETE FROM center_franchise_override WHERE center_id = ?`).bind(cid).run();
+            }
+          }
+        }
+
+        return json({
+          ok: true, id: cid, payment_type: ptOut,
+          // ⚠️ 화면(saveCenter)이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을
+          // 찾습니다」를 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다.
+          login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
+        });
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
@@ -9989,7 +11123,7 @@ LIMIT $limit`;
       const rs = await env.DB.prepare(
         `SELECT id, student_name, desired_date, desired_time, status, assigned_teacher, teacher_confirmed_at,
                 ai_score, pron_score, teacher_score, final_level,
-                recommended_textbook, next_class_guide, schedule_id, created_at, updated_at
+                recommended_textbook, next_class_guide, schedule_id, source, created_at, updated_at
            FROM leveltest_applications
           WHERE student_uid = ? OR (student_uid IS NULL AND student_name = ?)
           ORDER BY created_at DESC LIMIT 20`
@@ -10007,6 +11141,9 @@ LIMIT $limit`;
       const items = mine.map(a => ({
         ...a,
         assigned_teacher: (a.status === 'confirmed' || a.status === 'done') ? a.assigned_teacher : null,
+        /* 🏷️ (2026-09-14) «C2» 를 사람이 읽게 — 이름·사다리 칸 수는 서버 정본(cefrDisplay)이 만든다.
+           화면(idx-leveltest-card.js)은 그리기만 한다. 모르는 값이면 null → 화면은 원문 그대로. */
+        level_display: cefrDisplay(a.final_level),
       }));
       return json({ ok: true, items });
     }
@@ -10490,8 +11627,9 @@ LIMIT $limit`;
       { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0 },
       { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0 },
     ];
-    const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    const CEFR_WEIGHT: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    const CEFR_ORDER: string[] = [...CEFR_LADDER];   // 정본은 student-placement.ts — 홈 카드 게이지와 같은 눈금
+    // 가중치 = 사다리 순번(A1=1 … C2=6). ⛔ 손으로 다시 적지 말 것 — 사다리가 바뀌면 여기만 옛것으로 남는다(2026-09-14 함정 대조 지적)
+    const CEFR_WEIGHT: Record<string, number> = Object.fromEntries(CEFR_ORDER.map((L, i) => [L, i + 1]));
     if (method === 'GET' && path === '/api/leveltest/questions') {
       // 정답(a)·skill 은 숨기고 문항만 전달
       const questions = CEFR_BANK.map(x => ({ id: x.id, cefr: x.cefr, q: x.q, choices: x.choices }));
@@ -10601,6 +11739,15 @@ LIMIT $limit`;
       // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
       //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
       await _addEnrCol2('fee_source', 'TEXT');
+      /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
+         [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
+           `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다
+           (2026-09-16 재실측: 29,512행 중 번호가 든 행 4행 — 전부 우리 화면이 넣은 것이다).
+         ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
+            **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
+            그 표에 두는 이유: 카페24가 정본이라 그쪽이 번호를 주기 시작하면 `students_erp` 값은 덮인다.
+            (2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것은 멈췄지만, «카페24 값이 이긴다» 는 그대로다.) */
+      await _addEnrCol2('parent_phone', 'TEXT');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -10613,7 +11760,37 @@ LIMIT $limit`;
         binds.push(lim);
         try {
           const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
-          return json({ ok: true, items: rs.results || [] });
+          const items = rs.results || [];
+          /* 📞 (2026-09-10) 목록이 «지금 문자가 갈 번호» 를 사실대로 말한다.
+             ⚠️ `enrollments.parent_phone` 은 «등록할 때 적은 값» 이지 «지금 발송이 읽는 값» 이 아니다.
+                실제로 읽는 곳은 `student_erp_override` 하나이므로 그것을 실어 보낸다 —
+                두 값이 갈렸을 때 화면이 옛 값을 보여 주면 「넣었는데 왜 안 가지」가 된다.
+             ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도 — 공용 헬퍼가 센다).
+             ⚠️ 실패해도 목록은 그대로 내려간다(번호 칸만 «모름» 이 된다). */
+          try {
+            /* ⛔ **강사에게는 번호를 안 내려준다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에 없어
+               강사도 통과하는데, 번호를 실으면 «남의 집 학부모 연락처가 한 화면에 모입니다»
+               (규칙서가 `/api/admin/teacher-contacts` 를 막은 것과 같은 이유).
+               ⚠️ 못 물어보면(조회 실패) **안 내려주는 쪽**으로 실패한다 — 번호 칸이 비는 것보다
+                  모르는 사람에게 새는 쪽이 나쁘다. 화면은 그때 「문자 안 감」으로 보이는데,
+                  그건 목록에서 고칠 수 없다는 뜻이라 본사 계정으로 다시 열면 제대로 보인다. */
+            let maySeePhones = false;
+            try {
+              const a = await getAdminActor(request, env as any);
+              maySeePhones = !!a && a.ok !== false && !a.isTeacher;
+            } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 안 실음:', e?.message); }
+            const uids = maySeePhones ? items.map((r: any) => String(r.student_user_id || '')).filter(Boolean) : [];
+            if (uids.length) {
+              const pm = await loadOverridePhones(env as any, uids);
+              for (const it of items) {
+                const p = pm.get(String(it.student_user_id || ''));
+                /* ⚠️ 학생 번호로 폴백하지 않는다 — 화면 라벨이 「학부모 연락처」인데 학생 번호가
+                   그 자리에 뜨면, 거기서 고칠 때 출처가 섞인다(학생 번호가 parent 로 저장된다). */
+                (it as any).notify_phone = p?.parent || '';
+              }
+            }
+          } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
+          return json({ ok: true, items });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });
         }
@@ -10655,8 +11832,13 @@ LIMIT $limit`;
         weekly1Price: _w1,
         weekly: weeklyCountFromDays(b.days_of_week),
       });
+      /* 📞 학부모 연락처 — 숫자만 남기고 9자리 미만은 «없는 것» 으로 본다(정본과 같은 규칙).
+         ⚠️ 필수로 만들지 않는다. 지금 등록되는 학생 중에는 번호를 모르는 경우가 실제로 있고,
+            여기서 막으면 «번호 때문에 등록이 안 되는» 새 사고가 된다. 안 넣으면 예전 그대로다. */
+      const _pPhone = String(b.parent_phone ?? '').replace(/[^0-9]/g, '');
+      const _parentPhone = _pPhone.length >= 9 ? _pPhone : '';
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw, fee_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw, fee_source, parent_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -10665,10 +11847,28 @@ LIMIT $limit`;
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio, _dur, _classMin, _fee.baseFeeKrw, _fee.source
+        _prio, _dur, _classMin, _fee.baseFeeKrw, _fee.source, _parentPhone || null
       ).run();
+      /* 📞 문자가 실제로 읽는 자리에 함께 적는다 — `student_erp_override`(동기화가 못 덮는 표).
+         ⚠️ **결과를 응답에 실어 화면이 말하게 한다.** 조용히 실패하면 사장님은 번호를 넣었다고
+            믿는데 수업 전 문자는 계속 안 나가고, 아무도 이유를 모른다(규칙서 2장
+            「보냈습니다라고 하는데 아무 데도 안 갔음」과 같은 뿌리).
+         ⚠️ 여기서 throw 하면 등록 자체가 실패한다 — 번호는 나중에 채울 수 있지만 등록은 그렇지 않다.
+            그래서 감싸되 «안 됐다» 는 사실은 반드시 돌려준다. */
+      let _phoneSaved: any = null;
+      if (_parentPhone && b.student_user_id) {
+        try {
+          const sv = await setOverridePhones(env as any, String(b.student_user_id), { parent: _parentPhone }, 'enroll');
+          _phoneSaved = { ok: sv.ok, reason: sv.reason };
+        } catch (e: any) {
+          _phoneSaved = { ok: false, reason: String(e?.message || e).slice(0, 120) };
+        }
+      } else if (_parentPhone && !b.student_user_id) {
+        // 아이디가 없으면 «누구의 번호인지» 를 모른다 — 신청서에만 남기고 문자 쪽에는 안 붙인다.
+        _phoneSaved = { ok: false, reason: 'no_student_uid' };
+      }
       // 화면이 «얼마로 잡혔는지» 를 그 자리에서 보여 줄 수 있게 계산 결과를 함께 돌려준다
-      return json({ ok: true, id: r.meta.last_row_id, fee: _fee });
+      return json({ ok: true, id: r.meta.last_row_id, fee: _fee, phone_saved: _phoneSaved });
     }
 
     // 수강신청 상태 변경 (pending → confirmed → cancelled 등)
@@ -10677,11 +11877,64 @@ LIMIT $limit`;
       const m = path.match(/^\/api\/admin\/enrollments\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
       const b = await parseJsonBody(request);
-      if (!b || !b.status) return invalidBody(['status']);
-      const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
-      if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
-      await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
-      return json({ ok: true, id, status: b.status });
+      /* 📞 (2026-09-10) 연락처만 고치러 오는 요청도 받는다 — **이미 등록된** 학생에게
+         번호를 넣을 자리가 여기밖에 없다(등록 화면의 칸은 «앞으로 등록되는» 학생용이라,
+         이것이 없으면 지금 수업 중인 학생에게는 안내문자를 영영 못 보낸다).
+         ⚠️ 그래서 status 를 «선택» 으로 바꾼다. 단 **둘 다 없으면** 예전처럼 400 이다 —
+            아무것도 안 보내는 요청을 200 으로 답하면 「저장됐다」는 거짓말이 된다. */
+      const _pRaw = b && b.parent_phone !== undefined ? String(b.parent_phone ?? '').replace(/[^0-9]/g, '') : null;
+      const _wantPhone = _pRaw !== null;
+      if (!b || (!b.status && !_wantPhone)) return invalidBody(['status']);
+      if (b.status) {
+        const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
+        if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
+        await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
+      }
+      let _phoneSaved: any = null;
+      if (_wantPhone) {
+        /* ⛔ **강사는 남의 «발송 번호» 를 바꿀 수 없다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에
+           없어 강사도 닿는데, 여기서 바꾼 번호로 **실제 문자가 나갑니다**(돈이 나가고 우리 이름으로).
+           ⚠️ 못 물어보면 **막는 쪽**으로 실패한다 — 되돌리기 어려운 «바깥으로 나가는» 값이라
+              모르면 안 바꾸는 것이 맞다(조회 실패로 번호를 못 넣으면 본사 계정으로 다시 하면 된다).
+           ⚠️ status 변경은 위에서 이미 처리했다 — 그쪽 권한은 이 변경의 몫이 아니라 건드리지 않는다. */
+        let mayEditPhone = false;
+        /* ⚠️ try 안에서 const 로 두면 아래 거절 문구가 «누구로 들어와 있는지» 를 못 읽는다
+           (블록 스코프). 조회가 실패하면 null 인 채로 남고, 그때는 헬퍼가 계정 줄을 빼고
+           옛 문구 그대로 낸다 — 모르는 것을 지어내지 않는다. */
+        let _phActor: any = null;
+        try {
+          const a = await getAdminActor(request, env as any);
+          _phActor = a;
+          mayEditPhone = !!a && a.ok !== false && !a.isTeacher;
+        } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 저장 안 함:', e?.message); }
+        if (!mayEditPhone) {
+          return json({ ...forbiddenTeacherBody(_phActor, '연락처는 본사·관리자만 고칠 수 있습니다.'), detail: '연락처는 본사·관리자만 고칠 수 있습니다.' }, 403);
+        }
+        /* 빈 문자열로 보내면 «지운다» 는 뜻이다(「아직 안 받았다」와 구분). 9자리 미만은 안 받는다. */
+        const clear = _pRaw === '';
+        const phone = _pRaw.length >= 9 ? _pRaw : '';
+        if (!clear && !phone) {
+          _phoneSaved = { ok: false, reason: 'too_short' };
+        } else {
+          try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN parent_phone TEXT`); } catch { /* 이미 있음 */ }
+          try {
+            await env.DB.prepare(`UPDATE enrollments SET parent_phone = ?, updated_at = ? WHERE id = ?`)
+              .bind(phone || null, Date.now(), id).run();
+          } catch (e: any) { console.warn('[enrollments] 번호 기록 실패:', e?.message); }
+          /* ⚠️ 발송이 실제로 읽는 곳은 override 다 — 신청서에만 적으면 문자는 그대로 안 나간다.
+             누구의 번호인지 알아야 하므로 학생 계정을 신청서에서 다시 읽는다. */
+          const row: any = await env.DB.prepare(`SELECT student_user_id FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+          const uid = String(row?.student_user_id || '').trim();
+          if (!uid) _phoneSaved = { ok: false, reason: 'no_student_uid' };
+          else {
+            try {
+              const sv = await setOverridePhones(env as any, uid, clear ? { clear: true, parent: '' } : { parent: phone }, 'enroll-edit');
+              _phoneSaved = { ok: sv.ok, reason: sv.reason };
+            } catch (e: any) { _phoneSaved = { ok: false, reason: String(e?.message || e).slice(0, 120) }; }
+          }
+        }
+      }
+      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved });
     }
 
     /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)
@@ -12344,14 +13597,47 @@ LIMIT $limit`;
 
     // ═══════════════════════════════════════════════════════════════
     // 🐞 Phase BUG — 교사 버그/피드백 신고 (교사 제출 → 관리자 접수함)
-    //   POST  /api/bug-report          (공개 — 교사에겐 admin 세션이 없어 신원은 clientside 전달)
+    //   POST  /api/bug-report          (공개 — 로그인 없이도 받는다. 신원은 아래 규칙)
     //   GET   /api/admin/bug-reports   (관리자 인증 — 목록 + 상태별 카운트)
     //   PATCH /api/admin/bug-reports/:id  (상태/메모 변경) · DELETE /:id
+    //
+    // 🪪 신고자 신원 (2026-09-13 수리) — «서버 세션이 먼저, 본문 값은 폴백»
+    //   ⚠️ 이 자리에 오래 「교사에겐 admin 세션이 없어 신원은 clientside 전달」이라고 적혀
+    //      있었는데 **사실이 아니다** — 교사·본사·지사는 `mangoi_admin_session` 쿠키로 로그인한다
+    //      (CLAUDE.md 2장 「로그인 세션이 두 갈래」). 그 거짓 전제 위에서 홈 화면 FAB(index.html)
+    //      가 `getCurrentUser()`(= 학생 전용 키 `mangoi_logged_user`)로 이름을 읽어 보냈고,
+    //      교사는 그 키가 없으니 uid·name 이 **늘 빈 값**으로 저장됐다(2026-09-13 D1 실측:
+    //      접수 4건 전부 reporter_uid·reporter_name NULL → 접수함 「신고자」 칸이 「-」).
+    //   ✅ 그래서 서버가 세션 쿠키(`getAdminActor`)로 «누가 보냈나» 를 직접 채운다.
+    //      세션이 있으면 그 값이 본문보다 «먼저» 다(본문에 남의 이름을 적어도 무시).
+    //      세션이 없거나(학생·비로그인) 조회가 던지면 본문 값 그대로 — 신고가 막히는 쪽이 더 나쁘다.
+    //   ⛔ index.html(공동 금지구역·첫 화면 여유 9B)은 손대지 않는다 — 서버 한 곳으로 두 화면
+    //      (홈 FAB · teacher.html)이 함께 고쳐진다. 감시: test-harness/bug_report_identity_harness.mjs
+    //   ⚠️ 남은 구멍(막힌 것이 아니다): 세션이 «없는» 요청의 uid·name 은 여전히 본문 그대로 저장된다 —
+    //      이 경로는 무인증이라 누구나 아무 이름으로 신고할 수 있고, 그것은 고치기 «전» 과 같다.
+    //      막지 않는 이유: 학생·비로그인 신고를 받아야 하고, 접수함은 관리자만 보는 화면이라 값이
+    //      «권한» 을 만들지 않는다. 그 값을 판정·발송에 쓰게 되는 날에는 다시 봐야 한다.
+    //   ⚠️ 같은 거짓 전제가 src/index.ts 의 허용목록 주석(「교사에겐 admin 세션 없음」)에 한 줄 더
+    //      있다 — 공동 금지구역이라 여기서 못 고쳤다(담당 A). 판정에는 안 쓰이는 주석뿐이다.
     // ═══════════════════════════════════════════════════════════════
     const ensureBugTable = async () => {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS bug_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_role TEXT, reporter_uid TEXT, reporter_name TEXT, category TEXT, message TEXT NOT NULL, page_url TEXT, user_agent TEXT, status TEXT DEFAULT 'new', admin_note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
       } catch {}
+    };
+    /* 🪪 «신고자로 무엇을 보여 줄까» — 그리는 화면이 둘(admin.html 접수함 · manager.html)이라
+         서버가 한 번 정해 내려준다(화면마다 답이 다른 사고 방지).
+         ① name ② 없으면 uid ③ 둘 다 없으면 page_url 의 `vc_name`(2026-09-13 «이전» 행 — 화상수업
+            입장 때 주소에 실린 «표기» 이지 계정이 아니다 → via:'url', 화면이 «주소에서» 라고 적는다)
+         ⛔ 지어내지 않는다 — 셋 다 없으면 '' (화면이 「-」). ⛔ D1 은 안 건드린다(읽을 때만 보탠다). */
+    const bugReporterView = (r: any) => {
+      const name = String(r?.reporter_name || '').trim();
+      const uid = String(r?.reporter_uid || '').trim();
+      if (name) return { shown: name, via: 'name' };
+      if (uid) return { shown: uid, via: 'uid' };
+      let fromUrl = '';
+      try { fromUrl = String(new URL(String(r?.page_url || '')).searchParams.get('vc_name') || '').trim(); } catch {}
+      return fromUrl ? { shown: fromUrl, via: 'url' } : { shown: '', via: '' };
     };
 
     if (method === 'POST' && path === '/api/bug-report') {
@@ -12359,9 +13645,19 @@ LIMIT $limit`;
       const body: any = await request.json().catch(() => ({}));
       const message = String(body?.message || '').trim().slice(0, 2000);
       if (!message) return json({ ok: false, error: 'message 는 필수입니다.' }, 400);
-      const reporterRole = (String(body?.reporter_role || '').trim().slice(0, 20)) || 'unknown';
-      const reporterUid = (String(body?.reporter_uid || '').trim().slice(0, 80)) || null;
-      const reporterName = (String(body?.reporter_name || '').trim().slice(0, 80)) || null;
+      let reporterRole = (String(body?.reporter_role || '').trim().slice(0, 20)) || 'unknown';
+      let reporterUid = (String(body?.reporter_uid || '').trim().slice(0, 80)) || null;
+      let reporterName = (String(body?.reporter_name || '').trim().slice(0, 80)) || null;
+      // 🪪 세션이 있으면 서버가 아는 신원이 이긴다(머리말 참고). 실패는 삼킨다 — 신고는 받아야 한다.
+      try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.ok && actor.username) {
+          reporterUid = actor.username.slice(0, 80);
+          reporterName = (actor.name || reporterName || actor.username).slice(0, 80);
+          // 라벨용(권한 판정 아님): 강사 → teacher · 지사/대리점/지사본사 → 그 역할 그대로 · 나머지(본사·내부직원) → admin
+          reporterRole = actor.isTeacher ? 'teacher' : (isOrgScopedRole(actor.role) ? actor.role : 'admin');
+        }
+      } catch (e) { console.warn('[bug-report] actor lookup:', (e as any)?.message); }
       const category = (String(body?.category || '').trim().slice(0, 40)) || 'bug';
       const pageUrl = (String(body?.page_url || '').trim().slice(0, 500)) || null;
       const ua = (String(request.headers.get('user-agent') || '').slice(0, 300)) || null;
@@ -12388,7 +13684,8 @@ LIMIT $limit`;
         const cs: any = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM bug_reports GROUP BY status`).all();
         (cs?.results || []).forEach((r: any) => { counts[r.status || 'new'] = r.n; });
       } catch {}
-      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], counts });
+      const rows = (rs.results || []).map((r: any) => { const v = bugReporterView(r); return { ...r, reporter_shown: v.shown, reporter_via: v.via }; });
+      return json({ ok: true, count: rows.length, rows, counts });
     }
 
     if (method === 'PATCH' && /^\/api\/admin\/bug-reports\/\d+$/.test(path)) {
@@ -12542,7 +13839,7 @@ LIMIT $limit`;
       if (path === '/api/admin/billing/auto-renew-live') {
         const a = await getAdminActor(request, env as any);
         if (!a.ok) return json({ ok: false, error: 'auth_required' }, 401);
-        if (a.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        if (a.isTeacher) return json(forbiddenTeacherBody(a), 403);
         let live = false;
         try { live = (await (env as any).SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
         if (method === 'GET') return json({ ok: true, live });
@@ -12587,6 +13884,13 @@ LIMIT $limit`;
     //   • R2: RECORDINGS 버킷 재사용, key prefix "textbook-files/"
     //   • 강의실 교재 탭에서 라이브러리 → 선택 → 칠판/PDF 뷰어 동기화
     // ═══════════════════════════════════════════════════════════════════════
+    /* 📚 «묶음(책) 이름» 판정 정본 — 파일명 앞 [대괄호] 하나가 묶음이다.
+       ⛔ 이 식을 복제하지 말 것: 숨김 목록(GET)과 묶음 삭제(DELETE)가 서로 다른 식을 쓰면
+          사람이 화면에서 고른 책과 **다른 책이 지워진다**(되돌릴 수 없다).
+       ⛔ LIKE 로 바꾸지 말 것: D1 은 LIKE 패턴이 50자를 넘으면 조회 자체가 실패한다
+          (실측 — 교재 이름은 「BTS 17 Korea (Hobbies And Activities,…)」처럼 쉽게 넘는다). */
+    const BOOK_EXPR = `(CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END)`;
+
     const ensureTextbookFilesTable = async () => {
       await env.DB.exec(
         `CREATE TABLE IF NOT EXISTS textbook_files (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT NOT NULL, mime TEXT, ext TEXT, size_bytes INTEGER, r2_key TEXT NOT NULL, textbook_id INTEGER, level TEXT, unit_no INTEGER, description TEXT, uploaded_by TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`
@@ -12645,7 +13949,7 @@ LIMIT $limit`;
       await ensureTextbookFilesTable();
       const hidden = await loadHiddenBooks();
       const rs: any = await env.DB.prepare(
-        `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+        `SELECT ${BOOK_EXPR} AS book,
                 COUNT(*) AS files
          FROM textbook_files WHERE active = 1 GROUP BY book ORDER BY book ASC`
       ).all().catch(() => ({ results: [] }));
@@ -12670,6 +13974,134 @@ LIMIT $limit`;
         `INSERT OR REPLACE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
       ).bind(book, who, Date.now()).run();
       return json({ ok: true, book, hidden: true });
+    }
+
+    /* 🗑️ DELETE /api/admin/textbook-files — 교재 «묶음 통째» 영구 삭제 (2026-09-07 사장님 결정 B안)
+       ═══════════════════════════════════════════════════════════════════════════
+       [왜] 지금까지 서버 교재를 지우는 길은 `/:id` **한 장씩** 뿐이었다.
+          `[BTS 2 001 (Shapes and colors)]` = 19번, `[BTS Books]` = **6,680번** 확인창이라
+          사실상 «삭제가 없는» 상태였다(2026-09-07 필리핀 매니저 Mai 제보 — D1 실측).
+       [관문] `src/index.ts`(공동 금지구역)를 한 줄도 안 건드린다 —
+          `path === '/api/admin/textbook-files'` 는 ②라우팅 허용목록에 **이미** 있고
+          그 등록은 메서드를 안 가린다. 이 경로의 DELETE 는 비어 있었다(실측).
+          ⚠️ 그래서 본문에 `action` 을 두고 **모르는 값은 거절**한다 — 안 그러면 나중에
+             이 경로에 다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러 들어온다.
+       [2단계 안전장치]
+          1단계 `dry_run`(기본값) — 아무것도 안 지우고 «몇 장 · 몇 MB» 만 세어 돌려준다.
+          2단계 `dry_run:false` + `confirm_name` 이 책 이름과 **정확일치**해야 실제로 지운다.
+       ⛔ 되돌릴 수 없다. 그래서 «숨기기»(textbook_hidden_books)를 없애지 않았다 —
+          파일을 남기고 목록에서만 빼는 쪽이 대부분의 경우 맞는 답이다. */
+    if (method === 'DELETE' && path === '/api/admin/textbook-files') {
+      const b: any = await request.json().catch(() => ({}));
+      const book = String(b?.book || '').trim();
+      const dryRun = b?.dry_run !== false;
+      const _pgActor = await getAdminActor(request, env as any);
+
+      /* 파일 수를 먼저 센다 — ⚠️ 조회가 실패하면 **0 이 아니라 null**(모름)로 넘긴다.
+         0 으로 떨어뜨리면 «없는 책» 과 «못 센 책» 이 같은 말이 되어 가드가 fail-open 이 된다. */
+      let totalFiles: number | null = null;
+      let cnt: any = null;
+      if (book) {
+        try {
+          await ensureTextbookFilesTable();
+          cnt = await env.DB.prepare(
+            `SELECT COUNT(*) AS files, SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS active_files,
+                    COALESCE(SUM(size_bytes),0) AS bytes
+               FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+          ).bind(book).first();
+          totalFiles = Number(cnt?.files ?? 0);
+        } catch { totalFiles = null; }   // 모름 — 게이트가 lookup_failed 로 막는다
+      }
+
+      /* 🔒 허용 판정은 **정본 함수 한 곳**이 한다(src/textbook-purge-gate.ts).
+         ⛔ 여기에 조건을 다시 적지 말 것 — 라우트 안 조건은 하니스가 문자열로만 보게 되고,
+            그러면 부등호를 뒤집어도 초록불이 난다. */
+      const gate = textbookPurgeGate({
+        action: b?.action, actorOk: !!_pgActor.ok, isTeacher: !!_pgActor.isTeacher,
+        role: _pgActor.role, book, dryRun, confirmName: b?.confirm_name, totalFiles,
+      });
+      if (!gate.ok) return json(
+        gate.error === 'forbidden_teacher' ? forbiddenTeacherBody(_pgActor) : { ok: false, error: gate.error },
+        gate.status as any);
+
+      if (gate.mode === 'count') {
+        const sample: any = await env.DB.prepare(
+          `SELECT name FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT 5`
+        ).bind(book).all().catch(() => ({ results: [] }));
+        return json({
+          ok: true, dry_run: true, book,
+          files: Number(totalFiles || 0),
+          active_files: Number(cnt?.active_files || 0),
+          bytes: Number(cnt?.bytes || 0),
+          sample: (sample.results || []).map((r: any) => r.name),
+        });
+      }
+
+      /* 한 번에 다 지우지 않는다 — 6,680장짜리 묶음이 실재해 요청 하나가 시간 초과로 죽으면
+         «어디까지 지워졌는지» 를 아무도 모른다. 화면이 남은 수를 보고 반복해서 부른다. */
+      const PURGE_BATCH_MAX = 300;
+      /* ⚠️ 여기서 «못 읽음» 을 «지울 게 없음»(빈 배열)으로 떨어뜨리면 안 된다 —
+         아래 remaining 과 겹치면 「삭제 완료 · 0장」이라는 **거짓 완료**가 된다. */
+      let rows: any = null;
+      try {
+        rows = await env.DB.prepare(
+          `SELECT id, r2_key FROM textbook_files WHERE ${BOOK_EXPR} = ? ORDER BY id LIMIT ${PURGE_BATCH_MAX}`
+        ).bind(book).all();
+      } catch { rows = null; }
+      if (!rows) return json({ ok: false, error: 'lookup_failed' }, 503);
+
+      const r2 = (env as any).RECORDINGS;
+      let deleted = 0, r2Deleted = 0, r2Failed = 0;
+      for (const row of (rows.results || [])) {
+        const key = String(row?.r2_key || '');
+        /* ⛔ 접두사가 맞는 키만 지운다 — 이 칸에 다른 값이 섞여 들어온 전례가 있다(녹화 file_url).
+           R2 delete 는 «없는 키» 에도 예외를 안 내므로, 접두사 검사 없이 넘기면
+           엉뚱한 오브젝트를 지우고도 «성공» 으로 센다. */
+        if (r2 && key.startsWith('textbook-files/')) {
+          try { await r2.delete(key); r2Deleted++; }
+          catch { r2Failed++; continue; }   // ⚠️ D1 행을 남긴다 — 지우면 그 키를 영영 못 찾아 고아가 된다
+        }
+        await env.DB.prepare(`DELETE FROM textbook_files WHERE id = ?`).bind(row.id).run();
+        deleted++;
+      }
+
+      /* 🔴 «남은 수» 를 못 읽었을 때 0 으로 떨어뜨리면 세 가지가 한꺼번에 거짓이 된다:
+         ① 응답 done:true → 화면이 «삭제 완료» 라고 말한다(파일은 남아 있는데)
+         ② 아래 숨김 표식이 지워져 **숨겨 뒀던 교재가 전 강사·학생에게 되살아난다**
+         ③ 감사로그에 remaining:0 이라는 틀린 사실이 박힌다(되돌릴 수 없는 조작의 유일한 흔적)
+         → **null(모름)로 두고, 모르면 아무것도 «완료» 로 만들지 않는다.**
+         (게이트가 이미 같은 원칙이다 — CLAUDE.md 「«모른다» 를 별도 사유로 거절」) */
+      let remaining: number | null = null;
+      try {
+        const left: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM textbook_files WHERE ${BOOK_EXPR} = ?`
+        ).bind(book).first();
+        remaining = Number(left?.n ?? 0);
+      } catch { remaining = null; }
+
+      // 다 지운 것을 «확인했을 때만» 숨김 표식을 정리한다(모르면 안 건드린다).
+      if (remaining === 0) {
+        try {
+          await ensureTextbookHiddenTable();
+          await env.DB.prepare(`DELETE FROM textbook_hidden_books WHERE book = ?`).bind(book).run();
+        } catch { /* 숨김 정리는 실패해도 삭제 자체를 되돌리지 않는다 */ }
+      }
+
+      // 누가 무엇을 지웠는지 남긴다 — 되돌릴 수 없는 조작이라 기록이 유일한 흔적이다.
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+        await env.DB.prepare(
+          `INSERT INTO admin_audit_logs (admin_uid, action, target_user, meta, created_at) VALUES (?,?,?,?,?)`
+        ).bind(_pgActor.username || 'unknown', 'textbook_purge_book', book,
+               JSON.stringify({ deleted, r2_deleted: r2Deleted, r2_failed: r2Failed, remaining }), Date.now()).run();
+      } catch { /* 기록 실패가 삭제를 막지는 않는다 */ }
+
+      return json({
+        ok: true, dry_run: false, book,
+        deleted, r2_deleted: r2Deleted, r2_failed: r2Failed,
+        remaining,                       // null = 모름 (조회 실패)
+        done: remaining === 0,           // ⚠️ 모르면 false — «완료» 라고 말하지 않는다
+      });
     }
 
     // POST /api/admin/textbook-files — 파일 업로드 (multipart/form-data)
@@ -12709,7 +14141,40 @@ LIMIT $limit`;
           `SELECT id FROM textbook_files WHERE active = 1 AND name = ? AND size_bytes = ? LIMIT 1`
         ).bind(rawName, file.size).first().catch(() => null);
         if (dupRow && dupRow.id) {
-          return json({ ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName });
+          /* 🙈 (2026-09-10 필리핀 매니저) 「이미 있다는데 라이브러리 어디에도 안 보인다」
+             ═══════════════════════════════════════════════════════════════════════
+             [실측] 그 파일은 정말 있었다(9/1 업로드). 안 보인 이유는 그 파일이 들어간 묶음
+                「BTS」가 9/8 에 **숨김** 이라 `/api/textbook-files?group=1` 이 목록에서 빼기
+                때문이었다. 그런데 이 응답은 «건너뛰었다» 만 말해서, 화면은 「없는데 있다고
+                한다」로 읽혔다 — 사람이 다시 올리고 또 올린다.
+             [고침] «어느 묶음인가»(book)와 «지금 숨김인가»(hidden)를 함께 준다.
+             ⚠️ 숨김 조회가 실패하면 **false 가 아니라 null(모름)** 이다 — 「숨김이 아니다」로
+                단정하면 화면이 엉뚱한 곳을 찾게 한다(CLAUDE.md 「모름을 아니오로 채우지 말 것」).
+             ⛔ 여기서 숨김을 «풀어» 주지 말 것 — 조회가 상태를 바꾸면 아무도 이유를 모른다.
+                푸는 것은 사람이 화면에서 [보이게 하기] 를 누를 때뿐이다. */
+          const dupBook = rawName.startsWith('[') && rawName.indexOf(']') > 1
+            ? rawName.slice(1, rawName.indexOf(']')) : '(기타)';
+          /* 🔴 `loadHiddenBooks()` 로 묻지 말 것 — 그 함수는 **몸통 전체가 try** 라
+             절대 던지지 않고 실패하면 «빈 Set» 을 준다(fail-open). 그러면 `.has()` 가
+             **false** 가 되어 「숨김 아님」이 **확정**되고, 여기 catch 는 도달 불가능한
+             죽은 코드가 된다(2026-09-10 함정 대조가 잡음 — 주석은 null 이라 적혀 있었다).
+             ⟹ 「모름」을 만들려면 **여기서 직접** 묻고 예외를 받아야 한다. */
+          let dupHidden: boolean | null = null;
+          let dupHiddenBy: string | null = null;
+          try {
+            await ensureTextbookHiddenTable();
+            const hrow: any = await env.DB.prepare(
+              `SELECT hidden_by FROM textbook_hidden_books WHERE book = ? LIMIT 1`
+            ).bind(dupBook).first();
+            dupHidden = !!hrow;
+            /* «왜 숨겼는지» 는 이 칸뿐이다 — 화면이 안 보여 주면 사람이 근거 없이 되돌린다
+               (LEVEL 1~7 은 마이마이 확인으로 숨긴 것이다). */
+            dupHiddenBy = hrow ? String(hrow.hidden_by || '') || null : null;
+          } catch { dupHidden = null; dupHiddenBy = null; }
+          return json({
+            ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName,
+            book: dupBook, hidden: dupHidden, hidden_by: dupHiddenBy,
+          });
         }
 
         const key = `textbook-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -12869,7 +14334,7 @@ LIMIT $limit`;
        ⛔ SELECT 만 한다. 이 API 는 아무것도 고치지 않는다. */
     if (method === 'GET' && path === '/api/admin/classes-now') {
       const _actor = await getAdminActor(request, env as any);
-      if (_actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_actor.isTeacher) return json(forbiddenTeacherBody(_actor), 403);
 
       const now = Date.now();
       const AHEAD_MS = 15 * 60 * 1000;        // 곧 시작(15분 앞)까지 함께 보여 준다
@@ -13101,7 +14566,7 @@ LIMIT $limit`;
          그 'none' 이 «내부직원·교사» 다(src/scope.ts 주석). 즉 강사가 그대로 통과한다.
          admin_write_guard_harness 가 이 구멍을 잡아 줬다 — 가드를 한 줄 더 둔다. */
       const _rbActor = await getAdminActor(request, env as any);
-      if (_rbActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (_rbActor.isTeacher) return json(forbiddenTeacherBody(_rbActor), 403);
       const _rbScope = await getScope(env as any, request);
       if (!canEditOrg(_rbScope)) return json({ ok: false, error: 'forbidden' }, 403);
       await ensureTextbookFilesTable();
@@ -13256,7 +14721,7 @@ LIMIT $limit`;
      */
     if (method === 'POST' && /^\/api\/admin\/textbook-files\/\d+$/.test(path)) {
       const _ocrActor = await getAdminActor(request, env as any);
-      if (_ocrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 이 시험을 실행할 수 없습니다.' }, 403);
+      if (_ocrActor.isTeacher) return json(forbiddenTeacherBody(_ocrActor, '강사는 이 시험을 실행할 수 없습니다.'), 403);
       if (isOrgScopedRole((_ocrActor as any).role)) return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 실행할 수 있습니다.' }, 403);
 
       const b = await parseJsonBody(request) || {};
@@ -14121,6 +15586,8 @@ LIMIT $limit`;
         ]);
         const roster = (rosterRs.results || []) as any[];
         const profiles = (profRs.results || []) as any[];
+        // 🔔 (2026-09-14) 강사 화면에서 「알림 받기」를 켠 원부 강사 — 계정 다리(teacher_account_links)를 거친다.
+        const pushIds = await teacherIdsWithPush(env);
 
         const items = roster.map((t: any) => {
           const target = normName(t.name);
@@ -14149,8 +15616,12 @@ LIMIT $limit`;
             phone_region: phone ? (isPhPhone(phone) ? 'PH' : isKrPhone(phone) ? 'KR' : 'other') : null,
             /* 🔔 «자동 알림이 실제로 가는가» — 화면에 그대로 보여 준다.
                email 이면 국제 가능, 한국 번호면 문자도 가능, 필리핀 번호·카톡ID 뿐이면 자동은 불가. */
-            reachable: !!email || (phone ? isKrPhone(phone) : false),
-            reach_by: email ? 'email' : (phone && isKrPhone(phone) ? 'sms' : null),
+            /* 🔔 (2026-09-14) 웹푸시가 셋째 수단이다 — 카카오는 필리핀 번호에 «구조적으로» 안 닿아(teacher-push.ts)
+               사장님이 웹푸시를 고르셨다. 푸시는 «켠 사람에게만» 가므로 이메일·문자와 «함께» 세고, 둘 다 없을 때는
+               푸시 하나로도 «닿는다» 로 본다(그 강사에게 실제로 결석 알림이 갑니다 — absent-sweep.ts). */
+            push_on: pushIds.has(String(t.id)),
+            reachable: !!email || (phone ? isKrPhone(phone) : false) || pushIds.has(String(t.id)),
+            reach_by: email ? 'email' : (phone && isKrPhone(phone) ? 'sms' : (pushIds.has(String(t.id)) ? 'push' : null)),
             candidates: cands.map((p: any) => ({
               id: String(p.id), name: p.english_name || p.korean_name,
               email: p.email || null, phone: p.phone || null, kakao_id: p.kakao_id || null,
@@ -14208,7 +15679,16 @@ LIMIT $limit`;
               WHERE role LIKE '%teacher%' OR username LIKE 'mangoi_%' OR username LIKE 'hq_t_%'
               ORDER BY username`
           ).all<any>().catch(() => ({ results: [] as any[] })),
-          env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name FROM teachers ORDER BY name`)
+          /* 🚪 active 를 «뽑아서» 내려준다 — 거르지는 않는다.
+             왜 뽑나 — 이 목록이 그대로 <option> 이 되는데, 그 연결은 출근·급여가 갈리는 자리다.
+               원부에 같은 사람이 두 줄이면(«FAR» id 22 재직 · «HT FARRAH» id 3 퇴사) 여기서
+               잘못 고르기 쉽다 — 2026-08-26 에 실제로 그렇게 스케줄 16건이 죽은 행에 붙었다.
+               그때까지 이 질의에는 active 가 SELECT 에도 WHERE 에도 없어 화면이 «거를 수조차»
+               없었다.
+             ⛔ 여기서 WHERE active=1 로 걸러 버리지 말 것 — 화면의 「퇴사 강사도 보기」가
+               되돌릴 길인데, 서버가 미리 지우면 그 체크박스가 조용히 무동작이 된다
+               (CLAUDE.md 2장 「붙이는 쪽과 읽는 쪽이 짝」). 거르는 것은 화면 몫이다. */
+          env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, COALESCE(active, 1) AS active FROM teachers ORDER BY name`)
             .all<any>().catch(() => ({ results: [] as any[] })),
           env.DB.prepare(`SELECT username, teacher_id, teacher_name, linked_by, linked_at FROM teacher_account_links`)
             .all<any>().catch(() => ({ results: [] as any[] })),

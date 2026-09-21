@@ -232,7 +232,11 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     const els = {}; const $ = (id) => (els[id] || (els[id] = fakeEl()));
     const timers = []; let scored = [];
     const sandbox = {
-      $, GLANG: 'en', speakCount: 0, listening: false, recognition: new SR(),
+      $, GLANG: 'en', speakCount: 0, listening: false, recognition: null, SR,
+      missionActive: true, listenCount: 1, _pzTtsBusy: false, _pzMissionSeq: 1,
+      _pzUseRecording: false, _pzCancelListen: null, _pzStopListen: null,
+      _pzStop: () => {}, _pzButtons: () => {}, _pzCanRecord: () => false,
+      langOf: () => 'en-US',
       /* 💯 (2026-08-13) 원샷 통과 도입으로 이 블록이 쓰는 전역이 늘었다.
          PERFECT_SC = 즉시 통과 기준 정확도, speakAttempts = 이 문장 말하기 시도 횟수. */
       PERFECT_SC: 0.98, speakAttempts: 0,
@@ -252,14 +256,15 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     vm.runInContext(readFileSync(join(PUB, 'js', 'mangoi-stt.js'), 'utf8'), sandbox);
     vm.runInContext(html.slice(s, e), sandbox);
 
-    const rec = sandbox.recognition;
-    /* 인식기 설정은 이 블록 밖(전역 초기화)에 있으므로 원문으로 확인한다.
+    /* 시도마다 인식기를 생성하므로 실제 생성된 객체의 설정도 확인한다.
        ⚠️ 객체 속성으로 볼 때는 반드시 === true 로 — !== false 면 설정을 안 해도(undefined) 통과한다.
           실제로 이 함정 때문에 "continuous 를 켰다"고 잘못 통과한 적이 있다(2026-07-23). */
     check('브라우저 자동종료를 끔(continuous=true)', /recognition\.continuous\s*=\s*true/.test(html));
     check('중간 결과도 받음(interimResults=true)', /recognition\.interimResults\s*=\s*true/.test(html));
     $('btn-speak').onclick();
+    const rec = sandbox.recognition;
     check('보호막 적용됨', rec.__mangoiHardened === true);
+    check('실제 인식기는 연속·중간결과를 켬', rec.continuous === true && rec.interimResults === true);
     rec.emit('I like', true);
     check('조각만 들렸을 때는 채점하지 않음', scored.length === 0, JSON.stringify(scored));
     rec.browserEnd();                                  // 안드로이드가 세션을 닫음

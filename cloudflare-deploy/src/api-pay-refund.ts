@@ -54,6 +54,7 @@
  */
 import { json, parseJsonBody } from './api-util';
 import { getAdminActor } from './auth-admin';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { getScope } from './scope';
 import { sendPlainSms } from './solapi-client';
 import { kstToday, enrollRefundCalc, ENROLL_BASE_WEEKLY1 } from './enroll-ops';
@@ -114,11 +115,9 @@ async function refundGate(request: Request, env: any): Promise<Gate> {
     return deny(json({ ok: false, error: 'auth_required', message: '로그인이 필요합니다.' }, 401));
   }
   if (actor.isTeacher) {
-    return deny(json({
-      ok: false, error: 'forbidden_teacher',
-      message: '강사 권한으로는 환불을 볼 수 없습니다.',
-      message_en: 'Refunds are not available with a teacher account.',
-    }, 403));
+    return deny(json(forbiddenTeacherBody(actor,
+      '강사 권한으로는 환불을 볼 수 없습니다.',
+      'Refunds are not available with a teacher account.'), 403));
   }
   let scopeType = 'none';
   try { scopeType = (await getScope(env, request)).type; } catch (_) { /* 판정 실패 = 아래에서 none 취급 */ }

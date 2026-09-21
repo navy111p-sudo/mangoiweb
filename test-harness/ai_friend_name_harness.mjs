@@ -141,5 +141,100 @@ if (NAMES) {
   }
 }
 
+/* ── ⑥ 🀄 중국어 선생님 — 화면이 보내는 값을 서버가 아는가 (2026-09-14) ──────────
+   사장님 제보 「你好，我是Emma！」의 뿌리가 여기다. 화면은 중국어에서 friend='mei' 를
+   보내는데 정본 표에 그 칸이 없어 resolveFriendName 이 «모르는 값 → 기본값» 으로
+   떨어뜨렸다. 에러는 안 나고 AI 가 자기를 다른 이름으로 소개할 뿐이다.
+   ⚠️ 「표에 mei 가 있는가」만 묻지 말 것 — 값이 «로마자» 면 중국어 문장 한가운데에
+      로마자가 섞인다. 그래서 «한자인가» 와 «화면 인사와 같은 말인가» 를 짝으로 묻는다. */
+console.log('\n[ ⑥ 🀄 중국어 선생님 ]');
+/* 화면 표를 오려 내 «중국어 선생님» 을 자동으로 찾는다 — 손으로 이름을 적으면
+   선생님이 늘 때마다 이 검사가 조용히 옛 명단을 들고 있게 된다. */
+const WMODES = (() => {
+  const m = W.match(/var VOICE_MODES = \{[\s\S]*?\n\};/);
+  if (!m) return null;
+  try { return new Function(m[0] + '\nreturn VOICE_MODES;')(); } catch (e) { return null; }
+})();
+ok(!!WMODES, '웜업의 VOICE_MODES 를 오려 냈다');
+const ZH_KEYS = WMODES ? Object.keys(WMODES).filter((k) => WMODES[k] && WMODES[k].zh) : [];
+if (NAMES && WMODES) {
+  ok(ZH_KEYS.length >= 1, `화면에 중국어 선생님이 있다 (${ZH_KEYS.join(', ') || '없음'})`);
+  for (const k of ZH_KEYS) {
+    ok(!!NAMES[k], `정본 표에 ${k} 가 있다 (${NAMES[k] || '없음'})`,
+      "없으면 중국어 수업에서 AI 가 자기를 '" + DEF + "' 라고 말한다");
+    ok(resolve(k) === NAMES[k] && resolve(k) !== DEF,
+      `resolveFriendName('${k}') 가 기본값으로 안 떨어진다 (${resolve(k)})`);
+    ok(/[\u4e00-\u9fff]/.test(String(NAMES[k] || '')),
+      `${k} 의 이름이 한자다 (${NAMES[k]})`,
+      '로마자면 「我是Long」처럼 중국어 문장에 로마자가 섞여 읽힌다');
+    /* 짝 — 화면 첫 인사와 같은 말인가. 어긋나면 화면은 「我是龙老师」 라고 인사해 놓고
+       학생이 이름을 물으면 AI 가 다른 이름을 댄다(2026-08-31 Lily 건과 같은 모양). */
+    const hi = String((WMODES[k] || {}).hi || '');
+    ok(NAMES[k] && hi.indexOf(NAMES[k]) >= 0,
+      `${k} 의 화면 첫 인사가 정본 이름을 담는다 (인사 「${hi}」 / 정본 ${NAMES[k]})`);
+    /* 🀄 말풍선에 찍히는 이름 — 2026-09-14 사장님 화면에 「Mango」로 찍혔다.
+       _friendLabelNow() 가 라벨에서 /^[^A-Za-z]+/ 로 앞을 잘라내는데 중국어 선생님 라벨
+       「👨‍🏫 룽 선생님」에는 영문자가 한 글자도 없어 «전부» 지워지고 폴백으로 떨어졌다.
+       메이도 같은 상태였다 — 그래서 표의 zhName 과 정본을 대조한다. */
+    ok(!!(WMODES[k] || {}).zhName,
+      `${k} 에 zhName 이 있다 (${(WMODES[k] || {}).zhName || '없음'})`,
+      '없으면 말풍선 이름이 영문자 잘라내기에 걸려 기본값으로 떨어집니다');
+    ok((WMODES[k] || {}).zhName === NAMES[k],
+      `${k} 의 말풍선 이름과 AI 가 대는 이름이 같다`,
+      `화면 ${(WMODES[k] || {}).zhName} / 정본 ${NAMES[k]} — 갈리면 「이름이 왜 두 개죠?」`);
+  }
+  /* 짝 — 영어 넷은 한 글자도 안 바뀌었다(중국어를 더하면서 영어를 건드리지 않았는가) */
+  ok(NAMES.emma === 'Emma' && NAMES.jake === 'Jake' && NAMES.lily === 'Lily' && NAMES.noah === 'Noah',
+    '영어 네 이름은 그대로다');
+}
+/* 화면이 중국어에서 그 값을 실제로 보내는가 — «표에만 있고 안 보내면» 서버는 영영 기본값.
+   📜 2026-09-14 낮에는 「_voicePerson 첫 줄이 return 'mei'」가 옳은 답이었습니다(중국어는
+      메이 한 사람 고정이었으니까). 같은 날 오후 「남자 교사도 한명더 추가해줘」로 둘이 되어
+      경계를 «중국어면 메이» → **«중국어면 그 언어의 선생님만»** 으로 옮겨 적습니다.
+   ⛔ 「return 'mei'」로 되돌리지 마세요 — 검사를 조이는 것이 아니라 룽을 지우는 것입니다. */
+{
+  const pSrc = W.match(/function _voicePerson\(\)\{[\s\S]*?\n\}/);
+  ok(!!pSrc, '웜업의 _voicePerson 을 오려 냈다');
+  if (pSrc && WMODES && ZH_KEYS.length) {
+    const who = (mode) => {
+      try {
+        return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx', 'VOICE_MODES',
+          pSrc[0] + '\nreturn _voicePerson();')(
+          () => true, mode, ['emma', 'jake', 'lily', 'noah'], 0, WMODES);
+      } catch (e) { return 'ERR:' + e.message; }
+    };
+    ok(ZH_KEYS.every((k) => who(k) === k),
+      '웜업이 중국어에서 «고른 선생님» 을 그대로 보낸다',
+      '이 줄이 없으면 표를 고쳐도 서버는 영영 한 사람만 받는다: '
+        + ZH_KEYS.map((k) => k + '→' + who(k)).join(' '));
+    /* 🔴 짝 — 없으면 «아무나 보내기» 도 통과한다 */
+    ok(['emma', 'jake', 'lily', 'noah', 'mix'].every((m) => ZH_KEYS.includes(who(m))),
+      '중국어에서 «영어 친구» 는 서버로 안 보낸다 (짝)',
+      '보내면 서버가 영어 프롬프트를 돌려 중국어 수업이 영어로 답합니다');
+
+    /* 말풍선 이름을 «실제로 돌려» 본다 — 「표에 zhName 이 있다」만으로는
+       그 값을 진짜로 쓰는지 알 수 없다(읽는 줄을 지워도 통과한다). */
+    const lSrc = W.match(/function _friendLabelNow\(\)\{[\s\S]*?\n\}/);
+    ok(!!lSrc, '웜업의 _friendLabelNow 를 오려 냈다');
+    if (lSrc) {
+      const label = (zh, mode) => {
+        try {
+          return new Function('isZh', '_voiceMode', 'VOICE_PEOPLE', '_mixIdx', 'VOICE_MODES',
+            pSrc[0] + '\n' + lSrc[0] + '\nreturn _friendLabelNow();')(
+            () => zh, mode, ['emma', 'jake', 'lily', 'noah'], 0, WMODES);
+        } catch (e) { return 'ERR:' + e.message; }
+      };
+      ok(ZH_KEYS.every((k) => label(true, k) === NAMES[k]),
+        '중국어 말풍선에 그 선생님의 중국어 이름이 찍힌다',
+        '실제: ' + ZH_KEYS.map((k) => k + '→' + label(true, k)).join(' ')
+          + ' (「' + DEF + '」 로 떨어지면 사장님 화면의 그 사고입니다)');
+      /* 🔴 짝 — 없으면 «전부 한자 이름» 이나 «전부 기본값» 도 통과한다 */
+      ok(label(false, 'emma') === 'Emma' && label(false, 'jake') === 'Jake',
+        '영어 친구 이름은 예전 그대로다 (짝)',
+        '실제 emma=' + label(false, 'emma') + ' jake=' + label(false, 'jake'));
+    }
+  }
+}
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);

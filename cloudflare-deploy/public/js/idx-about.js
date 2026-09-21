@@ -9,24 +9,25 @@
         if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
-          /* 🎬 (2026-09-05 사장님 지시) 안내 영상 — «처음 들어온 사람이 들어보고 이해하게».
-             ⛔ 여기서 영상을 «틀지» 않는다. 24.4MB 라 카드를 여는 것만으로 받게 하면
+          /* 🎬 (2026-09-09 사장님 지시) 짧은 홍보영상 — «처음 들어온 사람이 보고 이해하게».
+             나레이션이 «사장님이 직접 녹음해 주신 사람 목소리» 다. 그 앞 판은 합성 목소리였고
+             「한국말이 이해가 가지 않아」 제보를 받아 갈아 끼운 것이 이 영상이다.
+             ⛔ 이 자리를 다시 TTS·음성복제 영상으로 되돌리지 말 것.
+             ⛔ 여기서 영상을 «틀지» 않는다. 13.5MB 라 카드를 여는 것만으로 받게 하면
                 볼 생각이 없는 사람에게도 내려간다(adm-promo-setup.js 가 같은 판단을 해 뒀다).
-                포스터 그림(26KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
-             ⚠️ 대본이 「선생님은…」 으로 말한다(대상 = 학원 원장·강사). 그래서 카드 글도
-                그렇게 적는다 — 학생이 눌렀다가 «내 이야기가 아니네» 로 끝나지 않게. */
-          {ic:'🎬', t:'▶ 안내 영상 — 3분 48초로 보기', lead:true,
-           d:'<img src="/img/promo/ai-tools-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
-             + '망고아이 AI 학습도구를 <b>왜 만들었고 어떻게 쓰는지</b> 3분 48초에 담았습니다. '
-             + '원장님·선생님께 드리는 안내라, 학생은 <b>부모님·선생님과 함께</b> 보시면 좋습니다.',
-           p:['왜 만들었나 — 단어 하나를 제 것으로 만들려면 8~10번은 만나야 합니다',
-              '어떻게 쓰나 — 정규수업을 바꾸지 않고 수업 전 10분·수업 후 10분을 붙입니다',
-              '효과 — 주 100분이던 노출이 매일로 바뀝니다'],
-           /* ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 «못 열고 null 만» 돌려준다(예외도 안 난다).
-              ⛔ 기능 문자열에 'noopener' 를 주면 표준상 반환이 늘 null 이라 «막혔다» 판정이 항상 참이 된다
-                 → 빼고 연 뒤 opener 를 끊는다(CLAUDE.md 2장 «window.open 이 안 열림»). */
-           cta:{l:'▶ 영상 보기 (3분 48초)', go:function(){
-             var u = '/promo.html?v=ai-tools', w = null;
+                포스터 그림(35KB) + 링크로 간다 — 누르기 전엔 영상 0바이트.
+             ℹ️ 여기 있던 «▶ 안내 영상 — 3분 48초로 보기» 줄은 2026-09-09 사장님
+                「완전히 없애」 지시로 뺐다(#889). ⛔ 되살리지 말 것 — CLAUDE.md 1-3.
+                영상 파일과 /promo.html?v=ai-tools 주소는 그대로 살아 있다. */
+          {ic:'🎬', t:'▶ 홍보영상 — 1분 21초로 보기', lead:true,
+           d:'<img src="/img/promo/brand-poster.jpg" alt="" style="width:100%;height:auto;border-radius:12px;display:block;margin:0 0 12px" loading="lazy" decoding="async">'
+             + '망고아이가 <b>어떤 곳인지</b> 1분 21초에 담았습니다. '
+             + '처음 오신 분은 이 영상부터 보시면 가장 빠릅니다.',
+           p:['왜 안 되나 — 재능이 아니라 «오래 하지 못해서» 입니다',
+              '무엇이 다른가 — 수업이 없는 날의 빈 시간을 A.I 학습 14가지가 채웁니다',
+              '근거 — 비고츠키 근접발달영역과 간격 반복 위에 설계했습니다'],
+           cta:{l:'▶ 영상 보기 (1분 21초)', go:function(){
+             var u = '/promo.html?v=brand', w = null;
              try { w = window.open(u, '_blank'); } catch (e) {}
              if (w) { try { w.opener = null; } catch (e) {} } else { location.href = u; }
            }}},
@@ -34,7 +35,7 @@
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
            p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 다른 대부분의 화상외국어 업체들과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서를 생성하고, 배운 내용에 맞춰 듣기·말하기·쓰기 등 10문항 복습 퀴즈를 바로 진행','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
            cta:{l:'🤖 AI 학습 친구 만나기', go:function(){ closeAbout(); location.href='/ai-friend.html'; }}},
-          {ic:'🧑‍🏫', t:'원어민 선생님과 1:1 / 1:2 수업',
+          {ic:'🧑‍🏫', t:'원어민 선생님과 1:1 / 1:2 수업', key:'live-class',
            d:'엄격하게 검증된 원어민 전담 선생님과 1:1 또는 1:2 소수정예로 진행합니다. 같은 선생님이 꾸준히 관리하기 때문에 아이의 성향과 약점을 정확히 파악해 맞춤 지도를 합니다.',
            p:['매번 바뀌는 랜덤 매칭이 아닌 전담 선생님제로 안정적인 관리','형제·친구와 함께하는 1:2 수업으로 비용 부담은 낮추고 효과는 그대로','직영 센터에서 근무하는 정규 교사 — 검증된 수업 품질'],
            cta:{l:'📝 수업 신청하러 가기', go:function(){ closeAbout(); location.href='/lesson-booking-demo.html'; }}},
@@ -92,7 +93,7 @@
            cta:{l:'💬 카카오톡 채널 가기', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.kakao) window.gridActions.kakao(); }}}
         ];
         var ov = document.createElement('div'); ov.id='about-mangoi-ov';
-        var gridHtml = BENEFITS.map(function(b,i){ var cls=b.lead?'abm-item abm-lead':'abm-item'; return '<button type="button" class="'+cls+'" data-i="'+i+'"><span class="abm-ic">'+b.ic+'</span><span class="abm-tx">'+b.t+'</span><span class="abm-chev">›</span></button>'; }).join('');
+        var gridHtml = BENEFITS.map(function(b,i){ var cls=b.lead?'abm-item abm-lead':'abm-item'; return '<button type="button" class="'+cls+'" data-i="'+i+'"'+(b.key?' data-key="'+b.key+'"':'')+'><span class="abm-ic">'+b.ic+'</span><span class="abm-tx">'+b.t+'</span><span class="abm-chev">›</span></button>'; }).join('');
         ov.innerHTML =
           '<div class="abm-card" role="dialog" aria-modal="true">'
           + '<button class="abm-close" aria-label="닫기">✕</button>'
@@ -194,3 +195,27 @@
         ov.style.display='flex';
       };
       
+
+      /* 🔗 (2026-09-21 사장님 지시) 「망고아이란?」의 «한 카드» 를 밖에서 바로 여는 입구.
+       *   홈 히어로의 트랙 줄(.ht-live)이 이것을 부른다 — js/idx-home-tracks.js.
+       *
+       * ⛔ 순번(data-i)으로 찾지 않는다. BENEFITS 에 항목이 하나만 늘어도 «남의 카드» 가
+       *    에러 없이 열린다(CLAUDE.md 「손자 목록을 손으로 적으면 반드시 어긋납니다」).
+       *    찾는 열쇠는 그 항목 자신이 든 key 이고, 목록 버튼이 data-key 로 달고 있다.
+       * ⛔ showDetail() 을 밖으로 내보내지 않는다 — 그 함수는 오버레이를 만들 때마다
+       *    새로 생기는 지역 함수라, 붙잡아 두면 «옛 오버레이» 를 가리킨 채 굳는다.
+       *    대신 그 카드 버튼을 실제로 누른다(window.mgGo 와 같은 방식).
+       * ⚠️ 못 찾으면 목록은 열린 채로 둔다 — 사람이 눈으로 고를 수 있다. 다만 false 를
+       *    돌려주어 부르는 쪽이 «카드까지 갔다» 고 오해하지 않게 한다.
+       */
+      window.openAboutMangoiCard = function (key) {
+        if (typeof window.openAboutMangoi !== 'function') return false;
+        try { window.openAboutMangoi(); } catch (e) { return false; }
+        if (!key) return false;
+        var ov = document.getElementById('about-mangoi-ov');
+        if (!ov) return false;
+        var btn = ov.querySelector('.abm-item[data-key="' + key + '"]');
+        if (!btn) return false;
+        try { btn.click(); } catch (e) { return false; }
+        return true;
+      };

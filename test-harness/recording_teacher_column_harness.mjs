@@ -124,6 +124,46 @@ check('정렬 값 함수가 두 키를 안다',
 check('표 안 필터가 교사 이름·아이디로도 걸러진다',
   /String\(r\.teacher \|\| ''\)/.test(CORE_NC) && /String\(r\.teacher_uid \|\| ''\)/.test(CORE_NC),
   '화면에 보이는 말로 검색해서 0건이 나오면 「검색이 고장났다」로 읽힌다');
+
+/* 🎓 2026-09-14 — 학생 «전용» 칸(recf-student, 사장님 「학생이름도 검색칸을 만들어줘」).
+   판정(_recPassColF)을 소스에서 오려 내 실제로 돌린다. 「학생 이름·아이디로 걸린다」 옆에
+   「교사 이름·방 번호로는 «안» 걸린다」를 짝으로 둔다 — 앞만 두면 옛 text 칸(학생도 봄)을
+   그대로 이어 붙여도 통과한다(두 칸이 같은 칸이 되는 회귀). */
+{
+  check('표 안 필터 줄에 학생 전용 칸(recf-student)이 있다', /id="recf-student"/.test(HTML));
+  check('바인딩 표가 그 칸을 안다(student → recf-student)', /student:\s*'recf-student'/.test(CORE));
+  const a = CORE.indexOf('var _recColF = {');
+  const f = CORE.indexOf('function _recPassColF(r) {', a);
+  let depth = 0, e = -1;
+  for (let i = CORE.indexOf('{', f); f > 0 && i < CORE.length; i++) {
+    const ch = CORE[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) { e = i + 1; break; } }
+  }
+  check('전제: 판정 함수를 오려 냈다', a > 0 && f > a && e > f, 'a=' + a + ' f=' + f + ' e=' + e);
+  let pass = null, F = null;
+  try {
+    const mod = new Function(CORE.slice(a, e) + '\nreturn { pass: _recPassColF, F: _recColF };')();
+    pass = mod.pass; F = mod.F;
+    ok('판정 함수를 실행할 수 있다');
+  } catch (err) { no('판정 함수를 실행할 수 있다', String(err)); }
+  if (pass) {
+    const row   = { room_id: 'class-903-20260901', teacher: 'Bella', teacher_uid: 'mangoi_003', students: [{ name: '김하나', uid: 'kimhana' }] };
+    const noStu = { room_id: 'class-901-20260901', teacher: 'Bella', teacher_uid: 'mangoi_003', students: [] };
+    const set = (v, t) => { F.text = t || ''; F.student = v; F.part = 'all'; F.dur = 'all'; F.size = 'all'; F.users = 'all'; F.play = 'all'; };
+    set('하나');    check('학생 칸: 이름 일부로 걸린다',                 pass(row) === true);
+    set('KIMHANA'); check('학생 칸: 아이디(대소문자 무시)로 걸린다',     pass(row) === true);
+    set('Bella');   check('학생 칸: 교사 이름으로는 «안» 걸린다 (짝)',   pass(row) === false);
+    set('903');     check('학생 칸: 방 번호로는 «안» 걸린다 (짝)',       pass(row) === false);
+    set('하나');    check('학생이 없는 행은 학생 칸에서 빠진다',          pass(noStu) === false);
+    set('');        check('학생 칸이 비면 모두 통과',                    pass(row) === true && pass(noStu) === true);
+    set('하나', 'Bella'); check('방·교사 칸과 학생 칸은 AND 로 겹친다',   pass(row) === true);
+    set('하나', 'Zed');   check('   한쪽만 어긋나도 빠진다',              pass(row) === false);
+  }
+  check('서버 검색(q)도 예약표의 학생 이름·아이디를 훑는다',
+    /COALESCE\(cs\.student_name,''\) LIKE \?/.test(MANGO) && /COALESCE\(cs\.user_id,''\) LIKE \?/.test(MANGO),
+    '학생 칸의 첫 근거가 예약표(recording-students.ts)라, 그 이름으로 검색해 0건이 나오면 안 된다');
+}
 check('서버 검색도 예약에 배정된 강사 이름·아이디까지 훑는다',
   /FROM class_schedules cs/.test(MANGO) && /FROM teacher_account_links tal/.test(MANGO)
   && /COALESCE\(t\.name,''\) LIKE \?/.test(MANGO),

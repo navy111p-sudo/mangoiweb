@@ -106,8 +106,17 @@ if (truth) {
 const students = readOr('../cloudflare-deploy/src/api-students.ts');
 ok('api-students.ts 존재', students !== null);
 if (students) {
-  ok('마이페이지 출석을 attendance 테이블에서 읽음(joined_at 필터)',
-     /FROM attendance WHERE user_id = \? AND joined_at >= \?/.test(students));
+  /* ⚠️ 2026-09-21 — 여기를 «SQL 모양» 으로 못 박아 두었더니, 학생을 «계정»(account_uid)
+     으로도 찾게 넓힌 수리에 **보장은 오히려 세졌는데 검사만** 빨간불이 났다.
+     ⛔ 그렇다고 «파일 어딘가에 그 글자가 있나» 로 풀지 말 것 — 같은 파일에 attendance
+        조회가 여럿이라 그 자리를 딴 표로 바꿔도 통과한다(그렇게 고쳤다가 변이 2종이
+        그대로 빠져나갔다). **그 SELECT 의 지문으로 «그 자리» 를 콕 집어** 본다. */
+  const mypageSql = /SELECT date, status, attended_at, joined_at\s+FROM attendance\s+WHERE ([\s\S]{0,140}?) AND joined_at >= \?/.exec(students);
+  ok('마이페이지 출석을 attendance 테이블에서 읽음(joined_at 필터)', !!mypageSql);
+  /* 🔗 짝 — 그 조건이 «계정» 도 보는가(정본). user_id 만 보면 화상수업 출석이 0건이 된다.
+     2026-09-21 실사고: 학생 상세·학부모 대시보드가 전부 「출석 0일」이었다. */
+  ok('🔴 학생을 찾는 조건이 정본(ATTENDANCE_BY_UID)인가 — user_id 는 기기번호다',
+     !!mypageSql && /\$\{ATTENDANCE_BY_UID(_NOCASE)?\}/.test(mypageSql[1]), mypageSql && mypageSql[1]);
   ok('🔴 판정은 정본 함수(summarizeAttendance)에 맡긴다 — 여기서 다시 세지 않는다',
      /summarizeAttendance\(/.test(students));
   ok('🔴 옛 판정(status===\'attended\' 만으로 정시)이 되살아나지 않았다',
@@ -145,8 +154,10 @@ if (mango) {
 const reports = readOr('../cloudflare-deploy/src/api-reports.ts');
 ok('api-reports.ts 존재', reports !== null);
 if (reports) {
-  ok('월간 리포트도 attendance 에서 DISTINCT date 로 집계(같은 원천)',
-     /COUNT\(DISTINCT date\) AS d FROM attendance WHERE user_id = \? AND joined_at >= \?/.test(reports));
+  const monthlySql = /COUNT\(DISTINCT date\) AS d FROM attendance\s+WHERE ([\s\S]{0,140}?) AND joined_at >= \?/.exec(reports);
+  ok('월간 리포트도 attendance 에서 DISTINCT date 로 집계(같은 원천)', !!monthlySql);
+  ok('🔴 월간 리포트도 학생을 정본 조건으로 찾는다 (2026-09-21)',
+     !!monthlySql && /\$\{ATTENDANCE_BY_UID\}/.test(monthlySql[1]), monthlySql && monthlySql[1]);
   ok('🔴 월간 리포트도 예정(scheduled)을 뺀다 — 안 빼면 마이페이지와 숫자가 갈린다',
      /COALESCE\(status,''\) <> 'scheduled'/.test(reports));
 }

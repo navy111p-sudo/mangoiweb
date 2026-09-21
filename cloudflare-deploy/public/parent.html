@@ -11,136 +11,131 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>학부모 대시보드 — 망고아이</title>
+<title>마이 페이지 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
-<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
+  /* ═══ 2026-09-13 «B · 망고 카드» 디자인 — 사장님이 4종 시안 중 고른 안.
+     그전 다크(남색 반투명 카드) 판은 «어두운 배경 위 어두운 카드 · 9~13px 글자» 라 잘 안 보였다.
+     글자·상자 색은 아래 토큰 한 곳에서만 정한다 — 본문 인라인 style 도 var(--pd-…) 로 쓴다.
+     예외(그대로 hex): 버튼 그라데이션 위 진한 글자(#1a1a1a 류)·카카오 브랜드색(#fee500)·공용 바(mango-i18n.js)·우하단 오디오 토스트(다크 상자). */
+  :root {
+    --pd-bg: #fff7e0;            /* 페이지 바탕 (연한 망고 크림) */
+    --pd-surface: #ffffff;       /* 카드 */
+    --pd-tint: #fff7e0;          /* 카드 안 상자 */
+    --pd-tint-strong: #ffe4a8;   /* 강조 상자·획득 배지 */
+    --pd-line: #ffe4a8;          /* 테두리 */
+    --pd-line-strong: #f5c96a;
+    --pd-ink: #2a2418;           /* 본문 글자 */
+    --pd-ink2: #4a3f2c;          /* 보조 글자 */
+    --pd-muted: #7a6a4f;         /* 흐린 글자 (흰 바탕 대비 4.6:1) */
+    --pd-gold: #b45309;          /* 강조 글자 — ⛔ #fbbf24 는 흰 바탕 대비 1.67 이라 글자에 못 쓴다 */
+    --pd-gold-fill: #d97706;     /* 막대·점 채움 (흰 바탕 대비 3.0 — 비텍스트 기준) */
+    --pd-accent: #a35a00;        /* 제목·링크 */
+    --pd-green: #15803d;
+    --pd-green-tint: #e8f7ee;
+    --pd-green-line: #b7e4c7;
+    --pd-red: #b91c1c;           /* 연분홍 상자 위에서도 4.5 이상 */
+    --pd-red-tint: #fdecec;
+    --pd-red-line: #f5b5b5;
+    --pd-blue: #1d4ed8;
+    --pd-blue-tint: #e8f0fe;
+    --pd-btn: linear-gradient(135deg,#ffc94d,#ff9f1c);
+    --pd-btn-ink: #3a2200;
+  }
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    position: relative;
     min-height: 100vh;
-    /* 즉시 표시용 남색 폴백 — 배경 웹툰이 늦게 뜨는 순간에도 검정 화면 없이 바로 그려짐 */
-    background: #0a0e1a;
-    color: #f1f5f9;
+    background: var(--pd-bg);
+    color: var(--pd-ink);
     font-family: MangoiHanSC,'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
+    font-size: 15px; line-height: 1.5;
     letter-spacing: -0.2px;
     padding-bottom: 80px;
   }
-  /* 🌌 실사 딥필드 배경(Higgsfield, 홈과 동일 자산 — 40KB, 이미 방문했다면 브라우저 캐시 재사용) */
-  body::before {
-    content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
-    background: url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;
-    filter: blur(2px) brightness(0.55) saturate(1.15);
-    transform: scale(1.06);
-  }
-  /* 텍스트 대비 확보용 비네트 — 카드가 많은 화면이라 홈보다 한 단계 더 눌러줌 */
-  body::after {
-    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background:
-      radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),
-      radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95));
-  }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 18px; }
-  .brand { text-align: center; margin-bottom: 24px; }
-  .brand-logo {
-    font-family: MangoiHanSC,'Cormorant Garamond', serif; font-style: italic; font-weight: 700;
-    background: linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    font-size: 32px; letter-spacing: 1px; display: block; line-height: 1;
-  }
-  .brand-sub {
-    font-family: MangoiHanSC,'Noto Sans KR', -apple-system, sans-serif;
-    font-weight: 800;
-    font-size: 16px; letter-spacing: -0.4px; margin-top: 6px;
-    background: linear-gradient(135deg,#fde68a 0%,#fbbf24 35%,#f59e0b 100%);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 18px; }
+  .brand { text-align: center; margin-bottom: 20px; }
+  .brand-sub { font-weight: 900; font-size: 22px; letter-spacing: -0.4px; color: var(--pd-accent); }
 
+  /* 자녀 헤더 — 망고 그라데이션 띠 */
   .child-card {
-    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06));
-    border: 1px solid rgba(251,191,36,0.3);
-    border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 12px;
+    background: var(--pd-btn); color: var(--pd-btn-ink);
+    border-radius: 22px; padding: 20px 22px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 24px -12px rgba(255,159,28,0.6);
   }
-  .child-avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg,#fbbf24,#f59e0b); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 6px 12px -4px rgba(245,158,11,0.4); flex-shrink: 0; }
+  .child-avatar { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; overflow: hidden; }
   .child-info { min-width: 0; }
-  .child-info h1 { font-size: 17px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .child-info p { font-size: 12px; color: #cbd5e1; margin-top: 2px; }
+  .child-info h1 { font-size: 24px; font-weight: 900; color: var(--pd-btn-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+  .child-info p { font-size: 14px; color: var(--pd-btn-ink); opacity: .9; margin-top: 4px; }
   .child-pts { margin-left: auto; text-align: right; flex-shrink: 0; }
-  .child-pts-num { font-size: 18px; font-weight: 900; background: linear-gradient(180deg,#fff4cc,#fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .child-pts-label { font-size: 9px; color: #94a3b8; letter-spacing: 0.5px; }
+  .child-pts-num { font-size: 32px; font-weight: 900; color: var(--pd-btn-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+  .child-pts-label { font-size: 12px; color: var(--pd-btn-ink); opacity: .9; letter-spacing: 0.5px; margin-top: 4px; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .card {
-    background: rgba(20, 26, 43, 0.7);
-    border: 1px solid rgba(139, 92, 246, 0.15);
-    border-radius: 14px;
-    padding: 18px 20px;
-    backdrop-filter: blur(8px);
+    background: var(--pd-surface);
+    border: 2px solid var(--pd-line);
+    border-radius: 22px;
+    padding: 20px 22px;
+    box-shadow: 0 4px 0 var(--pd-line);
+    min-width: 0;
   }
-  .card h3 { font-size: 14px; font-weight: 800; color: #c4b5fd; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(139,92,246,0.08); font-size: 13px; }
+  .card h3 { font-size: 19px; font-weight: 900; color: var(--pd-ink); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 2px dotted var(--pd-tint-strong); font-size: 15px; color: var(--pd-ink2); }
   .stat:last-child { border-bottom: 0; }
-  .stat .v { font-weight: 700; color: #fff; }
-  .stat .v.gold { color: #fbbf24; }
-  .stat .v.green { color: #34d399; }
-  .stat .v.red { color: #f87171; }
+  .stat .v { font-weight: 800; color: var(--pd-ink); font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stat .v.gold { color: var(--pd-gold); }
+  .stat .v.green { color: var(--pd-green); }
+  .stat .v.red { color: var(--pd-red); }
 
-  .eval-item {
-    padding: 12px 14px;
-    background: rgba(139,92,246,0.08);
-    border-radius: 10px;
-    margin-bottom: 8px;
-    border-left: 3px solid #a78bfa;
-  }
-  .eval-score { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; }
-  .eval-date { font-size: 11px; color: #94a3b8; margin-left: 6px; }
-  .eval-text { font-size: 12px; color: #e6e9f5; margin-top: 6px; line-height: 1.5; }
+  .eval-item { padding: 14px 16px; background: var(--pd-tint); border-radius: 16px; margin-bottom: 10px; border: 2px solid var(--pd-line); }
+  .eval-score { display: inline-block; padding: 3px 12px; border-radius: 99px; font-size: 13px; font-weight: 800; background: var(--pd-btn); color: var(--pd-btn-ink); }
+  .eval-date { font-size: 13px; color: var(--pd-muted); margin-left: 6px; }
+  .eval-text { font-size: 14px; color: var(--pd-ink); margin-top: 6px; line-height: 1.55; }
 
-  /* 상단 우측 이모지 아이콘 (간격 띄워 겹침 방지) */
-  .top-icons { position: fixed; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 10px; align-items: center; }
-  .icon-btn {
-    width: 40px; height: 40px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; line-height: 1; padding: 0; cursor: pointer; text-decoration: none;
-    border: 1px solid rgba(148,163,184,0.4);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  }
-  .icon-btn.home-btn  { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color: rgba(245,158,11,0.5); box-shadow: 0 4px 12px -2px rgba(245,158,11,0.45); }
-  .icon-btn.lang-btn  { background: rgba(20,41,80,0.9); color:#7dd3fc; }
-  .icon-btn.audio-btn { background: rgba(20,41,80,0.9); color:#fbbf24; border-color: rgba(251,191,36,0.45); }
   /* 우하단 카카오 상담 (이모지 원형) */
   .kakao-fab { position: fixed; right: 16px; bottom: 16px; z-index: 1000; width: 54px; height: 54px; border-radius: 50%;
     background: linear-gradient(135deg,#fee500,#f6cc00); color:#191919; border:0; cursor:pointer; font-size: 24px;
     display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 20px -4px rgba(254,229,0,0.55); }
 
   .uid-input {
-    width: 100%; max-width: 400px; padding: 10px 14px; font-size: 14px;
-    background: rgba(20,26,43,0.8); color: #fff;
-    border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; margin-bottom: 10px;
+    width: 100%; max-width: 400px; padding: 12px 14px; font-size: 16px;
+    background: var(--pd-surface); color: var(--pd-ink);
+    border: 2px solid var(--pd-line); border-radius: 12px; margin-bottom: 10px;
   }
-  .uid-go { padding: 10px 24px; background: linear-gradient(135deg,#a78bfa,#7c3aed); color: #fff; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; }
+  .uid-input:focus { outline: 2px solid var(--pd-gold-fill); outline-offset: 1px; }
+  /* 👁 비밀번호 보기 (2026-09-14) — 입력칸 «안» 오른쪽 끝. 폰에서는 손가락 표적 40px 이상 */
+  .pw-wrap { position: relative; max-width: 400px; margin: 0 auto 8px; }
+  .pw-wrap .uid-input { margin: 0; padding-right: 92px; }
+  .pw-eye { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); height: 36px; padding: 0 10px;
+    display: inline-flex; align-items: center; gap: 4px; background: var(--pd-tint); color: var(--pd-gold);
+    border: 1px solid var(--pd-line-strong); border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; line-height: 1; white-space: nowrap; }
+  .pw-eye:hover { background: var(--pd-tint-strong); }
+  .pw-eye:focus-visible { outline: 2px solid var(--pd-gold-fill); outline-offset: 1px; }
+  .uid-go { padding: 12px 26px; background: var(--pd-btn); color: var(--pd-btn-ink); border: 0; border-radius: 999px; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 0 #d97706; }
 
-  .empty { padding: 24px; text-align: center; color: #94a3b8; font-size: 13px; background: rgba(20,26,43,0.5); border-radius: 10px; }
-  .att-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 1px; background: rgba(255,255,255,0.05); }
-  .att-dot.present { background: #34d399; }
-  .att-dot.on-time { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+  .empty { padding: 22px 12px; text-align: center; color: var(--pd-muted); font-size: 14px; background: var(--pd-tint); border: 2px dashed var(--pd-line); border-radius: 14px; }
+  .att-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 1px; background: var(--pd-tint-strong); }
+  .att-dot.present { background: var(--pd-green); }
+  .att-dot.on-time { background: var(--pd-gold-fill); }
 
   /* 🖼 실사 아이콘(Higgsfield, build-parent-icons.py 로 재생성) — 이모지 대체, 404 시 이모지로 자동 복귀 */
-  .pd-ico { width: 26px; height: 26px; object-fit: contain; border-radius: 7px; display: block; }
-  .pd-ico-sm { width: 19px; height: 19px; object-fit: contain; border-radius: 5px; vertical-align: -4px; display: inline-block; }
+  .pd-ico { width: 30px; height: 30px; object-fit: contain; border-radius: 8px; display: block; }
+  .pd-ico-sm { width: 26px; height: 26px; object-fit: contain; border-radius: 8px; vertical-align: -6px; display: inline-block; background: var(--pd-tint-strong); padding: 3px; }
   .pd-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
   @media (max-width: 640px) {
-    .brand-logo { font-size: 26px; }
-    /* 모바일에서도 한 줄 슬림 헤더 유지 (세로로 쌓지 않음) */
-    .child-card { flex-direction: row; text-align: left; }
-    .child-info h1 { font-size: 16px; }
-    .child-pts-num { font-size: 17px; }
+    body { font-size: 14px; }
+    .wrap { padding-top: 60px; } /* 우상단 공용 바(🔊·홈·EN) 아래로 */
+    .brand-sub { font-size: 19px; }
+    .child-card { flex-direction: row; text-align: left; padding: 16px; }
+    .child-info h1 { font-size: 19px; }
+    .child-pts-num { font-size: 26px; }
+    .card { padding: 16px; border-radius: 18px; }
+    .card h3 { font-size: 17px; }
   }
 </style>
 </head>
@@ -176,7 +171,7 @@
       text: '<span id="parent-audio-icon">🔊</span>',
       title: '음성 켜기/끄기',
       color: '#fbbf24',
-      borderColor: 'rgba(251,191,36,0.45)',
+      borderColor: 'var(--pd-line-strong)',
       onclick: window.toggleParentAudio
     });
     setTimeout(updateBtn, 120);
@@ -207,8 +202,8 @@ window.toggleParentAudio = function() {
 // 📲 카카오 공유 — Web Share API 우선, 안 되면 카카오톡 앱 호출 또는 URL 복사
 window.shareToKakao = async function() {
   const url = location.href; // 현재 페이지 (uid 포함)
-  const title = '망고아이 학부모 대시보드';
-  const text = '자녀의 학습 진도를 한눈에 확인하세요. 출석·평가서·AI 음성 코칭·배지·AI 추천까지 모두!';
+  const title = '망고아이 마이 페이지';
+  const text = '학습 진도를 한눈에 확인하세요. 출석·평가서·AI 음성 코칭·배지·AI 추천까지 모두!';
 
   // 1) 모바일/지원 브라우저 — Web Share API (카카오톡 선택 가능)
   if (navigator.share) {
@@ -231,18 +226,18 @@ window.shareToKakao = async function() {
 function showKakaoShareDialog(url) {
   const isEn = window.getLang && window.getLang() === 'en';
   const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);font-family:MangoiHanSC,"Noto Sans KR",sans-serif';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;font-family:MangoiHanSC,"Noto Sans KR",sans-serif';
   modal.innerHTML = `
-    <div style="background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(251,191,36,0.35);border-radius:18px;padding:28px;max-width:440px;width:100%;color:#e6ecff;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
+    <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:18px;padding:28px;max-width:440px;width:100%;color:var(--pd-ink);text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
       <div style="font-size:48px;margin-bottom:10px">💬</div>
-      <h2 style="font-size:20px;font-weight:800;color:#fbbf24;margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
-      <p style="font-size:13px;color:#a3b3d1;margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 학부모 대시보드 링크가 공유됩니다.'}</p>
-      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1;word-break:break-all;margin-bottom:18px">${url}</div>
+      <h2 style="font-size:20px;font-weight:800;color:var(--pd-gold);margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
+      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 마이 페이지 링크가 공유됩니다.'}</p>
+      <div style="background:var(--pd-tint);border:1px solid var(--pd-tint);border-radius:10px;padding:10px 14px;font-family:MangoiHanSC,monospace;font-size:13px;color:var(--pd-muted);word-break:break-all;margin-bottom:18px">${url}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:13px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:rgba(99,102,241,0.25);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
+        <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
       </div>
-      <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:#a3b3d1;border:0;padding:6px 12px;cursor:pointer;font-size:12px">${isEn?'Close':'닫기'}</button>
+      <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:var(--pd-muted);border:0;padding:6px 12px;cursor:pointer;font-size:14px">${isEn?'Close':'닫기'}</button>
     </div>`;
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
@@ -257,98 +252,111 @@ function showKakaoShareDialog(url) {
   <div id="entry">
     <!-- 🌟 환영 메시지 + 안내 -->
     <div style="text-align:center;padding:24px 20px 12px">
-      <div style="display:inline-block;padding:6px 14px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:99px;font-size:11.5px;color:#fbbf24;font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👨‍👩‍👧 학부모 전용 화면" data-en="👨‍👩‍👧 PARENT DASHBOARD">👨‍👩‍👧 학부모 전용 화면</div>
-      <h1 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4" data-ko="자녀의 학습 한눈에 보기" data-en="See Your Child's Progress at a Glance">자녀의 학습 한눈에 보기</h1>
-      <p style="color:#a3b3d1;font-size:13.5px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter your child's ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
+      <div style="display:inline-block;padding:6px 14px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:99px;font-size:13px;color:var(--pd-gold);font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👤 학생·학부모 마이 페이지" data-en="👤 STUDENT · PARENT MY PAGE">👤 학생·학부모 마이 페이지</div>
+      <h1 style="font-size:24px;font-weight:800;color:var(--pd-ink);margin-bottom:8px;line-height:1.4" data-ko="내 학습 한눈에 보기" data-en="My Learning at a Glance">내 학습 한눈에 보기</h1>
+      <p style="color:var(--pd-muted);font-size:15px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter the student ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
     </div>
 
     <!-- 📋 ID 입력 박스 -->
-    <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
-      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
+    <div style="background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
+      <label style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px" data-ko="👤 학생 ID" data-en="👤 Student ID">👤 학생 ID</label>
       <input id="uid-input" class="uid-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button id="uid-go-btn" class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
-      <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid rgba(139,92,246,0.2);padding-top:16px">
-        <label id="pw-label" style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
-        <input id="pw-input" class="uid-input" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="margin:0 auto 8px;display:block" />
-        <div id="pw-hint" style="display:none;font-size:11.5px;color:#fde68a;line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
-        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
-        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:#94a3b8;margin:0 auto 12px;cursor:pointer;user-select:none">
-          <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#8b5cf6;cursor:pointer">
-          이 기기에서 30일간 로그인 유지 (체크 안 하면 다음에도 비밀번호를 입력해요)
+      <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid var(--pd-line-strong);padding-top:16px">
+        <label id="pw-label" style="display:block;font-size:14px;color:var(--pd-gold);font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
+        <!-- 👁 비밀번호 보기 (2026-09-14 사장님 요청) — 아이콘·글자를 «따로» 두고 data-ko/data-en 은 글자 span 에만 (i18n 엔진이 textContent 를 통째로 갈아끼움) -->
+        <div class="pw-wrap">
+          <input id="pw-input" class="uid-input" type="password" autocomplete="current-password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="display:block" />
+          <button id="pw-eye" class="pw-eye" type="button" onclick="pdTogglePw()" aria-pressed="false" aria-label="비밀번호 보기" title="비밀번호 보기" data-ko-aria="비밀번호 보기" data-en-aria="Show password" data-ko-title="비밀번호 보기" data-en-title="Show password"><span id="pw-eye-ico" aria-hidden="true">👁</span><span id="pw-eye-txt" data-ko="보기" data-en="Show">보기</span></button>
+        </div>
+        <!-- 🔁 (2026-09-15) 한 번 더 입력 — «설정»(claim) 단계에서만 나온다.
+             가린 채로 오타를 내면 그대로 잠겨서 학원에 초기화를 요청해야 한다(스스로 되돌릴 길이 없다).
+             ⛔ «입력»(enter) 단계에는 넣지 말 것 — 이미 정한 비밀번호를 두 번 치게 만드는 것이라 뜻이 다르다. -->
+        <div id="pw2-row" style="display:none">
+          <label id="pw2-label" for="pw2-input" style="display:block;font-size:13.5px;color:var(--pd-muted);font-weight:700;margin:0 auto 6px;max-width:400px" data-ko="🔁 한 번 더 입력 (확인)" data-en="🔁 Confirm password">🔁 한 번 더 입력 (확인)</label>
+          <input id="pw2-input" class="uid-input" type="password" autocomplete="new-password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="display:block;margin:0 auto 8px" />
+        </div>
+        <div id="pw-hint" style="display:none;font-size:13px;color:var(--pd-gold);line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 이 학습 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
+        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 «이 화면의» 30일 토큰이 남는다.
+             ⚠ (2026-09-14) 홈에 로그인돼 있으면 그 로그인(mango_token)으로 비밀번호 없이 열린다 — 아래 문구가 그것을 함께 말한다. -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--pd-muted);margin:0 auto 6px;cursor:pointer;user-select:none">
+          <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#ff9f1c;cursor:pointer">
+          이 기기에서 30일간 로그인 유지
         </label>
+        <div style="font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:0 auto 12px;max-width:400px">체크 안 하면 다음에도 비밀번호를 입력해요. 단, <b>홈에 로그인돼 있는 동안</b>은 이 화면도 비밀번호 없이 열려요 (잠그려면 홈에서 로그아웃).</div>
         <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
       </div>
-      <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
+      <div style="margin-top:14px;font-size:13px;color:var(--pd-muted);line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
     </div>
 
     <!-- 🎯 보여드릴 기능 안내 (8개 카드) -->
     <div style="max-width:680px;margin:24px auto 0">
-      <h3 style="text-align:center;color:#fbbf24;font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
+      <h3 style="text-align:center;color:var(--pd-gold);font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
-        <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When classes were attended">언제 수업 들었는지 한눈에</div>
         </div>
-        <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
         </div>
-        <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
         </div>
-        <div style="background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
         </div>
-        <div style="background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
         </div>
-        <div style="background:rgba(236,72,153,0.10);border:1px solid rgba(236,72,153,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
         </div>
-        <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.30);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
         </div>
-        <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 12px">
+        <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📄" src="/img/menu/report.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
-          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
+          <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
         </div>
       </div>
     </div>
 
     <!-- ❓ 자주 묻는 질문 -->
-    <details style="max-width:680px;margin:24px auto;background:rgba(20,41,80,0.5);border:1px solid rgba(99,102,241,0.20);border-radius:12px">
-      <summary style="cursor:pointer;padding:14px 18px;font-size:13px;font-weight:700;color:#fbbf24;touch-action:manipulation" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
-      <div style="padding:0 18px 18px;font-size:12.5px;color:#cbd5e1;line-height:1.7">
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q2. 자녀가 여러 명이에요" data-en="Q2. I have multiple children">Q2. 자녀가 여러 명이에요</b><br><span data-ko="URL 에 자녀 ID 만 바꾸면 됩니다 — /parent.html?uid=다른자녀ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 자녀 ID 만 바꾸면 됩니다 — <code style="background:rgba(99,102,241,0.15);padding:2px 6px;border-radius:4px;color:#c4b5fd">/parent.html?uid=다른자녀ID</code></span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
-        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
-        <div><b style="color:#fbbf24" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
+    <details style="max-width:680px;margin:24px auto;background:var(--pd-surface);border:1px solid var(--pd-line-strong);border-radius:12px">
+      <summary style="cursor:pointer;padding:14px 18px;font-size:14px;font-weight:700;color:var(--pd-gold);touch-action:manipulation" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
+      <div style="padding:0 18px 18px;font-size:14px;color:var(--pd-ink2);line-height:1.7">
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q2. 볼 학생 ID 가 여러 개예요 (자녀가 여러 명 등)" data-en="Q2. More than one student ID (e.g. several children)">Q2. 볼 학생 ID 가 여러 개예요 (자녀가 여러 명 등)</b><br><span data-ko="URL 에 학생 ID 만 바꾸면 됩니다 —" data-en="Change ?uid= in the URL to switch —">URL 에 학생 ID 만 바꾸면 됩니다 —</span> <code style="background:var(--pd-tint);padding:2px 6px;border-radius:4px;color:var(--pd-accent)">/parent.html?uid=STUDENT_ID</code></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
+        <div style="margin-bottom:12px"><b style="color:var(--pd-gold)" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
+        <div><b style="color:var(--pd-gold)" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
       </div>
     </details>
 
     <!-- 🔒 개인정보 보호 안내 -->
-    <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:rgba(99,102,241,0.06);border-left:3px solid #6366f1;border-radius:8px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
-      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요." data-en="Your child's info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password can view it.">자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요.</span>
+    <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:var(--pd-tint);border-left:3px solid var(--pd-accent);border-radius:8px;font-size:13px;color:var(--pd-muted);line-height:1.6">
+      🔒 <b style="color:var(--pd-accent)" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="학습 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 사람(본인·학부모)만 볼 수 있어요." data-en="Learning info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password (the student or parent) can view it.">학습 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 사람(본인·학부모)만 볼 수 있어요.</span>
     </div>
   </div>
 
   <div id="dashboard" style="display:none">
-    <!-- 자녀 헤더 카드 -->
+    <!-- 학생 헤더 카드 -->
     <div class="child-card">
       <div class="child-avatar"><img class="pd-avatar-img pd-ico-fb" data-emoji="👧" src="/img/menu/students.webp" alt="" loading="lazy" decoding="async"></div>
       <div class="child-info">
@@ -367,7 +375,7 @@ function showKakaoShareDialog(url) {
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
         <div class="stat"><span data-ko="출석률" data-en="Attendance rate">출석률</span><span class="v gold" id="pd-att-rate">—</span></div>
-        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:11px;color:#94a3b8"></span></span></div>
+        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:13px;color:var(--pd-muted)"></span></span></div>
         <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
         <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">—</span></div>
         <div id="pd-att-grid" style="margin-top:10px"></div>
@@ -379,14 +387,14 @@ function showKakaoShareDialog(url) {
         <div class="stat"><span data-ko="누적 적립" data-en="Lifetime earned">누적 적립</span><span class="v green">+<span id="pd-earned">0</span> P</span></div>
         <div class="stat"><span data-ko="누적 사용" data-en="Lifetime spent">누적 사용</span><span class="v red">-<span id="pd-spent">0</span> P</span></div>
         <div class="stat"><span data-ko="현재 잔액" data-en="Current balance">현재 잔액</span><span class="v gold"><span id="pd-balance2">0</span> P</span></div>
-        <div id="pd-tx" style="margin-top:10px;font-size:11.5px;color:#94a3b8"></div>
+        <div id="pd-tx" style="margin-top:10px;font-size:13px;color:var(--pd-muted)"></div>
       </div>
 
       <!-- 결제 카드 -->
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
-        <div id="pd-pays" style="font-size:12.5px"></div>
-        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
+        <div id="pd-pays" style="font-size:14px"></div>
+        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:var(--pd-btn);color:var(--pd-btn-ink);text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
       </div>
 
     </div>
@@ -407,8 +415,8 @@ function showKakaoShareDialog(url) {
     <!-- 🌟 성적표(오각형 리포트) 바로가기 — 있을 때만 표시(기획안 Phase 4) -->
     <div class="card" id="pd-monthly-report-card" style="margin-top:16px;display:none">
       <h3>🌟 <span data-ko="이번 기간 성적표" data-en="This Period's Report">이번 기간 성적표</span></h3>
-      <p style="font-size:12.5px;color:#94a3b8;margin-bottom:10px" data-ko="발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요." data-en="See pronunciation, vocabulary, sentences, attitude and participation at a glance on a pentagon chart.">발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요.</p>
-      <a id="pd-monthly-report-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;font-size:13px">📄 <span data-ko="성적표 보기" data-en="View Report">성적표 보기</span></a>
+      <p style="font-size:14px;color:var(--pd-muted);margin-bottom:10px" data-ko="발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요." data-en="See pronunciation, vocabulary, sentences, attitude and participation at a glance on a pentagon chart.">발음·어휘·문장·태도·참여도를 오각형 그래프로 한눈에 볼 수 있어요.</p>
+      <a id="pd-monthly-report-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:var(--pd-btn);color:var(--pd-btn-ink);padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;font-size:14px">📄 <span data-ko="성적표 보기" data-en="View Report">성적표 보기</span></a>
     </div>
 
     <!-- 🆕 AI 음성 코칭 진도 -->
@@ -419,7 +427,7 @@ function showKakaoShareDialog(url) {
 
     <!-- 🆕 Phase BG — 배지 진열장 -->
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"> <span data-ko="자녀의 배지" data-en="My Child's Badges">자녀의 배지</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"> <span data-ko="획득한 배지" data-en="Badges Earned">획득한 배지</span></h3>
       <div id="pd-badges"></div>
     </div>
 
@@ -429,23 +437,26 @@ function showKakaoShareDialog(url) {
       <!-- 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반·즉시 로드). 데이터 없으면 숨김 -->
       <div id="pd-weekrec" style="display:none"></div>
       <div id="pd-recommend"><div class="empty">아래 버튼을 눌러 AI 학습 플랜을 받아보세요</div>
-        <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
+        <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:var(--pd-btn);color:var(--pd-btn-ink);border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
       </div>
     </div>
 
     <!-- 😊 패스키(얼굴/지문) 로그인 관리 -->
     <div class="card" style="margin-top:16px">
       <h3>😊 <span data-ko="얼굴/지문 로그인 (패스키)" data-en="Face/Fingerprint Login (Passkey)">얼굴/지문 로그인 (패스키)</span></h3>
-      <div style="color:#94a3b8;font-size:12px;margin-bottom:10px" data-ko="얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!" data-en="Biometrics never leave the device. Register once for one-tap login!">얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!</div>
+      <div style="color:var(--pd-muted);font-size:14px;margin-bottom:10px" data-ko="얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!" data-en="Biometrics never leave the device. Register once for one-tap login!">얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!</div>
       <div id="pd-passkeys"><div class="empty" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
       <div style="text-align:center;margin-top:12px">
-        <button id="pd-pk-add" onclick="pdPkAdd()" style="display:none;padding:9px 20px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
+        <button id="pd-pk-add" onclick="pdPkAdd()" style="display:none;padding:9px 20px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:9px;font-weight:800;font-size:14px;cursor:pointer" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
       </div>
     </div>
 
     <div style="text-align:center;margin-top:24px">
-      <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
+      <button onclick="pdRefresh()" style="padding:8px 20px;background:var(--pd-tint-strong);color:var(--pd-btn-ink);border:1px solid var(--pd-line-strong);border-radius:999px;cursor:pointer;font-weight:800" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:var(--pd-muted);border:1px solid var(--pd-line-strong);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 ID 로 조회" data-en="Switch ID">다른 ID 로 조회</button>
+      <!-- 🔓 홈 로그인으로 «자동으로» 열렸을 때만 보인다 — 「다른 ID 로 조회」는 이 탭만 쉬게 하지 홈 로그인을 끊지 않으므로,
+           잠그려면 홈에서 로그아웃해야 한다는 사실을 화면이 말한다(안 말하면 그 버튼이 «잠금» 으로 오해된다). -->
+      <div id="pd-home-note" style="display:none;font-size:12.5px;color:var(--pd-muted);line-height:1.55;margin:10px auto 0;max-width:520px" data-ko="🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요." data-en="🔓 Opened with your home login. To lock it, log out on the home page.">🔓 홈 로그인으로 열렸어요. 다른 사람이 못 보게 하려면 홈에서 로그아웃하세요.</div>
     </div>
   </div>
 </div>
@@ -458,13 +469,14 @@ const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'s
 let _currentUid = null;
 let _token = null;        // 🔐 로그인 토큰(비밀번호 인증 후 발급)
 let _pwMode = null;       // 'set'(최초 잠그기) | 'enter'(비번 입력)
+let _autoHome = false;    // 🔑 홈 로그인 토큰으로 «자동» 조회 중인가 — 실패해도 경고창 없이 입력화면으로만
 
 function getQueryParam(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
 // 1단계: ID 입력 → 계정에 비밀번호가 있는지 확인 → 설정/입력 안내
 window.pdGo = async function(){
   const uid = document.getElementById('uid-input').value.trim();
-  if (!uid) { alert('자녀의 학생 ID를 입력하세요'); return; }
+  if (!uid) { alert('학생 ID를 입력하세요'); return; }
   _currentUid = uid;
   let r, d;
   try {
@@ -482,24 +494,77 @@ window.pdGo = async function(){
   }
 };
 
+// JS 가 그리는 라벨은 글자와 data-ko/data-en 을 «같이» 써야 🌐 전환이 따라온다.
+function pdSetLabel(id, ko, en, isEn){
+  const el = document.getElementById(id); if (!el) return;
+  el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+  el.textContent = isEn ? en : ko;
+}
 function pdShowPwStep(isSet){
   _pwMode = isSet ? 'set' : 'enter';
   const uidInp = document.getElementById('uid-input'); if (uidInp) uidInp.disabled = true;
   const uidBtn = document.getElementById('uid-go-btn'); if (uidBtn) uidBtn.style.display = 'none';
   document.getElementById('pw-step').style.display = '';
-  document.getElementById('pw-label').textContent = isSet
-    ? '🔒 비밀번호 설정 — 자녀 정보를 잠그세요 (4자 이상)'
-    : '🔑 비밀번호 입력';
+  // 이 단계 라벨·버튼은 JS 가 그린다 → data-ko/data-en 도 «함께» 갱신해야 🌐 를 눌렀을 때 따라온다(CLAUDE.md 「JS 로 그린 라벨」)
+  const en0 = (window.getLang && getLang() === 'en');
+  pdSetLabel('pw-label',
+    isSet ? '🔒 비밀번호 설정 — 학습 정보를 잠그세요 (4자 이상)' : '🔑 비밀번호 입력',
+    isSet ? '🔒 Set a password — lock this learning data (4+ characters)' : '🔑 Enter password', en0);
+  pdSetLabel('pw-go-btn', isSet ? '🔒 설정하고 열기' : '🔓 확인',
+                          isSet ? '🔒 Set and open' : '🔓 Confirm', en0);
   document.getElementById('pw-hint').style.display = isSet ? '' : 'none';
-  document.getElementById('pw-go-btn').textContent = isSet ? '🔒 설정하고 열기' : '🔓 확인';
-  const p = document.getElementById('pw-input'); if (p) { p.value=''; p.focus(); }
+  // 🔁 한 번 더 입력 — «설정» 단계에만. 「입력」 단계에서 다시 열릴 때는 값을 비워 둔다.
+  const p2row = document.getElementById('pw2-row'), p2 = document.getElementById('pw2-input');
+  if (p2row) p2row.style.display = isSet ? '' : 'none';
+  if (p2) p2.value = '';
+  const p = document.getElementById('pw-input');
+  if (p) { p.value=''; p.autocomplete = isSet ? 'new-password' : 'current-password'; p.focus(); }   // 설정(claim) 모드는 «새» 비밀번호 — 브라우저 자동완성 힌트만 다름
+  pdSetPwVisible(false);   // 단계가 다시 열릴 때는 늘 «가린» 상태에서 시작
 }
+
+// 👁 비밀번호 보기/가리기 — type 만 바꾼다(값·Enter 제출·pdPwGo 는 그대로).
+// 라벨은 상태마다 바뀌므로 textContent 와 data-ko/data-en 을 «함께» 갱신한다(CLAUDE.md 「JS 로 그린 라벨」).
+function pdSetPwVisible(show){
+  const p = document.getElementById('pw-input'), b = document.getElementById('pw-eye');
+  if (!p || !b) return;
+  p.type = show ? 'text' : 'password';
+  const p2 = document.getElementById('pw2-input');
+  if (p2) p2.type = p.type;   // 🔁 확인 칸도 같이 — 버튼 하나가 두 칸을 함께 연다
+  const en = (window.getLang && getLang() === 'en');
+  const ko = show ? '가리기' : '보기', enTxt = show ? 'Hide' : 'Show';
+  const koA = show ? '비밀번호 가리기' : '비밀번호 보기', enA = show ? 'Hide password' : 'Show password';
+  const ico = document.getElementById('pw-eye-ico'), txt = document.getElementById('pw-eye-txt');
+  if (ico) ico.textContent = show ? '🙈' : '👁';
+  if (txt) { txt.setAttribute('data-ko', ko); txt.setAttribute('data-en', enTxt); txt.textContent = en ? enTxt : ko; }
+  b.setAttribute('data-ko-aria', koA); b.setAttribute('data-en-aria', enA);
+  b.setAttribute('data-ko-title', koA); b.setAttribute('data-en-title', enA);
+  b.setAttribute('aria-label', en ? enA : koA); b.title = en ? enA : koA;
+  b.setAttribute('aria-pressed', show ? 'true' : 'false');
+}
+window.pdTogglePw = function(){
+  const p = document.getElementById('pw-input'); if (!p) return;
+  pdSetPwVisible(p.type === 'password');
+  try { p.focus(); } catch(e){}
+};
 
 // 2단계: 비밀번호 설정(claim) 또는 입력 → 로그인 토큰 발급 → 대시보드
 window.pdPwGo = async function(){
   const pw = document.getElementById('pw-input').value.trim();
-  if (pw.length < 4) { alert('비밀번호는 4자 이상 입력해주세요'); return; }
+  const enMsg = (window.getLang && getLang() === 'en');
+  if (pw.length < 4) { alert(enMsg ? 'Password must be at least 4 characters.' : '비밀번호는 4자 이상 입력해주세요'); return; }
   if (_pwMode === 'set') {
+    /* 🔁 한 번 더 입력한 값과 다르면 여기서 멈춘다 — 오타로 잠기면 스스로 못 푼다(학원 초기화 요청).
+       ⚠ 칸이 없으면 비교하지 않고 지나간다(= 고치기 전과 같은 동작). 막는 쪽으로 실패하면
+       «비밀번호를 영영 못 정하는» 새 사고가 되기 때문이다.
+       ⛔ 그 «없는» 경우는 «옛 화면» 이 아니다 — HTML 과 이 JS 는 한 파일이라 섞일 수 없다.
+          실제로 닿는 유일한 길은 «나중에 누가 #pw2-row/#pw2-input 을 지우거나 이름을 바꿀 때» 이고,
+          그때 확인 기능이 **에러 한 줄 없이** 통째로 사라진다. 이름을 바꾸면 이 줄도 함께 보라. */
+    const e2 = document.getElementById('pw2-input');
+    if (e2 && e2.value.trim() !== pw) {
+      alert(enMsg ? '❌ The two passwords do not match. Please check again.' : '❌ 두 번 입력한 비밀번호가 서로 달라요. 다시 확인해주세요.');
+      try { e2.focus(); e2.select(); } catch(e){}
+      return;
+    }
     try {
       const r = await fetch('/api/student/set-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: _currentUid, new_password: pw }) });
       const d = await r.json();
@@ -515,6 +580,7 @@ async function pdLogin(pw){
     const d = await r.json();
     if (!d.ok || !d.token) { alert('❌ ' + (d.message || '비밀번호가 일치하지 않습니다.')); return; }
     _token = d.token;
+    try { sessionStorage.removeItem('mangoi_parent_switch'); } catch(e){}   // 사람이 직접 로그인했으니 자동 조회 다시 허용
     /* 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증, 체크박스를 켰을 때만 로그인 유지.
        이전엔 최초 인증 성공 시 무조건 30일 토큰을 저장해서, 자녀가 같은 기기로 비밀번호 없이
        학부모 페이지를 열 수 있었다. 체크 안 하면 이번 탭에서만 열람되고(_token 메모리 변수),
@@ -544,6 +610,8 @@ async function pdLogin(pw){
 window.pdLogout = function(){
   _currentUid = null; _token = null;
   try { localStorage.removeItem('mangoi_parent_uid'); localStorage.removeItem('mangoi_parent_token'); } catch(e){}
+  // 「다른 ID 로 조회」 — 홈 로그인은 그대로 두되(홈 세션을 여기서 끊지 않는다) 이 탭에서는 자동 조회를 쉰다.
+  try { sessionStorage.setItem('mangoi_parent_switch', '1'); } catch(e){}
   location.reload();
 };
 
@@ -566,17 +634,31 @@ async function pdLoad(){
     const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token || ''));
     const d = await r.json();
     if (!d.ok) {
-      if (d.error === 'auth_required' || d.error === 'password_not_set') {
-        pdBackToEntry('🔒 다시 로그인해주세요. (자녀 ID 입력 후 비밀번호 확인)');
+      if (d.error === 'password_not_set') {
+        /* 계정은 맞는데 마이페이지 비밀번호가 아직 없다 → 「조회하기」를 또 누르게 하지 말고 설정 단계를 바로 연다.
+           (홈 로그인만 된 학생은 여기서 4자 이상 정하면 그 자리에서 열린다) */
+        const wasAuto = _autoHome; _autoHome = false;
+        pdBackToEntry(null);
+        pdShowPwStep(true);
+        if (!wasAuto) alert('🔒 학습 정보를 잠글 비밀번호를 먼저 설정해주세요. (4자 이상)');
         return;
       }
+      if (d.error === 'auth_required') {
+        const wasAuto = _autoHome; _autoHome = false;
+        pdBackToEntry(wasAuto ? null : '🔒 다시 로그인해주세요. (학생 ID 입력 후 비밀번호 확인)');
+        return;
+      }
+      _autoHome = false;
       throw new Error(d.error || 'load_fail');
     }
+    { const hn = document.getElementById('pd-home-note'); if (hn) hn.style.display = _autoHome ? '' : 'none'; }
+    _autoHome = false;
     pdRender(d);
     pdWeekRec(); // 🎯 주간 학습 진단 요약(룰 기반·즉시) — AI 버튼과 별개로 자동 로드
     pdPkLoad();  // 😊 패스키 목록도 함께 갱신
     pdLeveltest(); // 🎯 레벨테스트 신청 현황 — 신청건 없으면 카드째 숨김
   } catch(e) {
+    if (_autoHome) { _autoHome = false; pdBackToEntry(null); return; }   // 자동 시도는 실패해도 조용히(직접 조회 때만 경고창)
     alert('❌ ' + e.message);
   }
 }
@@ -602,30 +684,30 @@ async function pdLeveltest(){
   const isEn = window.getLang && window.getLang() === 'en';
   // [한, 영, 색] — 상태는 서버 status 그대로 매핑. 모르는 값은 그대로 노출(숨기지 않음).
   const ST = {
-    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요', 'Received — finding a teacher', '#fbbf24'],
-    proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', '#a78bfa'],
-    confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', '#34d399'],
-    done:      ['테스트 완료', 'Test completed', '#60a5fa'],
-    cancelled: ['취소됨', 'Cancelled', '#94a3b8']
+    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요', 'Received — finding a teacher', 'var(--pd-gold)'],
+    proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', 'var(--pd-accent)'],
+    confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', 'var(--pd-green)'],
+    done:      ['테스트 완료', 'Test completed', 'var(--pd-blue)'],
+    cancelled: ['취소됨', 'Cancelled', 'var(--pd-muted)']
   };
   const rows = items.map(a => {
-    const st = ST[a.status] || [a.status || '-', a.status || '-', '#94a3b8'];
+    const st = ST[a.status] || [a.status || '-', a.status || '-', 'var(--pd-muted)'];
     const when = [a.desired_date, a.desired_time].filter(Boolean).join(' ');
     const bits = [];
-    if (a.assigned_teacher) bits.push((isEn ? 'Teacher: ' : '담당 선생님: ') + '<b style="color:#fde68a">' + esc(a.assigned_teacher) + '</b>');
-    if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:#fbbf24">' + a.ai_score + '</b>');
-    if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + a.pron_score + '</b>');
-    if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:#fbbf24">' + a.teacher_score + '</b>');
-    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:#6ee7b7">' + esc(a.final_level) + '</b>');
-    const guide = a.next_class_guide ? '<div style="font-size:12px;color:#94e2c5;margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
-    const book  = a.recommended_textbook ? '<div style="font-size:12px;color:#94e2c5;margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
-    return '<div style="padding:12px 14px;margin-bottom:10px;background:rgba(148,163,184,0.07);border-left:4px solid ' + st[2] + ';border-radius:8px">' +
-      '<div style="font-weight:800;font-size:13px;color:' + st[2] + '">' + esc(isEn ? st[1] : st[0]) + '</div>' +
-      (when ? '<div style="font-size:12.5px;color:#e6e9f5;margin-top:5px">🗓 ' + esc(when) + '</div>' : '') +
-      (bits.length ? '<div style="font-size:12.5px;color:#cbd5e1;margin-top:5px;line-height:1.7">' + bits.join(' · ') + '</div>' : '') +
+    if (a.assigned_teacher) bits.push((isEn ? 'Teacher: ' : '담당 선생님: ') + '<b style="color:var(--pd-gold)">' + esc(a.assigned_teacher) + '</b>');
+    if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:var(--pd-gold)">' + a.ai_score + '</b>');
+    if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:var(--pd-gold)">' + a.pron_score + '</b>');
+    if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:var(--pd-gold)">' + a.teacher_score + '</b>');
+    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:var(--pd-green)">' + esc(a.final_level) + '</b>');
+    const guide = a.next_class_guide ? '<div style="font-size:14px;color:var(--pd-green);margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
+    const book  = a.recommended_textbook ? '<div style="font-size:14px;color:var(--pd-green);margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
+    return '<div style="padding:12px 14px;margin-bottom:10px;background:var(--pd-tint);border-left:4px solid ' + st[2] + ';border-radius:8px">' +
+      '<div style="font-weight:800;font-size:14px;color:' + st[2] + '">' + esc(isEn ? st[1] : st[0]) + '</div>' +
+      (when ? '<div style="font-size:14px;color:var(--pd-ink);margin-top:5px">🗓 ' + esc(when) + '</div>' : '') +
+      (bits.length ? '<div style="font-size:14px;color:var(--pd-ink2);margin-top:5px;line-height:1.7">' + bits.join(' · ') + '</div>' : '') +
       book + guide +
       // ⚠ 공용 fmtDate 는 'ko-KR' 고정이라 영어 화면에서 «Applied 8월 5일» 처럼 섞인다 → 여기선 언어에 맞춘다
-      '<div style="font-size:11px;color:#6b7a99;margin-top:6px">' + (isEn ? 'Applied ' : '신청일 ') +
+      '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + (isEn ? 'Applied ' : '신청일 ') +
         (a.created_at ? new Date(a.created_at).toLocaleDateString(isEn ? 'en-US' : 'ko-KR', { month:'short', day:'numeric' }) : '-') + '</div>' +
     '</div>';
   }).join('');
@@ -633,11 +715,11 @@ async function pdLeveltest(){
   // 아직 AI 진단을 안 본 신청이 있으면 바로 볼 수 있게 안내 (희망 톤)
   const needsAi = items.some(a => a.ai_score == null && a.status !== 'cancelled');
   const cta = needsAi
-    ? '<div style="margin-top:4px;padding:11px 13px;background:rgba(99,102,241,0.10);border-radius:8px;font-size:12.5px;color:#c7d2fe;line-height:1.6">' +
+    ? '<div style="margin-top:4px;padding:11px 13px;background:var(--pd-tint);border-radius:8px;font-size:14px;color:var(--pd-ink2);line-height:1.6">' +
         (isEn
           ? 'Take the 5-minute AI placement check first — your teacher can then start at exactly the right level. '
           : '먼저 5분짜리 AI 자동 진단을 받아보세요. 선생님이 딱 맞는 지점에서 시작할 수 있어요. ') +
-        '<a href="/level-test-ai.html" style="color:#a5b4fc;font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
+        '<a href="/level-test-ai.html" style="color:var(--pd-accent);font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
     : '';
   el.innerHTML = rows + cta;
   card.style.display = '';
@@ -655,27 +737,27 @@ async function pdWeekRec(){
     if (!d.ok || d.status === 'no_data') { el.style.display = 'none'; return; }
     const isEn = window.getLang && window.getLang() === 'en';
     const parts = [];
-    if (d.accuracy != null) parts.push((isEn ? 'Game accuracy ' : '게임 정답률 ') + '<b style="color:#fbbf24">' + d.accuracy + '%</b>');
-    if (d.pron != null) parts.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + d.pron + (isEn ? '/100' : '점') + '</b>');
+    if (d.accuracy != null) parts.push((isEn ? 'Game accuracy ' : '게임 정답률 ') + '<b style="color:var(--pd-gold)">' + d.accuracy + '%</b>');
+    if (d.pron != null) parts.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:var(--pd-gold)">' + d.pron + (isEn ? '/100' : '점') + '</b>');
     const weak = (d.weak || []).slice(0, 5);
     const chips = weak.map(w => {
       const t = esc(String(w.item || ''));
       const ko = esc(String(w.ko || ''));
-      return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#fde68a;font-size:11.5px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
+      return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:var(--pd-tint);border:1px solid var(--pd-line-strong);color:var(--pd-gold);font-size:13px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
     }).join('');
-    // 가정 안내 문구 — 학부모 눈높이 (자녀에게 시켜볼 수 있는 것)
+    // 안내 문구 — 학생·학부모 공용(2026-09-14 «마이 페이지» 로 중립화 — 「자녀에게 시키세요」 어투 금지)
     const TIP = {
-      pronunciation: [ '자녀에게 말하기 퀴즈(스피치 코치)로 발음 연습을 권해주세요.', 'Encourage your child to practice pronunciation in the Speaking Quiz.' ],
+      pronunciation: [ '말하기 퀴즈(스피치 코치)로 발음 연습을 해 보세요.', 'Practice pronunciation in the Speaking Quiz.' ],
       weak_words:    [ '아래 단어들을 게임으로 복습하면 큰 도움이 됩니다.', 'Reviewing the words below in a game will help a lot.' ],
-      advanced:      [ '아주 잘하고 있어요! 더 어려운 게임 도전을 응원해주세요.', 'Doing great! Cheer them on to try harder challenges.' ],
-      keep_going:    [ '꾸준히 잘하고 있어요. 지금 페이스를 응원해주세요!', 'Steady progress! Keep encouraging the current pace.' ]
+      advanced:      [ '아주 잘하고 있어요! 더 어려운 게임에 도전해 보세요.', 'Doing great! Try harder challenges next.' ],
+      keep_going:    [ '꾸준히 잘하고 있어요. 지금 페이스를 이어가세요!', 'Steady progress! Keep up the current pace.' ]
     };
     const tip = TIP[d.focus] || TIP.keep_going;
     el.innerHTML =
-      '<div style="padding:12px 14px;background:rgba(52,211,153,0.08);border-left:4px solid #34d399;border-radius:8px;margin-bottom:12px">' +
-        '<div style="font-weight:700;color:#6ee7b7;margin-bottom:4px;font-size:12.5px">📊 ' + (isEn ? 'This Week at a Glance (auto)' : '이번 주 학습 한눈에 (자동 진단)') + '</div>' +
-        (parts.length ? '<div style="font-size:12.5px;color:#e6e9f5;line-height:1.7">' + parts.join(' · ') + '</div>' : '') +
-        '<div style="font-size:12px;color:#94e2c5;margin-top:4px">' + (isEn ? tip[1] : tip[0]) + '</div>' +
+      '<div style="padding:12px 14px;background:var(--pd-green-tint);border-left:4px solid var(--pd-green);border-radius:8px;margin-bottom:12px">' +
+        '<div style="font-weight:700;color:var(--pd-green);margin-bottom:4px;font-size:14px">📊 ' + (isEn ? 'This Week at a Glance (auto)' : '이번 주 학습 한눈에 (자동 진단)') + '</div>' +
+        (parts.length ? '<div style="font-size:14px;color:var(--pd-ink);line-height:1.7">' + parts.join(' · ') + '</div>' : '') +
+        '<div style="font-size:14px;color:var(--pd-green);margin-top:4px">' + (isEn ? tip[1] : tip[0]) + '</div>' +
         (chips ? '<div style="margin-top:6px">' + chips + '</div>' : '') +
       '</div>';
     el.style.display = '';
@@ -704,13 +786,13 @@ async function pdPkLoad(){
     if (!d.ok) throw new Error(d.message || d.error);
     if (!d.items.length) { box.innerHTML = '<div class="empty">등록된 패스키가 없어요. 아래 버튼으로 이 기기를 등록해보세요!</div>'; return; }
     box.innerHTML = d.items.map(it =>
-      '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:9px;margin-bottom:7px">'+
+      '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--pd-green-tint);border:1px solid var(--pd-green-line);border-radius:9px;margin-bottom:7px">'+
         '<span style="font-size:20px">🔑</span>'+
         '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:12.5px;font-weight:700;color:#d1fae5">'+esc(it.device_label || '내 기기')+'</div>'+
-          '<div style="font-size:11px;color:#94a3b8">등록 '+fmtDate(it.created_at)+(it.last_used_at ? ' · 마지막 사용 '+fmtDate(it.last_used_at) : '')+'</div>'+
+          '<div style="font-size:14px;font-weight:700;color:var(--pd-ink)">'+esc(it.device_label || '내 기기')+'</div>'+
+          '<div style="font-size:13px;color:var(--pd-muted)">등록 '+fmtDate(it.created_at)+(it.last_used_at ? ' · 마지막 사용 '+fmtDate(it.last_used_at) : '')+'</div>'+
         '</div>'+
-        '<button onclick="pdPkRemove(\''+esc(it.credential_id)+'\')" style="padding:6px 12px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:7px;font-size:11.5px;cursor:pointer;font-weight:700">삭제</button>'+
+        '<button onclick="pdPkRemove(\''+esc(it.credential_id)+'\')" style="padding:6px 12px;background:var(--pd-red-tint);color:var(--pd-red);border:1px solid var(--pd-red-line);border-radius:7px;font-size:13px;cursor:pointer;font-weight:700">삭제</button>'+
       '</div>').join('');
   } catch(e) {
     box.innerHTML = '<div class="empty">목록을 불러오지 못했어요 ('+esc(e.message||e)+')</div>';
@@ -776,7 +858,8 @@ window.pdPkAdd = async function(){
 function pdRender(d){
   const c = d.child || {};
   document.getElementById('pd-name').textContent = c.student_name || _currentUid;
-  document.getElementById('pd-meta').textContent = (c.program||'-') + ' · ' + (c.parent_name||'-') + ' 학부모 · ID: ' + _currentUid;
+  // 학부모 이름은 «있을 때만» — 학생 본인이 볼 때 「- 학부모」로 찍히지 않게(2026-09-14)
+  document.getElementById('pd-meta').textContent = (c.program||'-') + (c.parent_name ? ' · 학부모 ' + c.parent_name : '') + ' · ID: ' + _currentUid;
   const pts = d.points || {};
   document.getElementById('pd-balance').textContent = fmt(pts.balance);
   document.getElementById('pd-balance2').textContent = fmt(pts.balance);
@@ -786,8 +869,8 @@ function pdRender(d){
   // 포인트 거래 최근 5건
   const tx = (pts.recent_tx || []).slice(0, 5);
   document.getElementById('pd-tx').innerHTML = tx.length
-    ? '<div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'#34d399':'#f87171'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
-    : '<div style="color:#6b7280">거래 내역 없음</div>';
+    ? '<div style="font-weight:700;color:var(--pd-accent);margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'var(--pd-green)':'var(--pd-red)'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
+    : '<div style="color:var(--pd-muted)">거래 내역 없음</div>';
 
   // 출석
   const att = d.attendance || {};
@@ -816,7 +899,7 @@ function pdRender(d){
   // 결제
   const pays = (d.payments || []).slice(0, 4);
   document.getElementById('pd-pays').innerHTML = pays.length
-    ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.08);display:flex;justify-content:space-between"><span style="color:#cbd5e1">${esc(p.method||'결제')} <span style="font-size:11px;color:#94a3b8">${fmtDate(p.paid_at)}</span></span><b style="color:#fbbf24">${fmt(p.amount_krw)}원</b></div>`).join('')
+    ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--pd-tint);display:flex;justify-content:space-between"><span style="color:var(--pd-ink2)">${esc(p.method||'결제')} <span style="font-size:13px;color:var(--pd-muted)">${fmtDate(p.paid_at)}</span></span><b style="color:var(--pd-gold)">${fmt(p.amount_krw)}원</b></div>`).join('')
     : '<div class="empty">결제 내역 없음</div>';
 
   /* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사 1분 수업일지(/api/eval/create·bulk-create)는
@@ -832,8 +915,8 @@ function pdRender(d){
     ? evals.map(e => `<div class="eval-item">
         <span class="eval-score">${e.score_overall||0}/${pdEvalMax(e.score_overall)}</span>
         <span class="eval-date">${esc(e.lesson_date||'-')} · ${esc(e.teacher_name||'-')}</span>
-        <div class="eval-text"><b style="color:#34d399">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
-        <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
+        <div class="eval-text"><b style="color:var(--pd-green)">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
+        <div class="eval-text"><b style="color:var(--pd-gold)">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
       </div>`).join('')
     : '<div class="empty">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>';
 
@@ -859,13 +942,13 @@ function pdRender(d){
     if (!bdata.ok) return;
     const badges = bdata.badges || [];
     el.innerHTML = `
-      <div style="margin-bottom:10px;font-size:12px;color:#94a3b8">획득 <b style="color:#fbbf24">${bdata.earned_count}</b> / ${bdata.total_count}</div>
+      <div style="margin-bottom:10px;font-size:14px;color:var(--pd-muted)">획득 <b style="color:var(--pd-gold)">${bdata.earned_count}</b> / ${bdata.total_count}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
         ${badges.map(b => `
-          <div style="background:${b.earned?'linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08))':'rgba(255,255,255,0.04)'};border:1px solid ${b.earned?'rgba(251,191,36,0.4)':'rgba(148,163,184,0.15)'};border-radius:10px;padding:10px;text-align:center;opacity:${b.earned?'1':'0.35'};transition:transform .15s" title="${esc(b.desc)}">
-            <div style="font-size:28px;line-height:1">${b.icon}</div>
-            <div style="font-weight:700;font-size:11px;color:${b.earned?'#fbbf24':'#94a3b8'};margin-top:6px">${esc(b.name)}</div>
-            ${b.earned?`<div style="font-size:9px;color:#94a3b8;margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:9px;color:#6b7280;margin-top:2px">미획득</div>`}
+          <div style="background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;;transition:transform .15s" title="${esc(b.desc)}">
+            <div style="font-size:28px;line-height:1;${b.earned?'':'filter:grayscale(1);opacity:.55'}">${b.icon}</div>
+            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-btn-ink)':'var(--pd-muted)'};margin-top:6px">${esc(b.name)}</div>
+            ${b.earned?`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">미획득</div>`}
           </div>`).join('')}
       </div>`;
   }).catch(()=>{}));
@@ -885,15 +968,15 @@ function pdRender(d){
       // 서버는 recommendations 를 ' | ' 연결 문자열로 저장 — 배열/문자열 모두 수용 (기존 버그: 문자열이면 목록이 안 보였음)
       const recs = Array.isArray(a.recommendations) ? a.recommendations : String(a.recommendations || '').split(' | ').filter(Boolean);
       el.innerHTML = `
-        <div style="padding:14px;background:rgba(167,139,250,0.1);border-left:4px solid #a78bfa;border-radius:8px;margin-bottom:10px">
-          <div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">📝 AI 진단</div>
-          <div style="font-size:12.5px;color:#e6e9f5;line-height:1.6">${esc(a.summary||'데이터가 부족합니다')}</div>
+        <div style="padding:14px;background:var(--pd-tint);border-left:4px solid var(--pd-accent);border-radius:8px;margin-bottom:10px">
+          <div style="font-weight:700;color:var(--pd-accent);margin-bottom:4px">📝 AI 진단</div>
+          <div style="font-size:14px;color:var(--pd-ink);line-height:1.6">${esc(a.summary||'데이터가 부족합니다')}</div>
         </div>
-        ${recs.length ? `<div style="padding:14px;background:rgba(59,130,246,0.1);border-left:4px solid #3b82f6;border-radius:8px">
-          <div style="font-weight:700;color:#60a5fa;margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
-          <ul style="margin:0;padding-left:20px;color:#93c5fd;font-size:12.5px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        ${recs.length ? `<div style="padding:14px;background:var(--pd-blue-tint);border-left:4px solid var(--pd-blue);border-radius:8px">
+          <div style="font-weight:700;color:var(--pd-blue);margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
+          <ul style="margin:0;padding-left:20px;color:var(--pd-ink2);font-size:14px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
         </div>` : ''}
-        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
+        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:var(--pd-btn);color:var(--pd-btn-ink);border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
       `;
     } catch(e) {
       el.innerHTML = '<div class="empty">AI 분석 실패: ' + e.message + '</div>';
@@ -905,39 +988,39 @@ function pdRender(d){
     const el = document.getElementById('pd-voice-stats');
     if (!el) return;
     if (!stats.ok || stats.total_sessions === 0) {
-      el.innerHTML = '<div class="empty">아직 음성 코칭 기록이 없습니다.<br><a href="/speech-coach.html" style="color:#fbbf24;font-weight:700;margin-top:8px;display:inline-block">🎙 지금 시작하기</a></div>';
+      el.innerHTML = '<div class="empty">아직 음성 코칭 기록이 없습니다.<br><a href="/speech-coach.html" style="color:var(--pd-gold);font-weight:700;margin-top:8px;display:inline-block">🎙 지금 시작하기</a></div>';
       return;
     }
     // 일별 점수 막대 차트
     const maxScore = Math.max(...stats.daily.map(d => d.overall), 100);
     const bars = stats.daily.slice(-14).map(d => {
       const h = Math.max(8, (d.overall / maxScore) * 70);
-      const color = d.overall >= 80 ? '#34d399' : d.overall >= 60 ? '#fbbf24' : '#f87171';
-      return `<div title="${d.date}: ${d.overall}점 (${d.count}회)" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-        <div style="font-size:10px;color:#fbbf24;font-weight:700">${d.overall}</div>
+      const color = d.overall >= 80 ? 'var(--pd-green)' : d.overall >= 60 ? 'var(--pd-gold-fill)' : 'var(--pd-red)';
+      return `<div title="${d.date}: ${d.overall}점 (${d.count}회)" style="flex:1 1 0;max-width:72px;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:12px;color:var(--pd-gold);font-weight:700">${d.overall}</div>
         <div style="width:100%;height:${h}px;background:${color};border-radius:3px 3px 0 0"></div>
-        <div style="font-size:9px;color:#94a3b8">${d.date.slice(5)}</div>
+        <div style="font-size:11px;color:var(--pd-muted)">${d.date.slice(5)}</div>
       </div>`;
     }).join('');
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <div style="text-align:center;padding:10px;background:rgba(139,92,246,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#a78bfa">${stats.total_sessions}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">TOTAL</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-accent)">${stats.total_sessions}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">TOTAL</div>
         </div>
-        <div style="text-align:center;padding:10px;background:rgba(251,191,36,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#fbbf24">${stats.best_score}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">BEST</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-gold)">${stats.best_score}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">BEST</div>
         </div>
-        <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.1);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#34d399">${stats.latest_score}</div>
-          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">LATEST</div>
+        <div style="text-align:center;padding:10px;background:var(--pd-green-tint);border-radius:12px">
+          <div style="font-size:26px;font-weight:900;color:var(--pd-green)">${stats.latest_score}</div>
+          <div style="font-size:12px;color:var(--pd-muted);letter-spacing:1px">LATEST</div>
         </div>
       </div>
-      <div style="display:flex;align-items:flex-end;gap:3px;height:90px;padding:0 4px">${bars}</div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:#94a3b8">최근 14일 일별 종합 점수</div>
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;height:90px;padding:0 4px">${bars}</div>
+      <div style="text-align:center;margin-top:8px;font-size:13px;color:var(--pd-muted)">최근 14일 일별 종합 점수</div>
       <div style="text-align:center;margin-top:12px">
-        <a href="/speech-coach.html" style="display:inline-block;padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:12.5px">🎙 더 연습하기</a>
+        <a href="/speech-coach.html" style="display:inline-block;padding:8px 16px;background:var(--pd-btn);color:var(--pd-btn-ink);text-decoration:none;border-radius:8px;font-weight:700;font-size:14px">🎙 더 연습하기</a>
       </div>`;
   }).catch(e => {
     const el = document.getElementById('pd-voice-stats');
@@ -956,6 +1039,7 @@ function pdRender(d){
   if (!shouldPlay) return;
   try { sessionStorage.removeItem('mangoi_play_parent_audio'); } catch(e){}
 
+  // ⚠️ 이 녹음은 아직 «학부모 대시보드» 라고 말합니다(2026-09-14 화면은 «마이 페이지» 로 중립화). 파일을 다시 녹음해 갈아 끼우기 전까지는 글자와 소리가 다릅니다 — 사람이 정할 일.
   const audio = new Audio('/audio/학부모대시보드.wav');
   audio.volume = 0.5;
   audio.play().catch(() => {});
@@ -965,7 +1049,7 @@ function pdRender(d){
   toast.id = 'mangoi-parent-audio-toast';
   toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:rgba(20,41,80,0.95);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:12px 16px;font-size:13px;font-family:MangoiHanSC,"Noto Sans KR",sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:mpt-slide 0.35s ease-out';
   toast.innerHTML = `
-    <span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>학부모 대시보드 안내</b></span>
+    <span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>마이 페이지 안내</b></span>
     <button id="mpt-stop" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e6ecff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">⏸ 멈춤</button>
     <button id="mpt-mute" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">🔇 다음부터 끄기</button>
   `;
@@ -997,7 +1081,7 @@ function pdRender(d){
   function loggedInUid(){
     try {
       const raw = localStorage.getItem('mangoi_logged_user');
-      if (raw) { const u = JSON.parse(raw); if (u && u.uid) return u.uid; }
+      if (raw) { const u = JSON.parse(raw); const v = u && (u.uid || u.user_id || u.id); if (v) return String(v); }
     } catch(e){}
     try { const alt = localStorage.getItem('mangoi_uid'); if (alt) return alt; } catch(e){}
     return null;
@@ -1006,15 +1090,28 @@ function pdRender(d){
   const fromUrl = getQueryParam('uid');
   let saved = null;
   try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
-  const uid = fromUrl || saved || loggedInUid();
+  const homeUid = loggedInUid();
+  const uid = fromUrl || saved || homeUid;
   let savedToken = ''; try { savedToken = localStorage.getItem('mangoi_parent_token') || ''; } catch(e){}
+  /* 🔑 (2026-09-14 사장님 「로그인 하면 다시 로그인 안 해도 바로 마이페이지 내용이 보이게」)
+     홈에서 로그인한 학생은 이미 서버 서명 토큰(mango_token)을 갖고 있고, 그 토큰은 이 화면의
+     30일 토큰과 «같은 함수»(signUidToken)로 발급·검증된다. 그런데 여기서는 mangoi_parent_token 만
+     보고 있어서, 홈 로그인 뒤 마이페이지에 오면 ID 만 채워 주고 비밀번호를 «또» 물었다.
+     → 보려는 uid 가 «홈에 로그인한 그 계정»(대소문자까지 정확일치) 일 때만 그 토큰으로 바로 조회한다(남의 uid 는 그대로 비밀번호).
+     ⚠ 2026-07-30 제보 #3(자녀가 비번 없이 열람)은 안 깨진다 — 홈 로그인 자체가 비밀번호가 있는 계정이면
+       비밀번호를 요구하므로(/api/student/login 의 password_required) 보호 수준이 홈과 같아질 뿐이다.
+     ⚠ 「다른 ID 로 조회」를 눌렀으면 이 탭에서는 자동 조회를 쉰다(sessionStorage 표시 — 아니면 되돌아올 길이 없다). */
+  let homeToken = ''; try { homeToken = localStorage.getItem('mango_token') || ''; } catch(e){}
+  let switched = false; try { switched = sessionStorage.getItem('mangoi_parent_switch') === '1'; } catch(e){}
+  const sameAsHome = !!(uid && homeUid && String(uid) === String(homeUid));   // 정확일치 — Kim/kim 은 다른 계정(대소문자만 다른 행이 실재)
   if (uid) {
     _currentUid = uid;
     const inp = document.getElementById('uid-input');
     if (inp) inp.value = uid;
     // 저장된 로그인 토큰이 있으면 자동 조회(만료·무효면 pdLoad 가 입력화면으로 되돌림).
-    // 토큰이 없으면 입력화면 유지 → 학부모가 '조회하기' 눌러 비밀번호 단계로.
+    // 없으면 홈 로그인 토큰(같은 계정일 때만). 둘 다 없으면 입력화면 유지 → '조회하기' → 비밀번호 단계.
     if (savedToken) { _token = savedToken; pdLoad(); }
+    else if (homeToken && sameAsHome && !switched) { _token = homeToken; _autoHome = true; pdLoad(); }
   }
 })();
 </script>

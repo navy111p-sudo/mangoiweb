@@ -66,6 +66,9 @@ body{
 /* 로그아웃은 되돌리기 어려운 동작이라 눈으로 구분되게 — 단 겁주지는 않는 톤 */
 .tbtn-out{color:#8c1d18;border-color:#e6b3ae}
 .tbtn-out:active{background:#fdecea}
+/* 🔔 알림이 켜진 상태 — 초록 테두리로 «지금 켜져 있다» 를 말한다(눌러야 아는 버튼은 안 눌린다) */
+.tbtn-push-on{color:#166534;border-color:#86efac;background:#f0fdf4}
+html[data-t="dark"] .tbtn-push-on{color:#86efac;border-color:#166534;background:#0f2a1a}
 /* 좁은 폰에서 버튼 5개가 두 줄로 흩어지지 않게: 여백을 줄이고
    뜻이 명확한 아이콘 버튼(홈·새로고침)은 글자를 접는다 */
 @media (max-width:420px){
@@ -440,6 +443,12 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
        장애 신고는 이미 화면 최상단 라이브 배너로 처리돼 여기 중복하지 않는다. -->
   <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
   <nav class="qbar" aria-label="Quick access">
+    <!-- 🔔 (2026-09-14) 강사 웹푸시 — 결석·미입장 알림이 폰에 카톡 알림처럼 뜬다.
+         카카오톡 자동 발송은 필리핀 번호에 «구조적으로» 안 닿아(src/teacher-push.ts 머리말) 이쪽을 택했다.
+         ⚠️ 상단바(.tnav)가 아니라 여기다 — 390px 실측에서 상단바에 넣으니 한 줄이 두 줄로 접혔다(그 바는
+            «두 줄로 안 접히게» 를 일부러 지키는 자리). 이 바는 가로 스크롤이라 늘어도 안 접힌다.
+         라벨은 «상태에 따라» 바뀌므로 data-en 이 아니라 JS(paintPushBtn)가 그린다(테마 버튼과 같은 이유). -->
+    <button class="tbtn" id="push" type="button" aria-label="Alerts"><span id="push-ico" aria-hidden="true">🔔</span><span id="push-lbl" style="margin-left:5px">Alerts</span></button>
     <button class="tbtn" type="button" onclick="openCard('c-postpone')" data-en="Postpone / change" data-ko="수업 연기·변경">Postpone / change</button>
     <button class="tbtn" type="button" onclick="openCard('c-pay')" data-en="Pay" data-ko="급여">Pay</button>
     <button class="tbtn" type="button" onclick="openCard('c-rate')" data-en="My ratings" data-ko="내 평점">My ratings</button>
@@ -788,6 +797,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     // 상태에 따라 글자가 바뀌는 것들(data-en 방식으로는 못 다룬다)도 여기서 다시 그린다
     applyTheme(themeOn());
     paintNewBadge();
+    if (typeof paintPushBtn === 'function') paintPushBtn();   // 🔔 상태 라벨(data-en 으로는 못 다룬다)
     // 📁 내 기록 카드들 — 서버에서 받아 그린 표라 data-en 으로는 못 바꾼다. 캐시로 다시 그린다.
     //   (applyLang 이 이 스크립트보다 먼저 정의되므로 존재 확인 후 호출)
     if (typeof window.__repaintMy === 'function') window.__repaintMy();
@@ -815,6 +825,110 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   };
   // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
   document.getElementById('reload').onclick = function(){ load(true); };
+
+  /* ══ 🔔 알림 받기(웹푸시) ══════════════════════════════════════════════════
+     (2026-09-14) 사장님 「카카오톡으로도 교사들에게 가게 할 수 없어?」 → 카카오는 필리핀 번호에
+     안 닿아 웹푸시로. 켜 두면 «학생 미입장»(absent-sweep)·«학생이 기다림»(no-show) 알림이
+     폰에 뜬다. 구독의 user_id 는 서버가 확인해 준 me.username — 결재함(work.html)과 같은 값.
+     ⚠️ 실패는 «어느 단계에서» 를 말한다(work.html 의 pushWhy 와 같은 규칙) — 「켜지 못했습니다」
+        한 줄이면 다음에 할 일이 없다(규칙서 2장 「버튼이 늘 같은 실패 문구 하나만 말함」).
+     ⚠️ 켜기 실패로 저장값을 남기지 않는다 — 다시 누르면 다시 시도한다. */
+  var pushOn = false;
+  function paintPushBtn(){
+    var b = document.getElementById('push'), l = document.getElementById('push-lbl');
+    if (!b || !l) return;
+    l.textContent = pushOn ? T('Alerts on', '알림 켜짐') : T('Alerts', '알림 받기');
+    b.setAttribute('aria-label', pushOn ? T('Alerts are on', '알림 켜짐') : T('Turn on alerts', '알림 받기'));
+    b.title = pushOn ? T('Absence / waiting alerts arrive on this device', '결석·대기 알림이 이 기기로 옵니다')
+                     : T('Get absence / waiting-student alerts on this device', '결석·학생 대기 알림을 이 기기로 받습니다');
+    b.classList.toggle('tbtn-push-on', pushOn);
+  }
+  function b64ToU8(s){
+    var pad = '='.repeat((4 - s.length % 4) % 4);
+    var raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function pushWhy(step, code){
+    if (step === 'unsupported') return T('This browser cannot receive push. iPhone: Share → Add to Home Screen, then open from there.',
+                                         '이 브라우저는 푸시를 못 받습니다. 아이폰은 공유 → 홈 화면에 추가 후 거기서 여세요.');
+    if (step === 'who')  return T('Your account is not loaded yet. Tap Refresh, then try again.', '계정을 아직 못 읽었습니다. 새로고침 뒤 다시 눌러 주세요.');
+    if (step === 'key')  return T('The server has no notification key yet (VAPID). Ask the office.', '서버에 알림 키(VAPID)가 아직 없습니다. 본사에 알려 주세요.');
+    if (step === 'http') return T('The server could not return the notification key (HTTP ' + code + '). Try again in a moment.',
+                                  '서버가 알림 키를 주지 못했습니다 (HTTP ' + code + '). 잠시 뒤 다시 눌러 주세요.');
+    if (step === 'sw')   return T('This browser could not start the background worker for notifications.', '이 브라우저에서 알림용 백그라운드 등록에 실패했습니다.');
+    if (step === 'subscribe') return T('This browser refused the notification permission. Allow notifications for mangoi.ai in browser settings.',
+                                       '이 브라우저가 알림 권한을 거절했습니다. 브라우저 설정에서 mangoi.ai 알림을 허용해 주세요.');
+    if (step === 'save') return T('Registered on this device, but the server did not save it.', '이 기기에서는 등록됐지만 서버가 저장하지 못했습니다.');
+    if (step === 'net')  return T('Could not reach the server. Check your connection and try again.', '서버에 닿지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+    return T('Could not turn on alerts (unknown step: ' + step + ').', '알림을 켜지 못했습니다 (알 수 없는 단계: ' + step + ').');
+  }
+  function subscribePush(){
+    var step = 'key', code = 0;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve({ ok:false, why: pushWhy('unsupported'), step:'unsupported' });
+    var who = DATA && DATA.me && DATA.me.username;
+    if (!who) return Promise.resolve({ ok:false, why: pushWhy('who'), step:'who' });
+    return fetch('/api/push/vapid-public-key', { credentials:'same-origin' })
+      .catch(function(e){ step = 'net'; throw e; })
+      .then(function(r){
+        // 🔴 fetch 는 404·500 에도 reject 하지 않는다 — 여기서 안 가르면 서버 장애가 «키가 없다» 로 나간다.
+        if (!r.ok) { code = r.status; step = 'http'; throw new Error('http_' + r.status); }
+        return r.json().catch(function(){ return null; });
+      })
+      .then(function(j){
+        if (!j || !j.key) throw new Error('no_key');
+        step = 'sw';
+        return navigator.serviceWorker.register('/sw.js').then(function(reg){
+          return navigator.serviceWorker.ready.then(function(){
+            step = 'subscribe';
+            return reg.pushManager.getSubscription().then(function(sub){
+              if (sub) return sub;
+              return reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToU8(j.key) });
+            });
+          });
+        });
+      })
+      .then(function(sub){
+        step = 'save';
+        var s = sub.toJSON ? sub.toJSON() : sub;
+        return fetch('/api/push/subscribe', {
+          method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+          // ⚠️ user_id 는 «서버가 확인해 준 계정명» — 서버(teacher-push.ts)가 이 값으로 구독을 찾는다.
+          body: JSON.stringify({ subscription: s, user_id: who, ua: navigator.userAgent })
+        }).then(function(r){ return r.json().catch(function(){ return null; }); });
+      })
+      .then(function(j){
+        pushOn = !!(j && j.ok); paintPushBtn();
+        return pushOn ? { ok:true, why:'', step:'' } : { ok:false, why: pushWhy('save', code), step:'save' };
+      })
+      .catch(function(err){
+        try { console.warn('[push] failed step=' + step, err); } catch (e) {}
+        return { ok:false, why: pushWhy(step, code), step: step };
+      });
+  }
+  // 이미 켜져 있는지 — 누르기 전에 «켜짐» 으로 보여야 한다(누른 뒤에야 아는 버튼은 안 눌린다).
+  // ⚠️ 구독만 있고 서버에 저장이 안 됐을 수는 있다 — 그래서 켜져 보여도 누르면 서버에 한 번 더 저장한다.
+  (function(){
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      navigator.serviceWorker.getRegistration('/').then(function(reg){
+        if (!reg) return;
+        return reg.pushManager.getSubscription().then(function(sub){ pushOn = !!sub; paintPushBtn(); });
+      }).catch(function(){});
+    } catch (e) {}
+  })();
+  document.getElementById('push').onclick = function(){
+    var b = document.getElementById('push');
+    b.disabled = true;
+    subscribePush().then(function(r){
+      b.disabled = false;
+      if (r.ok) toast(T('🔔 Alerts on — absence / waiting-student alerts will arrive on this device.',
+                         '🔔 알림 켜짐 — 결석·학생 대기 알림이 이 기기로 옵니다.'));
+      else toast('⚠️ ' + r.why);
+    });
+  };
+  paintPushBtn();
 
   // ── 🌙 다크 모드 (요청 24번) ──────────────────────────────────────────────
   //   이 값만은 **저장한다**(언어와 달리). 눈이 편한 쪽은 사람마다 고정된 취향이라
@@ -1618,12 +1732,27 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
          ⛔ openPostpone()·btn-post CSS 는 **일부러 남겨 둔다** — 지금은 아무 데서도 부르지 않는다.
             「아플 때 알릴 길까지 막지 말라」는 판단이 나오면 이 블록 3줄만 되살리면 되게 하기 위해서다.
             (버튼을 되살릴 땐 [수업 입장] 과 붙지 않게 줄을 나눌 것 — 오탭이 원래 문제였다) */
+      /* 🚪 (2026-09-10 사장님 지시) 「오늘은 이 방으로」 — 이 수업만 하루 다른 회의방으로 돌린다.
+         ⚠️ [수업 입장] 과 **줄을 나눠** 둔다 — 2026-08-08 에 [연기] 를 뺀 이유가 «바로 옆이라
+            잘못 누른다» 였다. 같은 실수를 반복하지 않는다(작은 글씨 · 아래 줄).
+         정본·주의사항은 src/class-room-override.ts. */
+      if (c.schedule_id) {
+        h += '<div style="margin-top:6px;display:flex;justify-content:flex-end">'
+          +  '<button type="button" data-roomset="' + i + '" '
+          +    'style="background:transparent;border:1px solid rgba(148,163,184,.45);color:#94a3b8;'
+          +    'border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer" title="'
+          +    esc(T('Move only today\'s class to a meeting room. The student joins with no extra steps.',
+                     '오늘 이 수업만 회의방으로 옮깁니다. 학생은 평소처럼 «수업 입장» 만 누르면 됩니다.')) + '">'
+          +    esc(T('🚪 Today: another room', '🚪 오늘은 다른 방으로')) + '</button></div>';
+      }
       h += '</div></div>';
     }
     box.innerHTML = h;
 
     var b = box.querySelectorAll('[data-join]');
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
+    var rs = box.querySelectorAll('[data-roomset]');
+    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(list[+this.getAttribute('data-roomset')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
     // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
@@ -2100,6 +2229,76 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     d.textContent = msg;
     document.body.appendChild(d);
     setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 3000);
+  }
+
+  /* ══ 🚪 「오늘은 이 방으로」 ══════════════════════════════════════════════════
+     오늘 이 수업 한 건만 회의방으로 돌린다. 학생은 **평소처럼 «수업 입장» 만** 누르면
+     그 방으로 들어간다 — 서버가 `/api/class/sessions/today` 의 답을 바꾸기 때문이다.
+     정본·주의사항: src/class-room-override.ts · 지정 API: PUT /api/admin/class-schedules
+
+     ⚠️ 링크도 함께 준다 — 학생이 카톡으로 받아 «누르기만» 하는 길이 이미 있고,
+        도메인은 서버가 SITE_ORIGIN 정본으로 만들어 내려 준다(화면이 조립하지 않는다).
+     ⛔ QR 은 넣지 않았다 — 이 저장소가 admin.html 에서 쓰는 api.qrserver.com 은
+        **아이 수업 링크를 제3자에게 보내는** 것이고 중국 회선에서 막히면 그 자리가 조용히
+        빈다. 손으로 만든 QR 인코더는 이 환경에서 «맞는지 재 볼 방법이 없어» 안 만들었다. */
+  function openRoomOverride(c) {
+    if (!c || !c.schedule_id) return;
+    var who = c.student_name || c.student_uid || '';
+    var cur = prompt(
+      T('Room number for today only (e.g. 1234). Leave empty to cancel the assignment.',
+        '오늘 하루만 쓸 방 번호를 넣으세요 (예: 1234).\n비우고 확인하면 지정을 취소합니다.')
+      + (who ? '\n\n' + T('Student', '학생') + ': ' + who : ''), '');
+    if (cur === null) return;   // 사람이 «취소» 를 눌렀다 — 아무것도 안 한다
+    var code = String(cur).trim();
+    var body = code
+      ? { action: 'room_override', schedule_id: c.schedule_id, room_code: code }
+      : { action: 'room_override_clear', schedule_id: c.schedule_id };
+    fetch('/api/admin/class-schedules', {
+      method: 'PUT', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) {
+        /* ⛔ 「실패라고 말했는가」가 아니라 **「성공이라고 말했는가」** 로 가른다 —
+           라우팅이 빠지면 종단 404 본문에 ok 칸이 아예 없어서 d.ok === false 가
+           거짓이 되고 «정상» 으로 흘러간다(CLAUDE.md 2장 「새 API 추가」). */
+        if (d.ok !== true) {
+          alert(T('Could not set the room. ', '방을 지정하지 못했습니다. ') + (d.message || d.error || ''));
+          return;
+        }
+        if (d.cleared) { alert(T('Assignment cleared. The class goes back to its usual room.',
+                                 '지정을 취소했어요. 원래 수업방으로 돌아갑니다.')); return; }
+        var link = d.link || '';
+        alert(T('Done. Today this class meets in room ', '됐어요. 오늘 이 수업은 ')
+          + String(d.room_id || '').replace(/^meet-/, '')
+          + T('.\n\nThe student does NOT need to do anything - just tap "Join Class" as usual.',
+              '번 방에서 합니다.\n\n학생은 아무것도 안 해도 됩니다 — 평소처럼 「수업 입장」만 누르면 돼요.')
+          + T('\n\n[!] Points and the review quiz are off in a meeting room.',
+              '\n\n⚠️ 회의방에서는 포인트·복습퀴즈가 쉽니다.')
+          + (link ? '\n\n' + link : ''));
+        /* 링크를 «보내는» 길.
+           🔴 (2026-09-10 함정 대조) `navigator.share` 를 **alert 뒤**에 부르면 그 시점엔
+              사용자 제스처(transient activation)가 이미 사라져 `NotAllowedError` 로 거절되고,
+              `.catch(function(){})` 가 그것을 **조용히 삼킵니다.** 데스크톱 크롬도
+              `navigator.share` 가 있어서 클립보드 폴백으로도 안 갑니다 — 즉 «보냈다고 생각하는데
+              아무 데도 안 가는» 모양입니다. ⟹ **클립보드를 먼저** 시도하고(제스처가 필요 없습니다),
+              공유 시트는 **사람이 한 번 더 누를 때** 엽니다.
+           ⛔ window.open 으로 열지 말 것(인앱 브라우저는 예외 없이 null 만 돌려줍니다). */
+        if (link) {
+          var copied = false;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(link).then(function () { copied = true; }).catch(function () {});
+            }
+          } catch (e) {}
+          if (navigator.share && confirm(T('Send this link now?', '이 링크를 지금 보낼까요?'))) {
+            /* confirm 을 사람이 «누른» 그 제스처 안에서 연다 — 그래야 공유 시트가 실제로 뜬다. */
+            try { navigator.share({ text: link }).catch(function () {}); } catch (e) {}
+          }
+        }
+      })
+      .catch(function () { alert(T('Network error. Please try again.', '통신이 불안정합니다. 다시 시도해 주세요.')); });
   }
 
   function joinClass(c){
@@ -3441,8 +3640,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
 <script>
 (function(){
   var FILES = [
-    '/js/idx-main.js?v=51',                  /* 851KB — 홈+화상수업이 같이 든 가장 큰 파일 */
-    '/js/idx-vc-room.js?v=2',
+    '/js/idx-main.js?v=61',                  /* 851KB — 홈+화상수업이 같이 든 가장 큰 파일 */
+    '/js/idx-vc-room.js?v=3',
     '/js/idx-vc-chat.js?v=2',
     '/js/idx-vc-textbook.js?v=1',
     '/js/idx-vc-screenmode.js?v=1',

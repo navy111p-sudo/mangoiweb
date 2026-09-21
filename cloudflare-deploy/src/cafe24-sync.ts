@@ -37,6 +37,22 @@ const normPhone = (v: any): string | null => {
   return t ? t : null;
 };
 
+/** 🏪 대리점(centers) 수동 정정 표 둘 — 카페24 UPSERT 가 매일 밤 덮어쓰는 franchise_id·
+ *  name·address·manager 를, 관리자가 화면에서 고친 뒤에도 지키기 위한 표다.
+ *  DDL 정본은 여기 하나 — 다른 파일(api-admin.ts)에서 복사해 만들지 말고 이 함수를 부를 것
+ *  (schema_drift_harness 의 «같은 표가 여러 벌» 검사가 그걸 잡는다). */
+export async function ensureCenterOverrideTables(env: SyncEnv): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_franchise_override (center_id INTEGER PRIMARY KEY, franchise_id INTEGER NOT NULL, prev_franchise_id INTEGER, reason TEXT, updated_at INTEGER NOT NULL);`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_manual_override (center_id INTEGER PRIMARY KEY, name TEXT, address TEXT, manager TEXT, updated_at INTEGER NOT NULL);`);
+}
+
+/** 🏢 지사(franchises) 수동 정정 표 — 카페24 UPSERT 가 매일 밤 덮어쓰는 name·address·phone·
+ *  owner_name 을, 관리자가 화면에서 고친 뒤에도 지키기 위한 표다. 위 center_manual_override
+ *  와 같은 이유·같은 방식(2026-09-11 신설, 지사 ✏️ 수정 메뉴). DDL 정본은 여기 하나. */
+export async function ensureFranchiseOverrideTable(env: SyncEnv): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_manual_override (franchise_id INTEGER PRIMARY KEY, name TEXT, address TEXT, phone TEXT, owner_name TEXT, updated_at INTEGER NOT NULL);`);
+}
+
 /** 🏢 지사(240)·센터(916) → D1 franchises/centers. cafe24 ID 를 D1 id 로 보존. */
 export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: number; centers: number }> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
@@ -58,6 +74,26 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
     const rows = rowsToObjects(br.fields, br.values.slice(i, i + 200));
     await env.DB.batch(rows.map(r => insF.bind(Number(r.id), r.name || '(무명지사)', r.address || null, r.phone || null, r.manager || null, Number(r.active) ? 1 : 0, '[cafe24]', nowMs, nowMs)));
   }
+
+  /* 🏢 지사 이름·주소·전화·대표자 «수동 정정» 을 다시 입힌다 (2026-09-11 신설, 관리자 화면
+     ✏️ 수정 메뉴). 바로 위 UPSERT 의 SET 목록에 name·address·phone·owner_name 이 전부 있어서
+     (줄 62~63) 카페24가 매일 밤 덮어쓴다 — 관리자가 화면에서 지사 정보를 고쳐도 그날 밤이면
+     원래 값으로 되돌아가는 사고를 막는다(centers 판 center_manual_override 와 같은 이유).
+     ⚠️ 실제로 바뀐 칸만 덮는다(COALESCE) — 아래에서 실제로 달라진 값만 override 에 남긴다. */
+  try {
+    await ensureFranchiseOverrideTable(env);
+    await env.DB.prepare(
+      `UPDATE franchises SET
+         name = COALESCE((SELECT o.name FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), name),
+         address = COALESCE((SELECT o.address FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), address),
+         phone = COALESCE((SELECT o.phone FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), phone),
+         owner_name = COALESCE((SELECT o.owner_name FROM franchise_manual_override o WHERE o.franchise_id = franchises.id), owner_name)
+        WHERE id IN (SELECT franchise_id FROM franchise_manual_override)`
+    ).run();
+  } catch (e: any) {
+    console.warn('[cafe24-sync] 지사 이름·주소·전화·대표자 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
+  }
+
   const ce = await runCypher(env, `MATCH (c:Center) RETURN c.center_id AS id, c.branch_id AS branch_id, c.name AS name, c.address AS address, c.manager AS manager, c.active AS active ORDER BY c.center_id`, {}, 'READ');
   // ⚠️ 여기가 «대리점 B2B/B2C 지정이 매일 밤 사라지던» 자리다(2026-08-14 발견).
   //    centers.payment_type 은 카페24에 없는, D1 에서만 사람이 지정하는 값인데
@@ -93,7 +129,7 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
      ⚠️ 정본은 어디까지나 카페24다. 여기 적는 것은 «카페24를 고치기 전까지의 임시 정정»
         이며, 카페24에서 고치고 나면 이 표의 행을 지우는 것이 맞다. */
   try {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_franchise_override (center_id INTEGER PRIMARY KEY, franchise_id INTEGER NOT NULL, prev_franchise_id INTEGER, reason TEXT, updated_at INTEGER NOT NULL);`);
+    await ensureCenterOverrideTables(env);
     await env.DB.prepare(
       `UPDATE centers SET franchise_id = (SELECT o.franchise_id FROM center_franchise_override o WHERE o.center_id = centers.id)
         WHERE id IN (SELECT center_id FROM center_franchise_override)
@@ -101,6 +137,25 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
     ).run();
   } catch (e: any) {
     console.warn('[cafe24-sync] 대리점 지사 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
+  }
+
+  /* 🏪 대리점 이름·주소·담당자 «수동 정정» 을 다시 입힌다 (2026-09-11 신설, 관리자 화면 ✏️ 수정 메뉴).
+     바로 위 franchise_id override 와 같은 이유 — 위 UPSERT 의 SET 목록에 name·address·manager 가
+     있어서(줄 71) 카페24가 매일 밤 덮어쓴다. 관리자가 화면에서 대리점 이름을 고쳐도 그날 밤이면
+     원래 이름으로 되돌아가는 사고를 막는다(CLAUDE.md 「학생 이름을 D1 에서 고쳤는데 다음날
+     원복됨」과 같은 뿌리 — centers 판이다). ⚠️ 세 칸 중 사람이 실제로 고친 칸만 덮는다
+     (COALESCE) — 이름만 고쳤는데 주소·담당자까지 override 에 «비어 있음» 으로 박히면
+     다음 카페24 수정이 그 두 칸에는 영영 안 먹는다. */
+  try {
+    await env.DB.prepare(
+      `UPDATE centers SET
+         name = COALESCE((SELECT o.name FROM center_manual_override o WHERE o.center_id = centers.id), name),
+         address = COALESCE((SELECT o.address FROM center_manual_override o WHERE o.center_id = centers.id), address),
+         manager = COALESCE((SELECT o.manager FROM center_manual_override o WHERE o.center_id = centers.id), manager)
+        WHERE id IN (SELECT center_id FROM center_manual_override)`
+    ).run();
+  } catch (e: any) {
+    console.warn('[cafe24-sync] 대리점 이름·주소·담당자 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
   }
 
   return { franchises: br.values.length, centers: ce.values.length };
@@ -151,6 +206,13 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
           — 낮에는 멀쩡히 보이고 다음 날 조용히 «미배정» 으로 돌아온다(에러 없음). */
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN level TEXT`); } catch {}
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN textbook TEXT`); } catch {}
+    /* 📞 (2026-09-15) 번호 세 칸도 같은 이유로 먼저 있게 만든다 — 아래 DELETE 가 이 칸을 읽는다.
+       ⚠️ INSERT 컬럼 목록에 이미 있으니 «당연히 있겠지» 로 두면 안 된다: DELETE 가 «먼저» 돌기
+          때문에, 칸이 없는 DB 에서는 `no such column` 이 나고 그 예외를 nightlyCafe24Refresh 가
+          삼켜 **학생 29,000명 동기화가 조용히 멈춘다**(위 password_hash 와 같은 함정). */
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN parent_phone TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN student_phone TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN phone TEXT`); } catch {}
     /* 🔒 (2026-08-28) «우리가 D1 에서만 관리하는 값» 이 든 행은 지우지 않는다.
        [왜] 이 DELETE 는 카페24 학생 전원(현재 29,428행)을 매일 밤 지우고 다시 넣는다.
             아래 INSERT 컬럼 목록에 없는 칸은 그때 전부 사라진다 — 그 목록에 없는 칸이 25개고
@@ -164,6 +226,30 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
             ON CONFLICT 가 영영 발동하지 않아 UPSERT 가 무의미해진다.
        ⚠️ 카페24를 떠난 학생인데 이 칸들에 값이 있으면 행이 남는다(status 갱신도 멈춘다).
           그 편이 «비밀번호·학부모 연결을 파괴하는 것» 보다 낫다는 판단이다.
+       📞 (2026-09-15) **번호 세 칸을 보존 목록에 더했다.** 이유는 아래 UPSERT 의 COALESCE 와 짝이다 —
+            DELETE 가 그 행을 먼저 지워 버리면 UPSERT 가 ON CONFLICT 가 아니라 «새 INSERT» 로 떨어져
+            COALESCE 가 **한 번도 발동하지 않는다.** 즉 이 두 줄이 없으면 위 수리는 카페24 학생
+            29,462명(2026-09-02 실측) 전원에게 아무 효과가 없다 —
+            「순서가 전부다」가 여기에도 그대로 걸린다.
+       ⚠️ 대가: 카페24를 떠난 학생이라도 번호가 들어 있으면 행이 남고 **status 가 옛 값에 굳는다.**
+            ⟹ status 로 세는 명부·정산·리포트가 그 사람을 계속 «재학» 으로 센다. 오늘 반경은
+               0건이지만 **이 수리의 목적이 «번호를 채우는 것»** 이라 채울수록 늘어난다.
+            위 다섯 칸이 이미 같은 성질이고, 「번호를 파괴하는 것」보다 낫다는 같은 판단이다.
+       📊 **(2026-09-16 운영 D1 실측) 「반경 0건」은 여전히 맞다 — 다만 이유가 바뀌었다.**
+            번호가 든 행이 이제 넷이고 그중 센티넬은 `jeong` 하나인데, 그 행은
+            `password_hash`·`level` 이 채워져 있어 **위 다섯 칸 조건에서 이미 보존되던 행**이다.
+            ⟹ 이 «번호 세 줄» 때문에 «새로» 남게 되는 행은 아직 **0건**이다
+               (그러려면 번호가 있으면서 다섯 칸이 전부 빈 센티넬 행이어야 한다).
+            🔴 **그래서 그 행은 이 세 줄이 일했다는 증거가 못 된다** — 옛 코드에서도 안 지워졌을 행이다.
+               (옛 코드였다면 번호를 지운 것은 DELETE 가 아니라 아래 UPSERT 의 «무조건 덮기» 였을
+                텐데, 그건 카페24 payload 에 `jeong` 이 들어 있을 때만이고 **그것은 못 쟀다** —
+                이름(`username`·`korean_name`)은 동기화 «직후» override 가 되입히고
+                `updated_at` 은 29,512행 전부 같은 상수라 payload 소속을 가릴 칸이 없다.)
+            ⛔ 「실측으로 증명됐다」로 적지 말 것. 증명하려면 **번호가 있으면서 다섯 칸이
+               전부 빈 센티넬 행**이 필요하다 — 그런 행이 생기는 날이 이 세 줄의 첫 시험이다.
+       ⚠️ 카페24가 «번호를 채우기 시작하면» 그 행들도 함께 남게 된다(카페24 원본의 번호는
+            2026-09-16 현재도 0건이라 늘어나는 것은 «우리가 넣은 번호» 쪽뿐이다).
+            그때는 이 조건을 다시 볼 것 — 사람이 정할 일이다.
        📜 같은 수리를 franchises·centers 는 2026-08-14 에 이미 했다(위 UPSERT). 학생만 남아 있었다. */
     await env.DB.prepare(
       `DELETE FROM students_erp
@@ -172,7 +258,10 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
           AND (parent_user_id IS NULL OR TRIM(parent_user_id) = '')
           AND (eval_band      IS NULL OR TRIM(eval_band)      = '')
           AND (level          IS NULL OR TRIM(level)          = '')
-          AND (textbook       IS NULL OR TRIM(textbook)       = '')`
+          AND (textbook       IS NULL OR TRIM(textbook)       = '')
+          AND (parent_phone   IS NULL OR TRIM(parent_phone)   = '')
+          AND (student_phone  IS NULL OR TRIM(student_phone)  = '')
+          AND (phone          IS NULL OR TRIM(phone)          = '')`
     ).bind(CAFE24_STUDENT_SENTINEL).run();
   }
   /* 📞 (2026-08-18 사장님) 학부모·학생 전화번호를 함께 가져온다.
@@ -209,7 +298,29 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
      이 컬럼 목록에 없는 25개 칸이 매일 밤 NULL 이 된다(전화번호가 그렇게 전멸했던 것이 2026-08-18 건).
      카페24가 주는 칸만 덮어쓰고 우리가 관리하는 칸은 보존한다 — franchises 와 같은 방식(2026-08-14).
      ⛔ created_at 은 갱신하지 않는다: 그 값이 «카페24가 정본» 임을 나타내는 표식이라,
-        로컬에서 만든 행(체험계정 lt* 등)을 이 동기화가 자기 것으로 바꿔 버리면 안 된다. */
+        로컬에서 만든 행(체험계정 lt* 등)을 이 동기화가 자기 것으로 바꿔 버리면 안 된다.
+     📞 (2026-09-15) **번호 세 칸은 «카페24가 값을 줄 때만» 덮는다**(COALESCE).
+        [왜] 그전에는 `parent_phone = excluded.parent_phone` 로 **무조건** 덮었다. 그런데
+             카페24 원본의 번호 칸은 실측상 비어 있어(2026-09-10 실측: 29,485행 네 칸 전부 0건),
+             우리 화면에서 받아 students_erp 에 넣은 번호가 그날 밤 **빈 값으로 되돌아갔다.**
+             에러가 한 줄도 안 나고 「전화번호가 그냥 사라진」 것처럼만 보인다.
+             8월에 리마인더 문자가 실제로 나갔던 체험계정 lt15·lt16·lt18 이 그렇게 번호를 잃었다.
+             ⚠️ 「7일간 671건을 찾고도 0건 발송」(2026-09-10)은 그 세 계정 때문이 아니라
+                **29,485행 전부에 번호가 없어서**다 — 두 사실을 한 문장으로 잇지 말 것.
+        ✅ 이제 카페24가 번호를 주면 그대로 갱신하고(카페24가 정본이라는 원칙은 그대로),
+           빈 값을 주면 **우리가 갖고 있던 값을 지킨다.**
+        ⛔ 방향을 뒤집지 말 것 — `COALESCE(students_erp.x, excluded.x)` 로 쓰면 한 번 값이 들어간
+           뒤로는 카페24 갱신이 **영영 안 온다**(번호가 바뀐 학생이 옛 번호로 굳는다).
+        ⚠️ 이것만으로는 반쪽이다 — 위 DELETE 의 보존 조건이 짝이다. 거기서 행이 먼저 지워지면
+           이 SET 절은 발동조차 하지 않는다.
+        ⚠️ **맞바꾼 것 — 이 COALESCE 는 «카페24가 번호를 지운 것» 과 «카페24에 원래 없는 것» 을
+           구별하지 못한다.** 학생이 번호를 바꿔 카페24에서 빈 값이 오면 **옛 번호가 남고**,
+           그 번호로 학부모에게 문자가 간다. 「틀린 번호가 빈칸보다 나쁘다」는 이 저장소의 원칙과
+           정면으로 걸리는 자리다 — 카페24가 번호를 채우기 시작하면 다시 볼 것(사람이 정할 일).
+        ⚠️ 그래도 **번호를 여기에만 두지 말 것.** 화면에서 받은 번호의 보관 정본은
+           `student_erp_override`(src/student-override.ts) 이고, 문자가 읽는 정본은
+           `phonesForStudent`(src/notify-contacts.ts) 가 그 표를 «먼저» 보는 것이다.
+           이 수리는 «두 번째 겹» 이지 그 정본을 대신하지 않는다. */
   const ins = env.DB.prepare(
     `INSERT INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, parent_phone, student_phone, phone, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -218,8 +329,10 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
        korean_name = excluded.korean_name, grade = excluded.grade, school = excluded.school,
        status = excluded.status, signup_date = excluded.signup_date, end_date = excluded.end_date,
        shop_name = excluded.shop_name, franchise = excluded.franchise, hq_name = excluded.hq_name,
-       points = excluded.points, parent_phone = excluded.parent_phone,
-       student_phone = excluded.student_phone, phone = excluded.phone,
+       points = excluded.points,
+       parent_phone  = COALESCE(NULLIF(TRIM(excluded.parent_phone),  ''), students_erp.parent_phone),
+       student_phone = COALESCE(NULLIF(TRIM(excluded.student_phone), ''), students_erp.student_phone),
+       phone         = COALESCE(NULLIF(TRIM(excluded.phone),         ''), students_erp.phone),
        updated_at = excluded.updated_at`);
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {

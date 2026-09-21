@@ -152,6 +152,10 @@ if (Array.isArray(G) && Array.isArray(D)) {
     /* 로고 시안 미리보기 — 위 «사이드바 시안» 과 같은 부류다. /css/mango-logo.css 를 눈으로
        확인하려고 만든 견본 화면이라 사이트 지도에 낼 서비스 화면이 아니다 (2026-08-22) */
     'mango-logo-preview.html',
+    /* 중국어 «남자 목소리 굵기» 견본 — 위 «로고 시안» 과 같은 부류다. 사장님이 A~D 를
+       직접 들어 보고 고르시라고 만든 화면이라 사이트 지도에 낼 서비스 화면이 아니다.
+       고르신 값을 warmup.html 의 ZH_MALE_PITCH 에 넣고 나면 지워도 된다 (2026-09-14) */
+    'zh-voice-sample.html',
     /* 아래 셋은 «화상 연결 진단·시제품» 이다. 어디서도 링크되지 않고 API 호출이 하나도 없다
        (video-call 은 11KB 에 raw WebSocket 한 줄뿐). 실서비스 수업 입장은 index.html 안이다. */
     'signaling/index.html',

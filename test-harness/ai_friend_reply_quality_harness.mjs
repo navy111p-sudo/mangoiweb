@@ -124,7 +124,39 @@ check('일반 대화는 오탐 없음(2)', aiFriendIsMetaAsk('My dog is very cut
 /* ══ 4. 재생성·힌트 배선이 실제로 붙어 있는가 (원문 확인) ══ */
 console.log('\n▶ chat-friend 배선 확인');
 check('반복이면 1회 재생성한다', /aiFriendIsRepeat\(reply, history\)/.test(ts));
-check('재생성은 temperature 를 올린다', /temperature:\s*0\.95/.test(ts));
+/* ⚠️ «temperature: 0.95» 라는 «식 모양» 을 글자 그대로 못 박으면, 호출을 공용 헬퍼로
+   묶는 무해한 정리(2026-09-09 runFriend)에 빨간불이 난다 — 보장은 그대로인데 검사만 깨진다.
+   물어야 할 것은 «그 글자가 있는가» 가 아니라 **«재생성이 첫 호출보다 뜨거운가»** 다.
+   그래서 두 호출의 temperature 를 소스에서 «읽어» 비교한다. */
+/* ⚠️ 인자를 정규식으로 세지 않는다 — 호출 안에 messages.concat([...]) 처럼 괄호가 들어 있어
+   `[^)]*` 류는 그 자리에서 끊긴다(실제로 NaN 이 나왔다). **괄호 짝으로** 잘라 마지막 인자를 읽는다. */
+function _lastArgAt(src, callIdx) {
+  const open = src.indexOf('(', callIdx);
+  if (open < 0) return NaN;
+  let d = 0, i = open, lastComma = -1;
+  for (; i < src.length; i++) {
+    const c = src[i];
+    if (c === '(' || c === '[' || c === '{') d++;
+    else if (c === ')' || c === ']' || c === '}') { d--; if (d === 0) break; }
+    else if (c === ',' && d === 1) lastComma = i;
+  }
+  if (d !== 0 || lastComma < 0) return NaN;
+  return Number(src.slice(lastComma + 1, i).trim());
+}
+const _temps = (() => {
+  const firstIdx = ts.indexOf('runFriend(m, messages');
+  const rIdx = ts.indexOf('aiFriendIsRepeat(reply, history)');
+  const retryIdx = rIdx > 0 ? ts.indexOf('runFriend(', rIdx) : -1;
+  return {
+    first: firstIdx >= 0 ? _lastArgAt(ts, firstIdx) : NaN,
+    retry: retryIdx >= 0 ? _lastArgAt(ts, retryIdx) : NaN,
+  };
+})();
+check('두 호출의 temperature 를 소스에서 읽어 냈다 (전제)',
+  Number.isFinite(_temps.first) && Number.isFinite(_temps.retry),
+  '첫 ' + _temps.first + ' · 재생성 ' + _temps.retry);
+check('재생성은 temperature 를 올린다', _temps.retry > _temps.first,
+  '첫 ' + _temps.first + ' → 재생성 ' + _temps.retry);
 check('잘린 발화·속도 요청 힌트를 모델에 전달', /cutHint/.test(ts) && /metaHint/.test(ts));
 check('DB 에는 원문 msg 만 저장(힌트 섞이지 않음)',
       /VALUES \(\?,\?,\?,\?,\?\)`\)\.bind\(uid, 'user', msg, level, now\)/.test(ts));

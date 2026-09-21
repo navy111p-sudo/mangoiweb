@@ -22,6 +22,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { siteUrl } from './site-url';
+/* 📵 운영자 문자 음소거 판정 — 정본은 한 곳(복제 금지). 순수 함수라 하니스가 실제로 돌린다. */
+import { isOwnerPhone, ownerSmsBlocked, OWNER_MUTE_KV_KEY, type OwnerSmsKind } from './owner-sms-mute';
 
 export interface SolapiEnv {
   SOLAPI_API_KEY?: string;
@@ -38,6 +40,10 @@ export interface SolapiEnv {
   DB?: D1Database;            // 있으면 발송을 alimtalk_log 에 기록(이탈위험 그래프 IGNORED 엣지 소스)
   PUBLIC_BASE_URL?: string;   // 클릭추적 리다이렉트 베이스(미설정 시 기본 워커 도메인)
   ALIMTALK_TRACK?: string;    // 'on' 일 때만 버튼 URL 을 클릭추적 링크로 감쌈(기본 off=URL 원본 유지·안전)
+  /* 📵 (2026-09-08) 운영자 문자 음소거에 쓰는 둘 — 아래 sendPlainSms 머리 참고.
+     둘 다 옵셔널이라 이 값을 안 넘기는 기존 호출부는 그대로 동작한다(막지 않음). */
+  OWNER_ALERT_PHONE?: string;      // 이 번호로 가는 문자만 음소거 대상
+  SESSION_STATE?: KVNamespace;     // 스위치 owner_alert_mute 를 읽는 곳
 }
 
 /** 알림톡 발송을 alimtalk_log 에 남길 때의 맥락(학생/사유) */
@@ -118,11 +124,35 @@ async function generateSignature(
 //     ⚠️ 해외문자는 SOLAPI 계정에서 «해외 발송» 이 열려 있어야 하고 단가가 국내와 다르다.
 //        안 열려 있으면 errorCode 가 그대로 올라오니, 부르는 쪽에서 사람에게 그대로 보여줄 것.
 // ─────────────────────────────────────────────────────────────
+//  📵 (2026-09-08) 운영자 문자 음소거 — 사장님 「일단 모두 꺼줘」.
+//     `OWNER_ALERT_PHONE` 으로 가는 문자를 **여기 한 곳에서** 막는다. 호출부 17군데를 각각
+//     고치면 나중에 새 알림이 생길 때 조용히 새어 나가므로, «보내는 정본» 에 둔 것이다.
+//     기본이 «음소거» 이고 되켜기는 KV `owner_alert_mute='off'`(배포 불필요).
+//     ⚠️ 학부모·강사·학생 문자는 번호가 달라 영향 없다(수신번호로만 판정).
+//     📌 (2026-09-09) 예외 둘 — `opts.kind` 로 «무슨 알림인가» 를 밝히면 음소거 중에도 나간다.
+//        지금은 `uptime`(사이트 장애)·`room-split`(방 갈림 감시견)뿐이고 목록의 정본은
+//        `owner-sms-mute.ts` 의 `OWNER_ALWAYS_KINDS` 다. ⛔ 여기서 예외를 만들지 말 것.
+//        ✅ 안 밝힌 호출은 그대로 막힌다 — 새 알림이 조용히 새지 않는다.
+//     자세한 근거·대가는 `owner-sms-mute.ts` 머리말 참고.
 export async function sendPlainSms(
   env: SolapiEnv, toPhone: string, text: string,
-  opts?: { country?: string; subject?: string; from?: string }
-): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string }> {
+  opts?: { country?: string; subject?: string; from?: string; kind?: OwnerSmsKind }
+): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string; muted?: boolean }> {
   const mode = getSolapiMode(env);
+  if (isOwnerPhone(toPhone, env.OWNER_ALERT_PHONE)) {
+    /* ⚠️ KV 를 못 읽어도 «지금 정책대로» 떨어진다 — 장애·감시견은 나가고 나머지는 막힌다.
+       (종류를 안 밝힌 호출은 여기서도 막히는 쪽이다) */
+    let muted = ownerSmsBlocked(null, opts?.kind);
+    try { muted = ownerSmsBlocked(await env.SESSION_STATE?.get(OWNER_MUTE_KV_KEY), opts?.kind); } catch {}
+    if (muted) {
+      /* ⛔ 조용히 넘기지 않는다 — 무엇이 안 갔는지 Workers 로그에 남긴다.
+         ⚠️ 본문에 학생 이름·금액이 들어가므로 «앞 40자» 만 남긴다(로그에 PII 를 쌓지 않는다). */
+      console.warn('[owner-sms] 음소거로 보내지 않음(KV owner_alert_mute=off 로 되켬):',
+        'kind=' + (opts?.kind || '(안 밝힘)'),
+        String(text || '').replace(/\s+/g, ' ').slice(0, 40));
+      return { ok: false, mode, muted: true, message: '운영자 문자 음소거(owner_alert_mute)' };
+    }
+  }
   const country = String(opts?.country || '').replace(/[^0-9]/g, '');
   const isIntl = !!country && country !== '82';
   let phone = normalizePhone(toPhone);

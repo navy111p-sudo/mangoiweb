@@ -456,7 +456,7 @@ console.log('\n[ E. 배선 ]');
   const bc = stripComments(block);
 
   check('강사를 막는다 (⛔ canEditOrg 는 \'none\'=교사에 true 라 못 막는다)',
-    /isTeacher/.test(bc) && /forbidden_teacher/.test(bc));
+    /isTeacher/.test(bc) && /forbidden_teacher|forbiddenTeacherBody/.test(bc));
   check('지사·대리점을 막는다', /isOrgScopedRole/.test(bc) && /forbidden_scope/.test(bc));
   check('막는 것이 DB·R2 를 만지기 «전» 이다',
     bc.indexOf('isOrgScopedRole') >= 0 && bc.indexOf('RECORDINGS') >= 0
@@ -491,10 +491,35 @@ console.log('\n[ E. 배선 ]');
      ⚠️ 문자열로 「instr 가 있는가」만 보면 옆 라우트의 것이 걸린다 — 교재 목록 조회에
         LIKE 가 «남아 있지 않은지» 를 함께 본다. */
   {
-    const bookLike = api.match(/if \(book\) \{[^}]*\}/g) || [];
-    check(`교재 이름 필터가 LIKE 를 쓰지 않는다 (D1 패턴 한도 50자 — 긴 이름 13개가 통째로 실패했다) — ${bookLike.length}곳`,
-      bookLike.length >= 2 && bookLike.every((b) => /instr\(name, \?\) = 1/.test(b) && !/LIKE/.test(b)),
-      bookLike.join(' | ').slice(0, 200));
+    /* ⚠️ (2026-09-07) 이 검사는 원래 `/if \(book\) \{[^}]*\}/` 로 **식 모양을 글자 그대로**
+       못 박고 「그 안에 instr 가 있는가」를 물었다. 그래서 같은 이름의 «세는» 블록
+       (묶음 삭제의 파일 수 조회 — LIKE 를 안 쓰고 정확일치를 쓴다)이 생기자
+       **보장은 오히려 세졌는데 검사만** FAIL 했다. 게다가 `[^}]*` 는 안쪽 중괄호에서
+       끊겨 블록을 끝까지 보지도 못한다.
+       ✅ 물어야 할 것은 «그 글자가 있는가» 가 아니라 **«LIKE 를 안 쓰는가»** 다. */
+    const blocks = [];
+    let from = 0;
+    for (;;) {
+      const i = api.indexOf('if (book) {', from);
+      if (i < 0) break;
+      let d = 0, started = false, end = i;
+      for (let j = i; j < api.length; j++) {
+        const c = api[j];
+        if (c === '{') { d++; started = true; }
+        else if (c === '}') { d--; if (started && d === 0) { end = j + 1; break; } }
+      }
+      blocks.push(api.slice(i, end));
+      from = end;
+    }
+    // ① 교재 이름으로 거르는 자리 어디에도 LIKE 가 없다 (이게 지키려던 것 자체)
+    check(`교재 이름 필터가 LIKE 를 쓰지 않는다 (D1 패턴 한도 50자 — 긴 이름 13개가 통째로 실패했다) — ${blocks.length}곳`,
+      blocks.length >= 2 && blocks.every((b) => !/LIKE/i.test(b)),
+      blocks.filter((b) => /LIKE/i.test(b)).join(' | ').slice(0, 200));
+    // ② «접두사로 거르는» 블록은 instr 를 쓴다 (LIKE 로 되돌아가지 않았는가)
+    const prefixBlocks = blocks.filter((b) => /where\.push\(/.test(b));
+    check(`교재 이름 접두사 필터는 instr(name, ?) = 1 을 쓴다 — ${prefixBlocks.length}곳`,
+      prefixBlocks.length >= 2 && prefixBlocks.every((b) => /instr\(name, \?\) = 1/.test(b)),
+      prefixBlocks.join(' | ').slice(0, 200));
   }
 
   /* 🔴 `mime` 을 그대로 믿으면 신형 모델이 전부 거절한다 —

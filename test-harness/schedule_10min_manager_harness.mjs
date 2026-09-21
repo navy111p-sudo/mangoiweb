@@ -273,7 +273,7 @@ console.log('\n════ 5부. LMS·시드 일괄 정리 API 의 안전장치
   const i = api.indexOf("path === '/api/admin/class-schedules/purge-placeholders'");
   const blk = i > 0 ? api.slice(i, i + 3500) : '';
   check('일괄 정리 API 가 있다', !!blk);
-  check('🔴 강사는 실행할 수 없다', /_pActor\.isTeacher\) return json\(\{ ok: false, error: 'forbidden_teacher' \}, 403\)/.test(blk));
+  check('🔴 강사는 실행할 수 없다', /_pActor\.isTeacher\) return json\((?:\{ ok: false, error: 'forbidden_teacher' \}|forbiddenTeacherBody\(_pActor\)), 403\)/.test(blk));
   check('🔴 지사·대리점도 실행할 수 없다 (본사만)', /canEditOrg\(_pScope\)\) return json\(\{ ok: false, error: 'forbidden_scope' \}, 403\)/.test(blk));
   /* 🔴 여기가 사고가 날 자리다 — 조건을 자유 문자열로 받으면 언젠가 진짜 수업을 지운다. */
   check('🔴 지울 대상을 «표시자 목록» 으로만 정한다 (자유 조건 금지)',

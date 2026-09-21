@@ -15,7 +15,11 @@
 
   // 메뉴 코드 → 이동 URL (index.html URLS 맵과 일치)
   var URLS = {
-    'about':'/', 'all-menu':'/', 'home':'/',
+    'about':'/', 'home':'/',
+    /* 🏠 «전체메뉴»는 홈에서만 도는 함수(openAllMenuOverlay)라 줄 주소가 없어 오래도록
+       '/' 였다 — 눌러도 «홈으로 가기만 하고» 오버레이는 아무도 안 열었다(2026-09-14 수리).
+       ⛔ '/' 로 되돌리지 말 것. 받는 쪽은 js/idx-allmenu.js 의 ?menu=all-menu 절(짝). */
+    'all-menu':'/?menu=all-menu',
     'leveltest':'/?menu=leveltest',   // 2026-08-07: 신청서 통일 — 옛 /level-test.html 폐지, 홈 모달로
 
     'admin':'/admin.html',
@@ -33,7 +37,18 @@
     'warmup':'/warmup.html',
     'student-game':'/student-games.html',
     'review-quiz':'/review-quiz.html',
-    'review-quiz-cn':'/review-quiz-cn.html'   // 🇨🇳 중국어 복습퀴즈 (2026-08-17 연결)
+    'review-quiz-cn':'/review-quiz-cn.html',  // 🇨🇳 중국어 복습퀴즈 (2026-08-17 연결)
+
+    /* 🤖 2026-09-12 — AI 학습 도구 7개를 홈 드로어에서 옮겨 왔다.
+       그동안 이 목록에 없어서, 홈 밖 25개 화면에서는 사이드바를 열어도 이 도구들로
+       갈 길이 아예 없었다(AI 글쓰기 화면에서 «AI 글쓰기»조차 안 보였다).
+       ⚠️ 주소는 지어내지 말고 index.html 의 #mg-drawer 에서 그대로 가져올 것. */
+    'today':'/today.html',
+    'judgment':'/judgment.html',
+    'ai-friend':'/ai-friend.html',
+    'ai-write':'/ai-write.html',
+    'micro-quiz':'/micro-quiz.html',
+    'vocab':'/vocab.html'
   };
 
   // 🗂 [2026-07-27] 대분류 묶음 (직원 피드백 #5)
@@ -46,7 +61,9 @@
   var GROUPS = [
     { ko:'우리 아이 학습', en:'My Child',      go:['mypage','report','lesson-change'] },
     { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
-    { ko:'학습 도구',     en:'Learning Tools', go:['student-game','review-quiz','speech','points-shop'] },
+    /* 2026-09-12 — 홈 드로어의 «AI 학습 도구» 차례를 그대로 따른다.
+       ⛔ 웜업(warmup)은 옮기지 않았다 — 아래 «수업» 그룹에 그대로 둔다(배치 변경 최소화). */
+    { ko:'학습 도구',     en:'Learning Tools', go:['today','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
     { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
   ];
   // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
@@ -65,13 +82,22 @@
     { go:'speech',      cls:'',            ko:'🎤 AI 음성코치',       en:'🎤 AI Voice Coach' },
     { go:'lesson-change',cls:'',           ko:'📅 연기/변경',        en:'📅 Postpone/Change' },
     { go:'refund',      cls:'',            ko:'💰 환불규정',         en:'💰 Refund Policy' },
-    { go:'inquiry',     cls:'mg-hl mg-s2', ko:'💬 신규상담',         en:'💬 New Inquiry' },
+    { go:'inquiry',     cls:'mg-hl mg-s2', ko:'💬 카카오 상담',      en:'💬 KakaoTalk Chat' },  // 2026-09-12 홈과 이름 통일(가는 곳은 그대로 카카오 채널)
     { go:'precheck',    cls:'mg-s1',       ko:'🎥 수업 진단',        en:'🎥 PreCheck' },
     { go:'booking',     cls:'mg-s2',       ko:'📝 수업 신청',        en:'📝 Book Class' },
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
     { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ 수업 전 AI 웜업',   en:'🗣️ Pre-class AI Warm-up' },
     { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
     { go:'review-quiz', cls:'',            ko:'🧠 복습퀴즈',         en:'🧠 Review Quiz' },
+    /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
+       한쪽만 고치면 화면마다 다른 이름이 뜬다. */
+    { go:'today',       cls:'mg-hl mg-s3', ko:'📅 오늘의 A.i 학습',   en:'📅 Today\'s AI Plan' },
+    { go:'judgment',    cls:'mg-hl mg-s2', ko:'🧠 판단력 훈련',       en:'🧠 Decision Training' },
+    { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
+    { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },
+    { go:'micro-quiz',  cls:'',            ko:'⚡ AI 단어 퀴즈',      en:'⚡ AI Vocab Quiz' },
+    { go:'review-quiz-cn', cls:'',         ko:'🇨🇳 중국어 복습퀴즈',   en:'🇨🇳 Chinese Review Quiz' },
+    { go:'vocab',       cls:'',            ko:'📖 단어장',            en:'📖 Vocabulary' },
     { go:'all-menu',    cls:'mg-s3',       ko:'🏠 전체메뉴',         en:'🏠 All Menu' }
   ];
 
@@ -130,8 +156,11 @@
         data-ko/data-en 으로 DOM 에 그대로 박힌다. 그런데 그걸 «적용» 하는 것은
         공용 i18n 엔진(js/mango-i18n.js)이고, inject() 끝에서 window.applyLang 을
         부를 뿐이라 **그 엔진이 없는 페이지에서는 아무 일도 안 일어난다.**
-        이 사이드바를 쓰는 26개 화면 중 8개에 엔진이 없고, 하필 마이마이가 온종일 쓰는
+        이 사이드바를 쓰는 25개 화면 중 9개에 엔진이 없고, 하필 마이마이가 온종일 쓰는
         textbook-viewer.html · textbook-uploader.html 이 둘 다 거기에 있었다.
+     📏 [잰 것 — 2026-09-13] 세는 법: `grep -rl '<script[^>]*src=...mg-sidebar.js' --include=*.html` → 25개, 그중 같은 방식으로 mango-i18n.js 가 «없는» 것 9개.
+        ⛔ 주석에 적힌 파일 이름까지 세지 말 것 — 주석만 있고 <script> 는 없는
+        화면이 실재한다(textbook-viewer.html). 세다가 실제로 한 번 틀렸다.
      [고침] 엔진에 기대지 않고 드로어 «안» 만 직접 번역한다. 엔진이 있으면 그대로 두고
         (중복 적용은 무해 — 같은 값을 다시 쓴다) 없으면 이 함수가 대신한다.
      ⚠️ 언어 판정은 반드시 getLang() 을 거친다(CLAUDE.md 2장 «언어 판정»).

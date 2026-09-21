@@ -42,6 +42,18 @@ const db = new DatabaseSync(':memory:');
 db.exec(`CREATE TABLE approval_requests (
   id INTEGER PRIMARY KEY, req_type TEXT, requester_username TEXT, requester_name TEXT,
   title TEXT, body TEXT, status TEXT, stage_due_at INTEGER, created_at INTEGER)`);
+/* 🗂 결재 도장 — 「내가 결재한 것」·「결재자별」 함이 이 표를 본다(approval_requests.decided_by 가 아니라). */
+db.exec(`CREATE TABLE approval_steps (
+  id INTEGER PRIMARY KEY, request_id INTEGER, seq INTEGER, role TEXT, status TEXT,
+  decided_by TEXT, decided_at INTEGER)`);
+for (const st of [
+  [1, 1, 'staff', 'approved', 'mgr_jjw'],   // 1 라우터 — 장지웅 승인
+  [2, 1, 'staff', 'approved', 'mgr_lby'],   // 2 인터넷 — 이병엽 승인
+  [4, 1, 'staff', 'rejected', 'mgr_jjw'],   // 4 Karl 메모 — 장지웅 반려
+  [5, 1, 'staff', 'active',   null],        // 5 대기 — 아무도 안 찍음
+  [6, 1, 'exec',  'approved', 'admin'],     // 6 급여 — 사장님 승인
+  [6, 2, 'exec',  'skipped',  'mgr_jjw'],   // 6 — 건너뛴 단계는 «도장» 이 아니다
+]) db.prepare('INSERT INTO approval_steps (request_id, seq, role, status, decided_by, decided_at) VALUES (?,?,?,?,?,1)').run(...st);
 
 const KST = (d) => Date.parse(d + 'T00:00:00+09:00') + 12 * 3600_000;   // 그날 정오(KST)
 const rows = [
@@ -83,6 +95,22 @@ check('내가 결재할 것 — 대기 중이되 내 건은 뺀다',
   same(run({ scope: 'pending', me: 'admin' }), [5]),
   JSON.stringify(run({ scope: 'pending', me: 'admin' })));
 check('전체 — 조건 없이 다 나온다', run({ scope: 'all', me: 'admin' }).length === 6);
+
+// 🗂 결재 보관함(2026-09-08) — 「내가 결재한 것」 함과 결재자별 함
+check('🗂 내가 결재한 것 — 내가 도장(승인·반려)을 찍은 건만',
+  same(run({ scope: 'decided', me: 'mgr_jjw' }), [1, 4]), JSON.stringify(run({ scope: 'decided', me: 'mgr_jjw' })));
+check('🗂 내가 결재한 것 — 반려도 «결재» 다 (4번이 들어 있다)',
+  run({ scope: 'decided', me: 'mgr_jjw' }).indexOf(4) >= 0);
+check('⛔ 건너뛴 단계(skipped)는 도장이 아니다 — 장지웅에게 6번이 안 붙는다',
+  run({ scope: 'decided', me: 'mgr_jjw' }).indexOf(6) < 0);
+check('⛔ 아무도 안 찍은 대기 건은 누구의 «결재한 것» 도 아니다',
+  run({ scope: 'decided', me: 'admin' }).indexOf(5) < 0 && run({ scope: 'decided', me: 'mgr_lby' }).indexOf(5) < 0);
+check('🗂 결재자별 — 이병엽이 결재한 건',
+  same(run({ scope: 'all', me: 'admin', decidedBy: 'mgr_lby' }), [2]));
+check('🗂 결재자별 + 상태 — 장지웅이 반려한 것만',
+  same(run({ scope: 'all', me: 'admin', decidedBy: 'mgr_jjw', status: 'rejected' }), [4]));
+check('⛔ 결재한 적 없는 사람으로 거르면 0건 (조건이 조용히 빠지지 않는다)',
+  run({ scope: 'all', me: 'admin', decidedBy: 'nobody' }).length === 0);
 
 // ══ B. 검색 ═══════════════════════════════════════════════════════════════
 console.log('\n[B] 검색 — 제목·내용·사람');

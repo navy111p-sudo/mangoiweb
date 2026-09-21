@@ -5,8 +5,11 @@
  * 화상수업에 입장(attendance 기록)하지 않은" 수업을 찾아 문자로 알린다.
  *
  * 안전장치 (기본 = 안전 모드):
- *  - 발송 대상: 운영자(OWNER_ALERT_PHONE)에게 요약 1통. 학부모 직접 발송은
- *    KV(SESSION_STATE) 'absent_alert_parent_send' 값이 'on' 일 때만 (기본 OFF).
+ *  - 발송 대상: 담당 강사(이메일/한국번호 문자)만 항상. **운영자 요약 문자와 학부모 직접 발송은
+ *    둘 다 기본 OFF** 이고 KV(SESSION_STATE) 스위치로만 켠다
+ *    ('absent_alert_owner_send' / 'absent_alert_parent_send' = 'on').
+ *    ⚠️ 운영자 요약은 2026-09-06 사장님 지시로 껐다 — 수업마다 문자가 계속 왔다.
+ *       감지·기록(class_no_show)·강사 알림은 그대로이므로 관리자 › 노쇼 리포트에서 다 보인다.
  *  - 중복 방지: class_no_show 에 room_id(=class-{id}-{YYYYMMDD}, 날짜 포함이라 세션당 유일)
  *    기록이 있으면 스킵 — 클라이언트발 /api/notify/no-show 기록과도 자연히 상호 dedup.
  *  - 폭주 방지: 한 번의 sweep 에서 학부모 문자 최대 5건. 감지 창 = 시작 +10분 ~ +40분
@@ -19,6 +22,8 @@ import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
 import { sendEmail, emailLayout } from './email';
+import { pushToTeacher } from './teacher-push';   // 🔔 강사 웹푸시(정본) — 카카오는 필리핀 번호에 안 닿는다(2026-09-14)
+import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
 function escapeHtmlAbs(s: any): string {
@@ -35,6 +40,7 @@ export interface AbsentSweepResult {
   checked: number;             // 오늘 발생 예약 중 감지 창 안에 있던 수업 수
   alerted: number;             // 이번에 새로 기록/알림한 결석 위험 수
   parent_mode: boolean;        // 학부모 직접 발송 모드였는지
+  owner_mode?: boolean;        // 운영자 요약 문자 모드였는지 (기본 OFF)
   owner_sms?: any;             // 운영자 요약 문자 결과
   details: any[];
   dry?: boolean;
@@ -52,7 +58,9 @@ export interface AbsentSweepResult {
    ✅ 대신 `class_schedules.teacher_id → teachers.name → teacher_profiles` 를 **이름으로** 잇는다.
       ⚠️ 부분일치는 금지 — 'Anna' 가 'HANNAH' 에 붙는 사고가 이미 있었다. api-teacher.ts 와 같은
          **낱말 경계** 규칙을 쓰고, 애매하면(후보 2명 이상) **아무에게도 안 보낸다**.
-      ⚠️ `teacher_profiles.linked_teacher_id` 는 현재 전 행이 NULL 이라 못 쓴다(실측). */
+      ⚠️ `teacher_profiles.linked_teacher_id` 는 2026-08-07 실측에서 전 행 NULL 이었다.
+         📊 2026-09-06 재실측: 33행 중 **29행이 채워져 있다** — 아래 «0순위 linked» 경로가
+            지금은 실제로 도는 주 경로다(그 아래 이름 매칭은 나머지 4행용). */
 /* 📵 (2026-09-01) `/api/notify/*` 도 이 판정을 씁니다 — 복제하지 마세요(notify-contacts.ts).
    판정을 여러 곳에 복제하면 반드시 어긋납니다(규칙서 2장, no-show-truth.ts 가 그 선례). */
 export async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; email: string | null; why: string }> {
@@ -137,8 +145,18 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
     const late = now - start_ts;
     if (late < DETECT_AFTER_MS || late > DETECT_UNTIL_MS) continue;   // 감지 창 밖
-    candidates.push({ ...s, start_ts, late_min: Math.floor(late / 60000), room_id: `class-${s.id}-${ymd}` });
+    /* ⚠️ `schedule_id` 를 «따로» 담는다 — 이 행의 열쇠는 `s.id` 인데
+       applyRoomOverrides 는 `schedule_id` 를 읽는다. 안 담으면 **에러 없이 늘 헛돈다**
+       (CLAUDE.md 2장 「헬퍼에 행을 넘겼는데 아무 일도 안 일어남」). */
+    candidates.push({ ...s, schedule_id: s.id, start_ts, late_min: Math.floor(late / 60000), room_id: `class-${s.id}-${ymd}` });
   }
+
+  /* 🚪 「오늘은 이 방으로」 — 지정이 걸린 수업은 **그 회의방**의 출석을 봐야 한다.
+     ⚠️ 안 보면 학생이 지정된 방에 멀쩡히 있는데 예약방(class-…)에 없다는 이유로
+        「결석 위험」이 찍히고, 그 `class_no_show` 행을 `no-show-truth.ts` 가 읽어
+        **그 수업의 수업료가 0원**이 된다(CLAUDE.md 2장 「급여가 걸려 있습니다」).
+     ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
+  await applyRoomOverrides(env.DB, candidates, ymd);
 
   const result: AbsentSweepResult = { ok: true, checked: candidates.length, alerted: 0, parent_mode: false, details: [], dry };
   if (!candidates.length) return result;
@@ -152,6 +170,20 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   let parentMode = false;
   try { parentMode = (await env.SESSION_STATE?.get('absent_alert_parent_send')) === 'on'; } catch {}
   result.parent_mode = parentMode;
+
+  /* 📵 (2026-09-06) 운영자 요약 문자 — 사장님 지시로 **기본 OFF**.
+     [왜] 수업 시간대마다 「🚨 결석 위험 1건 · … (+15분 미입장)」 문자가 사장님 폰으로 계속 왔습니다.
+          예약은 있는데 학생이 늦게 들어오는 흔한 경우까지 전부 잡히므로 하루에 여러 통이 됩니다.
+     ⚠️ **감지·기록·강사 알림은 그대로입니다** — 멈추는 것은 «운영자에게 문자로 알리는 것» 하나뿐이고,
+        결석 위험 자체는 `class_no_show` 에 계속 쌓여 관리자 › 노쇼 리포트에서 그대로 보입니다.
+        (기록까지 끄면 「왜 수업이 성립하지 않았나」가 함께 사라집니다 — 규칙서 2장.)
+     ⚠️ `OWNER_ALERT_PHONE` 자체를 지우면 안 됩니다 — 결제·환불·이상로그인·사이트 장애·방 갈림
+        감시견이 **같은 번호**를 씁니다. 그래서 이 알림 하나만 KV 스위치로 끕니다.
+     ✅ 다시 켜려면 배포 없이 KV(SESSION_STATE) `absent_alert_owner_send` = `on`.
+     ⚠️ KV 조회가 실패하면 «안 보내는» 쪽으로 떨어집니다 — 이 자리에서 원하는 실패 방향입니다. */
+  let ownerMode = false;
+  try { ownerMode = (await env.SESSION_STATE?.get('absent_alert_owner_send')) === 'on'; } catch {}
+  result.owner_mode = ownerMode;
 
   const newlyAbsent: any[] = [];
   for (const c of candidates) {
@@ -202,8 +234,21 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
             강사는 언제까지 기다려야 하는지, 우리가 알고는 있는지조차 알 수 없었다.
        ⚠️ 학부모 문자와 달리 **모드 스위치 없이 항상 보낸다** — 강사에게 «지금 상황»을 알리는 것은
           과잉 발송이 아니라 기본이다. 세션당 1회만 나간다(위 dup 검사가 보장).
-       ⚠️ 못 보낸 경우를 조용히 넘기지 않는다. 아래 운영자 요약에 «연락처 없음» 으로 함께 실어
-          원부의 빈칸이 눈에 보이게 한다(실측: 활동 강사 29명 중 원부 연결 0건). */
+       ⚠️ 못 보낸 경우를 조용히 넘기지 않는다 — 원부의 빈칸이 눈에 보여야 한다.
+          📊 [잰 것 — 2026-09-06 운영 D1 `teacher_profiles` 전수] 33행 중 이메일 27 · 연결
+             (`linked_teacher_id`) 29 · 한국 번호 2. 즉 **지금은 대부분에게 닿습니다** —
+             2026-08-07 에 여기 적혀 있던 「연결 0건」은 그때 값이고 지금은 아닙니다.
+             ⚠️ 이메일이 빈 6행 중 **`status='활동중'` 은 둘**입니다 — 프로필 30 「중국어
+                강선생님」(원부 29 · 계정 `hq_t_kang`, 그 계정에도 메일 없음)과 36 「JED」
+                (원부 20 · 계정 연결 없음). 둘 다 전화도 비어 있어 **어떤 자동 알림도 못
+                받습니다.** 나머지 4행은 퇴사 3 · 비활동 1(숨김)이라 보낼 일이 없습니다.
+             ⛔ 그 빈칸은 코드로 못 채웁니다 — 관리자 › 📇 강사 연락처 연결에서 사람이 넣습니다
+                (⛔ D1 을 직접 UPDATE 하지 말 것 — 규칙서 1-1).
+          ⚠️ (2026-09-06) 운영자 요약 문자가 기본 OFF 가 되면서, 그 «⚠ 못 보냄» 줄이 갈 곳이
+             한 번 사라졌었다. 지금은 세 곳에 남는다 — ① 켜져 있으면 운영자 요약 문자
+             ② 항상 `details[].teacher_sms` ③ 꺼져 있어도 `owner_sms.unsent_lines`.
+             ⛔ 「어차피 detail 에 있으니」로 ③을 지우지 말 것: 문자가 안 갈 때 사람이 실제로
+                보는 것은 cron 로그(`[absent-sweep]`) 한 줄이고, 거기 안 실리면 안 보인다. */
     let teacherNameForLog: string | null = null;
     if (!dry) {
       try {
@@ -218,6 +263,20 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
            (실측: 프로필 전화 22건 중 21건이 09xx 필리핀 번호, 한국 번호 0건 · SOLAPI 는 국제 미지원).
            한국 번호일 때만 문자를 쓴다. 둘 다 없으면 조용히 넘기지 않고 운영자에게 이유를 올린다. */
         const isKr = (p: any) => /^(\+?82|0)10/.test(String(p || '').replace(/[\s-]/g, ''));
+        /* 🔔 (2026-09-14) 웹푸시를 «먼저, 그리고 이메일과 함께» 보낸다 — 강사 화면(teacher.html)에서
+           「알림 받기」를 켠 강사의 폰에 카톡 알림처럼 뜬다. 카카오톡 자동 발송은 필리핀 번호에 «구조적으로»
+           안 닿아(teacher-push.ts 머리말) 사장님이 이쪽을 고르셨다.
+           ⚠️ 푸시는 «켠 사람에게만» 가고 폰이 꺼져 있으면 못 받는다 — 그래서 이메일을 «대신» 하지 않고
+              «더한다». 아래 이메일/문자 갈래는 한 글자도 안 바뀐다.
+           ⚠️ 못 보낸 이유(no_linked_account / no_subscription …)는 detail 에 그대로 남긴다. */
+        let pushOk = false;
+        try {
+          const pr = await pushToTeacher(env, c.teacher_id,
+            '⏰ ' + name + ' has not joined · 학생 미입장 (' + hhmm + ')', bodyEn + '\n' + bodyKo,
+            '/teacher', 'absent-' + c.room_id);
+          pushOk = pr.sent > 0;
+          detail.teacher_push = pushOk ? 'sent' : (pr.why || 'failed');
+        } catch (e: any) { detail.teacher_push = 'error:' + String(e?.message || e).slice(0, 80); }
         if (tc.email) {
           try {
             const r2 = await sendEmail(env as any, {
@@ -237,7 +296,8 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
         } else {
           const why = tc.phone && !isKr(tc.phone) ? 'phone_is_overseas_no_email' : tc.why;
           detail.teacher_sms = why;                       // no_phone_in_roster / ambiguous / 해외번호뿐 …
-          ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${why}`);
+          // 🔔 푸시가 실제로 나갔으면 «못 보냄» 이 아니다 — 운영자 경고는 «아무 데도 안 닿았을 때» 만.
+          if (!pushOk) ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${why}`);
         }
       } catch (e: any) { detail.teacher_sms = 'error:' + String(e?.message || e).slice(0, 80); }
     }
@@ -257,15 +317,29 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     result.details.push(detail);
   }
 
-  // 운영자 요약 문자 1통 (dry 는 발송 안 함)
+  // 운영자 요약 문자 1통 (dry 는 발송 안 함 · 기본 OFF — 위 ownerMode 참고)
   if (result.alerted > 0 && !dry) {
-    try {
-      const ownerPhone = env.OWNER_ALERT_PHONE;
-      if (ownerPhone) {
-        const text = `[망고아이] 🚨 결석 위험 ${result.alerted}건\n${ownerLines.slice(0, 8).join('\n')}${parentMode ? '\n(학부모 문자 발송됨)' : '\n(학부모 발송 OFF — 관리자 확인용)'}`;
-        result.owner_sms = await sendPlainSms(env, ownerPhone, text);
-      } else result.owner_sms = { skipped: 'no_owner_phone' };
-    } catch (e: any) { result.owner_sms = { error: String(e?.message || e).slice(0, 120) }; }
+    /* ⛔ 꺼져 있어도 조용히 넘기지 않는다 — 「왜 문자가 안 왔나」와 「무엇이 안 갔나」가
+       함께 보여야 한다. 보이는 곳: cron 로그 `[absent-sweep]`(index.ts 가 result 를 통째로
+       찍는다)과 GET /api/admin/absent-sweep/run 응답.
+       ⚠️ dry run 은 여기까지 오지 않는다(`!dry` 조건) — 그때는 위 `owner_mode:false` 로 본다.
+       ⛔ 이 분기를 «이른 return» 으로 되돌리지 말 것: 나중에 이 블록 뒤에 정리 코드가 붙으면
+          OFF 인 날에만 조용히 건너뛰어진다. */
+    if (ownerMode) {
+      try {
+        const ownerPhone = env.OWNER_ALERT_PHONE;
+        if (ownerPhone) {
+          const text = `[망고아이] 🚨 결석 위험 ${result.alerted}건\n${ownerLines.slice(0, 8).join('\n')}${parentMode ? '\n(학부모 문자 발송됨)' : '\n(학부모 발송 OFF — 관리자 확인용)'}`;
+          result.owner_sms = await sendPlainSms(env, ownerPhone, text);
+        } else result.owner_sms = { skipped: 'no_owner_phone' };
+      } catch (e: any) { result.owner_sms = { error: String(e?.message || e).slice(0, 120) }; }
+    } else {
+      result.owner_sms = {
+        skipped: 'owner_send_off',
+        hint: "KV absent_alert_owner_send='on' 이면 다시 보냅니다",
+        unsent_lines: ownerLines.slice(0, 8),   // 강사에게 «못 보냄» 사유가 여기서 사라지지 않게
+      };
+    }
   }
 
   return result;

@@ -52,12 +52,88 @@ const nrm = (s: any): string => String(s || '').toUpperCase().trim();
 /** 표기에서 실제로 쓰이는 구분자들 — '중국어 강선생님' · 'HT FARRAH' */
 const words = (s: any): string[] => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
 
-/** 낱말 경계로 같은 사람인가. api-teacher.ts 의 wordMatch 와 같은 규칙. */
+/* 🔗 같은 사람인데 표기가 다른 이름 — «완전일치 쌍» 만 손으로 적는다 (2026-09-08)
+
+   [왜] 예약표(teachers.name)와 화상방 입장 표기가 서로 다른 강사가 실제로 있다.
+     실사고(2026-09-08 class-1924): 원부는 'FAR'(teachers.id=22) 인데 그 강사는
+     '교사 Teacher - Farrah' 로 들어온다. 낱말 경계로는 어긋나고('FARRAH' 는 'FAR' 이
+     아니다), 'Teacher - Farrah' 는 계정이 아니라 계정 해석(accountToTeacherName)도
+     못 푼다 → **이름을 붙이는 두 경로가 다 실패**했다. 그 결과
+       (1) 강사가 1분 52초 «먼저» 들어와 있는데 「강사 미입장」 푸시가 나갔다
+           (notified_push=1 — 같은 날 이름이 붙어 억제된 세 건과 대조된다)
+       (2) present 가 **false**(=「없었다」로 확정)라 급여 되돌림도 안 걸렸다.
+           실측 21분 05초 수업한 강사의 수업이 노쇼로 남는다.
+   [잰 것 — 2026-09-08, 최근 30일 강사 접속 254회] 이름을 못 붙이는 표기는 2종 59회다.
+     · '교사'(이름 없이 입장) 34회 — 정보 자체가 없어 **원리상 못 고친다**.
+     · '교사 Teacher - Farrah' 25회 — 고칠 수 있는 것은 이것 하나뿐이다.
+     나머지(Kaye·Kes·Krystel·Hannah·Shas·Cindy·Win·계정형 mangoi_xxx)는 전부 붙는다.
+
+   ⛔ **부분일치를 여는 것이 아니다.** 'FAR' 이 'FARRAH' 안에 들어 있다고 붙이기 시작하면
+      'ANNA' ⊂ 'HANNAH' 가 되살아나 **남의 이름이 붙는다.** 그 방향은 진짜 노쇼를 감추고
+      수업료를 전액 내보내므로 이 파일에서 가장 나쁜 실수다.
+      그래서 **여기 적힌 쌍만** 같은 사람으로 본다 — 'KRY' 는 'KRYSTEL' 에 안 붙는다.
+   ⛔ 한 그룹에 서로 다른 두 사람을 넣지 말 것. 줄을 더할 때는 **`teachers` 전체**와
+      대조해 «다른 강사의 이름·낱말과 겹치지 않는지» 먼저 확인할 것.
+      ⚠️ **`active=1` 만 보면 못 잡는다** — 아래 그룹의 `HT FARRAH` 가 `active=0`(퇴사)인데도
+         이름이 명부에 남아 있다. 남을 넣는 실수도 이런 행에서 나기 쉽다.
+   ⚠️ 이 표는 «이름» 만 넓힌다 — 계정↔원부 해석(accountToTeacherName)은 그대로다.
+   ⚠️ 근본 해결은 표기를 한쪽으로 맞추는 것이다(예약표를 고치거나 입장 이름을 계정으로
+      통일). D1·화면이 걸린 별건이라 사람이 정한다 — 그때 이 표에서 그 줄을 지운다. */
+const NAME_ALIASES: readonly (readonly string[])[] = [
+  // 원부 'FAR'(teachers.id=22) ↔ 입장 표기 '교사 Teacher - Farrah'(실측 25회).
+  //   동일인 근거: teacher_profiles.id=27 이 korean_name='Teacher Far' · english_name='Teacher Farrah'.
+  //   ⚠️ 왜 여러 값을 적는가 — 역할 접두사가 벗겨지는 «횟수» 가 부르는 자리마다 다르다(아래 주석).
+  //   'HT FARRAH' 는 teachers.id=3(퇴사) 의 표기다 — **같은 사람**임을 2026-09-08 에 사장님이
+  //     확인해 주셔서 그룹에 넣는다. 그 전에는 «다른 사람» 으로 보고 일부러 뺐었다.
+  //     ⚠️ 그렇다고 부분일치를 여는 것이 아니다 — 'HT NESS' 는 낱말 'HT' 를 나눠 갖지만
+  //        그룹에 없으므로 안 붙는다(감시는 D-16·D-17. D-15 는 «그룹에 있으면 건너뛰» 므로
+  //        표에 남을 넣어 버리는 실수는 D-17 만 잡는다).
+  ['FAR', 'FARRAH', 'TEACHER FARRAH', 'HT FARRAH'],
+];
+
+/** 표기 차이를 흡수한 별칭 조회용 열쇠 — 구분자를 낱말 사이 한 칸으로 고른다.
+ *  'Teacher - Farrah' 와 'Teacher Farrah' 가 같은 열쇠가 된다(둘 다 'TEACHER FARRAH'). */
+const aliasKey = (s: any): string => words(s).join(' ');
+
+/** 두 이름이 «같은 별칭 그룹» 에 **둘 다** 들어 있는가. */
+function sameByAlias(x: string, y: string): boolean {
+  const kx = aliasKey(x), ky = aliasKey(y);
+  if (!kx || !ky) return false;
+  for (const g of NAME_ALIASES) if (g.indexOf(kx) >= 0 && g.indexOf(ky) >= 0) return true;
+  return false;
+}
+
+/** 낱말 경계로 같은 사람인가. api-teacher.ts 의 wordMatch 와 같은 규칙 + 위 별칭표. */
 export function sameTeacherByWord(a: any, b: any): boolean {
   const x = nrm(stripRolePrefix(a)), y = nrm(stripRolePrefix(b));
   if (!x || !y) return false;
+  // ① 옛 규칙 그대로 — 여기까지는 별칭이 없던 때와 한 글자도 다르지 않다.
   if (x === y) return true;
-  return words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0;
+  if (words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0) return true;
+  /* ② 별칭 — «이름 전체» 끼리만 본다.
+     🔴 ⛔ **별칭을 상대의 «낱말» 에까지 넓히면 안 된다.** 넓히면 별칭이 상대 이름의
+        «낱말» 에 걸려, 표에 없는 사람까지 같은 사람으로 붙는다. 부분일치를 연 것이 아닌데도
+        결과가 같아지는 자리다 — 실제로 한 번 그렇게 짰다가 함정 대조가 잡았다.
+        (그때 걸린 것은 'FARRAH' ⊂ 'HT FARRAH' 였는데, 그 둘은 2026-09-08 에 «같은 사람» 으로
+         확인되어 지금은 그룹에 함께 있다. 그래도 **이 금지는 그대로다** — 낱말까지 넓히면
+         'HT NESS' 처럼 낱말 'HT' 만 겹치는 남까지 딸려 온다.)
+        그 방향은 **진짜 노쇼를 감추고 수업료를 전액 내보낸다.**
+     ⟹ 그 오염이 여기서 안 나는 이유는 **양쪽이 «둘 다» 그룹에 있어야** 붙기 때문이다.
+        그룹 «밖» 이름은 낱말이 겹쳐도 인정되지 않는다 — 'HT NESS' 가 그 예다.
+        ✅ 감시는 **D-16** 이다: 반례를 그룹 원소에서 **자동으로 만들어**('ZZQ ' + 원소)
+           «별칭이 «새로» 붙였는가» 를 별칭표 비운 사본과 비교한다.
+           ⛔ 반례를 «실측 명부» 로만 두면 못 잡는다 — 지금 명부에 'FAR'·'FARRAH' 를 낱말로
+              가진 다른 강사가 없어서 실제로 한 번 통과했다(2026-09-08).
+
+     ⚠️ [표에 적을 값을 고를 때] **역할 접두사가 두 번 벗겨진다.**
+        `teacherPresenceByRoom` 의 `namesOf()` 가 한 번 벗기고(`'교사 Teacher - Farrah'`
+        → `'Teacher - Farrah'`), 그 값을 받은 이 함수가 **또 한 번** 벗긴다(→ `'- Farrah'`).
+        그래서 **실제 경로**(출석 대조)에 닿는 열쇠는 `'FARRAH'` 이고,
+        `sameTeacherByWord` 를 **직접** 부르면(한 번만 벗김) `'TEACHER FARRAH'` 다.
+        ⛔ 둘 중 하나만 적으면 다른 쪽에서 **조용히 안 걸린다** — 실제로 각각 한 번씩
+           그렇게 적었다가 하니스 D-4(실제 경로)와 D-14(그룹 전수)가 잡았다.
+           새 줄을 더할 때는 **반드시 하니스로 확인**할 것. 눈으로는 안 보인다. */
+  return sameByAlias(x, y);
 }
 
 /**

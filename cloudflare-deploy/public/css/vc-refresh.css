@@ -226,3 +226,12 @@ body.vc-in-call .ctrl-btn.off{ background:rgba(239,68,68,.92) !important;color:#
 body.vc-in-call #mango-class-time{
   border-radius:14px !important;box-shadow:0 6px 16px rgba(0,0,0,.30) !important;
 }
+
+/* 🌐 (2026-09-10) 얼굴칸 안내의 «영어 줄» — 한/영 병기(idx-main.js vcApplyRemoteCamHint).
+   ⛔ 인라인 style 로 주지 말 것: 그 파일은 첫 화면 예산이라 바이트가 비싸다(2026-09-10 여유 186B).
+   ⚠️ 좁은 타일에서 4줄이 되면 넘치므로 상자에 overflow:hidden 을 함께 둔다. */
+.vc-camoff-hint { overflow: hidden; }
+.vc-camoff-hint i {
+  display: block; margin-top: 4px; font-style: normal;
+  font-size: 11px; font-weight: 600; opacity: .82; line-height: 1.3;
+}

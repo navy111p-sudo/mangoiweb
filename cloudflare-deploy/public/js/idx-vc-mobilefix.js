@@ -17,6 +17,8 @@
  *   ⑦ 얼굴 꾸미기(가면) 파일을 우리 서버(/vendor/mediapipe-face/)에서 쓴다 —
  *      지금까지 구글·jsdelivr 에서 받아 와 중국에서 통째로 막혀 있었다.
  *   ⑧ 「교사 화면이 작고 학생 화면이 크다」 — 상대 타일이 검은 띠에 둘러싸이던 것.
+ *      ⑧-2 단, PC 1:1 수업의 «넓은 세로 칸» 에서는 꽉 채우지 않는다 — 확대를 멈추고
+ *      전체를 보여 준다(2026-09-07 사장님 「교사 얼굴이 너무 크다 · 절반으로 · 선명하고 가볍게」).
  *   ⑨ 1:1 수업에서 «교사» 얼굴을 크게(상대:나 = 1.6:1, PC 는 누가 PIP 인가로).
  *   ⑩ 중국어 복습퀴즈 — 수업 교재로 언어를 판정하고, 「진도(과)」를 학생이 고르게 한다
  *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
@@ -30,6 +32,11 @@
  *      이 목차에 빠져 있어 병합하며 함께 채웠다).
  *   ⑭ 「👥 학생 제어」 이름표가 세로폰 ☰ 기능 메뉴에서 «죽은 버튼» 처럼 보이던 것 —
  *      그 메뉴에서만 한 줄짜리 소제목으로 그린다(2026-08-28 사장님 확인 요청).
+ *   ⑮ ⭐ 칭찬 별이 «조용히» 실패하던 것 — 학생 확인이 3.5초 안에 안 오면 서버에 한 번
+ *      물어 «들어갔는지 / 왜 안 들어갔는지» 를 선생님 화면 글자로 말한다
+ *      (2026-09-10 사장님 「교사가 prize 를 줘도 점수도 소리도 변화가 없어」).
+ *   ⑯ 🏷 이름표(로스터) 등록을 «끝이 있는» 일정으로 몇 번 더 시도한다 — 두 번 만에
+ *      포기하면 그 수업 내내 칭찬을 넣을 계정이 없다(같은 날 아침 실측 0장).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -576,6 +583,74 @@
     try { return !!(box && box.querySelector('.vc-ss-badge')); } catch (e) { return false; }
   }
 
+  /* ⑧-2 «넉넉히 큰 세로 칸» 에서는 꽉 채우지 않는다 — 확대를 멈춘다
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-09-07 「학생이 보는 교사 얼굴을 지금보다 절반 크기로. 너무 크다」
+            + 「셋 중 가장 선명하게, 최대한 가볍게」.
+     [무엇이 문제였나] 위 cover 는 «채우기» 가 아니라 «확대» 다.
+       PC 학생 화면의 얼굴 칸은 세로로 길다. 거기에 교사의 가로 웹캠을 cover 로 넣으면
+       세로에 맞추느라 늘어난다 — **[잰 것 · 1905x1051 창 · 교사 1280x720 · 「얼굴 크게」]**
+       칸은 850x938 인데 그림은 **1669x938**(원본의 1.30배 업스케일)이고 **폭 51% 만 보인다.**
+       → ① 얼굴이 가득 차고 ② 좌우가 잘려 코·입만 남고 ③ 늘린 만큼 흐려진다.
+       세 가지가 한 원인이라 «전체 보이기» 하나로 같이 풀린다 — 그림이 850x478 이 되어
+       얼굴은 **0.51배**(= 850/1669 · 지시한 «절반» 과 일치), 업스케일이 사라져 가장 선명하고,
+       GPU 가 늘리는 일이 없어 가장 가볍다.
+     ⛔ 좁은 칸은 그대로 둔다 — 사이드컬럼(교재 크게)·PIP 에서 전체 보이기를 하면
+        「교사 얼굴이 칸의 28% 로 쪼그라든다」던 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 가르는 기준은 폭(px)이 아니라 **크기바에서 사람이 고른 모드**이고,
+        바꾸는 것은 **1:1 수업의 「얼굴 크게」·「모두 보기」뿐**이다(아래 목록 주석의 실측 참고).
+        ⚠️ 그중 「모두 보기」는 실측한 1905x1051 에서 칸이 **가로**(1889x938)라 가드에 걸려
+           실제로는 아무것도 안 바뀐다 — 세로로 긴 화면(태블릿 세로 등)에서만 닿는다.
+        「교재 크게」와 «학생 기본값» 인 「기본」은 손대지 않는다 — 거기서 전체 보이기를 하면
+        얼굴이 칸의 18~27.5% 가 되어 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 폰은 이 줄에 애초에 안 닿는다(min-width:1024px) — 2026-07-14 「꽉 차게」 지시 그대로다.
+        폰 세로는 정본(vcSmartFitVideo)이 자기 예외로 먼저 cover 를 준다.
+     ℹ️ 세로 영상(교사가 폰으로 들어옴)은 위 cover 조건이 «가로일 때» 라 여기까지 오지 않는다.
+     ⚠️ 크기바로 칸이 바뀌면 ResizeObserver 가 다시 부른다(idx-main.js vcInstallSmartFit) — 저절로 따라온다. */
+  /* ⛔ 폭(px)으로 가르려다 실패했다 — 하니스가 잡았다.
+        「교재 크게」는 clamp(180px,18%,300px) 이고 「기본」은 clamp(260px,27%,460px) 라
+        **260~300px 이 겹친다.** 폭으로는 두 모드를 원리상 구분할 수 없다.
+        그래서 사람이 «고른 것» 그 자체(크기바 모드)로 가른다.
+
+     🔴 그리고 «작게 두는 모드를 뺀다»(부정 목록)에서 «넓게 보는 모드만»(긍정 목록)으로 좁혔다 —
+        실측이 이유다. 1905x1051 · 교사 웹캠 1280x720 에서 칸 안에 그려지는 그림:
+          「얼굴 크게」 850x938 → 전체 보이기 850x478 = 고치기 전의 **0.51배**  ← 사장님이 본 화면
+          「기본」     459x938 → 전체 보이기 459x258 = 칸의 **27.5%**
+        뒤엣것은 2026-08-26 「교사 얼굴이 칸의 28% 로 쪼그라든다」 신고 수치 **그대로**다.
+        게다가 「기본」은 index.html 의 **학생 기본값**(vc-main-row video-half)이라
+        건드리면 반경이 학생 전원이다. 그래서 «사장님이 그 화면에서 크다고 한» 모드만 바꾼다.
+     ℹ️ 「기본」에서도 줄이려면 이 목록에 'video-half' 를 더하면 된다 — 사람이 정할 일이다. */
+  /* ⛔ 'video-solo' 는 넣지 마세요 — 이름과 달리 «넓게 보는 모드» 가 아닙니다.
+        vcScreenSet(idx-main.js)의 「얼굴 화면 숨기기」·「칠판만」·「교재만」이 그 클래스를
+        재활용합니다(= 얼굴을 감추는 모드). 처음에 넣었다가 함정 대조가 잡았습니다 —
+        실측상 그때 타일이 0x0 이라 무해했지만, 목록을 읽는 다음 사람이 오해합니다. */
+  var MG_WIDE_FACE_MODES = ['video-threequarter', 'video-full'];
+  function mgBigPortraitBox(box) {
+    try {
+      if (!box || box.id === 'vc-local-box') return false;
+      if (!matchMedia('(min-width:1024px)').matches) return false;
+      var bw = box.clientWidth, bh = box.clientHeight;
+      if (!bw || !bh) return false;
+      if (bh <= bw) return false;                 // 가로로 넓은 칸은 확대가 안 일어난다(PIP 포함)
+      /* 🔴 1:1 수업에만 — 그룹 수업에서는 방향이 «반대» 가 된다.
+         [잰 것 — 1905x1051 · 함정 대조] 4인 「얼굴 크게」는 스포트라이트가 걸려
+         교사 타일이 가로(834x553)라 그대로인데 **학생 타일만**(273x361) 세로여서
+         얼굴이 42.7% 로 줄었다. 3인 「모두 보기」는 전원이 37.9%.
+         지시는 「학생이 보는 교사 얼굴」이었으므로 그 조합은 고치려던 것과 반대다.
+         ℹ️ ⑨(교사를 크게)도 같은 이유로 data-count="2" 에만 건다 — 3명 이상은
+            «누가 주인공인가» 가 정해지지 않는다. */
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid || grid.getAttribute('data-count') !== '2') return false;
+      var row = document.getElementById('vc-main-row');
+      if (!row) return false;                     // 모르면 옛 동작 그대로
+      for (var i = 0; i < MG_WIDE_FACE_MODES.length; i++) {
+        if (row.classList.contains(MG_WIDE_FACE_MODES[i])) return true;
+      }
+      return false;                               // 모르는 모드도 옛 동작 그대로
+    } catch (e) { return false; }
+  }
+  window.mgBigPortraitBox = mgBigPortraitBox;   // 검사·콘솔에서 부를 수 있게
+
   var _smartFit = window.vcSmartFitVideo;
   if (typeof _smartFit === 'function') {
     window.vcSmartFitVideo = function (v) {
@@ -589,8 +664,9 @@
           v.style.setProperty('object-fit', 'contain', 'important');
           return;
         }
+        /* 🔍 큰 세로 칸이면 꽉 채우지 않는다 — 위 ⑧-2. 정본에 맡기면 «전체 보이기» 가 된다. */
         if (v && v.videoWidth && v.videoHeight && v.videoWidth >= v.videoHeight
-            && box && box.id !== 'vc-local-box') {
+            && box && box.id !== 'vc-local-box' && !mgBigPortraitBox(box)) {
           v.style.setProperty('object-fit', 'cover', 'important');
           return;
         }
@@ -630,9 +706,9 @@
   })();
 
   /* ══════════════════════════════════════════════════════════════
-     ⑨ 1:1 수업에서 «상대(교사) 얼굴» 을 내 얼굴보다 크게
+     ⑨ 1:1 수업의 얼굴 타일 크기 — 학생 화면은 «교사가 크게», 교사 화면은 «둘이 같게»
      ──────────────────────────────────────────────────────────────
-     [지시] 사장님 2026-08-26 「교사를 학생보다 더 크게도 해줘」.
+     [지시] 2026-08-26 「교사를 학생보다 더 크게도 해줘」 → 2026-09-08 「교사 화면에서는 같은 크기로」.
 
      [먼저 재 봤다 — 화면마다 «구조 자체» 가 다르다]  칸 크기 실측(1:1, video-half)
        PC 1280x800 : 상대 341x687 / 나 210x158 → 이미 상대가 7.15배
@@ -640,23 +716,27 @@
                         «상대 전체화면 + 내 타일은 오른아래 작은 PIP» 로 그린다.
        폰 가로     : 295x139 / 295x139 → 정확히 1배   ← 그리드(세로로 쌓임)
        폰 세로     : 187x345 / 187x345 → 정확히 1배   ← 그리드(좌우로 갈림)
-     → 그래서 고침이 «두 종류» 다: 폰은 fr 비중, PC 는 «누가 PIP 인가» 맞바꾸기.
+     → 그래서 고침이 «두 종류» 다: 폰은 fr 비중, PC 는 «절대배치인가 그리드인가».
 
      ⚠️ 그 두 곳은 2026-07-14 지시로 «정확히 반반» 이 못 박혀 있던 자리다
         (index.html 3272·3392·3412 — 「겹침·축소·가림 절대 금지」).
         2026-08-26 사장님 지시로 그 결정을 바꾼다. 되돌리려면 이 절만 지우면 된다.
 
-     [무엇을 크게 하나] **«교사» 타일이다 — 누가 보든 교사가 크다.**
-       · 학생 화면 → 상대(교사)가 큼
-       · 교사 화면 → **자기 자신**이 큼 (2026-08-26 사장님 추가 지시)
-     ⚠️ 처음엔 «상대» 기준으로 만들었다가 바로 이 지시로 바꿨다. 그때 근거로 삼은
-        「자기 얼굴이 화면을 지배하면 안 된다」는 우리 짐작이었고, 사장님 판단은 달랐다.
+     [무엇을 크게 하나 — 화면마다 다르다]
+       · 학생 화면 → 상대(교사)가 큼        (2026-07-14·08-26 결정 유지)
+       · 교사 화면 → **둘이 같은 크기**     (2026-09-08 사장님 지시)
+     📜 이 자리는 지시가 세 번 바뀌었다. 어느 쪽으로 되돌리든 «누가 언제 왜» 를 남긴다.
+       ① 2026-07-14 「정확히 반반」 (index.html 3272·3392·3412)
+       ② 2026-08-26 「교사를 더 크게 — 교사 화면에서는 자기 자신이」 → 교사 화면이 1.6배·PC 는 전체화면
+       ③ 2026-09-08 「교사 얼굴이 너무 크다. 교사·학생을 같은 크기로 줄여라.
+                      **학생 화면은 현재대로**」 → 교사 화면만 ①로 되돌림
+     ⚠️ ③은 «교사 화면만» 이다. 학생 화면의 1.6배(폰)·전체화면+PIP(PC)는 그대로 두었다 —
+        둘을 함께 반반으로 만들면 2026-07-14 로 통째로 되돌아가는 것이라 지시를 벗어난다.
      ℹ️ 순서(order)는 건드리지 않는다 — 내 타일은 그대로 맨 뒤에 있고 «크기» 만 바뀐다.
-        그래서 교사 화면에서는 둘째 칸이 커진다(1fr 1.6fr).
      ℹ️ 1:1(data-count="2") 일 때만. 3명 이상은 주인공이 정해지지 않는다.
   ══════════════════════════════════════════════════════════════ */
   var BIG  = '1.6fr 1fr';          // 첫 칸(상대)이 큼      — 학생 화면
-  var BIGME = '1fr 1.6fr';         // 둘째 칸(내 타일)이 큼 — 교사 화면(내 타일은 order:96 로 맨 뒤)
+  var SAME = '1fr 1fr';            // 둘이 같은 크기        — 교사 화면(2026-09-08 사장님 지시)
   var PORT = '@media (max-width:920px) and (orientation:portrait){';
   var LAND = '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){';
   /* 원래 규칙(index.html 3272·3392)이 (3,2,0)·(3,3,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다.
@@ -669,38 +749,55 @@
     /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중 */
     PORT +
       sel(SEL_P, false) + '{grid-template-columns:' + BIG + ' !important}' +
-      sel(SEL_P, true)  + '{grid-template-columns:' + BIGME + ' !important}' +
+      sel(SEL_P, true)  + '{grid-template-columns:' + SAME + ' !important}' +
     '}' +
     /* 폰 가로 — 오른쪽 얼굴 컬럼이 «위아래» 로 쌓인다 → 세로 비중 */
     LAND +
       sel(SEL_L, false) + '{grid-template-rows:' + BIG + ' !important;grid-auto-rows:1fr !important}' +
-      sel(SEL_L, true)  + '{grid-template-rows:' + BIGME + ' !important;grid-auto-rows:1fr !important}' +
+      sel(SEL_L, true)  + '{grid-template-rows:' + SAME + ' !important;grid-auto-rows:1fr !important}' +
     '}' +
     /* PC·태블릿(≥1024px) — 여기는 그리드가 아니다.
        css/vc-refresh.css 가 1:1 을 «상대 전체화면 + 내 타일은 오른아래 작은 PIP(24%·최대 210px)» 로 그린다
-       (display:block + 둘 다 position:absolute). 그래서 타일 크기를 정하는 것은 fr 비율이 아니라
-       «누가 PIP 인가» 하나다. 교사 화면에서는 그 둘을 맞바꿈 — 내가 전체화면, 상대가 PIP.
-       ⚠️ 폭 만 바꿔서는 안 된다 — 높이도 aspect-ratio·inset 으로 정해진다(실측: 상대 211x687 / 나 210x158).
-       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 fr 규칙과 겹쳐 두 번 줄어든다
-       (실측으로 밟음: 1.6배가 아니라 2.58배가 됐다). 이겨야 할 상대는 vc-refresh.css(2,2,1) 가 아니라
-       index.html vc-teacher-first 의 (3,5,1) 이다 — id 를 다섯 개로 만들어(5,3,1) 이긴다.
-       (id 개수를 먼저 비교하므로 클래스가 적어도 이긴다. 처음엔 (3,3,1) 로 만들어 «내 타일이
-        전체화면인데 폭만 62%» 라는 어정쩡한 상태를 실측으로 밟았다.) */
+       (display:block + 둘 다 position:absolute). 학생 화면은 그대로 두고, 교사 화면만 손댄다.
+
+       [2026-09-08 사장님 지시] 「교사 수업에서 교사 얼굴이 너무 크게 나온다 —
+        교사 얼굴과 학생 얼굴을 같은 크기로 줄여라. 학생 화면은 현재대로.」
+       그전(2026-08-26~09-07)에는 여기서 그 둘을 «맞바꿔» 교사 자신이 전체화면, 학생이 210px PIP 였다.
+       이제는 맞바꾸지 않고 «절대배치 자체를 끄고» 그리드 반반으로 되돌린다.
+       ⚠️ 학생 화면(:not(.mg-teacher-self))은 한 줄도 안 건드린다 — 거기서는 여전히
+          교사가 전체화면이고 내 타일이 오른아래 PIP 다(2026-07-14·08-26 결정 유지).
+       ⚠️ 위아래로 나눈다(1fr/1fr rows). PC 얼굴 칸은 세로로 긴 컬럼이라(실측 폭 341 · 높이 687)
+          좌우로 나누면 한 칸이 170px 짜리 세로 막대가 되어 얼굴이 남지 않는다.
+       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 반반 규칙과 겹친다.
+       ⚠️ 이겨야 할 상대가 둘이다: vc-refresh.css 의 절대배치(id 1개)와
+          index.html vc-teacher-first 의 «내 타일 62% 축소»(3,5,1). 그래서 id 를 다섯 개로 만든다
+          (id 개수를 먼저 비교하므로 클래스가 적어도 이긴다). */
     '@media (min-width:1024px){' +
-      /* 내 타일 → 전체화면 */
+      /* ① 그리드로 되돌린다 — vc-refresh.css 의 display:block(전체화면+PIP 구조)을 끈다 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"]{' +
+        'display:grid !important;position:relative !important;' +
+        'grid-template-columns:1fr !important;grid-template-rows:1fr 1fr !important;' +
+        'grid-auto-rows:1fr !important;align-content:stretch !important;gap:4px !important}' +
+      /* ② 두 타일 모두 절대배치를 풀고 자기 칸을 꽉 채운다 = 정확히 같은 크기 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box{' +
+        'position:relative !important;inset:auto !important;' +
+        'width:100% !important;height:100% !important;min-height:0 !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;' +
+        'border-radius:12px !important;overflow:hidden !important;z-index:auto !important}' +
+      /* ③ 내 타일 — ②와 같은 값에 «흐리게»(vc-teacher-first 의 opacity:.96)를 끄는 줄을 더한다.
+         📌 [잰 것] ③을 통째로 지우고 실측하니 실제로 달라지는 것은 **opacity 하나뿐**이었다
+            (0.96 → 1). 폭 62%·margin-left:auto 는 ②의 width:100%(4,5,1)가
+            vc-teacher-first(3,5,1)를 이미 이겨 무효화된다(실측 width 329px · margin-left 0px).
+         ⚠️ 그러니 ③을 «없어도 되는 줄» 로 읽지 말 것 — 지우면 교사 자기 타일만 조용히
+            흐려진다(크기는 그대로라 «면적» 만 재는 검사로는 안 잡힌다).
+            그래서 브라우저 검사 ⑨-2 가 opacity 도 함께 잰다. */
       'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
-        'position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;' +
-        'max-width:none !important;aspect-ratio:auto !important;border-radius:0 !important;' +
-        'box-shadow:none !important;z-index:1 !important;margin-left:0 !important;opacity:1 !important}' +
-      /* 상대 → 오른아래 PIP (학생 화면에서 내 타일이 받던 «그 크기» 그대로)
-         ℹ️ 62% 는 vc-refresh.css 의 24% 가 아니라 index.html vc-teacher-first 의 값이다 —
-            그 규칙이 (2,5,1) 로 더 세서 학생 화면 PIP 는 실제로 62%(상한 210px)로 그려진다.
-            24% 를 그대로 베끼면 PIP 가 82px 로 나와 학생 화면과 짝이 안 맞는다(실측). */
-      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box:not(#vc-local-box){' +
-        'position:absolute !important;inset:auto 14px 14px auto !important;' +
-        'width:62% !important;max-width:210px !important;height:auto !important;aspect-ratio:4/3 !important;' +
-        'border-radius:14px !important;overflow:hidden !important;z-index:40 !important;' +
-        'box-shadow:0 0 0 2px rgba(251,191,36,.6),0 10px 26px rgba(0,0,0,.5) !important}' +
+        'position:relative !important;inset:auto !important;' +
+        'width:100% !important;height:100% !important;min-height:0 !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;' +
+        'margin-left:0 !important;margin:0 !important;opacity:1 !important;' +
+        'border-radius:12px !important;overflow:hidden !important;z-index:auto !important;' +
+        'box-shadow:0 0 0 2px rgba(251,191,36,.55),0 4px 14px rgba(0,0,0,.38) !important}' +
     '}';
 
   /* ⑨-3 «이 방의 교사가 누구인가» — 상대 타일에 교사가 있으면 내가 무엇이든 상대가 주인공이다.
@@ -1592,5 +1689,295 @@
     };
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑭ 화면 공유 — «초당 장수» 만 15 로 묶는다 (2026-09-06 사장님 결정)
+     ────────────────────────────────────────────────────────────
+     왜 fps «만» 인가 — 화면 공유는 2026-08-11 에 contentHint='detail' 로
+       «글자 선명함이 먼저» 라고 일부러 정한 자리다(카메라는 정반대인 'motion').
+       해상도를 조이면 교재·PPT 글자가 뭉개져 그 결정과 정면으로 부딪힌다.
+       반대로 공유 화면은 정지화면에 가까워 초당 장수를 줄여도 잃는 것이 거의 없다.
+     ⛔ 카메라는 건드리지 않는다 — PC 24fps 유지(2026-09-06 사장님 결정).
+       회선이 나쁘면 적응 루프(idx-main.js vcAdaptiveQuality)가 이미 알아서 내리므로,
+       기준값을 내리면 «좋은 회선만» 손해다. degradationPreference 가
+       'maintain-framerate'(2026-08-11 강사 «영상이 멈춘다» 제보)인 것과도 어긋난다.
+     왜 여기(defer)인가 — 호출부는 idx-main.js 의 vcShareMyScreen 한 곳인데,
+       그 파일은 blocking 이고 첫 화면 예산 여유가 116바이트뿐이다(2026-09-06 실측).
+       그래서 navigator.mediaDevices.getDisplayMedia 를 밖에서 감싼다.
+       ⚠️ 이 방식의 약점: 그 API 이름이 바뀌면 «조용히» 헛돈다(에러도 안 난다).
+          그래서 screen_share_fps_harness 가 «호출처가 여전히 그 이름인가» 를 못 박는다.
+     ⚠️ 저장소 안 getDisplayMedia 호출처는 그 한 곳뿐이다(2026-09-06 전수) —
+        전역을 감싸도 다른 기능에 닿지 않는다. 새 호출처가 생기면 함께 보라.
+     ✅ 실패하면 «고치기 전» 으로 되돌린다 — 제약을 거부하는 브라우저에서는
+        원래 인자로 한 번 더 부른다. 화면 공유가 아예 안 되는 것이 제일 나쁘다. */
+  (function screenShareFpsCap(){
+    var MAX_FPS = 15;
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getDisplayMedia !== 'function' || md.__mgFpsCapped) return;
+    var orig = md.getDisplayMedia.bind(md);
+    md.__mgFpsCapped = true;
+    md.getDisplayMedia = function (constraints) {
+      var c = constraints || {};
+      var capped;
+      try {
+        if (c.video === false) return orig(c);   // 영상 없는 공유는 그대로 둔다
+        var v = c.video;
+        var vObj = (v && typeof v === 'object') ? Object.assign({}, v) : {};
+        /* 부르는 쪽이 이미 초당 장수를 정했으면 존중한다 — 나중에 더 낮게 부르는
+           자리가 생겨도 우리가 다시 «올려» 버리면 안 된다.
+           ⛔ width·height 는 건드리지 않는다(위 «fps 만» 이유). */
+        if (!vObj.frameRate) vObj.frameRate = { ideal: MAX_FPS, max: MAX_FPS };
+        capped = Object.assign({}, c, { video: vObj });
+      } catch (e) { return orig(c); }
+      return orig(capped).then(function (s) {
+        /* 제약을 «받아들인 척» 하고 무시하는 브라우저가 있어 트랙에 한 번 더 건다.
+           실패해도 무해 — 공유는 이미 시작됐다. */
+        try {
+          var t = s.getVideoTracks()[0];
+          if (t && t.applyConstraints) t.applyConstraints({ frameRate: { max: MAX_FPS } }).catch(function(){});
+        } catch (e) {}
+        try { console.log('[mobilefix ⑭] 화면 공유 ' + MAX_FPS + 'fps 상한'); } catch (e) {}
+        return s;
+      }, function (err) {
+        var n = (err && err.name) || '';
+        /* ⛔ 사용자가 «취소» 를 누른 것을 재시도하면 공유 선택 창이 «두 번» 뜬다.
+           되돌려 볼 것은 «제약을 거부당한» 경우뿐이다. */
+        if (n === 'NotAllowedError' || n === 'AbortError' || n === 'NotFoundError') throw err;
+        try { console.warn('[mobilefix ⑭] fps 상한 거부 → 원래 제약으로 재시도', n); } catch (e) {}
+        return orig(c);
+      });
+    };
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑮ ⭐ 칭찬 별 — «조용한 실패» 를 없앤다 (2026-09-10 사장님 「눌러도 아무 변화가 없어」)
+
+     [증상] 별을 눌러도 학생 화면에 소리·색종이가 안 나고 점수도 그대로인데,
+       선생님 화면도 «⭐ 전송 중…» 이 1.6초 뒤 사라질 뿐 아무 말을 안 한다.
+     [왜 조용한가] 실패하는 길이 셋인데 셋 다 화면에 한 글자도 안 그린다 —
+       ⓐ 학생이 방금 다시 들어와 타일 번호(peer id)가 죽었다.
+          2026-09-10 실측: 사장님 화면이 **2분 15초마다** 새 번호로 다시 들어오고 있었다
+          (vc_roster 의 meet-1234 peer_id 12개가 전부 다른 값). 별은 그 번호를 콕 집어
+          보내므로, 번호가 바뀐 뒤 옛 타일의 별을 누르면 **아무에게도 안 간다**.
+       ⓑ 학생 계정이 vc_roster 에 없어 서버가 넣을 곳을 못 찾는다(account_not_registered).
+       ⓒ 선생님 쿠키 세션이 없어 서버가 거절한다(auth_required).
+       원본 vcAwardPoint 는 서버 응답을 .catch(function(){}) 로 버리고, 학생 확인(ack)이
+       영영 안 오면 그냥 조용하다. 그래서 셋 중 어느 쪽인지조차 알 수 없었다.
+     [무엇을 하나] 학생 확인이 3.5초 안에 안 오면, 그때 **한 번만** 서버에 물어
+       ① 포인트가 실제로 들어갔는지 ② 안 들어갔으면 왜인지 를 화면 글자로 말한다.
+     ⛔ 평소에는 요청이 늘지 않는다 — 학생이 제때 답하면 이 절은 아무 일도 안 한다.
+     ⛔ 같은 award_id 로 묻기 때문에 포인트가 두 번 들어가지 않는다(서버 point_awards 멱등).
+     ⚠️ 여기서 «들어갔다» 고 말할 때도 학생 화면 연출은 못 본 것이다 — 그렇게 적는다.
+        「+1P」 라고만 하면 선생님이 학생도 봤다고 오해한다.
+     ⚠️ idx-main.js 는 blocking 이고 첫 화면 여유가 **187바이트**뿐이라(2026-09-10 실측)
+        그 파일은 한 줄도 못 고친다. 그래서 여기(defer)에서 밖에서 감싼다.
+        약점은 «그 이름이 바뀌면 조용히 헛돈다» 는 것 —
+        test-harness/praise_silent_fail_harness.mjs 가 이름과 배선을 못 박는다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseSilentFail() {
+    var WAIT_MS = 3500;          // 학생 확인을 기다리는 시간. 회선이 느린 필리핀·중국을 감안한 값
+    if (typeof window.vcAwardPoint !== 'function' || window.vcAwardPoint.__mgSay) return;
+    var orig = window.vcAwardPoint;
+
+    function say(toast, msg) {
+      try { if (typeof vcShowStarToast === 'function') vcShowStarToast(toast, msg); } catch (e) {}
+    }
+    /* 타일 라벨에서 이름을 읽는다 — 번호가 죽었을 때 서버가 «이름» 으로 한 번 더 찾게 한다.
+       ⛔ 이름만으로 사람을 정하지는 않는다. 서버가 그 방 로스터 안에서 «완전일치 + 후보가
+          정확히 하나» 일 때만 받아들인다(api-points.ts). 동명이인이면 안 붙는다. */
+    function tileName(uid) {
+      try {
+        var el = document.querySelector('#vc-video-' + uid + ' .video-label');
+        return el ? String(el.textContent || '').replace(/\s*\(.*\)\s*$/, '').trim() : '';
+      } catch (e) { return ''; }
+    }
+    function reasonText(d) {
+      var e = (d && d.error) || '';
+      if (e === 'auth_required')          return '⚠️ 선생님 로그인이 풀렸어요 — 다시 로그인해 주세요';
+      if (e === 'account_not_registered') return '⚠️ 이 학생은 로그인이 안 돼 있어 포인트를 못 받아요';
+      if (e === 'target_not_student')     return '⚠️ 이 사람은 학생이 아니라 포인트를 못 받아요';
+      if (e === 'daily_cap_reached')      return '오늘 한도에 닿았어요';
+      return '⚠️ 전달되지 않았어요' + (e ? ' (' + e + ')' : '');
+    }
+
+    window.vcAwardPoint = function (targetUserId, btn, toast) {
+      /* 원본이 만든 awardId 를 알아내려고 «부르기 전후» 의 대기 목록을 견준다.
+         (원본이 awardId 를 돌려주지 않고, 그 파일은 고칠 수 없다) */
+      var before = {};
+      try { var q0 = window._vcPendingAwards || {}; for (var k0 in q0) before[k0] = 1; } catch (e) {}
+      var ret = orig.apply(this, arguments);
+      var id = null;
+      try {
+        var q1 = window._vcPendingAwards || {};
+        for (var k1 in q1) if (!before[k1]) { id = k1; break; }
+      } catch (e) {}
+      if (!id) return ret;                       // 원본 모양이 바뀌었다 — 조용히 옛 동작 그대로
+
+      setTimeout(function () {
+        var q = window._vcPendingAwards || {};
+        var p = q[id];
+        if (!p) return;                          // 학생이 답했다 — 원본이 이미 결과를 말했다
+        delete q[id];
+
+        var room = '', from = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { from = (typeof vcUsername !== 'undefined' && vcUsername) || '선생님'; } catch (e) {}
+        if (!room) { say(p.toast, '⚠️ 전달되지 않았어요'); return; }
+
+        fetch('/api/points/award-praise', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({
+            room: room, target_peer_id: p.targetUserId, award_id: id,
+            from_name: from, target_name: tileName(p.targetUserId)
+          })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) {
+            /* 포인트는 들어갔다. 학생 화면 연출만 못 본 것이라 그대로 말한다. */
+            try {
+              window._vcAwardCounts = window._vcAwardCounts || {};
+              window._vcAwardCounts[p.targetUserId] = (window._vcAwardCounts[p.targetUserId] || 0) + 1;
+              if (typeof vcSyncAwardUI === 'function') vcSyncAwardUI(p.targetUserId);
+            } catch (e) {}
+            say(p.toast, '⭐ +1P 들어갔어요 (학생 화면 연출은 못 봤어요)');
+          } else {
+            say(p.toast, reasonText(d));
+          }
+        }).catch(function () { say(p.toast, '⚠️ 전달되지 않았어요 (통신 오류)'); });
+      }, WAIT_MS);
+
+      return ret;
+    };
+    window.vcAwardPoint.__mgSay = 1;
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑯ 🏷 이름표(로스터) 등록 보강 — «넣을 저금통이 없다» 를 줄인다
+
+     [왜] vcRegisterRosterIdentity 는 입장 때 «즉시 + 3초 뒤» 딱 두 번 시도하고,
+       그 두 번 다 로그인 정보를 못 읽으면 그 수업 내내 영영 등록하지 않는다.
+       그러면 선생님이 별을 눌러도 서버가 넣을 계정을 못 찾는다.
+       2026-09-10 실측: 아침 회의방 이름표 **0장**(같은 시각 다른 방은 정상) →
+       같은 날 오후에는 12장. 즉 «늘 안 되는» 것이 아니라 «되다 안 되다» 였다.
+     [무엇을 하나] 같은 등록을 **끝이 있는** 일정(1·6·20·60초)으로 몇 번 더 시도하고,
+       한 번 성공하면 그 뒤 타이머는 스스로 물러난다. 늦게 로그인 정보가 읽히면 그때 붙는다.
+     ⛔ 상주 setInterval·MutationObserver 를 두지 않는다 — 홈 전체가 멎은 전력이 있다.
+     ⛔ 계정을 «관리자 세션» 에서 빌려 오지 않는다 — 아래 myAccount() 주석 참고.
+     ⚠️ 교사·참관자는 원본과 똑같이 건너뛴다 — 칭찬을 «받는» 쪽이 아니다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseRosterRetry() {
+    var DELAYS = [1000, 6000, 20000, 60000];   // 원본(0초·3초) 뒤를 이어 붙인다
+    if (typeof window.vcRegisterRosterIdentity !== 'function'
+        || window.vcRegisterRosterIdentity.__mgRetry) return;
+    var orig = window.vcRegisterRosterIdentity;
+
+    /* 계정은 «학생 로그인 키» 하나만 본다 — 원본과 같은 근거다.
+       ⛔ 관리자 세션(mangoi_admin_session)으로 떨어지는 폴백을 넣지 말 것.
+          처음 판에 넣었다가 함정 대조에서 빼냈다. 두 가지 이유다 —
+          ⓐ 닿지 않는다: idx-main.js 가 «관리자 세션이 있으면 vcMyRole = admin» 으로
+             정하므로, 그 세션이 있는 사람은 위 amIStudentHere() 에서 이미 물러난다.
+          ⓑ 닿으면 틀린다: 그래도 닿는 구석(vcMyRole 은 student 인데 학생 키만 없는
+             경우)에서는 **그 학생 자리를 선생님 계정으로** 로스터에 올린다 →
+             그 방 칭찬 포인트가 관리자 계정으로 간다. 서버는 관리자 쿠키를 통과시키므로
+             막히지 않는다. 1P = 1원이라 되돌리기 어렵다. */
+    function myAccount() {
+      try {
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid) };
+      } catch (e) {}
+      return null;
+    }
+    function amIStudentHere() {
+      try { if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false; } catch (e) {}
+      try { if (typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) return false; } catch (e) {}
+      return true;
+    }
+
+    window.vcRegisterRosterIdentity = function () {
+      var ret;
+      try { ret = orig.apply(this, arguments); } catch (e) {}
+      var done = false;
+      function tryOnce() {
+        if (done) return;
+        if (!amIStudentHere()) { done = true; return; }      // 대상이 아니다 — 더 볼 것 없다
+        var room = '', peer = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { peer = (typeof vcUserId !== 'undefined' && vcUserId) || ''; } catch (e) {}
+        if (!room || !peer) return;                          // 아직 방이 없다 — 다음 차례에
+        var me = myAccount();
+        if (!me) return;                                     // 아직 계정을 못 읽었다 — 다음 차례에
+        var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+        fetch('/api/vc/roster', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ room: room, peer_id: peer, account_uid: me.uid,
+                                 token: tok, name: me.name, role: 'student' })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) done = true;
+        }).catch(function () {});
+      }
+      try { DELAYS.forEach(function (ms) { setTimeout(tryOnce, ms); }); } catch (e) {}
+      return ret;
+    };
+    window.vcRegisterRosterIdentity.__mgRetry = 1;
+  })();
+
+  /* ⓬ (2026-09-10) 인앱 브라우저(카톡·네이버…)면 «수업에 들어가기 전에» 알린다.
+     [왜] class-1896-20260910 — 원장님이 카톡 인앱으로 45분 수업, 73분 중 릴레이 60분(82%),
+          최악 RTT 8,840ms · 소리끊김 51.3%. 안내 배너는 inapp-escape.js 에 «이미» 있는데
+          그 선제 조건이 `/video-call` 경로 또는 window.MANGO_VIDEO_PAGE 이고, 그 값은
+          precheck.html «한 곳에만» 있다. 수업은 `/`(index.html)에서 돌아가므로 그 배너는
+          getUserMedia 가 «실패할 때만» 떴다 — 카메라가 되면 영영 안 뜬다. 근거: 260910 작업기록.
+     ⛔ 수업 «중» 에는 띄우지 않는다 — 배너가 top:0 고정인데 수업 툴바는 36px 이라
+        「나가기」·언어 버튼을 통째로 덮는다(index.html 의 body.vc-in-call .toolbar).
+     ⛔ 자동 이동(openExternal) 금지 — 브라우저가 바뀌면 localStorage 가 달라
+        학생 로그인이 안 넘어간다(CLAUDE.md 「로그인했는데 또 로그인하래요」).
+     ⚠️ 홈 우상단 칩 줄(#ph50-chip-row)은 position:fixed 라 배너가 덮는다 → 배너 높이만큼 내린다.
+        그 줄은 ph50MoveChips 가 «나중에» 만들므로 지금·1.2초 뒤·resize 에 다시 잰다.
+        ⛔ 상주 MutationObserver·setInterval 금지(홈 전체를 멎게 한 전력). */
+  (function mgInAppNotice() {
+    try {
+      var E = window.MangoEscape;
+      if (!E || !E.isInApp || typeof E.showBanner !== 'function') return;
+      var OFF = 'mangoi_inapp_notice_off', chipT = null;
+      function banner() { return document.getElementById('mango-inapp-banner'); }
+      function place() {
+        var row = document.getElementById('ph50-chip-row'); if (!row) return;
+        var b = banner();
+        row.style.top = b ? (Math.round(b.getBoundingClientRect().height) + 10) + 'px' : '';
+      }
+      function hide() {
+        var b = banner(); if (b && b.parentNode) b.parentNode.removeChild(b);
+        try { document.body.style.paddingTop = ''; } catch (_) {}
+        place();
+      }
+      function show() {
+        if (banner()) return;
+        if (document.body && document.body.classList.contains('vc-in-call')) return;
+        try { if (sessionStorage.getItem(OFF) === '1') return; } catch (_) {}
+        E.showBanner();
+        var x = document.getElementById('mango-inapp-close');
+        if (x) x.addEventListener('click', function () {
+          try { sessionStorage.setItem(OFF, '1'); } catch (_) {}
+          place();
+        });
+        place();
+        if (chipT) clearTimeout(chipT);
+        chipT = setTimeout(place, 1200);
+      }
+      window.addEventListener('resize', place);
+      show();
+      var orig = window.showView;
+      if (typeof orig === 'function' && !orig.__mgInApp) {
+        window.showView = function (id) {
+          var r = orig.apply(this, arguments);
+          /* ⚠️ 로비(view-videocall-lobby)에서는 남긴다 — 덮어서 곤란한 것은 «수업 화면» 의
+             36px 툴바뿐이고, 카톡 링크로 들어온 사람은 로비가 그것을 읽을 유일한 시간이다
+             (그렇게 안 하면 겨냥한 사람에게 0.6초만 보인다 — 함정 대조 실측). */
+          try { if (String(id || '').indexOf('videocall-call') !== -1) hide(); } catch (_) {}
+          return r;
+        };
+        window.showView.__mgInApp = true;
+      }
+    } catch (e) {}
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 준비됨'); } catch (e) {}
 })();

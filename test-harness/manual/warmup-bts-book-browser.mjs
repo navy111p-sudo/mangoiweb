@@ -1,0 +1,578 @@
+#!/usr/bin/env node
+/**
+ * warmup-bts-book-browser.mjs — 웜업 «오늘 배울 교재(BTS)» 브라우저 검사
+ *
+ * ⚠️ 자동으로 안 돕니다(manual/ 규약). 사람이 부릅니다 — 먼저 서버와 브라우저를 띄우세요:
+ *
+ *   cd cloudflare-deploy/public && python3 -m http.server 8931 &
+ *   /opt/pw-browsers/chromium-1194/chrome-linux/chrome --headless=new \
+ *     --remote-debugging-port=9931 --no-sandbox --disable-dev-shm-usage \
+ *     --use-gl=angle --use-angle=swiftshader about:blank &
+ *   node test-harness/manual/warmup-bts-book-browser.mjs
+ *
+ * ⚠️ 이 파일이 크로미움을 스스로 띄우지 않는 이유 — 일부 실행 환경에서 자식 프로세스로
+ *   브라우저를 띄우면 스크립트가 «출력 한 줄 없이» 종료됩니다(2026-09-14 실측).
+ *   붙지 못하면 FAIL 이 아니라 «건너뜀» 으로 끝냅니다 — 확인 못 한 것을 통과로 위장하지 않습니다.
+ *
+ * [왜] 자동 하니스(warmup_bts_book_harness)는 표와 판정 함수를 오려 내 «답» 을 보지만,
+ *   «화면에 실제로 그려지는가 · 눌리는가 · 서버로 무엇이 나가는가» 는 원리상 못 봅니다.
+ *   이 파일이 그 자리입니다.
+ *
+ * ⛔ «교재를 고르면 된다» 만 재지 마세요 — 사장님 지시가 «자유대화는 그대로» 이므로
+ *   **«안 고르면 예전과 똑같다» 를 짝으로** 봅니다(⑤⑧절). 짝이 없으면 «전부 교재 모드» 도 통과합니다.
+ * ⚠️ 새 탭(/json/new)으로 열면 이 컨테이너 크로미움은 스크립트를 실행하지 않습니다 —
+ *   /json/list 의 «이미 있는 탭» 을 Page.navigate 로 씁니다(CLAUDE.md 2장).
+ * ⚠️ 캐시는 HTTP 와 서비스워커 «둘 다» 꺼야 고친 파일이 반영됩니다.
+ */
+import fs from 'node:fs';
+const PORT = Number(process.env.WBB_PORT || 8931);
+const CDP  = Number(process.env.WBB_CDP  || 9931);
+const BASE = `http://127.0.0.1:${PORT}`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+try { const r = await fetch(BASE + '/warmup.html', { method: 'HEAD' }); if (!r.ok) throw 0; }
+catch { console.log('⏭  warmup-bts-book-browser — 건너뜀 (정적서버 ' + BASE + ' 가 안 떠 있습니다)'); process.exit(0); }
+
+let list;
+for (let i = 0; i < 20; i++) {
+  try { list = await (await fetch(`http://127.0.0.1:${CDP}/json/list`)).json(); if (list?.length) break; } catch {}
+  await sleep(500);
+}
+if (!list?.length) {
+  console.log('⏭  warmup-bts-book-browser — 건너뜀 (서버/크로미움이 안 떠 있습니다. 위 머리말의 두 줄을 먼저 실행하세요)');
+  process.exit(0);
+}
+const tgt = list.find(t => t.type === 'page') || list[0];
+const ws = new WebSocket(tgt.webSocketDebuggerUrl);
+let id = 0; const waits = new Map();
+await new Promise(r => { ws.onopen = r; });
+ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && waits.has(m.id)) { waits.get(m.id)(m); waits.delete(m.id); } };
+const cmd = (method, params = {}) => new Promise(r => { const i = ++id; waits.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+const evaluate = async expr => {
+  const r = await cmd('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
+  if (r.result?.exceptionDetails) return { __err: String(r.result.exceptionDetails.exception?.description || '') };
+  return r.result?.result?.value;
+};
+await cmd('Page.enable'); await cmd('Runtime.enable');
+await cmd('Network.setCacheDisabled', { cacheDisabled: true });
+await cmd('Network.setBypassServiceWorker', { bypass: true });
+async function open(url){
+  await cmd('Page.navigate', { url });
+  for (let i = 0; i < 60; i++) { await sleep(200);
+    if (await evaluate("typeof btsBookOf==='function' && !!document.getElementById('wusBooks')")) return true; }
+  return false;
+}
+const P = [], F = [];
+const t = (name, cond, got) => { (cond ? P : F).push(name + (cond ? '' : `  →  ${JSON.stringify(got)}`)); };
+// ── ① 저장값 없이 첫 방문 = 자유 대화 그대로 ──
+await open(`${BASE}/warmup.html?_nc=${Date.now()}`);
+await evaluate("try{localStorage.removeItem('mangoi_warmup_bts');localStorage.removeItem('mangoi_warmup_level')}catch(e){}");
+await open(`${BASE}/warmup.html?_nc=${Date.now()+1}`);
+let r=await evaluate("JSON.stringify({tb:WCTX.textbook,topic:LESSON_TOPIC,vol:_btsVol,lvl:_warmLevel,chip:(document.getElementById('m-topic')||{}).textContent})");
+let d=JSON.parse(r);
+t('① 교재 안 고르면 textbook 비어 있음', d.tb==='', d.tb);
+t('① 교재 안 고르면 주제 비어 있음(자유 대화)', d.topic==='', d.topic);
+t('① 칩이 «자유 대화»', d.chip==='자유 대화', d.chip);
+
+// ── ② 설정 화면에 교재 목록이 실제로 그려지는가 ──
+await evaluate("openSetup(false)");
+await new Promise(r=>setTimeout(r,300));
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 교재 칸은 이제 언어 «바로 다음» 이고
+   기본은 «접힘» 입니다. 먼저 「교재로 웜업」 을 눌러야 목록이 펼쳐집니다.
+   ⛔ 이 전제를 그냥 지우지 마세요 — 「처음엔 접혀 있다」·「누르면 펼쳐진다」 두 줄이
+      그 갈래가 실제로 도는지 보는 유일한 자리입니다(짝). */
+let d0=JSON.parse(await evaluate(`JSON.stringify({
+  booksHidden: document.getElementById('wusBooksSec').hidden,
+  twoCards: document.querySelectorAll('#wusTwoWay .wus-twoc').length,
+  nowFree: !!document.querySelector('#wusTwoWay [data-way="free"] .wus-now')
+})`));
+t('② 처음엔 교재 목록이 접혀 있다', d0.booksHidden===true, d0);
+t('② 두 갈래 카드가 둘 다 있다', d0.twoCards===2, d0);
+t('② 기본 선택이 «자유 대화»', d0.nowFree===true, d0);
+await evaluate(`document.querySelector('#wusTwoWay [data-way="book"]').click()`);
+await new Promise(r=>setTimeout(r,350));
+r=await evaluate(`JSON.stringify({
+  secVisible: !!document.getElementById('wusBooksSec') && getComputedStyle(document.getElementById('wusBooksSec')).display!=='none',
+  btnCount: document.querySelectorAll('#wusBooks [data-bts]').length,
+  freeInList: !!document.querySelector('#wusBooks [data-bts="0"]'),
+  hasDetails: !!document.querySelector('#wusBooks details'),
+  offsetOk: !!document.getElementById('wusBooks').offsetParent
+})`);
+d=JSON.parse(r);
+t('② 「교재로 웜업」 을 누르면 목록이 펼쳐진다(짝)', d.secVisible===true, d);
+t('② 목록 안에 «교재 없이 자유 대화» 중복이 없다', d.freeInList===false, d.freeInList);
+/* ⛔ 「33개」처럼 «개수» 를 못 박지 마세요 — SIU 29권이 정당하게 늘자 보장은 오히려
+      세졌는데 검사만 빨간불이 났습니다(2026-09-15 실측 62). 물어야 할 것은 «몇 개인가» 가
+      아니라 «표에 있는 교재가 하나도 안 빠졌는가» 입니다. 기대값은 화면 정본에서 «읽어» 옵니다. */
+const _WSRC = fs.readFileSync(new URL('../../cloudflare-deploy/public/warmup.html', import.meta.url), 'utf8');
+const _cntTable = (name) => {
+  const i = _WSRC.indexOf('var ' + name + ' = [');
+  if (i < 0) return 0;
+  let d2 = 0;
+  for (let k = _WSRC.indexOf('[', i); k < _WSRC.length; k++) {
+    if (_WSRC[k] === '[') d2++;
+    else if (_WSRC[k] === ']') { d2--; if (!d2) return (_WSRC.slice(i, k + 1).match(/\{\s*v\s*:/g) || []).length; }
+  }
+  return 0;
+};
+const _nBts = _cntTable('BTS_BOOKS'), _nSiu = _cntTable('SIU_BOOKS'),
+      _nAdv = _cntTable('SIU_ADV_BOOKS');
+/* ⛔ 전제 — 표를 못 읽으면 아래가 «0 + 0 + 1» 을 기대해 조용히 통과합니다. */
+t('② 교재 표를 소스에서 읽었다(전제)', _nBts > 0 && _nSiu > 0 && _nAdv > 0, [_nBts, _nSiu, _nAdv]);
+/* 🔄 «자유대화 1» 은 2026-09-16 에 두 갈래 카드로 옮겼으므로 더하지 않습니다. */
+t('② 교재 버튼 = BTS ' + _nBts + ' + SIU ' + _nSiu + ' + ADVANCE ' + _nAdv,
+  d.btnCount === _nBts + _nSiu + _nAdv, [d.btnCount, _nBts + _nSiu + _nAdv]);
+t('② 나머지 권은 접혀 있음', d.hasDetails===true, d.hasDetails);
+t('② 실제로 레이아웃에 올라와 있음', d.offsetOk===true, d.offsetOk);
+
+// ── ③ BTS 3 고르면 주제·교재·레벨이 함께 ──
+const before=await evaluate("_warmLevel");
+await evaluate(`document.querySelector('#wusBooks [data-bts="3"], #wusBooks details [data-bts="3"]').click()`);
+await new Promise(r=>setTimeout(r,200));
+r=await evaluate("JSON.stringify({tb:WCTX.textbook,lv:WCTX.level,topic:LESSON_TOPIC,vol:_btsVol,lvl:_warmLevel,chip:(document.getElementById('m-topic')||{}).textContent,saved:localStorage.getItem('mangoi_warmup_bts')})");
+d=JSON.parse(r);
+t('③ 교재명에 권과 주제가 들어감', d.tb==='BTS 3 (My family, How old are you)', d.tb);
+t('③ 레벨 문자열 Lv 3', d.lv==='Lv 3', d.lv);
+t('③ 주제가 영어 원문', d.topic==='My family, How old are you', d.topic);
+t('③ 대화 단계가 밴드1로 자동', d.lvl===1, {before,after:d.lvl});
+t('③ 칩이 교재로 바뀜', String(d.chip).indexOf('BTS 3')>=0, d.chip);
+t('③ 고른 값이 저장됨', d.saved==='3', d.saved);
+
+// ── ④ 새로고침해도 이어짐 (강사 없이) + 레벨은 학생 값 존중 ──
+await evaluate("setLevel(5,false)");   // 학생이 직접 5단계로 올림
+await open(`${BASE}/warmup.html?_nc=${Date.now()+2}`);
+r=await evaluate("JSON.stringify({tb:WCTX.textbook,vol:_btsVol,lvl:_warmLevel,chip:(document.getElementById('m-topic')||{}).textContent})");
+d=JSON.parse(r);
+t('④ 새로고침 후 교재가 복원됨', d.vol===3, d.vol);
+t('④ 복원 후에도 칩이 교재', String(d.chip).indexOf('BTS 3')>=0, d.chip);
+t('④ 복원이 학생이 고른 단계를 덮지 않음', d.lvl===5, d.lvl);
+
+// ── ⑤ 자유 대화로 되돌리면 완전히 예전 상태 ──
+await evaluate("openSetup(false)"); await new Promise(r=>setTimeout(r,250));
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
+await new Promise(r=>setTimeout(r,200));
+r=await evaluate("JSON.stringify({tb:WCTX.textbook,lv:WCTX.level,topic:LESSON_TOPIC,vol:_btsVol,lvl:_warmLevel,chip:(document.getElementById('m-topic')||{}).textContent,saved:localStorage.getItem('mangoi_warmup_bts')})");
+d=JSON.parse(r);
+t('⑤ 되돌리면 교재 비어 있음', d.tb==='', d.tb);
+t('⑤ 되돌리면 주제 비어 있음', d.topic==='', d.topic);
+t('⑤ 되돌리면 칩이 «자유 대화»', d.chip==='자유 대화', d.chip);
+t('⑤ 저장값이 지워짐', d.saved===null, d.saved);
+t('⑤ 되돌려도 학생 단계는 그대로', d.lvl===5, d.lvl);
+
+// ── ⑥ 밴드 매핑이 LEVEL_CATALOG 와 일치 ──
+r=await evaluate(`(function(){var bad=[];for(var i=0;i<BTS_BOOKS.length;i++){var v=BTS_BOOKS[i].v,b=btsBandOf(v);
+  var c=LEVEL_CATALOG[b-1]; if(!c){bad.push(v+':밴드없음');continue;}
+  var m=String(c.lv).match(/(\\d+)\\s*[-~]\\s*(\\d+)/); if(!m||v<+m[1]||v>+m[2]) bad.push(v+'→'+b);}
+  return JSON.stringify(bad);})()`);
+d=JSON.parse(r);
+t('⑥ 32권 전부 밴드 구간과 일치', d.length===0, d);
+
+// ── ⑦ 서버로 나가는 payload 에 교재가 실리는가 ──
+await evaluate("openSetup(false)"); await new Promise(r=>setTimeout(r,250));
+await evaluate(`document.querySelector('#wusBooks [data-bts="22"], #wusBooks details [data-bts="22"]').click()`);
+r=await evaluate("JSON.stringify(withCtx({session_id:'x',student_input:'hi'}))");
+d=JSON.parse(r);
+t('⑦ payload.textbook 실림', String(d.textbook||'').indexOf('BTS 22')>=0, d.textbook);
+t('⑦ payload.lesson_topic 실림', String(d.lesson_topic||'').indexOf('Staying Healthy')>=0, d.lesson_topic);
+t('⑦ payload.difficulty 가 밴드6', d.difficulty===6, d.difficulty);
+
+// ── ⑧ 되돌리면 payload 도 예전 그대로 ──
+await evaluate("openSetup(false)"); await new Promise(r=>setTimeout(r,250));
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
+r=await evaluate("JSON.stringify(withCtx({session_id:'x',student_input:'hi'}))");
+d=JSON.parse(r);
+t('⑧ 되돌리면 payload 에 textbook 없음', !('textbook' in d), Object.keys(d));
+t('⑧ 되돌리면 payload 에 lesson_topic 없음', !('lesson_topic' in d), Object.keys(d));
+
+// ════════════════════════════════════════════════════════════════════
+//  ⑨ 📖 «오늘 배울 과» — 교재의 진짜 문장이 실제로 붙는가 (2026-09-15)
+//  ⚠️ 자동 하니스는 «답» 만 봅니다. 여기서는 화면에 그려지고·눌리고·
+//     서버로 나가는 payload 에 D1 교재 이름이 실리는지를 봅니다.
+//  ⛔ «붙는다» 만 재지 마세요 — «못 받으면 예전 그대로» 를 짝으로 봅니다(⑨-4).
+// ════════════════════════════════════════════════════════════════════
+await open(`${BASE}/warmup.html?_nc=${Date.now()+9}`);
+await evaluate("try{localStorage.removeItem('mangoi_warmup_bts');localStorage.removeItem('mangoi_warmup_bts_lesson')}catch(e){}");
+await open(`${BASE}/warmup.html?_nc=${Date.now()+10}`);
+/* 정적서버에는 /api 가 없으므로 그 주소만 가로챕니다(나머지 요청은 그대로 둡니다). */
+await evaluate(`(function(){
+  window.__origFetch = window.__origFetch || window.fetch;
+  window.__lsnCalls = [];
+  window.fetch = function(u){
+    var s = String(u||'');
+    if(s.indexOf('/api/games/lessons') === 0){
+      window.__lsnCalls.push(s);
+      var b = window.__lsnReply ? window.__lsnReply(s) : { ok:true, lessons:[], courses:[] };
+      return Promise.resolve({ ok:true, json:function(){ return Promise.resolve(b); } });
+    }
+    return window.__origFetch.apply(window, arguments);
+  };
+  return 'ok';
+})()`);
+const L1K = 'BTS 1 001 (Welcome to school)', L4K = 'BTS 1 004 (School Stuff)';
+await evaluate(`window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 1',count:8}], lessons:[
+  {seq:1,title:'Welcome to school',key:${JSON.stringify(L1K)},sentences:[{en:'Hello, I am a student.'},{en:'I like school.'}],words:[]},
+  {seq:4,title:'School Stuff',key:${JSON.stringify(L4K)},sentences:[{en:'I have a pencil'}],words:[]}
+]};}; 'ok'`);
+
+// ⑨-1 권을 고르면 과 줄이 그려지고 D1 이름이 실린다
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="1"], #wusBooks details [data-bts="1"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({
+  tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  rowShown: (function(){var x=document.querySelector('#wusLessonSec .wus-lsn-row'); return !!x && getComputedStyle(x).display!=='none';})(),
+  opts: [].map.call(document.querySelectorAll('#wusLesson option'), function(o){return o.value;}),
+  sel: (document.getElementById('wusLesson')||{}).value,
+  note: (document.getElementById('wusLessonNote')||{}).textContent,
+  offsetOk: !!(document.getElementById('wusLessonSec')||{}).offsetParent,
+  calls: window.__lsnCalls.length
+})`);
+d = JSON.parse(r);
+t('⑨ WCTX.textbook 이 D1 교재 이름이 된다', d.tb === L1K, d.tb);
+t('⑨ 주제가 «과 제목» 으로 좁혀진다', d.topic === 'Welcome to school', d.topic);
+t('⑨ 과 줄이 화면에 보인다', d.secShown === true, d);
+t('⑨ 실제로 레이아웃에 올라와 있다', d.offsetOk === true, d.offsetOk);
+t('⑨ 과가 둘이면 고르개가 보인다', d.rowShown === true, d.rowShown);
+t('⑨ 고르개에 과가 그대로 들어간다', JSON.stringify(d.opts) === JSON.stringify([L1K, L4K]), d.opts);
+t('⑨ 첫 과가 골라져 있다', d.sel === L1K, d.sel);
+t('⑨ 안내가 문장 수를 말한다', /2개/.test(d.note || ''), d.note);
+t('⑨ 안내가 실제 교재 문장을 보여 준다', /Hello, I am a student\./.test(d.note || ''), d.note);
+t('⑨ 한 번만 물어본다', d.calls === 1, d.calls);
+
+// ⑨-2 사람이 과를 고르면 그 자리에서 바뀌고 저장된다
+await evaluate(`(function(){var s=document.getElementById('wusLesson'); s.value=${JSON.stringify(L4K)};
+  s.dispatchEvent(new Event('change',{bubbles:true})); return 'ok';})()`);
+await sleep(200);
+r = await evaluate("JSON.stringify({tb:WCTX.textbook,topic:LESSON_TOPIC,saved:localStorage.getItem('mangoi_warmup_bts_lesson'),note:(document.getElementById('wusLessonNote')||{}).textContent})");
+d = JSON.parse(r);
+t('⑨ 고른 과의 D1 이름으로 바뀐다', d.tb === L4K, d.tb);
+t('⑨ 주제도 그 과 제목으로', d.topic === 'School Stuff', d.topic);
+t('⑨ «권|키» 로 저장된다', d.saved === '1|' + L4K, d.saved);
+t('⑨ 안내도 그 과의 문장 수로', /1개/.test(d.note || ''), d.note);
+r = await evaluate("JSON.stringify(withCtx({session_id:'x',student_input:'hi'}))");
+d = JSON.parse(r);
+t('⑨ 서버로 나가는 payload 에 D1 교재 이름이 실린다', d.textbook === L4K, d.textbook);
+
+// ⑨-3 새로고침해도 그 과로 이어진다 (강사 없이)
+await open(`${BASE}/warmup.html?_nc=${Date.now()+11}`);
+await evaluate(`(function(){
+  window.__origFetch = window.__origFetch || window.fetch;
+  window.__lsnCalls = [];
+  window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 1',count:8}], lessons:[
+    {seq:1,title:'Welcome to school',key:${JSON.stringify(L1K)},sentences:[{en:'Hello, I am a student.'}],words:[]},
+    {seq:4,title:'School Stuff',key:${JSON.stringify(L4K)},sentences:[{en:'I have a pencil'}],words:[]}]};};
+  window.fetch = function(u){ var s=String(u||'');
+    if(s.indexOf('/api/games/lessons')===0){ window.__lsnCalls.push(s);
+      var b=window.__lsnReply(s); return Promise.resolve({ok:true,json:function(){return Promise.resolve(b);}}); }
+    return window.__origFetch.apply(window, arguments); };
+  return 'ok';
+})()`);
+await evaluate("applyBtsBook(1,false,false)"); await sleep(350);
+r = await evaluate("JSON.stringify({tb:WCTX.textbook,vol:_btsVol})");
+d = JSON.parse(r);
+t('⑨ 새로고침 뒤에도 지난번 과로 이어진다', d.tb === L4K, d.tb);
+
+// ⑨-4 (짝) 못 받으면 «고치기 전» 그대로 — 이 갈래가 깨지면 더 나빠집니다
+await evaluate(`window.__lsnReply = function(){ return { ok:false }; }; 'ok'`);
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="5"], #wusBooks details [data-bts="5"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none' })`);
+d = JSON.parse(r);
+t('⑨ 못 받으면 권 이름 그대로 보낸다', /^BTS 5 \(/.test(d.tb || ''), d.tb);
+t('⑨ 못 받으면 과 줄을 그리지 않는다', d.secShown === false, d.secShown);
+
+// ⑨-5 (짝) 자유 대화로 되돌리면 과도 함께 사라진다
+await evaluate("openSetup(false)"); await sleep(250);
+/* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
+await sleep(200);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  saved: localStorage.getItem('mangoi_warmup_bts_lesson') })`);
+d = JSON.parse(r);
+t('⑨ 자유 대화로 되돌리면 교재가 비어 있다', d.tb === '', d.tb);
+t('⑨ 자유 대화에서는 과 줄이 없다', d.secShown === false, d.secShown);
+t('⑨ 과 저장값도 지워진다', d.saved === null, d.saved);
+
+// ⑨-6 과가 하나뿐이면 고르개는 감추고 안내만 (짝)
+await evaluate(`window.__lsnReply = function(){ return { ok:true, courses:[{course:'BTS 2 Korea (Shapes and colors)',count:1}],
+  lessons:[{seq:0,title:'',key:'BTS 2 Korea (Shapes and colors)',sentences:[{en:'It is red.'}],words:[]}] }; }; 'ok'`);
+await evaluate("openSetup(false)"); await sleep(250);
+await evaluate(`document.querySelector('#wusBooks [data-bts="2"], #wusBooks details [data-bts="2"]').click()`);
+await sleep(350);
+r = await evaluate(`JSON.stringify({ tb: WCTX.textbook, topic: LESSON_TOPIC,
+  secShown: !!document.getElementById('wusLessonSec') && getComputedStyle(document.getElementById('wusLessonSec')).display!=='none',
+  rowShown: (function(){var x=document.querySelector('#wusLessonSec .wus-lsn-row'); return !!x && getComputedStyle(x).display!=='none';})(),
+  note: (document.getElementById('wusLessonNote')||{}).textContent })`);
+d = JSON.parse(r);
+/* ⛔ 과 줄이 교재 상자 «안» 에 있어야 중국어 화면에서 함께 감춰집니다(구조로 보장). */
+r = await evaluate(`(function(){var s=document.getElementById('wusLessonSec');
+  var b=document.getElementById('wusBooksSec');
+  return JSON.stringify({inside: !!(b && s && b.contains(s))});})()`);
+t('⑨ 과 줄이 교재 상자 안에 있다(중국어에서 함께 감춰짐)', JSON.parse(r).inside === true, r);
+t('⑨ 이름 모양이 달라도 그 key 를 쓴다', d.tb === 'BTS 2 Korea (Shapes and colors)', d.tb);
+t('⑨ 과 제목이 없으면 권 주제를 그대로', d.topic === 'Shapes and colors, Adjectives', d.topic);
+t('⑨ 과가 하나면 고르개는 감춘다', d.rowShown === false, d.rowShown);
+t('⑨ 그래도 안내는 보여 준다(문장이 붙었다는 사실)', d.secShown === true && /1개/.test(d.note || ''), d);
+
+/* ── ⑩ 📘 «지금 교재» 줄 — 교재 자리가 첫 화면 «밖» 이라는 사고 (2026-09-15) ──────
+   [왜] 교재 섹션은 8단계 수준 목록 «아래» 라 실측상 PC 1920x1040 에서 top 1380px ·
+     폰 390x844 에서 1577px = 첫 화면 밖입니다. 그런데 시작 버튼은 sticky 라 늘 보입니다
+     ⟹ 사람이 스크롤할 이유가 없어 교재를 한 번도 못 보고 시작합니다. 사장님이 실제로
+     그렇게 «자유 대화» 로 시작하시고 「아직 아무것도 안되어 있는데」라고 하셨습니다.
+     기능이 멀쩡해도 «찾아갈 길이 없으면» 없는 것과 같습니다(CLAUDE.md 2장).
+   ⚠️ 이 절은 «무엇이 그려지는가» 가 아니라 «어디에 그려지는가·눌리는가» 를 봅니다 —
+     문자열 하니스로는 원리상 못 봅니다.
+   ⛔ 「첫 화면 안에 있다」만 두지 마세요 — «누르면 교재 자리로 간다»·«중국어에서는 감춘다»
+     를 짝으로 둬야 «전부 보이기»·«전부 감추기» 도 통과하는 일이 없습니다.
+   ⚠️ 회차 사이에 localStorage(교재·언어)가 넘어가면 다음 폭이 «중국어» 로 시작해 이 절이
+     통째로 헛돕니다(2026-09-15 실측 — 거짓 FAIL 6건). 폭마다 지우고 다시 엽니다. */
+for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'노트북']]) {
+  await cmd('Emulation.setDeviceMetricsOverride', { width:vw, height:vh, deviceScaleFactor:1, mobile:false });
+  await open(`${BASE}/warmup.html?_nc=w${Date.now()}`);
+  await evaluate("try{localStorage.clear()}catch(e){}");
+  await open(`${BASE}/warmup.html?_nc=${Date.now()}`);
+  await sleep(400);
+
+  r = await evaluate(`(function(){
+    var q=function(x){return document.querySelector(x)};
+    var R=function(el){var b=el.getBoundingClientRect();return{t:Math.round(b.top),b:Math.round(b.bottom),w:Math.round(b.width),l:Math.round(b.left)};};
+    var bn=q('#wusBookNow'), st=q('#wusStart');
+    if(!bn||!st) return JSON.stringify({err:'no-el'});
+    var rb=R(bn), rs=R(st);
+    var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
+    return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+      inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
+      isMine: !!(top && bn.contains(top)), booksHidden: q('#wusBooksSec').hidden,
+      booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
+  })()`);
+  d = JSON.parse(r);
+  /* 🔄 2026-09-16 — 옛 전제는 「교재 자리가 첫 화면 «밖»」 이었습니다. 시안 3안으로 교재를
+        언어 바로 다음으로 올리면서 그 전제가 사실이 아니게 되었고, 이 줄이 실제로 먼저
+        빨간불이 되어 알려 줬습니다(주석이 약속한 그대로).
+     ⛔ 느슨하게 풀지 말고 «새 경계» 로 옮겨 적습니다 — 이 절이 지키는 뜻은 그대로입니다:
+        «안 골랐으면 화면이 그 사실을 말하고, 누르면 교재 자리에 닿는다». */
+  t(`⑩ [${wlabel}] 전제: 고르기 전에는 교재 목록이 접혀 있다`, d.booksHidden === true, d);
+  /* ⛔ 전제 — 감춰져 있으면 getBoundingClientRect 가 전부 0이라 아래 «위치» 검사 셋이
+        (0<=innerHeight · 0>=0 · gap=시작버튼top · 0>시작버튼top 거짓) 무의미하게 통과합니다.
+        버튼을 아예 없애는 변이가 그렇게 빠져나갔습니다(2026-09-15 함정 대조 실측). */
+  t(`⑩ [${wlabel}] 전제: 그 줄이 실제로 그려져 있다(높이 > 0)`, d.hidden === false && d.h > 0, d);
+  t(`⑩ [${wlabel}] «지금 교재» 줄이 첫 화면 안에 있다`, d.inFirst === true, d);
+  t(`⑩ [${wlabel}] 시작 버튼과 겹치지 않는다`, d.overlaps === false && d.gap >= 0, d);
+  t(`⑩ [${wlabel}] 그 자리에서 맨 위가 그 줄이다(눌린다)`, d.isMine === true, d);
+  t(`⑩ [${wlabel}] 안 골랐으면 «자유 대화» 라고 말한다`, /자유 대화/.test(d.text||''), d.text);
+
+  await evaluate("document.getElementById('wusBookNow').click()");
+  await sleep(800);
+  r = await evaluate(`(function(){var b=document.getElementById('wusBooksSec').getBoundingClientRect();
+    return JSON.stringify({seen: b.top<innerHeight && b.bottom>0, t:Math.round(b.top)});})()`);
+  d = JSON.parse(r);
+  t(`⑩ [${wlabel}] 누르면 교재 자리가 화면에 들어온다`, d.seen === true, d);
+
+  // (짝) 교재를 고르면 그 사실을 말한다 — 없으면 «전부 자유 대화» 도 통과합니다
+  await evaluate(`document.querySelector('#wusBooks [data-bts="1"], #wusBooks details [data-bts="1"]').click()`);
+  await sleep(500);
+  r = await evaluate(`JSON.stringify({text:(document.getElementById('wusBookNow').textContent||'').trim()})`);
+  t(`⑩ [${wlabel}] 교재를 고르면 «BTS 1» 을 말한다(짝)`, /BTS 1/.test(JSON.parse(r).text||''), r);
+
+  // (짝) 중국어에서는 교재 섹션과 함께 감춘다 — BTS 는 영어 교재입니다
+  await evaluate(`(function(){var z=document.querySelector('#wusLangs [data-lang="zh"]'); if(z) z.click();})()`);
+  await sleep(500);
+  r = await evaluate(`JSON.stringify({bn:document.getElementById('wusBookNow').hidden, bs:document.getElementById('wusBooksSec').hidden})`);
+  d = JSON.parse(r);
+  t(`⑩ [${wlabel}] 중국어에서는 교재 섹션과 짝으로 감춘다`, d.bn === true && d.bs === true, d);
+}
+/* 🧹 뒷정리 — 이 절은 마지막에 «중국어» 로 끝납니다. 그대로 두면 다음 실행의 ①~⑨ 절이
+      교재 섹션이 감춰진 화면을 보고 «통째로» 거짓 FAIL 납니다(2026-09-15 실측 37건).
+   ⛔ 지우는 키를 골라 적지 마세요 — ① 절이 두 개만 지워서 이 사고가 났습니다. */
+await evaluate("try{localStorage.clear()}catch(e){}");
+/* ⚖️ «내가 남을 덮는가» — sticky 바는 스크롤 중에 그 아래 것을 가립니다.
+   [잰 것 — 2026-09-15] 시작 버튼이 이미 같은 일을 하고 있었고(PC 7곳 중 4곳 · 폰 11곳 중 5곳),
+     이 줄이 더해져 PC 8곳 중 7곳 · 폰 11곳 중 8곳이 됐습니다. 폰에서는 «누를 것» 두 개가
+     동시에 가려지는 구간이 생깁니다(바 ~40px + 시작버튼 ~49px).
+   ⚠️ 새로 생긴 «종류» 의 사고는 아니지만 면적이 거의 두 배입니다 — 스크롤로 비켜 갈 수 있는
+     수준 버튼이라 감수하는 맞바꿈인지는 **사람이 정할 일**입니다.
+   ⛔ FAIL 로 만들지 않습니다 — 무관한 PR 이 전부 빨간불이 됩니다(선례 popup_open_return_harness).
+     대신 «몇 개를 덮는가» 를 찍어 두어 다음 사람이 숫자를 보고 판단하게 합니다. */
+{
+  await cmd('Emulation.setDeviceMetricsOverride', { width:390, height:844, deviceScaleFactor:1, mobile:false });
+  await open(`${BASE}/warmup.html?_nc=cov${Date.now()}`);
+  await evaluate("try{localStorage.clear()}catch(e){}");
+  await open(`${BASE}/warmup.html?_nc=cov2${Date.now()}`);
+  await sleep(400);
+  r = await evaluate(`(function(){
+    var box=document.getElementById('wuSetup'), bn=document.getElementById('wusBookNow');
+    if(!box||!bn||bn.hidden) return JSON.stringify({skip:true});
+    var worst=0, steps=0;
+    for(var y=0; y<box.scrollHeight; y+=200){
+      box.scrollTop=y; steps++;
+      var rb=bn.getBoundingClientRect(), n=0;
+      var all=box.querySelectorAll('button,select,a,input');
+      for(var i=0;i<all.length;i++){
+        var e=all[i]; if(e===bn) continue;
+        var q=e.getBoundingClientRect(); if(q.width<1||q.height<1) continue;
+        var cx=q.left+q.width/2, cy=q.top+q.height/2;
+        if(cy>=rb.top && cy<=rb.bottom && cx>=rb.left && cx<=rb.right){
+          if(document.elementFromPoint(cx,cy)!==e) n++;
+        }
+      }
+      if(n>worst) worst=n;
+    }
+    box.scrollTop=0;
+    return JSON.stringify({worst:worst, steps:steps});
+  })()`);
+  d = JSON.parse(r);
+  if (!d.skip) console.log(`  ℹ️  ⑩ [폰] «지금 교재» 줄이 동시에 가리는 «누를 것» 최대 ${d.worst}개 (스크롤 ${d.steps}지점) — 사람 결정 대기`);
+}
+await evaluate("try{localStorage.clear()}catch(e){}");
+await cmd('Emulation.clearDeviceMetricsOverride');
+
+/* ══ ⑪ 📗 SIU — 단계를 바꾸면 목록이 실제로 갈리는가 (2026-09-15) ═══════════
+   [왜] 자동 하니스는 btsListHtml 을 «직접» 돌려 봅니다. 그런데 «단계를 누르면
+     renderSetup 이 그 목록을 다시 그리는가» 는 브라우저에서만 보입니다 —
+     배선이 끊기면 함수는 멀쩡한데 화면만 안 바뀝니다.
+   ⛔ 「SIU 가 위에 온다」만 두지 마세요 — «전부 SIU 로 바꾸기» 도 통과합니다.
+      «낮은 단계에서는 BTS 가 위» 를 짝으로 둡니다. */
+{
+  const topList = async () => JSON.parse(await evaluate(`JSON.stringify((function(){
+    var box = document.getElementById('wusBooks'); if(!box) return null;
+    var det = box.querySelector('details');
+    var open = [];
+    var all = box.querySelectorAll('[data-bts]');
+    for(var i=0;i<all.length;i++){ if(!det || !det.contains(all[i])) open.push(all[i].getAttribute('data-bts')); }
+    var inDet = det ? Array.prototype.map.call(det.querySelectorAll('[data-bts]'), function(x){ return x.getAttribute('data-bts'); }) : [];
+    return { open: open, folded: inDet, head: (box.querySelector('.wus-hint')||{}).textContent || '',
+             sum: (box.querySelector('details > summary')||{}).textContent || '' };
+  })())`));
+  const setBand = async (n) => {
+    await evaluate(`document.querySelector('[data-lvl="${n}"]').click()`);
+    await sleep(120);
+  };
+
+  await setBand(1);
+  const low = await topList();
+  t('⑪ 1단계 — 위에 펼쳐진 것이 BTS 다',
+    !!low && low.open.some(v => /^\d+$/.test(v) && v !== '0') && !low.open.some(v => /^siu/.test(v)),
+    low && low.open.slice(0, 6));
+  t('⑪ 1단계 — 안내 줄이 BTS 라고 말한다', !!low && /BTS/.test(low.head), low && low.head);
+  t('⑪ 1단계 — SIU 는 «접힌 채로» 고를 수 있다(없애지 않았다)',
+    !!low && low.folded.some(v => /^siu/.test(v)), low && low.folded.length);
+
+  await setBand(5);
+  const high = await topList();
+  t('⑪ 5단계 — 위에 펼쳐진 것이 SIU 다(짝)',
+    !!high && high.open.some(v => /^siu/.test(v)), high && high.open.slice(0, 6));
+  t('⑪ 5단계 — 안내 줄이 SIU 라고 말한다', !!high && /SIU/.test(high.head), high && high.head);
+  t('⑪ 5단계 — BTS 는 «접힌 채로» 고를 수 있다(짝)',
+    !!high && high.folded.some(v => /^\d+$/.test(v) && v !== '0'), high && high.folded.length);
+  t('⑪ 두 단계가 실제로 다른 목록을 그린다',
+    !!low && !!high && JSON.stringify(low.open) !== JSON.stringify(high.open), null);
+
+  /* 🖱️ SIU 를 실제로 눌러 본다 — «지금 교재» 줄과 선택 표시가 따라오는가 */
+  const firstSiu = high && high.open.find(v => /^siu/.test(v));
+  if (firstSiu) {
+    await evaluate(`document.querySelector('#wusBooks [data-bts="${firstSiu}"]').click()`);
+    await sleep(150);
+    const after = JSON.parse(await evaluate(`JSON.stringify({
+      now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      on: !!document.querySelector('#wusBooks [data-bts="${firstSiu}"].on'),
+      saved: localStorage.getItem('mangoi_warmup_bts') || ''
+    })`));
+    t('⑪ SIU 를 누르면 그 버튼이 «지금» 으로 표시된다', after.on === true, after);
+    /* ⚠️ 이름만 보면 약합니다 — bookTitleOf 는 갈래와 무관하게 «SIU BASIC …» 을 돌려주므로
+       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0). 📗 표시까지 짝으로 묻습니다. */
+    t('⑪ SIU 를 누르면 «지금 교재» 줄이 SIU 라고 말한다', /SIU BASIC/.test(after.now), after.now);
+    t('⑪ 그 줄이 SIU 갈래로 그려진다(📗 · 짝)', after.now.indexOf('📗') >= 0, after.now);
+    t('⑪ SIU 선택이 저장된다(새로고침해도 남게)', after.saved === firstSiu, after.saved);
+    /* ⛔ 짝 — BTS 로 되돌리는 길이 살아 있어야 합니다. */
+    /* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은
+   위 두 갈래 카드와 중복이라 뺐습니다. 되돌리는 길은 이제 그 카드입니다. */
+await evaluate(`document.querySelector('#wusTwoWay [data-way="free"]').click()`);
+    await sleep(120);
+    const cleared = JSON.parse(await evaluate(`JSON.stringify({
+      now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      saved: localStorage.getItem('mangoi_warmup_bts') || '' })`));
+    t('⑪ 자유 대화로 되돌아간다(짝)', /자유 대화/.test(cleared.now) && !cleared.saved, cleared);
+  } else {
+    /* ⛔ 여기서 예외를 던지면 «결과줄조차 안 나옵니다» — 못 재면 FAIL 로 말합니다. */
+    t('⑪ 5단계 목록에서 SIU 버튼을 찾았다(전제)', false, high && high.open);
+  }
+
+  /* ══ ⑪-a 📕 SIU ADVANCE — 더 높은 단계에서 먼저 (2026-09-16) ═════════════
+     ⛔ 「ADVANCE 가 위」만 두지 마세요 — «전부 ADVANCE» 도 통과합니다.
+        «중간 단계에서는 ADVANCE 가 위에 «없다»» 를 짝으로 둡니다(순서 뒤집기 방지).
+     ⛔ 단계 숫자를 여기 베껴 적지 마세요 — 화면 정본에서 «읽어» 옵니다. */
+  {
+    const _advMinM = _WSRC.match(/var\s+SIU_ADV_BAND_MIN\s*=\s*(\d+)/);
+    t('⑪-a SIU_ADV_BAND_MIN 을 소스에서 읽었다(전제)', !!_advMinM, _advMinM && _advMinM[1]);
+    if (_advMinM) {
+      const ADVMIN = Number(_advMinM[1]);
+      const hasBtn = await evaluate(`!!document.querySelector('[data-lvl="${ADVMIN}"]')`);
+      t('⑪-a 그 단계 버튼이 화면에 있다(전제)', hasBtn === 'true' || hasBtn === true, hasBtn);
+      await setBand(ADVMIN);
+      const adv = await topList();
+      t('⑪-a 높은 단계 — 위에 펼쳐진 것이 ADVANCE 다',
+        !!adv && adv.open.some(v => /^adv/.test(v)), adv && adv.open.slice(0, 6));
+      t('⑪-a 높은 단계 — BASIC 은 위에 없다(짝 · 순서 뒤집기)',
+        !!adv && !adv.open.some(v => /^siu/.test(v)), adv && adv.open.slice(0, 6));
+      t('⑪-a 중간 단계(5) — ADVANCE 는 위에 없었다(짝)',
+        !!high && !high.open.some(v => /^adv/.test(v)), high && high.open.slice(0, 6));
+      t('⑪-a 1단계에서도 ADVANCE 를 «접힌 채로» 고를 수 있다',
+        !!low && low.folded.some(v => /^adv/.test(v)), low && low.folded.length);
+      t('⑪-a 높은 단계에서도 BASIC 을 «접힌 채로» 고를 수 있다(짝)',
+        !!adv && adv.folded.some(v => /^siu/.test(v)), adv && adv.folded.length);
+      t('⑪-a 안내 줄이 ADVANCE 라고 말한다', !!adv && /ADVANCE/.test(adv.head), adv && adv.head);
+      /* 📂 접힘 라벨 — 화면에 실제로 그려진 <summary> 가 그 안에 든 것을 말하는가.
+         ⛔ 「BASIC 이라고 적혔나」만 두지 마세요 — 세 시리즈를 늘 다 적어도 통과합니다.
+            «중간 단계에서는 BASIC 이 안 적혀 있다(접힌 쪽에 없으므로)» 를 짝으로 둡니다. */
+      t('⑪-a 높은 단계 접힘 라벨이 BASIC 을 말한다(안에 있으므로)',
+        !!adv && /BASIC/.test(adv.sum), adv && adv.sum);
+      t('⑪-a 중간 단계 접힘 라벨은 BASIC 을 말하지 않는다(짝)',
+        !!high && !/BASIC/.test(high.sum), high && high.sum);
+      t('⑪-a 중간 단계 접힘 라벨이 ADVANCE 를 말한다(안에 있으므로)',
+        !!high && /ADVANCE/.test(high.sum), high && high.sum);
+      t('⑪-a 권 수만큼 다 그린다(펼친 쪽)',
+        !!adv && adv.open.filter(v => /^adv/.test(v)).length === _nAdv,
+        adv && adv.open.filter(v => /^adv/.test(v)).length);
+
+      /* 🖱️ 실제로 눌러 본다 — 저장·«지금 교재» 줄이 따라오는가 */
+      const firstAdv = adv && adv.open.find(v => /^adv/.test(v));
+      if (firstAdv) {
+        await evaluate(`document.querySelector('#wusBooks [data-bts="${firstAdv}"]').click()`);
+        await sleep(150);
+        const af = JSON.parse(await evaluate(`JSON.stringify({
+          now: (document.getElementById('wusBookNow')||{}).textContent || '',
+          on: !!document.querySelector('#wusBooks [data-bts="${firstAdv}"].on'),
+          saved: localStorage.getItem('mangoi_warmup_bts') || '' })`));
+        t('⑪-a ADVANCE 를 누르면 그 버튼이 «지금» 으로 표시된다', af.on === true, af);
+        t('⑪-a «지금 교재» 줄이 ADVANCE 라고 말한다', /SIU ADVANCE/.test(af.now), af.now);
+        t('⑪-a BASIC 이라고 잘못 말하지 않는다(짝)', !/SIU BASIC/.test(af.now), af.now);
+        t('⑪-a ADVANCE 선택이 저장된다', af.saved === firstAdv, af.saved);
+      } else {
+        t('⑪-a 높은 단계 목록에서 ADVANCE 버튼을 찾았다(전제)', false, adv && adv.open);
+      }
+    }
+  }
+
+  /* 뒷정리 — 다음 절·다음 실행이 5단계에서 시작하지 않게 되돌린다.
+     ⛔ 이 줄을 지우지 마세요 — 폭·절 사이 오염이 거짓 FAIL 을 냅니다(CLAUDE.md). */
+  await setBand(3);
+  await evaluate(`try{ localStorage.removeItem('mangoi_warmup_bts'); localStorage.removeItem('mangoi_warmup_bts_lesson'); }catch(e){}`);
+}
+
+
+const label = 'warmup-bts-book-browser';
+console.log(`\n▶ ${label}`);
+P.forEach(x => console.log('  ✅ ' + x));
+F.forEach(x => console.log('  ❌ ' + x));
+console.log(`\n${label} — PASS ${P.length} / FAIL ${F.length}`);
+try { ws.close(); } catch {}
+process.exit(F.length ? 1 : 0);
