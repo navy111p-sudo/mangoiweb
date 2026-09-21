@@ -2,10 +2,11 @@
   'use strict';
   var D=window.MangoiSceneQuest,$=function(id){return document.getElementById(id);};
   var ui='ko';try{ui=localStorage.getItem('mangoi_lang')==='en'?'en':'ko';}catch(_){}
-  var rounds=[],index=0,score=0,combo=0,maxCombo=0,history=[],mistakes=[],active=false,passed=false,assisted=false,hints=0,attempts=0,remaining=45,paused=false,reviewing=false,muted=true,audio=null,mediaEpoch=0,reported=false;
+  var rounds=[],index=0,score=0,combo=0,maxCombo=0,history=[],mistakes=[],active=false,passed=false,skipped=false,assisted=false,hints=0,attempts=0,remaining=45,paused=false,reviewing=false,muted=true,audio=null,mediaEpoch=0,reported=false;
   var lastTick=performance.now(),style='practice';
   function tr(ko,en){return ui==='en'?en:ko;}
   function text(id,value){$(id).textContent=value;}
+  function label(id,ko,en){var el=$(id);el.setAttribute('data-ko',ko);el.setAttribute('data-en',en);el.textContent=tr(ko,en);}
   function language(){document.documentElement.lang=ui;document.querySelectorAll('[data-ko]').forEach(function(el){el.innerHTML=el.getAttribute('data-'+ui);});text('ui-lang',ui==='ko'?'EN':'한국어');if(active)renderText();}
   function feedback(msg,kind){text('feedback',msg);$('feedback').className='feedback '+(kind||'');}
   function current(){return rounds[index];}
@@ -22,14 +23,14 @@
     text('media-tag',tr('실사 스타일 · 6초 영상','PHOTOREAL · 6-SECOND CLIP'));
     text('gate-title',r.boss?tr('마지막 도전! 배운 장면을 더 길게 써 봐요.','Final challenge! Say more about a familiar scene.'):tr('보물문 열쇠 ','Treasure keys ')+Math.min(index,4)+' / 4');
     text('gate-copy',tr('힌트를 써도 끝까지 갈 수 있어요. 연속 정답은 보너스!','Hints help you finish. Consecutive answers earn a bonus!'));
-    if(passed){text('gate-title',model());text('gate-copy',tr('정답을 듣거나 다음 장면으로 이동하세요.','Listen to the answer or continue to the next scene.'));}
+    if(passed){text('gate-title',model());text('gate-copy',skipped?tr('이번엔 넘어갔어요. 마지막 복습에서 다시 연습해요.','Skipped this time. You will practise it in the review.'):tr('정답을 듣거나 다음 장면으로 이동하세요.','Listen to the answer or continue to the next scene.'));}
     text('next',index===rounds.length-1?tr('보물 상자 열기 →','Open the treasure →'):tr('다음 장면 →','Next scene →'));
   }
   function loadRound(){
-    stopMedia();passed=assisted=false;hints=attempts=0;remaining=45;lastTick=performance.now();
+    stopMedia();passed=assisted=skipped=false;hints=attempts=0;remaining=45;lastTick=performance.now();
     var r=current(),v=$('video');v.hidden=true;v.removeAttribute('src');v.load();v.poster=r.scene.poster;
     $('poster').hidden=false;$('poster').src=r.scene.poster;$('poster').alt=r.scene.en+' — '+r.scene.clueEn;
-    $('answer').value='';$('answer').disabled=false;$('submit').disabled=false;$('hint').disabled=false;$('reveal').disabled=false;$('next').hidden=true;$('listen').hidden=true;$('hint-box').hidden=true;
+    $('answer').value='';$('answer').disabled=false;$('submit').disabled=false;$('hint').disabled=false;$('reveal').disabled=false;$('next').hidden=true;$('listen').hidden=true;$('skip').hidden=false;$('skip').disabled=false;$('hint-box').hidden=true;
     $('timer').hidden=style!=='challenge';$('gate').classList.remove('unlocked','flash');text('gate-icon',r.boss?'🔒':'🔑');
     $('path').innerHTML=rounds.map(function(_,i){return '<span class="'+(i<index?'done':i===index?'current':'')+'"></span>';}).join('');
     feedback('');renderText();text('media-msg',tr('동영상은 눌렀을 때만 재생해요. 그림으로도 도전할 수 있어요.','Clips play only when you choose. You can also use the picture.'));updateHud();
@@ -41,9 +42,19 @@
     passed=true;var clean=!assisted&&!hints&&attempts===0;combo=clean?combo+1:0;maxCombo=Math.max(maxCombo,combo);
     var gain=assisted?0:50+(clean?Math.min(combo,5)*10:0)+(style==='challenge'&&clean&&remaining>0?Math.ceil(remaining):0)+(current().boss?30:0);
     score+=gain;history.push({scene:current().scene,level:current().level,answer:model(),assisted:assisted,review:assisted||hints>0||attempts>0});
-    if(!clean)remember();$('answer').disabled=true;$('submit').disabled=true;$('hint').disabled=true;$('reveal').disabled=true;$('next').hidden=false;$('listen').hidden=false;
+    if(!clean)remember();$('answer').disabled=true;$('submit').disabled=true;$('hint').disabled=true;$('reveal').disabled=true;$('skip').hidden=true;$('next').hidden=false;$('listen').hidden=false;
     feedback(assisted?tr('배웠어요! 이 표현은 마지막에 다시 연습해요.','Learned! Try this expression again in review.'):tr('정답! 문이 열렸어요. +','Correct! Gate unlocked. +')+gain+' ★','good');
     $('gate').classList.add('unlocked','flash');text('gate-icon','🔓');text('gate-title',model());text('gate-copy',tr('정답을 듣거나 다음 장면으로 이동하세요.','Listen to the answer or continue to the next scene.'));tone(true);updateHud();$('next').focus({preventScroll:true});
+  }
+  function skip(){
+    if(passed||!active||paused)return;
+    passed=true;skipped=true;combo=0;remember();updateHud();
+    history.push({scene:current().scene,level:current().level,answer:model(),assisted:true,review:true,skipped:true});
+    $('answer').disabled=true;$('submit').disabled=true;$('hint').disabled=true;$('reveal').disabled=true;$('skip').hidden=true;
+    $('next').hidden=false;$('listen').hidden=false;$('hint-box').hidden=false;
+    text('hint-box',model()+'\n'+tr('이 표현은 마지막 복습에서 다시 만나요.','You will practise this expression again in the review.'));
+    feedback(tr('넘어갔어요. 정답을 한 번 읽거나 들어 보세요.','Skipped. Read or listen to the answer once.'),'retry');
+    renderText();tone(false);$('next').focus({preventScroll:true});
   }
   function submit(e){e.preventDefault();if(e.isComposing||passed||!active||paused)return;var result=D.check($('answer').value,current().scene,current().level);
     if(result==='correct'){award();return;}
@@ -60,18 +71,20 @@
     try{await v.play();if(epoch!==mediaEpoch){if(paused||!active||v.hidden)v.pause();return;}if(paused||!active){v.pause();return;}$('poster').hidden=true;text('media-msg',tr('행동을 자세히 살펴봐요. 다시 누르면 처음부터 볼 수 있어요.','Watch the action. Tap again to replay from the beginning.'));}catch(_){if(epoch===mediaEpoch){fallback(tr('영상을 재생할 수 없어 그림을 보여 드려요. 힌트를 사용해도 좋아요.','Showing the picture because the clip could not play. You can use a hint.'));}}}
   function pause(){if(!active||paused)return;paused=true;stopMedia();$('paused').hidden=false;$('resume').focus();}
   function resume(){paused=false;lastTick=performance.now();$('paused').hidden=true;$(passed?'next':'answer').focus({preventScroll:true});}
-  function summary(){return ['Mangoi Scene Quest',tr('탐험 점수: ','Adventure points: ')+score,tr('최고 콤보: ','Best combo: ')+maxCombo].concat(history.map(function(h,i){return (i+1)+'. '+h.scene[ui]+': '+h.answer+(h.review?tr(' [복습]',' [review]'):'');})).join('\n');}
+  function summary(){return ['Mangoi Scene Quest',tr('탐험 점수: ','Adventure points: ')+score,tr('최고 콤보: ','Best combo: ')+maxCombo].concat(history.map(function(h,i){return (i+1)+'. '+h.scene[ui]+': '+h.answer+(h.skipped?tr(' [넘어감]',' [skipped]'):h.review?tr(' [복습]',' [review]'):'');})).join('\n');}
   function finish(){
     active=false;stopMedia();$('play').hidden=true;$('result').hidden=false;text('total-score',score);text('max-combo',maxCombo);text('review-count',mistakes.length);text('copy-status','');
-    text('result-copy',tr('보고, 쓰고, 끝까지 탐험했어요. 배운 표현을 한 번 더 말해 보세요!','You watched, wrote, and finished the adventure. Say what you learned once more!'));
-    $('review-list').replaceChildren();history.forEach(function(h){var row=document.createElement('div'),title=document.createElement('span'),answer=document.createElement('strong');row.className='review-item';title.textContent=h.scene[ui]+(h.review?tr(' · 다시 연습',' · Review'):tr(' · 통과',' · Passed'));answer.textContent=h.answer;row.append(title,answer);$('review-list').append(row);});$('review').hidden=mistakes.length===0;
+    var solved=history.filter(function(h){return !h.skipped;}).length;
+    label('result-title',solved?'보물문이 열렸어요!':'끝까지 왔어요!',solved?'The treasure gate is open!':'You made it to the end!');
+    label('result-copy',solved?'보고, 쓰고, 끝까지 탐험했어요. 배운 표현을 한 번 더 말해 보세요!':'이번엔 모두 넘어갔어요. 아래 표현을 한 번씩 따라 써 보면 다음엔 문이 열려요.',solved?'You watched, wrote, and finished the adventure. Say what you learned once more!':'You skipped every scene this time. Copy the expressions below once and the gate will open next time.');
+    $('review-list').replaceChildren();history.forEach(function(h){var row=document.createElement('div'),title=document.createElement('span'),answer=document.createElement('strong');row.className='review-item';title.textContent=h.scene[ui]+(h.skipped?tr(' · 넘어감',' · Skipped'):h.review?tr(' · 다시 연습',' · Review'):tr(' · 통과',' · Passed'));answer.textContent=h.answer;row.append(title,answer);$('review-list').append(row);});$('review').hidden=mistakes.length===0;
     // Hub quest completion only; points are local to this adventure, not spendable coins.
     if(!reviewing&&!reported){reported=true;if(window.parent!==window)window.parent.postMessage({type:'mangoi-game-complete',game:'scenequest',score:score},location.origin);}
   }
   $('answer-form').addEventListener('submit',submit);$('answer').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.isComposing)e.preventDefault();});
   $('start').addEventListener('click',function(){reviewing=false;start(D.deck($('world').value,Number($('level').value)));});
   $('next').addEventListener('click',function(){if(!passed||paused)return;if(index+1>=rounds.length)finish();else{index++;loadRound();}});
-  $('hint').addEventListener('click',hint);$('reveal').addEventListener('click',reveal);
+  $('hint').addEventListener('click',hint);$('reveal').addEventListener('click',reveal);$('skip').addEventListener('click',skip);
   $('watch').addEventListener('click',function(){if($('video').getAttribute('src'))$('video').currentTime=0;watch();});
   $('still').addEventListener('click',function(){stopMedia();fallback(tr('그림을 보고 천천히 써 보세요.','Take your time with the picture.'));});
   $('video').addEventListener('error',function(){if(active&&$('video').getAttribute('src')){fallback(tr('영상 대신 그림으로 도전해요.','Continue with the picture.'));}});
