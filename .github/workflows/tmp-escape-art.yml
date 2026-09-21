@@ -31,9 +31,7 @@ jobs:
       - name: Preview sheets
         run: |
           cd tmp-preview
-          montage escape-loc-classroom-*.jpg escape-loc-restroom-*.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-1.jpg
-          montage escape-loc-storage-*.jpg escape-loc-rooftop-*.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-2.jpg
-          montage escape-loc-playground-*.jpg escape-zombie-cabinet-open.jpg -tile 2x -geometry +6+6 -background '#000' ../tmp-sheet-3.jpg
+          montage *.jpg -tile 2x -geometry +6+6 -background "#000" ../tmp-sheet-1.jpg
       - name: Commit
         run: |
           git config user.name  "github-actions[bot]"
