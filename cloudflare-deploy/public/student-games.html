@@ -254,6 +254,21 @@
   .game-topbar .gname{font-size:15px;font-weight:800;color:var(--gold)}
   .game-topbar .next{margin-left:auto;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;
     padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  /* 📊 진행 띠 — 게임 22종 공통. 게임 코드는 한 글자도 안 고친다(허브가 위에 얹는다). */
+  .game-progress{display:flex;align-items:center;gap:10px;padding:7px 14px;
+    background:rgba(10,18,38,.82);border-bottom:1px solid var(--line)}
+  .game-progress .gp-track{display:block;flex:1;min-width:0;height:9px;border-radius:99px;
+    background:rgba(255,255,255,.13);overflow:hidden}
+  /* ⛔ display:block 을 지우지 말 것 — 인라인이면 폭·높이가 무시돼 채움이 안 보인다 */
+  .game-progress .gp-fill{display:block;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,#34d399,#10b981);
+    min-width:6px;                       /* 0개일 때도 «측정 안 됨» 으로 안 읽히게 작은 표시를 남긴다 */
+    transition:width .28s ease}
+  .game-progress .gp-txt{flex:0 0 auto;font-size:12.5px;font-weight:700;color:#d7e3f4;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .game-progress .gp-txt b{color:#6ee7b7}
+  @media(prefers-reduced-motion:reduce){ .game-progress .gp-fill{transition:none} }
+  @media(max-width:640px){ .game-progress{padding:5px 12px;gap:8px} .game-progress .gp-txt{font-size:11.5px} }
   .game-scorebar{display:flex;gap:14px;align-items:center;padding:8px 14px;background:rgba(10,18,38,.7);
     border-bottom:1px solid var(--line);font-size:13px;color:#cbd5e1;flex-shrink:0;flex-wrap:wrap}
   #game-area{flex:1;min-height:0;overflow:auto;background:linear-gradient(135deg,#0f172a,#1e293b);
@@ -726,6 +741,13 @@
       <!-- iframe 게임 전용: 속도 드롭다운 여닫는 ⋮ 메뉴 (상단바 한 줄 유지) -->
       <button class="kebab" id="hub-kebab" title="게임 속도 설정" onclick="hubToggleTopMenu(event)">⋮</button>
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
+    </div>
+    <!-- 📊 진행 띠 — 「얼마나 남았는지」를 22종 전부 같은 모양으로 (2026-09-22 사장님 지시)
+         ⛔ 채움을 <span> 으로 두고 display 를 안 적으면 브라우저가 글자로 봐서 폭이 0이 된다
+            (레벨테스트 CEFR 막대 실사고 — 4/4 와 0/4 가 똑같이 빈 막대였다). .gp-fill 의 display:block 필수. -->
+    <div class="game-progress" id="hub-progress" hidden>
+      <span class="gp-track"><span class="gp-fill" id="hub-gp-fill"></span></span>
+      <span class="gp-txt" id="hub-gp-txt"></span>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
       <span id="game-hearts" title="하트를 다 잃기 전에 10문제 정답!" style="letter-spacing:1px">❤️❤️❤️</span>
@@ -1830,13 +1852,98 @@ function setGameSpeed(lvl){
     gameNextRound();
   }
 }
+/* ══════════════════════════════════════════════════════════════════
+   📊 진행 띠 — 「얼마나 더 해야 끝나는지」 (2026-09-22 사장님 지시)
+
+   왜: 게임 22종을 전부 브라우저로 재 보니 **8종은 「끝」이 화면에 한 글자도
+       안 보였고**, 보여 주는 14종도 기준이 여섯 가지였다
+       (0/10 · 1/6 · 1/4 · 0/5 · Round 1/3 · 0/60).
+       → 「무작정 언제까지 해야 끝나는지 모르니 몇 번 하다가 나가게 된다」
+
+   어떻게: **게임 코드는 한 글자도 안 고친다.** 허브가 게임 위에 띠를 얹고,
+       진행은 `js/game-track.js`(이미 13종이 싣고 있다)가 세던 정오답을
+       postMessage 로 받아서 그린다. 그 파일 머리말의 원칙과 같다 —
+       「게임 로직은 한 글자도 고치지 않는다 … 그래서 바깥에서 붙인다」.
+
+   ⛔ 목표(분모)를 화면이 지어내지 않는다. 아래 표가 정본이고, **그 값을 그대로
+      게임에게 URL(goal=)로 넘긴다** — 허브가 그리는 분모와 게임이 받는 목표가
+      «같은 한 값» 이라 어긋날 수가 없다.
+   ⛔ 여기 숫자를 «10으로 통일» 하지 말 것. 실측한 그 게임의 진짜 끝이다
+      (우주괴물은 6문제에, 문법피자는 4단계에, 용의자는 3라운드에 끝난다).
+      10으로 적으면 게임이 먼저 끝나 띠가 6/10 에서 멈춘다 = 화면이 거짓말한다.
+   ══════════════════════════════════════════════════════════════════ */
+var GAME_GOAL_DEFAULT = 10;
+var GAME_GOALS = {
+  /* by:'seen' = 푼 개수(문제 순번)로 센다 · 기본은 'done'(맞힌 개수) */
+  spacemonster:{ n:6,  by:'seen' },   // 화면 표시 1/6
+  pizza:       { n:4,  by:'seen' },   // 1/4 (단계)
+  suspect:     { n:3,  by:'seen' },   // Round 1/3
+  scenequest:  { n:12, by:'seen' },   // 1/12 (장면)
+  fish:        { n:5,  by:'done' },   // 0/5
+  avatar:      { n:0 }                // ⛔ 0 = 띠 없음. 「0/60」은 «경험치» 라 맞힌 개수와 단위가 다르다
+};
+function _goalOf(mode){
+  var g = GAME_GOALS[mode];
+  if(g && typeof g.n === 'number') return g.n;
+  return GAME_GOAL_DEFAULT;
+}
+function _goalByOf(mode){
+  var g = GAME_GOALS[mode];
+  return (g && g.by === 'seen') ? 'seen' : 'done';
+}
+
+var _gpState = { mode:'', goal:0, done:0, shown:false };
+
+/* 띠를 새 게임에 맞춰 초기화. goal 이 0이면 아예 안 그린다(모르는 것을 지어내지 않는다). */
+function hubProgressStart(mode){
+  _gpState = { mode:mode, goal:_goalOf(mode), done:0, shown:false };
+  var box = document.getElementById('hub-progress');
+  if(!box) return;
+  if(!_gpState.goal){ box.hidden = true; return; }
+  box.hidden = false;
+  hubProgressDraw();
+}
+function hubProgressStop(){
+  _gpState = { mode:'', goal:0, done:0, shown:false };
+  var box = document.getElementById('hub-progress');
+  if(box) box.hidden = true;
+}
+/* 진행을 그린다. ⚠️ 목표를 넘어서면 목표에 맞춰 자른다(11/10 은 거짓말이다). */
+function hubProgressDraw(){
+  var fill = document.getElementById('hub-gp-fill');
+  var txt  = document.getElementById('hub-gp-txt');
+  if(!fill || !txt || !_gpState.goal) return;
+  var done = Math.max(0, Math.min(_gpState.done, _gpState.goal));
+  var left = _gpState.goal - done;
+  fill.style.width = Math.round(100 * done / _gpState.goal) + '%';
+  var en = (_siteLang() === 'en');
+  txt.innerHTML = '<b>' + done + ' / ' + _gpState.goal + '</b> · ' +
+    (left > 0 ? (en ? (left + ' to go!') : (left + '개만 더!'))
+              : (en ? 'Done!' : '다 했어요!'));
+}
+/* 게임이 알려 온 진행을 반영. done 은 뒤로 가지 않는다(다시 그리기·중복 메시지 방어). */
+function hubProgressSet(done){
+  if(!_gpState.goal) return;
+  var n = Math.max(0, Number(done) || 0);
+  if(n < _gpState.done) return;
+  _gpState.done = n;
+  hubProgressDraw();
+}
+/* 게임이 «끝났다» 고 알려 오면 띠를 가득 채운다 — 아직 goal 을 안 읽는 게임이
+   자기 기준으로 먼저 끝나도 띠가 중간에서 멈춰 거짓말하지 않게. */
+function hubProgressComplete(){
+  if(!_gpState.goal) return;
+  _gpState.done = _gpState.goal;
+  hubProgressDraw();
+}
+
 // iframe 게임 src 에 속도/학생/목표/언어 파라미터 부착 — 게임 쪽에서 교재 맞춤 문장 로드 + 10개 정답 결과에 사용
 function _hubIframeSrc(g){
   var pick = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)];
   // 중국어는 띄어쓰기가 없으므로 분절된 words[] 를 공백으로 이어 전달(게임이 단어 단위로 분할)
   var sentence = (GAME_LANG==='zh' && pick.words && pick.words.length) ? pick.words.join(' ') : pick.en;
   var src = g.src(sentence);
-  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
+  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=' + _goalOf(g.mode) + '&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
   if(pick.ko) src += '&ko=' + encodeURIComponent(pick.ko);   // 말하기 미션 카드 '문장 탭 → 한국어 뜻'용
   try{ var uid = window.MangoiGameVocab && MangoiGameVocab.getUserId(); if(uid) src += '&uid=' + encodeURIComponent(uid); }catch(_){}
   return src;
@@ -2328,6 +2435,8 @@ function hubOpenGame(mode){
   var _kb=document.getElementById('hub-kebab'); if(_kb) _kb.style.display = g.ownSpeed ? 'none' : '';
   var hubGameEl = document.getElementById('hub-game');
 
+  try{ hubProgressStart(mode); }catch(_){}   // 📊 진행 띠 — 게임 22종 공통
+
   if(g.kind === 'iframe'){
     // iframe 게임 — 점수바/다음버튼 숨기고 게임 페이지가 화면을 채움
     hubGameEl.classList.add('game-iframewrap');
@@ -2345,6 +2454,7 @@ function hubOpenGame(mode){
 }
 
 function hubBackToMenu(){
+  try{ hubProgressStop(); }catch(_){}        // 📊 진행 띠 정리
   // 진행 중이던 타이머/음성 정리
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   _stopRoundTimer();
@@ -2415,6 +2525,7 @@ function _gameShuffle(arr){
 function _gameUpdateScore(){
   document.getElementById('game-score').textContent = _gameState.score;
   document.getElementById('game-correct').textContent = _gameState.correct;
+  try{ hubProgressSet(_gameState.correct); }catch(_){}   // 📊 진행 띠(인라인 4종은 허브가 직접 안다)
   document.getElementById('game-wrong').textContent = _gameState.wrong;
 }
 
@@ -3541,7 +3652,18 @@ window.addEventListener('message', function (ev){
   const d = ev && ev.data;
   if (!d || typeof d !== 'object' || !d.type) return;
   if (d.type === 'mangoi-game-back'){ hubBackToMenu(); return; }   // ← 게임 내부 뒤로가기 버튼
+  /* 📊 진행 — js/game-track.js 가 세던 정오답을 그대로 받는다(게임 코드는 안 고쳤다).
+     ⚠️ 게임이 «직접» 말한 값(self)은 그 게임이 자기 진행을 가장 잘 아니 그대로 믿는다.
+        그 밖에는 게임별로 «맞힌 개수»(done)인지 «푼 개수»(seen)인지 표가 정한다. */
+  if (d.type === 'mangoi-game-progress'){
+    try{
+      if(d.self) hubProgressSet(d.done);
+      else hubProgressSet(_goalByOf(_gpState.mode) === 'seen' ? d.seen : d.done);
+    }catch(_){}
+    return;
+  }
   if (d.type === 'mangoi-game-complete'){
+    try{ hubProgressComplete(); }catch(_){}
     _gameState.score += (d.score || 0);
     _gameState.correct += 1;
     try{ window.MangoiStreak && MangoiStreak.complete('iframe'); }catch(_){}  // 🔥 오늘 학습 달성(배틀/낚시/슈팅 미션 완료)
