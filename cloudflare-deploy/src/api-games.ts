@@ -27,6 +27,7 @@ import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 //    표기가 달라 매칭이 영영 안 되던 것을 잇습니다. 표시 이름은 「중국어 마스터」(2026-08-26 사장님).
 import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
 import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
+import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
 
 
@@ -208,7 +209,7 @@ export const checkAndAwardBadges = async (env: MangoEnv, userId: string): Promis
 
       // 출석 카운트
       try {
-        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE user_id = ?`).bind(userId).first();
+        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE ${ATTENDANCE_BY_UID}`).bind(...attUidBinds(userId)).first();
         if ((att?.days || 0) >= 1) await award('attendance_1');
         if ((att?.days || 0) >= 1) await award('first_class');
         // 연속 출석 — 날짜 연결 리스트를 역방향 DFS(재귀 CTE)로 "진짜 연속"을 계산 (풀스캔 X)
@@ -2327,8 +2328,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       //    student_streaks 와 "두 수치"가 어긋나지 않도록 여기서 일원화한다.
       const attStreak = await computeAttendanceStreak(env, uid);
       const at: any = await env.DB.prepare(
-        `SELECT 1 FROM attendance WHERE user_id = ? AND date = ? LIMIT 1`
-      ).bind(uid, today).first();
+        `SELECT 1 FROM attendance WHERE ${ATTENDANCE_BY_UID} AND date = ? LIMIT 1`
+      ).bind(...attUidBinds(uid), today).first();
       const attended_today = !!at;
 
       const row: any = await env.DB.prepare(

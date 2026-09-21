@@ -15,6 +15,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
+import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
@@ -89,8 +90,8 @@ export async function handleStudentsApi(
       //   ⛔ 판정을 여기서 다시 쓰지 말 것 — summarizeAttendance 하나가 정본이다.
       const sinceMs = Date.now() - 30 * 86400000;
       const attRows = await env.DB.prepare(
-        `SELECT date, status, attended_at, joined_at FROM attendance WHERE user_id = ? AND joined_at >= ? AND date IS NOT NULL`
-      ).bind(childUid, sinceMs).all();
+        `SELECT date, status, attended_at, joined_at FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ? AND date IS NOT NULL`
+      ).bind(...attUidBinds(childUid), sinceMs).all();
       const attSummary = summarizeAttendance((attRows.results || []) as any[]);
 
       // 결제내역 (최근 6개)
@@ -711,9 +712,9 @@ ${MANGOI_KNOWLEDGE}`;
         const rs = await env.DB.prepare(
           `SELECT date, joined_at, username, gaze_score, disconnect_count, total_active_ms, total_session_ms
              FROM attendance
-            WHERE user_id = ? COLLATE NOCASE AND joined_at >= ?
+            WHERE ${ATTENDANCE_BY_UID_NOCASE} AND joined_at >= ?
             ORDER BY joined_at ASC LIMIT 400`
-        ).bind(uid, since).all();
+        ).bind(...attUidBinds(uid), since).all();
         rows = (rs.results || []) as any[];
       } catch { rows = []; }
 
@@ -780,9 +781,9 @@ ${MANGOI_KNOWLEDGE}`;
         env.DB.prepare(
           `SELECT id, date, joined_at, gaze_score, total_active_ms, total_session_ms, room_id
              FROM attendance
-            WHERE user_id = ? COLLATE NOCASE AND joined_at >= ?
+            WHERE ${ATTENDANCE_BY_UID_NOCASE} AND joined_at >= ?
             ORDER BY joined_at ASC LIMIT 400`
-        ).bind(uid, since).all<any>().catch(() => empty),
+        ).bind(...attUidBinds(uid), since).all<any>().catch(() => empty),
         env.DB.prepare(
           `SELECT id, eval_at, lesson_date, lesson_title, teacher_name,
                   score_participation, score_comprehension, score_homework, score_attitude,
@@ -1378,7 +1379,7 @@ export async function buildWeeklyParentDigest(env: any, uid: string): Promise<an
   const q1 = async (sql: string, ...binds: any[]) => { try { return await env.DB.prepare(sql).bind(...binds).first(); } catch { return null; } };
 
   const student: any = await q1(`SELECT user_id, student_name, parent_name, parent_phone FROM students_erp WHERE user_id = ?`, uid);
-  const att: any = await q1(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ? AND COALESCE(status,'') <> 'scheduled'`, uid, startTs, endTs);
+  const att: any = await q1(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ? AND joined_at < ? AND COALESCE(status,'') <> 'scheduled'`, ...attUidBinds(uid), startTs, endTs);
   const evals: any = await q1(`SELECT AVG(score_overall) AS avg, COUNT(*) AS n, GROUP_CONCAT(next_goals,'|') AS goals FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
   const voice: any = await q1(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
   // 🥭 차별 지표 (테이블 미존재 방어 = 조용히 0)
