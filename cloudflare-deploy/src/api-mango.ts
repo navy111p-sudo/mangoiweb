@@ -38,6 +38,7 @@ import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
 import { ipToNet, asLabel } from './net-prefix';
+import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 
@@ -3543,6 +3544,7 @@ ${numbered}`;
     if (/^\/api\/admin\/student\/[^\/]+$/.test(path) && method === 'GET') {
       const userId = decodeURIComponent(path.replace('/api/admin/student/', ''));
       if (!userId) return invalidBody(['user_id(path)']);
+      await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
       const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
       const since = Date.now() - days * 24 * 3600 * 1000;
 
@@ -3552,8 +3554,8 @@ ${numbered}`;
           `SELECT user_id, COALESCE(MAX(username), user_id) AS username, COALESCE(MAX(role), 'student') AS role,
                   MIN(joined_at) AS first_seen, MAX(joined_at) AS last_seen,
                   COUNT(*) AS total_sessions_all_time
-           FROM attendance WHERE user_id = ?`
-        ).bind(userId).first(),
+           FROM attendance WHERE ${ATTENDANCE_BY_UID}`
+        ).bind(...attUidBinds(userId)).first(),
         // 요약: 기간 내 집계
         env.DB.prepare(
           `SELECT COUNT(*) AS session_count,
@@ -3562,8 +3564,8 @@ ${numbered}`;
                   COALESCE(SUM(disconnect_count), 0) AS disconnect_sum,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score,
                   COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_score_count
-           FROM attendance WHERE user_id = ? AND joined_at >= ?`
-        ).bind(userId, since).first(),
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?`
+        ).bind(...attUidBinds(userId), since).first(),
         // 일자별 (차트용)
         env.DB.prepare(
           `SELECT date,
@@ -3571,17 +3573,17 @@ ${numbered}`;
                   COALESCE(SUM(total_session_ms), 0) AS total_session_ms,
                   COALESCE(SUM(total_active_ms), 0)  AS total_active_ms,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score
-           FROM attendance WHERE user_id = ? AND joined_at >= ?
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
            GROUP BY date ORDER BY date ASC`
-        ).bind(userId, since).all(),
+        ).bind(...attUidBinds(userId), since).all(),
         // 세션 리스트 (최근순)
         env.DB.prepare(
           `SELECT id, room_id, joined_at, left_at, status, date,
                   total_session_ms, total_active_ms, disconnect_count,
                   gaze_score, gaze_samples, gaze_forward_samples
-           FROM attendance WHERE user_id = ? AND joined_at >= ?
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
            ORDER BY joined_at DESC LIMIT 200`
-        ).bind(userId, since).all()
+        ).bind(...attUidBinds(userId), since).all()
       ]);
 
       if (!profileRow || !(profileRow as any).user_id) {
@@ -3638,6 +3640,7 @@ ${numbered}`;
       const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/full$/);
       if (m && method === 'GET') {
         await ensureStudentDetailSchema();
+        await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
         const uid = decodeURIComponent(m[1]);
         const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
         const since = Date.now() - days * 24 * 3600 * 1000;
@@ -3650,8 +3653,8 @@ ${numbered}`;
             `SELECT user_id, COALESCE(MAX(username), user_id) AS username, COALESCE(MAX(role),'student') AS role,
                     MIN(joined_at) AS first_seen, MAX(joined_at) AS last_seen,
                     COUNT(*) AS total_sessions_all_time
-             FROM attendance WHERE user_id = ?`
-          ).bind(uid).first(),
+             FROM attendance WHERE ${ATTENDANCE_BY_UID}`
+          ).bind(...attUidBinds(uid)).first(),
           env.DB.prepare(
             `SELECT COUNT(*) AS session_count,
                     COALESCE(SUM(total_session_ms),0) AS total_session_ms,
@@ -3660,25 +3663,25 @@ ${numbered}`;
                     AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score,
                     COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_score_count,
                     COUNT(DISTINCT date) AS active_days
-             FROM attendance WHERE user_id = ? AND joined_at >= ?`
-          ).bind(uid, since).first(),
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?`
+          ).bind(...attUidBinds(uid), since).first(),
           // 3. 일자별 (차트)
           env.DB.prepare(
             `SELECT date, COUNT(*) AS session_count,
                     COALESCE(SUM(total_session_ms),0) AS total_session_ms,
                     COALESCE(SUM(total_active_ms),0)  AS total_active_ms,
                     AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score
-             FROM attendance WHERE user_id = ? AND joined_at >= ?
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
              GROUP BY date ORDER BY date ASC`
-          ).bind(uid, since).all(),
+          ).bind(...attUidBinds(uid), since).all(),
           // 4. 세션 (최근 200건)
           env.DB.prepare(
             `SELECT id, room_id, joined_at, left_at, status, date,
                     total_session_ms, total_active_ms, disconnect_count,
                     gaze_score, gaze_samples, gaze_forward_samples
-             FROM attendance WHERE user_id = ? AND joined_at >= ?
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
              ORDER BY joined_at DESC LIMIT 200`
-          ).bind(uid, since).all(),
+          ).bind(...attUidBinds(uid), since).all(),
           // 5. 수강 이력
           env.DB.prepare(`SELECT * FROM enrollments WHERE student_user_id = ? ORDER BY created_at DESC LIMIT 50`).bind(uid).all(),
           // 6. 수업료 결제
