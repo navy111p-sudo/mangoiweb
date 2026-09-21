@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg webp
       - run: node tools/scene-words/fetch-videos.mjs tools/scene-words/video-urls.json cloudflare-deploy/public/videos/scene-clips cloudflare-deploy/public/img/scene-clips tools/scene-words/video-result.json
-      - run: cat tools/scene-words/video-result.json
+      - run: node -e "const a=require('./tools/scene-words/video-result.json');const e=a.filter(x=>x.error);console.log('ok',a.length-e.length,'err',e.length,'videoMB',(a.reduce((s,x)=>s+(x.videoBytes||0),0)/1048576).toFixed(1),'imgMB',(a.reduce((s,x)=>s+(x.imageBytes||0),0)/1048576).toFixed(1),'maxVideo',Math.max(...a.map(x=>x.videoBytes||0)));e.slice(0,20).forEach(x=>console.log('ERR',x.index,x.error))"
       - run: |
           git config user.name "scene-words-fetch"
           git config user.email "noreply@anthropic.com"
