@@ -330,8 +330,12 @@ var ACTION_CLIPS={
   tension:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_9156ef72-c44a-470f-8246-553bdab25dea.mp4',
   escape:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d0c881f5-8870-45ee-a5d1-6de08ee53626.mp4',
   /* 🎬 장소별 전환 영상 20편(2026-09-21) — 그 방의 «닫힌» 사진을 시작,
-     «열린» 사진을 끝으로 물려 만들어 방·각도가 STEP_ART 그림과 딱 맞습니다.
-     열쇠는 clipKeyFor() 가 «장소:단계» 로 만듭니다. */
+     «열린» 사진을 끝으로 «물려서» 뽑았습니다(잰 것은 거기까지 — 실제로 방·각도가
+     맞는지는 사람이 봐야 합니다. 이 환경은 CDN 403 에 영상 디코더도 없습니다).
+     열쇠는 clipKeyFor() 가 «장소:단계» 로 만듭니다.
+     ⚠️ 주소가 죽으면 조용하지 않습니다 — #sceneVideo 는 inset:0 에 거의 검정이고
+        show 를 «먼저» 붙인 뒤 에러나 4.8초 타이머에서야 뗍니다(hang 하는 회선에서
+        최대 4.8초). 정지화면과 게임 진행 자체는 클립과 무관해 계속 돕니다. */
   'classroom:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_aa73171e-515a-466c-9b05-d34d0b725a3a.mp4',
   'classroom:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_b0436649-243c-4980-a4f4-375c129013e9.mp4',
   'classroom:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_a08b8ccc-e683-4216-9b18-82e71cf9a0fb.mp4',
@@ -962,7 +966,9 @@ function advance(){
   if(G.combo===5){G.freeHint=true;reward=' · 🗝 다음 단계 비밀 힌트 획득!';}
   updateCombo(); sndOk(); flash();
   try{ if(window.EscapeAudio) EscapeAudio.step(s.id,G.loc.id); }catch(_e){}
-  var clipKind=clipKeyFor(G.loc.id,s.id);
+  // ⚠️ 여기서 던지면 위에서 이미 G.busy=true·clearHotspots() 가 돌아 게임이 잠깁니다
+  //    (바로 윗줄 EscapeAudio.step 이 try 로 감싸인 이유와 같은 자리).
+  var clipKind=''; try{ clipKind=clipKeyFor(G.loc.id,s.id); }catch(_c){}
   if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);

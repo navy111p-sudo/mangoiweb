@@ -290,12 +290,14 @@ function fireTimer(r, ms) {
   }
 }
 
-/* ══ ⑤ 영상 배선 — «그 방의» 영상을 트는가 ══════════════
-   🔴 2026-09-21 실측: clipKind 가 단계 이름만 보고 있어 옥상에서 공구함을
-      열어도 «서재 책상 서랍» 영상이 났습니다 — 에러가 안 나고 화면도 멀줦해 보입니다.
+/* ══ ⑤ 영상 배선 — «그 방의» 영상을 트는가 ══════════════════════════════
+   🔴 2026-09-21 실측: 영상을 고르는 줄이 단계 이름만 보고 있어 옥상에서 공구함을
+      열어도 «서재 책상 서랍» 영상이 났습니다 — 에러가 안 나고 화면도 멀쩡해 보입니다.
    ✅ 그래서 advance 를 실제로 돌려 «무엇을 틀었는가» 를 답으로 봅니다.
-   ⚠️ 「그 방 것을 틀는다」 옆에 「없는 짝은 공용으로 떨어진다」를 짝으로 둡니다 —
-      앞만 보면 «전부 장소:단계» 로 만드는 엉터리 수리도 통과합니다. */
+   ⚠️ 「그 방 것을 튼다」 옆에 「없는 짝은 공용으로 떨어진다」를 짝으로 둡니다 —
+      앞만 보면 «전부 장소:단계» 로 만드는 엉터리 수리도 통과합니다.
+   🪤 여기서 보는 것은 «어느 열쇠를 넘겼는가» 까지입니다 — 'rooftop:drawer' 에
+      교실 영상 주소를 넣어도 초록입니다. 영상 «내용» 은 사람이 봐야 합니다. */
 console.log('\n⑤ 영상 배선 — 옥상에서 열면 «옥상» 영상이 나오는가');
 {
   const src     = readFileSync(join(PUB, 'student-game-escape-voice.html'), 'utf8');
@@ -305,6 +307,7 @@ console.log('\n⑤ 영상 배선 — 옥상에서 열면 «옥상» 영상이 �
   ok(!!advFn && !!clipTbl && !!clipFn, '전제: advance·ACTION_CLIPS·clipKeyFor 를 오려 냈다');
 
   if (advFn && clipTbl && clipFn) {
+    // ⛔ 표를 하니스에 베껴 적지 마세요 — 소스에서 오려 내야 「장소를 보는가」가 측정됩니다
     const urls = {};
     for (const m of clipTbl.matchAll(/'([a-z]+:[a-z]+)'\s*:\s*'(https?:[^']+)'/g)) urls[m[1]] = m[2];
 
@@ -318,28 +321,41 @@ console.log('\n⑤ 영상 배선 — 옥상에서 열면 «옥상» 영상이 �
       ${clipFn}
     `;
 
+    // ❍ 「빠진 것이 없는가」는 지금 있는 다섯 장소로 못 박는다(지우면 FAIL)
     const LOCS  = ['classroom','restroom','storage','rooftop','playground'];
     const STEPS = ['drawer','painting','code','door'];
-    let miss = [], wrong = [];
-    for (const L of LOCS) for (const st of STEPS) {
-      if (!urls[L + ':' + st]) { miss.push(L + ':' + st); continue; }
+    const miss = [];
+    for (const L of LOCS) for (const st of STEPS) if (!urls[L + ':' + st]) miss.push(L + ':' + st);
+    ok(miss.length === 0, `20편이 표에 전부 있다 (빠짐: ${miss.join(', ') || '없음'})`);
+
+    // ❍ 「그 방 것을 트는가」는 표에 실제로 있는 열쇠 전부로 — 장소가 늘어도 저절로 검사된다
+    const keys = Object.keys(urls);
+    const wrong = [];
+    for (const k of keys) {
+      const [L, st] = k.split(':');
       const r = runScene(advFn, 'advance', ctx(st, L));
-      if ((r.clips || []).join('|') !== L + ':' + st) wrong.push(`${L}:${st}→${(r.clips||[]).join('|')||'—'}`);
+      if ((r.clips || []).join('|') !== k) {
+        wrong.push(`${k}→${r.err ? 'ERR ' + r.err : (r.clips || []).join('|') || '—'}`);
+      }
     }
-    ok(miss.length === 0,  `20편이 표에 전부 있다 (빠짐: ${miss.join(', ') || '없음'})`);
+    ok(keys.length >= 20, `전용 영상 열쇠를 ${keys.length}개 재고 있다`);
     ok(wrong.length === 0, `장소마다 «그 방의» 영상을 튼다 (어긋남: ${wrong.join(', ') || '없음'})`);
 
-    // ❍ 짝 — 없는 짝은 공용으로 떨어져야 한다(서재·key 단계)
-    const rStudy = runScene(advFn, 'advance', ctx('drawer', 'study'));
-    ok((rStudy.clips || []).join('|') === 'drawer',
-       `서재는 공용 영상으로 떨어진다 (${(rStudy.clips||[]).join('|') || '—'})`);
-    const rKey = runScene(advFn, 'advance', ctx('key', 'rooftop'));
-    ok((rKey.clips || []).join('|') === 'safe',
-       `전용 영상이 없는 단계도 공용으로 떨어진다 (${(rKey.clips||[]).join('|') || '—'})`);
+    // ❍ 복붙 사고 — 두 열쇠가 같은 주소를 가리키면 안 된다(검사가 열쇠만 보므로 여기서 막는다)
+    const dup = keys.length - new Set(keys.map(k => urls[k])).size;
+    ok(dup === 0, `같은 영상 주소를 두 번 쓰지 않는다 (겹침 ${dup}건)`);
+
+    // ❍ 짝 — 없는 짝은 공용으로 떨어져야 한다(서재·key·books 단계)
+    const fallback = [['drawer','study','drawer'], ['key','rooftop','safe'], ['books','rooftop','books']];
+    for (const [st, L, want] of fallback) {
+      const r = runScene(advFn, 'advance', ctx(st, L));
+      ok((r.clips || []).join('|') === want,
+         `전용 영상이 없으면 공용 «${want}» 로 떨어진다 (${st}@${L} → ${r.err ? 'ERR ' + r.err : (r.clips||[]).join('|') || '—'})`);
+    }
     // ❍ 짝 — 영상이 없어야 하는 단계에는 안 틀어야 한다
     const rDesk = runScene(advFn, 'advance', ctx('desk', 'classroom'));
     ok((rDesk.clips || []).length === 0,
-       `둘러보기 단계에는 영상을 안 튼다 (${(rDesk.clips||[]).join('|') || '—'})`);
+       `둘러보기 단계에는 영상을 안 튼다 (${rDesk.err ? 'ERR ' + rDesk.err : (rDesk.clips||[]).join('|') || '—'})`);
   }
 }
 
