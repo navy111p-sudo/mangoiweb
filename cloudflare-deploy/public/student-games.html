@@ -128,7 +128,10 @@
      아이 눈엔 "게임이 아니구나" 하고 지나가고, 어른 눈엔 바로 읽히게 한다. */
   /* ⚠️ #hub-menu 는 flex-direction:column + align-items:center 다.
      폭을 안 정하면 배너가 내용 크기(627px)로 쪼그라들고, align-self:stretch 를 주면
-     반대로 그리드(1100px)보다 넓어진다(1229px). → 게임 그리드와 **같은 식**을 쓴다. */
+     반대로 넘친다 — 그래서 폭을 못 박는다.
+     ⚠️ 2026-09-21: 카드 그리드·컨트롤 패널은 --hub-w 로 넓어졌지만 이 배너는 «일부러»
+     1100px 로 남긴다. 어른용 한 줄이라 학생 카드보다 눈에 덜 띄어야 한다(2026-08-03 결정).
+     즉 여기의 1100px 은 «그리드와 같은 폭» 이 아니라 «좁게 두는» 값이다. */
   .sci-banner{display:flex;align-items:center;gap:12px;margin:18px 0 0;padding:13px 16px;
     width:min(1100px,100%);box-sizing:border-box;
     border-radius:14px;text-decoration:none;background:rgba(255,255,255,.92);
@@ -221,7 +224,7 @@
 
   /* 🎯 퀘스트 안내 바 — 다음 해금까지 얼마나 남았는지 한 줄로 */
   .quest-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;
-    margin:14px auto 0;padding:11px 18px;border-radius:16px;width:fit-content;max-width:100%;
+    margin:0 auto 14px;padding:11px 18px;border-radius:16px;width:fit-content;max-width:100%;
     background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);color:#fde68a;
     font-size:15px;font-weight:800;text-align:center}
   .quest-bar b{color:#fff}
@@ -556,8 +559,15 @@
        글자를 지우지 않고 여백·크기만 조인다. */
     /* ⚠️ 좁은 화면에서는 ←/🏠/🔊 줄(.hub-topnav)이 «떠 있는» 상태라 제목 글자를 덮는다
        (안내음성 알림 말풍선이 뜨면 더 심하다). 흐름 안으로 되돌려 겹칠 수가 없게 한다. */
-    .hub-topnav{position:static;margin:0 0 4px}
+    .hub-topnav{position:static;width:100%;margin:0 0 4px}
     .hub-head{padding:2px 0}
+    /* 🎯 퀘스트 안내 바는 폰에서 228px 이라(설명 줄이 보이는 기기) 카드가 첫 화면 밖으로
+       밀린다. 넓은 화면에서는 카드 위 그대로 두고 폰에서만 카드 «아래» 로 내린다.
+       ⚠️ order 를 쓰므로 뒤따르는 형제들의 차례도 함께 적어야 한다(기본값 0 이라 앞으로 온다). */
+    .quest-bar{order:1;margin:14px auto 0}
+    .order-bar{order:2}
+    .sci-banner{order:3}
+    .hub-tail{order:4}
     .hub-head h1{font-size:22px}
     .hub-head .sub{font-size:12.5px;margin-top:5px;line-height:1.5}
     /* ① 코인+룰렛/상점/랭킹 = 한 줄 4등분 그리드 (랭킹 혼자 다음 줄로 밀리던 문제) */
@@ -656,6 +666,9 @@
       </div>
     </div>
 
+    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
+    <div class="quest-bar" id="quest-bar" style="display:none"></div>
+
     <!-- 🎯 오늘의 추천 — /api/games/recommend 진단(정오답·발음) 기반 맞춤 안내. 데이터 없으면 숨김 -->
     <div id="rec-card">
       <div class="rec-top">
@@ -670,9 +683,6 @@
     </div>
 
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
-
-    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
-    <div class="quest-bar" id="quest-bar" style="display:none"></div>
 
     <!-- 🖐 카드 순서 바꾸기 — 학생이 좋아하는 게임을 앞으로 끌어다 놓을 수 있다 -->
     <div class="order-bar">
@@ -696,7 +706,7 @@
     </a>
 
     <!-- 🚀 게임을 안 하고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·복습퀴즈·녹화·나가기) -->
-    <div style="text-align:center;margin-top:22px">
+    <div class="hub-tail" style="text-align:center;margin-top:22px">
       <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">다른 활동으로 이동할까요?</div>
       <button onclick="window.MangoFlow&&MangoFlow.open('game')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit">
         🚀 다음으로 이동 (수업·웜업·복습·나가기)
