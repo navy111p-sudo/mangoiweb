@@ -52,6 +52,20 @@ ok(!/speech-data-(?:bts|siu)/.test(html),'page never eagerly loads all three cur
 ok(/id="cq-video"[^>]*preload="none"/.test(html));ok(!/id="cq-video"[^>]*autoplay/.test(html));
 const dir=new URL('data/scene-curriculum/v1/',root),live=JSON.parse(fs.readFileSync(new URL('manifest.json',dir),'utf8'));
 eq(live.books.length,85);ok(live.wordForms>4400);ok(live.clips>=40);
+/* 📁 payload 가 가리키는 «우리 경로» 그림·영상이 저장소에 실제로 있는가.
+   🔴 CLAUDE.md: 「새 그림은 «표에 등록» 만 하고 파일을 커밋에 안 담으면 조용히 폴백합니다」
+      (2026-08-31 Lily 얼굴이 며칠 동안 옛 얼굴로 돌던 사고). 2026-09-21 에 클립 1,010개를
+      한꺼번에 담았으므로 «등록은 됐는데 파일이 빠진» 것을 여기서 잡습니다.
+   ⛔ 외부 주소(http…)는 여기서 못 봅니다 — 그건 사람이 브라우저로 봐야 합니다. */
+{let n=0;const missing=[];
+ for(const f of fs.readdirSync(dir)){
+  if(f==='manifest.json'||!f.endsWith('.json'))continue;
+  const book=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const sc of Object.values(book.scenes||{}))for(const u of [sc.image,sc.video]){
+   if(!u||!u.startsWith('/'))continue;n++;
+   if(!fs.existsSync(new URL('.'+u,root))&&missing.length<8)missing.push(f+' '+u);}}
+ ok(n>1000,'payload 가 우리 경로 그림·영상을 충분히 가리킨다 ('+n+')');
+ ok(missing.length===0,'payload 가 가리키는 파일이 저장소에 실재한다 ('+(missing.join(' · ')||'빠진 것 없음')+')');}
 /* 🔴 2026-09-21 — 여기 있던 「word forms 의 97% 가 verified picture」 단정을 버렸습니다.
    그 숫자는 «그림을 붙인 개수» 였을 뿐 «그 낱말을 보여 주는가» 를 한 번도 재지 않았고,
    실측으로 그림을 붙인 39,762줄 중 38,475줄(96.8%)이 그 낱말과 무관했습니다(「nice」 ← 가방 사진).
@@ -107,6 +121,28 @@ ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 
  const pct=100*worst[1]/Math.max(1,keys.length);
  ok(pct<50,'어느 교재 낱말도 클립 그림의 절반을 넘게 가리키지 않는다 — 넘으면 틀이 근거로 샌 것 (최대 '+worst[0]+' '+worst[1]+'/'+keys.length+' = '+pct.toFixed(1)+'%)');
  ok(worst[1]>0,'그래도 가리키는 낱말이 있다 — 0이면 근거가 통째로 죽은 것');}
+/* 🔢 클립 매체 번호가 «이미 임자가 있는 자리» 를 뺏지 않는가.
+   🔴 2026-09-21 실측: 새로 받은 505편을 6001.. 로 매기니 6007 이 겹쳤다 — 그 자리는 clip-plan 5007
+      (「The dog has four legs.」)이 reuseClip 으로 쓰던 «네 다리 강아지 재촬영» 매체였고, 덮어쓰자
+      bts-03·08·18·24 의 「dog」 사진이 사라져 그림문자 카드로 내려갔다(카드 줄 14 → 25).
+   ⚠️ 구조만으로는 «정당한 재사용»(5014 → 5028, 문장은 다르지만 같은 바닷가 영상)과 구분할 수 없다.
+      가를 수 있는 것은 하나뿐 — 「clip-plan 에 임자 행이 없는 reuseClip 자리」는 그 한 편을 위해
+      따로 찍어 둔 매체이므로, 다른 클립이 그 번호를 «자기 번호» 로 쓰면 안 된다.
+   ⛔ 이 검사를 지우고 번호를 손으로 맞추지 마세요 — 덮어써도 에러가 안 나고 그림만 조용히 바뀝니다. */
+{const dup=clipPlan.map(c=>c.index).filter((v,i,a)=>a.indexOf(v)!==i);
+ ok(dup.length===0,'클립 번호가 겹치지 않는다 ('+(dup.join(',')||'0건')+')');
+ /* 묶음은 천 단위로 매긴다(5xxx 1차 · 6007 재촬영 · 7xxx 2차). reuseClip 은 «같은 묶음 안» 을
+    가리키거나 «임자가 없는 전용 자리» 를 가리킨다 — 다른 묶음의 클립이 그 자리를 «자기 번호» 로
+    쓰고 있으면 그 자리를 뺏은 것이다.
+    ⛔ 「임자가 없는 자리만 예약» 으로 쓰면 스스로 무력해집니다 — 뺏기는 순간 임자가 생겨
+       예약 목록에서 빠지기 때문입니다(2026-09-21 에 실제로 그렇게 짰다가 변이가 안 잡혔습니다). */
+ const block=n=>Math.floor(n/1000);
+ const owner=new Map(clipPlan.map(c=>[c.index,c]));
+ const stolen=[];
+ for(const c of clipPlan){if(!c.reuseClip)continue;
+  const t=owner.get(c.reuseClip);
+  if(t&&block(t.index)!==block(c.index))stolen.push(c.index+'→'+c.reuseClip);}
+ ok(stolen.length===0,'reuseClip 이 가리키는 자리를 다른 묶음의 클립이 뺏지 않았다 ('+(stolen.join(',')||'0건')+')');}
 const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
 const mediaKey=new Map();
 for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
