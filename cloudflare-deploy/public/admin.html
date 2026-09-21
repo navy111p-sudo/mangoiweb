@@ -8889,6 +8889,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <option value="proposed" data-ko="배정 제안" data-en="Proposed">배정 제안</option>
           <option value="confirmed" data-ko="확정" data-en="Confirmed">확정</option>
           <option value="done" data-ko="완료" data-en="Done">완료</option>
+          <!-- 🎯 (2026-09-21) AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계가 없는 건.
+               ⛔ 빼지 말 것: 기본값이 «상태 전체» 라 목록엔 나오지만 골라 볼 길이 사라진다.
+               정본: src/student-track.ts · 필터는 adm-core.js 의 `a.status === fs` 정확일치 -->
+          <option value="ai_done" data-ko="AI 자동진단" data-en="AI self-check">AI 자동진단</option>
           <option value="cancelled" data-ko="취소" data-en="Cancelled">취소</option>
         </select>
         <select id="lt-apps-sort" onchange="_ltRenderApps()" style="padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff">

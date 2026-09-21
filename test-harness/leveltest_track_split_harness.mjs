@@ -111,7 +111,7 @@ if (mod) {
   const r3 = await T(fakeDb(0, true), 'stu3');
   ok(r3.track === 'unknown' && r3.live_count === -1, `조회가 던지면 unknown — ai_only 로 떨어지지 않는다 (나온 값 ${r3.track})`);
   const r4 = await T(fakeDb(null), 'stu4');
-  ok(r4.track === 'unknown', `행이 없으면(NaN) unknown (나온 값 ${r4.track})`);
+  ok(r4.track === 'unknown', `행이 없으면 unknown — Number(null) === 0 은 유한수다 (나온 값 ${r4.track})`);
   const r5 = await T(fakeDb(3), '');
   ok(r5.track === 'unknown' && r5.live_count === -1, 'uid 가 비면 unknown — 조회하지 않는다');
 
@@ -166,6 +166,79 @@ if (insIdx > 0) {
 }
 ok(/from '\.\/student-track'/.test(adminSrc), 'student-track 정본을 import 한다 (판정 복제 금지)');
 
+console.log('\n③-a 그 배선을 «실제로 돌려» 무엇이 쓰이는지 본다');
+/* 🔴 «부르는가» · «이름이 바인드에 실렸는가» 까지만 물으면 아무것도 안 지켜집니다 —
+   함정 대조 실측(2026-09-21): 다음 셋이 전부 통과했습니다.
+     ⓐ `leveltestStatusFor(…) && 'pending'`  → 수리 통째 무력화
+     ⓑ `(await resolveStudentTrack(…), { track:'ai_only' })` → 모든 진단이 ai_done
+        (= «선생님 대기가 통째로 비는» 방향 — 이 파일이 막아야 한다고 못 박은 그 방향)
+     ⓒ `resolveStudentTrack(env, authedUid || uid)` → 주석이 ⛔ 로 금지한 본문 uid 폴백
+   ✅ 그래서 블록을 중괄호 짝으로 오려 내 가짜 D1·가짜 판정으로 돌리고,
+      «무엇이 바인드되는가» 와 «판정에 무엇을 넘기는가» 를 짝으로 묻습니다. */
+const wireStart = adminSrc.indexOf('let authedUid');
+let wireSrc = null;
+if (wireStart > 0) {
+  const ifAt = adminSrc.indexOf('if (appId != null)', wireStart);
+  if (ifAt > 0) {
+    let d = 0, end = -1, seen = false;
+    for (let j = ifAt; j < adminSrc.length; j++) {
+      const c = adminSrc[j];
+      if (c === '{') { d++; seen = true; }
+      else if (c === '}') {
+        d--;
+        if (seen && d === 0) {
+          if (/^\s*else/.test(adminSrc.slice(j + 1, j + 10))) { seen = false; continue; }
+          end = j + 1; break;
+        }
+      }
+    }
+    if (end > 0) wireSrc = adminSrc.slice(wireStart, end);
+  }
+}
+ok(!!wireSrc, '전제: 진단 저장 배선 블록을 중괄호 짝으로 오려 냈다');
+if (wireSrc) {
+  const runWire = async (opts) => {
+    const log = { trackArg: 'MISSING', bound: null, promoted: false };
+    const body = wireSrc
+      .replace(/:\s*string\s*\|\s*null/g, '')
+      .replace(/\s+as\s+any\b/g, '')
+      .replace(/\s+as\s+number\b/g, '')
+      .replace(/catch\s*\(e:\s*any\)/g, 'catch (e)');
+    const fakeDb = {
+      prepare(sql) {
+        return { bind(...args) {
+          if (/INSERT INTO leveltest_applications/.test(sql)) log.bound = args;
+          if (/SET status = 'pending'/.test(sql)) log.promoted = true;
+          return { run: async () => ({ meta: { last_row_id: 99 } }) };
+        } };
+      }
+    };
+    const fn = new Function('env','request','url','b','uid','name','ai_score','level','now','appId',
+      'authUidGlobal','resolveStudentTrack','leveltestStatusFor','console',
+      'return (async () => {\n' + body + '\nreturn appId; })();');
+    await fn(
+      { DB: fakeDb }, {}, {}, opts.body, opts.body && opts.body.student_uid, 'n', 40, 'A2', 1,
+      (opts.appId === undefined ? null : opts.appId),
+      async () => opts.authedUid,
+      async (_env, id) => { log.trackArg = (id === undefined ? 'MISSING' : id); return { track: opts.track, live_count: 0 }; },
+      (t) => (t === 'ai_only' ? 'ai_done' : 'pending'),
+      { warn() {} }
+    );
+    return log;
+  };
+  const r1 = await runWire({ authedUid: 'stuA', track: 'live_ai', body: { student_uid: 'stuA' } });
+  ok(r1.bound && r1.bound[2] === 'pending', `화상수업 학생 → INSERT 에 'pending' 이 바인드된다 (${r1.bound && r1.bound[2]})`);
+  const r2 = await runWire({ authedUid: 'stuB', track: 'ai_only', body: { student_uid: 'stuB' } });
+  ok(r2.bound && r2.bound[2] === 'ai_done', `짝: AI 전용 학생 → 'ai_done' 이 바인드된다 (${r2.bound && r2.bound[2]})`);
+  const r3 = await runWire({ authedUid: null, track: 'unknown', body: { student_uid: 'bodyUid' } });
+  ok(r3.bound && r3.bound[2] === 'pending', `짝: 몰라도 'pending' 이다 (${r3.bound && r3.bound[2]})`);
+  ok(r3.trackArg === null, `토큰을 못 확인했으면 판정에 null 을 넘긴다 — 본문 uid 폴백 없음 (넘긴 값: ${JSON.stringify(r3.trackArg)})`);
+  const r4 = await runWire({ authedUid: 'stuC', track: 'live_ai', body: { student_uid: 'stuC' }, appId: 7 });
+  ok(r4.promoted === true, '기존 건 재진단 + 화상수업 학생 → ai_done → pending 되돌리기가 실제로 돈다');
+  const r5 = await runWire({ authedUid: 'stuD', track: 'ai_only', body: { student_uid: 'stuD' }, appId: 8 });
+  ok(r5.promoted === false, '짝: AI 전용이면 되돌리기를 안 돌린다');
+}
+
 console.log('\n③-b 재진단했을 때 «ai_done → pending» 은 되돌리고 반대는 안 하는가');
 /* 윗줄 UPDATE 는 status 를 안 건드린다 — 그래서 AI 전용이다가 화상수업을 시작한
    학생의 건이 «ai_done» 에 굳어 선생님 목록에 영영 안 뜨는 길이 남는다.
@@ -174,7 +247,7 @@ const promoIdx = adminNoC.indexOf("SET status = 'pending', updated_at = ? WHERE 
 ok(promoIdx > 0, "ai_done → pending 되돌리기 UPDATE 가 있다");
 if (promoIdx > 0) {
   const pre = adminNoC.slice(Math.max(0, promoIdx - 400), promoIdx);
-  ok(/appStatus === 'pending'/.test(pre), "그 되돌리기는 판정 결과(appStatus)가 pending 일 때만 돌다");
+  ok(/appStatus === 'pending'/.test(pre), "그 되돌리기는 판정 결과(appStatus)가 pending 일 때만 돈다");
   // 짝: 반대 방향(pending → ai_done) UPDATE 는 없어야 한다
   ok(!/SET status = 'ai_done'/.test(adminNoC), "짝: pending → ai_done 으로 덮는 UPDATE 는 없다");
 }
@@ -210,7 +283,30 @@ ok(reQ.length >= 2, `진단 재매칭 조회 ${reQ.length}개를 찾았다 (전�
 ok(reQ.length > 0 && reQ.every(q => /IN\s*\('pending'\s*,\s*'ai_done'\)/.test(q)),
    '두 조회 모두 pending 과 ai_done 을 함께 찾는다');
 
-console.log('\n⑤ 화면 두 곳이 새 상태를 아는가 (모르면 «ai_done» 이 날것으로 뜬다)');
+console.log('\n⑤ 상태 맵 «전부» 가 새 상태를 아는가 (모르면 «ai_done» 이 날것으로 뜬다)');
+/* 🔴 처음엔 이 절이 「화면 «두 곳»」이었고, 그래서 강사 마이페이지(admin/mypage.html)가
+   같은 API 를 부르면서 자기 STMAP 에 ai_done 이 없는 것을 구조적으로 감쌌습니다
+   (2026-09-21 함정 대조가 잡음 — 「같은 판정이 두 곳이면 한쪽만 고쳐집니다」).
+   ⛔ 화면을 손으로 적지 마세요 — 새 화면이 생기면 조용히 빠집니다.
+   ✅ 「그 API 를 부르는 파일」을 훑어 «전부» 가 아는지 봅니다. */
+const STATUS_SCREENS = [
+  ['public/js/adm-core.js',        '관리자 레벨테스트 표'],
+  ['public/parent.html',           '학부모 대시보드'],
+  ['public/admin/mypage.html',     '강사 마이페이지'],
+  ['public/t.html',                '신청자 티켓 화면'],
+];
+for (const [f, label] of STATUS_SCREENS) {
+  let src = '';
+  try { src = SRC(f); } catch (e) { /* 파일이 사라졌으면 아래에서 FAIL */ }
+  ok(!!src, `전제: ${label}(${f}) 을 읽었다`);
+  if (src) ok(/\bai_done\s*:/.test(strip(src)), `${label} 의 상태 맵이 ai_done 을 안다`);
+}
+/* 짝: 옛 상태가 사라지지 않았는가 — 없으면 «전부 갈아치우기» 도 통과합니다 */
+for (const [f, label] of STATUS_SCREENS) {
+  let src = ''; try { src = SRC(f); } catch (e) {}
+  if (src) ok(/\bpending\s*:/.test(strip(src)), `짝: ${label} 에 옛 상태(pending)도 그대로 있다`);
+}
+
 const admCore = SRC('public/js/adm-core.js');
 const stmap = admCore.slice(admCore.indexOf('const STMAP'), admCore.indexOf('const STMAP') + 900);
 ok(/ai_done\s*:\s*\[/.test(stmap), '관리자 STMAP 에 ai_done 이 있다');
@@ -218,6 +314,40 @@ const parentHtml = SRC('public/parent.html');
 const stIdx = parentHtml.indexOf('const ST = {');
 const stBlk = stIdx > 0 ? parentHtml.slice(stIdx, stIdx + 1200) : '';
 ok(/ai_done\s*:\s*\[/.test(stBlk), '학부모 화면 ST 에 ai_done 이 있다');
+
+console.log('\n⑤-c 관리자 상태 필터에서 «골라 볼» 수 있는가');
+/* 기본값이 «상태 전체» 라 목록에는 나오지만, 옵션이 없으면 골라 볼 길이 없다.
+   필터는 `String(a.status) === fs` 정확일치라 value 가 서버 값과 «글자까지» 같아야 한다. */
+const admHtml = SRC('public/admin.html');
+const selIdx = admHtml.indexOf('id="lt-apps-status"');
+ok(selIdx > 0, '전제: 레벨테스트 상태 필터 <select> 를 찾았다');
+if (selIdx > 0) {
+  const sel = admHtml.slice(selIdx, admHtml.indexOf('</select>', selIdx));
+  ok(/value="ai_done"/.test(sel), '상태 필터에 ai_done 옵션이 있다');
+  ok(/value="pending"/.test(sel), '짝: 옛 옵션(pending)도 그대로 있다');
+}
+
+console.log('\n⑤-b 강사 마이페이지도 «누가 정한 레벨인지» 말하는가');
+/* 하필 선생님이 «직접 평가를 매기는» 화면이라 그 구분이 가장 필요한 자리다. */
+const myp = SRC('public/admin/mypage.html');
+const mypCell = (() => {
+  const i2 = myp.indexOf("a.final_level?('<b style=\"color:#34d399\"");
+  if (i2 < 0) return null;
+  const e2 = myp.indexOf('\n', i2);
+  return e2 < 0 ? null : myp.slice(i2, e2);
+})();
+ok(!!mypCell, '전제: 강사 마이페이지의 레벨 칸을 오려 냈다');
+if (mypCell) {
+  const m2 = mypCell.match(/a\.teacher_score\s*!=\s*null/);
+  ok(!!m2, '강사 마이페이지: teacher_score 로 «선생님 확정 / AI 자동» 을 가른다');
+  /* 짝: 0점도 «선생님이 매긴 것» 이어야 한다(|| 함정) — 식을 실제로 평가 */
+  if (m2) {
+    const f2 = new Function('a', 'return ' + m2[0] + ';');
+    ok(f2({ teacher_score: 0 }) === true, '짝: 0점도 «선생님이 매긴 것» 이다');
+    ok(f2({ teacher_score: null }) === false, '짝: 없으면 «AI 자동»');
+  }
+  ok(/선생님 확정/.test(mypCell) && /AI 자동/.test(mypCell), '두 문구가 그 칸에 실제로 들어 있다');
+}
 
 console.log('\n⑥ 레벨 표시가 «AI 자동» 과 «선생님 확정» 을 가르는가 — 식을 오려 내 평가');
 // 관리자

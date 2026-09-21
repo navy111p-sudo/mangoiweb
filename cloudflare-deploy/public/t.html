@@ -131,6 +131,9 @@
     proposed:  ['담당 선생님 배정 중','Assigning a teacher','#a78bfa'],
     confirmed: ['확정 — 예정대로 진행됩니다','Confirmed — all set','#34d399'],
     done:      ['테스트 완료','Test completed','#60a5fa'],
+    /* 🎯 (2026-09-21) AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계를 안 거친다.
+       ⛔ 이 줄이 없으면 폴백이 «ai_done» 을 날것으로 그린다. 정본: src/student-track.ts */
+    ai_done:   ['AI 자동진단 완료','AI self-check done','#a78bfa'],
     cancelled: ['취소됨','Cancelled','#94a3b8']
   };
 

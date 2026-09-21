@@ -11695,10 +11695,10 @@ LIMIT $limit`;
 
       if (appId != null) {
         await env.DB.prepare(`UPDATE leveltest_applications SET ai_score = ?, final_level = ?, updated_at = ? WHERE id = ?`).bind(ai_score, level, now, appId).run();
-        /* ⬆️ «ai_done → pending» 으로 되돌리는 한 방향만 둘다.
+        /* ⬆️ «ai_done → pending» 으로 되돌리는 한 방향만 둔다.
            [왜] 윗줄의 UPDATE 는 상태를 안 건드리므로, AI 전용이다가 화상수업을
                 시작한 학생의 진단 건은 다시 진단해도 «ai_done» 에 굳어 선생님 목록에
-                영영 안 뜼다(조용히 사라지는 방향).
+                영영 안 뜬다(조용히 사라지는 방향).
            ⛔ 반대 방향(pending → ai_done)은 안 한다 — 이 판정은 «추측» 이라,
               선생님이 보려던 건을 예약이 잠시 0건이라는 이유로 뺀다.
            ⚠️ WHERE 에 status 를 걸어 «ai_done 인 행» 만 건드린다 — 사람이 이미
