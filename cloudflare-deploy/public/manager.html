@@ -328,6 +328,83 @@ html.dark .legend{color:#95a2b0}
   color:#5d6b7a;display:inline-flex;align-items:center;min-height:44px;padding:0 4px;
 }
 html.dark .footlink{color:#8b98a6}
+
+/* ══════════════════════════════════════════════════════════════════════
+   🎨 (2026-09-21 사장님 지시) 관리자(admin.html)와 같은 «아이보리» 배경 +
+   좌측 그룹 사이드바. 색값은 css/adm-light-theme.css 의 admin.html 실측값을
+   «그대로 여기 인라인으로 복사한 것» 이다 — 그 파일을 <link> 로 부르지 않는다.
+   설계 계약 1번(외부 리소스 0개)을 지키면서 같은 색을 내는 유일한 방법이다.
+   ⚠️ i18n-sweep·Chart.js·adm-* JS 는 여전히 하나도 안 부른다 — 무거워지는 것은
+      바이트 0, 늘어나는 것은 이 화면 자신의 CSS/HTML/JS 뿐이다. */
+body{
+  background:
+    radial-gradient(420px 280px at 100% 0%, rgba(251,191,36,.10) 0%, rgba(0,0,0,0) 62%),
+    linear-gradient(#f3f6fb 0%, #e6ecf4 100%);
+  background-attachment:fixed;
+}
+html.dark body{background:#141a21}
+
+/* ☰ 사이드바 여는 단추 — 옛 LMS 화면과 같은 자리(맨 왼쪽) */
+.hbtn{
+  border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:8px;
+  width:44px;min-height:44px;font-size:19px;line-height:1;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+}
+.hbtn:active{background:#eef1f5}
+html.dark .hbtn{background:#1d2530;border-color:#39434f;color:#d3dbe4}
+html.dark .hbtn:active{background:#28313d}
+
+/* 좌측 그룹 메뉴 — 옛 LMS(가맹점 관리 · 학생관리 · 수강신청관리 · 수업 관리 ·
+   정산통계관리 · 운영관리)와 같은 6칸 구성을 이 포털이 실제로 쓸 수 있는
+   기능으로 다시 묶은 것. 서버가 지사·대리점에게 열어 준 25개 주소 밖의
+   기능(수강신청 처리·회계 지출·강사 계정 관리 등)은 넣지 않았다 —
+   넣으면 «눌러도 403» 인 안 맞는 옷이 된다(이 파일 머리말 §「왜 만들었나」). */
+#sideOverlay{
+  display:none;position:fixed;inset:0;background:rgba(16,24,40,.35);z-index:59;
+}
+body.side-open #sideOverlay{display:block}
+#side{
+  position:fixed;top:0;left:0;bottom:0;width:272px;max-width:86vw;z-index:60;
+  background:#fff;border-right:1px solid #e4e9f2;
+  transform:translateX(-100%);overflow-y:auto;
+  padding:14px 0 24px;
+}
+body.side-open #side{transform:translateX(0)}
+html.dark #side{background:#1a2129;border-color:#2b343e}
+.side-brand{
+  display:flex;align-items:center;gap:10px;padding:2px 16px 14px;
+  border-bottom:1px solid #eef2f8;margin-bottom:6px;
+}
+.side-brand b{font-size:15px;color:#101828}
+html.dark .side-brand{border-color:#2b343e}
+html.dark .side-brand b{color:#e7edf3}
+.side-x{
+  margin-left:auto;border:0;background:none;color:#8b97a4;font-size:22px;
+  cursor:pointer;width:36px;min-height:36px;line-height:1;
+}
+.sgrp-h{
+  font-size:11.5px;font-weight:800;letter-spacing:.03em;color:#b45309;
+  padding:14px 16px 6px;text-transform:none;
+}
+.sgrp-h:first-of-type{padding-top:4px}
+html.dark .sgrp-h{color:#fbbf24}
+.sgrp a,.sgrp button{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  border:0;background:none;font:inherit;color:#2c3a48;text-decoration:none;
+  padding:10px 16px;font-size:14.5px;min-height:44px;cursor:pointer;
+}
+.sgrp a:active,.sgrp button:active{background:#f7f9fb}
+.sgrp .ic{font-size:16px;flex:none;width:20px;text-align:center}
+html.dark .sgrp a,html.dark .sgrp button{color:#d3dbe4}
+html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
+
+/* 카드 그룹 표제 — 본문 쪽. 사이드바 소제목과 같은 색으로 「지금 어느 묶음을 보고 있는지」 잇는다. */
+.grouphead{
+  font-size:12.5px;font-weight:800;color:#b45309;letter-spacing:.02em;
+  padding:14px 2px 2px;margin:4px 0 0;
+}
+.grouphead:first-of-type{padding-top:2px}
+html.dark .grouphead{color:#fbbf24}
 </style>
 </head>
 <body>
@@ -336,9 +413,69 @@ html.dark .footlink{color:#8b98a6}
    전환 자체는 아래 본문 스크립트의 toggleMode() 가 담당한다. */
 try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
 </script>
+
+<!-- ☰ 좌측 그룹 메뉴 — 옛 LMS·admin.html 과 같은 «누르면 왼쪽에서 나오는 서랍» 방식.
+     ⚠️ 설계 계약을 그대로 지킨다: 외부 리소스 0개(전부 이 파일 안), 애니메이션·transition
+        없이 transform 한 번으로 열고 닫는다(브라우저가 레이아웃을 다시 계산하지 않는다).
+     ⚠️ admin.html 의 모바일 드로어가 «스크롤하려고 짚은 손가락에도 120ms 뒤 닫혀버리던»
+        문제를 이 화면에서는 처음부터 만들지 않는다 — 아래 스크립트가 손을 뗄 때(pointerup)
+        12px 넘게 움직였으면(=스크롤) 닫지 않는다. -->
+<div id="sideOverlay" onclick="closeSide()" aria-hidden="true"></div>
+<nav id="side" aria-label="메뉴">
+  <div class="side-brand">
+    <b data-en="Menu" data-ko="메뉴">Menu</b>
+    <button type="button" class="side-x" onclick="closeSide()" aria-label="Close">&times;</button>
+  </div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('top')"><span class="ic">🏠</span><span data-en="Home" data-ko="홈">Home</span></button>
+  </div>
+  <div class="sgrp-h" data-en="Franchise" data-ko="가맹점 관리">Franchise</div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('c-org')"><span class="ic">🏢</span><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부">Franchise &amp; academy roster</span></button>
+  </div>
+  <div class="sgrp-h" data-en="Students" data-ko="학생관리">Students</div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('c-students')"><span class="ic">👤</span><span data-en="Student roster" data-ko="학생 명부">Student roster</span></button>
+    <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
+    <button type="button" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
+    <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
+  </div>
+  <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('c-req')"><span class="ic">🗓</span><span data-en="Reschedule requests" data-ko="수업 연기 · 변경 요청">Reschedule requests</span></button>
+    <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
+    <button type="button" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
+  </div>
+  <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
+    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
+  </div>
+  <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
+  <div class="sgrp">
+    <button type="button" onclick="sideGo('c-search')"><span class="ic">🔍</span><span data-en="Search" data-ko="통합 검색">Search</span></button>
+    <button type="button" onclick="sideGo('c-me')"><span class="ic">⚙️</span><span data-en="My account" data-ko="내 계정">My account</span></button>
+  </div>
+  <div id="sideHq" hidden>
+    <div class="sgrp-h" data-en="HQ managers" data-ko="본사 매니저 전용">HQ managers</div>
+    <div class="sgrp">
+      <button type="button" onclick="sideGo('c-payroll')"><span class="ic">💴</span><span data-en="Teacher payroll" data-ko="교사 급여">Teacher payroll</span></button>
+      <button type="button" onclick="sideGo('c-leave')"><span class="ic">🌴</span><span data-en="Teacher time off" data-ko="강사 휴가 · 근무불가">Teacher time off</span></button>
+      <button type="button" onclick="sideGo('c-live')"><span class="ic">🔴</span><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></button>
+      <button type="button" onclick="sideGo('c-outage')"><span class="ic">⚡</span><span data-en="Outage reports" data-ko="정전 · 인터넷 장애 신고">Outage reports</span></button>
+      <button type="button" onclick="sideGo('c-bugs')"><span class="ic">🛠</span><span data-en="Problem reports" data-ko="문제 신고">Problem reports</span></button>
+    </div>
+  </div>
+  <div class="sgrp" style="border-top:1px solid #eef2f8;margin-top:8px">
+    <a href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
+  </div>
+</nav>
+
 <div class="wrap">
 
   <div class="top">
+    <button type="button" class="hbtn" id="sideBtn" onclick="openSide()" aria-label="Menu">&#9776;</button>
     <h1>
       <span id="scopeLbl" data-en="Loading..." data-ko="불러오는 중...">Loading...</span>
       <b id="scopeName">&nbsp;</b>
@@ -430,17 +567,29 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div class="muted" id="feeNote" style="margin-top:8px"></div>
   </div>
 
-  <!-- ③ 30일 추이 (펼칠 때만 받는다) -->
-  <details class="card" id="c-trend" ontoggle="if(this.open)loadTrend()">
-    <summary><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></summary>
-    <div id="trendBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  <!-- ══════════════════════════════════════════════════════════════════════
+       🏢 (2026-09-21) 아래부터 옛 LMS(가맹점 관리·학생관리·수업 관리·정산통계관리·
+       운영관리)와 같은 6칸으로 다시 묶었다. 왼쪽 ☰ 메뉴가 여기로 점프한다.
+       ⚠️ 새로 추가한 카드(c-org·c-attn·c-settle) 는 전부 이미 서버가 지사·대리점에게
+          열어 준 25개 주소 중에서 골랐다 — index.ts isAgencyAllowedApi 주석에
+          «scopeFranchiseCond/scopeCenterCond/scopeStudentCond 로 자기 소속만 잘라 준다»
+          고 확인된 것만이다. 새 서버 코드는 한 줄도 안 만들었다.
+       ⚠️ 수강신청 처리·회계 지출·강사 계정 관리처럼 서버가 지사·대리점에게 안 열어 준
+          기능은 넣지 않았다 — 넣으면 눌러도 403 인 «안 맞는 옷» 이 된다.
+       ⚠️ c-today(오늘 전체 수업)·c-util(강사 가동률)·c-search·c-me 는 «본사 매니저 전용»
+          칸 밖으로 옮겨진 것일 뿐 — API·판정 로직은 한 글자도 안 바뀌었다. -->
+
+  <div class="grouphead" data-en="Franchise" data-ko="가맹점 관리">Franchise</div>
+
+  <!-- 🏢 (2026-09-21) 가맹점 · 대리점 명부 — franchises/centers 는 index.ts 6194-6195 에서
+       지사·대리점에게 이미 열려 있다. 핸들러가 scopeFranchiseCond()/scopeCenterCond() 로
+       지사=자기 지사, 대리점=자기 한 칸까지 잘라서 내려준다(등록·수정은 여전히 본사만 — canEditOrg). -->
+  <details class="card" id="c-org" ontoggle="if(this.open)loadOrg()">
+    <summary><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부">Franchise &amp; academy roster</span></summary>
+    <div id="orgBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
-  <!-- ④ 학생 흐름 -->
-  <details class="card" id="c-flow" ontoggle="if(this.open)loadFlow()">
-    <summary><span data-en="Student flow (30 days)" data-ko="학생 흐름 (30일)">Student flow (30 days)</span></summary>
-    <div id="flowBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-  </details>
+  <div class="grouphead" data-en="Students" data-ko="학생관리">Students</div>
 
   <!-- ⑤ 학생 명부 -->
   <details class="card" id="c-students" ontoggle="if(this.open)loadStudents()">
@@ -452,10 +601,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     </div>
   </details>
 
-  <!-- ⑥ 강사 가동률 -->
-  <details class="card" id="c-util" ontoggle="if(this.open)loadUtil()">
-    <summary><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></summary>
-    <div id="utilBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  <!-- ④ 학생 흐름 -->
+  <details class="card" id="c-flow" ontoggle="if(this.open)loadFlow()">
+    <summary><span data-en="Student flow (30 days)" data-ko="학생 흐름 (30일)">Student flow (30 days)</span></summary>
+    <div id="flowBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
   <!-- ⑦ 대기자 -->
@@ -463,6 +612,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <summary><span data-en="Waiting list" data-ko="대기자 명단">Waiting list</span></summary>
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
+
+  <!-- 📋 (2026-09-21) 학원별 출석 현황 — attendance/school-stats 는 index.ts 6196-6198 에서
+       scopeStudentCond() 로 이미 자기 범위만 잘라 준다고 확인된 주소. -->
+  <details class="card" id="c-attn" ontoggle="if(this.open)loadAttn()">
+    <summary><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></summary>
+    <div id="attnBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <div class="grouphead" data-en="Classes" data-ko="수업 관리">Classes</div>
 
   <!-- 🗓 수업 연기 · 변경 요청 — #hqCards 밖으로 옮겼다 (2026-08-17 사장님)
        «학부모·학생도 하고 학원장님도 한다» 는 확인을 받았다. 그동안 본사 전용 칸 안에 있어
@@ -475,6 +633,52 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
+  <!-- 📅 (2026-09-21) «본사 매니저 전용» 칸 밖으로 옮김 — /api/admin/classes/today 는
+       index.ts 6203-6206 에서 scopeStudentCond() 로 지사·대리점 몫만 잘라서 준다고
+       이미 확인돼 있었다(«manager.html 은 지사장·학원장도 쓴다» 는 그 자리 주석 그대로).
+       API·paintTodayAll()·teacherId 로직은 한 글자도 안 바꿨다.
+       ⚠️ 단 하나 — 「교재 미배정 ▸」을 눌러 배정 창을 여는 것(adm-bulkbook.js)은
+          /api/admin/textbook-files 를 쓰는데 그 주소는 지사·대리점 허용목록에 없다(403).
+          그래서 paintTodayAll() 은 IS_HQ 일 때만 그 배지를 «누를 수 있게» 그린다 — 안 그러면
+          지사장이 눌러도 403 이 뜨는 «안 맞는 옷» 이 된다(교재 이름 자체는 모두에게 보인다). -->
+  <details class="card" id="c-today" ontoggle="if(this.open)loadTodayAll()">
+    <summary><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></summary>
+    <div class="muted" style="font-size:12px;line-height:1.6;padding:2px 0 8px"
+         data-en="Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes."
+         data-ko="「LMS」 표시가 붙은 줄은 카페24에서 도는 수업입니다 — 망고아이 방이 없어 입장 버튼이 없습니다. 날짜를 고르면 지난 수업 기록이 됩니다.">
+      Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes.
+    </div>
+    <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding-bottom:8px">
+      <span data-en="Date" data-ko="날짜">Date</span>
+      <input type="date" id="taDate" onchange="loadTodayAll()" style="box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
+    </label>
+    <div id="todayAllBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- ⑥ 강사 가동률 -->
+  <details class="card" id="c-util" ontoggle="if(this.open)loadUtil()">
+    <summary><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></summary>
+    <div id="utilBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <div class="grouphead" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
+
+  <!-- ③ 30일 추이 (펼칠 때만 받는다) -->
+  <details class="card" id="c-trend" ontoggle="if(this.open)loadTrend()">
+    <summary><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></summary>
+    <div id="trendBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- 💰 (2026-09-21) 지사 · 대리점별 정산 — /api/admin/settlement/branch-summary 는
+       org-settlement.ts 가 scopeStudentCond() 로 «자기 소속 매출만» 직접 집계해 준다
+       (rollup 이 아니라 branch-summary 를 쓴 이유 — rollup 은 scope.type==='franchise' 일 때
+       root 를 null 로 막아 버려서 빈 화면이 된다. branch-summary 는 세 스코프 전부 된다).
+       ⚠️ 수수료율을 «바꾸는» /rate-config POST 는 이 카드에 없다 — 본사만 쓰는 설정이다. -->
+  <details class="card" id="c-settle" ontoggle="if(this.open)loadSettle()">
+    <summary><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></summary>
+    <div id="settleBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
   <!-- 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — 대리점(agency) 계정에만 보인다.
        paintMonth() 가 scope.type==='agency' 일 때만 hidden 을 푼다. 서버(ai-billing.ts)가
        shop_name 을 요청 파라미터가 아니라 로그인 스코프에서 직접 정하므로, 여기서
@@ -484,70 +688,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
-  <!-- ══════════════════════════════════════════════════════════════════════
-       🏢 본사 매니저 전용 (Maimai · Melca · Karl)
-         세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
-         admin.html(gzip 934KB · 19초)을 그대로 써 왔다. 「페이지가 무겁다」고 요청한
-         당사자들이 정작 그대로였던 셈이다.
-         → 그분들 업무(급여·휴가·수업요청·수업관찰·장애/기기)를 여기 붙인다.
-
-       ⚠️ 권한은 조금도 바뀌지 않는다 — hq 는 admin.html 에서 이미 전부 본다.
-          같은 정보를 가볍게 보는 창을 하나 더 주는 것뿐이다(강사 포털과 같은 논리).
-       ⚠️ 세 분은 시스템상 전부 'hq' 라 서로 구분되지 않는다. 그래서 역할별로 화면을
-          가르지 않고 **같은 카드를 주고, 안 쓰는 카드는 안 펼치면 되게** 했다.
-          역할을 가르려면 새 권한 모델이 필요한데 얻는 것보다 위험이 크다.
-       ⚠️ 인사평가는 일부러 뺐다 — 응답 형식을 확실히 확인하지 못했다.
-          «있는 척» 하는 빈 카드보다 admin.html 링크가 정직하다.
-       ══════════════════════════════════════════════════════════════════════ -->
-  <div id="hqCards" hidden>
-    <div class="hqhead" data-en="For HQ managers" data-ko="본사 매니저 전용">For HQ managers</div>
-
-    <details class="card" id="c-payroll" ontoggle="if(this.open)loadPayroll()">
-      <summary><span data-en="Teacher payroll (this month)" data-ko="교사 급여 (이번 달)">Teacher payroll (this month)</span></summary>
-      <div id="payrollBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-
-    <details class="card" id="c-leave" ontoggle="if(this.open)loadLeave()">
-      <summary><span data-en="Teacher time off" data-ko="강사 휴가 · 근무불가">Teacher time off</span></summary>
-      <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-
-    
-
-    <!-- 📅 오늘 전체 수업 (2026-08-25 매니저 보고서 ②③⑤ — 경위는 작업기록 260825)
-         ⚠️ «펼칠 때만» 부른다 — 이 화면의 계약은 «첫 화면 API 2회».
-         ⚠️ 외부 파일로 빼지 않는다 — 외부 JS 0개가 이 화면의 설계다. -->
-    <details class="card" id="c-today" ontoggle="if(this.open)loadTodayAll()">
-      <summary><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></summary>
-      <div class="muted" style="font-size:12px;line-height:1.6;padding:2px 0 8px"
-           data-en="Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes."
-           data-ko="「LMS」 표시가 붙은 줄은 카페24에서 도는 수업입니다 — 망고아이 방이 없어 입장 버튼이 없습니다. 날짜를 고르면 지난 수업 기록이 됩니다.">
-        Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes.
-      </div>
-      <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding-bottom:8px">
-        <span data-en="Date" data-ko="날짜">Date</span>
-        <input type="date" id="taDate" onchange="loadTodayAll()" style="box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
-      </label>
-      <div id="todayAllBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-
-    <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
-      <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
-      <div id="liveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-
-    <div class="hqhead" data-en="Line &amp; device (IT)" data-ko="회선 · 기기 (IT)">Line &amp; device (IT)</div>
-
-    <details class="card" id="c-outage" ontoggle="if(this.open)loadOutage()">
-      <summary><span data-en="Outage reports" data-ko="정전 · 인터넷 장애 신고">Outage reports</span></summary>
-      <div id="outageBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-
-    <details class="card" id="c-bugs" ontoggle="if(this.open)loadBugs()">
-      <summary><span data-en="Problem reports (device &amp; line)" data-ko="문제 신고 (기기 · 회선)">Problem reports (device &amp; line)</span></summary>
-      <div id="bugsBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
-  </div>
+  <div class="grouphead" data-en="Operations" data-ko="운영관리">Operations</div>
 
   <!-- ⑧ 통합 검색 -->
   <details class="card" id="c-search" ontoggle="if(this.open)setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0)">
@@ -572,6 +713,56 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
          data-ko="비밀번호 · 로그인 이력 · 세션 관리">Password, login history, sessions</a>
     </div>
   </details>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       🏢 본사 매니저 전용 (Maimai · Melca · Karl)
+         세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
+         admin.html(gzip 934KB · 19초)을 그대로 써 왔다. 「페이지가 무겁다」고 요청한
+         당사자들이 정작 그대로였던 셈이다.
+         → 그분들 업무(급여·휴가·수업관찰·장애/기기)를 여기 붙인다.
+
+       ⚠️ 권한은 조금도 바뀌지 않는다 — hq 는 admin.html 에서 이미 전부 본다.
+          같은 정보를 가볍게 보는 창을 하나 더 주는 것뿐이다(강사 포털과 같은 논리).
+       ⚠️ 세 분은 시스템상 전부 'hq' 라 서로 구분되지 않는다. 그래서 역할별로 화면을
+          가르지 않고 **같은 카드를 주고, 안 쓰는 카드는 안 펼치면 되게** 했다.
+          역할을 가르려면 새 권한 모델이 필요한데 얻는 것보다 위험이 크다.
+       ⚠️ 인사평가는 일부러 뺐다 — 응답 형식을 확실히 확인하지 못했다.
+          «있는 척» 하는 빈 카드보다 admin.html 링크가 정직하다.
+       ⚠️ (2026-09-21) c-today·c-util·c-search·c-me 는 이 칸 «밖» 으로 옮겨졌다 —
+          지사·대리점에게도 서버가 이미 열어 준 주소라서다. c-live(지금 진행 중인 수업)는
+          /api/active-rooms 가 «회사 전체 방» 을 스코프 없이 그대로 주므로(handleActiveRooms
+          실측 확인) 여기 그대로 둔다 — 옮기면 남의 지사 방 번호·인원이 지사장 화면에 샌다.
+       ══════════════════════════════════════════════════════════════════════ -->
+  <div id="hqCards" hidden>
+    <div class="hqhead" data-en="For HQ managers" data-ko="본사 매니저 전용">For HQ managers</div>
+
+    <details class="card" id="c-payroll" ontoggle="if(this.open)loadPayroll()">
+      <summary><span data-en="Teacher payroll (this month)" data-ko="교사 급여 (이번 달)">Teacher payroll (this month)</span></summary>
+      <div id="payrollBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-leave" ontoggle="if(this.open)loadLeave()">
+      <summary><span data-en="Teacher time off" data-ko="강사 휴가 · 근무불가">Teacher time off</span></summary>
+      <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
+      <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
+      <div id="liveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <div class="hqhead" data-en="Line &amp; device (IT)" data-ko="회선 · 기기 (IT)">Line &amp; device (IT)</div>
+
+    <details class="card" id="c-outage" ontoggle="if(this.open)loadOutage()">
+      <summary><span data-en="Outage reports" data-ko="정전 · 인터넷 장애 신고">Outage reports</span></summary>
+      <div id="outageBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-bugs" ontoggle="if(this.open)loadBugs()">
+      <summary><span data-en="Problem reports (device &amp; line)" data-ko="문제 신고 (기기 · 회선)">Problem reports (device &amp; line)</span></summary>
+      <div id="bugsBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+  </div>
 
   <div class="muted" style="text-align:center;padding:6px 0 0">
     <a href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
@@ -694,6 +885,21 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
   };
 
+  /* 🍔 (2026-09-21) 왼쪽 그룹 메뉴 — admin.html 의 드로어를 흉내낸다.
+     ⚠️ 새 화면을 만들지 않는다 — 이미 있는 <details id="c-xxx"> 로 스크롤해 열 뿐이다(openCard 재사용).
+     ⛔ 상주 MutationObserver·setInterval 을 두지 않는다(CLAUDE.md 2장 — 홈을 멎게 한 전력). */
+  window.openSide = function(){
+    document.body.classList.add('side-open');
+  };
+  window.closeSide = function(){
+    document.body.classList.remove('side-open');
+  };
+  window.sideGo = function(id){
+    closeSide();
+    if (id === 'top') { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
+    window.openCard(id);
+  };
+
   // ── 숫자 표기 ─────────────────────────────────────────────────────────────
   function n0(v){ return (Number(v) || 0).toLocaleString(); }
   function won(v){
@@ -768,7 +974,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ── ① 오늘 ────────────────────────────────────────────────────────────────
   var D = { today: null, month: null, series: null, flow: null, students: null, util: null, wait: null, me: null,
             payroll: null, leave: null, reqs: null, live: null, outage: null, bugs: null,
-            todayAll: null };
+            todayAll: null, org: null, attn: null, settle: null };
+  // 🏢 (2026-09-21) paintMonth() 가 scope 를 받으면 채운다. 그 전에는 «모름» 쪽(false)으로 —
+  //    지사장이 배지를 눌러도 403 이 뜨는 것보다 «안 눌리는» 쪽이 안전하다(CLAUDE.md 「모르면 막는다」).
+  var IS_HQ = false;
 
   function paintToday(){
     var d = D.today; if (!d) return;
@@ -845,8 +1054,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 🏢 (2026-09-10) AI 사용료 청구서 — 대리점 계정에만. 본사·지사는 admin.html 「AI 사용료 관리」에서 본다.
     var _aib = document.getElementById('c-aibill');
     if (_aib) _aib.hidden = (sc.type !== 'agency');
+    var _sAib = document.getElementById('sideAibill');
+    if (_sAib) _sAib.hidden = (sc.type !== 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
+    IS_HQ = (sc.type === 'hq');
+    var _sHq = document.getElementById('sideHq');
+    if (_sHq) _sHq.hidden = !IS_HQ;
     if (sc.type === 'hq') {
       document.getElementById('hqCards').hidden = false;
       // 🧑‍🏫 본사 매니저는 커버수업·레벨테스트를 직접 하기도 한다 → 「내 수업」 버튼을 켠다.
@@ -1013,6 +1227,115 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return '<div class="row"><b>' + esc(w.student_name || w.name || '-') + '</b>'
            + '<span class="muted">' + esc(w.wish_time || w.preferred_time || '') + '</span>'
            + '<span class="muted">' + esc(w.status || '') + '</span></div>';
+    }).join('');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🏢 (2026-09-21) 가맹점 · 대리점 명부 — franchises + centers, 둘 다 서버가 scope 로 잘라 준다.
+  //   등록·수정 폼은 만들지 않는다(canEditOrg 는 본사만 — «보는» 화면으로 남긴다).
+  // ══════════════════════════════════════════════════════════════════════════
+  window.loadOrg = function(){
+    if (D.org) { paintOrg(); return; }
+    var el = document.getElementById('orgBody');
+    el.textContent = T('Loading...', '불러오는 중...');
+    once('org', function(){
+      return Promise.all([get('/api/admin/franchises', 'orgF'), get('/api/admin/centers', 'orgC')])
+        .then(function(r){ return { franchises: r[0], centers: r[1] }; });
+    }).then(function(j){ D.org = j; paintOrg(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintOrg(){
+    var j = D.org; if (!j) return;
+    var fRows = (j.franchises && j.franchises.items) || [];
+    var cRows = (j.centers && j.centers.items) || [];
+    var el = document.getElementById('orgBody');
+    if (!fRows.length && !cRows.length) { el.className = 'empty'; el.textContent = T('No data yet.', '아직 자료가 없습니다.'); return; }
+    el.className = '';
+    var html = '';
+    if (fRows.length) {
+      html += '<div class="row" style="border-top:none"><b>' + esc(T('Branches', '지사')) + '</b>'
+            + '<span class="muted">' + n0(fRows.length) + '</span></div>'
+            + fRows.slice(0, 50).map(function(f){
+                return '<div class="row"><b>' + esc(f.name || '-') + '</b>'
+                     + '<span class="muted">' + esc(f.master_branch_name || '') + '</span></div>';
+              }).join('');
+    }
+    if (cRows.length) {
+      html += '<div class="row" style="margin-top:10px;border-top:1px solid rgba(148,163,184,0.2);padding-top:10px">'
+            + '<b>' + esc(T('Academies', '학원')) + '</b><span class="muted">' + n0(cRows.length) + '</span></div>'
+            + cRows.slice(0, 50).map(function(c){
+                return '<div class="row"><b>' + esc(c.name || '-') + '</b>'
+                     + '<span class="muted">' + esc(c.manager || c.address || '') + '</span></div>';
+              }).join('');
+    }
+    el.innerHTML = html;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 📋 (2026-09-21) 학원별 출석 현황 — attendance/school-stats, scopeStudentCond() 로 자기 범위만.
+  // ══════════════════════════════════════════════════════════════════════════
+  window.loadAttn = function(){
+    if (D.attn) { paintAttn(); return; }
+    var el = document.getElementById('attnBody');
+    el.textContent = T('Loading...', '불러오는 중...');
+    once('attn', function(){ return get('/api/admin/attendance/school-stats', 'attn'); })
+      .then(function(j){ D.attn = j; paintAttn(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintAttn(){
+    var j = D.attn; if (!j) return;
+    var k = j.kpi || {};
+    var rows = j.items || [];
+    var el = document.getElementById('attnBody');
+    el.className = '';
+    var head = '<div class="kpis">'
+      + tile((k.rate != null ? k.rate + '%' : '-'), T('Attendance rate', '출석률'), '')
+      + tile(n0(k.schools), T('Academies', '학원 수'), '')
+      + tile(n0(k.risk), T('At risk', '위험'), '', k.risk > 0 ? 'warn' : '')
+      + '</div>';
+    if (!rows.length) { el.innerHTML = head + '<div class="empty">' + esc(T('No data yet.', '아직 자료가 없습니다.')) + '</div>'; return; }
+    el.innerHTML = head + rows.slice(0, 50).map(function(r){
+      return '<div class="row"><b>' + esc(r.shop_name || r.name || '-') + '</b>'
+           + '<span class="muted">' + esc(r.franchise || '') + '</span>'
+           + '<span class="num">' + n0(r.attended_n) + ' / ' + n0(r.total_n) + '</span>'
+           + '<span class="num">' + (r.rate != null ? r.rate + '%' : '-') + '</span></div>';
+    }).join('')
+      + (rows.length > 50 ? '<div class="muted" style="padding-top:8px">'
+          + esc(T('Showing 50 of ' + rows.length + '.', rows.length + '건 중 50건 표시.')) + '</div>' : '');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 💰 (2026-09-21) 지사 · 대리점별 정산 — branch-summary, «보는» 화면(수수료율 편집 없음).
+  // ══════════════════════════════════════════════════════════════════════════
+  window.loadSettle = function(){
+    if (D.settle) { paintSettle(); return; }
+    var el = document.getElementById('settleBody');
+    el.textContent = T('Loading...', '불러오는 중...');
+    var d = new Date();
+    var period = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    once('settle', function(){ return get('/api/admin/settlement/branch-summary?period=' + encodeURIComponent(period), 'settle'); })
+      .then(function(j){ D.settle = j; paintSettle(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintSettle(){
+    var j = D.settle; if (!j) return;
+    var rows = j.rows || [];
+    var tot = j.totals || {};
+    var el = document.getElementById('settleBody');
+    el.className = '';
+    var head = '<div class="row" style="border-top:none"><b>' + esc(j.label || j.period || '') + '</b></div>'
+      + '<div class="kpis">'
+      + tile(won(tot.gross), T('Gross revenue', '총 매출'), '')
+      + tile(won(tot.fee), T('HQ fee', '본사 수수료'), '')
+      + tile(won(tot.net), T('Net settlement', '정산액'), '')
+      + '</div>';
+    if (!rows.length) { el.innerHTML = head + '<div class="empty">' + esc(T('No data yet.', '아직 자료가 없습니다.')) + '</div>'; return; }
+    el.innerHTML = head + rows.map(function(r){
+      var agHtml = (r.agencies || []).map(function(a){
+        return '<div class="row" style="padding-left:14px"><span class="muted">↳ ' + esc(a.agency_name || '-') + '</span>'
+             + '<span class="num">' + won(a.net_settlement) + '</span></div>';
+      }).join('');
+      return '<div class="row"><b>' + esc(r.franchise_name || '-') + '</b>'
+           + '<span class="muted">' + won(r.gross_revenue) + '</span>'
+           + '<span class="num">' + won(r.net_settlement) + '</span></div>'
+           + agHtml;
     }).join('');
   }
 
@@ -1418,7 +1741,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
          ⛔ <button> 이 아니라 span+role — 이 화면은 .tag 로 모양을 잡는다(버튼 기본 스타일 회피).
          ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다: 누구인지 모르면 창이 «전체» 로 흐른다. */
       if (!r.textbook_assigned) {
-        var canPin = !!(r.student_uid && String(r.student_uid).trim());
+        // 📚 IS_HQ 일 때만 누를 수 있게 — /api/admin/textbook-files 는 지사·대리점 허용목록에 없다(403).
+        var canPin = IS_HQ && !!(r.student_uid && String(r.student_uid).trim());
         tags += '<span class="tag hot"' + (canPin
             ? ' data-bookpin="' + esc(r.student_uid) + '"'
               + ' data-bookwho="' + esc((r.student_name || r.student_uid) + ' (' + r.student_uid + ')') + '"'
@@ -1708,6 +2032,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.live) paintLive();
     if (D.outage) paintOutage();
     if (D.bugs) paintBugs();
+    if (D.org) paintOrg();
+    if (D.attn) paintAttn();
+    if (D.settle) paintSettle();
     // 🏢 AI 사용료 청구서도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
     //    applyLang() 이 textContent 를 통째로 갈아끼운다. 여기서 다시 안 그리면 🌐 한 번에
     //    명세·인원 체크박스·「결제하기」가 「펼치면 불러옵니다.」로 지워지고, <details> 가 이미
@@ -1726,6 +2053,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   window.reloadAll = function(){
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
     D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = D.todayAll = null;
+    D.org = D.attn = D.settle = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -1734,7 +2062,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-util').open) window.loadUtil();
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
-    ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs']
+    ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
+     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle']
       .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
         if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
