@@ -9298,6 +9298,20 @@ async function addEnrollment() {
       : '필수 항목 누락 (학생 아이디 + 레벨 구분 최소 1개): ') + invalid.length + '건');
     return;
   }
+  /* 📅 (2026-09-21 사장님 지시) ⑤ 시작일 미선택 — 그전에는 안 골라도 일괄 등록이 그대로 됐고,
+     started_at 이 비면 화면·카톡·CSV·워드 요약(아래 r._started_at_str || new Date()… 자리)이
+     조용히 «오늘» 로 채워 넣어 «시작일을 안 정했는데 수업이 생겼다» 가 됐다. ⑥ 수업 기간과
+     같은 방식(기본값을 몰래 넣지 않고 사람에게 돌려준다)으로 필수로 막는다.
+     multiPlan(🔀 여러 강사로 배정) 조합도 같은 필드(_started_at_str)를 채우므로 그대로 걸린다. */
+  const noStart = records.filter(r => !r._started_at_str);
+  if (noStart.length > 0) {
+    alert(adminLang==='en'
+      ? 'Please pick ⑤ Start date — ' + noStart.length + ' row(s) missing.'
+      : '⑤ 시작일을 선택해 주세요 — ' + noStart.length + '건 미선택');
+    const firstEmptyStart = Array.from(document.querySelectorAll('.en-row-start')).find(s => !s.value);
+    if (firstEmptyStart) { firstEmptyStart.focus(); firstEmptyStart.style.borderColor = '#ef4444'; }
+    return;
+  }
   // 🗓️ (2026-08-14) ⑥ 수업 기간 미선택 — 기본값을 몰래 넣지 않고 사람에게 돌려준다.
   //   실제 학생 등록이고, 기간은 결제 회차·종료일·연장 안내가 모두 읽는 값이다.
   const noDur = records.filter(r => !r._duration);
