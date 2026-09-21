@@ -406,7 +406,9 @@ var CLOSEUP={ door1:'doorCU', computer:'computerCU', note:'noteCU', password:'co
 var STEP_ART={
   classroom:{ before:'room',      after:'room'      },
   door1:    { before:'room',      after:'doorCU'    },   // 당겨 봤지만 밖에서 잠겨 있다
-  computer: { before:'doorCU',    after:'computerCU'},   // 화면이 켜지고 비밀번호를 묻는다
+  /* ⛔ computer 의 before 를 doorCU 로 두지 마세요 — 「컴퓨터를 켜보세요」에 문이 보입니다.
+        교실 전체를 보여 주고(컴퓨터가 그 안에 있다) 켜면 화면 클로즈업으로 바뀝니다. */
+  computer: { before:'room',      after:'computerCU'},   // 화면이 켜지고 비밀번호를 묻는다
   note:     { before:'computerCU',after:'noteCU'    },   // 쪽지에 3 3 5
   password: { before:'noteCU',    after:'emailCU'   },   // 메일 프로그램이 열린다
   email:    { before:'emailCU',   after:'sentCU'    },   // SOS 전송 완료

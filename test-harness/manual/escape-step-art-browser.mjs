@@ -52,22 +52,31 @@ async function walk(loc) {
   await page.goto(`${base}/student-game-escape-voice.html?uid=test`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.startGame === 'function' || document.getElementById('startOv'));
   // 장소를 고정한다 — newGame() 이 무작위로 고르므로 고른 뒤 그 장소로 갈아 끼운다
-  return await page.evaluate((locId) => {
+  return await page.evaluate(async (locId) => {
     // ⚠️ getComputedStyle 은 CSS transition(background-image .35s) 중이면 «전환 전» 값을 준다.
     //    그래서 「무슨 그림을 걸었는가」는 인라인 style 로 읽는다(실제 칠은 ⑥절이 따로 확인).
     const bg = () => (document.getElementById('scene').style.backgroundImage.match(/escape-[\w-]+\.jpg/) || ['?'])[0];
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     startGame();
+    /* 🔴 artFor 를 «직접» 부르지 마세요 — 그러면 「표가 옳은가」만 재고 「게임이 그 표를 쓰는가」는
+       아무도 안 봅니다. 2026-09-21 함정 대조 실측: 그렇게 두었더니 사장님이 신고한 그 버그를
+       되돌려도(advance 가 setScene(G.loc.id) 로) 34종이 전부 초록이었습니다.
+       ✅ 게임의 advance() 를 그대로 태웁니다. TTS·영상만 조용히 시켜 타이밍을 고정합니다. */
+    window.speak = function(){};                 // 콜백을 안 부른다 = 자동 진행 없음
+    window.playActionClip = function(){ return false; };
     const L = LOCATIONS.find(x => x.id === locId);
     G.loc = L; G.steps = L.build(G.code); G.i = 0;
-    showStep();
     const out = [];
     for (let i = 0; i < G.steps.length; i++) {
-      G.i = i; G.busy = false; showStep();
+      G.i = i; G.busy = false;
+      showStep();
       const before = bg();
-      // advance() 는 TTS·타이머가 얽혀 있어 화면 전환 부분만 그대로 흉내낸다
-      const s = G.steps[i], key = artFor(G.loc.id, s.id, 'after');
-      setScene(key);
-      out.push({ step: s.id, before, after: bg() });
+      const s = G.steps[i];
+      advance();                                 // ← 게임이 실제로 하는 일
+      if (s.id === 'door') await sleep(750);      // 「잠긴 문 → 열린 문」 한 박자를 기다린다
+      const after = bg();
+      clearTimeout(G._advT); G._skip = null;      // 뒤늦은 자동 진행이 다음 회차를 흔들지 않게
+      out.push({ step: s.id, before, after });
     }
     return out;
   }, loc);
@@ -109,7 +118,7 @@ console.log('\n② 핫스팟을 클릭하면 그림이 반응하는가');
   });
   ok(r.btns >= 3, `클릭할 곳이 화면에 있다 (${r.btns}개)`);
   ok(r.found, '그 단계의 «맞는» 물건이 목록에 있다');
-  ok(r.was.size !== r.now.size, `클릭하면 그림이 그 물건 쪽으로 확대된다 (${r.was.size} → ${r.now.size})`);
+  ok(r.was.size !== r.now.size, `클릭하면 «누른 자리» 로 확대된다 (${r.was.size} → ${r.now.size})`);
   // ⛔ 짝 — 클릭만으로 «열린» 그림이 되면 안 된다(열리는 것은 영어로 말한 뒤)
   ok(r.was.img === r.now.img, '클릭만으로는 아직 열리지 않는다 (영어로 말해야 열린다)');
 }
@@ -117,16 +126,23 @@ console.log('\n② 핫스팟을 클릭하면 그림이 반응하는가');
 console.log('\n③ 학교 탈출 — 성공이 교실 전체로 되돌아가지 않는가');
 {
   await page.goto(`${base}/student-game-escape-school.html?uid=test`, { waitUntil: 'domcontentloaded' });
-  const rows = await page.evaluate(() => {
+  const rows = await page.evaluate(async () => {
     const bg = () => (document.getElementById('scene').style.backgroundImage.match(/escape-[\w-]+\.jpg/) || ['?'])[0];
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     startGame();
+    window.speak = function(){};
+    window.playActionClip = function(){ return false; };
     const out = [];
     for (let i = 0; i < STEPS.length; i++) {
-      G.i = i; G.busy = false; showStep();
+      G.i = i; G.busy = false;
+      showStep();
       const before = bg();
       const s = STEPS[i];
-      setScene(artFor(s.id, 'after', s.scene));
-      out.push({ step: s.id, before, after: bg() });
+      advance();                                 // ← artFor 를 직접 부르지 않는다(위 🔴 와 같은 이유)
+      if (s.id === 'door2') await sleep(750);
+      const after = bg();
+      clearTimeout(G._advT); G._skip = null;
+      out.push({ step: s.id, before, after });
     }
     return out;
   });
@@ -142,10 +158,15 @@ console.log('\n④ 좀비 실험실 — 캐비닛을 열면 열린 그림이 뜨
   const r = await page.evaluate(() => {
     const bg = () => (document.getElementById('scene').style.backgroundImage.match(/escape-[\w-]+\.jpg/) || ['?'])[0];
     startGame();
-    G.i = 1; showStep();                       // cabinet 단계
+    window.speak = function(){};
+    window.playActionClip = function(){ return false; };
+    G.i = STEPS.findIndex(x => x.id === 'cabinet'); G.busy = false;
+    showStep();
     const before = bg();
-    setScene('cabinetOpen');
-    return { before, after: bg() };
+    advance();                                 // ← 게임이 실제로 하는 일(위 🔴 와 같은 이유)
+    const after = bg();
+    clearTimeout(G._advT); G._skip = null;
+    return { before, after };
   });
   ok(r.before !== r.after, `캐비닛 단계에서 그림이 바뀐다 (${r.before} → ${r.after})`);
   ok(/cabinet-open/.test(r.after), '바뀐 그림이 「열린 캐비닛」이다');

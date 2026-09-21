@@ -278,7 +278,9 @@ var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
              open:'/img/escape-room3.jpg?v=1', escape:'/img/escape-room4.jpg?v=1',
              drawerCU:'/img/escape-room-drawer.jpg?v=1', booksCU:'/img/escape-room-books.jpg?v=1',
              doorCU:'/img/escape-room-door.jpg?v=1',
-             /* 🎲 장소 다양화(2026-07-31) — "매번 같은 방만 나오면 지루하다" 피드백. 장소마다 사진 1장 */
+             /* 🎲 장소 다양화(2026-07-31) — "매번 같은 방만 나오면 지루하다" 피드백.
+                (처음엔 장소마다 사진 1장이었는데, 그래서 단계가 올라가도 그림이 그대로였습니다 →
+                 2026-09-21 에 장소마다 Open·Safe·Key·Escape 네 장을 더했습니다. 아래 참고) */
              classroom:'/img/escape-loc-classroom.jpg?v=1',
              /* 🚻 화장실 원본에는 청소도구함이 없어서 「사물함을 여세요」와 그림이 어긋났다.
                 도구함이 닫힌 채 서 있는 판으로 갈아 끼운다(2026-09-21). 원본 파일은 그대로 둔다. */
@@ -309,8 +311,16 @@ var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
              playgroundSafe:'/img/escape-loc-playground-safe.jpg?v=1',
              playgroundKey:'/img/escape-loc-playground-key.jpg?v=1',
              playgroundEscape:'/img/escape-loc-playground-escape.jpg?v=1' };
-// 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
-Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+/* 🖼 미리 받아두기(장면 전환 깜빡임 방지) — ⛔ SCENES 를 «통째로» 받지 마세요.
+   2026-09-21 에 장소별 결과 그림 24장이 늘어 32키 ≈ 2.6MB 가 됐는데, 한 판은 장소를
+   «하나만» 고르므로 그중 약 8할이 안 쓰입니다(필리핀·중국 회선). 그래서 시작에는
+   공용 그림만 받고, 장소가 정해질 때 그 장소 것만 더 받습니다(preloadLoc). */
+var _preloaded={};
+function preloadKeys(keys){ keys.forEach(function(k){
+  if(_preloaded[k]||!SCENES[k])return; _preloaded[k]=1; var i=new Image(); i.src=SCENES[k]; }); }
+preloadKeys(['room','safe','open','escape','drawerCU','booksCU','doorCU']);
+function preloadLoc(id){ if(!id)return;
+  preloadKeys([id,id+'Open',id+'Safe',id+'Key',id+'Escape']); }
 /* Higgsfield 4초 반응 영상 — 실패·저속 환경에서는 기존 정지 이미지/효과가 그대로 동작한다. */
 var ACTION_CLIPS={
   intro:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d8b0fd58-a8bf-4eb4-955e-52556a0b620e.mp4',
@@ -600,6 +610,7 @@ function newGame(){
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
       utter:0, utterOk:0, hintUsed:0, wrong:0, stepWrong:0, prog:[], hintLv:0, busy:false,
       code:code, loc:loc, steps:loc.build(code), eventFired:false, combo:0, bestCombo:0, bonusTime:0, freeHint:false, hotspotOrder:{} };
+  preloadLoc(loc.id);          // 이 판에서 쓸 그림만 미리 받는다(첫 화면 무게)
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -715,12 +726,14 @@ function locArt(L){ return {
   door:    { before:L+'Key',    after:L+'Escape'  }    // 문이 열린다
 }; }
 var STEP_ART={
-  /* 서재는 전용 클로즈업 사진이 이미 있어 그것을 순서대로 쓴다 */
+  /* 서재는 전용 클로즈업 사진이 있어 before 를 「그 단계에서 만질 물건」으로 둔다.
+     ⛔ before 를 «직전 결과» 로 바꾸지 마세요 — 「그림을 옮기세요」에 서랍이 보입니다.
+     옛 동작에서 실제로 빠져 있던 것은 drawer·code 의 «결과» 였습니다(열린 서랍·열린 금고). */
   study:{ desk:    { before:'room',     after:'room'     },
-          drawer:  { before:'room',     after:'drawerCU' },
-          painting:{ before:'drawerCU', after:'safe'     },
-          books:   { before:'safe',     after:'booksCU'  },
-          code:    { before:'booksCU',  after:'open'     },
+          drawer:  { before:'room',     after:'drawerCU' },   // 열기 전엔 방 전체(서랍이 닫혀 보인다)
+          painting:{ before:'room',     after:'safe'     },   // FOCUS 가 그림 쪽을 확대한다
+          books:   { before:'booksCU',  after:'safe'     },
+          code:    { before:'safe',     after:'open'     },   // 금고가 열린다
           key:     { before:'open',     after:'open'     },
           door:    { before:'doorCU',   after:'escape'   } },
   classroom:locArt('classroom'), restroom:locArt('restroom'),
@@ -774,8 +787,14 @@ function updateCombo(){
   var el=$('comboHud'); if(!el)return;
   el.textContent=G&&G.combo>1 ? '🔥 '+G.combo+' COMBO'+(G.bonusTime?' · 보너스 +'+G.bonusTime+'초':'') : '';
 }
-/* 🔎 찾은 물건 쪽으로 화면이 한 번 들여다본다 — 클릭에 그림이 아무 반응도 안 해
+/* 🔎 «누른 자리» 를 화면이 한 번 들여다본다 — 클릭에 그림이 아무 반응도 안 해
    「눌러도 그대로에요」로 읽히던 것을 고친다(2026-09-21 사장님).
+   ⚠️ «그 물건 쪽» 이 아닙니다 — HOT_POS 는 버튼을 놓는 «고정 세 자리» 이고 renderHotspots 가
+      라운드마다 이름표를 shuffle 해 끼웁니다. 그래서 확대되는 곳은 «사진 속 그 물건» 이 아니라
+      «내가 누른 칸» 이고, 빈 벽이 확대될 수도 있습니다.
+   ⛔ 그러니 이것을 「그 물건을 확대한다」로 적지 마세요(2026-09-21 에 네 곳에 그렇게 적었다가
+      함정 대조가 잡았습니다). 진짜로 그 물건을 확대하려면 장소·단계마다 좌표가 있어야 하고,
+      그건 사진 24장에 좌표를 손으로 매기는 별건입니다.
    ⛔ 여기서 장면을 «바꾸지» 마세요 — 보관함이 실제로 열리는 것은 영어로 말한 다음입니다.
    (되돌리기는 다음 setScene 이 pos·size 를 기본값으로 되돌려 저절로 됩니다) */
 function zoomToHotspot(i){
@@ -880,8 +899,10 @@ function showStep(){
   var s=curStep(); if(!s) return;
   // 그 단계에 들어선 시점의 방 모습 — 「아직 안 한 상태」(STEP_ART 의 before)
   var imgKey=artFor(G.loc.id,s.id,'before');
-  // 서재는 넓은 사진 한 장을 단계마다 확대·이동해서 그 물건이 보이게 한다(전용 클로즈업이면 그대로)
-  var f=(G.loc.id==='study' && !CLOSEUP[s.id]) ? FOCUS[s.id] : null;
+  // 서재는 넓은 사진 한 장을 단계마다 확대·이동해서 그 물건이 보이게 한다.
+  // ⛔ FOCUS 좌표는 «넓은 사진»(room/safe) 기준이다 — 클로즈업 사진에 걸면 엉뚱한 데를 확대한다.
+  var WIDE={room:1,safe:1,open:1,escape:1};
+  var f=(G.loc.id==='study' && WIDE[imgKey]) ? FOCUS[s.id] : null;
   setScene(imgKey, f&&f[0], f&&f[1]);
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
@@ -912,8 +933,8 @@ function advance(){
   if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);
-  // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(study는 전용 클로즈업 사진으로,
-  // 나머지 장소는 사진이 1장뿐이라 소리·효과만으로 그 박자를 준다)
+  // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다.
+  // (2026-09-21 부터는 여섯 장소가 «모두» 전용 그림을 갖습니다 — STEP_ART 가 before/after 를 고릅니다)
   var afterKey=artFor(G.loc.id,s.id,'after');
   if(s.id==='door'){
     // 「잠긴 문 → 열쇠 돌아가는 소리 → 열린 문」 한 박자

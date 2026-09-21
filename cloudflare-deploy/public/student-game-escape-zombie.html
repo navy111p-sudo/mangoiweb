@@ -518,6 +518,7 @@ function showStep(){
   } else armIdle(14000);
 }
 function advance(){
+  var game=G;                        // 다시 시작해도 옛 타이머가 새 판을 안 덮게
   var s=curStep();
   G.busy=true; clearIdle();
   sndOk(); flash();
@@ -533,7 +534,9 @@ function advance(){
     // 캐비닛은 「열린 판」을 먼저 보여 준 뒤(1.6초) 다음 장면으로 — 연 결과가 눈에 보여야 한다
     if(s.id==='cabinet' && SCENES.cabinetOpen){
       setScene('cabinetOpen');
-      setTimeout(function(){ if(G&&G.running&&!G.over) setScene(s.scene); }, 1600);
+      // ⛔ G 를 다시 읽는 것만으로는 부족합니다 — 1.6초 안에 «다시 시작» 하면 새 판의
+      //    장면을 이 타이머가 덮습니다. 시작 시점의 G 와 같은 판일 때만 바꿉니다.
+      setTimeout(function(){ if(G===game && game.running && !game.over) setScene(s.scene); }, 1600);
     } else setScene(s.scene);
     if(s.id==='cabinet'||s.id==='computer') sndCreak();
   }

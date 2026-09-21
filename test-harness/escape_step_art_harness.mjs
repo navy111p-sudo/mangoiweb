@@ -153,5 +153,133 @@ console.log('\n③ 좀비 실험실(escape-zombie) — 캐비닛이 열린 그�
   }
 }
 
+/* ══ ④ 배선 — «그 표를 실제로 쓰는가» ═══════════════════════════════════
+   🔴 ①~③ 은 «표가 옳은가» 만 봅니다. 2026-09-21 함정 대조 실측: 사장님이 신고하신
+      그 버그(advance 가 artFor 대신 `setScene(G.loc.id)` 로 되돌아감)를 실제로 넣어도
+      ①~③ 이 전부 초록이었습니다 — 하니스가 artFor 를 «직접» 불러 답을 맞췄기 때문입니다.
+   ✅ 그래서 여기서는 showStep·advance 를 **중괄호 짝으로 오려 내 가짜 setScene 으로 돌려**
+      «화면에 실제로 걸리는 키» 를 답으로 봅니다. artFor 는 'ART:<인자>' 표식을 돌려주므로
+      그 표식이 안 나오면 = 그 함수를 안 쓴다는 뜻입니다.
+   ⚠️ 「바뀐다」 옆에 「엉뚱한 것으로는 안 바뀐다」를 짝으로 둡니다. */
+console.log('\n④ 배선 — 화면에 실제로 그 키가 걸리는가 (advance·showStep 을 돌려서)');
+
+/** 오려 낸 함수를 가짜 부품으로 실제 실행하고 setScene 이 받은 키를 순서대로 돌려준다 */
+function runScene(fnDecl, callName, extra) {
+  // ⛔ 부를 함수와 «같은 이름» 을 스텁으로 두지 마세요 — var 대입이 함수 선언을 덮어써
+  //    아무것도 안 돌고 «장면 0건» 으로 조용히 통과합니다(2026-09-21 실제로 밟음).
+  const NOOPS = ['stopListening','clearIdle','clearHotspots','sndOk','flash','playActionClip',
+    'heard','logProg','showNote','speak','hintTxt','sndUnlock','sndKeyTurn','sndCreak',
+    'sndAirlock','sndPowerOn','updateCombo','win','showStep','advance','setGoal',
+    'renderHotspots','showHint','armIdle','logAttempt']
+    .filter(n => n !== callName)
+    .map(n => `var ${n}=__noop;`).join(' ');
+  const pre = `
+    var __scenes=[], __timers=[];
+    function setScene(k){ __scenes.push(k); }
+    function setTimeout(fn,ms){ __timers.push({fn:fn,ms:ms}); return 0; }
+    function clearTimeout(){}
+    function artFor(){ return 'ART:'+Array.prototype.join.call(arguments,':'); }
+    function $(){ return { style:{}, classList:{add:function(){},remove:function(){}},
+                           textContent:'', innerHTML:'', offsetWidth:0 }; }
+    var window={};
+    function __noop(){}
+    var esc=String, TIME_LIMIT=300;
+    ${NOOPS}
+  `;
+  const post = `
+    try{ ${callName}(); }catch(e){ return { err:String(e&&e.message||e), scenes:__scenes, timers:__timers }; }
+    return { scenes:__scenes, timers:__timers };
+  `;
+  try {
+    return new Function(pre + (extra || '') + '\n' + fnDecl + '\n' + post)();
+  } catch (e) { return { err: String(e && e.message || e), scenes: [], timers: [] }; }
+}
+/** 그 시각의 타이머를 한 번 터뜨려 «뒤에 오는 장면» 까지 본다 */
+function fireTimer(r, ms) {
+  const t = (r.timers || []).find(x => x.ms === ms);
+  if (t) { try { t.fn(); } catch (_) {} }
+  return r.scenes;
+}
+
+/* ─ ④-1 voice ─────────────────────────────────────────────────────────── */
+{
+  const src   = readFileSync(join(PUB, 'student-game-escape-voice.html'), 'utf8');
+  const advFn = cutDecl(src, 'function advance(', '{', '}');
+  const showFn= cutDecl(src, 'function showStep(', '{', '}');
+  ok(!!advFn && !!showFn, '전제: voice 의 advance·showStep 을 오려 냈다');
+
+  if (advFn && showFn) {
+    const ctx = (stepId) => `
+      var G={ loc:{id:'classroom'}, i:1, combo:0, bestCombo:0, t:0, bonusTime:0,
+              running:true, over:false, busy:false, hintLv:0, stepWrong:0,
+              steps:[1,2,3], hotspotOrder:{} };
+      function curStep(){ return { id:'${stepId}', say:'x', sayKo:'x', goal:'g', goalKo:'ㄱ' }; }
+      var FOCUS={}, CLOSEUP={};
+    `;
+    // 보관함을 열면 «그 장소의 결과 그림» 이 걸려야 한다
+    const rD = runScene(advFn, 'advance', ctx('drawer'));
+    ok(rD.scenes.join('|') === 'ART:classroom:drawer:after',
+       `성공하면 그 단계의 «결과» 를 건다 (${rD.err ? 'ERR ' + rD.err : rD.scenes.join('|') || '—'})`);
+    // 짝 — 장소 기본 사진으로 되돌아가면 안 된다(사장님이 신고한 그 증상)
+    ok(!rD.scenes.includes('classroom') && !rD.scenes.includes('room'),
+       '장소 기본 사진으로 되돌아가지 않는다');
+    // 문은 「잠긴 문 → (650ms) → 열린 문」 한 박자
+    const rDoor = runScene(advFn, 'advance', ctx('door'));
+    ok(rDoor.scenes.join('|') === 'ART:classroom:door:before',
+       `문은 먼저 «잠긴» 모습을 보인다 (${rDoor.scenes.join('|') || '—'})`);
+    fireTimer(rDoor, 650);
+    ok(rDoor.scenes.join('|') === 'ART:classroom:door:before|ART:classroom:door:after',
+       '한 박자 뒤 «열린» 모습으로 바뀐다');
+    // 단계에 들어설 때는 «아직 안 한» 모습
+    const rS = runScene(showFn, 'showStep', ctx('drawer'));
+    ok(rS.scenes.join('|') === 'ART:classroom:drawer:before',
+       `단계에 들어서면 «아직 안 한» 모습을 건다 (${rS.err ? 'ERR ' + rS.err : rS.scenes.join('|') || '—'})`);
+  }
+}
+
+/* ─ ④-2 school ────────────────────────────────────────────────────────── */
+{
+  const src   = readFileSync(join(PUB, 'student-game-escape-school.html'), 'utf8');
+  const advFn = cutDecl(src, 'function advance(', '{', '}');
+  const showFn= cutDecl(src, 'function showStep(', '{', '}');
+  ok(!!advFn && !!showFn, '전제: school 의 advance·showStep 을 오려 냈다');
+
+  if (advFn && showFn) {
+    const ctx = (stepId, scene) => `
+      var G={ i:2, running:true, over:false, busy:false, hintLv:0, steps:[1,2,3] };
+      function curStep(){ return { id:'${stepId}', scene:'${scene}', say:'x', sayKo:'x', goal:'g', goalKo:'ㄱ' }; }
+      var FOCUS={}, CLOSEUP={};
+    `;
+    const rC = runScene(advFn, 'advance', ctx('computer', 'room'));
+    ok(rC.scenes.join('|') === 'ART:computer:after:room',
+       `성공하면 그 단계의 «결과» 를 건다 (${rC.err ? 'ERR ' + rC.err : rC.scenes.join('|') || '—'})`);
+    // 짝 — 교실 전체(s.scene)로 되돌아가면 안 된다(고치기 전 증상)
+    ok(rC.scenes.join('|') !== 'room', '교실 전체로 되돌아가지 않는다');
+    const rS = runScene(showFn, 'showStep', ctx('computer', 'room'));
+    ok(rS.scenes.join('|').startsWith('ART:computer:before'),
+       `단계에 들어서면 «아직 안 한» 모습을 건다 (${rS.err ? 'ERR ' + rS.err : rS.scenes.join('|') || '—'})`);
+  }
+}
+
+/* ─ ④-3 zombie ────────────────────────────────────────────────────────── */
+{
+  const src   = readFileSync(join(PUB, 'student-game-escape-zombie.html'), 'utf8');
+  const advFn = cutDecl(src, 'function advance(', '{', '}');
+  ok(!!advFn, '전제: zombie 의 advance 를 오려 냈다');
+
+  if (advFn) {
+    const ctx = `
+      var G={ i:1, running:true, over:false, busy:false, hintLv:0, steps:[1,2,3] };
+      function curStep(){ return { id:'cabinet', scene:'safe', say:'x', sayKo:'x' }; }
+      var SCENES={ cabinetOpen:'/img/x.jpg', safe:'/img/y.jpg' }, FOCUS={}, CLOSEUP={};
+    `;
+    const r = runScene(advFn, 'advance', ctx);
+    ok(r.scenes.join('|') === 'cabinetOpen',
+       `캐비닛을 열면 «열린» 그림이 먼저 걸린다 (${r.err ? 'ERR ' + r.err : r.scenes.join('|') || '—'})`);
+    fireTimer(r, 1600);
+    ok(r.scenes.join('|') === 'cabinetOpen|safe', '잠깐 보여준 뒤 다음 장면으로 넘어간다');
+  }
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) { console.log('⚠ 실제 확인 필요'); process.exit(1); }
