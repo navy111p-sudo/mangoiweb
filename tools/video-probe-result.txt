@@ -1,0 +1,2 @@
+mini bytes=1336956 info=752,560,24/1,97 4.041667  poster=13452 recompressed=199096
+full bytes=812687 info=752,560,24/1,97 4.041667  poster=5482 recompressed=161827
