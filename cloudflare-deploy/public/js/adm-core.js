@@ -11621,6 +11621,11 @@ async function loadStudentList(q, opts) {
       sessions: Number(s.sessions || 0),
       first_seen: s.signup_date || s.created_at || null,
       last_seen: s.last_seen || null,
+      /* 📘 (2026-09-21) 「예약」 칸 — 서버가 실어 준 요약을 «그대로» 옮긴다.
+          이 매핑이 칸을 골라 담기 때문에, 여기 없으면 _schedTd 가 볼 값이 없어
+          항상 «—» 가 된다(2026-09-15 도입 이래 실제로 그 상태였다).
+          ⛔ 문장을 여기서 조립하지 말 것 — 서버 label_ko/label_en 을 «고르기만» 한다. */
+      sched: s.sched || null,
     }));
   } catch (e) {
     if (e && e.name === 'AbortError') return;   // 최신 요청에 밀림 — 화면 손대지 않고 종료

@@ -2883,6 +2883,25 @@ function sourceLabel(it) {
   return esc(s);
 }
 
+/* 📅 (2026-09-21 사장님 지시) «이 날 하루만» · «지난 수업» 판정 — 최상위 함수.
+   [왜] 배지의 「정규수업」은 수업 «종류»(class_type)이지 «매주 반복» 이 아니지만
+        사람은 그렇게 읽는다. 실제 반복 여부는 schedule_kind 이고 화면에는
+        🔁/📅 아이콘 차이뿐이라, 9/14 하루짜리 수업을 «매주 도는 수업» 으로 읽으셨다.
+   [왜 지남도 말하나] 지난 날짜인데 「활성」인 행이 실측 1,808건(학생 495명)이라,
+        말해 주지 않으면 «앞으로 있을 수업» 으로 읽힌다.
+   ⚠️ 날짜는 KST 기준으로 재야 한다 — UTC 로 재면 하루가 밀린다. */
+function _mgsKstToday() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+/** 일회성(날짜 지정)인가 · 이미 지났는가. 순수 함수(하니스가 그대로 돌린다).
+    ⚠️ 날짜 형식(YYYY-MM-DD)이 맞을 때만 «지났다» 로 본다 — 모르면 안 적는 쪽으로 실패. */
+function mgsOnceInfo(scheduledDate, todayYmd) {
+  const ymd = String(scheduledDate || '').slice(0, 10);
+  const once = !!ymd;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(ymd);
+  return { once: once, past: once && valid && ymd < String(todayYmd || '') };
+}
+
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
   const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
@@ -2917,6 +2936,16 @@ async function loadAiSchedules() {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => dayNames[d] || d).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
       const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
+      /* 📅 (2026-09-21) 위 mgsOnceInfo() 가 정본 — 여기서 날짜를 다시 재지 말 것. */
+      const _oi = mgsOnceInfo(it.scheduled_date, _mgsKstToday());
+      const _onceChip = _oi.once
+        ? '<span style="color:#475467;font-size:11px">· ' + (_lang === 'en' ? 'this date only' : '이 날 하루만') + '</span>'
+        : '';
+      /* ⚠️ 색은 흰 카드에서 읽히는 탄 주황(#b45309, 대비 5.02) — 밝은 앱버(#fbbf24)는 1.67 로 안 읽힌다.
+         (이 카드는 인라인으로 어둡게 적혀 있지만 adm-light-theme.css 가 밝게 덮는다 — 이웃 칸 주석 참고) */
+      const _pastChip = _oi.past
+        ? '<span style="color:#b45309;font-size:10.5px;font-weight:700;border:1px solid #fcd34d;border-radius:6px;padding:1px 7px">⌛ ' + (_lang === 'en' ? 'Past' : '지난 수업') + '</span>'
+        : '';
       /* 📅 (2026-08-18 사장님 수정요청 #01) 수업연기 — 상세보기 스케줄에서 바로 날짜·시간을 옮긴다.
          지금까지는 «취소하고 다시 등록» 뿐이라, 연기 한 번에 수업 이력이 끊겼다. */
       /* 👩‍🏫 (2026-09-11 사장님 지시) 담당 교사 이름 — 서버가 이미 teachers 원부를 LEFT JOIN 해
@@ -2932,6 +2961,7 @@ async function loadAiSchedules() {
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
+        + _onceChip + _pastChip
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + '분 · ' : '') + (statusName[it.status] || it.status) + '</span>'
         + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'

@@ -2268,12 +2268,17 @@ export async function handleMangoApi(
         const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
         let nextDate: string | null = null;
         let nextStartTs: number | null = null;
+        /* 📅 (2026-09-21) «이미 끝난 날짜 지정 수업» 표시 — 아래 filter 가 쓴다.
+           ⚠️ 날짜 형식이 맞을 때만 «지났다» 로 본다 — 모르면 남기는 쪽으로 실패한다
+              (수업이 조용히 사라지는 것이 더 나쁘다). 실측 2026-09-21 기준 깨진 날짜 0건. */
+        let pastOnce = false;
         if (r.scheduled_date) {
           const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.scheduled_date));
           if (dm) {
             const sTs = Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0) - MS_KST;
             const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
             if (sTs + graceMs >= msNow) { nextDate = r.scheduled_date; nextStartTs = sTs; }
+            else pastOnce = true;
           }
         } else if (dows.length) {
           let bestDelta = 8;
@@ -2302,8 +2307,21 @@ export async function handleMangoApi(
           teacher_name: r.teacher_name || null,
           next_date: nextDate,
           next_start_ts: nextStartTs,
+          _past: pastOnce,   // ⬇️ 바로 아래 filter 전용 — 응답에는 안 나간다
         };
-      }).filter((s: any) => s.day_labels_ko.length || s.scheduled_date)
+      }).filter((s: any) => {
+        if (!s.day_labels_ko.length && !s.scheduled_date) return false;
+        /* 📅 (2026-09-21 사장님 지시) 이미 끝난 «날짜 지정» 수업은 빼고 준다.
+           제보: 홈 「내 수업」 카드가 9/14 에 끝난 하루짜리 수업을 계속 보여 줌.
+           서버가 status != 'cancelled' 만 보고 지난 날짜를 안 걸렀다
+           (실측 2026-09-21: 지난 날짜인데 활성인 행 1,808건 · 학생 495명).
+           ⚠️ 반복 수업은 next 가 늘 있어 이 조건에 안 걸린다.
+           ⛔ 여기서 날짜를 다시 재지 말 것 — 위 pastOnce 한 곳이 정본이다.
+           ℹ️ 소비자는 둘(홈 카드 js/idx-my-schedule.js · 주간 표 my-schedule.html)이고
+              둘 다 같은 사고였다 — 그래서 화면이 아니라 서버에서 거른다. */
+        if (s._past) return false;
+        return true;
+      }).map(({ _past, ...rest }: any) => rest)
         .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
 
       return json({ ok: true, matched_by: msMatchedBy, schedules });
