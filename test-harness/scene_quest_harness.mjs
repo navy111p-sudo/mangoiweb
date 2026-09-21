@@ -24,7 +24,7 @@ for(const world of ['all','adventure','everyday','nature'])for(let level=0;level
 }
 // Execute the actual event handlers against a small DOM adapter. This is NOT browser/layout QA.
 class El{
- constructor(){this.hidden=false;this.disabled=false;this.value='';this.textContent='';this.innerHTML='';this.attrs={};this.handlers={};this.children=[];this.paused=true;this.currentTime=0;this.classList={add(){},remove(){}};}
+ constructor(){this.hidden=false;this.disabled=false;this.value='';this.textContent='';this.innerHTML='';this.attrs={};this.handlers={};this.children=[];this.paused=true;this.currentTime=0;this.classes=new Set();this.classList={add:(...c)=>c.forEach(x=>this.classes.add(x)),remove:(...c)=>c.forEach(x=>this.classes.delete(x)),contains:x=>this.classes.has(x)};}
  addEventListener(n,f){(this.handlers[n]??=[]).push(f);}
  dispatch(n,extra={}){for(const f of this.handlers[n]||[])f.call(this,{preventDefault(){},...extra});}
  focus(){} setAttribute(k,v){this.attrs[k]=v;}getAttribute(k){return this.attrs[k]||null;}removeAttribute(k){delete this.attrs[k];}
@@ -62,4 +62,39 @@ const hidden=game();hidden.click('start');hidden.document.hidden=true;hidden.eve
 const media=game();media.click('start');media.click('watch');media.click('pause');await new Promise(setImmediate);ok(media.els.video.paused,'late play resolution cannot resume paused game');
 const fail=game();fail.click('start');fail.els.video.play=()=>Promise.reject(Error('offline'));fail.click('watch');await new Promise(setImmediate);ok(fail.els.video.hidden);ok(!fail.els.poster.hidden);ok(fail.els['media-msg'].textContent.includes('재생할 수 없어'));
 const replay=game();replay.click('start');let oldPlay;replay.els.video.play=function(){this.paused=false;return new Promise(resolve=>{oldPlay=resolve;});};replay.click('watch');replay.els.video.play=function(){this.paused=false;return Promise.resolve();};replay.click('watch');await new Promise(setImmediate);oldPlay();await new Promise(setImmediate);ok(!replay.els.video.paused,'stale play callback cannot pause a newer explicit replay');
+// 건너뛰기 — 못 맞혀도 나갈 길이 있어야 합니다.
+// «넘어간다» 옆에 «공짜로 통과하지 않는다»·«맞히는 길은 그대로다» 를 짝으로 둡니다.
+const sk=game();sk.click('start');
+ok(!sk.els.skip.hidden,'skip button is offered before answering');
+ok(sk.els.next.hidden,'next is not available before the round ends');
+sk.click('skip');
+ok(!sk.els.next.hidden,'skipping opens the way to the next scene');
+eq(sk.els.score.textContent,0,'skipping earns no points');
+ok(sk.els.answer.disabled&&sk.els.skip.hidden,'a skipped round is closed');
+ok(!sk.els['hint-box'].hidden&&sk.els['hint-box'].textContent.includes('astronaut'),'the answer is still taught after skipping');
+ok(!sk.els.listen.hidden,'the answer can still be heard after skipping');
+ok(sk.els.feedback.textContent.includes('넘어갔'),'the screen says it was skipped, not solved');
+ok(!sk.els.gate.classes.has('unlocked'),'skipping does not unlock the treasure gate');
+sk.answer('astronaut');eq(sk.els.score.textContent,0,'a late correct answer cannot re-award a skipped round');
+sk.click('skip');eq(sk.els.score.textContent,0,'double skip changes nothing');
+sk.click('next');ok(sk.els['scene-title'].textContent!=='우주 정거장','the next scene actually loads');
+ok(!sk.els.skip.hidden&&!sk.els.answer.disabled,'the new round is answerable again');
+sk.answer('wand');ok(Number(sk.els.score.textContent)>0,'earning points by answering still works');
+ok(sk.els.gate.classes.has('unlocked'),'a correct answer still unlocks the gate');
+const allSkip=game();allSkip.click('start');
+for(let i=0;i<5;i++){allSkip.click('skip');allSkip.click('next');}
+ok(!allSkip.els.result.hidden,'skipping every scene still reaches the results');
+eq(allSkip.els['total-score'].textContent,0,'skipping everything scores nothing');
+eq(allSkip.els['review-count'].textContent,5,'every skipped scene goes to review');
+ok(allSkip.els['review-list'].children.some(r=>r.children.some(c=>c.textContent.includes('넘어감'))),'results say «skipped» rather than folding it into «review»');
+allSkip.click('copy');await Promise.resolve();ok(allSkip.copied().includes('[넘어감]'),'the teacher summary marks skipped rounds');
+// 하나도 스스로 못 쓴 채 끝났는데 「보물문이 열렸어요!」라고 하면 화면이 거짓말을 합니다.
+eq(allSkip.els['result-title'].textContent,'끝까지 왔어요!','the title does not claim the gate opened when nothing was solved');
+eq(allSkip.els['result-title'].getAttribute('data-ko'),'끝까지 왔어요!','data-ko is updated too, so switching language does not restore the old title');
+ok(allSkip.els['result-copy'].textContent.includes('넘어갔'),'the closing copy says what actually happened');
+// 짝 — 한 장면이라도 스스로 풀었으면 예전 축하 문구 그대로여야 합니다.
+const mix=game();mix.click('start');mix.answer('astronaut');mix.click('next');
+for(let i=0;i<4;i++){mix.click('skip');mix.click('next');}
+eq(mix.els['result-title'].textContent,'보물문이 열렸어요!','solving even one scene keeps the original celebration');
+ok(mix.els['result-copy'].textContent.includes('탐험했어요'),'the original closing copy is kept');
 console.log('PASS scene quest: '+checks+' assertions (grading, learning flow, rewards, pause, media failure; no browser/layout test)');
