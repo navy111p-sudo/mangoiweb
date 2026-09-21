@@ -89,5 +89,25 @@ t('body class MutationObserver 없음', /MutationObserver/.test(wireCode), false
 t('짝 — 그 경고는 주석에 그대로 남아 있다', /MutationObserver/.test(wire), true);
 t('setInterval 은 끝이 있다(tries 상한)', /tries\s*>=\s*\d+/.test(wireCode), true);
 
+console.log('⑥ › 화살표를 «가상요소» 로 그린다 (2026-09-21 사장님 지시)');
+/* 폰에는 손가락 커서도 :hover 도 없어 «누를 수 있다» 는 신호가 0개였다.
+   ⛔ 글자로 넣으면 i18n 두 엔진이 .ht-what 안 <span> 의 textContent 를 갈아끼울 때
+   함께 사라지고, 사전이 전체 문자열 일치라 「원어민 화상수업」과 「원어민 화상수업 ›」를
+   다른 말로 본다(CLAUDE.md 「data-ko 가 달린 표 머리글에 정렬 화살표를 달아야 할 때」).
+   ⚠️ «그려졌는가·토글을 견뎌도 살아남는가·폰에서 안 넘치는가» 는 브라우저 검사 몫이다.
+   여기서는 «모양» 만 못 박는다 — 그래야 게이트가 물어 간다(manual/ 은 안 물어 감). */
+t('화살표를 ::after 로 그린다', /\.ht-what::after\{content:/.test(wireCode), true);
+t('그 규칙이 [role="button"] 일 때만 걸린다(배선 전엔 안 그린다)',
+  /\.ht-track\[role="button"\][^{]*\.ht-what::after/.test(wireCode), true);
+t('짝 — index.html 트랙 마크업에는 화살표 글자가 없다', /›/.test(trackBlock), false);
+t('짝 — 배선 파일이 textContent·innerHTML 로 화살표를 넣지 않는다',
+  /(textContent|innerHTML)\s*\+?=\s*[^;]*›/.test(wireCode), false);
+/* ⚠️ 이 줄은 role="button" 이라 «::after 의 글자가 낭독 이름에 그대로 섞입니다»
+   (CDP 접근성 트리로 실측: 「…원어민 화상수업›」). CSS 대체 텍스트 «/ ""» 로 뺍니다.
+   ⛔ 그 한 줄만 두면 그 문법을 모르는 옛 브라우저가 선언을 통째로 버려 화살표가
+   사라집니다 — «대체 텍스트 없는 줄» 을 앞에 두어 폴백으로 남깁니다(짝). */
+t('낭독 이름에서 빼는 대체 텍스트가 있다', /content:"\\\\203A"\s*\/\s*""/.test(wireCode), true);
+t('짝 — 옛 브라우저용 폴백 줄이 앞에 남아 있다', /content:"\\\\203A";/.test(wireCode), true);
+
 console.log(`\n결과: PASS ${P} / FAIL ${F}`);
 if (F) process.exit(1);   /* ⛔ 실패하고도 exit 0 이면 --fast 합계가 안 움직인다 */

@@ -85,7 +85,22 @@
       '.home-tracks .ht-track[role="button"]{cursor:pointer;border-radius:10px;' +
       'transition:background-color .15s ease,color .15s ease}' +
       '.home-tracks .ht-track[role="button"]:hover{background:rgba(255,255,255,.10)}' +
-      '.home-tracks .ht-track[role="button"]:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}';
+      '.home-tracks .ht-track[role="button"]:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}' +
+      /* ▸ (2026-09-21 사장님 지시) 폰에는 손가락 커서도 :hover 도 없어 «누를 수 있다» 는
+         신호가 0개였다. 화살표를 «가상요소» 로 그린다 — ⛔ 글자로 넣으면 i18n 두 엔진이
+         .ht-what 안 <span> 의 textContent 를 갈아끼울 때 함께 사라지고, 사전이 전체 문자열
+         일치라 「원어민 화상수업」과 「원어민 화상수업 ›」를 다른 말로 본다(CLAUDE.md
+         「data-ko 가 달린 표 머리글에 정렬 화살표를 달아야 할 때」). ::after 는 textContent 와
+         무관해서 살아남는다. ⚠️ .ht-what 이 nowrap 이라 폭이 늘어난다 — 폰에서 재고 넣었다. */
+      '.home-tracks .ht-track[role="button"] .ht-what::after{content:"\\203A";' +
+      /* ⚠️ 두 줄로 «쌓습니다». 아래 «/ ""» 는 CSS 의 «대체 텍스트» — 화살표를 그리되
+         **화면낭독기 이름에서는 뺍니다**. 이 줄은 role="button" 이라 가상요소의 글자가
+         이름 계산에 그대로 섞입니다(CDP 접근성 트리 실측: 「…원어민 화상수업›」).
+         그 문법을 모르는 옛 브라우저는 이 선언만 버리고 **윗줄이 남아 화살표는
+         그대로 그려집니다** — 잃는 것이 없습니다.
+         ⛔ 윗줄을 지우고 이 줄만 두지 마세요(옛 사파리에서 화살표가 통째로 사라집니다). */
+      'content:"\\203A" / "";' +
+      'margin-left:.28em;font-size:.95em;opacity:.7;font-weight:700}';
     document.head.appendChild(st);
   }
 

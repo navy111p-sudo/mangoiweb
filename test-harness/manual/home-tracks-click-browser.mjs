@@ -49,6 +49,7 @@ const evalJs = async (expr) => {
   return r.result.value;
 };
 await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
+await send('DOM.enable'); await send('Accessibility.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 try { await send('Network.setBypassServiceWorker', { bypass: true }); } catch (_) {}
 /* 첫 방문자 코치마크가 히어로를 덮지 않게 «본 것» 으로 표시하고 연다 */
@@ -153,6 +154,67 @@ t('390px — 두 트랙이 서로 겹치지 않는다', await evalJs(`(function(
    var b=document.querySelector('.home-tracks .ht-ai').getBoundingClientRect();
    return a.right <= b.left + 0.5 || b.right <= a.left + 0.5;})()`), true);
 await send('Emulation.clearDeviceMetricsOverride');
+
+console.log('\n⑨ ▸ 화살표 — «누를 수 있다» 는 신호 (폰엔 커서도 hover 도 없다)');
+await home();
+const chev = (sel) => evalJs(`(function(){var e=document.querySelector(${JSON.stringify(sel)} + ' .ht-what');
+   if(!e) return null; var c=getComputedStyle(e,'::after').content; return c;})()`);
+t('.ht-live 에 화살표가 그려진다', /\u203a|›/i.test(String(await chev('.home-tracks .ht-live'))), true);
+t('.ht-ai 에 화살표가 그려진다', /\u203a|›/i.test(String(await chev('.home-tracks .ht-ai'))), true);
+/* ⛔ 짝 — 라벨 «글자» 에는 화살표가 없어야 한다. 글자로 넣으면 i18n 사전이 전체 문자열
+   일치라 「원어민 화상수업」과 「원어민 화상수업 ›」를 다른 말로 보고 번역이 깨진다. */
+t('짝 — 라벨 textContent 에는 화살표가 없다', await evalJs(`/[›\u203a]/.test(document.querySelector('.home-tracks').textContent)`), false);
+
+console.log('\n⑨-2 짝 — 🌐 를 눌러도 화살표가 살아남는다 (가상요소를 쓴 이유)');
+const beforeTxt = await evalJs(`document.querySelector('.home-tracks .ht-ai .ht-what').textContent.trim()`);
+await evalJs(`(function(){ try{ window.toggleLang && window.toggleLang(); }catch(e){} return 1; })()`);
+await new Promise(r => setTimeout(r, 700));
+t('언어가 실제로 바뀌었다(전제)', await evalJs(`document.querySelector('.home-tracks .ht-ai .ht-what').textContent.trim()`) !== beforeTxt, true);
+t('토글 뒤에도 .ht-ai 화살표가 남아 있다', /\u203a|›/i.test(String(await chev('.home-tracks .ht-ai'))), true);
+t('토글 뒤에도 .ht-live 화살표가 남아 있다', /\u203a|›/i.test(String(await chev('.home-tracks .ht-live'))), true);
+t('토글 뒤에도 안쪽 span 이 살아 있다', await evalJs(`document.querySelectorAll('.home-tracks .ht-live > span').length`), 2);
+await evalJs(`(function(){ try{ window.toggleLang && window.toggleLang(); }catch(e){} return 1; })()`);
+await new Promise(r => setTimeout(r, 500));
+
+console.log('\n⑨-3 폰 폭 — 화살표를 붙여도 넘치지 않는다');
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await home();
+t('390px — 문서가 가로로 안 넘친다', await evalJs(`document.documentElement.scrollWidth <= window.innerWidth + 1`), true);
+for (const sel of ['.home-tracks .ht-live', '.home-tracks .ht-ai']) {
+  t(`390px — ${sel} 글자가 칸 밖으로 안 넘친다`, await evalJs(`(function(){
+     var box=document.querySelector(${JSON.stringify(sel)}); var w=box.querySelector('.ht-what');
+     return w.scrollWidth <= box.clientWidth + 1;})()`), true);
+  t(`390px — ${sel} 이 한 줄이다`, await evalJs(`(function(){
+     var w=document.querySelector(${JSON.stringify(sel)} + ' .ht-what');
+     var lh=parseFloat(getComputedStyle(w).lineHeight)||16;
+     return w.getBoundingClientRect().height < lh * 1.8;})()`), true);
+}
+await send('Emulation.clearDeviceMetricsOverride');
+
+/* ⑨-4 🔴 화살표가 «낭독 이름» 에 섞이지 않는가
+   이 줄은 role="button" 이라 이름이 «안쪽 글자» 에서 만들어지는데, CSS 가상요소의
+   content 도 그 계산에 들어갑니다 — 실측으로 「…원어민 화상수업›」이 나왔습니다.
+   CSS 대체 텍스트 «content:"›" / ""» 로 뺐고, 여기서 그것을 «실제로» 확인합니다.
+   ⚠️ 「화살표가 없다」만 두면 «이름을 통째로 비우기» 도 통과합니다 —
+      「보이는 글자가 그대로 이름에 들어 있다」를 짝으로 둡니다. */
+console.log('\n⑨-4 🔴 화살표가 화면낭독기 이름에 섞이지 않는다 (CDP 접근성 트리)');
+await home();
+const axName = async (sel) => {
+  const { root } = await send('DOM.getDocument', { depth: -1 });
+  const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: sel });
+  if (!nodeId) return '(노드없음)';
+  const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
+  return String((nodes[0] && nodes[0].name && nodes[0].name.value) || '');
+};
+for (const sel of ['.home-tracks .ht-live', '.home-tracks .ht-ai']) {
+  const nm = await axName(sel);
+  const seen = await evalJs(`document.querySelector(${JSON.stringify(sel)} + ' .ht-what').textContent.replace(/\\s+/g,'')`);
+  console.log(`      ${sel} → 이름 ${JSON.stringify(nm)} · 보이는 글자 ${JSON.stringify(seen)}`);
+  t(`${sel} — 이름이 비어 있지 않다(전제)`, nm.length > 3, true);
+  t(`${sel} — 이름에 화살표가 안 섞인다`, /›|›/.test(nm), false);
+  t(`${sel} — 짝: 보이는 글자가 이름에 그대로 들어 있다`,
+    seen.length > 3 && nm.replace(/\s+/g, '').includes(seen), true);
+}
 
 console.log(`\n결과: PASS ${P} / FAIL ${F}`);
 ws.close();
