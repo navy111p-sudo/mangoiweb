@@ -32,7 +32,7 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,noPictureForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+const manifest={wordForms:4546,wordPictureForms:95,contextOnlyForms:4157,noPictureForms:294,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
 const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.'},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.'}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
 const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
@@ -54,7 +54,7 @@ const dir=new URL('data/scene-curriculum/v1/',root),live=JSON.parse(fs.readFileS
 eq(live.books.length,85);ok(live.wordForms>4400);ok(live.clips>=40);
 /* 🔴 2026-09-21 — 여기 있던 「word forms 의 97% 가 verified picture」 단정을 버렸습니다.
    그 숫자는 «그림을 붙인 개수» 였을 뿐 «그 낱말을 보여 주는가» 를 한 번도 재지 않았고,
-   실측으로 39,910줄 중 21,255줄(53%)이 그 낱말과 무관한 그림이었습니다(「nice」 ← 가방 사진).
+   실측으로 그림을 붙인 39,762줄 중 38,475줄(96.8%)이 그 낱말과 무관했습니다(「nice」 ← 가방 사진).
    그래서 «몇 %가 그림을 가졌나» 대신 «그림이라고 말한 것마다 근거가 있는가» 를 봅니다. */
 const sourceBooks=new Map();
 for(const [series,file,name] of [['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']]){
@@ -63,12 +63,26 @@ for(const [series,file,name] of [['bts','speech-data-bts.js','BTS_SENTENCES'],['
 }
 const plan=name=>JSON.parse(fs.readFileSync(new URL('../../docs/scene-curriculum-media/'+name,root),'utf8'));
 const scenePlan=plan('scene-plan.json'),assetPlan=plan('asset-plan.json'),clipPlan=plan('clip-plan.json'),contextPlan=plan('context-images.json').images;
-const describe=EV.describeMedia({assets:assetPlan,clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
-const depicts=EV.makeDepicts(describe);
+const {describe,depicts}=EV.pictureEvidence({assets:assetPlan,clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
 const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
 const mediaKey=new Map();
 for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
 for(const c of clipPlan)mediaKey.set(c.id,'clip-image:'+(c.reuseClip||c.index));
+/* 🔁 빌드가 고른 것을 «여기서 다시 골라» 맞춰 본다 — 안 그러면 이미 만들어진 payload 를 같은 모듈로
+   되짚기만 해서, 근거 게이트를 «항상 참» 으로 열어도 전부 초록이 됩니다(2026-09-21 함정 대조 실측).
+   ⛔ 그래서 «붙인다» 와 «안 붙일 때는 정말 근거가 없다» 를 짝으로 봅니다. */
+const mediaLookup=new Set();
+{const excluded=new Set(plan('excluded-media.json'));
+ for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
+const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
+const contentWords=text=>[...new Set((String(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stopWords.has(w)))];
+const sceneHasImage=new Map(),sceneOwnText=new Map();
+for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
+for(const c of clipPlan){if(!mediaLookup.has('video:'+(c.reuseClip||c.index)))continue;sceneOwnText.set(c.id,c.text);sceneHasImage.set(c.id,mediaLookup.has(mediaKey.get(c.id)));}
+const depictPool=new Map();
+for(const [sid,text] of sceneOwnText){if(!sceneHasImage.get(sid))continue;
+ for(const w of contentWords(text)){if(!depicts(w,mediaKey.get(sid)))continue;if(!depictPool.has(w))depictPool.set(w,[]);depictPool.get(w).push(sid);}}
+ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 한다 — 갑자기 많아지면 게이트가 열린 것 ('+depictPool.size+')');
 ok([...describe.values()].filter(t=>t.trim()).length<assetPlan.length/2,
  '그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
 eq(live.wordPictureForms+live.contextOnlyForms+live.noPictureForms,live.wordForms,
@@ -97,6 +111,9 @@ for(const entry of live.books){
    ok(s.text===shown,'상황 그림은 지금 보여 주는 그 예문의 그림이어야 한다: '+w.word);
    ok(!depicts(w.word,mediaKey.get(w.scene))||!w.bookExample,'근거가 있는데 낱말 그림으로 안 세었다: '+w.word);
   }else{claimed.none++;ok(s.text===shown,'그림이 없을 때도 예문은 그 교재의 예문이다: '+w.word);}
+  /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
+  eq(!!w.pic,depictPool.has(w.word),'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
+  if(w.pic)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
   if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
  }
  for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}

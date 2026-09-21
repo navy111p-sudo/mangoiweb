@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import {fileURLToPath} from 'node:url';
-import {describeMedia,makeDepicts} from './scene-picture-evidence.mjs';
+import {pictureEvidence} from './scene-picture-evidence.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const inputs=path.join(root,process.argv[2]||'docs/scene-curriculum-media');
 const read=name=>JSON.parse(fs.readFileSync(path.join(inputs,name),'utf8'));
@@ -36,8 +36,7 @@ function imageMeta(s,m,key){if(m){s.image=m.url;s.imageBytes=m.bytes;s.key=key;}
 const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 /* 🖼 판정 정본은 scripts/scene-picture-evidence.mjs 한 곳 — 회귀 검사도 같은 모듈을 돌린다.
    ⛔ 여기에 판정을 다시 적지 마세요(한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다). */
-const describe=describeMedia({assets,clips,sceneText});
-const depicts=makeDepicts(describe);
+const {describe,depicts}=pictureEvidence({assets,clips,sceneText});
 const scenes=new Map();
 for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);const key=fallback||('word-image:'+index);imageMeta(s,lookup.get(key),key);scenes.set(s.id,s);}
 const clipRows=[];
