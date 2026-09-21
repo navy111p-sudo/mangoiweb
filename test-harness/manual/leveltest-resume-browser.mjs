@@ -250,6 +250,42 @@ async function answerN(page, n, pick = () => 1) {
     check('⑨ 그 자리는 a1_3·a1_4 뒤 문항이다', /A2 question 1\?/.test(m.qtext), m.qtext);
     await ctx.close();
 
+    // ═══ ⑩ 저장이 막힌 브라우저 (시크릿 창·저장 차단) ═════════════════════
+    /* 🔴 (2026-09-21 함정 대조) 고치기 «전» 에는 화면이 아무 약속도 안 했다. 이 수리가
+       «나가도 된다» 는 약속을 새로 만들었으니, 그 약속이 거짓일 수 있는 자리를 막아야 한다.
+       안 그러면 이 수리가 없애려던 사고(7분이 날아감)를 학생이 «안심하고 나가서» 겪는다. */
+    console.log('\n[ ⑩ 저장이 막힌 브라우저에서 화면이 사실을 말하는가 ]');
+    ({ ctx, page } = await open(browser));
+    /* setItem 이 던지게 만든다 — 시크릿 창·저장 차단·용량 초과가 이 모양이다 */
+    await page.addInitScript(() => {
+      const ls = window.localStorage;
+      Object.defineProperty(window, 'localStorage', { configurable: true, get: () => ({
+        getItem: (k) => ls.getItem(k),
+        setItem: () => { throw new DOMException('quota', 'QuotaExceededError'); },
+        removeItem: (k) => ls.removeItem(k),
+      }) });
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector('#ai-start');
+    await page.fill('#ai-name', '오지우');
+    await page.click('#ai-start'); await page.waitForSelector('#quiz-card:not(.hidden)');
+    await answerN(page, 3, () => 1);
+    const note = (await page.textContent('#ai-savednote')) || '';
+    check('⑩ 문항 화면이 «자동 저장돼요» 약속을 거둔다', /저장되지 않아요/.test(note), note.slice(0, 60));
+    check('⑩ 시작 화면 안내(«중간에 멈춰도 괜찮아요»)도 감춘다',
+      !(await page.isVisible('#ai-savehint')));
+    await page.click('#ai-pause'); await page.waitForSelector('#pause-card:not(.hidden)');
+    const pt = (await page.textContent('#pause-title')) || '';
+    const pb = (await page.textContent('#pause-body')) || '';
+    check('🔴 ⑩ 멈춤 화면이 «저장했어요» 라고 거짓말하지 않는다', !/여기까지 저장했어요/.test(pt), pt);
+    check('🔴 ⑩ «저장하지 못했어요» 라고 사실대로 말한다', /저장하지 못했어요/.test(pt), pt);
+    check('⑩ 할 일을 준다(지금 끝까지 푸는 것이 안전)', /끝까지 마치는 것이 안전/.test(pb), pb.slice(0, 70));
+    check('⑩ 그래도 이어서 풀기로 돌아갈 수 있다(시험이 멈추지 않는다)',
+      await page.isVisible('#pause-go'));
+    await page.click('#pause-go'); await page.waitForSelector('#quiz-card:not(.hidden)');
+    m = await page.evaluate(snap);
+    check('⑩ 저장이 안 돼도 그 세션 안에서는 이어서 풀린다(4번 문항)', m.prog === '4 / 24', m.prog);
+    await ctx.close();
+
     if (process.env.SHOT) { await page.screenshot({ path: process.env.SHOT }); console.log('  📸 ' + process.env.SHOT); }
   } finally {
     await browser.close();
