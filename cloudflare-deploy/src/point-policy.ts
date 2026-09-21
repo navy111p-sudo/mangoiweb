@@ -37,6 +37,11 @@ export const POINT_POLICY = {
 export const GAME_QUIZ_RULES = [
   'rescue_sentence', 'speech_master', 'ai_writing_rewrite',
   'micro_quiz_done', 'review_quiz_done', 'vocab_review', 'game_score',
+  /* 🎤 발음 «오늘 몫 N문장» 미션(2026-09-21, B안 — 정본 src/speech-mission.ts).
+     ⛔ 여기서 빼지 말 것 — 빼는 순간 이 경로만 하루 30점 통을 통째로 우회한다.
+     ℹ️ 10점으로 둔 이유: 유닛 완주(`speech_master` 20점)와 더해 딱 30점이라 같은 날
+        둘 다 받을 수 있다. 20점으로 두면 40 > 30 이라 그날 완주 보상이 막힌다. */
+  'speech_daily',
 ];
 
 const KST_OFF = 9 * 3600 * 1000;

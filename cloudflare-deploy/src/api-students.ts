@@ -16,6 +16,7 @@ import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
+import { speechSentencesToday } from './speech-mission';   // 🎤 «오늘 몇 문장» 정본 — 발음 화면과 같은 셈법
 
 export async function handleStudentsApi(
   request: Request,
@@ -512,7 +513,15 @@ ${MANGOI_KNOWLEDGE}`;
         cnt(`SELECT COUNT(*) n FROM warmup_session_log WHERE user_id = ? AND started_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM review_quiz_results WHERE user_id = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM ai_friend_chats WHERE student_uid = ? AND role = 'user' AND created_at >= ?`, exactUid, d0),
-        cnt(`SELECT COUNT(*) n FROM voice_coaching WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
+        /* 🎤 발음은 «시도» 가 아니라 «서로 다른 문장» 을 센다 — 정본 src/speech-mission.ts.
+           🔴 2026-09-21 까지 여기가 `COUNT(*)` 였다. `voice_coaching` 은 녹음 한 번에 한 행이라
+              같은 문장을 다섯 번 다시 녹음하면 카드가 「5 / 5문장 · 오늘 몫 끝!」이라 말했다
+              (D1 실측: 시도 553 대 문장 252 — ysyt01 9/18 은 21행에 11문장).
+              단위가 「문장」인데 세는 것이 「시도」였던, 화면이 거짓말하던 자리다.
+           ⚠️ 발음 코치 화면의 「오늘 몫」 줄과 **같은 함수** 를 쓴다 — 두 화면이 다른 숫자를
+              말하지 않게. ⛔ 여기에 SQL 을 다시 적지 말 것.
+           ⚠️ 못 세면 0 으로 떨어뜨린다(기존 `cnt()` 와 같은 태도 — 계획 화면이 죽지 않게). */
+        speechSentencesToday(env, exactUid).then((n) => n ?? 0).catch(() => 0),
         cnt(`SELECT COUNT(*) n FROM vocab_quizzes WHERE user_id = ? AND completed = 1 AND completed_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM judgment_events WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),

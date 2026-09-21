@@ -14,6 +14,7 @@ import type { MangoEnv } from './api-mango';
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
 /* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
 import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
+import { SPEECH_MISSION_RULE, SPEECH_MISSION_POINTS } from './speech-mission';   // 🎤 발음 «오늘 몫» 미션 — 코드·금액 정본
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
 import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
@@ -308,6 +309,15 @@ export async function handlePointsApi(
       // 🎙 발음 코칭 세트 완주 — 규칙 자동 시드(없으면 생성). 20점 · 쿨다운 없음 · 하루 5회
       if (ruleCode === 'speech_master') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('speech_master','발음 세트 완주',20,0,5,1,'AI 음성 코칭 한 세트(레벨/단원)를 모두 완주 시 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
+      /* 🎤 발음 «오늘 몫 N문장» 미션 — 하루 한 번. 정본은 src/speech-mission.ts.
+         ⚠️ `daily_cap = 1` 이 **서버 쪽 멱등**이다 — 기기를 바꾸거나 새로고침해도 두 번 안 나간다.
+            화면의 localStorage 표시는 요청을 줄이는 것일 뿐 멱등이 아니다.
+         ⚠️ 금액을 여기 숫자로 다시 적지 말 것 — `SPEECH_MISSION_POINTS` 한 줄이 정본이다.
+         ⛔ `ON CONFLICT DO NOTHING` 이라 **이미 만들어진 규칙의 금액은 안 바뀐다**(다른 시드와
+            같은 규약). 금액을 정말 바꾸려면 사람이 point_rules 를 고쳐야 한다. */
+      if (ruleCode === SPEECH_MISSION_RULE) {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,'발음 오늘 몫 완료',?,0,1,1,'AI 음성 코칭에서 오늘 몫 문장을 다 하면 하루 한 번 지급',?) ON CONFLICT(code) DO NOTHING`).bind(SPEECH_MISSION_RULE, SPEECH_MISSION_POINTS, Date.now()).run();
       }
       // ✏️ 영작 고쳐쓰기 — 첨삭받은 문장을 직접 따라 써서 익히면 지급. 5점 · 하루 5회
       if (ruleCode === 'ai_writing_rewrite') {

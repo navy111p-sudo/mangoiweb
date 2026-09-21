@@ -28,6 +28,7 @@ import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
 import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
+import { speechMissionState } from './speech-mission';   // 🎤 발음 «오늘 몫» 정본 — 화면이 숫자를 지어내지 않게 서버가 내려준다
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2969,10 +2970,19 @@ Respond in JSON ONLY:
         ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
       }
 
+      /* 🎤 「오늘 몫 N문장」 — 채점할 때마다 서버가 다시 세어 내려준다(정본 speech-mission.ts).
+         ⚠️ 화면이 자기 localStorage 로 세지 않는 이유: 기기를 바꾸면 오늘 한 것이 0 이 되고,
+            같은 문장을 다시 녹음한 것을 «문장» 으로 세게 된다(DISTINCT 로 세는 자리가 여기다).
+         ⚠️ 못 세면 null 이 온다 — 화면은 그때 「오늘 몫」 줄을 아예 그리지 않는다(0 이라 말하지 않는다).
+         ⛔ 이 조회가 실패해도 채점 응답은 그대로 나가야 한다(미션은 곁가지다). */
+      let mission: any = null;
+      try { mission = await speechMissionState(env, studentUid); } catch { mission = null; }
+
       return json({
         ok: true,
         scores: { accuracy, pronunciation, fluency, overall },
         tier,
+        mission,
         lang_mismatch: sc.langMismatch,
         acoustic: sc.acoustic,   // 🎧 true=음향 기반 채점, false=텍스트만(구 whisper 폴백 등). 보정 확인용
         phoneme: !!sc.phoneme,   // 🎤 true=Azure 음소 발음평가 반영(소리를 «직접» 잰 점수)
@@ -2994,7 +3004,11 @@ Respond in JSON ONLY:
       const rs = await env.DB.prepare(
         `SELECT id, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, created_at FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
       ).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+      /* 🎤 화면이 «들어오자마자» 오늘 몫을 볼 수 있게 여기에도 싣는다 — 새 경로를 만들지 않으려고
+         이미 등록·인증된 이 경로에 필드만 더했다(src/index.ts 는 공동 금지구역이다). */
+      let vhMission: any = null;
+      try { vhMission = await speechMissionState(env, uid); } catch { vhMission = null; }
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], mission: vhMission });
     }
 
     // ── GET /api/voice/stats?uid=X — 학생별 음성 코칭 통계 (그래프용)
