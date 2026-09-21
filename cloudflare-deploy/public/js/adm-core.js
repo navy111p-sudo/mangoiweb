@@ -5214,6 +5214,10 @@ async function loadFranchises() {
     + `<td style="white-space:nowrap">${_frActCell(f)}</td></tr>`
   ).join('');
   _populateFranchiseSelect(d.items);
+  // 🏛️ (2026-09-18) 등록/수정 폼의 대표지사 칸도 같은 목록으로 채운다 — 지금 골라 둔 값은
+  // 지킨다(수정 폼을 여는 중에 표가 다시 그려지는 경우를 대비).
+  const frMasterSel = document.getElementById('fr-master');
+  if (frMasterSel) { const keep = frMasterSel.value; frMasterSel.innerHTML = _masterOptions(''); if (keep) frMasterSel.value = keep; }
 }
 
 /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03)
@@ -5448,6 +5452,7 @@ function frResetForm() {
   _frEditId = 0;
   const e = id => document.getElementById(id);
   ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
+  if (e('fr-master')) e('fr-master').value = '';
   _ctSetBtnLabel(e('fr-add-btn'), '+ 등록', '+ Register');
   const c = e('fr-cancel-btn'); if (c) c.style.display = 'none';
 }
@@ -5461,6 +5466,8 @@ function frEdit(id) {
   const e = k => document.getElementById(k);
   _frEditId = f.id;
   if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
+  // 🏛️ (2026-09-18) 지금 배정된 대표지사 — 표 칸(assignMasterBranch)과 같은 값(f.master_branch_id).
+  if (e('fr-master')) e('fr-master').value = f.master_branch_id == null ? '' : String(f.master_branch_id);
   // 🪪 (2026-09-15) 화면에 보이는 login_id 는 «추정값» 일 수 있다(admin_scope 접두어 매칭) —
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
@@ -5493,6 +5500,9 @@ async function saveFranchise() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  // 🏛️ (2026-09-18) 대표지사 선택값 — 저장 성공 뒤 kind=master_assign 으로 한 번 더 보낸다
+  // (등록 API 자체는 안 건드린다 — assignMasterBranch 가 이미 하는 일을 그대로 재사용).
+  const masterVal = (e('fr-master')||{}).value || '';
   const loginUsername = (e('fr-login')||{}).value || null;
   // 🔑 (2026-09-17) 비워 두면 «바꾸지 않음» — 항상 보내되 빈 문자열이면 서버가 손을 안 댄다
   // (wantsPasswordAction 판정, api-admin.ts). 저장 성공 뒤 반드시 지운다 — 그대로 두면
@@ -5519,6 +5529,8 @@ async function saveFranchise() {
       alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + err.message);
       return;
     }
+    // 🏛️ (2026-09-18) frResetForm 이 fr-master 값을 지우기 «전» 에 배정을 보낸다.
+    await assignMasterBranch(_frEditId, masterVal);
     frResetForm();
     loadFranchises();
     // 🔑 이름을 바꿨는데 그 지사에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛 이름»
@@ -5539,7 +5551,11 @@ async function saveFranchise() {
     address: e('fr-address').value||null, opened_at: e('fr-opened').value||null
   });
   if (d) {
+    // 🏛️ (2026-09-18) 방금 만든 지사(d.id)에 고른 대표지사를 배정한다 — «미지정» 이면
+    // 새로 만든 지사에는 애초에 매핑 행이 없으므로 부르지 않는다(불필요한 요청 생략).
+    if (masterVal) await assignMasterBranch(d.id, masterVal);
     ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value='');
+    if (e('fr-master')) e('fr-master').value = '';
     loadFranchises();
     // ⚠️ 지사 등록 자체는 성공(d.ok===true)했지만 로그인 계정만 못 만들었을 수 있다
     // (아이디 중복·동명이인 지사 등) — _menuPost 는 ok:true 면 그냥 통과시키므로 여기서 알린다.
@@ -8430,8 +8446,16 @@ function _enDurNote(tr) {
   const box = tr.querySelector('.en-row-dur-note');
   if (!box) return;
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
-  const dur = (tr.querySelector('.en-row-duration')?.value || '');
-  const start = (tr.querySelector('.en-row-start')?.value || '');
+  const durEl = tr.querySelector('.en-row-duration');
+  const startEl = tr.querySelector('.en-row-start');
+  const dur = (durEl?.value || '');
+  const start = (startEl?.value || '');
+  /* 🔴 (2026-09-21) ⑤⑥ 검증 실패 때 두 칸에 빨간 테두리를 준다(위 addEnrollment 참고).
+     그런데 그 테두리를 «지우는» 코드가 어디에도 없어서, 값을 채워도 빨간 테두리가
+     세션 내내 그대로 남았다 — 이제 테두리가 실제로 보이니(setProperty 로 !important 걸어
+     이겼다) 이 방치가 눈에 띈다. 값이 채워진 칸만 지운다(둘 중 하나만 고쳤을 수 있다). */
+  if (dur && durEl) durEl.style.removeProperty('border-color');
+  if (start && startEl) startEl.style.removeProperty('border-color');
   if (!dur) { box.textContent = en ? 'Required' : '필수 선택'; box.style.color = '#b45309'; return; }
   box.style.color = '#9ca3af';
   if (dur === 'unlimited') { box.textContent = en ? 'No end date' : '종료일 없음'; return; }
@@ -9304,6 +9328,24 @@ async function addEnrollment() {
       : '필수 항목 누락 (학생 아이디 + 레벨 구분 최소 1개): ') + invalid.length + '건');
     return;
   }
+  /* 📅 (2026-09-21 사장님 지시) ⑤ 시작일 미선택 — 그전에는 안 골라도 일괄 등록이 그대로 됐고,
+     started_at 이 비면 화면·카톡·CSV·워드 요약(아래 r._started_at_str || new Date()… 자리)이
+     조용히 «오늘» 로 채워 넣어 «시작일을 안 정했는데 수업이 생겼다» 가 됐다. ⑥ 수업 기간과
+     같은 방식(기본값을 몰래 넣지 않고 사람에게 돌려준다)으로 필수로 막는다.
+     multiPlan(🔀 여러 강사로 배정) 조합도 같은 필드(_started_at_str)를 채우므로 그대로 걸린다. */
+  const noStart = records.filter(r => !r._started_at_str);
+  if (noStart.length > 0) {
+    alert(adminLang==='en'
+      ? 'Please pick ⑤ Start date — ' + noStart.length + ' row(s) missing.'
+      : '⑤ 시작일을 선택해 주세요 — ' + noStart.length + '건 미선택');
+    const firstEmptyStart = Array.from(document.querySelectorAll('.en-row-start')).find(s => !s.value);
+    /* 🔴 (2026-09-21) style.borderColor= 는 «작성자 !important» 규칙에 진다 — 이 칸은
+       [id^="card-"] input 계열에 !important 테두리색이 여러 겹 걸려 있어(관리자 화면
+       공통 규칙, admin-inline-c.css 특이성 꼬리) 빨간 테두리를 줘도 안 보였다.
+       setProperty(…, 'important') 로 인라인도 !important 를 걸어야 이긴다. */
+    if (firstEmptyStart) { firstEmptyStart.focus(); firstEmptyStart.style.setProperty('border-color', '#ef4444', 'important'); }
+    return;
+  }
   // 🗓️ (2026-08-14) ⑥ 수업 기간 미선택 — 기본값을 몰래 넣지 않고 사람에게 돌려준다.
   //   실제 학생 등록이고, 기간은 결제 회차·종료일·연장 안내가 모두 읽는 값이다.
   const noDur = records.filter(r => !r._duration);
@@ -9312,7 +9354,8 @@ async function addEnrollment() {
       ? 'Please pick ⑥ Class period (1/3/6/12 months or unlimited) — ' + noDur.length + ' row(s) missing.'
       : '⑥ 수업 기간을 선택해 주세요 (1·3·6·12개월 또는 무기한) — ' + noDur.length + '건 미선택');
     const firstEmpty = Array.from(document.querySelectorAll('.en-row-duration')).find(s => !s.value);
-    if (firstEmpty) { firstEmpty.focus(); firstEmpty.style.borderColor = '#ef4444'; }
+    // 🔴 (2026-09-21) 위 ⑤ 시작일과 같은 이유 — setProperty(…, 'important') 로 걸어야 보인다.
+    if (firstEmpty) { firstEmpty.focus(); firstEmpty.style.setProperty('border-color', '#ef4444', 'important'); }
     return;
   }
   // N=1 이면 단일 등록 + Phase 22 자동 export, N>1 이면 일괄 등록
