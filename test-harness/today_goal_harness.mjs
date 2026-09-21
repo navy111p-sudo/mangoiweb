@@ -11,11 +11,14 @@
 //   이 하니스가 못 박는 것 —
 //     ① 🔴 정본(goalOf)을 esbuild 로 번들해 **실제로 돌린다** — 경계값 0·goal-1·goal·goal+1.
 //        문자열 검사는 「그 줄이 있는가」만 볼 뿐 「무슨 답이 나오는가」는 못 본다.
-//     ② games 는 goal 이 null 이다 — «판» 중앙값이 40초라, 목표로 두면 들락날락도 «달성» 이 된다.
-//        ⛔ 이 줄을 «빠뜨린 것» 으로 읽고 숫자를 채우지 말 것.
+//     ② 📜 games 는 2026-09-21 **오전까지** goal 이 null 이었다 — 「«판» 중앙값이 40초라
+//        목표로 두면 들락날락도 «달성»」이 그 근거였고 지금도 옳다. 같은 날 오후에 세는 단위를
+//        `game_sessions.items`(학습 항목)로 바꾸자 «들락날락 한 판» 은 items 0 이라 안 세어진다.
+//        ⟹ 경계를 「목표가 있다 + «판» 이 아니라 «문제» 로 센다」로 **옮겨 적었다**(느슨하게 푸는 것과 다르다).
+//        ⛔ 단위를 «판» 으로 되돌리지 말 것.
 //     ③ 🔴 「완료」의 뜻이 «오늘 몫을 채웠나» 다 — 2026-09-21 에 바뀌었다. 옛 뜻(«한 번이라도»)
 //        으로 두면 화면이 「✓ 완료」와 「3문장 더!」를 나란히 말하는 자기모순이 된다.
-//        ⛔ 목표 없는 도구(games)까지 막지 않는다 — 짝 검사로 양쪽을 다 본다.
+//        ⛔ «목표 없음» 갈래를 지우지 않는다 — 표에 없는 새 도구가 그리로 떨어진다(짝 검사).
 //     ④ 화면 goalRow 를 **오려 내 실제로 돌려** «무슨 글자가 나오는가» 를 본다 —
 //        진행 중/달성/목표 없음/맛보기 네 경우를 짝으로.
 //     ⑤ 화면이 목표 숫자를 다시 적지 않았다 — 두 곳에 적으면 어긋나는 날 화면이 거짓말한다.
@@ -144,12 +147,26 @@ if (mod) {
   check('소수는 내림한다', at(4.9).count === 4 && at(4.9).reached === false);
   check('단위를 함께 준다(화면이 지어내지 않게)', at(1).unitKo === '문장' && at(1).unitEn === 'sentence');
 
-  /* ── ② games 는 목표를 «말하지 않는다» ── */
-  console.log('\n② games — 목표 없음(빠뜨린 것이 아니다)');
-  check('games.goal 은 null 이다', TOOL_GOALS.games.goal === null, TOOL_GOALS.games);
+  /* ── ② games — 2026-09-21 에 «판» → «문제» 로 바뀌었다 ──
+     📜 이 자리에는 2026-09-21 오전까지 「games.goal 은 null 이다 ⛔ 숫자를 채우지 말 것」이
+        있었다. 그 근거는 「한 판 중앙값이 40초라 «3판» 을 목표로 두면 들락날락도 «달성»」이었고
+        그 반론은 지금도 옳다. ✅ 그런데 같은 날 오후에 세는 단위를 **`game_sessions.items`(학습 항목)**
+        로 바꾸자 그 판은 items 0 이라 한 문제도 안 세어진다 — 반론이 그 자리에서 사라졌다.
+        ⟹ 검사를 «느슨하게 푸는» 것이 아니라 **새 경계로 옮겨 적는다** — 「목표가 있다」 옆에
+           **「«판» 이 아니라 «문제» 로 센다」**를 짝으로 둔다. ⛔ 단위를 «판» 으로 되돌리지 말 것. */
+  console.log('\n② games — «판» 이 아니라 «문제» (2026-09-21 변경)');
+  check('games 에 오늘 몫이 있다', TOOL_GOALS.games.goal >= 1, TOOL_GOALS.games);
+  check('⛔ 단위가 «판» 으로 되돌아가지 않았다 — «문제» 로 센다',
+        TOOL_GOALS.games.unitKo === '문제' && TOOL_GOALS.games.unitEn === 'question', TOOL_GOALS.games);
+  const gG = TOOL_GOALS.games.goal;
+  check('목표를 채우면 달성이라 말한다', goalOf('games', gG).reached === true, goalOf('games', gG));
+  check('짝: 목표 미만은 달성이 아니다', goalOf('games', gG - 1).reached === false, goalOf('games', gG - 1));
   const g99 = goalOf('games', 99);
-  check('게임은 아무리 해도 «목표 달성» 이라 말하지 않는다', g99.reached === false, g99);
   check('그래도 개수는 싣는다(사실은 말한다)', g99.count === 99);
+  /* «목표 없음» 길은 «표에 없는 도구» 로 남아 있다 — 새 도구가 표에 없을 때 그리로 떨어진다 */
+  const unkTool = goalOf('__아직_표에_없는_도구__', 99);
+  check('짝: 표에 없는 도구는 여전히 «목표 없음» 이고 달성이라 말하지 않는다',
+        unkTool.goal === null && unkTool.reached === false, unkTool);
   // 짝 — 목표가 있는 도구는 여전히 달성한다(«전부 목표 없음» 으로 만드는 변이를 잡는다)
   const goalsSet = Object.keys(TOOL_GOALS).filter(k => TOOL_GOALS[k].goal != null);
   check('짝: 목표가 있는 도구가 여럿 남아 있다', goalsSet.length >= 7, goalsSet);
@@ -185,9 +202,16 @@ if (mod) {
   check('짝: 오늘 몫(5마디)을 채우면 «완료» 가 된다', !!full && full.done === true);
   check('짝: 넘겨도 «완료» 가 유지된다', stepOf(buildTodayPlan(inp({ friend: 9 })), 'friend').done === true);
   /* 목표가 없는 도구까지 false 로 떨어뜨리면 games 는 무엇을 해도 영영 «안 한 것» 이 된다 */
+  /* 📜 2026-09-21: games 가 마지막으로 목표를 가졌다(표의 도구 아홉이 전부 goal 이 있다).
+     ⟹ «목표가 없으면 한 번이라도면 완료» 갈래는 buildTodayPlan 으로는 더 닿지 않는다 —
+     ⛔ 그렇다고 그 갈래를 지우지 말 것(표에 없는 새 도구가 그리로 떨어집니다). 두 줄로 나눠 본다. */
   const gm = stepOf(buildTodayPlan({ ...inp({ games: 1 }), dow: 0 }), 'games');
-  check('짝: 목표 없는 도구(games)는 예전 그대로 «한 번이라도» 면 완료',
-        !!gm && gm.done === true && gm.goal === null, gm && { c: gm.count, g: gm.goal, d: gm.done });
+  check('games 도 이제 목표가 있다 — 1문제로는 완료가 아니다',
+        !!gm && gm.goal >= 1 && gm.done === false, gm && { c: gm.count, g: gm.goal, d: gm.done });
+  const gmF = stepOf(buildTodayPlan({ ...inp({ games: TOOL_GOALS.games.goal }), dow: 0 }), 'games');
+  check('짝: 오늘 몫을 채우면 완료가 된다', !!gmF && gmF.done === true, gmF && { c: gmF.count, d: gmF.done });
+  check('⛔ «목표가 없으면 한 번이라도» 갈래가 정본에 그대로 남아 있다(표에 없는 새 도구용)',
+        /goal\s*!=\s*null\s*\)\s*\?\s*reached\s*:/.test(strip(tpSrc)), 'today-plan.ts');
   const gm0 = stepOf(buildTodayPlan({ ...inp({}), dow: 0 }), 'games');
   check('짝: 그 도구도 0개면 완료가 아니다', !!gm0 && gm0.done === false);
   const p0 = buildTodayPlan(inp({}));

@@ -17,6 +17,7 @@ import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { speechSentencesToday } from './speech-mission';   // 🎤 «오늘 몇 문장» 정본 — 발음 화면과 같은 셈법
+import { gameItemsToday, gameMissionState } from './game-mission';   // 🎮 «오늘 몇 문제» 정본 — 게임 허브와 같은 셈법
 
 export async function handleStudentsApi(
   request: Request,
@@ -526,7 +527,16 @@ ${MANGOI_KNOWLEDGE}`;
         cnt(`SELECT COUNT(*) n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM judgment_events WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
-        cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?`, exactUid, d0),
+        /* 🎮 게임은 «판» 이 아니라 «문제»(items) 를 센다 — 정본 src/game-mission.ts.
+           🔴 2026-09-21 까지 여기가 `COUNT(*)`(판 수)였다. 한 판의 중앙값이 40초라
+              **아무것도 안 하고 들락날락한 판도 한 판**으로 세어졌다 — 그래서 목표를
+              둘 수 없었다(TOOL_GOALS.games 가 null 이었던 이유). «문제» 로 세면 그 판은 0이다.
+           ⚠️ `game_sessions` 에는 게임만 있지 않다 — game-track.js 가 warmup·speech-coach·
+              vocab 같은 **학습 도구에도** 실려서, 그대로 세면 「발음 5문장」이 「게임 5문제」로
+              두 번 세어진다. 정본이 TOOLS 표에서 그 목록을 계산해 뺀다.
+           ⛔ 여기에 SQL 을 다시 적지 말 것.
+           ⚠️ 못 세면 0 으로 떨어뜨린다(기존 `cnt()` 와 같은 태도). */
+        gameItemsToday(env, exactUid).then((n) => n ?? 0).catch(() => 0),
         /* 망고아이 시간표 — 정기(요일)와 날짜지정 둘 다. LMS·시드 자리표시는 뺀다(2026-08-24 결정). */
         /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
            (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
@@ -614,6 +624,16 @@ ${MANGOI_KNOWLEDGE}`;
       });
       const dates: string[] = [];
       for (const rs of dateRs) for (const r of ((rs as any)?.results || [])) if (r?.d) dates.push(String(r.d));
+      /* 🎮 게임 허브가 그릴 「오늘 몫」 — 정본 src/game-mission.ts (2026-09-21 C안).
+         ⚠️ `plan.steps` 안에서 찾을 수 없다: 게임은 HOME_WEEK 의 일요일에만 들어 있어
+            **다른 요일에는 그 칸이 아예 없다.** 허브는 요일과 상관없이 늘 그려야 하므로
+            top-level 로 따로 싣는다(새 라우트를 만들지 않으려고 이 응답에 필드만 더했다 —
+            src/index.ts 는 공동 금지구역이다).
+         ⚠️ 위 `doneGames` 와 **같은 함수**를 쓴다 — 카드와 허브가 다른 숫자를 말하지 않게.
+         ⛔ 조회가 실패해도 이 응답은 나가야 한다(미션은 곁가지다). 모르면 null 이고
+            화면은 그때 줄을 아예 그리지 않는다(0 이라 말하지 않는다). */
+      let gamesToday: any = null;
+      try { gamesToday = await gameMissionState(env, exactUid); } catch { gamesToday = null; }
       const res = json({
         ok: true,
         uid: exactUid,
@@ -621,6 +641,7 @@ ${MANGOI_KNOWLEDGE}`;
         today: k.ymd,
         points_today: Number(ptRow?.s || 0),
         ai_streak: aiStreak(dates, k.ymd),
+        games_today: gamesToday,
         plan,
       });
       res.headers.set('Cache-Control', 'private, no-store');   // 이름·수업 시각이 실린 응답 — 캐시 금지

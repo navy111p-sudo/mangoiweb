@@ -70,18 +70,28 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
  *   goal 은 그 도구의 «학생-일 행 수» 실측(2026-09-21)에서 왔다. 중앙값은 «이탈한 날» 까지
  *   섞여 있어 목표로 쓰면 순환논리가 되므로, **p75(잘 한 날)** 를 기준으로 삼고 기억하기
  *   쉬운 수로 맞췄다.  ⟨중앙 / p75⟩ warmup 1/2 · review 1/2 · friend 3/6 · micro 5/9 ·
- *   vocab 5/10 · judgment 3/5 · write 1/1.
+ *   vocab 5/10 · judgment 3/5 · write 1/1 · **games 3/7**(문제 수 — 학습도구·게스트 제외, 0인 날 포함).
  *   ⚠️ speech 만 실측 p75(2)보다 높은 **5** 다 — 2026-09-21 사장님이 정한 값이다
  *      (「매일 최대 5문장씩 미션」). 실측을 덮어쓴 것이 아니라 «사람이 정한 것» 이다.
  *
- * [⛔ games 는 goal 이 null 이다 — 빠뜨린 것이 아니다]
- *   지금 셀 수 있는 것은 `game_sessions` 의 «판 수» 뿐인데 그 중앙값이 40초다.
- *   목표를 «3판» 으로 두면 **아무것도 안 하고 세 번 들락날락한 학생이 «달성»** 이 된다 —
- *   화면이 거짓말을 시작한다. `items`(학습 항목) 로 세는 길도 지금은 막혀 있다:
- *   게임 6종이 그 값을 아예 안 보내서(game-track.js 머리말), 그 게임만 하는 학생에게는
- *   **아무리 해도 안 오르는 막대** 가 된다 — 목표가 없는 것보다 나쁘다.
- *   ⟹ 게임은 개수만 보여 주고 목표는 «말하지 않는다». 되살리려면 먼저
- *      `game_sessions.finished` 의 뜻(지금은 «학습 항목이 있었나»)을 고쳐야 한다.
+ * [🎮 games — «판» 이 아니라 «문제» 로 센다 (2026-09-21 C안에서 바뀜)]
+ *   📜 2026-09-21 오전까지 여기는 `goal: null` 이었고 그 이유를 이렇게 적어 두었다 —
+ *      「셀 수 있는 것은 «판 수» 뿐인데 중앙값이 40초다. «3판» 을 목표로 두면 아무것도
+ *       안 하고 세 번 들락날락한 학생이 «달성» 이 된다」. **그 반론은 지금도 옳다.**
+ *   ✅ 그런데 그것은 «판» 으로 셀 때의 이야기다. **`items`(학습 항목)로 세면** 들락날락한
+ *      판은 0 이라 한 문제도 안 세어진다 — 반론이 그 자리에서 사라진다.
+ *      ⟹ 단위를 «판» → **«문제»** 로 바꾸고 목표를 두었다. 정본 `src/game-mission.ts`.
+ *   🔴 같이 적혀 있던 「게임 6종이 items 를 **아예 안 보낸다**」는 **지금은 사실이 아니다.**
+ *      2026-09-21 실측: 그 6종은 전부 `MangoiGame.answer` 를 부르고 있고, D1 에서 items 가
+ *      0인 게임은 escape-zombie(6판)·language-ace(4판) 둘뿐인데 코드를 열어 보니
+ *      **«판이 끝나거나 20개가 모여야» 보내는 것**이었다(`flushProg`). 즉 «안 오른다» 가
+ *      아니라 **«늦게 오른다»** 다. ⚠️ 그래도 그 두 게임만 하는 학생에게는 막대가 늦다.
+ *   🔴 `game_sessions.finished` 는 여전히 «완주» 가 아니다 — `MangoiGame.finish()` 를 부르는
+ *      게임이 저장소에 **0곳**이라 실제 뜻은 «학습 항목이 있었나» 이고, D1 실측에서 게임
+ *      `finished=1` 과 `items>0` 이 어긋난 행이 0건이었다(전체 1,127행). ⛔ 완주율로 쓰지 말 것(별건).
+ *   ⚠️ 맞바꿈 — «게임을 켰지만 한 문제도 안 푼 날» 은 이제 0 으로 보인다(실측 학생-일 43 중
+ *      **15일·35%** — 학습도구·게스트 제외). 그것이 사실이고, 바로 그 15일이
+ *      사장님이 말한 「몇 번 하다가 나가요」다.
  *
  * [⛔ 새 표·새 집계를 만들지 않았다]
  *   `PlanInput.done` 이 이미 **개수** 로 오고 있었고(api-students.ts 가 COUNT 로 센다)
@@ -89,7 +99,8 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
  *
  * [단위 — «한 행이 무엇인가» 를 세는 표에서 확인하고 적었다]
  *   warmup 세션 1개 · review 제출 1회 · friend 학생 발화 1개 · speech 문장 1개(녹음 채점) ·
- *   **micro 문항 1개** · vocab 낱말 1개 · judgment 문항 1개 · write 첨삭 1건 · games 판 1개.
+ *   **micro 문항 1개** · vocab 낱말 1개 · judgment 문항 1개 · write 첨삭 1건 ·
+ *   **games 는 «행» 이 판이지만 세는 것은 그 행의 `items` 합(=문제 수)이다**(2026-09-21 C안).
  *   ⚠️ micro 를 «판» 이라 적었다가 고쳤다(2026-09-21 함정 대조) — `vocab_quizzes` 는
  *      INSERT 도 UPDATE(completed=1) 도 **문항 하나씩** 돌고(api-games.ts), 화면은 한 판에
  *      5문항을 요청한다(micro-quiz.html `count: 5`). D1 실측도 한 분에 5·5·5행이었다.
@@ -120,7 +131,7 @@ export const TOOL_GOALS: Record<ToolKey, ToolGoal> = {
   vocab:    { goal: 10,   unitKo: '낱말', unitEn: 'word' },
   judgment: { goal: 5,    unitKo: '문항', unitEn: 'question' },
   write:    { goal: 1,    unitKo: '편',   unitEn: 'piece' },
-  games:    { goal: null, unitKo: '판',   unitEn: 'round' },   // ⛔ 위 «games 는 null» 주석을 읽을 것
+  games:    { goal: 5,    unitKo: '문제', unitEn: 'question' },  // ⛔ «판» 이 아니다 — 위 [🎮 games] 주석
 };
 
 /**

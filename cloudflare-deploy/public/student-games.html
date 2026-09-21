@@ -69,6 +69,30 @@
   .hub-head h1 .em{color:#047857}
   .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
 
+  /* ===== 🎮 오늘 몫 한 줄 (2026-09-21, C안) =====
+     사장님: «게임을 하면 내가 얼만큼 더해야하는지 얼마나 남았는지 시각적으로 보이면 좋겠어요.
+              무작정 언제까지 해야 끝나는지 모르니 몇번하다가 나가게돼요.»
+     ⛔ 숫자·단위를 여기나 화면 코드에 적지 않는다 — 서버(TOOL_GOALS → game-mission.ts)가 준다.
+     ⛔ 채움을 인라인 span 으로 두지 않는다 — 인라인 요소는 width·height 를 무시해서
+        «색도 폭도 코드엔 있는데 화면이 텅 비는» 사고가 난다. display:block 을 못 박는다.
+     ⛔ 글자 줄은 <p>(블록)로 둔다 — flex 로 감싸면 짧은 문장이 낱글자로 쪼개진다.
+     ⚠️ 이 화면은 «밝은» 바탕이다(rec-card 가 흰 카드다) — 글자는 어두운 색이어야 읽힌다.
+     ⚠️ 좌우 auto 마진은 여기서는 안전하다(#hub-menu 는 grid 가 아니다 — 브라우저로 실측).
+        ⛔ 그래도 부모를 grid 로 바꾸게 되면 그 순간 «글자 폭» 으로 쪼그라든다(CLAUDE.md 2장). */
+  /* 🔴 `display:none` 을 «기본값» 으로 두지 말 것 — `el.hidden=false` 로는 안 열린다
+        (작성자 CSS 가 이긴다). 숨김은 `[hidden]` 한 곳으로만 한다. 브라우저 실측에서
+        세 폭 모두 «칸 0px · 채움 0px» 로 나왔다 — 화면에 아무것도 없었다. */
+  #gm-today{display:block;width:min(720px,calc(100% - 8px));margin:10px auto 2px;padding:12px 18px;
+    background:rgba(255,255,255,.92);border:1.5px solid rgba(251,191,36,.55);border-radius:18px;
+    box-shadow:0 6px 20px -6px rgba(11,42,94,.18);text-align:left}
+  #gm-today[hidden]{display:none !important}
+  #gm-today .gmt-t{margin:0 0 7px;font-size:14px;font-weight:800;color:#8a4b04;line-height:1.4}
+  #gm-today .gmt-t.hit{color:#166534}
+  #gm-today .gmt-track{display:block;height:8px;border-radius:99px;overflow:hidden;background:rgba(11,42,94,.14)}
+  #gm-today .gmt-fill{display:block;height:100%;min-width:6px;border-radius:99px;
+    background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .45s cubic-bezier(.3,1,.4,1)}
+  #gm-today .gmt-fill.hit{background:linear-gradient(90deg,#34d399,#059669)}
+
   /* ===== 🎯 오늘의 추천 카드 (맞춤 피드백 루프) — 로그인 학생 + 데이터 있을 때만 표시 ===== */
   #rec-card{display:none;width:min(720px,calc(100% - 8px));margin:4px auto 12px;padding:14px 18px;
     background:rgba(255,255,255,.92);border:1.5px solid rgba(251,191,36,.55);border-radius:18px;
@@ -639,6 +663,14 @@
           background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.5);color:#8ef0c4;
           font-size:15px;font-weight:800;width:fit-content"></div>
       </div>
+    </div>
+
+    <!-- 🎮 오늘 몫 — 서버가 «오늘 게임에서 푼 문제 수» 를 세어 내려준다(정본 src/game-mission.ts).
+         ⚠️ 모르면(비로그인·조회 실패) 아예 그리지 않는다. 0 이라고 말하지 않는다.
+         ⚠️ «판» 이 아니라 «문제» 다 — 들락날락한 판은 한 문제도 안 세어진다. -->
+    <div id="gm-today" hidden>
+      <p class="gmt-t" id="gm-today-t"></p>
+      <span class="gmt-track"><span class="gmt-fill" id="gm-today-fill" style="width:0"></span></span>
     </div>
 
     <!-- 🎯 오늘의 추천 — /api/games/recommend 진단(정오답·발음) 기반 맞춤 안내. 데이터 없으면 숨김 -->
@@ -3582,6 +3614,65 @@ _hubPlayIntroAudio();   // 🔊 게임 메뉴 진입 안내음성 자동재생(�
     btn.style.display = 'inline-flex';
     card.style.display = 'block';
   }
+  /* 🎮 오늘 몫 N문제 (2026-09-21, C안) — 정본 src/game-mission.ts · 까닭은 docs/작업기록/260921_게임_오늘몫_문제수로_보이기.md
+     ⛔ 숫자·단위를 여기 적지 않는다(서버가 준다) ⛔ localStorage 로 세지 않는다
+     ⛔ 다 채워도 잠그지 않는다 ⚠️ 모르면 줄을 아예 안 그린다(0 이라 말하지 않는다) */
+  var _gmToday = null;
+  function _gmIsEn(){
+    /* 🌐 이 화면엔 window.getLang 이 «없다»(mango-i18n.js 를 안 싣는다 — 2026-09-21 실측).
+       저장값 mangoi_lang 이 사실상 정본이고 toggleSiteLang() 도 그것을 쓴다.
+       ⚠️ getLang 줄은 남긴다(공용 엔진이 실리는 날 그쪽이 정본). ⚠️ GAME_LANG 과는 다른 축. */
+    try{ if(typeof window.getLang === 'function') return getLang() === 'en'; }catch(_){}
+    try{ return (localStorage.getItem('mangoi_lang') || '') === 'en'; }catch(_){ return false; }
+  }
+  function _gmRender(m){
+    var box = document.getElementById('gm-today');
+    if(!box) return;
+    if(!m || !m.goal){ box.hidden = true; return; }
+    var en = _gmIsEn(), hit = !!m.reached;
+    var t = document.getElementById('gm-today-t'), f = document.getElementById('gm-today-fill');
+    var pct = Math.max(0, Math.min(100, Math.round(m.count / m.goal * 100)));
+    if(t){
+      t.textContent = hit
+        ? (en ? ('\uD83C\uDF89 ' + "Today's goal done! " + m.count + ' ' + (m.unitEnPl || m.unitEn) + ' \u2014 play more if you like!')
+              : ('\uD83C\uDF89 \uC624\uB298 \uBAAB \uB05D! ' + m.count + m.unitKo + ' \u00B7 \uB354 \uD574\uB3C4 \uC88B\uC544\uC694'))
+        : (en ? (m.count + ' / ' + m.goal + ' ' + (m.unitEnPl || m.unitEn) + ' \u00B7 ' + m.left + ' to go')
+              : (m.count + ' / ' + m.goal + m.unitKo + ' \u00B7 ' + m.left + m.unitKo + ' \uB354!'));
+      t.className = 'gmt-t' + (hit ? ' hit' : '');
+    }
+    if(f){ f.style.width = pct + '%'; f.className = 'gmt-fill' + (hit ? ' hit' : ''); }
+    box.hidden = false;
+  }
+  /* 이미 등록·인증된 /api/student/today 에 필드만 얹었다(새 경로 = src/index.ts = 금지구역).
+     ⚠️ plan.steps 에서 찾지 않는다 — 게임 칸은 일요일에만 있다.
+     ⚠️ 실패하면 아무것도 안 그린다(줄이 없는 것이 틀린 숫자보다 낫다). */
+  function _gmLoad(){
+    var uid = _gameUid(); if(!uid) return;
+    var tok = ''; try{ tok = localStorage.getItem('mango_token') || ''; }catch(_){}
+    if(!tok) return;
+    fetch('/api/student/today?uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if(d && d.ok && d.games_today){ _gmToday = d.games_today; _gmRender(_gmToday); } })
+      .catch(function(){});
+  }
+  try{ _gmLoad(); }catch(_){}
+  /* 🌐 🔴 이 화면엔 mangoi:lang-changed 를 «발행하는 곳이 없다»(2026-09-21 실측 — mango-i18n.js 를
+     안 싣고 i18n-sweep.js 는 <html lang> 만 본다). 듣기만 하면 한 번도 안 불리는 죽은 배선이다.
+     ✅ 그래서 토글을 밖에서 감싼다(인라인 onclick 은 언제나 window 에서 이름을 찾는다).
+     ⛔ <html lang> 을 상주 MutationObserver 로 지켜보지 말 것. ⚠️ 발행처가 생기는 날을 위해 둘 다 듣는다. */
+  try{
+    var _gmOldToggle = window.toggleSiteLang;
+    if(typeof _gmOldToggle === 'function'){
+      window.toggleSiteLang = function(){
+        var r = _gmOldToggle.apply(this, arguments);   // ⛔ 원래 토글을 반드시 먼저 — 저장값이 바뀐 뒤에 다시 그려야 한다
+        try{ if(_gmToday) _gmRender(_gmToday); }catch(_){}
+        return r;
+      };
+    }
+  }catch(_){}
+  try{ window.addEventListener('mangoi:lang-changed', function(){ if(_gmToday) _gmRender(_gmToday); }); }catch(_){}
+  try{ document.addEventListener('mangoi:lang-changed', function(){ if(_gmToday) _gmRender(_gmToday); }); }catch(_){}
+
   function _recLoad(){
     var uid = _gameUid(); if(!uid) return;
     fetch('/api/games/recommend?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG)
