@@ -36,10 +36,30 @@ function imageMeta(s,m,key){if(m){s.image=m.url;s.imageBytes=m.bytes;s.key=key;}
 /* 🖼 그림 설명 — 그 그림을 만들 때 쓴 지시문. «이 그림에 무엇이 그려져 있는가» 의 유일한 근거다.
    ⛔ 문장에 낱말이 들어 있다는 사실은 근거가 아니다(그림은 문장 «전체» 를 보고 만들었고,
       대개 그 문장의 다른 낱말을 그린다 — 「Your backpack looks nice.」 의 그림은 가방이다). */
+/* 🖼 2026-09-21 사장님 지시(그림문자 카드를 실사 사진으로) — 낱말마다 «그 낱말을 그린» 사진 한 장.
+   ⛔ 「사진이 있으니 붙인다」가 아닙니다 — 아래 depicts() 가 «그 사진의 설명이 이 낱말을 가리키는가» 를
+      다시 확인할 때만 붙습니다(판정 정본은 scripts/scene-picture-evidence.mjs 한 곳).
+   ⛔ 이 설명들을 assets 에 «섞지» 마세요 — assetIndex·contextImages·manifest.assets 가 그 배열을 씁니다.
+      껍데기 낱말만 함께 세도록 pictureEvidence 에만 이어 붙입니다.
+   ⚠️ 파일이 없으면 표에 있어도 안 붙입니다 — 표만 늘리고 그림을 커밋에 안 담으면 조용히 빈 그림이 됩니다
+      (2026-08-31 Lily 얼굴이 그렇게 며칠 동안 옛 얼굴로 돌았습니다). */
+const wordImageDir=path.join(root,'cloudflare-deploy/public/img/scene-words');
+const wordImagePlan=fs.existsSync(path.join(inputs,'word-image-plan.json'))?read('word-image-plan.json'):[];
+const wordImages=[],wordAssets=[];
+for(const it of wordImagePlan){
+ const file=path.join(wordImageDir,it.index+'.webp');
+ if(!fs.existsSync(file))continue;
+ wordImages.push({word:it.word,index:it.index,bytes:fs.statSync(file).size});
+ wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});
+}
 const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 /* 🖼 판정 정본은 scripts/scene-picture-evidence.mjs 한 곳 — 회귀 검사도 같은 모듈을 돌린다.
    ⛔ 여기에 판정을 다시 적지 마세요(한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다). */
-const {describe,depicts}=pictureEvidence({assets,clips,sceneText});
+const {describe,depicts}=pictureEvidence({assets:assets.concat(wordAssets),clips,sceneText});
+/* 🖼 낱말 사진 — «그 설명이 이 낱말을 가리킬 때만» 씁니다. 못 가리키면 목록에서 빠집니다. */
+const wordScene=new Map();
+for(const it of wordImages){const key='word-image:'+it.index;if(!depicts(it.word,key))continue;
+ wordScene.set(it.word,{id:'w'+it.index,refs:[],image:'/img/scene-words/'+it.index+'.webp',imageBytes:it.bytes,key});}
 const scenes=new Map();
 for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);const key=fallback||('word-image:'+index);imageMeta(s,lookup.get(key),key);scenes.set(s.id,s);}
 const clipRows=[];
@@ -76,6 +96,10 @@ for(const book of books){
       ⛔ 남의 교재 문장도 쓰지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길이다. */
    const source=all.get(id(row.bookExample));
    chosen=scenes.get(source.id)||{id:source.id,text:source.text,source:book.label+' · #'+row.sourceIndex,refs:source.refs};
+   /* 🖼 그 예문에도 그림이 없을 때만 낱말 사진을 씁니다 — 있는 상황 그림을 밀어내지 않습니다.
+      ⛔ 순서를 앞으로 옮기지 마세요(🏞 예문 상황 그림이 통째로 사라집니다). */
+   if(!chosen.image){const ws=wordScene.get(word);
+    if(ws){chosen={...ws,source:book.label+' · #'+row.sourceIndex};pictures=1;}}
   }
   /* 🎨 사진이 하나도 없으면 «그림 없음» 이 아니라 화면이 그리는 낱말 그림카드가 붙는다(모든 낱말에 그림).
      여기서는 그 줄이 몇 개인지와, 그 가운데 «뜻에 맞는 그림문자» 를 받는 줄이 몇 개인지만 센다. */

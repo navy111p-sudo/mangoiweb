@@ -63,11 +63,31 @@ for(const [series,file,name] of [['bts','speech-data-bts.js','BTS_SENTENCES'],['
 }
 const plan=name=>JSON.parse(fs.readFileSync(new URL('../../docs/scene-curriculum-media/'+name,root),'utf8'));
 const scenePlan=plan('scene-plan.json'),assetPlan=plan('asset-plan.json'),clipPlan=plan('clip-plan.json'),contextPlan=plan('context-images.json').images;
-const {describe,depicts}=EV.pictureEvidence({assets:assetPlan,clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
+/* 🖼 2026-09-21 사장님 지시(그림문자 카드를 실사 사진으로) — 낱말마다 «그 낱말을 그린» 사진 한 장.
+   ⛔ 빌드가 만든 payload 를 되짚지 않고 «여기서 다시» 고릅니다 — 되짚기만 하면 근거 게이트를
+      «항상 참» 으로 열어도 전부 초록입니다(2026-09-21 함정 대조 실측).
+   ⚠️ 표에 있어도 그림 파일이 없으면 세지 않습니다 — 표만 늘리고 그림을 커밋에 안 담으면
+      조용히 빈 그림이 됩니다(2026-08-31 Lily 얼굴). */
+const wordImageDir=new URL('img/scene-words/',root);
+const wordImagePlan=plan('word-image-plan.json');
+const wordAssets=[],wordFile=new Map();
+for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(!fs.existsSync(p))continue;
+ wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
+ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
+const {describe,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
+/* 🖼 「설명이 그 낱말을 가리킬 때만」 — 껍데기 낱말(natural·clear·soft…)은 여기서 떨어집니다. */
+const wordSceneOf=new Map(),wordSceneBytes=new Map();
+for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;if(!depicts(it.word,'word-image:'+it.index))continue;
+ wordSceneOf.set(it.word,'w'+it.index);wordSceneBytes.set('w'+it.index,wordFile.get(it.index));}
+ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 통과한다 ('+wordSceneOf.size+'/'+wordAssets.length+')');
+{const shellWord=wordImagePlan.filter(it=>wordFile.has(it.index)&&!wordSceneOf.has(it.word)).map(it=>it.word);
+ ok(shellWord.length>0,'껍데기 낱말은 사진이 있어도 «낱말 그림» 이 되지 않는다 — 0이면 게이트가 열린 것');
+ for(const w of shellWord)ok(EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt)).has(w),'거부된 까닭은 껍데기 낱말이어서다: '+w);}
 const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
 const mediaKey=new Map();
 for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
 for(const c of clipPlan)mediaKey.set(c.id,'clip-image:'+(c.reuseClip||c.index));
+for(const sid of wordSceneOf.values())mediaKey.set(sid,'word-image:'+sid.slice(1));
 /* 🔁 빌드가 고른 것을 «여기서 다시 골라» 맞춰 본다 — 안 그러면 이미 만들어진 payload 를 같은 모듈로
    되짚기만 해서, 근거 게이트를 «항상 참» 으로 열어도 전부 초록이 됩니다(2026-09-21 함정 대조 실측).
    ⛔ 그래서 «붙인다» 와 «안 붙일 때는 정말 근거가 없다» 를 짝으로 봅니다. */
@@ -83,8 +103,14 @@ const depictPool=new Map();
 for(const [sid,text] of sceneOwnText){if(!sceneHasImage.get(sid))continue;
  for(const w of contentWords(text)){if(!depicts(w,mediaKey.get(sid)))continue;if(!depictPool.has(w))depictPool.set(w,[]);depictPool.get(w).push(sid);}}
 ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 한다 — 갑자기 많아지면 게이트가 열린 것 ('+depictPool.size+')');
-ok([...describe.values()].filter(t=>t.trim()).length<assetPlan.length/2,
- '그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
+/* ⚠️ «문장 그림» 과 «낱말 사진» 을 갈라서 셉니다 — 낱말 사진은 처음부터 설명이라 섞으면
+   「대부분이 틀이다」가 저절로 깨져, 정작 지키려던 메아리 게이트를 아무도 안 보게 됩니다. */
+{const sentenceKeys=new Set(assetPlan.map(x=>'word-image:'+x.index));
+ ok([...describe].filter(([k,t])=>sentenceKeys.has(k)&&t.trim()).length<assetPlan.length/2,
+  '문장 그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
+ const wordKeys=wordAssets.map(x=>'word-image:'+x.index);
+ ok(wordKeys.filter(k=>(describe.get(k)||'').trim()).length>wordKeys.length*0.9,
+  '낱말 사진 설명은 메아리가 아니라 진짜 설명이다 — 「짝」 검사(앞줄만 있으면 전부 버려도 통과)');}
 eq(live.wordPictureForms+live.contextOnlyForms+live.cardOnlyForms,live.wordForms,
  '낱말 형태를 «낱말 그림 / 상황 그림만 / 그림카드만» 으로 갈라서 센다');
 ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
@@ -96,7 +122,7 @@ ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
       ① 사진을 «낱말 그림» 이라고 부르는 줄은 여전히 근거가 있어야 하고 소수여야 한다
       ② 사진이 없는 줄은 카드로 채워진다(빈 상자 0줄)
       ③ 카드는 사진인 척하지 않는다(그 줄에는 image 가 없다) */
-const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,card:0};let cardExact=0;
+const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,card:0};let cardExact=0;let wordPhotoRows=0;
 /* 🖼 「그 교재 안에 그림 있는 예문이 있으면 그것을 예문으로 고른다」를 여기서 다시 계산해 맞춰 본다.
    ⛔ 「그림만 빌려 오기」와 다릅니다 — 예문 자체를 바꿔 그림과 예문이 언제나 짝입니다. */
 const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage.get(sid))imagedText.add(text);
@@ -127,11 +153,23 @@ for(const entry of live.books){
    ok(s.text===shown,'그림카드 줄에서도 예문은 그 교재의 예문이다: '+w.word);
    const art=D.pictogram(w.word);
    ok(art&&art.icon&&art.icon.length>0,'그림카드에 그릴 그림문자가 반드시 나온다: '+w.word);
+   /* 🎨 남은 카드 줄은 «사진을 안 만든 낱말»(고유명사)이거나 «껍데기 낱말» 뿐이다.
+      ⛔ 사진이 있는데 카드로 남겨 두면 여기서 빨간불이 난다. */
+   ok(!wordSceneOf.has(w.word),'사진이 있는 낱말을 카드로 남겨 두지 않는다: '+w.word);
    if(art.exact)cardExact++;}
   /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
-  eq(!!w.pic,depictPool.has(w.word),'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
-  if(w.pic)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
-  if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
+  /* 🖼 빌드 규칙을 그대로 다시 씁니다 — ① 문장 그림에 근거가 있으면 그것 ② 없고 예문에도 그림이
+     없을 때만 낱말 사진. ⛔ ②를 ① 앞으로 옮기지 마세요(🏞 예문 상황 그림이 통째로 사라집니다). */
+  const byWordPhoto=!depictPool.has(w.word)&&!imagedText.has(shown)&&wordSceneOf.has(w.word);
+  eq(!!w.pic,depictPool.has(w.word)||byWordPhoto,'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
+  if(w.pic&&depictPool.has(w.word))ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
+  if(byWordPhoto){wordPhotoRows++;
+   eq(w.scene,wordSceneOf.get(w.word),'그 낱말의 사진을 골랐다: '+w.word);
+   ok(!s.text,'낱말 사진에는 문장이 실리지 않는다(남의 교재 문장이 새는 길): '+w.word);
+   ok(s.image==='/img/scene-words/'+String(w.scene).slice(1)+'.webp','낱말 사진은 우리 저장소 주소다: '+s.image);
+   eq(s.imageBytes,wordSceneBytes.get(w.scene),'낱말 사진 크기가 실제 파일과 같다: '+w.word);}
+  else ok(!String(w.scene).startsWith('w'),'낱말 사진은 «그림이 없던 자리» 에만 붙는다: '+b.id+' / '+w.word);
+  if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^(https:\/\/|\/img\/)/.test(s.image),'picture is https or our own asset path: '+s.image);}
   /* 🎨 빈 상자가 없다 — 사진(낱말·상황)이거나 우리가 그린 카드이거나 둘 중 하나다. */
   ok(!!s.image||!!D.pictogram(w.word).icon,'모든 낱말 줄에 그림이 붙는다: '+b.id+' / '+w.word);
   const spots=sentenceOf.get(w.word)||[];
@@ -149,7 +187,14 @@ ok(claimed.card>0,'사진이 없는 줄은 그림카드로 채운다 — 0이면
 eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자» 줄 수가 실제와 같다');
 /* ⛔ 목표치가 아니라 «바닥» 입니다 — 표를 비우거나 stem 을 죽이면 여기서 먼저 빨간불이 납니다.
    숫자를 올리려고 갈래 그림문자를 exact 로 바꾸지 마세요(그게 「갈래를 뜻으로 읽게 두는」 함정입니다). */
-ok(cardExact>claimed.card/2,'그림카드 줄의 절반 넘게는 그 낱말 뜻에 맞는 그림문자를 받는다 ('+cardExact+'/'+claimed.card+')');
+/* 🎨 2026-09-21 — 카드 줄이 5,171 → 14 로 줄어 «카드 줄의 절반» 은 표본이 너무 작아졌습니다
+   (남은 14줄은 고유명사 7 + 껍데기 낱말 7 이라 비율이 곧 반반입니다).
+   ⛔ 느슨하게 풀지 말고 그 검사가 «정말 지키던 것»(그림문자 표가 살아 있는가)으로 옮겨 적습니다 —
+      표를 비우거나 stem 을 죽이면 4,546 낱말 전체에서 먼저 빨간불이 납니다. */
+{const exactForms=[...seen].filter(w=>D.pictogram(w).exact).length;
+ ok(exactForms>seen.size*0.4,'그림문자 표가 낱말 형태의 40% 넘게를 뜻으로 맞힌다 ('+exactForms+'/'+seen.size+')');}
+ok(wordPhotoRows>1000,'낱말 사진이 실제로 붙은 줄이 많다 — 0에 가까우면 배선이 죽은 것 ('+wordPhotoRows+')');
+ok(claimed.card<claimed.word/100,'그림문자 카드로 남은 줄은 이제 아주 적다 ('+claimed.card+'/'+claimed.word+')');
 ok(claimed.word>0&&claimed.word<claimed.word+claimed.context+claimed.card,'근거 있는 낱말 그림은 여전히 소수다');
 eq(pictures.size,live.wordPictureForms+live.contextOnlyForms,'사진이 붙은 낱말 형태 수');
 eq(seen.size-pictures.size,live.cardOnlyForms,'나머지 낱말 형태는 모두 그림카드를 받는다');
