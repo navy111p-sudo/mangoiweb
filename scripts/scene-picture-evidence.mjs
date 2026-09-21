@@ -124,3 +124,28 @@ export function pictureEvidence({assets,clips,sceneText}){
  const {describe,shell}=describeMedia({assets,clips,sceneText});
  return {describe,shell,depicts:makeDepicts(describe,shell)};
 }
+
+/* 🖼 낱말 그림 — 그 낱말 «하나» 를 보여 주려고 일부러 만든 그림(문장 삽화가 아니다).
+ * 위의 assets/clips 는 문장을 그린 것이라 «무엇이 그려졌나» 를 설명에서 캐내야 했지만,
+ * 이쪽은 만들 때부터 «이 낱말» 이라고 선언돼 있다. ⛔ 그래도 그 선언만 믿지 않는다 —
+ * 복사해 붙이다 낱말만 바뀌면 선언과 그림이 어긋나 남의 낱말을 보여 준다(에러는 안 난다).
+ * ✅ 그래서 셋을 «전부» 만족할 때만 붙인다:
+ *    ① 계획이 그 낱말을 선언했다 ② 그 프롬프트가 실제로 그 낱말을 부른다(변형형까지)
+ *    ③ 그 낱말이 이 묶음의 «껍데기» 가 아니다(= 거의 모든 낱말 그림에 나오는 말이면
+ *       이 그림에 대해 아무것도 말해 주지 않는다 — 틀 문구가 바로 그렇다).
+ * ⛔ 껍데기는 이 묶음 «안에서만» 센다 — 문장 삽화와 섞어 세면 틀 문구가 80%에 못 미쳐
+ *    껍데기로 안 잡히고, 반대로 문장 삽화 쪽 껍데기(natural·photograph…)가 여기로 새어 온다. */
+export function wordPictureEvidence(wordPictures){
+ const list=(wordPictures||[]).filter(w=>w&&w.word&&w.prompt);
+ const shell=shellTokens(list.map(w=>w.prompt));
+ const keyOf=new Map();
+ for(const w of list){
+  const word=String(w.word).toLowerCase();
+  if(shell.has(word))continue;
+  const set=new Set(tokens(w.prompt).filter(t=>!shell.has(t)));
+  let names=false;for(const v of variants(word)){if(set.has(v)){names=true;break;}}
+  if(!names)continue;
+  keyOf.set(word,'word-pic:'+w.index);
+ }
+ return {shell,keyFor:word=>keyOf.get(String(word).toLowerCase())||''};
+}

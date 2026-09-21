@@ -5,12 +5,15 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import {fileURLToPath} from 'node:url';
-import {pictureEvidence} from './scene-picture-evidence.mjs';
+import {pictureEvidence,wordPictureEvidence} from './scene-picture-evidence.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const inputs=path.join(root,process.argv[2]||'docs/scene-curriculum-media');
 const read=name=>JSON.parse(fs.readFileSync(path.join(inputs,name),'utf8'));
 const selected=read('scene-plan.json'),assets=read('asset-plan.json'),clips=read('clip-plan.json'),media=read('optimized-media.json');
 const excluded=new Set(read('excluded-media.json'));
+/* 🖼 낱말 그림 계획 — 그 낱말 하나를 보여 주려고 일부러 만든 그림(문장 삽화가 아니다).
+   ⛔ 없으면 «옛 동작 그대로» 여야 한다(파일이 빠졌다고 빌드가 죽으면 안 된다). */
+const wordPictures=fs.existsSync(path.join(inputs,'word-picture-plan.json'))?read('word-picture-plan.json'):[];
 const contextImages=read('context-images.json').images;
 const stop=new Set(read('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 const words=text=>[...new Set((text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stop.has(w)))];
@@ -37,6 +40,21 @@ const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 /* 🖼 판정 정본은 scripts/scene-picture-evidence.mjs 한 곳 — 회귀 검사도 같은 모듈을 돌린다.
    ⛔ 여기에 판정을 다시 적지 마세요(한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다). */
 const {describe,depicts}=pictureEvidence({assets,clips,sceneText});
+/* ⛔ 낱말 그림의 껍데기는 «그 묶음 안에서만» 센다 — 정본이 그렇게 하므로 여기서 다시 세지 않는다. */
+const wordPicKey=wordPictureEvidence(wordPictures).keyFor;
+/* 🖼 낱말 그림은 «우리 저장소» 에 둔다(/img/scene-words/*.webp).
+   ⛔ 남의 CDN 주소를 payload 에 박지 마세요 — 주소가 만료되면 그림이 통째로 사라지고,
+      중국 회선에서 막히면 그 학생들만 조용히 빈 칸을 봅니다(CLAUDE.md 2장).
+   ⛔ 계획에만 있고 «파일이 커밋에 안 담긴» 그림은 붙이지 않는다 — 조용히 폴백한다.
+      그 누락은 빌드가 아니라 회귀 검사가 잡는다(scene_curriculum_harness 의 existsSync). */
+const imgRoot=path.join(root,'cloudflare-deploy/public/img');
+const wordPicMedia=new Map();let wordPicMissing=0;
+for(const w of wordPictures){
+ const rel=String(w.file||'');if(!rel){wordPicMissing++;continue;}
+ const abs=path.join(imgRoot,rel);
+ if(!fs.existsSync(abs)){wordPicMissing++;continue;}
+ wordPicMedia.set('word-pic:'+w.index,{url:'/img/'+rel,bytes:fs.statSync(abs).size});
+}
 const scenes=new Map();
 for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);const key=fallback||('word-image:'+index);imageMeta(s,lookup.get(key),key);scenes.set(s.id,s);}
 const clipRows=[];
@@ -45,7 +63,7 @@ const candidates=new Map();
 for(const s of scenes.values())for(const w of words(s.text)){if(!candidates.has(w))candidates.set(w,[]);candidates.get(w).push(s);}
 const dir=path.join(root,'cloudflare-deploy/public/data/scene-curriculum/v1');fs.mkdirSync(dir,{recursive:true});
 const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,contextOnlyForms:0,noPictureForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
-const unique=new Set(),wordPictured=new Set(),contextPictured=new Set(),usedImages=new Set();let maxBook=0,maxGzip=0,rowWord=0,rowContext=0,rowNone=0,rowUndescribed=0;
+const unique=new Set(),wordPictured=new Set(),contextPictured=new Set(),usedImages=new Set(),wordPicUrls=new Set();let maxBook=0,maxGzip=0,rowWord=0,rowContext=0,rowNone=0,rowUndescribed=0;
 for(const book of books){
  const vocab=new Map();book.sentences.forEach((text,i)=>words(text).forEach(w=>{if(!vocab.has(w))vocab.set(w,{word:w,sourceIndex:i+1,bookExample:text});}));
  const data={id:book.id,label:book.label,title:book.title,topic:book.topic,words:[],clips:[],scenes:{}};
@@ -55,10 +73,14 @@ for(const book of books){
      옛 기준은 그림이 있는 쪽을 먼저 골라서, 「nice」 에 「Your backpack looks nice.」 의 가방 사진을 붙였다.
      ⛔ 근거가 없으면 붙이지 않는다 — 억지로 붙인 그림은 없는 것보다 나쁘다(아이가 그 뜻으로 외운다). */
   const inBook=s=>s.refs.some(r=>r[0]===book.id);
-  const pool=(candidates.get(word)||[]).filter(s=>s.image&&depicts(word,s.key));
+  /* 🖼 1순위는 «그 낱말을 보여 주려고 일부러 만든» 낱말 그림이다(2026-09-21 사장님 「okay」 카드).
+     문장 삽화와 달리 무엇이 그려졌는지 캐낼 필요가 없고, 예문은 이 교재의 교재 예문을 그대로 쓴다.
+     ⛔ 근거(프롬프트가 그 낱말을 부르는가)는 정본 wordPictureEvidence 가 이미 걸렀다. */
+  const wpKey=wordPicKey(word),wp=wpKey?wordPicMedia.get(wpKey):null;
+  const pool=wp?[]:(candidates.get(word)||[]).filter(s=>s.image&&depicts(word,s.key));
   pool.sort((a,b)=>Number(!inBook(a))-Number(!inBook(b))||a.text.length-b.text.length||(a.id<b.id?-1:1));
   let chosen=pool[0],pictures=1;
-  if(!chosen){pictures=0;
+  if(!chosen){pictures=wp?1:0;
    /* 근거가 없으면 «낱말 그림» 이라고 말하지 않는다. 대신 그림이 «실제로 그려 낸 그 문장» 과만 짝지어 보여 준다.
       곧 «이 낱말의 교재 예문» 자체의 그림만 쓰고, 그것이 없으면 그림을 붙이지 않는다.
       ⛔ 같은 교재라도 «다른 문장» 의 그림을 빌려 오지 마세요 — 「nice」 에 「Your backpack looks nice.」 의
@@ -68,9 +90,12 @@ for(const book of books){
    chosen=scenes.get(source.id)||{id:source.id,text:source.text,source:book.label+' · #'+row.sourceIndex,refs:source.refs};
   }
   if(pictures){wordPictured.add(word);rowWord++;}else if(chosen.image){contextPictured.add(word);rowContext++;}else rowNone++;
-  if(chosen.image&&!(describe.get(chosen.key)||'').trim())rowUndescribed++;
+  /* 낱말 그림을 쓰는 줄은 그 장면의 그림을 화면에 안 그리므로 «설명 없는 그림» 으로 세지 않는다. */
+  if(!wp&&chosen.image&&!(describe.get(chosen.key)||'').trim())rowUndescribed++;
   /* 교재 예문 = bookExample ?? scenes[scene].text. 그림이 바로 그 예문의 그림일 때는 같은 문장이 두 번 실리므로 한 번만 보낸다. */
   const entry={...row,scene:chosen.id};if(chosen.text===row.bookExample)delete entry.bookExample;if(pictures)entry.pic=1;
+  /* 낱말 그림은 «그 줄» 의 것이라 scene 에 담지 않는다(같은 장면을 여러 낱말이 나눠 쓴다). */
+  if(wp){entry.img=wp.url;entry.imgBytes=wp.bytes;wordPicUrls.add(wp.url);}
   data.words.push(entry);data.scenes[chosen.id]=chosen;
  }
  for(const clip of clipRows){if(clip.refs.some(r=>r[0]===book.id)){data.clips.push({scene:clip.scene,sourceIndex:clip.refs.find(r=>r[0]===book.id)[1]});data.scenes[clip.scene]=scenes.get(clip.scene);}}
@@ -90,6 +115,7 @@ manifest.noPictureForms=unique.size-manifest.wordPictureForms-manifest.contextOn
 manifest.describedAssets=[...new Set(assets.map(a=>'word-image:'+a.index))].filter(k=>(describe.get(k)||'').trim()).length;
 manifest.assets=assets.length;manifest.undescribedPictureRows=rowUndescribed;
 manifest.wordRows=rowWord+rowContext+rowNone;manifest.wordPictureRows=rowWord;manifest.contextPictureRows=rowContext;manifest.noPictureRows=rowNone;
-manifest.maxBookBytes=maxBook;manifest.maxBookGzipBytes=maxGzip;manifest.imageAssets=usedImages.size;
+manifest.maxBookBytes=maxBook;manifest.maxBookGzipBytes=maxGzip;manifest.imageAssets=usedImages.size+wordPicUrls.size;
+manifest.wordPictureAssets=wordPicUrls.size;manifest.wordPicturePlan=wordPictures.length;manifest.wordPictureMissing=wordPicMissing;
 fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest)+'\n');
-console.log(JSON.stringify({books:books.length,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,contextOnlyForms:manifest.contextOnlyForms,noPictureForms:manifest.noPictureForms,wordPictureRows:rowWord,contextPictureRows:rowContext,noPictureRows:rowNone,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));
+console.log(JSON.stringify({books:books.length,wordPictureAssets:wordPicUrls.size,wordPictureMissing:wordPicMissing,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,contextOnlyForms:manifest.contextOnlyForms,noPictureForms:manifest.noPictureForms,wordPictureRows:rowWord,contextPictureRows:rowContext,noPictureRows:rowNone,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));

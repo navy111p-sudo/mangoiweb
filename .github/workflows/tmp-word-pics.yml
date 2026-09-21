@@ -1,0 +1,49 @@
+# ⛔ 임시 워크플로 — 이 브랜치에서만 씁니다. main 에 올리지 마세요.
+# 왜 있나: 작업 컨테이너의 프록시가 그림 CDN 을 403 으로 막아 파일을 받을 수 없습니다
+#         (CLAUDE.md 2장 「화면에 쓸 이미지·파일을 밖에서 받아와야 할 때」).
+#         러너는 인터넷이 열려 있으므로 여기서 받아 webp 로 줄여 저장소에 커밋합니다.
+# 쓰고 나면 이 파일을 지웁니다.
+name: tmp word pictures
+on:
+  push:
+    branches: [claude/optimistic-franklin-dhka4b]
+    paths: ['docs/scene-curriculum-media/word-picture-plan.json', '.github/workflows/tmp-word-pics.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y webp imagemagick
+      - name: download and convert
+        run: |
+          set -euo pipefail
+          mkdir -p cloudflare-deploy/public/img/scene-words /tmp/raw
+          node -e "
+            const fs=require('fs');
+            const plan=JSON.parse(fs.readFileSync('docs/scene-curriculum-media/word-picture-plan.json','utf8'));
+            fs.writeFileSync('/tmp/list.txt',plan.map(p=>p.file.replace(/^scene-words\//,'').replace(/\.webp$/,'')+' '+p.src).join('\n')+'\n');
+            console.log('planned',plan.length);
+          "
+          while read -r name url; do
+            curl -fsS -o "/tmp/raw/$name.png" "$url"
+            # 640x480 4:3 — 기존 자산과 같은 크기. 원본이 1536x1152(4:3)이라 자르지 않습니다.
+            cwebp -quiet -q 80 -resize 640 480 "/tmp/raw/$name.png" -o "cloudflare-deploy/public/img/scene-words/$name.webp"
+          done < /tmp/list.txt
+          ls -1 cloudflare-deploy/public/img/scene-words | wc -l
+          du -sh cloudflare-deploy/public/img/scene-words
+      - name: preview sheet for human review
+        run: |
+          set -euo pipefail
+          cd cloudflare-deploy/public/img/scene-words
+          montage $(ls -1 *.webp | sort) -label '%t' -tile 6x -geometry 200x150+4+4 -pointsize 13 -background white /tmp/sheet.jpg
+          convert /tmp/sheet.jpg -quality 72 -resize 1400x "$GITHUB_WORKSPACE/docs/scene-curriculum-media/word-picture-preview.jpg"
+          ls -la "$GITHUB_WORKSPACE/docs/scene-curriculum-media/word-picture-preview.jpg"
+      - name: commit
+        run: |
+          git config user.name "mangoi-media-bot"
+          git config user.email "noreply@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/scene-words docs/scene-curriculum-media/word-picture-preview.jpg
+          git commit -m "chore(media): 낱말 그림 72장 webp 640x480 + 미리보기 시트" || echo "nothing to commit"
+          git push origin HEAD:claude/optimistic-franklin-dhka4b

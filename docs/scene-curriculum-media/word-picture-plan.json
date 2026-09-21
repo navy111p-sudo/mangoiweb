@@ -1,0 +1,506 @@
+[
+ {
+  "word": "okay",
+  "index": 20001,
+  "prompt": "Vocabulary picture for \"okay\". A cheerful elementary-school child smiling and making a clear hand sign with thumb and index finger touching in a circle, hand raised toward the camera. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_b0e8636f-0ff6-4077-8f61-b3847d49921e.png",
+  "file": "scene-words/okay.webp"
+ },
+ {
+  "word": "excited",
+  "index": 20002,
+  "prompt": "Vocabulary picture for \"excited\". Two children jumping with arms raised and wide open mouths, faces full of excitement, in a bright school hallway. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_647beba8-1f5c-4693-bc74-f67663ef4921.png",
+  "file": "scene-words/excited.webp"
+ },
+ {
+  "word": "new",
+  "index": 20003,
+  "prompt": "Vocabulary picture for \"new\". A pair of brand-new white sneakers in an opened shoe box with tissue paper, beside one worn scuffed shoe. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_8befce0a-bf9a-4cfd-a453-75e47da7f40a.png",
+  "file": "scene-words/new.webp"
+ },
+ {
+  "word": "teacher",
+  "index": 20004,
+  "prompt": "Vocabulary picture for \"teacher\". A friendly adult teacher standing beside a blank whiteboard holding a marker, facing seated pupils seen from behind. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_1ea70824-cb8f-4fca-9386-993a98221159.png",
+  "file": "scene-words/teacher.webp"
+ },
+ {
+  "word": "woman",
+  "index": 20005,
+  "prompt": "Vocabulary picture for \"woman\". A smiling adult woman standing alone, upper body, plain wall behind her. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_005b0e85-c5ff-4ab7-b910-d2325b5b84b7.png",
+  "file": "scene-words/woman.webp"
+ },
+ {
+  "word": "scary",
+  "index": 20006,
+  "prompt": "Vocabulary picture for \"scary\". A frightened child peeking at a dark doorway with a long shadow, hands gripping the door frame. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_8bd8b835-1081-4e43-a442-4d61fae4243b.png",
+  "file": "scene-words/scary.webp"
+ },
+ {
+  "word": "kind",
+  "index": 20007,
+  "prompt": "Vocabulary picture for \"kind\". A child kindly helping a classmate gather dropped pencils from the floor, both smiling warmly. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_44d37270-5c71-4c4c-8f49-ff64ddf9fec3.png",
+  "file": "scene-words/kind.webp"
+ },
+ {
+  "word": "go",
+  "index": 20008,
+  "prompt": "Vocabulary picture for \"go\". A child stepping forward through an open school gate, one foot raised mid-stride, walking away from the camera. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_ec33a183-a2bc-4351-aaa6-9dff422c270f.png",
+  "file": "scene-words/go.webp"
+ },
+ {
+  "word": "student",
+  "index": 20009,
+  "prompt": "Vocabulary picture for \"student\". One school student sitting at a desk with an open notebook and a raised hand. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_71495ed1-9a54-4deb-b063-222da5f71362.png",
+  "file": "scene-words/student.webp"
+ },
+ {
+  "word": "man",
+  "index": 20010,
+  "prompt": "Vocabulary picture for \"man\". A smiling adult man standing alone, upper body, plain wall behind him. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_614b34b2-f4f8-4c80-8741-2aec45f24a28.png",
+  "file": "scene-words/man.webp"
+ },
+ {
+  "word": "nice",
+  "index": 20011,
+  "prompt": "Vocabulary picture for \"nice\". A child smiling warmly and giving a friendly thumbs-up to a classmate's drawing. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_19dfd15d-8c01-4db5-bc30-46f6c8d3bff7.png",
+  "file": "scene-words/nice.webp"
+ },
+ {
+  "word": "meet",
+  "index": 20012,
+  "prompt": "Vocabulary picture for \"meet\". Two children meeting for the first time and shaking hands, smiling at each other. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070557_4a54a638-3e0a-4bb7-9222-bc657523e935.png",
+  "file": "scene-words/meet.webp"
+ },
+ {
+  "word": "fine",
+  "index": 20013,
+  "prompt": "Vocabulary picture for \"fine\". A relaxed child with a calm happy face, one open palm raised in a reassuring gesture, looking well. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_f4bbb5c4-b26f-4e07-acae-e45400316b5f.png",
+  "file": "scene-words/fine.webp"
+ },
+ {
+  "word": "thank",
+  "index": 20014,
+  "prompt": "Vocabulary picture for \"thank\". A child receiving a small gift with both hands and bowing slightly with a grateful smile. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_a3888d98-473c-4365-80ee-a4c14bce095e.png",
+  "file": "scene-words/thank.webp"
+ },
+ {
+  "word": "pen",
+  "index": 20015,
+  "prompt": "Vocabulary picture for \"pen\". A single blue ballpoint pen lying on a white notebook page, close-up. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070616_e782d754-6e10-4d11-9c75-e6948f94e69d.png",
+  "file": "scene-words/pen.webp"
+ },
+ {
+  "word": "backpack",
+  "index": 20016,
+  "prompt": "Vocabulary picture for \"backpack\". One colourful school backpack standing upright on a wooden floor, straps and zipped pockets visible. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_b05af023-c860-424e-b6ea-ef88aa2a5bbe.png",
+  "file": "scene-words/backpack.webp"
+ },
+ {
+  "word": "clock",
+  "index": 20017,
+  "prompt": "Vocabulary picture for \"clock\". A round wall clock with clear hour and minute hands mounted on a plain wall. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070616_13b9c769-98f6-49fc-b180-701b00823768.png",
+  "file": "scene-words/clock.webp"
+ },
+ {
+  "word": "wall",
+  "index": 20018,
+  "prompt": "Vocabulary picture for \"wall\". A plain painted interior wall with a child's hand resting flat against it. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_b22dc962-1e99-46a8-8595-9acd814c0da0.png",
+  "file": "scene-words/wall.webp"
+ },
+ {
+  "word": "everyone",
+  "index": 20019,
+  "prompt": "Vocabulary picture for \"everyone\". A whole group of schoolchildren standing together, all waving at the camera. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_6ddcc551-0c05-455a-b627-6e51fbc2942c.png",
+  "file": "scene-words/everyone.webp"
+ },
+ {
+  "word": "afternoon",
+  "index": 20020,
+  "prompt": "Vocabulary picture for \"afternoon\". Warm late afternoon sunlight with long shadows over an empty school yard, low golden sun. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_d56909a3-fef4-4661-bbf5-035c0598afc0.png",
+  "file": "scene-words/afternoon.webp"
+ },
+ {
+  "word": "happy",
+  "index": 20021,
+  "prompt": "Vocabulary picture for \"happy\". A child laughing with a wide joyful smile, eyes crinkled. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070616_85d12917-6d5d-45bb-8124-e810dd048e7a.png",
+  "file": "scene-words/happy.webp"
+ },
+ {
+  "word": "welcome",
+  "index": 20022,
+  "prompt": "Vocabulary picture for \"welcome\". A teacher at an open door with arms spread in a welcoming gesture, greeting an arriving child. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_66488640-7a3c-404a-9bfc-d0d749e1a311.png",
+  "file": "scene-words/welcome.webp"
+ },
+ {
+  "word": "classroom",
+  "index": 20023,
+  "prompt": "Vocabulary picture for \"classroom\". A tidy classroom with rows of desks, chairs and a blank board, seen from the back. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070615_7d3611fc-42bf-4f1e-b7b5-90e2914fe823.png",
+  "file": "scene-words/classroom.webp"
+ },
+ {
+  "word": "clean",
+  "index": 20024,
+  "prompt": "Vocabulary picture for \"clean\". A child wiping a desk with a cloth until it shines, a spray bottle beside them. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070616_beac01a4-6467-4eab-bffd-b08b203ff3d6.png",
+  "file": "scene-words/clean.webp"
+ },
+ {
+  "word": "library",
+  "index": 20025,
+  "prompt": "Vocabulary picture for \"library\". Rows of tall bookshelves in a school library with a reading table and chairs. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_f2e2904c-7773-48ac-b29e-bb9c3bcaedbf.png",
+  "file": "scene-words/library.webp"
+ },
+ {
+  "word": "books",
+  "index": 20026,
+  "prompt": "Vocabulary picture for \"books\". A neat stack of colourful hardcover books on a table. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_0d7329ad-78ec-4183-b258-8e22d10b894a.png",
+  "file": "scene-words/books.webp"
+ },
+ {
+  "word": "like",
+  "index": 20027,
+  "prompt": "Vocabulary picture for \"like\". A child holding a storybook close to the chest with a delighted smile, clearly enjoying it. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_e51f7409-5f67-4997-a172-6ec931766262.png",
+  "file": "scene-words/like.webp"
+ },
+ {
+  "word": "reading",
+  "index": 20028,
+  "prompt": "Vocabulary picture for \"reading\". A child sitting cross-legged reading an open picture book, eyes on the page. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_05d9e56a-e4fb-4f21-972f-ec1493692fa5.png",
+  "file": "scene-words/reading.webp"
+ },
+ {
+  "word": "old",
+  "index": 20029,
+  "prompt": "Vocabulary picture for \"old\". An elderly grandparent with white hair and a kind wrinkled face sitting in a chair. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_32d81ce6-c6a2-41eb-872a-a983b748dcc9.png",
+  "file": "scene-words/old.webp"
+ },
+ {
+  "word": "love",
+  "index": 20030,
+  "prompt": "Vocabulary picture for \"love\". A parent and child hugging warmly with closed eyes, a red paper heart in the child's hand. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_975518c9-40c6-46a5-be78-c59f4e6b2f29.png",
+  "file": "scene-words/love.webp"
+ },
+ {
+  "word": "fun",
+  "index": 20031,
+  "prompt": "Vocabulary picture for \"fun\". Children laughing together while playing a ball game in a playground. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_2ab0e3ce-c475-4d78-853a-ec83f236059b.png",
+  "file": "scene-words/fun.webp"
+ },
+ {
+  "word": "interesting",
+  "index": 20032,
+  "prompt": "Vocabulary picture for \"interesting\". A child leaning in close with wide curious eyes, studying a model of the solar system. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_293f736c-6c67-4581-8f03-f42448db662a.png",
+  "file": "scene-words/interesting.webp"
+ },
+ {
+  "word": "math",
+  "index": 20033,
+  "prompt": "Vocabulary picture for \"math\". Colourful wooden number blocks and a small abacus arranged on a desk. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_0beafc58-f4ea-4f1e-9217-ccb8af0ba568.png",
+  "file": "scene-words/math.webp"
+ },
+ {
+  "word": "class",
+  "index": 20034,
+  "prompt": "Vocabulary picture for \"class\". A full group of pupils seated at their desks facing a teacher at the front. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_d6c4620e-c0c8-4ec2-833f-74cc1ddbc16c.png",
+  "file": "scene-words/class.webp"
+ },
+ {
+  "word": "today",
+  "index": 20035,
+  "prompt": "Vocabulary picture for \"today\". A wall calendar with one square circled in red marker and a hand pointing at it. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070635_5516a9d1-87ec-41ba-a050-0765b0760ce8.png",
+  "file": "scene-words/today.webp"
+ },
+ {
+  "word": "english",
+  "index": 20036,
+  "prompt": "Vocabulary picture for \"english\". Colourful wooden alphabet letter blocks spread on a desk beside an open dictionary. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070636_dbf40fcf-dd61-4edd-b9d7-8176d79a5249.png",
+  "file": "scene-words/english.webp"
+ },
+ {
+  "word": "favorite",
+  "index": 20037,
+  "prompt": "Vocabulary picture for \"favorite\". A child smiling and choosing one special toy from a shelf full of toys, holding it close. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070654_316ca08d-3709-4300-b40e-fff1eb37a383.png",
+  "file": "scene-words/favorite.webp"
+ },
+ {
+  "word": "subject",
+  "index": 20038,
+  "prompt": "Vocabulary picture for \"subject\". A desk laid out with a maths workbook, a paintbrush, a globe and a science flask side by side. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070654_b4967d81-1a38-41ba-9219-32d801e547ff.png",
+  "file": "scene-words/subject.webp"
+ },
+ {
+  "word": "art",
+  "index": 20039,
+  "prompt": "Vocabulary picture for \"art\". A child painting a colourful scene with a brush and palette at an easel. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_cfdbb75e-ab92-4287-9c45-d415a798d808.png",
+  "file": "scene-words/art.webp"
+ },
+ {
+  "word": "physical",
+  "index": 20040,
+  "prompt": "Vocabulary picture for \"physical\". Children doing energetic stretching and jumping exercises in a gymnasium. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_83e0552a-b3ea-480d-8d89-f62c0f991600.png",
+  "file": "scene-words/physical.webp"
+ },
+ {
+  "word": "education",
+  "index": 20041,
+  "prompt": "Vocabulary picture for \"education\". A teacher explaining a diagram on a board while pupils listen and take notes. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_ee4d5155-0143-41ac-8a3d-cdaecb291fc7.png",
+  "file": "scene-words/education.webp"
+ },
+ {
+  "word": "exciting",
+  "index": 20042,
+  "prompt": "Vocabulary picture for \"exciting\". Children cheering with raised arms at a sports field, faces bright with excitement. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_f655b931-e5f9-4afe-8b7a-04dd53bb20e1.png",
+  "file": "scene-words/exciting.webp"
+ },
+ {
+  "word": "gives",
+  "index": 20043,
+  "prompt": "Vocabulary picture for \"gives\". A teacher handing a worksheet to a pupil, the sheet passing from one hand to the other. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_b476f95c-3975-483f-9f2f-f9f761fd72cb.png",
+  "file": "scene-words/gives.webp"
+ },
+ {
+  "word": "home",
+  "index": 20044,
+  "prompt": "Vocabulary picture for \"home\". A cosy family house with a warm lit window and a front door, seen from the garden at dusk. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_4a31df5a-1ce9-4c04-b2be-cd6571dd53ed.png",
+  "file": "scene-words/home.webp"
+ },
+ {
+  "word": "finish",
+  "index": 20045,
+  "prompt": "Vocabulary picture for \"finish\". A runner crossing a finish line with arms up, the tape breaking across the chest. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070654_0d5bac1e-b52c-4fed-842b-699cff7cebd9.png",
+  "file": "scene-words/finish.webp"
+ },
+ {
+  "word": "helps",
+  "index": 20046,
+  "prompt": "Vocabulary picture for \"helps\". A child helping another child tie a shoelace, kneeling down beside them. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_e0a8fab7-860f-48d5-9da6-3e73e2f1100c.png",
+  "file": "scene-words/helps.webp"
+ },
+ {
+  "word": "understand",
+  "index": 20047,
+  "prompt": "Vocabulary picture for \"understand\". A pupil's face lighting up with sudden comprehension while a teacher points at a diagram. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_e5bef873-822f-45c1-9558-93f32aff66c7.png",
+  "file": "scene-words/understand.webp"
+ },
+ {
+  "word": "lesson",
+  "index": 20048,
+  "prompt": "Vocabulary picture for \"lesson\". An open workbook page with a teacher's hand pointing at an exercise while a pupil follows. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070655_3c7943f5-331f-477c-b663-a24763425d5a.png",
+  "file": "scene-words/lesson.webp"
+ },
+ {
+  "word": "friends",
+  "index": 20049,
+  "prompt": "Vocabulary picture for \"friends\". Three children with arms around each other's shoulders, laughing together. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_fbd7fc21-0eab-472b-bdc0-ed3fb83e9588.png",
+  "file": "scene-words/friends.webp"
+ },
+ {
+  "word": "sit",
+  "index": 20050,
+  "prompt": "Vocabulary picture for \"sit\". A child sitting down on a chair at a desk, knees bent, settling onto the seat. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_4e6c3e67-7892-44d5-8da8-d79f071091ba.png",
+  "file": "scene-words/sit.webp"
+ },
+ {
+  "word": "together",
+  "index": 20051,
+  "prompt": "Vocabulary picture for \"together\". Four children side by side at one table, all working on one large drawing. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_4122a4a3-3384-4104-a78c-a192a0590f7b.png",
+  "file": "scene-words/together.webp"
+ },
+ {
+  "word": "study",
+  "index": 20052,
+  "prompt": "Vocabulary picture for \"study\". A pupil at a desk with an open textbook, notebook and pencil, concentrating hard. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_8f250b94-fca4-49aa-b7a4-33a5cebe84e0.png",
+  "file": "scene-words/study.webp"
+ },
+ {
+  "word": "bell",
+  "index": 20053,
+  "prompt": "Vocabulary picture for \"bell\". A shiny brass hand bell with a wooden handle on a desk. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_6a91e86b-c380-463b-8e09-6d9c78e49810.png",
+  "file": "scene-words/bell.webp"
+ },
+ {
+  "word": "rings",
+  "index": 20054,
+  "prompt": "Vocabulary picture for \"rings\". A hand shaking a brass bell that rings, motion blur on the swinging clapper. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_60d7cd93-0c73-4654-a3b4-a0cc92de6785.png",
+  "file": "scene-words/rings.webp"
+ },
+ {
+  "word": "o'clock",
+  "index": 20055,
+  "prompt": "Vocabulary picture for \"o'clock\". A clock face showing exactly three o'clock, the hands pointing at three and at twelve. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_9cc9ff1d-f5ad-4eaf-a665-df854c0485dd.png",
+  "file": "scene-words/oclock.webp"
+ },
+ {
+  "word": "big",
+  "index": 20056,
+  "prompt": "Vocabulary picture for \"big\". A big elephant standing next to a small dog, showing the size difference. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_fc2da85a-37a8-4902-b232-312f523b340b.png",
+  "file": "scene-words/big.webp"
+ },
+ {
+  "word": "see",
+  "index": 20057,
+  "prompt": "Vocabulary picture for \"see\". A child shading their eyes with one hand and looking far into the distance. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_a0608769-7398-42e8-ba3e-a7d17406b8e2.png",
+  "file": "scene-words/see.webp"
+ },
+ {
+  "word": "goodbye",
+  "index": 20058,
+  "prompt": "Vocabulary picture for \"goodbye\". A child at a doorway waving goodbye with a raised hand and a small smile. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_f1149af2-42cb-4597-8cb7-3867b0a74b54.png",
+  "file": "scene-words/goodbye.webp"
+ },
+ {
+  "word": "day",
+  "index": 20059,
+  "prompt": "Vocabulary picture for \"day\". A bright sunny daytime sky over a school building, sun high and shadows short. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_91d7a0d3-70c7-43e4-a3d0-a1626cb9adfe.png",
+  "file": "scene-words/day.webp"
+ },
+ {
+  "word": "heavy",
+  "index": 20060,
+  "prompt": "Vocabulary picture for \"heavy\". A child straining with both arms to lift a very heavy cardboard box, shoulders hunched. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070716_b8d115cf-a4f4-4d6a-a854-e7760a75fb97.png",
+  "file": "scene-words/heavy.webp"
+ },
+ {
+  "word": "bring",
+  "index": 20061,
+  "prompt": "Vocabulary picture for \"bring\". A child carrying a lunch bag in both hands toward a table, bringing it over. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_a824ff66-a367-42c5-9855-c2fa7b443af2.png",
+  "file": "scene-words/bring.webp"
+ },
+ {
+  "word": "time",
+  "index": 20062,
+  "prompt": "Vocabulary picture for \"time\". An hourglass with sand running through it, standing on a desk. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_cbab32d2-659f-42e3-92af-63f06a14e723.png",
+  "file": "scene-words/time.webp"
+ },
+ {
+  "word": "twelve",
+  "index": 20063,
+  "prompt": "Vocabulary picture for \"twelve\". Twelve red apples arranged neatly in three rows of four on a table. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_83bba01f-42ca-49b8-8b93-cdf0a105075d.png",
+  "file": "scene-words/twelve.webp"
+ },
+ {
+  "word": "large",
+  "index": 20064,
+  "prompt": "Vocabulary picture for \"large\". A very large watermelon next to a small apple on a kitchen table. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_a77af7eb-e517-4d9e-9e04-c65d708bbcca.png",
+  "file": "scene-words/large.webp"
+ },
+ {
+  "word": "healthy",
+  "index": 20065,
+  "prompt": "Vocabulary picture for \"healthy\". A plate of vegetables, whole grains and grilled fish arranged as a healthy meal. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_1e5a57ce-2f26-44c3-a248-c1efb80a455e.png",
+  "file": "scene-words/healthy.webp"
+ },
+ {
+  "word": "yummy",
+  "index": 20066,
+  "prompt": "Vocabulary picture for \"yummy\". A child taking a bite of a chocolate cupcake with eyes closed in delight. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_11161f24-ad9d-4ac9-80b2-4cc1089d1769.png",
+  "file": "scene-words/yummy.webp"
+ },
+ {
+  "word": "box",
+  "index": 20067,
+  "prompt": "Vocabulary picture for \"box\". A plain brown cardboard box with open flaps on a wooden floor. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_6f9d6725-5b18-46d6-bef5-21abf3abd29b.png",
+  "file": "scene-words/box.webp"
+ },
+ {
+  "word": "sandwich",
+  "index": 20068,
+  "prompt": "Vocabulary picture for \"sandwich\". A cut sandwich with lettuce, tomato and cheese on a plate. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_07cfdbd8-253d-4f0e-b94d-499d9583db53.png",
+  "file": "scene-words/sandwich.webp"
+ },
+ {
+  "word": "fruit",
+  "index": 20069,
+  "prompt": "Vocabulary picture for \"fruit\". A bowl of mixed fruit: apples, bananas, oranges and grapes. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_4f33cbc8-a88a-4c40-8936-a7aae1baf195.png",
+  "file": "scene-words/fruit.webp"
+ },
+ {
+  "word": "fresh",
+  "index": 20070,
+  "prompt": "Vocabulary picture for \"fresh\". Dew-covered crisp lettuce and tomatoes just picked, water droplets on the leaves. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_6b0c31f8-fd25-4e38-8a80-9c7e256f1f7a.png",
+  "file": "scene-words/fresh.webp"
+ },
+ {
+  "word": "sweet",
+  "index": 20071,
+  "prompt": "Vocabulary picture for \"sweet\". A honey dipper dripping golden honey over a bowl of sugar cubes and candy. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_8b1e23c6-4d6e-4706-bc43-55b4a2bbce7b.png",
+  "file": "scene-words/sweet.webp"
+ },
+ {
+  "word": "drink",
+  "index": 20072,
+  "prompt": "Vocabulary picture for \"drink\". A child drinking milk from a glass with a straw, tilting the glass. Simple uncluttered setting, realistic photo, natural lighting. No written text or logos.",
+  "src": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_070737_f377b2c7-4ffd-47f9-a159-7ac1c101be32.png",
+  "file": "scene-words/drink.webp"
+ }
+]
