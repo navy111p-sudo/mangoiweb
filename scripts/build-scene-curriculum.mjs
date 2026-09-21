@@ -55,7 +55,7 @@ for(const it of wordImagePlan){
 const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 /* 🖼 판정 정본은 scripts/scene-picture-evidence.mjs 한 곳 — 회귀 검사도 같은 모듈을 돌린다.
    ⛔ 여기에 판정을 다시 적지 마세요(한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다). */
-const {describe,depicts}=pictureEvidence({assets:assets.concat(wordAssets),clips,sceneText});
+const {describe,depicts}=pictureEvidence({assets:assets.concat(wordAssets),clips,sceneText,stopWords:stop});
 /* 🖼 낱말 사진 — «그 설명이 이 낱말을 가리킬 때만» 씁니다. 못 가리키면 목록에서 빠집니다. */
 const wordScene=new Map();
 for(const it of wordImages){const key='word-image:'+it.index;if(!depicts(it.word,key))continue;

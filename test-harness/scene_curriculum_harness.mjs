@@ -74,7 +74,8 @@ const wordAssets=[],wordFile=new Map();
 for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(!fs.existsSync(p))continue;
  wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
 ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
-const {describe,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
+const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
+const {describe,shell:shellSet,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
 /* 🖼 「설명이 그 낱말을 가리킬 때만」 — 껍데기 낱말(natural·clear·soft…)은 여기서 떨어집니다. */
 const wordSceneOf=new Map(),wordSceneBytes=new Map();
 for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;if(!depicts(it.word,'word-image:'+it.index))continue;
@@ -83,6 +84,29 @@ ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 
 {const shellWord=wordImagePlan.filter(it=>wordFile.has(it.index)&&!wordSceneOf.has(it.word)).map(it=>it.word);
  ok(shellWord.length>0,'껍데기 낱말은 사진이 있어도 «낱말 그림» 이 되지 않는다 — 0이면 게이트가 열린 것');
  for(const w of shellWord)ok(EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt)).has(w),'거부된 까닭은 껍데기 낱말이어서다: '+w);}
+/* 🧱 «한 낱말이 그림 거의 전부를 가리킨다» 면 그것은 근거가 아니라 새어 나온 틀이다.
+   🔴 2026-09-21 에 이 모양으로 두 번 샜습니다 — ⓐ 틀 꼬리(light·setting·writing·subtitles)가
+      prompt 를 타고 들어와 클립 «전부» 에 붙었고 ⓑ variants() 가 없는 어미를 잘라 만든 기능어
+      (thing→the · ones→on · toes→to)가 설명마다 있어 「thing」이 클립 95.5% 에 붙었습니다.
+      둘 다 «껍데기 80%» 게이트를 비켜 갔습니다(꼬리는 80%에 못 미치고, 기능어는 낱말 쪽에서 생깁니다).
+   ✅ 그래서 «결과» 로 묻습니다 — 교재 낱말 중 어느 하나도 그림의 절반을 넘게 가리키면 안 됩니다.
+   ⛔ 낱말 목록을 손으로 적어 빼지 마세요(틀이 바뀌면 낡습니다) · 문턱을 올려서 풀지 마세요.
+   ⚠️ 사람 이름·흔한 사물(child·smile)은 원래 여러 그림에 나옵니다 — 실측 최대가 20.5% 라
+      절반(50%)은 «정상» 과 «샘» 사이에 넉넉히 떨어져 있습니다. */
+{const allWords=new Set();
+ for(const list of sourceBooks.values())for(const t of list)for(const w of EV.tokens(t))if(!stopWords.has(w))allWords.add(w);
+ /* ⛔ 여기서 토큰을 «다시 걸러» 세지 마세요 — 그러면 모듈이 무엇을 근거로 삼든 하니스는 제 기준만 봅니다.
+    2026-09-21 실측: 그렇게 썼더니 모듈에서 기능어 거르기를 통째로 지워도 486,407건이 전부 초록이었습니다.
+    ✅ 반드시 정본 depicts() 에 «물어서» 셉니다. */
+ const keys=clipPlan.map(c=>'clip-image:'+c.index).filter(k=>describe.get(k));
+ ok(keys.length>=20,'설명이 있는 클립이 충분하다 — 적으면 아래 비율 검사가 뜻을 잃는다 ('+keys.length+')');
+ let worst=['',0];
+ for(const w of allWords){let n=0;
+  for(const k of keys)if(depicts(w,k))n++;
+  if(n>worst[1])worst=[w,n];}
+ const pct=100*worst[1]/Math.max(1,keys.length);
+ ok(pct<50,'어느 교재 낱말도 클립 그림의 절반을 넘게 가리키지 않는다 — 넘으면 틀이 근거로 샌 것 (최대 '+worst[0]+' '+worst[1]+'/'+keys.length+' = '+pct.toFixed(1)+'%)');
+ ok(worst[1]>0,'그래도 가리키는 낱말이 있다 — 0이면 근거가 통째로 죽은 것');}
 const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
 const mediaKey=new Map();
 for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
@@ -94,7 +118,6 @@ for(const sid of wordSceneOf.values())mediaKey.set(sid,'word-image:'+sid.slice(1
 const mediaLookup=new Set();
 {const excluded=new Set(plan('excluded-media.json'));
  for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
-const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 const contentWords=text=>[...new Set((String(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stopWords.has(w)))];
 const sceneHasImage=new Map(),sceneOwnText=new Map();
 for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
