@@ -83,6 +83,36 @@ const depictPool=new Map();
 for(const [sid,text] of sceneOwnText){if(!sceneHasImage.get(sid))continue;
  for(const w of contentWords(text)){if(!depicts(w,mediaKey.get(sid)))continue;if(!depictPool.has(w))depictPool.set(w,[]);depictPool.get(w).push(sid);}}
 ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 한다 — 갑자기 많아지면 게이트가 열린 것 ('+depictPool.size+')');
+
+/* 🖼 낱말 그림 — 그 낱말 «하나» 를 보여 주려고 일부러 만든 그림.
+   ⛔ 「표에 있다」를 «붙어 있다» 로 읽지 마세요 — 파일이 커밋에 안 담기면 조용히 폴백합니다
+      (2026-08-31 Lily 얼굴이 그렇게 며칠 동안 옛 얼굴로 돌았습니다). existsSync 로 실재를 봅니다. */
+const wordPicPlanPath=new URL('../../docs/scene-curriculum-media/word-picture-plan.json',root);
+const wordPicPlan=fs.existsSync(wordPicPlanPath)?JSON.parse(fs.readFileSync(wordPicPlanPath,'utf8')):[];
+const wordPicEv=EV.wordPictureEvidence(wordPicPlan);
+const wordPicUrl=new Map();
+for(const w of wordPicPlan){
+ ok(w.word&&w.file&&w.prompt,'낱말 그림 계획에는 낱말·파일·설명이 있어야 한다');
+ ok(/^scene-words\/[a-z0-9-]+\.webp$/.test(w.file),'낱말 그림 파일 이름 규칙: '+w.file);
+ const abs=new URL('img/'+w.file,root);
+ ok(fs.existsSync(abs),'계획한 낱말 그림 파일이 저장소에 실재해야 한다(커밋 누락): '+w.file);
+ if(fs.existsSync(abs))ok(fs.statSync(abs).size<=80000,'낱말 그림 용량: '+w.file+' '+fs.statSync(abs).size);
+ /* ① 선언만 믿지 않는다 — 그 프롬프트가 실제로 그 낱말을 불러야 붙는다. */
+ ok(wordPicEv.keyFor(w.word)==='word-pic:'+w.index,'계획한 낱말 그림은 그 낱말을 부르는 설명이어야 한다: '+w.word);
+ if(fs.existsSync(abs))wordPicUrl.set(w.word,'/img/'+w.file);
+}
+/* 짝 ①: 설명이 그 낱말을 안 부르면 «붙이지 않는다». 이 짝이 없으면 «전부 붙이기» 도 통과합니다. */
+eq(EV.wordPictureEvidence([{word:'zebra',index:999001,prompt:'Vocabulary picture for a horse in a field.'}]).keyFor('zebra'),'',
+ '설명이 그 낱말을 안 부르면 낱말 그림으로 안 쓴다');
+eq(EV.wordPictureEvidence([{word:'zebra',index:999002,prompt:'Vocabulary picture for "zebra". A zebra on grass.'}]).keyFor('zebra'),'word-pic:999002',
+ '설명이 그 낱말을 부르면 낱말 그림으로 쓴다');
+/* 짝 ②: 계획에 없는 낱말은 예전 그대로다(낱말 그림이 «전부» 를 덮어쓰지 않는다). */
+eq(wordPicEv.keyFor('zzqnotaword'),'','계획에 없는 낱말에는 낱말 그림이 없다');
+/* 짝 ③: 거의 모든 설명에 나오는 말(껍데기)은 근거가 아니다 — 안 그러면 틀 문구가 모든 그림에 붙습니다. */
+{const same=[...Array(10)].map((_,i)=>({word:'picture',index:999100+i,prompt:'Vocabulary picture for "picture". Thing number '+i+'.'}));
+ eq(EV.wordPictureEvidence(same).keyFor('picture'),'','묶음의 거의 모든 설명에 나오는 낱말은 근거가 아니다');}
+eq(wordPicUrl.size,live.wordPictureAssets||0,'manifest 의 낱말 그림 장수가 실제 파일 수와 같다');
+eq(wordPicPlan.length,live.wordPicturePlan||0,'manifest 의 낱말 그림 계획 수가 실제와 같다');
 ok([...describe.values()].filter(t=>t.trim()).length<assetPlan.length/2,
  '그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
 eq(live.wordPictureForms+live.contextOnlyForms+live.noPictureForms,live.wordForms,
@@ -101,7 +131,16 @@ for(const entry of live.books){
   ok((shown.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'word belongs to the shown example');
   /* ⛔ 남의 교재 문장은 payload 에 실리지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길. */
   if(s.text)ok(owned.has(s.text),'a shipped sentence belongs to this book');
-  if(w.pic){
+  if(w.img){
+   /* 🖼 그 낱말을 보여 주려고 «일부러» 만든 그림. 문장 삽화가 아니므로 예문은 이 교재의 교재 예문 그대로다. */
+   claimed.word++;pictures.add(w.word);
+   ok(w.pic,'낱말 그림을 붙였으면 화면에도 «낱말 그림» 이라고 말한다: '+w.word);
+   eq(w.img,wordPicUrl.get(w.word),'그 낱말에 배정된 낱말 그림이어야 한다: '+w.word);
+   ok(s.text===shown,'낱말 그림을 쓸 때 예문은 이 교재의 교재 예문이다: '+w.word);
+   ok(w.imgBytes>0&&w.imgBytes<=80000,'낱말 그림 용량: '+w.word);
+   /* ⛔ 남의 CDN 주소를 payload 에 박지 않는다 — 주소가 만료되면 그림이 통째로 사라집니다. */
+   ok(/^\/img\/scene-words\//.test(w.img),'낱말 그림은 우리 서버에서 온다: '+w.img);
+  }else if(w.pic){
    claimed.word++;pictures.add(w.word);
    ok(s.image,'a word picture has a picture');
    ok(depicts(w.word,mediaKey.get(w.scene)),'「낱말 그림」이라고 말하려면 그 그림의 설명이 그 낱말을 가리켜야 한다: '+w.word);
@@ -111,10 +150,12 @@ for(const entry of live.books){
    ok(s.text===shown,'상황 그림은 지금 보여 주는 그 예문의 그림이어야 한다: '+w.word);
    ok(!depicts(w.word,mediaKey.get(w.scene))||!w.bookExample,'근거가 있는데 낱말 그림으로 안 세었다: '+w.word);
   }else{claimed.none++;ok(s.text===shown,'그림이 없을 때도 예문은 그 교재의 예문이다: '+w.word);}
-  /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
-  eq(!!w.pic,depictPool.has(w.word),'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
-  if(w.pic)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
-  if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
+  /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «낱말 그림이 있었는가 또는 근거 있는 후보가 있었는가» 와 같아야 한다.
+     ⛔ 낱말 그림이 있는 낱말은 «붙어 있어야» 한다 — 조용히 문장 삽화로 떨어지면 여기서 빨간불이 난다. */
+  eq(!!w.pic,wordPicUrl.has(w.word)||depictPool.has(w.word),'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
+  eq(!!w.img,wordPicUrl.has(w.word),'낱말 그림이 있는 낱말에는 반드시 그 그림이 붙는다: '+w.word);
+  if(w.pic&&!w.img)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
+  if(!w.img&&s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
  }
  for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
  eq(b.words.filter(w=>w.pic).length,entry.wordPictures,entry.id+' word-picture count');

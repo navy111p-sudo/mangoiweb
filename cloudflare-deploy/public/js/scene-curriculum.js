@@ -20,6 +20,9 @@
      word    = 그림 설명이 그 낱말을 가리킨다(근거 있음)
      context = 지금 보는 그 예문을 그린 그림이다(낱말 뜻 그림이 아니다)
      none    = 근거가 없어 아예 붙이지 않았다 */
+  /* 🖼 그릴 그림 — 낱말 그림(item.img)이 있으면 그것이 먼저다.
+     ⛔ scene.image 로 되돌리지 마세요: 장면은 여러 낱말이 나눠 쓰므로 그 낱말의 그림이 아닙니다. */
+  function picture(item){return (item&&item.img)||scene(item).image;}
   function picKind(item){return item.pic?'word':(scene(item).image?'context':'none');}
   function difficulty(){var value=$('difficulty').value||'auto';return value==='auto'?({starter:'easy',growing:'standard',confident:'challenge'}[$('level').value]||'standard'):value;}
   function focusWord(item){var tokens=scene(item).text.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g)||[];return tokens.find(function(w){return !/^(a|an|the|i|you|he|she|it|we|they|is|are|was|were|am|to|of|and|his|her|their|my)$/i.test(w);})||tokens[0]||'';}
@@ -44,9 +47,9 @@
     catch(e){if(epoch!==requestId||e.name==='AbortError'||!open)return;set('count',tr('이 교재를 불러오지 못했어요. 다시 시도해 주세요.','Could not load this book. Please retry.'));$('retry').hidden=false;}
   }
   function resetItems(){if(!book)return;quiz=null;mode=$('mode').value;items=sectionItems();guidance();filtered=items.slice();position=page=0;$('search').value='';$('result').hidden=true;$('progress').hidden=true;$('browse').hidden=true;$('quiz').hidden=false;$('quiz').disabled=!items.length;$('browser').hidden=false;set('count',book.label+' · '+items.length+tr(mode==='words'?'개 낱말 · 그림은 근거가 있을 때만':'개 문장 영상',mode==='words'?' word forms · pictures only when evidenced':' sentence clips'));renderCard();renderList();}
-  function showImage(){if(!current())return;var s=scene(current()),img=$('image'),epoch=mediaId;clearTimeout(imageTimer);img.hidden=true;$('retry-image').hidden=true;
-    if(!s.image){img.removeAttribute('src');set('placeholder',tr('이 낱말을 보여 주는 그림이 없어 붙이지 않았어요. 예문과 뜻으로 익혀 보세요.','No picture shows this word, so none is attached. Learn it from the example and meaning.'));return;}
-    set('placeholder',tr('그림을 불러오는 중…','Loading picture…'));img.onload=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=false;set('placeholder','');};img.onerror=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=true;set('placeholder',tr('그림을 불러오지 못했어요. 예문과 힌트로 계속할 수 있어요.','Picture unavailable. Continue with the example and hints.'));$('retry-image').hidden=false;};img.alt=picKind(current())==='word'?tr('그림 설명에 이 낱말이 들어 있는 AI 그림','AI picture whose description names this word'):tr('예문의 상황을 보여 주는 AI 상황 이미지','AI context image for the example');img.src=s.image;imageTimer=setTimeout(function(){if(epoch===mediaId&&!img.complete){set('placeholder',tr('그림이 늦게 도착하고 있어요. 예문으로 먼저 연습해도 좋아요.','The picture is taking longer. You can start with the example.'));$('retry-image').hidden=false;}},12000);
+  function showImage(){if(!current())return;var item=current(),src=picture(item),img=$('image'),epoch=mediaId;clearTimeout(imageTimer);img.hidden=true;$('retry-image').hidden=true;
+    if(!src){img.removeAttribute('src');set('placeholder',tr('이 낱말을 보여 주는 그림이 없어 붙이지 않았어요. 예문과 뜻으로 익혀 보세요.','No picture shows this word, so none is attached. Learn it from the example and meaning.'));return;}
+    set('placeholder',tr('그림을 불러오는 중…','Loading picture…'));img.onload=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=false;set('placeholder','');};img.onerror=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=true;set('placeholder',tr('그림을 불러오지 못했어요. 예문과 힌트로 계속할 수 있어요.','Picture unavailable. Continue with the example and hints.'));$('retry-image').hidden=false;};img.alt=item.img?tr('이 낱말을 보여 주려고 만든 AI 그림','AI picture made to show this word'):picKind(item)==='word'?tr('그림 설명에 이 낱말이 들어 있는 AI 그림','AI picture whose description names this word'):tr('예문의 상황을 보여 주는 AI 상황 이미지','AI context image for the example');img.src=src;imageTimer=setTimeout(function(){if(epoch===mediaId&&!img.complete){set('placeholder',tr('그림이 늦게 도착하고 있어요. 예문으로 먼저 연습해도 좋아요.','The picture is taking longer. You can start with the example.'));$('retry-image').hidden=false;}},12000);
   }
   function renderExample(item,revealed){var s=scene(item),d=difficulty(),ex=example(item),text=mode==='words'?(quiz&&!revealed?blank(ex,item.word):ex):(quiz&&!revealed&&d==='easy'?blank(s.text,focusWord(item)):quiz&&!revealed&&d==='challenge'?tr('그림이나 영상을 보고 배운 문장을 써 보세요.','Use the picture or clip to write the sentence you studied.'):quiz&&!revealed?s.text.split(/\s+/).map(function(w){return w[0]+w.slice(1).replace(/[a-z]/gi,'_');}).join(' '):s.text);set('example',text);
     /* 그림이 다른 문장에서 왔을 때만 그 문장을 함께 적는다 — 그림과 예문이 다르다는 사실을 감추지 않는다.
@@ -59,10 +62,12 @@
     $('card').hidden=false;passed=assisted=attempted=false;var s=scene(item);set('kind',mode==='words'?tr('WORD · 예문 속 단어','WORD · IN CONTEXT'):tr('SENTENCE · 상황 영상','SENTENCE · CONTEXT CLIP'));set('target',quiz?tr(mode==='words'?'빈칸의 단어를 써 보세요.':'영상을 보고 문장을 완성하세요.',mode==='words'?'Type the missing word.':'Complete the sentence after watching.'):(mode==='words'?item.word:tr('장면을 보고 읽어 보세요.','Watch, then read the sentence.')));renderExample(item,false);
     var kind=mode==='words'?picKind(item):'context';
     set('source',mode!=='words'?tr('상황 영상: ','Context clip: ')+s.source:
+      item.img?tr('🖼 낱말 그림 · 「'+item.word+'」를 보여 주려고 만든 그림이에요 · 예문은 ','🖼 Word picture · made to show “'+item.word+'” · example from ')+s.source:
       kind==='word'?tr('🖼 낱말 그림 · 그림 설명에 「'+item.word+'」가 들어 있어요 · ','🖼 Word picture · its description names “'+item.word+'” · ')+s.source:
       kind==='context'?tr('🏞 예문 상황 그림 · 지금 이 예문을 그린 그림이에요(낱말 뜻 그림은 아니에요) · ','🏞 Example-scene picture · it illustrates this example, not the word’s meaning · ')+s.source:
       tr('📄 이 낱말을 보여 주는 그림이 없어 붙이지 않았어요 · ','📄 No picture shows this word, so none is attached · ')+s.source);
     set('media-status',mode!=='words'?tr('문장 속 상황을 보여 주는 영상이에요.','A clip of the situation in the sentence.'):
+      item.img?tr('AI 그림 · 이 낱말 하나를 보여 주려고 만들었어요.','AI picture · made to show this one word.'):
       kind==='word'?tr('AI 그림 · 그림 설명이 이 낱말을 가리켜요.','AI picture · its description names this word.'):
       kind==='context'?tr('AI 상황 그림 · 낱말 뜻은 예문과 「뜻 보기」로 확인해요.','AI scene picture · check the meaning with the example and “Meaning”.'):
       tr('그림 없이 예문과 「뜻 보기」로 익혀요.','Learn it from the example and “Meaning”.'));
