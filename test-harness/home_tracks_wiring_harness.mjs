@@ -63,8 +63,11 @@ for (const sel of sels) {
 
 console.log('② 트랙에 data-ko/data-en 을 달지 않았다 (textContent 를 통째로 갈아끼운다)');
 const trackBlock = (html.match(/<div class="home-tracks"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
+/* ⛔ 부정 검사에 쓰므로 HTML 주석을 벗긴 사본도 둔다 — 「왜 글자로 안 넣었나」를
+   <!-- --> 로 적는 순간 멀쩡한 코드가 거짓 FAIL 이 된다(이 파일 20~23행과 같은 이유). */
+const trackCode = trackBlock.replace(/<!--[\s\S]*?-->/g, '');
 t('트랙 블록을 잘라 냈다(전제)', trackBlock.includes('ht-live') && trackBlock.includes('ht-ai'), true);
-t('ht-track 여는 태그에 data-ko= 가 없다', /<div class="ht-track[^>]*\sdata-ko=/.test(trackBlock), false);
+t('ht-track 여는 태그에 data-ko= 가 없다', /<div class="ht-track[^>]*\sdata-ko=/.test(trackCode), false);
 t('짝 — 안쪽 span 은 여전히 data-ko 로 번역된다', /<span[^>]+data-ko="[^"]+"/.test(trackBlock), true);
 
 console.log('③ 카드를 «순번» 이 아니라 «key» 로 찾는다');
@@ -83,11 +86,63 @@ t('census 가 카드를 14장 이상 잡는다', census.length >= 14, true);
 t('«1:1 / 1:2» 카드가 census 에 들어 있다', census.some(x => /1:1 \/ 1:2/.test(x)), true);
 t('짝 — 맨 앞은 여전히 영상 카드다(1-3)', /홍보영상/.test(census[0] || ''), true);
 
+console.log('⑤-2 🔴 스타일을 «실제로» 붙이는가 (안 붙이면 화살표·포커스 윤곽선이 통째로 죽는다)');
+/* [왜] 2026-09-21 함정 대조 실측 — `if (armedNow) styleOnce();` 한 줄을 지우면
+   화살표도 :focus-visible 윤곽선도 hover 배경도 통째로 안 붙는데 «자동» 하니스는
+   추가 FAIL 0건이었습니다(브라우저 검사만 잡았고, 그쪽은 게이트가 안 물어 갑니다). */
+const armBody = (function () {
+  const i = wireCode.indexOf('function arm()');
+  if (i < 0) return '';
+  const s0 = wireCode.indexOf('{', i); let d = 0;
+  for (let j = s0; j < wireCode.length; j++) {
+    if (wireCode[j] === '{') d++;
+    else if (wireCode[j] === '}') { d--; if (!d) return wireCode.slice(s0, j + 1); }
+  }
+  return '';
+})();
+t('전제 — arm() 몸통을 중괄호 짝으로 잘라 냈다', armBody.length > 100, true);
+t('arm() 이 styleOnce() 를 부른다', /styleOnce\s*\(/.test(armBody), true);
+t('styleOnce 가 <head> 에 실제로 붙인다', /document\.head\.appendChild/.test(wireCode), true);
+
 console.log('⑤ 상주 감시를 두지 않았다 (홈을 멎게 한 전력)');
 t('전제 — 주석 제거가 실제로 일했다', wireCode.length < wire.length, true);
+t('전제 — 트랙 블록을 실제로 잘라 냈다', trackCode.length > 200, true);
 t('body class MutationObserver 없음', /MutationObserver/.test(wireCode), false);
 t('짝 — 그 경고는 주석에 그대로 남아 있다', /MutationObserver/.test(wire), true);
 t('setInterval 은 끝이 있다(tries 상한)', /tries\s*>=\s*\d+/.test(wireCode), true);
+
+console.log('⑥ › 화살표를 «가상요소» 로 그린다 (2026-09-21 사장님 지시)');
+/* 폰에는 손가락 커서도 :hover 도 없어 «누를 수 있다» 는 신호가 0개였다.
+   ⛔ 글자로 넣으면 i18n 두 엔진이 .ht-what 안 <span> 의 textContent 를 갈아끼울 때
+   함께 사라지고, 사전이 전체 문자열 일치라 「원어민 화상수업」과 「원어민 화상수업 ›」를
+   다른 말로 본다(CLAUDE.md 「data-ko 가 달린 표 머리글에 정렬 화살표를 달아야 할 때」).
+   ⚠️ «그려졌는가·토글을 견뎌도 살아남는가·폰에서 안 넘치는가» 는 브라우저 검사 몫이다.
+   여기서는 «모양» 만 못 박는다 — 그래야 게이트가 물어 간다(manual/ 은 안 물어 감). */
+t('화살표를 ::after 로 그린다', /\.ht-what::after\{content:/.test(wireCode), true);
+const chevSel = (wireCode.match(/\.home-tracks[^{]*\.ht-what::after/) || [''])[0];
+t('전제 — 화살표 선택자를 찾았다', chevSel.length > 10, true);
+t('그 규칙이 [role="button"] 일 때만 걸린다(배선 전엔 안 그린다)',
+  /\.ht-track\[role="button"\]/.test(chevSel), true);
+/* ⛔ :hover·:focus 로 좁히면 «폰에서 영영 안 보이는» 화살표가 된다 — 고치려던 그 문제다.
+   위 검사만으로는 «[role="button"]:hover ...» 도 통과하므로 짝으로 막는다. */
+t('짝 — :hover·:focus 로 좁히지 않았다', /:hover|:focus/.test(chevSel), false);
+t('짝 — index.html 트랙 마크업에는 화살표 글자가 없다', /›/.test(trackCode), false);
+t('짝 — 배선 파일이 textContent·innerHTML 로 화살표를 넣지 않는다',
+  /(textContent|innerHTML)\s*\+?=\s*[^;]*›/.test(wireCode), false);
+/* ⚠️ 이 줄은 role="button" 이라 «::after 의 글자가 낭독 이름에 그대로 섞입니다»
+   (CDP 접근성 트리로 실측: 「…원어민 화상수업›」). CSS 대체 텍스트 «/ ""» 로 뺍니다.
+   ⛔ 그 한 줄만 두면 그 문법을 모르는 옛 브라우저가 선언을 통째로 버려 화살표가
+   사라집니다 — «대체 텍스트 없는 줄» 을 앞에 두어 폴백으로 남깁니다(짝). */
+t('낭독 이름에서 빼는 대체 텍스트가 있다', /content:"\\\\203A"\s*\/\s*""/.test(wireCode), true);
+t('짝 — 옛 브라우저용 폴백 줄이 앞에 남아 있다', /content:"\\\\203A";/.test(wireCode), true);
+/* 🔴 «그려졌다» 와 «보인다» 는 다릅니다 — 2026-09-21 함정 대조 실측: opacity 를 0 으로
+   바꾸면 화살표가 안 보이는데 ⑥(content 만 읽음)도 ⑨-4(대체 텍스트라 이름에도 없음)도
+   통과했습니다. 브라우저 검사(⑨-3b)가 잡지만 **manual/ 은 게이트가 안 물어 갑니다** —
+   그래서 «값을 죽이는» 변이를 여기서도 한 겹 막습니다.
+   ⛔ 숫자를 여기 못 박지 말고 «너무 흐리지 않은가» 로 물으세요(0.6 → 0.8 은 멀쩡한 손질). */
+const chevOpacity = parseFloat((chevSel && (wireCode.slice(wireCode.indexOf(chevSel)).match(/opacity:\s*([0-9.]+)/) || [])[1]) || 'NaN');
+t('전제 — 화살표 규칙에서 opacity 를 읽었다', Number.isFinite(chevOpacity), true);
+t('화살표가 투명하지 않다(opacity > .25)', chevOpacity > 0.25, true);
 
 console.log(`\n결과: PASS ${P} / FAIL ${F}`);
 if (F) process.exit(1);   /* ⛔ 실패하고도 exit 0 이면 --fast 합계가 안 움직인다 */
