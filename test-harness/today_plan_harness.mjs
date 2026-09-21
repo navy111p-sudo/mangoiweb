@@ -191,10 +191,15 @@ if (mod) {
       [keysOf(pBefore), keysOf(pIn), keysOf(pAfter)]);
     check('①-1b 세 phase 의 «할 일» 이 서로 다르다(phase 를 계산만 하고 안 쓰면 여기서 걸린다)',
       new Set([keysOf(pBefore), keysOf(pIn), keysOf(pAfter)]).size >= 2, [keysOf(pBefore), keysOf(pAfter)]);
+    /* ⚠️ find() 가 undefined 를 줄 수 있다(웜업을 빼는 변이) — 그대로 `.whyKo` 를 읽으면
+       «깔끔한 FAIL» 이 아니라 하니스가 그 자리에서 죽어 결과줄조차 안 나온다. */
+    const wAfter = pAfter.steps.find(st => st.key === 'warmup');
+    const wIn = pIn.steps.find(st => st.key === 'warmup');
     check('①-1b 지난 수업을 「수업 전에 10분」이라고 말하지 않는다',
-      !/수업 전에 10분/.test(pAfter.steps.find(st => st.key === 'warmup').whyKo)
-      && /끝났어요/.test(pAfter.steps.find(st => st.key === 'warmup').whyKo),
-      pAfter.steps.find(st => st.key === 'warmup').whyKo);
+      !!wAfter && !/수업 전에 10분/.test(wAfter.whyKo) && /끝났어요/.test(wAfter.whyKo),
+      wAfter && wAfter.whyKo);
+    check('①-1b 수업 «중» 에는 「지금 … 수업 중」이라고 말한다(after 문구를 돌려 쓰지 않는다)',
+      !!wIn && /수업 중/.test(wIn.whyKo) && !/끝났어요/.test(wIn.whyKo), wIn && wIn.whyKo);
     check('①-1b 수업 전 웜업 문구에는 수업 시각이 그대로 들어간다(예전 그대로)',
       /19:00 수업 전에 10분/.test(pBefore.steps[0].whyKo), pBefore.steps[0].whyKo);
     check('①-1b 순서가 바뀌어도 총 분 수는 같다(도구를 뺀 것이 아니다)',
@@ -299,12 +304,42 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   check('⑦ 서버 레벨은 도구 키에 «비어 있을 때만» 심는다', /!localStorage\.getItem\('mangoi_warmup_level'\)/.test(page) && /!localStorage\.getItem\('mangoi_aifriend_level'\)/.test(page));
   check('⑦ 화면에 상주 MutationObserver·setInterval 이 없다', !/MutationObserver|setInterval/.test(page));
   /* ⑦ 🔴 히어로가 지난 수업을 «있어요» 라고 말하지 않는다 (2026-09-21).
-     ⛔ 화면이 시각을 다시 재면 판정이 두 벌이 된다 — 서버가 준 phase 만 본다. */
-  check('⑦ 히어로가 서버의 phase 를 읽는다(수업 전/중/후를 가른다)',
-    /p\.phase === 'after'/.test(page) && /p\.phase === 'in_class'/.test(page), null);
-  check('⑦ 히어로가 시각을 다시 재지 않는다(Date 로 지금을 판정하지 않는다)',
-    !/new Date\(\)\s*\.getHours|getHours\(\)/.test(page));
-  check('⑦ 수업 전 문구는 예전 그대로 남아 있다(짝)', /수업 앞뒤 10분이 제일 잘 남아요/.test(page));
+     ⛔ 「그 글자가 있는가」로 묻지 말 것 — 함정 대조 실측: after 문장과 before 문장을 «맞바꾸거나»
+        `&& false` 로 죽여도 그 글자는 그 줄에 그대로 남아 전부 통과했다(= 사장님이 신고한 문장이 재현).
+        그래서 삼항식을 괄호 짝으로 오려 내 «무슨 글자가 나오는가» 를 답으로 묻는다. */
+  const subAt = page.indexOf("else if (p.mode === 'class') sub =");
+  /* ⚠️ `indexOf('=', subAt)` 은 `p.mode === 'class'` 의 `=` 를 먼저 잡는다 — `sub =` 를 앵커로 */
+  const subEq = subAt < 0 ? -1 : page.indexOf('sub =', subAt);
+  const subExpr = subEq < 0 ? '' : page.slice(subEq + 5, page.indexOf(';', subEq));
+  check('⑦ ⓪ 히어로 문구 식을 찾아 냈다(못 찾으면 아래 검사가 빈 문자열을 보고 조용히 통과한다)',
+    subExpr.trim().length > 40, subExpr.slice(0, 40));
+  let subKo = null;
+  try {
+    const f = new Function('p', 'T', 'return (' + subExpr + ');');
+    const cls = { start: '14:00', minutes: 20 };
+    const ko = (a) => a;
+    subKo = {
+      after: f({ mode: 'class', phase: 'after', cls }, ko),
+      in_class: f({ mode: 'class', phase: 'in_class', cls }, ko),
+      before: f({ mode: 'class', phase: 'before', cls }, ko),
+      nocls: f({ mode: 'class', phase: 'after', cls: null }, ko),
+    };
+  } catch (e) { subKo = null; }
+  check('⑦ 히어로 식을 실제로 돌릴 수 있다', !!subKo, subKo);
+  check('⑦ 수업이 끝난 뒤에는 「끝났어요」라고 말한다(「있어요」 가 아니다)',
+    !!subKo && /끝났어요/.test(subKo.after) && !/수업이 있어요/.test(subKo.after), subKo && subKo.after);
+  check('⑦ 수업 중에는 「수업 중」이라고 말한다',
+    !!subKo && /수업 중/.test(subKo.in_class), subKo && subKo.in_class);
+  /* 짝 — 이것이 없으면 «전부 끝났어요» 로 만드는 엉터리 수리도 통과한다 */
+  check('⑦ 수업 «전» 에는 예전 문장 그대로다(짝)',
+    !!subKo && /수업이 있어요/.test(subKo.before) && /수업 앞뒤 10분이 제일 잘 남아요/.test(subKo.before), subKo && subKo.before);
+  check('⑦ 세 phase 의 히어로 문장이 서로 다르다',
+    !!subKo && new Set([subKo.after, subKo.in_class, subKo.before]).size === 3, subKo);
+  check('⑦ 수업 정보가 없으면 빈 문자열(지어내지 않는다)', !!subKo && subKo.nocls === '', subKo && subKo.nocls);
+  /* ⛔ 화면이 시각을 다시 재면 판정이 두 벌이 된다 — 서버가 준 phase 만 본다.
+     (규칙은 «지금을 재는 것» 전부를 막으므로 getHours 하나만 보지 않는다) */
+  check('⑦ 히어로가 시각을 다시 재지 않는다(Date·getHours·getUTCHours)',
+    !/getHours\(\)|getUTCHours\(\)|new Date\(\)/.test(page));
   /* 주간표 «리듬 띠»(2026-09-04 결정) — 되돌리면 여기서 FAIL 난다.
      ⛔ 「그 글자가 있는가」로 쓰지 말 것 — 주석에 그 낱말을 적기만 해도 통과한다. 주석을 벗긴 사본을 본다. */
   check('⑦ 주간표가 서버가 준 start·minutes 를 그린다(화면이 다시 계산하지 않는다)',
