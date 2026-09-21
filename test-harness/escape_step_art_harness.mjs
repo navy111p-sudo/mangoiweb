@@ -167,14 +167,16 @@ console.log('\n④ 배선 — 화면에 실제로 그 키가 걸리는가 (advan
 function runScene(fnDecl, callName, extra) {
   // ⛔ 부를 함수와 «같은 이름» 을 스텁으로 두지 마세요 — var 대입이 함수 선언을 덮어써
   //    아무것도 안 돌고 «장면 0건» 으로 조용히 통과합니다(2026-09-21 실제로 밟음).
-  const NOOPS = ['stopListening','clearIdle','clearHotspots','sndOk','flash','playActionClip',
+  const NOOPS = ['stopListening','clearIdle','clearHotspots','sndOk','flash',
     'heard','logProg','showNote','speak','hintTxt','sndUnlock','sndKeyTurn','sndCreak',
     'sndAirlock','sndPowerOn','updateCombo','win','showStep','advance','setGoal',
     'renderHotspots','showHint','armIdle','logAttempt']
     .filter(n => n !== callName)
     .map(n => `var ${n}=__noop;`).join(' ');
   const pre = `
-    var __scenes=[], __timers=[];
+    var __scenes=[], __timers=[], __clips=[];
+    // ⛔ no-op 으로 두지 마세요 — «어느 영상을 틀었는가» 를 답으로 써야 배선이 측정됩니다.
+    function playActionClip(k){ __clips.push(k); return true; }
     function setScene(k){ __scenes.push(k); }
     function setTimeout(fn,ms){ __timers.push({fn:fn,ms:ms}); return 0; }
     function clearTimeout(){}
@@ -187,12 +189,12 @@ function runScene(fnDecl, callName, extra) {
     ${NOOPS}
   `;
   const post = `
-    try{ ${callName}(); }catch(e){ return { err:String(e&&e.message||e), scenes:__scenes, timers:__timers }; }
-    return { scenes:__scenes, timers:__timers };
+    try{ ${callName}(); }catch(e){ return { err:String(e&&e.message||e), scenes:__scenes, timers:__timers, clips:__clips }; }
+    return { scenes:__scenes, timers:__timers, clips:__clips };
   `;
   try {
     return new Function(pre + (extra || '') + '\n' + fnDecl + '\n' + post)();
-  } catch (e) { return { err: String(e && e.message || e), scenes: [], timers: [] }; }
+  } catch (e) { return { err: String(e && e.message || e), scenes: [], timers: [], clips: [] }; }
 }
 /** 그 시각의 타이머를 한 번 터뜨려 «뒤에 오는 장면» 까지 본다 */
 function fireTimer(r, ms) {
@@ -206,15 +208,22 @@ function fireTimer(r, ms) {
   const src   = readFileSync(join(PUB, 'student-game-escape-voice.html'), 'utf8');
   const advFn = cutDecl(src, 'function advance(', '{', '}');
   const showFn= cutDecl(src, 'function showStep(', '{', '}');
+  // ⛔ 클립 표·고르는 함수를 하니스에 «베껴 적지» 마세요 — 소스에서 오려 내야
+  //    「장소를 보는가」가 실제로 측정됩니다.
+  const clipTbl = cutDecl(src, 'var ACTION_CLIPS=', '{', '}');
+  const clipFn  = cutDecl(src, 'function clipKeyFor(', '{', '}');
   ok(!!advFn && !!showFn, '전제: voice 의 advance·showStep 을 오려 냈다');
+  ok(!!clipTbl && !!clipFn, '전제: voice 의 ACTION_CLIPS·clipKeyFor 를 오려 냈다');
 
-  if (advFn && showFn) {
-    const ctx = (stepId) => `
-      var G={ loc:{id:'classroom'}, i:1, combo:0, bestCombo:0, t:0, bonusTime:0,
+  if (advFn && showFn && clipTbl && clipFn) {
+    const ctx = (stepId, locId) => `
+      var G={ loc:{id:'${locId || 'classroom'}'}, i:1, combo:0, bestCombo:0, t:0, bonusTime:0,
               running:true, over:false, busy:false, hintLv:0, stepWrong:0,
               steps:[1,2,3], hotspotOrder:{} };
       function curStep(){ return { id:'${stepId}', say:'x', sayKo:'x', goal:'g', goalKo:'ㄱ' }; }
       var FOCUS={}, CLOSEUP={};
+      ${clipTbl};
+      ${clipFn}
     `;
     // 보관함을 열면 «그 장소의 결과 그림» 이 걸려야 한다
     const rD = runScene(advFn, 'advance', ctx('drawer'));
@@ -278,6 +287,59 @@ function fireTimer(r, ms) {
        `캐비닛을 열면 «열린» 그림이 먼저 걸린다 (${r.err ? 'ERR ' + r.err : r.scenes.join('|') || '—'})`);
     fireTimer(r, 1600);
     ok(r.scenes.join('|') === 'cabinetOpen|safe', '잠깐 보여준 뒤 다음 장면으로 넘어간다');
+  }
+}
+
+/* ══ ⑤ 영상 배선 — «그 방의» 영상을 트는가 ══════════════
+   🔴 2026-09-21 실측: clipKind 가 단계 이름만 보고 있어 옥상에서 공구함을
+      열어도 «서재 책상 서랍» 영상이 났습니다 — 에러가 안 나고 화면도 멀줦해 보입니다.
+   ✅ 그래서 advance 를 실제로 돌려 «무엇을 틀었는가» 를 답으로 봅니다.
+   ⚠️ 「그 방 것을 틀는다」 옆에 「없는 짝은 공용으로 떨어진다」를 짝으로 둡니다 —
+      앞만 보면 «전부 장소:단계» 로 만드는 엉터리 수리도 통과합니다. */
+console.log('\n⑤ 영상 배선 — 옥상에서 열면 «옥상» 영상이 나오는가');
+{
+  const src     = readFileSync(join(PUB, 'student-game-escape-voice.html'), 'utf8');
+  const advFn   = cutDecl(src, 'function advance(', '{', '}');
+  const clipTbl = cutDecl(src, 'var ACTION_CLIPS=', '{', '}');
+  const clipFn  = cutDecl(src, 'function clipKeyFor(', '{', '}');
+  ok(!!advFn && !!clipTbl && !!clipFn, '전제: advance·ACTION_CLIPS·clipKeyFor 를 오려 냈다');
+
+  if (advFn && clipTbl && clipFn) {
+    const urls = {};
+    for (const m of clipTbl.matchAll(/'([a-z]+:[a-z]+)'\s*:\s*'(https?:[^']+)'/g)) urls[m[1]] = m[2];
+
+    const ctx = (stepId, locId) => `
+      var G={ loc:{id:'${locId}'}, i:1, combo:0, bestCombo:0, t:0, bonusTime:0,
+              running:true, over:false, busy:false, hintLv:0, stepWrong:0,
+              steps:[1,2,3], hotspotOrder:{} };
+      function curStep(){ return { id:'${stepId}', say:'x', sayKo:'x', goal:'g', goalKo:'ㄱ' }; }
+      var FOCUS={}, CLOSEUP={};
+      ${clipTbl};
+      ${clipFn}
+    `;
+
+    const LOCS  = ['classroom','restroom','storage','rooftop','playground'];
+    const STEPS = ['drawer','painting','code','door'];
+    let miss = [], wrong = [];
+    for (const L of LOCS) for (const st of STEPS) {
+      if (!urls[L + ':' + st]) { miss.push(L + ':' + st); continue; }
+      const r = runScene(advFn, 'advance', ctx(st, L));
+      if ((r.clips || []).join('|') !== L + ':' + st) wrong.push(`${L}:${st}→${(r.clips||[]).join('|')||'—'}`);
+    }
+    ok(miss.length === 0,  `20편이 표에 전부 있다 (빠짐: ${miss.join(', ') || '없음'})`);
+    ok(wrong.length === 0, `장소마다 «그 방의» 영상을 튼다 (어긋남: ${wrong.join(', ') || '없음'})`);
+
+    // ❍ 짝 — 없는 짝은 공용으로 떨어져야 한다(서재·key 단계)
+    const rStudy = runScene(advFn, 'advance', ctx('drawer', 'study'));
+    ok((rStudy.clips || []).join('|') === 'drawer',
+       `서재는 공용 영상으로 떨어진다 (${(rStudy.clips||[]).join('|') || '—'})`);
+    const rKey = runScene(advFn, 'advance', ctx('key', 'rooftop'));
+    ok((rKey.clips || []).join('|') === 'safe',
+       `전용 영상이 없는 단계도 공용으로 떨어진다 (${(rKey.clips||[]).join('|') || '—'})`);
+    // ❍ 짝 — 영상이 없어야 하는 단계에는 안 틀어야 한다
+    const rDesk = runScene(advFn, 'advance', ctx('desk', 'classroom'));
+    ok((rDesk.clips || []).length === 0,
+       `둘러보기 단계에는 영상을 안 튼다 (${(rDesk.clips||[]).join('|') || '—'})`);
   }
 }
 

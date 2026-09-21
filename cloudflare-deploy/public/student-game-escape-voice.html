@@ -328,8 +328,41 @@ var ACTION_CLIPS={
   books:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_b8d6689c-fcfe-43c8-95fe-74fcaf73cb2a.mp4',
   safe:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_572eacd6-6774-4b00-a8af-9fe0b3b5c9b1.mp4',
   tension:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_9156ef72-c44a-470f-8246-553bdab25dea.mp4',
-  escape:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d0c881f5-8870-45ee-a5d1-6de08ee53626.mp4'
+  escape:'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260918_163620_d0c881f5-8870-45ee-a5d1-6de08ee53626.mp4',
+  /* 🎬 장소별 전환 영상 20편(2026-09-21) — 그 방의 «닫힌» 사진을 시작,
+     «열린» 사진을 끝으로 물려 만들어 방·각도가 STEP_ART 그림과 딱 맞습니다.
+     열쇠는 clipKeyFor() 가 «장소:단계» 로 만듭니다. */
+  'classroom:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_aa73171e-515a-466c-9b05-d34d0b725a3a.mp4',
+  'classroom:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_b0436649-243c-4980-a4f4-375c129013e9.mp4',
+  'classroom:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_a08b8ccc-e683-4216-9b18-82e71cf9a0fb.mp4',
+  'classroom:door':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_4e2cb128-ff83-410e-a020-fff4e44ebf26.mp4',
+  'restroom:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_d0255759-a5b4-4b65-aa4c-1f70dc2bd758.mp4',
+  'restroom:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_e915cc3b-47b3-44c3-8cd8-c56fbac242b8.mp4',
+  'restroom:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_aae34e84-a9ca-4ca5-af74-9ab17aa9a881.mp4',
+  'restroom:door':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_adf1b019-593b-4774-86d3-1af9674fd5a4.mp4',
+  'storage:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_1abb9a6c-f119-4580-8e42-b3d5fa3aac93.mp4',
+  'storage:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_a9a2d9ec-2993-4ef8-a3d1-7cc49268a292.mp4',
+  'storage:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_8de533cd-c1f1-4a41-aec8-8177192f5d66.mp4',
+  'storage:door':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061618_e203cf81-2eb0-4221-a1da-f3d57c8fc15e.mp4',
+  'rooftop:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061640_c9714214-f5c5-4f10-a24b-0c2ae31b2b26.mp4',
+  'rooftop:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061640_f3984e7e-4cd7-460a-b5ea-1335fe945be1.mp4',
+  'rooftop:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061639_adf54ae9-c4ab-49ed-893d-f1190e552274.mp4',
+  'rooftop:door':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061640_ba8f8a21-e04a-4f4d-9b3b-9cd0d81212f6.mp4',
+  'playground:drawer':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061640_9c6f433c-d02b-4666-9cd8-043a4f938ff8.mp4',
+  'playground:painting':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061639_80463591-9ae9-40ad-b929-e58298636022.mp4',
+  'playground:code':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061639_c37af0e0-8010-48d2-be38-15d18066458d.mp4',
+  'playground:door':'https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260921_061639_b33cba57-d052-4e47-aee1-be457a4a6d38.mp4'
 };
+/* 🎬 어느 영상을 틀 것인가 — «장소 + 단계» 로 고릅니다(2026-09-21).
+   ⛔ 단계 이름만 보고 고르지 마세요 — 그러면 옥상에서 공구함을 열어도
+      «서재 책상 서랍» 영상이 납니다(2026-09-21 이전이 그 상태였습니다).
+   ⚠️ 없는 짝은 공용 영상으로 떨어집니다 — 서재(study)와 key 단계가 그쪽입니다. */
+function clipKeyFor(locId,stepId){
+  var k=locId+':'+stepId;
+  if(ACTION_CLIPS[k]) return k;
+  return stepId==='drawer'?'drawer':(stepId==='books'?'books':
+         ((stepId==='code'||stepId==='key')?'safe':(stepId==='door'?'escape':'')));
+}
 
 /* ════════════════════════════════════════════════════════════
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
@@ -929,7 +962,7 @@ function advance(){
   if(G.combo===5){G.freeHint=true;reward=' · 🗝 다음 단계 비밀 힌트 획득!';}
   updateCombo(); sndOk(); flash();
   try{ if(window.EscapeAudio) EscapeAudio.step(s.id,G.loc.id); }catch(_e){}
-  var clipKind=s.id==='drawer'?'drawer':(s.id==='books'?'books':((s.id==='code'||s.id==='key')?'safe':(s.id==='door'?'escape':'')));
+  var clipKind=clipKeyFor(G.loc.id,s.id);
   if(clipKind) playActionClip(clipKind);
   heard('<span class="ok">정확해요! · Correct!'+reward+'</span>');
   logProg(s.id, true);
