@@ -32,9 +32,11 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={wordForms:4546,wordPictureForms:95,contextOnlyForms:4374,cardOnlyForms:77,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
-const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.'},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.'}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
-const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
+const manifest={wordForms:4546,wordPictureForms:95,cardOnlyForms:4451,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+/* ⚠️ pic:1 = «그 사진의 설명이 이 낱말을 가리킨다»(근거 있음). 2026-09-21 2차 수리부터 화면이 사진을
+   거는 줄은 이것뿐이라, 표시를 빼면 이 fixture 의 낱말이 전부 그림카드가 되어 사진 관련 절이 헛돕니다. */
+const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.',pic:1},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.',pic:1}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
+const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.',pic:1}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
 async function ready(){const a=app();eq(a.requests.length,0,'no curriculum data loaded before the user opens it');a.click('open');await flush();eq(a.requests.length,1);a.respond('manifest.json',manifest);await flush();eq(a.requests.length,2,'fetch only one selected book');a.respond('bts-01.json',one);await flush();return a;}
 const a=await ready();ok(!a.els['cq-card'].hidden);eq(a.els['cq-target'].textContent,'apple');eq(a.els['cq-video'].src,'','no eager video load');eq(a.els['cq-items'].children.length,2);
@@ -185,8 +187,12 @@ ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 
  const wordKeys=wordAssets.map(x=>'word-image:'+x.index);
  ok(wordKeys.filter(k=>(describe.get(k)||'').trim()).length>wordKeys.length*0.9,
   '낱말 사진 설명은 메아리가 아니라 진짜 설명이다 — 「짝」 검사(앞줄만 있으면 전부 버려도 통과)');}
-eq(live.wordPictureForms+live.contextOnlyForms+live.cardOnlyForms,live.wordForms,
- '낱말 형태를 «낱말 그림 / 상황 그림만 / 그림카드만» 으로 갈라서 센다');
+eq(live.wordPictureForms+live.cardOnlyForms,live.wordForms,
+ '낱말 형태를 «낱말 그림 / 그림카드» 둘로 갈라서 센다');
+/* 🔴 2026-09-21 2차 — 「상황 그림만」 갈래가 사라졌습니다(사장님: 근거 없는 실사 사진을 붙이지 않는다).
+   ⛔ contextOnlyForms 를 되살리지 마세요 — 그 칸이 있으면 그 갈래를 다시 만들게 됩니다. */
+ok(!('contextOnlyForms' in live)&&!('contextPictureRows' in live),
+ '옛 «예문 상황 그림» 칸이 manifest 에 되살아나지 않았다');
 ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
  '근거 있는 낱말 그림은 소수다 — 갑자기 대부분이 되면 근거 게이트가 죽은 것');
 /* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 붙이지 않는다 ·
@@ -196,7 +202,7 @@ ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
       ① 사진을 «낱말 그림» 이라고 부르는 줄은 여전히 근거가 있어야 하고 소수여야 한다
       ② 사진이 없는 줄은 카드로 채워진다(빈 상자 0줄)
       ③ 카드는 사진인 척하지 않는다(그 줄에는 image 가 없다) */
-const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,card:0};let cardExact=0;let wordPhotoRows=0;
+const seen=new Set(),pictures=new Set(),claimed={word:0,card:0};let cardExact=0;let wordPhotoRows=0;
 /* 🖼 「그 교재 안에 그림 있는 예문이 있으면 그것을 예문으로 고른다」를 여기서 다시 계산해 맞춰 본다.
    ⛔ 「그림만 빌려 오기」와 다릅니다 — 예문 자체를 바꿔 그림과 예문이 언제나 짝입니다. */
 const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage.get(sid))imagedText.add(text);
@@ -216,12 +222,13 @@ for(const entry of live.books){
    claimed.word++;pictures.add(w.word);
    ok(s.image,'a word picture has a picture');
    ok(depicts(w.word,mediaKey.get(w.scene)),'「낱말 그림」이라고 말하려면 그 그림의 설명이 그 낱말을 가리켜야 한다: '+w.word);
-  }else if(s.image){
-   claimed.context++;pictures.add(w.word);
-   /* 근거가 없을 때 그림은 «그 그림이 실제로 그린 그 문장» 과만 함께 나온다. */
-   ok(s.text===shown,'상황 그림은 지금 보여 주는 그 예문의 그림이어야 한다: '+w.word);
-   ok(!depicts(w.word,mediaKey.get(w.scene))||!w.bookExample,'근거가 있는데 낱말 그림으로 안 세었다: '+w.word);
   }else{claimed.card++;
+   /* 🔴 2026-09-21 «2차» — 근거가 없는 줄에는 payload 에 사진 «주소 자체가» 없어야 합니다.
+      옛 빌드는 그 예문의 사진을 실어 두고 화면이 「낱말 뜻 그림은 아니에요」라고 말하게 했는데,
+      아이는 그 글자보다 사진을 먼저 봅니다(사장님: 「전혀 상관관계가 없는데 … 이렇게 되면 문제야」).
+      ⛔ 이 줄을 지우고 「화면에서 안 그리면 된다」로 풀지 마세요 — 주소가 남아 있으면 다음 사람이
+         「있으니 쓰자」로 되살립니다. 안 실으면 샐 자리가 없습니다. */
+   ok(!s.image,'근거 없는 낱말 줄에는 사진 주소가 payload 에 실리지 않는다: '+w.word);
    /* 🎨 사진이 없는 줄 — 화면이 그리는 낱말 그림카드가 붙는다. 여기서는 «사진인 척하지 않는가» 와
       «카드에 그릴 그림문자가 실제로 나오는가» 를 본다(그림문자 정본은 화면 파일 한 곳). */
    ok(s.text===shown,'그림카드 줄에서도 예문은 그 교재의 예문이다: '+w.word);
@@ -232,9 +239,11 @@ for(const entry of live.books){
    ok(!wordSceneOf.has(w.word),'사진이 있는 낱말을 카드로 남겨 두지 않는다: '+w.word);
    if(art.exact)cardExact++;}
   /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
-  /* 🖼 빌드 규칙을 그대로 다시 씁니다 — ① 문장 그림에 근거가 있으면 그것 ② 없고 예문에도 그림이
-     없을 때만 낱말 사진. ⛔ ②를 ① 앞으로 옮기지 마세요(🏞 예문 상황 그림이 통째로 사라집니다). */
-  const byWordPhoto=!depictPool.has(w.word)&&!imagedText.has(shown)&&wordSceneOf.has(w.word);
+  /* 🖼 빌드 규칙을 그대로 다시 씁니다 — ① 문장 그림에 근거가 있으면 그것 ② 없으면 그 낱말만 그린 사진.
+     🔴 2026-09-21 2차 — ②에 걸려 있던 «예문에 그림이 없을 때만» 조건을 뺐습니다. 그 조건 때문에
+        근거 있는 낱말 사진이 근거 «없는» 예문 사진에 지고 있었습니다(실측 12,246줄).
+     ⛔ 그 조건을 되살리지 마세요 — 근거 있는 사진이 근거 없는 사진에 지는 순서가 됩니다. */
+  const byWordPhoto=!depictPool.has(w.word)&&wordSceneOf.has(w.word);
   eq(!!w.pic,depictPool.has(w.word)||byWordPhoto,'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
   if(w.pic&&depictPool.has(w.word))ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
   if(byWordPhoto){wordPhotoRows++;
@@ -251,11 +260,9 @@ for(const entry of live.books){
  }
  for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
  eq(b.words.filter(w=>w.pic).length,entry.wordPictures,entry.id+' word-picture count');
- eq(b.words.filter(w=>!w.pic&&b.scenes[w.scene].image).length,entry.contextPictures,entry.id+' context-picture count');
 }
 eq(seen.size,live.wordForms);
 eq(claimed.word,live.wordPictureRows,'manifest 의 낱말 그림 줄 수가 실제와 같다');
-eq(claimed.context,live.contextPictureRows,'manifest 의 상황 그림 줄 수가 실제와 같다');
 eq(claimed.card,live.cardRows,'manifest 의 그림카드 줄 수가 실제와 같다');
 ok(claimed.card>0,'사진이 없는 줄은 그림카드로 채운다 — 0이면 카드 갈래가 죽은 것');
 eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자» 줄 수가 실제와 같다');
@@ -268,9 +275,15 @@ eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자»
 {const exactForms=[...seen].filter(w=>D.pictogram(w).exact).length;
  ok(exactForms>seen.size*0.4,'그림문자 표가 낱말 형태의 40% 넘게를 뜻으로 맞힌다 ('+exactForms+'/'+seen.size+')');}
 ok(wordPhotoRows>1000,'낱말 사진이 실제로 붙은 줄이 많다 — 0에 가까우면 배선이 죽은 것 ('+wordPhotoRows+')');
-ok(claimed.card<claimed.word/100,'그림문자 카드로 남은 줄은 이제 아주 적다 ('+claimed.card+'/'+claimed.word+')');
-ok(claimed.word>0&&claimed.word<claimed.word+claimed.context+claimed.card,'근거 있는 낱말 그림은 여전히 소수다');
-eq(pictures.size,live.wordPictureForms+live.contextOnlyForms,'사진이 붙은 낱말 형태 수');
+/* 🔴 2026-09-21 2차 — 「카드로 남은 줄은 아주 적다」는 «예문 사진으로 빈자리를 메우던» 시절의 경계입니다.
+   그 사진을 걷어내면 카드가 절반이 되므로 그 단정은 더는 참이 아닙니다.
+   ⛔ 느슨하게 풀지 말고 그 검사가 «정말 지키던 것»(낱말 사진 배선이 살아 있는가)으로 옮겨 적습니다 —
+      순서를 옛날로 되돌리면 근거 있는 줄이 7,210(18%)으로 떨어져 여기서 먼저 빨간불이 납니다. */
+ok(claimed.word>(claimed.word+claimed.card)*0.4,
+ '근거 있는 낱말 사진이 낱말 줄의 40% 넘게 붙는다 — 아래로 떨어지면 선택 순서가 되돌아간 것 ('+claimed.word+'/'+(claimed.word+claimed.card)+')');
+/* ⚠️ 짝 — 위만 두면 «전부 사진» 으로 만드는 엉터리 수리(근거 게이트 무력화)도 통과합니다. */
+ok(claimed.card>0&&claimed.word<claimed.word+claimed.card,'근거가 없는 낱말은 여전히 카드로 남는다 — 0이면 근거 게이트가 죽은 것');
+eq(pictures.size,live.wordPictureForms,'사진이 붙은 낱말 형태 수');
 eq(seen.size-pictures.size,live.cardOnlyForms,'나머지 낱말 형태는 모두 그림카드를 받는다');
 /* 🔤 그림문자는 단일 코드포인트만 — Unicode 13 이상은 Win10 에서 두부(□)가 되고 ZWJ 조합은 쪼개집니다.
    ⚠️ U+1FA70 위쪽은 대부분 Unicode 13+ 라 통째로 막고, 12.0 인 🩺(1FA7A)·🪁(1FA81) 둘만 엽니다. */
@@ -284,5 +297,15 @@ for(const icon of icons){
  ok(cp<0x1FA70||cp===0x1FA7A||cp===0x1FA81,'Unicode 13 이상 이모지를 쓰지 않는다: '+JSON.stringify(icon)+' U+'+cp.toString(16));
 }
 ok(D.pictogram('rice').exact&&D.pictogram('books').exact&&D.pictogram('grandmother').exact,'변형형도 기본형으로 되돌려 찾는다');
+/* 🎨 2026-09-21 2차 — 새로 더한 그림문자 표가 «실제로 실렸는가». 표만 만들어 두고 loader 목록에서
+   빠뜨리면 그 낱말들이 조용히 «갈래만» 으로 떨어집니다(변이시험에서 실제로 안 잡히던 구멍).
+   ⛔ 낱말을 여기 베껴 적지 마세요 — 소스에서 읽습니다(표가 늘면 저절로 함께 검사됩니다). */
+{const src=fs.readFileSync(new URL('../cloudflare-deploy/public/js/scene-curriculum.js',import.meta.url),'utf8');
+ const at=src.indexOf('var PICTO_EXTRA={');ok(at>0,'새 그림문자 표를 소스에서 찾았다 — 못 찾으면 아래 검사가 뜻을 잃는다');
+ const body=src.slice(at,src.indexOf('\n  };',at));
+ const words=[...body.matchAll(/'([a-z][a-z' ]*)'/g)].flatMap(m=>m[1].split(' ')).filter(Boolean);
+ ok(words.length>100,'그 표에서 낱말을 실제로 읽어 왔다 ('+words.length+') — 0이면 검사가 조용히 공회전한다');
+ const missed=words.filter(w=>!D.pictogram(w).exact);
+ eq(missed.length,0,'새로 더한 그림문자가 실제로 실린다: '+missed.slice(0,8).join(' '));}
 ok(!D.pictogram('zzqwx').exact&&D.pictogram('zzqwx').icon,'모르는 낱말도 카드는 나온다 — 다만 «뜻에 맞는 그림» 이라고 말하지 않는다');
 console.log('PASS scene curriculum: '+checks+' assertions (그림 근거 게이트, 예문 출처, payload budgets, grading, request races, cancellation, media fallback; 브라우저·레이아웃 검사는 없음)');

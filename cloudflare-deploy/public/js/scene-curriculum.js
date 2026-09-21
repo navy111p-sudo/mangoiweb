@@ -186,8 +186,33 @@
    '📣':'advertise promote campaign marketing','🏦':'bank finance financial loan',
    '⌛':'wait patience duration period'
   };
+  /* 🎨 2026-09-21 2차 — 근거 없는 사진을 걷어내자 카드가 절반이 됐다. 그 카드에서 «갈래만» 으로 떨어지던
+     흔한 구체명사를 여기서 줄인다(실측으로 고른 낱말만 — 추측으로 늘리지 않는다).
+     ⛔ 단일 코드포인트 · Unicode 12 이하만. 13 이상은 Win10 에서 두부(□)가 되고 ZWJ 조합은 쪼개집니다.
+     ⛔ 고유명사(사람·지역 이름)는 넣지 마세요 — 「그 낱말을 나타내는 그림문자」라고 거짓으로 말하게 됩니다. */
+  var PICTO_EXTRA={
+   '🐉':'dragon','🐬':'dolphin','👃':'nose','🥜':'peanut nut almond','🍋':'lemon','🧁':'muffin cupcake',
+   '📦':'storage supply package parcel carton','💾':'database backup','💬':'message discussion chat conversation',
+   '🎣':'fishing fisherman angler','🔑':'password unlock','🧵':'silk thread sewing','🛫':'airline flight departure',
+   '📏':'kilometer meter length ruler measure','📓':'notebook diary journal','⭕':'circle round',
+   '🔺':'triangle','🟥':'rectangle square','🌹':'rose','💎':'diamond jewel gem','🗼':'tower',
+   '👑':'emperor king queen crown royal','🦴':'bone skeleton','🧔':'beard mustache','🦇':'bat',
+   '🏸':'badminton','🦠':'bacteria germ virus','🍺':'alcohol beer','👽':'alien','👼':'angel',
+   '🏢':'architecture office headquarters','📰':'article newspaper','🎭':'auditorium theater drama',
+   '👶':'birth newborn','💨':'blew blow breeze','🌶️':'spicy pepper','🗿':'statue','🔨':'carpenter hammer',
+   '💇':'hairdresser haircut','🌾':'farmer harvest','🤧':'allergic allergy','🏹':'hunt hunting archery',
+   '🤸':'jumping acrobat','🙋':'participate volunteer','👫':'pal buddy','👣':'follow footprint',
+   '📔':'album','📤':'submit','🎓':'instructor lecturer professor intern','👥':'coworker colleague',
+   '🧶':'handmade knit yarn','🔢':'thirtieth fifth ordinal numeral','🔄':'update refresh',
+   '🏨':'guesthouse hotel inn','📺':'channel','🧠':'memorize memory brain','🚗':'drove driving',
+   '🌊':'coastal coast wave','🥋':'martial taekwondo judo karate','🚫':'avoid forbid',
+   '🌿':'herb rosemary basil','📣':'encourage cheer','🎉':'occasion celebration',
+   '🛀':'relaxation','🔗':'reconnect link','🧹':'cleanup tidy sweep','🚧':'limit roadwork',
+   '🧳':'visitor tourist traveler','🖼️':'exhibit exhibition gallery','🔰':'beginner',
+   '⬆️':'upgrade','❄️':'polar arctic','🍓':'berry'
+  };
   var PICTO={};
-  (function(){for(var t=0,tables=[PICTO_TABLE,PICTO_MORE,PICTO_LAST];t<tables.length;t++)for(var icon in tables[t]){var words=tables[t][icon].split(' ');for(var i=0;i<words.length;i++){var w=words[i];if(w&&!PICTO[w])PICTO[w]=icon;}}})();
+  (function(){for(var t=0,tables=[PICTO_TABLE,PICTO_MORE,PICTO_LAST,PICTO_EXTRA];t<tables.length;t++)for(var icon in tables[t]){var words=tables[t][icon].split(' ');for(var i=0;i<words.length;i++){var w=words[i];if(w&&!PICTO[w])PICTO[w]=icon;}}})();
   /* 갈래 표시 — «무슨 뜻인지» 가 아니라 «어떤 갈래인지» 만 나타낸다. 화면이 그렇게 말해야 한다(exact:false). */
   var PICTO_GROUPS=[[/(tion|sion|ment|ness|ity|ism|ship|hood|ance|ence)$/,'💭'],[/(room|house|land|town|shop|store|port|market)$/,'🏠'],[/(er|or|ist|ian|man|men)$/,'🧑'],[/(ing|ed)$/,'🏃'],[/(ful|ous|ive|able|ible|less|al|ic|ly|y)$/,'✨']];
   var PICTO_DEFAULT='🧩';
@@ -242,10 +267,14 @@
      word    = 그림 설명이 그 낱말을 가리킨다(근거 있음)
      context = 지금 보는 그 예문을 그린 그림이다(낱말 뜻 그림이 아니다)
      none    = 근거가 없어 아예 붙이지 않았다 */
-  /* 🖼 그림은 셋 가운데 하나로 «반드시» 붙는다(2026-09-21 사장님 지시: 모든 낱말에 그림).
-     word = 사진 설명이 그 낱말을 가리킨다 · context = 지금 보는 그 예문을 그린 사진 · card = 우리가 그린 낱말 그림카드
-     ⛔ 'none'(빈 상자) 으로 되돌리지 마세요. ⛔ 빈자리를 «남의 문장 사진» 으로 채우지도 마세요. */
-  function picKind(item){return item.pic?'word':(scene(item).image?'context':'card');}
+  /* 🔴 2026-09-21 2차 — 갈래는 «둘» 이다. 사진은 «그 낱말을 그린 사진» 일 때만 붙는다.
+     word = 사진 설명이 그 낱말을 가리킨다(근거 있음) · card = 우리가 그린 낱말 그림카드
+     ⛔ 옛 'context'(지금 보는 예문의 사진)를 되살리지 마세요 — 「nice」 에 「Your backpack looks nice.」 의
+        가방 사진이 붙던 길입니다. 화면이 「낱말 뜻 그림은 아니에요」라고 «말해도» 아이는 사진을 먼저 봅니다
+        (사장님: 「전혀 상관관계가 없는데 서로 다른 단어와 실사 이미지가 이렇게 되면 문제야」).
+     ⛔ 'none'(빈 상자) 으로도 되돌리지 마세요 — 사진이 없으면 우리가 그린 카드가 붙습니다.
+     ⚠️ 빌드가 근거 없는 줄의 사진 주소를 payload 에서 아예 빼므로 scene.image 로도 샐 수 없습니다. */
+  function picKind(item){return item.pic?'word':'card';}
   /* 🎨 그림카드 그리기 — 사진이 없을 때 상자를 채운다. 낱말마다 색이 달라 카드가 서로 구별된다.
      ⚠️ exact=false 면 «갈래만 나타낸 카드» 라고 말한다 — 갈래 그림문자를 낱말 뜻으로 읽게 두지 않는다. */
   function showWordCard(word){
@@ -277,7 +306,7 @@
   /* ⛔ 「그림 연결 단어 4,469개」로 되돌리지 마세요 — 그건 «그림을 붙인 개수» 였고 그 대부분이 그 낱말을
      보여 주지 않았습니다(2026-09-21 실측: 붙인 39,762줄 중 38,475줄). 갈래를 갈라서 셉니다.
      ⛔ 세 숫자를 하나로 합치지 마세요 — 「사진」 과 「우리가 그린 카드」 가 같은 말이 됩니다. */
-  function overview(){if(manifest)set('overview',manifest.books.length+tr('개 연습 묶음 · 낱말 그림 ',' practice sets · Word pictures ')+(manifest.wordPictureForms||0).toLocaleString()+tr('개 · 예문 상황 그림 ',' · Example-scene pictures ')+(manifest.contextOnlyForms||0).toLocaleString()+tr('개 · 낱말 그림카드 ',' · Word picture cards ')+(manifest.cardOnlyForms||0).toLocaleString()+tr('개 · 문장 영상 ',' · Sentence clips ')+manifest.clips.toLocaleString()+tr('편',''));}
+  function overview(){if(manifest)set('overview',manifest.books.length+tr('개 연습 묶음 · 낱말 그림 ',' practice sets · Word pictures ')+(manifest.wordPictureForms||0).toLocaleString()+tr('개 · 낱말 그림카드 ',' · Word picture cards ')+(manifest.cardOnlyForms||0).toLocaleString()+tr('개 · 문장 영상 ',' · Sentence clips ')+manifest.clips.toLocaleString()+tr('편',''));}
   async function enter(){open=true;var epoch=++requestId;if(controller)controller.abort();controller=new AbortController();document.getElementById('intro').hidden=true;document.getElementById('curriculum').hidden=false;set('overview',tr('교재 목록을 불러오고 있어요…','Loading the book list…'));$('retry').hidden=true;
     try{if(!manifest){var data=await json('/data/scene-curriculum/v1/manifest.json',controller.signal);if(!open||epoch!==requestId)return;manifest=data;}if(!open)return;overview();if(!$('book').options.length)bookOptions();await loadBook();}catch(e){if(open&&epoch===requestId&&e.name!=='AbortError'){set('overview',tr('목록을 불러오지 못했어요. 연결을 확인하고 다시 눌러 주세요.','Could not load the list. Check your connection and retry.'));$('retry').hidden=false;}}
   }
@@ -292,8 +321,10 @@
        ⛔ 여기서 다른 문장의 사진을 끌어오지 마세요 — 「nice」 에 가방 사진이 붙던 길입니다.
        ⛔ 「!s.image」 로 카드를 그리지 마세요 — 갈래 정본이 둘이 되어 picKind 를 되돌려도 아무도 못 봅니다
           (2026-09-21 변이시험 실측: 그 상태에서 picKind 를 옛 'none' 으로 되돌려도 하니스가 전부 초록이었습니다). */
-    if(!s.image){img.removeAttribute('src');set('placeholder','');if(mode==='words'&&picKind(current())==='card'&&current().word)showWordCard(current().word);else set('placeholder',tr('이 장면의 그림이 아직 없어요. 예문으로 익혀 보세요.','No picture for this scene yet. Learn it from the example.'));return;}
-    set('placeholder',tr('그림을 불러오는 중…','Loading picture…'));img.onload=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=false;set('placeholder','');};img.onerror=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=true;set('placeholder','');if(mode==='words'&&current()&&current().word)showWordCard(current().word);else set('placeholder',tr('그림을 불러오지 못했어요. 예문과 힌트로 계속할 수 있어요.','Picture unavailable. Continue with the example and hints.'));$('retry-image').hidden=false;};img.alt=picKind(current())==='word'?tr('그림 설명에 이 낱말이 들어 있는 AI 그림','AI picture whose description names this word'):tr('예문의 상황을 보여 주는 AI 상황 이미지','AI context image for the example');img.src=s.image;imageTimer=setTimeout(function(){if(epoch===mediaId&&!img.complete){set('placeholder',tr('그림이 늦게 도착하고 있어요. 예문으로 먼저 연습해도 좋아요.','The picture is taking longer. You can start with the example.'));$('retry-image').hidden=false;}},12000);
+    /* 🔒 갈래 정본(picKind)이 먼저 정한다 — «사진이 있으니 건다» 로 되돌리면 근거 없는 사진이 다시 샙니다. */
+    if(mode==='words'&&picKind(current())==='card'&&current().word){img.removeAttribute('src');set('placeholder','');showWordCard(current().word);return;}
+    if(!s.image){img.removeAttribute('src');set('placeholder','');set('placeholder',tr('이 장면의 그림이 아직 없어요. 예문으로 익혀 보세요.','No picture for this scene yet. Learn it from the example.'));return;}
+    set('placeholder',tr('그림을 불러오는 중…','Loading picture…'));img.onload=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=false;set('placeholder','');};img.onerror=function(){if(epoch!==mediaId)return;clearTimeout(imageTimer);img.hidden=true;set('placeholder','');if(mode==='words'&&current()&&current().word)showWordCard(current().word);else set('placeholder',tr('그림을 불러오지 못했어요. 예문과 힌트로 계속할 수 있어요.','Picture unavailable. Continue with the example and hints.'));$('retry-image').hidden=false;};img.alt=mode==='words'?tr('그림 설명에 이 낱말이 들어 있는 AI 그림','AI picture whose description names this word'):tr('문장의 상황을 보여 주는 AI 그림','AI context image for the sentence');img.src=s.image;imageTimer=setTimeout(function(){if(epoch===mediaId&&!img.complete){set('placeholder',tr('그림이 늦게 도착하고 있어요. 예문으로 먼저 연습해도 좋아요.','The picture is taking longer. You can start with the example.'));$('retry-image').hidden=false;}},12000);
   }
   function renderExample(item,revealed){var s=scene(item),d=difficulty(),ex=example(item),text=mode==='words'?(quiz&&!revealed?blank(ex,item.word):ex):(quiz&&!revealed&&d==='easy'?blank(s.text,focusWord(item)):quiz&&!revealed&&d==='challenge'?tr('그림이나 영상을 보고 배운 문장을 써 보세요.','Use the picture or clip to write the sentence you studied.'):quiz&&!revealed?s.text.split(/\s+/).map(function(w){return w[0]+w.slice(1).replace(/[a-z]/gi,'_');}).join(' '):s.text);set('example',text);
     /* 그림이 다른 문장에서 왔을 때만 그 문장을 함께 적는다 — 그림과 예문이 다르다는 사실을 감추지 않는다.
@@ -304,14 +335,12 @@
   }
   function renderCard(){clearCard();var item=current();if(!item){set('count',tr('이 조건에 맞는 콘텐츠가 없어요. 다른 교재나 연습 종류를 골라 주세요.','No content matches. Choose another book or practice type.'));return;}
     $('card').hidden=false;passed=assisted=attempted=false;var s=scene(item);set('kind',mode==='words'?tr('WORD · 예문 속 단어','WORD · IN CONTEXT'):tr('SENTENCE · 상황 영상','SENTENCE · CONTEXT CLIP'));set('target',quiz?tr(mode==='words'?'빈칸의 단어를 써 보세요.':'영상을 보고 문장을 완성하세요.',mode==='words'?'Type the missing word.':'Complete the sentence after watching.'):(mode==='words'?item.word:tr('장면을 보고 읽어 보세요.','Watch, then read the sentence.')));renderExample(item,false);
-    var kind=mode==='words'?picKind(item):'context';
+    var kind=mode==='words'?picKind(item):'clip';
     set('source',mode!=='words'?tr('상황 영상: ','Context clip: ')+s.source:
       kind==='word'?tr('🖼 낱말 그림 · 그림 설명에 「'+item.word+'」가 들어 있어요 · ','🖼 Word picture · its description names “'+item.word+'” · ')+s.source:
-      kind==='context'?tr('🏞 예문 상황 그림 · 지금 이 예문을 그린 그림이에요(낱말 뜻 그림은 아니에요) · ','🏞 Example-scene picture · it illustrates this example, not the word’s meaning · ')+s.source:
       tr('🎨 낱말 그림카드 · 이 낱말의 사진이 없어 그림문자로 그린 카드예요(사진이 아니에요) · ','🎨 Word picture card · no photo for this word, so it is drawn as a pictogram (not a photo) · ')+s.source);
     set('media-status',mode!=='words'?tr('문장 속 상황을 보여 주는 영상이에요.','A clip of the situation in the sentence.'):
       kind==='word'?tr('AI 그림 · 그림 설명이 이 낱말을 가리켜요.','AI picture · its description names this word.'):
-      kind==='context'?tr('AI 상황 그림 · 낱말 뜻은 예문과 「뜻 보기」로 확인해요.','AI scene picture · check the meaning with the example and “Meaning”.'):
       tr('그림문자 카드 · 정확한 뜻은 예문과 「뜻 보기」로 확인해요.','Pictogram card · check the exact meaning with the example and “Meaning”.'));
     $('mean').hidden=!!quiz||mode!=='words';set('meaning','');
     $('watch').hidden=mode!=='videos'||!s.video;$('photo').hidden=$('watch').hidden;$('answer-form').hidden=!quiz;$('hint').hidden=!quiz;$('reveal').hidden=!quiz;$('listen').hidden=!!quiz;$('next').hidden=!!quiz;$('answer').value='';$('answer').disabled=false;$('submit').disabled=false;$('hint').disabled=false;$('reveal').disabled=false;set('feedback',quiz&&difficulty()==='easy'?answer(item)[0]+'…':'');showImage();if(quiz)progress();
