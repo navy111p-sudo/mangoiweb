@@ -111,9 +111,20 @@ if (mod) {
     const u = buildTodayPlan({ ...base, band: null });
     check('①-3 레벨 미배정이면 mode=unassigned · 1번이 레벨테스트', u.mode === 'unassigned' && u.steps[0].key === 'leveltest' && u.steps[0].url === '/level-test-ai.html', u.steps.map(s => s.key));
     check('①-3 미배정에서는 levelKeys 가 비어 있다(지어내지 않는다)', u.levelKeys.warmup === null && u.levelKeys.aifriend === null);
-    // ①-4 완료 — done 은 «오늘 그 도구 기록이 있는가»
+    /* ①-4 완료 — 🔄 2026-09-21 에 done 의 뜻이 바뀌었다.
+       옛 경계: «오늘 그 도구 기록이 있는가»(1건만 있어도 완료).
+       새 경계: «오늘 몫(TOOL_GOALS)을 채웠는가». 목표가 없는 도구만 예전 그대로.
+       왜 버렸나 — 1문장만 말해도 「✓ 완료」 라, 화면이 바로 아래에서 「3문장 더!」 라고
+       말하는 자기모순이 됐다(2026-09-21 브라우저 실측). 그리고 «한 번 열면 완료» 자체가
+       사장님이 고쳐 달라고 한 그것이다(「언제까지 해야 끝나는지 모르겠다」).
+       ⛔ 이 검사를 옛 경계로 되돌리지 말 것. 자세한 짝 검사는 today_goal_harness ③절. */
     const d = buildTodayPlan({ ...base, dow: 2, done: { speech: 2, review: 1 } });
-    check('①-4 기록이 있는 단계만 done · doneCount 가 맞다', d.steps.filter(s => s.done).map(s => s.key).join(',') === 'speech,review' && d.doneCount === 2);
+    check('①-4 오늘 몫을 채운 단계만 done — 발음 2/5 는 아직, 복습 1/1 은 완료',
+          d.steps.filter(s => s.done).map(s => s.key).join(',') === 'review' && d.doneCount === 1,
+          d.steps.map(s => ({ k: s.key, c: s.count, g: s.goal, done: s.done })));
+    const d2 = buildTodayPlan({ ...base, dow: 2, done: { speech: 5, review: 1 } });
+    check('①-4 짝: 발음이 5문장이 되면 그때 done 이 된다',
+          d2.steps.filter(s => s.done).map(s => s.key).sort().join(',') === 'review,speech' && d2.doneCount === 2);
     // ①-5 글쓰기는 밴드 3 미만이면 AI 친구로
     const lo = buildTodayPlan({ ...base, band: 1, dow: 5 });
     check('①-5 밴드 1 금요일: 글쓰기 대신 AI 친구', !lo.steps.some(s => s.key === 'write') && lo.steps.some(s => s.key === 'friend'), lo.steps.map(s => s.key));

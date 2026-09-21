@@ -57,6 +57,59 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
 };
 
 /**
+ * 🎯 «오늘의 몫» — 도구마다 «오늘 이만큼 하면 끝» 을 정한 표 (2026-09-21).
+ *
+ * [왜]
+ *   2026-09-21 D1 실측: 게임 한 판 길이 중앙값 **40초**(1,127판 중 57%가 1분 미만),
+ *   발음은 하루 **중앙값 1문장**인데 화면이 내건 목표는 **100문장**이었다.
+ *   화면 어디에도 «오늘 어디까지 하면 끝인가» 가 없었다 — 게임 HTML 14개·발음코치에
+ *   날짜 기준 진행을 세는 코드가 0줄이고, 이 파일조차 «했다/안 했다» 이진으로만 봤다.
+ *   사장님 제보: 「무작정 언제까지 해야 끝나는지 모르니 몇 번 하다가 나가게 돼요.」
+ *
+ * [숫자의 근거 — 지어내지 않았다]
+ *   goal 은 그 도구의 «학생-일 행 수» 실측(2026-09-21)에서 왔다. 중앙값은 «이탈한 날» 까지
+ *   섞여 있어 목표로 쓰면 순환논리가 되므로, **p75(잘 한 날)** 를 기준으로 삼고 기억하기
+ *   쉬운 수로 맞췄다.  ⟨중앙 / p75⟩ warmup 1/2 · review 1/2 · friend 3/6 · micro 5/9 ·
+ *   vocab 5/10 · judgment 3/5 · write 1/1.
+ *   ⚠️ speech 만 실측 p75(2)보다 높은 **5** 다 — 2026-09-21 사장님이 정한 값이다
+ *      (「매일 최대 5문장씩 미션」). 실측을 덮어쓴 것이 아니라 «사람이 정한 것» 이다.
+ *
+ * [⛔ games 는 goal 이 null 이다 — 빠뜨린 것이 아니다]
+ *   지금 셀 수 있는 것은 `game_sessions` 의 «판 수» 뿐인데 그 중앙값이 40초다.
+ *   목표를 «3판» 으로 두면 **아무것도 안 하고 세 번 들락날락한 학생이 «달성»** 이 된다 —
+ *   화면이 거짓말을 시작한다. `items`(학습 항목) 로 세는 길도 지금은 막혀 있다:
+ *   게임 6종이 그 값을 아예 안 보내서(game-track.js 머리말), 그 게임만 하는 학생에게는
+ *   **아무리 해도 안 오르는 막대** 가 된다 — 목표가 없는 것보다 나쁘다.
+ *   ⟹ 게임은 개수만 보여 주고 목표는 «말하지 않는다». 되살리려면 먼저
+ *      `game_sessions.finished` 의 뜻(지금은 «학습 항목이 있었나»)을 고쳐야 한다.
+ *
+ * [⛔ 새 표·새 집계를 만들지 않았다]
+ *   `PlanInput.done` 이 이미 **개수** 로 오고 있었고(api-students.ts 가 COUNT 로 센다)
+ *   여기서 `> 0` 으로 버려지고 있었다. 그 값을 그대로 싣기만 한다.
+ *
+ * ⚠️ goal 을 바꾸려면 **이 표 한 줄** 만 고친다. 화면에 숫자를 다시 적지 말 것.
+ */
+export interface ToolGoal {
+  /** 오늘 몫. null = 목표를 두지 않는다(지금 세는 값이 목표로 쓸 만하지 않다) */
+  goal: number | null;
+  /** 세는 단위 — 화면이 「2 / 5문장」 처럼 그대로 쓴다 */
+  unitKo: string;
+  /** 영어 단위(단수형). 화면이 1보다 크면 s 를 붙인다 */
+  unitEn: string;
+}
+export const TOOL_GOALS: Record<ToolKey, ToolGoal> = {
+  warmup:   { goal: 1,    unitKo: '번',   unitEn: 'session' },
+  review:   { goal: 1,    unitKo: '번',   unitEn: 'round' },
+  friend:   { goal: 5,    unitKo: '마디', unitEn: 'turn' },
+  speech:   { goal: 5,    unitKo: '문장', unitEn: 'sentence' },
+  micro:    { goal: 5,    unitKo: '판',   unitEn: 'quiz' },
+  vocab:    { goal: 10,   unitKo: '낱말', unitEn: 'word' },
+  judgment: { goal: 5,    unitKo: '문항', unitEn: 'question' },
+  write:    { goal: 1,    unitKo: '편',   unitEn: 'piece' },
+  games:    { goal: null, unitKo: '판',   unitEn: 'round' },   // ⛔ 위 «games 는 null» 주석을 읽을 것
+};
+
+/**
  * 수업 없는 날의 요일별 묶음 (일=0 … 토=6).
  *   말하기 하나(친구·음성코치를 번갈아) + 복습 하나(단어 퀴즈·복습퀴즈를 번갈아) + 요일 특별 하나.
  *   금요일 글쓰기는 밴드 3 이상에서만 — 그 아래는 AI 친구로 바꾼다(buildTodayPlan 이 처리).
@@ -120,10 +173,30 @@ export interface PlanStep {
   en: string;
   url: string;
   minutes: number;
+  /**
+   * 오늘 이 도구를 «끝냈는가».
+   * 🔄 2026-09-21 에 뜻이 바뀌었다 — 예전에는 «한 번이라도 했나» 였다.
+   *    그러면 1문장만 말해도 「✓ 완료」 라, 화면이 바로 아래에서 「3문장 더!」 라고
+   *    말하는 자기모순이 됐다(2026-09-21 브라우저 실측으로 잡았다). 그리고 «한 번 열면 완료»
+   *    는 애초에 사장님이 고쳐 달라고 한 그것이다 — 「언제까지 해야 끝나는지 모르겠다」.
+   * ✅ 지금 뜻: 목표가 있으면 **오늘 몫을 채웠나**, 목표가 없으면(games·레벨테스트)
+   *    예전 그대로 **한 번이라도 했나**.
+   * ⚠️ 이 칸이 doneCount 를 만들고, 그 숫자를 홈 히어로(js/idx-cta-status.js)도 읽는다.
+   *    그래서 두 화면이 «파일을 안 고치고» 같은 말을 한다 — index.html 은 공동 금지구역이라
+   *    이 방향이 아니면 홈과 today 가 다른 숫자를 말하게 된다.
+   */
   done: boolean;
   /** 왜 지금 이것인가 — 한 줄 */
   whyKo: string;
   whyEn: string;
+  /* ── 🎯 오늘의 몫 (2026-09-21) — 위 TOOL_GOALS 주석을 함께 읽을 것 ── */
+  /** 오늘 이 도구로 한 개수. 서버가 실제로 센 행 수이고, 못 세면 0 이다(지어내지 않는다) */
+  count: number;
+  /** 오늘 몫. null 이면 이 도구는 목표를 «말하지 않는다»(games) */
+  goal: number | null;
+  /** 세는 단위 이름 — 도구마다 뜻이 다르다(문장·판·마디…). 화면은 이 글자를 그대로 쓴다 */
+  unitKo: string;
+  unitEn: string;
 }
 
 export interface WeekDay {
@@ -229,10 +302,27 @@ function fitToBand(keys: ToolKey[], band: number | null): ToolKey[] {
   return out;
 }
 
+/**
+ * 오늘 몫 계산 — 순수 함수. 목표가 없는 도구(games)는 개수만 싣고 reached 는 언제나 false.
+ * ⚠️ 음수·NaN 은 0 으로 본다(서버 COUNT 가 실패하면 0 을 주지만, 여기서 한 번 더 막는다).
+ */
+export function goalOf(key: ToolKey, rawCount: any): { count: number; goal: number | null; unitKo: string; unitEn: string; reached: boolean } {
+  const g = TOOL_GOALS[key] || { goal: null, unitKo: '번', unitEn: 'time' };
+  const n = Number(rawCount);
+  const count = (isFinite(n) && n > 0) ? Math.floor(n) : 0;
+  return { count, goal: g.goal, unitKo: g.unitKo, unitEn: g.unitEn,
+           reached: (g.goal != null && g.goal > 0) ? (count >= g.goal) : false };
+}
+
 function step(key: ToolKey, slot: Slot, inp: PlanInput, whyKo: string, whyEn: string): PlanStep {
   const s = spec(key, inp.zh);
+  const { reached, ...rest } = goalOf(key, inp.done[key]);
   return { key, slot, icon: s.icon, ko: s.ko, en: s.en, url: s.url, minutes: s.minutes,
-           done: (inp.done[key] || 0) > 0, whyKo, whyEn };
+           whyKo, whyEn, ...rest,
+           /* 목표가 있으면 «오늘 몫을 채웠나», 없으면 예전 그대로 «한 번이라도 했나».
+              ⛔ 목표 없는 도구까지 false 로 떨어뜨리지 말 것 — games 는 목표가 없으므로
+                 그러면 무엇을 해도 영영 «안 한 것» 이 된다. */
+           done: (rest.goal != null) ? reached : (rest.count > 0) };
 }
 
 /** 오늘 수업 중 «가장 이른 것» — 두 건이면 첫 수업 전 웜업·마지막 수업 뒤 복습이 맞지만 화면은 한 건만 보여 준다 */
@@ -323,6 +413,8 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     mode = 'unassigned';
     steps.push({ key: 'leveltest', slot: 'first', icon: '🎯', ko: '레벨테스트', en: 'Level test',
                  url: '/level-test-ai.html', minutes: 10, done: false,
+                 /* 레벨테스트는 «한 번만 보면 되는» 것이라 오늘 몫이 없다(개수도 안 센다) */
+                 count: 0, goal: null, unitKo: '번', unitEn: 'time',
                  whyKo: '내 수준을 알아야 AI 가 맞는 문장을 줍니다. 한 번만 보면 됩니다.',
                  whyEn: 'Once the AI knows your level, every tool picks the right sentences.' });
     steps.push(step('friend', 'home', inp, '레벨 없이도 바로 할 수 있어요. 오늘 있었던 일을 영어로 말해 보세요.',
@@ -359,6 +451,8 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
   }
 
   const totalMinutes = steps.reduce((a, s) => a + s.minutes, 0);
+  /* ⚠️ 2026-09-21 부터 이 숫자는 «오늘 몫을 채운 도구 수» 다(위 PlanStep.done 주석).
+     홈 히어로(idx-cta-status.js)도 같은 값을 읽으므로 두 화면이 저절로 같은 말을 한다. */
   const doneCount = steps.filter(s => s.done).length;
   return {
     mode, phase, cls,

@@ -138,7 +138,48 @@
 
   var SLOT = { before: ['수업 전', 'Before class'], after: ['수업 후', 'After class'], home: ['집에서', 'At home'], first: ['먼저', 'First'] };
 
-  function render() {
+  /* ── 🎯 오늘의 몫 한 줄 (2026-09-21) ─────────────────────────────────────────
+   왜: 2026-09-21 D1 실측 — 게임 한 판 중앙값 40초(1,127판 중 57%가 1분 미만),
+       발음은 하루 중앙값 1문장인데 화면이 내건 목표는 100문장이었다. 「언제까지
+       해야 끝나는지 몰라 몇 번 하다 나간다」(사장님). 이 줄이 그 답이다.
+   ⛔ 숫자를 여기 적지 않는다 — goal·단위는 서버(today-plan.ts 의 TOOL_GOALS)가 준다.
+      화면에 다시 적으면 두 곳이 어긋나는 날 화면이 조용히 거짓말한다.
+   ⛔ 채움을 인라인 <span> 으로 두지 않는다 — 인라인 요소는 width·height 를 무시해서
+      «색도 폭도 코드엔 있는데 화면이 텅 비는» 사고가 난다(CLAUDE.md 2장). CSS 에서
+      display:block 을 못 박았고, 0 일 때도 min-width 로 «측정 안 됨» 과 구분한다.
+   ⛔ 글자 줄은 <p>(블록)로 둔다 — flex 로 감싸면 짧은 문장이 낱글자로 쪼개진다. */
+function goalRow(s, sample, en) {
+  var g = (s.goal == null) ? null : Number(s.goal);
+  var c = Number(s.count) || 0;
+  /* 맛보기 화면은 «남의 기록이 없는» 화면이다. 거기서 「0 / 5문장」은 사실이지만
+     «너는 아무것도 안 했다» 로 읽힌다 — 연속일·포인트 칩을 뺀 것과 같은 이유다.
+     그래서 목표만 말하고 진행은 그리지 않는다. */
+  if (sample) {
+    if (!g) return '';
+    return '<p class="goal-t muted">' + T('오늘 몫 ' + g + unitKo(s, g), "Today's goal: " + g + ' ' + unitEn(s, g)) + '</p>';
+  }
+  /* 목표가 없는 도구(games) — 개수만 말하고 «몇 개 남았다» 는 말하지 않는다.
+     지금 셀 수 있는 «판» 은 중앙값 40초라, 목표로 삼으면 들락날락도 «달성» 이 된다. */
+  if (!g) {
+    if (c <= 0) return '';
+    return '<p class="goal-t muted">' + T('오늘 ' + c + unitKo(s, c) + ' 했어요',
+                                          'You did ' + c + ' ' + unitEn(s, c) + ' today') + '</p>';
+  }
+  var hit = c >= g;
+  var pct = Math.max(0, Math.min(100, Math.round(c / g * 100)));
+  var left = Math.max(0, g - c);
+  var txt = hit
+    ? T('오늘 몫 끝! 🎉 ' + c + unitKo(s, c), "Today's goal done! 🎉 " + c + ' ' + unitEn(s, c))
+    : T(c + ' / ' + g + unitKo(s, g) + ' · ' + left + unitKo(s, left) + ' 더!',
+        c + ' / ' + g + ' ' + unitEn(s, g) + ' · ' + left + ' to go');
+  return '<p class="goal-t' + (hit ? ' hit' : '') + '">' + esc(txt) + '</p>' +
+         '<span class="gtrack"><span class="gfill' + (hit ? ' hit' : '') + '" style="width:' + pct + '%"></span></span>';
+}
+/* 단위는 서버가 준다. 영어만 복수 s 를 붙인다(한국어는 그대로). */
+function unitKo(s, n) { return String(s.unitKo || '번'); }
+function unitEn(s, n) { var u = String(s.unitEn || 'time'); return (n === 1) ? u : (u + 's'); }
+
+function render() {
     var d = DATA, p = d.plan, en = isEn();
     /* ⛔ 맛보기 레벨(보기용)을 기기에 심지 않는다 — 그 값은 이 사람의 레벨이 아니고,
        한 번 심으면 «비어 있을 때만» 규칙 때문에 나중에 진짜 레벨이 와도 안 덮인다. */
@@ -166,7 +207,8 @@
     }
     $('td-chips').innerHTML = chips.join('');
 
-    var n = p.steps.length, dn = p.doneCount;
+  
+  var n = p.steps.length, dn = p.doneCount;
     $('td-prog').style.width = (n ? Math.round(dn / n * 100) : 0) + '%';
     $('td-prog-t').textContent = (n && dn >= n)
       ? T('오늘 계획을 다 했어요! 🎉', 'All done for today! 🎉')
@@ -182,6 +224,7 @@
         '<span class="slot ' + esc(s.slot) + '">' + esc(en ? sl[1] : sl[0]) + '</span>' +
         '<p class="name">' + esc(s.icon) + ' ' + esc(en ? s.en : s.ko) + '</p>' +
         '<p class="why">' + esc(en ? s.whyEn : s.whyKo) + '</p>' +
+        goalRow(s, !!d.sample, en) +
         '<a class="go" href="' + esc(goUrl(s, i, n)) + '">' + (s.done ? T('한 번 더', 'Once more') : T('시작 ▶', 'Start ▶')) + '</a>' +
         ' <span class="min">' + T('약 ' + s.minutes + '분', '~' + s.minutes + ' min') + '</span>' +
       '</div>';
