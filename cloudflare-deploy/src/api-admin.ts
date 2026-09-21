@@ -66,6 +66,7 @@ import { hiddenExcludeCond } from './student-override';                       //
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
+import { resolveStudentTrack, leveltestStatusFor } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -11292,9 +11293,12 @@ LIMIT $limit`;
           const { status, ...rest } = res;
           return json(rest, status);
         }
-        // 수업이 잡혔으면 신청 상태도 확정으로 올린다(대기 중이던 건만)
+        /* 수업이 잡혔으면 신청 상태도 확정으로 올린다(대기 중이던 건만)
+           🎯 (2026-09-21) 'ai_done' 을 함께 넣은 이유 — 사람이 «이 건으로 수업을 잡았다» 는 것은
+              그 건을 선생님 흐름으로 들인 행동이다. 안 넣으면 수업을 잡아 두고도 상태가
+              «AI 자동진단 완료» 에 굳어 화면이 거짓말을 한다. 정본: src/student-track.ts */
         await env.DB.prepare(
-          `UPDATE leveltest_applications SET status = CASE WHEN status IN ('pending','proposed') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`
+          `UPDATE leveltest_applications SET status = CASE WHEN status IN ('pending','proposed','ai_done') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`
         ).bind(Date.now(), Number(b.id)).run();
         return json(res);
       }
@@ -11667,19 +11671,47 @@ LIMIT $limit`;
       const now = Date.now();
       let appId: number | null = null;
       if (uid) {
-        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_uid = ? ORDER BY created_at DESC LIMIT 1`).bind(uid).all();
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status IN ('pending','ai_done') AND student_uid = ? ORDER BY created_at DESC LIMIT 1`).bind(uid).all();
         if (r.results && r.results[0]) appId = (r.results[0] as any).id;
       }
       if (appId == null && name) {
-        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_name = ? ORDER BY created_at DESC LIMIT 1`).bind(name).all();
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status IN ('pending','ai_done') AND student_name = ? ORDER BY created_at DESC LIMIT 1`).bind(name).all();
         if (r.results && r.results[0]) appId = (r.results[0] as any).id;
       }
+      /* 🎯 (2026-09-21) 화상수업 학생인지 먼저 본다 — 진단 결과를 어느 «상태» 로 적을지가 갈린다.
+         [왜] 여기서 만들어지는 건은 지금까지 전부 status='pending' 이라 관리자 «처리 대기» 에
+              들어갔다. 그런데 AI 학습도구만 쓰는 학생에게는 선생님 평가 단계가 없어서 그 대기가
+              영영 안 풀린다(2026-09-21 실측: 7건 전부 pending · 선생님 평가 0건 · 아무도 «완료»
+              를 안 눌렀다). 그대로 두면 진짜 신청이 들어오기 시작할 때 거기 파묻힌다.
+         [🔒 본문 uid 를 믿지 않는다] 아래 placement 와 같은 이유로 «토큰으로 확인된 uid» 로만
+              판정한다. 못 확인하면 track='unknown' → status='pending' 이라 **예전과 똑같다**.
+              ⛔ authedUid 가 없을 때 본문 uid 로 폴백하지 말 것.
+         ⚠️ 이 판정은 «추측» 이다(수강 종료·재등록 전이면 예약이 0건) — 그래서 막는 데 쓰지 않고
+            상태 분류에만 쓴다. 관리자가 화면에서 되돌릴 수 있다. 정본: student-track.ts */
+      let authedUid: string | null = null;
+      try { authedUid = await authUidGlobal(request, url, env, b); } catch { authedUid = null; }
+      const trackInfo = await resolveStudentTrack(env, authedUid);
+      const appStatus = leveltestStatusFor(trackInfo.track);
+
       if (appId != null) {
         await env.DB.prepare(`UPDATE leveltest_applications SET ai_score = ?, final_level = ?, updated_at = ? WHERE id = ?`).bind(ai_score, level, now, appId).run();
+        /* ⬆️ «ai_done → pending» 으로 되돌리는 한 방향만 둔다.
+           [왜] 윗줄의 UPDATE 는 상태를 안 건드리므로, AI 전용이다가 화상수업을
+                시작한 학생의 진단 건은 다시 진단해도 «ai_done» 에 굳어 선생님 목록에
+                영영 안 뜬다(조용히 사라지는 방향).
+           ⛔ 반대 방향(pending → ai_done)은 안 한다 — 이 판정은 «추측» 이라,
+              선생님이 보려던 건을 예약이 잠시 0건이라는 이유로 뺀다.
+           ⚠️ WHERE 에 status 를 걸어 «ai_done 인 행» 만 건드린다 — 사람이 이미
+              done·confirmed 로 바꿔 둔 것을 되돌리면 안 된다. */
+        if (appStatus === 'pending') {
+          try {
+            await env.DB.prepare(`UPDATE leveltest_applications SET status = 'pending', updated_at = ? WHERE id = ? AND status = 'ai_done'`).bind(now, appId).run();
+          } catch (e: any) { console.warn('[leveltest] status promote skip:', e && e.message); }
+        }
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO leveltest_applications (student_name, student_uid, status, ai_score, final_level, source, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, 'ai-diagnosis', ?, ?)`
-        ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, ai_score, level, now, now).run();
+          `INSERT INTO leveltest_applications (student_name, student_uid, status, ai_score, final_level, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'ai-diagnosis', ?, ?)`
+        ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, appStatus, ai_score, level, now, now).run();
         appId = ins.meta.last_row_id as number;
       }
       /* 🎯 (2026-09-02) 채점 결과를 «학생 명부» 에도 적는다 — 1단계 배선.
@@ -11696,7 +11728,6 @@ LIMIT $limit`;
          ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 학생이 시험을 다 보고 결과를 못 받으면 안 된다. */
       let placement: any = null;
       try {
-        const authedUid = await authUidGlobal(request, url, env, b);
         if (authedUid) placement = await applyPlacementLevel(env as any, authedUid, level);
       } catch (e: any) { console.warn('[leveltest] placement skip:', e && e.message); }
       return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement });

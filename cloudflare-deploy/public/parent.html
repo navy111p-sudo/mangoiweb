@@ -688,6 +688,9 @@ async function pdLeveltest(){
     proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', 'var(--pd-accent)'],
     confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', 'var(--pd-green)'],
     done:      ['테스트 완료', 'Test completed', 'var(--pd-blue)'],
+    /* 🎯 (2026-09-21) AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계를 거치지 않는다.
+       이 줄이 없으면 화면에 «ai_done» 이 날것으로 뜬다. 정본: src/student-track.ts */
+    ai_done:   ['AI 자동진단 완료', 'AI self-check done', 'var(--pd-accent)'],
     cancelled: ['취소됨', 'Cancelled', 'var(--pd-muted)']
   };
   const rows = items.map(a => {
@@ -698,7 +701,14 @@ async function pdLeveltest(){
     if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:var(--pd-gold)">' + a.ai_score + '</b>');
     if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:var(--pd-gold)">' + a.pron_score + '</b>');
     if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:var(--pd-gold)">' + a.teacher_score + '</b>');
-    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:var(--pd-green)">' + esc(a.final_level) + '</b>');
+    /* 🎯 (2026-09-21) 선생님이 확정한 레벨과 AI 점수만으로 나온 레벨은 다른 사실이다.
+       둘 다 «최종 레벨» 이라고 부르면 학부모가 구분할 수 없다(실측: 선생님 평가 0건인데
+       7건 모두 final_level 이 차 있었다). teacher_score 가 있을 때만 «최종» 이라 부른다. */
+    if (a.final_level) {
+      var _lvByT = (a.teacher_score != null);
+      bits.push((isEn ? (_lvByT ? 'Level ' : 'AI level ') : (_lvByT ? '최종 레벨 ' : 'AI 추정 레벨 '))
+        + '<b style="color:var(--pd-green)">' + esc(a.final_level) + '</b>');
+    }
     const guide = a.next_class_guide ? '<div style="font-size:14px;color:var(--pd-green);margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
     const book  = a.recommended_textbook ? '<div style="font-size:14px;color:var(--pd-green);margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
     return '<div style="padding:12px 14px;margin-bottom:10px;background:var(--pd-tint);border-left:4px solid ' + st[2] + ';border-radius:8px">' +

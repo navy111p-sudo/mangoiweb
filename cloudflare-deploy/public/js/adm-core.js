@@ -6834,6 +6834,9 @@ function _ltPaint(tb, items) {
   _ltLoadTeachers();
   const STMAP = {
     pending:['대기','Pending','#f59e0b'], done:['완료','Done','#10b981'], cancelled:['취소','Cancelled','#94a3b8'],
+    /* 🎯 (2026-09-21) AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계가 없어서 «대기» 가
+       영영 안 풀린다. 별도 상태로 두어 진짜 신청이 여기 파묻히지 않게 한다. 정본: src/student-track.ts */
+    ai_done:['AI 자동진단','AI self-check','#8b5cf6'],
     /* 🔴 'proposed'(자동배정 제안됨)가 이 표에 없어서 회색 raw 문자열로 떴다. 서버가 실제로 쓰는 값이다. */
     proposed:['배정 제안','Proposed','#6366f1'], confirmed:['확정','Confirmed','#0ea5e9']
   };
@@ -6843,7 +6846,17 @@ function _ltPaint(tb, items) {
     const when = ((a.desired_date? _esc(a.desired_date) : '') + (a.desired_time? (' '+_esc(a.desired_time)) : '')) || '—';
     const ai = a.ai_score!=null ? Number(a.ai_score).toFixed(0) : '—';
     const pron = a.pron_score!=null ? Number(a.pron_score).toFixed(0) : '—';
-    const lvl = a.final_level ? ('<b style="color:#059669">'+_esc(a.final_level)+'</b>') : '—';
+    /* 🎯 (2026-09-21) 같은 «A2» 라도 AI 점수만으로 나온 것과 선생님이 확정한 것은 다른 사실이다.
+       지금까지 둘 다 그냥 «A2» 로 떠서 학부모·강사가 구분할 수 없었다.
+       ⛔ 색으로만 가르지 말 것 — 이 카드의 글자색은 페인터 3곳이 덮어쓴다(CLAUDE.md). 글자로 말한다. */
+    const _lvByTeacher = a.teacher_score != null;
+    const _lvNote = a.final_level
+      ? ('<span style="font-size:10.5px;color:#64748b;margin-left:4px">'
+         + (_lvByTeacher ? (adminLang==='en' ? '(teacher)' : '(선생님 확정)')
+                         : (adminLang==='en' ? '(AI only)'  : '(AI 자동)'))
+         + '</span>')
+      : '';
+    const lvl = a.final_level ? ('<b style="color:#059669">'+_esc(a.final_level)+'</b>'+_lvNote) : '—';
     /* 🔗 (2026-08-07) 계정 연결 상태 — «누구의 신청인지» 가 안 정해져 있으면 학생은
        자기 예약을 어디에서도 못 본다(마이페이지·홈 카드·오늘 수업 전부 uid 로 찾는다).
        화면에는 아무 표시가 없어서 관리자도 그 사실을 몰랐다 → 여기서 말한다.
