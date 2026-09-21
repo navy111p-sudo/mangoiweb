@@ -67,9 +67,9 @@ for(const clip of clips){const source=all.get(clip.id);if(!source||source.text!=
 const candidates=new Map();
 for(const s of scenes.values())for(const w of words(s.text)){if(!candidates.has(w))candidates.set(w,[]);candidates.get(w).push(s);}
 const dir=path.join(root,'cloudflare-deploy/public/data/scene-curriculum/v1');fs.mkdirSync(dir,{recursive:true});
-const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,contextOnlyForms:0,cardOnlyForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
-const unique=new Set(),wordPictured=new Set(),contextPictured=new Set(),usedImages=new Set();
-const {pictogram}=createRequire(import.meta.url)('../cloudflare-deploy/public/js/scene-curriculum.js');let maxBook=0,maxGzip=0,rowWord=0,rowContext=0,rowCard=0,rowCardExact=0,rowUndescribed=0;
+const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,cardOnlyForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
+const unique=new Set(),wordPictured=new Set(),usedImages=new Set();
+const {pictogram}=createRequire(import.meta.url)('../cloudflare-deploy/public/js/scene-curriculum.js');let maxBook=0,maxGzip=0,rowWord=0,rowCard=0,rowCardExact=0,rowUndescribed=0;
 for(const book of books){
  /* 🖼 2026-09-21 사장님 지시(모든 낱말에 그림) — 그 교재 «안» 에서 그림이 있는 예문을 먼저 고른다.
     ⛔ 「다른 문장의 그림만 빌려 오기」가 아닙니다 — 예문 자체를 그 문장으로 바꿔 그림과 예문을 짝지웁니다.
@@ -88,22 +88,27 @@ for(const book of books){
   const pool=(candidates.get(word)||[]).filter(s=>s.image&&depicts(word,s.key));
   pool.sort((a,b)=>Number(!inBook(a))-Number(!inBook(b))||a.text.length-b.text.length||(a.id<b.id?-1:1));
   let chosen=pool[0],pictures=1;
-  if(!chosen){pictures=0;
-   /* 근거가 없으면 «낱말 그림» 이라고 말하지 않는다. 대신 그림이 «실제로 그려 낸 그 문장» 과만 짝지어 보여 준다.
-      곧 «이 낱말의 교재 예문» 자체의 그림만 쓰고, 그것이 없으면 그림을 붙이지 않는다.
-      ⛔ 같은 교재라도 «다른 문장» 의 그림을 빌려 오지 마세요 — 「nice」 에 「Your backpack looks nice.」 의
-         가방 사진이 붙던 길이 그것입니다(2026-09-21 사장님 지적). 억지로 붙인 그림은 없는 것보다 나쁩니다.
-      ⛔ 남의 교재 문장도 쓰지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길이다. */
-   const source=all.get(id(row.bookExample));
-   chosen=scenes.get(source.id)||{id:source.id,text:source.text,source:book.label+' · #'+row.sourceIndex,refs:source.refs};
-   /* 🖼 그 예문에도 그림이 없을 때만 낱말 사진을 씁니다 — 있는 상황 그림을 밀어내지 않습니다.
-      ⛔ 순서를 앞으로 옮기지 마세요(🏞 예문 상황 그림이 통째로 사라집니다). */
-   if(!chosen.image){const ws=wordScene.get(word);
-    if(ws){chosen={...ws,source:book.label+' · #'+row.sourceIndex};pictures=1;}}
+  if(!chosen){
+   /* 🖼 ② 그 낱말만 그린 사진 — 이것도 근거가 검증된 사진이다(wordScene 이 depicts() 를 이미 통과시킨다).
+      🔴 2026-09-21 사장님 2차 지적(「아직도 nice 에 가방이 보여」) — 옛 코드는 이 갈래를 «예문 사진 뒤» 로
+         미뤄 두었다. 그래서 그 낱말을 실제로 그린 사진이 있는데도 엉뚱한 예문 사진이 이겼다.
+         실측: 순서를 바로잡는 것만으로 12,246줄이 «진짜 그 낱말 사진» 으로 살아난다.
+      ⛔ 다시 뒤로 미루지 마세요 — 근거 있는 사진이 근거 없는 사진에 지는 순서가 됩니다. */
+   const ws=wordScene.get(word);
+   if(ws)chosen={...ws,source:book.label+' · #'+row.sourceIndex};
+   else{pictures=0;
+    /* 🔴 근거가 없으면 사진을 «아예 붙이지 않는다» — 예문만 싣고 화면이 낱말 그림카드를 그린다.
+       옛 코드는 그 예문의 사진을 붙이고 「낱말 뜻 그림은 아니에요」라고 «말만» 했는데, 아이는 그 글자보다
+       사진을 먼저 본다(2026-09-21 사장님: 「전혀 상관관계가 없는데 서로 다른 단어와 실사 이미지가
+       이렇게 되면 문제야」). 억지로 붙인 그림은 없는 것보다 나쁘다.
+       ⛔ 예문 사진을 되살리지 마세요. ⛔ 다른 문장·다른 교재의 사진을 빌려 오지도 마세요. */
+    const source=all.get(id(row.bookExample));
+    chosen=scenes.get(source.id)||{id:source.id,text:source.text,source:book.label+' · #'+row.sourceIndex,refs:source.refs};
+   }
   }
   /* 🎨 사진이 하나도 없으면 «그림 없음» 이 아니라 화면이 그리는 낱말 그림카드가 붙는다(모든 낱말에 그림).
      여기서는 그 줄이 몇 개인지와, 그 가운데 «뜻에 맞는 그림문자» 를 받는 줄이 몇 개인지만 센다. */
-  if(pictures){wordPictured.add(word);rowWord++;}else if(chosen.image){contextPictured.add(word);rowContext++;}
+  if(pictures){wordPictured.add(word);rowWord++;}
   else{rowCard++;if(pictogram(word).exact)rowCardExact++;}
   if(chosen.image&&!(describe.get(chosen.key)||'').trim())rowUndescribed++;
   /* 교재 예문 = bookExample ?? scenes[scene].text. 그림이 바로 그 예문의 그림일 때는 같은 문장이 두 번 실리므로 한 번만 보낸다. */
@@ -111,6 +116,18 @@ for(const book of books){
   data.words.push(entry);data.scenes[chosen.id]=chosen;
  }
  for(const clip of clipRows){if(clip.refs.some(r=>r[0]===book.id)){data.clips.push({scene:clip.scene,sourceIndex:clip.refs.find(r=>r[0]===book.id)[1]});data.scenes[clip.scene]=scenes.get(clip.scene);}}
+ /* 🔴 2026-09-21 — 근거 없는 줄이 가리키는 장면에서는 사진 주소를 «payload 에 아예 싣지 않는다».
+    화면 판정만 고치면 주소가 남아 다음 사람이 「있으니 쓰자」로 되살립니다(그것이 「nice → 가방」의 길).
+    ⚠️ scenes 는 여러 교재가 함께 쓰는 «원본» 이라 반드시 사본을 만들어 뺍니다 — 원본에서 지우면 남의 교재가 깨집니다.
+    ✅ 사진이 남는 자리는 둘뿐입니다: 근거 있는 낱말 그림(w.pic)과 문장 영상의 포스터(clips). */
+ {const keep=new Set();data.words.forEach(w=>{if(w.pic)keep.add(w.scene);});data.clips.forEach(c=>keep.add(c.scene));
+  /* 사진이 필요 없는 장면은 그 자리에서 주소를 뗀다(사본으로 — scenes 는 여러 교재가 함께 쓰는 원본이다). */
+  for(const [sid,sc] of Object.entries(data.scenes)){if(keep.has(sid)||!sc.image)continue;const {image,imageBytes,...rest}=sc;data.scenes[sid]=rest;}
+  /* 🔴 한 장면을 «사진이 필요한 낱말» 과 «근거 없는 낱말» 이 함께 쓸 때(실측 6,116줄) 주소가 남습니다.
+     그때는 근거 없는 줄만 «사진 없는 쌍둥이 장면» 으로 옮겨 둡니다 — 화면 판정에만 기대지 않습니다. */
+  for(const w of data.words){if(w.pic||!keep.has(w.scene))continue;const base=data.scenes[w.scene];if(!base||!base.image)continue;
+   const twin=w.scene+'~';if(!data.scenes[twin]){const {image,imageBytes,key,...rest}=base;data.scenes[twin]=rest;}
+   w.scene=twin;}}
  // References used to choose examples are build-time metadata, not browser payload.
  /* 다른 교재에서 온 그림은 «그림» 만 쓰고 그 문장은 안 보낸다 — 화면에 안 보여 주고(수준이 다르다) 용량만 먹는다.
     그래서 scene.text 가 있으면 «이 교재의 문장» 이라는 뜻이다. */
@@ -119,14 +136,13 @@ for(const book of books){
  const body=JSON.stringify(data);const bytes=Buffer.byteLength(body),gzip=zlib.gzipSync(body).length;maxBook=Math.max(maxBook,bytes);maxGzip=Math.max(maxGzip,gzip);
  if(bytes>350000||gzip>80000)throw Error('Book payload exceeds budget: '+book.id);
  fs.writeFileSync(path.join(dir,book.id+'.json'),body+'\n');
- manifest.books.push({id:book.id,series:book.series,number:book.number,label:book.label,title:book.title,words:data.words.length,wordPictures:data.words.filter(w=>w.pic).length,contextPictures:data.words.filter(w=>!w.pic&&data.scenes[w.scene].image).length,clips:data.clips.length,bytes,gzip});
+ manifest.books.push({id:book.id,series:book.series,number:book.number,label:book.label,title:book.title,words:data.words.length,wordPictures:data.words.filter(w=>w.pic).length,clips:data.clips.length,bytes,gzip});
 }
 manifest.wordForms=unique.size;manifest.wordPictureForms=wordPictured.size;
-manifest.contextOnlyForms=[...contextPictured].filter(w=>!wordPictured.has(w)).length;
-manifest.cardOnlyForms=unique.size-manifest.wordPictureForms-manifest.contextOnlyForms;
+manifest.cardOnlyForms=unique.size-manifest.wordPictureForms;
 manifest.describedAssets=[...new Set(assets.map(a=>'word-image:'+a.index))].filter(k=>(describe.get(k)||'').trim()).length;
 manifest.assets=assets.length;manifest.undescribedPictureRows=rowUndescribed;
-manifest.wordRows=rowWord+rowContext+rowCard;manifest.wordPictureRows=rowWord;manifest.contextPictureRows=rowContext;manifest.cardRows=rowCard;manifest.cardPictogramRows=rowCardExact;
+manifest.wordRows=rowWord+rowCard;manifest.wordPictureRows=rowWord;manifest.cardRows=rowCard;manifest.cardPictogramRows=rowCardExact;
 manifest.maxBookBytes=maxBook;manifest.maxBookGzipBytes=maxGzip;manifest.imageAssets=usedImages.size;
 fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest)+'\n');
-console.log(JSON.stringify({books:books.length,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,contextOnlyForms:manifest.contextOnlyForms,cardOnlyForms:manifest.cardOnlyForms,wordPictureRows:rowWord,contextPictureRows:rowContext,cardRows:rowCard,cardPictogramRows:rowCardExact,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));
+console.log(JSON.stringify({books:books.length,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,cardOnlyForms:manifest.cardOnlyForms,wordPictureRows:rowWord,cardRows:rowCard,cardPictogramRows:rowCardExact,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));
