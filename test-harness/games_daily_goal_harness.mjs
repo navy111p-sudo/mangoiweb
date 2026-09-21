@@ -171,6 +171,41 @@ if (!NO_ESBUILD) {
     JSON.stringify(others.filter((s) => s.goal !== undefined).map((s) => s.key)));
 }
 
+if (!NO_ESBUILD) {
+  console.log('\n[ ②-b 문구 정본 — «0» 과 «모름» 을 가르는가 ]');
+  const { gameGoalLine } = mod;
+  check('전제: 문구 정본을 읽었다', typeof gameGoalLine === 'function');
+  const L = (i, pl) => gameGoalLine(5, i, pl);
+  check('문제가 세어졌으면 남은 개수를 말한다',
+    L(2, 3).state === 'counted' && /2 \/ 5문제/.test(L(2, 3).ko) && /3문제 더/.test(L(2, 3).ko), L(2, 3));
+  check('채우면 «끝» 이라고 말한다', L(5, 3).state === 'hit' && /오늘 몫 끝/.test(L(5, 3).ko), L(5, 3));
+  /* 🔴 이 셋이 이 수리의 핵심 — 계측기가 못 센 것을 «0문제» 라고 하면 거짓말이다 */
+  check('판은 했는데 문제 수가 0이면 «0문제» 라고 «안» 한다',
+    L(0, 3).state === 'uncounted' && !/0 \/ 5/.test(L(0, 3).ko) && !/0 \/ 5/.test(L(0, 3).en), L(0, 3));
+  check('그때는 판 수를 사실대로 말한다', /3판/.test(L(0, 3).ko) && /played 3/.test(L(0, 3).en), L(0, 3));
+  check('그때는 막대를 안 그린다 (0% 로 그리면 «아무것도 안 했다» 로 읽힌다)',
+    L(0, 3).pct < 0, L(0, 3));
+  /* 🔴 짝 — 없으면 «언제나 uncounted» 도 통과한다(진짜 0인 날에 아무 말도 못 한다) */
+  check('판도 0이면 «0 / 5문제» 라고 분명히 말한다 (짝)',
+    L(0, 0).state === 'none' && /0 \/ 5문제/.test(L(0, 0).ko) && L(0, 0).pct === 0, L(0, 0));
+  check('퍼센트가 진행도를 따라간다', L(2, 9).pct === 40 && L(5, 9).pct === 100, [L(2, 9).pct, L(5, 9).pct]);
+  check('음수·NaN 을 넣어도 안 깨진다',
+    L(-3, -1).state === 'none' && gameGoalLine(5, NaN, NaN).state === 'none');
+
+  console.log('\n[ ②-c 두 화면이 «같은 문장» 을 쓰는가 — 복제 금지 ]');
+  /* 🔴 같은 판정이 두 곳이면 한쪽만 고쳐진다. 문구는 서버가 만들고 화면은 고르기만 해야 한다. */
+  const tj = strip(TODAYJS), hj = strip(HUBJS);
+  for (const [nm, src] of [['오늘 카드', tj], ['게임 허브', hj]]) {
+    check(nm + ' 는 서버가 만든 줄을 읽는다',
+      /goalLine|gameLine/.test(src), src.slice(0, 40));
+    check(nm + ' 는 문장을 스스로 조립하지 않는다',
+      !/문제 ·|문제 더|오늘 몫 끝|questions ·|to go!/.test(src),
+      (src.match(/[^\n]*(문제 더|오늘 몫 끝|to go!)[^\n]*/g) || []).join(' | ').slice(0, 120));
+    check(nm + ' 는 퍼센트를 스스로 계산하지 않는다',
+      !/Math\.round\s*\([^)]*\/\s*goal/.test(src) && !/got\s*\/\s*goal/.test(src));
+  }
+}
+
 console.log('\n[ ③ 서버 배선 — 두 축을 갈라 세는가 ]');
 const apiS = strip(API);
 /* ⚠️ 「그 함수를 부르는가」가 아니라 «그 조건을 실제로 붙이는가» 로 묻는다 */
@@ -189,6 +224,11 @@ check('호출부가 학습도구 이름을 손으로 적지 않았다',
   !/(['"])(warmup|speech-coach|micro-quiz|review-quiz)\1/.test(apiS.replace(/from '\.\/today-plan'/g, '')),
   (apiS.match(/(['"])(warmup|speech-coach|micro-quiz|review-quiz)\1/g) || []).join(','));
 check('계획 정본에 문제 수를 넘긴다', /gameItems:\s*gameItemsToday/.test(apiS));
+/* 🔴 짝 — 판 수를 안 넘기면 «못 센 날»(uncounted) 갈래가 한 번도 안 돌아,
+   문제 수가 0인 113판(2026-09-21 실측 56%)에서 화면이 「0 / 5문제」라고 거짓말한다. */
+check('계획 정본에 «판 수» 도 넘긴다 (짝 — 없으면 «못 센 날» 을 «안 한 날» 로 말한다)',
+  /gamePlays:\s*doneGames/.test(apiS),
+  (apiS.match(/game(Items|Plays):[^\n,]*/g) || []).join(','));
 check('정본에서 SQL 조각을 import 한다', /import\s*\{[^}]*NON_GAME_SQL[^}]*\}\s*from\s*'\.\/today-plan'/.test(apiS));
 
 console.log('\n[ ④ 화면 — 「오늘 몫」 을 실제로 그리는가 ]');
@@ -203,30 +243,69 @@ check('today 카드가 막대 함수를 실제로 부른다 (선언 말고 호�
 const gbBody = bodyAt(TODAYJS, 'function goalBar');
 check('전제: 막대 함수를 오려 냈다', !!gbBody, String(gbBody).slice(0, 40));
 if (gbBody) {
-  const T = (ko) => ko;
-  const esc = (s) => String(s == null ? '' : s);
-  const run = new Function('T', 'esc', 'return function goalBar(s)' + gbBody)(T, esc);
-  const out5of5 = run({ goal: 5, progress: 5 });
-  const out2of5 = run({ goal: 5, progress: 2 });
-  const out0of5 = run({ goal: 5, progress: 0 });
-  check('미달이면 남은 개수를 말한다', /2 \/ 5문제/.test(out2of5) && /3문제 더/.test(out2of5), out2of5);
-  check('채우면 «끝» 이라고 말한다', /오늘 몫 끝/.test(out5of5), out5of5);
-  check('0 도 «0 / 5» 라고 분명히 말한다 (빈 막대를 «측정 안 됨» 으로 읽지 않게)',
-    /0 \/ 5문제/.test(out0of5), out0of5);
-  check('막대 폭이 진행도를 따라간다 (2/5 → 40%)', /width:40%/.test(out2of5), out2of5);
-  check('넘겨도 100% 를 안 넘는다', /width:100%/.test(run({ goal: 5, progress: 99 })));
+  /* 🔄 2026-09-21: 계약이 바뀌었습니다 — 예전엔 이 함수가 문장을 «조립» 했지만
+     이제 서버 정본(gameGoalLine)이 만든 줄을 «고르기만» 합니다. 두 화면이 같은 상태에
+     다른 말을 하던 것을 구조로 없앤 것이라, 옛 검사를 느슨하게 풀지 않고 새 경계로 옮겨 적습니다. */
+  const esc = (v) => String(v == null ? '' : v);
+  const mk = (en) => new Function('en', 'esc', 'return function goalBar(s)' + gbBody)(en, esc);
+  const koRun = mk(false), enRun = mk(true);
+  const line = (o) => ({ goalLine: Object.assign({ state: 'counted', goal: 5, items: 2, plays: 3, pct: 40, ko: '한국어줄', en: 'EN-LINE' }, o) });
+  check('서버가 준 한국어 줄을 그대로 그린다', /한국어줄/.test(koRun(line({}))), koRun(line({})));
+  check('EN 이면 영어 줄을 그린다 (짝)', /EN-LINE/.test(enRun(line({}))) && !/한국어줄/.test(enRun(line({}))));
+  check('받은 퍼센트로 막대를 그린다', /width:40%/.test(koRun(line({}))), koRun(line({})));
+  /* 🔴 이 수리의 핵심 — 못 센 것을 0% 막대로 그리면 «아무것도 안 했다» 로 읽힌다 */
+  check('막대를 그리지 말라고 하면(pct<0) 안 그린다',
+    !/class="prog"/.test(koRun(line({ state: 'uncounted', pct: -1, ko: '오늘 3판' }))),
+    koRun(line({ state: 'uncounted', pct: -1, ko: '오늘 3판' })));
+  check('그때도 글자는 그린다 (짝)', /오늘 3판/.test(koRun(line({ state: 'uncounted', pct: -1, ko: '오늘 3판' }))));
+  check('달성이면 표시가 붙는다', /class="goal hit"/.test(koRun(line({ state: 'hit', pct: 100 }))));
+  check('넘겨도 100% 를 안 넘는다', /width:100%/.test(koRun(line({ pct: 999 }))));
   /* 🔴 짝 — 없으면 «모든 카드에 막대 그리기» 도 통과한다 */
-  check('몫이 없는 도구에는 아무것도 안 그린다 (짝)', run({ goal: 0, progress: 3 }) === '' &&
-    run({}) === '');
+  check('몫이 없는 도구에는 아무것도 안 그린다 (짝)',
+    koRun({}) === '' && koRun(line({ goal: 0 })) === '');
+  /* ⛔ 문장을 여기서 다시 만들지 않는다 */
+  check('이 함수가 문장을 조립하지 않는다',
+    !/문제 더|오늘 몫 끝|to go!/.test(gbBody), gbBody.slice(0, 80));
 }
 check('today.html 이 막대 스타일을 갖고 있다', /\.step\s+\.goal\b/.test(TODAYHTML));
 /* ⚠️ 채움이 span 이면 브라우저가 글자로 봐 width 가 통째로 무시된다 */
 check('막대 채움이 인라인이 아니다 (display:block)', /\.prog\s*>\s*i\s*\{[^}]*display:\s*block/.test(TODAYHTML));
 
-console.log('\n[ ④-b 허브 — 서버 값을 읽기만 하는가 ]');
+console.log('\n[ ④-b 허브 — 그리는 함수를 실제로 돌린다 ]');
 const hub = strip(HUBJS);
-check('허브가 서버가 준 목표·진행도를 읽는다',
-  /\.gameGoal\b/.test(hub) && /\.gameItems\b/.test(hub));
+/* 🔴 문자열로만 물으면 draw() 를 통째로 죽여도(`if (1) return;`) 통과한다 —
+   2026-09-21 함정 대조가 변이 셋을 그렇게 통과시켰습니다. 오려 내 실제로 돌립니다. */
+const drawBody = bodyAt(HUBJS, 'function draw');
+check('전제: 허브의 그리는 함수를 오려 냈다', !!drawBody, String(drawBody).slice(0, 40));
+if (drawBody) {
+  const mk = () => {
+    const el = { id: 'gdg-box', className: '', textContent: '', innerHTML: '' };
+    const T = (ko, en) => ko;
+    const esc = (v) => String(v == null ? '' : v);
+    const box = () => el;
+    const run = new Function('box', 'T', 'esc', 'return function draw(L)' + drawBody)(box, T, esc);
+    return { el, run };
+  };
+  const a = mk(); a.run({ state: 'counted', goal: 5, items: 2, plays: 3, pct: 40, ko: '2 / 5문제 · 3문제 더!', en: 'x' });
+  check('받은 문장을 그대로 그린다', /2 \/ 5문제/.test(a.el.innerHTML), a.el.innerHTML.slice(0, 80));
+  check('받은 퍼센트로 막대를 그린다', /width:40%/.test(a.el.innerHTML), a.el.innerHTML.slice(0, 120));
+  const b = mk(); b.run({ state: 'uncounted', goal: 5, items: 0, plays: 3, pct: -1, ko: '오늘 3판 했어요 👍', en: 'x' });
+  check('막대를 그리지 말라고 하면 안 그린다', !/gdg-bar/.test(b.el.innerHTML), b.el.innerHTML.slice(0, 80));
+  check('그때도 글자는 그린다', /3판/.test(b.el.innerHTML), b.el.innerHTML.slice(0, 80));
+  const c = mk(); c.run({ state: 'hit', goal: 5, items: 5, plays: 2, pct: 100, ko: '끝!', en: 'x' });
+  check('달성이면 표시가 붙는다', /gdg-hit/.test(c.el.className), c.el.className);
+  /* 🔴 짝 — 없으면 «언제나 그리기» 도 통과한다 */
+  check('목표가 없으면 아무것도 안 그린다 (짝)',
+    (() => { const d = mk(); d.run({ goal: 0 }); d.run(null); return d.el.innerHTML === ''; })());
+  /* 🔴 배선 — 받은 값을 그대로 넘기는가(인자 뒤바꿈·안 부르기를 잡는다) */
+  check('받은 줄을 그대로 draw 에 넘긴다',
+    /LAST\s*=\s*d\.plan\.gameLine/.test(hub) && /draw\(LAST\)/.test(hub),
+    (hub.match(/draw\([^)]*\)/g) || []).join(','));
+}
+check('게임을 하고 돌아올 때 다시 읽는 훅이 있다 (허브는 iframe 이라 pageshow 가 안 온다)',
+  /window\.__gdgReload\s*=\s*load/.test(hub) &&
+  /__gdgReload\s*&&\s*window\.__gdgReload\(\)/.test(strip(HUBHTML)),
+  [/__gdgReload/.test(hub), /__gdgReload/.test(HUBHTML)]);
 /* ⛔ 화면이 따로 세면 today 카드와 답이 갈린다 */
 check('허브가 game_sessions 를 스스로 세지 않는다',
   !/game_sessions|SUM\(|items\s*\+=/.test(hub));
@@ -260,7 +339,9 @@ check('비었을 때 자리를 안 먹는다 (:empty)', /#gdg-box:empty\s*\{\s*d
 
 console.log('\n[ ④-c 캐시 — 고친 파일의 ?v= 를 올렸는가 ]');
 const vTd = (TODAYHTML.match(/today-page\.js\?v=(\d+)/) || [])[1];
-check(`today.html 이 today-page.js 를 버전과 함께 부른다 (v=${vTd})`, Number(vTd) >= 9, String(vTd));
+check(`today.html 이 today-page.js 를 버전과 함께 부른다 (v=${vTd})`, Number(vTd) >= 10, String(vTd));
+const vHub = (HUBHTML.match(/games-daily-goal\.js\?v=(\d+)/) || [])[1];
+check(`허브가 «오늘 몫» 파일을 버전과 함께 부른다 (v=${vHub})`, Number(vHub) >= 2, String(vHub));
 
 console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);
 if (FAIL) { console.log('⚠ 실제 확인 필요:\n  - ' + FAILS.join('\n  - ')); process.exit(1); }

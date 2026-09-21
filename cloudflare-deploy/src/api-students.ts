@@ -612,6 +612,7 @@ ${MANGOI_KNOWLEDGE}`;
         band: bandFromLevelCell(stu.level), textbook, zh,
         dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], weekClassTimes: weekTimes, done,
         gameItems: gameItemsToday,
+        gamePlays: doneGames,
       });
       const dates: string[] = [];
       for (const rs of dateRs) for (const r of ((rs as any)?.results || [])) if (r?.d) dates.push(String(r.d));

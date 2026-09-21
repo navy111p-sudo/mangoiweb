@@ -60,24 +60,27 @@
     return el;
   }
 
-  function draw(goal, got) {
+  function draw(L) {
     var el = box();
     if (!el) return;
-    goal = Math.max(0, Number(goal) || 0);
-    got = Math.max(0, Number(got) || 0);
-    if (!goal) { el.textContent = ''; return; }           // 목표가 없으면 아무 말도 안 한다
-    var pct = Math.min(100, Math.round(got / goal * 100));
-    var left = Math.max(0, goal - got);
-    var hit = left <= 0;
-    var ko = hit ? '🎉 오늘 몫 끝! · 더 해도 좋아요' : got + ' / ' + goal + '문제 · ' + left + '문제 더!';
-    var en = hit ? '🎉 Done for today · keep going if you like' : got + ' / ' + goal + ' questions · ' + left + ' to go!';
+    /* ⛔ 문장·퍼센트를 여기서 만들지 않는다 — 서버 정본(today-plan.ts gameGoalLine)이 만든
+       것을 «고르기만» 한다. 「오늘의 A.i 학습」 카드와 같은 함수에서 나오므로 두 화면이
+       같은 상태에 다른 말을 할 수 없다. */
+    if (!L || !(Number(L.goal) > 0)) { el.textContent = ''; return; }
+    var ko = String(L.ko || ''), en = String(L.en || '');
+    var pct = Number(L.pct);
+    /* pct < 0 = 막대를 안 그린다(판은 했는데 문제 수를 못 셌다 — 0으로 그리면 거짓말) */
+    var bar = pct >= 0
+      ? '<span class="gdg-bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></span>'
+      : '';
     /* ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 단다 — 상자에 달면 두 i18n 엔진이
        textContent 를 통째로 갈아끼워 막대가 DOM 에서 사라진다(CLAUDE.md 2장). */
-    el.className = 'gdg' + (hit ? ' gdg-hit' : '');
+    el.className = 'gdg' + (L.state === 'hit' ? ' gdg-hit' : '');
     el.innerHTML =
-      '<span class="gdg-t" data-ko="' + esc(ko) + '" data-en="' + esc(en) + '">' + esc(T(ko, en)) + '</span>' +
-      '<span class="gdg-bar"><i style="width:' + pct + '%"></i></span>';
+      '<span class="gdg-t" data-ko="' + esc(ko) + '" data-en="' + esc(en) + '">' + esc(T(ko, en)) + '</span>' + bar;
   }
+
+  var LAST = null;   /* 마지막으로 받은 줄 — 🌐 토글 때 서버를 다시 안 부르려고 */
 
   function load() {
     var u = uid();
@@ -89,7 +92,8 @@
         /* «성공이라고 말했는가» 로 판정한다 — 관문이 빠진 404 본문에는 ok 칸이 아예 없어
            `if (d.ok === false)` 는 그냥 통과한다(CLAUDE.md 「새 API 추가」). */
         if (!d || d.ok !== true || !d.plan) return;
-        draw(d.plan.gameGoal, d.plan.gameItems);
+        LAST = d.plan.gameLine;
+        draw(LAST);
       })
       .catch(function () {});                              // 못 읽으면 조용히 — 게임을 막지 않는다
   }
@@ -101,9 +105,15 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
     /* 🌐 를 누르면 글자를 다시 그린다. ⚠️ 관리자 화면은 document, 나머지는 window 로 쏜다 —
        한쪽만 들으면 조용히 침묵한다(CLAUDE.md 2장). 중복 호출은 다시 그리기뿐이라 무해하다. */
-    var re = function () { load(); };
+    /* 🌐 를 누르면 «다시 그리기만» 한다 — 서버를 또 부르면 토글 한 번에 조회가 두 번 나간다
+       (이 화면의 /api/student/today 한 번은 D1 조회 20여 회다). today-page.js 와 같은 모양. */
+    var re = function () { if (LAST) draw(LAST); };
     window.addEventListener('mangoi:lang-changed', re);
     document.addEventListener('mangoi:lang-changed', re);
+    /* 🔴 허브는 게임을 iframe 으로 열고 «돌아오기» 가 display 만 바꾼다 — 페이지가 안 내려가
+       pageshow·visibilitychange 가 둘 다 안 온다. 그래서 허브가 끝낼 때 이 훅을 부른다.
+       ⛔ 상주 타이머로 풀지 말 것(홈을 두 번 멎게 한 전력). */
+    window.__gdgReload = load;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

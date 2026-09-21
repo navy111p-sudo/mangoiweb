@@ -152,11 +152,17 @@ export interface PlanInput {
   done: Partial<Record<ToolKey, number>>;
   /**
    * 오늘 게임에서 «실제로 푼 문제 수» (`game_sessions.items` 합, 게임만).
-   * ⚠️ done.games(판 수)와 다른 축이다 — 들락날락한 판은 여기서 0이고,
-   *    items 를 아직 안 보내는 게임(2026-09-21 실측 escape-zombie·language-ace)은
-   *    판은 세어지는데 여기는 0이다. 그래서 «했나» 는 done, «얼마나» 는 이 값으로 본다.
+   * 🔴 done.games(판 수)와 다른 축이고, **이 값이 0이라고 «안 풀었다» 가 아니다.**
+   *    계측기(`js/game-track.js`)가 `sendBeacon` 본문이 «문자열일 때만» 세는데
+   *    7종(escape-school·escape-voice·escape-zombie·language-ace·p38-3d·tank-battle·tetris)은
+   *    `Blob` 으로 보내고, 허브 인라인 4종(brick·match·fill·balloon)과 3화면
+   *    (fish·speaking-quiz·scene-quest)은 계측기를 아예 안 싣는다.
+   *    ⟹ 2026-09-21 D1 실측: 게임 202판 중 **113판(56%)이 items 0** 이다.
+   * ⛔ 그래서 이 값이 0이면 «0문제» 라고 말하면 안 된다 — «모름» 이다(gameGoalLine 이 가른다).
    */
   gameItems?: number;
+  /** 오늘 «게임» 판 수(게임만). items 가 0일 때 «안 했다» 와 «못 셌다» 를 가르는 데 쓴다 */
+  gamePlays?: number;
 }
 
 export type Slot = 'before' | 'after' | 'home' | 'first';
@@ -174,6 +180,8 @@ export interface PlanStep {
   goal?: number;
   /** 그 몫을 얼마나 채웠나. goal 이 있을 때만 뜻이 있다 */
   progress?: number;
+  /** 화면이 그리기만 할 완성된 한 줄(goal 이 있는 도구만) */
+  goalLine?: GameGoalLine;
   /** 왜 지금 이것인가 — 한 줄 */
   whyKo: string;
   whyEn: string;
@@ -212,6 +220,8 @@ export interface TodayPlan {
    */
   gameGoal: number;
   gameItems: number;
+  /** 화면이 «그리기만» 할 완성된 한 줄 — ⛔ 화면에서 다시 조립하지 말 것 */
+  gameLine: GameGoalLine;
   /** 도구 화면이 읽는 레벨 키에 심을 값 — 화면은 «비어 있을 때만» 심는다 */
   levelKeys: { warmup: string | null; aifriend: string | null };
   week: WeekDay[];
@@ -296,8 +306,59 @@ function step(key: ToolKey, slot: Slot, inp: PlanInput, whyKo: string, whyEn: st
   /* «오늘 몫» 이 정해진 도구면 진행도를 함께 싣는다. 지금은 games 하나뿐이지만,
      나중에 다른 도구에 goal 을 붙여도 화면 코드를 안 고치게 여기서 일반으로 처리한다. */
   const g = TOOLS[key].goal;
-  if (g && g > 0) { out.goal = g; out.progress = goalProgress(key, inp); }
+  if (g && g > 0) {
+    out.goal = g;
+    out.progress = goalProgress(key, inp);
+    if (key === 'games') out.goalLine = gameGoalLine(g, out.progress, Number(inp.gamePlays) || 0);
+  }
   return out;
+}
+
+/**
+ * 게임 «오늘 몫» 한 줄 — **문구의 정본**.
+ *
+ * ⛔ 화면이 이 문장을 조립하지 말 것. 「오늘의 A.i 학습」 카드와 게임 허브가 각자 적으면
+ *    같은 상태에 다른 말을 하게 되고, 한쪽만 고쳐지는 날 아무도 모른다.
+ *
+ * 🔴 상태가 «셋» 이다 — «0» 과 «모름» 을 뭉개면 화면이 거짓말한다:
+ *    · counted : 문제 수가 세어졌다 → 「2 / 5문제 · 3문제 더!」 (막대 있음)
+ *    · uncounted: 판은 했는데 문제 수가 0이다 → 「오늘 3판 했어요 👍」 (막대 없음)
+ *      («0문제» 라고 말하면 거짓이다 — 계측기가 못 센 것일 수 있다. 위 gameItems 주석 참고)
+ *    · none    : 판도 0이다 → 「0 / 5문제 · 5문제 더!」 (빈 막대 + 숫자를 분명히)
+ */
+export interface GameGoalLine {
+  state: 'counted' | 'uncounted' | 'none' | 'hit';
+  goal: number;
+  items: number;
+  plays: number;
+  /** 0~100. 막대를 그리지 않는 상태(uncounted)면 -1 */
+  pct: number;
+  ko: string;
+  en: string;
+}
+
+export function gameGoalLine(goal: number, items: number, plays: number): GameGoalLine {
+  const g = Math.max(0, Math.floor(Number(goal) || 0));
+  const it = Math.max(0, Math.floor(Number(items) || 0));
+  const pl = Math.max(0, Math.floor(Number(plays) || 0));
+  if (g > 0 && it >= g) {
+    return { state: 'hit', goal: g, items: it, plays: pl, pct: 100,
+      ko: '🎉 오늘 몫 끝! · 더 해도 좋아요', en: '🎉 Done for today · keep going if you like' };
+  }
+  if (it > 0) {
+    const left = g - it;
+    return { state: 'counted', goal: g, items: it, plays: pl,
+      pct: g > 0 ? Math.min(100, Math.round(it / g * 100)) : 0,
+      ko: it + ' / ' + g + '문제 · ' + left + '문제 더!',
+      en: it + ' / ' + g + ' questions · ' + left + ' to go!' };
+  }
+  if (pl > 0) {
+    /* ⛔ 「0 / N문제」 라고 하지 않는다 — 안 푼 것이 아니라 «못 센» 것일 수 있다 */
+    return { state: 'uncounted', goal: g, items: 0, plays: pl, pct: -1,
+      ko: '오늘 ' + pl + '판 했어요 👍', en: 'You played ' + pl + ' today 👍' };
+  }
+  return { state: 'none', goal: g, items: 0, plays: 0, pct: 0,
+    ko: '0 / ' + g + '문제 · ' + g + '문제 더!', en: '0 / ' + g + ' questions · ' + g + ' to go!' };
 }
 
 /** 그 도구의 «오늘 몫» 을 얼마나 채웠나. ⛔ 값을 지어내지 않는다 — 모르면 0 */
@@ -441,6 +502,7 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     steps, totalMinutes, doneCount,
     gameGoal: TOOLS.games.goal || 0,
     gameItems: goalProgress('games', inp),
+    gameLine: gameGoalLine(TOOLS.games.goal || 0, goalProgress('games', inp), Number(inp.gamePlays) || 0),
     levelKeys: { warmup: band ? String(band) : null, aifriend: band ? ('S' + band) : null },
     week: todayFromSteps(buildWeek(inp), inp.dow, steps),
   };

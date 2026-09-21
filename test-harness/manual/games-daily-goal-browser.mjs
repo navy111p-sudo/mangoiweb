@@ -55,13 +55,29 @@ const t = (name, cond, got) => { (cond ? P : F).push(name + (cond ? '' : `  → 
 
 /* 서버를 스텁한다 — 이 검사가 보는 것은 «화면» 이지 D1 이 아니다.
    ⚠️ IIFE 로 감싼다: 최상위 const 를 쓰면 회차가 쌓일 때 재선언으로 죽는다(CLAUDE.md 2장). */
-const stub = (goal, items) => `(function(){
+/* ⚠️ 서버 정본(today-plan.ts gameGoalLine)이 내려주는 모양 그대로 흉내 낸다 —
+   화면은 문장을 «고르기만» 하므로 여기서 문장까지 줘야 실제와 같다. */
+const mkLine = (goal, items, plays) => {
+  if (items >= goal && goal > 0) return { state:'hit', goal, items, plays, pct:100,
+    ko:'🎉 오늘 몫 끝! · 더 해도 좋아요', en:'🎉 Done for today · keep going if you like' };
+  if (items > 0) return { state:'counted', goal, items, plays,
+    pct: Math.min(100, Math.round(items/goal*100)),
+    ko:`${items} / ${goal}문제 · ${goal-items}문제 더!`, en:`${items} / ${goal} questions · ${goal-items} to go!` };
+  if (plays > 0) return { state:'uncounted', goal, items:0, plays, pct:-1,
+    ko:`오늘 ${plays}판 했어요 👍`, en:`You played ${plays} today 👍` };
+  return { state:'none', goal, items:0, plays:0, pct:0,
+    ko:`0 / ${goal}문제 · ${goal}문제 더!`, en:`0 / ${goal} questions · ${goal} to go!` };
+};
+const stub = (goal, items, plays) => `(function(){
   try{ localStorage.setItem('mangoi_logged_user', JSON.stringify({uid:'browsertest',name:'검사'})); }catch(e){}
   var of_ = window.fetch;
   window.fetch = function(u, o){
     if (String(u).indexOf('/api/student/today') >= 0) {
-      return Promise.resolve(new Response(JSON.stringify({ok:true, plan:{gameGoal:${goal}, gameItems:${items}, steps:[], week:[]}}),
-        {status:200, headers:{'content-type':'application/json'}}));
+      window.__todayCalls = (window.__todayCalls || 0) + 1;
+      return Promise.resolve(new Response(JSON.stringify({ok:true, plan:{
+        gameGoal:${goal}, gameItems:${items},
+        gameLine:${JSON.stringify(mkLine(goal, items, plays === undefined ? 0 : plays))},
+        steps:[], week:[]}}), {status:200, headers:{'content-type':'application/json'}}));
     }
     return of_.apply(this, arguments);
   };
@@ -71,7 +87,7 @@ const stub = (goal, items) => `(function(){
    «비로그인» 회차에도 로그인을 심고 fetch 를 가로챕니다(2026-09-21 실측으로 밟음).
    회차마다 지운 뒤 새로 답니다. */
 let stubId = null;
-async function openHub(w, h, goal, items, opts) {
+async function openHub(w, h, goal, items, opts, plays) {
   await cmd('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
   await cmd('Page.navigate', { url: 'about:blank' }); await sleep(120);
   /* 앞 회차가 심어 둔 로그인·언어가 넘어가면 다음 폭이 «옛 상태» 로 시작한다.
@@ -80,7 +96,7 @@ async function openHub(w, h, goal, items, opts) {
   await cmd('Storage.clearDataForOrigin', { origin: BASE, storageTypes: 'local_storage' });
   if (stubId) { await cmd('Page.removeScriptToEvaluateOnNewDocument', { identifier: stubId }); stubId = null; }
   if (!opts?.anon) {
-    const r = await cmd('Page.addScriptToEvaluateOnNewDocument', { source: stub(goal, items) });
+    const r = await cmd('Page.addScriptToEvaluateOnNewDocument', { source: stub(goal, items, plays) });
     stubId = r.result?.identifier || null;
   }
   await cmd('Page.navigate', { url: `${BASE}/student-games.html?_nc=${Date.now()}${Math.random()}` });
@@ -151,6 +167,15 @@ await openHub(1280, 900, 5, 0);
 d = JSON.parse(await evaluate(M));
 t('④ 0 도 «0 / 5문제» 라고 분명히 말한다', /0 \/ 5문제/.test(d.text || ''), d.text);
 t('④ 0 이면 채움이 비어 있다', d.fillW === 0, d);
+
+/* ── ④-b 🔴 판은 했는데 문제 수가 0 — «0문제» 라고 말하면 거짓말이다 ── */
+await openHub(1280, 900, 5, 0, null, 3);
+d = JSON.parse(await evaluate(M));
+t('④-b 못 센 날엔 «0 / 5문제» 라고 «안» 한다', !/0 \/ 5문제/.test(d.text || ''), d.text);
+t('④-b 그때는 판 수를 사실대로 말한다', /3판/.test(d.text || ''), d.text);
+/* 🔴 0% 막대를 그리면 «아무것도 안 했다» 로 읽힌다 */
+t('④-b 그때는 막대를 아예 안 그린다', d.fillW === null && d.barW === 0, d);
+t('④-b 그래도 줄은 보인다 (짝)', d.exists && d.h > 0, d);
 
 /* ── ⑤ 비로그인 — 아무것도 안 그리고 자리도 안 먹는다 (짝) ── */
 await openHub(1280, 900, 5, 2, { anon: true });
@@ -238,6 +263,10 @@ t('⑧ 🌐 를 누르면 영어로 바뀐다', /questions/.test(after.txt || ''
 /* 🔴 짝 — 바뀌면서 막대가 사라지면 안 된다(i18n 엔진이 textContent 를 갈아끼우는 함정) */
 d = JSON.parse(await evaluate(M));
 t('⑧ 바뀐 뒤에도 막대가 살아 있다 (짝)', d.fillW > 0, d);
+/* 🔴 🌐 는 «다시 그리기» 여야 한다 — 서버를 또 부르면 토글 한 번에 D1 조회 20여 회가
+   두 번 나간다(window·document 양쪽에 걸려 있어 최대 2회). today-page.js 와 같은 모양. */
+const calls = await evaluate('window.__todayCalls || 0');
+t('⑧ 🌐 토글이 서버를 다시 부르지 않는다 (캐시에서 다시 그린다)', calls === 1, { todayCalls: calls });
 await evaluate("try{localStorage.removeItem('mangoi_lang')}catch(e){}");
 
 console.log('\n── 게임 «오늘 몫» 브라우저 검사 ──');

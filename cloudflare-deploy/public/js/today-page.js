@@ -178,17 +178,16 @@
        ⛔ 여기서 숫자를 다시 계산하지 말 것: 허브(js/games-daily-goal.js)와 답이 갈린다.
        ⚠️ 0을 «폭 0» 으로만 두면 «측정 안 됨» 으로 읽히므로 글자가 「0 / 5문제」라고 분명히 말한다. */
     function goalBar(s) {
-      var goal = Number(s.goal || 0);
-      if (!(goal > 0)) return '';
-      var got = Math.max(0, Number(s.progress || 0));
-      var pct = Math.min(100, Math.round(got / goal * 100));
-      var left = Math.max(0, goal - got);
-      var txt = left <= 0
-        ? T('🎉 오늘 몫 끝! · 더 해도 좋아요', '🎉 Done for today · keep going if you like')
-        : T(got + ' / ' + goal + '문제 · ' + left + '문제 더!', got + ' / ' + goal + ' questions · ' + left + ' to go!');
-      return '<div class="goal' + (left <= 0 ? ' hit' : '') + '">' +
-               '<div class="prog"><i style="width:' + pct + '%"></i></div>' +
-               '<span class="goal-t">' + esc(txt) + '</span>' +
+      var L = s.goalLine;
+      if (!L || !(Number(L.goal) > 0)) return '';
+      /* ⛔ 문장을 여기서 조립하지 않는다 — 서버 정본(today-plan.ts gameGoalLine)이 만든 것을 고른다.
+         두 화면(오늘 카드·게임 허브)이 각자 적으면 같은 상태에 다른 말을 하게 된다. */
+      var txt = en ? L.en : L.ko;
+      var pct = Number(L.pct);
+      /* pct < 0 = «막대를 그리지 않는다»(판은 했는데 문제 수를 못 셌다 — 0으로 그리면 거짓말) */
+      var bar = pct >= 0 ? '<div class="prog"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>' : '';
+      return '<div class="goal' + (L.state === 'hit' ? ' hit' : '') + '">' +
+               bar + '<span class="goal-t">' + esc(txt) + '</span>' +
              '</div>';
     }
 
