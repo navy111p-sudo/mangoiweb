@@ -176,27 +176,73 @@ t('토글 뒤에도 안쪽 span 이 살아 있다', await evalJs(`document.query
 await evalJs(`(function(){ try{ window.toggleLang && window.toggleLang(); }catch(e){} return 1; })()`);
 await new Promise(r => setTimeout(r, 500));
 
-console.log('\n⑨-3 폰 폭 — 화살표를 붙여도 넘치지 않는다');
-await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
-await home();
-t('390px — 문서가 가로로 안 넘친다', await evalJs(`document.documentElement.scrollWidth <= window.innerWidth + 1`), true);
-for (const sel of ['.home-tracks .ht-live', '.home-tracks .ht-ai']) {
-  t(`390px — ${sel} 글자가 칸 밖으로 안 넘친다`, await evalJs(`(function(){
-     var box=document.querySelector(${JSON.stringify(sel)}); var w=box.querySelector('.ht-what');
-     return w.scrollWidth <= box.clientWidth + 1;})()`), true);
-  t(`390px — ${sel} 이 한 줄이다`, await evalJs(`(function(){
-     var w=document.querySelector(${JSON.stringify(sel)} + ' .ht-what');
-     var lh=parseFloat(getComputedStyle(w).lineHeight)||16;
-     return w.getBoundingClientRect().height < lh * 1.8;})()`), true);
+/* ⑨-3 폰 폭 — 화살표를 붙여도 «새로» 넘치지 않는가
+   🔴 2026-09-21 함정 대조가 잡은 것: 처음 검사식이 `w.scrollWidth <= box.clientWidth`
+   였는데 `box`(.ht-track)에는 좌우 패딩 22px 가 들어 있어 **자기 상자를 22px 넘어도
+   통과**했습니다. 실측: 320px 한국어에서 .ht-live 가 내용상자를 16.8px 넘는데 그 검사는 `true`.
+   ✅ 견주는 대상을 «자기 상자»(w.clientWidth)로 바꿨습니다.
+   ⚠️ 그런데 320px 에서는 **화살표가 없어도 이미 11.9px 넘칩니다**(글자만으로).
+      그건 이 변경이 만든 것이 아니므로 «절대 넘침» 으로 FAIL 내면 거짓 고발입니다 —
+      320 에서는 **A/B(화살표를 껐다 켜서 «새» 넘침이 생겼는가)** 로 묻습니다.
+   ⚠️ 「문서가 가로로 안 넘친다」는 이 사고를 못 봅니다 — .home-tracks 가 잘라내므로
+      안쪽만 넘치고 문서 폭은 그대로입니다(실측). 그래서 둘을 짝으로 둡니다. */
+console.log('\n⑨-3 폰 폭 — 화살표를 붙여도 «새로» 넘치지 않는다');
+const SELS = ['.home-tracks .ht-live', '.home-tracks .ht-ai'];
+const lineW = (sel) => evalJs(`(function(){
+   var b=document.querySelector(${JSON.stringify(sel)}); if(!b) return null;
+   var w=b.querySelector('.ht-what');
+   /* ::after 는 Range 로 안 잡힌다 — inline-block 으로 잠깐 바꿔 «줄 전체» 폭을 잰다 */
+   var od=w.style.display; w.style.display='inline-block';
+   var rw=w.getBoundingClientRect().width; w.style.display=od;
+   return { line: Math.round(rw*10)/10, own: w.clientWidth, sw: w.scrollWidth };})()`);
+for (const wpx of [320, 360, 390]) {
+  await send('Emulation.setDeviceMetricsOverride', { width: wpx, height: 800, deviceScaleFactor: 2, mobile: true });
+  await home();
+  t(`${wpx}px — 문서가 가로로 안 넘친다`, await evalJs(`document.documentElement.scrollWidth <= window.innerWidth + 1`), true);
+  const on = {}; for (const sel of SELS) on[sel] = await lineW(sel);
+  /* 화살표를 끈 판을 만들어 A/B */
+  await evalJs(`(function(){var s=document.getElementById('ab-off');if(s)s.remove();
+     s=document.createElement('style');s.id='ab-off';
+     s.textContent='.home-tracks .home-tracks .ht-track .ht-what::after,.home-tracks .ht-track .ht-what::after{content:none !important}';
+     document.head.appendChild(s);return 1;})()`);
+  await new Promise(r => setTimeout(r, 350));
+  const off = {}; for (const sel of SELS) off[sel] = await lineW(sel);
+  await evalJs(`(function(){var s=document.getElementById('ab-off');if(s)s.remove();return 1;})()`);
+  for (const sel of SELS) {
+    const nm = sel.split(' ').pop();
+    t(`${wpx}px — ${nm} 전제: 화살표가 실제로 폭을 더한다`, on[sel].line > off[sel].line, true);
+    console.log(`      ${wpx} ${nm}: OFF ${off[sel].line} → ON ${on[sel].line} (자기 상자 ${on[sel].own})`);
+    /* «새» 넘침 — 화살표 때문에 처음으로 넘치게 된 것만 잡는다 */
+    t(`${wpx}px — ${nm} 화살표가 «새» 넘침을 만들지 않는다`,
+      !(on[sel].line > on[sel].own + 1) || (off[sel].line > off[sel].own + 1), true);
+    t(`${wpx}px — ${nm} 이 한 줄이다`, await evalJs(`(function(){
+       var w=document.querySelector(${JSON.stringify(sel)} + ' .ht-what');
+       var lh=parseFloat(getComputedStyle(w).lineHeight)||16;
+       return w.getBoundingClientRect().height < lh * 1.8;})()`), true);
+  }
+  if (wpx >= 360) for (const sel of SELS) {
+    /* 여유가 있는 폭에서는 «절대» 로도 안 넘쳐야 한다(느슨한 옛 검사식을 대신한다) */
+    t(`${wpx}px — ${sel.split(' ').pop()} 글자가 «자기» 상자를 안 넘는다`,
+      on[sel].sw <= on[sel].own + 1, true);
+  }
 }
 await send('Emulation.clearDeviceMetricsOverride');
 
-/* ⑨-4 🔴 화살표가 «낭독 이름» 에 섞이지 않는가
-   이 줄은 role="button" 이라 이름이 «안쪽 글자» 에서 만들어지는데, CSS 가상요소의
-   content 도 그 계산에 들어갑니다 — 실측으로 「…원어민 화상수업›」이 나왔습니다.
-   CSS 대체 텍스트 «content:"›" / ""» 로 뺐고, 여기서 그것을 «실제로» 확인합니다.
-   ⚠️ 「화살표가 없다」만 두면 «이름을 통째로 비우기» 도 통과합니다 —
-      「보이는 글자가 그대로 이름에 들어 있다」를 짝으로 둡니다. */
+/* ⑨-3b 🔴 화살표가 «보이는가» — 그려졌다고 보이는 것은 아니다
+   함정 대조 실측: `opacity:.7` → `opacity:0` 으로 바꾸면 화살표가 안 보이는데
+   ⑨(content 만 읽음)도 ⑨-4(대체 텍스트라 이름에도 없음)도 통과했습니다
+   — 사장님 지시가 «조용히 무효» 가 되는 방향인데 어느 검사도 못 봤습니다. */
+console.log('\n⑨-3b 🔴 화살표가 실제로 «보인다» (그려짐 ≠ 보임)');
+await home();
+for (const sel of SELS) {
+  const nm = sel.split(' ').pop();
+  const op = await evalJs(`parseFloat(getComputedStyle(document.querySelector(${JSON.stringify(sel)} + ' .ht-what'),'::after').opacity)`);
+  console.log(`      ${nm}: ::after opacity = ${op}`);
+  t(`${nm} — 화살표가 투명하지 않다(opacity > .25)`, op > 0.25, true);
+  t(`${nm} — 화살표가 display:none 이 아니다`, await evalJs(
+    `getComputedStyle(document.querySelector(${JSON.stringify(sel)} + ' .ht-what'),'::after').display`) !== 'none', true);
+}
+
 console.log('\n⑨-4 🔴 화살표가 화면낭독기 이름에 섞이지 않는다 (CDP 접근성 트리)');
 await home();
 const axName = async (sel) => {
