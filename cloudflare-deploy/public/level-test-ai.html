@@ -192,14 +192,14 @@
         📚 추천 교재: <b id="ai-book" style="color:#fff">—</b><br>
         🎯 추천 코스: <b id="ai-track" style="color:#fff">—</b><br>
         <span id="ai-placement" style="display:none"></span>
-        선생님 1:1 평가 후 <b>최종 레벨·확정 교재</b>가 학부모님 문자로 안내됩니다.<br>
-        정규 수업 시작을 원하시면 아래 채널로 상담해 주세요.
+        <span id="ai-next-step">선생님 1:1 평가 후 <b>최종 레벨·확정 교재</b>가 학부모님 문자로 안내됩니다.<br>
+        정규 수업 시작을 원하시면 아래 채널로 상담해 주세요.</span>
       </div>
       <a href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px;padding:9px 16px;border-radius:10px;background:#fee500;color:#191919;font-size:13px;font-weight:800;text-decoration:none">💬 정규 수업 상담하기</a>
     </div>
-    <p style="text-align:center;font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:14px">
-      이 결과는 <b style="color:#a5b4fc">참고용 자동 진단</b>이에요.<br>
-      <b style="color:#fde68a">선생님 1:1 평가</b>와 <b style="color:#fcd34d">발음 평가</b>까지 합쳐 최종 레벨이 확정됩니다.</p>
+    <p id="ai-final-note" style="text-align:center;font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:14px">
+      이 결과는 <b style="color:#a5b4fc">참고용 자동 진단</b>이에요 — 24문항으로 <b style="color:#a5b4fc">추정</b>한 값이라 한 단계 정도 차이가 날 수 있어요.<br>
+      <b style="color:#fde68a">선생님 1:1 평가</b>로 최종 레벨이 확정되고, <b style="color:#fcd34d">발음 평가</b>는 선생님이 함께 참고해요.</p>
     <div class="cta">
       <a class="voice" href="/speech-coach.html">🎤 발음 평가 하러가기</a>
       <a class="home" href="/?menu=leveltest">← 레벨테스트로</a>
@@ -523,6 +523,24 @@
       else if (pl.reason === 'already_set') msg = 'ℹ️ 이미 배정된 학습 수준이 있어 그대로 두었어요 (변경은 선생님께 문의).';
       else if (pl.reason === 'no_uid') msg = 'ℹ️ 로그인하면 이 결과가 학습 수준(' + esc(pl.level) + ')으로 저장돼요.';
       if (msg) { plEl.innerHTML = msg + '<br>'; plEl.style.display = ''; }
+    }
+    /* 🎯 (2026-09-22) «선생님이 있는 학생» 과 «AI 학습만 하는 학생» 에게 다음 단계를 다르게 말한다.
+       [왜] 이 화면은 모든 학생에게 「선생님 1:1 평가 후 최종 레벨이 학부모님 문자로 안내됩니다」
+            라고 말했는데, AI 학습만 하는 학생에게는 그 단계가 없다 — 오지 않을 문자를 기다리게
+            하는 거짓말이었다. 2026-09-21 에 상태(ai_done)만 갈랐고 학생이 보는 이 화면은
+            그대로였다(관리자·학부모·강사·티켓 넷만 고쳤다).
+       ⛔ 'live_ai' 와 'unknown' 은 한 글자도 바꾸지 않는다 — 서버가 유형을 못 구했을 때
+          (로그인 없이 본 경우 등) «예전 문구» 그대로여야 한다(모르면 예전 동작).
+       ⚠️ 고정 문구만 넣는다 — 사용자 값이 섞이지 않으므로 innerHTML 이 안전하다. */
+    var track = d.track || 'unknown';
+    if (track === 'ai_only') {
+      var stepEl = $('ai-next-step');
+      if (stepEl) stepEl.innerHTML = '지금은 <b>AI 학습</b>만 이용 중이라 <b>선생님 1:1 평가 단계가 없어요.</b><br>' +
+        '이 추정 레벨로 웜업·복습퀴즈가 맞춰집니다 — <b>화상수업</b>을 시작하시면 선생님이 최종 레벨을 확정해 드려요.';
+      var noteEl = $('ai-final-note');
+      if (noteEl) noteEl.innerHTML = '이 결과는 <b style="color:#a5b4fc">AI 자동 진단</b>이에요 — 24문항으로 ' +
+        '<b style="color:#a5b4fc">추정</b>한 값이라 한 단계 정도 차이가 날 수 있어요.<br>' +
+        '<b style="color:#fde68a">선생님이 확정한 레벨은 아니에요.</b>';
     }
     var bk = d.breakdown || [];
     /* 🎨 (2026-09-09) 맞힌 비율로 색을 고른다 — 정본은 이 한 줄뿐이고 CSS 는 색만 갖는다.

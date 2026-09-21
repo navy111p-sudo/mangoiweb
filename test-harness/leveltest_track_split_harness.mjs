@@ -371,5 +371,69 @@ if (pExpr) {
 ok(/AI 추정 레벨/.test(parentHtml), '학부모 화면에 «AI 추정 레벨» 문구가 있다');
 ok(/최종 레벨/.test(parentHtml), '짝: «최종 레벨» 문구도 남아 있다 (선생님 확정 건)');
 
+console.log('\n⑦ 학생이 보는 결과 화면도 «다음 단계» 를 사실대로 말하는가');
+/* [왜 이 절이 생겼나 — 2026-09-22]
+   2026-09-21 에 상태(ai_done)와 «관리자·학부모·강사·티켓» 넷은 갈랐는데, 정작 **학생이 보는
+   결과 화면**(level-test-ai.html)은 모든 학생에게 「선생님 1:1 평가 후 최종 레벨·확정 교재가
+   학부모님 문자로 안내됩니다」라고 말하고 있었다 — AI 학습만 하는 학생에게는 그 단계가 없어
+   **오지 않을 문자를 기다리게** 하는 거짓말이다. 화면이 유형을 알려면 서버가 실어 줘야 한다. */
+const ltHtml = SRC('public/level-test-ai.html');
+
+// ⓐ 서버가 유형을 실어 주는가 — 그리고 예약 수까지 흘리지는 않는가(짝)
+const diagRet = (adminSrc.match(/return json\(\{ ok: true, ai_score[^\n]*\);/) || [])[0] || '';
+ok(!!diagRet, '전제: 진단 응답 줄을 오려 냈다');
+ok(/\btrack:\s*trackInfo\.track\b/.test(diagRet), '서버가 응답에 track 을 싣는다');
+ok(!/live_count/.test(diagRet), '짝: 예약 수(live_count)는 싣지 않는다 — 화면이 쓸 일이 없다');
+
+// ⓑ 화면이 그 값을 «실제로 써서» 문구를 가르는가 — 절을 오려 내 가짜 DOM 으로 돌린다
+const trAt = ltHtml.indexOf("var track = d.track || 'unknown';");
+const trEnd = ltHtml.indexOf('var bk = d.breakdown', trAt);
+const trBlk = (trAt >= 0 && trEnd > trAt) ? ltHtml.slice(trAt, trEnd) : null;
+ok(!!trBlk, '전제: 학생 화면의 유형 분기를 오려 냈다');
+if (trBlk) {
+  /* ⛔ 「그 글자가 있는가」로 묻지 말 것 — `if (false && ...)` 한 글자에 뚫린다. 실제로 돌려
+     «무슨 글자가 화면에 들어가는가» 를 답으로 본다. */
+  const runBranch = (track) => {
+    const els = {
+      'ai-next-step': { innerHTML: '[기본:선생님평가]' },
+      'ai-final-note': { innerHTML: '[기본:참고용]' },
+    };
+    const $ = (id) => els[id] || null;
+    try { new Function('$', 'd', trBlk)($, { track }); } catch (e) { return { err: String(e && e.message) }; }
+    return { step: els['ai-next-step'].innerHTML, note: els['ai-final-note'].innerHTML };
+  };
+  const onlyR = runBranch('ai_only');
+  const liveR = runBranch('live_ai');
+  const unkR = runBranch('unknown');
+  ok(!onlyR.err && !liveR.err && !unkR.err, '분기를 실제로 돌렸다', onlyR.err || liveR.err || unkR.err);
+  // AI 전용: 「선생님 단계가 없다」고 말해야 한다
+  ok(/선생님 1:1 평가 단계가 없어요/.test(onlyR.step || ''),
+     'AI 전용: 「선생님 1:1 평가 단계가 없어요」라고 말한다', '실제: ' + (onlyR.step || '').slice(0, 60));
+  ok(!/문자로 안내/.test(onlyR.step || ''),
+     '짝: AI 전용에게 «오지 않을 문자» 를 약속하지 않는다', '실제: ' + (onlyR.step || '').slice(0, 60));
+  ok(/화상수업/.test(onlyR.step || ''), 'AI 전용: 되돌리는 길(화상수업 시작)을 함께 말한다');
+  // 짝 — 모르면 예전 그대로여야 한다(한쪽만 보면 «전부 바꾸기» 도 통과한다)
+  ok(liveR.step === '[기본:선생님평가]' && liveR.note === '[기본:참고용]',
+     '짝: 화상수업 학생(live_ai)의 문구는 한 글자도 안 바뀐다');
+  ok(unkR.step === '[기본:선생님평가]' && unkR.note === '[기본:참고용]',
+     '짝: 유형을 모르면(unknown) 예전 문구 그대로다');
+}
+
+// ⓒ 「발음 평가까지 합쳐 최종 레벨이 확정된다」는 사실이 아니다
+/* [잰 것 — 2026-09-22] voice_coaching 을 읽는 곳은 관리자 화면의 «보여주기»(오버레이)뿐이고
+   final_level 을 바꾸는 코드는 0곳이다. 선생님이 그 점수를 «참고» 할 수는 있지만 «합쳐서 확정»
+   은 지금 일어나지 않는다 — 화면이 하지 않는 일을 약속하면 안 된다. */
+const noteBlk = (ltHtml.match(/<p id="ai-final-note"[\s\S]*?<\/p>/) || [])[0] || '';
+ok(!!noteBlk, '전제: 결과 화면 맨 아래 안내를 오려 냈다');
+/* ⛔ 태그가 낀 원문으로 부정 검사를 하지 말 것 — 「발음 평가</b>까지 합쳐」처럼 사이에
+   태그가 들어가면 정규식이 그것을 못 넘어 **거짓 문구를 되돌려도 통과한다**
+   (2026-09-22 변이시험 Ⓖ에서 실제로 0건 검출이었다). 태그를 벗긴 «사람이 읽는 글자» 로 본다. */
+const noteText = noteBlk.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+ok(noteText.length > 10, '전제: 태그를 벗긴 글자가 남았다', '실제: ' + noteText);
+ok(!/까지 합쳐/.test(noteText),
+   '「발음 평가까지 합쳐 최종 레벨이 확정」이라고 말하지 않는다', '실제: ' + noteText);
+ok(/발음 평가/.test(noteText), '짝: 발음 평가를 «없는 것» 취급하지도 않는다(선생님이 참고한다)');
+ok(/추정/.test(noteText), '이 레벨이 «추정» 값임을 말한다');
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail > 0) process.exit(1);

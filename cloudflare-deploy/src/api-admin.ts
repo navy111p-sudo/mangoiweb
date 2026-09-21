@@ -11730,7 +11730,13 @@ LIMIT $limit`;
       try {
         if (authedUid) placement = await applyPlacementLevel(env as any, authedUid, level);
       } catch (e: any) { console.warn('[leveltest] placement skip:', e && e.message); }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement });
+      /* 🎯 (2026-09-22) 학생 화면이 «다음 단계» 를 사실대로 말하려면 유형을 알아야 한다.
+         [왜] 결과 화면이 모든 학생에게 「선생님 1:1 평가 후 최종 레벨이 문자로 안내됩니다」
+              라고 말하는데, AI 학습만 하는 학생에게는 그 단계가 없다 — 오지 않을 문자를
+              기다리게 하는 거짓말이다(2026-09-21 에 상태만 갈랐고 학생 화면은 그대로였다).
+         ⛔ live_count 는 싣지 않는다 — 화면이 쓸 일이 없고, 그 학생의 예약 수까지 알릴 이유가 없다.
+         ⚠️ authedUid 를 못 구하면 track='unknown' 이라 화면은 «예전 문구» 그대로다. */
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement, track: trackInfo.track });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
