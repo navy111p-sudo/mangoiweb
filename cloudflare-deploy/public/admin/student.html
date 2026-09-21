@@ -2600,6 +2600,32 @@ async function loadDStudentSchedule() {
   renderDSchedule();
 }
 
+/* 📅 (2026-09-21 사장님 제보) 「취소한 체험수업이 왜 아직 캘린더에 나와?」 — 숨김 판정 정본.
+   [무슨 일이었나] 이 캘린더는 enrollments(«신청서»)를 보고 «매주 N요일» 카드를 그린다.
+     그런데 실제 수업(class_schedules)을 전부 취소해도 신청서는 confirmed 로 남는다
+     — 두 표 사이에 배선이 없다. 서버는 수업 목록에서 취소분을 이미 걸러 주므로
+     같은 화면 아래쪽 «스케줄 목록» 에는 안 보이는데 캘린더에만 남아,
+     **한 화면이 두 표를 각각 보고 서로 다른 말을** 했다.
+     실측(2026-09-21): 신청 14건 중 1건(정우영 체험수업 — 수업 4건 전부 취소).
+   ⚠️ **정본은 이 함수 하나다** — 주간·월간이 함께 쓴다. 복제하면 한쪽만 고쳐진다.
+   ⚠️ 서버가 class_total/class_active 를 못 실어 보내면(조회 실패·옛 캐시) **예전대로 그린다.**
+      숨기는 쪽으로 실패하면 멀쩡한 수업이 캘린더에서 사라지는데 그쪽이 훨씬 나쁘다.
+   ⛔ «수업이 0건» 을 숨김으로 읽지 말 것 — 방금 확정해 아직 수업을 안 만든 신청이 사라진다.
+      숨기는 것은 «있었는데 전부 취소» 뿐이다.
+   ✅ 감시: test-harness/enroll_calendar_cancelled_harness.mjs 가 이 함수를 오려 내 실제로 돌린다. */
+function enrCalHidden(enr) {
+  if (!enr) return false;
+  // ① 신청서 자체가 끝난 것 — 모르는 값은 그대로 그린다(«모르면 안 숨김»).
+  var st = String(enr.status || '').toLowerCase().trim();
+  if (st === 'cancelled' || st === 'canceled' || st === 'rejected'
+      || st === 'ended' || st === 'expired') return true;
+  // ② 그 신청이 만든 수업이 «있었는데 전부 취소» 된 것.
+  var total = Number(enr.class_total);
+  var active = Number(enr.class_active);
+  if (isFinite(total) && isFinite(active) && total > 0 && active === 0) return true;
+  return false;
+}
+
 function renderDSchedule() {
   if (_dSchedState.view === 'week') return renderDSchedWeek();
   return renderDSchedMonth();
@@ -2647,6 +2673,8 @@ function renderDSchedWeek() {
     '정규수업':   { bg:'#fef3c7', border:'#f59e0b', text:'#92400e' }
   };
   for (const enr of (_dSchedState.enrollments || [])) {
+    /* 📅 (2026-09-21) 취소된 신청·«수업이 전부 취소된» 신청은 그리지 않는다 — 판정은 enrCalHidden() 하나. */
+    if (enrCalHidden(enr)) continue;
     const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
     if (sd && we < sd) continue;
     if (enr.end_date) { const ed = new Date(enr.end_date); if (ed < ws) continue; }
@@ -2759,6 +2787,8 @@ function renderDSchedMonth() {
       const ko = dayKoMap[c.date.getDay()];
       const cd = dayCodes[c.date.getDay()];
       for (const enr of (_dSchedState.enrollments || [])) {
+    /* 📅 (2026-09-21) 취소된 신청·«수업이 전부 취소된» 신청은 그리지 않는다 — 판정은 enrCalHidden() 하나. */
+    if (enrCalHidden(enr)) continue;
         const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
         if (sd && c.date < sd) continue;
         if (enr.end_date) { const ed = new Date(enr.end_date); if (c.date > ed) continue; }

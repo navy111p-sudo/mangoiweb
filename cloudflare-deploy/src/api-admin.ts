@@ -11790,6 +11790,45 @@ LIMIT $limit`;
               }
             }
           } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
+          /* 📅 (2026-09-21 사장님 제보) 「취소한 체험수업이 왜 아직 캘린더에 나와?」
+             [원인] 학생 상세의 주간·월간 캘린더(admin/student.html)는 **이 목록**을 보고
+               «매주 N요일» 카드를 그린다. 그런데 실제 수업(class_schedules)을 전부 취소해도
+               이 신청서는 confirmed 로 남는다 — 두 표 사이에 배선이 없다. 바로 위 GET
+               /api/admin/class-schedules 는 `cs.status != 'cancelled'` 로 이미 걸러 주므로
+               같은 화면 아래쪽 «스케줄 목록» 에는 안 보이는데 캘린더에만 남아,
+               **한 화면이 두 표를 각각 보고 서로 다른 말을** 했다.
+               실측(2026-09-21): 신청 14건 중 1건(정우영 체험수업, 수업 4건 전부 취소).
+             ✅ 여기서는 «그 신청이 만든 수업이 몇 건이고 그중 몇 건이 살아 있나» 라는
+                **사실만** 실어 보낸다. 숨길지 말지는 화면의 `enrCalHidden()` 한 곳이 정한다.
+             ⚠️ 못 구하면 칸을 **안 싣는다** → 화면이 예전대로 그린다(fail-open).
+                반대로 실패했다고 숨기면 멀쩡한 수업이 캘린더에서 사라지는데 그쪽이 훨씬 나쁘다.
+             ⚠️ IN 목록을 만들지 않는다(D1 바인드 100개 한도) — 콤마 문자열 **한 개**를
+                instr 로 본다(규칙서 「새 IN (...) 목록」 항목).
+             ℹ️ source 형식은 `adm-enroll:<신청id>` 다(enroll-activate.ts). 'adm-enroll:' 이
+                11글자라 substr(...,12) 부터가 id. 다른 형식(ai_enroll·admin_ui·enroll:주문번호)은
+                이 신청서가 만든 것이 아니므로 애초에 안 걸린다. */
+          try {
+            const enrIds = items.map((r: any) => String(r.id || '')).filter(Boolean);
+            if (enrIds.length) {
+              const rsCls = await env.DB.prepare(
+                `SELECT substr(source, 12) AS enr_id,
+                        COUNT(*) AS total_n,
+                        SUM(CASE WHEN status = 'cancelled' THEN 0 ELSE 1 END) AS active_n
+                   FROM class_schedules
+                  WHERE source LIKE 'adm-enroll:%'
+                    AND instr(?, ',' || substr(source, 12) || ',') > 0
+                  GROUP BY source`
+              ).bind(',' + enrIds.join(',') + ',').all<any>();
+              const clsMap = new Map<string, any>();
+              for (const r of (rsCls.results || [])) clsMap.set(String(r.enr_id), r);
+              for (const it of items) {
+                const g = clsMap.get(String((it as any).id));
+                if (!g) continue;
+                (it as any).class_total = Number(g.total_n) || 0;
+                (it as any).class_active = Number(g.active_n) || 0;
+              }
+            }
+          } catch (e: any) { console.warn('[enrollments] 수업 수 조회 실패 — 칸 안 실음:', e?.message); }
           return json({ ok: true, items });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });
