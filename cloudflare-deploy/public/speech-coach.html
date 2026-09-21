@@ -126,7 +126,7 @@
      ⚠️ 이 줄은 폰에서도 보여야 한다 — .step-nav/.step-progress 는 좁은 화면에서 숨지만
         이 클래스는 그 목록에 없다(일부러). 폰 학생이 이 기능의 주인이다. */
   /* ⛔ `margin: … auto` 를 쓰지 말 것 — 넓은 화면에서 .wrap 이 **grid** 가 되는데
-        (166행 `display:grid`), 그리드 자식에 좌우 auto 마진을 주면 stretch 가 꺼지고
+        (`.wrap` 의 `display:grid`), 그리드 자식에 좌우 auto 마진을 주면 stretch 가 꺼지고
         **글자 폭만큼 쪼그라든다**(1280px 실측 1020 → **129px**). 형제(.target-box 등)와
         같이 칸을 꽉 채우려면 좌우 마진을 0 으로 둔다. */
   .sc-mission { max-width: 760px; margin: 14px 0 2px; padding: 0 6px; }
@@ -746,11 +746,20 @@ function scClaimMission(m){
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(),
                            rule_code: m.rule, meta: { count: m.count, goal: m.goal } })
-  }).then(function(r){ return r.json(); }).then(function(d){
+  /* 🔴 `fetch` 는 401·404·500 에 **reject 하지 않는다** — `.catch` 로 안 온다.
+        그리고 이 경로는 실패를 **JSON 본문으로** 돌려준다(`auth_required` 401 ·
+        `rule_not_found_or_disabled` 404). `r.ok` 를 따로 안 보면 아래 갈래 어디에도
+        안 걸려 **화면은 아무 말도 안 하고 표시만 남아** 그날 10점이 조용히 사라진다.
+        ⟹ «서버가 못 준 것»(HTTP 실패)은 «이미 받았다» 와 다르다 — 표시를 지운다. */
+  }).then(function(r){ var ok = !!(r && r.ok); return r.json().then(function(j){ return { http: ok, d: j }; },
+                                                                   function(){ return { http: ok, d: null }; }); })
+    .then(function(w){
+    var d = w.d;
+    if (!w.http) { try { localStorage.removeItem(key); } catch(e){} }
     var rs = document.getElementById('rec-status');
     if (!rs) return;
     var en = _scIsEn();
-    if (d && d.ok) {
+    if (w.http && d && d.ok) {
       var amt = (d.rule && d.rule.amount) || m.points;
       rs.textContent = en ? ('🎯 Daily goal · +' + amt + 'P!') : ('🎯 오늘 몫 완료 · +' + amt + 'P 적립!');
     } else if (d && (d.error === 'daily_total_cap_reached' || d.error === 'game_daily_cap_reached')) {

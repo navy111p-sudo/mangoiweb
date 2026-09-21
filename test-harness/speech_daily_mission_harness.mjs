@@ -25,7 +25,17 @@
      SQLite** 에 실행하며, 화면 함수는 **오려 내 가짜 DOM 으로 돌려** «무슨 글자가 나오는가»
      를 본다. 「막는다」 옆에는 반드시 **「그래도 되는 것은 된다」 짝**을 둔다.
 
-   변이시험 — 2026-09-21 에 **16종을 실제로 넣어 돌렸고 전부 FAIL** 했다(잡힌 건수):
+   🔴 [2026-09-21 함정 대조가 잡은 것 — 여기는 «판정» 만 재고 «배선» 은 안 재고 있었다]
+     ⓐ `scApplyMission` 의 `scClaimMission(m)` 삭제(=보상이 아예 안 나감) ⓑ `scLoadMission()`
+     호출 삭제 ⓒ 들어올 때 `scApplyMission`→`scRenderMission` 되돌리기 ⓓ `.catch` 의
+     `removeItem` 삭제 — **네 변이가 전부 PASS 77 / FAIL 0 으로 통과**했다. ⓒ·ⓓ 는 그날
+     «방금 고친» 버그라 되돌림을 막는 검사가 없던 것이다.
+     ⟹ **⑧-2 절**이 세 함수를 오려 내 **가짜 fetch·가짜 localStorage 로 실제로 돌린다**
+        (지금은 각각 FAIL 3·1·1·1).
+     ⚠️ 그때 「호출이 있는가」를 `scLoadMission\s*\(\s*\)` 로 물으면 **함수 «선언» 이 잡혀**
+        호출을 통째로 지워도 통과한다 — CLAUDE.md 에 이미 두 번 적힌 함정의 **세 번째**다.
+
+   변이시험 — 2026-09-21 에 **22종을 실제로 넣어 돌렸고 전부 FAIL** 했다(잡힌 건수):
      Ⓐ DISTINCT → COUNT(*) …………… 5건   Ⓑ 카드만 옛 셈법으로 …………… 2건
      Ⓒ GAME_QUIZ_RULES 에서 빼기 … 1건   Ⓓ daily_cap 1 → 5 ……………… 1건
      Ⓔ 게스트 게이트 제거 ………………… 1건   Ⓕ 못 세면 0 을 돌려주기 ……… 2건
@@ -34,6 +44,9 @@
      Ⓚ 서버 복수 규칙만 바꾸기 ……… 2건   Ⓛ 중국어 화면에 미션 달기 … 1건
      Ⓜ 채점 응답에서 mission 빼기 … 1건   Ⓝ 조건 뒤집기(>= → >) ……… 2건
      Ⓞ 좌우 auto 마진 되살리기 ……… 1건   Ⓟ _scIsEn 을 늘 거짓으로 …… 1건
+     Ⓠ scClaimMission 호출 삭제 …… 3건   Ⓡ scLoadMission 호출 삭제 … 1건
+     Ⓢ 들어올 때 렌더만 하기 ………… 1건   Ⓣ .catch 의 removeItem 삭제  1건
+     Ⓤ r.ok 가드 삭제(401·404) …… 1건   Ⓥ 게스트 판정을 /^guest/ 로  1건
    ⚠️ Ⓛ 은 처음에 **0건**이 나왔는데 검사가 헛돈 것이 아니라 변이가 안 먹은 것이었다
       (그 화면에는 `<div class="hero">` 가 없고 `<header class="hero">` 다 — 치환이 no-op).
       앵커를 고쳐 다시 넣으니 실제로 1건 FAIL. **변이가 실제로 들어갔는지 먼저 확인할 것.**
@@ -95,6 +108,16 @@ function strip(t) {
   }
   return out;
 }
+/* 여는 중괄호 위치에서 «짝이 맞는» 곳까지 잘라 낸다. */
+function braceBlockFrom(src, i) {
+  if (i < 0) return '';
+  let d = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === '{') d++;
+    else if (src[j] === '}') { d--; if (!d) return src.slice(i, j + 1); }
+  }
+  return '';
+}
 /* 중괄호 짝으로 함수 몸통 자르기 — 길이로 자르면 옆 코드가 딸려 들어온다. */
 function fnBody(src, name) {
   const m = new RegExp('function\\s+' + name + '\\s*\\(').exec(src);
@@ -144,7 +167,16 @@ if (M) {
 
   /* 게스트 — uid 를 함께 쓰므로 미션을 주지 않는다 */
   check('게스트는 미션 대상이 아니다', M.isSharedGuestUid('guest') && M.isSharedGuestUid('guest_ab12') && M.isSharedGuestUid('GUEST'));
-  check('짝: 실계정은 미션 대상이다', !M.isSharedGuestUid('jeong') && !M.isSharedGuestUid('ysyt01') && !M.isSharedGuestUid('guestavo') === false || !M.isSharedGuestUid('jeong'));
+  /* ⛔ 이 짝 검사를 `A && B || C` 로 쓰지 말 것 — 우선순위 때문에 끝의 한 항으로 **언제나 통과**한다
+        (2026-09-21 함정 대조가 그 상태를 잡았다). 조건은 하나씩 나눠 쓴다. */
+  check('짝: 실계정은 미션 대상이다', !M.isSharedGuestUid('jeong') && !M.isSharedGuestUid('ysyt01'));
+  /* 🔴 「guest 로 시작」으로 넓히면 실계정을 게스트로 오판한다 — 그 학생은 줄도 보상도 못 받는데
+        에러가 안 난다. `guest_` 로 이어 붙인 것만 게스트다. */
+  check('짝: guest 로 «시작만» 하는 실계정은 게스트가 아니다',
+        !M.isSharedGuestUid('guestavo') && !M.isSharedGuestUid('guesthouse'),
+        [M.isSharedGuestUid('guestavo'), M.isSharedGuestUid('guesthouse')]);
+  check('짝: 저장소가 실제로 만드는 게스트 모양은 전부 잡는다',
+        ['guest', 'guest_ab12', 'guest_zh_9x', 'guest_fb', 'GUEST'].every((u) => M.isSharedGuestUid(u)));
 
   /* 영어 복수 — 화면(today-page.js)과 «같은 말» 이어야 한다 */
   check('영어 복수 — 하나면 그대로', M.pluralizeEn('sentence', 1) === 'sentence');
@@ -307,8 +339,19 @@ check('오늘 몫을 채워도 «잠그지» 않는다(더 할 수 있다)',
 check('오늘 한 문장 수를 localStorage 로 세지 않는다(서버가 센다)',
       !/localStorage[^\n]*(count|done|sent)/i.test(missionJs), (missionJs.match(/localStorage[^\n]*/g) || []).slice(0, 3));
 check('채점이 끝나면 서버가 준 값으로 갱신한다', /scApplyMission\(cD\.mission\)/.test(pg));
-check('들어오자마자 한 번 물어본다', /scLoadMission\s*\(\s*\)/.test(pg));
-check('🌐 언어를 바꾸면 이 줄도 다시 그린다', /mangoi:lang-changed[\s\S]{0,120}scRenderMission/.test(pg));
+/* 🔴 «호출» 을 찾을 때 `이름(` 로 물으면 **함수 «선언» 이 잡혀** 호출을 통째로 지워도 통과한다
+      (CLAUDE.md 2장에 이미 두 번 적힌 함정 — 2026-09-21 함정 대조가 세 번째로 잡았다).
+      ⟹ 선언이 아닌 «부르는 모양» 으로 찾고, 선언은 정확히 하나인지 짝으로 본다. */
+check('들어오자마자 한 번 물어본다(선언이 아니라 «호출»)',
+      /(^|[^\w.])scLoadMission\s*\(\s*\)\s*;/m.test(pg), (pg.match(/scLoadMission[^\n]*/g) || []).slice(0, 4));
+check('짝: scLoadMission 선언은 정확히 하나다(복제가 되살아나지 않게)',
+      (pg.match(/function\s+scLoadMission\s*\(/g) || []).length === 1);
+/* ⛔ 검사 범위를 «길이» 로 자르지 말 것 — 주석 한 문단이 끼면 정작 볼 줄이 창 밖으로 나간다.
+      리스너 등록의 «콜백 몸통» 을 중괄호 짝으로 잘라서 본다. */
+const langIdx = pg.indexOf("'mangoi:lang-changed'");
+check('전제: 🌐 리스너 등록을 찾았다', langIdx > 0);
+const langCb = langIdx > 0 ? braceBlockFrom(pg, pg.indexOf('{', langIdx)) : '';
+check('🌐 언어를 바꾸면 이 줄도 다시 그린다', /scRenderMission\s*\(/.test(langCb), langCb.slice(0, 120));
 
 /* ⑦ 막대 — 인라인 span 함정 */
 console.log('\n⑦ 막대가 실제로 그려지는 모양인가');
@@ -374,6 +417,146 @@ if (rBody) {
     const zero = run({ goal: 0, count: 0, left: 0, reached: false, unitKo: '문장', unitEn: 'sentence', unitEnPl: 'sentences' });
     check('짝: 목표가 없으면 줄을 그리지 않는다', zero['sc-mission'].hidden === true);
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ⑧-2 배선 — 「보상이 실제로 나가는가」를 «돌려서» 본다
+   🔴 2026-09-21 함정 대조가 잡은 것: 여기까지는 «판정» 만 재고 있어서
+      ⓐ `scApplyMission` 에서 `scClaimMission(m)` 삭제 ⓑ `scLoadMission()` 호출 삭제
+      ⓒ `scLoadMission` 이 `scRenderMission` 만 부르게 되돌리기 ⓓ `.catch` 의
+      `removeItem` 삭제 — **네 변이가 전부 PASS 77 / FAIL 0 으로 통과**했습니다.
+      ⓒ·ⓓ 는 이 작업에서 «방금 고친» 버그라 되돌림을 막는 검사가 꼭 필요합니다.
+   ⟹ 세 함수를 중괄호 짝으로 오려 내 **가짜 fetch·가짜 localStorage 로 실제로 돌려**
+      「청하는가」·「실패하면 표시를 지우는가」를 **짝으로** 묻습니다.
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n⑧-2 보상 배선 — 실제로 돌려서 본다');
+{
+  const bApply = fnBody(pageSrc, 'scApplyMission');
+  const bClaim = fnBody(pageSrc, 'scClaimMission');
+  const bLoad  = fnBody(pageSrc, 'scLoadMission');
+  const bKey   = fnBody(pageSrc, '_scClaimKey');
+  const bIsEn  = fnBody(pageSrc, '_scIsEn');
+  const bRend  = fnBody(pageSrc, 'scRenderMission');
+  /* ⛔ 상태 변수(_scMission 등)를 하니스에 «손으로» 적지 말 것 — 초깃값이 어긋나면
+        「이미 채운 채로 들어왔다」 같은 상태를 잘못 흉내내 검사가 조용히 헛돈다.
+        선언 줄을 **소스에서 읽어** 그대로 넣는다. */
+  const stateDecls = (pageSrc.match(/^var _scMission[^\n]*$/gm) || []).join('\n');
+  check('전제: 상태 변수 선언을 소스에서 읽었다', /_scMission\s*=/.test(stateDecls) && /_scMissionSeenReached/.test(stateDecls), stateDecls);
+  check('전제: 배선 네 함수를 잘라 냈다',
+        bApply.length > 100 && bClaim.length > 150 && bLoad.length > 100 && bKey.length > 40,
+        [bApply.length, bClaim.length, bLoad.length, bKey.length]);
+
+  /* 가짜 상자 — fetch·localStorage·DOM 을 흉내낸다. 돌려주는 것은 «무슨 일이 일어났나» */
+  const M0 = { goal: 5, count: 5, left: 0, reached: true, unitKo: '문장', unitEn: 'sentence', unitEnPl: 'sentences', rule: 'speech_daily', points: 10 };
+  function drive(opts) {
+    const o = opts || {};
+    /* ⚠️ `mango_token` 을 안 넣으면 scLoadMission 이 첫 줄에서 돌아가 **그 절이 통째로 헛돈다**
+          (실제로 gets 0 · posts 0 으로 나와 «검사가 아무것도 안 봄» 이 드러났다). */
+    const log = { posts: [], gets: [], store: { mango_token: 't0k' }, removed: [], celebrated: 0, rendered: 0 };
+    /* 적립 표시만 센다 — 토큰 같은 다른 칸이 섞이면 «하루 한 번» 검사가 조용히 헛돈다 */
+    log.claimKeys = () => Object.keys(log.store).filter((k) => /speech_mission/.test(k));
+    const pre = [
+      'var __log = __L;',
+      'var localStorage = {',
+      '  getItem: function(k){ return Object.prototype.hasOwnProperty.call(__log.store,k) ? __log.store[k] : null; },',
+      '  setItem: function(k,v){ __log.store[k] = String(v); },',
+      '  removeItem: function(k){ delete __log.store[k]; __log.removed.push(k); }',
+      '};',
+      'var window = { getLang: function(){ return "ko"; } };',
+      'var getLang = window.getLang;',
+      'var document = { getElementById: function(){ return { textContent: "", className: "", hidden: false, style: {} }; } };',
+      'function mgAcctUid(){ return __UID; }',
+      'function celebrate(){ __log.celebrated++; }',
+      'function fetch(u, init){',
+      '  if (init && init.method === "POST") { __log.posts.push({ url: u, body: JSON.parse(init.body) }); return __POST(); }',
+      '  __log.gets.push(u); return __GET();',
+      '}',
+    ].join('\n');
+    const src = pre + '\n' + stateDecls + '\n' + bIsEn + '\n' + bRend + '\n' + bKey + '\n' + bClaim + '\n' + bApply + '\n' + bLoad
+              + '\nreturn { apply: scApplyMission, claim: scClaimMission, load: scLoadMission };';
+    let api;
+    try { api = new Function('__L', '__UID', '__POST', '__GET', src)(log, o.uid === undefined ? 'jeong' : o.uid,
+      () => (o.postThrow ? Promise.reject(new Error('offline'))
+                         : Promise.resolve({ ok: o.httpOk !== false, json: () => Promise.resolve(o.postJson || { ok: true, rule: { amount: 10 } }) })),
+      () => Promise.resolve({ ok: true, json: () => Promise.resolve(o.getJson || { ok: true, mission: M0 }) })); }
+    catch (e) { return { err: String(e && e.message), ...log }; }
+    return { api, log };
+  }
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  /* ⛔ 부르는 자리를 감싸지 않으면 변이가 «깔끔한 FAIL» 이 아니라 **하니스 크래시**가 되어
+        결과줄조차 안 나온다(무엇이 깨졌는지 안 보인다 — CLAUDE.md 2장). */
+  const callSafe = (fn, arg) => { try { fn(arg); return ''; } catch (e) { return String((e && e.message) || e); } };
+
+  /* ⓐ 오늘 몫을 채우면 «실제로» 보상을 청한다 */
+  const a = drive({});
+  check('전제: 배선을 평가할 수 있다', !a.err, a.err);
+  if (a.api) {
+    const aErr = callSafe(a.api.apply, M0);   /* ⛔ 조건과 detail 에서 «두 번» 부르지 말 것 — 요청이 두 배가 되어 짝 검사가 거짓 FAIL 난다 */
+    check('돌려도 던지지 않는다(apply)', aErr === '', aErr);
+    check('채우면 보상을 «실제로» 청한다(POST 1건)', a.log.posts.length === 1, a.log.posts.length);
+    check('그 요청이 서버가 준 규칙 코드로 간다',
+          a.log.posts[0] && a.log.posts[0].body.rule_code === 'speech_daily' && /earn-by-rule/.test(a.log.posts[0].url),
+          a.log.posts[0] && a.log.posts[0].body.rule_code);
+    /* 짝 — 아직 안 채웠으면 청하지 않는다(없으면 «언제나 청하기» 도 통과한다) */
+    const b = drive({});
+    callSafe(b.api.apply, { ...M0, count: 2, left: 3, reached: false });
+    check('짝: 아직 안 채웠으면 청하지 않는다', b.log.posts.length === 0, b.log.posts.length);
+    /* 짝 — 게스트·비로그인은 청하지 않는다 */
+    const g = drive({ uid: '' });
+    callSafe(g.api.apply, M0);
+    check('짝: 로그인 안 했으면 청하지 않는다', g.log.posts.length === 0, g.log.posts.length);
+  }
+
+  /* ⓑ 들어오자마자 부르는 경로가 «렌더만» 하고 끝나지 않는다 */
+  await (async () => {
+    const l = drive({});
+    if (!l.api) return;
+    const lErr = callSafe(l.api.load);
+    check('돌려도 던지지 않는다(load)', lErr === '', lErr);
+    await settle(); await settle();
+    check('들어올 때도 보상을 청한다(scRenderMission 만 부르고 끝나지 않는다)',
+          l.log.posts.length === 1, { gets: l.log.gets.length, posts: l.log.posts.length });
+    check('짝: 그때 먼저 서버에 물어본다(history 조회 1건)',
+          l.log.gets.length === 1 && /\/api\/voice\/history/.test(l.log.gets[0] || ''), l.log.gets);
+    /* 짝 — 서버가 «모름»(null) 을 주면 아무 일도 안 한다 */
+    const n = drive({ getJson: { ok: true, mission: null } });
+    callSafe(n.api.load);
+    await settle(); await settle();
+    check('짝: 서버가 모른다고 하면 보상을 안 청한다', n.log.posts.length === 0, n.log.posts.length);
+  })();
+
+  /* ⓒ 실패하면 표시를 지운다 — «서버가 답을 안 준 것» 과 «이미 받았다» 는 다르다 */
+  await (async () => {
+    const off = drive({ postThrow: true });
+    if (!off.api) return;
+    const oErr = callSafe(off.api.claim, M0);
+    check('돌려도 던지지 않는다(claim)', oErr === '', oErr);
+    await settle(); await settle();
+    check('통신이 끊기면 표시를 지운다(그날 10점이 조용히 사라지지 않게)',
+          off.log.removed.length === 1 && off.log.claimKeys().length === 0, off.log.removed);
+    /* 🔴 fetch 는 401·404 에 reject 하지 않는다 — r.ok 를 안 보면 여기서 표시가 남는다 */
+    const dead = drive({ httpOk: false, postJson: { ok: false, error: 'auth_required' } });
+    callSafe(dead.api.claim, M0);
+    await settle(); await settle();
+    check('HTTP 로 실패해도(401·404) 표시를 지운다 — fetch 는 그때 reject 하지 않는다',
+          dead.log.removed.length === 1 && dead.log.claimKeys().length === 0, dead.log.removed);
+    /* 짝 — 서버가 «제대로 답한» 경우(성공·상한)에는 표시를 남긴다(하루 한 번) */
+    const ok1 = drive({});
+    callSafe(ok1.api.claim, M0);
+    await settle(); await settle();
+    check('짝: 성공하면 표시를 남긴다(같은 날 또 청하지 않게)',
+          ok1.log.removed.length === 0 && ok1.log.claimKeys().length === 1, ok1.log.claimKeys());
+    const cap = drive({ postJson: { ok: false, error: 'daily_total_cap_reached', cap: 100, message_ko: 'x' } });
+    callSafe(cap.api.claim, M0);
+    await settle(); await settle();
+    check('짝: 상한에 걸린 것은 «서버가 제대로 답한» 것이라 표시를 남긴다',
+          cap.log.removed.length === 0 && cap.log.claimKeys().length === 1, cap.log.claimKeys());
+    /* 짝 — 같은 날 두 번째는 요청조차 안 한다 */
+    const twice = drive({});
+    callSafe(twice.api.claim, M0); callSafe(twice.api.claim, M0);
+    await settle(); await settle();
+    check('짝: 같은 날 두 번째는 요청을 안 한다(표시를 읽는다)', twice.log.posts.length === 1, twice.log.posts.length);
+  })();
 }
 
 /* ⑨ 중국어 화면 — 셀 수 없으므로 달지 않는다 */

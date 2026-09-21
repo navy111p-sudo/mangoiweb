@@ -63,10 +63,18 @@ export function speechDailyGoal(): number {
 
 /**
  * 게스트인가 — 게스트는 uid 를 함께 쓰므로 미션을 주지 않는다.
- * ⚠️ `'guest'` 정확일치가 아니라 접두사로 본다 — 화면마다 `guest_xxxx` 도 만든다.
+ *
+ * ⚠️ `'guest'` 정확일치로는 모자란다 — 저장소가 실제로 만드는 모양은
+ *    `guest` · `guest_xxxx` · `guest_zh_xxxx` · `guest_fb` 등 «밑줄로 이어 붙인» 것들이다.
+ * ⛔ 그렇다고 `/^guest/` 로 넓히지 말 것 — **`guestavo` 같은 실계정을 게스트로 오판**한다.
+ *    오판하면 그 학생은 「오늘 몫」 줄을 영영 못 보고 보상도 못 받는데 **에러가 안 난다**.
+ *    ⟹ 「guest 로 시작」이 아니라 **「guest 이거나 guest_ 로 시작」** 으로 본다.
+ * ⚠️ 그래도 «모르면 안 준다» 쪽으로 실패한다 — 새 접두사(`anon_` 등)가 생기면 그 계정은
+ *    미션을 «받게» 되고, 여럿이 한 칸을 쓰면 남이 연습한 것이 내 몫으로 보인다.
+ *    새 익명 접두사를 만들면 **이 함수도 함께** 고칠 것.
  */
 export function isSharedGuestUid(uid: any): boolean {
-  return /^guest/i.test(String(uid || '').trim());
+  return /^guest(_|$)/i.test(String(uid || '').trim());
 }
 
 /**
