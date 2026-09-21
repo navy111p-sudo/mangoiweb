@@ -69,11 +69,17 @@ console.log('\n🔖 수강신청 유령 카드 — 「신청만 · 수업 없음
 console.log('① 정본 판정 — 오려 내 실제로 돌린다');
 
 const fnSrc   = cut('function mgsEnrHasLiveClass(enr)');
+/* 📅 (2026-09-21 병합 — #1067) 같은 카드에 **판정이 둘** 있다. 이 하니스가 보는 «회색»
+   말고, 그 «앞» 에서 아예 안 그리는 enrCalHidden(«있었는데 전부 취소» → 감춤)이 있다.
+   두 렌더가 그것을 부르므로 **함께 오려 넣지 않으면** 가짜 DOM 에서 ReferenceError 로 죽는다
+   — 그러면 이 절이 통째로 헛돈다(실제로 병합 직후 그렇게 됐다). */
+const hidSrc  = cut('function enrCalHidden(enr)');
 const weekSrc = cut('function renderDSchedWeek()');
 const monthSrc= cut('function renderDSchedMonth()');
 const deadLine = (html.match(/var MGS_ENR_DEAD = \{[^}]*\};/) || [''])[0];
 
 ok('[전제] 판정 함수를 오려 냈다', fnSrc.length > 120, fnSrc.length + '자');
+ok('[전제] 앞단 «감춤» 판정도 오려 냈다(#1067)', hidSrc.length > 120, hidSrc.length + '자');
 ok('[전제] 주간 렌더를 오려 냈다', weekSrc.length > 1500, weekSrc.length + '자');
 ok('[전제] 월간 렌더를 오려 냈다', monthSrc.length > 800, monthSrc.length + '자');
 /* ⛔ 색을 하니스에 손으로 적지 말 것 — 소스에서 바꾸면 조용히 어긋난다.
@@ -112,7 +118,7 @@ function run(enrollments, aiSchedules, aiOk, lang) {
     }
   };
   vm.createContext(sandbox);
-  vm.runInContext(deadLine + '\n' + fnSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
+  vm.runInContext(deadLine + '\n' + hidSrc + '\n' + fnSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
   const out = {};
   vm.runInContext('renderDSchedWeek();', sandbox); out.week = cal.innerHTML;
   cal.innerHTML = '';
@@ -213,6 +219,31 @@ ok('회색 글자 대비 ≥ 4.5 (AA)', cr >= 4.5, cr.toFixed(2));
 
 console.log('\n⑦ 범례');
 ok('범례에 「신청만 · 수업 없음」이 있다', html.includes('신청만 · 수업 없음'));
+
+/* ⑧ (2026-09-21 병합 — #1067) 같은 카드의 «두 판정» 이 서로 침범하지 않는가
+   ──────────────────────────────────────────────────────────────────────────
+   · enrCalHidden()       «있었는데 전부 취소» → 아예 안 그린다(사장님이 «감추기» 로 고르심)
+   · mgsEnrHasLiveClass() «살아 있는 수업 0건» → 회색 + 「신청만 · 수업 없음」
+   ⚠️ 짝으로 묻는다 — 앞만 보면 «전부 감추기» 도, 뒤만 보면 «전부 회색» 도 통과한다.
+   ⛔ 「이 카드는 절대 안 감춘다」로 읽지 말 것: 회색이 실제로 닿는 것은
+      «아직 수업을 안 만든 신청» 쪽이고, 그쪽은 규칙서가 감추지 말라고 못 박은 경우다. */
+console.log('\n⑧ 두 판정이 서로 침범하지 않는가 (#1067 병합)');
+const ENR_GONE = [Object.assign({}, ENR[0], { class_total: 4, class_active: 0 })];
+const ENR_NEW  = [Object.assign({}, ENR[0], { class_total: 0, class_active: 0 })];
+try {
+  const gone = run(ENR_GONE, [], true);
+  const fresh = run(ENR_NEW,  [], true);
+  ok('«전부 취소» 된 신청은 주간에 아예 안 그려진다',
+     !gone.week.includes('체험') && !gone.week.includes('신청만'), gone.week.slice(0, 120));
+  ok('짝 — 월간도 같다', !gone.month.includes('체험') && !gone.month.includes('신청만'));
+  /* ⛔ 짝이 없으면 «전부 감추기» 도 통과한다 */
+  ok('짝 — «아직 수업을 안 만든» 신청은 감추지 않고 회색으로 말한다',
+     fresh.week.includes('신청만'), fresh.week.slice(0, 120));
+  ok('짝 — 살아 있는 수업이 있으면 예전 그대로다',
+     R.alive.week.includes('중국어 강선생님') && !R.alive.week.includes('신청만'));
+} catch (e) {
+  ok('[전제] ⑧ 을 돌리는 중 예외', false, String(e && e.message || e));
+}
 
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail + '\n');
 process.exit(fail > 0 ? 1 : 0);
