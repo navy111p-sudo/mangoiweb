@@ -26,6 +26,7 @@ const TODAYJS = read('cloudflare-deploy/public/js/today-page.js');
 const TODAYHTML = read('cloudflare-deploy/public/today.html');
 const HUBJS = read('cloudflare-deploy/public/js/games-daily-goal.js');
 const HUBHTML = read('cloudflare-deploy/public/student-games.html');
+const INSIGHTS = read('cloudflare-deploy/src/game-insights.ts');
 
 /* 부정 검사는 주석을 벗긴 사본으로 — 「왜 이렇게 했나」 주석이 그 낱말을 담고 있어
    검사가 «자기 주석» 을 잡는다. ⛔ `//` 를 정규식으로 일괄 지우면 문자열 안 `https://` 가 잘린다. */
@@ -172,6 +173,28 @@ if (!NO_ESBUILD) {
 }
 
 if (!NO_ESBUILD) {
+  console.log('\n[ ①-c 계측 정본과 어긋나지 않는가 ]');
+  /* `game_sessions.game` 에 들어갈 수 있는 값의 정본은 game-insights.ts 의 KNOWN_GAMES 다
+     (모르는 값은 'other' 로 모은다). 두 목록이 갈리면 조용히 어긋난다. */
+  const known = [...((INSIGHTS.match(/KNOWN_GAMES\s*=\s*\[([\s\S]*?)\]\s*as const/) || ['', ''])[1])
+    .matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+  check(`전제: 계측 정본의 이름 목록을 읽었다 (${known.length}개)`, known.length >= 15, known.slice(0, 5));
+  /* 🔴 오타·이름 변경을 잡는다 — 없는 이름을 빼면 그 학습도구가 «게임» 으로 다시 세어진다 */
+  check('빼기 목록의 이름이 모두 계측 정본에 실재한다',
+    (mod.NON_GAME_KINDS || []).every((k) => known.indexOf(k) >= 0),
+    (mod.NON_GAME_KINDS || []).filter((k) => known.indexOf(k) < 0));
+  /* ⚠️ FAIL 이 아니라 «이름을 찍어» 둔다 — 허브 게임이면 게임으로 세는 것이 맞고,
+     학습도구가 새로 생겼다면 사람이 NON_GAME_KINDS 에 더해야 한다(선례: popup_open_return_harness). */
+  const appSection = ((INSIGHTS.match(/\/\/ 학습 앱([\s\S]*?)\]\s*as const/) || ['', ''])[1]);
+  const apps = [...appSection.matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+  const countedAsGame = apps.filter((a) => mod.isGameKind && mod.isGameKind(a));
+  check(`계측 정본이 «학습 앱» 으로 묶은 ${apps.length}개 중 게임으로 세어지는 것 — 사람 확인`, true,
+    countedAsGame);
+  if (countedAsGame.length) {
+    console.log('     ℹ️ 게임으로 세는 중: ' + countedAsGame.join(', ') +
+                ' — 허브 게임이면 맞습니다. 학습도구가 새로 생겼으면 NON_GAME_KINDS 에 더하세요.');
+  }
+
   console.log('\n[ ②-b 문구 정본 — «0» 과 «모름» 을 가르는가 ]');
   const { gameGoalLine } = mod;
   check('전제: 문구 정본을 읽었다', typeof gameGoalLine === 'function');
