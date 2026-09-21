@@ -97,7 +97,17 @@ await clickSel('.home-tracks .ht-live');
 t('오버레이가 보인다', await evalJs(`(function(){var o=document.getElementById('about-mangoi-ov');return !!o && getComputedStyle(o).display!=='none';})()`), true);
 t('목록이 아니라 «상세» 뷰다', await evalJs(`(function(){var o=document.getElementById('about-mangoi-ov');if(!o)return null;
    var d=o.querySelector('.abm-view-detail'); return !!d && getComputedStyle(d).display!=='none';})()`), true);
-t('그 상세 제목이 1:1/1:2 수업', await evalJs(`(function(){var e=document.querySelector('#about-mangoi-ov .abm-dtitle');return e?e.textContent.trim():null;})()`), '원어민 선생님과 1:1 / 1:2 수업');
+/* ⛔ 기대 글자를 여기 손으로 적지 않는다 — 카드 제목을 손보는 무해한 수정에 거짓 FAIL 이 난다
+   (CLAUDE.md 「검사에 «설정표» 를 손으로 적으면」). 화면끼리 대조한다:
+   목록에서 그 key 를 단 버튼의 글자 == 지금 열린 상세의 제목. */
+t('상세 제목이 «그 key 를 단 목록 버튼» 과 같은 글자', await evalJs(`(function(){
+   var d=document.querySelector('#about-mangoi-ov .abm-dtitle');
+   var b=document.querySelector('#about-mangoi-ov .abm-item[data-key="live-class"] .abm-tx');
+   if(!d||!b) return null;
+   return d.textContent.trim() === b.textContent.trim();})()`), true);
+t('그 제목이 빈 글자가 아니다(대조가 헛돌지 않았다)', await evalJs(`(function(){
+   var d=document.querySelector('#about-mangoi-ov .abm-dtitle');
+   return !!d && d.textContent.trim().length > 3;})()`), true);
 t('그 카드의 버튼이 「수업 신청하러 가기」', await evalJs(`(function(){var e=document.querySelector('#about-mangoi-ov .abm-dcta');return e?/수업 신청/.test(e.textContent):null;})()`), true);
 t('「← 목록으로」로 돌아갈 길이 보인다', await evalJs(`(function(){var e=document.querySelector('#about-mangoi-ov .abm-back');return !!e && e.getBoundingClientRect().height>0;})()`), true);
 
@@ -123,6 +133,26 @@ await clickSel('.home-slogan');
 t('슬로건을 눌러도 망고아이란? 안 열림', await evalJs(`!document.getElementById('about-mangoi-ov')`), true);
 t('슬로건을 눌러도 AI 오버레이 안 열림', await evalJs(`!document.getElementById('ai-friends-ov')`), true);
 t('슬로건에는 role=button 이 안 붙었다', await evalJs(`!document.querySelector('.home-slogan').hasAttribute('role')`), true);
+
+console.log('\n⑦ 짝 — 모르는 key 를 주면 «갔다» 고 거짓말하지 않는다');
+await home();
+t('모르는 key → false', await evalJs(`window.openAboutMangoiCard('__no_such_key__')`), false);
+t('그래도 목록은 열어 둔다(사람이 눈으로 고를 수 있게)', await evalJs(`(function(){var o=document.getElementById('about-mangoi-ov');return !!o && getComputedStyle(o).display!=='none';})()`), true);
+t('아는 key → true', await evalJs(`window.openAboutMangoiCard('live-class')`), true);
+
+console.log('\n⑧ 폰 폭(390) — 트랙이 좁아져도 그 자리가 여전히 그 트랙인가');
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await home();
+for (const sel of ['.home-tracks .ht-live', '.home-tracks .ht-ai']) {
+  t(`390px — 맨 위가 ${sel} 자신`, await evalJs(`(function(){var e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;
+     var r=e.getBoundingClientRect(); var top=document.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+     return !!top && (top===e || e.contains(top));})()`), true);
+}
+t('390px — 두 트랙이 서로 겹치지 않는다', await evalJs(`(function(){
+   var a=document.querySelector('.home-tracks .ht-live').getBoundingClientRect();
+   var b=document.querySelector('.home-tracks .ht-ai').getBoundingClientRect();
+   return a.right <= b.left + 0.5 || b.right <= a.left + 0.5;})()`), true);
+await send('Emulation.clearDeviceMetricsOverride');
 
 console.log(`\n결과: PASS ${P} / FAIL ${F}`);
 ws.close();
