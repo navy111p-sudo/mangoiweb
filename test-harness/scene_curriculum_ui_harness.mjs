@@ -31,9 +31,11 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,cardOnlyForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'bts-03',series:'bts',label:'BTS 3',title:'Kinds'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
-const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',bookExample:'An apple is red.'},{word:'pencil',scene:'p',bookExample:'This is a pencil.'}],clips:[{scene:'v'}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
-const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
+const manifest={wordForms:4546,wordPictureForms:228,cardOnlyForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'bts-03',series:'bts',label:'BTS 3',title:'Kinds'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+/* ⚠️ pic:1 = «그 사진의 설명이 이 낱말을 가리킨다»(근거 있음). 2026-09-21 2차 수리부터 사진이 붙는
+   줄은 이것뿐이라, 표시를 빼면 이 fixture 의 낱말이 전부 그림카드가 되어 사진 관련 절이 헛돕니다. */
+const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',bookExample:'An apple is red.',pic:1},{word:'pencil',scene:'p',bookExample:'This is a pencil.',pic:1}],clips:[{scene:'v'}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
+const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.',pic:1}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
 async function ready(){const a=app();eq(a.requests.length,0,'no curriculum data loaded before the user opens it');a.click('open');await flush();eq(a.requests.length,1);a.respond('manifest.json',manifest);await flush();eq(a.requests.length,2,'fetch only one selected book');a.respond('bts-01.json',one);await flush();return a;}
 const a=await ready();ok(!a.els['cq-card'].hidden);eq(a.els['cq-target'].textContent,'apple');eq(a.els['cq-video'].src,'','no eager video load');eq(a.els['cq-items'].children.length,2);
@@ -74,17 +76,25 @@ ok(k.els['cq-source'].textContent.includes('desk'),'무엇을 근거로 그렇�
 eq(k.els['cq-book-example'].textContent,'','그림 문장이 payload 에 없으면 남의 교재 문장이 샐 자리도 없다');
 eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'This is my desk.','예문은 그 교재의 예문이다');
 ok(k.els['cq-example'].children.some(c=>c.tag==='mark'&&c.textContent==='desk'),'예문에서 배울 낱말을 표시한다');
+/* ⚠️ 짝 — 「카드가 뜬다」만 보면 «사진이 있는 줄에도 카드가 덮는» 사고를 못 봅니다. */
+ok(k.els['cq-wordcard'].hidden,'근거 있는 사진이 붙은 줄에는 그림카드를 덮지 않는다');
+/* ⚠️ 가짜 DOM 은 onload 를 안 쏘므로 hidden 은 아직 참입니다 — 「걸었는가」는 src 로 물어야 합니다. */
+ok(k.els['cq-image'].getAttribute('src'),'근거 있는 줄에는 사진이 그대로 걸린다');
 k.click('next');
 eq(k.els['cq-target'].textContent,'nice');
-ok(k.els['cq-source'].textContent.includes('상황 그림'),'근거가 없으면 「상황 그림」이라고 말한다');
-ok(k.els['cq-source'].textContent.includes('낱말 뜻 그림은 아니에요'),'낱말 뜻 그림이 아니라고 분명히 말한다');
-ok(!k.els['cq-source'].textContent.includes('낱말 그림 ·'),'상황 그림을 낱말 그림이라고 부르지 않는다');
-eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'Nice to meet you.','상황 그림은 그 그림이 그린 그 예문과 함께 나온다');
-/* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 그렇게 말한다 · 아무 그림도
-   붙이지 않는다」를 버리고 새 경계로 옮깁니다. 빈 상자 대신 «우리가 그린 낱말 그림카드» 가 채웁니다.
-   ⛔ 빈 상자로 되돌리지 마세요. ⛔ 그렇다고 «남의 문장 사진» 으로 채우지도 마세요(그게 「nice ← 가방」입니다).
-   ⚠️ 「카드가 뜬다」만 보면 «사진이 있는 줄에도 카드가 덮는» 사고를 못 봅니다 → 짝으로 봅니다. */
-ok(k.els['cq-wordcard'].hidden,'사진이 있는 줄에는 그림카드를 덮지 않는다');
+/* 🔴 2026-09-21 «2차» 지적 — 옛 화면은 여기서 「Your backpack looks nice.」 의 가방 사진을 붙이고
+   「낱말 뜻 그림은 아니에요」라고 «말만» 했습니다. 사장님: 「전혀 상관관계가 없는데 서로 다른 단어와
+   실사 이미지가 이렇게 되면 문제야」 — 아이는 그 글자보다 사진을 먼저 보고 「nice = 가방」으로 외웁니다.
+   ⛔ 옛 경계(「상황 그림」이라고 말한다)를 느슨하게 되살리지 마세요 — 새 경계는 «아예 안 건다» 입니다.
+   ⚠️ 이 fixture 의 n 장면에는 사진 주소를 «일부러» 남겨 두었습니다 — 빌드가 빼 주기 전의 낡은 payload
+      가 와도 화면이 그 사진을 걸지 않는지 보는 검사라, 지우면 이 절이 원리상 헛돕니다. */
+ok(k.els['cq-image'].hidden&&!k.els['cq-image'].getAttribute('src'),'근거 없는 낱말에는 사진을 걸지 않는다 — payload 에 주소가 남아 있어도');
+ok(!k.els['cq-wordcard'].hidden,'그 자리는 우리가 그린 낱말 그림카드가 채운다');
+eq(k.els['cq-wordcard-word'].textContent,'nice','그 낱말의 카드다');
+ok(!k.els['cq-source'].textContent.includes('상황 그림'),'옛 「예문 상황 그림」 갈래가 되살아나지 않았다');
+ok(!k.els['cq-source'].textContent.includes('낱말 뜻 그림은 아니에요'),'「뜻 그림이 아니다」라고 변명하며 사진을 붙이지 않는다');
+ok(k.els['cq-source'].textContent.includes('낱말 그림카드'),'카드라고 말한다');
+eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'Nice to meet you.','예문은 그대로 그 교재의 예문이다');
 k.click('next');
 eq(k.els['cq-target'].textContent,'kind');
 ok(k.els['cq-image'].hidden&&!k.els['cq-image'].getAttribute('src'),'사진이 없으면 사진은 붙이지 않는다');
@@ -103,6 +113,7 @@ eq(k.els['cq-target'].textContent,'ball');
    ⛔ 둘을 바꿔 쓰면 학생이 자기 교재에 없는 문장을 예문으로 외웁니다(옛 화면이 그랬습니다). */
 eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'I have a ball.','예문은 언제나 그 교재의 예문이다');
 ok(k.els['cq-book-example'].textContent.includes('그림 속 문장')&&k.els['cq-book-example'].textContent.includes('He kicks the ball.'),'그림이 다른 문장에서 왔다는 사실을 감추지 않는다');
+ok(k.els['cq-image'].getAttribute('src')&&k.els['cq-wordcard'].hidden,'근거 있는 줄은 카드가 아니라 사진이다 — 「전부 카드」 로 만드는 엉터리 수리를 막는 짝');
 /* 🗣 뜻 — 사전을 지어내지 않고 학생 화면이 이미 쓰는 /api/translate mode:'learn' 에 예문째로 묻는다. */
 const m=await kindsApp();m.click('next');
 const before=m.requests.length;m.click('mean');await flush();
