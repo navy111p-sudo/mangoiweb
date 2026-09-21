@@ -7349,7 +7349,16 @@ function _renderEnrollments() {
       ? '<span style="font-size:11px;color:#065f46">🗓️ ' + durTxt +
         (it.duration_months !== 'unlimited' && it.end_date ? ' (~' + _esc(String(it.end_date)) + ')' : '') + '</span>'
       : '';
-    const sub = [sched, prio, teacher, durChip].filter(Boolean).join(' · ');
+    /* 📅 (2026-09-21) 그 신청이 만든 수업이 «전부 취소» 됐는가 — 서버가 실어 준 사실만 말한다.
+       ⛔ 여기서는 감추지 않는다 — 이 카드가 정리하는 «장부» 라 감추면 아무도 못 찾습니다.
+          감추는 곳은 캘린더·학생 명부·활성 패키지 셋이고 판정 정본은 src/enrollment-class-count.ts 하나다.
+       ⚠️ 서버가 칸을 안 주면 아무 말도 안 한다(fail-open). */
+    const _clsT = Number(it.class_total), _clsA = Number(it.class_active);
+    const clsChip = (isFinite(_clsT) && isFinite(_clsA) && _clsT > 0 && _clsA === 0)
+      ? '<span style="font-size:11px;color:#b45309;font-weight:700">'
+        + (en ? '⚠ all ' + _clsT + ' classes cancelled' : '⚠ 수업 ' + _clsT + '건 전부 취소됨') + '</span>'
+      : '';
+    const sub = [sched, prio, teacher, durChip, clsChip].filter(Boolean).join(' · ');
 
     const dupBadge = isDup(it)
       ? ' <span title="' + (en ? 'Same student, same package, more than one live enrollment' : '같은 학생·같은 패키지가 살아 있는 채로 2건 이상입니다')

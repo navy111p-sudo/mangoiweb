@@ -1263,7 +1263,7 @@ function renderEnrollment(){
       <td>${fmtDay(e.started_at)}</td>
       <td>${fmtDay(e.ended_at)}</td>
       <td>${fmtKrw(e.monthly_fee_krw)}</td>
-      <td>${statusBadge(e.status)}</td>
+      <td>${statusBadge(e.status)}${enrClassNote(e)}</td>
       <td>${esc(e.notes)||'—'}</td>
     </tr>`).join('')+'</tbody></table>';
 }
@@ -1843,7 +1843,7 @@ function renderExtension(){
     else if (diff <= 30) { dDay = 'D-' + diff; endStatus = 'yellow'; endStatusLabel = (_lang==='en'?'Soon':'주의'); }
     else { dDay = 'D-' + diff; endStatus = 'green'; endStatusLabel = (_lang==='en'?'OK':'여유'); }
   }
-  /* 📅 (2026-09-21) 캐린더와 «같은 판정» 으로 거른다 — 취소된 신청·수업이 전부 취소된
+  /* 📅 (2026-09-21) 캘린더와 «같은 판정» 으로 거른다 — 취소된 신청·수업이 전부 취소된
      신청을 「활성 패키지」라 부르면 **같은 화면이 두 말을 합니다** — 캘린더는 안 그리는데
      여기만 남습니다(함정 대조가 실제로 잡은 자리). ⛔ 판정을 여기 복제하지 마세요 — enrCalHidden() 하나다. */
   const _enrLive = enrolls.filter(e => !enrCalHidden(e));
@@ -2624,6 +2624,16 @@ async function loadDStudentSchedule() {
    ⛔ «수업이 0건» 을 숨김으로 읽지 말 것 — 방금 확정해 아직 수업을 안 만든 신청이 사라진다.
       숨기는 것은 «있었는데 전부 취소» 뿐이다.
    ✅ 감시: test-harness/enroll_calendar_cancelled_harness.mjs 가 이 함수를 오려 내 실제로 돌린다. */
+/* 📅 (2026-09-21) 「수업이 전부 취소됨」 한 줄 — «등록·수강» 표는 장부라 감추지 않고
+   사실만 적는다. 감추는 것은 캘린더·학생 명부·활성 패키지 셋이고, 그러면 «신청서와 수업이
+   어긋났다» 는 사실을 어느 화면에서도 못 보게 된다 — 이 표가 그 자리다.
+   ⚠️ 서버가 칸을 안 주면 아무 말도 안 한다(fail-open). */
+function enrClassNote(e) {
+  var t = Number(e && e.class_total), a = Number(e && e.class_active);
+  if (!isFinite(t) || !isFinite(a) || t <= 0 || a > 0) return '';
+  return '<div style="font-size:11px;color:#b45309;font-weight:700;margin-top:2px">'
+    + (_lang === 'en' ? '⚠ all ' + t + ' classes cancelled' : '⚠ 수업 ' + t + '건 전부 취소됨') + '</div>';
+}
 function enrCalHidden(enr) {
   if (!enr) return false;
   // ① 신청서 자체가 끝난 것 — 모르는 값은 그대로 그린다(«모르면 안 숨김»).

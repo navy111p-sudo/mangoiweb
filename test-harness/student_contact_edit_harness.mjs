@@ -172,7 +172,7 @@ console.log('\n[ ④ 표 칸 수 — col·th·td·colspan 이 서로 같은가 ]
   const nCol = (tbl.match(/<col\b/g) || []).length;
   const nTh = (tbl.match(/<th\b/g) || []).length;
   /* ⛔ 헬퍼 «이름» 을 여기 적지 말 것 — 칸 하나를 통째로 돌려주는 헬퍼가 늘 때마다
-     멀줦한 수리가 빨간불이 된다(2026-09-15 `_schedTd` · 2026-09-21 `_enrTd` — 두 번 밟음).
+     멀쩡한 수리가 빨간불이 된다(2026-09-15 `_schedTd` · 2026-09-21 `_enrTd` — 두 번 밟음).
      «그 줄 전체가 하나의 칸인 호출» 로 세면 이름을 안 적어도 맞는다. */
   const nTd = (rowSrc.match(/<td\b/g) || []).length
             + (rowSrc.match(/^[ \t]*\$\{_\w+\([^\n]*\)\}[ \t]*$/gm) || []).length;

@@ -21,7 +21,7 @@
 //   「아직 수업을 안 만든 신청도 그린다」·「서버가 칸을 안 주면 예전대로 그린다」를 짝으로 둔다.
 //
 // 실행: node test-harness/enroll_calendar_cancelled_harness.mjs
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -261,7 +261,7 @@ if (blkM) {
   });
   /* ⚠️ 정본이 기대는 상수(ENROLL_CLASS_COUNT_SQL)를 **주입**한다 — 안 주면
      ReferenceError 가 정본의 try/catch 에 삼켜져 «칸을 안 싫는다» 로 보이고,
-     그러면 이 절이 통째로 헛돕다(규칙서 「이름을 그대로 평가하면 … 조용히 catch 로」).
+     그러면 이 절이 통째로 헛돈다(규칙서 「이름을 그대로 평가하면 … 조용히 catch 로」).
      그래서 경고를 받아 둔 뒤 «삼켜진 예외가 없는가» 를 전제 검사로 둠. */
   const SQL_CONST = (/export const ENROLL_CLASS_COUNT_SQL = (`[\s\S]*?`)/.exec(SRC_MOD) || [])[1];
   check('Ⓓ-0b 전제: 정본 SQL 상수를 오려 냈다', !!SQL_CONST);
@@ -387,7 +387,9 @@ console.log('\nⒻ 배선 — 신청서를 받아 가는 «세 통로» 가 전�
 {
   const callsAdmin = (SRC_ADMIN.match(/attachEnrollmentClassCounts\s*\(/g) || []).length;
   const callsMango = (SRC_MANGO.match(/attachEnrollmentClassCounts\s*\(/g) || []).length;
-  check('Ⓕ-1 api-admin.ts 가 정본을 «두 번» 부른다(① 캘린더 · ② 학생 명부)', callsAdmin === 2, callsAdmin);
+  /* ⛔ 개수를 «2» 로 못 박지 않는다 — 나중에 정당한 세 번째 호출부가 생기면
+     멀줦한 수리가 빨간불이 된다(규칙서 「하니스가 «목록·개수» 를 못 박아 두어…」). */
+  check('Ⓕ-1 api-admin.ts 가 정본을 «두 번 이상» 부른다(① 캘린더 · ② 학생 명부)', callsAdmin >= 2, callsAdmin);
   check('Ⓕ-2 api-mango.ts 가 정본을 부른다(③ 종료·연장 탭)', callsMango >= 1, callsMango);
   check('Ⓕ-3 두 파일이 정본을 import 한다',
     /from '\.\/enrollment-class-count'/.test(SRC_ADMIN) && /from '\.\/enrollment-class-count'/.test(SRC_MANGO));
@@ -402,8 +404,11 @@ console.log('\nⒻ 배선 — 신청서를 받아 가는 «세 통로» 가 전�
     /enroll_hidden_reason\s*=/.test(uni));
   /* 화면(adm-core.js) — 그 사유를 실제로 옮기고 말하는가 */
   const core = stripComments(SRC_CORE);
+  /* ⛔ «식 모양» 을 글자 그대로 못 박지 않는다 — `?? ''` 로 바꾸기만 해도 거짓 FAIL 이 난다.
+     물어야 할 것은 «그 칸을 만들고, 그 값에서 가져오는가» 뿐이다. */
+  const mapKey = /enroll_hidden_reason\s*:\s*([^,\n]+)/.exec(core);
   check('Ⓕ-7 화면 매핑이 그 사유를 행으로 옮긴다(안 옮기면 셀이 볼 값이 없다)',
-    /enroll_hidden_reason:\s*s\.enroll_hidden_reason/.test(core));
+    !!mapKey && /\bs\.enroll_hidden_reason\b/.test(mapKey[1]), mapKey ? mapKey[1] : null);
   check('Ⓕ-8 「수강신청」 셀이 사유를 말한다(_enrTd)', /\$\{_enrTd\(s\)\}/.test(core));
   /* ⚠️ 범위를 안 좁히면 같은 파일의 _enrTd 가 대신 걸려 **CSV 에서 사유를 빼도 통과**한다
      (2026-09-21 변이시험 실측). 내보내기 함수 몸통만 중괄호 짝으로 잘라서 본다. */
@@ -419,8 +424,17 @@ console.log('\nⒻ 배선 — 신청서를 받아 가는 «세 통로» 가 전�
     labIdx > 0 && SRC_CORE[labIdx - 1] === '\n' && !/^\s/.test(SRC_CORE.slice(labIdx, labIdx + 1)));
   /* ③ 종료·연장 탭 — 화면이 같은 판정으로 「활성 패키지」를 거르는가 */
   const htmlNC = stripComments(SRC_HTML);
+  /* ⛔ 화살표 꼴을 글자 그대로 못 박지 않는다(function (e) {…} 로 바꾸면 거짓 FAIL).
+     «그 판정으로 거른 목록을 activeEnroll 이 실제로 쓰는가» 를 이름으로 이어 본다. */
+  const extBody = bodyAt(SRC_HTML, /function\s+renderExtension\s*\(/) || '';
+  const extNC = stripComments(extBody);
+  const liveVar = /const\s+(\w+)\s*=\s*enrolls\.filter\([\s\S]{0,120}?enrCalHidden/.exec(extNC);
+  check('Ⓕ-11a 전제: renderExtension 몸통을 잘라 냈다', extBody.length > 200, extBody.length);
   check('Ⓕ-11 ③ 「활성 패키지」도 같은 판정으로 거른다(캘린더만 고치면 화면이 두 말을 한다)',
-    /enrolls\.filter\(\s*e\s*=>\s*!enrCalHidden\(e\)\s*\)/.test(htmlNC), null);
+    !!liveVar, extNC.slice(0, 160));
+  check('Ⓕ-11b 짝) 거른 «그 목록» 을 activeEnroll 이 실제로 쓴다(거르고 버리면 아무 일도 안 한다)',
+    !!liveVar && new RegExp('activeEnroll\\s*=[\\s\\S]{0,160}\\b' + liveVar[1] + '\\b').test(extNC),
+    liveVar ? liveVar[1] : null);
   check('Ⓕ-12 짝) 그때 «왜 비었는지» 를 말한다(그냥 «—» 면 «없는 학생» 과 같아진다)',
     /_pkgSub/.test(htmlNC));
 }
@@ -468,6 +482,299 @@ if (DatabaseSync) {
       check('Ⓖ-2 전제: 행이 나왔다', false, rows);
     }
     db.close();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+console.log('\nⒽ 학생 명부 「수강신청」 셀 — «무슨 글자가 나오는가» (오려 내 실제로 돌린다)');
+/* ⚠️ Ⓕ절은 «그 셀 함수를 쓰는가» 까지만 본다. 여기서는 **나오는 글자**를 답으로 묻는다 —
+   「감췄다」와 「왜 비었는지 말한다」는 다른 값이고, 뒤엣것이 이 수리의 목적이다.
+   ⛔ 「— 수업이 전부 취소됨」 같은 문구를 여기 손으로 적되, 라벨 표(_ENR_GONE_LAB)는
+      **소스에서 오려 내** 쓴다 — 표를 베끼면 «내가 쓴 것을 검사» 가 된다. */
+{
+  const labSrc = (/const _ENR_GONE_LAB = \{[\s\S]*?\n\};/.exec(SRC_CORE) || [])[0];
+  const fnSrc2 = (/const _enrGoneLab = \(why\) => \{[\s\S]*?\n\};/.exec(SRC_CORE) || [])[0];
+  const tdSrc  = (/const _enrTd = \(s\) => \{[\s\S]*?\n  \};/.exec(SRC_CORE) || [])[0];
+  check('Ⓗ-0 전제: 라벨표·라벨함수·셀함수를 셋 다 오려 냈다', !!labSrc && !!fnSrc2 && !!tdSrc);
+  if (labSrc && fnSrc2 && tdSrc) {
+    const mk = (en) => {
+      try {
+        return new Function('adminLang', '_esc',
+          labSrc + '\n' + fnSrc2 + '\n' + tdSrc.trim() + '\n; return _enrTd;')(en ? 'en' : 'ko', (v) => String(v));
+      } catch (e) { return null; }
+    };
+    const ko = mk(false), en = mk(true);
+    check('Ⓗ-0b 전제: 그 셀 함수가 실제로 돌아간다', typeof ko === 'function' && typeof en === 'function');
+    if (typeof ko === 'function' && typeof en === 'function') {
+      const 살아 = { enroll_req: '정규수업' };
+      const 취소 = { enroll_req: '', enroll_hidden_package: '체험수업', enroll_hidden_reason: 'classes_all_cancelled' };
+      const 없음 = { enroll_req: '' };
+      /* ⛔ 짝이 없으면 «전부 감추기»·«전부 그대로» 가 통과한다 — 셋을 함께 묻는다 */
+      check('Ⓗ-1 짝) 살아 있는 신청은 그 이름을 그대로 그린다', /정규수업/.test(ko(살아)), ko(살아));
+      check('Ⓗ-2 수업이 전부 취소된 신청은 «사유» 를 글자로 말한다(그냥 «—» 가 아니다)',
+        ko(취소).includes('수업이 전부 취소됨') && !ko(취소).includes('>체험수업<'), ko(취소));
+      check('Ⓗ-3 짝) 신청 자체가 없으면 예전처럼 «—» 뿐이다(«없다» 와 «끝났다» 가 구별된다)',
+        ko(없음).replace(/<[^>]*>/g, '').trim() === '—', ko(없음));
+      check('Ⓗ-4 EN 화면은 영어로 말한다', /all classes cancelled/.test(en(취소)), en(취소));
+      check('Ⓗ-5 짝) 감춘 이름은 title 로 남겨 사람이 확인할 수 있다',
+        /title="[^"]*체험수업/.test(ko(취소)), ko(취소));
+      /* ⚠️ 서버가 사유를 안 주면 예전대로 «—» — fail-open */
+      check('Ⓗ-6 사유가 안 오면 예전대로 «—» 다(fail-open)',
+        ko({ enroll_req: '', enroll_hidden_package: '체험수업' }).replace(/<[^>]*>/g, '').trim() === '—');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+console.log('\nⒾ ② 학생 명부 — 감추는 블록을 «오려 내 실제로 돌린다»');
+/* 🔴 Ⓕ절은 「그 이름이 있는가」까지만 본다. 함정 대조 실측(2026-09-21):
+     · `if (true || !isEnrollmentGone({…}))`  → 명부가 제보 그대로 「체험수업」을 다시 그림
+     · 조회 결과를 행에 옮기는 세 줄 삭제      → class_total 이 안 실려 규칙이 영영 안 켜짐
+   두 변이 모두 문자열 검사만으로는 **전부 초록**이었다(규칙서 「«불렀는가» 만 보지 말고
+   «그 결과를 조건으로 쓰는가» 도 보세요」·「«넘기는가» 만 묻지 마세요 — «받아서 쓰는가» 를 짝으로」).
+   그래서 그 블록을 중괄호 짝으로 오려 내 **진짜 판정 함수**(정본에서 오려 낸 것)와 함께 돌리고,
+   «행이 어떻게 바뀌었는가» 를 답으로 묻는다. */
+{
+  const at = SRC_ADMIN.indexOf('const _enrRefs = (_piiStudents');
+  let blk = null;
+  if (at > 0) {
+    /* 그 블록을 감싸는 `{` 부터 짝이 맞는 `}` 까지 */
+    const open = SRC_ADMIN.lastIndexOf('{', at);
+    let d = 0;
+    for (let i = open; i < SRC_ADMIN.length; i++) {
+      const c = SRC_ADMIN[i];
+      if (c === '{') d++;
+      else if (c === '}') { d--; if (d === 0) { blk = SRC_ADMIN.slice(open + 1, i); break; } }
+    }
+  }
+  check('Ⓘ-0 전제: 명부의 «감추는 블록» 을 중괄호 짝으로 오려 냈다', !!blk && blk.length > 200, blk ? blk.length : null);
+
+  const goneSrc2 = bodyAt(SRC_MOD, /export function isEnrollmentGone\s*\(/);
+  check('Ⓘ-0b 전제: 정본 판정 함수를 오려 냈다', !!goneSrc2);
+
+  if (blk && goneSrc2) {
+    const js = blk
+      .replace(/\bas any\[\]/g, '')
+      .replace(/\bas any\b/g, '')
+      .replace(/\(([a-zA-Z_$][\w$]*): any\)/g, '($1)');
+    const goneJs = goneSrc2.replace(/^export /, '').replace(/\(enr: any\)/, '(enr)').replace(/\): boolean \{/, ') {');
+    /* ⚠️ attach 는 가짜로 둔다(진짜는 env.DB 가 필요) — 대신 «세 줄» 이 그 결과를 실제로
+       행에 옮기는지 보려고, 가짜가 items 에 class_total/class_active 를 붙여 준다. */
+    const run = async (rows, counts) => {
+      const f = new Function('_piiStudents', 'env', 'attachEnrollmentClassCounts', 'isEnrollmentGone',
+        goneJs + '\nreturn (async () => {' + js + '})();');
+      let called = 0;
+      await f(rows, {}, async (_env, items) => {
+        called++;
+        for (const it of items) {
+          const g = counts[String(it.id)];
+          if (g) { it.class_total = g[0]; it.class_active = g[1]; }
+        }
+      }, null);
+      return { rows, called };
+    };
+    try {
+      const rows = [
+        { user_id: 'jeong',    enroll_id: 103, enroll_status: 'confirmed', enroll_package: '체험수업' },
+        { user_id: 'delaware', enroll_id: 104, enroll_status: 'confirmed', enroll_package: '정규수업' },
+        { user_id: 'nobody',   enroll_id: null, enroll_status: null,       enroll_package: '' },
+      ];
+      const out = await run(rows, { 103: [4, 0], 104: [4, 4] });
+      check('Ⓘ-1 전제: 정본 조회를 실제로 부른다', out.called === 1, out.called);
+      check('Ⓘ-2 조회한 «수» 가 그 행에 실제로 옮겨진다(안 옮기면 규칙이 영영 안 켜진다)',
+        rows[0].enroll_class_total === 4 && rows[0].enroll_class_active === 0, rows[0]);
+      check('Ⓘ-3 수업이 전부 취소된 신청은 「수강신청」 칸에서 내려간다',
+        rows[0].enroll_package === '', rows[0].enroll_package);
+      check('Ⓘ-4 그때 «왜 비었는지» 를 같은 행에 싣는다(조용히 지우지 않는다)',
+        rows[0].enroll_hidden_reason === 'classes_all_cancelled'
+          && rows[0].enroll_hidden_package === '체험수업', rows[0]);
+      /* ⛔ 짝이 없으면 «전부 내리기» 도 통과한다 */
+      check('Ⓘ-5 짝) 살아 있는 신청은 그대로 그린다',
+        rows[1].enroll_package === '정규수업' && !rows[1].enroll_hidden_reason, rows[1]);
+      check('Ⓘ-6 짝) 신청이 없는 학생은 아무것도 안 붙인다',
+        !rows[2].enroll_hidden_reason && rows[2].enroll_package === '', rows[2]);
+
+      /* 신청서 «상태» 로 끝난 것도 같은 규칙을 탄다 — 사유 글자가 달라야 한다 */
+      const rows2 = [{ user_id: 'x', enroll_id: 9, enroll_status: 'cancelled', enroll_package: '정규수업' }];
+      await run(rows2, { 9: [4, 4] });
+      check('Ⓘ-7 신청서 자체가 취소면 내리고 사유도 그렇게 적는다',
+        rows2[0].enroll_package === '' && rows2[0].enroll_hidden_reason === 'enrollment_cancelled', rows2[0]);
+
+      /* 조회가 칸을 못 실어도(fail-open) 살아 있는 신청은 그대로여야 한다 */
+      const rows3 = [{ user_id: 'y', enroll_id: 11, enroll_status: 'confirmed', enroll_package: '정규수업' }];
+      await run(rows3, {});
+      check('Ⓘ-8 짝) 수를 못 구하면 예전대로 그린다(fail-open)',
+        rows3[0].enroll_package === '정규수업' && !rows3[0].enroll_hidden_reason, rows3[0]);
+    } catch (e) {
+      check('Ⓘ-x 블록을 돌리는 중 예외', false, String(e && e.message));
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Ⓙ 「장부」 두 화면 — ⛔ 감추지 않고 «말한다»
+   ──────────────────────────────────────────────────────────────────────────
+   사장님 「이거 재발 안하도록 반드시 모두 수정해줘.」 로 함께 본 자리.
+   신청서를 그리는 화면은 넷인데 성격이 둘로 갈린다 —
+     · 감추는 곳(캘린더 · 학생 명부 · 활성 패키지) … 위 Ⓐ~Ⓘ
+     · **정리하는 장부**(학생 상세 「등록·수강」 표 · 수강신청 관리 카드) … 여기
+   ⛔ 장부에서 감추면 사람이 그 신청을 찾아 정리할 방법이 없어진다.
+      그렇다고 아무 말도 안 하면 「확정인데 수업이 없다」가 조용히 남는다
+      — 그래서 «감추지 않고 사실을 글자로 말한다».
+   ⚠️ 그래서 검사도 **짝** 이다: 「말한다」 옆에 「감추지는 않는다」.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  console.log('\nⓈ 학생 상세 「등록·수강」 표 — 감추지 않고 말한다');
+  const noteSrc = bodyAt(SRC_HTML, /function\s+enrClassNote\s*\(/);
+  check('Ⓙ-0 전제: enrClassNote 를 오려 냈다', !!noteSrc, noteSrc ? noteSrc.length : null);
+  if (noteSrc) {
+    const run = (e, lang) => {
+      const f = new Function('e', '_lang', noteSrc + '\nreturn enrClassNote(e);');
+      return f(e, lang || 'ko');
+    };
+    try {
+      const gone = run({ class_total: 4, class_active: 0 });
+      check('Ⓙ-1 수업이 전부 취소된 신청은 «그 사실» 을 글자로 말한다',
+        /수업\s*4건\s*전부\s*취소/.test(gone), gone);
+      /* ⛔ 짝이 없으면 «전부 경고 붙이기» 도 통과한다 */
+      check('Ⓙ-2 짝) 살아 있는 신청에는 아무 말도 안 붙인다',
+        run({ class_total: 4, class_active: 4 }) === '', run({ class_total: 4, class_active: 4 }));
+      check('Ⓙ-3 짝) 아직 수업을 안 만든 신청(0건)은 경고가 아니다',
+        run({ class_total: 0, class_active: 0 }) === '', run({ class_total: 0, class_active: 0 }));
+      check('Ⓙ-4 짝) 서버가 칸을 안 주면 아무 말도 안 한다(fail-open)',
+        run({ status: 'confirmed' }) === '' && run(null) === '', run({ status: 'confirmed' }));
+      check('Ⓙ-5 EN 화면은 영어로 말한다',
+        /all\s*4\s*classes\s*cancelled/.test(run({ class_total: 4, class_active: 0 }, 'en')),
+        run({ class_total: 4, class_active: 0 }, 'en'));
+    } catch (e) {
+      check('Ⓙ-x enrClassNote 를 돌리는 중 예외', false, String(e && e.message));
+    }
+  }
+
+  /* 배선 — 만들어 놓고 «안 부르면» 화면은 그대로다 */
+  const rowSrc = bodyAt(SRC_HTML, /function\s+renderEnrollment\s*\(/);
+  check('Ⓙ-6 전제: renderEnrollment 몸통을 오려 냈다', !!rowSrc, rowSrc ? rowSrc.length : null);
+  if (rowSrc) {
+    const bare = stripComments(rowSrc);
+    check('Ⓙ-7 그 표가 enrClassNote 를 실제로 부른다',
+      (bare.match(/enrClassNote\s*\(/g) || []).length >= 1, bare.match(/enrClassNote\s*\(/g));
+    /* ⛔ 여기서 감추면 사람이 정리할 수가 없다 — 주석 벗긴 사본으로 판정 */
+    check('Ⓙ-8 짝) ⛔ 장부에서는 «감추지» 않는다(숨김 판정을 부르지 않는다)',
+      !/enrCalHidden\s*\(/.test(bare), (bare.match(/enrCalHidden\s*\([\s\S]{0,40}/g) || [])[0]);
+    check('Ⓙ-9 짝) 그 표 안에서 판정을 다시 짜지 않는다(정본 enrClassNote 하나)',
+      !/class_active/.test(bare), (bare.match(/class_active[\s\S]{0,40}/g) || [])[0]);
+  }
+}
+
+{
+  console.log('\nⓉ 수강신청 관리 카드(adm-core) — 감추지 않고 말한다');
+  const body = bodyAt(SRC_CORE, /function\s+_renderEnrollments\s*\(/);
+  check('Ⓙ-10 전제: _renderEnrollments 몸통을 오려 냈다', !!body, body ? body.length : null);
+  if (body) {
+    const bare = stripComments(body);
+    /* 식 자체를 «오려 내 실제로 돌린다» — 글자만 보면 조건을 뒤집어도 통과한다 */
+    const m = /const\s+_clsT\s*=[\s\S]*?const\s+clsChip\s*=[\s\S]*?\n\s*:\s*'';/.exec(bare);
+    check('Ⓙ-11 전제: clsChip 식을 오려 냈다', !!m, m ? m[0].length : null);
+    if (m) {
+      const run = (it, en) => new Function('it', 'en', m[0] + '\nreturn clsChip;')(it, !!en);
+      try {
+        check('Ⓙ-12 수업이 전부 취소된 신청은 «그 사실» 을 글자로 말한다',
+          /수업\s*4건\s*전부\s*취소/.test(run({ class_total: 4, class_active: 0 })),
+          run({ class_total: 4, class_active: 0 }));
+        check('Ⓙ-13 짝) 살아 있는 신청에는 아무 말도 안 붙인다',
+          run({ class_total: 4, class_active: 4 }) === '', run({ class_total: 4, class_active: 4 }));
+        check('Ⓙ-14 짝) 칸이 없으면 아무 말도 안 한다(fail-open)',
+          run({}) === '', run({}));
+        check('Ⓙ-15 EN 화면은 영어로 말한다',
+          /all\s*4\s*classes\s*cancelled/.test(run({ class_total: 4, class_active: 0 }, true)),
+          run({ class_total: 4, class_active: 0 }, true));
+      } catch (e) {
+        check('Ⓙ-x clsChip 식을 돌리는 중 예외', false, String(e && e.message));
+      }
+    }
+    /* 만들어 놓고 화면에 «안 싣는» 사고를 막는다 */
+    check('Ⓙ-16 만든 표시를 실제로 그 줄에 싣는다',
+      /\[[^\]]*\bclsChip\b[^\]]*\]\s*\.filter\(/.test(bare), (bare.match(/const sub =[\s\S]{0,120}/) || [])[0]);
+    /* ⛔ 장부라 감추지 않는다 — 판정을 «한 번만» 쓴다(두 번째는 대개 숨기려는 것) */
+    check('Ⓙ-17 짝) ⛔ 이 카드에서는 감추지 않는다(판정이 한 곳뿐)',
+      (bare.match(/_clsA\s*===\s*0/g) || []).length === 1, bare.match(/_clsA\s*===\s*0/g));
+    check('Ⓙ-18 짝) 숨김 판정을 들여오지 않는다',
+      !/enrCalHidden|isEnrollmentGone|enroll_hidden/.test(bare),
+      (bare.match(/(enrCalHidden|isEnrollmentGone|enroll_hidden)[\s\S]{0,40}/g) || [])[0]);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Ⓚ 판정이 «모르는 상태» 를 이름으로 찍어 준다
+   ──────────────────────────────────────────────────────────────────────────
+   판정(isEnrollmentGone)은 「끝난 상태 목록에 있으면 숨긴다 · 모르는 값은 그대로 그린다」다.
+   그 «모르는 값» 에 진짜 끝난 상태가 섞이면 **조용히 계속 그려집니다** — 에러가 안 난다.
+   실제로 `api-pay-refund.ts` 가 환불 때 `status = 'refunded'` 를 쓰는데 그 이름이
+   목록에 없다(오늘 실측 반경 0행 — enrollments 14건이 전부 confirmed).
+   ⛔ 그렇다고 목록을 말없이 넓히지 마세요 — 「환불 신청분을 캘린더에서 내릴 것인가」는
+      **사람이 정할 일**이고, 넓히는 순간 그 학생 수업이 화면에서 사라진다.
+   ✅ 그래서 여기서는 **서버가 실제로 쓰는 상태를 소스에서 읽어**, 판정도 모르고
+      「계속 그린다」 목록에도 없는 이름을 **FAIL 이 아니라 «이름으로 찍어» 출력**한다
+      (선례: popup_open_return_harness 의 «사람 결정 대기»).
+   ⚠️ 새 상태를 쓰기 시작하면 그날 이 줄에 이름이 뜬다 — 그때 사람이 정하면 된다.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  console.log('\nⓀ 서버가 쓰는 신청 상태 — 판정이 모르는 이름이 있는가');
+  const SRC_DIR = resolve(ROOT, 'cloudflare-deploy/src');
+  const files = readdirSync(SRC_DIR).filter((f) => f.endsWith('.ts'));
+  const written = new Map();               // 상태 → [어느 파일에서 왔나]
+  const note = (v, f) => {
+    const k = String(v || '').toLowerCase().trim();
+    if (!k) return;
+    if (!written.has(k)) written.set(k, new Set());
+    written.get(k).add(f);
+  };
+  for (const f of files) {
+    const t = stripComments(readFileSync(resolve(SRC_DIR, f), 'utf8'));
+    /* ⓐ 글자로 박아 쓰는 UPDATE */
+    for (const m of t.matchAll(/UPDATE\s+enrollments\s+SET[^`]*?\bstatus\s*=\s*'([a-z_]+)'/gi)) note(m[1], f);
+    /* ⓑ 값으로 받는 UPDATE 는 «허용목록» 이 곧 쓸 수 있는 값이다.
+       ⚠️ 목록이 UPDATE 보다 백 줄 앞에 있는 경우가 있어(enroll-activate 는 130줄) 창으로 못 자른다.
+       ⛔ 그렇다고 «파일 어딘가의 pending+confirmed 배열» 로 넓히면 **딴 표의 상태가 섞인다**
+          — 실제로 밟았다: api-admin.ts 의 leveltest_applications 목록(['pending','proposed',…])이
+            잡혀 신청에 쓰지도 않는 `proposed` 가 「사람 결정 대기」로 찍혔다.
+       ✅ 그 UPDATE 보다 «앞» 에 있는 것 중 **가장 가까운** 배열 하나만 본다. */
+    for (const u of t.matchAll(/UPDATE\s+enrollments\s+SET[^`]*?\bstatus\s*=\s*\?/gi)) {
+      let best = null;
+      for (const m of t.matchAll(/\[\s*((?:'[a-z_]+'\s*,\s*)*'[a-z_]+')\s*\]/g)) {
+        if (m.index > u.index) break;
+        const vals = m[1].split(',').map((x) => x.trim().replace(/'/g, ''));
+        if (vals.includes('pending') && vals.includes('confirmed')) best = vals;
+      }
+      if (best) best.forEach((v) => note(v, f));
+    }
+    /* ⓒ INSERT — 칸 목록에서 status 가 «몇 번째» 인지 세어 VALUES 의 같은 자리를 읽는다 */
+    for (const m of t.matchAll(/INSERT\s+INTO\s+enrollments\s*\(([^)]*)\)\s*(?:\r?\n\s*)?VALUES\s*\(([^)]*)\)/gi)) {
+      const cols = m[1].split(',').map((x) => x.trim());
+      const vals = m[2].split(',').map((x) => x.trim());
+      const i = cols.indexOf('status');
+      if (i >= 0 && vals[i]) { const lit = /^'([a-z_]+)'$/.exec(vals[i]); if (lit) note(lit[1], f); }
+    }
+  }
+  check('Ⓚ-0 전제: 서버가 쓰는 상태를 실제로 읽어 냈다(한 개도 못 읽으면 이 절이 통째로 헛돈다)',
+    written.size >= 4, Array.from(written.keys()));
+
+  /* 판정이 «끝났다» 고 보는 이름은 정본 소스에서 읽는다 — ⛔ 여기에 베껴 적지 말 것 */
+  const goneSrcK = bodyAt(SRC_MOD, /export function isEnrollmentGone\s*\(/) || '';
+  const terminal = new Set(Array.from(goneSrcK.matchAll(/st\s*===\s*'([a-z_]+)'/g)).map((m) => m[1]));
+  check('Ⓚ-1 전제: 판정이 «끝났다» 고 보는 이름을 정본에서 읽었다', terminal.size >= 3, Array.from(terminal));
+
+  /* «계속 그리는 것이 맞는» 상태 — 살아 있는 수강이다 */
+  const DRAW_ON = new Set(['pending', 'confirmed', 'active']);
+  const unknown = Array.from(written.keys()).filter((v) => !terminal.has(v) && !DRAW_ON.has(v));
+  if (unknown.length) {
+    console.log('  ℹ️ 사람 결정 대기 — 서버가 쓰는데 판정이 모르는 상태 ' + unknown.length + '개:');
+    for (const v of unknown) {
+      console.log('     · ' + v + '  (쓰는 곳: ' + Array.from(written.get(v)).join(', ') + ')'
+        + '  → 캘린더·명부에서 내릴지는 사람이 정할 일');
+    }
+  } else {
+    console.log('  ℹ️ 서버가 쓰는 상태가 전부 판정 안에 있습니다(모르는 이름 0개).');
   }
 }
 
