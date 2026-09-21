@@ -24,13 +24,25 @@
 //     ⑦ 헬퍼가 스크립트 최상위에 있다(중괄호 깊이) — 함수 «안» 에 있으면 밖의 호출부가
 //        전부 ReferenceError 인데 문자열 검사는 「선언도 호출도 있다」로 통과한다.
 //     ⑧ 고친 js 를 부르는 HTML 의 ?v= 가 함께 올라갔다.
+//     ⑨ 영어 복수 규칙이 실제로 돈다 — «sentence» 하나만 보면 s 만 붙이는 옛 판도 통과한다.
+//        -s·-z·-x·-ch·-sh·자음+y 를 직접 넣어 보고, 짝으로 «평범한 말은 예전 그대로» 도 본다.
+//        ⛔ 그 규칙은 불규칙 복수를 못 만든다 — TOOL_GOALS 에 그런 단위를 넣는 것을 ②절이 막는다.
+//     ⑩ goalRow 의 세 갈래가 모두 esc 를 지난다 — ④절은 esc 를 가짜로 바꿔 돌리므로 못 본다.
+//     🔴 esbuild 가 «있는데» 번들이 실패하면 FAIL 이다(SKIP 아님) — 조용히 건너뛰면 검사 25건이
+//        사라지는데 종료코드는 0 이라 «확인 안 한 것» 이 «문제없음» 으로 위장한다.
+//        esbuild 가 «없을» 때만 환경 사유로 건너뛰고, 그 건수를 마지막 줄에 찍는다.
 //
-//   변이시험 — 2026-09-21 에 **10종을 실제로 넣어 돌렸고 전부 FAIL** 했다(잡힌 건수):
+//   변이시험 — 2026-09-21 에 **17종을 실제로 넣어 돌렸고 전부 FAIL** 했다(잡힌 건수):
 //     ① speech 목표를 null 로 …………… 3건   ② games 에 goal 3 넣기 ………… 2건
 //     ③ done 을 reached 로 바꾸기 ……… 2건   ④ 맛보기 가드 제거 ……………… 2건
 //     ④ «달성» 분기 제거 ………………… 2건   ⑤ 화면에 숫자 5 를 다시 적기 … 1건
 //     ⑥ .gfill 의 display 제거 ………… 1건   ⑥ min-width 제거 ……………… 1건
 //     ⑦ goalRow 를 render 안으로 ……… 2건   ⑧ ?v= 를 안 올리기 …………… 1건
+//     ⑨ 복수 규칙을 옛 판(s 만)으로 … 2건   ② 단위를 quiz 로 되돌리기 …… 1건
+//     ⑩ 맛보기 갈래의 esc 빼기 ……… 1건   🔴 번들 실패(esbuild 는 있음) … 1건 + exit 1
+//     ③ 정본 조건 뒤집기(`count >= goal` → `<`) … 9건   ④ 화면 `hit` 뒤집기 …… 4건
+//     ② goal 에 0 넣기 …………………… 1건
+//        ← 둘 다 「그 줄이 있는가」로는 못 잡는 종류다(글자가 그대로 남는다).
 //   ⚠️ ⑦ 은 처음에 «다른 이름 함수를 render 안에 넣는» 부정확한 변이로 시험해 **0건** 이
 //      나왔다 — 검사가 헛돈 것이 아니라 변이가 그 검사를 겨냥하지 못한 것이었다.
 //      변이는 «원래 구조 그대로» 재현해야 한다(CLAUDE.md 2장).
@@ -47,7 +59,7 @@ const ROOT = resolve(__dir, '..');
 const CF = join(ROOT, 'cloudflare-deploy');
 const rd = (p) => readFileSync(p, 'utf8');
 
-let PASS = 0, FAIL = 0;
+let PASS = 0, FAIL = 0, SKIPPED = 0;
 const check = (name, ok, extra) => {
   if (ok) { PASS++; console.log('  ✅ ' + name); }
   else { FAIL++; console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
@@ -102,8 +114,17 @@ try {
   else execFileSync(ESB, ARGS);
   mod = await import(pathToFileURL(out).href);
 } catch (e) {
-  console.log('  ⚠️ esbuild 번들 실패 — ' + (e && e.message));
-  console.log('     (node_modules 가 없는 환경이면 «코드 판정» 이 아니라 «환경 사유» 다)');
+  /* ⛔ 여기서 «조용히 건너뛰지» 않는다 — 그러면 검사 25건이 사라지는데 종료코드는 0 이라
+     «확인 안 한 것» 이 «문제없음» 으로 위장한다(CLAUDE.md 2장).
+     갈라서 판정한다 — esbuild 가 «없으면» 환경 사유(SKIP, 마지막 줄에 숫자로 찍는다),
+     «있는데 실패했으면» 그건 코드 판정이므로 FAIL 이다. */
+  if (existsSync(ESB)) {
+    check('① 정본을 번들해 돌릴 수 있다(esbuild 는 있는데 실패했다 = 코드 판정)', false, e && e.message);
+  } else {
+    SKIPPED = 25;
+    console.log('  ⏭ esbuild 가 없어 ①~③ 25건을 건너뜀 — «환경 사유»(node_modules 미설치)');
+    console.log('     ⚠️ 건너뛴 것은 «문제없음» 이 아니다. `npm ci --legacy-peer-deps` 뒤 다시 돌릴 것.');
+  }
 }
 
 if (mod) {
@@ -133,6 +154,19 @@ if (mod) {
   const goalsSet = Object.keys(TOOL_GOALS).filter(k => TOOL_GOALS[k].goal != null);
   check('짝: 목표가 있는 도구가 여럿 남아 있다', goalsSet.length >= 7, goalsSet);
   check('짝: 모든 도구가 단위를 갖는다', Object.keys(TOOL_GOALS).every(k => !!TOOL_GOALS[k].unitKo && !!TOOL_GOALS[k].unitEn));
+  /* 화면의 복수 규칙은 «-s·-z·-x·-ch·-sh → es», «자음+y → ies», 나머지 s 뿐이라
+     불규칙 복수를 못 만든다(quiz → «quizes»). 그런 말을 표에 넣으면 에러 없이 화면에만
+     없는 말이 나오므로, 아는 불규칙을 여기서 막는다. ⛔ 목록을 지우지 말 것. */
+  const IRREGULAR = ['quiz', 'child', 'person', 'man', 'woman', 'foot', 'tooth', 'goose',
+                     'mouse', 'leaf', 'life', 'half', 'knife', 'wolf', 'shelf'];
+  const bad = Object.keys(TOOL_GOALS)
+    .filter(k => IRREGULAR.includes(String(TOOL_GOALS[k].unitEn || '').toLowerCase()));
+  check('단위에 불규칙 복수를 쓰지 않았다(화면 규칙이 못 만든다)', bad.length === 0, bad);
+  /* goal 0 은 서버(«영영 미완료»)와 화면(`if (!g)` → «목표 없음»)이 다른 말을 하는 값이다.
+     목표를 두지 않으려면 null 이다. */
+  check('goal 은 null 이거나 1 이상이다(0 을 두지 않았다)',
+        Object.keys(TOOL_GOALS).every(k => TOOL_GOALS[k].goal === null || TOOL_GOALS[k].goal >= 1),
+        Object.keys(TOOL_GOALS).map(k => k + ':' + TOOL_GOALS[k].goal).join(' '));
 
   /* ── ③ 「완료」의 뜻 — 2026-09-21 에 «오늘 몫» 으로 바뀌었다 ──
      🔄 옛 경계는 「1마디만 해도 done 이 true」 였다. 그것을 «느슨하게 푼» 것이 아니라
@@ -210,12 +244,34 @@ if (goalRow) {
   // 짝 — 맛보기가 아니면 진행을 그린다(«전부 감추기» 변이를 잡는다)
   check('짝: 맛보기가 아니면 진행을 그린다', /gtrack/.test(mid));
   // 영어 복수
-  const en1 = goalRow(step({ count: 1 }), false, true);
-  const enH = goalRow(step({ count: 5 }), false, true);
   const goalRowEn = new Function('T', 'esc', body + '\n' + uKo + '\n' + uEn + '\nreturn goalRow;')(
     (ko, en) => en, (s) => String(s));
   const e1 = goalRowEn(step({ count: 1 }), false, true);
   check('영어 — 1이면 단수, 여럿이면 복수', /1 \/ 5 sentences/.test(e1) && /4 to go/.test(e1), e1.slice(0, 90));
+
+  /* ⚠️ 위 한 줄은 «sentence» 하나만 본다 — 그 말은 s 만 붙이면 맞아서, «-s·-z·-x·-ch·-sh 면 es»
+     규칙이 통째로 죽어도 통과한다(실제로 그 상태였다: quiz → «quizs»). 그래서 규칙이 갈리는
+     말들을 직접 넣어 본다. 짝으로 «규칙이 필요 없는 말은 예전 그대로» 도 함께 본다. */
+  let unitEnFn = null;
+  try { unitEnFn = new Function(uEn + '\nreturn unitEn;')(); } catch (e) {}
+  check('전제: unitEn 을 따로 평가했다', typeof unitEnFn === 'function');
+  if (unitEnFn) {
+    const pl = (u, n) => unitEnFn({ unitEn: u }, n);
+    check('영어 복수 — 하나면 규칙을 안 쓴다', pl('quiz', 1) === 'quiz' && pl('round', 1) === 'round');
+    check('영어 복수 — -s·-z·-x·-ch·-sh 는 es', [
+      ['pass', 'passes'], ['quiz', 'quizes'], ['box', 'boxes'], ['match', 'matches'], ['dash', 'dashes'],
+    ].every(([a, b]) => pl(a, 2) === b), [pl('pass', 2), pl('quiz', 2), pl('box', 2), pl('match', 2), pl('dash', 2)]);
+    check('영어 복수 — 자음+y 는 ies', pl('story', 2) === 'stories' && pl('try', 3) === 'tries',
+          [pl('story', 2), pl('try', 3)]);
+    check('짝: 모음+y 는 그냥 s (day → days)', pl('day', 2) === 'days', pl('day', 2));
+    check('짝: 평범한 말은 예전 그대로 s', [
+      ['sentence', 'sentences'], ['word', 'words'], ['turn', 'turns'], ['round', 'rounds'],
+      ['question', 'questions'], ['session', 'sessions'], ['piece', 'pieces'],
+    ].every(([a, b]) => pl(a, 2) === b));
+    /* ⛔ 이 규칙은 불규칙 복수(quiz → quizzes)를 «못» 만든다 — 위 기대값이 «quizes» 인 것은
+       그것이 옳아서가 아니라 «지금 규칙이 그렇다» 를 못 박은 것이다. 그래서 TOOL_GOALS 의
+       단위는 규칙으로 되는 말만 쓴다(아래 ②절이 그것을 검사한다). */
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -231,6 +287,14 @@ const nums = [...rowCode.matchAll(/(?<![\w.])(\d+)(?![\w%])/g)].map(m => Number(
 check('goalRow 안에 목표 숫자를 손으로 적지 않았다', nums.length === 0, nums);
 check('goal 은 서버가 준 값을 쓴다', /s\.goal/.test(rowCode));
 check('단위도 서버가 준 값을 쓴다', /s\.unitKo/.test(strip(pageSrc)) && /s\.unitEn/.test(strip(pageSrc)));
+
+/* 세 갈래(맛보기·목표없음·보통)가 모두 글자를 esc 로 감싼다 — 한 갈래만 빼도 그 갈래로
+   오는 단위·문구가 날것으로 나간다. ⚠️ ④절은 esc 를 «그대로 돌려주는» 가짜로 바꿔 돌리므로
+   원리상 이것을 못 본다(그래서 여기서 «모양» 으로 센다). */
+const escCalls = (rowCode.match(/esc\(/g) || []).length;
+const retCalls = (rowCode.match(/return\s+'<p/g) || []).length;
+check('goalRow 의 모든 갈래가 esc 를 지난다', escCalls >= 3 && escCalls >= retCalls,
+      { esc: escCalls, returns: retCalls });
 
 /* ════════════════════════════════════════════════════════════════════
    ⑥ 막대가 «인라인» 이 아니다 + 0 을 폭 0 으로 안 그린다
@@ -343,5 +407,5 @@ check('버전이 8보다 크다(이번 수정분이 반영되게)', !!m && Numbe
 check('goalRow 가 화면 카드에서 실제로 불린다', /goalRow\(s,/.test(strip(pageSrc)));
 
 console.log('\n─────────────────────────────────────────────');
-console.log(`결과: PASS ${PASS} / FAIL ${FAIL}`);
+console.log(`결과: PASS ${PASS} / FAIL ${FAIL}` + (SKIPPED ? ` / SKIP ${SKIPPED}(환경)` : ''));
 if (FAIL > 0) { console.log('⚠ 실제 확인 필요'); process.exit(1); }

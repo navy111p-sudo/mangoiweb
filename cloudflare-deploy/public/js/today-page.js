@@ -148,38 +148,50 @@
       «색도 폭도 코드엔 있는데 화면이 텅 비는» 사고가 난다(CLAUDE.md 2장). CSS 에서
       display:block 을 못 박았고, 0 일 때도 min-width 로 «측정 안 됨» 과 구분한다.
    ⛔ 글자 줄은 <p>(블록)로 둔다 — flex 로 감싸면 짧은 문장이 낱글자로 쪼개진다. */
-function goalRow(s, sample, en) {
-  var g = (s.goal == null) ? null : Number(s.goal);
-  var c = Number(s.count) || 0;
-  /* 맛보기 화면은 «남의 기록이 없는» 화면이다. 거기서 「0 / 5문장」은 사실이지만
-     «너는 아무것도 안 했다» 로 읽힌다 — 연속일·포인트 칩을 뺀 것과 같은 이유다.
-     그래서 목표만 말하고 진행은 그리지 않는다. */
-  if (sample) {
-    if (!g) return '';
-    return '<p class="goal-t muted">' + T('오늘 몫 ' + g + unitKo(s, g), "Today's goal: " + g + ' ' + unitEn(s, g)) + '</p>';
+  function goalRow(s, sample, en) {
+    var g = (s.goal == null) ? null : Number(s.goal);
+    var c = Number(s.count) || 0;
+    /* 맛보기 화면은 «남의 기록이 없는» 화면이다. 거기서 「0 / 5문장」은 사실이지만
+       «너는 아무것도 안 했다» 로 읽힌다 — 연속일·포인트 칩을 뺀 것과 같은 이유다.
+       그래서 목표만 말하고 진행은 그리지 않는다. */
+    if (sample) {
+      if (!g) return '';
+      return '<p class="goal-t muted">' +
+        esc(T('오늘 몫 ' + g + unitKo(s, g), "Today's goal: " + g + ' ' + unitEn(s, g))) + '</p>';
+    }
+    /* 목표가 없는 도구(games) — 개수만 말하고 «몇 개 남았다» 는 말하지 않는다.
+       지금 셀 수 있는 «판» 은 중앙값 40초라, 목표로 삼으면 들락날락도 «달성» 이 된다. */
+    if (!g) {
+      if (c <= 0) return '';
+      return '<p class="goal-t muted">' +
+        esc(T('오늘 ' + c + unitKo(s, c) + ' 했어요',
+              'You did ' + c + ' ' + unitEn(s, c) + ' today')) + '</p>';
+    }
+    var hit = c >= g;
+    var pct = Math.max(0, Math.min(100, Math.round(c / g * 100)));
+    var left = Math.max(0, g - c);
+    var txt = hit
+      ? T('오늘 몫 끝! 🎉 ' + c + unitKo(s, c), "Today's goal done! 🎉 " + c + ' ' + unitEn(s, c))
+      : T(c + ' / ' + g + unitKo(s, g) + ' · ' + left + unitKo(s, left) + ' 더!',
+          c + ' / ' + g + ' ' + unitEn(s, g) + ' · ' + left + ' to go');
+    return '<p class="goal-t' + (hit ? ' hit' : '') + '">' + esc(txt) + '</p>' +
+           '<span class="gtrack"><span class="gfill' + (hit ? ' hit' : '') + '" style="width:' + pct + '%"></span></span>';
   }
-  /* 목표가 없는 도구(games) — 개수만 말하고 «몇 개 남았다» 는 말하지 않는다.
-     지금 셀 수 있는 «판» 은 중앙값 40초라, 목표로 삼으면 들락날락도 «달성» 이 된다. */
-  if (!g) {
-    if (c <= 0) return '';
-    return '<p class="goal-t muted">' + T('오늘 ' + c + unitKo(s, c) + ' 했어요',
-                                          'You did ' + c + ' ' + unitEn(s, c) + ' today') + '</p>';
+  /* 단위는 서버(TOOL_GOALS)가 준다. 여기서는 영어 복수형만 만든다(한국어는 그대로).
+     규칙은 둘뿐 — «-s·-z·-x·-ch·-sh 로 끝나면 es», «자음+y 면 ies», 나머지는 s.
+     ⛔ 불규칙 복수가 필요한 단위(quiz→quizzes, child→children)를 그 표에 넣지 말 것 —
+        이 규칙이 «quizes» 같은 없는 말을 만드는데 에러는 안 나고 화면에만 나옵니다.
+        규칙으로 되는 말을 고르거나, 꼭 필요하면 표에 복수형 칸을 따로 두고 그것을 읽을 것. */
+  function unitKo(s, n) { return String(s.unitKo || '번'); }
+  function unitEn(s, n) {
+    var u = String(s.unitEn || 'time');
+    if (n === 1) return u;
+    if (/(s|z|x|ch|sh)$/i.test(u)) return u + 'es';
+    if (/[^aeiou]y$/i.test(u)) return u.slice(0, -1) + 'ies';
+    return u + 's';
   }
-  var hit = c >= g;
-  var pct = Math.max(0, Math.min(100, Math.round(c / g * 100)));
-  var left = Math.max(0, g - c);
-  var txt = hit
-    ? T('오늘 몫 끝! 🎉 ' + c + unitKo(s, c), "Today's goal done! 🎉 " + c + ' ' + unitEn(s, c))
-    : T(c + ' / ' + g + unitKo(s, g) + ' · ' + left + unitKo(s, left) + ' 더!',
-        c + ' / ' + g + ' ' + unitEn(s, g) + ' · ' + left + ' to go');
-  return '<p class="goal-t' + (hit ? ' hit' : '') + '">' + esc(txt) + '</p>' +
-         '<span class="gtrack"><span class="gfill' + (hit ? ' hit' : '') + '" style="width:' + pct + '%"></span></span>';
-}
-/* 단위는 서버가 준다. 영어만 복수 s 를 붙인다(한국어는 그대로). */
-function unitKo(s, n) { return String(s.unitKo || '번'); }
-function unitEn(s, n) { var u = String(s.unitEn || 'time'); return (n === 1) ? u : (u + 's'); }
 
-function render() {
+  function render() {
     var d = DATA, p = d.plan, en = isEn();
     /* ⛔ 맛보기 레벨(보기용)을 기기에 심지 않는다 — 그 값은 이 사람의 레벨이 아니고,
        한 번 심으면 «비어 있을 때만» 규칙 때문에 나중에 진짜 레벨이 와도 안 덮인다. */
@@ -207,8 +219,7 @@ function render() {
     }
     $('td-chips').innerHTML = chips.join('');
 
-  
-  var n = p.steps.length, dn = p.doneCount;
+    var n = p.steps.length, dn = p.doneCount;
     $('td-prog').style.width = (n ? Math.round(dn / n * 100) : 0) + '%';
     $('td-prog-t').textContent = (n && dn >= n)
       ? T('오늘 계획을 다 했어요! 🎉', 'All done for today! 🎉')

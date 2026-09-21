@@ -87,7 +87,21 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
  *   `PlanInput.done` 이 이미 **개수** 로 오고 있었고(api-students.ts 가 COUNT 로 센다)
  *   여기서 `> 0` 으로 버려지고 있었다. 그 값을 그대로 싣기만 한다.
  *
+ * [단위 — «한 행이 무엇인가» 를 세는 표에서 확인하고 적었다]
+ *   warmup 세션 1개 · review 제출 1회 · friend 학생 발화 1개 · speech 문장 1개(녹음 채점) ·
+ *   **micro 문항 1개** · vocab 낱말 1개 · judgment 문항 1개 · write 첨삭 1건 · games 판 1개.
+ *   ⚠️ micro 를 «판» 이라 적었다가 고쳤다(2026-09-21 함정 대조) — `vocab_quizzes` 는
+ *      INSERT 도 UPDATE(completed=1) 도 **문항 하나씩** 돌고(api-games.ts), 화면은 한 판에
+ *      5문항을 요청한다(micro-quiz.html `count: 5`). D1 실측도 한 분에 5·5·5행이었다.
+ *      ⟹ 「판」 이면 5문항 한 판을 끝낸 학생에게 화면이 「5 / 5판」 이라 말한다 — 거짓말이다.
+ *      숫자(5)는 맞았고 «말» 만 틀렸다.
+ *   ⛔ 단위를 새로 넣거나 고칠 때는 **그 표의 INSERT 자리** 를 열어 «한 행이 무엇인가» 를
+ *      확인할 것. 이름만 보고 짐작하지 말 것.
+ *
  * ⚠️ goal 을 바꾸려면 **이 표 한 줄** 만 고친다. 화면에 숫자를 다시 적지 말 것.
+ * ⛔ goal 에 0 을 넣지 말 것 — goalOf 는 «목표 없음» 과 구분해 영영 미완료로 두는데
+ *    화면(goalRow)은 `if (!g)` 라 «목표 없음» 으로 그려, 서버와 화면이 다른 말을 한다.
+ *    목표를 두지 않으려면 null 이다.
  */
 export interface ToolGoal {
   /** 오늘 몫. null = 목표를 두지 않는다(지금 세는 값이 목표로 쓸 만하지 않다) */
@@ -102,7 +116,7 @@ export const TOOL_GOALS: Record<ToolKey, ToolGoal> = {
   review:   { goal: 1,    unitKo: '번',   unitEn: 'round' },
   friend:   { goal: 5,    unitKo: '마디', unitEn: 'turn' },
   speech:   { goal: 5,    unitKo: '문장', unitEn: 'sentence' },
-  micro:    { goal: 5,    unitKo: '판',   unitEn: 'quiz' },
+  micro:    { goal: 5,    unitKo: '문항', unitEn: 'question' },   // ⚠️ «판» 이 아니다 — 아래 [단위] 주석
   vocab:    { goal: 10,   unitKo: '낱말', unitEn: 'word' },
   judgment: { goal: 5,    unitKo: '문항', unitEn: 'question' },
   write:    { goal: 1,    unitKo: '편',   unitEn: 'piece' },
