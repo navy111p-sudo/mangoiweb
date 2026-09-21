@@ -33,6 +33,7 @@
 
 import { computeChainRiskMap, analyzeStudentPath, type ChainRisk } from './churn-graph';
 
+import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 interface Env {
   DB: D1Database;
 }
@@ -448,8 +449,8 @@ async function trends(env: Env, url: URL): Promise<Response> {
     const rs = await env.DB.prepare(
       `SELECT substr(date,1,7) AS ym, COUNT(DISTINCT date) AS days,
               AVG(CASE WHEN gaze_samples>0 THEN gaze_score END) AS gaze
-       FROM attendance WHERE user_id=? AND date >= ? GROUP BY ym`
-    ).bind(uid, startDate).all<{ ym: string; days: number; gaze: number }>();
+       FROM attendance WHERE ${ATTENDANCE_BY_UID} AND date >= ? GROUP BY ym`
+    ).bind(...attUidBinds(uid), startDate).all<{ ym: string; days: number; gaze: number }>();
     const m: Record<string, any> = {};
     for (const r of (rs.results || [])) m[r.ym] = { days: r.days || 0, gaze: r.gaze != null ? Math.round(r.gaze * 10) / 10 : null };
     return m;

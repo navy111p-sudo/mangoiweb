@@ -446,7 +446,7 @@
           <div id="attendCalendar" style="font-size:13px"></div>
         </div>
         <div class="chart-wrap">
-          <h3 data-ko="결석 일자" data-en="Absent Days">결석 일자</h3>
+          <h3 data-ko="수업 기록이 없는 평일" data-en="Weekdays with no class record">수업 기록이 없는 평일</h3>
           <div id="absentList"></div>
         </div>
       </div>
@@ -1922,17 +1922,24 @@ function renderAttendance(){
     dateMap.set(s.date, cur);
   });
 
+  /* 🔴 2026-09-21 — «결석 0» 이라고 말하면서 아래에 결석 일자를 23개 나열하던 자리입니다.
+     classes_per_week 는 «카페24가 정본인 칸» 이라 대부분 비어 있고(화면 왼쪽도 「주당 수업 —회」),
+     그러면 expected=0 → 결석 0 · 출석률 0% 가 되어 화면이 «결석이 없다» 는 틀린 사실을 말했습니다.
+     ⛔ 모르는 값을 0 으로 그리지 마세요 — «—» 와 이유를 함께 씁니다(CLAUDE.md 2장
+        「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」). */
   const cpw = parseInt(erp.classes_per_week, 10) || 0;
   const periodWeeks = (_state.days||30)/7;
   const expected = Math.round(cpw * periodWeeks);
   const attended = dateMap.size;
-  const absent = Math.max(0, expected - attended);
-  const rate = expected > 0 ? Math.round(attended / expected * 100) : 0;
+  const known = expected > 0;                     // 주당 수업 회수를 «아는가»
+  const absent = known ? Math.max(0, expected - attended) : null;
+  const rate = known ? Math.round(attended / expected * 100) : null;
+  const unknownSub = _lang==='en' ? 'weekly count unknown' : '주당 수업 회수 모름';
 
   $('attendKpis').innerHTML = `
     <div class="kpi green"><div class="lab">${_lang==='en'?'Attended':'출석'}</div><div class="val">${attended}</div><div class="sub">${_lang==='en'?'days':'일'}</div></div>
-    <div class="kpi red"><div class="lab">${_lang==='en'?'Absent':'결석'}</div><div class="val">${absent}</div><div class="sub">${_lang==='en'?'expected':'예상'} ${expected}</div></div>
-    <div class="kpi blue"><div class="lab">${_lang==='en'?'Attendance Rate':'출석률'}</div><div class="val">${rate}%</div></div>
+    <div class="kpi red"><div class="lab">${_lang==='en'?'Absent':'결석'}</div><div class="val">${known?absent:'—'}</div><div class="sub">${known?((_lang==='en'?'expected':'예상')+' '+expected):unknownSub}</div></div>
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Attendance Rate':'출석률'}</div><div class="val">${known?(rate+'%'):'—'}</div><div class="sub">${known?'':unknownSub}</div></div>
     <div class="kpi yellow"><div class="lab">${_lang==='en'?'Period':'기간'}</div><div class="val" style="font-size:18px">${_state.days}${_lang==='en'?'d':'일'}</div></div>
   `;
 
@@ -1971,9 +1978,18 @@ function renderAttendance(){
     if (wkd === 0 || wkd === 6) continue;   // 주말 제외
     if (!dateMap.has(ds)) absentDates.push(ds);
   }
+  /* ⚠️ 이 목록은 «평일인데 수업 기록이 없는 날» 입니다 — «결석» 과 같지 않습니다.
+     주 4회 수업이면 평일 하루는 원래 수업이 없는 날이라 여기에 섞입니다.
+     예약 요일(class_schedules)은 이 응답에 없어 여기서는 가릴 수 없습니다 —
+     단정하지 말고 그렇게 «말하게» 둡니다. */
   $('absentList').innerHTML = absentDates.length === 0
-    ? '<div class="empty">'+(_lang==='en'?'No absences in period (weekdays).':'기간 내 평일 결석 없음.')+'</div>'
-    : '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+    ? '<div class="empty">'+(_lang==='en'?'No weekdays without a class record.':'기간 내 평일 중 수업 기록이 없는 날 없음.')+'</div>'
+    : '<div style="font-size:11px;color:var(--mut);margin-bottom:6px">'+
+      (_lang==='en'
+        ? 'Weekdays with no class record. Not the same as absence — days with no scheduled class are included.'
+        : '평일 중 «수업 기록이 없는 날» 입니다. 원래 수업이 없는 날도 섞여 있어 결석과 같지 않습니다.')+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
       absentDates.map(d => `<span class="badge red">${d}</span>`).join('') +
       '</div>';
 }
