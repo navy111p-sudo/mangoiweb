@@ -256,7 +256,16 @@
     padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   /* 📊 진행 띠 — 게임 22종 공통. 게임 코드는 한 글자도 안 고친다(허브가 위에 얹는다). */
   .game-progress{display:flex;align-items:center;gap:10px;padding:7px 14px;
-    background:rgba(10,18,38,.82);border-bottom:1px solid var(--line)}
+    background:rgba(10,18,38,.82);border-bottom:1px solid var(--line);flex-shrink:0}
+  /* ⛔ 이 한 줄을 지우지 마세요. 작성자 CSS 가 display 를 정하면 브라우저 기본
+     [hidden]{display:none} 을 이깁니다(특정성이 아니라 «작성자 > UA» 순위라
+     선택자를 아무리 봐도 원인이 안 보입니다). 이게 없어서 목표가 0인 게임
+     (아바타 키우기)에서 box.hidden=true 인데도 띠가 계속 보였고, 그 띠는
+     폭이 미설정이라 «초록 가득» = 시작하자마자 «다 했어요» 로 읽혔습니다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요 — admin_lazyload_harness 의
+        «장식 문자» 검사가 <style> 안을 세어 «한자 폰트 983KB 를 받는다» 로
+        판정합니다. 이 경고 문장 자신도 한 번 걸렸습니다 — « » 를 쓰세요. */
+  .game-progress[hidden]{display:none !important}
   .game-progress .gp-track{display:block;flex:1;min-width:0;height:9px;border-radius:99px;
     background:rgba(255,255,255,.13);overflow:hidden}
   /* ⛔ display:block 을 지우지 말 것 — 인라인이면 폭·높이가 무시돼 채움이 안 보인다 */
@@ -1742,6 +1751,10 @@ function toggleSiteLang(){
   try{ localStorage.setItem('mangoi_lang', next); }catch(_){}
   document.documentElement.lang = next;
   _syncSiteLangBtn();
+  /* 진행 띠 글자는 JS 가 그린다 — i18n 엔진이 못 고치므로 여기서 다시 그린다.
+     ⛔ data-ko/data-en 을 달아서 풀지 말 것: 두 엔진이 textContent 를 통째로
+        갈아끼워 안쪽 <b> 가 DOM 에서 사라진다(결재함 배지와 같은 자리). */
+  try{ hubProgressDraw(); }catch(_){}
 }
 
 /* 🔊 게임 메뉴 진입 안내음성 — 방문할 때마다 무조건 재생(다른 페이지의 음소거 저장값과 무관),
@@ -1868,28 +1881,36 @@ function setGameSpeed(lvl){
    ⛔ 목표(분모)를 화면이 지어내지 않는다. 아래 표가 정본이고, **그 값을 그대로
       게임에게 URL(goal=)로 넘긴다** — 허브가 그리는 분모와 게임이 받는 목표가
       «같은 한 값» 이라 어긋날 수가 없다.
-   ⛔ 여기 숫자를 «10으로 통일» 하지 말 것. 실측한 그 게임의 진짜 끝이다
-      (우주괴물은 6문제에, 문법피자는 4단계에, 용의자는 3라운드에 끝난다).
-      10으로 적으면 게임이 먼저 끝나 띠가 6/10 에서 멈춘다 = 화면이 거짓말한다.
+   ⛔ 이 숫자는 «그 게임의 진짜 끝» 이 아니라 **«오늘 이만큼 하면 된다» 는
+      우리 목표**다(제안서 2층 — 게임별 숫자는 사장님이 정하실 일).
+      🔴 2026-09-22 정정: 처음엔 게임 HUD 의 숫자를 그대로 베껴 적었는데
+         단위가 달랐다. 「1/6」은 문제 수가 아니라 **LEVEL** 이었고, 그때
+         쓰던 by:'seen' 은 문제 수가 아니라 **API 호출 수**라 문장 하나에
+         2씩 늘어 문장 3개에서 6/6 「다 했어요!」가 떴다.
+      ✅ 그래서 단위를 **«맞힌 개수» 하나**로 통일한다. 학생이 게임을 옮겨도
+         숫자의 뜻이 안 바뀌는 것이 이 띠를 만든 이유다.
+      ℹ️ 목표를 못 채운 채 게임이 먼저 끝나면 mangoi-game-complete 가
+         띠를 가득 채우므로 중간에서 멎지 않는다.
    ══════════════════════════════════════════════════════════════════ */
 var GAME_GOAL_DEFAULT = 10;
 var GAME_GOALS = {
-  /* by:'seen' = 푼 개수(문제 순번)로 센다 · 기본은 'done'(맞힌 개수) */
-  spacemonster:{ n:6,  by:'seen' },   // 화면 표시 1/6
-  pizza:       { n:4,  by:'seen' },   // 1/4 (단계)
-  suspect:     { n:3,  by:'seen' },   // Round 1/3
-  scenequest:  { n:12, by:'seen' },   // 1/12 (장면)
-  fish:        { n:5,  by:'done' },   // 0/5
-  avatar:      { n:0 }                // ⛔ 0 = 띠 없음. 「0/60」은 «경험치» 라 맞힌 개수와 단위가 다르다
+  /* ⛔ 0 = 띠를 아예 안 그린다. 넷 다 이유가 있다:
+     avatar     경험치(0/60)라 «맞힌 개수» 와 단위가 다르다.
+     fish·speaking·scenequest
+                그 세 화면은 game-track.js 를 «안 싣는다» → 진행을 알려 올
+                통로가 원리상 없다. 띠를 그리면 게임 내내 0 에 멎어 있다가
+                끝에 갑자기 가득 차서, 화면이 «측정한 척» 거짓말을 한다.
+                ✅ 하니스가 registry 의 src 파일을 열어 기계로 대조한다 —
+                   통로가 생기면 그때 숫자를 넣으면 된다(제안서 2층). */
+  avatar:     { n:0 },
+  fish:       { n:0 },
+  speaking:   { n:0 },
+  scenequest: { n:0 }
 };
 function _goalOf(mode){
   var g = GAME_GOALS[mode];
   if(g && typeof g.n === 'number') return g.n;
   return GAME_GOAL_DEFAULT;
-}
-function _goalByOf(mode){
-  var g = GAME_GOALS[mode];
-  return (g && g.by === 'seen') ? 'seen' : 'done';
 }
 
 var _gpState = { mode:'', goal:0, done:0, shown:false };
@@ -1899,13 +1920,21 @@ function hubProgressStart(mode){
   _gpState = { mode:mode, goal:_goalOf(mode), done:0, shown:false };
   var box = document.getElementById('hub-progress');
   if(!box) return;
-  if(!_gpState.goal){ box.hidden = true; return; }
+  if(!_gpState.goal){
+    /* ⚠️ 두 겹으로 막는다 — hidden 이 한 번 안 먹었을 때(위 CSS 함정) 채움이
+       «폭 미설정» 이면 block 자식이 부모 폭을 100% 먹어 «초록 가득» 이 된다. */
+    var f0 = document.getElementById('hub-gp-fill'); if(f0) f0.style.width = '0%';
+    var t0 = document.getElementById('hub-gp-txt');  if(t0) t0.textContent = '';
+    box.hidden = true; return;
+  }
   box.hidden = false;
   hubProgressDraw();
 }
 function hubProgressStop(){
   _gpState = { mode:'', goal:0, done:0, shown:false };
   var box = document.getElementById('hub-progress');
+  var f0 = document.getElementById('hub-gp-fill'); if(f0) f0.style.width = '0%';
+  var t0 = document.getElementById('hub-gp-txt');  if(t0) t0.textContent = '';
   if(box) box.hidden = true;
 }
 /* 진행을 그린다. ⚠️ 목표를 넘어서면 목표에 맞춰 자른다(11/10 은 거짓말이다). */
@@ -1917,7 +1946,9 @@ function hubProgressDraw(){
   var left = _gpState.goal - done;
   fill.style.width = Math.round(100 * done / _gpState.goal) + '%';
   var en = (_siteLang() === 'en');
-  txt.innerHTML = '<b>' + done + ' / ' + _gpState.goal + '</b> · ' +
+  /* ✅ 는 «맞힌 개수» 라는 뜻. 게임 자체 HUD(LEVEL·Round·단계)와 숫자가
+     달라 보여도 뜻이 다른 값이라 맞다. */
+  txt.innerHTML = '\u2705 <b>' + done + ' / ' + _gpState.goal + '</b> · ' +
     (left > 0 ? (en ? (left + ' to go!') : (left + '개만 더!'))
               : (en ? 'Done!' : '다 했어요!'));
 }
@@ -3658,7 +3689,9 @@ window.addEventListener('message', function (ev){
   if (d.type === 'mangoi-game-progress'){
     try{
       if(d.self) hubProgressSet(d.done);
-      else hubProgressSet(_goalByOf(_gpState.mode) === 'seen' ? d.seen : d.done);
+      /* ⛔ d.seen(= 푼 개수)을 쓰지 말 것. 그 값은 game-track.js 가 세는
+         «API 호출 수» 라 게임에 따라 문장 하나에 둘씩 늘어난다. */
+      else hubProgressSet(d.done);
     }catch(_){}
     return;
   }

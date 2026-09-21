@@ -48,8 +48,10 @@ function strip(src) {
   return out;
 }
 
-/* 중괄호 짝으로 함수 몸통을 자른다. ⚠️ 여는 중괄호를 고를 때 괄호 깊이가 0인 것만 본다
-   (인자 목록 안의 중괄호를 몸통으로 오인하지 않게). */
+/* 중괄호 짝으로 몸통을 자른다 — «길이» 로 자르면 옆 코드가 딸려 들어온다.
+   ⚠️ 여는 중괄호는 sig 뒤의 «첫» 것을 쓴다. 이 저장소의 대상이 전부 HTML/JS 라
+      TS 반환 타입(`): Promise<{…}> {`)이 없어서 성립한다 — TS 에 쓰려면
+      괄호·꺾쇠 깊이가 0인 것만 골라야 한다. */
 function bodyAt(src, sig) {
   const i = src.indexOf(sig);
   if (i < 0) return '';
@@ -76,22 +78,20 @@ ok('[전제] 목표표와 판정 함수를 오려 냈다', tableSrc.length > 200
 
 let G = null;
 try {
-  G = new Function(tableSrc + '\n return { goals:GAME_GOALS, def:GAME_GOAL_DEFAULT, goalOf:_goalOf, byOf:_goalByOf };')();
+  G = new Function(tableSrc + '\n return { goals:GAME_GOALS, def:GAME_GOAL_DEFAULT, goalOf:_goalOf };')();
 } catch (e) { /* 아래 전제 검사가 잡는다 */ }
 ok('[전제] 실제로 돌아간다', !!(G && typeof G.goalOf === 'function'), G ? '' : '평가 실패');
 
 if (G) {
-  ok('모르는 게임은 기본값(10)으로 떨어진다', G.goalOf('존재하지않는게임') === G.def, `= ${G.goalOf('존재하지않는게임')}`);
-  ok('우주 괴물 사냥은 6 (실측 1/6)', G.goalOf('spacemonster') === 6, `= ${G.goalOf('spacemonster')}`);
-  ok('문법 피자는 4 (실측 1/4)', G.goalOf('pizza') === 4, `= ${G.goalOf('pizza')}`);
-  ok('용의자 추리는 3 (실측 Round 1/3)', G.goalOf('suspect') === 3, `= ${G.goalOf('suspect')}`);
-  ok('낚시는 5 (실측 0/5)', G.goalOf('fish') === 5, `= ${G.goalOf('fish')}`);
-  // ⛔ 짝 — «전부 10으로 통일» 을 막는다. 게임이 먼저 끝나면 띠가 중간에서 멈춰 거짓말이 된다.
-  const distinct = new Set(['spacemonster', 'pizza', 'suspect', 'fish'].map(m => G.goalOf(m)));
-  ok('목표가 게임마다 다르다(10으로 뭉개지 않았다)', distinct.size >= 4, `서로 다른 값 ${distinct.size}개`);
+  ok('모르는 게임은 기본값으로 떨어진다', G.goalOf('존재하지않는게임') === G.def, `= ${G.goalOf('존재하지않는게임')}`);
+  ok('기본값이 실제 숫자다', typeof G.def === 'number' && G.def > 0, `= ${G.def}`);
   ok('아바타는 0 — 경험치라 «맞힌 개수» 와 단위가 달라 띠를 안 그린다', G.goalOf('avatar') === 0);
-  ok('축: 우주괴물은 «푼 개수»(seen)로 센다', G.byOf('spacemonster') === 'seen');
-  ok('축: 기본은 «맞힌 개수»(done)', G.byOf('brick') === 'done' && G.byOf('모르는게임') === 'done');
+  /* 🔴 2026-09-22 — 여기 있던 「우주괴물은 6」·「피자는 4」·「축은 seen」 검사를 버렸다.
+     그 숫자들은 게임 HUD 를 베낀 것인데 단위가 달랐다(「1/6」은 문제 수가 아니라 LEVEL,
+     seen 은 문제 수가 아니라 API 호출 수라 문장 하나에 2씩 늘었다) → 문장 3개에서
+     6/6 「다 했어요!」. 옛 검사는 그 거짓을 «정답» 으로 못 박고 있었다.
+     ⛔ 되살리지 말 것. 단위는 «맞힌 개수» 하나다. */
+  ok('«푼 개수»(seen) 축이 되살아나지 않았다', !/by\s*:\s*['"]seen['"]/.test(tableSrc), '');
 }
 
 console.log('\n② 허브가 그리는 분모 == 게임에게 넘기는 goal (한 값에서 나와야 한다)');
@@ -134,11 +134,16 @@ ok('부모가 없으면 즉시 손을 뗀다', /window\.parent\s*===\s*window\s*
 ok('같은 오리진으로만 보낸다', /location\.origin/.test(notify), '');
 ok('목표를 지어내지 않는다 — URL 의 goal 을 그대로 싣는다', /goal\s*:\s*GOAL/.test(notify), '');
 
-const listener = HUB.slice(HUB.indexOf("addEventListener('message'"), HUB.indexOf("addEventListener('message'") + 1400);
+// ⛔ 길이(slice)로 자르면 listener 밖 코드가 딸려 들어와 부정 검사가 헛돈다.
+const listener = bodyAt(HUB, "addEventListener('message'");
+ok('[전제] message 리스너 몸통을 오려 냈다', listener.length > 300, `${listener.length}자`);
 ok('허브가 진행 신호를 받는다', /'mangoi-game-progress'/.test(listener), '');
 ok('게임이 «직접» 말한 값(self)을 우선한다', /d\.self\s*\?|if\s*\(\s*d\.self\s*\)/.test(listener), '');
 ok('완료 신호가 오면 띠를 가득 채운다(먼저 끝나도 중간에서 안 멈춘다)',
   /mangoi-game-complete[\s\S]{0,200}hubProgressComplete\(\)/.test(listener), '');
+/* ⛔ d.seen 을 쓰면 안 된다 — game-track.js 의 그 값은 «API 호출 수» 라
+   게임에 따라 문장 하나에 둘씩 는다(우주괴물 실측: 문장 3개에 seen 6). */
+ok('«푼 개수»(d.seen)를 분자로 쓰지 않는다', !/hubProgressSet\([^)]*d\.seen/.test(strip(listener)), '');
 
 console.log('\n⑥ 수명 — 켤 때 켜고, 나갈 때 치운다');
 const openFn = bodyAt(HUB, 'function hubOpenGame(');
@@ -149,6 +154,81 @@ ok('메뉴로 돌아가면 띠를 치운다', /hubProgressStop\(\)/.test(backFn)
 // 인라인 4종은 허브가 진행을 직접 안다
 ok('인라인 게임의 정답 수가 띠로 이어진다',
   /game-correct'\)\.textContent\s*=\s*_gameState\.correct;[\s\S]{0,140}hubProgressSet\(\s*_gameState\.correct\s*\)/.test(HUB), '');
+
+console.log('\n⑧ 🔴 통로가 «없는» 게임에 띠를 그리지 않는가 — registry 를 열어 기계로 대조');
+/* 왜 이 절이 있나 (2026-09-22 실사고):
+   목표표를 «손으로» 적어 두었더니, 진행을 알려 올 통로가 아예 없는 게임 셋
+   (english-mastery-suite · speaking-quiz · student-game-scene-quest — 그 셋은
+   game-track.js 를 안 싣는다)에 띠가 붙어 있었다. 그러면 게임 내내 0 에 멎어
+   있다가 끝에 갑자기 가득 차서, 화면이 «측정한 척» 거짓말을 한다.
+   ⛔ 목록을 여기에 베껴 적지 말 것 — 그러면 검사가 «내가 적은 값» 을 볼 뿐이다.
+      registry 에서 그 게임의 파일 이름을 읽어, 그 파일을 실제로 열어서 묻는다. */
+const REG_I = HUB.indexOf('const HUB_GAMES = [');
+ok('[전제] 게임 registry 를 찾았다', REG_I > 0);
+const regSrc = REG_I > 0 ? HUB.slice(REG_I, HUB.indexOf('\n];', REG_I)) : '';
+// 항목을 `{ mode:'x'` 단위로 자른다
+const entries = [];
+{
+  const re = /\{\s*mode\s*:\s*'([a-z0-9]+)'/g;
+  let m, prev = null;
+  while ((m = re.exec(regSrc))) {
+    if (prev) entries.push({ mode: prev.mode, body: regSrc.slice(prev.at, m.index) });
+    prev = { mode: m[1], at: m.index };
+  }
+  if (prev) entries.push({ mode: prev.mode, body: regSrc.slice(prev.at) });
+}
+ok('[전제] registry 항목을 읽었다(10개 이상)', entries.length >= 10, `${entries.length}개`);
+
+const noChannel = [], withChannel = [];
+for (const e of entries) {
+  if (!/kind\s*:\s*'iframe'/.test(e.body)) continue;          // 인라인은 허브가 직접 안다
+  const f = (e.body.match(/'\/([a-z0-9-]+\.html)/) || [])[1];  // src 안의 파일 이름
+  if (!f) continue;
+  const full = path.join(PUB, f);
+  if (!fs.existsSync(full)) continue;
+  const has = /game-track\.js/.test(fs.readFileSync(full, 'utf8'));
+  (has ? withChannel : noChannel).push({ mode: e.mode, file: f });
+}
+ok('[전제] iframe 게임의 파일을 실제로 열어 봤다', (noChannel.length + withChannel.length) >= 10,
+  `통로 있음 ${withChannel.length} · 없음 ${noChannel.length}`);
+
+if (G) {
+  const lying = noChannel.filter(x => G.goalOf(x.mode) !== 0);
+  ok('진행을 알려 올 통로가 없는 게임은 띠를 안 그린다(목표 0)', lying.length === 0,
+    lying.length ? lying.map(x => `${x.mode}(${x.file}) 목표 ${G.goalOf(x.mode)}`).join(' · ')
+                 : `통로 없는 ${noChannel.length}종 전부 0: ${noChannel.map(x => x.mode).join(' ') || '(없음)'}`);
+  /* ⛔ 짝 — 이것이 없으면 «전부 0으로 만들기»(= 띠를 통째로 없애기) 도 통과한다.
+     사장님 지시가 「얼마나 남았는지 보이게」였으므로, 통로가 있는 게임에는 실제로 그려야 한다. */
+  const drawn = withChannel.filter(x => G.goalOf(x.mode) > 0);
+  ok('짝 — 통로가 있는 게임에는 실제로 띠가 그려진다', drawn.length >= 5,
+    `${drawn.length}종 (${drawn.slice(0, 4).map(x => x.mode).join(' ')}…)`);
+}
+
+console.log('\n⑨ 🔴 [hidden] 이 실제로 먹는가 — 작성자 CSS 가 브라우저 기본을 이긴다');
+/* 왜 이 절이 있나 (2026-09-22 실사고):
+   .game-progress 에 display:flex 를 주면 브라우저 기본 [hidden]{display:none} 을
+   «작성자 > UA» 순위로 이긴다. 그래서 box.hidden = true 인데도 띠가 계속 보였고,
+   그 띠는 채움 폭이 «미설정» 이라 block 자식이 부모 폭을 100% 먹어 «초록 가득» —
+   목표가 0인 게임(아바타)에서 시작하자마자 「다 했어요」로 읽혔다. */
+const hubCss = (HUB.match(/\.game-progress\s*\{([^}]*)\}/) || [])[1] || '';
+ok('[전제] 띠 상자 규칙을 찾았다', hubCss.length > 10);
+const setsDisplay = /display\s*:/.test(hubCss);
+const hasHiddenRule = /\.game-progress\[hidden\][^{]*\{[^}]*display\s*:\s*none\s*!important/.test(HUB)
+                   || /\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/.test(HUB);
+ok('display 를 정했으면 [hidden]{display:none!important} 가 짝으로 있다',
+  !setsDisplay || hasHiddenRule, `display 지정:${setsDisplay} · hidden 규칙:${hasHiddenRule}`);
+// ⛔ 두 겹 — hidden 이 한 번 안 먹어도 «초록 가득» 이 안 되게 채움 폭을 0 으로 되돌린다
+ok('숨길 때 채움 폭도 0 으로 되돌린다(hidden 이 안 먹어도 «가득» 이 안 보이게)',
+  /width\s*=\s*'0%'/.test(startFn) && /width\s*=\s*'0%'/.test(bodyAt(HUB, 'function hubProgressStop(')), '');
+
+console.log('\n⑩ 🌐 를 누르면 띠 글자도 따라온다');
+/* JS 가 그린 글자는 i18n 엔진이 못 고친다. ⛔ data-ko/data-en 로 풀면 두 엔진이
+   textContent 를 갈아끼워 안쪽 <b> 가 DOM 에서 사라진다(결재함 배지와 같은 자리). */
+const toggleFn = bodyAt(HUB, 'function toggleSiteLang(');
+ok('[전제] 언어 토글을 오려 냈다', toggleFn.length > 40);
+ok('언어를 바꾸면 띠를 다시 그린다', /hubProgressDraw\(\)/.test(toggleFn), '');
+ok('띠에 data-ko/data-en 을 달지 않았다(안쪽 <b> 가 날아간다)',
+  !/id="hub-gp-txt"[^>]*data-(ko|en)=/.test(HUB), '');
 
 console.log('\n⑦ 캐시 — 고친 js 를 부르는 HTML 의 ?v= 가 함께 올라갔나');
 const htmls = fs.readdirSync(PUB).filter(f => f.endsWith('.html'));
