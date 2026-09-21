@@ -135,5 +135,98 @@ if (hitCss) {
 const goCss = /\.home-tracks \.ht-go\{([^}]*)\}/.exec(src);
 ok('› 색이 CTA 금색(#fbbf24)이 아니다', !!goCss && !/#fbbf24/i.test(goCss[1]), goCss ? goCss[1] : 'none');
 
+/* ── ⑤ 1번 트랙(화상수업)도 같은 계약을 지키는가 ──────────────────────
+   [왜 2026-09-21 에 이었나] 둘이 똑같이 생겨 나란히 있는데 «오른쪽만» 눌려서,
+   사장님이 「이거 두개 카드 연결된거야?」라고 물으셨습니다 — 화면이 어느 쪽이
+   눌리는지 말해 주지 않던 상태입니다(CLAUDE.md 2장 「보이는데 안 눌리는 버튼」의 뒷면).
+   ⛔ 이 절을 지우지 마세요 — 지우면 1번이 «다시 죽은 글자» 가 되어도 아무도 모릅니다. */
+console.log('\n⑤ 1번 트랙(화상수업)');
+const om1 = /<a\b[^>]*class="ht-track ht-live"[^>]*>/.exec(src);
+ok('전제: <a class="ht-track ht-live"> 를 찾았다', !!om1);
+if (om1) {
+  const t1 = om1[0];
+  const end1 = src.indexOf('</a>', om1.index);
+  const blk1 = src.slice(om1.index, end1 + 4);
+  ok('폴백 주소가 있다 (href="#" 아님)', /href="\/\?menu=about-tutor"/.test(t1), t1.slice(0, 120));
+  ok('⛔ <a> 자신에 data-ko/data-en 이 «없다»', !/\sdata-(ko|en)=/.test(t1), t1.slice(0, 160));
+  ok('설명은 data-ko-aria/data-en-aria 로 단다', /data-ko-aria=/.test(t1) && /data-en-aria=/.test(t1));
+  ok('짝: 안쪽 두 줄은 여전히 번역된다', /class="ht-when"[^>]*data-ko=/.test(blk1) && /<span data-ko="원어민 화상수업"/.test(blk1));
+  ok('› 표시가 있다 (2번과 같은 표시)', /class="ht-go"[^>]*>(&rsaquo;|›)</.test(blk1));
+  const sw1 = elsWithDataKo(blk1).filter(e => /<b\b/.test(e.inner) || /ht-go/.test(e.inner));
+  ok('⛔ <b>1:1</b>·<i>›</i> 를 «품은» data-ko 요소가 없다 (조상 전부)',
+    sw1.length === 0, sw1.map(e => '<' + e.name + e.attrs + '>').join(' | ').slice(0, 180));
+
+  /* onclick 을 오려 내 실제로 돌립니다 — 2번과 같은 이유(글자만 봐서는 «무슨 답이 나오는가» 를 못 봅니다) */
+  const oc1 = /onclick="([^"]+)"/.exec(t1);
+  ok('전제: onclick 을 오려 냈다', !!oc1);
+  if (oc1) {
+    let r1;
+    try { r1 = new Function('window', 'event', oc1[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&')); }
+    catch (e) { ok('전제: onclick 이 실행 가능하다', false, String(e).slice(0, 120)); r1 = null; }
+    if (r1) {
+      let key = null, prevented = 0;
+      const win = { openAboutMangoi: (k) => { key = k === undefined ? '(없음)' : k; } };
+      let ret;
+      try { ret = r1.call(win, win, { preventDefault: () => { prevented++; } }); }
+      catch (e) { ok('함수가 있을 때 던지지 않는다', false, String(e).slice(0, 120)); }
+      ok('함수가 있으면 그 함수를 부른다', key !== null, 'key=' + key);
+      /* ⛔ 번호(data-i)가 아니라 «열쇠» 로 가리켜야 합니다 — 그 배열은 실제로 순서가 바뀐 적이 있습니다. */
+      ok('카드를 «열쇠» 로 가리킨다 (번호가 아니라)', key === 'tutor', 'key=' + key);
+      ok('주소 이동을 막는다', prevented === 1 && ret === false, 'prevented=' + prevented + ' ret=' + ret);
+
+      let key2 = null, prevented2 = 0, ret2;
+      const win2 = {};
+      try { ret2 = r1.call(win2, win2, { preventDefault: () => { prevented2++; } }); }
+      catch (e) { ok('함수가 없을 때 던지지 않는다', false, String(e).slice(0, 120)); }
+      ok('짝: 함수가 없으면 «막지 않는다» (폴백이 산다)', prevented2 === 0 && ret2 !== false && key2 === null);
+    }
+  }
+  ok('짝: 그 카드의 열쇠가 실제로 있다 (js/idx-about.js)',
+    /key:\s*'tutor'/.test(readFileSync('cloudflare-deploy/public/js/idx-about.js', 'utf8')));
+  ok('짝: ?menu=about-tutor 를 «받는» 절이 살아 있다',
+    /menu'\)\s*===\s*'about-tutor'/.test(readFileSync('cloudflare-deploy/public/js/idx-about.js', 'utf8')));
+  ok('짝: 그 파일의 ?v= 가 index.html 에 있다 (immutable 캐시)',
+    /idx-about\.js\?v=\d+/.test(src));
+
+  /* 🔑 열쇠 판정을 «오려 내 실제로 돌립니다» — 글자만 보면 «무슨 답이 나오는가» 를 못 봅니다.
+     ⚠️ 이 절이 없으면 「모르는 열쇠에 아무거나 열기」 변이가 자동에서는 ❌0 으로 통과합니다
+        (2026-09-21 실측 — 그때는 브라우저 검사만 잡았습니다). */
+  const abSrc = readFileSync('cloudflare-deploy/public/js/idx-about.js', 'utf8');
+  const skM = /window\.__abmShowKey\s*=\s*function\s*\(([^)]*)\)\s*\{/.exec(abSrc);
+  ok('전제: __abmShowKey 를 찾았다', !!skM);
+  if (skM) {
+    const bodyStart = abSrc.indexOf('{', skM.index + skM[0].length - 1);
+    let depth = 0, end = -1;
+    for (let i = bodyStart; i < abSrc.length; i++) {
+      if (abSrc[i] === '{') depth++;
+      else if (abSrc[i] === '}') { if (!--depth) { end = i; break; } }
+    }
+    ok('전제: 그 몸통을 중괄호 짝으로 잘라 냈다', end > bodyStart);
+    if (end > bodyStart) {
+      const body = abSrc.slice(bodyStart + 1, end);
+      let shown = [];
+      let runner = null;
+      try {
+        runner = new Function('BENEFITS', 'showDetail', skM[1] || 'k',
+          body.replace(/\bshowDetail\(/g, '__sd('));
+      } catch (e) { ok('전제: 실행 가능하다', false, String(e).slice(0, 140)); }
+      const run = (benefits, key) => {
+        shown = [];
+        const sd = (i) => shown.push(i);
+        return new Function('BENEFITS', '__sd', 'k', body.replace(/\bshowDetail\(/g, '__sd('))
+          (benefits, sd, key);
+      };
+      const B = [{ key: 'a' }, { key: 'tutor' }, {}, { key: 'z' }];
+      ok('아는 열쇠는 «그» 카드를 연다', run(B, 'tutor') === true && shown.length === 1 && shown[0] === 1,
+        JSON.stringify(shown));
+      /* ⛔ 모르면 «지어내지» 않습니다 — 아무 카드나 열면 사장님이 가리킨 것과 다른 글이 뜹니다. */
+      ok('짝: 모르는 열쇠는 아무것도 안 연다', run(B, '__없음__') === false && shown.length === 0,
+        JSON.stringify(shown));
+      ok('짝: 열쇠가 없는 항목에 빈 값으로 걸리지 않는다',
+        run(B, undefined) === false && shown.length === 0, JSON.stringify(shown));
+    }
+  }
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

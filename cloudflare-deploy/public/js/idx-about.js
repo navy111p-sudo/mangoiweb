@@ -1,12 +1,23 @@
 // idx-about.js — index.html 의 인라인 <script> 를 그대로 옮긴 것 (2026-08-09)
 //   · 본문은 한 글자도 바꾸지 않았다.
 //   · classic script 를 «같은 자리» 에 두므로 실행 순서와 전역 스코프가 그대로다.
-//     defer 를 붙이면 안 된다 — index.html 의 뒤쪽 코드가 여기 전역을 쓴다.
+//     ⚠️ [2026-09-21 정정] 여기 「defer 를 붙이면 안 된다」고 적혀 있었지만 사실이 아니다 —
+//        index.html 은 이 파일을 «처음부터» <script defer src="/js/idx-about.js?v=N"> 로 싣고 있고
+//        그 전역(openAboutMangoi)을 쓰는 곳은 전부 «클릭 시점» 이라 로드 순서에 안 걸린다.
+//        ⛔ 그렇다고 defer 를 떼지 말 것 — 떼면 첫 화면 blocking 예산에 이 파일이 통째로 들어간다.
 //   · 고칠 때는 이 파일을 고친다. 내용을 바꾸면 태그의 ?v= 를 반드시 올린다.
 
-      window.openAboutMangoi = function(){
+      /* 📇 openAboutMangoi(key?) — key 를 주면 그 카드의 «자세히» 를 바로 엽니다.
+         ⚠️ 인자 없이 부르던 예전 호출은 한 글자도 안 바뀝니다(목록 그대로). */
+      window.openAboutMangoi = function(key){
         var ex = document.getElementById('about-mangoi-ov');
-        if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
+        if (ex) {
+          ex.style.display='flex';
+          /* 열쇠가 있으면 인트로 음성 대신 그 카드를 연다(showDetail 이 어차피 음성을 끊습니다) */
+          if (key && window.__abmShowKey) { window.__abmShowKey(key); }
+          else if(window.__abmPlayIntro) window.__abmPlayIntro();
+          return;
+        }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
           /* 🎬 (2026-09-09 사장님 지시) 짧은 홍보영상 — «처음 들어온 사람이 보고 이해하게».
@@ -35,7 +46,12 @@
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
            p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 다른 대부분의 화상외국어 업체들과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서를 생성하고, 배운 내용에 맞춰 듣기·말하기·쓰기 등 10문항 복습 퀴즈를 바로 진행','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
            cta:{l:'🤖 AI 학습 친구 만나기', go:function(){ closeAbout(); location.href='/ai-friend.html'; }}},
-          {ic:'🧑‍🏫', t:'원어민 선생님과 1:1 / 1:2 수업',
+          /* 🔑 key — 이 카드를 «번호가 아니라 이름» 으로 가리키기 위한 열쇠.
+     ⛔ 번호(data-i)로 가리키지 말 것 — 이 배열은 실제로 순서가 바뀌었습니다
+        (2026-09-09 에 «홍보영상» 카드가 맨 앞에 들어와 전부 한 칸씩 밀렸습니다).
+     ⛔ 제목 글자로 찾지도 말 것 — 문구를 다듬는 순간 조용히 안 걸립니다.
+     ℹ️ 쓰는 곳: index.html 의 히어로 1번 트랙 · 이 파일 끝의 ?menu=about-tutor */
+          {ic:'🧑‍🏫', key:'tutor', t:'원어민 선생님과 1:1 / 1:2 수업',
            d:'엄격하게 검증된 원어민 전담 선생님과 1:1 또는 1:2 소수정예로 진행합니다. 같은 선생님이 꾸준히 관리하기 때문에 아이의 성향과 약점을 정확히 파악해 맞춤 지도를 합니다.',
            p:['매번 바뀌는 랜덤 매칭이 아닌 전담 선생님제로 안정적인 관리','형제·친구와 함께하는 1:2 수업으로 비용 부담은 낮추고 효과는 그대로','직영 센터에서 근무하는 정규 교사 — 검증된 수업 품질'],
            cta:{l:'📝 수업 신청하러 가기', go:function(){ closeAbout(); location.href='/lesson-booking-demo.html'; }}},
@@ -192,6 +208,42 @@
           + '@media(max-width:560px){.abm-grid{grid-template-columns:1fr}.abm-card{padding:24px 16px 18px}.abm-title{font-size:22px}.abm-dtitle{font-size:18px}.abm-dic{width:50px;height:50px;font-size:26px}.abm-ddesc{font-size:14px}}';
           document.head.appendChild(st);
         }
+        /* 🔑 열쇠 → 그 카드 열기. ⛔ 모르는 열쇠면 «지어내지 말고» 목록 그대로 둡니다. */
+        window.__abmShowKey = function(k){
+          /* ⛔ 빈 열쇠를 «열쇠 없는 항목» 과 맞히지 말 것 — BENEFITS 에는 key 를 안 단 카드가
+             대부분이라, k 가 undefined·'' 면 `undefined === undefined` 로 «아무 카드나» 열립니다.
+             부르는 쪽(openAboutMangoi)의 `if (key)` 만 믿으면 이 함수를 직접 부르는 자리가
+             생기는 날 조용히 뚫립니다 — 막는 것은 여기입니다(2026-09-21 자동 하니스가 잡음). */
+          if (!k) return false;
+          for (var ki=0; ki<BENEFITS.length; ki++){
+            if (BENEFITS[ki].key === k) { showDetail(ki); return true; }
+          }
+          return false;
+        };
         ov.style.display='flex';
+        if (key) window.__abmShowKey(key);
       };
+
+      /* 🔗 주소로 바로 열기 — /?menu=about-tutor   (2026-09-21)
+         [왜] 홈 히어로 «1번 트랙»(1:1 원어민 화상수업)을 눌러 이 카드를 연다.
+              그런데 그 카드를 여는 것은 홈에서만 도는 «함수» 라 줄 주소가 없었다 —
+              주소가 없으면 JS 가 아직 없을 때 «눌러도 아무 일도 안 일어나는» 버튼이 된다.
+         ⚠️ 이 파일은 defer 라 여기서는 DOM 이 준비돼 있다 — 기다리는 타이머가 필요 없다.
+            (상주 setInterval 은 홈을 통째로 멎게 한 전력이 있다)
+         ⚠️ menu «만» 지운다 — pathname 으로 통째로 갈아치우면 index.html 이 수업으로
+            되돌아올 때 쓰는 ?room= 과 다른 쿼리·해시까지 조용히 잃는다.
+         ℹ️ 선례: js/idx-allmenu.js 의 ?menu=all-menu · index.html 의 ?menu=aitools */
+      (function(){
+        try {
+          var _abQ = new URLSearchParams(location.search);
+          if (_abQ.get('menu') === 'about-tutor') {
+            window.openAboutMangoi('tutor');
+            try {
+              _abQ.delete('menu');
+              var _abS = _abQ.toString();
+              history.replaceState(null, '', location.pathname + (_abS ? '?' + _abS : '') + location.hash);
+            } catch (_e2) {}
+          }
+        } catch (_e1) {}
+      })();
       

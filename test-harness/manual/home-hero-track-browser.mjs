@@ -203,6 +203,78 @@ try {
   await sleep(1800);
   const landed = await ev(`(function(){return {ov:!!document.getElementById('ai-friends-ov'), s:location.search};})()`);
   ok('브라우저가 폴백 주소를 따라가 거기서도 목록이 열린다', landed.ov === true, JSON.stringify(landed));
+
+  /* ── ⑥ 1번 트랙(화상수업) — 「망고아이란? ▸ 원어민 선생님과 1:1 / 1:2 수업」 ──
+     📜 2026-09-21 사장님 「왼쪽은 1번, 오른쪽은 2번」. 그 전에는 둘이 똑같이 생겼는데
+        오른쪽만 눌려서 「이거 두개 카드 연결된거야?」라는 물음이 나왔습니다. */
+  console.log('\n⑥ 1번 트랙을 누르면 「원어민 선생님과 1:1 / 1:2 수업」 카드가 열린다');
+  await goto();
+  const m1 = await ev(`(function(){
+    var a=document.querySelector('.home-tracks .ht-live');
+    if(!a) return {none:true};
+    var cs=getComputedStyle(a), r=a.getBoundingClientRect();
+    var top=document.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+    return {tag:a.tagName, cursor:cs.cursor, deco:cs.textDecorationLine,
+      chev:(a.querySelector('.ht-go')||{}).textContent||'',
+      inside:!!(top&&a.contains(top)), topTag: top?top.tagName+'.'+(top.className||''):'null'};
+  })()`);
+  ok('전제: 1번도 <a> 다', m1.tag === 'A', m1.tag);
+  ok('› 가 그려진다 (2번과 «같은» 표시 — 어느 쪽이 눌리는지 갈리지 않게)', (m1.chev||'').trim() === '›', JSON.stringify(m1.chev));
+  ok('cursor:pointer · 밑줄 없음', m1.cursor === 'pointer' && m1.deco === 'none', m1.cursor + ' / ' + m1.deco);
+  ok('아무도 안 덮는다', m1.inside === true, m1.topTag);
+  ok('전제: 누르기 «전» 에는 「망고아이란?」이 없다', (await ev(`!!document.getElementById('about-mangoi-ov')`)) === false);
+  const b1 = await ev(`(function(){var r=document.querySelector('.home-tracks .ht-live').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+  for (const type of ['mousePressed', 'mouseReleased'])
+    await send('Input.dispatchMouseEvent', { type, x: b1.x, y: b1.y, button: 'left', clickCount: 1 });
+  await sleep(700);
+  const d1 = await ev(`(function(){
+    var ov=document.getElementById('about-mangoi-ov'); if(!ov) return {open:false};
+    var lv=ov.querySelector('.abm-view-list'), dv=ov.querySelector('.abm-view-detail');
+    return {open:getComputedStyle(ov).display!=='none',
+      listShown:getComputedStyle(lv).display!=='none', detailShown:getComputedStyle(dv).display!=='none',
+      title:(ov.querySelector('.abm-dtitle')||{}).textContent||'',
+      cta:(ov.querySelector('.abm-dcta')||{}).textContent||'',
+      pts:ov.querySelectorAll('.abm-dpts li').length, search:location.search};
+  })()`);
+  ok('열렸다', d1.open === true, JSON.stringify(d1).slice(0, 180));
+  /* ⛔ 「목록」이 아니라 「자세히」여야 합니다 — 사장님이 가리킨 것은 그 카드입니다. */
+  ok('«목록» 이 아니라 «자세히» 가 보인다', d1.detailShown === true && d1.listShown === false,
+    `list=${d1.listShown} detail=${d1.detailShown}`);
+  ok('그 카드가 맞다 — 「원어민 선생님과 1:1 / 1:2 수업」', d1.title === '원어민 선생님과 1:1 / 1:2 수업', d1.title);
+  ok('강점 3줄과 CTA 가 그려진다', d1.pts === 3 && /수업 신청하러 가기/.test(d1.cta), d1.pts + '줄 / ' + d1.cta);
+  ok('같은 화면에서 열린다 (주소로 안 나간다)', !/menu=/.test(d1.search || ''), d1.search);
+  await ev(`document.querySelector('#about-mangoi-ov .abm-back').click()`);
+  await sleep(300);
+  const back1 = await ev(`(function(){var ov=document.getElementById('about-mangoi-ov');
+    return {list:getComputedStyle(ov.querySelector('.abm-view-list')).display!=='none', n:ov.querySelectorAll('.abm-item').length};})()`);
+  ok('「← 목록으로」로 전체 카드 목록에 간다', back1.list === true && back1.n >= 10, JSON.stringify(back1));
+
+  console.log('\n⑥-b 주소로도 열린다 — /?menu=about-tutor');
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/index.html?menu=about-tutor&_nc=${Date.now()}` });
+  for (let i = 0; i < 60; i++) { await sleep(200); if (await ev('document.readyState==="complete"')) break; }
+  await sleep(1100);
+  const u1 = await ev(`(function(){var ov=document.getElementById('about-mangoi-ov'); if(!ov) return {open:false};
+    return {open:getComputedStyle(ov).display!=='none',
+      detail:getComputedStyle(ov.querySelector('.abm-view-detail')).display!=='none',
+      title:(ov.querySelector('.abm-dtitle')||{}).textContent||'', search:location.search};})()`);
+  ok('주소만으로 그 카드가 열린다', u1.open === true && u1.detail === true, JSON.stringify(u1));
+  ok('제목이 같다', u1.title === '원어민 선생님과 1:1 / 1:2 수업', u1.title);
+  /* ⛔ menu «만» 지웁니다 — pathname 으로 갈아치우면 ?room= 과 해시까지 조용히 잃습니다. */
+  ok('주소에서 menu 만 지워진다', !/menu=/.test(u1.search || ''), u1.search);
+
+  console.log('\n⑥-c 짝 — 옛 입구는 한 글자도 안 바뀌었다');
+  await goto();
+  const plain = await ev(`(function(){ window.openAboutMangoi();
+    var ov=document.getElementById('about-mangoi-ov');
+    return {list:getComputedStyle(ov.querySelector('.abm-view-list')).display!=='none',
+      detail:getComputedStyle(ov.querySelector('.abm-view-detail')).display!=='none'};})()`);
+  ok('짝: 인자 없이 부르면 예전처럼 «목록» 이 열린다', plain.list === true && plain.detail === false, JSON.stringify(plain));
+  const unk = await ev(`(function(){ var ov=document.getElementById('about-mangoi-ov'); ov.style.display='none';
+    window.openAboutMangoi('__없는열쇠__');
+    return {detail:getComputedStyle(ov.querySelector('.abm-view-detail')).display!=='none',
+      list:getComputedStyle(ov.querySelector('.abm-view-list')).display!=='none'};})()`);
+  ok('짝: 모르는 열쇠는 «지어내지 않고» 목록 그대로', unk.detail === false && unk.list === true, JSON.stringify(unk));
+
 } catch (e) {
   fail++; console.log('  ❌ 검사 도중 예외 — ' + String(e).slice(0, 300));
 }

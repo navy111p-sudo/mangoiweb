@@ -6014,10 +6014,22 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <span data-ko="AI로 생각하고 결정하는 영어, 망고아이" data-en="Think and decide in English — Mango Ai">AI로 생각하고 결정하는 영어, 망고아이</span>
       </p>
       <div class="home-tracks" aria-label="망고아이 학습" data-ko-aria="망고아이 학습" data-en-aria="Learning with Mango AI">
-        <div class="ht-track ht-live">
+        <!-- 🎯 [2026-09-21 사장님 「왼쪽은 1번, 오른쪽은 2번」]
+             1번 트랙을 누르면 「망고아이란? ▸ 원어민 선생님과 1:1 / 1:2 수업」 카드가 열린다.
+             [왜] 둘이 똑같이 생겨 나란히 있는데 오른쪽만 눌렸다 — 사장님이 「이거 두개 카드
+                  연결된거야?」라고 물으셨고, 학생도 왼쪽을 누르면 아무 일도 안 일어났다.
+             ⛔ 카드를 «번호»(data-i)로 열지 말 것 — 그 배열은 실제로 순서가 바뀐 적이 있다
+                (2026-09-09 «홍보영상» 이 맨 앞에 들어와 전부 한 칸씩 밀림). 열쇠는 'tutor'.
+             ⛔ 이 <a> 에 data-ko/data-en 을 달지 말 것 — 두 i18n 엔진이 textContent 를
+                통째로 갈아끼워 안쪽 두 줄이 사라진다. 설명은 data-ko-aria 로만.
+             ✅ href 는 «폴백» — JS 가 아직이면 그 주소로 가고 js/idx-about.js 의
+                ?menu=about-tutor 가 같은 카드를 연다. ⛔ href="#" 금지(무반응 = 고장). -->
+        <a class="ht-track ht-live" href="/?menu=about-tutor"
+           onclick="if(window.openAboutMangoi){event.preventDefault();window.openAboutMangoi('tutor');return false;}"
+           aria-label="원어민 1:1 / 1:2 화상수업 자세히 보기" data-ko-aria="원어민 1:1 / 1:2 화상수업 자세히 보기" data-en-aria="See 1:1 / 1:2 live lessons">
           <span class="ht-when" data-ko="사람과 · 예약한 시간에" data-en="With a tutor · booked">사람과 · 예약한 시간에</span>
-          <span class="ht-what"><b>1:1</b> <span data-ko="원어민 화상수업" data-en="live lessons">원어민 화상수업</span></span>
-        </div>
+          <span class="ht-what"><b>1:1</b> <span data-ko="원어민 화상수업" data-en="live lessons">원어민 화상수업</span><i class="ht-go" aria-hidden="true">&rsaquo;</i></span>
+        </a>
         <!-- 🎯 [2026-09-20 사장님 「2번은 A.i와 친구하기가 모두 나오게 해줘 · 이 페이지가 나오게 해줘」]
              2번 트랙을 누르면 「AI와 친구하기」 목록이 그 자리에서 열린다(window.openAiFriendsOverlay).
              ⛔ 이 <a> 에 data-ko/data-en 을 달지 말 것 — 두 i18n 엔진이 [data-ko] 요소의
@@ -6238,7 +6250,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
       </details>
-      <script defer src="/js/idx-about.js?v=8"></script>
+      <script defer src="/js/idx-about.js?v=9"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
