@@ -496,6 +496,21 @@
   .hub-divider{width:1px;align-self:stretch;min-height:36px;background:rgba(255,255,255,.16)}
   @media(max-width:640px){ .hub-panel{gap:12px 14px;padding:14px 16px} .hub-divider{display:none} }
   #streak-badge-hub:empty{display:none}
+  /* 🎯 «오늘 몫» 줄 (js/games-daily-goal.js) — 비로그인·조회 실패면 비어 자리를 안 먹는다.
+     ⚠️ 막대와 채움에 display:block 을 «명시» 한다: span 이면 브라우저가 글자로 봐서
+        width 가 통째로 무시되고 폭 0이 된다(CLAUDE.md 2장 「채움이 안 보임」).
+     ⚠️ 문장을 flex 로 감싸지 않는다 — 좁은 폭에서 낱글자로 쪼개진다. */
+  #gdg-box:empty{display:none}
+  .gdg{flex-basis:100%;display:block;margin:0 auto;padding:10px 16px;width:fit-content;max-width:100%;
+    border-radius:16px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.42)}
+  .gdg.gdg-hit{background:rgba(52,211,153,.14);border-color:rgba(52,211,153,.5)}
+  .gdg-t{display:block;font-size:15px;font-weight:900;color:#fcd34d;text-align:center;line-height:1.35}
+  .gdg.gdg-hit .gdg-t{color:#6ee7b7}
+  .gdg-bar{display:block;height:9px;margin-top:7px;border-radius:999px;overflow:hidden;
+    background:rgba(255,255,255,.12)}
+  .gdg-bar > i{display:block;height:100%;width:0;border-radius:999px;transition:width .4s;
+    background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .gdg.gdg-hit .gdg-bar > i{background:linear-gradient(90deg,#10b981,#34d399)}
 
   /* ===== 💰 코인/룰렛/상점/랭킹 ===== */
   .fun-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -3625,6 +3640,7 @@ window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_)
 <!-- BUILD:20260813015745 -->
 <script defer src="/js/flow.js?v=21"></script>
 <script src="/js/game-preview.js?v=2" defer></script><!-- 👀 잠긴 게임 미리보기 창 (첫 화면 예산 밖) -->
+<script src="/js/games-daily-goal.js?v=1" defer></script><!-- 🎯 오늘 몫 («판» 이 아니라 «문제» 로 센다) -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <!-- ⬅ 뒤로 판정 정본. 이 화면의 ← 버튼이 window.mangoiGoBack 을 부른다.
      ⚠️ 화면에 보이는 ← 가 이미 있으므로 이 파일은 자기 동그란 ← 를 «넣지 않는다»(hasVisibleBack). -->

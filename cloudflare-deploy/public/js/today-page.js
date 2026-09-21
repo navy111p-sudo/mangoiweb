@@ -174,6 +174,24 @@
     $('td-h-steps').textContent = T('오늘 할 일', 'Today');
     renderIntro(p);
 
+    /* 🎯 «오늘 몫» 막대 — goal 이 있는 도구만. 서버(today-plan.ts)가 goal·progress 를 싣는다.
+       ⛔ 여기서 숫자를 다시 계산하지 말 것: 허브(js/games-daily-goal.js)와 답이 갈린다.
+       ⚠️ 0을 «폭 0» 으로만 두면 «측정 안 됨» 으로 읽히므로 글자가 「0 / 5문제」라고 분명히 말한다. */
+    function goalBar(s) {
+      var goal = Number(s.goal || 0);
+      if (!(goal > 0)) return '';
+      var got = Math.max(0, Number(s.progress || 0));
+      var pct = Math.min(100, Math.round(got / goal * 100));
+      var left = Math.max(0, goal - got);
+      var txt = left <= 0
+        ? T('🎉 오늘 몫 끝! · 더 해도 좋아요', '🎉 Done for today · keep going if you like')
+        : T(got + ' / ' + goal + '문제 · ' + left + '문제 더!', got + ' / ' + goal + ' questions · ' + left + ' to go!');
+      return '<div class="goal' + (left <= 0 ? ' hit' : '') + '">' +
+               '<div class="prog"><i style="width:' + pct + '%"></i></div>' +
+               '<span class="goal-t">' + esc(txt) + '</span>' +
+             '</div>';
+    }
+
     $('td-steps').innerHTML = p.steps.map(function (s, i) {
       var sl = SLOT[s.slot] || SLOT.home;
       return '<div class="card step' + (s.done ? ' done' : '') + '">' +
@@ -182,6 +200,7 @@
         '<span class="slot ' + esc(s.slot) + '">' + esc(en ? sl[1] : sl[0]) + '</span>' +
         '<p class="name">' + esc(s.icon) + ' ' + esc(en ? s.en : s.ko) + '</p>' +
         '<p class="why">' + esc(en ? s.whyEn : s.whyKo) + '</p>' +
+        goalBar(s) +
         '<a class="go" href="' + esc(goUrl(s, i, n)) + '">' + (s.done ? T('한 번 더', 'Once more') : T('시작 ▶', 'Start ▶')) + '</a>' +
         ' <span class="min">' + T('약 ' + s.minutes + '분', '~' + s.minutes + ' min') + '</span>' +
       '</div>';
