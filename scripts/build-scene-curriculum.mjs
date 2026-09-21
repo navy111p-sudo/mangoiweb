@@ -5,7 +5,10 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 import {pictureEvidence} from './scene-picture-evidence.mjs';
+/* 🎨 낱말 그림카드의 그림문자 정본은 화면 파일 한 곳(cloudflare-deploy/public/js/scene-curriculum.js).
+   ⛔ 여기에 표를 복제하지 마세요 — 한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다. */
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const inputs=path.join(root,process.argv[2]||'docs/scene-curriculum-media');
 const read=name=>JSON.parse(fs.readFileSync(path.join(inputs,name),'utf8'));
@@ -44,10 +47,17 @@ for(const clip of clips){const source=all.get(clip.id);if(!source||source.text!=
 const candidates=new Map();
 for(const s of scenes.values())for(const w of words(s.text)){if(!candidates.has(w))candidates.set(w,[]);candidates.get(w).push(s);}
 const dir=path.join(root,'cloudflare-deploy/public/data/scene-curriculum/v1');fs.mkdirSync(dir,{recursive:true});
-const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,contextOnlyForms:0,noPictureForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
-const unique=new Set(),wordPictured=new Set(),contextPictured=new Set(),usedImages=new Set();let maxBook=0,maxGzip=0,rowWord=0,rowContext=0,rowNone=0,rowUndescribed=0;
+const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,contextOnlyForms:0,cardOnlyForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
+const unique=new Set(),wordPictured=new Set(),contextPictured=new Set(),usedImages=new Set();
+const {pictogram}=createRequire(import.meta.url)('../cloudflare-deploy/public/js/scene-curriculum.js');let maxBook=0,maxGzip=0,rowWord=0,rowContext=0,rowCard=0,rowCardExact=0,rowUndescribed=0;
 for(const book of books){
- const vocab=new Map();book.sentences.forEach((text,i)=>words(text).forEach(w=>{if(!vocab.has(w))vocab.set(w,{word:w,sourceIndex:i+1,bookExample:text});}));
+ /* 🖼 2026-09-21 사장님 지시(모든 낱말에 그림) — 그 교재 «안» 에서 그림이 있는 예문을 먼저 고른다.
+    ⛔ 「다른 문장의 그림만 빌려 오기」가 아닙니다 — 예문 자체를 그 문장으로 바꿔 그림과 예문을 짝지웁니다.
+    ⛔ 다른 교재 문장으로는 바꾸지 마세요(수준이 다릅니다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길).
+    ⚠️ 첫 문장이 아니게 되므로 sourceIndex 도 함께 옮겨야 합니다(연습 구간이 예문과 어긋나면 안 됩니다). */
+ const occur=new Map();book.sentences.forEach((text,i)=>words(text).forEach(w=>{if(!occur.has(w))occur.set(w,[]);occur.get(w).push({sourceIndex:i+1,bookExample:text});}));
+ const vocab=new Map();
+ for(const [w,list] of occur){const shown=list.find(o=>(scenes.get(id(o.bookExample))||{}).image)||list[0];vocab.set(w,{word:w,sourceIndex:shown.sourceIndex,bookExample:shown.bookExample});}
  const data={id:book.id,label:book.label,title:book.title,topic:book.topic,words:[],clips:[],scenes:{}};
  for(const [word,row] of vocab){
   unique.add(word);
@@ -67,7 +77,10 @@ for(const book of books){
    const source=all.get(id(row.bookExample));
    chosen=scenes.get(source.id)||{id:source.id,text:source.text,source:book.label+' · #'+row.sourceIndex,refs:source.refs};
   }
-  if(pictures){wordPictured.add(word);rowWord++;}else if(chosen.image){contextPictured.add(word);rowContext++;}else rowNone++;
+  /* 🎨 사진이 하나도 없으면 «그림 없음» 이 아니라 화면이 그리는 낱말 그림카드가 붙는다(모든 낱말에 그림).
+     여기서는 그 줄이 몇 개인지와, 그 가운데 «뜻에 맞는 그림문자» 를 받는 줄이 몇 개인지만 센다. */
+  if(pictures){wordPictured.add(word);rowWord++;}else if(chosen.image){contextPictured.add(word);rowContext++;}
+  else{rowCard++;if(pictogram(word).exact)rowCardExact++;}
   if(chosen.image&&!(describe.get(chosen.key)||'').trim())rowUndescribed++;
   /* 교재 예문 = bookExample ?? scenes[scene].text. 그림이 바로 그 예문의 그림일 때는 같은 문장이 두 번 실리므로 한 번만 보낸다. */
   const entry={...row,scene:chosen.id};if(chosen.text===row.bookExample)delete entry.bookExample;if(pictures)entry.pic=1;
@@ -86,10 +99,10 @@ for(const book of books){
 }
 manifest.wordForms=unique.size;manifest.wordPictureForms=wordPictured.size;
 manifest.contextOnlyForms=[...contextPictured].filter(w=>!wordPictured.has(w)).length;
-manifest.noPictureForms=unique.size-manifest.wordPictureForms-manifest.contextOnlyForms;
+manifest.cardOnlyForms=unique.size-manifest.wordPictureForms-manifest.contextOnlyForms;
 manifest.describedAssets=[...new Set(assets.map(a=>'word-image:'+a.index))].filter(k=>(describe.get(k)||'').trim()).length;
 manifest.assets=assets.length;manifest.undescribedPictureRows=rowUndescribed;
-manifest.wordRows=rowWord+rowContext+rowNone;manifest.wordPictureRows=rowWord;manifest.contextPictureRows=rowContext;manifest.noPictureRows=rowNone;
+manifest.wordRows=rowWord+rowContext+rowCard;manifest.wordPictureRows=rowWord;manifest.contextPictureRows=rowContext;manifest.cardRows=rowCard;manifest.cardPictogramRows=rowCardExact;
 manifest.maxBookBytes=maxBook;manifest.maxBookGzipBytes=maxGzip;manifest.imageAssets=usedImages.size;
 fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest)+'\n');
-console.log(JSON.stringify({books:books.length,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,contextOnlyForms:manifest.contextOnlyForms,noPictureForms:manifest.noPictureForms,wordPictureRows:rowWord,contextPictureRows:rowContext,noPictureRows:rowNone,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));
+console.log(JSON.stringify({books:books.length,wordForms:unique.size,wordPictureForms:manifest.wordPictureForms,contextOnlyForms:manifest.contextOnlyForms,cardOnlyForms:manifest.cardOnlyForms,wordPictureRows:rowWord,contextPictureRows:rowContext,cardRows:rowCard,cardPictogramRows:rowCardExact,describedAssets:manifest.describedAssets+'/'+assets.length,clips:manifest.clips,maxBookBytes:maxBook,maxBookGzipBytes:maxGzip,booksWithoutClips:manifest.books.filter(b=>!b.clips).map(b=>b.id)}));

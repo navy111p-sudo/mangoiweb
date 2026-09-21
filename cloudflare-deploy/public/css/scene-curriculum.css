@@ -5,3 +5,11 @@
 .cq-selectors{grid-template-columns:repeat(3,minmax(0,1fr))}.cq-note+ .cq-note{margin-top:6px}@media(max-width:760px){.cq-selectors{grid-template-columns:repeat(2,minmax(0,1fr))}.cq-selectors label:nth-child(2){grid-column:auto;grid-row:auto}}@media(max-width:420px){.cq-selectors{grid-template-columns:1fr}.cq-selectors select{max-width:100%}}
 
 .ct-panel{border:1px solid var(--line);border-radius:18px;padding:18px;margin:18px 0 28px}.ct-panel h2,.ct-practice-title{font-size:22px}.ct-panel .cq-note{margin:10px 0}.ct-lesson{grid-column:span 2}.ct-pages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.ct-pages a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-wrap:anywhere;min-height:44px}.ct-pages a:hover{color:var(--ink);background:var(--panel)}@media(max-width:760px){.ct-pages{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){.ct-lesson{grid-column:auto}.ct-pages{grid-template-columns:1fr}}
+/* 🎨 낱말 그림카드 — 사진이 없는 낱말의 «그림». 상자를 비워 두지 않는다(2026-09-21 사장님 지시).
+   ⛔ [hidden] 만 믿지 마세요 — 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이깁니다. */
+.cq-wordcard{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;padding:20px;text-align:center;background:linear-gradient(160deg,#1f3b52,#12202f)}
+.cq-wordcard[hidden]{display:none!important}
+.cq-wordcard-icon{font-size:clamp(64px,18vw,132px);line-height:1}
+.cq-wordcard-word{font-size:clamp(20px,4vw,30px);letter-spacing:-.01em;color:#fff;overflow-wrap:anywhere}
+.cq-wordcard-note{font-size:12px;line-height:1.6;color:rgba(255,255,255,.82)}
+
