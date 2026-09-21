@@ -171,6 +171,34 @@ if (mod) {
     // ①-8 두 수업 — 첫 수업 전·마지막 수업 뒤
     const two = buildTodayPlan({ ...base, nowMin: 18 * 60, classes: [{ start: '20:00', minutes: 20, source: 'cafe24' }, { start: '17:00', minutes: 20, source: 'cafe24' }] });
     check('①-8 수업이 둘이면 표시는 첫 수업(17:00) · 18시는 두 수업 사이라 in_class', two.cls?.start === '17:00' && two.phase === 'in_class', [two.cls, two.phase]);
+    /* ①-1b 🔴 phase 를 «쓰는가» — 값이 맞는지(①-1)와 다른 질문이다 (2026-09-21).
+       고치기 전에는 phase 가 before/in_class/after 로 정확히 갈리는데 steps 는 세 경우가
+       글자 하나까지 같았다(사장님 밤 9시 화면에 「14:00 수업 전에 10분」).
+       ⚠️ 「after 면 복습이 먼저」만 두면 «언제나 복습 먼저» 같은 엉터리 수리도 통과한다 —
+          「before 는 예전 그대로」·「웜업이 사라지지 않는다」를 짝으로 둔다. */
+    const cl1 = [{ start: '19:00', minutes: 50, source: 'mangoi' }];
+    const pBefore = buildTodayPlan({ ...base, nowMin: 10 * 60, classes: cl1 });
+    const pIn     = buildTodayPlan({ ...base, nowMin: 19 * 60 + 20, classes: cl1 });
+    const pAfter  = buildTodayPlan({ ...base, nowMin: 21 * 60, classes: cl1 });
+    const keysOf = (pl) => pl.steps.map(st => st.key).join(',');
+    check('①-1b 수업 전에는 웜업이 1번(예전 그대로)', pBefore.steps[0].key === 'warmup' && pBefore.steps[0].slot === 'before', keysOf(pBefore));
+    check('①-1b 수업이 끝난 뒤에는 복습이 1번', pAfter.steps[0].key === 'review' && pAfter.steps[0].slot === 'after', keysOf(pAfter));
+    check('①-1b 수업 중에도 복습이 1번(웜업은 이미 지났다)', pIn.steps[0].key === 'review', keysOf(pIn));
+    check('①-1b 지난 뒤에도 웜업은 «목록에 남는다»(맨 뒤 — 다음 수업 전에 하는 길)',
+      pAfter.steps.some(st => st.key === 'warmup') && pAfter.steps[pAfter.steps.length - 1].key === 'warmup', keysOf(pAfter));
+    check('①-1b 세 phase 모두 도구 셋이 그대로다(순서만 바뀐다 — 빠지는 쪽이 더 나쁘다)',
+      [pBefore, pIn, pAfter].every(pl => ['warmup', 'review', 'micro'].every(k => pl.steps.some(st => st.key === k))),
+      [keysOf(pBefore), keysOf(pIn), keysOf(pAfter)]);
+    check('①-1b 세 phase 의 «할 일» 이 서로 다르다(phase 를 계산만 하고 안 쓰면 여기서 걸린다)',
+      new Set([keysOf(pBefore), keysOf(pIn), keysOf(pAfter)]).size >= 2, [keysOf(pBefore), keysOf(pAfter)]);
+    check('①-1b 지난 수업을 「수업 전에 10분」이라고 말하지 않는다',
+      !/수업 전에 10분/.test(pAfter.steps.find(st => st.key === 'warmup').whyKo)
+      && /끝났어요/.test(pAfter.steps.find(st => st.key === 'warmup').whyKo),
+      pAfter.steps.find(st => st.key === 'warmup').whyKo);
+    check('①-1b 수업 전 웜업 문구에는 수업 시각이 그대로 들어간다(예전 그대로)',
+      /19:00 수업 전에 10분/.test(pBefore.steps[0].whyKo), pBefore.steps[0].whyKo);
+    check('①-1b 순서가 바뀌어도 총 분 수는 같다(도구를 뺀 것이 아니다)',
+      pBefore.totalMinutes === pAfter.totalMinutes, [pBefore.totalMinutes, pAfter.totalMinutes]);
     // ①-9 시간 파서
     check('①-9 hhmmToMin: 19:05→1145 · 잘못된 값→null', hhmmToMin('19:05') === 1145 && hhmmToMin('25:00') === null && hhmmToMin('') === null);
   }
@@ -270,6 +298,13 @@ console.log('\n[ ⑦ today.html — 구성표·글꼴·입구 ]');
   check('⑦ 화면이 «성공이라고 말했는가»(ok === true) 로 판정한다', /d\.ok === true && d\.plan/.test(page));
   check('⑦ 서버 레벨은 도구 키에 «비어 있을 때만» 심는다', /!localStorage\.getItem\('mangoi_warmup_level'\)/.test(page) && /!localStorage\.getItem\('mangoi_aifriend_level'\)/.test(page));
   check('⑦ 화면에 상주 MutationObserver·setInterval 이 없다', !/MutationObserver|setInterval/.test(page));
+  /* ⑦ 🔴 히어로가 지난 수업을 «있어요» 라고 말하지 않는다 (2026-09-21).
+     ⛔ 화면이 시각을 다시 재면 판정이 두 벌이 된다 — 서버가 준 phase 만 본다. */
+  check('⑦ 히어로가 서버의 phase 를 읽는다(수업 전/중/후를 가른다)',
+    /p\.phase === 'after'/.test(page) && /p\.phase === 'in_class'/.test(page), null);
+  check('⑦ 히어로가 시각을 다시 재지 않는다(Date 로 지금을 판정하지 않는다)',
+    !/new Date\(\)\s*\.getHours|getHours\(\)/.test(page));
+  check('⑦ 수업 전 문구는 예전 그대로 남아 있다(짝)', /수업 앞뒤 10분이 제일 잘 남아요/.test(page));
   /* 주간표 «리듬 띠»(2026-09-04 결정) — 되돌리면 여기서 FAIL 난다.
      ⛔ 「그 글자가 있는가」로 쓰지 말 것 — 주석에 그 낱말을 적기만 해도 통과한다. 주석을 벗긴 사본을 본다. */
   check('⑦ 주간표가 서버가 준 start·minutes 를 그린다(화면이 다시 계산하지 않는다)',

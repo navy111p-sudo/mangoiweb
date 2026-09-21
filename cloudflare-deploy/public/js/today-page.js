@@ -150,7 +150,12 @@
     $('td-hello').textContent = name ? T(name + ' 님, 오늘도 조금만 해요', 'Hi ' + name + ' — a little today') : T('오늘도 조금만 해요', 'A little today');
     var sub = '';
     if (p.mode === 'unassigned') sub = T('아직 레벨이 없어요. 레벨테스트를 먼저 보면 모든 도구가 내 수준에 맞춰져요.', 'No level yet — take the level test first and every tool adapts to you.');
-    else if (p.mode === 'class') sub = p.cls ? T('오늘 ' + p.cls.start + ' 수업이 있어요. 수업 앞뒤 10분이 제일 잘 남아요.', 'Class at ' + p.cls.start + ' today. The 10 minutes before and after stick best.') : '';
+    /* 🔴 지난 수업을 «있어요» 라고 말하지 않는다 — 서버가 준 phase 로 가른다 (2026-09-21).
+       ⛔ 여기서 시각을 다시 재지 마세요(판정 정본은 today-plan.ts 의 phase 하나). */
+    else if (p.mode === 'class') sub = !p.cls ? '' :
+      p.phase === 'after'    ? T('오늘 ' + p.cls.start + ' 수업은 끝났어요. 지금 10분 복습이 제일 잘 남아요.', 'Today\'s ' + p.cls.start + ' class is over — 10 minutes of review now sticks best.') :
+      p.phase === 'in_class' ? T('지금 ' + p.cls.start + ' 수업 중이에요. 끝나고 10분만 복습해요.', 'Your ' + p.cls.start + ' class is on now — review for 10 minutes after.') :
+                               T('오늘 ' + p.cls.start + ' 수업이 있어요. 수업 앞뒤 10분이 제일 잘 남아요.', 'Class at ' + p.cls.start + ' today. The 10 minutes before and after stick best.');
     else sub = T('오늘은 수업이 없는 날. 15분이면 충분해요.', 'No class today — 15 minutes is enough.');
     $('td-sub').textContent = sub;
 
