@@ -10,6 +10,7 @@ const inputs=path.join(root,process.argv[2]||'docs/scene-curriculum-media');
 const read=name=>JSON.parse(fs.readFileSync(path.join(inputs,name),'utf8'));
 const selected=read('scene-plan.json'),assets=read('asset-plan.json'),clips=read('clip-plan.json'),media=read('optimized-media.json');
 const excluded=new Set(read('excluded-media.json'));
+const contextImages=read('context-images.json').images;
 const stop=new Set(read('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 const words=text=>[...new Set((text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stop.has(w)))];
 const id=text=>crypto.createHash('sha256').update(text).digest('hex').slice(0,12);
@@ -29,7 +30,7 @@ const lookup=new Map();
 for(const m of media){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))lookup.set(key,m);}
 function imageMeta(s,m){if(m){s.image=m.url;s.imageBytes=m.bytes;}}
 const scenes=new Map();
-for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};imageMeta(s,lookup.get('word-image:'+assetIndex.get(row.asset)));scenes.set(s.id,s);}
+for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);imageMeta(s,lookup.get(fallback||('word-image:'+index)));scenes.set(s.id,s);}
 const clipRows=[];
 for(const clip of clips){const source=all.get(clip.id);if(!source||source.text!==clip.text)throw Error('Clip source drift '+clip.id);const target=clip.reuseClip||clip.index;const movie=lookup.get('video:'+target);if(!movie)continue;let s=scenes.get(clip.id)||{id:clip.id,text:clip.text,source:labels[clip.refs[0][0]]+' · #'+clip.refs[0][1],refs:source.refs};imageMeta(s,lookup.get('clip-image:'+target));s.video=movie.url;s.videoBytes=movie.bytes;s.duration=movie.duration;scenes.set(s.id,s);clipRows.push({...clip,scene:s.id});}
 const candidates=new Map();
