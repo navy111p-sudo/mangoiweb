@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import zlib from 'node:zlib';
 import {createRequire} from 'node:module';
+import * as EV from '../scripts/scene-picture-evidence.mjs';
 const require=createRequire(import.meta.url),D=require('../cloudflare-deploy/public/js/scene-curriculum.js');
 const root=new URL('../cloudflare-deploy/public/',import.meta.url);
 let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;},eq=(a,b,m)=>{assert.deepEqual(a,b,m);checks++;};
@@ -31,7 +32,7 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={imageWordForms:4500,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,noPictureForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
 const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.'},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.'}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
 const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
@@ -50,17 +51,62 @@ race.change('book','bts-02');await flush();for(const timer of [...race.timers.va
 ok(!/speech-data-(?:bts|siu)/.test(html),'page never eagerly loads all three curricula');
 ok(/id="cq-video"[^>]*preload="none"/.test(html));ok(!/id="cq-video"[^>]*autoplay/.test(html));
 const dir=new URL('data/scene-curriculum/v1/',root),live=JSON.parse(fs.readFileSync(new URL('manifest.json',dir),'utf8'));
-eq(live.books.length,85);ok(live.wordForms>4400);ok(live.imageWordForms/live.wordForms>=.97,'at least 97% of word forms have a verified picture');ok(live.clips>=40);
+eq(live.books.length,85);ok(live.wordForms>4400);ok(live.clips>=40);
+/* 🔴 2026-09-21 — 여기 있던 「word forms 의 97% 가 verified picture」 단정을 버렸습니다.
+   그 숫자는 «그림을 붙인 개수» 였을 뿐 «그 낱말을 보여 주는가» 를 한 번도 재지 않았고,
+   실측으로 39,910줄 중 21,255줄(53%)이 그 낱말과 무관한 그림이었습니다(「nice」 ← 가방 사진).
+   그래서 «몇 %가 그림을 가졌나» 대신 «그림이라고 말한 것마다 근거가 있는가» 를 봅니다. */
 const sourceBooks=new Map();
 for(const [series,file,name] of [['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']]){
  const code=fs.readFileSync(new URL('js/'+file,root),'utf8');const actual=JSON.parse(vm.runInNewContext(code+'\nJSON.stringify('+name+')'));
  Object.values(actual).forEach((b,i)=>sourceBooks.set(series+'-'+String(i+1).padStart(2,'0'),b.sentences));
 }
-const seen=new Set(),pictures=new Set();
+const plan=name=>JSON.parse(fs.readFileSync(new URL('../../docs/scene-curriculum-media/'+name,root),'utf8'));
+const scenePlan=plan('scene-plan.json'),assetPlan=plan('asset-plan.json'),clipPlan=plan('clip-plan.json'),contextPlan=plan('context-images.json').images;
+const describe=EV.describeMedia({assets:assetPlan,clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text]))});
+const depicts=EV.makeDepicts(describe);
+const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
+const mediaKey=new Map();
+for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
+for(const c of clipPlan)mediaKey.set(c.id,'clip-image:'+(c.reuseClip||c.index));
+ok([...describe.values()].filter(t=>t.trim()).length<assetPlan.length/2,
+ '그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
+eq(live.wordPictureForms+live.contextOnlyForms+live.noPictureForms,live.wordForms,
+ '낱말 형태를 «낱말 그림 / 상황 그림만 / 그림 없음» 으로 갈라서 센다');
+ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
+ '근거 있는 낱말 그림은 소수다 — 갑자기 대부분이 되면 근거 게이트가 죽은 것');
+const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,none:0};
 for(const entry of live.books){
  const bytes=fs.readFileSync(new URL(entry.id+'.json',dir));ok(bytes.length<350000,entry.id+' payload');ok(zlib.gzipSync(bytes).length<80000,entry.id+' gzip budget');const b=JSON.parse(bytes);eq(b.id,entry.id);eq(b.words.length,entry.words);ok(b.clips.length>0,entry.id+' has a sentence clip');
- for(const w of b.words){eq(sourceBooks.get(b.id)[w.sourceIndex-1],w.bookExample,'example matches the existing course source');seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');ok((s.text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'example contains target');ok((w.bookExample.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'word belongs to selected book');if(s.image){pictures.add(w.word);ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'HTTPS image');}}
- for(const c of b.clips){const s=b.scenes[c.scene];eq(sourceBooks.get(b.id)[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
+ const sentences=sourceBooks.get(b.id),owned=new Set(sentences);
+ for(const w of b.words){
+  seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');
+  /* 화면이 보여 주는 예문 = bookExample ?? 그림 문장. 둘이 같을 때 빌드가 한 번만 싣는다. */
+  const shown=w.bookExample||s.text;
+  eq(sentences[w.sourceIndex-1],shown,'example matches the existing course source');
+  ok((shown.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'word belongs to the shown example');
+  /* ⛔ 남의 교재 문장은 payload 에 실리지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길. */
+  if(s.text)ok(owned.has(s.text),'a shipped sentence belongs to this book');
+  if(w.pic){
+   claimed.word++;pictures.add(w.word);
+   ok(s.image,'a word picture has a picture');
+   ok(depicts(w.word,mediaKey.get(w.scene)),'「낱말 그림」이라고 말하려면 그 그림의 설명이 그 낱말을 가리켜야 한다: '+w.word);
+  }else if(s.image){
+   claimed.context++;pictures.add(w.word);
+   /* 근거가 없을 때 그림은 «그 그림이 실제로 그린 그 문장» 과만 함께 나온다. */
+   ok(s.text===shown,'상황 그림은 지금 보여 주는 그 예문의 그림이어야 한다: '+w.word);
+   ok(!depicts(w.word,mediaKey.get(w.scene))||!w.bookExample,'근거가 있는데 낱말 그림으로 안 세었다: '+w.word);
+  }else{claimed.none++;ok(s.text===shown,'그림이 없을 때도 예문은 그 교재의 예문이다: '+w.word);}
+  if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
+ }
+ for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
+ eq(b.words.filter(w=>w.pic).length,entry.wordPictures,entry.id+' word-picture count');
+ eq(b.words.filter(w=>!w.pic&&b.scenes[w.scene].image).length,entry.contextPictures,entry.id+' context-picture count');
 }
-eq(seen.size,live.wordForms);eq(pictures.size,live.imageWordForms);
-console.log('PASS scene curriculum: '+checks+' assertions (book coverage, payload budgets, grading, request races, cancellation and media fallback; no browser/layout test)');
+eq(seen.size,live.wordForms);
+eq(claimed.word,live.wordPictureRows,'manifest 의 낱말 그림 줄 수가 실제와 같다');
+eq(claimed.context,live.contextPictureRows,'manifest 의 상황 그림 줄 수가 실제와 같다');
+eq(claimed.none,live.noPictureRows,'manifest 의 그림 없음 줄 수가 실제와 같다');
+ok(claimed.none>0,'맞는 그림이 없으면 붙이지 않는다 — 전부 붙었다면 게이트가 죽은 것');
+eq(pictures.size,live.wordPictureForms+live.contextOnlyForms,'그림이 붙은 낱말 형태 수');
+console.log('PASS scene curriculum: '+checks+' assertions (그림 근거 게이트, 예문 출처, payload budgets, grading, request races, cancellation, media fallback; 브라우저·레이아웃 검사는 없음)');

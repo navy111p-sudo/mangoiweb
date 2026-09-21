@@ -31,7 +31,7 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={imageWordForms:4500,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,noPictureForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'bts-03',series:'bts',label:'BTS 3',title:'Kinds'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
 const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',bookExample:'An apple is red.'},{word:'pencil',scene:'p',bookExample:'This is a pencil.'}],clips:[{scene:'v'}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
 const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
@@ -49,4 +49,65 @@ race.change('book','bts-02');await flush();for(const timer of [...race.timers.va
 ok(!/speech-data-(?:bts|siu)/.test(html),'page never eagerly loads all three curricula');
 ok(/id="cq-video"[^>]*preload="none"/.test(html));ok(!/id="cq-video"[^>]*autoplay/.test(html));
 
+/* ═══ 2026-09-21 · 그림이 무엇을 보여 주는지 화면이 사실대로 말하는가 ═══════════════
+   사장님 지적: 「nice(좋은·멋진)」 카드에 「Your backpack looks nice.」 의 가방 사진이 붙었다.
+   ⛔ 세 상태를 한 문구로 뭉치지 마세요 — 그러면 «근거 있는 그림» 과 «그냥 붙인 그림» 이 같은 말이 됩니다.
+   ⚠️ 「낱말 그림이라고 말한다」만 검사하면 «전부 낱말 그림» 도 통과합니다 → 세 상태를 짝으로 봅니다. */
+const kinds={id:'bts-03',label:'BTS 3',words:[
+  {word:'desk',scene:'d',sourceIndex:1,bookExample:'This is my desk.',pic:1},
+  {word:'nice',scene:'n',sourceIndex:2},
+  {word:'kind',scene:'k',sourceIndex:3},
+  {word:'ball',scene:'b',sourceIndex:4,bookExample:'I have a ball.',pic:1}],
+ clips:[],
+ scenes:{d:{source:'SIU Basic 4 · #12',image:'https://images.example.test/desk.webp'},
+   n:{text:'Nice to meet you.',source:'BTS 3 · #2',image:'https://images.example.test/greet.webp'},
+   k:{text:'She is so kind!',source:'BTS 3 · #3'},
+   b:{text:'He kicks the ball.',source:'BTS 3 · #7',image:'https://images.example.test/ball.webp'}}};
+async function kindsApp(){const a=await ready();a.change('book','bts-03');await flush();a.respond('bts-03.json',kinds);await flush();return a;}
+const k=await kindsApp();
+eq(k.els['cq-target'].textContent,'desk');
+ok(k.els['cq-source'].textContent.includes('낱말 그림'),'근거가 있는 그림은 「낱말 그림」이라고 말한다');
+ok(k.els['cq-source'].textContent.includes('desk'),'무엇을 근거로 그렇게 말하는지 밝힌다');
+eq(k.els['cq-book-example'].textContent,'','그림 문장이 payload 에 없으면 남의 교재 문장이 샐 자리도 없다');
+eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'This is my desk.','예문은 그 교재의 예문이다');
+ok(k.els['cq-example'].children.some(c=>c.tag==='mark'&&c.textContent==='desk'),'예문에서 배울 낱말을 표시한다');
+k.click('next');
+eq(k.els['cq-target'].textContent,'nice');
+ok(k.els['cq-source'].textContent.includes('상황 그림'),'근거가 없으면 「상황 그림」이라고 말한다');
+ok(k.els['cq-source'].textContent.includes('낱말 뜻 그림은 아니에요'),'낱말 뜻 그림이 아니라고 분명히 말한다');
+ok(!k.els['cq-source'].textContent.includes('낱말 그림 ·'),'상황 그림을 낱말 그림이라고 부르지 않는다');
+eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'Nice to meet you.','상황 그림은 그 그림이 그린 그 예문과 함께 나온다');
+k.click('next');
+eq(k.els['cq-target'].textContent,'kind');
+ok(k.els['cq-source'].textContent.includes('붙이지 않았어요'),'맞는 그림이 없으면 그렇게 말한다');
+ok(k.els['cq-image'].hidden&&!k.els['cq-image'].getAttribute('src'),'맞는 그림이 없으면 아무 그림도 붙이지 않는다');
+ok(k.els['cq-placeholder'].textContent.includes('그림이 없어'),'왜 비었는지 화면이 말한다');
+k.click('next');
+eq(k.els['cq-target'].textContent,'ball');
+/* 🔴 그림이 «다른 문장» 에서 왔을 때: 예문은 교재 예문이고, 그림 문장은 따로 밝힌다.
+   ⛔ 둘을 바꿔 쓰면 학생이 자기 교재에 없는 문장을 예문으로 외웁니다(옛 화면이 그랬습니다). */
+eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'I have a ball.','예문은 언제나 그 교재의 예문이다');
+ok(k.els['cq-book-example'].textContent.includes('그림 속 문장')&&k.els['cq-book-example'].textContent.includes('He kicks the ball.'),'그림이 다른 문장에서 왔다는 사실을 감추지 않는다');
+/* 🗣 뜻 — 사전을 지어내지 않고 학생 화면이 이미 쓰는 /api/translate mode:'learn' 에 예문째로 묻는다. */
+const m=await kindsApp();m.click('next');
+const before=m.requests.length;m.click('mean');await flush();
+eq(m.requests.length,before+1,'「뜻 보기」를 눌러야 물어본다');
+const ask=m.requests.at(-1);ok(ask.url.endsWith('/api/translate'),'뜻은 기존 번역 경로에 묻는다');
+ok(ask.options.body.includes('"mode":"learn"'),'직역(m2m100)이 아니라 학생용 의역으로 묻는다');
+ok(ask.options.body.includes('Nice to meet you.'),'낱말만이 아니라 예문째로 묻는다 — 맥락이 없으면 「Good job!」→「훌륭한 직업!」 류가 된다');
+ask.done=true;ask.resolve({ok:true,json:async()=>({map:{'Nice to meet you.':'만나서 반가워요.'}})});await flush();
+ok(m.els['cq-meaning'].textContent.includes('만나서 반가워요.'),'받아온 뜻을 보여 준다');
+m.click('mean');await flush();eq(m.requests.length,before+1,'같은 예문은 다시 묻지 않는다');
+m.click('next');eq(m.els['cq-meaning'].textContent,'','카드를 넘기면 앞 카드의 뜻이 남지 않는다');
+/* 늦게 도착한 답이 다음 카드에 얹히지 않는가 — 화면이 「kind」 자리에서 「nice」 의 뜻을 말하면 안 된다. */
+const late=await kindsApp();late.click('next');late.click('mean');await flush();
+const slow=late.requests.at(-1);late.click('next');
+slow.done=true;slow.resolve({ok:true,json:async()=>({map:{'Nice to meet you.':'만나서 반가워요.'}})});await flush();
+eq(late.els['cq-meaning'].textContent,'','늦게 온 뜻은 이미 넘긴 카드의 것이라 버린다');
+const fail=await kindsApp();const n0=fail.requests.length;fail.click('mean');await flush();
+const bad=fail.requests.at(-1);bad.done=true;bad.resolve({ok:false,status:500,json:async()=>({})});await flush();
+ok(fail.els['cq-meaning'].textContent.includes('불러오지 못했어요'),'못 불러오면 솔직히 말한다');
+ok(!fail.els['cq-mean'].disabled,'실패해도 다시 눌러 볼 수 있다');
+const quizzed=await kindsApp();quizzed.click('quiz');
+ok(quizzed.els['cq-mean'].hidden,'퀴즈 중에는 뜻 버튼을 숨긴다(발음 듣기와 같은 규칙)');
 console.log('PASS UI checks',checks);

@@ -31,3 +31,21 @@ Added an independent on-demand registered catalog panel: course → registered l
 Operating-server inspection remains blocked: terminal CONNECT timed out and Cloud Browser returned ERR_BLOCKED_BY_CLIENT for the public catalog endpoint. Thus no live count or source-page contents were verified this turn. Existing generated picture/video practice is explicitly separate: its correspondence to these exact lesson pages has not yet been validated. Users do NOT need to re-upload textbooks merely to obtain catalog names; source reading/OCR and verified content-to-lesson mapping are the remaining tasks.
 
 Previous commit e9e716d full GitHub CI run 35561305639 succeeded before this follow-up. New catalog changes require their own CI result.
+
+---
+
+## 정정 (2026-09-21, 같은 날 나중)
+
+위의 **「4,469 picture-linked forms」는 «그림을 붙인 개수» 이지 «그 낱말을 보여 주는 그림의 개수» 가
+아닙니다.** 이 문서가 「These are file-derived counts, not a count of visually verified word definitions」
+라고 적어 두긴 했지만, 화면 머리말이 그 숫자를 「그림 연결 단어」로 그대로 보여 주고 있었습니다.
+
+사장님이 「nice」 카드의 가방 사진을 지적하셔서 전수로 재 보니 **낱말 줄 39,910개 중 21,255개(53%)가
+그 낱말과 무관한 그림**이었고, 더 나아가 **그림 설명 1,511개 중 1,414개(83.6%)는 설명이 아니라 문장을
+그대로 붙여 넣은 틀**이었습니다.
+
+기준을 「그림 설명이 그 낱말을 가리킬 때만 낱말 그림」으로 바꾸고, 근거가 없으면 그 낱말의 교재 예문
+자체의 그림만 «상황 그림» 으로, 그것도 없으면 붙이지 않습니다. 숫자도 갈라서 셉니다
+(낱말 그림 228 · 상황 그림만 4,040 · 그림 없음 278).
+
+📄 `docs/작업기록/260921_낱말그림_뜻과_안맞는_연결_기준교체.md`
