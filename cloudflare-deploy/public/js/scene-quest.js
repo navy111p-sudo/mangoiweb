@@ -6,6 +6,9 @@
   var lastTick=performance.now(),style='practice';
   function tr(ko,en){return ui==='en'?en:ko;}
   function text(id,value){$(id).textContent=value;}
+  // ⛔ ko/en 에 «데이터» 를 넘기지 마세요(장면 이름·모델이 만든 글자 등) —
+  //    language() 가 el.innerHTML = getAttribute('data-…') 라 그대로 마크업 주입입니다.
+  //    여기에 넘기는 것은 «우리가 쓴 고정 문장» 뿐이어야 합니다.
   function label(id,ko,en){var el=$(id);el.setAttribute('data-ko',ko);el.setAttribute('data-en',en);el.textContent=tr(ko,en);}
   function language(){document.documentElement.lang=ui;document.querySelectorAll('[data-ko]').forEach(function(el){el.innerHTML=el.getAttribute('data-'+ui);});text('ui-lang',ui==='ko'?'EN':'한국어');if(active)renderText();}
   function feedback(msg,kind){text('feedback',msg);$('feedback').className='feedback '+(kind||'');}
