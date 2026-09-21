@@ -51,9 +51,18 @@ let L, store;
     setItem(k, v) { if (store.throws) throw new Error('blocked'); store.data[k] = String(v); },
     removeItem(k) { if (store.throws) throw new Error('blocked'); delete store.data[k]; },
   };
-  const mk = new Function('localStorage', '$', 'answers', 'questions', 'SAVE_TTL_MS_IN',
-    'var LS_KEY = ' + JSON.stringify(lsKey) + '; var SAVE_TTL_MS = SAVE_TTL_MS_IN;\n' + src +
-    '\nreturn { countDone, saveProgress, clearSaved, loadSaved, whenLabel, firstUnanswered, TTL: SAVE_TTL_MS };');
+  /* 🪤 되돌리기 시험에서 문법이 깨지면 스택트레이스만 남아 «무엇이 깨졌는지» 가 안 보인다
+     → try/catch 로 깔끔한 FAIL 로 바꾼다 (recording_stop_truth_harness ⑧절 선례) */
+  let mk;
+  try {
+    mk = new Function('localStorage', '$', 'answers', 'questions', 'SAVE_TTL_MS_IN',
+      'var LS_KEY = ' + JSON.stringify(lsKey) + '; var SAVE_TTL_MS = SAVE_TTL_MS_IN;\n' + src +
+      '\nreturn { countDone, saveProgress, clearSaved, loadSaved, whenLabel, firstUnanswered, TTL: SAVE_TTL_MS };');
+  } catch (e) {
+    check('오려 낸 저장·복구 함수가 문법에 맞는다', false, String(e && e.message).slice(0, 120));
+    console.log(`\n  ⚠ 실패 ${FAIL}건 / 통과 ${PASS}건 — 함수를 못 만들어 아래 검사를 건너뜁니다\n`);
+    process.exit(1);
+  }
   const TTL = Number(new Function('return ' + ttlExpr)());
   const ANSWERS = {}, QS = [];
   for (const lv of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) for (let i = 1; i <= 4; i++) QS.push({ id: `${lv.toLowerCase()}_${i}` });
@@ -93,10 +102,21 @@ let L, store;
 
   // ⑤ localStorage 가 던지는 환경(시크릿 창·저장 차단)
   store.throws = true;
-  let threw = false;
-  try { L.saveProgress(); L.clearSaved(); if (L.loadSaved() !== null) threw = true; } catch (e) { threw = true; }
+  let threw = false, savedRet;
+  try { savedRet = L.saveProgress(); L.clearSaved(); if (L.loadSaved() !== null) threw = true; } catch (e) { threw = true; }
   store.throws = false;
   check('⑤ localStorage 가 막힌 환경에서도 던지지 않는다(시험은 그대로 돌아간다)', !threw);
+  /* 🔴 (2026-09-21 함정 대조) «저장됐다고 말하기 전에 저장됐는지 확인한다».
+     조용히 삼키면 화면이 «여기까지 저장했어요» 라고 단정하고, 학생은 안심하고 나가서
+     처음부터 다시 푼다 — 이 화면이 고치려던 바로 그 사고다. */
+  check('🔴 ⑤ 저장이 막히면 saveProgress 가 false 를 돌려준다(조용히 삼키지 않는다)', savedRet === false, String(savedRet));
+  store.data = {}; ANSWERS.a1_1 = 0;
+  check('🔴 ⑤ 정상일 때는 true 를 돌려준다(«못 한다» 쪽으로만 실패하지 않게)', L.saveProgress() === true, String(L.saveProgress()));
+  /* setItem 이 던지지 «않고» 아무것도 안 하는 환경도 있다 — 다시 읽어 확인해야 잡힌다 */
+  store.data = {}; const realSet = fakeLS.setItem;
+  fakeLS.setItem = function(){ /* 쓴 척만 한다 */ };
+  check('🔴 ⑤ 쓴 척만 하는 환경도 false 로 잡는다(다시 읽어 확인한다)', L.saveProgress() === false);
+  fakeLS.setItem = realSet;
 
   // ⑥ 언제 저장했는지
   const now = Date.now();
@@ -111,7 +131,9 @@ console.log('\n[ B. 배선 — 함수가 «있는가» 가 아니라 «그 자�
   const clickBody = blockAt(HTML, "b.addEventListener('click', function(){");
   check('선택지 클릭 블록을 중괄호 짝으로 오려 냈다', clickBody.length > 60 && /answers\[q\.id\] = i/.test(clickBody));
   check('🔴 답을 고르면 «넘어가기 전에» 저장한다 (마지막 한 문항이 안 날아가게)',
-    /answers\[q\.id\] = i;\s*\n\s*saveProgress\(\);/.test(clickBody), clickBody.replace(/\s+/g, ' ').slice(0, 120));
+    /answers\[q\.id\] = i;[\s\S]{0,140}?saveProgress\(\)/.test(clickBody), clickBody.replace(/\s+/g, ' ').slice(0, 140));
+  check('🔴 그 결과를 «보고» 실패하면 화면 약속을 거둔다 (부르기만 하면 아무것도 안 막는다)',
+    /if \(!saveProgress\(\)\) markSaveBroken\(\);/.test(clickBody), clickBody.replace(/\s+/g, ' ').slice(0, 140));
 
   const start = blockAt(HTML, 'function startQuiz(resume){');
   check('이어서 하기는 문항 «id» 로 답을 되살린다', /sv\.answers\[q\.id\]/.test(start));
@@ -139,6 +161,16 @@ console.log('\n[ B. 배선 — 함수가 «있는가» 가 아니라 «그 자�
   const pause = blockAt(HTML, "$('ai-pause').addEventListener('click', function(){");
   check('⏸ 멈춤 버튼이 저장하고 멈춤 화면을 연다', /saveProgress\(\)/.test(pause) && /pause-card/.test(pause));
   check('⏸ 멈춤 화면이 몇 문항까지 했는지 말한다', /pause-cnt/.test(pause));
+  /* 🔴 저장이 실패했는데 «저장했어요» 라고 하면, 학생이 안심하고 나가서 처음부터 다시 푼다 */
+  check('🔴 ⏸ 멈춤 화면이 저장 «결과» 를 보고 말을 고른다',
+    /var ok = saveProgress\(\);/.test(pause) && /pause-title'\)\.textContent = ok \?/.test(pause), pause.replace(/\s+/g, ' ').slice(0, 160));
+  check('🔴 ⏸ 저장 못 했을 때 «저장하지 못했어요» 라고 사실대로 말한다', /저장하지 못했어요/.test(pause));
+  check('🔴 ⏸ 그때 «지금 끝까지 푸는 것이 안전» 이라고 할 일을 준다', /끝까지 마치는 것이 안전/.test(pause));
+  const broken = fn('markSaveBroken');
+  check('🔴 저장이 안 되는 것이 확인되면 문항 화면의 «자동 저장돼요» 약속을 거둔다',
+    /ai-savednote/.test(broken) && /저장되지 않아요/.test(broken), broken.replace(/\s+/g, ' ').slice(0, 140));
+  check('시작 화면의 «중간에 멈춰도 괜찮아요» 도 함께 거둔다', /ai-savehint/.test(broken));
+  check('⛔ 미리 겁주지 않는다 — 실제로 실패한 뒤 «한 번만» 바꾼다', /if \(!saveOk\) return;/.test(broken));
 }
 
 console.log('\n[ C. 화면이 «안전하다» 고 말하는가 · 폰트 계약 ]');
