@@ -22,3 +22,12 @@ The source files have 100 sentences per named set and no verified textbook lesso
 - CI, real browser flow and mobile layout; media reachability and final visual QA.
 - Authoritative textbook lesson mapping (current practice sections are not textbook lessons).
 - Do not describe 85 sets as 85 verified textbook volumes, or picture coverage as semantic accuracy.
+
+## Follow-up: administrator screenshot and actual catalog
+The user showed the existing administrator textbook catalog. The earlier statement that textbook lesson information was unavailable was too broad: the existing public GET /api/textbook-files?group=1 provides the exact published lesson/group names, registered levels and page counts, with hidden groups filtered server-side. The source implementation was verified in api-admin.ts; loadTextbookChoices in student-placement.ts also documents the distinction between umbrella textbook rows and real content names.
+
+Added an independent on-demand registered catalog panel: course → registered level → textbook → actual lesson → original page links. Exact group names are preserved; only the selected lesson page metadata is requested; original files load only after a link click. No admin API, DB write, OCR call, hidden-group bypass, or student profile read was introduced. Numeric book ordering, exact group membership, ID validation, cancellation, 15-second timeout and retry are tested by scene_textbook_catalog_harness (23 checks passed). The registered-level selector does not invent a CEFR equivalence.
+
+Operating-server inspection remains blocked: terminal CONNECT timed out and Cloud Browser returned ERR_BLOCKED_BY_CLIENT for the public catalog endpoint. Thus no live count or source-page contents were verified this turn. Existing generated picture/video practice is explicitly separate: its correspondence to these exact lesson pages has not yet been validated. Users do NOT need to re-upload textbooks merely to obtain catalog names; source reading/OCR and verified content-to-lesson mapping are the remaining tasks.
+
+Previous commit e9e716d full GitHub CI run 35561305639 succeeded before this follow-up. New catalog changes require their own CI result.

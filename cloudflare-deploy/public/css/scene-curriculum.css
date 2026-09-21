@@ -3,3 +3,5 @@
 .cq-selectors label,.cq-selectors select{min-width:0}
 
 .cq-selectors{grid-template-columns:repeat(3,minmax(0,1fr))}.cq-note+ .cq-note{margin-top:6px}@media(max-width:760px){.cq-selectors{grid-template-columns:repeat(2,minmax(0,1fr))}.cq-selectors label:nth-child(2){grid-column:auto;grid-row:auto}}@media(max-width:420px){.cq-selectors{grid-template-columns:1fr}.cq-selectors select{max-width:100%}}
+
+.ct-panel{border:1px solid var(--line);border-radius:18px;padding:18px;margin:18px 0 28px}.ct-panel h2,.ct-practice-title{font-size:22px}.ct-panel .cq-note{margin:10px 0}.ct-lesson{grid-column:span 2}.ct-pages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.ct-pages a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-wrap:anywhere;min-height:44px}.ct-pages a:hover{color:var(--ink);background:var(--panel)}@media(max-width:760px){.ct-pages{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){.ct-lesson{grid-column:auto}.ct-pages{grid-template-columns:1fr}}
