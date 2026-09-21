@@ -41,6 +41,11 @@ export interface ToolSpec {
   minutes: number;
   /** 낮은 밴드에서는 안 권한다(글쓰기 — 문장을 스스로 만들어야 하므로) */
   minBand?: number;
+  /**
+   * «오늘 몫» — 하루에 이만큼 하면 충분하다는 눈금. 있는 도구만 막대를 그린다.
+   * ⛔ minutes 와 섞지 말 것: minutes 는 «이 정도 걸린다» 는 안내이고 goal 은 «이만큼 하면 끝» 이다.
+   */
+  goal?: number;
 }
 
 /** 도구 8종 + 단어장. ⚠️ url 은 실재하는 화면이어야 한다(하니스가 파일 존재를 대조한다). */
@@ -53,8 +58,45 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
   vocab:    { key: 'vocab',    url: '/vocab.html',        icon: '📖', ko: '단어장', en: 'Vocabulary', minutes: 5 },
   judgment: { key: 'judgment', url: '/judgment.html',     icon: '🧭', ko: '판단력 훈련', en: 'Judgment training', minutes: 5 },
   write:    { key: 'write',    url: '/ai-write.html',     icon: '✍️', ko: 'AI 글쓰기', en: 'AI writing', minutes: 15, minBand: 3 },
-  games:    { key: 'games',    url: '/student-games.html', icon: '🎮', ko: '학생게임', en: 'Learning games', minutes: 10 },
+  /* goal 5 — 2026-09-21 D1 실측(game_sessions, 게임만): 실제로 문제를 푼 학생-일 40일의
+     중앙값 6 · p25 3 · p75 12. 중앙값보다 조금 아래로 잡아 «평소 하던 만큼» 이면 채워지게 했다.
+     ⛔ «판 수» 로 두지 말 것 — 한 판 아무것도 안 하고 세 번 들락날락해도 달성이 된다. */
+  games:    { key: 'games',    url: '/student-games.html', icon: '🎮', ko: '학생게임', en: 'Learning games', minutes: 10, goal: 5 },
 };
+
+/**
+ * `game_sessions.game` 값 중 «게임이 아닌» 것 — 학습도구가 그 표를 함께 쓴다.
+ *
+ * 🔴 2026-09-21 D1 실측(전 기간 1,129판): warmup 403 · speech-coach 258 · ai-write 82 ·
+ *    judgment 65 · micro-quiz 54 · review-quiz 50 · vocab 16 이 같은 표에 들어 있다.
+ *    그래서 「게임을 했나」를 그 표 전체로 세면 «웜업만 한 학생» 도 게임을 한 것이 되고,
+ *    「오늘의 A.i 학습」 카드는 웜업 칸을 따로 갖고 있으므로 **한 사람을 두 번** 세게 된다.
+ *
+ * ⛔ 이것을 «게임 허용목록» 으로 뒤집지 말 것 — 새 게임이 하나 생기면 그날부터 조용히
+ *    빠져서 그 학생의 막대가 영영 0이 된다(빠지는 쪽이 훨씬 나쁘다). 학습도구는 8종으로
+ *    고정이고 게임만 늘어나므로 «빼기» 가 저절로 맞는다.
+ * ⚠️ 여기 이름은 화면이 보내는 값이다(`POST /api/games/session` 의 `game`).
+ *    ToolKey 와 글자가 다르다(micro ↔ micro-quiz) — 바꿔 적으면 조용히 안 걸린다.
+ */
+export const NON_GAME_KINDS: readonly string[] =
+  ['warmup', 'speech-coach', 'ai-write', 'judgment', 'micro-quiz', 'review-quiz', 'vocab'];
+
+/**
+ * 위 목록을 SQL 조건 한 조각으로. `game_sessions` 를 읽는 자리가 이것을 «붙이기만» 한다.
+ * ⚠️ 바인드(`?`)가 아니라 상수 문자열이다 — 인자 수를 안 늘려 D1 100개 한도와 무관하고,
+ *    값이 코드 안 고정 상수라 주입 위험이 없다(하니스가 «따옴표가 안 들어 있는가» 를 본다).
+ * ⛔ 이 조건을 호출부에 베껴 적지 말 것 — 목록이 늘 때 한 곳만 고쳐지는 사고가 난다.
+ */
+export const NON_GAME_SQL: string =
+  ' AND LOWER(COALESCE(game, \'\')) NOT IN (' +
+  NON_GAME_KINDS.map(k => "'" + k + "'").join(',') + ')';
+
+/** 그 판이 «게임» 인가. 모르는 이름은 게임으로 본다(위 ⛔ — 빠지는 쪽으로 실패하지 않는다). */
+export function isGameKind(kind: any): boolean {
+  const k = String(kind == null ? '' : kind).trim().toLowerCase();
+  if (!k) return false;
+  return NON_GAME_KINDS.indexOf(k) < 0;
+}
 
 /**
  * 수업 없는 날의 요일별 묶음 (일=0 … 토=6).
@@ -108,6 +150,13 @@ export interface PlanInput {
   weekClassTimes?: Record<number, string>;
   /** 오늘 도구별 활동 횟수(0 이면 안 함). 없는 키는 0 */
   done: Partial<Record<ToolKey, number>>;
+  /**
+   * 오늘 게임에서 «실제로 푼 문제 수» (`game_sessions.items` 합, 게임만).
+   * ⚠️ done.games(판 수)와 다른 축이다 — 들락날락한 판은 여기서 0이고,
+   *    items 를 아직 안 보내는 게임(2026-09-21 실측 escape-zombie·language-ace)은
+   *    판은 세어지는데 여기는 0이다. 그래서 «했나» 는 done, «얼마나» 는 이 값으로 본다.
+   */
+  gameItems?: number;
 }
 
 export type Slot = 'before' | 'after' | 'home' | 'first';
@@ -121,6 +170,10 @@ export interface PlanStep {
   url: string;
   minutes: number;
   done: boolean;
+  /** «오늘 몫» 이 있는 도구만. 없으면 막대를 그리지 않는다 */
+  goal?: number;
+  /** 그 몫을 얼마나 채웠나. goal 이 있을 때만 뜻이 있다 */
+  progress?: number;
   /** 왜 지금 이것인가 — 한 줄 */
   whyKo: string;
   whyEn: string;
@@ -152,6 +205,13 @@ export interface TodayPlan {
   steps: PlanStep[];
   totalMinutes: number;
   doneCount: number;
+  /**
+   * 게임 «오늘 몫» — 게임 허브가 읽는다.
+   * ⚠️ 최상위에 따로 두는 이유: games 가 오늘 계획에 «없는» 날도 허브는 숫자를 보여 줘야 한다
+   *    (steps 에서 찾으면 그런 날 막대가 통째로 사라진다).
+   */
+  gameGoal: number;
+  gameItems: number;
   /** 도구 화면이 읽는 레벨 키에 심을 값 — 화면은 «비어 있을 때만» 심는다 */
   levelKeys: { warmup: string | null; aifriend: string | null };
   week: WeekDay[];
@@ -231,8 +291,22 @@ function fitToBand(keys: ToolKey[], band: number | null): ToolKey[] {
 
 function step(key: ToolKey, slot: Slot, inp: PlanInput, whyKo: string, whyEn: string): PlanStep {
   const s = spec(key, inp.zh);
-  return { key, slot, icon: s.icon, ko: s.ko, en: s.en, url: s.url, minutes: s.minutes,
+  const out: PlanStep = { key, slot, icon: s.icon, ko: s.ko, en: s.en, url: s.url, minutes: s.minutes,
            done: (inp.done[key] || 0) > 0, whyKo, whyEn };
+  /* «오늘 몫» 이 정해진 도구면 진행도를 함께 싣는다. 지금은 games 하나뿐이지만,
+     나중에 다른 도구에 goal 을 붙여도 화면 코드를 안 고치게 여기서 일반으로 처리한다. */
+  const g = TOOLS[key].goal;
+  if (g && g > 0) { out.goal = g; out.progress = goalProgress(key, inp); }
+  return out;
+}
+
+/** 그 도구의 «오늘 몫» 을 얼마나 채웠나. ⛔ 값을 지어내지 않는다 — 모르면 0 */
+function goalProgress(key: ToolKey, inp: PlanInput): number {
+  if (key === 'games') {
+    const n = Number(inp.gameItems);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  }
+  return 0;
 }
 
 /** 오늘 수업 중 «가장 이른 것» — 두 건이면 첫 수업 전 웜업·마지막 수업 뒤 복습이 맞지만 화면은 한 건만 보여 준다 */
@@ -365,6 +439,8 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     band, bandKo: bs ? bs.nameKo : null, bandEn: bs ? bs.nameEn : null, cefr,
     textbook: inp.textbook || null,
     steps, totalMinutes, doneCount,
+    gameGoal: TOOLS.games.goal || 0,
+    gameItems: goalProgress('games', inp),
     levelKeys: { warmup: band ? String(band) : null, aifriend: band ? ('S' + band) : null },
     week: todayFromSteps(buildWeek(inp), inp.dow, steps),
   };

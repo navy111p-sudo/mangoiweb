@@ -15,7 +15,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
-import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
+import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, NON_GAME_SQL, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
   request: Request,
@@ -508,6 +508,7 @@ ${MANGOI_KNOWLEDGE}`;
       };
       const d0 = k.dayStartMs;
       const [doneWarmup, doneReview, doneFriend, doneSpeech, doneMicro, doneVocab, doneJudg, doneWrite, doneGames,
+             gameItemsToday,
              clsRs, c24Rs, ptRow, ...dateRs] = await Promise.all([
         cnt(`SELECT COUNT(*) n FROM warmup_session_log WHERE user_id = ? AND started_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM review_quiz_results WHERE user_id = ? AND created_at >= ?`, exactUid, d0),
@@ -517,7 +518,15 @@ ${MANGOI_KNOWLEDGE}`;
         cnt(`SELECT COUNT(*) n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM judgment_events WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
-        cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?`, exactUid, d0),
+        /* 🎮 «게임을 했나» — 판 수. ⚠️ game_sessions 에는 학습도구도 함께 들어 있어(2026-09-21 실측
+           warmup 403 · speech-coach 258 …) 그대로 세면 웜업만 한 학생도 «게임 했음» 이 되고
+           웜업 칸과 **두 번** 세어진다. 정본 NON_GAME_KINDS 로 «게임만» 남긴다.
+           ⛔ 이 조건을 여기 손으로 적지 말 것 — 정본이 늘 때 조용히 어긋난다. */
+        cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?` + NON_GAME_SQL, exactUid, d0),
+        /* 🎯 «얼마나 했나» — 실제로 푼 문제 수(items 합). 들락날락한 판은 0이라 저절로 안 세어진다.
+           ⚠️ 판 수와 다른 축이라 따로 센다(같은 칸에 담으면 «했나» 판정이 바뀐다 — items 를 아직
+              안 보내는 게임이 «안 한 것» 이 되어 버린다). */
+        cnt(`SELECT COALESCE(SUM(items),0) n FROM game_sessions WHERE uid = ? AND created_at >= ?` + NON_GAME_SQL, exactUid, d0),
         /* 망고아이 시간표 — 정기(요일)와 날짜지정 둘 다. LMS·시드 자리표시는 뺀다(2026-08-24 결정). */
         /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
            (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
@@ -602,6 +611,7 @@ ${MANGOI_KNOWLEDGE}`;
       const plan = buildTodayPlan({
         band: bandFromLevelCell(stu.level), textbook, zh,
         dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], weekClassTimes: weekTimes, done,
+        gameItems: gameItemsToday,
       });
       const dates: string[] = [];
       for (const rs of dateRs) for (const r of ((rs as any)?.results || [])) if (r?.d) dates.push(String(r.d));
