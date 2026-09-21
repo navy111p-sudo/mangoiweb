@@ -110,4 +110,31 @@ ok(fail.els['cq-meaning'].textContent.includes('불러오지 못했어요'),'못
 ok(!fail.els['cq-mean'].disabled,'실패해도 다시 눌러 볼 수 있다');
 const quizzed=await kindsApp();quizzed.click('quiz');
 ok(quizzed.els['cq-mean'].hidden,'퀴즈 중에는 뜻 버튼을 숨긴다(발음 듣기와 같은 규칙)');
+/* 🖼 낱말 그림(item.img) — 그 낱말 «하나» 를 보여 주려고 일부러 만든 그림.
+   ⛔ 「낱말 그림을 그린다」만 검사하면 «전부 img 로 그리기» 도 통과합니다 —
+      바로 옆에 「img 가 없는 낱말은 예전대로 장면 그림」을 짝으로 둡니다. */
+async function wordPicApp(){
+ const a=app();a.click('open');await flush();a.respond('manifest.json',manifest);await flush();
+ a.respond('bts-01.json',{id:'bts-01',label:'BTS 1',clips:[],words:[
+  {word:'okay',scene:'k',pic:1,img:'/img/scene-words/okay.webp',imgBytes:30458,bookExample:'Okay, see you.'},
+  {word:'apple',scene:'a',bookExample:'An apple is red.'}],
+  scenes:{k:{text:'Okay, see you.',source:'BTS 1 · #1',image:'https://images.example.test/other-sentence.webp'},
+          a:{text:'An apple is red.',source:'BTS 1 · #2',image:'https://images.example.test/apple.webp'}}});
+ await flush();return a;
+}
+{
+ const w=await wordPicApp();
+ eq(w.els['cq-image'].src,'/img/scene-words/okay.webp','낱말 그림이 있으면 그것을 그린다(장면 그림이 아니라)');
+ ok(w.els['cq-source'].textContent.includes('낱말 그림'),'출처 줄이 «낱말 그림» 이라고 말한다');
+ ok(w.els['cq-source'].textContent.includes('okay'),'그 낱말 이름을 말한다');
+ /* ⛔ 「낱말 그림」이라는 낱말만 보면 «문장 삽화» 문구로 떨어지는 변이가 통과합니다(실측)
+    — 그 둘을 가르는 것은 «보여 주려고 만든» 이라는 이 한 마디뿐입니다. */
+ ok(/보여 주려고 만든/.test(w.els['cq-source'].textContent),'«일부러 만든 그림» 이라고 말한다(문장 삽화 문구로 떨어지지 않는다)');
+ ok(w.els['cq-media-status'].textContent.includes('이 낱말 하나'),'그 낱말 하나를 위해 만든 그림이라고 말한다');
+ ok(!/상황 그림/.test(w.els['cq-source'].textContent),'낱말 그림을 «상황 그림» 이라고 말하지 않는다');
+ /* 짝 — img 가 없는 낱말은 예전 그대로 장면 그림이다. */
+ w.click('next');
+ eq(w.els['cq-image'].src,'https://images.example.test/apple.webp','낱말 그림이 없으면 예전처럼 장면 그림을 그린다');
+ ok(!/보여 주려고 만든/.test(w.els['cq-source'].textContent),'장면 그림을 «일부러 만든 낱말 그림» 이라고 말하지 않는다');
+}
 console.log('PASS UI checks',checks);

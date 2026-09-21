@@ -108,7 +108,10 @@ eq(EV.wordPictureEvidence([{word:'zebra',index:999002,prompt:'Vocabulary picture
  '설명이 그 낱말을 부르면 낱말 그림으로 쓴다');
 /* 짝 ②: 계획에 없는 낱말은 예전 그대로다(낱말 그림이 «전부» 를 덮어쓰지 않는다). */
 eq(wordPicEv.keyFor('zzqnotaword'),'','계획에 없는 낱말에는 낱말 그림이 없다');
-/* 짝 ③: 거의 모든 설명에 나오는 말(껍데기)은 근거가 아니다 — 안 그러면 틀 문구가 모든 그림에 붙습니다. */
+/* 짝 ③: 거의 모든 설명에 나오는 말(껍데기)은 근거가 아니다 — 안 그러면 틀 문구가 모든 그림에 붙습니다.
+   ⚠️ 껍데기 방어는 «두 겹» 입니다(낱말 자신을 거르는 줄 · 낱말집합에서 거르는 줄) — 실측으로
+      한 겹만 지우면 나머지가 받아 내어 이 검사가 안 걸립니다. «둘 다» 지워야 실제로 FAIL 납니다.
+      ⛔ 그렇다고 한 겹을 «필요 없다» 며 지우지 마세요 — 남은 한 겹이 이 검사의 전부가 됩니다. */
 {const same=[...Array(10)].map((_,i)=>({word:'picture',index:999100+i,prompt:'Vocabulary picture for "picture". Thing number '+i+'.'}));
  eq(EV.wordPictureEvidence(same).keyFor('picture'),'','묶음의 거의 모든 설명에 나오는 낱말은 근거가 아니다');}
 eq(wordPicUrl.size,live.wordPictureAssets||0,'manifest 의 낱말 그림 장수가 실제 파일 수와 같다');
