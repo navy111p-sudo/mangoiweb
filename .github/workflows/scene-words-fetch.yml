@@ -1,6 +1,5 @@
-# ⚠️ 임시 워크플로 — 낱말 그림을 러너에서 받아 640x480 webp 로 줄여 커밋합니다.
-# 작업 컨테이너의 프록시가 그 CDN 을 403(정책 거부)으로 막아 여기서만 받을 수 있습니다.
-# ⛔ main 에 올리지 마세요. 끝나면 이 파일과 tools/scene-words/ 를 지웁니다.
+# ⚠️ 임시 워크플로 — 작업 컨테이너의 프록시가 그 CDN 을 403 으로 막아 여기서만 받을 수 있습니다.
+# ⛔ main 에 올리지 마세요. 끝나면 이 파일과 tools/ 의 임시 스크립트를 지웁니다.
 name: scene-words-fetch
 on:
   push:
@@ -8,18 +7,15 @@ on:
 permissions:
   contents: write
 jobs:
-  fetch:
+  probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick webp
-      - run: node tools/scene-words/fetch-words.mjs tools/scene-words/urls.json cloudflare-deploy/public/img/scene-words tools/scene-words/result.json
-      - run: |
-          ls -la cloudflare-deploy/public/img/scene-words | head -20
-          cat tools/scene-words/result.json
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg webp
+      - run: bash tools/video-probe.sh
       - run: |
           git config user.name "scene-words-fetch"
           git config user.email "noreply@anthropic.com"
-          git add -A cloudflare-deploy/public/img/scene-words tools/scene-words/result.json
-          git diff --cached --quiet || git commit -m "scene-words fetch [skip ci]"
+          git add -A tools/video-probe-result.txt
+          git diff --cached --quiet || git commit -m "video probe [skip ci]"
           git push origin HEAD:claude/scene-words-fetch
