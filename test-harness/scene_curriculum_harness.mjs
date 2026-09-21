@@ -32,7 +32,7 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={wordForms:4546,wordPictureForms:95,contextOnlyForms:4157,noPictureForms:294,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+const manifest={wordForms:4546,wordPictureForms:95,contextOnlyForms:4374,cardOnlyForms:77,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
 const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.'},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.'}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
 const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
@@ -85,14 +85,25 @@ for(const [sid,text] of sceneOwnText){if(!sceneHasImage.get(sid))continue;
 ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 한다 — 갑자기 많아지면 게이트가 열린 것 ('+depictPool.size+')');
 ok([...describe.values()].filter(t=>t.trim()).length<assetPlan.length/2,
  '그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
-eq(live.wordPictureForms+live.contextOnlyForms+live.noPictureForms,live.wordForms,
- '낱말 형태를 «낱말 그림 / 상황 그림만 / 그림 없음» 으로 갈라서 센다');
+eq(live.wordPictureForms+live.contextOnlyForms+live.cardOnlyForms,live.wordForms,
+ '낱말 형태를 «낱말 그림 / 상황 그림만 / 그림카드만» 으로 갈라서 센다');
 ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
  '근거 있는 낱말 그림은 소수다 — 갑자기 대부분이 되면 근거 게이트가 죽은 것');
-const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,none:0};
+/* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 붙이지 않는다 ·
+   전부 붙었다면 게이트가 죽은 것」 단정을 버립니다. 그 검사가 지키던 것은 «근거 없는 사진을 붙이지 않는다»
+   였는데, 지금은 그 자리를 «우리가 그린 낱말 그림카드» 가 채웁니다(남의 문장 사진을 빌려 오지 않습니다).
+   ⛔ 느슨하게 풀지 말고 새 경계로 옮겨 적습니다 —
+      ① 사진을 «낱말 그림» 이라고 부르는 줄은 여전히 근거가 있어야 하고 소수여야 한다
+      ② 사진이 없는 줄은 카드로 채워진다(빈 상자 0줄)
+      ③ 카드는 사진인 척하지 않는다(그 줄에는 image 가 없다) */
+const seen=new Set(),pictures=new Set(),claimed={word:0,context:0,card:0};let cardExact=0;
+/* 🖼 「그 교재 안에 그림 있는 예문이 있으면 그것을 예문으로 고른다」를 여기서 다시 계산해 맞춰 본다.
+   ⛔ 「그림만 빌려 오기」와 다릅니다 — 예문 자체를 바꿔 그림과 예문이 언제나 짝입니다. */
+const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage.get(sid))imagedText.add(text);
 for(const entry of live.books){
  const bytes=fs.readFileSync(new URL(entry.id+'.json',dir));ok(bytes.length<350000,entry.id+' payload');ok(zlib.gzipSync(bytes).length<80000,entry.id+' gzip budget');const b=JSON.parse(bytes);eq(b.id,entry.id);eq(b.words.length,entry.words);ok(b.clips.length>0,entry.id+' has a sentence clip');
  const sentences=sourceBooks.get(b.id),owned=new Set(sentences);
+ const sentenceOf=new Map();for(const t of sentences)for(const cw of contentWords(t)){if(!sentenceOf.has(cw))sentenceOf.set(cw,[]);sentenceOf.get(cw).push(t);}
  for(const w of b.words){
   seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');
   /* 화면이 보여 주는 예문 = bookExample ?? 그림 문장. 둘이 같을 때 빌드가 한 번만 싣는다. */
@@ -110,11 +121,21 @@ for(const entry of live.books){
    /* 근거가 없을 때 그림은 «그 그림이 실제로 그린 그 문장» 과만 함께 나온다. */
    ok(s.text===shown,'상황 그림은 지금 보여 주는 그 예문의 그림이어야 한다: '+w.word);
    ok(!depicts(w.word,mediaKey.get(w.scene))||!w.bookExample,'근거가 있는데 낱말 그림으로 안 세었다: '+w.word);
-  }else{claimed.none++;ok(s.text===shown,'그림이 없을 때도 예문은 그 교재의 예문이다: '+w.word);}
+  }else{claimed.card++;
+   /* 🎨 사진이 없는 줄 — 화면이 그리는 낱말 그림카드가 붙는다. 여기서는 «사진인 척하지 않는가» 와
+      «카드에 그릴 그림문자가 실제로 나오는가» 를 본다(그림문자 정본은 화면 파일 한 곳). */
+   ok(s.text===shown,'그림카드 줄에서도 예문은 그 교재의 예문이다: '+w.word);
+   const art=D.pictogram(w.word);
+   ok(art&&art.icon&&art.icon.length>0,'그림카드에 그릴 그림문자가 반드시 나온다: '+w.word);
+   if(art.exact)cardExact++;}
   /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
   eq(!!w.pic,depictPool.has(w.word),'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
   if(w.pic)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
   if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^https:\/\//.test(s.image),'https picture');}
+  /* 🎨 빈 상자가 없다 — 사진(낱말·상황)이거나 우리가 그린 카드이거나 둘 중 하나다. */
+  ok(!!s.image||!!D.pictogram(w.word).icon,'모든 낱말 줄에 그림이 붙는다: '+b.id+' / '+w.word);
+  const spots=sentenceOf.get(w.word)||[];
+  if(spots.some(t=>imagedText.has(t)))ok(imagedText.has(shown),'그 교재에 그림 있는 예문이 있으면 그것을 고른다: '+b.id+' / '+w.word);
  }
  for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
  eq(b.words.filter(w=>w.pic).length,entry.wordPictures,entry.id+' word-picture count');
@@ -123,7 +144,26 @@ for(const entry of live.books){
 eq(seen.size,live.wordForms);
 eq(claimed.word,live.wordPictureRows,'manifest 의 낱말 그림 줄 수가 실제와 같다');
 eq(claimed.context,live.contextPictureRows,'manifest 의 상황 그림 줄 수가 실제와 같다');
-eq(claimed.none,live.noPictureRows,'manifest 의 그림 없음 줄 수가 실제와 같다');
-ok(claimed.none>0,'맞는 그림이 없으면 붙이지 않는다 — 전부 붙었다면 게이트가 죽은 것');
-eq(pictures.size,live.wordPictureForms+live.contextOnlyForms,'그림이 붙은 낱말 형태 수');
+eq(claimed.card,live.cardRows,'manifest 의 그림카드 줄 수가 실제와 같다');
+ok(claimed.card>0,'사진이 없는 줄은 그림카드로 채운다 — 0이면 카드 갈래가 죽은 것');
+eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자» 줄 수가 실제와 같다');
+/* ⛔ 목표치가 아니라 «바닥» 입니다 — 표를 비우거나 stem 을 죽이면 여기서 먼저 빨간불이 납니다.
+   숫자를 올리려고 갈래 그림문자를 exact 로 바꾸지 마세요(그게 「갈래를 뜻으로 읽게 두는」 함정입니다). */
+ok(cardExact>claimed.card/2,'그림카드 줄의 절반 넘게는 그 낱말 뜻에 맞는 그림문자를 받는다 ('+cardExact+'/'+claimed.card+')');
+ok(claimed.word>0&&claimed.word<claimed.word+claimed.context+claimed.card,'근거 있는 낱말 그림은 여전히 소수다');
+eq(pictures.size,live.wordPictureForms+live.contextOnlyForms,'사진이 붙은 낱말 형태 수');
+eq(seen.size-pictures.size,live.cardOnlyForms,'나머지 낱말 형태는 모두 그림카드를 받는다');
+/* 🔤 그림문자는 단일 코드포인트만 — Unicode 13 이상은 Win10 에서 두부(□)가 되고 ZWJ 조합은 쪼개집니다.
+   ⚠️ U+1FA70 위쪽은 대부분 Unicode 13+ 라 통째로 막고, 12.0 인 🩺(1FA7A)·🪁(1FA81) 둘만 엽니다. */
+const icons=[...new Set(Object.values(D.PICTO))];
+ok(icons.length>60,'그림문자 표가 비어 있지 않다 ('+icons.length+')');
+for(const icon of icons){
+ const points=[...icon];
+ ok(points.length<=2&&(points.length===1||points[1]==='\uFE0F'),'그림문자는 단일 코드포인트다: '+JSON.stringify(icon));
+ ok(!icon.includes('\u200d'),'ZWJ 조합 그림문자를 쓰지 않는다: '+JSON.stringify(icon));
+ const cp=points[0].codePointAt(0);
+ ok(cp<0x1FA70||cp===0x1FA7A||cp===0x1FA81,'Unicode 13 이상 이모지를 쓰지 않는다: '+JSON.stringify(icon)+' U+'+cp.toString(16));
+}
+ok(D.pictogram('rice').exact&&D.pictogram('books').exact&&D.pictogram('grandmother').exact,'변형형도 기본형으로 되돌려 찾는다');
+ok(!D.pictogram('zzqwx').exact&&D.pictogram('zzqwx').icon,'모르는 낱말도 카드는 나온다 — 다만 «뜻에 맞는 그림» 이라고 말하지 않는다');
 console.log('PASS scene curriculum: '+checks+' assertions (그림 근거 게이트, 예문 출처, payload budgets, grading, request races, cancellation, media fallback; 브라우저·레이아웃 검사는 없음)');

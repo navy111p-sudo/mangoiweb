@@ -31,7 +31,7 @@ function app(){
  vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
  return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
 }
-const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,noPictureForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'bts-03',series:'bts',label:'BTS 3',title:'Kinds'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+const manifest={wordForms:4546,wordPictureForms:228,contextOnlyForms:4040,cardOnlyForms:278,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'bts-03',series:'bts',label:'BTS 3',title:'Kinds'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
 const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',bookExample:'An apple is red.'},{word:'pencil',scene:'p',bookExample:'This is a pencil.'}],clips:[{scene:'v'}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
 const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.'}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
 const flush=()=>new Promise(setImmediate);
@@ -43,7 +43,10 @@ const media=await ready();media.change('mode','videos');eq(media.requests.length
 media.document.hidden=false;media.click('watch');media.click('close');await flush();ok(media.els['cq-video'].paused);eq(media.els['cq-video'].src,'');ok(media.els.curriculum.hidden);
 const stalled=await ready();stalled.change('mode','videos');let resolvePlay;stalled.els['cq-video'].play=()=>new Promise(resolve=>{resolvePlay=resolve;});stalled.click('watch');for(const timer of [...stalled.timers.values()])if(timer.ms===15000)timer.fn();ok(stalled.els['cq-video'].hidden,'stalled clip falls back to the picture');ok(!stalled.els['cq-watch'].disabled,'stalled clip can be retried');eq(stalled.els['cq-video'].src,'');resolvePlay();await flush();ok(stalled.els['cq-video'].hidden,'late play cannot reopen the timed-out clip');
 const offline=await ready();offline.change('mode','videos');offline.els['cq-video'].play=()=>Promise.reject(Error('offline'));offline.click('watch');await flush();ok(offline.els['cq-video'].hidden);ok(offline.els['cq-media-status'].textContent.includes('재생하지 못'));
-offline.change('mode','words');offline.els['cq-image'].dispatch('error');ok(!offline.els['cq-retry-image'].hidden);offline.click('quiz');offline.answer('apple');ok(offline.els['cq-answer'].disabled,'image failure does not block learning');
+offline.change('mode','words');offline.els['cq-image'].dispatch('error');ok(!offline.els['cq-retry-image'].hidden);
+/* 🎨 사진을 못 불러왔을 때도 상자를 비우지 않는다 — 회선이 나쁠수록 그림이 필요한 학생입니다. */
+ok(!offline.els['cq-wordcard'].hidden,'사진 로드가 실패하면 그림카드로 채운다');
+eq(offline.els['cq-wordcard-word'].textContent,'apple','실패한 그 낱말의 카드다');offline.click('quiz');offline.answer('apple');ok(offline.els['cq-answer'].disabled,'image failure does not block learning');
 const race=await ready();race.change('book','bts-02');await flush();const old=race.requests.at(-1);race.change('book','bts-01');await flush();ok(old.aborted);eq(race.els['cq-target'].textContent,'apple');old.resolve({ok:true,json:async()=>two});await flush();eq(race.els['cq-target'].textContent,'apple','late response cannot replace the latest selected book');
 race.change('book','bts-02');await flush();for(const timer of [...race.timers.values()])if(timer.ms===15000)timer.fn();await flush();ok(!race.els['cq-retry'].hidden,'timeout exposes a retry button');race.click('retry');await flush();race.respond('bts-02.json',two);await flush();eq(race.els['cq-target'].textContent,'green');
 ok(!/speech-data-(?:bts|siu)/.test(html),'page never eagerly loads all three curricula');
@@ -77,11 +80,23 @@ ok(k.els['cq-source'].textContent.includes('상황 그림'),'근거가 없으면
 ok(k.els['cq-source'].textContent.includes('낱말 뜻 그림은 아니에요'),'낱말 뜻 그림이 아니라고 분명히 말한다');
 ok(!k.els['cq-source'].textContent.includes('낱말 그림 ·'),'상황 그림을 낱말 그림이라고 부르지 않는다');
 eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'Nice to meet you.','상황 그림은 그 그림이 그린 그 예문과 함께 나온다');
+/* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 그렇게 말한다 · 아무 그림도
+   붙이지 않는다」를 버리고 새 경계로 옮깁니다. 빈 상자 대신 «우리가 그린 낱말 그림카드» 가 채웁니다.
+   ⛔ 빈 상자로 되돌리지 마세요. ⛔ 그렇다고 «남의 문장 사진» 으로 채우지도 마세요(그게 「nice ← 가방」입니다).
+   ⚠️ 「카드가 뜬다」만 보면 «사진이 있는 줄에도 카드가 덮는» 사고를 못 봅니다 → 짝으로 봅니다. */
+ok(k.els['cq-wordcard'].hidden,'사진이 있는 줄에는 그림카드를 덮지 않는다');
 k.click('next');
 eq(k.els['cq-target'].textContent,'kind');
-ok(k.els['cq-source'].textContent.includes('붙이지 않았어요'),'맞는 그림이 없으면 그렇게 말한다');
-ok(k.els['cq-image'].hidden&&!k.els['cq-image'].getAttribute('src'),'맞는 그림이 없으면 아무 그림도 붙이지 않는다');
-ok(k.els['cq-placeholder'].textContent.includes('그림이 없어'),'왜 비었는지 화면이 말한다');
+ok(k.els['cq-image'].hidden&&!k.els['cq-image'].getAttribute('src'),'사진이 없으면 사진은 붙이지 않는다');
+ok(!k.els['cq-wordcard'].hidden,'사진이 없어도 상자를 비우지 않는다 — 낱말 그림카드가 붙는다');
+eq(k.els['cq-wordcard-word'].textContent,'kind','카드에 그 낱말이 적힌다');
+ok(k.els['cq-wordcard-icon'].textContent.length>0,'카드에 그림문자가 그려진다');
+eq(k.els['cq-wordcard-icon'].textContent,D.pictogram('kind').icon,'카드 그림문자는 정본 표에서 온다');
+ok(k.els['cq-wordcard-note'].textContent.includes('이 낱말을 나타내는'),'뜻에 맞는 그림문자면 그렇게 말한다');
+ok(k.els['cq-source'].textContent.includes('낱말 그림카드'),'그림카드라고 말한다');
+ok(k.els['cq-source'].textContent.includes('사진이 아니에요'),'사진인 척하지 않는다');
+ok(!k.els['cq-source'].textContent.includes('붙이지 않았어요'),'더는 «붙이지 않았어요» 라고 말하지 않는다');
+eq(k.els['cq-placeholder'].textContent,'','카드가 있으면 «그림이 없다» 는 안내를 띄우지 않는다');
 k.click('next');
 eq(k.els['cq-target'].textContent,'ball');
 /* 🔴 그림이 «다른 문장» 에서 왔을 때: 예문은 교재 예문이고, 그림 문장은 따로 밝힌다.
@@ -110,4 +125,36 @@ ok(fail.els['cq-meaning'].textContent.includes('불러오지 못했어요'),'못
 ok(!fail.els['cq-mean'].disabled,'실패해도 다시 눌러 볼 수 있다');
 const quizzed=await kindsApp();quizzed.click('quiz');
 ok(quizzed.els['cq-mean'].hidden,'퀴즈 중에는 뜻 버튼을 숨긴다(발음 듣기와 같은 규칙)');
+/* 🔒 그림카드가 퀴즈 답을 흘리지 않는가 — 예문은 빈칸인데 카드가 답을 적으면 그 빈칸이 뜻을 잃는다.
+   ⛔ 「답을 가린다」만 두면 «맞힌 뒤에도 영영 안 보이는» 반대 사고를 못 봅니다 → 짝으로 봅니다. */
+const cardBook={id:'bts-02',label:'BTS 2',words:[{word:'kind',scene:'k',sourceIndex:1}],clips:[],
+ scenes:{k:{text:'She is so kind!',source:'BTS 2 · #1'}}};
+const cq=await ready();cq.change('book','bts-02');await flush();cq.respond('bts-02.json',cardBook);await flush();
+ok(!cq.els['cq-wordcard'].hidden&&cq.els['cq-wordcard-word'].textContent==='kind','연습 중에는 카드에 낱말이 보인다');
+cq.click('quiz');
+ok(!cq.els['cq-wordcard'].hidden,'퀴즈에서도 그림카드가 상자를 채운다');
+ok(cq.els['cq-wordcard-word'].textContent.indexOf('_')===0&&!cq.els['cq-wordcard-word'].textContent.includes('kind'),
+ '퀴즈 중에는 카드에 답을 적지 않는다 — 예문 빈칸이 뜻을 잃는다');
+ok(!(cq.els['cq-wordcard'].getAttribute('aria-label')||'').includes('kind'),'화면낭독기 이름에도 답이 새지 않는다');
+eq(cq.els['cq-wordcard-icon'].textContent,D.pictogram('kind').icon,'답을 가려도 그림문자는 그대로 보여 준다 — 그게 이 카드의 그림이다');
+cq.answer('kind');
+ok(cq.els['cq-answer'].disabled,'답을 맞혔다');
+eq(cq.els['cq-wordcard-word'].textContent,'kind','맞히면 카드에도 낱말이 보인다 — 영영 가려 두지 않는다');
+/* 🎨 갈래만 나타낸 카드는 «이 낱말의 그림» 이라고 말하지 않는다 — 그게 이 저장소가 두 번 밟은 함정이다.
+   ⛔ 「카드가 뜬다」만 두면 «전부 뜻에 맞는 그림» 이라고 말하는 엉터리 수리도 통과합니다 → 짝으로 봅니다. */
+const vague={id:'bts-03',label:'BTS 3',words:[{word:'zzqwxly',scene:'z',sourceIndex:1,bookExample:'A zzqwxly day.'}],clips:[],scenes:{z:{text:'A zzqwxly day.',source:'BTS 3 · #1'}}};
+const v=await ready();v.change('book','bts-03');await flush();v.respond('bts-03.json',vague);await flush();
+ok(!v.els['cq-wordcard'].hidden,'모르는 낱말에도 카드는 붙는다');
+ok(!D.pictogram('zzqwxly').exact&&v.els['cq-wordcard-note'].textContent.includes('갈래'),'뜻을 모르면 «갈래를 나타낸 카드» 라고 말한다');
+ok(!v.els['cq-wordcard-note'].textContent.includes('이 낱말을 나타내는'),'모르는 낱말을 «이 낱말의 그림» 이라고 말하지 않는다');
+ok(/id="cq-wordcard"/.test(html),'그림카드 자리가 화면에 실재한다');
+/* 🌐 KO/EN — 카드 안내도 언어를 따라간다. 화면 글자는 EN/KO 두 벌로 유지합니다(사장님 지시). */
+const en=await ready();en.change('book','bts-02');await flush();en.respond('bts-02.json',cardBook);await flush();
+ok(en.els['cq-wordcard-note'].textContent.includes('그림문자'),'한국어 화면에서는 한국어로 적는다');
+en.document.documentElement.lang='en';en.els['ui-lang'].dispatch('click');
+ok(/[A-Za-z]/.test(en.els['cq-wordcard-note'].textContent)&&!/[가-힣]/.test(en.els['cq-wordcard-note'].textContent),
+ 'EN 으로 바꾸면 카드 안내도 영어가 된다');
+ok(!/[가-힣]/.test(en.els['cq-source'].textContent),'카드 출처 줄도 함께 영어가 된다');
+ok(/\.cq-wordcard\[hidden\]\{display:none!important\}/.test(fs.readFileSync(new URL('css/scene-curriculum.css',root),'utf8')),
+ '[hidden] 만 믿지 않는다 — 작성자 display 가 브라우저 기본을 이깁니다');
 console.log('PASS UI checks',checks);
