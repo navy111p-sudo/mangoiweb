@@ -382,6 +382,7 @@
           <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#fbbf24;border:2px dashed #b45309;border-radius:3px;vertical-align:middle"></span> ⭐ AI 등록 (점선)</span>
+          <span><span style="display:inline-block;width:14px;height:14px;background:#e2e8f0;border:1px solid #94a3b8;border-radius:3px;vertical-align:middle"></span> 신청만 · 수업 없음</span>
           <span style="margin-left:auto">학생 ID: <code id="d-sched-uid" style="background:rgba(148,163,184,0.2);padding:1px 6px;border-radius:3px">—</code></span>
         </div>
       </div>
@@ -2556,13 +2557,13 @@ $('langBtn').addEventListener('click', toggleLang);
 applyLangAttrs();
 
 // 🥭 Phase 39 — 학생 상세보기 스케줄 탭 (주간/월간 캘린더)
-const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollments: [] };
+const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollments: [], aiSchedules: [], aiOk: false };
 
 (function initSchedTab() {
   const now = new Date();
   _dSchedState.year = now.getFullYear();
   _dSchedState.month = now.getMonth();
-  _dSchedState.aiSchedules = [];
+  _dSchedState.aiSchedules = []; _dSchedState.aiOk = false;
   const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
   _dSchedState.weekStart = ws;
 })();
@@ -2573,7 +2574,7 @@ async function loadDStudentSchedule() {
   const uid = (typeof DRILL_UID !== 'undefined' && DRILL_UID) ||
               new URLSearchParams(location.search).get('uid') || '';
   if (uidEl) uidEl.textContent = uid || '—';
-  if (!uid) { _dSchedState.enrollments = []; _dSchedState.aiSchedules = []; renderDSchedule(); return; }
+  if (!uid) { _dSchedState.enrollments = []; _dSchedState.aiSchedules = []; _dSchedState.aiOk = false; renderDSchedule(); return; }
   // 병렬 로드
   const [enrR, aiR] = await Promise.all([
     fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials:'include' }).then(r=>r.json()).catch(()=>({})),
@@ -2581,8 +2582,45 @@ async function loadDStudentSchedule() {
   ]);
   _dSchedState.enrollments = (enrR.ok && enrR.items) ? enrR.items : [];
   _dSchedState.aiSchedules = (aiR.ok && aiR.items) ? aiR.items : [];
+  /* 📘 (2026-09-21) 「실제 수업 목록을 제대로 읽었나」 — 아래 mgsEnrHasLiveClass() 의 전제.
+     ⚠️ 이 API 는 조회가 실패해도 {ok:true, count:0, items:[], warning:...} 를 돌려준다
+        (api-admin.ts 의 GET /api/admin/class-schedules catch). 그래서 ok 만 보면
+        「수업이 하나도 없다」와 「못 물어봤다」가 같은 값이 되고, 캘린더의 수강신청이
+        통째로 회색이 된다 — 그쪽이 훨씬 나쁘므로 warning 이 있으면 «못 읽음» 으로 둔다. */
+  _dSchedState.aiOk = !!(aiR && aiR.ok === true && !aiR.warning && Array.isArray(aiR.items));
   renderDSchedule();
 }
+
+/* 🔖 (2026-09-21) 「신청만 있고 실제 수업은 없는」 수강신청 판정 — 정본 한 곳.
+   주간·월간 두 뷰가 이것을 쓴다(⛔ 판정을 양쪽에 복제하지 말 것 — 한쪽만 고쳐진다).
+
+   왜 필요한가 — 캘린더의 수강신청 레이어는 «신청서»(enrollments)를 started_at·end_date
+   만 보고 그린다. 그래서 그 신청이 만든 실제 수업이 전부 취소돼도 종료일까지 매주
+   유령 카드가 남는다(2026-09-21 사장님 제보 jeong — 금 14:20 체험수업).
+   ⛔ enr.status 로는 못 가린다 — 실측에서 그 신청서는 여전히 'confirmed' 였고
+      취소된 것은 그것이 만든 class_schedules 4건(source='adm-enroll:103') 쪽이었다.
+   ✅ GET /api/admin/class-schedules 는 WHERE 에 cs.status != 'cancelled' 가 있어
+      «살아 있는 수업» 만 준다 ⟹ 그 목록에 이 신청의 수업이 0건이면 «수업 없음» 이다.
+   ⚠️ 못 읽었으면(위 aiOk) 예전대로 그린다 — 조회가 한 번 흔들렸다고 멀쩡한 수강신청이
+      전부 회색이 되는 쪽이 훨씬 나쁘다(fail-open).
+   ℹ️ 「아직 수업이 안 만들어진 신청」도 여기서는 «수업 없음» 이다 — 화면이 하는 말이
+      「신청만 있고 수업이 없다」라서 그 경우에도 사실이다. */
+function mgsEnrHasLiveClass(enr) {
+  if (!_dSchedState.aiOk) return true;
+  var id = enr && enr.id;
+  if (id === undefined || id === null || id === '') return true;
+  var key = 'adm-enroll:' + String(id);
+  var list = _dSchedState.aiSchedules || [];
+  for (var i = 0; i < list.length; i++) {
+    if (String((list[i] && list[i].source) || '') === key) return true;
+  }
+  return false;
+}
+
+/* ⚠️ 회색은 흰 캘린더에서 읽히는 #475467(#e2e8f0 위 대비 6.23) — 더 연하게 주면
+   adm-light-surfaces.js 페인터가 「대비가 모자라다」며 인라인 !important 로
+   되살려 놓아 «낮췄다» 는 뜻이 화면에서 사라진다(이 화면에서 실제로 도는 파일). */
+var MGS_ENR_DEAD = { bg:'#e2e8f0', border:'#94a3b8', text:'#475467' };
 
 function renderDSchedule() {
   if (_dSchedState.view === 'week') return renderDSchedWeek();
@@ -2650,15 +2688,20 @@ function renderDSchedWeek() {
       if (sd && dayDate < sd) continue;
       if (enr.end_date) { const ed = new Date(enr.end_date); if (dayDate > ed) continue; }
       const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
-      const colors = typeColors[enr.type || '정규수업'] || typeColors['정규수업'];
+      /* 🔖 (2026-09-21) 실제 수업이 하나도 안 살아 있으면 회색으로 낮추고 사실을 적는다.
+         ⛔ 감추지 않는다 — 감추면 「신청서와 수업이 어긋났다」는 것을 아무도 못 본다. */
+      const _live = mgsEnrHasLiveClass(enr);
+      const colors = _live ? (typeColors[enr.type || '정규수업'] || typeColors['정규수업']) : MGS_ENR_DEAD;
+      const _deadKo = (_lang === 'en') ? 'request only' : '신청만';
+      const _deadLine = (_lang === 'en') ? 'no class' : '수업 없음';
       const top = slotIdx * ROW_H;
       const height = 2 * ROW_H - 2;
       const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border-left:3px solid ' + colors.border + ';border-radius:3px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.1)" title="' + (enr.teacher_name||'Teacher') + ' / ' + (enr.type||'정규수업') + ' / ' + timeStr + '">' +
+      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border-left:3px solid ' + colors.border + ';border-radius:3px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.1)" title="' + (enr.teacher_name||'Teacher') + ' / ' + (enr.type||'정규수업') + ' / ' + timeStr + ' (' + (enr.class_size||'1:1') + ')' + (_live ? '' : ' / 수강신청은 살아 있지만 이 신청으로 만든 실제 수업이 하나도 남아 있지 않습니다') + '">' +
         '<div style="font-weight:700;font-size:9px">' + (enr.type||'정규수업').substring(0,4) + '</div>' +
-        '<div style="font-weight:600">' + (enr.teacher_name||'TBD') + '</div>' +
-        '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div></div>';
+        '<div style="font-weight:600">' + (_live ? (enr.teacher_name||'TBD') : _deadKo) + '</div>' +
+        '<div style="font-size:9px">' + timeStr + (_live ? (' (' + (enr.class_size||'1:1') + ')') : (' · ' + _deadLine)) + '</div></div>';
     }
   }
   // 🥭 Phase 3-1: AI 등록 class_schedules 오버레이 (별 ⭐ 마크로 구분)
@@ -2752,8 +2795,15 @@ function renderDSchedMonth() {
         const m1 = String(enr.time||'').match(new RegExp(ko + '\\s*(\\d{1,2}:\\d{2})'));
         if (m1) timeStr = m1[1];
         const tc = { '레벨테스트':{bg:'#dbeafe',b:'#3b82f6'}, '체험수업':{bg:'#dcfce7',b:'#10b981'}, '정규수업':{bg:'#fef3c7',b:'#f59e0b'} };
+        /* 🔖 (2026-09-21) 주간 뷰와 «같은» 정본으로 판정한다 — 여기에 다시 적지 말 것. */
+        const _liveM = mgsEnrHasLiveClass(enr);
         const cl = tc[enr.type||'정규수업'] || tc['정규수업'];
-        html += '<div style="background:' + cl.bg + ';border-left:3px solid ' + cl.b + ';border-radius:3px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:#0f172a"><b>' + (enr.type||'정규수업').substring(0,4) + '</b><br>' + (enr.teacher_name||'TBD') + '<br>' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div>';
+        const _bgM = _liveM ? cl.bg : MGS_ENR_DEAD.bg;
+        const _bdM = _liveM ? cl.b  : MGS_ENR_DEAD.border;
+        const _txM = _liveM ? '#0f172a' : MGS_ENR_DEAD.text;
+        const _tailM = _liveM ? (' (' + (enr.class_size||'1:1') + ')') : (' · ' + ((_lang === 'en') ? 'no class' : '수업 없음'));
+        const _whoM = _liveM ? (enr.teacher_name||'TBD') : ((_lang === 'en') ? 'request only' : '신청만');
+        html += '<div style="background:' + _bgM + ';border-left:3px solid ' + _bdM + ';border-radius:3px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:' + _txM + '"><b>' + (enr.type||'정규수업').substring(0,4) + '</b><br>' + _whoM + '<br>' + timeStr + _tailM + '</div>';
       }
     }
     html += '</div>';
@@ -2791,7 +2841,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bind('d-sched-today', () => {
     const now = new Date();
     _dSchedState.year = now.getFullYear(); _dSchedState.month = now.getMonth();
-  _dSchedState.aiSchedules = [];
+  _dSchedState.aiSchedules = []; _dSchedState.aiOk = false;
     const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
     _dSchedState.weekStart = ws;
     renderDSchedule();
