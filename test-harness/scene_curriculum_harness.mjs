@@ -93,11 +93,26 @@ ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에
 const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 const {describe,shell:shellSet,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
 /* 🖼 「설명이 그 낱말을 가리킬 때만」 — 껍데기 낱말(natural·clear·soft…)은 여기서 떨어집니다. */
-const wordSceneOf=new Map(),wordSceneBytes=new Map();
-for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;if(!depicts(it.word,'word-image:'+it.index))continue;
- wordSceneOf.set(it.word,'w'+it.index);wordSceneBytes.set('w'+it.index,wordFile.get(it.index));}
-ok(wordSceneOf.size>wordAssets.length*0.9,'낱말 사진 대부분이 근거를 통과한다 ('+wordSceneOf.size+'/'+wordAssets.length+')');
-{const shellWord=wordImagePlan.filter(it=>wordFile.has(it.index)&&!wordSceneOf.has(it.word)).map(it=>it.word);
+/* 🖼 2026-09-21 사장님 지시(「그림문자 없애고 힉스필드 실사 이미지들로만」) — 빌드가 사진 한 장을
+   «그 설명이 실제로 보여 주는» 모든 낱말에 붙입니다. 여기서도 같은 규칙으로 다시 골라 맞춰 봅니다.
+   ⛔ 근거 기준(depicts)은 한 글자도 안 바뀝니다 — 바뀐 것은 «한 사진이 몇 낱말에 닿는가» 뿐입니다.
+   ✅ ownPass = «그 낱말을 그리려고 만든 사진» 이 자기 낱말을 통과한 것. 옛 경계(「사진 대부분이
+      근거를 통과한다」·「껍데기는 거부된다」)는 그 자리에서 그대로 지켜집니다 — 확장 때문에
+      저절로 커지는 wordSceneOf 로 재면 그 두 검사가 뜻을 잃습니다. */
+const vocabAll=new Set();
+for(const list of sourceBooks.values())for(const t of list)for(const w of EV.tokens(t))if(!stopWords.has(w))vocabAll.add(w);
+const wordSceneOf=new Map(),wordSceneBytes=new Map(),ownPass=new Set();
+{const best=new Map();
+ const consider=(w,rank,index)=>{const cur=best.get(w);
+  if(cur&&(cur.rank<rank||(cur.rank===rank&&cur.index<=index)))return;
+  best.set(w,{rank,index});};
+ for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;const key='word-image:'+it.index;
+  if(depicts(it.word,key)){ownPass.add(it.word);consider(it.word,0,it.index);}
+  for(const w of vocabAll)if(w!==it.word&&depicts(w,key))consider(w,1,it.index);}
+ for(const [w,v] of best){wordSceneOf.set(w,'w'+v.index);wordSceneBytes.set('w'+v.index,wordFile.get(v.index));}}
+ok(ownPass.size>wordAssets.length*0.9,'낱말 사진 대부분이 «자기 낱말» 근거를 통과한다 ('+ownPass.size+'/'+wordAssets.length+')');
+ok(wordSceneOf.size>ownPass.size,'한 사진이 «함께 보여 주는» 다른 낱말에도 붙는다 ('+wordSceneOf.size+' > '+ownPass.size+')');
+{const shellWord=wordImagePlan.filter(it=>wordFile.has(it.index)&&!ownPass.has(it.word)).map(it=>it.word);
  ok(shellWord.length>0,'껍데기 낱말은 사진이 있어도 «낱말 그림» 이 되지 않는다 — 0이면 게이트가 열린 것');
  for(const w of shellWord)ok(EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt)).has(w),'거부된 까닭은 껍데기 낱말이어서다: '+w);}
 /* 🧱 «한 낱말이 그림 거의 전부를 가리킨다» 면 그것은 근거가 아니라 새어 나온 틀이다.
@@ -193,8 +208,20 @@ eq(live.wordPictureForms+live.cardOnlyForms,live.wordForms,
    ⛔ contextOnlyForms 를 되살리지 마세요 — 그 칸이 있으면 그 갈래를 다시 만들게 됩니다. */
 ok(!('contextOnlyForms' in live)&&!('contextPictureRows' in live),
  '옛 «예문 상황 그림» 칸이 manifest 에 되살아나지 않았다');
-ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms/2,
- '근거 있는 낱말 그림은 소수다 — 갑자기 대부분이 되면 근거 게이트가 죽은 것');
+/* 🔴 2026-09-21 — 여기 있던 「근거 있는 낱말 그림은 소수다(절반 미만)」 단정을 버립니다.
+   사장님 지시로 사진을 «최대한» 붙이게 되어 그 비율이 뜻을 잃었습니다(실측 48.7% → 62%).
+   ⛔ 그냥 느슨하게 푼 것이 아닙니다 — 그 검사가 지키려던 것은 «근거 게이트가 죽어서 아무 사진이나
+      붙는 것» 이므로, 비율 대신 게이트를 «직접» 잽니다:
+      ① 아직 «전부» 는 아니다 ② 게이트를 끄면 실제로 더 붙는다(= 게이트가 일하고 있다)
+      ③ 붙은 줄은 전부 근거가 있다(아래 낱말 루프의 depicts 검사 — 짝). */
+ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
+ '낱말 그림이 «전부» 는 아니다 — 전부면 근거 게이트가 죽은 것');
+{const loose=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,
+  sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords:new Set()});
+ let n=0;
+ for(const w of vocabAll)for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;
+  if(loose.depicts(w,'word-image:'+it.index)){n++;break;}}
+ ok(n>wordSceneOf.size,'기능어를 빼는 게이트가 실제로 거르고 있다 — 끄면 더 붙는다 ('+n+' → '+wordSceneOf.size+')');}
 /* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 붙이지 않는다 ·
    전부 붙었다면 게이트가 죽은 것」 단정을 버립니다. 그 검사가 지키던 것은 «근거 없는 사진을 붙이지 않는다»
    였는데, 지금은 그 자리를 «우리가 그린 낱말 그림카드» 가 채웁니다(남의 문장 사진을 빌려 오지 않습니다).

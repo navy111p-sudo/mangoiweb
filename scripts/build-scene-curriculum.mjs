@@ -57,9 +57,30 @@ const sceneText=new Map(selected.map(r=>[r.id,r.text]));
    ⛔ 여기에 판정을 다시 적지 마세요(한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다). */
 const {describe,depicts}=pictureEvidence({assets:assets.concat(wordAssets),clips,sceneText,stopWords:stop});
 /* 🖼 낱말 사진 — «그 설명이 이 낱말을 가리킬 때만» 씁니다. 못 가리키면 목록에서 빠집니다. */
+/* 🖼 2026-09-21 사장님 지시(「그림문자 없애고 힉스필드 실사 이미지들로만」) — 사진 한 장이 «실제로
+   보여 주는» 모든 낱말에 붙인다. 옛 코드는 «만들 때 정한 낱말» 하나에만 붙였다 — 그래서 책상이
+   버젓이 찍힌 사진을 가지고도 「desk」는 그림문자 카드였다(실측: 그렇게 되찾는 낱말 988개 · 5,267줄).
+   ⛔ 근거 기준은 한 글자도 안 바뀝니다 — depicts() 가 «그 사진의 설명이 이 낱말을 가리키는가» 를 그대로 봅니다.
+      「nice ← 가방」은 설명이 nice 를 가리키지 않아 여전히 안 붙습니다. 바뀐 것은 «한 사진이 몇 낱말에 닿는가» 뿐입니다.
+   ✅ 고르는 순서는 «그 낱말을 그리려고 만든 사진»(0) › «다른 낱말 사진이 함께 보여 주는 것»(1).
+   ⛔ 여기에 «장면 그림»(clip-image) 을 넣지 마세요 — 사람이 여럿 나오는 복잡한 장면이라 낱말 하나를
+      가리키기엔 약하고, 그 그림은 이미 «그 문장» 의 포스터로 쓰입니다(실측으로 187개를 더 얻지만
+      그만큼 «주인공이 아닌 그림» 이 낱말 자리에 섭니다 — 그 자리는 새 낱말 사진으로 채웁니다).
+   ⚠️ 동점이면 index 가 작은 쪽 — 빌드가 돌 때마다 같은 답이 나와야 합니다(결정론). */
+const vocabAll=new Set();for(const s of all.values())for(const w of s.words)vocabAll.add(w);
 const wordScene=new Map();
-for(const it of wordImages){const key='word-image:'+it.index;if(!depicts(it.word,key))continue;
- wordScene.set(it.word,{id:'w'+it.index,refs:[],image:'/img/scene-words/'+it.index+'.webp',imageBytes:it.bytes,key});}
+{
+ const best=new Map();
+ const consider=(w,rank,index,make)=>{const cur=best.get(w);
+  if(cur&&(cur.rank<rank||(cur.rank===rank&&cur.index<=index)))return;
+  best.set(w,{rank,index,make});};
+ for(const it of wordImages){const key='word-image:'+it.index;
+  const make=()=>({id:'w'+it.index,refs:[],image:'/img/scene-words/'+it.index+'.webp',imageBytes:it.bytes,key});
+  if(depicts(it.word,key))consider(it.word,0,it.index,make);
+  for(const w of vocabAll)if(w!==it.word&&depicts(w,key))consider(w,1,it.index,make);
+ }
+ for(const [w,v] of best)wordScene.set(w,v.make());
+}
 const scenes=new Map();
 for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);const key=fallback||('word-image:'+index);imageMeta(s,lookup.get(key),key);scenes.set(s.id,s);}
 const clipRows=[];
