@@ -1898,13 +1898,9 @@ const HUB_GAMES = [
     src:function(){ return '/student-game-tetris.html?v=2'; } },   // ownSpeed=게임 자체 ☰에 속도 있음 → 상단바 ⋮(속도) 숨김. v=2 서버TTS
   { mode:'rescue', kind:'iframe', ico:'🚤', ttl:'망고 구조선의 대항해', dsc:'파도를 타고 3D 바다를 달려 물에 빠진 단어 친구를 구조! 구한 단어로 문장 듣고 따라 말하기. 영어·중국어', bg:'#ff8a1e', badge:'3D·NEW', ownSpeed:true,
     src:function(){ return '/student-game-rescue-voyage.html?v=1'; } },   // 자체 언어선택·부스트 → 상단바 속도 숨김. ?glang 로 언어 수신
-  // 🙈 2026-09-21 사장님 지시 — 허브 카드에서 감춥니다(«일단 미리보기»). 게임 자체는 그대로 살아 있습니다.
-  //    들어가는 길: /student-game-scene-quest.html 로 직접. 허브를 안 거쳐도 혼자 돌고, 「← 게임 목록」도 정상입니다.
-  //    ✅ 다시 공개하려면 아래 두 줄의 «// » 만 벗기세요. 맨 끝이라 남아 있는 21개의 해금 순서(index)는 한 칸도 안 움직입니다.
-  //    ⛔ 게임 파일·그림 12장·영상 12편을 지우지 마세요 — 지우면 이 한 줄로는 못 되돌립니다.
   // Append to preserve every existing quest-unlock position and saved card order.
-  // { mode:'scenequest', kind:'iframe', ico:'🔑', ttl:'장면 탐험대 (Scene Quest)', dsc:'실사 스타일 그림 12장·6초 영상 12편! 보고 영어 단어, 구문, 문장을 쓰면 문이 열려요. 열쇠 수집·콤보·보물문·오답 복습까지.', bg:'#247a72', badge:'영어쓰기·NEW', ownSpeed:true,
-  //   imageSrc:'/img/scene-quest/space.webp', src:function(){ return '/student-game-scene-quest.html'; } },
+  { mode:'scenequest', kind:'iframe', ico:'🔑', ttl:'장면 탐험대 (Scene Quest)', dsc:'실사 스타일 그림 12장·6초 영상 12편! 보고 영어 단어, 구문, 문장을 쓰면 문이 열려요. 열쇠 수집·콤보·보물문·오답 복습까지.', bg:'#247a72', badge:'영어쓰기·NEW', ownSpeed:true,
+    imageSrc:'/img/scene-quest/space.webp', src:function(){ return '/student-game-scene-quest.html'; } },
 ];
 
 /* ============================================================
