@@ -171,7 +171,11 @@ console.log('\n[ ④ 표 칸 수 — col·th·td·colspan 이 서로 같은가 ]
   const tbl = a >= 0 ? admin.slice(a, b) : '';
   const nCol = (tbl.match(/<col\b/g) || []).length;
   const nTh = (tbl.match(/<th\b/g) || []).length;
-  const nTd = (rowSrc.match(/<td\b|\$\{_ct\(|\$\{_schedTd\(/g) || []).length;
+  /* ⛔ 헬퍼 «이름» 을 여기 적지 말 것 — 칸 하나를 통째로 돌려주는 헬퍼가 늘 때마다
+     멀줦한 수리가 빨간불이 된다(2026-09-15 `_schedTd` · 2026-09-21 `_enrTd` — 두 번 밟음).
+     «그 줄 전체가 하나의 칸인 호출» 로 세면 이름을 안 적어도 맞는다. */
+  const nTd = (rowSrc.match(/<td\b/g) || []).length
+            + (rowSrc.match(/^[ \t]*\$\{_\w+\([^\n]*\)\}[ \t]*$/gm) || []).length;
   const spans = new Set((tbl.match(/colspan="(\d+)"/g) || []).map(x => x.replace(/\D/g, '')));
   /* 빈 줄 colspan 은 JS 쪽에도 있다(불러오는 중·데이터 없음·검색 0건·더 보기).
      ⚠️ 파일 전체에서 찾으면 **다른 표의 colspan** 이 딸려 와 언제나 어긋난다(실제로 밟았다).

@@ -1843,12 +1843,23 @@ function renderExtension(){
     else if (diff <= 30) { dDay = 'D-' + diff; endStatus = 'yellow'; endStatusLabel = (_lang==='en'?'Soon':'주의'); }
     else { dDay = 'D-' + diff; endStatus = 'green'; endStatusLabel = (_lang==='en'?'OK':'여유'); }
   }
-  const activeEnroll = enrolls.find(e => e.status === 'confirmed' || e.status === 'pending') || enrolls[0];
+  /* 📅 (2026-09-21) 캐린더와 «같은 판정» 으로 거른다 — 취소된 신청·수업이 전부 취소된
+     신청을 「활성 패키지」라 부르면 **같은 화면이 두 말을 합니다** — 캘린더는 안 그리는데
+     여기만 남습니다(함정 대조가 실제로 잡은 자리). ⛔ 판정을 여기 복제하지 마세요 — enrCalHidden() 하나다. */
+  const _enrLive = enrolls.filter(e => !enrCalHidden(e));
+  const _enrHidden = enrolls.length - _enrLive.length;
+  const activeEnroll = _enrLive.find(e => e.status === 'confirmed' || e.status === 'pending') || _enrLive[0];
+  /* ⚠️ 감춘 것이 있으면 «왜 비었는지» 를 말한다 — 감추기만 하면 아무도 정리하지 않는다. */
+  const _pkgSub = activeEnroll?.monthly_fee_krw
+    ? fmtKrw(activeEnroll.monthly_fee_krw) + (_lang==='en'?'/mo':'/월')
+    : ((!activeEnroll && _enrHidden > 0)
+        ? (_lang==='en' ? 'ended · ' + _enrHidden + ' hidden' : '끝난 신청 · ' + _enrHidden + '건 감춤')
+        : '—');
 
   $('extKpis').innerHTML = `
     <div class="kpi ${endStatus==='red'?'red':endStatus==='yellow'?'yellow':endStatus==='green'?'green':''}"><div class="lab">${_lang==='en'?'End Date':'수강 종료일'}</div><div class="val">${endStr || '—'}</div><div class="sub">${endStatusLabel}</div></div>
     <div class="kpi blue"><div class="lab">${_lang==='en'?'Days Left':'남은 일수'}</div><div class="val">${dDay}</div></div>
-    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Active Package':'활성 패키지'}</div><div class="val" style="font-size:16px">${esc(activeEnroll?.package)||'—'}</div><div class="sub">${activeEnroll?.monthly_fee_krw?fmtKrw(activeEnroll.monthly_fee_krw)+(_lang==='en'?'/mo':'/월'):'—'}</div></div>
+    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Active Package':'활성 패키지'}</div><div class="val" style="font-size:16px">${esc(activeEnroll?.package)||'—'}</div><div class="sub">${_pkgSub}</div></div>
     <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date || fmtDay(erp.created_at))}</div></div>
   `;
 

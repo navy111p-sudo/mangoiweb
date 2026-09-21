@@ -67,6 +67,7 @@ import { setOverridePhones, loadOverridePhones } from './student-override';    /
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
 import type { MangoEnv } from './api-mango';
+import { attachEnrollmentClassCounts, isEnrollmentGone } from './enrollment-class-count';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -9319,6 +9320,14 @@ LIMIT $limit`;
                 p.payment_type, p.end_date, p.classes_per_week, p.teacher_phone,
                 p.shop_name, p.hq_name, p.branch1_name, p.branch2_name, p.franchise,
                 e.package               AS enroll_package,
+                /* 📅 (2026-09-21 사장님 제보) 「중국어 정규수업인데 왜 «체험수업» 으로 나와?」
+                   이 칸은 «최신 신청서» 의 package 를 그대로 그렸는데 status 도, 그 신청이 만든
+                   수업이 살아 있는지도 안 봤다. 실측: jeong 의 신청 103(체험수업)은 confirmed
+                   인데 그것이 만든 수업 4건이 전부 취소 — 실제 수업은 정규수업 4건이다.
+                   ⚠️ 여기서는 «사실»(신청 id·상태)만 싣고, 숨길지는 화면의 enrCalHidden() 이 정한다
+                      — 캘린더·종료연장 탭과 **같은 판정 하나**를 쓰기 위해서다. */
+                e._latest_id            AS enroll_id,
+                e.status                AS enroll_status,
                 COALESCE(a.sessions, 0) AS sessions,
                 a.last_seen             AS last_seen
            FROM page p
@@ -9326,7 +9335,7 @@ LIMIT $limit`;
                         FROM attendance
                        WHERE user_id IN (SELECT user_id FROM page)
                        GROUP BY user_id) a ON a.user_id = p.user_id
-           LEFT JOIN (SELECT student_user_id, MAX(id) AS _latest_id, package
+           LEFT JOIN (SELECT student_user_id, MAX(id) AS _latest_id, package, status
                         FROM enrollments
                        GROUP BY student_user_id) e ON e.student_user_id = p.user_id
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
@@ -9340,6 +9349,34 @@ LIMIT $limit`;
          ⚠️ 왼쪽 네 칸(결제타입·수강시작·수강종료·수업회수)을 이 값으로 «채우지» 않는다 —
             뜻이 다르고 그쪽은 카페24가 정본이다(정본 머리말 참고).
          ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
+      /* 📅 (2026-09-21) 「수강신청」 칸 — 그 신청이 만든 수업이 몇 건 살아 있는지 함께 싣는다.
+         ⛔ 조회를 여기 복제하지 말 것(정본 src/enrollment-class-count.ts) — 한 번의 질의다.
+         ⚠️ 실패하면 칸이 안 실리고 화면은 예전대로 그린다(fail-open). */
+      {
+        const _enrRefs = (_piiStudents as any[])
+          .filter((r) => r && r.enroll_id)
+          .map((r) => ({ id: r.enroll_id, __row: r })) as any[];
+        await attachEnrollmentClassCounts(env as any, _enrRefs);
+        for (const _ref of _enrRefs) {
+          if (_ref.class_total === undefined) continue;
+          _ref.__row.enroll_class_total = _ref.class_total;
+          _ref.__row.enroll_class_active = _ref.class_active;
+        }
+        /* 끝난 신청서는 「수강신청」 칸에서 내린다 — 다만 **조용히 지우지 않는다.**
+           감추기만 하면 아무도 정리하지 않으므로(규칙서 「감추면 아무도 정리하지 않습니다」)
+           «왜 비었는지» 를 같은 행에 실어 화면이 말하게 한다. */
+        for (const _st2 of (_piiStudents as any[])) {
+          if (!_st2 || !_st2.enroll_package) continue;
+          if (!isEnrollmentGone({ status: _st2.enroll_status,
+                                  class_total: _st2.enroll_class_total,
+                                  class_active: _st2.enroll_class_active })) continue;
+          _st2.enroll_hidden_package = _st2.enroll_package;
+          _st2.enroll_hidden_reason =
+            (_st2.enroll_class_total > 0 && _st2.enroll_class_active === 0)
+              ? 'classes_all_cancelled' : 'enrollment_' + String(_st2.enroll_status || 'gone');
+          _st2.enroll_package = '';
+        }
+      }
       const _schedMap = await loadSchedSummaryMap(env as any);
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
@@ -11807,28 +11844,7 @@ LIMIT $limit`;
              ℹ️ source 형식은 `adm-enroll:<신청id>` 다(enroll-activate.ts). 'adm-enroll:' 이
                 11글자라 substr(...,12) 부터가 id. 다른 형식(ai_enroll·admin_ui·enroll:주문번호)은
                 이 신청서가 만든 것이 아니므로 애초에 안 걸린다. */
-          try {
-            const enrIds = items.map((r: any) => String(r.id || '')).filter(Boolean);
-            if (enrIds.length) {
-              const rsCls = await env.DB.prepare(
-                `SELECT substr(source, 12) AS enr_id,
-                        COUNT(*) AS total_n,
-                        SUM(CASE WHEN status = 'cancelled' THEN 0 ELSE 1 END) AS active_n
-                   FROM class_schedules
-                  WHERE source LIKE 'adm-enroll:%'
-                    AND instr(?, ',' || substr(source, 12) || ',') > 0
-                  GROUP BY source`
-              ).bind(',' + enrIds.join(',') + ',').all<any>();
-              const clsMap = new Map<string, any>();
-              for (const r of (rsCls.results || [])) clsMap.set(String(r.enr_id), r);
-              for (const it of items) {
-                const g = clsMap.get(String((it as any).id));
-                if (!g) continue;
-                (it as any).class_total = Number(g.total_n) || 0;
-                (it as any).class_active = Number(g.active_n) || 0;
-              }
-            }
-          } catch (e: any) { console.warn('[enrollments] 수업 수 조회 실패 — 칸 안 실음:', e?.message); }
+          await attachEnrollmentClassCounts(env as any, items);
           return json({ ok: true, items });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });

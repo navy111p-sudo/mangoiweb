@@ -4,7 +4,10 @@
 //   돌린다. 여기서는 **그 화면을 실제로 그려** «카드가 눈에 보이는가» 를 잰다
 //   — 「판정이 옳다」와 「화면에 안 나온다」는 다른 값이다.
 //
-// 실행: node test-harness/manual/enroll-calendar-cancelled-browser.mjs
+// ✅ 먼저 로컬 서버를 띄우세요(안 띄우면 모두 ❌ 로 나오고 «화면 버그» 로 오진합니다):
+//     cd cloudflare-deploy/public && python3 -m http.server 8931
+//   ⛔ `file://` 로 열지 마세요 — `<script src="/js/…">` 가 전부 404 입니다(규칙서 2장).
+// 실행: PORT=8931 node test-harness/manual/enroll-calendar-cancelled-browser.mjs
 //   (자동으로 안 돕니다 — manual/ 은 게이트가 물어 가지 않습니다. 사람이 부릅니다.)
 import { spawn, execSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -51,6 +54,9 @@ try {
   };
   await cdp('Page.enable'); await cdp('Runtime.enable');
   await cdp('Network.enable'); await cdp('Network.setCacheDisabled', { cacheDisabled: true });
+  /* ⚠️ HTTP 캐시만 꺼서는 부족합니다 — 서비스워커(public/sw.js)가 cache-first 로 줍니다.
+     그러면 고친 뒤 다시 재도 «고치기 전» 값이 나와 변이시험이 조용히 통과합니다(규칙서 2장). */
+  try { await cdp('Network.setBypassServiceWorker', { bypass: true }); } catch {}
   await cdp('Page.navigate', { url: URL_ + '&_nc=' + Date.now() });
   await sleep(2500);
 
@@ -130,6 +136,50 @@ try {
   check('⑤ 변이) 판정을 끄면 실사고 카드가 «다시 나타난다»(검사가 헛돌지 않는다)', mutated > 0, mutated);
   const restored = await draw(실사고, 'week');
   check('⑥ 되돌린 뒤 다시 «안 그려진다»(전역을 제대로 복구했다)', restored.cards === 0, restored);
+
+  /* ⑦ 🗓️ 종료·연장 탭 「활성 패키지」 — **같은 화면의 두 번째 통로**.
+     캘린더만 고치면 여기가 여전히 「체험수업」을 «활성» 이라 부른다(함정 대조가 잡은 자리).
+     ⚠️ 「판정이 옳다」와 「그 칸에 안 나온다」는 다른 값이라 실제로 그려서 잰다. */
+  await evalJs(`(function(){
+    ['extKpis','extHistoryBox'].forEach(function(id){
+      if (!document.getElementById(id)) {
+        var d = document.createElement('div'); d.id = id; document.body.appendChild(d);
+      }
+    });
+    return true;
+  })()`);
+  const drawExt = async (enrs) => evalJs(`(function(){
+    _state.full = _state.full || {};
+    _state.full.erp = { end_date: '2026-10-11', signup_date: '2026-07-01' };
+    _state.full.enrollments = ${'${JSON.stringify(enrs)}'};
+    try { renderExtension(); } catch (e) { return { err: String(e && e.message) }; }
+    var t = (document.getElementById('extKpis') || {}).textContent || '';
+    return { txt: t, has: t.indexOf('체험수업') >= 0 };
+  })()`.replace('${JSON.stringify(enrs)}', JSON.stringify(enrs)));
+
+  const ext실사고 = { ...실사고, package: '체험수업', monthly_fee_krw: 0 };
+  const ext살아 = { ...살아있음, package: '체험수업', monthly_fee_krw: 120000 };
+
+  const e1 = await drawExt([ext살아]);
+  check('⑦ 전제(종료·연장) 살아 있는 신청은 「활성 패키지」에 그대로 나온다', e1.has === true, e1);
+  const e2 = await drawExt([ext실사고]);
+  check('⑧ (종료·연장) 실사고 — 수업이 전부 취소된 신청은 「활성 패키지」가 아니다', e2.has === false, e2);
+  check('⑨ 짝) 그때 «왜 비었는지» 를 말한다(그냥 «—» 면 «없는 학생» 과 같아진다)',
+    typeof e2.txt === 'string' && /끝난 신청|감춤/.test(e2.txt), e2);
+  const e3 = await drawExt([{ ...ext실사고, class_total: undefined, class_active: undefined }]);
+  check('⑩ 짝) 서버가 칸을 안 주면 예전대로 「활성 패키지」로 나온다(fail-open)', e3.has === true, e3);
+
+  /* 🔁 변이 — 판정을 끄면 「활성 패키지」에 다시 나타나야 한다(이 절이 헛돌지 않는다는 증거) */
+  const extMut = await evalJs(`(function(){
+    var orig = window.enrCalHidden;
+    window.enrCalHidden = function(){ return false; };
+    try {
+      _state.full.enrollments = ${JSON.stringify([ext실사고])};
+      renderExtension();
+      return ((document.getElementById('extKpis')||{}).textContent||'').indexOf('체험수업') >= 0;
+    } finally { window.enrCalHidden = orig; }
+  })()`);
+  check('⑪ 변이) 판정을 끄면 「활성 패키지」에 다시 나타난다', extMut === true, extMut);
 
   console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);
   if (FAIL) { console.log('⚠ 실제 확인 필요:\n  - ' + FAILS.join('\n  - ')); }

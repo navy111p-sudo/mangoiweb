@@ -39,6 +39,7 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { ipToNet, asLabel } from './net-prefix';
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';
+import { attachEnrollmentClassCounts } from './enrollment-class-count';
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 
@@ -3802,6 +3803,14 @@ ${numbered}`;
         // 📘 (2026-09-15) 「예약 수업」 — 목록과 «같은 정본» 을 쓴다(화면마다 답이 다르면 안 된다)
         const _fullSched = await loadSchedSummaryOne(env as any, uid);
 
+        /* 📅 (2026-09-21) 이 화면의 🗓️ 종료·연장 탭이 여기 enrollments 로 「활성 패키지」를
+           그린다. 캘린더만 고치면 **같은 화면이 여전히 두 말을 한다** — 수업이 전부 취소된
+           신청서가 「활성 패키지」로 남는다(실제로 그렇게 고쳤다가 함정 대조가 잡았다).
+           ⚠️ 판정은 화면의 `enrCalHidden()` 한 곳이 한다 — 서버는 사실만 싣는다.
+           ⛔ 조회를 여기 복제하지 말 것(정본 src/enrollment-class-count.ts). */
+        const _enrList = pickList(5);
+        await attachEnrollmentClassCounts(env as any, _enrList);
+
         return json({
           ok: true,
           user_id: uid,
@@ -3813,7 +3822,7 @@ ${numbered}`;
           summary: pick(2) || {},
           by_day: pickList(3),
           sessions: pickList(4),
-          enrollments: pickList(5),
+          enrollments: _enrList,
           payments: pickList(6),
           evaluations: pickList(7),
           feedbacks: pickList(8),

@@ -11652,6 +11652,11 @@ async function loadStudentList(q, opts) {
       classes_per_week: s.classes_per_week || '',
       points: Number(s.points || 0),
       enroll_req: s.enroll_package || '',
+      /* 📅 (2026-09-21) 끝난 신청서는 서버가 「수강신청」 칸에서 내리고(enroll_package 빈 값)
+         «왜 비었는지» 를 여기에 실어 준다. ⛔ 이 두 칸을 안 옮기면 «없다» 와 «끝났다» 가
+         화면에서 같은 글자(«—»)가 되어 아무도 정리하지 않는다. */
+      enroll_hidden_package: s.enroll_hidden_package || '',
+      enroll_hidden_reason: s.enroll_hidden_reason || '',
       student_phone: s.student_phone || '',
       parent_phone: s.parent_phone || '',
       teacher_phone: s.teacher_phone || '',
@@ -11876,6 +11881,28 @@ function smShowContactPicker(rows, _L) {
   document.body.appendChild(ov);
 }
 
+/* ⛔ 이 둘은 **최상위**에 둡니다 — 표와 CSV 내보내기가 «다른 함수» 라,
+   renderStudentTable() 안에 두면 내보내기가 ReferenceError 로 죽습니다
+   (규칙서 「함수 선언을 다른 함수 «안» 에 넣으면…」 — 실제로 한 번 밟았습니다). */
+/* 📅 (2026-09-21) 「수강신청」 칸 — 끝난 신청서는 서버가 빈 값으로 내리므로,
+   그때 그냥 «—» 로 두면 «원래 없는 학생» 과 구별이 안 된다 — 사유를 글자로 말한다.
+   ⛔ 판정을 여기서 다시 하지 말 것 — 정본은 src/enrollment-class-count.ts 의 isEnrollmentGone() 하나다.
+   ⚠️ 사유가 안 오면 예전처럼 «—» 이다(fail-open).
+   ⚠️ 색에 기대지 않는다 — 이 표의 글자색은 관리자 페인터가 덮을 수 있어 뜻은 말이 지고 간다. */
+const _ENR_GONE_LAB = {
+  classes_all_cancelled:  ['수업이 전부 취소됨', 'all classes cancelled'],
+  enrollment_cancelled:   ['신청 취소', 'application cancelled'],
+  enrollment_canceled:    ['신청 취소', 'application cancelled'],
+  enrollment_rejected:    ['신청 반려', 'application rejected'],
+  enrollment_ended:       ['수강 종료', 'enrollment ended'],
+  enrollment_expired:     ['수강 만료', 'enrollment expired'],
+};
+const _enrGoneLab = (why) => {
+  var en = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const pair = _ENR_GONE_LAB[String(why || '')];
+  if (pair) return en ? pair[1] : pair[0];
+  return en ? 'ended application' : '끝난 신청';
+};
 function renderStudentTable() {
   const _L = adminLang === 'en';
   const tb = document.getElementById('sm-students-tbody');
@@ -11972,6 +11999,16 @@ function renderStudentTable() {
     const x = _esc(txt);
     return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
   };
+  const _enrTd = (s) => {
+    const cur = s && s.enroll_req;
+    if (cur) { const x = _esc(String(cur)); return '<td title="' + x + '">' + x + '</td>'; }
+    const why = s && s.enroll_hidden_reason;
+    if (!why) return '<td>—</td>';
+    const lab = _enrGoneLab(why);
+    const pkg = String((s && s.enroll_hidden_package) || '');
+    const tip = _esc((pkg ? pkg + ' · ' : '') + lab);
+    return '<td title="' + tip + '">— ' + _esc(lab) + '</td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -11989,7 +12026,7 @@ function renderStudentTable() {
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
       ${_schedTd(s)}
       <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
-      ${_ct(s.enroll_req)}
+      ${_enrTd(s)}
       <td>${_c(_piiPhone(s.student_phone))}</td>
       <td>${_c(_piiPhone(s.parent_phone))}</td>
       <td>${_c(_piiPhone(s.teacher_phone))}</td>
@@ -12067,7 +12104,12 @@ function smExportStudentsCsv() {
     ['수업회수(주)',  s => s.classes_per_week],
     ['예약',          s => (s.sched && s.sched.label_ko && s.sched.label_ko !== '—') ? s.sched.label_ko : ''],
     ['포인트',        s => Number(s.points) || 0],
-    ['수강신청',      s => s.enroll_req],
+    /* ⚠️ 내보내기에서도 «끝났다» 를 잃지 않는다 — 빈칸으로 내보내면 서버가 내린 사실이 사라진다. */
+    ['수강신청',      s => s.enroll_req
+        || (s.enroll_hidden_reason
+              ? (s.enroll_hidden_package ? s.enroll_hidden_package + ' (' + _enrGoneLab(s.enroll_hidden_reason) + ')'
+                                         : _enrGoneLab(s.enroll_hidden_reason))
+              : '')],
     ['학생번호',      s => _piiPhone(s.student_phone)],
     ['부모님번호',    s => _piiPhone(s.parent_phone)],
     ['대리점연락처',  s => _piiPhone(s.teacher_phone)],
