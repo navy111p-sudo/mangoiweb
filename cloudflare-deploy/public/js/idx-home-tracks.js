@@ -38,12 +38,33 @@
 
   function openAi() {
     if (typeof window.openAiFriendsOverlay === 'function') {
-      try { window.openAiFriendsOverlay(); return true; } catch (e) {}
+      try { window.openAiFriendsOverlay(); return true; }
+      catch (e) {
+        /* ⛔ 여기서 주소로 이동하지 않는다 — 그 함수가 던지는 상태라면 새로고침 뒤에도
+           똑같이 던져서 «눌렀더니 새로고침만 되고 아무 일도 안 나는» 것이 된다. */
+        console.warn('[home-tracks] A.i 오버레이가 던졌습니다', e);
+        return false;
+      }
     }
-    /* 폴백 — 같은 오버레이를 여는 주소가 이미 있다(index.html 의 ?menu=aitools 갈래).
-       ⚠️ 이 줄이 없으면 스크립트가 늦게 올 때 «눌러도 아무 일도 안 나는» 버튼이 된다. */
-    try { location.href = '/?menu=aitools'; return true; } catch (e) {}
+    /* 폴백은 그 함수가 «아직 없을» 때만 — 같은 오버레이를 여는 주소가 이미 있다.
+       ⛔ '/?menu=aitools' 로 통째로 갈아치우지 않는다. 지금 주소의 다른 쿼리·해시를
+          조용히 잃는다(CLAUDE.md 「menu 만 지우세요」의 짝). */
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('menu', 'aitools');
+      location.href = u.toString();
+      return true;
+    } catch (e) {}
     console.warn('[home-tracks] A.i 학습 카드를 열지 못했습니다');
+    return false;
+  }
+
+  /* 🌐 언어 판정은 반드시 getLang() 으로 — index.html 은 i18n 엔진이 «둘» 이고
+     인라인 엔진의 전역 currentLang 은 나중 엔진이 안 건드린다(CLAUDE.md 「언어 판정」).
+     이것을 안 보면 EN 으로 저장해 둔 사람이 🌐 를 한 번 누르기 전까지 한국어 툴팁을 본다. */
+  function isEn() {
+    try { if (typeof window.getLang === 'function') return window.getLang() === 'en'; } catch (e) {}
+    try { return localStorage.getItem('mangoi_lang') === 'en'; } catch (e) {}
     return false;
   }
 
@@ -68,16 +89,18 @@
     document.head.appendChild(st);
   }
 
+  /* ⚠️ 돌려주는 값은 «전부 걸렸나» 다. «이번에 새로 건 수» 로 두면 한쪽이 늦게 그려질 때
+     둘 다 걸린 뒤에도 재시도가 끝까지 돈다(트랙이 셋으로 늘면 더 어긋난다). */
   function arm() {
-    var armed = 0;
+    var armedNow = 0;
     TRACKS.forEach(function (t) {
       var el = document.querySelector(t.sel);
       if (!el || el.__htArmed) return;
       el.__htArmed = 1;
-      armed++;
+      armedNow++;
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
-      el.setAttribute('title', t.tko);
+      el.setAttribute('title', isEn() ? t.ten : t.tko);
       el.setAttribute('data-ko-title', t.tko);
       el.setAttribute('data-en-title', t.ten);
       el.addEventListener('click', function (e) { e.preventDefault(); t.go(); });
@@ -87,16 +110,19 @@
         }
       });
     });
-    if (armed) styleOnce();
-    return armed;
+    if (armedNow) styleOnce();
+    return TRACKS.every(function (t) {
+      var el = document.querySelector(t.sel);
+      return !!(el && el.__htArmed);
+    });
   }
 
   function boot() {
-    if (arm() === TRACKS.length) return;
+    if (arm()) return;
     /* 늦게 그려지는 경우를 대비한 «끝이 있는» 재시도 — 상주 감시가 아니다. */
     var tries = 0;
     var id = setInterval(function () {
-      if (arm() === TRACKS.length || ++tries >= 10) clearInterval(id);
+      if (arm() || ++tries >= 10) clearInterval(id);
     }, 300);
   }
 
