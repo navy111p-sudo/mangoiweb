@@ -58,6 +58,22 @@ function dowMatches(raw: any, target: number): boolean {
   return false;
 }
 
+/* 🆔 화면에 «학생 아이디» 로 보여줄 값 — 2026-09-22 제안
+     「강사 페이지에서 망고아이 수업을 늘 학생 아이디와 함께 적어 달라」.
+   왜 서버가 내려주나: 강사는 같은 수업을 «옛 LMS» 에서도 본다. 두 화면을 잇는 열쇠는
+   이름이 아니라 아이디다(동명이인이 실재한다 — 김민서 71명·김민준 56명).
+   ⛔ 자리표시 행은 학생이 아니다 — user_id 가 'lms'·'type_seed' 인 행의 그 값을
+      아이디로 내려주면 강사 화면에 「lms 라는 학생」 이 생긴다. 비워서 보낸다.
+      (같은 판정이 이 파일 아래 kind 계산에도 있다 — 한쪽만 고치지 말 것)
+   ⚠️ 모듈 스코프에 둔다: 아이디를 싣는 자리가 이 파일 안에 흩어져 있어(주간표·앞으로 7일·
+      오늘·대타·옛LMS 미러) 핸들러 «안» 에 두면 먼 자리에서 스코프 밖이 된다(실제로 밟았다). */
+const studentUidOf = (s: any): string | null => {
+  const u = String(s.user_id || '').trim();
+  const lo = u.toLowerCase();
+  if (!u || lo === 'lms' || lo === 'type_seed') return null;
+  return u;
+};
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -428,6 +444,7 @@ export async function handleTeacherApi(
       return 'regular';
     };
 
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
@@ -446,6 +463,7 @@ export async function handleTeacherApi(
           id: s.id,
           start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
           duration_min: Number(s.duration_min) || 30,
+          student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
           kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
@@ -482,6 +500,7 @@ export async function handleTeacherApi(
           start_time: `${pad(uh || 0)}:${pad(um || 0)}`,
           start_ts: uStart,
           duration_min: Number(s.duration_min) || 30,
+          student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
           level: s.level || null,
@@ -524,7 +543,7 @@ export async function handleTeacherApi(
         // 🔑 결정론적 방 번호 — api-mango.ts 의 sessions/today 와 **반드시 같은 식**.
         //    다르면 강사와 학생이 서로 다른 방에 들어가 수업이 성립하지 않는다.
         room_id: `class-${s.id}-${ymd}`,
-        student_uid: s.user_id,
+        student_uid: studentUidOf(s),
         student_name: s.student_name || s.student_en || null,
         // 🌐 학생 이름은 **번역하지 않는다** — 사람 이름을 기계번역하면 엉뚱한 말이 된다.
         //   대신 학생 원부에 이미 있는 영문명을 그대로 내려주고, 영어 화면이면 이걸 쓴다.
@@ -592,7 +611,7 @@ export async function handleTeacherApi(
         kind: 'class',
         schedule_id: sr.schedule_id,
         room_id: `class-${sr.schedule_id}-${ymd}`,
-        student_uid: sr.user_id,
+        student_uid: studentUidOf(sr),
         student_name: sr.student_name || sr.student_en || null,
         student_name_en: sr.student_en || null,
         level: sr.level || null,
@@ -751,7 +770,7 @@ export async function handleTeacherApi(
           source: 'lms',                            // 화면·로그에서 «어디서 온 수업인지» 구분용
           schedule_id: null,
           room_id: rid,
-          student_uid: r.user_id,
+          student_uid: studentUidOf(r),
           student_name: r.username || r.user_id,
           student_name_en: r.student_en || null,
           level: r.level || null,

@@ -100,6 +100,35 @@
   .savednote{font-size:11.5px;color:#8ea0c8;text-align:center;line-height:1.6;margin-top:10px}
   /* 저장이 안 되는 것이 «확인됐을 때» 만 붙는다 — 미리 겁주지 않는다 */
   .savednote.warn{color:#fca5a5;font-size:12px;font-weight:700}
+  /* 📘 틀린 문제 다시 보기 (2026-09-22 사장님 지시 — 결과만 있고 «왜 틀렸는지» 가 없던 문제)
+     ⚠ 이 «style» 안에서는 CJK 홑낫표를 쓰지 않는다 — 한자 폰트(983KB) 검사가 그것을 센다.
+     ⚠ 이 섹션은 CTA «아래» 에 둔다: 위에 끼우면 발음 평가·돌아가기 버튼이 스크롤 밖으로 밀린다. */
+  .rvhead{display:flex;align-items:center;gap:8px;margin:22px 0 12px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12)}
+  .rvhead .t{font-size:15px;font-weight:900;color:#fde68a}
+  .rvhead .c{margin-left:auto;font-size:12px;font-weight:800;color:#fca5a5;
+    background:rgba(248,113,113,.14);border:1px solid rgba(248,113,113,.4);padding:3px 10px;border-radius:99px}
+  .rvq{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 15px;margin-bottom:11px}
+  .rvq .qh{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+  .rvq .qn{font-size:11px;font-weight:800;color:#a8b3cf}
+  .rvq .qb{font-size:10.5px;font-weight:800;color:#a5b4fc;background:rgba(129,140,248,.16);
+    border:1px solid rgba(129,140,248,.4);padding:2px 8px;border-radius:99px}
+  .rvq .qt{font-size:15px;font-weight:800;color:#fff;line-height:1.55;margin-bottom:11px}
+  .rvo{display:flex;align-items:flex-start;gap:7px;font-size:13.5px;line-height:1.5;
+    color:#8ea0c8;padding:7px 10px;border-radius:9px;border:1px solid transparent;margin-bottom:5px}
+  .rvo .m{width:16px;flex:0 0 16px;font-weight:900;text-align:center}
+  .rvo .kk{font-weight:900;margin-right:3px}
+  /* ✅ 색«만» 으로 뜻을 지지 않는다 — 왼쪽 ✓ / ✕ 기호와 오른쪽 꼬리말이 늘 함께 있어 색약이어도 읽힌다 */
+  .rvo.ok{background:rgba(52,211,153,.13);border-color:rgba(52,211,153,.5);color:#a7f3d0;font-weight:700}
+  .rvo.no{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.45);color:#fecaca;font-weight:700}
+  .rvo .tag{margin-left:auto;font-size:11px;font-weight:800;white-space:nowrap;padding-left:8px}
+  .rvs{font-size:14px;color:#a7f3d0;line-height:1.6;margin-top:10px;padding:9px 11px;
+    background:rgba(52,211,153,.09);border-left:3px solid rgba(52,211,153,.55);border-radius:0 8px 8px 0}
+  .rvw{font-size:13px;color:#cbd5e1;line-height:1.7;margin-top:9px;padding-left:2px}
+  .rvw b{color:#fde68a}
+  .rvall{text-align:center;font-size:14px;font-weight:800;color:#6ee7b7;line-height:1.7;
+    background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);border-radius:14px;padding:16px}
+  .rvtip{font-size:12.5px;color:#fde68a;text-align:center;line-height:1.6;margin-top:12px;
+    background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:11px;padding:10px 12px}
   .hidden{display:none}
 </style>
 <script src="/js/session-guard.js" defer></script>
@@ -185,6 +214,8 @@
       <div class="sb"><div class="n" id="ai-correct">0/24</div><div class="t">맞힌 문항</div></div>
     </div>
     <div id="ai-breakdown"></div>
+    <!-- 👇 틀린 문항이 있을 때만 보인다 — 해설 섹션이 CTA «아래» 라 여기서 길을 알려 준다 (2026-09-22) -->
+    <div class="rvtip hidden" id="ai-review-tip"></div>
     <!-- 📚 (2026-07-22) 다음 수업 안내 박스 — 학부모 컴플레인 #6: 결과만 있고 '다음에 뭘 하면 되는지'가 없던 문제 -->
     <div id="ai-next" style="margin-top:16px;padding:16px 18px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);border-radius:14px">
       <div style="font-size:14.5px;font-weight:800;color:#6ee7b7;margin-bottom:8px">🧭 다음 수업 안내</div>
@@ -203,6 +234,17 @@
     <div class="cta">
       <a class="voice" href="/speech-coach.html">🎤 발음 평가 하러가기</a>
       <a class="home" href="/?menu=leveltest">← 레벨테스트로</a>
+    </div>
+
+    <!-- 📘 틀린 문제 다시 보기 (2026-09-22) — 서버가 «틀린 문항만» 정답·해설을 실어 준다.
+         ⛔ 위 CTA 보다 앞으로 옮기지 마세요: 틀린 문항이 20개면 발음 평가·돌아가기 버튼이
+            통째로 스크롤 밖으로 밀립니다. -->
+    <div id="ai-review-wrap" class="hidden">
+      <div class="rvhead">
+        <span class="t">📘 틀린 문제 다시 보기</span>
+        <span class="c" id="ai-review-n"></span>
+      </div>
+      <div id="ai-review"></div>
     </div>
   </div>
 
@@ -476,6 +518,71 @@
     alert('채점 중 오류가 났어요. 푼 문항은 저장돼 있으니 «이어서 하기» 를 눌러 다시 시도해 주세요.');
   }
 
+  /* 📘 틀린 문제 다시 보기 (2026-09-22 사장님 지시)
+     [무엇을 그리나] 서버(src/leveltest-review.ts)가 «학생이 실제로 고른 · 보기 범위 안 · 틀린»
+       문항만 정답·해설과 함께 실어 준다. 화면은 그것을 «그리기만» 한다.
+     ⛔ 화면에서 정답을 다시 계산하지 말 것 — 정답(a)은 questions 응답에 애초에 없다.
+     ⚠️ review 가 «없는» 응답(옛 서버·배포 중)은 아무것도 그리지 않는다 — 0건을
+        «전부 맞혔다» 로 읽으면 화면이 거짓말을 한다. */
+  function renderReview(d){
+    var wrap = $('ai-review-wrap'), box = $('ai-review'), cnt = $('ai-review-n'), tip = $('ai-review-tip');
+    if (!wrap || !box) return;
+    var list = d && d.review;
+    if (!Array.isArray(list)) return;              // 서버가 안 보냄 → 지어내지 않는다
+    wrap.classList.remove('hidden');
+
+    if (!list.length) {
+      /* 0건에는 뜻이 «둘» 이다 — 다 맞혔거나, 답을 고른 문항이 없거나.
+         한 문장으로 뭉치면 중간에 멈춘 학생에게 «전부 맞혔다» 고 거짓말한다. */
+      var perfect = (d.correct != null && d.total != null && Number(d.correct) === Number(d.total));
+      if (cnt) cnt.textContent = '0문항';
+      box.innerHTML = perfect
+        ? '<div class="rvall">🎉 전부 맞혔어요!<br><span style="color:#cbd5e1;font-weight:600;font-size:12.5px">다시 볼 문제가 없습니다.</span></div>'
+        : '<div class="rvall">다시 볼 문제가 없어요.<br><span style="color:#cbd5e1;font-weight:600;font-size:12.5px">답을 고른 문항만 해설해 드려요 — 건너뛴 문항은 나오지 않아요.</span></div>';
+      return;
+    }
+
+    if (cnt) cnt.textContent = list.length + '문항';
+    if (tip) {
+      tip.textContent = '👇 아래에 틀린 ' + list.length + '문항의 정답과 해설이 있어요';
+      tip.classList.remove('hidden');
+    }
+
+    var KEYS = ['A','B','C','D'];
+    /* 문항 번호는 «학생이 푼 차례» 로 — 화면이 갖고 있는 questions 에서 찾는다.
+       재채점 경로처럼 questions 가 비어 있으면 번호를 지어내지 않고 생략한다. */
+    var noOf = function(id){
+      for (var i = 0; i < questions.length; i++) { if (questions[i].id === id) return i + 1; }
+      return 0;
+    };
+
+    box.innerHTML = list.map(function(r){
+      var opts = (r.choices || []).map(function(c, ci){
+        var isA = (ci === r.answer), isP = (ci === r.picked);
+        /* ✅ 색«만» 으로 뜻을 지지 않는다 — ✓/✕ 기호와 오른쪽 꼬리말이 늘 함께 간다 */
+        var cls  = isA ? ' ok' : (isP ? ' no' : '');
+        var mark = isA ? '✓'   : (isP ? '✕'  : '');
+        var tag  = isA ? '정답' : (isP ? '내 답' : '');
+        return '<div class="rvo' + cls + '">'
+          + '<span class="m">' + mark + '</span>'
+          + '<span><span class="kk">' + KEYS[ci] + '.</span>' + esc(c) + '</span>'
+          + (tag ? '<span class="tag">' + tag + '</span>' : '')
+          + '</div>';
+      }).join('');
+      var n = noOf(r.id);
+      return '<div class="rvq">'
+        + '<div class="qh">'
+        +   (n ? '<span class="qn">' + n + '번 문항</span>' : '')
+        +   '<span class="qb">Level ' + esc(r.cefr) + '</span>'
+        + '</div>'
+        + '<div class="qt">' + esc(r.q) + '</div>'
+        + opts
+        + (r.sentence ? '<div class="rvs">✅ ' + esc(r.sentence) + '</div>' : '')
+        + (r.why ? '<div class="rvw"><b>왜?</b> ' + esc(r.why) + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
   function showResult(d){
     $('grading-card').classList.add('hidden');
     $('result-card').classList.remove('hidden');
@@ -561,6 +668,7 @@
         + '<span class="bkbar"><span class="bkfill'+cls+'" style="width:'+w+'%"></span></span>'
         + '<span class="bkn">'+r.correct+'/'+r.total+'</span></div>';
     }).join('');
+    renderReview(d);
     window.scrollTo({top:0, behavior:'smooth'});
   }
 })();

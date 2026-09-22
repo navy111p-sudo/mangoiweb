@@ -161,6 +161,14 @@ html[data-t="dark"] .wk-jump input[type="date"]{background:#1b2330;border-color:
 html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
+/* 🆔 수업 이름 옆 «학생 아이디» — 옛 LMS 줄과 맞춰 보는 열쇠(이름은 동명이인이 실재한다).
+   색은 .cls-meta 와 같은 #5d6b7a — 흰 카드에서 대비 5.46 (실측).
+   🌙 다크는 아래 html[data-t="dark"] 목록에 .cls-meta 와 «짝» 으로 넣었다(#9dabb9 → 7.17).
+   ⛔ 한쪽만 넣지 말 것 — 다크 override 가 없으면 어두운 카드 위에서 3.08 로 떨어진다(실측).
+   ⛔ 이 규칙에 opacity 를 넣지 말 것: «읽히지만 못 읽는» 글자가 된다.
+   ⚠️ 단, 취소된 줄은 줄 통째로 .cls-cancel{opacity:.55} 가 걸려 있다(예전부터 그랬고,
+      «끝난 수업» 을 말하려고 일부러 그런 것이라 아이디만 뗄 수 없다). */
+.stu-id{font-size:.82em;font-weight:600;color:#5d6b7a;margin-left:6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 /* ↩ 지난 수업(이전 강사·이전 일지) 접이식 — 펼치기 전엔 한 줄. hover 확대 금지 규칙대로
    강조는 색만. summary 의 기본 ▶ 마커는 남겨 둔다(펼칠 수 있다는 유일한 신호다). */
 .cls-prev{margin-top:3px;font-size:12.5px}
@@ -337,6 +345,7 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 html[data-t="dark"] body{background:#0f141a;color:#e6ecf2}
 html[data-t="dark"] .top h1 span,
 html[data-t="dark"] .cls-meta,
+html[data-t="dark"] .stu-id,
 html[data-t="dark"] .kpi span,
 html[data-t="dark"] .row span,
 html[data-t="dark"] .modal p.sub,
@@ -1000,6 +1009,39 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     if (EN() && c.student_name_en) return c.student_name_en;
     return c.student_name || c.student_name_en || '';
   }
+
+  /* 🆔 (2026-09-22 제안) 강사 화면의 수업 이름에 **학생 아이디를 항상 함께** 적는다.
+     왜: 강사는 같은 수업을 «옛 LMS» 에서도 본다. 두 화면을 잇는 열쇠는 «이름» 이 아니라
+        **아이디** 다 — 이 저장소에는 동명이인이 실재한다(김민서 71명·김민준 56명).
+        아이디가 보이면 「LMS 의 이 줄 = 망고아이에서 들어가는 그 수업」 이 바로 맞춰진다.
+     판정은 stuParts 한 곳뿐이고, 아래 둘은 «글자를 만들기만» 한다 — 판정을 두 곳에 복제하면
+     텍스트 자리와 HTML 자리가 조용히 다른 말을 하게 된다.
+     ⛔ 아이디가 없으면 «()» 같은 빈 껍데기를 만들지 않는다(없는 것을 지어내지 않는다).
+     ⛔ 이름 칸에 아이디가 들어 있는 행은 같은 글자를 두 번 적지 않는다 — 옛 LMS 행은
+        서버가 student_name = user_id 로 내려준다(api-teacher.ts 의 `r.username || r.user_id`).
+     ⛔ 자리표시 행(lms·type_seed)에는 아이디가 «오지 않는다» — 서버 studentUidOf 가 비운다.
+        그 값을 그리면 「lms 라는 학생」 이 생긴다. 화면에서 다시 거르지 말고 서버를 고칠 것. */
+  function stuUid(c){
+    return String((c && c.student_uid) == null ? '' : c.student_uid).trim();
+  }
+  function stuParts(c){
+    var nm = String(stuName(c) || '').trim();
+    var id = stuUid(c);
+    if (id && nm.toLowerCase() === id.toLowerCase()) id = '';   // 같은 글자를 두 번 적지 않는다
+    if (!nm) { nm = id; id = ''; }                              // 이름이 없으면 아이디가 곧 이름 자리
+    return { nm: nm, id: id };
+  }
+  // 글자만 쓰는 자리(textContent·복사용 요약)용.
+  function stuLabelText(c, fb){
+    var p = stuParts(c);
+    return p.nm ? (p.nm + (p.id ? ' · ' + p.id : '')) : String(fb == null ? '' : fb);
+  }
+  // HTML 자리용 — **안에서 이스케이프한다**. 부르는 쪽에서 다시 esc() 로 감싸지 말 것.
+  function stuLabelHtml(c, fb){
+    var p = stuParts(c);
+    if (!p.nm) return esc(fb == null ? '' : fb);
+    return esc(p.nm) + (p.id ? '<span class="stu-id">' + esc(p.id) + '</span>' : '');
+  }
   // 화면에 글자를 낼 때 항상 이걸 거친다. 영어 화면 + 번역본이 있으면 번역본, 아니면 원문.
   function tr(s){
     if (!EN()) return s;
@@ -1324,7 +1366,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
             var dim = (it.kind !== 'class');
             return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
               + '<b>' + esc(it.start_time) + '</b>'
-              + '<span>' + esc(stuName(it) || (dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)'))) + '</span>'
+              + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
               + kindPill(it).replace(/^ /, '')
               + '<span class="wk-none">' + it.duration_min + T(' min','분') + '</span>'
               + '</div>';
@@ -1411,7 +1453,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       return '<div class="cls">'
         + '<div class="cls-time">' + esc(u.start_time) + '</div>'
         + '<div class="cls-main">'
-        +   '<div class="cls-name">' + esc(stuName(u) || T('(name not set)','(이름 미등록)'))
+        +   '<div class="cls-name">' + stuLabelHtml(u, T('(name not set)','(이름 미등록)'))
         +     kindPill(u)
         +   '</div>'
         +   '<div class="cls-meta">' + esc(when) + ' &middot; ' + meta.join(' &middot; ') + '</div>'
@@ -1508,7 +1550,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
-           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc)
+           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
@@ -1562,6 +1604,18 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
          맨 앞에 둔다. api-teacher.ts 의 substitute/covering_for(오늘 목록 전용) 참고. */
       if (c.substitute) meta.push('<span style="color:#7c3aed;font-weight:700">🔄 '
         + esc(T('Covering for ', '대신 · ')) + esc(c.covering_for || '-') + '</span>');
+      /* 🥭 (2026-09-22 제안 — 「테스트 수업은 망고아이로 들어가야 한다는 걸 강사가 알게」)
+         강사는 정규수업을 «옛 LMS» 에서 한다. 레벨테스트·체험수업만 망고아이로 와야 하는데
+         그걸 모르면 학생이 혼자 방에 앉아 있게 된다 — 배지(레벨테스트)만으로는 «어디로
+         들어가는지» 를 말해 주지 않아서 한 줄로 못 박는다.
+         ⛔ 정규수업에는 붙이지 않는다 — 모든 줄에 붙으면 특별한 표시가 묻힌다
+            (1-3 「관리자 KPI 타일의 이모지」와 같은 판단). */
+      var _mgKind = c.class_kind || (c.is_level_test ? 'level_test' : 'regular');
+      if (_mgKind === 'level_test' || _mgKind === 'trial') {
+        meta.push('<span style="color:#0d6d4a;font-weight:700">'
+          + esc(T('🥭 Join on Mangoi — not the old LMS',
+                  '🥭 망고아이에서 입장하세요 — 옛 LMS 아님')) + '</span>');
+      }
       if (c.level)    meta.push(esc(c.level));
       if (c.textbook) meta.push(esc(c.textbook));
       // 🎚️ 판단력 훈련의 읽기 난이도 — 수업 전에 "이 아이가 지금 어느 정도 문장을 읽나"를 알려준다.
@@ -1623,7 +1677,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         h += '<div class="cls cls-cancel">'
           +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
           +   '<div class="cls-main">'
-          +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
+          +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       stPill(c, live, done, open)
           +     '</div>'
           +     '<div class="cls-meta">' + esc(T('This class was cancelled.','취소된 수업입니다.'))
@@ -1656,7 +1710,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       h += '<div class="cls">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
-        +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
+        +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
         /* 🧪 (2026-08-06) 레벨테스트는 응대가 다르다 — 처음 만나는 학생이고, 보호자가 옆에 있고,
            끝나면 평가를 남겨야 한다. 예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 수 없었다.
            크기·위치는 다른 배지와 같게 두고 색으로만 구분한다(hover 확대 금지 규칙과 같은 이유). */
@@ -1780,7 +1834,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       // 🗓 (2026-08-08) 예전엔 «오늘 수업» 만 여기서 됐고 다른 날짜는 마이페이지로 보냈다.
       //    이제 「수업 연기 · 변경 요청」 카드가 오늘+7일치를 다 골라 주므로 그 안내를 지운다.
       //    (안내와 실제가 어긋나면 강사는 매번 두 곳을 확인하게 된다.)
-      + '<p class="sub">' + esc(stuName(c) + ' · ' + (c.date && !c.today ? c.date + ' ' : '') + c.start_time) + '</p>'
+      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + (c.date && !c.today ? c.date + ' ' : '') + c.start_time) + '</p>'
       + '<div class="' + (isFree ? 'ok' : 'err') + '" style="margin-bottom:14px">'
       +   esc(isFree ? T('More than 30 minutes before the class — no fee.',
                          '수업 시작 30분 전보다 이르므로 요금이 붙지 않습니다.')
@@ -2008,6 +2062,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     out.sort(function(a, b){ return a.start_ts - b.start_ts; });
     var txt = [];
     for (var j = 0; j < out.length && j < 6; j++){
+      // ⛔ 여기에 아이디를 넣지 말 것 — 이 글자는 화면이 아니라 D1(teacher_outages.affected_text)과
+      //    사무실 알림으로 나가 그대로 쌓인다. «화면에 보이게» 와는 다른 일이라 사람이 정할 일.
       txt.push(out[j].start_time + ' ' + (stuName(out[j]) || '?'));
     }
     return { count: out.length, text: txt.join(' / ') };
@@ -2715,6 +2771,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       if (!c.schedule_id) return;
       rows.push({ schedule_id: c.schedule_id, start_ts: c.start_ts, start_time: c.start_time,
                   student_name: c.student_name, student_name_en: c.student_name_en,
+                  student_uid: c.student_uid,
                   date: DATA.today, today: true });
     });
     (DATA && DATA.upcoming || []).forEach(function(u){
@@ -2722,6 +2779,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       if (!sid) return;
       rows.push({ schedule_id: sid, start_ts: u.start_ts, start_time: u.start_time,
                   student_name: u.student_name, student_name_en: u.student_name_en,
+                  student_uid: u.student_uid,
                   date: u.date, today: false });
     });
     rows.sort(function(a, b){ return (a.start_ts || 0) - (b.start_ts || 0); });
@@ -2737,7 +2795,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var free = t < (r.start_ts - 30 * 60000);
       h += '<div class="payrow">'
         +   '<span><b>' + esc(r.start_time || '') + '</b> '
-        +     esc(stuName(r) || T('(name not set)','(이름 미등록)'))
+        +     stuLabelHtml(r, T('(name not set)','(이름 미등록)'))
         +     ' <span class="cls-meta">' + esc(r.today ? T('today','오늘') : (r.date || '')) + '</span></span>'
         +   '<button class="btn btn-gray btn-sm g" type="button" data-pp="' + i + '">'
         +     esc(free ? T('Request','요청') : T('Request (may be charged)','요청 (유료 가능)')) + '</button>'
@@ -3200,7 +3258,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
-      + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '</p>'
+      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + c.start_time) + '</p>'
       + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
       +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
       +   bandChip('grow',   '🌿', T('Grow','자람'), c.eval_band)
@@ -3494,7 +3552,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
                   : T('NEXT CLASS', '다음 수업');
 
     document.getElementById('nu-who').textContent =
-      pick.start_time + '  ' + (stuName(pick) || T('(name not set)', '(이름 미등록)'));
+      pick.start_time + '  ' + stuLabelText(pick, T('(name not set)', '(이름 미등록)'));
 
     document.getElementById('nu-count').textContent =
       live ? T('NOW', '진행중')
