@@ -46,3 +46,23 @@ Clear recognizable subjects, realistic textures and soft daylight. No text or lo
   탈락합니다(2026-09-22 실제로 밟아 한 장을 버렸습니다).
 - 글자가 보여야 하는 장면(공책·봉투·표지판)은 끝을 **`No logos.`** 로 맺습니다.
 - 만든 뒤 **반드시** 근거 게이트를 돌려 통과를 확인합니다.
+
+## ⛔ 사진으로 «영영» 못 채우는 낱말 둘 — `natural` · `soft`
+
+[잰 것 — 2026-09-22] 근거 게이트(`scripts/scene-picture-evidence.mjs`)는 «설명 80% 이상에
+나오는 낱말»을 **껍데기**로 보고 근거에서 뺍니다. 지금 껍데기 15개는 프롬프트 틀에서 옵니다:
+
+```
+natural candid photograph clear recognizable subjects realistic textures and soft daylight no text or logos
+```
+
+그래서 교재 낱말 가운데 **`natural` 과 `soft`** 는 사진을 아무리 잘 만들어도
+그 사진의 설명이 그 낱말을 «가리킨다» 고 판정되지 않습니다 — 그 둘은
+**🎨 낱말 그림카드로 남습니다.**
+
+⛔ **틀에서 그 낱말을 빼서 풀지 마세요.** 껍데기는 전체 설명을 모아 «한 번» 세므로,
+틀을 바꿔 `natural` 의 비율이 80% 밑으로 떨어지면 그 낱말이 **이미 만든 사진 전부의
+근거로 되살아납니다**(= 「natural 이 모든 그림에 붙는」 그 사고. CLAUDE.md 2장
+「껍데기를 근거로 삼지 마세요」).
+
+⛔ 크레딧을 쓰지 마세요 — 그 둘은 만들어도 `verify-prompts.mjs` 에서 탈락합니다.
