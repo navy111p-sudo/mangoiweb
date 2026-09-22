@@ -1,0 +1,101 @@
+# ⛔ 임시 워크플로 — main 에 올리지 않습니다. 이 브랜치에서만 돕니다.
+#   «뜻이 어긋나 다시 만든» 낱말 사진 399장을 러너가 받아 webp 로 바꿔 덮어씁니다
+#   (작업 컨테이너는 CDN 이 프록시에 403 이라 직접 못 받습니다 — CLAUDE.md 2장).
+name: tmp-fetch-word-images-fix
+
+on:
+  push:
+    branches: [tmp/word-img-fix]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: webp 도구
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+
+      - name: 목록 만들기
+        run: |
+          node -e "
+            const fs=require('fs');
+            const a=require('./tools/scene-words/fix-urls.json');
+            fs.writeFileSync('/tmp/list.tsv', a.map(x=>x.index+' '+x.url).join('\n')+'\n');
+            console.log('항목', a.length);
+          "
+          wc -l /tmp/list.tsv
+
+      # ⛔ 「이미 있으면 건너뛰기」 를 쓰면 안 됩니다 — 이번엔 «갈아 끼우는» 것이라
+      #    옛 파일이 그대로 남습니다(고치려던 그 사진이 그대로).
+      - name: 갈아 끼울 파일 먼저 지우기
+        run: |
+          cd cloudflare-deploy/public/img/scene-words
+          n=0
+          while read -r idx url; do
+            if [ -f "$idx.webp" ]; then rm -f "$idx.webp"; n=$((n+1)); fi
+          done < /tmp/list.tsv
+          echo "지운 파일: $n"
+
+      - name: 내려받아 webp 로 바꾸기
+        run: |
+          mkdir -p /tmp/png
+          cd cloudflare-deploy/public/img/scene-words
+          cat > /tmp/one.sh <<'SH'
+          #!/usr/bin/env bash
+          idx="$1"; url="$2"
+          for t in 1 2 3; do
+            curl -sfL --max-time 90 -o "/tmp/png/$idx.png" "$url" && break
+            sleep $((t*3))
+          done
+          [ -s "/tmp/png/$idx.png" ] || { echo "내려받기 실패 $idx"; exit 1; }
+          cwebp -quiet -q 80 -resize 640 480 "/tmp/png/$idx.png" -o "$idx.webp" \
+            || { echo "변환 실패 $idx"; exit 1; }
+          rm -f "/tmp/png/$idx.png"
+          SH
+          chmod +x /tmp/one.sh
+          xargs -P 12 -n 2 /tmp/one.sh < /tmp/list.tsv > /tmp/fail.txt 2>&1 || true
+          echo "실패 줄:"; cat /tmp/fail.txt || true
+
+      - name: 큰 것은 다시 압축(장당 80KB 상한)
+        run: |
+          cd cloudflare-deploy/public/img/scene-words
+          for q in 68 55 42 32; do
+            big=0
+            while read -r idx url; do
+              [ -f "$idx.webp" ] || continue
+              sz=$(stat -c%s "$idx.webp")
+              [ "$sz" -gt 80000 ] || continue
+              big=$((big+1))
+              curl -sfL --max-time 90 -o "/tmp/png/$idx.png" "$url" || continue
+              cwebp -quiet -q $q -resize 640 480 "/tmp/png/$idx.png" -o "$idx.webp"
+              rm -f "/tmp/png/$idx.png"
+            done < /tmp/list.tsv
+            echo "q=$q 에서 다시 압축: $big"
+            [ "$big" = "0" ] && break
+          done
+
+      - name: 확인
+        run: |
+          cd cloudflare-deploy/public/img/scene-words
+          node -e "
+            const fs=require('fs');
+            const a=require('../../../../tools/scene-words/fix-urls.json');
+            const miss=a.filter(x=>{try{return fs.statSync(x.index+'.webp').size<200}catch(e){return true}});
+            const big=a.filter(x=>{try{return fs.statSync(x.index+'.webp').size>80000}catch(e){return false}});
+            console.log('요청', a.length, '· 빠짐', miss.length, '· 80KB 초과', big.length);
+            if(miss.length) console.log('빠진 번호:', miss.slice(0,40).map(x=>x.index).join(' '));
+          "
+          echo "폴더 총 개수: $(ls | wc -l)"; du -sh .
+
+      - name: 커밋
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -q -m '낱말 사진 399장 — 뜻을 맞춰 다시 만든 사진으로 갈아 끼움' || { echo '바뀐 것 없음'; exit 0; }
+          git push origin HEAD:tmp/word-img-fix
