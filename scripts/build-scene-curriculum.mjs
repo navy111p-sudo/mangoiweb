@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
-import {pictureEvidence} from './scene-picture-evidence.mjs';
+import {pictureEvidence,wordPlanFiles} from './scene-picture-evidence.mjs';
 /* 🎨 낱말 그림카드의 그림문자 정본은 화면 파일 한 곳(cloudflare-deploy/public/js/scene-curriculum.js).
    ⛔ 여기에 표를 복제하지 마세요 — 한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다. */
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -44,7 +44,9 @@ function imageMeta(s,m,key){if(m){s.image=m.url;s.imageBytes=m.bytes;s.key=key;}
    ⚠️ 파일이 없으면 표에 있어도 안 붙입니다 — 표만 늘리고 그림을 커밋에 안 담으면 조용히 빈 그림이 됩니다
       (2026-08-31 Lily 얼굴이 그렇게 며칠 동안 옛 얼굴로 돌았습니다). */
 const wordImageDir=path.join(root,'cloudflare-deploy/public/img/scene-words');
-const wordImagePlan=fs.existsSync(path.join(inputs,'word-image-plan.json'))?read('word-image-plan.json'):[];
+/* 표가 여러 파일로 나뉩니다 — 목록 규칙의 정본은 scene-picture-evidence.mjs 의 wordPlanFiles 한 곳이고
+   회귀 검사도 같은 함수를 씁니다(⛔ 여기에 파일 이름을 손으로 적지 마세요). */
+const wordImagePlan=wordPlanFiles(fs.readdirSync(inputs)).flatMap(read);
 const wordImages=[],wordAssets=[];
 for(const it of wordImagePlan){
  const file=path.join(wordImageDir,it.index+'.webp');

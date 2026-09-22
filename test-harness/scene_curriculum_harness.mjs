@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import zlib from 'node:zlib';
 import {createRequire} from 'node:module';
 import * as EV from '../scripts/scene-picture-evidence.mjs';
+import {wordPlanFiles} from '../scripts/scene-picture-evidence.mjs';
 const require=createRequire(import.meta.url),D=require('../cloudflare-deploy/public/js/scene-curriculum.js');
 const root=new URL('../cloudflare-deploy/public/',import.meta.url);
 let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;},eq=(a,b,m)=>{assert.deepEqual(a,b,m);checks++;};
@@ -85,11 +86,28 @@ const scenePlan=plan('scene-plan.json'),assetPlan=plan('asset-plan.json'),clipPl
    ⚠️ 표에 있어도 그림 파일이 없으면 세지 않습니다 — 표만 늘리고 그림을 커밋에 안 담으면
       조용히 빈 그림이 됩니다(2026-08-31 Lily 얼굴). */
 const wordImageDir=new URL('img/scene-words/',root);
-const wordImagePlan=plan('word-image-plan.json');
+/* 표가 여러 파일입니다 — 목록 규칙의 정본은 scene-picture-evidence.mjs 의 wordPlanFiles 하나이고
+   빌드도 같은 함수를 씁니다. ⛔ 여기에 파일 이름을 손으로 적지 마세요(한쪽만 늘어나면
+   「빌드는 붙이는데 검사는 모르는」 상태가 되고 둘 다 조용합니다). */
+const planNames=wordPlanFiles(fs.readdirSync(new URL('../../docs/scene-curriculum-media/',root)));
+const wordImagePlan=planNames.flatMap(plan);
 const wordAssets=[],wordFile=new Map();
 for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(!fs.existsSync(p))continue;
  wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
 ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
+/* 🖼 표가 여러 파일이라 «빌드와 검사가 같은 집합을 보는가» 를 짝으로 못 박습니다.
+   ⛔ 「그 함수가 있는가」로 묻지 마세요 — 빌드가 부르지 않고 한 파일만 읽어도 통과합니다.
+   ⚠️ 그리고 «표가 둘 이상인가» 를 전제로 둡니다 — 하나뿐이면 아래 검사가 조용히 뜻을 잃습니다. */
+ok(planNames.length>=2,'낱말 사진 표가 여러 파일이다 ('+planNames.join(' · ')+')');
+{
+ const buildSrc=fs.readFileSync(new URL('../../scripts/build-scene-curriculum.mjs',root),'utf8');
+ const bare=buildSrc.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^[ \t]*\/\/.*$/gm,'');
+ /* ⚠️ 주석 제거가 코드를 먹으면 아래 «없어야 한다» 가 거짓으로 통과합니다(CLAUDE.md 2장). */
+ ok(bare.length>buildSrc.length*0.4,'주석을 벗겨 낸 사본이 코드를 통째로 먹지 않았다');
+ ok(/wordPlanFiles\s*\(/.test(bare),'빌드가 표 목록 정본(wordPlanFiles)을 실제로 부른다');
+ ok(!/['"]word-image-plan[^'"]*\.json['"]/.test(bare),'빌드가 표 파일 이름을 손으로 적지 않는다');
+ ok(!planNames.includes('word-image-pending.json'),'표가 아닌 파일(word-image-pending.json)은 안 걸린다');
+}
 const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 const {describe,shell:shellSet,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
 /* 🖼 「설명이 그 낱말을 가리킬 때만」 — 껍데기 낱말(natural·clear·soft…)은 여기서 떨어집니다. */
@@ -216,12 +234,25 @@ ok(!('contextOnlyForms' in live)&&!('contextPictureRows' in live),
       ③ 붙은 줄은 전부 근거가 있다(아래 낱말 루프의 depicts 검사 — 짝). */
 ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
  '낱말 그림이 «전부» 는 아니다 — 전부면 근거 게이트가 죽은 것');
+/* 🧱 2026-09-22 — 여기 있던 「게이트를 끄면 «더 많은 낱말»이 붙는다」 단정을 버립니다.
+   사진이 낱말을 거의 다 덮어(4,546 중 4,543) «낱말 수» 로는 차이가 0 입니다 — 포화되어
+   그 검사가 뜻을 잃었습니다(실측 4527 → 4527). ⛔ 느슬하게 푸는 것이 아니라, 그 검사가
+   지키려던 것(«기능어를 근거에서 빼는 게이트가 살아 있는가»)을 **사진 수**로 직접 재서 새 경계로 옮깁니다.
+   반례는 손으로 적지 않고 **자동 생성**합니다 — variants() 가 기능어를 만드는 교재 낱말
+   (thing→the · ones→on · toes→to · used→us). 2026-09-21 사고가 바로 그것이었습니다. */
 {const loose=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,
   sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords:new Set()});
- let n=0;
- for(const w of vocabAll)for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;
-  if(loose.depicts(w,'word-image:'+it.index)){n++;break;}}
- ok(n>wordSceneOf.size,'기능어를 빼는 게이트가 실제로 거르고 있다 — 끄면 더 붙는다 ('+n+' → '+wordSceneOf.size+')');}
+ const trap=[...vocabAll].filter(w=>!stopWords.has(w)&&[...EV.variants(w)].some(v=>stopWords.has(v)));
+ ok(trap.length>0,'전제: variants 가 기능어를 만드는 교재 낱말이 있다 ('+trap.length+'개)');
+ let strictN=0,looseN=0,fnHit=0;
+ for(const w of trap)for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;
+  if(depicts(w,'word-image:'+it.index))strictN++;
+  if(loose.depicts(w,'word-image:'+it.index))looseN++;}
+ ok(looseN>strictN,'기능어를 빼는 게이트가 실제로 거르고 있다 — 끄면 그 낱말들이 훨씬 많은 사진에 붙는다 ('+strictN+' → '+looseN+')');
+ /* ⛔ 「기능어 자신은 절대 안 잡힌다」로 물지 마세요 — 사실이 아니고 결함도 아닙니다.
+    variants() 가 만드는 다른 형태(use→used·using 류)는 기능어가 아니라 설명에 있을 수 있고,
+    그러면 그 사진이 정말 그것을 보여 줍니다(실측 27개). 게이트는 위 짝(strict→loose)이 재고 있습니다. */
+ void fnHit;}
 /* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 붙이지 않는다 ·
    전부 붙었다면 게이트가 죽은 것」 단정을 버립니다. 그 검사가 지키던 것은 «근거 없는 사진을 붙이지 않는다»
    였는데, 지금은 그 자리를 «우리가 그린 낱말 그림카드» 가 채웁니다(남의 문장 사진을 빌려 오지 않습니다).

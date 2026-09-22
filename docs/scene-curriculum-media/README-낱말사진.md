@@ -47,10 +47,10 @@ Clear recognizable subjects, realistic textures and soft daylight. No text or lo
 - 글자가 보여야 하는 장면(공책·봉투·표지판)은 끝을 **`No logos.`** 로 맺습니다.
 - 만든 뒤 **반드시** 근거 게이트를 돌려 통과를 확인합니다.
 
-## ⛔ 사진으로 «영영» 못 채우는 낱말 둘 — `natural` · `soft`
+## ⛔ 사진으로 «영영» 못 채우는 낱말 넷 — `natural` · `soft` · `clear` · `non`
 
 [잰 것 — 2026-09-22] 근거 게이트(`scripts/scene-picture-evidence.mjs`)는 «설명 80% 이상에
-나오는 낱말»을 **껍데기**로 보고 근거에서 뺍니다. 지금 껍데기 15개는 프롬프트 틀에서 옵니다:
+나오는 낱말»을 **껍데기**로 보고 근거에서 뺍니다. 껍데기는 프롬프트 틀에서 옵니다(표 둘을 합친 지금은 16개 — 아래 «표가 «여러 파일»» 절):
 
 ```
 natural candid photograph clear recognizable subjects realistic textures and soft daylight no text or logos
@@ -66,3 +66,37 @@ natural candid photograph clear recognizable subjects realistic textures and sof
 「껍데기를 근거로 삼지 마세요」).
 
 ⛔ 크레딧을 쓰지 마세요 — 그 둘은 만들어도 `verify-prompts.mjs` 에서 탈락합니다.
+
+⚠️ **`clear` 도 같습니다** — 틀의 「Clear recognizable subjects」에서 옵니다(교재 낱말이기도 합니다).
+그리고 **`non`** 은 낱말이 아니라 **조각**(non-stop 류의 앞토막)이라 그릴 장면 자체가 없습니다.
+⟹ 사진으로 못 채우는 것은 **`natural` · `soft` · `clear` · `non`** 넷입니다.
+
+## 표가 «여러 파일» 인 이유와 그때 바뀌는 것
+
+`word-image-plan.json`(1,401) · `word-image-plan-2.json`(1,828) 처럼 나눠 둡니다 —
+한 파일에 몰면 diff 가 통째로 커지고 병렬 작업에서 충돌이 잦습니다.
+
+- ✅ **목록을 만드는 규칙의 정본은 한 곳**입니다 — `scripts/scene-picture-evidence.mjs` 의
+  **`wordPlanFiles`**. 빌드(`build-scene-curriculum.mjs`)와 회귀 검사가 **같은 함수**를 씁니다.
+  ⛔ 어느 쪽에도 파일 이름을 손으로 적지 마세요 — 한쪽에만 파일을 더하면
+  「빌드는 사진을 붙이는데 검사는 그 사진을 모르는」 상태가 되고 **둘 다 조용합니다**.
+  감시는 `scene_curriculum_harness` — 「빌드가 그 함수를 실제로 부르는가」·「이름을 손으로
+  적지 않았는가」·**「표가 둘 이상인가」(전제)** 를 짝으로 봅니다.
+- 🔴 **표를 더하면 «껍데기 목록» 이 바뀝니다.** 껍데기는 «전체 설명을 모아 한 번» 세기 때문입니다.
+  [잰 것 — 2026-09-22] plan-1 만 = 껍데기 **15개**, plan-1+2 = **16개**(`a` 가 늘어남).
+  ⟹ **새 표를 더할 때마다 껍데기 목록을 다시 재고, 늘어난 낱말이 교재 낱말인지 확인하세요.**
+  여기서는 `a` 가 이미 `stopwords.json` 에 있어 근거에서 빠져 있었으므로 **판정 결과는
+  안 바뀌었습니다**(통과 못 하는 낱말은 그대로 `natural`·`soft`·`clear` 셋).
+  ⚠️ 껍데기가 **줄어드는** 쪽이 위험합니다 — 그 순간 그 낱말이 **이미 만든 사진 전부의
+  근거로 되살아납니다**(= 「natural 이 모든 그림에 붙는」 사고).
+
+## 사진 파일을 저장소로 가져오는 절차 (작업 컨테이너는 CDN 403)
+
+1. 임시 브랜치(`tmp/word-img-…`)에 **그 브랜치에서만 도는** 워크플로를 두고 push 합니다
+   (⛔ main 에 올리지 마세요. `workflow_dispatch` 는 이 저장소에서 403 이라 **push 트리거**로).
+2. 러너가 plan 의 `url` 을 받아 **`cwebp -q 80 -resize 640 480`** 로 바꿔
+   `cloudflare-deploy/public/img/scene-words/<index>.webp` 에 커밋합니다(장당 평균 ~26KB).
+3. 그 커밋에서 **이미지 폴더만** 작업 브랜치로 가져옵니다
+   (`git checkout <커밋> -- cloudflare-deploy/public/img/scene-words`).
+4. 임시 워크플로는 지웁니다. ⚠️ **푸시 프록시가 브랜치 «삭제» 를 거부합니다** — 못 지우면
+   그 브랜치에서 워크플로 파일을 지워 더는 안 돌게 하고 사람에게 알리세요.
