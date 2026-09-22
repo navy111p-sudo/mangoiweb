@@ -190,6 +190,13 @@ async function main() {
   console.log('\n-- (5) 읽히는가 (WCAG 대비) --');
   const ctr = await ev(`window.__contrastOf(document.querySelector("#classes .cls-name .stu-id"))`);
   check('아이디 글자 대비가 4.5:1 이상', typeof ctr === 'number' && ctr >= 4.5, 'contrast=' + ctr);
+  /* 🥭 안내도 «읽히는가» 를 잰다 — 색을 따로 준 글자는 따로 재야 한다.
+     (아이디만 재고 넘어가면 안내가 안 읽혀도 초록불이다) */
+  const ctrHint = await ev(`(function(){
+    var el = [...document.querySelectorAll("#classes .cls-meta span")]
+      .filter(function(e){ return /망고아이에서 입장|Join on Mangoi/.test(e.textContent); })[0];
+    return el ? window.__contrastOf(el) : null; })()`);
+  check('🥭 안내 글자 대비도 4.5:1 이상', typeof ctrHint === 'number' && ctrHint >= 4.5, 'contrast=' + ctrHint);
 
   console.log('\n-- (6) 레이아웃 — 넘치지 않는가 (PC/폰) --');
   check('PC 1400px 에서 가로로 안 넘친다', (await ev('document.documentElement.scrollWidth <= window.innerWidth + 1')) === true);
