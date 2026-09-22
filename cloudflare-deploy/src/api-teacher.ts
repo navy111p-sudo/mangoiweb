@@ -428,6 +428,20 @@ export async function handleTeacherApi(
       return 'regular';
     };
 
+    /* 🆔 화면에 «학생 아이디» 로 보여줄 값 — 2026-09-22 제안
+         「강사 페이지에서 망고아이 수업을 늘 학생 아이디와 함께 적어 달라」.
+       왜 서버가 내려주나: 강사는 같은 수업을 «옛 LMS» 에서도 본다. 두 화면을 잇는 열쇠는
+       이름이 아니라 아이디다(동명이인이 실재한다 — 김민서 71명·김민준 56명).
+       ⛔ 자리표시 행은 학생이 아니다 — user_id 가 'lms'·'type_seed' 인 행의 그 값을
+          아이디로 내려주면 강사 화면에 「lms 라는 학생」 이 생긴다. 비워서 보낸다.
+          (같은 판정이 이 파일 아래 kind 계산에도 있다 — 한쪽만 고치지 말 것) */
+    const studentUidOf = (s: any): string | null => {
+      const u = String(s.user_id || '').trim();
+      const lo = u.toLowerCase();
+      if (!u || lo === 'lms' || lo === 'type_seed') return null;
+      return u;
+    };
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
@@ -446,6 +460,7 @@ export async function handleTeacherApi(
           id: s.id,
           start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
           duration_min: Number(s.duration_min) || 30,
+          student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
           kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
@@ -482,6 +497,7 @@ export async function handleTeacherApi(
           start_time: `${pad(uh || 0)}:${pad(um || 0)}`,
           start_ts: uStart,
           duration_min: Number(s.duration_min) || 30,
+          student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
           level: s.level || null,
