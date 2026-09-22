@@ -582,8 +582,8 @@
             <div class="form-row"><label data-ko="학교"           data-en="School">학교</label><input id="cSchool" type="text"></div>
             <div class="form-row"><label data-ko="학년"           data-en="Grade">학년</label><input id="cGrade" type="text" placeholder="초3·중1·고2…"></div>
             <div class="form-row"><label data-ko="생년월일"       data-en="Birth Date">생년월일</label><input id="cBirth" type="date"></div>
-            <div class="form-row"><label data-ko="가맹점"         data-en="Franchise">가맹점</label><input id="cFranchise" type="text"></div>
-            <div class="form-row"><label data-ko="지점"           data-en="Branch">지점</label><input id="cShop" type="text"></div>
+            <div class="form-row"><label data-ko="지사"           data-en="Branch">지사</label><input id="cFranchise" type="text"></div>
+            <div class="form-row"><label data-ko="대리점"         data-en="Agency">대리점</label><input id="cShop" type="text"></div>
             <div class="form-row"><label data-ko="새 비밀번호"     data-en="New Password">새 비밀번호</label><input id="cPassword" type="text" autocomplete="new-password" placeholder="변경하지 않으려면 비워 두세요 (4자 이상)"></div>
             <div class="form-row"><label data-ko="비밀번호 확인"   data-en="Confirm Password">비밀번호 확인</label><input id="cPasswordConfirm" type="text" autocomplete="new-password" placeholder="새 비밀번호를 한 번 더 입력"></div>
           </div>
@@ -733,7 +733,7 @@ const T = {
   qClassesPW:{ko:'📚 주당 수업', en:'📚 Classes / wk'},
   qBooked:   {ko:'📘 예약 수업', en:'📘 Booked'},
   qPayType:  {ko:'💰 결제 유형', en:'💰 Payment'},
-  qFranchise:{ko:'🏢 가맹점', en:'🏢 Franchise'},
+  qFranchise:{ko:'🏢 지사', en:'🏢 Branch'},
   qSessions: {ko:'📊 출석 세션', en:'📊 Sessions'},
   qGaze:     {ko:'🎯 평균 집중도', en:'🎯 Avg. Focus'},
   qRewards:  {ko:'🎁 보상 보유', en:'🎁 Rewards'},
@@ -841,7 +841,7 @@ const T = {
   phoneNotKept:{ko:' · ⚠️ 전화번호는 보관되지 않았습니다(오늘 밤 사라집니다) — 숫자 9자리 이상인지 확인해 주세요', en:' · ⚠️ Phone was NOT kept (it will vanish tonight) — check it has at least 9 digits'},
   phoneCleared:{ko:' · 🗑 비운 번호를 지웠습니다 — 남은 번호가 있으면 문자는 그 번호로 갑니다', en:' · 🗑 Cleared the emptied number — if another number remains, SMS still goes there'},
   phoneChangeFailed:{ko:' · ⚠️ 번호 변경이 저장되지 않았습니다 — 새로 불러 확인해 주세요', en:' · ⚠️ Phone change was NOT saved — reload and check'},
-  orgNotKept:{ko:' · ⚠️ 가맹점·소속은 보관되지 않았습니다(오늘 밤 사라집니다) — 다시 저장해 보세요', en:' · ⚠️ Franchise/shop was NOT kept (it will vanish tonight) — try saving again'},
+  orgNotKept:{ko:' · ⚠️ 지사·대리점은 보관되지 않았습니다(오늘 밤 사라집니다) — 다시 저장해 보세요', en:' · ⚠️ Branch/agency was NOT kept (it will vanish tonight) — try saving again'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1748,7 +1748,7 @@ $('cSaveBtn').addEventListener('click', async () => {
     });
     const j = await r.json();
     if (r.ok && j.ok) {
-      /* 📞🏢 (2026-09-15) 번호·가맹점·소속 «보관» 실패를 조용히 넘기지 않는다.
+      /* 📞🏢 (2026-09-15) 번호·지사·대리점 «보관» 실패를 조용히 넘기지 않는다.
          students_erp 의 이 칸들은 카페24 야간 UPSERT 가 덮으므로, 서버는 그것과 «함께»
          student_erp_override 에도 적는다(수업 안내문자가 읽는 정본이 그 표를 먼저 본다).
          그 보관이 실패하면 `phone_kept`/`org_kept` 가 각각 false 로 온다 — 번호의 흔한 경우는
