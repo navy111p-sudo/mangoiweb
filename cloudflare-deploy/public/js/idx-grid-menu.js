@@ -1228,7 +1228,11 @@
        openInquiryModal 은 이제 카카오 채널을 연다(이름만 유지 — 부르는 곳이 많다). */
     trial:       () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); },
     faq:         () => { closeGrid(); showModal(FAQ); },
-    leveltest:   () => { closeGrid(); showLevelTestModal(); },
+    /* 2026-09-22: 홈 「레벨테스트」 타일은 아이용 입구(카드 3장, /level-start.html)로 간다.
+       그 화면의 «선생님 + 로봇» 카드가 /?menu=leveltest 로 이 신청 모달을 다시 연다
+       (그 경로는 아래 ?menu 처리가 showLevelTestModal() 을 «직접» 불러 여기로 되돌아오지 않는다).
+       ⛔ window.showLevelTestModal 자체는 바꾸지 않는다 — 결과보기·다시신청 등 모달을 곧바로 여는 곳이 쓴다. */
+    leveltest:   () => { closeGrid(); location.href = '/level-start.html'; },
     speech:      () => { closeGrid(); location.href = '/speech-coach.html'; },
     teachers:    () => {
       closeGrid();
