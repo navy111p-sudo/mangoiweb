@@ -3,7 +3,8 @@
 // 이유: MediaRecorder는 청크(Blob)를 계속 뱉어내는데, 한 번에 모아 올리면 브라우저 메모리 폭주 + 중간 끊김 시 전체 손실.
 //       R2 multipart upload로 청크를 그대로 흘려보내면 긴 수업(1~2시간)도 안전하게 이어붙일 수 있음.
 
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, getAdminActor } from './auth-admin';
+import { orgScopeVerdict, readScopeType } from './org-scope-guard';
 import { authUidFromRequest, verifyRecDlSig } from './auth-token';
 
 export interface Env {
@@ -506,7 +507,16 @@ export async function handleRecordingUpload(
     const sess = await checkAdminSession(request, env as any);
     let uid: string | null = null;
     let sigOk = false;
-    if (!sess.ok) {
+    /* 🔒 (2026-09-22) 관리자 세션이면 «아무 녹화나» 재생되던 것 — 지사·대리점 세션은 제외한다.
+       녹화 id 가 연속 정수라 조직 계정이 번호를 훑으면 다른 지사 학생 영상이 그대로 열렸다.
+       조직이거나 «모르면» 관리자로 인정하지 않고 아래 학생 경로(토큰·서명)로 떨어뜨린다
+       — 조직 계정은 그 둘이 없으므로 401. 정본 src/org-scope-guard.ts */
+    let adminOk = sess.ok;
+    if (adminOk) {
+      const _pa = await getAdminActor(request, env as any);
+      if (orgScopeVerdict(await readScopeType(env, _pa.username), _pa.role) !== 'hq') adminOk = false;
+    }
+    if (!adminOk) {
       uid = await authUidFromRequest(request, url, env);
       if (!uid) {
         sigOk = await verifyRecDlSig(id, url.searchParams.get("sig") || "", env);
@@ -536,7 +546,7 @@ export async function handleRecordingUpload(
     // 판정은 목록 API(/api/student/recordings)와 동일: 녹화가 학생 '이름'으로 저장되는
     // 관례가 있어 uid 외에 students_erp 등록 이름·데모 카드 이름·교사 본인까지 인정.
     // (sig 인증은 발급 자체가 녹화 1건에 못박혀 있어 이 소유권 대조를 거치지 않는다)
-    if (!sess.ok && !sigOk) {
+    if (!adminOk && !sigOk) {
       const identities = new Set<string>([String(uid)]);
       try {
         const s: any = await env.DB.prepare(

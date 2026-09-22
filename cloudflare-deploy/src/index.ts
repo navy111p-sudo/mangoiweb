@@ -31,6 +31,7 @@ import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession, getAdminActor, isOrgScopedRole, PH_MANAGERS } from './auth-admin';
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleSalesHrApi } from './api-sales-hr';   // 🚗 영업담당자 실적·인사평가·보상
@@ -368,6 +369,17 @@ const worker = {
       if (sess.ok) {
         const _mp = await managerPortalRedirect(request, url, path, env);
         if (_mp) return _mp;
+      }
+
+      // 🔒 (2026-09-22) 녹화(미성년자 수업 영상) 관리자 API — 본사 전용.
+      //   `/api/recordings/*` 는 `/api/admin/` 밖이라 아래 스코프 차단을 비켜 가고 핸들러도
+      //   스코프를 안 걸어, 지사·대리점 계정이 다른 지사 학생 영상 목록·링크를 받을 수 있었다.
+      //   여기 오는 것은 isAdminPath 가 관리자 전용으로 적은 녹화 경로뿐이다(학생 업로드 경로는 안 옴).
+      //   조직인지 «모르면» 도 막는다 — 정본 src/org-scope-guard.ts.
+      if (sess.ok && path.startsWith('/api/recordings')) {
+        const _recActor = await getAdminActor(request, env as any);
+        const _recDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _recActor.username), _recActor.role));
+        if (_recDeny) return _recDeny;
       }
 
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도

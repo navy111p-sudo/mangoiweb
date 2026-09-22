@@ -14,6 +14,7 @@ import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope, getAdminActor } from './auth-admin';  // 🔐 공용 소유자 판정
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
 import { entryWindow, canEnterNow, enterBlockedMsg, nextStartAfter } from './class-entry-window';  // 🚪 「문을 열어 줄 것인가」 정본 («수업 시간인가» 와 별개)
@@ -387,6 +388,15 @@ export async function handleMangoApi(
       const recAdminSess = recAuthUid ? { ok: false } : await checkAdminSession(request, env as any);
       if (!recAuthUid && !recAdminSess.ok) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
+      }
+      /* 🔒 (2026-09-22) 지사·대리점 세션은 여기서 «관리자» 로 인정하지 않는다.
+         이 목록은 ?uid= 를 믿고 LIKE 로 찾은 뒤 녹화마다 &sig= 서명 재생 URL 을 발급하므로,
+         조직 세션이 통과하면 /api/recording/play 의 조직 차단을 그 서명으로 비켜 간다.
+         조직이거나 «모르면» 403. 강사·본사는 그대로. 정본 src/org-scope-guard.ts */
+      if (!recAuthUid && recAdminSess.ok) {
+        const _srActor = await getAdminActor(request, env as any);
+        const _srDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _srActor.username), _srActor.role));
+        if (_srDeny) return _srDeny;
       }
       // 재생 URL 에 동봉할 원본 토큰 (authUidGlobal 과 동일한 우선순위: Bearer > ?token=)
       //   관리자·교사 세션으로 들어온 요청은 토큰이 없다 → 빈 문자열. 재생은 쿠키로 통과한다.
