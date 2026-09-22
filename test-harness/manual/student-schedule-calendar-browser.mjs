@@ -81,7 +81,6 @@ const BOOT = `
          드롭다운이 아니라 «폴백» 경로만 검사하게 된다(규칙서: 스텁 순서 함정).
          운영 D1 에 실재하는 그 쌍(FAR 22 · HT FARRAH 3)을 그대로 넣는다. */
       if (s.indexOf('/api/admin/teachers') >= 0) {
-        if (window.__noTeachers) return ok({ ok:true, items:[] });
         return ok({ ok:true, items:[
           { id:3,  name:'HT FARRAH', active:0 },
           { id:22, name:'FAR',       active:1 },
@@ -259,7 +258,10 @@ async function main() {
   const selShown = await ev(`(function(){var e=document.getElementById('ns-teacher-sel');
     if(!e) return 'none'; var r=e.getBoundingClientRect();
     return getComputedStyle(e).display + '|' + Math.round(r.width) + 'x' + Math.round(r.height); })()`);
-  check('드롭다운이 실제로 보인다', /^(?!none)/.test(selShown) && !/\|0x/.test(selShown), selShown);
+  /* ⚠️ `!/\|0x/` 는 «폭 0» 만 본다 — 높이 0 을 놓친다. 두 값을 «둘 다» 재다. */
+  const _sd = String(selShown).split('|');
+  const _sw = Number((_sd[1] || '0x0').split('x')[0]), _sh = Number((_sd[1] || '0x0').split('x')[1]);
+  check('드롭다운이 실제로 보인다', _sd[0] !== 'none' && _sw > 0 && _sh > 0, selShown);
   check('[짝] 옆 텍스트 칸은 감춰져 있다',
     (await ev(`getComputedStyle(document.getElementById('ns-teacher')).display`)) === 'none');
 
@@ -272,9 +274,37 @@ async function main() {
   check('재직 묶음에 FAR(22)·강선생님(29) 이 있다',
     live.some(x => /^22:/.test(x)) && live.some(x => /^29:/.test(x)), JSON.stringify(live));
   check('active 가 NULL 인 MAIMAI(27) 도 재직이다', live.some(x => /^27:/.test(x)), JSON.stringify(live));
-  check('[짝] 퇴사 HT FARRAH(3) 는 따로 묶여 «(퇴사)» 로 표시된다',
-    gone.some(x => /^3:.*\(퇴사\)/.test(x)), JSON.stringify(gone));
-  check('[짝] 퇴사가 재직 묶음에 섞이지 않는다', !live.some(x => /^3:/.test(x)));
+  /* 🚪 기본은 «퇴사 안 보임» — 2026-08-26 사고가 그 목록에서 죽은 행을 고른 것이다. */
+  check('기본에서는 퇴사 HT FARRAH(3) 가 안 보인다',
+    !gone.some(x => /^3:/.test(x)) && !live.some(x => /^3:/.test(x)), JSON.stringify(groups));
+
+  /* ⚠️ 말없이 빼면 「그 강사가 없다」로 읽힌다 — 감춘 «명 수» 를 화면이 말해야 한다. */
+  const lw = await ev(`(function(){var w=document.getElementById('ns-show-left-wrap');
+    if(!w) return 'none|'; var r=w.getBoundingClientRect();
+    return getComputedStyle(w).display + '|' + Math.round(r.width) + 'x' + Math.round(r.height)
+      + '|' + (document.getElementById('ns-show-left-lb')||{}).textContent; })()`);
+  check('「퇴사 강사도 보기」 체크박스가 보인다', lw.split('|')[0] !== 'none'
+    && Number((lw.split('|')[1]||'0x0').split('x')[0]) > 0
+    && Number((lw.split('|')[1]||'0x0').split('x')[1]) > 0, lw);
+  check('감춘 «명 수» 를 말해 준다 (1명)', /\(1명\)/.test(lw), lw);
+
+  /* 🔴 짝 — «감춘다» 만 보면 «전부 감추기» 도 통과한다. 체크하면 «반드시» 나와야 한다. */
+  await ev(`(function(){var c=document.getElementById('ns-show-left');
+    c.checked=true; c.dispatchEvent(new Event('change',{bubbles:true})); })()`);
+  const opts2 = await ev(`(function(){var e=document.getElementById('ns-teacher-sel');
+    return JSON.stringify([...e.querySelectorAll('optgroup')].map(function(g){
+      return { g:g.label, o:[...g.querySelectorAll('option')].map(function(o){ return o.value+':'+o.textContent; }) }; })); })()`);
+  const groups2 = JSON.parse(opts2 || '[]');
+  const live2 = (groups2.find(g => /재직/.test(g.g)) || { o: [] }).o;
+  const gone2 = (groups2.find(g => /퇴사/.test(g.g)) || { o: [] }).o;
+  check('[짝] 체크하면 HT FARRAH(3) 가 «(퇴사)» 로 나온다',
+    gone2.some(x => /^3:.*\(퇴사\)/.test(x)), JSON.stringify(gone2));
+  check('[짝] 그때도 퇴사가 재직 묶음에 섞이지 않는다', !live2.some(x => /^3:/.test(x)));
+  check('[짝] 체크해도 재직은 그대로 있다', live2.some(x => /^22:/.test(x)), JSON.stringify(live2));
+
+  // 다시 끈다 — 아래 «고르기» 는 기본 상태에서 재야 한다
+  await ev(`(function(){var c=document.getElementById('ns-show-left');
+    c.checked=false; c.dispatchEvent(new Event('change',{bubbles:true})); })()`);
 
   /* 🔴 핵심 — 「FAR」을 골라 등록하면 POST 본문에 teacher_id=22 가 실려야 한다.
      이름으로 보내면 서버가 `name = ? OR name LIKE ? LIMIT 1` 로 3(퇴사)을 붙인다. */

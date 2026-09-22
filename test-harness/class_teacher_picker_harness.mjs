@@ -70,6 +70,7 @@ console.log('\n── ⓪ 전제 — 정본 블록을 실제로 오려 냈다 �
 const SRC = {
   active: bodyAt(html, 'function nsTeacherActive('),
   build: bodyAt(html, 'function nsBuildTeacherOptions('),
+  sync: bodyAt(html, 'function nsSyncTeacherOptions('),
   esc: bodyAt(html, 'function nsEsc('),
   picked: bodyAt(html, 'function nsPickedTeacher('),
   fallback: bodyAt(html, 'function nsFallbackToText('),
@@ -100,27 +101,93 @@ const ROWS = [
   { id: 31, name: '  ', active: 1 },          // 이름이 빈 행은 버린다
 ];
 
+const grp = (out, label) => (out.match(new RegExp('<optgroup label="' + label + '[^"]*">([\\s\\S]*?)<\\/optgroup>')) || [, ''])[1];
+
 if (build) {
-  let out = '';
-  try { out = build(ROWS); } catch (e) { check('목록을 그릴 수 있다', false, e.message); }
-  const live = (out.match(/<optgroup label="재직[^"]*">([\s\S]*?)<\/optgroup>/) || [, ''])[1];
-  const gone = (out.match(/<optgroup label="퇴사[^"]*">([\s\S]*?)<\/optgroup>/) || [, ''])[1];
+  /* 🚪 기본(체크 안 함) — 퇴사는 «안 보인다». 2026-08-26 사고가 그 목록에서 죽은 행을 고른 것이다. */
+  let off = '';
+  try { off = build(ROWS, false); } catch (e) { check('목록을 그릴 수 있다', false, e.message); }
+  const live = grp(off, '재직');
 
   check('재직 묶음에 FAR(22) 이 있다', /value="22"/.test(live), live.slice(0, 90));
   check('재직 묶음에 강선생님(29) 이 있다', /value="29"/.test(live));
   check('active 가 NULL 이면 재직이다 (MAIMAI 27)', /value="27"/.test(live));
-  // 짝 — 퇴사를 «감추지» 않는다. 감추면 이미 그 강사에게 붙은 수업을 사람이 못 알아본다.
-  check('[짝] 퇴사 강사도 목록에 남는다 (HT FARRAH 3)', /value="3"/.test(gone), gone.slice(0, 90));
-  check('[짝] 퇴사 강사는 «(퇴사)» 로 표시된다', /\(퇴사\)/.test(gone));
-  check('[짝] 퇴사 강사가 재직 묶음에 섞이지 않는다', !/value="3"/.test(live));
-  check('이름이 빈 행은 안 그린다 (31)', !/value="31"/.test(out));
-  check('«지정 안 함» 이 맨 앞에 있다', out.indexOf('value=""') === 0 || /^<option value="">/.test(out));
-  check('값은 이름이 아니라 id 다', !/value="FAR"/.test(out));
+  check('기본에서는 퇴사 강사가 안 나온다 (HT FARRAH 3)', !/value="3"/.test(off), off.slice(0, 120));
+  check('이름이 빈 행은 안 그린다 (31)', !/value="31"/.test(off));
+  check('«지정 안 함» 이 맨 앞에 있다', /^<option value="">/.test(off));
+  check('값은 이름이 아니라 id 다', !/value="FAR"/.test(off));
+
+  /* 🔴 짝 — «감춘다» 만 보면 «전부 감추기» 도 통과한다. 체크하면 «반드시» 나와야 한다.
+        (서버에서 걸러 버리면 이 체크박스가 조용히 무동작이 된다 — 규칙서의 그 줄.) */
+  let on = '';
+  try { on = build(ROWS, true); } catch (e) { check('체크한 목록을 그릴 수 있다', false, e.message); }
+  const gone = grp(on, '퇴사');
+  check('[짝] 체크하면 퇴사 강사가 나온다 (HT FARRAH 3)', /value="3"/.test(gone), gone.slice(0, 90));
+  check('[짝] 그때도 «(퇴사)» 로 표시된다', /\(퇴사\)/.test(gone));
+  check('[짝] 퇴사 강사가 재직 묶음에 섞이지 않는다', !/value="3"/.test(grp(on, '재직')));
+  check('[짝] 체크해도 재직은 그대로 있다', /value="22"/.test(grp(on, '재직')));
 
   // 짝 — 목록이 비면 묶음을 만들지 않는다(빈 optgroup 이 뜨지 않게)
   let empty = '';
-  try { empty = build([]); } catch (_) {}
+  try { empty = build([], true); } catch (_) {}
   check('[짝] 강사가 0명이면 묶음을 안 만든다', !/optgroup/.test(empty), empty.slice(0, 80));
+}
+
+/* ── ①-2 체크박스 — 감춘 것을 «말해 주는가» · 다시 그려도 고른 값이 남는가 ── */
+console.log('\n── ①-2 「퇴사 강사도 보기」 체크박스 ──');
+if (SRC.sync.length > 40 && build) {
+  /* 🔴 가짜 <select> 는 «진짜처럼» 굴어야 한다 — 평범한 객체로 두면 innerHTML 을 갈아도
+        .value 가 그대로 남아, 「고른 값 보존」 검사가 «무엇을 지워도» 통과한다(실측). */
+  const fakeSelect = (v) => {
+    const o = { _html: '', _v: v || '', style: { display: '' } };
+    Object.defineProperty(o, 'innerHTML', {
+      get() { return o._html; },
+      /* 진짜 <select> 는 options 를 갈아 끼우면 선택이 «맨 앞» 으로 돌아간다 — 늘 지운다. */
+      set(h) { o._html = String(h); o._v = ''; },
+    });
+    Object.defineProperty(o, 'value', {
+      get() { return o._v; },
+      set(x) { const y = String(x == null ? '' : x); o._v = (o._html.indexOf('value="' + y + '"') >= 0 || y === '') ? y : ''; },
+    });
+    return o;
+  };
+  const mkSync = (rows, checked) => {
+    const sel = fakeSelect('');
+    const wrap = { style: { display: 'none' } };
+    const lb = { textContent: '' };
+    const fn = new Function('selEl', 'teacherRows', 'leftChkEl', 'leftWrapEl', 'leftLbEl',
+      'nsBuildTeacherOptions', 'nsTeacherActive',
+      SRC.sync + '\nnsSyncTeacherOptions(); return { sel: selEl, wrap: leftWrapEl, lb: leftLbEl };');
+    return fn(sel, rows, { checked }, wrap, lb, build, active);
+  };
+  let r = null;
+  try { r = mkSync(ROWS, false); } catch (e) { check('전제 — 동기화를 돌릴 수 있다', false, e.message); }
+  if (r) {
+    check('감춘 사람이 있으면 체크박스를 보여 준다', r.wrap.style.display === 'flex', r.wrap.style.display);
+    check('감춘 «명 수» 를 말해 준다 (1명)', /\(1명\)/.test(r.lb.textContent), r.lb.textContent);
+    check('기본에서는 퇴사가 안 그려진다', !/value="3"/.test(r.sel.innerHTML));
+  }
+  let r2 = null;
+  try { r2 = mkSync(ROWS, true); } catch (_) {}
+  if (r2) check('[짝] 체크하면 그려진다', /value="3"/.test(r2.sel.innerHTML));
+
+  // 짝 — 퇴사가 0명이면 체크박스 자체를 안 보인다(잃는 정보가 없다)
+  let r3 = null;
+  try { r3 = mkSync(ROWS.filter(t => t.id !== 3), false); } catch (_) {}
+  if (r3) check('[짝] 퇴사가 0명이면 체크박스를 안 보인다', r3.wrap.style.display === 'none', r3.wrap.style.display);
+
+  // ⚠️ 다시 그리면 고른 값이 날아간다 — 되돌려 놓는가
+  try {
+    const sel = fakeSelect('');
+    sel.innerHTML = '<option value="22">FAR</option>';
+    sel.value = '22';
+    check('전제 — 가짜 select 가 22 를 들고 있다', sel.value === '22', sel.value);
+    const fn = new Function('selEl', 'teacherRows', 'leftChkEl', 'leftWrapEl', 'leftLbEl',
+      'nsBuildTeacherOptions', 'nsTeacherActive',
+      SRC.sync + '\nnsSyncTeacherOptions(); return selEl.value;');
+    const v = fn(sel, ROWS, { checked: true }, { style: {} }, { textContent: '' }, build, active);
+    check('다시 그려도 고른 값이 남는다 (22)', String(v) === '22', String(v));
+  } catch (e) { check('고른 값 보존을 잴 수 있다', false, e.message); }
 }
 
 if (active) {
@@ -175,25 +242,32 @@ check('payload 가 teacher_name 을 함께 싣는다', /teacher_name:\s*_nsT\.na
 check('[짝] 옛 «텍스트 칸을 그대로 보내기» 로 되돌아가지 않았다',
   !/teacher_name:\s*\(\(document\.getElementById\('ns-teacher'\)/.test(sClean));
 check('목록을 로드하는 호출이 있다', /nsLoadTeachers\s*\(\s*\)/.test(strip(html)));
+/* 🚪 받은 목록을 «동기화» 로 그린다 — 그래야 체크박스 상태가 반영된다.
+   ⛔ selEl.innerHTML = nsBuildTeacherOptions(rows) 로 되돌리면 체크박스가 무동작이 된다. */
+check('받은 목록을 nsSyncTeacherOptions() 로 그린다', /nsSyncTeacherOptions\s*\(\s*\)/.test(strip(SRC.load)));
+check('[짝] 체크박스 change 가 다시 그리게 배선돼 있다',
+  /leftChkEl\.addEventListener\(\s*'change'\s*,\s*nsSyncTeacherOptions\s*\)/.test(strip(html)));
 
 /* ── ④ 폴백 — 목록을 못 받으면 «되던 것» 으로 떨어지는가 ───────────── */
 console.log('\n── ④ 폴백 ──');
 try {
   const sel = { style: { display: '' }, innerHTML: '' };
   const txt = { style: { display: 'none' } };
+  const lw = { style: { display: 'flex' } };
   let said = '';
-  const mk = new Function('selEl', 'txtEl', 'say',
+  const mk = new Function('selEl', 'txtEl', 'leftWrapEl', 'say',
     SRC.fallback + '\nreturn nsFallbackToText;');
-  mk(sel, txt, (h) => { said = String(h); })('HTTP 403');
+  mk(sel, txt, lw, (h) => { said = String(h); })('HTTP 403');
   check('목록을 못 받으면 드롭다운을 감춘다', sel.style.display === 'none');
   check('[짝] 그리고 옛 텍스트 칸이 다시 보인다', txt.style.display === '');
+  check('[짝] 체크박스도 함께 감춘다 (고를 것이 없다)', lw.style.display === 'none', lw.style.display);
   check('[짝] 왜 그런지 화면이 말한다', /강사 목록/.test(said) && /403/.test(said), said.slice(0, 80));
 } catch (e) {
   check('전제 — nsFallbackToText 를 돌릴 수 있다', false, e.message);
 }
 const lClean = strip(SRC.load);
 /* 규칙서: 404 본문은 {error:'Not Found'} 라 ok 칸이 없다 — `j.ok === false` 만 보면 그냥 통과한다. */
-check('«성공이라고 말했는가» 로 가른다 (j.ok === true)', /j\.ok\s*!==\s*true/.test(lClean), lClean.slice(0, 0));
+check('«성공이라고 말했는가» 로 가른다 (j.ok === true)', /j\.ok\s*!==\s*true/.test(lClean));
 check('HTTP 상태도 함께 본다 (r.ok)', /\.r\.ok|res\.r\.ok/.test(lClean));
 check('통신 오류도 폴백으로 간다 (catch)', /catch\s*\(/.test(lClean) && /nsFallbackToText/.test(lClean));
 check('퇴사까지 받으려고 include_inactive=1 로 부른다', /include_inactive=1/.test(lClean));
@@ -244,8 +318,9 @@ check('이름 갈래는 else 로 밀려났다 (teacher_id 와 동시에 안 돈�
 check('[짝] id 를 못 읽으면 body 의 이름으로 떨어뜨리지 않는다',
   !/teacherName\s*=\s*tRaw/.test(tClean));
 /* «항상 참/거짓» 인 죽은 조건이 없는가 — if (false) 한 글자로 무력화되는 것을 막는다 */
+/* ⚠️ 앞자리만 보면 `if (teacherId && false)` 를 놓친다 — 괄호 «안» 어디에 있어도 잡는다. */
 check('[짝] 죽은 조건(항상 참/거짓)이 없다',
-  !/if\s*\(\s*(false|true)\s*[&|)]/.test(tClean));
+  !/if\s*\([^)]*\b(false|true)\b[^)]*\)/.test(tClean), tClean.slice(0, 60));
 
 /* ── ⑥ 서버 블록을 «실제로» 돌린다 ───────────────────────────────────
    🔴 ⑤ 는 «질의가 있는가» 까지만 본다 — 그 결과를 teacherName 에 «안 받아 쓰면»

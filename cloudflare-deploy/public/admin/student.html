@@ -360,6 +360,10 @@
                 <select id="ns-teacher-sel" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:158px"><option value="">불러오는 중… / Loading…</option></select>
                 <input type="text" id="ns-teacher" placeholder="예: 강선생님" style="display:none;padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:130px">
               </label>
+              <!-- 🚪 (2026-09-22) 퇴사 강사는 기본으로 뺀다 + 되돌릴 길을 화면에 둔다.
+                   adm-teacher-links.js(2026-09-09)가 같은 쌍(FAR/HT FARRAH)으로 이미 정한 방식이다 —
+                   두 화면이 서로 다른 말을 하면 다음 사람이 어느 쪽을 믿을지 모른다. -->
+              <label id="ns-show-left-wrap" style="display:none;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer;margin-bottom:1px"><input type="checkbox" id="ns-show-left" style="margin:0"><span id="ns-show-left-lb">퇴사 강사도 보기 / Show left</span></label>
               <button type="button" id="ns-add" style="padding:7px 16px;border:0;border-radius:7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1f2937;font-weight:800;font-size:12px;cursor:pointer">등록 / Add</button>
             </div>
             <div id="ns-msg" style="margin-top:8px;font-size:12px;line-height:1.6"></div>
@@ -3225,16 +3229,23 @@ async function cancelAiSchedule(id) {
      「FAR」(재직 22)을 정확히 쳐도 「HT FARRAH」(퇴사 3)가 붙었다(2026-09-22 운영 D1 실측).
      드롭다운은 id 를 보내므로 그 짐작을 아예 안 탄다.
      ⚠️ `?include_inactive=1` 로 받는다 — 그래야 `active` 칸이 내려와 화면이 «퇴사» 를 가른다.
-        ⛔ 서버에서 걸러 달라고 하지 말 것(규칙서: 거르는 것은 화면 몸) — 걸러 버리면
+        ⛔ 서버에서 걸러 달라고 하지 말 것(규칙서: 거르는 것은 화면 몫) — 걸러 버리면
            퇴사 강사가 «없는 사람» 이 되어 이미 그 강사에게 붙은 수업을 사람이 못 알아본다.
-     ⛔ 퇴사 강사를 목록에서 «빼지» 말 것 — 대신 별도 묶음에 «(퇴사)» 로 적는다. */
+     🚪 퇴사 강사는 «기본으로 뺀다» — 2026-08-26 사고가 바로 그 목록에서 죽은 행을 고른 것이다.
+        ⛔ 그렇다고 «영영» 빼지는 않는다 — 되돌릴 길(「퇴사 강사도 보기」 체크박스)을 화면에 둔다.
+           그 체크박스가 곧 「서버에서 걸러 달라고 하지 않는」 이유다(서버가 미리 지우면 무동작이 된다).
+        ⚠️ 감춘 것이 있으면 체크박스에 «N명» 을 적는다 — 말없이 빼면 「그 강사가 없다」로 읽힌다.
+        ⛔ adm-teacher-links.js(2026-09-09)와 «같은» 방식이다. 한쪽만 바꾸지 말 것. */
   var selEl = document.getElementById('ns-teacher-sel');
   var txtEl = document.getElementById('ns-teacher');
+  var leftWrapEl = document.getElementById('ns-show-left-wrap');
+  var leftChkEl = document.getElementById('ns-show-left');
+  var leftLbEl = document.getElementById('ns-show-left-lb');
   var teacherRows = [];
 
   function nsTeacherActive(t){
     /* ⚠️ active 가 NULL·빈 값이면 «재직» 이다 — Number(null)===0 이라
-       null 검사가 «먼저» 여야 한다. 숨기는 쪽으로 실패하면 멀줦한 강사가
+       null 검사가 «먼저» 여야 한다. 숨기는 쪽으로 실패하면 멀쩡한 강사가
        목록에서 조용히 사라진다(빠지는 쪽이 훨씬 나쁘다). */
     if (!t) return true;
     var a = t.active;
@@ -3246,7 +3257,7 @@ async function cancelAiSchedule(id) {
     return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function nsBuildTeacherOptions(rows){
+  function nsBuildTeacherOptions(rows, showLeft){
     var live = [], gone = [], i, t;
     for (i = 0; i < (rows || []).length; i++) {
       t = rows[i];
@@ -3258,15 +3269,36 @@ async function cancelAiSchedule(id) {
     };
     var html = '<option value="">— 지정 안 함 / Not set —</option>';
     if (live.length) html += '<optgroup label="재직 / Active">' + live.map(function(t){ return opt(t, ''); }).join('') + '</optgroup>';
-    if (gone.length) html += '<optgroup label="퇴사·비활동 / Inactive">' + gone.map(function(t){ return opt(t, ' (퇴사)'); }).join('') + '</optgroup>';
+    /* 🚪 기본은 «안 보임». 체크해야 나온다 — 그때도 «(퇴사)» 로 적어 고르는 순간 보이게. */
+    if (gone.length && showLeft) html += '<optgroup label="퇴사·비활동 / Inactive">' + gone.map(function(t){ return opt(t, ' (퇴사)'); }).join('') + '</optgroup>';
     return html;
   }
+
+  function nsSyncTeacherOptions(){
+    if (!selEl) return;
+    var showLeft = !!(leftChkEl && leftChkEl.checked);
+    /* ⚠️ 다시 그리면 고른 값이 날아간다 — 그 값이 아직 목록에 있으면 되돌려 놓는다. */
+    var keep = String(selEl.value || '');
+    selEl.innerHTML = nsBuildTeacherOptions(teacherRows, showLeft);
+    if (keep) selEl.value = keep;
+    var goneN = 0;
+    for (var i = 0; i < teacherRows.length; i++) {
+      var t = teacherRows[i];
+      if (!t || t.id === null || t.id === undefined || !String(t.name == null ? '' : t.name).trim()) continue;
+      if (!nsTeacherActive(t)) goneN++;
+    }
+    /* ⚠️ 감춘 사람이 없으면 체크박스 자체를 안 보인다 — 잃는 정보가 없다. */
+    if (leftWrapEl) leftWrapEl.style.display = goneN ? 'flex' : 'none';
+    if (leftLbEl) leftLbEl.textContent = '퇴사 강사도 보기 (' + goneN + '명) / Show left';
+  }
+  if (leftChkEl) leftChkEl.addEventListener('change', nsSyncTeacherOptions);
 
   function nsFallbackToText(why){
     /* ⛔ 목록을 못 받으면 «옆 텍스트 칸» 으로 떨어진다 — 강사 칸이 통째로
        막히면 «되던 것» 이 깨진다. 그때는 서버가 예전처럼 이름으로 찾는다. */
     if (selEl) selEl.style.display = 'none';
     if (txtEl) txtEl.style.display = '';
+    if (leftWrapEl) leftWrapEl.style.display = 'none';
     say('⚠️ 강사 목록을 못 받아 이름을 직접 입력합니다' + (why ? ' (' + why + ')' : '')
       + '. / Teacher list unavailable — type the name.', '#b45309');
   }
@@ -3282,7 +3314,7 @@ async function cancelAiSchedule(id) {
            — 404 본문은 {error:'Not Found'} 라 ok 칸이 없고, `j.ok === false` 만 보면 그냥 통과한다. */
         if (!res.r.ok || j.ok !== true || !rows.length) { nsFallbackToText(res.r.status !== 200 ? ('HTTP ' + res.r.status) : ''); return; }
         teacherRows = rows;
-        selEl.innerHTML = nsBuildTeacherOptions(rows);
+        nsSyncTeacherOptions();
       })
       .catch(function(e){ nsFallbackToText((e && e.message) || ''); });
   }
