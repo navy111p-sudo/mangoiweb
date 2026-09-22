@@ -172,5 +172,21 @@ console.log('\n④ 녹화 재생 — /api/recording/play');
   check('④-5 판정이 녹화 조회보다 앞이다(열거 차단 유지)', ai > 0 && qi > 0 && ai < qi);
 }
 
+/* ── ⑤ 우회로 — /api/student/recordings (서명 재생 URL 발급) ── */
+console.log('\n⑤ 우회로 — /api/student/recordings');
+{
+  const t = stripComments(read('api-mango.ts'));
+  const a = t.search(/const\s+recAdminSess\s*=/);
+  check('⑤-0 전제: 관리자 세션 갈래를 찾았다', a > 0);
+  const seg = a > 0 ? t.slice(a, t.indexOf('recOwnNames', a)) : '';
+  const g = seg.search(/if\s*\(\s*!recAuthUid\s*&&\s*recAdminSess\.ok\s*\)/);
+  check('⑤-1 토큰 없이 관리자 세션으로 온 요청에만 판정을 건다', g > 0);
+  const blk = g > 0 ? braceBlock(seg, seg.indexOf('{', g)) : '';
+  check('⑤-2 판정을 «DB 근거 + 역할» 로 부른다', wiredGuard(blk));
+  check('⑤-3 결과가 있으면 돌려준다(막는다)', /if\s*\(\s*(\w+)\s*\)\s*return\s+\1\s*;/.test(blk));
+  const full = t.slice(a);
+  check('⑤-4 가드가 서명 재생 URL 발급(&sig=)보다 앞이다', g > 0 && full.indexOf('sig=') > g);
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
