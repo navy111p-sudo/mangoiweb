@@ -51,6 +51,25 @@ jobs:
           xargs -P 12 -n 2 /tmp/one.sh < /tmp/list.tsv > /tmp/fail.txt 2>&1 || true
           echo "실패 줄:"; cat /tmp/fail.txt || true
 
+      - name: 큰 것은 다시 압축(장당 80KB 상한)
+        run: |
+          cd cloudflare-deploy/public/img/scene-words
+          for q in 68 55 42 32; do
+            big=$(find . -name '*.webp' -size +80000c | wc -l)
+            echo "q=$q 전 80KB 초과: $big"
+            if [ "$big" = "0" ]; then break; fi
+            for f in $(find . -name '*.webp' -size +80000c); do
+              idx=$(basename "$f" .webp)
+              url=$(awk -v i="$idx" '$1==i{print $2}' /tmp/list.tsv)
+              [ -n "$url" ] || { echo "주소 없음 $idx"; continue; }
+              curl -sfL --max-time 90 -o "/tmp/png/$idx.png" "$url" || continue
+              cwebp -quiet -q $q -resize 640 480 "/tmp/png/$idx.png" -o "$f"
+              rm -f "/tmp/png/$idx.png"
+            done
+          done
+          echo "마지막 80KB 초과: $(find . -name '*.webp' -size +80000c | wc -l)"
+          find . -name '*.webp' -size +80000c -printf '%s %f\n' | sort -rn | head
+
       - name: 확인
         run: |
           cd cloudflare-deploy/public/img/scene-words
