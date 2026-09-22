@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>영어 놀이 시작 — 망고아이 레벨테스트</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<!-- ═════════════════════════════════════════════════════════════════
+     🎯 레벨테스트 «입구» — 아이(6~12세)가 고르는 카드 3장 (2026-09-22)
+
+     카드 셋은 서버의 학생 구분 정본 src/student-track.ts 와 한 짝입니다.
+       ① 선생님 + 로봇  = live_ai  → /?menu=leveltest  (홈 모달의 레벨테스트 신청 = 선생님 1:1 예약)
+       ② 로봇이랑 혼자  = ai_only  → /level-test-ai.html (AI 자동 진단 — 이어서 하기 포함)
+       ③ 뭐가 재밌을까? = 고르기 전 → 이 화면 안의 «3가지 질문 놀이» 로 추천 한 장
+
+     ⛔ 여기서 서버에 아무것도 쓰지 않습니다 — 구분은 서버가 «예약이 있는가» 로 판정하고,
+        이 화면은 «어느 문으로 들어갈지» 만 돕습니다(아이가 고른 것을 저장하면
+        «아직 안 정함» 과 «고름» 이 같아집니다).
+     ⛔ ③의 질문은 «실력» 이 아니라 «좋아하는 방식» 을 묻습니다 — 실력은 뒤 테스트가 잽니다.
+        그래서 틀린 답이 없고, 점수를 보여 주지 않습니다.
+     ⚠️ 아이콘 이모지는 Unicode 12 이하·단일 코드포인트만(Win10 두부 방지).
+     ⚠️ 글자는 KO/EN 표(T)에서 그립니다 — data-ko/data-en 을 쓰지 않습니다
+        (공용 i18n 엔진이 textContent 를 갈아끼워 그림이 사라지는 함정).
+     ═════════════════════════════════════════════════════════════════ -->
+<style>
+  :root{
+    --bg1:#fff7e6; --bg2:#ffe9c7; --ink:#1f2937; --sub:#4b5563;
+    --c1a:#9a3412; --c1b:#c2410c;   /* 망고 주황 — 흰 글자 대비 4.5 이상이 되도록 짙게 */
+    --c2a:#1d4ed8; --c2b:#4f46e5;   /* 하늘 → 남보라 */
+    --c3a:#166534; --c3b:#15803d;   /* 연두 → 초록 */
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{
+    font-family:MangoiHanSC,'Noto Sans KR','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:linear-gradient(180deg,var(--bg1),var(--bg2));
+    color:var(--ink); min-height:100vh; min-height:100svh;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .top{display:flex;align-items:center;gap:8px;padding:10px 16px;max-width:1040px;margin:0 auto}
+  .top a,.top button{
+    display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 12px;
+    border-radius:999px;border:1px solid #e5d3b3;background:#fff;color:var(--ink);
+    font:inherit;font-size:14px;font-weight:700;text-decoration:none;cursor:pointer
+  }
+  .top .sp{flex:1}
+  main{max-width:1040px;margin:0 auto;padding:0 16px 24px}
+  .hello{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
+  .hello img{width:64px;height:64px;flex:none;object-fit:contain}
+  .bubble{background:#fff;border:1px solid #f1dcb6;border-radius:18px;padding:10px 14px;
+    font-size:19px;font-weight:900;line-height:1.35;position:relative}
+  .cards{display:grid;gap:12px;grid-template-columns:1fr}
+  @media (min-width:760px){ .cards{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .card{
+    position:relative;display:flex;align-items:center;gap:14px;width:100%;
+    min-height:128px;padding:16px 56px 16px 16px;border:0;border-radius:22px;
+    color:#fff;text-align:left;font:inherit;cursor:pointer;
+    box-shadow:0 6px 0 rgba(0,0,0,.14);transition:transform .12s ease, box-shadow .12s ease
+  }
+  .card:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.14)}
+  .card:focus-visible{outline:4px solid #111827;outline-offset:3px}
+  @media (min-width:760px){ .card{flex-direction:column;align-items:flex-start;min-height:240px} }
+  .c1{background:linear-gradient(135deg,var(--c1a),var(--c1b))}
+  .c2{background:linear-gradient(135deg,var(--c2a),var(--c2b))}
+  .c3{background:linear-gradient(135deg,var(--c3a),var(--c3b))}
+  .ico{font-size:44px;line-height:1;flex:none;display:block}
+  .txt{display:block;min-width:0}
+  .main{display:block;font-size:20px;font-weight:900;line-height:1.35}
+  .parent{display:block;margin-top:6px;font-size:13px;font-weight:700;opacity:.95}
+  .say{
+    position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:50%;
+    border:0;background:rgba(255,255,255,.95);font-size:20px;cursor:pointer;line-height:40px;text-align:center
+  }
+  .note{margin:14px 2px 0;font-size:13px;color:var(--sub);line-height:1.6}
+
+  /* ③ 3가지 질문 놀이 */
+  .quiz{background:#fff;border-radius:22px;padding:16px;border:1px solid #f1dcb6}
+  .fruits{display:flex;gap:6px;justify-content:center;margin-bottom:10px;font-size:26px}
+  .fruits span{opacity:.25;transition:opacity .2s}
+  .fruits span.on{opacity:1}
+  /* 🥭 (2026-09-22 사장님 지시) 질문 놀이의 진행 표시는 🥭 이모지 대신 Mr.mango 캐릭터 */
+  .fruits img{height:34px;width:auto;opacity:.25;filter:grayscale(.7);transition:opacity .2s,filter .2s,transform .2s}
+  .fruits img.on{opacity:1;filter:none;transform:translateY(-3px)}
+  .q{font-size:20px;font-weight:900;text-align:center;line-height:1.4;margin:6px 0 14px}
+  .opts{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  .opt{
+    min-height:120px;border-radius:18px;border:3px solid #fde3b0;background:#fffaf0;
+    font:inherit;font-size:17px;font-weight:800;color:var(--ink);cursor:pointer;padding:10px
+  }
+  .opt .ico{font-size:40px;margin-bottom:6px}
+  .opt:active{transform:scale(.98)}
+  .rec{text-align:center}
+  .rec .big{font-size:22px;font-weight:900;margin:8px 0 14px;line-height:1.4}
+  .row{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:14px}
+  .link{background:none;border:0;color:var(--sub);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;min-height:40px}
+</style>
+</head>
+<body>
+  <div class="top">
+    <a id="lsBack" href="/"><span aria-hidden="true">←</span> <span data-t="back">뒤로</span></a>
+    <a href="/"><span aria-hidden="true">🏠</span> <span data-t="home">홈</span></a>
+    <span class="sp"></span>
+    <button type="button" id="lsLang">🌐 EN</button>
+  </div>
+
+  <main>
+    <!-- ── 고르는 화면 ── -->
+    <section id="lsPick">
+      <div class="hello">
+        <img src="/img/mango-char.png" alt="" width="64" height="64">
+        <div class="bubble" data-t="ask">어떻게 놀고 싶으세요?</div>
+      </div>
+
+      <div class="cards">
+        <button type="button" class="card c1" data-go="live">
+          <span class="ico" aria-hidden="true">🗣️</span>
+          <span class="txt">
+            <span class="main" data-t="c1">선생님이랑 같이 말하고 로봇이랑 연습할래요!</span>
+            <span class="parent" data-t="c1p">보호자 안내 · 화상수업 + AI 연습 (선생님 1:1 레벨테스트 예약)</span>
+          </span>
+          <span class="say" role="button" tabindex="0" data-say="c1" aria-label="읽어 주기">🔊</span>
+        </button>
+
+        <button type="button" class="card c2" data-go="ai">
+          <span class="ico" aria-hidden="true">🤖</span>
+          <span class="txt">
+            <span class="main" data-t="c2">로봇이랑 혼자서만 대화하고 싶어요!</span>
+            <span class="parent" data-t="c2p">보호자 안내 · AI 학습만 (AI 자동 진단 바로 시작)</span>
+          </span>
+          <span class="say" role="button" tabindex="0" data-say="c2" aria-label="읽어 주기">🔊</span>
+        </button>
+
+        <button type="button" class="card c3" data-go="pick">
+          <span class="ico" aria-hidden="true">🎁</span>
+          <span class="txt">
+            <span class="main" data-t="c3">어떤 수업이 재미있을까요?</span>
+            <span class="parent" data-t="c3p">보호자 안내 · 질문 3개로 추천받기 (1분)</span>
+          </span>
+          <span class="say" role="button" tabindex="0" data-say="c3" aria-label="읽어 주기">🔊</span>
+        </button>
+      </div>
+
+      <p class="note" data-t="note">시험이 아니라 놀이예요. 틀려도 괜찮아요!</p>
+    </section>
+
+    <!-- ── ③ 질문 놀이 ── -->
+    <section id="lsQuiz" hidden>
+      <div class="quiz">
+        <div class="fruits" aria-hidden="true"><img src="/img/mango-char.png" alt=""><img src="/img/mango-char.png" alt=""><img src="/img/mango-char.png" alt=""></div>
+        <div class="q" id="lsQ"></div>
+        <div class="opts" id="lsOpts"></div>
+      </div>
+    </section>
+
+    <!-- ── ③ 추천 결과 ── -->
+    <section id="lsRec" hidden>
+      <div class="quiz rec">
+        <div class="fruits" aria-hidden="true"><span class="on">⭐</span><span class="on">⭐</span><span class="on">⭐</span></div>
+        <div class="big" id="lsRecText"></div>
+        <div id="lsRecCard"></div>
+        <div class="row">
+          <button type="button" class="link" id="lsSeeAll" data-t="seeAll">다른 것도 볼래요</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script src="/js/back-nav.js" defer></script>
+<script>
+(function () {
+  'use strict';
+
+  /* 가는 곳 — 이미 있는 두 화면만 가리킵니다(새 테스트를 지어내지 않습니다). */
+  var ROUTES = { live: '/?menu=leveltest', ai: '/level-test-ai.html' };
+
+  var T = {
+    ko: {
+      back:'뒤로', home:'홈', ask:'어떻게 놀고 싶으세요?',
+      c1:'선생님이랑 같이 말하고 로봇이랑 연습할래요!',
+      c1p:'보호자 안내 · 화상수업 + AI 연습 (선생님 1:1 레벨테스트 예약)',
+      c2:'로봇이랑 혼자서만 대화하고 싶어요!',
+      c2p:'보호자 안내 · AI 학습만 (AI 자동 진단 바로 시작)',
+      c3:'어떤 수업이 재미있을까요?',
+      c3p:'보호자 안내 · 질문 3개로 추천받기 (1분)',
+      note:'시험이 아니라 놀이예요. 틀려도 괜찮아요!',
+      seeAll:'다른 것도 볼래요', go:'이걸로 할래요!', lang:'🌐 EN', say:'읽어 주기',
+      recLive:'선생님과 이야기하는 수업이 딱 맞아요! 🎉',
+      recAi:'로봇과 연습하는 수업이 딱 맞아요! 🎉'
+    },
+    en: {
+      back:'Back', home:'Home', ask:'How do you want to play?',
+      c1:'I want to talk with a teacher and practice with a robot!',
+      c1p:'For parents · Live class + AI practice (book a 1:1 level test)',
+      c2:'I just want to chat with the robot by myself!',
+      c2p:'For parents · AI learning only (AI test starts now)',
+      c3:'Which class would be fun?',
+      c3p:'For parents · 3 quick questions to get a pick (1 min)',
+      note:"It's a game, not a test. Mistakes are okay!",
+      seeAll:'Show me the others', go:"Let's do this one!", lang:'🌐 KO', say:'Read aloud',
+      recLive:'Talking with a teacher is perfect for you! 🎉',
+      recAi:'Practicing with the robot is perfect for you! 🎉'
+    }
+  };
+
+  /* ③ 질문 — «좋아하는 방식» 만 묻습니다. live 쪽 표를 세어 2표 이상이면 선생님. */
+  var QUIZ = [
+    { ko:'누구와 이야기하는 게 더 좋으세요?', en:'Who do you like talking with more?',
+      a:{ ico:'👩', ko:'사람이랑', en:'A person', v:'live' },
+      b:{ ico:'🤖', ko:'로봇이랑', en:'A robot', v:'ai' } },
+    { ko:'언제 공부하고 싶으세요?', en:'When do you want to learn?',
+      a:{ ico:'⏰', ko:'정해진 시간에', en:'At a set time', v:'live' },
+      b:{ ico:'🌙', ko:'아무 때나', en:'Any time', v:'ai' } },
+    { ko:'틀리면 누가 알려 주면 좋겠어요?', en:'Who should help when you get it wrong?',
+      a:{ ico:'🧑', ko:'선생님이', en:'A teacher', v:'live' },
+      b:{ ico:'💡', ko:'혼자 다시 해 볼래요', en:"I'll try again myself", v:'ai' } }
+  ];
+
+  var lang = 'ko';
+  try { if (localStorage.getItem('mangoi_lang') === 'en') lang = 'en'; } catch (e) {}
+  function t(k) { return (T[lang] && T[lang][k]) || T.ko[k] || ''; }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { step: 0, votes: [], rec: null, view: 'pick' };
+
+  function paintText() {
+    document.documentElement.lang = lang;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {
+      el.textContent = t(el.getAttribute('data-t'));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.say'), function (el) {
+      el.setAttribute('aria-label', t('say'));
+    });
+    $('lsLang').textContent = t('lang');
+    if (state.view === 'quiz') renderQuiz();
+    if (state.view === 'rec') renderRec();
+  }
+
+  /* 🔊 기기 음성으로 읽기 — 없으면 조용히 넘어갑니다(글자는 그대로 보입니다). */
+  function speak(text) {
+    try {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text.replace(/[\u{1F000}-\u{1FFFF}☀-➿]/gu, ''));
+      u.lang = lang === 'en' ? 'en-US' : 'ko-KR';
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function show(view) {
+    state.view = view;
+    $('lsPick').hidden = view !== 'pick';
+    $('lsQuiz').hidden = view !== 'quiz';
+    $('lsRec').hidden = view !== 'rec';
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  function go(key) {
+    if (key === 'pick') { state.step = 0; state.votes = []; show('quiz'); renderQuiz(); return; }
+    if (ROUTES[key]) location.href = ROUTES[key];
+  }
+
+  function renderQuiz() {
+    var q = QUIZ[state.step];
+    if (!q) return;
+    Array.prototype.forEach.call(document.querySelectorAll('#lsQuiz .fruits img'), function (s, i) {
+      s.classList.toggle('on', i < state.step);
+    });
+    $('lsQ').textContent = q[lang];
+    var box = $('lsOpts');
+    box.innerHTML = '';
+    [q.a, q.b].forEach(function (o) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'opt';
+      var ic = document.createElement('span');
+      ic.className = 'ico'; ic.setAttribute('aria-hidden', 'true'); ic.textContent = o.ico;
+      var tx = document.createElement('span');
+      tx.textContent = o[lang];
+      b.appendChild(ic); b.appendChild(tx);
+      b.addEventListener('click', function () { answer(o.v); });
+      box.appendChild(b);
+    });
+  }
+
+  function answer(v) {
+    state.votes.push(v);
+    state.step++;
+    if (state.step < QUIZ.length) { renderQuiz(); return; }
+    var live = state.votes.filter(function (x) { return x === 'live'; }).length;
+    state.rec = live >= 2 ? 'live' : 'ai';
+    show('rec');
+    renderRec();
+  }
+
+  function renderRec() {
+    var isLive = state.rec === 'live';
+    var msg = t(isLive ? 'recLive' : 'recAi');
+    $('lsRecText').textContent = msg;
+    var src = document.querySelector('.card[data-go="' + state.rec + '"]');
+    var holder = $('lsRecCard');
+    holder.innerHTML = '';
+    if (src) {
+      var c = src.cloneNode(true);
+      var s = c.querySelector('.say'); if (s) s.remove();
+      c.style.paddingRight = '16px';
+      var p = c.querySelector('.parent'); if (p) p.textContent = t('go');
+      c.addEventListener('click', function () { go(state.rec); });
+      holder.appendChild(c);
+    }
+  }
+
+  /* 카드 안 🔊 는 카드 누르기와 갈라서 받습니다(읽기만 하고 이동하지 않음). */
+  document.addEventListener('click', function (e) {
+    var say = e.target.closest && e.target.closest('.say');
+    if (say) { e.preventDefault(); e.stopPropagation(); speak(t(say.getAttribute('data-say'))); return; }
+    var card = e.target.closest && e.target.closest('#lsPick .card');
+    if (card) go(card.getAttribute('data-go'));
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    var say = e.target.closest && e.target.closest('.say');
+    if (say && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); speak(t(say.getAttribute('data-say'))); }
+  }, true);
+
+  $('lsSeeAll').addEventListener('click', function () { show('pick'); });
+  $('lsLang').addEventListener('click', function () {
+    lang = lang === 'en' ? 'ko' : 'en';
+    try { localStorage.setItem('mangoi_lang', lang); } catch (e) {}
+    paintText();
+  });
+
+  /* ← 뒤로: 질문 놀이 중이면 한 단계 위로, 아니면 정본(mangoiGoBack) · 없으면 href="/" */
+  $('lsBack').addEventListener('click', function (e) {
+    if (state.view !== 'pick') { e.preventDefault(); show('pick'); return; }
+    if (window.mangoiGoBack) { e.preventDefault(); window.mangoiGoBack('/'); }
+  });
+
+  paintText();
+})();
+</script>
+</body>
+</html>
