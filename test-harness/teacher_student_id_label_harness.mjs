@@ -241,6 +241,15 @@ if (sIdx >= 0) {
   // 짝 — 손으로 다시 적지 않는가(정본을 비켜 가면 자리표시가 그대로 샌다)
   ok('⑤-11 ⛔ 자리표시를 거르지 않는 날것(user_id)을 싣지 않는다',
      !/student_uid\s*:\s*s\.user_id/.test(wBody) && !/student_uid\s*:\s*s\.user_id/.test(uBody));
+
+  // ⛔ 주석이 「같은 판정이 아래 kind 계산에도 있다 — 한쪽만 고치지 말 것」이라 적어 두었다.
+  //    그 말이 «사실» 이려면 아이디를 싣는 자리가 «전부» 정본을 지나야 한다.
+  const uidLines = (api.match(/student_uid\s*:\s*[^,\n]+/g) || []).map(x => x.trim());
+  ok('⑤-12 아이디를 싣는 자리를 전부 찾았다 (오늘·대타·옛LMS 미러 포함 5곳 이상)',
+     uidLines.length >= 5, 'n=' + uidLines.length);
+  ok('⑤-13 아이디를 싣는 자리가 «전부» 정본을 지난다',
+     uidLines.every(l => /studentUidOf\(/.test(l)),
+     uidLines.filter(l => !/studentUidOf\(/.test(l)).join(' | '));
 }
 
 // ═══ ⑥ 아이디 색 — 소스에서 «읽어» 대조한다 (⛔ 값을 하니스에 베끼지 말 것) ══════
@@ -252,7 +261,159 @@ if (metaRule && idRule) {
   ok('⑥-1 아이디 색이 .cls-meta 와 같다 (흰 카드에서 이미 읽히는 값)',
      !!idColor && idColor[1].toLowerCase() === metaRule[1].toLowerCase(),
      'id=' + (idColor && idColor[1]) + ' meta=' + metaRule[1]);
-  ok('⑥-2 ⛔ opacity 로 흐리게 만들지 않았다', !/opacity/.test(idRule[1]), idRule[1]);
+  ok('⑥-2 ⛔ 이 규칙이 스스로 opacity 로 흐려지지 않는다', !/opacity/.test(idRule[1]), idRule[1]);
+}
+
+// ── 🌙 다크 모드에서도 «읽히는가» — 색은 전부 소스에서 읽어 온다 ────────────────
+//   `.cls-meta` 에는 다크 override 가 있는데 `.stu-id` 에만 없으면, 밝은 모드에서
+//   멀쩡한 색이 어두운 카드 위에서 대비 3 대로 떨어진다(이 화면은 사람이 켜는 다크다).
+const cssText = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
+function ruleColorFor(sel) {
+  let found = null;
+  for (const m of cssText.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    const selectors = m[1].split(',').map(x => x.trim());
+    if (!selectors.includes(sel)) continue;
+    const c = /(?:^|;)\s*color:\s*(#[0-9a-fA-F]{3,8})/.exec(m[2]);
+    if (c) found = c[1];
+  }
+  return found;
+}
+function ruleBgFor(sel) {
+  let found = null;
+  for (const m of cssText.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    const selectors = m[1].split(',').map(x => x.trim());
+    if (!selectors.includes(sel)) continue;
+    const c = /background(?:-color)?:\s*(#[0-9a-fA-F]{3,8})/.exec(m[2]);
+    if (c) found = c[1];
+  }
+  return found;
+}
+function relLum(hex) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(x => x + x).join('');
+  const ch = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map(x => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function contrast(a, b) {
+  const la = relLum(a), lb = relLum(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+const idLight   = idRule ? (/color:\s*(#[0-9a-fA-F]{3,8})/.exec(idRule[1]) || [])[1] : null;
+const idDark    = ruleColorFor('html[data-t="dark"] .stu-id');
+const cardDark  = ruleBgFor('html[data-t="dark"] .card');
+ok('⑥-3 다크 모드에 .stu-id override 가 있다 (.cls-meta 와 짝)', !!idDark, 'dark=' + idDark);
+ok('⑥ 전제: 다크 카드 배경색을 읽었다', !!cardDark, 'card=' + cardDark);
+if (idLight && idDark && cardDark) {
+  const crLight = contrast(idLight, '#ffffff');
+  const crDark  = contrast(idDark, cardDark);
+  console.log(`  📏 아이디 대비 — 밝은 모드 ${crLight.toFixed(2)}:1 (${idLight} / #ffffff)`
+            + `, 다크 ${crDark.toFixed(2)}:1 (${idDark} / ${cardDark})`);
+  ok('⑥-4 밝은 모드에서 읽힌다 (WCAG AA 4.5)', crLight >= 4.5, crLight.toFixed(2));
+  ok('⑥-5 다크 모드에서도 읽힌다 (WCAG AA 4.5)', crDark >= 4.5, crDark.toFixed(2));
+}
+
+// ═══ ⑦ 「수업 연기·변경」 목록 — rows 를 «손으로 다시 만드는» 자리 ═════════════════
+//   그 자리는 필드를 골라 담기 때문에 새 칸을 빠뜨리기 쉽다. 빠지면 화면은 멀쩡히
+//   그려지고 아이디만 «원리상» 안 나온다 — 그래서 실제로 돌려 «무슨 글자가 나오는가» 를 본다.
+const ppIdx = js.indexOf('window.renderPostponeList = function()');
+ok('⑦ 전제: 연기 목록 함수를 찾았다', ppIdx >= 0);
+if (ppIdx >= 0 && srcEsc) {
+  const ppSrc = braceBody(js, ppIdx);
+  ok('⑦ 전제: 함수를 중괄호 짝으로 잘라 냈다', !!ppSrc);
+  let runPP = null, pErr = '';
+  try {
+    runPP = new Function('__DATA', `
+      ${srcEsc}
+      ${srcName}
+      ${srcUid}
+      ${srcParts}
+      ${srcHtml}
+      var EN = function(){ return false; };
+      var T = function(en, ko){ return ko; };
+      var now = function(){ return 0; };
+      var DATA = __DATA;
+      var window = {};
+      var out = '';
+      var fill = function(id, h){ out = h; };
+      var bindAll = function(){};
+      var document = { getElementById: function(){ return null; } };
+      ${ppSrc};
+      window.renderPostponeList();
+      return out;
+    `);
+  } catch (e) { pErr = String(e && e.message || e); }
+  ok('⑦ 연기 목록이 실제로 실행된다', !!runPP, pErr);
+  if (runPP) {
+    const out = runPP({
+      today: '2026-09-22',
+      classes: [
+        { schedule_id: 11, start_ts: 9e12, start_time: '14:00',
+          student_name: '정우영', student_uid: 'jeong' },
+        { schedule_id: 12, start_ts: 9e12, start_time: '15:00', student_name: '이름만' },
+      ],
+      upcoming: [
+        { id: 21, start_ts: 9e12, start_time: '10:00', date: '2026-09-24',
+          student_name: '김사랑', student_uid: 'lt18' },
+      ],
+    });
+    ok('⑦-1 오늘 수업 줄에 아이디가 나온다',
+       out.includes('<span class="stu-id">jeong</span>'), out.slice(0, 400));
+    ok('⑦-2 다가오는 수업 줄에도 아이디가 나온다',
+       out.includes('<span class="stu-id">lt18</span>'), out.slice(0, 400));
+    // 짝 — 없으면 «전부 붙이기»(빈 껍데기)도 통과한다.
+    ok('⑦-3 ⛔ 아이디 없는 줄에는 빈 껍데기를 안 만든다',
+       (out.match(/class="stu-id"/g) || []).length === 2,
+       'n=' + (out.match(/class="stu-id"/g) || []).length);
+  }
+}
+
+// ═══ ⑧ ⚡ 장애 신고 본문은 «저장되는 값» 이라 아이디를 넣지 않는다 ═══════════════
+//   D1 teacher_outages.affected_text + 사무실 알림으로 그대로 나간다(화면 표시와 다른 일).
+const ogIdx = js.indexOf('function outageAffected(');
+ok('⑧ 전제: outageAffected 를 찾았다', ogIdx >= 0);
+if (ogIdx >= 0 && srcEsc) {
+  const ogSrc = braceBody(js, ogIdx);
+  let runOG = null, oErr = '';
+  try {
+    runOG = new Function('__DATA', `
+      ${srcName}
+      ${srcUid}
+      ${srcParts}
+      ${srcText}
+      ${srcEsc}
+      var EN = function(){ return false; };
+      var T = function(en, ko){ return ko; };
+      var now = function(){ return 0; };
+      var DATA = __DATA;
+      ${ogSrc}
+      return outageAffected();
+    `);
+  } catch (e) { oErr = String(e && e.message || e); }
+  ok('⑧ 장애 스냅샷이 실제로 실행된다', !!runOG, oErr);
+  if (runOG) {
+    const aff = runOG({ classes: [
+      { start_ts: 1, close_at_ts: 9e12, start_time: '14:00',
+        student_name: '정우영', student_uid: 'jeong' },
+    ] });
+    ok('⑧-1 이름은 그대로 들어간다', /정우영/.test(aff.text), aff.text);
+    ok('⑧-2 ⛔ 아이디는 안 들어간다', !/jeong/.test(aff.text), aff.text);
+  }
+}
+
+// ═══ ⑨ 🥭 안내 자리 — 🔄 대체강사가 «맨 앞» 이라고 그 자리 주석이 못 박는다 ═══════
+const subIdx = js.indexOf("if (c.substitute) meta.push(");
+ok('⑨ 🔄 대체강사 표시가 🥭 안내보다 앞이다',
+   subIdx >= 0 && mgIdx >= 0 && subIdx < mgIdx, 'sub=' + subIdx + ' mango=' + mgIdx);
+
+// ═══ ⑩ 다시 그릴지 판정하는 지문(sig)에 아이디가 들어 있다 ═════════════════════
+//   빠지면 «아이디만 바뀐» 응답에서 화면이 옛 글자를 그대로 둔다.
+const sigIdx = js.indexOf('sig += sc.schedule_id');
+ok('⑩ 전제: sig 조립식을 찾았다', sigIdx >= 0);
+if (sigIdx >= 0) {
+  const sigExpr = js.slice(sigIdx, js.indexOf(';', sigIdx));
+  ok('⑩-1 지문이 아이디를 함께 본다', /stuUid\s*\(/.test(sigExpr), sigExpr.replace(/\s+/g, ' ').slice(0, 200));
+  ok('⑩-2 짝: 이름도 여전히 본다', /stuName\s*\(/.test(sigExpr));
 }
 
 console.log(`\nteacher_student_id_label_harness — PASS ${pass} / FAIL ${fail}`);

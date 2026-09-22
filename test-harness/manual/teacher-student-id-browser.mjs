@@ -211,12 +211,22 @@ async function main() {
   await sleep(700);
 
   console.log('\n-- (7) 언어를 바꿔도 아이디가 남는가 --');
+  // ⛔ 버튼을 «있을법한 이름» 으로 찾지 말 것 — 없는 이름이면 그 절이 조용히 무효해진다.
+  //    이 화면의 언어 버튼은 #lang 하나다(teacher.html 상단바).
+  check('(7) 전제: 언어 버튼이 실재한다',
+    (await ev('!!document.getElementById("lang")')) === true);
   const before = await ev('document.querySelectorAll("#classes .cls-name .stu-id").length');
-  const how = await ev('(function(){ var b=document.getElementById("langBtn")||document.querySelector("[data-lang-toggle]"); if(b){b.click();return "btn";} if(typeof toggleLang==="function"){toggleLang();return "fn";} return "none"; })()');
+  const langBefore = await ev('document.getElementById("lang") ? document.getElementById("lang").textContent.trim() : ""');
+  await ev('document.getElementById("lang").click()');
   await sleep(1100);
+  const langAfter = await ev('document.getElementById("lang") ? document.getElementById("lang").textContent.trim() : ""');
+  check('(7) 전제: 누르니 언어가 실제로 바뀌었다', langBefore !== langAfter,
+    'before=' + langBefore + ' after=' + langAfter);
   const after = await ev('document.querySelectorAll("#classes .cls-name .stu-id").length');
   check('언어를 바꿔도 아이디가 사라지지 않는다', after >= before && before > 0,
-    'how=' + how + ' before=' + before + ' after=' + after);
+    'before=' + before + ' after=' + after);
+  await ev('document.getElementById("lang").click()');   // 다음 절을 위해 되돌린다
+  await sleep(900);
 
   console.log('\n-- (8) 주간 시간표 / 다가오는 수업에도 실렸는가 --');
   const wkN = await ev('document.querySelectorAll(".wk-i .stu-id").length');
@@ -224,6 +234,53 @@ async function main() {
   check('주간 시간표 칸에도 아이디가 그려진다', wkN >= 1, 'stu-id=' + wkN + ' / wk-i=' + wkT);
   const upN = await ev(`[...document.querySelectorAll(".cls-name")].filter(function(e){return !e.closest("#classes")}).reduce(function(a,e){return a + e.querySelectorAll(".stu-id").length},0)`);
   check('다가오는 수업에도 아이디가 그려진다', upN >= 1, 'n=' + upN);
+
+  console.log('\n-- (9) 🌙 다크 모드에서도 읽히는가 (화면에서 재서 합성) --');
+  // ⚠️ «규칙이 있는가» 가 아니라 «계산된 색» 을 재고 반투명 층을 아래에서 위로 합성한다.
+  const measure = `(function(){
+    function toRgb(s){ var m=/rgba?\\(([^)]+)\\)/.exec(s||''); if(!m) return null;
+      var p=m[1].split(',').map(function(x){return parseFloat(x)});
+      return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1}; }
+    function lum(c){ var v=[c.r,c.g,c.b].map(function(x){ x/=255;
+      return x<=0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055,2.4); });
+      return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2]; }
+    var el=document.querySelector('#classes .cls-name .stu-id'); if(!el) return null;
+    var cs=getComputedStyle(el);
+    var fg=toRgb(cs.color); if(!fg) return null;
+    // 불투명한 층을 만날 때까지 모았다가 아래에서 위로 겹친다.
+    var stack=[], n=el;
+    while(n && n.nodeType===1){ var b=toRgb(getComputedStyle(n).backgroundColor);
+      if(b && b.a>0){ stack.push(b); if(b.a>=1) break; } n=n.parentElement; }
+    if(!stack.length || stack[stack.length-1].a<1) stack.push({r:255,g:255,b:255,a:1});
+    var bg=stack[stack.length-1];
+    for(var i=stack.length-2;i>=0;i--){ var t=stack[i];
+      bg={ r:t.r*t.a+bg.r*(1-t.a), g:t.g*t.a+bg.g*(1-t.a), b:t.b*t.a+bg.b*(1-t.a), a:1 }; }
+    var op=1, m2=el; while(m2 && m2.nodeType===1){ op*=parseFloat(getComputedStyle(m2).opacity||'1'); m2=m2.parentElement; }
+    var eff={ r:fg.r*op+bg.r*(1-op), g:fg.g*op+bg.g*(1-op), b:fg.b*op+bg.b*(1-op) };
+    var l1=lum(eff), l2=lum(bg);
+    return { cr: (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05),
+             fg: cs.color, theme: document.documentElement.getAttribute('data-t') || 'light' };
+  })()`;
+  const light = await ev(measure);
+  check('(9) 전제: 밝은 모드에서 아이디를 재었다', !!light, JSON.stringify(light));
+  if (light) {
+    console.log('   📏 밝은 모드 대비 ' + light.cr.toFixed(2) + ':1 (' + light.fg + ')');
+    check('밝은 모드에서 읽힌다 (4.5)', light.cr >= 4.5, light.cr.toFixed(2));
+  }
+  await ev('document.documentElement.setAttribute("data-t","dark")');
+  await sleep(500);
+  const dark = await ev(measure);
+  check('(9) 전제: 다크로 실제로 바뀌었다', !!dark && dark.theme === 'dark', JSON.stringify(dark));
+  if (dark) {
+    console.log('   📏 다크 모드 대비 ' + dark.cr.toFixed(2) + ':1 (' + dark.fg + ')');
+    check('다크 모드에서도 읽힌다 (4.5)', dark.cr >= 4.5, dark.cr.toFixed(2));
+    // 짝 — «전부 흰색» 으로 대비만 높이면 이름과 구분이 사라진다.
+    const same = await ev(`(function(){ var a=document.querySelector('#classes .cls-name .stu-id');
+      var b=a && a.parentElement; if(!a||!b) return null;
+      return getComputedStyle(a).color === getComputedStyle(b).color; })()`);
+    check('⛔ 아이디 색이 이름과 같아지지 않는다 (보조 글자로 남는다)', same === false, 'same=' + same);
+  }
+  await ev('document.documentElement.setAttribute("data-t","light")');
 
   console.log(`\nteacher-student-id-browser -- PASS ${PASS} / FAIL ${FAIL}`);
   c.close(); bye();

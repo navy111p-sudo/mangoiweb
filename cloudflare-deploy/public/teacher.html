@@ -162,8 +162,12 @@ html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color
 html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
 /* 🆔 수업 이름 옆 «학생 아이디» — 옛 LMS 줄과 맞춰 보는 열쇠(이름은 동명이인이 실재한다).
-   색은 .cls-meta 와 같은 #5d6b7a — 흰 카드(#fff)에서 대비가 이미 확인된 값이다.
-   ⛔ opacity 로 흐리게 만들지 말 것: 대비가 떨어져 «읽히지만 못 읽는» 글자가 된다. */
+   색은 .cls-meta 와 같은 #5d6b7a — 흰 카드에서 대비 5.46 (실측).
+   🌙 다크는 아래 html[data-t="dark"] 목록에 .cls-meta 와 «짝» 으로 넣었다(#9dabb9 → 7.17).
+   ⛔ 한쪽만 넣지 말 것 — 다크 override 가 없으면 어두운 카드 위에서 3.08 로 떨어진다(실측).
+   ⛔ 이 규칙에 opacity 를 넣지 말 것: «읽히지만 못 읽는» 글자가 된다.
+   ⚠️ 단, 취소된 줄은 줄 통째로 .cls-cancel{opacity:.55} 가 걸려 있다(예전부터 그랬고,
+      «끝난 수업» 을 말하려고 일부러 그런 것이라 아이디만 뗄 수 없다). */
 .stu-id{font-size:.82em;font-weight:600;color:#5d6b7a;margin-left:6px;white-space:nowrap;font-variant-numeric:tabular-nums}
 /* ↩ 지난 수업(이전 강사·이전 일지) 접이식 — 펼치기 전엔 한 줄. hover 확대 금지 규칙대로
    강조는 색만. summary 의 기본 ▶ 마커는 남겨 둔다(펼칠 수 있다는 유일한 신호다). */
@@ -341,6 +345,7 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 html[data-t="dark"] body{background:#0f141a;color:#e6ecf2}
 html[data-t="dark"] .top h1 span,
 html[data-t="dark"] .cls-meta,
+html[data-t="dark"] .stu-id,
 html[data-t="dark"] .kpi span,
 html[data-t="dark"] .row span,
 html[data-t="dark"] .modal p.sub,
@@ -1545,7 +1550,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
-           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc)
+           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
@@ -1595,6 +1600,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var live = (t >= c.start_ts && t <= c.close_at_ts);
 
       var meta = [];
+      /* 🔄 (2026-08-28) 대체강사로 들어가는 회차 — 「이거 내 수업 아닌데?」 를 바로 답할 수 있게
+         맨 앞에 둔다. api-teacher.ts 의 substitute/covering_for(오늘 목록 전용) 참고. */
+      if (c.substitute) meta.push('<span style="color:#7c3aed;font-weight:700">🔄 '
+        + esc(T('Covering for ', '대신 · ')) + esc(c.covering_for || '-') + '</span>');
       /* 🥭 (2026-09-22 제안 — 「테스트 수업은 망고아이로 들어가야 한다는 걸 강사가 알게」)
          강사는 정규수업을 «옛 LMS» 에서 한다. 레벨테스트·체험수업만 망고아이로 와야 하는데
          그걸 모르면 학생이 혼자 방에 앉아 있게 된다 — 배지(레벨테스트)만으로는 «어디로
@@ -1607,10 +1616,6 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           + esc(T('🥭 Join on Mangoi — not the old LMS',
                   '🥭 망고아이에서 입장하세요 — 옛 LMS 아님')) + '</span>');
       }
-      /* 🔄 (2026-08-28) 대체강사로 들어가는 회차 — 「이거 내 수업 아닌데?」 를 바로 답할 수 있게
-         맨 앞에 둔다. api-teacher.ts 의 substitute/covering_for(오늘 목록 전용) 참고. */
-      if (c.substitute) meta.push('<span style="color:#7c3aed;font-weight:700">🔄 '
-        + esc(T('Covering for ', '대신 · ')) + esc(c.covering_for || '-') + '</span>');
       if (c.level)    meta.push(esc(c.level));
       if (c.textbook) meta.push(esc(c.textbook));
       // 🎚️ 판단력 훈련의 읽기 난이도 — 수업 전에 "이 아이가 지금 어느 정도 문장을 읽나"를 알려준다.
@@ -2057,7 +2062,9 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     out.sort(function(a, b){ return a.start_ts - b.start_ts; });
     var txt = [];
     for (var j = 0; j < out.length && j < 6; j++){
-      txt.push(out[j].start_time + ' ' + stuLabelText(out[j], '?'));
+      // ⛔ 여기에 아이디를 넣지 말 것 — 이 글자는 화면이 아니라 D1(teacher_outages.affected_text)과
+      //    사무실 알림으로 나가 그대로 쌓인다. «화면에 보이게» 와는 다른 일이라 사람이 정할 일.
+      txt.push(out[j].start_time + ' ' + (stuName(out[j]) || '?'));
     }
     return { count: out.length, text: txt.join(' / ') };
   }
@@ -2764,6 +2771,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       if (!c.schedule_id) return;
       rows.push({ schedule_id: c.schedule_id, start_ts: c.start_ts, start_time: c.start_time,
                   student_name: c.student_name, student_name_en: c.student_name_en,
+                  student_uid: c.student_uid,
                   date: DATA.today, today: true });
     });
     (DATA && DATA.upcoming || []).forEach(function(u){
@@ -2771,6 +2779,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       if (!sid) return;
       rows.push({ schedule_id: sid, start_ts: u.start_ts, start_time: u.start_time,
                   student_name: u.student_name, student_name_en: u.student_name_en,
+                  student_uid: u.student_uid,
                   date: u.date, today: false });
     });
     rows.sort(function(a, b){ return (a.start_ts || 0) - (b.start_ts || 0); });
