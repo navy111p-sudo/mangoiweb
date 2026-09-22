@@ -236,15 +236,17 @@
         /* ── 🌤️ 밝은 홈 배경 (옵션): body.home-bright 이면 우주 배경을 밝은 판타지 풍경으로 교체 ──
            어두운 배경(기본)은 그대로 두고, 밝게 옵션만 아래에서 덮어씀 */
         /* 🚀 밝은 테마도 동일 — 평평한 하늘색 대신 풍경 축소본을 즉시 표시 */
-        body.home-bright #view-home { background:#829091 url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABkRExYTEBkWFBYcGxkeJT4pJSIiJUw3Oi0+WlBfXllQV1ZkcJB6ZGqIbFZXfap+iJSZoaKhYXiwva+cu5CeoZr/2wBDARscHCUhJUkpKUmaZ1dnmpqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampr/wAARCAAWACgDASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAAUDBAYBAv/EACUQAAICAgECBgMAAAAAAAAAAAECAAMEESESMQUGIjIzoUFRcf/EABcBAQEBAQAAAAAAAAAAAAAAAAIBAwD/xAAWEQEBAQAAAAAAAAAAAAAAAAAAARH/2gAMAwEAAhEDEQA/AFleG9lJdeQDyI1o8NLYoVuOobI1L2NStFYRO0sDUWYDMZWMce4VfgMD9R7iVqKVRGHUPUw/s9ZeNXkoquSADvYi3Ivsxbrwg92lDfoQ2FKk8wGpsYKPkRvowivIvawEMdk8kmEK7rRgzvUYQmzNDdaQpii12tUgniEJK6KOSdW632MIQgN//9k=') center 42% / cover no-repeat; }
+        body.home-bright #view-home { background:#cbdfef url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAAAAAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAWACgDASIAAhEBAxEB/8QAGgAAAwADAQAAAAAAAAAAAAAAAAIFAQMEBv/EACMQAAIBAgUFAQAAAAAAAAAAAAABAgMRBBIhMWETFCJBUbH/xAAWAQEBAQAAAAAAAAAAAAAAAAACAwT/xAAcEQACAgMBAQAAAAAAAAAAAAAAAQIRAwQUITH/2gAMAwEAAhEDEQA/APT9u3ZW2MrDcFRU4fUN0ofUbOlGPmZLjhuB44fgpqlT+oZRhwB7SHHWZwRwsvasBRcYJX0Al1FFrE+lW6s8uRW/ToqU3CTkpeFtrX1ABZPJUhY/Y2xY1oxbzXldX2Wg8Zwnm8X4gBLIqVlIOzTUxCp6RTd3u/QABWEI18BKTs//2Q==') center 42% / cover no-repeat; }
         body.home-bright #view-home::before {
             /* 2026-07-22: 2.18MB PNG → 164KB WebP. 어차피 아래 filter 로 블러 처리되는
                배경이라 화질 손해는 눈에 안 보이고, 로딩 초반 '배경 없는 옛 화면'이
                보이던 시간이 크게 줄었다. 원본 PNG 는 삭제했다(되돌리려면 git 이력 참고).
                2026-07-30: 기존 CG풍 판타지 풍경(행성+절벽) → Higgsfield 실사 톤으로 교체
                (167KB→150KB). 구도는 유지(중앙·왼쪽 비우고 절벽·행성을 위/양옆으로),
-               색감만 실사로. 인라인 base64 축소본·폴백색(#cfe8f5→#829091)도 같이 갱신. */
-            background: url('/img/home-bg-bright.webp?v=20260730') center 42% / cover no-repeat;
+               색감만 실사로. 인라인 base64 축소본·폴백색(#cfe8f5→#829091)도 같이 갱신.
+               2026-09-22: 사장님 지시로 회색 숲 풍경 → Higgsfield «구름바다 위 밝은 하늘»(150KB→32KB).
+               폴백색 #cbdfef·축소본·?v=20260922 를 함께 갈았다. */
+            background: url('/img/home-bg-bright.webp?v=20260922') center 42% / cover no-repeat;
             /* 배경을 한 발 뒤로: 블러↑·채도/명도 살짝↓ 해서 풍경이 앞 콘텐츠와 경쟁하지 않게 */
             filter: blur(3px) brightness(0.94) saturate(0.94);
             transform: scale(1.06);
@@ -3758,7 +3760,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         그래서 test-harness/home_bg_preload_harness.mjs 가 두 곳을 대조해 FAIL 낸다. -->
 <script>
 (function(){
-  var BRIGHT='/img/home-bg-bright.webp?v=20260730', DARK='/img/home-bg-dark.webp?v=20260730';
+  var BRIGHT='/img/home-bg-bright.webp?v=20260922', DARK='/img/home-bg-dark.webp?v=20260730';
   var bright=true;                                   // 못 정하면 밝은 쪽(기본 자동·낮)
   try{
     var mode=null, hh=null;
@@ -6379,6 +6381,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           color:rgba(226,232,240,.72);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
           text-decoration:underline;text-underline-offset:3px}
         #hero-guest-quiet:hover{color:#fde68a}
+        body.home-bright #hero-guest-quiet{color:#1e3a5f}body.home-bright #hero-guest-quiet:hover{color:#b45309}
       </style>
       <script>
       /* 🔑 히어로 전환 — 로그인했으면 회원용, 아니면 신규 방문자용.
