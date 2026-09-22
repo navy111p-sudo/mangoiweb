@@ -20,7 +20,7 @@
        '/' 였다 — 눌러도 «홈으로 가기만 하고» 오버레이는 아무도 안 열었다(2026-09-14 수리).
        ⛔ '/' 로 되돌리지 말 것. 받는 쪽은 js/idx-allmenu.js 의 ?menu=all-menu 절(짝). */
     'all-menu':'/?menu=all-menu',
-    'leveltest':'/?menu=leveltest',   // 2026-08-07: 신청서 통일 — 옛 /level-test.html 폐지, 홈 모달로
+    'leveltest':'/level-start.html',   // 2026-09-22: 아이용 입구(카드 3장). 그 안 «선생님+로봇» 카드가 /?menu=leveltest 홈 신청 모달로 이어짐
 
     'admin':'/admin.html',
     'mypage':'/parent.html',
