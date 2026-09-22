@@ -67,6 +67,7 @@ import { setOverridePhones, loadOverridePhones } from './student-override';    /
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
 import { resolveStudentTrack, leveltestStatusFor } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
+import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -11599,43 +11600,45 @@ LIMIT $limit`;
     //   레벨당 4문항(A1~C2, 총 24) · 천장기법(ceiling)으로 추정레벨 · 가중점수(0~100).
     //   GET  /api/leveltest/questions            → 정답 없이 문항 전달
     //   POST /api/leveltest/diagnose {answers,student_name,student_uid} → 서버채점 후 신청건에 자동첨부
-    const CEFR_BANK: Array<{ id: string; cefr: string; skill: string; q: string; choices: string[]; a: number }> = [
+    const CEFR_BANK: LtBankItem[] = [
       // A1
-      { id: 'a1_1', cefr: 'A1', skill: 'grammar', q: 'She ___ a student.', choices: ['be', 'am', 'is', 'are'], a: 2 },
-      { id: 'a1_2', cefr: 'A1', skill: 'vocab',   q: 'I have two ___.', choices: ['cat', 'cats', 'cates', 'caties'], a: 1 },
-      { id: 'a1_3', cefr: 'A1', skill: 'grammar', q: '___ is your name?', choices: ['What', 'Where', 'When', 'Who'], a: 0 },
-      { id: 'a1_4', cefr: 'A1', skill: 'grammar', q: 'They ___ to school every day.', choices: ['goes', 'going', 'go', 'went'], a: 2 },
+      { id: 'a1_1', cefr: 'A1', skill: 'grammar', q: 'She ___ a student.', choices: ['be', 'am', 'is', 'are'], a: 2, why: '주어가 3인칭 단수(She)면 be동사는 is 예요. I → am, You/We/They → are.' },
+      { id: 'a1_2', cefr: 'A1', skill: 'vocab',   q: 'I have two ___.', choices: ['cat', 'cats', 'cates', 'caties'], a: 1, why: 'two 처럼 «둘 이상» 이면 명사 끝에 -s 를 붙여요. cat → cats.' },
+      { id: 'a1_3', cefr: 'A1', skill: 'grammar', q: '___ is your name?', choices: ['What', 'Where', 'When', 'Who'], a: 0, why: '이름을 물을 때는 What 을 써요. Where=어디, When=언제, Who=누구.' },
+      { id: 'a1_4', cefr: 'A1', skill: 'grammar', q: 'They ___ to school every day.', choices: ['goes', 'going', 'go', 'went'], a: 2, why: '주어가 They(복수)라 동사 원형 go 를 써요. goes 는 He/She/It 일 때만.' },
       // A2
-      { id: 'a2_1', cefr: 'A2', skill: 'grammar', q: 'I ___ TV when the phone rang.', choices: ['watch', 'watched', 'was watching', 'am watching'], a: 2 },
-      { id: 'a2_2', cefr: 'A2', skill: 'grammar', q: 'This book is ___ than that one.', choices: ['interesting', 'more interesting', 'most interesting', 'interestinger'], a: 1 },
-      { id: 'a2_3', cefr: 'A2', skill: 'grammar', q: 'We ___ finished our homework yet.', choices: ["didn't", "haven't", "don't", "aren't"], a: 1 },
-      { id: 'a2_4', cefr: 'A2', skill: 'grammar', q: 'If it rains, we ___ stay home.', choices: ['will', 'would', 'were', 'have'], a: 0 },
+      { id: 'a2_1', cefr: 'A2', skill: 'grammar', q: 'I ___ TV when the phone rang.', choices: ['watch', 'watched', 'was watching', 'am watching'], a: 2, why: '전화가 울린 «그 순간 하고 있던 일» 이라 과거진행(was/were + -ing)을 써요.' },
+      { id: 'a2_2', cefr: 'A2', skill: 'grammar', q: 'This book is ___ than that one.', choices: ['interesting', 'more interesting', 'most interesting', 'interestinger'], a: 1, why: 'interesting 처럼 긴 형용사는 -er 대신 앞에 more 를 붙여 비교해요.' },
+      { id: 'a2_3', cefr: 'A2', skill: 'grammar', q: 'We ___ finished our homework yet.', choices: ["didn't", "haven't", "don't", "aren't"], a: 1, why: 'yet 은 현재완료와 짝이에요 — have/has + not + 과거분사(finished).' },
+      { id: 'a2_4', cefr: 'A2', skill: 'grammar', q: 'If it rains, we ___ stay home.', choices: ['will', 'would', 'were', 'have'], a: 0, why: 'if + 현재형으로 조건을 말하면 결과는 will + 동사원형으로 써요.' },
       // B1
-      { id: 'b1_1', cefr: 'B1', skill: 'grammar', q: 'By the time we arrived, the movie ___.', choices: ['started', 'has started', 'had started', 'starts'], a: 2 },
-      { id: 'b1_2', cefr: 'B1', skill: 'grammar', q: 'He suggested ___ a taxi.', choices: ['to take', 'taking', 'take', 'took'], a: 1 },
-      { id: 'b1_3', cefr: 'B1', skill: 'grammar', q: "I'm not used to ___ up early.", choices: ['get', 'getting', 'got', 'gets'], a: 1 },
-      { id: 'b1_4', cefr: 'B1', skill: 'grammar', q: 'She asked me where ___.', choices: ['did I live', 'I lived', 'I live', 'lived I'], a: 1 },
+      { id: 'b1_1', cefr: 'B1', skill: 'grammar', q: 'By the time we arrived, the movie ___.', choices: ['started', 'has started', 'had started', 'starts'], a: 2, why: '도착보다 «더 먼저» 일어난 일이라 과거완료(had + 과거분사)를 써요.' },
+      { id: 'b1_2', cefr: 'B1', skill: 'grammar', q: 'He suggested ___ a taxi.', choices: ['to take', 'taking', 'take', 'took'], a: 1, why: 'suggest 뒤에는 to부정사가 아니라 동명사(-ing)가 와요.' },
+      { id: 'b1_3', cefr: 'B1', skill: 'grammar', q: "I'm not used to ___ up early.", choices: ['get', 'getting', 'got', 'gets'], a: 1, why: 'be used to 뒤에는 동명사(-ing) — «~에 익숙하다». used to + 동사원형(«예전에 ~했다»)과 다릅니다.' },
+      { id: 'b1_4', cefr: 'B1', skill: 'grammar', q: 'She asked me where ___.', choices: ['did I live', 'I lived', 'I live', 'lived I'], a: 1, why: '간접의문문은 «의문사 + 주어 + 동사» 순서라 did 를 쓰지 않아요.' },
       // B2
-      { id: 'b2_1', cefr: 'B2', skill: 'grammar', q: '___ harder, he would have passed.', choices: ['If he studied', 'Had he studied', 'Did he study', 'He studied'], a: 1 },
-      { id: 'b2_2', cefr: 'B2', skill: 'grammar', q: 'The project, ___ took months, was a success.', choices: ['that', 'which', 'who', 'what'], a: 1 },
-      { id: 'b2_3', cefr: 'B2', skill: 'grammar', q: "I'd rather you ___ smoke in here.", choices: ["don't", "didn't", "won't", 'not'], a: 1 },
-      { id: 'b2_4', cefr: 'B2', skill: 'grammar', q: "It's high time we ___ a decision.", choices: ['make', 'made', 'making', 'have made'], a: 1 },
+      { id: 'b2_1', cefr: 'B2', skill: 'grammar', q: '___ harder, he would have passed.', choices: ['If he studied', 'Had he studied', 'Did he study', 'He studied'], a: 1, why: '가정법 과거완료에서 If 를 빼면 had 가 주어 앞으로 나와요 (= If he had studied).' },
+      { id: 'b2_2', cefr: 'B2', skill: 'grammar', q: 'The project, ___ took months, was a success.', choices: ['that', 'which', 'who', 'what'], a: 1, why: '쉼표로 덧붙이는 관계절에는 that 을 못 써요. 사물이면 which 입니다.' },
+      { id: 'b2_3', cefr: 'B2', skill: 'grammar', q: "I'd rather you ___ smoke in here.", choices: ["don't", "didn't", "won't", 'not'], a: 1, why: 'would rather + 주어 뒤에는 과거형을 써서 «~하지 않으면 좋겠다» 를 나타내요.' },
+      { id: 'b2_4', cefr: 'B2', skill: 'grammar', q: "It's high time we ___ a decision.", choices: ['make', 'made', 'making', 'have made'], a: 1, why: 'It is (high) time 뒤에는 과거형을 써서 «진작 했어야 한다» 를 나타내요.' },
       // C1
-      { id: 'c1_1', cefr: 'C1', skill: 'grammar', q: 'No sooner ___ than it started to rain.', choices: ['we had left', 'had we left', 'we left', 'did we leave'], a: 1 },
-      { id: 'c1_2', cefr: 'C1', skill: 'vocab',   q: "Closest in meaning to 'meticulous':", choices: ['careless', 'thorough', 'quick', 'rude'], a: 1 },
-      { id: 'c1_3', cefr: 'C1', skill: 'vocab',   q: 'The negotiations ___ down over the issue of pay.', choices: ['broke', 'fell', 'came', 'went'], a: 0 },
-      { id: 'c1_4', cefr: 'C1', skill: 'grammar', q: 'Little ___ that he was being watched.', choices: ['he knew', 'did he know', 'he did know', 'knew he'], a: 1 },
+      { id: 'c1_1', cefr: 'C1', skill: 'grammar', q: 'No sooner ___ than it started to rain.', choices: ['we had left', 'had we left', 'we left', 'did we leave'], a: 1, why: '부정어 No sooner 가 문장 맨 앞에 오면 주어와 조동사가 뒤바뀌어요(도치).' },
+      { id: 'c1_2', cefr: 'C1', skill: 'vocab',   q: "Closest in meaning to 'meticulous':", choices: ['careless', 'thorough', 'quick', 'rude'], a: 1, why: 'meticulous = 꼼꼼한. thorough(빈틈없는)와 가장 가까워요.' },
+      { id: 'c1_3', cefr: 'C1', skill: 'vocab',   q: 'The negotiations ___ down over the issue of pay.', choices: ['broke', 'fell', 'came', 'went'], a: 0, why: 'break down = (협상이) 결렬되다 — 굳어진 표현이에요.' },
+      { id: 'c1_4', cefr: 'C1', skill: 'grammar', q: 'Little ___ that he was being watched.', choices: ['he knew', 'did he know', 'he did know', 'knew he'], a: 1, why: '부정어 Little 이 맨 앞에 오면 도치가 일어나 did + 주어 + 동사원형이 돼요.' },
       // C2
-      { id: 'c2_1', cefr: 'C2', skill: 'vocab',   q: "Closest in meaning to 'ubiquitous':", choices: ['rare', 'omnipresent', 'ancient', 'hidden'], a: 1 },
-      { id: 'c2_2', cefr: 'C2', skill: 'vocab',   q: 'Her argument was so ___ that no one could refute it.', choices: ['cogent', 'vague', 'trivial', 'mundane'], a: 0 },
-      { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0 },
-      { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0 },
+      { id: 'c2_1', cefr: 'C2', skill: 'vocab',   q: "Closest in meaning to 'ubiquitous':", choices: ['rare', 'omnipresent', 'ancient', 'hidden'], a: 1, why: 'ubiquitous = 어디에나 있는. omnipresent(편재하는)와 같은 뜻이에요.' },
+      { id: 'c2_2', cefr: 'C2', skill: 'vocab',   q: 'Her argument was so ___ that no one could refute it.', choices: ['cogent', 'vague', 'trivial', 'mundane'], a: 0, why: '아무도 반박(refute)하지 못했다 → cogent(설득력 있는). vague=모호한, trivial=사소한, mundane=평범한.' },
+      { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0, why: '권투에서 수건을 던져 기권한 데서 온 관용구 — 포기하다.' },
+      { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0, why: 'Scarcely 가 문장 맨 앞에 오면 도치가 필요해요 — had + 주어 + 과거분사.' },
     ];
     const CEFR_ORDER: string[] = [...CEFR_LADDER];   // 정본은 student-placement.ts — 홈 카드 게이지와 같은 눈금
     // 가중치 = 사다리 순번(A1=1 … C2=6). ⛔ 손으로 다시 적지 말 것 — 사다리가 바뀌면 여기만 옛것으로 남는다(2026-09-14 함정 대조 지적)
     const CEFR_WEIGHT: Record<string, number> = Object.fromEntries(CEFR_ORDER.map((L, i) => [L, i + 1]));
     if (method === 'GET' && path === '/api/leveltest/questions') {
-      // 정답(a)·skill 은 숨기고 문항만 전달
+      /* 정답(a)·해설(why)·skill 은 숨기고 문항만 전달.
+         ⛔ why 를 여기에 실으면 시험 «전» 에 해설이 보인다 — 채점하기도 전에 답이 새는 길이다.
+         정답·해설은 채점 뒤(diagnose)에 «틀린 문항만» 돌려준다(src/leveltest-review.ts). */
       const questions = CEFR_BANK.map(x => ({ id: x.id, cefr: x.cefr, q: x.q, choices: x.choices }));
       return json({ ok: true, questions, total: questions.length });
     }
@@ -11736,7 +11739,18 @@ LIMIT $limit`;
               기다리게 하는 거짓말이다(2026-09-21 에 상태만 갈랐고 학생 화면은 그대로였다).
          ⛔ live_count 는 싣지 않는다 — 화면이 쓸 일이 없고, 그 학생의 예약 수까지 알릴 이유가 없다.
          ⚠️ authedUid 를 못 구하면 track='unknown' 이라 화면은 «예전 문구» 그대로다. */
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId, placement, track: trackInfo.track });
+      /* 📘 (2026-09-22 사장님 지시) 틀린 문항의 «정답 + 해설» 을 함께 돌려준다.
+         [왜] 지금까지 이 화면은 점수·레벨·밴드 막대만 주고 «무엇을 왜 틀렸는지» 는 한 줄도
+              말하지 않았다 — 진단만 있고 배움이 없었다.
+         [🔒 정답이 새는 창] 이 경로는 무인증 공개다. 그래서 정본이 ①학생이 실제로 고른 문항만
+              ②보기 범위 안의 정수일 때만 ③틀린 것만 싣는다 — 「답을 안 내고 호출해 24문항
+              정답을 통째로 받는」 길을 막는다. 셋 중 하나라도 풀면 그 창이 넓어진다.
+              ⛔ 여기서 bank 를 통째로 넘기지 말고 반드시 그 함수를 지나게 할 것.
+         ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 해설을 못 만들었다고 점수까지 잃으면 안 된다. */
+      let review: any[] = [];
+      try { review = buildLeveltestReview(CEFR_BANK, answers); }
+      catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, application_id: appId, placement, track: trackInfo.track });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
