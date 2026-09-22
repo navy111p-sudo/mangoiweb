@@ -78,6 +78,24 @@ eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'This is my desk.
 ok(k.els['cq-example'].children.some(c=>c.tag==='mark'&&c.textContent==='desk'),'예문에서 배울 낱말을 표시한다');
 /* ⚠️ 짝 — 「카드가 뜬다」만 보면 «사진이 있는 줄에도 카드가 덮는» 사고를 못 봅니다. */
 ok(k.els['cq-wordcard'].hidden,'근거 있는 사진이 붙은 줄에는 그림카드를 덮지 않는다');
+
+/* 📖 2026-09-22 — 예문을 «한 번만» 싣는 새 모양(examples 배열 + 줄의 ex 번호)도 화면이 읽는가.
+   🔴 ex 는 0 일 수 있습니다 — falsy 로 판정하면 «첫 예문» 이 조용히 사라지고 엉뚱한 그림 문장이 대신 나옵니다.
+      그래서 첫 낱말을 일부러 ex:0 으로 둡니다. ⛔ 이 fixture 를 옛 모양으로 되돌리지 마세요.
+   ⚠️ 짝 — 바로 아래에서 옛 모양(bookExample)도 그대로 읽는지 함께 봅니다(캐시에 남은 payload). */
+const shared={id:'siu-basic-01',label:'SIU Basic 1',
+ examples:['I read a book.','She has a cat.'],
+ words:[{word:'book',scene:'sb',sourceIndex:1,ex:0,pic:1},{word:'cat',scene:'sc',sourceIndex:2,ex:1,pic:1}],
+ clips:[],
+ scenes:{sb:{source:'SIU Basic 1 · #1',image:'https://images.example.test/book.webp'},
+   sc:{source:'SIU Basic 1 · #2',image:'https://images.example.test/cat.webp'}}};
+const sh=await ready();sh.change('book','siu-basic-01');await flush();sh.respond('siu-basic-01.json',shared);await flush();
+eq(sh.els['cq-target'].textContent,'book');
+eq(sh.els['cq-example'].children.map(c=>c.textContent).join(''),'I read a book.','ex 가 0 이어도 examples[0] 을 예문으로 읽는다');
+ok(sh.els['cq-example'].children.some(c=>c.tag==='mark'&&c.textContent==='book'),'새 모양에서도 배울 낱말을 표시한다');
+sh.click('next');
+eq(sh.els['cq-example'].children.map(c=>c.textContent).join(''),'She has a cat.','examples[1] 도 읽는다');
+eq(k.els['cq-example'].children.map(c=>c.textContent).join(''),'This is my desk.','옛 payload 의 bookExample 도 그대로 읽는다');
 /* ⚠️ 가짜 DOM 은 onload 를 안 쏘므로 hidden 은 아직 참입니다 — 「걸었는가」는 src 로 물어야 합니다. */
 ok(k.els['cq-image'].getAttribute('src'),'근거 있는 줄에는 사진이 그대로 걸린다');
 k.click('next');

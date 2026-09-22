@@ -142,3 +142,12 @@ export function pictureEvidence({assets,clips,sceneText,stopWords}){
  const {describe,shell}=describeMedia({assets,clips,sceneText});
  return {describe,shell,depicts:makeDepicts(describe,shell,stopWords instanceof Set?stopWords:new Set(stopWords||[]))};
 }
+
+/* 🖼 낱말 사진 표는 «여러 파일» 로 나뉩니다 — `word-image-plan.json` · `word-image-plan-2.json` …
+   (한 파일에 몰면 diff 가 통째로 커지고 병합 충돌이 잦아집니다).
+   ⛔ 빌드와 회귀 검사가 «같은 집합» 을 봐야 합니다 — 한쪽에만 파일을 더하면
+      「빌드는 사진을 붙이는데 검사는 그 사진을 모르는」 상태가 되고(그 반대면 거짓 FAIL),
+      둘 다 조용합니다. 그래서 목록을 만드는 규칙을 여기 한 곳에 둡니다.
+   ⛔ `word-image-pending.json` 처럼 «표가 아닌» 파일이 걸리지 않게 이름을 정확히 봅니다. */
+export const WORD_PLAN_RE=/^word-image-plan(?:-\d+)?\.json$/;
+export const wordPlanFiles=names=>names.filter(f=>WORD_PLAN_RE.test(f)).sort();
