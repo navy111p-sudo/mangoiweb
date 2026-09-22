@@ -99,7 +99,16 @@ for(const book of books){
  const occur=new Map();book.sentences.forEach((text,i)=>words(text).forEach(w=>{if(!occur.has(w))occur.set(w,[]);occur.get(w).push({sourceIndex:i+1,bookExample:text});}));
  const vocab=new Map();
  for(const [w,list] of occur){const shown=list.find(o=>(scenes.get(id(o.bookExample))||{}).image)||list[0];vocab.set(w,{word:w,sourceIndex:shown.sourceIndex,bookExample:shown.bookExample});}
- const data={id:book.id,label:book.label,title:book.title,topic:book.topic,words:[],clips:[],scenes:{}};
+ /* 📖 2026-09-22 — 교재 예문은 «한 번만» 싣는다(examples 배열 + 낱말 줄의 ex 번호).
+    🔴 예전에는 낱말 줄마다 bookExample 을 그대로 박았는데, 그러면 같은 문장이 낱말 수만큼 복사됩니다.
+       실측: SIU ADVANCE 20 은 예문 줄 1,028개에 서로 다른 문장이 100개라 그 복사만 193,884바이트입니다.
+       ⚠️ 그 복사는 «그 낱말에 사진이 붙을 때» 만 생깁니다 — 사진이 없으면 예문 장면을 가리켜 아래에서 지워집니다.
+       ⟹ 그래서 «모든 낱말에 실사 사진» 을 채우면 숙어가 긴 교재 2권이 payload 상한(350,000B)을 그 자리에서 넘습니다
+          (실측 siu-advance-20 이 422,077B → 이 수리로 227,183B. 지금 최대인 236,688B 보다도 작습니다).
+    ⛔ bookExample 을 다시 줄마다 인라인으로 되돌리지 마세요 — 상한을 그대로 다시 넘깁니다.
+    ⚠️ 화면은 한 곳(js/scene-curriculum.js 의 example())에서만 읽고, 옛 payload 를 위해 bookExample 도 그대로 받습니다. */
+ const data={id:book.id,label:book.label,title:book.title,topic:book.topic,words:[],clips:[],scenes:{},examples:[]};
+ const exIndex=new Map();
  for(const [word,row] of vocab){
   unique.add(word);
   /* 🖼 2026-09-21 — 그림은 «그 문장에 낱말이 들어 있다» 가 아니라 «그림 설명이 그 낱말을 보여 준다» 로만 붙인다.
@@ -134,6 +143,10 @@ for(const book of books){
   if(chosen.image&&!(describe.get(chosen.key)||'').trim())rowUndescribed++;
   /* 교재 예문 = bookExample ?? scenes[scene].text. 그림이 바로 그 예문의 그림일 때는 같은 문장이 두 번 실리므로 한 번만 보낸다. */
   const entry={...row,scene:chosen.id};if(chosen.text===row.bookExample)delete entry.bookExample;if(pictures)entry.pic=1;
+  /* 살아남은 예문은 examples 에 한 번만 담고 낱말 줄에는 번호만 싣는다. */
+  if(entry.bookExample!==undefined){const t=entry.bookExample;let i=exIndex.get(t);
+   if(i===undefined){i=data.examples.length;data.examples.push(t);exIndex.set(t,i);}
+   delete entry.bookExample;entry.ex=i;}
   data.words.push(entry);data.scenes[chosen.id]=chosen;
  }
  for(const clip of clipRows){if(clip.refs.some(r=>r[0]===book.id)){data.clips.push({scene:clip.scene,sourceIndex:clip.refs.find(r=>r[0]===book.id)[1]});data.scenes[clip.scene]=scenes.get(clip.scene);}}
@@ -154,6 +167,7 @@ for(const book of books){
     그래서 scene.text 가 있으면 «이 교재의 문장» 이라는 뜻이다. */
  data.scenes=Object.fromEntries(Object.entries(data.scenes).map(([sid,{refs,key,text,...s}])=>[sid,(refs||[]).some(r=>r[0]===book.id)?{text,...s}:s]));
  Object.values(data.scenes).forEach(s=>{if(s.image)usedImages.add(s.image);});
+ if(!data.examples.length)delete data.examples;
  const body=JSON.stringify(data);const bytes=Buffer.byteLength(body),gzip=zlib.gzipSync(body).length;maxBook=Math.max(maxBook,bytes);maxGzip=Math.max(maxGzip,gzip);
  if(bytes>350000||gzip>80000)throw Error('Book payload exceeds budget: '+book.id);
  fs.writeFileSync(path.join(dir,book.id+'.json'),body+'\n');

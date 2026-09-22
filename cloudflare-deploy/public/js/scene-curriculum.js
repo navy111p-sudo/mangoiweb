@@ -260,8 +260,13 @@
   function set(id,value){$(id).textContent=value;}
   function current(){return items[position];}
   function scene(item){return book.scenes[item.scene];}
-  /* 📖 교재 예문 = bookExample ?? 그림 문장. 그림이 바로 그 예문의 그림일 때는 같은 문장을 한 번만 싣는다(빌드가 지운다). */
-  function example(item){return mode==='words'?(item.bookExample||scene(item).text||''):scene(item).text;}
+  /* 📖 교재 예문 = examples[ex] ?? bookExample ?? 그림 문장.
+     🔴 같은 문장을 낱말 줄마다 복사하면 숙어가 긴 교재가 payload 상한을 넘습니다(2026-09-22 실측 422,077B).
+        그래서 빌드가 예문을 book.examples 에 «한 번만» 담고 줄에는 번호(ex)만 싣습니다.
+     ⚠️ bookExample 갈래를 지우지 마세요 — 캐시에 남은 옛 payload 가 그 모양입니다(지우면 예문이 빈칸).
+     ⚠️ ex 는 0 일 수 있어 «있는가» 를 typeof 로 봅니다(0 을 falsy 로 읽으면 첫 예문이 조용히 사라집니다). */
+  function exampleOf(item){var a=book.examples;return (a&&typeof item.ex==='number'&&a[item.ex])||'';}
+  function example(item){return mode==='words'?(exampleOf(item)||item.bookExample||scene(item).text||''):scene(item).text;}
   /* 🖼 2026-09-21 — 그림이 무엇을 보여 주는지 세 가지로 갈라 말한다. 옛 화면은 셋을 한 문구로 뭉쳐
      「Your backpack looks nice.」 의 가방 사진을 「nice」 의 그림처럼 보여 줬다(사장님 지적).
      word    = 그림 설명이 그 낱말을 가리킨다(근거 있음)

@@ -236,11 +236,28 @@ const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage
 for(const entry of live.books){
  const bytes=fs.readFileSync(new URL(entry.id+'.json',dir));ok(bytes.length<350000,entry.id+' payload');ok(zlib.gzipSync(bytes).length<80000,entry.id+' gzip budget');const b=JSON.parse(bytes);eq(b.id,entry.id);eq(b.words.length,entry.words);ok(b.clips.length>0,entry.id+' has a sentence clip');
  const sentences=sourceBooks.get(b.id),owned=new Set(sentences);
+ /* 📖 2026-09-22 — 교재 예문을 «한 번만» 싣는가. 줄마다 복사하면 숙어가 긴 교재가 payload 상한을 넘습니다
+    (실측 siu-advance-20 이 422,077B → 이 수리로 227,183B). 그 되돌림을 여기서 막습니다.
+    ⛔ 「examples 가 있는가」로만 묻지 마세요 — 그것만으로는 «있으면서 줄에도 복사하는» 판이 통과합니다. */
+ {const ex=b.examples;
+  if(ex!==undefined){
+   ok(Array.isArray(ex),entry.id+' examples 는 배열이다');
+   eq(new Set(ex).size,ex.length,entry.id+' 같은 예문을 두 번 싣지 않는다');
+   ok(ex.every(t=>typeof t==='string'&&t.trim()),entry.id+' 빈 예문이 없다');
+   for(const w of b.words)if(typeof w.ex==='number')ok(w.ex>=0&&w.ex<ex.length,entry.id+' ex 번호가 실재한다: '+w.word);
+   /* 아무도 안 가리키는 예문을 싣지 않는다(용량 낭비 + 죽은 칸). */
+   const used=new Set(b.words.map(w=>w.ex).filter(i=>typeof i==='number'));
+   eq(used.size,ex.length,entry.id+' 아무도 안 가리키는 예문이 없다');}
+  /* 🔴 짝 — 그 교재의 예문이 줄마다 인라인으로 다시 실리지 않는다(빌드 산출물 기준). */
+  eq(b.words.filter(w=>w.bookExample!==undefined).length,0,entry.id+' 낱말 줄에 예문을 인라인으로 복사하지 않는다');
+  /* 🔴 짝 — 그래도 모든 줄은 예문을 «가지고» 있다(전부 지워서 통과하는 것을 막는다). */
+  for(const w of b.words)ok(typeof w.ex==='number'||(b.scenes[w.scene]||{}).text,entry.id+' 예문이 어디엔가 있다: '+w.word);}
  const sentenceOf=new Map();for(const t of sentences)for(const cw of contentWords(t)){if(!sentenceOf.has(cw))sentenceOf.set(cw,[]);sentenceOf.get(cw).push(t);}
  for(const w of b.words){
   seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');
-  /* 화면이 보여 주는 예문 = bookExample ?? 그림 문장. 둘이 같을 때 빌드가 한 번만 싣는다. */
-  const shown=w.bookExample||s.text;
+  /* 화면이 보여 주는 예문 = examples[ex] ?? bookExample ?? 그림 문장 (화면 example() 과 같은 순서).
+     ⚠️ ex 는 0 일 수 있으니 «있는가» 를 typeof 로 본다. */
+  const shown=(Array.isArray(b.examples)&&typeof w.ex==='number'&&b.examples[w.ex])||w.bookExample||s.text;
   eq(sentences[w.sourceIndex-1],shown,'example matches the existing course source');
   ok((shown.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'word belongs to the shown example');
   /* ⛔ 남의 교재 문장은 payload 에 실리지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길. */
