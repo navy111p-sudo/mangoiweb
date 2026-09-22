@@ -53,27 +53,59 @@
     font-size:19px;font-weight:900;line-height:1.35;position:relative}
   .cards{display:grid;gap:12px;grid-template-columns:1fr}
   @media (min-width:760px){ .cards{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  /* 📸 (2026-09-22 사장님 지시) 카드마다 실사 사진(힉스필드 생성 → /img/level-start/*.webp).
+     사진이 위, 글자 띠가 아래. ⚠ 사진은 «장식» 이라 alt="" — 카드의 이름은 글자가 집니다
+     (낭독기가 사진 설명과 글자를 두 번 읽지 않게). */
   .card{
-    position:relative;display:flex;align-items:center;gap:14px;width:100%;
-    min-height:128px;padding:16px 56px 16px 16px;border:0;border-radius:22px;
+    position:relative;display:flex;flex-direction:column;align-items:stretch;width:100%;
+    padding:0;border:0;border-radius:22px;overflow:hidden;
     color:#fff;text-align:left;font:inherit;cursor:pointer;
     box-shadow:0 6px 0 rgba(0,0,0,.14);transition:transform .12s ease, box-shadow .12s ease
   }
   .card:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.14)}
   .card:focus-visible{outline:4px solid #111827;outline-offset:3px}
-  @media (min-width:760px){ .card{flex-direction:column;align-items:flex-start;min-height:240px} }
   .c1{background:linear-gradient(135deg,var(--c1a),var(--c1b))}
   .c2{background:linear-gradient(135deg,var(--c2a),var(--c2b))}
   .c3{background:linear-gradient(135deg,var(--c3a),var(--c3b))}
-  .ico{font-size:44px;line-height:1;flex:none;display:block}
-  .txt{display:block;min-width:0}
+  .photo{display:block;width:100%;height:auto;aspect-ratio:2/1;object-fit:cover;background:rgba(0,0,0,.18)}
+  .body{display:flex;align-items:center;gap:12px;padding:14px 16px 16px;flex:1}
+  .ico{font-size:40px;line-height:1;flex:none;display:block}
+  .txt{display:block;min-width:0;word-break:keep-all}
   .main{display:block;font-size:20px;font-weight:900;line-height:1.35}
   .parent{display:block;margin-top:6px;font-size:13px;font-weight:700;opacity:.95}
   .say{
     position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:50%;
-    border:0;background:rgba(255,255,255,.95);font-size:20px;cursor:pointer;line-height:40px;text-align:center
+    border:0;background:rgba(255,255,255,.95);font-size:20px;cursor:pointer;line-height:40px;text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.25)
   }
   .note{margin:14px 2px 0;font-size:13px;color:var(--sub);line-height:1.6}
+  /* 🖥 넓은 화면에서는 전부 크게 (2026-09-22 사장님 «더 크게 잘 보이게») —
+     예전엔 1920 화면에서도 카드 폭이 220px 남짓이라 글자가 작았습니다. */
+  @media (min-width:1100px){
+    .top,main{max-width:1320px}
+    .top{padding:18px 24px}
+    .top a,.top button{min-height:48px;padding:0 18px;font-size:17px}
+    main{padding:0 24px 40px}
+    .hello{gap:16px;margin:8px 0 22px}
+    .hello img{width:96px;height:96px}
+    .bubble{font-size:28px;padding:14px 22px;border-radius:24px}
+    .cards{gap:24px}
+    .card{border-radius:28px}
+    .photo{aspect-ratio:16/10}
+    .body{padding:22px 24px 26px;gap:16px}
+    .ico{font-size:52px}
+    .main{font-size:27px}
+    .parent{font-size:16px;margin-top:10px}
+    .say{width:56px;height:56px;line-height:56px;font-size:28px;right:14px;top:14px}
+    .note{font-size:17px;margin-top:22px}
+    .quiz{padding:28px;border-radius:28px}
+    .q{font-size:28px}
+    .opt{min-height:170px;font-size:22px}
+    .opt .ico{font-size:56px}
+    .fruits img{height:48px}
+    .rec .big{font-size:30px}
+    .link{font-size:17px}
+  }
 
   /* ③ 3가지 질문 놀이 */
   .quiz{background:#fff;border-radius:22px;padding:16px;border:1px solid #f1dcb6}
@@ -115,28 +147,37 @@
 
       <div class="cards">
         <button type="button" class="card c1" data-go="live">
+          <img class="photo" src="/img/level-start/live.webp?v=1" alt="" width="800" height="598" decoding="async">
+          <span class="body">
           <span class="ico" aria-hidden="true">🗣️</span>
           <span class="txt">
             <span class="main" data-t="c1">선생님이랑 같이 말하고 로봇이랑 연습할래요!</span>
             <span class="parent" data-t="c1p">보호자 안내 · 화상수업 + AI 연습 (선생님 1:1 레벨테스트 예약)</span>
           </span>
+          </span>
           <span class="say" role="button" tabindex="0" data-say="c1" aria-label="읽어 주기">🔊</span>
         </button>
 
         <button type="button" class="card c2" data-go="ai">
+          <img class="photo" src="/img/level-start/ai.webp?v=1" alt="" width="800" height="598" decoding="async">
+          <span class="body">
           <span class="ico" aria-hidden="true">🤖</span>
           <span class="txt">
             <span class="main" data-t="c2">로봇이랑 혼자서만 대화하고 싶어요!</span>
             <span class="parent" data-t="c2p">보호자 안내 · AI 학습만 (AI 자동 진단 바로 시작)</span>
           </span>
+          </span>
           <span class="say" role="button" tabindex="0" data-say="c2" aria-label="읽어 주기">🔊</span>
         </button>
 
         <button type="button" class="card c3" data-go="pick">
+          <img class="photo" src="/img/level-start/pick.webp?v=1" alt="" width="800" height="598" decoding="async">
+          <span class="body">
           <span class="ico" aria-hidden="true">🎁</span>
           <span class="txt">
             <span class="main" data-t="c3">어떤 수업이 재미있을까요?</span>
             <span class="parent" data-t="c3p">보호자 안내 · 질문 3개로 추천받기 (1분)</span>
+          </span>
           </span>
           <span class="say" role="button" tabindex="0" data-say="c3" aria-label="읽어 주기">🔊</span>
         </button>
@@ -305,7 +346,7 @@
     if (src) {
       var c = src.cloneNode(true);
       var s = c.querySelector('.say'); if (s) s.remove();
-      c.style.paddingRight = '16px';
+      /* 🔊 자리를 비워 두던 오른쪽 여백은 이제 없음(글자 띠에 여백이 따로 있음) */
       var p = c.querySelector('.parent'); if (p) p.textContent = t('go');
       c.addEventListener('click', function () { go(state.rec); });
       holder.appendChild(c);
