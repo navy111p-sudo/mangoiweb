@@ -1,0 +1,44 @@
+# ⛔ 임시 워크플로 — main 에 올리지 않습니다. 이 브랜치에서만 돕니다.
+#   낱말 사진 13125(name) 한 장을 러너가 받아 webp 로 바꿔 커밋합니다
+#   (작업 컨테이너는 CDN 이 프록시에 403 이라 직접 못 받습니다 — CLAUDE.md 2장).
+name: tmp-fetch-word-name
+
+on:
+  push:
+    branches: [tmp/word-img-name]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: webp 도구
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+
+      - name: 내려받아 webp 로 바꾸기(덮어쓰기)
+        run: |
+          IDX=13125
+          URL='https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260922_211338_037ecd9e-caee-4bb9-8ae9-f2762740e2a2.png'
+          cd cloudflare-deploy/public/img/scene-words
+          curl -sfL --max-time 90 -o /tmp/$IDX.png "$URL"
+          test -s /tmp/$IDX.png
+          for q in 80 68 55 42 32; do
+            cwebp -quiet -q $q -resize 640 480 /tmp/$IDX.png -o $IDX.webp
+            sz=$(stat -c%s $IDX.webp)
+            echo "q=$q → $sz bytes"
+            [ "$sz" -le 80000 ] && break
+          done
+          ls -l $IDX.webp
+
+      - name: 커밋
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -q -m '낱말 사진 13125(name): 예문 뜻(자기소개)으로 다시 받은 판' || { echo '바뀐 것 없음'; exit 0; }
+          git push origin HEAD:tmp/word-img-name
