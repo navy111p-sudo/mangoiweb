@@ -52,6 +52,7 @@ import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
 import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
@@ -1694,6 +1695,13 @@ export async function handleAdminApi(
     //   - 시선 (avg gaze_score 0~100)
     //   - 집중도 (composite: 시선 50% + 발화비율 40% - 끊김 10%)
     if (method === 'GET' && path === '/api/admin/stats/student-rankings') {
+      /* 🔒 (2026-09-22) 본사 전용 — 이 집계는 스코프를 안 걸어 전국 학생(아이디 포함)이 나온다.
+         `/api/admin/stats/` 가 지사·대리점 허용목록에 통째로 있어 여기서 막는다. 정본 src/org-scope-guard.ts */
+      {
+        const _rkActor = await getAdminActor(request, env as any);
+        const _rkDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _rkActor.username), _rkActor.role));
+        if (_rkDeny) return _rkDeny;
+      }
       const period = (url.searchParams.get('period') || 'week').toLowerCase();
       const fromStr = url.searchParams.get('from') || '';
       const toStr = url.searchParams.get('to') || '';
