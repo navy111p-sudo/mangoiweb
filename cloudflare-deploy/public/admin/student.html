@@ -2656,11 +2656,12 @@ function mgsSetGhostNote(n) {
    ⛔ 주간·월간 두 뷰가 이것을 쓴다. 판정을 어느 쪽에도 복제하지 말 것(한쪽만 고쳐진다).
 
    [왜 생겼나] 예전 주간 뷰는 `dowToIdx = {sun:0, mon:1, …}` 소문자 세 글자만 알았다.
-   그런데 실제로 저장되는 값은 그 목록에 **하나도 없다**:
+   그런데 실제로 저장되는 표기가 «셋» 이고 그 목록이 아는 것은 하나뿐이다:
      · 예약 등록 폼 경로 → 서버(api-admin.ts POST)가 `String(d)` 로 **숫자 '0'~'6'** 저장
        (화면 체크박스 value 가 0~6 — /api/class/sessions/today 가 그 형식을 전제한다)
      · 일정변경(PATCH)·운영 D1 정본 → normDow 가 **'Wed'·'Fri'** 꼴로 저장
-   ⟹ 둘 다 `undefined` 라 `continue` — **매주 반복 수업이 캘린더에 한 칸도 안 그려졌다.**
+     · AI 명령 경로(ai-command.ts) → **'mon'** 소문자 — 이것만 옛 표에 있었다
+   ⟹ 앞의 둘이 `undefined` 라 `continue` — **매주 반복 수업이 캘린더에 한 칸도 안 그려졌다.**
    (2026-09-22 사장님 제보 「등록은 됐다는데 캘린더에 반영이 안 된다」)
 
    🔴 날짜가 이긴다 — /api/class/sessions/today 가 `if (s.scheduled_date) … else if (day_of_week)`
@@ -2692,7 +2693,9 @@ function mgsSchedHitsDate(sch, date) {
   if (String(sch.status || '') === 'cancelled') return false;
   var sd = String(sch.scheduled_date || '').slice(0, 10);
   if (sd) return sd === mgsYmd(date);        // 🔴 날짜가 이긴다
-  var dows = String(sch.day_of_week || '').split(',');
+  /* ⚠️ 구분자는 서버 정본 admDowMatches(api-admin.ts)와 «같은» 집합이라야 한다.
+     쉼표만 보면 '1 3 5'·'Mon Thu'·'월/수'·'화·목' 이 조용히 한 칸도 안 그려진다. */
+  var dows = String(sch.day_of_week || '').split(/[,\s/·]+/);
   for (var i = 0; i < dows.length; i++) {
     if (mgsDowIdx(dows[i]) === date.getDay()) return true;
   }
@@ -3185,7 +3188,13 @@ async function cancelAiSchedule(id) {
   try {
     const r = await fetch('/api/admin/class-schedules/' + id, { method:'DELETE', credentials:'include' });
     const j = await r.json();
-    if (j.ok) { loadAiSchedules(); }
+    if (j.ok) {
+      loadAiSchedules();
+      /* 🥭 (2026-09-22) 취소도 캘린더를 다시 읽는다 — loadAiSchedules() 는 목록 HTML 만
+         갈아끼우고 _dSchedState.aiSchedules 를 안 건드려서, 이것이 없으면 취소한 수업이
+         새로고침 전까지 캘린더에 그대로 남는다(일정변경·등록 경로와 같은 배선). */
+      try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+    }
     else alert('취소 실패: ' + (j.error || '알 수 없음'));
   } catch (e) { alert('취소 오류: ' + (e.message || e)); }
 }
