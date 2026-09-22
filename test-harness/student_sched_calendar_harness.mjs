@@ -179,7 +179,8 @@ console.log('\n── ④ 성공하면 캘린더도 다시 읽는가 (세 경로
 /* ⛔ 함수를 통째로 보면 «catch 로 옮기는» 변이도 통과한다 — 성공 갈래 «안» 만 자른다.
    ⚠️ 취소는 `if (j.ok) { … }` 라 여는 중괄호 «뒤» 부터, 나머지 둘은 성공 메시지 뒤부터. */
 const PATHS = [
-  ['등록',     () => restOfBlock(src, src.indexOf("say(out, '#4ade80');"))],
+  // ⚠️ (2026-09-23) 인자 끝(`);`)까지 못 박지 않는다 — say 에 3번째 인자('submit')가 붙자 거짓 FAIL 이 났다.
+  ['등록',     () => restOfBlock(src, src.indexOf("say(out, '#4ade80'"))],
   ['일정변경', () => { const f = funcAt(src, 'submitReschedule');
                       return restOfBlock(f, f.indexOf("say('✅ 일정을 옮겼습니다")); }],
   ['취소',     () => { const f = funcAt(src, 'cancelAiSchedule');
