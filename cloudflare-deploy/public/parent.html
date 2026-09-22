@@ -484,6 +484,10 @@ window.pdGo = async function(){
     r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
     d = await r.json();
   } catch(e){ alert('❌ 네트워크 오류. 다시 시도해주세요.'); return; }
+  /* 🔒 비밀번호가 «없는» 계정에서는 위 호출이 실제로 로그인에 성공해 sid 가 갱신된다
+     (주석은 「토큰은 여기서 쓰지 않음」이지만 서버는 세션을 이미 새로 열었다).
+     토큰을 버리면 홈 토큰만 죽으므로 같은 규칙으로 갱신한다. */
+  if (d && d.ok && d.token) pdSyncHomeToken(d.token);
   if (r.status === 404 || d.error === 'user_not_found') { alert('❌ 학생 ID를 찾을 수 없습니다. 학원에 문의해주세요.'); return; }
   if (d.error === 'password_required') {
     pdShowPwStep(false);   // 비번 있음 → 입력
@@ -574,12 +578,43 @@ window.pdPwGo = async function(){
   await pdLogin(pw);
 };
 
+/* 🔒 (2026-09-22) 「다른 기기에서 로그인되었습니다」 — 같은 기기인데 «자기가 자기를 밀어내던» 것.
+   운영은 SINGLE_SESSION='on' 이라 로그인에 «성공할 때마다» 서버가 새 세션번호(sid)를 발급하고
+   이전 토큰은 그 자리에서 401 이 된다(src/auth-token.ts · src/api-students.ts). 그런데 토큰 칸이
+   두 벌인데 서로를 몰랐다 — 이 화면은 mangoi_parent_token, 홈·학습 화면은 mango_token.
+   ⟹ 마이 페이지에서 로그인하면 홈 토큰이 죽어 발음코칭 채점(/api/voice/coach)이 401 →
+      session-guard 가 「다른 기기에서 로그인되었습니다」를 띄운다(서버 판정 자체는 맞다).
+   ✅ 그래서 여기서 받은 새 토큰으로 «이미 있던 같은 계정의» 홈 토큰을 갱신한다.
+   ⛔ 없으면 «만들지» 않는다 — 만들면 홈에 로그인한 적 없는 기기가 로그인 상태가 되고,
+      그 순간 아래 homeToken 자동 조회가 열려 2026-07-30 제보 #3(자녀가 비번 없이 학부모
+      페이지 열람)이 되살아난다. 목적은 «새로 열어 주기» 가 아니라 «되던 것을 안 죽이기» 다.
+   ⛔ 다른 계정이면 손대지 않는다 — 대소문자까지 정확일치(Kim/kim 처럼 대소문자만 다른 계정이 실재).
+   📄 docs/작업기록/260922_로그인_다른기기에서_로그인됨_한기기_자가퇴출_진단.md */
+function pdTokenUid(t){
+  try {
+    var p = String(t || '').split('.')[0].replace(/-/g,'+').replace(/_/g,'/');
+    while (p.length % 4) p += '=';
+    return String(JSON.parse(atob(p)).uid || '');
+  } catch(e){ return ''; }
+}
+function pdSyncHomeToken(newToken){
+  try {
+    var cur = localStorage.getItem('mango_token') || '';
+    if (!cur || !newToken) return false;                 // ⛔ 없으면 만들지 않는다(정책 유지)
+    var a = pdTokenUid(cur), b = pdTokenUid(newToken);
+    if (!a || !b || a !== b) return false;               // 다른 계정 → 손대지 않는다
+    localStorage.setItem('mango_token', newToken);
+    return true;
+  } catch(e){ return false; }
+}
+
 async function pdLogin(pw){
   try {
     const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: _currentUid, password: pw }) });
     const d = await r.json();
     if (!d.ok || !d.token) { alert('❌ ' + (d.message || '비밀번호가 일치하지 않습니다.')); return; }
     _token = d.token;
+    pdSyncHomeToken(d.token);   // 🔒 같은 기기의 홈 토큰이 이 로그인으로 죽지 않게(위 주석)
     try { sessionStorage.removeItem('mangoi_parent_switch'); } catch(e){}   // 사람이 직접 로그인했으니 자동 조회 다시 허용
     /* 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증, 체크박스를 켰을 때만 로그인 유지.
        이전엔 최초 인증 성공 시 무조건 30일 토큰을 저장해서, 자녀가 같은 기기로 비밀번호 없이

@@ -9,6 +9,37 @@
 // localStorage 키: mangoi_logged_user = { uid, name }
 // ═══════════════════════════════════════════════════════════════════
 (function(){
+  /* 🔒 (2026-09-22) 「다른 기기에서 로그인되었습니다」 — 같은 기기인데 «자기가 자기를 밀어내던» 것.
+     운영은 SINGLE_SESSION='on' 이라 로그인에 «성공할 때마다» 서버가 새 세션번호(sid)를 발급하고
+     이전 토큰은 그 자리에서 401 이 된다(src/auth-token.ts). 그런데 토큰 칸이 두 벌인데 서로를
+     몰랐다 — 홈·학습 화면은 mango_token, 마이 페이지(parent.html)는 mangoi_parent_token.
+     ⟹ 홈에서 로그인하면 마이 페이지 토큰이 죽어 「🔒 다시 로그인해주세요」가 뜬다.
+     ✅ 그래서 «이미 있던 같은 계정의» 마이 페이지 토큰을 새 토큰으로 갱신한다.
+     ⛔ 없으면 «만들지» 않는다 — 마이 페이지는 「로그인 유지」를 켰을 때만 토큰을 남기는데
+        (2026-07-30 제보 #3 — 자녀가 비번 없이 학부모 페이지를 여는 것을 막는 장치),
+        여기서 새로 만들면 그 정책이 통째로 풀린다. 목적은 «되던 것을 안 죽이기» 다.
+     ⛔ 다른 계정이면 손대지 않는다 — 대소문자까지 정확일치(Kim/kim 처럼 대소문자만 다른 계정이 실재).
+     ⚠️ parent.html 에 같은 규칙이 한 벌 더 있다(그 화면은 이 파일을 싣지 않는다).
+        둘이 같은 답을 내는지는 test-harness/login_token_sync_harness.mjs 가 대조한다.
+     📄 docs/작업기록/260922_로그인_다른기기에서_로그인됨_한기기_자가퇴출_진단.md */
+  function lmTokenUid(t){
+    try {
+      var p = String(t || '').split('.')[0].replace(/-/g,'+').replace(/_/g,'/');
+      while (p.length % 4) p += '=';
+      return String(JSON.parse(atob(p)).uid || '');
+    } catch(e){ return ''; }
+  }
+  function lmSyncParentToken(newToken){
+    try {
+      var cur = localStorage.getItem('mangoi_parent_token') || '';
+      if (!cur || !newToken) return false;                 // ⛔ 없으면 만들지 않는다(정책 유지)
+      var a = lmTokenUid(cur), b = lmTokenUid(newToken);
+      if (!a || !b || a !== b) return false;               // 다른 계정 → 손대지 않는다
+      localStorage.setItem('mangoi_parent_token', newToken);
+      return true;
+    } catch(e){ return false; }
+  }
+
   // 데모 학생 5명 + 각자의 수업
   // hourOffset: 0.5 = 30분 후 / dateOffset: 일 단위
   var demoStudents = {
@@ -659,7 +690,7 @@
     try {
       fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: s.uid }) })
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (d && d.ok && d.token) { try { localStorage.setItem('mango_token', d.token); } catch(e){} } })
+        .then(function(d){ if (d && d.ok && d.token) { try { localStorage.setItem('mango_token', d.token); } catch(e){} lmSyncParentToken(d.token); } })
         .catch(function(){});
     } catch(e){}
     closeLoginModal();
@@ -800,6 +831,7 @@
         localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
         // 🔐 uid 서명 토큰 — AI 친구 대화 등 uid 기반 개인 데이터 API 인증용
         if (d.token) localStorage.setItem('mango_token', d.token);
+        lmSyncParentToken(d.token);   // 🔒 같은 기기의 마이 페이지 토큰이 이 로그인으로 죽지 않게(위 주석)
         // 😊 패스키 버튼이 아이디 없이도 이 계정을 찾도록 마지막 아이디 기억
         localStorage.setItem('mangoi_pk_last_uid', d.user.user_id);
       } catch(e){}
@@ -838,6 +870,7 @@
       localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
       localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
       if (d.token) localStorage.setItem('mango_token', d.token);
+      lmSyncParentToken(d.token);   // 🔒 패스키 로그인도 같은 sid 갱신이라 똑같이 맞춘다
     } catch(e){}
   }
 
