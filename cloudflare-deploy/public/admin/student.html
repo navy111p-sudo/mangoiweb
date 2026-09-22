@@ -3218,11 +3218,20 @@ async function cancelAiSchedule(id) {
     var one = kindEl.value === 'one_off';
     if (daysWrap) daysWrap.style.display = one ? 'none' : 'flex';
     if (dateWrap) dateWrap.style.display = one ? 'flex' : 'none';
+    /* 🧹 (2026-09-23) 종류를 바꾸면 «앞 종류로 등록하다 받은» 결과 문구를 지운다.
+       안 지우면 One-off 로 바꿔도 「요일을 하나 이상 골라주세요(반복 수업)」가 그대로 남아
+       지금 폼이 틀린 것처럼 읽힌다(사장님 사진). ⛔ 강사 목록 폴백 안내처럼 «등록 결과가 아닌»
+       문구는 남긴다 — data-src="submit" 인 것만 지운다. */
+    if (msgEl && msgEl.getAttribute('data-src') === 'submit') { msgEl.innerHTML = ''; msgEl.removeAttribute('data-src'); }
   }
   kindEl.addEventListener('change', syncKind);
   syncKind();
 
-  function say(html, color){ if (msgEl) msgEl.innerHTML = '<span style="color:' + (color || '#94a3b8') + '">' + html + '</span>'; }
+  function say(html, color, src){
+    if (!msgEl) return;
+    msgEl.innerHTML = '<span style="color:' + (color || '#94a3b8') + '">' + html + '</span>';
+    if (src) msgEl.setAttribute('data-src', src); else msgEl.removeAttribute('data-src');
+  }
 
   /* 🔴 (2026-09-22 사장님 「선생님도 스크롤해서 선택하게」) 담당 강사 드롭다운 — 정본은 이 한 곳.
      자유 입력일 때 서버가 `name = ? OR name LIKE ? LIMIT 1` 로 찾아서,
@@ -3337,7 +3346,7 @@ async function cancelAiSchedule(id) {
     var uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
            || new URLSearchParams(location.search).get('uid');
     var name = (typeof STUDENT_NAME !== 'undefined' ? STUDENT_NAME : '');
-    if (!uid && !name) { say('학생 정보를 찾을 수 없습니다. / Student not identified.', '#ef4444'); return; }
+    if (!uid && !name) { say('학생 정보를 찾을 수 없습니다. / Student not identified.', '#ef4444', 'submit'); return; }
 
     var _nsT = nsPickedTeacher();
     var days = Array.prototype.slice.call(document.querySelectorAll('.ns-day:checked')).map(function(c){ return c.value; });
@@ -3355,7 +3364,7 @@ async function cancelAiSchedule(id) {
     };
 
     addBtn.disabled = true; addBtn.style.opacity = '0.6';
-    say('등록 중… / Saving…');
+    say('등록 중… / Saving…', '', 'submit');
     try {
       var r = await fetch('/api/admin/class-schedules', {
         method: 'POST', credentials: 'include',
@@ -3366,26 +3375,26 @@ async function cancelAiSchedule(id) {
 
       if (r.status === 409 && j && j.error === 'conflict') {
         addBtn.disabled = false; addBtn.style.opacity = '1';
-        say('⚠️ ' + (j.message || '같은 시간에 이미 예약이 있습니다.') + '<br><span style="color:#94a3b8">' + (j.message_en || '') + '</span>', '#fbbf24');
+        say('⚠️ ' + (j.message || '같은 시간에 이미 예약이 있습니다.') + '<br><span style="color:#94a3b8">' + (j.message_en || '') + '</span>', '#fbbf24', 'submit');
         if (confirm((j.message || '같은 시간에 이미 예약이 있습니다.') + '\n\n그래도 등록할까요? / Register anyway?')) return submit(true);
         return;
       }
       if (!j || !j.ok) {
-        say('❌ ' + ((j && (j.message || j.error)) || '등록 실패') + '<br><span style="color:#94a3b8">' + ((j && j.message_en) || '') + '</span>', '#ef4444');
+        say('❌ ' + ((j && (j.message || j.error)) || '등록 실패') + '<br><span style="color:#94a3b8">' + ((j && j.message_en) || '') + '</span>', '#ef4444', 'submit');
         return;
       }
 
       var n = (j.created || []).length;
       var out = '✅ 예약 ' + n + '건이 등록됐습니다. / ' + n + ' class(es) created.';
       if (j.warning) out += '<br><span style="color:#fbbf24">⚠️ ' + j.warning + '</span><br><span style="color:#94a3b8">' + (j.warning_en || '') + '</span>';
-      say(out, '#4ade80');
+      say(out, '#4ade80', 'submit');
       try { loadAiSchedules(); } catch(_) {}
       /* 📅 (2026-09-22) 캘린더도 함께 다시 읽는다 — 이 한 줄이 빠져 있어서 「✅ 등록됐습니다」를
          보고 스케줄 탭으로 가도 새로고침 전까지 그대로였다(일정변경 경로에는 원래 있었다).
          ⛔ 지우지 말 것. ⚠️ 목록만 새로 읽고 끝내면 사장님 눈에는 «등록이 안 된» 것과 같다. */
       try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch(_) {}
     } catch (e) {
-      say('❌ 통신 오류 / Network error: ' + (e.message || e), '#ef4444');
+      say('❌ 통신 오류 / Network error: ' + (e.message || e), '#ef4444', 'submit');
     } finally {
       addBtn.disabled = false; addBtn.style.opacity = '1';
     }
