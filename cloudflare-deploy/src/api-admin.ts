@@ -6820,7 +6820,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let teacherName: string | null = null;
       let teacherMatched = !!teacherId;
       const tRaw = String(body.teacher_name || '').trim();
-      if (!teacherId && tRaw) {
+      if (teacherId) {
+        /* 🔴 (2026-09-22) id 로 고른 경우 이름을 «id 로» 되찾는다 — 짐작이 없다.
+           ⚠️ 이 줄이 없으면 teacherName 이 null 이라 아래 one_off 휴가 충돌 검사가
+              통째로 건너뛰어진다(자유 입력 경로는 받던 검사다).
+           ⛔ 못 읽었을 때 body.teacher_name 으로 떨어뜨리지 말 것 — 화면이 보낸 글자로
+              «막는» 검사를 돌리는 것이 되고, 그 자리에서는 지금처럼 «검사 안 함» 이 맞다. */
+        try {
+          const t = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`)
+            .bind(teacherId).first<any>();
+          if (t?.name) teacherName = String(t.name);
+        } catch {}
+      } else if (tRaw) {
+        /* ⛔ 이 «부분일치 + LIMIT 1» 은 자유 입력 폴백 전용이다 — 넓히지 말 것.
+           2026-09-22 운영 D1 실측: 'FAR'(재직 22) 을 정확히 쳐도 'HT FARRAH'(퇴사 3) 가 붙는다. */
         const tName = tRaw.replace(/(선생님?|쌤)$/, '').trim() || tRaw;
         try {
           const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`)

@@ -70,11 +70,24 @@ const BOOT = `
     window.fetch = function(u, o){
       var s = String((u && u.url) || u || ''); var m = (o && o.method) || 'GET';
       window.__calls.push(m + ' ' + s);
+      if (o && o.body) { try { (window.__bodies = window.__bodies||[]).push({ m:m, u:s, b:JSON.parse(o.body) }); } catch(_){} }
       if (s.indexOf('/api/admin/class-schedules') >= 0) {
         if (m === 'GET')    return ok({ ok:true, count:items.length, items:items });
         if (m === 'PATCH')  return ok({ ok:true, id:9001, updated_fields:3 });
         if (m === 'DELETE') return ok({ ok:true, id:9001, status:'cancelled' });
         if (m === 'POST')   return ok({ ok:true, created:[{ id:9100 }], failed:[] });
+      }
+      /* 🔴 강사 목록 — 포괄 스텁«앞» 에 둔다. 뒤에 두면 items:[] 가 이겨
+         드롭다운이 아니라 «폴백» 경로만 검사하게 된다(규칙서: 스텁 순서 함정).
+         운영 D1 에 실재하는 그 쌍(FAR 22 · HT FARRAH 3)을 그대로 넣는다. */
+      if (s.indexOf('/api/admin/teachers') >= 0) {
+        if (window.__noTeachers) return ok({ ok:true, items:[] });
+        return ok({ ok:true, items:[
+          { id:3,  name:'HT FARRAH', active:0 },
+          { id:22, name:'FAR',       active:1 },
+          { id:27, name:'MAIMAI',    active:null },
+          { id:29, name:'강선생님',    active:1 }
+        ] });
       }
       if (s.indexOf('/api/admin/enrollments') >= 0) return ok({ ok:true, items:[] });
       if (s.indexOf('/api/admin/me') >= 0) return ok({ ok:true, username:'admin', role:'hq_exec' });
@@ -159,7 +172,7 @@ async function main() {
   // 일정변경 편집기를 연다
   await ev('(function(){var b=[...document.querySelectorAll("#aiSchedulesList button")].find(x=>/일정변경/.test(x.textContent)); if(b) b.click();})()');
   await sleep(1800);   // ⚠️ adm-light-surfaces.js 페인터가 돌 시간을 준다
-  for (const sel of ['#rs-date-9001', '#rs-time-9001', '#rs-dur-9001', '#ns-kind', '#ns-time', '#ns-dur', '#ns-teacher']) {
+  for (const sel of ['#rs-date-9001', '#rs-time-9001', '#rs-dur-9001', '#ns-kind', '#ns-time', '#ns-dur', '#ns-teacher-sel', '#ns-teacher']) {
     const m = await ev(`JSON.stringify(__contrast(${JSON.stringify(sel)}))`);
     const o = m ? JSON.parse(m) : null;
     check('입력칸 ' + sel + ' 글자가 읽힌다(대비 ≥ ' + AA + ')',
@@ -240,6 +253,46 @@ async function main() {
   /* 목록(loadAiSchedules) 1회 + 캘린더(loadDStudentSchedule) 1회 = 최소 2회 늘어야 한다.
      ⚠️ 「1회만 늘었다」가 정확히 이 사고의 모양이다(목록만 새로고침). */
   check('등록 뒤 GET 이 2회 이상 늘어난다(목록 + 캘린더)', (after - before) >= 2, (after - before) + '회');
+
+  console.log('\n── ⑥ 담당 강사 드롭다운 (2026-09-22 사장님 「스크롤해서 선택」) ──');
+  /* ⚠️ 「있다」·「보인다」·「눌린다」 는 다 다르다 — 세 가지를 따로 재다. */
+  const selShown = await ev(`(function(){var e=document.getElementById('ns-teacher-sel');
+    if(!e) return 'none'; var r=e.getBoundingClientRect();
+    return getComputedStyle(e).display + '|' + Math.round(r.width) + 'x' + Math.round(r.height); })()`);
+  check('드롭다운이 실제로 보인다', /^(?!none)/.test(selShown) && !/\|0x/.test(selShown), selShown);
+  check('[짝] 옆 텍스트 칸은 감춰져 있다',
+    (await ev(`getComputedStyle(document.getElementById('ns-teacher')).display`)) === 'none');
+
+  const opts = await ev(`(function(){var e=document.getElementById('ns-teacher-sel');
+    return JSON.stringify([...e.querySelectorAll('optgroup')].map(function(g){
+      return { g:g.label, o:[...g.querySelectorAll('option')].map(function(o){ return o.value+':'+o.textContent; }) }; })); })()`);
+  const groups = JSON.parse(opts || '[]');
+  const live = (groups.find(g => /재직/.test(g.g)) || { o: [] }).o;
+  const gone = (groups.find(g => /퇴사/.test(g.g)) || { o: [] }).o;
+  check('재직 묶음에 FAR(22)·강선생님(29) 이 있다',
+    live.some(x => /^22:/.test(x)) && live.some(x => /^29:/.test(x)), JSON.stringify(live));
+  check('active 가 NULL 인 MAIMAI(27) 도 재직이다', live.some(x => /^27:/.test(x)), JSON.stringify(live));
+  check('[짝] 퇴사 HT FARRAH(3) 는 따로 묶여 «(퇴사)» 로 표시된다',
+    gone.some(x => /^3:.*\(퇴사\)/.test(x)), JSON.stringify(gone));
+  check('[짝] 퇴사가 재직 묶음에 섞이지 않는다', !live.some(x => /^3:/.test(x)));
+
+  /* 🔴 핵심 — 「FAR」을 골라 등록하면 POST 본문에 teacher_id=22 가 실려야 한다.
+     이름으로 보내면 서버가 `name = ? OR name LIKE ? LIMIT 1` 로 3(퇴사)을 붙인다. */
+  await ev(`(function(){
+      window.__bodies = [];
+      var k=document.getElementById('ns-kind'); k.value='one_off'; k.dispatchEvent(new Event('change',{bubbles:true}));
+      document.getElementById('ns-date').value = window.__WEEK.wed;
+      document.getElementById('ns-time').value = '13:00';
+      var t=document.getElementById('ns-teacher-sel'); t.value='22'; t.dispatchEvent(new Event('change',{bubbles:true}));
+      document.getElementById('ns-add').click();
+    })()`);
+  await sleep(1200);
+  const body = await ev(`JSON.stringify((window.__bodies||[]).filter(function(x){
+      return x.m==='POST' && x.u.indexOf('/api/admin/class-schedules')>=0; }).pop() || null)`);
+  const sent = body ? (JSON.parse(body) || {}).b : null;
+  check('[핵심] 고른 강사가 teacher_id 로 나간다 (22)',
+    !!sent && String(sent.teacher_id) === '22', JSON.stringify(sent));
+  check('그 이름도 함께 실린다 (FAR)', !!sent && sent.teacher_name === 'FAR', JSON.stringify(sent));
 
   c.close();
   console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);

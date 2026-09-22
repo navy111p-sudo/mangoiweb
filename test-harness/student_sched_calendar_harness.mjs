@@ -67,7 +67,7 @@ console.log('\n── ① 입력칸은 «밝은» 값인가 (안 보이던 그 �
 /* 페인터(js/adm-light-surfaces.js)가 배경만 밝히고 input·select 의 글자는 원리상 못 고친다
    (fixText 첫 줄 `if (!el.firstChild) return;` — void 요소는 자식 텍스트 노드가 없다).
    그래서 이 화면의 입력칸은 처음부터 밝은 값이어야 한다. */
-const INPUT_IDS = ['ns-kind', 'ns-date', 'ns-time', 'ns-dur', 'ns-teacher'];
+const INPUT_IDS = ['ns-kind', 'ns-date', 'ns-time', 'ns-dur', 'ns-teacher-sel', 'ns-teacher'];
 for (const id of INPUT_IDS) {
   const m = new RegExp('id="' + id + '"[^>]*style="([^"]*)"').exec(src)
          || new RegExp('id="' + id + '"[^>]*?style="([^"]*)"').exec(src);
