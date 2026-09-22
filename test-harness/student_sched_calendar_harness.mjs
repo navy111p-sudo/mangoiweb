@@ -176,10 +176,14 @@ console.log('\n── ④ 성공하면 캘린더도 다시 읽는가 (세 경로
       사장님 제보의 절반(「취소가 반영 안 됨」)이 그대로 남았다 — 함정 대조가 잡았다.
    ⚠️ loadAiSchedules() 는 목록 HTML 만 갈아끼우고 _dSchedState.aiSchedules 를 안 건드린다.
       그래서 둘 다 불러야 캘린더가 따라온다. */
+/* ⛔ 함수를 통째로 보면 «catch 로 옮기는» 변이도 통과한다 — 성공 갈래 «안» 만 자른다.
+   ⚠️ 취소는 `if (j.ok) { … }` 라 여는 중괄호 «뒤» 부터, 나머지 둘은 성공 메시지 뒤부터. */
 const PATHS = [
   ['등록',     () => restOfBlock(src, src.indexOf("say(out, '#4ade80');"))],
-  ['일정변경', () => funcAt(src, 'submitReschedule')],
-  ['취소',     () => funcAt(src, 'cancelAiSchedule')],
+  ['일정변경', () => { const f = funcAt(src, 'submitReschedule');
+                      return restOfBlock(f, f.indexOf("say('✅ 일정을 옮겼습니다")); }],
+  ['취소',     () => { const f = funcAt(src, 'cancelAiSchedule');
+                      return restOfBlock(f, f.indexOf('{', f.indexOf('if (j.ok)')) + 1); }],
 ];
 for (const [name, cut] of PATHS) {
   const blk = cut();
