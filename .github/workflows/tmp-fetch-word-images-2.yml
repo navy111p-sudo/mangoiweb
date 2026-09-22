@@ -1,0 +1,73 @@
+# ⛔ 임시 워크플로 — main 에 올리지 않습니다. 이 브랜치에서만 돕니다.
+#   낱말 사진 plan-2 의 PNG 1828장을 러너가 받아 webp 로 바꿔 커밋합니다
+#   (작업 컨테이너는 CDN 이 프록시에 403 이라 직접 못 받습니다 — CLAUDE.md 2장).
+name: tmp-fetch-word-images-2
+
+on:
+  push:
+    branches: [tmp/word-img-2]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: webp 도구
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+
+      - name: 목록 만들기
+        run: |
+          node -e "
+            const fs=require('fs');
+            const a=require('./docs/scene-curriculum-media/word-image-plan-2.json');
+            fs.writeFileSync('/tmp/list.tsv', a.map(x=>x.index+' '+x.url).join('\n')+'\n');
+            console.log('항목', a.length);
+          "
+          wc -l /tmp/list.tsv
+
+      - name: 내려받아 webp 로 바꾸기
+        run: |
+          mkdir -p /tmp/png
+          cd cloudflare-deploy/public/img/scene-words
+          cat > /tmp/one.sh <<'SH'
+          #!/usr/bin/env bash
+          idx="$1"; url="$2"
+          [ -s "$idx.webp" ] && exit 0
+          for t in 1 2 3; do
+            curl -sfL --max-time 90 -o "/tmp/png/$idx.png" "$url" && break
+            sleep $((t*3))
+          done
+          [ -s "/tmp/png/$idx.png" ] || { echo "내려받기 실패 $idx"; exit 1; }
+          cwebp -quiet -q 80 -resize 640 480 "/tmp/png/$idx.png" -o "$idx.webp" \
+            || { echo "변환 실패 $idx"; exit 1; }
+          rm -f "/tmp/png/$idx.png"
+          SH
+          chmod +x /tmp/one.sh
+          xargs -P 12 -n 2 /tmp/one.sh < /tmp/list.tsv > /tmp/fail.txt 2>&1 || true
+          echo "실패 줄:"; cat /tmp/fail.txt || true
+
+      - name: 확인
+        run: |
+          cd cloudflare-deploy/public/img/scene-words
+          node -e "
+            const fs=require('fs');
+            const a=require('../../../../docs/scene-curriculum-media/word-image-plan-2.json');
+            const miss=a.filter(x=>{try{return fs.statSync(x.index+'.webp').size<200}catch(e){return true}});
+            console.log('plan2', a.length, '· 빠짐', miss.length);
+            if(miss.length) console.log('빠진 번호:', miss.slice(0,40).map(x=>x.index+'('+x.word+')').join(' '));
+            fs.writeFileSync('/tmp/miss.json', JSON.stringify(miss.map(x=>x.index)));
+          "
+          echo "폴더 총 개수: \$(ls | wc -l)"; du -sh .
+
+      - name: 커밋
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -q -m '낱말 사진 plan-2: PNG 를 webp 640x480 q80 으로 받아 커밋' || { echo '바뀐 것 없음'; exit 0; }
+          git push origin HEAD:tmp/word-img-2
