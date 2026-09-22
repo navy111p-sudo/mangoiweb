@@ -2900,6 +2900,24 @@ export async function handleAdminApi(
       const teacherName = (body.teacher_name || body.requester_name || '').trim();
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
       const requesterUid = (body.student_uid || body.requester_uid || '').trim() || null;
+      /* 🪪 (2026-09-22) «누가 냈는가» 를 사실대로 적는다.
+         예전 줄은 `body.requester_role === 'student' ? 'student' : 'teacher'` 라
+         값이 무엇이든 «teacher» 로 떨어뜨렸다 — 매니저 화면의 연기·변경 버튼이
+         이 경로를 쓰면 **관리자가 한 일이 «강사가 요청했다» 로 기록**된다
+         (admin/postponed-classes.html 의 roleLabel() 이 그 칸을 그려 사람에게 보여 준다).
+         ⛔ body 를 믿지 않는다 — 서버가 세션으로 확인한 «강사가 아닌 관리자» 일 때만 'admin' 이다.
+            강사·학생이 body 에 'admin' 을 적어 보내도 대개 여기서 떨어진다(로그인 없으면 ok:false).
+         ⚠️ 다만 «언제나» 는 아니다 — getAdminActor 는 스코프 조회 실패를 삼켜(auth-admin.ts)
+            scopeType='none' → role='staff' 로 떨어지므로, D1 이 흔들리는 순간 **강사가
+            isTeacher:false 로 잡힐 수 있다**(CLAUDE.md 「getAdminActor().role 로 막았는데 D1 이
+            한 번 흔들리면 그대로 통과」와 같은 자리). 여기서 걸리는 것은 **기록 라벨 하나**라
+            반경이 작아 그대로 두었다 — ⛔ 이 값을 «권한» 판정에 재사용하지 말 것.
+         ℹ️ 지사·대리점 계정도 관리자라 'admin' 으로 적힌다(의도 — 그들도 이 화면을 쓴다).
+         ℹ️ 'admin' 은 roleLabel() 의 폴백이 이미 «관리자» 로 그린다 — 화면 수정이 필요 없다.
+         ⚠️ 기존 강사·학생 제출 경로는 한 글자도 안 바뀝니다(그쪽은 body 에 'admin' 을 안 보낸다). */
+      const _srcActor = await getAdminActor(request, env as any);
+      const _byAdmin = body.requester_role === 'admin' && _srcActor.ok === true && _srcActor.isTeacher !== true;
+      const requesterRole = _byAdmin ? 'admin' : (body.requester_role === 'student' ? 'student' : 'teacher');
 
       let origDate = (body.orig_date || '').trim() || null;
       let origTime = (body.orig_time || '').trim() || null;
@@ -2939,7 +2957,7 @@ export async function handleAdminApi(
         `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
       ).bind(
-        scheduleId, reqType, body.requester_role === 'student' ? 'student' : 'teacher',
+        scheduleId, reqType, requesterRole,
         requesterName2, requesterUid, teacherName, studentName,
         origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now
       ).run();
@@ -2951,8 +2969,8 @@ export async function handleAdminApi(
         await enqueueNotification(env, {
           type: 'schedule_request',
           title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
-          body: `${studentName || requesterName2 || '학생'} 님 · 강사 ${teacherName}${whenKo ? ` · 원수업 ${whenKo}` : ''}${reqType === 'change' && newDate ? ` → ${newDate} ${String(newTime || '').slice(0, 5)}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
-          meta: { request_id: r?.meta?.last_row_id || null, request_type: reqType, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
+          body: `${studentName || requesterName2 || '학생'} 님 · 강사 ${teacherName}${whenKo ? ` · 원수업 ${whenKo}` : ''}${reqType === 'change' && newDate ? ` → ${newDate} ${String(newTime || '').slice(0, 5)}` : ''}. ${_byAdmin ? '관리자가 직접 접수한 요청입니다.' : '관리자 페이지에서 승인/거절하세요.'}`,
+          meta: { request_id: r?.meta?.last_row_id || null, request_type: reqType, requester_role: requesterRole, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo'
         });
       } catch (e: any) { console.warn('[schedule-requests] notify skipped:', e?.message || e); }
@@ -3050,9 +3068,35 @@ export async function handleAdminApi(
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
           const cs: any = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id FROM class_schedules WHERE id = ? LIMIT 1`
+            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source FROM class_schedules WHERE id = ? LIMIT 1`
           ).bind(row.schedule_id).first().catch(() => null);
           const isDated = !!(cs && cs.scheduled_date);
+          /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
+             [잰 것 — 2026-09-22, c24-mirror.ts 의 planMirror 를 있는 그대로 돌림]
+               · 시각만 옮김(같은 날) — 도장 없으면 'ok'(새로 만들기 시도) / 있으면 'diverged'(손 안 대고 알림) ✅
+               · 연기(status=postponed) — 없으면 'already' / 있으면 'manual_locked' ✅
+               · 연기 뒤 카페24가 강사를 바꿈 — 없으면 **'update'(start_time·duration·teacher 를 덮어씀)** / 있으면 'manual_locked' ✅
+             ⟹ 도장이 실제로 막는 것은 **«같은 날짜에 머무는» 수정**이다.
+             ⛔ 「옮긴 수업이 밤사이 되돌아간다」로 적지 말 것 — 그 'update' 는 행이 카페24와
+                **같은 (날짜,시각) 자리에 그대로 있을 때만** 닿는다(planMirror 의 sameSlot).
+                한 번 옮기면 그 자리를 벗어나 'ok' 로 가므로 되돌림이 일어나지 않는다.
+
+             🔴 **날짜가 바뀌는 이동에는 도장을 찍으면 «안 된다»** — 찍으면 오히려 유령이 생긴다.
+                [잰 것 — 2026-09-22, 진짜 SQLite] 미러의 부분 유니크 인덱스는
+                `ON class_schedules(notes) WHERE source='c24-mirror'` 라 도장을 찍은 행은 **그 밖**이다.
+                  · 도장 없음 → 새 INSERT 가 UNIQUE 위반으로 **거절**(중복 없음)
+                  · 도장 있음 → INSERT **성공** ⟹ **옛 날짜에 그 수업이 다시 생긴다**
+                그것이 2026-09-01 「미러가 «실제로 없는 수업» 을 만듦 — 강사가 20분 헛기다리고
+                학생 노쇼까지 찍힘」과 같은 모양이다.
+             ✅ 그래서 **날짜가 그대로일 때만** 찍는다(연기는 날짜가 안 바뀌므로 언제나 찍는다).
+                날짜가 바뀌는 이동은 도장 없이 — 예전 동작 그대로라 새로 잃는 것이 없다.
+             ⛔ 도장을 나중에 «따로» 찍지 말 것 — 그 사이에 야간 미러가 돌 수 있고, 한 줄이
+                실패하면 반쪽만 남는다. **같은 UPDATE 안에서** 찍는다(DELETE·PATCH 가 이미 쓰는 방식).
+             ℹ️ 미러 행이 아니면 손대지 않는다 — 예전 동작 그대로다.
+             🟡 더 나은 길(별건·사람이 정할 일): planMirror 의 `manual` 찾기를 «날짜» 가 아니라
+                **notes(c24:<수업번호>)** 로 맞추면 날짜를 옮겨도 도장이 일한다. 미러의 심장을
+                고치는 일이라 여기서는 안 건드렸다. */
+          const _isMirror = String((cs as any)?.source || '') === MIRROR_SOURCE;
           if (isDated && row.new_date && row.new_time) {
             // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
             //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
@@ -3069,13 +3113,21 @@ export async function handleAdminApi(
               applied = 'conflict';
               conflictInfo = { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length };
             } else {
-              await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
-                .bind(row.new_date, row.new_time, now, row.schedule_id).run();
+              /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
+              const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
+              await env.DB.prepare(
+                _stampMove
+                  ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
+                  : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`
+              ).bind(row.new_date, row.new_time, now, row.schedule_id).run();
               applied = 'moved';
             }
           } else if (isDated) {
-            await env.DB.prepare(`UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`)
-              .bind(now, row.schedule_id).run();
+            await env.DB.prepare(
+              _isMirror
+                ? `UPDATE class_schedules SET status = 'postponed', source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
+                : `UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`
+            ).bind(now, row.schedule_id).run();
             applied = 'postponed';
           } else {
             applied = 'recorded';
@@ -3324,6 +3376,17 @@ export async function handleAdminApi(
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
              → 별도 목록을 만들지 않고 종류만 실어 보낸다(화면에서 배지로 구분). */
           schedule_kind: s.schedule_kind || null,
+          /* 🗓 (2026-09-22) «이 줄을 여기서 옮기거나 연기할 수 있는가» — 판정은 서버가 한다.
+             매니저 화면의 「연기·변경」 버튼이 이 칸을 보고 조작을 줍니다.
+             ⛔ 화면이 schedule_kind 로 추측하게 두면 안 된다 — 실측(2026-09-22) 그 칸은
+                'one_off'(2,196) · **'dated'(72)** · 'recurring'(4) 으로 **세 가지**라
+                `=== 'one_off'` 로 가르면 72건을 잘못 막는다.
+             ✅ 근거는 **scheduled_date 가 있는가** 하나다 — /schedule-requests/decide 의
+                `isDated` 와 **같은 칸**이다. 둘이 어긋나면 화면은 «된다» 고 하고
+                서버는 'recorded'(자동 이동 불가)를 돌려준다.
+             🔴 반복(매주) 수업에 «취소» 를 허용하면 **그 주만이 아니라 모든 주가 죽는다**
+                (class_schedules 한 행이 매주를 뜻하므로). 그래서 화면이 아예 안 준다. */
+          can_move: !!s.scheduled_date,
           is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
@@ -3359,6 +3422,8 @@ export async function handleAdminApi(
           else status = 'ended';
           sessions.push({
             schedule_id: null,
+            // 🗓 카페24 줄은 class_schedules 에 행이 아예 없다 — 여기서 옮길 방법이 없다(카페24가 정본).
+            can_move: false,
             source: 'cafe24',          // 🏷 카페24 수업 = 우리 방이 없다 → 입장·참관 버튼을 주지 않는다
             observable: false,
             room_id: r.room_id,        // 표시용 식별자일 뿐 — 이 번호로 망고아이 방을 열 수 없다
