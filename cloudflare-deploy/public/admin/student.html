@@ -338,7 +338,7 @@
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
               <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">종류 / Type
-                <select id="ns-kind" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+                <select id="ns-kind" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px">
                   <option value="recurring">매주 반복 / Weekly</option>
                   <option value="one_off">특정 날짜 / One-off</option>
                 </select>
@@ -347,17 +347,17 @@
                 <div style="display:flex;gap:4px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="0" style="margin:0">일 Sun</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="1" style="margin:0">월 Mon</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="2" style="margin:0">화 Tue</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="3" style="margin:0">수 Wed</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="4" style="margin:0">목 Thu</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="5" style="margin:0">금 Fri</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="6" style="margin:0">토 Sat</label></div>
               </div>
               <label id="ns-date-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8;display:none">날짜 / Date
-                <input type="date" id="ns-date" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+                <input type="date" id="ns-date" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px">
               </label>
               <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">시작 / Start
-                <input type="time" id="ns-time" value="19:30" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+                <input type="time" id="ns-time" value="19:30" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px">
               </label>
               <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">분 / Min
                 <!-- ⏱ (2026-08-12) 기본 20분 · 10분 단위. step=5·기본 30 은 고를 수 없는 길이를 만들었다 -->
-                <input type="number" id="ns-dur" value="20" min="10" max="180" step="10" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px;width:66px">
+                <input type="number" id="ns-dur" value="20" min="10" max="180" step="10" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:66px">
               </label>
               <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">담당 강사 / Teacher
-                <input type="text" id="ns-teacher" placeholder="예: 강선생님" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px;width:130px">
+                <input type="text" id="ns-teacher" placeholder="예: 강선생님" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:130px">
               </label>
               <button type="button" id="ns-add" style="padding:7px 16px;border:0;border-radius:7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1f2937;font-weight:800;font-size:12px;cursor:pointer">등록 / Add</button>
             </div>
@@ -2652,6 +2652,68 @@ function mgsSetGhostNote(n) {
     : ('🔕 신청만 있고 실제 수업이 하나도 없는 수강신청 ' + n + '건은 캘린더에 그리지 않았습니다. (신청 자체는 「📝 등록·수강」 탭에 그대로 있습니다)');
 }
 
+/* 🗓 (2026-09-22) 「이 예약이 이 날짜에 열리는가」 — 캘린더 판정 정본 한 곳.
+   ⛔ 주간·월간 두 뷰가 이것을 쓴다. 판정을 어느 쪽에도 복제하지 말 것(한쪽만 고쳐진다).
+
+   [왜 생겼나] 예전 주간 뷰는 `dowToIdx = {sun:0, mon:1, …}` 소문자 세 글자만 알았다.
+   그런데 실제로 저장되는 표기가 «셋» 이고 그 목록이 아는 것은 하나뿐이다:
+     · 예약 등록 폼 경로 → 서버(api-admin.ts POST)가 `String(d)` 로 **숫자 '0'~'6'** 저장
+       (화면 체크박스 value 가 0~6 — /api/class/sessions/today 가 그 형식을 전제한다)
+     · 일정변경(PATCH)·운영 D1 정본 → normDow 가 **'Wed'·'Fri'** 꼴로 저장
+     · AI 명령 경로(ai-command.ts) → **'mon'** 소문자 — 이것만 옛 표에 있었다
+   ⟹ 앞의 둘이 `undefined` 라 `continue` — **매주 반복 수업이 캘린더에 한 칸도 안 그려졌다.**
+   (2026-09-22 사장님 제보 「등록은 됐다는데 캘린더에 반영이 안 된다」)
+
+   🔴 날짜가 이긴다 — /api/class/sessions/today 가 `if (s.scheduled_date) … else if (day_of_week)`
+      순서라 화면도 같아야 한다. 예전 코드는 요일을 먼저 봐서, 두 칸이 다 찬 행(js/adm-q6.js 가
+      날짜 행에도 day_of_week 를 보낸다)이 **엉뚱한 요일에 매주** 그려질 수 있었다.
+   ⚠️ 날짜 비교는 «로컬 YYYY-MM-DD» 문자열로 한다 — `new Date('2026-09-23')` 은 UTC 자정이라
+      한국 시간대에서 하루 밀린다(toDateString 비교도 그 함정을 탄다). */
+var MGS_DOW_IN = {
+  sun:0, sunday:0, '일':0, '일요일':0, mon:1, monday:1, '월':1, '월요일':1,
+  tue:2, tuesday:2, '화':2, '화요일':2, wed:3, wednesday:3, '수':3, '수요일':3,
+  thu:4, thursday:4, '목':4, '목요일':4, fri:5, friday:5, '금':5, '금요일':5,
+  sat:6, saturday:6, '토':6, '토요일':6
+};
+/** 요일 표기 한 개를 0(일)~6(토) 으로. 모르면 null(«모름» — 지어내지 않는다). */
+function mgsDowIdx(v) {
+  var q = String(v == null ? '' : v).trim();
+  if (!q) return null;
+  if (/^[0-6]$/.test(q)) return Number(q);
+  var x = MGS_DOW_IN[q.toLowerCase()];
+  return x == null ? null : x;
+}
+/** Date → 로컬 'YYYY-MM-DD' (UTC 로 넘기지 않는다) */
+function mgsYmd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+/** 이 예약(class_schedules 한 행)이 그 날짜에 열리는가. */
+function mgsSchedHitsDate(sch, date) {
+  if (!sch || !date) return false;
+  if (String(sch.status || '') === 'cancelled') return false;
+  var sd = String(sch.scheduled_date || '').slice(0, 10);
+  if (sd) return sd === mgsYmd(date);        // 🔴 날짜가 이긴다
+  /* ⚠️ 구분자는 서버 정본 admDowMatches(api-admin.ts)와 «같은» 집합이라야 한다.
+     쉼표만 보면 '1 3 5'·'Mon Thu'·'월/수'·'화·목' 이 조용히 한 칸도 안 그려진다. */
+  var dows = String(sch.day_of_week || '').split(/[,\s/·]+/);
+  for (var i = 0; i < dows.length; i++) {
+    if (mgsDowIdx(dows[i]) === date.getDay()) return true;
+  }
+  return false;
+}
+/** 'HH:MM' → {hh,mm}. 모양이 아니면 null. */
+function mgsSchedTime(sch) {
+  var m = String((sch && sch.start_time) || '').match(/^(\d{1,2}):(\d{2})$/);
+  return m ? { hh: parseInt(m[1],10), mm: parseInt(m[2],10) } : null;
+}
+/* 예약 수업 카드 색 — 주간·월간이 같은 표를 쓴다(⛔ 한쪽에 베껴 적지 말 것). */
+var MGS_AI_COLORS = {
+  level_test: { bg:'#dbeafe', border:'#1d4ed8', text:'#1e3a8a', name:'레벨테스트' },
+  trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
+  regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
+};
+function mgsAiColors(sch) { return MGS_AI_COLORS[sch && sch.class_type] || MGS_AI_COLORS.regular; }
+
 function renderDSchedule() {
   if (_dSchedState.view === 'week') return renderDSchedWeek();
   return renderDSchedMonth();
@@ -2737,51 +2799,29 @@ function renderDSchedWeek() {
     }
   }
   // 🥭 Phase 3-1: AI 등록 class_schedules 오버레이 (별 ⭐ 마크로 구분)
-  const aiTypeColors = {
-    level_test: { bg:'#dbeafe', border:'#1d4ed8', text:'#1e3a8a', name:'레벨테스트' },
-    trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
-    regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
-  };
-  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  /* 🗓 판정은 위 mgsSchedHitsDate() 하나 — ⛔ 여기서 요일을 다시 풀지 말 것.
+     예전의 `dowToIdx = {sun:0,…}` 는 실제 저장값('3'·'Wed')을 하나도 못 읽어
+     반복 수업이 한 칸도 안 그려졌다(그 함수 머리말 참고). */
   for (const sch of (_dSchedState.aiSchedules || [])) {
-    if (sch.status === 'cancelled') continue;
-    const tm = String(sch.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
-    if (!tm) continue;
-    const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
+    const t = mgsSchedTime(sch);
+    if (!t) continue;
+    const hh = t.hh, mm = t.mm;
     if (hh < HOUR_START || hh >= HOUR_END) continue;
-    const colors = aiTypeColors[sch.class_type] || aiTypeColors.regular;
-    // Phase 7c: data-driven matching
-    if (sch.day_of_week) {
-      const dows = String(sch.day_of_week).split(',').map(s => s.trim()).filter(Boolean);
-      for (const dCode of dows) {
-        const i = dowToIdx[dCode];
-        if (i === undefined) continue;
-        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
-        const top = slotIdx * ROW_H;
-        const height = 2 * ROW_H - 2;
-        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
-        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
-          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-          '<div style="font-weight:600">🤖 AI</div>' +
-          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
-      }
-    } else if (sch.scheduled_date) {
-      // one_off: 해당 날짜만
-      const sdate = new Date(sch.scheduled_date + 'T00:00:00');
-      for (let i = 0; i < 7; i++) {
-        if (days[i].toDateString() !== sdate.toDateString()) continue;
-        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
-        const top = slotIdx * ROW_H;
-        const height = 2 * ROW_H - 2;
-        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
-        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.scheduled_date + ' ' + sch.start_time + '">' +
-          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-          '<div style="font-weight:600">🤖 AI</div>' +
-          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
-        break;
-      }
+    const colors = mgsAiColors(sch);
+    /* 그 주의 7칸을 돌며 정본에게 «이 날 열리는가» 를 묻는다.
+       ⚠️ 반복 수업은 한 주에 여러 칸에 걸릴 수 있으므로 break 하지 않는다. */
+    for (let i = 0; i < 7; i++) {
+      if (!mgsSchedHitsDate(sch, days[i])) continue;
+      const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+      const top = slotIdx * ROW_H;
+      const height = 2 * ROW_H - 2;
+      const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+      const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+      const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
+      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+        '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
+        '<div style="font-weight:600">🤖 AI</div>' +
+        '<div style="font-size:9px">' + sch.start_time + '</div></div>';
     }
   }
   html += '</div>';
@@ -2835,6 +2875,17 @@ function renderDSchedMonth() {
         if (!mgsEnrHasLiveClass(enr)) { _ghostIds.add(String(enr.id)); continue; }
         const cl = tc[enr.type||'정규수업'] || tc['정규수업'];
         html += '<div style="background:' + cl.bg + ';border-left:3px solid ' + cl.b + ';border-radius:3px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:#0f172a"><b>' + (enr.type||'정규수업').substring(0,4) + '</b><br>' + (enr.teacher_name||'TBD') + '<br>' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div>';
+      }
+      /* ⭐ (2026-09-22) 예약 수업(class_schedules) — 월간 뷰에는 이 레이어가 **통째로 없었다.**
+         그래서 「📅 스케줄 ▸ 월간」에서는 1회차든 반복이든 예약이 한 건도 안 보였고,
+         「등록했는데 캘린더에 반영이 안 된다」의 절반이 이것이었다(2026-09-22 사장님 제보).
+         ⛔ 판정을 여기 다시 적지 말 것 — 주간 뷰와 같은 mgsSchedHitsDate() 하나를 쓴다. */
+      for (const sch of (_dSchedState.aiSchedules || [])) {
+        if (!mgsSchedHitsDate(sch, c.date)) continue;
+        const ac = mgsAiColors(sch);
+        const at = mgsSchedTime(sch);
+        const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
+        html += '<div title="🤖 예약 수업 / ' + ac.name + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : '매주 ') + aWhen + (sch.status==='postponed'?' / 연기':'') + '" style="background:' + ac.bg + ';border:2px dashed ' + ac.border + ';border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:' + ac.text + ';line-height:1.25"><b>⭐ ' + ac.name.substring(0,4) + '</b><br>' + aWhen + '</div>';
       }
     }
     html += '</div>';
@@ -3078,7 +3129,18 @@ function openReschedule(id) {
     var sel = (curDow === d[0] || curDow === d[1] || curDow === d[1].toLowerCase() || curDow === String(i)) ? ' selected' : '';
     return '<option value="' + d[0] + '"' + sel + '>' + d[0] + '</option>';
   }).join('');
-  var inp = 'padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px';
+  /* ☀️ (2026-09-22) 입력칸은 «밝은» 값이어야 한다 — 어두운 값을 주면 글자가 사라진다.
+     [잰 것] 예전 값(background:rgba(15,23,42,.7); color:#e2e8f0)으로 브라우저에 그리면
+     계산된 대비가 **1.14** 였다(글자 rgb(226,232,240) · 합성 배경 rgb(244,246,251)).
+     왜 — js/adm-light-surfaces.js 의 lightenSurface() 가 어두운 배경을 인라인
+     `background-color:… !important` 로 밝게 칠하는데, 짝인 fixText() 는 첫 줄이
+     `if (!el.firstChild) return;` 이라 **자식 텍스트 노드가 없는 <input>·<select> 를
+     원리상 한 번도 안 본다** ⟹ 배경만 희어지고 글자는 #e2e8f0 그대로 남는다.
+     ⛔ 어두운 값으로 되돌리지 말 것. ⛔ 페인터를 «input 도 보게» 고쳐서 풀지도 말 것 —
+        그 파일은 관리자 화면 전체가 싣는다(반경이 이 화면 밖으로 나간다).
+     ✅ 감시: test-harness/student_sched_calendar_harness.mjs ①절(인라인 색 전수)과
+        test-harness/manual/student-schedule-calendar-browser.mjs(실제 대비 측정). */
+  var inp = 'padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px';
   var lab = 'display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8';
   box.innerHTML =
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">'
@@ -3126,7 +3188,13 @@ async function cancelAiSchedule(id) {
   try {
     const r = await fetch('/api/admin/class-schedules/' + id, { method:'DELETE', credentials:'include' });
     const j = await r.json();
-    if (j.ok) { loadAiSchedules(); }
+    if (j.ok) {
+      loadAiSchedules();
+      /* 🥭 (2026-09-22) 취소도 캘린더를 다시 읽는다 — loadAiSchedules() 는 목록 HTML 만
+         갈아끼우고 _dSchedState.aiSchedules 를 안 건드려서, 이것이 없으면 취소한 수업이
+         새로고침 전까지 캘린더에 그대로 남는다(일정변경·등록 경로와 같은 배선). */
+      try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+    }
     else alert('취소 실패: ' + (j.error || '알 수 없음'));
   } catch (e) { alert('취소 오류: ' + (e.message || e)); }
 }
@@ -3196,6 +3264,10 @@ async function cancelAiSchedule(id) {
       if (j.warning) out += '<br><span style="color:#fbbf24">⚠️ ' + j.warning + '</span><br><span style="color:#94a3b8">' + (j.warning_en || '') + '</span>';
       say(out, '#4ade80');
       try { loadAiSchedules(); } catch(_) {}
+      /* 📅 (2026-09-22) 캘린더도 함께 다시 읽는다 — 이 한 줄이 빠져 있어서 「✅ 등록됐습니다」를
+         보고 스케줄 탭으로 가도 새로고침 전까지 그대로였다(일정변경 경로에는 원래 있었다).
+         ⛔ 지우지 말 것. ⚠️ 목록만 새로 읽고 끝내면 사장님 눈에는 «등록이 안 된» 것과 같다. */
+      try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch(_) {}
     } catch (e) {
       say('❌ 통신 오류 / Network error: ' + (e.message || e), '#ef4444');
     } finally {
