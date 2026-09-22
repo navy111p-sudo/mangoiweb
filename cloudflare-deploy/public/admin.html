@@ -12944,7 +12944,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph112ReorderTeacherSubs);
   else ph112ReorderTeacherSubs();
-  setInterval(ph112ReorderTeacherSubs, 2000);
+  (window.__admSettleRun ? window.__admSettleRun(ph112ReorderTeacherSubs) : setInterval(ph112ReorderTeacherSubs, 2000));
 
   // === 학원별 수업현황 — 실데이터 배선은 adm-r23.js(saSearch/saReset)가 담당 ===
   window.saExcelDown = function(){
@@ -13088,7 +13088,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph116EnforceSidebar);
   else ph116EnforceSidebar();
-  setInterval(ph116EnforceSidebar, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph116EnforceSidebar) : setInterval(ph116EnforceSidebar, 1500));
 
   console.log('[ph116] 사이드바 항상 visible + 역할 안내 배너 활성');
 })();
@@ -13145,7 +13145,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph119UpdateInfo);
   else ph119UpdateInfo();
-  setInterval(ph119UpdateInfo, 2000);
+  (window.__admSettleRun ? window.__admSettleRun(ph119UpdateInfo) : setInterval(ph119UpdateInfo, 2000));
 
   console.log('[ph119] SLP 수업현황 위치 재조정 — 학생/학부모 그룹 단일 노출');
 })();
@@ -13224,7 +13224,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph122Init);
   else ph122Init();
-  setInterval(ph122Init, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph122Init) : setInterval(ph122Init, 1500));
 
   console.log('[ph122] 학생 이름 클릭 → 상세보기 이동 활성');
 })();
@@ -13263,10 +13263,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       // 다른 패치가 추가한 hide 클래스 제거
       card.classList.remove('ph118-card-hidden');
       card.classList.remove('ph94-hidden');
-      // inline display 강제
-      card.style.display = '';
-      card.style.visibility = 'visible';
-      card.style.opacity = '1';
+      // ⚡ 값이 바뀔 때만 쓴다(ph116 과 같은 방식) — 무조건 재기록하던 스타일 무효화 제거
+      if (card.style.display !== '')           card.style.display = '';
+      if (card.style.visibility !== 'visible') card.style.visibility = 'visible';
+      if (card.style.opacity !== '1')          card.style.opacity = '1';
     });
   }
 
@@ -13301,19 +13301,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){
-      ph126Enforce();
-      ph126Bind();
-    });
-  } else {
-    ph126Enforce();
-    ph126Bind();
-  }
-  setInterval(function(){
-    ph126Enforce();
-    ph126Bind();
-  }, 1500);
+  function ph126Tick(){ ph126Enforce(); ph126Bind(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph126Tick);
+  else ph126Tick();
+  (window.__admSettleRun ? window.__admSettleRun(ph126Tick) : setInterval(ph126Tick, 1500));
 
   console.log('[ph126] 잔존율(보관기간 파기) + 활성 룸 강제 visible 활성');
 })();
@@ -13632,7 +13623,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     }
   }
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply); else apply();
-  setInterval(apply, 600);
+  (window.__admSettleRun ? window.__admSettleRun(apply) : setInterval(apply, 600));
   window.EXEC_ONLY_GUARD = apply;
 })();
 </script>
@@ -13654,7 +13645,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   function apply(){ try{ var r=role(); document.body.classList.toggle('role-teacher', r==='teacher'); }catch(_){} }
   apply();
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply);
-  setInterval(apply, 1000);
+  (window.__admSettleRun ? window.__admSettleRun(apply) : setInterval(apply, 1000));
 })();
 </script>
 

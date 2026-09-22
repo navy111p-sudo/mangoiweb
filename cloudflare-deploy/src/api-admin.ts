@@ -52,6 +52,7 @@ import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
 import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
@@ -1694,6 +1695,13 @@ export async function handleAdminApi(
     //   - 시선 (avg gaze_score 0~100)
     //   - 집중도 (composite: 시선 50% + 발화비율 40% - 끊김 10%)
     if (method === 'GET' && path === '/api/admin/stats/student-rankings') {
+      /* 🔒 (2026-09-22) 본사 전용 — 이 집계는 스코프를 안 걸어 전국 학생(아이디 포함)이 나온다.
+         `/api/admin/stats/` 가 지사·대리점 허용목록에 통째로 있어 여기서 막는다. 정본 src/org-scope-guard.ts */
+      {
+        const _rkActor = await getAdminActor(request, env as any);
+        const _rkDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _rkActor.username), _rkActor.role));
+        if (_rkDeny) return _rkDeny;
+      }
       const period = (url.searchParams.get('period') || 'week').toLowerCase();
       const fromStr = url.searchParams.get('from') || '';
       const toStr = url.searchParams.get('to') || '';
@@ -6885,7 +6893,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let teacherName: string | null = null;
       let teacherMatched = !!teacherId;
       const tRaw = String(body.teacher_name || '').trim();
-      if (!teacherId && tRaw) {
+      if (teacherId) {
+        /* 🔴 (2026-09-22) id 로 고른 경우 이름을 «id 로» 되찾는다 — 짐작이 없다.
+           ⚠️ 이 줄이 없으면 teacherName 이 null 이라 아래 one_off 휴가 충돌 검사가
+              통째로 건너뛰어진다(자유 입력 경로는 받던 검사다).
+           ⛔ 못 읽었을 때 body.teacher_name 으로 떨어뜨리지 말 것 — 화면이 보낸 글자로
+              «막는» 검사를 돌리는 것이 되고, 그 자리에서는 지금처럼 «검사 안 함» 이 맞다. */
+        try {
+          const t = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`)
+            .bind(teacherId).first<any>();
+          if (t?.name) teacherName = String(t.name);
+        } catch {}
+      } else if (tRaw) {
+        /* ⛔ 이 «부분일치 + LIMIT 1» 은 자유 입력 폴백 전용이다 — 넓히지 말 것.
+           2026-09-22 운영 D1 실측: 'FAR'(재직 22) 을 정확히 쳐도 'HT FARRAH'(퇴사 3) 가 붙는다. */
         const tName = tRaw.replace(/(선생님?|쌤)$/, '').trim() || tRaw;
         try {
           const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`)

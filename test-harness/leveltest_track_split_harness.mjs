@@ -63,7 +63,7 @@ function bodyAfter(src, fromIdx) {
 
 /* ── 괄호 짝으로 `.bind(…)` 인자 목록 자르기 ──
    ⚠️ `[^)]*` 로 물으면 안 된다 — 인자 안에 `(uid ? String(uid) : '…')` 처럼
-   괄호가 들어 있어 거기서 끊기고, 그러면 멀줦한 코드가 «안 넘긴다» 로 나온다. */
+   괄호가 들어 있어 거기서 끊기고, 그러면 멀쩡한 코드가 «안 넘긴다» 로 나온다. */
 function bindArgs(src, fromIdx) {
   const at = src.indexOf('.bind(', fromIdx);
   if (at < 0) return null;

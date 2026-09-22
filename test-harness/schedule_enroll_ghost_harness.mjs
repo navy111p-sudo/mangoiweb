@@ -79,6 +79,19 @@ const fnSrc   = cut('function mgsEnrHasLiveClass(enr)');
 const noteSrc = cut('function mgsSetGhostNote(n)');
 const weekSrc = cut('function renderDSchedWeek()');
 const monthSrc= cut('function renderDSchedMonth()');
+/* 🗓 (2026-09-22) 두 렌더가 예약 수업 판정 정본을 쓰게 되면서 그 블록도 함께 주입해야 한다.
+   안 주입하면 `mgsSchedTime is not defined` 로 [전제] 가 빨간불이 된다(실제로 그렇게 잡혔다).
+   ⛔ 여기 함수를 베껴 적지 말 것 — 소스에서 오려 낸다. */
+const canonSrc = [
+  cut('var MGS_DOW_IN = {') + ';',
+  cut('function mgsDowIdx(v)'),
+  cut('function mgsYmd(d)'),
+  cut('function mgsSchedHitsDate(sch, date)'),
+  cut('function mgsSchedTime(sch)'),
+  cut('var MGS_AI_COLORS = {') + ';',
+  cut('function mgsAiColors(sch)')
+].join('\n');
+ok('[전제] 예약 판정 정본을 오려 냈다', canonSrc.length > 700, canonSrc.length + '자');
 
 ok('[전제] 판정 함수를 오려 냈다', fnSrc.length > 120, fnSrc.length + '자');
 ok('[전제] 안내 함수를 오려 냈다', noteSrc.length > 120, noteSrc.length + '자');
@@ -116,7 +129,7 @@ function run(enrollments, aiSchedules, aiOk, lang) {
     }
   };
   vm.createContext(sandbox);
-  vm.runInContext(fnSrc + '\n' + noteSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
+  vm.runInContext(canonSrc + '\n' + fnSrc + '\n' + noteSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
   const snapNote = () => {
     const el = els['d-sched-ghost-note'];
     return el ? { text: String(el.textContent || ''), display: String(el.style.display) } : null;

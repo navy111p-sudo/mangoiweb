@@ -460,6 +460,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
     <button type="button" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
+    <button type="button" onclick="sideGo('c-aiusage')"><span class="ic">🤖</span><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></button>
   </div>
   <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
   <div class="sgrp">
@@ -639,6 +640,37 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <details class="card" id="c-attn" ontoggle="if(this.open)loadAttn()">
     <summary><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></summary>
     <div id="attnBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- 🤖 (2026-09-22) AI 학습도구 활용 학생 — /api/admin/ai-usage/students 는 index.ts 6174 에서
+       studentScopeWhere() 로 자기 소속 학생만 잘라 준다고 확인된 주소(src/api-admin.ts 9371,9388
+       실측: 도구별 SELECT 서브쿼리에 scopeSub 조건이 실제로 들어간다). admin.html 의
+       #card-ai-usage 와 같은 서버 응답을 그대로 쓴다 — 표만 이 화면 스타일로 새로 그렸다. -->
+  <details class="card" id="c-aiusage" ontoggle="if(this.open)loadAiUsage()">
+    <summary><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></summary>
+    <div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding-bottom:8px">
+        <select id="aiuTool" onchange="loadAiUsage()" style="min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#16202c">
+          <option value="all" data-en="All tools" data-ko="전체 도구">All tools</option>
+          <option value="judgment" data-en="Judgment training" data-ko="판단력 훈련">Judgment training</option>
+          <option value="warmup" data-en="AI warm-up" data-ko="AI 웜업">AI warm-up</option>
+          <option value="friend" data-en="AI friend chat" data-ko="AI 영어친구">AI friend chat</option>
+          <option value="write" data-en="AI writing" data-ko="AI 글쓰기">AI writing</option>
+          <option value="speech" data-en="Speech coaching" data-ko="발음코칭">Speech coaching</option>
+          <option value="review" data-en="Review quiz" data-ko="복습퀴즈">Review quiz</option>
+          <option value="vocab" data-en="Vocabulary" data-ko="단어장">Vocabulary</option>
+          <option value="micro" data-en="AI word quiz" data-ko="AI 단어 퀴즈">AI word quiz</option>
+        </select>
+        <select id="aiuDays" onchange="loadAiUsage()" style="min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#16202c">
+          <option value="7" data-en="Last 7 days" data-ko="최근 7일">Last 7 days</option>
+          <option value="30" selected data-en="Last 30 days" data-ko="최근 30일">Last 30 days</option>
+          <option value="90" data-en="Last 90 days" data-ko="최근 90일">Last 90 days</option>
+        </select>
+      </div>
+      <input type="search" id="aiuQ" oninput="paintAiUsage()" placeholder="이름 · 아이디로 찾기"
+             data-en-ph="Search by name or ID" data-ko-ph="이름 · 아이디로 찾기">
+      <div id="aiuBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </div>
   </details>
 
   <div class="grouphead" data-en="Classes" data-ko="수업 관리">Classes</div>
@@ -995,7 +1027,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ── ① 오늘 ────────────────────────────────────────────────────────────────
   var D = { today: null, month: null, series: null, flow: null, students: null, util: null, wait: null, me: null,
             payroll: null, leave: null, reqs: null, live: null, outage: null, bugs: null,
-            todayAll: null, org: null, attn: null, settle: null };
+            todayAll: null, org: null, attn: null, settle: null, aiusage: null };
   // 🏢 (2026-09-21) paintMonth() 가 scope 를 받으면 채운다. 그 전에는 «모름» 쪽(false)으로 —
   //    지사장이 배지를 눌러도 403 이 뜨는 것보다 «안 눌리는» 쪽이 안전하다(CLAUDE.md 「모르면 막는다」).
   var IS_HQ = false;
@@ -1322,6 +1354,67 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       + (rows.length > 50 ? '<div class="muted" style="padding-top:8px">'
           + esc(T('Showing 50 of ' + rows.length + '.', rows.length + '건 중 50건 표시.')) + '</div>' : '');
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🤖 (2026-09-22) AI 학습도구 활용 학생 — /api/admin/ai-usage/students, studentScopeWhere()
+  //    로 자기 범위 학생만(src/api-admin.ts 9371·9388 서브쿼리 실측). 정본 도구 key·순서는
+  //    js/adm-ai-usage.js 의 TOOLS 와 같아야 한다 — 한쪽만 고치면 「도구를 골랐는데 이름이
+  //    다르게 뜬다」가 조용히 재현된다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var AIU_TOOLS = [
+    { key: 'judgment', en: 'Judgment training', ko: '판단력 훈련' },
+    { key: 'warmup',   en: 'AI warm-up',        ko: 'AI 웜업' },
+    { key: 'friend',   en: 'AI friend chat',    ko: 'AI 영어친구' },
+    { key: 'write',    en: 'AI writing',        ko: 'AI 글쓰기' },
+    { key: 'speech',   en: 'Speech coaching',   ko: '발음코칭' },
+    { key: 'review',   en: 'Review quiz',       ko: '복습퀴즈' },
+    { key: 'vocab',    en: 'Vocabulary',        ko: '단어장' },
+    { key: 'micro',    en: 'AI word quiz',      ko: 'AI 단어 퀴즈' }
+  ];
+  function aiuLabel(key){
+    for (var i = 0; i < AIU_TOOLS.length; i++) { if (AIU_TOOLS[i].key === key) return T(AIU_TOOLS[i].en, AIU_TOOLS[i].ko); }
+    return key;
+  }
+  window.loadAiUsage = function(){
+    var el = document.getElementById('aiuBody');
+    var qs = '?tool=' + encodeURIComponent(val('aiuTool', 'all')) + '&days=' + encodeURIComponent(val('aiuDays', '30'));
+    if (D.aiusage && D.aiusage._qs === qs) { paintAiUsage(); return; }
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    quietGet('/api/admin/ai-usage/students' + qs)
+      .then(function(j){
+        if (!j || j.ok !== true || !Array.isArray(j.students)) { failBox(el, new Error((j && j.error) || 'load_failed')); return; }
+        j._qs = qs; D.aiusage = j; paintAiUsage();
+      })
+      .catch(function(e){ failBox(el, e); });
+  };
+  function val(id, dflt){ var e = document.getElementById(id); return e ? e.value : dflt; }
+  window.paintAiUsage = function(){
+    var j = D.aiusage; if (!j) return;
+    var el = document.getElementById('aiuBody');
+    var q = (val('aiuQ', '') || '').trim().toLowerCase();
+    var rows = (j.students || []).filter(function(s){
+      if (!q) return true;
+      return String(s.uid || '').toLowerCase().indexOf(q) >= 0 || String(s.name || '').toLowerCase().indexOf(q) >= 0
+          || String(s.shop_name || '').toLowerCase().indexOf(q) >= 0;
+    });
+    el.className = '';
+    var summary = (j.summary || []).filter(function(s){ return s.students > 0; })
+      .map(function(s){ return '<span class="tag">' + esc(aiuLabel(s.key)) + ' ' + n0(s.students) + '</span>'; }).join(' ');
+    var head = '<div class="muted" style="padding-bottom:8px">'
+      + esc(T(n0(j.count) + ' students · last ' + j.days + ' days', n0(j.count) + '명 · 최근 ' + j.days + '일')) + '</div>'
+      + (summary ? '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px">' + summary + '</div>' : '');
+    if (!rows.length) { el.innerHTML = head + '<div class="empty">' + esc(T('No students match.', '해당하는 학생이 없습니다.')) + '</div>'; return; }
+    el.innerHTML = head + rows.slice(0, 80).map(function(s){
+      var tools = Object.keys(s.tools || {}).map(function(k){ return aiuLabel(k) + ' ' + s.tools[k].n; }).join(' · ');
+      return '<div class="row"><b>' + esc(s.name || s.uid || '-') + '</b>'
+           + '<span class="muted">' + esc(s.shop_name || '') + (s.franchise ? ' · ' + esc(s.franchise) : '') + '</span>'
+           + '<span class="num">' + n0(s.total) + '</span></div>'
+           + (tools ? '<div class="muted" style="font-size:12px;padding:0 0 6px">' + esc(tools) + '</div>' : '');
+    }).join('')
+      + (rows.length > 80 ? '<div class="muted" style="padding-top:8px">'
+          + esc(T('Showing 80 of ' + rows.length + '.', rows.length + '건 중 80건 표시.')) + '</div>' : '');
+  };
 
   // ══════════════════════════════════════════════════════════════════════════
   // 💰 (2026-09-21) 지사 · 대리점별 정산 — branch-summary, «보는» 화면(수수료율 편집 없음).
@@ -2346,6 +2439,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.org) paintOrg();
     if (D.attn) paintAttn();
     if (D.settle) paintSettle();
+    // 🤖 (2026-09-22) 여기서도 같은 짝을 맞춘다 — #aiuBody 도 data-ko/data-en 이 달린 «그릇»이다.
+    if (D.aiusage) window.paintAiUsage();
     // 🏢 AI 사용료 청구서도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
     //    applyLang() 이 textContent 를 통째로 갈아끼운다. 여기서 다시 안 그리면 🌐 한 번에
     //    명세·인원 체크박스·「결제하기」가 「펼치면 불러옵니다.」로 지워지고, <details> 가 이미
@@ -2364,7 +2459,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   window.reloadAll = function(){
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
     D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = D.todayAll = null;
-    D.org = D.attn = D.settle = null;
+    D.org = D.attn = D.settle = D.aiusage = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -2374,7 +2469,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
-     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle']
+     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage']
       .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
         if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
