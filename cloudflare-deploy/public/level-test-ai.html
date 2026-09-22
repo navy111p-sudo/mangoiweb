@@ -31,9 +31,26 @@
   .steps{font-size:12.5px;color:#a8b3cf;line-height:1.9;margin-top:12px}
   .steps b{color:#c7d2fe}
   /* 진행 */
-  .progwrap{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-  .progbar{flex:1;height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
-  .progfill{height:100%;width:0;background:linear-gradient(90deg,#818cf8,#6366f1);transition:width .3s}
+  /* 🥭 (2026-09-22 사장님 지시) 진행 막대 위를 Mr.mango 가 걸어간다 — «얼마나 남았는지» 를 아이가 한눈에.
+     ⚠ 막대에 overflow:hidden 을 걸지 않는다: 캐릭터가 막대 «위로» 올라와 있어 통째로 잘린다.
+        채움의 둥근 끝은 채움 자신의 border-radius 로 만든다. */
+  .progwrap{display:flex;align-items:center;gap:10px;margin:30px 0 16px}
+  .progbar{position:relative;flex:1;height:8px;background:rgba(255,255,255,.1);border-radius:99px}
+  .progfill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .3s}
+  .progmango{position:absolute;bottom:2px;left:0;height:34px;width:auto;transform:translateX(-50%);
+    transition:left .3s;pointer-events:none;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
+  .progflag{position:absolute;right:-4px;bottom:4px;font-size:18px;line-height:1;pointer-events:none}
+  /* 🔊 문제 듣기 · 💬 다정한 한마디 — 아이가 글을 못 읽어도, 어려워져도 멈추지 않게 */
+  .qrow{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .qrow .qcefr{margin-bottom:0}
+  .listen{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(251,191,36,.14);
+    border:1px solid rgba(251,191,36,.45);color:#fde68a;border-radius:99px;padding:6px 13px;
+    font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;word-break:keep-all}
+  .listen:hover{background:rgba(251,191,36,.24)}
+  .cheer{display:flex;align-items:center;gap:8px;margin:-6px 0 16px;font-size:13.5px;color:#fde68a;line-height:1.5;font-weight:700}
+  /* ⚠ 왼쪽 padding 은 «메뉴» 손잡이(#mg-drawer-tab, x 2~46px) 를 비키려는 것 — 폰에서 망고 얼굴을 덮었다 */
+  .cheer{padding-left:12px}
+  .cheer img{height:26px;width:auto;flex:0 0 auto}
   .progtxt{font-size:12px;font-weight:800;color:#a5b4fc;white-space:nowrap}
   .qcefr{display:inline-block;font-size:10.5px;font-weight:800;color:#a5b4fc;background:rgba(129,140,248,.16);
     border:1px solid rgba(129,140,248,.4);padding:2px 9px;border-radius:99px;margin-bottom:12px}
@@ -142,7 +159,8 @@
 
   <div class="hero">
     <h1>🧠 AI 자동 진단</h1>
-    <p>국제 표준 <b style="color:#c7d2fe">CEFR</b> 기준 24문항으로<br>지금 바로 내 영어 레벨을 객관적으로 진단해요. (약 5분)</p>
+    <p>영어 문제 24개를 풀면 <b style="color:#fde68a">망고</b>가 지금 영어 레벨을 알려 줘요. (약 5분)<br>
+    시험이 아니에요 — <b style="color:#fde68a">모르는 문제가 나와도 괜찮아요!</b></p>
   </div>
 
   <!-- 시작 -->
@@ -170,11 +188,15 @@
   <!-- 진행 -->
   <div class="card hidden" id="quiz-card">
     <div class="progwrap">
-      <div class="progbar"><div class="progfill" id="ai-progfill"></div></div>
+      <div class="progbar"><div class="progfill" id="ai-progfill"></div><img class="progmango" id="ai-progmango" src="/img/mango-char.png" alt="" aria-hidden="true"><span class="progflag" aria-hidden="true">🏁</span></div>
       <div class="progtxt" id="ai-progtxt">1 / 24</div>
     </div>
-    <div class="qcefr" id="ai-qcefr">Level A1</div>
+    <div class="qrow">
+      <div class="qcefr" id="ai-qcefr">Level A1</div>
+      <button type="button" class="listen" id="ai-listen" hidden>🔊 문제 듣기</button>
+    </div>
     <div class="qtext" id="ai-qtext">…</div>
+    <div class="cheer" id="ai-cheer"><img src="/img/mango-char.png" alt="" aria-hidden="true"><span id="ai-cheer-t">천천히 해도 괜찮아요.</span></div>
     <div id="ai-choices"></div>
     <!-- ⏸ 사장님 요청(2026-09-21): «중간 멈춤» — 자동 저장은 이미 되지만, 버튼이 없으면
          학생이 «나가면 날아간다» 고 여겨 전화도 못 받는다. 화면이 말해 줘야 한다. -->
@@ -435,6 +457,7 @@
   $('ai-pause').addEventListener('click', function(){
     /* 🔴 저장 결과를 보고 «무엇을 말할지» 를 정한다 — 안 되는데 «저장했어요» 라고 하면
        학생이 안심하고 나가서 처음부터 다시 풀게 된다(이 화면이 고치려던 바로 그 사고). */
+    hush();
     var ok = saveProgress();
     if (!ok) markSaveBroken();
     $('pause-cnt').textContent = countDone() + ' / ' + questions.length + ' 문항';
@@ -459,13 +482,50 @@
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
+  /* 💬 Mr.mango 의 한마디 (2026-09-22 — 아이용 2단계) — 정답·오답은 여기서 말하지 않는다
+     (채점은 서버가 끝에 한 번만 한다). 말하는 것은 «어디쯤인지» 와 «괜찮다» 뿐이다.
+     ⚠ 레벨이 바뀌는 문항에서 «어려워져요» 를 먼저 말해 둔다 — 갑자기 모르는 문제가 나오면
+        아이는 «내가 틀리고 있다» 로 읽고 멈춘다. */
+  function cheerFor(i){
+    var n = questions.length, q = questions[i], prev = questions[i - 1];
+    if (i === 0) return '천천히 해도 괜찮아요. 모르면 제일 비슷한 걸 골라요!';
+    if (i === n - 1) return '마지막 문제예요! 거의 다 왔어요.';
+    if (prev && q && prev.cefr !== q.cefr) return '조금 어려워져요 — 몰라도 괜찮아요, 끝까지 가 봐요!';
+    if (i === Math.floor(n / 2)) return '벌써 절반이에요! 잘하고 있어요.';
+    return (i % 2) ? '잘하고 있어요!' : '좋아요, 다음 문제도 해 볼까요?';
+  }
+
+  /* 🔊 문제 듣기 — 기기 음성으로 문제와 보기를 영어로 읽는다(글을 아직 못 읽는 아이용).
+     빈칸(___)은 «blank» 로 읽는다. 기기 음성이 없으면 버튼을 아예 안 보인다(눌러도 무반응 금지). */
+  var canSpeak = false;
+  try { canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance); } catch(e){}
+  function speakQ(q){
+    try {
+      if (!canSpeak || !q) return;
+      window.speechSynthesis.cancel();
+      var KEYS = ['A','B','C','D'];
+      var t = String(q.q).replace(/_{2,}/g, 'blank') + ' ... ' +
+        (q.choices || []).map(function(c, i){ return KEYS[i] + '. ' + c + '.'; }).join(' ');
+      var u = new SpeechSynthesisUtterance(t);
+      u.lang = 'en-US'; u.rate = 0.85;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
+  $('ai-listen').hidden = !canSpeak;
+  $('ai-listen').addEventListener('click', function(){ speakQ(questions[idx]); });
+  /* 멈추거나 끝나면 읽던 것을 끊는다 — 다음 화면 위로 옛 문제 소리가 겹치지 않게 */
+  function hush(){ try { if (canSpeak) window.speechSynthesis.cancel(); } catch(e){} }
+
   function render(){
     var q = questions[idx];
+    hush();
     var pct = Math.round((idx) / questions.length * 100);
     $('ai-progfill').style.width = pct + '%';
+    $('ai-progmango').style.left = pct + '%';
     $('ai-progtxt').textContent = (idx+1) + ' / ' + questions.length;
     $('ai-qcefr').textContent = 'Level ' + q.cefr;
     $('ai-qtext').textContent = q.q;
+    $('ai-cheer-t').textContent = cheerFor(idx);
     var KEYS = ['A','B','C','D'];
     var box = $('ai-choices');
     box.innerHTML = '';
@@ -485,6 +545,7 @@
   }
 
   function finish(){
+    hush();
     $('quiz-card').classList.add('hidden');
     $('grading-card').classList.remove('hidden');
     fetch('/api/leveltest/diagnose', {
@@ -544,7 +605,7 @@
 
     if (cnt) cnt.textContent = list.length + '문항';
     if (tip) {
-      tip.textContent = '👇 아래에 틀린 ' + list.length + '문항의 정답과 해설이 있어요';
+      tip.textContent = '👇 틀려도 괜찮아요 — 아래에 틀린 ' + list.length + '문항의 정답과 해설이 있어요';
       tip.classList.remove('hidden');
     }
 

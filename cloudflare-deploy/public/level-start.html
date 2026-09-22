@@ -80,6 +80,9 @@
   .fruits{display:flex;gap:6px;justify-content:center;margin-bottom:10px;font-size:26px}
   .fruits span{opacity:.25;transition:opacity .2s}
   .fruits span.on{opacity:1}
+  /* 🥭 (2026-09-22 사장님 지시) 질문 놀이의 진행 표시는 🥭 이모지 대신 Mr.mango 캐릭터 */
+  .fruits img{height:34px;width:auto;opacity:.25;filter:grayscale(.7);transition:opacity .2s,filter .2s,transform .2s}
+  .fruits img.on{opacity:1;filter:none;transform:translateY(-3px)}
   .q{font-size:20px;font-weight:900;text-align:center;line-height:1.4;margin:6px 0 14px}
   .opts{display:grid;gap:10px;grid-template-columns:1fr 1fr}
   .opt{
@@ -145,7 +148,7 @@
     <!-- ── ③ 질문 놀이 ── -->
     <section id="lsQuiz" hidden>
       <div class="quiz">
-        <div class="fruits" aria-hidden="true"><span>🥭</span><span>🥭</span><span>🥭</span></div>
+        <div class="fruits" aria-hidden="true"><img src="/img/mango-char.png" alt=""><img src="/img/mango-char.png" alt=""><img src="/img/mango-char.png" alt=""></div>
         <div class="q" id="lsQ"></div>
         <div class="opts" id="lsOpts"></div>
       </div>
@@ -262,7 +265,7 @@
   function renderQuiz() {
     var q = QUIZ[state.step];
     if (!q) return;
-    Array.prototype.forEach.call(document.querySelectorAll('#lsQuiz .fruits span'), function (s, i) {
+    Array.prototype.forEach.call(document.querySelectorAll('#lsQuiz .fruits img'), function (s, i) {
       s.classList.toggle('on', i < state.step);
     });
     $('lsQ').textContent = q[lang];
