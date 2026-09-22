@@ -1,0 +1,33 @@
+name: tmp-homebg
+on:
+  push:
+    branches: [claude/zealous-gates-spv8ls]
+    paths: ['.github/workflows/tmp-homebg.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: claude/zealous-gates-spv8ls }
+      - run: sudo apt-get update -y && sudo apt-get install -y webp imagemagick
+      - run: |
+          mkdir -p tmp-homebg && cd tmp-homebg
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260922_205702_
+          curl -fsSL -o a.png "${B}c1b52bd4-1c91-4627-8326-aa9c580d169e.png"
+          curl -fsSL -o b.png "${B}4df7c675-cfaf-40b6-80c0-912decc3560a.png"
+          for x in a b; do
+            identify $x.png
+            convert $x.png -resize 1920x1080^ -gravity center -extent 1920x1080 $x-1920.png
+            cwebp -q 80 $x-1920.png -o $x.webp
+            convert $x.png -resize 800x $x-preview.jpg
+            convert $x.png -resize 40x22! -quality 60 $x-thumb.jpg
+            base64 -w0 $x-thumb.jpg > $x-thumb.b64
+            convert $x.png -resize 1x1! -format '%[pixel:p{0,0}]' info: > $x-avg.txt
+            rm $x.png $x-1920.png
+          done
+          ls -la
+      - run: |
+          git config user.name ci; git config user.email ci@example.com
+          git add tmp-homebg && git commit -m "tmp: homebg candidates" && git push
