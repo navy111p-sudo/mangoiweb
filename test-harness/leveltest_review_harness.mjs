@@ -21,7 +21,7 @@
      「틀린 것을 싣는다」만 두면 «전부 싣기» 도 통과하고, 「안 싣는다」만 두면
      «전부 안 싣기»(= 기능이 죽은 것) 도 통과한다. 늘 둘을 함께 둔다.
 
-   [변이시험 — 2026-09-22, 15종 전부 실제 FAIL 확인]
+   [변이시험 — 2026-09-22, 18종 전부 실제 FAIL 확인]
      Ⓐ 안 푼 문항도 싣기(정답 통째 유출) 9건 · Ⓑ 범위 밖 값 허용 2건 ·
      Ⓒ 맞힌 문항도 싣기 1건 · Ⓓ 0(A번)을 falsy 로 거르기 4건 ·
      Ⓔ 빈칸 없어도 문장 지어내기 1건 · Ⓕ 정수 검사 제거 1건 ·
@@ -29,12 +29,23 @@
      Ⓘ 응답에서 review 빼기 1건 · Ⓙ 정본을 안 부르고 빈 배열 3건 ·
      Ⓚ try 벗기기 1건 · Ⓛ 화면이 renderReview 를 안 부름 1건 ·
      Ⓜ 0건인데 «전부 맞혔다» 1건 · Ⓝ review 없는 응답에도 상자 열기 2건 ·
-     Ⓞ 해설을 CTA 위로 2건
+     Ⓞ 해설을 CTA 위로 2건 ·
+     Ⓟ 호출을 «조건으로» 죽이기(`if (false) renderReview(d);`) 2건 ·
+     Ⓠ 문제 글(.qt)을 안 그리기 2건 · Ⓡ esc() 벗기기 2건
      ⚠️ 변이시험은 `LT_REVIEW_SRC`·`LT_ADMIN_SRC`·`LT_HTML_SRC` 로 «사본» 을 가리켜
         돌린다(원본을 고쳤다 되돌리지 않는다 — git 은 «방금 쓴 것» 을 모른다).
         ⛔ 사본을 public/ 안에 두지 말 것: deploy.ps1 이 그 폴더를 통째로 올린다.
 
-   [🪤 이 검사가 처음에 «헛돌던» 것 셋 — 변이시험에서만 드러났다]
+   [🪤 이 검사가 «헛돌던» 것 넷 — 전부 변이시험·함정 대조에서만 드러났다]
+     ⓪ 🔴 배선을 «글자» 로 물었다(Ⓟ). `if (false) renderReview(d);` 한 글자면
+        화면에 해설이 **한 줄도 안 나오는데** 이 하니스는 **PASS 54 / FAIL 0 · exit 0**
+        이었다(2026-09-22 함정 대조 실측 — 브라우저 하니스만 17건 FAIL 로 잡았고
+        `manual/` 은 게이트가 안 물어 간다). CLAUDE.md 가 이미 **세 번** 적어 둔 함정인데,
+        바로 아래 ① 을 고치면서 그 자리를 여전히 문자열로 묻고 있었다.
+        → showResult 를 오려 내 «가짜 renderReview» 로 돌려 «불렸는가» 를 답으로 묻고,
+          «막으면 안 불린다» 를 짝으로 둔다(짝이 없으면 늘 «불렸다» 로 헛돌아도 모른다).
+        ⚠️ 그래서 처음의 「15종 전부 FAIL」에는 **«조건 뒤집기» 가 한 건도 없었다** —
+           그 N 을 적기 전에 그 종류가 들어 있는지 반드시 세어 볼 것.
      ① 「renderReview(d) 가 파일에 있는가」로 호출을 물었더니 **함수 «선언» 이 잡혀**
         호출을 통째로 지운 Ⓛ 가 그대로 통과했다(CLAUDE.md 에 이미 두 번 적힌 함정).
         → 부르는 함수 몸통을 잘라 «그 안에서» 묻고 「선언은 정확히 하나」를 짝으로.
@@ -281,6 +292,50 @@ const html = SRC(HTML_SRC);
   ok(srBody.length > 200, '전제: showResult 몸통을 오려 냈다');
   ok(/(^|[^\w.])renderReview\s*\(\s*d\s*\)/.test(srBody.replace(/function renderReview\(/g, 'DECL(')),
      'showResult 가 renderReview 를 실제로 부른다');
+
+  /* 🔴 위 한 줄은 «글자» 검사라 `if (false) renderReview(d);` 한 글자에 뚫린다
+     (2026-09-22 함정 대조 실측: 그렇게 바꾸면 화면에 해설이 한 줄도 안 나오는데
+      이 하니스는 PASS 54 / FAIL 0 · exit 0 이었다). CLAUDE.md 가 이 저장소에
+      이미 세 번 적어 둔 함정 — 「배선을 «문자열» 로 물으면 조건 뒤집기에 뚫립니다」.
+     ✅ showResult 를 «오려 내 가짜 renderReview 로 실제로 돌려» 불렸는지 묻는다.
+     ⚠️ 「부른다」 옆에 «막으면 안 부른다» 를 짝으로 둔다 — 짝이 없으면 이 검사 자신이
+        헛돌아도(늘 «불렸다») 알 수 없다. */
+  {
+    const runShow = (bodyText, d) => {
+      const seen = [];
+      const el = () => {
+        const e = { innerHTML: '', textContent: '', style: {}, _cls: new Set() };
+        e.classList = { add: (c) => e._cls.add(c), remove: (c) => e._cls.delete(c),
+                        contains: (c) => e._cls.has(c) };
+        return e;
+      };
+      const cache = {};
+      const $ = (id) => (cache[id] || (cache[id] = el()));
+      const esc = (x) => String(x == null ? '' : x);
+      const win = { scrollTo() {} };
+      const rr = (arg) => { seen.push(arg); };
+      try {
+        new Function('$', 'esc', 'questions', 'window', 'renderReview', 'd',
+          'return (function showResult(d)' + bodyText + ')(d);')($, esc, [], win, rr, d);
+      } catch (e) { return { threw: e.message, seen }; }
+      return { seen };
+    };
+    const dSample = { ok: true, ai_score: 40, level: 'A2', correct: 12, total: 24,
+                      breakdown: [{ cefr: 'A1', correct: 3, total: 4 }],
+                      review: [{ id: 'a1_1', cefr: 'A1', q: 'q', choices: ['a','b'], picked: 0, answer: 1, why: 'w', sentence: '' }] };
+    const good = runShow(srBody, dSample);
+    ok(!good.threw, '전제: showResult 를 오려 내 실제로 돌렸다', good.threw);
+    ok(good.seen.length === 1, '✅ showResult 가 renderReview 를 «실제로» 한 번 부른다 (실행 확인)');
+    ok(good.seen[0] === dSample, '그때 서버 응답을 그대로 넘긴다 (breakdown 만 넘기지 않는다)');
+
+    // 짝(자기 검증): 그 호출을 조건으로 죽이면 «안 불린다» 가 나와야 한다
+    const killed = srBody.replace(/(^|[^\w.])renderReview\s*\(\s*d\s*\)\s*;/,
+                                  (m, p1) => p1 + 'if (false) renderReview(d);');
+    ok(killed !== srBody, '전제: 변이(호출을 조건으로 죽이기)를 실제로 만들었다');
+    const bad = runShow(killed, dSample);
+    ok(bad.seen.length === 0,
+       '짝: 호출을 조건으로 죽이면 «안 불린다» 로 잡힌다 (이 검사가 헛돌지 않는다)');
+  }
   ok(/d\s*&&\s*d\.review/.test(cleanHtml) || /d\.review/.test(cleanHtml), '서버가 준 review 를 읽는다');
   ok(html.indexOf('id="ai-review-wrap"') > 0 && html.indexOf('id="ai-review"') > 0, '해설을 그릴 자리가 화면에 있다');
   // 🔴 CTA 보다 «아래» — 위에 끼우면 발음 평가·돌아가기 버튼이 스크롤 밖으로 밀린다
@@ -336,6 +391,18 @@ const html = SRC(HTML_SRC);
     ok(/내 답/.test(h1), '내가 고른 답도 함께 표시한다');
     ok(/주어가 3인칭 단수/.test(h1), '해설을 그린다');
     ok(/She is a student\./.test(h1), '완성 문장을 그린다');
+    ok(/She ___ a student\./.test(h1), '문제 글도 함께 그린다 (정답만 있으면 무엇을 틀렸는지 모른다)');
+
+    /* 🔴 짝: 꽂는 값은 «반드시» 이스케이프한다.
+       오늘은 문항은행(서버 소유)만 꽂혀 무해하지만, 나중에 학생이 쓴 값이 섞이는 날
+       esc() 가 빠져 있으면 그때 처음 구멍이 된다 — 그날 이 검사가 먼저 빨간불이 된다. */
+    const evil = [{ id: 'x', cefr: '<b>A1</b>', q: '<img src=x onerror=1>', choices: ['<i>a</i>', 'b'],
+                    picked: 0, answer: 1, why: '<script>bad', sentence: '<u>s</u>' }];
+    const rEsc = run({ ok: true, correct: 1, total: 2, review: evil }, bankQs);
+    const hEsc = rEsc.nodes['ai-review'].innerHTML;
+    ok(!/<img|<script|<u>|<i>/.test(hEsc), '꽂는 값을 이스케이프한다 (날 HTML 이 안 들어간다)',
+       (hEsc.match(/<(img|script|u|i)\b[^>]*>/) || [''])[0]);
+    ok(/&lt;img/.test(hEsc), '짝: 그래도 그 글자 자체는 화면에 보인다 (조용히 버리지 않는다)');
     ok(!r1.nodes['ai-review-wrap'].classList.contains('hidden'), '해설 상자가 실제로 보인다');
     ok(/1문항/.test(r1.nodes['ai-review-n'].textContent), '틀린 개수를 말한다');
     ok(!r1.nodes['ai-review-tip'].classList.contains('hidden'), '위쪽 안내가 «아래에 해설이 있다» 고 알려 준다');
