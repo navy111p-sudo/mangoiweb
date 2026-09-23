@@ -24,6 +24,11 @@
  *    (「corn is sweet.」 ← 「Yes, corn is sweet.」 · 「People have a rug.」 ← 「We have a rug.」).
  *    실측 분포가 0~1개 아니면 8개 이상으로 갈려서 둘을 경계로 삼았다.
  */
+/* 🔤 교재 «낱말» 로 셀 것 — 빌드와 회귀 검사가 이 한 함수를 씁니다(⛔ 다시 적지 마세요).
+   2026-09-23 사장님 「PE가 따로 글자가 나와」 — 「P.E.」·「J.R.R.」 같은 점 약어가 p·e·j·r 로 쪼개져
+   「e」 가 낱말 카드가 됐습니다. 점 약어는 통째로 빼고, 남은 한 글자 조각(K-pop 의 k · X-rays 의 x ·
+   Vitamin C 의 c)도 낱말로 세지 않습니다. 「a」·「i」 는 원래 stopwords 입니다. 두 글자(tv·dc·hr)는 둡니다. */
+export const vocabWords=(text,stop)=>[...new Set((String(text||'').replace(/\b(?:[A-Za-z]\.){2,}/g,' ').toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>w.length>1&&!(stop&&stop.has(w))))];
 export const tokens=text=>(String(text||'').toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]);
 
 /* 틀이 바꿔 치운 자리를 되돌린다 — «a person('m)» → «i('m)», 소유격은 전부 한 자리(_p)로.

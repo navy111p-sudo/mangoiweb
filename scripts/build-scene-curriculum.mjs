@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
-import {pictureEvidence,wordPlanFiles} from './scene-picture-evidence.mjs';
+import {pictureEvidence,wordPlanFiles,vocabWords} from './scene-picture-evidence.mjs';
 /* 🎨 낱말 그림카드의 그림문자 정본은 화면 파일 한 곳(cloudflare-deploy/public/js/scene-curriculum.js).
    ⛔ 여기에 표를 복제하지 마세요 — 한쪽만 고쳐지는 사고가 이 저장소에 반복해 있었습니다. */
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -16,7 +16,8 @@ const selected=read('scene-plan.json'),assets=read('asset-plan.json'),clips=read
 const excluded=new Set(read('excluded-media.json'));
 const contextImages=read('context-images.json').images;
 const stop=new Set(read('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
-const words=text=>[...new Set((text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stop.has(w)))];
+/* 🔤 낱말 세기 정본은 scene-picture-evidence.mjs 의 vocabWords(점 약어·한 글자 조각 제외). */
+const words=text=>vocabWords(text,stop);
 const id=text=>crypto.createHash('sha256').update(text).digest('hex').slice(0,12);
 const courses=[['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']];
 const books=[],all=new Map();
