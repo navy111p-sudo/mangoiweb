@@ -279,22 +279,6 @@ html.dark .rq-msg.warn{color:#fbbf24}
    설계 계약 준수 — 외부 리소스 0 · 애니메이션/transition 0 · 한영은 T()/data-ko·en. */
 .ta-open{cursor:pointer;background:#eaf0fb;color:#1d4ed8}
 html.dark .ta-open{background:#24344f;color:#9dbdf5}
-/* ⚠️ [hidden] 을 UA 기본값에만 기대지 않는다 — 이 파일의 작성자 CSS 가 display 를 정하면
-      브라우저 기본 [hidden]{display:none} 이 진다(CLAUDE.md 2장 「hidden 인데 그대로 보임」). */
-.ta-panel[hidden]{display:none!important}
-.ta-panel{border:1px solid #e6ecf2;border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#f8fafc}
-html.dark .ta-panel{background:#232b36;border-color:#39434f}
-.ta-lbl{display:block;font-size:12px;font-weight:800;color:#5d6b7a;padding:0 0 4px}
-html.dark .ta-lbl{color:#95a2b0}
-.ta-panel input{box-sizing:border-box;min-height:40px;font-size:14px;font-family:inherit;
-     padding:6px 8px;border:1px solid #d7dee6;border-radius:8px;background:#fff;color:#16202c}
-html.dark .ta-panel input{background:#2a3340;border-color:#4a5462;color:#e7edf3}
-.ta-when{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 8px}
-.ta-mode{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 8px}
-.ta-mode .rq-btn{min-height:40px;padding:0 14px;font-size:13.5px;background:#fff;color:#16202c;border-color:#d7dee6}
-.ta-mode .rq-btn[aria-pressed="true"]{background:#16202c;color:#fff;border-color:#16202c}
-html.dark .ta-mode .rq-btn{background:#2a3340;color:#e7edf3;border-color:#4a5462}
-html.dark .ta-mode .rq-btn[aria-pressed="true"]{background:#e7edf3;color:#16202c}
 
 /* ⭐ 자주 쓰는 기능 바로가기 — 새 API 0, 아래 카드를 펼치고 이동만 한다.
    설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. */
@@ -1909,10 +1893,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
               + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
       }
-      /* ⚠️ 패널은 `.row` 의 «형제» 다 — 안에 넣으면 flex 아이템이 되어 이름 옆에 나란히 붙는다. */
       return '<div class="row"><b>' + t + '</b><span>' + who + subLine + '</span>' + resch
-           + tea + telLine + tags + act + '</div>'
-           + (r.schedule_id ? '<div class="ta-panel" id="ta-p-' + esc(r.schedule_id) + '" hidden></div>' : '');
+           + tea + telLine + tags + act + '</div>';
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
     if (rows.length && box) box.insertAdjacentHTML('afterbegin', head);
@@ -1956,24 +1938,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
-     📅 (2026-09-22) 「오늘 전체 수업」 줄에서 바로 연기 · 변경 · 취소
-       매니저 요청: "rescheduling, postponement of classes at Today's classes
-       beside student's names for easy and quick access."
-       결정(2026-09-22): **바로 처리** — 매니저는 이미 바로 위 「수업 연기·변경 요청」
-       카드의 승인자다. 자기가 요청을 내고 자기가 승인하는 두 단계를 없앤다.
-
-     ⚠️ **새 판정을 하나도 만들지 않았다** — 서버의 기존 두 경로를 그대로 부른다.
-        · 연기·변경 → POST /schedule-requests(기록) → POST /schedule-requests/decide(적용)
-          그 /decide 가 ⓐ 겹침 검사 ⓑ 반복수업 자동이동 거부 ⓒ 지사·대리점 스코프 재확인
-          ⓓ 강사 차단 ⓔ 변경이력(class_audit_log) 을 **이미** 한다. 화면이 흉내 내면 두 벌이 된다.
-        · 취소 → DELETE /class-schedules/:id (status='cancelled' + 이력). 이것이 이 저장소의
-          «진짜 취소» 경로다(주간 시간표의 삭제가 쓰는 그것).
-          ⛔ request_type:'cancel' 로 보내지 말 것 — 지금 서버의 승인 로직은 취소를
-             «연기» 와 똑같이 다뤄(status='postponed') 화면이 거짓말을 하게 된다.
-             ℹ️ 그 어긋남은 강사·학생 요청에도 있다. 고치면 postponed_pay_percent 가
-                안 걸려 **강사 급여가 달라진다** — 사람이 정할 일이라 여기서 안 건드렸다.
-     ⚠️ 문자를 보내지 않는다 — /decide·DELETE 둘 다 학부모 알림 경로가 아니다.
-     ⛔ 되돌릴 수 없다. 그래서 확인을 한 번 받고, «무엇이 일어나는지» 를 확인창에 적는다.
+     📅 「오늘 전체 수업」 줄에서 바로 연기 · 변경 · 취소
+       (2026-09-22) 매니저 요청으로 줄 옆에 붙였고,
+       (2026-09-23) 사장님 「매니저 화면도 똑같이 — Karl·MaiMai·Melca」 → 창을 관리자 화면과
+       **같은 파일**(js/class-move-modal.js)로 바꿨다:
+         ⏸ 연기 ▸ 완전히(날짜 미정) / 지정한 날짜로(이번 한 번) · 🔄 변경(앞으로 계속) · ✕ 취소
+         + 새 시간에 되는 강사 사진 카드(Karl 제안).
+     ⚠️ 이 화면에 창을 한 벌 더 두지 않는다 — 두 벌이면 한쪽만 고쳐지는 사고가 난다.
+     ⚠️ 그 파일은 **누른 뒤에만** 받는다(계약 1번 «외부 리소스 0개» 의 예외 — 교재 배정 창과 같다).
+        `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다.
+     ⛔ «취소» 는 본사 계정만(IS_HQ) — DELETE /class-schedules/:id 가 지사·대리점에 403 이다.
+        창이 한 번 더 «날짜 지정 수업인가»(can_move) 를 본다. 모르면 안 준다.
      ══════════════════════════════════════════════════════════════════════════ */
   function taRowOf(sid){
     var rows = (D.todayAll && D.todayAll.sessions) || [];
@@ -1981,50 +1956,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (String(rows[i].schedule_id) === String(sid)) return rows[i];
     }
     return null;
-  }
-  function taModeBtn(mode, label, on){
-    return '<button type="button" class="rq-btn" data-ta-mode="' + mode + '"'
-         + ' aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
-  }
-  function taPanelHtml(r){
-    /* ⛔ 취소는 **막는 쪽으로** 실패한다 — 되돌릴 수 없는 조작이라 확실할 때만 준다.
-         · can_move 가 true 가 «아닌» 모든 경우(false·모름) 에 안 준다.
-         · 본사가 아니면 안 준다 — DELETE /class-schedules/:id 는 isAgencyAllowedApi 에
-           없어 지사·대리점은 403 이다. 주면 «보이는데 눌러도 안 되는 버튼» 이 된다.
-       ✅ 그런데도 «왜 없는지» 는 말해 준다 — 조용히 감추면 「기능이 없네」가 된다. */
-    var canCancel = (IS_HQ === true) && (r.can_move === true);
-    var day = (D.todayAll && D.todayAll.date) || '';
-    var h = '<div class="ta-mode">'
-      + taModeBtn('postpone', T('Postpone', '연기'), true)
-      + taModeBtn('change',   T('Move to…', '날짜·시각 변경'), false)
-      + (canCancel ? taModeBtn('cancel', T('Cancel class', '수업 취소'), false) : '')
-      + '</div>'
-      + '<div class="ta-when" data-ta-when hidden>'
-      + '<label><span class="ta-lbl">' + esc(T('New date', '새 날짜')) + '</span>'
-      + '<input type="date" data-ta-date value="' + esc(day) + '"></label>'
-      + '<label><span class="ta-lbl">' + esc(T('New time', '새 시각')) + '</span>'
-      + '<input type="time" data-ta-time value="' + esc(String(r.start_time || '').slice(0, 5)) + '"></label>'
-      + '</div>'
-      + '<label><span class="ta-lbl">' + esc(T('Reason (optional)', '사유 (선택)')) + '</span>'
-      + '<input type="text" data-ta-reason maxlength="200" style="width:100%" placeholder="'
-      + esc(T('e.g. parent called', '예: 학부모 연락')) + '"></label>'
-      + '<div class="rq-act" style="padding-top:10px">'
-      + '<button type="button" class="rq-btn ok" data-ta-run="' + esc(r.schedule_id) + '">'
-      + esc(T('Apply', '실행')) + '</button>'
-      + '<button type="button" class="rq-btn no" data-ta-close="1">' + esc(T('Close', '닫기')) + '</button>'
-      + '<span class="rq-msg"></span></div>';
-    if (!canCancel) {
-      h += '<div class="muted" style="font-size:11px">'
-        + esc(IS_HQ === true
-              ? T('Cancel is offered only for a date-fixed class.', '«취소» 는 날짜가 정해진 수업에서만 됩니다.')
-              : T('Cancelling a class is done by an HQ account.', '수업 «취소» 는 본사 계정에서 합니다.'))
-        + '</div>';
-    }
-    return h;
-  }
-  function taModeOf(pan){
-    var on = pan.querySelector('[data-ta-mode][aria-pressed="true"]');
-    return on ? on.getAttribute('data-ta-mode') : 'postpone';
   }
   // 누가 처리했는지 기록에 남긴다 — 연기·변경 승인 버튼과 같은 방식(이름을 모를 때만 한 번 받아 온다).
   function taWhoAmI(){
@@ -2035,141 +1966,51 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return (j && (j.name || (j.user && j.user.name))) || '';
     });
   }
-  function taPostJson(path, payload){
-    return fetch(path, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function(rs){
-      return rs.json().catch(function(){ return null; }).then(function(j){ return { st: rs.status, j: j }; });
-    });
-  }
-  /* 한 번 처리하면 손에 든 목록은 낡았다. ⚠️ 그렇다고 **곧바로 다시 그리지는 않는다** —
-     방금 누른 줄이 눈앞에서 사라지면 «옮겨졌는지» 안내를 읽을 새가 없다(연기·변경 승인과 같은 판단).
-     카드를 접었다 펼 때 새로 받게 _stale 표시만 남긴다. */
+  /* 한 번 처리하면 손에 든 목록은 낡았다 — 창을 닫을 때 새로 받는다. */
   function taMarkStale(){
     if (D.todayAll) D.todayAll._stale = true;
     D.reqs = null;
     try { localStorage.removeItem(CACHE_PREFIX + 'reqs'); } catch (e) {}
     try { paintTodo(); } catch (e) {}
   }
-  function taRun(pan, sid){
+  var _moveLoading = null;
+  function loadMoveModal(cb){
+    if (window.mangoiMoveModal && typeof window.mangoiMoveModal.open === 'function') return cb(true);
+    if (_moveLoading) { _moveLoading.push(cb); return; }   /* 연타로 두 번 받지 않게 */
+    _moveLoading = [cb];
+    var done = function(ok){
+      var qs = _moveLoading; _moveLoading = null;
+      var got = ok && !!window.mangoiMoveModal && typeof window.mangoiMoveModal.open === 'function';
+      for (var i = 0; i < qs.length; i++) qs[i](got);
+    };
+    var sc = document.createElement('script');
+    sc.src = '/js/class-move-modal.js?v=1';
+    sc.onload = function(){ done(true); };
+    sc.onerror = function(){ done(false); };
+    document.head.appendChild(sc);
+  }
+  function taOpen(sid){
     var r = taRowOf(sid);
-    var msg = pan.querySelector('.rq-msg');
-    var btns = pan.querySelectorAll('.rq-btn');
-    if (!r || !msg) return;
-    var mode = taModeOf(pan);
-    var dEl = pan.querySelector('[data-ta-date]');
-    var tEl = pan.querySelector('[data-ta-time]');
-    var rsEl = pan.querySelector('[data-ta-reason]');
-    var newDate = dEl ? String(dEl.value || '').trim() : '';
-    var newTime = tEl ? String(tEl.value || '').slice(0, 5) : '';
-    var reason = rsEl ? String(rsEl.value || '').trim() : '';
-    var who = String(r.student_name || r.student_uid || '');
-    var when = String((D.todayAll && D.todayAll.date) || '') + ' ' + String(r.start_time || '').slice(0, 5);
-
-    if (mode === 'change' && !(/^\d{4}-\d{2}-\d{2}$/.test(newDate) && /^\d{1,2}:\d{2}$/.test(newTime))) {
-      msg.className = 'rq-msg bad';
-      msg.textContent = T('Pick a new date and time first.', '새 날짜와 시각을 먼저 고르세요.');
-      return;
-    }
-    /* 💰 (2026-09-22) 「연기」는 **강사 수업료에 닿는다** — 확인창이 그 말을 해야 한다.
-       서버는 연기·취소 요청에 fee_type 을 자동으로 매긴다(api-admin.ts):
-         시작 30분보다 «이르면» 'free' = «사전 연기» · 이내면 'paid'.
-       그리고 급여가 그 값을 그대로 읽는다 — 'free' 면 postponed_early_pay_percent 를 쓰는데
-       그 규칙은 **amount 0 · enabled 1 로 심어져 있다**(2026-08-13 사장님 「30분전 연기는 0으로」).
-       ⟹ 지금 이 버튼으로 «앞으로 있을» 수업을 연기하면 그 수업 강사료가 0원이 될 수 있다.
-       ⚠️ 그 전에 매니저가 쓰던 길(주간 시간표에서 상태만 바꾸기)은 요청 행을 안 만들어
-          지급률이 그대로였다 — 즉 이 버튼이 **바꾸는** 축이다. 조용히 두면 안 된다.
-       ⛔ 퍼센트를 화면이 지어내지 않는다 — 그 값은 «관리자 › 급여 규칙» 의 설정이라
-          이 화면이 모른다. 아는 것(사전 연기로 기록된다)까지만 사실대로 적는다.
-       ℹ️ 변경(change)은 fee_type 이 null 이고, 취소는 이 경로를 안 탄다 — 연기에만 붙인다. */
-    var mins = (typeof r.start_ts === 'number' && r.start_ts > 0)
-      ? Math.round((r.start_ts - Date.now()) / 60000) : null;
-    var feeWarn = (mode === 'postpone' && mins !== null && mins > 30)
-      ? T('\n\n⚠ Recorded as an EARLY postponement (more than 30 min before).\n   The teacher’s pay rate for this class follows the payroll rule\n   «postponed_early_pay_percent» — it may be 0.',
-          '\n\n⚠ «사전 연기» 로 기록됩니다 (시작 30분보다 이름).\n   이 수업의 강사 수업료 지급률이 급여 규칙\n   «사전 연기 지급률» 을 따릅니다 — 0원일 수 있습니다.')
-      : '';
-
-    /* ⚠️ 무엇이 일어나는지를 확인창이 그대로 말한다 — 되돌릴 수 없는 조작이다. */
-    var ask = mode === 'cancel'
-      ? T('Cancel this class?\n\n' + who + ' · ' + when + '\n\n· It disappears from the lists.\n· To undo it you must fix it in the timetable.',
-          '이 수업을 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 목록에서 사라집니다.\n· 되돌리려면 시간표에서 직접 고쳐야 합니다.')
-      : mode === 'change'
-      ? T('Move this class?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· If that slot is taken it will not move — you will be told.',
-          '이 수업을 옮길까요?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· 그 시간에 다른 수업이 있으면 안 옮기고 알려 드립니다.')
-      : T('Postpone this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes «postponed». Pick a new date later.',
-          '이 수업을 연기할까요?\n\n' + who + ' · ' + when + '\n\n· 수업이 «연기» 상태가 됩니다. 새 날짜는 나중에 잡습니다.') + feeWarn;
-    if (!window.confirm(ask)) return;
-
-    for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
-    msg.className = 'rq-msg';
-    msg.textContent = T('Sending...', '처리 중...');
-    var unlock = function(){ for (var k = 0; k < btns.length; k++) btns[k].disabled = false; };
-
-    taWhoAmI().then(function(nm){
-      if (mode === 'cancel') {
-        return fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
-          method: 'DELETE', credentials: 'include',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ reason: reason || undefined })
-        }).then(function(rs){
-          return rs.json().catch(function(){ return null; }).then(function(j){ return { st: rs.status, j: j }; });
-        }).then(function(res){
-          if (!res.j || res.j.ok !== true) {
-            msg.className = 'rq-msg bad';
-            msg.textContent = res.st === 403
-              ? T('Cancelling a class is done by an HQ account.', '수업 «취소» 는 본사 계정에서 합니다.')
-              : reqErrOf(res.st, res.j);
-            unlock(); return;
-          }
-          msg.className = 'rq-msg good';
-          msg.textContent = T('Cancelled.', '취소했습니다.');
-          taMarkStale();
-        });
+    if (!r) return;
+    loadMoveModal(function(ok){
+      if (!ok) {
+        alert(T('Could not open the postpone/move window. Please refresh and try again.',
+                '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.'));
+        return;
       }
-      /* 연기·변경 — 기록을 남기고(POST) 그 자리에서 승인한다(decide).
-         ⚠️ 앞은 되고 뒤가 안 되면 «대기» 요청이 남는다 — 잃는 것은 없고 바로 위
-            「수업 연기·변경 요청」 카드에서 승인하면 된다. 그 사실을 그대로 말한다. */
-      return taPostJson('/api/admin/schedule-requests', {
-        schedule_id: Number(sid),
-        request_type: mode === 'change' ? 'change' : 'postpone',
-        requester_role: 'admin',
-        requester_name: nm || undefined,
-        teacher_name: r.teacher_name || nm || T('manager', '매니저'),
-        student_name: r.student_name || r.student_uid || undefined,
-        student_uid: r.student_uid || undefined,
-        new_date: mode === 'change' ? newDate : undefined,
-        new_time: mode === 'change' ? newTime : undefined,
-        reason: reason || undefined
-      }).then(function(mk){
-        if (!mk.j || mk.j.ok !== true || !mk.j.id) {
-          msg.className = 'rq-msg bad';
-          msg.textContent = reqErrOf(mk.st, mk.j);
-          unlock(); return;
-        }
-        return taPostJson('/api/admin/schedule-requests/decide', {
-          id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined
-        }).then(function(res){
-          if (!res.j || res.j.ok !== true) {
-            msg.className = 'rq-msg bad';
-            msg.textContent = reqErrOf(res.st, res.j) + ' '
-              + T('The request is saved — approve it in the requests card.',
-                  '요청은 저장됐습니다 — 「수업 연기·변경 요청」 카드에서 승인해 주세요.');
-            taMarkStale(); unlock(); return;
+      taWhoAmI().catch(function(){ return ''; }).then(function(nm){
+        window.mangoiMoveModal.open(r, {
+          day: (D.todayAll && D.todayAll.date) || '',
+          isEn: EN,
+          canCancel: IS_HQ === true,
+          me: { name: nm || '' },
+          onClose: function(changed){
+            if (!changed) return;
+            taMarkStale();
+            try { window.loadTodayAll(); } catch (e) {}
           }
-          /* ✅ «승인했다» 와 «옮겨졌다» 는 다르다 — 서버가 applied 로 무엇을 했는지 말해 준다.
-             그 판정문은 연기·변경 승인 버튼이 쓰는 reqMsgOf() 를 그대로 재사용한다(복제 금지). */
-          var m = reqMsgOf(res.j, 'approve');
-          msg.className = 'rq-msg ' + (m.ok ? 'good' : 'warn');
-          msg.textContent = m.s;
-          taMarkStale();
         });
       });
-    }).catch(function(){
-      msg.className = 'rq-msg bad';
-      msg.textContent = T('Network error. Try again.', '연결이 끊겼습니다. 다시 눌러 주세요.');
-      unlock();
     });
   }
   /* ⚠️ 위임 리스너다 — hqRows() 가 innerHTML 만 갈아치우고 이 상자 자신은 남으므로 한 번만 건다.
@@ -2181,41 +2022,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     _taBound = true;
     var onTap = function(ev){
       var t = ev.target;
-      if (!t || !t.closest) return;
-      var open = t.closest('[data-ta]');
-      if (open) {
-        ev.preventDefault();
-        var sid = open.getAttribute('data-ta');
-        var pan = document.getElementById('ta-p-' + sid);
-        var row = taRowOf(sid);
-        if (!pan || !row) return;
-        if (!pan.hidden) { pan.hidden = true; pan.innerHTML = ''; return; }
-        // 한 번에 하나만 — 여럿이 열려 있으면 «어느 줄 이야기인지» 가 흐려진다.
-        var all = box.querySelectorAll('.ta-panel');
-        for (var i = 0; i < all.length; i++) { all[i].hidden = true; all[i].innerHTML = ''; }
-        pan.innerHTML = taPanelHtml(row);
-        pan.hidden = false;
-        return;
-      }
-      var mb = t.closest('[data-ta-mode]');
-      if (mb) {
-        ev.preventDefault();
-        var p1 = mb.closest('.ta-panel'); if (!p1) return;
-        var ms = p1.querySelectorAll('[data-ta-mode]');
-        for (var k = 0; k < ms.length; k++) ms[k].setAttribute('aria-pressed', ms[k] === mb ? 'true' : 'false');
-        var when = p1.querySelector('[data-ta-when]');
-        if (when) when.hidden = (mb.getAttribute('data-ta-mode') !== 'change');
-        return;
-      }
-      var cb = t.closest('[data-ta-close]');
-      if (cb) { ev.preventDefault(); var p2 = cb.closest('.ta-panel'); if (p2) { p2.hidden = true; p2.innerHTML = ''; } return; }
-      var rb = t.closest('[data-ta-run]');
-      if (rb) {
-        ev.preventDefault();
-        if (rb.disabled) return;
-        var p3 = rb.closest('.ta-panel'); if (!p3) return;
-        taRun(p3, rb.getAttribute('data-ta-run'));
-      }
+      var open = t && t.closest && t.closest('[data-ta]');
+      if (!open) return;
+      ev.preventDefault();
+      taOpen(open.getAttribute('data-ta'));
     };
     box.addEventListener('click', onTap);
     // role="button" 은 키보드(Enter·Space)도 받아야 한다 — 안 그러면 마우스 전용이 된다.

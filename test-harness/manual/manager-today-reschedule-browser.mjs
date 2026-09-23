@@ -17,14 +17,31 @@
  *     · «본사는 취소가 보인다» 옆에 «지사·대리점에는 안 보이고 이유를 말한다»
  *     · «옮겼다» 옆에 «못 옮겼을 때 초록으로 말하지 않는다»(거짓 성공 금지)
  *
+ *   (2026-09-23) 줄 아래 «패널» 이 관리자 화면과 같은 **공용 창**(js/class-move-modal.js)으로 바뀌었다
+ *   — 그 파일은 버튼을 누를 때만 받으므로 file:// 로는 못 연다(절대경로 /js/… 가 404). 그래서
+ *     이 검사는 작은 로컬 서버로 public/ 을 그대로 서빙한다.
+ *
  *   돌리는 법:  PW_DIR=/tmp/pw node test-harness/manual/manager-today-reschedule-browser.mjs
  *   ⚠️ 자동으로 안 돕니다(manual/ 규약) — 이 줄·패널을 건드리면 사람이 부르세요.
  */
 
-import { requireBrowser, fileUrl } from './_pw.mjs';
+import { requireBrowser } from './_pw.mjs';
+import { createServer } from 'node:http';
+import { readFileSync, existsSync } from 'node:fs';
+import { join, dirname, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const { chromium, exe } = requireBrowser();
-const FILE = fileUrl('cloudflare-deploy/public/manager.html');
+const PUB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cloudflare-deploy', 'public');
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json' };
+const srv = createServer((req, res) => {
+  const f = join(PUB, decodeURIComponent(req.url.split('?')[0]));
+  if (!f.startsWith(PUB) || !existsSync(f)) { res.writeHead(404); return res.end('nf'); }
+  res.writeHead(200, { 'Content-Type': TYPES[extname(f)] || 'application/octet-stream' });
+  res.end(readFileSync(f));
+});
+await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+const FILE = 'http://127.0.0.1:' + srv.address().port + '/manager.html';
 const DAY = '2026-09-22';
 
 /* 오늘 수업 네 줄 — 서버(/api/admin/classes/today)가 주는 모양 그대로.
@@ -59,7 +76,7 @@ async function open(browser, opts) {
   page.on('pageerror', (e) => errors.push(String(e)));
 
   await page.addInitScript((cfg) => {
-    try { localStorage.setItem('mangoi_lang', 'ko'); } catch (e) {}
+    try { localStorage.setItem('mangoi_lang', cfg.lang || 'ko'); } catch (e) {}
     window.__sent = [];                     // 나간 요청을 그대로 적어 둔다
     const rf = window.fetch;
     const J = (o, st) => Promise.resolve(new Response(JSON.stringify(o), { status: st || 200 }));
@@ -83,10 +100,26 @@ async function open(browser, opts) {
       }
       if (u.indexOf('/api/admin/schedule-requests') === 0) return J({ ok: true, id: 9001, status: 'pending' });
       if (/\/api\/admin\/class-schedules\/\d+$/.test(u)) return J({ ok: true, status: 'cancelled' });
+      if (u.indexOf('/api/pay/enroll/admin/move-candidates') === 0) {
+        window.__sent.push({ m: m, u: u, body: null });
+        const q = new URL(u, location.href).searchParams;
+        return J({ ok: true, date: q.get('date'), time: q.get('time'),
+                   current: { id: '5', name: 'KES', display_name: 'KES', free: true },
+                   candidates: [{ id: '7', name: 'FAR', display_name: 'FAR', free: true, photo: '' }],
+                   busy_count: 1, teacher_change_ok: true });
+      }
+      if (u.indexOf('/api/pay/enroll/admin/series-move') === 0) {
+        window.__sent.push({ m: m, u: u, body: body });
+        const items = [{ id: 1001, from_date: '2026-09-22', from_time: '15:00', to_date: '2026-09-23', to_time: '18:20' },
+                       { id: 1011, from_date: '2026-09-29', from_time: '15:00', to_date: '2026-09-30', to_time: '18:20' }];
+        return J({ ok: true, dry_run: !(body && body.apply), applied: !!(body && body.apply),
+                   moved: body && body.apply ? 2 : undefined, count: 2, items: items,
+                   teacher: { changed: !!(body && body.teacher_id), from_name: 'KES', to_name: 'FAR' } });
+      }
       return J({ ok: true });
     };
   }, { day: DAY, sessions: SESSIONS, scope: opts.scope || 'hq',
-       applied: opts.applied || 'postponed', decideFail: !!opts.decideFail });
+       applied: opts.applied || 'postponed', decideFail: !!opts.decideFail, lang: opts.lang || 'ko' });
 
   await page.goto(FILE, { waitUntil: 'load' });
   await page.waitForTimeout(400);
@@ -141,22 +174,28 @@ async function tap(page, sel, why) {
   check('매주 반복 줄은 «왜 안 되는지» 를 보이는 글자로 말한다', await s.page.evaluate(() =>
     /매주 반복/.test(document.getElementById('todayAllBody').textContent || '')));
 
-  /* ══ ② 패널 — 열리는가, 모드가 맞는가 ══════════════════════════════════ */
-  console.log('\n[2] 패널');
-  check('처음에는 패널이 안 보인다', (await visible(s.page, '#ta-p-1001')) === false);
+  /* ══ ② 창 — 열리는가, 버튼이 맞는가 (관리자 화면과 같은 공용 창) ══════════ */
+  console.log('\n[2] 연기·변경 창');
+  const M = '#tc-move-modal';
+  check('처음에는 창이 없다', (await visible(s.page, M)) === null);
+  check('⛔ 첫 화면에 공용 창 파일을 받지 않았다 (외부 리소스 0개 계약)', await s.page.evaluate(() =>
+    !window.mangoiMoveModal && !document.querySelector('script[src*="class-move-modal"]')));
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(150);
-  check('칩을 누르면 패널이 **보인다**', (await visible(s.page, '#ta-p-1001')) === true);
-  check('본사에는 모드가 셋이다 (연기·변경·취소)', await s.page.evaluate(() =>
-    document.querySelectorAll('#ta-p-1001 [data-ta-mode]').length === 3));
-  check('기본은 «연기» 가 눌려 있다', await s.page.evaluate(() =>
-    (document.querySelector('#ta-p-1001 [data-ta-mode][aria-pressed="true"]') || {}).getAttribute
-    && document.querySelector('#ta-p-1001 [data-ta-mode][aria-pressed="true"]').getAttribute('data-ta-mode') === 'postpone'));
-  check('«연기» 에서는 날짜칸이 안 보인다', (await visible(s.page, '#ta-p-1001 [data-ta-when]')) === false);
-  await tap(s.page, '#ta-p-1001 [data-ta-mode="change"]');
-  await s.page.waitForTimeout(100);
-  check('«변경» 을 누르면 날짜칸이 보인다 (짝)', (await visible(s.page, '#ta-p-1001 [data-ta-when]')) === true);
-  check('다른 줄 패널은 여전히 안 보인다', (await visible(s.page, '#ta-p-1004')) === false);
+  await s.page.waitForTimeout(600);
+  check('칩을 누르면 창이 **보인다**', (await visible(s.page, M)) === true);
+  check('버튼 셋: 연기 · 변경(앞으로 계속) · 취소', await s.page.evaluate(() =>
+    [...document.querySelectorAll('#tc-move-modal [data-mv-mode]')].map((b) => b.getAttribute('data-mv-mode')).join(',') === 'postpone,series,cancel'));
+  check('기본은 «연기 ▸ 완전히(날짜 미정)» 가 눌려 있다', await s.page.evaluate(() =>
+    !!document.querySelector('#tc-move-modal [data-mv-mode="postpone"][aria-pressed="true"]')
+    && !!document.querySelector('#tc-move-modal [data-mv-sub="hold"][aria-pressed="true"]')));
+  check('«완전히 연기» 에서는 날짜칸이 안 보인다', (await visible(s.page, '#tc-mv-when')) === false);
+  await tap(s.page, '#tc-move-modal [data-mv-sub="date"]');
+  await s.page.waitForTimeout(700);
+  check('«지정한 날짜로 연기» 를 누르면 날짜칸이 보인다 (짝)', (await visible(s.page, '#tc-mv-when')) === true);
+  check('새 시간에 되는 강사 사진 카드가 나온다', await s.page.evaluate(() =>
+    document.querySelectorAll('#tc-mv-teachers [data-mv-pick]').length === 2));
+  check('안내 한 줄이 «이번 한 번만» 이라고 말한다', await s.page.evaluate(() =>
+    /이번 한 번만/.test(document.getElementById('tc-mv-note').textContent)));
 
   /* ══ ③ 확인창을 «취소» 하면 한 건도 안 나간다 ═══════════════════════════ */
   console.log('\n[3] 확인창을 취소하면 아무 일도 안 일어난다 (짝)');
@@ -164,72 +203,86 @@ async function tap(page, sel, why) {
   s = await open(browser, { scope: 'hq' });
   s.page.on('dialog', (d) => d.dismiss());
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
-  await tap(s.page, '#ta-p-1001 [data-ta-run]');
+  await s.page.waitForTimeout(600);
+  await tap(s.page, '#tc-mv-go');
   await s.page.waitForTimeout(250);
-  /* ⚠️ «쓰는» 요청만 센다 — 이 화면은 45초마다 스스로 GET 을 보내므로(요청목록·대기자)
-        `/schedule-requests` 라는 글자만 보면 그 GET 이 걸려 **거짓 FAIL** 이 난다.
-        묻고 싶은 것은 «아무 일도 안 일어났는가» = «쓰기가 나갔는가» 다. */
   check('쓰기 요청이 한 건도 안 나갔다', await s.page.evaluate(() =>
-    window.__sent.filter((r) => r.m === 'POST' || r.m === 'DELETE').length === 0),
+    window.__sent.filter((r) => r.m === 'POST' || r.m === 'DELETE' || r.m === 'PATCH').length === 0),
     JSON.stringify(await s.page.evaluate(() =>
       window.__sent.filter((r) => r.m === 'POST' || r.m === 'DELETE').map((r) => r.m + ' ' + r.u))));
 
-  /* ══ ④ 연기 — 실제로 무엇을 보내는가 ═══════════════════════════════════ */
-  console.log('\n[4] 연기 실행');
+  /* ══ ④ 완전히 연기 — 실제로 무엇을 보내는가 ═════════════════════════════ */
+  console.log('\n[4] 완전히 연기 실행');
   await s.ctx.close();
   s = await open(browser, { scope: 'hq', applied: 'postponed' });
   s.page.on('dialog', (d) => d.accept());
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
-  await tap(s.page, '#ta-p-1001 [data-ta-run]');
-  await s.page.waitForTimeout(500);
+  await s.page.waitForTimeout(600);
+  await tap(s.page, '#tc-mv-go');
+  await s.page.waitForTimeout(600);
   let sent = await s.page.evaluate(() => window.__sent);
   const mk = sent.find((r) => r.m === 'POST' && /schedule-requests$/.test(r.u));
   const dc = sent.find((r) => r.m === 'POST' && /schedule-requests\/decide$/.test(r.u));
-  check('요청을 만들었다 (POST /schedule-requests)', !!mk);
+  check('요청을 만들었다 (POST /schedule-requests)', !!mk && mk.body.request_type === 'postpone');
   check('그 자리에서 승인했다 (POST /decide)', !!dc && dc.body && dc.body.action === 'approve');
   check('«누가 냈는가» 를 admin 으로 적는다', !!mk && mk.body.requester_role === 'admin');
+  check('처리한 사람 이름을 싣는다 (Karl)', !!mk && mk.body.requester_name === 'Karl');
   check('그 수업의 schedule_id 를 보낸다', !!mk && mk.body.schedule_id === 1001);
   check('연기에는 새 날짜를 안 보낸다 (짝)', !!mk && !mk.body.new_date && !mk.body.new_time);
   check('DELETE 는 안 나갔다 (짝)', sent.filter((r) => r.m === 'DELETE').length === 0);
   check('화면이 «연기 처리했습니다» 로 답한다', await s.page.evaluate(() =>
-    /연기 처리/.test((document.querySelector('#ta-p-1001 .rq-msg') || {}).textContent || '')));
+    /연기 처리/.test(document.getElementById('tc-mv-msg').textContent || '')));
   check('그 안내가 «성공» 색이다', await s.page.evaluate(() =>
-    /good/.test((document.querySelector('#ta-p-1001 .rq-msg') || {}).className || '')));
+    getComputedStyle(document.getElementById('tc-mv-msg')).color === 'rgb(4, 120, 87)'));
+  await tap(s.page, '#tc-mv-close');
+  await s.page.waitForTimeout(400);
+  check('닫으면 목록을 다시 받는다', await s.page.evaluate(() =>
+    window.__sent.filter((r) => r.u.indexOf('/api/admin/classes/today') === 0).length >= 2));
 
-  /* ══ ⑤ 변경 — 못 옮겼을 때 초록으로 말하지 않는다 ═══════════════════════ */
-  console.log('\n[5] 변경 · 겹쳐서 못 옮긴 경우 (거짓 성공 금지)');
+  /* ══ ⑤ 지정한 날짜 — 못 옮겼을 때 초록으로 말하지 않는다 ═════════════════ */
+  console.log('\n[5] 지정한 날짜로 연기 · 겹쳐서 못 옮긴 경우 (거짓 성공 금지)');
   await s.ctx.close();
   s = await open(browser, { scope: 'hq', applied: 'conflict' });
   s.page.on('dialog', (d) => d.accept());
   await tap(s.page, '[data-ta="1004"]');
-  await s.page.waitForTimeout(120);
-  await tap(s.page, '#ta-p-1004 [data-ta-mode="change"]');
-  await s.page.fill('#ta-p-1004 [data-ta-date]', '2026-09-25');
-  await s.page.fill('#ta-p-1004 [data-ta-time]', '19:30');
-  await tap(s.page, '#ta-p-1004 [data-ta-run]');
-  await s.page.waitForTimeout(500);
+  await s.page.waitForTimeout(600);
+  await tap(s.page, '#tc-move-modal [data-mv-sub="date"]');
+  await s.page.fill('#tc-mv-date', '2026-09-25');
+  await s.page.fill('#tc-mv-time', '19:30');
+  await s.page.dispatchEvent('#tc-mv-time', 'change');
+  await s.page.waitForTimeout(900);
+  await tap(s.page, '#tc-mv-go');
+  await s.page.waitForTimeout(600);
   sent = await s.page.evaluate(() => window.__sent);
   const mk2 = sent.find((r) => r.m === 'POST' && /schedule-requests$/.test(r.u));
-  check('변경으로 보낸다', !!mk2 && mk2.body.request_type === 'change');
+  check('«이번 한 번 옮기기(change)» 로 보낸다', !!mk2 && mk2.body.request_type === 'change');
   check('새 날짜·시각을 그대로 싣는다', !!mk2 && mk2.body.new_date === '2026-09-25' && mk2.body.new_time === '19:30');
-  check('못 옮겼으면 «초록» 이 아니다', await s.page.evaluate(() => {
-    const c = (document.querySelector('#ta-p-1004 .rq-msg') || {}).className || '';
-    return /warn/.test(c) && !/good/.test(c);
-  }));
+  check('못 옮겼으면 «초록» 이 아니다', await s.page.evaluate(() =>
+    getComputedStyle(document.getElementById('tc-mv-msg')).color !== 'rgb(4, 120, 87)'
+    && /못 옮겼/.test(document.getElementById('tc-mv-msg').textContent)));
 
-  /* ══ ⑥ 매주 반복은 서버가 거부한다 — 화면이 그 말을 그대로 한다 ═════════ */
-  console.log('\n[6] 반복 수업 (applied:recorded)');
+  /* ══ ⑥ 변경 · 앞으로 계속 — 미리보기 뒤 한 번에 ═══════════════════════════ */
+  console.log('\n[6] 변경 · 앞으로 계속');
   await s.ctx.close();
-  s = await open(browser, { scope: 'hq', applied: 'recorded' });
+  s = await open(browser, { scope: 'hq' });
   s.page.on('dialog', (d) => d.accept());
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
-  await tap(s.page, '#ta-p-1001 [data-ta-run]');
-  await s.page.waitForTimeout(500);
-  check('«시간표에서 직접» 이라고 말한다', await s.page.evaluate(() =>
-    /시간표에서 직접/.test((document.querySelector('#ta-p-1001 .rq-msg') || {}).textContent || '')));
+  await s.page.waitForTimeout(600);
+  await tap(s.page, '#tc-move-modal [data-mv-mode="series"]');
+  await s.page.fill('#tc-mv-date', '2026-09-23');
+  await s.page.fill('#tc-mv-time', '18:20');
+  await s.page.dispatchEvent('#tc-mv-time', 'change');
+  await s.page.waitForTimeout(1200);
+  check('미리보기가 «앞으로 2회» 를 보여 준다', await s.page.evaluate(() =>
+    /2회/.test(document.getElementById('tc-mv-series').textContent)));
+  check('미리보기 요청에는 apply 가 없다', await s.page.evaluate(() =>
+    window.__sent.filter((r) => r.u.indexOf('series-move') >= 0).every((r) => !r.body.apply)));
+  await tap(s.page, '#tc-mv-go');
+  await s.page.waitForTimeout(600);
+  check('실행하면 apply:true 한 번', await s.page.evaluate(() =>
+    window.__sent.filter((r) => r.u.indexOf('series-move') >= 0 && r.body && r.body.apply === true).length === 1));
+  check('화면이 «앞으로 2회를 옮겼습니다» 로 답한다', await s.page.evaluate(() =>
+    /2회를 옮겼습니다/.test(document.getElementById('tc-mv-msg').textContent)));
 
   /* ══ ⑦ 승인이 실패하면 «요청은 남아 있다» 고 말한다 ═════════════════════ */
   console.log('\n[7] 승인 실패 — 잃은 것이 없다고 말한다');
@@ -237,13 +290,13 @@ async function tap(page, sel, why) {
   s = await open(browser, { scope: 'hq', decideFail: true });
   s.page.on('dialog', (d) => d.accept());
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
-  await tap(s.page, '#ta-p-1001 [data-ta-run]');
-  await s.page.waitForTimeout(500);
+  await s.page.waitForTimeout(600);
+  await tap(s.page, '#tc-mv-go');
+  await s.page.waitForTimeout(600);
   check('«요청은 저장됐습니다» 를 알려 준다', await s.page.evaluate(() =>
-    /요청은 저장/.test((document.querySelector('#ta-p-1001 .rq-msg') || {}).textContent || '')));
+    /요청은 저장/.test(document.getElementById('tc-mv-msg').textContent || '')));
   check('실패 색으로 말한다', await s.page.evaluate(() =>
-    /bad/.test((document.querySelector('#ta-p-1001 .rq-msg') || {}).className || '')));
+    getComputedStyle(document.getElementById('tc-mv-msg')).color === 'rgb(185, 28, 28)'));
 
   /* ══ ⑧ 취소 — 본사만. 지사·대리점에는 «왜 없는지» 를 말한다 ═════════════ */
   console.log('\n[8] 취소');
@@ -251,33 +304,50 @@ async function tap(page, sel, why) {
   s = await open(browser, { scope: 'hq' });
   s.page.on('dialog', (d) => d.accept());
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
+  await s.page.waitForTimeout(600);
   check('본사에는 «수업 취소» 가 있다', await s.page.evaluate(() =>
-    !!document.querySelector('#ta-p-1001 [data-ta-mode="cancel"]')));
-  await tap(s.page, '#ta-p-1001 [data-ta-mode="cancel"]');
-  await tap(s.page, '#ta-p-1001 [data-ta-run]');
-  await s.page.waitForTimeout(500);
+    !!document.querySelector('#tc-move-modal [data-mv-mode="cancel"]')));
+  await tap(s.page, '#tc-move-modal [data-mv-mode="cancel"]');
+  await tap(s.page, '#tc-mv-go');
+  await s.page.waitForTimeout(600);
   sent = await s.page.evaluate(() => window.__sent);
   const del = sent.find((r) => r.m === 'DELETE');
   check('진짜 취소 경로(DELETE /class-schedules/:id)를 부른다', !!del && /\/class-schedules\/1001$/.test(del.u));
   check('취소를 «연기 요청» 으로 보내지 않는다 (짝)', sent.filter((r) =>
     r.m === 'POST' && /schedule-requests$/.test(r.u)).length === 0);
+  check('«실행» 버튼이 맨 위에 있다 (가려지지 않는다)', await s.page.evaluate(() => {
+    const g = document.getElementById('tc-mv-go'); g.scrollIntoView({ block: 'center' });
+    const r = g.getBoundingClientRect();
+    return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === g;
+  }));
 
   await s.ctx.close();
   s = await open(browser, { scope: 'agency' });
   await tap(s.page, '[data-ta="1001"]');
-  await s.page.waitForTimeout(120);
+  await s.page.waitForTimeout(600);
   check('지사·대리점에는 «수업 취소» 가 없다 (403 나는 버튼을 주지 않는다)', await s.page.evaluate(() =>
-    !document.querySelector('#ta-p-1001 [data-ta-mode="cancel"]')));
+    !document.querySelector('#tc-move-modal [data-mv-mode="cancel"]')));
   check('그래도 연기·변경은 그대로 된다 (짝)', await s.page.evaluate(() =>
-    document.querySelectorAll('#ta-p-1001 [data-ta-mode]').length === 2));
+    document.querySelectorAll('#tc-move-modal [data-mv-mode]').length === 2));
   check('«왜 없는지» 를 말해 준다', await s.page.evaluate(() =>
-    /본사 계정/.test((document.getElementById('ta-p-1001') || {}).textContent || '')));
+    /본사 계정/.test((document.getElementById('tc-move-modal') || {}).textContent || '')));
+
+  /* ══ ⑨ 영어 화면 ═══════════════════════════════════════════════════════ */
+  console.log('\n[9] 영어 화면에서는 영어로 말한다');
+  await s.ctx.close();
+  s = await open(browser, { scope: 'hq', lang: 'en' });
+  await tap(s.page, '[data-ta="1001"]');
+  await s.page.waitForTimeout(600);
+  check('창 제목·버튼이 영어다', await s.page.evaluate(() => {
+    const t = document.getElementById('tc-move-modal').textContent;
+    return /Postpone \/ move class/.test(t) && /from now on/.test(t) && !/수업 연기·변경/.test(t);
+  }));
 
   check('콘솔에 스크립트 오류가 없다', s.errors.length === 0, s.errors.join(' | '));
 
   await s.ctx.close();
   await browser.close();
+  srv.close();
   console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);
   process.exit(FAIL ? 1 : 0);
 })();
