@@ -131,13 +131,18 @@
   function tcOpenCalModal(uid, who) {
     tcCalModalClose();
     var url = '/admin/student.html?uid=' + encodeURIComponent(uid) + '&tab=schedule';
+    /* 🌐 창 안도 «지금 이 화면의 언어» 로 — 한국 국적 계정은 새 문서마다 국적으로 되돌아가서
+       EN 을 눌러 둬도 창 안만 한국어였다(2026-09-23 사장님 화면). embed=1 은 창 안 이동 링크를 숨긴다.
+       «새 탭에서 열기» 는 창이 아니므로 embed 없이 연다. */
+    var tabUrl = url + '&lang=' + (isEn() ? 'en' : 'ko');
+    url = tabUrl + '&embed=1';
     var box = document.createElement('div');
     box.id = 'tc-cal-modal';
     box.style.cssText = 'position:fixed;inset:0;z-index:999999;background-color:rgba(15,23,42,0.55)';
     box.innerHTML = '<div style="position:absolute;inset:16px;display:flex;flex-direction:column;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4)">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e4e7ec;color:#101828">'
       +   '<b style="flex:1;font-size:14px">📅 ' + esc(who || uid) + T(' — 수업 캘린더', ' — class calendar') + '</b>'
-      +   '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:#1d4ed8">' + T('새 탭에서 열기 ↗', 'Open in new tab ↗') + '</a>'
+      +   '<a href="' + esc(tabUrl) + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:#1d4ed8">' + T('새 탭에서 열기 ↗', 'Open in new tab ↗') + '</a>'
       +   '<span id="tc-cal-close" role="button" tabindex="0" style="padding:4px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;cursor:pointer;font-size:12px;font-weight:700">' + T('닫기', 'Close') + '</span>'
       + '</div>'
       + '<iframe src="' + esc(url) + '" title="' + esc(T('수업 캘린더', 'Class calendar')) + '" style="flex:1;width:100%;border:0"></iframe>'

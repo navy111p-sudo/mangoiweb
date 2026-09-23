@@ -14,6 +14,7 @@
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
+<script>/* 🪟 캘린더 창(iframe)으로 열렸으면 표시 — 스타일은 html.mg-embed */try{if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('mg-embed');}catch(e){}</script>
 <script defer src="/js/i18n-sweep.js?v=22"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎓 학생 상세보기 — 망고아이</title>
@@ -216,6 +217,12 @@
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }
+  /* 🪟 (2026-09-23) 캘린더 창(iframe) 안에서는 «다른 화면으로 옮겨 가는» 링크를 숨긴다 —
+     누르면 창 «안» 에 관리자 화면이 통째로 떠서 창 안에 창이 겹친다(사장님 화면). */
+  html.mg-embed header.top a.brand,
+  html.mg-embed header.top a[href^="/admin.html"],
+  html.mg-embed #global-home-fab,
+  html.mg-embed #mangoi-back-btn{ display:none !important; }
 </style>
 <link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
 </head>
@@ -724,6 +731,14 @@ let _charts = {};
 //   공용 키 'mangoi_lang' 로 통일 — adm-lang-boot.js 가 이미 계정에 맞게 정해 둔 값을 읽는다.
 //   (구 키가 남아 있으면 1회 이관)
 let _lang = (function(){
+  // 📅 (2026-09-23) 「오늘 수업」 캘린더 창이 이 화면을 iframe 으로 띄울 때 **부른 화면의 언어**를 넘긴다(?lang=).
+  //   ⚠️ 그게 없으면 한국 국적 계정은 adm-lang-boot.js 가 새 문서를 열 때마다 국적(KR)으로 mangoi_lang 을
+  //      되돌려 놓아서, 관리자 화면에서 EN 을 눌러 둬도 창 안만 한국어가 된다(사장님 화면 2026-09-23).
+  //   ⛔ 저장하지 않는다 — 이 창 한 번만의 표시다(저장하면 다른 화면 언어까지 바뀐다).
+  try {
+    var q = new URLSearchParams(location.search).get('lang');
+    if (q === 'en' || q === 'ko') return q;
+  } catch (e) {}
   try {
     var v = localStorage.getItem('mangoi_lang');
     if (v !== 'ko' && v !== 'en') v = localStorage.getItem('mangoi_admin_lang');
@@ -953,14 +968,6 @@ document.querySelectorAll('.tab').forEach(b => {
     document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === b.dataset.tab));
   });
 });
-// 📅 (2026-09-23) ?tab=schedule 처럼 주소로 탭을 고른다 — 「오늘 수업」 표의 캘린더 창이 이 화면을 스케줄 탭으로 띄운다.
-//    ⛔ 모르는 값은 무시(실재하는 탭 버튼만) — 빈 화면으로 떨어뜨리지 않는다.
-(function () {
-  const want = new URLSearchParams(location.search).get('tab') || '';
-  if (!want) return;
-  const btn = Array.from(document.querySelectorAll('.tab')).find(x => x.dataset.tab === want);
-  if (btn) btn.click();
-})();
 
 // ═══════════════════════ 데이터 로드 ═══════════════════════
 async function loadFull() {

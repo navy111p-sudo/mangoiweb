@@ -262,7 +262,29 @@ ok('캘린더 창: 새 탭은 <a target=_blank> (window.open 금지)', /target="
 ok('캘린더 창: vh 단위를 쓰지 않는다(zoom 1.3)', !/\d+vh/.test(modal));
 const rend = adm.slice(adm.indexOf("return '<tr>'"));
 ok('칩에 클릭·키보드 리스너를 단다', /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,600}tcOpenCalModal\(uid/.test(rend) && /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,900}keydown/.test(rend));
-{ const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8'); ok('student.html 이 ?tab= 로 실재하는 탭만 고른다', /get\('tab'\)[\s\S]{0,200}dataset\.tab === want[\s\S]{0,40}btn\.click\(\)/.test(stu) && /data-tab="schedule"/.test(stu)); }
+{
+  const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8');
+  ok('student.html 이 ?tab= 로 탭을 연다(기존 _initTab)', /get\('tab'\)[\s\S]{0,200}\.tab\[data-tab="' \+ _initTab/.test(stu) && /data-tab="schedule"/.test(stu));
+  // 🌐 ?lang= 가 저장값을 이긴다 · 없으면 예전대로 저장값 — _lang IIFE 를 오려 내 실제로 돌린다
+  const l0 = stu.indexOf('let _lang = (function(){');
+  const l1 = stu.indexOf('})();', l0);
+  const body = l0 > 0 ? stu.slice(l0 + 'let _lang = '.length, l1 + 4) : '';
+  const runL = (search, saved) => { try {
+    return new Function('location', 'localStorage', 'URLSearchParams', 'return ' + body)(
+      { search }, { getItem: k => (k === 'mangoi_lang' ? saved : null), setItem() { throw new Error('저장하면 안 됨'); } }, URLSearchParams);
+  } catch (e) { return 'THREW:' + e.message; } };
+  ok('student.html: ?lang=en 이면 저장값(ko)보다 이긴다', runL('?uid=a&lang=en', 'ko') === 'en');
+  ok('student.html: ?lang=ko 도 이긴다(짝)', runL('?lang=ko', 'en') === 'ko');
+  ok('student.html: ?lang 이 없으면 예전대로 저장값', runL('?uid=a', 'en') === 'en' && runL('', 'ko') === 'ko');
+  ok('student.html: 모르는 값은 무시', runL('?lang=zz', 'en') === 'en');
+  ok('student.html: embed=1 이면 창 안 이동 링크를 숨긴다', /get\('embed'\)==='1'\)document\.documentElement\.classList\.add\('mg-embed'\)/.test(stu)
+     && /html\.mg-embed header\.top a\[href\^="\/admin\.html"\]/.test(stu) && /html\.mg-embed #global-home-fab/.test(stu));
+  for (const [nm, src, fn] of [['관리자', adm, 'tcOpenCalModal'], ['매니저', readFileSync(join(PUB, 'manager.html'), 'utf8'), 'mgCalOpen']]) {
+    const b = src.slice(src.indexOf('function ' + fn + '('), src.indexOf('function ' + fn + '(') + 2500);
+    ok(nm + ' 창: 지금 화면의 언어를 &lang= 로 넘기고 창에는 embed=1', /&lang=' \+ \((isEn|EN)\(\) \? 'en' : 'ko'\)/.test(b) && /url = tabUrl \+ '&embed=1'/.test(b));
+    ok(nm + ' 창: «새 탭에서 열기» 는 embed 없는 주소', /href="' \+ esc\(tabUrl\)/.test(b));
+  }
+}
 const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
 for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label_en', 'r.last_eval', 'r.today_eval', 'r.class_date']) {
   ok('매니저 화면이 ' + k + ' 를 읽는다', mgr.includes(k));
