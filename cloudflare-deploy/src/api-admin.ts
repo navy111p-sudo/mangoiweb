@@ -70,6 +70,8 @@ import { duplicateGate } from './student-duplicate';                       // �
 import { resolveStudentTrack, leveltestStatusFor } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
+import { cleanAnalysis, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
+import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -7905,6 +7907,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     const ensureAiAnalysisTable = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_student_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, summary TEXT, strengths TEXT, weaknesses TEXT, recommendations TEXT, risk_level TEXT, raw_response TEXT, model TEXT, generated_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_an_student ON ai_student_analysis(student_uid, generated_at DESC)`); } catch {}
+      // 🧹 2026-09-23 — next_action 칸(없던 칸). 멱등: 이미 있으면 duplicate column 으로 조용히 넘어감
+      try { await env.DB.exec(`ALTER TABLE ai_student_analysis ADD COLUMN next_action TEXT`); } catch {}
     };
 
     // ── POST /api/admin/ai-analyze/student — 학생 1명 AI 학습 분석 ──
@@ -7928,7 +7932,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           `SELECT * FROM ai_student_analysis WHERE student_uid = ? ORDER BY generated_at DESC LIMIT 1`
         ).bind(uid).first();
         if (cached && (Date.now() - cached.generated_at) < 12 * 3600 * 1000) {
-          return json({ ok: true, cached: true, analysis: cached });
+          // 🧹 저장본도 거릅니다 — 수리 «전» 에 저장된 것에 한자·베트남어가 남아 있을 수 있고,
+          //    next_action 칸이 없던 옛 저장본은 raw_response 에서 되살립니다.
+          const cc = cleanAnalysis({ ...cached, next_action: recoverNextAction(cached) });
+          const { dropped: _ccD, summary_dropped: _ccS, ...ccVals } = cc;
+          return json({ ok: true, cached: true, analysis: { ...cached, ...ccVals, summary: ccVals.summary || SUMMARY_UNAVAILABLE } });
         }
       }
 
@@ -7959,11 +7967,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3`,
         uid
       );
-      // 출석 (최근 60일)
-      const attendanceCount: any = await fetch1(
-        `SELECT COUNT(*) AS n FROM point_rule_log WHERE user_id = ? AND rule_code = 'attendance' AND triggered_at >= ?`,
-        uid, since
-      ).catch(() => ({ n: 0 }));
+      // 출석 (최근 60일) — 🧹 2026-09-23: 포인트 로그(point_rule_log)가 아니라 실제 수업 기록(attendance)의
+      //   «수업한 날 수» 로 셉니다. 포인트 로그는 출석 포인트가 적립된 날만 남아 수업을 해도 「출석이 낮다」로 읽혔습니다.
+      //   ⚠️ 미래 시각은 뺍니다 — 카페24 가 예약을 attendance 에 미리 만들어 둡니다(joined_at = 예약 시각).
+      //   ⚠️ 조회가 실패하면 0 이 아니라 null(«모름») — 0 으로 두면 AI 가 「출석이 낮다」고 지어냅니다.
+      let attendanceDays: number | null = null;
+      try {
+        await ensureAttendanceAccountUid(env);
+        const ar: any = await env.DB.prepare(
+          `SELECT COUNT(DISTINCT date) AS n FROM attendance
+            WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ? AND joined_at <= ? AND COALESCE(status,'') <> 'scheduled'`
+        ).bind(...attUidBinds(uid), since, Date.now()).first();
+        if (ar && ar.n != null && Number.isFinite(Number(ar.n))) attendanceDays = Number(ar.n);
+      } catch { attendanceDays = null; }
       // 채팅 활동 (최근 60일)
       const chatStats: any = await fetch1(
         `SELECT COUNT(*) AS msg_count FROM chat_messages WHERE sender_uid = ? AND sent_at >= ?`,
@@ -8026,7 +8042,7 @@ ID: ${uid}
 ${evalCommentSummary}
 
 [활동]
-- 출석 횟수: ${attendanceCount?.n || 0}회
+- 수업한 날(최근 60일): ${attendanceDays == null ? '(확인 못 함 — 출석에 대해 판단하지 마세요)' : attendanceDays + '일'}
 - 채팅 메시지: ${chatStats?.msg_count || 0}개
 - 포인트 적립: ${pointStats?.earned || 0}P / 사용: ${pointStats?.spent || 0}P
 
@@ -8058,24 +8074,41 @@ ${chatSampleText}
         return json({ ok: false, error: 'AI_binding_missing', message: 'env.AI 가 wrangler.toml 에 설정되지 않음' }, 503);
       }
 
-      let aiResponse: string = '';
       let model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-      try {
+      const runAnalysis = async (retryNote: string): Promise<string> => {
         const aiResult: any = await env.AI.run(model, {
           messages: [
-            { role: 'system', content: '당신은 한국 영어 학원의 학습 분석 AI 입니다. 항상 JSON 형식으로만 응답하세요.' },
+            { role: 'system', content: '당신은 한국 영어 학원의 학습 분석 AI 입니다. 항상 JSON 형식으로만 응답하세요. 모든 값은 순수 한국어(한글)로 쓰고 한자·베트남어·일본어를 섞지 마세요.' + (retryNote ? '\n' + retryNote : '') },
             { role: 'user', content: prompt }
           ],
           max_tokens: 1500,
         });
         // 응답을 안전하게 문자열로 정규화
-        if (typeof aiResult === 'string') aiResponse = aiResult;
-        else if (aiResult && typeof aiResult.response === 'string') aiResponse = aiResult.response;
-        else if (aiResult && aiResult.response) aiResponse = JSON.stringify(aiResult.response);
-        else aiResponse = JSON.stringify(aiResult || {});
-        aiResponse = String(aiResponse || '');
+        let t: string;
+        if (typeof aiResult === 'string') t = aiResult;
+        else if (aiResult && typeof aiResult.response === 'string') t = aiResult.response;
+        else if (aiResult && aiResult.response) t = JSON.stringify(aiResult.response);
+        else t = JSON.stringify(aiResult || {});
+        return String(t || '');
+      };
+      let aiResponse: string = '';
+      try {
+        aiResponse = await runAnalysis('');
       } catch (e: any) {
         return json({ ok: false, error: 'ai_call_failed', detail: String(e?.message || e) }, 500);
+      }
+      // 🧹 한자·베트남어가 섞였으면 한 번만 다시 만듭니다(지시만으로는 안 지켜짐). 섞인 칸이 «줄어들 때만» 바꿉니다.
+      {
+        const bad1 = foreignFields(parseAnalysisJson(aiResponse));
+        if (bad1.length) {
+          try {
+            const second = await runAnalysis(KOREAN_ONLY_RETRY_NOTE);
+            const p2 = parseAnalysisJson(second);
+            if (p2 && foreignFields(p2).length < bad1.length) aiResponse = second;
+          } catch (e: any) {
+            console.warn('[ai-analyze] 한국어 재시도 실패 — 첫 답을 거르고 씁니다:', String(e?.message || e));
+          }
+        }
       }
 
       // 5) JSON 파싱
@@ -8087,21 +8120,24 @@ ${chatSampleText}
         console.warn('[ai-analyze] JSON parse fail:', e?.message, aiResponse.slice(0, 300));
       }
 
+      // 🧹 그래도 섞인 항목은 «통째로» 뺍니다(잘라 내면 말이 안 되는 문장이 남습니다)
+      const cl = cleanAnalysis(parsed);
+      if (cl.dropped.length) console.warn('[ai-analyze] 한국어 아닌 글자로 뺀 칸:', cl.dropped.join(','), uid);
       const analysis = {
         student_uid: uid,
         student_name: studentName,
-        summary: parsed?.summary || '(AI 응답 파싱 실패 - raw 참고)',
-        strengths: Array.isArray(parsed?.strengths) ? parsed.strengths.join(' | ') : (parsed?.strengths || ''),
-        weaknesses: Array.isArray(parsed?.weaknesses) ? parsed.weaknesses.join(' | ') : (parsed?.weaknesses || ''),
-        recommendations: Array.isArray(parsed?.recommendations) ? parsed.recommendations.join(' | ') : (parsed?.recommendations || ''),
+        summary: !parsed ? '(AI 응답 파싱 실패 - raw 참고)' : (cl.summary_dropped ? SUMMARY_UNAVAILABLE : (cl.summary || '(AI 응답 파싱 실패 - raw 참고)')),
+        strengths: cl.strengths,
+        weaknesses: cl.weaknesses,
+        recommendations: cl.recommendations,
         risk_level: parsed?.risk_level || 'unknown',
-        next_action: parsed?.next_action || '',
+        next_action: cl.next_action,
         raw_response: aiResponse.slice(0, 4000),
         model,
         generated_at: Date.now(),
         data_sources: {
           eval_count: evalStats?.n || 0,
-          attendance_count: attendanceCount?.n || 0,
+          attendance_count: attendanceDays,
           chat_messages: chatStats?.msg_count || 0,
           point_earned: pointStats?.earned || 0,
           game_correct: gameAgg?.c || 0,
@@ -8111,12 +8147,26 @@ ${chatSampleText}
       };
 
       // 6) D1 저장 (히스토리 관리)
-      await env.DB.prepare(
-        `INSERT INTO ai_student_analysis (student_uid, student_name, summary, strengths, weaknesses, recommendations, risk_level, raw_response, model, generated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
-      ).bind(
-        uid, studentName, analysis.summary, analysis.strengths, analysis.weaknesses,
-        analysis.recommendations, analysis.risk_level, analysis.raw_response, model, analysis.generated_at
-      ).run();
+      //   🧹 summary 를 못 살렸으면 저장하지 않습니다 — 저장하면 12시간 동안 그 안내문이 캐시로 나갑니다.
+      if (!cl.summary_dropped) {
+        try {
+          await env.DB.prepare(
+            `INSERT INTO ai_student_analysis (student_uid, student_name, summary, strengths, weaknesses, recommendations, risk_level, next_action, raw_response, model, generated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+          ).bind(
+            uid, studentName, analysis.summary, analysis.strengths, analysis.weaknesses,
+            analysis.recommendations, analysis.risk_level, analysis.next_action, analysis.raw_response, model, analysis.generated_at
+          ).run();
+        } catch (e: any) {
+          // next_action 칸을 못 만든 환경 — 그 칸 없이라도 적습니다(옛 저장본처럼 raw_response 에서 되살아납니다)
+          console.warn('[ai-analyze] next_action 칸 없이 저장:', String(e?.message || e));
+          await env.DB.prepare(
+            `INSERT INTO ai_student_analysis (student_uid, student_name, summary, strengths, weaknesses, recommendations, risk_level, raw_response, model, generated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
+          ).bind(
+            uid, studentName, analysis.summary, analysis.strengths, analysis.weaknesses,
+            analysis.recommendations, analysis.risk_level, analysis.raw_response, model, analysis.generated_at
+          ).run();
+        }
+      }
 
       return json({ ok: true, cached: false, analysis });
     }
