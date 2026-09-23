@@ -17,6 +17,16 @@
   ];
   var actions = {space:['손을 흔들어 인사해요.','Move a hand to say hello.'],castle:['마법 지팡이를 흔들어요.','Move a magic wand.'],jungle:['원숭이를 손으로 가리켜요.','Show where the monkey is with a finger.'],ocean:['손을 흔들어 인사해요.','Move a hand to say hello.'],'birthday-action':['촛불을 불어 꺼요.','Use a breath to put out the candles.'],'cooking-action':['반죽을 저어요.','Mix the batter with a spoon.'],library:['책을 읽어요.','Look at the words in a book.'],soccer:['공을 발로 차요.','Hit the ball with a foot.'],beach:['모래성을 만들어요.','Make a castle with sand.'],zoo:['기린에게 먹이를 줘요.','Give food to the giraffe.'],farm:['닭들에게 먹이를 줘요.','Give food to the chickens.'],snow:['눈사람을 만들어요.','Make a person with snow.']};
   var scenes = rows.map(function(r){return {id:r[0],ko:r[1],en:r[2],world:r[3],actionKo:actions[r[0]][0],actionEn:actions[r[0]][1],clueKo:r[4],clueEn:r[5],answers:r.slice(6).map(function(a){return a.split('|');}),poster:'/img/scene-quest/'+r[0]+'.webp',video:'/videos/scene-quest/'+r[0]+'.mp4'};});
+  // 🖼 사진 문제 은행(2026-09-23) — 이미 가진 Higgsfield 실사 사진(`/img/scene-clips/`)에 사람이 사진을 보고 쓴 정답.
+  //    원본은 docs/scene-curriculum-media/scene-quest-bank.json, 빌드는 scripts/build-scene-quest-bank.mjs.
+  //    영상은 아직 없어 video:null — 화면이 «영상 보기» 를 감춥니다. world 는 교재 수준(bts·siu-basic·siu-advance).
+  var bank=(typeof module!=='undefined'&&module.exports)?require('./scene-quest-bank.js'):(root.MangoiSceneQuestBank||[]);
+  function cap(t){return t.charAt(0).toUpperCase()+t.slice(1);}
+  bank.forEach(function(b){
+    var sent=[];b.subj.forEach(function(sj){b.phrase.forEach(function(ph){sent.push(sj+' '+b.aux+' '+ph);});(b.simple||[]).forEach(function(sp){sent.push(sj+' '+sp);});});
+    sent[0]=cap(sent[0])+'.';
+    scenes.push({id:'c'+b.i,ko:b.ko,en:b.en,world:b.band,actionKo:b.actionKo,actionEn:b.actionEn,clueKo:b.clueKo,clueEn:b.clueEn,answers:[b.word.slice(),b.phrase.slice(),sent],poster:'/img/scene-clips/'+b.i+'.webp',video:null});
+  });
   function normalize(s){return String(s||'').normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(he|she|it)'s\b/g,'$1 is').replace(/\b(they|we)'re\b/g,'$1 are').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
   function distance(a,b){var prev=Array.from({length:b.length+1},function(_,i){return i;});for(var i=1;i<=a.length;i++){var next=[i];for(var j=1;j<=b.length;j++)next[j]=Math.min(next[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=next;}return prev[b.length];}
   function check(value,scene,level){

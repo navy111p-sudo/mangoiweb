@@ -21,9 +21,9 @@
     var r=current();text('round-label',reviewing?tr('복습 탐험','REVIEW ADVENTURE'):r.boss?tr('마지막 보물문 · 한 단계 도전','FINAL GATE · LEVEL UP'):'SCENE '+(index+1)+' / '+rounds.length);
     text('scene-title',r.scene[ui]);text('level-tag',['WORD · 단어','PHRASE · 구문','SENTENCE · 문장'][r.level]);
     text('question',r.level===0?tr('무엇이 보이나요?','What can you see?'):r.level===1?tr('어떤 행동을 하나요?','What action can you see?'):tr('장면을 한 문장으로 써 보세요.','Describe the action in a sentence.'));
-    text('clue',r.level===0?tr('찾을 단서: ','Look for: ')+r.scene[ui==='ko'?'clueKo':'clueEn']:tr('동영상을 보고 중심 인물의 행동을 써 보세요.','Watch the clip and describe the main action.'));
+    text('clue',r.level===0?tr('찾을 단서: ','Look for: ')+r.scene[ui==='ko'?'clueKo':'clueEn']:(r.scene.video?tr('동영상을 보고 중심 인물의 행동을 써 보세요.','Watch the clip and describe the main action.'):tr('사진을 보고 중심 인물의 행동을 써 보세요.','Look at the photo and describe the main action.')));
     $('answer').placeholder=r.level===0?tr('단어를 써 보세요…','Type a word…'):r.level===1?tr('행동을 짧은 구문으로…','Type an action phrase…'):tr('누가 무엇을 하고 있나요?','Who is doing what?');
-    text('media-tag',tr('실사 스타일 · 6초 영상','PHOTOREAL · 6-SECOND CLIP'));
+    text('media-tag',r.scene.video?tr('실사 스타일 · 6초 영상','PHOTOREAL · 6-SECOND CLIP'):tr('실사 사진','REAL PHOTO'));
     text('gate-title',r.boss?tr('마지막 도전! 배운 장면을 더 길게 써 봐요.','Final challenge! Say more about a familiar scene.'):tr('보물문 열쇠 ','Treasure keys ')+Math.min(index,4)+' / 4');
     text('gate-copy',tr('힌트를 써도 끝까지 갈 수 있어요. 연속 정답은 보너스!','Hints help you finish. Consecutive answers earn a bonus!'));
     if(passed){text('gate-title',model());text('gate-copy',skipped?tr('이번엔 넘어갔어요. 마지막 복습에서 다시 연습해요.','Skipped this time. You will practise it in the review.'):tr('정답을 듣거나 다음 장면으로 이동하세요.','Listen to the answer or continue to the next scene.'));}
@@ -36,7 +36,8 @@
     $('answer').value='';$('answer').disabled=false;$('submit').disabled=false;$('hint').disabled=false;$('reveal').disabled=false;$('next').hidden=true;$('listen').hidden=true;$('skip').hidden=false;$('skip').disabled=false;$('hint-box').hidden=true;
     $('timer').hidden=style!=='challenge';$('gate').classList.remove('unlocked','flash');text('gate-icon',r.boss?'🔒':'🔑');
     $('path').innerHTML=rounds.map(function(_,i){return '<span class="'+(i<index?'done':i===index?'current':'')+'"></span>';}).join('');
-    feedback('');renderText();text('media-msg',tr('동영상은 눌렀을 때만 재생해요. 그림으로도 도전할 수 있어요.','Clips play only when you choose. You can also use the picture.'));updateHud();
+    $('watch').hidden=$('still').hidden=!r.scene.video;
+    feedback('');renderText();text('media-msg',r.scene.video?tr('동영상은 눌렀을 때만 재생해요. 그림으로도 도전할 수 있어요.','Clips play only when you choose. You can also use the picture.'):tr('사진을 잘 보고 영어로 써 보세요.','Look closely at the photo and type in English.'));updateHud();
   }
   function updateHud(){text('score',score);text('combo',combo+' COMBO');text('timer',remaining>0?tr('시간 보너스 ','Bonus time ')+Math.ceil(remaining)+'s':tr('계속 도전 가능','Keep trying'));}
   function remember(){if(!mistakes.some(function(r){return r.scene.id===current().scene.id&&r.level===current().level;}))mistakes.push(current());}
@@ -69,7 +70,7 @@
   }
   function reveal(){if(passed||paused||!active)return;assisted=true;combo=0;remember();updateHud();$('hint-box').hidden=false;text('hint-box',model()+'\n'+tr('직접 입력해 문을 열어 보세요. 이번 문제는 연습으로 기록돼요.','Type it yourself to open the gate. This round counts as practice.'));$('answer').focus();}
   function fallback(msg){var v=$('video');v.pause();v.hidden=true;$('poster').hidden=false;text('media-msg',msg);}
-  async function watch(){if(!active||paused)return;stopMedia();var epoch=mediaEpoch,v=$('video');if(!v.getAttribute('src'))v.src=current().scene.video;v.hidden=false;v.muted=true;$('poster').hidden=false;
+  async function watch(){if(!active||paused||!current().scene.video)return;stopMedia();var epoch=mediaEpoch,v=$('video');if(!v.getAttribute('src'))v.src=current().scene.video;v.hidden=false;v.muted=true;$('poster').hidden=false;
     text('media-msg',tr('영상을 불러오는 중… 잠시 기다리거나 그림으로 풀어 보세요.','Loading the clip… You can keep using the picture.'));
     try{await v.play();if(epoch!==mediaEpoch){if(paused||!active||v.hidden)v.pause();return;}if(paused||!active){v.pause();return;}$('poster').hidden=true;text('media-msg',tr('행동을 자세히 살펴봐요. 다시 누르면 처음부터 볼 수 있어요.','Watch the action. Tap again to replay from the beginning.'));}catch(_){if(epoch===mediaEpoch){fallback(tr('영상을 재생할 수 없어 그림을 보여 드려요. 힌트를 사용해도 좋아요.','Showing the picture because the clip could not play. You can use a hint.'));}}}
   function pause(){if(!active||paused)return;paused=true;stopMedia();$('paused').hidden=false;$('resume').focus();}
