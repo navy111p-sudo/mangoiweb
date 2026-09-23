@@ -83,3 +83,36 @@ body .after{max-width:940px;padding:0 20px 24px}
  .wg-scene img,.wg-scene video{height:200px}
  .wg-history-bar{align-items:stretch}
 }
+
+/* 👩‍🏫 (2026-09-23) 선생님 얼굴 크게 — 사장님 「PC·휴대폰에서 자연스럽게 수업할 수 있게 크게」.
+   옛 값 64x80(PC)·44x55(폰)은 입 모양이 안 보였다. 비율 4:5 는 그대로(찌그러짐 방지 — 높이는
+   mango-avatar.js 가 처음 한 번만 넣고 창 크기가 바뀌어도 다시 안 재므로 여기서 둘 다 못 박는다).
+   · 폰 88x110 · 세로가 짧은 폰(≤740) 72x90 · 폰 가로(세로 ≤520) 52x65 · 태블릿 104x130 · PC 124x155
+   · 넓은 PC(≥1360, 세로 ≥700): 채팅(940px) «옆 빈 여백» 으로 빼서 여백만큼 크게(160~300px).
+     채팅과 안 겹치는 폭·화면 세로 둘 다에 묶는다. 감시: test-harness/manual/warmup-avatar-size-browser.mjs */
+body #tavatar-wrap{--av-w:124px}
+body #tavatar-wrap #tavatar-ring{width:var(--av-w)!important;height:calc(var(--av-w) * 1.25)!important;border-radius:20px}
+body #tavatar-status{font-size:13px;max-width:170px}
+@media(max-width:899px){body #tavatar-wrap{--av-w:104px}}
+@media(max-width:640px){
+ body #tavatar-wrap{--av-w:88px}
+ body #tavatar-wrap #tavatar-ring{border-radius:16px}
+ body #tavatar-status{font-size:12px;max-width:110px}
+}
+@media(max-width:640px) and (max-height:740px){body #tavatar-wrap{--av-w:72px}}
+/* 좁은 폰(≤400): 얼굴이 커진 만큼 옆 글자가 두 줄로 꺾이지 않게 한 줄로 조인다 */
+@media(max-width:400px){
+ body #tavatar-wrap{gap:6px}
+ body #tavatar-status{font-size:11px;padding:3px 8px;white-space:nowrap;max-width:none}
+ .wg-progress strong{font-size:15px;white-space:nowrap}
+ .wg-progress{font-size:11px}
+}
+@media(max-height:520px){body #tavatar-wrap{--av-w:52px}}
+@media(min-width:1360px) and (min-height:700px){
+ body #tavatar-wrap{position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:49;
+  flex-direction:column;gap:10px;
+  --av-w:clamp(160px, min(calc((100vw - 940px) / 2 - 40px), calc((100vh - 200px) * .8)), 300px)}
+ body #tavatar-wrap #tavatar-ring{border-radius:24px}
+ body #tavatar-status{font-size:15px;max-width:none;padding:5px 15px}
+ .wg-progress{margin-left:auto}
+}
