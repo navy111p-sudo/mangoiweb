@@ -11,6 +11,7 @@
  */
 
 import { WebSocketMessage, PdfShareData } from './types';
+import { verifyGhostObserveSig } from './auth-token';
 
 const MAX_USERS = 10;
 
@@ -141,10 +142,14 @@ export class VideoCallRoom {
   private static readonly LIVENESS_NOPING_STALE_MS = 600 * 1000;
   /** 소켓별 마지막 수신 시각(메모리). hibernation 으로 비면 autoResponse 시각·attachment 로 대체한다. */
   private lastSeen: Map<WebSocket, number> = new Map();
+  /** 👁 (2026-09-23) 참관 서명 검증용 — verifyGhostObserveSig 가 시크릿(ROOM_JWT_SECRET)을 읽는다.
+      생성자 인자로만 들어오고 그동안 저장하지 않아, 그전엔 이 클래스 안에서 시크릿에 닿을 방법이 없었다. */
+  private env: any;
 
   constructor(state: DurableObjectState, env?: any) {
     this.state = state;
     this.roomId = '';
+    this.env = env;
     try { this.stickyUid = !!(env && env.VC_STICKY_UID === 'on'); } catch { this.stickyUid = false; }
     /* 💓 클라이언트(createWebSocket)가 25초마다 보내는 정확히 이 문자열에 자동 응답한다.
        문자열이 **완전히 일치**해야 발동하므로 `JSON.stringify({type:'ping'})` 와 한 글자도 달라선 안 된다.
@@ -447,7 +452,7 @@ export class VideoCallRoom {
 
       switch (msg.type) {
         case 'join-room':       this.handleJoinRoom(ws, userId, msg.data as any); break;
-        case 'join-observe':    this.handleJoinObserve(ws, userId, msg.data as any); break;
+        case 'join-observe':    await this.handleJoinObserve(ws, userId, msg.data as any); break;
         case 'leave-room':
           this.handleLeaveRoom(userId, ws, att.username, 'left');
           // 뒤따르는 소켓 close 가 같은 사용자를 또 'user-left' 로 방송하지 않도록 선반영
@@ -767,10 +772,25 @@ export class VideoCallRoom {
              자리가 아니라 창 하나가 계속 도는 것이라 우리가 정해도 된다.
           소리만 참관자는 video transceiver 가 inactive 라(영상이 «오지 않는다») 업로드를 거의 안 늘린다.
           ⚠️ 그 선택은 «입장할 때» 정해진다(재협상이 없다) — 그래서 관제탑에서 고른다.
-     ⚠️ role 은 클라이언트 신고값이라 보안 경계가 아니다 — join-room 과 같은 전제.
-        (감사 기록은 관리자 화면이 /api/admin/ghost/start 로 별도 남긴다.
-         강화하려면 ghost/start 가 발급한 단기 토큰을 여기서 검증하는 구조가 필요) */
-  private handleJoinObserve(ws: WebSocket, userId: string, data: any): void {
+     ⚠️ role 자체는 여전히 클라이언트 신고값이다(join-room 과 같은 전제) — 다만 이 함수에
+        「들어와도 되는가」는 더 이상 그것으로 판정하지 않는다. 아래 tok 검증이 그 경계다.
+     🔒 (2026-09-23) 참관 토큰 — 위 문단이 「role 은 보안 경계가 아니다」라고 적어 둔 것이
+        곧 구멍이었다: roomId 는 class-{예약id}-{날짜} 처럼 결정론적이라 추측 가능하고,
+        join-observe 는 그동안 아무 자격도 요구하지 않았다(감사 기록도 /api/admin/ghost/start
+        가 fire-and-forget 로 남길 뿐 참관 자체를 막지 못했다). 이제 ghost/start 가 발급한
+        방 1개 전용 서명(signGhostObserveSig, TTL 30분)을 data.tok 로 요구한다 — 없거나
+        방 번호가 다르거나 만료됐으면 거절한다(방 번호와 정확히 묶여 있어 다른 방 서명으로는
+        못 들어온다). ⛔ role 검사를 되살려 이걸 대신하려 하지 말 것 — 클라이언트가 role 을
+        'observer' 로 보내는 것과 실제로 참관 권한이 있는 것은 여전히 다른 얘기다. */
+  private async handleJoinObserve(ws: WebSocket, userId: string, data: any): Promise<void> {
+    const tok = String((data && data.tok) || '');
+    const ok = tok ? await verifyGhostObserveSig(this.roomId, tok, this.env) : false;
+    if (!ok) {
+      this.send(userId, { type: 'observe-denied', data: { roomId: this.roomId } });
+      try { ws.close(1000, 'observe-denied'); } catch {}
+      return;
+    }
+
     const OBSERVER_MAX = 4;   // ⚠️ 올릴 때는 위 주석의 «업로드 한 갈래» 계산을 다시 하세요
     // 정원 판정과 관리자 표의 «(관찰 N)» 이 같은 셈법을 쓰도록 helper 하나로 모았다.
     const observers = this.observerCount(ws);

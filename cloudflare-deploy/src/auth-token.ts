@@ -177,6 +177,52 @@ export async function verifyRecDlSig(recId: number, sig: string, env: any): Prom
   } catch { return false; }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 👁 고스트 참관 서명 (2026-09-23) — «/?observe=roomId 에 인증이 전혀 없다」구멍 수리
+//
+//   왜 필요한가 — video-call-room.ts 의 handleJoinObserve 는 WebSocket join-observe
+//   메시지의 role 을 그대로 믿는다(클라이언트 신고값). 즉 방 번호(class-{예약id}-{날짜} 처럼
+//   결정론적이라 추측 가능)만 알면 로그인조차 없이 누구나 수업을 몰래 볼 수 있었다.
+//   /api/admin/ghost/start 는 감사 로그만 남기고 참관 자체를 막지 못했다(fire-and-forget,
+//   실패해도 탭은 그대로 열림).
+//
+//   구조 — signRecDlSig 와 동일한 «단일 자원 전용 HMAC» 패턴. ghost/start 가 (이미
+//   isAgencyAllowedApi·TEACHER_BLOCKED_PREFIXES 로 본사/관리자만 걸러진 뒤) 서명을
+//   함께 돌려주고, 화면은 그 서명을 ?observe=roomId&tok=... 에 실어 연다.
+//   WebSocket 이 열리면 join-observe 페이로드에 실어 보내고, DO 가 이 파일로 검증한다.
+//
+//   TTL 30분 — 「session_state 8-③ TTL 단축」류 무한 링크를 피하면서(6시간짜리 recdl 과
+//   같은 성격), 재연결(createWebSocket 은 vc-in-call 이면 무기한 재시도)에서 같은 클로저의
+//   토큰을 다시 보내도 짧은 순단·순회 참관 dwell(15~20초) 안에서는 넉넉하다.
+//   ⚠️ 서명 자체는 방 번호에만 묶인다 — 「누가」 열었는지는 감사로그(admin_observations)가 맡는다.
+// ═══════════════════════════════════════════════════════════════════════
+
+const GHOST_OBSERVE_TTL_MS = 30 * 60 * 1000;
+
+function ghostObsKey(env: any, usage: 'sign' | 'verify'): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
+}
+
+/** 방 1개 전용 참관 서명 발급 — 반환 형식은 "만료ms.서명(b64url)" (signRecDlSig 와 동일 형식) */
+export async function signGhostObserveSig(roomId: string, env: any, ttlMs = GHOST_OBSERVE_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await ghostObsKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('ghostobs:' + roomId + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 참관 서명 검증 — roomId 불일치·만료·위조·빈 값 모두 false(= 막는 쪽으로 실패) */
+export async function verifyGhostObserveSig(roomId: string, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!roomId || !Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await ghostObsKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('ghostobs:' + roomId + ':' + exp));
+  } catch { return false; }
+}
+
 /**
  * 요청에서 인증된 uid 추출: Authorization: Bearer > body.token > ?token=
  * 반환값이 없거나 요청 uid 와 다르면 호출자가 401 처리.

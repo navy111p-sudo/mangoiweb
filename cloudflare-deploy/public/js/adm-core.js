@@ -2065,19 +2065,23 @@ function mangoiOpenTab(url, title) {
 }
 window.mangoiOpenTab = mangoiOpenTab;
 
-function observeRoom(roomId) {
+async function observeRoom(roomId) {
   const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
-  const url = window.location.origin + '/?observe=' + encodeURIComponent(roomId);
+  let url = window.location.origin + '/?observe=' + encodeURIComponent(roomId);
 
   /* 📜 참관 기록 — '수업 관찰' 카드는 사유를 받아 감사 로그에 남기는데, 실시간 수업 현황의
      GHOST 버튼은 기록 없이 바로 들어가고 있었다. 학생 사생활 보호 정책상 참관은 모두 남아야 하므로
      여기서도 자동으로 기록한다. 급한 상황용 버튼이라 사유는 묻지 않고 자동 문구를 넣는다.
-     기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선). */
+     기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선).
+     🔒 (2026-09-23) 이 응답의 observe_sig 가 곧 참관 자격이다(video-call-room.ts 가 검증).
+     예전엔 fire-and-forget 이라 이 POST 가 실패해도 탭이 그대로 열려 «감사 로그 없이도 참관이
+     됐다» — 지금은 그 실패가 그대로 서버의 observe-denied 거절로 이어지므로(방어 위치가
+     WebSocket 쪽으로 옮겨졌을 뿐) 여기서 await 해도 '기록 실패 시 참관을 막는다' 는 아니다. */
   try {
     const s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
     const uid = String(s.uid || '').trim();
     if (uid) {
-      fetch('/api/admin/ghost/start', {
+      const r = await fetch('/api/admin/ghost/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -2086,7 +2090,9 @@ function observeRoom(roomId) {
           room_id: roomId,
           reason: '실시간 수업 현황에서 즉시 참관 (Live Classes → Ghost)'
         })
-      }).catch(function () {});
+      }).catch(function () { return null; });
+      const d = r ? await r.json().catch(function () { return null; }) : null;
+      if (d && d.observe_sig) url += '&tok=' + encodeURIComponent(d.observe_sig);
     }
   } catch (e) {}
 
@@ -3774,10 +3780,27 @@ window.tpGhostObserve = async function (teacherId) {
     room = mine[idx - 1].room_id;
   }
 
-  const url = location.origin + '/?observe=' + encodeURIComponent(room);
+  let url = location.origin + '/?observe=' + encodeURIComponent(room);
+  /* 🔒 (2026-09-23) 이 함수는 감사 로그(/api/admin/ghost/start)를 아예 안 부르고 있었다 —
+     강사 명부의 이 버튼만 기록 없이 곧장 참관으로 들어가는 예외였다(다른 세 진입점은
+     이미 부르고 있었다). 이제 video-call-room.ts 가 이 호출이 돌려주는 서명 없이는
+     참관 자체를 거절하므로 반드시 불러야 한다 — 빠뜨리면 이 버튼만 조용히 막힌다. */
+  try {
+    const s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+    const uid = String(s.uid || '').trim();
+    if (uid) {
+      const r = await fetch('/api/admin/ghost/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ admin_uid: uid, room_id: room, reason: '강사 명부에서 지금 수업 참관 (Teacher list → Observe)' })
+      }).catch(function () { return null; });
+      const d = r ? await r.json().catch(function () { return null; }) : null;
+      if (d && d.observe_sig) url += '&tok=' + encodeURIComponent(d.observe_sig);
+    }
+  } catch (e) {}
+
   /* 팝업이 막히면 조용히 실패한다(window.open 은 예외 없이 null 만 준다 — CLAUDE.md 2장) */
   if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업관찰', 'Observe'));
-  else { let _w = null; try { _w = window.open(url, '_blank'); } catch (e) {} 
+  else { let _w = null; try { _w = window.open(url, '_blank'); } catch (e) {}
          if (_w) { try { _w.opener = null; } catch (e) {} } else location.href = url; }
 };
 
