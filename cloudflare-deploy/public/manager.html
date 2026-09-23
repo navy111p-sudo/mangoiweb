@@ -696,6 +696,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <span data-en="Date" data-ko="날짜">Date</span>
       <input type="date" id="taDate" onchange="loadTodayAll()" style="box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
     </label>
+    <!-- 🏫 (2026-09-23 매니저 Karl 요청) 학원·강사를 치지 않고 골라서 거르기 — 「오늘 ○○학원 수업만」.
+         목록은 그날 불러온 줄에서만 만든다(건수 포함). admin.html 「오늘 수업」과 같은 판정(아래 pickKey·pickOptions).
+         ⚠️ 이 화면은 외부 스크립트 0개 계약이라 판정이 두 벌이다 — test-harness/today_class_pickers_harness.mjs 가 대조한다. -->
+    <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding:0 0 8px 8px">
+      <span data-en="Academy" data-ko="학원">Academy</span>
+      <select id="taAcademy" onchange="paintTodayAll()" style="box-sizing:border-box;max-width:200px;padding:3px 6px;font-size:12px"><option value="">All</option></select>
+    </label>
+    <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding:0 0 8px 8px">
+      <span data-en="Teacher" data-ko="강사">Teacher</span>
+      <select id="taTeacher" onchange="paintTodayAll()" style="box-sizing:border-box;max-width:170px;padding:3px 6px;font-size:12px"><option value="">All</option></select>
+    </label>
     <div id="todayAllBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1803,9 +1814,50 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(e){ failBox(el, e); });
   };
 
+  /* 🏫 (2026-09-23) 학원·강사 고르기 — admin.html(js/adm-today-classes.js)과 **같은 판정**. 한쪽만 고치지 말 것. */
+  var PICK_NONE = '__none__';
+  function pickKey(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim() || PICK_NONE; }
+  function pickMatch(s, field, sel) { return !sel || pickKey(s[field]) === sel; }
+  function pickOptions(rows, field) {
+    var m = {};
+    rows.forEach(function (s) { var k = pickKey(s[field]); m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).sort(function (a, b) {
+      if (a === PICK_NONE) return 1;
+      if (b === PICK_NONE) return -1;
+      return a.localeCompare(b, 'ko', { numeric: true, sensitivity: 'base' });
+    }).map(function (k) { return { value: k, n: m[k] }; });
+  }
+  /* 고른 값이 새 목록에 없으면(날짜를 바꿈 등) «전체» 로 돌린다 — 안 돌리면 이유 없이 0건이 된다 */
+  function fillPick(id, opts, allLabel, noneLabel) {
+    var el = document.getElementById(id);
+    if (!el) return '';
+    var cur = String(el.value || '');
+    var has = false, html = '<option value="">' + esc(allLabel) + '</option>';
+    opts.forEach(function (o) {
+      if (o.value === cur) has = true;
+      html += '<option value="' + esc(o.value) + '">'
+        + esc((o.value === PICK_NONE ? noneLabel : o.value) + ' (' + o.n + ')') + '</option>';
+    });
+    el.innerHTML = html;
+    el.value = has ? cur : '';
+    return el.value;
+  }
+
+  window.paintTodayAll = paintTodayAll;
   function paintTodayAll(){
+    if (!D.todayAll) return; // 🏫 아직 안 불러왔는데 드롭다운이 바뀐 경우 — 그릴 것이 없다
     var j = D.todayAll || {};
-    var rows = (j.sessions || []).slice();
+    var all = (j.sessions || []).slice();
+    /* 학원·강사 목록은 서로를 따라 좁힌다(학원을 고르면 강사는 그 학원 강사만). «그날 전체» 에서 센다. */
+    var noAc = T('(no academy)', '(학원 미지정)'), noTe = T('(unassigned)', '(강사 미배정)');
+    var ac0 = (document.getElementById('taAcademy') || {}).value || '';
+    var te0 = (document.getElementById('taTeacher') || {}).value || '';
+    var acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', te0); }), 'academy'), T('All', '전체'), noAc);
+    var teSel = fillPick('taTeacher', pickOptions(all.filter(function (s) { return pickMatch(s, 'academy', acSel); }), 'teacher_name'), T('All', '전체'), noTe);
+    if (ac0 !== acSel || te0 !== teSel) {
+      acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', teSel); }), 'academy'), T('All', '전체'), noAc);
+    }
+    var rows = all.filter(function (s) { return pickMatch(s, 'academy', acSel) && pickMatch(s, 'teacher_name', teSel); });
     // 들어갈 수 있는 줄을 맨 위로 — 급할 때 위만 보면 되게
     rows.sort(function(a, b){
       if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
@@ -1823,7 +1875,25 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       cnote = T('☎ ' + noMobile + ' of ' + rows.length + ' have no number — the roster stores none; only at-risk students have one.',
                 '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 없고 «관리 대상» 학생만 있습니다.');
     }
+    /* 🏫 거르는 중이면 숫자도 «눈앞의 줄» 로 센다 — 서버 합계(c.*)를 그대로 쓰면 「3건 보이는데 카페24 40건」이 된다 */
+    var picking = !!(acSel || teSel);
+    if (picking) {
+      c = { cafe24: rows.filter(function (r) { return r.source === 'cafe24'; }).length,
+            joinable: rows.filter(function (r) { return r.join_open; }).length };
+    }
+    var nTeach = {};
+    rows.forEach(function (r) { var k = pickKey(r.teacher_name); if (k !== PICK_NONE) nTeach[k] = 1; });
+    var pickLine = picking
+      ? '<b>🏫 ' + esc(acSel ? (acSel === PICK_NONE ? noAc : acSel) : T('All academies', '전체 학원'))
+        + (teSel ? ' · ' + esc(teSel === PICK_NONE ? noTe : teSel) : '') + '</b> · '
+        + esc(T(rows.length + ' of ' + all.length + ' · ' + Object.keys(nTeach).length + ' teacher(s)',
+                '전체 ' + all.length + '건 중 ' + rows.length + '건 · 강사 ' + Object.keys(nTeach).length + '명'))
+        + (c.cafe24 ? '<br>' + esc(T('cafe24 (LMS) classes cannot be moved here — handle them in cafe24.',
+                                     '카페24(LMS) 수업은 여기서 옮길 수 없습니다 — 카페24에서 직접 처리하세요.')) : '')
+        + '<br>'
+      : '';
     var head = '<div class="muted" style="padding-bottom:6px">'
+      + pickLine
       + (cnote ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
@@ -1953,7 +2023,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       }
       return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + calLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
-    }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
+    }, (acSel || teSel)
+      /* 🏫 거르는 중 0건은 «원래 없음» 과 다르다 — 그렇게 말한다 */
+      ? T('No classes match the academy/teacher picked (' + all.length + ' on this date).',
+          '고른 학원·강사에 맞는 수업이 없습니다 (이 날짜 전체 ' + all.length + '건).')
+      : T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
     if (rows.length && box) box.insertAdjacentHTML('afterbegin', head);
     bindBookPins();
