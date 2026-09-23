@@ -420,15 +420,17 @@
                     'Your browser blocked the new window. Please allow pop-ups for this site.'));
     return w;
   }
-  /* 📜 참관 기록 — 사유와 함께 감사 로그에 남긴다. 기록이 실패해도 참관은 막지 않는다
-     (수업 대응이 먼저 — adm-core observeRoom·adm-s1 ghQuickObserve 와 같은 판단). */
+  /* 📜 참관 기록 + observe_sig 발급. 실패해도 안 막는다. */
   function logObserve(roomId, reason){
     try {
       var uid = myUid();
-      if (uid) fetch('/api/admin/ghost/start', { method:'POST', credentials:'include',
+      if (uid) return fetch('/api/admin/ghost/start', { method:'POST', credentials:'include',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ admin_uid:uid, room_id:roomId, reason:reason }) }).catch(function(){});
+        body: JSON.stringify({ admin_uid:uid, room_id:roomId, reason:reason }) })
+        .then(function(r){ return r.json().then(function(d){ return (d && d.observe_sig) || null; }); })
+        .catch(function(){ return null; });
     } catch(e){}
+    return Promise.resolve(null);
   }
   /* 👁 참관 세 갈래 — 셋 다 «학생·강사에게 보이지 않는» 같은 참관이고, 여는 방식만 다르다.
      · ''       보통 참관 (영상 + 소리)
@@ -441,9 +443,12 @@
       : mode === 'audio'
         ? L('관제탑에서 소리만 참관 (monitor-wall)', 'Audio-only observe from monitor-wall')
         : L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall');
-    logObserve(roomId, reason);
     var q = mode === 'whisper' ? '&whisper=1' : mode === 'audio' ? '&audio=1' : '';
-    openTab(location.origin + '/?observe=' + encodeURIComponent(roomId) + q);
+    logObserve(roomId, reason).then(function(sig){
+      var url = location.origin + '/?observe=' + encodeURIComponent(roomId) + q
+        + (sig ? '&tok=' + encodeURIComponent(sig) : '');
+      openTab(url);
+    });
   }
   function enterRoom(roomId){
     if (!confirm(L('수업 "' + roomId + '" 에 직접 입장할까요?\n\n· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n· 카메라는 꺼진 채로 입장합니다.',
@@ -532,17 +537,23 @@
     if (i < 0) i = list.length - 1;
     if (i >= list.length) i = 0;
     rot.idx = i; rot.room = list[i]; rot.left = dwellSec();
+    var targetRoom = rot.room;
     /* 🎧 (2026-09-02) 이미 붐비는 방에는 «소리만» 으로 붙는다.
        순회 창도 참관자 한 명이고, 정원을 4로 올린 뒤에는 «순회 1 + 사람 3» 이 실제로 생긴다.
        그때 넷 다 영상이면 강사 업로드가 +4.8Mbps — 필리핀 회선에서는 그 자체가 수업을 깬다.
        ⚠️ 소리만/영상은 «열 때» 정해진다(자동 재협상 없음). 그래서 여기서 고른다. */
-    var rotRm = (state.rooms || []).filter(function(x){ return String(x.roomId) === rot.room; })[0];
+    var rotRm = (state.rooms || []).filter(function(x){ return String(x.roomId) === targetRoom; })[0];
     var rotBusy = ((rotRm && rotRm.observerCount) || 0) >= OBS_BUSY;
     logObserve(rot.room, rotBusy
       ? L('순회 참관 · 소리만 (관제탑)', 'Rotating observation, audio-only (monitor-wall)')
-      : L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)'));
-    try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(rot.room) + (rotBusy ? '&audio=1' : ''); }
-    catch(e){ rotStop(); return; }
+      : L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)')
+    ).then(function(sig){
+      if (!rot.on || rot.room !== targetRoom) return;
+      if (!rot.win || rot.win.closed) { rotStop(); return; }
+      try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(targetRoom)
+        + (rotBusy ? '&audio=1' : '') + (sig ? '&tok=' + encodeURIComponent(sig) : ''); }
+      catch(e){ rotStop(); return; }
+    });
     renderRotBar();
   }
   function rotTick(){

@@ -42,19 +42,26 @@
      비어 있으면 자동 문구로 감사 로그에 남긴다(기록 없이 들어가지 않는다 — 학생 사생활 보호 정책 그대로).
      기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선 — adm-core observeRoom 과 같은 판단).
      새 탭으로 열리므로 여러 수업을 동시에 참관할 수 있다(방마다 참관 동시 4명 제한은 서버 그대로 — 정본은 video-call-room.ts 의 OBSERVER_MAX). */
-  window.ghQuickObserve = function(roomId){
+  /* 🔒 (2026-09-23) 이제 이 POST 가 돌려주는 서명(observe_sig) 없이는 서버(video-call-room.ts)
+     가 참관을 거절한다 — 그래서 async 로 바꿔 await 한다. 실패해도(uid 없음·네트워크 오류)
+     탭은 그대로 연다 — 서버가 없는/틀린 토큰을 observe-denied 로 정직하게 거절해 준다. */
+  window.ghQuickObserve = async function(roomId){
     const en = _ghIsEn();
     const uid = _ghMyUid();
     const reason = v('gh-reason')
       || (en ? 'Quick observe from the live list (Class Observation card)'
              : '라이브 목록에서 즉시 참관 (수업 관찰 카드)');
+    let url = location.origin + '/?observe=' + encodeURIComponent(roomId);
     try {
-      if (uid) fetch('/api/admin/ghost/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ admin_uid: uid, room_id: roomId, reason: reason })
-      }).catch(function(){});
+      if (uid) {
+        const r = await fetch('/api/admin/ghost/start', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ admin_uid: uid, room_id: roomId, reason: reason })
+        }).catch(function(){ return null; });
+        const d = r ? await r.json().catch(function(){ return null; }) : null;
+        if (d && d.observe_sig) url += '&tok=' + encodeURIComponent(d.observe_sig);
+      }
     } catch(e){}
-    const url = location.origin + '/?observe=' + encodeURIComponent(roomId);
     if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Observe class' : '수업 관찰 열기');
     else window.open(url, '_blank', 'noopener');
   };

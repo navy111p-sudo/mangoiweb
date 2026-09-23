@@ -27,7 +27,7 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
-import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { authUidFromRequest as authUidGlobal, signGhostObserveSig } from './auth-token';
 import { applyPlacementLevel, loadTextbookChoices, cefrDisplay, CEFR_LADDER } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
 import { probeImage, ocrGate } from './textbook-ocr';
 import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
@@ -12499,12 +12499,18 @@ LIMIT $limit`;
       const observationId = r.meta?.last_row_id;
       await writeAudit(adminUid, 'ghost_join', { room: roomId, ip, meta: { observation_id: observationId, reason } });
 
-      // GM-4 미구현: 실제 미디어 consumer 는 추후. 지금은 기록만.
+      /* 🔒 (2026-09-23) 이 방 1개 전용 참관 서명 — 화면이 ?observe=roomId&tok=... 로 열고,
+         video-call-room.ts 의 handleJoinObserve 가 WebSocket join-observe 페이로드에서 검증한다.
+         이 엔드포인트 자체가 이미 isAgencyAllowedApi·TEACHER_BLOCKED_PREFIXES 로 본사/관리자만
+         걸러진 뒤라(지사·대리점·강사는 여기까지 못 옴) 별도 스코프 검사를 다시 걸 필요는 없다. */
+      const observeSig = await signGhostObserveSig(roomId, env);
+
       return json({
         ok: true, observation_id: observationId, room_id: roomId,
         ghost_mode: 'recorded_only',
         notice_sent_to_others: false,                            // 핵심: 다른 참가자에게 알림 X
         media_consumer_pending: true,                            // GM-4 에서 활성화 예정
+        observe_sig: observeSig,
       });
     }
 
