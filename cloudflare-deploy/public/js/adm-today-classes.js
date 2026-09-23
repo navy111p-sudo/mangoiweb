@@ -38,6 +38,59 @@
     ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' }
   };
 
+  /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
+     값은 전부 서버가 판정해 준다(src/class-today-extras.ts). 화면은 «고르기만» 한다.
+     ⛔ 모르면 «—» — 지어내지 않는다. ⚠️ 색만으로 뜻을 전하지 않는다(카드 안 글자색은
+        admin-inline-c.css 가 검정으로 덮을 수 있다) → 이모지 + 글자로 뜻을 지고 간다. */
+  function xDash() { return '<span style="color:#9ca3af;font-size:11px">—</span>'; }
+  function xSmall(txt, extra) {
+    return '<span style="font-size:11px;white-space:nowrap' + (extra || '') + '">' + txt + '</span>';
+  }
+  function xTeacherEntry(e) {
+    if (!e) return xDash();
+    if (e.state === 'on_time') return xSmall('✅ ' + esc(hhmm(e.at)) + ' · ' + T('정시', 'on time'), ';color:#047857;font-weight:700');
+    if (e.state === 'late') return xSmall('⏰ ' + esc(hhmm(e.at)) + ' · ' + T(e.late_min + '분 지각', e.late_min + ' min late'), ';color:#b91c1c;font-weight:800');
+    if (e.state === 'pending') return xSmall(T('아직 전', 'not yet'), ';color:#6b7280');
+    if (e.state === 'none') return xSmall('⚠ ' + T('입장 기록 없음', 'no entry record'), ';color:#b45309;font-weight:700');
+    if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
+    return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
+  }
+  function xAttendance(a) {
+    if (!a) return xDash();
+    var m = {
+      attended: ['✅', '출석', 'Attended', ';color:#047857;font-weight:700'],
+      late:     ['⏰', '지각', 'Late', ';color:#b45309;font-weight:800'],
+      absent:   ['❌', '결석(입장 기록 없음)', 'Absent (no entry)', ';color:#b91c1c;font-weight:800'],
+      waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
+      not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
+      unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
+      cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
+    }[a.state];
+    if (!m) return xDash();
+    var t = (m[0] ? m[0] + ' ' : '') + T(m[1], m[2]);
+    if (a.at) t += ' · ' + esc(hhmm(a.at));
+    if (a.state === 'late' && a.late_min != null) t += T(' (+' + a.late_min + '분)', ' (+' + a.late_min + 'm)');
+    return xSmall(t, m[3]);
+  }
+  function xPay(v) {
+    if (v !== 'B2B' && v !== 'B2C') return xDash();
+    return '<span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:10.5px;font-weight:800;white-space:nowrap;'
+      + (v === 'B2B' ? 'background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe' : 'background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0')
+      + '">' + v + '</span>';
+  }
+  function xSched(s) {
+    var l = isEn() ? s.sched_label_en : s.sched_label_ko;
+    return l ? xSmall(esc(l), ';color:#475569') : xDash();
+  }
+  function xEval(e) {
+    if (!e) return xDash();
+    var head = esc(e.date || '') + (e.score != null ? ' · ⭐ ' + esc(e.score) + '/' + esc(e.max || '') : '');
+    return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">'
+      + '<div style="white-space:nowrap;font-weight:700">' + head + '</div>'
+      + (e.text ? '<div title="' + esc(e.text) + '">' + esc(e.text) + '</div>' : '')
+      + '</div>';
+  }
+
   function badge(status) {
     var b = BADGE[status] || BADGE.early;
     return '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
@@ -531,11 +584,18 @@
       + bookLine
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
+      +   '<th>' + T('날짜', 'Date') + '</th>'
       +   '<th>' + T('시간', 'Time') + '</th>'
       +   '<th>' + T('상태', 'Status') + '</th>'
       +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
       +   '<th>' + T('연락처', 'Contact') + '</th>'
       +   '<th>' + T('학원', 'Academy') + '</th>'
+      +   '<th>' + T('결제 유형', 'Payment type') + '</th>'
+      +   '<th>' + T('일정', 'Schedule') + '</th>'
+      +   '<th>' + T('강사 입장', 'Instructor entrance') + '</th>'
+      +   '<th>' + T('학생 출결', 'Attendance') + '</th>'
+      +   '<th>' + T('지난 수업 평가', 'Last class feedback') + '</th>'
+      +   '<th>' + T('오늘 평가', "Today's feedback") + '</th>'
       +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
       +   '<th>' + T('강사', 'Teacher') + '</th>'
       +   '<th>' + T('강의실', 'Room') + '</th>'
@@ -666,6 +726,7 @@
               + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
           }
           return '<tr>'
+            + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
@@ -677,6 +738,12 @@
             + '</td>'
             + '<td>' + contact + '</td>'
             + '<td>' + academy + '</td>'
+            + '<td>' + xPay(s.pay_type) + '</td>'
+            + '<td>' + xSched(s) + '</td>'
+            + '<td>' + xTeacherEntry(s.teacher_entry) + '</td>'
+            + '<td>' + xAttendance(s.attendance) + '</td>'
+            + '<td>' + xEval(s.last_eval) + '</td>'
+            + '<td>' + xEval(s.today_eval) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
