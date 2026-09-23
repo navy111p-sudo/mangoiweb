@@ -92,6 +92,12 @@ export interface PlanInput {
   textbook: string | null;
   /** 중국어 교재(다락원) 학생이면 true — 복습퀴즈·음성코치를 중국어 화면으로 */
   zh?: boolean;
+  /**
+   * AI 학습만 하는 학생(활성 예약 0건 — src/student-track.ts)이면 true.
+   * 복습퀴즈는 «수업에서 배운 것» 을 묻는데 그 학생에게는 수업이 없다 → 집에서 하는 날의
+   * 복습퀴즈를 단어장으로 바꾼다(2026-09-23 제안). 모르면 false(예전 그대로).
+   */
+  aiOnly?: boolean;
   /** KST 요일 0~6 */
   dow: number;
   /** KST 자정부터 지난 분 (0~1439) */
@@ -218,10 +224,12 @@ function spec(key: ToolKey, zh?: boolean): { url: string; icon: string; ko: stri
   return { url: (zh && t.urlZh) ? t.urlZh : t.url, icon: t.icon, ko: t.ko, en: t.en, minutes: t.minutes };
 }
 
-/** 밴드에 맞게 묶음을 다듬는다 — 글쓰기는 밴드 3 미만이면 AI 친구로 */
-function fitToBand(keys: ToolKey[], band: number | null): ToolKey[] {
+/** 밴드에 맞게 묶음을 다듬는다 — 글쓰기는 밴드 3 미만이면 AI 친구로.
+ *  aiOnly 면 복습퀴즈를 단어장으로(수업이 없는 학생에게 «수업 복습» 은 빈 목록이다). */
+function fitToBand(keys: ToolKey[], band: number | null, aiOnly?: boolean): ToolKey[] {
   const out: ToolKey[] = [];
-  for (const k of keys) {
+  for (const k0 of keys) {
+    const k: ToolKey = (aiOnly && k0 === 'review') ? 'vocab' : k0;
     const t = TOOLS[k];
     if (t.minBand && (band == null || band < t.minBand)) { if (!out.includes('friend')) out.push('friend'); continue; }
     if (!out.includes(k)) out.push(k);
@@ -262,7 +270,7 @@ export function buildWeek(inp: PlanInput): WeekDay[] {
     const isClass = set.has(d);
     const tools = isClass
       ? [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home]
-      : fitToBand(HOME_WEEK[d] || ['friend', 'micro'], inp.band);
+      : fitToBand(HOME_WEEK[d] || ['friend', 'micro'], inp.band, inp.aiOnly);
     /* 시각은 «수업일인 날» 에만 붙인다 — times 가 넓어도 판정은 weekClassDows 하나뿐 */
     const start = isClass && hhmmToMin(times[d]) != null ? String(times[d]).slice(0, 5) : null;
     const minutes = tools.reduce((n, k) => n + (TOOLS[k] ? TOOLS[k].minutes : 0), 0);
@@ -363,7 +371,7 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     for (const st of (pre ? [...warm, ...rev, ...home] : [...rev, ...home, ...warm])) steps.push(st);
   } else {
     mode = 'home';
-    const keys = fitToBand(HOME_WEEK[inp.dow] || ['friend', 'micro'], band);
+    const keys = fitToBand(HOME_WEEK[inp.dow] || ['friend', 'micro'], band, inp.aiOnly);
     const why: Record<string, [string, string]> = {
       friend:   ['말하기 한 가지. 오늘은 AI 친구와 7분.', 'Speaking: 7 minutes with your AI friend.'],
       speech:   ['말하기 한 가지. 오늘은 발음 7분.', 'Speaking: 7 minutes of pronunciation.'],
@@ -372,7 +380,9 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
       judgment: ['요일 특별. 상황을 읽고 고르는 5분.', 'Special: 5 minutes of choosing and explaining.'],
       write:    ['주 1회 글쓰기. 6하원칙 질문에 답하면 뼈대가 생겨요.', 'Weekly writing — answer 5W1H and get an outline.'],
       games:    ['자율. 게임도 포인트가 쌓여요.', 'Free choice — games earn points too.'],
-      vocab:    ['내 단어장을 한 번 훑어요.', 'Skim your own word list.'],
+      vocab:    inp.aiOnly && HOME_WEEK[inp.dow]?.includes('review')
+                  ? ['복습 한 가지. 내 단어장에 모은 단어를 다시 봐요.', 'Review: go over the words in your list.'] as [string, string]
+                  : ['내 단어장을 한 번 훑어요.', 'Skim your own word list.'] as [string, string],
       warmup:   ['수업이 없는 날에도 입 풀기.', 'Warm up even without a class.'],
     };
     for (const k of keys) steps.push(step(k, 'home', inp, why[k][0], why[k][1]));

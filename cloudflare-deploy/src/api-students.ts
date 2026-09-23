@@ -16,6 +16,7 @@ import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
+import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
@@ -483,6 +484,16 @@ ${MANGOI_KNOWLEDGE}`;
       if (scope !== 'self' && scope !== 'admin') {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 계획만 볼 수 있습니다.' }, 401);
       }
+      /* 🎯 (2026-09-23) ?track=1 — «화상수업 학생인가» 만 묻는 가벼운 갈래(전체 메뉴가 복습퀴즈
+         칸을 감출지 정할 때 쓴다 — js/idx-allmenu.js). 정본 resolveStudentTrack 을 부르기만 한다.
+         ⚠️ 위 게이트 «뒤» 에 둔다 — 남의 아이디로 수강 여부를 캐는 길을 만들지 않는다.
+         ⚠️ 'unknown'(못 물어봄)은 그대로 내려준다 — 화면은 'ai_only' 일 때만 감춘다. */
+      if (String(url.searchParams.get('track') || '') === '1') {
+        const tr = await resolveStudentTrack(env as any, uid);
+        const res = json({ ok: true, track: tr.track });
+        res.headers.set('Cache-Control', 'private, no-store');
+        return res;
+      }
       const nowMs = Date.now();
       const k = kstParts(nowMs);
       // 이번 주(일~토) 범위 — 주간표의 «수업 있는 요일» 용
@@ -501,6 +512,9 @@ ${MANGOI_KNOWLEDGE}`;
       ).bind(uid, uid).first();
       if (!stu) return json({ ok: false, error: 'not_found' }, 404);
       const exactUid = String(stu.user_id || uid);
+      /* 🎯 (2026-09-23) AI 학습만 하는 학생(활성 예약 0건)이면 계획의 복습퀴즈를 단어장으로 바꾼다
+         (buildTodayPlan 의 aiOnly). 'unknown' 은 예전 그대로 — 모르면 바꾸지 않는다. */
+      const trackP = resolveStudentTrack(env as any, exactUid);
 
       // 오늘 도구별 활동 — «한 번이라도 썼나» 만 본다(분 단위는 재지 못하므로 지어내지 않는다)
       const cnt = async (sql: string, ...args: any[]): Promise<number> => {
@@ -600,8 +614,9 @@ ${MANGOI_KNOWLEDGE}`;
         warmup: doneWarmup, review: doneReview, friend: doneFriend, speech: doneSpeech,
         micro: doneMicro, vocab: doneVocab, judgment: doneJudg, write: doneWrite, games: doneGames,
       };
+      const track = (await trackP).track;
       const plan = buildTodayPlan({
-        band: bandFromLevelCell(stu.level), textbook, zh,
+        band: bandFromLevelCell(stu.level), textbook, zh, aiOnly: track === 'ai_only',
         dow: k.dow, nowMin: k.min, classes, weekClassDows: [...weekDows], weekClassTimes: weekTimes, done,
       });
       const dates: string[] = [];
