@@ -150,6 +150,13 @@
     $('wgScenes').open=/goals?|dreams?|목표|꿈/i.test(LESSON_TOPIC||'');
     scene='';resetSceneMedia();$('wgScene').hidden=true;resetHelp();renderChoices();
   }
+  /* 🗑 «새로 시작» (2026-09-23) — 앞 대화의 답변·교정·경과시간을 버린다. 대화 자체를 지우는
+     일은 warmup.html 의 newWarmupChat() 이 하고, 여기서는 이 모듈이 들고 있던 기록만 비운다. */
+  function reset() {
+    answers=[];fixes=[];firstReplyMs=null;startedAt=0;assisted=false;contextKey='';historyOpen=false;lastQuestion='';
+    label($('wgProgress'),'약 3분 · 내 속도로 말해요','About 3 minutes · At your pace');
+    updateHistory();
+  }
   function summary() {
     var title=WCTX.textbook || LESSON_TOPIC || (zh()?'中文对话':'Free conversation');
     var own=answers.filter(function(a){return !a.assisted;}).length;
@@ -172,7 +179,7 @@
     }
     $('wgSummary').showModal();
   }
-  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,offerHelp:offerHelp,fix:fix,finish:finish,pauseScene:pauseScene,
+  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,offerHelp:offerHelp,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
     scene:function(){return scene;}, metrics:function(){return {firstReplyMs:firstReplyMs,replies:answers.length};}};
   $('wgHistory').onclick=function(){historyOpen=!historyOpen;updateHistory();};
   $('wgHelpOpen').onclick=offerHelp; $('wgHelpNext').onclick=nextHelp;

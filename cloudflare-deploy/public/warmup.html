@@ -455,6 +455,13 @@
     background:linear-gradient(135deg,var(--accent),#2563eb);
     box-shadow:0 5px 14px -3px rgba(37,99,235,.6)}
   .menu-reopen:hover{filter:brightness(1.08)}
+  /* 🗑 새로 시작 — 되돌릴 수 없는 조작이라 «다시 고르기» 보다 눈에 덜 띄게(테두리만) */
+  .menu-newchat{appearance:none;-webkit-appearance:none;width:100%;padding:10px;border-radius:10px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:800;color:#fca5a5;background:rgba(248,113,113,.08);
+    border:1px solid rgba(248,113,113,.45)}
+  .menu-newchat:hover{background:rgba(248,113,113,.18)}
+  .menu-newchat-note{margin-top:6px;font-size:11.5px;line-height:1.45;color:var(--text2)}
+  #newChatGroup[hidden]{display:none!important}
   .menu-reopen:active{transform:scale(.97)}
   /* 📱 모바일(≤640px): 머리글 한 줄 유지 + 글자 크기 정돈 — 화면에 문장이 온전히 보이게 */
   @media (max-width:640px){
@@ -661,6 +668,15 @@
           <div class="ls-ends"><span>🌱 읽으며</span><span>귀로만 👂</span></div>
         </div>
 
+        <!-- 🗑 새로 시작 (2026-09-23) — AI 친구하기의 «대화 초기화» 에 해당. 설정 «맨 아래» 굴러가는 칸 안에 둔다:
+             ⓐ 한 번 잘못 누르면 대화가 통째로 사라지므로 상단바에 드러내지 않는다
+             ⓑ 굴러가는 칸 «안» 이라 카드 높이가 안 늘어난다(노트북에서 «다시 고르기» 가 화면 밖으로 밀리던 2026-09-15 사고).
+             수업방·지정 세션(?room=·?session=)으로 연 웜업에서는 감춘다(newWarmupChat 주석). -->
+        <div class="menu-group" id="newChatGroup">
+          <button type="button" class="menu-newchat" onclick="newWarmupChat()"><span data-ko="🗑 대화 지우고 새로 시작" data-en="🗑 Clear chat &amp; start over">🗑 대화 지우고 새로 시작</span></button>
+          <div class="menu-newchat-note" data-ko="지금까지 대화를 지우고 첫 인사부터 다시 시작해요. 고른 수준·교재는 그대로예요." data-en="Clears this conversation and starts again from the greeting. Your level and book stay the same.">지금까지 대화를 지우고 첫 인사부터 다시 시작해요. 고른 수준·교재는 그대로예요.</div>
+        </div>
+
         </div><!-- /.menu-scroll -->
 
         <button type="button" class="menu-reopen" onclick="openSetup(true)">🎚️ 연령·수준·교재 다시 고르기</button>
@@ -771,7 +787,7 @@
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=5"></script>
+<script src="/js/warmup-guide.js?v=6"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -3138,6 +3154,48 @@ async function initGreeting(){
 /* ── 4-1. 부팅 — «설정 먼저, 대화는 그 다음» ─────────────────────
    ?setup=0 이면 곧바로 대화를 시작한다(수업 흐름에서 이미 눈높이를 정해 보낼 때).
    그 외에는 항상 설정 화면부터 — 지난번 고른 값이 미리 선택돼 있어 한 번만 누르면 시작된다. */
+/* ── 🗑 대화 지우고 새로 시작 (2026-09-23) ─────────────────────────
+   [왜] AI 친구하기에는 «대화 초기화» 가 있는데 웜업에는 없었다. 웜업 대화는 탭 하나에 묶여
+     (sessionStorage 'mangoi_warmup_sid') 탭을 닫기 전에는 새로 시작할 길이 없었고,
+     🎚️ 로 교재·수준을 바꿔도 서버는 같은 세션의 앞 대화(KV 'warmup:<sid>', 최근 24개·6시간)를
+     계속 모델에 넣었다.
+   [방식] 서버는 한 줄도 안 바꾼다 — «새 세션 번호» 를 만들어 쓰기만 한다. 옛 번호의 대화는
+     다시는 안 불리고 KV 가 6시간 뒤 스스로 지운다. 교정 간격 메모·취약문장 캐시도 세션 키라 함께 새로 시작한다.
+   ⛔ 수업방(?room=)·지정 세션(?session=)에서는 쓰지 않는다 — 그 번호는 수업방과 1:1 로 묶인 값이라
+      화면이 바꾸면 수업 쪽과 어긋난다. 그래서 버튼 자체를 감춘다(아래 IIFE).
+   ⚠️ 먼저 pauseWarmup() 으로 진행 중인 요청·마이크·음성을 전부 끊는다 — 안 끊으면 옛 대화의
+      답이 새 화면에 늦게 도착한다(_warmEpoch 가 그것을 버린다). */
+function _newWarmupSid(){
+  var who=getLoginId() ? ('u'+String(getLoginId()).replace(/[^A-Za-z0-9_-]/g,'').slice(0,24)) : 'anon';
+  var rnd=(Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6));
+  return 'warmup_'+who+'_'+Date.now().toString(36)+'_'+rnd;
+}
+function newWarmupChat(){
+  if(Q.get('room') || Q.get('session')) return;
+  var en = (typeof getLang==='function' && getLang()==='en');
+  if(!confirm(en ? 'Clear this conversation and start over?' : '지금까지 대화를 지우고 처음부터 다시 시작할까요?')) return;
+  try{ closeMenu(); }catch(e){}
+  pauseWarmup();
+  SESSION_ID = _newWarmupSid();
+  try{ sessionStorage.setItem('mangoi_warmup_sid', SESSION_ID); }catch(e){}
+  var ms=document.getElementById('m-session'); if(ms) ms.textContent=SESSION_ID.slice(0,22);
+  ansCardClear();
+  log.innerHTML='';
+  var ip=document.getElementById('inp'); if(ip) ip.value='';   // 옛 질문에 쓰던 답이 새 대화로 넘어가지 않게
+  var hp=document.getElementById('wgHelp'); if(hp) hp.hidden=true;
+  _combo=0;
+  var cc=document.getElementById('comboChip'), cn=document.getElementById('comboN');
+  if(cc) cc.style.display='none'; if(cn) cn.textContent='0';
+  if(window.MangoWarmupGuide && MangoWarmupGuide.reset) MangoWarmupGuide.reset();
+  resumeWarmup();
+  if(_warmPaused) return;             // 요약 창이 열려 있으면 거기서 멈춘다
+  _warmStarted=true;
+  if(window.MangoWarmupGuide) MangoWarmupGuide.start();
+  try{ initGreeting(); }catch(e){}
+}
+(function hideNewChatInRoom(){
+  if(Q.get('room') || Q.get('session')){ var g=document.getElementById('newChatGroup'); if(g) g.hidden=true; }
+})();
 (function bootWarmup(){
   if(String(Q.get('setup')||'') === '0'){ startWarmup(); return; }
   openSetup(false);
