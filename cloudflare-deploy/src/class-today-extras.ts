@@ -150,6 +150,12 @@ export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStar
   return { today, last };
 }
 
+/** 망고아이 방이 없는 줄인가 — 관리자 목록은 source='cafe24', 강사 포털은 source='lms'(방 번호 c24-…). */
+export function isNoRoomRow(s: any): boolean {
+  const src = String(s?.source || '');
+  return src === 'cafe24' || src === 'lms' || /^c24-/.test(String(s?.room_id || ''));
+}
+
 /* ── 로더 (sessions 를 제자리에서 채운다 · 절대 던지지 않는다) ────────────── */
 
 export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number): Promise<void> {
@@ -162,7 +168,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
   if (!sessions.length) return;
   const db = env.DB;
   const dayStartTs = Date.parse(dateStr + 'T00:00:00+09:00');
-  const mangoi = sessions.filter(s => s.source !== 'cafe24' && s.room_id);
+  const mangoi = sessions.filter(s => !isNoRoomRow(s) && s.room_id);
   const uids = Array.from(new Set(sessions.map(s => String(s.student_uid || '').trim()).filter(Boolean)));
 
   // ① 강사 입장 — 정본 판정 재사용
@@ -191,9 +197,10 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
   }
 
   for (const s of sessions) {
-    s.teacher_entry = judgeTeacherEntry(String(s.source || ''), Number(s.start_ts) || 0, String(s.status || ''),
-      s.source === 'cafe24' ? null : (presence.get(s.room_id) || null));
-    if (s.source === 'cafe24') { s.attendance = judgeStudentAttendance('cafe24', 0, '', null, 0); continue; }
+    const noRoom = isNoRoomRow(s);
+    s.teacher_entry = judgeTeacherEntry(noRoom ? 'cafe24' : 'mangoi', Number(s.start_ts) || 0, String(s.status || ''),
+      noRoom ? null : (presence.get(s.room_id) || null));
+    if (noRoom) { s.attendance = judgeStudentAttendance('cafe24', 0, '', null, 0); continue; }
     if (!attOk) continue;   // 못 물어봤다 → 칸을 비운다(«결석» 이 아니다)
     const uid = String(s.student_uid || '').trim();
     const sname = String(s.student_name || '').trim();
@@ -231,11 +238,15 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     if (uids.length) {
       try {
         const pr = await selectInChunks<any>(db, uids, (ph) =>
-          `SELECT user_id, payment_type FROM students_erp WHERE user_id IN (${ph})`);
-        for (const r of pr) rowPt.set(String(r.user_id), r.payment_type);
+          `SELECT user_id, payment_type, shop_name FROM students_erp WHERE user_id IN (${ph})`);
+        for (const r of pr) rowPt.set(String(r.user_id), r);
       } catch (e: any) { console.warn('[classes/today] erp payment_type:', e?.message); }
     }
-    for (const s of sessions) s.pay_type = judgePayType(s.academy, rowPt.get(String(s.student_uid || '')), centerTypes);
+    for (const s of sessions) {
+      // 학원은 줄에 실려 오면 그것(관리자 목록), 없으면 원부의 shop_name(강사 포털).
+      const er = rowPt.get(String(s.student_uid || '')) || {};
+      s.pay_type = judgePayType(s.academy || er.shop_name, er.payment_type, centerTypes);
+    }
   } catch (e: any) { console.warn('[classes/today] pay type:', e?.message); }
 
   // ④ 일정 — 명부 「예약」 칸과 같은 정본

@@ -24,6 +24,7 @@ import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 import { getReadingBandFor } from './api-judgment';
 // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 나눈다 — 손으로 90 씩 자르지 않는다
 import { selectInChunks } from './d1-chunk';
+import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(관리자·매니저와 같은 정본)
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 
 interface TeacherEnv {
@@ -807,6 +808,19 @@ export async function handleTeacherApi(
      ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
      ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
   await applyRoomOverrides(env.DB, classes, ymd);
+
+  /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 일곱 칸 — 정본 class-today-extras.ts.
+     ⚠️ 방 번호를 갈아 끼운 «뒤» 여야 한다(출석을 room_id 로 찾는다).
+     강사 입장은 원부 이름으로 대조한다(계정 표시이름은 «교사 …» 가 붙어 있을 수 있다) —
+     원부가 한 사람으로 확정될 때만 그 이름, 아니면 계정 이름(모르면 «확인 불가» 로 떨어진다).
+     ⛔ 던지지 않는다 — 이 칸 때문에 강사가 오늘 수업을 못 보면 안 된다. 배너(?only=next)는 건너뛴다. */
+  if (!onlyNext) {
+    // 매니저가 이 화면을 열면 «누구의 입장인지» 를 모른다 → 이름을 안 붙인다(강사 입장 = 확인 불가).
+    const _rosterName = isManager ? ''
+      : (resolvedRows.length === 1 && (resolvedRows[0] as any).name ? String((resolvedRows[0] as any).name) : tname);
+    for (const c of classes) if (!c.teacher_name && _rosterName) c.teacher_name = _rosterName;
+    try { await enrichClassesToday(env as any, classes, todayStr, now); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
+  }
 
   /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
      ⚠️ 새로 판정하지 않는다. class_no_show 에 이미 남은 것을 읽기만 한다
