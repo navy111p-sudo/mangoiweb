@@ -305,6 +305,207 @@
      ⚠️ 카페24 줄은 `join_open` 이 **항상 false** 다(망고아이 방이 없다). 그래서
         「지금 들어갈 수 있는 것만」 + 「카페24」 조합은 0건이 정상이고, 그때 화면이 «왜 비었는지»
         를 말해 줘야 한다(아니면 「검색이 고장났다」로 읽힌다). */
+  /* ══════════════════════════════════════════════════════════════════════
+     📅 (2026-09-22) 줄에서 바로 연기 · 변경 · 취소 — manager.html 의 taRun 과 «같은 서버 경로».
+     ⚠️ 새 판정을 만들지 않는다:
+        · 연기·변경 → POST /schedule-requests(기록) → POST /schedule-requests/decide(적용)
+          (겹침 검사·반복수업 자동이동 거부·스코프 재확인·강사 차단·변경이력을 서버가 한다)
+        · 취소 → DELETE /class-schedules/:id (status='cancelled' + 이력)
+          ⛔ request_type:'cancel' 로 보내지 말 것 — 서버 승인이 그것을 status='postponed' 로
+             적어(급여 규칙이 걸림) 화면이 거짓말을 하게 된다(CLAUDE.md 2장).
+     ⛔ 취소는 막는 쪽으로 실패: can_move===true · 역할을 «알고» 본사 계열일 때만.
+        (DELETE 는 지사·대리점에 403 — 주면 «눌러도 안 되는 버튼».)
+     ══════════════════════════════════════════════════════════════════════ */
+  var _mvChanged = false;
+  function mvRowOf(sid) {
+    for (var i = 0; i < _rows.length; i++) if (String(_rows[i].schedule_id) === String(sid)) return _rows[i];
+    return null;
+  }
+  function mvMe() {
+    var me = null;
+    try { me = window.__ADM_ME || null; } catch (e) {}
+    return me;
+  }
+  function mvCanCancel(r) {
+    var me = mvMe();
+    var role = (me && me.role) ? String(me.role) : '';
+    if (!role) return false;                                         // 모르면 안 준다
+    if (role === 'teacher' || role === 'branch' || role === 'agency' || role === 'franchise') return false;
+    return r && r.can_move === true;
+  }
+  function mvMsgOf(j) {
+    var a = j && j.applied;
+    if (a === 'moved')     return { ok: true,  s: T('수업을 옮겼습니다.', 'Moved.') };
+    if (a === 'postponed') return { ok: true,  s: T('연기 처리했습니다.', 'Postponed.') };
+    if (a === 'recorded')  return { ok: false, s: T('반복 수업이라 자동으로 못 옮깁니다 — 시간표에서 직접 옮겨 주세요.', 'Weekly class — move it by hand in the timetable.') };
+    if (a === 'conflict')  return { ok: false, s: T('그 시간에 다른 수업이 있어 못 옮겼습니다 — 직접 옮겨 주세요.', 'That slot is taken — move it by hand.') };
+    return { ok: true, s: T('처리했습니다.', 'Done.') };
+  }
+  function mvErrOf(st, j) {
+    var e = (j && j.error) || '';
+    if (e === 'forbidden_teacher') {
+      var w = (j && (isEn() ? j.who_line_en : j.who_line)) || '';
+      return T('강사 계정은 처리할 수 없습니다.', 'Teachers cannot do this.') + (w ? ' ' + w : '');
+    }
+    if (st === 403 || e === 'forbidden_scope') return T('권한 밖의 수업입니다.', 'Not in your scope.');
+    if (st === 409 || e === 'already_decided') return T('이미 처리된 요청입니다.', 'Already handled.');
+    if (st === 404) return T('수업을 찾을 수 없습니다.', 'Class not found.');
+    return T('처리하지 못했습니다. 다시 눌러 주세요.', 'Failed. Try again.');
+  }
+  function mvReq(method, path, payload) {
+    return fetch(path, {
+      method: method, credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload || {})
+    }).then(function (rs) {
+      return rs.json().catch(function () { return null; }).then(function (j) { return { st: rs.status, j: j }; });
+    });
+  }
+  function tcMoveModalClose() {
+    var b = $('tc-move-modal');
+    if (b && b.parentNode) b.parentNode.removeChild(b);
+    if (_mvChanged) { _mvChanged = false; try { window.tcLoadToday(); } catch (e) {} }
+  }
+  function mvBtn(mode, label, on) {
+    return '<button type="button" data-mv-mode="' + mode + '" aria-pressed="' + (on ? 'true' : 'false') + '" '
+      + 'style="padding:7px 12px;border-radius:8px;border:1px solid ' + (on ? '#1d4ed8' : '#d1d5db') + ';'
+      + 'background:' + (on ? '#1d4ed8' : '#fff') + ';color:' + (on ? '#fff' : '#111827') + ';font-weight:700;cursor:pointer">'
+      + esc(label) + '</button>';
+  }
+  function tcOpenMoveModal(sid) {
+    var r = mvRowOf(sid);
+    if (!r) return;
+    tcMoveModalClose();
+    var dEl = $('tc-date');
+    var day = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstTodayStr();
+    var canCancel = mvCanCancel(r);
+    var who = String(r.student_name || r.student_uid || '');
+    var inp = 'padding:6px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#101828;box-sizing:border-box';
+    var box = document.createElement('div');
+    box.id = 'tc-move-modal';
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:4px">📅 ' + T('수업 연기·변경', 'Postpone / move class') + '</div>'
+      + '<div style="font-size:12.5px;color:#475467;margin-bottom:12px">' + esc(who) + ' · ' + esc(day) + ' ' + esc(hhmm(r.start_ts)) + (r.teacher_name ? ' · ' + esc(r.teacher_name) : '') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+      +   mvBtn('postpone', T('연기', 'Postpone'), true)
+      +   mvBtn('change', T('날짜·시각 변경', 'Move to…'), false)
+      +   (canCancel ? mvBtn('cancel', T('수업 취소', 'Cancel class'), false) : '')
+      + '</div>'
+      + '<div id="tc-mv-when" hidden style="display:none;gap:8px;margin-bottom:10px">'
+      +   '<label style="font-size:12px;color:#475467">' + T('새 날짜', 'New date') + '<br><input type="date" id="tc-mv-date" value="' + esc(day) + '" style="' + inp + '"></label> '
+      +   '<label style="font-size:12px;color:#475467">' + T('새 시각', 'New time') + '<br><input type="time" id="tc-mv-time" value="' + esc(String(r.start_time || '').slice(0, 5)) + '" style="' + inp + '"></label>'
+      + '</div>'
+      + '<label style="font-size:12px;color:#475467">' + T('사유 (선택)', 'Reason (optional)') + '<br>'
+      +   '<input type="text" id="tc-mv-reason" maxlength="200" placeholder="' + T('예: 학부모 연락', 'e.g. parent called') + '" style="width:100%;' + inp + '"></label>'
+      + (canCancel ? '' : '<div style="font-size:11.5px;color:#475467;margin-top:6px">'
+          + (r.can_move === true
+              ? T('수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.')
+              : T('«취소» 는 날짜가 정해진 수업에서만 됩니다.', 'Cancel is offered only for a date-fixed class.')) + '</div>')
+      + '<div id="tc-mv-msg" style="font-size:12.5px;font-weight:700;margin-top:10px;min-height:1em"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+      +   '<button type="button" id="tc-mv-close" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#111827;cursor:pointer">' + T('닫기', 'Close') + '</button>'
+      +   '<button type="button" id="tc-mv-go" style="padding:8px 16px;border:0;border-radius:8px;background:#065f46;color:#fff;font-weight:800;cursor:pointer">' + T('실행', 'Apply') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) {
+      if (e.target === box) { tcMoveModalClose(); return; }
+      var mb = e.target.closest && e.target.closest('[data-mv-mode]');
+      if (mb) {
+        var all = box.querySelectorAll('[data-mv-mode]');
+        for (var i = 0; i < all.length; i++) {
+          var on = all[i] === mb;
+          all[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+          all[i].style.background = on ? '#1d4ed8' : '#fff';
+          all[i].style.color = on ? '#fff' : '#111827';
+          all[i].style.borderColor = on ? '#1d4ed8' : '#d1d5db';
+        }
+        var wh = $('tc-mv-when');
+        var ch = mb.getAttribute('data-mv-mode') === 'change';
+        if (wh) { wh.hidden = !ch; wh.style.display = ch ? 'flex' : 'none'; }
+      }
+    });
+    $('tc-mv-close').addEventListener('click', tcMoveModalClose);
+    $('tc-mv-go').addEventListener('click', function () { mvRun(r, day); });
+  }
+  function mvRun(r, day) {
+    var box = $('tc-move-modal'); if (!box) return;
+    var on = box.querySelector('[data-mv-mode][aria-pressed="true"]');
+    var mode = on ? on.getAttribute('data-mv-mode') : 'postpone';
+    var msg = $('tc-mv-msg');
+    var go = $('tc-mv-go');
+    var newDate = String(($('tc-mv-date') || {}).value || '').trim();
+    var newTime = String(($('tc-mv-time') || {}).value || '').slice(0, 5);
+    var reason = String(($('tc-mv-reason') || {}).value || '').trim();
+    var who = String(r.student_name || r.student_uid || '');
+    var when = day + ' ' + hhmm(r.start_ts);
+    var bad = function (t) { msg.style.color = '#b91c1c'; msg.textContent = t; };
+    if (mode === 'change' && !(/^\d{4}-\d{2}-\d{2}$/.test(newDate) && /^\d{1,2}:\d{2}$/.test(newTime))) {
+      bad(T('새 날짜와 시각을 먼저 고르세요.', 'Pick a new date and time first.')); return;
+    }
+    if (mode === 'cancel' && !mvCanCancel(r)) { bad(T('이 수업은 여기서 취소할 수 없습니다.', 'This class cannot be cancelled here.')); return; }
+    /* 💰 연기를 시작 30분보다 이르게 하면 서버가 «사전 연기»(fee_type='free')로 매기고
+       급여가 «사전 연기 지급률»(기본 0)을 따른다 — manager.html 과 같은 경고. */
+    var mins = (typeof r.start_ts === 'number' && r.start_ts > 0) ? Math.round((r.start_ts - Date.now()) / 60000) : null;
+    var feeWarn = (mode === 'postpone' && mins !== null && mins > 30)
+      ? T('\n\n⚠ «사전 연기» 로 기록됩니다 (시작 30분보다 이름).\n   이 수업의 강사 수업료가 급여 규칙 «사전 연기 지급률» 을 따릅니다 — 0원일 수 있습니다.',
+          '\n\n⚠ Recorded as an EARLY postponement (more than 30 min before).\n   Teacher pay for this class follows «postponed_early_pay_percent» — it may be 0.')
+      : '';
+    var ask = mode === 'cancel'
+      ? T('이 수업을 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 목록에서 사라집니다.\n· 되돌리려면 시간표에서 직접 고쳐야 합니다.',
+          'Cancel this class?\n\n' + who + ' · ' + when + '\n\n· It disappears from the lists.\n· To undo it you must fix it in the timetable.')
+      : mode === 'change'
+      ? T('이 수업을 옮길까요?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· 그 시간에 다른 수업이 있으면 안 옮기고 알려 드립니다.',
+          'Move this class?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· If that slot is taken it will not move — you will be told.')
+      : T('이 수업을 연기할까요?\n\n' + who + ' · ' + when + '\n\n· 수업이 «연기» 상태가 됩니다. 새 날짜는 나중에 잡습니다.',
+          'Postpone this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes «postponed». Pick a new date later.') + feeWarn;
+    if (!window.confirm(ask)) return;
+    go.disabled = true;
+    msg.style.color = '#475467'; msg.textContent = T('처리 중...', 'Sending...');
+    var me = mvMe();
+    var nm = (me && (me.name || me.uid)) || '';
+    var unlock = function () { go.disabled = false; };
+    var sid = Number(r.schedule_id);
+    var p;
+    if (mode === 'cancel') {
+      p = mvReq('DELETE', '/api/admin/class-schedules/' + encodeURIComponent(sid), { reason: reason || undefined }).then(function (res) {
+        if (!res.j || res.j.ok !== true) {
+          bad(res.st === 403 ? T('수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.') : mvErrOf(res.st, res.j));
+          unlock(); return;
+        }
+        _mvChanged = true;
+        msg.style.color = '#047857'; msg.textContent = T('취소했습니다. (닫으면 목록을 다시 불러옵니다)', 'Cancelled. (Closing reloads the list)');
+      });
+    } else {
+      p = mvReq('POST', '/api/admin/schedule-requests', {
+        schedule_id: sid,
+        request_type: mode === 'change' ? 'change' : 'postpone',
+        requester_role: 'admin',
+        requester_name: nm || undefined,
+        teacher_name: r.teacher_name || nm || T('관리자', 'admin'),
+        student_name: r.student_name || r.student_uid || undefined,
+        student_uid: r.student_uid || undefined,
+        new_date: mode === 'change' ? newDate : undefined,
+        new_time: mode === 'change' ? newTime : undefined,
+        reason: reason || undefined
+      }).then(function (mk) {
+        if (!mk.j || mk.j.ok !== true || !mk.j.id) { bad(mvErrOf(mk.st, mk.j)); unlock(); return; }
+        return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined }).then(function (res) {
+          _mvChanged = true;
+          if (!res.j || res.j.ok !== true) {
+            bad(mvErrOf(res.st, res.j) + ' ' + T('요청은 저장됐습니다 — 「수업 연기·변경 요청」에서 승인해 주세요.',
+                                                  'The request is saved — approve it in the schedule requests.'));
+            unlock(); return;
+          }
+          var m = mvMsgOf(res.j);
+          msg.style.color = m.ok ? '#047857' : '#92400e';
+          msg.textContent = m.s + ' ' + T('(닫으면 목록을 다시 불러옵니다)', '(Closing reloads the list)');
+        });
+      });
+    }
+    p.catch(function () { bad(T('연결이 끊겼습니다. 다시 눌러 주세요.', 'Network error. Try again.')); unlock(); });
+  }
+
   function srcFilter() {
     var el = $('tc-source');
     var v = el ? String(el.value || '') : '';
@@ -559,6 +760,24 @@
             act += '<button type="button" class="tc-act tc-act-invite" onclick="tcInviteLink(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + esc(encodeURIComponent(s.student_uid || '')) + '\'))" '
                 + 'title="' + T('이 수업의 입장 링크를 만들어 복사합니다', 'Create and copy the join link for this class') + '">'
                 + T('🔗 초대 링크', '🔗 Invite link') + '</button>';
+            /* 📅 (2026-09-22) 줄에서 바로 연기·변경·취소 — manager.html 「오늘 전체 수업」과 같은 기능.
+               [왜] 매니저 화면에만 넣었더니 사장님이 보시는 이 카드(admin.html)에는 없었다
+                 (「관리자 페이지」가 사람마다 다른 화면 — CLAUDE.md 2장).
+               ⛔ 매주 반복 행(can_move===false)에는 조작을 주지 않는다 — 한 행이 «매주» 라
+                  취소하면 모든 주가 죽는다. 판정은 서버가 준 can_move 하나.
+               ⛔ <button> 이 아니라 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            if (s.schedule_id) {
+              if (s.can_move === false) {
+                act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
+                  + T('매주 반복 — 시간표에서', 'weekly — use timetable') + '</span>';
+              } else {
+                act += '<span class="tc-move-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                  + 'title="' + T('이 수업을 연기·변경·취소합니다', 'Postpone, move or cancel this class') + '" '
+                  + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                  + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
+                  + T('📅 연기·변경', '📅 Move') + '</span>';
+              }
+            }
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
@@ -667,6 +886,17 @@
           if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
         });
       })(pins[pi]);
+    }
+    /* 📅 연기·변경 칩 → 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
+    var mvs = box.querySelectorAll('.tc-move-pin');
+    for (var mi = 0; mi < mvs.length; mi++) {
+      (function (el) {
+        var open = function (ev) { if (ev) ev.preventDefault(); tcOpenMoveModal(el.getAttribute('data-sid')); };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(mvs[mi]);
     }
     var bulkBtn = $('tc-bulk-book');
     if (bulkBtn) {
