@@ -20,8 +20,20 @@ const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
 for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-schedule-summary', 'attendance-uid']) {
   writeFileSync(join(tmp, f + '.ts'), fix(readFileSync(join(SRC, f + '.ts'), 'utf8')));
 }
+// 요일 정본(api-admin.ts admDowMatches)을 «그대로» 오려 와 주입한다 — 하니스에 규칙을 베끼지 않는다.
+{
+  const apiSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const a0 = apiSrc.indexOf('const ADM_DOW_MAP');
+  const f0 = apiSrc.indexOf('function admDowMatches', a0);
+  let i = apiSrc.indexOf('{', apiSrc.indexOf(')', f0)), d = 0;
+  for (; i < apiSrc.length; i++) { if (apiSrc[i] === '{') d++; else if (apiSrc[i] === '}') { d--; if (!d) break; } }
+  const dowSrc = a0 > 0 && f0 > a0 ? apiSrc.slice(a0, i + 1) : '';
+  ok('요일 정본 admDowMatches 를 오려 냈다', dowSrc.length > 200 && /function admDowMatches/.test(dowSrc));
+  writeFileSync(join(tmp, 'dow.ts'), dowSrc + '\nexport { admDowMatches };\n');
+}
 const runner = `
 import * as X from './class-today-extras.ts';
+import { admDowMatches } from './dow.ts';
 const out = {};
 const S = Date.parse('2026-09-23T14:00:00+09:00');
 const M = 60000;
@@ -74,6 +86,14 @@ const mkDb = (boom) => ({
       ];
       if (/FROM centers/.test(sql)) return [{ name: 'A학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2C' }];
       if (/FROM students_erp/.test(sql)) return [{ user_id: 'kim', payment_type: null, shop_name: 'A학원' }, { user_id: 'park', payment_type: null, shop_name: 'A학원' }];
+      if (/FROM class_schedules/.test(sql) && /day_of_week/.test(sql)) return [
+        { user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: '3' },
+        { user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Fri' },
+        { user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-09-27', day_of_week: null },
+        { user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-10-01', day_of_week: '4' },
+        { user_id: 'park', schedule_kind: 'recurring', scheduled_date: null, day_of_week: '월,수' },
+        { user_id: 'lee', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Mon' },
+      ];
       if (/FROM class_schedules/.test(sql)) return [{ user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null }];
       if (/FROM student_evaluations/.test(sql)) return evs.map(e => ({ ...e, student_uid: 'kim' }));
       return [];
@@ -113,6 +133,23 @@ await X.enrichClassesToday({ DB: mkDb(null) }, ss3, '2026-09-23', S + 60*M, { ev
 out.hid = { today: ss3[0].today_eval, last: ss3[0].last_eval, flag: ss3[0].eval_hidden,
   queried: SQLS.some(q => /student_evaluations/.test(q)), att: ss3[0].attendance && ss3[0].attendance.state };
 out.shownFlag = ss[0].eval_hidden;
+// 📅 이번 주 7칸 (C안) — 정본 요일 파서를 주입했을 때만 채운다
+out.wdates = X.weekDatesOf('2026-09-23');
+out.wbad = X.weekDatesOf('2026/09/23');
+out.wsun = X.weekDatesOf('2026-09-27');
+out.wd1 = X.weekDaysFor([{ day_of_week: '3' }, { day_of_week: 'Fri' }, { scheduled_date: '2026-09-27' }, { scheduled_date: '2026-10-01', day_of_week: '4' }], out.wdates, admDowMatches);
+out.wd2 = X.weekDaysFor([{ day_of_week: '월,수' }, { day_of_week: '일' }, { day_of_week: '' }, { day_of_week: 'xyz' }], out.wdates, admDowMatches);
+SQLS.length = 0;
+const ss4 = mk();
+await X.enrichClassesToday({ DB: mkDb(null) }, ss4, '2026-09-23', S + 60*M, { dowMatches: admDowMatches });
+out.wk = ss4.map(s => ({ w: s.week_days, d: s.week_dates && s.week_dates[0] }));
+out.wkNoInj = ss.map(s => s.week_days);
+out.wkQueriedNoInj = false;
+const ss5 = mk(); SQLS.length = 0;
+await X.enrichClassesToday({ DB: mkDb(null) }, ss5, '2026-09-23', S + 60*M);
+out.wkQueriedNoInj = SQLS.some(q => /day_of_week/.test(q));
+const ss6 = mk();
+try { await X.enrichClassesToday({ DB: mkDb(/day_of_week/) }, ss6, '2026-09-23', S + 60*M, { dowMatches: admDowMatches }); out.wkBoom = { w: ss6[0].week_days, at: ss6[0].attendance && ss6[0].attendance.state }; } catch (e) { out.wkBoom = 'threw'; }
 console.log(JSON.stringify(out));
 `;
 writeFileSync(join(tmp, 'run.mjs'), runner);
@@ -161,6 +198,18 @@ if (o) {
   ok('로더: 짝 — 시작 전 빈 방은 «아직 전»', o.empty.early === 'pending', o.empty);
   ok('로더: 짝 — 출석 조회 실패면 «확인 불가» 그대로(단정 안 함)', o.empty.boom === 'unknown', o.empty);
   ok('로더: 조회가 던져도 던지지 않고 그 칸만 비운다', o.boom.threw === false && o.boom.at === null && o.boom.today === null && o.boom.d === '2026-09-23', o.boom);
+  const F = false, Tt = true;
+  ok('주: 2026-09-23(수) → 월 09-21 ~ 일 09-27', JSON.stringify(o.wdates) === JSON.stringify(['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27']), o.wdates);
+  ok('주: 일요일(09-27)도 «그 주» 로 본다(다음 주로 넘기지 않음)', o.wsun && o.wsun[0] === '2026-09-21', o.wsun);
+  ok('주: 모양이 틀린 날짜 = null', o.wbad === null);
+  ok('7칸: 숫자 3·영문 Fri·이번 주 날짜 → 수·금·일', JSON.stringify(o.wd1) === JSON.stringify([F,F,Tt,F,Tt,F,Tt]), o.wd1);
+  ok('7칸: 날짜가 있으면 요일보다 날짜가 이긴다(다음 주 날짜 + 목요일 → 목 안 켬)', o.wd1 && o.wd1[3] === false, o.wd1);
+  ok('7칸: 한글 나열 «월,수» · «일» → 월·수·일, 빈값·모르는 값은 안 켬(짝)', JSON.stringify(o.wd2) === JSON.stringify([Tt,F,Tt,F,F,F,Tt]), o.wd2);
+  ok('로더(주입): 그 학생 행으로 7칸을 채운다', JSON.stringify(o.wk[0].w) === JSON.stringify([F,F,Tt,F,Tt,F,Tt]) && o.wk[0].d === '2026-09-21', o.wk[0]);
+  ok('로더(주입): 다른 학생 행은 안 섞는다(park = 월·수)', JSON.stringify(o.wk[3].w) === JSON.stringify([Tt,F,Tt,F,F,F,F]), o.wk[3]);
+  ok('로더(주입): 카페24·LMS 줄은 비운다(null)', o.wk[4].w === null && o.wk[2].w === null, [o.wk[2], o.wk[4]]);
+  ok('로더: 요일 정본을 안 넘기면 7칸을 안 채우고 조회도 안 한다(강사 포털)', o.wkNoInj.every(v => v === null) && o.wkQueriedNoInj === false, o);
+  ok('로더: 7칸 조회가 던져도 던지지 않고 그 칸만 비운다(다른 칸은 그대로)', o.wkBoom !== 'threw' && o.wkBoom.w === null && o.wkBoom.at === 'late', o.wkBoom);
 }
 
 console.log('B. 배선');
@@ -169,7 +218,7 @@ const i0 = api.indexOf("path === '/api/admin/classes/today'");
 const iE = api.indexOf('await enrichClassesToday(', i0);
 const iJ = api.indexOf('const res = json({', i0);
 ok('classes/today 가 정본을 «응답 전» 에 부른다', i0 > 0 && iE > i0 && iE < iJ);
-ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원만)으로 넘긴다', /enrichClassesToday\(env as any, sessions, dateStr, nowMs, \{ evals: _ctSeeContact \}\)/.test(api)
+ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원만)으로 넘긴다', /enrichClassesToday\(env as any, sessions, dateStr, nowMs, \{ evals: _ctSeeContact, dowMatches: admDowMatches \}\)/.test(api)
    && /const _ctSeeContact = _ctScope\.type === 'hq' \|\| _ctScope\.type === 'none';/.test(api));
 ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안 사라짐)', /\n[ \t]*try \{ await enrichClassesToday\(/.test(api));
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
@@ -180,6 +229,40 @@ ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td 
 for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
   ok('관리자 표가 ' + k + ' 를 그린다', tb.includes(k));
 }
+// 📅 수업 캘린더 칸 (C안) — xCal 을 오려 내 «실제로» 그려 본다
+ok('관리자 표가 xCal(s, isC24) 를 그린다', tb.includes('xCal(s, isC24)'));
+ok('관리자 표 머리글에 «수업 캘린더» 가 있다', /T\('수업 캘린더', 'Class calendar'\)/.test(adm.slice(0, adm.indexOf("return '<tr>'"))));
+const cut = (src, head) => { const f = src.indexOf(head); if (f < 0) return ''; let i = src.indexOf('{', f), d = 0; const st = i; for (; i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}') { d--; if (!d) break; } } return src.slice(st + 1, i); };
+const xcBody = cut(adm, 'function xCal(s, isC24)');
+ok('xCal 을 오려 냈다', xcBody.length > 200);
+let xc = null;
+try {
+  xc = new Function('T', 'esc', 'isEn', 'xSmall', 'xDash', 'X_DOW_KO', 'X_DOW_EN', 's', 'isC24', xcBody);
+} catch (e) { ok('xCal 컴파일', false, e.message); }
+if (xc) {
+  const Tk = (k) => k, escF = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const small = (t) => '<small>' + t + '</small>', dash = () => '—';
+  const KO = ['월','화','수','목','금','토','일'], EN = ['M','T','W','T','F','S','S'];
+  const call = (s, c24) => { try { return xc(Tk, escF, () => false, small, dash, KO, EN, s, c24); } catch (e) { return 'THREW:' + e.message; } };
+  const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
+  const h1 = call({ student_uid: 'kim', student_name: '김<x>', class_date: '2026-09-23', week_days: [false,false,true,false,true,false,true], week_dates: wd }, false);
+  ok('xCal: 수업 있는 날 칸 수 = 3(채운 색)', (h1.match(/background-color:#3b82f6/g) || []).length === 3, h1.slice(0, 300));
+  ok('xCal: 7칸을 그린다', (h1.match(/width:17px/g) || []).length === 7);
+  ok('xCal: 오늘(수) 칸에만 테두리', (h1.match(/outline:2px/g) || []).length === 1 && /outline:2px[^>]*>수</.test(h1));
+  ok('xCal: 「📅 캘린더」 칩에 학생 아이디가 실린다(이름은 이스케이프)', /class="tc-cal-pin" role="button" tabindex="0" data-uid="kim" data-who="김&lt;x>"/.test(h1), h1);
+  const h2 = call({ student_uid: 'lee', week_days: null }, true);
+  ok('xCal: 카페24 줄은 «카페24 수업» 이라 말한다(빈칸·버튼 없음)', /카페24 수업/.test(h2) && !/tc-cal-pin/.test(h2), h2);
+  ok('xCal: 학생 아이디가 없으면 «—»(짝)', call({ student_uid: '' }, false) === '—');
+  const h3 = call({ student_uid: 'park', week_days: null }, false);
+  ok('xCal: 7칸을 못 받아도 달력 버튼은 준다(칸은 안 지어냄)', /tc-cal-pin/.test(h3) && !/width:17px/.test(h3), h3);
+}
+const modal = cut(adm, 'function tcOpenCalModal(uid, who)');
+ok('캘린더 창이 학생 상세의 스케줄 탭을 연다', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(modal));
+ok('캘린더 창: 새 탭은 <a target=_blank> (window.open 금지)', /target="_blank" rel="noopener"/.test(modal) && !/window\.open/.test(modal));
+ok('캘린더 창: vh 단위를 쓰지 않는다(zoom 1.3)', !/\d+vh/.test(modal));
+const rend = adm.slice(adm.indexOf("return '<tr>'"));
+ok('칩에 클릭·키보드 리스너를 단다', /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,600}tcOpenCalModal\(uid/.test(rend) && /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,900}keydown/.test(rend));
+{ const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8'); ok('student.html 이 ?tab= 로 실재하는 탭만 고른다', /get\('tab'\)[\s\S]{0,200}dataset\.tab === want[\s\S]{0,40}btn\.click\(\)/.test(stu) && /data-tab="schedule"/.test(stu)); }
 const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
 for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label_en', 'r.last_eval', 'r.today_eval', 'r.class_date']) {
   ok('매니저 화면이 ' + k + ' 를 읽는다', mgr.includes(k));

@@ -82,6 +82,73 @@
     var l = isEn() ? s.sched_label_en : s.sched_label_ko;
     return l ? xSmall(esc(l), ';color:#475569') : xDash();
   }
+  /* 📅 (2026-09-23 사장님 «학원 옆에 수업 캘린더 · 누르면 크게» — 제안서 C안)
+     이번 주(월~일) 7칸 미니 달력 + 「📅 캘린더」 → 학생 상세의 스케줄 탭을 창으로 연다.
+     값은 서버가 판정한다(week_days — class-today-extras.ts weekDaysFor). 화면은 «그리기만».
+     ⛔ 카페24 수업은 망고아이 예약표에 없어 비워 두지 않고 그 사실을 적는다(빈칸은 «고장» 으로 읽힘).
+     ⚠️ 칸 색: 카드 안 인라인 색이 눌릴 수 있어 «background-color:» 로 쓰고(background: 금지),
+        채움은 #3b82f6(어두운 파랑은 밝기 페인터가 옅게 덮음). 뜻은 제목(title)·aria 로도 준다. */
+  var X_DOW_KO = ['월', '화', '수', '목', '금', '토', '일'];
+  var X_DOW_EN = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  function xCal(s, isC24) {
+    if (isC24) return xSmall(T('카페24 수업 · 달력 없음', 'cafe24 class · no calendar'), ';color:#92400e');
+    if (!s.student_uid) return xDash();
+    var wd = Array.isArray(s.week_days) && s.week_days.length === 7 ? s.week_days : null;
+    var dates = Array.isArray(s.week_dates) ? s.week_dates : [];
+    var todayIdx = dates.indexOf(String(s.class_date || '').slice(0, 10));
+    var strip = '';
+    if (wd) {
+      var n = 0;
+      strip = '<div class="tc-cal-strip" style="display:flex;gap:2px;margin-bottom:3px">';
+      for (var i = 0; i < 7; i++) {
+        var on = !!wd[i];
+        if (on) n++;
+        var lbl = isEn() ? X_DOW_EN[i] : X_DOW_KO[i];
+        strip += '<span title="' + esc((dates[i] || '') + (on ? T(' 수업', ' class') : '')) + '" '
+          + 'style="display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;border-radius:4px;'
+          + (on ? 'background-color:#3b82f6;color:#ffffff;' : 'background-color:#e4e7ec;color:#475467;')
+          + (i === todayIdx ? 'outline:2px solid #b45309;outline-offset:0;' : '')
+          + '">' + lbl + '</span>';
+      }
+      strip += '</div>';
+      strip = strip.replace('class="tc-cal-strip"', 'class="tc-cal-strip" role="img" aria-label="'
+        + esc(T('이번 주 수업 ' + n + '일', n + ' class day(s) this week')) + '"');
+    }
+    return '<div style="min-width:132px">' + strip
+      + '<span class="tc-cal-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" data-who="' + esc(s.student_name || s.student_uid) + '" '
+      + 'style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;background-color:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">'
+      + '📅 ' + T('캘린더', 'Calendar') + '</span></div>';
+  }
+  function tcCalModalClose() {
+    var box = $('tc-cal-modal');
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+    document.removeEventListener('keydown', tcCalEsc);
+  }
+  function tcCalEsc(e) { if (e.key === 'Escape') tcCalModalClose(); }
+  /* 🗓 학생 상세의 스케줄 탭(/admin/student.html?uid=&tab=schedule)을 그대로 띄운다 —
+     달력을 두 벌 만들지 않는다(같은 화면이 두 답을 하지 않게).
+     ⛔ vh 단위 금지(관리자 body zoom 1.3) — inset 으로 꽉 채운다. ⛔ window.open 금지(인앱 null) — 새 탭은 <a>. */
+  function tcOpenCalModal(uid, who) {
+    tcCalModalClose();
+    var url = '/admin/student.html?uid=' + encodeURIComponent(uid) + '&tab=schedule';
+    var box = document.createElement('div');
+    box.id = 'tc-cal-modal';
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background-color:rgba(15,23,42,0.55)';
+    box.innerHTML = '<div style="position:absolute;inset:16px;display:flex;flex-direction:column;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4)">'
+      + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e4e7ec;color:#101828">'
+      +   '<b style="flex:1;font-size:14px">📅 ' + esc(who || uid) + T(' — 수업 캘린더', ' — class calendar') + '</b>'
+      +   '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:#1d4ed8">' + T('새 탭에서 열기 ↗', 'Open in new tab ↗') + '</a>'
+      +   '<span id="tc-cal-close" role="button" tabindex="0" style="padding:4px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;cursor:pointer;font-size:12px;font-weight:700">' + T('닫기', 'Close') + '</span>'
+      + '</div>'
+      + '<iframe src="' + esc(url) + '" title="' + esc(T('수업 캘린더', 'Class calendar')) + '" style="flex:1;width:100%;border:0"></iframe>'
+      + '</div>';
+    document.body.appendChild(box);
+    var c = document.getElementById('tc-cal-close');
+    c.addEventListener('click', tcCalModalClose);
+    c.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tcCalModalClose(); } });
+    box.addEventListener('click', function (e) { if (e.target === box) tcCalModalClose(); });
+    document.addEventListener('keydown', tcCalEsc);
+  }
   function xEval(e, hidden) {
     /* 🔒 (2026-09-23) 지사·대리점에는 서버가 평가를 안 싣는다 — «없음» 이 아니라 «본사 전용» 이라고 말한다 */
     if (hidden) return xSmall(T('본사 전용', 'HQ only'), ';color:#6b7280');
@@ -592,6 +659,7 @@
       +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
       +   '<th>' + T('연락처', 'Contact') + '</th>'
       +   '<th>' + T('학원', 'Academy') + '</th>'
+      +   '<th>' + T('수업 캘린더', 'Class calendar') + '</th>'
       +   '<th>' + T('결제 유형', 'Payment type') + '</th>'
       +   '<th>' + T('일정', 'Schedule') + '</th>'
       +   '<th>' + T('강사 입장', 'Instructor entrance') + '</th>'
@@ -742,6 +810,7 @@
             + '</td>'
             + '<td>' + contact + '</td>'
             + '<td>' + academy + '</td>'
+            + '<td>' + xCal(s, isC24) + '</td>'
             + '<td>' + xPay(s.pay_type) + '</td>'
             + '<td>' + xSched(s) + '</td>'
             + '<td>' + xTeacherEntry(s.teacher_entry) + '</td>'
@@ -779,6 +848,21 @@
           if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
         });
       })(pins[pi]);
+    }
+    /* 📅 수업 캘린더 칩 → 학생 상세 스케줄 탭 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
+    var cals = box.querySelectorAll('.tc-cal-pin');
+    for (var ci = 0; ci < cals.length; ci++) {
+      (function (el) {
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          if (uid) tcOpenCalModal(uid, el.getAttribute('data-who') || uid);
+        };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(cals[ci]);
     }
     /* 📅 연기·변경 칩 → 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
     var mvs = box.querySelectorAll('.tc-move-pin');

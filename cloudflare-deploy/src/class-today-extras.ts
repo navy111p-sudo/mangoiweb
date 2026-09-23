@@ -25,7 +25,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 import { teacherPresenceByRoom } from './no-show-truth';
 import { selectInChunks } from './d1-chunk';
-import { loadSchedSummaryMap } from './student-schedule-summary';
+import { loadSchedSummaryMap, SCHED_SUMMARY_WHERE } from './student-schedule-summary';
 import { ensureAttendanceAccountUid } from './attendance-uid';
 
 const KST = 9 * 3600 * 1000;
@@ -150,6 +150,35 @@ export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStar
   return { today, last };
 }
 
+/** 📅 그 날짜가 든 주(월~일)의 날짜 7개 — 'YYYY-MM-DD'. dateStr 이 이상하면 null. */
+export function weekDatesOf(dateStr: string): string[] | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!m) return null;
+  const base = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const dow = new Date(base).getUTCDay();            // 0=일
+  const mon = base - ((dow + 6) % 7) * 86400000;     // 그 주 월요일
+  const out: string[] = [];
+  for (let i = 0; i < 7; i++) out.push(new Date(mon + i * 86400000).toISOString().slice(0, 10));
+  return out;
+}
+
+/** 📅 이번 주(월~일) 7칸 중 수업이 있는 날 — 학생 한 명의 활성 예약 행들로 계산한다.
+ *  규칙은 입장 정본(/api/class/sessions/today)과 같다: 날짜가 있으면 그 날짜, 없으면 요일.
+ *  ⛔ 요일 파서를 새로 만들지 않는다 — 운영 값에 숫자 '3'·영문 'Wed'·한글 '수'·나열 '1,3,5' 가
+ *     섞여 있어 정본(api-admin.ts admDowMatches)을 «주입» 받는다(classes-now.ts 와 같은 방식). */
+export function weekDaysFor(rows: any[], weekDates: string[],
+  dowMatches: (raw: any, target: number) => boolean): boolean[] {
+  const out = [false, false, false, false, false, false, false];
+  for (const r of rows || []) {
+    const d = String(r?.scheduled_date || '').slice(0, 10);
+    if (d) { const i = weekDates.indexOf(d); if (i >= 0) out[i] = true; continue; }
+    const raw = r?.day_of_week;
+    if (raw == null || raw === '') continue;
+    for (let i = 0; i < 7; i++) if (dowMatches(raw, (i + 1) % 7)) out[i] = true;   // i=0 월 → 1 … i=6 일 → 0
+  }
+  return out;
+}
+
 /** 망고아이 방이 없는 줄인가 — 관리자 목록은 source='cafe24', 강사 포털은 source='lms'(방 번호 c24-…). */
 export function isNoRoomRow(s: any): boolean {
   const src = String(s?.source || '');
@@ -161,7 +190,7 @@ export function isNoRoomRow(s: any): boolean {
 /** opts.evals=false — 평가 내용을 싣지 않는다(지사·대리점. 2026-09-23 사장님 지시).
  *  ⚠️ 기본값은 true(강사 포털·본사). 부르는 쪽이 «숨길 사람» 을 정한다. */
 export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number,
-  opts: { evals?: boolean } = {}): Promise<void> {
+  opts: { evals?: boolean; dowMatches?: (raw: any, target: number) => boolean } = {}): Promise<void> {
   const withEvals = opts.evals !== false;
   for (const s of sessions) {
     s.class_date = dateStr;
@@ -169,6 +198,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     s.sched_label_ko = null; s.sched_label_en = null;
     s.last_eval = null; s.today_eval = null;
     s.eval_hidden = !withEvals;   // 화면이 «—»(없음)과 «본사 전용»(숨김)을 가르게
+    s.week_days = null; s.week_dates = null;   // 📅 이번 주 7칸 — 요일 정본을 넘겨받은 화면(관리자)만
   }
   if (!sessions.length) return;
   const db = env.DB;
@@ -268,6 +298,28 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
       if (v && v.total > 0) { s.sched_label_ko = v.label_ko; s.sched_label_en = v.label_en; }
     }
   } catch (e: any) { console.warn('[classes/today] schedule:', e?.message); }
+
+  // 📅 이번 주 수업 요일 7칸(2026-09-23 사장님 «C안») — 요일 정본을 넘겨받았을 때만.
+  //    카페24 줄은 망고아이 예약표에 없을 수 있어 칸을 비운다(화면이 «카페24 수업» 이라 말함).
+  const wd = opts.dowMatches ? weekDatesOf(dateStr) : null;
+  if (wd && opts.dowMatches && uids.length) {
+    try {
+      const rows = await selectInChunks<any>(db, uids, (ph) =>
+        `SELECT user_id, schedule_kind, scheduled_date, day_of_week FROM class_schedules
+          WHERE ${SCHED_SUMMARY_WHERE} AND user_id IN (${ph})`);
+      const byUid = new Map<string, any[]>();
+      for (const r of rows) {
+        const u = String(r?.user_id || '').trim(); if (!u) continue;
+        const l = byUid.get(u) || []; l.push(r); byUid.set(u, l);
+      }
+      for (const s of sessions) {
+        if (isNoRoomRow(s)) continue;
+        const u = String(s.student_uid || '').trim(); if (!u) continue;
+        s.week_days = weekDaysFor(byUid.get(u) || [], wd, opts.dowMatches);
+        s.week_dates = wd;
+      }
+    } catch (e: any) { console.warn('[classes/today] week days:', e?.message); }
+  }
 
   // ⑤⑥ 평가(1분 수업일지) — 지난 · 오늘. ⛔ 숨길 사람이면 «조회 자체를 안 한다»(응답에 실릴 자리가 없게)
   if (withEvals && uids.length) {
