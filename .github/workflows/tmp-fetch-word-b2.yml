@@ -1,0 +1,54 @@
+# ⛔ 임시 워크플로 — main 에 올리지 않습니다. 이 브랜치에서만 돕니다.
+#   낱말 사진 117장을 러너가 받아 webp 로 바꿔 커밋합니다
+#   (작업 컨테이너는 CDN 이 프록시에 403 이라 직접 못 받습니다 — CLAUDE.md 2장).
+name: tmp-fetch-word-b2
+
+on:
+  push:
+    branches: [tmp/word-img-b2]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: webp 도구
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+
+      - name: 내려받아 webp 로 바꾸기
+        run: |
+          mkdir -p cloudflare-deploy/public/img/scene-words
+          node -e '
+            const fs=require("fs");
+            const list=JSON.parse(fs.readFileSync("tools/tmp/word-img-fetch.json","utf8"));
+            fs.writeFileSync("/tmp/list.tsv", list.map(x=>x.index+"\t"+x.url).join("\n"));
+            console.log("받을 것", list.length);
+          '
+          cd cloudflare-deploy/public/img/scene-words
+          fail=0
+          while IFS=$'\t' read -r IDX URL; do
+            [ -z "$IDX" ] && continue
+            if ! curl -sfL --max-time 90 -o /tmp/src.png "$URL"; then echo "❌ $IDX 내려받기 실패"; fail=1; continue; fi
+            [ -s /tmp/src.png ] || { echo "❌ $IDX 빈 파일"; fail=1; continue; }
+            for q in 80 68 55 42 32; do
+              cwebp -quiet -q $q -resize 640 480 /tmp/src.png -o $IDX.webp
+              sz=$(stat -c%s $IDX.webp)
+              [ "$sz" -le 80000 ] && break
+            done
+            echo "✅ $IDX → $(stat -c%s $IDX.webp) bytes"
+          done < /tmp/list.tsv
+          ls -1 *.webp | wc -l
+          exit $fail
+
+      - name: 커밋
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -q -m '낱말 사진 117장 — 남의 사진을 빌려 쓰던 낱말의 전용 사진' || { echo '바뀐 것 없음'; exit 0; }
+          git push origin HEAD:tmp/word-img-b2
