@@ -97,6 +97,15 @@ out.l = ss.map(s => ({ d: s.class_date, te: s.teacher_entry && s.teacher_entry.s
 const ss2 = mk(); let threw = false;
 try { await X.enrichClassesToday({ DB: mkDb(/attendance|evaluations|centers|class_schedules/) }, ss2, '2026-09-23', S + 60*M); } catch (e) { threw = true; }
 out.boom = { threw, at: ss2[0].attendance, today: ss2[0].today_eval, d: ss2[0].class_date };
+// 🆕 방에 «아무도» 안 들어온 수업 — 판정 불가가 아니라 «입장 기록 없음»(2026-09-23 사장님 화면)
+//    짝: 시작 전이면 «아직 전» · 출석 조회가 실패하면 그대로 «확인 불가»(모르면 단정하지 않음)
+const mkEmpty = () => [
+  { source: 'mangoi', room_id: 'class-6-20260923', student_uid: 'kim', student_name: '김', teacher_name: 'MAIMAI', start_ts: S, status: 'live' },
+  { source: 'mangoi', room_id: 'class-5-20260923', student_uid: 'kim', student_name: '김', teacher_name: 'MAIMAI', start_ts: S, status: 'early' },
+];
+const se = mkEmpty(); await X.enrichClassesToday({ DB: mkDb(null) }, se, '2026-09-23', S + 10*M);
+const sb = mkEmpty(); await X.enrichClassesToday({ DB: mkDb(/attendance/) }, sb, '2026-09-23', S + 10*M);
+out.empty = { live: se[0].teacher_entry.state, early: se[1].teacher_entry.state, boom: sb[0].teacher_entry.state };
 // 🔒 지사·대리점 — 평가를 «조회조차» 안 한다 · 짝: 기본값은 싣는다
 SQLS.length = 0;
 const ss3 = mk();
@@ -148,6 +157,9 @@ if (o) {
   ok('로더: 일정 = 명부 «예약» 칸과 같은 정본 라벨', a.sch === '1/wk', a);
   ok('로더: 오늘·지난 평가', a.today === 3 && a.last === 2, a);
   ok('로더: 카페24 줄 = cafe24 표시(지어내지 않음)', b.te === 'cafe24' && b.at === 'cafe24' && b.pay === null, b);
+  ok('로더: 아무도 안 들어온 수업 중인 방은 «입장 기록 없음»(unknown 아님)', o.empty.live === 'none', o.empty);
+  ok('로더: 짝 — 시작 전 빈 방은 «아직 전»', o.empty.early === 'pending', o.empty);
+  ok('로더: 짝 — 출석 조회 실패면 «확인 불가» 그대로(단정 안 함)', o.empty.boom === 'unknown', o.empty);
   ok('로더: 조회가 던져도 던지지 않고 그 칸만 비운다', o.boom.threw === false && o.boom.at === null && o.boom.today === null && o.boom.d === '2026-09-23', o.boom);
 }
 
