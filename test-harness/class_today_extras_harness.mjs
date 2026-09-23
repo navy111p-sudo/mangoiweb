@@ -267,6 +267,33 @@ const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
 for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label_en', 'r.last_eval', 'r.today_eval', 'r.class_date']) {
   ok('매니저 화면이 ' + k + ' 를 읽는다', mgr.includes(k));
 }
+// 📅 매니저 화면 «수업 캘린더»(2026-09-23 «매니저 화면에도 똑같이») — calLine 블록을 오려 내 «실제로» 돌린다
+{
+  const c0 = mgr.indexOf('var calLine = \'\';');
+  const c1 = mgr.indexOf("return '<div class=\"row\">", c0);
+  const blk = c0 > 0 && c1 > c0 ? mgr.slice(c0, c1) : '';
+  ok('매니저: calLine 블록을 오려 냈다', blk.length > 300);
+  let mk2 = null;
+  try { mk2 = new Function('T', 'esc', 'r', 'j', blk + '; return calLine;'); } catch (e) { ok('매니저 calLine 컴파일', false, e.message); }
+  if (mk2) {
+    const Te = (en, ko) => ko, escF = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const go = (r) => { try { return mk2(Te, escF, r, { date: '2026-09-23' }); } catch (e) { return 'THREW:' + e.message; } };
+    const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
+    const m1 = go({ source: 'mangoi', student_uid: 'kim', student_name: '김', class_date: '2026-09-23', week_days: [true,false,true,false,false,false,false], week_dates: wd });
+    ok('매니저: 7칸 중 수업 있는 날 2칸이 켜진다', (m1.match(/<i class="on/g) || []).length === 2 && (m1.match(/<i /g) || []).length === 7, m1.slice(0, 300));
+    ok('매니저: 오늘(수)에만 today 표시', (m1.match(/today/g) || []).length === 1 && /class="on today"[^>]*>수</.test(m1), m1);
+    ok('매니저: 「📅 캘린더」 칩에 학생 아이디', /data-calpin="kim"/.test(m1));
+    const m2 = go({ source: 'cafe24', student_uid: 'lee' });
+    ok('매니저: 카페24 줄은 «카페24 수업» 이라 말하고 칩이 없다', /카페24 수업/.test(m2) && !/data-calpin/.test(m2), m2);
+    ok('매니저: 학생 아이디가 없으면 아무것도 안 그린다(짝)', go({ source: 'mangoi', student_uid: '' }) === '');
+    const m3 = go({ source: 'mangoi', student_uid: 'park', week_days: null });
+    ok('매니저: 7칸을 못 받으면 칸은 안 지어내고 칩만', /data-calpin="park"/.test(m3) && !/<i /.test(m3), m3);
+  }
+  ok('매니저: 줄이 calLine 을 그린다', /exLine \+ calLine \+ '<\/span>'/.test(mgr));
+  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('\[data-ta\],\[data-calpin\]'\)/.test(mgr));
+  const mo = mgr.slice(mgr.indexOf('function mgCalOpen('), mgr.indexOf('function bindTodayActions('));
+  ok('매니저 창: 학생 상세 스케줄 탭을 연다 · window.open 없음', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(mo) && !/window\.open/.test(mo));
+}
 // ── 강사 포털(teacher.html) ──
 const tea = readFileSync(join(SRC, 'api-teacher.ts'), 'utf8');
 const iO = tea.indexOf('await applyRoomOverrides(env.DB, classes, ymd);');
