@@ -175,6 +175,10 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 칸 — 짧은 글이라 flex 로 감싸지 않는다(낱글자 쪼개짐) */
 .cls-extra{margin-top:3px;font-size:12px;line-height:1.55;color:#475467}
 .cls-extra b{font-weight:700;color:#344054}
+.cls-extra .cal7{display:inline-flex;gap:2px;vertical-align:middle}
+.cls-extra .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
+.cls-extra .cal7 i.on{background:#3b82f6;color:#fff}
+.cls-extra .cal7 i.today{outline:2px solid #b45309}
 .cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
 .cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
 .cls-prev-score{color:#8a6d1a;font-weight:700}
@@ -1491,7 +1495,22 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       '<b>' + esc(T('Schedule', '일정')) + '</b> ' + esc(sl || D),
       '<b>' + esc(T('Instructor in', '강사 입장')) + '</b> ' + esc(teTxt),
       '<b>' + esc(T('Student', '학생 출결')) + '</b> ' + esc(atTxt)];
-    return '<div class="cls-extra">' + row1.join(' &middot; ')
+    /* 📅 (2026-09-23) 이번 주 7칸 — admin.html·manager.html 과 같은 서버 값(week_days·week_dates).
+       ⛔ 칸을 못 받으면(카페24 줄·옛 응답) 지어내지 않고 줄 자체를 안 그린다.
+       ⛔ 「📅 캘린더」 창은 넣지 않는다 — 그 화면(/admin/student.html)은 관리자 API 를 불러 강사 계정은 막힌다. */
+    var wdd = (Array.isArray(c.week_days) && c.week_days.length === 7) ? c.week_days : null;
+    var wkLine = '';
+    if (wdd) {
+      var wds = Array.isArray(c.week_dates) ? c.week_dates : [];
+      var tdi = wds.indexOf(String(c.class_date || '').slice(0, 10));
+      var K7 = ['월','화','수','목','금','토','일'], E7 = ['M','T','W','T','F','S','S'], nOn = 0, strip = '';
+      for (var ci = 0; ci < 7; ci++) {
+        if (wdd[ci]) nOn++;
+        strip += '<i class="' + (wdd[ci] ? 'on' : '') + (ci === tdi ? ' today' : '') + '" title="' + esc((wds[ci] || '') + (wdd[ci] ? T(' class', ' 수업') : '')) + '">' + T(E7[ci], K7[ci]) + '</i>';
+      }
+      wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> <span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
+    }
+    return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)))
       + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + '</div>';
   }
@@ -1592,7 +1611,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
            + ':' + (sc.attendance ? sc.attendance.state + (sc.attendance.at || '') : '')
            + ':' + (sc.teacher_entry ? sc.teacher_entry.state + (sc.teacher_entry.at || '') : '')
            + ':' + (sc.today_eval ? sc.today_eval.id : '') + ':' + (sc.last_eval ? sc.last_eval.id : '')
-           + ':' + (sc.pay_type || '') + ':' + (sc.sched_label_en || '') + ',';
+           + ':' + (sc.pay_type || '') + ':' + (sc.sched_label_en || '')
+           + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '') + ',';
     }
     if (sig === lastSig) return;
     lastSig = sig;
