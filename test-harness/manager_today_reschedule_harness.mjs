@@ -287,50 +287,47 @@ ok('카페24 줄은 can_move:false 로 못 박는다', /can_move: false,[\s\S]{0
 
 /* ══════════════════════════════════════════════════════════════════════════
    ④ 화면 배선 — 판정을 복제하지 않았는가
+      (2026-09-23) 창이 manager.html 안에서 js/class-move-modal.js(관리자 화면과 공용)로 옮겨졌다.
+      그래서 «연기·변경·취소 실행» 검사는 그 공용 파일(mvRun)을, «누가 취소할 수 있나·언제
+      받아 오나» 검사는 manager.html 을 본다.
    ══════════════════════════════════════════════════════════════════════════ */
-console.log('\n[④] manager.html 배선');
+console.log('\n[④] 연기·변경 창(공용) · manager.html 배선');
 
 /* ⚠️ 부정 검사는 **주석을 벗긴 사본**으로 판정한다 — 「⛔ …하지 말 것」 이라고 적은
-      설명 주석이 그 글자를 담고 있어 검사가 «자기 주석» 을 잡는다(CLAUDE.md 2장).
-      지금은 그 주석이 taRun «밖» 이라 우연히 통과하지만, 한 줄만 안으로 옮겨도
-      **멀쩡한 코드가 거짓 FAIL** 이 된다. */
+      설명 주석이 그 글자를 담고 있어 검사가 «자기 주석» 을 잡는다(CLAUDE.md 2장). */
+const MV = readFileSync(new URL('../cloudflare-deploy/public/js/class-move-modal.js', import.meta.url), 'utf8');
+const MV_S = strip(MV);
 const MGR_S = strip(MGR);
-const taRun = blockFrom(MGR_S, 'function taRun(pan, sid)');
-ok('전제 — 주석을 벗긴 사본으로 본다', MGR_S.length > 0 && MGR_S.length < MGR.length);
-ok('전제 — taRun 을 잘라 냈다', taRun.length > 800, taRun.length);
+const taRun = blockFrom(MV_S, 'function mvRun(r, day)');
+ok('전제 — 주석을 벗긴 사본으로 본다', MV_S.length > 0 && MV_S.length < MV.length && MGR_S.length < MGR.length);
+ok('전제 — mvRun 을 잘라 냈다', taRun.length > 800, taRun.length);
 ok('취소는 «진짜 취소» 경로(DELETE /class-schedules/:id)를 부른다',
-   /\/api\/admin\/class-schedules\/' \+ encodeURIComponent\(sid\)[\s\S]{0,120}method: 'DELETE'/.test(taRun));
+   /mvReq\('DELETE', '\/api\/admin\/class-schedules\/' \+ encodeURIComponent\(sid\)/.test(taRun));
 // ⛔ 취소를 request_type:'cancel' 로 보내면 서버가 «연기»(postponed)로 처리해 화면이 거짓말을 한다
-ok('⛔ 취소를 request_type:\'cancel\' 로 보내지 않는다', taRun.indexOf("'cancel'") < 0 || !/request_type: *'cancel'/.test(taRun));
+ok('⛔ 취소를 request_type:\'cancel\' 로 보내지 않는다', !/request_type: *'cancel'/.test(taRun));
 ok('연기·변경은 기존 두 경로를 그대로 쓴다',
    /\/api\/admin\/schedule-requests'/.test(taRun) && /schedule-requests\/decide'/.test(taRun));
-ok('«무엇을 했는가» 판정문은 reqMsgOf 를 재사용한다 (복제 금지)', /reqMsgOf\(res\.j, 'approve'\)/.test(taRun));
-ok('오류 문구도 reqErrOf 를 재사용한다 (복제 금지)', /reqErrOf\(/.test(taRun));
+ok('«무엇을 했는가» 판정문은 mvMsgOf 한 곳을 쓴다 (복제 금지)', /mvMsgOf\(res\.j\)/.test(taRun));
+ok('오류 문구도 mvErrOf 한 곳을 쓴다 (복제 금지)', /mvErrOf\(/.test(taRun));
 ok('되돌릴 수 없으므로 확인을 한 번 받는다', /window\.confirm\(ask\)/.test(taRun));
-/* 🪤 «그 글자가 있는가» 로는 `if (false) return;` 한 글자를 못 잡는다 — 확인창을 건너뛰면
-      매니저가 누르는 «순간» 수업이 옮겨진다(되돌릴 수 없다). 조건까지 함께 본다. */
+/* 🪤 «그 글자가 있는가» 로는 `if (false) return;` 한 글자를 못 잡는다 — 조건까지 함께 본다. */
 ok('⛔ 확인창을 «건너뛰지» 않는다 (조건 뒤집기 방지)', /if \(!window\.confirm\(ask\)\) return;/.test(taRun));
+const serRun = blockFrom(MV_S, 'function mvRunSeries(');
+ok('🔄 앞으로 계속도 확인을 한 번 받는다', /if \(!window\.confirm\(/.test(serRun));
+ok('🔄 앞으로 계속은 series-move 에 apply:true 로 보낸다', /series-move'[\s\S]{0,40}payload/.test(serRun) && /apply: true/.test(serRun));
 
-/* «누가 냈는가» — 화면이 서버에 무엇이라고 말하는가.
-   ⚠️ 서버가 세션으로 다시 확인하므로 위조는 안 되지만, 화면이 'teacher' 로 보내면
-      노쇼 리포트·알림에 **관리자가 한 일이 강사 것으로** 적힌다(②절이 지키는 그 값). */
+/* «누가 냈는가» — 화면이 서버에 무엇이라고 말하는가. */
 const mSendRole = taRun.match(/requester_role: *'([^']+)'/);
 ok('화면은 자기를 admin 으로 밝힌다', !!mSendRole && mSendRole[1] === 'admin', mSendRole && mSendRole[1]);
 
-/* 반쪽 성공 — 접수는 됐는데 승인이 실패하면 «어디서 마저 하는지» 를 말해야 한다.
-   ⛔ 이 줄이 없으면 요청이 결재함에 남아 있는데 화면은 «실패» 로만 보인다. */
+/* 반쪽 성공 — 접수는 됐는데 승인이 실패하면 «어디서 마저 하는지» 를 말해야 한다. */
 ok('승인이 실패하면 «요청은 저장됐다 + 어디서 마저 하는지» 를 말한다',
    /요청은 저장됐습니다/.test(taRun) && /수업 연기·변경 요청/.test(taRun));
 
-/* 💰 「연기」는 강사 수업료에 닿는다 — 확인창이 그 말을 하는가.
-   서버가 연기·취소 요청에 fee_type 을 자동으로 매기고(시작 30분보다 이르면 'free'),
-   급여가 그 값을 읽어 postponed_early_pay_percent(**amount 0 으로 심어져 있다**)를 쓴다.
-   ⟹ 매니저가 «앞으로 있을» 수업을 연기하면 그 수업 강사료가 0원이 될 수 있다.
-   ⛔ 조용히 두지 말 것 — 되돌릴 수 없는 «돈» 축이다(CLAUDE.md 2장). */
+/* 💰 「연기」는 강사 수업료에 닿는다 — 확인창이 그 말을 하는가(사전 연기 지급률, 기본 0). */
 const mFee = taRun.match(/var feeWarn = ([\s\S]*?)\n      : '';/);
 ok('전제 — 급여 경고 조건을 찾았다', !!mFee);
 if (mFee) {
-  const cond = (mFee[1].match(/^\(([^)]*\))*[^)]*\)/) || [mFee[1].split('\n')[0]])[0];
   let fw = null;
   try { fw = new Function('mode', 'mins', 'return ' + (mFee[1].split('\n')[0].trim()) + ';'); }
   catch (e) { ok('급여 경고 조건을 실제로 돌린다', false, String(e.message)); }
@@ -343,7 +340,6 @@ if (mFee) {
     if (r3) {
       ok('급여 경고 조건을 실제로 돌린다', true);
       ok('💰 30분보다 이른 연기에는 «사전 연기» 를 경고한다', r3.far === true, r3.far);
-      // 짝 — 없으면 «늘 경고» 도 통과한다(양치기 소년이 되어 아무도 안 읽는다)
       ok('시작이 코앞이면 경고하지 않는다 (짝)', r3.near === false, r3.near);
       ok('경계(30분)에서는 경고하지 않는다 (짝)', r3.edge === false, r3.edge);
       ok('시각을 모르면 지어내지 않는다 (짝)', r3.unknown === false, r3.unknown);
@@ -351,30 +347,38 @@ if (mFee) {
     }
   }
   ok('⛔ 퍼센트 숫자를 화면이 지어내지 않는다', !/0\s*%|0원이 됩니다|100%/.test(mFee[1]), mFee[1].slice(0, 40));
-  ok('연기 확인창에 그 경고를 실제로 붙인다', /연기할까요[\s\S]{0,240}\+ feeWarn;/.test(taRun));
+  ok('연기 확인창에 그 경고를 실제로 붙인다', /연기할까요[\s\S]{0,400}\+ feeWarn;/.test(taRun));
 }
 
-/* 🔴 «무엇을 고르셨나» 판정 — 여기가 틀리면 매니저가 「수업 취소」를 골랐는데
-      «연기» 가 나갑니다(둘 다 «성공» 이라 에러도 안 납니다). 폴백까지 함께 못 박는다. */
-const mMode = MGR_S.match(/function taModeOf\(([^)]*)\)/);
-const taModeBlk = blockFrom(MGR_S, 'function taModeOf');
-ok('전제 — taModeOf 를 잘라 냈다', taModeBlk.length > 20, taModeBlk.length);
+/* 🔴 «무엇을 고르셨나» 판정 — 틀리면 «취소» 를 골랐는데 «연기» 가 나간다. */
+const taModeBlk = blockFrom(MV_S, 'function mvAct()');
+ok('전제 — mvAct 를 잘라 냈다', taModeBlk.length > 20, taModeBlk.length);
 ok('고른 버튼은 aria-pressed 로 읽는다', /aria-pressed/.test(taModeBlk));
-ok('못 읽으면 «연기» 로 떨어진다 (가장 덜 위험한 쪽)',
-   /'postpone'/.test(taModeBlk) && !/return 'cancel'/.test(taModeBlk.replace(/data-ta-mode/g, '')));
+ok('못 읽으면 «연기(날짜 미정)» 로 떨어진다 (가장 덜 위험한 쪽)',
+   /'postpone'/.test(taModeBlk) && /return 'hold'/.test(taModeBlk) && !/return 'cancel'/.test(taModeBlk));
 
-const taPanel = blockFrom(MGR_S, 'function taPanelHtml(r)');
-ok('전제 — taPanelHtml 을 잘라 냈다', taPanel.length > 400, taPanel.length);
-const mCancelGate = taPanel.match(/var canCancel = ([^;]+);/);
+/* 취소 게이트 — 공용 창은 «부르는 쪽이 준 canCancel + 날짜 지정 수업» 둘 다일 때만. */
+const mCancelGate = blockFrom(MV_S, 'function mvCanCancel(r)').match(/return ([^;]+);/);
 ok('전제 — 취소 게이트를 찾았다', !!mCancelGate);
 if (mCancelGate) {
-  const h = new Function('IS_HQ', 'r', 'return ' + mCancelGate[1] + ';');
-  ok('본사 + 날짜 지정 수업이면 취소를 준다', h(true, { can_move: true }) === true);
-  // 짝 — 되돌릴 수 없는 조작이라 «막는 쪽으로» 실패해야 한다
-  ok('지사·대리점에는 안 준다 (DELETE 가 403) (짝)', h(false, { can_move: true }) === false);
-  ok('매주 반복에는 안 준다 (모든 주가 죽는다) (짝)', h(true, { can_move: false }) === false);
-  ok('«모름» 에도 안 준다 (막는 쪽으로 실패) (짝)', h(true, {}) === false);
+  const h = new Function('_opt', 'r', 'return ' + mCancelGate[1] + ';');
+  ok('본사 + 날짜 지정 수업이면 취소를 준다', h({ canCancel: true }, { can_move: true }) === true);
+  ok('지사·대리점에는 안 준다 (DELETE 가 403) (짝)', h({ canCancel: false }, { can_move: true }) === false);
+  ok('매주 반복에는 안 준다 (모든 주가 죽는다) (짝)', h({ canCancel: true }, { can_move: false }) === false);
+  ok('«모름» 에도 안 준다 (막는 쪽으로 실패) (짝)', h({ canCancel: true }, {}) === false && h({}, { can_move: true }) === false);
 }
+const taOpen = blockFrom(MGR_S, 'function taOpen(sid)');
+ok('전제 — manager.html 의 taOpen 을 잘라 냈다', taOpen.length > 200, taOpen.length);
+ok('manager: 취소는 본사 계정일 때만 넘긴다 (IS_HQ === true)', /canCancel: IS_HQ === true/.test(taOpen));
+ok('manager: 공용 창을 부른다(창을 한 벌 더 두지 않는다)', /window\.mangoiMoveModal\.open\(r,/.test(taOpen)
+   && MGR_S.indexOf('function taPanelHtml') < 0 && MGR_S.indexOf('function taRun') < 0);
+const loadMv = blockFrom(MGR_S, 'function loadMoveModal(cb)');
+const mV1 = (loadMv.match(/class-move-modal\.js\?v=(\d+)/) || [])[1];
+const ADM = readFileSync(new URL('../cloudflare-deploy/public/admin.html', import.meta.url), 'utf8');
+const mV2 = (ADM.match(/class-move-modal\.js\?v=(\d+)/) || [])[1];
+ok('manager·admin 이 공용 창을 «같은 번호» 로 부른다', !!mV1 && mV1 === mV2, mV1 + ' vs ' + mV2);
+ok('⛔ manager 는 첫 화면에 그 파일을 싣지 않는다 (외부 리소스 0개 계약)',
+   !/<script[^>]+class-move-modal/.test(MGR));
 
 const mChip = blockFrom(MGR_S, 'function paintTodayAll()');
 ok('카페24·매주반복 줄에는 칩을 안 준다', /r\.schedule_id && r\.can_move === false/.test(mChip) && /else if \(r\.schedule_id\)/.test(mChip));
