@@ -75,7 +75,7 @@ const {describe,depicts}=pictureEvidence({assets:assets.concat(wordAssets),clips
       그만큼 «주인공이 아닌 그림» 이 낱말 자리에 섭니다 — 그 자리는 새 낱말 사진으로 채웁니다).
    ⚠️ 동점이면 index 가 작은 쪽 — 빌드가 돌 때마다 같은 답이 나와야 합니다(결정론). */
 const vocabAll=new Set();for(const s of all.values())for(const w of s.words)vocabAll.add(w);
-const wordScene=new Map();
+const wordScene=new Map(),wordRank=new Map();
 {
  const best=new Map();
  const consider=(w,rank,index,make)=>{const cur=best.get(w);
@@ -86,7 +86,7 @@ const wordScene=new Map();
   if(depicts(it.word,key))consider(it.word,0,it.index,make);
   for(const w of vocabAll)if(w!==it.word&&depicts(w,key))consider(w,1,it.index,make);
  }
- for(const [w,v] of best)wordScene.set(w,v.make());
+ for(const [w,v] of best){wordScene.set(w,v.make());wordRank.set(w,v.rank);}
 }
 const scenes=new Map();
 for(const row of selected){const source=all.get(row.id);if(!source||source.text!==row.text)throw Error('Source drift '+row.id);const s={id:row.id,text:source.text,source:labels[source.refs[0][0]]+' · #'+source.refs[0][1],refs:source.refs};const index=assetIndex.get(row.asset);const fallback=contextImages[index];if(fallback&&!lookup.has(fallback))throw Error('Unverified context image '+fallback);const key=fallback||('word-image:'+index);imageMeta(s,lookup.get(key),key);scenes.set(s.id,s);}
@@ -124,7 +124,12 @@ for(const book of books){
   const inBook=s=>s.refs.some(r=>r[0]===book.id);
   const pool=(candidates.get(word)||[]).filter(s=>s.image&&depicts(word,s.key));
   pool.sort((a,b)=>Number(!inBook(a))-Number(!inBook(b))||a.text.length-b.text.length||(a.id<b.id?-1:1));
-  let chosen=pool[0],pictures=1;
+  /* 🖼 2026-09-23 사장님 「단어들과 실사 이미지가 매칭이 안 되는 것들 모아서 다시 고쳐줘」(morning ← 헬스장 사진).
+     «그 낱말을 그리려고 만든 전용 사진»(rank 0)이 있으면 그것이 먼저입니다 — 다른 문장의 장면 사진은
+     그 낱말이 «설명에 들어 있을 뿐» 주인공이 아닙니다(「He exercises at the gym … every morning」).
+     ⛔ 다시 장면 사진을 앞에 두지 마세요 — 전용 사진이 있는데도 헬스장이 「morning」 카드에 섭니다. */
+  const own=wordScene.get(word);
+  let chosen=(own&&wordRank.get(word)===0)?{...own,source:book.label+' · #'+row.sourceIndex}:pool[0],pictures=1;
   if(!chosen){
    /* 🖼 ② 그 낱말만 그린 사진 — 이것도 근거가 검증된 사진이다(wordScene 이 depicts() 를 이미 통과시킨다).
       🔴 2026-09-21 사장님 2차 지적(「아직도 nice 에 가방이 보여」) — 옛 코드는 이 갈래를 «예문 사진 뒤» 로
