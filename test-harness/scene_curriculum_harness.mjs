@@ -204,7 +204,8 @@ for(const sid of wordSceneOf.values())mediaKey.set(sid,'word-image:'+sid.slice(1
 const mediaLookup=new Set();
 {const excluded=new Set(plan('excluded-media.json'));
  for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
-const contentWords=text=>EV.vocabWords(text,stopWords);
+const noCardWords=new Set(plan('no-card-words.json'));
+const contentWords=text=>EV.vocabWords(text,stopWords).filter(w=>!noCardWords.has(w));
 const sceneHasImage=new Map(),sceneOwnText=new Map();
 for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
 for(const c of clipPlan){if(!mediaLookup.has('video:'+(c.reuseClip||c.index)))continue;sceneOwnText.set(c.id,c.text);sceneHasImage.set(c.id,mediaLookup.has(mediaKey.get(c.id)));}
@@ -248,7 +249,16 @@ ok(live.cardRows<=25,'그림문자 카드 줄이 늘지 않았다 — 늘었다�
 /* 🔤 2026-09-23 4543 → 4536 — «사진이 사라진» 것이 아니라 낱말 7개(p·e·j·r·k·x·c)가 «낱말이 아니라서» 빠졌습니다
    (「P.E.」·「J.R.R.」 점 약어 · K-pop·X-rays·Vitamin C 의 한 글자 조각. 사장님 「PE가 따로 글자가 나와」).
    ⛔ 다시 4543 으로 올리지 마세요 — 그 7개를 되살려야 통과합니다. */
-ok(live.wordPictureForms>=4536,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4536, 2026-09-23 실측)');
+/* 🚫 2026-09-23 4536 → 4533 — 사장님 「술 카드 3개는 빼줘」(bts-20 alcohol·beer·wine, no-card-words.json).
+   ⛔ 다시 4536 으로 올리지 마세요 — 술 카드를 되살려야 통과합니다. */
+ok(live.wordPictureForms>=4533,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4533, 2026-09-23 실측)');
+/* 🚫 카드 제외 낱말은 어느 교재에도 카드로 없다 ↔ 같은 문장의 다른 낱말(california·restaurant)은 그대로 있다(짝).
+   짝이 없으면 «그 문장을 통째로 빼기» 도 통과합니다. */
+{const b20=JSON.parse(fs.readFileSync(new URL('bts-20.json',dir),'utf8')),ws=new Set(b20.words.map(w=>w.word));
+ ok(noCardWords.size>=3,'카드 제외 목록을 읽었다(전제)');
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const b=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const w of b.words)ok(!noCardWords.has(w.word),'카드 제외 낱말이 카드로 나오지 않는다: '+f+' / '+w.word);}
+ ok(ws.has('california')&&ws.has('restaurant'),'같은 예문의 다른 낱말 카드는 그대로 있다(california·restaurant)');}
 /* 🔤 한 글자 «낱말» 이 없다 — 「P.E.」 가 p·e 로 쪼개져 「e」 카드에 체육 사진이 붙던 사고(2026-09-23).
    짝: 두 글자 낱말(tv)은 그대로 남는다 — 없으면 «짧은 낱말을 통째로 빼기» 도 통과합니다. */
 {let one=[],tv=0;for(const f of fs.readdirSync(dir))if(/^(bts|siu)-.*\.json$/.test(f)){const b=JSON.parse(fs.readFileSync(new URL(f,dir),"utf8"));for(const w of b.words){if(w.word.length<2)one.push(f+':'+w.word);if(w.word==='tv')tv++;}}

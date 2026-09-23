@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover" />
-<title>🗣️ 수업 전 AI 웜업 — Mangoi</title>
+<title>🗣️ A.i 말하기 연습 — Mangoi</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#0a1530" />
 <!--
@@ -513,7 +513,7 @@
        ⚠️ 목록(연령 4종·수준 8단계)은 서버가 아는 값과 «짝» 이다.
           화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
           (감시: test-harness/warmup_age_level_harness.mjs). -->
-  <div id="wuSetup" class="wu-setup" hidden aria-label="웜업 시작 설정">
+  <div id="wuSetup" class="wu-setup" hidden aria-label="말하기 연습 시작 설정">
     <!-- ⬅️🏠 이 화면이 상단바를 덮으므로 «나가는 길» 을 화면 안에 함께 둔다 -->
     <div class="wus-nav">
       <div class="wus-nav-in">
@@ -523,7 +523,7 @@
     </div>
     <div class="wus-box">
       <div id="wusMain">
-        <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 웜업 설정</div>
+        <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 말하기 연습 설정</div>
         <div class="wus-lead">먼저 <b>누가</b> · <b>어느 수준으로</b> 이야기할지 정해요.<br>대화 중에도 오른쪽 위 <b>⋮</b> 에서 언제든 바꿀 수 있어요.</div>
 
         <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
@@ -562,7 +562,7 @@
           </div>
         </div>
 
-        <div class="wus-sub">🧑‍🎓 누가 웜업하나요?</div>
+        <div class="wus-sub">🧑‍🎓 누가 연습하나요?</div>
         <div class="wus-hint">고른 나이대에 맞춰 <b>이야기 소재와 말투</b>가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
 
@@ -578,7 +578,7 @@
         <div class="wus-ctabar">
           <!-- 📘 «지금 교재»(#987) — 띠 안, 시작 버튼 바로 위. 누르면 교재 자리로 갑니다 -->
           <button type="button" class="wus-booknow" id="wusBookNow" data-jump="books" hidden></button>
-          <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
+          <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 말하기 연습 시작하기</button>
           <p class="wus-hint2" id="wusPickNow" hidden></p>
         </div>
       </div>
@@ -590,7 +590,7 @@
   <div class="top">
     <button type="button" class="back" onclick="goBackOrHome()" title="뒤로 가기" aria-label="뒤로 가기">←</button>
     <a href="/" class="back home" title="홈으로" aria-label="홈으로 가기">🏠</a>
-    <h1><span class="ttl-emoji">🗣️</span> 수업 전 AI 웜업</h1>
+    <h1><span class="ttl-emoji">🗣️</span> A.i 말하기 연습</h1>
     <button id="spkToggle" class="icon-btn" type="button" onclick="toggleSpeech()" title="AI 답변 음성 켜기/끄기">🔊</button>
     <!-- 🎚️ 연령·수준·교재 다시 고르기 — ⋮ 를 열지 않고 한 번에. 자세한 사정은 .icon-btn.tune 주석 -->
     <button id="setupBtn" class="icon-btn tune" type="button" onclick="openSetup(true)"
@@ -600,9 +600,9 @@
         aria-haspopup="true" aria-expanded="false" title="듣기 속도 · 대화 레벨 설정">⋮</button>
       <div id="menuMask" class="menu-mask" onclick="closeMenu()"></div>
       <!-- ⚙️ 듣기 속도 + 대화 레벨을 이 드롭다운 안으로 정리 (평소엔 숨겨져 화면이 넓게) -->
-      <div id="menuPanel" class="menu-panel" role="menu" aria-label="웜업 설정">
+      <div id="menuPanel" class="menu-panel" role="menu" aria-label="말하기 연습 설정">
         <div class="menu-caret"></div>
-        <div class="menu-head">⚙️ 웜업 설정</div>
+        <div class="menu-head">⚙️ 말하기 연습 설정</div>
 
         <!-- 여기부터가 «굴러가는» 칸 — 맨 아래 «다시 고르기» 는 이 밖이라 늘 보인다(.menu-scroll 주석) -->
         <div class="menu-scroll">
@@ -698,7 +698,7 @@
         </video>
       </div>
       <div id="tavatar-status">
-        <span class="ts-idle">함께 웜업해요</span>
+        <span class="ts-idle">함께 말해 봐요</span>
         <span class="ts-talk">말하는 중…</span>
       </div>
     </div>
@@ -733,7 +733,7 @@
       <button id="wgHistory" class="wg-btn" type="button" aria-expanded="false" aria-controls="log" data-ko="이전 대화 보기" data-en="Earlier conversation">이전 대화 보기</button>
       <button id="wgHelpOpen" class="wg-btn" type="button" aria-controls="wgHelp" data-ko="대답할 때 도움이 필요해요" data-en="Help me answer">대답할 때 도움이 필요해요</button>
     </div>
-    <div id="log" aria-label="웜업 대화"></div>
+    <div id="log" aria-label="말하기 연습 대화"></div>
     <div id="wgHelp" class="wg-help" hidden>
       <p data-ko="필요한 만큼만 도움을 열어 보세요." data-en="Open just the help you need.">필요한 만큼만 도움을 열어 보세요.</p>
       <div id="wgHelpOutput" class="wg-help-output" aria-live="polite"></div>
@@ -768,7 +768,7 @@
 
 
     <details class="settings" style="margin-top:12px">
-      <summary>⚙️ 웜업 서버 설정 (선택)</summary>
+      <summary>⚙️ 말하기 연습 서버 설정 (선택)</summary>
       <div style="margin-top:6px">기본은 <b>같은 오리진</b>(Cloudflare 워커의 <code>/api/warmup/chat</code>)이라 설정 없이 바로 대화됩니다.<br>
         외부 백엔드(FastAPI 등)로 바꾸려면 주소를 입력하세요. 예: <code>http://127.0.0.1:8010</code></div>
       <input id="apiInput" type="text" placeholder="비워두면 같은 오리진 사용" onchange="saveApi(this.value)" />
@@ -787,7 +787,7 @@
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=6"></script>
+<script src="/js/warmup-guide.js?v=7"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -816,7 +816,7 @@ function pauseWarmup(){
   sending=false;document.getElementById('sendBtn').disabled=false;
   var qb=document.getElementById('qsBtn');if(qb){qb.disabled=false;qb.textContent='💡 새 질문 추천';}
   document.querySelectorAll('.typing').forEach(function(e){e.remove();});
-  document.getElementById('wgState').textContent='웜업을 잠시 멈췄어요. 마이크와 음성은 꺼져 있어요.';
+  document.getElementById('wgState').textContent='말하기 연습을 잠시 멈췄어요. 마이크와 음성은 꺼져 있어요.';
 }
 function resumeWarmup(){
   if(document.getElementById('wgSummary').open) return;
@@ -1707,7 +1707,7 @@ function renderSetup(){
   renderTwoWay();
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
-  if(cta) cta.textContent = _warmStarted ? '✅ 이 설정으로 계속하기' : '🚀 이 설정으로 웜업 시작하기';
+  if(cta) cta.textContent = _warmStarted ? '✅ 이 설정으로 계속하기' : '🚀 이 설정으로 말하기 연습 시작하기';
   /* 🎗️ 확정 띠 아래 «고른 것» 한 줄 — 누르기 «전에» 무엇으로 시작하는지 알려 준다 (2026-09-15).
      ⛔ 값을 못 구하면 「—」를 남기지 말고 줄째 감추세요 — 빈 값은 «고장» 으로 읽힙니다
         (CLAUDE.md 2장 «측정할 수 없는 값을 그럴듯하게 채우고 싶을 때»).
@@ -1891,7 +1891,7 @@ function finishProbe(){
     +   '<div class="wus-title" style="justify-content:center">'+b.ko+' <span class="wus-lv">('+b.lv+')</span></div>'
     +   '<div class="wus-hint">'+b.d+'</div>'
     + '</div>'
-    + '<button type="button" class="wus-cta" data-pb="go">'+(_warmStarted ? '✅ 이 수준으로 계속하기' : '🚀 이 수준으로 웜업 시작하기')+'</button>'
+    + '<button type="button" class="wus-cta" data-pb="go">'+(_warmStarted ? '✅ 이 수준으로 계속하기' : '🚀 이 수준으로 말하기 연습 시작하기')+'</button>'
     + '<button type="button" class="wus-back" data-pb="quit">← 목록에서 다시 고를래요</button>';
 }
 (function wireProbe(){
@@ -2203,7 +2203,7 @@ function renderTwoWay(){
   el.innerHTML =
       '<button type="button" class="wus-twoc' + (open ? ' on' : '') + '" data-way="book">'
     + '<span class="wus-two-ic">📘</span>'
-    + '<span class="wus-two-nm">교재로 웜업' + (picked ? now : '') + '</span>'
+    + '<span class="wus-two-nm">교재로 연습' + (picked ? now : '') + '</span>'
     + '<span class="wus-two-ds">'
     + (open && !picked ? '아래에서 교재를 골라 주세요'
                        : '교재 주제로 이야기해요') + '</span></button>'
@@ -3210,7 +3210,7 @@ var COMBO_MILESTONES = {
   3:'🔥 3콤보! 대화에 불이 붙었어요!',
   5:'⚡ 5콤보! 영어가 술술 나오는데요?',
   7:'🎉 7콤보! 오늘 컨디션 최고!',
-  10:'🏆 10콤보! 웜업 챔피언 등극!',
+  10:'🏆 10콤보! 말하기 챔피언 등극!',
   15:'💯 15콤보! 선생님도 깜짝 놀랄 실력!',
   20:'👑 20콤보! 전설의 수다왕!'
 };
@@ -3712,7 +3712,7 @@ async function sendMsg(){
 <link rel="stylesheet" href="/css/warmup-guide.css?v=4" />
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
-<script defer src="/js/flow.js?v=21"></script>
+<script defer src="/js/flow.js?v=22"></script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->

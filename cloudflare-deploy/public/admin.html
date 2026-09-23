@@ -2091,6 +2091,21 @@
                 <option value="cafe24" data-ko="🏷 카페24 (LMS)" data-en="🏷 cafe24 (LMS)">🏷 카페24 (LMS)</option>
               </select>
             </label>
+            <!-- 🏫 (2026-09-23 매니저 Karl 요청 «list of academies and list of teachers, instead of typing them»)
+                 학원·강사를 글자로 치지 않고 골라서 거른다 — 「오늘 ○○학원 수업만 모아 보기」(연기 대상 확인).
+                 · 목록은 **그날 불러온 줄에서만** 만든다(js/adm-today-classes.js 의 pickOptions) — 전체 명부로 채우면
+                   고르고 나서 0건인 항목이 대부분이 된다. 건수를 함께 적는다.
+                 · 화면 안에서만 거른다(서버를 다시 부르지 않는다). 학원이 비어 있는 줄은 «(학원 미지정)» 으로 모은다.
+                 ⚠️ manager.html 「오늘 전체 수업」에도 같은 판정이 한 벌 있다(그 화면은 외부 스크립트 0개 계약이라
+                    파일을 나눠 쓸 수 없다) — 한쪽을 고치면 다른 쪽도. test-harness/today_class_pickers_harness.mjs 가 대조한다. -->
+            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px">
+              <span data-ko="학원" data-en="Academy">학원</span>
+              <select id="tc-academy" style="box-sizing:border-box;max-width:230px"><option value="" data-ko="전체" data-en="All">전체</option></select>
+            </label>
+            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px">
+              <span data-ko="강사" data-en="Teacher">강사</span>
+              <select id="tc-teacher" style="box-sizing:border-box;max-width:200px"><option value="" data-ko="전체" data-en="All">전체</option></select>
+            </label>
             <input type="search" id="tc-q" style="box-sizing:border-box;width:210px"
                    placeholder="🔍 학생·강사·강의실 검색"
                    data-ko-placeholder="🔍 학생·강사·강의실 검색" data-en-placeholder="🔍 Search student·teacher·room"
@@ -6795,7 +6810,7 @@ window.__admSettleRun = function(fn){
             <select id="aiu-tool" style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
               <option value="all" data-ko="도구 전체" data-en="All tools">도구 전체</option>
               <option value="judgment" data-ko="판단력 훈련" data-en="Judgment training">판단력 훈련</option>
-              <option value="warmup" data-ko="AI 웜업" data-en="AI warm-up">AI 웜업</option>
+              <option value="warmup" data-ko="A.i 말하기 연습" data-en="A.i Speaking Practice">A.i 말하기 연습</option>
               <option value="friend" data-ko="AI 영어친구" data-en="AI friend chat">AI 영어친구</option>
               <option value="write" data-ko="AI 글쓰기" data-en="AI writing">AI 글쓰기</option>
               <option value="speech" data-ko="발음코칭" data-en="Speech coaching">발음코칭</option>
@@ -6822,7 +6837,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-ai-usage.js?v=1" data-card="card-ai-usage" data-globals="aiuLoad,aiuExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+<script type="text/lazy-js" data-src="/js/adm-ai-usage.js?v=2" data-card="card-ai-usage" data-globals="aiuLoad,aiuExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 
 <!-- 📺 «비디오 자막 + 사전» 카드 삭제 (2026-08-10, 사장님 결정)
      자막·사전 API 가 전부 라이브 404/미구현이었다(반쪽 배선):
@@ -9290,7 +9305,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <div style="padding:18px 20px;background-color:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;color:#1e3a5f;font-size:13.5px;line-height:1.7">
             <div style="font-size:15px;font-weight:900;margin-bottom:8px">교재 이미지에서 «영어 본문» 을 뽑을 수 있는지 재 봅니다.</div>
             <div style="margin-bottom:6px">
-              지금 교재는 <b>활성 17,246장이 전부 이미지</b>라 복습퀴즈·웜업이 쓸 글자가 한 글자도 없습니다.
+              지금 교재는 <b>활성 17,246장이 전부 이미지</b>라 복습퀴즈·말하기 연습이 쓸 글자가 한 글자도 없습니다.
               OCR 로 뽑을 수 있으면 그 원료가 생깁니다.
             </div>
             <div style="margin-bottom:12px">
@@ -10625,7 +10640,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      («아무도 저장하지 않는 죽은 키»)를 정본 window.adminLang / mangoi_lang 으로 바꾼 수정이라,
      옛 파일이 immutable 캐시에 남아 있으면 EN 스태프 화면이 그대로 한국어로 뜬다. -->
 <script src="/js/adm-bulkbook.js?v=11" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/class-move-modal.js?v=1" defer></script><script src="/js/adm-today-classes.js?v=36" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/class-move-modal.js?v=2" defer></script><script src="/js/adm-today-classes.js?v=38" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-today-tabs.js?v=2" defer></script><!-- v=2: 초대 카드를 「화상방 접속」의 짝으로 (2026-09-01) --><!-- 📌 (2026-09-01 A안) 「오늘 수업」 한 항목 안에서 전체 / 🔴 진행 중 / 🎥 화상방 접속 탭 -->
 <script src="/js/adm-quick-access.js?v=15" defer></script><!-- v=15: 「오늘 수업」으로 이름 통일 + 같은 카드를 가리키는 항목이 둘일 때 «주인» 을 고른다 (2026-09-01) --><!-- v=14: 「수업 관제탑」 칸 추가 (2026-08-30) --><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=3" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
@@ -14011,7 +14026,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 #ph85-sidebar #ia6-appr{transition:background-color .35s,border-color .35s,outline-color .35s}
 #ph85-sidebar #ia6-appr.fresh{outline:3px solid #f59e0b;outline-offset:2px}
 </style>
-<script src="/js/adm-ia6.js?v=62" defer></script><!-- v=62: 2026-09-16 「학생 ▸ AI 학습 현황」 항목 추가(card-ai-usage) --><!-- v=61: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- v=60: 「수강 운영」에 hideFrom — 서버가 같은 날 본사 전용이 되어(enrollAdminHqOnly) 화면도 짝으로 감춘다. 그전에는 서버 가드가 없어 «일부러 안 감췄던» 항목 (2026-09-10) --><!-- v=59: 딴 페이지로 가는 항목(href)에 역할 금지목록(hideFrom) — 카드가 없어 역할 필터를 못 받아 강사·지사에게 «눌러도 403» 인 메뉴가 그대로 보이던 것 (2026-09-09) --><!-- v=58: 주석만 — 배지·부제를 채우는 곳이 admin.html 인라인이 아니라 /js/adm-appr-badge.js 임을 바로잡음 (2026-09-09, trap-check 지적) --><!-- v=57: 결재함 라벨의 data-ko/data-en 을 <a> 에서 span 으로 — EN/KO 토글이 배지 요소를 지우던 함정 (2026-09-09) --><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). --></script><!-- v=60: 「정산·매출 ▸ 🏢 AI 사용료」 항목 추가 — 대리점별 AI 콘텐츠 사용료 단가 조정(card-ai-billing, 2026-09-10) --><!-- v=59: 딴 페이지로 가는 항목(href)에 역할 금지목록(hideFrom) — 카드가 없어 역할 필터를 못 받아 강사·지사에게 «눌러도 403» 인 메뉴가 그대로 보이던 것 (2026-09-09) --><!-- v=58: 주석만 — 배지·부제를 채우는 곳이 admin.html 인라인이 아니라 /js/adm-appr-badge.js 임을 바로잡음 (2026-09-09, trap-check 지적) --><!-- v=57: 결재함 라벨의 data-ko/data-en 을 <a> 에서 span 으로 — EN/KO 토글이 배지 요소를 지우던 함정 (2026-09-09) --><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=63" defer></script><!-- v=62: 2026-09-16 「학생 ▸ AI 학습 현황」 항목 추가(card-ai-usage) --><!-- v=61: 2026-09-11 병합 — 양쪽 브랜치가 각자 같은/다른 번호를 올려 충돌. 이 파일의 선례대로 «양쪽보다 큰 번호» 로 비켰다(본문은 git 이 합쳐 둘 다 살아 있다). --></script><!-- v=60: 「수강 운영」에 hideFrom — 서버가 같은 날 본사 전용이 되어(enrollAdminHqOnly) 화면도 짝으로 감춘다. 그전에는 서버 가드가 없어 «일부러 안 감췄던» 항목 (2026-09-10) --><!-- v=59: 딴 페이지로 가는 항목(href)에 역할 금지목록(hideFrom) — 카드가 없어 역할 필터를 못 받아 강사·지사에게 «눌러도 403» 인 메뉴가 그대로 보이던 것 (2026-09-09) --><!-- v=58: 주석만 — 배지·부제를 채우는 곳이 admin.html 인라인이 아니라 /js/adm-appr-badge.js 임을 바로잡음 (2026-09-09, trap-check 지적) --><!-- v=57: 결재함 라벨의 data-ko/data-en 을 <a> 에서 span 으로 — EN/KO 토글이 배지 요소를 지우던 함정 (2026-09-09) --><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). --></script><!-- v=60: 「정산·매출 ▸ 🏢 AI 사용료」 항목 추가 — 대리점별 AI 콘텐츠 사용료 단가 조정(card-ai-billing, 2026-09-10) --><!-- v=59: 딴 페이지로 가는 항목(href)에 역할 금지목록(hideFrom) — 카드가 없어 역할 필터를 못 받아 강사·지사에게 «눌러도 403» 인 메뉴가 그대로 보이던 것 (2026-09-09) --><!-- v=58: 주석만 — 배지·부제를 채우는 곳이 admin.html 인라인이 아니라 /js/adm-appr-badge.js 임을 바로잡음 (2026-09-09, trap-check 지적) --><!-- v=57: 결재함 라벨의 data-ko/data-en 을 <a> 에서 span 으로 — EN/KO 토글이 배지 요소를 지우던 함정 (2026-09-09) --><!-- v=56: 「화상강의실 초대」를 「오늘 수업」에 도로 묶음 (2026-09-01 사장님 지시) --><!-- v=55: 「오늘 수업」·「지금 수업」을 한 항목으로 합침 — 안에서 탭으로 가른다 (2026-09-01 A안) --><!-- v=54: 「오늘의 수업」을 「오늘 수업」·「지금 수업」으로 가르고 「화상강의실 초대」를 시스템으로 뗌 + 이사표를 ⭐고정·최근 본 메뉴와 공유 (2026-09-01) --><!-- v=53: 「오늘 ▸ 수업 관제탑」 항목 추가(2026-08-30). ⚠️ 두 작업이 각자 52 를 써서 규칙대로 «양쪽보다 큰 번호» 로 비켜감 — 본문은 git 이 합쳐 둘 다 살아 있다 --><!-- v=51: 언어 판정이 죽은 키 'adminLang' 을 읽어 사이드바가 EN 스태프에게도 늘 한국어였다 — 정본 window.adminLang 으로 교체 (2026-08-27) --><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=50: 「정산·매출 ▸ 환불 처리」 추가 — 별도 페이지(href)라 카드가 없어 역할 필터를 안 받는다(서버가 막는다). --><!-- v=49: 「오늘 ▸ 버그·피드백」을 「시스템」으로 이동(2026-08-24 사장님) — 카드는 그대로(card-bug-reports). --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-quickfav.js?v=2" defer></script><!-- ⭐ 자주 쓰는 메뉴(고정★ + 최근 본) — 사용성 점검 2번 · 2026-08-19 -->
 <script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->

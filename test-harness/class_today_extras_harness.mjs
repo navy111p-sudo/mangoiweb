@@ -312,7 +312,7 @@ for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label
     ok('매니저: 7칸을 못 받으면 칸은 안 지어내고 칩만', /data-calpin="park"/.test(m3) && !/<i /.test(m3), m3);
   }
   ok('매니저: 줄이 calLine 을 그린다', /exLine \+ calLine \+ '<\/span>'/.test(mgr));
-  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('\[data-ta\],\[data-calpin\]'\)/.test(mgr));
+  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('(?=[^']*\[data-ta\])(?=[^']*\[data-calpin\])[^']*'\)/.test(mgr));  // 키보드 선택자 목록에 둘 다(순서·다른 항목 무관 — 2026-09-23 [data-bulk] 추가)
   const mo = mgr.slice(mgr.indexOf('function mgCalOpen('), mgr.indexOf('function bindTodayActions('));
   ok('매니저 창: 학생 상세 스케줄 탭을 연다 · window.open 없음', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(mo) && !/window\.open/.test(mo));
 }
@@ -321,7 +321,28 @@ const tea = readFileSync(join(SRC, 'api-teacher.ts'), 'utf8');
 const iO = tea.indexOf('await applyRoomOverrides(env.DB, classes, ymd);');
 const iX = tea.indexOf('await enrichClassesToday(', iO);
 ok('강사 포털이 방 번호를 갈아 끼운 «뒤» 정본을 부른다', iO > 0 && iX > iO, { iO, iX });
-ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enrichClassesToday\(env as any, classes, todayStr, now\)/.test(tea));
+ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enrichClassesToday\(env as any, classes, todayStr, now[,)]/.test(tea));
+// 📅 (2026-09-23) 강사 포털도 이번 주 7칸 — 요일 파서는 넘기고 평가(evals)는 안 넘긴다(숨김 그대로).
+{
+  const m = tea.match(/await enrichClassesToday\(env as any, classes, todayStr, now(?:, (\{[^}]*\}))?\)/);
+  const opt = m && m[1] || '';
+  ok('강사 포털: 요일 파서(dowMatches)를 넘긴다', /\bdowMatches\b/.test(opt), opt);
+  ok('강사 포털: 평가(evals)는 넘기지 않는다(짝)', !/\bevals\b/.test(opt), opt);
+  // 두 요일 파서가 같은 답을 내는가 — 한쪽만 좁으면 강사 화면 7칸이 관리자와 다르게 나온다
+  const cut = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0, j = src.indexOf('{', i); for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } } return src.slice(i, j + 1); };
+  const mapOf = (src, name) => { const i = src.indexOf('const ' + name); return i < 0 ? '' : src.slice(src.indexOf('{', i), src.indexOf('};', i) + 1); };
+  const admSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  let tDow = null, aDow = null;
+  try { tDow = new Function('const DOW_MAP = ' + mapOf(tea, 'DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(tea, 'dowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return dowMatches;')(); } catch (e) {}
+  try { aDow = new Function('const ADM_DOW_MAP = ' + mapOf(admSrc, 'ADM_DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(admSrc, 'admDowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return admDowMatches;')(); } catch (e) {}
+  ok('강사·관리자 요일 파서를 오려 냈다', typeof tDow === 'function' && typeof aDow === 'function');
+  if (tDow && aDow) {
+    const samples = ['0','1','5','6','Mon','wed','Thu','fri','월','수','수요일','토','1,3,5','Mon,Thu','월/수','화·목','1 3 5','', null, 'x', '12'];
+    let diff = [];
+    for (const v of samples) for (let d = 0; d < 7; d++) if (tDow(v, d) !== aDow(v, d)) diff.push(v + '@' + d);
+    ok('강사·관리자 요일 파서가 같은 답을 낸다', diff.length === 0, diff.slice(0, 5));
+  }
+}
 ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
 const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8');
 const fi = th2.indexOf('function extrasHtml(c){');
@@ -341,10 +362,24 @@ if (run) {
   ok('teacher.html: 옛 응답(칸 없음)에는 아무것도 안 그린다(짝)', call({ start_time: '14:00' }) === '');
   const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });
   ok('teacher.html: ↩ 지난 수업이 있으면 «지난 평가» 를 겹쳐 그리지 않는다', !/Last feedback/.test(h2) && /Today's feedback/.test(h2), h2);
+  // 📅 이번 주 7칸 — 받으면 그리고, 못 받으면 줄 자체를 안 그린다(짝)
+  const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
+  const h3 = call({ class_date: '2026-09-23', attendance: null, week_days: [true,false,true,false,true,false,false], week_dates: wd });
+  const cells = h3.match(/<i class="[^"]*"/g) || [];
+  ok('teacher.html: 이번 주 7칸을 그린다', cells.length === 7 && /This week/.test(h3), h3);
+  ok('teacher.html: 수업 있는 날만 on (3일)', cells.filter(x => /\bon\b/.test(x)).length === 3, cells);
+  ok('teacher.html: 오늘(수) 칸에 today 표시', /today/.test(cells[2] || '') && !/today/.test(cells[0] || ''), cells);
+  ok('teacher.html: aria 에 수업 일수', /3 class day\(s\) this week/.test(h3), h3);
+  const h4 = call({ class_date: '2026-09-23', attendance: null, week_days: null });
+  ok('teacher.html: 7칸을 못 받으면 줄을 안 그린다(짝)', !/This week/.test(h4) && !/cal7/.test(h4), h4);
+  const h5 = call({ class_date: '2026-09-23', attendance: null, week_days: [true, false] });
+  ok('teacher.html: 7칸이 아니면 지어내지 않는다', !/cal7/.test(h5), h5);
+  ok('teacher.html: 강사 화면엔 캘린더 창 버튼이 없다(관리자 API 403)', !/data-calpin/.test(h3) && !/admin\/student\.html/.test(body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')));
 }
 ok('관리자 표: 숨김이면 «본사 전용»', /xEval\(s\.last_eval, s\.eval_hidden\)/.test(tb) && /xEval\(s\.today_eval, s\.eval_hidden\)/.test(tb) && /if \(hidden\) return xSmall\(T\('본사 전용'/.test(adm));
 ok('매니저 화면: 숨김이면 «본사 전용»', /if \(r\.eval_hidden\) return esc\(T\('HQ only', '본사 전용'\)\)/.test(mgr));
 ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\)\n/.test(th2));
+ok('teacher.html 다시그리기 지문에 이번 주 7칸이 들어 있다', /sc\.week_days\.map\(/.test(th2));
 ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -721,7 +721,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         <select id="aiuTool" onchange="loadAiUsage()" style="min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#16202c">
           <option value="all" data-en="All tools" data-ko="전체 도구">All tools</option>
           <option value="judgment" data-en="Judgment training" data-ko="판단력 훈련">Judgment training</option>
-          <option value="warmup" data-en="AI warm-up" data-ko="AI 웜업">AI warm-up</option>
+          <option value="warmup" data-en="A.i Speaking Practice" data-ko="A.i 말하기 연습">A.i Speaking Practice</option>
           <option value="friend" data-en="AI friend chat" data-ko="AI 영어친구">AI friend chat</option>
           <option value="write" data-en="AI writing" data-ko="AI 글쓰기">AI writing</option>
           <option value="speech" data-en="Speech coaching" data-ko="발음코칭">Speech coaching</option>
@@ -1434,7 +1434,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ══════════════════════════════════════════════════════════════════════════
   var AIU_TOOLS = [
     { key: 'judgment', en: 'Judgment training', ko: '판단력 훈련' },
-    { key: 'warmup',   en: 'AI warm-up',        ko: 'AI 웜업' },
+    { key: 'warmup',   en: 'A.i Speaking Practice', ko: 'A.i 말하기 연습' },
     { key: 'friend',   en: 'AI friend chat',    ko: 'AI 영어친구' },
     { key: 'write',    en: 'AI writing',        ko: 'AI 글쓰기' },
     { key: 'speech',   en: 'Speech coaching',   ko: '발음코칭' },
@@ -2097,7 +2097,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=1';
+    sc.src = '/js/class-move-modal.js?v=2';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

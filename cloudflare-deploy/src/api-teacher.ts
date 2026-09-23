@@ -819,7 +819,8 @@ export async function handleTeacherApi(
     const _rosterName = isManager ? ''
       : (resolvedRows.length === 1 && (resolvedRows[0] as any).name ? String((resolvedRows[0] as any).name) : tname);
     for (const c of classes) if (!c.teacher_name && _rosterName) c.teacher_name = _rosterName;
-    try { await enrichClassesToday(env as any, classes, todayStr, now); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
+    // 📅 이번 주 7칸(2026-09-23) — 관리자와 같은 규칙의 요일 파서를 넘긴다(평가는 안 넘김 = 그대로 숨김)
+    try { await enrichClassesToday(env as any, classes, todayStr, now, { dowMatches }); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
   }
 
   /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.

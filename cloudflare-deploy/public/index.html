@@ -4693,7 +4693,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
              📊 근거: 최근 30일 AI 도구를 쓴 학생 60명 중 2개 이상 쓴 학생 7명(2026-09-03 D1 실측).
                 이 목록이 「아무거나 골라」라고만 말하고 있었다. -->
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/today.html';" data-ko="📅 오늘의 A.i 학습" data-en="📅 Today's AI Plan">📅 오늘의 A.i 학습</button>
-        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ 수업 전 AI 웜업" data-en="🗣️ Pre-class AI Warm-up">🗣️ 수업 전 AI 웜업</button>
+        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ A.i 말하기 연습" data-en="🗣️ A.i Speaking Practice">🗣️ A.i 말하기 연습</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 AI 음성코치" data-en="🎤 AI Voice Coach">🎤 AI 음성코치</button>
         <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구 대화" data-en="🤖 AI Friend Chat">🤖 AI 친구 대화</button>
@@ -6244,7 +6244,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         }
         var ITEMS=[
           {ic:aifSvg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="12.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="16.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/>'),
-           ko:'AI 웜업', en:'AI Warm-up', dko:'수업 전 입 풀기 준비운동', den:'Pre-class speaking warm-up', url:'/warmup.html'},
+           ko:'A.i 말하기 연습', en:'A.i Speaking Practice', dko:'A.i가 먼저 말을 걸어 주는 말하기 연습', den:'AI starts the talk — you practice speaking', url:'/warmup.html'},
           {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
            ko:'AI 음성코치', en:'AI Voice Coach', dko:'단계별 발음 교정 연습', den:'Step-by-step pronunciation', url:'/speech-coach.html'},
           {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg" loading="lazy" decoding="async">',
@@ -8637,7 +8637,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                 <button class="tab-btn" onclick="vcToggleContentTab('video')" title="동영상 — 유튜브·영상 파일을 학생과 함께 보기" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('game')" title="학생게임 — 수업 중 학습게임 함께 하기" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('bg')" title="배경화면 — 수업 화면 배경 테마 바꾸기" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
-                <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ A.i 말하기 연습" data-en="🗣️ A.i Speaking Practice" title="A.i 말하기 연습 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ A.i 말하기 연습업</button>
                 <!-- 🧑‍🎓 (2026-08-12 사장님) 복습퀴즈는 «학생 전용» — 수업이 끝난 뒤 학생이 혼자 푸는 것.
                      강사는 참여할 필요가 없다. 테스트 중 강사들이 수업 안에서 같이 풀어 보며
                      «강사도 답해야 하나요» 같은 혼란이 있어, 라벨·툴팁에 용도를 명시한다. -->
@@ -9123,7 +9123,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           <div style="flex-shrink:0;padding:8px 14px;background:rgba(167,139,250,0.14);border-bottom:1px solid rgba(167,139,250,0.32);font-size:12px;line-height:1.5;color:#ddd6fe"
                data-ko="🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 대화 상대는 AI 라서 여기에 강사가 쓴 글은 학생에게 가지 않습니다(글로 말하려면 수업 채팅). 학생이 쓴 글은 아래에 그대로 비칩니다."
                data-en="🗣️ The student is the one who speaks — when you open this tab the student's screen follows, and the student answers with their microphone. The partner here is the AI, so anything you type is not sent to the student (use the class chat for that). What the student types is mirrored below.">🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 대화 상대는 AI 라서 여기에 강사가 쓴 글은 학생에게 가지 않습니다(글로 말하려면 수업 채팅). 학생이 쓴 글은 아래에 그대로 비칩니다.</div>
-          <iframe id="vc-warmup-frame" title="수업 전 AI 웜업" allow="microphone; autoplay"
+          <iframe id="vc-warmup-frame" title="A.i 말하기 연습" allow="microphone; autoplay"
                   style="flex:1;min-height:0;width:100%;border:0;background:#0a1530"></iframe>
           <!-- 🪞 (2026-08-12 강사 Shas 1번) "학생이 입력한 글이 강사 화면에 보이지 않는다"
                웜업은 «학생 ↔ AI» 대화라 원래 강사에게 안 보인다. 하지만 강사가 학생이 뭘 하고
@@ -9131,7 +9131,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                읽기 전용이다. 강사가 학생에게 글로 말하려면 수업 채팅을 쓴다(웜업 상대는 AI 다).
                강사에게만, 그리고 첫 줄이 도착했을 때만 나타난다(vcWarmupMirror 가 관리). -->
           <div id="vc-warmup-mirror" style="display:none;flex-shrink:0;max-height:34%;overflow-y:auto;padding:8px 14px;background:rgba(15,23,42,.92);border-top:1px solid rgba(167,139,250,.35)">
-            <div style="font-size:11px;font-weight:800;color:#c4b5fd;margin-bottom:5px" data-ko="🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)" data-en="🪞 Student's warm-up (read-only — use the class chat to reply in text)">🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)</div>
+            <div style="font-size:11px;font-weight:800;color:#c4b5fd;margin-bottom:5px" data-ko="🪞 학생의 말하기 연습 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)" data-en="🪞 Student's speaking practice (read-only — use the class chat to reply in text)">🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)</div>
             <div id="vc-warmup-mirror-log" style="font-size:12.5px;line-height:1.6;color:#e6ecff"></div>
           </div>
         </div>
@@ -9313,7 +9313,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
 <!-- 26-09-23: 61 → 62. 참관(ghost-observe) WebSocket 인증 — vcJoinAsObserver 가 tok(서명, ghost/start 발급)을 join-observe 에 실어 보낸다(video-call-room.ts 가 검증, 그전엔 방 번호만 알면 무인증 참관 가능했다). observe-denied 수신 시 room-full/force_end 와 같은 종료 경로(무한 재연결 방지). -->
-<script src="/js/idx-main.js?v=62"></script>
+<script src="/js/idx-main.js?v=63"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
@@ -17908,7 +17908,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 </script>
 
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=21"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
+<script defer src="/js/flow.js?v=22"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=2"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
