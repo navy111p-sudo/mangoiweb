@@ -292,7 +292,7 @@ ok(live.wordPictureForms>=4536,'낱말 사진이 붙은 낱말이 줄지 않았�
       ① 사진을 «낱말 그림» 이라고 부르는 줄은 여전히 근거가 있어야 하고 소수여야 한다
       ② 사진이 없는 줄은 카드로 채워진다(빈 상자 0줄)
       ③ 카드는 사진인 척하지 않는다(그 줄에는 image 가 없다) */
-const seen=new Set(),pictures=new Set(),claimed={word:0,card:0};let cardExact=0;let wordPhotoRows=0;
+const seen=new Set(),pictures=new Set(),claimed={word:0,card:0};let cardExact=0;let wordPhotoRows=0;let ownFirstRows=0;
 /* 🖼 「그 교재 안에 그림 있는 예문이 있으면 그것을 예문으로 고른다」를 여기서 다시 계산해 맞춰 본다.
    ⛔ 「그림만 빌려 오기」와 다릅니다 — 예문 자체를 바꿔 그림과 예문이 언제나 짝입니다. */
 const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage.get(sid))imagedText.add(text);
@@ -350,9 +350,15 @@ for(const entry of live.books){
      🔴 2026-09-21 2차 — ②에 걸려 있던 «예문에 그림이 없을 때만» 조건을 뺐습니다. 그 조건 때문에
         근거 있는 낱말 사진이 근거 «없는» 예문 사진에 지고 있었습니다(실측 12,246줄).
      ⛔ 그 조건을 되살리지 마세요 — 근거 있는 사진이 근거 없는 사진에 지는 순서가 됩니다. */
-  const byWordPhoto=!depictPool.has(w.word)&&wordSceneOf.has(w.word);
+  /* 🖼 2026-09-23 사장님 「단어들과 실사 이미지가 매칭이 안 되는 것들 모아서 다시 고쳐줘」 —
+     «그 낱말을 그리려고 만든 전용 사진»(ownPass)이 있으면 그것이 문장 장면 사진보다 먼저입니다
+     (morning ← 헬스장 장면이던 것). 빌드와 같은 순서로 다시 계산합니다.
+     ⛔ 문장 장면을 앞에 두는 옛 순서로 되돌리지 마세요 — 아래 「전용 사진을 골랐다」가 빨간불이 됩니다. */
+  const ownFirst=ownPass.has(w.word)&&wordSceneOf.has(w.word);
+  const byWordPhoto=ownFirst||(!depictPool.has(w.word)&&wordSceneOf.has(w.word));
+  if(ownFirst){ownFirstRows++;eq(w.scene,wordSceneOf.get(w.word),'전용 사진이 있으면 그 사진을 먼저 고른다: '+w.word);}
   eq(!!w.pic,depictPool.has(w.word)||byWordPhoto,'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
-  if(w.pic&&depictPool.has(w.word))ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
+  if(w.pic&&depictPool.has(w.word)&&!ownFirst)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
   if(byWordPhoto){wordPhotoRows++;
    eq(w.scene,wordSceneOf.get(w.word),'그 낱말의 사진을 골랐다: '+w.word);
    ok(!s.text,'낱말 사진에는 문장이 실리지 않는다(남의 교재 문장이 새는 길): '+w.word);
@@ -382,6 +388,7 @@ eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자»
 {const exactForms=[...seen].filter(w=>D.pictogram(w).exact).length;
  ok(exactForms>seen.size*0.4,'그림문자 표가 낱말 형태의 40% 넘게를 뜻으로 맞힌다 ('+exactForms+'/'+seen.size+')');}
 ok(wordPhotoRows>1000,'낱말 사진이 실제로 붙은 줄이 많다 — 0에 가까우면 배선이 죽은 것 ('+wordPhotoRows+')');
+ok(ownFirstRows>30000,'전용 사진이 있는 낱말은 그 사진을 먼저 쓴다 — 줄 수가 크게 줄면 순서가 되돌아간 것 ('+ownFirstRows+')');
 /* 🔴 2026-09-21 2차 — 「카드로 남은 줄은 아주 적다」는 «예문 사진으로 빈자리를 메우던» 시절의 경계입니다.
    그 사진을 걷어내면 카드가 절반이 되므로 그 단정은 더는 참이 아닙니다.
    ⛔ 느슨하게 풀지 말고 그 검사가 «정말 지키던 것»(낱말 사진 배선이 살아 있는가)으로 옮겨 적습니다 —
