@@ -82,7 +82,9 @@
     var l = isEn() ? s.sched_label_en : s.sched_label_ko;
     return l ? xSmall(esc(l), ';color:#475569') : xDash();
   }
-  function xEval(e) {
+  function xEval(e, hidden) {
+    /* 🔒 (2026-09-23) 지사·대리점에는 서버가 평가를 안 싣는다 — «없음» 이 아니라 «본사 전용» 이라고 말한다 */
+    if (hidden) return xSmall(T('본사 전용', 'HQ only'), ';color:#6b7280');
     if (!e) return xDash();
     var head = esc(e.date || '') + (e.score != null ? ' · ⭐ ' + esc(e.score) + '/' + esc(e.max || '') : '');
     return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">'
@@ -742,8 +744,8 @@
             + '<td>' + xSched(s) + '</td>'
             + '<td>' + xTeacherEntry(s.teacher_entry) + '</td>'
             + '<td>' + xAttendance(s.attendance) + '</td>'
-            + '<td>' + xEval(s.last_eval) + '</td>'
-            + '<td>' + xEval(s.today_eval) + '</td>'
+            + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
+            + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
