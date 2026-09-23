@@ -57,11 +57,15 @@
      *   404 요청 없이 깔끔하게 나온다(없는 파일을 적으면 열 때마다 404 가 난다).
      *   ⛔ quiz.webp 를 돌려쓰지 말 것 — 바로 위 「AI 단어 퀴즈」와 그림이 같아져 구분이 안 된다.
      *   사진이 생기면 build-allmenu-icons.py 로 만들어 여기에 경로만 채우면 된다. */
-    {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html'},
+    /* 🎯 (2026-09-23) liveOnly — AI 학습만 하는 학생(활성 예약 0건)에게는 감춘다(아래 mangoiTrackHide).
+     *   복습퀴즈는 «수업에서 배운 내용» 을 묻는데 그 학생에게는 수업이 없어 목록이 빈다.
+     *   감추면 바로 뒤의 단어장·AI 단어 퀴즈가 한 칸씩 앞으로 온다. 주소로는 그대로 열린다. */
+    {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html', liveOnly:true},
     /* zh:true — 중국어 수강생에게만 보이는 타일(아래 mangoiZhLearner 참고).
      *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
      *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
-    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true},
+    /* 🎯 liveOnly — 중국어 복습퀴즈도 «수업(다락원) 진도» 를 묻는 것이라 같은 규칙(2026-09-23). */
+    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
     /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
      *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
      *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의
@@ -109,6 +113,47 @@
     try{ if(typeof window.getLang === 'function') return String(window.getLang()||'').toLowerCase().indexOf('en') === 0; }catch(e){}
     try{ return (localStorage.getItem('mangoi_lang')||'') === 'en'; }catch(e){}
     return false;
+  }
+
+  /* 🎯 (2026-09-23) «AI 학습만 하는 학생인가» — 판정은 서버 정본(src/student-track.ts)이고
+   *   여기는 /api/student/today?track=1 로 «묻기만» 한다.
+   *   ⚠️ 'ai_only' 일 때만 감춘다. 비로그인·직원·조회 실패·'unknown' 은 전부 «보이는 쪽» —
+   *      수업 학생의 메뉴에서 복습퀴즈가 사라지는 쪽이 훨씬 나쁘다.
+   *   ⚠️ 메뉴는 «동기» 로 그려지므로 답이 늦게 오면 열린 그리드에서 그 칸만 뺀다.
+   *      같은 탭에서는 10분 캐시(sessionStorage)라 두 번째부터는 처음부터 안 그린다. */
+  var TRACK_KEY = 'mangoi_track_v1', TRACK_MS = 10 * 60 * 1000;
+  function _trackUid(){
+    try{
+      var u = window.getCurrentUser ? window.getCurrentUser() : null;
+      return u ? String(u.uid || u.user_id || u.id || '') : '';
+    }catch(e){ return ''; }
+  }
+  function mangoiTrackCached(uid){
+    try{
+      var o = JSON.parse(sessionStorage.getItem(TRACK_KEY) || 'null');
+      if (o && o.uid === uid && (Date.now() - (o.t || 0)) < TRACK_MS) return String(o.track || '');
+    }catch(e){}
+    return '';
+  }
+  function mangoiTrackHide(){
+    var uid = _trackUid();
+    return !!uid && !mangoiIsStaff() && mangoiTrackCached(uid) === 'ai_only';
+  }
+  function mangoiTrackFetch(onAiOnly){
+    var uid = _trackUid();
+    if (!uid || mangoiIsStaff() || mangoiTrackCached(uid)) return;
+    var tok = '';
+    try { tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+    fetch('/api/student/today?track=1&uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok),
+          { credentials: 'include' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        /* «성공이라고 말했는가» 로 본다 — 종단 404 본문에는 ok 칸이 없다(CLAUDE.md 「새 API 추가」). */
+        if (!d || d.ok !== true || !d.track) return;
+        try { sessionStorage.setItem(TRACK_KEY, JSON.stringify({ uid: uid, track: d.track, t: Date.now() })); } catch (e) {}
+        if (d.track === 'ai_only' && onAiOnly) onAiOnly();
+      })
+      .catch(function(){ /* 모르면 보이는 그대로 */ });
   }
 
   function mangoiZhLearner(){
@@ -208,7 +253,9 @@
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
     var _zhOk = mangoiZhLearner();
     var _staff = mangoiIsStaff();
+    var _aiOnly = mangoiTrackHide();
     ALLMENU_ITEMS.forEach(function(m){
+      if(m.liveOnly && _aiOnly) return; // 🎯 AI 학습만 하는 학생에게는 복습퀴즈를 감춘다(2026-09-23)
       if(m.zh && !_zhOk) return;   // 🇨🇳 중국어 타일은 중국어 수강생에게만
       if(m.staff && !_staff) return; // 🛠 관리자 전용 타일은 직원에게만 (v4 제안서 03)
       // 실사 아이콘 64x64. width/height 속성은 로딩 중 레이아웃 흔들림 방지용이고,
@@ -224,13 +271,19 @@
       var lbl = m.en
         ? '<span data-ko="' + m.name + '" data-en="' + m.en + '">' + (allmenuIsEn() ? m.en : m.name) + '</span>'
         : '<span>' + m.name + '</span>';
-      h += '<a href="' + m.url + '"' + (m.adminPortal ? ' data-admin-portal="1"' : '') + (m.remoteHelp ? ' data-remote-help="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+      h += '<a href="' + m.url + '"' + (m.liveOnly ? ' data-live-only="1"' : '') + (m.adminPortal ? ' data-admin-portal="1"' : '') + (m.remoteHelp ? ' data-remote-help="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
         + ico + lbl + '</a>';
     });
     h += '</div></div>';
     h += '</div>';
     ov.innerHTML = h;
     document.body.appendChild(ov);
+    /* 🎯 답이 늦게 오면 열린 그리드에서 그 칸만 뺀다(닫혀 있으면 다음에 열 때 캐시로 안 그린다). */
+    mangoiTrackFetch(function(){
+      var ovNow = document.getElementById('mangoi-allmenu');
+      if (!ovNow) return;
+      ovNow.querySelectorAll('a[data-live-only]').forEach(function(a){ if (a.parentNode) a.parentNode.removeChild(a); });
+    });
     document.body.style.overflow = 'hidden';
 
     // 🎬 우상단 안내 동영상 — 전체메뉴 열 때 음성+영상 자동재생(1회만), 클릭하면 즉시 사라짐
