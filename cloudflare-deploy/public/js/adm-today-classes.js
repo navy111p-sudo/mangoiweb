@@ -335,7 +335,7 @@
   }
   function mvMsgOf(j) {
     var a = j && j.applied;
-    if (a === 'moved')     return { ok: true,  s: T('수업을 옮겼습니다.', 'Moved.') };
+    if (a === 'moved')     return { ok: true,  s: T('이번 한 번 옮겼습니다.', 'Moved (this class only).') };
     if (a === 'postponed') return { ok: true,  s: T('연기 처리했습니다.', 'Postponed.') };
     if (a === 'recorded')  return { ok: false, s: T('반복 수업이라 자동으로 못 옮깁니다 — 시간표에서 직접 옮겨 주세요.', 'Weekly class — move it by hand in the timetable.') };
     if (a === 'conflict')  return { ok: false, s: T('그 시간에 다른 수업이 있어 못 옮겼습니다 — 직접 옮겨 주세요.', 'That slot is taken — move it by hand.') };
@@ -366,11 +366,69 @@
     if (b && b.parentNode) b.parentNode.removeChild(b);
     if (_mvChanged) { _mvChanged = false; try { window.tcLoadToday(); } catch (e) {} }
   }
+  /* 동작별 색 — 연기=호박(이번 한 번) · 변경=남색(앞으로 계속) · 취소=빨강. */
+  /* ⚠️ 눌린 상태를 «짙은 바탕 + 흰 글자» 로 칠하지 않는다 — 관리자 화면의 밝기 페인터
+        (js/adm-light-surfaces.js)가 짙은 인라인 바탕을 밝게 덮어 «흰 바탕에 흰 글자» 가 된다
+        (2026-09-23 브라우저 실측). 옅은 바탕 + 짙은 글자 + 두꺼운 테두리로 — 페인터가 안 건드린다. */
+  var MV_COLOR = { postpone: ['#b45309', '#fff4e0'], series: ['#3b3fc4', '#ecedff'], cancel: ['#b42318', '#fdecea'] };
+  function mvModeStyle(el, mode, on) {
+    var c = MV_COLOR[mode] || ['#1d4ed8', '#eff6ff'];
+    el.style.border = (on ? '2px solid ' + c[0] : '2px solid #d1d5db');
+    el.style.background = on ? c[1] : '#fff';
+    el.style.color = on ? c[0] : '#111827';
+  }
   function mvBtn(mode, label, on) {
+    var c = MV_COLOR[mode] || ['#1d4ed8', '#eff6ff'];
     return '<button type="button" data-mv-mode="' + mode + '" aria-pressed="' + (on ? 'true' : 'false') + '" '
-      + 'style="padding:7px 12px;border-radius:8px;border:1px solid ' + (on ? '#1d4ed8' : '#d1d5db') + ';'
-      + 'background:' + (on ? '#1d4ed8' : '#fff') + ';color:' + (on ? '#fff' : '#111827') + ';font-weight:700;cursor:pointer">'
+      + 'style="padding:6px 12px;border-radius:8px;border:2px solid ' + (on ? c[0] : '#d1d5db') + ';'
+      + 'background:' + (on ? c[1] : '#fff') + ';color:' + (on ? c[0] : '#111827') + ';font-weight:800;cursor:pointer">'
+      + label + '</button>';
+  }
+  function mvSubBtn(sub, label, on) {
+    return '<button type="button" data-mv-sub="' + sub + '" aria-pressed="' + (on ? 'true' : 'false') + '" '
+      + 'style="padding:6px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;color:#111827;'
+      + 'border:1.5px solid ' + (on ? '#b45309' : '#d1d5db') + ';background:' + (on ? '#fff4e0' : '#fff') + ';font-weight:' + (on ? '800' : '500') + '">'
+      + label + '</button>';
+  }
+  /* 📅 날짜 칸 — 「9/24 (목)」. 요일은 UTC 로 뽑는다(로컬 시간대면 하루 밀린다). */
+  function mvDayLabel(iso) {
+    var d = new Date(iso + 'T00:00:00Z');
+    var w = isEn() ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()] : ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()];
+    return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' (' + w + ')';
+  }
+  function mvAddDays(iso, n) {
+    return new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+  }
+  /* 지금 고른 동작 — 'hold'(완전히 연기) · 'date'(지정한 날짜로 연기) · 'series'(변경·계속) · 'cancel'. */
+  function mvAct() {
+    var box = $('tc-move-modal'); if (!box) return 'hold';
+    var on = box.querySelector('[data-mv-mode][aria-pressed="true"]');
+    var mode = on ? on.getAttribute('data-mv-mode') : 'postpone';
+    if (mode !== 'postpone') return mode;
+    var sb = box.querySelector('[data-mv-sub][aria-pressed="true"]');
+    return (sb && sb.getAttribute('data-mv-sub') === 'date') ? 'date' : 'hold';
+  }
+  function mvChip(kind, val, label, on) {
+    return '<button type="button" data-mv-' + kind + '="' + esc(val) + '" aria-pressed="' + (on ? 'true' : 'false') + '" '
+      + 'style="padding:5px 0;border-radius:8px;font-size:12px;cursor:pointer;min-width:' + (kind === 'day' ? '64px' : '52px') + ';'
+      + 'border:2px solid ' + (on ? '#065f46' : '#e2e8f0') + ';background:' + (on ? '#d1fae5' : '#f8fafc') + ';color:' + (on ? '#065f46' : '#101828') + ';font-weight:' + (on ? '900' : '600') + '">'
       + esc(label) + '</button>';
+  }
+  function mvPaintChips(base, orig) {
+    var dEl = $('tc-mv-date'), tEl = $('tc-mv-time');
+    var dv = dEl ? dEl.value : '', tv = tEl ? tEl.value : '';
+    var dh = '';
+    for (var i = 0; i < 14; i++) { var iso = mvAddDays(base, i); dh += mvChip('day', iso, mvDayLabel(iso), iso === dv); }
+    if (dv && dh.indexOf('"' + dv + '"') < 0) dh += mvChip('day', dv, mvDayLabel(dv), true);
+    var th = '', seen = {};
+    for (var m = 7 * 60; m <= 23 * 60 + 40; m += 20) {
+      var hm = (m / 60 < 10 ? '0' : '') + Math.floor(m / 60) + ':' + (m % 60 < 10 ? '0' : '') + (m % 60);
+      seen[hm] = 1; th += mvChip('hm', hm, hm, hm === tv);
+    }
+    if (tv && !seen[tv]) th = mvChip('hm', tv, tv, true) + th;
+    var a = $('tc-mv-days'), b = $('tc-mv-hms');
+    if (a) a.innerHTML = dh;
+    if (b) b.innerHTML = th;
   }
   function tcOpenMoveModal(sid) {
     var r = mvRowOf(sid);
@@ -379,26 +437,40 @@
     var dEl = $('tc-date');
     var day = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstTodayStr();
     var canCancel = mvCanCancel(r);
-    _mvData = null; _mvPick = '';
+    _mvData = null; _mvPick = ''; _mvSer = null;
     var who = String(r.student_name || r.student_uid || '');
     var inp = 'padding:6px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#101828;box-sizing:border-box';
     var box = document.createElement('div');
     box.id = 'tc-move-modal';
+    box.setAttribute('data-day', day);
     box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
     box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
       + '<div style="font-weight:800;font-size:15px;margin-bottom:4px">📅 ' + T('수업 연기·변경', 'Postpone / move class') + '</div>'
       + '<div style="font-size:12.5px;color:#475467;margin-bottom:12px">' + esc(who) + ' · ' + esc(day) + ' ' + esc(hhmm(r.start_ts)) + (r.teacher_name ? ' · ' + esc(r.teacher_name) : '') + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
-      +   mvBtn('postpone', T('연기', 'Postpone'), true)
-      +   mvBtn('change', T('날짜·시각 변경', 'Move to…'), false)
+      +   mvBtn('postpone', T('⏸ 연기 <small style="font-weight:500">이번 한 번</small>', '⏸ Postpone <small style="font-weight:500">once</small>'), true)
+      +   mvBtn('series', T('🔄 변경 <small style="font-weight:500">앞으로 계속</small>', '🔄 Change <small style="font-weight:500">from now on</small>'), false)
       +   (canCancel ? mvBtn('cancel', T('수업 취소', 'Cancel class'), false) : '')
       + '</div>'
-      + '<div id="tc-mv-when" hidden style="display:none;gap:8px;margin-bottom:10px">'
-      +   '<label style="font-size:12px;color:#475467">' + T('새 날짜', 'New date') + '<br><input type="date" id="tc-mv-date" value="' + esc(day) + '" style="' + inp + '"></label> '
-      +   '<label style="font-size:12px;color:#475467">' + T('새 시각', 'New time') + '<br><input type="time" id="tc-mv-time" value="' + esc(String(r.start_time || '').slice(0, 5)) + '" style="' + inp + '"></label>'
+      /* ⏸ 연기 = «이번 한 번». 두 갈래: 날짜 미정 / 지정한 날짜 (2026-09-23 사장님 샘플 C). */
+      + '<div id="tc-mv-sub" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+      +   mvSubBtn('hold', T('완전히 연기 (날짜 미정)', 'Postpone (no new date)'), true)
+      +   mvSubBtn('date', T('지정한 날짜로 연기', 'Postpone to a date'), false)
+      + '</div>'
+      + '<div id="tc-mv-when" hidden style="display:none;margin-bottom:10px">'
+      +   '<div id="tc-mv-when-l" style="font-size:12px;font-weight:700;color:#344054;margin-bottom:4px"></div>'
+      +   '<div id="tc-mv-days" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:4px"></div>'
+      +   '<div id="tc-mv-hms" style="display:flex;flex-wrap:wrap;gap:4px;max-height:124px;overflow-y:auto;margin-top:6px"></div>'
+      +   '<div style="font-size:11.5px;color:#475467;margin-top:6px">' + T('다른 날짜·시각', 'Other date/time') + ' '
+      +     '<input type="date" id="tc-mv-date" value="' + esc(day) + '" style="' + inp + ';font-size:12px;padding:3px"> '
+      +     '<input type="time" id="tc-mv-time" step="600" value="' + esc(String(r.start_time || '').slice(0, 5)) + '" style="' + inp + ';font-size:12px;padding:3px"></div>'
       + '</div>'
       /* 📅 (2026-09-23 Karl 제안) 새 시간에 되는 강사 — 날짜·시각 변경일 때만 */
       + '<div id="tc-mv-teachers" hidden style="display:none;font-size:12px;line-height:1.6;color:#344054;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>'
+      /* 🔄 변경(앞으로 계속) 미리보기 — 서버가 «어느 회차가 어떻게 바뀌는지» 를 먼저 세어 준다. */
+      + '<div id="tc-mv-series" hidden style="display:none;font-size:12px;line-height:1.6;color:#101828;background:#ecedff;border:1px solid #b9bcf7;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>'
+      /* 무엇이 일어나는지 한 줄 — 이번 한 번인지, 앞으로 계속인지. */
+      + '<div id="tc-mv-note" style="font-size:12px;line-height:1.55;color:#101828;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>'
       + '<label style="font-size:12px;color:#475467">' + T('사유 (선택)', 'Reason (optional)') + '<br>'
       +   '<input type="text" id="tc-mv-reason" maxlength="200" placeholder="' + T('예: 학부모 연락', 'e.g. parent called') + '" style="width:100%;' + inp + '"></label>'
       + (canCancel ? '' : '<div style="font-size:11.5px;color:#475467;margin-top:6px">'
@@ -414,34 +486,51 @@
     box.addEventListener('click', function (e) {
       if (e.target === box) { tcMoveModalClose(); return; }
       var pk = e.target.closest && e.target.closest('[data-mv-pick]');
-      if (pk) { _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); return; }
+      if (pk) { _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); if (mvAct() === 'series') mvSeriesLater(r); return; }
       var mb = e.target.closest && e.target.closest('[data-mv-mode]');
       if (mb) {
         var all = box.querySelectorAll('[data-mv-mode]');
         for (var i = 0; i < all.length; i++) {
           var on = all[i] === mb;
           all[i].setAttribute('aria-pressed', on ? 'true' : 'false');
-          all[i].style.background = on ? '#1d4ed8' : '#fff';
-          all[i].style.color = on ? '#fff' : '#111827';
-          all[i].style.borderColor = on ? '#1d4ed8' : '#d1d5db';
+          mvModeStyle(all[i], all[i].getAttribute('data-mv-mode'), on);
         }
-        var wh = $('tc-mv-when');
-        var ch = mb.getAttribute('data-mv-mode') === 'change';
-        if (wh) { wh.hidden = !ch; wh.style.display = ch ? 'flex' : 'none'; }
-        var tb = $('tc-mv-teachers');
-        if (tb) { tb.hidden = !ch; tb.style.display = ch ? 'block' : 'none'; }
-        if (ch) mvTeachersLater(r);
+        mvSync(r, day); return;
+      }
+      var sb = e.target.closest && e.target.closest('[data-mv-sub]');
+      if (sb) {
+        var subs = box.querySelectorAll('[data-mv-sub]');
+        for (var j = 0; j < subs.length; j++) {
+          var so = subs[j] === sb;
+          subs[j].setAttribute('aria-pressed', so ? 'true' : 'false');
+          subs[j].style.borderColor = so ? '#b45309' : '#d1d5db';
+          subs[j].style.background = so ? '#fff4e0' : '#fff';
+          subs[j].style.fontWeight = so ? '800' : '500';
+        }
+        mvSync(r, day); return;
+      }
+      var dc = e.target.closest && e.target.closest('[data-mv-day]');
+      var tc = e.target.closest && e.target.closest('[data-mv-hm]');
+      if (dc || tc) {
+        if (dc) $('tc-mv-date').value = dc.getAttribute('data-mv-day');
+        if (tc) $('tc-mv-time').value = tc.getAttribute('data-mv-hm');
+        mvPaintChips(day, r); mvWhenChanged(r);
       }
     });
     box.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
       var pk = e.target.closest && e.target.closest('[data-mv-pick]');
-      if (pk) { e.preventDefault(); _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); }
+      if (pk) { e.preventDefault(); _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); if (mvAct() === 'series') mvSeriesLater(r); }
     });
     ['tc-mv-date', 'tc-mv-time'].forEach(function (id) {
       var el = $(id);
-      if (el) { el.addEventListener('change', function () { mvTeachersLater(r); }); el.addEventListener('input', function () { mvTeachersLater(r); }); }
+      if (el) {
+        el.addEventListener('change', function () { mvPaintChips(day, r); mvWhenChanged(r); });
+        el.addEventListener('input', function () { mvWhenChanged(r); });
+      }
     });
+    mvPaintChips(day, r);
+    mvSync(r, day);
     $('tc-mv-close').addEventListener('click', tcMoveModalClose);
     $('tc-mv-go').addEventListener('click', function () { mvRun(r, day); });
   }
@@ -549,10 +638,154 @@
         box.innerHTML = '<span style="color:#475467">' + T('강사 가능 여부를 불러오지 못했습니다. (옮기기는 됩니다)', 'Could not load teacher availability. (Moving still works.)') + '</span>';
       });
   }
+  /* ── 🔄 (2026-09-23 사장님 「연기는 지정한 날짜에 한 번이고, 변경은 계속이야.」) ──
+     ⏸ 연기 ▸ 완전히  = 이 회만 «연기»(날짜 미정) — /schedule-requests(postpone) + /decide
+     ⏸ 연기 ▸ 지정 날짜 = 이 회만 새 날짜·시각으로   — /schedule-requests(change)  + /decide
+     🔄 변경(앞으로 계속) = 이 회부터 같은 요일·시각 수업 «전부» — /api/pay/enroll/admin/series-move
+     ⛔ 예전 버튼 이름 «날짜·시각 변경» 은 실제로 «이 회만» 옮겼다 — 새 규칙으로는 «연기 ▸ 지정 날짜» 다.
+        이름만 바꾸고 하는 일(서버 경로)은 그대로 둔다. */
+  var _mvSer = null, _mvSerSeq = 0, _mvSerTimer = null;
+  function mvSync(r, day) {
+    var act = mvAct();
+    var picking = act === 'date' || act === 'series';
+    var show = function (id, on, disp) { var el = $(id); if (el) { el.hidden = !on; el.style.display = on ? (disp || 'block') : 'none'; } };
+    show('tc-mv-sub', act === 'hold' || act === 'date', 'flex');
+    show('tc-mv-when', picking);
+    show('tc-mv-teachers', picking);
+    show('tc-mv-series', act === 'series');
+    var wl = $('tc-mv-when-l');
+    if (wl) wl.textContent = act === 'series'
+      ? T('📅 새 요일·시각 — 이 회가 옮겨 갈 날짜를 고르면, 앞으로의 회차도 같은 요일·시각으로 갑니다', '📅 New day & time — pick where this class goes; later classes follow the same weekday & time')
+      : T('📅 이 회를 옮길 날짜 · 🕐 시각', '📅 Date · 🕐 time for this one class');
+    var note = $('tc-mv-note');
+    if (note) {
+      var who = String(r.student_name || r.student_uid || '');
+      var nd = String(($('tc-mv-date') || {}).value || ''), nt = String(($('tc-mv-time') || {}).value || '').slice(0, 5);
+      var when = mvDayLabel(day) + ' ' + String(r.start_time || '').slice(0, 5);
+      var styleOf = { hold: ['#fff4e0', '#f5c77a'], date: ['#fff4e0', '#f5c77a'], series: ['#ecedff', '#b9bcf7'], cancel: ['#fdecea', '#f3a8a0'] }[act];
+      note.style.background = styleOf[0]; note.style.border = '1px solid ' + styleOf[1];
+      note.innerHTML = act === 'hold'
+        ? T('<b>이번 한 번만</b> — ' + esc(when) + ' 수업이 «연기» 상태가 됩니다(새 날짜는 나중에). 다음 회부터는 원래 시간표 그대로입니다.',
+            '<b>This class only</b> — ' + esc(when) + ' becomes «postponed» (new date later). Following classes stay as they are.')
+        : act === 'date'
+        ? T('<b>이번 한 번만</b> — ' + esc(when) + ' → ' + esc(nd ? mvDayLabel(nd) : '?') + ' ' + esc(nt) + '. 다음 회부터는 원래 시간표 그대로입니다.',
+            '<b>This class only</b> — ' + esc(when) + ' → ' + esc(nd ? mvDayLabel(nd) : '?') + ' ' + esc(nt) + '. Following classes stay as they are.')
+        : act === 'series'
+        ? T('<b>앞으로 계속</b> — 이 회부터 같은 요일·시각의 수업을 <b>모두</b> 옮깁니다. 한 회라도 자리가 겹치면 아무것도 바꾸지 않습니다.',
+            '<b>From now on</b> — this and every later class at the same weekday & time move. If any one clashes, nothing changes.')
+        : T('<b>이번 한 번만</b> — ' + esc(who) + ' · ' + esc(when) + ' 수업을 취소합니다.', '<b>This class only</b> — cancels ' + esc(who) + ' · ' + esc(when) + '.');
+    }
+    if (picking) mvTeachersLater(r);
+    if (act === 'series') mvSeriesLater(r);
+  }
+  function mvWhenChanged(r) {
+    var box = $('tc-move-modal'); if (!box) return;
+    mvSync(r, (box.getAttribute('data-day') || ''));
+  }
+  function mvSeriesLater(r) {
+    if (_mvSerTimer) clearTimeout(_mvSerTimer);
+    _mvSerTimer = setTimeout(function () { mvLoadSeries(r); }, 400);
+  }
+  /* 서버에 «미리보기»(apply 없이)를 묻는다 — 몇 회가 어디로 가는지·겹치는 날짜·막히는 이유. */
+  function mvSeriesBody(r) {
+    var nd = String(($('tc-mv-date') || {}).value || '').trim();
+    var nt = String(($('tc-mv-time') || {}).value || '').slice(0, 5);
+    var cur = (_mvData && _mvData.current) ? String(_mvData.current.id) : '';
+    var body = { schedule_id: Number(r.schedule_id), new_date: nd, new_time: nt };
+    if (_mvPick && _mvPick !== cur) body.teacher_id = _mvPick;
+    return body;
+  }
+  function mvSerKey(b) { return [b.schedule_id, b.new_date, b.new_time, b.teacher_id || ''].join('|'); }
+  function mvLoadSeries(r) {
+    var box = $('tc-mv-series'); if (!box || box.hidden) return;
+    var b = mvSeriesBody(r);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.new_date) || !/^\d{1,2}:\d{2}$/.test(b.new_time)) {
+      box.innerHTML = T('새 요일·시각을 고르면 앞으로 바뀌는 회차를 보여 드립니다.', 'Pick a new day & time to see which classes change.'); return;
+    }
+    var my = ++_mvSerSeq;
+    _mvSer = null;
+    box.innerHTML = T('앞으로의 회차 확인 중…', 'Checking later classes…');
+    mvReq('POST', '/api/pay/enroll/admin/series-move', b).then(function (res) {
+      if (my !== _mvSerSeq || !$('tc-mv-series')) return;
+      _mvSer = { key: mvSerKey(b), st: res.st, j: res.j };
+      box.innerHTML = mvSeriesHtml(res.st, res.j);
+    }).catch(function () {
+      if (my !== _mvSerSeq) return;
+      box.innerHTML = '<span style="color:#b91c1c">' + T('앞으로의 회차를 불러오지 못했습니다. 다시 골라 주세요.', 'Could not load later classes. Pick again.') + '</span>';
+    });
+  }
+  function mvSerErr(st, j) {
+    var e = (j && j.error) || '';
+    if (e === 'mirror_series') return T('카페24 수업은 «앞으로 계속» 바꾸기를 <b>카페24에서</b> 해야 합니다 — 여기서 바꾸면 밤마다 카페24 동기화가 옛 시간표로 다시 만듭니다. 이번 한 번만 옮기려면 «⏸ 연기 ▸ 지정한 날짜로 연기» 를 쓰세요.',
+      'A cafe24 class must be changed «from now on» <b>in cafe24</b> — otherwise the nightly sync recreates the old timetable. To move just this one class use «⏸ Postpone ▸ to a date».');
+    if (e === 'weekly_row') return T('매주 반복 수업은 시간표에서 바꿔 주세요.', 'A weekly class is changed in the timetable.');
+    if (e === 'no_change') return T('지금과 같은 요일·시각입니다. 다른 요일·시각을 고르세요.', 'That is the same day & time. Pick another.');
+    if (e === 'too_many') return T('앞으로의 회차가 너무 많아(60회 초과) 한 번에 못 옮깁니다. 시간표에서 나눠 옮겨 주세요.', 'Too many later classes (over 60). Move them in the timetable.');
+    if (e === 'forbidden_scope' || e === 'teacher_move_forbidden' || st === 403) return T('담당 강사를 바꾸며 옮기는 것은 본사 계정에서 합니다. 담당 강사를 그대로 두면 됩니다.', 'Changing the teacher is done by an HQ account. Keep the assigned teacher to proceed.');
+    if (e === 'forbidden_teacher') return T('강사 계정은 처리할 수 없습니다.', 'Teachers cannot do this.');
+    return mvErrOf(st, j);
+  }
+  function mvSeriesHtml(st, j) {
+    if (!j) return '<span style="color:#b91c1c">' + T('확인하지 못했습니다.', 'Could not check.') + '</span>';
+    var items = j.items || [];
+    var line = function (it) {
+      return '<div>' + esc(mvDayLabel(it.from_date)) + ' ' + esc(it.from_time) + ' → <b>' + esc(mvDayLabel(it.to_date)) + ' ' + esc(it.to_time) + '</b></div>';
+    };
+    var list = function () {
+      var h = items.slice(0, 8).map(line).join('');
+      if (items.length > 8) h += '<div style="color:#475467">' + T('… 외 ', '… and ') + (items.length - 8) + T('회', ' more') + '</div>';
+      return h;
+    };
+    var tch = (j.teacher && j.teacher.changed)
+      ? '<div style="margin-top:4px">👤 ' + T('담당 강사: ', 'Teacher: ') + esc(j.teacher.from_name || '—') + ' → <b>' + esc(j.teacher.to_name || '') + '</b></div>' : '';
+    if (j.ok === true) {
+      return '<div style="font-weight:800;margin-bottom:4px">🔄 ' + T('앞으로 ', 'From now on: ') + items.length + T('회를 옮깁니다', ' classes move') + '</div>' + list() + tch;
+    }
+    if (j.error === 'conflict') {
+      var cs = (j.conflicts || []).map(function (c) { return esc(mvDayLabel(c.date)); }).join(', ');
+      return '<div style="color:#b91c1c;font-weight:800">⛔ ' + T('자리가 겹치는 날이 있어 옮길 수 없습니다: ', 'Some dates clash, so nothing can move: ') + cs + '</div>'
+        + '<div style="color:#475467;margin-top:2px">' + T('다른 요일·시각이나 다른 강사를 고르세요. (앞으로 ', 'Pick another day/time or teacher. (') + items.length + T('회 중)', ' classes in total)') + '</div>';
+    }
+    return '<span style="color:#92400e">' + mvSerErr(st, j) + '</span>';
+  }
+  /* 🔄 변경(앞으로 계속) 실행 — 미리보기와 «같은 조건» 일 때만. 확인창에 회차를 그대로 적는다. */
+  function mvRunSeries(r, day, reason, swapTo, curT) {
+    var msg = $('tc-mv-msg'), go = $('tc-mv-go');
+    var bad = function (t) { msg.style.color = '#b91c1c'; msg.innerHTML = t; };
+    var b = mvSeriesBody(r);
+    if (swapTo) b.teacher_id = String(swapTo.id);
+    if (!_mvSer || _mvSer.key !== mvSerKey(b)) { bad(T('앞으로의 회차를 확인하는 중입니다. 잠깐 뒤 다시 눌러 주세요.', 'Still checking later classes — press again in a moment.')); mvSeriesLater(r); return; }
+    var j = _mvSer.j;
+    if (!j || j.ok !== true) { bad(j && j.error === 'conflict' ? T('자리가 겹치는 날이 있어 옮길 수 없습니다 — 위 목록을 보세요.', 'Some dates clash — see the list above.') : mvSerErr(_mvSer.st, j)); return; }
+    var items = j.items || [];
+    var lines = items.slice(0, 10).map(function (it) { return '· ' + mvDayLabel(it.from_date) + ' ' + it.from_time + ' → ' + mvDayLabel(it.to_date) + ' ' + it.to_time; }).join('\n')
+      + (items.length > 10 ? '\n' + T('… 외 ', '… and ') + (items.length - 10) + T('회', ' more') : '');
+    var tline = (j.teacher && j.teacher.changed) ? '\n\n' + T('담당 강사: ', 'Teacher: ') + (j.teacher.from_name || '—') + ' → ' + (j.teacher.to_name || '') : '';
+    var who = String(r.student_name || r.student_uid || '');
+    if (!window.confirm(T('앞으로 계속 바꿀까요?\n\n' + who + ' · ' + items.length + '회\n' + lines + tline + '\n\n· 한 회라도 그 사이 자리가 겹치면 아무것도 바꾸지 않습니다.',
+                          'Change from now on?\n\n' + who + ' · ' + items.length + ' classes\n' + lines + tline + '\n\n· If any one clashes in the meantime, nothing changes.'))) return;
+    go.disabled = true;
+    msg.style.color = '#475467'; msg.textContent = T('처리 중...', 'Sending...');
+    var payload = { schedule_id: b.schedule_id, new_date: b.new_date, new_time: b.new_time, apply: true, reason: reason || undefined };
+    if (b.teacher_id) payload.teacher_id = b.teacher_id;
+    mvReq('POST', '/api/pay/enroll/admin/series-move', payload).then(function (res) {
+      var jj = res.j;
+      if (!jj || jj.ok !== true) {
+        go.disabled = false;
+        if (jj && jj.error === 'conflict') { _mvSer = { key: mvSerKey(b), st: res.st, j: jj }; var sb = $('tc-mv-series'); if (sb) sb.innerHTML = mvSeriesHtml(res.st, jj); bad(T('그 사이 자리가 겹쳐 아무것도 바꾸지 않았습니다.', 'A clash appeared — nothing was changed.')); return; }
+        bad(mvSerErr(res.st, jj) + ' ' + T('(아무것도 바꾸지 않았습니다)', '(Nothing was changed)')); return;
+      }
+      _mvChanged = true;
+      var n = Number(jj.moved) || 0, total = Number(jj.count) || items.length;
+      if (n === total) { msg.style.color = '#047857'; msg.textContent = T('앞으로 ' + n + '회를 옮겼습니다. (닫으면 목록을 다시 불러옵니다)', 'Moved ' + n + ' classes from now on. (Closing reloads the list)'); }
+      else { msg.style.color = '#92400e'; msg.textContent = T('⚠ ' + total + '회 중 ' + n + '회만 옮겨졌습니다 — 그 사이 누군가 바꾼 회차가 있습니다. 시간표에서 확인해 주세요.', '⚠ Only ' + n + ' of ' + total + ' moved — some were changed meanwhile. Check the timetable.'); }
+    }).catch(function () { go.disabled = false; bad(T('연결이 끊겼습니다. 결과를 모르니 목록을 다시 불러와 확인해 주세요.', 'Network error — reload the list to check the result.')); _mvChanged = true; });
+  }
   function mvRun(r, day) {
     var box = $('tc-move-modal'); if (!box) return;
-    var on = box.querySelector('[data-mv-mode][aria-pressed="true"]');
-    var mode = on ? on.getAttribute('data-mv-mode') : 'postpone';
+    /* 서버 경로는 그대로 — «완전히 연기» = postpone, «지정한 날짜로 연기» = 예전 «날짜·시각 변경»(이 회만 옮김). */
+    var act = mvAct();
+    var mode = act === 'hold' ? 'postpone' : act === 'date' ? 'change' : act;
     var msg = $('tc-mv-msg');
     var go = $('tc-mv-go');
     var newDate = String(($('tc-mv-date') || {}).value || '').trim();
@@ -561,7 +794,7 @@
     var who = String(r.student_name || r.student_uid || '');
     var when = day + ' ' + hhmm(r.start_ts);
     var bad = function (t) { msg.style.color = '#b91c1c'; msg.textContent = t; };
-    if (mode === 'change' && !(/^\d{4}-\d{2}-\d{2}$/.test(newDate) && /^\d{1,2}:\d{2}$/.test(newTime))) {
+    if ((mode === 'change' || mode === 'series') && !(/^\d{4}-\d{2}-\d{2}$/.test(newDate) && /^\d{1,2}:\d{2}$/.test(newTime))) {
       bad(T('새 날짜와 시각을 먼저 고르세요.', 'Pick a new date and time first.')); return;
     }
     if (mode === 'cancel' && !mvCanCancel(r)) { bad(T('이 수업은 여기서 취소할 수 없습니다.', 'This class cannot be cancelled here.')); return; }
@@ -570,7 +803,7 @@
     var curT = (_mvData && _mvData.current) || null;
     var curId = curT ? String(curT.id) : '';
     var swapTo = null;
-    if (mode === 'change' && _mvData) {
+    if ((mode === 'change' || mode === 'series') && _mvData) {
       if (_mvData.date !== newDate || String(_mvData.time) !== newTime) {
         bad(T('강사 확인이 끝날 때까지 잠깐 기다려 주세요.', 'Wait a moment — checking teachers for the new time.')); mvTeachersLater(r); return;
       }
@@ -580,6 +813,7 @@
       }
       if (!_mvPick && !(curT && curT.free)) { bad(T('이 시간에 되는 강사를 먼저 골라 주세요.', 'Pick a teacher who is free at this time first.')); return; }
     }
+    if (mode === 'series') { mvRunSeries(r, day, reason, swapTo, curT); return; }
     var swapLine = swapTo
       ? T('\n· 담당 강사: ' + ((curT && (curT.display_name || curT.name)) || '—') + ' → ' + (swapTo.display_name || swapTo.name),
           '\n· Teacher: ' + ((curT && (curT.display_name || curT.name)) || '—') + ' → ' + (swapTo.display_name || swapTo.name))
@@ -595,8 +829,8 @@
       ? T('이 수업을 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 목록에서 사라집니다.\n· 되돌리려면 시간표에서 직접 고쳐야 합니다.',
           'Cancel this class?\n\n' + who + ' · ' + when + '\n\n· It disappears from the lists.\n· To undo it you must fix it in the timetable.')
       : mode === 'change'
-      ? T('이 수업을 옮길까요?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· 그 시간에 다른 수업이 있으면 안 옮기고 알려 드립니다.' + swapLine,
-          'Move this class?\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· If that slot is taken it will not move — you will be told.' + swapLine)
+      ? T('이번 한 번만 옮길까요? (지정한 날짜로 연기)\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· 다음 회부터는 원래 시간표 그대로입니다.\n· 그 시간에 다른 수업이 있으면 안 옮기고 알려 드립니다.' + swapLine,
+          'Move just this one class? (postpone to a date)\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + newTime + '\n\n· Later classes keep the usual timetable.\n· If that slot is taken it will not move — you will be told.' + swapLine)
       : T('이 수업을 연기할까요?\n\n' + who + ' · ' + when + '\n\n· 수업이 «연기» 상태가 됩니다. 새 날짜는 나중에 잡습니다.',
           'Postpone this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes «postponed». Pick a new date later.') + feeWarn;
     if (!window.confirm(ask)) return;

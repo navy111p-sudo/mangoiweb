@@ -58,7 +58,9 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';
-import { findScheduleConflicts } from './schedule-conflict';   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
+import { findScheduleConflicts } from './schedule-conflict';
+import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
+import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
 export const ENROLL_MONTHS = [1, 3, 6, 12];
@@ -894,6 +896,10 @@ const ENROLL_ADMIN_SELF_GATED = new Set([
   /* 📅 (2026-09-23) 연기·변경 창의 «새 시간에 되는 강사» — 읽기 전용이고 위 둘과 같은 게이트
      (강사 차단 + subScopeDenied)를 스스로 건다. 조직 계정도 「오늘 수업」 에서 옮기기를 쓰므로. */
   '/api/pay/enroll/admin/move-candidates',
+  /* 🔄 (2026-09-23) «변경(앞으로 계속)» — 이어지는 회차를 한꺼번에 옮긴다. 한 회 옮기기(/decide)와
+     같은 게이트(강사 차단 + subScopeDenied)를 스스로 건다. 담당 강사까지 바꾸는 요청은 안에서
+     한 번 더 본사 전용(teacherMoveDenyReason — PATCH 와 같은 정본)으로 막는다. */
+  '/api/pay/enroll/admin/series-move',
 ]);
 
 /** 🔒 본사(내부 계정)만 통과. 강사·지사·대리점·지사본사는 403.
@@ -1555,6 +1561,113 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       current, candidates: free, busy_count: busyCount,
       teacher_change_ok: !(isMirror && !sameDay),
     });
+  }
+
+  /* ── 🔄 (2026-09-23 사장님) 수업 «변경» = 앞으로 계속 ──
+     「연기는 지정한 날짜에 한 번이고, 변경은 계속이야.」
+     body: { schedule_id, new_date, new_time, teacher_id?, apply? }
+       · apply 가 true 가 아니면 «미리보기»(dry run) — 무엇이 몇 회 바뀌는지만 돌려준다.
+       · apply:true 면 같은 시리즈(class-series-move.ts)를 전부 옮긴다.
+     ✅ 전부 되거나 전혀 안 되거나 — 한 회라도 겹치면 아무것도 쓰지 않고 그 날짜들을 돌려준다.
+        겹침 판정은 한 회 옮기기(/decide)가 쓰는 findScheduleConflicts 그대로다(복제 금지).
+     ⛔ 카페24 미러 수업은 막는다(mirror_series) — 밤마다 미러가 옛 시간표를 다시 만든다.
+     ⛔ 담당 강사를 바꾸면 본사 전용 — PATCH /api/admin/class-schedules/:id 와 같은 정본 게이트.
+     ⚠️ day_of_week 칸은 건드리지 않는다 — 날짜 지정 행은 scheduled_date 가 이기고(sessions/today),
+        한 회 옮기기(/decide)도 그 칸을 안 바꾼다(두 경로가 다르게 쓰면 어긋난다). */
+  if (path === '/api/pay/enroll/admin/series-move' && method === 'POST') {
+    const actor = await getAdminActor(request, env as any);
+    if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
+    const body = await parseJsonBody(request) || {};
+    const scheduleId = Number(body.schedule_id || 0);
+    const apply = body.apply === true;
+    if (!scheduleId) return json({ ok: false, error: 'bad_params' }, 400);
+    const row: any = await env.DB.prepare(
+      `SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, COALESCE(cs.duration_min,20) AS dm,
+              cs.teacher_id, cs.status, cs.source, t.name AS teacher_name
+         FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+        WHERE cs.id = ? LIMIT 1`
+    ).bind(scheduleId).first();
+    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
+    { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+
+    /* 담당 강사 변경 — 같은 강사면 «안 바꿈». 바꾸면 본사 전용 + 실재하는 강사만. */
+    const curTid = row.teacher_id != null ? String(row.teacher_id) : '';
+    const wantTid = String(body.teacher_id ?? '').trim();
+    const swap = !!wantTid && wantTid !== curTid;
+    let newTeacherName: string | null = null;
+    if (swap) {
+      if (!/^\d+$/.test(wantTid)) return json({ ok: false, error: 'invalid_teacher_id' }, 400);
+      let scopeType: string | null = null;
+      try {
+        const sr: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(actor.username).first();
+        const st = sr ? String(sr.scope_type ?? '').trim() : '';
+        scopeType = st || null;
+      } catch { scopeType = null; }                    // 모르면 정본 게이트가 막는다
+      const deny = teacherMoveDenyReason({ ok: actor.ok, isTeacher: actor.isTeacher, scopeType });
+      if (deny) return json(deny.error === 'forbidden_teacher' ? forbiddenTeacherBody(actor, deny.message)
+        : { ok: false, error: deny.error, message: deny.message }, deny.status as any);
+      const tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`).bind(wantTid).first().catch(() => null);
+      if (!tr) return json({ ok: false, error: 'teacher_not_found' }, 400);
+      newTeacherName = String(tr.name || '');
+    }
+
+    const rs: any = await env.DB.prepare(
+      `SELECT id, user_id, scheduled_date, start_time, teacher_id, source, status FROM class_schedules
+        WHERE user_id = ? AND status = 'active' AND scheduled_date IS NOT NULL AND scheduled_date <> ''
+        ORDER BY scheduled_date LIMIT 400`
+    ).bind(row.user_id).all();
+    const plan = planSeries(row, (rs?.results as any[]) || [], body.new_date, body.new_time);
+    if (!plan.ok) return json({ ok: false, error: plan.error }, plan.error === 'mirror_series' ? 409 : 400);
+
+    const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+    const newTid = swap ? wantTid : curTid;
+    const ids = new Set(plan.items.map((it) => String(it.id)));
+    const conflicts: { date: string; ko: string; en: string }[] = [];
+    for (let i = 0; i < plan.items.length; i += 6) {
+      await Promise.all(plan.items.slice(i, i + 6).map(async (it) => {
+        const c = await findScheduleConflicts(env, {
+          kind: 'one_off', userId: row.user_id, teacherId: newTid || null,
+          schedDate: it.to_date, startTime: it.to_time, durationMin: minutes, excludeId: it.id,
+        });
+        if (realConflict(c, ids)) conflicts.push({ date: it.to_date, ko: c.ko, en: c.en });
+      }));
+    }
+    conflicts.sort((a, b) => (a.date < b.date ? -1 : 1));
+    const summary = {
+      count: plan.items.length, delta_days: plan.delta_days, items: plan.items,
+      from_time: normTime(row.start_time), to_time: plan.items[0]?.to_time || '',
+      teacher: { from_id: curTid, from_name: row.teacher_name || null, to_id: newTid, to_name: swap ? newTeacherName : (row.teacher_name || null), changed: swap },
+    };
+    if (conflicts.length) return json({ ok: false, error: 'conflict', conflicts, ...summary }, 409);
+    if (!apply) return json({ ok: true, dry_run: true, ...summary });
+
+    /* 적용 — 한 번의 batch. 행마다 «옛 날짜·시각 그대로인가» 를 WHERE 로 다시 본다(그 사이 누가 바꿨으면 0행). */
+    const now = Date.now();
+    const stmts = plan.items.map((it) => env.DB.prepare(
+      swap
+        ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, teacher_id = ?, updated_at = ?
+            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
+        : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ?
+            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
+    ).bind(...(swap
+      ? [it.to_date, it.to_time, newTid, now, it.id, it.from_date, it.from_time]
+      : [it.to_date, it.to_time, now, it.id, it.from_date, it.from_time])));
+    const res: any[] = await env.DB.batch(stmts);
+    const moved = res.reduce((n, r) => n + (Number(r?.meta?.changes) || 0), 0);
+    const actorName = String(actor.name || actor.username || '관리자');
+    for (const it of plan.items) {
+      await writeClassAudit(env, {
+        action: 'reschedule', schedule_id: it.id,
+        teacher_name: row.teacher_name || null, student_name: row.student_name || row.user_id || null,
+        lesson_date: it.from_date, lesson_time: it.from_time,
+        actor: actorName, actor_role: 'admin', source: 'series-move',
+        reason: String(body.reason || '').trim().slice(0, 200) || null,
+        detail: `→ ${it.to_date} ${it.to_time}` + (swap ? ` · 강사 ${row.teacher_name || curTid} → ${newTeacherName || newTid}` : '') + ` (변경·앞으로 계속 ${plan.items.length}회)`,
+      });
+    }
+    return json({ ok: true, applied: true, moved, ...summary });
   }
 
   /* ── (m-3) 1회성 대체강사 배정 — 등록/취소 (관리자) ──
