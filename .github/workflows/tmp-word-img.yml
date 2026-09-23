@@ -16,7 +16,7 @@ jobs:
           D=cloudflare-deploy/public/img/scene-words; n=0
           while IFS=$'\t' read -r I U; do
             curl -fsSL --retry 3 "$U" -o /tmp/$I.png
-            cwebp -quiet -q 80 -resize 640 480 /tmp/$I.png -o $D/$I.webp
+            cwebp -quiet -q 68 -resize 640 480 /tmp/$I.png -o $D/$I.webp
             n=$((n+1))
           done < tmp/list.tsv
           echo "got $n of $(wc -l < tmp/list.tsv)"
