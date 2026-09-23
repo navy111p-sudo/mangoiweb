@@ -68,7 +68,9 @@ body{
 .wrap{max-width:820px;margin:0 auto;padding:12px 12px 48px}
 
 .top{display:flex;align-items:center;gap:10px;padding:12px 4px 14px;flex-wrap:wrap}
-.top h1{font-size:19px;margin:0;font-weight:700;flex:1;min-width:0}
+/* 🔤 (2026-09-23) min-width:0 이면 오른쪽 버튼줄에 밀려 «본사(전체)» 가 한 글자씩 세로로 쪼개졌다(760px 실측 4줄).
+   바닥을 두어 버튼줄이 다음 줄로 내려가게 하고, 한글은 낱말 단위로만 줄바꿈한다. */
+.top h1{font-size:19px;margin:0;font-weight:700;flex:1;min-width:min(100%,9em);word-break:keep-all}
 .top h1 span{display:block;font-size:13px;font-weight:400;color:#5d6b7a}
 .tnav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 /* 🕐 (2026-08-19 Melca 8/19 제보 ⑤) 한국 시간 · 필리핀 시간.
@@ -1890,8 +1892,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                 '전체 ' + all.length + '건 중 ' + rows.length + '건 · 강사 ' + Object.keys(nTeach).length + '명'))
         + (c.cafe24 ? '<br>' + esc(T('cafe24 (LMS) classes cannot be moved here — handle them in cafe24.',
                                      '카페24(LMS) 수업은 여기서 옮길 수 없습니다 — 카페24에서 직접 처리하세요.')) : '')
+        /* 🏫 (Karl 제안 2단계) 학원을 골랐으면 «한꺼번에 연기» — 창(js/class-move-modal.js bulkOpen)에서
+           줄마다 체크·안 옮기는 이유를 보고 실행한다. 판정(카페24·매주·끝남·진행중)은 그 창 한 곳. */
+        + (acSel && rows.length ? '<br><span data-bulk="1" role="button" tabindex="0" style="cursor:pointer;display:inline-block;margin-top:4px;padding:3px 11px;border-radius:99px;font-size:12px;font-weight:800;background:#fff4e0;color:#92400e;border:1px solid #f5c98b">'
+            + esc(T('⏸ Postpone these ' + rows.length + ' together…', '⏸ 이 ' + rows.length + '건 한꺼번에 연기…')) + '</span>' : '')
         + '<br>'
       : '';
+    j._shown = rows; j._shownAc = acSel;
     var head = '<div class="muted" style="padding-bottom:6px">'
       + pickLine
       + (cnote ? esc(cnote) + '<br>' : '')
@@ -2116,7 +2123,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=1';
+    sc.src = '/js/class-move-modal.js?v=2';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
@@ -2135,6 +2142,33 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           day: (D.todayAll && D.todayAll.date) || '',
           isEn: EN,
           canCancel: IS_HQ === true,
+          me: { name: nm || '' },
+          onClose: function(changed){
+            if (!changed) return;
+            taMarkStale();
+            try { window.loadTodayAll(); } catch (e) {}
+          }
+        });
+      });
+    });
+  }
+  /* 🏫 한꺼번에 연기 — 눈앞의 줄(paintTodayAll 이 남긴 _shown)을 창에 넘긴다. */
+  function taBulk(){
+    var j = D.todayAll || {};
+    var rows = j._shown || [];
+    if (!rows.length) return;
+    var ac = j._shownAc || '';
+    loadMoveModal(function(ok){
+      if (!ok || typeof window.mangoiMoveModal.bulkOpen !== 'function') {
+        alert(T('Could not open the bulk postpone window. Please refresh and try again.',
+                '일괄 연기 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.'));
+        return;
+      }
+      taWhoAmI().catch(function(){ return ''; }).then(function(nm){
+        window.mangoiMoveModal.bulkOpen(rows, {
+          day: j.date || '',
+          isEn: EN,
+          title: '🏫 ' + (ac === PICK_NONE ? T('(no academy)', '(학원 미지정)') : ac),
           me: { name: nm || '' },
           onClose: function(changed){
             if (!changed) return;
@@ -2190,6 +2224,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var t = ev.target;
       var cal = t && t.closest && t.closest('[data-calpin]');
       if (cal) { ev.preventDefault(); mgCalOpen(cal.getAttribute('data-calpin'), cal.getAttribute('data-calwho')); return; }
+      var bk = t && t.closest && t.closest('[data-bulk]');
+      if (bk) { ev.preventDefault(); taBulk(); return; }
       var open = t && t.closest && t.closest('[data-ta]');
       if (!open) return;
       ev.preventDefault();
@@ -2199,7 +2235,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // role="button" 은 키보드(Enter·Space)도 받아야 한다 — 안 그러면 마우스 전용이 된다.
     box.addEventListener('keydown', function(ev){
       if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
-      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta],[data-calpin]'))) return;
+      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta],[data-calpin],[data-bulk]'))) return;
       onTap(ev);
     });
   }
