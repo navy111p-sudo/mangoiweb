@@ -3181,6 +3181,7 @@ function newWarmupChat(){
   var ms=document.getElementById('m-session'); if(ms) ms.textContent=SESSION_ID.slice(0,22);
   ansCardClear();
   log.innerHTML='';
+  var ip=document.getElementById('inp'); if(ip) ip.value='';   // 옛 질문에 쓰던 답이 새 대화로 넘어가지 않게
   var hp=document.getElementById('wgHelp'); if(hp) hp.hidden=true;
   _combo=0;
   var cc=document.getElementById('comboChip'), cn=document.getElementById('comboN');

@@ -62,6 +62,7 @@ try{
     await page.evaluate(()=>newWarmupChat());
     ck('취소하면 대화가 그대로',await page.locator('#log .msg.me').count()===1);
     ck('취소하면 세션 번호도 그대로',await page.evaluate(()=>SESSION_ID)===sid1);
+    await page.locator('#inp').fill('half-written old answer');
     // 메뉴를 열어 버튼이 보이고 눌리는가
     await page.locator('#menuBtn').click();
     const btn=page.locator('.menu-newchat');
@@ -80,6 +81,7 @@ try{
     ck('첫 인사를 다시 받았다(kickoff 가 새 번호로)',reqs.slice(n).some(r=>r&&r.kickoff&&r.session_id===sid2));
     ck('옛 번호로는 아무것도 안 보낸다',!reqs.slice(n).some(r=>r&&r.session_id===sid1));
     ck('메뉴가 닫혔다',!(await page.locator('#menuPanel').evaluate(e=>e.classList.contains('open'))));
+    ck('쓰던 답이 입력칸에 안 남는다',(await page.locator('#inp').inputValue())==='');
     ck('콤보 칩이 감춰졌다',await page.locator('#comboChip').evaluate(e=>getComputedStyle(e).display==='none'));
     ck('진행 표시가 처음으로',(await page.locator('#wgProgress').innerText()).includes('3'));
     ck('페이지 오류 0',errors.length===0);
