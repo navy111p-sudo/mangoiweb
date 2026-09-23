@@ -464,6 +464,43 @@
     var el = $('tc-q');
     return el ? String(el.value || '').trim().toLowerCase() : '';
   }
+  /* 🏫 (2026-09-23 매니저 Karl 요청) 학원·강사 «고르기» — 치지 않고 골라서 거른다.
+     ⚠️ manager.html 「오늘 전체 수업」에 **같은 세 함수가 한 벌 더** 있다(그 화면은 외부 스크립트 0개 계약).
+        판정을 바꾸면 양쪽을 함께 — test-harness/today_class_pickers_harness.mjs 가 두 벌을 오려 내 같은 답인지 대조한다.
+     · 값이 빈 줄은 PICK_NONE(«(학원 미지정)»·«(강사 미배정)») 으로 모은다 — 목록에서 조용히 사라지면 안 된다.
+     · 공백만 다른 이름(«BNJ  어학원» 대 «BNJ 어학원»)은 한 항목으로 본다. 대소문자는 가리지 않는다(다른 학원일 수 있다). */
+  var PICK_NONE = '__none__';
+  function pickKey(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim() || PICK_NONE; }
+  function pickMatch(s, field, sel) { return !sel || pickKey(s[field]) === sel; }
+  function pickOptions(rows, field) {
+    var m = {};
+    rows.forEach(function (s) { var k = pickKey(s[field]); m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).sort(function (a, b) {
+      if (a === PICK_NONE) return 1;
+      if (b === PICK_NONE) return -1;
+      return a.localeCompare(b, 'ko', { numeric: true, sensitivity: 'base' });
+    }).map(function (k) { return { value: k, n: m[k] }; });
+  }
+  function pickVal(id) {
+    var el = $(id);
+    return el ? String(el.value || '') : '';
+  }
+  /* 드롭다운을 «지금 목록» 으로 다시 채운다. 고른 값이 새 목록에 없으면(날짜를 바꿈 등) «전체» 로 돌린다 —
+     안 돌리면 이유 없이 0건이 된다. ⚠️ 선택지 글자는 JS 가 그린다 → 언어가 바뀌면 render() 가 다시 부른다. */
+  function fillPick(id, opts, allLabel, noneLabel) {
+    var el = $(id);
+    if (!el) return '';
+    var cur = String(el.value || '');
+    var has = false, html = '<option value="">' + esc(allLabel) + '</option>';
+    opts.forEach(function (o) {
+      if (o.value === cur) has = true;
+      html += '<option value="' + esc(o.value) + '">'
+        + esc((o.value === PICK_NONE ? noneLabel : o.value) + ' (' + o.n + ')') + '</option>';
+    });
+    el.innerHTML = html;
+    el.value = has ? cur : '';
+    return el.value;
+  }
   /* 고른 시간대 — '' (전체) · 'late' (23:00~23:59) · 'night' (23:00~05:59).
      ⛔ 모르는 값은 «전체» 로 떨어뜨린다(옛 화면이 캐시에 남아 다른 값을 보내도 줄이 안 사라진다). */
   function nightMode() {
@@ -574,13 +611,44 @@
       + '</div>';
   }
 
+  function academySummary(rows, acSel) {
+    var c24 = rows.filter(function (s) { return s.source === 'cafe24'; }).length;
+    var tset = {};
+    rows.forEach(function (s) { tset[pickKey(s.teacher_name)] = 1; });
+    var nt = Object.keys(tset).filter(function (k) { return k !== PICK_NONE; }).length;
+    var name = acSel === PICK_NONE ? T('(학원 미지정)', '(no academy)') : acSel;
+    return '<div class="tc-ac-sum" style="padding:7px 10px;margin:2px 0 8px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:6px;color:#1e3a8a;font-size:12px;line-height:1.6">'
+      + '🏫 <b>' + esc(name) + '</b> · '
+      + esc(T(rows.length + '건 (망고아이 ' + (rows.length - c24) + ' · 카페24 ' + c24 + ') · 강사 ' + nt + '명',
+              rows.length + ' classes (Mangoi ' + (rows.length - c24) + ' · cafe24 ' + c24 + ') · ' + nt + ' teacher(s)'))
+      + (c24 ? '<br><span style="color:#475467">' + esc(T('카페24 수업은 여기서 옮길 수 없습니다 — 카페24에서 직접 처리하세요.',
+                                                         'cafe24 classes cannot be moved here — handle them in cafe24.')) + '</span>' : '')
+      + '</div>';
+  }
+
   function render() {
     var box = $('tc-body'), cntEl = $('tc-count');
     if (!box) return;
     var onlyLive = !!($('tc-only-live') && $('tc-only-live').checked);
     var src = srcFilter(), q = qFilter();
     var night = nightMode();
+    /* 🏫 학원·강사 목록은 «서로를» 따라 좁힌다 — 학원을 고르면 강사 목록은 그 학원 강사만, 반대도 같다.
+       (다른 필터 — 검색·시간대 — 와는 무관하게 «그날 전체» 에서 센다: 고를 수 있는 것이 사라지지 않게) */
+    var acSel0 = pickVal('tc-academy'), teSel0 = pickVal('tc-teacher');
+    var acSel = fillPick('tc-academy',
+      pickOptions(_rows.filter(function (s) { return pickMatch(s, 'teacher_name', teSel0); }), 'academy'),
+      T('전체', 'All'), T('(학원 미지정)', '(no academy)'));
+    var teSel = fillPick('tc-teacher',
+      pickOptions(_rows.filter(function (s) { return pickMatch(s, 'academy', acSel); }), 'teacher_name'),
+      T('전체', 'All'), T('(강사 미배정)', '(unassigned)'));
+    if (acSel0 !== acSel || teSel0 !== teSel) { /* 한쪽이 «전체» 로 돌아갔으면 다른 쪽 목록을 한 번 더 맞춘다 */
+      acSel = fillPick('tc-academy',
+        pickOptions(_rows.filter(function (s) { return pickMatch(s, 'teacher_name', teSel); }), 'academy'),
+        T('전체', 'All'), T('(학원 미지정)', '(no academy)'));
+    }
     var rows = _rows.filter(function (s) {
+      if (!pickMatch(s, 'academy', acSel)) return false;
+      if (!pickMatch(s, 'teacher_name', teSel)) return false;
       if (onlyLive && !s.join_open) return false;
       if (night && !inNight(s, night)) return false;
       if (src && (s.source === 'cafe24' ? 'cafe24' : 'mangoi') !== src) return false;
@@ -589,7 +657,7 @@
     });
     /* 🌙 시간대 고르기도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
        버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
-    var filtering = !!(src || q || night);
+    var filtering = !!(src || q || night || acSel || teSel);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -597,6 +665,8 @@
       if (filtering) {
         why = T('조건에 맞는 수업이 없습니다', 'No classes match the filter')
           + ' (' + (src === 'cafe24' ? T('카페24', 'cafe24') : src === 'mangoi' ? T('망고아이', 'Mangoi') : T('전체', 'All'))
+          + (acSel ? ' · ' + esc(acSel === PICK_NONE ? T('(학원 미지정)', '(no academy)') : acSel) : '')
+          + (teSel ? ' · ' + esc(teSel === PICK_NONE ? T('(강사 미배정)', '(unassigned)') : teSel) : '')
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
           + (night ? ' · ' + nightLabel(night) : '')
@@ -649,7 +719,10 @@
     /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
     var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
     var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
-    box.innerHTML = (nNote
+    /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
+       ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
+    var acLine = acSel ? academySummary(rows, acSel) : '';
+    box.innerHTML = acLine + (nNote
         ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
         : '')
       + (note
@@ -970,6 +1043,10 @@
        한 글자 칠 때마다 요청이 나갈 이유가 없다). 날짜만 서버를 다시 부른다(아래).
        ⚠️ 입력칸은 #tc-body «밖» 이라 다시 그려도 포커스·커서가 그대로다 — 안에 두면 한 글자마다
           포커스가 날아가 「한 글자만 쳐진다」가 된다. */
+    ['tc-academy', 'tc-teacher'].forEach(function (id) {
+      var el = $(id);
+      if (el && !el._tcBound) { el._tcBound = true; el.addEventListener('change', render); }
+    });
     var sf = $('tc-source');
     if (sf && !sf._tcBound) { sf._tcBound = true; sf.addEventListener('change', render); }
     var qf = $('tc-q');
