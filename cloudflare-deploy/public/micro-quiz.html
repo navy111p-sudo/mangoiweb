@@ -108,6 +108,11 @@
     .kid-stars { font-size:30px; letter-spacing:3px; }
     .kid-word { text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:10px; }
     .kid-emoji { font-size:100px; line-height:1; animation:floaty 3s ease-in-out infinite; }
+    .word-pic { display:block; width:min(300px,78vw); aspect-ratio:4/3; object-fit:cover; border-radius:18px; box-shadow:0 10px 26px -10px rgba(0,0,0,.55); background:rgba(255,255,255,.06); }
+    .ch-pic { display:flex; justify-content:center; margin-bottom:10px; }
+    .ch-pic .word-pic { width:min(240px,64vw); }
+    .fb-pic { display:flex; justify-content:center; margin-top:10px; }
+    .fb-pic .word-pic { width:min(200px,56vw); }
     @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
     .quiz-card.kids .q-text { font-size:30px; text-align:center; }
     .opts-kids .opt { font-size:24px; padding:20px 22px; border-radius:16px; font-weight:700; }
@@ -398,6 +403,24 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
       soccer:'⚽',basketball:'🏀',baseball:'⚾',tennis:'🎾'
     };
     function wordEmoji(w){ var k=String(w||'').toLowerCase().trim().replace(/[.!?,]+$/,''); return WORD_EMOJI[k] || ''; }
+    /* 🖼 2026-09-23 — 힉스필드 실사 사진(저장소 /img/scene-words·scene-clips). 색인은 scripts/build-word-pictures.mjs 가
+       장면 탐험대의 «근거 게이트를 통과한 낱말 사진» 만 모아 만든다(⛔ 여기서 새로 판정하지 않습니다 — 「nice ← 가방」 사고).
+       못 받거나 없는 낱말은 예전 그대로 이모지. */
+    var WORD_PICS = null;
+    try { fetch('/data/word-pictures.json').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ if (d && d.words && d.prefix) WORD_PICS = d; }).catch(function(){}); } catch(e){}
+    function wordPic(w){
+      if (!WORD_PICS) return '';
+      var k = String(w||'').toLowerCase().trim().replace(/[.!?,]+$/,'');
+      var c = Object.prototype.hasOwnProperty.call(WORD_PICS.words, k) ? WORD_PICS.words[k] : '';
+      if (!c) return '';
+      var base = WORD_PICS.prefix[c.charAt(0)];
+      return base && /^\d+$/.test(c.slice(1)) ? base + c.slice(1) + '.webp' : '';
+    }
+    function picHtml(w, fallbackEmoji){
+      var u = wordPic(w);
+      if (u) return '<img class="word-pic" src="' + u + '" alt="' + escHtml(w||'') + '" decoding="async" onerror="this.style.display=\'none\'">';
+      return fallbackEmoji ? '<div class="kid-emoji">' + fallbackEmoji + '</div>' : '';
+    }
     function speakWord(w){ try{ if(window.MangoiTTS){ MangoiTTS.setLang('en'); MangoiTTS.speak(String(w||'').trim(), 1); } }catch(e){} }
 
     /* ── 효과음 (WebAudio, 별도 파일 없이 즉시 재생) ── */
@@ -605,7 +628,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
             <div class="q-num">${isKids ? ('문제 '+(curIdx+1)+' / '+total) : ('Q'+(curIdx+1)+' / '+total)}</div>
             ${typeBadge}
             <div class="kid-word">
-              <div class="kid-emoji">${wordEmoji(Q.word)||'🗣️'}</div>
+              ${picHtml(Q.word, wordEmoji(Q.word)||'🗣️')}
               <div class="speak-word-big">${escHtml(Q.word||'')}</div>
               <div style="font-size:18px;color:var(--text2)">${escHtml(Q.meaning||'')}</div>
               <button class="say-btn" id="sayBtn">🔊 <span data-ko="발음 듣기" data-en="Listen">발음 듣기</span></button>
@@ -632,12 +655,12 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
         prompt = `<div class="${isKids?'kid-word':'ch-word'}"><div class="listen-ic">👂</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play again">다시 듣기</span></button></div>`;
       } else if (Q.type==='word') {
         prompt = isKids
-          ? `<div class="kid-word"><div class="kid-ko">${escHtml(Q.meaning)}</div></div>`
+          ? `<div class="kid-word">${picHtml(Q.word,'')}<div class="kid-ko">${escHtml(Q.meaning)}</div></div>`
           : `<div class="ch-word"><span class="ch-word-txt" style="color:#fbbf24">${escHtml(Q.meaning)}</span></div>`;
       } else {
         prompt = isKids
-          ? `<div class="kid-word"><div class="kid-emoji">${wordEmoji(Q.word)||'🔤'}</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play">다시 듣기</span></button></div>`
-          : `<div class="ch-word"><span class="ch-word-txt">${escHtml(Q.word||'')}</span><button class="say-btn sm" id="sayBtn">🔊</button></div>`;
+          ? `<div class="kid-word">${picHtml(Q.word, wordEmoji(Q.word)||'🔤')}<button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play">다시 듣기</span></button></div>`
+          : `${wordPic(Q.word) ? '<div class="ch-pic">'+picHtml(Q.word,'')+'</div>' : ''}<div class="ch-word"><span class="ch-word-txt">${escHtml(Q.word||'')}</span><button class="say-btn sm" id="sayBtn">🔊</button></div>`;
       }
       const timer = isKids ? '' : `<div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>`;
 
@@ -838,6 +861,8 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
           var cc2 = document.getElementById('chCombo'); if (cc2) cc2.textContent = '🔥 0';
         }
       }
+      /* 🖼 듣기 문제는 «답 전에» 사진을 안 보여 준다(듣지 않고 그림으로 맞히게 됨) — 답한 뒤에만 정답 사진. */
+      try { if (Q.type === 'listen' && wordPic(Q.word)) fb.insertAdjacentHTML('beforeend', '<div class="fb-pic">' + picHtml(Q.word,'') + '</div>'); } catch(e){}
       document.getElementById('nextRow').style.display = '';
     }
 
