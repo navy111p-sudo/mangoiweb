@@ -713,7 +713,9 @@
                  줄마다 반복해 적으면 76% 의 줄이 같은 문장으로 시끄러워진다. */
             : '<span style="color:#9ca3af;font-size:11px">—</span>';
           var academy = s.academy
-            ? '<span style="font-size:11.5px;color:#475569;white-space:nowrap">' + esc(s.academy) + '</span>'
+            /* (2026-09-23 사장님 «빈 공간 없애기») nowrap 이면 258줄 중 «가장 긴» 학원 이름이 칸 폭을 정해
+               모든 줄에 빈 공간이 생긴다 → 폭 상한 + 줄바꿈. 전체 이름은 title 로. */
+            ? '<span title="' + esc(s.academy) + '" style="display:inline-block;max-width:140px;font-size:11.5px;color:#475569;white-space:normal;word-break:keep-all;line-height:1.35">' + esc(s.academy) + '</span>'
             : '<span style="color:#9ca3af;font-size:11px">—</span>';
 
           /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
