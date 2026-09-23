@@ -203,8 +203,14 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
 
   for (const s of sessions) {
     const noRoom = isNoRoomRow(s);
-    s.teacher_entry = judgeTeacherEntry(noRoom ? 'cafe24' : 'mangoi', Number(s.start_ts) || 0, String(s.status || ''),
-      noRoom ? null : (presence.get(s.room_id) || null));
+    let pres: any = noRoom ? null : (presence.get(s.room_id) || null);
+    // 정본은 «이름 붙은 출석행이 0개» 면 판정 불가(null)를 준다 — 노쇼 «신고» 를 읽을 때의 규칙이다.
+    // 여기서는 방에 «아무도» 안 들어온 것을 확실히 알 때(조회 성공 + 행 0개) «입장 기록 없음» 이 사실이다.
+    // (2026-09-23 사장님 화면: 수업 중인데 «unknown» — 방에는 한 명도 없었다)
+    if (!noRoom && attOk && (!pres || pres.present === null) && !(byRoom.get(s.room_id) || []).length) {
+      pres = { present: false, from: null };
+    }
+    s.teacher_entry = judgeTeacherEntry(noRoom ? 'cafe24' : 'mangoi', Number(s.start_ts) || 0, String(s.status || ''), pres);
     if (noRoom) { s.attendance = judgeStudentAttendance('cafe24', 0, '', null, 0); continue; }
     if (!attOk) continue;   // 못 물어봤다 → 칸을 비운다(«결석» 이 아니다)
     const uid = String(s.student_uid || '').trim();
