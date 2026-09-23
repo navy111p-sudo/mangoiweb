@@ -1,0 +1,51 @@
+# 임시 워크플로 — tmp/word-img-b5 브랜치에서만 돕니다. ⛔ main 에 올리지 마세요.
+# 이 컨테이너는 프록시가 CDN 을 403 으로 막아 그림을 못 받습니다(CLAUDE.md 2장).
+name: tmp-fetch-word-b5
+on:
+  push:
+    branches: [tmp/word-img-b5]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+      - name: 목록 만들기
+        run: |
+          node -e '
+            const fs=require("fs");
+            const list=JSON.parse(fs.readFileSync("tools/tmp/word-img-fetch.json","utf8"));
+            fs.writeFileSync("/tmp/list.tsv", list.map(x=>x.index+"\t"+x.url).join("\n")+"\n");
+            console.log("목록", list.length);
+          '
+          wc -l /tmp/list.tsv
+      - name: 내려받아 webp 로
+        run: |
+          mkdir -p cloudflare-deploy/public/img/scene-words
+          cat > /tmp/one.sh <<'SH'
+          #!/bin/bash
+          IDX="$1"; URL="$2"; D=cloudflare-deploy/public/img/scene-words
+          T=$(mktemp --suffix=.png)
+          for a in 1 2 3; do curl -sfL --max-time 90 -o "$T" "$URL" && break; sleep 3; done
+          [ -s "$T" ] || { echo "받기 실패 $IDX"; rm -f "$T"; exit 0; }
+          for q in 80 68 55 42 32; do
+            cwebp -quiet -q $q -resize 640 480 "$T" -o "$D/$IDX.webp" || true
+            sz=$(stat -c%s "$D/$IDX.webp" 2>/dev/null || echo 999999)
+            [ "$sz" -le 80000 ] && break
+          done
+          rm -f "$T"
+          SH
+          chmod +x /tmp/one.sh
+          awk -F'\t' 'NF==2{print $1; print $2}' /tmp/list.tsv | xargs -n2 -P 12 /tmp/one.sh
+          n=$(node -e 'const fs=require("fs");const l=JSON.parse(fs.readFileSync("tools/tmp/word-img-fetch.json"));console.log(l.filter(x=>fs.existsSync("cloudflare-deploy/public/img/scene-words/"+x.index+".webp")).length+"/"+l.length)')
+          echo "받은 것 $n"
+      - name: 커밋
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -m "낱말 사진 5차 내려받기(임시)" || { echo "변경 없음"; exit 1; }
+          git push origin HEAD:tmp/word-img-b5
