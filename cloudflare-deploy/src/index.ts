@@ -343,6 +343,7 @@ const worker = {
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
             || path === '/manager' || path === '/manager/' || path === '/manager.html'
+            || path === '/branch' || path === '/branch/' || path === '/branch.html'
             || path === '/work' || path === '/work/' || path === '/work.html'
             || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
@@ -2270,6 +2271,17 @@ const worker = {
       const mNotMod = htmlEtag304(request, '/manager.html', env, mHeaders);
       if (mNotMod) return mNotMod;
       return new Response(mResp.body, { status: mResp.status, headers: mHeaders });
+    }
+
+    // 🏢 /branch — 지사장 전용(2026-09-23). /manager 와 같은 이유로 확장자 없는 주소를 직접 잇고 ETag 를 붙인다.
+    if (path === '/branch' || path === '/branch/') {
+      const r = new Request(new URL('/branch.html' + url.search, request.url).toString(), request);
+      const bResp = await env.ASSETS.fetch(r);
+      const bHeaders = new Headers(bResp.headers);
+      bHeaders.set('Cache-Control', 'no-cache');
+      const bNotMod = htmlEtag304(request, '/branch.html', env, bHeaders);
+      if (bNotMod) return bNotMod;
+      return new Response(bResp.body, { status: bResp.status, headers: bHeaders });
     }
 
     /* 🧾 /work — 결재 전용 초경량 화면 (2026-08-16 신설)
@@ -5822,8 +5834,9 @@ async function managerPortalRedirect(
   request: Request, url: URL, path: string, env: Env
 ): Promise<Response | null> {
   const isManagerPage = (path === '/manager' || path === '/manager/' || path === '/manager.html');
+  const isBranchPage  = (path === '/branch' || path === '/branch/' || path === '/branch.html');
   const isAdminHome   = (path === '/admin' || path === '/admin/' || path === '/admin.html');
-  if (!isManagerPage && !isAdminHome) return null;
+  if (!isManagerPage && !isAdminHome && !isBranchPage) return null;
   if (url.searchParams.get('full') === '1') return null;      // 탈출구
 
   let sc: { type: string };
@@ -5834,6 +5847,17 @@ async function managerPortalRedirect(
     return null;                                              // 판정 실패 → 기존 동작 유지
   }
   const isOrg = (sc.type === 'agency' || sc.type === 'branch' || sc.type === 'franchise');
+
+  /* 🏢 (2026-09-23 사장님 지시) 지사장(scope=branch)은 /manager 가 아니라 /branch 를 쓴다.
+     /manager 는 대리점·지사본사·필리핀 매니저가 그대로 쓴다 — 거기 화면을 바꾸지 않으려고 화면을 나눴다.
+     ⚠️ 권한은 그대로다(두 화면이 같은 API 를 부른다). 착지 화면만 갈린다. ?full=1 탈출구는 위에서 그대로. */
+  if (sc.type === 'branch' && (isAdminHome || isManagerPage)) {
+    return Response.redirect(new URL('/branch', request.url).toString(), 302);
+  }
+  // 지사장이 아닌 조직 계정(대리점·지사본사)이 /branch 를 열었다 → 자기 화면(/manager)으로
+  if (isBranchPage && isOrg && sc.type !== 'branch') {
+    return Response.redirect(new URL('/manager', request.url).toString(), 302);
+  }
 
   // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
   if (isOrg && isAdminHome) {
@@ -5861,7 +5885,7 @@ async function managerPortalRedirect(
   // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.
   //   본사(hq·staff)는 그대로 통과시킨다 — 강사 포털과 같은 이유로, 같은 정보를
   //   가볍게 보는 창을 하나 더 갖는 것뿐이다(권한 변화 없음).
-  if (isManagerPage && !isOrg) {
+  if ((isManagerPage || isBranchPage) && !isOrg) {
     let actor: { ok: boolean; isTeacher: boolean; role: string };
     try {
       actor = await getAdminActor(request, env as any);
@@ -5902,6 +5926,8 @@ function isAdminPath(path: string, method: string): boolean {
   //      여기(isAdminPath)와, 미인증 시 로그인으로 보내는 리다이렉트 목록.
   //      한쪽만 하면 인증은 걸리는데 'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
   if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
+  // 🏢 지사장 전용 화면 (2026-09-23 사장님 지시) — /manager 와 같은 규칙. 역할 분기는 managerPortalRedirect().
+  if (path === '/branch' || path === '/branch/' || path === '/branch.html') return true;
 
   // 🧾 결재 전용 초경량 화면 (2026-08-16) — 회사 지출 내역이 담긴다. 로그인 필수.
   //   위 두 포털과 같은 규칙이다. 역할 분기는 하지 않는다 —
