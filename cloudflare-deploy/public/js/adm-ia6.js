@@ -180,7 +180,7 @@
         { ko: '학부모 소통',     en: 'Parents',        cards: ['card-parent-digest', 'card-parent-faq-bot'] },
         { ko: '커뮤니티·리워드', en: 'Community',      cards: ['card-community', 'card-alumni', 'card-referral', 'card-badges-mgmt'] },
         { ko: 'AI 학습 현황',    en: 'AI tool usage',  cards: ['card-ai-usage'],
-          tip: '🤖 판단력훈련·웜업·AI영어친구·AI글쓰기·발음코칭·복습퀴즈·단어장·AI단어퀴즈 8종 사용 학생',
+          tip: '🤖 판단력훈련·A.i 말하기 연습·AI영어친구·AI글쓰기·발음코칭·복습퀴즈·단어장·AI단어퀴즈 8종 사용 학생',
           tipEn: '🤖 Students using the 8 AI learning tools' }
       ]
     },

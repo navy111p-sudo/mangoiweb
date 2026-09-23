@@ -45,7 +45,7 @@ export interface ToolSpec {
 
 /** 도구 8종 + 단어장. ⚠️ url 은 실재하는 화면이어야 한다(하니스가 파일 존재를 대조한다). */
 export const TOOLS: Record<ToolKey, ToolSpec> = {
-  warmup:   { key: 'warmup',   url: '/warmup.html',       icon: '🗣️', ko: '수업 전 AI 웜업', en: 'Pre-class AI warm-up', minutes: 10 },
+  warmup:   { key: 'warmup',   url: '/warmup.html',       icon: '🗣️', ko: 'A.i 말하기 연습', en: 'A.i Speaking Practice', minutes: 10 },
   review:   { key: 'review',   url: '/review-quiz.html',  urlZh: '/review-quiz-cn.html', icon: '🧠', ko: '복습퀴즈', en: 'Review quiz', minutes: 10 },
   friend:   { key: 'friend',   url: '/ai-friend.html',    icon: '🤖', ko: 'AI 친구 대화', en: 'Chat with AI friend', minutes: 7 },
   speech:   { key: 'speech',   url: '/speech-coach.html', urlZh: '/speech-coach-cn.html', icon: '🎤', ko: 'AI 음성코치', en: 'AI speech coach', minutes: 7 },
@@ -351,8 +351,8 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
     const warm = CLASS_DAY.before.map(k => step(k, 'before', inp,
       pre ? `${cls.start} 수업 전에 10분. 오늘 배울 문장으로 입을 풀어요.`
           : (phase === 'in_class'
-              ? `지금 ${cls.start} 수업 중이에요. 웜업은 다음 수업 전에 하면 돼요.`
-              : `오늘 ${cls.start} 수업은 끝났어요. 웜업은 다음 수업 전에 하면 돼요.`),
+              ? `지금 ${cls.start} 수업 중이에요. 말하기 연습은 다음 수업 전에 하면 돼요.`
+              : `오늘 ${cls.start} 수업은 끝났어요. 말하기 연습은 다음 수업 전에 하면 돼요.`),
       pre ? `10 minutes before your ${cls.start} class — warm up with today's sentences.`
           : (phase === 'in_class'
               ? `Your ${cls.start} class is on now — warm up before the next one.`

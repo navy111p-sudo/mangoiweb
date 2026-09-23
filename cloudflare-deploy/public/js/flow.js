@@ -16,7 +16,7 @@
   // 고정 메뉴 (순서·번호 고정). again = 이 항목이 '현재 기능'일 때 "다시"로 표시할 라벨
   var MENU = [
     { key: 'class',  emoji: '🎥', label: '수업 입장',    again: '수업 다시 입장' },
-    { key: 'warmup', emoji: '🗣️', label: 'AI 웜업',      again: 'AI 웜업 다시' },
+    { key: 'warmup', emoji: '🗣️', label: 'A.i 말하기 연습', again: 'A.i 말하기 연습 다시' },
     { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
     { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
     { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
@@ -36,7 +36,7 @@
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
   var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech', aifriend: 'aifriend', aiwrite: 'aiwrite' };
 
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
+  var FROM_LABEL = { warmup: 'A.i 말하기 연습', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
