@@ -1,0 +1,22 @@
+# 임시 — 낱말 사진 51장을 러너에서 받아 이 브랜치에 커밋. ⛔ main 에 올리지 않습니다(병합 전 삭제).
+name: tmp fetch word media
+on:
+  push:
+    branches: [claude/funny-bohr-yutmhy]
+    paths: ['.github/tmp-fetch/list.json']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node .github/tmp-fetch/fetch.mjs
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/scene-clips cloudflare-deploy/public/img/scene-words .github/tmp-fetch/result.txt
+          git commit -m "tmp: fetch word media via runner" || echo nothing
+          git push
