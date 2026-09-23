@@ -6,6 +6,7 @@
    두 화면이 각자 한 벌씩 들면 한쪽만 고쳐지는 사고가 난다(CLAUDE.md 2장 「같은 판정이 두 곳」).
 
    쓰는 법:  window.mangoiMoveModal.open(row, { day, isEn, canCancel, me, onClose })
+            window.mangoiMoveModal.bulkOpen(rows, { day, isEn, me, title, onClose })   ← 🏫 학원 일괄 연기
      · row      = /api/admin/classes/today 의 sessions[] 한 줄 (schedule_id·start_ts·start_time·
                   student_name·student_uid·teacher_name·can_move)
      · day      = 'YYYY-MM-DD' (그 목록의 날짜)
@@ -630,5 +631,176 @@
     }
     p.catch(function () { bad(T('연결이 끊겼습니다. 다시 눌러 주세요.', 'Network error. Try again.')); unlock(); });
   }
-  window.mangoiMoveModal = { open: tcOpenMoveModal, close: tcMoveModalClose };
+  /* ══════════════════════════════════════════════════════════════════════
+     🏫 (2026-09-23 매니저 Karl 제안 2단계) «이 학원 오늘 수업 한꺼번에 연기».
+     [무엇] 학원 드롭다운으로 고른 줄들을 한 번에 «완전히 연기(날짜 미정)» 한다.
+     ⚠️ 새 서버 경로가 없다 — 단건 «완전히 연기» 와 **같은 두 요청**을 줄마다 차례로 보낸다:
+        POST /schedule-requests(postpone) → POST /schedule-requests/decide(approve)
+        (스코프 재확인·강사 차단·반복 수업 보호·변경이력을 서버가 그대로 한다.)
+     ⛔ 일괄 «취소» 는 두지 않는다 — 되돌릴 수 없는 조작을 여러 건 한꺼번에 하지 않는다.
+     ⛔ 여기서 안 옮기는 줄 — 이유를 사람에게 보인다(조용히 빠지면 «다 연기됐다» 로 읽힌다):
+        · 카페24 수업(망고아이 행이 없다) · 매주 반복(can_move!==true — 한 행이 «매주» 다)
+        · 이미 끝난 수업(ended) · 지금 진행 중(live — 수업 한가운데를 연기하지 않는다)
+     💰 급여는 서버 규칙 그대로: 시작 30분보다 이르면 «사전 연기»(지급률 기본 0) — 확인창이 몇 건인지 말한다.
+     ══════════════════════════════════════════════════════════════════════ */
+  function bulkPlan(rows) {
+    var go = [], skip = [];
+    (rows || []).forEach(function (r) {
+      if (!r) return;
+      var why = '';
+      if (r.source === 'cafe24') why = 'cafe24';
+      else if (!r.schedule_id) why = 'no_id';
+      else if (r.can_move !== true) why = 'weekly';
+      else if (r.status === 'ended') why = 'ended';
+      else if (r.status === 'live') why = 'live';
+      if (why) skip.push({ r: r, why: why }); else go.push(r);
+    });
+    return { go: go, skip: skip };
+  }
+  function bulkWhy(w) {
+    if (w === 'cafe24') return T('카페24 수업 — 카페24에서 직접', 'cafe24 class — handle in cafe24');
+    if (w === 'weekly') return T('매주 반복 — 시간표에서 직접', 'weekly class — use the timetable');
+    if (w === 'ended')  return T('이미 끝난 수업', 'already ended');
+    if (w === 'live')   return T('지금 진행 중', 'in progress now');
+    return T('수업 번호 없음', 'no schedule id');
+  }
+  /* 시작 30분보다 이르게 연기하면 서버가 «사전 연기» 로 매긴다 — 단건 창과 같은 판정. */
+  function bulkEarly(r, now) {
+    return typeof r.start_ts === 'number' && r.start_ts > 0 && Math.round((r.start_ts - now) / 60000) > 30;
+  }
+  var _bkChanged = false, _bkBusy = false;
+  function bulkClose() {
+    if (_bkBusy) return;   /* 도는 중에 닫으면 결과를 못 본다 */
+    var b = $('tc-bulk-modal');
+    if (b && b.parentNode) b.parentNode.removeChild(b);
+    var ch = _bkChanged; _bkChanged = false;
+    if (b && typeof _opt.onClose === 'function') { try { _opt.onClose(ch); } catch (e) {} }
+  }
+  function bulkOpen(rows, opt) {
+    tcMoveModalClose();
+    bulkClose();
+    _opt = opt || {};
+    var day = /^\d{4}-\d{2}-\d{2}$/.test(String(_opt.day || '')) ? String(_opt.day) : kstTodayStr();
+    var plan = bulkPlan(rows);
+    var title = String(_opt.title || '');
+    var line = function (r, extra) {
+      return esc(hhmm(r.start_ts) || String(r.start_time || '').slice(0, 5)) + ' · <b>' + esc(r.student_name || r.student_uid || '-') + '</b>'
+        + (r.teacher_name ? ' · ' + esc(r.teacher_name) : '') + (extra || '');
+    };
+    var goHtml = plan.go.length
+      ? plan.go.map(function (r) {
+          return '<label style="display:flex;gap:6px;align-items:flex-start;padding:3px 0;cursor:pointer">'
+            + '<input type="checkbox" data-bk-sid="' + esc(r.schedule_id) + '" checked style="margin-top:3px">'
+            + '<span style="flex:1">' + line(r) + '</span>'
+            + '<span data-bk-res="' + esc(r.schedule_id) + '" style="font-size:11.5px;font-weight:700;white-space:nowrap"></span></label>';
+        }).join('')
+      : '<div style="color:#475467">' + T('여기서 연기할 수 있는 수업이 없습니다.', 'No class here can be postponed from this screen.') + '</div>';
+    var skipHtml = plan.skip.length
+      ? '<div style="margin-top:10px;font-size:12px;font-weight:700;color:#344054">'
+          + esc(T('여기서 안 옮기는 수업 ' + plan.skip.length + '건', plan.skip.length + ' class(es) not moved here')) + '</div>'
+        + plan.skip.map(function (s) {
+            return '<div style="font-size:12px;color:#475467;padding:2px 0">' + line(s.r, ' — <span style="color:#92400e">' + esc(bulkWhy(s.why)) + '</span>') + '</div>';
+          }).join('')
+      : '';
+    var box = document.createElement('div');
+    box.id = 'tc-bulk-modal';
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:4px">🏫 ' + T('한꺼번에 연기', 'Postpone together') + '</div>'
+      + '<div style="font-size:12.5px;color:#475467;margin-bottom:10px">' + esc(title) + (title ? ' · ' : '') + esc(day) + '</div>'
+      + '<div style="font-size:12px;line-height:1.55;color:#101828;background:#fff4e0;border:1px solid #f5c98b;border-radius:8px;padding:8px 10px;margin-bottom:10px">'
+      +   T('체크한 수업을 <b>«연기» 상태</b>로 바꿉니다(날짜 미정 — 새 날짜는 나중에 한 건씩 잡습니다). 다음 주 수업은 그대로입니다.',
+            'Checked classes become <b>«postponed»</b> (no new date — rebook each later). Next week’s classes are unchanged.')
+      + '</div>'
+      + '<div id="tc-bk-list" style="font-size:12.5px;line-height:1.5;max-height:46vh;overflow-y:auto">' + goHtml + skipHtml + '</div>'
+      + '<label style="display:block;font-size:12px;color:#475467;margin-top:10px">' + T('사유 (선택 · 모든 건에 같이 적힘)', 'Reason (optional · saved on every class)') + '<br>'
+      +   '<input type="text" id="tc-bk-reason" maxlength="200" placeholder="' + T('예: 학원 휴원', 'e.g. academy closed') + '" '
+      +   'style="width:100%;padding:6px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#101828;box-sizing:border-box"></label>'
+      + '<div id="tc-bk-msg" style="font-size:12.5px;font-weight:700;margin-top:10px;min-height:1em"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+      +   '<button type="button" id="tc-bk-close" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#111827;cursor:pointer">' + T('닫기', 'Close') + '</button>'
+      +   (plan.go.length ? '<button type="button" id="tc-bk-go" style="padding:8px 16px;border:0;border-radius:8px;background:#b45309;color:#fff;font-weight:800;cursor:pointer">' + T('⏸ 연기 실행', '⏸ Postpone') + '</button>' : '')
+      + '</div></div>';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) { if (e.target === box) bulkClose(); });
+    $('tc-bk-close').addEventListener('click', bulkClose);
+    var go = $('tc-bk-go');
+    if (go) go.addEventListener('click', function () { bulkRun(plan.go, day); });
+  }
+  function bulkChecked(list) {
+    var box = $('tc-bulk-modal'); if (!box) return [];
+    var on = {};
+    var cbs = box.querySelectorAll('[data-bk-sid]');
+    for (var i = 0; i < cbs.length; i++) if (cbs[i].checked && !cbs[i].disabled) on[cbs[i].getAttribute('data-bk-sid')] = 1;
+    return list.filter(function (r) { return on[String(r.schedule_id)] === 1; });
+  }
+  function bulkMark(sid, ok, text) {
+    var box = $('tc-bulk-modal'); if (!box) return;
+    var el = box.querySelector('[data-bk-res="' + String(sid) + '"]');
+    if (el) { el.style.color = ok ? '#047857' : '#b91c1c'; el.textContent = text; }
+    var cb = box.querySelector('[data-bk-sid="' + String(sid) + '"]');
+    if (cb && ok) { cb.checked = false; cb.disabled = true; }   /* 된 줄은 다시 보내지 않는다 */
+  }
+  /* 한 줄 = 단건 «완전히 연기» 와 같은 두 요청. 결과는 {ok, text}. */
+  function bulkOne(r, nm, reason) {
+    var sid = Number(r.schedule_id);
+    return mvReq('POST', '/api/admin/schedule-requests', {
+      schedule_id: sid,
+      request_type: 'postpone',
+      requester_role: 'admin',
+      requester_name: nm || undefined,
+      teacher_name: r.teacher_name || nm || T('관리자', 'admin'),
+      student_name: r.student_name || r.student_uid || undefined,
+      student_uid: r.student_uid || undefined,
+      reason: reason || undefined
+    }).then(function (mk) {
+      if (!mk.j || mk.j.ok !== true || !mk.j.id) return { ok: false, text: mvErrOf(mk.st, mk.j) };
+      return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined })
+        .then(function (res) {
+          _bkChanged = true;
+          if (!res.j || res.j.ok !== true) return { ok: false, text: mvErrOf(res.st, res.j) + ' ' + T('(요청은 저장됨)', '(request saved)') };
+          var m = mvMsgOf(res.j);
+          return { ok: m.ok && res.j.applied === 'postponed', text: res.j.applied === 'postponed' ? T('✓ 연기됨', '✓ postponed') : m.s };
+        });
+    }).catch(function () { return { ok: false, text: T('연결 끊김 — 목록에서 확인', 'network error — check the list') }; });
+  }
+  function bulkRun(list, day) {
+    if (_bkBusy) return;
+    var msg = $('tc-bk-msg'), go = $('tc-bk-go');
+    var pick = bulkChecked(list);
+    if (!pick.length) { msg.style.color = '#b91c1c'; msg.textContent = T('연기할 수업을 체크하세요.', 'Check the classes to postpone.'); return; }
+    var now = Date.now();
+    var early = pick.filter(function (r) { return bulkEarly(r, now); }).length;
+    var ask = T(pick.length + '건을 연기할까요? (' + day + ')\n\n· 모두 «연기» 상태가 됩니다(날짜 미정).\n· 되돌리려면 시간표에서 한 건씩 고쳐야 합니다.',
+                'Postpone ' + pick.length + ' class(es)? (' + day + ')\n\n· All become «postponed» (no new date).\n· To undo, fix each one in the timetable.')
+      + (early ? T('\n\n⚠ ' + early + '건은 시작 30분보다 일러 «사전 연기» 로 기록됩니다.\n   그 수업의 강사 수업료가 급여 규칙 «사전 연기 지급률» 을 따릅니다 — 0원일 수 있습니다.',
+                  '\n\n⚠ ' + early + ' are more than 30 min away — recorded as EARLY postponement.\n   Teacher pay for those follows «postponed_early_pay_percent» — it may be 0.') : '');
+    if (!window.confirm(ask)) return;
+    _bkBusy = true; if (go) go.disabled = true;
+    var me = mvMe();
+    var nm = (me && (me.name || me.uid)) || '';
+    var reason = String(($('tc-bk-reason') || {}).value || '').trim();
+    var okN = 0, badN = 0, i = 0;
+    msg.style.color = '#475467';
+    /* 차례로 보낸다(동시에 몰지 않는다) — 한 줄이 실패해도 나머지는 계속, 줄마다 결과를 적는다. */
+    var next = function () {
+      if (i >= pick.length) {
+        _bkBusy = false;
+        if (go) go.disabled = false;
+        msg.style.color = badN ? '#92400e' : '#047857';
+        msg.textContent = T('연기 ' + okN + '건' + (badN ? ' · 못 함 ' + badN + '건(줄마다 이유)' : '') + ' — 닫으면 목록을 다시 불러옵니다.',
+                            okN + ' postponed' + (badN ? ' · ' + badN + ' not done (see each line)' : '') + ' — closing reloads the list.');
+        return;
+      }
+      var r = pick[i++];
+      msg.textContent = T('처리 중... ' + i + '/' + pick.length, 'Sending... ' + i + '/' + pick.length);
+      bulkOne(r, nm, reason).then(function (res) {
+        if (res.ok) okN++; else badN++;
+        bulkMark(r.schedule_id, res.ok, res.text);
+        next();
+      });
+    };
+    next();
+  }
+  window.mangoiMoveModal = { open: tcOpenMoveModal, close: tcMoveModalClose, bulkOpen: bulkOpen, bulkPlan: bulkPlan, bulkEarly: bulkEarly };
 })();

@@ -623,7 +623,31 @@
               rows.length + ' classes (Mangoi ' + (rows.length - c24) + ' · cafe24 ' + c24 + ') · ' + nt + ' teacher(s)'))
       + (c24 ? '<br><span style="color:#475467">' + esc(T('카페24 수업은 여기서 옮길 수 없습니다 — 카페24에서 직접 처리하세요.',
                                                          'cafe24 classes cannot be moved here — handle them in cafe24.')) + '</span>' : '')
+      /* 🏫 (2026-09-23 Karl 제안 2단계) 한꺼번에 연기 — 누르면 대상 미리보기 창(js/class-move-modal.js).
+         ⛔ 여기서 바로 보내지 않는다 — 창에서 줄마다 체크·안 옮기는 이유를 보고 실행한다.
+         ⛔ <button> 이 아니라 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+      + '<br><span id="tc-bulk-postpone" role="button" tabindex="0" '
+      +   'style="cursor:pointer;display:inline-block;margin-top:4px;white-space:nowrap;padding:3px 11px;border-radius:99px;font-size:11.5px;font-weight:800;'
+      +   'background:#fff4e0;color:#92400e;border:1px solid #f5c98b">'
+      +   esc(T('⏸ 이 ' + rows.length + '건 한꺼번에 연기…', '⏸ Postpone these ' + rows.length + ' together…')) + '</span>'
       + '</div>';
+  }
+  /* 🏫 한꺼번에 연기 창 — 눈앞의 줄(학원·강사·검색으로 거른 그대로)을 넘긴다. 판정은 창(bulkPlan)이 한다. */
+  function tcOpenBulkPostpone(rows, acSel) {
+    if (!window.mangoiMoveModal || typeof window.mangoiMoveModal.bulkOpen !== 'function') {
+      alert(T('일괄 연기 창을 열지 못했습니다. 새로고침 후 다시 시도해 주세요.', 'Could not open the bulk postpone window. Please refresh and try again.'));
+      return;
+    }
+    var me = null;
+    try { me = window.__ADM_ME || null; } catch (e) {}
+    var dEl = $('tc-date');
+    window.mangoiMoveModal.bulkOpen(rows, {
+      day: (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstTodayStr(),
+      isEn: isEn,
+      title: '🏫 ' + (acSel === PICK_NONE ? T('(학원 미지정)', '(no academy)') : acSel),
+      me: me ? { name: me.name || me.uid || '' } : null,
+      onClose: function (changed) { if (changed) { try { window.tcLoadToday(); } catch (e) {} } }
+    });
   }
 
   function render() {
@@ -943,6 +967,14 @@
       })(cals[ci]);
     }
     /* 📅 연기·변경 칩 → 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
+    var bk = $('tc-bulk-postpone');
+    if (bk) {
+      var bkOpen = function (ev) { if (ev) ev.preventDefault(); tcOpenBulkPostpone(rows, acSel); };
+      bk.addEventListener('click', bkOpen);
+      bk.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') bkOpen(ev);
+      });
+    }
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
       (function (el) {

@@ -312,7 +312,7 @@ for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label
     ok('매니저: 7칸을 못 받으면 칸은 안 지어내고 칩만', /data-calpin="park"/.test(m3) && !/<i /.test(m3), m3);
   }
   ok('매니저: 줄이 calLine 을 그린다', /exLine \+ calLine \+ '<\/span>'/.test(mgr));
-  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('\[data-ta\],\[data-calpin\]'\)/.test(mgr));
+  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('(?=[^']*\[data-ta\])(?=[^']*\[data-calpin\])[^']*'\)/.test(mgr));  // 키보드 선택자 목록에 둘 다(순서·다른 항목 무관 — 2026-09-23 [data-bulk] 추가)
   const mo = mgr.slice(mgr.indexOf('function mgCalOpen('), mgr.indexOf('function bindTodayActions('));
   ok('매니저 창: 학생 상세 스케줄 탭을 연다 · window.open 없음', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(mo) && !/window\.open/.test(mo));
 }

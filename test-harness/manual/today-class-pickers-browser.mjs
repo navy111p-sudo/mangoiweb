@@ -30,7 +30,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* 씨앗 — BNJ 3건(강사 둘, 카페24 1) · CAG 1건 · 학원 없음 1건 · 공백만 다른 BNJ 1건 · 강사 미배정 1건 */
 const NOW = Date.now();
 const mk = (o) => Object.assign({ source: 'mangoi', observable: true, level: null, textbook: 'BTS 1',
-  textbook_assigned: true, status: 'early', join_open: false, is_level_test: false,
+  textbook_assigned: true, status: 'early', join_open: false, can_move: true, is_level_test: false,
   start_ts: NOW + 36e5, end_ts: NOW + 36e5 + 12e5 }, o);
 const SESSIONS = [
   mk({ schedule_id: 1, room_id: 'class-1-x', student_uid: 'a1', student_name: '가학생', teacher_name: 'FAR', academy: 'BNJ어학원', start_time: '14:00' }),
@@ -57,6 +57,14 @@ const BOOT = `
     window.fetch = function(u, o){
       var s = String((u && u.url) || u || '');
       if (s.indexOf('/api/admin/classes/today') >= 0) { window.__tcHits++; return Promise.resolve(ok({ ok:true, date:'2026-09-23', sessions:S, counts:{ cafe24:1, joinable:0 } })); }
+      /* 🏫 일괄 연기 — 요청을 적어 두고, 수업 2번 접수만 거절해 «실패해도 계속» 을 본다 */
+      if (s.indexOf('/api/admin/schedule-requests') >= 0) {
+        var b = {}; try { b = JSON.parse((o && o.body) || '{}'); } catch(e){}
+        (window.__bkLog = window.__bkLog || []).push({ u: s.split('/api/')[1], b: b });
+        if (s.indexOf('/decide') >= 0) return Promise.resolve(ok({ ok:true, applied:'postponed' }));
+        if (b.schedule_id === 2) return Promise.resolve(new Response(JSON.stringify({ ok:false, error:'forbidden_scope' }), { status:403, headers:{'content-type':'application/json'} }));
+        return Promise.resolve(ok({ ok:true, id: 900 + b.schedule_id }));
+      }
       if (s.indexOf('/api/admin/me') >= 0) return Promise.resolve(ok({ ok:true, username:'admin', role:'hq', scope_type:'hq', name:'Admin' }));
       if (s.indexOf('/api/') >= 0) return Promise.resolve(ok({ ok:true }));
       return real(u, o);
@@ -159,6 +167,38 @@ async function main() {
   check('전체로 되돌리면 6건 · 요약 줄이 사라진다',
     (await names()).split(',').length === 6 && !(await ev('!!document.querySelector("#tc-body .tc-ac-sum")')));
 
+  console.log('\n── A⑤ 관리자: 학원 한꺼번에 연기 ──');
+  await pick('tc-academy', 'BNJ어학원'); await sleep(200);
+  check('학원을 고르면 «한꺼번에 연기» 버튼이 보인다', await ev('!!(document.getElementById("tc-bulk-postpone")||{}).offsetParent'));
+  await ev('document.getElementById("tc-bulk-postpone").click()'); await sleep(300);
+  check('   누르면 창이 뜬다', await ev('!!document.getElementById("tc-bulk-modal")'));
+  check('   옮길 두 줄(1·2번)에 체크가 있다', (await ev('[...document.querySelectorAll("#tc-bulk-modal [data-bk-sid]")].map(e=>e.getAttribute("data-bk-sid")+":"+e.checked).join(",")')) === '1:true,2:true');
+  await ev('document.querySelector("#tc-bulk-modal").remove()');
+  await pick('tc-academy', 'BNJ 어학원'); await sleep(200);
+  await ev('document.getElementById("tc-bulk-postpone").click()'); await sleep(300);
+  const skipT = await ev('document.getElementById("tc-bk-list").textContent');
+  check('   카페24 줄은 체크 없이 «카페24에서 직접» 으로 따로 보인다', /카페24/.test(skipT) && !(await ev('!!document.querySelector("#tc-bulk-modal [data-bk-sid]")')), skipT.slice(0, 120));
+  check('   옮길 것이 없으면 실행 버튼을 안 준다', !(await ev('!!document.getElementById("tc-bk-go")')));
+  await ev('document.getElementById("tc-bk-close").click()'); await sleep(150);
+  check('   닫기로 닫힌다', !(await ev('!!document.getElementById("tc-bulk-modal")')));
+  await pick('tc-academy', 'BNJ어학원'); await sleep(200);
+  await ev('document.getElementById("tc-bulk-postpone").click()'); await sleep(300);
+  await ev('window.__bkLog=[]; window.confirm=function(q){ window.__bkAsk=q; return true; }; document.getElementById("tc-bk-reason").value="학원 휴원"; document.getElementById("tc-bk-go").click()');
+  await sleep(1200);
+  const log = await ev('JSON.stringify(window.__bkLog)');
+  const L = JSON.parse(log || '[]');
+  check('   1번은 접수→승인 두 요청, 2번은 접수만(거절) — 순서대로',
+    L.map(x => x.u + '#' + (x.b.schedule_id || x.b.id)).join(',') === 'admin/schedule-requests#1,admin/schedule-requests/decide#901,admin/schedule-requests#2', log);
+  check('   ⛔ request_type 은 postpone 이고 사유가 실린다', L.length && L[0].b.request_type === 'postpone' && L[0].b.reason === '학원 휴원', log.slice(0, 200));
+  const res = await ev('[...document.querySelectorAll("#tc-bulk-modal [data-bk-res]")].map(e=>e.textContent).join("|")');
+  check('   줄마다 결과(성공·실패 이유)가 적힌다', /연기됨/.test(res) && /권한/.test(res), res);
+  check('   합계를 말한다', /연기 1건/.test(await ev('document.getElementById("tc-bk-msg").textContent')), await ev('document.getElementById("tc-bk-msg").textContent'));
+  const hits0 = await ev('window.__tcHits');
+  await ev('document.getElementById("tc-bk-close").click()'); await sleep(500);
+  check('   닫으면 목록을 다시 불러온다', (await ev('window.__tcHits')) > hits0);
+  await pick('tc-academy', ''); await sleep(150);
+  check('학원을 «전체» 로 두면 버튼이 없다 (짝)', !(await ev('!!document.getElementById("tc-bulk-postpone")')));
+
   console.log('\n── A④ 관리자: EN ──');
   await ev('(function(){ window.adminLang="en"; if (typeof applyAdminLangDom==="function") applyAdminLangDom(); document.dispatchEvent(new CustomEvent("mangoi:lang-changed")); })()');
   await sleep(250);
@@ -194,6 +234,28 @@ async function main() {
   check('CAG + HANNAH → 라학생', (await mnames()) === '라학생', await mnames());
   await pick('taTeacher', ''); await pick('taAcademy', ''); await sleep(150);
   check('전체로 되돌리면 6건', (await mnames()).split(',').length === 6, await mnames());
+
+  console.log('\n── B③ 매니저: 학원 한꺼번에 연기 ──');
+  await pick('taAcademy', 'CAG영수학원'); await sleep(150);
+  check('학원을 고르면 버튼(data-bulk)이 보인다', await ev('!!(document.querySelector("#todayAllBody [data-bulk]")||{}).offsetParent'));
+  await ev('document.querySelector("#todayAllBody [data-bulk]").click()'); await sleep(1500);
+  check('   누르면 같은 창이 뜬다 (파일을 그때 받는다)', await ev('!!document.getElementById("tc-bulk-modal")'));
+  check('   4번·6번 두 줄', (await ev('[...document.querySelectorAll("#tc-bulk-modal [data-bk-sid]")].map(e=>e.getAttribute("data-bk-sid")).join(",")')) === '4,6');
+  await ev('document.getElementById("tc-bk-close").click()'); await sleep(150);
+  await pick('taAcademy', ''); await sleep(150);
+  check('전체로 두면 버튼이 없다 (짝)', !(await ev('!!document.querySelector("#todayAllBody [data-bulk]")')));
+
+  console.log('\n── B④ 매니저: 머리글 «본사(전체)» 가 한 글자씩 쪼개지지 않는다 ──');
+  await c.send('Emulation.setDeviceMetricsOverride', { width: 760, height: 900, deviceScaleFactor: 1, mobile: false });
+  await ev('(function(){ document.getElementById("scopeLbl").textContent="Manager"; document.getElementById("scopeName").textContent="본사(전체)"; })()');
+  await sleep(200);
+  const hn = await ev('(function(){var b=document.getElementById("scopeName"),r=document.createRange();r.selectNodeContents(b);var ys={};[...r.getClientRects()].forEach(function(x){ys[Math.round(x.top)]=1});return Object.keys(ys).length;})()');
+  check('760px 에서 한 줄', hn === 1, hn + '줄');
+  await c.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+  await sleep(200);
+  const hn2 = await ev('(function(){var b=document.getElementById("scopeName"),r=document.createRange();r.selectNodeContents(b);var ys={};[...r.getClientRects()].forEach(function(x){ys[Math.round(x.top)]=1});return Object.keys(ys).length;})()');
+  check('390px(폰)에서도 한 줄', hn2 === 1, hn2 + '줄');
+  check('   가로로 넘치지 않는다', await ev('document.documentElement.scrollWidth <= innerWidth'));
 
   c.close(); bye();
   console.log('\n════════════════════════════════════════════');
