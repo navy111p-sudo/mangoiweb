@@ -44,7 +44,8 @@ import { capitownRouter } from './api-capitown';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
-import { getScope } from './scope';
+import { getScope, scopeStudentCond, type Scope } from './scope';
+import { selectInChunks } from './d1-chunk';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
@@ -787,7 +788,7 @@ const worker = {
 
     // 활성 방 목록 (관리자용)
     if (path === '/api/active-rooms' && request.method === 'GET') {
-      return await handleActiveRooms(env);
+      return await handleActiveRooms(env, request);
     }
 
     // 특정 방 상태 조회 (관리자용)
@@ -5315,7 +5316,43 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
   }
 }
 
-async function handleActiveRooms(env: Env): Promise<Response> {
+/** 🔒 (2026-09-23) 지사·대리점 스코핑 — «지금 수업(실시간)」 카드에서 발견.
+ *  이 API 는 `/api/admin/` 밖이라(`/api/active-rooms`) `src/index.ts` 의 org-scope
+ *  차단(`isAgencyAllowedApi`)이 애초에 안 걸린다 — 어제(2026-09-22) manager.html→admin.html
+ *  전환 작업 중 지사 계정으로 실제 화면을 열어 보다가 «전국 실시간 수업 참가자 이름이
+ *  그대로 보인다」는 것을 발견했다(어제 고친 student-rankings·recordings 와 같은 급의
+ *  기존 결함 — 이번 전환 작업이 새로 연 것이 아니라 원래 열려 있었다).
+ *
+ *  방(room) 자체에는 franchise 개념이 없다(Durable Object 상태에 그런 칸이 없음) —
+ *  그래서 room_id 로 «그 방이 어느 예약 수업인지» 를 역산해서만 스코프를 걸 수 있다.
+ *  결정론적 방 번호 규칙(CLAUDE.md) — `class-{scheduleId}-{YYYYMMDD}` — 을 역으로 풀어
+ *  `class_schedules.id` 를 뽑고, 그 예약의 학생이 호출자 소속인지 students_erp 로 확인한다.
+ *
+ *  ⛔ 모르면(=class-* 모양이 아니거나 스케줄을 못 찾으면) 지사·대리점에게는 **보여 주지 않는다**
+ *     — 회의방(meet-*)·연습방(demo-*)·공용방(mangoi-class)·카페24 미러방(c24-*)은 소속을
+ *     증명할 방법이 없다(CLAUDE.md 「모르면 막는 쪽으로 실패」). 본사(hq)·내부직원(none)은
+ *     그대로 전체를 본다 — 이 필터는 org-scoped 일 때만 켜진다. */
+function _activeRoomScheduleId(roomId: string): number | null {
+  const m = /^class-(\d+)-\d{8}$/.exec(String(roomId || ''));
+  return m ? parseInt(m[1], 10) : null;
+}
+async function _filterActiveRoomsByScope(env: Env, rooms: any[], scope: Scope): Promise<any[]> {
+  const withSchedId = rooms.map(r => ({ room: r, schedId: _activeRoomScheduleId(r && r.roomId) }));
+  const ids = Array.from(new Set(withSchedId.filter(x => x.schedId != null).map(x => x.schedId as number)));
+  if (!ids.length) return [];
+  const c = scopeStudentCond(scope, 'se');
+  if (!c.cond) return [];   // 조건이 비면(스코프 미상) 아무것도 안 보여준다
+  const rows = await selectInChunks<{ id: number }>(
+    env.DB, ids,
+    (ph) => `SELECT cs.id AS id FROM class_schedules cs JOIN students_erp se ON se.user_id = cs.user_id
+              WHERE cs.id IN (${ph}) AND (${c.cond})`,
+    { lead: [], tail: c.binds, swallowErrors: false },
+  );
+  const allowed = new Set(rows.map(r => Number(r.id)));
+  return withSchedId.filter(x => x.schedId != null && allowed.has(x.schedId)).map(x => x.room);
+}
+
+async function handleActiveRooms(env: Env, request: Request): Promise<Response> {
   try {
     // KV 바인딩이 없는 경우 빈 배열로 안전 반환
     if (!env.SESSION_STATE) {
@@ -5362,7 +5399,13 @@ async function handleActiveRooms(env: Env): Promise<Response> {
     if (staleKeys.length) {
       await Promise.all(staleKeys.map((k) => env.SESSION_STATE.delete(k).catch(() => {})));
     }
-    const rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+    let rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+
+    // 🔒 지사·대리점 스코핑 — 위 함수 머리말 참고. 본사(hq)·내부직원(none)·강사는 그대로 전체를 본다.
+    const _arScope = await getScope(env, request);
+    if (isOrgScopedRole(_arScope.type)) {
+      rooms = await _filterActiveRoomsByScope(env, rooms, _arScope);
+    }
 
     return new Response(JSON.stringify(rooms), {
       status: 200,
