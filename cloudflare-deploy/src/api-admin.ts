@@ -3452,7 +3452,9 @@ export async function handleAdminApi(
 
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
          절대 던지지 않는다(실패하면 그 칸만 null → 화면 «—»). */
-      try { await enrichClassesToday(env as any, sessions, dateStr, nowMs); } catch (e: any) { console.warn('[classes/today] extras:', e?.message); }
+      /* 🔒 (2026-09-23 사장님 지시) 평가 내용은 본사·내부직원에게만 — 지사·대리점(manager.html)에는 안 싣는다.
+         판정은 연락처와 같은 _ctSeeContact(hq·none). 그 밖은 전부 숨김(모르는 스코프도 숨기는 쪽). */
+      try { await enrichClassesToday(env as any, sessions, dateStr, nowMs, { evals: _ctSeeContact }); } catch (e: any) { console.warn('[classes/today] extras:', e?.message); }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.

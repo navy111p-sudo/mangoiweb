@@ -158,12 +158,17 @@ export function isNoRoomRow(s: any): boolean {
 
 /* ── 로더 (sessions 를 제자리에서 채운다 · 절대 던지지 않는다) ────────────── */
 
-export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number): Promise<void> {
+/** opts.evals=false — 평가 내용을 싣지 않는다(지사·대리점. 2026-09-23 사장님 지시).
+ *  ⚠️ 기본값은 true(강사 포털·본사). 부르는 쪽이 «숨길 사람» 을 정한다. */
+export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number,
+  opts: { evals?: boolean } = {}): Promise<void> {
+  const withEvals = opts.evals !== false;
   for (const s of sessions) {
     s.class_date = dateStr;
     s.teacher_entry = null; s.attendance = null; s.pay_type = null;
     s.sched_label_ko = null; s.sched_label_en = null;
     s.last_eval = null; s.today_eval = null;
+    s.eval_hidden = !withEvals;   // 화면이 «—»(없음)과 «본사 전용»(숨김)을 가르게
   }
   if (!sessions.length) return;
   const db = env.DB;
@@ -258,8 +263,8 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     }
   } catch (e: any) { console.warn('[classes/today] schedule:', e?.message); }
 
-  // ⑤⑥ 평가(1분 수업일지) — 지난 · 오늘
-  if (uids.length) {
+  // ⑤⑥ 평가(1분 수업일지) — 지난 · 오늘. ⛔ 숨길 사람이면 «조회 자체를 안 한다»(응답에 실릴 자리가 없게)
+  if (withEvals && uids.length) {
     try {
       const ev = await selectInChunks<any>(db, uids, (ph) =>
         `SELECT * FROM student_evaluations WHERE student_uid IN (${ph})`);

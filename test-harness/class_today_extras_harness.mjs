@@ -58,9 +58,11 @@ const pk2 = X.pickEvals(evs, 'class-5-20260923', '2026-09-23', day);
 out.e_other_today = pk2.today; out.e_other_last = pk2.last && pk2.last.id;
 out.brief = X.briefEval(evs[1]);
 // 로더 — 가짜 DB (질의문을 보고 답한다)
+const SQLS = [];
 const mkDb = (boom) => ({
   exec: async () => {},
   prepare(sql) {
+    SQLS.push(sql);
     const res = () => {
       if (boom && boom.test(sql)) throw new Error('boom');
       if (/FROM attendance/.test(sql) && /account_uid/.test(sql)) return [
@@ -95,6 +97,13 @@ out.l = ss.map(s => ({ d: s.class_date, te: s.teacher_entry && s.teacher_entry.s
 const ss2 = mk(); let threw = false;
 try { await X.enrichClassesToday({ DB: mkDb(/attendance|evaluations|centers|class_schedules/) }, ss2, '2026-09-23', S + 60*M); } catch (e) { threw = true; }
 out.boom = { threw, at: ss2[0].attendance, today: ss2[0].today_eval, d: ss2[0].class_date };
+// 🔒 지사·대리점 — 평가를 «조회조차» 안 한다 · 짝: 기본값은 싣는다
+SQLS.length = 0;
+const ss3 = mk();
+await X.enrichClassesToday({ DB: mkDb(null) }, ss3, '2026-09-23', S + 60*M, { evals: false });
+out.hid = { today: ss3[0].today_eval, last: ss3[0].last_eval, flag: ss3[0].eval_hidden,
+  queried: SQLS.some(q => /student_evaluations/.test(q)), att: ss3[0].attendance && ss3[0].attendance.state };
+out.shownFlag = ss[0].eval_hidden;
 console.log(JSON.stringify(out));
 `;
 writeFileSync(join(tmp, 'run.mjs'), runner);
@@ -123,6 +132,11 @@ if (o) {
   ok('평가: 지난 평가 = 그 날짜 전 가장 최근', o.e_last === 2);
   ok('평가: 같은 날 «다른 방» 평가는 오늘 평가로 안 붙임(짝)', o.e_other_today === null && o.e_other_last === 2);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
+  ok('지사·대리점(evals:false): 평가 내용이 응답에 없다', o.hid.today === null && o.hid.last === null, o.hid);
+  ok('지사·대리점(evals:false): 평가 표를 «조회조차» 안 한다', o.hid.queried === false, o.hid);
+  ok('지사·대리점(evals:false): 화면이 «본사 전용» 이라 말하게 eval_hidden=true', o.hid.flag === true);
+  ok('지사·대리점(evals:false): 나머지 칸(출결)은 그대로 채운다(짝)', o.hid.att === 'late', o.hid);
+  ok('본사(기본값): eval_hidden=false 이고 평가를 싣는다(짝)', o.shownFlag === false);
   const [a, z, lms, tp, b] = o.l;
   ok('강사 포털 LMS 줄(source=lms · c24-방)도 «방 없음» 으로 본다', lms.te === 'cafe24' && lms.at === 'cafe24', lms);
   ok('강사 포털 줄(academy 없음)은 원부 shop_name 으로 결제유형을 찾는다', tp.pay === 'B2B', tp);
@@ -143,13 +157,15 @@ const i0 = api.indexOf("path === '/api/admin/classes/today'");
 const iE = api.indexOf('await enrichClassesToday(', i0);
 const iJ = api.indexOf('const res = json({', i0);
 ok('classes/today 가 정본을 «응답 전» 에 부른다', i0 > 0 && iE > i0 && iE < iJ);
+ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원만)으로 넘긴다', /enrichClassesToday\(env as any, sessions, dateStr, nowMs, \{ evals: _ctSeeContact \}\)/.test(api)
+   && /const _ctSeeContact = _ctScope\.type === 'hq' \|\| _ctScope\.type === 'none';/.test(api));
 ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안 사라짐)', /\n[ \t]*try \{ await enrichClassesToday\(/.test(api));
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
 const th = (adm.match(/'<th>'/g) || []).length;
 const tb = adm.slice(adm.indexOf("return '<tr>'"), adm.indexOf("'</tr>';", adm.indexOf("return '<tr>'")));
 const td = (tb.match(/'<td[ >]/g) || []).length;
 ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td });
-for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval)', 'xEval(s.today_eval)']) {
+for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
   ok('관리자 표가 ' + k + ' 를 그린다', tb.includes(k));
 }
 const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
@@ -182,6 +198,8 @@ if (run) {
   const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });
   ok('teacher.html: ↩ 지난 수업이 있으면 «지난 평가» 를 겹쳐 그리지 않는다', !/Last feedback/.test(h2) && /Today's feedback/.test(h2), h2);
 }
+ok('관리자 표: 숨김이면 «본사 전용»', /xEval\(s\.last_eval, s\.eval_hidden\)/.test(tb) && /xEval\(s\.today_eval, s\.eval_hidden\)/.test(tb) && /if \(hidden\) return xSmall\(T\('본사 전용'/.test(adm));
+ok('매니저 화면: 숨김이면 «본사 전용»', /if \(r\.eval_hidden\) return esc\(T\('HQ only', '본사 전용'\)\)/.test(mgr));
 ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\)\n/.test(th2));
 ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

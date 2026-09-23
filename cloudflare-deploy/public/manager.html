@@ -1914,7 +1914,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
       ex.push(esc(T('Student: ', '학생 출결: ')) + esc(atTxt));
-      var ev = function (e) { return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : '—'; };
+      /* 🔒 (2026-09-23) 지사·대리점에는 서버가 평가를 안 싣는다 — «없음» 이 아니라 «본사 전용» */
+      var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : '—'; };
       var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
