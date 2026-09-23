@@ -9312,14 +9312,15 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=61"></script>
+<!-- 26-09-23: 61 → 62. 참관(ghost-observe) WebSocket 인증 — vcJoinAsObserver 가 tok(서명, ghost/start 발급)을 join-observe 에 실어 보낸다(video-call-room.ts 가 검증, 그전엔 방 번호만 알면 무인증 참관 가능했다). observe-denied 수신 시 room-full/force_end 와 같은 종료 경로(무한 재연결 방지). -->
+<script src="/js/idx-main.js?v=62"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
 <!-- 👁 (2026-08-20) 참관 안전장치 + «직접 입장» 카메라 끄기(&vc_cam=off).
      관리자·매니저만 쓰는 기능이라 defer. idx-main.js 는 한 줄도 안 고친다(첫 화면 예산·캐시).
      되돌리기: 이 줄만 지우면 즉시 원복된다. -->
-<script src="/js/vc-observe-guard.js?v=11" defer></script><!-- v=11: ⑫ 이름을 지어낸 상대의 얼굴 칸을 만들지 않는다 (2026-09-11) -->
+<script src="/js/vc-observe-guard.js?v=12" defer></script><!-- v=12: 2026-09-23 ?tok= 를 읽어 두었다가 「🎥 영상도 보기」 버튼(showAudioNote)이 다시 조립하는 참관 주소에도 실어 보낸다(안 실으면 그 버튼만 observe-denied 로 조용히 죽는다) --><!-- v=11: ⑫ 이름을 지어낸 상대의 얼굴 칸을 만들지 않는다 (2026-09-11) -->
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 

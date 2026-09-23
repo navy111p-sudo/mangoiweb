@@ -27,7 +27,7 @@ import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buil
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
 import { issueRenewLink } from './renew-link';
-import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { authUidFromRequest as authUidGlobal, signGhostObserveSig } from './auth-token';
 import { applyPlacementLevel, loadTextbookChoices, cefrDisplay, CEFR_LADDER } from './student-placement';  // 🎯 레벨테스트 결과 → 학생 교재 레벨(1단계 배선)
 import { probeImage, ocrGate } from './textbook-ocr';
 import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
@@ -4949,6 +4949,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     if (method === 'POST' && path === '/api/admin/teachers/links') {
       const _lkActor = await getAdminActor(request, env as any);
       if (_lkActor.isTeacher) return json(forbiddenTeacherBody(_lkActor), 403);
+      /* ⛔ 지사·대리점도 막는다 — 강사↔계정 연결은 전국 강사 근태·급여 계산의 근거라
+         스코프 없이 아무 지사·대리점이나 바꾸면 남의 강사 근태가 뒤틀린다. */
+      if (isOrgScopedRole(_lkActor.role)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 강사 연결을 바꿀 수 있습니다.' }, 403);
+      }
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
       } catch {}
@@ -4983,9 +4988,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         : `SELECT * FROM teachers WHERE active = 1 ORDER BY name ASC`;
       const rs = await env.DB.prepare(sql).all();
       let teacherRows = (rs.results || []) as any[];
-      // 🔐 강사 로그인 시엔 급여단가·계좌 등 민감 칼럼을 제거해서 내려준다(스케줄용 이름·id 는 유지).
+      // 🔐 강사·지사·대리점 로그인 시엔 급여단가·계좌 등 민감 칼럼을 제거해서 내려준다(스케줄용 이름·id 는 유지).
+      // ⛔ isTeacher 만 보던 것을 isOrgScopedRole 까지 넓힘 — 지사·대리점 계정에 admin.html 을 열어 줄 때
+      //    이 칸이 안 가려지면 전국 강사 급여·계좌번호가 그대로 새 나간다(회계관리 제외 원칙 위반).
       const _tlActor = await getAdminActor(request, env as any);
-      if (_tlActor.isTeacher) {
+      if (_tlActor.isTeacher || isOrgScopedRole(_tlActor.role)) {
         const _hide = ['rate_per_10min_php','fee_per_10min','bank_account','bank_name','salary','monthly_salary','monthly_salary_php','pay_php','account_no'];
         teacherRows = teacherRows.map(r => { const o = { ...r }; for (const k of _hide) delete o[k]; return o; });
       }
@@ -4997,6 +5004,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     if (method === 'POST' && path === '/api/admin/teachers') {
       const _tnActor = await getAdminActor(request, env as any);
       if (_tnActor.isTeacher) return json(forbiddenTeacherBody(_tnActor, '강사는 강사를 등록할 수 없습니다.'), 403);
+      /* ⛔ 지사·대리점도 막는다 — 급여단가(rate_per_10min_php)를 실어 등록하는 조작이라
+         회계관리 예외 그대로다(GET 은 열되 이 쓰기는 계속 막음). canEditOrg() 는 'none'(교사)
+         에도 true 라 못 막으니 isOrgScopedRole 로 따로 막는다. */
+      if (isOrgScopedRole(_tnActor.role)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 강사를 등록할 수 있습니다.' }, 403);
+      }
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.name || !b.status || b.rate_per_10min_php == null) {
@@ -5023,6 +5036,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     if (method === 'PATCH' && /^\/api\/admin\/teachers\/\d+$/.test(path)) {
       const _tuActor = await getAdminActor(request, env as any);
       if (_tuActor.isTeacher) return json(forbiddenTeacherBody(_tuActor, '강사는 강사 정보를 수정할 수 없습니다.'), 403);
+      /* ⛔ 지사·대리점도 막는다 — rate_per_10min_php(급여단가)를 스코프 없이 전국 아무 강사나
+         고칠 수 있는 조작이다(회계관리 제외 원칙). GET(명부 조회, 급여칸 가림)은 열되 이 쓰기는
+         계속 막는다 — canEditOrg() 는 'none'(교사)에도 true 라 여기 못 쓴다. */
+      if (isOrgScopedRole(_tuActor.role)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 강사 정보를 수정할 수 있습니다.' }, 403);
+      }
       await ensurePayrollSchema(env);
       const m = path.match(/^\/api\/admin\/teachers\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
@@ -8893,9 +8912,31 @@ ${chatSampleText}
     //   Neo4j 미설정/실패 시 503/502. 강사관리 화면이 실데이터로 뜨게 함.
     if (method === 'GET' && path === '/api/admin/teachers/graph-list') {
       const qT = (url.searchParams.get('q') || '').trim().toLowerCase();
-      // ⚡ KV 캐시(120초) — Neo4j(카페24 8880) 외부 홉을 반복 열람마다 왕복하지 않도록. 원본은 야간 cron 동기화라 분단위 신선도면 충분. 조직 공용 명부라 scope 무관(q만).
+      /* 🔐 (2026-09-23) 지사·대리점 계정엔 시급(pay_per_time)을 가린다 — 강사관리 카드를 그들에게
+         열면서 화면은 이 칸을 그리지 않지만, 안 가리면 네트워크 탭으로 전국 강사 시급이 그대로 샌다.
+         본사(hq)·내부직원(none)·강사 본인은 그대로 받는다.
+         ⚠️ 캐시(SESSION_STATE, 120초)는 키가 q 뿐이라 actor 별로 못 나눈다 — 그래서 캐시에는
+         **원본(가리기 전)** 을 담고, 가리기는 캐시를 읽거나 쓴 «뒤» 응답을 만들 때만 한다.
+         마스킹을 캐시에 넣기 전에 하면, 지사 계정이 먼저 조회해 가려진 사본이 120초간 캐시에
+         박히고 그 사이 본사 계정이 같은 검색어로 조회하면 본사도 시급을 못 보게 된다. */
       const _glKeyT = 'gl:teachers:' + qT;
-      { const _hit = await admCacheHit(env, _glKeyT); if (_hit) return _hit; }
+      const _glActorT = await getAdminActor(request, env as any);
+      const _glMaskT = (arr: any[]): any[] => isOrgScopedRole(_glActorT.role)
+        ? arr.map((t: any) => { const o = { ...t }; delete o.pay_per_time; return o; })
+        : arr;
+      {
+        const _hit = await admCacheHit(env, _glKeyT);
+        if (_hit) {
+          const _hitBody: any = await _hit.clone().json().catch(() => null);
+          if (_hitBody && Array.isArray(_hitBody.teachers)) {
+            const _masked = _glMaskT(_hitBody.teachers);
+            if (_masked !== _hitBody.teachers) {
+              return json({ ..._hitBody, teachers: _masked, count: _masked.length });
+            }
+          }
+          return _hit;
+        }
+      }
       try {
         // 담당수업수(class_count)·학생수(student_count)는 노드에 미리 계산돼 있음(대량 Class 스캔 회피)
         const { fields, values } = await runCypher(env, `
@@ -8912,7 +8953,10 @@ ${chatSampleText}
                  t.score_avg AS score_avg, coalesce(t.score_count,0) AS score_count
           ORDER BY coalesce(t.class_count,0) DESC, t.name`, { q: qT }, 'READ');
         const teachers = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        return admCachePut(env, _glKeyT, { ok: true, source: 'neo4j', count: teachers.length, teachers });
+        // 캐시엔 원본(가리기 전)을 담는다 — 위 주석 참고.
+        await admCachePut(env, _glKeyT, { ok: true, source: 'neo4j', count: teachers.length, teachers });
+        const _maskedT = _glMaskT(teachers);
+        return json({ ok: true, source: 'neo4j', count: _maskedT.length, teachers: _maskedT });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[teachers/graph-list] 실패:', e?.message || e);
@@ -11299,9 +11343,22 @@ LIMIT $limit`;
       if (method === 'GET') {
         const statusF = url.searchParams.get('status');
         const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '100', 10)));
+        /* 🔒 (2026-09-23) 지사·대리점 스코핑 — 이 표엔 franchise/shop_name 칸이 없어(체험 리드라
+           계정이 아예 없는 신청도 많음) students_erp 를 student_uid 로 조인해서만 자를 수 있다.
+           ⛔ 모르면(=uid 가 없으면) 막는 쪽으로 실패한다 — 계정 없는 체험 리드는 지사·대리점
+           계정에는 «안 보인다»(우리 소속인지 증명할 방법이 없으므로). 본사(hq)·내부직원(none)은
+           그대로 전체를 본다. */
+        const _ltScope = await scopeFragments(env, request);
         let q = `SELECT * FROM leveltest_applications`;
+        const whereParts: string[] = [];
         const binds: any[] = [];
-        if (statusF) { q += ` WHERE status = ?`; binds.push(statusF); }
+        if (statusF) { whereParts.push(`status = ?`); binds.push(statusF); }
+        if (_ltScope.scope.type !== 'hq' && _ltScope.scope.type !== 'none') {
+          const _c = scopeStudentCond(_ltScope.scope, 'se');
+          whereParts.push(`(student_uid IS NOT NULL AND student_uid <> '' AND EXISTS (SELECT 1 FROM students_erp se WHERE se.user_id = leveltest_applications.student_uid AND (${_c.cond})))`);
+          binds.push(..._c.binds);
+        }
+        if (whereParts.length) q += ` WHERE ${whereParts.join(' AND ')}`;
         q += ` ORDER BY (status = 'pending') DESC, created_at DESC LIMIT ?`;
         binds.push(lim);
         const rs = await env.DB.prepare(q).bind(...binds).all();
@@ -11333,7 +11390,16 @@ LIMIT $limit`;
           const tmap = await ltTicketUrlMap(items.map(a => Number(a.id)), env);
           items.forEach(a => { a.ticket_url = tmap[Number(a.id)] || null; });
         } catch (e) { items.forEach(a => { a.ticket_url = null; }); }
-        const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
+        // pending 배지 숫자도 같은 스코프로 — 지사·대리점에 «전국 대기건수»가 보이면 그 자체로
+        // 정보 유출은 아니지만 화면이 «우리 소속 기준» 이라는 착각을 준다(items 와 일관되게).
+        let cntQ = `SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`;
+        const cntBinds: any[] = [];
+        if (_ltScope.scope.type !== 'hq' && _ltScope.scope.type !== 'none') {
+          const _c2 = scopeStudentCond(_ltScope.scope, 'se');
+          cntQ += ` AND (student_uid IS NOT NULL AND student_uid <> '' AND EXISTS (SELECT 1 FROM students_erp se WHERE se.user_id = leveltest_applications.student_uid AND (${_c2.cond})))`;
+          cntBinds.push(..._c2.binds);
+        }
+        const cnt = await env.DB.prepare(cntQ).bind(...cntBinds).all();
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
         return json({ ok: true, items, pending });
       }
@@ -11395,6 +11461,17 @@ LIMIT $limit`;
         return json({ ok: true, deleted, not_found: notFound });
       }
       // POST → 상태/배정/메모 업데이트
+      /* ⛔ (2026-09-23) 지사·대리점은 이 POST 전체를 막는다 — 아래 action 들(create_schedule =
+         실제 수업 예약 생성·teacher 배정, link_student = class_schedules.user_id 까지 다시
+         쓰는 계정 연결, link_candidates = students_erp 전화번호/이름 전국 조회)이 전부 스코프
+         없이 전국을 대상으로 하는 쓰기다. GET(목록 조회)만 위에서 스코프를 걸어 열었고,
+         DELETE 는 이미 본사만이었다 — 여기서 POST 도 같은 기준으로 맞춘다. */
+      {
+        const _ltPostActor = await getAdminActor(request, env as any);
+        if (isOrgScopedRole(_ltPostActor.role)) {
+          return json({ ok: false, error: 'forbidden_scope', message: '레벨테스트 신청 처리는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can process level-test applications.' }, 403);
+        }
+      }
       const b = await parseJsonBody(request);
       if (!b || !b.id) return invalidBody(['id']);
 
@@ -12422,12 +12499,18 @@ LIMIT $limit`;
       const observationId = r.meta?.last_row_id;
       await writeAudit(adminUid, 'ghost_join', { room: roomId, ip, meta: { observation_id: observationId, reason } });
 
-      // GM-4 미구현: 실제 미디어 consumer 는 추후. 지금은 기록만.
+      /* 🔒 (2026-09-23) 이 방 1개 전용 참관 서명 — 화면이 ?observe=roomId&tok=... 로 열고,
+         video-call-room.ts 의 handleJoinObserve 가 WebSocket join-observe 페이로드에서 검증한다.
+         이 엔드포인트 자체가 이미 isAgencyAllowedApi·TEACHER_BLOCKED_PREFIXES 로 본사/관리자만
+         걸러진 뒤라(지사·대리점·강사는 여기까지 못 옴) 별도 스코프 검사를 다시 걸 필요는 없다. */
+      const observeSig = await signGhostObserveSig(roomId, env);
+
       return json({
         ok: true, observation_id: observationId, room_id: roomId,
         ghost_mode: 'recorded_only',
         notice_sent_to_others: false,                            // 핵심: 다른 참가자에게 알림 X
         media_consumer_pending: true,                            // GM-4 에서 활성화 예정
+        observe_sig: observeSig,
       });
     }
 

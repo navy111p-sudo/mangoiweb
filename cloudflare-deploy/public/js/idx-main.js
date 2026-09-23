@@ -181,11 +181,20 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                 //   ⚠️ (재점검) intentionalClose 만으로는 부족하다 — reconnectNow() 가 그 값을 false 로
                 //      되돌리므로, 관리자가 강제종료한 뒤 학생이 탭을 한 번 전환하면 조용히 재입장한다.
                 //      되돌릴 수 없는 종료는 별도 플래그(terminated)로 못박는다.
-                if (data.type === 'room-full' || data.type === 'force_end' || data.type === 'force-end') {
+                if (data.type === 'room-full' || data.type === 'force_end' || data.type === 'force-end' || data.type === 'observe-denied') {
                     terminated = true;
                     intentionalClose = true;
                     try { stopPing(); } catch(_) {}
                     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+                    /* 🔒 (2026-09-23) observe-denied — 참관 토큰이 없거나 만료됨. terminated 를
+                       반드시 세워야 한다: vc-in-call 이면 재연결이 무기한이라, 안 세우면 만료된
+                       같은 토큰을 계속 재전송하며 DO 를 두드리는 무한루프가 된다(room-full·
+                       force_end 와 같은 이유). 안내는 다른 두 가지와 달리 «수업 화면 상단 알림»
+                       이 아니라 «관찰자 전용 배너»(vcObserverBanner)로 띄운다 — 일반 수업 화면과
+                       섞이면 학생이 볼 일 없는 메시지가 참관자 아닌 화면에도 나갈 수 있다. */
+                    if (data.type === 'observe-denied') {
+                        try { if (typeof vcObserverBanner === 'function') vcObserverBanner('denied'); } catch(_) {}
+                    } else {
                     // 아무 안내도 없이 조용히 멈추면 "그냥 튕겼다"로 보인다 → 이유를 보여준다(한/영)
                     try {
                         const _en = miIsEn();
@@ -210,6 +219,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                         }
                         _n.textContent = (_full ? '🚪 ' : '⏹ ') + _msg;
                     } catch(_) {}
+                    }
                 }
                 if (onMessage) onMessage(data, ws);
             } catch (e) {
@@ -3826,8 +3836,12 @@ function vcShowEarnToast(msg) {
     }, 3000);
 }
 
-/** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만) */
-async function vcJoinAsObserver(roomId) {
+/** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만)
+    🔒 (2026-09-23) tok — /api/admin/ghost/start 가 발급한 이 방 1개 전용 서명.
+    video-call-room.ts 의 handleJoinObserve 가 이 값 없이는(또는 방 번호가 다르거나
+    만료됐으면) join-observe 를 거절한다(observe-denied). 없어도 함수 자체는 그대로
+    시도한다 — 거절 응답이 오면 vcObserverBanner('denied') 가 이유를 말해 준다. */
+async function vcJoinAsObserver(roomId, tok) {
     vcIsObserver = true;
     window._vcObserverMode = true;   // ★ 관찰자는 입장 자동 교재 로드/공유 금지 (수신 전용)
     vcUsername = '관찰자';
@@ -3864,7 +3878,7 @@ async function vcJoinAsObserver(roomId) {
         vcHandleMessage,
         (ws) => {
             setStatusDot('vc-status-dot', 'connected');
-            ws.send(JSON.stringify({ type: 'join-observe', data: { username: '관찰자' } }));
+            ws.send(JSON.stringify({ type: 'join-observe', data: { username: '관찰자', tok: tok || '' } }));
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
@@ -3912,6 +3926,12 @@ function vcObserverBanner(kind, extra) {
         : kind === 'retry'
         ? (en ? '🔄 No video yet — reconnecting automatically…'
               : '🔄 영상이 아직 안 와서 자동으로 다시 연결하는 중…')
+        /* 🔒 (2026-09-23) observe-denied — 참관 토큰이 없거나(구버전 링크) 만료됨(TTL 30분).
+           «fail» 과 갈라 두는 이유: fail 은 «다시 눌러라» 인데 이건 «목록에서 새로 열어라» 다 —
+           같은 탭을 새로고침해도 URL 의 옛 tok 이 그대로라 똑같이 거절된다. */
+        : kind === 'denied'
+        ? (en ? '⚠ Observation permission expired or is invalid. Please open Observe again from the list.'
+              : '⚠ 참관 권한이 만료되었거나 유효하지 않습니다. 목록에서 참관을 다시 눌러 주세요.')
         : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
               : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
     var box = document.createElement('div');
@@ -14147,12 +14167,13 @@ function escHtml(text) {
 window.addEventListener('DOMContentLoaded', () => {
     wbInit();  // 칠판 이벤트 리스너 등록
 
-    // URL 파라미터로 관찰자 모드 입장 (?observe=roomId)
+    // URL 파라미터로 관찰자 모드 입장 (?observe=roomId&tok=...)
     const urlParams = new URLSearchParams(window.location.search);
     const observeRoom = urlParams.get('observe');
     if (observeRoom) {
+        const observeTok = urlParams.get('tok') || '';
         // 약간 지연 후 관찰자 모드 입장 (UI 초기화 완료 대기)
-        setTimeout(() => vcJoinAsObserver(observeRoom), 500);
+        setTimeout(() => vcJoinAsObserver(observeRoom, observeTok), 500);
     }
 });
 

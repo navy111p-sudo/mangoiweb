@@ -1127,16 +1127,33 @@
       try { w = window.open(url, '_blank'); } catch (e) { w = null; }
       if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
     }
-    window.ghdOpenLive = function () {
+    /* 🔒 (2026-09-23) video-call-room.ts 가 이제 /api/admin/ghost/start 가 발급한 방 1개
+       전용 서명(observe_sig) 없이는 join-observe 를 거절한다. 이 버튼은 그 호출을 아예
+       안 하고 있었다 — ghdPick() 이 이미 그 방을 골랐을 때 감사 로그는 남았지만, 그 서명은
+       그때 한 번뿐이고(TTL 30분) 이 함수가 다시 안 받아 오면 만료 뒤에는 조용히 막힌다.
+       매번 새로 받는다 — 감사 로그도 «메타 화면에서 봄» 과 «라이브로 넘어감» 을 따로 남긴다. */
+    window.ghdOpenLive = async function () {
       if (!roomId) return;
-      ghdOpenTab(location.origin + '/?observe=' + encodeURIComponent(roomId));
+      var uid = ghdAdminUid();
+      var url = location.origin + '/?observe=' + encodeURIComponent(roomId);
+      if (uid) {
+        try {
+          var r = await safeFetch('/api/admin/ghost/start', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ admin_uid: uid, room_id: roomId, reason: '수업 관찰 메타 화면에서 라이브 열기 (Class Observer meta → live)' })
+          });
+          var d = await r.json();
+          if (d && d.observe_sig) url += '&tok=' + encodeURIComponent(d.observe_sig);
+        } catch (e) { /* 기록 실패 — 서버가 observe-denied 로 정직하게 거절한다 */ }
+      }
+      ghdOpenTab(url);
     };
     /* 고른 수업으로 이동. mode='live' 면 실제 영상 화면, 아니면 이 화면(메타·채팅·참가자).
        ⚠️ 어느 쪽이든 참관 기록을 먼저 남긴다 — 학생 사생활 정책상 참관은 모두 남아야 한다.
-          기록이 실패해도 이동은 막지 않는다. */
+          기록이 실패해도 이동은 막지 않는다(실제 영상 화면은 그 대신 observe-denied 로 거절된다). */
     window.ghdPick = async function (room, mode) {
       if (!room) return;
-      var uid = ghdAdminUid(), obs = 0;
+      var uid = ghdAdminUid(), obs = 0, sig = '';
       if (uid) {
         try {
           var r = await safeFetch('/api/admin/ghost/start', {
@@ -1145,9 +1162,10 @@
           });
           var d = await r.json();
           if (d && d.ok) obs = d.observation_id || 0;
-        } catch (e) { /* 기록 실패 — 참관 자체는 막지 않는다 */ }
+          if (d && d.observe_sig) sig = d.observe_sig;
+        } catch (e) { /* 기록 실패 — 참관 자체는 막지 않는다(실제 영상 화면은 서버가 정직하게 거절) */ }
       }
-      if (mode === 'live') { ghdOpenTab(location.origin + '/?observe=' + encodeURIComponent(room)); return; }
+      if (mode === 'live') { ghdOpenTab(location.origin + '/?observe=' + encodeURIComponent(room) + (sig ? '&tok=' + encodeURIComponent(sig) : '')); return; }
       location.href = '/admin/ghost-view.html?room_id=' + encodeURIComponent(room)
         + (obs ? '&obs_id=' + obs : '') + (uid ? '&admin_uid=' + encodeURIComponent(uid) : '');
     };
