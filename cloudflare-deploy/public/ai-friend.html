@@ -1943,20 +1943,31 @@
       ring 높이는 mango-avatar.js 가 인라인으로 넣으므로 !important 로 덮는다. */
 #tavatar-wrap{ flex-direction:row; align-items:center; justify-content:center;
   gap:10px; margin:6px auto 8px; }
-#tavatar-ring{ width:64px!important; height:80px!important; border-radius:14px; padding:3px; }
+/* 👩‍🏫 (2026-09-23) 얼굴 크게 — 사장님 «A.i 친구하기 화면도 웜업처럼 크게».
+   옛 값 64x80(폰)·88x110(PC). 폭·높이를 --av-w 하나로 정하고 4:5 로 계산한다.
+   ⚠️ 웜업처럼 «채팅 옆 여백» 으로 빼지 않는다 — 이 화면은 말풍선이 폭 전체(PC 74%)를 써서
+      옆 여백이 없고, 왼쪽 가운데에는 «메뉴» 손잡이도 있다. 위쪽 자리에서 크기만 키우고,
+      화면 세로가 길수록 더 크게 한다(대화창 몫을 남기려고 세로로 묶음).
+   감시: test-harness/manual/ai-friend-avatar-size-browser.mjs */
+#tavatar-wrap{ --av-w:88px; }
+#tavatar-ring{ width:var(--av-w)!important; height:calc(var(--av-w) * 1.25)!important; border-radius:14px; padding:3px; }
 #tavatar-canvas,#tavatar-video{ border-radius:11px; }
-#tavatar-status{ font-size:11px; padding:3px 10px; }
+#tavatar-status{ font-size:12px; padding:3px 10px; }
+@media (max-height:740px){ #tavatar-wrap{ --av-w:72px; } }
 @media (min-width:760px){
-  #tavatar-ring{ width:88px!important; height:110px!important; border-radius:16px; }
-  #tavatar-status{ font-size:13px; padding:4px 12px; }
+  #tavatar-wrap{ --av-w:124px; }
+  #tavatar-ring{ border-radius:18px; }
+  #tavatar-status{ font-size:14px; padding:4px 13px; }
 }
+@media (min-width:760px) and (min-height:860px){ #tavatar-wrap{ --av-w:150px; } }
+@media (min-width:760px) and (min-height:1000px){ #tavatar-wrap{ --av-w:190px; } }
+@media (min-width:760px) and (max-height:700px){ #tavatar-wrap{ --av-w:100px; } }
 /* 가로로 눕힌 폰 — 세로가 짧을 때.
    ⚠️ 폰을 눕히면 폭이 844px 이나 되어 "PC용 큰 글씨" 규칙(min-width:760px)이 걸린다.
       그래서 높이가 390px 뿐인데도 글씨·여백이 PC처럼 커져 대화창이 16%까지 눌렸다.
       폭이 아니라 '높이' 기준으로 전부 되돌린다. */
 @media (max-height:520px){
-  #tavatar-ring{ width:40px!important; height:50px!important; }
-  #tavatar-wrap{ margin:3px auto 5px; gap:8px; }
+  #tavatar-wrap{ --av-w:52px; margin:3px auto 5px; gap:8px; }
   #tavatar-status{ font-size:10px; padding:2px 8px; }
   .top{ padding:6px 14px; }
   .top .mango-icon{ width:28px; height:28px; }
