@@ -2399,7 +2399,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   /* ⚡ /branch (2026-09-23 사장님 「첫 페이지를 열었는데 오래 걸리면 절대 안 돼」)
      마지막으로 받은 값이 기기에 있으면 네트워크를 기다리지 않고 «먼저» 그린다.
      새 값이 오면 그 자리에서 바꿔 그린다(요청 수는 그대로 2회 — 계약 4번). */
+  /* ⚠️ 저장값(mgr_cache_*)은 계정 구분이 없다 — 공용 PC 에서 로그아웃 없이 계정을 바꾸면
+     앞 사람의 수입·정산액이 먼저 그려진다. 그래서 «그 값을 받은 계정» 을 함께 적어 두고
+     지금 계정과 같을 때만 먼저 그린다. 계정을 모르면 먼저 그리지 않는다(예전처럼 기다린다). */
+  function curUid(){ try { var o = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); return (o && o.uid) ? String(o.uid) : ''; } catch (e) { return ''; } }
   function prepaint(){
+    var dt0 = document.getElementById('dTrendBody');
+    if (dt0 && !D.series) { dt0.className = 'empty'; dt0.textContent = T('Loading...', '불러오는 중...'); }
+    var me = curUid(), owner = '';
+    try { owner = localStorage.getItem('branch_cache_owner') || ''; } catch (e) {}
+    if (!me || owner !== me) return;
     var rd = function(k){ try { var c = localStorage.getItem(CACHE_PREFIX + k); return c ? JSON.parse(c) : null; } catch (e) { return null; } };
     try { if (!D.today) { var a = rd('today'); if (a) { D.today = a; paintToday(); } } } catch (e) {}
     try { if (!D.month) { var b = rd('month'); if (b) { D.month = b; paintMonth(); } } } catch (e) {}
@@ -2416,7 +2425,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   window.__dashTrend = dashTrend;
   function boot(){
     prepaint();
-    once('today', function(){ return get('/api/admin/stats/today', 'today'); }).then(function(j){ D.today = j; paintToday(); }).catch(function(){});
+    once('today', function(){ return get('/api/admin/stats/today', 'today'); }).then(function(j){ D.today = j; paintToday(); try { var u = curUid(); if (u && !document.body.classList.contains('is-off')) localStorage.setItem('branch_cache_owner', u); } catch (e) {} }).catch(function(){});
     once('month', function(){ return get('/api/admin/exec/summary', 'month'); }).then(function(j){ D.month = j; paintMonth(); }).catch(function(){});
   }
 
