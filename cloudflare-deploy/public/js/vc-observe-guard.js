@@ -499,6 +499,10 @@
   var observeRoom = qs.get('observe');
   var audioOnly = qs.get('audio') === '1';
   var wantWhisper = qs.get('whisper') === '1';
+  /* 🔒 (2026-09-23) 참관 서명 — video-call-room.ts 가 이 값 없이는 join-observe 를 거절한다.
+     ⑨ 절 아래 "🎥 영상도 보기" 가 새 주소를 손으로 조립할 때 이걸 빠뜨리면, 소리만 참관
+     중이던 사람이 «영상도 보기» 를 누르는 순간 observe-denied 로 튕긴다. */
+  var observeTok = qs.get('tok') || '';
 
   /* ── ⑨ 참관 중에는 주소에 «?room=» 을 남기지 않는다  (2026-08-31 브라우저 검사로 발견) ──
      [무엇이 위험한가] index.html 의 «수업 중 새로고침 = 그 수업으로 되돌아오기» 블록이
@@ -599,6 +603,7 @@
         try {
           var q = '?observe=' + encodeURIComponent(observeRoom || '');
           if (wantWhisper) q += '&whisper=1';
+          if (observeTok) q += '&tok=' + encodeURIComponent(observeTok);
           location.href = location.origin + location.pathname + q;
         } catch (_) { location.reload(); }
       });

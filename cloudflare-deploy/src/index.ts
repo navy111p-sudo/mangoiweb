@@ -44,7 +44,8 @@ import { capitownRouter } from './api-capitown';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
-import { getScope } from './scope';
+import { getScope, scopeStudentCond, type Scope } from './scope';
+import { selectInChunks } from './d1-chunk';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
@@ -787,7 +788,7 @@ const worker = {
 
     // 활성 방 목록 (관리자용)
     if (path === '/api/active-rooms' && request.method === 'GET') {
-      return await handleActiveRooms(env);
+      return await handleActiveRooms(env, request);
     }
 
     // 특정 방 상태 조회 (관리자용)
@@ -5315,7 +5316,43 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
   }
 }
 
-async function handleActiveRooms(env: Env): Promise<Response> {
+/** 🔒 (2026-09-23) 지사·대리점 스코핑 — «지금 수업(실시간)」 카드에서 발견.
+ *  이 API 는 `/api/admin/` 밖이라(`/api/active-rooms`) `src/index.ts` 의 org-scope
+ *  차단(`isAgencyAllowedApi`)이 애초에 안 걸린다 — 어제(2026-09-22) manager.html→admin.html
+ *  전환 작업 중 지사 계정으로 실제 화면을 열어 보다가 «전국 실시간 수업 참가자 이름이
+ *  그대로 보인다」는 것을 발견했다(어제 고친 student-rankings·recordings 와 같은 급의
+ *  기존 결함 — 이번 전환 작업이 새로 연 것이 아니라 원래 열려 있었다).
+ *
+ *  방(room) 자체에는 franchise 개념이 없다(Durable Object 상태에 그런 칸이 없음) —
+ *  그래서 room_id 로 «그 방이 어느 예약 수업인지» 를 역산해서만 스코프를 걸 수 있다.
+ *  결정론적 방 번호 규칙(CLAUDE.md) — `class-{scheduleId}-{YYYYMMDD}` — 을 역으로 풀어
+ *  `class_schedules.id` 를 뽑고, 그 예약의 학생이 호출자 소속인지 students_erp 로 확인한다.
+ *
+ *  ⛔ 모르면(=class-* 모양이 아니거나 스케줄을 못 찾으면) 지사·대리점에게는 **보여 주지 않는다**
+ *     — 회의방(meet-*)·연습방(demo-*)·공용방(mangoi-class)·카페24 미러방(c24-*)은 소속을
+ *     증명할 방법이 없다(CLAUDE.md 「모르면 막는 쪽으로 실패」). 본사(hq)·내부직원(none)은
+ *     그대로 전체를 본다 — 이 필터는 org-scoped 일 때만 켜진다. */
+function _activeRoomScheduleId(roomId: string): number | null {
+  const m = /^class-(\d+)-\d{8}$/.exec(String(roomId || ''));
+  return m ? parseInt(m[1], 10) : null;
+}
+async function _filterActiveRoomsByScope(env: Env, rooms: any[], scope: Scope): Promise<any[]> {
+  const withSchedId = rooms.map(r => ({ room: r, schedId: _activeRoomScheduleId(r && r.roomId) }));
+  const ids = Array.from(new Set(withSchedId.filter(x => x.schedId != null).map(x => x.schedId as number)));
+  if (!ids.length) return [];
+  const c = scopeStudentCond(scope, 'se');
+  if (!c.cond) return [];   // 조건이 비면(스코프 미상) 아무것도 안 보여준다
+  const rows = await selectInChunks<{ id: number }>(
+    env.DB, ids,
+    (ph) => `SELECT cs.id AS id FROM class_schedules cs JOIN students_erp se ON se.user_id = cs.user_id
+              WHERE cs.id IN (${ph}) AND (${c.cond})`,
+    { lead: [], tail: c.binds, swallowErrors: false },
+  );
+  const allowed = new Set(rows.map(r => Number(r.id)));
+  return withSchedId.filter(x => x.schedId != null && allowed.has(x.schedId)).map(x => x.room);
+}
+
+async function handleActiveRooms(env: Env, request: Request): Promise<Response> {
   try {
     // KV 바인딩이 없는 경우 빈 배열로 안전 반환
     if (!env.SESSION_STATE) {
@@ -5362,7 +5399,13 @@ async function handleActiveRooms(env: Env): Promise<Response> {
     if (staleKeys.length) {
       await Promise.all(staleKeys.map((k) => env.SESSION_STATE.delete(k).catch(() => {})));
     }
-    const rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+    let rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+
+    // 🔒 지사·대리점 스코핑 — 위 함수 머리말 참고. 본사(hq)·내부직원(none)·강사는 그대로 전체를 본다.
+    const _arScope = await getScope(env, request);
+    if (isOrgScopedRole(_arScope.type)) {
+      rooms = await _filterActiveRoomsByScope(env, rooms, _arScope);
+    }
 
     return new Response(JSON.stringify(rooms), {
       status: 200,
@@ -6242,6 +6285,49 @@ function isAgencyAllowedApi(path: string): boolean {
        오늘 몇 건인가」는 그들이 봐야 하는 것이고, 핸들러가 scopeStudentCond() 로 자기 범위
        학생의 수업만 잘라서 준다(범위 밖은 목록·건수 양쪽에서 빠진다). 강사에게는 위에서 닫았다. */
     '/api/admin/classes/today',
+    /* 🧑‍🏫 (2026-09-23) 본사관리자 레이아웃 그대로 열기 — 지사 세미나 시연용(admin.html?full=1).
+       강사관리 카드(CARD_POLICY 'branch' 등급, adm-core.js)가 이 접두사를 쓴다.
+       ⚠️ 접두사가 넓다 — `/api/admin/teachers/*` 전부(links·graph-list·kakao/* 포함)가 걸린다.
+       그래서 여기 열기 «전에» 각 하위 경로를 실제로 확인·수리했다:
+         · GET  /api/admin/teachers            — api-admin.ts 가 급여단가·계좌 칸을
+           isOrgScopedRole 에도 가린다(원래 isTeacher 만 가렸음, 이번에 넓힘).
+         · POST /api/admin/teachers,
+           PATCH /api/admin/teachers/:id       — 강사 등록·급여단가 수정은 여전히 본사만
+           (핸들러 안에서 isOrgScopedRole 이면 403 — «회계관리 제외» 그대로 지킴).
+         · GET/POST /api/admin/teachers/links  — 조회는 열고, 계정↔강사 연결(쓰기)은
+           본사만(핸들러 안에서 403 — 남의 강사 근태가 뒤틀리는 걸 막음).
+         · GET  /api/admin/teachers/graph-list — 시급(pay_per_time)을 isOrgScopedRole 에
+           가림(캐시 오염 없이 응답 직전에만 가리도록 별도 처리, 위 함수 내부 주석 참고).
+         · /api/admin/teachers/kakao/*         — «강사 문자·카카오 발송 도구» 라 이 접두사와
+           무관하게 통째로 막아 뒀다(teacher-kakao.ts 안에서 isOrgScopedRole 이면 403).
+           여기서 이 서브패스를 따로 빼려 하지 말 것 — 핸들러 쪽이 이미 막고 있다. */
+    '/api/admin/teachers',
+    // 🧑‍💼 (2026-09-23) 직원 명부 — 급여 없이 이름·이메일·소개·상태만(위 강사관리 카드 안의 하위 패널).
+    '/api/admin/staff/graph-list',
+    // 📚 (2026-09-23) 교재 명부 — 개인정보 없음(교재명·메모·상태뿐).
+    '/api/admin/books/graph-list',
+    /* 📝 (2026-09-23) 레벨테스트 신청 현황 — 여기 열기 «전에» api-admin.ts 를 고쳤다:
+         GET  — student_uid 로 students_erp 조인해 스코프를 건다(uid 없는 체험 리드는
+                지사·대리점에겐 안 보인다 — 소속 증명 불가라 막는 쪽으로 실패).
+         POST — action=create_schedule(수업 예약 생성)·link_student(class_schedules.user_id
+                재작성)·link_candidates(전화번호로 전국 학생 조회) 전부 실제 수업 생성·
+                계정 재배선·전국 조회라 위험이 크다 → isOrgScopedRole 이면 통째로 403.
+         DELETE — 이미 본사만(2026-08-21).
+       ⛔ 정확일치 문자열이다(끝에 슬래시 없음) — `/api/admin/leveltest/overview` 는 Neo4j
+          집계라 franchise 축이 없어 스코프를 걸 방법이 없다. 그건 이 줄과 별개로 여전히 막혀
+          있다(문자열이 안 겹치므로 이 줄을 prefix 로 넓히지만 않으면 자동으로 안전하다). */
+    '/api/admin/leveltest/applications',
+    /* 📌 (2026-09-23) 커뮤니티 게시글 — 회사 전체가 보는 공지 게시판이라 애초에 franchise 축이
+       없다(PII 없음: title/body/author/pinned 뿐). 삭제(DELETE) 라우트 자체가 없어 최악이
+       «잘못된 글을 올림» 인데 본사가 바로 고칠 수 있다 — 쓰기 위험이 낮아 GET/POST/PATCH
+       그대로 연다. */
+    '/api/admin/community-posts',
+    /* 📅 (2026-09-23) 캘린더(공휴일·교사 휴가) 쓰기 — api-lessons.ts 주석이 이미 「모든 관리자」
+       라고 못 박아 둔 기능이다. calendar_events 도 franchise 축이 없는 회사 전체 캘린더고
+       (조회는 애초에 무인증 공개 /api/calendar/events), PII 없음(휴가 사유 note 뿐).
+       calPost() 는 외부 알림이 아니라 위에서 연 community_posts 에 적는 것뿐이다. */
+    '/api/admin/calendar/events',
+    '/api/admin/calendar/seed-holidays',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
