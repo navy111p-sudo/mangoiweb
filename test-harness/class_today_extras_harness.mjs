@@ -71,7 +71,7 @@ const mkDb = (boom) => ({
         { room_id: 'class-9-20260923', role: 'teacher', username: '교사 Teacher - Kaye', joined_at: S - M, out_at: S + 20*M },
       ];
       if (/FROM centers/.test(sql)) return [{ name: 'A학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2C' }];
-      if (/FROM students_erp/.test(sql)) return [{ user_id: 'kim', payment_type: null }];
+      if (/FROM students_erp/.test(sql)) return [{ user_id: 'kim', payment_type: null, shop_name: 'A학원' }, { user_id: 'park', payment_type: null, shop_name: 'A학원' }];
       if (/FROM class_schedules/.test(sql)) return [{ user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null }];
       if (/FROM student_evaluations/.test(sql)) return evs.map(e => ({ ...e, student_uid: 'kim' }));
       return [];
@@ -83,6 +83,8 @@ const mkDb = (boom) => ({
 const mk = () => [
   { source: 'mangoi', room_id: 'class-9-20260923', student_uid: 'kim', student_name: '김', teacher_name: 'KAYE', academy: 'A학원', start_ts: S, status: 'ended' },
   { source: 'mangoi', room_id: 'class-7-20260923', student_uid: 'kim', student_name: '김', teacher_name: 'KAYE', academy: 'Z학원', start_ts: S, status: 'early' },
+  { source: 'lms', room_id: 'c24-9', student_uid: 'lee2', student_name: '이이', teacher_name: 'KAYE', start_ts: S, status: 'done' },
+  { kind: 'class', room_id: 'class-8-20260923', student_uid: 'park', student_name: '박', teacher_name: 'KAYE', start_ts: S, status: 'early' },
   { source: 'cafe24', room_id: 'c24-1', student_uid: 'lee', student_name: '이', teacher_name: null, academy: '', start_ts: S, status: 'ended' },
 ];
 const ss = mk();
@@ -121,7 +123,9 @@ if (o) {
   ok('평가: 지난 평가 = 그 날짜 전 가장 최근', o.e_last === 2);
   ok('평가: 같은 날 «다른 방» 평가는 오늘 평가로 안 붙임(짝)', o.e_other_today === null && o.e_other_last === 2);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
-  const [a, z, b] = o.l;
+  const [a, z, lms, tp, b] = o.l;
+  ok('강사 포털 LMS 줄(source=lms · c24-방)도 «방 없음» 으로 본다', lms.te === 'cafe24' && lms.at === 'cafe24', lms);
+  ok('강사 포털 줄(academy 없음)은 원부 shop_name 으로 결제유형을 찾는다', tp.pay === 'B2B', tp);
   ok('로더: 같은 대리점 이름에 B2B·B2C 가 섞이면 «모름»(null)', z.pay === null, z);
   ok('로더: 날짜 칸', a.d === '2026-09-23' && b.d === '2026-09-23');
   ok('로더: 강사 입장 = 정본(teacherPresenceByRoom) 으로 정시', a.te === 'on_time', a);
@@ -152,5 +156,33 @@ const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
 for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label_en', 'r.last_eval', 'r.today_eval', 'r.class_date']) {
   ok('매니저 화면이 ' + k + ' 를 읽는다', mgr.includes(k));
 }
+// ── 강사 포털(teacher.html) ──
+const tea = readFileSync(join(SRC, 'api-teacher.ts'), 'utf8');
+const iO = tea.indexOf('await applyRoomOverrides(env.DB, classes, ymd);');
+const iX = tea.indexOf('await enrichClassesToday(', iO);
+ok('강사 포털이 방 번호를 갈아 끼운 «뒤» 정본을 부른다', iO > 0 && iX > iO, { iO, iX });
+ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enrichClassesToday\(env as any, classes, todayStr, now\)/.test(tea));
+ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
+const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8');
+const fi = th2.indexOf('function extrasHtml(c){');
+let body = '';
+if (fi > 0) { let d = 0, i = th2.indexOf('{', fi); const st = i; for (; i < th2.length; i++) { if (th2[i] === '{') d++; else if (th2[i] === '}') { d--; if (!d) break; } } body = th2.slice(st + 1, i); }
+ok('teacher.html extrasHtml 을 오려 냈다', body.length > 200);
+let run = null;
+try { run = new Function('T', 'esc', 'hhmm', 'c', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
+if (run) {
+  const T = (en) => en, esc = (x) => String(x), hhmm = () => '14:07';
+  const call = (c) => { try { return run(T, esc, hhmm, c); } catch (e) { return 'THROW ' + e.message; } };
+  const h1 = call({ class_date: '2026-09-23', pay_type: 'B2C', sched_label_en: '2/wk',
+    teacher_entry: { state: 'late', at: 1, late_min: 7 }, attendance: { state: 'absent' },
+    last_eval: { date: '2026-09-20', score: 4, max: 5, text: 'Good' }, today_eval: null });
+  ok('teacher.html: 일곱 칸을 실제로 그린다', /2026-09-23/.test(h1) && /B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
+     && /Absent/.test(h1) && /Last feedback/.test(h1) && /Today's feedback/.test(h1), h1);
+  ok('teacher.html: 옛 응답(칸 없음)에는 아무것도 안 그린다(짝)', call({ start_time: '14:00' }) === '');
+  const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });
+  ok('teacher.html: ↩ 지난 수업이 있으면 «지난 평가» 를 겹쳐 그리지 않는다', !/Last feedback/.test(h2) && /Today's feedback/.test(h2), h2);
+}
+ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\)\n/.test(th2));
+ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
