@@ -14,7 +14,8 @@ import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정�
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
-import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
+import { teacherPresenceByRoom } from './no-show-truth';
+import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(날짜·강사입장·결제·일정·평가·출결)   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 허용 길이 · 급여용 10분 토막 수
 /* 💰 (2026-08-26 사장님 지시) 「수업 시간 배수대로 수강료도 자동 계산」 — 곱하는 곳은 저장하는 순간 딱 한 번이다.
    규칙 정본은 src/enroll-fee.ts 하나뿐(두 곳에 두면 «두 번 곱하기» 로 40분이 4배가 된다). */
@@ -3449,6 +3450,9 @@ export async function handleAdminApi(
         }
       }
 
+      /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
+         절대 던지지 않는다(실패하면 그 칸만 null → 화면 «—»). */
+      try { await enrichClassesToday(env as any, sessions, dateStr, nowMs); } catch (e: any) { console.warn('[classes/today] extras:', e?.message); }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.

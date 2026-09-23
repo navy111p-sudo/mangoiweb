@@ -1893,7 +1893,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
               + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
       }
-      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + '</span>' + resch
+      /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
+         **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
+      var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
+      var te = r.teacher_entry, at = r.attendance, ex = [];
+      ex.push(esc(r.class_date || j.date || ''));
+      ex.push(esc(T('Pay: ', '결제: ')) + (r.pay_type === 'B2B' || r.pay_type === 'B2C' ? esc(r.pay_type) : '—'));
+      var sl = T(r.sched_label_en, r.sched_label_ko);
+      ex.push(esc(T('Schedule: ', '일정: ')) + (sl ? esc(sl) : '—'));
+      var teTxt = !te ? '—'
+        : te.state === 'on_time' ? '✅ ' + hm(te.at) + ' ' + T('on time', '정시')
+        : te.state === 'late' ? '⏰ ' + hm(te.at) + ' ' + T(te.late_min + ' min late', te.late_min + '분 지각')
+        : te.state === 'pending' ? T('not yet', '아직 전')
+        : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
+        : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
+      ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
+      var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
+                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'],
+                 unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
+      var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
+                   + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
+      ex.push(esc(T('Student: ', '학생 출결: ')) + esc(atTxt));
+      var ev = function (e) { return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : '—'; };
+      var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
+        + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
+        + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
+      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
