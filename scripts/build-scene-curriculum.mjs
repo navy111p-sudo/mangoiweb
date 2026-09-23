@@ -17,7 +17,11 @@ const excluded=new Set(read('excluded-media.json'));
 const contextImages=read('context-images.json').images;
 const stop=new Set(read('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
 /* 🔤 낱말 세기 정본은 scene-picture-evidence.mjs 의 vocabWords(점 약어·한 글자 조각 제외). */
-const words=text=>vocabWords(text,stop);
+/* 🚫 카드로 만들지 않는 낱말 — 2026-09-23 사장님 「술 카드 3개는 빼줘」(bts-20 alcohol·beer·wine).
+   ⛔ stopwords.json 에 넣지 마세요 — 그 표는 근거 게이트(pictureEvidence)도 읽어 사진 판정이 함께 바뀝니다.
+   여기 적힌 낱말은 «카드에서만» 빠지고 예문 문장은 그대로 남습니다. 회귀 검사도 같은 파일을 읽습니다. */
+const noCard=new Set(read('no-card-words.json'));
+const words=text=>vocabWords(text,stop).filter(w=>!noCard.has(w));
 const id=text=>crypto.createHash('sha256').update(text).digest('hex').slice(0,12);
 const courses=[['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']];
 const books=[],all=new Map();
