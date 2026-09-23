@@ -1718,6 +1718,12 @@ export async function handleAdminApi(
         fromMs = now - 7 * 86400000;   // default: 1주
       }
 
+      // 🔒 (2026-09-23) 지사·대리점 스코핑 — 이 경로가 /api/admin/stats/ 접두사 허용목록에
+      //   걸려 있어 스코핑이 없으면 전국 학생 랭킹이 그대로 샌다(2026-09-22 조사에서 발견).
+      //   attendance.user_id 를 students_erp 로 이어 자기 소속만 자른다(ai-usage 와 같은 패턴).
+      const _sfRank = await scopeFragments(env, request);
+      const _uidScopeRank = _sfRank.uidScope, _sbRank = _sfRank.binds;
+
       try {
         // 학생별 집계 (role='student' 만)
         const rows = await env.DB.prepare(
@@ -1732,10 +1738,10 @@ export async function handleAdminApi(
                   MAX(joined_at) AS last_seen
            FROM attendance
            WHERE joined_at BETWEEN ? AND ?
-             AND COALESCE(role, 'student') = 'student'
+             AND COALESCE(role, 'student') = 'student'${_uidScopeRank}
            GROUP BY user_id
            HAVING session_ms > 0 OR session_count > 0`
-        ).bind(fromMs, toMs).all<any>();
+        ).bind(fromMs, toMs, ..._sbRank).all<any>();
 
         const items = (rows.results || []).map(r => {
           const activeRatio = r.session_ms > 0 ? (r.active_ms / r.session_ms * 100) : 0;

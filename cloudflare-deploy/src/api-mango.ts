@@ -11,7 +11,7 @@
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
 import { forbiddenTeacherBody } from './forbidden-teacher';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
-import { studentScopeWhere, getScope } from './scope';
+import { studentScopeWhere, getScope, scopeStudentCond } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope, getAdminActor } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
@@ -4727,6 +4727,25 @@ ${numbered}`;
       if (!statusNorm || statusNorm === 'all') {
         whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
         whereParts.push("r.status != 'deleted'");
+      }
+      /* 🔒 (2026-09-23) 지사·대리점 스코핑 — 이 목록이 /api/recordings/* 라 /api/admin/ 게이트
+         바깥에 있고, 여태 소속 조건이 한 줄도 없어 어느 계정이든 「모든」 지사의 학생 수업
+         영상 URL(r.file_url)을 그대로 받았다(2026-09-22 조사에서 발견 — 미성년자 영상 데이터).
+         본사(hq)·내부직원(none)은 조건이 빈 문자열이라 동작이 하나도 안 바뀐다.
+         ⚠️ 지사·대리점에게는 **class_schedules 로 이을 수 있는 방(class-*)만** 보여준다.
+            공용방·회의방·카페24 미러방은 소속을 증명할 길이 없어 «모르면 막는 쪽» 으로
+            제외한다 — 안 보이는 것이 남의 영상이 새는 것보다 낫다. */
+      const _recScope = await getScope(env as any, request);
+      if (_recScope.type === 'agency' || _recScope.type === 'branch' || _recScope.type === 'franchise') {
+        const _recCond = scopeStudentCond(_recScope, 'se3');
+        whereParts.push(
+          "EXISTS (SELECT 1 FROM class_schedules cs3, students_erp se3"
+          + " WHERE r.room_id LIKE 'class-%'"
+          + "   AND cs3.id = CAST(SUBSTR(r.room_id, 7, INSTR(SUBSTR(r.room_id, 7), '-') - 1) AS INTEGER)"
+          + "   AND se3.user_id = cs3.user_id"
+          + `   AND ${_recCond.cond})`
+        );
+        whereBinds.push(..._recCond.binds);
       }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
 
