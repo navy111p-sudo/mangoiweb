@@ -262,10 +262,59 @@ ok('캘린더 창: 새 탭은 <a target=_blank> (window.open 금지)', /target="
 ok('캘린더 창: vh 단위를 쓰지 않는다(zoom 1.3)', !/\d+vh/.test(modal));
 const rend = adm.slice(adm.indexOf("return '<tr>'"));
 ok('칩에 클릭·키보드 리스너를 단다', /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,600}tcOpenCalModal\(uid/.test(rend) && /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,900}keydown/.test(rend));
-{ const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8'); ok('student.html 이 ?tab= 로 실재하는 탭만 고른다', /get\('tab'\)[\s\S]{0,200}dataset\.tab === want[\s\S]{0,40}btn\.click\(\)/.test(stu) && /data-tab="schedule"/.test(stu)); }
+{
+  const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8');
+  ok('student.html 이 ?tab= 로 탭을 연다(기존 _initTab)', /get\('tab'\)[\s\S]{0,200}\.tab\[data-tab="' \+ _initTab/.test(stu) && /data-tab="schedule"/.test(stu));
+  // 🌐 ?lang= 가 저장값을 이긴다 · 없으면 예전대로 저장값 — _lang IIFE 를 오려 내 실제로 돌린다
+  const l0 = stu.indexOf('let _lang = (function(){');
+  const l1 = stu.indexOf('})();', l0);
+  const body = l0 > 0 ? stu.slice(l0 + 'let _lang = '.length, l1 + 4) : '';
+  const runL = (search, saved) => { try {
+    return new Function('location', 'localStorage', 'URLSearchParams', 'return ' + body)(
+      { search }, { getItem: k => (k === 'mangoi_lang' ? saved : null), setItem() { throw new Error('저장하면 안 됨'); } }, URLSearchParams);
+  } catch (e) { return 'THREW:' + e.message; } };
+  ok('student.html: ?lang=en 이면 저장값(ko)보다 이긴다', runL('?uid=a&lang=en', 'ko') === 'en');
+  ok('student.html: ?lang=ko 도 이긴다(짝)', runL('?lang=ko', 'en') === 'ko');
+  ok('student.html: ?lang 이 없으면 예전대로 저장값', runL('?uid=a', 'en') === 'en' && runL('', 'ko') === 'ko');
+  ok('student.html: 모르는 값은 무시', runL('?lang=zz', 'en') === 'en');
+  ok('student.html: embed=1 이면 창 안 이동 링크를 숨긴다', /get\('embed'\)==='1'\)document\.documentElement\.classList\.add\('mg-embed'\)/.test(stu)
+     && /html\.mg-embed header\.top a\[href\^="\/admin\.html"\]/.test(stu) && /html\.mg-embed #global-home-fab/.test(stu));
+  for (const [nm, src, fn] of [['관리자', adm, 'tcOpenCalModal'], ['매니저', readFileSync(join(PUB, 'manager.html'), 'utf8'), 'mgCalOpen']]) {
+    const b = src.slice(src.indexOf('function ' + fn + '('), src.indexOf('function ' + fn + '(') + 2500);
+    ok(nm + ' 창: 지금 화면의 언어를 &lang= 로 넘기고 창에는 embed=1', /&lang=' \+ \((isEn|EN)\(\) \? 'en' : 'ko'\)/.test(b) && /url = tabUrl \+ '&embed=1'/.test(b));
+    ok(nm + ' 창: «새 탭에서 열기» 는 embed 없는 주소', /href="' \+ esc\(tabUrl\)/.test(b));
+  }
+}
 const mgr = readFileSync(join(PUB, 'manager.html'), 'utf8');
 for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label_en', 'r.last_eval', 'r.today_eval', 'r.class_date']) {
   ok('매니저 화면이 ' + k + ' 를 읽는다', mgr.includes(k));
+}
+// 📅 매니저 화면 «수업 캘린더»(2026-09-23 «매니저 화면에도 똑같이») — calLine 블록을 오려 내 «실제로» 돌린다
+{
+  const c0 = mgr.indexOf('var calLine = \'\';');
+  const c1 = mgr.indexOf("return '<div class=\"row\">", c0);
+  const blk = c0 > 0 && c1 > c0 ? mgr.slice(c0, c1) : '';
+  ok('매니저: calLine 블록을 오려 냈다', blk.length > 300);
+  let mk2 = null;
+  try { mk2 = new Function('T', 'esc', 'r', 'j', blk + '; return calLine;'); } catch (e) { ok('매니저 calLine 컴파일', false, e.message); }
+  if (mk2) {
+    const Te = (en, ko) => ko, escF = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const go = (r) => { try { return mk2(Te, escF, r, { date: '2026-09-23' }); } catch (e) { return 'THREW:' + e.message; } };
+    const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
+    const m1 = go({ source: 'mangoi', student_uid: 'kim', student_name: '김', class_date: '2026-09-23', week_days: [true,false,true,false,false,false,false], week_dates: wd });
+    ok('매니저: 7칸 중 수업 있는 날 2칸이 켜진다', (m1.match(/<i class="on/g) || []).length === 2 && (m1.match(/<i /g) || []).length === 7, m1.slice(0, 300));
+    ok('매니저: 오늘(수)에만 today 표시', (m1.match(/today/g) || []).length === 1 && /class="on today"[^>]*>수</.test(m1), m1);
+    ok('매니저: 「📅 캘린더」 칩에 학생 아이디', /data-calpin="kim"/.test(m1));
+    const m2 = go({ source: 'cafe24', student_uid: 'lee' });
+    ok('매니저: 카페24 줄은 «카페24 수업» 이라 말하고 칩이 없다', /카페24 수업/.test(m2) && !/data-calpin/.test(m2), m2);
+    ok('매니저: 학생 아이디가 없으면 아무것도 안 그린다(짝)', go({ source: 'mangoi', student_uid: '' }) === '');
+    const m3 = go({ source: 'mangoi', student_uid: 'park', week_days: null });
+    ok('매니저: 7칸을 못 받으면 칸은 안 지어내고 칩만', /data-calpin="park"/.test(m3) && !/<i /.test(m3), m3);
+  }
+  ok('매니저: 줄이 calLine 을 그린다', /exLine \+ calLine \+ '<\/span>'/.test(mgr));
+  ok('매니저: 누르면 mgCalOpen(키보드 포함)', /closest\('\[data-calpin\]'\)[\s\S]{0,120}mgCalOpen\(/.test(mgr) && /closest\('\[data-ta\],\[data-calpin\]'\)/.test(mgr));
+  const mo = mgr.slice(mgr.indexOf('function mgCalOpen('), mgr.indexOf('function bindTodayActions('));
+  ok('매니저 창: 학생 상세 스케줄 탭을 연다 · window.open 없음', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(mo) && !/window\.open/.test(mo));
 }
 // ── 강사 포털(teacher.html) ──
 const tea = readFileSync(join(SRC, 'api-teacher.ts'), 'utf8');

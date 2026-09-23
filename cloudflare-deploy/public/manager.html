@@ -179,6 +179,11 @@ body.is-off .card{opacity:.82}
 .tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;
      background:#eef1f5;color:#4a5765;white-space:nowrap}
 .tag.hot{background:#fdecea;color:#8c1d18}
+/* 📅 (2026-09-23) 이번 주 7칸 미니 달력 — admin.html 「오늘 수업」 «수업 캘린더» 칸과 같은 값(week_days) */
+.cal7{display:flex;gap:2px;margin:3px 0 2px}
+.cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
+.cal7 i.on{background:#3b82f6;color:#fff}
+.cal7 i.today{outline:2px solid #b45309}
 .tag.ok{background:#e7f5ee;color:#0b7a3d}
 
 /* 🔔 오늘 봐야 할 것 — 문제가 있을 때만 뜬다. 없으면 아예 자리를 차지하지 않는다. */
@@ -321,6 +326,8 @@ html.dark #off{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark .hqhead{color:#95a2b0;border-top-color:#2b343e}
 html.dark .tag{background:#28313d;color:#aeb9c5}
 html.dark .tag.hot{background:#3a201e;color:#f1a49e}
+html.dark .cal7 i{background:#28313d;color:#aeb9c5}
+html.dark .cal7 i.on{background:#3b82f6;color:#fff}
 html.dark .tag.ok{background:#123527;color:#57cf94}
 html.dark .qlbl{color:#95a2b0}
 html.dark .qbar button,html.dark .qbar .qlink{background:#1d2530;border-color:#39434f;color:#d3dbe4}
@@ -1919,7 +1926,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
-      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + '</span>' + resch
+      /* 📅 (2026-09-23 사장님 «매니저 화면에도 똑같이») 이번 주 7칸 + 「📅 캘린더」 → 학생 상세 스케줄 탭 창.
+         admin.html 과 **같은 서버 값**(week_days·week_dates — src/class-today-extras.ts)이고 창도 같은 화면을 띄운다.
+         ⛔ 카페24 줄은 망고아이 예약표에 없어 빈칸 대신 사실을 적는다. ⛔ 칸을 못 받으면 지어내지 않는다(버튼만). */
+      var calLine = '';
+      if (r.source === 'cafe24') {
+        calLine = '<span class="muted" style="display:block;font-size:11px">' + esc(T('cafe24 class · no calendar', '카페24 수업 · 달력 없음')) + '</span>';
+      } else if (r.student_uid) {
+        var wdd = (Array.isArray(r.week_days) && r.week_days.length === 7) ? r.week_days : null;
+        var wds = Array.isArray(r.week_dates) ? r.week_dates : [];
+        var tdi = wds.indexOf(String(r.class_date || j.date || '').slice(0, 10));
+        var K7 = ['월','화','수','목','금','토','일'], E7 = ['M','T','W','T','F','S','S'];
+        var strip = '';
+        if (wdd) {
+          var nOn = 0;
+          for (var ci = 0; ci < 7; ci++) {
+            if (wdd[ci]) nOn++;
+            strip += '<i class="' + (wdd[ci] ? 'on' : '') + (ci === tdi ? ' today' : '') + '" title="' + esc((wds[ci] || '') + (wdd[ci] ? T(' class', ' 수업') : '')) + '">'
+              + T(E7[ci], K7[ci]) + '</i>';
+          }
+          strip = '<span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
+        }
+        calLine = '<span style="display:block">' + strip
+          + '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(r.student_uid) + '" data-calwho="' + esc(r.student_name || r.student_uid) + '">'
+          + esc(T('📅 Calendar', '📅 캘린더')) + '</span></span>';
+      }
+      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + calLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
@@ -2042,12 +2074,48 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   /* ⚠️ 위임 리스너다 — hqRows() 가 innerHTML 만 갈아치우고 이 상자 자신은 남으므로 한 번만 건다.
      (줄마다 걸면 다시 그릴 때마다 쌓인다 — bindBookPins 와 같은 사정.) */
   var _taBound = false;
+  /* 📅 수업 캘린더 창 — 학생 상세의 스케줄 탭을 그대로 띄운다(admin.html 과 같은 화면 — 달력을 두 벌 만들지 않는다).
+     ⚠️ 누른 뒤에만 iframe 을 만든다 — 첫 화면 요청은 그대로 0개(계약 1번).
+     ⛔ window.open 금지(인앱 브라우저는 null) — 새 탭은 <a target=_blank>. */
+  function mgCalClose(){
+    var b = document.getElementById('mg-cal-modal');
+    if (b && b.parentNode) b.parentNode.removeChild(b);
+    document.removeEventListener('keydown', mgCalEsc);
+  }
+  function mgCalEsc(e){ if (e.key === 'Escape') mgCalClose(); }
+  function mgCalOpen(uid, who){
+    if (!uid) return;
+    mgCalClose();
+    var url = '/admin/student.html?uid=' + encodeURIComponent(uid) + '&tab=schedule';
+    // 🌐 창 안도 «지금 이 화면의 언어» 로(admin.html 과 같은 이유) · embed=1 = 창 안 이동 링크 숨김
+    var tabUrl = url + '&lang=' + (EN() ? 'en' : 'ko');
+    url = tabUrl + '&embed=1';
+    var box = document.createElement('div');
+    box.id = 'mg-cal-modal';
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55)';
+    box.innerHTML = '<div style="position:absolute;inset:10px;display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px -10px rgba(0,0,0,.4)">'
+      + '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #e4e7ec;color:#101828">'
+      +   '<b style="flex:1;font-size:14px">📅 ' + esc(who || uid) + esc(T(' — class calendar', ' — 수업 캘린더')) + '</b>'
+      +   '<a href="' + esc(tabUrl) + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:#1d4ed8">' + esc(T('Open in new tab ↗', '새 탭에서 열기 ↗')) + '</a>'
+      +   '<span id="mg-cal-close" role="button" tabindex="0" style="padding:4px 12px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer;font-size:12px;font-weight:700;color:#101828">' + esc(T('Close', '닫기')) + '</span>'
+      + '</div>'
+      + '<iframe src="' + esc(url) + '" title="' + esc(T('Class calendar', '수업 캘린더')) + '" style="flex:1;width:100%;border:0"></iframe>'
+      + '</div>';
+    document.body.appendChild(box);
+    var c = document.getElementById('mg-cal-close');
+    c.addEventListener('click', mgCalClose);
+    c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mgCalClose(); } });
+    box.addEventListener('click', function(e){ if (e.target === box) mgCalClose(); });
+    document.addEventListener('keydown', mgCalEsc);
+  }
   function bindTodayActions(){
     var box = document.getElementById('todayAllBody');
     if (!box || _taBound) return;
     _taBound = true;
     var onTap = function(ev){
       var t = ev.target;
+      var cal = t && t.closest && t.closest('[data-calpin]');
+      if (cal) { ev.preventDefault(); mgCalOpen(cal.getAttribute('data-calpin'), cal.getAttribute('data-calwho')); return; }
       var open = t && t.closest && t.closest('[data-ta]');
       if (!open) return;
       ev.preventDefault();
@@ -2057,7 +2125,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // role="button" 은 키보드(Enter·Space)도 받아야 한다 — 안 그러면 마우스 전용이 된다.
     box.addEventListener('keydown', function(ev){
       if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
-      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta]'))) return;
+      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta],[data-calpin]'))) return;
       onTap(ev);
     });
   }
