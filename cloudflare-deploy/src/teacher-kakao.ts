@@ -21,7 +21,7 @@
 //   두 경로 모두 teacher_kakao_log 에 남습니다 — «누가·언제·누구에게·무엇을».
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody } from './api-util';
-import { getAdminActor } from './auth-admin';
+import { getAdminActor, isOrgScopedRole } from './auth-admin';
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 
@@ -158,6 +158,15 @@ export async function handleTeacherKakaoApi(
   const actor = await getAdminActor(request, env as any);
   // 강사 본인은 다른 강사에게 단체 메시지를 보낼 수 없다(본사·매니저 기능).
   if (actor?.isTeacher) return json(forbiddenTeacherBody(actor), 403);
+  /* ⛔ (2026-09-23) 지사·대리점도 이 네임스페이스 전체를 막는다 — 강사 전화번호 조회부터
+     실제 카카오톡/문자 발송까지 있는 «강사 메시지 발송 도구» 다. isAgencyAllowedApi 는
+     `/api/admin/teachers` 를 경로 접두사로 열어 두므로(강사 명부 카드를 위해), 그 접두사가
+     `/api/admin/teachers/kakao/*` 까지 함께 열지 않도록 여기서 한 번 더 막는다.
+     canEditOrg() 로는 안 된다 — 'none'(교사)에도 true 라 위의 isTeacher 체크와 뜻이 겹쳐 헷갈린다.
+     여기서 필요한 것은 «본사만» 이므로 isOrgScopedRole 로 조직 계정만 정확히 가린다. */
+  if (isOrgScopedRole(actor?.role)) {
+    return json({ ok: false, error: 'forbidden_scope', message: '본사 계정만 사용할 수 있습니다.' }, 403);
+  }
 
   // ── ① 현황: 강사별 카카오ID + 전달 가능 경로 + 미배정 ID ──────────────
   if (method === 'GET' && path === '/api/admin/teachers/kakao') {
