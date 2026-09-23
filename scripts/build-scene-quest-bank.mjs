@@ -10,7 +10,8 @@ const out = [];
 for (const b of src) {
   if (b.skip) continue;
   const where = 'item ' + b.i;
-  const img = new URL('cloudflare-deploy/public/img/scene-clips/' + b.i + '.webp', ROOT);
+  const src = b.src === 'w' ? 'w' : 'c';  // c = 행동 장면 사진(scene-clips) · w = 낱말 사진(scene-words)
+  const img = new URL('cloudflare-deploy/public/img/' + (src === 'w' ? 'scene-words' : 'scene-clips') + '/' + b.i + '.webp', ROOT);
   if (!fs.existsSync(img)) errs.push(where + ': 사진 파일 없음');
   if (!BANDS.includes(b.band)) errs.push(where + ': band');
   for (const k of ['ko', 'en', 'clueKo', 'clueEn', 'actionKo', 'actionEn']) if (!clean(b[k])) errs.push(where + ': ' + k);
@@ -23,7 +24,7 @@ for (const b of src) {
   // 단서가 정답을 흘리지 않는가 (첫 정답 낱말의 머리 4글자)
   const head = String(b.word?.[0] || '').replace(/^(a|an|the) /, '').slice(0, 4).toLowerCase();
   if (head.length >= 4 && String(b.clueEn).toLowerCase().includes(head)) errs.push(where + ': clueEn 이 정답을 흘림');
-  out.push({ i: b.i, band: b.band, ko: b.ko, en: b.en, clueKo: b.clueKo, clueEn: b.clueEn, actionKo: b.actionKo, actionEn: b.actionEn,
+  out.push({ i: b.i, src, band: b.band, ko: b.ko, en: b.en, clueKo: b.clueKo, clueEn: b.clueEn, actionKo: b.actionKo, actionEn: b.actionEn,
     word: b.word, aux: b.aux, subj: b.subj, phrase: b.phrase, simple: b.simple || [] });
 }
 if (errs.length) { console.error(errs.slice(0, 80).join('\n')); console.error('❌ ' + errs.length + '건'); process.exit(1); }
