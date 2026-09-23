@@ -42,6 +42,11 @@ const runner = `
     out.korean  = h('정기적으로 평가서를 작성하고, 교사와의 채팅 활동을 증가시키기');
     out.english = h('자주 틀리는 단어 apple(사과)을 게임으로 복습하기');
     out.times   = h('주 3×4회 연습');
+    out.loan    = h('café 에서 résumé 쓰기 naïve');
+    out.vietD   = h('Đi học') && h('ơi') && h('ư');
+    out.scoreKeep  = M.cleanScore({ summary: '面', next_action: '연습' }) < M.cleanScore({ summary: '요약', next_action: '연습' });
+    out.scoreEmpty = M.cleanScore({ next_action: '연습' }) < M.cleanScore({ summary: '요약', next_action: '연습 面' });
+    out.scoreNull  = M.cleanScore(null) < 0;
     out.empty   = h('');
 
     // 사장님 화면 그대로 + 목록 한 항목만 섞인 경우
@@ -97,6 +102,11 @@ else {
   check('A-5 (짝) 영어 교재 낱말은 안 잡는다', o.english === false);
   check('A-6 (짝) × 기호는 안 잡는다', o.times === false);
   check('A-7 (짝) 빈 값은 안 잡는다', o.empty === false);
+  check('A-7b (짝) 영어 차용어(café·résumé·naïve)는 안 잡는다', o.loan === false);
+  check('A-7c 베트남어 전용 글자(Đ·ơ·ư)는 잡는다', o.vietD === true);
+  check('A-7d 재시도 점수: 깨끗한 요약이 있는 답이 이긴다', o.scoreKeep);
+  check('A-7e 재시도 점수: 요약이 빠진 답은 «덜 섞였어도» 요약 있는 답을 못 이긴다', o.scoreEmpty);
+  check('A-7f 파싱 실패는 음수(무조건 짐)', o.scoreNull);
   check('A-8 사장님 화면의 「다음 액션」은 통째로 뺀다', o.naDropped);
   check('A-9 (짝) 멀쩡한 권장사항 3개는 그대로 남는다', o.recsKept);
   check('A-10 목록은 섞인 «항목만» 뺀다', o.strDropOne);
@@ -139,11 +149,12 @@ check('B-5 캐시 응답도 거른다', /cleanAnalysis\(\{\s*\.\.\.cached/.test(
 check('B-6 새 답을 거른다(cleanAnalysis(parsed))', /cleanAnalysis\(parsed\)/.test(body));
 check('B-7 화면에 보내는 next_action 이 «거른 값» 이다', /next_action:\s*cl\.next_action/.test(body));
 check('B-8 (옛 코드 미복귀) 파싱 값을 그대로 보내지 않는다', !/next_action:\s*parsed\?\.next_action/.test(body));
-check('B-9 섞였으면 한 번 다시 만든다', /foreignFields\(parseAnalysisJson\(aiResponse\)\)/.test(body) && /runAnalysis\(KOREAN_ONLY_RETRY_NOTE\)/.test(body));
-check('B-10 재시도 결과는 «덜 섞였을 때만» 채택', /foreignFields\(p2\)\.length\s*<\s*bad1\.length/.test(body));
+check('B-9 섞였으면 한 번 다시 만든다', /foreignFields\(p1\)\.length/.test(body) && /runAnalysis\(KOREAN_ONLY_RETRY_NOTE\)/.test(body));
+check('B-10 재시도 결과는 «거른 뒤 더 많이 남을 때만» 채택', /cleanScore\(p2\)\s*>\s*cleanScore\(p1\)/.test(body));
+check('B-10b 캐시 요약이 걸러졌으면 저장본을 안 쓰고 새로 만든다', /if \(!cc\.summary_dropped\) \{[\s\S]{0,200}cached: true/.test(body));
 const guardAt = body.indexOf('if (!cl.summary_dropped)');
 const insAt = body.indexOf('INSERT INTO ai_student_analysis');
-check('B-11 요약을 못 살렸으면 캐시에 저장하지 않는다(가드가 INSERT 앞)', guardAt > 0 && insAt > guardAt);
+check('B-11 요약을 못 살렸으면 캐시에 저장하지 않는다(가드가 INSERT 앞)', guardAt > 0 && insAt > guardAt && /if \(!cl\.summary_dropped\) \{\s*\n\s*try \{/.test(body));
 check('B-12 출석을 포인트 로그로 세지 않는다', !/point_rule_log/.test(body));
 check('B-13 출석은 attendance 정본 조건으로 센다', /FROM attendance[\s\S]{0,60}\$\{ATTENDANCE_BY_UID\}/.test(body) && /attUidBinds\(uid\)/.test(body));
 check('B-14 카페24 미래 예약(씨앗)은 뺀다', /joined_at <= \?/.test(body));
@@ -152,7 +163,7 @@ check('B-15 출석을 못 세면 «모름» 이라 알린다(0 으로 지어내�
 // ── C. 재시도 블록을 오려 내 «실제로» 돌린다 ─────────────────────────────
 //   「그 글자가 있는가」로 물으면 `if (false && bad1.length)` 한 글자에 뚫립니다(실측).
 console.log('\n[C] 재시도 블록 실행');
-const b1 = body.indexOf('const bad1');
+const b1 = body.indexOf('const p1 = parseAnalysisJson(aiResponse)');
 let retryBlk = '';
 if (b1 > 0) {
   const open = body.lastIndexOf('{', b1);
@@ -163,6 +174,7 @@ if (b1 > 0) {
 check('C-0 전제: 재시도 블록을 잘라 냈다', retryBlk.includes('runAnalysis'));
 const runRetry = async (first, second) => {
   const calls = [];
+  if (!retryBlk) return { err: 'no-block', calls };   // 못 잘라 냈으면 아래 검사가 «빈 블록» 으로 헛돌지 않게
   const bad = s => (String(s).match(/[一-鿿Ḁ-ỿ]/g) || []).length;
   const src = retryBlk.replace(/\(e: any\)/g, '(e)');
   let fn;
@@ -171,6 +183,7 @@ const runRetry = async (first, second) => {
     const KOREAN_ONLY_RETRY_NOTE = 'NOTE';
     const parseAnalysisJson = s => ({ s });
     const foreignFields = p => Array.from({ length: bad(p.s) });
+    const cleanScore = p => (p.s === '' ? 0 : (bad(p.s) ? 1 : 2));
     const runAnalysis = async n => { calls.push(n); if (second instanceof Error) throw second; return second; };
     ${src}
     return aiResponse;
@@ -184,6 +197,8 @@ const runRetry = async (first, second) => {
   check('C-2 (짝) 멀쩡하면 다시 부르지 않는다', !b.err && b.calls.length === 0 && b.out === '면담 권유');
   const c = await runRetry('面', '面談 進行');
   check('C-3 (짝) 더 나빠진 재시도는 버린다', !c.err && c.out === '面');
+  const f = await runRetry('面', '');
+  check('C-5 (짝) 값이 빠진 재시도 답은 채택하지 않는다(멀쩡한 요약을 잃지 않음)', !f.err && f.out === '面');
   const e = await runRetry('面', new Error('429'));
   check('C-4 재시도가 실패해도 던지지 않고 첫 답을 쓴다', !e.err && e.out === '面');
 }

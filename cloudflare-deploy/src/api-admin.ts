@@ -70,7 +70,7 @@ import { duplicateGate } from './student-duplicate';                       // �
 import { resolveStudentTrack, leveltestStatusFor } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
-import { cleanAnalysis, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
+import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -7934,9 +7934,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (cached && (Date.now() - cached.generated_at) < 12 * 3600 * 1000) {
           // 🧹 저장본도 거릅니다 — 수리 «전» 에 저장된 것에 한자·베트남어가 남아 있을 수 있고,
           //    next_action 칸이 없던 옛 저장본은 raw_response 에서 되살립니다.
+          //    ⚠️ 요약까지 걸러졌으면 저장본을 버리고 새로 만듭니다 — 안 그러면 12시간 동안 「다시 눌러 주세요」만 나옵니다.
           const cc = cleanAnalysis({ ...cached, next_action: recoverNextAction(cached) });
-          const { dropped: _ccD, summary_dropped: _ccS, ...ccVals } = cc;
-          return json({ ok: true, cached: true, analysis: { ...cached, ...ccVals, summary: ccVals.summary || SUMMARY_UNAVAILABLE } });
+          if (!cc.summary_dropped) {
+            const { dropped: _ccD, summary_dropped: _ccS, ...ccVals } = cc;
+            return json({ ok: true, cached: true, analysis: { ...cached, ...ccVals } });
+          }
         }
       }
 
@@ -8042,7 +8045,7 @@ ID: ${uid}
 ${evalCommentSummary}
 
 [활동]
-- 수업한 날(최근 60일): ${attendanceDays == null ? '(확인 못 함 — 출석에 대해 판단하지 마세요)' : attendanceDays + '일'}
+- 수업 기록이 있는 날(최근 60일, 카페24 예약 포함 — 결석 여부는 알 수 없음): ${attendanceDays == null ? '(확인 못 함 — 출석에 대해 판단하지 마세요)' : attendanceDays + '일'}
 - 채팅 메시지: ${chatStats?.msg_count || 0}개
 - 포인트 적립: ${pointStats?.earned || 0}P / 사용: ${pointStats?.spent || 0}P
 
@@ -8097,14 +8100,14 @@ ${chatSampleText}
       } catch (e: any) {
         return json({ ok: false, error: 'ai_call_failed', detail: String(e?.message || e) }, 500);
       }
-      // 🧹 한자·베트남어가 섞였으면 한 번만 다시 만듭니다(지시만으로는 안 지켜짐). 섞인 칸이 «줄어들 때만» 바꿉니다.
+      // 🧹 한자·베트남어가 섞였으면 한 번만 다시 만듭니다(지시만으로는 안 지켜짐). 거른 뒤 «더 많이 남는» 답만 채택.
       {
-        const bad1 = foreignFields(parseAnalysisJson(aiResponse));
-        if (bad1.length) {
+        const p1 = parseAnalysisJson(aiResponse);
+        if (foreignFields(p1).length) {
           try {
             const second = await runAnalysis(KOREAN_ONLY_RETRY_NOTE);
             const p2 = parseAnalysisJson(second);
-            if (p2 && foreignFields(p2).length < bad1.length) aiResponse = second;
+            if (p2 && cleanScore(p2) > cleanScore(p1)) aiResponse = second;   // 거른 뒤 «더 많이 남는» 쪽
           } catch (e: any) {
             console.warn('[ai-analyze] 한국어 재시도 실패 — 첫 답을 거르고 씁니다:', String(e?.message || e));
           }

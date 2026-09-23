@@ -16,14 +16,15 @@
    ⛔ 섞인 글자만 «잘라 내서» 남기지 마세요 — 「면談을진행」 → 「면을진행」 처럼
       말이 안 되는 문장이 됩니다. 그 항목을 «통째로» 뺍니다.
    ⛔ 영어(ASCII)는 막지 않습니다 — 추천에 「apple」 같은 교재 낱말이 실제로 들어갑니다.
-   ⚠️ 판정 범위: 한자·가나·라틴 확장(베트남어 성조 문자 등)·키릴·태국 문자.
-      × (U+00D7)·÷ (U+00F7) 는 기호라 뺐습니다.
+   ⚠️ 판정 범위: 한자·가나·«베트남어 전용» 라틴 문자(ă đ ơ ư + 성조 문자 U+1EA0~1EF9)·키릴·태국 문자.
+      é·è·ï 처럼 영어 차용어(café·résumé·naïve)에도 쓰는 글자는 일부러 뺐습니다.
+      「khuyến」의 ế 는 U+1EBF 라 걸립니다.
 
    감시: test-harness/ai_analysis_clean_harness.mjs
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const FOREIGN_RE =
-  /[぀-ヿ㐀-䶿一-鿿豈-﫿À-ÖØ-öø-ɏḀ-ỿЀ-ӿ฀-๿]/;
+  /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u0102\u0103\u0110\u0111\u01a0\u01a1\u01af\u01b0\u1ea0-\u1ef9\u0400-\u04ff\u0e00-\u0e7f]/;
 
 /** 한국어·영어가 아닌 글자가 한 자라도 있으면 true */
 export function hasForeignScript(s: unknown): boolean {
@@ -80,6 +81,17 @@ export function cleanAnalysis(a: any): {
     dropped,
     summary_dropped: summaryDropped,
   };
+}
+
+/** «깨끗하면서 값이 있는» 정도 — 재시도 답을 고를 때 씁니다.
+ *  ⛔ «섞인 칸 수» 로만 견주면 칸이 아예 빠진 답이 «덜 섞였다» 로 이겨 멀쩡한 요약을 잃습니다.
+ *  요약을 가장 무겁게 셉니다(없으면 화면이 통째로 빕니다). 파싱 실패는 -1. */
+export function cleanScore(a: any): number {
+  if (!a || typeof a !== 'object') return -1;
+  const c = cleanAnalysis(a);
+  const items = (s: string) => (s ? s.split(' | ').length : 0);
+  return (c.summary ? 10 : 0) + (c.next_action ? 3 : 0)
+    + items(c.recommendations) + items(c.strengths) + items(c.weaknesses);
 }
 
 /** 모델 응답 글자에서 JSON 을 꺼냅니다. 못 꺼내면 null. */
