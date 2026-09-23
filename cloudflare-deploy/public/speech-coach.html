@@ -954,7 +954,7 @@ function speakFallback(t, lang, _retried) {
     }
     u.voice = v;
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
-    u.rate = 0.9;
+    u.rate = SC_RATE_NORMAL;
     // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
     u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart(); };
     u.onend   = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
@@ -1112,6 +1112,18 @@ function renderWordMap(words) {
       각자 복사해 갖고 있었습니다. 그런 형태는 한쪽만 고쳐지는 사고로 이어집니다. */
 let scTtsSeq = 0;   // «지금 몇 번째 발화인가» — 늦게 온 응답이 다음 문장을 덮지 않게
 function scTtsKey(t, lang) { return lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t; }
+/* 🐢 듣기 속도 «보통» — 2026-09-24 사장님 «A.i 말하기 연습·A.i 친구하기·발음 연습 모두 보통을 기준으로».
+   정본 값은 A.i 말하기 연습(warmup.html RATE_STEPS[3])·A.i 친구하기(ai-friend.html RATE_DEFAULT_AF)의
+   «보통» = 0.8 이다(2026-09-10 계단을 한 칸 내린 뒤의 보통). ⛔ 한 화면만 바꾸면 «어떤 화면은 더 빠르다» 가 된다.
+   예전에는 서버 음성을 원음(1.0) 그대로, 브라우저 음성은 0.9 로 읽어 두 경로의 속도가 달랐다.
+   ⚠️ 미리 만든 립싱크 영상(SAY_CLIPS)은 입모양과 짝이라 건드리지 않는다. */
+var SC_RATE_NORMAL = 0.8;
+function scApplyNormalRate(a) {
+  try {
+    a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;   // 느려져도 목소리 높이는 그대로
+    a.defaultPlaybackRate = SC_RATE_NORMAL; a.playbackRate = SC_RATE_NORMAL;
+  } catch (e) {}
+}
 async function scFetchTtsUrl(t, lang, tryNo) {
   const key = scTtsKey(t, lang), want = (lang === 'en') ? String(scSpeaker() || '').toLowerCase() : '';
   try {
@@ -1153,6 +1165,7 @@ async function speakWord(w) {
     if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
+    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
 }
@@ -1179,6 +1192,7 @@ async function speakTarget() {
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
+    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }
