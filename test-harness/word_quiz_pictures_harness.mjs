@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pub = path.join(root, 'cloudflare-deploy/public');
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => { if (cond) { pass++; } else { fail++; console.log('❌ FAIL ' + name + (extra ? ' — ' + extra : '')); } };
-const { collect, PREFIX } = await import(path.join(root, 'scripts/build-word-pictures.mjs'));
+const { collect, PREFIX, quizPlanOk, QUIZ_PLAN } = await import(path.join(root, 'scripts/build-word-pictures.mjs'));
 const file = path.join(pub, 'data/word-pictures.json');
 const committed = JSON.parse(fs.readFileSync(file, 'utf8'));
 const fresh = collect(path.join(pub, 'data/scene-curriculum/v1'));
@@ -25,6 +25,15 @@ for (const [w, c] of Object.entries(committed.words)) {
 }
 ok('② 색인이 가리키는 사진이 전부 실재한다', missing.length === 0, missing.slice(0, 5).join(','));
 ok('② 우리 저장소 주소만 쓴다', Object.values(committed.prefix).every(p => p.startsWith('/img/')));
+// ⑤ 교재에 없는 퀴즈 낱말(nourishing 등) 전용 사진 표 — 2026-09-23
+const plan = JSON.parse(fs.readFileSync(QUIZ_PLAN, 'utf8'));
+ok('⑤ 퀴즈 전용 사진 표가 있다(전제)', plan.length >= 40, 'n=' + plan.length);
+ok('⑤ 표의 설명이 전부 그 낱말을 담는다(근거)', plan.every(quizPlanOk), plan.filter(it => !quizPlanOk(it)).map(it => it.word).join(','));
+ok('⑤ nourishing 이 퀴즈 사진을 가진다(제보 그 낱말)', committed.words.nourishing === 'w' + plan.find(it => it.word === 'nourishing').index);
+ok('⑤ 표의 낱말은 전부 색인에 실렸다(파일 실재)', plan.every(it => committed.words[it.word]), plan.filter(it => !committed.words[it.word]).map(it => it.word).join(','));
+ok('⑤ 설명에 그 낱말이 없으면 안 붙인다(짝)', !quizPlanOk({ index: 1, word: 'nice', prompt: 'A backpack on a chair.' }) && quizPlanOk({ index: 1, word: 'nice', prompt: 'A nice day.' }));
+ok('⑤ 낱말 경계로 본다(부분일치 금지)', !quizPlanOk({ index: 1, word: 'paint', prompt: 'A painting on a wall.' }));
+ok('⑤ 번호가 겹치지 않고 기존 낱말 사진 번호와도 안 겹친다', new Set(plan.map(it => it.index)).size === plan.length && plan.every(it => it.index >= 17001));
 const html = fs.readFileSync(path.join(pub, 'micro-quiz.html'), 'utf8');
 const body = (name) => { const i = html.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0, j = html.indexOf('{', i); for (let k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (d === 0) return html.slice(i, k + 1); } } return ''; };
 const src = body('wordPic');
