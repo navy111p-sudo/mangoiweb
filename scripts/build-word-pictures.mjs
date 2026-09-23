@@ -13,7 +13,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'cloudflare-deploy/public/data/scene-curriculum/v1');
 const out = path.join(root, 'cloudflare-deploy/public/data/word-pictures.json');
 export const PREFIX = { w: '/img/scene-words/', c: '/img/scene-clips/' };
-export function collect(dir) {
+// ➕ 교재에 없는 퀴즈 낱말(학생 단어장·레벨 단어은행 — nourishing 등) 전용 사진 — 2026-09-23 사장님
+//    「nourishing 인데 왜 실사 사진이 안 나오고 그림 카드가 나와?」. 장면 탐험대 교재에는 없으니
+//    그 게이트를 탈 수 없어 따로 표를 둡니다. 근거는 같은 원칙 — «그 사진을 만든 설명에 그 낱말이 있다».
+//    ⛔ 교재 사진이 이미 있는 낱말은 덮지 않습니다(교재 쪽이 정본).
+export const QUIZ_PLAN = path.join(root, 'docs/scene-curriculum-media/quiz-word-image-plan.json');
+export function quizPlanOk(it) {
+  const w = String(it && it.word || '').toLowerCase();
+  return /^[a-z][a-z'-]*$/.test(w) && Number.isInteger(it.index) && new RegExp('\\b' + w + '\\b').test(String(it.prompt || '').toLowerCase());
+}
+export function collect(dir, planPath = QUIZ_PLAN) {
   const best = new Map();
   const rank = img => (img.startsWith(PREFIX.w) ? 0 : 1);
   const num = img => Number((img.match(/(\d+)\.webp$/) || [])[1] || 1e9);
@@ -29,6 +38,14 @@ export function collect(dir) {
       if (cur && (rank(cur) < rank(s.image) || (rank(cur) === rank(s.image) && num(cur) <= num(s.image)))) continue;
       best.set(w.word, s.image);
     }
+  }
+  const plan = fs.existsSync(planPath) ? JSON.parse(fs.readFileSync(planPath, 'utf8')) : [];
+  const pubRoot = path.resolve(dir, '../../..');
+  for (const it of plan) {
+    if (!quizPlanOk(it) || best.has(it.word)) continue;
+    const img = PREFIX.w + it.index + '.webp';
+    if (!fs.existsSync(path.join(pubRoot, img))) continue;
+    best.set(it.word, img);
   }
   const words = {};
   for (const k of [...best.keys()].sort()) {
