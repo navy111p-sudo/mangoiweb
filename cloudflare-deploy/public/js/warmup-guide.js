@@ -160,7 +160,7 @@
   function summary() {
     var title=WCTX.textbook || LESSON_TOPIC || (zh()?'中文对话':'Free conversation');
     var own=answers.filter(function(a){return !a.assisted;}).length;
-    return ['Warmup summary / 웜업 요약',
+    return ['Speaking practice summary / 말하기 연습 요약',
       'Topic: '+title+(WCTX.lesson_no?' · Lesson '+WCTX.lesson_no:''),
       'Language / Level: '+(zh()?'Chinese':'English')+' / '+_warmLevel,
       'Submitted replies: '+answers.length+' (example-assisted: '+(answers.length-own)+')',

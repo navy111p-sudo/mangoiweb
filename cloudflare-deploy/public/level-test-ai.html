@@ -687,7 +687,7 @@
     var pl = d.placement, plEl = $('ai-placement');
     if (plEl && pl && pl.level) {
       var msg = '';
-      if (pl.applied) msg = '✅ 학습 수준이 <b style="color:#fff">' + esc(pl.level) + '</b> 로 저장됐어요 — 웜업·복습퀴즈가 이 수준으로 맞춰집니다.';
+      if (pl.applied) msg = '✅ 학습 수준이 <b style="color:#fff">' + esc(pl.level) + '</b> 로 저장됐어요 — 말하기 연습·복습퀴즈가 이 수준으로 맞춰집니다.';
       else if (pl.reason === 'already_set') msg = 'ℹ️ 이미 배정된 학습 수준이 있어 그대로 두었어요 (변경은 선생님께 문의).';
       else if (pl.reason === 'no_uid') msg = 'ℹ️ 로그인하면 이 결과가 학습 수준(' + esc(pl.level) + ')으로 저장돼요.';
       if (msg) { plEl.innerHTML = msg + '<br>'; plEl.style.display = ''; }
@@ -704,7 +704,7 @@
     if (track === 'ai_only') {
       var stepEl = $('ai-next-step');
       if (stepEl) stepEl.innerHTML = '지금은 <b>AI 학습</b>만 이용 중이라 <b>선생님 1:1 평가 단계가 없어요.</b><br>' +
-        '이 추정 레벨로 웜업·복습퀴즈가 맞춰집니다 — <b>화상수업</b>을 시작하시면 선생님이 최종 레벨을 확정해 드려요.';
+        '이 추정 레벨로 말하기 연습·복습퀴즈가 맞춰집니다 — <b>화상수업</b>을 시작하시면 선생님이 최종 레벨을 확정해 드려요.';
       var noteEl = $('ai-final-note');
       if (noteEl) noteEl.innerHTML = '이 결과는 <b style="color:#a5b4fc">AI 자동 진단</b>이에요 — 24문항으로 ' +
         '<b style="color:#a5b4fc">추정</b>한 값이라 한 단계 정도 차이가 날 수 있어요.<br>' +

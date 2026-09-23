@@ -22,7 +22,7 @@
   // 서버 TOOL_DEFS 와 같은 key·순서(src/api-admin.ts 「AI 학습도구 사용 학생」 정본 참고)
   var TOOLS = [
     { key: 'judgment', ko: '판단력 훈련',  en: 'Judgment training' },
-    { key: 'warmup',   ko: 'AI 웜업',      en: 'AI warm-up' },
+    { key: 'warmup',   ko: 'A.i 말하기 연습', en: 'A.i Speaking Practice' },
     { key: 'friend',   ko: 'AI 영어친구',  en: 'AI friend chat' },
     { key: 'write',    ko: 'AI 글쓰기',    en: 'AI writing' },
     { key: 'speech',   ko: '발음코칭',     en: 'Speech coaching' },

@@ -9562,7 +9562,7 @@ LIMIT $limit`;
 
       const TOOL_DEFS: { key: string; ko: string; table: string; col: string; ts: string; extra?: string }[] = [
         { key: 'judgment', ko: '판단력 훈련',   table: 'judgment_events',        col: 'student_uid', ts: 'created_at' },
-        { key: 'warmup',   ko: 'AI 웜업',       table: 'warmup_session_log',     col: 'user_id',     ts: 'started_at' },
+        { key: 'warmup',   ko: 'A.i 말하기 연습',       table: 'warmup_session_log',     col: 'user_id',     ts: 'started_at' },
         { key: 'friend',   ko: 'AI 영어친구',   table: 'ai_friend_chats',        col: 'student_uid', ts: 'created_at', extra: `role='user'` },
         { key: 'write',    ko: 'AI 글쓰기',     table: 'ai_writing_corrections', col: 'student_uid', ts: 'created_at' },
         { key: 'speech',   ko: '발음코칭',      table: 'voice_coaching',         col: 'student_uid', ts: 'created_at' },

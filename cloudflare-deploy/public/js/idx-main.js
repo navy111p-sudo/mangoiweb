@@ -3025,7 +3025,7 @@ async function vcJoinRoom(skipUI) {
     // 📱 모바일 가로모드 액션 헬퍼들 (안전한 폴백 — 기존 함수가 있으면 그것을 호출)
     window.vcMobileTabSwitch = window.vcMobileTabSwitch || function(name){
       // 기존 탭 시스템 검색해서 클릭 시뮬레이트
-      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면', warmup:'AI 웜업' };
+      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면', warmup:'A.i 말하기 연습' };
       const ko = map[name] || name;
       const tabs = document.querySelectorAll('.tab-bar > *, .vc-tab, [data-tab]');
       for (const t of tabs) {
@@ -3295,7 +3295,7 @@ async function vcJoinRoom(skipUI) {
           { icon:'🎬', label:'동영상', onclick:`vcMobileTabSwitch('video')` },
           { icon:'🎲', label:'학생게임', onclick:`vcMobileTabSwitch('game')` },
           { icon:'🎨', label:'배경화면', onclick:`vcMobileTabSwitch('bg')` },
-          { icon:'🗣️', label:'AI 웜업', onclick:`vcMobileTabSwitch('warmup')` },
+          { icon:'🗣️', label:'A.i 말하기 연습', onclick:`vcMobileTabSwitch('warmup')` },
           { icon:'📝', label:'칠판', onclick:`vcMobileTabSwitch('whiteboard')` },
         ],
       },
@@ -9275,7 +9275,7 @@ function _warmupRenderBlocked() {
       '<div style="font-size:21px;font-weight:800;color:#ef4444;margin-bottom:12px" data-ko="수업 중에는 사용할 수 없습니다." data-en="Cannot use during class.">수업 중에는 사용할 수 없습니다.</div>' +
       '<div style="font-size:15px;color:#cbd5e1;line-height:1.6" data-ko="수업 전이나 후에 이용해 주세요." data-en="Please use it before or after class.">수업 전이나 후에 이용해 주세요.</div>' +
       '<div style="margin-top:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px 18px;font-size:12.5px;color:#fca5a5;max-width:420px">' +
-        '💡 <span data-ko="선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요." data-en="You can use it together when your teacher opens the warm-up screen.">선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요.</span>' +
+        '💡 <span data-ko="선생님이 말하기 연습 화면을 열어 주시면 함께 쓸 수 있어요." data-en="You can use it together when your teacher opens the speaking practice screen.">선생님이 말하기 연습 화면을 열어 주시면 함께 쓸 수 있어요.</span>' +
       '</div>';
     panel.appendChild(bl);
   }

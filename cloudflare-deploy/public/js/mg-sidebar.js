@@ -86,7 +86,7 @@
     { go:'precheck',    cls:'mg-s1',       ko:'🎥 수업 진단',        en:'🎥 PreCheck' },
     { go:'booking',     cls:'mg-s2',       ko:'📝 수업 신청',        en:'📝 Book Class' },
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
-    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ 수업 전 AI 웜업',   en:'🗣️ Pre-class AI Warm-up' },
+    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ A.i 말하기 연습',   en:'🗣️ A.i Speaking Practice' },
     { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
     { go:'review-quiz', cls:'',            ko:'🧠 복습퀴즈',         en:'🧠 Review Quiz' },
     /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
