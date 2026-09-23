@@ -204,7 +204,7 @@ for(const sid of wordSceneOf.values())mediaKey.set(sid,'word-image:'+sid.slice(1
 const mediaLookup=new Set();
 {const excluded=new Set(plan('excluded-media.json'));
  for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
-const contentWords=text=>[...new Set((String(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).filter(w=>!stopWords.has(w)))];
+const contentWords=text=>EV.vocabWords(text,stopWords);
 const sceneHasImage=new Map(),sceneOwnText=new Map();
 for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
 for(const c of clipPlan){if(!mediaLookup.has('video:'+(c.reuseClip||c.index)))continue;sceneOwnText.set(c.id,c.text);sceneHasImage.set(c.id,mediaLookup.has(mediaKey.get(c.id)));}
@@ -245,7 +245,27 @@ ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
       정당하게 카드가 늘 수 있습니다. 그때는 사진을 만들거나, 이 숫자를 올리며 «왜» 를 적으세요.
    ✅ 짝으로 둡니다 — 카드 상한만 두면 «사진을 통째로 빼고 카드도 안 그리기» 가 통과합니다. */
 ok(live.cardRows<=25,'그림문자 카드 줄이 늘지 않았다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 25, 2026-09-22 실측)');
-ok(live.wordPictureForms>=4543,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4543, 2026-09-22 실측)');
+/* 🔤 2026-09-23 4543 → 4536 — «사진이 사라진» 것이 아니라 낱말 7개(p·e·j·r·k·x·c)가 «낱말이 아니라서» 빠졌습니다
+   (「P.E.」·「J.R.R.」 점 약어 · K-pop·X-rays·Vitamin C 의 한 글자 조각. 사장님 「PE가 따로 글자가 나와」).
+   ⛔ 다시 4543 으로 올리지 마세요 — 그 7개를 되살려야 통과합니다. */
+ok(live.wordPictureForms>=4536,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4536, 2026-09-23 실측)');
+/* 🔤 한 글자 «낱말» 이 없다 — 「P.E.」 가 p·e 로 쪼개져 「e」 카드에 체육 사진이 붙던 사고(2026-09-23).
+   짝: 두 글자 낱말(tv)은 그대로 남는다 — 없으면 «짧은 낱말을 통째로 빼기» 도 통과합니다. */
+{let one=[],tv=0;for(const f of fs.readdirSync(dir))if(/^(bts|siu)-.*\.json$/.test(f)){const b=JSON.parse(fs.readFileSync(new URL(f,dir),"utf8"));for(const w of b.words){if(w.word.length<2)one.push(f+':'+w.word);if(w.word==='tv')tv++;}}
+ ok(one.length===0,'한 글자 낱말이 없다 ('+one.slice(0,5).join(', ')+')');
+ ok(tv>0,'두 글자 낱말(tv)은 그대로 남는다 ('+tv+')');
+ ok(JSON.stringify(EV.vocabWords('We play games in P.E. class.',new Set(['we','in'])))===JSON.stringify(['play','games','class']),'「P.E.」 는 낱말로 세지 않는다');
+ ok(!EV.vocabWords('K-pop and X-rays',new Set(['and'])).some(w=>w.length<2),'한 글자 조각(K-pop 의 k)은 낱말로 세지 않는다');}
+/* 🔠 고유명사는 예문 모양대로(「English」) — 2026-09-23 사장님 캡처에 「english」. 함수를 소스에서 오려 내 실제로 돌립니다.
+   짝: 문장 첫머리 대문자(「School ends…」)는 소문자 그대로 — 없으면 «전부 대문자로» 도 통과합니다. */
+{const src=fs.readFileSync(new URL('../cloudflare-deploy/public/js/scene-curriculum.js',import.meta.url),'utf8');
+ const i=src.indexOf('function shownWord');ok(i>0,'shownWord 가 있다');let d=0,j=src.indexOf('{',i);for(;j<src.length;j++){if(src[j]==='{')d++;if(src[j]==='}'&&--d===0)break;}
+ let EX='';let f=null;try{f=new Function('example','return '+src.slice(i,j+1))(()=>EX);}catch(e){}
+ const run=(w,e)=>{EX=e;try{return f({word:w});}catch(e){return 'ERR';}};
+ ok(!!f&&run('english','We have English class tomorrow.')==='English','문장 한가운데 대문자 낱말은 그 모양으로 보인다');
+ ok(!!f&&run('school','School ends at three thirty.')==='school','문장 첫머리 대문자는 근거가 아니다');
+ ok(!!f&&run('class','We have English class tomorrow.')==='class','보통 낱말은 그대로');
+ ok(/set\('target'[^;]*shownWord\(item\)/.test(src),'카드 제목이 shownWord 를 쓴다');}
 /* 🧱 2026-09-22 — 여기 있던 「게이트를 끄면 «더 많은 낱말»이 붙는다」 단정을 버립니다.
    사진이 낱말을 거의 다 덮어(4,546 중 4,543) «낱말 수» 로는 차이가 0 입니다 — 포화되어
    그 검사가 뜻을 잃었습니다(실측 4527 → 4527). ⛔ 느슬하게 푸는 것이 아니라, 그 검사가
