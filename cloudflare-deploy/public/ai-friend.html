@@ -903,7 +903,7 @@
       const faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
       if (!slower && !faster) return;
       const i = RATE_STEPS_AF.indexOf(currentRate);
-      const cur = i < 0 ? RATE_STEPS_AF.indexOf(1) : i;
+      const cur = i < 0 ? RATE_STEPS_AF.indexOf(RATE_DEFAULT_AF) : i;   // 모르면 «보통» 칸에서 한 칸 옮긴다
       const next = slower ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
       if (RATE_STEPS_AF[next] !== currentRate) applyRate(RATE_STEPS_AF[next]);
     }
