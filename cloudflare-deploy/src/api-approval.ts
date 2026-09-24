@@ -60,6 +60,7 @@ import {
   signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
+  isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
@@ -163,10 +164,14 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
        단계가 넘어가면 nudge_seq 가 달라져 저절로 0 부터 다시 센다(결재 코드를 안 건드린다). */
     `ALTER TABLE approval_requests ADD COLUMN nudge_level INTEGER`,
     `ALTER TABLE approval_requests ADD COLUMN nudge_seq INTEGER`,
+    /* 🧾 첨부 «내용» 해시(SHA-256) — 같은 영수증을 다른 결재에 또 붙였는지 본다(2026-09-24 4단계).
+       ⚠️ INSERT 에 넣지 않고 저장 «뒤» UPDATE 로 채운다 — 이 ALTER 가 실패해도 올리기가 안 죽게. */
+    `ALTER TABLE approval_requests ADD COLUMN file_hash TEXT`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
   }
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_fhash ON approval_requests(file_hash)`); } catch { /* 칸이 없으면 그만 */ }
   // ⚠️ UNIQUE 인덱스로 «같은 사람 + 같은 열쇠» 를 DB 차원에서 막는다.
   //    화면 쪽 검사만 믿으면, 두 기기에서 동시에 재전송할 때 뚫린다.
   //    부분 인덱스(WHERE client_key IS NOT NULL)라 옛 행(전부 NULL)은 걸리지 않는다.
@@ -639,6 +644,27 @@ function parseLooseJson(raw: any): any | null {
 /* ═══════════════════════════════════════════════════════════════════════════
  * 자동 점검용 조회 — 전부 계산이다. AI 를 부르지 않는다.
  * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 🧾 첨부 «내용» 의 SHA-256(소문자 16진수). 실패하면 null — 모르면 점검하지 않는다. */
+async function sha256Hex(bytes: Uint8Array): Promise<string | null> {
+  try {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as unknown as ArrayBuffer));
+    let h = '';
+    for (let i = 0; i < d.length; i++) h += d[i].toString(16).padStart(2, '0');
+    return h;
+  } catch { return null; }
+}
+
+/** 🧾 같은 영수증 파일이 붙은 «살아 있는» 결재 수. 반려·회수·취소된 건은 세지 않는다
+    (반려 뒤 같은 영수증으로 고쳐서 다시 올리는 것은 정상이다). 조회 실패는 0 — 막지 않는 쪽. */
+async function receiptReuseCount(env: ApprovalEnv, hash: string | null): Promise<number> {
+  if (!isSha256Hex(hash)) return 0;
+  const r: any = await safe(async () => await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM approval_requests
+      WHERE file_hash = ? AND status NOT IN ('rejected','withdrawn','cancelled') AND reverses_id IS NULL`
+  ).bind(hash).first(), null);
+  return Number(r?.c || 0);
+}
 
 async function gatherCheckFacts(
   env: ApprovalEnv, requester: string, reqType: string, amount: number | null, currency: string
@@ -1620,6 +1646,7 @@ export async function handleApprovalApi(
 
       let fileKey: string | null = null, fileName: string | null = null;
       let fileExt: string | null = null, fileSize: number | null = null;
+      let fileHash: string | null = null;
       const file = form.get('file') as File | null;
       if (file && file.size > 0) {
         if (file.size > MAX_FILE) return json({ ok: false, error: 'file_too_large', max: MAX_FILE }, 413);
@@ -1628,6 +1655,7 @@ export async function handleApprovalApi(
 
         // 🛡️ 이름이 아니라 **내용**으로 확인한다. 이름표는 누구나 바꿀 수 있다.
         const bytes = new Uint8Array(await file.arrayBuffer());
+        fileHash = await sha256Hex(bytes);
         const kind = sniffKind(bytes);
         if (!kind) {
           return json({
@@ -1681,11 +1709,12 @@ export async function handleApprovalApi(
 
       // 자동 점검 — 계산만. 여기서 나온 표시가 결재자의 판단 재료가 된다.
       const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+      const receiptReusedCount = fileKey ? await receiptReuseCount(env, fileHash) : 0;
       const flags = runChecks({
         reqType, amount, currency, hasFile: !!fileKey, ocrAmount,
         duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
         monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
-        body, spentAt, ocrSpentAt, now,
+        body, spentAt, ocrSpentAt, now, receiptReusedCount,
       });
       /* 🔎 필리핀에서 올라온 돈 나가는 건은 AI 가 내용을 한 번 더 읽는다 — 🟡 표시만 붙인다. */
       if (ph && spec.needsAmount && !hrSnap) {
@@ -1714,6 +1743,14 @@ export async function handleApprovalApi(
              dateFrom, dateTo, hrKind, period, originId).run();
 
       const reqId = Number(ins.meta.last_row_id);
+
+      // 🧾 영수증 해시 — 따로 적는다(칸이 없는 DB 에서도 올리기는 성공해야 한다).
+      if (fileKey && isSha256Hex(fileHash)) {
+        await safe(async () => {
+          await env.DB.prepare(`UPDATE approval_requests SET file_hash = ? WHERE id = ?`).bind(fileHash, reqId).run();
+          return true;
+        }, false);
+      }
 
       // 단계 기록 — 1단계는 바로 열리고, 나머지는 대기.
       for (const st of stages) {
@@ -2381,6 +2418,32 @@ export async function handleApprovalApi(
         채우면 **내용이 말없이 바뀌어** 올라간다 — 그래서 원문을 받아 갈 자리가 필요하다.
      ⚠️ 열람 권한은 목록·첨부와 «같은 판정»(canView)을 쓴다 — 여기만 느슨하면
         인사·급여 본문이 새는 새 구멍이 된다. */
+  /* 📊 결재 전 이력 (2026-09-24 4단계 — 제안서 「결재 전 AI 질문」의 계산판)
+   *   「이 사람이 이 제목으로 전에도 올렸나 · 그때 얼마였나 · 이 사람은 얼마나 반려됐나」를
+   *   AI 대화가 아니라 **조회로** 답한다 — 같은 질문에 늘 같은 답이어야 결재 근거가 된다.
+   *   ⛔ 볼 권한은 그 결재와 같다(canView). 같은 분류·같은 사람의 행만 읽으므로 새로 보이는 것이 없다. */
+  const mHist = path.match(/^\/api\/approval\/requests\/(\d+)\/history$/);
+  if (method === 'GET' && mHist) {
+    if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
+    const id = Number(mHist[1]);
+    const r: any = await env.DB.prepare(
+      `SELECT id, req_type, title, amount, currency, requester_username FROM approval_requests WHERE id = ? LIMIT 1`
+    ).bind(id).first().catch(() => null);
+    if (!r) return json({ ok: false, error: 'not_found' }, 404);
+    const ch = await chainOf(env, id);
+    if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) {
+      return json({ ok: false, error: 'forbidden' }, 403);
+    }
+    const rows = await safe(async () => (await env.DB.prepare(
+      `SELECT id, title, amount, currency, status, created_at, requester_username, reverses_id
+         FROM approval_requests
+        WHERE requester_username = ? AND req_type = ? AND created_at >= ?
+        ORDER BY created_at DESC LIMIT 200`
+    ).bind(r.requester_username, r.req_type, Date.now() - 180 * 86400_000).all<any>()).results || [], null as any);
+    if (!rows) return json({ ok: false, error: 'lookup_failed' }, 500);
+    return json({ ok: true, history: historyCard(r, rows as any[]) });
+  }
+
   const mOne = path.match(/^\/api\/approval\/requests\/(\d+)$/);
   if (method === 'GET' && mOne) {
     if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
@@ -2647,11 +2710,14 @@ export async function handleApprovalApi(
     const title = String(b?.title || '').slice(0, 200);
     const category = spec.wantsCategory ? normCategory(String(b?.category || '')) : null;
     const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+    // 🧾 화면이 영수증 해시를 보냈으면 올리기 «전» 에 재사용을 알려 준다(모양이 아니면 버린다).
+    const receiptReusedCount = (b?.has_file && isSha256Hex(b?.file_hash)) ? await receiptReuseCount(env, b.file_hash) : 0;
     const flags = runChecks({
       reqType, amount, currency, hasFile: !!b?.has_file, ocrAmount,
       duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
       monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
       body, spentAt: ymd(b?.spent_at), ocrSpentAt: ymd(b?.ocr_spent_at), now: Date.now(),
+      receiptReusedCount,
     });
     if (ph && spec.needsAmount) {
       const concerns = await aiReview(env, {
@@ -2994,6 +3060,16 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
       lines.push('AI 자동 반려(연습) 14일: 🔴 ' + sh.red + '건 중 두 분도 반려 ' + sh.agreed +
                  '건 · 승인하신 건 ' + sh.disagreed + '건' +
                  (sh.disagreed === 0 ? ' — 켜도 되는지 검토해 주세요' : ' — 아직 켜지 않는 것이 좋습니다'));
+    }
+    /* ✅ 올린 사람별 «첫 번에 통과» — 지난 14일 결정 난 건만(판정 정본 firstPassRates).
+       필리핀 쪽 품질이 오르면 두 분 앞에 오는 건 자체가 줄어든다. 결정이 2건 이상인 사람만 싣는다. */
+    const fpRows = await safe(async () => (await env.DB.prepare(
+      `SELECT requester_username, requester_name, status, origin_id, reverses_id FROM approval_requests
+        WHERE created_at >= ? AND status IN ('approved','rejected') LIMIT 500`
+    ).bind(now - 14 * 86400_000).all<any>()).results || [], [] as any[]);
+    const fp = firstPassRates(fpRows as any[]).filter(e => e.decided >= 2).slice(0, 5);
+    if (fp.length) {
+      lines.push('첫 번에 통과(14일): ' + fp.map(e => e.name + ' ' + e.pct + '% (' + e.firstPass + '/' + e.decided + ')').join(', '));
     }
     lines.push(siteUrl('/work'));
     const text = lines.join('\n');
