@@ -11622,6 +11622,26 @@ function mangoiGetDataScope(){
 window.mangoiGetDataScope = mangoiGetDataScope;
 window.mangoiScopeQS = function(sep){ try{ var sc=mangoiGetDataScope(); if(!sc) return ''; return (sep||'&')+'scope_field='+encodeURIComponent(sc.field)+'&scope_value='+encodeURIComponent(sc.value); }catch(e){ return ''; } };
 
+/* 🙈 (2026-09-24 사장님 「숨김 버튼 만들어줘」) 「숨긴 학생 보기」 켜고 끄기.
+   숨긴 학생은 평소 명부에서 빠지므로(서버 hiddenExcludeCond) 되살리려면 따로 불러야 한다.
+   되살리기 자체는 학생 상세의 「↩️ 명부에 되살리기」가 한다(여기는 «찾는» 입구).
+   ⚠️ 라벨은 data-ko/data-en 도 함께 바꾼다 — 안 그러면 🌐 를 누를 때 옛 글자로 되돌아간다. */
+window._smShowHidden = false;
+function smToggleHidden(){
+  window._smShowHidden = !window._smShowHidden;
+  const b = document.getElementById('sm-show-hidden');
+  if (b) {
+    const ko = window._smShowHidden ? '👥 전체 학생으로' : '🙈 숨긴 학생 보기';
+    const en = window._smShowHidden ? '👥 Back to all' : '🙈 Show hidden';
+    b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+    b.textContent = (adminLang === 'en') ? en : ko;
+    b.classList.toggle('sm-hid-on', window._smShowHidden);
+  }
+  const inp = document.getElementById('sm-student-search');
+  loadStudentList(inp ? inp.value : '');
+}
+window.smToggleHidden = smToggleHidden;
+
 async function loadStudentList(q, opts) {
   // 🔍 (2026-07-25 강사 피드백) 이름으로 검색해도 안 나오던 버그:
   //   예전엔 서버에서 limit=1000 만 받아와 '클라이언트에서만' 필터했다. 학생이 29,000명이라
@@ -11680,7 +11700,9 @@ async function loadStudentList(q, opts) {
     if (!d) {
       const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
       const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)+_qs) : (_qSrv ? ('?q='+encodeURIComponent(_qSrv)) : ''));
-      const r = await fetch(_su, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
+      /* 🙈 (2026-09-24) 「숨긴 학생 보기」 — 서버가 숨긴 학생«만» 돌려준다(api-admin.ts unified `?hidden=only`). */
+      const _suH = window._smShowHidden ? (_su + (_su.indexOf('?') >= 0 ? '&' : '?') + 'hidden=only') : _su;
+      const r = await fetch(_suH, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
       d = await r.json();
     }
     if (_stale()) return;
@@ -11733,7 +11755,10 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (window._smShowHidden
+      ? (_L ? 'No hidden students' : '숨긴 학생이 없습니다')
+      : (_L?'No students yet':'아직 학생 데이터 없음')) + '</td></tr>';
+    if (cnt) cnt.textContent = window._smShowHidden ? (_L ? '🙈 Hidden: 0' : '🙈 숨긴 학생 0명') : '';
     return;
   }
   _smStudents = merged.map(s => ({
@@ -11743,6 +11768,7 @@ async function loadStudentList(q, opts) {
   }));
   _smCountBase = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
     + ' · D1';   // 🕸️❌ (2026-08-13) 이 화면은 D1 만 쓴다 — 출처가 하나뿐이라 분기도 없앴다
+  if (window._smShowHidden) _smCountBase = '🙈 ' + (_L ? 'Hidden · ' : '숨긴 학생 · ') + _smCountBase;
   if (cnt) cnt.textContent = _smCountBase;
   try { smFillAgencyFilter(); } catch (_) {}   // 🏫 대리점·학원 드롭다운 채우기 (2026-07-23)
   renderStudentTable();

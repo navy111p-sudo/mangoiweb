@@ -47,6 +47,12 @@
   .avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--y),#d97706);color:#1e293b;font-size:30px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
   .name{font-size:18px;font-weight:700;text-align:center;margin:0}
   .name-sub{font-size:12px;color:var(--mut);text-align:center;margin-top:2px}
+  /* 🙈 (2026-09-24) 숨기기 상자 — 이 화면은 adm-light-theme 로 «밝은» 테마라 처음부터 밝은 값(CLAUDE.md 2장). */
+  #hideBox{margin:10px 0 0;text-align:center}
+  #hideBox .hb-note{display:block;margin:0 0 8px;padding:8px 10px;border-radius:8px;background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;font-size:12px;line-height:1.5;text-align:left}
+  #hideBox .hb-btn{display:inline-block;padding:5px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#ffffff;color:#344054;font-size:12px;font-weight:600;cursor:pointer}
+  #hideBox .hb-btn.hb-restore{border-color:#16a34a;color:#166534;background:#f0fdf4}
+  #hideBox .hb-btn[disabled]{opacity:.6;cursor:wait}
   .status-pill{display:inline-block;margin:8px auto 0;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
   .status-pill.ok{background:rgba(16,185,129,.18);color:#6ee7b7;border:1px solid #065f46}
   .status-pill.warn{background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid #92400e}
@@ -260,6 +266,7 @@
     <p class="name" id="cardName">로딩 중…</p>
     <p class="name-sub" id="cardSub">—</p>
     <div class="pill-wrap"><span class="status-pill ok" id="cardStatus">정상</span></div>
+    <div id="hideBox"></div><!-- 🙈 (2026-09-24) 명부에서 숨기기 / 되살리기 — renderHideBox() -->
     <div class="quick" id="cardQuick"></div>
   </aside>
 
@@ -1029,6 +1036,73 @@ function renderAll(){
   renderPoints();
 }
 
+// ═══════════════════════ 🙈 명부에서 숨기기 (2026-09-24) ═══════════════════════
+/* 사장님 「잘못된 아이디를 지우려는데 … 숨김 버튼 만들어줘」.
+   ⛔ «지우기» 가 아니다 — 서버는 student_erp_override.hidden 한 칸만 바꾼다(정본 setStudentHidden).
+   숨기면: 학생 명부·통합검색에서 빠지고, 그 아이디로 로그인이 막히고, 카페24 미러가 수업을 안 만든다.
+   되살리면 전부 그대로 돌아온다(출석·포인트·기록은 처음부터 지워지지 않았다).
+   🔒 본사 전용 — 서버가 can_hide 로 알려 주고, 누르면 POST 가 한 번 더 판정한다.
+   ⚠️ hidden_info 가 null 이면 «모름» — 버튼을 그리지 않고 사실대로 말한다
+      (모르는데 「숨기기」를 그리면 이미 숨긴 학생에게 되살릴 길이 안 보인다). */
+function renderHideBox(){
+  const box = $('hideBox'); if (!box) return;
+  const f = _state.full || {};
+  const info = f.hidden_info;
+  const en = (_lang === 'en');
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  if (!f.erp) { box.innerHTML = ''; return; }
+  if (info == null) {
+    box.innerHTML = f.can_hide ? '<span class="hb-note">' + (en ? 'Could not read the hidden status. Refresh and try again.' : '숨김 상태를 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.') + '</span>' : '';
+    return;
+  }
+  let html = '';
+  if (info.hidden) {
+    const when = info.at ? new Date(info.at).toLocaleString(en ? 'en-US' : 'ko-KR') : '—';
+    html += '<span class="hb-note">🙈 ' + (en
+      ? 'Hidden from the student list — this ID cannot log in. Records are kept.'
+      : '명부에서 숨긴 학생입니다 — 이 아이디로는 로그인이 안 됩니다. 기록은 그대로 있습니다.')
+      + '<br>' + (en ? 'By ' : '') + esc(info.by || '—') + (en ? ' · ' : ' · ') + esc(when)
+      + (info.reason ? '<br>' + (en ? 'Reason: ' : '사유: ') + esc(info.reason) : '') + '</span>';
+    if (f.can_hide) html += '<button type="button" class="hb-btn hb-restore" onclick="toggleStudentHidden(false)">' + (en ? '↩️ Restore to list' : '↩️ 명부에 되살리기') + '</button>';
+  } else if (f.can_hide) {
+    html += '<button type="button" class="hb-btn" onclick="toggleStudentHidden(true)" title="' + (en ? 'Not a delete — can be restored any time' : '지우는 것이 아닙니다 — 언제든 되살릴 수 있습니다') + '">' + (en ? '🙈 Hide from list' : '🙈 명부에서 숨기기') + '</button>';
+  }
+  box.innerHTML = html;
+}
+
+async function toggleStudentHidden(hide){
+  const en = (_lang === 'en');
+  const erp = (_state.full && _state.full.erp) || {};
+  const who = (erp.username || uid) + ' (@' + (erp.user_id || uid) + ')';
+  let reason = '';
+  if (hide) {
+    const msg = en
+      ? 'Hide ' + who + ' from the student list?\n\n• Not deleted — attendance, points and records stay.\n• This ID will no longer be able to log in.\n• You can restore it any time from «Show hidden students».\n\nReason (optional):'
+      : who + ' 학생을 명부에서 숨길까요?\n\n• 지우는 것이 아닙니다 — 출석·포인트·기록은 그대로 남습니다.\n• 이 아이디로는 로그인이 안 됩니다.\n• 학생 목록의 「숨긴 학생 보기」에서 언제든 되살릴 수 있습니다.\n\n사유(선택):';
+    const r = window.prompt(msg, en ? 'Wrong / duplicate ID' : '잘못 만든 아이디');
+    if (r === null) return;   // 취소
+    reason = r;
+  } else {
+    if (!window.confirm(en ? 'Restore ' + who + ' to the student list? (login will work again)' : who + ' 학생을 명부에 되살릴까요? (로그인도 다시 됩니다)')) return;
+  }
+  const btn = document.querySelector('#hideBox .hb-btn'); if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/student/' + encodeURIComponent(erp.user_id || uid) + '/hide', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hidden: !!hide, reason: reason })
+    });
+    const j = await r.json().catch(() => ({}));
+    /* 성공 판정은 «성공이라고 말했는가» 로(CLAUDE.md 2장 — 404 본문에는 ok 칸이 없다). */
+    if (!r.ok || j.ok !== true) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+    if (_state.full) _state.full.hidden_info = j.hidden_info || { hidden: !!hide, by: null, at: Date.now(), reason: reason || null };
+    renderHideBox();
+    toast(hide ? (en ? '🙈 Hidden from the list (not deleted)' : '🙈 명부에서 숨겼습니다 (지우지 않았습니다)') : (en ? '↩️ Restored to the list' : '↩️ 명부에 되살렸습니다'));
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    toast((en ? 'Failed: ' : '실패: ') + (e.message || e), true);
+  }
+}
+
 // ═══════════════════════ 좌측 카드 ═══════════════════════
 function renderCard(){
   const f = _state.full || {};
@@ -1046,6 +1120,7 @@ function renderCard(){
   const cls = st === '정상' ? 'ok' : (st === '미입력'||st==='보류'?'warn':'danger');
   $('cardStatus').textContent = st;
   $('cardStatus').className = 'status-pill ' + cls;
+  renderHideBox();
 
   // 🎯 발음연습 횟수 + 평균 (eval_type='pronunciation' 필터)
   const pronEvals = (f.evaluations || []).filter(x => x.eval_type === 'pronunciation' && x.score_total != null);

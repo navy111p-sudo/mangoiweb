@@ -103,6 +103,11 @@ export async function ensureStudentOverrideTable(env: OverrideEnv): Promise<bool
     for (const col of ['franchise TEXT', 'shop_name TEXT', 'org_by TEXT', 'org_at INTEGER']) {
       try { await env.DB.exec(`ALTER TABLE student_erp_override ADD COLUMN ${col}`); } catch { /* 이미 있음 */ }
     }
+    /* 🙈 (2026-09-24) 숨김을 «누가·언제·왜» 했는지 — 화면의 「숨기기」 버튼(setStudentHidden)이 쓴다.
+       기존 memo 칸은 손으로 넣은 설명이 들어 있을 수 있어 덮지 않고 새 칸을 둔다. */
+    for (const col of ['hidden_by TEXT', 'hidden_at INTEGER', 'hidden_reason TEXT']) {
+      try { await env.DB.exec(`ALTER TABLE student_erp_override ADD COLUMN ${col}`); } catch { /* 이미 있음 */ }
+    }
     _ensured = true;
     return true;
   } catch {
@@ -314,6 +319,74 @@ export async function hiddenExcludeCond(env: OverrideEnv, alias?: string): Promi
   if (!(await ensureStudentOverrideTable(env))) return '';
   const col = `${alias ? alias + '.' : ''}user_id`;
   return `${col} NOT IN (SELECT user_id FROM student_erp_override WHERE hidden = 1)`;
+}
+
+/** 🙈 숨김 상태 한 건 — 학생 상세 화면이 버튼·안내를 그리려고 읽는다. */
+export interface HiddenInfo { hidden: boolean; by: string | null; at: number | null; reason: string | null }
+
+/**
+ * 🙈 (2026-09-24) 학생 상세에서 본 «숨김» 상태. 못 읽으면 `null`(= 모름).
+ * ⚠️ `null` 과 «안 숨김» 을 가른다 — 모르는데 「숨기기」 버튼을 그려 두면, 이미 숨긴 학생을
+ *    또 숨기거나(무해) 숨긴 학생에게 되살리기가 안 보이는(= 되돌릴 길이 사라지는) 일이 생긴다.
+ *    화면은 null 이면 버튼을 안 그리고 사실대로 말한다.
+ */
+export async function getStudentHiddenInfo(env: OverrideEnv, userId: string): Promise<HiddenInfo | null> {
+  if (!userId) return null;
+  if (!(await ensureStudentOverrideTable(env))) return null;
+  try {
+    const r = await env.DB.prepare(
+      `SELECT hidden, hidden_by, hidden_at, hidden_reason FROM student_erp_override WHERE user_id = ? LIMIT 1`
+    ).bind(userId).first<any>();
+    if (!r) return { hidden: false, by: null, at: null, reason: null };
+    return {
+      hidden: Number(r.hidden) === 1,
+      by: r.hidden_by ? String(r.hidden_by) : null,
+      at: r.hidden_at != null ? Number(r.hidden_at) : null,
+      reason: r.hidden_reason ? String(r.hidden_reason) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🙈 (2026-09-24 사장님 「숨김 버튼 만들어줘」) 학생을 명부에서 숨기거나 되살린다.
+ *
+ * ⛔ students_erp 는 한 글자도 안 건드린다 — «지우는 것» 이 아니라 «보여주지 않는 것» 이다.
+ *    카페24 학생을 DELETE 하면 오늘 밤 되살아나고 붙어 있던 기록만 주인을 잃는다(머리말).
+ * ⚠️ 되살릴 때 행을 지우지 않는다 — 같은 행에 이름 고정·전화번호·가맹점이 함께 들어 있다.
+ *    hidden 만 0 으로 되돌린다(누가·언제 되살렸는지는 hidden_by/at 에 남는다).
+ * ⚠️ 숨기면 따라오는 것: 명부·통합검색에서 빠짐 · **그 아이디로 로그인 불가**(api-students.ts) ·
+ *    카페24 미러가 수업을 안 만듦 · AI 청구 인원에서 빠짐. 화면 확인창이 이것을 말한다.
+ */
+export async function setStudentHidden(
+  env: OverrideEnv, userId: string, hidden: boolean, by: string, reason?: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const u = String(userId || '').trim();
+  if (!u) return { ok: false, reason: 'no_user_id' };
+  if (!(await ensureStudentOverrideTable(env))) return { ok: false, reason: 'table_unavailable' };
+  const now = Date.now();
+  const why = String(reason || '').trim().slice(0, 200) || null;
+  try {
+    await env.DB.prepare(
+      `INSERT INTO student_erp_override (user_id, hidden, hidden_by, hidden_at, hidden_reason, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         hidden = excluded.hidden, hidden_by = excluded.hidden_by, hidden_at = excluded.hidden_at,
+         hidden_reason = excluded.hidden_reason, updated_at = excluded.updated_at`,
+    ).bind(u, hidden ? 1 : 0, by || null, now, why, now, now).run();
+    return { ok: true };
+  } catch (e: any) {
+    console.warn('[student-override] 숨김 저장 실패:', e?.message, 'uid=', u);
+    return { ok: false, reason: String(e?.message || e).slice(0, 120) };
+  }
+}
+
+/** 「숨긴 학생만」 조건절 — 표를 못 쓰면 빈 문자열(부르는 쪽은 그때 빈 목록을 돌려준다). */
+export async function hiddenOnlyCond(env: OverrideEnv, alias?: string): Promise<string> {
+  if (!(await ensureStudentOverrideTable(env))) return '';
+  const col = `${alias ? alias + '.' : ''}user_id`;
+  return `${col} IN (SELECT user_id FROM student_erp_override WHERE hidden = 1)`;
 }
 
 /** 이 계정이 숨김 지정돼 있나 — 로그인 차단용 단건 조회. 표가 없으면 항상 false. */

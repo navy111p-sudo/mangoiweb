@@ -13,7 +13,8 @@ import { forbiddenTeacherBody } from './forbidden-teacher';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { checkAdminSession, resolveOwnerScope, getAdminActor } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
+import { enrollAdminHqOnly } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
@@ -52,7 +53,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
    감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
-import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
+import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField, getStudentHiddenInfo, setStudentHidden } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -3835,6 +3836,11 @@ ${numbered}`;
           period_days: days,
           sched: _fullSched,
           erp: _fullErpPII,
+          /* 🙈 (2026-09-24) 숨김 상태 — null 이면 «모름»(화면은 버튼을 안 그린다). */
+          hidden_info: _erpRow ? await getStudentHiddenInfo(env as any, String(_erpRow.user_id || uid)) : null,
+          /* 🙈 숨기기 버튼을 그려도 되는가 — 서버 게이트(enrollAdminHqOnly)와 같은 뜻의 «대략» 판정.
+             최종 판정은 POST 가 다시 한다(여기가 틀려도 뚫리지 않는다). 모르면 false = 버튼을 안 그린다. */
+          can_hide: await (async () => { try { const a = await getAdminActor(request, env as any); return !!(a.ok && !a.isTeacher && !isOrgScopedRole(a.role)); } catch { return false; } })(),
           can_view_pii: canViewPII(_fullScope),
           profile: pick(1),
           summary: pick(2) || {},
@@ -4012,6 +4018,36 @@ ${numbered}`;
           ).run();
           return json({ ok: true, id: r.meta.last_row_id });
         }
+      }
+    }
+
+    /* 🙈 (2026-09-24 사장님 「숨김 버튼 만들어줘」) 학생을 명부에서 숨기기 / 되살리기.
+       POST /api/admin/student/:uid/hide   body: { hidden: true|false, reason?: string }
+       ⛔ 지우지 않는다 — student_erp_override.hidden 한 칸만 바꾼다(정본 setStudentHidden).
+          카페24 학생을 DELETE 하면 오늘 밤 되살아나고 붙은 기록만 주인을 잃는다(CLAUDE.md 2장).
+       🔒 본사 전용 — 강사·지사·대리점은 403. 게이트는 enrollAdminHqOnly 정본을 그대로 쓴다
+          (getAdminActor().role 하나만 보면 D1 이 흔들릴 때 조직 계정이 staff 로 새어 들어온다).
+       ℹ️ 새 라우팅 줄은 필요 없다 — src/index.ts 가 `/api/admin/student/` 접두사를 통째로 넘긴다. */
+    {
+      const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/hide$/);
+      if (m && method === 'POST') {
+        const deny = await enrollAdminHqOnly(request, env);
+        if (deny) return deny;
+        const actor = await getAdminActor(request, env as any);
+        const uid = decodeURIComponent(m[1]);
+        const b = await parseJsonBody(request);
+        if (!b || typeof b.hidden !== 'boolean') return invalidBody(['hidden (true|false)']);
+        await ensureStudentDetailSchema();
+        /* 진짜 user_id 로 적어야 명부 거르기(user_id NOT IN …)가 걸린다 — 아이디 대소문자·
+           student_id/login_id 로 들어와도 ERP_BY_UID 정본으로 찾는다. 없는 학생은 404. */
+        const row = await env.DB.prepare(
+          `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null);
+        if (!row || !row.user_id) return json({ ok: false, error: 'student_not_found', user_id: uid }, 404);
+        const r = await setStudentHidden(env as any, String(row.user_id), b.hidden, actor.username || 'admin', b.reason);
+        if (!r.ok) return json({ ok: false, error: 'save_failed', detail: r.reason }, 500);
+        const info = await getStudentHiddenInfo(env as any, String(row.user_id));
+        return json({ ok: true, user_id: row.user_id, hidden: b.hidden, hidden_info: info });
       }
     }
 

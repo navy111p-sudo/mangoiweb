@@ -64,7 +64,7 @@ import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수�
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
-import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, hiddenOnlyCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
@@ -9487,8 +9487,18 @@ LIMIT $limit`;
       /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 명부에서 뺀다.
          students_erp 는 카페24가 정본이라 지워도 밤에 되살아나므로 «읽을 때» 거른다.
          표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open) — 이유는 student-override.ts. */
-      const _hideEx = await hiddenExcludeCond(env as any, 's');
-      if (_hideEx) conds.push(_hideEx);
+      /* 🙈 (2026-09-24) `?hidden=only` — 「숨긴 학생 보기」. 숨긴 학생«만» 돌려준다(되살리려고 찾는 용도).
+         ⚠️ 표를 못 쓰면 조건이 빈 문자열이라 «전체» 가 나올 뻔한다 — 그때는 1=0 으로 빈 목록을 준다
+            (숨긴 목록을 보여 달랐는데 전원을 보여 주면 «전원이 숨겨졌다» 로 읽힌다).
+         ⚠️ 스코프(_ssw)는 그대로 걸린다 — 지사는 자기 학생 중 숨긴 것만 본다. */
+      const _hiddenOnly = url.searchParams.get('hidden') === 'only';
+      if (_hiddenOnly) {
+        const _onlyCond = await hiddenOnlyCond(env as any, 's');
+        conds.push(_onlyCond || '1 = 0');
+      } else {
+        const _hideEx = await hiddenExcludeCond(env as any, 's');
+        if (_hideEx) conds.push(_hideEx);
+      }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
       /* 🐢 (2026-08-13 수정요청 #01) 「학생 목록을 누르면 한참 걸린다」
          원인은 위 SELECT 목록에 매달려 있던 «상관 서브쿼리 3개» 였다. 학생 한 줄을 만들 때마다
@@ -9551,7 +9561,7 @@ LIMIT $limit`;
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
       }
-      return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
+      return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope), hidden_only: _hiddenOnly });
     }
 
     /* 🤖 (2026-09-16 신설) AI 학습도구 8종을 실제로 쓴 학생 — 도구별 횟수·마지막 사용일.
