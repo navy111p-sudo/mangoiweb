@@ -171,7 +171,8 @@ console.log('\n[ ④ 표 칸 수 — col·th·td·colspan 이 서로 같은가 ]
   const tbl = a >= 0 ? admin.slice(a, b) : '';
   const nCol = (tbl.match(/<col\b/g) || []).length;
   const nTh = (tbl.match(/<th\b/g) || []).length;
-  const nTd = (rowSrc.match(/<td\b|\$\{_ct\(|\$\{_schedTd\(/g) || []).length;
+  // 헬퍼 이름을 적지 않는다 — 한 칸을 통째로 돌려주는 `${_헬퍼(s…)}` 줄을 모양으로 센다(admin_student_list 와 같은 방식)
+  const nTd = (rowSrc.match(/<td\b/g) || []).length + (rowSrc.match(/^\s*\$\{_\w+\(s[^\n]*\}$/gm) || []).length;
   const spans = new Set((tbl.match(/colspan="(\d+)"/g) || []).map(x => x.replace(/\D/g, '')));
   /* 빈 줄 colspan 은 JS 쪽에도 있다(불러오는 중·데이터 없음·검색 0건·더 보기).
      ⚠️ 파일 전체에서 찾으면 **다른 표의 colspan** 이 딸려 와 언제나 어긋난다(실제로 밟았다).

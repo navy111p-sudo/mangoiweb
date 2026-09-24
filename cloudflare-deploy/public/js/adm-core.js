@@ -12008,6 +12008,28 @@ function renderStudentTable() {
     const x = _esc(txt);
     return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
   };
+  /* 📚 (2026-09-24 사장님 지시) 「수강신청」 칸 — 학생마다 카드 하나. 누르면 smGoEnroll 이
+     수강신청 등록 표로 가서 그 학생 아이디를 채운다.
+     ⛔ <button> 으로 바꾸지 말 것 — admin-inline-c.css 의 details.menu-card button 전역 규칙이
+        인라인 크기를 무시하고 큰 파란 알약으로 만든다(CLAUDE.md 2장). <a> 는 그 규칙 밖이다.
+     ⛔ 배경은 background-color 로 — background: 는 옛 다크 규칙에 걸려 투명해진다.
+     예전 이 칸의 값(카페24 enroll_package)은 있으면 카드 아래에 작게 남긴다(지우지 않음). */
+  const _enrollTd = (s) => {
+    const uid = String((s && s.user_id) || '');
+    const req = s && s.enroll_req;
+    if (!uid) return '<td style="text-align:center">—</td>';
+    const u = _esc(uid);
+    const r = _esc(req == null ? '' : req);
+    const tip = _L ? 'Open Add Enrollment for this student' : '이 학생으로 수강신청 등록 열기';
+    return '<td style="text-align:center"' + (r ? ' title="' + r + '"' : '') + '>'
+      + '<a href="#" class="sm-enroll-go" data-uid="' + u + '" title="' + tip + '"'
+      + ' onclick="event.preventDefault();smGoEnroll(this.getAttribute(\'data-uid\'))"'
+      + ' style="display:inline-block;padding:3px 9px;border-radius:8px;border:1px solid #c4b5fd;'
+      + 'background-color:#f5f3ff;color:#5b21b6;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">'
+      + '📚 ' + (_L ? 'Enroll' : '수강신청') + '</a>'
+      + (r ? '<div style="font-size:10.5px;color:#667085;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r + '</div>' : '')
+      + '</td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -12024,8 +12046,8 @@ function renderStudentTable() {
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
       ${_schedTd(s)}
+      ${_enrollTd(s)}
       <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
-      ${_ct(s.enroll_req)}
       <td>${_c(_piiPhone(s.student_phone))}</td>
       <td>${_c(_piiPhone(s.parent_phone))}</td>
       <td>${_c(_piiPhone(s.teacher_phone))}</td>
@@ -12048,6 +12070,51 @@ function renderStudentTable() {
   tb.innerHTML = arr.slice(0, _smShown).map(_smRowHtml).join('') + _smMoreRow(_L);
   if (wrap) { wrap.scrollTop = keepTop; wrap.scrollLeft = keepLeft; }
 }
+
+/* 📚 (2026-09-24 사장님 지시) 학생 명부의 「수강신청」 카드 → 수강신청 등록 표.
+   그 학생 아이디가 이미 들어간 줄이 있으면 거기로, 빈 줄이 있으면 거기에 채우고, 없으면 새 줄을 만든다.
+   ⚠️ 등록은 하지 않는다 — 나머지 칸(레벨·요일·시간·기간)은 사람이 고르고 「✅ 일괄 등록」을 누른다.
+   ⚠️ 카드가 권한으로 감춰진 계정(강사 등)이면 조용히 끝내지 않고 말한다. */
+function smGoEnroll(uid) {
+  uid = String(uid || '').trim();
+  if (!uid) return;
+  const L = (window.adminLang === 'en');
+  const card = document.getElementById('card-enrollments');
+  const tbody = document.getElementById('en-multi-rows');
+  if (!card || !tbody || card.classList.contains('rbac-hide')) {
+    alert(L ? 'The Enrollments menu is not available for this account.' : '이 계정에서는 수강신청 메뉴를 쓸 수 없습니다.');
+    return;
+  }
+  if (typeof window.jumpToMenu === 'function') window.jumpToMenu('card-enrollments');
+  const box = tbody.closest('details');
+  if (box) box.open = true;
+  const inputs = Array.from(tbody.querySelectorAll('.en-row-uid'));
+  let inp = inputs.find(i => i.value.trim() === uid);
+  if (!inp) {
+    inp = inputs.find(i => !i.value.trim());
+    if (!inp && typeof _addEnrollmentRow === 'function') {
+      _addEnrollmentRow({ uid: '' });
+      const all = tbody.querySelectorAll('.en-row-uid');
+      inp = all[all.length - 1] || null;
+    }
+    if (inp) {
+      inp.value = uid;
+      inp.dispatchEvent(new Event('change', { bubbles: true }));   // 이름 자동 조회(_enLookupStudent)
+    }
+  }
+  if (!inp) return;
+  /* jumpToMenu 가 rAF 두 번 뒤 카드 맨 위로 다시 맞추므로, 그 «뒤» 에 그 줄로 옮긴다. */
+  setTimeout(() => {
+    const tr = inp.closest('tr');
+    try { (tr || inp).scrollIntoView({ behavior: 'auto', block: 'center' }); } catch (e) {}
+    if (tr) {
+      const o = tr.style.backgroundColor;
+      tr.style.backgroundColor = '#fef3c7';
+      setTimeout(() => { tr.style.backgroundColor = o; }, 1800);
+    }
+  }, 120);
+}
+window.smGoEnroll = smGoEnroll;
 
 /* 남은 행 안내 줄 — 스크롤로 자동 추가되지만, 안 굴려도 몇 명이 더 있는지 보이게 한다. */
 function _smMoreRow(_L) {
