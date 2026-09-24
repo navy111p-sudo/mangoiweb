@@ -23,6 +23,10 @@ const stop=new Set(read('stopwords.json').concat(['ken','karen','tom','nelly','p
 const noCard=new Set(read('no-card-words.json'));
 const words=text=>vocabWords(text,stop).filter(w=>!noCard.has(w));
 const id=text=>crypto.createHash('sha256').update(text).digest('hex').slice(0,12);
+/* 🚫 예문·장면·영상으로 쓰지 않는 문장 — 2026-09-23 사장님 「술 예문도 빼줘」(BTS 20 #59~64).
+   ⛔ 원본(speech-data-bts.js)은 건드리지 않습니다 — 발음 코칭 등 다른 화면도 그 파일을 씁니다.
+   이 문장은 ① 교재 예문 ② 낱말 사진 후보가 되는 장면 ③ 문장 영상에서 빠집니다. 회귀 검사도 같은 파일을 읽습니다. */
+const noExample=new Set(read('no-example-sentences.json').map(id));
 const courses=[['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']];
 const books=[],all=new Map();
 for(const [series,file,name] of courses){
@@ -54,6 +58,9 @@ const wordImageDir=path.join(root,'cloudflare-deploy/public/img/scene-words');
 const wordImagePlan=wordPlanFiles(fs.readdirSync(inputs)).flatMap(read);
 const wordImages=[],wordAssets=[];
 for(const it of wordImagePlan){
+ /* 🚫 excluded-media.json 은 낱말 사진에도 걸립니다(같은 /img/scene-words 번호 공간) — 2026-09-24 술 예문을 빼며
+    그 예문으로 만든 와인 진열대 사진(19249, 「selection」)이 SIU Advance 의 «participant selection» 에 붙어 있던 것. */
+ if(excluded.has('word-image:'+it.index))continue;
  const file=path.join(wordImageDir,it.index+'.webp');
  if(!fs.existsSync(file))continue;
  wordImages.push({word:it.word,index:it.index,bytes:fs.statSync(file).size});
@@ -93,7 +100,7 @@ for(const row of selected){const source=all.get(row.id);if(!source||source.text!
 const clipRows=[];
 for(const clip of clips){const source=all.get(clip.id);if(!source||source.text!==clip.text)throw Error('Clip source drift '+clip.id);const target=clip.reuseClip||clip.index;const movie=lookup.get('video:'+target);if(!movie)continue;let s=scenes.get(clip.id)||{id:clip.id,text:clip.text,source:labels[clip.refs[0][0]]+' · #'+clip.refs[0][1],refs:source.refs};imageMeta(s,lookup.get('clip-image:'+target),'clip-image:'+target);s.video=movie.url;s.videoBytes=movie.bytes;s.duration=movie.duration;scenes.set(s.id,s);clipRows.push({...clip,scene:s.id});}
 const candidates=new Map();
-for(const s of scenes.values())for(const w of words(s.text)){if(!candidates.has(w))candidates.set(w,[]);candidates.get(w).push(s);}
+for(const s of scenes.values())if(!noExample.has(s.id))for(const w of words(s.text)){if(!candidates.has(w))candidates.set(w,[]);candidates.get(w).push(s);}
 const dir=path.join(root,'cloudflare-deploy/public/data/scene-curriculum/v1');fs.mkdirSync(dir,{recursive:true});
 const manifest={version:1,source:'Mangoi book practice sentences',books:[],wordForms:0,wordPictureForms:0,cardOnlyForms:0,sourceEntries:books.reduce((n,b)=>n+b.sentences.length,0),uniqueSourceSentences:all.size,clips:new Set(clipRows.map(c=>scenes.get(c.scene).video)).size};
 const unique=new Set(),wordPictured=new Set(),usedImages=new Set();
@@ -103,7 +110,7 @@ for(const book of books){
     ⛔ 「다른 문장의 그림만 빌려 오기」가 아닙니다 — 예문 자체를 그 문장으로 바꿔 그림과 예문을 짝지웁니다.
     ⛔ 다른 교재 문장으로는 바꾸지 마세요(수준이 다릅니다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길).
     ⚠️ 첫 문장이 아니게 되므로 sourceIndex 도 함께 옮겨야 합니다(연습 구간이 예문과 어긋나면 안 됩니다). */
- const occur=new Map();book.sentences.forEach((text,i)=>words(text).forEach(w=>{if(!occur.has(w))occur.set(w,[]);occur.get(w).push({sourceIndex:i+1,bookExample:text});}));
+ const occur=new Map();book.sentences.forEach((text,i)=>{if(!noExample.has(id(text)))words(text).forEach(w=>{if(!occur.has(w))occur.set(w,[]);occur.get(w).push({sourceIndex:i+1,bookExample:text});});});
  const vocab=new Map();
  for(const [w,list] of occur){const shown=list.find(o=>(scenes.get(id(o.bookExample))||{}).image)||list[0];vocab.set(w,{word:w,sourceIndex:shown.sourceIndex,bookExample:shown.bookExample});}
  /* 📖 2026-09-22 — 교재 예문은 «한 번만» 싣는다(examples 배열 + 낱말 줄의 ex 번호).
@@ -161,7 +168,7 @@ for(const book of books){
    delete entry.bookExample;entry.ex=i;}
   data.words.push(entry);data.scenes[chosen.id]=chosen;
  }
- for(const clip of clipRows){if(clip.refs.some(r=>r[0]===book.id)){data.clips.push({scene:clip.scene,sourceIndex:clip.refs.find(r=>r[0]===book.id)[1]});data.scenes[clip.scene]=scenes.get(clip.scene);}}
+ for(const clip of clipRows){if(noExample.has(clip.scene))continue;if(clip.refs.some(r=>r[0]===book.id)){data.clips.push({scene:clip.scene,sourceIndex:clip.refs.find(r=>r[0]===book.id)[1]});data.scenes[clip.scene]=scenes.get(clip.scene);}}
  /* 🔴 2026-09-21 — 근거 없는 줄이 가리키는 장면에서는 사진 주소를 «payload 에 아예 싣지 않는다».
     화면 판정만 고치면 주소가 남아 다음 사람이 「있으니 쓰자」로 되살립니다(그것이 「nice → 가방」의 길).
     ⚠️ scenes 는 여러 교재가 함께 쓰는 «원본» 이라 반드시 사본을 만들어 뺍니다 — 원본에서 지우면 남의 교재가 깨집니다.
