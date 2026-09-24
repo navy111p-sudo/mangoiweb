@@ -6022,14 +6022,17 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         </div>
         <div class="ht-track ht-ai">
           <span class="ht-when" data-ko="혼자서 · 아무 때나" data-en="On your own · anytime">혼자서 · 아무 때나</span>
-          <span class="ht-what"><b>8</b><span data-ko="종 A.i 학습" data-en=" A.i tools">종 A.i 학습</span></span>
+          <span class="ht-what"><b data-ko="8종" data-en="8">8종</b> <span data-ko="A.i 학습" data-en="A.i tools">A.i 학습</span></span>
         </div>
       </div>
     </div>
     <style>
       .home-search-fold{margin:0 0 14px;min-width:0}
-      .home-search-fold>summary{display:list-item;box-sizing:border-box;width:fit-content;max-width:100%;min-height:44px;margin:0 auto;padding:11px 16px;cursor:pointer;color:#fff;background:rgba(15,23,42,.78);border:1px solid rgba(255,255,255,.4);border-radius:24px;font-size:14px;font-weight:700;line-height:1.5;text-shadow:0 1px 3px #0f172a}
-      .home-search-fold>summary:hover{background:rgba(15,23,42,.92)}
+      .home-search-fold>summary{display:list-item;box-sizing:border-box;width:fit-content;max-width:100%;min-height:36px;margin:0 auto;padding:6px 14px;cursor:pointer;color:#13203f;background:rgba(255,255,255,.9);border:0;border-radius:999px;font-size:13px;font-weight:800;line-height:1.8;list-style:none;box-shadow:0 2px 8px rgba(15,23,42,.12)}
+      .home-search-fold>summary::-webkit-details-marker{display:none}
+      .home-search-fold>summary::before{content:"\1F50D  ";content:"\1F50D  " / ""}
+      .home-search-fold>summary::after{content:" \203A";content:" \203A" / "";color:#b45309}
+      .home-search-fold>summary:hover{background:#fff}
       .home-search-fold>summary:focus-visible{outline:3px solid #fbbf24;outline-offset:4px}
       .home-search-fold[open]>summary{margin-bottom:14px}
       .home-search-fold[open] .ai-quick{display:grid !important}
@@ -6230,7 +6233,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       </details>
       <script defer src="/js/idx-about.js?v=10"></script>
       <!-- 🔗 (2026-09-21) 히어로 «두 트랙 줄» 을 눌러 그 카드로 — 마크업은 그대로 두고 밖에서 입힌다(defer = 첫 화면 예산 0바이트). -->
-      <script defer src="/js/idx-home-tracks.js?v=6"></script>
+      <script defer src="/js/idx-home-tracks.js?v=7"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
@@ -7812,42 +7815,64 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
          ⛔ text-shadow 로 메꾸려 하지도 마세요 — WCAG 산식은 그 도움을 안 셉니다(둘 다 둡니다).
          ✅ 판정은 CSS 를 읽어서가 아니라 **픽셀을 찍어** 하세요. 같은 파일의 .home-search-fold>summary 가
             이미 같은 수법(어두운 반투명 알약)으로 통과하고 있었습니다. */
+      /* 🎨 [2026-09-24 사장님 선택 «4-3»] 두 트랙을 «흰 카드 버튼» 으로 — 샘플 4개 중에서 고르셨다.
+         사장님 기준 셋: ① 글자 잘 보이기 ② 주변과 조화 ③ 버튼으로 보이기.
+         ① 흰 바탕 + 진한 남색 글자라 배경 사진이 밝든 어둡든 대비가 흔들리지 않는다
+            (옛 가림막 줄의 «왼쪽 밝고 오른쪽 어두운» 문제가 원리상 사라진다 — 위 주석 참고).
+         ② 숫자 배지는 아래 「무료 체험」 금색, 아이콘 칸·바닥줄은 남색 — 페이지에 이미 있는 두 색.
+         ③ 카드 아래 남색 «바닥줄»(box-shadow 5px)이 눌리는 버튼 모양을 만든다.
+         ⚠️ 아이콘은 가상요소로 그린다 — 마크업에 글자로 넣으면 role="button" 이름에 섞이고
+            i18n 엔진이 textContent 를 갈아끼울 때 함께 사라진다. «/ ""» 대체 텍스트로 낭독에서 뺀다
+            (윗줄은 그 문법을 모르는 옛 브라우저용 — 화살표 ::after 와 같은 두 줄 쌓기).
+         ⛔ hover 에 transform 을 쓰지 않는다(글자가 움직이면 정신없다 — 관리자 쪽 금지와 같은 취지). */
       .home-tracks{
-        display: flex; justify-content: center; align-items: stretch;
-        margin: 12px auto 0; flex-wrap: nowrap;
-        width: fit-content; max-width: calc(100% - 20px);
-        padding: 8px 4px; border-radius: 14px;
-        background: rgba(9, 14, 32, 0.72);
-        border: 1px solid rgba(255,255,255,0.12);
+        display: flex; justify-content: center; align-items: stretch; gap: 10px;
+        margin: 14px auto 0; flex-wrap: nowrap;
+        width: 100%; max-width: 520px; box-sizing: border-box;
       }
-      .home-tracks .ht-track{ padding: 0 18px; text-align: center; min-width: 0; }
-      .home-tracks .ht-track + .ht-track{ border-left: 1px solid rgba(255,255,255,0.3); }
+      .home-tracks .ht-track{
+        flex: 1 1 0; min-width: 0; box-sizing: border-box;
+        display: grid; grid-template-columns: auto minmax(0,1fr); column-gap: 10px; align-items: center;
+        padding: 11px 14px 11px 11px; text-align: left;
+        background: #fff; color: #0f172a; border-radius: 16px;
+        box-shadow: 0 5px 0 #13203f, 0 12px 22px rgba(15,23,42,.22);
+      }
+      .home-tracks .ht-track::before{
+        grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 12px; background: #13203f;
+        display: flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1;
+      }
+      .home-tracks .ht-live::before{ content: "\1F3A5"; content: "\1F3A5" / ""; }
+      .home-tracks .ht-ai::before{ content: "\1F916"; content: "\1F916" / ""; }
       .home-tracks .ht-when{
-        display: block; margin-bottom: 4px; white-space: nowrap;
-        font-family: MangoiHanSC,ui-monospace,'SFMono-Regular',Menlo,monospace;
-        font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-        text-shadow: 0 1px 4px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.45);
+        display: block; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        font-size: 12px; font-weight: 700; color: #475467;
       }
-      /* ⚠️ 라벨은 «흰빛에 가까운» 트랙 색으로 둔다. 트랙별 색 구분은 숫자(1:1 / 8)가 맡고,
-         «읽히게 하는» 일은 위의 가림막이 맡는다 — 둘을 헷갈리지 말 것.
-         ⛔ 여기서 색만 다시 고쳐 대비를 맞추려 하면 배경이 좌우로 갈려 한쪽이 반드시 깨진다. */
-      .home-tracks .ht-live .ht-when{ color: #cfdcff; }
-      .home-tracks .ht-ai   .ht-when{ color: #e2d5ff; }
       .home-tracks .ht-what{
-        display: block; white-space: nowrap; letter-spacing: -0.01em;
-        font-size: 14px; font-weight: 600; color: #f2f6ff;
-        text-shadow: 0 1px 4px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.45);
+        display: block; justify-self: start; max-width: 100%; white-space: nowrap; letter-spacing: -0.01em;
+        font-size: 15.5px; font-weight: 800; color: #0f172a;
       }
       .home-tracks .ht-what b{
-        font-family: MangoiHanSC,ui-monospace,'SFMono-Regular',Menlo,monospace;
-        font-variant-numeric: tabular-nums; font-weight: 600;
+        display: inline-block; margin-right: 3px; padding: 0 6px; border-radius: 6px;
+        background: #fbbf24; color: #3b2403; font-weight: 900;
+        font-variant-numeric: tabular-nums;
       }
-      .home-tracks .ht-live .ht-what b{ color: #8fb3ff; }
-      .home-tracks .ht-ai   .ht-what b{ color: #c5a8ff; }
+      /* 폰(≤420)에서는 아이콘 칸을 접어 글자 자리를 지킨다 — 글자가 먼저다.
+         [잰 것 — 2026-09-24, 390px] 카드 한 장이 155px 라 아이콘(32px)을 두면
+         「1:1 원어민 화상수업」이 잘렸다(scrollWidth > clientWidth). */
       @media (max-width:420px){
-        .home-tracks .ht-track{ padding: 0 11px; }
-        .home-tracks .ht-when{ font-size: 9px; letter-spacing: 0.09em; }
-        .home-tracks .ht-what{ font-size: 12px; }
+        .home-tracks{ gap: 8px; }
+        /* 폭은 «글자 길이만큼» 나눈다 — 반반이면 긴 쪽(1:1 원어민 화상수업)만 화살표가 잘렸다(390px 실측). */
+        .home-tracks .ht-track{ flex: 1 1 auto; grid-template-columns: minmax(0,1fr); padding: 9px 10px; }
+        .home-tracks .ht-track::before{ display: none; }
+        .home-tracks .ht-when{ font-size: 11px; }
+        .home-tracks .ht-what{ font-size: 13.5px; }
+      }
+      @media (max-width:380px){
+        .home-tracks{ gap: 6px; }
+        .home-tracks .ht-track{ padding: 8px 7px; }
+        .home-tracks .ht-when{ font-size: 10.5px; }
+        .home-tracks .ht-what{ font-size: 12.5px; letter-spacing: -0.03em; }
+        .home-tracks .ht-what b{ padding: 0 4px; margin-right: 2px; }
       }
 
       .ai-search-wrap{
@@ -14961,7 +14986,7 @@ document.addEventListener('keydown', function(e){
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
 <script defer src="/js/idx-allmenu.js?v=15"></script>
 <!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
-<script defer src="/js/idx-theme-mobile.js?v=1"></script>
+<script defer src="/js/idx-theme-mobile.js?v=2"></script>
 
 <!-- 💬 채팅 ✕ 가 «가려져» 안 눌리던 것 (2026-08-19 사장님 제보) — 좌표로 닫는 안전장치 -->
 <script defer src="/js/idx-vc-chat-close.js?v=1"></script>

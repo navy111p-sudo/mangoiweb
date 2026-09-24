@@ -84,7 +84,8 @@
     st.textContent =
       '.home-tracks .ht-track[role="button"]{cursor:pointer;border-radius:10px;' +
       'transition:background-color .15s ease,color .15s ease}' +
-      '.home-tracks .ht-track[role="button"]:hover{background:rgba(255,255,255,.10)}' +
+      /* 2026-09-24 흰 카드가 되어 hover 는 «살짝 회색» 으로(색만 — 크기·자리 고정). */
+      '.home-tracks .ht-track[role="button"]:hover{background:#f1f5f9}' +
       '.home-tracks .ht-track[role="button"]:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}' +
       /* ▸ (2026-09-21 사장님 지시) 폰에는 손가락 커서도 :hover 도 없어 «누를 수 있다» 는
          신호가 0개였다. 화살표를 «가상요소» 로 그린다 — ⛔ 글자로 넣으면 i18n 두 엔진이
@@ -102,7 +103,7 @@
          «낭독 제외» 만 안 걸리는 것입니다. Chromium 141 에서만 쟀습니다.
          ⛔ 윗줄을 지우고 이 줄만 두지 마세요(옛 사파리에서 화살표가 통째로 사라집니다). */
       'content:"\\203A" / "";' +
-      'margin-left:.28em;font-size:.95em;opacity:.7;font-weight:700}';
+      'margin-left:.28em;font-size:.95em;opacity:.85;font-weight:800;color:#b45309}';
     document.head.appendChild(st);
   }
 
