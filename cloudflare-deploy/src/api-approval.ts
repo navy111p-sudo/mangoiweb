@@ -58,6 +58,8 @@ import {
   buildArchiveFacets, archivePeriods,                  // 🗂 결재 보관함 — 함 옆 건수·기간 함 경계
   type Stage, type Flag, type ActorLike,
   signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
+  pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
+  rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
@@ -325,12 +327,17 @@ async function delegatesOf(env: ApprovalEnv, usernames: string[]): Promise<strin
  * ═════════════════════════════════════════════════════════════════════════ */
 
 async function notify(
-  env: ApprovalEnv, usernames: string[], title: string, body: string, reqId: number, tag: string
+  env: ApprovalEnv, usernames: string[], title: string, body: string, reqId: number, tag: string,
+  quickSeq = 0,
 ): Promise<{ push: number; missed: string[] }> {
   const missed: string[] = [];
   if (!usernames.length) return { push: 0, missed };
   let sent = 0;
-  const url = '/work?id=' + reqId;
+  /* 📲 quickSeq 가 있으면 링크에 &qa=<단계> 를 붙인다 — sw.js 가 그것을 보고 알림에
+     [승인] 버튼을 단다. 새 칸(push_queue.actions)을 만들지 않은 이유: /api/push/pending 이
+     칸 이름을 적어 SELECT 하므로, 칸이 없는 DB 에서는 모든 푸시가 함께 죽는다.
+     ⚠️ 버튼은 편의일 뿐 — 누르면 서버가 🟢·같은 단계인지 **다시** 잰다(pushApproveDenyReason). */
+  const url = '/work?id=' + reqId + (quickSeq > 0 ? '&qa=' + quickSeq : '');
   for (const u of usernames) {
     const rs = await safe(async () => await env.DB.prepare(
       `SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1 LIMIT 10`
@@ -368,6 +375,18 @@ async function notify(
     else missed.push(u);
   }
   return { push: sent, missed };
+}
+
+/** 📲 이 행이 지금 «알림에서 바로 승인» 대상이면 그 단계 번호, 아니면 0. */
+function quickSeqOf(r: any, seq: number): number {
+  try {
+    let flags: Flag[] = [];
+    try { if (r?.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
+    const sg = signalOf({ reqType: r?.req_type, amount: r?.amount, ocrAmount: r?.ocr_amount,
+                          hasFile: !!r?.file_key, flags });
+    return quickApprovable({ signal: sg.signal, reqType: r?.req_type, reversesId: r?.reverses_id })
+      ? seq : 0;
+  } catch { return 0; }   // 모르면 버튼을 안 단다 — 화면에서 결재하면 된다
 }
 
 /**
@@ -1091,7 +1110,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a9-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a10-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${sig?.mk || 0}-${hourBucket}"`;
     const headers = {
@@ -1352,6 +1371,30 @@ export async function handleApprovalApi(
       if (reuse.length >= 3) break;
     }
 
+    /* 🔁 매달 반복 지출 — 서로 다른 달에 두 번 이상 «승인된» 같은 제목(인터넷비·정수기 …).
+       맨 위에 «매달» 로 따로 보여 준다. 판정 정본 monthlyRepeats. 실패하면 조용히 예전 목록 그대로. */
+    const monthlyRs = await safe(async () => (await env.DB.prepare(
+      `SELECT req_type, title, body, amount, currency, category, created_at FROM approval_requests
+        WHERE requester_username = ? AND status = 'approved' AND reverses_id IS NULL
+          AND created_at >= ? ORDER BY created_at DESC LIMIT 60`
+    ).bind(me, Date.now() - 120 * 86400_000).all<any>()).results || [], [] as any[]);
+    const monthly = monthlyRepeats(monthlyRs as any[]).slice(0, 3);
+    if (monthly.length) {
+      const mk = monthly.map(m => m.req_type + '|' + String(m.title).trim().toLowerCase());
+      const rest = reuse.filter(x => mk.indexOf(x.req_type + '|' + String(x.title || '').trim().toLowerCase()) < 0);
+      reuse.length = 0;
+      for (const m of monthly) reuse.push(Object.assign({ monthly: true }, m));
+      for (const x of rest) { if (reuse.length >= 5) break; reuse.push(x); }
+    }
+
+    /* 📋 «자주 반려된 이유» — 최근 90일 반려 메모에서 반려 버튼 사유를 센다(정본 rejectTipsFrom).
+       올리기 전 폼 위에 체크리스트로 보여 준다. 반려가 없으면 빈 배열이고 화면도 안 그린다. */
+    const rejMemos = await safe(async () => ((await env.DB.prepare(
+      `SELECT decide_memo FROM approval_requests
+        WHERE status = 'rejected' AND decided_at >= ? ORDER BY decided_at DESC LIMIT 300`
+    ).bind(Date.now() - 90 * 86400_000).all<any>()).results || []).map((r: any) => r.decide_memo), [] as any[]);
+    const rejectTips = rejectTipsFrom(rejMemos as any[]);
+
     /* 💼 인사·급여로 확정할 수 있는 달 — 올릴 수 있는 사람에게만 내려보낸다.
        데이터가 있는 달만 담기므로, 화면은 그걸 버튼으로 그리기만 하면 된다(타이핑 없음). */
     let hrPeriods: any = null;
@@ -1438,7 +1481,7 @@ export async function handleApprovalApi(
       statuses: STATUSES.map(st => ({ key: st.key, ko: st.ko, en: st.en })),
       categories: CATEGORIES.map(c => ({ key: c.key, ko: c.ko, en: c.en, account: c.account })),
       hr_periods: hrPeriods,
-      inbox, mine, reuse, urgent,
+      inbox, mine, reuse, urgent, reject_tips: rejectTips,
       /* ✅ 확인 대기 — 경영진이 아니면 언제나 빈 배열이다(화면은 그러면 카드를 안 그린다). */
       ack_pending: ackPending,
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
@@ -1739,7 +1782,8 @@ export async function handleApprovalApi(
         env, targets,
         (spec2.en) + ' · ' + (actor.name || actor.username),
         title.slice(0, 80),
-        reqId, 'approval'
+        reqId, 'approval',
+        quickApprovable({ signal: sig.signal, reqType }) ? 1 : 0,
       );
       // 🚨 긴급만 문자로도 보낸다. 사고·정전·학부모 항의는 «나중에 열어 보면» 늦다.
       //    나머지 분류는 푸시와 배지로 충분하다(문자는 돈이 든다).
@@ -2041,6 +2085,27 @@ export async function handleApprovalApi(
     try { payload = await request.json(); } catch { /* 빈 본문 허용 */ }
     const decision = String(payload?.decision || '');
     if (decision !== 'approved' && decision !== 'rejected') return json({ ok: false, error: 'bad_decision' }, 400);
+
+    /* 📲 알림의 [승인] 버튼으로 온 요청 — 화면을 안 보고 누른 것이라 «볼 것이 없는» 건만 받는다.
+       신호는 알림을 보낸 뒤 바뀌었을 수 있어 **지금 다시 잰다.** 막히면 화면으로 보낸다. */
+    if (String(payload?.via || '') === 'push') {
+      let pflags: Flag[] = [];
+      try { if (cur.flags) pflags = JSON.parse(cur.flags); } catch { pflags = []; }
+      const psig = signalOf({ reqType: cur.req_type, amount: cur.amount, ocrAmount: cur.ocr_amount,
+                              hasFile: !!cur.file_key, flags: pflags });
+      const deny = pushApproveDenyReason({
+        decision, expectSeq: payload?.expect_seq, seq, signal: psig.signal,
+        reqType: cur.req_type, byProxy: !isPrimaryApprover(actor, role, ph),
+        reversesId: (cur as any).reverses_id,
+      });
+      if (deny) {
+        return json({
+          ok: false, error: 'push_denied', reason: deny,
+          message: '알림에서는 승인할 수 없는 건입니다 — 결재함에서 확인해 주세요.',
+          message_en: 'This one needs a look in the approval box.',
+        }, 409);
+      }
+    }
     let memo = String(payload?.memo || '').slice(0, 1000) || null;
     /* 🌐 한국어로만 쓴 반려 사유는 필리핀 매니저가 못 읽는다 — 영어를 덧붙인다.
        이미 영어 낱말이 있으면(버튼 사유는 영/한 둘 다 들어 있다) 건드리지 않는다. 실패하면 원문 그대로. */
@@ -2137,7 +2202,7 @@ export async function handleApprovalApi(
       const deleg = await delegatesOf(env, targets);
       for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
       await notify(env, targets, typeSpec(cur.req_type).en + ' · stage ' + nextSeq,
-                   String(cur.title || '').slice(0, 80), id, 'approval');
+                   String(cur.title || '').slice(0, 80), id, 'approval', quickSeqOf(cur, nextSeq));
     } else {
       // 🏖️ 휴가가 최종 승인되면 «강사 근무불가» 에 그대로 반영한다 —
       //   그래야 그 기간 예약이 실제로 막힌다. 결재함과 캘린더에 따로 적지 않는다(이중 입력 방지).
@@ -2699,7 +2764,7 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
         if (targets.length) {
           await notify(env, targets,
             (target >= 3 ? '🚨 ' : '') + '결재 대기 ' + hours + '시간 · Pending ' + hours + 'h',
-            t60, r.id, target >= 3 ? 'approval-siren' : 'approval-nudge');
+            t60, r.id, target >= 3 ? 'approval-siren' : 'approval-nudge', quickSeqOf(r, seq));
           // 8시간이 되면 푸시와 상관없이 문자 — 푸시는 «켠 기기» 에만 가고 잠긴 폰은 놓친다.
           if (target >= 2 && cur < 2) {
             await smsFallback(env, targets,
@@ -2910,6 +2975,25 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
     ];
     if (slow.length) {
       lines.push('알림이 나간 건: ' + slow.map((s: any) => s.u + ' ' + s.c).join(', '));
+    }
+
+    /* 🤖 자동 반려 «켤지 말지» 판단 자료 — 지난 14일, AI 가 🔴(되돌렸을 것)로 본 건을
+       두 분이 실제로 어떻게 처리했나. 판정 정본 shadowTally. 스위치가 이미 'on' 이어도 같이 센다. */
+    const shRows = await safe(async () => (await env.DB.prepare(
+      `SELECT req_type, amount, ocr_amount, file_key, flags, status FROM approval_requests
+        WHERE created_at >= ? AND status IN ('approved','rejected') AND reverses_id IS NULL
+          AND IFNULL(decided_by,'') <> 'ai-auto' LIMIT 500`
+    ).bind(now - 14 * 86400_000).all<any>()).results || [], [] as any[]);
+    const sh = shadowTally((shRows as any[]).map((r: any) => {
+      let fl: Flag[] = [];
+      try { if (r.flags) fl = JSON.parse(r.flags); } catch { fl = []; }
+      return { status: r.status, signal: signalOf({ reqType: r.req_type, amount: r.amount,
+        ocrAmount: r.ocr_amount, hasFile: !!r.file_key, flags: fl }).signal };
+    }));
+    if (sh.red) {
+      lines.push('AI 자동 반려(연습) 14일: 🔴 ' + sh.red + '건 중 두 분도 반려 ' + sh.agreed +
+                 '건 · 승인하신 건 ' + sh.disagreed + '건' +
+                 (sh.disagreed === 0 ? ' — 켜도 되는지 검토해 주세요' : ' — 아직 켜지 않는 것이 좋습니다'));
     }
     lines.push(siteUrl('/work'));
     const text = lines.join('\n');

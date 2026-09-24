@@ -484,6 +484,11 @@ html.dark .auto button{background:#12332f;color:#7fd6c8;border-color:#2f6c62}
 html.dark .cur button{background:#1d2836;border-color:#33404f;color:#e6edf3}
 .cur button.on{background:#0b6e63;color:#fff;border-color:#0b6e63}
 .reuse{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+/* 📋 자주 반려된 이유 — 올리기 전 체크리스트 */
+.rejtips{margin:0 0 10px;padding:10px 12px;border:1px solid #f0c98a;background:#fff7e8;border-radius:8px;color:#5c3d00;font-size:14px;line-height:1.5}
+.rejtips b{display:block;margin-bottom:4px}
+.rejtips ul{margin:0;padding-left:18px}
+html.dark .rejtips{background:#2b2210;border-color:#6b5320;color:#f3dca8}
 .reuse button{font:inherit;font-size:14px;text-align:left;padding:11px 13px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:46px;color:#16202c}
 html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 
@@ -545,6 +550,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 
   <h2><span data-en="Submit a request" data-ko="결재 올리기">Submit a request</span></h2>
   <div id="kinds" class="kinds"></div>
+  <div id="rejtips" class="rejtips" hidden></div>
   <div id="reuse" class="reuse"></div>
   <div id="form" class="form" hidden></div>
 
@@ -2620,14 +2626,29 @@ window.pick = function(key){
   paintReuse();
 };
 
+/* 📋 «자주 반려된 이유» 체크리스트 — 서버가 최근 90일 반려 메모에서 센 것(rejectTipsFrom).
+   반려가 없으면 빈 배열이라 아무것도 안 그린다(지어내지 않는다). 폼을 열 때만 보여 준다. */
+function paintRejTips(){
+  var host = document.getElementById('rejtips');
+  if (!host) return;
+  var arr = (D && D.reject_tips) || [];
+  if (!arr.length || !PICK) { host.hidden = true; host.innerHTML = ''; return; }
+  var h = '<b>' + esc(T('Before you submit — most common reasons for returns:', '올리기 전에 확인 — 자주 반려된 이유')) + '</b><ul>';
+  for (var i = 0; i < arr.length; i++) h += '<li>' + esc(T(arr[i].tip_en, arr[i].tip_ko)) + '</li>';
+  host.innerHTML = h + '</ul>';
+  host.hidden = false;
+}
 function paintReuse(){
+  paintRejTips();
   var host = document.getElementById('reuse');
   var arr = D.reuse || [];
   if (!arr.length || PICK) { host.innerHTML = ''; return; }
   var h = '';
   for (var i = 0; i < arr.length; i++) {
     var r = arr[i];
-    var lbl = T('Same as last time: ', '지난번과 같이: ') + r.title + (r.amount != null ? ' (' + money(r.amount, r.currency) + ')' : '');
+    // 🔁 서로 다른 달에 두 번 이상 승인된 같은 제목 = 매달 반복(서버 monthlyRepeats 가 판정)
+    var pre = r.monthly ? T('🔁 Monthly: ', '🔁 매달 반복: ') : T('Same as last time: ', '지난번과 같이: ');
+    var lbl = pre + r.title + (r.amount != null ? ' (' + money(r.amount, r.currency) + ')' : '');
     h += '<button onclick="reuse(' + i + ')">' + esc(lbl) + '</button>';
   }
   host.innerHTML = h;
