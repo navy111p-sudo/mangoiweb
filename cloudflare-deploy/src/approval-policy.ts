@@ -1865,3 +1865,64 @@ export function monthlyReportLines(month: string, s: ApprovalSummary,
   if (top.length) lines.push('첫 번에 통과: ' + top.map(e => e.name + ' ' + e.pct + '% (' + e.firstPass + '/' + e.decided + ')').join(', '));
   return lines;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ❓ 결재 전 질문 (2026-09-24 결재함 자동화 6단계 — 제안서 「이 거래처 지난달에도? · 이번 달 비품 합계는?」)
+ *
+ *   ⚠️ 대화 모델에 묻지 않는다 — 같은 질문에 매번 다른 숫자를 주면 결재 근거가 못 된다.
+ *      «질문 두 개» 를 미리 정해 두고 D1 행을 세어 답한다(결정론).
+ *   ⚠️ 가게 이름은 영수증 판독값(ocr_vendor)이다 — 판독이 틀리면 «처음 보는 가게» 로 나올 수 있다.
+ *      화면이 «영수증에서 읽은 이름» 이라고 말한다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 가게 이름 비교 열쇠 — 대소문자·공백·기호를 무시. 두 글자 미만이면 '' (비교하지 않는다). */
+export function vendorKey(v: string | null | undefined): string {
+  const k = String(v || '').toLowerCase().replace(/[^0-9a-z가-힣]+/g, '');
+  return k.length >= 2 ? k : '';
+}
+
+/** 돈 나가는 분류 목록 — 콤마 문자열(SQL 에서 instr 로 쓴다. ⛔ IN (?,?,…) 로 펴지 말 것). */
+export function spendTypesCsv(): string {
+  return ',' + TYPES.filter(t => t.wantsCategory).map(t => t.key).join(',') + ',';
+}
+
+export interface AskCard {
+  vendor: string | null;
+  /** 같은 가게에서 승인된 건(이 건 제외, 최근 90일) */
+  vendorCount: number;
+  vendorLast: number | null;
+  /** 그중 다른 사람이 올린 건 */
+  vendorOthers: number;
+  category: { key: string; ko: string; en: string } | null;
+  /** 이번 달(KST) 같은 항목 승인 합계 — 통화별 */
+  catMonth: MoneyBucket[];
+  month: string;
+}
+
+type AskRow = { id: number; status?: string | null; reverses_id?: number | null; amount?: number | string | null;
+  currency?: string | null; created_at?: number | string | null; requester_username?: string | null;
+  vendor?: string | null; category?: string | null };
+
+export function askCard(cur: { id: number; vendor?: string | null; category?: string | null; requester_username: string },
+  rows: AskRow[], nowMs: number): AskCard {
+  const vk = vendorKey(cur.vendor);
+  const cs = categorySpec(cur.category);
+  const month = kstMonth(nowMs);
+  const range = kstMonthRange(month);
+  const out: AskCard = { vendor: vk ? String(cur.vendor).trim() : null, vendorCount: 0, vendorLast: null,
+    vendorOthers: 0, category: cs ? { key: cs.key, ko: cs.ko, en: cs.en } : null, catMonth: [], month };
+  for (const r of rows || []) {
+    if (!r || Number(r.id) === Number(cur.id)) continue;
+    if (String(r.status || '') !== 'approved' || !isSpendRow(r)) continue;
+    const at = Number(r.created_at || 0);
+    if (vk && vendorKey(r.vendor) === vk && at >= nowMs - 90 * 86400_000) {
+      out.vendorCount++;
+      out.vendorLast = Math.max(out.vendorLast || 0, at);
+      if (String(r.requester_username || '') !== String(cur.requester_username)) out.vendorOthers++;
+    }
+    if (cs && range && normCategory(r.category) === cs.key && at >= range[0] && at < range[1]) {
+      addMoney(out.catMonth, String(r.currency || ''), money(r.amount));
+    }
+  }
+  return out;
+}
