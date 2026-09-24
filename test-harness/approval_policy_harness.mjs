@@ -379,9 +379,14 @@ check('필리핀 번호에 국가번호를 붙인다',
   /'63'/.test(API_SRC),
   "국가번호 없이 보내면 필리핀 현지 번호에 도착하지 않는다");
 
+/* (2026-09-24) 알림 단계가 «8시간 밀린 건» 에 문자를 보낸다 — 그것도 «지연» 문자다.
+   그래서 «targets 로 보내는 문자가 없다» 가 아니라, 그 문자가 **8시간 단계 가드 안에만**
+   있는지로 묻는다(새 결재마다 보내는 문자는 여전히 긴급만). */
+const smsTargetsAt = [...API_SRC.matchAll(/smsFallback\(env, targets/g)].map(m => m.index);
 check('문자는 긴급·지연·승격에만 (돈이 든다)',
   /reqType === 'urgent' && n1\.missed/.test(API_SRC) &&
-  !/smsFallback\(env, targets/.test(API_SRC),
+  smsTargetsAt.length >= 1 &&
+  smsTargetsAt.every(i => /if \(target >= 2 && cur < 2\) \{\s*(await\s+)?$/.test(API_SRC.slice(Math.max(0, i - 120), i))),
   '모든 결재에 문자를 보내면 비용이 새어 나간다');
 
 check('문자를 끄는 스위치가 있다',
