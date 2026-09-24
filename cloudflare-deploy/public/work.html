@@ -430,6 +430,12 @@ html.dark .chip.sg-r{background:#3a1a16;color:#f0907c}
 html.dark .aibox{background:#3a1a16;color:#f6b6a8}
 .aibox.y{background:#fbeed2;color:#5a3e07}
 html.dark .aibox.y{background:#3a2c10;color:#f0cf8a}
+.hist{margin-top:8px}
+.histbox{margin-top:6px;padding:9px 12px;border-radius:8px;background:#eef2f7;color:#1f2a37;font-size:13.5px;line-height:1.55}
+.histbox ul{margin:4px 0 4px 18px;padding:0}
+.histbox .histwarn{color:#9a3412;font-weight:700}
+html.dark .histbox{background:#1d2633;color:#dbe4ef}
+html.dark .histbox .histwarn{color:#fdba74}
 .aibox ul{margin:6px 0 8px;padding-left:18px}
 /* 🚨 사이렌 — 12시간 넘게 밀린 결재. 화면 전체를 덮고 누를 때까지 울린다. */
 #siren{position:fixed;inset:0;z-index:100050;background:rgba(142,27,20,.94);color:#fff;display:flex;
@@ -1912,6 +1918,13 @@ function itemHtml(r, decidable, ackable){
                                           'AI 자동 점검이 보완 요청으로 되돌린 건입니다 — 메모의 내용을 고쳐 다시 올려 주세요.')) + '</div>';
   }
 
+  /* 📊 결재 전 이력 — «이 사람이 이 제목으로 전에도? 그때 얼마?» 를 눌러서 본다(2026-09-24 4단계).
+     목록을 그릴 때마다 조회하지 않는다 — 누를 때 한 번. 답은 서버가 계산(historyCard)한다. */
+  if (decidable && r.amount != null) {
+    h += '<div class="hist" id="hist-' + r.id + '"><button type="button" class="mini" onclick="loadHist(' + r.id + ')">' +
+         esc(T('Past requests like this', '지난 기록 보기')) + '</button></div>';
+  }
+
   if (r.has_file) {
     h += '<div><a class="lnk" href="/api/approval/requests/' + r.id + '/file">' +
          esc(T('Receipt', '첨부 보기')) + (r.file_name ? ' (' + esc(r.file_name) + ')' : '') + '</a></div>';
@@ -3176,6 +3189,54 @@ function postOne(rec){
     .catch(function(){ return { retry: true }; });     // 회선 문제
 }
 
+/* 📊 결재 전 이력 — 서버가 계산한 것을 그리기만 한다. 실패하면 사실대로 말한다(빈칸은 고장으로 읽힌다). */
+window.loadHist = function(id){
+  var box = document.getElementById('hist-' + id);
+  if (!box) return;
+  box.innerHTML = '<div class="whynote">' + esc(T('Loading...', '불러오는 중...')) + '</div>';
+  fetch('/api/approval/requests/' + id + '/history', { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || j.ok !== true || !j.history) throw new Error('bad');
+      var hs = j.history, hh = '<div class="histbox">';
+      if (hs.sameTitleCount > 0) {
+        hh += '<div>' + esc(T('Approved before with this title: ', '같은 제목으로 전에 승인된 건: ') + hs.sameTitleCount + T('', '건')) + '</div><ul>';
+        for (var i = 0; i < hs.sameTitle.length; i++) {
+          var x = hs.sameTitle[i];
+          hh += '<li>' + esc(when(x.at) + ' · ' + (x.amount != null ? money(x.amount, x.currency) : '—')) + '</li>';
+        }
+        hh += '</ul>';
+        if (hs.ratio != null) {
+          hh += '<div' + (hs.ratio >= 1.5 || hs.ratio <= 0.5 ? ' class="histwarn"' : '') + '>' +
+                esc(T('This amount vs usual: ', '평소 금액 대비 이번 금액: ') + hs.ratio + T('x', '배')) + '</div>';
+        }
+      } else {
+        hh += '<div>' + esc(T('First time with this title (last 6 months).', '최근 6개월 안에 같은 제목으로 승인된 건이 없습니다(처음).')) + '</div>';
+      }
+      hh += '<div>' + esc(T('This person, last 6 months: ', '올린 사람 최근 6개월: ') + hs.requesterTotal +
+            T(' decided, ', '건 결정 · 반려 ') + hs.requesterRejected + T(' rejected', '건')) + '</div>';
+      box.innerHTML = hh + '</div>';
+    })
+    .catch(function(){
+      box.innerHTML = '<div class="whynote">' + esc(T('Could not load the history. Try again.', '지난 기록을 불러오지 못했습니다. 다시 눌러 주세요.')) +
+        ' <button type="button" class="mini" onclick="loadHist(' + id + ')">' + esc(T('Retry', '다시')) + '</button></div>';
+    });
+};
+
+/* 🧾 영수증 파일 «내용» 해시 — 올리기 전 점검이 «이 영수증을 다른 결재에 또 붙였는가» 를 보게.
+   실패하면 빈 값(=그 점검만 건너뜀). 올릴 때 서버가 다시 계산하므로 화면 값은 안내용이다. */
+function fileHashOf(f){
+  try {
+    if (!f || !window.crypto || !crypto.subtle || !f.arrayBuffer) return Promise.resolve('');
+    return f.arrayBuffer().then(function(b){ return crypto.subtle.digest('SHA-256', b); })
+      .then(function(d){
+        var a = new Uint8Array(d), x = '';
+        for (var i = 0; i < a.length; i++) x += ('0' + a[i].toString(16)).slice(-2);
+        return x;
+      }).catch(function(){ return ''; });
+  } catch (e) { return Promise.resolve(''); }
+}
+
 var PRE_OK = false;   // 🔎 이번 올리기에서 점검을 이미 통과(또는 «그래도 올리기»)했는가
 window.preFix = function(){
   var pbox = document.getElementById('precheck');
@@ -3205,14 +3266,17 @@ window.submitReq = function(){
   if (PICK.needs_amount && !PRE_OK) {
     var pbox = document.getElementById('precheck');
     if (pbox) pbox.innerHTML = '<div class="whynote">' + esc(T('AI is checking your request...', 'AI 가 점검하는 중...')) + '</div>';
-    fetch('/api/approval/precheck', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        req_type: PICK.key, title: title, body: getVal('f_body') || '', amount: amount, currency: CUR,
-        spent_at: getVal('f_spent') || '', category: getVal('f_cat') || '', has_file: !!FILE,
-        ocr_amount: (OCR && OCR.amount != null) ? OCR.amount : null,
-        ocr_spent_at: (OCR && OCR.spent_at) || '', ocr_vendor: (OCR && OCR.vendor) || ''
-      })
+    fileHashOf(FILE).then(function(fh){
+      return fetch('/api/approval/precheck', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          req_type: PICK.key, title: title, body: getVal('f_body') || '', amount: amount, currency: CUR,
+          spent_at: getVal('f_spent') || '', category: getVal('f_cat') || '', has_file: !!FILE,
+          file_hash: fh || '',
+          ocr_amount: (OCR && OCR.amount != null) ? OCR.amount : null,
+          ocr_spent_at: (OCR && OCR.spent_at) || '', ocr_vendor: (OCR && OCR.vendor) || ''
+        })
+      });
     })
     .then(function(r){ return r.json(); })
     .then(function(j){
