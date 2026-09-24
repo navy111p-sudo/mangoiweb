@@ -712,7 +712,8 @@
        ⚠️ 역할을 아직 모르면(신원 미도착·조회 실패) **아무것도 감추지 않는다** —
           그 사이 눌러도 서버가 거절하고, 신원이 오면 아래 `mangoi:identity` 로 다시 돈다. */
     var role = myRole();
-    var hrefs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-ia6-hide-from]');
+    // ⚠️ 결재함(#ia6-appr)은 그룹 «밖» 의 <a> 라 첫 선택자로는 안 잡힌다 — 따로 더한다.
+    var hrefs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-ia6-hide-from], #ia6-appr[data-ia6-hide-from]');
     for (var h = 0; h < hrefs.length; h++) {
       /* ⚠️ 이름을 `e` 로 두지 않는다 — 이 파일은 ES5 스타일(`var`)이라 함수에 칸이 하나뿐이고,
             나중에 같은 함수에 `catch (e)` 가 생기면 그 줄부터 조용히 다른 값이 된다
@@ -902,6 +903,11 @@
     var appr = document.createElement('a');
     appr.id = 'ia6-appr';
     appr.href = '/work';
+    /* 🔐 (2026-09-24) 결재는 본사·강사 전용이다 — 서버(api-approval.ts)가 지사·대리점을 403 으로 막는다.
+       지사 계정(branch1 폴정)이 이 줄을 눌러 «자꾸 다시 로그인하라» 로 돌던 사고의 입구였다.
+       판정은 아래 applyRoleFilter 가 다른 href 항목과 같은 방식으로 한다(역할을 모르면 안 감춤).
+       ⚠️ 이 목록은 quick-access(adm-quick-access.js)의 결재함 칸과 짝이다. */
+    appr.setAttribute('data-ia6-hide-from', 'franchise branch agency');
     /* ⛔ data-ko/data-en 을 <a> 자체에 달지 말 것 (2026-09-09 수리).
        adm-core.js 의 toggleAdminLang 이 [data-ko] 요소의 textContent 를 통째로 갈아끼우므로,
        <a> 에 달려 있던 동안 EN/KO 를 한 번 누르면 아이콘·배지(#ia6-appr-n)·부제가 전부 지워졌다

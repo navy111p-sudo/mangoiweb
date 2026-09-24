@@ -62,6 +62,10 @@
           기다리는» 일이라 덜 눌렀다는 이유로 뒤로 가면 안 된다. */
     { key: '결재함', ko: '결재함', en: 'Approvals',
       card: null, sub: null, href: '/work', pin: true,
+      /* 🔐 (2026-09-24) 결재는 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
+         지사 계정에 이 칸이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다 — 사이드바
+         결재함(adm-ia6.js)과 **같은 목록**으로 감춘다. 역할을 모르면 감추지 않는다(fail-open). */
+      hideFrom: ['franchise', 'branch', 'agency'],
       ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
 
     /* 🚪 (2026-09-01 B안) 이름을 사이드바·카드와 «같은 말» 로 맞춘다.
@@ -211,6 +215,11 @@
   }
 
   function usable(it) {
+    if (it.hideFrom && it.hideFrom.length) {
+      var myRole = '';
+      try { myRole = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e2) {}
+      if (myRole && it.hideFrom.indexOf(myRole) >= 0) return false;
+    }
     // 🔗 딴 페이지로 가는 항목은 이 화면의 카드를 안 쓴다 — 카드로 판정하면 «항상 없음» 이 된다.
     if (it.href) return true;
     var el = document.getElementById(it.card);
@@ -465,6 +474,8 @@
        두 번만 다시 확인한다. 바뀐 게 없으면 render() 가 DOM 을 건드리지 않고 즉시 빠진다. */
     setTimeout(render, 800);
     setTimeout(render, 2200);
+    /* 🔐 신원은 늦게 온다 — 오면 역할 금지목록을 다시 본다. ⚠️ 그 이벤트는 document 에서 발행된다. */
+    document.addEventListener('mangoi:identity', function () { render(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
