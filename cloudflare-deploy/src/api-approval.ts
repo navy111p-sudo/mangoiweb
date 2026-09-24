@@ -64,6 +64,7 @@ import {
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
   askCard, spendTypesCsv,                              // ❓ 결재 전 질문(6단계)
+  normPhotoQuality,                                    // 📷 사진 흐림·어두움(7단계)
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
 import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
@@ -1719,6 +1720,7 @@ export async function handleApprovalApi(
         duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
         monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
         body, spentAt, ocrSpentAt, now, receiptReusedCount,
+        photoQuality: normPhotoQuality(form.get('photo_quality')),
       });
       /* 🔎 필리핀에서 올라온 돈 나가는 건은 AI 가 내용을 한 번 더 읽는다 — 🟡 표시만 붙인다. */
       if (ph && spec.needsAmount && !hrSnap) {
@@ -2748,6 +2750,7 @@ export async function handleApprovalApi(
       monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
       body, spentAt: ymd(b?.spent_at), ocrSpentAt: ymd(b?.ocr_spent_at), now: Date.now(),
       receiptReusedCount,
+      photoQuality: normPhotoQuality(b?.photo_quality),
     });
     if (ph && spec.needsAmount) {
       const concerns = await aiReview(env, {

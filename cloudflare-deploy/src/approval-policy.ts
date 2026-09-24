@@ -825,6 +825,14 @@ export interface CheckInput {
   medianAmount?: number | null;
   /** 🧾 같은 영수증 파일(내용 해시가 같음)이 이미 다른 살아 있는 결재에 쓰인 건수 */
   receiptReusedCount?: number;
+  /** 📷 휴대폰이 잰 사진 상태 — 'blurry' | 'dark' 만 뜻이 있다(normPhotoQuality). 7단계 */
+  photoQuality?: string | null;
+}
+
+/** 📷 사진 상태 값 정리 — 화면이 보낸 값 중 아는 것만. 모르면 null(점검 안 함). */
+export function normPhotoQuality(v: unknown): 'blurry' | 'dark' | null {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return (s === 'blurry' || s === 'dark') ? s : null;
 }
 
 export function runChecks(inp: CheckInput): Flag[] {
@@ -917,6 +925,19 @@ export function runChecks(inp: CheckInput): Flag[] {
       code: 'receipt_reused', level: 'warn',
       ko: '같은 영수증 파일이 이미 다른 결재 ' + inp.receiptReusedCount + '건에 쓰였습니다',
       en: 'The same receipt file is already attached to ' + inp.receiptReusedCount + ' other request(s)',
+    });
+  }
+
+  // 📷 흐리거나 어두운 영수증 사진(7단계) — 휴대폰이 선명도·밝기를 «계산» 으로 잰 값.
+  //   ⚠️ 🔴 로 올리지 않는다 — 어림 판정이라 멀쩡한 사진을 반려하면 필리핀 업무가 멈춘다. 🟡 참고만.
+  const pq = normPhotoQuality(inp.photoQuality);
+  if (inp.hasFile && pq) {
+    out.push({
+      code: 'photo_unclear', level: 'warn',
+      ko: pq === 'dark' ? '영수증 사진이 너무 어둡습니다 — 글자를 확인해 주세요'
+                        : '영수증 사진이 흐립니다 — 글자를 확인해 주세요',
+      en: pq === 'dark' ? 'The receipt photo is very dark — please check it can be read'
+                        : 'The receipt photo looks blurry — please check it can be read',
     });
   }
 

@@ -493,6 +493,9 @@ html.dark .cur button{background:#1d2836;border-color:#33404f;color:#e6edf3}
 /* 📋 자주 반려된 이유 — 올리기 전 체크리스트 */
 .rejtips{margin:0 0 10px;padding:10px 12px;border:1px solid #f0c98a;background:#fff7e8;border-radius:8px;color:#5c3d00;font-size:14px;line-height:1.5}
 .rejtips b{display:block;margin-bottom:4px}
+.photowarn{margin:6px 0;padding:8px 10px;border:1px solid #f0c98a;background:#fff7e8;border-radius:8px;color:#5c3d00;font-size:14px}
+.photowarn[hidden]{display:none!important}
+html.dark .photowarn{background:#2b2210;border-color:#6b5320;color:#f3dca8}
 .askq{margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1}
 .rejtips ul{margin:0;padding-left:18px}
 html.dark .rejtips{background:#2b2210;border-color:#6b5320;color:#f3dca8}
@@ -729,6 +732,8 @@ var PICK = null;                    // 고른 분류
 var CUR = 'PHP';
 var PROXY_OPEN = {};                // 💳 「대신 결재」를 펼쳐 둔 건 id — 60초마다 다시 그려도 안 접히게
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
+var PHOTO_SEQ = 0;
+var PHOTO_Q = '';                   // 📷 사진 상태 'ok'|'blurry'|'dark'|''(못 잼) — 7단계
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
 var WANT_TYPE = '';                 // 🔗 /work?type=leave — 열자마자 그 분류 폼을 편다
@@ -2676,7 +2681,7 @@ window.pick = function(key){
   }
   /* ⚠️ 분류를 새로 고르면 «다시 올리기» 표식을 지운다 — 내용이 통째로 달라지므로.
      fillFormFrom 은 pick() 을 부른 «뒤» 에 표식을 세우므로 서로 부딪히지 않는다. */
-  PICK = found; OCR = null; FILE = null; RESUBMIT_OF = null;
+  PICK = found; OCR = null; FILE = null; RESUBMIT_OF = null; PHOTO_Q = '';
   CKEY = newKey();                    // 이 기안의 «같은 건» 열쇠 — 재전송에도 그대로 쓴다
   paintKinds();
   paintForm();
@@ -2900,6 +2905,7 @@ function paintForm(){
   //    영수증을 미리 찍어 둔 경우가 실제로 더 많다. 카메라는 파일 선택창에서 그대로 고를 수 있다.
   h += '<input type="file" id="f_file" accept="image/*,application/pdf" hidden onchange="gotFile(this)">';
   h += '<div class="help" id="autoNote"></div>';
+  h += '<div class="photowarn" id="photoWarn" hidden></div>';
 
   h += '<div class="row"><label>' + esc(T('Title', '제목')) + '</label>' +
        '<input type="text" id="f_title" maxlength="200"></div>';
@@ -2964,6 +2970,7 @@ function paintForm(){
   setVal('f_from', keep.df); setVal('f_to', keep.dt);
   setVal('f_cat', keep.c);
   if (keep.n) note(keep.n);
+  photoWarn();                       // 📷 다시 그려도 사진 경고가 남게
   paintCur();
 }
 
@@ -3001,8 +3008,12 @@ window.gotFile = function(input){
   }
 
   note(T('Preparing the photo...', '사진을 준비하는 중...'));
+  PHOTO_Q = ''; photoWarn();
+  var pqSeq = ++PHOTO_SEQ;           // 사진을 바꿔 고르면 앞 사진의 늦은 결과는 버린다
   shrink(f).then(function(blob){
     FILE = blob || f;
+    // 📷 흐림·어두움을 휴대폰에서 바로 잰다(AI 아님). 결과는 영수증 판독과 따로 안내한다.
+    photoQualityOf(FILE).then(function(q){ if (pqSeq !== PHOTO_SEQ) return; PHOTO_Q = q || ''; photoWarn(); });
     note(T('Reading the receipt...', '영수증을 읽는 중...'));
     return fetch('/api/approval/ocr', {
       method: 'POST', credentials: 'same-origin',
@@ -3023,12 +3034,69 @@ window.gotFile = function(input){
     if (j.vendor && !getVal('f_title')) setVal('f_title', j.vendor);
     note(T('Filled from the receipt. Check it before submitting.',
            '영수증에서 채웠습니다. 올리기 전에 확인해 주세요.'));
+    photoWarn();
   })
   .catch(function(){
     note(T('Could not read it — please type the amount. The photo is still attached.',
            '읽지 못했습니다 — 금액을 직접 넣어 주세요. 사진은 첨부되어 있습니다.'));
   });
 };
+
+/* 📷 사진 상태 — 순수 계산(7단계). g = 회색조 0~255, 가로 w · 세로 h (320px 로 줄인 뒤).
+     어두움: 평균 밝기 < 45.
+     흐림: 라플라시안 절댓값의 99.9 백분위 < 60 — «가장 또렷한 글자 가장자리» 가 얼마나 날카로운가.
+       ⚠️ 분산(평균)은 안 쓴다 — 흰 여백이 넓은 영수증은 선명해도 값이 낮아 거짓 경고가 난다.
+       📏 문턱은 합성 영수증으로 잰 값(선명 136~410 · 흐림/빈 종이 32~56)이다. 실제 사진이 쌓이면 다시 잴 것.
+     ⚠️ 어림 판정이다 — 막지 않고 «다시 찍어 주세요» 안내 + 결재자 카드 🟡 만. */
+function photoQ(g, w, h){
+  if (!g || w < 8 || h < 8) return '';
+  var n = w * h, sum = 0, i;
+  for (i = 0; i < n; i++) sum += g[i];
+  if (sum / n < 45) return 'dark';
+  var hist = new Uint32Array(1021), c = 0;
+  for (var y = 1; y < h - 1; y++) {
+    for (var x = 1; x < w - 1; x++) {
+      i = y * w + x;
+      var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w];
+      if (v < 0) v = -v;
+      hist[v > 1020 ? 1020 : (v | 0)]++; c++;
+    }
+  }
+  var need = c * 0.001, acc = 0, p = 1020;
+  for (; p > 0; p--) { acc += hist[p]; if (acc >= need) break; }
+  return p < 60 ? 'blurry' : 'ok';
+}
+function photoQualityOf(file){
+  return new Promise(function(resolve){
+    try {
+      if (!file || !/^image\//.test(file.type || 'image/')) { resolve(''); return; }
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function(){
+        try {
+          var w = 320, h = Math.max(8, Math.round(img.height * 320 / Math.max(1, img.width)));
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          var cx = c.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+          var d = cx.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h);
+          for (var k = 0, j = 0; k < g.length; k++, j += 4) g[k] = (d[j] * 299 + d[j + 1] * 587 + d[j + 2] * 114) / 1000;
+          URL.revokeObjectURL(url); resolve(photoQ(g, w, h));
+        } catch (e) { resolve(''); }
+      };
+      img.onerror = function(){ resolve(''); };
+      img.src = url;
+    } catch (e) { resolve(''); }
+  });
+}
+function photoWarn(){
+  var el = document.getElementById('photoWarn');
+  if (!el) return;
+  if (PHOTO_Q !== 'blurry' && PHOTO_Q !== 'dark') { el.hidden = true; el.textContent = ''; return; }
+  el.hidden = false;
+  el.textContent = PHOTO_Q === 'dark'
+    ? T('📷 The photo is very dark. Please retake it in better light so the text can be read.',
+        '📷 사진이 너무 어둡습니다. 밝은 곳에서 글자가 보이게 다시 찍어 주세요.')
+    : T('📷 The photo looks blurry. Please retake it so the text is sharp.',
+        '📷 사진이 흐립니다. 글자가 또렷하게 보이게 다시 찍어 주세요.');
+}
 
 function shrink(file){
   return new Promise(function(resolve){
@@ -3210,6 +3278,7 @@ function buildFD(rec){
   if (rec.ocr != null) fd.append('ocr_amount', String(rec.ocr));
   if (rec.ocrDate) fd.append('ocr_spent_at', rec.ocrDate);
   if (rec.ocrVendor) fd.append('ocr_vendor', rec.ocrVendor);
+  if (rec.pq) fd.append('photo_quality', rec.pq);
   if (rec.file) fd.append('file', rec.file, (rec.fileName || 'receipt.jpg'));
   return fd;
 }
@@ -3339,7 +3408,7 @@ window.submitReq = function(){
         body: JSON.stringify({
           req_type: PICK.key, title: title, body: getVal('f_body') || '', amount: amount, currency: CUR,
           spent_at: getVal('f_spent') || '', category: getVal('f_cat') || '', has_file: !!FILE,
-          file_hash: fh || '',
+          file_hash: fh || '', photo_quality: PHOTO_Q || '',
           ocr_amount: (OCR && OCR.amount != null) ? OCR.amount : null,
           ocr_spent_at: (OCR && OCR.spent_at) || '', ocr_vendor: (OCR && OCR.vendor) || ''
         })
@@ -3380,7 +3449,7 @@ window.submitReq = function(){
     cat: getVal('f_cat') || '',
     ocr: (OCR && OCR.amount != null) ? OCR.amount : null,
     ocrDate: (OCR && OCR.spent_at) || '', ocrVendor: (OCR && OCR.vendor) || '',
-    file: FILE || null, fileName: (FILE && FILE.name) || 'receipt.jpg', at: Date.now(),
+    file: FILE || null, fileName: (FILE && FILE.name) || 'receipt.jpg', at: Date.now(), pq: PHOTO_Q || '',
     /* ↩️ 회수한 건을 다시 올리는 것이면 원본 번호를 함께 보낸다 —
        그래야 「6일째」가 «오늘» 로 초기화되지 않는다(서버가 내 회수 건인지 다시 확인한다). */
     origin: RESUBMIT_OF || null
@@ -3422,7 +3491,7 @@ window.submitReq = function(){
 function closeForm(){
   /* ⚠️ RESUBMIT_OF 도 함께 비운다 — 안 비우면 «다음에 올리는 다른 건» 에 남의
      원본 번호가 붙어 「원래 8/30에 올림」이라는 거짓 줄이 생긴다. */
-  PICK = null; OCR = null; FILE = null; CKEY = null; RESUBMIT_OF = null;
+  PICK = null; OCR = null; FILE = null; CKEY = null; RESUBMIT_OF = null; PHOTO_Q = '';
   draftClear();
   paintKinds(); paintForm(); paintReuse();
 }
