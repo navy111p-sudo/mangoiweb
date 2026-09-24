@@ -30,6 +30,7 @@ import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
 import { buildScheduleSummary } from './schedule-summary';        // 📅 시간표 카드 숫자(회계 아님 — 라우터만 빌려 씀)
+import { sceneHomeworkRouter } from './scene-homework';   // ✍️ 쓰기 숙제 현황·학부모 안내(회계 아님 — 라우터만 빌려 씀)
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher, clearMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
 import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
@@ -635,6 +636,11 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
       return new Response(JSON.stringify({ ok: true, ...s }), {
         headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' },
       });
+    }
+    // ✍️ 교재 낱말 쓰기 숙제 — 정본은 src/scene-homework.ts (여기는 부르기만)
+    if (p === 'scene-homework' || p === 'scene-homework-notify') {
+      const r = await sceneHomeworkRouter(env as any, request, url, p);
+      if (r) return r;
     }
     if (p === 'monthly')   return await monthlyReport(env, url, fmt);
     if (p === 'quarterly') return await quarterlyReport(env, url, fmt);

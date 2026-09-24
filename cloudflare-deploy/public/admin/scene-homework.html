@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<!-- 🌐 언어 부팅 — defer 금지(첫 페인트 전에 lang 이 정해져야 함) -->
+<script src="/js/adm-lang-boot.js?v=6"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>쓰기 숙제 현황 · 망고아이</title>
+<!--
+  ✍️ 교재 낱말 쓰기 숙제 현황 (2026-09-24 신설)
+  · 데이터 정본: GET /api/admin/reports/scene-homework (src/scene-homework.ts) — 여기는 그리기만.
+  · 학부모 안내: POST /api/admin/reports/scene-homework-notify — 기본 «대상 확인»(dry_run),
+    「보내기」는 확인창을 한 번 더 거친다(되돌릴 수 없는 바깥 조작).
+  · /admin/ 밑이라 CSS·JS 는 인라인(자산을 넣으면 로그인 게이트가 삼킨다 — CLAUDE.md 2장).
+  · 밝은 테마 값으로 처음부터 쓴다(adm-light-theme 이 반쪽만 먹는 함정).
+-->
+<style>
+  :root{--bg:#f4f6fb;--card:#ffffff;--ink:#101828;--sub:#475467;--mut:#667085;--line:#e4e7ec;--acc:#b45309;--good:#067647;--bad:#b42318}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:MangoiHanSC,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
+  [hidden]{display:none!important}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 16px 40px}
+  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  /* 오른쪽 위에 떠 있는 🌐 언어 칩(adm-lang-boot)이 기간 칸을 덮지 않게 자리를 비운다 */
+  header{padding-right:96px}
+  header h1{font-size:20px;margin:0;flex:1;min-width:200px}
+  header a{color:var(--sub);text-decoration:none;font-size:13px}
+  button,select{font:inherit;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:var(--ink);padding:7px 12px;cursor:pointer}
+  button.primary{background:#b45309;border-color:#b45309;color:#fff;font-weight:700}
+  button.danger{background:#b42318;border-color:#b42318;color:#fff;font-weight:700}
+  button:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;margin:0 0 8px}
+  .note{color:var(--sub);font-size:13px;line-height:1.6;margin:0 0 10px}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .kpi{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kpi b{display:block;font-size:22px;color:var(--acc)}
+  .kpi span{font-size:12px;color:var(--mut)}
+  .tbl{overflow-x:auto}
+  table{border-collapse:collapse;width:max-content;min-width:100%}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap;font-size:13px}
+  th{color:var(--sub);font-weight:700;background:#f9fafb}
+  td.weak{white-space:normal;min-width:220px;max-width:360px}
+  .chip{display:inline-block;border:1px solid #fcd9bd;background:#fff7ed;color:#9a3412;border-radius:999px;padding:1px 8px;margin:1px 3px 1px 0;font-size:12px}
+  .empty{color:var(--mut);padding:18px 0;text-align:center}
+  .msg{white-space:pre-line;border:1px solid var(--line);background:#f9fafb;border-radius:8px;padding:10px;font-size:13px;line-height:1.6;margin:8px 0}
+  .ok{color:var(--good)} .err{color:var(--bad)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="h1">✍️ 쓰기 숙제 현황</h1>
+    <select id="days" aria-label="기간"></select>
+    <button id="reload" type="button"></button>
+    <a href="/admin.html" id="back"></a>
+  </header>
+
+  <div class="card" id="sh-list">
+    <p class="note" id="about"></p>
+    <div class="kpis" id="kpis"></div>
+    <div class="tbl"><table><thead><tr id="thead"></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="empty" id="empty" hidden></div>
+  </div>
+
+  <div class="card" id="sh-notify">
+    <h2 id="nTitle"></h2>
+    <p class="note" id="nNote"></p>
+    <div class="row">
+      <button id="nCheck" type="button"></button>
+      <button id="nSend" type="button" class="danger" hidden></button>
+    </div>
+    <div id="nOut"></div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  function lang(){ try{ return (localStorage.getItem('mangoi_lang')||'ko')==='en'?'en':'ko'; }catch(e){ return 'ko'; } }
+  function T(ko,en){ return lang()==='en'?en:ko; }
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function day(ms){ if(!ms) return '—'; var d=new Date(Number(ms)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+  var DAYS=[7,30,90], last=null;
+
+  function paintStatic(){
+    document.documentElement.lang=lang();
+    $('h1').textContent=T('✍️ 쓰기 숙제 현황','✍️ Writing homework status');
+    $('reload').textContent=T('새로고침','Refresh');
+    $('back').textContent=T('← 관리자','← Admin');
+    $('about').textContent=T('장면 탐험대 «교재 낱말 쓰기 숙제» 를 한 학생만 보입니다. 한 번도 안 한 학생은 목록에 없습니다. «다시 볼 낱말» = 이 기간에 다시 만났고 틀린 수가 맞힌 수 이상인 낱말(월간 성적표와 같은 기준).',
+      'Only students who did the textbook word-writing homework (Scene Quest) appear. «Words to review» = met again in this period and missed at least as often as answered correctly (same rule as the monthly report).');
+    $('days').setAttribute('aria-label',T('기간','Period'));
+    var cur=$('days').value||'30';
+    $('days').innerHTML=DAYS.map(function(d){return '<option value="'+d+'">'+T('최근 '+d+'일','Last '+d+' days')+'</option>';}).join('');
+    $('days').value=cur;
+    $('thead').innerHTML=[T('학생','Student'),T('아이디','ID'),T('횟수','Sessions'),T('문제','Items'),T('정답률','Accuracy'),T('마지막','Last'),T('다시 볼 낱말','Words to review')].map(function(h){return '<th>'+esc(h)+'</th>';}).join('');
+    $('nTitle').textContent=T('📩 학부모 안내 문자','📩 Notice to parents');
+    $('nNote').textContent=T('숙제가 생겼다는 안내를 학부모 번호가 있는 학생에게 한 번만 보냅니다(이미 보낸 학생은 빠집니다). 먼저 «대상 확인» 으로 인원과 문구를 보세요 — 문자 비용이 듭니다.',
+      'Sends a one-time notice about the new homework to parents whose number we have (already-notified students are skipped). Check recipients and wording first — SMS costs money.');
+    $('nCheck').textContent=T('대상 확인','Check recipients');
+    $('nSend').textContent=T('보내기','Send');
+  }
+
+  function render(d){
+    var rows=(d&&d.rows)||[];
+    var n=rows.length, ses=0, it=0, c=0, weakN=0;
+    rows.forEach(function(r){ ses+=r.sessions; it+=r.items; c+=r.correct; if(r.weak&&r.weak.length) weakN++; });
+    var k=[[n,T('숙제한 학생','Students')],[ses,T('숙제 횟수','Sessions')],[it?Math.round(c/it*100)+'%':'—',T('전체 정답률','Accuracy')],[weakN,T('다시 볼 낱말이 있는 학생','Students with words to review')]];
+    $('kpis').innerHTML=k.map(function(x){return '<div class="kpi"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>';}).join('');
+    $('rows').innerHTML=rows.map(function(r){
+      var nm=r.name||'—';
+      var link='/admin/student.html?uid='+encodeURIComponent(r.uid);
+      var weak=(r.weak&&r.weak.length)?r.weak.map(function(w){return '<span class="chip">'+esc(w)+'</span>';}).join(''):'<span style="color:#667085">'+esc(T('없음','None'))+'</span>';
+      return '<tr><td><a href="'+link+'" target="_blank" rel="noopener">'+esc(nm)+'</a></td><td>'+esc(r.uid)+'</td><td>'+r.sessions+'</td><td>'+r.items+'</td><td>'+(r.rate==null?'—':r.rate+'%')+'</td><td>'+day(r.last_at)+'</td><td class="weak">'+weak+'</td></tr>';
+    }).join('');
+    $('empty').hidden=n>0;
+    $('empty').textContent=T('이 기간에 쓰기 숙제를 한 학생이 아직 없습니다.','No student has done the writing homework in this period yet.');
+  }
+
+  function load(){
+    $('rows').innerHTML=''; $('empty').hidden=false; $('empty').textContent=T('불러오는 중…','Loading…');
+    fetch('/api/admin/reports/scene-homework?days='+encodeURIComponent($('days').value||'30'),{credentials:'include'})
+      .then(function(r){ return r.json().then(function(j){ return {r:r,j:j}; }); })
+      .then(function(x){
+        if(!x.r.ok||!x.j||x.j.ok!==true){ $('empty').hidden=false; $('empty').innerHTML='<span class="err">'+esc(T('불러오지 못했습니다','Could not load'))+': '+esc((x.j&&(x.j.message||x.j.error))||x.r.status)+'</span>'; return; }
+        last=x.j; render(x.j);
+      })
+      .catch(function(){ $('empty').hidden=false; $('empty').innerHTML='<span class="err">'+esc(T('연결을 확인해 주세요','Check your connection'))+'</span>'; });
+  }
+
+  function notify(send){
+    var body=send?{dry_run:false,confirm:true}:{dry_run:true};
+    $('nCheck').disabled=true; $('nSend').disabled=true;
+    return fetch('/api/admin/reports/scene-homework-notify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ return {r:r,j:j}; }); })
+      .then(function(x){
+        var j=x.j||{};
+        if(!x.r.ok||j.ok!==true){ $('nOut').innerHTML='<p class="err">'+esc(T('실패','Failed'))+': '+esc(j.error||x.r.status)+'</p>'; $('nSend').hidden=true; return; }
+        if(j.dry_run){
+          $('nOut').innerHTML='<p>'+esc(T('보낼 대상','Recipients'))+': <b>'+j.targets+'</b>'+esc(T('명','')) +' · '+esc(T('이미 보냄','Already sent'))+' '+j.already_sent+' · '+esc(T('번호 없음','No number'))+' '+j.no_phone+'</p>'+
+            (j.targets?'<div class="msg">'+esc(j.sample)+'</div><p class="note">'+esc((j.names||[]).join(', '))+'</p>':'');
+          $('nSend').hidden=!(j.targets>0); $('nSend').dataset.n=String(j.targets||0);
+        } else {
+          $('nOut').innerHTML='<p class="'+(j.failed?'err':'ok')+'">'+esc(T('보냄','Sent'))+' '+j.sent+' · '+esc(T('실패','Failed'))+' '+j.failed+(j.skipped?' · '+esc(T('다른 요청이 먼저 보냄','Taken by another request'))+' '+j.skipped:'')+(j.mode&&j.mode!=='live'?' · mode='+esc(j.mode):'')+'</p>'+
+            ((j.fails&&j.fails.length)?'<div class="msg">'+esc(j.fails.join('\n'))+'</div>':'');
+          $('nSend').hidden=true;
+        }
+      })
+      .catch(function(){ $('nOut').innerHTML='<p class="err">'+esc(T('연결을 확인해 주세요','Check your connection'))+'</p>'; })
+      .then(function(){ $('nCheck').disabled=false; $('nSend').disabled=false; });
+  }
+
+  $('reload').addEventListener('click',load);
+  $('days').addEventListener('change',load);
+  $('nCheck').addEventListener('click',function(){ notify(false); });
+  $('nSend').addEventListener('click',function(){
+    var n=$('nSend').dataset.n||'0';
+    if(!window.confirm(T('학부모 '+n+'명에게 문자를 보냅니다. 되돌릴 수 없습니다. 보낼까요?','Send SMS to '+n+' parents? This cannot be undone.'))) return;
+    notify(true);
+  });
+  function onLang(){ paintStatic(); if(last) render(last); }
+  document.addEventListener('mangoi:lang-changed',onLang); window.addEventListener('mangoi:lang-changed',onLang);
+  paintStatic(); $('days').value='30'; load();
+})();
+</script>
+</body>
+</html>

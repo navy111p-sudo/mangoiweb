@@ -323,7 +323,13 @@
      교재 배정 데이터가 아직 없어서(students_erp.textbook 전원 빈칸) 학생이 한 번 고른 교재를 이 기기가 기억한다.
      ⚠️ 기억은 «편의» 일 뿐이다 — 없거나 못 읽어도 첫 교재로 그대로 열린다. */
   var BOOK_KEY='mangoi_scene_book';
-  function wantedBook(){var q='';try{q=new URLSearchParams(location.search).get('book')||'';}catch(e){}if(!q){try{q=localStorage.getItem(BOOK_KEY)||'';}catch(e){}}return q;}
+  /* 👩‍🏫 (2026-09-24) 선생님이 정한 권 — 학생 상세 «교재» 탭에서 지정하면 /api/student/today?scenebook=1 이 그 권을 준다.
+     «새로 정해졌을 때 한 번만» 학생의 마지막 선택을 이긴다(SRV_KEY 에 마지막으로 받은 권을 적어 둔다).
+     그 뒤로는 학생이 고른 권이 그대로 — 매번 덮으면 학생이 다른 권을 못 고른다.
+     ⚠️ 못 물어보면(비로그인·게스트·통신 실패·1.5초 초과) 예전 동작 그대로. 주소의 book= 이 언제나 이긴다. */
+  var SRV_KEY='mangoi_scene_book_srv',srvPick='';
+  async function serverBook(){try{if(new URLSearchParams(location.search).get('book'))return;}catch(e){}var uid=learnerId();if(!uid||/^guest/i.test(uid))return;var tok='';try{tok=localStorage.getItem('mango_token')||'';}catch(e){}var id='';try{var ac=new AbortController(),tm=setTimeout(function(){ac.abort();},1500);var r=await fetch('/api/student/today?scenebook=1&uid='+encodeURIComponent(uid)+(tok?'&token='+encodeURIComponent(tok):''),{credentials:'include',signal:ac.signal});var d=await r.json();clearTimeout(tm);if(!r.ok||!d||d.ok!==true)return;id=String(d.book||'');}catch(e){return;}if(!id)return;var last='';try{last=localStorage.getItem(SRV_KEY)||'';}catch(e){}if(id===last)return;srvPick=id;try{localStorage.setItem(SRV_KEY,id);localStorage.setItem(BOOK_KEY,id);}catch(e){}}
+  function wantedBook(){var q='';try{q=new URLSearchParams(location.search).get('book')||'';}catch(e){}if(!q)q=srvPick;if(!q){try{q=localStorage.getItem(BOOK_KEY)||'';}catch(e){}}return q;}
   function restoreBook(){var id=wantedBook(),hit=id&&manifest.books.find(function(b){return b.id===id;});if(!hit)return;if($('series').value!==hit.series){$('series').value=hit.series;if($('series').value!==hit.series)return;bookOptions();}$('book').value=id;}
   function keepBook(){try{if($('book').value)localStorage.setItem(BOOK_KEY,$('book').value);}catch(e){}}
   /* 🧾 결과 기록 — 판 1행(/api/games/session)과 낱말별 정답·오답(/api/games/progress, game='scene-words').
@@ -336,7 +342,7 @@
     post('/api/games/session',{uid:uid,game:'scene-words',lang:'en',started_at:quizStartedAt||Date.now(),ended_at:Date.now(),items:items.length,correct:right,wrong:wrong,finished:1,coins:0});
     if(events.length)post('/api/games/progress',{user_id:uid,lang:'en',game:'scene-words',events:events});}
   async function enter(){open=true;var epoch=++requestId;if(controller)controller.abort();controller=new AbortController();document.getElementById('intro').hidden=true;document.getElementById('curriculum').hidden=false;set('overview',tr('교재 목록을 불러오고 있어요…','Loading the book list…'));$('retry').hidden=true;
-    try{if(!manifest){var data=await json('/data/scene-curriculum/v1/manifest.json',controller.signal);if(!open||epoch!==requestId)return;manifest=data;}if(!open)return;overview();if(!$('book').options.length){bookOptions();restoreBook();}await loadBook();}catch(e){if(open&&epoch===requestId&&e.name!=='AbortError'){set('overview',tr('목록을 불러오지 못했어요. 연결을 확인하고 다시 눌러 주세요.','Could not load the list. Check your connection and retry.'));$('retry').hidden=false;}}
+    try{if(!manifest){var data=await json('/data/scene-curriculum/v1/manifest.json',controller.signal);if(!open||epoch!==requestId)return;manifest=data;}if(!open)return;overview();if(!$('book').options.length){bookOptions();await serverBook();if(!open||epoch!==requestId)return;restoreBook();}await loadBook();}catch(e){if(open&&epoch===requestId&&e.name!=='AbortError'){set('overview',tr('목록을 불러오지 못했어요. 연결을 확인하고 다시 눌러 주세요.','Could not load the list. Check your connection and retry.'));$('retry').hidden=false;}}
   }
   async function loadBook(){if(!manifest||!open)return;var id=$('book').value,epoch=++requestId;if(controller)controller.abort();controller=new AbortController();clearCard();book=null;quiz=null;$('result').hidden=true;$('browser').hidden=true;$('quiz').disabled=true;$('retry').hidden=true;$('progress').hidden=true;$('browse').hidden=true;set('count',tr('선택한 교재를 불러오는 중…','Loading your selected book…'));
     try{var data=cache.get(id);if(!data){data=await json('/data/scene-curriculum/v1/'+id+'.json',controller.signal);}if(epoch!==requestId||!open)return;if(!data||data.id!==id||!Array.isArray(data.words)||!data.scenes)throw new Error('Invalid book');cache.delete(id);cache.set(id,data);while(cache.size>3)cache.delete(cache.keys().next().value);book=data;mode=$('mode').value;lessonOptions();resetItems();}

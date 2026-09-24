@@ -260,6 +260,16 @@
         { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'],
           tip: '🧩 복습퀴즈 · 마이크로러닝 · 발음교정 · 음성일기', tipEn: '🧩 Review quiz, micro-learning, pronunciation, voice diary' },
         { ko: '숙제',        en: 'Homework',          cards: ['card-homework'] },
+        /* ✍️ (2026-09-24) 장면 탐험대 «교재 낱말 쓰기 숙제» 현황 + 학부모 안내 문자.
+           서버(/api/admin/reports/)가 강사·지사·대리점을 막으므로 메뉴도 같이 감춘다(짝). */
+        { ko: '쓰기 숙제 현황', en: 'Writing homework', href: '/admin/scene-homework.html',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '✍️ 교재 낱말 쓰기 숙제 — 학생별 횟수·정답률·다시 볼 낱말, 학부모 안내 문자',
+          tipEn: '✍️ Textbook word-writing homework - per-student sessions, accuracy, words to review, parent notice',
+          secs: [
+            { ko: '📋 학생별 현황',     en: '📋 Per-student status', id: 'sh-list' },
+            { ko: '📱 학부모 안내 문자', en: '📱 Parent notice',      id: 'sh-notify' }
+          ] },
         { ko: '녹화',        en: 'Recordings',        cards: ['card-recording-storage'] },
         { ko: '학습 분석',   en: 'Learning analytics',cards: ['card-voice-stats', 'card-selfscore'] }
       ]
