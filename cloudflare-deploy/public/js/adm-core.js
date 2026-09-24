@@ -7204,6 +7204,7 @@ const EN_STATUS_META = {
 const EN_LIVE = ['pending', 'confirmed', 'active'];   // 아직 «살아 있는» 신청
 let _enItems = [];        // 마지막으로 받아온 원본 — 검색·중복필터는 재요청 없이 다시 그린다
 let _enDupOnly = false;
+let __enSel = new Set();  // 📥 (2026-09-24) 신청 목록에서 체크한 id — 엑셀·PDF 내보내기가 본다(다시 그려도 유지)
 let __enShown = [];       // 🗑️ _renderEnrollments() 가 방금 그린 목록(검색·상태·중복필터 반영)
                           //    — 일괄 삭제는 «반드시» 이것만 지운다. 삭제 쪽에서 조건을 다시
                           //    계산하면 필터 하나(중복만 보기)가 빠지는 날 안 보이는 행까지
@@ -7352,9 +7353,10 @@ function _renderEnrollments() {
   ));
   if (_enDupOnly) rows = rows.filter(isDup);
   __enShown = rows;   // 일괄 삭제(enDeleteAllVisible)가 보는 «화면에 실제로 그린» 목록
+  _enSyncSelUI();
 
   if (!rows.length) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">' +
+    tb.innerHTML = '<tr><td colspan="7" class="empty">' +
       (_enItems.length
         ? (en ? 'Nothing matches this filter' : '이 조건에 맞는 신청이 없습니다')
         : (en ? 'No enrollments visible to your role' : '권한 범위에 표시할 수강신청이 없습니다')) +
@@ -7393,6 +7395,9 @@ function _renderEnrollments() {
         + (en ? 'DUP?' : '중복?') + '</span>' : '';
 
     return '<tr>' +
+      '<td style="text-align:center"><input type="checkbox" class="en-sel" data-id="' + it.id + '"' +
+        (__enSel.has(String(it.id)) ? ' checked' : '') + ' onchange="enToggleSel(this)" aria-label="' +
+        (en ? 'Select for export' : '내보내기 선택') + '"></td>' +
       '<td style="white-space:nowrap">' + _fmtDate(it.created_at) + '</td>' +
       '<td><b>' + _esc(it.student_name) + '</b>' + dupBadge + (who ? '<br>' + who : '') + _enPhoneCell(it) + '</td>' +
       '<td>' + _esc(it.package || '—') + (sub ? '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span>' : '') + '</td>' +
@@ -7429,8 +7434,104 @@ function _renderEnrollments() {
             'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
           : '') +
       '</td></tr>' +
-      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
+      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="7" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
+}
+
+/* 📥 (2026-09-24 사장님 지시) 신청 목록 → 엑셀·PDF 내보내기 + 「이 중에 골라서」.
+   [왜] 그동안 엑셀은 «일괄 등록을 누른 순간» 한 번만 자동으로 받아졌다 — 잃어버리면 다시 받을
+     길이 없고, 엑셀·워드를 동시에 받으면 브라우저가 막기도 한다. 그 자동 다운로드는 그대로 두고(A안)
+     언제든 다시 받는 버튼을 목록에 둔다.
+   ✅ 체크한 줄이 있으면 그것만, 없으면 «지금 화면에 보이는» 목록(__enShown — 검색·상태·중복필터 반영) 전체.
+   ✅ 강사는 신청서에 저장된 teacher_name(확정 때 서버가 실제로 배정한 강사)을 그대로 쓴다.
+   ⛔ PDF 는 라이브러리를 새로 싣지 않는다(한글 글꼴을 넣으면 수 MB) — 숨긴 iframe 에 표를 그려
+      브라우저 인쇄 창을 열고 «PDF로 저장» 을 고르게 한다. window.open 이 아니라서 팝업 차단에도 안 걸린다. */
+function _enSelRows() {
+  const picked = __enShown.filter(it => __enSel.has(String(it.id)));
+  return picked.length ? picked : __enShown.slice();
+}
+function _enSyncSelUI() {
+  const en = (adminLang === 'en');
+  // 목록에서 사라진(필터·삭제) id 는 선택에서도 뺀다 — 안 보이는 줄이 몰래 내보내지면 안 된다
+  const shownIds = new Set(__enShown.map(it => String(it.id)));
+  Array.from(__enSel).forEach(id => { if (!shownIds.has(id)) __enSel.delete(id); });
+  const n = __enSel.size, total = __enShown.length;
+  const all = document.getElementById('en-sel-all');
+  if (all) { all.checked = total > 0 && n === total; all.indeterminate = n > 0 && n < total; }
+  const lab = document.getElementById('en-export-count');
+  if (lab) lab.textContent = n
+    ? (en ? n + ' selected' : n + '건 선택됨')
+    : (en ? 'none selected = all ' + total + ' shown' : '선택 없음 = 보이는 ' + total + '건 전체');
+}
+function enToggleSel(cb) {
+  const id = String(cb.getAttribute('data-id'));
+  if (cb.checked) __enSel.add(id); else __enSel.delete(id);
+  _enSyncSelUI();
+}
+function enToggleSelAll(cb) {
+  __enSel.clear();
+  if (cb.checked) __enShown.forEach(it => __enSel.add(String(it.id)));
+  document.querySelectorAll('#enrollments-table input.en-sel').forEach(x => { x.checked = cb.checked; });
+  _enSyncSelUI();
+}
+function _enExportTable() {
+  const en = (adminLang === 'en');
+  const head = en
+    ? ['Created', 'Student', 'ID', 'Package', 'Monthly fee (KRW)', 'Days', 'Time', 'Class size', 'Teacher', 'Duration', 'Start', 'Status']
+    : ['신청일', '학생 이름', '아이디', '패키지', '월 수강료(원)', '요일', '시간', '인원 방식', '강사', '수업 기간', '시작일', '상태'];
+  const rows = _enSelRows().map(it => {
+    const m = _enStatusMeta(it.status);
+    return [
+      _fmtDate(it.created_at), it.student_name || '', it.student_user_id || '', it.package || '',
+      it.monthly_fee_krw ? Number(it.monthly_fee_krw) : '',
+      it.days_of_week || '', it.time || '', it.class_size || '', it.teacher_name || '',
+      _enDurLabel(it.duration_months, en), it.started_at ? _fmtDate(it.started_at) : '',
+      en ? m.en : m.ko
+    ];
+  });
+  return { head: head, rows: rows };
+}
+function enExportList(kind) {
+  const en = (adminLang === 'en');
+  const t = _enExportTable();
+  if (!t.rows.length) { alert(en ? 'Nothing to export in the list.' : '내보낼 신청이 없습니다.'); return; }
+  const d = new Date();
+  const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  const title = (en ? 'Enrollments_' : '수강신청_목록_') + t.rows.length + (en ? '' : '건') + '_' + stamp;
+  if (kind === 'csv') {
+    const q = v => (typeof v === 'number') ? String(v) : '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = '\ufeff' + [t.head].concat(t.rows).map(r => r.map(q).join(',')).join('\n') + '\n';
+    _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), title + '.csv');
+    return;
+  }
+  // PDF — 숨긴 iframe 에 인쇄용 표를 그리고 인쇄 창(→ PDF로 저장)을 연다
+  const cell = v => _aiEsc(typeof v === 'number' ? v.toLocaleString('ko-KR') : String(v == null ? '' : v)) || '—';
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + _aiEsc(title) + '</title><style>' +
+    '@page{size:A4 landscape;margin:12mm}' +
+    'body{font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#101828;font-size:10pt}' +
+    'h1{font-size:15pt;margin:0 0 4px;color:#9a3412}p{margin:0 0 10px;color:#475467;font-size:9pt}' +
+    'table{border-collapse:collapse;width:100%}' +
+    'th{background:#fef3c7;color:#78350f;text-align:left;padding:5px 6px;border:1px solid #d6d3d1;font-size:9pt}' +
+    'td{padding:5px 6px;border:1px solid #d6d3d1;font-size:9pt;vertical-align:top}' +
+    'tr{page-break-inside:avoid}thead{display:table-header-group}' +
+    '</style></head><body><h1>' + (en ? '📚 Mangoi enrollments' : '📚 망고아이 수강신청 목록') + '</h1>' +
+    '<p>' + t.rows.length + (en ? ' rows · ' : '건 · ') + _aiEsc(d.toLocaleString('ko-KR')) + '</p>' +
+    '<table><thead><tr>' + t.head.map(h => '<th>' + _aiEsc(h) + '</th>').join('') + '</tr></thead><tbody>' +
+    t.rows.map(r => '<tr>' + r.map(v => '<td>' + cell(v) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></body></html>';
+  let fr = document.getElementById('en-print-frame');
+  if (fr) fr.remove();
+  fr = document.createElement('iframe');
+  fr.id = 'en-print-frame';
+  fr.setAttribute('aria-hidden', 'true');
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(fr);
+  const doc = fr.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  setTimeout(function () {
+    try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+    catch (e) { alert((en ? 'Could not open the print window: ' : '인쇄 창을 열지 못했습니다: ') + (e.message || e)); }
+  }, 300);
 }
 
 /* 🗓️ (2026-08-14) 수업 기간 값 → 사람이 읽는 라벨. 목록·CSV·카톡 요약이 같은 표기를 쓰도록 한곳에 둔다.
