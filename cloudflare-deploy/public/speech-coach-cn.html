@@ -218,6 +218,34 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <script src="/js/session-guard.js" defer></script>
 <!-- 🎤 Azure 발음평가 공용 서비스 계층(영어 코치와 공유) — zh-CN 음소 평가 (2026-08-10) -->
 <script src="/js/speech-azure.js?v=1" defer></script>
+<!-- 👩‍🏫 (2026-09-23) 선생님 얼굴 — 사장님 «중국어 발음 연습 화면에도 선생님 얼굴 넣어줘».
+     얼굴은 메이 선생님(mei)으로 «고정» 한다: 이 화면의 서버 중국어 음성은 화자를 못 고르는
+     여자 목소리 하나라, 남자 얼굴(룽)을 두면 얼굴과 목소리가 어긋난다.
+     공용 CSS(mango-avatar.css)가 모양·말할 때 반짝임을 주고, 크기는 아래 <style> 이 정한다. -->
+<script>window.__mgAvatarWant = 'mei';</script>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=3">
+<style>
+/* 크기: 폭·높이를 --av-w 하나로 정하고 4:5 로 계산 + !important
+   (mango-avatar.js 가 높이를 인라인으로 한 번 넣는데 인라인이 CSS 높이를 이긴다).
+   · 폰 150(세로 800↑) · 130 · 작은 폰 104 · 폰 가로 72 — 발음 카드 맨 위 가운데
+   · 태블릿·노트북 180 — 발음 카드 맨 위 가운데
+   · 넓은 PC(≥1300): 카드(900px) «오른쪽 빈 여백» 에 고정(160~300px).
+     ⛔ 왼쪽에 두지 말 것 — 왼쪽 가운데에 «메뉴» 손잡이(mg-sidebar.js)가 있다.
+   감시: test-harness/manual/speech-coach-cn-avatar-browser.mjs */
+#tavatar-wrap{ --av-w:150px; margin:0 auto 14px; }
+#tavatar-wrap #tavatar-ring{ width:var(--av-w)!important; height:calc(var(--av-w) * 1.25)!important; }
+#tavatar-status{ font-size:13px; }
+@media (max-width:640px) and (max-height:799px){ #tavatar-wrap{ --av-w:130px; } }
+@media (max-width:640px) and (max-height:700px){ #tavatar-wrap{ --av-w:104px; margin-bottom:10px; } }
+@media (min-width:641px){ #tavatar-wrap{ --av-w:min(180px, calc((100vh - 200px) * .8)); } }
+@media (max-height:520px){ #tavatar-wrap{ --av-w:72px; } }
+@media (min-width:1300px) and (min-height:640px){
+  #tavatar-wrap{ position:fixed; right:24px; top:50%; transform:translateY(-50%); margin:0; z-index:40;
+    --av-w:clamp(160px, min(calc((100vw - 900px) / 2 - 48px), calc((100vh - 200px) * .8)), 300px); }
+  #tavatar-status{ font-size:15px; padding:5px 15px; }
+}
+</style>
+<script src="/js/mango-avatar.js?v=19" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -259,6 +287,16 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
 <!-- 메인 발음 카드 -->
 <div class="main-card">
+  <div id="tavatar-wrap">
+    <div id="tavatar-ring">
+      <canvas id="tavatar-canvas" width="320" height="400" aria-label="메이 선생님"></canvas>
+      <video id="tavatar-video" muted loop playsinline preload="none" disablepictureinpicture crossorigin="anonymous"></video>
+    </div>
+    <div id="tavatar-status">
+      <span class="ts-idle" data-ko="메이 선생님과 함께" data-en="With Teacher Mei">메이 선생님과 함께</span>
+      <span class="ts-talk" data-ko="말하는 중…" data-en="Speaking…">말하는 중…</span>
+    </div>
+  </div>
   <div class="prompt-label">📢 <span data-ko="아래 문장을 큰 소리로 따라 읽어보세요" data-en="Read aloud">아래 문장을 큰 소리로 따라 읽어보세요</span></div>
   <div class="chinese" id="cn-text">你好,我是学生。</div>
   <div class="pinyin" id="cn-pinyin">Nǐ hǎo, wǒ shì xuéshēng.</div>
@@ -1195,8 +1233,22 @@ function setTtsBtn(on){
 }
 let cnAudio = null;
 const cnTtsCache = {};
+/* 👩‍🏫 (2026-09-23) 입 모양 연결 — 오디오 요소를 «하나만» 만들어 다시 쓴다.
+   ⚠️ mango-avatar.js 의 attach() 는 WebAudio 로 «요소 하나» 만 물 수 있다(요소당 1회).
+      예전처럼 매번 new Audio() 를 만들면 두 번째 재생부터 입이 안 움직인다.
+   ⚠️ attach 는 재생할 때마다 부른다 — 아바타 모듈(defer)이 늦게 오면 첫 호출이 빈 함수라서.
+      같은 요소면 모듈이 알아서 그냥 돌아간다. */
+function cnAudioEl(){
+  if (!cnAudio) { cnAudio = new Audio(); cnAudio.preload = 'auto'; }
+  try { if (window.MangoAvatar && MangoAvatar.attach) MangoAvatar.attach(cnAudio); } catch(_){}
+  return cnAudio;
+}
+function avTalk(on){
+  try { if (window.MangoAvatar) (on ? MangoAvatar.plainStart : MangoAvatar.plainStop)(); } catch(_){}
+}
 function stopSpeak(){
   speaking = false;
+  avTalk(false);
   if (cnAudio) { try { cnAudio.pause(); } catch(_){} }
   try { speechSynthesis.cancel(); } catch(_){}
   setTtsBtn(false);
@@ -1239,8 +1291,10 @@ async function speak(){
     count++;
     showLabel();
     if (url) {
-      cnAudio = new Audio(url);
+      cnAudioEl();
+      cnAudio.src = url;
       cnAudio.playbackRate = state.speed;
+      avTalk(true);
       cnAudio.onended = function(){ if (speaking) setTimeout(playOnce, 280); };
       cnAudio.onerror = function(){ stopSpeak(); };
       cnAudio.play().catch(function(){ stopSpeak(); });
@@ -1257,6 +1311,7 @@ async function speak(){
     //    기본(한국어) 보이스가 중국어 문장을 엉터리로 읽는다(영어판 '이상한 한국말' 사고와 동일).
     if (!cn) { stopSpeak(); return; }
     u.voice = cn;
+    u.onstart = function(){ avTalk(true); };
     u.onend = function(){ if (speaking) setTimeout(playOnce, 280); };
     u.onerror = function(){ stopSpeak(); };
     try { speechSynthesis.cancel(); } catch(_){}
