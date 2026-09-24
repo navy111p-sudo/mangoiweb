@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 const root = new URL('../cloudflare-deploy/src/', import.meta.url);
 const modSrc = readFileSync(new URL('tts-short-text.ts', root), 'utf8');
 const games = readFileSync(new URL('api-games.ts', root), 'utf8');
+const exam = readFileSync(new URL('api-exam.ts', root), 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };
 
@@ -65,6 +66,28 @@ for (const [name, anchor] of [['voice/tts', "path === '/api/voice/tts'"], ['revi
   }
   ok('복습퀴즈: 중국어 퀴즈의 병음은 그대로 (ni hao)', zhOut === 'ni hao');
   ok('복습퀴즈 짝: 영어 퀴즈 낱말은 Study.', enOut === 'Study.');
+}
+// ④ 시험 듣기(GET /api/exam/tts, MeloTTS) — 같은 정본을 캐시 키보다 먼저 (2026-09-24)
+{
+  ok('시험: 정본을 import 한다', /import\s*\{\s*ttsShortText\s*\}\s*from\s*'\.\/tts-short-text'/.test(exam));
+  const body = routeBody(exam, "path === '/api/exam/tts'");
+  ok('전제: exam/tts 라우트를 잘라 냈다', body.length > 500);
+  const m = body.match(/const text = ttsShortText\(([\s\S]*?)\);\n/);
+  const iText = m ? m.index : -1;
+  const iKey = body.search(/TextEncoder\(\)\.encode\(/);
+  ok('시험: text 가 ttsShortText 로 만들어진다', iText >= 0);
+  ok('시험: 캐시 키보다 먼저', iText >= 0 && iKey > iText);
+  ok('시험: text 선언이 하나뿐', (body.match(/const text\s*=/g) || []).length === 1);
+  let w = '__ERR__', l = '__ERR__';
+  if (m && fn) {
+    try {
+      const call = new Function('ttsShortText', 'url', 'return ttsShortText(' + m[1] + ');');
+      const u = (t) => ({ searchParams: new URLSearchParams({ text: t }) });
+      w = call(fn, u('study')); l = call(fn, u('Listen and choose the best answer'));
+    } catch (e) { console.log('  (시험 호출 평가 실패: ' + e.message + ')'); }
+  }
+  ok('시험: 낱말 하나 → Study.', w === 'Study.');
+  ok('시험 짝: 긴 문장은 그대로', l === 'Listen and choose the best answer');
 }
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
