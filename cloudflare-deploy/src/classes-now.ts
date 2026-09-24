@@ -20,6 +20,7 @@
  *    매니저에게만 안 보이는」 사고를 이미 겪었다(2026-08-06).
  */
 import { mirrorNoteClassId } from './c24-mirror';
+import { recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 
 /** 화면이 «참관 버튼을 달아도 되는가» 를 가르는 값. */
 export type ClassesNowSource = 'mangoi' | 'cafe24';
@@ -85,6 +86,7 @@ export function liveOverlaps(lr: LiveRow, start: number, end: number, graceMs: n
 export interface SchedRow {
   id: any; user_id?: any; student_name?: any; class_type?: any; source?: any; notes?: any;
   day_of_week?: any; scheduled_date?: any; start_time?: any; duration_min?: any; teacher_id?: any;
+  starts_on?: any;   // 📅 매주 반복의 시작일 — 그 전 날짜에는 안 열린다(src/class-start-date.ts)
   t_name?: any; stu_ko?: any; stu_en?: any;
 }
 
@@ -116,7 +118,7 @@ export function buildMangoiClassesNow(rows: SchedRow[], w: ClassesNowWindow, dep
       // ⛔ Number() 로 비교하지 말 것: 운영 값에 'Thu'·'목'·'1,3,5' 가 섞여 있어 조용히 NaN 이 된다
       let occurs = false;
       if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === d);
-      else if (s.day_of_week != null && s.day_of_week !== '') occurs = deps.dowMatches(s.day_of_week, dow);
+      else if (s.day_of_week != null && s.day_of_week !== '') occurs = deps.dowMatches(s.day_of_week, dow) && recurStartedOn(s, d);
       if (!occurs) continue;
 
       const hm = String(s.start_time || '00:00').split(':');

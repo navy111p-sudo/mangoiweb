@@ -57,6 +57,7 @@ import { resolveRecordingStudents } from './recording-students';   // 🎓 녹�
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 
@@ -843,7 +844,7 @@ export async function handleMangoApi(
         };
         const rs: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(userId).all();
         const rows = (rs?.results || []).filter((r: any) => String(r.status || 'active').toLowerCase() === 'active');
-        const cands = rows.filter((r: any) => (r.scheduled_date === date) || (!r.scheduled_date && dayMatches(r.day_of_week)));
+        const cands = rows.filter((r: any) => (r.scheduled_date === date) || (!r.scheduled_date && dayMatches(r.day_of_week) && recurStartedOn(r, date)));
         if (cands.length) {
           const picked = cands.find((s: any) => within(s)) || cands[0];
           scheduleId = (picked.id != null) ? Number(picked.id) : null;
@@ -1881,8 +1882,9 @@ export async function handleMangoApi(
       const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
-        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
+        const _soSelT = startsOnSel(await ensureStartsOnColumn(env), 'cs');
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
         let rows: any;
         try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
         catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
@@ -1894,7 +1896,7 @@ export async function handleMangoApi(
           // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
           let occurs = false;
           if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-          else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
+          else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
           if (!occurs) continue;
           seen.add(s.id);
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -2255,10 +2257,11 @@ export async function handleMangoApi(
       };
 
       const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
-        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, t.name AS teacher_name
+        const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type${_soSelM}, t.name AS teacher_name
                           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
                           WHERE cs.status != 'cancelled' AND ${cond}`;
-        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
         try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
         catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
       };
@@ -2306,9 +2309,23 @@ export async function handleMangoApi(
           const ny = nd.getUTCFullYear(), nmo = nd.getUTCMonth(), nda = nd.getUTCDate();
           nextStartTs = Date.UTC(ny, nmo, nda, hh, mm, 0) - MS_KST;
           nextDate = `${ny}-${msPad(nmo + 1)}-${msPad(nda)}`;
+          /* 📅 (2026-09-24) 시작일이 아직 안 왔으면 «시작일 이후 첫 회차» 로 민다. */
+          const so = normStartsOn(r.starts_on);
+          if (so && so > nextDate) {
+            const [sy, smo, sda] = so.split('-').map(Number);
+            for (let k = 0; k < 7; k++) {
+              const cd = new Date(Date.UTC(sy, smo - 1, sda + k));
+              if (dows.includes(cd.getUTCDay())) {
+                nextDate = `${cd.getUTCFullYear()}-${msPad(cd.getUTCMonth() + 1)}-${msPad(cd.getUTCDate())}`;
+                nextStartTs = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate(), hh, mm, 0) - MS_KST;
+                break;
+              }
+            }
+          }
         }
         return {
           schedule_id: r.id,
+          starts_on: normStartsOn(r.starts_on),
           day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
           day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
           scheduled_date: r.scheduled_date || null,

@@ -25,6 +25,7 @@ import { getReadingBandFor } from './api-judgment';
 // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 나눈다 — 손으로 90 씩 자르지 않는다
 import { selectInChunks } from './d1-chunk';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(관리자·매니저와 같은 정본)
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 
 interface TeacherEnv {
@@ -367,10 +368,11 @@ export async function handleTeacherApi(
        ⚠️ 주간 시간표(weekDays)·앞으로 7일(upcoming)에는 넣지 않는다 — 거기는 «앞으로 할 일» 이라
           취소된 것이 섞이면 시간표를 잘못 읽는다. */
     const whereSql = `(cs.status IS NULL OR cs.status <> 'cancelled' OR cs.scheduled_date = ?) AND (${conds.join(' OR ')})`;
+    const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');   // 📅 매주 반복의 시작일
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel},
               se.level AS level, se.textbook AS textbook,
               se.english_name AS student_en, se.eval_band AS eval_band
          FROM class_schedules cs
@@ -378,7 +380,7 @@ export async function handleTeacherApi(
         WHERE ${whereSql}`;
     const sqlPlain =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel}
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
     // ⚠️ whereSql 맨 앞에 취소-예외용 ? 하나가 늘었다 — 바인드 순서를 반드시 맞춘다.
@@ -457,7 +459,7 @@ export async function handleTeacherApi(
       for (let wi = 0; wi < 7; wi++) {
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
-          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow));
+          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow) && recurStartedOn(s, weekDays[wi].date));
         if (!hit) continue;
         const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
         weekDays[wi].items.push({
@@ -477,7 +479,7 @@ export async function handleTeacherApi(
       if (seen.has(s.id)) continue;
       let occurs = false;
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-      else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
+      else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
 
       // 🔄 오늘은 다른 강사가 대체 — 내 「오늘 수업」 목록에는 안 뜬다(위 hiddenToday 주석 참고).
       if (occurs && hiddenToday.has(Number(s.id))) continue;
@@ -965,10 +967,11 @@ export async function handleTeacherApi(
   if (isManager) {
     const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST 를 UTC ms 로
     const OPEN_BEFORE = 10 * 60 * 1000, LATE_AFTER = 15 * 60 * 1000;
+    const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
     const [allRs, nsRs] = await Promise.all([
       env.DB.prepare(
         `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
-                cs.start_time, cs.duration_min, cs.teacher_id, t.name AS teacher_name
+                cs.start_time, cs.duration_min, cs.teacher_id${_soSelM}, t.name AS teacher_name
            FROM class_schedules cs
            LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
           WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
@@ -984,7 +987,7 @@ export async function handleTeacherApi(
     for (const s of (allRs.results || [])) {
       const occurs = s.scheduled_date
         ? (s.scheduled_date === todayStr)
-        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow));
+        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr));
       if (!occurs) continue;
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;

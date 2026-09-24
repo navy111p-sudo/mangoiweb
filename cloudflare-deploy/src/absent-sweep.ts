@@ -18,6 +18,7 @@
  * 검증/진단: GET /api/admin/absent-sweep/run?dry=1 (관리자) — 발송 없이 감지 결과만 반환.
  */
 
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
@@ -123,7 +124,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -137,7 +138,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     if (seen.has(s.id)) continue;
     let occurs = false;
     if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));

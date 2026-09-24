@@ -7,6 +7,7 @@
 //   라우트: /api/parent/* + /api/admin/parent-chat/* + /api/student/{register,login,lookup,set-password}
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspectSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급+세션 사유 조회
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -537,7 +538,7 @@ ${MANGOI_KNOWLEDGE}`;
         /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
            (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
         env.DB.prepare(
-          `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind
+          `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind${startsOnSel(await ensureStartsOnColumn(env))}
              FROM class_schedules
             WHERE user_id = ? AND status = 'active'
               AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
@@ -588,7 +589,7 @@ ${MANGOI_KNOWLEDGE}`;
         const mins = Number(r.duration_min || 20) || 20;
         if (String(r.schedule_kind) === 'recurring') {
           for (let d = 0; d <= 6; d++) if (dowMatches(r.day_of_week, d)) { weekDows.add(d); if (r.start_time) noteTime(d, String(r.start_time)); }
-          if (dowMatches(r.day_of_week, k.dow) && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
+          if (dowMatches(r.day_of_week, k.dow) && recurStartedOn(r, k.ymd) && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
         } else if (r.scheduled_date) {
           const dd = kstParts(Date.parse(String(r.scheduled_date) + 'T12:00:00+09:00')).dow;
           weekDows.add(dd);
