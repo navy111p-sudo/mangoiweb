@@ -73,6 +73,7 @@ import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    /
 import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
+import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -6315,9 +6316,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
       binds.push(limit);
       // 1차: teachers JOIN 시도 (강사명 함께)
-      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       try {
         let rows;
         try {
@@ -6979,6 +6981,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
       if (kind === 'recurring' && !days.length) return bad('day_required', '반복 수업은 요일을 하나 이상 선택해 주세요.', 'Pick at least one weekday for a recurring class.');
       if (kind === 'one_off' && !/^\d{4}-\d{2}-\d{2}$/.test(schedDate)) return bad('date_required', '일회성 수업은 날짜(YYYY-MM-DD)를 입력해 주세요.', 'Enter a date (YYYY-MM-DD) for a one-off class.');
+      /* 📅 (2026-09-24) 매주 반복의 «시작일» — 없으면 오늘(KST). 정본 src/class-start-date.ts.
+         ⛔ scheduled_date 로 받지 말 것(그 칸이 있으면 «그 하루만» 이 된다). */
+      let startsOn: string | null = null;
+      if (kind === 'recurring') {
+        const rawSo = String(body.starts_on || '').trim();
+        if (rawSo && !normStartsOn(rawSo)) return bad('invalid_start_date', '시작일은 YYYY-MM-DD 형식이어야 합니다.', 'Start date must be YYYY-MM-DD.');
+        startsOn = normStartsOn(rawSo) || (kstYmdOfMs(Date.now()) as string);
+      }
+      const hasStartsOn = kind === 'recurring' ? await ensureStartsOnColumn(env) : false;
 
       // ── ⛔ 시간 겹침 검사 (2026-08-04 보강) ─────────────────────────────
       //   [기존 문제 1] `start_time = ?` 로 '시작 시각이 완전히 같은' 예약만 잡았다.
@@ -7057,10 +7068,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         : [{ dow: null as string | null, date: schedDate }];
       for (const t of targets) {
         try {
-          const ins = await env.DB.prepare(
-            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'admin_ui', ?, ?, ?)`
-          ).bind(userId, studentName || null, kind, classType, t.dow, t.date, startTime, durationMin, teacherId || null, actorName, now, notes).run();
-          created.push({ id: (ins?.meta?.last_row_id as number) ?? null, day_of_week: t.dow, scheduled_date: t.date, start_time: startTime });
+          const ins = (hasStartsOn && startsOn)
+            ? await env.DB.prepare(
+                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes, starts_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'admin_ui', ?, ?, ?, ?)`
+              ).bind(userId, studentName || null, kind, classType, t.dow, t.date, startTime, durationMin, teacherId || null, actorName, now, notes, startsOn).run()
+            : await env.DB.prepare(
+                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'admin_ui', ?, ?, ?)`
+              ).bind(userId, studentName || null, kind, classType, t.dow, t.date, startTime, durationMin, teacherId || null, actorName, now, notes).run();
+          created.push({ id: (ins?.meta?.last_row_id as number) ?? null, day_of_week: t.dow, scheduled_date: t.date, start_time: startTime, starts_on: (hasStartsOn ? startsOn : null) });
         } catch (e: any) {
           failed.push({ day_of_week: t.dow, scheduled_date: t.date, detail: String(e?.message || e).slice(0, 200) });
         }
@@ -7086,6 +7101,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         user_id: userId, student_name: studentName || null,
         teacher_id: teacherId || null, teacher_name: teacherName, teacher_matched: teacherMatched,
         schedule_kind: kind, start_time: startTime, duration_min: durationMin,
+        starts_on: hasStartsOn ? startsOn : null,
         // 강사가 teachers 에 없으면 교사 쪽 '오늘 내 수업' 조회가 비게 된다 → 화면이 경고하도록
         warning: (!teacherMatched && tRaw) ? '강사 "' + tRaw + '" 를 강사 명단(teachers)에서 찾지 못해 담당 강사 없이 등록했습니다. 강사 명단에 등록한 뒤 다시 지정해 주세요.' : null,
         warning_en: (!teacherMatched && tRaw) ? 'Teacher "' + tRaw + '" was not found in the teacher list, so the class was created without an assigned teacher. Add the teacher first, then reassign.' : null,
@@ -14707,9 +14723,10 @@ LIMIT $limit`;
 
         let schedRows: any[] = [];
         try {
+          const _soSelCn = startsOnSel(await ensureStartsOnColumn(env), 'cs');
           const rs2: any = await env.DB.prepare(
             `SELECT cs.id, cs.user_id, cs.student_name, cs.class_type, cs.source, cs.notes,
-                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id,
+                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id${_soSelCn},
                     t.name AS t_name, se.korean_name AS stu_ko, se.english_name AS stu_en
                FROM class_schedules cs
                LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)

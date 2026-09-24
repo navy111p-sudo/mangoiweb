@@ -135,7 +135,9 @@ const mJoin  = BLK.match(/const sqlWithJoin\s*=\s*(`[\s\S]*?`);/);
 const mNo    = BLK.match(/const sqlNoJoin\s*=\s*(`[\s\S]*?`);/);
 check('sqlWithJoin 템플릿을 읽었다', !!mJoin);
 check('sqlNoJoin 템플릿을 읽었다', !!mNo);
-const mkSql = (tmpl, where) => new Function('where', 'return ' + tmpl)(where);
+/* 📅 (2026-09-24) SELECT 에 starts_on 조각(_soSel)이 붙었다 — 칸이 없는 DB 에서 쓰는 모양(NULL AS starts_on)
+   으로 채워 돈다(정본 src/class-start-date.ts 의 startsOnSel(false)). */
+const mkSql = (tmpl, where) => new Function('where', '_soSel', 'return ' + tmpl)(where, ', NULL AS starts_on');
 
 /* ══ ③ 실제 조회 경로 네 가지를 진짜 SQLite 에 돌린다 ══ */
 console.log('\n③ 네 가지 조회 경로 — 두 SQL 을 실제로 prepare·실행한다');

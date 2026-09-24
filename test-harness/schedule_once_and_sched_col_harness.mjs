@@ -79,6 +79,12 @@ const msBlock = (msI >= 0 && msJ > msI) ? MANGO.slice(msI, msJ + MS_END.length) 
 // ⚠️ 전제 — 못 오려 내면 아래 검사가 빈 문자열을 보고 조용히 통과한다.
 ok('[전제] schedules 조립 블록을 오려 냈다', msBlock.length > 400);
 
+/* 📅 (2026-09-24) 블록이 시작일 정본 normStartsOn 을 부른다 — ⛔ 베끼지 말고 정본 파일에서 오려 온다. */
+const SO_SRC = rd('cloudflare-deploy/src/class-start-date.ts');
+const SO_FN = (SO_SRC.match(/const YMD = [^\n]*\n/) || [''])[0]
+  + ((SO_SRC.match(/export function normStartsOn[\s\S]*?\n}\n/) || [''])[0]).replace(/^export /, '');
+ok('[전제] 시작일 정본(normStartsOn)을 오려 냈다', /function normStartsOn/.test(SO_FN));
+
 let msRun = null;
 if (msBlock) {
   try {
@@ -93,6 +99,7 @@ export function run(msRows, msNow) {
     .filter((n: any) => n !== undefined);
   const DOW_LABEL_KO = ['일','월','화','수','목','금','토'];
   const DOW_LABEL_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  ${SO_FN}
   ${msBlock};
   return schedules;
 }`;
@@ -131,6 +138,10 @@ if (msRun) {
   ok('지난 일회성(9/14)은 빠진다 — 제보의 그 줄', ids(got) === '848,849,850,851');
   // ⛔ 짝 — 이것이 없으면 «전부 빼기» 도 통과한다
   ok('[짝] 매주 반복 4건은 그대로 남는다', got.length === 4);
+  // 📅 (2026-09-24) 매주 반복의 시작일이 미래면 «다음 회차» 가 시작일 이후 첫 요일로 밀린다
+  const soGot = msRun([row({ id: 20, day_of_week: 'fri', starts_on: '2026-10-09' })], NOW);
+  ok('시작일(10/9 금)이 미래면 다음 회차가 10/9 다', soGot[0] && soGot[0].next_date === '2026-10-09');
+  ok('[짝] 시작일이 지났으면 예전대로 이번 주 금요일(9/25)', (msRun([row({ id: 21, day_of_week: 'fri', starts_on: '2026-09-01' })], NOW)[0] || {}).next_date === '2026-09-25');
   ok('[짝] 오늘(9/21) 일회성은 남는다',
     ids(msRun([row({ id: 7, scheduled_date: '2026-09-21', start_time: '23:00' })], NOW)) === '7');
   ok('[짝] 앞으로 올 일회성(9/30)은 남는다',

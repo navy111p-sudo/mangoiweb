@@ -27,12 +27,12 @@ function el() {
     removeAttribute: k => { delete a[k]; } };
 }
 function run(fn) {
-  const kindEl = el(), daysWrap = el(), dateWrap = el(), msgEl = el();
+  const kindEl = el(), daysWrap = el(), dateWrap = el(), msgEl = el(), startWrap = el();
   let f;
-  try { f = new Function('kindEl', 'daysWrap', 'dateWrap', 'msgEl', saySrc + '\n' + syncSrc + '\nreturn { say, syncKind };')(kindEl, daysWrap, dateWrap, msgEl); }
+  try { f = new Function('kindEl', 'daysWrap', 'dateWrap', 'msgEl', 'startWrap', saySrc + '\n' + syncSrc + '\nreturn { say, syncKind };')(kindEl, daysWrap, dateWrap, msgEl, startWrap); }
   catch (e) { return { err: e.message }; }
-  try { fn(f, { kindEl, daysWrap, dateWrap, msgEl }); } catch (e) { return { err: e.message }; }
-  return { kindEl, daysWrap, dateWrap, msgEl };
+  try { fn(f, { kindEl, daysWrap, dateWrap, msgEl, startWrap }); } catch (e) { return { err: e.message }; }
+  return { kindEl, daysWrap, dateWrap, msgEl, startWrap };
 }
 
 // ① 등록 결과(❌ 요일 없음) → 종류를 바꾸면 지워진다
@@ -50,6 +50,10 @@ r = run((f, d) => { d.kindEl.value = 'one_off'; f.syncKind(); });
 ok(!r.err && r.daysWrap.style.display === 'none' && r.dateWrap.style.display === 'flex', 'One-off: 요일 숨김 · 날짜 보임(예전 그대로)');
 r = run((f, d) => { d.kindEl.value = 'recurring'; f.syncKind(); });
 ok(!r.err && r.daysWrap.style.display === 'flex' && r.dateWrap.style.display === 'none', 'Weekly: 요일 보임 · 날짜 숨김(예전 그대로)');
+// 📅 (2026-09-24) 시작일 칸은 매주 반복에서만 보인다 — 짝으로 본다(한쪽만 보면 «늘 보이기» 도 통과).
+ok(!r.err && r.startWrap.style.display === 'flex', 'Weekly: 시작일 칸이 보인다');
+r = run((f, d) => { d.kindEl.value = 'one_off'; f.syncKind(); });
+ok(!r.err && r.startWrap.style.display === 'none', 'One-off: 시작일 칸은 숨긴다(날짜 칸이 그 역할)');
 
 // ⑤ 배선: submit 안의 say 는 전부 'submit' 표식을 단다
 const sub = bodyAt(init, 'async function submit(force){');

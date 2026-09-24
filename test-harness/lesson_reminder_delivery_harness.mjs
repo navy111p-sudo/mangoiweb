@@ -37,7 +37,7 @@ const contactModule = new vm.SyntheticModule(['phonesForStudent'], function () {
   this.setExport('phonesForStudent', async (_env, uid) => contacts[uid] || { parent: '', student: '' });
 }, { context: ctx });
 modules.set('notify-contacts', contactModule);
-for (const name of ['lesson-reminder', 'lesson-reminder-delivery', 'solapi-client', 'site-url', 'owner-sms-mute']) {
+for (const name of ['lesson-reminder', 'lesson-reminder-delivery', 'solapi-client', 'site-url', 'owner-sms-mute', 'class-start-date']) {
   const code = stripTypeScriptTypes(readFileSync(resolve(SRC, name + '.ts'), 'utf8'));
   modules.set(name, new vm.SourceTextModule(code, { context: ctx, identifier: name }));
 }

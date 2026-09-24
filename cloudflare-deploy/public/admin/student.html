@@ -353,6 +353,12 @@
               <div id="ns-days-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">요일 / Days
                 <div style="display:flex;gap:4px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="0" style="margin:0">일 Sun</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="1" style="margin:0">월 Mon</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="2" style="margin:0">화 Tue</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="3" style="margin:0">수 Wed</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="4" style="margin:0">목 Thu</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="5" style="margin:0">금 Fri</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="6" style="margin:0">토 Sat</label></div>
               </div>
+              <!-- 📅 (2026-09-24) 매주 반복의 «시작일» — 사장님 「수업 시작 일자가 써있지 않아」.
+                   이 칸이 없어서 캘린더가 등록 전 지난달까지 거꾸로 그렸다(「수업을 입력하면 뒤로 수업이 가」).
+                   ⛔ scheduled_date 로 보내지 말 것 — 그 칸이 있으면 «그 하루만» 이 된다. 정본 src/class-start-date.ts -->
+              <label id="ns-start-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">시작일 / Start date
+                <input type="date" id="ns-start" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px">
+              </label>
               <label id="ns-date-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8;display:none">날짜 / Date
                 <input type="date" id="ns-date" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px">
               </label>
@@ -2707,12 +2713,26 @@ function mgsDowIdx(v) {
 function mgsYmd(d) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+/** 반복 예약의 시작일 'YYYY-MM-DD' — starts_on, 없으면 created_at(KST 날짜). 모르면 ''. */
+function mgsSchedStartYmd(sch) {
+  var so = String((sch && sch.starts_on) || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(so)) return so;
+  var ms = Number(sch && sch.created_at);
+  if (!isFinite(ms) || ms <= 0) return '';
+  return new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
 /** 이 예약(class_schedules 한 행)이 그 날짜에 열리는가. */
 function mgsSchedHitsDate(sch, date) {
   if (!sch || !date) return false;
   if (String(sch.status || '') === 'cancelled') return false;
   var sd = String(sch.scheduled_date || '').slice(0, 10);
   if (sd) return sd === mgsYmd(date);        // 🔴 날짜가 이긴다
+  /* 📅 (2026-09-24) 매주 반복은 «시작일» 전에는 안 그린다 — 서버 정본 recurStartedOn(src/class-start-date.ts)과
+     같은 규칙. 시작일이 없는 옛 행은 «등록한 날(created_at)» 을 바닥으로 쓴다
+     (사장님 「수업을 입력하면 뒤로 수업이 가」 — 등록 전 지난달까지 거꾸로 그렸다).
+     ⚠️ 둘 다 모르면 그린다(수업이 조용히 사라지는 쪽이 더 나쁘다). */
+  var so = mgsSchedStartYmd(sch);
+  if (so && mgsYmd(date) < so) return false;
   /* ⚠️ 구분자는 서버 정본 admDowMatches(api-admin.ts)와 «같은» 집합이라야 한다.
      쉼표만 보면 '1 3 5'·'Mon Thu'·'월/수'·'화·목' 이 조용히 한 칸도 안 그려진다. */
   var dows = String(sch.day_of_week || '').split(/[,\s/·]+/);
@@ -3088,7 +3108,8 @@ async function loadAiSchedules() {
     listEl.innerHTML = items.map(it => {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => dayNames[d] || d).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
-      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
+      const _so = it.scheduled_date ? '' : mgsSchedStartYmd(it);
+      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' + (_so ? ' · ' + _so + (_lang === 'en' ? '~' : ' 시작') : '') : '');
       /* 📅 (2026-09-21) 위 mgsOnceInfo() 가 정본 — 여기서 날짜를 다시 재지 말 것. */
       const _oi = mgsOnceInfo(it.scheduled_date, _mgsKstToday());
       const _onceChip = _oi.once
@@ -3225,6 +3246,10 @@ async function cancelAiSchedule(id) {
   var kindEl = document.getElementById('ns-kind');
   var daysWrap = document.getElementById('ns-days-wrap');
   var dateWrap = document.getElementById('ns-date-wrap');
+  var startWrap = document.getElementById('ns-start-wrap');
+  var startEl = document.getElementById('ns-start');
+  /* 기본값은 오늘(KST) — 서버도 비면 오늘로 적는다(같은 답). */
+  if (startEl && !startEl.value) { try { startEl.value = _mgsKstToday(); } catch (_) {} }
   var addBtn = document.getElementById('ns-add');
   var msgEl = document.getElementById('ns-msg');
   if (!kindEl || !addBtn) return;
@@ -3233,6 +3258,7 @@ async function cancelAiSchedule(id) {
     var one = kindEl.value === 'one_off';
     if (daysWrap) daysWrap.style.display = one ? 'none' : 'flex';
     if (dateWrap) dateWrap.style.display = one ? 'flex' : 'none';
+    if (startWrap) startWrap.style.display = one ? 'none' : 'flex';
     /* 🧹 (2026-09-23) 종류를 바꾸면 «앞 종류로 등록하다 받은» 결과 문구를 지운다.
        안 지우면 One-off 로 바꿔도 「요일을 하나 이상 골라주세요(반복 수업)」가 그대로 남아
        지금 폼이 틀린 것처럼 읽힌다(사장님 사진). ⛔ 강사 목록 폴백 안내처럼 «등록 결과가 아닌»
@@ -3371,6 +3397,7 @@ async function cancelAiSchedule(id) {
       schedule_kind: kindEl.value,
       days: days,
       scheduled_date: (document.getElementById('ns-date') || {}).value || undefined,
+      starts_on: (kindEl.value === 'recurring' && startEl && startEl.value) ? startEl.value : undefined,
       start_time: (document.getElementById('ns-time') || {}).value || '',
       duration_min: Number((document.getElementById('ns-dur') || {}).value || 30),
       teacher_id: _nsT.id || undefined,

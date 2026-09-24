@@ -17,6 +17,7 @@
  * 검증/진단: GET /api/admin/lesson-reminder/run?dry=1 (관리자) — 발송 없이 감지만.
  */
 
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import { deliverLessonReminder, ensureLessonReminderDeliveryTable, LESSON_REMINDER_FROM_PHONE } from './lesson-reminder-delivery';
 import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
@@ -106,7 +107,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id, teacher_name
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id, teacher_name${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -119,7 +120,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     if (seen.has(s.id)) continue;
     let occurs = false;
     if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -261,7 +262,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -275,7 +276,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     if (seen.has(s.id)) continue;
     let occurs = false;
     if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+    else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
