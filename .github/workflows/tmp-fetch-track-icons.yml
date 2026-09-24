@@ -15,8 +15,8 @@ jobs:
       - run: |
           set -e
           B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
-          curl -fsSL -o live.png "$B/hf_20260924_105139_8182d0c9-68c4-4e6a-9f0a-be989eb8b7d2.png"
-          curl -fsSL -o ai.png   "$B/hf_20260924_105140_a528847a-c53e-43fb-8c3a-9a2811fdc80d.png"
+          curl -fsSL -o live.png "$B/hf_20260924_105139_82d07493-374f-43ad-aebe-62f8c8bf58c5.png"
+          curl -fsSL -o ai.png   "$B/hf_20260924_105140_4095d85b-b729-450b-9818-5363d1073f95.png"
           D=cloudflare-deploy/public/img/home-tracks
           mkdir -p $D
           for n in live ai; do
