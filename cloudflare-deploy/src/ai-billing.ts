@@ -107,6 +107,11 @@ async function ensureSchema(env: Env): Promise<void> {
   //    바꿔도 이미 만든 청구서 금액은 안 바뀐다. 없는(NULL) 옛 청구서는 rate_krw × 인원 그대로.
   //    이미 있으면 "duplicate column" 으로 조용히 끝난다(멱등).
   try { await env.DB.prepare(`ALTER TABLE ai_billing_invoices ADD COLUMN price_rule TEXT`).run(); } catch (_) {}
+  // 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 명세 줄마다
+  //   track    = 마지막 자동 판정('live' 화상반 · 'ai' A.i반)
+  //   user_set = 학원이 체크를 직접 바꿨는가(1 이면 «인원 다시 확인» 이 그 줄을 다시는 안 건드린다).
+  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN track TEXT`).run(); } catch (_) {}
+  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN user_set INTEGER NOT NULL DEFAULT 0`).run(); } catch (_) {}
   _ensured = true;
 }
 
@@ -204,7 +209,7 @@ export async function loadLiveUids(env: Env): Promise<Set<string> | null> {
 /** 대리점(shop_name) 의 «지금» A.i반 학생 목록 = 재원(enrolledCond 정본) − 화상반.
  *  ok=false 면 명단을 믿을 수 없다(조회 실패) — rows 는 비어 있고 부르는 쪽은 아무것도 더하지 않는다. */
 async function currentRoster(env: Env, shopName: string, liveIn?: Set<string> | null):
-    Promise<{ ok: boolean; rows: Array<{ user_id: string; name: string }>; live_excluded: number }> {
+    Promise<{ ok: boolean; rows: Array<{ user_id: string; name: string }>; live_excluded: number; live_rows?: Array<{ user_id: string; name: string }> }> {
   /* 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다 — 카페24가 정본이라 지워도 밤에 되살아나므로
      «읽을 때» 거르는 것이 이 저장소의 관례다(정본 student-override.ts). 안 거르면 중복 계정이
      그대로 COUNT 에 들어가 대리점이 실제보다 많은 인원으로 청구받는다(실측 전례: 한 사람의
@@ -220,7 +225,34 @@ async function currentRoster(env: Env, shopName: string, liveIn?: Set<string> | 
     ).bind(shopName).all<{ user_id: string; name: string }>()).results || [];
   } catch { return { ok: false, rows: [], live_excluded: 0 }; }
   const rows = all.filter(r => !live.has(String(r.user_id).toLowerCase()));
-  return { ok: true, rows, live_excluded: all.length - rows.length };
+  const liveRows = all.filter(r => live.has(String(r.user_id).toLowerCase()));
+  return { ok: true, rows, live_excluded: all.length - rows.length, live_rows: liveRows };
+}
+
+/**
+ * 🎯 명세 줄의 «자동 분류» 다시 맞추기 — 순수 함수(D1 없음, 하니스가 실제로 돌린다).
+ *   · 학원이 직접 바꾼 줄(user_set=1)은 절대 안 건드린다 — «학원 확인» 이 이긴다.
+ *   · 나머지는 «상태를 지정» 한다: 화상반이면 제외(0), 아니면 포함(1). 뒤집기가 아니다.
+ *   · 명부에 없는 학생(퇴원 등)은 판정할 근거가 없으니 그대로 둔다.
+ *   ⛔ live 를 모르면(null) 부르지 말 것 — 호출부가 막는다(모르면 아무도 안 옮긴다).
+ */
+export function planItemTrackSync(
+  items: Array<{ id: number; student_user_id: string; included: number; user_set?: number; track?: string | null }>,
+  live: Set<string>, roster: Set<string>,
+): Array<{ id: number; included: number; track: string }> {
+  const out: Array<{ id: number; included: number; track: string }> = [];
+  for (const it of items) {
+    const uid = String(it.student_user_id || '').toLowerCase();
+    if (!roster.has(uid)) continue;
+    const track = live.has(uid) ? 'live' : 'ai';
+    if (Number(it.user_set) === 1) {
+      if (it.track !== track) out.push({ id: it.id, included: Number(it.included) ? 1 : 0, track });
+      continue;
+    }
+    const want = track === 'live' ? 0 : 1;
+    if (Number(it.included) !== want || it.track !== track) out.push({ id: it.id, included: want, track });
+  }
+  return out;
 }
 
 /** 학원별 예외 단가 — 없으면 null(= 인원 구간 단가). */
@@ -261,7 +293,7 @@ function priceFields(pr: AiPrice) {
  *   없으면 새로 만들고 그 순간의 단가를 스냅샷한다.
  */
 async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth: string, actor: string, liveIn?: Set<string> | null):
-    Promise<{ invoice_id: number; added: number; created: boolean; live_check_failed?: boolean }> {
+    Promise<{ invoice_id: number; added: number; created: boolean; live_check_failed?: boolean; live_listed?: number; auto_excluded?: number; auto_included?: number }> {
   await ensureSchema(env);
   // 화상반 목록을 «청구서를 만들기 전에» 읽는다 — 실패하면 빈 청구서 머리도 안 남긴다.
   const live = liveIn === undefined ? await loadLiveUids(env) : liveIn;
@@ -295,7 +327,6 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
   const rosterR = await currentRoster(env, shopName, live);
   if (!rosterR.ok) return { invoice_id: invoiceId, added: 0, created, live_check_failed: true };
   const roster = rosterR.rows;
-  if (!roster.length) return { invoice_id: invoiceId, added: 0, created };
   const now = Date.now();
   const stmt = env.DB.prepare(
     `INSERT OR IGNORE INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, added_manually, created_at)
@@ -308,7 +339,51 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
     const results = await env.DB.batch(batch.slice(i, i + 80));
     for (const r of results as any[]) added += Number(r?.meta?.changes || 0);
   }
-  return { invoice_id: invoiceId, added, created };
+  const sync = await syncItemTracks(env, invoiceId, rosterR.live_rows || [], roster, live, manualFlag, now);
+  return { invoice_id: invoiceId, added, created, ...sync };
+}
+
+/**
+ * 🎯 추천안 ① «자동 분류 + 학원 확인» — 화상반 학원생도 명세에 «체크 해제된 줄(track='live')» 로 보이게 하고,
+ *   학원이 손대지 않은 줄은 지금 판정대로 다시 맞춘다(planItemTrackSync). 판정이 틀렸으면 학원이 체크해서
+ *   포함시키고(user_set=1), 그 뒤로는 자동이 그 줄을 안 건드린다.
+ *   실패는 삼키고 «옛 동작»(A.i반만 명세에 있음)으로 남는다 — 청구 인원을 늘리는 쪽으로는 절대 실패하지 않는다.
+ */
+async function syncItemTracks(env: Env, invoiceId: number, liveRows: Array<{ user_id: string; name: string }>,
+    aiRows: Array<{ user_id: string; name: string }>, live: Set<string>, manualFlag: number, now: number):
+    Promise<{ live_listed: number; auto_excluded: number; auto_included: number }> {
+  const res = { live_listed: 0, auto_excluded: 0, auto_included: 0 };
+  try {
+    if (liveRows.length) {
+      const st = env.DB.prepare(
+        `INSERT OR IGNORE INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, added_manually, created_at, track)
+         VALUES (?, ?, ?, 0, ?, ?, 'live')`);
+      const b = liveRows.map((s) => st.bind(invoiceId, s.user_id, s.name, manualFlag, now));
+      for (let i = 0; i < b.length; i += 80) {
+        const rr = await env.DB.batch(b.slice(i, i + 80));
+        for (const r of rr as any[]) res.live_listed += Number(r?.meta?.changes || 0);
+      }
+    }
+    const items = (await env.DB.prepare(
+      `SELECT id, student_user_id, included, user_set, track FROM ai_billing_invoice_items WHERE invoice_id = ?`
+    ).bind(invoiceId).all<any>()).results || [];
+    const rosterSet = new Set<string>([...aiRows, ...liveRows].map(r => String(r.user_id).toLowerCase()));
+    const plan = planItemTrackSync(items, live, rosterSet);
+    const before = new Map<number, number>(items.map((it: any) => [Number(it.id), Number(it.included) ? 1 : 0]));
+    const up = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, track = ? WHERE id = ? AND invoice_id = ? AND COALESCE(user_set,0) = 0`);
+    const upTrack = env.DB.prepare(`UPDATE ai_billing_invoice_items SET track = ? WHERE id = ? AND invoice_id = ?`);
+    const stmts = plan.map((x) => {
+      const was = before.get(x.id);
+      if (was === 1 && x.included === 0) res.auto_excluded++;
+      if (was === 0 && x.included === 1) res.auto_included++;
+      const it: any = items.find((i: any) => Number(i.id) === x.id);
+      return Number(it?.user_set) === 1 ? upTrack.bind(x.track, x.id, invoiceId) : up.bind(x.included, x.track, x.id, invoiceId);
+    });
+    for (let i = 0; i < stmts.length; i += 80) await env.DB.batch(stmts.slice(i, i + 80));
+  } catch (e) {
+    console.warn('[ai-billing] track sync skipped:', String((e as any)?.message || e));
+  }
+  return res;
 }
 
 /** 매달 1일 KST cron 훅 — 모든 대리점의 «다음 달» 청구서를 생성/보강한다. */
@@ -480,7 +555,10 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
         live_excluded: roster.live_excluded, ...priceFields(pr),
       });
     }
+    // track·user_set 칸이 없는 DB(ALTER 실패)면 옛 SELECT 로 떨어진다 — 명세가 통째로 비면 안 된다.
     const items = await safe(async () => (await env.DB.prepare(
+      `SELECT id, student_user_id, student_name, included, added_manually, track, COALESCE(user_set,0) AS user_set FROM ai_billing_invoice_items WHERE invoice_id = ? ORDER BY student_name`
+    ).bind(inv.id).all<any>()).results || [], null as any) ?? await safe(async () => (await env.DB.prepare(
       `SELECT id, student_user_id, student_name, included, added_manually FROM ai_billing_invoice_items WHERE invoice_id = ? ORDER BY student_name`
     ).bind(inv.id).all<any>()).results || [], [] as any[]);
     const includedCount = items.filter((i: any) => i.included).length;
@@ -520,8 +598,14 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
-    await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`)
-      .bind(included, invoiceId, studentUid).run();
+    // user_set=1 — «학원 확인» 표시. 이 줄은 이제 «인원 다시 확인» 의 자동 분류가 다시 안 건드린다.
+    try {
+      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1 WHERE invoice_id = ? AND student_user_id = ?`)
+        .bind(included, invoiceId, studentUid).run();
+    } catch (_) {
+      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`)
+        .bind(included, invoiceId, studentUid).run();
+    }
     return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included });
   }
 
