@@ -17,7 +17,8 @@ import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // �
 import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
 import { azureZhVoice, azureTts } from './azure-tts';  // 🀄 중국어 «진짜 남성 성우»(키 없으면 자동으로 건너뜀)
-import { azureTtsAllowed, azureTtsCapKey } from './voice-tts-cap';  // 💸 돈 상한 판정 정본(무인증 API)
+import { azureTtsAllowed, azureTtsCapKey } from './voice-tts-cap';
+import { ttsShortText } from './tts-short-text';  // 🔊 짧은 영어 낱말을 «Study.» 모양으로(Aura 가 낱말 하나를 어색하게 읽음)  // 💸 돈 상한 판정 정본(무인증 API)
 import type { MangoEnv } from './api-mango';
 // ✒️ 문장 종결부호 정본 — 문제문·해설·읽을 문장에만 씁니다(2026-08-26).
 //    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
@@ -1824,9 +1825,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
       const q = qs[idx];
-      const text = (q && q.type === 'listen') ? String(q.audio_text || '').trim().slice(0, 300) : '';
-      if (!text) return json({ ok: false, error: 'not_a_listen_question' }, 400);
       const isZh = row.lang === 'zh';
+      // 🔊 짧은 영어 낱말은 `Study.` 모양으로(정본 ttsShortText) — 중국어는 한 글자도 안 바꾼다
+      const text = ttsShortText((q && q.type === 'listen') ? String(q.audio_text || '').trim().slice(0, 300) : '', isZh ? 'zh' : 'en');
+      if (!text) return json({ ok: false, error: 'not_a_listen_question' }, 400);
       const ai = (env as any).AI;
       if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
       const audioHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
@@ -2439,8 +2441,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       try {
         const b: any = await request.json().catch(() => ({}));
         // 400자 컷은 문장 중간에서 낭독이 뚝 끊기는 원인이었다 — Aura 한도(2000자) 안에서 여유있게.
-        const text = String(b.text || '').trim().slice(0, 1500);
         const lang = String(b.lang || 'en').toLowerCase();
+        // 🔊 낱말 하나(`study`)는 `Study.` 로 — 모든 화면이 이 입구를 지나므로 여기 한 곳에서 다듬는다(2026-09-24)
+        const text = ttsShortText(String(b.text || '').trim().slice(0, 1500), lang);
         if (!text) return json({ ok: false, error: 'text_required' }, 400);
         const ai = (env as any).AI;
         if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
