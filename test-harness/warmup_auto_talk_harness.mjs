@@ -65,6 +65,7 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
     speechSynthesis: { speaking: false },
     toggleMic() { calls.toggleMic++; win.WarmupAutoTalk.on('press'); win._recognizing = true; win.WarmupAutoTalk.on('mic', true); },
     micViaWhisper() { calls.micViaWhisper++; win._whisperOn = true; win.WarmupAutoTalk.on('mic', true); },
+    closeMenu() { calls.closeMenu = (calls.closeMenu || 0) + 1; menu.classList.remove('open'); },
     _micAbortQuiet() { calls.abort++; win._recognizing = false; win._whisperOn = false; win.WarmupAutoTalk.on('mic', false); },
   };
   win.window = win; win.parent = embedded ? {} : win;
@@ -179,6 +180,36 @@ console.log('\n[G] 모드 고르기');
   ok('G-1 자동을 고르면 저장된다', T.store.mangoi_warmup_talk_mode === 'auto');
   T.win.WarmupAutoTalk.setMode('button'); T.on('aiDone'); T.tick(5000);
   ok('G-2 버튼으로 되돌리면 다시 안 연다', T.calls.toggleMic === 0 && T.store.mangoi_warmup_talk_mode === 'button');
+}
+// 2026-09-24 제보 — 인사가 끝난 뒤 ⋮ 메뉴에서 «자동» 을 골랐는데 아무 일도 없었다.
+{
+  const T = makeWorld();
+  T.win.WarmupAutoTalk.setMode('auto'); T.tick(DELAY);
+  ok('G-3 조용할 때 자동을 고르면 그 자리에서 연다', T.calls.toggleMic === 1, T.calls);
+}
+{
+  const T = makeWorld(); T.win._ttsAudio = { paused: false, ended: false };
+  T.win.WarmupAutoTalk.setMode('auto'); T.tick(DELAY);
+  ok('G-4 (짝) AI 가 말하는 중에 고르면 안 연다', T.calls.toggleMic === 0, T.calls);
+}
+{
+  const T = makeWorld(); T.menu.classList.add('open');
+  T.win.WarmupAutoTalk.setMode('auto'); T.tick(DELAY);
+  ok('G-5 ⋮ 메뉴가 열린 동안에는 고르기만 하고 안 연다', T.calls.toggleMic === 0, T.calls);
+  T.win.closeMenu(); T.tick(DELAY - 1);
+  ok('G-6 메뉴를 닫아도 잔향 대기 전엔 안 연다', T.calls.toggleMic === 0);
+  T.tick(1);
+  ok('G-7 메뉴를 닫으면 연다(원래 closeMenu 도 그대로 불림)', T.calls.toggleMic === 1 && T.calls.closeMenu === 1 && !T.menu.classList.contains('open'), T.calls);
+}
+{
+  const T = makeWorld(); T.menu.classList.add('open');
+  T.win.closeMenu(); T.tick(5000);
+  ok('G-8 (짝) 버튼 모드에서 메뉴를 닫으면 안 연다', T.calls.toggleMic === 0 && T.calls.closeMenu === 1, T.calls);
+}
+{
+  const T = makeWorld({ mode: 'auto' });
+  T.win.closeMenu(); T.tick(5000);
+  ok('G-9 (짝) 이미 닫힌 메뉴를 또 닫는 호출(다른 기능이 부름)로는 안 연다', T.calls.toggleMic === 0, T.calls);
 }
 
 /* ── ⑥ warmup.html 의 배선 — speak() 를 오려 내 실제로 돌린다 ─────────── */
