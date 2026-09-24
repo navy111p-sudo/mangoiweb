@@ -9343,7 +9343,7 @@ async function _enAutoConfirm(id) {
     if (!r.ok || !d.ok) return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) };
     // 판정은 서버의 all_ok 를 따른다 — 한 단계라도 실패하면 서버가 상태를 안 올린다
     const failed = (d.steps || []).filter(s => !s.ok);
-    return { ok: d.all_ok !== false && failed.length === 0, steps: d.steps || [], failed: failed };
+    return { ok: d.all_ok !== false && failed.length === 0, steps: d.steps || [], failed: failed, teacher_name: d.teacher_name || '' };
   } catch (e) {
     return { ok: false, error: String(e.message || e) };
   }
@@ -9435,10 +9435,13 @@ async function addEnrollment() {
         end_date: r.end_date || '—',
         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
       };
-      autoExportEnrollment(enrollmentData);
       // ✅ 등록 = 확정. 별도 「확정」 클릭 없이 여기서 바로 이어 돌린다.
       if (status) status.textContent = '⏳ 확정 처리 중…';
       const cf = await _enAutoConfirm(d.id || d.enrollment_id);
+      /* 👩‍🏫 (2026-09-24) 내보내기를 확정 «뒤» 로 옮겼다 — 실제로 배정된 강사 이름을 싣기 위해
+         (서버 teacher_name 우선, 없으면 폼에 적은 이름, 그것도 없으면 —) */
+      enrollmentData.teacher = cf.teacher_name || r.teacher_name || '—';
+      autoExportEnrollment(enrollmentData);
       // 행 초기화
       document.getElementById('en-multi-rows').innerHTML = '';
       _addEnrollmentRow();
@@ -9514,6 +9517,8 @@ async function addEnrollment() {
           ? Object.assign({}, r, { monthly_fee_krw: j.fee.monthlyFeeKrw }) : r);
         // ✅ 등록 = 확정. 한 건씩 바로 이어 돌린다(별도 확정 클릭 없음).
         const cf = await _enAutoConfirm(j.id || j.enrollment_id);
+        /* 👩‍🏫 (2026-09-24) 엑셀·워드·카톡에 «실제로 배정된» 강사 — 서버 답(teacher_name)이 우선, 없으면 폼에 적은 이름 */
+        if (cf.teacher_name) successList[successList.length - 1] = Object.assign({}, successList[successList.length - 1], { _teacher: cf.teacher_name });
         if (cf.ok) confirmed++;
         else notConfirmed.push(r.student_user_id + ': ' +
           (cf.error || (cf.failed || []).map(s => s.detail).join(' / ') || '확정 보류'));
@@ -9573,7 +9578,8 @@ function autoExportBulkEnrollment(records) {
       '   유형: ' + ((r._types_ko || []).join(', ') || '—') +
       ' / 요일: ' + ((r._days_ko || []).join('') || '—') +
       ' / 시간: ' + (r._time || '—') +
-      ' / 인원: ' + (r._class_size || '—') + '\n' +
+      ' / 인원: ' + (r._class_size || '—') +
+      ' / 강사: ' + (r._teacher || r.teacher_name || '—') + '\n' +
       '   ' + (r.package || '—') +
       (r.monthly_fee_krw ? ' / ' + r.monthly_fee_krw.toLocaleString('ko-KR') + '원' : '') + '\n';
   });
@@ -9585,7 +9591,7 @@ function autoExportBulkEnrollment(records) {
   }).catch(() => {});
 
   // 통합 CSV (다행)
-  let csv = '﻿학생 이름,UID,수업 유형,구분,패키지,월 수강료(KRW),요일,시간,인원 방식,시작일\n';
+  let csv = '﻿학생 이름,UID,수업 유형,구분,패키지,월 수강료(KRW),요일,시간,인원 방식,강사,시작일\n';
   records.forEach(r => {
     const cat = r._category === 'test_only' ? '레벨테스트만' : r._category === 'full' ? '풀패키지' : (r._category || '');
     csv += '"' + (r.student_name||'').replace(/"/g, '""') + '",' +
@@ -9597,6 +9603,7 @@ function autoExportBulkEnrollment(records) {
            '"' + ((r._days_ko||[]).join('')) + '",' +
            '"' + (r._time || '') + '",' +
            '"' + (r._class_size || '') + '",' +
+           '"' + (r._teacher || r.teacher_name || '').replace(/"/g, '""') + '",' +
            (r._started_at_str || '') + '\n';
   });
   _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
@@ -9617,7 +9624,7 @@ function autoExportBulkEnrollment(records) {
     '<p>아래 ' + N + '명의 학생 수강신청이 정상 등록되었습니다. ' +
     '🔍 레벨테스트만 ' + records.filter(r=>r._category==='test_only').length + '명 / ' +
     '🌟 풀패키지 ' + records.filter(r=>r._category==='full').length + '명</p>' +
-    '<table><tr><th>#</th><th>학생</th><th>UID</th><th>유형</th><th>구분</th><th>패키지</th><th>수강료</th><th>요일</th><th>시간</th><th>인원</th><th>시작일</th></tr>';
+    '<table><tr><th>#</th><th>학생</th><th>UID</th><th>유형</th><th>구분</th><th>패키지</th><th>수강료</th><th>요일</th><th>시간</th><th>인원</th><th>강사</th><th>시작일</th></tr>';
   records.forEach((r, i) => {
     const tag = r._category === 'test_only' ? '🔍 레벨테스트만' : r._category === 'full' ? '🌟 풀패키지' : (r._category||'—');
     docHtml += '<tr>' +
@@ -9631,6 +9638,7 @@ function autoExportBulkEnrollment(records) {
       '<td>' + _aiEsc((r._days_ko||[]).join('') || '—') + '</td>' +
       '<td>' + _aiEsc(r._time || '—') + '</td>' +
       '<td>' + _aiEsc(r._class_size || '—') + '</td>' +
+      '<td>' + _aiEsc(r._teacher || r.teacher_name || '—') + '</td>' +
       '<td>' + _aiEsc(r._started_at_str || '—') + '</td>' +
       '</tr>';
   });
@@ -9660,6 +9668,7 @@ async function autoExportEnrollment(enr) {
     '요일: ' + (enr.days_ko || '—') + '\n' +
     '시간: ' + (enr.time || '—') + '\n' +
     '인원 방식: ' + (enr.class_size || '—') + '\n' +
+    '강사: ' + (enr.teacher || '—') + '\n' +
     '시작일: ' + enr.started_at + '\n' +
     '등록일시: ' + enr.created_at + '\n' +
     '━━━━━━━━━━━━━━━';
@@ -9689,6 +9698,7 @@ async function autoExportEnrollment(enr) {
     '"요일","' + (enr.days_ko || '') + '"\n' +
     '"시간","' + (enr.time || '') + '"\n' +
     '"인원 방식","' + (enr.class_size || '') + '"\n' +
+    '"강사","' + String(enr.teacher || '').replace(/"/g, '""') + '"\n' +
     '"시작일","' + enr.started_at + '"\n' +
     '"등록일시","' + enr.created_at + '"\n';
   _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
@@ -9720,6 +9730,7 @@ async function autoExportEnrollment(enr) {
       '<tr><th>요일</th><td>' + _aiEsc(enr.days_ko || '—') + '</td></tr>' +
       '<tr><th>시간</th><td>' + _aiEsc(enr.time || '—') + '</td></tr>' +
       '<tr><th>인원 방식</th><td>' + _aiEsc(enr.class_size || '—') + '</td></tr>' +
+      '<tr><th>강사</th><td>' + _aiEsc(enr.teacher || '—') + '</td></tr>' +
       '<tr><th>시작일</th><td>' + _aiEsc(enr.started_at) + '</td></tr>' +
       '<tr><th>등록일시</th><td>' + _aiEsc(enr.created_at) + '</td></tr>' +
     '</table>' +
