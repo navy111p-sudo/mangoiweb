@@ -3118,5 +3118,3189 @@
   "action": "stacking pancakes",
   "prompt": "Natural candid photograph. A cheerful young chef stacking the tallest pile of fluffy pancakes on a plate in a bright restaurant kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
   "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_093606_ca20727b-a440-4125-aca7-a7ad31c2cf27.png"
+ },
+ {
+  "index": 23001,
+  "book": "siu-advance-01",
+  "word": "globe",
+  "action": "pointing at a globe",
+  "prompt": "Natural candid photograph. A gray-haired teacher pointing at a large desk globe while explaining ocean currents to two attentive adult students in a sunny classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_f39007cc-3bf9-439f-b502-497d5217cf3c.png"
+ },
+ {
+  "index": 23002,
+  "book": "siu-advance-01",
+  "word": "magnifying glass",
+  "action": "holding a magnifying glass over a leaf",
+  "prompt": "Natural candid photograph. A young Korean woman holding a large magnifying glass over a green leaf, showing its veins to her curious friend at a garden table. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_6452f9c4-6ba9-4b0f-a341-3db32a0d3966.png"
+ },
+ {
+  "index": 23003,
+  "book": "siu-advance-01",
+  "word": "anatomical model",
+  "action": "taking apart an anatomical model",
+  "prompt": "Natural candid photograph. A man in a white lab coat taking apart a plastic anatomical heart model to show its chambers to a teenage student in a bright classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_97bf488e-b75b-4db6-905e-038c559e2ad1.png"
+ },
+ {
+  "index": 23004,
+  "book": "siu-advance-01",
+  "word": "gearbox",
+  "action": "turning the gears of a gearbox model",
+  "prompt": "Natural candid photograph. An older mechanic turning the gears of a transparent gearbox model while explaining how it works to a young apprentice in a clean workshop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_2b5a2b03-a2b7-421a-8b58-e8c2f5c28ef3.png"
+ },
+ {
+  "index": 23005,
+  "book": "siu-advance-01",
+  "word": "pulley",
+  "action": "pulling a rope through a pulley",
+  "prompt": "Natural candid photograph. A physics teacher pulling a rope through a metal pulley on a stand while two teenage students watch closely in a sunny lab. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_1a6c4f49-c7fd-429f-bbc6-7fb92890cf05.png"
+ },
+ {
+  "index": 23006,
+  "book": "siu-advance-01",
+  "word": "prism",
+  "action": "holding a glass prism in the sunlight",
+  "prompt": "Natural candid photograph. A smiling woman holding a glass prism in a sunbeam, casting a bright rainbow across a white wall for her surprised friend. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_943ef502-d9f2-4e17-bf8f-55b502911825.png"
+ },
+ {
+  "index": 23007,
+  "book": "siu-advance-01",
+  "word": "microscope",
+  "action": "adjusting a microscope",
+  "prompt": "Natural candid photograph. A Korean lab technician adjusting the focus of a microscope while explaining the sample to a young colleague leaning over her shoulder. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_9b070983-91ca-4643-820a-914ac9ebab77.png"
+ },
+ {
+  "index": 23008,
+  "book": "siu-advance-01",
+  "word": "telescope",
+  "action": "aiming a brass telescope",
+  "prompt": "Natural candid photograph. An elderly man aiming a brass telescope out of an open window and explaining how to focus it to his grown granddaughter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_1bbee4ca-04e6-4c5f-a529-4a3ba3666003.png"
+ },
+ {
+  "index": 23009,
+  "book": "siu-advance-01",
+  "word": "circuit board",
+  "action": "pointing to parts of a circuit board",
+  "prompt": "Natural candid photograph. A young engineer holding up a green circuit board and pointing to its tiny components for a curious coworker at a workbench. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_de44545c-d62a-4cd3-aa39-7b19050c45d1.png"
+ },
+ {
+  "index": 23010,
+  "book": "siu-advance-01",
+  "word": "sewing machine",
+  "action": "guiding fabric through a sewing machine",
+  "prompt": "Natural candid photograph. A grandmother guiding blue fabric through a sewing machine while showing her adult grandson how to keep the seam straight. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_ffde7ab1-e474-4167-adc8-5c97405881b7.png"
+ },
+ {
+  "index": 23011,
+  "book": "siu-advance-01",
+  "word": "pottery wheel",
+  "action": "shaping clay on a pottery wheel",
+  "prompt": "Natural candid photograph. A ceramic artist shaping wet clay on a spinning pottery wheel while demonstrating the technique to an attentive student sitting beside her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_a99c7c19-e223-4131-b4da-74e0985e5da0.png"
+ },
+ {
+  "index": 23012,
+  "book": "siu-advance-01",
+  "word": "compass",
+  "action": "holding a compass in her palm",
+  "prompt": "Natural candid photograph. A hiking guide holding an orienteering compass flat in her palm and showing a young man how to find north in a forest clearing. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_3674fe7c-c4a4-4457-bf83-2d1a7ee78e19.png"
+ },
+ {
+  "index": 23013,
+  "book": "siu-advance-01",
+  "word": "abacus",
+  "action": "sliding beads on an abacus",
+  "prompt": "Natural candid photograph. An elderly Korean man sliding beads on a wooden abacus while teaching a teenage girl to count at a sunny living room table. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_d2c2ec40-6fd0-42e8-97eb-b359f3406c94.png"
+ },
+ {
+  "index": 23014,
+  "book": "siu-advance-01",
+  "word": "loom",
+  "action": "weaving yarn on a wooden loom",
+  "prompt": "Natural candid photograph. A weaver passing colorful yarn through a large wooden loom and explaining the pattern to a visitor in a bright craft studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_82e802fd-bce2-47f0-9e51-4be345d51725.png"
+ },
+ {
+  "index": 23015,
+  "book": "siu-advance-01",
+  "word": "chessboard",
+  "action": "moving a knight on a chessboard",
+  "prompt": "Natural candid photograph. A father moving a knight across a wooden chessboard while explaining the move to his attentive teenage son at a cafe. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_ce6efa16-0864-4826-89df-8b02cf449a26.png"
+ },
+ {
+  "index": 23016,
+  "book": "siu-advance-01",
+  "word": "water filter",
+  "action": "pouring muddy water into a water filter",
+  "prompt": "Natural candid photograph. A science teacher pouring muddy water into a clear water filter so students can watch clean water drip out below. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_0d92dae8-8d79-47f0-93e2-5722ce63fbbe.png"
+ },
+ {
+  "index": 23017,
+  "book": "siu-advance-01",
+  "word": "funnel",
+  "action": "pouring liquid through a funnel",
+  "prompt": "Natural candid photograph. A chemistry teacher pouring blue liquid through a glass funnel into a flask while explaining each step to a focused student. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_7fede096-b106-45dc-928f-76e3e56fea09.png"
+ },
+ {
+  "index": 23018,
+  "book": "siu-advance-01",
+  "word": "3D printer",
+  "action": "watching a 3D printer build a model",
+  "prompt": "Natural candid photograph. A young woman pointing at a 3D printer building a small white plastic figure while explaining the process to her colleague. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_a38f1820-2136-4073-91fa-958ecf876cd2.png"
+ },
+ {
+  "index": 23019,
+  "book": "siu-advance-01",
+  "word": "tripod",
+  "action": "adjusting the legs of a tripod",
+  "prompt": "Natural candid photograph. A photographer adjusting the legs of a camera tripod and showing a beginner how to level it on a grassy park lawn. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_02896b6f-d46b-4fcf-b259-6f2116a7830d.png"
+ },
+ {
+  "index": 23020,
+  "book": "siu-advance-01",
+  "word": "easel",
+  "action": "sketching shapes on an easel pad",
+  "prompt": "Natural candid photograph. A woman sketching circles and arrows on a large easel pad to clarify an idea for two coworkers in a bright office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_3215588e-ddd4-4e63-9a99-069cd597e580.png"
+ },
+ {
+  "index": 23021,
+  "book": "siu-advance-02",
+  "word": "portfolio",
+  "action": "handing over a portfolio",
+  "prompt": "Natural candid photograph. A young Korean man handing a black leather portfolio across a desk to a smiling interviewer in a bright modern office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_74d05461-3620-42ef-9ddc-42848aca363e.png"
+ },
+ {
+  "index": 23022,
+  "book": "siu-advance-02",
+  "word": "name badge",
+  "action": "clipping on a name badge",
+  "prompt": "Natural candid photograph. A receptionist clipping a visitor name badge onto a young woman's blazer at a modern office front desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_1064240e-cea5-4223-b27a-1100e1073c6c.png"
+ },
+ {
+  "index": 23023,
+  "book": "siu-advance-02",
+  "word": "lanyard",
+  "action": "putting on a lanyard",
+  "prompt": "Natural candid photograph. A new employee pulling a blue lanyard over her head while a friendly HR manager smiles beside her in a sunny lobby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_fad15d59-ce09-4f9f-9c70-c9803c0d538b.png"
+ },
+ {
+  "index": 23024,
+  "book": "siu-advance-02",
+  "word": "briefcase",
+  "action": "carrying a briefcase",
+  "prompt": "Natural candid photograph. A middle-aged man carrying a brown leather briefcase up the steps of an office building on a bright morning. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104727_427a4a21-668e-41d9-a01a-e702bb7e17e4.png"
+ },
+ {
+  "index": 23025,
+  "book": "siu-advance-02",
+  "word": "necktie",
+  "action": "straightening his necktie",
+  "prompt": "Natural candid photograph. A young man straightening his striped necktie in front of a hallway mirror before walking into his job interview. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104813_7e77c1e4-38e2-4a36-b95b-dc64c8e3012a.png"
+ },
+ {
+  "index": 23026,
+  "book": "siu-advance-02",
+  "word": "blazer",
+  "action": "buttoning a navy blazer",
+  "prompt": "Natural candid photograph. A young woman buttoning a navy blazer while standing in a quiet office waiting area before her interview. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_e69d39c4-0861-49c6-b75d-14296bfe8b73.png"
+ },
+ {
+  "index": 23027,
+  "book": "siu-advance-02",
+  "word": "clipboard",
+  "action": "taking notes on a clipboard",
+  "prompt": "Natural candid photograph. An interviewer taking notes on a clipboard while a young candidate answers questions across a small round desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_43308c43-51bd-4bbc-b551-34410e4151d2.png"
+ },
+ {
+  "index": 23028,
+  "book": "siu-advance-02",
+  "word": "headset",
+  "action": "talking into a headset",
+  "prompt": "Natural candid photograph. A young woman wearing a headset and gesturing with her hands during an online interview at a tidy home desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_d5c41feb-f5a0-409e-a460-22df68339ba6.png"
+ },
+ {
+  "index": 23029,
+  "book": "siu-advance-02",
+  "word": "plaque",
+  "action": "handing over an award plaque",
+  "prompt": "Natural candid photograph. A senior manager handing a blank wooden award plaque to a proud employee while coworkers clap in a bright meeting room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_ad96df9f-368c-42e6-ae26-3d44749c7e09.png"
+ },
+ {
+  "index": 23030,
+  "book": "siu-advance-02",
+  "word": "fountain pen",
+  "action": "signing with a fountain pen",
+  "prompt": "Natural candid photograph. A new hire signing an employment contract with a silver fountain pen while the hiring manager watches and smiles. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_458887f8-8885-4fb6-baf6-8d0749127531.png"
+ },
+ {
+  "index": 23031,
+  "book": "siu-advance-02",
+  "word": "espresso machine",
+  "action": "pulling a shot on an espresso machine",
+  "prompt": "Natural candid photograph. A barista trainee pulling a shot on a large espresso machine while her supervisor watches and evaluates her skills. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104813_2bbbe077-a6d2-4ec5-b692-def5c42761b4.png"
+ },
+ {
+  "index": 23032,
+  "book": "siu-advance-02",
+  "word": "hard hat",
+  "action": "trying on a hard hat",
+  "prompt": "Natural candid photograph. A young woman trying on a white hard hat as a site manager welcomes her on her first day at a construction site. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_b8508388-5b1a-4694-b668-339c5c44ade3.png"
+ },
+ {
+  "index": 23033,
+  "book": "siu-advance-02",
+  "word": "keycard",
+  "action": "tapping a keycard on a door reader",
+  "prompt": "Natural candid photograph. A new employee tapping a white keycard against a door reader to enter the office for her very first time. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_f1954c8a-5763-4333-a5ef-f7a7dc6dc952.png"
+ },
+ {
+  "index": 23034,
+  "book": "siu-advance-02",
+  "word": "binder",
+  "action": "flipping through a binder",
+  "prompt": "Natural candid photograph. A job seeker flipping through a thick black binder of work samples at a quiet cafe before her interview. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_0bbff22c-cddc-447f-af7a-c78cecc2bcbf.png"
+ },
+ {
+  "index": 23035,
+  "book": "siu-advance-02",
+  "word": "wristwatch",
+  "action": "checking his wristwatch",
+  "prompt": "Natural candid photograph. A nervous young Korean man checking his silver wristwatch while sitting on a bench outside an interview room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_47801a94-ca67-49ed-a6a9-521725a5e021.png"
+ },
+ {
+  "index": 23036,
+  "book": "siu-advance-02",
+  "word": "business card",
+  "action": "exchanging business cards",
+  "prompt": "Natural candid photograph. Two professionals politely exchanging blank business cards with both hands in a bright glass-walled office lobby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_314b48a5-d7de-46db-b4df-9c8a11b636a6.png"
+ },
+ {
+  "index": 23037,
+  "book": "siu-advance-02",
+  "word": "mortarboard",
+  "action": "holding a mortarboard",
+  "prompt": "Natural candid photograph. A young graduate holding a black mortarboard and shaking hands with a recruiter at a sunny outdoor campus career fair. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_150e820e-6a09-40c6-9dbf-1955bd36f10d.png"
+ },
+ {
+  "index": 23038,
+  "book": "siu-advance-02",
+  "word": "swivel chair",
+  "action": "leaning back in a swivel chair",
+  "prompt": "Natural candid photograph. An interviewer leaning back in a black swivel chair and listening carefully to a candidate across a glass desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_e805d9ae-d10d-4168-9235-9ca05eb46776.png"
+ },
+ {
+  "index": 23039,
+  "book": "siu-advance-02",
+  "word": "water pitcher",
+  "action": "pouring water from a pitcher",
+  "prompt": "Natural candid photograph. An interviewer pouring water from a glass water pitcher into a cup for a smiling candidate in a meeting room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_5b23a13d-c1d4-419c-aba6-b2960d56789e.png"
+ },
+ {
+  "index": 23040,
+  "book": "siu-advance-02",
+  "word": "garment bag",
+  "action": "unzipping a garment bag",
+  "prompt": "Natural candid photograph. A young man unzipping a gray garment bag to take out a pressed suit in a bright apartment hallway before his interview. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_1b3e8bfb-19f9-4c4e-b0fb-892df5b1b17c.png"
+ },
+ {
+  "index": 23041,
+  "book": "siu-advance-03",
+  "word": "campfire",
+  "action": "telling a story beside a campfire",
+  "prompt": "Natural candid photograph. A grandfather telling a story beside a crackling campfire while three smiling adults listen on wooden logs at dusk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104852_91c061b2-6b40-4736-b325-cdadc1bfdd49.png"
+ },
+ {
+  "index": 23042,
+  "book": "siu-advance-03",
+  "word": "photo album",
+  "action": "turning the pages of a photo album",
+  "prompt": "Natural candid photograph. An elderly Korean woman turning the pages of an old photo album while telling her adult granddaughter about her youth. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_adf3bf32-19a2-4433-b5eb-0d5817e5a7f7.png"
+ },
+ {
+  "index": 23043,
+  "book": "siu-advance-03",
+  "word": "hand puppet",
+  "action": "performing with a hand puppet",
+  "prompt": "Natural candid photograph. A young woman performing with a fuzzy hand puppet behind a small wooden stage for a laughing group of adults. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_b884037d-9a8b-4725-a675-5b493c7fdeb2.png"
+ },
+ {
+  "index": 23044,
+  "book": "siu-advance-03",
+  "word": "acoustic guitar",
+  "action": "strumming an acoustic guitar",
+  "prompt": "Natural candid photograph. A young man strumming an acoustic guitar and singing a story song to his friends on a sunny front porch. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_460fc409-c32d-4cc2-8079-3380f29b7c39.png"
+ },
+ {
+  "index": 23045,
+  "book": "siu-advance-03",
+  "word": "typewriter",
+  "action": "typing on a typewriter",
+  "prompt": "Natural candid photograph. A novelist typing on a vintage typewriter at a sunlit wooden desk beside a tall open window. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104849_153c0482-b402-4f01-8b83-82a2e5000e2d.png"
+ },
+ {
+  "index": 23047,
+  "book": "siu-advance-03",
+  "word": "microphone",
+  "action": "speaking into a microphone",
+  "prompt": "Natural candid photograph. A woman speaking into a microphone on a small stage at a storytelling evening while the audience smiles warmly. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_d0c7782f-3c0f-4536-9b10-9ed8cba1b55f.png"
+ },
+ {
+  "index": 23048,
+  "book": "siu-advance-03",
+  "word": "scrapbook",
+  "action": "gluing photos into a scrapbook",
+  "prompt": "Natural candid photograph. A woman gluing old travel photos into a colorful scrapbook at a kitchen counter on a bright afternoon. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_1217efd0-b18f-4d0d-996a-90621e31dc72.png"
+ },
+ {
+  "index": 23049,
+  "book": "siu-advance-03",
+  "word": "rocking chair",
+  "action": "sitting in a rocking chair",
+  "prompt": "Natural candid photograph. An elderly man sitting in a wooden rocking chair and telling a story to his grown son on a sunny porch. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_7a5f486c-56a5-4dec-96fd-e5717948b7b5.png"
+ },
+ {
+  "index": 23050,
+  "book": "siu-advance-03",
+  "word": "lantern",
+  "action": "holding a glowing lantern",
+  "prompt": "Natural candid photograph. A tour guide holding a glowing lantern while telling an old village legend to a small smiling group on a stone path at dusk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_2c66d6cb-1812-42ba-86c0-1c04d314e58a.png"
+ },
+ {
+  "index": 23051,
+  "book": "siu-advance-03",
+  "word": "paintbrush",
+  "action": "dipping a paintbrush into paint",
+  "prompt": "Natural candid photograph. An artist dipping a paintbrush into orange paint and adding details to a colorful landscape canvas in a bright studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_5d5dedc9-109b-4d00-9515-ed6a8b38be13.png"
+ },
+ {
+  "index": 23052,
+  "book": "siu-advance-03",
+  "word": "leather journal",
+  "action": "writing in a leather journal",
+  "prompt": "Natural candid photograph. A young woman writing in a brown leather journal at a cafe window seat with a cup of tea beside her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_a1221bef-a4c5-45f4-8022-77fc5831b56a.png"
+ },
+ {
+  "index": 23053,
+  "book": "siu-advance-03",
+  "word": "record player",
+  "action": "placing a record on a record player",
+  "prompt": "Natural candid photograph. An older man placing a vinyl record on a record player while recalling a memory to his smiling wife. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_37953914-5e98-41cb-b844-e8d3a2202492.png"
+ },
+ {
+  "index": 23054,
+  "book": "siu-advance-03",
+  "word": "marionette",
+  "action": "moving a marionette by its strings",
+  "prompt": "Natural candid photograph. A craftsman moving a wooden marionette by its strings for a small delighted audience in a cozy workshop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_0bfc1f9b-d3dd-46f3-9000-c49e18b1dabe.png"
+ },
+ {
+  "index": 23055,
+  "book": "siu-advance-03",
+  "word": "film camera",
+  "action": "loading a film camera",
+  "prompt": "Natural candid photograph. A young Korean man loading a roll of film into a vintage film camera on a sunny city street. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_9269f015-cfd9-4c62-8990-a4f48528cc65.png"
+ },
+ {
+  "index": 23056,
+  "book": "siu-advance-03",
+  "word": "movie projector",
+  "action": "threading a reel into a movie projector",
+  "prompt": "Natural candid photograph. An elderly man threading a film reel into an old movie projector to show home movies to his family in a living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_4aa7e019-e3e3-416e-8ef8-7cf53aca1b5c.png"
+ },
+ {
+  "index": 23057,
+  "book": "siu-advance-03",
+  "word": "velvet cape",
+  "action": "swinging a velvet cape",
+  "prompt": "Natural candid photograph. An actor swinging a red velvet cape dramatically during a rehearsal on an empty wooden theater stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_f2f6b6ce-6b3f-4a6a-a70e-9cbdbe8aaa65.png"
+ },
+ {
+  "index": 23058,
+  "book": "siu-advance-03",
+  "word": "wooden figurine",
+  "action": "showing a carved wooden figurine",
+  "prompt": "Natural candid photograph. A woman showing a small carved wooden figurine from her travels to an interested friend at a cafe. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104926_e7553ee4-4e59-4237-bdc2-b586131cef99.png"
+ },
+ {
+  "index": 23059,
+  "book": "siu-advance-03",
+  "word": "kite",
+  "action": "flying a kite",
+  "prompt": "Natural candid photograph. A father and his teenage daughter flying a colorful diamond kite together on a windy green hill. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_d05d27ca-4334-4449-b61d-ea00340848d1.png"
+ },
+ {
+  "index": 23060,
+  "book": "siu-advance-03",
+  "word": "fishing rod",
+  "action": "casting a fishing rod",
+  "prompt": "Natural candid photograph. An older man casting a long fishing rod from a wooden dock on a calm lake while his grandson watches. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_99554f92-5f91-4a85-af25-7aec43497823.png"
+ },
+ {
+  "index": 23061,
+  "book": "siu-advance-04",
+  "word": "projector",
+  "action": "setting up a projector",
+  "prompt": "Natural candid photograph. A young woman setting up a portable projector on a long desk in a bright meeting room before her presentation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_f643ec92-07aa-4a30-908e-c3d592645982.png"
+ },
+ {
+  "index": 23062,
+  "book": "siu-advance-04",
+  "word": "podium",
+  "action": "speaking from a podium",
+  "prompt": "Natural candid photograph. A gray-haired man speaking confidently from a wooden podium in front of a bright university auditorium. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_108376c8-318b-4c6a-a76a-91e9da3e5e4d.png"
+ },
+ {
+  "index": 23063,
+  "book": "siu-advance-04",
+  "word": "laser pointer",
+  "action": "aiming a laser pointer",
+  "prompt": "Natural candid photograph. A presenter aiming a red laser pointer at a projected colorful bar graph while colleagues watch attentively. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_4e08c72e-82e7-4dc8-a3da-b8bad55d3a6b.png"
+ },
+ {
+  "index": 23064,
+  "book": "siu-advance-04",
+  "word": "presentation clicker",
+  "action": "pressing a presentation clicker",
+  "prompt": "Natural candid photograph. A Korean businessman pressing a small black presentation clicker in his hand while walking across a bright stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104958_774698de-af3d-4df0-a7d9-e629f9d821b8.png"
+ },
+ {
+  "index": 23065,
+  "book": "siu-advance-04",
+  "word": "lapel microphone",
+  "action": "clipping on a lapel microphone",
+  "prompt": "Natural candid photograph. A sound technician clipping a small lapel microphone onto a speaker's jacket backstage before her talk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_4a3e0ad2-2c47-4fff-9678-26fa0af4c21f.png"
+ },
+ {
+  "index": 23066,
+  "book": "siu-advance-04",
+  "word": "whiteboard",
+  "action": "drawing arrows on a whiteboard",
+  "prompt": "Natural candid photograph. A woman drawing arrows and circles on a whiteboard with a marker during a team presentation in a sunny office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_605a3d79-332b-4801-9eb6-552177149823.png"
+ },
+ {
+  "index": 23067,
+  "book": "siu-advance-04",
+  "word": "flip chart",
+  "action": "turning the page of a flip chart",
+  "prompt": "Natural candid photograph. A man turning a large page of a flip chart in front of five seated colleagues in a training room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104958_ae9ae55e-0d83-40d2-9af2-3eab827ce3c8.png"
+ },
+ {
+  "index": 23068,
+  "book": "siu-advance-04",
+  "word": "pointer stick",
+  "action": "tapping a pointer stick against a poster",
+  "prompt": "Natural candid photograph. A teacher tapping a wooden pointer stick against a large colorful pie chart poster during a lesson. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_e4d5c379-9919-4afd-bd13-4d20e420bfcb.png"
+ },
+ {
+  "index": 23069,
+  "book": "siu-advance-04",
+  "word": "spotlight",
+  "action": "standing in a spotlight",
+  "prompt": "Natural candid photograph. A young speaker standing in a bright spotlight on a dark stage with her arms open wide. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_b49ea8d2-ec93-45b2-85da-0580d86a3738.png"
+ },
+ {
+  "index": 23070,
+  "book": "siu-advance-04",
+  "word": "folding chair",
+  "action": "arranging folding chairs",
+  "prompt": "Natural candid photograph. A volunteer arranging rows of gray folding chairs in a community hall before an evening presentation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104958_cd5db920-e5dd-436d-967b-bd8db990cbdb.png"
+ },
+ {
+  "index": 23071,
+  "book": "siu-advance-04",
+  "word": "trifold board",
+  "action": "presenting a trifold board",
+  "prompt": "Natural candid photograph. A teenage student presenting a trifold board covered in plant photos to a smiling judge at a science fair. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105001_9d9e3faa-ce93-4242-8882-5b0ab6fc48cd.png"
+ },
+ {
+  "index": 23072,
+  "book": "siu-advance-04",
+  "word": "loudspeaker",
+  "action": "adjusting a loudspeaker",
+  "prompt": "Natural candid photograph. A sound technician adjusting a black loudspeaker on a tall stand beside a conference stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_a2e47158-2933-4838-a59b-e77ae577bdaf.png"
+ },
+ {
+  "index": 23073,
+  "book": "siu-advance-04",
+  "word": "extension cord",
+  "action": "unrolling an extension cord",
+  "prompt": "Natural candid photograph. A man unrolling an orange extension cord across a meeting room floor before a presentation begins. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105032_27828dbc-ae49-47cf-adff-efd99233f691.png"
+ },
+ {
+  "index": 23074,
+  "book": "siu-advance-04",
+  "word": "drone",
+  "action": "holding up a drone",
+  "prompt": "Natural candid photograph. An engineer holding up a sleek white drone prototype for an interested audience during a product presentation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_409087f9-5a27-4ead-bc4d-48b4fde6d1bb.png"
+ },
+ {
+  "index": 23075,
+  "book": "siu-advance-04",
+  "word": "blender",
+  "action": "demonstrating a blender",
+  "prompt": "Natural candid photograph. A saleswoman demonstrating a stainless steel blender filled with strawberries to a small audience at a trade booth. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_a6572617-353d-4145-97e9-361fb1a7621a.png"
+ },
+ {
+  "index": 23076,
+  "book": "siu-advance-04",
+  "word": "cue cards",
+  "action": "shuffling cue cards",
+  "prompt": "Natural candid photograph. A nervous young man shuffling a small stack of cue cards backstage just before his speech. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105032_f84429e9-b596-46d7-8b4f-133c23be2f98.png"
+ },
+ {
+  "index": 23077,
+  "book": "siu-advance-04",
+  "word": "bouquet",
+  "action": "handing over a bouquet",
+  "prompt": "Natural candid photograph. An audience member handing a bouquet of flowers to a smiling speaker after her talk on a small stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_4842c63f-5f1f-410e-a3b3-d02f5c011e26.png"
+ },
+ {
+  "index": 23078,
+  "book": "siu-advance-04",
+  "word": "stopwatch",
+  "action": "holding a stopwatch",
+  "prompt": "Natural candid photograph. A speech coach holding a stopwatch and timing a student's practice speech in an empty classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_032737f9-9ec6-4b77-9ba1-538db0e996ac.png"
+ },
+ {
+  "index": 23079,
+  "book": "siu-advance-04",
+  "word": "stage curtain",
+  "action": "peeking out from behind a stage curtain",
+  "prompt": "Natural candid photograph. A student peeking out from behind a heavy red stage curtain before stepping out to present. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_1ad350f2-75b2-4e5b-9a2b-68ceb9b233b9.png"
+ },
+ {
+  "index": 23080,
+  "book": "siu-advance-04",
+  "word": "architectural model",
+  "action": "presenting an architectural model",
+  "prompt": "Natural candid photograph. An architect presenting a white architectural model of a building to three clients gathered around a desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_e21c5620-f9b9-4887-9cb4-ca7bafdb9220.png"
+ },
+ {
+  "index": 23081,
+  "book": "siu-advance-05",
+  "word": "stethoscope",
+  "action": "listening with a stethoscope",
+  "prompt": "Natural candid photograph. A doctor listening to an elderly man's back with a stethoscope in a calm, bright clinic examination room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_8b929ee0-39f5-43b5-848a-d335d4a7bd77.png"
+ },
+ {
+  "index": 23082,
+  "book": "siu-advance-05",
+  "word": "blood pressure monitor",
+  "action": "wrapping the cuff of a blood pressure monitor",
+  "prompt": "Natural candid photograph. A nurse wrapping the cuff of a blood pressure monitor around a smiling woman's upper arm in a calm clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_ca7290b1-f751-4daf-b57f-fd7faaf1506b.png"
+ },
+ {
+  "index": 23083,
+  "book": "siu-advance-05",
+  "word": "ear thermometer",
+  "action": "holding an ear thermometer",
+  "prompt": "Natural candid photograph. A friendly nurse holding an ear thermometer to a young man's ear while he sits calmly on a clinic chair. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_a97fa298-4548-4a12-a0fa-6d4fa4dcc4d1.png"
+ },
+ {
+  "index": 23084,
+  "book": "siu-advance-05",
+  "word": "otoscope",
+  "action": "looking into an ear with an otoscope",
+  "prompt": "Natural candid photograph. A doctor looking into a relaxed patient's ear with an otoscope in a tidy, sunlit clinic room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105031_7a5e5a31-0b86-4243-8dc3-6e0980370b88.png"
+ },
+ {
+  "index": 23085,
+  "book": "siu-advance-05",
+  "word": "phoropter",
+  "action": "adjusting a phoropter",
+  "prompt": "Natural candid photograph. An optometrist adjusting a large phoropter in front of a young woman's face during a calm eye exam. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_55610fd9-44ad-4659-9ae8-e26729a3dc27.png"
+ },
+ {
+  "index": 23086,
+  "book": "siu-advance-05",
+  "word": "wheelchair",
+  "action": "pushing a wheelchair",
+  "prompt": "Natural candid photograph. A smiling staff member pushing an elderly Korean woman in a wheelchair through a bright clinic hallway. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_494cff09-a16a-483d-8143-7a3253a68e9f.png"
+ },
+ {
+  "index": 23087,
+  "book": "siu-advance-05",
+  "word": "reflex hammer",
+  "action": "tapping a knee with a reflex hammer",
+  "prompt": "Natural candid photograph. A doctor tapping a seated patient's knee with a small reflex hammer during a routine checkup. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_39a1b899-6ce2-49ef-aca0-2a1852058f73.png"
+ },
+ {
+  "index": 23088,
+  "book": "siu-advance-05",
+  "word": "weight scale",
+  "action": "stepping onto a weight scale",
+  "prompt": "Natural candid photograph. A nurse helping a teenage boy step onto a medical weight scale in a bright clinic room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_e3234cac-9674-434c-8ea3-feb381484274.png"
+ },
+ {
+  "index": 23089,
+  "book": "siu-advance-05",
+  "word": "tongue depressor",
+  "action": "holding a tongue depressor",
+  "prompt": "Natural candid photograph. A doctor holding a wooden tongue depressor while a smiling man opens his mouth wide in a calm clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_98b94e46-e354-4e8a-922e-d4e6f01be7e9.png"
+ },
+ {
+  "index": 23090,
+  "book": "siu-advance-05",
+  "word": "surgical mask",
+  "action": "handing out a surgical mask",
+  "prompt": "Natural candid photograph. A receptionist handing a blue surgical mask to a visitor at a bright clinic front desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_0f8ce171-7be2-4fbe-b674-00d2c52f6f81.png"
+ },
+ {
+  "index": 23091,
+  "book": "siu-advance-05",
+  "word": "hand sanitizer",
+  "action": "pumping hand sanitizer",
+  "prompt": "Natural candid photograph. A woman pumping hand sanitizer into her palms at a clinic reception counter before her appointment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_e1157244-e7a4-4bbf-bbaf-eb7140414501.png"
+ },
+ {
+  "index": 23092,
+  "book": "siu-advance-05",
+  "word": "water dispenser",
+  "action": "filling a cup at a water dispenser",
+  "prompt": "Natural candid photograph. A patient filling a paper cup at a water dispenser in a quiet, sunny clinic waiting area. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_0e4d3d25-594d-433f-8529-3a123bd5f704.png"
+ },
+ {
+  "index": 23093,
+  "book": "siu-advance-05",
+  "word": "pulse oximeter",
+  "action": "clipping on a pulse oximeter",
+  "prompt": "Natural candid photograph. A nurse clipping a pulse oximeter onto an elderly man's fingertip as he smiles in a calm clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_23920b52-54e2-49d3-ba94-060fbb017dc9.png"
+ },
+ {
+  "index": 23094,
+  "book": "siu-advance-05",
+  "word": "dental mirror",
+  "action": "examining teeth with a dental mirror",
+  "prompt": "Natural candid photograph. A dentist examining a smiling woman's teeth with a small dental mirror in a bright dental office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_0e5ed41f-09f4-4ff4-9097-477b11730dcb.png"
+ },
+ {
+  "index": 23095,
+  "book": "siu-advance-05",
+  "word": "eyeglasses",
+  "action": "fitting new eyeglasses",
+  "prompt": "Natural candid photograph. An optician fitting a new pair of eyeglasses on an older man's face in a bright optical shop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_2985ccfe-4149-4736-9118-18b050dbdd69.png"
+ },
+ {
+  "index": 23096,
+  "book": "siu-advance-05",
+  "word": "hearing aid",
+  "action": "fitting a hearing aid",
+  "prompt": "Natural candid photograph. An audiologist gently fitting a small hearing aid behind an elderly woman's ear in a quiet clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_10f18759-9806-445e-8c2e-a178d0527cb6.png"
+ },
+ {
+  "index": 23097,
+  "book": "siu-advance-05",
+  "word": "X-ray",
+  "action": "pointing at an X-ray",
+  "prompt": "Natural candid photograph. A doctor pointing at a chest X-ray on a glowing lightbox while explaining it to a calm middle-aged patient. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_fa8437c5-c19d-46d1-b516-da0b7ca1a310.png"
+ },
+ {
+  "index": 23098,
+  "book": "siu-advance-05",
+  "word": "spine model",
+  "action": "showing a spine model",
+  "prompt": "Natural candid photograph. A chiropractor showing a plastic spine model to a curious patient seated in a bright consultation room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_b380535d-905f-43e8-aac7-4d06001a5915.png"
+ },
+ {
+  "index": 23099,
+  "book": "siu-advance-05",
+  "word": "stadiometer",
+  "action": "lowering a stadiometer",
+  "prompt": "Natural candid photograph. A nurse lowering the bar of a wall stadiometer onto a teenage girl's head to measure her height. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_12bc7eeb-3d01-4079-8b6d-fc35f9ba41d3.png"
+ },
+ {
+  "index": 23100,
+  "book": "siu-advance-05",
+  "word": "eye dropper",
+  "action": "using an eye dropper",
+  "prompt": "Natural candid photograph. A nurse showing an elderly woman how to use an eye dropper while she tilts her head back calmly. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_49ea1c62-a82f-44b6-ad4d-c183a93d1da5.png"
+ },
+ {
+  "index": 23101,
+  "book": "siu-advance-06",
+  "word": "serving tray",
+  "action": "carrying a serving tray",
+  "prompt": "Natural candid photograph. A waiter carrying a serving tray of steaming noodle bowls through a busy, sunlit restaurant dining room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_a169db64-7c42-4c29-bccc-645c77a245ab.png"
+ },
+ {
+  "index": 23102,
+  "book": "siu-advance-06",
+  "word": "teapot",
+  "action": "pouring tea from a teapot",
+  "prompt": "Natural candid photograph. A server pouring green tea from a ceramic teapot into small cups for two smiling diners. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_40c90e67-0442-4333-8dc7-db4400805ba5.png"
+ },
+ {
+  "index": 23103,
+  "book": "siu-advance-06",
+  "word": "chopsticks",
+  "action": "picking up noodles with chopsticks",
+  "prompt": "Natural candid photograph. A young woman picking up noodles with wooden chopsticks at a bright noodle bar counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_3216e125-8146-41d2-9e1f-508f595ef297.png"
+ },
+ {
+  "index": 23104,
+  "book": "siu-advance-06",
+  "word": "tabletop grill",
+  "action": "grilling beef on a tabletop grill",
+  "prompt": "Natural candid photograph. A Korean man grilling beef on a tabletop charcoal grill while his friends watch at a barbecue restaurant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_f5280438-e820-4f3c-a203-14df3f755102.png"
+ },
+ {
+  "index": 23105,
+  "book": "siu-advance-06",
+  "word": "ladle",
+  "action": "scooping soup with a ladle",
+  "prompt": "Natural candid photograph. A chef scooping hot soup with a steel ladle into a white bowl in an open restaurant kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105138_63451089-2341-40c7-a8fb-279a83803919.png"
+ },
+ {
+  "index": 23106,
+  "book": "siu-advance-06",
+  "word": "pizza peel",
+  "action": "sliding a pizza out with a pizza peel",
+  "prompt": "Natural candid photograph. A cook sliding a bubbling pizza out of a brick oven with a long wooden pizza peel. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_69b8f960-0dc3-4bbf-921c-60ec656d8536.png"
+ },
+ {
+  "index": 23107,
+  "book": "siu-advance-06",
+  "word": "cloth napkin",
+  "action": "folding a cloth napkin",
+  "prompt": "Natural candid photograph. A waiter folding a white cloth napkin into a neat fan shape before guests arrive at a restaurant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_c8556418-ad25-40db-ac7c-9766b33cd0d0.png"
+ },
+ {
+  "index": 23108,
+  "book": "siu-advance-06",
+  "word": "card reader",
+  "action": "tapping a card on a card reader",
+  "prompt": "Natural candid photograph. A diner tapping a card on a handheld card reader held by a smiling waitress beside her seat. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_0ade5dc9-6dcc-4930-97ae-abb22eb88579.png"
+ },
+ {
+  "index": 23109,
+  "book": "siu-advance-06",
+  "word": "pepper mill",
+  "action": "grinding a pepper mill",
+  "prompt": "Natural candid photograph. A waiter grinding a tall wooden pepper mill over a plate of pasta for a smiling customer. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_e8ea0fcb-fe5d-489e-9dfb-c882cadd47fb.png"
+ },
+ {
+  "index": 23110,
+  "book": "siu-advance-06",
+  "word": "dessert cart",
+  "action": "rolling a dessert cart",
+  "prompt": "Natural candid photograph. A server rolling a dessert cart full of fruit tarts toward a couple seated in an elegant restaurant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_a630df0b-ac0e-44ce-96d2-53ad17a3ce37.png"
+ },
+ {
+  "index": 23111,
+  "book": "siu-advance-06",
+  "word": "high chair",
+  "action": "bringing a high chair",
+  "prompt": "Natural candid photograph. A waiter bringing a wooden high chair to a smiling couple with a toddler at a family restaurant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_7d604c7e-e802-4479-8213-acc03e5be095.png"
+ },
+ {
+  "index": 23112,
+  "book": "siu-advance-06",
+  "word": "conveyor belt",
+  "action": "taking a plate from a conveyor belt",
+  "prompt": "Natural candid photograph. A young man taking a plate of sushi from a moving conveyor belt at a bright sushi restaurant counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105217_a9be97eb-1646-4282-9779-de4416d8dba2.png"
+ },
+ {
+  "index": 23113,
+  "book": "siu-advance-06",
+  "word": "wok",
+  "action": "tossing vegetables in a wok",
+  "prompt": "Natural candid photograph. A chef tossing colorful vegetables in a large steel wok over a strong flame in a restaurant kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105215_4b486ca4-f620-49ae-bca5-6dc0159c14d7.png"
+ },
+ {
+  "index": 23114,
+  "book": "siu-advance-06",
+  "word": "bamboo steamer",
+  "action": "lifting the lid of a bamboo steamer",
+  "prompt": "Natural candid photograph. A cook lifting the lid of a bamboo steamer full of dumplings, releasing clouds of steam. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105215_3f25d556-56ad-49e7-b144-2e78715b432b.png"
+ },
+ {
+  "index": 23115,
+  "book": "siu-advance-06",
+  "word": "coat rack",
+  "action": "hanging a coat on a coat rack",
+  "prompt": "Natural candid photograph. A restaurant host hanging a guest's wool coat on a wooden coat rack at the entrance. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_7efc2872-1613-4783-bd1b-33b74118648e.png"
+ },
+ {
+  "index": 23116,
+  "book": "siu-advance-06",
+  "word": "carafe",
+  "action": "pouring water from a carafe",
+  "prompt": "Natural candid photograph. A waiter pouring cold water from a glass carafe into glasses for a family at their table. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_5bc2db06-7af1-4620-aa1e-1e6e36a3e1c1.png"
+ },
+ {
+  "index": 23117,
+  "book": "siu-advance-06",
+  "word": "salad tongs",
+  "action": "serving salad with salad tongs",
+  "prompt": "Natural candid photograph. A woman serving fresh green salad onto her plate with metal salad tongs at a restaurant buffet. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_18215128-1036-42b8-8b3f-40d34d0b36d8.png"
+ },
+ {
+  "index": 23118,
+  "book": "siu-advance-06",
+  "word": "chafing dish",
+  "action": "lifting the lid of a chafing dish",
+  "prompt": "Natural candid photograph. A cook lifting the shiny lid of a chafing dish full of rice at a bright hotel buffet. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_96a619b9-d33f-4b0e-8820-3c4103d5a27f.png"
+ },
+ {
+  "index": 23119,
+  "book": "siu-advance-06",
+  "word": "toque",
+  "action": "adjusting a tall white toque",
+  "prompt": "Natural candid photograph. A head chef adjusting his tall white toque before plating dishes in a busy restaurant kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_d50a533c-d423-4fe4-8760-cde120ffe4e4.png"
+ },
+ {
+  "index": 23120,
+  "book": "siu-advance-06",
+  "word": "hot pot",
+  "action": "dipping vegetables into a hot pot",
+  "prompt": "Natural candid photograph. A group of friends dipping vegetables into a bubbling hot pot at a lively restaurant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105214_6979f5e3-8743-41e8-a61a-79a0d7d10efa.png"
+ },
+ {
+  "index": 23121,
+  "book": "siu-advance-07",
+  "word": "shopping cart",
+  "action": "pushing a shopping cart",
+  "prompt": "Natural candid photograph. A woman pushing a shopping cart full of fresh vegetables down a bright grocery store aisle. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_671a54ea-e8fb-4ce4-8b59-58d93d8a4d3d.png"
+ },
+ {
+  "index": 23122,
+  "book": "siu-advance-07",
+  "word": "cash register",
+  "action": "opening a cash register",
+  "prompt": "Natural candid photograph. A cashier opening a cash register drawer to hand change to a smiling customer at a small shop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_4796a436-cf91-4d65-b9d5-aace7b61ca3c.png"
+ },
+ {
+  "index": 23123,
+  "book": "siu-advance-07",
+  "word": "barcode scanner",
+  "action": "scanning items with a barcode scanner",
+  "prompt": "Natural candid photograph. A cashier scanning a carton of milk with a handheld barcode scanner at a grocery checkout. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_00d5d2a8-d1b3-4d4d-8921-bfb97661aad9.png"
+ },
+ {
+  "index": 23124,
+  "book": "siu-advance-07",
+  "word": "mannequin",
+  "action": "dressing a mannequin",
+  "prompt": "Natural candid photograph. A shop assistant dressing a mannequin in a long wool coat in a bright clothing store window. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_c98c08e4-74b3-4014-88ef-b1b9204c1160.png"
+ },
+ {
+  "index": 23125,
+  "book": "siu-advance-07",
+  "word": "coat hanger",
+  "action": "sliding coat hangers along a rack",
+  "prompt": "Natural candid photograph. A young man sliding coat hangers along a clothing rack while looking for a jacket in a store. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_7f825cb2-0bad-4f4c-9c2e-c64054ab82b1.png"
+ },
+ {
+  "index": 23126,
+  "book": "siu-advance-07",
+  "word": "shoehorn",
+  "action": "using a shoehorn",
+  "prompt": "Natural candid photograph. A sales clerk helping an older man slide into leather shoes with a long shoehorn in a shoe store. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_1d87cf9d-abfd-4a73-bd0b-66762b002e3f.png"
+ },
+ {
+  "index": 23127,
+  "book": "siu-advance-07",
+  "word": "full-length mirror",
+  "action": "posing in front of a full-length mirror",
+  "prompt": "Natural candid photograph. A woman holding a green dress against herself in front of a full-length mirror in a boutique. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_9e00cbb6-a4c2-4b11-b7bd-1ef93b483d6c.png"
+ },
+ {
+  "index": 23128,
+  "book": "siu-advance-07",
+  "word": "shopping basket",
+  "action": "carrying a shopping basket",
+  "prompt": "Natural candid photograph. A teenage girl carrying a wire shopping basket full of apples and oranges through a market. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_c00ff726-9d43-410f-b1eb-a85a083e8f69.png"
+ },
+ {
+  "index": 23129,
+  "book": "siu-advance-07",
+  "word": "satin ribbon",
+  "action": "tying a satin ribbon",
+  "prompt": "Natural candid photograph. A shop assistant tying a red satin ribbon around a gift box on a store counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_dbfa90db-6077-446a-85ff-c711879d1fee.png"
+ },
+ {
+  "index": 23130,
+  "book": "siu-advance-07",
+  "word": "display case",
+  "action": "lifting a necklace out of a display case",
+  "prompt": "Natural candid photograph. A jeweler lifting a silver necklace out of a glass display case for a smiling customer. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_8dfcd6bb-09cb-41b5-a850-2f7b199e74b0.png"
+ },
+ {
+  "index": 23131,
+  "book": "siu-advance-07",
+  "word": "sunglasses",
+  "action": "trying on sunglasses",
+  "prompt": "Natural candid photograph. A young woman trying on round sunglasses in front of a small mirror at a store accessory stand. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_ea8d86c9-c200-41c1-a8e2-33706ea615b6.png"
+ },
+ {
+  "index": 23132,
+  "book": "siu-advance-07",
+  "word": "tape measure",
+  "action": "measuring shoulders with a tape measure",
+  "prompt": "Natural candid photograph. A tailor measuring a young man's shoulders with a yellow tape measure in a bright clothing shop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105244_db33bc00-55fd-4cf1-b9bc-9de857f8ec46.png"
+ },
+ {
+  "index": 23133,
+  "book": "siu-advance-07",
+  "word": "shopping bag",
+  "action": "carrying shopping bags",
+  "prompt": "Natural candid photograph. A smiling couple carrying several plain paper shopping bags out of a sunny department store. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105251_c37f29a7-a33b-401c-b6c2-27c51227dcf2.png"
+ },
+ {
+  "index": 23134,
+  "book": "siu-advance-07",
+  "word": "produce scale",
+  "action": "weighing apples on a produce scale",
+  "prompt": "Natural candid photograph. A shopper weighing red apples on a hanging produce scale at an outdoor farmers market. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105251_2813100a-eb96-46b1-b7e6-627dfe572f63.png"
+ },
+ {
+  "index": 23135,
+  "book": "siu-advance-07",
+  "word": "escalator",
+  "action": "riding an escalator",
+  "prompt": "Natural candid photograph. A young Korean woman riding an escalator in a bright shopping mall while carrying bags. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_e72767c3-3d2a-4145-82b2-8b075e3bfd61.png"
+ },
+ {
+  "index": 23136,
+  "book": "siu-advance-07",
+  "word": "perfume bottle",
+  "action": "spraying a perfume bottle",
+  "prompt": "Natural candid photograph. A saleswoman spraying perfume from a glass perfume bottle onto a customer's wrist at a cosmetics counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_cfa47ff8-b2f9-49a2-96e5-0301f2e5a8cc.png"
+ },
+ {
+  "index": 23137,
+  "book": "siu-advance-07",
+  "word": "rug",
+  "action": "unrolling a rug",
+  "prompt": "Natural candid photograph. A couple unrolling a patterned rug on the floor of a home furnishings store to check its size. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_7531517b-1a37-4df5-8f11-601d6e058d8d.png"
+ },
+ {
+  "index": 23138,
+  "book": "siu-advance-07",
+  "word": "headphones",
+  "action": "testing headphones",
+  "prompt": "Natural candid photograph. A teenage boy testing a pair of large headphones at an electronics store demo stand. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_b9ba75e2-36ed-4e45-a98e-f5d655e68a9b.png"
+ },
+ {
+  "index": 23139,
+  "book": "siu-advance-07",
+  "word": "coin purse",
+  "action": "counting coins from a coin purse",
+  "prompt": "Natural candid photograph. An elderly woman counting coins from a small coin purse at an outdoor market stall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_a9868a03-bca7-4727-bb01-5c4ff296a973.png"
+ },
+ {
+  "index": 23140,
+  "book": "siu-advance-07",
+  "word": "handbag",
+  "action": "examining a handbag",
+  "prompt": "Natural candid photograph. A woman carefully examining a brown leather handbag at a boutique while a clerk smiles nearby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_f1132158-d9fd-45ec-863a-f685dea7b46e.png"
+ },
+ {
+  "index": 23141,
+  "book": "siu-advance-08",
+  "word": "speakerphone",
+  "action": "leaning toward a speakerphone",
+  "prompt": "Natural candid photograph. A manager leaning toward a speakerphone in the middle of a desk during a conference call with colleagues. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_b78ec60e-9fbd-43d5-a3a4-d1c99a0a4401.png"
+ },
+ {
+  "index": 23142,
+  "book": "siu-advance-08",
+  "word": "sticky notes",
+  "action": "sticking notes on a glass wall",
+  "prompt": "Natural candid photograph. A diverse team of three coworkers sticking colorful sticky notes onto a glass wall during a lively brainstorming meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_e174d226-aaa0-44ee-a62d-898d930eaea8.png"
+ },
+ {
+  "index": 23143,
+  "book": "siu-advance-08",
+  "word": "shredder",
+  "action": "feeding documents into a shredder",
+  "prompt": "Natural candid photograph. An office assistant feeding a stack of old documents into a paper shredder near a meeting room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104641_b11ed8da-4979-49c3-99ba-cfe49c3ccd70.png"
+ },
+ {
+  "index": 23144,
+  "book": "siu-advance-08",
+  "word": "stapler",
+  "action": "stapling a report",
+  "prompt": "Natural candid photograph. A woman stapling a thick report with a black stapler before handing copies to her colleagues. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_7ddfde46-52d8-45e5-95ba-b491bb9a37d0.png"
+ },
+ {
+  "index": 23145,
+  "book": "siu-advance-08",
+  "word": "accordion file",
+  "action": "opening an accordion file",
+  "prompt": "Natural candid photograph. A businessman opening a brown accordion file to pull out documents during a client meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104637_a2230f83-e830-4b7e-b852-2724e2ed480b.png"
+ },
+ {
+  "index": 23146,
+  "book": "siu-advance-08",
+  "word": "calculator",
+  "action": "typing on a calculator",
+  "prompt": "Natural candid photograph. A Korean accountant typing numbers on a large desktop calculator while two managers wait beside her in an office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_1d63f479-c7b2-463f-93e8-bcc6e03dd6c8.png"
+ },
+ {
+  "index": 23147,
+  "book": "siu-advance-08",
+  "word": "thermos",
+  "action": "pouring coffee from a thermos",
+  "prompt": "Natural candid photograph. A man pouring coffee from a steel thermos into mugs for his colleagues before a morning meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_8bd4589e-993a-4156-8caf-25d77d8c97e3.png"
+ },
+ {
+  "index": 23148,
+  "book": "siu-advance-08",
+  "word": "projector screen",
+  "action": "pulling down a projector screen",
+  "prompt": "Natural candid photograph. A young man pulling down a white projector screen at the front of a meeting room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_f67dd85a-ee2e-4cfc-b536-cf3912408c5e.png"
+ },
+ {
+  "index": 23149,
+  "book": "siu-advance-08",
+  "word": "legal pad",
+  "action": "writing on a legal pad",
+  "prompt": "Natural candid photograph. A middle-aged woman writing notes on a yellow legal pad while listening to colleagues during a business meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_ff1fcaed-e3a5-4c8e-bc05-ab780e32f011.png"
+ },
+ {
+  "index": 23150,
+  "book": "siu-advance-08",
+  "word": "webcam",
+  "action": "adjusting a webcam",
+  "prompt": "Natural candid photograph. A woman adjusting a small webcam on top of her monitor before a video meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_122d68d5-b4b0-4298-a878-e352c7a73291.png"
+ },
+ {
+  "index": 23151,
+  "book": "siu-advance-08",
+  "word": "printer",
+  "action": "collecting pages from a printer",
+  "prompt": "Natural candid photograph. A young intern collecting freshly printed pages from a large office printer just before an important team meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104732_bf763ce2-9a27-425e-837a-5a150fa9d5f1.png"
+ },
+ {
+  "index": 23152,
+  "book": "siu-advance-08",
+  "word": "ballpoint pen",
+  "action": "clicking a ballpoint pen",
+  "prompt": "Natural candid photograph. A thoughtful CEO clicking a ballpoint pen while listening to a colleague during a strategy meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_09529307-e17f-40b9-9096-5e6578a2dfb3.png"
+ },
+ {
+  "index": 23153,
+  "book": "siu-advance-08",
+  "word": "laminator",
+  "action": "feeding a sheet into a laminator",
+  "prompt": "Natural candid photograph. An office assistant carefully feeding a glossy sheet into a laminator in a bright, tidy office supply room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_a84029e3-cc89-4a40-b8c3-0a04800fd6c2.png"
+ },
+ {
+  "index": 23154,
+  "book": "siu-advance-08",
+  "word": "hourglass",
+  "action": "flipping an hourglass",
+  "prompt": "Natural candid photograph. A facilitator flipping a large hourglass to time a team discussion in a bright meeting room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_d628e244-ab4e-4f13-8ee3-b0cc15b06f38.png"
+ },
+ {
+  "index": 23155,
+  "book": "siu-advance-08",
+  "word": "corkboard",
+  "action": "pinning photos to a corkboard",
+  "prompt": "Natural candid photograph. A manager pinning product photos to a corkboard while her team watches during a meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_6a41fafd-9bc8-4d9c-9fc6-5e025727ca69.png"
+ },
+ {
+  "index": 23156,
+  "book": "siu-advance-08",
+  "word": "platter",
+  "action": "setting down a platter of pastries",
+  "prompt": "Natural candid photograph. An assistant setting down a platter of pastries in a meeting room before a board meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104730_8a3f4d05-baa8-4a6e-a679-bcc907212448.png"
+ },
+ {
+  "index": 23157,
+  "book": "siu-advance-08",
+  "word": "filing cabinet",
+  "action": "pulling open a filing cabinet drawer",
+  "prompt": "Natural candid photograph. A clerk pulling open a gray filing cabinet drawer to find records for a meeting. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104731_2fd8f688-4632-4449-b7fc-4b5a00f4e3aa.png"
+ },
+ {
+  "index": 23158,
+  "book": "siu-advance-08",
+  "word": "wall clock",
+  "action": "glancing at a wall clock",
+  "prompt": "Natural candid photograph. A tired businessman glancing up at a large round wall clock during a long afternoon meeting with colleagues. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_2ae9010a-0bdc-4cbb-9f84-9bf2d75f187e.png"
+ },
+ {
+  "index": 23159,
+  "book": "siu-advance-08",
+  "word": "power strip",
+  "action": "plugging a charger into a power strip",
+  "prompt": "Natural candid photograph. A woman plugging a charger into a power strip in the middle of a long meeting desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104809_cab18ba0-ba81-43c9-865c-e02794a41131.png"
+ },
+ {
+  "index": 23160,
+  "book": "siu-advance-08",
+  "word": "hole punch",
+  "action": "punching holes with a hole punch",
+  "prompt": "Natural candid photograph. A secretary pressing down a heavy metal hole punch on a stack of documents at her sunny office desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_8724f8ab-c99d-4bec-a4de-9434811acf19.png"
+ },
+ {
+  "index": 23161,
+  "book": "siu-advance-09",
+  "word": "luggage cart",
+  "action": "pushing a luggage cart",
+  "prompt": "Natural candid photograph. A traveler pushing a luggage cart loaded with bags through a bright, spacious airport terminal. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_5de23861-72f1-4dc5-8fbe-26636061099f.png"
+ },
+ {
+  "index": 23162,
+  "book": "siu-advance-09",
+  "word": "passport",
+  "action": "handing over a passport",
+  "prompt": "Natural candid photograph. A young Korean woman handing her passport to an airline agent at a sunny check-in counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104809_b8f3de6d-c91a-4d36-8e9d-b906d2b1cf1e.png"
+ },
+ {
+  "index": 23163,
+  "book": "siu-advance-09",
+  "word": "travel pillow",
+  "action": "inflating a travel pillow",
+  "prompt": "Natural candid photograph. A man inflating a travel pillow while sitting at a departure gate near large airport windows. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_c602c46c-3164-4608-a9e8-315bfee96f21.png"
+ },
+ {
+  "index": 23164,
+  "book": "siu-advance-09",
+  "word": "duffel bag",
+  "action": "packing a duffel bag",
+  "prompt": "Natural candid photograph. A teenager packing folded clothes into a green duffel bag on a living room floor before a trip. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_4d86cb91-1ad1-4dd8-86d6-2bc8deb2cdea.png"
+ },
+ {
+  "index": 23165,
+  "book": "siu-advance-09",
+  "word": "binoculars",
+  "action": "looking through binoculars",
+  "prompt": "Natural candid photograph. An older tourist looking through black binoculars at snowy mountains from a wooden scenic lookout point on vacation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_c9f99849-8d5b-4595-bae3-a1438895abbe.png"
+ },
+ {
+  "index": 23166,
+  "book": "siu-advance-09",
+  "word": "tandem bicycle",
+  "action": "riding a tandem bicycle",
+  "prompt": "Natural candid photograph. A smiling middle-aged couple riding a blue tandem bicycle together along a sunny coastal road on vacation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_0913804f-04e0-4b26-a8d7-1be4dfe3657d.png"
+ },
+ {
+  "index": 23167,
+  "book": "siu-advance-09",
+  "word": "tent",
+  "action": "pitching a tent",
+  "prompt": "Natural candid photograph. A couple pitching an orange tent at a green campsite surrounded by tall pine trees. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_cc80035d-488b-4bd6-9088-12122a0d4412.png"
+ },
+ {
+  "index": 23168,
+  "book": "siu-advance-09",
+  "word": "car keys",
+  "action": "handing over car keys",
+  "prompt": "Natural candid photograph. A rental agent handing a set of car keys to a smiling traveler at a bright rental counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_92a73fda-cf4c-41ec-bb27-5ccda3a0290b.png"
+ },
+ {
+  "index": 23169,
+  "book": "siu-advance-09",
+  "word": "hiking boots",
+  "action": "lacing hiking boots",
+  "prompt": "Natural candid photograph. A man lacing up brown hiking boots on a wooden bench at the start of a mountain trail. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104809_148eaafe-29e4-4b7e-a9b3-4f67ddef040a.png"
+ },
+ {
+  "index": 23170,
+  "book": "siu-advance-09",
+  "word": "ferry",
+  "action": "standing on the deck of a ferry",
+  "prompt": "Natural candid photograph. A family standing on the deck of a white ferry, looking out over a calm blue sea. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104808_7a279cdb-c41d-49ee-bffa-2c270f625f2d.png"
+ },
+ {
+  "index": 23171,
+  "book": "siu-advance-09",
+  "word": "cable car",
+  "action": "riding a cable car",
+  "prompt": "Natural candid photograph. A couple riding a red cable car high above green hills on a clear sunny day. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_65dfc494-2bf3-4717-8568-7f6fd78cf9df.png"
+ },
+ {
+  "index": 23172,
+  "book": "siu-advance-09",
+  "word": "baggage carousel",
+  "action": "lifting a bag off a baggage carousel",
+  "prompt": "Natural candid photograph. A traveler lifting a duffel off a moving baggage carousel in a bright airport arrivals hall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_713e9607-06f5-4e35-b450-1ef52a0d8415.png"
+ },
+ {
+  "index": 23173,
+  "book": "siu-advance-09",
+  "word": "packing cubes",
+  "action": "arranging clothes into packing cubes",
+  "prompt": "Natural candid photograph. A young woman arranging neatly folded clothes into colorful packing cubes on a living room sofa before her trip. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_e77e297f-7173-481d-96a1-810c3969ea36.png"
+ },
+ {
+  "index": 23174,
+  "book": "siu-advance-09",
+  "word": "sun hat",
+  "action": "adjusting a straw sun hat",
+  "prompt": "Natural candid photograph. A tourist adjusting a wide straw sun hat while walking through a sunny old town square. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_8353abb7-8a79-4cb7-87bd-374149a98b72.png"
+ },
+ {
+  "index": 23175,
+  "book": "siu-advance-09",
+  "word": "canteen",
+  "action": "drinking from a canteen",
+  "prompt": "Natural candid photograph. A hiker drinking water from a metal canteen on a rocky trail with mountains behind her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_4b8a677a-8d20-4caa-b497-d62549be93b3.png"
+ },
+ {
+  "index": 23176,
+  "book": "siu-advance-09",
+  "word": "travel adapter",
+  "action": "plugging in a travel adapter",
+  "prompt": "Natural candid photograph. A man plugging a travel adapter into a wall socket beside a hotel room desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104850_a902e8e9-21cd-428a-aff4-47cfa3b89383.png"
+ },
+ {
+  "index": 23177,
+  "book": "siu-advance-09",
+  "word": "banknotes",
+  "action": "counting banknotes",
+  "prompt": "Natural candid photograph. A young male traveler counting colorful foreign banknotes at a currency exchange counter in a bright airport terminal. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_4764695c-1636-4d7a-9dae-ea2b776b7dbb.png"
+ },
+ {
+  "index": 23178,
+  "book": "siu-advance-09",
+  "word": "motor scooter",
+  "action": "riding a motor scooter",
+  "prompt": "Natural candid photograph. A young woman riding a mint-green motor scooter along a narrow seaside street on vacation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104847_ed3e09a2-e29d-4ba3-8853-b849527d6ce6.png"
+ },
+ {
+  "index": 23179,
+  "book": "siu-advance-09",
+  "word": "luggage tag",
+  "action": "attaching a luggage tag",
+  "prompt": "Natural candid photograph. A man attaching a blank leather luggage tag to the handle of his bag at the airport. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_f1725c0b-de3e-449a-b360-6932c655946f.png"
+ },
+ {
+  "index": 23180,
+  "book": "siu-advance-09",
+  "word": "rowboat",
+  "action": "rowing a rowboat",
+  "prompt": "Natural candid photograph. A couple rowing a wooden rowboat across a calm mountain lake on a sunny vacation morning. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_6ca20882-1239-442a-8541-380983368940.png"
+ },
+ {
+  "index": 23181,
+  "book": "siu-advance-10",
+  "word": "blueprint",
+  "action": "unrolling a blueprint",
+  "prompt": "Natural candid photograph. An architect unrolling a large blueprint on a desk for a young couple planning their new home. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_c380bb29-75e8-43cb-a4ff-8e9950361989.png"
+ },
+ {
+  "index": 23182,
+  "book": "siu-advance-10",
+  "word": "floor plan",
+  "action": "showing a floor plan",
+  "prompt": "Natural candid photograph. A real estate agent showing a printed floor plan drawing to a young couple inside an empty apartment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104850_cf88e6da-819b-4f1c-8155-c4ee82bb498c.png"
+ },
+ {
+  "index": 23183,
+  "book": "siu-advance-10",
+  "word": "house key",
+  "action": "handing over a house key",
+  "prompt": "Natural candid photograph. A real estate agent handing a shiny house key to a smiling couple in front of their new home. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_66d210ba-f515-457c-9d9f-0f45ac74bb69.png"
+ },
+ {
+  "index": 23184,
+  "book": "siu-advance-10",
+  "word": "laser distance meter",
+  "action": "measuring a room with a laser distance meter",
+  "prompt": "Natural candid photograph. A man measuring an empty living room with a laser distance meter while his wife watches. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_513ca059-7bb4-4d8b-b4c0-c4469050a10e.png"
+ },
+ {
+  "index": 23185,
+  "book": "siu-advance-10",
+  "word": "paint swatches",
+  "action": "holding paint swatches against a wall",
+  "prompt": "Natural candid photograph. A young couple holding colorful paint swatches against a white wall in their new apartment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_4e5d0d00-65b1-4e6e-b1bb-d4e22b793602.png"
+ },
+ {
+  "index": 23186,
+  "book": "siu-advance-10",
+  "word": "cardboard box",
+  "action": "carrying a cardboard box",
+  "prompt": "Natural candid photograph. A young Korean couple carrying cardboard boxes through the front door of their new apartment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104926_9dd490f3-856a-4286-850e-577ccea227d0.png"
+ },
+ {
+  "index": 23187,
+  "book": "siu-advance-10",
+  "word": "doorbell",
+  "action": "pressing a doorbell",
+  "prompt": "Natural candid photograph. A woman pressing the doorbell of a brick house while holding a folder for a property viewing. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_05cc8722-a81e-4954-9fe5-ecc5cfbc031d.png"
+ },
+ {
+  "index": 23189,
+  "book": "siu-advance-10",
+  "word": "fireplace",
+  "action": "showing a stone fireplace",
+  "prompt": "Natural candid photograph. A realtor showing a stone fireplace to an interested older couple in a bright living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_128371e4-df78-4921-b2c8-375c189f5f0a.png"
+ },
+ {
+  "index": 23190,
+  "book": "siu-advance-10",
+  "word": "balcony",
+  "action": "standing on a balcony",
+  "prompt": "Natural candid photograph. A young couple standing on a sunny apartment balcony and looking out at the city view. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_b8b0a092-f9a4-410f-bf16-6646933d7f64.png"
+ },
+ {
+  "index": 23191,
+  "book": "siu-advance-10",
+  "word": "kitchen island",
+  "action": "touching a marble kitchen island",
+  "prompt": "Natural candid photograph. A home buyer running her hand across a white marble kitchen island during a house tour. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104927_231b2311-44b0-453f-b15a-b51256a22669.png"
+ },
+ {
+  "index": 23192,
+  "book": "siu-advance-10",
+  "word": "floorboards",
+  "action": "inspecting floorboards",
+  "prompt": "Natural candid photograph. A home inspector kneeling to inspect wooden floorboards with his hand in an empty house. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104926_19e7bcd4-f725-4881-9ed6-1ef0541db8fd.png"
+ },
+ {
+  "index": 23193,
+  "book": "siu-advance-10",
+  "word": "mailbox",
+  "action": "opening a mailbox",
+  "prompt": "Natural candid photograph. A man opening a new black mailbox in front of his recently purchased suburban house. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_0a1d4774-1f21-443a-b687-c965102f5ccb.png"
+ },
+ {
+  "index": 23194,
+  "book": "siu-advance-10",
+  "word": "picket fence",
+  "action": "painting a picket fence",
+  "prompt": "Natural candid photograph. A couple painting a white picket fence together in front of their new home on a sunny day. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_b7b7befe-2a2d-47c9-82e4-7f645de1d299.png"
+ },
+ {
+  "index": 23195,
+  "book": "siu-advance-10",
+  "word": "spirit level",
+  "action": "holding a spirit level against a wall",
+  "prompt": "Natural candid photograph. A contractor holding a yellow spirit level against a wall in a house under renovation. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_c8f7d26c-fa19-44e1-9e8f-05a46d364e19.png"
+ },
+ {
+  "index": 23196,
+  "book": "siu-advance-10",
+  "word": "flashlight",
+  "action": "shining a flashlight",
+  "prompt": "Natural candid photograph. A home inspector shining a flashlight into a dark basement corner during a property inspection. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_d6035431-4558-402a-8c93-b7abc2e9fee5.png"
+ },
+ {
+  "index": 23197,
+  "book": "siu-advance-10",
+  "word": "window blinds",
+  "action": "raising window blinds",
+  "prompt": "Natural candid photograph. A realtor raising window blinds to let sunlight into an empty living room for a client. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105001_3ff12b86-20ed-4f21-b049-af23c737e528.png"
+ },
+ {
+  "index": 23198,
+  "book": "siu-advance-10",
+  "word": "paint roller",
+  "action": "rolling paint with a paint roller",
+  "prompt": "Natural candid photograph. A young woman rolling light blue paint onto a wall with a paint roller in her new apartment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_363577a1-55ae-46d5-af7a-f0f889d547cd.png"
+ },
+ {
+  "index": 23199,
+  "book": "siu-advance-10",
+  "word": "garage door",
+  "action": "pulling up a garage door",
+  "prompt": "Natural candid photograph. A man pulling up a white garage door to show the space to a potential buyer. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_69f476f5-4c03-4484-8800-584076fd8e50.png"
+ },
+ {
+  "index": 23200,
+  "book": "siu-advance-10",
+  "word": "piggy bank",
+  "action": "dropping coins into a piggy bank",
+  "prompt": "Natural candid photograph. A young woman dropping coins into a pink ceramic piggy bank to save for her first home. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_96aabd2a-7671-43a5-a9d8-b0f4d1e0b2d6.png"
+ },
+ {
+  "index": 23201,
+  "book": "siu-advance-11",
+  "word": "headset",
+  "action": "adjusting a headset microphone",
+  "prompt": "Natural candid photograph. A calm young Korean woman adjusting the microphone of her black headset while helping a caller at a tidy help desk in a bright office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_dd23ff3c-2f3f-4380-819e-f3338db4d92b.png"
+ },
+ {
+  "index": 23202,
+  "book": "siu-advance-11",
+  "word": "receipt",
+  "action": "handing a receipt",
+  "prompt": "Natural candid photograph. A friendly cashier handing a long white receipt across a clean counter to a smiling elderly customer in a sunny grocery store. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105001_f658da00-c5ce-47cb-8791-44bbbe304afc.png"
+ },
+ {
+  "index": 23203,
+  "book": "siu-advance-11",
+  "word": "envelope",
+  "action": "sliding an envelope",
+  "prompt": "Natural candid photograph. A hotel receptionist sliding a plain white envelope across a marble front desk to a smiling traveler in a bright lobby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_4320a254-5a02-4f4e-b55e-891a76779400.png"
+ },
+ {
+  "index": 23204,
+  "book": "siu-advance-11",
+  "word": "service bell",
+  "action": "tapping a service bell",
+  "prompt": "Natural candid photograph. A middle-aged man in a gray sweater tapping a shiny silver service bell on a wooden reception counter in a quiet hotel lobby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_a222ac9c-f6d7-47ab-9e9b-6136dbee50b5.png"
+ },
+ {
+  "index": 23205,
+  "book": "siu-advance-11",
+  "word": "lanyard",
+  "action": "adjusting a lanyard",
+  "prompt": "Natural candid photograph. A smiling young woman at an information booth adjusting a plain blue lanyard around her neck in a bright shopping mall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_10aa1d3d-d6db-445b-a69a-d675596816e8.png"
+ },
+ {
+  "index": 23206,
+  "book": "siu-advance-11",
+  "word": "clipboard",
+  "action": "holding a clipboard",
+  "prompt": "Natural candid photograph. A calm store manager holding a clipboard and listening to a customer beside tall shelves of shoes in a bright shop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105003_bca7eabb-a476-4180-ad19-22bf904efee3.png"
+ },
+ {
+  "index": 23207,
+  "book": "siu-advance-11",
+  "word": "parcel",
+  "action": "handing over a parcel",
+  "prompt": "Natural candid photograph. A delivery courier in a brown jacket handing a large cardboard parcel to a smiling young woman at an apartment door. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105035_e1f18d65-fc65-4399-a450-706070975f61.png"
+ },
+ {
+  "index": 23208,
+  "book": "siu-advance-11",
+  "word": "measuring tape",
+  "action": "measuring a shoulder",
+  "prompt": "Natural candid photograph. A tailor measuring a customer's shoulders with a long yellow measuring tape in a bright, tidy alterations shop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_341fe298-07e5-4d30-ad8e-3391af5bf92c.png"
+ },
+ {
+  "index": 23209,
+  "book": "siu-advance-11",
+  "word": "screwdriver",
+  "action": "tightening a screw",
+  "prompt": "Natural candid photograph. A repair technician tightening a tiny screw with a red screwdriver on a broken toaster at a bright service counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105034_b7ef8003-f546-4904-9e65-e31e6da9dd86.png"
+ },
+ {
+  "index": 23210,
+  "book": "siu-advance-11",
+  "word": "garment bag",
+  "action": "zipping up a garment bag",
+  "prompt": "Natural candid photograph. A shop assistant zipping up a long black garment bag holding a navy suit for a customer in a bright boutique. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_25e548f2-40b4-4238-824d-d9e175c0cdb5.png"
+ },
+ {
+  "index": 23211,
+  "book": "siu-advance-11",
+  "word": "stapler",
+  "action": "stapling forms together",
+  "prompt": "Natural candid photograph. A patient clerk stapling a stack of forms together with a large black stapler at a quiet service window. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_a64cdc9d-5ec2-4329-a393-40bd47f6bbae.png"
+ },
+ {
+  "index": 23212,
+  "book": "siu-advance-11",
+  "word": "walkie-talkie",
+  "action": "speaking into a walkie-talkie",
+  "prompt": "Natural candid photograph. A friendly security guard in uniform speaking into a walkie-talkie while helping a lost traveler in a bright airport hallway. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105032_031f82e1-023a-428e-8374-36db2e75c079.png"
+ },
+ {
+  "index": 23213,
+  "book": "siu-advance-11",
+  "word": "luggage tag",
+  "action": "attaching a luggage tag",
+  "prompt": "Natural candid photograph. An airline agent attaching an orange luggage tag to a traveler's bag handle at a bright check-in counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105032_b77ddd3f-62e4-468c-8f6f-1078b780ba9d.png"
+ },
+ {
+  "index": 23214,
+  "book": "siu-advance-11",
+  "word": "umbrella",
+  "action": "opening an umbrella",
+  "prompt": "Natural candid photograph. A doorman in a gray coat opening a large black umbrella for an elderly woman stepping out of a hotel entrance in light rain. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105035_c6defaf2-2466-4ed2-8c57-c7fb51d3cd92.png"
+ },
+ {
+  "index": 23215,
+  "book": "siu-advance-11",
+  "word": "wheelchair",
+  "action": "pushing a wheelchair",
+  "prompt": "Natural candid photograph. A friendly airport staff member pushing a smiling elderly man in a wheelchair through a wide, bright airport terminal. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_518601f1-b3a5-4ef0-8ad7-0e2753374505.png"
+ },
+ {
+  "index": 23216,
+  "book": "siu-advance-11",
+  "word": "suggestion box",
+  "action": "dropping a card into a suggestion box",
+  "prompt": "Natural candid photograph. A young man dropping a folded card into a small wooden suggestion box on a café counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_7b28c381-4000-4571-b67c-38115a15fad3.png"
+ },
+ {
+  "index": 23217,
+  "book": "siu-advance-11",
+  "word": "barcode scanner",
+  "action": "scanning a box",
+  "prompt": "Natural candid photograph. A cashier scanning a cereal box with a handheld barcode scanner at a checkout lane in a bright supermarket. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_d4c128af-e940-4e72-829c-aa93c5180eb2.png"
+ },
+ {
+  "index": 23218,
+  "book": "siu-advance-11",
+  "word": "hanger",
+  "action": "hanging a coat on a hanger",
+  "prompt": "Natural candid photograph. A cloakroom attendant hanging a customer's wool coat on a wooden hanger in a bright theater lobby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_39a8967a-0ca8-4b22-b13f-ef2587115a81.png"
+ },
+ {
+  "index": 23219,
+  "book": "siu-advance-11",
+  "word": "teapot",
+  "action": "pouring tea",
+  "prompt": "Natural candid photograph. A polite waiter pouring hot tea from a white porcelain teapot into a cup for a calm customer at a quiet restaurant table. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105107_1779fa97-a37d-4560-a98c-a7374049e239.png"
+ },
+ {
+  "index": 23220,
+  "book": "siu-advance-11",
+  "word": "key card",
+  "action": "handing over a key card",
+  "prompt": "Natural candid photograph. A hotel receptionist handing a white plastic key card to a smiling Korean businessman at a bright front desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_edbb7755-3032-4968-be3a-ecf23ba49fc0.png"
+ },
+ {
+  "index": 23221,
+  "book": "siu-advance-12",
+  "word": "photo album",
+  "action": "turning the pages of a photo album",
+  "prompt": "Natural candid photograph. A grandmother and her teenage granddaughter turning the pages of a thick photo album together on a sofa in a sunny living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_b443c218-f9f0-467b-8e50-af55203e6295.png"
+ },
+ {
+  "index": 23222,
+  "book": "siu-advance-12",
+  "word": "wedding ring",
+  "action": "sliding on a wedding ring",
+  "prompt": "Natural candid photograph. A groom in a gray suit gently sliding a gold wedding ring onto his bride's finger at a sunny garden ceremony. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_c76edad9-3aae-4e22-b7ca-5a89d13e8ded.png"
+ },
+ {
+  "index": 23223,
+  "book": "siu-advance-12",
+  "word": "stroller",
+  "action": "pushing a stroller",
+  "prompt": "Natural candid photograph. A young father pushing a baby stroller along a tree-lined park path on a bright, calm morning. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_df8a91ea-5ef4-43eb-b8e1-262568739d13.png"
+ },
+ {
+  "index": 23224,
+  "book": "siu-advance-12",
+  "word": "picnic blanket",
+  "action": "spreading a picnic blanket",
+  "prompt": "Natural candid photograph. A smiling family spreading a large red checkered picnic blanket on green grass in a sunny park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105107_c27b5cd3-9469-4d7f-8c07-61bd14af7e7f.png"
+ },
+ {
+  "index": 23225,
+  "book": "siu-advance-12",
+  "word": "rocking chair",
+  "action": "rocking in a rocking chair",
+  "prompt": "Natural candid photograph. An elderly grandfather rocking gently in a wooden rocking chair with his young grandson on his lap on a sunny porch. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_5751f56f-b533-49e1-b6e1-1f5708d75099.png"
+ },
+ {
+  "index": 23226,
+  "book": "siu-advance-12",
+  "word": "picture frame",
+  "action": "hanging a picture frame",
+  "prompt": "Natural candid photograph. A Korean couple hanging a large wooden picture frame on a white living room wall together. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_4e56a0f2-879c-495f-9eb1-ce7014a0d6df.png"
+ },
+ {
+  "index": 23227,
+  "book": "siu-advance-12",
+  "word": "moving box",
+  "action": "carrying a moving box",
+  "prompt": "Natural candid photograph. A married couple carrying a large cardboard moving box together into a bright, empty new apartment. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_59f42bb4-785d-47ac-b57f-5af66b2e2dfb.png"
+ },
+ {
+  "index": 23228,
+  "book": "siu-advance-12",
+  "word": "dumpling",
+  "action": "folding dumplings",
+  "prompt": "Natural candid photograph. A Korean mother and her adult son folding dumplings together at a kitchen counter dusted with flour. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_0c3f6e72-2967-49af-94b5-53827e576640.png"
+ },
+ {
+  "index": 23229,
+  "book": "siu-advance-12",
+  "word": "kite",
+  "action": "flying a kite",
+  "prompt": "Natural candid photograph. A father and his young daughter flying a colorful diamond-shaped kite on a windy green hill. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_aa65dbef-1ef1-4019-91e8-b9046818f496.png"
+ },
+ {
+  "index": 23230,
+  "book": "siu-advance-12",
+  "word": "baby bottle",
+  "action": "feeding a baby with a bottle",
+  "prompt": "Natural candid photograph. A young mother sitting on a sofa feeding her smiling baby with a baby bottle in a bright living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_6e6cc95c-a17c-4ee5-88d9-ae4413e7d9f6.png"
+ },
+ {
+  "index": 23231,
+  "book": "siu-advance-12",
+  "word": "watering can",
+  "action": "watering tomato plants",
+  "prompt": "Natural candid photograph. A grandmother and her grandson watering tomato plants with a green watering can in a sunny backyard garden. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_2caf04f2-6edc-4531-98e4-000f4412b024.png"
+ },
+ {
+  "index": 23232,
+  "book": "siu-advance-12",
+  "word": "wheelbarrow",
+  "action": "pushing a wheelbarrow",
+  "prompt": "Natural candid photograph. A teenage boy pushing a wheelbarrow full of soil while his father points toward a vegetable bed in the garden. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_165483ef-066b-4ca6-9c28-586df9abc066.png"
+ },
+ {
+  "index": 23233,
+  "book": "siu-advance-12",
+  "word": "sewing machine",
+  "action": "sewing a quilt",
+  "prompt": "Natural candid photograph. An elderly woman sewing a patchwork quilt on a sewing machine while her adult daughter watches beside her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_8b89787f-14e0-4abe-8e5c-76b413534fcb.png"
+ },
+ {
+  "index": 23234,
+  "book": "siu-advance-12",
+  "word": "barbecue grill",
+  "action": "turning vegetables on a grill",
+  "prompt": "Natural candid photograph. A cheerful father turning corn and peppers on a barbecue grill in a backyard while his family sets a table nearby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_18ed1cd7-b776-4fe7-9237-c39961906df7.png"
+ },
+ {
+  "index": 23235,
+  "book": "siu-advance-12",
+  "word": "jigsaw puzzle",
+  "action": "fitting puzzle pieces",
+  "prompt": "Natural candid photograph. A family of four fitting pieces into a large jigsaw puzzle spread across a wooden dining surface. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_07a18f44-88f6-45f5-a5a4-7050556141f3.png"
+ },
+ {
+  "index": 23236,
+  "book": "siu-advance-12",
+  "word": "car seat",
+  "action": "buckling a child into a car seat",
+  "prompt": "Natural candid photograph. A mother buckling her smiling toddler into a gray car seat in the back of a family car. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_5337e8c2-3936-4f42-9053-402c2e3993a2.png"
+ },
+ {
+  "index": 23237,
+  "book": "siu-advance-12",
+  "word": "garden hose",
+  "action": "washing a car with a hose",
+  "prompt": "Natural candid photograph. A father spraying the family car with a green garden hose on a sunny driveway while his son laughs. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_53959aab-614b-4b11-977d-e660018aeb79.png"
+ },
+ {
+  "index": 23238,
+  "book": "siu-advance-12",
+  "word": "lantern",
+  "action": "hanging a paper lantern",
+  "prompt": "Natural candid photograph. A Korean family hanging a round paper lantern from a tree branch in a courtyard in soft evening light. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_548c339d-c6b8-4336-8579-ffd45c23ccef.png"
+ },
+ {
+  "index": 23239,
+  "book": "siu-advance-12",
+  "word": "hanbok",
+  "action": "tying a hanbok ribbon",
+  "prompt": "Natural candid photograph. A grandmother helping her granddaughter tie the ribbon of a colorful hanbok in a bright traditional room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_1c76c386-6ad7-43b5-bda7-8816794960b1.png"
+ },
+ {
+  "index": 23240,
+  "book": "siu-advance-12",
+  "word": "bicycle helmet",
+  "action": "fastening a bicycle helmet",
+  "prompt": "Natural candid photograph. A father fastening a blue bicycle helmet on his smiling son's head beside a park bike path. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_b836a68d-d2a0-42ca-b49c-be9e70056e63.png"
+ },
+ {
+  "index": 23241,
+  "book": "siu-advance-13",
+  "word": "diploma",
+  "action": "holding a diploma",
+  "prompt": "Natural candid photograph. A proud young graduate in a black gown holding a rolled diploma tied with a red ribbon outside a university building. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_e0dd1ba9-6413-4b24-9c44-0f1c06e6c017.png"
+ },
+ {
+  "index": 23242,
+  "book": "siu-advance-13",
+  "word": "microscope",
+  "action": "looking through a microscope",
+  "prompt": "Natural candid photograph. A high-school student looking through a white microscope at a slide in a bright science laboratory. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_7e74d50a-9a49-49d1-810c-0a6ff8f433e3.png"
+ },
+ {
+  "index": 23243,
+  "book": "siu-advance-13",
+  "word": "whiteboard",
+  "action": "drawing a diagram on a whiteboard",
+  "prompt": "Natural candid photograph. A young teacher drawing a simple circle diagram on a large whiteboard with a blue marker in a bright classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_0fec4ef8-3411-453a-99ff-4fcf74b98023.png"
+ },
+ {
+  "index": 23244,
+  "book": "siu-advance-13",
+  "word": "globe",
+  "action": "spinning a globe",
+  "prompt": "Natural candid photograph. A teenage girl spinning a large desk globe with one finger in a sunny classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_d30f3cfc-b341-4f09-8057-3372f505dde3.png"
+ },
+ {
+  "index": 23245,
+  "book": "siu-advance-13",
+  "word": "protractor",
+  "action": "measuring an angle",
+  "prompt": "Natural candid photograph. A student measuring an angle with a clear plastic protractor on a sheet of graph paper at a wooden desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105219_74a2c100-7de9-41c1-b88f-b3004df3c650.png"
+ },
+ {
+  "index": 23246,
+  "book": "siu-advance-13",
+  "word": "test tube",
+  "action": "holding a test tube",
+  "prompt": "Natural candid photograph. A chemistry student in safety goggles holding up a test tube of bright blue liquid in a school laboratory. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_a42c3318-3f52-433f-93ae-df23f41da984.png"
+ },
+ {
+  "index": 23247,
+  "book": "siu-advance-13",
+  "word": "projector",
+  "action": "adjusting a projector",
+  "prompt": "Natural candid photograph. A lecturer adjusting the lens of a white projector on a small cart in a bright lecture hall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105219_674d718c-65af-4b17-81ad-a111b430ecce.png"
+ },
+ {
+  "index": 23248,
+  "book": "siu-advance-13",
+  "word": "bookshelf",
+  "action": "sliding a volume onto a bookshelf",
+  "prompt": "Natural candid photograph. A university student sliding a thick volume back onto a tall wooden bookshelf in a quiet library. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_59f32ce5-2cde-42ab-95dd-c940e79f59bd.png"
+ },
+ {
+  "index": 23249,
+  "book": "siu-advance-13",
+  "word": "easel",
+  "action": "painting on an easel",
+  "prompt": "Natural candid photograph. An art student painting a landscape on a canvas propped on a wooden easel in a sunny studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105217_c339d7d2-f8a5-4148-9dec-a701a5ac458c.png"
+ },
+ {
+  "index": 23250,
+  "book": "siu-advance-13",
+  "word": "mortarboard",
+  "action": "tossing mortarboards",
+  "prompt": "Natural candid photograph. A group of smiling graduates tossing their black mortarboards into the air on a sunny campus lawn. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_15cbbbcc-6958-49ba-8f05-fad9d5ff4a9f.png"
+ },
+ {
+  "index": 23251,
+  "book": "siu-advance-13",
+  "word": "chalkboard",
+  "action": "drawing a triangle on a chalkboard",
+  "prompt": "Natural candid photograph. An elderly professor drawing a large triangle on a green chalkboard with white chalk in a bright lecture room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_311ef460-3d77-43f7-92f4-3de0d9357f45.png"
+ },
+ {
+  "index": 23252,
+  "book": "siu-advance-13",
+  "word": "pencil case",
+  "action": "opening a pencil case",
+  "prompt": "Natural candid photograph. A Korean teenage boy unzipping a gray pencil case at his desk in a bright classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105218_c499c8ea-9b2a-4f72-ab56-3f31ce122be5.png"
+ },
+ {
+  "index": 23253,
+  "book": "siu-advance-13",
+  "word": "ruler",
+  "action": "drawing a line with a ruler",
+  "prompt": "Natural candid photograph. A student drawing a straight line with a long metal ruler across a large sheet of drafting paper. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105217_635e045c-d77a-4c11-bcb1-38ee44e66392.png"
+ },
+ {
+  "index": 23254,
+  "book": "siu-advance-13",
+  "word": "drawing compass",
+  "action": "drawing a circle with a compass",
+  "prompt": "Natural candid photograph. A student drawing a perfect circle with a metal drawing compass at a desk in a sunny classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105217_9b3659dd-3f9a-40df-b785-4f5cadd5c025.png"
+ },
+ {
+  "index": 23255,
+  "book": "siu-advance-13",
+  "word": "violin",
+  "action": "playing the violin",
+  "prompt": "Natural candid photograph. A young music student playing the violin while her teacher gently corrects her bow arm in a bright practice room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_bc7941a0-3b03-44a0-b9eb-f380eff930bc.png"
+ },
+ {
+  "index": 23256,
+  "book": "siu-advance-13",
+  "word": "circuit board",
+  "action": "connecting wires on a circuit board",
+  "prompt": "Natural candid photograph. Two teenagers connecting colorful wires on a green circuit board during a robotics class at a long table in a sunny school workshop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105250_20218664-087d-4562-94ce-b8035c25f7f3.png"
+ },
+ {
+  "index": 23257,
+  "book": "siu-advance-13",
+  "word": "headphones",
+  "action": "listening with headphones",
+  "prompt": "Natural candid photograph. A Korean woman wearing large headphones and listening carefully in a quiet language lab booth. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_fa9c5da7-4a9c-43ef-b489-ad4efdc42097.png"
+ },
+ {
+  "index": 23258,
+  "book": "siu-advance-13",
+  "word": "podium",
+  "action": "speaking at a podium",
+  "prompt": "Natural candid photograph. A professor in a blazer speaking at a wooden podium in front of a large, bright lecture hall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105250_a94cbeac-d3bc-4349-8353-c6222368d5d7.png"
+ },
+ {
+  "index": 23259,
+  "book": "siu-advance-13",
+  "word": "beaker",
+  "action": "pouring water into a beaker",
+  "prompt": "Natural candid photograph. A student pouring water into a glass beaker on a lab bench in a bright chemistry classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_8b2d7e04-239d-4087-aa96-3a629b3f4774.png"
+ },
+ {
+  "index": 23260,
+  "book": "siu-advance-13",
+  "word": "telescope",
+  "action": "looking through a telescope",
+  "prompt": "Natural candid photograph. A teacher helping a teenage student look through a white telescope on a school rooftop at dusk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105250_34d7183a-e184-4b07-9f35-953de965a162.png"
+ },
+ {
+  "index": 23261,
+  "book": "siu-advance-14",
+  "word": "skateboard",
+  "action": "riding a skateboard",
+  "prompt": "Natural candid photograph. Two teenage friends riding skateboards side by side along a smooth path in a sunny city park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_d65eaace-e921-42cd-ae72-ccb703d68813.png"
+ },
+ {
+  "index": 23262,
+  "book": "siu-advance-14",
+  "word": "chessboard",
+  "action": "playing chess",
+  "prompt": "Natural candid photograph. Two elderly friends moving pieces on a wooden chessboard at a stone table in a leafy park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_1581eafa-992b-48a3-9c79-e3aa6adf31b6.png"
+ },
+ {
+  "index": 23263,
+  "book": "siu-advance-14",
+  "word": "frisbee",
+  "action": "throwing a frisbee",
+  "prompt": "Natural candid photograph. A young woman throwing a bright orange frisbee to her friend on a wide green lawn. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105250_48144df2-14ec-430f-b005-de6aba7d64b9.png"
+ },
+ {
+  "index": 23264,
+  "book": "siu-advance-14",
+  "word": "acoustic guitar",
+  "action": "playing an acoustic guitar",
+  "prompt": "Natural candid photograph. A young man playing an acoustic guitar while his friends sing around a small campfire in the evening. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_e85a253c-b6d4-4c9f-a0e7-bff856b0329b.png"
+ },
+ {
+  "index": 23265,
+  "book": "siu-advance-14",
+  "word": "tent",
+  "action": "pitching a tent",
+  "prompt": "Natural candid photograph. Three friends pitching a green tent together at a forest campsite on a sunny afternoon. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105248_ffdf9c44-8ddb-41c3-a4a7-5fda19d6ec00.png"
+ },
+ {
+  "index": 23266,
+  "book": "siu-advance-14",
+  "word": "bowling ball",
+  "action": "rolling a bowling ball",
+  "prompt": "Natural candid photograph. A young woman rolling a shiny purple bowling ball down a lane while her friends cheer behind her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105249_ec96b927-6544-49dc-84d9-d25788558904.png"
+ },
+ {
+  "index": 23267,
+  "book": "siu-advance-14",
+  "word": "popcorn",
+  "action": "sharing popcorn",
+  "prompt": "Natural candid photograph. Two friends sharing a large bowl of popcorn on a sofa in a cozy living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105311_7aceb196-f480-4c14-9def-2a4ee12fef98.png"
+ },
+ {
+  "index": 23268,
+  "book": "siu-advance-14",
+  "word": "canoe",
+  "action": "paddling a canoe",
+  "prompt": "Natural candid photograph. Two friends paddling a red canoe across a calm mountain lake on a clear morning. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_d6cd779d-0c50-47a2-8656-9ede53c132cb.png"
+ },
+ {
+  "index": 23269,
+  "book": "siu-advance-14",
+  "word": "trekking pole",
+  "action": "hiking with trekking poles",
+  "prompt": "Natural candid photograph. A group of middle-aged friends hiking up a rocky mountain trail with trekking poles on a clear autumn morning with green valleys below. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104642_6d793759-7132-4358-81f7-74cc1e18c9bf.png"
+ },
+ {
+  "index": 23270,
+  "book": "siu-advance-14",
+  "word": "basketball hoop",
+  "action": "shooting a basketball",
+  "prompt": "Natural candid photograph. A teenage boy shooting a basketball toward an outdoor basketball hoop while his friend watches. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_4a3d8a52-8fd2-4dad-abbd-7ac00512e1cb.png"
+ },
+ {
+  "index": 23271,
+  "book": "siu-advance-14",
+  "word": "tandem bicycle",
+  "action": "riding a tandem bicycle",
+  "prompt": "Natural candid photograph. Two laughing friends riding a blue tandem bicycle along a sunny riverside path on a warm spring afternoon under tall trees. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_0d187f25-35c5-4697-ae36-f0528620b3a7.png"
+ },
+ {
+  "index": 23272,
+  "book": "siu-advance-14",
+  "word": "scarf",
+  "action": "wrapping a scarf",
+  "prompt": "Natural candid photograph. A young woman wrapping a knitted red scarf around her friend's neck on a snowy street. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104640_aca33c51-da64-4fa7-9a90-bb0824e63dc7.png"
+ },
+ {
+  "index": 23273,
+  "book": "siu-advance-14",
+  "word": "badminton racket",
+  "action": "swinging a badminton racket",
+  "prompt": "Natural candid photograph. Two friends swinging badminton rackets at a white shuttlecock in a sunny backyard on a warm afternoon with green hedges behind them. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104642_4e68f479-b35b-448d-a1e6-bf9b34a0deb8.png"
+ },
+ {
+  "index": 23274,
+  "book": "siu-advance-14",
+  "word": "thermos",
+  "action": "pouring tea from a thermos",
+  "prompt": "Natural candid photograph. Two friends pouring hot tea from a silver thermos into cups at a windy mountain summit. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_0af3852f-6e0a-406c-ba97-9506f2671833.png"
+ },
+ {
+  "index": 23275,
+  "book": "siu-advance-14",
+  "word": "picnic basket",
+  "action": "unpacking a picnic basket",
+  "prompt": "Natural candid photograph. Three friends unpacking sandwiches and fruit from a wicker picnic basket on the grass in a park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_10962fb8-5ef1-4552-ba5b-e6d8165b97d7.png"
+ },
+ {
+  "index": 23276,
+  "book": "siu-advance-14",
+  "word": "gift box",
+  "action": "handing a gift box",
+  "prompt": "Natural candid photograph. A young Korean woman handing a small wrapped gift box to her smiling friend in a bright café. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104638_431b9ee9-0a79-4f96-84f8-13b5d764d8f5.png"
+ },
+ {
+  "index": 23277,
+  "book": "siu-advance-14",
+  "word": "microphone",
+  "action": "singing into a microphone",
+  "prompt": "Natural candid photograph. Two friends singing happily into a microphone together in a colorful karaoke room with soft colored lights and a sofa behind them. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_892ed1a4-df71-4de9-a57a-34c74f1a685a.png"
+ },
+ {
+  "index": 23278,
+  "book": "siu-advance-14",
+  "word": "snowman",
+  "action": "building a snowman",
+  "prompt": "Natural candid photograph. Two friends placing a carrot nose on a large snowman in a snowy park while wearing thick winter coats and knitted hats. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104641_7141113b-710b-414e-a9d4-50e778b93b76.png"
+ },
+ {
+  "index": 23279,
+  "book": "siu-advance-14",
+  "word": "fishing rod",
+  "action": "holding fishing rods",
+  "prompt": "Natural candid photograph. Two elderly friends holding fishing rods and chatting on a wooden pier over a calm lake. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104639_b88cf009-656e-4bc4-b2c4-f6a396514c5c.png"
+ },
+ {
+  "index": 23280,
+  "book": "siu-advance-14",
+  "word": "ice cream cone",
+  "action": "eating ice cream cones",
+  "prompt": "Natural candid photograph. Two teenage friends laughing while eating ice cream cones on a seaside boardwalk with the calm blue sea behind them. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_2ebea861-5e8f-4fdb-9f47-a6ab4e2f6efc.png"
+ },
+ {
+  "index": 23281,
+  "book": "siu-advance-15",
+  "word": "yoga mat",
+  "action": "rolling out a yoga mat",
+  "prompt": "Natural candid photograph. A woman in a loose T-shirt and full-length leggings rolling out a purple yoga mat in a bright studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_3af67187-102f-44ce-a8b4-7c49c27e7151.png"
+ },
+ {
+  "index": 23282,
+  "book": "siu-advance-15",
+  "word": "dumbbell",
+  "action": "lifting a dumbbell",
+  "prompt": "Natural candid photograph. A man in a gray T-shirt lifting a black dumbbell in a bright, clean gym. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_99339c2c-810d-42c9-b422-34c5b7bc1622.png"
+ },
+ {
+  "index": 23283,
+  "book": "siu-advance-15",
+  "word": "treadmill",
+  "action": "jogging on a treadmill",
+  "prompt": "Natural candid photograph. A woman in a long-sleeved shirt and track pants jogging on a treadmill in a sunny fitness room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_99ca27d9-19f4-4cda-95c4-ca96c68c67c5.png"
+ },
+ {
+  "index": 23284,
+  "book": "siu-advance-15",
+  "word": "blood pressure monitor",
+  "action": "checking blood pressure",
+  "prompt": "Natural candid photograph. A nurse wrapping the cuff of a blood pressure monitor around an elderly man's arm in a calm clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_e2018043-cb5d-432e-b017-ab7d52339f29.png"
+ },
+ {
+  "index": 23285,
+  "book": "siu-advance-15",
+  "word": "stethoscope",
+  "action": "listening with a stethoscope",
+  "prompt": "Natural candid photograph. A friendly doctor listening to a seated patient's back with a stethoscope in a bright examination room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_9696a357-6676-4433-b08c-359fdee447fd.png"
+ },
+ {
+  "index": 23286,
+  "book": "siu-advance-15",
+  "word": "jump rope",
+  "action": "jumping rope",
+  "prompt": "Natural candid photograph. A teenage girl in a T-shirt and track pants jumping rope in a sunny schoolyard. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_aa376486-d214-4592-8e3e-cf5a3e2607a4.png"
+ },
+ {
+  "index": 23287,
+  "book": "siu-advance-15",
+  "word": "water bottle",
+  "action": "drinking from a water bottle",
+  "prompt": "Natural candid photograph. A runner in a long-sleeved shirt drinking from a steel water bottle beside a park trail. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_b69851b9-13a1-4264-bbff-41c36d8db43a.png"
+ },
+ {
+  "index": 23288,
+  "book": "siu-advance-15",
+  "word": "blender",
+  "action": "blending a smoothie",
+  "prompt": "Natural candid photograph. A woman blending spinach and bananas into a green smoothie in a blender in a bright kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_f15ea9d0-34f8-47bd-8cd8-26bad0cbd256.png"
+ },
+ {
+  "index": 23289,
+  "book": "siu-advance-15",
+  "word": "exercise bike",
+  "action": "pedaling an exercise bike",
+  "prompt": "Natural candid photograph. An elderly man in a sweatshirt pedaling an exercise bike in a bright community fitness center. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_914955e5-2749-47c0-b4b7-87adbe4d7360.png"
+ },
+ {
+  "index": 23290,
+  "book": "siu-advance-15",
+  "word": "weighing scale",
+  "action": "stepping onto a scale",
+  "prompt": "Natural candid photograph. A nurse helping a middle-aged man step onto a medical weighing scale in a bright clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104728_6a6d7924-5a2a-415d-b6d0-97e305cb5641.png"
+ },
+ {
+  "index": 23291,
+  "book": "siu-advance-15",
+  "word": "thermometer",
+  "action": "checking a temperature",
+  "prompt": "Natural candid photograph. A nurse holding a digital thermometer to a smiling woman's forehead at a clinic reception. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104729_46b62d14-65ee-4374-b67a-3ca5c3b515a5.png"
+ },
+ {
+  "index": 23292,
+  "book": "siu-advance-15",
+  "word": "foam roller",
+  "action": "rolling a leg on a foam roller",
+  "prompt": "Natural candid photograph. A man in a T-shirt and track pants rolling his leg on a blue foam roller on a gym floor. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_cd31c098-086a-4a0a-83fd-b5407b100605.png"
+ },
+ {
+  "index": 23293,
+  "book": "siu-advance-15",
+  "word": "resistance band",
+  "action": "stretching a resistance band",
+  "prompt": "Natural candid photograph. A woman in a sweatshirt stretching a yellow resistance band with both arms in a sunny living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_99202ae3-f6f3-4a9b-b4c8-d4948f642efd.png"
+ },
+ {
+  "index": 23294,
+  "book": "siu-advance-15",
+  "word": "kettlebell",
+  "action": "swinging a kettlebell",
+  "prompt": "Natural candid photograph. A man in a T-shirt swinging a heavy orange kettlebell in a bright gym while keeping his back straight and his feet apart. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_8837119e-9ad9-4e9b-bb1c-57f4803a32ae.png"
+ },
+ {
+  "index": 23295,
+  "book": "siu-advance-15",
+  "word": "cushion",
+  "action": "meditating on a cushion",
+  "prompt": "Natural candid photograph. A calm woman meditating with closed eyes on a round gray cushion in a quiet sunlit room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104809_b427a238-d315-4a4b-b985-f49adf09e832.png"
+ },
+ {
+  "index": 23296,
+  "book": "siu-advance-15",
+  "word": "salad bowl",
+  "action": "tossing a salad",
+  "prompt": "Natural candid photograph. A young man tossing a fresh green salad in a large wooden salad bowl in a bright kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_8a2685d5-4a22-463f-a854-15660d5dca05.png"
+ },
+ {
+  "index": 23297,
+  "book": "siu-advance-15",
+  "word": "hiking boots",
+  "action": "lacing hiking boots",
+  "prompt": "Natural candid photograph. An elderly couple lacing up their brown hiking boots on a bench before a forest walk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104812_fabb1b74-0f69-431d-927e-43645cab9e83.png"
+ },
+ {
+  "index": 23298,
+  "book": "siu-advance-15",
+  "word": "stopwatch",
+  "action": "timing a runner",
+  "prompt": "Natural candid photograph. A coach holding up a silver stopwatch while timing a runner on a red running track. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_f12165ac-2756-4500-a015-56d93bfbf21a.png"
+ },
+ {
+  "index": 23299,
+  "book": "siu-advance-15",
+  "word": "dental model",
+  "action": "demonstrating tooth brushing",
+  "prompt": "Natural candid photograph. A dentist demonstrating tooth brushing on a large plastic dental model for a smiling teenager in a bright clinic. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_5681c2f2-f19d-4f93-99ee-44802c7c8866.png"
+ },
+ {
+  "index": 23300,
+  "book": "siu-advance-15",
+  "word": "folding fan",
+  "action": "doing tai chi with a fan",
+  "prompt": "Natural candid photograph. A group of elderly women doing tai chi with red folding fans in a peaceful park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_cafaf420-cb4b-4df7-a6cc-64aa4e4ac6c5.png"
+ },
+ {
+  "index": 23301,
+  "book": "siu-advance-16",
+  "word": "film reel",
+  "action": "winding a film reel",
+  "prompt": "Natural candid photograph. An elderly man carefully winding a large metal film reel in a small, tidy cinema projection room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104809_d87f7abd-015a-414e-91bb-62939285e00d.png"
+ },
+ {
+  "index": 23302,
+  "book": "siu-advance-16",
+  "word": "drum set",
+  "action": "playing a drum set",
+  "prompt": "Natural candid photograph. A teenage boy playing a red drum set with wooden sticks in a bright music studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104811_6212cd15-fb3f-4a1d-9b85-0bdaf078bfa1.png"
+ },
+ {
+  "index": 23303,
+  "book": "siu-advance-16",
+  "word": "grand piano",
+  "action": "playing a grand piano",
+  "prompt": "Natural candid photograph. A young woman in a black dress playing a shiny grand piano on a softly lit concert stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104810_c37fda34-7485-4843-9de5-bee78608dc8c.png"
+ },
+ {
+  "index": 23304,
+  "book": "siu-advance-16",
+  "word": "vinyl record",
+  "action": "placing a vinyl record",
+  "prompt": "Natural candid photograph. A man placing a black vinyl record onto a turntable in a cozy living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_ff9c0c88-f26b-4c3b-908f-9da6cdb7ee92.png"
+ },
+ {
+  "index": 23305,
+  "book": "siu-advance-16",
+  "word": "tripod",
+  "action": "filming with a camera on a tripod",
+  "prompt": "Natural candid photograph. A young filmmaker adjusting a video camera mounted on a tall tripod in a sunny park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104845_256f3aa1-58da-44d2-85f1-b15030e6b817.png"
+ },
+ {
+  "index": 23306,
+  "book": "siu-advance-16",
+  "word": "hand puppet",
+  "action": "performing with a hand puppet",
+  "prompt": "Natural candid photograph. A smiling puppeteer moving a fluffy fox hand puppet above a small wooden puppet stage. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_16a377b0-0fa6-4e5d-88b0-49177aa65772.png"
+ },
+ {
+  "index": 23307,
+  "book": "siu-advance-16",
+  "word": "saxophone",
+  "action": "playing a saxophone",
+  "prompt": "Natural candid photograph. A street musician playing a golden saxophone on a sunny city sidewalk while a few smiling people stop to listen nearby. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_6b6ac19c-6a74-413f-9095-9a79b375f658.png"
+ },
+ {
+  "index": 23308,
+  "book": "siu-advance-16",
+  "word": "paintbrush",
+  "action": "painting with a paintbrush",
+  "prompt": "Natural candid photograph. A middle-aged woman painting a flower with a thin paintbrush at a canvas in a bright hobby studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104848_397a179c-9342-4fa7-9251-029b1ff541cb.png"
+ },
+ {
+  "index": 23309,
+  "book": "siu-advance-16",
+  "word": "crochet hook",
+  "action": "crocheting with a hook",
+  "prompt": "Natural candid photograph. A grandmother crocheting a yellow blanket with a crochet hook in a sunny armchair beside a basket of colorful yarn balls. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_594652bf-99b7-473c-be1a-bcd8a4c4b627.png"
+ },
+ {
+  "index": 23310,
+  "book": "siu-advance-16",
+  "word": "game controller",
+  "action": "holding a game controller",
+  "prompt": "Natural candid photograph. Two teenage friends laughing and holding game controllers while sitting on a sofa in a living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_8201cb8f-2530-4f59-8fa5-f1c695e54820.png"
+ },
+ {
+  "index": 23311,
+  "book": "siu-advance-16",
+  "word": "harmonica",
+  "action": "playing a harmonica",
+  "prompt": "Natural candid photograph. An elderly man playing a silver harmonica on a wooden porch in soft afternoon light. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104849_36a36f7d-5d78-404c-a18a-cb5cb0907fcc.png"
+ },
+ {
+  "index": 23312,
+  "book": "siu-advance-16",
+  "word": "pottery wheel",
+  "action": "shaping clay on a pottery wheel",
+  "prompt": "Natural candid photograph. A young woman shaping a clay bowl on a spinning pottery wheel in a bright ceramics studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_6e26329c-c70e-4c5f-b330-650f728a2d8d.png"
+ },
+ {
+  "index": 23313,
+  "book": "siu-advance-16",
+  "word": "juggling balls",
+  "action": "juggling",
+  "prompt": "Natural candid photograph. A street performer juggling three colorful juggling balls in a sunny town square as a small crowd of smiling people watches. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_03476f04-5916-4820-b930-b7605b7e46eb.png"
+ },
+ {
+  "index": 23314,
+  "book": "siu-advance-16",
+  "word": "roller coaster",
+  "action": "riding a roller coaster",
+  "prompt": "Natural candid photograph. A group of friends raising their arms and smiling while riding a roller coaster at an amusement park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_2cb8eca8-bfd9-40bb-8cef-6cabbca7a159.png"
+ },
+ {
+  "index": 23315,
+  "book": "siu-advance-16",
+  "word": "binoculars",
+  "action": "looking through binoculars",
+  "prompt": "Natural candid photograph. A birdwatcher looking through black binoculars at birds in a green wetland while standing on a wooden viewing platform at the edge of the water. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104846_bc054b67-be1d-49a6-ad62-be79319eb84b.png"
+ },
+ {
+  "index": 23316,
+  "book": "siu-advance-16",
+  "word": "mixing console",
+  "action": "adjusting a mixing console",
+  "prompt": "Natural candid photograph. A DJ adjusting knobs and sliders on a mixing console at an outdoor daytime festival. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_2fbb20d3-87b0-43ee-9ac0-517407d8d8fc.png"
+ },
+ {
+  "index": 23317,
+  "book": "siu-advance-16",
+  "word": "ukulele",
+  "action": "strumming a ukulele",
+  "prompt": "Natural candid photograph. A smiling young woman strumming a small wooden ukulele in a sunny park while sitting cross-legged on the grass under a tree. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_bff5e743-6bdb-43da-95f7-21a733c9abcb.png"
+ },
+ {
+  "index": 23318,
+  "book": "siu-advance-16",
+  "word": "spotlight",
+  "action": "adjusting a spotlight",
+  "prompt": "Natural candid photograph. A stage technician adjusting a large black spotlight on a theater balcony above rows of empty red seats before a show. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_617900bc-ee17-43d3-abfb-a3e7c23b72c4.png"
+ },
+ {
+  "index": 23319,
+  "book": "siu-advance-16",
+  "word": "carousel",
+  "action": "riding a carousel",
+  "prompt": "Natural candid photograph. A father and his daughter riding a painted horse on a colorful carousel at a fair. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_b068e12b-29b6-43c3-9945-ca9452feec17.png"
+ },
+ {
+  "index": 23320,
+  "book": "siu-advance-16",
+  "word": "model airplane",
+  "action": "building a model airplane",
+  "prompt": "Natural candid photograph. A man carefully attaching a wing to a gray model airplane at his hobby desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_741e4e5c-5e17-4a53-8728-80e4a1431613.png"
+ },
+ {
+  "index": 23321,
+  "book": "siu-advance-17",
+  "word": "piggy bank",
+  "action": "dropping a coin into a piggy bank",
+  "prompt": "Natural candid photograph. A young girl dropping a coin into a pink ceramic piggy bank on a kitchen counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_c2be663f-2481-4496-9b1f-95f590a735b4.png"
+ },
+ {
+  "index": 23322,
+  "book": "siu-advance-17",
+  "word": "cash register",
+  "action": "opening a cash register",
+  "prompt": "Natural candid photograph. A cashier opening the drawer of a cash register at a small bakery counter while a smiling customer waits with a bag of bread. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_523deba4-c460-45a0-a4a3-3fb06e1a9b96.png"
+ },
+ {
+  "index": 23323,
+  "book": "siu-advance-17",
+  "word": "wallet",
+  "action": "taking a card from a wallet",
+  "prompt": "Natural candid photograph. A man taking a card out of a brown leather wallet at a café counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_1e19468b-3448-4411-b03e-5798ccfc9b72.png"
+ },
+ {
+  "index": 23324,
+  "book": "siu-advance-17",
+  "word": "coin jar",
+  "action": "counting coins from a jar",
+  "prompt": "Natural candid photograph. An elderly woman counting coins poured out of a large glass coin jar at her kitchen counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_1f842720-daec-40e1-9bc3-5a6e0fad4593.png"
+ },
+ {
+  "index": 23325,
+  "book": "siu-advance-17",
+  "word": "card reader",
+  "action": "tapping a card on a reader",
+  "prompt": "Natural candid photograph. A customer tapping a card on a small card reader held by a smiling shop assistant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104924_5e097258-8a0d-4a68-9b82-4711f4680989.png"
+ },
+ {
+  "index": 23326,
+  "book": "siu-advance-17",
+  "word": "safe deposit box",
+  "action": "opening a safe deposit box",
+  "prompt": "Natural candid photograph. A bank employee opening a metal safe deposit box in a bright bank vault room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104923_71ad4725-29b8-457b-99f4-7192128029af.png"
+ },
+ {
+  "index": 23327,
+  "book": "siu-advance-17",
+  "word": "ledger",
+  "action": "writing in a ledger",
+  "prompt": "Natural candid photograph. An accountant writing figures in a thick green ledger at a wooden desk beside a neat stack of folders in a quiet office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104925_61c38331-5dab-4d34-a899-91499b5edeef.png"
+ },
+ {
+  "index": 23328,
+  "book": "siu-advance-17",
+  "word": "abacus",
+  "action": "calculating with an abacus",
+  "prompt": "Natural candid photograph. An elderly Korean shopkeeper sliding beads on a wooden abacus at his shop counter in a small traditional shop with wooden shelves behind him. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105001_9dfd905c-1fa3-4cf8-8294-cc315d699abe.png"
+ },
+ {
+  "index": 23329,
+  "book": "siu-advance-17",
+  "word": "banknote counter",
+  "action": "counting banknotes with a machine",
+  "prompt": "Natural candid photograph. A bank teller feeding a stack of banknotes into a banknote counter at a bright teller window. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105001_90db7553-6b89-4657-ab88-0207a2361f37.png"
+ },
+ {
+  "index": 23330,
+  "book": "siu-advance-17",
+  "word": "briefcase",
+  "action": "opening a briefcase",
+  "prompt": "Natural candid photograph. A financial advisor opening a black leather briefcase at a meeting with a young couple. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_6eaad5b5-dc30-4aad-99f4-1fc748ebbb1d.png"
+ },
+ {
+  "index": 23331,
+  "book": "siu-advance-17",
+  "word": "fountain pen",
+  "action": "signing with a fountain pen",
+  "prompt": "Natural candid photograph. A businesswoman signing a contract with a black fountain pen in a bright office while a smiling colleague watches from across the desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_a27d9277-e76c-48d9-b39e-3bf5a8e57f5d.png"
+ },
+ {
+  "index": 23332,
+  "book": "siu-advance-17",
+  "word": "shredder",
+  "action": "feeding documents into a shredder",
+  "prompt": "Natural candid photograph. An office worker feeding old documents into a paper shredder in a quiet office beside a row of neat gray cabinets in the afternoon light. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105000_00a673de-9f8a-43a2-9b77-4f53419b49ac.png"
+ },
+ {
+  "index": 23333,
+  "book": "siu-advance-17",
+  "word": "filing cabinet",
+  "action": "pulling out a drawer",
+  "prompt": "Natural candid photograph. A woman pulling open the drawer of a gray metal filing cabinet in a tidy office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_c73a14fb-a06a-420d-8ee3-5ba33e469dd6.png"
+ },
+ {
+  "index": 23334,
+  "book": "siu-advance-17",
+  "word": "coin purse",
+  "action": "opening a coin purse",
+  "prompt": "Natural candid photograph. A grandmother opening a small red coin purse to pay at an outdoor fruit stall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104958_1947f989-436c-4923-a124-2d432c194437.png"
+ },
+ {
+  "index": 23335,
+  "book": "siu-advance-17",
+  "word": "vault door",
+  "action": "closing a vault door",
+  "prompt": "Natural candid photograph. A bank manager closing a heavy round steel vault door in a bright bank basement. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_c50b0d30-0574-4eac-b1bc-5bbe93e2071f.png"
+ },
+ {
+  "index": 23336,
+  "book": "siu-advance-17",
+  "word": "rubber stamp",
+  "action": "pressing a rubber stamp",
+  "prompt": "Natural candid photograph. A clerk pressing a wooden rubber stamp onto a document at a bank counter while a calm customer waits on the other side of the glass. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_cd0a75ac-3a90-4d3c-b2f9-4bf225bca65a.png"
+ },
+ {
+  "index": 23337,
+  "book": "siu-advance-17",
+  "word": "magnifying glass",
+  "action": "examining a coin",
+  "prompt": "Natural candid photograph. A coin collector examining an old gold coin through a large magnifying glass at a desk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_0c199540-b946-4f88-845b-5263f4b7cea5.png"
+ },
+ {
+  "index": 23338,
+  "book": "siu-advance-17",
+  "word": "cashbox",
+  "action": "opening a cashbox",
+  "prompt": "Natural candid photograph. A market vendor opening a green metal cashbox to give change at an outdoor market. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104958_1bf18777-38c5-4e75-a091-1cf74ff04b48.png"
+ },
+ {
+  "index": 23339,
+  "book": "siu-advance-17",
+  "word": "binder",
+  "action": "reviewing a binder",
+  "prompt": "Natural candid photograph. A young couple reviewing a thick blue binder of budget papers at their kitchen counter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_104959_4be73019-ec13-4e28-9a64-e0735095f740.png"
+ },
+ {
+  "index": 23340,
+  "book": "siu-advance-17",
+  "word": "calculator",
+  "action": "pressing calculator keys",
+  "prompt": "Natural candid photograph. A Korean man pressing keys on a large desk calculator while planning his monthly budget. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105034_de1daa60-73fc-49c1-9b59-436409b4e5d4.png"
+ },
+ {
+  "index": 23341,
+  "book": "siu-advance-18",
+  "word": "soldering iron",
+  "action": "soldering wires",
+  "prompt": "Natural candid photograph. An engineer soldering tiny wires with a soldering iron at a bright electronics workbench with a thin curl of smoke rising from the joint. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105034_9989f606-55f3-4dfa-bed1-2ff3313eba0d.png"
+ },
+ {
+  "index": 23342,
+  "book": "siu-advance-18",
+  "word": "3D printer",
+  "action": "watching a 3D printer",
+  "prompt": "Natural candid photograph. A young woman watching a 3D printer build a blue plastic gear in a bright workshop. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105034_292d46a6-2243-4a0e-ae0a-c52b3c03fbb6.png"
+ },
+ {
+  "index": 23343,
+  "book": "siu-advance-18",
+  "word": "drone",
+  "action": "launching a drone",
+  "prompt": "Natural candid photograph. A young man launching a white drone from his open hands in a wide green field. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_4f782a17-a07e-437c-8df0-5810e9bed595.png"
+ },
+ {
+  "index": 23344,
+  "book": "siu-advance-18",
+  "word": "VR headset",
+  "action": "wearing a VR headset",
+  "prompt": "Natural candid photograph. A smiling teenager reaching out with both hands while wearing a white VR headset in a bright room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_a0925fe2-3919-4997-af56-0ccf45c5f449.png"
+ },
+ {
+  "index": 23345,
+  "book": "siu-advance-18",
+  "word": "robot arm",
+  "action": "programming a robot arm",
+  "prompt": "Natural candid photograph. An engineer guiding an orange robot arm to lift a small box in a clean factory. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_da0ebafd-7239-48f1-b56a-e3ea33c465da.png"
+ },
+ {
+  "index": 23346,
+  "book": "siu-advance-18",
+  "word": "smartwatch",
+  "action": "tapping a smartwatch",
+  "prompt": "Natural candid photograph. A woman in a jacket tapping a black smartwatch on her wrist during a morning walk. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_38d605a5-d89f-45f6-a9df-bfe7283ac836.png"
+ },
+ {
+  "index": 23347,
+  "book": "siu-advance-18",
+  "word": "electric scooter",
+  "action": "riding an electric scooter",
+  "prompt": "Natural candid photograph. A young Korean man riding an electric scooter along a smooth city bike lane past tall green trees on a quiet morning. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105034_47ad2c9d-ca92-4183-afba-a205a8d3180a.png"
+ },
+ {
+  "index": 23348,
+  "book": "siu-advance-18",
+  "word": "server rack",
+  "action": "plugging cables into a server rack",
+  "prompt": "Natural candid photograph. An IT technician plugging blue cables into a tall server rack in a cool data room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_c597ccc0-35ee-43f4-ac76-3746f8d972d3.png"
+ },
+ {
+  "index": 23349,
+  "book": "siu-advance-18",
+  "word": "smart speaker",
+  "action": "speaking to a smart speaker",
+  "prompt": "Natural candid photograph. An elderly woman speaking to a round smart speaker on a kitchen shelf while holding a cup of tea in her other hand. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_7caecf5f-da8b-4720-be96-e84f31e5b3f0.png"
+ },
+ {
+  "index": 23350,
+  "book": "siu-advance-18",
+  "word": "camera lens",
+  "action": "changing a camera lens",
+  "prompt": "Natural candid photograph. A photographer changing the lens on a black camera in a sunny park while sitting on a wooden bench under a large tree. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_190cc997-cd15-4f33-82d5-b6a6a4dccfaa.png"
+ },
+ {
+  "index": 23351,
+  "book": "siu-advance-18",
+  "word": "robot vacuum",
+  "action": "watching a robot vacuum",
+  "prompt": "Natural candid photograph. A man watching a round robot vacuum clean the wooden floor of a bright living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105033_a1a71ed6-19a8-4346-ba97-62002a40cdbd.png"
+ },
+ {
+  "index": 23352,
+  "book": "siu-advance-18",
+  "word": "keyboard",
+  "action": "typing on a keyboard",
+  "prompt": "Natural candid photograph. A programmer typing on a mechanical keyboard with glowing keys in a tidy home office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_8f730648-4458-414e-8c23-7871bf3eef0c.png"
+ },
+ {
+  "index": 23353,
+  "book": "siu-advance-18",
+  "word": "ethernet cable",
+  "action": "plugging in an ethernet cable",
+  "prompt": "Natural candid photograph. A technician plugging a yellow ethernet cable into a network box on an office wall. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105108_8542cc86-f09f-4d54-9a83-a04835529b54.png"
+ },
+ {
+  "index": 23354,
+  "book": "siu-advance-18",
+  "word": "microchip",
+  "action": "holding a microchip with tweezers",
+  "prompt": "Natural candid photograph. A scientist holding a tiny microchip with metal tweezers in a bright clean lab while wearing white gloves and a blue hair cap. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_654c7240-0d80-492c-ae81-ba4282a21978.png"
+ },
+ {
+  "index": 23355,
+  "book": "siu-advance-18",
+  "word": "charging cable",
+  "action": "plugging in a charging cable",
+  "prompt": "Natural candid photograph. A man plugging a thick charging cable into an electric car in a bright parking area. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_df8c893f-d528-43d4-9d11-d54504c6f16f.png"
+ },
+ {
+  "index": 23356,
+  "book": "siu-advance-18",
+  "word": "wireless earbuds",
+  "action": "putting in wireless earbuds",
+  "prompt": "Natural candid photograph. A young woman putting white wireless earbuds into her ears on a sunny street while holding a coffee cup in her other hand. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105104_fe3501af-bc2b-42f7-8cc9-85b29c8e5a06.png"
+ },
+ {
+  "index": 23357,
+  "book": "siu-advance-18",
+  "word": "security camera",
+  "action": "installing a security camera",
+  "prompt": "Natural candid photograph. A technician on a ladder installing a white security camera on a building wall while a colleague steadies the ladder below him. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_17ad3df3-dd29-4f88-af7b-f375aee025f0.png"
+ },
+ {
+  "index": 23358,
+  "book": "siu-advance-18",
+  "word": "multimeter",
+  "action": "testing a circuit",
+  "prompt": "Natural candid photograph. An electrician testing a circuit with the red and black probes of a yellow multimeter. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_6f1f437f-c42e-4650-933c-0165298130b3.png"
+ },
+ {
+  "index": 23359,
+  "book": "siu-advance-18",
+  "word": "motherboard",
+  "action": "installing parts on a motherboard",
+  "prompt": "Natural candid photograph. A student installing a memory stick into a green motherboard at a bright workbench while a teacher watches and points beside her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_ae486376-079d-410a-9753-0385c9c1ac5b.png"
+ },
+ {
+  "index": 23360,
+  "book": "siu-advance-18",
+  "word": "satellite dish",
+  "action": "adjusting a satellite dish",
+  "prompt": "Natural candid photograph. A technician adjusting a large white satellite dish on a sunny rooftop with a screwdriver while the city spreads out behind him. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_bb402f51-f3cc-48d1-89c8-e17289299af2.png"
+ },
+ {
+  "index": 23361,
+  "book": "siu-advance-19",
+  "word": "solar panel",
+  "action": "installing a solar panel",
+  "prompt": "Natural candid photograph. Two workers installing a large solar panel on a sunny house roof while wearing safety harnesses and yellow safety helmets. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105106_647244d0-539a-40a6-91bd-706845bec2fe.png"
+ },
+ {
+  "index": 23362,
+  "book": "siu-advance-19",
+  "word": "turbine model",
+  "action": "assembling a wind turbine model",
+  "prompt": "Natural candid photograph. A student assembling a small white wind turbine model on a desk in a bright classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_e8d7717a-6fdd-468d-acc4-0f4628cbd6cc.png"
+ },
+ {
+  "index": 23363,
+  "book": "siu-advance-19",
+  "word": "recycling bin",
+  "action": "dropping cans into a recycling bin",
+  "prompt": "Natural candid photograph. A young woman dropping empty cans into a blue recycling bin on a sunny street. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105105_e57b0a69-15a1-4cdc-8876-85182e9f711a.png"
+ },
+ {
+  "index": 23364,
+  "book": "siu-advance-19",
+  "word": "compost bin",
+  "action": "adding peels to a compost bin",
+  "prompt": "Natural candid photograph. A woman adding vegetable peels into a green compost bin in her backyard garden while her young son watches beside a row of lettuce. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_152b52af-7a8f-453c-8cc6-6120c0431b72.png"
+ },
+ {
+  "index": 23365,
+  "book": "siu-advance-19",
+  "word": "seedling",
+  "action": "planting a seedling",
+  "prompt": "Natural candid photograph. A volunteer planting a small tree seedling in fresh soil on a sunny hillside while other volunteers carry more young trees behind her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_bbc2c99a-95da-4dbc-be6c-8da935e479ae.png"
+ },
+ {
+  "index": 23366,
+  "book": "siu-advance-19",
+  "word": "shovel",
+  "action": "digging with a shovel",
+  "prompt": "Natural candid photograph. A man digging a hole with a metal shovel to plant a tree in a park. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_ab2e64d3-89b9-4638-a12e-81a59a5c1287.png"
+ },
+ {
+  "index": 23367,
+  "book": "siu-advance-19",
+  "word": "tote bag",
+  "action": "packing a tote bag",
+  "prompt": "Natural candid photograph. A shopper packing fresh vegetables into a canvas tote bag at a farmers market while a friendly farmer hands her a bunch of carrots. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_16cbaab3-0e19-4832-a3e2-260742006b3b.png"
+ },
+ {
+  "index": 23368,
+  "book": "siu-advance-19",
+  "word": "rain barrel",
+  "action": "filling water from a rain barrel",
+  "prompt": "Natural candid photograph. A man filling a bucket from the tap of a wooden rain barrel beside his garden shed. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_e36ec7e3-2596-4e5d-8563-1add99d88010.png"
+ },
+ {
+  "index": 23369,
+  "book": "siu-advance-19",
+  "word": "trash grabber",
+  "action": "picking up litter",
+  "prompt": "Natural candid photograph. A volunteer picking up a plastic bottle with a long trash grabber on a grassy riverbank. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_834324dc-7b64-4a2a-899a-cab725807308.png"
+ },
+ {
+  "index": 23370,
+  "book": "siu-advance-19",
+  "word": "bicycle",
+  "action": "riding a bicycle to work",
+  "prompt": "Natural candid photograph. A businesswoman in a coat riding a green bicycle along a leafy city bike lane. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_d41a966d-339d-440d-a010-e013777e004c.png"
+ },
+ {
+  "index": 23371,
+  "book": "siu-advance-19",
+  "word": "beehive",
+  "action": "lifting a frame from a beehive",
+  "prompt": "Natural candid photograph. A beekeeper in a white protective suit lifting a honey frame from a wooden beehive. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105140_2db1d5d3-8f5a-49bc-b46f-eb6e934deb2c.png"
+ },
+ {
+  "index": 23372,
+  "book": "siu-advance-19",
+  "word": "greenhouse",
+  "action": "misting plants in a greenhouse",
+  "prompt": "Natural candid photograph. A young woman misting small plants inside a bright glass greenhouse using a small white spray bottle among long rows of green leafy plants. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_e8c8f353-3560-42a5-b605-047e998afe61.png"
+ },
+ {
+  "index": 23373,
+  "book": "siu-advance-19",
+  "word": "bird feeder",
+  "action": "hanging a bird feeder",
+  "prompt": "Natural candid photograph. An elderly man hanging a wooden bird feeder on a tree branch in his garden. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_e4c91ace-36ff-44bb-b984-dad00bfa6f21.png"
+ },
+ {
+  "index": 23374,
+  "book": "siu-advance-19",
+  "word": "glass bottle",
+  "action": "rinsing a glass bottle",
+  "prompt": "Natural candid photograph. A woman rinsing an empty glass bottle at a kitchen sink before recycling it while sunlight comes through the window above her. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_9cdb6326-f027-49ff-ab39-f0adaa3887ae.png"
+ },
+ {
+  "index": 23375,
+  "book": "siu-advance-19",
+  "word": "light bulb",
+  "action": "screwing in a light bulb",
+  "prompt": "Natural candid photograph. A man screwing an energy-saving light bulb into a lamp in a bright living room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105139_ed3ca7a2-9e11-4efd-8182-85db05e24d3f.png"
+ },
+ {
+  "index": 23376,
+  "book": "siu-advance-19",
+  "word": "gardening gloves",
+  "action": "pulling weeds",
+  "prompt": "Natural candid photograph. A woman wearing green gardening gloves pulling weeds from a vegetable bed in a sunny backyard garden beside a row of tall sunflowers. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_d105aaf9-b9eb-46ab-91e8-581cf8736888.png"
+ },
+ {
+  "index": 23377,
+  "book": "siu-advance-19",
+  "word": "rain gauge",
+  "action": "checking a rain gauge",
+  "prompt": "Natural candid photograph. A scientist checking the water level in a clear rain gauge in a green field. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_d3a6e909-0e85-413a-b3bf-75bc9bfd0cf5.png"
+ },
+ {
+  "index": 23378,
+  "book": "siu-advance-19",
+  "word": "birdhouse",
+  "action": "painting a birdhouse",
+  "prompt": "Natural candid photograph. A teenage girl painting a small wooden birdhouse blue on a sunny patio with a small brush while her grandfather holds it steady. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_6fa8d5d9-f136-4012-9d18-6967e933687b.png"
+ },
+ {
+  "index": 23379,
+  "book": "siu-advance-19",
+  "word": "trowel",
+  "action": "collecting soil with a trowel",
+  "prompt": "Natural candid photograph. A scientist scooping a soil sample into a glass jar with a small trowel in a forest. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_110d973a-9fa0-4909-a91b-1d9a964a8eff.png"
+ },
+ {
+  "index": 23380,
+  "book": "siu-advance-19",
+  "word": "lunchbox",
+  "action": "packing a lunchbox",
+  "prompt": "Natural candid photograph. A student packing rice and vegetables into a reusable metal lunchbox in a bright kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_f4730e02-dcad-496b-81dc-0fac8f083a7d.png"
+ },
+ {
+  "index": 23381,
+  "book": "siu-advance-20",
+  "word": "space helmet",
+  "action": "trying on a space helmet",
+  "prompt": "Natural candid photograph. A young woman trying on a white space helmet at a bright science museum exhibit. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_7a4f8427-b18a-45c4-9090-d8efd30388c6.png"
+ },
+ {
+  "index": 23382,
+  "book": "siu-advance-20",
+  "word": "passport",
+  "action": "holding a passport",
+  "prompt": "Natural candid photograph. A young man holding his passport and smiling before studying abroad in a bright airport. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_4822f9a6-82e0-4dcd-b338-935b1be5ae8c.png"
+ },
+ {
+  "index": 23383,
+  "book": "siu-advance-20",
+  "word": "boarding pass",
+  "action": "handing over a boarding pass",
+  "prompt": "Natural candid photograph. A young Korean woman handing her boarding pass to a gate agent in a bright airport. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_4da7d630-a4e6-4eb0-97e0-6d55a4fbbe59.png"
+ },
+ {
+  "index": 23384,
+  "book": "siu-advance-20",
+  "word": "hard hat",
+  "action": "putting on a hard hat",
+  "prompt": "Natural candid photograph. A trainee engineer putting on a yellow hard hat at a sunny construction site while a senior engineer smiles and gives him a thumbs-up. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_ca10411b-12d5-49aa-8e84-7d06b136c408.png"
+ },
+ {
+  "index": 23385,
+  "book": "siu-advance-20",
+  "word": "blueprint",
+  "action": "unrolling a blueprint",
+  "prompt": "Natural candid photograph. A young architect unrolling a large blue blueprint on a desk in a bright studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_b059fb0a-7b48-4c7f-8438-2d300b01c64e.png"
+ },
+ {
+  "index": 23386,
+  "book": "siu-advance-20",
+  "word": "chef's hat",
+  "action": "putting on a chef's hat",
+  "prompt": "Natural candid photograph. A culinary student putting on a tall white chef's hat in a clean professional kitchen. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105216_e5ac72c2-3b98-471a-a4c4-f639b600a118.png"
+ },
+ {
+  "index": 23387,
+  "book": "siu-advance-20",
+  "word": "corkboard",
+  "action": "pinning photos to a corkboard",
+  "prompt": "Natural candid photograph. A woman pinning travel photos onto a large corkboard to plan her goals in a sunny room. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105217_23b931c8-e02a-4023-9b96-23661d21e92e.png"
+ },
+ {
+  "index": 23388,
+  "book": "siu-advance-20",
+  "word": "trophy",
+  "action": "lifting a trophy",
+  "prompt": "Natural candid photograph. A young athlete lifting a shiny gold trophy above her head on a sunny sports field. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_45123d5e-9f4a-4b85-9400-8b0a5e44ebb3.png"
+ },
+ {
+  "index": 23389,
+  "book": "siu-advance-20",
+  "word": "portfolio",
+  "action": "presenting a portfolio",
+  "prompt": "Natural candid photograph. A young designer presenting a black portfolio of drawings to an interviewer in a bright office. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_9f6a9e42-814e-428c-bcfd-87f428a9146b.png"
+ },
+ {
+  "index": 23390,
+  "book": "siu-advance-20",
+  "word": "control yoke",
+  "action": "gripping a control yoke",
+  "prompt": "Natural candid photograph. A trainee pilot gripping the control yoke in a bright aircraft cockpit beside an instructor. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_5276493e-5055-4702-91c1-fadb5ad4c07f.png"
+ },
+ {
+  "index": 23391,
+  "book": "siu-advance-20",
+  "word": "lab coat",
+  "action": "buttoning a lab coat",
+  "prompt": "Natural candid photograph. A young scientist buttoning her white lab coat in a bright research laboratory beside a long clean bench with glass flasks. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_98f5c3df-ce35-4dba-887d-19a0a579b9e4.png"
+ },
+ {
+  "index": 23392,
+  "book": "siu-advance-20",
+  "word": "hourglass",
+  "action": "turning over an hourglass",
+  "prompt": "Natural candid photograph. A woman turning over a wooden hourglass on her desk in a sunny study beside a neat stack of notebooks and a green plant. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_29d48c19-63ac-4900-b778-74cd89df3f09.png"
+ },
+ {
+  "index": 23393,
+  "book": "siu-advance-20",
+  "word": "flag",
+  "action": "planting a flag",
+  "prompt": "Natural candid photograph. A climber planting a small red flag at a snowy mountain summit under a blue sky. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_209bb627-2592-4c5c-9e48-35cc5187d543.png"
+ },
+ {
+  "index": 23394,
+  "book": "siu-advance-20",
+  "word": "time capsule",
+  "action": "burying a time capsule",
+  "prompt": "Natural candid photograph. A family burying a metal time capsule in a hole in their backyard garden while the children kneel beside the hole and smile. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_b8903c1e-b6ba-4ab0-81d9-2f01c612ae4b.png"
+ },
+ {
+  "index": 23395,
+  "book": "siu-advance-20",
+  "word": "medal",
+  "action": "receiving a medal",
+  "prompt": "Natural candid photograph. A smiling runner receiving a gold medal around her neck at a sunny race finish area. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_4fbbe0c3-6d3a-48af-8b63-e8a30699427f.png"
+ },
+ {
+  "index": 23396,
+  "book": "siu-advance-20",
+  "word": "paint palette",
+  "action": "holding a paint palette",
+  "prompt": "Natural candid photograph. An artist holding a wooden paint palette while painting a large canvas in a bright studio. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_a7c2ff30-5f40-4953-b457-c7ff50fd2734.png"
+ },
+ {
+  "index": 23397,
+  "book": "siu-advance-20",
+  "word": "sketchbook",
+  "action": "sketching in a sketchbook",
+  "prompt": "Natural candid photograph. A fashion student sketching a dress design in a large sketchbook in a bright classroom. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105246_3613cda6-641f-4e00-adf8-e8493965e2b8.png"
+ },
+ {
+  "index": 23398,
+  "book": "siu-advance-20",
+  "word": "necktie",
+  "action": "tying a necktie",
+  "prompt": "Natural candid photograph. A young man tying a navy necktie in front of a mirror before a job interview. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_68825e50-2691-4b2a-9b59-50071b007c5b.png"
+ },
+ {
+  "index": 23399,
+  "book": "siu-advance-20",
+  "word": "house key",
+  "action": "holding up a house key",
+  "prompt": "Natural candid photograph. A young couple holding up a shiny house key in front of their new home. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105247_53e2af6d-c2e1-4319-9631-e0e76d6a07af.png"
+ },
+ {
+  "index": 23400,
+  "book": "siu-advance-20",
+  "word": "planner",
+  "action": "writing in a planner",
+  "prompt": "Natural candid photograph. A woman writing her goals in a leather planner with a pen at a sunny café. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.",
+  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_105259_1bcc398f-bdaa-42a1-a47d-9add6c9eccaf.png"
  }
 ]
