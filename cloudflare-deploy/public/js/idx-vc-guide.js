@@ -10,8 +10,9 @@
  *   ・「다음부터 자동으로 열지 않기」를 고르면 그 기기에서는 자동으로 안 뜬다(❓ 버튼은 남음).
  *   ・❓ 버튼: PC 는 방 이름 줄(회의방 버튼 옆), 휴대폰 세로는 맨 위 통합바(#mg-unibar) 안.
  *
- * [그림이 아니라 «글+아이콘» 인 이유] 사용법 그림 파일이 아직 없다. 그림을 받으면
- *   STEPS 대신 그림을 넣으면 된다(창·버튼·자동열기 규칙은 그대로 쓴다).
+ * [인물] 사장님 지시 — 선생님용은 서양인 선생님(/img/lily-wide.webp),
+ *   학생용은 동양인 학생(/img/mei-closed.webp). 저장소에 이미 있는 아바타 그림을 그대로 쓴다
+ *   (새 파일 0개). 창을 열 때만 받는다(첫 화면 무게 0).
  *
  * ⚠️ 첫 화면 예산 때문에 반드시 defer. index.html 에는 <script defer> 한 줄만 둔다.
  * ⛔ body class 를 지켜보는 MutationObserver·상주 setInterval 금지(홈이 멎은 전력 2회).
@@ -38,7 +39,7 @@
   function autoOff() { try { return localStorage.getItem(OFF_KEY) === '1'; } catch (e) { return false; } }
   function setAutoOff(v) { try { if (v) localStorage.setItem(OFF_KEY, '1'); else localStorage.removeItem(OFF_KEY); } catch (e) {} }
   function inCall() { return document.body.classList.contains('vc-in-call'); }
-  function isObserver() { return document.body.classList.contains('vc-observer'); }
+  function isObserver() { return window.vcMyRole === 'observer' || document.body.classList.contains('vc-observer'); }
   function isStaff() {
     try { return typeof window.vcIsStaffNow === 'function' && !!window.vcIsStaffNow(); } catch (e) { return false; }
   }
@@ -48,6 +49,10 @@
   }
 
   /* ── 안내 내용 (아이콘은 실제 화면 버튼과 같은 것) ── */
+  var PEOPLE = {
+    teacher: { img: '/img/lily-wide.webp', ko: '선생님', en: 'Teacher' },
+    student: { img: '/img/mei-closed.webp', ko: '학생', en: 'Student' }
+  };
   var STEPS = {
     teacher: [
       ['📚', '교재 띄우기', '가운데 「📚 교재 고르기」나 「📁 내 파일 올리기」를 누르세요. 선생님이 띄운 교재가 학생 화면에도 똑같이 보입니다.',
@@ -88,6 +93,8 @@
       '  font-family:inherit;line-height:1.5;overflow:hidden;}',
       '#' + OV_ID + ' .vg-head{display:flex;align-items:center;gap:8px;padding:14px 16px 8px;flex:0 0 auto;}',
       '#' + OV_ID + ' .vg-title{font-size:18px;font-weight:800;flex:1 1 auto;min-width:0;}',
+      '#' + OV_ID + ' .vg-who{width:64px;height:64px;flex:0 0 64px;border-radius:999px;object-fit:cover;',
+      '  object-position:50% 18%;background:#fff7ed;border:3px solid #fde68a;}',
       '#' + OV_ID + ' .vg-x{border:0;background:#f1f5f9;color:#101828;width:36px;height:36px;border-radius:999px;',
       '  font-size:18px;cursor:pointer;flex:0 0 auto;}',
       '#' + OV_ID + ' .vg-tabs{display:flex;gap:6px;padding:0 16px 8px;flex:0 0 auto;}',
@@ -124,8 +131,11 @@
     var ko = isKo();
     ov.__who = who;
     var steps = STEPS[who] || STEPS.student;
+    var pp = PEOPLE[who] || PEOPLE.student, im = ov.querySelector('.vg-who');
+    if (im.getAttribute('src') !== pp.img) im.setAttribute('src', pp.img);
+    im.alt = ko ? pp.ko : pp.en;
     ov.querySelector('.vg-title').textContent = ko
-      ? (who === 'teacher' ? '👩‍🏫 선생님 사용법' : '🙋 학생 사용법')
+      ? (who === 'teacher' ? '선생님 사용법' : '학생 사용법')
       : (who === 'teacher' ? 'How to use (Teacher)' : 'How to use (Student)');
     var tabs = ov.querySelectorAll('.vg-tab');
     for (var i = 0; i < tabs.length; i++) {
@@ -167,7 +177,7 @@
     ov.setAttribute('aria-modal', 'true');
     ov.innerHTML =
       '<div class="vg-card">' +
-        '<div class="vg-head"><div class="vg-title"></div><button type="button" class="vg-x">✕</button></div>' +
+        '<div class="vg-head"><img class="vg-who" alt="" width="64" height="64"><div class="vg-title"></div><button type="button" class="vg-x">✕</button></div>' +
         '<div class="vg-tabs"><button type="button" class="vg-tab" data-who="teacher"></button>' +
         '<button type="button" class="vg-tab" data-who="student"></button></div>' +
         '<div class="vg-body"></div>' +
