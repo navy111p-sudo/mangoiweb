@@ -1647,11 +1647,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (paid) {
         html += '<div class="row" style="color:#4ade80"><span>' + T('Status', '상태') + '</span><b>✅ ' + T('Paid', '결제 완료') + '</b></div>';
       } else {
-        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + items.map(function(it){
+        /* 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 화상반으로 판정된 학원생(track='live')도 명세에 보이되
+           체크가 풀린 채 아래쪽에 모인다 — 판정이 틀렸으면 학원이 체크해 청구에 넣는다(그 뒤 자동이 안 건드림).
+           ⛔ 이 화면은 판정하지 않는다 — 서버가 준 track·user_set 을 그리기만 한다. */
+        var aiIt = items.filter(function(it){ return it.track !== 'live'; });
+        var lvIt = items.filter(function(it){ return it.track === 'live'; });
+        var itemRow = function(it){
+          var tag = '';
+          if (it.track === 'live') tag = ' <span class="muted" style="font-size:11px">📹 ' + T('video class · A.i included', '화상반 · A.i 포함') + '</span>';
+          if (Number(it.user_set) === 1) tag += ' <span class="muted" style="font-size:11px">✔ ' + T('confirmed by academy', '학원 확인') + '</span>';
           return '<label class="row" style="cursor:pointer"><span>' + esc(it.student_name || it.student_user_id)
-            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + '</span>'
+            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + tag + '</span>'
             + '<input type="checkbox" ' + (it.included ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')"></label>';
-        }).join('') + '</div>'
+        };
+        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + aiIt.map(itemRow).join('')
+          + (lvIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">📹 ' + T('Video-class students (' + lvIt.length + ') — A.i is included in their tuition, so they are not billed. Check a student only if this is wrong.', '화상반 학생 ' + lvIt.length + '명 — 화상영어에 A.i 가 포함돼 청구하지 않습니다. 판정이 틀린 학생만 체크해 주세요.') + '</div>' + lvIt.map(itemRow).join('') : '')
+          + '</div>'
         + '<div style="display:flex;gap:8px;margin-top:10px">'
         + '<button type="button" class="btn-ghost" onclick="aiBillGenerate(this)">' + T('Check for new students', '인원 다시 확인') + '</button>'
         + '<button type="button" class="btn-primary" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>' + T('Pay now', '결제하기') + '</button>'

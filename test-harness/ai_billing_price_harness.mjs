@@ -328,5 +328,82 @@ sec('[⑨] 배선 — 청구서·이력·결제·미리보기가 같은 정본�
   }
 }
 
+/* ══ ⑩ 추천안 ① «자동 분류 + 학원 확인» — 명세 줄의 화상반/A.i반 표시 ═══════
+   planItemTrackSync(순수) 를 오려 실제로 돌리고, syncItemTracks 를 진짜 SQLite 에 물려 돌린다.
+   「자동으로 뺀다」 옆에 «학원이 손댄 줄은 안 건드린다»·«명부에 없는 학생은 그대로» 를 짝으로 둔다
+   — 짝이 없으면 «전부 제외» 나 «학원 확인 무시» 도 통과한다. */
+sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
+{
+  let plan = null, syncFn = null;
+  try {
+    plan = new Function(stripTypeScriptTypes(fnDecl(billSrc, 'planItemTrackSync').replace(/^export\s+/, '')) + '\nreturn planItemTrackSync;')();
+  } catch (e) { check('planItemTrackSync 실행 준비', false, e.message); }
+  check('planItemTrackSync 를 오려 냈다 (전제)', typeof plan === 'function');
+  const P2 = (items, live, roster) => { try { return plan(items, new Set(live), new Set(roster)); } catch (e) { return [{ err: e.message }]; } };
+  if (plan) {
+    const r1 = P2([{ id: 1, student_user_id: 'A', included: 1, user_set: 0, track: 'ai' }], ['a'], ['a']);
+    check('A.i반이던 학생이 화상반이 되면 자동으로 뺀다 (대소문자 무시)', r1.length === 1 && r1[0].included === 0 && r1[0].track === 'live', JSON.stringify(r1));
+    const r2 = P2([{ id: 2, student_user_id: 'b', included: 0, user_set: 0, track: 'live' }], [], ['b']);
+    check('화상반이던 학생이 A.i반이 되면 자동으로 다시 넣는다', r2.length === 1 && r2[0].included === 1 && r2[0].track === 'ai', JSON.stringify(r2));
+    const r3 = P2([{ id: 3, student_user_id: 'c', included: 1, user_set: 1, track: 'live' }], ['c'], ['c']);
+    check('(짝) 학원이 확인한 줄(user_set=1)은 포함 여부를 안 바꾼다', r3.length === 0, JSON.stringify(r3));
+    const r3b = P2([{ id: 4, student_user_id: 'd', included: 0, user_set: 1, track: 'ai' }], [], ['d']);
+    check('(짝) 학원이 뺀 A.i반 학생(퇴원 등)은 자동으로 되살리지 않는다', r3b.length === 0 || r3b[0].included === 0, JSON.stringify(r3b));
+    const r4 = P2([{ id: 5, student_user_id: 'e', included: 1, user_set: 0, track: 'ai' }], ['e'], []);
+    check('(짝) 명부에 없는 학생은 판정 근거가 없어 그대로 둔다', r4.length === 0, JSON.stringify(r4));
+    const r5 = P2([{ id: 6, student_user_id: 'f', included: 1, user_set: 0, track: 'ai' }], [], ['f']);
+    check('(짝) 이미 맞는 줄은 쓰지 않는다 (바뀔 때만)', r5.length === 0, JSON.stringify(r5));
+    const r6 = P2([{ id: 7, student_user_id: 'g', included: 1, user_set: 0, track: null }], [], ['g']);
+    check('옛 줄(track 없음)은 표시만 채운다 (포함 그대로)', r6.length === 1 && r6[0].included === 1 && r6[0].track === 'ai', JSON.stringify(r6));
+  }
+  if (DatabaseSync) {
+    try {
+      syncFn = new Function('planItemTrackSync', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan);
+    } catch (e) { check('syncItemTracks 실행 준비', false, e.message); }
+    check('syncItemTracks 를 오려 냈다 (전제)', typeof syncFn === 'function');
+    const d = new DatabaseSync(':memory:');
+    d.exec(`CREATE TABLE ai_billing_invoice_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, student_user_id TEXT NOT NULL,
+      student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+      track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id))`);
+    const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (1,?,?,?,0,?,?)');
+    ins.run('ai1', 'A1', 1, 'ai', 0);        // 계속 A.i반
+    ins.run('turnlive', 'T', 1, 'ai', 0);    // A.i반 → 화상반이 됨 → 자동 제외
+    ins.run('confirmed', 'C', 1, 'live', 1); // 학원이 «화상반 아님» 으로 확인해 넣음 → 그대로
+    ins.run('left', 'L', 1, 'ai', 0);        // 명부에서 사라짐 → 그대로
+    const mk = (sql) => { const st = d.prepare(sql); const bound = (a) => ({ _st: st, _a: a,
+      all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { meta: { changes: Number(r.changes) } }; } });
+      return { bind: (...a) => bound(a) }; };
+    const env = { DB: { prepare: mk, batch: async (arr) => arr.map((b) => { const r = b._st.run(...b._a); return { meta: { changes: Number(r.changes) } }; }) } };
+    const aiRows = [{ user_id: 'ai1', name: 'A1' }];
+    const liveRows = [{ user_id: 'turnlive', name: 'T' }, { user_id: 'confirmed', name: 'C' }, { user_id: 'newlive', name: 'N' }];
+    const live = new Set(['turnlive', 'confirmed', 'newlive']);
+    let res = null;
+    try { res = await syncFn(env, 1, liveRows, aiRows, live, 0, 0); } catch (e) { res = { err: e.message }; }
+    const row = (u) => d.prepare('SELECT included, track, user_set FROM ai_billing_invoice_items WHERE student_user_id=?').get(u) || {};
+    check('새 화상반 학생은 «체크 해제된 줄» 로 명세에 보인다', row('newlive').included === 0 && row('newlive').track === 'live', JSON.stringify(row('newlive')));
+    check('A.i반→화상반 학생은 자동 제외된다', row('turnlive').included === 0 && row('turnlive').track === 'live', JSON.stringify(row('turnlive')));
+    check('(짝) 학원이 확인해 넣은 학생은 그대로 포함', row('confirmed').included === 1 && row('confirmed').user_set === 1, JSON.stringify(row('confirmed')));
+    check('(짝) A.i반 학생은 그대로 포함', row('ai1').included === 1 && row('ai1').track === 'ai');
+    check('(짝) 명부에서 사라진 학생은 손대지 않는다', row('left').included === 1);
+    check('결과 숫자: 새로 보인 화상반 1 · 자동 제외 1', res && res.live_listed === 1 && res.auto_excluded === 1, JSON.stringify(res));
+    const bad = { DB: { prepare: () => { throw new Error('no such column: track'); }, batch: async () => [] } };
+    let r7; try { r7 = await syncFn(bad, 1, liveRows, aiRows, live, 0, 0); } catch (e) { r7 = 'threw'; }
+    check('칸이 없는 DB 에서도 던지지 않는다 (옛 동작으로 남음)', r7 !== 'threw' && r7.auto_excluded === 0, JSON.stringify(r7));
+  }
+  const gen = fnDecl(billCode, 'generateOrRefreshInvoice');
+  check('배선: 생성·보강이 syncItemTracks 를 부르고 화상반 명단을 넘긴다', /syncItemTracks\(env, invoiceId, rosterR\.live_rows/.test(gen));
+  check('배선: 명부가 비어도 분류 동기화까지 간다 (옛 조기 return 제거)', !/if \(!roster\.length\) return/.test(gen));
+  const item = billCode.slice(billCode.indexOf("p === 'invoice/item'"), billCode.indexOf("p === 'history'"));
+  check('배선: 학원이 체크를 바꾸면 user_set=1 (학원 확인)', /included = \?, user_set = 1/.test(item));
+  check('배선: 명세 GET 이 track·user_set 을 싣는다', /SELECT id, student_user_id, student_name, included, added_manually, track, COALESCE\(user_set,0\)/.test(billCode));
+  for (const f of ['branch.html', 'manager.html']) {
+    const h = stripComments(readFileSync(join(PUB, f), 'utf8'));
+    const body = fnDecl(h, 'paintAiBill');
+    check(`${f}: 화상반 줄을 따로 모아 그린다 (track === 'live')`, /it\.track === 'live'/.test(body) && /lvIt\.map\(itemRow\)/.test(body));
+    check(`${f}: 학원 확인 표시(user_set)를 그린다`, /user_set\) === 1/.test(body));
+    check(`${f}: (짝) A.i반 줄도 그대로 그린다`, /aiIt\.map\(itemRow\)/.test(body));
+  }
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('실패:\n  - ' + FAILS.join('\n  - ')); process.exit(1); }
