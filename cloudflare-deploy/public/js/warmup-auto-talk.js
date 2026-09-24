@@ -211,10 +211,15 @@
       var v = document.getElementById('talkVal'); if (v) v.textContent = auto ? '자동 (베타)' : '버튼';
     }
   }
-  function bindPick(el) {
+  function bindPick(el, fromMenu) {
     el.addEventListener('click', function (e) {
       var t = e.target && e.target.closest ? e.target.closest('[data-talk]') : null;
-      if (t) setMode(t.getAttribute('data-talk'));
+      if (!t) return;
+      var m = t.getAttribute('data-talk');
+      setMode(m);
+      // ⋮ 메뉴에서 «자동» 을 고르면 메뉴를 닫는다 — 열린 채로 두면 canOpen 이 막아 «눌렀는데 안 켜진다» 가 된다
+      // (2026-09-24 두 번째 제보: 고른 뒤 메뉴를 열어 둔 채 기다림). 닫히면 hookMenuClose 가 켠다.
+      if (fromMenu && m === 'auto') { try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e2) {} }
     });
   }
   /* 모양 — 이 파일 안에 둔다(warmup.html 은 연결 지점만 바뀐다). 어두운 화면 기준 색. */
@@ -256,7 +261,7 @@
       grp.innerHTML = '<div class="menu-label"><span>🎤 말하는 방법</span><span class="ls-now" id="talkVal"></span></div>'
         + '<div class="voice-btns" id="menuTalkBtns" role="radiogroup" aria-label="말하는 방법"></div>';
       scroll.insertBefore(grp, scroll.firstChild);
-      bindPick(document.getElementById('menuTalkBtns'));
+      bindPick(document.getElementById('menuTalkBtns'), true);
     }
     var inp = document.getElementById('inp');
     if (inp) {
