@@ -174,6 +174,23 @@
     wake(); clearArm();
     if (mode !== 'auto') setPhase('');
     paint();
+    // 고른 «그 순간» 이 조용하면 바로 연다 — 전에는 다음 AI 말이 끝날 때까지 가만히 있었다(2026-09-24 제보).
+    // ⋮ 메뉴 안에서 고르면 메뉴가 열려 있어 canOpen 이 막고, 메뉴를 닫는 순간 아래 hookMenuClose 가 다시 연다.
+    if (mode === 'auto') arm();
+  }
+  /* ⋮ 메뉴를 닫으면 — 열려 있는 동안 막아 둔 자동 듣기를 다시 건다(닫기 경로 전부가 closeMenu 한 곳을 지난다). */
+  function hookMenuClose() {
+    var orig = window.closeMenu;
+    if (typeof orig !== 'function' || orig.__autoTalk) return;
+    var wrapped = function () {
+      var mp = document.getElementById('menuPanel');
+      var wasOpen = !!(mp && mp.classList.contains('open'));
+      var r = orig.apply(this, arguments);
+      if (wasOpen && isOn()) arm();
+      return r;
+    };
+    wrapped.__autoTalk = true;
+    window.closeMenu = wrapped;
   }
   function btnsHtml(cls) {
     var auto = readMode() === 'auto';
@@ -246,6 +263,7 @@
       inp.addEventListener('focus', clearArm);
       inp.addEventListener('input', clearArm);
     }
+    hookMenuClose();
     paint();
   }
 
