@@ -145,7 +145,7 @@
             (j.targets?'<div class="msg">'+esc(j.sample)+'</div><p class="note">'+esc((j.names||[]).join(', '))+'</p>':'');
           $('nSend').hidden=!(j.targets>0); $('nSend').dataset.n=String(j.targets||0);
         } else {
-          $('nOut').innerHTML='<p class="'+(j.failed?'err':'ok')+'">'+esc(T('보냄','Sent'))+' '+j.sent+' · '+esc(T('실패','Failed'))+' '+j.failed+(j.mode&&j.mode!=='live'?' · mode='+esc(j.mode):'')+'</p>'+
+          $('nOut').innerHTML='<p class="'+(j.failed?'err':'ok')+'">'+esc(T('보냄','Sent'))+' '+j.sent+' · '+esc(T('실패','Failed'))+' '+j.failed+(j.skipped?' · '+esc(T('다른 요청이 먼저 보냄','Taken by another request'))+' '+j.skipped:'')+(j.mode&&j.mode!=='live'?' · mode='+esc(j.mode):'')+'</p>'+
             ((j.fails&&j.fails.length)?'<div class="msg">'+esc(j.fails.join('\n'))+'</div>':'');
           $('nSend').hidden=true;
         }

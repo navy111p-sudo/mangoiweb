@@ -226,6 +226,31 @@ try {
     check('같은 번호는 한 번만', pk.targets.length === 1 && pk.targets[0].uid === 'a', pk.targets);
     check('이미 보낸 학생은 빼고 센다', pk.already === 1);
     check('번호 없는 학생은 따로 센다', pk.noPhone === 1);
+    /* 형제(같은 학부모 번호)는 «다음 실행» 에서도 안 나간다 — 이미 보낸 번호 집합으로 */
+    const pk2 = pickNoticeTargets([{ uid: 'b', name: 'B', parent: '01011112222' }, { uid: 'e', name: 'E', parent: '01055556666' }], new Set(['a']), new Set(['01011112222']));
+    check('이미 보낸 «번호» 의 형제는 다음 실행에서도 뺀다', pk2.targets.length === 1 && pk2.targets[0].uid === 'e' && pk2.already === 1, pk2);
+    check('짝: 번호 집합이 없으면 예전처럼 uid 로만 본다', pickNoticeTargets([{ uid: 'b', name: 'B', parent: '01011112222' }], new Set()).targets.length === 1);
+    /* 발송 루프 — 선점(claim) 이 발송보다 앞, 실패하면 푼다, 못 차지하면 건너뛴다 */
+    {
+      const shSrc0 = rd('src/scene-homework.ts');
+      const loopAt = shSrc0.indexOf('for (const t of pick.targets)');
+      const loop = shSrc0.slice(loopAt, shSrc0.indexOf('return jres({ ok: true, dry_run: false', loopAt));
+      const iClaim = loop.indexOf('INSERT OR IGNORE INTO scene_homework_notice_claim');
+      const iSend = loop.indexOf('sendPlainSms(');
+      check('발송 루프를 잘라 냈다(전제)', loopAt > 0 && loop.length > 200);
+      check('번호 선점이 발송보다 앞', iClaim > 0 && iSend > iClaim);
+      check('선점 못 하면 건너뛴다', /if \(!claimed\) \{ skipN\+\+; continue; \}/.test(loop));
+      check('실패하면 선점을 푼다(다시 보낼 수 있게)', /if \(!ok\)[\s\S]{0,40}DELETE FROM scene_homework_notice_claim/.test(loop));
+      check('다음 실행은 선점 표의 번호를 «이미 보냄» 으로 넘긴다', /pickNoticeTargets\(cands, sent, sentPhones\)/.test(shSrc0));
+      let sq = null; try { sq = await import('node:sqlite'); } catch {}
+      if (sq) {
+        const db2 = new sq.DatabaseSync(':memory:');
+        db2.exec(`CREATE TABLE IF NOT EXISTS scene_homework_notice_claim (phone TEXT PRIMARY KEY, user_id TEXT, at INTEGER)`);
+        const ins = db2.prepare(`INSERT OR IGNORE INTO scene_homework_notice_claim (phone, user_id, at) VALUES (?,?,?)`);
+        const c1 = ins.run('01011112222', 'a', 1).changes, c2 = ins.run('01011112222', 'b', 2).changes;
+        check('동시 두 요청 중 한쪽만 선점한다(진짜 SQLite)', c1 === 1 && c2 === 0, { c1, c2 });
+      }
+    }
     const txt = sceneHomeworkNoticeText('김하나');
     check('안내 문구에 이름과 정본 링크', txt.indexOf('김하나 학생') >= 0 && txt.indexOf('https://mangoi.ai/today.html') >= 0, txt);
     check('짝: 이름이 없으면 «자녀» 로(지어내지 않는다)', sceneHomeworkNoticeText('').indexOf('자녀') >= 0);

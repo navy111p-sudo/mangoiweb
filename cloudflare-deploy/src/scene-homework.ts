@@ -114,10 +114,11 @@ export function dialable(p: any): string {
 }
 
 /**
- * 받는 사람을 모은다 — 같은 번호는 한 번만. 이미 보낸 학생은 뺀다.
+ * 받는 사람을 모은다 — 같은 번호는 한 번만. 이미 보낸 학생·이미 보낸 «번호» 는 뺀다.
  * candidates: [{uid, name, parent}] (parent 는 phonesForStudent 결과)
+ * ⚠️ sentPhones 가 없으면 형제(같은 학부모 번호)가 «다음 실행» 에서 새 대상이 되어 같은 번호로 또 나간다.
  */
-export function pickNoticeTargets(candidates: { uid: string; name: string; parent: string }[], sentUids: Set<string>) {
+export function pickNoticeTargets(candidates: { uid: string; name: string; parent: string }[], sentUids: Set<string>, sentPhones?: Set<string>) {
   const seen = new Set<string>(); const targets: { uid: string; name: string; phone: string }[] = [];
   let already = 0, noPhone = 0;
   for (const c of candidates || []) {
@@ -125,11 +126,15 @@ export function pickNoticeTargets(candidates: { uid: string; name: string; paren
     if (sentUids.has(u)) { already++; continue; }
     const ph = dialable(c.parent);
     if (!ph) { noPhone++; continue; }
+    if (sentPhones && sentPhones.has(ph)) { already++; continue; }
     if (seen.has(ph)) continue;
     seen.add(ph); targets.push({ uid: u, name: c.name, phone: ph });
   }
   return { targets, already, noPhone };
 }
+
+/** 후보가 이보다 많으면 한 요청에서 다 풀지 않는다(Workers 하위요청 한도·반쪽 발송 방지). */
+export const NOTICE_CANDIDATE_MAX = 400;
 
 /* ═══ 라우터 — reportsRouter 가 p 가 맞을 때만 부른다 ═══ */
 
@@ -164,56 +169,87 @@ export async function sceneHomeworkRouter(env: any, request: Request, url: URL, 
     const send = b && b.confirm === true && b.dry_run === false;   // 둘 다 명시해야 보낸다
 
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS scene_homework_notice_log (user_id TEXT PRIMARY KEY, phone TEXT, ok INTEGER, sent_at INTEGER, sent_by TEXT)`);
+    /* 번호 선점 표 — 같은 번호로 두 번 나가지 않게 «보내기 전에» 한 줄을 차지한다.
+       두 요청이 겹쳐도 PRIMARY KEY 가 한쪽만 통과시킨다(멱등 claim). 실패하면 풀어 다시 보낼 수 있게 한다.
+       ⚠️ 워커가 도중에 죽으면 그 번호는 선점된 채 남는다 — 두 번 보내는 것보다 안 보내는 쪽으로 실패한다. */
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS scene_homework_notice_claim (phone TEXT PRIMARY KEY, user_id TEXT, at INTEGER)`);
     const sentRs: any = await env.DB.prepare(`SELECT user_id FROM scene_homework_notice_log WHERE ok = 1`).all();
     const sent = new Set<string>(((sentRs?.results || []) as any[]).map(r => String(r.user_id)));
+    const clRs: any = await env.DB.prepare(`SELECT phone FROM scene_homework_notice_claim`).all();
+    const sentPhones = new Set<string>(((clRs?.results || []) as any[]).map(r => String(r.phone)));
 
-    /* 후보 = 학부모 번호를 «어딘가에» 가진 학생(우리가 받은 번호 표 ∪ 명부).
+    /* 후보 = 학부모 번호를 «어딘가에» 가진 학생(우리가 받은 번호 표 ∪ 명부), 명부에서 숨긴 학생은 뺀다.
        실제 번호는 정본 phonesForStudent 로 다시 푼다 — 판정을 여기 복제하지 않는다. */
+    const LIM = NOTICE_CANDIDATE_MAX + 1;
     let uids: string[] = [];
     try {
       const rs: any = await env.DB.prepare(
         `SELECT user_id FROM student_erp_override WHERE parent_phone IS NOT NULL AND TRIM(parent_phone) <> '' AND COALESCE(hidden,0) = 0
-         UNION SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND TRIM(parent_phone) <> '' LIMIT 1000`
+         UNION SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND TRIM(parent_phone) <> ''
+           AND user_id NOT IN (SELECT user_id FROM student_erp_override WHERE COALESCE(hidden,0) = 1) LIMIT ${LIM}`
       ).all();
       uids = ((rs?.results || []) as any[]).map(r => String(r.user_id || '')).filter(Boolean);
     } catch {
       const rs: any = await env.DB.prepare(
-        `SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND TRIM(parent_phone) <> '' LIMIT 1000`
+        `SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND TRIM(parent_phone) <> '' LIMIT ${LIM}`
       ).all();
       uids = ((rs?.results || []) as any[]).map(r => String(r.user_id || '')).filter(Boolean);
     }
-    const cands: { uid: string; name: string; parent: string }[] = [];
-    for (const u of uids) {
-      const ph = await phonesForStudent(env, u);
-      let nm = '';
-      try {
-        const r: any = await env.DB.prepare(`SELECT COALESCE(NULLIF(TRIM(korean_name),''), NULLIF(TRIM(student_name),''), '') AS nm FROM students_erp WHERE user_id = ?`).bind(u).first();
-        nm = String(r?.nm || '');
-      } catch { nm = ''; }
-      cands.push({ uid: u, name: nm, parent: ph.parent });
+    if (uids.length > NOTICE_CANDIDATE_MAX) {
+      return jres({ ok: false, error: 'too_many_candidates', max: NOTICE_CANDIDATE_MAX }, 400);
     }
-    const pick = pickNoticeTargets(cands, sent);
+    /* 이름은 한 번에(콤마 문자열 — D1 바인드 100개 한도를 피한다). */
+    const names = new Map<string, string>();
+    if (uids.length) {
+      try {
+        const nr: any = await env.DB.prepare(
+          `SELECT user_id, COALESCE(NULLIF(TRIM(korean_name),''), NULLIF(TRIM(student_name),''), '') AS nm FROM students_erp WHERE instr(?, ',' || user_id || ',') > 0`
+        ).bind(',' + uids.join(',') + ',').all();
+        for (const r of ((nr?.results || []) as any[])) names.set(String(r.user_id), String(r.nm || ''));
+      } catch { /* 이름이 없어도 보낸다(«자녀» 로 부름) */ }
+    }
+    const cands: { uid: string; name: string; parent: string }[] = [];
+    for (let i = 0; i < uids.length; i += 10) {
+      const chunk = uids.slice(i, i + 10);
+      const got = await Promise.all(chunk.map(async u => {
+        try { return { uid: u, name: names.get(u) || '', parent: (await phonesForStudent(env, u)).parent }; }
+        catch { return { uid: u, name: names.get(u) || '', parent: '' }; }
+      }));
+      cands.push(...got);
+    }
+    const pick = pickNoticeTargets(cands, sent, sentPhones);
     const sample = sceneHomeworkNoticeText(pick.targets[0]?.name || '');
     if (!send) {
       return jres({ ok: true, dry_run: true, targets: pick.targets.length, already_sent: pick.already, no_phone: pick.noPhone,
-        sample, names: pick.targets.map(t => t.name || t.uid) });
+        sample, names: pick.targets.map(t => t.name || '(이름 없음)') });
     }
     if (pick.targets.length > NOTICE_MAX) return jres({ ok: false, error: 'too_many', targets: pick.targets.length, max: NOTICE_MAX }, 400);
-    let okN = 0, failN = 0; const fails: string[] = []; let mode = '';
+    let okN = 0, failN = 0, skipN = 0; const fails: string[] = []; let mode = '';
     for (const t of pick.targets) {
+      /* 선점 — 못 차지하면(동시 요청이 먼저 가져감) 건너뛴다. */
+      let claimed = false;
+      try {
+        const cr: any = await env.DB.prepare(`INSERT OR IGNORE INTO scene_homework_notice_claim (phone, user_id, at) VALUES (?,?,?)`)
+          .bind(t.phone, t.uid, Date.now()).run();
+        claimed = Number(cr?.meta?.changes || 0) === 1;
+      } catch { claimed = false; }
+      if (!claimed) { skipN++; continue; }
       let ok = false;
       try {
         const r = await sendPlainSms(env, t.phone, sceneHomeworkNoticeText(t.name), { subject: '망고아이 숙제 안내' });
         mode = String(r.mode || mode); ok = !!r.ok;
-        if (!ok) fails.push((t.name || t.uid) + ': ' + (r.error || r.message || 'failed'));
-      } catch (e: any) { fails.push((t.name || t.uid) + ': ' + String(e?.message || e)); }
+        if (!ok) fails.push((t.name || '(이름 없음)') + ': ' + (r.error || r.message || 'failed'));
+      } catch (e: any) { fails.push((t.name || '(이름 없음)') + ': ' + String(e?.message || e)); }
       if (ok) okN++; else failN++;
+      if (!ok) {
+        try { await env.DB.prepare(`DELETE FROM scene_homework_notice_claim WHERE phone = ? AND user_id = ?`).bind(t.phone, t.uid).run(); } catch { /* 풀지 못하면 다시 안 보낸다 — 안전한 방향 */ }
+      }
       try {
         await env.DB.prepare(`INSERT OR REPLACE INTO scene_homework_notice_log (user_id, phone, ok, sent_at, sent_by) VALUES (?,?,?,?,?)`)
           .bind(t.uid, t.phone, ok ? 1 : 0, Date.now(), String(actor.username || '')).run();
-      } catch { /* 기록 실패는 발송 결과를 바꾸지 않는다 */ }
+      } catch { /* 기록 실패는 발송 결과를 바꾸지 않는다 — 선점 표가 중복을 막는다 */ }
     }
-    return jres({ ok: true, dry_run: false, mode, sent: okN, failed: failN, fails });
+    return jres({ ok: true, dry_run: false, mode, sent: okN, failed: failN, skipped: skipN, fails });
   }
   return null;
 }
