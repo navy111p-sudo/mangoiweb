@@ -1,0 +1,50 @@
+# 임시 워크플로 — tmp/sq-img-mid 브랜치에서만 돕니다. ⛔ main 에 올리지 마세요.
+# 이 컨테이너는 프록시가 CDN 을 403 으로 막아 그림을 못 받습니다(CLAUDE.md 2장).
+# 러너가 받아 webp 로 줄여 커밋하고, 작업 브랜치는 그 폴더만 가져옵니다.
+name: tmp-fetch-sq-mid
+on:
+  push:
+    branches: [tmp/sq-img-mid]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+      - name: 목록 만들기
+        run: |
+          node -e '
+            const fs=require("fs");
+            const list=JSON.parse(fs.readFileSync("tools/tmp/word-img-fetch.json","utf8"));
+            // ⚠️ 끝에 줄바꿈이 없으면 while read 가 마지막 줄을 조용히 버립니다(1·2차에서 실제로 밟음)
+            fs.writeFileSync("/tmp/list.tsv", list.map(x=>x.index+"\t"+x.url).join("\n")+"\n");
+            console.log("목록", list.length);
+          '
+          wc -l /tmp/list.tsv
+      - name: 내려받아 webp 로
+        run: |
+          mkdir -p cloudflare-deploy/public/img/scene-words
+          cd cloudflare-deploy/public/img/scene-words
+          fail=0; got=0
+          while IFS=$'\t' read -r IDX URL; do
+            [ -n "$IDX" ] || continue
+            curl -sfL --max-time 90 -o /tmp/src.png "$URL" || { echo "받기 실패 $IDX"; fail=1; continue; }
+            for q in 80 68 55 42 32; do
+              cwebp -quiet -q $q -resize 640 480 /tmp/src.png -o $IDX.webp || true
+              sz=$(stat -c%s $IDX.webp 2>/dev/null || echo 999999)
+              [ "$sz" -le 80000 ] && break
+            done
+            got=$((got+1))
+          done < /tmp/list.tsv
+          echo "받은 것 $got"
+          ls -1 *.webp | wc -l
+          exit $fail
+      - name: 커밋
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A cloudflare-deploy/public/img/scene-words
+          git commit -m "장면탐험 중급 새 사진 내려받기(임시)" || { echo "변경 없음"; exit 1; }
+          git push origin HEAD:tmp/sq-img-mid
