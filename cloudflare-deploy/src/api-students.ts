@@ -523,7 +523,7 @@ ${MANGOI_KNOWLEDGE}`;
         catch { return 0; }
       };
       const d0 = k.dayStartMs;
-      const [doneWarmup, doneReview, doneFriend, doneSpeech, doneMicro, doneVocab, doneJudg, doneWrite, doneGames,
+      const [doneWarmup, doneReview, doneFriend, doneSpeech, doneMicro, doneVocab, doneJudg, doneWrite, doneGames, doneScene,
              clsRs, c24Rs, ptRow, ...dateRs] = await Promise.all([
         cnt(`SELECT COUNT(*) n FROM warmup_session_log WHERE user_id = ? AND started_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM review_quiz_results WHERE user_id = ? AND created_at >= ?`, exactUid, d0),
@@ -534,6 +534,8 @@ ${MANGOI_KNOWLEDGE}`;
         cnt(`SELECT COUNT(*) n FROM judgment_events WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`, exactUid, d0),
         cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND created_at >= ?`, exactUid, d0),
+        /* ✍️ 교재 낱말 쓰기 숙제 — 장면 탐험대 «그림 단어장» 이 끝날 때 남기는 판(game='scene-words') */
+        cnt(`SELECT COUNT(*) n FROM game_sessions WHERE uid = ? AND game = 'scene-words' AND created_at >= ?`, exactUid, d0),
         /* 망고아이 시간표 — 정기(요일)와 날짜지정 둘 다. LMS·시드 자리표시는 뺀다(2026-08-24 결정). */
         /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
            (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
@@ -614,6 +616,7 @@ ${MANGOI_KNOWLEDGE}`;
       const done: Partial<Record<ToolKey, number>> = {
         warmup: doneWarmup, review: doneReview, friend: doneFriend, speech: doneSpeech,
         micro: doneMicro, vocab: doneVocab, judgment: doneJudg, write: doneWrite, games: doneGames,
+        scene: doneScene,
       };
       const track = (await trackP).track;
       const plan = buildTodayPlan({

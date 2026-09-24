@@ -47,29 +47,22 @@ Clear recognizable subjects, realistic textures and soft daylight. No text or lo
 - 글자가 보여야 하는 장면(공책·봉투·표지판)은 끝을 **`No logos.`** 로 맺습니다.
 - 만든 뒤 **반드시** 근거 게이트를 돌려 통과를 확인합니다.
 
-## ⛔ 사진으로 «영영» 못 채우는 낱말 넷 — `natural` · `soft` · `clear` · `non`
+## ✅ (2026-09-24 해결) 껍데기 낱말 넷 — `natural` · `soft` · `clear` · `non`
 
-[잰 것 — 2026-09-22] 근거 게이트(`scripts/scene-picture-evidence.mjs`)는 «설명 80% 이상에
-나오는 낱말»을 **껍데기**로 보고 근거에서 뺍니다. 껍데기는 프롬프트 틀에서 옵니다(표 둘을 합친 지금은 16개 — 아래 «표가 «여러 파일»» 절):
+📜 2026-09-22 까지 여기에는 「사진으로 **영영** 못 채우는 낱말 넷」이라고 적혀 있었습니다.
+그 넷이 프롬프트 틀의 **껍데기**(설명 80% 이상에 나오는 낱말 — `natural candid photograph clear
+recognizable subjects realistic textures and soft daylight no text or logos`)라서 근거에서 빠졌기 때문입니다.
 
-```
-natural candid photograph clear recognizable subjects realistic textures and soft daylight no text or logos
-```
+✅ **2026-09-24 사장님 「반드시 실사로 바꿔줘」 로 예외를 하나 뒀습니다**(`makeDepicts`,
+`scripts/scene-picture-evidence.mjs`): 껍데기 낱말이라도 **그 낱말 «자신의» 전용 사진**(표의 `word`
+가 그 낱말)이고 **설명에 두 번 이상** 나오면 근거로 인정합니다 — 한 번은 틀이 넣은 것이고, 두 번째가
+장면 설명이 그 낱말을 «실제로» 말한 것입니다. `non` 은 전용 사진 1장(index 21408, 규칙이
+«non-negotiable» 인 실험실 장면)을 새로 만들었습니다. ⟹ **🎨 카드 행 25 → 0.**
 
-그래서 교재 낱말 가운데 **`natural` 과 `soft`** 는 사진을 아무리 잘 만들어도
-그 사진의 설명이 그 낱말을 «가리킨다» 고 판정되지 않습니다 — 그 둘은
-**🎨 낱말 그림카드로 남습니다.**
-
-⛔ **틀에서 그 낱말을 빼서 풀지 마세요.** 껍데기는 전체 설명을 모아 «한 번» 세므로,
-틀을 바꿔 `natural` 의 비율이 80% 밑으로 떨어지면 그 낱말이 **이미 만든 사진 전부의
-근거로 되살아납니다**(= 「natural 이 모든 그림에 붙는」 그 사고. CLAUDE.md 2장
-「껍데기를 근거로 삼지 마세요」).
-
-⛔ 크레딧을 쓰지 마세요 — 그 둘은 만들어도 `verify-prompts.mjs` 에서 탈락합니다.
-
-⚠️ **`clear` 도 같습니다** — 틀의 「Clear recognizable subjects」에서 옵니다(교재 낱말이기도 합니다).
-그리고 **`non`** 은 낱말이 아니라 **조각**(non-stop 류의 앞토막)이라 그릴 장면 자체가 없습니다.
-⟹ 사진으로 못 채우는 것은 **`natural` · `soft` · `clear` · `non`** 넷입니다.
+⛔ **그 예외를 «빌려 붙는 사진»(rank-1)으로 넓히지 마세요** — 틀에 든 껍데기가 **모든 사진**의 근거로
+되살아납니다(「natural 이 모든 그림에 붙는」 사고). ⛔ **«한 번» 으로 낮추지도 마세요** — 틀 자체가
+한 번씩 넣습니다. 둘 다 `scene_curriculum_harness` 가 변이로 실제 FAIL 을 냅니다.
+⛔ 틀에서 그 낱말을 빼서 풀지 마세요(껍데기 비율이 바뀌면 같은 사고입니다).
 
 ## 표가 «여러 파일» 인 이유와 그때 바뀌는 것
 

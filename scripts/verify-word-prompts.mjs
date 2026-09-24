@@ -24,7 +24,7 @@ const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 
 const cand=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const planned=wordPlanFiles(fs.readdirSync(inputs)).flatMap(read);
-const asWordAsset=it=>({id:'word-image:'+it.index,index:it.index,prompt:it.prompt,scenes:[]});
+const asWordAsset=it=>({id:'word-image:'+it.index,index:it.index,word:it.word,prompt:it.prompt,scenes:[]});
 
 /* 지금 껍데기(후보 없이) — 뒤에서 «줄어들지 않았나» 를 대조합니다. */
 const before=pictureEvidence({assets:assets.concat(planned.map(asWordAsset)),clips,sceneText,stopWords:stop});

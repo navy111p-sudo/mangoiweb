@@ -228,7 +228,7 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment;
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0);
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
@@ -286,6 +286,16 @@
           pronRow(t('이유 논리','Reasoning'), jd.axis&&jd.axis.reasoning)+
           pronRow(t('어투 민감도','Register'), jd.axis&&jd.axis.register)+
           ((jd.top_gaps&&jd.top_gaps.length)? '<div style="font-size:12.5px;color:#7c3aed;margin-top:8px">💪 '+t('더 연습할 점','Practice more')+': '+jd.top_gaps.map(esc).join(', ')+'</div>':'')+
+          '</div>';
+      }
+      /* ✍️ 교재 낱말 쓰기 숙제 — 한 판이라도 했을 때만(서버가 null 이면 카드째 생략). 약한 낱말은 «다시 볼 것» 으로만 말한다. */
+      var sw=d.scene_words;
+      if(sw&&sw.sessions>0){
+        html += '<div class="card"><h3>✍️ '+t('교재 낱말 쓰기 숙제','Textbook Word Writing')+'</h3>'+
+          '<div style="font-size:13.5px;color:var(--slate);margin-bottom:8px">'+t('이번 달 ','This month: ')+sw.sessions+t('번 · 낱말 ',' sessions · ')+sw.items+t('개 중 ',' words, ')+sw.correct+t('개를 스스로 맞혔어요',' written correctly on the first try')+'</div>'+
+          ((sw.weak&&sw.weak.length)
+            ? '<div style="font-size:12.5px;color:var(--mango)">💪 '+t('다시 볼 낱말','Words to review')+': <b>'+sw.weak.map(esc).join(', ')+'</b></div>'
+            : '<div style="font-size:12.5px;color:var(--good)">'+t('이번 달 틀린 낱말이 남아 있지 않아요 👏','No tricky words left this month 👏')+'</div>')+
           '</div>';
       }
       html += '</div>'; // .detail-section

@@ -47,6 +47,8 @@ export const KNOWN_GAMES = [
   // 학습 앱
   'vocab', 'micro-quiz', 'review-quiz', 'speech-coach', 'ai-write',
   'warmup', 'judgment', 'suspect-mystery', 'battle-3d',
+  // 교재 연동 쓰기 숙제(장면 탐험대 «그림 단어장» — 2026-09-24)
+  'scene-words',
 ] as const;
 
 const GAME_SET = new Set<string>(KNOWN_GAMES as readonly string[]);
@@ -75,6 +77,7 @@ export const GAME_LABELS: Record<string, { ko: string; en: string }> = {
   'judgment':        { ko: '판단력 훈련',    en: 'Judgment' },
   'suspect-mystery': { ko: '용의자 추리',    en: 'Suspect Mystery' },
   'battle-3d':       { ko: '3D 배틀',        en: '3D Battle' },
+  'scene-words':     { ko: '교재 낱말 쓰기', en: 'Textbook word writing' },
   'other':           { ko: '기타',           en: 'Other' },
   '':                { ko: '(계측 이전)',    en: '(before tracking)' },
 };
