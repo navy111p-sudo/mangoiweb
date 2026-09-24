@@ -83,9 +83,10 @@
        (관리자 쪽 hover 확대 금지와 같은 취지 — 글자가 움직이면 정신없다). */
     st.textContent =
       '.home-tracks .ht-track[role="button"]{cursor:pointer;border-radius:10px;' +
-      'transition:background-color .15s ease,color .15s ease}' +
-      /* 2026-09-24 흰 카드가 되어 hover 는 «살짝 회색» 으로(색만 — 크기·자리 고정). */
-      '.home-tracks .ht-track[role="button"]:hover{background:#f1f5f9}' +
+      'transition:filter .15s ease,color .15s ease}' +
+      /* 2026-09-24 메탈 카드 — hover 는 «살짝 밝게» 로(색만 — 크기·자리 고정).
+         ⛔ background 로 덮지 말 것: 메탈 그라데이션이 평평한 단색으로 바뀐다. */
+      '.home-tracks .ht-track[role="button"]:hover{filter:brightness(1.06)}' +
       '.home-tracks .ht-track[role="button"]:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}' +
       /* ▸ (2026-09-21 사장님 지시) 폰에는 손가락 커서도 :hover 도 없어 «누를 수 있다» 는
          신호가 0개였다. 화살표를 «가상요소» 로 그린다 — ⛔ 글자로 넣으면 i18n 두 엔진이
