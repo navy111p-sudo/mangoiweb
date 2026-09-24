@@ -40,7 +40,7 @@ function makeEl(id) {
   return el;
 }
 let reg = {};
-function makeWorld({ embedded = false, android = false, mode = null, unlocked = true } = {}) {
+function makeWorld({ embedded = false, android = false, mode = null, unlocked = true, menuUi = false } = {}) {
   reg = {};
   let now = 0; const timers = [];
   const store = {}; if (mode) store.mangoi_warmup_talk_mode = mode;
@@ -51,8 +51,8 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
   ['wgState', 'inp', 'wuSetup', 'menuPanel'].forEach((k, i) => { reg[k] = [wgState, inp, setup, menu][i]; });
   const doc = {
     readyState: 'complete', hidden: false, activeElement: null, head: { appendChild() {} },
-    getElementById: (id) => reg[id] || null,
-    querySelector: () => null,
+    getElementById: (id) => reg[id] || (menuUi && reg.menuTalkGroup && (id === 'menuTalkBtns' || id === 'talkVal') ? (reg[id] = makeEl(id)) : null),
+    querySelector: (sel) => (menuUi && sel === '#menuPanel .menu-scroll' ? (reg.__scroll = reg.__scroll || makeEl('')) : null),
     createElement: (t) => makeEl(''),
     addEventListener() {},
   };
@@ -205,6 +205,23 @@ console.log('\n[G] 모드 고르기');
   const T = makeWorld(); T.menu.classList.add('open');
   T.win.closeMenu(); T.tick(5000);
   ok('G-8 (짝) 버튼 모드에서 메뉴를 닫으면 안 연다', T.calls.toggleMic === 0 && T.calls.closeMenu === 1, T.calls);
+}
+// 2026-09-24 두 번째 제보 — ⋮ 메뉴에서 «자동» 을 누르고 메뉴를 열어 둔 채 기다림 → 안 켜짐.
+function clickTalk(T, which) {
+  const box = reg.menuTalkBtns; const fn = box && box._ls.click && box._ls.click[0];
+  if (!fn) return false;
+  fn({ target: { closest: () => ({ getAttribute: () => which }) } }); return true;
+}
+{
+  const T = makeWorld({ menuUi: true }); T.menu.classList.add('open');
+  ok('G-10 (전제) ⋮ 메뉴 안 «말하는 방법» 칸이 실제로 붙었다', !!(reg.menuTalkBtns && reg.menuTalkBtns._ls.click));
+  clickTalk(T, 'auto'); T.tick(DELAY);
+  ok('G-11 메뉴에서 «자동» 을 누르면 메뉴가 닫히고 마이크가 켜진다', !T.menu.classList.contains('open') && T.calls.toggleMic === 1, T.calls);
+}
+{
+  const T = makeWorld({ menuUi: true, mode: 'auto' }); T.menu.classList.add('open');
+  clickTalk(T, 'button'); T.tick(5000);
+  ok('G-12 (짝) «버튼» 을 누르면 메뉴는 그대로·마이크 안 켬', T.menu.classList.contains('open') && T.calls.toggleMic === 0, T.calls);
 }
 {
   const T = makeWorld({ mode: 'auto' });
