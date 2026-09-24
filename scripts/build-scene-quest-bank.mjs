@@ -1,4 +1,4 @@
-// 🖼 Scene Quest 사진 문제 은행 빌드 — docs/scene-curriculum-media/scene-quest-bank.json → public/js/scene-quest-bank.js
+// 🖼 Scene Quest 사진 문제 은행 빌드 — docs/scene-curriculum-media/scene-quest-bank.json → public/js/scene-quest-bank-<band>.js (수준별)
 // 정답은 사람이(에이전트가) 사진을 직접 보고 쓴 것이다. 여기서는 모양만 검사하고, 틀리면 빌드를 멈춘다.
 import fs from 'node:fs';
 const ROOT = new URL('../', import.meta.url);
@@ -28,8 +28,17 @@ for (const b of src) {
     word: b.word, aux: b.aux, subj: b.subj, phrase: b.phrase, simple: b.simple || [] });
 }
 if (errs.length) { console.error(errs.slice(0, 80).join('\n')); console.error('❌ ' + errs.length + '건'); process.exit(1); }
-const js = '/* 자동 생성 — scripts/build-scene-quest-bank.mjs 로 만듭니다. 손으로 고치지 마세요. */\n(function(root){var B=' +
-  JSON.stringify(out) + ';if(typeof module!==\'undefined\'&&module.exports)module.exports=B;else root.MangoiSceneQuestBank=B;})(typeof window!==\'undefined\'?window:this);\n';
-fs.writeFileSync(new URL('cloudflare-deploy/public/js/scene-quest-bank.js', ROOT), js);
+// 수준별로 파일을 나눕니다 — 화면은 학생이 고른 수준만 받습니다(2026-09-24, 한 파일 1.34MB → 수준별).
+//   파일마다 root.MangoiSceneQuestBanks[band] 에 자기 몫을 넣고, node 에서는 배열을 그대로 내보냅니다.
+//   주소(?v=)는 화면 HTML 의 <template id="sq-banks"> 에 적혀 있어 asset_version 하니스가 지킵니다.
+let total = 0;
+for (const band of BANDS) {
+  const part = out.filter(b => b.band === band);
+  const js = '/* 자동 생성 — scripts/build-scene-quest-bank.mjs 로 만듭니다. 손으로 고치지 마세요. */\n(function(root){var B=' +
+    JSON.stringify(part) + ';if(typeof module!==\'undefined\'&&module.exports)module.exports=B;else (root.MangoiSceneQuestBanks=root.MangoiSceneQuestBanks||{})[' + JSON.stringify(band) + ']=B;})(typeof window!==\'undefined\'?window:this);\n';
+  fs.writeFileSync(new URL('cloudflare-deploy/public/js/scene-quest-bank-' + band + '.js', ROOT), js);
+  console.log('  ' + band + ': ' + part.length + '문제 · ' + (js.length / 1024).toFixed(0) + 'KB');
+  total += js.length;
+}
 const by = {}; for (const b of out) by[b.band] = (by[b.band] || 0) + 1;
-console.log('✅ ' + out.length + '문제 (건너뜀 ' + (src.length - out.length) + ')', by, (js.length / 1024).toFixed(0) + 'KB');
+console.log('✅ ' + out.length + '문제 (건너뜀 ' + (src.length - out.length) + ')', by, (total / 1024).toFixed(0) + 'KB');
