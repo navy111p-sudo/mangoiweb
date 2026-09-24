@@ -116,3 +116,21 @@ body #tavatar-status{font-size:13px;max-width:170px}
  body #tavatar-status{font-size:15px;max-width:none;padding:5px 15px}
  .wg-progress{margin-left:auto}
 }
+
+/* 🀄 (2026-09-24) 중국어 웜업은 메이·룽 선생님 얼굴을 한 단계 더 크게 — 사장님 「중국어 웜업 화면에도 메이 선생님 크게」.
+   중국어는 교재·주제 칸이 없어 화면 세로에 여유가 있다. html.wu-zh 는 warmup.html 의 applyVoiceFace 가 붙인다.
+   · 폰 124 · 세로 짧은 폰(≤740) 104 · 폰 가로 64 · 태블릿 150 · 노트북 180(세로에 묶음) · 넓은 PC 는 위 «옆 여백» 규칙 그대로 */
+html.wu-zh body #tavatar-wrap{--av-w:min(180px, calc((100vh - 420px) * .8))}
+@media(max-width:899px){html.wu-zh body #tavatar-wrap{--av-w:150px}}
+@media(max-width:640px){html.wu-zh body #tavatar-wrap{--av-w:124px}}
+@media(max-width:640px) and (max-height:740px){html.wu-zh body #tavatar-wrap{--av-w:104px}}
+@media(max-height:520px){html.wu-zh body #tavatar-wrap{--av-w:64px}}
+@media(min-width:1360px) and (min-height:700px){
+ html.wu-zh body #tavatar-wrap{--av-w:clamp(160px, min(calc((100vw - 940px) / 2 - 40px), calc((100vh - 200px) * .8)), 300px)}
+}
+/* 좁은 폰(≤400)은 얼굴이 커진 만큼 옆 제목이 화면 밖으로 밀린다 → 제목 칸이 줄어들며 두 줄로 접히게 한다
+   (「함께 말해 봐요」를 얼굴 아래로 내리면 작은 폰에서 대화칸이 25% 밑으로 줄어 그쪽은 버렸다) */
+@media(max-width:400px){
+ html.wu-zh .wg-progress{min-width:0;flex:1 1 0}
+ html.wu-zh .wg-progress strong{white-space:normal}
+}
