@@ -8,10 +8,12 @@ const B=require('../cloudflare-deploy/public/js/scene-quest-bank.js');
 let pass=0,fail=0;
 const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('❌ '+m);}};
 const pub=new URL('../cloudflare-deploy/public/',import.meta.url);
-const photo=D.scenes.filter(s=>/^c\d+$/.test(s.id));
+const photo=D.scenes.filter(s=>/^[cw]\d+$/.test(s.id));
 ok(B.length>=400,'은행 문제 수가 400 이상 ('+B.length+')');
 ok(photo.length===B.length,'은행이 전부 scenes 로 들어갔다');
-ok(D.scenes.filter(s=>!/^c\d+$/.test(s.id)).length===12,'원래 12장면은 그대로');
+ok(photo.some(s=>s.id[0]==='w'&&s.poster.startsWith('/img/scene-words/'))&&photo.some(s=>s.id[0]==='c'&&s.poster.startsWith('/img/scene-clips/')),'행동 장면 사진·낱말 사진 두 갈래가 다 들어 있다');
+for(const band of ['siu-basic','siu-advance']){const n=photo.filter(s=>s.world===band).length;ok(n>=200,band+' 문제가 200 이상 ('+n+')');}
+ok(D.scenes.filter(s=>!/^[cw]\d+$/.test(s.id)).length===12,'원래 12장면은 그대로');
 ok(new Set(D.scenes.map(s=>s.id)).size===D.scenes.length,'id 중복 없음');
 for(const band of ['bts','siu-basic','siu-advance']){
   const n=photo.filter(s=>s.world===band).length;ok(n>=4,band+' 문제가 4개 이상 ('+n+')');
@@ -54,7 +56,7 @@ function run(world){
 const p=run('bts');
 ok(p.watch.hidden===true&&p.still.hidden===true,'사진 문제면 «영상 보기» 감춤');
 ok(p['media-tag'].textContent==='실사 사진','사진 문제 표시 «실사 사진»');
-ok(/^\/img\/scene-clips\/\d+\.webp$/.test(p.poster.src),'사진이 걸린다 ('+p.poster.src+')');
+ok(/^\/img\/scene-(clips|words)\/\d+\.webp$/.test(p.poster.src),'사진이 걸린다 ('+p.poster.src+')');
 p.watch.dispatch('click');ok(!p.video.played&&!p.video.src,'사진 문제에서 영상 재생을 시도하지 않는다');
 const v=run('adventure');
 ok(v.watch.hidden===false,'영상 장면이면 «영상 보기» 가 보인다(짝)');
