@@ -443,7 +443,10 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
       : '상태 → ' + finalStatus + (dry ? ' (미리보기라 저장 안 함)' : '')
   });
 
-  return json({ ok: true, id, dry, status: finalStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings });
+  /* 👩‍🏫 (2026-09-24) 실제로 배정된 강사 이름 — 일괄 등록 엑셀·워드·카톡 요약에 싣는다.
+     화면이 steps[].detail 문장을 파싱하지 않게 칸으로 준다. 배정 단계가 없었거나 강사를 못 정했으면 null. */
+  const assignedTeacher = (steps.assign_teacher && plan.teacher.id) ? (plan.teacher.name || null) : null;
+  return json({ ok: true, id, dry, status: finalStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings, teacher_name: assignedTeacher });
 }
 
 /** 시작일 + 1개월 (말일 보정 — 1/31 + 1개월 = 2/28) */
