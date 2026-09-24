@@ -50,6 +50,7 @@
       var cnt = el('aib-count');
       if (cnt) cnt.textContent = d.count + '개' + (d.truncated ? ' (500개까지만 표시)' : '');
       renderRows(d);
+      renderCron(d.last_cron);
     }).catch(function(e){
       tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:18px;color:#dc2626">네트워크 오류: ' + esc(e && e.message || e) + '</td></tr>';
     });
@@ -62,6 +63,38 @@
   function isEn(){ try { return window.adminLang === 'en' || (!window.adminLang && localStorage.getItem('mangoi_lang') === 'en'); } catch(_) { return false; } }
   function L(ko, en){ return isEn() ? en : ko; }
   function num(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+
+  /* 🛎 (2026-09-24) 월 자동 청구(매달 1일)의 마지막 결과 — 서버 로그는 5% 만 남아서, 실패하면 아무도 몰랐다.
+     실패·일부 실패면 빨간 줄로 «무엇을 하라» 까지 말한다. 모르면(null) «—» (지어내지 않는다).
+     ⛔ 이 요소에 data-ko/data-en 을 달지 말 것 — 그리는 쪽이 글자를 정하고 언어 전환 때 다시 그린다. */
+  var LAST_CRON;
+  function renderCron(c){
+    LAST_CRON = c;
+    var box = el('aib-cron');
+    if (!box) {
+      var tbl = el('aib-table');
+      var host = tbl && tbl.parentNode;
+      if (!host || !host.parentNode) return;
+      box = document.createElement('div');
+      box.id = 'aib-cron';
+      box.style.cssText = 'padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475467';
+      host.parentNode.insertBefore(box, host);
+    }
+    var bad = c && (c.status === 'live_check_failed' || c.status === 'shops_failed' || c.status === 'partial');
+    box.style.background = bad ? '#fef2f2' : '#f8fafc';
+    box.style.borderColor = bad ? '#fca5a5' : '#cbd5e1';
+    box.style.color = bad ? '#b91c1c' : '#475467';
+    if (!c) { box.textContent = L('🛎 월 자동 청구: 아직 실행 기록이 없습니다 — 매달 1일에 다음 달 청구서를 만듭니다.', '🛎 Monthly auto-billing: no run recorded yet — it creates next month’s invoices on the 1st.'); return; }
+    var when = '—';
+    try { when = new Date(c.at).toLocaleString(isEn() ? 'en-US' : 'ko-KR', { timeZone: 'Asia/Seoul' }); } catch(_) {}
+    var head = L('🛎 월 자동 청구 (' + (c.month || '') + '분, ' + when + ')', '🛎 Monthly auto-billing (' + (c.month || '') + ', ' + when + ')');
+    var msg;
+    if (c.status === 'live_check_failed') msg = L('⚠ 화상반 학생을 확인하지 못해 청구서를 한 장도 만들지 않았습니다(이중 청구 방지). 학원 화면의 「청구서 만들기」로 다시 만들 수 있습니다.', '⚠ Could not check video-class students, so no invoices were created (to avoid double billing). Academies can create them with “Create invoice”.');
+    else if (c.status === 'shops_failed') msg = L('⚠ 대리점 목록을 읽지 못해 실행하지 못했습니다. 학원 화면의 「청구서 만들기」로 다시 만들 수 있습니다.', '⚠ Could not read the agency list, so nothing ran. Academies can create invoices with “Create invoice”.');
+    else msg = L('대리점 ' + num(c.agencies) + '곳 · 청구서 ' + num(c.invoices) + '장 · 새로 넣은 학생 ' + num(c.added) + '명', num(c.agencies) + ' agencies · ' + num(c.invoices) + ' invoices · ' + num(c.added) + ' students added')
+      + (c.status === 'partial' ? L(' — ⚠ ' + num(c.failed) + '곳은 만들지 못했습니다(학원 화면에서 다시 만들 수 있습니다).', ' — ⚠ ' + num(c.failed) + ' failed (academies can recreate them).') : '');
+    box.textContent = head + ' — ' + msg;
+  }
 
   function renderRows(d){
     var tbody = el('aib-tbody');
@@ -127,7 +160,7 @@
       });
   };
 
-  function relang(){ if (LAST) renderRows(LAST); }
+  function relang(){ if (LAST) { renderRows(LAST); renderCron(LAST_CRON); } }
   document.addEventListener('mangoi:lang-changed', relang);   // 관리자 화면은 document 에서 발행(bubbles:false)
   window.addEventListener('mangoi:lang-changed', relang);
 
