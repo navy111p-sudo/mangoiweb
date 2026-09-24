@@ -61,7 +61,8 @@ import {
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
-  nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
+  nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,
+  monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)   // ⏰ 알림 단계 · 하루 두 번 요약
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
 import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
@@ -2887,6 +2888,36 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       }
     } catch (e) {
       console.warn('[approval-digest] failed:', (e as any)?.message || e);
+    }
+
+    /* 📅 월초 요약 — 1일 KST 9시에 «지난달» 결재를 경영진에게 한 번(정본 monthlyReportLines).
+         ⚠️ 새 크론을 못 만들어(계정 한도 5/5) 이 15분 점검에 얹는다. 그 시(時)에 네 번 돌므로
+            KV 에 «보냈다» 를 먼저 적고, KV 를 못 쓰면 **보내지 않는다**(하루 요약과 같은 규칙). */
+    try {
+      const month = monthlySlotKst(now);
+      const range = kstMonthRange(month);
+      const kv: any = (env as any).SESSION_STATE;
+      if (month && range && kv) {
+        const key = 'approval_monthly:' + month;
+        const seen = await kv.get(key);
+        if (!seen) {
+          await kv.put(key, '1', { expirationTtl: 40 * 86400 });
+          const rows = (await env.DB.prepare(
+            `SELECT req_type, status, category, amount, currency, spent_at, created_at, file_key, reverses_id,
+                    requester_username, requester_name, origin_id
+               FROM approval_requests WHERE created_at >= ? AND created_at < ? LIMIT 2000`
+          ).bind(range[0], range[1]).all<any>()).results || [];
+          const lines = monthlyReportLines(month, summarizeApprovals(rows as any[]), firstPassRates(rows as any[]));
+          if (lines.length) {
+            lines.push(siteUrl('/work'));
+            const execs = await approversFor(env, 'exec', null);
+            const n = await notify(env, execs, month + ' 결재 월간 요약', lines[1], 0, 'approval-monthly');
+            if (n.missed.length) await smsFallback(env, n.missed, lines.join('\n'));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[approval-monthly] failed:', (e as any)?.message || e);
     }
 
     // ① 단계 마감을 넘긴 건 — 하루에 한 번만 다시 알린다(warned_at 로 도배 방지).

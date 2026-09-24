@@ -1813,3 +1813,55 @@ export function firstPassRates(rows: { requester_username: string; requester_nam
     .map(e => ({ ...e, pct: Math.round((e.firstPass / e.decided) * 100) }))
     .sort((a, b) => b.decided - a.decided || a.user.localeCompare(b.user));
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📅 월초 요약 (2026-09-24 사장님 「다음 단계」 — 결재함 자동화 5단계)
+ *
+ *   매달 1일 KST 9시에 «지난달» 결재를 경영진에게 한 번 보낸다.
+ *   ⚠️ 크론을 새로 만들 수 없다(계정 한도 5/5) — 15분 SLA 점검에 얹고 KV 로 한 번만 보낸다.
+ *   ⚠️ 판정·문구는 여기 순수 함수로 — 라우트 안에 두면 하니스가 «그 글자가 있는가» 로밖에 못 본다.
+ *   ⛔ 통화를 섞지 않는다(₱·₩ 따로) · 모르는 금액을 0으로 때우지 않는다(summarizeApprovals 규칙).
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 1일 KST 9시 회차면 «지난달» 'YYYY-MM', 아니면 null. */
+export function monthlySlotKst(ms: number): string | null {
+  const t = new Date(Number(ms) + 9 * 3600_000);
+  if (t.getUTCDate() !== 1 || t.getUTCHours() !== 9) return null;
+  const y = t.getUTCFullYear(), m = t.getUTCMonth(); // m: 이번 달(0~11) → 지난달은 m-1
+  const py = m === 0 ? y - 1 : y;
+  const pm = m === 0 ? 12 : m;
+  return py + '-' + String(pm).padStart(2, '0');
+}
+
+/** 'YYYY-MM'(KST) → [시작 ms, 다음 달 시작 ms). 형식이 아니면 null. */
+export function kstMonthRange(month: string | null | undefined): [number, number] | null {
+  const v = String(month || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) return null;
+  const y = Number(v.slice(0, 4)), m = Number(v.slice(5, 7));
+  const start = Date.UTC(y, m - 1, 1) - 9 * 3600_000;
+  const end = Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 1) - 9 * 3600_000;
+  return [start, end];
+}
+
+/** 월초 요약 문장 — 한 건도 없으면 빈 배열(보내지 않는다). */
+export function monthlyReportLines(month: string, s: ApprovalSummary,
+  fp: { name: string; pct: number; firstPass: number; decided: number }[] = []): string[] {
+  if (!s || !s.counted) return [];
+  const b = s.by_status;
+  const money = (list: MoneyBucket[]) => list.length
+    ? list.map(x => fmt(x.total, x.currency) + ' (' + x.count + '건)').join(' · ')
+    : '없음';
+  const lines = [
+    '[망고아이] ' + month + ' 결재 월간 요약',
+    '올라온 결재 ' + s.counted + '건 (승인 ' + b.approved + ' · 반려 ' + b.rejected + ' · 대기 ' + b.pending +
+      (b.withdrawn ? ' · 회수 ' + b.withdrawn : '') + (b.cancelled ? ' · 취소 ' + b.cancelled : '') + ')',
+    '승인된 지출: ' + money(s.approved_money),
+  ];
+  const cats = (s.by_category || []).filter(c => c.key !== null).slice(0, 3);
+  if (cats.length) lines.push('많은 항목: ' + cats.map(c => c.ko + ' ' + c.count + '건').join(', '));
+  if (s.no_amount) lines.push('⚠ 금액이 빠진 건 ' + s.no_amount + '건 — 합계에 안 들어갔습니다');
+  if (b.pending) lines.push('⚠ 지난달 올라와 아직 대기 중 ' + b.pending + '건');
+  const top = (fp || []).filter(e => e.decided >= 2).slice(0, 5);
+  if (top.length) lines.push('첫 번에 통과: ' + top.map(e => e.name + ' ' + e.pct + '% (' + e.firstPass + '/' + e.decided + ')').join(', '));
+  return lines;
+}
