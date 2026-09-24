@@ -323,7 +323,10 @@ self.addEventListener('push', (event) => {
       if (!payload || !payload.title) {
         payload = { title: '망고아이', body: '새 알림이 도착했어요' };
       }
-      await self.registration.showNotification(payload.title, {
+      // 📲 결재 알림에 [승인] 버튼 — 서버가 링크에 &qa=<단계> 를 붙인 건(🟢 돈 나가는 건)만.
+      //    ⚠️ 버튼은 편의일 뿐, 누르면 서버가 🟢·같은 단계인지 다시 잰다. 아이폰은 버튼을 안 그린다.
+      const qa = approvalQuick(payload.url);
+      const opts = {
         body: payload.body || '',
         icon: payload.icon || '/img/icon-192.png',
         badge: payload.badge || '/img/icon-192.png',
@@ -331,7 +334,12 @@ self.addEventListener('push', (event) => {
         data: { url: payload.url || '/' },
         renotify: true,
         requireInteraction: false,
-      });
+      };
+      if (qa) {
+        opts.actions = [{ action: 'approve', title: '✅ 승인 Approve' }, { action: 'open', title: '열기 Open' }];
+        opts.data.qa = qa;
+      }
+      await self.registration.showNotification(payload.title, opts);
     } catch(e) {
       console.warn('[sw:push] error:', e);
       await self.registration.showNotification('망고아이 알림', {
@@ -342,10 +350,42 @@ self.addEventListener('push', (event) => {
   })());
 });
 
+// === 📲 결재 알림 [승인] — 링크 '/work?id=N&qa=S' 에서 결재 번호·단계를 읽는다 ===
+function approvalQuick(url) {
+  try {
+    const u = new URL(String(url || ''), self.location.origin);
+    if (u.pathname !== '/work') return null;
+    const id = Number(u.searchParams.get('id')), seq = Number(u.searchParams.get('qa'));
+    if (!(id > 0) || !(seq > 0)) return null;
+    return { id: id, seq: seq };
+  } catch (_) { return null; }
+}
+async function approveFromPush(qa, url) {
+  let msg = '', ok = false;
+  try {
+    const r = await fetch('/api/approval/requests/' + qa.id + '/decide', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision: 'approved', via: 'push', expect_seq: qa.seq }),
+    });
+    const d = await r.json().catch(() => ({}));
+    ok = r.ok && d && d.ok === true;
+    if (!ok) msg = (d && d.message) || (r.status === 401 ? '로그인이 필요합니다' : '승인하지 못했습니다');
+  } catch (_) { msg = '인터넷 연결을 확인해 주세요'; }
+  // 결과를 «반드시» 말한다 — 조용히 끝나면 된 줄 알고 넘어간다.
+  await self.registration.showNotification(ok ? '✅ 승인했습니다' : '⚠️ 승인하지 못했습니다', {
+    body: ok ? '결재 #' + qa.id : msg + ' — 눌러서 결재함 열기',
+    icon: '/img/icon-192.png', badge: '/img/icon-192.png',
+    tag: 'approval-quick-' + qa.id, data: { url: url }, renotify: true,
+  });
+}
+
 // === 🔔 알림 클릭 시 해당 URL 열기 (이미 열려있으면 포커스) ===
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || '/';
+  const qa = event.notification.data && event.notification.data.qa;
+  if (event.action === 'approve' && qa) { event.waitUntil(approveFromPush(qa, url)); return; }
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {

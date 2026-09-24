@@ -1499,6 +1499,124 @@ export function signalOf(inp: SignalInput): { signal: Signal; reasons: SignalRea
   return { signal: 'green', reasons: [] };
 }
 
+/**
+ * 📲 «알림에서 바로 승인» — 폰 알림의 [승인] 버튼으로 화면을 안 열고 결재한다
+ *    (2026-09-24 사장님 「알림에서 바로 승인 만들어줘」).
+ *
+ *   화면을 안 보고 누르는 것이라 **«볼 것이 없는» 건만** 받는다:
+ *     · 🟢 신호(점검 전부 통과) — 알림을 보낸 «뒤» 에 신호가 바뀌었을 수 있어 **누르는 순간 다시 잰다**
+ *     · 돈이 나가는 분류(물품·지출)만 — 휴가·인사급여는 화면에서 내용을 봐야 한다
+ *     · 알림이 가리킨 그 단계(expectSeq)일 때만 — 그 사이 다음 단계로 넘어갔으면 안 받는다
+ *     · «승인» 만 — 반려는 사유를 써야 하니 화면에서
+ *     · 대신 결재(부재중 경영진이 결재권자 몫을 누름)·취소 결재는 안 받는다
+ *   ⛔ 이 게이트는 «추가로 막는» 것이다 — 권한·같은사람연속·본인건 검사는 decide 가 그대로 한다.
+ *   반환: 막는 이유 코드, 통과면 null.
+ */
+export function pushApproveDenyReason(inp: {
+  decision: string; expectSeq: unknown; seq: number; signal: Signal;
+  reqType: string | null | undefined; byProxy: boolean; reversesId?: number | null;
+}): string | null {
+  if (inp.decision !== 'approved') return 'approve_only';
+  const es = Number(inp.expectSeq);
+  if (!Number.isInteger(es) || es !== inp.seq) return 'stage_moved';
+  if (!blocksSameDecider(inp.reqType)) return 'type_not_quick';
+  if (inp.reversesId) return 'reversal';
+  if (inp.byProxy) return 'proxy';
+  if (inp.signal !== 'green') return 'not_green';
+  return null;
+}
+
+/** 알림에 [승인] 버튼을 붙여도 되는 건인가 — 위 게이트와 같은 기준(보내는 시점 판정). */
+export function quickApprovable(inp: {
+  signal: Signal; reqType: string | null | undefined; reversesId?: number | null;
+}): boolean {
+  return inp.signal === 'green' && blocksSameDecider(inp.reqType) && !inp.reversesId;
+}
+
+/**
+ * 📋 반려 사유 목록 — 결재함 반려 버튼(work.html 의 WHYS)과 **같은 글자**여야 한다.
+ *    ⚠️ 한쪽만 고치면 «자주 반려된 이유» 가 조용히 0 이 된다(하니스가 두 목록을 대조한다).
+ */
+export const REJECT_REASONS: readonly { code: string; en: string; ko: string; tip_en: string; tip_ko: string }[] = [
+  { code: 'receipt',  en: 'Receipt needed', ko: '영수증 첨부 필요',
+    tip_en: 'Attach a clear photo of the receipt', tip_ko: '영수증 사진을 선명하게 첨부했나요?' },
+  { code: 'amount',   en: 'Check the amount', ko: '금액 확인 필요',
+    tip_en: 'The amount matches the receipt exactly', tip_ko: '금액이 영수증과 똑같나요?' },
+  { code: 'budget',   en: 'Over budget', ko: '예산 초과',
+    tip_en: 'It fits this month\'s budget for the category', tip_ko: '이번 달 이 항목 예산 안인가요?' },
+  { code: 'detail',   en: 'Add more detail (what, why, for whom)', ko: '설명 보충 필요',
+    tip_en: 'You wrote what it is, why, and for whom', tip_ko: '무엇을·왜·누구를 위해 썼는지 적었나요?' },
+  { code: 'duplicate', en: 'Duplicate request', ko: '중복 결재',
+    tip_en: 'You have not already submitted this one', tip_ko: '이미 올린 건이 아닌가요?' },
+];
+
+/**
+ * 📋 «자주 반려된 이유» — 반려 메모에서 위 사유를 세어 많은 순으로(최대 3개, 0건은 안 싣는다).
+ *    반려가 한 건도 없으면 빈 배열 → 화면은 아무것도 안 그린다(지어내지 않는다).
+ */
+export function rejectTipsFrom(memos: (string | null | undefined)[]):
+  { code: string; n: number; tip_en: string; tip_ko: string }[] {
+  const out: { code: string; n: number; tip_en: string; tip_ko: string }[] = [];
+  for (const r of REJECT_REASONS) {
+    let n = 0;
+    for (const m of memos) {
+      const t = String(m || '');
+      if (t && (t.indexOf(r.en) >= 0 || t.indexOf(r.ko) >= 0)) n++;
+    }
+    if (n > 0) out.push({ code: r.code, n, tip_en: r.tip_en, tip_ko: r.tip_ko });
+  }
+  out.sort((a, b) => b.n - a.n);
+  return out.slice(0, 3);
+}
+
+/**
+ * 🤖 자동 반려 «켤지 말지» 판단 자료 — 연습 모드(shadow) 기간에 AI 가 🔴 로 본 건을
+ *    사람이 실제로 어떻게 처리했는지 센다. 끝나지 않은 건(대기)은 세지 않는다.
+ *    agreed = 사람도 반려 · disagreed = 사람은 승인(= AI 가 켜져 있었으면 잘못 되돌렸을 건).
+ */
+export function shadowTally(rows: { signal: Signal; status: string | null | undefined }[]):
+  { red: number; agreed: number; disagreed: number } {
+  let red = 0, agreed = 0, disagreed = 0;
+  for (const r of rows) {
+    if (!r || r.signal !== 'red') continue;
+    const st = String(r.status || '');
+    if (st === 'rejected') { red++; agreed++; }
+    else if (st === 'approved') { red++; disagreed++; }
+  }
+  return { red, agreed, disagreed };
+}
+
+/**
+ * 🔁 매달 반복 지출 — 같은 제목이 «서로 다른 달» 에 두 번 이상 승인됐으면 반복으로 본다.
+ *    입력은 승인된 내 기안(최근 몇 달). 반환은 제목별 대표 1건(가장 최근) + 달 수 · 늘 쓰던 금액.
+ */
+export function monthlyRepeats(rows: { title: string; amount?: number | null; currency?: string | null;
+  req_type: string; body?: string | null; category?: string | null; created_at: number }[]):
+  { title: string; amount: number | null; currency: string | null; req_type: string; body: string | null;
+    category: string | null; months: number }[] {
+  const by: Record<string, { rows: any[]; months: Record<string, 1> }> = {};
+  for (const r of rows) {
+    const key = r.req_type + '|' + String(r.title || '').trim().toLowerCase();
+    if (!String(r.title || '').trim()) continue;
+    const mo = new Date(Number(r.created_at) + 9 * 3600000).toISOString().slice(0, 7);
+    (by[key] = by[key] || { rows: [], months: {} }).rows.push(r);
+    by[key].months[mo] = 1;
+  }
+  const out: any[] = [];
+  for (const k of Object.keys(by)) {
+    const g = by[k];
+    const months = Object.keys(g.months).length;
+    if (months < 2) continue;
+    g.rows.sort((a: any, b: any) => Number(b.created_at) - Number(a.created_at));
+    const last = g.rows[0];
+    out.push({ title: last.title, amount: last.amount == null ? null : Number(last.amount),
+               currency: last.currency || null, req_type: last.req_type, body: last.body || null,
+               category: last.category || null, months });
+  }
+  out.sort((a, b) => b.months - a.months);
+  return out;
+}
+
 /** 자동 반려 방식 — KV 'approval_autoreject'. 모르는 값·못 읽음 = 'shadow'(표시만). */
 export type AutoRejectMode = 'off' | 'shadow' | 'on';
 export function autoRejectMode(v: unknown): AutoRejectMode {
