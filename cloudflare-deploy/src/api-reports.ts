@@ -274,6 +274,30 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     aiActivityCount = (vc?.n || 0) + (qc?.n || 0);
   } catch { /* 테이블이 없거나 조회 실패해도 리포트 전체는 계속 진행 */ }
 
+  // ✍️ 교재 낱말 쓰기 숙제(장면 탐험대 «그림 단어장», 2026-09-24) — 한 판이라도 했을 때만 싣는다.
+  //   약한 낱말 = 이 기간에 다시 만났고 «틀린 횟수 ≥ 맞힌 횟수» 인 낱말(handleGamesWeak 과 같은 기준).
+  //   ⚠️ game_progress 의 횟수는 «누적» 이라 이 기간만의 횟수가 아니다 — 그래서 숫자는 싣지 않고 낱말만 싣는다.
+  //   ⛔ 없는 기록을 지어내지 않는다 — 판이 0 이면 null(화면에서 카드째 생략).
+  let sceneWords: { sessions: number; items: number; correct: number; weak: string[] } | null = null;
+  try {
+    const ss: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, COALESCE(SUM(items),0) AS it, COALESCE(SUM(correct),0) AS c
+         FROM game_sessions WHERE uid = ? AND game = 'scene-words' AND created_at >= ? AND created_at < ?`
+    ).bind(uid, start, end).first();
+    if (ss && Number(ss.n) > 0) {
+      const wr = await env.DB.prepare(
+        `SELECT item FROM game_progress
+          WHERE user_id = ? AND lang = 'en' AND game = 'scene-words' AND last_seen >= ? AND last_seen < ?
+            AND wrong_count > 0 AND wrong_count >= correct_count
+          ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT 10`
+      ).bind(uid, start, end).all();
+      sceneWords = {
+        sessions: Number(ss.n) || 0, items: Number(ss.it) || 0, correct: Number(ss.c) || 0,
+        weak: (((wr as any)?.results || []) as any[]).map(r => String(r.item || '')).filter(Boolean),
+      };
+    }
+  } catch { /* 표가 없거나 실패해도 리포트 전체는 계속 */ }
+
   // 🧠 판단력 성장(해당 기간) — 이벤트가 있을 때만
   let judgment: any = null;
   try {
@@ -402,6 +426,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
       best: voiceStats?.best || 0,
     },
     judgment,
+    scene_words: sceneWords,
     radar,
     /* 축마다 «누가 매긴 점수인가» — 'teacher'(강사 평가서) / 'ai'(AI 학습 활동) / null(근거 없음).
        화면은 이걸로 구분해 표시해야 한다. AI 활동 점수를 강사 평가처럼 보여주면 거짓말이 된다. */

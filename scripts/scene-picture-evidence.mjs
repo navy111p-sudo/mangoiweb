@@ -101,10 +101,12 @@ function describeMedia({assets,clips,sceneText}){
           보여 준다」던 거짓 근거이므로, 줄어드는 것이 이 수리의 목적입니다). */
  const clipRaw=c=>((c.visual||c.action)?[c.visual,c.action]:[c.prompt]).filter(Boolean).join(' ');
  const shell=shellTokens([...assets.map(a=>a.prompt),...clips.map(clipRaw)]);
+ const ownWord=new Map();
  for(const a of assets){
   const own=(a.scenes||[]).map(id=>sceneText.get(id)).filter(Boolean);
   const real=!own.some(t=>echoesSentence(a.prompt,t))&&addsDetail(a.prompt,own,shell);
   describe.set('word-image:'+a.index,real?String(a.prompt||''):'');
+  if(real&&a.word)ownWord.set('word-image:'+a.index,String(a.word).toLowerCase());
  }
  for(const c of clips){
   const raw=clipRaw(c),text=(!echoesSentence(raw,c.text)&&addsDetail(raw,[c.text],shell))?raw:'';
@@ -117,7 +119,7 @@ function describeMedia({assets,clips,sceneText}){
   const raw=clipRaw(c),text=(!echoesSentence(raw,c.text)&&addsDetail(raw,[c.text],shell))?raw:'';
   for(const kind of ['clip-image','video'])if(!describe.has(kind+':'+c.reuseClip))describe.set(kind+':'+c.reuseClip,text);
  }
- return {describe,shell};
+ return {describe,shell,ownWord};
 }
 
 /* 열쇠가 가리키는 그림이 그 낱말을 보여 주는가. 설명이 없으면(메아리였으면) 언제나 false.
@@ -131,11 +133,22 @@ function describeMedia({assets,clips,sceneText}){
       교재 낱말 중 최대 비율이 77.6%(thing) → 26.0%(hand 143개) 로 떨어집니다.
       「낱말 사진」 근거 판정은 1,398건 그대로이고, 🖼 줄은 7,211 → 7,210 한 줄 줄어듭니다(빌드 A/B 실측).
    ⛔ variants() 에서 그 넷을 손으로 빼지 마세요 — 어미 규칙이 바뀌면 조용히 낡습니다. */
-function makeDepicts(describe,shell,stopWords){
+/* 🧱➡️🖼 2026-09-24 사장님 「그림카드를 힉스필드 실사로 반드시 바꿔줘」 — 남은 카드 25줄은 전부
+   껍데기 낱말(natural·soft)과 조각(non)이었다. natural·soft·clear 는 «그 낱말을 그리려고 만든 전용 사진»
+   (12487 폭포 · 12507 담요 · 12851 물컵)이 이미 있는데, 껍데기라서 근거에서 빠져 한 번도 안 붙었다.
+   ✅ 그래서 «그 사진의 표 낱말(plan 의 word)이 바로 그 낱말» 일 때만, 설명에 그 낱말이 **두 번 이상**
+      (틀이 넣는 한 번 + 장면이 넣는 한 번) 나오면 근거로 인정한다.
+   ⛔ 남의 낱말(rank 1)에는 절대 안 넓힌다 — 넓히면 「natural 이 모든 그림에 붙는」 그 사고가 되살아난다.
+   ⛔ «한 번» 으로 낮추지 마세요 — 틀이 넣는 한 번만으로 통과해 틀만 쓴 사진도 근거가 된다. */
+function makeDepicts(describe,shell,stopWords,ownWord){
  const cache=new Map();
  const tokenSet=key=>{if(!cache.has(key))cache.set(key,new Set(tokens(describe.get(key)).filter(t=>!shell.has(t)&&!stopWords.has(t))));return cache.get(key);};
  return function depicts(word,key){
   if(!key)return false;
+  if(shell.has(word)&&ownWord&&ownWord.get(key)===word){
+   let n=0;for(const t of tokens(describe.get(key)))if(t===word)n++;
+   if(n>=2)return true;
+  }
   const set=tokenSet(key);
   for(const v of variants(word))if(set.has(v))return true;
   return false;
@@ -144,8 +157,8 @@ function makeDepicts(describe,shell,stopWords){
 
 /* 🖼 정본 입구 — 빌드도 회귀 검사도 이것 «하나» 만 부른다(설명·껍데기·판정이 짝을 잃지 않게). */
 export function pictureEvidence({assets,clips,sceneText,stopWords}){
- const {describe,shell}=describeMedia({assets,clips,sceneText});
- return {describe,shell,depicts:makeDepicts(describe,shell,stopWords instanceof Set?stopWords:new Set(stopWords||[]))};
+ const {describe,shell,ownWord}=describeMedia({assets,clips,sceneText});
+ return {describe,shell,depicts:makeDepicts(describe,shell,stopWords instanceof Set?stopWords:new Set(stopWords||[]),ownWord)};
 }
 
 /* 🖼 낱말 사진 표는 «여러 파일» 로 나뉩니다 — `word-image-plan.json` · `word-image-plan-2.json` …

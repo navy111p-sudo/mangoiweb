@@ -251,7 +251,7 @@ if (mod) {
 
   console.log('\n[ ⑥ 계획이 가리키는 화면이 실재한다 ]');
   for (const t of Object.values(TOOLS)) {
-    check(`⑥ ${t.key} → ${t.url}`, existsSync(join(PUB, t.url.replace(/^\//, ''))));
+    check(`⑥ ${t.key} → ${t.url}`, existsSync(join(PUB, t.url.replace(/[?#].*$/, '').replace(/^\//, ''))));   // ?cur=1 는 파일 이름이 아니다
     if (t.urlZh) check(`⑥ ${t.key}(중국어) → ${t.urlZh}`, existsSync(join(PUB, t.urlZh.replace(/^\//, ''))));
   }
   check('⑥ 레벨테스트 화면 /level-test-ai.html', existsSync(join(PUB, 'level-test-ai.html')));
@@ -279,7 +279,7 @@ console.log('\n[ ⑤ 도구 화면 8종이 «돌아가기» 알약을 싣는다 
   const urls = new Set(['/level-test-ai.html']);
   if (mod) for (const t of Object.values(mod.TOOLS)) { urls.add(t.url); if (t.urlZh) urls.add(t.urlZh); }
   for (const u of [...urls].sort()) {
-    const h = rd(join(PUB, u.replace(/^\//, '')));
+    const h = rd(join(PUB, u.replace(/[?#].*$/, '').replace(/^\//, '')));   // ?cur=1 같은 쿼리는 파일 이름이 아니다(2026-09-24 scene)
     check(`⑤ ${u} 에 today-bar.js`, /<script[^>]*src="\/js\/today-bar\.js\?v=\d+"/.test(h));
   }
   check('⑤ 검사한 화면이 12개 이상이다(목록이 비어 헛돌지 않는다)', urls.size >= 12, urls.size);

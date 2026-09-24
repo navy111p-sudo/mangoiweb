@@ -64,7 +64,7 @@ for(const it of wordImagePlan){
  const file=path.join(wordImageDir,it.index+'.webp');
  if(!fs.existsSync(file))continue;
  wordImages.push({word:it.word,index:it.index,bytes:fs.statSync(file).size});
- wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});
+ wordAssets.push({id:'w'+it.index,index:it.index,word:it.word,prompt:it.prompt,scenes:[]});
 }
 const sceneText=new Map(selected.map(r=>[r.id,r.text]));
 /* 🖼 판정 정본은 scripts/scene-picture-evidence.mjs 한 곳 — 회귀 검사도 같은 모듈을 돌린다.

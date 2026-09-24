@@ -96,7 +96,7 @@ const wordAssets=[],wordFile=new Map();
 /* 🚫 빌드와 같이 excluded-media.json 을 낱말 사진에도 겁니다(2026-09-24 와인 진열대 사진 19249). */
 const excludedWordImages=new Set(plan('excluded-media.json'));
 for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(excludedWordImages.has('word-image:'+it.index)||!fs.existsSync(p))continue;
- wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
+ wordAssets.push({id:'w'+it.index,index:it.index,word:it.word,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
 ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
 /* 🖼 표가 여러 파일이라 «빌드와 검사가 같은 집합을 보는가» 를 짝으로 못 박습니다.
    ⛔ 「그 함수가 있는가」로 묻지 마세요 — 빌드가 부르지 않고 한 파일만 읽어도 통과합니다.
@@ -133,9 +133,25 @@ const wordSceneOf=new Map(),wordSceneBytes=new Map(),ownPass=new Set();
  for(const [w,v] of best){wordSceneOf.set(w,'w'+v.index);wordSceneBytes.set('w'+v.index,wordFile.get(v.index));}}
 ok(ownPass.size>wordAssets.length*0.9,'낱말 사진 대부분이 «자기 낱말» 근거를 통과한다 ('+ownPass.size+'/'+wordAssets.length+')');
 ok(wordSceneOf.size>ownPass.size,'한 사진이 «함께 보여 주는» 다른 낱말에도 붙는다 ('+wordSceneOf.size+' > '+ownPass.size+')');
-{const shellWord=wordImagePlan.filter(it=>wordFile.has(it.index)&&!ownPass.has(it.word)).map(it=>it.word);
- ok(shellWord.length>0,'껍데기 낱말은 사진이 있어도 «낱말 그림» 이 되지 않는다 — 0이면 게이트가 열린 것');
- for(const w of shellWord)ok(EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt)).has(w),'거부된 까닭은 껍데기 낱말이어서다: '+w);}
+/* 🧱 2026-09-24 경계가 바뀌었습니다(사장님 「그림카드를 실사로 반드시 바꿔줘」) — 옛 검사는 «껍데기 낱말은
+   사진이 있어도 안 붙는다(0이면 게이트가 열린 것)» 였는데, 이제 «그 낱말을 그리려고 만든 전용 사진»
+   (plan 의 word 가 그 낱말 + 설명에 두 번 이상)에서만 붙습니다. 그래서 새 경계를 «짝으로» 봅니다:
+   ① 껍데기 낱말이 자기 전용 사진에는 붙는다 ② **남의 사진에는 하나도 안 붙는다**(= natural 이 모든 그림에 붙는 사고 방지)
+   ③ 설명에 «한 번»(틀이 넣는 것)만 있으면 전용 사진이어도 안 붙는다. */
+{const shellNow=EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt));
+ const shellPlanned=wordImagePlan.filter(it=>wordFile.has(it.index)&&shellNow.has(it.word));
+ ok(shellPlanned.length>0,'전제: 껍데기 낱말의 전용 사진이 표에 있다 ('+shellPlanned.length+')');
+ for(const it of shellPlanned)ok(depicts(it.word,'word-image:'+it.index),'껍데기 낱말도 «자기 전용 사진» 에는 붙는다: '+it.word+' ← '+it.index);
+ const allKeys=[...assetPlan.map(a=>'word-image:'+a.index),...wordAssets.map(a=>'word-image:'+a.index),...clipPlan.flatMap(c=>['clip-image:'+c.index,'video:'+c.index])];
+ const own=new Map(wordAssets.map(a=>['word-image:'+a.index,a.word]));
+ /* ⚠️ 예외가 «새로» 붙인 것만 봅니다 — photograph 처럼 변형형(photographs)으로 원래 붙던 것은 이 변경과 무관합니다.
+    그래서 word 칸을 뗀(= 예외가 꺼진) 판정과 나란히 돌려 «달라진 것» 을 셉니다. */
+ const noOwn=EV.pictureEvidence({assets:assetPlan.concat(wordAssets.map(({word,...a})=>a)),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
+ for(const w of shellNow){const leak=allKeys.filter(k=>own.get(k)!==w&&depicts(w,k)&&!noOwn.depicts(w,k));
+  ok(leak.length===0,'껍데기 낱말 예외가 남의 사진에는 안 붙는다: '+w+' ('+leak.length+'장)');}
+ ok(shellPlanned.some(it=>!noOwn.depicts(it.word,'word-image:'+it.index)),'전제: 예외를 끄면 전용 사진도 안 붙는다(= 예외가 실제로 일한다)');
+ const once=EV.pictureEvidence({assets:[...assetPlan,{id:'wX',index:99999999,word:'natural',prompt:'Natural candid photograph. A tall green pine tree beside a quiet mountain lake at sunrise. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.',scenes:[]},...wordAssets],clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
+ ok(!once.depicts('natural','word-image:99999999'),'설명에 틀의 «한 번» 만 있으면 전용 사진이어도 안 붙는다');}
 /* 🧱 «한 낱말이 그림 거의 전부를 가리킨다» 면 그것은 근거가 아니라 새어 나온 틀이다.
    🔴 2026-09-21 에 이 모양으로 두 번 샜습니다 — ⓐ 틀 꼬리(light·setting·writing·subtitles)가
       prompt 를 타고 들어와 클립 «전부» 에 붙었고 ⓑ variants() 가 없는 어미를 잘라 만든 기능어
@@ -238,8 +254,11 @@ ok(!('contextOnlyForms' in live)&&!('contextPictureRows' in live),
       붙는 것» 이므로, 비율 대신 게이트를 «직접» 잽니다:
       ① 아직 «전부» 는 아니다 ② 게이트를 끄면 실제로 더 붙는다(= 게이트가 일하고 있다)
       ③ 붙은 줄은 전부 근거가 있다(아래 낱말 루프의 depicts 검사 — 짝). */
-ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
- '낱말 그림이 «전부» 는 아니다 — 전부면 근거 게이트가 죽은 것');
+/* 🔁 2026-09-24 ① 을 바꿉니다 — 사장님 「그림카드를 실사로 반드시 바꿔줘」로 남은 3낱말(natural·soft·non)까지
+   전용 사진이 붙어 «전부» 가 정답이 됐습니다. 게이트가 살아 있는지는 ②(게이트를 끄면 실제로 더 붙는다)와
+   ③(붙은 줄은 전부 근거가 있다)가 그대로 봅니다. ⛔ ② 를 지우지 마세요 — 이제 그것이 유일한 «게이트 생존» 신호입니다. */
+ok(live.wordPictureForms>0&&live.wordPictureForms<=live.wordForms,
+ '낱말 그림 수가 낱말 형태 수를 넘지 않는다');
 /* 🎨 2026-09-22 — 「그림문자 카드가 늘지 않는다」. 사장님 지시는 「그림문자 없애줘」이므로
    카드가 늘어난다는 것은 곧 «사진이 사라졌다» 는 뜻입니다.
    🔴 이 검사가 없어서 오늘 실제로 놓쳤습니다 — 낱말 사진 399장의 프롬프트를 다시 쓰자,
@@ -252,7 +271,8 @@ ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
    ✅ 짝으로 둡니다 — 카드 상한만 두면 «사진을 통째로 빼고 카드도 안 그리기» 가 통과합니다. */
 /* 🖼 2026-09-24 25 → 38 → 25 — 와인 진열대 사진(19249)을 빼 「selection」 13줄이 잠시 카드였다가,
    교재 예문(participant selection)대로 새 사진(21407 — 임상연구 참여자 선정)을 만들어 되돌렸습니다. */
-ok(live.cardRows<=25,'그림문자 카드 줄이 늘지 않았다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 25, 2026-09-24 실측)');
+/* 2026-09-24 사장님 「그림카드를 실사로 반드시 바꿔줘」 — 껍데기 낱말 예외(natural·soft·clear)와 non 전용 사진으로 25 → 0. */
+ok(live.cardRows<=0,'그림문자 카드 줄이 0이다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 0, 2026-09-24 실측)');
 /* 🔤 2026-09-23 4543 → 4536 — «사진이 사라진» 것이 아니라 낱말 7개(p·e·j·r·k·x·c)가 «낱말이 아니라서» 빠졌습니다
    (「P.E.」·「J.R.R.」 점 약어 · K-pop·X-rays·Vitamin C 의 한 글자 조각. 사장님 「PE가 따로 글자가 나와」).
    ⛔ 다시 4543 으로 올리지 마세요 — 그 7개를 되살려야 통과합니다. */
@@ -416,7 +436,9 @@ for(const entry of live.books){
 eq(seen.size,live.wordForms);
 eq(claimed.word,live.wordPictureRows,'manifest 의 낱말 그림 줄 수가 실제와 같다');
 eq(claimed.card,live.cardRows,'manifest 의 그림카드 줄 수가 실제와 같다');
-ok(claimed.card>0,'사진이 없는 줄은 그림카드로 채운다 — 0이면 카드 갈래가 죽은 것');
+/* 🔁 2026-09-24 — 카드 줄이 0 이 되어(사장님 「그림카드를 실사로 반드시」) «카드 갈래가 살아 있는가» 를
+   payload 로는 잴 수 없습니다. 그 갈래는 이제 «사진이 사라졌을 때의 안전망» 이고, 화면 쪽 그리기는
+   scene_curriculum_ui_harness(그림카드 검사)가 가짜 줄로 봅니다. 카드 줄 수 대조는 바로 위 eq 가 합니다. */
 eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자» 줄 수가 실제와 같다');
 /* ⛔ 목표치가 아니라 «바닥» 입니다 — 표를 비우거나 stem 을 죽이면 여기서 먼저 빨간불이 납니다.
    숫자를 올리려고 갈래 그림문자를 exact 로 바꾸지 마세요(그게 「갈래를 뜻으로 읽게 두는」 함정입니다). */
@@ -435,7 +457,9 @@ ok(ownFirstRows>30000,'전용 사진이 있는 낱말은 그 사진을 먼저 �
 ok(claimed.word>(claimed.word+claimed.card)*0.4,
  '근거 있는 낱말 사진이 낱말 줄의 40% 넘게 붙는다 — 아래로 떨어지면 선택 순서가 되돌아간 것 ('+claimed.word+'/'+(claimed.word+claimed.card)+')');
 /* ⚠️ 짝 — 위만 두면 «전부 사진» 으로 만드는 엉터리 수리(근거 게이트 무력화)도 통과합니다. */
-ok(claimed.card>0&&claimed.word<claimed.word+claimed.card,'근거가 없는 낱말은 여전히 카드로 남는다 — 0이면 근거 게이트가 죽은 것');
+/* 🔁 2026-09-24 — «근거 없는 낱말이 남아 있다» 는 이제 참이 아닙니다(전 낱말에 전용·근거 사진). 게이트 생존은
+   바로 아래 루프의 «붙은 줄마다 depicts 가 참» 과 «게이트를 끄면 더 붙는다»(loose) 가 봅니다. */
+ok(claimed.word+claimed.card===live.wordRows,'낱말 줄 = 사진 줄 + 카드 줄');
 eq(pictures.size,live.wordPictureForms,'사진이 붙은 낱말 형태 수');
 eq(seen.size-pictures.size,live.cardOnlyForms,'나머지 낱말 형태는 모두 그림카드를 받는다');
 /* 🔤 그림문자는 단일 코드포인트만 — Unicode 13 이상은 Win10 에서 두부(□)가 되고 ZWJ 조합은 쪼개집니다.

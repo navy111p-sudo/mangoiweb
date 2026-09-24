@@ -27,7 +27,7 @@ import { BAND_SPECS, BAND_COUNT, bandFromTextbookLevel } from './judgment-level'
 import { AI_FRIEND_CEFR } from './ai-friend-level';
 
 export type ToolKey =
-  | 'warmup' | 'review' | 'friend' | 'speech' | 'micro' | 'vocab' | 'judgment' | 'write' | 'games';
+  | 'warmup' | 'review' | 'friend' | 'speech' | 'micro' | 'vocab' | 'judgment' | 'write' | 'games' | 'scene';
 
 export interface ToolSpec {
   key: ToolKey;
@@ -54,7 +54,25 @@ export const TOOLS: Record<ToolKey, ToolSpec> = {
   judgment: { key: 'judgment', url: '/judgment.html',     icon: '🧭', ko: '판단력 훈련', en: 'Judgment training', minutes: 5 },
   write:    { key: 'write',    url: '/ai-write.html',     icon: '✍️', ko: 'AI 글쓰기', en: 'AI writing', minutes: 15, minBand: 3 },
   games:    { key: 'games',    url: '/student-games.html', icon: '🎮', ko: '학생게임', en: 'Learning games', minutes: 10 },
+  /* ✍️ 2026-09-24 사장님 「교재 연동 쓰기 숙제로」 — 장면 탐험대의 «BTS · SIU 그림 단어장» 모드.
+     ⚠️ 그 모드에는 BTS·SIU 영어 자료만 있다 → 중국어 교재 학생에게는 안 넣는다(classDayHome).
+     url 의 book 은 서버가 정한다(화면이 교재 이름을 다시 해석하지 않게 — 판정 한 곳). */
+  scene:    { key: 'scene',    url: '/student-game-scene-quest.html?cur=1', icon: '✍️', ko: '교재 낱말 쓰기 숙제', en: 'Textbook word writing', minutes: 10 },
 };
+
+/**
+ * 학생 교재 이름 → 장면 탐험대 그림 단어장의 묶음 id(bts-05 · siu-basic-03 · siu-advance-12).
+ * 모르면 null — book= 을 안 붙이고 학생이 화면에서 고른다(엉뚱한 교재로 여는 것이 고르게 하는 것보다 나쁘다).
+ * ⚠️ 권 번호만 본다(과 번호 «001» 은 권 안의 단원). ⛔ 부분일치로 넓히지 마세요 — 「BTS 1」이 「BTS 12」를 물면 남의 교재다.
+ */
+export function sceneBookId(textbook: string | null | undefined): string | null {
+  const m = String(textbook || '').trim().match(/^(BTS|SIU\s+BASIC|SIU\s+ADVANCE(?:D)?)\s+0*(\d{1,2})(?!\d)/i);
+  if (!m) return null;
+  const n = Number(m[2]);
+  if (!(n >= 1 && n <= 40)) return null;
+  const series = /^BTS$/i.test(m[1]) ? 'bts' : (/BASIC/i.test(m[1]) ? 'siu-basic' : 'siu-advance');
+  return series + '-' + String(n).padStart(2, '0');
+}
 
 /**
  * 수업 없는 날의 요일별 묶음 (일=0 … 토=6).
@@ -76,7 +94,8 @@ export const HOME_WEEK: Record<number, ToolKey[]> = {
 export const CLASS_DAY: { before: ToolKey[]; after: ToolKey[]; home: ToolKey[] } = {
   before: ['warmup'],
   after: ['review'],
-  home: ['micro'],
+  /* scene(교재 낱말 쓰기 숙제)은 중국어 교재 학생에게서만 빠진다(classDayHome). */
+  home: ['scene', 'micro'],
 };
 
 export interface ClassToday {
@@ -237,9 +256,20 @@ function fitToBand(keys: ToolKey[], band: number | null, aiOnly?: boolean): Tool
   return out;
 }
 
+/** 수업일 «집에서» 묶음 — 쓰기 숙제(scene)는 영어 학생에게만(중국어 교재 학생은 그 묶음이 없다).
+ *  ⚠️ «교재가 BTS/SIU 인 학생만» 으로 좁히지 마세요 — [잰 것 — 2026-09-24] students_erp.textbook 은
+ *     29,526명 전원 빈칸이고 student_textbook_assignments 도 0행이라, 교재로 가르면 숙제가 한 명에게도
+ *     안 뜹니다. 교재는 화면에서 학생이 한 번 고르고 그 기기가 기억합니다. 교재가 적혀 있으면 서버가
+ *     book= 을 붙여 곧바로 그 교재로 엽니다(sceneBookId). 주간표와 오늘 목록이 같은 판정을 쓴다. */
+function classDayHome(inp: { zh?: boolean; textbook: string | null }): ToolKey[] {
+  return CLASS_DAY.home.filter(k => k !== 'scene' || !inp.zh);
+}
+
 function step(key: ToolKey, slot: Slot, inp: PlanInput, whyKo: string, whyEn: string): PlanStep {
   const s = spec(key, inp.zh);
-  return { key, slot, icon: s.icon, ko: s.ko, en: s.en, url: s.url, minutes: s.minutes,
+  const bk = key === 'scene' ? sceneBookId(inp.textbook) : null;
+  const url = bk ? s.url + '&book=' + encodeURIComponent(bk) : s.url;
+  return { key, slot, icon: s.icon, ko: s.ko, en: s.en, url, minutes: s.minutes,
            done: (inp.done[key] || 0) > 0, whyKo, whyEn };
 }
 
@@ -269,7 +299,7 @@ export function buildWeek(inp: PlanInput): WeekDay[] {
   for (let d = 0; d <= 6; d++) {
     const isClass = set.has(d);
     const tools = isClass
-      ? [...CLASS_DAY.before, ...CLASS_DAY.after, ...CLASS_DAY.home]
+      ? [...CLASS_DAY.before, ...CLASS_DAY.after, ...classDayHome(inp)]
       : fitToBand(HOME_WEEK[d] || ['friend', 'micro'], inp.band, inp.aiOnly);
     /* 시각은 «수업일인 날» 에만 붙인다 — times 가 넓어도 판정은 weekClassDows 하나뿐 */
     const start = isClass && hhmmToMin(times[d]) != null ? String(times[d]).slice(0, 5) : null;
@@ -364,9 +394,14 @@ export function buildTodayPlan(inp: PlanInput): TodayPlan {
       phase === 'after'
         ? 'Class is over — right now is when it sticks. Quiz on what you just learned.'
         : 'Right after class is when it sticks — quiz on what you just learned.'));
-    const home = fitToBand(CLASS_DAY.home, band).map(k => step(k, 'home', inp,
-      '집에서 5분. 오늘 틀린 단어를 한 번 더 만나요.',
-      '5 minutes at home — meet today\'s missed words once more.'));
+    const homeKeys = classDayHome(inp);
+    const home = fitToBand(homeKeys, band).map(k => k === 'scene'
+      ? step(k, 'home', inp,
+          '쓰기 숙제 10분. 내 교재 낱말을 그림 보고 영어로 써요 — 틀린 낱말은 성적표에 모여요.',
+          'Writing homework, 10 minutes — see the picture, write your textbook words. Missed words go to your report.')
+      : step(k, 'home', inp,
+          '집에서 5분. 오늘 틀린 단어를 한 번 더 만나요.',
+          '5 minutes at home — meet today\'s missed words once more.'));
     /* 수업 전 → 웜업이 1번(예전 그대로). 수업이 시작된 뒤 → 복습이 1번, 웜업은 맨 뒤. */
     for (const st of (pre ? [...warm, ...rev, ...home] : [...rev, ...home, ...warm])) steps.push(st);
   } else {
