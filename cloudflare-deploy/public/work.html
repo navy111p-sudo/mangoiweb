@@ -3015,7 +3015,7 @@ window.gotFile = function(input){
     // 📷 흐림·어두움을 휴대폰에서 바로 잰다(AI 아님). 결과는 영수증 판독과 따로 안내한다.
     photoQualityOf(FILE).then(function(q){ if (pqSeq !== PHOTO_SEQ) return; PHOTO_Q = q || ''; photoWarn(); });
     note(T('Reading the receipt...', '영수증을 읽는 중...'));
-    return fetch('/api/approval/ocr', {
+    return fetch('/api/approval/ocr?cur=' + encodeURIComponent(CUR || 'PHP'), {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/octet-stream' },
       body: FILE
@@ -3032,8 +3032,13 @@ window.gotFile = function(input){
     if (j.amount != null && !getVal('f_amount')) setVal('f_amount', j.amount);
     if (j.spent_at && !getVal('f_spent')) setVal('f_spent', j.spent_at);
     if (j.vendor && !getVal('f_title')) setVal('f_title', j.vendor);
-    note(T('Filled from the receipt. Check it before submitting.',
-           '영수증에서 채웠습니다. 올리기 전에 확인해 주세요.'));
+    // 🧾 8단계 — 품목 목록을 «내용» 칸에, 짐작한 항목을 «항목» 칸에. 사람이 이미 적은 칸은 안 덮는다.
+    var filledItems = fillFromReceipt(j);
+    note(filledItems
+      ? T('Filled amount, date, shop and items from the receipt. Check it before submitting.',
+          '영수증에서 금액·날짜·가게·품목을 채웠습니다. 올리기 전에 확인해 주세요.')
+      : T('Filled from the receipt. Check it before submitting.',
+          '영수증에서 채웠습니다. 올리기 전에 확인해 주세요.'));
     photoWarn();
   })
   .catch(function(){
@@ -3041,6 +3046,20 @@ window.gotFile = function(input){
            '읽지 못했습니다 — 금액을 직접 넣어 주세요. 사진은 첨부되어 있습니다.'));
   });
 };
+
+/* 🧾 영수증 품목 → «내용»·«항목» 칸 (8단계). 글은 서버 정본(receiptBody)이 만들어 준 것을 그대로 쓴다.
+     ⛔ 사람이 이미 적은 칸은 덮지 않는다 · 항목은 목록에 있는 값일 때만. 품목을 채웠으면 true. */
+function fillFromReceipt(j){
+  var did = false;
+  if (j && j.body_draft && !getVal('f_body')) { setVal('f_body', String(j.body_draft)); did = true; }
+  var sel = document.getElementById('f_cat');
+  if (j && j.category_guess && sel && !sel.value) {
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === j.category_guess) { sel.value = j.category_guess; break; }
+    }
+  }
+  return did;
+}
 
 /* 📷 사진 상태 — 순수 계산(7단계). g = 회색조 0~255, 가로 w · 세로 h (320px 로 줄인 뒤).
      어두움: 평균 밝기 < 45.

@@ -56,7 +56,7 @@ import {
   STATUSES, statusSpec, countsAsSpend, canWithdraw, canReverse, reverseTitle,
   canDelete, isApprovalFileKey,
   buildArchiveFacets, archivePeriods,                  // 🗂 결재 보관함 — 함 옆 건수·기간 함 경계
-  type Stage, type Flag, type ActorLike,
+  type Stage, type Flag, type ActorLike, type ReceiptItem,
   signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
@@ -65,6 +65,7 @@ import {
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
   askCard, spendTypesCsv,                              // ❓ 결재 전 질문(6단계)
   normPhotoQuality,                                    // 📷 사진 흐림·어두움(7단계)
+  normReceiptItems, receiptBody, guessCategory,        // 🧾 영수증 품목 → 내용·항목(8단계)
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
 import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
@@ -454,18 +455,20 @@ async function smsFallback(env: ApprovalEnv, usernames: string[], text: string):
  * ═════════════════════════════════════════════════════════════════════════ */
 
 /** 영수증 사진 → 금액·날짜·상점. 무료 비전 모델 2단(llama vision → llava). */
-async function readReceipt(env: ApprovalEnv, bytes: Uint8Array): Promise<{ amount: number | null; spent_at: string | null; vendor: string | null; text: string } | null> {
+async function readReceipt(env: ApprovalEnv, bytes: Uint8Array): Promise<{ amount: number | null; spent_at: string | null; vendor: string | null; items: ReceiptItem[]; text: string } | null> {
   const AI = env.AI;
   if (!AI) return null;
   const prompt =
     'This is a receipt photo. Reply with ONLY a JSON object, no prose: ' +
     '{"amount": <total amount as a number, no currency symbol or commas>, ' +
-    '"date": "<YYYY-MM-DD or empty string>", "vendor": "<shop name or empty string>"}. ' +
+    '"date": "<YYYY-MM-DD or empty string>", "vendor": "<shop name or empty string>", ' +
+    '"items": [{"name": "<item as printed>", "qty": <number>, "price": <line price as a number or null>}]}. ' +
+    'List only items actually printed on the receipt (at most 15); use [] if you cannot read them. ' +
     'If you cannot read a field, use null for amount and "" for the others.';
   const models = ['@cf/meta/llama-3.2-11b-vision-instruct', '@cf/llava-hf/llava-1.5-7b-hf'];
   for (const m of models) {
     const raw = await safe(async () => {
-      const r: any = await AI.run(m, { image: Array.from(bytes), prompt, max_tokens: 160 });
+      const r: any = await AI.run(m, { image: Array.from(bytes), prompt, max_tokens: 480 });
       return String(r?.description || r?.response || '').trim();
     }, '');
     if (!raw) continue;
@@ -477,6 +480,7 @@ async function readReceipt(env: ApprovalEnv, bytes: Uint8Array): Promise<{ amoun
       amount: isFinite(amt) && amt > 0 ? amt : null,
       spent_at: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null,
       vendor: String(obj.vendor || '').trim().slice(0, 60) || null,
+      items: normReceiptItems(obj.items),           // 🧾 8단계 — 모르면 []
       text: raw.slice(0, 500),
     };
   }
@@ -2769,7 +2773,12 @@ export async function handleApprovalApi(
     if (buf.byteLength > MAX_OCR_BYTES) return json({ ok: false, error: 'too_large', max: MAX_OCR_BYTES }, 413);
     const got = await readReceipt(env, new Uint8Array(buf));
     if (!got) return json({ ok: false, error: 'unreadable' });
-    return json({ ok: true, ...got });
+    // 🧾 8단계 — 품목으로 «내용» 초안과 «항목» 짐작을 만든다(글은 정본 순수 함수가 정한다).
+    //    통화는 화면이 고른 것(?cur=) — 영수증만 보고 ₱/₩ 를 짐작하지 않는다.
+    const cur = normCurrency(new URL(request.url).searchParams.get('cur'));
+    return json({ ok: true, ...got,
+      body_draft: receiptBody(got.items, got.amount, cur),
+      category_guess: guessCategory(got.vendor, got.items) });
   }
 
   // ── 음성 기안 (영어) ──────────────────────────────────────────────────────
