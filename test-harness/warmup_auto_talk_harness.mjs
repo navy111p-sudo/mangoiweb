@@ -229,6 +229,32 @@ function clickTalk(T, which) {
   ok('G-9 (짝) 이미 닫힌 메뉴를 또 닫는 호출(다른 기능이 부름)로는 안 연다', T.calls.toggleMic === 0, T.calls);
 }
 
+// 2026-09-24 사장님 「햄버거 안 뿐만 아니라 잘 보이는 곳에」 — 입력칸 바로 위 스위치.
+console.log('\n[J] 입력칸 위 «말하는 방법» 스위치');
+function clickSw(which) {
+  const box = reg.talkSwitch; const fn = box && box._ls.click && box._ls.click[0];
+  if (!fn) return false;
+  fn({ target: { closest: () => ({ getAttribute: () => which }) } }); return true;
+}
+{
+  const T = makeWorld();
+  const sw = reg.talkSwitch;
+  ok('J-1 (전제) 스위치가 입력칸 쪽(wgState 와 같은 부모)에 붙었다', !!(sw && sw.parentNode === reg.wgState.parentNode));
+  ok('J-2 기본은 «버튼» 이 켜져 보인다', /data-talk="button" aria-pressed="true" class="on"/.test(sw.innerHTML) && /data-talk="auto" aria-pressed="false">/.test(sw.innerHTML), sw.innerHTML);
+  clickSw('auto'); T.tick(DELAY);
+  ok('J-3 스위치에서 «자동» 을 누르면 저장되고 바로 마이크가 켜진다', T.store.mangoi_warmup_talk_mode === 'auto' && T.calls.toggleMic === 1, T.calls);
+  ok('J-4 누른 뒤 «자동» 이 켜져 보인다', /data-talk="auto" aria-pressed="true" class="on"/.test(sw.innerHTML), sw.innerHTML);
+}
+{
+  const T = makeWorld({ mode: 'auto' });
+  clickSw('button'); T.on('aiDone'); T.tick(5000);
+  ok('J-5 (짝) «버튼» 을 누르면 다시 저절로 안 켜진다', T.store.mangoi_warmup_talk_mode === 'button' && T.calls.toggleMic === 0, T.calls);
+}
+{
+  const T = makeWorld({ embedded: true });
+  ok('J-6 수업 안(iframe)에서는 스위치를 안 그린다', !reg.talkSwitch);
+}
+
 /* ── ⑥ warmup.html 의 배선 — speak() 를 오려 내 실제로 돌린다 ─────────── */
 console.log('\n[H] warmup.html 배선 (speak 를 실제로 실행)');
 function bodyOf(src, head) {

@@ -210,6 +210,17 @@
                   + '<button type="button" data-talk="auto"' + (auto ? ' class="on"' : '') + '>✨ 자동 (베타)</button>';
       var v = document.getElementById('talkVal'); if (v) v.textContent = auto ? '자동 (베타)' : '버튼';
     }
+    // 입력칸 바로 위 «말하는 방법» 스위치(2026-09-24 사장님 「햄버거 안 뿐만 아니라 잘 보이는 곳에」).
+    // 학생이 🎤 를 누르는 바로 그 자리라 «지금 어느 방법인지» 를 늘 보고, 한 번에 바꾼다.
+    var c = document.getElementById('talkSwitch');
+    if (c) {
+      var au = readMode() === 'auto', en = uiEn();
+      c.innerHTML = '<span class="ts-lbl">' + (en ? 'How to talk' : '말하는 방법') + '</span>'
+        + '<button type="button" data-talk="button" aria-pressed="' + (au ? 'false' : 'true') + '"' + (au ? '' : ' class="on"') + '>'
+        + (en ? '🎤 Tap mic' : '🎤 버튼으로') + '</button>'
+        + '<button type="button" data-talk="auto" aria-pressed="' + (au ? 'true' : 'false') + '"' + (au ? ' class="on"' : '') + '>'
+        + (en ? '✨ Auto' : '✨ 자동으로') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span></button>';
+    }
   }
   function bindPick(el, fromMenu) {
     el.addEventListener('click', function (e) {
@@ -238,7 +249,13 @@
       + '.at-beta{display:inline-block;margin-left:4px;padding:0 6px;border-radius:6px;font-size:11px;'
       + 'background:#f59e0b;color:#1f2937;vertical-align:middle}'
       + '#wusTalkSec{margin-top:6px}'
-      + '#menuTalkBtns{grid-template-columns:1fr 1fr}';
+      + '#menuTalkBtns{grid-template-columns:1fr 1fr}'
+      + '.talk-switch{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin:0 auto 6px}'
+      + '.talk-switch .ts-lbl{font-size:12.5px;font-weight:700;color:#cbd5e1}'
+      + '.talk-switch button{min-height:34px;padding:5px 12px;border-radius:999px;font-size:13.5px;font-weight:800;'
+      + 'cursor:pointer;white-space:nowrap;background:rgba(255,255,255,.06);border:1px solid rgba(148,163,184,.45);color:#e2e8f0}'
+      + '.talk-switch button.on{background:#0ea5e9;border-color:#38bdf8;color:#fff;box-shadow:0 0 0 2px rgba(56,189,248,.25)}'
+      + '.talk-switch button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}';
     document.head.appendChild(st);
   }
   function mountUi() {
@@ -263,6 +280,16 @@
       scroll.insertBefore(grp, scroll.firstChild);
       bindPick(document.getElementById('menuTalkBtns'), true);
     }
+    var st = document.getElementById('wgState');
+    if (st && st.parentNode && !document.getElementById('talkSwitch')) {
+      var sw = document.createElement('div');
+      sw.id = 'talkSwitch'; sw.className = 'talk-switch';
+      sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', '말하는 방법');
+      st.parentNode.insertBefore(sw, st);
+      bindPick(sw);
+    }
+    var relang = function () { paint(); if (S.phase) setPhase(S.phase); };
+    try { window.addEventListener('mangoi:lang-changed', relang); document.addEventListener('mangoi:lang-changed', relang); } catch (e) {}
     var inp = document.getElementById('inp');
     if (inp) {
       inp.addEventListener('focus', clearArm);
