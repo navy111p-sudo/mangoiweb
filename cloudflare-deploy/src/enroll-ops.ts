@@ -930,7 +930,7 @@ const ENROLL_ADMIN_SELF_GATED = new Set([
  *     이다(2026-09-10 함정 대조 지적). ⚠️ 그 조건에 닿을 수 있는 것은 `admin_scope` 행이
  *     없는 넷 중 조직 계정 둘(`agency_sc002`·`capitown`)이다.
  *  ⚠️ 판정을 여기서 복제하지 않는다 — «조직인가» 는 정본 `isOrgScopedRole()` 이 답한다. */
-async function enrollAdminHqOnly(request: Request, env: any): Promise<Response | null> {
+export async function enrollAdminHqOnly(request: Request, env: any): Promise<Response | null> {
   const actor = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
   const denyTeacher = () => json(forbiddenTeacherBody(actor, '강사 권한으로는 사용할 수 없는 기능입니다.'), 403);
