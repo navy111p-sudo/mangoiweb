@@ -421,7 +421,15 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
       if (u) return '<img class="word-pic" src="' + u + '" alt="' + escHtml(w||'') + '" decoding="async" onerror="this.style.display=\'none\'">';
       return fallbackEmoji ? '<div class="kid-emoji">' + fallbackEmoji + '</div>' : '';
     }
-    function speakWord(w){ try{ if(window.MangoiTTS){ MangoiTTS.setLang('en'); MangoiTTS.speak(String(w||'').trim(), 1); } }catch(e){} }
+    /* 🔊 낱말 하나만 보내면 AI 음성(Aura)이 첫소리를 자르거나 억양을 이상하게 읽는다(2026-09-24 사장님 제보).
+       «한 문장» 모양(첫 글자 대문자 + 마침표)으로 보내 끝맺음을 분명히 한다. 화면 글자는 그대로다.
+       ⛔ 이미 . ! ? 로 끝나거나 영문이 아닌 글자면 손대지 않는다. 캐시 키도 바뀌어 옛 캐시본을 비켜 간다. */
+    function ttsWord(w){
+      var t = String(w||'').trim();
+      if (!t || /[.!?]$/.test(t) || !/^[A-Za-z][A-Za-z0-9' ,\-]*$/.test(t)) return t;
+      return t.charAt(0).toUpperCase() + t.slice(1) + '.';
+    }
+    function speakWord(w){ try{ if(window.MangoiTTS){ MangoiTTS.setLang('en'); MangoiTTS.speak(ttsWord(w), 1); } }catch(e){} }
 
     /* ── 효과음 (WebAudio, 별도 파일 없이 즉시 재생) ── */
     let _actx = null;
