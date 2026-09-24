@@ -68,7 +68,8 @@ import { hiddenExcludeCond, hiddenOnlyCond } from './student-override';         
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
-import { resolveStudentTrack, leveltestStatusFor } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
+import { resolveStudentTrack, leveltestStatusFor } from './student-track';
+import { attachRosterTracks, enrolledNowExpr, loadTrackSummary } from './student-track-roster';   // 🎥🤖 명부 학생 구분(화상+AI / AI만) — 청구와 같은 정본   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
@@ -9451,6 +9452,16 @@ LIMIT $limit`;
     //   GET /api/admin/students/unified?q=  → {ok, count, students:[...]}
     if (method === 'GET' && path === '/api/admin/students/unified') {
       const q = (url.searchParams.get('q') || '').trim();
+      /* 🎥🤖 (2026-09-24) 학생 트랙 — 화상+AI / AI만. 전부 «선택» 파라미터라 옛 호출은 그대로다.
+           track=1        → 행마다 track(live_ai|ai_only|none|unknown)
+           summary=1      → track_summary(스코프 전체 두 무리 인원 + 대리점별) — 1000명 제한과 무관
+           summary_only=1 → 명부는 안 읽고 track_summary 만(대시보드·본사 조직표용 — 가볍게)
+           shop=<이름>    → 그 대리점 학생만(완전일치, 스코프와 AND). '__none__' = 대리점 미지정
+         판정 정본은 student-track.ts(= A.i 사용료 청구와 같은 규칙). ⛔ 여기서 다시 짜지 말 것. */
+      const _summaryOnly = url.searchParams.get('summary_only') === '1';
+      const _wantSummary = _summaryOnly || url.searchParams.get('summary') === '1';
+      const _wantTrack = url.searchParams.get('track') === '1';
+      const _shop = (url.searchParams.get('shop') || '').trim();
       const like = '%' + q.replace(/[%_]/g, '') + '%';
       // 🔒 역할별 데이터 범위 제한(scoping): 지사=branch1_name, 대리점=shop_name, 교사=teacher_phone, 학부모=parent_phone, 학생=user_id
       const SCOPE_FIELDS: Record<string, string> = {
@@ -9484,6 +9495,13 @@ LIMIT $limit`;
         binds.push(like, like, like, like, like, like, like, like, like);
       }
       if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
+      if (_shop === '__none__') conds.push(`(s.shop_name IS NULL OR TRIM(s.shop_name) = '')`);
+      else if (_shop) { conds.push(`TRIM(s.shop_name) = ?`); binds.push(_shop); }   // 요약이 TRIM 해서 묶으므로 같게
+      if (_summaryOnly) {
+        const _hx = await hiddenExcludeCond(env as any, 's');
+        const track_summary = await loadTrackSummary(env as any, _ssw.cond, _ssw.binds, _hx);
+        return json({ ok: true, count: 0, students: [], track_summary });
+      }
       /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 명부에서 뺀다.
          students_erp 는 카페24가 정본이라 지워도 밤에 되살아나므로 «읽을 때» 거른다.
          표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open) — 이유는 student-override.ts. */
@@ -9524,6 +9542,7 @@ LIMIT $limit`;
                   s.student_phone, s.parent_phone, s.kakao_id, s.status, s.signup_date, s.points, s.created_at,
                   s.payment_type, s.end_date, s.classes_per_week, s.teacher_phone,
                   s.shop_name, s.hq_name, s.branch1_name, s.branch2_name, s.franchise,
+                  ${enrolledNowExpr('s')} AS enrolled_now,
                   s.rowid AS _rid
              FROM students_erp s
              ${where}
@@ -9535,6 +9554,7 @@ LIMIT $limit`;
                 p.student_phone, p.parent_phone, p.kakao_id, p.status, p.signup_date, p.points, p.created_at,
                 p.payment_type, p.end_date, p.classes_per_week, p.teacher_phone,
                 p.shop_name, p.hq_name, p.branch1_name, p.branch2_name, p.franchise,
+                p.enrolled_now,
                 e.package               AS enroll_package,
                 COALESCE(a.sessions, 0) AS sessions,
                 a.last_seen             AS last_seen
@@ -9561,7 +9581,14 @@ LIMIT $limit`;
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
       }
-      return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope), hidden_only: _hiddenOnly });
+      const _out: any = { ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope), hidden_only: _hiddenOnly };
+      // 🎥🤖 트랙 — 조회가 실패해도 명부는 그대로 뜬다(그 칸만 «모름»). ⛔ 실패를 «AI만» 으로 그리지 말 것.
+      if (_wantTrack) _out.track_ok = await attachRosterTracks(env as any, _piiStudents as any[]);
+      if (_wantSummary) {
+        const _hx = await hiddenExcludeCond(env as any, 's');
+        _out.track_summary = await loadTrackSummary(env as any, _ssw.cond, _ssw.binds, _hx);
+      }
+      return json(_out);
     }
 
     /* 🤖 (2026-09-16 신설) AI 학습도구 8종을 실제로 쓴 학생 — 도구별 횟수·마지막 사용일.

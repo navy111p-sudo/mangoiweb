@@ -85,3 +85,8 @@ export async function resolveStudentTrack(env: any, uid: string | null | undefin
 export function leveltestStatusFor(track: StudentTrack): 'pending' | 'ai_done' {
   return track === 'ai_only' ? 'ai_done' : 'pending';
 }
+
+
+// 🎥🤖 명부용 «트랙»(화상+AI / AI만 — 청구와 같은 넓은 규칙)은 student-track-roster.ts 에 있다.
+//    ⛔ 여기로 옮기지 말 것 — 이 파일은 import 없는 순수 파일이라 leveltest_track_split_harness 가
+//       통째로 실행한다(import 를 넣으면 그 하니스가 «정본 실행 실패» 로 헛돈다 — 2026-09-24 실제로 밟음).
