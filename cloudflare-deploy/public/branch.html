@@ -158,6 +158,52 @@ html.dark .kpi-arrow{color:#7c8899}
 .muted{color:#7a8794;font-size:13px}
 .empty{padding:18px 4px;text-align:center;color:#8b97a4;font-size:13.5px}
 
+/* 🎥🤖 (2026-09-24) 학생 구분 — 화상+AI / AI만. 색은 배지 «바탕» 이 뜻을 지고, 글자는 대비 4.5 이상.
+   ⚠️ transition 없음(설계 계약 3). */
+.trk{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;line-height:1.6}
+.trk-live{background:#dff3ec;color:#17614f}
+.trk-ai{background:#ece6fb;color:#5b3fa8}
+.trk-none{background:#eef1f5;color:#5b6773}
+.trk-unk{background:#fbf1d6;color:#7a5b0c}
+.tseg{display:flex;gap:4px;flex-wrap:wrap;background:#eef1f5;border-radius:10px;padding:4px;margin:8px 0 4px}
+.tseg button{flex:1 1 84px;border:0;background:transparent;padding:8px 6px;border-radius:7px;font:inherit;font-size:13px;color:#4b5663;cursor:pointer;min-height:40px}
+.tseg button.on{background:#fff;color:#16202c;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tseg button:focus-visible{outline:2px solid #2563eb;outline-offset:1px}
+.tkpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tkpis .kpi.t-live{background:#eef8f4;border-color:#cfe9df}
+.tkpis .kpi.t-ai{background:#f4f0fd;border-color:#ddd3f5}
+.tkpis .kpi.t-live b{color:#17614f}
+.tkpis .kpi.t-ai b{color:#5b3fa8}
+.tchip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:4px 6px 4px 10px;border-radius:999px;background:#eef1f5;font-size:13px}
+.tchip button{border:0;background:#dfe5ec;border-radius:999px;width:26px;height:26px;cursor:pointer;font:inherit;color:#2c3a48}
+.orgs{margin-top:10px}
+.orgrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(70px,2fr) auto;gap:8px;align-items:center;width:100%;
+  padding:8px 0;border:0;border-top:1px solid #eaeef2;background:none;font:inherit;color:inherit;text-align:left;font-size:13.5px;cursor:pointer}
+.orgrow.fr{cursor:default;font-weight:700}
+.orgrow.sh .nm{padding-left:14px}
+.orgrow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.orgrow .n{font-variant-numeric:tabular-nums;color:#5b6773;font-size:12.5px;white-space:nowrap}
+.tbar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:#eef1f5}
+.tbar i{display:block;height:100%}
+.tbar .l{background:#2a9d80}
+.tbar .a{background:#8b6fd6}
+html.dark .trk-live{background:#17352c;color:#7fd9bd}
+html.dark .trk-ai{background:#2a2340;color:#c3b1f5}
+html.dark .trk-none{background:#28313d;color:#aeb9c4}
+html.dark .trk-unk{background:#3a3118;color:#e8c86b}
+html.dark .tseg{background:#20272f}
+html.dark .tseg button{color:#aeb9c4}
+html.dark .tseg button.on{background:#2f3944;color:#e8eef4}
+html.dark .tkpis .kpi.t-live{background:#16302a;border-color:#23473d}
+html.dark .tkpis .kpi.t-ai{background:#241f38;border-color:#3a3160}
+html.dark .tkpis .kpi.t-live b{color:#7fd9bd}
+html.dark .tkpis .kpi.t-ai b{color:#c3b1f5}
+html.dark .tchip{background:#20272f}
+html.dark .tchip button{background:#2f3944;color:#d3dbe4}
+html.dark .orgrow{border-top-color:#242d37}
+html.dark .orgrow .n{color:#95a2b0}
+html.dark .tbar{background:#28313d}
+
 input[type="search"],input[type="text"]{
   width:100%;min-height:44px;padding:9px 12px;border:1px solid #d7dee6;border-radius:8px;
   font-size:15px;font-family:inherit;color:#16202c;background:#fff;
@@ -657,6 +703,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="dTrendBody" class="empty">&nbsp;</div>
   </div>
 
+  <!-- 🎥🤖 (2026-09-24) 학생 구분 — 화상영어(+AI) 학생과 AI 학습만 하는 학생.
+       판정 정본은 서버 src/student-track.ts(= A.i 사용료 청구와 같은 규칙) — 화면은 «그리기만» 한다.
+       ⚠️ 첫 화면 API 2회 계약을 지킨다: 첫 두 요청이 끝난 «뒤» 에 받는다(dashTrack, 1.8초).
+       카드를 누르면 학생 명부가 그 탭으로 열린다. 지사·대표지사는 아래에 대리점별 막대가 붙는다. -->
+  <div class="card" id="dTrack">
+    <h2><span data-en="Students by type" data-ko="학생 구분">Students by type</span><small data-en="video class + AI · AI only" data-ko="화상+AI · AI만">video class + AI · AI only</small></h2>
+    <div id="dTrackBody" class="empty">&nbsp;</div>
+  </div>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        🏢 (2026-09-21) 아래부터 옛 LMS(가맹점 관리·학생관리·수업 관리·정산통계관리·
        운영관리)와 같은 6칸으로 다시 묶었다. 왼쪽 ☰ 메뉴가 여기로 점프한다.
@@ -687,6 +742,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div>
       <input type="search" id="stuQ" oninput="paintStudents()" placeholder="이름 · 아이디로 찾기"
              data-en-ph="Search by name or ID" data-ko-ph="이름 · 아이디로 찾기">
+      <div id="stuSeg" class="tseg" role="tablist" hidden></div>
       <div id="stuBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </div>
   </details>
@@ -910,7 +966,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <button type="button" class="tb" data-go="search">
     <span data-en="Search" data-ko="검색">Search</span>
   </button>
-  <a class="tb" href="/work">
+  <a class="tb" id="tbWork" href="/work">
     <span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN2" class="tb-n"></span>
   </a>
   <button type="button" class="tb" data-go="reload">
@@ -1063,7 +1119,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function get(path, key){
     return fetch(path, { credentials: 'include', headers: { 'Accept': 'application/json' } })
       .then(function(r){
-        if (r.status === 401 || r.status === 403) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        /* 🔐 (2026-09-24) 401 과 403 을 가른다 — 403 은 «로그인은 됐는데 이 계정이 못 보는 것».
+           예전엔 403 도 로그인 창으로 보내 지사 계정이 «자꾸 다시 로그인하라» 에 갇혔다(work.html 과 같은 뿌리).
+           ⛔ 403 을 다시 로그인 창으로 보내지 말 것 — 그 칸만 «권한 없음» 으로 말한다(failBox). */
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        if (r.status === 403) throw new Error('forbidden');
         return r.json();
       })
       .then(function(j){
@@ -1087,6 +1147,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
   function failBox(el, err){
     el.className = 'empty';
+    if (err && err.message === 'forbidden') {
+      el.textContent = T('This account cannot view this. (You are signed in correctly.)',
+                         '이 계정 권한으로는 볼 수 없는 정보입니다. (로그인은 정상입니다)');
+      return;
+    }
     el.textContent = T('Could not load. Check your connection and press Refresh.',
                        '불러오지 못했습니다. 연결을 확인하고 새로고침을 눌러 주세요.')
                    + (err && err.message ? ' (' + err.message + ')' : '');
@@ -1180,6 +1245,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
+    /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
+       지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
+       범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
+    var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
+    ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
     if (sc.type === 'hq') {
@@ -1280,27 +1350,72 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.students) { paintStudents(); return; }
     var el = document.getElementById('stuBody');
     el.textContent = T('Loading...', '불러오는 중...');
-    once('students', function(){ return get('/api/admin/students/unified', 'students'); })
+    once('students', function(){ return get('/api/admin/students/unified?track=1', 'students2'); })
       .then(function(j){ D.students = j; paintStudents(); }).catch(function(e){ failBox(el, e); });
   };
+  /* 🎥🤖 (2026-09-24) 학생 구분 탭 — 서버가 준 track 만 그린다(판정을 여기서 다시 하지 않는다).
+     ⚠️ 이름: 서버는 이름이 없으면 name 칸에 아이디를 넣는다 — 그대로 그리면 아이디가 이름처럼 보인다.
+        그래서 name === 아이디 면 «이름 미등록» 이라고 적는다(예전엔 없는 칸을 읽어 전부 «(no name)» 이었다). */
+  var TRK = {
+    live_ai: { cls: 'trk-live', en: 'Video + AI', ko: '화상+AI' },
+    ai_only: { cls: 'trk-ai',   en: 'AI only',    ko: 'AI만' },
+    none:    { cls: 'trk-none', en: 'Not enrolled', ko: '재원 아님' },
+    unknown: { cls: 'trk-unk',  en: 'Unknown',    ko: '확인 못 함' }
+  };
+  function trkOf(s){ var t = s && s.track; return TRK[t] ? t : 'unknown'; }
+  D.stuTab = 'all'; D.stuShop = null;
+  window.stuGo = function(tab, shop){
+    D.stuTab = tab || 'all';
+    D.stuShop = (shop === undefined || shop === null) ? null : String(shop);
+    window.openCard('c-students');
+    if (D.students) window.paintStudents();
+  };
+  window.stuTabSet = function(tab){ D.stuTab = tab || 'all'; window.paintStudents(); };
+  window.stuShopClear = function(){ D.stuShop = null; window.paintStudents(); };
   window.paintStudents = function(){
     var j = D.students; if (!j) return;
     var el = document.getElementById('stuBody');
+    var seg = document.getElementById('stuSeg');
     var q = (document.getElementById('stuQ').value || '').trim().toLowerCase();
-    var list = (j.students || []).filter(function(s){
+    var base = (j.students || []).filter(function(s){
+      if (D.stuShop !== null && String(s.shop_name || '').trim() !== D.stuShop) return false;   // 요약(서버 TRIM)과 같게
       if (!q) return true;
-      return String(s.username || s.korean_name || s.english_name || '').toLowerCase().indexOf(q) >= 0
-          || String(s.user_id || s.student_id || s.login_id || '').toLowerCase().indexOf(q) >= 0;
+      return String(s.name || '').toLowerCase().indexOf(q) >= 0
+          || String(s.english_name || '').toLowerCase().indexOf(q) >= 0
+          || String(s.user_id || '').toLowerCase().indexOf(q) >= 0;
     });
-    if (!list.length) { el.className = 'empty'; el.textContent = T('No students found.', '해당하는 학생이 없습니다.'); return; }
+    var cnt = { all: base.length, live_ai: 0, ai_only: 0, none: 0, unknown: 0 };
+    base.forEach(function(s){ cnt[trkOf(s)]++; });
+    var tabs = [['all', T('All', '전체')], ['live_ai', '🎥 ' + T('Video + AI', '화상+AI')], ['ai_only', '🤖 ' + T('AI only', 'AI만')]];
+    if (cnt.none) tabs.push(['none', T('Not enrolled', '재원 아님')]);
+    if (cnt.unknown) tabs.push(['unknown', '❓ ' + T('Unknown', '확인 못 함')]);
+    if (!tabs.some(function(t){ return t[0] === D.stuTab; })) D.stuTab = 'all';
+    seg.hidden = false;
+    seg.innerHTML = tabs.map(function(t){
+      var on = t[0] === D.stuTab;
+      return '<button type="button" role="tab" aria-selected="' + on + '"' + (on ? ' class="on"' : '')
+           + ' onclick="stuTabSet(\'' + t[0] + '\')">' + esc(t[1]) + ' ' + cnt[t[0]] + '</button>';
+    }).join('');
+    var list = D.stuTab === 'all' ? base : base.filter(function(s){ return trkOf(s) === D.stuTab; });
+    var chip = D.stuShop !== null
+      ? '<div class="tchip">📍 ' + esc(D.stuShop || T('No academy', '대리점 미지정'))
+        + ' <button type="button" onclick="stuShopClear()" aria-label="' + esc(T('Show all academies', '모든 대리점 보기')) + '">✕</button></div>'
+      : '';
+    if (!list.length) {
+      el.className = '';
+      el.innerHTML = chip + '<div class="empty">' + esc(T('No students found.', '해당하는 학생이 없습니다.')) + '</div>';
+      return;
+    }
     el.className = '';
     // 폰에서 스크롤이 끝없이 길어지지 않게 200명까지만 그린다. 자른 사실은 반드시 알린다.
     var shown = list.slice(0, 200);
-    el.innerHTML = shown.map(function(s){
-      var nm = s.username || s.korean_name || s.english_name || '(no name)';
-      var id = s.user_id || s.student_id || s.login_id || '';
+    el.innerHTML = chip + shown.map(function(s){
+      var id = s.user_id || '';
+      var nm = (s.name && String(s.name) !== String(id)) ? s.name : T('(no name on file)', '이름 미등록');
+      var tk = TRK[trkOf(s)];
       var st = s.status || '';
       return '<div class="row"><b>' + esc(nm) + '</b><span class="muted">' + esc(id) + '</span>'
+           + '<span class="trk ' + tk.cls + '">' + esc(T(tk.en, tk.ko)) + '</span>'
            + (st ? '<span class="muted">' + esc(st) + '</span>' : '') + '</div>';
     }).join('')
     + '<div class="muted" style="padding-top:8px">'
@@ -1309,8 +1424,85 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             list.length + '명 중 ' + shown.length + '명 표시 — 검색으로 좁혀 보세요.')
         : T(list.length + ' students', '학생 ' + list.length + '명'))
     + (j.can_view_pii === false ? ' · ' + esc(T('Contact details are masked.', '연락처는 가려져 있습니다.')) : '')
-    + '</div>';
+    + '</div>'
+    + ((j.students || []).length >= 1000
+        ? '<div class="muted">' + esc(T('Only the 1,000 most recently registered students are loaded. The «Students by type» card counts everyone.',
+                                         '최근 등록 1,000명까지만 불러왔습니다. 「학생 구분」 카드의 숫자는 전체 기준입니다.')) + '</div>' : '')
+    + (j.track_ok === false
+        ? '<div class="muted">' + esc(T('Could not check video classes right now, so students are marked «Unknown». Press Refresh.',
+                                         '지금은 화상수업 여부를 확인하지 못해 «확인 못 함» 으로 표시했습니다. 새로고침을 눌러 주세요.')) + '</div>' : '')
+    + '<div class="muted">' + esc(T('Video + AI = has a booked class or joined a class in the last 30 days. AI only = enrolled, no video class.',
+                                     '화상+AI = 예약된 수업이 있거나 최근 30일 안에 화상수업 기록이 있는 학생. AI만 = 재원 중이고 화상수업이 없는 학생.')) + '</div>';
   };
+
+  /* 🎥🤖 대시보드 «학생 구분» 카드 — 두 무리 인원(스코프 전체) + 대리점이 둘 이상이면 대리점별 막대.
+     ⛔ 조회가 실패하면 0 명으로 그리지 않는다 — «모름» 이라고 말한다. */
+  function trackBar(l, a){
+    var t = l + a; if (!t) return '<span class="tbar"></span>';
+    var lp = Math.round(l * 1000 / t) / 10, ap = Math.round((100 - lp) * 10) / 10;
+    return '<span class="tbar" aria-hidden="true"><i class="l" style="width:' + lp + '%"></i><i class="a" style="width:' + ap + '%"></i></span>';
+  }
+  function paintTrack(){
+    var el = document.getElementById('dTrackBody'); if (!el) return;
+    var ts = D.track && D.track.track_summary;
+    if (!ts || !ts.ok) {
+      el.className = 'empty';
+      el.textContent = T('Could not check video classes right now. Press Refresh.', '지금은 화상수업 여부를 확인하지 못했습니다. 새로고침을 눌러 주세요.');
+      return;
+    }
+    el.className = '';
+    var html = '<div class="tkpis">'
+      + '<button type="button" class="kpi kpi-go t-live" onclick="stuGo(\'live_ai\')"><span class="kpi-arrow">›</span><b>' + ts.live + '</b>'
+      +   '<span>🎥 ' + esc(T('Video + AI', '화상+AI')) + '</span>'
+      +   '<div class="sub">' + esc(T('AI is included in video tuition', 'A.i 는 화상 수강료에 포함')) + '</div></button>'
+      + '<button type="button" class="kpi kpi-go t-ai" onclick="stuGo(\'ai_only\')"><span class="kpi-arrow">›</span><b>' + ts.ai_only + '</b>'
+      +   '<span>🤖 ' + esc(T('AI only', 'AI만')) + '</span>'
+      +   '<div class="sub">' + esc(T('Enrolled · AI usage fee applies', '재원 중 · A.i 사용료 대상')) + '</div></button>'
+      + '</div>';
+    var orgs = ts.orgs || [];
+    if (orgs.length > 1) {
+      var byF = {}, fOrder = [];
+      orgs.forEach(function(o){
+        var f = o.franchise || '';
+        if (!byF[f]) { byF[f] = { l: 0, a: 0, shops: [] }; fOrder.push(f); }
+        byF[f].l += o.live; byF[f].a += o.ai_only; byF[f].shops.push(o);
+      });
+      fOrder.sort(function(x, y){ return (byF[y].l + byF[y].a) - (byF[x].l + byF[x].a); });
+      var multiF = fOrder.length > 1, rows = [], MAXF = 12, MAXS = 8;
+      fOrder.slice(0, MAXF).forEach(function(f){
+        var g = byF[f];
+        if (multiF) rows.push('<div class="orgrow fr"><span class="nm">' + esc(f || T('No branch', '지사 미지정')) + '</span>'
+          + trackBar(g.l, g.a) + '<span class="n">' + g.l + ' / ' + g.a + '</span></div>');
+        g.shops.slice(0, MAXS).forEach(function(o){
+          rows.push('<button type="button" class="orgrow' + (multiF ? ' sh' : '') + '" data-shop="' + esc(o.shop_name) + '">'
+            + '<span class="nm">' + esc(o.shop_name || T('No academy', '대리점 미지정')) + '</span>'
+            + trackBar(o.live, o.ai_only) + '<span class="n">' + o.live + ' / ' + o.ai_only + '</span></button>');
+        });
+        if (g.shops.length > MAXS) rows.push('<div class="muted" style="padding:4px 0 4px 14px">'
+          + esc(T('+' + (g.shops.length - MAXS) + ' more academies', '외 ' + (g.shops.length - MAXS) + '곳')) + '</div>');
+      });
+      if (fOrder.length > MAXF) rows.push('<div class="muted" style="padding-top:6px">'
+        + esc(T('+' + (fOrder.length - MAXF) + ' more branches', '외 ' + (fOrder.length - MAXF) + '개 지사')) + '</div>');
+      html += '<div class="orgs"><div class="muted">' + esc(T('By academy — video + AI / AI only. Tap a row to see its students.',
+                                                                '대리점별 — 화상+AI / AI만. 줄을 누르면 그 학생들이 나옵니다.')) + '</div>'
+           + rows.join('') + '</div>';
+    }
+    html += '<div class="muted" style="margin-top:8px">' + esc(T('Video = booked class, or a video class in the last ' + (ts.lookback_days || 30) + ' days. Same rule as the AI usage invoice.',
+                                                                 '화상 = 예약된 수업이 있거나 최근 ' + (ts.lookback_days || 30) + '일 안에 화상수업 기록. A.i 사용료 청구서와 같은 기준입니다.')) + '</div>';
+    el.innerHTML = html;
+  }
+  window.__paintTrack = paintTrack;
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('#dTrackBody .orgrow[data-shop]');
+    if (!b) return;
+    window.stuGo('all', b.getAttribute('data-shop') || '');
+  });
+  function dashTrack(){
+    once('track', function(){ return get('/api/admin/students/unified?summary_only=1', 'track'); })
+      .then(function(j){ D.track = j; paintTrack(); })
+      .catch(function(e){ var el = document.getElementById('dTrackBody'); if (el && !D.track) failBox(el, e); });
+  }
+  window.__dashTrack = dashTrack;
 
   // ── ⑥ 강사 가동률 ─────────────────────────────────────────────────────────
   window.loadUtil = function(){
@@ -1527,14 +1719,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ══════════════════════════════════════════════════════════════════════════
   // 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — scope.type==='agency' 일 때만 보인다.
   //   금액은 절대 이 화면이 계산해서 보내지 않는다 — 서버(ai-billing.ts)가 그 순간의
-  //   재원 학생 수 × 단가로 다시 계산해 결제창을 연다(클라이언트 값은 표시용일 뿐).
+  //   A.i반 인원(재원 − 화상반)의 인원 구간 공급가(ai-billing-price.ts)로 다시 계산해 결제창을 연다
+  //   (클라이언트 값은 표시용일 뿐). 캐시 키 'aibill2'(2026-09-24) — 옛 형식(재원 × 10,000원) 캐시가
+  //   조회 실패 때 되살아나 옛 금액을 보여 주지 않게 키를 바꿨다.
   // ══════════════════════════════════════════════════════════════════════════
   window.loadAiBill = function(){
     var el = document.getElementById('aibillBody');
     el.textContent = T('Loading...', '불러오는 중...');
     Promise.all([
-      get('/api/admin/ai-billing/invoice', 'aibill'),
-      get('/api/admin/ai-billing/history', 'aibillHist'),
+      get('/api/admin/ai-billing/invoice', 'aibill2'),
+      get('/api/admin/ai-billing/history', 'aibillHist2'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
@@ -1598,6 +1792,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (btn) btn.disabled = false;
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
   };
+  /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 지사 커미션(branch_commission_krw)은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
+  function aiBillPriceRows(o){
+    var note = T(o.price_note_en || '', o.price_note_ko || '');
+    var h = '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(o.applied_rate_krw != null ? o.applied_rate_krw : o.rate_krw) + T('/student', '/명') + '</b></div>';
+    if (o.min_applied) h += '<div class="row"><span>' + T('Billed as', '청구 인원') + '</span><b>' + n0(o.billable_count) + T(' (minimum)', '명 (최소 청구)') + '</b></div>';
+    if (note) h += '<div class="muted" style="font-size:11.5px;margin:2px 0 6px">' + esc(note) + '</div>';
+    return h;
+  }
   function paintAiBill(){
     var j = D.aibill; if (!j) return;
     var el = document.getElementById('aibillBody');
@@ -1606,25 +1810,37 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (!j.exists) {
       html += '<p class="muted">' + T('This month’s invoice has not been created yet.', '아직 이번 청구서가 만들어지지 않았습니다.') + '</p>'
         + '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(j.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('Enrolled now (preview)', '지금 재원 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
-        + '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(j.rate_krw) + T('/student', '/명') + '</b></div>'
+        + '<div class="row"><span>' + T('A.i-only students now (preview)', '지금 A.i반 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
+        + (j.live_excluded ? '<div class="row"><span class="muted">' + T('Video-class students (A.i included, not billed)', '화상반 학생 (A.i 포함 · 청구 안 함)') + '</span><span class="muted">' + n0(j.live_excluded) + T('', '명') + '</span></div>' : '')
+        + aiBillPriceRows(j)
         + '<div class="row"><span>' + T('Estimated total', '예상 총액') + '</span><b>' + won(j.preview_total) + '</b></div>'
         + '<button type="button" class="btn-primary" onclick="aiBillGenerate(this)" style="margin-top:10px">' + T('Create invoice', '청구서 만들기') + '</button>';
     } else {
       var inv = j.invoice, items = j.items || [];
       var paid = inv.status === 'paid';
       html += '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(inv.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('Rate (fixed at creation)', '단가(생성 시점 고정)') + '</span><b>' + won(inv.rate_krw) + T('/student', '/명') + '</b></div>'
         + '<div class="row"><span>' + T('Included students', '포함 인원') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+        + aiBillPriceRows(inv)
         + '<div class="row"><span>' + T('Total', '총액') + '</span><b>' + won(inv.total_krw) + '</b></div>';
       if (paid) {
         html += '<div class="row" style="color:#4ade80"><span>' + T('Status', '상태') + '</span><b>✅ ' + T('Paid', '결제 완료') + '</b></div>';
       } else {
-        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + items.map(function(it){
+        /* 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 화상반으로 판정된 학원생(track='live')도 명세에 보이되
+           체크가 풀린 채 아래쪽에 모인다 — 판정이 틀렸으면 학원이 체크해 청구에 넣는다(그 뒤 자동이 안 건드림).
+           ⛔ 이 화면은 판정하지 않는다 — 서버가 준 track·user_set 을 그리기만 한다. */
+        var aiIt = items.filter(function(it){ return it.track !== 'live'; });
+        var lvIt = items.filter(function(it){ return it.track === 'live'; });
+        var itemRow = function(it){
+          var tag = '';
+          if (it.track === 'live') tag = ' <span class="muted" style="font-size:11px">📹 ' + T('video class · A.i included', '화상반 · A.i 포함') + '</span>';
+          if (Number(it.user_set) === 1) tag += ' <span class="muted" style="font-size:11px">✔ ' + T('confirmed by academy', '학원 확인') + '</span>';
           return '<label class="row" style="cursor:pointer"><span>' + esc(it.student_name || it.student_user_id)
-            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + '</span>'
+            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + tag + '</span>'
             + '<input type="checkbox" ' + (it.included ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')"></label>';
-        }).join('') + '</div>'
+        };
+        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + aiIt.map(itemRow).join('')
+          + (lvIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">📹 ' + T('Video-class students (' + lvIt.length + ') — A.i is included in their tuition, so they are not billed. Check a student only if this is wrong.', '화상반 학생 ' + lvIt.length + '명 — 화상영어에 A.i 가 포함돼 청구하지 않습니다. 판정이 틀린 학생만 체크해 주세요.') + '</div>' + lvIt.map(itemRow).join('') : '')
+          + '</div>'
         + '<div style="display:flex;gap:8px;margin-top:10px">'
         + '<button type="button" class="btn-ghost" onclick="aiBillGenerate(this)">' + T('Check for new students', '인원 다시 확인') + '</button>'
         + '<button type="button" class="btn-primary" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>' + T('Pay now', '결제하기') + '</button>'
@@ -2350,6 +2566,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.series) paintTrend();
     if (D.flow) paintFlow();
     if (D.students) window.paintStudents();
+    if (D.track && window.__paintTrack) window.__paintTrack();
     if (D.util) paintUtil();
     if (D.wait) paintWait();
     if (D.me) paintMe();
@@ -2713,6 +2930,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   setTimeout(loadApprovalBadge, 1200);
   setTimeout(loadTodo, 1400);   // 🔔 오늘 봐야 할 것 — 첫 페인트 뒤에
   setTimeout(dashTrend, 1600);  // 📈 /branch 대시보드 그래프 — 첫 페인트 뒤에
+  setTimeout(function(){ if (window.__dashTrack) window.__dashTrack(); }, 1800);  // 🎥🤖 학생 구분 — 첫 페인트 뒤에
   arSchedule(AR_MIN);           // 🔄 자동 새로고침 — 첫 요청은 45초 뒤(첫 페인트와 경쟁 없음)
 })();
 </script>
@@ -2978,7 +3196,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   });
   // 새로고침을 누르면 대시보드 그래프도 새로 받는다
   var _reload = window.reloadAll;
-  window.reloadAll = function(){ if (_reload) _reload(); if (window.__dashTrend) window.__dashTrend(); };
+  window.reloadAll = function(){ if (_reload) _reload(); if (window.__dashTrend) window.__dashTrend(); if (window.__dashTrack) window.__dashTrack(); };
   setView('dash', true); markSide('top');
 })();
 </script>

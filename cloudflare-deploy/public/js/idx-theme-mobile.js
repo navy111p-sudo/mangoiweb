@@ -1,4 +1,4 @@
-/* idx-theme-mobile.js — 📱 모바일 다크 고정 · 🖥 데스크탑만 테마 선택 (2026-08-30, v4 제안서 05)
+/* idx-theme-mobile.js — 📱 모바일은 시간대 자동(2026-09-24~, 옛: 다크 고정) · 🖥 데스크탑만 테마 선택 (2026-08-30, v4 제안서 05)
  * ─────────────────────────────────────────────────────────────────────────────
  * [요구사항] 「휴대폰으로 들어오면 무조건 어둡게. 상단의 [자동/밝게/어둡게] 버튼도 없앤다.
  *            데스크탑에서는 지금처럼 고를 수 있게.」
@@ -43,19 +43,29 @@
     }
   } catch (e) {}
 
-  // ── ② 다크 고정 ─────────────────────────────────────────────────────────
-  function lockDarkIfMobile() {
+  // ── ② 휴대폰은 «자동»(06:00~17:59 밝게 · 그 밖 어둡게) 고정 ─────────────────
+  /* 📌 2026-09-24 사장님 지시 「휴대폰도 아침 6시부터 저녁 6시까지는 다시 밝은 바탕으로 자동으로」.
+     2026-08-30 에는 「휴대폰은 무조건 어둡게」였다 — 그때 폰 브라우저 저장값에 'dark' 를
+     써 두었으므로, 이제는 그 값을 'auto' 로 «되돌려» 쓴다(안 되돌리면 옛 폰은 영영 어둡다).
+     시간 판정은 index.html 의 autoBright() 가 정본이다(60초 루프가 저장값 'auto' 를 읽어 스스로 맞춘다).
+     여기서는 «지금 화면» 만 같은 규칙으로 한 번 맞춘다 — 기다리면 최대 60초 동안 어둡게 보인다.
+     ⛔ 버튼은 여전히 폰에서 숨긴다(고를 수 없으니 자동 하나로 둔다).
+     ⚠️ 주소에 ?home=... 을 붙여 연 미리보기는 그쪽이 이기므로 여기서 화면을 건드리지 않는다. */
+  function autoOnMobile() {
     var w = 0;
     try { w = window.innerWidth || document.documentElement.clientWidth || 0; } catch (e) {}
     if (!w || w > MOBILE_MAX) return;
     try {
-      if (localStorage.getItem(MODE_KEY) !== 'dark') localStorage.setItem(MODE_KEY, 'dark');
+      if (localStorage.getItem(MODE_KEY) !== 'auto') localStorage.setItem(MODE_KEY, 'auto');
     } catch (e) {}
-    // 저장값을 읽는 다음 루프까지 기다리지 않고 지금 화면부터 어둡게
-    try { document.body && document.body.classList.remove('home-bright'); } catch (e) {}
+    try {
+      if (/[?&]home=/.test(location.search)) return;
+      var h = new Date().getHours();
+      document.body && document.body.classList.toggle('home-bright', h >= 6 && h < 18);
+    } catch (e) {}
   }
 
-  lockDarkIfMobile();
+  autoOnMobile();
 
   /* 화면을 돌리거나 창을 좁혔을 때도 같은 규칙이 되게 한다.
      ⛔ 상주 setInterval·MutationObserver 는 두지 않는다 — 홈 전체를 멎게 한 전력이 있다
@@ -64,7 +74,7 @@
   try {
     window.addEventListener('resize', function () {
       if (t) return;
-      t = setTimeout(function () { t = 0; lockDarkIfMobile(); }, 300);
+      t = setTimeout(function () { t = 0; autoOnMobile(); }, 300);
     }, { passive: true });
   } catch (e) {}
 })();

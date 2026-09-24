@@ -2,8 +2,10 @@
 // adm-ai-billing.js — card-ai-billing (🏢 AI 사용료 관리) 실데이터 렌더러
 //   외부 classic script — admin.html 다른 <script> 와 전역 스코프 공유.
 //
-//   2026-09-10 신설. 실데이터 = /api/admin/ai-billing/rate (src/ai-billing.ts).
-//   여기서 하는 일은 딱 하나 — «대리점별 단가를 조회·조정» (사장님 지시:
+//   2026-09-10 신설 · 2026-09-24 개정. 실데이터 = /api/admin/ai-billing/rate (src/ai-billing.ts ·
+//   가격 정본 src/ai-billing-price.ts). 학원별 A.i반 인원(재원 − 화상반)·예상 청구액(인원 구간
+//   공급가)·지사 40% 를 보고, 특정 학원만 다르게 받을 때 «예외 단가» 를 정한다(비우면 구간 단가).
+//   처음 지시(2026-09-10):
 //   "본사 관리자 페이지에서는 해당 대리점의 AI 수업 수강료를 조절할 수 있어야 해").
 //   청구서 생성·결제는 대리점 담당자가 manager.html 에서 직접 한다(별건 — 안 건드림).
 //
@@ -32,13 +34,13 @@
   window.aibLoad = function(){
     var tbody = el('aib-tbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px">불러오는 중…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:18px">불러오는 중…</td></tr>';
     var q = (el('aib-q') && el('aib-q').value.trim()) || '';
     var url = '/api/admin/ai-billing/rate' + (q ? '?q=' + encodeURIComponent(q) : '');
     aibFetch(url).then(function(res){
       var d = res.body;
       if (!res.ok || !d || !d.ok) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px;color:#dc2626">불러오지 못했습니다' +
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:18px;color:#b91c1c">' + esc(L('불러오지 못했습니다', 'Failed to load')) +
           (d && d.error ? ' (' + esc(d.error) + ')' : '') + '</td></tr>';
         return;
       }
@@ -48,60 +50,97 @@
       var cnt = el('aib-count');
       if (cnt) cnt.textContent = d.count + '개' + (d.truncated ? ' (500개까지만 표시)' : '');
       renderRows(d);
+      renderCron(d.last_cron);
     }).catch(function(e){
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px;color:#dc2626">네트워크 오류: ' + esc(e && e.message || e) + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:18px;color:#dc2626">네트워크 오류: ' + esc(e && e.message || e) + '</td></tr>';
     });
   };
+
+  /* 💰 (2026-09-24) 청구액은 «A.i반 인원 구간 공급가» 로 서버(ai-billing-price.ts)가 계산한다.
+     ⛔ 이 화면에서 인원 × 단가를 다시 계산하지 말 것 — 구간·최소 20명분·경계 보정이 있어
+        화면 계산은 반드시 틀린다(2026-09-10 판의 aibRecalc 를 그래서 지웠다).
+        입력칸은 «학원 예외 단가» 이고, 저장하면 서버 값으로 다시 그린다. */
+  function isEn(){ try { return window.adminLang === 'en' || (!window.adminLang && localStorage.getItem('mangoi_lang') === 'en'); } catch(_) { return false; } }
+  function L(ko, en){ return isEn() ? en : ko; }
+  function num(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+
+  /* 🛎 (2026-09-24) 월 자동 청구(매달 1일)의 마지막 결과 — 서버 로그는 5% 만 남아서, 실패하면 아무도 몰랐다.
+     실패·일부 실패면 빨간 줄로 «무엇을 하라» 까지 말한다. 모르면(null) «—» (지어내지 않는다).
+     ⛔ 이 요소에 data-ko/data-en 을 달지 말 것 — 그리는 쪽이 글자를 정하고 언어 전환 때 다시 그린다. */
+  var LAST_CRON;
+  function renderCron(c){
+    LAST_CRON = c;
+    var box = el('aib-cron');
+    if (!box) {
+      var tbl = el('aib-table');
+      var host = tbl && tbl.parentNode;
+      if (!host || !host.parentNode) return;
+      box = document.createElement('div');
+      box.id = 'aib-cron';
+      box.style.cssText = 'padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;border:1px solid #cbd5e1;background:#f8fafc;color:#475467';
+      host.parentNode.insertBefore(box, host);
+    }
+    var bad = c && (c.status === 'live_check_failed' || c.status === 'shops_failed' || c.status === 'partial');
+    box.style.background = bad ? '#fef2f2' : '#f8fafc';
+    box.style.borderColor = bad ? '#fca5a5' : '#cbd5e1';
+    box.style.color = bad ? '#b91c1c' : '#475467';
+    if (!c) { box.textContent = L('🛎 월 자동 청구: 아직 실행 기록이 없습니다 — 매달 1일에 다음 달 청구서를 만듭니다.', '🛎 Monthly auto-billing: no run recorded yet — it creates next month’s invoices on the 1st.'); return; }
+    var when = '—';
+    try { when = new Date(c.at).toLocaleString(isEn() ? 'en-US' : 'ko-KR', { timeZone: 'Asia/Seoul' }); } catch(_) {}
+    var head = L('🛎 월 자동 청구 (' + (c.month || '') + '분, ' + when + ')', '🛎 Monthly auto-billing (' + (c.month || '') + ', ' + when + ')');
+    var msg;
+    if (c.status === 'live_check_failed') msg = L('⚠ 화상반 학생을 확인하지 못해 청구서를 한 장도 만들지 않았습니다(이중 청구 방지). 학원 화면의 「청구서 만들기」로 다시 만들 수 있습니다.', '⚠ Could not check video-class students, so no invoices were created (to avoid double billing). Academies can create them with “Create invoice”.');
+    else if (c.status === 'shops_failed') msg = L('⚠ 대리점 목록을 읽지 못해 실행하지 못했습니다. 학원 화면의 「청구서 만들기」로 다시 만들 수 있습니다.', '⚠ Could not read the agency list, so nothing ran. Academies can create invoices with “Create invoice”.');
+    else msg = L('대리점 ' + num(c.agencies) + '곳 · 청구서 ' + num(c.invoices) + '장 · 새로 넣은 학생 ' + num(c.added) + '명', num(c.agencies) + ' agencies · ' + num(c.invoices) + ' invoices · ' + num(c.added) + ' students added')
+      + (c.status === 'partial' ? L(' — ⚠ ' + num(c.failed) + '곳은 만들지 못했습니다(학원 화면에서 다시 만들 수 있습니다).', ' — ⚠ ' + num(c.failed) + ' failed (academies can recreate them).') : '');
+    box.textContent = head + ' — ' + msg;
+  }
 
   function renderRows(d){
     var tbody = el('aib-tbody');
     var rows = d.rows || [];
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">재원 학생이 있는 대리점이 없습니다.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">' + esc(L('재원 학생이 있는 대리점이 없습니다.', 'No agencies with enrolled students.')) + '</td></tr>';
       return;
     }
     var editable = !!d.editable;
     tbody.innerHTML = rows.map(function(r, i){
       var shop = esc(r.shop_name);
-      var total = won(Number(r.enrolled_count) * Number(r.rate_krw));
+      var note = isEn() ? (r.price_note_en || '') : (r.price_note_ko || '');
       return '' +
         '<tr>' +
         '<td>' + shop + '</td>' +
         '<td>' + esc(r.franchise || '—') + '</td>' +
-        '<td style="text-align:right">' + (Number(r.enrolled_count)||0).toLocaleString('ko-KR') + '명</td>' +
+        '<td style="text-align:right">' + num(r.enrolled_count) + '</td>' +
+        '<td style="text-align:right;color:#475467">' + num(r.live_count) + '</td>' +
+        '<td style="text-align:right;font-weight:700">' + num(r.ai_count) + '</td>' +
+        '<td style="font-size:11.5px;color:#475467;min-width:160px">' + esc(note || '—') + '</td>' +
         '<td>' +
-          '<input type="number" min="0" max="1000000" step="1000" value="' + (Number(r.rate_krw)||0) + '" ' +
+          '<input type="number" min="0" max="1000000" step="100" value="' + (r.is_custom_rate ? (Number(r.custom_rate_krw)||'') : '') + '" ' +
+            'placeholder="' + esc(L('구간 단가', 'tier rate')) + '" ' +
             'id="aib-rate-' + i + '" data-shop="' + shop.replace(/"/g,'&quot;') + '" ' +
             (editable ? '' : 'disabled ') +
-            'oninput="aibRecalc(' + i + ')" ' +
-            'style="width:110px;padding:5px 8px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db" />' +
-          (r.is_custom_rate ? '' : '<span style="font-size:10.5px;color:#94a3b8;margin-left:4px" data-ko="(기본값)" data-en="(default)">(기본값)</span>') +
+            'style="width:100px;padding:5px 8px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db;background-color:#ffffff;color:#101828" />' +
         '</td>' +
-        '<td style="text-align:right" id="aib-total-' + i + '">' + total + '</td>' +
+        '<td style="text-align:right;font-weight:700">' + won(r.estimated_total_krw) + '</td>' +
+        '<td style="text-align:right;color:#475467">' + won(r.branch_commission_krw) + '</td>' +
         '<td>' + (editable ?
-          '<button onclick="aibSave(' + i + ')" id="aib-save-' + i + '" style="padding:5px 12px;font-size:12px;background-color:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700" data-ko="💾 저장" data-en="💾 Save">💾 저장</button>' :
-          '<span style="font-size:11px;color:#94a3b8" data-ko="본사 전용" data-en="HQ only">본사 전용</span>') +
+          '<button onclick="aibSave(' + i + ')" id="aib-save-' + i + '" style="padding:5px 12px;font-size:12px;background-color:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">' + esc(L('💾 저장', '💾 Save')) + '</button>' :
+          '<span style="font-size:11px;color:#94a3b8">' + esc(L('본사 전용', 'HQ only')) + '</span>') +
         '</td>' +
         '</tr>';
     }).join('');
   }
-
-  window.aibRecalc = function(i){
-    var input = el('aib-rate-' + i);
-    var totalCell = el('aib-total-' + i);
-    if (!input || !totalCell || !LAST || !LAST.rows || !LAST.rows[i]) return;
-    var rate = Math.max(0, Math.round(Number(input.value) || 0));
-    totalCell.textContent = won(Number(LAST.rows[i].enrolled_count) * rate);
-  };
 
   window.aibSave = function(i){
     var input = el('aib-rate-' + i);
     var btn = el('aib-save-' + i);
     if (!input) return;
     var shopName = input.getAttribute('data-shop');
-    var rate = Math.round(Number(input.value));
-    if (!(rate >= 0) || rate > 1000000) { alert('단가는 0 ~ 1,000,000원 사이여야 합니다.'); return; }
-    if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+    var raw = String(input.value || '').trim();
+    var rate = raw === '' ? 0 : Math.round(Number(raw));   // 비우면(0) 예외 단가 해제 → 인원 구간 단가
+    if (!(rate >= 0) || rate > 1000000) { alert(L('단가는 0 ~ 1,000,000원 사이여야 합니다.', 'Rate must be between 0 and 1,000,000.')); return; }
+    if (btn) { btn.disabled = true; btn.textContent = L('저장 중…', 'Saving…'); }
     fetch('/api/admin/ai-billing/rate', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -109,20 +148,21 @@
     }).then(function(r){ return r.json().catch(function(){ return null; }).then(function(d){ return { ok: r.ok, body: d }; }); })
       .then(function(res){
         if (!res.ok || !res.body || !res.body.ok) {
-          alert('저장 실패: ' + ((res.body && res.body.error) || 'HTTP 오류'));
-          if (btn) { btn.disabled = false; btn.textContent = '💾 저장'; }
+          alert(L('저장 실패: ', 'Save failed: ') + ((res.body && res.body.error) || 'HTTP'));
+          if (btn) { btn.disabled = false; btn.textContent = L('💾 저장', '💾 Save'); }
           return;
         }
-        if (btn) { btn.textContent = '✅ 저장됨'; }
-        if (LAST && LAST.rows && LAST.rows[i]) { LAST.rows[i].rate_krw = rate; LAST.rows[i].is_custom_rate = true; }
-        setTimeout(function(){
-          if (btn) { btn.disabled = false; btn.textContent = '💾 저장'; }
-        }, 1200);
+        // 서버가 계산한 새 청구액으로 다시 그린다(화면에서 계산하지 않는다)
+        window.aibLoad();
       }).catch(function(e){
-        alert('네트워크 오류: ' + (e && e.message || e));
-        if (btn) { btn.disabled = false; btn.textContent = '💾 저장'; }
+        alert(L('네트워크 오류: ', 'Network error: ') + (e && e.message || e));
+        if (btn) { btn.disabled = false; btn.textContent = L('💾 저장', '💾 Save'); }
       });
   };
+
+  function relang(){ if (LAST) { renderRows(LAST); renderCron(LAST_CRON); } }
+  document.addEventListener('mangoi:lang-changed', relang);   // 관리자 화면은 document 에서 발행(bubbles:false)
+  window.addEventListener('mangoi:lang-changed', relang);
 
   /* ── 최초 로드 · 카드를 열 때 다시 그리기 ── */
   var loaded = false;

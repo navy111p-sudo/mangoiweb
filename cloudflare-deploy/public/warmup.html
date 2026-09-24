@@ -506,6 +506,7 @@
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/mango-avatar.js?v=19" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
   <!-- ══ 🎚️ 시작 전 «연령·수준 고르기» — 이 화면을 닫아야 첫 인사가 나간다 (2026-08-26) ══
@@ -1146,6 +1147,8 @@ function applyVoiceFace(){
   var lm = isZh() ? m : (VOICE_MODES[_voiceMode] || m);
   var v = document.getElementById('voiceVal'); if(v) v.textContent = lm.label;
   try{ window.__mgAvatarWant = m.char; }catch(e){}
+  /* 🀄 중국어면 얼굴을 한 단계 더 크게(html.wu-zh — css/warmup-guide.css). toggle(force) 라 바뀔 때만 쓴다. */
+  try{ document.documentElement.classList.toggle('wu-zh', isZh()); }catch(e){}
   try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m.char); }catch(e){}
 }
 // ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
@@ -3710,7 +3713,7 @@ async function sendMsg(){
   .meta{ padding:4px 12px 0; }
 }
 </style>
-<link rel="stylesheet" href="/css/warmup-guide.css?v=5" />
+<link rel="stylesheet" href="/css/warmup-guide.css?v=6" />
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=22"></script>

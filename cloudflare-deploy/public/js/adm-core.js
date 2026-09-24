@@ -10230,17 +10230,177 @@ function _parseWordEnrollments(html) {
   return result;
 }
 
+/* ✍️ (2026-09-24) 한 줄 카톡 — 사장님이 「홍길동수요일오후6시체험수업등록」 을 넣었더니
+   «수강신청 정보를 찾을 수 없습니다». 위 _extractKoFields 는 «학생:»·«유형:» 같은 이름표가 있어야만 읽는다.
+   이 함수는 이름표 없는 한 줄에서 항목을 «모양» 으로 하나씩 떼어 내고, 남은 한글 낱말을 이름으로 본다
+   ⟹ 순서는 상관없다. (같은 날 「다양하게」 — 전화·금액·기간·수업길이·강사·평일/주말·레테·pm 도 읽음)
+   ⛔ 요일을 «글자 하나» 로 찾지 말 것 — 「체험수업」의 수, 「9월 30일」의 월·일이 요일로 잡힌다.
+      «X요일»·«X욜» 이나 요일 글자만으로 된 낱말(월수금 · 화,목 · 월~금) 만 인정한다.
+   ⛔ 떼는 «순서» 는 중요하다 — 전화번호·날짜·인원(1:1)을 시간보다 먼저, 시간(6시 30분)을 수업 길이(30분)보다 먼저,
+      강사 이름(영문)을 아이디보다 먼저 뗀다. 안 그러면 한쪽이 다른 쪽 글자를 삼킨다.
+   ⛔ 못 읽으면 null — 지어내지 않는다. 등록 전 미리보기에서 사람이 한 번 더 본다. */
+function _parseFreeformEnrollment(line) {
+  const orig = String(line || '').replace(/\s+/g, ' ').trim();
+  let s = ' ' + orig + ' ';
+  const pad = (n) => String(n).padStart(2, '0');
+  const extra = {};
+  //    ⚠️ 떼어 낸 자리에는 공백이 아니라 칸막이(¦)를 남긴다 — 「7시 정규 30분」 에서 «정규» 를 떼고
+  //       공백만 남기면 «7시 30분» 으로 붙어 19:30 이 된다(30분은 수업 길이인데).
+  // ① 유형 — 없으면 수강신청 줄이 아님
+  //    ⚠️ «정규» 는 이름(김정규)에도 들어간다 — 한글 바로 뒤에 붙은 «정규» 는 «정규수업/반» 일 때만 유형으로 본다
+  const types = [];
+  const addType = (t) => { if (types.indexOf(t) < 0) types.push(t); };
+  s = s.replace(/(레벨\s*테스트|레벨|레테|무료\s*체험|체험|정규)(\s*(?:수업|반|과정))?/g, (all, w, su, off, str) => {
+    if (w === '정규' && !su && /[가-힣]/.test(str.charAt(off - 1))) return all;
+    addType(/레벨|레테/.test(w) ? '레벨' : /체험/.test(w) ? '체험' : '정규');
+    return ' ¦ ';
+  });
+  s = s.replace(/\b(level\s*test|trial|regular)\b/gi, (_, w) => {
+    addType(/level/i.test(w) ? '레벨' : /trial/i.test(w) ? '체험' : '정규'); return ' ¦ ';
+  });
+  if (!types.length) return null;
+  // ② 전화번호 → 학부모 번호 (숫자가 시간·날짜로 안 읽히게 가장 먼저)
+  s = s.replace(/(01[016789])[-.\s]?(\d{3,4})[-.\s]?(\d{4})(?!\d)/, (_, a, b, c) => { extra.parent_phone = a + b + c; return ' ¦ '; });
+  // ③ 기간 — 3개월 / 무제한 (수강료보다 먼저 — «3개월 6만원» 의 «월» 을 수강료 쪽이 «월 6만원» 으로 먹는다)
+  s = s.replace(/(\d{1,2})\s*개월/, (_, n) => { if (+n >= 1 && +n <= 12) extra.duration_months = String(+n); return ' ¦ '; });
+  s = s.replace(/무제한/, () => { extra.duration_months = 'unlimited'; return ' ¦ '; });
+  // ④ 월 수강료 — 6만원 / 60,000원 / 6만
+  s = s.replace(/(?:(?<![가-힣])월\s*)?(\d{1,3}(?:,\d{3})+|\d+)\s*(만\s*원?|원)/, (_, n, u) => {
+    const v = parseInt(n.replace(/,/g, ''), 10) * (/만/.test(u) ? 10000 : 1);
+    if (v >= 1000) extra.monthly_fee_krw = v;
+    return ' ¦ ';
+  });
+  // ⑤ 강사 — «Krystel 선생님» · «강사 Krystel» (영문 이름을 아이디로 오해하지 않게 아이디보다 먼저)
+  //    ⚠️ 서버는 강사 이름을 «정확히» 찾는다(enroll-activate.ts — name = ? AND active = 1). 명부가 대문자라 영문은 대문자로.
+  s = s.replace(/(?:강사|선생님|쌤)\s*[:：]?\s*([A-Za-z][A-Za-z .]{1,20}?)(?=\s|$)/, (_, t) => { extra.teacher_name = t.trim().toUpperCase(); return ' ¦ '; });
+  if (!extra.teacher_name) {
+    s = s.replace(/([A-Za-z][A-Za-z.]{1,20})\s*(?:선생님|쌤|강사님|강사|T)(?=[\s,]|$)/, (_, t) => { extra.teacher_name = t.trim().toUpperCase(); return ' ¦ '; });
+  }
+  if (extra.teacher_name) extra.assign_priority = 'teacher';
+  // ⑤-2 am/pm → 오전/오후 (아이디·시간을 읽기 전에 — «pm» 이 아이디로, «6pm» 이 그냥 6시로 안 읽히게)
+  s = s.replace(/(\d)\s*([ap])\.?m\b\.?/gi, (_, d, a) => d + ' ' + (/a/i.test(a) ? '오전' : '오후') + '표');
+  s = s.replace(/\b([ap])\.?m\b\.?/gi, (_, a) => ' ' + (/a/i.test(a) ? '오전' : '오후') + ' ');
+  // ⑥ 아이디 — «아이디 kim01» · «ID kim01» · «(kim01)» · 영문으로 시작하는 낱말 (am/pm 은 시간)
+  let uid = '';
+  s = s.replace(/(?:아이디|\bID\b|\bUID\b)\s*[:：]?\s*([A-Za-z0-9][A-Za-z0-9_.\-]{1,})/i, (_, u) => { uid = u; return ' ¦ '; });
+  if (!uid) s = s.replace(/[(\[]?\b([A-Za-z][A-Za-z0-9_.\-]{2,})\b[)\]]?/, (_, u) => { uid = u; return ' ¦ '; });
+  // ⑦ 인원 방식 — 시간(6:30)보다 먼저 떼야 「1:1」 이 1시 1분으로 안 읽힌다
+  let size = '';
+  s = s.replace(/1\s*[:대]\s*([0-9]+|N)(?![0-9])/i, (_, n) => { size = '1:' + String(n).toUpperCase(); return ' ¦ '; });
+  // ⑧ 시작일 — 2026-09-30 / 9월 30일 / 9/30 / 10.1 / 오늘·내일·모레 (요일보다 먼저: «월»·«일» 글자가 섞여 있다)
+  let started = '';
+  const now = new Date();
+  const ymdOf = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const ymd = s.match(/(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?/);
+  if (ymd) {
+    started = ymd[1] + '-' + pad(ymd[2]) + '-' + pad(ymd[3]);
+    s = s.replace(ymd[0], ' ¦ ');
+  } else {
+    const md = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/) || s.match(/(?:^|\s)(\d{1,2})[\/.](\d{1,2})(?=\D)/);
+    if (md) {
+      const mo = +md[1], da = +md[2];
+      if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+        let y = now.getFullYear();
+        // 두 달보다 더 지난 날짜면 내년으로 읽는다(12월에 「1월 5일부터」)
+        if (new Date(y, mo - 1, da).getTime() < now.getTime() - 60 * 86400000) y += 1;
+        started = y + '-' + pad(mo) + '-' + pad(da);
+      }
+      s = s.replace(md[0], ' ¦ ');
+    } else {
+      s = s.replace(/(오늘|내일|모레)(?=\s*부터|\s*시작|\s*개강)/, (_, w) => {
+        started = ymdOf(new Date(now.getTime() + ({ 오늘: 0, 내일: 1, 모레: 2 }[w]) * 86400000)); return ' ¦ ';
+      });
+    }
+  }
+  // ⑨ 시간 — 오후6시 / 저녁 6시반 / 18:30 / 6시 20분 / 7시30 / 6pm / pm 6:30 / 정오
+  let time = '';
+  if (/정오/.test(s)) { time = '12:00'; s = s.replace(/정오/, ' ¦ '); }
+  // «6pm» 은 위에서 «6 오후표» 가 됐다 — 뒤에 붙은 오전/오후는 «표» 로 가려 낸다
+  const t = !time && s.match(/(오전|아침|오후|저녁|밤|새벽)?\s*(\d{1,2})\s*(?::\s*(\d{2})|시(?:\s*(반)|\s*(\d{1,2})(?!\s*개)\s*분?)?|\s+(오전|오후)표)/);
+  if (t) {
+    let h = +t[2];
+    const mi = t[3] != null ? +t[3] : (t[4] ? 30 : (t[5] != null ? +t[5] : 0));
+    let ap = (t[1] || '') + (t[6] || '');
+    if (!ap) { const after = s.slice(s.indexOf(t[0]) + t[0].length).match(/^\s*(오전|오후)표/); if (after) ap = after[1]; }
+    if (/오후|저녁|밤/.test(ap) && h < 12) h += 12;
+    else if (/오전|아침|새벽/.test(ap)) { if (h === 12) h = 0; }
+    // 오전·오후 없이 1~8시면 오후로 본다(새벽 수업은 없다) — 미리보기에서 사람이 확인
+    else if (!ap && h >= 1 && h <= 8) h += 12;
+    if (h <= 23 && mi <= 59) time = pad(h) + ':' + pad(mi);
+    s = s.replace(t[0], ' ¦ ');
+  }
+  s = s.replace(/(오전|오후)표/g, ' ¦ ');
+  // ⑩ 수업 길이 — 20분 / 30분 수업 (시간을 먼저 뗐으므로 「6시 30분」 의 30분은 여기 안 온다)
+  s = s.replace(/(\d{2})\s*분(?:\s*(?:수업|짜리|씩))?/, (_, n) => { extra.duration_min = +n; return ' ¦ '; });
+  // ⑪ 요일
+  const DAYS = '월화수목금토일';
+  const days = [];
+  const addDay = (d) => { if (days.indexOf(d) < 0) days.push(d); };
+  s = s.replace(/평일/g, () => { '월화수목금'.split('').forEach(addDay); return ' ¦ '; });
+  s = s.replace(/주말/g, () => { addDay('토'); addDay('일'); return ' ¦ '; });
+  s = s.replace(/매일/g, () => { DAYS.split('').forEach(addDay); return ' ¦ '; });
+  s = s.replace(/([월화수목금토일])\s*(?:요일|욜)?\s*[~\-]\s*([월화수목금토일])\s*(?:요일|욜)?/g, (all, a, b) => {
+    const i = DAYS.indexOf(a), j = DAYS.indexOf(b);
+    if (i < 0 || j < i) return all;
+    for (let k = i; k <= j; k++) addDay(DAYS[k]);
+    return ' ¦ ';
+  });
+  s = s.replace(/([월화수목금토일])\s*(?:요일|욜)/g, (_, d) => { addDay(d); return ' ¦ '; });
+  s = s.replace(/(^|[\s,])([월화수목금토일](?:\s*[,·\/]\s*[월화수목금토일]|[월화수목금토일])*)(?=[\s,]|$)/g,
+    (_, pre, g) => { g.replace(/[월화수목금토일]/g, (d) => { addDay(d); return d; }); return pre + ' '; });
+  // ⑫ 이름 — 군말·학년을 걷어 낸 뒤 남은 첫 한글 낱말
+  s = s.replace(/(초등|중등|고등|초|중|고)\s*\d(?:\s*학년)?|\d\s*학년/g, ' ¦ ');
+  s = s.replace(/(수업|등록|신청|요청|예약|부탁|드립니다|드려요|합니다|해\s*주세요|해주세요|원합니다|매주|부터|시작|개강|학생|이름|어머님|어머니|학부모|아버님|번호|연락처|전화|수강료|기간|강사|선생님|쌤|주\s*\d\s*회)/g, ' ¦ ');
+  // 조사·호칭은 «낱말 끝» 일 때만 — 이름 속 글자(이에스더)를 지우지 않게
+  s = s.replace(/(으로|에|님)(?=\s|$)/g, ' ¦ ');
+  const nm = s.match(/[가-힣]{2,6}/);
+  if (!nm) return null;
+  extra.notes = '카톡 한 줄: ' + orig;
+  return {
+    student_name: nm[0],
+    student_user_id: uid,
+    types_raw: types.join(' '),
+    days_raw: days.join(''),
+    time: time,
+    class_size: size,
+    started_at: started,
+    monthly_fee_krw: extra.monthly_fee_krw || '',
+    _extra: extra
+  };
+}
+
 // 카톡 텍스트 파서 — 빈 줄로 구분된 여러 명 지원
+//   ✍️ (2026-09-24) 이름표(학생: 등)가 없으면 «한 줄 = 한 명» 으로 읽는다(_parseFreeformEnrollment)
 function _parseKakaoEnrollments(text) {
   // 빈 줄 (또는 ━ 같은 구분선) 으로 record 분리
   const blocks = text.split(/\n\s*\n|━{3,}/).map(b => b.trim()).filter(b => b);
+  const labeledRe = /(학생|이름|UID|유형|과목|패키지|요일|시간|인원|시작일)\s*[:：]/i;
   const result = [];
   for (const block of blocks) {
+    if (!labeledRe.test(block)) {
+      const lines = block.split(/\n/).map(l => l.trim()).filter(l => l);
+      // 한 줄에서 읽은 덤(학부모 번호·수업 길이·기간·강사·메모)은 서버가 받는 칸 이름 그대로 붙인다
+      //   (이 객체를 통째로 POST /api/admin/enrollments 에 보낸다 — 서버가 모르는 값은 서버가 버린다)
+      const got = lines.map(l => _parseFreeformEnrollment(l)).filter(Boolean)
+        .map(f => { const e = _normalizeEnrollment(f); return e ? Object.assign(e, f._extra || {}) : null; })
+        .filter(Boolean);
+      if (got.length) { got.forEach(e => result.push(e)); continue; }
+    }
     const fields = _extractKoFields(block);
     const enr = _normalizeEnrollment(fields);
     if (enr) result.push(enr);
   }
   return result;
+}
+
+// 미리보기 «그 밖» 칸 — 한 줄 카톡에서 읽은 강사·수업 길이·기간·학부모 번호를 사람이 확인하게
+function _enImportExtraLabel(r) {
+  const out = [];
+  if (r.teacher_name) out.push('강사 ' + r.teacher_name);
+  if (r.duration_min) out.push(r.duration_min + '분');
+  if (r.duration_months) out.push(r.duration_months === 'unlimited' ? '기간 무제한' : r.duration_months + '개월');
+  if (r.parent_phone) out.push('학부모 ' + String(r.parent_phone).replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'));
+  return out.join(' · ');
 }
 
 // 미리보기 렌더링
@@ -10250,7 +10410,8 @@ function _renderImportPreview(records, source) {
   if (!records || records.length === 0) {
     box.style.display = 'block';
     box.innerHTML = '<div style="color:#dc2626;font-size:13px">⚠️ ' +
-      _aiEsc(source) + ' 에서 수강신청 정보를 찾을 수 없습니다. 파일·텍스트 형식을 확인해 주세요.</div>';
+      _aiEsc(source) + ' 에서 수강신청 정보를 찾을 수 없습니다. 파일·텍스트 형식을 확인해 주세요.' +
+      '<br><span style="color:#475467">한 줄로 쓸 때는 이름과 수업 종류(체험·레벨·정규)가 꼭 들어가야 합니다 — 예: <b>홍길동 수요일 오후6시 체험</b></span></div>';
     return;
   }
   const testOnly = records.filter(r => r._category === 'test_only').length;
@@ -10271,7 +10432,8 @@ function _renderImportPreview(records, source) {
     '<th style="padding:6px 8px;border:1px solid #e5e7eb">요일</th>' +
     '<th style="padding:6px 8px;border:1px solid #e5e7eb">시간</th>' +
     '<th style="padding:6px 8px;border:1px solid #e5e7eb">인원</th>' +
-    '<th style="padding:6px 8px;border:1px solid #e5e7eb">시작일</th></tr>';
+    '<th style="padding:6px 8px;border:1px solid #e5e7eb">시작일</th>' +
+    '<th style="padding:6px 8px;border:1px solid #e5e7eb">그 밖</th></tr>';
   records.forEach((r, i) => {
     const startStr = r.started_at ? new Date(r.started_at).toISOString().slice(0,10) : (r._started_at_str || '—');
     const feeStr = r.monthly_fee_krw ? r.monthly_fee_krw.toLocaleString('ko-KR') + '원' : '—';
@@ -10288,6 +10450,7 @@ function _renderImportPreview(records, source) {
       '<td style="padding:6px 8px;border:1px solid #e5e7eb">' + _aiEsc(r._time || '—') + '</td>' +
       '<td style="padding:6px 8px;border:1px solid #e5e7eb">' + _aiEsc(r._class_size || '—') + '</td>' +
       '<td style="padding:6px 8px;border:1px solid #e5e7eb">' + startStr + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid #e5e7eb">' + _aiEsc(_enImportExtraLabel(r) || '—') + '</td>' +
       '</tr>';
   });
   html += '</table></div>';
