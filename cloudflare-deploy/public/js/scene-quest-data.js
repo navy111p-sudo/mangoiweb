@@ -20,14 +20,38 @@
   // 🖼 사진 문제 은행(2026-09-23) — 이미 가진 Higgsfield 실사 사진(`/img/scene-clips/` 행동 장면 · `/img/scene-words/` 낱말 사진 중 사람이 나오는 것)에 사람이 사진을 보고 쓴 정답.
   //    원본은 docs/scene-curriculum-media/scene-quest-bank.json, 빌드는 scripts/build-scene-quest-bank.mjs.
   //    영상은 아직 없어 video:null — 화면이 «영상 보기» 를 감춥니다. world 는 교재 수준(bts·siu-basic·siu-advance).
-  var bank=(typeof module!=='undefined'&&module.exports)?require('./scene-quest-bank.js'):(root.MangoiSceneQuestBank||[]);
+  //    📦 수준별로 나눠 받습니다(2026-09-24) — 파일은 scene-quest-bank-<band>.js 셋이고, 화면은 학생이 고른 수준만
+  //    «탐험 시작» 을 누를 때 load() 로 받습니다(처음 열 때 받는 사진 문제 0바이트). 주소(?v=)는 화면 HTML 의
+  //    <template id="sq-banks"> 가 정본이라 asset_version 하니스가 지킵니다. ⛔ 주소를 여기 적지 마세요.
+  var BANDS=['bts','siu-basic','siu-advance'],loaded={};
   function cap(t){return t.charAt(0).toUpperCase()+t.slice(1);}
-  bank.forEach(function(b){
-    var sent=[];b.subj.forEach(function(sj){b.phrase.forEach(function(ph){sent.push(sj+' '+b.aux+' '+ph);});(b.simple||[]).forEach(function(sp){sent.push(sj+' '+sp);});});
-    sent[0]=cap(sent[0])+'.';
-    var s=b.src==='w'?'w':'c';
-    scenes.push({id:s+b.i,ko:b.ko,en:b.en,world:b.band,actionKo:b.actionKo,actionEn:b.actionEn,clueKo:b.clueKo,clueEn:b.clueEn,answers:[b.word.slice(),b.phrase.slice(),sent],poster:'/img/'+(s==='w'?'scene-words':'scene-clips')+'/'+b.i+'.webp',video:null});
-  });
+  function addBank(band,list){
+    if(loaded[band]||BANDS.indexOf(band)<0||!list)return;loaded[band]=true;
+    list.forEach(function(b){
+      var sent=[];b.subj.forEach(function(sj){b.phrase.forEach(function(ph){sent.push(sj+' '+b.aux+' '+ph);});(b.simple||[]).forEach(function(sp){sent.push(sj+' '+sp);});});
+      sent[0]=cap(sent[0])+'.';
+      var s=b.src==='w'?'w':'c';
+      scenes.push({id:s+b.i,ko:b.ko,en:b.en,world:band,actionKo:b.actionKo,actionEn:b.actionEn,clueKo:b.clueKo,clueEn:b.clueEn,answers:[b.word.slice(),b.phrase.slice(),sent],poster:'/img/'+(s==='w'?'scene-words':'scene-clips')+'/'+b.i+'.webp',video:null});
+    });
+  }
+  var inNode=typeof module!=='undefined'&&module.exports;
+  if(inNode)BANDS.forEach(function(band){addBank(band,require('./scene-quest-bank-'+band+'.js'));});
+  else{var pre=root.MangoiSceneQuestBanks||{};BANDS.forEach(function(band){addBank(band,pre[band]);});}
+  // 그 세계에 필요한 수준 — 'all'(깜짝 탐험)은 세 수준 모두, 그림·영상 세계는 받을 것이 없습니다.
+  function bandsFor(world){return world==='all'?BANDS.slice():BANDS.indexOf(world)>=0?[world]:[];}
+  function ready(world){return bandsFor(world).every(function(b){return loaded[b];});}
+  // urls: {band: '/js/scene-quest-bank-<band>.js?v=N'} · done(err) — 하나라도 못 받으면 err 로 알립니다(지어내지 않음).
+  function load(world,urls,done){
+    var need=bandsFor(world).filter(function(b){return !loaded[b];}),left=need.length,failed=null;
+    if(!left){done(null);return;}
+    need.forEach(function(band){
+      if(!urls||!urls[band]){failed=failed||new Error('no url: '+band);if(--left===0)done(failed);return;}
+      var el=document.createElement('script');el.src=urls[band];el.async=true;
+      el.onload=function(){addBank(band,(root.MangoiSceneQuestBanks||{})[band]);if(!loaded[band])failed=failed||new Error('empty: '+band);if(--left===0)done(failed);};
+      el.onerror=function(){el.remove();failed=failed||new Error('load failed: '+band);if(--left===0)done(failed);};
+      document.head.appendChild(el);
+    });
+  }
   function normalize(s){return String(s||'').normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(he|she|it)'s\b/g,'$1 is').replace(/\b(they|we)'re\b/g,'$1 are').replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();}
   function distance(a,b){var prev=Array.from({length:b.length+1},function(_,i){return i;});for(var i=1;i<=a.length;i++){var next=[i];for(var j=1;j<=b.length;j++)next[j]=Math.min(next[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=next;}return prev[b.length];}
   function check(value,scene,level){
@@ -46,6 +70,6 @@
     selected.push({scene:pool[0],level:Math.min(2,level+1),boss:true});
     return selected;
   }
-  var api={scenes:scenes,normalize:normalize,check:check,deck:deck};
+  var api={scenes:scenes,normalize:normalize,check:check,deck:deck,bands:BANDS,ready:ready,load:load,addBank:addBank};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.MangoiSceneQuest=api;
 })(typeof window!=='undefined'?window:this);

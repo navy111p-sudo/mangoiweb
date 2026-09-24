@@ -86,7 +86,20 @@
     if(!reviewing&&!reported){reported=true;if(window.parent!==window)window.parent.postMessage({type:'mangoi-game-complete',game:'scenequest',score:score},location.origin);}
   }
   $('answer-form').addEventListener('submit',submit);$('answer').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.isComposing)e.preventDefault();});
-  $('start').addEventListener('click',function(){reviewing=false;start(D.deck($('world').value,Number($('level').value)));});
+  // 📦 사진 문제는 수준별 파일이라 «시작» 을 누를 때 그 수준만 받습니다. 주소 정본은 HTML 의 <template id="sq-banks">.
+  function bankUrls(){var urls={},t=$('sq-banks');if(t&&t.content)t.content.querySelectorAll('script[data-band]').forEach(function(el){urls[el.getAttribute('data-band')]=el.getAttribute('src');});return urls;}
+  var loading=false;
+  $('start').addEventListener('click',function(){
+    if(loading)return;reviewing=false;var world=$('world').value,level=Number($('level').value),btn=$('start');
+    if(D.ready(world)){text('start-status','');start(D.deck(world,level));return;}
+    loading=true;btn.disabled=true;text('start-status',tr('사진 문제를 불러오는 중이에요…','Loading photo scenes…'));
+    D.load(world,bankUrls(),function(err){
+      loading=false;btn.disabled=false;
+      // ⛔ 못 받았는데 그림 세계로 몰래 바꾸지 않습니다 — 사실대로 말하고 다시 누르게 합니다.
+      if(err||!D.ready(world)){text('start-status',tr('사진 문제를 불러오지 못했어요. 인터넷을 확인하고 다시 눌러 주세요.','Could not load the photo scenes. Check the connection and try again.'));return;}
+      text('start-status','');start(D.deck(world,level));
+    });
+  });
   $('next').addEventListener('click',function(){if(!passed||paused)return;if(index+1>=rounds.length)finish();else{index++;loadRound();}});
   $('hint').addEventListener('click',hint);$('reveal').addEventListener('click',reveal);$('skip').addEventListener('click',skip);
   $('watch').addEventListener('click',function(){if($('video').getAttribute('src'))$('video').currentTime=0;watch();});
