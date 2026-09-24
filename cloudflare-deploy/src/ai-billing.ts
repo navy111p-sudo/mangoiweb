@@ -101,6 +101,8 @@ async function ensureSchema(env: Env): Promise<void> {
       UNIQUE(invoice_id, student_user_id)
     )`);
     await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_items_invoice ON ai_billing_invoice_items(invoice_id)`);
+    // 🛎 월 자동 청구의 «마지막 실행 결과» — 로그는 5% 샘플링이라 실패가 안 남는다. 관리자 카드가 이것을 읽어 말한다.
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_meta (k TEXT PRIMARY KEY, v TEXT, at INTEGER NOT NULL)`);
     return true;
   }, false);
   // 💰 (2026-09-24) 청구서마다 «생성 시점의 공급가 규칙» 을 JSON 으로 박아 둔다 — 나중에 표를
@@ -387,22 +389,54 @@ async function syncItemTracks(env: Env, invoiceId: number, liveRows: Array<{ use
 }
 
 /** 매달 1일 KST cron 훅 — 모든 대리점의 «다음 달» 청구서를 생성/보강한다. */
-export async function generateMonthlyAiInvoices(env: Env): Promise<{ agencies: number; invoices: number; added: number }> {
+export async function generateMonthlyAiInvoices(env: Env): Promise<{ agencies: number; invoices: number; added: number; status?: string }> {
   await ensureSchema(env);
   const target = monthAdd(currentMonthKST(), 1);
+  // 대리점 목록을 «못 읽음» 과 «0곳» 으로 가른다 — 둘 다 [] 로 뭉치면 실패가 «할 일 없음» 으로 위장한다.
   const shops = await safe(async () => (await env.DB.prepare(
     `SELECT DISTINCT shop_name FROM students_erp WHERE shop_name IS NOT NULL AND TRIM(shop_name) <> '' AND ${enrolledCond('')}`
-  ).all<{ shop_name: string }>()).results || [], [] as any[]);
-  let invoices = 0, added = 0;
+  ).all<{ shop_name: string }>()).results || [], null as any[] | null);
+  if (!shops) {
+    const out = { agencies: 0, invoices: 0, added: 0, status: 'shops_failed' };
+    await recordCronRun(env, target, out);
+    return out;
+  }
+  let invoices = 0, added = 0, failed = 0;
   // 화상반 목록은 «한 번만» 읽는다 — 대리점마다 읽으면 376곳 × 약 0.3초.
   // 못 읽으면 이번 달은 아무 청구서도 만들지 않는다(이중 청구 방지 — 다음 실행/수동 생성이 채운다).
   const live = await loadLiveUids(env);
-  if (!live) return { agencies: shops.length, invoices: 0, added: 0 };
+  if (!live) {
+    const out = { agencies: shops.length, invoices: 0, added: 0, status: 'live_check_failed' };
+    await recordCronRun(env, target, out);
+    return out;
+  }
   for (const s of shops) {
     const r = await safe(() => generateOrRefreshInvoice(env, s.shop_name, target, 'auto', live), null);
-    if (r) { invoices++; added += r.added; }
+    if (r && !r.live_check_failed) { invoices++; added += r.added; } else failed++;
   }
-  return { agencies: shops.length, invoices, added };
+  const out = { agencies: shops.length, invoices, added, failed, status: failed ? 'partial' : 'ok' };
+  await recordCronRun(env, target, out);
+  return out;
+}
+
+/** 월 자동 청구의 마지막 결과를 남긴다 — ⛔ 던지지 않는다(감시가 감시 대상을 멈추면 안 된다). */
+async function recordCronRun(env: Env, month: string, r: Record<string, any>): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO ai_billing_meta (k, v, at) VALUES ('last_monthly_run', ?, ?)
+       ON CONFLICT(k) DO UPDATE SET v = excluded.v, at = excluded.at`
+    ).bind(JSON.stringify({ month, ...r }), Date.now()).run();
+  } catch (e) { console.warn('[ai-billing] recordCronRun failed:', String((e as any)?.message || e)); }
+}
+
+/** 관리자 카드용 — 없거나 못 읽으면 null(«아직 한 번도 안 돌았다» 와 «모른다» 는 화면이 같은 «—» 로 말한다). */
+async function readCronRun(env: Env): Promise<Record<string, any> | null> {
+  return safe(async () => {
+    const row = await env.DB.prepare(`SELECT v, at FROM ai_billing_meta WHERE k = 'last_monthly_run'`).first<{ v: string; at: number }>();
+    if (!row) return null;
+    const v = JSON.parse(String(row.v || '{}'));
+    return (v && typeof v === 'object') ? { ...v, at: Number(row.at) || 0 } : null;
+  }, null);
 }
 
 /** api-pay.ts 의 activateEnrollment() 가 MGB- 주문을 보면 이걸 부른다 — 결제 확정 뒤 1회. */
@@ -498,7 +532,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (q) list = list.filter(r => r.shop_name.toLowerCase().includes(q) || String(r.franchise || '').toLowerCase().includes(q));
     return json({
       ok: true, scope: scope.label, editable: scope.type === 'hq',
-      price_rule: rule,
+      price_rule: rule, last_cron: await readCronRun(env),
       count: list.length, rows: list.slice(0, 500), truncated: list.length > 500,
     });
   }
