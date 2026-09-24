@@ -2,7 +2,7 @@
 //   게임·퀴즈 20곳이 /api/voice/tts 를 각자 부른다. 낱말 하나(`study`)를 받으면 Aura 가 어색하게 읽어서
 //   서버 입구 한 곳(src/tts-short-text.ts)에서 `Study.` 로 다듬는다.
 //   정본을 «실제로 돌려» 답을 보고, 두 입구(voice/tts · review-quiz/tts)가 그것을 캐시 키보다 «먼저» 거치는지 본다.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 const root = new URL('../cloudflare-deploy/src/', import.meta.url);
 const modSrc = readFileSync(new URL('tts-short-text.ts', root), 'utf8');
 const games = readFileSync(new URL('api-games.ts', root), 'utf8');
@@ -88,6 +88,50 @@ for (const [name, anchor] of [['voice/tts', "path === '/api/voice/tts'"], ['revi
   }
   ok('시험: 낱말 하나 → Study.', w === 'Study.');
   ok('시험 짝: 긴 문장은 그대로', l === 'Listen and choose the best answer');
+}
+// ⑤ 기기 목소리(speechSynthesis) — public/js/tts-short-text.js (2026-09-24)
+{
+  const pub = new URL('../cloudflare-deploy/public/', import.meta.url);
+  const bsrc = readFileSync(new URL('js/tts-short-text.js', pub), 'utf8');
+  let spoken = [], win = null;
+  const mk = () => {
+    spoken = [];
+    const ss = { speak(u) { spoken.push(u.text); } };
+    win = { speechSynthesis: ss };
+    const doc = { documentElement: { lang: 'ko' } };
+    new Function('window', 'document', bsrc)(win, doc);
+  };
+  try { mk(); } catch (e) { console.log('  (브라우저 파일 실행 실패: ' + e.message + ')'); }
+  const bfn = win && win.mgTtsShortText;
+  ok('전제: 브라우저 규칙을 실행했다', typeof bfn === 'function');
+  // 서버 정본과 «같은 답» 인가 — 입력 묶음 전수 대조
+  const CASES = ['study','go to school','TV',"don't",'ice-cream','apple,','  big ','I like to eat','Hello.','Why?','Wow!','ni hao','你好','apple 사과','10','', 'a', 'Mr Kim', 'look at me now'];
+  const LANGS = ['en','en-us','EN-GB','zh','zh-CN','ko',''];
+  let diff = [];
+  for (const t of CASES) for (const l of LANGS) { let a, b; try { a = fn(t, l); b = bfn(t, l); } catch (e) { a = 'E'; b = 'e'; } if (a !== b) diff.push(JSON.stringify([t, l, a, b])); }
+  ok('브라우저 규칙 = 서버 정본 (' + CASES.length * LANGS.length + '조합)', typeof bfn === 'function' && diff.length === 0);
+  if (diff.length) console.log('    어긋남: ' + diff.slice(0, 5).join(' '));
+  // speak() 감싸기 — 실제로 호출해 «무엇이 읽혔나» 를 본다
+  const say = (text, lang, voiceLang) => { const u = { text, lang: lang || '', voice: voiceLang ? { lang: voiceLang } : null }; try { win.speechSynthesis.speak(u); } catch (e) { return '__THROW__'; } return spoken[spoken.length - 1]; };
+  try { mk(); } catch (e) {}
+  ok('기기: en-US 낱말 → Study.', say('study', 'en-US') === 'Study.');
+  ok('기기: lang 없음 + 한국어 문서 + 영어 낱말 → Big.', say('big', '') === 'Big.');
+  ok('기기: voice.lang 이 en 이면 적용', say('happy', '', 'en-GB') === 'Happy.');
+  ok('기기 짝: 중국어 음성은 그대로 (ni hao / 你好)', say('ni hao', 'zh-CN') === 'ni hao' && say('你好', 'zh-CN') === '你好');
+  ok('기기 짝: 긴 문장은 그대로', say('I like to eat pizza', 'en-US') === 'I like to eat pizza');
+  ok('기기 짝: 한국어 문장은 그대로', say('안녕하세요', 'ko-KR') === '안녕하세요');
+  ok('기기: 원래 speak 를 한 번씩 부른다(삼키지 않음)', (() => { mk(); say('a','en'); say('b','zh'); return spoken.length === 2; })());
+  ok('기기: 두 번 실려도 두 번 감싸지 않는다', (() => { spoken = []; const ss = { speak(u) { spoken.push(u.text); } }; const w = { speechSynthesis: ss }; const d = { documentElement: { lang: 'en' } }; new Function('window','document',bsrc)(w,d); const once = w.speechSynthesis.speak; new Function('window','document',bsrc)(w,d); w.speechSynthesis.speak({ text: 'study', lang: 'en' }); return w.speechSynthesis.speak === once && spoken.length === 1 && spoken[0] === 'Study.'; })());
+  ok('기기: speechSynthesis 가 없어도 던지지 않는다', (() => { try { new Function('window','document',bsrc)({}, { documentElement: {} }); return true; } catch (e) { return false; } })());
+  // 배선 — 기기 목소리를 쓰는 학생 화면이 이 파일을 빠짐없이 싣는가(기계로 센다)
+  const MODS = ['mangoi-listen-first.js','mangoi-speak-cycle.js','scene-curriculum.js','scene-quest.js','game-tts.js'];
+  const EXCLUDE = new Set(['index.html','admin.html','zh-voice-sample.html']);   // 공동 금지구역 · 관리자 · 중국어 성우 견본
+  const pages = readdirSync(pub).filter(f => f.endsWith('.html') && !EXCLUDE.has(f));
+  const need = pages.filter(f => { const h = readFileSync(new URL(f, pub), 'utf8'); return /new\s+SpeechSynthesisUtterance/.test(h) || MODS.some(m => h.includes('/js/' + m)); });
+  const miss = need.filter(f => !/<script[^>]+src="\/js\/tts-short-text\.js\?v=\d+"/.test(readFileSync(new URL(f, pub), 'utf8')));
+  ok('전제: 기기 목소리를 쓰는 학생 화면을 찾았다 (' + need.length + '곳)', need.length >= 20);
+  ok('배선: 그 화면 전부가 tts-short-text.js 를 싣는다', miss.length === 0);
+  if (miss.length) console.log('    빠진 화면: ' + miss.join(', '));
 }
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
