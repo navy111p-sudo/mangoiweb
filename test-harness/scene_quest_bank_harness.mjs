@@ -11,6 +11,8 @@ const pub=new URL('../cloudflare-deploy/public/',import.meta.url);
 const photo=D.scenes.filter(s=>/^[cw]\d+$/.test(s.id));
 ok(B.length>=400,'은행 문제 수가 400 이상 ('+B.length+')');
 ok(photo.length===B.length,'은행이 전부 scenes 로 들어갔다');
+ok(photo.some(s=>s.id[0]==='w'&&s.poster.startsWith('/img/scene-words/'))&&photo.some(s=>s.id[0]==='c'&&s.poster.startsWith('/img/scene-clips/')),'행동 장면 사진·낱말 사진 두 갈래가 다 들어 있다');
+for(const band of ['siu-basic','siu-advance']){const n=photo.filter(s=>s.world===band).length;ok(n>=200,band+' 문제가 200 이상 ('+n+')');}
 ok(D.scenes.filter(s=>!/^[cw]\d+$/.test(s.id)).length===12,'원래 12장면은 그대로');
 ok(new Set(D.scenes.map(s=>s.id)).size===D.scenes.length,'id 중복 없음');
 for(const band of ['bts','siu-basic','siu-advance']){
