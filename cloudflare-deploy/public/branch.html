@@ -910,7 +910,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <button type="button" class="tb" data-go="search">
     <span data-en="Search" data-ko="검색">Search</span>
   </button>
-  <a class="tb" href="/work">
+  <a class="tb" id="tbWork" href="/work">
     <span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN2" class="tb-n"></span>
   </a>
   <button type="button" class="tb" data-go="reload">
@@ -1063,7 +1063,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function get(path, key){
     return fetch(path, { credentials: 'include', headers: { 'Accept': 'application/json' } })
       .then(function(r){
-        if (r.status === 401 || r.status === 403) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        /* 🔐 (2026-09-24) 401 과 403 을 가른다 — 403 은 «로그인은 됐는데 이 계정이 못 보는 것».
+           예전엔 403 도 로그인 창으로 보내 지사 계정이 «자꾸 다시 로그인하라» 에 갇혔다(work.html 과 같은 뿌리).
+           ⛔ 403 을 다시 로그인 창으로 보내지 말 것 — 그 칸만 «권한 없음» 으로 말한다(failBox). */
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        if (r.status === 403) throw new Error('forbidden');
         return r.json();
       })
       .then(function(j){
@@ -1087,6 +1091,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
   function failBox(el, err){
     el.className = 'empty';
+    if (err && err.message === 'forbidden') {
+      el.textContent = T('This account cannot view this. (You are signed in correctly.)',
+                         '이 계정 권한으로는 볼 수 없는 정보입니다. (로그인은 정상입니다)');
+      return;
+    }
     el.textContent = T('Could not load. Check your connection and press Refresh.',
                        '불러오지 못했습니다. 연결을 확인하고 새로고침을 눌러 주세요.')
                    + (err && err.message ? ' (' + err.message + ')' : '');
@@ -1180,6 +1189,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
+    /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
+       지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
+       범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
+    var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
+    ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
     if (sc.type === 'hq') {

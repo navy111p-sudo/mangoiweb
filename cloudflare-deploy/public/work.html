@@ -121,6 +121,13 @@ h2::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;border-radius:2
 html.dark h2{color:#dbe6f2;border-bottom-color:#2f3d4d}
 html.dark h2::before{background:#6fd3ad}
 .empty{color:#7b8794;font-size:14px;padding:14px 2px}
+/* 🚫 결재함을 쓸 수 없는 계정(지사·대리점) — showNoAccess() 가 붙인다 */
+body.no-access .wrap > *:not(#noAccess){display:none !important}
+#noAccess{border:1px solid #e0b6ad;background:#fff7f5;color:#5a2118;border-radius:10px;padding:16px 16px;margin:18px 0;line-height:1.65;font-size:15px}
+html.dark #noAccess{background:#2a1a17;border-color:#5a3129;color:#f3d6cf}
+#noAccess .na-t{font-weight:800;font-size:17px;margin-bottom:6px}
+#noAccess .na-l{margin:4px 0}
+#noAccess .na-a{margin-top:12px}
 html.dark .empty{color:#8b98a8}
 
 /* ── 결재 한 줄 ─────────────────────────────────────────── */
@@ -630,6 +637,7 @@ window.toggleLang = function(){
   LANG = EN() ? 'ko' : 'en';
   try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by', 'user'); } catch (e) {}
   applyLang();
+  if (NO_ACCESS) showNoAccess(NO_ACCESS_J);   // 안내도 새 언어로 다시 그린다
 };
 
 /* ── 어두운 화면 — 버튼으로만. 자동전환 금지. ──────────────────────────────── */
@@ -699,7 +707,18 @@ try {
 function load(){
   return fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
     .then(function(r){
-      if (r.status === 401 || r.status === 403) { location.href = '/admin/login?next=%2Fwork'; throw new Error('auth'); }
+      /* 🔐 (2026-09-24) 401 과 403 은 다른 사실이다 — 갈라야 한다.
+         401 = 로그인이 안 됨 → 로그인 창.  403 = 로그인은 됐는데 이 계정이 못 씀(지사·대리점).
+         예전엔 둘 다 로그인 창으로 보내서, 지사 계정(branch1 폴정)이 다시 로그인해도 또 여기로
+         와서 또 403 → «자꾸 다시 로그인하라» 에 갇혔다. 로그인 창은 그 사실을 말해 주지 못한다.
+         ⛔ 403 을 다시 로그인 창으로 보내지 말 것. */
+      if (r.status === 401) { location.href = '/admin/login?next=%2Fwork'; throw new Error('auth'); }
+      if (r.status === 403) {
+        return r.json().catch(function(){ return {}; }).then(function(j){
+          showNoAccess(j || {});
+          throw new Error('auth');
+        });
+      }
       return r.json();
     })
     .then(function(j){
@@ -729,6 +748,28 @@ function load(){
     });
 }
 window.reloadAll = function(){ load().catch(function(){}); };
+
+/* 🚫 (2026-09-24) 이 계정은 결재함을 쓸 수 없다 — 로그인 창 대신 «왜» 와 «어디로» 를 말한다.
+   - 캐시(mangoi_work_home_v1)를 지운다: 공용 PC 에서 앞사람(본사)의 결재 목록이 남아 보이면 안 된다.
+   - 나머지 화면(목록·올리기 폼)은 감춘다 — 눌러도 전부 403 이라 «보이는데 안 되는» 버튼이 된다.
+   - 60초 새로고침이 다시 불러도 같은 자리로 온다(멱등). */
+var NO_ACCESS = false, NO_ACCESS_J = {};
+function showNoAccess(j){
+  NO_ACCESS = true; NO_ACCESS_J = j || {};
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  D = null;
+  document.body.classList.add('no-access');
+  var wrap = document.querySelector('.wrap'); if (!wrap) return;
+  var box = document.getElementById('noAccess');
+  if (!box) { box = document.createElement('div'); box.id = 'noAccess'; wrap.insertBefore(box, wrap.firstChild); }
+  var who = String((j && j.who) || '');
+  box.innerHTML =
+    '<div class="na-t">' + esc(T('Approvals are for head-office accounts only.', '결재함은 본사 계정 전용입니다.')) + '</div>' +
+    (who ? '<div class="na-l">' + esc(T('Signed in as: ', '지금 로그인한 계정: ')) + '<b>' + esc(who) + '</b></div>' : '') +
+    '<div class="na-l">' + esc(T('You are signed in correctly — this account simply cannot use approvals. If you need approvals, sign in with a head-office account.',
+                                  '로그인은 정상입니다. 이 계정으로는 결재함을 쓸 수 없을 뿐입니다. 결재가 필요하면 본사 계정으로 로그인해 주세요.')) + '</div>' +
+    '<div class="na-a"><a class="tbtn" href="/admin.html">' + esc(T('← Back to admin', '← 관리자 화면으로')) + '</a></div>';
+}
 
 /* ── 🔙 뒤로 · 🏠 홈 (2026-08-20) ──────────────────────────────────────────
    왜 — 결재함에는 나가는 길이 「로그아웃」밖에 없었다. 관리자 화면에서 「결재 올리기」로

@@ -39,6 +39,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
+import { teacherWhoLabel } from './forbidden-teacher';  // 🪪 거절할 때 «지금 누구로 들어와 있는가»
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
 import { siteUrl } from './site-url';                  // 🔗 사람에게 나가는 링크는 한 곳에서
@@ -896,11 +897,17 @@ export async function handleApprovalApi(
   //   대신 아래 각 엔드포인트가 분류별로 판정한다(canSubmit · canView).
   //   ⚠️ index.ts 의 TEACHER_BLOCKED_PREFIXES 는 여전히 /api/approval 을 막고 있다.
   //      강사에게 열어 준 경로만 거기서 예외로 빼 두었다.
+  /* 🪪 (2026-09-24) «지금 누구로 들어와 있는가» 를 함께 싣는다 — 부르는 사람 «자신» 의 계정이라
+     새로 새는 것이 없다(/api/admin/me 가 이미 준다). 결재 화면(work.html)이 이 403 을
+     «로그인 필요» 로 읽고 로그인 창으로 돌려보내, 지사 계정이 «자꾸 다시 로그인하라» 에 갇혔었다.
+     ⛔ 이 403 을 401 로 바꾸지 말 것 — 화면이 둘을 갈라야 «권한 없음» 과 «로그인 필요» 를 말한다. */
+  const who = teacherWhoLabel({ username: actor.username, name: actor.name });
   if (!isHqStaff(actor) && !actor.isTeacher) {
     return json({
       ok: false, error: 'forbidden',
       message: '본사 계정만 사용할 수 있습니다.',
       message_en: 'Head-office accounts only.',
+      who,
     }, 403);
   }
   await ensureTable(env);
