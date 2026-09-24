@@ -6415,15 +6415,11 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           document.addEventListener('DOMContentLoaded', function(){
             var f = document.querySelector('.home-flow');
             var q = document.getElementById('hero-guest-quiet');
-            var h = document.getElementById('lesson-enter-hint');
             if (member){
               /* 이미 등록한 회원에게 '무료 상담 → 레벨 테스트' 절차 안내는 의미가 없고,
                  '이미 수강 중이신가요?' 도 마찬가지다(바로 위에 큰 '수업 입장'이 있다). */
               if (f) f.style.display = 'none';
               if (q) q.style.display = 'none';
-              /* 반대로 '🎥 로비 입장 / 📹 마이크·카메라' 안내는 수업 입장을 누를 사람에게만 뜻이 있다.
-                 (2026-08-02) 전에는 비회원에게도 항상 떠서 하단에 알약이 하나 더 쌓였다. */
-              if (h) h.style.display = 'flex';
             }
           });
         }catch(e){}
@@ -6576,12 +6572,6 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         setInterval(applyHomeTheme, 60000); // 켜둔 채로 6시/18시 넘어가면 자동 전환
       })();
       </script>
-      <!-- 안내문구 (수업입장 정보) — 기본 숨김. 로그인한 회원에게만 위 스크립트가 flex 로 켠다 (2026-08-02) -->
-      <div id="lesson-enter-hint" style="text-align:center;width:fit-content;margin:14px auto 0;font-size:11.5px;color:#cbd5e1;display:none;gap:12px;justify-content:center;flex-wrap:wrap;background:rgba(0,0,0,0.5);padding:8px 18px;border-radius:99px;border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);text-shadow:0 1px 2px rgba(0,0,0,0.6)">
-        <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
-        <span style="opacity:.5">|</span>
-        <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
-      </div>
       <!-- ⏰ 다음 수업 카운트다운 (홈 대시보드) — /api/class/sessions/today 의 current + start_ts 기반 -->
       <div id="next-class-countdown" style="display:none"></div>
       <script src="/js/idx-next-class.js?v=4"></script>
@@ -6812,8 +6802,6 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       })();
       </script>
       <style>
-      /* 모바일(≤480px)에서는 '화상수업 로비로 입장 | 마이크/카메라 사용' 안내문구 숨김 */
-      @media (max-width:480px){ #lesson-enter-hint{display:none!important;} }
       @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
       #btn-enter-class:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
       /* 수업 연기/변경 모달 */
