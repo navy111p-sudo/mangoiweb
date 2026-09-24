@@ -801,6 +801,18 @@ const T = {
   emptyFeedback:{ko:'피드백이 없습니다.', en:'No feedback yet.'},
   emptyConsult:{ko:'상담 내역이 없습니다.', en:'No counseling records.'},
   emptyTextbook:{ko:'배정된 교재가 없습니다.', en:'No textbook assigned.'},
+  sqTitle:{ko:'✍️ 교재 낱말 쓰기 숙제', en:'✍️ Textbook word-writing homework'},
+  sqNow:{ko:'지금 배정된 교재', en:'Assigned textbook'},
+  sqNone:{ko:'없음 — 학생이 숙제 화면에서 직접 고릅니다', en:'None - the student picks a book in the homework screen'},
+  sqPick:{ko:'쓰기 숙제 권 지정', en:'Set homework book'},
+  sqSave:{ko:'지정', en:'Assign'},
+  sqSaved:{ko:'지정했습니다 — 학생이 다음에 숙제를 열면 이 권으로 시작합니다', en:'Saved - the homework opens this book next time'},
+  sqFail:{ko:'지정하지 못했습니다', en:'Could not assign'},
+  sqHw:{ko:'최근 30일 쓰기 숙제', en:'Writing homework, last 30 days'},
+  sqHwNone:{ko:'아직 한 번도 안 했습니다', en:'Not done yet'},
+  sqHwLine:{ko:'{n}회 · 문제 {i}개 · 정답률 {r}', en:'{n} sessions · {i} items · accuracy {r}'},
+  sqWeak:{ko:'다시 볼 낱말', en:'Words to review'},
+  sqHwErr:{ko:'현황을 불러오지 못했습니다', en:'Could not load homework status'},
   emptyRecording:{ko:'녹화 영상이 없습니다.', en:'No recordings.'},
   emptyConsent:{ko:'동의 기록이 없습니다.', en:'No consent record.'},
   emptyRewards:{ko:'아직 보상 내역이 없습니다.', en:'No reward history yet.'},
@@ -1876,10 +1888,68 @@ $('cSaveBtn').addEventListener('click', async () => {
 });
 
 // ═══════════════════════ 10. 교재 ═══════════════════════
+/* ✍️ (2026-09-24) 쓰기 숙제 권 지정 + 이 학생의 숙제 현황.
+   · 지정은 기존 POST /api/admin/students/bulk-assign-textbook 에 «이 학생만»(user_ids) 으로 보낸다
+     — students_erp.textbook 이 «오늘의 학습» 과 장면 탐험대(?scenebook=1)가 읽는 정본이다.
+   · 권 목록은 장면 탐험대 목차(manifest.json)에서 읽는다(손으로 적지 않는다).
+     보내는 글자는 «BTS 12» · «SIU BASIC 15» 꼴 — 서버 sceneBookId 가 그대로 알아본다.
+   · 현황은 /api/admin/reports/scene-homework?uid= (정본 src/scene-homework.ts). */
+function sqBlockHtml(){
+  const erp = (_state.full && _state.full.erp) || {};
+  const cur = String(erp.textbook || '').trim();
+  return '<div style="border:1px solid #e4e7ec;border-radius:10px;padding:12px;margin-bottom:12px;background:#ffffff;color:#101828">'+
+    '<div style="font-weight:700;margin-bottom:6px">'+t('sqTitle')+'</div>'+
+    '<div style="font-size:13px;color:#475467;margin-bottom:8px">'+t('sqNow')+': <b style="color:#101828">'+(cur?esc(cur):esc(t('sqNone')))+'</b></div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+      '<label for="sqBook" style="font-size:13px;color:#475467">'+t('sqPick')+'</label>'+
+      '<select id="sqBook" style="background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;min-width:220px"></select>'+
+      '<button type="button" id="sqSave" style="background:#b45309;color:#ffffff;border:1px solid #b45309;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer">'+t('sqSave')+'</button>'+
+      '<span id="sqMsg" style="font-size:12px;color:#475467"></span>'+
+    '</div>'+
+    '<div id="sqHw" style="margin-top:10px;font-size:13px;color:#475467">…</div>'+
+  '</div>';
+}
+let _sqManifest = null;
+function sqLabelOf(b){ return b.label; }   // «BTS 12» 꼴 — 서버가 알아보는 모양
+function sqWire(){
+  const sel = $('sqBook'); if (!sel) return;
+  const erp = (_state.full && _state.full.erp) || {};
+  const fill = (m) => {
+    const cur = String(erp.textbook || '').trim().toUpperCase();
+    sel.innerHTML = '<option value="">—</option>' + (m.books||[]).map(b =>
+      '<option value="'+esc(sqLabelOf(b))+'"'+(cur && cur.indexOf(String(b.label).toUpperCase())===0 && !/\d/.test(cur.charAt(String(b.label).length)) ?' selected':'')+'>'+esc(b.label+' · '+(b.title||''))+'</option>').join('');
+  };
+  if (_sqManifest) fill(_sqManifest);
+  else fetch('/data/scene-curriculum/v1/manifest.json').then(r=>r.json()).then(m=>{ _sqManifest=m; fill(m); }).catch(()=>{});
+  $('sqSave').addEventListener('click', async () => {
+    const v = sel.value; if (!v) return;
+    const btn = $('sqSave'); btn.disabled = true; $('sqMsg').textContent = '…';
+    try {
+      const r = await fetch('/api/admin/students/bulk-assign-textbook', { method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ textbook_title: v, user_ids: [uid], only_empty: false }) });
+      const j = await r.json().catch(()=>({}));
+      if (r.ok && j.ok === true && Number(j.updated) > 0) { toast(t('sqSaved')); await loadFull(); }
+      else $('sqMsg').textContent = t('sqFail') + ': ' + (j.error || r.status) + (j.ok === true && !Number(j.updated) ? ' (0)' : '');
+    } catch (e) { $('sqMsg').textContent = t('sqFail'); }
+    finally { btn.disabled = false; }
+  });
+  fetch('/api/admin/reports/scene-homework?days=30&uid=' + encodeURIComponent(uid), { credentials:'include' })
+    .then(r => r.json().then(j => ({ r, j })))
+    .then(({ r, j }) => {
+      const box = $('sqHw'); if (!box) return;
+      if (!r.ok || !j || j.ok !== true) { box.textContent = t('sqHwErr'); return; }
+      const row = (j.rows || [])[0];
+      if (!row) { box.innerHTML = '<b style="color:#101828">'+t('sqHw')+'</b>: '+esc(t('sqHwNone')); return; }
+      const line = t('sqHwLine').replace('{n}', row.sessions).replace('{i}', row.items).replace('{r}', row.rate == null ? '—' : row.rate + '%');
+      box.innerHTML = '<b style="color:#101828">'+t('sqHw')+'</b>: '+esc(line) +
+        (row.weak && row.weak.length ? '<br>'+t('sqWeak')+': <b style="color:#b45309">'+row.weak.map(esc).join(', ')+'</b>' : '');
+    })
+    .catch(() => { const box = $('sqHw'); if (box) box.textContent = t('sqHwErr'); });
+}
 function renderTextbook(){
   const items = _state.full.textbooks || [];
-  if (items.length === 0) { $('textbookBox').innerHTML = '<div class="empty">'+t('emptyTextbook')+'</div>'; return; }
-  $('textbookBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thTextbook')+'</th><th>'+t('thLevel')+'</th><th>'+t('thStart')+'</th><th>'+t('thEnd')+'</th><th>'+t('thProgress')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
+  if (items.length === 0) { $('textbookBox').innerHTML = sqBlockHtml() + '<div class="empty">'+t('emptyTextbook')+'</div>'; sqWire(); return; }
+  $('textbookBox').innerHTML = sqBlockHtml() + '<table class="list"><thead><tr><th>'+t('thTextbook')+'</th><th>'+t('thLevel')+'</th><th>'+t('thStart')+'</th><th>'+t('thEnd')+'</th><th>'+t('thProgress')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
     items.map(t=>`<tr>
       <td>${esc(t.textbook_name)||'—'}</td>
       <td>${esc(t.level)||'—'}</td>
@@ -1893,6 +1963,7 @@ function renderTextbook(){
       </td>
       <td>${statusBadge(t.status)}</td>
     </tr>`).join('')+'</tbody></table>';
+  sqWire();
 }
 
 // ═══════════════════════ 11. 녹화 영상 ═══════════════════════

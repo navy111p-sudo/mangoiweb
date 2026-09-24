@@ -18,7 +18,7 @@ import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
-import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
+import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
 export async function handleStudentsApi(
   request: Request,
@@ -492,6 +492,22 @@ ${MANGOI_KNOWLEDGE}`;
       if (String(url.searchParams.get('track') || '') === '1') {
         const tr = await resolveStudentTrack(env as any, uid);
         const res = json({ ok: true, track: tr.track });
+        res.headers.set('Cache-Control', 'private, no-store');
+        return res;
+      }
+      /* ✍️ (2026-09-24) ?scenebook=1 — «선생님이 정한 쓰기 숙제 권» 만 묻는 가벼운 갈래.
+         장면 탐험대(js/scene-curriculum.js)가 주소에 book= 이 없을 때 부른다.
+         판정은 정본 sceneBookId(today-plan.ts) — 교재가 BTS/SIU 가 아니면 null(지어내지 않는다).
+         ⚠️ 위 게이트 «뒤» — 남의 교재를 캐는 길을 만들지 않는다. 정확일치 우선(Kim/kim). */
+      if (String(url.searchParams.get('scenebook') || '') === '1') {
+        let book: string | null = null;
+        try {
+          const r: any = await env.DB.prepare(
+            `SELECT textbook FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY (user_id = ?) DESC LIMIT 1`
+          ).bind(uid, uid).first();
+          book = sceneBookId(r?.textbook);
+        } catch { book = null; }
+        const res = json({ ok: true, book });
         res.headers.set('Cache-Control', 'private, no-store');
         return res;
       }
