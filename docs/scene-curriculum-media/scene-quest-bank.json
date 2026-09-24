@@ -108616,5 +108616,8820 @@
   "src": "w",
   "band": "siu-advance",
   "book": "siu-advance-01"
+ },
+ {
+  "i": 12003,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12061,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12127,
+  "skip": false,
+  "ko": "만년필로 쓰기",
+  "en": "Writing With Ink",
+  "clueKo": "잉크를 채워 금속 촉으로 글씨를 쓰는 필기구",
+  "clueEn": "a writing tool with a metal nib that you fill with ink",
+  "word": [
+   "fountain pen",
+   "a fountain pen",
+   "the fountain pen",
+   "pen",
+   "a pen"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "someone",
+   "a person"
+  ],
+  "phrase": [
+   "writing in a notebook with a fountain pen",
+   "writing in a notebook",
+   "writing with a fountain pen",
+   "writing with a pen",
+   "writing on paper"
+  ],
+  "simple": [
+   "writes in a notebook",
+   "writes with a fountain pen"
+  ],
+  "actionKo": "수첩 종이 위에 펜으로 글자를 적는 중",
+  "actionEn": "putting words on the page of a notebook with ink",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12196,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12287,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12390,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12483,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12746,
+  "skip": false,
+  "ko": "공항의 여행자",
+  "en": "Traveler At Airport",
+  "clueKo": "외국에 갈 때 보여 주는 작은 신분 수첩",
+  "clueEn": "a small official booklet you show when you travel to another country",
+  "word": [
+   "passport",
+   "a passport",
+   "the passport",
+   "his passport"
+  ],
+  "aux": "is",
+  "subj": [
+   "the young man",
+   "a young man",
+   "he",
+   "the traveler",
+   "the student"
+  ],
+  "phrase": [
+   "holding up his passport at the airport",
+   "holding up his passport",
+   "holding a passport",
+   "holding a passport at the airport",
+   "showing his passport"
+  ],
+  "simple": [
+   "holds a passport",
+   "holds up his passport"
+  ],
+  "actionKo": "여권을 손에 들어 올리고 있는 모습",
+  "actionEn": "keeping a travel document up in his hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12883,
+  "skip": false,
+  "ko": "가게 계산대",
+  "en": "At The Counter",
+  "clueKo": "가게에서 물건을 담아 주는 갈색 종이 주머니",
+  "clueEn": "a brown sack that shops use to pack the things you buy",
+  "word": [
+   "paper bag",
+   "a paper bag",
+   "the paper bag",
+   "bag",
+   "a bag",
+   "the bag"
+  ],
+  "aux": "is",
+  "subj": [
+   "the shop assistant",
+   "the woman",
+   "she",
+   "the worker",
+   "the clerk"
+  ],
+  "phrase": [
+   "handing a paper bag to a customer",
+   "handing a bag to a customer",
+   "giving a customer a paper bag",
+   "serving a customer",
+   "handing over a paper bag"
+  ],
+  "simple": [
+   "hands a paper bag to a customer",
+   "gives a customer a paper bag"
+  ],
+  "actionKo": "계산대 너머 손님에게 봉투를 건네주는 중",
+  "actionEn": "passing something across the counter to a shopper",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 13117,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13305,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14376,
+  "skip": false,
+  "ko": "바닷가 절벽길",
+  "en": "Cliff Top Walk",
+  "clueKo": "바다 옆에 높고 가파르게 솟은 바위 벽",
+  "clueEn": "a high steep wall of rock beside the sea",
+  "word": [
+   "cliff",
+   "a cliff",
+   "the cliff",
+   "cliffs",
+   "the cliffs"
+  ],
+  "aux": "are",
+  "subj": [
+   "the family",
+   "a family",
+   "they",
+   "the people"
+  ],
+  "phrase": [
+   "walking along a cliff path",
+   "walking along the cliffs",
+   "walking along the coast",
+   "walking by the sea",
+   "hiking along the coast"
+  ],
+  "simple": [
+   "walk along a cliff path",
+   "walk along the coast"
+  ],
+  "actionKo": "바다 옆 좁은 길을 따라 걸어가는 중",
+  "actionEn": "moving on foot on a narrow trail beside the ocean",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14538,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14761,
+  "skip": false,
+  "ko": "계약서 주고받기",
+  "en": "Closing The Deal",
+  "clueKo": "양쪽이 서명하는 약속 문서",
+  "clueEn": "a written agreement that both sides sign",
+  "word": [
+   "contract",
+   "a contract",
+   "the contract",
+   "document",
+   "a document"
+  ],
+  "aux": "are",
+  "subj": [
+   "the business people",
+   "the man and the woman",
+   "they",
+   "the two people"
+  ],
+  "phrase": [
+   "exchanging a contract across the table",
+   "exchanging a contract",
+   "passing a contract across the table",
+   "passing papers across the table",
+   "exchanging documents"
+  ],
+  "simple": [
+   "exchange a contract",
+   "pass a contract across the table"
+  ],
+  "actionKo": "탁자 너머로 서류를 서로 건네는 중",
+  "actionEn": "passing papers to each other over the desk",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14897,
+  "skip": false,
+  "ko": "이력서 검토",
+  "en": "Reviewing A Resume",
+  "clueKo": "경력과 기술을 정리한 취업용 문서",
+  "clueEn": "a document that lists your work history and skills for a job",
+  "word": [
+   "resume",
+   "a resume",
+   "the resume"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the interviewer"
+  ],
+  "phrase": [
+   "reading a resume",
+   "reading the young man's resume",
+   "reviewing a resume",
+   "reading a resume at a desk",
+   "looking at a resume"
+  ],
+  "simple": [
+   "reads a resume",
+   "reviews a resume"
+  ],
+  "actionKo": "지원자의 서류를 자세히 살펴보는 중",
+  "actionEn": "going carefully over a job applicant's paper",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 15154,
+  "skip": false,
+  "ko": "봉투 속 보너스",
+  "en": "Opening A Bonus",
+  "clueKo": "편지나 돈을 넣는 종이 겉싸개",
+  "clueEn": "a paper cover you put a letter or money inside",
+  "word": [
+   "envelope",
+   "an envelope",
+   "the envelope"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the office worker",
+   "the young woman"
+  ],
+  "phrase": [
+   "opening an envelope with money",
+   "opening an envelope",
+   "smiling at the money in an envelope",
+   "opening an envelope at her desk"
+  ],
+  "simple": [
+   "opens an envelope",
+   "opens an envelope with money"
+  ],
+  "actionKo": "종이 겉싸개를 벌려 안을 들여다보는 중",
+  "actionEn": "pulling apart the paper cover to see what is inside",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-12"
+ },
+ {
+  "i": 16356,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16449,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16574,
+  "skip": false,
+  "ko": "골목길 산책",
+  "en": "Old Town Stroll",
+  "clueKo": "옛날 길 바닥에 깔린 둥근 돌들",
+  "clueEn": "rounded stones set into the ground to make an old road",
+  "word": [
+   "cobblestones",
+   "the cobblestones",
+   "cobblestone",
+   "a cobblestone street",
+   "the cobblestone street"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "a woman"
+  ],
+  "phrase": [
+   "walking her dog down a narrow street",
+   "walking her dog",
+   "walking with her dog",
+   "walking a dog",
+   "walking down a cobblestone street"
+  ],
+  "simple": [
+   "walks her dog",
+   "walks down a narrow street"
+  ],
+  "actionKo": "반려동물과 함께 좁은 옛 골목을 지나가는 중",
+  "actionEn": "strolling with a pet down an old lane",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16649,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16715,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16860,
+  "skip": false,
+  "ko": "신발끈 묶어 주기",
+  "en": "Tying A Shoe",
+  "clueKo": "운동화를 조일 때 매는 가느다란 줄",
+  "clueEn": "the thin strings you knot on your sneakers",
+  "word": [
+   "shoelaces",
+   "the shoelaces",
+   "shoelace",
+   "a shoelace"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "the father",
+   "he"
+  ],
+  "phrase": [
+   "tying the girl's shoelaces",
+   "tying his daughter's shoelaces",
+   "tying a shoelace",
+   "tying the girl's shoe",
+   "kneeling to tie a shoelace"
+  ],
+  "simple": [
+   "ties the girl's shoelaces",
+   "ties a shoelace"
+  ],
+  "actionKo": "무릎을 꿇고 아이 운동화 끈을 매듭짓는 중",
+  "actionEn": "making a knot in the strings of a child's sneaker",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 17189,
+  "skip": false,
+  "ko": "쇼핑몰 세일",
+  "en": "Holiday Shopping",
+  "clueKo": "물건을 사고 담아 들고 다니는 종이 봉투들",
+  "clueEn": "paper sacks you take things home in after you buy them",
+  "word": [
+   "shopping bags",
+   "the shopping bags",
+   "shopping bag",
+   "bags",
+   "a shopping bag"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the shopper",
+   "a woman"
+  ],
+  "phrase": [
+   "carrying shopping bags through a mall",
+   "carrying shopping bags",
+   "carrying bags",
+   "walking through a mall with shopping bags",
+   "walking through a mall"
+  ],
+  "simple": [
+   "carries shopping bags",
+   "carries shopping bags through a mall"
+  ],
+  "actionKo": "봉투 여러 개를 손에 들고 쇼핑몰을 지나가는 중",
+  "actionEn": "bringing several paper sacks through the mall",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18347,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18486,
+  "skip": false,
+  "ko": "졸업식 날",
+  "en": "Graduation Day",
+  "clueKo": "학교를 마칠 때 쓰는 술 달린 네모난 모자",
+  "clueEn": "a flat square hat with a tassel that you wear when you finish school",
+  "word": [
+   "graduation cap",
+   "a graduation cap",
+   "the graduation cap",
+   "mortarboard",
+   "a mortarboard",
+   "cap",
+   "a cap"
+  ],
+  "aux": "is",
+  "subj": [
+   "the graduate",
+   "the student",
+   "she",
+   "the young woman"
+  ],
+  "phrase": [
+   "holding her diploma",
+   "holding a diploma",
+   "holding a diploma next to the books",
+   "smiling in her graduation gown",
+   "wearing a graduation cap"
+  ],
+  "simple": [
+   "holds a diploma",
+   "holds her diploma"
+  ],
+  "actionKo": "졸업장 커버를 가슴 쪽에 끼고 미소 짓는 중",
+  "actionEn": "keeping a certificate cover close to her chest",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18955,
+  "skip": false,
+  "ko": "피라미드 구경",
+  "en": "Visiting The Pyramids",
+  "clueKo": "이집트 사막에 있는 거대한 삼각형 돌무덤",
+  "clueEn": "huge stone tombs with triangle sides in the Egyptian desert",
+  "word": [
+   "pyramids",
+   "the pyramids",
+   "pyramid",
+   "a pyramid"
+  ],
+  "aux": "are",
+  "subj": [
+   "the tourists",
+   "they",
+   "the travelers",
+   "the people"
+  ],
+  "phrase": [
+   "looking at the pyramids",
+   "visiting the pyramids",
+   "standing in front of the pyramids",
+   "looking at the pyramids in the desert"
+  ],
+  "simple": [
+   "look at the pyramids",
+   "visit the pyramids"
+  ],
+  "actionKo": "사막의 오래된 돌 건축물을 바라보는 중",
+  "actionEn": "gazing at the ancient stone monuments in the desert",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 20151,
+  "skip": false,
+  "ko": "박물관 관람",
+  "en": "Museum Visit",
+  "clueKo": "임금 한 사람을 그린 큰 그림",
+  "clueEn": "a big painted picture of one person, here a king in red",
+  "word": [
+   "portrait",
+   "a portrait",
+   "the portrait"
+  ],
+  "aux": "are",
+  "subj": [
+   "the visitors",
+   "they",
+   "the people"
+  ],
+  "phrase": [
+   "looking at a portrait in a museum",
+   "looking at a portrait",
+   "looking at a painting",
+   "visiting a museum",
+   "looking at the exhibit"
+  ],
+  "simple": [
+   "look at a portrait",
+   "visit a museum"
+  ],
+  "actionKo": "전시실에서 벽에 걸린 작품을 감상하는 중",
+  "actionEn": "viewing an artwork on the wall of a gallery",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 12006,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12062,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12130,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12199,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12289,
+  "skip": false,
+  "ko": "시골길 자전거",
+  "en": "Country Road Ride",
+  "clueKo": "바퀴 두 개에 페달이 달린 탈것",
+  "clueEn": "a vehicle with two wheels and pedals",
+  "word": [
+   "bicycle",
+   "a bicycle",
+   "the bicycle",
+   "bicycles",
+   "bike",
+   "a bike",
+   "bikes"
+  ],
+  "aux": "are",
+  "subj": [
+   "the cyclists",
+   "two cyclists",
+   "the riders",
+   "they"
+  ],
+  "phrase": [
+   "riding their bikes down a country road",
+   "riding their bikes",
+   "riding bicycles",
+   "cycling down a quiet road",
+   "cycling along a road",
+   "riding down a road"
+  ],
+  "simple": [
+   "ride their bikes down a country road",
+   "ride their bikes"
+  ],
+  "actionKo": "두 사람이 페달을 밟으며 길을 따라 나아가는 모습",
+  "actionEn": "the two people move along the road by pedaling",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12393,
+  "skip": false,
+  "ko": "떨어진 서류 줍기",
+  "en": "Picking Up Papers",
+  "clueKo": "글이 인쇄된 얇은 종이 몇 장",
+  "clueEn": "thin printed sheets with writing on them",
+  "word": [
+   "papers",
+   "the papers",
+   "documents",
+   "the documents",
+   "paper"
+  ],
+  "aux": "are",
+  "subj": [
+   "two people",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "picking up papers from the ground",
+   "picking up papers",
+   "picking up the dropped papers",
+   "gathering papers from the ground",
+   "gathering papers"
+  ],
+  "simple": [
+   "pick up papers from the ground",
+   "pick up papers"
+  ],
+  "actionKo": "바닥에 떨어진 것을 손으로 집어 드는 모습",
+  "actionEn": "they bend down and take the fallen sheets in their hands",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12486,
+  "skip": false,
+  "ko": "바이올린 연주",
+  "en": "Playing the Violin",
+  "clueKo": "턱에 대고 활로 켜는 현악기",
+  "clueEn": "a string instrument held under the chin and played with a bow",
+  "word": [
+   "violin",
+   "a violin",
+   "the violin",
+   "violins"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the musician"
+  ],
+  "phrase": [
+   "playing the violin",
+   "playing the violin with other musicians",
+   "playing music from sheet music",
+   "playing music"
+  ],
+  "simple": [
+   "plays the violin",
+   "plays music"
+  ],
+  "actionKo": "활로 줄을 그어 소리를 내는 모습",
+  "actionEn": "she moves a bow across the strings to make music",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12761,
+  "skip": false,
+  "ko": "미술관 그림 감상",
+  "en": "Looking at a Painting",
+  "clueKo": "금색 액자 안에 걸린 풍경 작품",
+  "clueEn": "a landscape work of art in a gold frame on the wall",
+  "word": [
+   "painting",
+   "a painting",
+   "the painting",
+   "picture",
+   "a picture"
+  ],
+  "aux": "are",
+  "subj": [
+   "the couple",
+   "two visitors",
+   "the visitors",
+   "they"
+  ],
+  "phrase": [
+   "admiring a painting in a gallery",
+   "admiring a painting",
+   "looking at a painting",
+   "looking at a painting on the wall",
+   "standing in front of a painting"
+  ],
+  "simple": [
+   "admire a painting",
+   "look at a painting"
+  ],
+  "actionKo": "그림 앞에 서서 감탄하며 바라보는 모습",
+  "actionEn": "they stand in front of the art and enjoy it with their eyes",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12904,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13122,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13313,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14378,
+  "skip": false,
+  "ko": "호텔 프런트 항의",
+  "en": "Complaint at the Desk",
+  "clueKo": "손님을 맞는 호텔 입구의 긴 카운터",
+  "clueEn": "a long counter where hotel guests check in",
+  "word": [
+   "front desk",
+   "a front desk",
+   "the front desk",
+   "reception desk",
+   "the reception desk",
+   "desk"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the guest"
+  ],
+  "phrase": [
+   "complaining to the hotel clerk",
+   "complaining to the clerk",
+   "complaining at the front desk",
+   "complaining",
+   "arguing with the clerk"
+  ],
+  "simple": [
+   "complains to the hotel clerk",
+   "complains to the clerk"
+  ],
+  "actionKo": "직원에게 불만을 말하며 따지는 모습",
+  "actionEn": "he tells the worker he is unhappy about something",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14557,
+  "skip": false,
+  "ko": "기내 카트 서비스",
+  "en": "In-Flight Service",
+  "clueKo": "비행기 통로를 따라 밀고 다니는 바퀴 달린 수레",
+  "clueEn": "a small wheeled cart moved down the airplane aisle",
+  "word": [
+   "trolley",
+   "a trolley",
+   "the trolley"
+  ],
+  "aux": "is",
+  "subj": [
+   "the flight attendant",
+   "a flight attendant",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "pushing a cart down the aisle",
+   "pushing a cart",
+   "pushing a trolley down the aisle",
+   "pushing a trolley",
+   "serving snacks to passengers"
+  ],
+  "simple": [
+   "pushes a cart down the aisle",
+   "pushes a cart"
+  ],
+  "actionKo": "수레를 앞으로 밀며 통로를 걸어가는 모습",
+  "actionEn": "she moves the wheeled cart forward along the aisle",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14763,
+  "skip": false,
+  "ko": "영양 상담",
+  "en": "Nutrition Advice",
+  "clueKo": "채소와 곡물이 담긴 둥근 그릇",
+  "clueEn": "a round dish with vegetables and grains on it",
+  "word": [
+   "plate",
+   "a plate",
+   "the plate"
+  ],
+  "aux": "is",
+  "subj": [
+   "the nutritionist",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "pointing at a plate of vegetables",
+   "pointing at the plate",
+   "giving advice to a client",
+   "talking to a client",
+   "explaining a healthy meal"
+  ],
+  "simple": [
+   "points at a plate of vegetables",
+   "gives advice to a client"
+  ],
+  "actionKo": "손가락으로 음식을 가리키며 설명하는 모습",
+  "actionEn": "she shows the food with her finger while she explains",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14906,
+  "skip": true,
+  "why": "people too small, city skyline",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16005,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16361,
+  "skip": false,
+  "ko": "동네 쓰레기 줍기",
+  "en": "Street Cleanup",
+  "clueKo": "쓰레기를 담는 검은 비닐 봉지",
+  "clueEn": "a black plastic sack for rubbish",
+  "word": [
+   "garbage bag",
+   "a garbage bag",
+   "garbage bags",
+   "trash bag",
+   "trash bags",
+   "bags"
+  ],
+  "aux": "are",
+  "subj": [
+   "the neighbors",
+   "the volunteers",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "picking up trash on the street",
+   "picking up trash",
+   "cleaning up the street",
+   "collecting trash in bags",
+   "collecting trash"
+  ],
+  "simple": [
+   "pick up trash on the street",
+   "clean up the street"
+  ],
+  "actionKo": "장갑을 끼고 길에 버려진 것을 모으는 모습",
+  "actionEn": "they wear gloves and gather rubbish from the sidewalk",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16453,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16577,
+  "skip": false,
+  "ko": "프린터 수리",
+  "en": "Fixing a Printer",
+  "clueKo": "종이에 글을 찍어 내는 사무 기계",
+  "clueEn": "an office machine that puts words onto paper",
+  "word": [
+   "printer",
+   "a printer",
+   "the printer"
+  ],
+  "aux": "is",
+  "subj": [
+   "the technician",
+   "the man",
+   "he"
+  ],
+  "phrase": [
+   "repairing a printer with small tools",
+   "repairing a printer",
+   "fixing the printer",
+   "fixing a printer with a screwdriver",
+   "working on a printer"
+  ],
+  "simple": [
+   "repairs a printer",
+   "fixes the printer"
+  ],
+  "actionKo": "작은 공구로 고장 난 기계를 고치는 모습",
+  "actionEn": "he uses small tools to make the broken machine work again",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16650,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16723,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16865,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 17195,
+  "skip": false,
+  "ko": "폐 모형 설명",
+  "en": "Lung Model Lesson",
+  "clueKo": "숨 쉬는 기관을 본뜬 교육용 모형",
+  "clueEn": "a teaching copy of the organs we breathe with",
+  "word": [
+   "lung model",
+   "a lung model",
+   "the lung model",
+   "model",
+   "a model",
+   "lungs"
+  ],
+  "aux": "is",
+  "subj": [
+   "the doctor",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "explaining the lungs to a boy",
+   "pointing at a lung model",
+   "showing a boy a lung model",
+   "talking to a boy",
+   "teaching a boy about the lungs"
+  ],
+  "simple": [
+   "explains the lungs to a boy",
+   "points at a lung model"
+  ],
+  "actionKo": "모형을 가리키며 아이에게 알려 주는 모습",
+  "actionEn": "she touches the model with her finger and tells the boy about it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 18360,
+  "skip": false,
+  "ko": "전통 공연",
+  "en": "Traditional Dance",
+  "clueKo": "한국 전통 옷으로 치마가 넓게 퍼짐",
+  "clueEn": "traditional korean clothing with a long wide skirt",
+  "word": [
+   "hanbok",
+   "a hanbok",
+   "hanboks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the dancers",
+   "the performers",
+   "the women",
+   "they"
+  ],
+  "phrase": [
+   "dancing in hanbok at a festival",
+   "dancing at a festival",
+   "dancing with fans",
+   "performing a traditional dance",
+   "dancing"
+  ],
+  "simple": [
+   "dance at a festival",
+   "perform a traditional dance"
+  ],
+  "actionKo": "음악에 맞춰 부채를 들고 몸을 움직이는 모습",
+  "actionEn": "they move to music and hold small fans",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18520,
+  "skip": false,
+  "ko": "꽃다발 선물",
+  "en": "Surprise Flowers",
+  "clueKo": "빨간 장미를 여러 송이 묶은 것",
+  "clueEn": "many red roses tied together",
+  "word": [
+   "bouquet",
+   "a bouquet",
+   "the bouquet",
+   "flowers"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he"
+  ],
+  "phrase": [
+   "giving a woman a bouquet of roses",
+   "giving a woman roses",
+   "giving her flowers",
+   "handing flowers to a woman",
+   "surprising a woman with flowers"
+  ],
+  "simple": [
+   "gives a woman a bouquet of roses",
+   "gives her flowers"
+  ],
+  "actionKo": "꽃을 건네며 상대를 놀라게 하는 모습",
+  "actionEn": "he offers a present to a woman at the door",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 19207,
+  "skip": false,
+  "ko": "소스 가져다주기",
+  "en": "Serving Extra Sauce",
+  "clueKo": "양념을 담는 작고 둥근 그릇",
+  "clueEn": "a small round dish for dipping food",
+  "word": [
+   "sauce",
+   "a sauce",
+   "the sauce",
+   "dipping sauce",
+   "bowl of sauce"
+  ],
+  "aux": "is",
+  "subj": [
+   "the waiter",
+   "a waiter",
+   "the server"
+  ],
+  "phrase": [
+   "putting a bowl of sauce on the table",
+   "serving extra sauce",
+   "serving a customer",
+   "bringing sauce to a customer",
+   "setting down a small bowl"
+  ],
+  "simple": [
+   "puts a bowl of sauce on the table",
+   "serves extra sauce"
+  ],
+  "actionKo": "손님 식탁에 작은 그릇을 내려놓는 모습",
+  "actionEn": "he places a small dish near the customer",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 20182,
+  "skip": false,
+  "ko": "퍼즐 맞추기",
+  "en": "Doing a Puzzle",
+  "clueKo": "그림을 완성하려고 끼워 맞추는 작은 조각",
+  "clueEn": "a small shaped cardboard bit you fit into a picture",
+  "word": [
+   "puzzle piece",
+   "a puzzle piece",
+   "the puzzle piece",
+   "puzzle",
+   "a puzzle",
+   "jigsaw puzzle"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "someone"
+  ],
+  "phrase": [
+   "holding a puzzle piece",
+   "doing a jigsaw puzzle",
+   "doing a puzzle",
+   "holding a piece over a puzzle"
+  ],
+  "simple": [
+   "holds a puzzle piece",
+   "does a jigsaw puzzle"
+  ],
+  "actionKo": "조각 하나를 손가락으로 집고 있는 모습",
+  "actionEn": "the person keeps a small piece between their fingers",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12007,
+  "skip": false,
+  "ko": "함께 공부하기",
+  "en": "Studying Together",
+  "clueKo": "메모를 하거나 글을 쓰는 데 쓰는, 종이를 묶어 만든 작은 책",
+  "clueEn": "a small bound book of blank pages you write in",
+  "word": [
+   "notebook",
+   "a notebook",
+   "notebooks",
+   "the notebooks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "students",
+   "the classmates",
+   "they"
+  ],
+  "phrase": [
+   "writing in their notebooks",
+   "writing in notebooks",
+   "taking notes",
+   "studying together at a table"
+  ],
+  "simple": [
+   "write in their notebooks",
+   "take notes"
+  ],
+  "actionKo": "펜으로 종이에 글자를 적고 있어요",
+  "actionEn": "using pens to put words on paper",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12063,
+  "skip": false,
+  "ko": "도서관 책장",
+  "en": "Library Shelves",
+  "clueKo": "도서관에서 책을 줄지어 꽂아 두는 가구",
+  "clueEn": "library furniture with long rows where volumes are stored",
+  "word": [
+   "bookshelf",
+   "a bookshelf",
+   "the bookshelf",
+   "bookshelves",
+   "shelf",
+   "a shelf",
+   "the shelf"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the person"
+  ],
+  "phrase": [
+   "reaching for a book on the top shelf",
+   "reaching for a book",
+   "reaching up to the shelf"
+  ],
+  "simple": [
+   "reaches for a book",
+   "reaches for a book on the top shelf"
+  ],
+  "actionKo": "팔을 높이 뻗어 무언가를 잡으려 해요",
+  "actionEn": "stretching her arm up high to get something",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-09"
+ },
+ {
+  "i": 12132,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12200,
+  "skip": false,
+  "ko": "산길 등산",
+  "en": "Mountain Hike",
+  "clueKo": "어깨에 메고 다니는 큰 가방",
+  "clueEn": "a big bag carried on the shoulders",
+  "word": [
+   "backpack",
+   "a backpack",
+   "the backpack",
+   "rucksack",
+   "a rucksack"
+  ],
+  "aux": "is",
+  "subj": [
+   "the hiker",
+   "a hiker",
+   "the man",
+   "he",
+   "the person"
+  ],
+  "phrase": [
+   "hiking up a mountain trail",
+   "hiking up a trail",
+   "walking up a mountain path",
+   "hiking with a walking stick",
+   "hiking"
+  ],
+  "simple": [
+   "hikes up a mountain trail",
+   "walks up a mountain path"
+  ],
+  "actionKo": "바위가 많은 산길을 걸어서 올라가요",
+  "actionEn": "going up a rocky mountain path on foot",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12291,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12395,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12527,
+  "skip": false,
+  "ko": "타이어 정비",
+  "en": "Fixing a Tire",
+  "clueKo": "자동차 바퀴에서 길에 닿는 둥근 고무 부분",
+  "clueEn": "the round rubber part that touches the road",
+  "word": [
+   "tire",
+   "a tire",
+   "the tire",
+   "tyre",
+   "wheel",
+   "a wheel",
+   "the wheel"
+  ],
+  "aux": "are",
+  "subj": [
+   "the mechanics",
+   "two mechanics",
+   "the men",
+   "they",
+   "the workers"
+  ],
+  "phrase": [
+   "fixing a car tire together",
+   "fixing a tire",
+   "working on a car wheel",
+   "using a power tool on a tire",
+   "repairing a car tire"
+  ],
+  "simple": [
+   "fix a car tire together",
+   "work on a car wheel"
+  ],
+  "actionKo": "공구로 자동차 부품을 다시 쓸 수 있게 손봐요",
+  "actionEn": "making a car part work again with a tool",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12776,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12929,
+  "skip": true,
+  "why": "smoking-related diseased lung model",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 13133,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13323,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14395,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14559,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14765,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14913,
+  "skip": false,
+  "ko": "주방의 요리사들",
+  "en": "Kitchen Chefs",
+  "clueKo": "식당 주방에서 흰 옷을 입고 음식을 만드는 사람들",
+  "clueEn": "people in white jackets who make food in a restaurant kitchen",
+  "word": [
+   "chef",
+   "a chef",
+   "chefs",
+   "the chefs",
+   "cook",
+   "cooks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the chefs",
+   "the cooks",
+   "chefs",
+   "they",
+   "the men"
+  ],
+  "phrase": [
+   "putting food on plates",
+   "plating food in a kitchen",
+   "preparing dishes in a kitchen",
+   "preparing food",
+   "serving food on plates"
+  ],
+  "simple": [
+   "put food on plates",
+   "prepare dishes in a kitchen"
+  ],
+  "actionKo": "주방에서 음식을 접시에 보기 좋게 담아요",
+  "actionEn": "arranging meals neatly on dishes in a kitchen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16009,
+  "skip": false,
+  "ko": "가게의 손님",
+  "en": "Shop Customers",
+  "clueKo": "물건을 사러 가게에 온 사람들",
+  "clueEn": "people who come to a store to buy things",
+  "word": [
+   "customers",
+   "the customers",
+   "customer",
+   "a customer",
+   "shoppers"
+  ],
+  "aux": "is",
+  "subj": [
+   "the shop assistant",
+   "the saleswoman",
+   "the woman",
+   "she",
+   "the clerk"
+  ],
+  "phrase": [
+   "showing a cup to the customers",
+   "showing a cup to customers",
+   "showing a cup",
+   "showing a mug to two customers",
+   "holding a cup for customers"
+  ],
+  "simple": [
+   "shows a cup to the customers",
+   "shows a cup"
+  ],
+  "actionKo": "사람들이 볼 수 있게 물건을 들어 보여 줘요",
+  "actionEn": "holding up an item so people can look at it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16365,
+  "skip": false,
+  "ko": "야시장 꼬치",
+  "en": "Street Food Stalls",
+  "clueKo": "고기나 채소를 꽂아 불에 굽는 긴 막대",
+  "clueEn": "sticks of meat cooked over a fire",
+  "word": [
+   "skewers",
+   "skewer",
+   "a skewer",
+   "the skewers",
+   "grill",
+   "a grill"
+  ],
+  "aux": "are",
+  "subj": [
+   "the vendors",
+   "the street vendors",
+   "vendors",
+   "they",
+   "the cooks"
+  ],
+  "phrase": [
+   "grilling skewers at a market",
+   "grilling skewers",
+   "grilling meat on sticks",
+   "cooking food on a grill",
+   "selling street food"
+  ],
+  "simple": [
+   "grill skewers at a market",
+   "cook food on a grill"
+  ],
+  "actionKo": "뜨거운 숯불 위에서 고기를 익혀요",
+  "actionEn": "preparing meat over hot coals",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16458,
+  "skip": true,
+  "why": "no person visible (only a car)",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16589,
+  "skip": false,
+  "ko": "고궁 나들이",
+  "en": "Palace Visit",
+  "clueKo": "옛날에 왕이 살던 크고 화려한 건물",
+  "clueEn": "a large royal building where kings once lived",
+  "word": [
+   "palace",
+   "a palace",
+   "the palace"
+  ],
+  "aux": "are",
+  "subj": [
+   "the visitors",
+   "visitors",
+   "the tourists",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "walking through the palace gate",
+   "walking into a palace",
+   "walking through a gate",
+   "visiting a palace",
+   "wearing traditional clothes"
+  ],
+  "simple": [
+   "walk through the palace gate",
+   "visit a palace"
+  ],
+  "actionKo": "큰 문을 지나 걸어 들어가요",
+  "actionEn": "going on foot through a big entrance",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16652,
+  "skip": true,
+  "why": "weapons (sword, helmet) and no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 16726,
+  "skip": false,
+  "ko": "기차역의 여행객",
+  "en": "Busy Train Station",
+  "clueKo": "여행할 때 짐을 넣어 끌고 다니는 바퀴 달린 가방",
+  "clueEn": "a bag with wheels for traveling",
+  "word": [
+   "suitcase",
+   "a suitcase",
+   "suitcases",
+   "the suitcase",
+   "luggage"
+  ],
+  "aux": "are",
+  "subj": [
+   "the travelers",
+   "travelers",
+   "the passengers",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "pulling suitcases through the station",
+   "pulling suitcases",
+   "walking through a train station",
+   "rolling their luggage"
+  ],
+  "simple": [
+   "pull suitcases through the station",
+   "walk through a train station"
+  ],
+  "actionKo": "바퀴 달린 가방을 뒤에 달고 끌고 가요",
+  "actionEn": "dragging bags with wheels behind them",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16870,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17205,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18363,
+  "skip": false,
+  "ko": "아기와 장보기",
+  "en": "Mom and Groceries",
+  "clueKo": "슈퍼마켓에서 사 온 먹을거리",
+  "clueEn": "food items bought at a supermarket",
+  "word": [
+   "groceries",
+   "grocery bags",
+   "a grocery bag",
+   "paper bags",
+   "bags"
+  ],
+  "aux": "is",
+  "subj": [
+   "the mother",
+   "the woman",
+   "a mother",
+   "she"
+  ],
+  "phrase": [
+   "carrying a baby and groceries",
+   "carrying a baby",
+   "carrying grocery bags",
+   "holding a baby and shopping bags"
+  ],
+  "simple": [
+   "carries a baby and groceries",
+   "carries grocery bags"
+  ],
+  "actionKo": "한 팔로는 아이를, 다른 손으로는 가방을 들고 가요",
+  "actionEn": "holding a child in one arm and bags in the other hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 18523,
+  "skip": false,
+  "ko": "겨울옷 나눔",
+  "en": "Coat Donation",
+  "clueKo": "겨울에 밖에 나갈 때 입는 따뜻한 겉옷",
+  "clueEn": "a warm piece of clothing worn outside in winter",
+  "word": [
+   "coat",
+   "a coat",
+   "coats",
+   "the coat",
+   "jacket",
+   "a jacket"
+  ],
+  "aux": "is",
+  "subj": [
+   "the volunteer",
+   "a volunteer",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "handing a coat to a woman",
+   "handing out warm coats",
+   "giving a coat to a family",
+   "handing a coat",
+   "giving away coats"
+  ],
+  "simple": [
+   "hands a coat to a woman",
+   "gives a coat to a family"
+  ],
+  "actionKo": "필요한 사람에게 따뜻한 옷을 건네줘요",
+  "actionEn": "passing warm clothing to someone who needs it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 19209,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 20223,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12012,
+  "skip": false,
+  "ko": "복도의 학생들",
+  "en": "Students in a Hallway",
+  "clueKo": "같은 반에서 함께 공부하는 친구들",
+  "clueEn": "students who study together in the same group at school",
+  "word": [
+   "classmates",
+   "the classmates"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "the classmates",
+   "they"
+  ],
+  "phrase": [
+   "standing in a hallway",
+   "standing in a school hallway",
+   "standing side by side",
+   "standing in a row",
+   "standing together",
+   "wearing school uniforms"
+  ],
+  "simple": [
+   "stand in a hallway",
+   "stand side by side"
+  ],
+  "actionKo": "앉지 않고 나란히 서 있는 모습",
+  "actionEn": "they are upright on their feet next to each other",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12066,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12133,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12201,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 12292,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12398,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12529,
+  "skip": false,
+  "ko": "버스에 타는 학생들",
+  "en": "Boarding the Bus",
+  "clueKo": "등에 메는 가방",
+  "clueEn": "a bag you carry on your shoulders",
+  "word": [
+   "backpack",
+   "a backpack",
+   "backpacks",
+   "the backpacks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "students",
+   "they"
+  ],
+  "phrase": [
+   "getting on a bus",
+   "getting on the bus",
+   "boarding a bus",
+   "boarding the bus",
+   "carrying backpacks",
+   "getting on a bus with backpacks"
+  ],
+  "simple": [
+   "get on a bus",
+   "board a bus"
+  ],
+  "actionKo": "차에 올라타려고 줄지어 들어가는 모습",
+  "actionEn": "they step through the door into the vehicle one by one",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12791,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12930,
+  "skip": false,
+  "ko": "나무 심기",
+  "en": "Planting a Tree",
+  "clueKo": "땅에 심는 어린 식물",
+  "clueEn": "a young plant that grows into a tree",
+  "word": [
+   "seedling",
+   "a seedling",
+   "sapling",
+   "a sapling"
+  ],
+  "aux": "are",
+  "subj": [
+   "the volunteers",
+   "the people",
+   "they",
+   "the young people"
+  ],
+  "phrase": [
+   "planting a tree",
+   "planting a young tree together",
+   "planting a tree in the soil",
+   "planting a seedling",
+   "digging in the soil",
+   "working together in a garden"
+  ],
+  "simple": [
+   "plant a tree",
+   "plant a tree together"
+  ],
+  "actionKo": "흙을 파고 어린 식물을 땅에 심는 행동",
+  "actionEn": "they put a young plant into the ground and press the soil",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 13147,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13335,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14398,
+  "skip": false,
+  "ko": "그물 끌어올리기",
+  "en": "Hauling a Net",
+  "clueKo": "물고기를 잡을 때 쓰는 구멍 난 도구",
+  "clueEn": "a tool full of holes used for catching fish",
+  "word": [
+   "net",
+   "a net",
+   "fishing net",
+   "a fishing net",
+   "the net"
+  ],
+  "aux": "is",
+  "subj": [
+   "the fisherman",
+   "the man",
+   "he",
+   "a fisherman"
+  ],
+  "phrase": [
+   "pulling a net into the boat",
+   "pulling a fishing net",
+   "pulling a net",
+   "hauling a net",
+   "hauling a net into a boat",
+   "holding a fishing net"
+  ],
+  "simple": [
+   "pulls a net into the boat",
+   "pulls a fishing net"
+  ],
+  "actionKo": "물에서 고기잡이 도구를 배 안으로 잡아당기는 행동",
+  "actionEn": "he draws the fishing tool up out of the water with both hands",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14561,
+  "skip": false,
+  "ko": "스키 강습",
+  "en": "Ski Lesson",
+  "clueKo": "스키를 가르쳐 주는 사람",
+  "clueEn": "the person who teaches the group how to move on snow",
+  "word": [
+   "instructor",
+   "an instructor",
+   "the instructor",
+   "ski instructor",
+   "a ski instructor"
+  ],
+  "aux": "are",
+  "subj": [
+   "the skiers",
+   "the beginners",
+   "the students",
+   "they"
+  ],
+  "phrase": [
+   "learning to ski",
+   "taking a ski lesson",
+   "listening to the instructor",
+   "standing in a line on skis",
+   "learning to ski from an instructor"
+  ],
+  "simple": [
+   "learn to ski",
+   "take a ski lesson"
+  ],
+  "actionKo": "선생님에게 눈 위에서 타는 법을 배우는 모습",
+  "actionEn": "they get a lesson on how to slide down the snowy slope",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14770,
+  "skip": false,
+  "ko": "인쇄물 꺼내기",
+  "en": "Taking a Printout",
+  "clueKo": "종이에 글자를 찍어 내는 사무 기계",
+  "clueEn": "an office machine that puts text onto paper",
+  "word": [
+   "printer",
+   "a printer",
+   "the printer"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "someone",
+   "the office worker"
+  ],
+  "phrase": [
+   "taking paper from a printer",
+   "taking paper out of the printer",
+   "taking a document from the printer",
+   "picking up a printout",
+   "reaching for the paper"
+  ],
+  "simple": [
+   "takes paper from a printer",
+   "takes a document from the printer"
+  ],
+  "actionKo": "기계에서 나온 종이를 손으로 집어 가져가는 행동",
+  "actionEn": "the hand grabs the fresh sheets coming out of the machine",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14920,
+  "skip": false,
+  "ko": "붓글씨 쓰기",
+  "en": "Writing Calligraphy",
+  "clueKo": "먹을 묻혀 글씨를 쓰는 도구",
+  "clueEn": "a tool with soft hair that you dip in ink",
+  "word": [
+   "brush",
+   "a brush",
+   "paintbrush",
+   "a paintbrush",
+   "calligraphy brush",
+   "a calligraphy brush"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "the artist",
+   "someone"
+  ],
+  "phrase": [
+   "writing calligraphy with a brush",
+   "writing calligraphy",
+   "writing with a brush",
+   "writing characters with a brush",
+   "painting characters in black ink"
+  ],
+  "simple": [
+   "writes calligraphy with a brush",
+   "writes calligraphy"
+  ],
+  "actionKo": "붓에 먹을 묻혀 종이 위에 글자를 쓰는 행동",
+  "actionEn": "the hand makes black ink letters on white paper with a soft tool",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16012,
+  "skip": false,
+  "ko": "산 정상의 등산객",
+  "en": "Climbers on a Summit",
+  "clueKo": "산에 오르는 사람들이 등에 메는 큰 가방",
+  "clueEn": "a big bag that hikers carry on their shoulders",
+  "word": [
+   "backpack",
+   "a backpack",
+   "backpacks",
+   "the backpacks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the climbers",
+   "the hikers",
+   "they",
+   "the couple"
+  ],
+  "phrase": [
+   "standing on a snowy mountain",
+   "standing on top of a mountain",
+   "standing on the snowy peak",
+   "standing on a mountain top",
+   "smiling at the camera",
+   "holding ice axes"
+  ],
+  "simple": [
+   "stand on top of a mountain",
+   "stand on a snowy mountain"
+  ],
+  "actionKo": "눈 덮인 산꼭대기에 올라가 서 있는 모습",
+  "actionEn": "they are upright on their feet at the highest point of the peak",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16368,
+  "skip": false,
+  "ko": "자동차 열쇠 건네기",
+  "en": "Handing Over Keys",
+  "clueKo": "자동차 문을 열 때 쓰는 작은 물건",
+  "clueEn": "a small thing that opens and starts a vehicle",
+  "word": [
+   "car key",
+   "a car key",
+   "car keys",
+   "the car keys",
+   "key",
+   "a key",
+   "keys"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "he",
+   "a man"
+  ],
+  "phrase": [
+   "giving car keys to a woman",
+   "giving her the car keys",
+   "giving car keys",
+   "handing car keys to a woman",
+   "handing her the car keys",
+   "handing over car keys"
+  ],
+  "simple": [
+   "gives car keys to a woman",
+   "gives her the car keys"
+  ],
+  "actionKo": "자기가 가진 물건을 상대방의 손바닥 위에 놓아 주는 행동",
+  "actionEn": "he puts something from his hand into her open palm",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16459,
+  "skip": true,
+  "why": "스포츠브라 차림",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16591,
+  "skip": false,
+  "ko": "컵케이크 나누기",
+  "en": "Sharing Cupcakes",
+  "clueKo": "크림을 얹은 작은 컵 모양 케이크",
+  "clueEn": "a small cake with frosting baked in a paper cup",
+  "word": [
+   "cupcake",
+   "a cupcake",
+   "cupcakes",
+   "the cupcakes"
+  ],
+  "aux": "are",
+  "subj": [
+   "the coworkers",
+   "the people",
+   "they",
+   "the colleagues"
+  ],
+  "phrase": [
+   "sharing cupcakes",
+   "sharing cupcakes in the office kitchen",
+   "eating cupcakes together",
+   "holding cupcakes",
+   "sharing cupcakes and smiling"
+  ],
+  "simple": [
+   "share cupcakes",
+   "share cupcakes together"
+  ],
+  "actionKo": "달콤한 간식을 서로 건네며 함께 먹는 모습",
+  "actionEn": "they pass sweet treats to each other and enjoy them together",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16653,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16735,
+  "skip": false,
+  "ko": "설거지하기",
+  "en": "Washing Dishes",
+  "clueKo": "거품을 내어 그릇을 닦는 노란 물건",
+  "clueEn": "a soft yellow thing used to scrub plates with soap",
+  "word": [
+   "sponge",
+   "a sponge",
+   "the sponge"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "someone"
+  ],
+  "phrase": [
+   "washing a plate with a sponge",
+   "washing a plate",
+   "washing the dishes",
+   "washing dishes at the sink",
+   "scrubbing a plate"
+  ],
+  "simple": [
+   "washes a plate with a sponge",
+   "washes the dishes"
+  ],
+  "actionKo": "물과 거품으로 그릇을 문질러 깨끗하게 하는 행동",
+  "actionEn": "the hands scrub the dish with soap and water to clean it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16873,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17264,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18365,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 18530,
+  "skip": false,
+  "ko": "지도 든 여행자",
+  "en": "Tourist With a Map",
+  "clueKo": "길을 찾을 때 펼쳐 보는 종이",
+  "clueEn": "a folded paper that shows streets and roads",
+  "word": [
+   "map",
+   "a map",
+   "the map"
+  ],
+  "aux": "is",
+  "subj": [
+   "the tourist",
+   "the woman",
+   "she",
+   "the traveler"
+  ],
+  "phrase": [
+   "holding a map",
+   "holding a map in an old town",
+   "exploring an old town",
+   "looking around the street",
+   "standing on a narrow street with a map"
+  ],
+  "simple": [
+   "holds a map",
+   "explores an old town"
+  ],
+  "actionKo": "길을 찾으려고 종이를 손에 펼쳐 들고 있는 모습",
+  "actionEn": "she keeps a paper guide open in both hands to find her way",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 19271,
+  "skip": false,
+  "ko": "책상에서 공부하기",
+  "en": "Studying at a Desk",
+  "clueKo": "벽에 걸린 둥근 거울 아래에 있는 공부용 가구",
+  "clueEn": "a piece of furniture where you sit to study and write",
+  "word": [
+   "desk",
+   "a desk",
+   "the desk",
+   "mirror",
+   "a mirror"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the student",
+   "the person"
+  ],
+  "phrase": [
+   "writing at a desk",
+   "studying at her desk",
+   "writing in a notebook",
+   "sitting at a desk",
+   "studying in her bedroom"
+  ],
+  "simple": [
+   "writes at a desk",
+   "studies at her desk"
+  ],
+  "actionKo": "의자에 앉아 공책에 무언가를 쓰는 모습",
+  "actionEn": "she sits on a chair and puts words down in a notebook",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 20252,
+  "skip": true,
+  "why": "weapons (spears)",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12015,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12067,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12134,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12204,
+  "skip": true,
+  "why": "person too small, no clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12293,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12399,
+  "skip": false,
+  "ko": "국제 회의",
+  "en": "International Meeting",
+  "clueKo": "여러 나라를 나타내는 천 조각으로, 사람들 뒤에 줄지어 서 있어요",
+  "clueEn": "Colorful pieces of cloth for many countries standing in a row behind the people",
+  "word": [
+   "flags",
+   "the flags",
+   "flag",
+   "a flag"
+  ],
+  "aux": "are",
+  "subj": [
+   "the delegates",
+   "the people",
+   "they",
+   "the officials"
+  ],
+  "phrase": [
+   "having a meeting around a table",
+   "having a meeting",
+   "sitting around a table",
+   "discussing issues at a meeting",
+   "sitting at a long table"
+  ],
+  "simple": [
+   "have a meeting around a table",
+   "have a meeting"
+  ],
+  "actionKo": "큰 탁자에 둘러앉아 함께 이야기를 나누고 있어요",
+  "actionEn": "They sit together at a big table to talk about important topics",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12558,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12794,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12957,
+  "skip": true,
+  "why": "crowd, no single clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 13148,
+  "skip": false,
+  "ko": "주문 받기",
+  "en": "Taking an Order",
+  "clueKo": "종이를 끼워 들고 다니며 글을 쓰는 판이에요",
+  "clueEn": "A flat board with a metal holder for paper that you carry while writing",
+  "word": [
+   "clipboard",
+   "a clipboard",
+   "the clipboard"
+  ],
+  "aux": "is",
+  "subj": [
+   "the waiter",
+   "the server",
+   "a waiter"
+  ],
+  "phrase": [
+   "writing down an order",
+   "taking an order",
+   "writing on a clipboard",
+   "taking a customer's order",
+   "writing with a pen"
+  ],
+  "simple": [
+   "writes down an order",
+   "takes an order"
+  ],
+  "actionKo": "손님이 원하는 음식을 펜으로 받아 적고 있어요",
+  "actionEn": "The staff member notes what the customer wants with a pen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 13380,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14416,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14579,
+  "skip": false,
+  "ko": "현관으로 가는 아이들",
+  "en": "Kids Heading Out",
+  "clueKo": "위층과 아래층을 잇는 계단 전체예요",
+  "clueEn": "The set of steps with a wooden rail that connects two floors of a house",
+  "word": [
+   "staircase",
+   "a staircase",
+   "the staircase",
+   "stairs",
+   "the stairs"
+  ],
+  "aux": "are",
+  "subj": [
+   "the children",
+   "two children",
+   "they",
+   "the kids"
+  ],
+  "phrase": [
+   "running toward the open door",
+   "running to the door",
+   "heading toward the open door",
+   "going outside",
+   "running outside"
+  ],
+  "simple": [
+   "run toward the open door",
+   "run to the door"
+  ],
+  "actionKo": "열린 문 쪽으로 뛰어가고 있어요",
+  "actionEn": "They move quickly toward the open door to go outside",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14799,
+  "skip": false,
+  "ko": "밀가루 배달",
+  "en": "Flour Delivery",
+  "clueKo": "밀가루를 담은 크고 거친 천 자루예요",
+  "clueEn": "A big rough cloth bag full of flour",
+  "word": [
+   "sack",
+   "a sack",
+   "the sack",
+   "sacks"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "he",
+   "the worker",
+   "the delivery man"
+  ],
+  "phrase": [
+   "carrying a heavy sack",
+   "carrying a sack of flour",
+   "carrying a sack",
+   "unloading sacks from a van",
+   "unloading flour from a van"
+  ],
+  "simple": [
+   "carries a heavy sack",
+   "carries a sack of flour"
+  ],
+  "actionKo": "무거운 자루를 두 팔로 안고 옮기고 있어요",
+  "actionEn": "He holds a heavy bag in his arms and takes it from the van",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14939,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-09"
+ },
+ {
+  "i": 16016,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16370,
+  "skip": true,
+  "why": "no clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16473,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16597,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16654,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16738,
+  "skip": false,
+  "ko": "과학 실험",
+  "en": "Science Experiment",
+  "clueKo": "파란 액체가 담긴 유리 실험 용기예요",
+  "clueEn": "A glass container for liquids used in a lab",
+  "word": [
+   "beaker",
+   "a beaker",
+   "the beaker",
+   "beakers",
+   "flask",
+   "a flask"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "they",
+   "the teenagers"
+  ],
+  "phrase": [
+   "doing a science experiment",
+   "doing an experiment",
+   "working in a science lab",
+   "mixing blue liquids",
+   "doing an experiment with their teacher"
+  ],
+  "simple": [
+   "do a science experiment",
+   "do an experiment"
+  ],
+  "actionKo": "보안경을 쓰고 액체를 넣으며 실험을 하고 있어요",
+  "actionEn": "They wear safety glasses and test liquids in a lab",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16874,
+  "skip": false,
+  "ko": "텃밭 가꾸기",
+  "en": "Backyard Garden",
+  "clueKo": "샐러드에 넣는 넓은 초록 잎채소예요",
+  "clueEn": "A leafy green vegetable often used in salads",
+  "word": [
+   "lettuce",
+   "the lettuce"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the gardener",
+   "a woman"
+  ],
+  "phrase": [
+   "checking the lettuce in the garden",
+   "checking the lettuce",
+   "tending the vegetables",
+   "gardening in the backyard",
+   "working in the garden",
+   "taking care of the vegetables"
+  ],
+  "simple": [
+   "checks the lettuce in the garden",
+   "tends the vegetables"
+  ],
+  "actionKo": "채소 잎을 손으로 만지며 잘 자랐는지 살펴보고 있어요",
+  "actionEn": "She touches the leafy plants to see how they are growing",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 17381,
+  "skip": false,
+  "ko": "성분표 확인",
+  "en": "Reading the Label",
+  "clueKo": "포장 뒷면에 붙은 성분과 정보가 적힌 부분이에요",
+  "clueEn": "The printed part on the back of a pack that lists ingredients and information",
+  "word": [
+   "label",
+   "a label",
+   "the label",
+   "food label"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the shopper",
+   "a woman"
+  ],
+  "phrase": [
+   "reading the label on a package",
+   "reading the label",
+   "checking the ingredients",
+   "reading the back of a snack bag",
+   "shopping in a supermarket"
+  ],
+  "simple": [
+   "reads the label on a package",
+   "reads the label"
+  ],
+  "actionKo": "과자 봉지 뒷면의 글씨를 읽으며 살펴보고 있어요",
+  "actionEn": "She looks closely at the small print on the back of a snack bag",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18367,
+  "skip": false,
+  "ko": "레코드 고르기",
+  "en": "Browsing Vinyl",
+  "clueKo": "음악이 담긴 둥글고 납작한 판으로, 선반에 가득 꽂혀 있어요",
+  "clueEn": "Round flat discs of music kept in covers on the shelves",
+  "word": [
+   "records",
+   "vinyl records",
+   "the records",
+   "a record"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "a woman"
+  ],
+  "phrase": [
+   "looking through vinyl records",
+   "looking through records",
+   "browsing records on a shelf",
+   "choosing a record",
+   "sorting through records"
+  ],
+  "simple": [
+   "looks through vinyl records",
+   "looks through records"
+  ],
+  "actionKo": "선반에 꽂힌 음반들을 손으로 넘겨 보며 고르고 있어요",
+  "actionEn": "She flips through the music albums on the shelf to pick one",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 18562,
+  "skip": false,
+  "ko": "꽃 심기 봉사",
+  "en": "Planting Flowers",
+  "clueKo": "노랗게 피어 있는, 화분에서 옮겨 심는 식물이에요",
+  "clueEn": "Yellow blooming plants that she moves from pots into the ground",
+  "word": [
+   "flowers",
+   "the flowers",
+   "yellow flowers"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the volunteer",
+   "a woman"
+  ],
+  "phrase": [
+   "planting yellow flowers in the soil",
+   "planting flowers",
+   "planting flowers in the park",
+   "working in the garden",
+   "planting yellow flowers"
+  ],
+  "simple": [
+   "plants yellow flowers in the soil",
+   "plants flowers"
+  ],
+  "actionKo": "장갑을 끼고 꽃을 흙에 심고 있어요",
+  "actionEn": "She wears gloves and puts the plants into the dirt",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19305,
+  "skip": true,
+  "why": "blood",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 21038,
+  "skip": false,
+  "ko": "고장 난 장난감",
+  "en": "Broken Toy",
+  "clueKo": "아이들이 가지고 노는 물건으로, 여기선 하얀 인형이 망가졌어요",
+  "clueEn": "A thing children play with; this white stuffed one is broken",
+  "word": [
+   "toy",
+   "a toy",
+   "the toy",
+   "stuffed toy",
+   "a stuffed toy"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she",
+   "the customer",
+   "a woman"
+  ],
+  "phrase": [
+   "holding a broken toy",
+   "holding a toy",
+   "looking at a broken toy",
+   "holding a broken stuffed toy"
+  ],
+  "simple": [
+   "holds a broken toy",
+   "holds a toy"
+  ],
+  "actionKo": "망가진 인형을 두 손에 들고 속상해하고 있어요",
+  "actionEn": "She has a broken stuffed animal in her hands and looks upset",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12016,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12068,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12139,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12224,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 12296,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12401,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12565,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12795,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12963,
+  "skip": false,
+  "ko": "거리 축제 공연",
+  "en": "Street Festival Music",
+  "clueKo": "줄을 튕겨 소리를 내는 나무 악기",
+  "clueEn": "a wooden instrument with strings that people strum",
+  "word": [
+   "guitar",
+   "a guitar",
+   "the guitar",
+   "guitars"
+  ],
+  "aux": "is",
+  "subj": [
+   "the musician",
+   "a musician",
+   "the man",
+   "he"
+  ],
+  "phrase": [
+   "playing the guitar on the street",
+   "playing the guitar",
+   "playing a guitar",
+   "playing a guitar at the festival",
+   "playing music on the street"
+  ],
+  "simple": [
+   "plays the guitar",
+   "plays the guitar on the street"
+  ],
+  "actionKo": "손가락으로 줄을 튕기며 연주한다",
+  "actionEn": "making music by strumming the strings",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13156,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14092,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14417,
+  "skip": false,
+  "ko": "무술 수업 인사",
+  "en": "Martial Arts Bow",
+  "clueKo": "무술할 때 입는 흰 옷",
+  "clueEn": "the white clothes people wear for karate or taekwondo",
+  "word": [
+   "uniform",
+   "a uniform",
+   "uniforms",
+   "the uniforms"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "students",
+   "they",
+   "the class"
+  ],
+  "phrase": [
+   "bowing in a row",
+   "bowing on the floor",
+   "kneeling in a row",
+   "bowing together in a row",
+   "kneeling on the wooden floor"
+  ],
+  "simple": [
+   "bow in a row",
+   "kneel on the floor"
+  ],
+  "actionKo": "바닥에 무릎을 꿇고 고개를 숙여 예를 표한다",
+  "actionEn": "lowering their heads with respect while on their knees",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 14586,
+  "skip": true,
+  "why": "불타는 들판",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14807,
+  "skip": false,
+  "ko": "운하의 배 여행",
+  "en": "Canal Boat Ride",
+  "clueKo": "물 위를 떠다니며 사람을 태우는 것",
+  "clueEn": "something that floats on water and carries people",
+  "word": [
+   "boat",
+   "a boat",
+   "the boat"
+  ],
+  "aux": "are",
+  "subj": [
+   "the tourists",
+   "tourists",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "riding in a boat",
+   "riding a boat on the canal",
+   "riding in a boat along the canal",
+   "sitting in a boat",
+   "traveling by boat"
+  ],
+  "simple": [
+   "ride in a boat",
+   "ride a boat on the canal"
+  ],
+  "actionKo": "물 위의 탈것을 타고 이동한다",
+  "actionEn": "going along the water while seated in a small vessel",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14974,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16017,
+  "skip": false,
+  "ko": "발레 공연",
+  "en": "Ballet On Stage",
+  "clueKo": "공연을 하는 넓은 무대 위 공간",
+  "clueEn": "the raised floor where performers show their art",
+  "word": [
+   "stage",
+   "a stage",
+   "the stage"
+  ],
+  "aux": "is",
+  "subj": [
+   "the dancer",
+   "a dancer",
+   "the ballerina",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "dancing on the stage",
+   "dancing ballet on the stage",
+   "dancing ballet",
+   "dancing on her toes",
+   "dancing on stage"
+  ],
+  "simple": [
+   "dances on the stage",
+   "dances ballet"
+  ],
+  "actionKo": "팔을 벌리고 발끝으로 서서 춤을 춘다",
+  "actionEn": "moving gracefully with her arms spread and on her toes",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16371,
+  "skip": false,
+  "ko": "회의실 발표",
+  "en": "Meeting Room Talk",
+  "clueKo": "발표 내용을 크게 비추어 보여 주는 넓은 판",
+  "clueEn": "a large flat surface where pictures are projected",
+  "word": [
+   "screen",
+   "a screen",
+   "the screen"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the speaker"
+  ],
+  "phrase": [
+   "giving a presentation",
+   "giving a presentation to her colleagues",
+   "standing next to the screen",
+   "talking to her colleagues",
+   "speaking in a meeting"
+  ],
+  "simple": [
+   "gives a presentation",
+   "talks to her colleagues"
+  ],
+  "actionKo": "동료들 앞에서 내용을 설명한다",
+  "actionEn": "explaining ideas to coworkers in front of the group",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16475,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-13"
+ },
+ {
+  "i": 16599,
+  "skip": false,
+  "ko": "미술관 관람",
+  "en": "Art Gallery Visit",
+  "clueKo": "캔버스에 물감으로 그린 그림",
+  "clueEn": "a colorful picture on canvas that hangs on a gallery wall",
+  "word": [
+   "painting",
+   "a painting",
+   "paintings",
+   "the paintings"
+  ],
+  "aux": "are",
+  "subj": [
+   "the visitors",
+   "visitors",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "looking at the paintings",
+   "looking at paintings in a gallery",
+   "walking through the gallery",
+   "visiting an art gallery",
+   "looking at the art"
+  ],
+  "simple": [
+   "look at the paintings",
+   "visit an art gallery"
+  ],
+  "actionKo": "전시된 작품을 눈으로 감상한다",
+  "actionEn": "viewing the artworks on the walls",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16657,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16744,
+  "skip": false,
+  "ko": "바벨 자세 지도",
+  "en": "Barbell Coaching",
+  "clueKo": "양쪽에 둥근 원판을 끼운 긴 쇠막대",
+  "clueEn": "a long metal bar with heavy round plates on each end",
+  "word": [
+   "barbell",
+   "a barbell",
+   "the barbell"
+  ],
+  "aux": "is",
+  "subj": [
+   "the trainer",
+   "a trainer",
+   "the man",
+   "he",
+   "the coach"
+  ],
+  "phrase": [
+   "helping the woman lift a barbell",
+   "showing her the correct posture",
+   "coaching the woman",
+   "helping the woman",
+   "teaching her to lift"
+  ],
+  "simple": [
+   "helps the woman lift a barbell",
+   "coaches the woman"
+  ],
+  "actionKo": "옆에서 올바른 자세를 가르쳐 준다",
+  "actionEn": "guiding someone to keep good form while training",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16875,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 17385,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18370,
+  "skip": false,
+  "ko": "봉투 전달과 악수",
+  "en": "Handshake And Envelope",
+  "clueKo": "편지나 돈을 넣는 종이 주머니",
+  "clueEn": "a paper cover you put a letter or money into",
+  "word": [
+   "envelope",
+   "an envelope",
+   "the envelope"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the manager"
+  ],
+  "phrase": [
+   "shaking hands with the woman",
+   "giving the woman an envelope",
+   "shaking hands",
+   "handing her an envelope",
+   "congratulating the woman"
+  ],
+  "simple": [
+   "shakes hands with the woman",
+   "gives the woman an envelope"
+  ],
+  "actionKo": "손을 맞잡고 흔들며 종이 봉투를 건넨다",
+  "actionEn": "holding her hand warmly and passing a paper packet",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-12"
+ },
+ {
+  "i": 18566,
+  "skip": false,
+  "ko": "도쿄 횡단보도",
+  "en": "Busy City Crossing",
+  "clueKo": "사람들이 길을 건너도록 흰 줄을 그어 둔 곳",
+  "clueEn": "the white striped area where people walk over a road",
+  "word": [
+   "crosswalk",
+   "a crosswalk",
+   "the crosswalk",
+   "crossing",
+   "a crossing"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "people",
+   "the pedestrians",
+   "they"
+  ],
+  "phrase": [
+   "crossing the street",
+   "walking across the crosswalk",
+   "crossing the busy street",
+   "walking in the city",
+   "crossing the road"
+  ],
+  "simple": [
+   "cross the street",
+   "walk across the crosswalk"
+  ],
+  "actionKo": "차도를 이쪽에서 저쪽으로 걸어서 지나간다",
+  "actionEn": "walking from one side of the road to the other",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 19323,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 21051,
+  "skip": false,
+  "ko": "가게 계산대 응대",
+  "en": "Friendly Shop Clerk",
+  "clueKo": "음식할 때나 일할 때 옷 위에 두르는 천",
+  "clueEn": "a cloth worn over clothes to keep them clean while working",
+  "word": [
+   "apron",
+   "an apron",
+   "the apron"
+  ],
+  "aux": "is",
+  "subj": [
+   "the clerk",
+   "a clerk",
+   "the woman",
+   "she",
+   "the shop assistant"
+  ],
+  "phrase": [
+   "giving a thumbs up",
+   "giving the customer a thumbs up",
+   "smiling at the customer",
+   "helping a customer",
+   "helping a customer at the counter"
+  ],
+  "simple": [
+   "gives a thumbs up",
+   "smiles at the customer",
+   "helps a customer"
+  ],
+  "actionKo": "엄지를 들어 올려 좋다는 표시를 한다",
+  "actionEn": "raising one finger up to show it is fine",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12018,
+  "skip": true,
+  "why": "행동이 서 있기뿐",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12069,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12142,
+  "skip": false,
+  "ko": "온 가족 식사",
+  "en": "Family Meal Together",
+  "clueKo": "할머니, 부모, 아이가 함께 사는 사람들의 무리",
+  "clueEn": "parents children and grandparents who live together",
+  "word": [
+   "family",
+   "a family",
+   "the family"
+  ],
+  "aux": "are",
+  "subj": [
+   "the family",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "having a meal together",
+   "eating a meal together",
+   "eating together",
+   "having dinner together",
+   "sharing a meal",
+   "eating at the table"
+  ],
+  "simple": [
+   "have a meal together",
+   "eat together"
+  ],
+  "actionKo": "식탁에 둘러앉아 음식을 먹고 있다",
+  "actionEn": "sitting around a table and enjoying food",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12228,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12304,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12409,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12574,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12796,
+  "skip": true,
+  "why": "no clear person doing a clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12964,
+  "skip": false,
+  "ko": "축제 천막",
+  "en": "Festival Tents",
+  "clueKo": "햇빛을 가리려고 세운 천으로 된 지붕",
+  "clueEn": "a cloth shelter put up outdoors for shade",
+  "word": [
+   "tent",
+   "tents",
+   "a tent",
+   "the tents",
+   "canopy",
+   "canopies"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "people",
+   "they"
+  ],
+  "phrase": [
+   "sitting under colorful tents",
+   "sitting under tents",
+   "sitting at tables under tents",
+   "sitting in the shade"
+  ],
+  "simple": [
+   "sit under colorful tents",
+   "sit under tents"
+  ],
+  "actionKo": "천막 아래 의자에 앉아 쉬고 있다",
+  "actionEn": "resting on chairs beneath colorful shelters",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 13164,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 14135,
+  "skip": false,
+  "ko": "기부 물품 넣기",
+  "en": "Donating Food",
+  "clueKo": "음식이 들어 있는 둥근 금속 용기",
+  "clueEn": "round metal containers that keep food inside",
+  "word": [
+   "cans",
+   "a can",
+   "the cans",
+   "can",
+   "tins"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "the volunteer",
+   "a volunteer",
+   "she"
+  ],
+  "phrase": [
+   "putting cans into a donation box",
+   "putting cans into a box",
+   "putting cans in a box",
+   "donating canned food",
+   "packing cans"
+  ],
+  "simple": [
+   "puts cans into a donation box",
+   "puts cans into a box"
+  ],
+  "actionKo": "통조림을 기부 상자 안에 넣고 있다",
+  "actionEn": "placing tins inside a charity box",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14445,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14589,
+  "skip": false,
+  "ko": "오토바이 거리",
+  "en": "Busy Scooter Street",
+  "clueKo": "작은 바퀴 두 개가 달린 가벼운 오토바이",
+  "clueEn": "a light motorbike with two small wheels",
+  "word": [
+   "scooters",
+   "a scooter",
+   "scooter",
+   "the scooters"
+  ],
+  "aux": "are",
+  "subj": [
+   "the riders",
+   "people",
+   "they",
+   "the people"
+  ],
+  "phrase": [
+   "riding scooters down a busy street",
+   "riding scooters",
+   "riding motorbikes down the street",
+   "riding motorbikes"
+  ],
+  "simple": [
+   "ride scooters down a busy street",
+   "ride scooters"
+  ],
+  "actionKo": "오토바이를 타고 거리를 달리고 있다",
+  "actionEn": "traveling along a crowded road on motorbikes",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14809,
+  "skip": false,
+  "ko": "관광객의 구경",
+  "en": "Tourist Sightseeing",
+  "clueKo": "카메라와 배낭을 메고 다른 도시를 구경하러 온 사람",
+  "clueEn": "a visitor with a camera and backpack exploring a city",
+  "word": [
+   "tourist",
+   "a tourist",
+   "the tourist",
+   "traveler",
+   "a traveler"
+  ],
+  "aux": "is",
+  "subj": [
+   "the tourist",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "looking up at a monument",
+   "looking up at an old monument",
+   "looking up at the tower",
+   "looking up"
+  ],
+  "simple": [
+   "looks up at a monument"
+  ],
+  "actionKo": "고개를 들어 높은 기념탑을 바라보고 있다",
+  "actionEn": "tilting her head back to see a tall stone column",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 14976,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16020,
+  "skip": false,
+  "ko": "책 읽는 할아버지",
+  "en": "Grandfather Reading",
+  "clueKo": "엄마나 아빠의 아버지",
+  "clueEn": "the father of your mother or father",
+  "word": [
+   "grandfather",
+   "a grandfather",
+   "the grandfather",
+   "grandpa",
+   "old man"
+  ],
+  "aux": "is",
+  "subj": [
+   "the old man",
+   "the grandfather",
+   "he",
+   "the man"
+  ],
+  "phrase": [
+   "reading a book in an armchair",
+   "reading a book",
+   "reading in an armchair",
+   "sitting in an armchair"
+  ],
+  "simple": [
+   "reads a book in an armchair",
+   "reads a book"
+  ],
+  "actionKo": "안락의자에 앉아 책장을 보고 있다",
+  "actionEn": "looking at the pages of a novel in a soft chair",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16373,
+  "skip": false,
+  "ko": "기내 휴식",
+  "en": "Relaxing On A Flight",
+  "clueKo": "귀를 덮어 음악을 듣는 기기",
+  "clueEn": "a device worn over the ears to hear music",
+  "word": [
+   "headphones",
+   "a pair of headphones",
+   "the headphones",
+   "headset"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "the passenger",
+   "she"
+  ],
+  "phrase": [
+   "relaxing in her seat",
+   "relaxing in an airplane seat",
+   "resting under a blanket",
+   "wearing headphones",
+   "relaxing on a plane"
+  ],
+  "simple": [
+   "relaxes in her seat",
+   "relaxes in an airplane seat"
+  ],
+  "actionKo": "비행기 좌석에서 담요를 덮고 편히 쉬고 있다",
+  "actionEn": "lying back comfortably under a blanket on a flight",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16479,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 16601,
+  "skip": false,
+  "ko": "개 산책",
+  "en": "Walking The Dog",
+  "clueKo": "사람과 함께 사는 충성스러운 네발 동물",
+  "clueEn": "a loyal four legged pet that barks",
+  "word": [
+   "dog",
+   "a dog",
+   "the dog",
+   "puppy"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "the old man",
+   "he"
+  ],
+  "phrase": [
+   "walking his dog across the square",
+   "walking a dog",
+   "walking his dog",
+   "walking a dog on a leash"
+  ],
+  "simple": [
+   "walks his dog",
+   "walks a dog"
+  ],
+  "actionKo": "목줄을 잡고 개와 함께 광장을 걷고 있다",
+  "actionEn": "taking a pet out on a leash across a stone square",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16664,
+  "skip": false,
+  "ko": "커피 만드는 바리스타",
+  "en": "Barista At Work",
+  "clueKo": "카페에서 커피를 만드는 직원",
+  "clueEn": "a worker who makes coffee drinks in a cafe",
+  "word": [
+   "barista",
+   "a barista",
+   "the barista"
+  ],
+  "aux": "is",
+  "subj": [
+   "the barista",
+   "the man",
+   "he"
+  ],
+  "phrase": [
+   "pouring milk into a cup",
+   "pouring milk",
+   "making coffee",
+   "making a latte"
+  ],
+  "simple": [
+   "pours milk into a cup",
+   "makes coffee"
+  ],
+  "actionKo": "주전자의 우유를 컵에 따르고 있다",
+  "actionEn": "adding milk from a small jug to a cup",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16745,
+  "skip": false,
+  "ko": "칠판 수학 풀이",
+  "en": "Math On The Board",
+  "clueKo": "칠판에 쓴 x가 들어 있는 수학 식",
+  "clueEn": "math problems with x written in chalk",
+  "word": [
+   "equations",
+   "an equation",
+   "the equations",
+   "equation"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "the student",
+   "she",
+   "the teacher"
+  ],
+  "phrase": [
+   "writing on a blackboard",
+   "writing equations on a blackboard",
+   "writing on the board",
+   "solving equations on the board",
+   "solving math problems"
+  ],
+  "simple": [
+   "writes on a blackboard",
+   "writes equations on a blackboard"
+  ],
+  "actionKo": "분필로 칠판에 수학 식을 적고 있다",
+  "actionEn": "using chalk to put math on the board",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16877,
+  "skip": true,
+  "why": "no clear person doing a clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17396,
+  "skip": false,
+  "ko": "가격표 할인",
+  "en": "Showing The Discount",
+  "clueKo": "물건에 붙어 얼마인지 알려 주는 작은 종이",
+  "clueEn": "a small paper label that shows how much an item costs",
+  "word": [
+   "price tag",
+   "a price tag",
+   "the price tag",
+   "tag"
+  ],
+  "aux": "is",
+  "subj": [
+   "the shop owner",
+   "the woman",
+   "she",
+   "the clerk"
+  ],
+  "phrase": [
+   "showing a price tag to a customer",
+   "showing a price tag",
+   "showing a discount",
+   "smiling at a customer",
+   "helping a customer"
+  ],
+  "simple": [
+   "shows a price tag to a customer",
+   "shows a price tag"
+  ],
+  "actionKo": "손님에게 새로 바뀐 값이 적힌 종이를 보여 주고 있다",
+  "actionEn": "holding up a lowered cost for the shopper to see",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18411,
+  "skip": false,
+  "ko": "옛 전화와 새 폰",
+  "en": "Old And New Phones",
+  "clueKo": "인터넷과 앱을 쓸 수 있는 휴대 전화",
+  "clueEn": "a mobile phone that can use the internet and apps",
+  "word": [
+   "smartphone",
+   "a smartphone",
+   "the smartphone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the boy",
+   "a boy",
+   "he"
+  ],
+  "phrase": [
+   "holding a smartphone",
+   "looking at a smartphone",
+   "looking at his phone",
+   "holding a phone"
+  ],
+  "simple": [
+   "holds a smartphone",
+   "looks at a smartphone"
+  ],
+  "actionKo": "손에 휴대 전화를 들고 화면을 보고 있다",
+  "actionEn": "gripping a mobile device in his hands",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18578,
+  "skip": false,
+  "ko": "토크쇼 인터뷰",
+  "en": "Talk Show Interview",
+  "clueKo": "방송에서 손님을 초대해 이야기를 이끄는 사람",
+  "clueEn": "the person who leads a talk show and welcomes guests",
+  "word": [
+   "host",
+   "a host",
+   "the host",
+   "presenter"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "interviewing two guests",
+   "interviewing guests",
+   "talking with two guests",
+   "talking with guests on a show"
+  ],
+  "simple": [
+   "interviews two guests",
+   "interviews guests"
+  ],
+  "actionKo": "소파에 앉은 두 손님에게 질문하고 있다",
+  "actionEn": "asking questions to two people on a sofa",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 19327,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 21135,
+  "skip": false,
+  "ko": "시장 사과 가격",
+  "en": "Apple Price At Market",
+  "clueKo": "바구니에 담긴 둥글고 빨간 과일",
+  "clueEn": "round red fruit piled in a basket",
+  "word": [
+   "apples",
+   "an apple",
+   "the apples",
+   "apple"
+  ],
+  "aux": "is",
+  "subj": [
+   "the seller",
+   "the man",
+   "he",
+   "the vendor"
+  ],
+  "phrase": [
+   "pointing at a price sign",
+   "pointing at the price",
+   "pointing at the sign",
+   "selling apples",
+   "talking to a customer"
+  ],
+  "simple": [
+   "points at a price sign",
+   "sells apples"
+  ],
+  "actionKo": "손가락으로 가격 표시를 가리키고 있다",
+  "actionEn": "using a finger to show the cost on a small sign",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12020,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-07"
+ },
+ {
+  "i": 12074,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12144,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12230,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12307,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12410,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12586,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-07"
+ },
+ {
+  "i": 12808,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12979,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13167,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14178,
+  "skip": false,
+  "ko": "소파 위 웃음",
+  "en": "Laughing On The Sofa",
+  "clueKo": "거실에 놓인, 여러 사람이 함께 앉는 푹신한 긴 의자",
+  "clueEn": "a long soft seat in a living room where several people can sit together",
+  "word": [
+   "sofa",
+   "a sofa",
+   "the sofa",
+   "couch",
+   "a couch",
+   "the couch"
+  ],
+  "aux": "are",
+  "subj": [
+   "the children",
+   "the kids",
+   "four children",
+   "they"
+  ],
+  "phrase": [
+   "laughing together on a sofa",
+   "laughing together",
+   "laughing on the sofa",
+   "sitting on the couch and laughing"
+  ],
+  "simple": [
+   "laugh together on a sofa",
+   "laugh together"
+  ],
+  "actionKo": "아주 재미있어서 입을 크게 벌리고 소리를 내고 있어요",
+  "actionEn": "they open their mouths wide and make happy sounds because something is funny",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14447,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14597,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14820,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14985,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-07"
+ },
+ {
+  "i": 16027,
+  "skip": false,
+  "ko": "계산대의 수표",
+  "en": "Checks At The Counter",
+  "clueKo": "은행에서 발행하며 금액을 적어 돈 대신 내는 종이",
+  "clueEn": "a bank paper where you write an amount and use it instead of cash",
+  "word": [
+   "check",
+   "a check",
+   "the check",
+   "checks",
+   "two checks",
+   "the checks"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "the customer"
+  ],
+  "phrase": [
+   "holding two checks at a counter",
+   "holding two checks",
+   "holding checks",
+   "holding checks next to some cash"
+  ],
+  "simple": [
+   "holds two checks at a counter",
+   "holds two checks"
+  ],
+  "actionKo": "손가락으로 종이 두 장을 잡고 들고 있어요",
+  "actionEn": "the fingers grip two pieces of paper above the counter",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 16377,
+  "skip": false,
+  "ko": "성 모양 케이크",
+  "en": "Castle Birthday Cake",
+  "clueKo": "생일에 촛불을 꽂고 먹는 달콤한 빵, 여기서는 성 모양이에요",
+  "clueEn": "a sweet birthday dessert, here shaped like a castle with towers",
+  "word": [
+   "cake",
+   "a cake",
+   "the cake",
+   "birthday cake",
+   "a birthday cake",
+   "the birthday cake"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she"
+  ],
+  "phrase": [
+   "looking at a castle cake",
+   "looking at her birthday cake",
+   "smiling at a castle cake",
+   "looking at the cake with her chin in her hands"
+  ],
+  "simple": [
+   "looks at a castle cake",
+   "smiles at her birthday cake"
+  ],
+  "actionKo": "두 손으로 턱을 괴고 케이크를 바라보고 있어요",
+  "actionEn": "she rests her chin on her hands and keeps her eyes on the dessert",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16489,
+  "skip": true,
+  "why": "alcohol (wine glasses)",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16604,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16670,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16758,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16911,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 17398,
+  "skip": false,
+  "ko": "회의 중 발표",
+  "en": "Team Meeting Talk",
+  "clueKo": "직장 사람들이 테이블에 모여 일에 대해 이야기하는 자리",
+  "clueEn": "a time when coworkers gather around a table to discuss work",
+  "word": [
+   "meeting",
+   "a meeting",
+   "the meeting"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the manager"
+  ],
+  "phrase": [
+   "speaking to her team",
+   "speaking to her colleagues at a meeting",
+   "talking to her team",
+   "giving an update to her team"
+  ],
+  "simple": [
+   "speaks to her team",
+   "talks to her colleagues"
+  ],
+  "actionKo": "서서 손짓을 하며 앉은 동료들에게 설명하고 있어요",
+  "actionEn": "she stands and uses her hands while explaining something to the people at the table",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18417,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-07"
+ },
+ {
+  "i": 18585,
+  "skip": false,
+  "ko": "이력서 보여주기",
+  "en": "Showing A Resume",
+  "clueKo": "일자리에 지원할 때 내는, 경력과 학력을 적은 한 장짜리 서류",
+  "clueEn": "a one-page paper listing your work history and education for a job application",
+  "word": [
+   "resume",
+   "a resume",
+   "the resume",
+   "her resume"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "holding up a resume",
+   "pointing at her resume",
+   "showing her resume",
+   "holding up her resume and pointing at it"
+  ],
+  "simple": [
+   "holds up a resume",
+   "points at her resume"
+  ],
+  "actionKo": "종이 한 장을 들어 올리고 손가락으로 가리키고 있어요",
+  "actionEn": "she raises a sheet of paper and aims her finger at it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19387,
+  "skip": false,
+  "ko": "개울에서 물 받기",
+  "en": "Filling A Bottle",
+  "clueKo": "물을 담아 들고 다니는 뚜껑 있는 용기",
+  "clueEn": "a container with a lid that you carry water in",
+  "word": [
+   "bottle",
+   "a bottle",
+   "the bottle",
+   "water bottle",
+   "a water bottle"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the hiker",
+   "the camper"
+  ],
+  "phrase": [
+   "filling a bottle with water",
+   "filling a water bottle",
+   "filling his bottle at a stream",
+   "filling a bottle"
+  ],
+  "simple": [
+   "fills a bottle with water",
+   "fills a water bottle"
+  ],
+  "actionKo": "바위에서 흘러내리는 물을 병 안에 받고 있어요",
+  "actionEn": "he puts water from the rocks into a container until it is full",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 21147,
+  "skip": false,
+  "ko": "카드로 결제하기",
+  "en": "Paying By Card",
+  "clueKo": "현금 대신 가게에서 결제할 때 쓰는 얇은 플라스틱",
+  "clueEn": "a thin piece of plastic you use in a shop instead of cash",
+  "word": [
+   "card",
+   "a card",
+   "the card",
+   "credit card",
+   "a credit card",
+   "the credit card"
+  ],
+  "aux": "is",
+  "subj": [
+   "the customer",
+   "a customer",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "paying with a credit card",
+   "paying by card",
+   "tapping a card on the reader",
+   "paying for her order with a card"
+  ],
+  "simple": [
+   "pays with a credit card",
+   "pays by card"
+  ],
+  "actionKo": "카드를 단말기에 대서 값을 치르고 있어요",
+  "actionEn": "she touches the plastic to the machine to buy something",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12032,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12077,
+  "skip": false,
+  "ko": "치과 검진",
+  "en": "Dental Checkup",
+  "clueKo": "이를 살펴보고 치료해 주는 의사",
+  "clueEn": "a doctor who takes care of your teeth",
+  "word": [
+   "dentist",
+   "a dentist",
+   "the dentist"
+  ],
+  "aux": "is",
+  "subj": [
+   "the dentist",
+   "a dentist",
+   "he",
+   "the doctor",
+   "the man"
+  ],
+  "phrase": [
+   "examining a boy's teeth",
+   "examining the boy's teeth",
+   "checking a boy's teeth",
+   "checking the boy's teeth",
+   "examining a patient",
+   "checking the patient's teeth"
+  ],
+  "simple": [
+   "examines a boy's teeth",
+   "checks the boy's teeth"
+  ],
+  "actionKo": "입 안을 자세히 들여다보며 살피고 있다",
+  "actionEn": "looking closely inside someone's mouth",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12147,
+  "skip": false,
+  "ko": "방송 인터뷰",
+  "en": "News Interview",
+  "clueKo": "목소리를 크게 전달하려고 손에 쥐는 물건",
+  "clueEn": "a thing you hold to make your voice louder",
+  "word": [
+   "microphone",
+   "a microphone",
+   "the microphone",
+   "microphones",
+   "mic",
+   "a mic"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he"
+  ],
+  "phrase": [
+   "speaking into microphones",
+   "speaking into the microphones",
+   "talking to reporters",
+   "giving an interview",
+   "speaking to reporters",
+   "holding a microphone"
+  ],
+  "simple": [
+   "speaks into microphones",
+   "gives an interview"
+  ],
+  "actionKo": "기자들 앞에서 말하고 있다",
+  "actionEn": "saying something in front of reporters",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12234,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12321,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12420,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12624,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12825,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 13019,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13183,
+  "skip": false,
+  "ko": "지도 짚기",
+  "en": "Pointing at a Map",
+  "clueKo": "길과 장소가 그려진 종이",
+  "clueEn": "a paper that shows roads and places",
+  "word": [
+   "map",
+   "a map",
+   "the map"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "someone"
+  ],
+  "phrase": [
+   "pointing at a map",
+   "pointing at the map",
+   "pointing to a place on the map",
+   "pointing to a spot on a map",
+   "touching the map"
+  ],
+  "simple": [
+   "points at a map",
+   "points to a place on the map"
+  ],
+  "actionKo": "손가락으로 한 곳을 가리키고 있다",
+  "actionEn": "showing one spot with a finger",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14226,
+  "skip": false,
+  "ko": "동료에게 차 건네기",
+  "en": "Sharing a Drink",
+  "clueKo": "손잡이가 달린 뜨거운 음료 잔",
+  "clueEn": "a cup with a handle for hot drinks",
+  "word": [
+   "mug",
+   "a mug",
+   "the mug"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "handing a mug to her coworker",
+   "handing a cup to her coworker",
+   "giving her coworker a cup",
+   "handing a mug to a man",
+   "giving a man a cup of tea",
+   "handing a cup to a man",
+   "passing a mug"
+  ],
+  "simple": [
+   "hands a mug to her coworker",
+   "gives her coworker a cup"
+  ],
+  "actionKo": "손에 든 것을 옆 사람에게 넘겨주고 있다",
+  "actionEn": "passing something to the person across the desk",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14461,
+  "skip": false,
+  "ko": "집에 도착한 가족",
+  "en": "Arriving Home",
+  "clueKo": "여행할 때 짐을 넣어 끌고 다니는 가방",
+  "clueEn": "a travel bag with wheels for your clothes",
+  "word": [
+   "suitcase",
+   "a suitcase",
+   "the suitcase",
+   "suitcases",
+   "luggage"
+  ],
+  "aux": "are",
+  "subj": [
+   "the couple",
+   "a couple",
+   "they",
+   "the parents"
+  ],
+  "phrase": [
+   "arriving home with suitcases",
+   "arriving home with their suitcases",
+   "standing at the door with suitcases",
+   "coming home with luggage",
+   "standing in the doorway",
+   "smiling at the door"
+  ],
+  "simple": [
+   "arrive home with suitcases",
+   "come home with luggage"
+  ],
+  "actionKo": "여행 가방을 들고 집 문 앞에 막 왔다",
+  "actionEn": "just got back to the house after a trip",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14599,
+  "skip": false,
+  "ko": "강 위의 배",
+  "en": "River Boat Ride",
+  "clueKo": "물 위를 떠서 사람을 실어 나르는 것",
+  "clueEn": "something that floats and carries people on water",
+  "word": [
+   "boat",
+   "a boat",
+   "the boat"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "people",
+   "they",
+   "the passengers"
+  ],
+  "phrase": [
+   "riding a boat on the river",
+   "riding in a boat",
+   "traveling down the river by boat",
+   "sitting in a boat",
+   "riding a boat"
+  ],
+  "simple": [
+   "ride a boat on the river",
+   "ride in a boat"
+  ],
+  "actionKo": "물 위를 가는 탈것에 앉아 이동하고 있다",
+  "actionEn": "traveling across the water",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14829,
+  "skip": false,
+  "ko": "사무실 업무",
+  "en": "Working at the Office",
+  "clueKo": "글자를 입력할 때 손가락으로 누르는 판",
+  "clueEn": "the board with keys you press to type",
+  "word": [
+   "keyboard",
+   "a keyboard",
+   "the keyboard",
+   "computer",
+   "a computer",
+   "monitor",
+   "a monitor"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the worker"
+  ],
+  "phrase": [
+   "typing on a keyboard",
+   "typing on the keyboard",
+   "working at her desk",
+   "working on a computer",
+   "using a computer",
+   "typing at her desk"
+  ],
+  "simple": [
+   "types on a keyboard",
+   "works at her desk"
+  ],
+  "actionKo": "자판을 두드려 글자를 입력하고 있다",
+  "actionEn": "pressing keys to write on a computer",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 15007,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16032,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16390,
+  "skip": false,
+  "ko": "음식 축제",
+  "en": "Community Food Festival",
+  "clueKo": "밀가루를 구워 만든 둥근 음식",
+  "clueEn": "a round food baked from flour",
+  "word": [
+   "bread",
+   "the bread",
+   "loaf",
+   "a loaf",
+   "loaves"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the visitor"
+  ],
+  "phrase": [
+   "looking at the food",
+   "looking at the food on the table",
+   "looking at the bread",
+   "browsing the food table",
+   "smiling at the food"
+  ],
+  "simple": [
+   "looks at the food",
+   "looks at the bread"
+  ],
+  "actionKo": "탁자 위 음식을 눈으로 살펴보고 있다",
+  "actionEn": "checking out the dishes on the long table with her eyes",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16507,
+  "skip": false,
+  "ko": "녹차 따르기",
+  "en": "Pouring Green Tea",
+  "clueKo": "차를 우려서 따르는 주둥이 달린 그릇",
+  "clueEn": "a pot with a spout used for making tea",
+  "word": [
+   "teapot",
+   "a teapot",
+   "the teapot"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "someone"
+  ],
+  "phrase": [
+   "pouring green tea into a cup",
+   "pouring tea into a cup",
+   "pouring green tea",
+   "pouring tea",
+   "pouring tea from a teapot"
+  ],
+  "simple": [
+   "pours green tea into a cup",
+   "pours tea"
+  ],
+  "actionKo": "주전자를 기울여 잔에 차를 채우고 있다",
+  "actionEn": "tipping a pot so the drink flows into a cup",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16620,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 16672,
+  "skip": false,
+  "ko": "빵 꺼내기",
+  "en": "Baking Bread",
+  "clueKo": "음식을 굽는 뜨거운 부엌 기계",
+  "clueEn": "a hot kitchen machine used for baking",
+  "word": [
+   "oven",
+   "an oven",
+   "the oven",
+   "bread",
+   "a loaf of bread"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "the baker",
+   "she",
+   "the woman"
+  ],
+  "phrase": [
+   "taking bread out of the oven",
+   "taking the bread out of the oven",
+   "pulling bread out of the oven",
+   "taking out a loaf of bread",
+   "wearing oven mitts",
+   "taking out bread"
+  ],
+  "simple": [
+   "takes bread out of the oven",
+   "pulls bread out of the oven"
+  ],
+  "actionKo": "다 구워진 빵을 안에서 빼내고 있다",
+  "actionEn": "removing a baked loaf from a hot box",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16759,
+  "skip": true,
+  "why": "no clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 17103,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 17399,
+  "skip": false,
+  "ko": "직원 교육",
+  "en": "Leadership Workshop",
+  "clueKo": "사람들 앞에서 내용을 설명하며 발표하는 것",
+  "clueEn": "a talk you give in front of a group at work",
+  "word": [
+   "presentation",
+   "a presentation",
+   "the presentation"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the speaker",
+   "the trainer"
+  ],
+  "phrase": [
+   "giving a presentation",
+   "giving a presentation to her colleagues",
+   "leading a workshop",
+   "speaking to her coworkers",
+   "talking to the group",
+   "explaining something to her team"
+  ],
+  "simple": [
+   "gives a presentation",
+   "leads a workshop"
+  ],
+  "actionKo": "여러 사람 앞에 서서 설명하고 있다",
+  "actionEn": "standing up and talking to a group",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18418,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18602,
+  "skip": true,
+  "why": "swimwear",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19465,
+  "skip": false,
+  "ko": "다문화 축제",
+  "en": "Multicultural Food Festival",
+  "clueKo": "음식을 담아 먹는 둥글고 평평한 그릇",
+  "clueEn": "a flat round dish you eat food from",
+  "word": [
+   "plate",
+   "a plate",
+   "the plate",
+   "plates"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "people",
+   "they",
+   "the neighbors"
+  ],
+  "phrase": [
+   "sharing food together",
+   "sharing food at a festival",
+   "sharing food on the street",
+   "holding plates of food",
+   "eating together",
+   "enjoying food together"
+  ],
+  "simple": [
+   "share food together",
+   "share food at a festival"
+  ],
+  "actionKo": "여러 사람이 음식을 함께 나누고 있다",
+  "actionEn": "passing dishes around and enjoying a meal as a group",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 21171,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 12037,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12103,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12151,
+  "skip": false,
+  "ko": "보드게임하는 형제",
+  "en": "Brothers Playing Games",
+  "clueKo": "주사위나 말을 움직이며 여럿이 판 위에서 즐기는 놀이",
+  "clueEn": "something you play at a table by moving pieces on a flat printed surface",
+  "word": [
+   "board game",
+   "a board game",
+   "the board game"
+  ],
+  "aux": "are",
+  "subj": [
+   "the boys",
+   "two boys",
+   "they",
+   "the brothers",
+   "the kids"
+  ],
+  "phrase": [
+   "playing a board game on the rug",
+   "playing a board game",
+   "playing a game together",
+   "playing a game on the floor"
+  ],
+  "simple": [
+   "play a board game",
+   "play a game together"
+  ],
+  "actionKo": "바닥에 엎드려 말을 움직이며 함께 놀고 있다",
+  "actionEn": "they move pieces and have fun together on the floor",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12242,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12329,
+  "skip": false,
+  "ko": "책을 안은 여자",
+  "en": "Hugging A Book",
+  "clueKo": "여러 쪽의 종이를 묶어 표지를 씌운 읽을거리",
+  "clueEn": "something you read that has pages and a cover",
+  "word": [
+   "book",
+   "a book",
+   "the book",
+   "novel",
+   "a novel"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the reader"
+  ],
+  "phrase": [
+   "hugging a book on the sofa",
+   "hugging a book",
+   "holding a book to her chest",
+   "smiling with her eyes closed"
+  ],
+  "simple": [
+   "hugs a book",
+   "holds a book to her chest"
+  ],
+  "actionKo": "두 팔로 무언가를 가슴에 꼭 끌어안고 있다",
+  "actionEn": "she wraps her arms around something and presses it to her chest",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12421,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12649,
+  "skip": true,
+  "why": "no clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12837,
+  "skip": false,
+  "ko": "풍선 아래 파티",
+  "en": "Party Under Balloons",
+  "clueKo": "공기를 불어 넣어 파티 장식으로 매다는 둥근 물건",
+  "clueEn": "round colorful things filled with air that hang at a party",
+  "word": [
+   "balloons",
+   "the balloons",
+   "balloon",
+   "a balloon"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "the guests",
+   "they",
+   "the friends"
+  ],
+  "phrase": [
+   "eating together at a party",
+   "eating at a party",
+   "sitting at a long table",
+   "celebrating under colorful balloons",
+   "having a meal together"
+  ],
+  "simple": [
+   "eat together at a party",
+   "celebrate together"
+  ],
+  "actionKo": "긴 식탁에 둘러앉아 음식을 함께 먹고 있다",
+  "actionEn": "they sit around a long table and share food",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13029,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13211,
+  "skip": false,
+  "ko": "트랙 위의 단거리 선수",
+  "en": "Sprinter On Track",
+  "clueKo": "육상 경기에서 선수들이 달리는 둥근 길",
+  "clueEn": "the oval path where athletes race in a stadium",
+  "word": [
+   "track",
+   "a track",
+   "the track",
+   "running track",
+   "a running track"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the runner",
+   "the athlete"
+  ],
+  "phrase": [
+   "running fast on the track",
+   "running fast",
+   "sprinting on the track",
+   "racing on a track"
+  ],
+  "simple": [
+   "runs fast on the track",
+   "sprints on the track"
+  ],
+  "actionKo": "다리를 크게 벌리며 아주 빠르게 앞으로 나아가고 있다",
+  "actionEn": "he moves his legs very quickly to go forward at top speed",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14301,
+  "skip": false,
+  "ko": "코트를 보여주는 점원",
+  "en": "Showing A Coat",
+  "clueKo": "추운 날 옷 위에 입는 길고 두꺼운 겉옷",
+  "clueEn": "a long warm piece of clothing you wear outside in winter",
+  "word": [
+   "coat",
+   "a coat",
+   "the coat"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the salesperson",
+   "the clerk"
+  ],
+  "phrase": [
+   "showing a coat to a customer",
+   "showing a coat",
+   "holding up a coat",
+   "helping a customer choose a coat"
+  ],
+  "simple": [
+   "shows a coat to a customer",
+   "holds up a coat"
+  ],
+  "actionKo": "옷걸이에 걸린 옷을 들어 손님에게 보여주고 있다",
+  "actionEn": "she lifts clothing on a hanger so a shopper can look at it",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14494,
+  "skip": false,
+  "ko": "정원의 잔치",
+  "en": "Garden Feast",
+  "clueKo": "사람들이 둘러앉아 음식을 먹는 가구",
+  "clueEn": "the long wooden furniture where people put plates and eat",
+  "word": [
+   "table",
+   "a table",
+   "the table",
+   "long table",
+   "a long table"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "the family",
+   "they",
+   "the guests"
+  ],
+  "phrase": [
+   "sharing a meal at a long table",
+   "sharing a meal",
+   "eating together in a garden",
+   "enjoying a big meal outside"
+  ],
+  "simple": [
+   "share a meal at a long table",
+   "eat together outside"
+  ],
+  "actionKo": "여러 사람이 음식을 나누며 함께 식사하고 있다",
+  "actionEn": "many people pass dishes and eat together outdoors",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14602,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14831,
+  "skip": false,
+  "ko": "붐비는 채소 시장",
+  "en": "Busy Vegetable Market",
+  "clueKo": "토마토, 당근, 감자처럼 밭에서 기르는 먹을거리",
+  "clueEn": "tomatoes, carrots and potatoes are examples of these foods",
+  "word": [
+   "vegetables",
+   "the vegetables",
+   "fresh vegetables"
+  ],
+  "aux": "are",
+  "subj": [
+   "the shoppers",
+   "the people",
+   "they",
+   "the customers"
+  ],
+  "phrase": [
+   "shopping at a busy market",
+   "shopping for vegetables",
+   "walking between the stalls",
+   "buying fresh vegetables"
+  ],
+  "simple": [
+   "shop at a busy market",
+   "buy fresh vegetables"
+  ],
+  "actionKo": "사람들이 가판대 사이를 다니며 먹을거리를 고르고 있다",
+  "actionEn": "people walk between the stalls and pick food to buy",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 15030,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16034,
+  "skip": false,
+  "ko": "토스트를 꺼내는 여자",
+  "en": "Making Toast",
+  "clueKo": "빵을 넣으면 노릇하게 구워 주는 주방 기계",
+  "clueEn": "a kitchen machine that heats slices of bread until brown",
+  "word": [
+   "toaster",
+   "a toaster",
+   "the toaster"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "taking toast out of the toaster",
+   "taking out toast",
+   "making toast in the kitchen",
+   "making toast"
+  ],
+  "simple": [
+   "takes toast out of the toaster",
+   "makes toast"
+  ],
+  "actionKo": "구워진 빵을 기계에서 손으로 빼내고 있다",
+  "actionEn": "she pulls a warm brown slice of bread from a kitchen machine",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16392,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16518,
+  "skip": true,
+  "why": "swimwear",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16621,
+  "skip": false,
+  "ko": "앞서 달리는 선수",
+  "en": "Leading The Race",
+  "clueKo": "육상 경기에서 선수들이 달리는 둥근 길",
+  "clueEn": "the oval path where athletes race in a stadium",
+  "word": [
+   "track",
+   "a track",
+   "the track",
+   "running track",
+   "a running track"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the runner",
+   "the athlete"
+  ],
+  "phrase": [
+   "running ahead of the others",
+   "running on the track",
+   "leading the race",
+   "running in a race"
+  ],
+  "simple": [
+   "runs ahead of the others",
+   "leads the race"
+  ],
+  "actionKo": "다른 선수들보다 앞에서 빠르게 달려 나가고 있다",
+  "actionEn": "she is in first place and moving faster than the others",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16683,
+  "skip": true,
+  "why": "swimwear",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 16769,
+  "skip": false,
+  "ko": "사전을 찾는 손",
+  "en": "Using A Dictionary",
+  "clueKo": "낱말의 뜻을 찾아볼 수 있는 두꺼운 책",
+  "clueEn": "a thick book where you look up what words mean",
+  "word": [
+   "dictionary",
+   "a dictionary",
+   "the dictionary"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "the student",
+   "the reader"
+  ],
+  "phrase": [
+   "pointing at a word in a dictionary",
+   "pointing at a word",
+   "looking up a word",
+   "reading a dictionary"
+  ],
+  "simple": [
+   "points at a word in a dictionary",
+   "looks up a word"
+  ],
+  "actionKo": "손가락으로 책 속의 한 낱말을 짚고 있다",
+  "actionEn": "a finger rests on one entry on the page",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17104,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 17400,
+  "skip": false,
+  "ko": "사진을 보는 친구들",
+  "en": "Looking At Photos",
+  "clueKo": "카메라로 찍어 종이에 뽑은 그림",
+  "clueEn": "printed pictures taken with a camera",
+  "word": [
+   "photos",
+   "the photos",
+   "photo",
+   "a photo",
+   "photographs"
+  ],
+  "aux": "are",
+  "subj": [
+   "the women",
+   "two women",
+   "they",
+   "the friends"
+  ],
+  "phrase": [
+   "looking at old photos together",
+   "looking at photos",
+   "laughing over old photos",
+   "laughing together at a cafe"
+  ],
+  "simple": [
+   "look at old photos together",
+   "laugh together"
+  ],
+  "actionKo": "옛 추억이 담긴 그림을 함께 들여다보며 웃고 있다",
+  "actionEn": "they study printed memories together and smile",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18429,
+  "skip": false,
+  "ko": "손주를 안는 조부모",
+  "en": "Grandparents Hugging",
+  "clueKo": "아빠나 엄마의 부모님을 함께 부르는 말",
+  "clueEn": "your mother's or father's parents",
+  "word": [
+   "grandparents",
+   "the grandparents",
+   "grandma and grandpa"
+  ],
+  "aux": "are",
+  "subj": [
+   "the grandparents",
+   "they",
+   "the family"
+  ],
+  "phrase": [
+   "hugging their grandchildren",
+   "hugging the children",
+   "hugging their grandkids at the door",
+   "smiling at the children"
+  ],
+  "simple": [
+   "hug their grandchildren",
+   "hug the children"
+  ],
+  "actionKo": "두 팔로 아이들을 꼭 끌어안고 있다",
+  "actionEn": "they wrap their arms tightly around the two children",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 18637,
+  "skip": false,
+  "ko": "폭포로 가는 길",
+  "en": "Hike To Waterfall",
+  "clueKo": "높은 곳에서 물이 쏟아져 내리는 곳",
+  "clueEn": "a stream that pours down from a high rocky cliff",
+  "word": [
+   "waterfall",
+   "a waterfall",
+   "the waterfall"
+  ],
+  "aux": "are",
+  "subj": [
+   "the hikers",
+   "the people",
+   "they",
+   "the group"
+  ],
+  "phrase": [
+   "hiking to a waterfall",
+   "hiking in the forest",
+   "walking along a forest trail",
+   "following a guide to the waterfall"
+  ],
+  "simple": [
+   "hike to a waterfall",
+   "walk along a forest trail"
+  ],
+  "actionKo": "숲속 길을 따라 걸으며 물이 떨어지는 곳으로 가고 있다",
+  "actionEn": "they walk on a forest path toward falling water",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19602,
+  "skip": false,
+  "ko": "달밤에 잠든 사람",
+  "en": "Sleeping At Night",
+  "clueKo": "밤하늘에 둥글게 떠서 빛나는 것",
+  "clueEn": "the round bright thing in the night sky",
+  "word": [
+   "moon",
+   "the moon",
+   "a full moon",
+   "the full moon"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "the sleeper"
+  ],
+  "phrase": [
+   "sleeping in bed at night",
+   "sleeping in bed",
+   "sleeping under a blanket",
+   "lying in bed"
+  ],
+  "simple": [
+   "sleeps in bed at night",
+   "sleeps in bed"
+  ],
+  "actionKo": "밤에 이불을 덮고 눈을 감은 채 쉬고 있다",
+  "actionEn": "the person rests with closed eyes under a blanket at night",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 21382,
+  "skip": false,
+  "ko": "벤치에서 대화",
+  "en": "Talking On Bench",
+  "clueKo": "공원에 있는 여러 사람이 앉는 긴 의자",
+  "clueEn": "a long seat for several people in a park",
+  "word": [
+   "bench",
+   "a bench",
+   "the bench",
+   "park bench",
+   "a park bench"
+  ],
+  "aux": "are",
+  "subj": [
+   "the women",
+   "two women",
+   "they",
+   "the friends"
+  ],
+  "phrase": [
+   "talking on a park bench",
+   "talking on a bench",
+   "having a conversation",
+   "chatting in the park"
+  ],
+  "simple": [
+   "talk on a park bench",
+   "chat in the park"
+  ],
+  "actionKo": "공원 의자에 앉아 서로 이야기를 나누고 있다",
+  "actionEn": "they sit face to face and share words with each other",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12040,
+  "skip": false,
+  "ko": "할머니와 손녀들",
+  "en": "Grandma at the Door",
+  "clueKo": "방에 들어가고 나갈 때 여닫는 판",
+  "clueEn": "the flat panel you open to go into a room or house",
+  "word": [
+   "door",
+   "a door",
+   "the door",
+   "front door",
+   "the front door"
+  ],
+  "aux": "is",
+  "subj": [
+   "the grandmother",
+   "a grandmother",
+   "the old woman",
+   "an old woman",
+   "she",
+   "the woman"
+  ],
+  "phrase": [
+   "opening the door for her granddaughters",
+   "opening the door",
+   "opening the front door",
+   "unlocking the door",
+   "opening the door for two girls"
+  ],
+  "simple": [
+   "opens the door",
+   "opens the door for her granddaughters"
+  ],
+  "actionKo": "손잡이를 잡고 닫혀 있던 것을 열어 주고 있어요",
+  "actionEn": "she turns the handle so the girls can come in",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12107,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12156,
+  "skip": false,
+  "ko": "야외 공연 관람",
+  "en": "Outdoor Concert Crowd",
+  "clueKo": "공연하는 사람들이 올라서는 높은 무대 공간",
+  "clueEn": "the raised platform where performers sing or play",
+  "word": [
+   "stage",
+   "a stage",
+   "the stage"
+  ],
+  "aux": "is",
+  "subj": [
+   "the audience",
+   "an audience",
+   "the crowd",
+   "a crowd"
+  ],
+  "phrase": [
+   "watching a performance on stage",
+   "watching a performance",
+   "watching a show",
+   "watching a concert outdoors",
+   "watching a concert"
+  ],
+  "simple": [
+   "watches a performance",
+   "watches a show"
+  ],
+  "actionKo": "의자에 앉아 앞에서 하는 공연을 눈으로 보고 있어요",
+  "actionEn": "the people sit in rows with their eyes on the singers up front",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-08"
+ },
+ {
+  "i": 12250,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12333,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12431,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12655,
+  "skip": false,
+  "ko": "선생님의 지도",
+  "en": "Helping Two Students",
+  "clueKo": "글씨를 쓸 때 쓰는, 나무로 된 가늘고 긴 도구",
+  "clueEn": "a thin wooden tool with graphite inside for writing",
+  "word": [
+   "pencil",
+   "a pencil",
+   "the pencil"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "the teacher",
+   "he"
+  ],
+  "phrase": [
+   "helping two students at a table",
+   "helping the students",
+   "helping two students",
+   "showing the students how to work",
+   "guiding two students"
+  ],
+  "simple": [
+   "helps two students",
+   "helps the students"
+  ],
+  "actionKo": "몸을 숙여 두 학생의 작업을 거들어 주고 있어요",
+  "actionEn": "he leans over and gives the two teens a hand with their work",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12842,
+  "skip": false,
+  "ko": "오토바이 거리",
+  "en": "Busy Scooter Street",
+  "clueKo": "두 바퀴가 달린 작은 오토바이 같은 탈것",
+  "clueEn": "a small two-wheeled motor vehicle many people use in the city",
+  "word": [
+   "scooter",
+   "a scooter",
+   "the scooter",
+   "scooters"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "people",
+   "the riders",
+   "riders"
+  ],
+  "phrase": [
+   "riding scooters down a busy street",
+   "riding scooters",
+   "riding motorbikes",
+   "riding scooters on the street",
+   "riding down a busy street"
+  ],
+  "simple": [
+   "ride scooters",
+   "ride scooters down the street"
+  ],
+  "actionKo": "헬멧을 쓰고 두 바퀴 탈것을 몰며 길을 달리고 있어요",
+  "actionEn": "they wear helmets and travel along the road on two wheels",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13060,
+  "skip": true,
+  "why": "no person; alcohol (wine)",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 13232,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14315,
+  "skip": false,
+  "ko": "도자기 빚기",
+  "en": "Making Pottery",
+  "clueKo": "흙으로 만든 둥근 그릇, 꽃이나 물을 담아요",
+  "clueEn": "a round clay container for holding water or plants",
+  "word": [
+   "pot",
+   "a pot",
+   "the pot",
+   "vase",
+   "a vase",
+   "the vase"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "the potter",
+   "a potter",
+   "he"
+  ],
+  "phrase": [
+   "shaping a pot on a wheel",
+   "shaping a pot",
+   "making a pot",
+   "making pottery",
+   "shaping clay on a wheel",
+   "making a clay pot"
+  ],
+  "simple": [
+   "shapes a pot",
+   "makes a pot"
+  ],
+  "actionKo": "돌아가는 판 위에서 두 손으로 흙의 모양을 만들고 있어요",
+  "actionEn": "his hands form the wet clay while the wheel turns",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14499,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14603,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14857,
+  "skip": false,
+  "ko": "휴대폰 정리",
+  "en": "Using a Phone",
+  "clueKo": "전화도 하고 인터넷도 하는 손안의 기기",
+  "clueEn": "a handheld device for calls, apps and the internet",
+  "word": [
+   "smartphone",
+   "a smartphone",
+   "the smartphone",
+   "phone",
+   "a phone",
+   "the phone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person"
+  ],
+  "phrase": [
+   "holding a smartphone",
+   "holding a phone",
+   "using a smartphone",
+   "using a phone",
+   "checking a phone"
+  ],
+  "simple": [
+   "holds a smartphone",
+   "uses a phone"
+  ],
+  "actionKo": "손에 기기를 쥐고 화면을 보고 있어요",
+  "actionEn": "one hand has the device and a thumb is on the screen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 15084,
+  "skip": true,
+  "why": "people too small in background; no clear action",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-08"
+ },
+ {
+  "i": 16035,
+  "skip": false,
+  "ko": "숲 속 움막",
+  "en": "Forest Shelter",
+  "clueKo": "나뭇가지로 지은, 비바람을 피하는 작은 집",
+  "clueEn": "a small hut built from branches to stay safe from rain and wind",
+  "word": [
+   "shelter",
+   "a shelter",
+   "the shelter"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the girl"
+  ],
+  "phrase": [
+   "sitting in a shelter with her dog",
+   "sitting in a shelter",
+   "sitting with her dog",
+   "sitting in a hut",
+   "sitting with a dog"
+  ],
+  "simple": [
+   "sits in a shelter",
+   "sits with her dog"
+  ],
+  "actionKo": "나뭇가지 집 안에 개와 함께 앉아 있어요",
+  "actionEn": "she rests on the ground inside the branch hut next to a dog",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 16393,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16542,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16626,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16686,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16774,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 17110,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17403,
+  "skip": false,
+  "ko": "레코드 가게",
+  "en": "Browsing Vinyl Records",
+  "clueKo": "음악이 담긴 둥글고 납작한 검은 판",
+  "clueEn": "a flat round disc that plays music on a turntable",
+  "word": [
+   "record",
+   "a record",
+   "the record",
+   "records",
+   "the records",
+   "vinyl records"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the customer"
+  ],
+  "phrase": [
+   "looking through vinyl records",
+   "looking through records",
+   "flipping through records",
+   "browsing records in a shop",
+   "searching through records"
+  ],
+  "simple": [
+   "looks through records",
+   "flips through records"
+  ],
+  "actionKo": "상자 속 판들을 손가락으로 넘기며 살펴보고 있어요",
+  "actionEn": "she moves her fingers across the discs in the crate to find one",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 18434,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18718,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19687,
+  "skip": false,
+  "ko": "메뉴 추천",
+  "en": "Waiter and Menu",
+  "clueKo": "식당에서 음식 이름과 가격이 적힌 책",
+  "clueEn": "the list of dishes and prices you read at a restaurant",
+  "word": [
+   "menu",
+   "a menu",
+   "the menu"
+  ],
+  "aux": "is",
+  "subj": [
+   "the waiter",
+   "a waiter",
+   "he",
+   "the man"
+  ],
+  "phrase": [
+   "pointing at the menu",
+   "pointing at the menu for a customer",
+   "showing the menu to a customer",
+   "showing a customer the menu",
+   "holding the menu"
+  ],
+  "simple": [
+   "points at the menu",
+   "shows the menu to a customer"
+  ],
+  "actionKo": "손가락으로 메뉴의 한 곳을 가리키고 있어요",
+  "actionEn": "he uses his finger to show one dish to the woman",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12041,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12108,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12176,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12253,
+  "skip": false,
+  "ko": "사무실 근무",
+  "en": "Office Work",
+  "clueKo": "여러 사람이 책상과 컴퓨터를 두고 일하는 장소",
+  "clueEn": "a workplace with many desks and computers",
+  "word": [
+   "office",
+   "an office",
+   "the office"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the worker",
+   "the office worker"
+  ],
+  "phrase": [
+   "typing on a computer",
+   "typing on a keyboard",
+   "working on a computer",
+   "working at her desk",
+   "using a computer"
+  ],
+  "simple": [
+   "types on a computer",
+   "works on a computer"
+  ],
+  "actionKo": "손가락으로 자판을 두드리며 일하는 모습",
+  "actionEn": "pressing keys to write on the screen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12338,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12432,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12668,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12844,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 13062,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13252,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 14323,
+  "skip": false,
+  "ko": "컴퓨터 자료 작업",
+  "en": "Checking Data",
+  "clueKo": "숫자와 글자가 표 모양으로 가득한 컴퓨터 화면",
+  "clueEn": "computer screens full of rows and columns of numbers",
+  "word": [
+   "spreadsheet",
+   "a spreadsheet",
+   "the spreadsheet",
+   "spreadsheets",
+   "monitor",
+   "monitors"
+  ],
+  "aux": "are",
+  "subj": [
+   "the young men",
+   "the men",
+   "they",
+   "the workers",
+   "the interns"
+  ],
+  "phrase": [
+   "working on computers",
+   "looking at spreadsheets on their monitors",
+   "looking at spreadsheets",
+   "studying data on computers",
+   "typing on keyboards",
+   "working at their desks"
+  ],
+  "simple": [
+   "work on computers",
+   "look at spreadsheets"
+  ],
+  "actionKo": "화면을 보며 컴퓨터로 일하는 모습",
+  "actionEn": "doing their jobs in front of screens",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14513,
+  "skip": false,
+  "ko": "한복 체험 안내",
+  "en": "Hanbok Welcome",
+  "clueKo": "한국의 전통 옷, 여기 사람들이 입고 있음",
+  "clueEn": "traditional Korean clothes that the women are wearing",
+  "word": [
+   "hanbok",
+   "a hanbok",
+   "hanboks"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman in blue",
+   "the woman",
+   "a woman",
+   "she",
+   "the guide"
+  ],
+  "phrase": [
+   "welcoming visitors",
+   "welcoming visitors in hanbok",
+   "greeting the visitors",
+   "greeting a group of women",
+   "pointing to the shop"
+  ],
+  "simple": [
+   "welcomes visitors",
+   "greets the visitors"
+  ],
+  "actionKo": "손을 뻗어 찾아온 손님들을 반갑게 맞는 모습",
+  "actionEn": "warmly receiving the guests with an open arm",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14624,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14872,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 15097,
+  "skip": false,
+  "ko": "젓가락으로 국수",
+  "en": "Eating Noodles",
+  "clueKo": "두 개의 가는 막대로 음식을 집는 도구",
+  "clueEn": "two thin sticks used to pick up food",
+  "word": [
+   "chopsticks",
+   "a pair of chopsticks",
+   "the chopsticks"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "someone",
+   "a person",
+   "the diner"
+  ],
+  "phrase": [
+   "lifting noodles with chopsticks",
+   "lifting noodles",
+   "picking up noodles with chopsticks",
+   "picking up noodles",
+   "eating noodles"
+  ],
+  "simple": [
+   "lifts noodles with chopsticks",
+   "picks up noodles"
+  ],
+  "actionKo": "그릇에서 국수를 위로 들어 올리는 모습",
+  "actionEn": "raising the noodles up out of the bowl",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16038,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16401,
+  "skip": false,
+  "ko": "친구에게 건네기",
+  "en": "Passing Notes",
+  "clueKo": "같은 교실에서 함께 공부하는 친구",
+  "clueEn": "a student who studies in the same room and course with you",
+  "word": [
+   "classmate",
+   "a classmate",
+   "the classmate",
+   "classmates"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she",
+   "the student"
+  ],
+  "phrase": [
+   "handing papers to her classmate",
+   "handing papers to a classmate",
+   "giving notes to her classmate",
+   "passing papers to a classmate",
+   "handing papers",
+   "giving notes"
+  ],
+  "simple": [
+   "hands papers to her classmate",
+   "gives notes to her classmate"
+  ],
+  "actionKo": "종이 묶음을 손으로 다른 학생에게 넘겨주는 모습",
+  "actionEn": "moving a stack of sheets across the desk to another student",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16547,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16628,
+  "skip": false,
+  "ko": "한옥 마루의 강아지",
+  "en": "Hanok Porch Dog",
+  "clueKo": "기와지붕과 나무 기둥이 있는 한국 전통 집",
+  "clueEn": "a traditional Korean house with a tiled roof and wooden pillars",
+  "word": [
+   "hanok",
+   "a hanok",
+   "the hanok",
+   "dog",
+   "a dog"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she",
+   "the child"
+  ],
+  "phrase": [
+   "petting a dog",
+   "petting a dog on the porch",
+   "stroking the dog",
+   "touching the dog",
+   "sitting on the porch"
+  ],
+  "simple": [
+   "pets a dog",
+   "strokes the dog"
+  ],
+  "actionKo": "손으로 강아지를 부드럽게 쓰다듬는 모습",
+  "actionEn": "gently rubbing the puppy with her hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16688,
+  "skip": false,
+  "ko": "연단 토론",
+  "en": "Podium Debate",
+  "clueKo": "두 사람이 서로 다른 의견을 주고받으며 겨루는 말하기 활동",
+  "clueEn": "a speaking contest where two sides argue different opinions",
+  "word": [
+   "debate",
+   "a debate",
+   "the debate",
+   "podium",
+   "podiums"
+  ],
+  "aux": "are",
+  "subj": [
+   "the man and the woman",
+   "the two speakers",
+   "they",
+   "the speakers"
+  ],
+  "phrase": [
+   "having a debate",
+   "debating at podiums",
+   "speaking at podiums",
+   "standing at podiums",
+   "talking into microphones",
+   "arguing their points"
+  ],
+  "simple": [
+   "have a debate",
+   "speak at podiums"
+  ],
+  "actionKo": "연단 앞에 서서 서로 의견을 주고받는 모습",
+  "actionEn": "exchanging opinions while standing behind stands with microphones",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16776,
+  "skip": false,
+  "ko": "모둠 토의",
+  "en": "Group Discussion",
+  "clueKo": "여러 사람이 모여 생각을 나누며 이야기하는 것",
+  "clueEn": "people sharing ideas and talking together about a topic",
+  "word": [
+   "discussion",
+   "a discussion",
+   "the discussion",
+   "laptop",
+   "laptops"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "students",
+   "they",
+   "the group"
+  ],
+  "phrase": [
+   "having a group discussion",
+   "having a discussion",
+   "sharing ideas at a table",
+   "talking around a table",
+   "listening to a classmate"
+  ],
+  "simple": [
+   "have a group discussion",
+   "share ideas"
+  ],
+  "actionKo": "탁자에 둘러앉아 생각을 나누는 모습",
+  "actionEn": "sitting around a table and exchanging ideas",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17126,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17404,
+  "skip": false,
+  "ko": "기차 속 여행 일기",
+  "en": "Train Travel Diary",
+  "clueKo": "날마다 있었던 일을 적는 공책",
+  "clueEn": "a notebook where you write about each day",
+  "word": [
+   "diary",
+   "a diary",
+   "the diary",
+   "travel diary",
+   "a travel diary",
+   "journal",
+   "a journal",
+   "postcards"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the traveler",
+   "the passenger"
+  ],
+  "phrase": [
+   "writing in a travel diary",
+   "writing in a diary",
+   "writing in her journal",
+   "writing on a train",
+   "writing with a pen"
+  ],
+  "simple": [
+   "writes in a travel diary",
+   "writes in her diary"
+  ],
+  "actionKo": "펜을 들고 공책에 글을 적는 모습",
+  "actionEn": "putting words on the page with a pen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-09"
+ },
+ {
+  "i": 18447,
+  "skip": false,
+  "ko": "로켓 케이크 전달",
+  "en": "Rocket Cake",
+  "clueKo": "생일에 먹는 달콤한 빵, 여기서는 로켓 모양",
+  "clueEn": "a sweet birthday dessert shaped like a rocket here",
+  "word": [
+   "cake",
+   "a cake",
+   "the cake",
+   "rocket cake",
+   "a rocket cake"
+  ],
+  "aux": "is",
+  "subj": [
+   "the baker",
+   "a baker",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "handing a rocket cake to a customer",
+   "handing a cake to a customer",
+   "giving a cake to a customer",
+   "handing a cake",
+   "giving a customer a cake"
+  ],
+  "simple": [
+   "hands a cake to a customer",
+   "gives a customer a cake"
+  ],
+  "actionKo": "손님에게 물건을 두 손으로 넘겨주는 모습",
+  "actionEn": "passing it over the counter to the customer with both hands",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18771,
+  "skip": false,
+  "ko": "멀리서 손 흔들기",
+  "en": "Waving Apart",
+  "clueKo": "공원에서 여러 사람이 앉을 수 있는 긴 의자",
+  "clueEn": "a long seat in a park for several people",
+  "word": [
+   "bench",
+   "a bench",
+   "the bench",
+   "park bench",
+   "a park bench"
+  ],
+  "aux": "are",
+  "subj": [
+   "the two friends",
+   "the friends",
+   "they",
+   "the man and the woman"
+  ],
+  "phrase": [
+   "waving at each other",
+   "waving to each other",
+   "waving hello",
+   "waving across the bench",
+   "standing far apart"
+  ],
+  "simple": [
+   "wave at each other",
+   "wave to each other"
+  ],
+  "actionKo": "멀리 떨어져 서서 손을 들어 인사하는 모습",
+  "actionEn": "raising a hand to greet each other from far away",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 19688,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 12048,
+  "skip": false,
+  "ko": "안락의자의 할머니",
+  "en": "Resting In Armchair",
+  "clueKo": "팔걸이가 있는 푹신한 1인용 의자",
+  "clueEn": "a soft seat for one person with arms on both sides",
+  "word": [
+   "armchair",
+   "an armchair",
+   "the armchair"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the old woman",
+   "the grandmother"
+  ],
+  "phrase": [
+   "sitting in an armchair",
+   "sitting in a comfortable armchair",
+   "sitting in the armchair",
+   "resting in an armchair",
+   "sitting by the window"
+  ],
+  "simple": [
+   "sits in an armchair"
+  ],
+  "actionKo": "의자에 몸을 기대고 앉아 있어요",
+  "actionEn": "her body rests in a soft seat",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12110,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12187,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 12261,
+  "skip": false,
+  "ko": "스마트폰 들기",
+  "en": "Holding A Phone",
+  "clueKo": "전화·인터넷을 쓰는 손안의 기기",
+  "clueEn": "a small device in your hand for calls and apps",
+  "word": [
+   "smartphone",
+   "a smartphone",
+   "the smartphone",
+   "phone",
+   "a phone",
+   "cell phone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person",
+   "someone"
+  ],
+  "phrase": [
+   "holding a smartphone",
+   "holding a phone",
+   "holding a smartphone in one hand",
+   "holding up a phone"
+  ],
+  "simple": [
+   "holds a smartphone"
+  ],
+  "actionKo": "손으로 쥐고 있어요",
+  "actionEn": "keeps it gripped in one hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12360,
+  "skip": false,
+  "ko": "결혼식의 신부",
+  "en": "Bride At Wedding",
+  "clueKo": "신부가 손에 드는 꽃다발",
+  "clueEn": "a bunch of flowers a bride carries",
+  "word": [
+   "bouquet",
+   "a bouquet",
+   "the bouquet"
+  ],
+  "aux": "is",
+  "subj": [
+   "the bride",
+   "a bride",
+   "she",
+   "the woman"
+  ],
+  "phrase": [
+   "holding a bouquet",
+   "holding a bouquet of flowers",
+   "holding white flowers",
+   "smiling at the wedding",
+   "holding a bouquet and smiling"
+  ],
+  "simple": [
+   "holds a bouquet"
+  ],
+  "actionKo": "꽃을 두 손으로 쥐고 있어요",
+  "actionEn": "keeps the flowers in both hands",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12459,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12690,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12848,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13087,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13262,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14332,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14516,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14708,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14879,
+  "skip": false,
+  "ko": "갈림길의 등산객",
+  "en": "Hikers At A Fork",
+  "clueKo": "등에 메는 가방",
+  "clueEn": "a bag you wear on both shoulders",
+  "word": [
+   "backpack",
+   "a backpack",
+   "the backpack",
+   "backpacks"
+  ],
+  "aux": "are",
+  "subj": [
+   "the hikers",
+   "two hikers",
+   "they",
+   "the man and the woman",
+   "the two people"
+  ],
+  "phrase": [
+   "pointing at each other",
+   "pointing in different directions",
+   "standing on a dirt road",
+   "pointing at each other on a path"
+  ],
+  "simple": [
+   "point at each other"
+  ],
+  "actionKo": "손가락으로 서로를 가리키고 있어요",
+  "actionEn": "they aim a finger at one another",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 15100,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16040,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16406,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16556,
+  "skip": false,
+  "ko": "음식 나르는 웨이터",
+  "en": "Waiter Serving Food",
+  "clueKo": "식당에서 음식을 가져다주는 남자 직원",
+  "clueEn": "a man who brings food to tables in a restaurant",
+  "word": [
+   "waiter",
+   "a waiter",
+   "the waiter",
+   "server",
+   "a server"
+  ],
+  "aux": "is",
+  "subj": [
+   "the waiter",
+   "a waiter",
+   "he",
+   "the man",
+   "the server"
+  ],
+  "phrase": [
+   "carrying two plates",
+   "carrying plates of food",
+   "serving food to customers",
+   "bringing food to the table",
+   "carrying plates to a table"
+  ],
+  "simple": [
+   "carries two plates"
+  ],
+  "actionKo": "접시를 들고 손님에게 가져가요",
+  "actionEn": "he brings dishes over to the guests",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16637,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 16696,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16805,
+  "skip": true,
+  "why": "와인잔",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 17140,
+  "skip": false,
+  "ko": "미술관 가이드",
+  "en": "Museum Tour Guide",
+  "clueKo": "벽에 걸린 큰 그림",
+  "clueEn": "a large picture hanging on the wall",
+  "word": [
+   "painting",
+   "a painting",
+   "the painting"
+  ],
+  "aux": "is",
+  "subj": [
+   "the guide",
+   "a guide",
+   "she",
+   "the woman",
+   "the tour guide"
+  ],
+  "phrase": [
+   "pointing at a painting",
+   "pointing at the painting",
+   "explaining a painting to visitors",
+   "giving a tour",
+   "talking to a group of visitors"
+  ],
+  "simple": [
+   "points at a painting"
+  ],
+  "actionKo": "손을 뻗어 작품을 가리켜요",
+  "actionEn": "she stretches out her hand toward the art",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18010,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18451,
+  "skip": false,
+  "ko": "신문 읽는 할아버지",
+  "en": "Reading The Newspaper",
+  "clueKo": "매일 소식을 전하는 종이 인쇄물",
+  "clueEn": "large printed pages with daily stories and reports",
+  "word": [
+   "newspaper",
+   "a newspaper",
+   "the newspaper",
+   "paper",
+   "a paper"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "an old man",
+   "he",
+   "the grandfather",
+   "the old man"
+  ],
+  "phrase": [
+   "reading a newspaper",
+   "reading the newspaper",
+   "reading a newspaper in an armchair",
+   "smiling at the newspaper"
+  ],
+  "simple": [
+   "reads a newspaper"
+  ],
+  "actionKo": "글자를 눈으로 훑어보고 있어요",
+  "actionEn": "he looks through the printed words",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18788,
+  "skip": false,
+  "ko": "휴대폰 보는 학생",
+  "en": "Scrolling On A Phone",
+  "clueKo": "앱과 사진을 보는 손안의 기기",
+  "clueEn": "a small device for apps and photos",
+  "word": [
+   "smartphone",
+   "a smartphone",
+   "the smartphone",
+   "phone",
+   "a phone",
+   "cell phone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she",
+   "the teenager",
+   "the young woman"
+  ],
+  "phrase": [
+   "scrolling on her phone",
+   "looking at her smartphone",
+   "using a smartphone",
+   "looking at her phone on the sofa",
+   "using her phone"
+  ],
+  "simple": [
+   "looks at her smartphone"
+  ],
+  "actionKo": "화면을 손가락으로 넘기며 보고 있어요",
+  "actionEn": "she moves her finger up the screen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 19962,
+  "skip": false,
+  "ko": "출근길 지하철",
+  "en": "Crowded Subway Ride",
+  "clueKo": "땅 밑을 달리는 도시 열차",
+  "clueEn": "a city train that runs under the ground",
+  "word": [
+   "subway",
+   "a subway",
+   "the subway"
+  ],
+  "aux": "are",
+  "subj": [
+   "the commuters",
+   "the passengers",
+   "they",
+   "the people",
+   "the office workers"
+  ],
+  "phrase": [
+   "riding the subway",
+   "riding a crowded subway train",
+   "standing on a crowded train",
+   "going to work by subway",
+   "holding onto the poles"
+  ],
+  "simple": [
+   "ride the subway"
+  ],
+  "actionKo": "열차를 타고 이동하고 있어요",
+  "actionEn": "they travel together in a crowded car",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12052,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12116,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12192,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12267,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12364,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12464,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12692,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 12853,
+  "skip": false,
+  "ko": "정상에 선 등산객",
+  "en": "Hiker on Summit",
+  "clueKo": "등에 메는 가방으로, 산에 갈 때 물과 간식을 넣어요",
+  "clueEn": "a bag you carry on your shoulders when you go hiking",
+  "word": [
+   "backpack",
+   "a backpack",
+   "the backpack"
+  ],
+  "aux": "is",
+  "subj": [
+   "the hiker",
+   "a hiker",
+   "the man",
+   "a man",
+   "he"
+  ],
+  "phrase": [
+   "standing on top of a rocky peak",
+   "standing on the rocky peak",
+   "standing on top of the mountain",
+   "standing at the summit",
+   "wearing a backpack"
+  ],
+  "simple": [
+   "stands on top of a rocky peak",
+   "stands on the rocky peak"
+  ],
+  "actionKo": "바위 봉우리 꼭대기에 두 발로 서 있어요",
+  "actionEn": "he is up at the highest point of the rocks on his feet",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 13092,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 13264,
+  "skip": false,
+  "ko": "음식을 내오는 웨이터",
+  "en": "Waiter Serving Food",
+  "clueKo": "음식을 담는 둥글고 납작한 그릇",
+  "clueEn": "a round flat dish you put food on",
+  "word": [
+   "plate",
+   "a plate",
+   "the plate"
+  ],
+  "aux": "is",
+  "subj": [
+   "the waiter",
+   "a waiter",
+   "the server",
+   "the person"
+  ],
+  "phrase": [
+   "serving a plate of food",
+   "putting a plate on the table",
+   "serving a dish",
+   "placing a plate on the table",
+   "holding a plate of food"
+  ],
+  "simple": [
+   "serves a plate of food",
+   "puts a plate on the table"
+  ],
+  "actionKo": "손님에게 음식이 담긴 접시를 식탁 위에 내려놓아요",
+  "actionEn": "the person brings a dish to the guest and sets it down on the table",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14343,
+  "skip": false,
+  "ko": "호숫가의 낚시꾼",
+  "en": "Fishing by the Lake",
+  "clueKo": "물고기를 잡을 때 쓰는 길고 가는 막대",
+  "clueEn": "a long thin pole with a line that anglers hold by the water",
+  "word": [
+   "fishing rod",
+   "a fishing rod",
+   "the fishing rod",
+   "rod",
+   "a rod"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "the old man",
+   "he",
+   "the fisherman"
+  ],
+  "phrase": [
+   "fishing by the lake",
+   "fishing on a quiet lake",
+   "sitting by the lake",
+   "sitting on a folding chair",
+   "holding a fishing rod"
+  ],
+  "simple": [
+   "fishes by the lake",
+   "sits by the lake"
+  ],
+  "actionKo": "의자에 앉아 조용히 물고기가 물기를 기다려요",
+  "actionEn": "he sits in a chair and waits quietly for a bite on his line",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14517,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14723,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14886,
+  "skip": false,
+  "ko": "빗길을 달리는 남자",
+  "en": "Running in Rain",
+  "clueKo": "자동차가 다니는 길, 지금은 비에 젖어 있어요",
+  "clueEn": "a path for cars, now wet from the rain",
+  "word": [
+   "road",
+   "a road",
+   "the road"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the runner"
+  ],
+  "phrase": [
+   "running along a wet road",
+   "running on a wet road",
+   "running in the rain",
+   "jogging on the road",
+   "running down the road"
+  ],
+  "simple": [
+   "runs along a wet road",
+   "runs in the rain"
+  ],
+  "actionKo": "젖은 길 위를 빠르게 뛰어가요",
+  "actionEn": "he moves fast on his feet along the wet street",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 15106,
+  "skip": false,
+  "ko": "포옹하는 두 친구",
+  "en": "Friends Hugging",
+  "clueKo": "서로 아끼는 가까운 사이의 사람들",
+  "clueEn": "people who like each other and spend time together",
+  "word": [
+   "friends",
+   "two friends",
+   "the friends"
+  ],
+  "aux": "are",
+  "subj": [
+   "the women",
+   "two women",
+   "the friends",
+   "they",
+   "the two friends"
+  ],
+  "phrase": [
+   "hugging each other warmly",
+   "hugging each other",
+   "hugging on the porch",
+   "giving each other a hug",
+   "smiling and hugging"
+  ],
+  "simple": [
+   "hug each other warmly",
+   "hug each other"
+  ],
+  "actionKo": "두 팔로 서로를 꼭 안아요",
+  "actionEn": "they put their arms around each other tightly",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16041,
+  "skip": false,
+  "ko": "그림 그리는 화가들",
+  "en": "Artists Painting",
+  "clueKo": "그림을 그리는 일을 하는 사람들",
+  "clueEn": "people who make pictures with paint as their work",
+  "word": [
+   "artists",
+   "the artists",
+   "two artists"
+  ],
+  "aux": "are",
+  "subj": [
+   "the artists",
+   "two artists",
+   "the painters",
+   "they"
+  ],
+  "phrase": [
+   "painting at their easels",
+   "painting pictures in a studio",
+   "painting on canvases",
+   "painting landscapes and portraits",
+   "painting"
+  ],
+  "simple": [
+   "paint at their easels",
+   "paint pictures in a studio"
+  ],
+  "actionKo": "붓으로 캔버스 위에 그림을 그려요",
+  "actionEn": "they use brushes to make pictures on canvas",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16420,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16557,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16642,
+  "skip": false,
+  "ko": "바위산을 오르는 여자",
+  "en": "Climbing a Mountain",
+  "clueKo": "아주 높고 큰 땅, 꼭대기는 구름 가까이 있어요",
+  "clueEn": "a very high and big piece of land that reaches toward the clouds",
+  "word": [
+   "mountain",
+   "a mountain",
+   "the mountain",
+   "rocks"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the hiker",
+   "the climber"
+  ],
+  "phrase": [
+   "climbing a rocky mountain",
+   "climbing up the rocks",
+   "climbing the mountain",
+   "wearing a backpack",
+   "climbing up a steep slope"
+  ],
+  "simple": [
+   "climbs a rocky mountain",
+   "climbs up the rocks"
+  ],
+  "actionKo": "손과 발을 써서 가파른 바위를 위로 올라가요",
+  "actionEn": "she uses her hands and feet to go up the steep rocks",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16697,
+  "skip": false,
+  "ko": "수건을 나르는 직원들",
+  "en": "Staff Carrying Towels",
+  "clueKo": "샤워한 뒤 몸을 닦는 부드러운 천",
+  "clueEn": "soft cloths you dry your body with after a shower",
+  "word": [
+   "towels",
+   "the towels",
+   "white towels"
+  ],
+  "aux": "are",
+  "subj": [
+   "the hotel staff",
+   "the workers",
+   "the staff members",
+   "they"
+  ],
+  "phrase": [
+   "carrying fresh towels",
+   "carrying white towels down the hallway",
+   "carrying towels",
+   "walking down the hallway with towels",
+   "holding stacks of towels"
+  ],
+  "simple": [
+   "carry fresh towels",
+   "carry towels down the hallway"
+  ],
+  "actionKo": "깨끗한 흰 천을 여러 장 들고 복도를 걸어가요",
+  "actionEn": "they hold piles of clean white cloths and walk down the hall",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 16817,
+  "skip": false,
+  "ko": "노래하는 합창단",
+  "en": "School Choir Singing",
+  "clueKo": "여럿이 함께 노래하는 모임",
+  "clueEn": "a group of people who sing together",
+  "word": [
+   "choir",
+   "a choir",
+   "the choir",
+   "school choir",
+   "the school choir"
+  ],
+  "aux": "are",
+  "subj": [
+   "the students",
+   "the children",
+   "they",
+   "the singers"
+  ],
+  "phrase": [
+   "singing in a choir",
+   "singing together",
+   "singing from their music folders",
+   "holding music folders",
+   "singing in the school choir"
+  ],
+  "simple": [
+   "sing in a choir",
+   "sing together"
+  ],
+  "actionKo": "악보를 들고 다 같이 입을 벌려 노래해요",
+  "actionEn": "they hold music folders and use their voices together",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 17159,
+  "skip": false,
+  "ko": "두 책자를 비교하는 학생",
+  "en": "Comparing Brochures",
+  "clueKo": "학교나 장소를 소개하는 사진이 있는 얇은 안내 책자",
+  "clueEn": "a thin booklet with pictures that tells you about a school or place",
+  "word": [
+   "brochure",
+   "a brochure",
+   "brochures",
+   "the brochures",
+   "two brochures"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she",
+   "the student",
+   "the young woman"
+  ],
+  "phrase": [
+   "comparing two brochures",
+   "comparing two college brochures",
+   "choosing between two brochures",
+   "holding a brochure in each hand",
+   "looking at a brochure"
+  ],
+  "simple": [
+   "compares two brochures",
+   "holds a brochure in each hand"
+  ],
+  "actionKo": "양손에 하나씩 들고 어느 쪽이 나은지 살펴봐요",
+  "actionEn": "she holds one in each hand and checks which one is better",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 18325,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18464,
+  "skip": false,
+  "ko": "소파에서 책 읽는 여자",
+  "en": "Reading on Sofa",
+  "clueKo": "거실에서 여러 사람이 앉을 수 있는 푹신한 긴 의자",
+  "clueEn": "a soft long seat in the living room for several people",
+  "word": [
+   "sofa",
+   "a sofa",
+   "the sofa",
+   "couch",
+   "a couch",
+   "the couch"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "reading a book on the sofa",
+   "reading a book",
+   "sitting on the sofa with her dog",
+   "reading on the couch",
+   "relaxing on the sofa"
+  ],
+  "simple": [
+   "reads a book on the sofa",
+   "reads a book"
+  ],
+  "actionKo": "편하게 앉아 책장을 넘기며 글을 봐요",
+  "actionEn": "she sits comfortably and looks at the pages of a book",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 18904,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 19976,
+  "skip": false,
+  "ko": "화면을 가리키는 선배",
+  "en": "Explaining the Screen",
+  "clueKo": "컴퓨터에서 글과 그림이 보이는 부분",
+  "clueEn": "the part of a computer where you see words and pictures",
+  "word": [
+   "monitor",
+   "a monitor",
+   "the monitor",
+   "screen",
+   "the screen",
+   "computer screen"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the manager"
+  ],
+  "phrase": [
+   "pointing at the monitor",
+   "pointing at the screen",
+   "showing something on the screen",
+   "explaining data to the interns",
+   "training the young workers"
+  ],
+  "simple": [
+   "points at the monitor",
+   "points at the screen"
+  ],
+  "actionKo": "손가락으로 화면을 가리키며 동료들에게 설명해요",
+  "actionEn": "she uses her finger to show her coworkers something on the computer",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12054,
+  "skip": false,
+  "ko": "소파 위 두 소녀",
+  "en": "Girls on a Sofa",
+  "clueKo": "거실에서 여러 사람이 편하게 앉는 푹신한 긴 의자",
+  "clueEn": "a long soft seat in a living room for several people",
+  "word": [
+   "sofa",
+   "a sofa",
+   "the sofa",
+   "couch",
+   "a couch",
+   "the couch"
+  ],
+  "aux": "are",
+  "subj": [
+   "the girls",
+   "two girls",
+   "the sisters",
+   "they"
+  ],
+  "phrase": [
+   "sitting together on a sofa",
+   "sitting on a sofa",
+   "sitting side by side on the couch",
+   "sitting on the couch"
+  ],
+  "simple": [
+   "sit together on a sofa",
+   "sit on a sofa"
+  ],
+  "actionKo": "두 사람이 긴 의자에 나란히 엉덩이를 대고 있다",
+  "actionEn": "they rest side by side on a long soft seat",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12120,
+  "skip": false,
+  "ko": "선크림 바르기",
+  "en": "Applying Sunscreen",
+  "clueKo": "햇볕에 피부가 타지 않게 바르는 크림",
+  "clueEn": "a cream that protects your skin from the sun",
+  "word": [
+   "sunscreen",
+   "the sunscreen",
+   "sunblock",
+   "the sunblock"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person"
+  ],
+  "phrase": [
+   "squeezing sunscreen onto a hand",
+   "squeezing sunscreen onto a palm",
+   "squeezing sunscreen from a tube",
+   "putting sunscreen on a hand"
+  ],
+  "simple": [
+   "squeezes sunscreen onto a hand",
+   "squeezes sunscreen from a tube"
+  ],
+  "actionKo": "튜브를 손으로 눌러 크림을 손바닥에 짜내고 있다",
+  "actionEn": "pressing a tube so cream comes out onto the palm",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12193,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12268,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12366,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12468,
+  "skip": true,
+  "why": "people only blurry in background",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12723,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12855,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 13096,
+  "skip": false,
+  "ko": "시장 구경",
+  "en": "Street Market",
+  "clueKo": "채소와 과일을 파는 가게들이 모여 있는 곳",
+  "clueEn": "a place with many stalls selling fruit and vegetables",
+  "word": [
+   "market",
+   "a market",
+   "the market",
+   "street market",
+   "a street market"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "the shoppers",
+   "people"
+  ],
+  "phrase": [
+   "shopping at a street market",
+   "shopping at a market",
+   "walking through a busy market",
+   "walking through a market"
+  ],
+  "simple": [
+   "shop at a street market",
+   "walk through a market"
+  ],
+  "actionKo": "사람들이 가게를 둘러보며 물건을 사고 있다",
+  "actionEn": "looking around the stalls and buying things",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13267,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14368,
+  "skip": false,
+  "ko": "자전거 타기",
+  "en": "Riding a Bike",
+  "clueKo": "두 바퀴가 달려 페달을 밟아 움직이는 탈것",
+  "clueEn": "a vehicle with two wheels and pedals",
+  "word": [
+   "bicycle",
+   "a bicycle",
+   "the bicycle",
+   "bike",
+   "a bike",
+   "the bike"
+  ],
+  "aux": "is",
+  "subj": [
+   "the cyclist",
+   "the man",
+   "a man",
+   "he",
+   "the rider"
+  ],
+  "phrase": [
+   "riding a bike past a puddle",
+   "riding a bicycle past a puddle",
+   "riding a bike",
+   "riding a bicycle",
+   "riding a bike on the road"
+  ],
+  "simple": [
+   "rides a bike past a puddle",
+   "rides a bike"
+  ],
+  "actionKo": "페달을 밟으며 두 바퀴 탈것을 몰고 있다",
+  "actionEn": "pedaling and steering a two wheeled vehicle along the road",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 14530,
+  "skip": true,
+  "why": "drink on table may look like alcohol",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 14738,
+  "skip": false,
+  "ko": "세탁기 설치",
+  "en": "Fixing a Washer",
+  "clueKo": "옷을 넣고 돌려 빨래를 해 주는 기계",
+  "clueEn": "a home appliance that cleans your clothes with water",
+  "word": [
+   "washing machine",
+   "a washing machine",
+   "the washing machine",
+   "washer",
+   "a washer",
+   "the washer"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the technician",
+   "the worker"
+  ],
+  "phrase": [
+   "connecting a hose under the sink",
+   "connecting a hose",
+   "kneeling beside a washing machine",
+   "fixing a pipe under the sink",
+   "installing a washing machine"
+  ],
+  "simple": [
+   "connects a hose under the sink",
+   "connects a hose"
+  ],
+  "actionKo": "무릎을 꿇고 싱크대 밑에서 호스를 이어 붙이고 있다",
+  "actionEn": "kneeling down and attaching a tube below the sink",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14888,
+  "skip": false,
+  "ko": "무대 위 연설",
+  "en": "Speaking on Stage",
+  "clueKo": "목소리를 크게 해 주는, 말할 때 입 앞에 두는 기계",
+  "clueEn": "a device you speak into so more people can hear you",
+  "word": [
+   "microphone",
+   "a microphone",
+   "the microphone",
+   "mic",
+   "a mic",
+   "the mic"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the speaker"
+  ],
+  "phrase": [
+   "giving a speech to an audience",
+   "giving a speech",
+   "speaking into a microphone",
+   "speaking to an audience",
+   "talking to a crowd"
+  ],
+  "simple": [
+   "gives a speech to an audience",
+   "gives a speech"
+  ],
+  "actionKo": "많은 사람들 앞에서 자기 생각을 말하고 있다",
+  "actionEn": "sharing her ideas out loud in front of many people",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 15115,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16050,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-05"
+ },
+ {
+  "i": 16430,
+  "skip": false,
+  "ko": "공연 보는 관객",
+  "en": "Watching a Show",
+  "clueKo": "공연이나 강연을 보러 모인 사람들 전체",
+  "clueEn": "the group of people who come to watch a show",
+  "word": [
+   "audience",
+   "an audience",
+   "the audience",
+   "crowd",
+   "a crowd",
+   "the crowd"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "the audience",
+   "people",
+   "they"
+  ],
+  "phrase": [
+   "watching a show in a theater",
+   "watching a show",
+   "smiling at the stage",
+   "sitting in a theater",
+   "watching the stage"
+  ],
+  "simple": [
+   "watch a show in a theater",
+   "watch a show"
+  ],
+  "actionKo": "극장 의자에 앉아 무대 쪽을 바라보고 있다",
+  "actionEn": "sitting in seats and looking toward the stage",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16561,
+  "skip": false,
+  "ko": "부엌 청소",
+  "en": "Cleaning the Kitchen",
+  "clueKo": "부엌에서 음식을 준비하는 평평한 작업대",
+  "clueEn": "a flat surface in a kitchen where you prepare food",
+  "word": [
+   "counter",
+   "a counter",
+   "the counter",
+   "countertop",
+   "the countertop"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "wiping the counter with a cloth",
+   "wiping the counter",
+   "cleaning the kitchen counter",
+   "cleaning the counter"
+  ],
+  "simple": [
+   "wipes the counter with a cloth",
+   "wipes the counter"
+  ],
+  "actionKo": "천으로 작업대 위를 문질러 닦고 있다",
+  "actionEn": "rubbing the surface with a cloth to make it clean",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16643,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-06"
+ },
+ {
+  "i": 16699,
+  "skip": false,
+  "ko": "약사의 설명",
+  "en": "At the Pharmacy",
+  "clueKo": "약국에서 약을 주고 먹는 법을 알려 주는 사람",
+  "clueEn": "a person who works in a drugstore and gives out medicine",
+  "word": [
+   "pharmacist",
+   "a pharmacist",
+   "the pharmacist"
+  ],
+  "aux": "is",
+  "subj": [
+   "the pharmacist",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "explaining the medicine to a customer",
+   "explaining the medicine",
+   "talking to a customer",
+   "showing a medicine box",
+   "talking to an old woman"
+  ],
+  "simple": [
+   "explains the medicine to a customer",
+   "explains the medicine"
+  ],
+  "actionKo": "손님에게 약에 대해 자세히 알려 주고 있다",
+  "actionEn": "telling a customer how the pills work",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16827,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 17177,
+  "skip": false,
+  "ko": "수료증 받은 날",
+  "en": "Holding a Certificate",
+  "clueKo": "과정을 마쳤다는 것을 알려 주는 액자 속 종이",
+  "clueEn": "a framed paper that shows you finished a course",
+  "word": [
+   "certificate",
+   "a certificate",
+   "the certificate",
+   "diploma",
+   "a diploma"
+  ],
+  "aux": "is",
+  "subj": [
+   "the young woman",
+   "the woman",
+   "she"
+  ],
+  "phrase": [
+   "holding a certificate with a smile",
+   "holding a certificate",
+   "smiling at the ceremony",
+   "holding a framed certificate"
+  ],
+  "simple": [
+   "holds a certificate with a smile",
+   "holds a certificate"
+  ],
+  "actionKo": "액자에 든 상장을 두 손으로 들고 웃고 있다",
+  "actionEn": "grasping a framed paper with both hands and smiling",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18329,
+  "skip": false,
+  "ko": "서류 받는 신입",
+  "en": "Receiving a Folder",
+  "clueKo": "종이 서류를 넣어 보관하는 얇은 파일",
+  "clueEn": "a thin cover used to keep papers together",
+  "word": [
+   "folder",
+   "a folder",
+   "the folder",
+   "file",
+   "a file"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the employee"
+  ],
+  "phrase": [
+   "taking a folder from her manager",
+   "taking a folder",
+   "receiving a folder from a man",
+   "receiving a folder"
+  ],
+  "simple": [
+   "takes a folder from her manager",
+   "takes a folder"
+  ],
+  "actionKo": "남자가 건네주는 파일을 손으로 받고 있다",
+  "actionEn": "getting a thin blue cover that a man hands to her",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18476,
+  "skip": false,
+  "ko": "엄지 척 칭찬",
+  "en": "Giving a Thumbs Up",
+  "clueKo": "책상 위에 놓인 접을 수 있는 휴대용 컴퓨터",
+  "clueEn": "a small computer you can fold and carry",
+  "word": [
+   "laptop",
+   "a laptop",
+   "the laptop"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the manager"
+  ],
+  "phrase": [
+   "giving a thumbs up to his coworker",
+   "giving a thumbs up",
+   "smiling at his coworker",
+   "praising his coworker"
+  ],
+  "simple": [
+   "gives a thumbs up to his coworker",
+   "gives a thumbs up"
+  ],
+  "actionKo": "엄지손가락을 위로 들어 잘했다고 표시하고 있다",
+  "actionEn": "raising one finger of his fist upward to show good job",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-07"
+ },
+ {
+  "i": 18907,
+  "skip": false,
+  "ko": "태블릿 코딩",
+  "en": "Learning to Code",
+  "clueKo": "화면을 손가락으로 눌러 쓰는 납작한 컴퓨터",
+  "clueEn": "a flat computer you control by touching the screen",
+  "word": [
+   "tablet",
+   "a tablet",
+   "the tablet"
+  ],
+  "aux": "is",
+  "subj": [
+   "the girl",
+   "a girl",
+   "she"
+  ],
+  "phrase": [
+   "pointing at the tablet screen",
+   "pointing at a tablet",
+   "learning coding on a tablet",
+   "touching the tablet screen"
+  ],
+  "simple": [
+   "points at the tablet screen",
+   "points at a tablet"
+  ],
+  "actionKo": "손가락으로 화면 속 블록을 가리키고 있다",
+  "actionEn": "using her finger to show a block on the screen",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 20020,
+  "skip": false,
+  "ko": "후지산 사진 찍기",
+  "en": "Taking Photos",
+  "clueKo": "꼭대기에 눈이 덮인 아주 높은 땅",
+  "clueEn": "a very high piece of land with snow on top",
+  "word": [
+   "mountain",
+   "a mountain",
+   "the mountain"
+  ],
+  "aux": "are",
+  "subj": [
+   "the tourists",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "taking photos of the mountain",
+   "taking photos",
+   "taking pictures of the view",
+   "taking pictures"
+  ],
+  "simple": [
+   "take photos of the mountain",
+   "take photos"
+  ],
+  "actionKo": "휴대폰과 카메라로 경치를 찍고 있다",
+  "actionEn": "using phones and a camera to capture the view",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12058,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12123,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12195,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12276,
+  "skip": false,
+  "ko": "전통 춤 공연",
+  "en": "Traditional Dance Festival",
+  "clueKo": "축제에서 여러 사람이 음악에 맞춰 몸을 움직이며 추는 것",
+  "clueEn": "the movement people do together to music at the festival",
+  "word": [
+   "dancers",
+   "the dancers",
+   "dancer",
+   "a dancer"
+  ],
+  "aux": "are",
+  "subj": [
+   "the dancers",
+   "the performers",
+   "the people",
+   "they"
+  ],
+  "phrase": [
+   "dancing in traditional costumes",
+   "dancing together outside",
+   "dancing in a line",
+   "dancing",
+   "performing a traditional dance"
+  ],
+  "simple": [
+   "dance in traditional costumes",
+   "dance together"
+  ],
+  "actionKo": "음악에 맞춰 몸을 움직이고 있다",
+  "actionEn": "moving their bodies to music in a group",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 12373,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12476,
+  "skip": false,
+  "ko": "나무 재기",
+  "en": "Measuring a Board",
+  "clueKo": "길이를 잴 때 쓰는 노란 줄자",
+  "clueEn": "a yellow tool that pulls out to check how long something is",
+  "word": [
+   "tape measure",
+   "a tape measure",
+   "the tape measure",
+   "measuring tape"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the carpenter",
+   "the worker"
+  ],
+  "phrase": [
+   "measuring a wooden board",
+   "measuring a board with a tape measure",
+   "measuring a plank",
+   "measuring the wood",
+   "working on a wooden board"
+  ],
+  "simple": [
+   "measures a wooden board",
+   "measures a plank"
+  ],
+  "actionKo": "줄자로 나무판의 길이를 확인하고 있다",
+  "actionEn": "checking how long the wooden board is",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 12733,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 12869,
+  "skip": false,
+  "ko": "야외 공연",
+  "en": "Live Band Concert",
+  "clueKo": "줄을 튕겨 소리를 내는 악기",
+  "clueEn": "an instrument with strings that the two men on stage are playing",
+  "word": [
+   "guitar",
+   "a guitar",
+   "the guitar",
+   "guitars"
+  ],
+  "aux": "is",
+  "subj": [
+   "the band",
+   "a band"
+  ],
+  "phrase": [
+   "playing music on stage",
+   "performing on stage",
+   "playing a concert outside",
+   "playing music",
+   "performing for a crowd"
+  ],
+  "simple": [
+   "plays music on stage",
+   "performs on stage"
+  ],
+  "actionKo": "무대 위에서 관객에게 음악을 들려주고 있다",
+  "actionEn": "making songs for the crowd from the stage",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 13106,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 13302,
+  "skip": false,
+  "ko": "아이스크림 들기",
+  "en": "Pink Ice Cream",
+  "clueKo": "과자로 만든 뾰족한 받침",
+  "clueEn": "the crispy pointed holder under the ice cream",
+  "word": [
+   "cone",
+   "a cone",
+   "the cone",
+   "ice cream cone",
+   "an ice cream cone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person"
+  ],
+  "phrase": [
+   "holding an ice cream cone",
+   "holding a strawberry ice cream",
+   "holding ice cream",
+   "holding a cone"
+  ],
+  "simple": [
+   "holds an ice cream cone",
+   "holds ice cream"
+  ],
+  "actionKo": "손에 아이스크림을 쥐고 있다",
+  "actionEn": "keeping the ice cream in one hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 14374,
+  "skip": false,
+  "ko": "휴대폰 보기",
+  "en": "Watching News Channels",
+  "clueKo": "손에 쥐고 영상과 뉴스를 보는 기계",
+  "clueEn": "the device in the hand with videos and news on its screen",
+  "word": [
+   "smartphone",
+   "a smartphone",
+   "the smartphone",
+   "phone",
+   "a phone",
+   "the phone",
+   "cell phone"
+  ],
+  "aux": "is",
+  "subj": [
+   "the person",
+   "a person"
+  ],
+  "phrase": [
+   "holding a smartphone",
+   "looking at news channels on a phone",
+   "holding a phone",
+   "checking news on a smartphone",
+   "scrolling through channels"
+  ],
+  "simple": [
+   "holds a smartphone",
+   "holds a phone"
+  ],
+  "actionKo": "손에 휴대폰을 쥐고 있다",
+  "actionEn": "keeping a device in one hand",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14534,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 14753,
+  "skip": false,
+  "ko": "우편물 배달",
+  "en": "Delivering the Mail",
+  "clueKo": "편지를 집집마다 가져다주는 직업을 가진 사람",
+  "clueEn": "a person whose job is bringing letters to houses",
+  "word": [
+   "mailman",
+   "a mailman",
+   "the mailman",
+   "mail carrier",
+   "a mail carrier",
+   "postman",
+   "a postman"
+  ],
+  "aux": "is",
+  "subj": [
+   "the man",
+   "a man",
+   "he",
+   "the mail carrier"
+  ],
+  "phrase": [
+   "putting letters through a door slot",
+   "delivering the mail",
+   "delivering letters",
+   "pushing mail through the slot",
+   "putting mail into the door"
+  ],
+  "simple": [
+   "delivers the mail",
+   "puts letters through a door slot"
+  ],
+  "actionKo": "문의 우편함 틈으로 편지를 넣고 있다",
+  "actionEn": "pushing letters into the opening in the door",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 14889,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 15130,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16052,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16436,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16570,
+  "skip": false,
+  "ko": "보트 위의 두 사람",
+  "en": "Friends in a Boat",
+  "clueKo": "물 위에 떠 있는 나무로 만든 작은 탈것",
+  "clueEn": "a small wooden thing floating on the water that people ride in",
+  "word": [
+   "boat",
+   "a boat",
+   "the boat",
+   "rowboat",
+   "a rowboat"
+  ],
+  "aux": "are",
+  "subj": [
+   "the couple",
+   "the two people",
+   "they"
+  ],
+  "phrase": [
+   "sitting in a wooden boat",
+   "sitting in a boat with a dog",
+   "talking in a boat",
+   "sitting on the water",
+   "sitting in a boat"
+  ],
+  "simple": [
+   "sit in a wooden boat",
+   "sit in a boat with a dog"
+  ],
+  "actionKo": "물 위의 탈것 안에 앉아 있다",
+  "actionEn": "resting on seats in something floating on the lake",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 16645,
+  "skip": false,
+  "ko": "성벽 걷기",
+  "en": "Hiking by the Wall",
+  "clueKo": "등에 메고 다니는 가방",
+  "clueEn": "a bag worn over both shoulders while hiking",
+  "word": [
+   "backpack",
+   "a backpack",
+   "the backpack"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she",
+   "the hiker"
+  ],
+  "phrase": [
+   "walking along a stone wall",
+   "walking along an old wall",
+   "hiking along the wall",
+   "walking on a path",
+   "walking with a backpack"
+  ],
+  "simple": [
+   "walks along a stone wall",
+   "hikes along the wall"
+  ],
+  "actionKo": "돌담 옆 길을 따라 발걸음을 옮기고 있다",
+  "actionEn": "moving on foot beside the old stone path",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 16714,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-02"
+ },
+ {
+  "i": 16838,
+  "skip": false,
+  "ko": "꽃꽂이하기",
+  "en": "Arranging Flowers",
+  "clueKo": "꽃을 꽂아 두는 유리 그릇",
+  "clueEn": "the glass container that holds the flowers and water",
+  "word": [
+   "vase",
+   "a vase",
+   "the vase",
+   "flower vase"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "arranging flowers in a vase",
+   "arranging flowers",
+   "putting flowers in a vase",
+   "decorating the living room with flowers",
+   "fixing a bunch of flowers"
+  ],
+  "simple": [
+   "arranges flowers in a vase",
+   "puts flowers in a vase"
+  ],
+  "actionKo": "꽃병 속 꽃들을 보기 좋게 정리하고 있다",
+  "actionEn": "setting the flowers nicely in the glass container",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 17182,
+  "skip": false,
+  "ko": "면접 보기",
+  "en": "Job Interview",
+  "clueKo": "일자리를 얻기 위해 질문에 답하는 만남",
+  "clueEn": "a meeting where someone answers questions to get a job",
+  "word": [
+   "interview",
+   "an interview",
+   "the interview",
+   "job interview",
+   "a job interview"
+  ],
+  "aux": "is",
+  "subj": [
+   "the young man",
+   "a young man",
+   "he"
+  ],
+  "phrase": [
+   "having a job interview",
+   "answering questions in an interview",
+   "talking to an interviewer",
+   "answering questions",
+   "sitting at a desk"
+  ],
+  "simple": [
+   "has a job interview",
+   "answers questions"
+  ],
+  "actionKo": "일자리를 얻으려고 질문에 대답하고 있다",
+  "actionEn": "replying to questions to get a job",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18331,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-01"
+ },
+ {
+  "i": 18482,
+  "skip": false,
+  "ko": "토크쇼 출연",
+  "en": "Talk Show Guests",
+  "clueKo": "방송에서 사람들과 이야기를 나누며 프로그램을 이끄는 사람",
+  "clueEn": "the person who leads the television program and asks questions",
+  "word": [
+   "host",
+   "a host",
+   "the host",
+   "talk show host"
+  ],
+  "aux": "are",
+  "subj": [
+   "the people",
+   "they",
+   "the guests"
+  ],
+  "phrase": [
+   "talking on a talk show",
+   "chatting on a tv show",
+   "sitting on a sofa and talking",
+   "chatting together",
+   "smiling on a talk show"
+  ],
+  "simple": [
+   "talk on a talk show",
+   "chat on a tv show"
+  ],
+  "actionKo": "방송 무대에서 함께 이야기를 나누고 있다",
+  "actionEn": "having a friendly conversation on television",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-03"
+ },
+ {
+  "i": 18945,
+  "skip": false,
+  "ko": "비밀 통로 발견",
+  "en": "Secret Passage",
+  "clueKo": "책을 꽂아 두는 가구",
+  "clueEn": "tall furniture with shelves full of novels",
+  "word": [
+   "bookcase",
+   "a bookcase",
+   "the bookcase",
+   "bookshelf",
+   "a bookshelf",
+   "the bookshelf"
+  ],
+  "aux": "is",
+  "subj": [
+   "the woman",
+   "a woman",
+   "she"
+  ],
+  "phrase": [
+   "opening a secret door",
+   "opening a hidden bookcase door",
+   "looking into a secret passage",
+   "opening the bookcase",
+   "finding a secret passage"
+  ],
+  "simple": [
+   "opens a secret door",
+   "opens the bookcase"
+  ],
+  "actionKo": "책장을 당겨 숨겨진 통로를 드러내고 있다",
+  "actionEn": "pulling the shelf to reveal a hidden way",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
+ },
+ {
+  "i": 20124,
+  "skip": true,
+  "why": "no person",
+  "src": "w",
+  "band": "siu-basic",
+  "book": "siu-basic-04"
  }
 ]
