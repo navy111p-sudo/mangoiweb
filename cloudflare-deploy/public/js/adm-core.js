@@ -10230,12 +10230,100 @@ function _parseWordEnrollments(html) {
   return result;
 }
 
+/* ✍️ (2026-09-24) 한 줄 카톡 — 사장님이 「홍길동수요일오후6시체험수업등록」 을 넣었더니
+   «수강신청 정보를 찾을 수 없습니다». 위 _extractKoFields 는 «학생:»·«유형:» 같은 이름표가 있어야만 읽는다.
+   이 함수는 이름표 없는 한 줄에서 유형·요일·시간·시작일·아이디·이름을 떼어 낸다.
+   ⛔ 요일을 «글자 하나» 로 찾지 말 것 — 「체험수업」의 수, 「9월 30일」의 월·일이 요일로 잡힌다.
+      «X요일» 이나 요일 글자만으로 된 낱말(월수금 · 화,목) 만 인정한다.
+   ⛔ 못 읽으면 null — 지어내지 않는다. 등록 전 미리보기에서 사람이 한 번 더 본다. */
+function _parseFreeformEnrollment(line) {
+  let s = ' ' + String(line || '').replace(/\s+/g, ' ').trim() + ' ';
+  const pad = (n) => String(n).padStart(2, '0');
+  // ① 유형 — 없으면 수강신청 줄이 아님
+  //    ⚠️ «정규» 는 이름(김정규)에도 들어간다 — 한글 바로 뒤에 붙은 «정규» 는 «정규수업» 일 때만 유형으로 본다
+  const types = [];
+  s = s.replace(/(레벨\s*테스트|레벨|체험|정규)(\s*수업)?/g, (all, w, su, off, str) => {
+    if (w === '정규' && !su && /[가-힣]/.test(str.charAt(off - 1))) return all;
+    types.push(w.replace(/\s/g, ''));
+    return ' ';
+  });
+  if (!types.length) return null;
+  // ② 아이디 — 영문으로 시작하는 낱말(괄호 안도)
+  let uid = '';
+  s = s.replace(/[(\[]?\b([A-Za-z][A-Za-z0-9_.\-]{2,})\b[)\]]?/, (_, u) => { uid = u; return ' '; });
+  // ③ 인원 방식 — 시간(6:30)보다 먼저 떼야 「1:1」 이 1시 1분으로 안 읽힌다
+  let size = '';
+  s = s.replace(/1\s*[:대]\s*([0-9]+|N)(?![0-9])/i, (_, n) => { size = '1:' + String(n).toUpperCase(); return ' '; });
+  // ④ 시작일 — 2026-09-30 / 9월 30일 / 9/30 (요일보다 먼저: «월»·«일» 글자가 섞여 있다)
+  let started = '';
+  const now = new Date();
+  const ymd = s.match(/(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?/);
+  if (ymd) {
+    started = ymd[1] + '-' + pad(ymd[2]) + '-' + pad(ymd[3]);
+    s = s.replace(ymd[0], ' ');
+  } else {
+    const md = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/) || s.match(/(?:^|\s)(\d{1,2})\/(\d{1,2})(?=\D)/);
+    if (md) {
+      const mo = +md[1], da = +md[2];
+      if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+        let y = now.getFullYear();
+        // 두 달보다 더 지난 날짜면 내년으로 읽는다(12월에 「1월 5일부터」)
+        if (new Date(y, mo - 1, da).getTime() < now.getTime() - 60 * 86400000) y += 1;
+        started = y + '-' + pad(mo) + '-' + pad(da);
+      }
+      s = s.replace(md[0], ' ');
+    }
+  }
+  // ⑤ 시간 — 오후6시 / 저녁 6시반 / 18:30 / 6시 20분
+  let time = '';
+  const tm = s.match(/(오전|아침|오후|저녁|밤)?\s*(\d{1,2})\s*(?::\s*(\d{2})|시\s*(?:(반)|(\d{1,2})\s*분)?)/);
+  if (tm) {
+    let h = +tm[2];
+    const mi = tm[3] != null ? +tm[3] : (tm[4] ? 30 : (tm[5] != null ? +tm[5] : 0));
+    const ap = tm[1] || '';
+    if (/오후|저녁|밤/.test(ap) && h < 12) h += 12;
+    // 오전·오후 없이 1~8시면 오후로 본다(새벽 수업은 없다) — 미리보기에서 사람이 확인
+    else if (!ap && h >= 1 && h <= 8) h += 12;
+    if (h <= 23 && mi <= 59) time = pad(h) + ':' + pad(mi);
+    s = s.replace(tm[0], ' ');
+  }
+  // ⑥ 요일
+  const days = [];
+  const addDay = (d) => { if (days.indexOf(d) < 0) days.push(d); };
+  s = s.replace(/([월화수목금토일])\s*요일/g, (_, d) => { addDay(d); return ' '; });
+  s = s.replace(/(^|[\s,])([월화수목금토일](?:\s*[,·\/]\s*[월화수목금토일]|[월화수목금토일])*)(?=[\s,]|$)/g,
+    (_, pre, g) => { g.replace(/[월화수목금토일]/g, (d) => { addDay(d); return d; }); return pre + ' '; });
+  // ⑦ 이름 — 군말을 걷어 낸 뒤 남은 첫 한글 낱말
+  s = s.replace(/(수업|등록|신청|요청|예약|부탁|드립니다|합니다|해\s*주세요|해주세요|원합니다|매주|부터|시작|개강|학생)/g, ' ');
+  // 조사·호칭은 «낱말 끝» 일 때만 — 이름 속 글자(이에스더)를 지우지 않게
+  s = s.replace(/(으로|에|님)(?=\s|$)/g, ' ');
+  const nm = s.match(/[가-힣]{2,6}/);
+  if (!nm) return null;
+  return {
+    student_name: nm[0],
+    student_user_id: uid,
+    types_raw: types.join(' '),
+    days_raw: days.join(''),
+    time: time,
+    class_size: size,
+    started_at: started
+  };
+}
+
 // 카톡 텍스트 파서 — 빈 줄로 구분된 여러 명 지원
+//   ✍️ (2026-09-24) 이름표(학생: 등)가 없으면 «한 줄 = 한 명» 으로 읽는다(_parseFreeformEnrollment)
 function _parseKakaoEnrollments(text) {
   // 빈 줄 (또는 ━ 같은 구분선) 으로 record 분리
   const blocks = text.split(/\n\s*\n|━{3,}/).map(b => b.trim()).filter(b => b);
+  const labeledRe = /(학생|이름|UID|유형|과목|패키지|요일|시간|인원|시작일)\s*[:：]/i;
   const result = [];
   for (const block of blocks) {
+    if (!labeledRe.test(block)) {
+      const lines = block.split(/\n/).map(l => l.trim()).filter(l => l);
+      const got = lines.map(l => _parseFreeformEnrollment(l)).filter(Boolean)
+        .map(f => _normalizeEnrollment(f)).filter(Boolean);
+      if (got.length) { got.forEach(e => result.push(e)); continue; }
+    }
     const fields = _extractKoFields(block);
     const enr = _normalizeEnrollment(fields);
     if (enr) result.push(enr);
@@ -10250,7 +10338,8 @@ function _renderImportPreview(records, source) {
   if (!records || records.length === 0) {
     box.style.display = 'block';
     box.innerHTML = '<div style="color:#dc2626;font-size:13px">⚠️ ' +
-      _aiEsc(source) + ' 에서 수강신청 정보를 찾을 수 없습니다. 파일·텍스트 형식을 확인해 주세요.</div>';
+      _aiEsc(source) + ' 에서 수강신청 정보를 찾을 수 없습니다. 파일·텍스트 형식을 확인해 주세요.' +
+      '<br><span style="color:#475467">한 줄로 쓸 때는 이름과 수업 종류(체험·레벨·정규)가 꼭 들어가야 합니다 — 예: <b>홍길동 수요일 오후6시 체험</b></span></div>';
     return;
   }
   const testOnly = records.filter(r => r._category === 'test_only').length;
