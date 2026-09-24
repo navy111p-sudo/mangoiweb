@@ -10,9 +10,10 @@
  *   ・「다음부터 자동으로 열지 않기」를 고르면 그 기기에서는 자동으로 안 뜬다(❓ 버튼은 남음).
  *   ・❓ 버튼: PC 는 방 이름 줄(회의방 버튼 옆), 휴대폰 세로는 맨 위 통합바(#mg-unibar) 안.
  *
- * [인물] 사장님 지시 — 선생님용은 서양인 선생님(/img/lily-wide.webp),
- *   학생용은 동양인 학생(/img/mei-closed.webp). 저장소에 이미 있는 아바타 그림을 그대로 쓴다
- *   (새 파일 0개). 창을 열 때만 받는다(첫 화면 무게 0).
+ * [모양] 사장님이 보내신 예시와 같은 «한 장짜리 번호 그림» (2026-09-24 두 번째 지시 —
+ *   글과 아이콘으로 된 첫 판은 «원한 게 아니다»). 선생님 얼굴은 서양인(/img/lily-wide.webp),
+ *   학생 얼굴은 동양인(/img/mei-closed.webp) 을 그림 안에 넣었다. 선생님용은 영어가 기본.
+ *   그림은 창을 열 때만 받는다(첫 화면 무게 0).
  *
  * ⚠️ 첫 화면 예산 때문에 반드시 defer. index.html 에는 <script defer> 한 줄만 둔다.
  * ⛔ body class 를 지켜보는 MutationObserver·상주 setInterval 금지(홈이 멎은 전력 2회).
@@ -48,37 +49,26 @@
     return r === 'teacher' || r === 'admin' || r === 'student' || r === 'observer' || isStaff();
   }
 
-  /* ── 안내 내용 (아이콘은 실제 화면 버튼과 같은 것) ── */
-  var PEOPLE = {
-    teacher: { img: '/img/lily-wide.webp', ko: '선생님', en: 'Teacher' },
-    student: { img: '/img/mei-closed.webp', ko: '학생', en: 'Student' }
-  };
-  var STEPS = {
-    teacher: [
-      ['📚', '교재 띄우기', '가운데 「📚 교재 고르기」나 「📁 내 파일 올리기」를 누르세요. 선생님이 띄운 교재가 학생 화면에도 똑같이 보입니다.',
-             'Show a textbook', 'Tap “Pick textbook” or “Upload my file” in the middle. Students see the same page you show.'],
-      ['🗂️', '위쪽 탭으로 도구 바꾸기', '교재 · 칠판 · 동영상 · 학생게임 탭을 눌러 수업 도구를 바꿉니다. 「📖 교재」를 누르면 언제든 교재로 돌아옵니다.',
-             'Switch tools with the top tabs', 'Textbook · Whiteboard · Video · Games. Tap “Textbook” to come back anytime.'],
-      ['🎤', '아래 버튼 줄', '🎤 마이크 · 📷 카메라 · 🖥️ 화면공유 · 💬 채팅 · ⚙️ 설정(장치·화질·언어). 휴대폰에서는 「⋯」 안에 있습니다.',
-             'Bottom buttons', 'Mic · Camera · Screen share · Chat · Settings (device, quality, language). On phones they are under “⋯”.'],
-      ['⭐', '칭찬 별', '학생 얼굴 칸의 ⭐ 를 누르면 칭찬 포인트가 학생에게 갑니다.',
-             'Praise star', 'Tap ⭐ on a student’s video tile to send praise points.'],
-      ['🚪', '수업 끝내기', '수업이 끝나면 오른쪽 아래 빨간 「나가기」를 누르세요.',
-             'Finish the class', 'When class is over, tap the red “Leave” button at the bottom right.']
-    ],
-    student: [
-      ['⏳', '잠깐 기다리기', '「잠시만 기다려 주세요」가 보이면 선생님이 교재를 띄울 때까지 기다리면 됩니다.',
-             'Wait a moment', 'If you see “Please wait”, the teacher is getting the textbook ready.'],
-      ['🎤', '내 소리 확인', '아래 🎤 마이크가 켜져 있어야 선생님이 내 목소리를 들어요. 소리가 이상하면 ⚙️ 설정을 누르세요.',
-             'Check your mic', 'Keep 🎤 Mic on so the teacher can hear you. If sound is odd, tap ⚙️ Settings.'],
-      ['💬', '채팅으로 말하기', '💬 채팅을 눌러 글로도 질문할 수 있어요.',
-             'Chat', 'Tap 💬 Chat to type a question.'],
-      ['🔍', '화면 크기 바꾸기', '위쪽의 「교재 크게 · 기본 · 얼굴 크게」로 교재와 얼굴 크기를 바꿀 수 있어요.',
-             'Change the layout', 'Use “Book bigger · Default · Face bigger” at the top to resize.'],
-      ['🚪', '수업이 끝나면', '빨간 「나가기」를 누르면 수업 평가와 복습퀴즈가 이어서 나와요.',
-             'After class', 'Tap the red “Leave” button — a quick rating and review quiz come next.']
-    ]
-  };
+  /* ── 한 장짜리 사용법 그림 ──
+   * 실제 수업 화면(PC 1280×800)을 찍어 번호를 매긴 그림 네 장.
+   * 만드는 곳: docs/수업화면_사용법그림_소스/build.mjs (화면이 바뀌면 그것을 다시 돌린다).
+   * 기본 언어: 선생님 = 영어(필리핀·중국 선생님), 학생 = 한국어. 창 안에서 바꿀 수 있다.
+   * ⛔ 그림 주소를 바꾸지 말 것 — 같은 이름으로 갈아끼우면 이 파일의 ?v= 와 IMG_V 를 함께 올린다. */
+  var IMG_V = '1';
+  function imgSrc(who, lang) { return '/img/vc-guide/' + who + '-' + lang + '.webp?v=' + IMG_V; }
+  function defLang(who) { return who === 'teacher' ? 'en' : 'ko'; }
+  /* 선생님용을 띄울지 — 역할 정본(vcIsStaffNow) + 관리자 세션.
+   * 관리자 세션을 함께 보는 이유: 사장님 계정은 학생 세션으로 입장해 역할이 학생으로 잡히는 일이 있다.
+   * ⚠️ 이 판정은 «어느 그림을 먼저 보여 주나» 에만 쓴다. 권한 판정에 쓰지 말 것. */
+  function wantsTeacher() {
+    if (isStaff()) return true;
+    var r = window.vcMyRole;
+    if (r === 'teacher' || r === 'admin') return true;
+    if (r === 'student' || r === 'observer') {
+      try { return !!localStorage.getItem('mangoi_admin_session'); } catch (e) { return false; }
+    }
+    return false;
+  }
 
   var styled = false;
   function injectStyle() {
@@ -86,34 +76,29 @@
     var s = document.createElement('style');
     s.id = 'vc-guide-style';
     s.textContent = [
-      '#' + OV_ID + '{position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.62);display:flex;',
-      '  align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}',
-      '#' + OV_ID + ' .vg-card{background:#ffffff;color:#101828;border-radius:18px;width:100%;max-width:560px;',
-      '  max-height:calc(100svh - 32px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);',
-      '  font-family:inherit;line-height:1.5;overflow:hidden;}',
-      '#' + OV_ID + ' .vg-head{display:flex;align-items:center;gap:8px;padding:14px 16px 8px;flex:0 0 auto;}',
-      '#' + OV_ID + ' .vg-title{font-size:18px;font-weight:800;flex:1 1 auto;min-width:0;}',
-      '#' + OV_ID + ' .vg-who{width:64px;height:64px;flex:0 0 64px;border-radius:999px;object-fit:cover;',
-      '  object-position:50% 18%;background:#fff7ed;border:3px solid #fde68a;}',
-      '#' + OV_ID + ' .vg-x{border:0;background:#f1f5f9;color:#101828;width:36px;height:36px;border-radius:999px;',
-      '  font-size:18px;cursor:pointer;flex:0 0 auto;}',
-      '#' + OV_ID + ' .vg-tabs{display:flex;gap:6px;padding:0 16px 8px;flex:0 0 auto;}',
+      '#' + OV_ID + '{position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.72);display:flex;',
+      '  align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}',
+      '#' + OV_ID + ' .vg-card{background:#ffffff;color:#101828;border-radius:16px;width:100%;max-width:1400px;',
+      '  max-height:calc(100svh - 24px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.45);',
+      '  font-family:inherit;line-height:1.4;overflow:hidden;}',
+      '#' + OV_ID + ' .vg-head{display:flex;align-items:center;gap:8px;padding:10px 12px;flex:0 0 auto;flex-wrap:wrap;',
+      '  border-bottom:1px solid #eef2f6;}',
+      '#' + OV_ID + ' .vg-title{font-size:16px;font-weight:800;flex:1 1 auto;min-width:0;}',
+      '#' + OV_ID + ' .vg-grp{display:flex;gap:4px;flex:0 0 auto;}',
       '#' + OV_ID + ' .vg-tab{border:1px solid #cbd5e1;background:#fff;color:#344054;border-radius:999px;',
       '  padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;}',
       '#' + OV_ID + ' .vg-tab.on{background:#b45309;border-color:#b45309;color:#fff;}',
-      '#' + OV_ID + ' .vg-body{overflow-y:auto;min-height:0;padding:4px 16px 8px;flex:1 1 auto;}',
-      '#' + OV_ID + ' .vg-step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid #eef2f6;}',
-      '#' + OV_ID + ' .vg-step:first-child{border-top:0;}',
-      '#' + OV_ID + ' .vg-ico{font-size:24px;width:40px;height:40px;flex:0 0 40px;display:flex;align-items:center;',
-      '  justify-content:center;background:#fff7ed;border-radius:12px;}',
-      '#' + OV_ID + ' .vg-txt{display:block;min-width:0;}',
-      '#' + OV_ID + ' .vg-txt b{display:block;font-size:15px;}',
-      '#' + OV_ID + ' .vg-txt span{display:block;font-size:13.5px;color:#475467;}',
-      '#' + OV_ID + ' .vg-foot{display:flex;align-items:center;gap:10px;padding:10px 16px 14px;border-top:1px solid #eef2f6;',
+      '#' + OV_ID + ' .vg-x{border:0;background:#f1f5f9;color:#101828;width:34px;height:34px;border-radius:999px;',
+      '  font-size:17px;cursor:pointer;flex:0 0 auto;}',
+      '#' + OV_ID + ' .vg-body{overflow:auto;min-height:0;flex:1 1 auto;background:#0f172a;}',
+      '#' + OV_ID + ' .vg-img{display:block;width:100%;height:auto;cursor:zoom-in;}',
+      '#' + OV_ID + ' .vg-body.zoom .vg-img{width:2000px;max-width:none;cursor:zoom-out;}',
+      '#' + OV_ID + ' .vg-foot{display:flex;align-items:center;gap:10px;padding:8px 12px 10px;border-top:1px solid #eef2f6;',
       '  flex:0 0 auto;flex-wrap:wrap;}',
       '#' + OV_ID + ' .vg-off{font-size:13px;color:#475467;display:flex;align-items:center;gap:6px;flex:1 1 auto;cursor:pointer;}',
+      '#' + OV_ID + ' .vg-hint{font-size:12px;color:#667085;flex:0 0 auto;}',
       '#' + OV_ID + ' .vg-ok{border:0;background:#b45309;color:#fff;font-weight:800;font-size:15px;border-radius:12px;',
-      '  padding:10px 22px;cursor:pointer;flex:0 0 auto;}',
+      '  padding:9px 22px;cursor:pointer;flex:0 0 auto;}',
       '#' + BTN_PC + '{margin-left:6px;padding:3px 9px;border-radius:999px;cursor:pointer;background:rgba(56,189,248,.14);',
       '  border:1px solid rgba(56,189,248,.45);color:#38bdf8;font-size:11.5px;font-weight:700;line-height:1.7;',
       '  white-space:nowrap;flex:0 0 auto;}',
@@ -125,31 +110,25 @@
     document.body.appendChild(s);   // head 가 아니라 body — index.html body <style> 에게 지지 않게
   }
 
-  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-
-  function render(ov, who) {
-    var ko = isKo();
-    ov.__who = who;
-    var steps = STEPS[who] || STEPS.student;
-    var pp = PEOPLE[who] || PEOPLE.student, im = ov.querySelector('.vg-who');
-    if (im.getAttribute('src') !== pp.img) im.setAttribute('src', pp.img);
-    im.alt = ko ? pp.ko : pp.en;
+  /* 창 안의 글자는 «그림의 언어» 를 따른다(선생님은 영어 그림 = 영어 글자). */
+  function render(ov, who, lang) {
+    ov.__who = who; ov.__lang = lang;
+    var ko = lang === 'ko';
+    var im = ov.querySelector('.vg-img'), src = imgSrc(who, lang);
+    if (im.getAttribute('src') !== src) im.setAttribute('src', src);
+    im.alt = ko ? (who === 'teacher' ? '선생님 수업화면 사용법' : '학생 수업화면 사용법')
+                : (who === 'teacher' ? 'Teacher class screen guide' : 'Student class screen guide');
     ov.querySelector('.vg-title').textContent = ko
-      ? (who === 'teacher' ? '선생님 사용법' : '학생 사용법')
-      : (who === 'teacher' ? 'How to use (Teacher)' : 'How to use (Student)');
+      ? (who === 'teacher' ? '선생님 수업화면 사용법' : '학생 수업화면 사용법')
+      : (who === 'teacher' ? 'Teacher class screen — how to use' : 'Student class screen — how to use');
     var tabs = ov.querySelectorAll('.vg-tab');
     for (var i = 0; i < tabs.length; i++) {
-      var t = tabs[i].getAttribute('data-who');
-      tabs[i].className = 'vg-tab' + (t === who ? ' on' : '');
-      tabs[i].textContent = t === 'teacher' ? (ko ? '선생님용' : 'Teacher') : (ko ? '학생용' : 'Student');
+      var w = tabs[i].getAttribute('data-who'), l = tabs[i].getAttribute('data-lang');
+      var on = w ? (w === who) : (l === lang);
+      tabs[i].className = 'vg-tab' + (on ? ' on' : '');
+      if (w) tabs[i].textContent = w === 'teacher' ? (ko ? '선생님용' : 'Teacher') : (ko ? '학생용' : 'Student');
     }
-    var h = '';
-    for (var j = 0; j < steps.length; j++) {
-      var s = steps[j];
-      h += '<div class="vg-step"><div class="vg-ico">' + esc(s[0]) + '</div><div class="vg-txt"><b>' +
-           esc(ko ? s[1] : s[3]) + '</b><span>' + esc(ko ? s[2] : s[4]) + '</span></div></div>';
-    }
-    ov.querySelector('.vg-body').innerHTML = h;
+    ov.querySelector('.vg-hint').textContent = ko ? '그림을 누르면 크게 보여요' : 'Tap the picture to zoom';
     ov.querySelector('.vg-offtxt').textContent = ko ? '다음부터 자동으로 열지 않기 (❓ 버튼으로 다시 볼 수 있어요)'
                                                     : 'Don’t open automatically next time (use ❓ to see it again)';
     ov.querySelector('.vg-ok').textContent = ko ? '알겠어요' : 'Got it';
@@ -167,35 +146,43 @@
   }
   function onKey(e) { if (e.key === 'Escape') close(); }
 
-  function open(who) {
+  function open(who, lang) {
     injectStyle();
+    lang = lang || defLang(who);
     var old = document.getElementById(OV_ID);
-    if (old) { render(old, who); return; }
+    if (old) { render(old, who, lang); return; }
     var ov = document.createElement('div');
     ov.id = OV_ID;
     ov.setAttribute('role', 'dialog');
     ov.setAttribute('aria-modal', 'true');
     ov.innerHTML =
       '<div class="vg-card">' +
-        '<div class="vg-head"><img class="vg-who" alt="" width="64" height="64"><div class="vg-title"></div><button type="button" class="vg-x">✕</button></div>' +
-        '<div class="vg-tabs"><button type="button" class="vg-tab" data-who="teacher"></button>' +
-        '<button type="button" class="vg-tab" data-who="student"></button></div>' +
-        '<div class="vg-body"></div>' +
+        '<div class="vg-head"><div class="vg-title"></div>' +
+          '<div class="vg-grp"><button type="button" class="vg-tab" data-who="teacher"></button>' +
+          '<button type="button" class="vg-tab" data-who="student"></button></div>' +
+          '<div class="vg-grp"><button type="button" class="vg-tab" data-lang="en">EN</button>' +
+          '<button type="button" class="vg-tab" data-lang="ko">한국어</button></div>' +
+          '<button type="button" class="vg-x">✕</button></div>' +
+        '<div class="vg-body"><img class="vg-img" alt="" width="2000" height="1006" decoding="async"></div>' +
         '<div class="vg-foot"><label class="vg-off"><input type="checkbox" class="vg-offchk"><span class="vg-offtxt"></span></label>' +
-        '<button type="button" class="vg-ok"></button></div>' +
+        '<span class="vg-hint"></span><button type="button" class="vg-ok"></button></div>' +
       '</div>';
     ov.querySelector('.vg-offchk').checked = autoOff();
     ov.addEventListener('click', function (e) {
       var t = e.target;
       if (t === ov || (t.closest && (t.closest('.vg-x') || t.closest('.vg-ok')))) { close(); return; }
+      if (t.classList && t.classList.contains('vg-img')) { t.parentNode.classList.toggle('zoom'); return; }
       var tab = t.closest && t.closest('.vg-tab');
-      if (tab) render(ov, tab.getAttribute('data-who'));
+      if (!tab) return;
+      var w = tab.getAttribute('data-who'), l = tab.getAttribute('data-lang');
+      if (w) render(ov, w, ov.__lang);          // 역할을 바꿔도 지금 고른 언어는 그대로
+      else if (l) render(ov, ov.__who, l);
     });
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(ov);
-    render(ov, who);
+    render(ov, who, lang);
   }
-  function openForMe() { open(isStaff() ? 'teacher' : 'student'); }
+  function openForMe() { open(wantsTeacher() ? 'teacher' : 'student'); }
   window.mgOpenVcGuide = openForMe;
 
   function btnLabel(b, mobile) {
@@ -229,7 +216,6 @@
   function relabel() {
     var b = document.getElementById(BTN_PC); if (b) btnLabel(b, false);
     var m = document.getElementById(BTN_M); if (m) btnLabel(m, true);
-    var ov = document.getElementById(OV_ID); if (ov) render(ov, ov.__who);
   }
 
   /* 수업 화면에 들어간 순간부터 끝이 있는 확인(최대 약 8초) */
