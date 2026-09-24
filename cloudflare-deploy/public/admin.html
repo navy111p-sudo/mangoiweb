@@ -1797,6 +1797,14 @@
     <!-- 테스트 시드 배너 제거됨 (실제 학생 데이터만 표시) -->
     <div class="sub-menu">
 
+      <!-- 🎥🤖 (2026-09-24) 학생 구분 — 화상영어(+AI) 학생 / AI 학습만 하는 학생.
+           본문은 /js/adm-student-track.js(defer). 판정 정본은 서버 src/student-track.ts(A.i 사용료 청구와 같은 규칙).
+           펼칠 때 한 번 받는다(첫 화면 요청을 늘리지 않는다). -->
+      <details id="sm-student-track" class="sub-item">
+        <summary data-ko="🎥 학생 구분 — 화상+AI / AI만" data-en="🎥 Students by type — video + AI / AI only">🎥 학생 구분 — 화상+AI / AI만</summary>
+        <div class="sub-body"><div id="stk-body"></div></div>
+      </details>
+
       <!-- 🛠 (2026-08-30 v4 제안서 07) 원격 수리·점검 센터 — 6자리 PIN 발급.
            [무엇] PIN 은 «학생이 원격 지원을 허락했다» 는 기록을 남기기 위한 것이다.
              실제 화면 제어는 학생 화면의 안내(Quick Assist · Chrome 원격 데스크톱)가 맡는다.
@@ -12035,6 +12043,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
+<script src="/js/adm-student-track.js?v=1" defer></script><!-- 🎥🤖 (2026-09-24) 학생관리 › 학생 구분(화상+AI / AI만) -->
 <script src="/js/adm-ai-billing.js?v=3" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
