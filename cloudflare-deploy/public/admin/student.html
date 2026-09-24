@@ -328,7 +328,7 @@
         <!-- 🥭 Phase 22 — AI 검색창에서 등록된 class_schedules (D1) -->
         <div id="aiSchedulesSection" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:14px 16px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <span style="font-size:14px;font-weight:700;color:#fbbf24">🤖 AI 등록 수업 스케줄</span>
+            <span style="font-size:14px;font-weight:700;color:#fbbf24">📅 등록된 수업 스케줄</span>
             <span id="aiSchedulesCount" style="font-size:11px;color:#94a3b8">로딩 중…</span>
             <button id="aiSchedulesRefresh" type="button" style="margin-left:auto;padding:4px 10px;border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:11px">🔄 새로고침</button>
           </div>
@@ -402,7 +402,7 @@
           <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
-          <span><span style="display:inline-block;width:14px;height:14px;background:#fbbf24;border:2px dashed #b45309;border-radius:3px;vertical-align:middle"></span> ⭐ AI 등록 (점선)</span>
+          <span><span style="display:inline-block;width:14px;height:14px;background:#fbbf24;border:2px dashed #b45309;border-radius:3px;vertical-align:middle"></span> ⭐ 등록된 수업 (점선 · 마우스를 올리면 등록 경로)</span>
           <span style="margin-left:auto">학생 ID: <code id="d-sched-uid" style="background:rgba(148,163,184,0.2);padding:1px 6px;border-radius:3px">—</code></span>
         </div>
       </div>
@@ -2753,6 +2753,19 @@ var MGS_AI_COLORS = {
   regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
 };
 function mgsAiColors(sch) { return MGS_AI_COLORS[sch && sch.class_type] || MGS_AI_COLORS.regular; }
+/* 🏷 (2026-09-24 사장님 「내가 직접 등록했는데 왜 AI 등록이지?」) 이 레이어는 class_schedules «전부» 다.
+   옛 이름표가 source 와 무관하게 「🤖 AI 등록」으로 박혀 있어, 관리자 폼(admin_ui)·수강신청·카페24 미러로
+   만든 수업까지 AI 가 만든 것처럼 보였다. 이름표는 서버가 이미 주는 source 로만 가른다 — 모르면 «예약 수업». */
+function mgsSrcLabel(sch) {
+  var s = String((sch && sch.source) || '');
+  var en = (typeof _lang !== 'undefined' && _lang === 'en');
+  if (/^ai[_-]/.test(s)) return en ? '🤖 AI' : '🤖 AI 등록';
+  if (s === 'admin_ui') return en ? '✍️ Manual' : '✍️ 직접 등록';
+  if (s.indexOf('adm-enroll:') === 0) return en ? '📝 Enrollment' : '📝 수강신청';
+  if (s.indexOf('enroll:') === 0) return en ? '💳 Payment' : '💳 결제';
+  if (s.indexOf('c24-mirror') === 0) return en ? '🔄 Cafe24' : '🔄 카페24';
+  return en ? '📅 Booked' : '📅 예약 수업';
+}
 
 function renderDSchedule() {
   if (_dSchedState.view === 'week') return renderDSchedWeek();
@@ -2858,9 +2871,9 @@ function renderDSchedWeek() {
       const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
       const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
-      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
         '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-        '<div style="font-weight:600">🤖 AI</div>' +
+        '<div style="font-weight:600">' + mgsSrcLabel(sch) + '</div>' +
         '<div style="font-size:9px">' + sch.start_time + '</div></div>';
     }
   }
@@ -2925,7 +2938,7 @@ function renderDSchedMonth() {
         const ac = mgsAiColors(sch);
         const at = mgsSchedTime(sch);
         const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
-        html += '<div title="🤖 예약 수업 / ' + ac.name + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : '매주 ') + aWhen + (sch.status==='postponed'?' / 연기':'') + '" style="background:' + ac.bg + ';border:2px dashed ' + ac.border + ';border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:' + ac.text + ';line-height:1.25"><b>⭐ ' + ac.name.substring(0,4) + '</b><br>' + aWhen + '</div>';
+        html += '<div data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : '매주 ') + aWhen + (sch.status==='postponed'?' / 연기':'') + '" style="background:' + ac.bg + ';border:2px dashed ' + ac.border + ';border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:' + ac.text + ';line-height:1.25"><b>⭐ ' + ac.name.substring(0,4) + '</b><br>' + aWhen + '</div>';
       }
     }
     html += '</div>';
@@ -3093,7 +3106,7 @@ async function loadAiSchedules() {
     _reschCache = {};
     items.forEach(function (x) { _reschCache[x.id] = x; });
     if (items.length === 0) {
-      listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">아직 AI로 등록된 스케줄이 없습니다.<br>관리자 검색창에서 자연어로 등록해 보세요.</div>';
+      listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">아직 등록된 수업 스케줄이 없습니다.<br>아래 «수업 예약 등록» 이나 관리자 검색창에서 등록할 수 있습니다.</div>';
       return;
     }
     // (2026-07-24) 저장 형식이 섞여 있다 — 'mon'(AI 명령) / 숫자 0~6(등록 폼·sessions/today 기준)
@@ -3134,6 +3147,7 @@ async function loadAiSchedules() {
       return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
+        + '<span style="color:#475467;font-size:11px">' + mgsSrcLabel(it) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
         + _onceChip + _pastChip
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'

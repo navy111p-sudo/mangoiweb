@@ -203,7 +203,7 @@ check('전제 — 주간 렌더 함수를 잘라 냈다', weekFn.length > 2000, 
 let drew = null, drawErr = '';
 try {
   const sandbox = new Function(
-    canon + '\n' + weekFn + '\n' +
+    canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + weekFn + '\n' +
     'function mgsEnrHasLiveClass(){ return true; }\n' +
     'function mgsSetGhostNote(){}\n' +
     'return function (state) {\n' +
@@ -237,7 +237,8 @@ try {
 } catch (e) { drawErr = e.message; }
 check('주간 격자가 실제로 그려진다', !!drew && !!drew.html, drawErr);
 if (drew && drew.html) {
-  const cards = drew.html.match(/title="🤖 AI 등록[^"]*"/g) || [];
+  /* 🏷 (2026-09-24) 카드는 title 글자가 아니라 data-mgs-sch 로 찾는다 — 이름표가 source 따라 바뀐다. */
+  const cards = drew.html.match(/data-mgs-sch="1" title="[^"]*"/g) || [];
   const cols  = (drew.html.match(/\* (\d) \/ 7 \+ 2px/g) || []).map(x => x.match(/(\d)/)[1]);
   check('그려야 할 것은 그린다 — 카드 5장', cards.length === 5, '실제 ' + cards.length + '장');
   /* 🪤 «없는가» 를 drew.html 전체로 묻지 말 것 — 격자의 시간 눈금(>18:00<)이 걸려
@@ -249,6 +250,22 @@ if (drew && drew.html) {
   check('수요일 칸(i=3)에 4장이 놓인다', cols.filter(c => c === '3').length === 4, cols.join(','));
   check('월요일 칸(i=1)에 1장이 놓인다', cols.filter(c => c === '1').length === 1, cols.join(','));
   check('그 밖의 요일에는 안 놓인다', cols.every(c => c === '1' || c === '3'), cols.join(','));
+}
+
+console.log('\n── ⑥ 이름표는 source 로 가른다 (2026-09-24 「직접 등록했는데 왜 AI 등록?」) ──');
+{
+  let L = null;
+  try { L = new Function('var _lang="ko";\n' + funcAt(src, 'mgsSrcLabel') + '\nreturn mgsSrcLabel;')(); }
+  catch (e) { check('전제 — mgsSrcLabel 을 오려 냈다', false, e.message); }
+  if (L) {
+    check('관리자 폼(admin_ui) 은 «직접 등록» — AI 가 아니다', /직접/.test(L({ source: 'admin_ui' })) && !/AI/.test(L({ source: 'admin_ui' })), L({ source: 'admin_ui' }));
+    check('(짝) AI 명령(ai_command) 은 «AI 등록»', /AI/.test(L({ source: 'ai_command' })), L({ source: 'ai_command' }));
+    check('(짝) AI 수강등록(ai_enroll) 도 «AI»', /AI/.test(L({ source: 'ai_enroll' })), L({ source: 'ai_enroll' }));
+    check('수강신청·카페24·모름은 AI 라고 말하지 않는다',
+      ['adm-enroll:85', 'c24-mirror', 'c24-mirror:manual', 'enroll:ord1', '', null].every(x => !/AI/.test(L({ source: x }))),
+      ['adm-enroll:85', 'c24-mirror', '', null].map(x => L({ source: x })).join(' | '));
+  }
+  check('주간 카드 title 에 «AI 등록» 이 박혀 있지 않다', !/title="🤖 AI 등록/.test(src));
 }
 
 console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);

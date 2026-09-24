@@ -89,7 +89,8 @@ const canonSrc = [
   cut('function mgsSchedHitsDate(sch, date)'),
   cut('function mgsSchedTime(sch)'),
   cut('var MGS_AI_COLORS = {') + ';',
-  cut('function mgsAiColors(sch)')
+  cut('function mgsAiColors(sch)'),
+  cut('function mgsSrcLabel(sch)')   // 🏷 2026-09-24 카드 이름표(source 별)
 ].join('\n');
 ok('[전제] 예약 판정 정본을 오려 냈다', canonSrc.length > 700, canonSrc.length + '자');
 

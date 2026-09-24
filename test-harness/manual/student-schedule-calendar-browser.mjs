@@ -208,7 +208,7 @@ async function main() {
   const weekCards = JSON.parse(await ev(`JSON.stringify((function(){
       var head = [...document.querySelectorAll('#d-sched-calendar > div:first-child > div')];
       var cols = head.slice(1).map(function(h){ var r=h.getBoundingClientRect(); return {l:r.left, r:r.right}; });
-      return [...document.querySelectorAll('#d-sched-calendar div[title^="🤖 AI 등록"]')].map(function(e){
+      return [...document.querySelectorAll('#d-sched-calendar div[data-mgs-sch="1"]')].map(function(e){
         var r = e.getBoundingClientRect(); var cx = r.left + r.width/2;
         var col = -1; for (var i=0;i<cols.length;i++) if (cx>=cols[i].l && cx<=cols[i].r) { col=i; break; }
         return { t: e.getAttribute('title')||'', col: col };
