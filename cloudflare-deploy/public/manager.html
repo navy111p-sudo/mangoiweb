@@ -1460,14 +1460,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ══════════════════════════════════════════════════════════════════════════
   // 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — scope.type==='agency' 일 때만 보인다.
   //   금액은 절대 이 화면이 계산해서 보내지 않는다 — 서버(ai-billing.ts)가 그 순간의
-  //   재원 학생 수 × 단가로 다시 계산해 결제창을 연다(클라이언트 값은 표시용일 뿐).
+  //   A.i반 인원(재원 − 화상반)의 인원 구간 공급가(ai-billing-price.ts)로 다시 계산해 결제창을 연다
+  //   (클라이언트 값은 표시용일 뿐). 캐시 키 'aibill2'(2026-09-24) — 옛 형식(재원 × 10,000원) 캐시가
+  //   조회 실패 때 되살아나 옛 금액을 보여 주지 않게 키를 바꿨다.
   // ══════════════════════════════════════════════════════════════════════════
   window.loadAiBill = function(){
     var el = document.getElementById('aibillBody');
     el.textContent = T('Loading...', '불러오는 중...');
     Promise.all([
-      get('/api/admin/ai-billing/invoice', 'aibill'),
-      get('/api/admin/ai-billing/history', 'aibillHist'),
+      get('/api/admin/ai-billing/invoice', 'aibill2'),
+      get('/api/admin/ai-billing/history', 'aibillHist2'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
@@ -1531,6 +1533,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (btn) btn.disabled = false;
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
   };
+  /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 지사 커미션(branch_commission_krw)은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
+  function aiBillPriceRows(o){
+    var note = T(o.price_note_en || '', o.price_note_ko || '');
+    var h = '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(o.applied_rate_krw != null ? o.applied_rate_krw : o.rate_krw) + T('/student', '/명') + '</b></div>';
+    if (o.min_applied) h += '<div class="row"><span>' + T('Billed as', '청구 인원') + '</span><b>' + n0(o.billable_count) + T(' (minimum)', '명 (최소 청구)') + '</b></div>';
+    if (note) h += '<div class="muted" style="font-size:11.5px;margin:2px 0 6px">' + esc(note) + '</div>';
+    return h;
+  }
   function paintAiBill(){
     var j = D.aibill; if (!j) return;
     var el = document.getElementById('aibillBody');
@@ -1539,16 +1551,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (!j.exists) {
       html += '<p class="muted">' + T('This month’s invoice has not been created yet.', '아직 이번 청구서가 만들어지지 않았습니다.') + '</p>'
         + '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(j.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('Enrolled now (preview)', '지금 재원 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
-        + '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(j.rate_krw) + T('/student', '/명') + '</b></div>'
+        + '<div class="row"><span>' + T('A.i-only students now (preview)', '지금 A.i반 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
+        + (j.live_excluded ? '<div class="row"><span class="muted">' + T('Video-class students (A.i included, not billed)', '화상반 학생 (A.i 포함 · 청구 안 함)') + '</span><span class="muted">' + n0(j.live_excluded) + T('', '명') + '</span></div>' : '')
+        + aiBillPriceRows(j)
         + '<div class="row"><span>' + T('Estimated total', '예상 총액') + '</span><b>' + won(j.preview_total) + '</b></div>'
         + '<button type="button" class="btn-primary" onclick="aiBillGenerate(this)" style="margin-top:10px">' + T('Create invoice', '청구서 만들기') + '</button>';
     } else {
       var inv = j.invoice, items = j.items || [];
       var paid = inv.status === 'paid';
       html += '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(inv.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('Rate (fixed at creation)', '단가(생성 시점 고정)') + '</span><b>' + won(inv.rate_krw) + T('/student', '/명') + '</b></div>'
         + '<div class="row"><span>' + T('Included students', '포함 인원') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+        + aiBillPriceRows(inv)
         + '<div class="row"><span>' + T('Total', '총액') + '</span><b>' + won(inv.total_krw) + '</b></div>';
       if (paid) {
         html += '<div class="row" style="color:#4ade80"><span>' + T('Status', '상태') + '</span><b>✅ ' + T('Paid', '결제 완료') + '</b></div>';

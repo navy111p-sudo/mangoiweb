@@ -12006,8 +12006,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div class="menu-body">
     <div class="rf-info" style="margin-bottom:12px">
       💡 <b data-ko="AI 콘텐츠 사용료" data-en="AI content usage fee">AI 콘텐츠 사용료</b>
-      <span data-ko="— 대리점(학원)이 매달 「재원 학생 수 × 단가」를 한 번에 결제합니다. 대리점 담당자가 manager.html 에서 직접 청구서를 만들고 결제합니다." data-en="— Each agency pays monthly \"enrolled students × rate\" in one lump sum. The agency contact generates and pays their own invoice in manager.html.">— 대리점(학원)이 매달 「재원 학생 수 × 단가」를 한 번에 결제합니다. 대리점 담당자가 manager.html 에서 직접 청구서를 만들고 결제합니다.</span><br>
-      ▸ <span data-ko="여기서는 대리점별 단가만 조정합니다. 단가를 안 정한 대리점은 기본값(₩10,000)을 씁니다." data-en="Here you only adjust the per-agency rate. Agencies without a custom rate use the default (₩10,000).">여기서는 대리점별 단가만 조정합니다. 단가를 안 정한 대리점은 기본값(₩10,000)을 씁니다.</span>
+      <span data-ko="— 학원이 매달 «A.i반 학생»(재원 − 화상반) 공급가를 한 번에 결제합니다. 화상반은 A.i 포함이라 청구하지 않습니다." data-en="— Each academy pays monthly for its A.i-only students (enrolled minus video-class students). Video-class students include A.i and are not billed.">— 학원이 매달 «A.i반 학생»(재원 − 화상반) 공급가를 한 번에 결제합니다. 화상반은 A.i 포함이라 청구하지 않습니다.</span><br>
+      ▸ <span data-ko="인원 구간 공급가(1인·월): 71명 이상 ₩4,500 · 51~70명 ₩5,500 · 21~50명 ₩6,500 · 20명 이하 ₩7,500 — 최소 20명분 청구, 인원이 늘어도 금액이 줄지 않게 구간 경계 보정. 지사 커미션 40%." data-en="Tiered supply price (per student/month): 71+ ₩4,500 · 51–70 ₩5,500 · 21–50 ₩6,500 · 20 or fewer ₩7,500 — minimum 20 students billed; boundary floor so the total never drops as students increase. Branch commission 40%.">인원 구간 공급가(1인·월): 71명 이상 ₩4,500 · 51~70명 ₩5,500 · 21~50명 ₩6,500 · 20명 이하 ₩7,500 — 최소 20명분 청구, 인원이 늘어도 금액이 줄지 않게 구간 경계 보정. 지사 커미션 40%.</span><br>
+      ▸ <span data-ko="«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감)." data-en="Use «Custom rate» only for academies with a special deal (clear it and save to return to the tier rate).">«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감).</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
       <input id="aib-q" type="search" placeholder="🔍 대리점(학원)명 검색" style="padding:7px 11px;font-size:12.5px;border-radius:8px;border:1px solid #d1d5db;min-width:180px" onkeydown="if(event.key==='Enter')aibLoad()">
@@ -12020,17 +12021,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <thead><tr>
           <th data-ko="대리점(학원)" data-en="Agency">대리점(학원)</th>
           <th data-ko="지사" data-en="Franchise">지사</th>
-          <th style="text-align:right" data-ko="재원 학생 수" data-en="Enrolled">재원 학생 수</th>
-          <th data-ko="단가(원/명)" data-en="Rate (KRW/student)">단가(원/명)</th>
-          <th style="text-align:right" data-ko="다음달 예상 청구액" data-en="Est. next invoice">다음달 예상 청구액</th>
+          <th style="text-align:right" data-ko="재원" data-en="Enrolled">재원</th>
+          <th style="text-align:right" data-ko="화상반(포함)" data-en="Video (incl.)">화상반(포함)</th>
+          <th style="text-align:right" data-ko="A.i반(청구)" data-en="A.i-only (billed)">A.i반(청구)</th>
+          <th data-ko="적용 단가" data-en="Applied rate">적용 단가</th>
+          <th data-ko="예외 단가" data-en="Custom rate">예외 단가</th>
+          <th style="text-align:right" data-ko="예상 청구액" data-en="Est. invoice">예상 청구액</th>
+          <th style="text-align:right" data-ko="지사 40%" data-en="Branch 40%">지사 40%</th>
           <th data-ko="적용" data-en="Apply">적용</th>
         </tr></thead>
-        <tbody id="aib-tbody"><tr><td colspan="6" class="empty" data-ko="🔎 불러오기를 누르면 목록이 표시됩니다." data-en="Click Load to list.">🔎 불러오기를 누르면 목록이 표시됩니다.</td></tr></tbody>
+        <tbody id="aib-tbody"><tr><td colspan="10" class="empty" data-ko="🔎 불러오기를 누르면 목록이 표시됩니다." data-en="Click Load to list.">🔎 불러오기를 누르면 목록이 표시됩니다.</td></tr></tbody>
       </table>
     </div>
   </div>
 </details>
-<script src="/js/adm-ai-billing.js?v=1" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
+<script src="/js/adm-ai-billing.js?v=2" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
