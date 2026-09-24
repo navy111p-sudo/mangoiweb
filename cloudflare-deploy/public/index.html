@@ -6233,7 +6233,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       </details>
       <script defer src="/js/idx-about.js?v=10"></script>
       <!-- 🔗 (2026-09-21) 히어로 «두 트랙 줄» 을 눌러 그 카드로 — 마크업은 그대로 두고 밖에서 입힌다(defer = 첫 화면 예산 0바이트). -->
-      <script defer src="/js/idx-home-tracks.js?v=7"></script>
+      <script defer src="/js/idx-home-tracks.js?v=8"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
@@ -7822,8 +7822,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         flex: 1 1 0; min-width: 0; box-sizing: border-box;
         display: grid; grid-template-columns: auto minmax(0,1fr); column-gap: 10px; align-items: center;
         padding: 11px 14px 11px 11px; text-align: left;
-        background: #fff; color: #0f172a; border-radius: 16px;
-        box-shadow: 0 5px 0 #13203f, 0 12px 22px rgba(15,23,42,.22);
+        /* 2026-09-24 사장님 지시: 흰 카드 → 메탈(은색). 왼쪽(사람)은 샴페인빛, 오른쪽(A.i)은 차가운 은색.
+           ⚠️ 글자 대비 — 가장 어두운 끝(#c7b99f · #b9c3cd)에서도 .ht-when(#344054) 이 4.5 이상. */
+        background: linear-gradient(160deg,#f8fafc 0%,#d3dae2 40%,#f1f4f7 58%,#b9c3cd 100%);
+        color: #0f172a; border-radius: 16px;
+        box-shadow: 0 5px 0 #13203f, 0 12px 22px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(15,23,42,.12);
+      }
+      .home-tracks .ht-live{
+        background: linear-gradient(160deg,#fdf9f1 0%,#e6dac4 40%,#f7f1e5 58%,#c7b99f 100%);
       }
       .home-tracks .ht-track::before{
         grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 12px; background: #13203f;
@@ -7833,7 +7839,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       .home-tracks .ht-ai::before{ content: ""; background: #13203f url(/img/home-tracks/ai.webp) center/cover no-repeat; }
       .home-tracks .ht-when{
         display: block; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        font-size: 12px; font-weight: 700; color: #475467;
+        font-size: 12px; font-weight: 700; color: #344054;
       }
       .home-tracks .ht-what{
         display: block; justify-self: start; max-width: 100%; white-space: nowrap; letter-spacing: -0.01em;
