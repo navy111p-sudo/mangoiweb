@@ -1,0 +1,31 @@
+name: tmp word image non
+on:
+  push:
+    branches: [tmp/word-img-non]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+      - run: |
+          set -euo pipefail
+          mkdir -p tmp-non
+          i=0
+          for u in \
+            https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_102230_71f0a0d0-8349-445a-8669-1343e2869273.png \
+            https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20260924_102230_107ceb8b-1709-49b0-9b98-c97e442359da.png; do
+            curl -fsSL "$u" -o src$i.png
+            cwebp -quiet -q 80 -resize 640 480 src$i.png -o tmp-non/v$i.webp
+            i=$((i+1))
+          done
+          ls -l tmp-non
+          test "$(ls tmp-non | wc -l)" -eq 2
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add tmp-non
+          git commit -m "tmp: non variants"
+          git push
