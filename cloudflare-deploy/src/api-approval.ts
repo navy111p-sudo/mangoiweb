@@ -61,8 +61,9 @@ import {
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
-  nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,
-  monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)   // ⏰ 알림 단계 · 하루 두 번 요약
+  nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
+  monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
+  askCard, spendTypesCsv,                              // ❓ 결재 전 질문(6단계)
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
 import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
@@ -168,6 +169,8 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     /* 🧾 첨부 «내용» 해시(SHA-256) — 같은 영수증을 다른 결재에 또 붙였는지 본다(2026-09-24 4단계).
        ⚠️ INSERT 에 넣지 않고 저장 «뒤» UPDATE 로 채운다 — 이 ALTER 가 실패해도 올리기가 안 죽게. */
     `ALTER TABLE approval_requests ADD COLUMN file_hash TEXT`,
+    // ❓ 영수증에서 읽은 가게 이름(6단계 «이 가게 전에도?»). 판독값이라 틀릴 수 있다.
+    `ALTER TABLE approval_requests ADD COLUMN vendor TEXT`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -1752,6 +1755,13 @@ export async function handleApprovalApi(
           return true;
         }, false);
       }
+      // ❓ 영수증 가게 이름 — 역시 따로(칸이 없어도 올리기는 성공해야 한다).
+      if (ocrVendor) {
+        await safe(async () => {
+          await env.DB.prepare(`UPDATE approval_requests SET vendor = ? WHERE id = ?`).bind(ocrVendor, reqId).run();
+          return true;
+        }, false);
+      }
 
       // 단계 기록 — 1단계는 바로 열리고, 나머지는 대기.
       for (const st of stages) {
@@ -2442,7 +2452,26 @@ export async function handleApprovalApi(
         ORDER BY created_at DESC LIMIT 200`
     ).bind(r.requester_username, r.req_type, Date.now() - 180 * 86400_000).all<any>()).results || [], null as any);
     if (!rows) return json({ ok: false, error: 'lookup_failed' }, 500);
-    return json({ ok: true, history: historyCard(r, rows as any[]) });
+    /* ❓ 결재 전 질문 — «이 가게 전에도?» · «이번 달 이 항목 합계» (정본 askCard).
+         다른 사람이 올린 것도 세므로 한 행씩 canView 로 거른다(결재선 없이 = 좁게 실패).
+         ⚠️ 실패해도 이력 카드는 그대로 준다 — ask 만 null. */
+    const cur2: any = await safe(async () => await env.DB.prepare(
+      `SELECT vendor, category FROM approval_requests WHERE id = ? LIMIT 1`
+    ).bind(id).first(), null);
+    let ask: any = null;
+    if (cur2) {
+      const aRows = await safe(async () => (await env.DB.prepare(
+        `SELECT id, req_type, status, reverses_id, amount, currency, created_at, requester_username, vendor, category
+           FROM approval_requests
+          WHERE instr(?, ',' || req_type || ',') > 0 AND status = 'approved' AND created_at >= ?
+          ORDER BY created_at DESC LIMIT 1000`
+      ).bind(spendTypesCsv(), Date.now() - 90 * 86400_000).all<any>()).results || [], null as any);
+      if (aRows) {
+        const vis = (aRows as any[]).filter(x => canView(actor, x.req_type, x.requester_username, [], ph));
+        ask = askCard({ id, vendor: cur2.vendor, category: cur2.category, requester_username: r.requester_username }, vis, Date.now());
+      }
+    }
+    return json({ ok: true, history: historyCard(r, rows as any[]), ask });
   }
 
   const mOne = path.match(/^\/api\/approval\/requests\/(\d+)$/);

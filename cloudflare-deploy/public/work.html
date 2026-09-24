@@ -493,6 +493,7 @@ html.dark .cur button{background:#1d2836;border-color:#33404f;color:#e6edf3}
 /* 📋 자주 반려된 이유 — 올리기 전 체크리스트 */
 .rejtips{margin:0 0 10px;padding:10px 12px;border:1px solid #f0c98a;background:#fff7e8;border-radius:8px;color:#5c3d00;font-size:14px;line-height:1.5}
 .rejtips b{display:block;margin-bottom:4px}
+.askq{margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1}
 .rejtips ul{margin:0;padding-left:18px}
 html.dark .rejtips{background:#2b2210;border-color:#6b5320;color:#f3dca8}
 .reuse button{font:inherit;font-size:14px;text-align:left;padding:11px 13px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:46px;color:#16202c}
@@ -3233,6 +3234,28 @@ function postOne(rec){
 }
 
 /* 📊 결재 전 이력 — 서버가 계산한 것을 그리기만 한다. 실패하면 사실대로 말한다(빈칸은 고장으로 읽힌다). */
+/* ❓ 결재 전 질문 두 개 — 서버가 D1 을 세어 답한다(askCard). 모르면 «모른다» 고 말한다. */
+function askHtml(a){
+  if (!a) return '';
+  var h = '<div class="askq">';
+  if (a.vendor) {
+    h += '<div>' + esc(T('Shop (read from receipt) "', '가게(영수증에서 읽은 이름) «') + a.vendor + T('": ', '»: ')) +
+         (a.vendorCount
+           ? esc(T('approved ' + a.vendorCount + ' times in 90 days', '최근 90일 승인 ' + a.vendorCount + '번') +
+                 (a.vendorOthers ? T(' (' + a.vendorOthers + ' by others)', ' (다른 사람 ' + a.vendorOthers + '번)') : '') +
+                 T(', last ', ', 마지막 ') + when(a.vendorLast))
+           : '<span class="histwarn">' + esc(T('first time in 90 days', '최근 90일 처음 보는 가게')) + '</span>') + '</div>';
+  } else {
+    h += '<div>' + esc(T('Shop: could not read from receipt.', '가게: 영수증에서 이름을 읽지 못했습니다.')) + '</div>';
+  }
+  if (a.category) {
+    var cm = (a.catMonth || []).map(function(b){ return money(b.total, b.currency) + T(' (' + b.count + ')', ' (' + b.count + '건)'); }).join(' · ');
+    h += '<div>' + esc(T('This month ' + a.category.en + ' approved: ', '이번 달 «' + a.category.ko + '» 승인 합계: ') +
+         (cm || T('none yet', '아직 없음'))) + '</div>';
+  }
+  return h + '</div>';
+}
+
 window.loadHist = function(id){
   var box = document.getElementById('hist-' + id);
   if (!box) return;
@@ -3258,6 +3281,7 @@ window.loadHist = function(id){
       }
       hh += '<div>' + esc(T('This person, last 6 months: ', '올린 사람 최근 6개월: ') + hs.requesterTotal +
             T(' decided, ', '건 결정 · 반려 ') + hs.requesterRejected + T(' rejected', '건')) + '</div>';
+      hh += askHtml(j.ask);
       box.innerHTML = hh + '</div>';
     })
     .catch(function(){
