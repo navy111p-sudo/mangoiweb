@@ -823,6 +823,8 @@ export interface CheckInput {
   monthTotal?: number | null;
   /** 최근 같은 분류 금액들의 중앙값 (없으면 null) */
   medianAmount?: number | null;
+  /** 🧾 같은 영수증 파일(내용 해시가 같음)이 이미 다른 살아 있는 결재에 쓰인 건수 */
+  receiptReusedCount?: number;
 }
 
 export function runChecks(inp: CheckInput): Flag[] {
@@ -905,6 +907,17 @@ export function runChecks(inp: CheckInput): Flag[] {
           en: 'Receipt date (' + inp.ocrSpentAt + ') differs from the date entered' });
       }
     }
+  }
+
+  // 🧾 같은 영수증 재사용 — 파일 «내용» 이 한 글자도 다르지 않은 사진·PDF 가 이미 다른 결재에 붙어 있다.
+  //   이름·크기가 아니라 내용 해시로 본다(이름은 누구나 바꾼다). 반려·회수·취소된 건은 세지 않는다
+  //   — 반려된 뒤 같은 영수증으로 «고쳐서 다시 올리는» 것은 정상이다.
+  if ((inp.receiptReusedCount || 0) > 0) {
+    out.push({
+      code: 'receipt_reused', level: 'warn',
+      ko: '같은 영수증 파일이 이미 다른 결재 ' + inp.receiptReusedCount + '건에 쓰였습니다',
+      en: 'The same receipt file is already attached to ' + inp.receiptReusedCount + ' other request(s)',
+    });
   }
 
   // ⑤ 평소보다 큰 금액 — 정상일 수도 있으니 «참고»로만
@@ -1477,6 +1490,11 @@ export function signalOf(inp: SignalInput): { signal: Signal; reasons: SignalRea
     red.push({ code: 'spent_future', ko: '사용 날짜가 미래입니다 — 날짜를 확인해 주세요',
       en: 'The spending date is in the future — please check it' });
   }
+  if (flags.some(f => f && f.code === 'receipt_reused')) {
+    red.push({ code: 'receipt_reused',
+      ko: '이 영수증은 이미 다른 결재에 쓰였습니다 — 이번 지출의 영수증을 붙여 주세요',
+      en: 'This receipt was already used on another request — attach the receipt for this purchase' });
+  }
   if (flags.some(f => f && f.code === 'duplicate_recent')) {
     red.push({ code: 'duplicate_recent',
       ko: '최근 7일 안에 같은 금액으로 이미 올린 건이 있습니다',
@@ -1702,4 +1720,96 @@ export function ymdDays(s: string | null | undefined): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
   const t = Date.UTC(Number(v.slice(0, 4)), Number(v.slice(5, 7)) - 1, Number(v.slice(8, 10)));
   return isFinite(t) ? Math.floor(t / 86400_000) : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🤖 결재 자동화 4단계 (2026-09-24 사장님 「다음 단계로 계속 · 결제 자동화」)
+ *   ① 같은 영수증 재사용 — 파일 내용 해시(SHA-256, 소문자 16진수 64자)
+ *   ② 결재 전 이력 — «이 제목·이 사람이 전에도?» 를 계산으로 답한다(AI 대화 아님)
+ *   ③ 올린 사람별 «첫 번에 통과» 비율 — 주간 요약에 싣는다
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** SHA-256 16진수 문자열인가. 아니면 그 값은 쓰지 않는다(화면이 보낸 값이라 믿지 않는다). */
+export function isSha256Hex(v: unknown): boolean {
+  return typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+}
+
+/** 제목 비교용 — 앞뒤 공백·대소문자·겹공백·끝 숫자/달 이름(「인터넷비 9월」·「Internet Sept」) 차이는 같은 것으로 본다.
+ *   ⚠️ 끝말은 «구분자 뒤» 에 올 때만 뗀다 — 안 그러면 「grammar」가 「gram」이 된다. */
+export function titleKey(t: string | null | undefined): string {
+  return String(t || '').toLowerCase().replace(/\s+/g, ' ').trim()
+    .replace(/[\s\-_/.,:()#]+(\d{1,4}\s*(월|month)?|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?)$/i, '')
+    .trim();
+}
+
+export interface HistoryRow {
+  id: number; title: string; amount?: number | null; currency?: string | null;
+  status: string | null | undefined; created_at: number; requester_username: string;
+  reverses_id?: number | null;
+}
+export interface HistoryCard {
+  /** 같은 사람이 비슷한 제목으로 올려 «승인된» 것 — 최근 것부터 최대 3건 */
+  sameTitle: { id: number; amount: number | null; currency: string; at: number }[];
+  sameTitleCount: number;
+  /** 그 금액들의 중앙값(없으면 null) — 이번 금액과 견줄 기준 */
+  sameTitleMedian: number | null;
+  /** 이번 금액이 그 중앙값보다 몇 배인가(없으면 null) */
+  ratio: number | null;
+  /** 올린 사람의 최근 기록 — 올린 수 · 반려 수 */
+  requesterTotal: number;
+  requesterRejected: number;
+}
+
+/**
+ * 결재 전 이력 카드. rows = 같은 분류의 최근 결재들(이 건 제외해서 넘기지 않아도 된다 — 여기서 뺀다).
+ *   ⚠️ «승인됨» 만 이력으로 센다 — 반려·회수된 것은 «그때도 이랬다» 의 근거가 아니다.
+ *   ⚠️ 취소 결재(reverses_id)는 지출이 아니라 빼고, 취소된 원본(status='cancelled')도 뺀다.
+ */
+export function historyCard(cur: { id: number; title: string; amount?: number | null; currency?: string | null; requester_username: string },
+                            rows: HistoryRow[]): HistoryCard {
+  const key = titleKey(cur.title);
+  const ccy = normCurrency(cur.currency);
+  const same = (rows || []).filter(r => r && r.id !== cur.id && r.requester_username === cur.requester_username
+    && r.status === 'approved' && !r.reverses_id && key !== '' && titleKey(r.title) === key
+    && normCurrency(r.currency) === ccy)
+    .sort((a, b) => Number(b.created_at) - Number(a.created_at));
+  const nums = same.map(r => Number(r.amount)).filter(n => isFinite(n) && n > 0).sort((a, b) => a - b);
+  const median = nums.length ? nums[Math.floor(nums.length / 2)] : null;
+  const amt = cur.amount == null ? null : Number(cur.amount);
+  const ratio = (median && amt != null && isFinite(amt)) ? Math.round((amt / median) * 100) / 100 : null;
+  const mine = (rows || []).filter(r => r && r.id !== cur.id && r.requester_username === cur.requester_username && !r.reverses_id);
+  return {
+    sameTitle: same.slice(0, 3).map(r => ({ id: r.id, amount: r.amount == null ? null : Number(r.amount), currency: normCurrency(r.currency), at: Number(r.created_at) })),
+    sameTitleCount: same.length,
+    sameTitleMedian: median,
+    ratio,
+    requesterTotal: mine.filter(r => r.status === 'approved' || r.status === 'rejected').length,
+    requesterRejected: mine.filter(r => r.status === 'rejected').length,
+  };
+}
+
+/**
+ * 올린 사람별 «첫 번에 통과» 비율 — 결정이 난 건(승인·반려)만 센다.
+ *   «첫 번에 통과» = 승인됐고, 회수 뒤 다시 올린 건(origin_id)이 아닌 것.
+ *   ⚠️ 대기 중인 건은 아직 모르는 것이라 분모에 넣지 않는다(넣으면 비율이 부당하게 낮아진다).
+ *   반환은 결정 건수가 많은 순. 결정이 0건인 사람은 싣지 않는다.
+ */
+export function firstPassRates(rows: { requester_username: string; requester_name?: string | null;
+  status: string | null | undefined; origin_id?: number | null; reverses_id?: number | null }[]):
+  { user: string; name: string; decided: number; firstPass: number; rejected: number; pct: number }[] {
+  const m = new Map<string, { user: string; name: string; decided: number; firstPass: number; rejected: number }>();
+  for (const r of rows || []) {
+    if (!r || r.reverses_id) continue;
+    if (r.status !== 'approved' && r.status !== 'rejected') continue;
+    const u = String(r.requester_username || '');
+    if (!u) continue;
+    const e = m.get(u) || { user: u, name: String(r.requester_name || u), decided: 0, firstPass: 0, rejected: 0 };
+    e.decided++;
+    if (r.status === 'rejected') e.rejected++;
+    else if (!r.origin_id) e.firstPass++;
+    m.set(u, e);
+  }
+  return Array.from(m.values())
+    .map(e => ({ ...e, pct: Math.round((e.firstPass / e.decided) * 100) }))
+    .sort((a, b) => b.decided - a.decided || a.user.localeCompare(b.user));
 }
