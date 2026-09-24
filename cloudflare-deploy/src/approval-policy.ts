@@ -829,6 +829,81 @@ export interface CheckInput {
   photoQuality?: string | null;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🧾 영수증 품목 → 결재서 내용 (8단계, 2026-09-24 사장님 「영수증 찍으면 내용·목록·금액이 자동으로」)
+ *
+ *   AI(비전 모델)는 «품목 목록» 만 읽는다. 그것을 «어떻게 적을지» 는 여기 순수 함수가 정한다 —
+ *   같은 영수증이면 언제나 같은 글이 나와야 결재자가 믿고, 하니스가 실제로 돌려 볼 수 있다.
+ *   ⛔ 품목을 지어내지 않는다 — 이름이 빈 줄은 버리고, 못 읽은 값은 null(빈칸)로 둔다.
+ *   ⚠️ 판독은 틀릴 수 있다 — 글 머리에 «영수증에서 읽음 · 확인» 을 적고, 품목 합계가 총액과
+ *      다르면 그 사실을 한 줄로 남긴다(맞춰 «고치지» 않는다).
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface ReceiptItem { name: string; qty: number; price: number | null }
+
+/** 모델이 준 품목 배열을 믿을 수 있는 모양으로. 모르는 값은 버리거나 null. 최대 15줄. */
+export function normReceiptItems(raw: unknown): ReceiptItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ReceiptItem[] = [];
+  for (const it of raw) {
+    if (out.length >= 15) break;
+    if (!it || typeof it !== 'object') continue;
+    const name = String((it as any).name == null ? '' : (it as any).name).replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!name) continue;
+    const qn = Number(String((it as any).qty == null ? '' : (it as any).qty).replace(/[^\d.]/g, ''));
+    const qty = (isFinite(qn) && qn >= 1) ? Math.min(999, Math.round(qn)) : 1;
+    const praw = String((it as any).price == null ? '' : (it as any).price);
+    // ⚠️ 할인 줄(-₱3)을 숫자만 남기면 +3 이 된다 — 음수는 «모름»(null)으로 둔다.
+    const ps = /-\s*[₱₩$]?\s*\d/.test(praw) ? '' : praw.replace(/[^\d.]/g, '');
+    const pn = ps === '' ? NaN : Number(ps);
+    const price = (isFinite(pn) && pn > 0) ? Math.round(pn * 100) / 100 : null;
+    out.push({ name, qty, price });
+  }
+  return out;
+}
+
+/** 품목 → 결재서 «내용» 칸 글. 품목이 없으면 ''(내용을 지어내지 않음). */
+export function receiptBody(items: ReceiptItem[], amount: number | null, currency: string): string {
+  if (!items || !items.length) return '';
+  const lines = ['Items (read from the receipt — please check / 영수증에서 읽음 · 확인해 주세요):'];
+  let sum = 0, allPriced = true;
+  for (const it of items) {
+    const q = it.qty > 1 ? ' × ' + it.qty : '';
+    lines.push('- ' + it.name + q + (it.price != null ? ' — ' + fmt(it.price, currency) : ''));
+    if (it.price == null) allPriced = false; else sum += it.price;
+  }
+  const a = Number(amount);
+  if (allPriced && isFinite(a) && a > 0 && Math.abs(sum - a) >= 1) {
+    lines.push('※ Items add up to ' + fmt(sum, currency) + ', total says ' + fmt(a, currency) +
+               ' / 품목 합계와 총액이 다릅니다 — 확인해 주세요');
+  }
+  return lines.join('\n');
+}
+
+/** 가게·품목 낱말로 «항목(계정)» 을 짐작한다. 확신이 없으면(0개·동점) null — 사람이 고른다. */
+const CAT_WORDS: [string, RegExp][] = [
+  ['supplies',  /\b(paper|bond|pen|pens|pencil|ink|folder|tape|stapler|marker|envelope|notebook|clip|glue|tissue|soap|detergent|cleaner|national book ?store|office ?warehouse)\b/i],
+  ['equipment', /\b(printer|monitor|laptop|computer|keyboard|mouse|chair|table|desk|aircon|air ?con|fan|headset|webcam|router|cable|speaker|cabinet)\b/i],
+  ['transport', /\b(grab|taxi|jeep|jeepney|bus|fare|fuel|gasoline|diesel|petron|shell|caltex|toll|parking|lrt|mrt|angkas)\b/i],
+  ['meal',      /\b(restaurant|coffee|cafe|jollibee|mcdo|mcdonald|chowking|food|meal|lunch|dinner|snack|pizza|starbucks|bakery)\b/i],
+  ['books',     /\b(book|books|print|printing|xerox|photocopy|copy|laminat\w*|tarpaulin)\b/i],
+  ['utility',   /\b(meralco|electric|electricity|water|maynilad|pldt|globe|smart|converge|internet|load|wifi)\b/i],
+  ['rent',      /\b(rent|rental|lease|association dues)\b/i],
+  ['ads',       /\b(ads?|advert\w*|boost|flyers?|poster|banner|promo)\b/i],
+];
+export function guessCategory(vendor: string | null | undefined, items: ReceiptItem[]): string | null {
+  const text = [String(vendor || '')].concat((items || []).map(i => i.name)).join(' ');
+  if (!text.trim()) return null;
+  let best: string | null = null, bestN = 0, tie = false;
+  for (const [key, re] of CAT_WORDS) {
+    const g = new RegExp(re.source, 'gi');
+    const n = (text.match(g) || []).length;
+    if (n > bestN) { best = key; bestN = n; tie = false; }
+    else if (n > 0 && n === bestN) tie = true;
+  }
+  return (bestN > 0 && !tie) ? best : null;
+}
+
 /** 📷 사진 상태 값 정리 — 화면이 보낸 값 중 아는 것만. 모르면 null(점검 안 함). */
 export function normPhotoQuality(v: unknown): 'blurry' | 'dark' | null {
   const s = String(v == null ? '' : v).trim().toLowerCase();
