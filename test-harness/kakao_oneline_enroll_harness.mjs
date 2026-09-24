@@ -53,6 +53,17 @@ ok(r && r.student_name === '이에스더', '이름 속 «에» 를 지우지 않
 const multi = run('박민수 월요일 오후5시 체험\n정다은 화요일 오후6시 정규');
 ok(multi.length === 2 && multi[0].student_name === '박민수' && multi[1].student_name === '정다은', '줄마다 한 명');
 
+console.log('②-2 순서가 바뀌어도 같은 답 (2026-09-24 사장님 「순서가 바뀌어도 되게」)');
+for (const t of ['체험 수요일 오후6시 홍길동', '오후6시 홍길동 체험 수요일', '수요일 체험 홍길동 오후6시',
+                 '체험수업수요일오후6시홍길동등록', '6시 수요일 홍길동 체험', '수 오후6시 홍길동 체험']) {
+  const x = one(t);
+  ok(x && x.student_name === '홍길동' && x.days_of_week === '수' && x.time === '18:00' && x._types.join() === 'trial',
+     '순서 바꿈 — ' + t);
+}
+r = one('9월 30일부터 월수금 김사랑 kim01 정규 7시');
+ok(r && r.student_name === '김사랑' && r.student_user_id === 'kim01' && r.days_of_week === '월수금' && r.time === '19:00' && /-09-30$/.test(r._started_at_str),
+   '날짜·아이디가 앞에 와도 같은 답');
+
 console.log('③ 짝 — 지어내지 않는다 · 옛 양식은 그대로');
 ok(run('홍길동 수요일 6시').length === 0, '수업 종류가 없으면 만들지 않는다');
 ok(run('수요일 오후6시 체험').length === 0, '이름이 없으면 만들지 않는다');
