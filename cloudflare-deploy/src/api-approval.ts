@@ -57,7 +57,11 @@ import {
   canDelete, isApprovalFileKey,
   buildArchiveFacets, archivePeriods,                  // 🗂 결재 보관함 — 함 옆 건수·기간 함 경계
   type Stage, type Flag, type ActorLike,
+  signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
+  nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
+  EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
+import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
 
 interface ApprovalEnv {
   DB: D1Database;
@@ -153,6 +157,10 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
           애초에 확인 대상이 아니다(needsExecAck 가 decided_by 로 가른다). */
     `ALTER TABLE approval_requests ADD COLUMN exec_ack_by TEXT`,
     `ALTER TABLE approval_requests ADD COLUMN exec_ack_at INTEGER`,
+    /* ⏰ 알림 단계(2026-09-24) — 이 단계(nudge_seq)에서 어디까지 알렸나(1 푸시 · 2 문자 · 3 사이렌).
+       단계가 넘어가면 nudge_seq 가 달라져 저절로 0 부터 다시 센다(결재 코드를 안 건드린다). */
+    `ALTER TABLE approval_requests ADD COLUMN nudge_level INTEGER`,
+    `ALTER TABLE approval_requests ADD COLUMN nudge_seq INTEGER`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -329,6 +337,7 @@ async function notify(
     ).bind(u).all<{ endpoint: string }>(), { results: [] as any[] } as any);
     const eps = rs.results || [];
     if (!eps.length) { missed.push(u); continue; }   // 이 사람은 푸시로 닿지 않는다
+    const queued: string[] = [];
     for (const s of eps) {
       const ok = await safe(async () => {
         await env.DB.prepare(
@@ -337,8 +346,26 @@ async function notify(
         ).bind(s.endpoint, title, body, url, null, null, tag + ':' + reqId, Date.now()).run();
         return true;
       }, false);
-      if (ok) sent++;
+      if (ok) queued.push(s.endpoint);
     }
+    /* 🔴 (2026-09-24) 대기열에 넣기만 하고 **기기를 깨우지 않고 있었다.**
+       sw.js 는 push 이벤트가 와야 /api/push/pending 을 읽는데, 그 신호를 아무도 안 보내서
+       결재 알림 24건이 전부 fetched_at NULL — **한 번도 폰에 뜬 적이 없었다**(운영 DB 실측).
+       다른 알림(sendPushToUser·teacher-push)처럼 broadcastWebPush 로 깨운다.
+       ⚠️ 깨우기가 한 곳도 성공하지 않으면 «못 닿은 사람» 으로 센다 — 그래야 문자 폴백이 돈다. */
+    if (!queued.length) { missed.push(u); continue; }
+    const wake: any = await safe(async () => await broadcastWebPush(queued, env as any), null);
+    if (wake && Array.isArray(wake.expired)) {
+      for (const ep of wake.expired) {
+        await safe(async () => {
+          await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`)
+            .bind(Date.now(), ep).run();
+          return true;
+        }, false);
+      }
+    }
+    if (wake && Number(wake.sent) > 0) sent += Number(wake.sent);
+    else missed.push(u);
   }
   return { push: sent, missed };
 }
@@ -503,6 +530,82 @@ async function summarize(env: ApprovalEnv, r: any): Promise<{ ko: string; en: st
   }, null);
 }
 
+/**
+ * 🔎 AI 내용 검토 — 필리핀에서 올라온 «돈 나가는» 건을 AI 가 한 번 더 읽는다(2026-09-24 사장님
+ *    「필리핀에서 작성한 것들 중에서 A.i 가 반드시 잘 꼼꼼하게 필터」).
+ *   ⛔ 여기서 나온 것은 **«확인해 보세요»(🟡) 표시** 일 뿐이다 — 반려·승인을 정하지 않는다.
+ *      AI 는 같은 건도 매번 다르게 볼 수 있어, 이걸로 되돌리면 멀쩡한 건이 막힌다.
+ *   ⛔ 금액·숫자를 지어내지 않게 한다. 실패하면 [] — 결재는 그대로 진행된다.
+ */
+async function aiReview(env: ApprovalEnv, r: {
+  req_type: string; category?: string | null; title: string; body?: string | null;
+  amount?: number | null; currency?: string | null; vendor?: string | null;
+}): Promise<Flag[]> {
+  const AI = env.AI;
+  if (!AI) return [];
+  const spec = typeSpec(r.req_type);
+  const cat = categorySpec(r.category);
+  const facts =
+    'Type: ' + spec.en + '\n' +
+    (cat ? ('Expense category: ' + cat.en + '\n') : '') +
+    (r.amount != null ? ('Amount: ' + normCurrency(r.currency) + ' ' + r.amount + '\n') : '') +
+    (r.vendor ? ('Receipt shop: ' + String(r.vendor).slice(0, 60) + '\n') : '') +
+    'Title: ' + String(r.title || '').slice(0, 200) + '\n' +
+    'Detail: ' + String(r.body || '(none)').slice(0, 800);
+  const prompt =
+    'You pre-check an expense request from a branch office in the Philippines before head office approves it.\n' +
+    'List ONLY concrete problems the approver should check. Examples: the purpose is unclear or vague; ' +
+    'the amount looks unusually high for the item; the expense category does not match the item; ' +
+    'it looks like a personal expense; important details are missing (quantity, who it is for, why now); ' +
+    'the receipt shop does not match the item.\n' +
+    'If there is no real problem, return an empty list. Do not invent facts or numbers. ' +
+    'Do not say approve or reject. At most 3 items.\n\n' + facts + '\n\n' +
+    'Reply with ONLY JSON: {"concerns":[{"en":"<short, max 90 chars>","ko":"<short Korean, max 60 chars>"}]}';
+  const o = await safe(async () => {
+    const res: any = await AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'You reply with valid JSON only. You are careful and never invent facts.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 300, temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+    return parseLooseJson(res?.response ?? res?.result?.response ?? '');
+  }, null);
+  const list = (o && Array.isArray(o.concerns)) ? o.concerns : [];
+  const out: Flag[] = [];
+  for (const c of list.slice(0, 3)) {
+    const en = String(c?.en || '').trim().slice(0, 140);
+    const ko = String(c?.ko || '').trim().slice(0, 100);
+    if (!en && !ko) continue;
+    out.push({ code: 'ai_review', level: 'info', ko: 'AI 검토: ' + (ko || en), en: 'AI check: ' + (en || ko) });
+  }
+  return out;
+}
+
+/** 한국어로만 적은 반려 사유를 필리핀 매니저가 읽게 영어를 덧붙인다. 실패하면 null(원문 그대로). */
+async function toEnglish(env: ApprovalEnv, text: string): Promise<string | null> {
+  const AI = env.AI;
+  if (!AI || !text) return null;
+  return await safe(async () => {
+    const res: any = await AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'Translate the Korean text into short, plain English. Reply with the translation only.' },
+        { role: 'user', content: text.slice(0, 500) },
+      ],
+      max_tokens: 200, temperature: 0.1,
+    });
+    const t = String(res?.response ?? res?.result?.response ?? '').trim();
+    return t ? t.slice(0, 500) : null;
+  }, null);
+}
+
+/** 자동 반려 스위치(KV 'approval_autoreject'). 못 읽으면 'shadow' — 표시만 하고 되돌리지 않는다. */
+async function readAutoRejectMode(env: ApprovalEnv) {
+  const v = await safe(async () => await (env as any).SESSION_STATE?.get('approval_autoreject'), null);
+  return autoRejectMode(v);
+}
+
 /** Workers AI 응답은 객체일 때도, JSON 문자열일 때도, 앞뒤에 말이 붙을 때도 있다. 셋 다 받는다. */
 function parseLooseJson(raw: any): any | null {
   if (raw && typeof raw === 'object') return raw;
@@ -520,12 +623,13 @@ function parseLooseJson(raw: any): any | null {
 
 async function gatherCheckFacts(
   env: ApprovalEnv, requester: string, reqType: string, amount: number | null, currency: string
-): Promise<{ duplicateCount: number; monthTotal: number | null; medianAmount: number | null }> {
+): Promise<{ duplicateCount: number; duplicateRecentCount: number; monthTotal: number | null; medianAmount: number | null }> {
   const now = Date.now();
   const since30 = now - 30 * 86400_000;
+  const since7 = now - 7 * 86400_000;
 
   // ① 같은 사람이 최근 30일 안에 올린 «같은 분류 · 같은 금액»
-  let duplicateCount = 0;
+  let duplicateCount = 0, duplicateRecentCount = 0;
   if (amount != null) {
     const d: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM approval_requests
@@ -535,6 +639,16 @@ async function gatherCheckFacts(
           AND reverses_id IS NULL`
     ).bind(requester, reqType, currency, amount, since30).first(), null);
     duplicateCount = Number(d?.c || 0);
+    if (duplicateCount > 0) {
+      const d7: any = await safe(async () => await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM approval_requests
+          WHERE requester_username = ? AND req_type = ? AND currency = ?
+            AND amount = ? AND created_at >= ?
+            AND status NOT IN ('rejected','withdrawn','cancelled')
+            AND reverses_id IS NULL`
+      ).bind(requester, reqType, currency, amount, since7).first(), null);
+      duplicateRecentCount = Number(d7?.c || 0);
+    }
   }
 
   // ② 이번 달 같은 분류 승인 합계
@@ -555,7 +669,7 @@ async function gatherCheckFacts(
   const nums = (rs.results || []).map((x: any) => Number(x.amount)).filter((n: number) => isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
   const medianAmount = nums.length ? nums[Math.floor(nums.length / 2)] : null;
 
-  return { duplicateCount, monthTotal, medianAmount };
+  return { duplicateCount, duplicateRecentCount, monthTotal, medianAmount };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -586,6 +700,11 @@ function rowOf(r: any, steps?: any[], brief = false) {
   const bodyCut = !!(brief && bodyFull.length > 300);
   const body = bodyCut ? bodyFull.slice(0, 300) : r.body;
   const catSpec = categorySpec(r.category);
+  const sig = signalOf({
+    reqType: r.req_type, amount: r.amount, ocrAmount: r.ocr_amount, hasFile: !!r.file_key, flags,
+  });
+  const st0 = (r.status === 'pending') ? stageStartOf(r.req_type, r.stage_due_at) : null;
+  const plan = (st0 != null) ? nudgePlan(r.req_type, st0) : null;
   return {
     id: r.id, req_type: r.req_type,
     type_ko: spec.ko, type_en: spec.en,
@@ -623,6 +742,18 @@ function rowOf(r: any, steps?: any[], brief = false) {
     escalated: !!r.escalated_at,
     summary_ko: r.summary_ko || null, summary_en: r.summary_en || null,
     flags,
+    /* 🚦 신호등 — 행에 저장된 값으로만 계산한다(시간에 따라 안 변한다 → 304 유지). */
+    signal: sig.signal, signal_reasons: sig.reasons,
+    /* 🤖 AI 가 «되돌렸을» 건 — 스위치가 shadow 일 때 결재자가 참고하도록 표시만 한다. */
+    ai_would_reject: r.status === 'pending' && autoRejectable({
+      signal: sig.signal, reqType: r.req_type,
+      requesterIsExec: isExec({ ok: true, username: r.requester_username } as ActorLike),
+      reversesId: r.reverses_id || null,
+    }),
+    ai_returned: r.decided_by === 'ai-auto',
+    /* ⏰ 사이렌·승격 시각 — «언제» 만 보낸다. 지금 울릴지는 화면이 시계를 보고 정한다. */
+    siren_at: plan ? plan.sirenAt : null,
+    escalate_at: plan ? plan.escalateAt : null,
     steps: (steps || []).map((s: any) => ({
       seq: s.seq, role: s.role, status: s.status,
       decided_by: s.decided_by, decided_at: s.decided_at, memo: s.memo,
@@ -1439,6 +1570,10 @@ export async function handleApprovalApi(
       let ocrAmount: number | null = null;
       const rawOcr = String(form.get('ocr_amount') || '').replace(/[,\s]/g, '');
       if (rawOcr) { const n = Number(rawOcr); if (isFinite(n) && n > 0) ocrAmount = n; }
+      // 🔎 영수증에서 읽은 날짜·상점 — 날짜 대조와 AI 검토 재료. 형식이 아니면 버린다.
+      const ocrSpentRaw = String(form.get('ocr_spent_at') || '').trim().slice(0, 10);
+      const ocrSpentAt = /^\d{4}-\d{2}-\d{2}$/.test(ocrSpentRaw) ? ocrSpentRaw : null;
+      const ocrVendor = String(form.get('ocr_vendor') || '').trim().slice(0, 60) || null;
 
       let fileKey: string | null = null, fileName: string | null = null;
       let fileExt: string | null = null, fileSize: number | null = null;
@@ -1505,8 +1640,15 @@ export async function handleApprovalApi(
       const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
       const flags = runChecks({
         reqType, amount, currency, hasFile: !!fileKey, ocrAmount,
-        duplicateCount: facts.duplicateCount, monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
+        duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
+        monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
+        body, spentAt, ocrSpentAt, now,
       });
+      /* 🔎 필리핀에서 올라온 돈 나가는 건은 AI 가 내용을 한 번 더 읽는다 — 🟡 표시만 붙인다. */
+      if (ph && spec.needsAmount && !hrSnap) {
+        const concerns = await aiReview(env, { req_type: reqType, category, title, body, amount, currency, vendor: ocrVendor });
+        for (const c of concerns) flags.push(c);
+      }
       /* 💼 급여·평가는 «그 달이 아직 안 됐다» 는 신호가 판단 재료다 —
          강사 0명, 완료 수업 0회, 이미 지급 표시된 사람이 있음 등.
          이것도 AI 가 아니라 조회 결과다(approval-hr.ts). */
@@ -1556,6 +1698,38 @@ export async function handleApprovalApi(
         }, false);
       }
 
+      /* 🚦 신호등 + 🤖 자동 반려(2026-09-24).
+           스위치(KV approval_autoreject) — 'shadow'(기본) = 표시만 · 'on' = 🔴 를 되돌림 · 'off'.
+           ⛔ 되돌리는 것은 «서류 보완 요청» 이다 — 돈이 나가는 쪽이 아니다. 승인은 절대 안 한다.
+           ⛔ 경영진이 올린 건 · 긴급 · 인사급여 · 취소 결재는 되돌리지 않는다(autoRejectable). */
+      const sig = signalOf({ reqType, amount, ocrAmount, hasFile: !!fileKey, flags });
+      const arMode = await readAutoRejectMode(env);
+      if (arMode === 'on' && autoRejectable({ signal: sig.signal, reqType, requesterIsExec: iAmExec, reversesId: null })) {
+        const memoKo = sig.reasons.map(x => x.ko).join(' / ');
+        const memoEn = sig.reasons.map(x => x.en).join(' / ');
+        const memo = ('[AI 자동 점검] ' + memoKo + '\n[AI check] ' + memoEn).slice(0, 1000);
+        const up = await safe(async () => await env.DB.prepare(
+          `UPDATE approval_requests SET status = 'rejected', decided_by = 'ai-auto', decided_at = ?, decide_memo = ?
+            WHERE id = ? AND status = 'pending' AND IFNULL(stage_seq, 1) = 1`
+        ).bind(now, memo, reqId).run(), null as any);
+        if (up && up.meta && up.meta.changes) {
+          await safe(async () => {
+            await env.DB.prepare(
+              `UPDATE approval_steps SET status = 'rejected', decided_by = 'ai-auto', decided_at = ?, memo = ?
+                WHERE request_id = ? AND seq = 1`
+            ).bind(now, memo, reqId).run();
+            return true;
+          }, false);
+          await notify(env, [String(actor.username)], 'Returned — please fix and resubmit',
+                       sig.reasons.map(x => x.en).join(' / ').slice(0, 120), reqId, 'approval-result');
+          return json({
+            ok: true, id: reqId, stages: stages.length, flags, summary: sum || null,
+            auto_rejected: true, signal: sig.signal, reasons: sig.reasons,
+            origin_id: originId, origin_created_at: originCreatedAt,
+          });
+        }
+      }
+
       // 1단계 결재자에게 알림(대결 포함).
       const targets = await approversFor(env, stages[0].role, actor.username);
       const deleg = await delegatesOf(env, targets);
@@ -1573,9 +1747,24 @@ export async function handleApprovalApi(
         await smsFallback(env, n1.missed,
           '[망고아이 긴급] ' + title.slice(0, 60) + '\n' + (actor.name || actor.username) + '\n' + siteUrl('/work?id=' + reqId));
       }
+      /* 👀 대표님께 «이상한 것만» 즉시 — 결재권자 혼자 확정하는 소액 건(1단계 mgr)에서
+         평소와 다른 신호가 있을 때만. 푸시만(문자 안 씀). 결재권자 본인·기안자는 빼고.
+         ⚠️ «AI 가 영수증을 못 읽음»(ocr_unread) 은 알리지 않는다 — PDF 마다 울려 소음이 된다. */
+      const WATCH = ['unusual_amount', 'over_budget', 'duplicate', 'duplicate_recent', 'spent_old',
+                     'date_mismatch', 'ai_review', 'no_file', 'no_reason', 'spent_future', 'amount_mismatch_big'];
+      if (stages.length === 1 && stages[0].role === 'mgr' &&
+          sig.reasons.some(x => WATCH.indexOf(x.code) >= 0)) {
+        const watchers = EXEC_USERNAMES.filter(u =>
+          MONEY_APPROVERS.indexOf(u) < 0 && u !== String(actor.username));
+        if (watchers.length) {
+          await notify(env, watchers, 'Check · ' + (actor.name || actor.username),
+                       (sig.signal === 'red' ? '🔴 ' : '🟡 ') + title.slice(0, 70), reqId, 'approval-watch');
+        }
+      }
 
       return json({
         ok: true, id: reqId, stages: stages.length, flags, summary: sum || null,
+        signal: sig.signal, reasons: sig.reasons,
         origin_id: originId, origin_created_at: originCreatedAt,
       });
     } catch (e: any) {
@@ -1852,7 +2041,13 @@ export async function handleApprovalApi(
     try { payload = await request.json(); } catch { /* 빈 본문 허용 */ }
     const decision = String(payload?.decision || '');
     if (decision !== 'approved' && decision !== 'rejected') return json({ ok: false, error: 'bad_decision' }, 400);
-    const memo = String(payload?.memo || '').slice(0, 1000) || null;
+    let memo = String(payload?.memo || '').slice(0, 1000) || null;
+    /* 🌐 한국어로만 쓴 반려 사유는 필리핀 매니저가 못 읽는다 — 영어를 덧붙인다.
+       이미 영어 낱말이 있으면(버튼 사유는 영/한 둘 다 들어 있다) 건드리지 않는다. 실패하면 원문 그대로. */
+    if (decision === 'rejected' && memo && /[가-힣]/.test(memo) && !/[A-Za-z]{3,}/.test(memo)) {
+      const en = await toEnglish(env, memo);
+      if (en) memo = (memo + '\n[EN] ' + en).slice(0, 1000);
+    }
 
     /* 🖐 같은 사람이 «두 단계 연달아» 승인하지 못하게 (2026-09-09 사장님 「1번 막아주고」).
          돈이 나가는 분류에서만, «승인» 에만 건다(반려는 돈이 안 나가는 방향이라 막지 않는다).
@@ -2366,6 +2561,44 @@ export async function handleApprovalApi(
   // ── 영수증 판독 ───────────────────────────────────────────────────────────
   //   무료 비전 모델만 쓴다(2026-08-16 결정). 실패해도 200 을 주고 ok:false 로 알린다 —
   //   화면은 «직접 입력»으로 조용히 넘어가면 되고, 여기서 500 을 내면 오류로 보인다.
+  /* ── 🔎 올리기 전 점검 (2026-09-24) ────────────────────────────────────────
+       사장님 「최대한 A.i 가 잘 필터해서 반려 없이 결재」 — 반려를 줄이는 가장 좋은 길은
+       **올리기 «전» 에** 고치게 하는 것이다. 올리는 사람 화면이 이걸 불러 🔴 이면
+       「이것부터 고쳐 주세요」를 보여 준다. 저장하지 않는다(읽기만).
+       ⚠️ 같은 판정(runChecks·signalOf)을 올리기 때도 다시 한다 — 화면이 건너뛰어도 서버가 본다. */
+  if (method === 'POST' && path === '/api/approval/precheck') {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const reqType = String(b?.req_type || '');
+    if (REQ_TYPES.indexOf(reqType) < 0) return json({ ok: false, error: 'bad_req_type' }, 400);
+    if (!canSubmit(actor, reqType, ph)) return json({ ok: false, error: 'forbidden_type' }, 403);
+    const spec = typeSpec(reqType);
+    const currency = normCurrency(String(b?.currency || 'PHP'));
+    const num = (v: any) => { const n = Number(String(v ?? '').replace(/[,\s]/g, '')); return (String(v ?? '').trim() && isFinite(n) && n >= 0) ? n : null; };
+    const amount = num(b?.amount);
+    const ocrAmount = (() => { const n = num(b?.ocr_amount); return n != null && n > 0 ? n : null; })();
+    const ymd = (v: any) => { const t = String(v || '').trim().slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null; };
+    const body = String(b?.body || '').slice(0, 4000);
+    const title = String(b?.title || '').slice(0, 200);
+    const category = spec.wantsCategory ? normCategory(String(b?.category || '')) : null;
+    const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+    const flags = runChecks({
+      reqType, amount, currency, hasFile: !!b?.has_file, ocrAmount,
+      duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
+      monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
+      body, spentAt: ymd(b?.spent_at), ocrSpentAt: ymd(b?.ocr_spent_at), now: Date.now(),
+    });
+    if (ph && spec.needsAmount) {
+      const concerns = await aiReview(env, {
+        req_type: reqType, category, title, body, amount, currency,
+        vendor: String(b?.ocr_vendor || '').slice(0, 60) || null,
+      });
+      for (const c of concerns) flags.push(c);
+    }
+    const sig = signalOf({ reqType, amount, ocrAmount, hasFile: !!b?.has_file, flags });
+    return json({ ok: true, signal: sig.signal, reasons: sig.reasons, flags });
+  }
+
   if (method === 'POST' && path === '/api/approval/ocr') {
     const buf = await request.arrayBuffer().catch(() => null);
     if (!buf || buf.byteLength === 0) return json({ ok: false, error: 'empty' }, 400);
@@ -2436,13 +2669,104 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
     await ensureTable(env);
     const now = Date.now();
 
+    /* ⓪ ⏰ 알림 단계 (2026-09-24 사장님 「잊으면 수업 입장처럼 알람·사이렌」)
+         단계가 열린 뒤 4시간 푸시 → 8시간 문자 → 12시간 사이렌(화면이 울림) → 24시간 승격(②).
+         ⚠️ 밤(22~8시 KST)에는 문자·사이렌 단계로 «올리지 않는다» — 아침 첫 회차에 이어서 한다.
+            긴급은 밤에도 간다.
+         ⚠️ 한 번에 여러 단계를 건너뛰면(배포 직후의 옛 건) 가장 높은 단계 하나만 보낸다.
+         ⚠️ 판정 정본은 approval-policy 의 nudgePlan·nudgeLevel — 화면(사이렌)도 같은 시각을 받는다. */
+    try {
+      const pend = await safe(async () => await env.DB.prepare(
+        `SELECT r.*, s.role AS step_role FROM approval_requests r
+           LEFT JOIN approval_steps s ON s.request_id = r.id AND s.seq = IFNULL(r.stage_seq, 1)
+          WHERE r.status = 'pending' AND r.stage_due_at IS NOT NULL AND r.escalated_at IS NULL
+          ORDER BY r.stage_due_at ASC LIMIT 200`
+      ).all<any>(), { results: [] as any[] } as any);
+      for (const r of (pend.results || [])) {
+        const seq = Number(r.stage_seq || 1);
+        const st = stageStartOf(r.req_type, r.stage_due_at);
+        if (st == null) continue;
+        const plan = nudgePlan(r.req_type, st);
+        const cur = (Number(r.nudge_seq || 0) === seq) ? Number(r.nudge_level || 0) : 0;
+        let target: number = nudgeLevel(plan, now);
+        if (r.req_type !== 'urgent' && isQuietKst(now)) target = Math.min(target, Math.max(cur, 1));
+        if (target <= cur) continue;
+        const targets = await approversFor(env, String(r.step_role || 'staff'), r.requester_username);
+        const deleg = await delegatesOf(env, targets);
+        for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
+        const hours = Math.max(1, Math.round((now - st) / 3600_000));
+        const t60 = String(r.title || '').slice(0, 60);
+        if (targets.length) {
+          await notify(env, targets,
+            (target >= 3 ? '🚨 ' : '') + '결재 대기 ' + hours + '시간 · Pending ' + hours + 'h',
+            t60, r.id, target >= 3 ? 'approval-siren' : 'approval-nudge');
+          // 8시간이 되면 푸시와 상관없이 문자 — 푸시는 «켠 기기» 에만 가고 잠긴 폰은 놓친다.
+          if (target >= 2 && cur < 2) {
+            await smsFallback(env, targets,
+              '[망고아이] 결재 대기 ' + hours + '시간째\n' + t60 + '\n' + siteUrl('/work?id=' + r.id));
+          }
+        }
+        await safe(async () => {
+          await env.DB.prepare(`UPDATE approval_requests SET nudge_level = ?, nudge_seq = ? WHERE id = ?`)
+            .bind(target, seq, r.id).run();
+          return true;
+        }, false);
+      }
+    } catch (e) {
+      console.warn('[approval-nudge] failed:', (e as any)?.message || e);
+    }
+
+    /* 📬 하루 두 번 요약(9시·17시 KST) — 「바빠서 자주 못 본다」.
+         받는 사람은 경영진·결재권자뿐, 자기가 «주 결재자» 인 건만 센다. 0건이면 안 보낸다.
+         ⚠️ 15분 트리거가 그 시(時)에 네 번 돌므로 KV 에 «이 회차는 보냈다» 를 먼저 적는다.
+            KV 를 못 쓰면 **보내지 않는다** — 한 시간에 네 번 울리는 쪽이 더 나쁘다. */
+    try {
+      const slot = digestSlotKst(now);
+      const kv: any = (env as any).SESSION_STATE;
+      if (slot && kv) {
+        const key = 'approval_digest:' + slot;
+        const seen = await kv.get(key);
+        if (!seen) {
+          await kv.put(key, '1', { expirationTtl: 3 * 86400 });
+          const pend = await env.DB.prepare(
+            `SELECT r.*, s.role AS step_role FROM approval_requests r
+               LEFT JOIN approval_steps s ON s.request_id = r.id AND s.seq = IFNULL(r.stage_seq, 1)
+              WHERE r.status = 'pending' LIMIT 300`
+          ).all<any>();
+          const people: string[] = [];
+          for (const u of EXEC_USERNAMES.concat(MONEY_APPROVERS)) if (people.indexOf(u) < 0) people.push(u);
+          for (const u of people) {
+            const actorU: ActorLike = { ok: true, username: u, role: 'hq', isTeacher: false };
+            let n = 0, green = 0, oldestH = 0;
+            for (const r of (pend.results || [])) {
+              if (String(r.requester_username) === u) continue;
+              if (!isPrimaryApprover(actorU, String(r.step_role || 'staff') as any, false)) continue;
+              n++;
+              const sg = signalOf({ reqType: r.req_type, amount: r.amount, ocrAmount: r.ocr_amount,
+                hasFile: !!r.file_key, flags: (() => { try { return JSON.parse(r.flags || '[]'); } catch { return []; } })() });
+              if (sg.signal === 'green') green++;
+              const st = stageStartOf(r.req_type, r.stage_due_at) || Number(r.created_at || now);
+              oldestH = Math.max(oldestH, Math.round((now - st) / 3600_000));
+            }
+            if (!n) continue;
+            await notify(env, [u], '결재 대기 ' + n + '건',
+              '가장 오래된 것 ' + oldestH + '시간 · 🟢 바로 승인 가능 ' + green + '건', 0, 'approval-digest');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[approval-digest] failed:', (e as any)?.message || e);
+    }
+
     // ① 단계 마감을 넘긴 건 — 하루에 한 번만 다시 알린다(warned_at 로 도배 방지).
     const dueRs = await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests
         WHERE status = 'pending' AND stage_due_at IS NOT NULL AND stage_due_at < ?
           AND (warned_at IS NULL OR warned_at < ?)
         ORDER BY stage_due_at ASC LIMIT 30`
-    ).bind(now, now - 86400_000).all<any>(), { results: [] as any[] } as any);
+    ).bind(now - 86400_000, now - 86400_000).all<any>(), { results: [] as any[] } as any);
+    /* ↑ (2026-09-24) 마감 «하루 뒤» 부터 하루 1번. 처음 24시간은 아래 ⓪ 알림 단계가 맡는다
+       (4시간 푸시 → 8시간 문자 → 12시간 사이렌 → 24시간 승격) — 겹쳐 두 번 울리지 않게. */
 
     for (const r of (dueRs.results || [])) {
       const seq = Number(r.stage_seq || 1);
@@ -2455,7 +2779,8 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       const nl = await notify(env, targets, 'Overdue approval',
                               String(r.title || '').slice(0, 80), r.id, 'approval-late');
       // 마감을 넘긴 건은 «못 봤다» 가 이유인 경우가 대부분이다. 푸시가 안 닿으면 문자로.
-      if (nl.missed.length) {
+      //   ⚠️ 밤(22~8시 KST)에는 문자를 쉰다 — 긴급만 예외.
+      if (nl.missed.length && (r.req_type === 'urgent' || !isQuietKst(now))) {
         await smsFallback(env, nl.missed,
           '[망고아이] 결재 마감이 지났습니다\n' + String(r.title || '').slice(0, 60) +
           '\n' + siteUrl('/work?id=' + r.id));
@@ -2467,13 +2792,17 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       warned++;
     }
 
-    // ② 마감 이틀을 넘긴 건 — 경영진 결재함으로 승격. 원 결재자에게도 알린다.
-    const escRs = await safe(async () => await env.DB.prepare(
+    // ② 단계가 열리고 24시간(긴급은 2시간)이 지난 건 — 경영진 결재함으로 승격.
+    //    (2026-09-24 전에는 «마감 + 이틀» = 물품·지출 72시간이었다. 너무 늦었다.)
+    const escAll = await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests
-        WHERE status = 'pending' AND stage_due_at IS NOT NULL AND stage_due_at < ?
-          AND escalated_at IS NULL
-        ORDER BY stage_due_at ASC LIMIT 20`
-    ).bind(now - 2 * 86400_000).all<any>(), { results: [] as any[] } as any);
+        WHERE status = 'pending' AND stage_due_at IS NOT NULL AND escalated_at IS NULL
+        ORDER BY stage_due_at ASC LIMIT 200`
+    ).all<any>(), { results: [] as any[] } as any);
+    const escRs = { results: (escAll.results || []).filter((r: any) => {
+      const st = stageStartOf(r.req_type, r.stage_due_at);
+      return st != null && now >= nudgePlan(r.req_type, st).escalateAt;
+    }).slice(0, 20) };
 
     // ⚠️ 승격 대상(경영진)이 한 명도 없으면 승격하지 않는다.
     //    바꿔 버리면 «아무도 결재할 수 없는 단계»가 되어 결재가 영영 멈춘다.
@@ -2498,7 +2827,7 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       const execs = await approversFor(env, 'exec', r.requester_username);
       const ne = await notify(env, execs, 'Escalated — overdue',
                               String(r.title || '').slice(0, 80), r.id, 'approval-esc');
-      if (ne.missed.length) {
+      if (ne.missed.length && (r.req_type === 'urgent' || !isQuietKst(now))) {
         await smsFallback(env, ne.missed,
           '[망고아이] 지연 결재가 경영진으로 넘어왔습니다\n' + String(r.title || '').slice(0, 60) +
           '\n' + siteUrl('/work?id=' + r.id));

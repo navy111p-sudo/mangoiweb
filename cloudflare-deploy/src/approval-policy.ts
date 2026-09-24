@@ -810,6 +810,15 @@ export interface CheckInput {
   ocrAmount?: number | null;
   /** 같은 사람이 최근 30일 안에 올린 같은 분류·같은 금액 건수 (자기 자신 제외) */
   duplicateCount?: number;
+  /** 그중 최근 7일 안의 건수 — 이건 «실수로 두 번 올림» 일 가능성이 높아 🔴 로 본다 */
+  duplicateRecentCount?: number;
+  /** 🔎 꼼꼼 점검(2026-09-24) — 돈이 나가는 분류에만 쓴다. 없으면 그 점검을 건너뛴다. */
+  body?: string | null;
+  spentAt?: string | null;
+  /** 영수증에서 읽어낸 날짜(YYYY-MM-DD) */
+  ocrSpentAt?: string | null;
+  /** 판정 기준 시각(ms). 하니스가 날짜를 고정해 돌릴 수 있게 받는다. */
+  now?: number;
   /** 이번 달 같은 분류 승인 합계 (이 건 제외) */
   monthTotal?: number | null;
   /** 최근 같은 분류 금액들의 중앙값 (없으면 null) */
@@ -843,7 +852,15 @@ export function runChecks(inp: CheckInput): Flag[] {
   }
 
   // ③ 중복 청구 의심 — 같은 사람이 같은 금액을 최근에 또 올렸다
-  if ((inp.duplicateCount || 0) > 0) {
+  //   7일 안이면 «두 번 올림» 쪽이라 따로 표시한다(signalOf 가 🔴 로 본다).
+  //   30일 안은 매달 같은 금액(인터넷비 등)일 수 있어 경고로만 둔다.
+  if ((inp.duplicateRecentCount || 0) > 0) {
+    out.push({
+      code: 'duplicate_recent', level: 'warn',
+      ko: '최근 7일 안에 같은 금액의 같은 분류 기안이 ' + inp.duplicateRecentCount + '건 있음',
+      en: (inp.duplicateRecentCount || 0) + ' request(s) with the same amount in the last 7 days',
+    });
+  } else if ((inp.duplicateCount || 0) > 0) {
     out.push({
       code: 'duplicate', level: 'warn',
       ko: '최근 30일 안에 같은 금액의 같은 분류 기안이 ' + inp.duplicateCount + '건 있음',
@@ -860,6 +877,33 @@ export function runChecks(inp: CheckInput): Flag[] {
         ko: '이번 달 합계가 예산(' + fmt(budget, cur) + ')을 넘어섬',
         en: 'This pushes the month past the ' + fmt(budget, cur) + ' budget',
       });
+    }
+  }
+
+  /* 🔎 꼼꼼 점검 — 돈이 나가는 분류에만. 전부 «고치면 되는 것» 이다.
+     no_reason · spent_future 는 신호등이 🔴(올리기 전에 고치게)로 본다. */
+  if (spec.needsAmount) {
+    if (inp.body != null && String(inp.body).replace(/\s+/g, ' ').trim().length < 10) {
+      out.push({ code: 'no_reason', level: 'warn',
+        ko: '무엇을 왜 샀는지(썼는지) 설명이 없습니다', en: 'Explain what it was for and why (at least one sentence)' });
+    }
+    const today = kstYmd(inp.now != null ? inp.now : Date.now());
+    const sp = ymdDays(inp.spentAt);
+    if (sp != null) {
+      const t = ymdDays(today)!;
+      if (sp > t + 1) {
+        out.push({ code: 'spent_future', level: 'warn',
+          ko: '사용 날짜가 미래입니다', en: 'The spending date is in the future' });
+      } else if (sp < t - 60) {
+        out.push({ code: 'spent_old', level: 'warn',
+          ko: '60일도 더 지난 지출입니다', en: 'This was spent more than 60 days ago' });
+      }
+      const oc = ymdDays(inp.ocrSpentAt);
+      if (oc != null && Math.abs(oc - sp) > 3) {
+        out.push({ code: 'date_mismatch', level: 'warn',
+          ko: '영수증 날짜(' + inp.ocrSpentAt + ')와 입력한 날짜가 다릅니다',
+          en: 'Receipt date (' + inp.ocrSpentAt + ') differs from the date entered' });
+      }
     }
   }
 
@@ -1377,4 +1421,167 @@ export function foldHomeMoney(rows: MoneyGroupRow[], thisMonth: string): HomeMon
 export function kstMonth(nowMs: number): string {
   const d = new Date(nowMs + 9 * 3600_000);
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⑦ 신호등 · 자동 반려 · 알림 단계 (2026-09-24 사장님 「모두 추진」)
+ *
+ *   ⚠️ 판정은 전부 «계산» 이다. AI(대화 모델)는 같은 건도 매번 다르게 판단할 수 있어
+ *      멀쩡한 건을 반려하면 필리핀 쪽 업무가 멈춘다. AI 는 영수증 읽기·문장 쓰기만 한다.
+ *   ⚠️ AI 는 절대 «승인» 하지 않는다. 자동으로 하는 일은 «서류 보완으로 되돌림» 뿐이다
+ *      — 돈이 나가지 않는 방향이라 잘못돼도 다시 올리면 된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export type Signal = 'green' | 'yellow' | 'red';
+export interface SignalReason { code: string; ko: string; en: string }
+
+/** 영수증 금액과 입력 금액이 이 비율보다 더 다르면 🔴(오타가 아니라 틀린 금액). */
+export const AUTO_REJECT_MISMATCH = 0.10;
+
+export interface SignalInput {
+  reqType: string;
+  amount?: number | null;
+  ocrAmount?: number | null;
+  hasFile: boolean;
+  flags?: Flag[] | null;
+}
+
+/**
+ * 🟢 바로 승인 가능 / 🟡 사람이 확인 / 🔴 서류 보완으로 되돌릴 대상.
+ *   🔴 사유는 «고치면 되는 것» 만이다 — 영수증 없음 · 영수증과 금액이 10% 넘게 다름 · 7일 안 중복.
+ *   예산 초과·큰 금액은 «정상일 수도 있는» 것이라 🟡 로 둔다(판단은 사람이).
+ */
+export function signalOf(inp: SignalInput): { signal: Signal; reasons: SignalReason[] } {
+  const spec = typeSpec(inp.reqType);
+  const flags = Array.isArray(inp.flags) ? inp.flags : [];
+  const red: SignalReason[] = [];
+  if (spec.requiresFile && !inp.hasFile) {
+    red.push({ code: 'no_file', ko: '영수증이 필요한데 첨부가 없습니다', en: 'A receipt is required but none is attached' });
+  }
+  const amt = (inp.amount == null) ? null : Number(inp.amount);
+  const ocr = (inp.ocrAmount == null) ? null : Number(inp.ocrAmount);
+  if (amt != null && ocr != null && isFinite(amt) && isFinite(ocr) && ocr > 0) {
+    const diff = Math.abs(ocr - amt);
+    if (diff >= 1 && diff / Math.max(ocr, amt) > AUTO_REJECT_MISMATCH) {
+      red.push({ code: 'amount_mismatch_big',
+        ko: '영수증 금액과 입력 금액이 10% 넘게 다릅니다',
+        en: 'The amount entered differs from the receipt by more than 10%' });
+    }
+  }
+  if (flags.some(f => f && f.code === 'no_reason')) {
+    red.push({ code: 'no_reason', ko: '무엇을 왜 썼는지 설명을 한 문장 이상 적어 주세요',
+      en: 'Write at least one sentence on what it was for and why' });
+  }
+  if (flags.some(f => f && f.code === 'spent_future')) {
+    red.push({ code: 'spent_future', ko: '사용 날짜가 미래입니다 — 날짜를 확인해 주세요',
+      en: 'The spending date is in the future — please check it' });
+  }
+  if (flags.some(f => f && f.code === 'duplicate_recent')) {
+    red.push({ code: 'duplicate_recent',
+      ko: '최근 7일 안에 같은 금액으로 이미 올린 건이 있습니다',
+      en: 'You already submitted the same amount in the last 7 days' });
+  }
+  if (red.length) return { signal: 'red', reasons: red };
+
+  const yellow: SignalReason[] = [];
+  for (const f of flags) {
+    if (!f || !f.code) continue;
+    yellow.push({ code: f.code, ko: f.ko, en: f.en });
+  }
+  // 영수증은 있는데 AI 가 금액을 못 읽었다 — 눈으로 한 번 봐야 한다(PDF 가 그렇다).
+  if (spec.needsAmount && spec.requiresFile && inp.hasFile && (ocr == null || !(ocr > 0))) {
+    yellow.push({ code: 'ocr_unread',
+      ko: 'AI 가 영수증 금액을 읽지 못했습니다 — 금액을 눈으로 확인해 주세요',
+      en: 'AI could not read the receipt amount — please check it by eye' });
+  }
+  if (yellow.length) return { signal: 'yellow', reasons: yellow };
+  return { signal: 'green', reasons: [] };
+}
+
+/** 자동 반려 방식 — KV 'approval_autoreject'. 모르는 값·못 읽음 = 'shadow'(표시만). */
+export type AutoRejectMode = 'off' | 'shadow' | 'on';
+export function autoRejectMode(v: unknown): AutoRejectMode {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return (s === 'on' || s === 'off') ? s : 'shadow';
+}
+
+/**
+ * 이 건을 AI 가 «되돌려도» 되는가.
+ *   ⛔ 경영진이 올린 건 · 긴급 · 인사급여 · 취소 결재는 절대 되돌리지 않는다.
+ *   ⛔ 🔴 가 아니면 되돌리지 않는다(🟡 는 사람이 판단).
+ */
+export function autoRejectable(inp: {
+  signal: Signal; reqType: string; requesterIsExec: boolean; reversesId?: number | null;
+}): boolean {
+  if (inp.signal !== 'red') return false;
+  if (inp.requesterIsExec) return false;
+  if (inp.reversesId) return false;
+  const t = String(inp.reqType || '');
+  if (t === 'urgent' || t === 'hr') return false;
+  return true;
+}
+
+/**
+ * ⏰ 알림 단계 — 단계가 열린 시각부터 잽니다.
+ *   4시간 푸시 → 8시간 문자 → 12시간 사이렌 → 24시간 경영진 승격.
+ *   마감이 짧은 분류(긴급 2시간)는 같은 비율로 줄인다(긴급: 20분·40분·1시간·2시간).
+ */
+export const NUDGE_HOURS = { push: 4, sms: 8, siren: 12, escalate: 24 };
+
+export interface NudgePlan { stageStart: number; pushAt: number; smsAt: number; sirenAt: number; escalateAt: number }
+
+export function nudgePlan(reqType: string, stageStartMs: number): NudgePlan {
+  const k = Math.min(1, Math.max(0.01, typeSpec(reqType).slaHours / 24));
+  const h = 3600_000 * k;
+  const s = Number(stageStartMs) || 0;
+  return {
+    stageStart: s,
+    pushAt: s + NUDGE_HOURS.push * h,
+    smsAt: s + NUDGE_HOURS.sms * h,
+    sirenAt: s + NUDGE_HOURS.siren * h,
+    escalateAt: s + NUDGE_HOURS.escalate * h,
+  };
+}
+
+/** 단계가 열린 시각 — stage_due_at 에서 거꾸로 센다(stageDeadlineMs 의 짝). 모르면 null. */
+export function stageStartOf(reqType: string, stageDueAt: number | null | undefined): number | null {
+  const d = Number(stageDueAt || 0);
+  if (!(d > 0)) return null;
+  return d - typeSpec(reqType).slaHours * 3600_000;
+}
+
+/** 지금 도달한 단계: 0 없음 · 1 푸시 · 2 문자 · 3 사이렌. (승격은 따로 판정) */
+export function nudgeLevel(plan: NudgePlan, now: number): 0 | 1 | 2 | 3 {
+  if (now >= plan.sirenAt) return 3;
+  if (now >= plan.smsAt) return 2;
+  if (now >= plan.pushAt) return 1;
+  return 0;
+}
+
+/** 한국 시각 밤 22시~아침 8시 — 문자·사이렌을 쉬는 시간(긴급은 예외, 호출하는 쪽이 정한다). */
+export function isQuietKst(ms: number): boolean {
+  const h = new Date(Number(ms) + 9 * 3600_000).getUTCHours();
+  return h >= 22 || h < 8;
+}
+
+/** 하루 두 번 요약 — 한국 시각 이 시(時)에 보낸다. */
+export const DIGEST_HOURS_KST = [9, 17];
+export function digestSlotKst(ms: number): string | null {
+  const t = new Date(Number(ms) + 9 * 3600_000);
+  const h = t.getUTCHours();
+  if (DIGEST_HOURS_KST.indexOf(h) < 0) return null;
+  return t.toISOString().slice(0, 10) + ':' + h;
+}
+
+/** 한국 시각 기준 YYYY-MM-DD */
+export function kstYmd(ms: number): string {
+  return new Date(Number(ms) + 9 * 3600_000).toISOString().slice(0, 10);
+}
+/** YYYY-MM-DD → 일 수(비교용). 형식이 아니면 null — 모르면 점검하지 않는다. */
+export function ymdDays(s: string | null | undefined): number | null {
+  const v = String(s || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const t = Date.UTC(Number(v.slice(0, 4)), Number(v.slice(5, 7)) - 1, Number(v.slice(8, 10)));
+  return isFinite(t) ? Math.floor(t / 86400_000) : null;
 }
