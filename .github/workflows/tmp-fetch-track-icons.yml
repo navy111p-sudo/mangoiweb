@@ -1,0 +1,34 @@
+name: tmp-fetch-track-icons
+on:
+  push:
+    branches: [claude/relaxed-archimedes-93kxoe]
+    paths: ['.github/workflows/tmp-fetch-track-icons.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: claude/relaxed-archimedes-93kxoe }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp imagemagick
+      - run: |
+          set -e
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          curl -fsSL -o live.png "$B/hf_20260924_105139_8182d0c9-68c4-4e6a-9f0a-be989eb8b7d2.png"
+          curl -fsSL -o ai.png   "$B/hf_20260924_105140_a528847a-c53e-43fb-8c3a-9a2811fdc80d.png"
+          D=cloudflare-deploy/public/img/home-tracks
+          mkdir -p $D
+          for n in live ai; do
+            convert $n.png -resize 160x160 -strip $n-160.png
+            cwebp -q 82 $n-160.png -o $D/$n.webp
+          done
+          mkdir -p docs/home-tracks-preview
+          convert live.png ai.png -resize 320x320 +append docs/home-tracks-preview/preview.jpg
+          ls -l $D docs/home-tracks-preview
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/home-tracks docs/home-tracks-preview
+          git commit -m "tmp: 홈 트랙 아이콘 그림 받아오기 (러너)"
+          git push origin HEAD:claude/relaxed-archimedes-93kxoe
