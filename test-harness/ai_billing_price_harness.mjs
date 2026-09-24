@@ -311,7 +311,7 @@ sec('[⑨] 배선 — 청구서·이력·결제·미리보기가 같은 정본�
   check('생성: 화상반 조회는 청구서 머리 INSERT «앞» (실패 시 빈 청구서가 안 남는다)', /if \(!live\) return/.test(gen) && gen.indexOf('if (!live) return') < gen.indexOf('INSERT INTO ai_billing_invoices'));
   for (const f of ['branch.html', 'manager.html']) check(`${f}: 옛 형식 캐시 키(aibill)를 안 쓴다`, !/'aibill'/.test(readFileSync(join(PUB, f), 'utf8')));
   const mon = fnDecl(billCode, 'generateMonthlyAiInvoices');
-  check('월 cron: 화상반을 «한 번» 읽고 실패하면 청구서 0장', /loadLiveUids\(env\)/.test(mon) && /if \(!live\) return/.test(mon) && /generateOrRefreshInvoice\([^)]*live\)/.test(mon));
+  check('월 cron: 화상반을 «한 번» 읽고 실패하면 청구서 0장', /loadLiveUids\(env\)/.test(mon) && /if \(!live\) \{/.test(mon) && mon.indexOf('if (!live) {') < mon.indexOf('for (const s of shops)') && /generateOrRefreshInvoice\([^)]*live\)/.test(mon));
   const rateGet = billCode.slice(billCode.indexOf("p === 'rate' && method === 'GET'"), billCode.indexOf("p === 'rate' && method === 'POST'"));
   check('/rate: 화상반을 빼고(aiCount) 정본 aiPrice 로 계산', /live\.has\(/.test(rateGet) && /aiPrice\(aiCount/.test(rateGet));
 
@@ -403,6 +403,83 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     check(`${f}: 학원 확인 표시(user_set)를 그린다`, /user_set\) === 1/.test(body));
     check(`${f}: (짝) A.i반 줄도 그대로 그린다`, /aiIt\.map\(itemRow\)/.test(body));
   }
+}
+
+/* ══ ⑪ 월 자동 청구 «마지막 결과» — 실패가 조용히 사라지지 않는가 ══════════
+   generateMonthlyAiInvoices·recordCronRun·readCronRun 을 오려 가짜 부품으로 «실제로» 돌린다.
+   «실패를 적는다» 옆에 «성공도 적는다»·«적기가 실패해도 안 던진다» 를 짝으로 둔다. */
+sec('[⑪] 월 자동 청구 결과 기록 — 실패가 보이는가');
+{
+  let mk = null;
+  try {
+    const src = [fnDecl(billSrc, 'generateMonthlyAiInvoices'), fnDecl(billSrc, 'recordCronRun'), fnDecl(billSrc, 'readCronRun')]
+      .map(d => stripTypeScriptTypes(d.replace(/^export\s+/, ''))).join('\n');
+    mk = new Function('ensureSchema', 'safe', 'enrolledCond', 'monthAdd', 'currentMonthKST', 'loadLiveUids', 'generateOrRefreshInvoice',
+      src + '\nreturn { gen: generateMonthlyAiInvoices, read: readCronRun };');
+  } catch (e) { check('월 cron 함수 실행 준비', false, e.message); }
+  check('월 cron 세 함수를 오려 냈다 (전제)', typeof mk === 'function');
+  if (mk && DatabaseSync) {
+    const safeF = async (fn, fb) => { try { return await fn(); } catch { return fb; } };
+    const mkEnv = (shops, opts = {}) => {
+      const d = new DatabaseSync(':memory:');
+      d.exec('CREATE TABLE ai_billing_meta (k TEXT PRIMARY KEY, v TEXT, at INTEGER NOT NULL)');
+      const prep = (sql) => {
+        if (/FROM students_erp/.test(sql)) return { all: async () => { if (opts.shopsThrow) throw new Error('boom'); return { results: shops.map(x => ({ shop_name: x })) }; } };
+        if (opts.metaThrow && /ai_billing_meta/.test(sql)) throw new Error('no such table');
+        const st = d.prepare(sql);
+        return { bind: (...a) => ({ run: async () => st.run(...a), first: async () => st.get(...a) || null }), first: async () => st.get() || null };
+      };
+      return { d, env: { DB: { prepare: prep } } };
+    };
+    const run = async (shops, live, genImpl, opts) => {
+      const { d, env } = mkEnv(shops, opts);
+      const f = mk(async () => {}, safeF, () => '1=1', (m) => '2026-10', () => '2026-09', async () => live, genImpl);
+      let r; try { r = await f.gen(env); } catch (e) { r = { threw: e.message }; }
+      let last; try { last = await f.read(env); } catch (e) { last = { threw: e.message }; }
+      return { r, last };
+    };
+    const okGen = async (_e, shop) => ({ invoice_id: 1, added: 2, created: true });
+    const a = await run(['A', 'B'], new Set(), okGen);
+    check('성공하면 «ok» 와 숫자를 남긴다', a.last && a.last.status === 'ok' && a.last.invoices === 2 && a.last.added === 4 && a.last.month === '2026-10' && a.last.at > 0, JSON.stringify(a.last));
+    const b = await run(['A', 'B'], null, okGen);
+    check('화상반 조회 실패 → «live_check_failed» 가 남는다 (청구서 0장)', b.last && b.last.status === 'live_check_failed' && b.r.invoices === 0, JSON.stringify(b.last));
+    const c = await run(['A'], new Set(), okGen, { shopsThrow: true });
+    check('대리점 목록 실패 → «shops_failed» (0곳 «할 일 없음» 으로 위장하지 않는다)', c.last && c.last.status === 'shops_failed', JSON.stringify(c.last));
+    const e2 = await run([], new Set(), okGen);
+    check('(짝) 대리점이 정말 0곳이면 «ok»', e2.last && e2.last.status === 'ok' && e2.last.agencies === 0, JSON.stringify(e2.last));
+    const pGen = async (_e, shop) => shop === 'B' ? { invoice_id: 0, added: 0, created: false, live_check_failed: true } : { invoice_id: 1, added: 1, created: true };
+    const f2 = await run(['A', 'B', 'C'], new Set(), pGen);
+    check('일부 대리점 실패 → «partial» + 실패 수', f2.last && f2.last.status === 'partial' && f2.last.failed === 1 && f2.last.invoices === 2, JSON.stringify(f2.last));
+    const g = await run(['A'], new Set(), okGen, { metaThrow: true });
+    check('기록이 실패해도 월 cron 은 던지지 않고 결과를 돌려준다', !g.r.threw && g.r.invoices === 1, JSON.stringify(g.r));
+    check('(짝) 기록을 못 읽으면 null (지어내지 않는다)', g.last === null, JSON.stringify(g.last));
+  }
+  const rateGet = billCode.slice(billCode.indexOf("p === 'rate' && method === 'GET'"), billCode.indexOf("p === 'rate' && method === 'POST'"));
+  check('배선: /rate 응답에 last_cron 을 싣는다', /last_cron: await readCronRun\(env\)/.test(rateGet));
+
+  // 관리자 카드 한 줄 — renderCron 을 오려 가짜 DOM 으로 돌린다
+  const admSrc = readFileSync(join(PUB, 'js/adm-ai-billing.js'), 'utf8');
+  let rc = null, box = null;
+  try {
+    box = { id: 'aib-cron', style: {}, textContent: '' };
+    const els = { 'aib-cron': box };
+    rc = new Function('el', 'L', 'isEn', 'num', 'esc', 'var LAST_CRON;\n' + fnDecl(admSrc, 'renderCron') + '\nreturn renderCron;')(
+      (id) => els[id] || null, (ko) => ko, () => false, (n) => String(n), (x) => String(x));
+  } catch (e) { check('renderCron 실행 준비', false, e.message); }
+  check('renderCron 을 오려 냈다 (전제)', typeof rc === 'function');
+  if (rc) {
+    const draw = (c) => { try { rc(c); return { t: box.textContent, col: box.style.color }; } catch (e) { return { t: 'threw:' + e.message }; } };
+    const x1 = draw({ status: 'live_check_failed', month: '2026-10', at: 1790000000000, agencies: 376, invoices: 0, added: 0 });
+    check('실패는 빨간 글자 + «한 장도 만들지 않았습니다» + 할 일', x1.col === '#b91c1c' && /한 장도 만들지 않았습니다/.test(x1.t) && /청구서 만들기/.test(x1.t), JSON.stringify(x1));
+    const x2 = draw({ status: 'ok', month: '2026-10', at: 1790000000000, agencies: 376, invoices: 376, added: 6900 });
+    check('(짝) 성공은 회색 글자 + 숫자', x2.col === '#475467' && /청구서 376장/.test(x2.t) && !/⚠/.test(x2.t), JSON.stringify(x2));
+    const x3 = draw({ status: 'partial', month: '2026-10', at: 1790000000000, agencies: 3, invoices: 2, added: 2, failed: 1 });
+    check('일부 실패는 빨간 글자 + 실패 수', x3.col === '#b91c1c' && /1곳은 만들지 못했습니다/.test(x3.t), JSON.stringify(x3));
+    const x4 = draw(null);
+    check('(짝) 기록이 없으면 «아직 실행 기록이 없습니다» (지어내지 않는다)', /아직 실행 기록이 없습니다/.test(x4.t), JSON.stringify(x4));
+  }
+  check('배선: 불러오기·언어 전환 때 renderCron 을 부른다', /renderCron\(d\.last_cron\)/.test(admSrc) && /renderCron\(LAST_CRON\)/.test(admSrc));
+  check('admin.html 이 adm-ai-billing.js ?v=3 이상을 부른다', /adm-ai-billing\.js\?v=([3-9]|\d\d)/.test(readFileSync(join(PUB, 'admin.html'), 'utf8')));
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
