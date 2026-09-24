@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 import {createRequire} from 'node:module';
 import * as EV from '../scripts/scene-picture-evidence.mjs';
 import {wordPlanFiles} from '../scripts/scene-picture-evidence.mjs';
@@ -92,7 +93,9 @@ const wordImageDir=new URL('img/scene-words/',root);
 const planNames=wordPlanFiles(fs.readdirSync(new URL('../../docs/scene-curriculum-media/',root)));
 const wordImagePlan=planNames.flatMap(plan);
 const wordAssets=[],wordFile=new Map();
-for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(!fs.existsSync(p))continue;
+/* 🚫 빌드와 같이 excluded-media.json 을 낱말 사진에도 겁니다(2026-09-24 와인 진열대 사진 19249). */
+const excludedWordImages=new Set(plan('excluded-media.json'));
+for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(excludedWordImages.has('word-image:'+it.index)||!fs.existsSync(p))continue;
  wordAssets.push({id:'w'+it.index,index:it.index,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
 ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
 /* 🖼 표가 여러 파일이라 «빌드와 검사가 같은 집합을 보는가» 를 짝으로 못 박습니다.
@@ -205,6 +208,8 @@ const mediaLookup=new Set();
 {const excluded=new Set(plan('excluded-media.json'));
  for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
 const noCardWords=new Set(plan('no-card-words.json'));
+/* 🚫 예문으로 안 쓰는 문장(술 예문) — 빌드와 같은 파일을 읽어 «다시 고르기» 에서도 뺍니다. */
+const noExampleText=new Set(plan('no-example-sentences.json'));
 const contentWords=text=>EV.vocabWords(text,stopWords).filter(w=>!noCardWords.has(w));
 const sceneHasImage=new Map(),sceneOwnText=new Map();
 for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
@@ -245,20 +250,44 @@ ok(live.wordPictureForms>0&&live.wordPictureForms<live.wordForms,
    ⚠️ 숫자는 «상한·하한» 이지 «정답» 이 아닙니다 — 교재 문장을 더해 새 낱말이 들어오면
       정당하게 카드가 늘 수 있습니다. 그때는 사진을 만들거나, 이 숫자를 올리며 «왜» 를 적으세요.
    ✅ 짝으로 둡니다 — 카드 상한만 두면 «사진을 통째로 빼고 카드도 안 그리기» 가 통과합니다. */
-ok(live.cardRows<=25,'그림문자 카드 줄이 늘지 않았다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 25, 2026-09-22 실측)');
+/* 🚫 2026-09-24 25 → 38 — 술 예문으로 만든 와인 진열대 사진(19249)을 뺀 몫: SIU Advance 13권의 「selection」
+   (뜻도 «participant selection» 과 안 맞았습니다). 새 사진을 만들면 다시 25 로 내리세요. */
+ok(live.cardRows<=38,'그림문자 카드 줄이 늘지 않았다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 38, 2026-09-24 실측)');
 /* 🔤 2026-09-23 4543 → 4536 — «사진이 사라진» 것이 아니라 낱말 7개(p·e·j·r·k·x·c)가 «낱말이 아니라서» 빠졌습니다
    (「P.E.」·「J.R.R.」 점 약어 · K-pop·X-rays·Vitamin C 의 한 글자 조각. 사장님 「PE가 따로 글자가 나와」).
    ⛔ 다시 4543 으로 올리지 마세요 — 그 7개를 되살려야 통과합니다. */
 /* 🚫 2026-09-23 4536 → 4533 — 사장님 「술 카드 3개는 빼줘」(bts-20 alcohol·beer·wine, no-card-words.json).
    ⛔ 다시 4536 으로 올리지 마세요 — 술 카드를 되살려야 통과합니다. */
-ok(live.wordPictureForms>=4533,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4533, 2026-09-23 실측)');
-/* 🚫 카드 제외 낱말은 어느 교재에도 카드로 없다 ↔ 같은 문장의 다른 낱말(california·restaurant)은 그대로 있다(짝).
-   짝이 없으면 «그 문장을 통째로 빼기» 도 통과합니다. */
+/* 🚫 2026-09-24 4533 → 4531 — 사장님 「술 예문도 빼줘」(BTS 20 #59~64, no-example-sentences.json).
+   빠진 셋: cocktails(지시) · california(그 와인 예문에만 있던 낱말) · selection(와인 진열대 사진을 빼서 카드로).
+   ⛔ 다시 4533 으로 올리지 마세요. */
+ok(live.wordPictureForms>=4530,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4530, 2026-09-24 실측)');
+/* 🚫 카드 제외 낱말은 어느 교재에도 카드로 없다 ↔ 다른 예문에도 나오는 낱말(restaurant)은 그대로 있다(짝).
+   짝이 없으면 «그 교재를 통째로 빼기» 도 통과합니다.
+   (2026-09-24 부터 술 예문 자체를 빼서, 그 예문에만 있던 california 는 «없는 것» 이 맞습니다.) */
 {const b20=JSON.parse(fs.readFileSync(new URL('bts-20.json',dir),'utf8')),ws=new Set(b20.words.map(w=>w.word));
  ok(noCardWords.size>=3,'카드 제외 목록을 읽었다(전제)');
  for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const b=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
   for(const w of b.words)ok(!noCardWords.has(w.word),'카드 제외 낱말이 카드로 나오지 않는다: '+f+' / '+w.word);}
- ok(ws.has('california')&&ws.has('restaurant'),'같은 예문의 다른 낱말 카드는 그대로 있다(california·restaurant)');}
+ ok(ws.has('restaurant'),'다른 예문에도 있는 낱말 카드는 그대로 있다(restaurant)');}
+/* 🚫 예문 제외 문장(술 예문)은 어느 교재의 예문·장면·영상에도 없다 ↔ 같은 교재(BTS 20)의 다른 예문은 그대로 있다(짝).
+   ⛔ 원본 speech-data-bts.js 는 그대로여야 합니다(발음 코칭 등 다른 화면이 씁니다) — 그것도 함께 봅니다. */
+{const noEx=plan('no-example-sentences.json'),norm=t=>String(t||'').trim();
+ ok(noEx.length>=6,'예문 제외 목록을 읽었다(전제)');
+ const idOf=t=>crypto.createHash('sha256').update(t).digest('hex').slice(0,12);
+ const exIds=new Set(noEx.map(idOf)),exText=new Set(noEx.map(norm));
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const b=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const t of (b.examples||[]))ok(!exText.has(norm(t)),'예문 제외 문장이 예문으로 나오지 않는다: '+f+' / '+t);
+  for(const [sid,sc] of Object.entries(b.scenes||{}))ok(!exIds.has(sid)&&!exText.has(norm(sc&&sc.text)),'예문 제외 문장이 장면으로 나오지 않는다: '+f+' / '+sid);
+  for(const c of (b.clips||[]))ok(!exIds.has(c.scene),'예문 제외 문장이 영상으로 나오지 않는다: '+f+' / '+c.scene);}
+ const b20=JSON.parse(fs.readFileSync(new URL('bts-20.json',dir),'utf8'));
+ ok((b20.examples||[]).length>=20&&b20.clips.length>0,'BTS 20 의 다른 예문·영상은 그대로 있다('+(b20.examples||[]).length+'·'+b20.clips.length+')');
+ const orig=fs.readFileSync(new URL('js/speech-data-bts.js',root),'utf8');
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const t=fs.readFileSync(new URL(f,dir),'utf8');
+  ok(!/"source":"BTS 20 · #(59|6[0-4])"/.test(t),'술 예문(BTS 20 #59~64)을 출처로 한 장면이 없다: '+f);
+  ok(!t.includes('"w19249"'),'와인 진열대 사진(19249)이 어느 교재에도 없다: '+f);}
+ ok(!fs.readFileSync(new URL('data/word-pictures.json',root),'utf8').includes('"w19249"'),'와인 진열대 사진이 낱말 그림표에도 없다');
+ ok(noEx.every(t=>orig.includes(t)),'원본 speech-data-bts.js 에는 그 문장이 그대로 있다(다른 화면용)');}
 /* 🔤 한 글자 «낱말» 이 없다 — 「P.E.」 가 p·e 로 쪼개져 「e」 카드에 체육 사진이 붙던 사고(2026-09-23).
    짝: 두 글자 낱말(tv)은 그대로 남는다 — 없으면 «짧은 낱말을 통째로 빼기» 도 통과합니다. */
 {let one=[],tv=0;for(const f of fs.readdirSync(dir))if(/^(bts|siu)-.*\.json$/.test(f)){const b=JSON.parse(fs.readFileSync(new URL(f,dir),"utf8"));for(const w of b.words){if(w.word.length<2)one.push(f+':'+w.word);if(w.word==='tv')tv++;}}
@@ -325,7 +354,7 @@ for(const entry of live.books){
   eq(b.words.filter(w=>w.bookExample!==undefined).length,0,entry.id+' 낱말 줄에 예문을 인라인으로 복사하지 않는다');
   /* 🔴 짝 — 그래도 모든 줄은 예문을 «가지고» 있다(전부 지워서 통과하는 것을 막는다). */
   for(const w of b.words)ok(typeof w.ex==='number'||(b.scenes[w.scene]||{}).text,entry.id+' 예문이 어디엔가 있다: '+w.word);}
- const sentenceOf=new Map();for(const t of sentences)for(const cw of contentWords(t)){if(!sentenceOf.has(cw))sentenceOf.set(cw,[]);sentenceOf.get(cw).push(t);}
+ const sentenceOf=new Map();for(const t of sentences)if(!noExampleText.has(t))for(const cw of contentWords(t)){if(!sentenceOf.has(cw))sentenceOf.set(cw,[]);sentenceOf.get(cw).push(t);}
  for(const w of b.words){
   seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');
   /* 화면이 보여 주는 예문 = examples[ex] ?? bookExample ?? 그림 문장 (화면 example() 과 같은 순서).
