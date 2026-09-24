@@ -916,6 +916,10 @@ function paintAck(){
     esc(T('Press Confirm to mark that you have seen it. Work goes ahead either way.',
           '보셨다는 표시만 남기시면 됩니다. 안 누르셔도 업무는 그대로 진행됩니다.')) +
     '</div>';
+  if (arr.length >= 2) {
+    h += '<button id="ackAllBtn" class="big ok" onclick="ackAll()">' +
+         esc(T('Confirm all (' + arr.length + ')', '모두 확인 (' + arr.length + '건)')) + '</button>';
+  }
   for (var i = 0; i < arr.length; i++) h += itemHtml(arr[i], false, true);
   if (more) {
     h += '<div class="steps">' + esc(T('Showing the 20 most recent.', '최근 20건만 보여 줍니다.')) + '</div>';
@@ -2484,6 +2488,43 @@ window.decide = function(id, decision, memo){
 /* ✅ 확인 — «봤다»는 도장.
      ⛔ 못 보낸 결재 큐(outbox)에 넣지 않는다. 확인은 아무것도 막지 않으므로 다음에 열 때
         다시 누르면 그만이고, 큐에 섞으면 로그아웃 경고의 「못 보낸 결재 N건」이 거짓이 된다. */
+function ackDone(j){ return !!(j && (j.ok || j.already_acked || j.error === 'already_acked')); }
+function ackDrop(id){
+  if (!D) return;
+  D.ack_pending = (D.ack_pending || []).filter(function(x){ return x.id !== id; });
+  if (D.summary) D.summary.ack_pending = (D.ack_pending || []).length;
+}
+
+/* ✅✅ 모두 확인 (2026-09-24 5단계 「바빠서 하나씩 못 누른다」).
+     하나씩 순서대로 보낸다(동시에 20개를 쏘지 않는다) — 판정은 서버 /ack 가 건마다 다시 한다.
+     ⛔ 결재(승인)와 섞지 않는다 — 여기 건은 이미 확정된 것이라 «봤다» 도장만 찍는다. */
+window.ackAll = function(){
+  var ids = ((D && D.ack_pending) || []).map(function(x){ return x.id; });
+  if (!ids.length) return;
+  if (!window.confirm(T(ids.length + ' already-approved items will be marked as seen. Continue?',
+                        '이미 결재가 끝난 ' + ids.length + '건에 «확인» 도장을 모두 찍습니다. 계속할까요?'))) return;
+  var btn = document.getElementById('ackAllBtn');
+  if (btn) { btn.disabled = true; btn.textContent = T('Saving...', '저장 중...'); }
+  var ok = 0, fail = 0, i = 0;
+  function next(){
+    if (i >= ids.length) {
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(D)); } catch (e) {}
+      toast(fail ? T(ok + ' confirmed · ' + fail + ' failed — press again.', ok + '건 확인 · ' + fail + '건 실패 — 다시 눌러 주세요.')
+                 : T(ok + ' confirmed.', ok + '건 모두 확인했습니다.'));
+      repaint();
+      return;
+    }
+    var id = ids[i++];
+    fetch('/api/approval/requests/' + id + '/ack', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(r){ return r.json().catch(function(){ return {}; }); })
+    .then(function(j){ if (ackDone(j)) { ok++; ackDrop(id); } else fail++; next(); })
+    .catch(function(){ fail++; next(); });
+  }
+  next();
+};
+
 window.ackOne = function(id){
   var el = document.getElementById('ack-' + id);
   if (el) el.innerHTML = '<div class="steps">' + esc(T('Saving...', '저장 중...')) + '</div>';
@@ -2494,7 +2535,9 @@ window.ackOne = function(id){
   .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
   .then(function(res){
     // 이미 확인된 건은 «성공» 으로 친다 — 두 기기에서 눌렀을 때 실패로 보이지 않게.
-    if ((res.j && res.j.ok) || (res.j && res.j.error === 'already_acked')) {
+    /* ⚠️ 서버는 409 에 error:'not_ackable' + already_acked:true 로 준다(error 가 'already_acked' 가 아님).
+          옛 판정은 그래서 «다른 기기에서 이미 확인» 을 실패로 그렸다(2026-09-24 5단계에서 발견). */
+    if (ackDone(res.j)) {
       if (D) {
         D.ack_pending = (D.ack_pending || []).filter(function(x){ return x.id !== id; });
         if (D.summary) D.summary.ack_pending = (D.ack_pending || []).length;
