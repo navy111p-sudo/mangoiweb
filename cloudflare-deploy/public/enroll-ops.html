@@ -9,85 +9,126 @@
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
+  [hidden] { display:none !important; }
   body { font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕',sans-serif; margin:0; background:#faf7f0; color:#1f2430; }
   @media (min-width:1024px) { body { zoom:1.3; } } /* 관리자 서브페이지 공통 PC 확대 */
   .wrap { max-width:900px; margin:0 auto; padding:16px 14px 50px; }
   /* « 나가는 문 » (2026-09-03 사장님 지시 «뒤로가기 화살표, 홈버튼 만들어줘»)
      ⚠️ 이 style 안 주석에는 홑낫표를 쓰지 말 것 — admin_lazyload ②-3 이 «한자 폰트 장식 문자» 로 셉니다.
-     이 화면은 공용 [🏠][🌐] 바(mango-i18n.js)도 back-nav.js 도 안 싣고 있어 나갈 길이 하나도 없었다.
      ⛔ 아이콘만 두고 title 로 설명하지 말 것 — 폰에는 hover 가 없다(CLAUDE.md 2장). 글자를 함께 그린다. */
-  .nav { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
-  .nav a { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border:1.5px solid #e5d9bd; border-radius:999px;
-           background:#fff; color:#92400e; font-size:13px; font-weight:700; text-decoration:none; line-height:1.2; white-space:nowrap; }
-  .nav a:hover { background:#fff7e8; border-color:#f59e0b; }
+  .nav { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .nav a, .nav button { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border:1.5px solid #e5d9bd; border-radius:999px;
+           background:#fff; color:#92400e; font-size:13px; font-weight:700; text-decoration:none; line-height:1.2; white-space:nowrap; font-family:inherit; cursor:pointer; }
+  .nav a:hover, .nav button:hover { background:#fff7e8; border-color:#f59e0b; }
+  .nav .lang { margin-left:auto; }
   h1 { font-size:20px; color:#b45309; margin:6px 0 2px; }
-  .sub { color:#6b7280; font-size:12.5px; margin-bottom:12px; line-height:1.6; }
+  .sub { color:#475467; font-size:13px; margin-bottom:12px; line-height:1.6; }
+  /* 탭 — 넓은 화면은 줄바꿈, 폰(640px 이하)은 «한 줄 가로 스크롤» (2026-09-25 제안서 D안) */
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .tab { padding:8px 14px; border:1.5px solid #e5d9bd; border-radius:999px; background:#fff; font-size:13px; font-weight:700; cursor:pointer; color:#92400e; }
-  .tab.on { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#fff; border-color:#f59e0b; }
+  .tab { padding:8px 14px; border:1.5px solid #e5d9bd; border-radius:999px; background:#fff; font-size:13px; font-weight:700; cursor:pointer; color:#92400e; white-space:nowrap; font-family:inherit; }
+  .tab.on { background:#b45309; color:#fff; border-color:#b45309; }
+  .tab .cnt { display:inline-block; min-width:18px; margin-left:4px; padding:0 5px; border-radius:999px; background:#fde68a; color:#78350f; font-size:11px; text-align:center; }
+  .tab.on .cnt { background:#fff; color:#b45309; }
+  @media (max-width:640px) {
+    .tabs { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; scrollbar-width:thin; }
+    .tab { flex:0 0 auto; padding:10px 14px; }
+  }
   .card { background:#fff; border:1.5px solid #eadfc6; border-radius:14px; padding:14px 16px; margin-bottom:14px; }
-  .card h2 { font-size:14px; color:#92400e; margin:0 0 8px; }
+  .card h2 { font-size:15px; color:#92400e; margin:0 0 8px; }
+  /* «같은 일을 하는 다른 곳» 안내 — 한 화면이 한 가지 일만 하도록, 겹치는 메뉴를 이름으로 알려 준다 */
+  .alt { display:block; font-size:12.5px; color:#1d4ed8; background:#eef3fd; border-radius:8px; padding:6px 10px; margin:6px 0 10px; line-height:1.55; }
+  .alt a { color:#1d4ed8; font-weight:700; }
   table { border-collapse:collapse; width:100%; }
-  th, td { border-bottom:1px solid #f0e8d6; padding:7px 8px; text-align:left; font-size:13px; vertical-align:top; }
-  th { color:#92400e; font-size:12px; background:#fff7e8; }
+  th, td { border-bottom:1px solid #f0e8d6; padding:8px 8px; text-align:left; font-size:13.5px; vertical-align:top; }
+  th { color:#92400e; font-size:12.5px; background:#fff7e8; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  input, select { padding:6px 9px; border:1.5px solid #e5d9bd; border-radius:8px; font-size:13px; font-family:inherit; }
+  /* 폰에서 표를 «카드» 로 — 가로로 밀려 마지막 칸이 잘리던 것 (2026-09-25) */
+  @media (max-width:640px) {
+    table.rs thead { display:none; }
+    table.rs tr { display:block; border:1px solid #f0e8d6; border-radius:10px; padding:6px 10px; margin-bottom:8px; }
+    table.rs td { display:flex; justify-content:space-between; gap:10px; border:0; padding:4px 0; text-align:right; }
+    table.rs td::before { content:attr(data-l); color:#6b7280; font-size:12px; font-weight:600; text-align:left; }
+    table.rs td.full { display:block; text-align:left; }
+    table.rs td.full::before { content:none; }
+  }
+  input, select { padding:7px 9px; border:1.5px solid #e5d9bd; border-radius:8px; font-size:13.5px; font-family:inherit; background:#fff; color:#1f2430; }
   input[type=number] { width:96px; text-align:right; }
-  button { padding:6px 12px; border:1.5px solid #e5d9bd; border-radius:8px; background:#fff; font-size:12.5px; cursor:pointer; font-family:inherit; }
-  button.go { background:#f59e0b; border-color:#f59e0b; color:#fff; font-weight:700; }
+  button { padding:7px 12px; border:1.5px solid #e5d9bd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; font-family:inherit; color:#1f2430; }
+  button.go { background:#b45309; border-color:#b45309; color:#fff; font-weight:700; }
   button.danger { background:#fff1f2; border-color:#fecdd3; color:#be123c; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-  .msg { padding:20px 8px; text-align:center; color:#6b7280; font-size:13px; }
+  .msg { padding:20px 8px; text-align:center; color:#475467; font-size:13.5px; }
   .msg a { color:#b45309; }
-  .ok { color:#16a34a; font-weight:700; font-size:12px; }
-  .no { color:#dc2626; font-weight:700; font-size:12px; }
-  .hint { font-size:11.5px; color:#9ca3af; line-height:1.6; }
+  .ok { color:#15803d; font-weight:700; font-size:12.5px; }
+  .no { color:#b91c1c; font-weight:700; font-size:12.5px; }
+  .hint { font-size:12.5px; color:#667085; line-height:1.6; }
   .big { font-size:22px; font-weight:900; color:#b45309; }
-  .kv { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #f0e8d6; font-size:13px; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:700; background:#eef2ff; color:#3730a3; }
-  .pill.warn { background:#fff7e8; color:#b45309; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .p-red { background:#fdecec; color:#b91c1c; } .p-amb { background:#fdf1e2; color:#9a4a07; }
+  .p-blu { background:#e8eefc; color:#1d4ed8; } .p-grn { background:#e7f5ec; color:#15803d; } .p-gry { background:#eef0f2; color:#475467; }
+  /* 📋 오늘 할 일 — 줄마다 «무엇 · 얼마나 · 버튼 하나» */
+  .todo { display:grid; gap:8px; }
+  .todo .it { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 12px; border:1.5px solid #eadfc6; border-radius:12px; background:#fff; }
+  .todo .it .t { font-size:14px; font-weight:700; line-height:1.45; }
+  .todo .it .d { font-size:12.5px; color:#667085; margin-top:2px; line-height:1.5; }
+  .todo .it button { flex:0 0 auto; min-height:40px; }
+  .todo .it.calm { background:#fbfaf6; }
+  @media (max-width:640px) {
+    .todo .it { flex-direction:column; align-items:stretch; }
+    .todo .it button { width:100%; min-height:44px; }
+  }
+  .kv { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #f0e8d6; font-size:13.5px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <!-- « 나가는 문 » — ← 는 직전 페이지(판정 정본 back-nav.js 의 window.mangoiGoBack), 🏠 는 관리자 홈.
        href 는 폴백으로 남긴다(back-nav.js 가 없거나 캐시에 옛 사본이 남아도 최악이어도 관리자 홈으로는 간다).
-       ⚠️ 글자가 ← 로 시작해야 back-nav.js 가 «보이는 ← 가 이미 있다» 고 보고 자기 동그란 ← 를 안 넣는다(화살표 두 개 방지). -->
+       ⚠️ 글자가 ← 로 시작해야 back-nav.js 가 «보이는 ← 가 이미 있다» 고 보고 자기 동그란 ← 를 안 넣는다(화살표 두 개 방지).
+       ⚠️ 한/영 전환은 이 화면이 직접 그린다 — data-ko/data-en 을 «글자만 담은 span» 에 달고(아이콘·배지를 품은 요소에 달면
+          i18n 엔진이 textContent 를 갈아끼워 안쪽 요소가 사라진다 — CLAUDE.md 2장), 전환은 아래 applyLang 한 곳. -->
   <nav class="nav" aria-label="화면 이동">
     <a href="/admin.html" id="lnk-back" data-ko="← 뒤로" data-en="← Back" title="이전 화면으로">← 뒤로</a>
     <a href="/admin.html" id="lnk-home" data-ko="🏠 관리자 홈" data-en="🏠 Admin home" title="관리자 홈으로">🏠 관리자 홈</a>
+    <button type="button" class="lang" id="btn-lang" aria-label="한국어/English">🌐 <span id="lang-lbl">EN</span></button>
   </nav>
-  <h1>📚 수강 운영 관리</h1>
-  <div class="sub">결제→수업 자동 배정의 운영 설정입니다. 규칙 원천 = 결제규칙 정리본(2026-07-22, 장지웅 부장) + 확인질문 5답.</div>
-  <div class="tabs">
-    <div class="tab on" data-t="holidays">🎌 공휴일</div>
-    <div class="tab" data-t="ending">⏰ 종료 후보</div>
-    <div class="tab" data-t="rates">🧑‍🏫 강사 배율</div>
-    <div class="tab" data-t="refund">💸 환불 계산기</div>
-    <div class="tab" data-t="leave">🏖 강사 휴가 대체</div>
-    <div class="tab" data-t="sweeps">🔔 자동 작업 점검</div>
+  <h1><span data-ko="📚 수강 운영 관리" data-en="📚 Enrollment operations">📚 수강 운영 관리</span></h1>
+  <div class="sub"><span data-ko="학생 수강의 «끝·공휴일·강사 휴가·자동 문자» 를 한 곳에서 처리합니다. 맨 앞 «오늘 할 일» 에 먼저 볼 것이 급한 순서로 모입니다."
+    data-en="Handle enrollment endings, holidays, teacher leave and automatic messages in one place. «To-do today» lists what needs attention first.">학생 수강의 «끝·공휴일·강사 휴가·자동 문자» 를 한 곳에서 처리합니다. 맨 앞 «오늘 할 일» 에 먼저 볼 것이 급한 순서로 모입니다.</span></div>
+  <!-- 🧹 (2026-09-25 사장님 «D로 정리 → 공휴일 한 곳 → C로 완성») 탭 정리
+       · 「📋 오늘 할 일」을 맨 앞(기본 탭)으로
+       · 「💸 환불 계산기」 제거 — 정산·매출 › 환불 처리(/admin/refunds.html)가 같은 계산을 하고 실제 환불까지 한다.
+         옛 주소 #refund 는 그 화면으로 넘긴다(아래 applyHashTab).
+       · 이름: 강사 배율 → 수업료 배율(학생 결제액이 바뀐다) · 자동 작업 점검 → 자동 문자
+       ⚠️ data-t 값은 사이드바 손자 메뉴(js/adm-ia6.js 의 secs id)와 짝이다 — sidebar_three_level_harness 가 대조한다. -->
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab on" data-t="todo"><span data-ko="📋 오늘 할 일" data-en="📋 To-do today">📋 오늘 할 일</span><span class="cnt" id="cnt-todo" hidden></span></button>
+    <button type="button" class="tab" data-t="ending"><span data-ko="⏰ 종료 후보" data-en="⏰ Ending soon">⏰ 종료 후보</span><span class="cnt" id="cnt-ending" hidden></span></button>
+    <button type="button" class="tab" data-t="leave"><span data-ko="🏖 강사 휴가 대체" data-en="🏖 Leave cover">🏖 강사 휴가 대체</span></button>
+    <button type="button" class="tab" data-t="holidays"><span data-ko="🎌 공휴일" data-en="🎌 Holidays">🎌 공휴일</span><span class="cnt" id="cnt-holidays" hidden></span></button>
+    <button type="button" class="tab" data-t="rates"><span data-ko="💲 수업료 배율" data-en="💲 Price rates">💲 수업료 배율</span></button>
+    <button type="button" class="tab" data-t="sweeps"><span data-ko="🔔 자동 문자" data-en="🔔 Auto messages">🔔 자동 문자</span></button>
   </div>
   <div id="body"><div class="msg">불러오는 중…</div></div>
 </div>
 
 <script>
 'use strict';
-var TAB = 'holidays';
+var TAB = 'todo';
+var EN = false;
+try { EN = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
+function L(ko, en){ return EN ? en : ko; }
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function won(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
-function needLogin(){ $('body').innerHTML = '<div class="msg">관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fenroll-ops.html">로그인 하러 가기</a></div>'; }
+function won(n){ return Number(n||0).toLocaleString('ko-KR')+(EN?' KRW':'원'); }
+function needLogin(){ $('body').innerHTML = '<div class="msg">'+L('관리자 로그인이 필요합니다.','Admin login required.')+' <a href="/admin/login?next=%2Fenroll-ops.html">'+L('로그인 하러 가기','Log in')+'</a></div>'; }
 
 /* 🔒 (2026-09-10) 이 화면은 «본사 전용» 이 됐다 — 서버가 강사·지사·대리점에게 403 을 준다
    (enrollAdminHqOnly, src/enroll-ops.ts). 그 403 을 «그대로 흘리면 안 된다»:
-   아래 렌더러들이 전부 `j.holidays||[]` · `j.result||{}` 처럼 «없으면 빈 값» 으로 받아서
-   「등록된 공휴일이 없습니다」·「검사한 수강생 0명」 같은 **정상 문구**로 그린다.
-   ⟹ «못 본다» 가 «없다» 로 읽힌다(CLAUDE.md 「404 는 「Not Found」로 안 보일 수 있습니다 —
-      화면 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로」와 같은 뿌리).
-   ⚠️ 사이드바에서 감춘 것으로는 못 막는다 — 이 화면은 /admin/ 밖이라 로그인 게이트가 없고
-      조직 계정이 북마크·주소로 그대로 들어온다. 화면이 **이유를 말해야** 한다. */
+   렌더러가 «없으면 빈 값» 으로 받으면 「등록된 공휴일이 없습니다」 같은 **정상 문구**로 그린다.
+   ⟹ «못 본다» 가 «없다» 로 읽힌다. 화면이 **이유를 말해야** 한다. */
 function denied(msg){
-  $('body').innerHTML = '<div class="msg">🔒 ' + esc(msg || '이 기능은 본사 계정만 사용할 수 있습니다.') + '</div>';
+  $('body').innerHTML = '<div class="msg">🔒 ' + esc(msg || L('이 기능은 본사 계정만 사용할 수 있습니다.','Only HQ accounts can use this.')) + '</div>';
 }
 
 async function api(path, opts){
@@ -98,158 +139,278 @@ async function api(path, opts){
   if (r.status === 403) { denied(j && j.message); throw new Error('forbidden'); }
   return j || {};
 }
+function post(path, body){ return api(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
 
+/* «같은 일을 하는 다른 곳» 한 줄 — 겹치는 메뉴를 숨기지 않고 이름으로 알려 준다(제안서 D안).
+   ⚠️ 경로는 관리자 사이드바 이름 그대로 적는다(js/adm-ia6.js). 사이드바 이름을 바꾸면 여기도 함께. */
+function alt(ko, en){ return '<span class="alt">↔ ' + L(ko, en) + '</span>'; }
+
+/* 탭을 누르면 그 탭을 그린다. ⚠️ 탭 안 버튼은 .tab 이 아니라 부모 .tabs 에 위임한다(재그리기에도 산다). */
 document.querySelector('.tabs').addEventListener('click', function(ev){
   var t = ev.target.closest('.tab'); if (!t) return;
-  document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
-  t.classList.add('on'); TAB = t.getAttribute('data-t'); render();
+  goTab(t.getAttribute('data-t'));
 });
+function goTab(name){
+  var t = document.querySelector('.tab[data-t="' + String(name).replace(/"/g,'') + '"]'); if (!t) return;
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+  t.classList.add('on'); TAB = name;
+  try { history.replaceState(null, '', '#' + name); } catch(e){}
+  render();
+}
+function setCnt(id, n){
+  var el = $(id); if (!el) return;
+  if (n > 0) { el.textContent = String(n); el.hidden = false; } else { el.hidden = true; }
+}
 
-/* ═══ 🎌 공휴일 ═══ */
+/* ═══ 📋 오늘 할 일 (2026-09-25 — 제안서 C안) ═══
+   서버 요약 한 번(/api/pay/enroll/admin/todo)으로 «무엇을 먼저» 를 그린다.
+   ⛔ 칸이 { error } 면 0 이 아니라 «확인 못 함» 이라고 쓴다 — 0 은 «할 일 없음» 으로 읽힌다.
+   ✅ 줄마다 버튼은 «그 일을 하는 기존 탭» 을 연다 — 새 기능을 만들지 않고 길만 모은다. */
+var LEAVE_DAY = '';
+async function viewTodo(){
+  $('body').innerHTML = '<div class="msg">'+L('오늘 할 일을 모으는 중…','Collecting today’s to-do…')+'</div>';
+  var j = await api('/api/pay/enroll/admin/todo');
+  if (!j || j.ok !== true) { $('body').innerHTML = '<div class="msg no">'+L('요약을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.','Could not load the summary. Please reopen in a moment.')+'</div>'; return; }
+  var rows = [], urgent = 0;
+  function fail(what){ rows.push({ pill:'p-gry', pk:'확인 못 함', pe:'Unknown', t:L(what[0], what[1]) + ' — ' + L('확인하지 못했습니다','could not check'), d:'', btn:null }); }
+
+  var v = j.vacations || {};
+  if (v.error) fail(['강사 휴가','Teacher leave']);
+  else if (v.count > 0) {
+    urgent += v.count;
+    rows.push({ pill:'p-red', pk:'급함', pe:'Urgent',
+      t: L('다가오는 강사 휴가 ' + v.count + '건 — 수업을 다른 강사에게 넘겼는지 확인', v.count + ' upcoming teacher leave(s) — check the classes were handed over'),
+      d: (v.items||[]).map(function(x){ return esc(x.date + (x.end_date && x.end_date !== x.date ? '~' + x.end_date : '') + ' ' + (x.teacher || x.title)); }).join(' · '),
+      btn: { ko:'휴가 대체 열기', en:'Open leave cover', tab:'leave', day:(v.items && v.items[0] && v.items[0].date) || '' } });
+  }
+
+  var e = j.ending || {};
+  if (e.error) fail(['종료 후보','Ending soon']);
+  else {
+    setCnt('cnt-ending', e.count);
+    if (e.count > 0) {
+      urgent += e.count;
+      rows.push({ pill:'p-amb', pk:'이번 주', pe:'This week',
+        t: L(e.days + '일 넘게 새 수업이 없는 학생 ' + e.count + '명', e.count + ' student(s) with no new class for ' + e.days + '+ days'),
+        d: (e.top||[]).map(function(s){ return esc(s.name) + ' ' + s.days + L('일','d'); }).join(' · ') + (e.count > 3 ? L(' 외 ' + (e.count-3) + '명', ' +' + (e.count-3)) : ''),
+        btn: { ko:'명단 보기', en:'See list', tab:'ending' } });
+    } else rows.push({ pill:'p-grn', pk:'없음', pe:'None', t:L('종료 후보가 없습니다','No students ending'), d:'', btn:null, calm:true });
+  }
+
+  var m = j.calendar_missing || {};
+  if (m.error) fail(['캘린더 공휴일 대조','Calendar holiday check']);
+  else {
+    setCnt('cnt-holidays', m.count);
+    if (m.count > 0) {
+      urgent += m.count;
+      rows.push({ pill:'p-amb', pk:'확인', pe:'Check',
+        t: L('캘린더에만 있는 공휴일 ' + m.count + '건 — 이대로는 수업이 안 밀립니다', m.count + ' holiday(s) only in the Calendar — classes will not be moved'),
+        d: (m.top||[]).map(function(h){ return esc(h.day + ' ' + h.name); }).join(' · '),
+        btn: { ko:'공휴일 옮기기', en:'Move holidays', tab:'holidays' } });
+    }
+  }
+
+  var h = j.holidays || {};
+  if (h.error) fail(['다가오는 공휴일','Upcoming holidays']);
+  else if (h.count > 0) {
+    rows.push({ pill:'p-blu', pk:'자동', pe:'Auto', calm:true,
+      t: L('30일 안 공휴일 ' + h.count + '일 · 걸린 수업 ' + h.classes + '건 — 새벽 6시에 자동으로 뒤로 밀립니다', h.count + ' holiday(s) in 30 days · ' + h.classes + ' class(es) on them — moved automatically at 6 AM'),
+      d: (h.next||[]).map(function(x){ return esc(x.day + ' ' + x.name); }).join(' · '),
+      btn: { ko:'미리보기', en:'Preview', tab:'sweeps' } });
+  }
+
+  var x = j.expiry || {};
+  if (x.error) fail(['만료 안내 문자','Expiry messages']);
+  else rows.push({ pill:'p-blu', pk:'자동', pe:'Auto', calm:true,
+      t: L('오늘 10시 만료 안내 문자 대상 ' + x.count + '명 (7일 전 ' + x.exp7 + ' · 3일 전 ' + x.exp3 + ')', x.count + ' expiry message(s) today at 10 AM (7-day ' + x.exp7 + ' · 3-day ' + x.exp3 + ')'),
+      d: L('자동으로 나갑니다. 따로 할 일은 없습니다.', 'Sent automatically. Nothing to do.'),
+      btn: { ko:'대상 보기', en:'See recipients', tab:'sweeps' } });
+
+  setCnt('cnt-todo', urgent);
+  $('body').innerHTML =
+    '<div class="card"><h2>📋 ' + L('오늘 할 일', 'To-do today') + ' <span class="hint">' + esc(j.today || '') + '</span></h2>'
+    + (urgent ? '' : '<div class="ok" style="margin-bottom:8px">✅ ' + L('지금 손봐야 할 일이 없습니다.','Nothing needs action right now.') + '</div>')
+    + '<div class="todo">' + rows.map(function(r, i){
+        return '<div class="it' + (r.calm ? ' calm' : '') + '"><div><div class="t"><span class="pill ' + r.pill + '">' + L(r.pk, r.pe) + '</span> ' + r.t + '</div>'
+          + (r.d ? '<div class="d">' + r.d + '</div>' : '') + '</div>'
+          + (r.btn ? '<button type="button" class="' + (r.calm ? '' : 'go') + '" data-go="' + esc(r.btn.tab) + '" data-day="' + esc(r.btn.day || '') + '">' + L(r.btn.ko, r.btn.en) + '</button>' : '')
+          + '</div>';
+      }).join('') + '</div>'
+    + '<div class="hint" style="margin-top:10px">' + L('💸 환불은 정산·매출 › 환불 처리에서 합니다(같은 계산 + 실제 환불).', '💸 Refunds are handled in Finance › Refunds (same math + the actual refund).')
+    + ' <a href="/admin/refunds.html">' + L('환불 처리 열기', 'Open Refunds') + '</a></div></div>';
+  $('body').onclick = function(ev){
+    var b = ev.target.closest('button[data-go]'); if (!b) return;
+    LEAVE_DAY = b.getAttribute('data-day') || '';
+    goTab(b.getAttribute('data-go'));
+  };
+}
+
+/* ═══ 🎌 공휴일 ═══
+   🎌 (2026-09-25 «공휴일 한 곳으로») 수업을 미는 공휴일의 정본은 이 표(enroll_holidays) 하나다.
+   캘린더에만 있는 한국 공휴일은 위에 «옮기기» 목록으로 보여 주고, 사람이 눌러서 옮긴다.
+   ⛔ 자동으로 옮기지 않는다 — 한 번에 여러 날의 수업이 밀리는 일이라 사람이 고른다(서버 주석 참고). */
 async function viewHolidays(){
-  $('body').innerHTML = '<div class="msg">불러오는 중…</div>';
+  $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var j = await api('/api/pay/enroll/admin/holidays');
   var list = (j.holidays||[]);
-  $('body').innerHTML =
-    '<div class="card"><h2>🎌 공휴일 등록</h2>'
-    + '<div class="hint" style="margin-bottom:8px">등록된 날짜에는 <b>수업이 잡히지 않습니다</b>. 이미 잡힌 수업은 매일 새벽 6시에 자동으로 맨 뒤로 밀려 종료일이 늦어집니다(회차 수는 그대로).</div>'
-    + '<div class="row"><input type="date" id="hDay"><input id="hName" placeholder="예: 추석" style="width:160px"><button class="go" id="hAdd">추가</button><span id="hMsg"></span></div>'
-    + '<table><thead><tr><th>날짜</th><th>이름</th><th>등록</th><th></th></tr></thead><tbody>'
+  var miss = (j.calendar_missing||[]);
+  setCnt('cnt-holidays', miss.length);
+  var missHtml = '';
+  if (j.calendar_ok === false) {
+    missHtml = '<div class="hint" style="margin-bottom:10px">' + L('캘린더 공휴일과 대조하지 못했습니다(캘린더 표를 읽지 못함).','Could not compare with the Calendar holidays.') + '</div>';
+  } else if (miss.length) {
+    missHtml = '<div class="card" style="border-color:#f2d3a7;background:#fffaf1"><h2>⚠️ ' + L('캘린더에만 있는 한국 공휴일 ' + miss.length + '건', miss.length + ' Korean holiday(s) only in the Calendar') + '</h2>'
+      + '<div class="hint" style="margin-bottom:8px">' + L('강사 › 시간표·근무 › 캘린더에 적힌 공휴일은 <b>수업을 밀지 않습니다</b>. 수업을 미룰 날이면 «옮기기» 를 누르세요. 필리핀 공휴일은 학생 수업을 미는 날이 아니라 뺐습니다.',
+        'Holidays in Teachers › Schedule › Calendar <b>do not move classes</b>. Press «Move» for days that should push classes. Philippine holidays are left out.') + '</div>'
+      + '<table class="rs"><thead><tr><th>'+L('날짜','Date')+'</th><th>'+L('이름','Name')+'</th><th></th></tr></thead><tbody>'
+      + miss.map(function(h){
+          return '<tr><td data-l="'+L('날짜','Date')+'"><b>'+esc(h.day)+'</b></td><td data-l="'+L('이름','Name')+'">'+esc(h.name)+(h.country?'':' <span class="pill p-gry">'+L('국가 모름','country ?')+'</span>')+'</td>'
+            + '<td class="full"><button class="go" data-mv="'+esc(h.day)+'" data-nm="'+esc(h.name)+'">'+L('옮기기','Move')+'</button></td></tr>';
+        }).join('')
+      + '</tbody></table>'
+      + '<div class="row" style="margin-top:8px"><button id="mvAll">'+L('모두 옮기기 (' + miss.length + '건)', 'Move all (' + miss.length + ')')+'</button><span id="mvMsg"></span></div></div>';
+  }
+  $('body').innerHTML = missHtml +
+    '<div class="card"><h2>🎌 ' + L('수업을 미루는 공휴일', 'Holidays that push classes') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('여기 등록된 날에는 <b>새 수업이 잡히지 않고</b>, 이미 잡힌 수업은 매일 새벽 6시에 그 학생의 맨 뒤 수업 다음으로 옮겨집니다(회차 수는 그대로).',
+        'On these days <b>no new classes are booked</b>; existing classes move to after the student’s last class every day at 6 AM (same number of sessions).') + '</div>'
+    + alt('같은 달력: 강사 › 시간표·근무 › 캘린더 (보기용 — 수업은 안 밀림)', 'Same calendar: Teachers › Schedule › Calendar (view only — does not move classes)')
+    + '<div class="row"><input type="date" id="hDay" aria-label="'+L('날짜','Date')+'"><input id="hName" placeholder="'+L('예: 추석','e.g. Chuseok')+'" style="width:160px" aria-label="'+L('이름','Name')+'"><button class="go" id="hAdd">'+L('추가','Add')+'</button><span id="hMsg"></span></div>'
+    + '<table class="rs"><thead><tr><th>'+L('날짜','Date')+'</th><th>'+L('이름','Name')+'</th><th>'+L('등록','By')+'</th><th></th></tr></thead><tbody>'
     + (list.length ? list.map(function(h){
-        return '<tr><td><b>'+esc(h.day)+'</b></td><td>'+esc(h.name||'')+'</td>'
-          + '<td class="hint">'+esc(h.by_who||'')+'</td>'
-          + '<td><button class="danger" data-del="'+esc(h.day)+'">삭제</button></td></tr>';
-      }).join('') : '<tr><td colspan="4" class="hint">등록된 공휴일이 없습니다.</td></tr>')
+        return '<tr><td data-l="'+L('날짜','Date')+'"><b>'+esc(h.day)+'</b></td><td data-l="'+L('이름','Name')+'">'+esc(h.name||'')+'</td>'
+          + '<td data-l="'+L('등록','By')+'" class="hint">'+esc(h.by_who||'')+'</td>'
+          + '<td class="full"><button class="danger" data-del="'+esc(h.day)+'">'+L('삭제','Delete')+'</button></td></tr>';
+      }).join('') : '<tr><td colspan="4" class="hint full">'+L('등록된 공휴일이 없습니다.','No holidays registered.')+'</td></tr>')
     + '</tbody></table></div>';
+  async function add(day, name){ return post('/api/pay/enroll/admin/holidays', { day: day, name: name || '휴일' }); }
   $('hAdd').onclick = async function(){
     var day = $('hDay').value, name = $('hName').value || '휴일';
-    if (!day) { alert('날짜를 선택해 주세요.'); return; }
-    var r = await api('/api/pay/enroll/admin/holidays', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ day: day, name: name }) });
-    $('hMsg').innerHTML = r.ok ? '<span class="ok">✅ 저장됨</span>' : '<span class="no">실패</span>';
+    if (!day) { $('hMsg').innerHTML = '<span class="no">'+L('날짜를 선택해 주세요.','Pick a date.')+'</span>'; return; }
+    var r = await add(day, name);
+    $('hMsg').innerHTML = r.ok ? '<span class="ok">✅ '+L('저장됨','Saved')+'</span>' : '<span class="no">'+L('실패','Failed')+'</span>';
     if (r.ok) viewHolidays();
   };
-  $('body').addEventListener('click', async function(ev){
+  if ($('mvAll')) $('mvAll').onclick = async function(){
+    if (!confirm(L(miss.length + '일을 수업 미루는 공휴일로 옮길까요?\n그날 잡힌 수업은 새벽 6시에 뒤로 밀립니다.', 'Move ' + miss.length + ' day(s)? Classes on those days will be moved at 6 AM.'))) return;
+    var okN = 0;
+    for (var i = 0; i < miss.length; i++) { try { var r = await add(miss[i].day, miss[i].name); if (r.ok) okN++; } catch(e){} }
+    $('mvMsg').innerHTML = '<span class="' + (okN === miss.length ? 'ok' : 'no') + '">' + L(okN + '/' + miss.length + '건 옮김', okN + '/' + miss.length + ' moved') + '</span>';
+    setTimeout(viewHolidays, 700);
+  };
+  $('body').onclick = async function(ev){
+    var mv = ev.target.closest('button[data-mv]');
+    if (mv) {
+      if (!confirm(L(mv.getAttribute('data-mv') + ' 을(를) 수업 미루는 공휴일로 옮길까요?', 'Move ' + mv.getAttribute('data-mv') + '?'))) return;
+      var r = await add(mv.getAttribute('data-mv'), mv.getAttribute('data-nm'));
+      if (r.ok) viewHolidays(); else mv.insertAdjacentHTML('afterend', ' <span class="no">'+L('실패','Failed')+'</span>');
+      return;
+    }
     var b = ev.target.closest('button[data-del]'); if (!b) return;
-    if (!confirm(b.getAttribute('data-del')+' 공휴일을 삭제할까요?')) return;
-    await api('/api/pay/enroll/admin/holidays', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ day: b.getAttribute('data-del'), remove: true }) });
+    if (!confirm(L(b.getAttribute('data-del')+' 공휴일을 삭제할까요?', 'Delete holiday ' + b.getAttribute('data-del') + '?'))) return;
+    await post('/api/pay/enroll/admin/holidays', { day: b.getAttribute('data-del'), remove: true });
     viewHolidays();
-  });
+  };
 }
 
 /* ═══ ⏰ 종료 후보 ═══ */
 async function viewEnding(){
-  $('body').innerHTML = '<div class="msg">불러오는 중…</div>';
+  $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var days = 21;
   async function load(d){
     var j = await api('/api/pay/enroll/admin/ending-soon?days='+d);
+    if (!j || j.ok !== true) { $('body').innerHTML = '<div class="msg no">'+L('명단을 불러오지 못했습니다.','Could not load the list.')+'</div>'; return; }
     var st = (j.students||[]);
+    if (d === 21) setCnt('cnt-ending', st.length);
     $('body').innerHTML =
-      '<div class="card"><h2>⏰ 종료 후보 명단 <span class="pill">부장님 요청 ①</span></h2>'
-      + '<div class="hint" style="margin-bottom:8px">마지막 수업 이후 <b>N일 이상</b> 새 수업이 없는 학생입니다. 3주(21일) 미결제가 기본 종료 기준입니다(부장님 답변 14번).</div>'
-      + '<div class="row">기준: <select id="eDays">'
-      + [7,14,21,30,60].map(function(x){ return '<option value="'+x+'"'+(x===d?' selected':'')+'>'+x+'일 이상</option>'; }).join('')
-      + '</select><span class="hint">총 <b>'+st.length+'명</b> (오늘 '+esc(j.today)+')</span></div>'
-      + '<table><thead><tr><th>학생</th><th>대리점</th><th>마지막 수업</th><th class="num">경과일</th><th class="num">누적 수업</th></tr></thead><tbody>'
+      '<div class="card"><h2>⏰ ' + L('종료 후보 명단','Ending soon') + '</h2>'
+      + '<div class="hint" style="margin-bottom:8px">' + L('마지막 수업 뒤 <b>N일 넘게</b> 새 수업이 없는 학생입니다. 기본 기준은 3주(21일) — 3주 동안 결제가 없으면 종료 후보로 봅니다.',
+          'Students with no new class for <b>N+ days</b> after their last one. Default is 3 weeks (21 days) without payment.') + '</div>'
+      + alt('비슷한 명단: 학생 › 학생 명부 › 만료 임박 학생 (수강 만료일 기준) · 오늘 › 장기 결석생 (연속 결석 기준) · 시스템 › 이탈·예측 (AI 신호 기준)',
+            'Similar lists: Students › Roster › Expiring soon (by end date) · Today › Long absent (by absences) · System › Retention (AI signals)')
+      + '<div class="row"><label for="eDays">'+L('기준','Rule')+'</label> <select id="eDays">'
+      + [7,14,21,30,60].map(function(x){ return '<option value="'+x+'"'+(x===d?' selected':'')+'>'+L(x+'일 이상', x+'+ days')+'</option>'; }).join('')
+      + '</select><span class="hint">'+L('총 <b>'+st.length+'명</b> (오늘 '+esc(j.today)+')', '<b>'+st.length+'</b> student(s) (today '+esc(j.today)+')')+'</span></div>'
+      + '<table class="rs"><thead><tr><th>'+L('학생','Student')+'</th><th>'+L('대리점','Agency')+'</th><th>'+L('마지막 수업','Last class')+'</th><th class="num">'+L('경과일','Days')+'</th><th class="num">'+L('누적 수업','Classes')+'</th></tr></thead><tbody>'
       + (st.length ? st.map(function(s){
-          return '<tr><td><b>'+esc(s.name||s.user_id)+'</b><div class="hint">'+esc(s.user_id)+'</div></td>'
-            + '<td>'+esc(s.shop_name||'')+'</td><td>'+esc(s.last_date)+'</td>'
-            + '<td class="num">'+s.days_since+'일</td><td class="num">'+s.past_classes+'</td></tr>';
-        }).join('') : '<tr><td colspan="5" class="hint">해당 학생이 없습니다. 👍</td></tr>')
+          return '<tr><td data-l="'+L('학생','Student')+'"><span><b>'+esc(s.name||s.user_id)+'</b> <span class="hint">'+esc(s.user_id)+'</span></span></td>'
+            + '<td data-l="'+L('대리점','Agency')+'">'+esc(s.shop_name||'—')+'</td><td data-l="'+L('마지막 수업','Last class')+'">'+esc(s.last_date)+'</td>'
+            + '<td class="num" data-l="'+L('경과일','Days')+'">'+s.days_since+L('일','d')+'</td><td class="num" data-l="'+L('누적 수업','Classes')+'">'+s.past_classes+'</td></tr>';
+        }).join('') : '<tr><td colspan="5" class="hint full">'+L('해당 학생이 없습니다. 👍','No students. 👍')+'</td></tr>')
       + '</tbody></table></div>';
     $('eDays').onchange = function(){ load(Number(this.value)); };
   }
   load(days);
 }
 
-/* ═══ 🧑‍🏫 강사 배율 ═══ */
+/* ═══ 💲 수업료 배율 (옛 이름 «강사 배율») ═══
+   ⚠️ 이 값은 강사 «급여» 가 아니라 그 강사를 고른 학생의 «결제액» 에 곱해진다 — 그래서 이름을 바꿨다(2026-09-25). */
 async function viewRates(){
-  $('body').innerHTML = '<div class="msg">불러오는 중…</div>';
+  $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var j = await api('/api/pay/enroll/admin/teacher-rates');
   var ts = (j.teachers||[]);
   $('body').innerHTML =
-    '<div class="card"><h2>🧑‍🏫 강사 등급 배율 · 긴 수업 정원</h2>'
-    + '<div class="hint" style="margin-bottom:8px">인기 강사에게 수업료를 더 받는 기능입니다(부장님 요청 ③). <b>배율 정책이 확정될 때까지 전원 100%로 두세요.</b> 변경 시 <b>새 결제부터</b> 적용되고 기존 수업에는 영향이 없습니다.</div>'
+    '<div class="card"><h2>💲 ' + L('강사별 수업료 배율 · 긴 수업 정원','Per-teacher price rate · long-class cap') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('인기 강사를 고른 학생에게 수업료를 더 받는 값입니다(강사 급여가 아닙니다). <b>정책이 확정될 때까지 전원 100%로 두세요.</b> 바꾸면 <b>새 결제부터</b> 적용되고 기존 결제는 그대로입니다.',
+        'Raises the class price for students who pick this teacher (not teacher pay). <b>Keep everyone at 100% until the policy is final.</b> Changes apply to <b>new payments only</b>.') + '</div>'
+    + alt('강사 급여 배율은 강사 › 급여 에서 따로 정합니다.', 'Teacher pay is set separately in Teachers › Payroll.')
     /* 🪑 (2026-08-17) 긴 수업 하루 정원 — 강사가 적은데 30·40분을 무제한으로 열면
        한 강사의 하루가 긴 수업으로 차서 20분 학생 자리가 사라진다. 0 = 무제한(기존 동작). */
-    + '<div class="hint" style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px">'
-    + '<b>🪑 긴 수업 정원</b> — 그 강사가 <b>하루에 받을 수 있는 «20분 초과» 수업(30·40분) 건수</b>입니다. '
-    + '요일마다 따로 셉니다. <b>0 = 무제한</b>(지금까지의 동작). '
-    + '정원이 차면 그 강사는 학생 예약 화면의 강사 목록에서 <b>빠지고</b>, 관리자 등록에서는 확인창이 뜹니다. '
-    + '⚠️ 30분만 세면 40분으로 그대로 빠져나가므로 <b>둘을 합쳐</b> 셉니다.</div>'
-    + '<table><thead><tr><th>강사</th><th class="num">배율(%)</th><th class="num">긴 수업 정원(하루)</th><th></th><th>메모</th></tr></thead><tbody>'
+    + '<div class="hint" style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;color:#475467">'
+    + L('<b>🪑 긴 수업 정원</b> — 그 강사가 <b>하루에 받을 수 있는 «20분 초과» 수업(30·40분) 건수</b>입니다. 요일마다 따로 셉니다. <b>0 = 무제한</b>. 정원이 차면 그 강사는 학생 예약 화면의 강사 목록에서 <b>빠지고</b>, 관리자 등록에서는 확인창이 뜹니다. 30분과 40분을 <b>합쳐</b> 셉니다.',
+        '<b>🪑 Long-class cap</b> — how many classes longer than 20 min (30/40) the teacher takes <b>per day</b>. <b>0 = no limit</b>. When full, the teacher is hidden from the student booking list. 30 and 40 min are counted together.')
+    + '</div>'
+    + '<table class="rs"><thead><tr><th>'+L('강사','Teacher')+'</th><th class="num">'+L('배율(%)','Rate (%)')+'</th><th class="num">'+L('긴 수업 정원(하루)','Long-class cap / day')+'</th><th></th><th>'+L('메모','Note')+'</th></tr></thead><tbody>'
     + ts.map(function(t){
         var cap = Number(t.long_class_daily_cap||0);
-        return '<tr data-tid="'+esc(t.id)+'"><td><b>'+esc(t.name)+'</b></td>'
-          + '<td class="num"><input class="pct" type="number" step="5" min="50" max="300" value="'+(t.rate_pct||100)+'"></td>'
-          + '<td class="num"><input class="cap" type="number" step="1" min="0" max="50" value="'+cap+'">'
-          + ' <span class="hint">'+(cap>0?('하루 '+cap+'건'):'무제한')+'</span></td>'
-          + '<td><button class="go">저장</button> <span class="st"></span></td>'
-          + '<td class="hint">'+esc(t.note||'')+'</td></tr>';
+        return '<tr data-tid="'+esc(t.id)+'"><td data-l="'+L('강사','Teacher')+'"><b>'+esc(t.name)+'</b></td>'
+          + '<td class="num" data-l="'+L('배율(%)','Rate (%)')+'"><input class="pct" type="number" step="5" min="50" max="300" value="'+(t.rate_pct||100)+'" aria-label="'+L('배율','Rate')+'"></td>'
+          + '<td class="num" data-l="'+L('긴 수업 정원','Cap')+'"><span><input class="cap" type="number" step="1" min="0" max="50" value="'+cap+'" aria-label="'+L('정원','Cap')+'">'
+          + ' <span class="hint capl">'+(cap>0?L('하루 '+cap+'건', cap+'/day'):L('무제한','no limit'))+'</span></span></td>'
+          + '<td class="full"><button class="go">'+L('저장','Save')+'</button> <span class="st"></span></td>'
+          + '<td class="hint" data-l="'+L('메모','Note')+'">'+esc(t.note||'')+'</td></tr>';
       }).join('')
     + '</tbody></table></div>';
-  $('body').addEventListener('click', async function(ev){
+  $('body').onclick = async function(ev){
     var b = ev.target.closest('button.go'); if (!b) return;
     var tr = b.closest('tr'), tid = tr.getAttribute('data-tid');
     var pct = Number(tr.querySelector('input.pct').value||100);
     var cap = Number(tr.querySelector('input.cap').value||0);
-    var r = await api('/api/pay/enroll/admin/teacher-rates', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_id: tid, rate_pct: pct, long_class_daily_cap: cap }) });
-    tr.querySelector('.st').innerHTML = r.ok ? '<span class="ok">✅</span>' : '<span class="no">'+esc(r.message||'실패')+'</span>';
-    if (r.ok) { var h = tr.querySelector('td.num .hint'); if (h) h.textContent = cap>0 ? ('하루 '+cap+'건') : '무제한'; }
-  });
-}
-
-/* ═══ 💸 환불 계산기 ═══ */
-async function viewRefund(){
-  $('body').innerHTML =
-    '<div class="card"><h2>💸 환불 계산기</h2>'
-    + '<div class="hint" style="margin-bottom:8px">규칙(확인답변 ④): <b>기간 할인을 취소</b>하고 사용한 회차를 정가로 계산한 뒤 잔액을 환불합니다. 여기서는 <b>금액만 계산</b>하며 실제 환불은 사람이 진행합니다.</div>'
-    + '<div class="row"><input id="rOrder" placeholder="주문번호 (예: MGE-…)" style="width:280px"><button class="go" id="rGo">계산</button></div>'
-    + '<div id="rOut"></div></div>';
-  $('rGo').onclick = async function(){
-    var id = $('rOrder').value.trim(); if (!id) return;
-    $('rOut').innerHTML = '<div class="hint">계산 중…</div>';
-    var j = await api('/api/pay/enroll/admin/refund-quote?order_id='+encodeURIComponent(id));
-    if (!j.ok) { $('rOut').innerHTML = '<div class="no">'+esc(j.message||j.error)+'</div>'; return; }
-    $('rOut').innerHTML =
-      '<div style="margin-top:10px">'
-      + '<div class="kv"><span>학생</span><b>'+esc(j.student||'')+'</b></div>'
-      + '<div class="kv"><span>결제액</span><b>'+won(j.paid_amount)+'</b></div>'
-      + '<div class="kv"><span>총 회차 / 남은 회차</span><b>'+j.sessions+'회 / '+j.remain+'회</b></div>'
-      + '<div class="kv"><span>사용 회차</span><b>'+j.used+'회</b></div>'
-      + '<div class="kv"><span>정가 회당 (할인 취소)</span><b>'+won(j.listPerSession)+'</b></div>'
-      + '<div class="kv"><span>사용분 차감</span><b>− '+won(j.usedValue)+'</b></div>'
-      + '<div style="margin-top:12px;text-align:center"><div class="hint">환불 예정액</div><div class="big">'+won(j.refund)+'</div></div>'
-      + '<div class="hint" style="margin-top:10px">'+esc(j.policy)+'</div></div>';
+    var r = await post('/api/pay/enroll/admin/teacher-rates', { teacher_id: tid, rate_pct: pct, long_class_daily_cap: cap });
+    tr.querySelector('.st').innerHTML = r.ok ? '<span class="ok">✅</span>' : '<span class="no">'+esc(r.message||L('실패','Failed'))+'</span>';
+    if (r.ok) { var h = tr.querySelector('.capl'); if (h) h.textContent = cap>0 ? L('하루 '+cap+'건', cap+'/day') : L('무제한','no limit'); }
   };
 }
 
 /* ═══ 🏖 강사 휴가 대체 ═══ */
 async function viewLeave(){
-  $('body').innerHTML = '<div class="msg">불러오는 중…</div>';
+  $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var t = await api('/api/pay/enroll/teachers');
   var opts = (t.teachers||[]).map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>'; }).join('');
   $('body').innerHTML =
-    '<div class="card"><h2>🏖 강사 휴가 — 다른 강사로 수업 넘기기</h2>'
-    + '<div class="hint" style="margin-bottom:8px">그 날짜의 수업을 통째로 대체 강사에게 넘깁니다(부장님 답변 23번). <b>대체 강사가 이미 그 시간에 수업이 있으면 자동으로 건너뜁니다.</b> 먼저 [미리보기]로 확인하세요.</div>'
-    + '<div class="row">날짜 <input type="date" id="lDay">'
-    + ' 휴가 강사 <select id="lFrom">'+opts+'</select>'
-    + ' → 대체 강사 <select id="lTo">'+opts+'</select></div>'
-    + '<div class="row"><button id="lDry">미리보기</button><button class="go" id="lGo">실행</button></div>'
+    '<div class="card"><h2>🏖 ' + L('강사 휴가 — 그날 수업을 다른 강사에게 넘기기','Teacher leave — hand that day’s classes to another teacher') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('그 날짜의 수업을 통째로 대체 강사에게 넘깁니다. <b>대체 강사가 그 시간에 이미 수업이 있으면 건너뜁니다.</b> 먼저 [미리보기]로 확인하세요.',
+        'Hands all classes on that date to the cover teacher. <b>Classes the cover teacher is already busy for are skipped.</b> Check with [Preview] first.') + '</div>'
+    + alt('한 수업만 넘길 때: 오늘 › 오늘 수업 › 강사 칸의 🔄 · 휴가 «기록»: 강사 › 시간표·근무 › 캘린더', 'One class only: Today › Today’s classes › 🔄 in the teacher column · Recording leave: Teachers › Schedule › Calendar')
+    + '<div class="row"><label for="lDay">'+L('날짜','Date')+'</label> <input type="date" id="lDay" value="'+esc(LEAVE_DAY)+'">'
+    + ' <label for="lFrom">'+L('휴가 강사','On leave')+'</label> <select id="lFrom">'+opts+'</select>'
+    + ' → <label for="lTo">'+L('대체 강사','Cover')+'</label> <select id="lTo">'+opts+'</select></div>'
+    + '<div class="row"><button id="lDry">'+L('미리보기','Preview')+'</button><button class="go" id="lGo">'+L('실행','Run')+'</button></div>'
     + '<div id="lOut"></div></div>';
+  LEAVE_DAY = '';
   async function run(dry){
     var day = $('lDay').value, from = $('lFrom').value, to = $('lTo').value;
-    if (!day) { alert('날짜를 선택해 주세요.'); return; }
-    if (from === to) { alert('휴가 강사와 대체 강사가 같습니다.'); return; }
-    if (!dry && !confirm(day+' 수업을 정말 넘길까요?')) return;
-    $('lOut').innerHTML = '<div class="hint">처리 중…</div>';
-    var j = await api('/api/pay/enroll/admin/teacher-leave', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ day: day, from_teacher_id: from, to_teacher_id: to, dry: dry }) });
+    if (!day) { $('lOut').innerHTML = '<div class="no">'+L('날짜를 선택해 주세요.','Pick a date.')+'</div>'; return; }
+    if (from === to) { $('lOut').innerHTML = '<div class="no">'+L('휴가 강사와 대체 강사가 같습니다.','Same teacher on both sides.')+'</div>'; return; }
+    if (!dry && !confirm(L(day+' 수업을 정말 넘길까요?', 'Really hand over the classes on '+day+'?'))) return;
+    $('lOut').innerHTML = '<div class="hint">'+L('처리 중…','Working…')+'</div>';
+    var j = await post('/api/pay/enroll/admin/teacher-leave', { day: day, from_teacher_id: from, to_teacher_id: to, dry: dry });
     if (!j.ok) { $('lOut').innerHTML = '<div class="no">'+esc(j.error)+'</div>'; return; }
     $('lOut').innerHTML = '<div style="margin-top:10px">'
-      + '<div class="'+(j.moved_count?'ok':'hint')+'">'+(dry?'미리보기: ':'')+'넘길 수업 '+j.moved_count+'건'+(j.skipped_count?(' · 건너뜀 '+j.skipped_count+'건'):'')+'</div>'
-      + (j.moved.length ? '<table><thead><tr><th>시각</th><th>학생</th></tr></thead><tbody>'
+      + '<div class="'+(j.moved_count?'ok':'hint')+'">'+(dry?L('미리보기: ','Preview: '):'')+L('넘길 수업 '+j.moved_count+'건', j.moved_count+' class(es) to hand over')+(j.skipped_count?L(' · 건너뜀 '+j.skipped_count+'건', ' · '+j.skipped_count+' skipped'):'')+'</div>'
+      + (j.moved.length ? '<table><thead><tr><th>'+L('시각','Time')+'</th><th>'+L('학생','Student')+'</th></tr></thead><tbody>'
           + j.moved.map(function(m){ return '<tr><td>'+esc(m.time)+'</td><td>'+esc(m.student||'')+'</td></tr>'; }).join('') + '</tbody></table>' : '')
-      + (j.skipped.length ? '<div class="no" style="margin-top:8px">건너뜀</div><table><tbody>'
+      + (j.skipped.length ? '<div class="no" style="margin-top:8px">'+L('건너뜀','Skipped')+'</div><table><tbody>'
           + j.skipped.map(function(m){ return '<tr><td>'+esc(m.time)+'</td><td>'+esc(m.student||'')+'</td><td class="hint">'+esc(m.reason)+'</td></tr>'; }).join('') + '</tbody></table>' : '')
       + '</div>';
   }
@@ -257,52 +418,62 @@ async function viewLeave(){
   $('lGo').onclick = function(){ run(false); };
 }
 
-/* ═══ 🔔 자동 작업 점검 ═══ */
+/* ═══ 🔔 자동 문자 (옛 이름 «자동 작업 점검») ═══ */
 async function viewSweeps(){
   $('body').innerHTML =
-    '<div class="card"><h2>🔔 만료 안내 문자 (매일 오전 10시 자동)</h2>'
-    + '<div class="hint" style="margin-bottom:8px">마지막 수업 <b>7일 전·3일 전</b>에 재결제 안내 문자를 1회씩 보냅니다(부장님 답변 17번). 아래는 <b>지금 대상이 누구인지</b>만 확인합니다(문자는 안 나감).</div>'
-    + '<div class="row"><button class="go" id="sExp">지금 대상 확인</button></div><div id="sExpOut"></div></div>'
-    + '<div class="card"><h2>🎌 공휴일 연기 (매일 새벽 6시 자동)</h2>'
-    + '<div class="hint" style="margin-bottom:8px">등록된 공휴일에 걸린 수업을 맨 뒤로 밀어 종료일을 늦춥니다(확인답변 ⑤).</div>'
-    + '<div class="row"><button class="go" id="sHol">지금 이동 대상 확인</button></div><div id="sHolOut"></div></div>';
+    '<div class="card"><h2>🔔 ' + L('만료 안내 문자 (매일 오전 10시 자동)','Expiry message (auto, 10 AM daily)') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('마지막 수업 <b>7일 전·3일 전</b>에 재결제 안내 문자를 한 번씩 보냅니다. 아래 버튼은 <b>지금 대상이 누구인지</b>만 보여 줍니다(문자는 안 나감).',
+        'Sends a renewal notice <b>7 and 3 days</b> before the last class. The button below only <b>shows who is due</b> (no message is sent).') + '</div>'
+    + alt('다른 자동 문자: 정산·매출 › 결제 › 미납 자동 추적 (매일 새벽 3시 독촉)', 'Other automatic messages: Finance › Payments › Auto dunning (3 AM daily)')
+    + '<div class="row"><button class="go" id="sExp">'+L('지금 대상 확인','Check recipients')+'</button></div><div id="sExpOut"></div></div>'
+    + '<div class="card"><h2>🎌 ' + L('공휴일 수업 미루기 (매일 새벽 6시 자동)','Holiday class move (auto, 6 AM daily)') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('«🎌 공휴일» 탭에 등록된 날에 걸린 수업을 그 학생의 맨 뒤로 옮겨 종료일을 늦춥니다.', 'Moves classes on the days in the «🎌 Holidays» tab to after the student’s last class.') + '</div>'
+    + '<div class="row"><button class="go" id="sHol">'+L('지금 옮길 대상 확인','Check classes to move')+'</button></div><div id="sHolOut"></div></div>';
   $('sExp').onclick = async function(){
-    $('sExpOut').innerHTML = '<div class="hint">확인 중…</div>';
+    $('sExpOut').innerHTML = '<div class="hint">'+L('확인 중…','Checking…')+'</div>';
     var j = await api('/api/pay/enroll/admin/expiry-sweep?dry=1');
     var r = j.result||{};
-    $('sExpOut').innerHTML = '<div class="hint">검사한 수강생 '+ (r.checked||0) +'명 · 오늘 발송 대상 <b>'+((r.due||[]).length)+'명</b></div>'
-      + ((r.due||[]).length ? '<table><thead><tr><th>학생ID</th><th>종료일</th><th class="num">남은 일수</th></tr></thead><tbody>'
-        + r.due.map(function(d){ return '<tr><td>'+esc(d.uid)+'</td><td>'+esc(d.last_date)+'</td><td class="num">'+d.days_left+'일</td></tr>'; }).join('')
+    if (j.ok !== true || r.ok === false) { $('sExpOut').innerHTML = '<div class="no">'+L('확인하지 못했습니다.','Could not check.')+'</div>'; return; }
+    $('sExpOut').innerHTML = '<div class="hint">'+L('검사한 수강생 '+(r.checked||0)+'명 · 오늘 발송 대상 <b>'+((r.due||[]).length)+'명</b>', (r.checked||0)+' checked · <b>'+((r.due||[]).length)+'</b> due today')+'</div>'
+      + ((r.due||[]).length ? '<table class="rs"><thead><tr><th>'+L('학생 아이디','Student ID')+'</th><th>'+L('종료일','Ends')+'</th><th class="num">'+L('남은 일수','Days left')+'</th></tr></thead><tbody>'
+        + r.due.map(function(d){ return '<tr><td data-l="'+L('학생','Student')+'">'+esc(d.uid)+'</td><td data-l="'+L('종료일','Ends')+'">'+esc(d.last_date)+'</td><td class="num" data-l="'+L('남은 일수','Days left')+'">'+d.days_left+L('일','d')+'</td></tr>'; }).join('')
         + '</tbody></table>' : '');
   };
   $('sHol').onclick = async function(){
-    $('sHolOut').innerHTML = '<div class="hint">확인 중…</div>';
+    $('sHolOut').innerHTML = '<div class="hint">'+L('확인 중…','Checking…')+'</div>';
     var j = await api('/api/pay/enroll/admin/holiday-shift?dry=1');
     var r = j.result||{};
-    $('sHolOut').innerHTML = '<div class="hint">등록 공휴일 '+(r.holidays||0)+'건 · 이동 대상 <b>'+((r.items||[]).length)+'건</b>'+(r.failed?(' · 자리 못 찾음 '+r.failed+'건'):'')+'</div>'
-      + ((r.items||[]).length ? '<table><thead><tr><th>학생</th><th>공휴일</th><th>→ 이동 예정일</th></tr></thead><tbody>'
-        + r.items.map(function(i){ return '<tr><td>'+esc(i.uid)+'</td><td>'+esc(i.from)+'</td><td><b>'+esc(i.to)+'</b></td></tr>'; }).join('')
+    if (j.ok !== true || r.ok === false) { $('sHolOut').innerHTML = '<div class="no">'+L('확인하지 못했습니다.','Could not check.')+'</div>'; return; }
+    $('sHolOut').innerHTML = '<div class="hint">'+L('등록 공휴일 '+(r.holidays||0)+'건 · 옮길 수업 <b>'+((r.items||[]).length)+'건</b>', (r.holidays||0)+' holiday(s) · <b>'+((r.items||[]).length)+'</b> class(es) to move')+(r.failed?L(' · 자리 못 찾음 '+r.failed+'건',' · '+r.failed+' without a free slot'):'')+'</div>'
+      + ((r.items||[]).length ? '<table class="rs"><thead><tr><th>'+L('학생','Student')+'</th><th>'+L('공휴일','Holiday')+'</th><th>'+L('→ 옮길 날','→ New date')+'</th></tr></thead><tbody>'
+        + r.items.map(function(i){ return '<tr><td data-l="'+L('학생','Student')+'">'+esc(i.uid)+'</td><td data-l="'+L('공휴일','Holiday')+'">'+esc(i.from)+'</td><td data-l="'+L('→ 옮길 날','→ New date')+'"><b>'+esc(i.to)+'</b></td></tr>'; }).join('')
         + '</tbody></table>' : '');
   };
 }
 
 function render(){
-  if (TAB === 'holidays') return viewHolidays();
-  if (TAB === 'ending') return viewEnding();
-  if (TAB === 'rates') return viewRates();
-  if (TAB === 'refund') return viewRefund();
-  if (TAB === 'leave') return viewLeave();
-  if (TAB === 'sweeps') return viewSweeps();
+  $('body').onclick = null;   // 탭마다 위임 핸들러를 새로 단다 — 옛 탭 핸들러가 쌓여 두 번 도는 일을 막는다
+  var p;
+  if (TAB === 'todo') p = viewTodo();
+  else if (TAB === 'holidays') p = viewHolidays();
+  else if (TAB === 'ending') p = viewEnding();
+  else if (TAB === 'rates') p = viewRates();
+  else if (TAB === 'leave') p = viewLeave();
+  else if (TAB === 'sweeps') p = viewSweeps();
+  if (p && p.catch) p.catch(function(e){
+    if (e && (e.message === 'auth' || e.message === 'forbidden')) return;   // 이미 화면에 이유를 적었다
+    $('body').innerHTML = '<div class="msg no">'+L('불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.','Could not load. Please reopen in a moment.')+'</div>';
+  });
 }
 
 /* ═══ 🧭 (2026-08-19) 주소 뒤 #탭이름 으로 바로 그 탭을 연다 ═══
-   관리자 사이드바의 손자 메뉴(「강사 ▸ 수강 운영 ▸ 💸 환불 계산기」)가 이 주소로 온다.
-   이 화면은 탭 하나만 그리는 구조라, 해시를 안 보면 무엇을 눌러도 늘 「공휴일」이 열린다
-   — 쓰는 사람에게는 «손자 메뉴가 다 같은 데로 간다» 로 보인다.
-   ⚠️ 탭 이름은 위 .tab[data-t] 값과 같아야 한다. 모르는 이름이면 조용히 기본 탭(공휴일)이다
-      (하니스 sidebar_three_level_harness 가 사이드바 목록과 이 값이 어긋나면 FAIL 낸다). */
+   관리자 사이드바의 손자 메뉴(「학생 ▸ 수강 운영 ▸ ⏰ 종료 후보 명단」)가 이 주소로 온다.
+   ⚠️ 탭 이름은 위 .tab[data-t] 값과 같아야 한다. 모르는 이름이면 조용히 기본 탭(오늘 할 일)이다
+      (하니스 sidebar_three_level_harness 가 사이드바 목록과 이 값이 어긋나면 FAIL 낸다).
+   💸 (2026-09-25) 옛 «환불 계산기»(#refund) 주소는 환불 처리 화면으로 넘긴다 — 같은 계산을 하고 실제 환불까지 한다. */
 function applyHashTab(){
   var h = String(location.hash || '').replace(/^#/, '');
+  if (h === 'refund') { location.replace('/admin/refunds.html'); return true; }
   if (!h) return false;
   var t = document.querySelector('.tab[data-t="' + h.replace(/"/g, '') + '"]');
   if (!t) return false;
@@ -312,8 +483,32 @@ function applyHashTab(){
 }
 window.addEventListener('hashchange', function(){ if (applyHashTab()) render(); });
 
+/* 🌐 한/영 — 이 화면은 adm-lang-boot.js 를 안 싣는 독립 페이지라 localStorage 정본 키 `mangoi_lang` 을 직접 읽고 쓴다
+   (⛔ 'adminLang' 키는 어디에서도 쓰지 않는 죽은 키 — CLAUDE.md 2장).
+   ⚠️ 이 화면은 공용 i18n 엔진을 안 싣는다 — 글자는 아래 한 곳이 [data-ko]/[data-en] 을 보고 바꾼다. */
+function applyLang(){
+  document.documentElement.lang = EN ? 'en' : 'ko';
+  var els = document.querySelectorAll('[data-ko][data-en]');
+  for (var i = 0; i < els.length; i++) els[i].textContent = els[i].getAttribute(EN ? 'data-en' : 'data-ko');
+  var lb = $('lang-lbl'); if (lb) lb.textContent = EN ? 'KO' : 'EN';
+}
+$('btn-lang').addEventListener('click', function(){
+  EN = !EN;
+  try { localStorage.setItem('mangoi_lang', EN ? 'en' : 'ko'); } catch(e){}
+  applyLang(); render();
+});
+
+applyLang();
 applyHashTab();
 render();
+/* 탭 이름 옆 숫자는 «오늘 할 일» 을 안 열고 들어와도 보이게 한 번 채운다(요약 API 1회 — 실패해도 조용히 둔다). */
+if (TAB !== 'todo') {
+  fetch('/api/pay/enroll/admin/todo', { cache:'no-store' }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+    if (!j || j.ok !== true) return;
+    if (j.ending && !j.ending.error) setCnt('cnt-ending', j.ending.count);
+    if (j.calendar_missing && !j.calendar_missing.error) setCnt('cnt-holidays', j.calendar_missing.count);
+  }).catch(function(){});
+}
 
 /* « 나가는 문 » — 판정 정본은 back-nav.js 의 window.mangoiGoBack 하나다(히스토리 → 같은 오리진 referrer → 폴백).
    여기에 판정을 다시 적으면 그 순간 복제가 된다. 함수가 없으면 href(/admin.html)가 폴백으로 동작한다. */
@@ -322,14 +517,6 @@ render();
   if (back) back.addEventListener('click', function(e){
     if (window.mangoiGoBack) { e.preventDefault(); window.mangoiGoBack('/admin.html'); }
   });
-  /* EN/KO — 이 화면은 adm-lang-boot.js 를 안 싣는 독립 페이지라 localStorage 정본 키 `mangoi_lang` 을 직접 읽는다
-     (⛔ 'adminLang' 키는 어디에서도 쓰지 않는 죽은 키 — CLAUDE.md 2장). */
-  var en = false;
-  try { en = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
-  if (en) {
-    var els = document.querySelectorAll('.nav [data-en]');
-    for (var i = 0; i < els.length; i++) els[i].textContent = els[i].getAttribute('data-en');
-  }
 })();
 </script>
 <script src="/js/back-nav.js" defer></script>

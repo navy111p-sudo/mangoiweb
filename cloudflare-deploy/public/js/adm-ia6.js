@@ -175,6 +175,43 @@
       items: [
         { ko: '학생 명부',       en: 'Students',       cards: ['card-students-mgmt', 'card-school-attendance-stats', 'card-family-mgmt'] },
         { ko: '수강신청',        en: 'Enrollment',     cards: ['card-enrollments'] },
+        /* 🧭 (2026-09-25) 이 항목을 「강사」→「학생」 그룹으로 옮겼다 — 여섯 탭 중 강사 일은 둘뿐이고
+           나머지(종료 후보·공휴일·자동 문자)는 학생 수강 일이라 강사 메뉴에서는 아무도 안 찾았다.
+           ⚠️ 구성표 두 곳(admin/site-structure-admin.html · site-structure-map.html)도 짝으로 옮겼다.
+           📚 수강 운영 관리 (2026-08-17 사장님) — 이것도 메뉴에 없어 주소를 쳐야만 들어갔다.
+           안에 «강사 배율»과 «긴 수업 하루 정원»이 있다. 강사별 돈·정원을 다루므로 급여 옆이다.
+           별도 페이지라 href (위 「수업 길이 변경」과 같은 꼴).
+           ⚠️ 이 화면은 /admin/ 아래가 아니라 사이트 루트에 있다. 그래서 isAdminPath 의
+              «/admin/ 이면 무조건 인증» 규칙이 걸리지 않는다 — 대신 안의 자료는 전부
+              checkAdminSession 을 거치는 API 로 받는다(빈 표만 보인다). 새 자료를 HTML 에
+              직접 박지 말 것. */
+        /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
+           /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
+        { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
+          /* 🔐 (2026-09-10) 이 화면의 여섯 탭이 전부 «회사 전체» 운영이다 — 강사 급여
+             배율·회사 공휴일·전국 만료 임박 명단·하루치 수업의 강사 통째 변경·학부모
+             문자 스윕·환불 계산. 서버도 같은 날 본사 전용이 됐다(enrollAdminHqOnly).
+             ⚠️ 그전에는 서버 가드가 없어서 «일부러 안 감췄다» — 감추면 진짜 문제가
+                눈에서 사라지기 때문. 이제 서버가 막으므로 화면도 함께 감춘다(짝).
+             ⛔ 값은 순수 리터럴로 둘 것 — 상수 이름을 쓰면 GROUPS 를 오려 내 eval 하는
+                하니스 셋에서 GROUPS 가 통째로 null 이 된다(PR #912 에서 실제로 밟음). */
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '📚 오늘 할 일 · 종료 후보 · 강사 휴가 대체 · 공휴일 · 수업료 배율',
+          tipEn: '📚 To-do, ending soon, leave cover, holidays, price rates',
+          /* 🧹 (2026-09-25 사장님 «D로 정리 → 공휴일 한 곳 → C로 완성») 탭 정리:
+             · 「📋 오늘 할 일」을 맨 앞에 — 들어오자마자 처리할 것이 급한 순서로 보인다.
+             · 「💸 환불 계산기」는 뺐다 — 정산·매출 › 환불 처리가 같은 계산을 하고 실제 환불까지 한다
+               (옛 주소 /enroll-ops.html#refund 는 그 화면으로 넘겨 준다).
+             · 이름: 「강사 등급 배율」→「수업료 배율」(바뀌는 것은 강사 급여가 아니라 학생 결제액),
+               「자동 작업 점검」→「자동 문자」. */
+          secs: [
+            { ko: '📋 오늘 할 일',       en: '📋 To-do today',     id: 'todo' },
+            { ko: '⏰ 종료 후보 명단',   en: '⏰ Ending soon',     id: 'ending' },
+            { ko: '🏖 강사 휴가 대체',   en: '🏖 Leave cover',     id: 'leave' },
+            { ko: '🎌 공휴일',          en: '🎌 Holidays',        id: 'holidays' },
+            { ko: '💲 수업료 배율',      en: '💲 Price rates',     id: 'rates' },
+            { ko: '🔔 자동 문자',        en: '🔔 Auto messages',   id: 'sweeps' }
+          ] },
         { ko: '레벨테스트',      en: 'Level test',     cards: ['card-level-tests', 'card-leveltest'] },
         { ko: '상담 예약',       en: 'Counseling',     cards: ['card-counseling-booking'] },
         { ko: '학부모 소통',     en: 'Parents',        cards: ['card-parent-digest', 'card-parent-faq-bot'] },
@@ -217,34 +254,6 @@
           ] },
         { ko: '수업 일지',   en: 'Lesson log',      cards: ['card-lesson-log'] },
         { ko: '급여',        en: 'Payroll',         cards: ['card-payroll-auto', 'card-payroll'] },
-        /* 📚 수강 운영 관리 (2026-08-17 사장님) — 이것도 메뉴에 없어 주소를 쳐야만 들어갔다.
-           안에 «강사 배율»과 «긴 수업 하루 정원»이 있다. 강사별 돈·정원을 다루므로 급여 옆이다.
-           별도 페이지라 href (위 「수업 길이 변경」과 같은 꼴).
-           ⚠️ 이 화면은 /admin/ 아래가 아니라 사이트 루트에 있다. 그래서 isAdminPath 의
-              «/admin/ 이면 무조건 인증» 규칙이 걸리지 않는다 — 대신 안의 자료는 전부
-              checkAdminSession 을 거치는 API 로 받는다(빈 표만 보인다). 새 자료를 HTML 에
-              직접 박지 말 것. */
-        /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
-           /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
-        { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
-          /* 🔐 (2026-09-10) 이 화면의 여섯 탭이 전부 «회사 전체» 운영이다 — 강사 급여
-             배율·회사 공휴일·전국 만료 임박 명단·하루치 수업의 강사 통째 변경·학부모
-             문자 스윕·환불 계산. 서버도 같은 날 본사 전용이 됐다(enrollAdminHqOnly).
-             ⚠️ 그전에는 서버 가드가 없어서 «일부러 안 감췄다» — 감추면 진짜 문제가
-                눈에서 사라지기 때문. 이제 서버가 막으므로 화면도 함께 감춘다(짝).
-             ⛔ 값은 순수 리터럴로 둘 것 — 상수 이름을 쓰면 GROUPS 를 오려 내 eval 하는
-                하니스 셋에서 GROUPS 가 통째로 null 이 된다(PR #912 에서 실제로 밟음). */
-          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
-          tip: '📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산',
-          tipEn: '📚 Teacher rates, long-class capacity, holidays, refunds',
-          secs: [
-            { ko: '🎌 공휴일',          en: '🎌 Holidays',        id: 'holidays' },
-            { ko: '⏰ 종료 후보 명단',   en: '⏰ Ending soon',     id: 'ending' },
-            { ko: '🧑‍🏫 강사 등급 배율', en: '🧑‍🏫 Teacher rates', id: 'rates' },
-            { ko: '💸 환불 계산기',      en: '💸 Refund calc',     id: 'refund' },
-            { ko: '🏖 강사 휴가 대체',   en: '🏖 Leave cover',     id: 'leave' },
-            { ko: '🔔 자동 작업 점검',   en: '🔔 Auto jobs',       id: 'sweeps' }
-          ] },
         { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'],
           tip: '⭐ 수업 직후 학생 별점 · 칭찬 통계 · 참관', tipEn: '⭐ Post-class ratings, praise stats, observation' },
         { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'],
@@ -455,7 +464,10 @@
     'money:매출 대시보드': 'money:회계',
     /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
        이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
-    'teacher:수강 운영(배율·정원)': 'teacher:수강 운영',
+    'teacher:수강 운영(배율·정원)': 'student:수강 운영',
+    /* 📚 (2026-09-25) 「수강 운영」을 강사 그룹 → 학생·수강 그룹(수강신청 바로 아래)으로 옮겼다.
+       ⭐고정·최근 메뉴가 옛 자리를 가리켜도 새 자리로 가게 이어 준다. */
+    'teacher:수강 운영': 'student:수강 운영',
     /* 🔴 (2026-09-01 B안) 「오늘의 수업」 → 「지금 수업」.
        그 항목이 보여 주던 것이 실시간 카드였으므로 그쪽으로 잇는다. */
     'today:오늘의 수업': 'today:오늘 수업',
