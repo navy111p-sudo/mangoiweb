@@ -62,7 +62,9 @@ import {
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   autoRejectReadiness, autoRejectModeInput, nudgeSmsKind,   // 🤖 켜기 판단 패널 · 📱 문자로만(9단계)
   digestUrl, weeklySpend, fmt,                         // 📬 요약→묶음 승인 · 📊 주간 지출 합계(10단계)
-  isNewVendor, EXEC_WATCH_CODES,                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
+  isNewVendor, EXEC_WATCH_CODES,
+  fileKind, fileDisposition,                           // 📷 카드 안 영수증 사진(12단계)
+  ledgerFrom,                                          // 📒 간단 회계장부(12단계)                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -823,6 +825,7 @@ function rowOf(r: any, steps?: any[], brief = false) {
     hr_kind: r.hr_kind || null, period: r.period || null,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
+    file_kind: r.file_key ? fileKind(r.file_ext) : null,
     status: r.status,
     status_ko: (statusSpec(r.status)?.ko || null),
     status_en: (statusSpec(r.status)?.en || null),
@@ -1956,7 +1959,9 @@ export async function handleApprovalApi(
     const csv    = url.searchParams.get('format') === 'csv';
     /* 📊 지출 정리 — 목록 대신 «합계» 를 돌려준다.
        ⚠️ 새 경로를 만들지 않는다(A안과 같은 이유 — 관문 셋 중 둘이 공동 금지구역). */
-    const report = url.searchParams.get('view') === 'report';
+    /* 📒 간단 회계장부(12단계) — report 와 «같은» 읽기·거르기(canView)를 지나고 줄 목록만 다르게 낸다. */
+    const ledger = url.searchParams.get('view') === 'ledger';
+    const report = url.searchParams.get('view') === 'report' || ledger;
     /* 🗂 결재 보관함(시안 A) — 함 옆 건수. 새 경로를 만들지 않는다(같은 이유). */
     const facets = url.searchParams.get('view') === 'facets';
     /* 🗂 결재자별 함 — «그 사람이 결재한 건». all 과 같은 등급(결재 권한자만). */
@@ -2070,6 +2075,13 @@ export async function handleApprovalApi(
          **총액이 말없이 줄어든다.** 그래서 «단계를 하나도 못 읽었는가» 를 함께 내려보내
          화면이 그 사실을 말하게 한다. */
       const stepsMissing = page.length > 0 && Object.keys(stepMap).length === 0;
+      if (ledger) {
+        const L = ledgerFrom(items);
+        return json({
+          ok: true, ledger: L.rows, totals: L.totals, pending: L.pending, no_amount: L.no_amount,
+          truncated: hasMore, max: REPORT_MAX, steps_missing: stepsMissing, scope, from, to,
+        });
+      }
       return json({
         ok: true,
         summary: summarizeApprovals(items),
@@ -2757,11 +2769,13 @@ export async function handleApprovalApi(
     if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
     const obj = await r2.get(r.file_key);
     if (!obj) return json({ ok: false, error: 'file_gone' }, 404);
+    // 📷 카드 미리보기(?inline=1) — 사진만 화면 안에 띄운다. 그 밖은 예전처럼 내려받기(fileDisposition).
+    const disp = fileDisposition(r.file_ext, new URL(request.url).searchParams.get('inline') === '1');
     return new Response(obj.body, {
       headers: {
         'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
-        // 파일명에 한글·공백이 들어가므로 filename* 로 준다. 인라인이 아니라 내려받기.
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(r.file_name || 'file')}`,
+        // 파일명에 한글·공백이 들어가므로 filename* 로 준다.
+        'Content-Disposition': `${disp}; filename*=UTF-8''${encodeURIComponent(r.file_name || 'file')}`,
         'Cache-Control': 'private, no-store',
         // 🛡️ 브라우저가 내용을 보고 형식을 «추측» 하지 못하게 한다.
         //    올릴 때 실제 바이트를 확인하지만, 내려받는 쪽에도 한 겹 더 둔다.
