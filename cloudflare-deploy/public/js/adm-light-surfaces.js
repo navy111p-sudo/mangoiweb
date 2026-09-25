@@ -63,6 +63,10 @@
        (초록 재직 · 빨강 퇴사 · 노랑 미확인). 배지가 자기 배경을 함께 들고 다녀 대비가 이미 5:1 이상이라
        이 페인터의 구제가 필요 없다. 색은 admin-inline-c.css 맨 끝 #card-teacher-mgmt .tr-st-badge 블록이 정한다. */
     '.tr-st-badge', '.tr-st-badge *',
+    /* 🗓 (2026-09-25) 학생 상세 캘린더의 예약 수업 카드(.mgs-ev) — 진한 색 = 유형(정규 앰버·체험 초록·
+       레벨 파랑)이 구분 정보다. 배경 휘도가 0.16 밑이라 등재 안 하면 흰 면으로 눌리고 흰 글자가 사라진다.
+       흰 글자 대비는 카드가 스스로 4.5 이상을 들고 다닌다(admin/student.html 의 .mgs-ev 블록). */
+    '.mgs-ev', '.mgs-ev *',
     'canvas', 'svg', 'svg *', 'video', 'iframe'
   ].join(',');
 

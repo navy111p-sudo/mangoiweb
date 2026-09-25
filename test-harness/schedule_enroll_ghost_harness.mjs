@@ -90,6 +90,9 @@ const canonSrc = [
   cut('function mgsSchedTime(sch)'),
   cut('var MGS_AI_COLORS = {') + ';',
   cut('function mgsAiColors(sch)'),
+  cut('var MGS_AI_SHORT = {') + ';',          // 🗓 2026-09-25 카드 안쪽 도우미(시안 ②)
+  cut('function mgsSchCls(sch)'),
+  cut('function mgsSchInner(sch, colors, hhmm)'),
   cut('function mgsSrcLabel(sch)'),  // 🏷 2026-09-24 카드 이름표(source 별)
   /* 🎌 2026-09-25 공휴일 표시 도우미 — 두 렌더가 부른다. 소스에서 그 구간을 통째로 오려 낸다
      (fetch 가 없는 이 샌드박스에서는 조용히 «공휴일 없음» 으로 그려진다 — 그것이 정본의 실패 방향). */
