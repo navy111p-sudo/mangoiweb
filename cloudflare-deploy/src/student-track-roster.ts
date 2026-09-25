@@ -10,35 +10,57 @@
 //   ⚠️ resolveStudentTrack(레벨테스트 진단 상태)은 아직 좁은 규칙 그대로다 — 넓히면 진단 건이
 //      «선생님 대기» 로 더 들어간다(사람이 정할 일). 여기서는 건드리지 않는다.
 //
-// [네 갈래]
-//   'live_ai' 화상반 · 'ai_only' 재원 중인데 화상반 아님 · 'none' 재원도 화상도 아님(퇴원·휴원)
+// [다섯 갈래 — 2026-09-25 개정 «추정이 아니라 신청»]
+//   'live_ai' 화상반
+//   'ai_only' A.i 단독 신청(학원이 청구서에서 체크한 명단 ai_billing_optin ∪ 개인이 결제한 A.i 콘텐츠 상품)
+//   'idle'    재원인데 화상 기록도 A.i 단독 신청도 없음 — 09-24 판은 이들을 전부 'ai_only' 로 칠해
+//             «AI만 7,294명» 이라는 거짓 숫자가 나왔다(실제 신청 0명). ⛔ 'ai_only' 로 되돌리지 마세요.
+//   'none'    재원도 화상도 아님(퇴원·휴원)
 //   'unknown' 화상반 목록을 못 읽음 — ⛔ 'ai_only' 로 떨어뜨리지 않는다(청구 쪽과 같은 방향).
 //
 // ⛔ students_erp 에 이 값을 저장하지 않는다 — 카페24 야간 동기화가 덮어쓴다. 볼 때마다 계산.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { loadLiveUids, LIVE_UIDS_SQL, LIVE_LOOKBACK_DAYS } from './ai-billing';   // 🎥 화상반 판정 — A.i 사용료 청구와 같은 정본
+import { loadLiveUids, loadAiOptIns, LIVE_UIDS_SQL, LIVE_LOOKBACK_DAYS } from './ai-billing';   // 🎥 화상반 판정·✋ 신청 명단 — A.i 사용료 청구와 같은 정본
 import { enrolledCond } from './exec-summary';   // 재원 판정 정본
 
-export type RosterTrack = 'live_ai' | 'ai_only' | 'none' | 'unknown';
+export type RosterTrack = 'live_ai' | 'ai_only' | 'idle' | 'none' | 'unknown';
 
-/** 한 줄의 트랙. live 가 null(조회 실패)이면 'unknown'. 대소문자는 청구 쪽처럼 무시한다. */
-export function rosterTrackOf(uid: any, enrolledNow: any, live: Set<string> | null): RosterTrack {
-  if (!live) return 'unknown';
+/** 개인이 결제한 A.i 콘텐츠 상품(enrollments.package 'AI 콘텐츠 전용 …', active) — 명부 판정용 SQL 조각. */
+export const PAID_AI_UIDS_SQL = `SELECT student_user_id FROM enrollments
+   WHERE status = 'active' AND package LIKE 'AI 콘텐츠 전용%' AND student_user_id IS NOT NULL AND TRIM(student_user_id) <> ''`;
+
+/** «A.i 단독» 명단 = 학원 신청(ai_billing_optin) ∪ 개인 결제. 신청 명단을 못 읽으면 null.
+ *  개인 결제 쪽은 표가 없을 수 있어 실패해도 신청 명단만으로 간다(모르면 'idle' — 청구와 무관한 표시다). */
+export async function loadRosterAiUids(env: any): Promise<Set<string> | null> {
+  const set = await loadAiOptIns(env);
+  if (!set) return null;
+  try {
+    const r = await env.DB.prepare(PAID_AI_UIDS_SQL).all();
+    for (const x of (r.results || []) as any[]) if (x && x.student_user_id) set.add(String(x.student_user_id).toLowerCase());
+  } catch (_) {}
+  return set;
+}
+
+/** 한 줄의 트랙. live·aiUids 가 null(조회 실패)이면 'unknown'. 대소문자는 청구 쪽처럼 무시한다. */
+export function rosterTrackOf(uid: any, enrolledNow: any, live: Set<string> | null, aiUids: Set<string> | null): RosterTrack {
+  if (!live || !aiUids) return 'unknown';
   const id = String(uid || '').trim().toLowerCase();
   if (!id) return 'unknown';
   if (live.has(id)) return 'live_ai';
-  return Number(enrolledNow) === 1 ? 'ai_only' : 'none';
+  if (Number(enrolledNow) !== 1) return 'none';
+  return aiUids.has(id) ? 'ai_only' : 'idle';
 }
 
 /** 명부 행들에 track 칸을 붙인다(한 번만 조회). 돌려주는 값은 조회 성공 여부. */
 export async function attachRosterTracks(env: any, rows: any[]): Promise<boolean> {
   const live = await loadLiveUids(env);
+  const ai = live ? await loadRosterAiUids(env) : null;
   for (const r of rows) {
     if (!r) continue;
-    r.track = rosterTrackOf(r.user_id, r.enrolled_now, live);
+    r.track = rosterTrackOf(r.user_id, r.enrolled_now, live, ai);
   }
-  return !!live;
+  return !!(live && ai);
 }
 
 /** «이 행이 지금 재원인가» — 명부 SELECT 에 끼워 넣는 칸 식(별칭 필수). */
@@ -46,11 +68,12 @@ export function enrolledNowExpr(alias: string): string {
   return `CASE WHEN ${enrolledCond(alias)} THEN 1 ELSE 0 END`;
 }
 
-export interface TrackOrgRow { franchise: string; shop_name: string; live: number; ai_only: number }
+export interface TrackOrgRow { franchise: string; shop_name: string; live: number; ai_only: number; idle: number }
 export interface TrackSummary {
   ok: boolean;
   live: number;
   ai_only: number;
+  idle: number;
   orgs: TrackOrgRow[];
   lookback_days: number;
 }
@@ -62,29 +85,36 @@ export interface TrackSummary {
  * ⚠️ 화상반 목록은 SQL 안에서 한 번 만든다(IN 비상관 서브쿼리 — 행마다 다시 안 만든다).
  */
 export async function loadTrackSummary(env: any, scopeCond: string, scopeBinds: any[], hiddenCond: string): Promise<TrackSummary> {
-  const fail: TrackSummary = { ok: false, live: 0, ai_only: 0, orgs: [], lookback_days: LIVE_LOOKBACK_DAYS };
+  const fail: TrackSummary = { ok: false, live: 0, ai_only: 0, idle: 0, orgs: [], lookback_days: LIVE_LOOKBACK_DAYS };
   try {
     const since = Date.now() - LIVE_LOOKBACK_DAYS * 86400 * 1000;
     const where = [scopeCond, hiddenCond].filter(Boolean).join(' AND ');
-    const sql = `WITH lv AS (SELECT DISTINCT LOWER(uid) AS u FROM (${LIVE_UIDS_SQL}))
+    // ✋ 신청 명단 표를 먼저 보장한다(없으면 아래 SQL 이 통째로 죽는다). 못 읽으면 «모름».
+    if (!(await loadAiOptIns(env))) return fail;
+    const build = (withPaid: boolean) => `WITH lv AS (SELECT DISTINCT LOWER(uid) AS u FROM (${LIVE_UIDS_SQL})),
+           ai AS (SELECT DISTINCT uid_lc AS u FROM ai_billing_optin${withPaid ? ` UNION SELECT LOWER(student_user_id) FROM (${PAID_AI_UIDS_SQL})` : ''})
       SELECT COALESCE(NULLIF(TRIM(s.franchise),''),'') AS franchise,
              COALESCE(NULLIF(TRIM(s.shop_name),''),'') AS shop_name,
              SUM(CASE WHEN LOWER(s.user_id) IN (SELECT u FROM lv) THEN 1 ELSE 0 END) AS live_n,
-             SUM(CASE WHEN LOWER(s.user_id) NOT IN (SELECT u FROM lv) AND (${enrolledCond('s')}) THEN 1 ELSE 0 END) AS ai_n
+             SUM(CASE WHEN LOWER(s.user_id) NOT IN (SELECT u FROM lv) AND LOWER(s.user_id) IN (SELECT u FROM ai) AND (${enrolledCond('s')}) THEN 1 ELSE 0 END) AS ai_n,
+             SUM(CASE WHEN LOWER(s.user_id) NOT IN (SELECT u FROM lv) AND LOWER(s.user_id) NOT IN (SELECT u FROM ai) AND (${enrolledCond('s')}) THEN 1 ELSE 0 END) AS idle_n
         FROM students_erp s
        ${where ? 'WHERE ' + where : ''}
        GROUP BY 1, 2`;
-    const r = await env.DB.prepare(sql).bind(since, since, ...scopeBinds).all();
+    let r: any;
+    // 개인 결제(enrollments) 표가 없는 DB 면 신청 명단만으로 다시 센다 — 요약이 통째로 사라지면 안 된다.
+    try { r = await env.DB.prepare(build(true)).bind(since, since, ...scopeBinds).all(); }
+    catch (_) { r = await env.DB.prepare(build(false)).bind(since, since, ...scopeBinds).all(); }
     const orgs: TrackOrgRow[] = [];
-    let live = 0, ai = 0;
+    let live = 0, ai = 0, idle = 0;
     for (const x of (r.results || []) as any[]) {
-      const l = Number(x.live_n) || 0, a = Number(x.ai_n) || 0;
-      if (!l && !a) continue;
-      live += l; ai += a;
-      orgs.push({ franchise: String(x.franchise || ''), shop_name: String(x.shop_name || ''), live: l, ai_only: a });
+      const l = Number(x.live_n) || 0, a = Number(x.ai_n) || 0, i = Number(x.idle_n) || 0;
+      if (!l && !a && !i) continue;
+      live += l; ai += a; idle += i;
+      orgs.push({ franchise: String(x.franchise || ''), shop_name: String(x.shop_name || ''), live: l, ai_only: a, idle: i });
     }
-    orgs.sort((p, q) => (q.live + q.ai_only) - (p.live + p.ai_only));
-    return { ok: true, live, ai_only: ai, orgs, lookback_days: LIVE_LOOKBACK_DAYS };
+    orgs.sort((p, q) => (q.live + q.ai_only + q.idle) - (p.live + p.ai_only + p.idle));
+    return { ok: true, live, ai_only: ai, idle, orgs, lookback_days: LIVE_LOOKBACK_DAYS };
   } catch (e: any) {
     console.warn('[student-track] summary failed:', e && e.message);
     return fail;

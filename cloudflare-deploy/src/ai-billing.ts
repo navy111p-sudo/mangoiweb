@@ -16,8 +16,10 @@
  *   (2026-09-10 ~ 09-23 의 «기본 10,000원 × 인원» 은 `DEFAULT_AI_RATE_KRW` 로 옛 청구서
  *   읽기에만 남는다 — 그 기간 생성된 청구서는 운영 0건.)
  *
- * [인원 — 2026-09-24 개정] «재원 학생 − 화상반 학생» = A.i반(아래 LIVE_UIDS_SQL).
- *   화상영어를 하면 A.i 는 포함이라 화상반을 세면 이중 청구다(사장님 결정).
+ * [인원 — 2026-09-25 개정] A.i반(청구) = 재원 ∩ «A.i 단독 신청» 명단(ai_billing_optin) − 화상반.
+ *   화상영어를 하면 A.i 는 포함이라 화상반은 청구하지 않는다(2026-09-24 사장님 결정).
+ *   ⚠️ 09-24 판은 «재원 − 화상반» 이라 신청 0명인데 약 7,300명이 청구 대상으로 보였다(아래 loadAiOptIns).
+ * [스위치 — 2026-09-25] 자동 청구는 기본 «꺼짐»(테스트 기간). 본사가 POST /switch 로 켠다(billingEnabled).
  *
  * [재원] 「다음 달 수업을 진행할 인원」이 아니라 **«재원 중인 학생 수»** 다(사장님 정정 —
  *   "AI 컨텐츠 사용료는 수업의 개념이 아니야"). 판정은 exec-summary.ts 의 `enrolledCond()`
@@ -103,6 +105,15 @@ async function ensureSchema(env: Env): Promise<void> {
     await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_items_invoice ON ai_billing_invoice_items(invoice_id)`);
     // 🛎 월 자동 청구의 «마지막 실행 결과» — 로그는 5% 샘플링이라 실패가 안 남는다. 관리자 카드가 이것을 읽어 말한다.
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_meta (k TEXT PRIMARY KEY, v TEXT, at INTEGER NOT NULL)`);
+    // ✋ (2026-09-25) «A.i 단독 신청» 명단 — 청구 대상은 «추정» 이 아니라 여기 적힌 학생뿐이다(아래 loadAiOptIns).
+    //    학원이 청구서 명세에서 체크하면 들어오고, 체크를 풀면 빠진다. 다음 달 청구서가 이 명단을 이어받는다.
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_optin (
+      uid_lc TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      shop_name TEXT,
+      created_at INTEGER NOT NULL,
+      created_by TEXT
+    )`);
     return true;
   }, false);
   // 💰 (2026-09-24) 청구서마다 «생성 시점의 공급가 규칙» 을 JSON 으로 박아 둔다 — 나중에 표를
@@ -208,16 +219,58 @@ export async function loadLiveUids(env: Env): Promise<Set<string> | null> {
   }
 }
 
-/** 대리점(shop_name) 의 «지금» A.i반 학생 목록 = 재원(enrolledCond 정본) − 화상반.
+/* ─────────────────────────────────────────────────────────────────────────
+ * ✋ (2026-09-25 사장님 «추천한대로 진행해») 청구 대상은 «신청» 이다 — «추정» 이 아니다.
+ *   2026-09-24 판은 «재원 − 화상반 = A.i반» 이라, 화상수업 기록이 30일 없는 학생(휴면·퇴원·카페24에만
+ *   남은 학생)이 전부 청구 대상이 됐다(실측 재원 7,413명 중 약 7,300명 — 실제 A.i 단독 신청은 0명).
+ *   돈을 받는 판정이 «아니라고 증명되지 않으면 청구» 였던 것을 뒤집는다:
+ *     A.i반(청구) = 재원 ∩ A.i 단독 신청 명단(ai_billing_optin) − 화상반
+ *     신청 안 함  = 재원 − 화상반 − 신청 명단            → 청구하지 않는다(track 'none')
+ *   ⛔ «신청 안 함» 을 A.i반으로 되돌리지 마세요 — 그 순간 수백 개 학원에 가짜 청구서가 나갑니다.
+ *   ⚠️ 명단을 못 읽으면 null — 부르는 쪽은 «아무도 청구하지 않는다»(화상반 조회 실패와 같은 방향).
+ * ───────────────────────────────────────────────────────────────────────── */
+export async function loadAiOptIns(env: Env): Promise<Set<string> | null> {
+  try {
+    await ensureSchema(env);
+    const r = await env.DB.prepare(`SELECT uid_lc FROM ai_billing_optin`).all<{ uid_lc: string }>();
+    const set = new Set<string>();
+    for (const row of (r.results || [])) if (row && row.uid_lc) set.add(String(row.uid_lc).toLowerCase());
+    return set;
+  } catch (e: any) {
+    console.warn('[ai-billing] opt-in lookup failed — 아무도 청구하지 않음:', e && e.message);
+    return null;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * 🔌 (2026-09-25) 자동 청구 스위치 — 기본 «꺼짐»(테스트 기간). ai_billing_meta 의 'auto_billing' 이
+ *   정확히 'on' 일 때만 켜진다. 꺼져 있으면: 월 cron 이 청구서를 안 만들고, 청구서 만들기·결제가
+ *   거절되고, 학원 화면은 «테스트 기간 — 청구하지 않습니다» 만 그린다. 켜고 끄는 것은 본사만.
+ *   ⚠️ 못 읽으면 «꺼짐» — 모르면 청구하지 않는 쪽으로 실패한다.
+ * ───────────────────────────────────────────────────────────────────────── */
+export async function billingEnabled(env: Env): Promise<boolean> {
+  try {
+    await ensureSchema(env);
+    const row = await env.DB.prepare(`SELECT v FROM ai_billing_meta WHERE k = 'auto_billing'`).first<{ v: string }>();
+    return !!row && String(row.v) === 'on';
+  } catch (_) { return false; }
+}
+
+/** 대리점(shop_name) 의 «지금» 명단을 셋으로 가른다(재원 = enrolledCond 정본):
+ *    rows       A.i반(청구) = 신청 명단에 있고 화상반이 아님
+ *    live_rows  화상반(A.i 포함 · 청구 안 함)
+ *    idle_rows  신청 안 함(청구 안 함)
  *  ok=false 면 명단을 믿을 수 없다(조회 실패) — rows 는 비어 있고 부르는 쪽은 아무것도 더하지 않는다. */
-async function currentRoster(env: Env, shopName: string, liveIn?: Set<string> | null):
-    Promise<{ ok: boolean; rows: Array<{ user_id: string; name: string }>; live_excluded: number; live_rows?: Array<{ user_id: string; name: string }> }> {
+async function currentRoster(env: Env, shopName: string, liveIn?: Set<string> | null, optInIn?: Set<string> | null):
+    Promise<{ ok: boolean; rows: Array<{ user_id: string; name: string }>; live_excluded: number; live_rows?: Array<{ user_id: string; name: string }>; idle_rows?: Array<{ user_id: string; name: string }> }> {
   /* 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다 — 카페24가 정본이라 지워도 밤에 되살아나므로
      «읽을 때» 거르는 것이 이 저장소의 관례다(정본 student-override.ts). 안 거르면 중복 계정이
      그대로 COUNT 에 들어가 대리점이 실제보다 많은 인원으로 청구받는다(실측 전례: 한 사람의
      계정이 카페24에 15개). 표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open). */
   const live = liveIn === undefined ? await loadLiveUids(env) : liveIn;
   if (!live) return { ok: false, rows: [], live_excluded: 0 };
+  const optIn = optInIn === undefined ? await loadAiOptIns(env) : optInIn;
+  if (!optIn) return { ok: false, rows: [], live_excluded: 0 };
   const hideEx = await hiddenExcludeCond(env as any);
   let all: Array<{ user_id: string; name: string }>;
   try {
@@ -226,32 +279,36 @@ async function currentRoster(env: Env, shopName: string, liveIn?: Set<string> | 
        FROM students_erp WHERE shop_name = ? AND ${enrolledCond('')}${hideEx ? ` AND ${hideEx}` : ''}`
     ).bind(shopName).all<{ user_id: string; name: string }>()).results || [];
   } catch { return { ok: false, rows: [], live_excluded: 0 }; }
-  const rows = all.filter(r => !live.has(String(r.user_id).toLowerCase()));
-  const liveRows = all.filter(r => live.has(String(r.user_id).toLowerCase()));
-  return { ok: true, rows, live_excluded: all.length - rows.length, live_rows: liveRows };
+  const lc = (r: { user_id: string }) => String(r.user_id).toLowerCase();
+  const liveRows = all.filter(r => live.has(lc(r)));
+  const rows = all.filter(r => !live.has(lc(r)) && optIn.has(lc(r)));
+  const idleRows = all.filter(r => !live.has(lc(r)) && !optIn.has(lc(r)));
+  return { ok: true, rows, live_excluded: liveRows.length, live_rows: liveRows, idle_rows: idleRows };
 }
 
 /**
  * 🎯 명세 줄의 «자동 분류» 다시 맞추기 — 순수 함수(D1 없음, 하니스가 실제로 돌린다).
  *   · 학원이 직접 바꾼 줄(user_set=1)은 절대 안 건드린다 — «학원 확인» 이 이긴다.
- *   · 나머지는 «상태를 지정» 한다: 화상반이면 제외(0), 아니면 포함(1). 뒤집기가 아니다.
+ *   · 나머지는 «상태를 지정» 한다(뒤집기가 아니다):
+ *       화상반 → 'live' 제외(0) · A.i 단독 신청 → 'ai' 포함(1) · 그 밖 → 'none' 제외(0)
+ *     (2026-09-25) «화상반이 아니면 포함» 이던 것을 «신청했을 때만 포함» 으로 바꿨다.
  *   · 명부에 없는 학생(퇴원 등)은 판정할 근거가 없으니 그대로 둔다.
- *   ⛔ live 를 모르면(null) 부르지 말 것 — 호출부가 막는다(모르면 아무도 안 옮긴다).
+ *   ⛔ live·optIn 을 모르면(null) 부르지 말 것 — 호출부가 막는다(모르면 아무도 안 옮긴다).
  */
 export function planItemTrackSync(
   items: Array<{ id: number; student_user_id: string; included: number; user_set?: number; track?: string | null }>,
-  live: Set<string>, roster: Set<string>,
+  live: Set<string>, roster: Set<string>, optIn: Set<string>,
 ): Array<{ id: number; included: number; track: string }> {
   const out: Array<{ id: number; included: number; track: string }> = [];
   for (const it of items) {
     const uid = String(it.student_user_id || '').toLowerCase();
     if (!roster.has(uid)) continue;
-    const track = live.has(uid) ? 'live' : 'ai';
+    const track = live.has(uid) ? 'live' : optIn.has(uid) ? 'ai' : 'none';
     if (Number(it.user_set) === 1) {
       if (it.track !== track) out.push({ id: it.id, included: Number(it.included) ? 1 : 0, track });
       continue;
     }
-    const want = track === 'live' ? 0 : 1;
+    const want = track === 'ai' ? 1 : 0;
     if (Number(it.included) !== want || it.track !== track) out.push({ id: it.id, included: want, track });
   }
   return out;
@@ -294,16 +351,25 @@ function priceFields(pr: AiPrice) {
  *   added_manually=1 로 추가한다(사람이 뺀 학생은 손대지 않는다 — 그게 핵심이다).
  *   없으면 새로 만들고 그 순간의 단가를 스냅샷한다.
  */
-async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth: string, actor: string, liveIn?: Set<string> | null):
-    Promise<{ invoice_id: number; added: number; created: boolean; live_check_failed?: boolean; live_listed?: number; auto_excluded?: number; auto_included?: number }> {
+async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth: string, actor: string, liveIn?: Set<string> | null, optInIn?: Set<string> | null, skipIfNoOptIn = false):
+    Promise<{ invoice_id: number; added: number; created: boolean; live_check_failed?: boolean; skipped?: boolean; live_listed?: number; idle_listed?: number; auto_excluded?: number; auto_included?: number }> {
   await ensureSchema(env);
-  // 화상반 목록을 «청구서를 만들기 전에» 읽는다 — 실패하면 빈 청구서 머리도 안 남긴다.
+  // 화상반 목록·신청 명단을 «청구서를 만들기 전에» 읽는다 — 실패하면 빈 청구서 머리도 안 남긴다.
   const live = liveIn === undefined ? await loadLiveUids(env) : liveIn;
   if (!live) return { invoice_id: 0, added: 0, created: false, live_check_failed: true };
+  const optIn = optInIn === undefined ? await loadAiOptIns(env) : optInIn;
+  if (!optIn) return { invoice_id: 0, added: 0, created: false, live_check_failed: true };
   const existing = await env.DB.prepare(
     `SELECT id, status FROM ai_billing_invoices WHERE shop_name = ? AND billing_month = ?`
   ).bind(shopName, billingMonth).first<{ id: number; status: string }>();
 
+  // 월 cron(skipIfNoOptIn)은 A.i 단독 신청이 한 명도 없는 학원에 «빈 청구서» 를 만들지 않는다.
+  //   (학원이 직접 「청구서 만들기」를 누르면 만든다 — 명세에서 A.i 단독 학생을 체크해 신청하는 자리다.)
+  if (!existing && skipIfNoOptIn) {
+    const pre = await currentRoster(env, shopName, live, optIn);
+    if (!pre.ok) return { invoice_id: 0, added: 0, created: false, live_check_failed: true };
+    if (!pre.rows.length) return { invoice_id: 0, added: 0, created: false, skipped: true };
+  }
   let invoiceId: number;
   let created = false;
   if (existing) {
@@ -326,7 +392,7 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
   const inv = await env.DB.prepare(`SELECT status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<{ status: string }>();
   if (inv?.status !== 'draft') return { invoice_id: invoiceId, added: 0, created };
 
-  const rosterR = await currentRoster(env, shopName, live);
+  const rosterR = await currentRoster(env, shopName, live, optIn);
   if (!rosterR.ok) return { invoice_id: invoiceId, added: 0, created, live_check_failed: true };
   const roster = rosterR.rows;
   const now = Date.now();
@@ -341,7 +407,7 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
     const results = await env.DB.batch(batch.slice(i, i + 80));
     for (const r of results as any[]) added += Number(r?.meta?.changes || 0);
   }
-  const sync = await syncItemTracks(env, invoiceId, rosterR.live_rows || [], roster, live, manualFlag, now);
+  const sync = await syncItemTracks(env, invoiceId, rosterR.live_rows || [], roster, live, manualFlag, now, rosterR.idle_rows || []);
   return { invoice_id: invoiceId, added, created, ...sync };
 }
 
@@ -352,25 +418,33 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
  *   실패는 삼키고 «옛 동작»(A.i반만 명세에 있음)으로 남는다 — 청구 인원을 늘리는 쪽으로는 절대 실패하지 않는다.
  */
 async function syncItemTracks(env: Env, invoiceId: number, liveRows: Array<{ user_id: string; name: string }>,
-    aiRows: Array<{ user_id: string; name: string }>, live: Set<string>, manualFlag: number, now: number):
-    Promise<{ live_listed: number; auto_excluded: number; auto_included: number }> {
-  const res = { live_listed: 0, auto_excluded: 0, auto_included: 0 };
+    aiRows: Array<{ user_id: string; name: string }>, live: Set<string>, manualFlag: number, now: number,
+    idleRows: Array<{ user_id: string; name: string }> = []):
+    Promise<{ live_listed: number; idle_listed: number; auto_excluded: number; auto_included: number }> {
+  const res = { live_listed: 0, idle_listed: 0, auto_excluded: 0, auto_included: 0 };
   try {
-    if (liveRows.length) {
+    // 화상반('live')과 신청 안 함('none') 학원생도 «체크 해제된 줄» 로 명세에 보인다 —
+    // 학원이 A.i 단독 학생을 체크하면 그 순간 신청 명단에 들어간다(invoice/item).
+    for (const [rowsX, trackX] of [[liveRows, 'live'], [idleRows, 'none']] as Array<[Array<{ user_id: string; name: string }>, string]>) {
+      if (!rowsX.length) continue;
       const st = env.DB.prepare(
         `INSERT OR IGNORE INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, added_manually, created_at, track)
-         VALUES (?, ?, ?, 0, ?, ?, 'live')`);
-      const b = liveRows.map((s) => st.bind(invoiceId, s.user_id, s.name, manualFlag, now));
+         VALUES (?, ?, ?, 0, ?, ?, ?)`);
+      const b = rowsX.map((s) => st.bind(invoiceId, s.user_id, s.name, manualFlag, now, trackX));
       for (let i = 0; i < b.length; i += 80) {
         const rr = await env.DB.batch(b.slice(i, i + 80));
-        for (const r of rr as any[]) res.live_listed += Number(r?.meta?.changes || 0);
+        for (const r of rr as any[]) {
+          const n = Number(r?.meta?.changes || 0);
+          if (trackX === 'live') res.live_listed += n; else res.idle_listed += n;
+        }
       }
     }
     const items = (await env.DB.prepare(
       `SELECT id, student_user_id, included, user_set, track FROM ai_billing_invoice_items WHERE invoice_id = ?`
     ).bind(invoiceId).all<any>()).results || [];
-    const rosterSet = new Set<string>([...aiRows, ...liveRows].map(r => String(r.user_id).toLowerCase()));
-    const plan = planItemTrackSync(items, live, rosterSet);
+    const rosterSet = new Set<string>([...aiRows, ...liveRows, ...idleRows].map(r => String(r.user_id).toLowerCase()));
+    const optSet = new Set<string>(aiRows.map(r => String(r.user_id).toLowerCase()));   // aiRows = 신청 명단 ∩ 재원 − 화상반
+    const plan = planItemTrackSync(items, live, rosterSet, optSet);
     const before = new Map<number, number>(items.map((it: any) => [Number(it.id), Number(it.included) ? 1 : 0]));
     const up = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, track = ? WHERE id = ? AND invoice_id = ? AND COALESCE(user_set,0) = 0`);
     const upTrack = env.DB.prepare(`UPDATE ai_billing_invoice_items SET track = ? WHERE id = ? AND invoice_id = ?`);
@@ -392,6 +466,13 @@ async function syncItemTracks(env: Env, invoiceId: number, liveRows: Array<{ use
 export async function generateMonthlyAiInvoices(env: Env): Promise<{ agencies: number; invoices: number; added: number; status?: string }> {
   await ensureSchema(env);
   const target = monthAdd(currentMonthKST(), 1);
+  // 🔌 (2026-09-25) 자동 청구가 꺼져 있으면(기본 — 테스트 기간) 아무 청구서도 만들지 않는다.
+  //    ⛔ 이 검사를 대리점 목록 «뒤» 로 옮기지 마세요 — 꺼져 있을 때는 명부조차 읽을 이유가 없습니다.
+  if (!(await billingEnabled(env))) {
+    const out = { agencies: 0, invoices: 0, added: 0, status: 'disabled' };
+    await recordCronRun(env, target, out);
+    return out;
+  }
   // 대리점 목록을 «못 읽음» 과 «0곳» 으로 가른다 — 둘 다 [] 로 뭉치면 실패가 «할 일 없음» 으로 위장한다.
   const shops = await safe(async () => (await env.DB.prepare(
     `SELECT DISTINCT shop_name FROM students_erp WHERE shop_name IS NOT NULL AND TRIM(shop_name) <> '' AND ${enrolledCond('')}`
@@ -401,20 +482,22 @@ export async function generateMonthlyAiInvoices(env: Env): Promise<{ agencies: n
     await recordCronRun(env, target, out);
     return out;
   }
-  let invoices = 0, added = 0, failed = 0;
+  let invoices = 0, added = 0, failed = 0, skipped = 0;
   // 화상반 목록은 «한 번만» 읽는다 — 대리점마다 읽으면 376곳 × 약 0.3초.
   // 못 읽으면 이번 달은 아무 청구서도 만들지 않는다(이중 청구 방지 — 다음 실행/수동 생성이 채운다).
   const live = await loadLiveUids(env);
-  if (!live) {
+  const optIn = live ? await loadAiOptIns(env) : null;   // 신청 명단도 «한 번만» — 못 읽으면 화상반 실패와 똑같이 0장
+  if (!live || !optIn) {
     const out = { agencies: shops.length, invoices: 0, added: 0, status: 'live_check_failed' };
     await recordCronRun(env, target, out);
     return out;
   }
   for (const s of shops) {
-    const r = await safe(() => generateOrRefreshInvoice(env, s.shop_name, target, 'auto', live), null);
-    if (r && !r.live_check_failed) { invoices++; added += r.added; } else failed++;
+    const r = await safe(() => generateOrRefreshInvoice(env, s.shop_name, target, 'auto', live, optIn, true), null);
+    if (r && r.skipped) skipped++;
+    else if (r && !r.live_check_failed) { invoices++; added += r.added; } else failed++;
   }
-  const out = { agencies: shops.length, invoices, added, failed, status: failed ? 'partial' : 'ok' };
+  const out = { agencies: shops.length, invoices, added, failed, skipped, status: failed ? 'partial' : 'ok' };
   await recordCronRun(env, target, out);
   return out;
 }
@@ -500,6 +583,8 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (hideExRate) where.push(hideExRate);
     const live = await loadLiveUids(env);
     if (!live) return err('live_check_failed: 화상반 학생을 확인하지 못해 청구 인원을 셀 수 없습니다', 503);
+    const optIn = await loadAiOptIns(env);
+    if (!optIn) return err('optin_check_failed: A.i 단독 신청 명단을 읽지 못해 청구 인원을 셀 수 없습니다', 503);
     const stu = await safe(async () => (await env.DB.prepare(`
       SELECT s.shop_name AS shop_name, s.franchise AS franchise, s.user_id AS user_id
       FROM students_erp s
@@ -509,32 +594,57 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     const rates = await safe(async () => (await env.DB.prepare(`SELECT shop_name, rate_krw FROM agency_ai_rate`).all<any>()).results || [], [] as any[]);
     const rateMap = new Map<string, number>();
     for (const r of rates) { const n = Number(r.rate_krw); if (Number.isFinite(n) && n > 0) rateMap.set(String(r.shop_name), Math.round(n)); }
-    const agg = new Map<string, { franchise: string | null; enrolled: number; live: number }>();
+    // 세 무리로 가른다 — 화상반(무료) · A.i 단독 신청(청구) · 신청 안 함(청구 안 함). currentRoster() 와 같은 판정.
+    const agg = new Map<string, { franchise: string | null; enrolled: number; live: number; ai: number }>();
     for (const r of stu) {
       const k = String(r.shop_name);
-      const g = agg.get(k) || { franchise: null, enrolled: 0, live: 0 };
+      const g = agg.get(k) || { franchise: null, enrolled: 0, live: 0, ai: 0 };
       if (!g.franchise && r.franchise) g.franchise = r.franchise;
-      g.enrolled++; if (live.has(String(r.user_id).toLowerCase())) g.live++;
+      const u = String(r.user_id).toLowerCase();
+      g.enrolled++;
+      if (live.has(u)) g.live++; else if (optIn.has(u)) g.ai++;
       agg.set(k, g);
     }
     const rule = currentAiPriceRule();
     let list = [...agg.entries()].map(([shop, g]) => {
-      const aiCount = g.enrolled - g.live;
+      const aiCount = g.ai;   // ⛔ «재원 − 화상반» 으로 되돌리지 말 것 — 신청하지 않은 학생까지 청구된다
       const custom = rateMap.get(shop) ?? null;
       const pr = aiPrice(aiCount, custom, rule);
       return {
         shop_name: shop, franchise: g.franchise,
-        enrolled_count: g.enrolled, live_count: g.live, ai_count: aiCount,
+        enrolled_count: g.enrolled, live_count: g.live, ai_count: aiCount, idle_count: g.enrolled - g.live - aiCount,
         rate_krw: pr.rate, is_custom_rate: custom != null, custom_rate_krw: custom,
         estimated_total_krw: pr.total, ...priceFields(pr),
       };
     }).sort((x, y) => y.ai_count - x.ai_count || y.enrolled_count - x.enrolled_count);
     if (q) list = list.filter(r => r.shop_name.toLowerCase().includes(q) || String(r.franchise || '').toLowerCase().includes(q));
+    const totals = list.reduce((a, r) => { a.enrolled += r.enrolled_count; a.live += r.live_count; a.ai += r.ai_count; a.idle += r.idle_count; a.est += r.estimated_total_krw; return a; },
+      { enrolled: 0, live: 0, ai: 0, idle: 0, est: 0 });
     return json({
       ok: true, scope: scope.label, editable: scope.type === 'hq',
+      billing_enabled: await billingEnabled(env), totals,
       price_rule: rule, last_cron: await readCronRun(env),
       count: list.length, rows: list.slice(0, 500), truncated: list.length > 500,
     });
+  }
+
+  // ── POST /switch {on: boolean} : 자동 청구 켜기/끄기 (본사만 · 2026-09-25) ──
+  //    켜면: 월 cron 이 «A.i 단독 신청 학생이 있는 학원» 에만 청구서를 만들고, 학원 화면에 청구서가 보인다.
+  //    끄면: 청구서 생성·결제가 멈춘다(이미 만든 청구서는 지우지 않는다).
+  if (p === 'switch' && method === 'POST') {
+    const raw = await safe(async () => await getScope(env, request, { noDrillDown: true }), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (raw.type !== 'hq') return err('forbidden: HQ only', 403);
+    const b = await parseJsonBody(request) || {};
+    const on = b?.on === true;
+    const okSw = await safe(async () => {
+      await env.DB.prepare(
+        `INSERT INTO ai_billing_meta (k, v, at) VALUES ('auto_billing', ?, ?)
+         ON CONFLICT(k) DO UPDATE SET v = excluded.v, at = excluded.at`
+      ).bind(on ? 'on' : 'off', Date.now()).run();
+      return true;
+    }, false);
+    if (!okSw) return err('save failed', 500);
+    return json({ ok: true, billing_enabled: await billingEnabled(env) });
   }
 
   // ── POST /rate {shop_name, rate_krw} : 대리점 단가 설정 (본사만) ──
@@ -573,6 +683,9 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!(await shopAllowed(env, scope, shopName))) return err('forbidden', 403);
     const month = String(url.searchParams.get('month') || monthAdd(currentMonthKST(), 1));
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
+    // 🔌 자동 청구가 꺼져 있으면(테스트 기간) 청구서도 미리보기도 보여 주지 않는다 — 학원 화면은 안내만 그린다.
+    const enabled = await billingEnabled(env);
+    if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month });
 
     const inv = await env.DB.prepare(
       `SELECT id, shop_name, franchise, billing_month, rate_krw, price_rule, status, generated_at, paid_at, order_id
@@ -584,9 +697,9 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
       if (!roster.ok) return err('live_check_failed: 화상반 학생을 확인하지 못해 미리보기를 만들 수 없습니다', 503);
       const pr = aiPrice(roster.rows.length, await customRateFor(env, shopName));
       return json({
-        ok: true, exists: false, shop_name: shopName, billing_month: month,
+        ok: true, billing_enabled: true, exists: false, shop_name: shopName, billing_month: month,
         rate_krw: pr.rate, preview_count: roster.rows.length, preview_total: pr.total,
-        live_excluded: roster.live_excluded, ...priceFields(pr),
+        live_excluded: roster.live_excluded, idle_count: (roster.idle_rows || []).length, ...priceFields(pr),
       });
     }
     // track·user_set 칸이 없는 DB(ALTER 실패)면 옛 SELECT 로 떨어진다 — 명세가 통째로 비면 안 된다.
@@ -599,7 +712,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     const pr = invoiceAmount(inv, includedCount);
     const { price_rule: _pr, ...invOut } = inv;
     return json({
-      ok: true, exists: true, invoice: {
+      ok: true, billing_enabled: true, exists: true, invoice: {
         ...invOut, item_count: items.length, included_count: includedCount,
         rate_krw: pr.rate, total_krw: pr.total, ...priceFields(pr),
       },
@@ -614,6 +727,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (scope.type === 'agency') shopName = scope.value || '';
     if (!shopName) return err('shop_name required');
     if (!(await writeAllowed(env, request, shopName))) return err('forbidden', 403);
+    if (!(await billingEnabled(env))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
     const month = String(b?.month || monthAdd(currentMonthKST(), 1));
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     const r = await generateOrRefreshInvoice(env, shopName, month, scope.label || 'admin');
@@ -634,13 +748,29 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
     // user_set=1 — «학원 확인» 표시. 이 줄은 이제 «인원 다시 확인» 의 자동 분류가 다시 안 건드린다.
     try {
-      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1 WHERE invoice_id = ? AND student_user_id = ?`)
-        .bind(included, invoiceId, studentUid).run();
+      // 화상반 줄('live')은 표시를 그대로 두고, 나머지는 체크가 곧 신청이므로 'ai'/'none' 으로 맞춘다.
+      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1,
+          track = CASE WHEN track = 'live' THEN track WHEN ? = 1 THEN 'ai' ELSE 'none' END
+        WHERE invoice_id = ? AND student_user_id = ?`)
+        .bind(included, included, invoiceId, studentUid).run();
     } catch (_) {
       await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`)
         .bind(included, invoiceId, studentUid).run();
     }
-    return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included });
+    // ✋ 학원의 체크가 곧 «A.i 단독 신청» 이다 — 다음 달 청구서가 이 명단을 이어받는다.
+    //    명단 쓰기가 실패하면 이번 청구서 체크는 그대로 두되 화면이 알 수 있게 알린다(조용히 넘기지 않는다).
+    const optinSaved = await safe(async () => {
+      if (included) {
+        await env.DB.prepare(
+          `INSERT INTO ai_billing_optin (uid_lc, user_id, shop_name, created_at, created_by) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(uid_lc) DO UPDATE SET user_id = excluded.user_id, shop_name = excluded.shop_name`
+        ).bind(studentUid.toLowerCase(), studentUid, inv.shop_name, Date.now(), scope.label || 'admin').run();
+      } else {
+        await env.DB.prepare(`DELETE FROM ai_billing_optin WHERE uid_lc = ?`).bind(studentUid.toLowerCase()).run();
+      }
+      return true;
+    }, false);
+    return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included, optin_saved: optinSaved });
   }
 
   // ── GET /history?shop_name=&limit= : 지난 청구서 목록 ──
@@ -673,6 +803,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     // 🔒 (2026-09-11 사장님 결정) 결제 주문 생성 — writeAllowed() 하나로 판정한다(위 정의부 참고).
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
+    if (!(await billingEnabled(env))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {
       const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`).bind(invoiceId).first<{ n: number }>();

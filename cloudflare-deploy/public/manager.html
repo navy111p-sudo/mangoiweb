@@ -1474,16 +1474,16 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ══════════════════════════════════════════════════════════════════════════
   // 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — scope.type==='agency' 일 때만 보인다.
   //   금액은 절대 이 화면이 계산해서 보내지 않는다 — 서버(ai-billing.ts)가 그 순간의
-  //   A.i반 인원(재원 − 화상반)의 인원 구간 공급가(ai-billing-price.ts)로 다시 계산해 결제창을 연다
-  //   (클라이언트 값은 표시용일 뿐). 캐시 키 'aibill2'(2026-09-24) — 옛 형식(재원 × 10,000원) 캐시가
+  //   A.i 단독 신청 인원(2026-09-25 — 신청한 학생만)의 인원 구간 공급가(ai-billing-price.ts)로 다시 계산해 결제창을 연다
+  //   (클라이언트 값은 표시용일 뿐). 캐시 키 'aibill3'(2026-09-25 — 옛 «재원 − 화상반» 예상 금액 캐시가 되살아나지 않게) · 'aibill2'(2026-09-24) — 옛 형식(재원 × 10,000원) 캐시가
   //   조회 실패 때 되살아나 옛 금액을 보여 주지 않게 키를 바꿨다.
   // ══════════════════════════════════════════════════════════════════════════
   window.loadAiBill = function(){
     var el = document.getElementById('aibillBody');
     el.textContent = T('Loading...', '불러오는 중...');
     Promise.all([
-      get('/api/admin/ai-billing/invoice', 'aibill2'),
-      get('/api/admin/ai-billing/history', 'aibillHist2'),
+      get('/api/admin/ai-billing/invoice', 'aibill3'),
+      get('/api/admin/ai-billing/history', 'aibillHist3'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
@@ -1562,11 +1562,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var el = document.getElementById('aibillBody');
     el.className = '';
     var html = '';
-    if (!j.exists) {
+    /* 🔌 (2026-09-25) 자동 청구가 꺼져 있으면(테스트 기간) 청구서·예상 금액을 그리지 않는다 — 서버가 billing_enabled:false 로 말해 준다.
+       ⛔ 여기서 금액을 추정해 그리지 말 것 — 신청하지 않은 학생에게 청구하는 것처럼 보인다. */
+    if (j.billing_enabled === false) {
+      html += '<p class="muted">' + T('Test period — A.i usage fees are not billed yet. Video-class students always get A.i for free.', '지금은 테스트 기간이라 A.i 사용료를 청구하지 않습니다. 화상반 학생은 A.i 가 언제나 무료로 포함됩니다.') + '</p>';
+    } else if (!j.exists) {
       html += '<p class="muted">' + T('This month’s invoice has not been created yet.', '아직 이번 청구서가 만들어지지 않았습니다.') + '</p>'
         + '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(j.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('A.i-only students now (preview)', '지금 A.i반 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
+        + '<div class="row"><span>' + T('A.i-only sign-ups now (preview)', '지금 A.i 단독 신청 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
         + (j.live_excluded ? '<div class="row"><span class="muted">' + T('Video-class students (A.i included, not billed)', '화상반 학생 (A.i 포함 · 청구 안 함)') + '</span><span class="muted">' + n0(j.live_excluded) + T('', '명') + '</span></div>' : '')
+        + (j.idle_count ? '<div class="row"><span class="muted">' + T('Not signed up (not billed)', '신청 안 함 (청구 안 함)') + '</span><span class="muted">' + n0(j.idle_count) + T('', '명') + '</span></div>' : '')
+        + '<p class="muted" style="font-size:11.5px">' + T('To sign a student up for A.i only, create the invoice and check that student.', 'A.i 단독 학생은 청구서를 만든 뒤 명단에서 체크하면 신청됩니다.') + '</p>'
         + aiBillPriceRows(j)
         + '<div class="row"><span>' + T('Estimated total', '예상 총액') + '</span><b>' + won(j.preview_total) + '</b></div>'
         + '<button type="button" class="btn-primary" onclick="aiBillGenerate(this)" style="margin-top:10px">' + T('Create invoice', '청구서 만들기') + '</button>';
@@ -1583,8 +1589,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         /* 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 화상반으로 판정된 학원생(track='live')도 명세에 보이되
            체크가 풀린 채 아래쪽에 모인다 — 판정이 틀렸으면 학원이 체크해 청구에 넣는다(그 뒤 자동이 안 건드림).
            ⛔ 이 화면은 판정하지 않는다 — 서버가 준 track·user_set 을 그리기만 한다. */
-        var aiIt = items.filter(function(it){ return it.track !== 'live'; });
+        var aiIt = items.filter(function(it){ return it.track !== 'live' && it.track !== 'none'; });
         var lvIt = items.filter(function(it){ return it.track === 'live'; });
+        var noIt = items.filter(function(it){ return it.track === 'none'; });   // 신청 안 함 — 체크하면 A.i 단독 신청(2026-09-25)
         var itemRow = function(it){
           var tag = '';
           if (it.track === 'live') tag = ' <span class="muted" style="font-size:11px">📹 ' + T('video class · A.i included', '화상반 · A.i 포함') + '</span>';
@@ -1594,6 +1601,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             + '<input type="checkbox" ' + (it.included ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')"></label>';
         };
         html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + aiIt.map(itemRow).join('')
+          + (noIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">✋ ' + T('Not signed up (' + noIt.length + ') — not billed. Check a student to sign them up for A.i only.', '신청 안 함 ' + noIt.length + '명 — 청구하지 않습니다. A.i 단독으로 쓰는 학생만 체크해 신청해 주세요.') + '</div>' + noIt.map(itemRow).join('') : '')
           + (lvIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">📹 ' + T('Video-class students (' + lvIt.length + ') — A.i is included in their tuition, so they are not billed. Check a student only if this is wrong.', '화상반 학생 ' + lvIt.length + '명 — 화상영어에 A.i 가 포함돼 청구하지 않습니다. 판정이 틀린 학생만 체크해 주세요.') + '</div>' + lvIt.map(itemRow).join('') : '')
           + '</div>'
         + '<div style="display:flex;gap:8px;margin-top:10px">'

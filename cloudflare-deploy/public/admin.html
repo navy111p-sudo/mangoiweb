@@ -12014,7 +12014,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div class="menu-body">
     <div class="rf-info" style="margin-bottom:12px">
       💡 <b data-ko="AI 콘텐츠 사용료" data-en="AI content usage fee">AI 콘텐츠 사용료</b>
-      <span data-ko="— 학원이 매달 «A.i반 학생»(재원 − 화상반) 공급가를 한 번에 결제합니다. 화상반은 A.i 포함이라 청구하지 않습니다." data-en="— Each academy pays monthly for its A.i-only students (enrolled minus video-class students). Video-class students include A.i and are not billed.">— 학원이 매달 «A.i반 학생»(재원 − 화상반) 공급가를 한 번에 결제합니다. 화상반은 A.i 포함이라 청구하지 않습니다.</span><br>
+      <span data-ko="— 학원이 매달 «A.i 단독 신청» 학생의 공급가를 한 번에 결제합니다. 신청은 학원이 청구서 명세에서 학생을 체크해서 합니다. 화상반은 A.i 포함이라 무료이고, 신청하지 않은 학생은 청구하지 않습니다." data-en="— Each academy pays monthly for students it has signed up as A.i-only (checked on the invoice list). Video-class students include A.i for free; students not signed up are not billed.">— 학원이 매달 «A.i 단독 신청» 학생의 공급가를 한 번에 결제합니다. 신청은 학원이 청구서 명세에서 학생을 체크해서 합니다. 화상반은 A.i 포함이라 무료이고, 신청하지 않은 학생은 청구하지 않습니다.</span><br>
       ▸ <span data-ko="인원 구간 공급가(1인·월): 71명 이상 ₩4,500 · 51~70명 ₩5,500 · 21~50명 ₩6,500 · 20명 이하 ₩7,500 — 최소 20명분 청구, 인원이 늘어도 금액이 줄지 않게 구간 경계 보정. 지사 커미션 40%." data-en="Tiered supply price (per student/month): 71+ ₩4,500 · 51–70 ₩5,500 · 21–50 ₩6,500 · 20 or fewer ₩7,500 — minimum 20 students billed; boundary floor so the total never drops as students increase. Branch commission 40%.">인원 구간 공급가(1인·월): 71명 이상 ₩4,500 · 51~70명 ₩5,500 · 21~50명 ₩6,500 · 20명 이하 ₩7,500 — 최소 20명분 청구, 인원이 늘어도 금액이 줄지 않게 구간 경계 보정. 지사 커미션 40%.</span><br>
       ▸ <span data-ko="«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감)." data-en="Use «Custom rate» only for academies with a special deal (clear it and save to return to the tier rate).">«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감).</span>
     </div>
@@ -12030,21 +12030,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th data-ko="대리점(학원)" data-en="Agency">대리점(학원)</th>
           <th data-ko="지사" data-en="Franchise">지사</th>
           <th style="text-align:right" data-ko="재원" data-en="Enrolled">재원</th>
-          <th style="text-align:right" data-ko="화상반(포함)" data-en="Video (incl.)">화상반(포함)</th>
-          <th style="text-align:right" data-ko="A.i반(청구)" data-en="A.i-only (billed)">A.i반(청구)</th>
+          <th style="text-align:right" data-ko="화상반(무료)" data-en="Video (free)">화상반(무료)</th>
+          <th style="text-align:right" data-ko="A.i 단독 신청(청구)" data-en="A.i-only sign-ups (billed)">A.i 단독 신청(청구)</th>
+          <th style="text-align:right" data-ko="신청 안 함" data-en="Not signed up">신청 안 함</th>
           <th data-ko="적용 단가" data-en="Applied rate">적용 단가</th>
           <th data-ko="예외 단가" data-en="Custom rate">예외 단가</th>
           <th style="text-align:right" data-ko="예상 청구액" data-en="Est. invoice">예상 청구액</th>
           <th style="text-align:right" data-ko="지사 40%" data-en="Branch 40%">지사 40%</th>
           <th data-ko="적용" data-en="Apply">적용</th>
         </tr></thead>
-        <tbody id="aib-tbody"><tr><td colspan="10" class="empty" data-ko="🔎 불러오기를 누르면 목록이 표시됩니다." data-en="Click Load to list.">🔎 불러오기를 누르면 목록이 표시됩니다.</td></tr></tbody>
+        <tbody id="aib-tbody"><tr><td colspan="11" class="empty" data-ko="🔎 불러오기를 누르면 목록이 표시됩니다." data-en="Click Load to list.">🔎 불러오기를 누르면 목록이 표시됩니다.</td></tr></tbody>
       </table>
     </div>
   </div>
 </details>
-<script src="/js/adm-student-track.js?v=1" defer></script><!-- 🎥🤖 (2026-09-24) 학생관리 › 학생 구분(화상+AI / AI만) -->
-<script src="/js/adm-ai-billing.js?v=3" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
+<script src="/js/adm-student-track.js?v=2" defer></script><!-- 🎥🤖 (2026-09-24) 학생관리 › 학생 구분(화상+AI / AI만) -->
+<script src="/js/adm-ai-billing.js?v=4" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
