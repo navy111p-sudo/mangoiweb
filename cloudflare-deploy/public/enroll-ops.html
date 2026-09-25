@@ -204,10 +204,12 @@ async function viewTodo(){
     if (m.count > 0) {
       urgent += m.count;
       rows.push({ pill:'p-amb', pk:'확인', pe:'Check',
-        t: L('캘린더에만 있는 공휴일 ' + m.count + '건 — 이대로는 수업이 안 밀립니다', m.count + ' holiday(s) only in the Calendar — classes will not be moved'),
+        t: L('수업을 안 미는 공휴일 ' + m.count + '건 — 캘린더·공식 공휴일에만 있음', m.count + ' holiday(s) not pushing classes — only in the Calendar / official list'),
         d: (m.top||[]).map(function(h){ return esc(h.day + ' ' + h.name); }).join(' · '),
         btn: { ko:'공휴일 옮기기', en:'Move holidays', tab:'holidays' } });
     }
+    /* 한쪽 원천만 못 읽었으면 «일부만 대조» 라고 말한다 — 0건이 «다 옮겼다» 로 읽히지 않게. */
+    if (m.failed && m.failed.length) fail([srcLabel(m.failed).ko + ' 대조', srcLabel(m.failed).en + ' check']);
   }
 
   var h = j.holidays || {};
@@ -249,22 +251,37 @@ async function viewTodo(){
    🎌 (2026-09-25 «공휴일 한 곳으로») 수업을 미는 공휴일의 정본은 이 표(enroll_holidays) 하나다.
    캘린더에만 있는 한국 공휴일은 위에 «옮기기» 목록으로 보여 주고, 사람이 눌러서 옮긴다.
    ⛔ 자동으로 옮기지 않는다 — 한 번에 여러 날의 수업이 밀리는 일이라 사람이 고른다(서버 주석 참고). */
+/* 공휴일 후보가 어디서 왔나(서버 calendarHolidaysMissing 의 src·failed 값) — 화면 말로 바꾸기만 한다. */
+function srcPill(src){
+  if (src === 'both') return L('캘린더+공식','Calendar+official');
+  if (src === 'official') return L('공식 공휴일','Official');
+  return L('캘린더','Calendar');
+}
+function srcLabel(list){
+  var ko = [], en = [];
+  (list||[]).forEach(function(x){ if (x === 'official') { ko.push('공식 공휴일'); en.push('Official holidays'); } else { ko.push('캘린더'); en.push('Calendar'); } });
+  return { ko: ko.join('·') || '공휴일', en: en.join(', ') || 'Holidays' };
+}
 async function viewHolidays(){
   $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var j = await api('/api/pay/enroll/admin/holidays');
   var list = (j.holidays||[]);
   var miss = (j.calendar_missing||[]);
+  var missFailed = (j.calendar_failed||[]);
   setCnt('cnt-holidays', miss.length);
   var missHtml = '';
   if (j.calendar_ok === false) {
-    missHtml = '<div class="hint" style="margin-bottom:10px">' + L('캘린더 공휴일과 대조하지 못했습니다(캘린더 표를 읽지 못함).','Could not compare with the Calendar holidays.') + '</div>';
-  } else if (miss.length) {
-    missHtml = '<div class="card" style="border-color:#f2d3a7;background:#fffaf1"><h2>⚠️ ' + L('캘린더에만 있는 한국 공휴일 ' + miss.length + '건', miss.length + ' Korean holiday(s) only in the Calendar') + '</h2>'
-      + '<div class="hint" style="margin-bottom:8px">' + L('강사 › 시간표·근무 › 캘린더에 적힌 공휴일은 <b>수업을 밀지 않습니다</b>. 수업을 미룰 날이면 «옮기기» 를 누르세요. 필리핀 공휴일은 학생 수업을 미는 날이 아니라 뺐습니다.',
-        'Holidays in Teachers › Schedule › Calendar <b>do not move classes</b>. Press «Move» for days that should push classes. Philippine holidays are left out.') + '</div>'
+    missHtml = '<div class="hint" style="margin-bottom:10px">' + L('캘린더·공식 공휴일과 대조하지 못했습니다(두 표를 읽지 못함).','Could not compare with the Calendar / official holidays.') + '</div>';
+  } else {
+    if (missFailed.length) missHtml += '<div class="hint" style="margin-bottom:10px">⚠️ ' + L(srcLabel(missFailed).ko + '은(는) 읽지 못해 대조하지 않았습니다 — 아래 목록은 일부입니다.', srcLabel(missFailed).en + ' could not be read — the list below is partial.') + '</div>';
+  }
+  if (j.calendar_ok !== false && miss.length) {
+    missHtml += '<div class="card" style="border-color:#f2d3a7;background:#fffaf1"><h2>⚠️ ' + L('수업을 안 미는 한국 공휴일 ' + miss.length + '건', miss.length + ' Korean holiday(s) that do not push classes') + '</h2>'
+      + '<div class="hint" style="margin-bottom:8px">' + L('캘린더(강사 › 시간표·근무)나 자동으로 받아 온 <b>국가 공식 공휴일</b>에만 있는 날은 <b>수업을 밀지 않습니다</b>. 수업을 미룰 날이면 «옮기기» 를 누르세요(쉬지 않는 날이면 그대로 두세요). 필리핀 공휴일은 학생 수업을 미는 날이 아니라 뺐습니다.',
+        'Days only in the Calendar (Teachers › Schedule) or the auto-fetched <b>official holiday list</b> <b>do not move classes</b>. Press «Move» for days that should push classes (leave it if you teach that day). Philippine holidays are left out.') + '</div>'
       + '<table class="rs"><thead><tr><th>'+L('날짜','Date')+'</th><th>'+L('이름','Name')+'</th><th></th></tr></thead><tbody>'
       + miss.map(function(h){
-          return '<tr><td data-l="'+L('날짜','Date')+'"><b>'+esc(h.day)+'</b></td><td data-l="'+L('이름','Name')+'">'+esc(h.name)+(h.country?'':' <span class="pill p-gry">'+L('국가 모름','country ?')+'</span>')+'</td>'
+          return '<tr><td data-l="'+L('날짜','Date')+'"><b>'+esc(h.day)+'</b></td><td data-l="'+L('이름','Name')+'">'+esc(h.name)+' <span class="pill p-gry">'+srcPill(h.src)+'</span>'+(h.country?'':' <span class="pill p-gry">'+L('국가 모름','country ?')+'</span>')+'</td>'
             + '<td class="full"><button class="go" data-mv="'+esc(h.day)+'" data-nm="'+esc(h.name)+'">'+L('옮기기','Move')+'</button></td></tr>';
         }).join('')
       + '</tbody></table>'
