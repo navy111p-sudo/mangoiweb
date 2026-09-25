@@ -3742,6 +3742,64 @@ async function sendMsg(){
 }
 </style>
 <link rel="stylesheet" href="/css/warmup-guide.css?v=6" />
+<!-- ══════════════════════════════════════════════════════════════
+     📱 휴대폰·태블릿(터치) 전용 — 입력 묶음이 대화창을 가리지 않게 (2026-09-25 · 시안 A+C 중간안)
+     사장님 「1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말)이 안 보여」 → 시안 5종 중 A+C,
+     「휴대폰과 테블릿에서만 적용해줘. 가로 세로 모두」.
+     실측(폰 세로 390×844, 중국어·자동 듣는 중): 입력 묶음 272px 에 «듣는 중» 안내가 세 번
+     (자동 알약 · wgState · #listening). 기능은 하나도 안 빼고 자리·크기만 줄인다.
+     ⚠️ 폭(max-width)이 아니라 «터치 기기» 로 가른다 — 좁은 PC 창·마우스 PC 는 예전 그대로.
+     ⚠️ 이 블록은 warmup-guide.css «뒤» 에 있어야 같은 명시도에서 이긴다(얼굴 크기 --av-w).
+     ⚠️ 얼굴 56px 은 2026-09-23 「얼굴 크게」와 반대 방향 — 터치 기기에서만, 2026-09-25 사장님 선택.
+     감시: test-harness/manual/warmup-touch-compact-browser.mjs (자동으로 안 돕니다, 사람이 부릅니다)
+     ══════════════════════════════════════════════════════════════ -->
+<style id="touch-compact-2026-09-25">
+@media (hover:none) and (pointer:coarse){
+  /* ① 얼굴 — 56px 네모로 줄여 이름·진행 문구와 한 줄에(얼굴 옆 빈자리 제거) */
+  body #tavatar-wrap, html.wu-zh body #tavatar-wrap{ --av-w:56px; position:static; transform:none; margin:0; gap:8px; }
+  body #tavatar-wrap #tavatar-ring{ border-radius:12px; }
+  body #tavatar-status{ font-size:11px; padding:2px 8px; max-width:none; white-space:nowrap; }
+  .wg-header{ justify-content:flex-start; gap:10px; }
+  .wg-progress, html.wu-zh .wg-progress{ flex:1 1 0; min-width:0; margin-left:0; text-align:left; font-size:12px; line-height:1.35; }
+  .wg-progress strong, html.wu-zh .wg-progress strong{ font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* ② 입력 묶음 — 스위치는 작게, «듣는 중» 안내는 한 번만 */
+  .wg-composer{ padding:6px; }
+  .talk-switch{ margin:0 auto 4px; gap:5px; }
+  .talk-switch .ts-lbl{ font-size:11.5px; }
+  .talk-switch button{ min-height:30px; padding:3px 10px; font-size:12.5px; }
+  body #listening{ padding:6px 10px; margin:0 2px 5px; font-size:12.5px; }
+  .wg-state{ font-size:12.5px; margin:0 4px 4px; min-height:0; }
+  /* 듣는 동안에는 #listening 하나만 — 같은 말(자동 알약·wgState)을 감춘다. 안 들을 때는 둘 다 그대로 보인다. */
+  .wg-composer:has(#listening[style*="flex"]) #wgState,
+  .wg-composer:has(#listening[style*="flex"]) .autotalk-pill{ display:none!important; }
+  body .inbar{ padding:2px; }
+  body .inbar input{ padding:10px 11px; }
+  body .inbar button{ min-width:44px; min-height:44px; }
+  /* 사용법 줄은 첫 대화 전에만 — 한 번 말한 뒤에는 이미 아는 내용이다 */
+  body:has(#log .msg.me) .hint{ display:none; }
+  /* 폭이 되면 스위치와 «듣는 중» 을 한 줄에(가로·태블릿). 좁은 폰에서는 저절로 두 줄로 내려간다. */
+  .wg-composer{ display:flex; flex-wrap:wrap; align-items:center; column-gap:8px; }
+  .wg-composer > *{ flex:1 1 100%; min-width:0; }
+  .wg-composer > .talk-switch{ flex:0 1 auto; }
+  .wg-composer > #listening{ flex:1 1 240px; }
+}
+/* 눕힌 폰(세로가 짧음): warmup-guide.css 의 min-height:520px 이 화면(390px)보다 커서 입력칸·⏹ 이
+   화면 밖으로 밀렸다(실측 — 고치기 전에도 그랬다). 화면 높이에 맞추고 한 번 더 줄인다. */
+@media (hover:none) and (pointer:coarse) and (max-height:520px){
+  body .wrap{ min-height:0; padding-top:6px; padding-bottom:6px; gap:6px; }
+  body #tavatar-wrap, html.wu-zh body #tavatar-wrap{ --av-w:40px; }
+  .wg-progress span{ display:none; }
+  /* 주제·콤보 칩 줄은 눕혔을 때만 감춘다 — 세로 390px 에서는 선생님 말 한 줄이 더 귀하다 */
+  .meta{ display:none; }
+  .talk-switch{ margin-bottom:2px; }
+  .talk-switch button{ min-height:28px; padding:2px 9px; }
+  body .qs-row .qs-get, body .qs-row .wg-btn{ min-height:34px; padding-top:4px; padding-bottom:4px; }
+}
+/* 좁은 폰: «말하는 방법» 글자를 빼야 스위치가 한 줄에 들어간다(버튼 글자만으로 뜻이 통한다) */
+@media (hover:none) and (pointer:coarse) and (max-width:400px){
+  .talk-switch .ts-lbl{ display:none; }
+}
+</style>
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=22"></script>
