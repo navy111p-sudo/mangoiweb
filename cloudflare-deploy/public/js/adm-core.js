@@ -3307,7 +3307,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="16" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -3341,7 +3341,7 @@ async function loadTeacherProfiles() {
      ⛔ 화면이 자동으로 고치지 않는다 — 어느 쪽이 맞는지는 사람이 안다. 말해 주기만 한다. */
   try { _tpRenderRosterMismatch(res); } catch (e) {}
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="16" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -3405,6 +3405,7 @@ async function loadTeacherProfiles() {
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpWorkplaceBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:right">' + fee + '</td>' +
+      '<td class="tp-util-col" id="tputil-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap;min-width:78px">' + _tpUtilCell(t) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(phone) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;white-space:nowrap">' + kakaoCell + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + join + '</td>' +
@@ -3457,6 +3458,10 @@ async function loadTeacherProfiles() {
   if (typeof window.tpLoadLiveNow === 'function') {
     Promise.resolve(window.tpLoadLiveNow()).then(function () { _tpApplySort('now'); }, function () {});
   }
+  // 📊 가동률 칸 채우기 — 아래 _TP_UTIL 절. 표당 1회 조회, 표 렌더를 막지 않는다.
+  if (typeof window.tpLoadUtil === 'function') {
+    Promise.resolve(window.tpLoadUtil()).then(function () { _tpApplySort('util'); }, function () {});
+  }
 }
 
 /* ↕ 강사 명부 오름차순·내림차순 (2026-09-25 사장님 요청)
@@ -3488,6 +3493,7 @@ function _tpSortVal(tr, key) {
     case 'workplace': { var cells = tr.children; return s(cells[6] ? cells[6].textContent : ''); }
     case 'area':      return s(t.active_region);
     case 'fee':       return t.fee_per_10min ? Number(t.fee_per_10min) : null;
+    case 'util':      { var u = _tpUtilOf(t); return u && u.utilization_pct != null ? Number(u.utilization_pct) : null; }
     case 'phone':     return s(t.phone);
     case 'kakao':     return s(t.kakao_id);
     case 'join':      return s(t.join_date);
@@ -3543,6 +3549,81 @@ window.tpSortBy = function (key) {
   _tpApplySort();
 };
 
+
+/* 📊 가동률 칸 — 강사 명부 (2026-09-25 사장님 「강사 가동률을 여기 적당한 자리에」)
+   값의 정본은 이미 있는 GET /api/admin/stats/teacher-utilization 하나다(「📊 강사 가동률」 카드와
+   같은 숫자) — ⛔ 화면에서 다시 계산하지 않는다(두 벌이 되면 카드와 명부가 다른 말을 한다).
+   ⚠️ 잇기는 «이름» 이 아니라 teacher_profiles.linked_teacher_id = teachers.id(원부 번호) 뿐이다.
+      그 API 의 teacher_id 가 원부 번호라 정확히 한 사람에게만 붙는다. 연결이 없거나 퇴사(원부 active=0)
+      로 API 에 없는 강사는 «—» + 이유를 적는다(0% 로 지어내지 않는다 — 0% 와 «모름» 은 다른 사실).
+   ⚠️ 403(강사·지사 계정)·통신 실패는 «모른다» 로 두고 다시 묻지 않는다.
+   ⚠️ 글자색은 인라인 !important — admin-inline-c.css 가 카드 안 글자를 #101828 !important 로 덮는다.
+      막대는 background-color 로 칠한다(background: 로 쓰면 옛 다크 규칙에 걸려 투명해진다). */
+var _TP_UTIL = { byId: {}, loaded: false, off: false, err: false, win: null };
+
+function _tpUtilOf(t) {
+  if (!t || t.linked_teacher_id == null || t.linked_teacher_id === '') return null;
+  return _TP_UTIL.byId[String(t.linked_teacher_id)] || null;
+}
+
+function _tpUtilHm(min) {
+  var m = Math.max(0, Math.round(Number(min) || 0)), h = Math.floor(m / 60), r = m % 60;
+  var en = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  return en ? ((h ? h + 'h ' : '') + r + 'm') : ((h ? h + '시간 ' : '') + r + '분');
+}
+
+function _tpUtilCell(t) {
+  var en = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  var dash = function (why) { return '<span style="color:#9ca3af !important" title="' + _aiEsc(why) + '">—</span>'; };
+  if (!_TP_UTIL.loaded) return '<span style="color:#d1d5db !important">…</span>';
+  if (_TP_UTIL.off) return dash(en ? 'This account cannot view utilization' : '이 계정은 가동률을 볼 수 없습니다');
+  if (_TP_UTIL.err) return dash(en ? 'Could not load utilization' : '가동률을 불러오지 못했습니다');
+  if (!t || t.linked_teacher_id == null || t.linked_teacher_id === '') {
+    return dash(en ? 'Not linked to the teacher roster — cannot compute' : '강사 원부에 연결되지 않아 계산할 수 없습니다');
+  }
+  var u = _tpUtilOf(t);
+  if (!u) return dash(en ? 'Not in the utilization list (inactive in roster)' : '가동률 목록에 없습니다 (원부 퇴사/비활성)');
+  var p = u.utilization_pct;
+  if (p == null) return dash(en ? 'All hours blocked as unavailable' : '근무불가로 가능 시간이 0입니다');
+  var fg = p >= 90 ? '#c2410c' : p >= 60 ? '#15803d' : p >= 30 ? '#a16207' : '#b91c1c';
+  var bar = p >= 90 ? '#f97316' : p >= 60 ? '#22c55e' : p >= 30 ? '#eab308' : '#ef4444';
+  var w = Math.max(p > 0 ? 3 : 0, Math.min(100, p));
+  var tip = en
+    ? ('Weekly assigned ' + _tpUtilHm(u.assigned_min) + ' / available ' + _tpUtilHm(u.available_min) + ' · ' + (u.class_count || 0) + ' classes/week')
+    : ('주간 배정 ' + _tpUtilHm(u.assigned_min) + ' / 가능 ' + _tpUtilHm(u.available_min) + ' · 주 ' + (u.class_count || 0) + '회');
+  return '<div title="' + _aiEsc(tip) + '" style="display:block">'
+    + '<span style="font-weight:800;color:' + fg + ' !important">' + p + '%</span>'
+    + '<span style="display:block;height:5px;margin-top:3px;border-radius:3px;background-color:#e5e7eb;overflow:hidden">'
+    + '<span style="display:block;height:5px;width:' + w + '%;background-color:' + bar + '"></span></span>'
+    + '<span style="display:block;margin-top:2px;font-size:10.5px;color:#667085 !important">' + _tpUtilHm(u.assigned_min) + (en ? '/wk' : '/주') + '</span>'
+    + '</div>';
+}
+
+function _tpPaintUtil() {
+  var rows = document.querySelectorAll('#tp-list-body tr[data-tid]');
+  for (var i = 0; i < rows.length; i++) {
+    var tid = rows[i].getAttribute('data-tid');
+    var cell = document.getElementById('tputil-' + tid);
+    if (cell) cell.innerHTML = _tpUtilCell((window._tpRowById || {})[tid] || {});
+  }
+}
+
+window.tpLoadUtil = async function () {
+  if (_TP_UTIL.off) { _tpPaintUtil(); return; }
+  var r = null, d = null;
+  try { r = await fetch('/api/admin/stats/teacher-utilization', { credentials: 'include', cache: 'no-store' }); } catch (e) { r = null; }
+  if (r && r.status === 403) { _TP_UTIL.off = true; _TP_UTIL.loaded = true; _tpPaintUtil(); return; }
+  try { d = r ? await r.json() : null; } catch (e) { d = null; }
+  /* «성공이라고 말했는가» 로 판정 — 404 본문에는 ok 칸이 없다(CLAUDE.md 2장). */
+  if (!r || !r.ok || !d || d.ok !== true || !Array.isArray(d.teachers)) {
+    _TP_UTIL.err = !_TP_UTIL.loaded || _TP_UTIL.err;   // 이미 값이 있으면 직전 값을 둔다
+    _TP_UTIL.loaded = true; _tpPaintUtil(); return;
+  }
+  var byId = {};
+  d.teachers.forEach(function (x) { if (x && x.teacher_id != null) byId[String(x.teacher_id)] = x; });
+  _TP_UTIL.byId = byId; _TP_UTIL.win = d.window || null; _TP_UTIL.loaded = true; _TP_UTIL.err = false;
+  _tpPaintUtil();
+};
 
 /* 🟢 «지금 수업 중» 신호등 — 강사 명부 (2026-08-31, 사장님 「하나하나 눌러볼 수 없고 바로 전체에서」)
    ═══════════════════════════════════════════════════════════════════════════
