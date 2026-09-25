@@ -472,11 +472,15 @@
   function prFxText(isEn){
     if (!_prFx) return isEn ? '💱 Loading exchange rate…' : '💱 환율 불러오는 중…';
     if (_prFx.error) return isEn ? '💱 Could not load the exchange rate — amounts stay in ₱' : '💱 환율을 불러오지 못했습니다 — 금액은 ₱ 그대로 보여 드려요';
-    const t = _prFx.rate_time ? new Date(_prFx.rate_time).toLocaleString(isEn?'en-US':'ko-KR', { timeZone:'Asia/Seoul', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
     const r = Number(_prFx.rate).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-    const stale = _prFx.stale ? (isEn ? ' · ⚠ last saved rate (live lookup failed)' : ' · ⚠ 지금 못 받아 마지막 저장값') : '';
+    // source 는 서버 정본(getTodayFx)이 준 그대로 — 오늘 받은 값인지 옛 값인지 화면이 말한다
+    const SRC = isEn
+      ? { live: 'today’s rate', last: '⚠ last fetched rate (live lookup failed)', payroll: '⚠ rate saved on the payroll screen (live lookup failed)' }
+      : { live: '오늘 환율', last: '⚠ 지난번에 받은 환율(지금은 못 받음)', payroll: '⚠ 급여 화면에 저장된 환율(지금은 못 받음)' };
+    const why = SRC[_prFx.source] || esc(_prFx.source || '');
+    const d = _prFx.date ? ' · ' + esc(_prFx.date) : '';
     return (isEn ? `💱 1 PHP = <b>${r}</b> KRW` : `💱 1페소 = <b>${r}</b>원`)
-      + `<span style="color:#667085"> · ${esc(_prFx.source||'')}${t ? (isEn?' · as of ':' · 기준 ')+esc(t)+' KST' : ''}${stale}</span>`;
+      + `<span style="color:#667085"> · ${why}${d}${_prFx.source === 'payroll' ? '' : ' · open.er-api.com'}</span>`;
   }
   function prFxPaint(){
     const isEn = (window.adminLang === 'en');

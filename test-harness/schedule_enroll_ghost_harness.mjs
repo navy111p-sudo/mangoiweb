@@ -90,6 +90,9 @@ const canonSrc = [
   cut('function mgsSchedTime(sch)'),
   cut('var MGS_AI_COLORS = {') + ';',
   cut('function mgsAiColors(sch)'),
+  cut('var MGS_AI_SHORT = {') + ';',          // 🗓 2026-09-25 카드 안쪽 도우미(시안 ②)
+  cut('function mgsSchCls(sch)'),
+  cut('function mgsSchInner(sch, colors, hhmm)'),
   cut('function mgsSrcLabel(sch)'),  // 🏷 2026-09-24 카드 이름표(source 별)
   /* 🎌 2026-09-25 공휴일 표시 도우미 — 두 렌더가 부른다. 소스에서 그 구간을 통째로 오려 낸다
      (fetch 가 없는 이 샌드박스에서는 조용히 «공휴일 없음» 으로 그려진다 — 그것이 정본의 실패 방향). */
@@ -178,7 +181,7 @@ try {
   ok('[전제] 렌더가 가짜 DOM 에서 돈다', false, String(e && e.message || e));
 }
 
-/* ⚠️ 주간 카드는 border-left 3px 실선, AI 오버레이는 border 2px dashed 라 서로 다르다.
+/* ⚠️ 수강신청 카드는 인라인 background + border-left 3px 실선, 예약 수업 카드는 인라인 색 없이 .mgs-ev 클래스(2026-09-25)라 서로 다르다.
    그래서 이 모양은 «수강신청 카드» 만 가리킨다(AI 카드에 걸려 헛돌지 않는다). */
 if (R.dead) {
   ok('판정: 살아 있는 수업이 0건이면 «없음»', R.dead.live === false);

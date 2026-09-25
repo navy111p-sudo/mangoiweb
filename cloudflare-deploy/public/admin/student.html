@@ -218,6 +218,21 @@
     .report-head .right{display:none}
     .report-foot{background:#fff}
   }
+  /* 🗓 예약 수업 카드(2026-09-25 사장님 시안 ② «진한 바탕 + 어두운 막대»).
+     글자는 카드 «폭» 을 보고 줄인다(@container — 화면 폭·zoom 과 무관하게 실제 칸 폭 기준):
+     넓으면 «정규수업 14:20 ✍️ 직접 등록» · 중간 «정규 14:20» · 좁은 폰 칸은 두 줄 «정규 / 14:20».
+     ⛔ 색을 인라인으로 되돌리지 말 것 — adm-light-surfaces 가 진한 배경을 흰 면으로 누른다(그 파일 SKIP_SEL 에 등재).
+     흰 글자 대비: 앰버 #b45309 5.0 · 초록 #047857 5.5 · 파랑 #1d4ed8 6.7 (≥4.5). */
+  .mgs-ev{container-type:inline-size;background:var(--mc,#b45309);color:#fff;border-left:4px solid rgba(0,0,0,.28);
+    border-radius:4px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.15)}
+  .mgs-ev.mgs-regular{--mc:#b45309}.mgs-ev.mgs-trial{--mc:#047857}.mgs-ev.mgs-level_test{--mc:#1d4ed8}
+  .mgs-ev.mgs-m{margin-bottom:3px;min-height:22px}
+  .mgs-in{height:100%;min-height:20px;display:flex;align-items:center;gap:4px;padding:0 5px;white-space:nowrap;
+    font-size:10.5px;font-weight:700;line-height:1}
+  .mgs-in .s{display:none}
+  .mgs-in .src{font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  @container (max-width:130px){ .mgs-in .f,.mgs-in .src{display:none} .mgs-in .s{display:inline} }
+  @container (max-width:66px){ .mgs-in{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:0 1px;font-size:8.5px;letter-spacing:-.3px;line-height:1.05} }
 </style>
 <link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
@@ -409,7 +424,7 @@
           <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
-          <span><span style="display:inline-block;width:14px;height:14px;background:#fbbf24;border:2px dashed #b45309;border-radius:3px;vertical-align:middle"></span> ⭐ 등록된 수업 (점선 · 마우스를 올리면 등록 경로)</span>
+          <span><span class="mgs-ev mgs-regular" style="display:inline-block;width:14px;height:14px;vertical-align:middle;cursor:default"></span> <span class="mgs-ev mgs-trial" style="display:inline-block;width:14px;height:14px;vertical-align:middle;cursor:default"></span> <span class="mgs-ev mgs-level_test" style="display:inline-block;width:14px;height:14px;vertical-align:middle;cursor:default"></span> 등록된 수업 (진한 색 = 정규·체험·레벨 · 마우스를 올리면 등록 경로)</span>
           <span style="margin-left:auto">학생 ID: <code id="d-sched-uid" style="background:rgba(148,163,184,0.2);padding:1px 6px;border-radius:3px">—</code></span>
         </div>
       </div>
@@ -2898,6 +2913,15 @@ var MGS_AI_COLORS = {
   trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
   regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
 };
+/* 🗓 예약 수업 카드 안쪽 — 주간·월간이 같은 것을 쓴다(⛔ 한쪽에 베껴 적지 말 것).
+   모양·색은 CSS .mgs-ev 블록이 정한다. 줄이는 규칙(유형 전체/짧게/두 줄)도 그쪽 @container 가 맡는다. */
+var MGS_AI_SHORT = { level_test:'레벨', trial:'체험', regular:'정규' };
+function mgsSchCls(sch) { var t = sch && sch.class_type; return 'mgs-ev mgs-' + (MGS_AI_COLORS[t] ? t : 'regular'); }
+function mgsSchInner(sch, colors, hhmm) {
+  var t = sch && sch.class_type;
+  return '<div class="mgs-in"><span class="f">' + colors.name + '</span><span class="s">' + (MGS_AI_SHORT[t] || MGS_AI_SHORT.regular) +
+    '</span><span class="tm">' + hhmm + '</span><span class="src">' + mgsSrcLabel(sch) + '</span></div>';
+}
 function mgsAiColors(sch) { return MGS_AI_COLORS[sch && sch.class_type] || MGS_AI_COLORS.regular; }
 /* 🏷 (2026-09-24 사장님 「내가 직접 등록했는데 왜 AI 등록이지?」) 이 레이어는 class_schedules «전부» 다.
    옛 이름표가 source 와 무관하게 「🤖 AI 등록」으로 박혀 있어, 관리자 폼(admin_ui)·수강신청·카페24 미러로
@@ -3071,10 +3095,8 @@ function renderDSchedWeek() {
       const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
       const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
-      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
-        '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-        '<div style="font-weight:600">' + mgsSrcLabel(sch) + '</div>' +
-        '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+      html += '<div class="' + mgsSchCls(sch) + '" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+        mgsSchInner(sch, colors, sch.start_time) + '</div>';
     }
   }
   html += '</div>';
@@ -3143,7 +3165,7 @@ function renderDSchedMonth() {
         const ac = mgsAiColors(sch);
         const at = mgsSchedTime(sch);
         const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
-        html += '<div data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : '매주 ') + aWhen + (sch.status==='postponed'?' / 연기':'') + '" style="background:' + ac.bg + ';border:2px dashed ' + ac.border + ';border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:' + ac.text + ';line-height:1.25"><b>⭐ ' + ac.name.substring(0,4) + '</b><br>' + aWhen + '</div>';
+        html += '<div class="' + mgsSchCls(sch) + ' mgs-m" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : '매주 ') + aWhen + (sch.status==='postponed'?' / 연기':'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
       }
     }
     html += '</div>';
@@ -3685,6 +3707,6 @@ loadFull();
 </a>
 
 <script defer src="/js/back-nav.js"></script>
-<script src="/js/adm-light-surfaces.js?v=18" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=19" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>
