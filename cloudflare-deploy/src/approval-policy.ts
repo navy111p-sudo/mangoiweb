@@ -1116,6 +1116,94 @@ export function contentTypeFor(kind: string): string {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 🔀 잘못 고른 분류 알려 주기 (14단계, 2026-09-25 사장님 「휴가신청에 잘못 결제 영수증이나 물품주문을
+ *    올리면 잘못 올렸다고 알림을 주고 자동으로 물품으로 이동해서 올려주게」)
+ *
+ *   ⛔ LLM 을 쓰지 않는다 — 말로 정해진 낱말만 센다(결정론). 판정이 흔들리면 같은 글이 어떤 날은
+ *      «잘못» 이고 어떤 날은 아니게 되고, 사람이 그것을 못 믿는다.
+ *   ⛔ «모르면 안 알린다» — 양쪽 낱말이 섞이면(예: «휴가 중 택시비») 제안하지 않는다.
+ *      헛경보는 사람이 버튼을 무시하게 만들어, 진짜 잘못 고른 건까지 놓친다.
+ *   ⛔ 고객 불만·긴급·인사는 보지 않는다 — 불만은 원래 «결제했는데…» 처럼 돈 이야기를 하고,
+ *      긴급은 분류보다 빨리 닿는 것이 먼저다. 인사·급여는 경영진 전용 분류라 옮기면 안 된다.
+ *   ⚠️ 여기서는 «제안» 만 한다 — 옮기는 것은 사람이 누르는 버튼이고, 올리기도 사람이 누른다
+ *      (물품 구입은 금액·영수증이 «반드시» 필요해 휴가 폼에서는 원래 채울 수 없다).
+ * ═════════════════════════════════════════════════════════════════════════ */
+/** 이 분류로 올리려 할 때 «잘못 골랐나» 를 본다. 화면이 올리기 전 점검을 부를지 정하는 데도 쓴다. */
+export const MISFILE_FROM = ['leave', 'doc', 'purchase', 'expense'] as const;
+
+const MIS_ORDER = [/주문/, /구매/, /구입/, /비품/, /사무용품/, /물품/, /사야/, /살\s*것/, /\border(ed|s)?\b/, /\bbuy(ing)?\b/, /\bbought\b/, /\bpurchas(e|ed|ing)\b/, /\bsupplies\b/, /\bbumili\b/, /\bbibili\b/];
+const MIS_PAID = [/영수증/, /정산/, /환급/, /결제(했|함|한|완료)/, /택시/, /교통비/, /식대/, /\breceipts?\b/, /\breimburs(e|ement)\b/, /\bpaid\b/, /\btaxi\b/, /\bgrab\b/, /\bfare\b/, /\bresibo\b/];
+const MIS_LEAVE = [/휴가/, /연차/, /병가/, /반차/, /결근/, /쉬겠/, /쉬고\s*싶/, /\bday\s*off\b/, /\bdays\s*off\b/, /\bvacation\b/, /\bsick\s*(leave|day)\b/, /\bon\s*leave\b/, /\bleave\s*(request|of absence)\b/, /\babsent\b/, /\brest\s*day\b/];
+const MIS_MONEY_RE = /(₱|₩|\bphp\b|\bpesos?\b|\bkrw\b)\s*[\d,]+(\.\d+)?|[\d,]*\d(\.\d+)?\s*(원|₱|\bphp\b|\bpesos?\b|\bkrw\b)/i;
+
+function misCount(list: RegExp[], text: string): number {
+  let n = 0;
+  for (const re of list) if (re.test(text)) n++;
+  return n;
+}
+
+/** 글 속 «금액 한 개» — 정확히 하나일 때만(둘 이상이면 어느 것인지 모른다 → null). */
+export function amountInText(text: string): { amount: number; currency: 'PHP' | 'KRW' } | null {
+  const t = String(text || '');
+  const re = new RegExp(MIS_MONEY_RE.source, 'gi');
+  const hits = t.match(re) || [];
+  if (hits.length !== 1) return null;
+  const h = hits[0];
+  const num = Number((h.match(/\d[\d,]*(\.\d+)?/) || [''])[0].replace(/,/g, ''));
+  if (!isFinite(num) || num <= 0) return null;
+  const cur: 'PHP' | 'KRW' = /₩|원|krw/i.test(h) ? 'KRW' : 'PHP';
+  return { amount: num, currency: cur };
+}
+
+export interface MisfileInput { reqType: string; title?: string | null; body?: string | null; amount?: number | null; hasFile?: boolean }
+export interface MisfileGuess {
+  to: 'purchase' | 'expense' | 'leave';
+  why_ko: string; why_en: string;
+  amount_hint: { amount: number; currency: 'PHP' | 'KRW' } | null;
+}
+
+export function misfileGuess(inp: MisfileInput): MisfileGuess | null {
+  const from = String(inp?.reqType || '');
+  if ((MISFILE_FROM as readonly string[]).indexOf(from) < 0) return null;
+  const text = (String(inp?.title || '') + '\n' + String(inp?.body || '')).toLowerCase();
+  if (!text.trim()) return null;
+  const order = misCount(MIS_ORDER, text), paid = misCount(MIS_PAID, text);
+  const moneyText = MIS_MONEY_RE.test(text) ? 1 : 0;
+  const leave = misCount(MIS_LEAVE, text);
+  const money = order + paid + moneyText;
+
+  // ① 돈이 나가는 이야기인데 휴가·일반 문서로 고른 경우 → 물품 구입(주문) / 지출 정산(이미 냄)
+  if (from === 'leave' || from === 'doc') {
+    if (leave > 0) return null;                          // 휴가 낱말이 있으면 안 건드린다(섞임 = 모름)
+    const need = from === 'doc' ? 2 : 1;                 // 일반 문서는 돈 이야기가 원래 섞이므로 더 엄격하게
+    if (money < need || (order + paid) === 0) return null;
+    const to: 'purchase' | 'expense' = paid > order ? 'expense' : 'purchase';
+    const fromKo = from === 'leave' ? '휴가 신청' : '일반 문서';
+    const fromEn = from === 'leave' ? 'Time off' : 'Document';
+    return to === 'purchase'
+      ? { to, why_ko: fromKo + '인데 물건을 사거나 주문하는 내용입니다. «물품 구입» 으로 올려야 결재자에게 제대로 갑니다.',
+              why_en: 'This is a ' + fromEn + ' request but it is about buying or ordering items. Use «Purchase» so it reaches the right approver.',
+              amount_hint: amountInText(text) }
+      : { to, why_ko: fromKo + '인데 이미 쓴 돈(영수증·정산) 이야기입니다. «지출 정산» 으로 올려야 돈을 돌려받을 수 있습니다.',
+              why_en: 'This is a ' + fromEn + ' request but it is about money already spent (receipt / reimbursement). Use «Expense» to get paid back.',
+              amount_hint: amountInText(text) };
+  }
+
+  // ② 휴가 이야기인데 물품 구입·지출 정산으로 고른 경우 → 휴가 신청
+  if (from === 'purchase' || from === 'expense') {
+    if (leave === 0 || money > 0) return null;           // 돈 낱말이 하나라도 있으면 안 건드린다
+    if (inp?.hasFile) return null;                       // 영수증을 붙였으면 돈 결재일 가능성이 크다
+    const amt = Number(inp?.amount);
+    if (inp?.amount != null && isFinite(amt) && amt > 0) return null;
+    return { to: 'leave',
+      why_ko: '금액·영수증 없이 쉬는 날 이야기만 있습니다. «휴가 신청» 으로 올려야 그 날 수업 예약이 막힙니다.',
+      why_en: 'There is no amount or receipt — only days off. Use «Time off» so bookings are blocked on those days.',
+      amount_hint: null };
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 📒 간단 회계장부 (12단계, 2026-09-25 사장님 「간단한 회계장부도 자동으로 … 이번달것과 일년치것,
  *    결제액수·날짜 오름차순 내림차순」)
  *   «승인된 지출» 한 건 = 장부 한 줄. 날짜는 결재를 올린 날(KST) — 기간 거르기(from/to)와 같은 기준이라
