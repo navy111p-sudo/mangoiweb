@@ -151,6 +151,8 @@ try {
   const env = {
     LED: LEDo, EN: () => false, T: (en, ko) => ko, esc: s => String(s),
     money: (v, c) => (c === 'KRW' ? '₩' : '₱') + Number(v).toLocaleString('en-US'),
+    // 16단계부터 장부 금액은 lm(원·페소 바꿔 보기)을 지난다 — 여기서는 «원래 통화» 보기(= money 그대로)로 둔다. 환산은 16단계 하니스가 본다.
+    lm: (v, c) => (c === 'KRW' ? '₩' : '₱') + Number(v).toLocaleString('en-US'),
   };
   const make = () => new Function(...Object.keys(env), srcs.join('\n') + '\nreturn {' + names.join(',') + '};')(...Object.values(env));
   const F = make();
