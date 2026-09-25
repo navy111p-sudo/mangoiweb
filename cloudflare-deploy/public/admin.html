@@ -6821,6 +6821,7 @@ window.__admSettleRun = function(fn){
 <script type="text/lazy-js" data-src="/js/adm-longabsent.js?v=2" data-card="card-long-absent" data-globals="laLoad,laExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 <!-- 🛠 (2026-08-30 v4 제안서 07) 원격 수리·점검 PIN 발급. 학생관리 카드 안에서 쓰므로 지연로드가 아니라 defer 다. -->
 <script defer src="/js/adm-remote-pin.js?v=3"></script>
+<script defer src="/js/absence-hold-panel.js?v=2"></script><!-- ⏸ 연속 결석 보류 알림판(2026-09-25) -->
 
 <!-- 🤖 (2026-09-16) AI 학습도구 8종을 실제로 쓴 학생 — 판단력훈련·웜업·AI영어친구·AI글쓰기·
      발음코칭·복습퀴즈·단어장·AI단어퀴즈. 정본 API 는 src/api-admin.ts 의
@@ -7891,7 +7892,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div data-gc="👤 강사별 상세" data-gc-en="Teacher Detail" id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=9" data-card="card-payroll-auto" data-globals="prSortBy,prFilter,prFilterReset,prToggleKrw,prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=10" data-card="card-payroll-auto" data-globals="prSortBy,prFilter,prFilterReset,prToggleKrw,prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
