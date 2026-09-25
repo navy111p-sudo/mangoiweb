@@ -2732,6 +2732,7 @@ async function micViaWhisper(){
   _whisperOn=true; setMicState(true);
   var said = await MangoiVoice.record({
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
+    silenceMs: 1800,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
     onState: function(s, info){
       if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
@@ -2789,7 +2790,11 @@ function _startSttSession(){
   /* 🎤 (2026-07-23) 침묵 대기 시간을 상황에 맞게 — 2.6초 고정이라 "한두 마디 하면 꺼졌다".
      아직 아무 말도 못 들었으면 오래 기다리고(생각할 시간), 조각만 들렸으면 넉넉히,
      문장이 완성돼 보이면 예전처럼 빠르게 마무리한다. */
-  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=2600;
+  /* ⚡ (2026-09-25 사장님 「A.i 가 답하는 시간을 더 빠르게」) — «문장이 끝나 보일 때» 만 2.6초 → 1.5초.
+     ⛔ SIL_SHORT(덜 끝난 문장)·SIL_FIRST(아직 아무 말 없음)는 줄이지 않는다 — 아이가 중간에
+        「음…」 하고 쉬는 동안 끊겨 보내지는 2026-07-23 사고가 그 둘로 막혀 있다.
+     감시는 test-harness/warmup_reply_speed_harness.mjs (판정을 오려 내 실제로 돌림). */
+  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=1500;
   function _micHeard(){ return _tidySpeech(_mergeSpeech(_micBase, _micSess)); }
   function _armSilence(){
     if(_silence) clearTimeout(_silence);
