@@ -205,6 +205,11 @@ try {
   const sandbox = new Function(
     canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + weekFn + '\n' +
     'function mgsEnrHasLiveClass(){ return true; }\n' +
+    /* 🎌 2026-09-25 공휴일 도우미 — 소스에서 그 구간을 오려 낸다(⛔ 베껴 적지 말 것).
+       fetch 가 없으니 «공휴일 없음» 으로 그려지고, 위 카드 수 검사는 그대로 뜻을 갖는다. */
+    (function () { var a = src.indexOf('const _mgsHol = {'), b = src.indexOf('function renderDSchedule() {');
+      return (a > 0 && b > a) ? src.slice(a, b) : ''; })() + '\n' +
+    'function esc(s){ return String(s); }\nvar fetch = function(){ return Promise.reject(new Error("no fetch")); };\n' +
     'function mgsSetGhostNote(){}\n' +
     'return function (state) {\n' +
     '  var out = { label: "", html: "" };\n' +
@@ -266,6 +271,59 @@ console.log('\n── ⑥ 이름표는 source 로 가른다 (2026-09-24 「직�
       ['adm-enroll:85', 'c24-mirror', '', null].map(x => L({ source: x })).join(' | '));
   }
   check('주간 카드 title 에 «AI 등록» 이 박혀 있지 않다', !/title="🤖 AI 등록/.test(src));
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ⑧ 🎌 공휴일 표시 (2026-09-25 사장님 제보 — 강사 주간 스케줄에는 추석이 빨간 띠로 나오는데
+      학생 캘린더에는 아무 표시가 없었다). 도우미·주간·월간 렌더를 소스에서 오려 내 «실제로» 돌린다.
+   ⚠️ «표시한다» 옆에 «강사 휴가(vacation)는 안 그린다»·«공휴일 아닌 날은 안 칠한다» 를 짝으로 둔다
+      — 짝이 없으면 «모든 날을 칠하기» 도 통과한다. */
+console.log('\n⑧ 공휴일 표시');
+{
+  const a = src.indexOf('const _mgsHol = {'), b = src.indexOf('function renderDSchedule() {');
+  const helpers = (a > 0 && b > a) ? src.slice(a, b) : '';
+  check('전제 — 공휴일 도우미를 오려 냈다', helpers.length > 800, 'len=' + helpers.length);
+  let R = null, err = '';
+  try {
+    R = new Function(canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + helpers + '\n' +
+      'function esc(s){ return String(s); }\n' +
+      'function mgsEnrHasLiveClass(){ return true; }\nfunction mgsSetGhostNote(){}\n' +
+      'var __ev = []; var fetch = function(u){ var s = String(u);\n' +
+      '  if (s.indexOf("/api/calendar/events") >= 0) return Promise.resolve({ json: function(){ return { ok:true, events: __ev }; } });\n' +
+      '  return Promise.resolve({ json: function(){ return { ok:true, rows: [] }; } }); };\n' +
+      'var __out = { html: "" };\n' +
+      'var document = { getElementById: function(){ return { set textContent(v){}, set innerHTML(v){ __out.html = v; } }; } };\n' +
+      'var _dSchedState;\n' +
+      funcAt(src, 'renderDSchedWeek') + '\n' + funcAt(src, 'renderDSchedMonth') + '\n' +
+      'function renderDSchedule(){}\n' +
+      'return { setEv: function(e){ __ev = e; }, load: function(y){ _mgsHol.years = {}; _mgsHol.map = {}; mgsEnsureHolidays([y]); },\n' +
+      '  week: function(st){ _dSchedState = st; renderDSchedWeek(); return __out.html; },\n' +
+      '  month: function(st){ _dSchedState = st; renderDSchedMonth(); return __out.html; } };')();
+  } catch (e) { err = e.message; }
+  check('전제 — 공휴일 샌드박스가 만들어졌다', !!R, err);
+  if (R) {
+    R.setEv([
+      { event_type:'holiday', title:'추석 연휴', date:'2026-09-24', country:'KR' },
+      { event_type:'holiday', title:'추석', date:'2026-09-25', country:'KR' },
+      { event_type:'holiday', title:'추석 연휴', date:'2026-09-26', country:'KR' },
+      { event_type:'vacation', title:'휴가', date:'2026-09-22', teacher_name:'KAYE' }
+    ]);
+    R.load(2026);
+    await new Promise(r => setTimeout(r, 30));
+    const ws = new Date(2026, 8, 20);
+    const base = { view:'week', weekStart: ws, year:2026, month:8, enrollments:[], aiSchedules:[], aiOk:true };
+    let wk = '', mo = '';
+    try { wk = R.week(base); mo = R.month(Object.assign({}, base, { view:'month' })); } catch (e) { err = e.message; }
+    const cols = (wk.match(/data-mgs-hol-col="(\d)"/g) || []).map(x => x.match(/\d/)[0]).join(',');
+    check('주간 — 추석 세 날(목·금·토 = 4,5,6) 열에만 빗금', cols === '4,5,6', 'cols=' + cols + ' ' + err);
+    check('주간 — 머리글에 「추석」 이름표', /data-mgs-hol="KR"[^>]*>추석</.test(wk));
+    check('주간 — 강사 휴가는 안 그린다(짝)', !/KAYE|휴가/.test(wk));
+    const moPills = (mo.match(/data-mgs-hol="KR"/g) || []).length;
+    check('월간 — 이름표 3개(24·25·26)', moPills === 3, 'n=' + moPills);
+    const tinted = (mo.match(/background:#fef2f2/g) || []).length;
+    /* 오늘(노랑)이 공휴일이면 그 칸은 노랑이 이긴다 → 2~3칸 */
+    check('월간 — 공휴일 칸만 옅은 빨강(모든 날이 아니다)', tinted >= 2 && tinted <= 3, 'n=' + tinted);
+  }
 }
 
 console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);
