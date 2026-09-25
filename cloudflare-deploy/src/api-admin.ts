@@ -8,6 +8,7 @@
 //     (payroll rates·all·finalize·seed-demo 는 아직 api-mango — 3회차 예정)
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
+import { loadHoldRanges, heldOnFor, attendedStudentRooms } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
@@ -2309,6 +2310,16 @@ export async function handleAdminApi(
         }
       }
 
+      /* ⏸ (2026-09-25 사장님 결정) 연속 결석 «보류» — 보류 기간 수업은 강사비 0%.
+         정본 src/absence-hold.ts. 못 읽으면 빈 Map = «보류 없음»(예전과 같음). */
+      const holdRanges = await loadHoldRanges(env as any);
+      // 보류 구간이라도 학생이 실제로 들어온 회차는 «수업함» — 그 방 번호만 한 번에 묻는다.
+      // 못 읽으면 null → 아래에서 보류를 적용하지 않는다(가르친 수업을 0원으로 만들지 않는 쪽).
+      const heldRooms = instances
+        .filter((l: any) => holdRanges.size && heldOnFor(holdRanges, l.user_id, l._date))
+        .map((l: any) => `class-${l.id}-${String(l._date).replace(/-/g, '')}`);
+      const heldAttended = heldRooms.length ? await attendedStudentRooms(env as any, heldRooms) : new Set<string>();
+
       // 오늘(KST) — 아직 시작 전인 예정 수업은 지급 계산에서 제외(status: upcoming)
       const nowKstIso = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
       const todayKey = nowKstIso.slice(0, 10);
@@ -2353,6 +2364,9 @@ export async function handleAdminApi(
         let st = 'finish';
         if (schedStatus === 'postponed') st = 'postponed';
         else if (upcoming) st = 'upcoming';
+        /* ⏸ 연속 결석 보류 기간 — 강사는 기다리지 않고 매니저에게 확인한다(사장님 결정: 0%).
+           보류를 건 날(두 번째 결석) 수업은 기존 «학생 결석» 규칙 그대로다(구간이 그 «다음» 부터). */
+        else if (heldAttended && !heldAttended.has(roomId) && heldOnFor(holdRanges, l.user_id, dateStr)) st = 'absence_hold';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
         /* 🔎 오판이면 «미입장» 으로 보지 않는다 — 강사가 실제로 들어와 수업한 건이다.
            그러면 아래 흐름을 그대로 타고 'finish'(정상 수업, 전액)로 남는다. 위 nsIsFalseAlarm 주석 참고. */
@@ -2416,6 +2430,8 @@ export async function handleAdminApi(
           total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0,
         });
         if (st === 'upcoming') { agg.upcoming_count++; continue; }
+        // ⏸ 보류 수업은 «수업 수·시간» 에 넣지 않는다 — 열리지 않은 수업이다(지급 0).
+        if (st === 'absence_hold') { agg.hold_count = (agg.hold_count || 0) + 1; continue; }
         agg.lesson_count++;
         agg.total_minutes += mins;
         if (st === 'finish') agg.finish_count++;

@@ -27,6 +27,7 @@ import { selectInChunks } from './d1-chunk';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(관리자·매니저와 같은 정본)
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
+import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 
 interface TeacherEnv {
   DB: D1Database;
@@ -810,6 +811,18 @@ export async function handleTeacherApi(
      ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
      ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
   await applyRoomOverrides(env.DB, classes, ymd);
+
+  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
+     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
+     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
+  try {
+    const _holds = await loadHoldRanges(env as any);
+    if (_holds.size) for (const c of classes) {
+      if (c.kind !== 'class') continue;
+      const h = heldOnFor(_holds, c.student_uid, todayStr);
+      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
+    }
+  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
 
   /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 일곱 칸 — 정본 class-today-extras.ts.
      ⚠️ 방 번호를 갈아 끼운 «뒤» 여야 한다(출석을 room_id 로 찾는다).
