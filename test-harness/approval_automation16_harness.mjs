@@ -156,6 +156,7 @@ try {
     esc: s => String(s == null ? '' : s),
     money: (v, cur) => (v == null || v === '') ? '' : ((String(cur).toUpperCase() === 'KRW' ? '₩' : '₱') + Math.round(Number(v) || 0).toLocaleString('en-US')),
     paintLed: () => { S.painted++; },
+    fxRepaintAll: () => { S.fxRepainted = (S.fxRepainted || 0) + 1; },   // 💱 목록·맨 위 금액·지출 정리를 다시 그리는 정본(2026-09-25) — 여기선 불렸는지만 센다
     localStorage: { setItem: (k, v) => { S.LS[k] = v; } },
     window: {},
   };
