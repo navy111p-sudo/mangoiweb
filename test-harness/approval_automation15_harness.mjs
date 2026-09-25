@@ -134,7 +134,7 @@ try {
   ok('앞 기간도 같은 조건 조립(buildFindQuery, 기간만 바꿈)', /buildFindQuery\(\{ scope, me, q, type: fType, status: fStat, category: fCat, from: pr\.from, to: pr\.to, decidedBy: fBy \}\)/.test(blk));
   ok('앞 기간도 같은 거르기(canView) — 인사·급여가 섞이지 않게', /if \(!canView\(actor, r\.req_type, r\.requester_username, chainUsers\(st2\), ph\)\) continue;/.test(blk));
   ok('비교는 거른 것(items2)으로', /compare = compareSpend\(L, ledgerFrom\(items2\)\);/.test(blk));
-  ok('못 읽으면 compare null(0원으로 안 그림)', /catch \{ compare = null; prev = null; \}/.test(blk));
+  ok('못 읽으면 compare null(0원으로 안 그림)', /catch \{ compare = null; prev = null;[^}]*\}/.test(blk));
   ok('분석은 canView 를 지난 items 로', /analysis: spendAnalysis\(items\)/.test(blk) && !/spendAnalysis\(page\)/.test(blk));
   ok('앞 기간도 잘림·결재선 누락을 말한다', /truncated: more2/.test(blk) && /steps_missing: page2\.length > 0/.test(blk));
   ok('목록 행에 가게 이름을 싣는다', /vendor: r\.vendor \|\| null,/.test(code));
@@ -195,7 +195,8 @@ try {
   const run = v => { const w = {}; new Function('LED', 'LED_VIEWS', 'paintLed', 'window', vb)(LV, ['sum', 'people', 'cmp', 'shop', 'list'], () => {}, w); w.ledView(v); return LV.view; };
   ok('모르는 보기 이름은 요약으로', run('bogus') === 'sum' && run('shop') === 'shop');
   const pl = bodyAt(W, W.indexOf('function paintLed('));
-  ok('다섯 보기 탭', /vt\('sum'[^)]*\) \+ vt\('people'[^)]*\) \+\s*vt\('cmp'[^)]*\) \+ vt\('shop'[^)]*\) \+ vt\('list'/.test(pl));
+  { const at = k => pl.indexOf("vt('" + k + "'"); const ks = ['sum', 'people', 'cmp', 'shop', 'list'];
+    ok('다섯 보기 탭(요약→사람→비교→가게→목록 차례 — 17단계 점검 탭이 끼어도 유지)', ks.every((k, j) => at(k) > 0 && (j === 0 || at(ks[j - 1]) < at(k)))); }
   ok('장부 목록(정렬 표)은 «장부 목록» 보기에서 그대로', pl.indexOf("if (LED.view !== 'list')") > 0 && pl.indexOf("if (LED.view !== 'list')") < pl.indexOf('sortBtn(\'date\''));
   ok('엑셀 버튼은 모든 보기에', pl.indexOf('ledCsv()') > 0 && pl.indexOf('ledCsv()') < pl.indexOf("if (LED.view !== 'list')"));
   ok('항목별 접힘 소계는 목록 보기에서만(요약 막대와 겹치지 않게)', /if \(cats\.length && LED\.view === 'list'\)/.test(pl));

@@ -1827,7 +1827,7 @@ window.runRep = function(){
    ══════════════════════════════════════════════════════════════════════════ */
 var LED = { per: 'month', key: 'date', dir: 'desc', view: 'sum', data: { month: null, last_month: null, year: null }, busy: false, auto: false };
 /* 📊 보기(15단계) — 요약 · 사람별 · 지난 기간과 비교 · 가게·큰 지출 · 장부(줄 목록). 모두 같은 응답 하나로 그린다. */
-var LED_VIEWS = ['sum', 'people', 'cmp', 'shop', 'list'];
+var LED_VIEWS = ['sum', 'people', 'cmp', 'shop', 'chk', 'list'];   // 🔎 chk = 빠진 것 점검(17단계)
 /* 💱 원·페소 바꿔 보기(16단계) — '' = 원래 통화 · 'KRW' · 'PHP'. «보기» 만 바꾼다(합계·엑셀·경고는 원래 통화).
    고른 값은 이 기기에만 기억한다(저장이 막힌 기기에서도 화면은 그대로 돈다). */
 LED.show = (function(){ try { var v = localStorage.getItem('mangoi_led_show'); return v === 'KRW' || v === 'PHP' ? v : ''; } catch (e) { return ''; } })();
@@ -1944,7 +1944,9 @@ function paintLed(){
   if (!rows.length) {
     host.innerHTML = h + '<div class="findnote">' + esc(LED.per === 'year' ? T('No approved spending in the last 12 months.', '최근 1년 동안 승인된 지출이 없습니다.')
                                                    : LED.per === 'last_month' ? T('No approved spending last month.', '지난달 승인된 지출이 없습니다.')
-                                                                          : T('No approved spending this month yet.', '이번 달 승인된 지출이 아직 없습니다.')) + '</div>';
+                                                                          : T('No approved spending this month yet.', '이번 달 승인된 지출이 아직 없습니다.')) + '</div>' +
+                     /* 🔎 승인된 지출이 0건일 때가 «지난달엔 있었던 것» 이 가장 중요한 때다 — 여기서도 보여 준다(17단계). */
+                     (d.checks && d.checks.missing_n ? ledMissingHtml(d.checks) : '');
     return;
   }
   /* 📊 보기 탭(15단계) */
@@ -1953,7 +1955,8 @@ function paintLed(){
            '" onclick="ledView(\'' + v + '\')">' + esc(T(en, ko)) + '</button>';
   };
   h += '<div class="ledviews">' + vt('sum', 'Summary', '요약') + vt('people', 'By person', '사람별') +
-       vt('cmp', 'Compare', '지난 기간과 비교') + vt('shop', 'Shops · big items', '가게·큰 지출') + vt('list', 'All rows', '장부 목록') + '</div>';
+       vt('cmp', 'Compare', '지난 기간과 비교') + vt('shop', 'Shops · big items', '가게·큰 지출') +
+       vt('chk', 'Check' + ledChkCount(d), '빠진 것 점검' + ledChkCount(d)) + vt('list', 'All rows', '장부 목록') + '</div>';
   /* 📤 이 장부 그대로 엑셀 — 같은 기간·같은 범위(서버가 같은 식으로 만든다). */
   h += '<div class="findrow"><button type="button" class="findcsv" onclick="ledCsv()">' +
        esc(T('Excel (this ledger)', '엑셀 내려받기 (이 장부)')) + '</button></div>';
@@ -1962,6 +1965,7 @@ function paintLed(){
     h += (LED.view === 'people') ? ledPeopleHtml(d, A)
        : (LED.view === 'cmp')    ? ledCmpHtml(d)
        : (LED.view === 'shop')   ? ledShopHtml(A)
+       : (LED.view === 'chk')    ? ledChkHtml(d)
        :                           ledSumHtml(d, A);
     host.innerHTML = h;
     return;
@@ -2125,6 +2129,51 @@ function ledShopHtml(A){
     h += '</div>';
   }
   return h || ('<div class="findnote">' + esc(T('Nothing to show.', '보여 줄 것이 없습니다.')) + '</div>');
+}
+
+/* 🔎 빠진 것 점검(17단계) — 서버 ledgerChecks 가 센 것을 그리기만 한다.
+   ⛔ «못 읽었다» 와 «없다» 를 다른 글자로 — 앞 기간을 못 읽었으면 ✓ 를 그리지 않는다. */
+function ledChkCount(d){
+  var c = d && d.checks;
+  var n = c ? (Number(c.no_receipt_n) || 0) + (Number(c.missing_n) || 0) : 0;
+  return n ? ' (' + n + ')' : '';
+}
+function ledChkRows(list, more){
+  var h = '<div class="ledtop">';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    h += '<div class="ledtopr"><a class="lnk" href="/work?id=' + Number(r.id) + '">' + esc(r.title || ('#' + r.id)) + '</a>' +
+         '<b>' + esc(lm(r.amount, r.cur)) + '</b><span class="ledcat">' + esc([r.who, T(r.type_en, r.type_ko), r.ymd].filter(function(x){ return !!x; }).join(' · ')) + '</span></div>';
+  }
+  h += '</div>';
+  if (more > 0) h += '<div class="findnote">' + esc(T('…and ' + more + ' more', '… 외 ' + more + '건')) + '</div>';
+  return h;
+}
+function ledMissingHtml(c){
+  var h = '<div class="ledsub">' + esc(LED.per === 'last_month'
+          ? T('Was there the month before, not yet last month', '그 전달엔 있었는데 지난달엔 없는 지출')
+          : T('Was there last month, not yet this month', '지난달엔 있었는데 이번 달엔 아직 없는 지출')) + '</div>';
+  if (!c.missing_known) return h + '<div class="findnote">' + esc(ledMissWhy(c)) + '</div>';
+  if (!c.missing_n) return h + '<div class="findnote">' + esc(T('✓ Everything from the earlier month has come in again.', '✓ 앞 달에 있던 지출은 이번에도 모두 올라왔습니다.')) + '</div>';
+  return h + '<div class="findnote">' + esc(T('Same person · same kind · same title (numbers and month names ignored). It may also be a one-time purchase — check before chasing it.',
+                                             '같은 사람 · 같은 분류 · 같은 제목(숫자·달 이름은 뺌). 한 번만 산 물건일 수도 있으니 매달 나가는 돈인지 보고 판단해 주세요.')) + '</div>' +
+         ledChkRows(c.missing, c.missing_n - c.missing.length);
+}
+/* 확인 못 한 이유 — 서버가 준 missing_why 를 «고르기만» 한다(⛔ «확인 못 함» 을 «빠진 것 없음» 으로 말하지 않는다). */
+function ledMissWhy(c){
+  var w = String(c.missing_why || (c.missing_applies ? 'prev' : 'period'));
+  if (w === 'period') return T('Checked only for «This month» and «Last month».', '«이번 달»·«지난달» 에서만 확인합니다.');
+  if (w === 'truncated') return T('Too many rows this period — not checked (it would show items that did come in as missing).', '이번 기간 건이 너무 많아 일부만 읽었습니다 — 올라온 것을 «없다» 로 잘못 보일 수 있어 확인하지 않았습니다.');
+  if (w === 'status') return T('A status filter is on — not checked. Clear it to check.', '상태 필터가 걸려 있어 확인하지 않았습니다 — 필터를 풀면 확인합니다.');
+  return T('Could not load the earlier month, so this was not checked.', '앞 달을 불러오지 못해 확인하지 못했습니다.');
+}
+function ledChkHtml(d){
+  var c = d && d.checks;
+  if (!c) return '<div class="findnote">' + esc(T('Could not run the check.', '점검을 하지 못했습니다.')) + '</div>';
+  var h = '<div class="ledsub">' + esc(T('Approved spending with no receipt', '영수증 없이 승인된 지출')) + '</div>';
+  h += c.no_receipt_n ? ledChkRows(c.no_receipt, c.no_receipt_n - c.no_receipt.length)
+                      : '<div class="findnote">' + esc(T('✓ No approved purchase or expense is missing its receipt.', '✓ 영수증이 빠진 승인 지출이 없습니다.')) + '</div>';
+  return h + ledMissingHtml(c);
 }
 
 /* 💱 환산(16단계) — 서버 정본 fxConvert(approval-policy.ts)와 같은 계산. 하니스가 둘을 나란히 돌려 대조한다.

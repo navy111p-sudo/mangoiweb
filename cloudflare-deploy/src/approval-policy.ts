@@ -1409,6 +1409,82 @@ export function compareSpend(
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 🔎 장부 «빠진 것 점검» (17단계, 2026-09-25 — 사장님 「또 추가로 진행해줘」)
+ *
+ *   ① 영수증 없는 승인 지출 — 영수증을 받는 분류(물품 구입·지출 정산)인데 첨부가 없는 «장부에 들어간» 건.
+ *      (지금은 올릴 때 영수증이 필수라 대개 0건이다. 필수가 되기 전 건·예외로 들어간 건을 찾는 점검이다.)
+ *   ② 지난달엔 있었는데 이번 기간엔 아직 없는 지출 — 같은 사람 · 같은 분류 · 같은 제목(숫자·달 이름 뺌).
+ *      ⚠️ «빠졌다» 가 아니라 «아직 안 보인다» 이다 — 한 번만 산 물건도 여기에 뜬다(화면이 그렇게 말한다).
+ *      달 단위 기간(이번 달·지난달)에서만 본다. 앞 기간을 못 읽었으면 known=false(«없음» 으로 그리지 않는다).
+ *   ⛔ 판정은 ledgerSpendState 하나(장부와 같은 돈만 본다). 통화는 섞지 않는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+export interface LedgerCheckRow { id: number; ymd: string; title: string; who: string; amount: number; cur: string; type_ko: string; type_en: string }
+export const LEDGER_CHECK_MAX = 20;
+
+/** 매달 바뀌는 글자(숫자·달 이름)를 뺀 제목 열쇠 — 「9월 인터넷 요금」 과 「10월 인터넷 요금」 을 같은 것으로. */
+export function repeatTitleKey(title: unknown): string {
+  return String(title == null ? '' : title).toLowerCase()
+    .replace(/\d+\s*(월분|월|일|년|st|nd|rd|th)?/g, ' ')
+    .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/g, ' ')
+    .replace(/[^0-9a-z가-힣]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function checkRow(r: any): LedgerCheckRow {
+  const spec = typeSpec(r.req_type);
+  const at = Number(r.created_at);
+  return { id: Number(r.id), ymd: isFinite(at) && at > 0 ? kstYmd(at) : '', title: String(r.title || ''),
+           who: String(r.requester_name || r.requester_username || ''), amount: Number(r.amount),
+           cur: normCurrency(r.currency), type_ko: spec.ko, type_en: spec.en };
+}
+
+/** 🔎 17단계 «빠진 것 점검».
+ *  ① 영수증 없이 승인된 지출(requiresFile 분류만).
+ *  ② 앞 달엔 있었는데 이번에 아직 없는 지출 — 같은 사람·분류·제목(숫자·달 이름은 뺌).
+ *     ⛔ «확인 못 함» 을 «빠진 것 없음» 으로 말하지 않는다 — missing_why 로 이유를 준다:
+ *       'period'   이번 달·지난달이 아니다 · 'prev'  앞 달을 못 읽었다
+ *       'truncated' 이번 기간이 상한에서 잘렸다(올라온 것을 «없다» 로 오판한다)
+ *       'status'   상태 필터가 걸렸다(대기 중인 건이 빠져 «없다» 로 오판한다) · '' 확인함 */
+export function ledgerChecks(items: any[], prevItems: any[] | null, period: unknown, opts?: { truncated?: boolean; statusFiltered?: boolean }): {
+  no_receipt: LedgerCheckRow[]; no_receipt_n: number;
+  missing: LedgerCheckRow[]; missing_n: number; missing_known: boolean; missing_applies: boolean; missing_why: string;
+} {
+  const list = Array.isArray(items) ? items : [];
+  const byAmt = (a: LedgerCheckRow, b: LedgerCheckRow) => a.cur !== b.cur ? (a.cur < b.cur ? -1 : 1) : b.amount - a.amount || b.id - a.id;
+  const noR: LedgerCheckRow[] = [];
+  for (const r of list) {
+    if (ledgerSpendState(r) !== 'ok') continue;
+    const spec = typeSpec(r.req_type);
+    if (!spec.requiresFile) continue;   // ⚠️ wantsFile 이 아니라 requiresFile — 일반 문서는 붙일 수만 있고 없어도 정상(정리 카드 no_file 과 같은 기준)
+    if (r.has_file === true || r.has_file === 1) continue;
+    noR.push(checkRow(r));
+  }
+  noR.sort(byAmt);
+  const p = String(period == null ? '' : period).trim();
+  const applies = p === 'month' || p === 'last_month';
+  const why = !applies ? 'period' : (opts && opts.truncated) ? 'truncated' : (opts && opts.statusFiltered) ? 'status'
+            : !Array.isArray(prevItems) ? 'prev' : '';
+  const known = why === '';
+  const miss: LedgerCheckRow[] = [];
+  if (known) {
+    const key = (r: any) => String(r.req_type || '') + '|' + String(r.requester_username || '') + '|' + repeatTitleKey(r.title);
+    const now = new Set<string>();
+    // 이번 기간은 «대기 중» 도 «올라왔다» 로 본다(아직 승인 안 됐을 뿐 빠진 것은 아니다).
+    for (const r of list) { const st = ledgerSpendState(r); if (st === 'ok' || st === 'pending' || st === 'no_amount') now.add(key(r)); }
+    const seen = new Set<string>();
+    for (const r of prevItems as any[]) {
+      if (ledgerSpendState(r) !== 'ok' || !repeatTitleKey(r.title)) continue;
+      const k = key(r);
+      if (now.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      miss.push(checkRow(r));
+    }
+    miss.sort(byAmt);
+  }
+  return { no_receipt: noR.slice(0, LEDGER_CHECK_MAX), no_receipt_n: noR.length,
+           missing: miss.slice(0, LEDGER_CHECK_MAX), missing_n: miss.length, missing_known: known, missing_applies: applies, missing_why: why };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 💱 원·페소 바꿔 보기 (16단계, 2026-09-25 — 사장님 「페소와 원화가 서로 환전되게 보이게 · 당일 환율도 명시 · 원과 페소 누르면 바뀌게」)
  *
  *   ⚠️ «보기» 만 바꾼다 — 장부·합계·엑셀·경고 판정은 **원래 통화 그대로** 센다(환산 값으로 판정하지 않는다).

@@ -109,6 +109,7 @@
     const M = {
       finish:          ['✅ 수업 완료', '✅ Finished',   '#dcfce7', '#166534'],
       student_absent:  ['🙅 학생 결석', '🙅 Absent',     '#fee2e2', '#991b1b'],
+      absence_hold:    ['⏸ 연속결석 보류', '⏸ On hold',  '#fce9e5', '#9b2a1a'],   // 2026-09-25 — 지급 0%
       teacher_no_show: ['⚠️ 강사 미입장', '⚠️ No-show',  '#ffedd5', '#9a3412'],
       upcoming:        ['⏳ 예정', '⏳ Upcoming',        '#f1f5f9', '#475569'],
     };
