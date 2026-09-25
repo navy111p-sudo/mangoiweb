@@ -152,6 +152,8 @@ html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
 html.dark .chip.late{background:#3a1a16;color:#f0907c}
 .ititle{font-weight:650;font-size:17px;flex:1;min-width:140px;word-break:break-word}
 .iamt{font-weight:700;font-size:17.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.iamtfx{display:block;font-weight:600;font-size:13px;color:#475467;text-align:right}
+html.dark .iamtfx{color:#d0d5dd}
 .imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
 html.dark .imeta{color:#8b98a8}
 .isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
@@ -658,6 +660,9 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
           따로 부르지 않는다. 손봐야 할 것이 없으면 경고 줄이 아예 안 뜬다. -->
   <div id="topStop"></div>
   <div id="topTiles" class="tiles"></div>
+  <!-- 💱 목록 카드도 원·페소로 바꿔 보기(2026-09-25 사장님 「여기는 왜 바뀌지 않았어?」).
+       회계장부와 «같은» 선택(LED.show)·같은 환율(서버 getTodayFx)을 쓴다 — 환율을 모르면 안 그린다. -->
+  <div id="fxBox"></div>
 
   <h2 id="urgentHead" hidden><span data-en="Urgent" data-ko="긴급 소통">Urgent</span></h2>
   <div id="urgent"></div>
@@ -1123,6 +1128,7 @@ function repaint(){
     : '';
 
   paintTop();
+  paintFxBox();
   paintAway();
   paintArBtn();
   paintSchedule();
@@ -1881,8 +1887,10 @@ function runLed(per){
       LED.busy = false;
       // 「성공이라고 말했는가」로 판정 — 종단 404 본문에는 ok 칸이 없다(CLAUDE.md 2장).
       if (!d || d.ok !== true || !Array.isArray(d.ledger)) { LED.data[per] = { err: 1 }; }
-      else LED.data[per] = d;
+      else { LED.data[per] = d; if (d.fx) LED.fx = d.fx; }
       paintLed();
+      // 💱 환율이 처음 도착했으면 목록 카드·위 환율 줄도 다시 그린다(장부만 바뀌면 «여기는 왜 안 바뀌어» 가 된다)
+      if (typeof D !== 'undefined' && D) { paintFxBox(); paintCardLists(); }
     })
     .catch(function(){ LED.busy = false; LED.data[per] = { err: 2 }; paintLed(); });
 }
@@ -2126,7 +2134,7 @@ function ledConv(v, from, to, rate){
   if (rate == null || !isFinite(r) || r < 10 || r > 60) return null;
   return f === 'PHP' ? Math.round(a * r) : Math.round(a / r * 100) / 100;
 }
-function ledRate(){ var d = LED.data[LED.per]; return d && d.fx && d.fx.krw_per_php; }
+function ledRate(){ var d = LED.data[LED.per]; return (d && d.fx && d.fx.krw_per_php) || (LED.fx && LED.fx.krw_per_php); }
 /** 장부 금액 — 바꿔 보기가 켜져 있고 통화가 다르면 «≈ 환산» 으로. */
 function lm(v, cur){
   if (!LED.show || String(cur || '').toUpperCase() === LED.show) return money(v, cur);
@@ -2137,7 +2145,33 @@ window.ledShow = function(v){
   LED.show = (v === 'KRW' || v === 'PHP') ? v : '';
   try { localStorage.setItem('mangoi_led_show', LED.show); } catch (e) {}
   paintLed();
+  if (typeof D !== 'undefined' && D) { paintFxBox(); paintCardLists(); }   // 💱 목록 카드도 같은 선택을 따른다
 };
+/* 💱 목록 카드 금액 — 원래 금액은 «그대로» 두고 옆에 ≈ 환산을 덧붙인다.
+   ⚠️ 결재 판정(₱5,000 기준 등)은 원래 통화라 원래 금액을 지우면 안 된다. 환율을 모르면 원래 금액만. */
+function cardAmtHtml(v, cur){
+  var base = esc(money(v, cur));
+  if (!LED.show || String(cur || '').toUpperCase() === LED.show) return base;
+  var c = ledConv(v, cur, LED.show, ledRate());
+  return c == null ? base : base + ' <span class="iamtfx">\u2248' + esc(money(c, LED.show)) + '</span>';
+}
+function paintCardLists(){
+  if (typeof D === 'undefined' || !D) return;
+  try {
+    var urg = (D.urgent || []).filter(function(u){ return !(D.inbox || []).some(function(x){ return x.id === u.id; }); });
+    var ug = document.getElementById('urgent');
+    if (ug) ug.innerHTML = urg.map(function(r){ return itemHtml(r, false); }).join('');
+    paintList('inbox', D.inbox || [], true);
+    paintList('mine', D.mine || [], false);
+  } catch (e) { console.warn('[fx] card repaint failed', e); }
+}
+/** 목록 위 환율 줄 — 환율을 아직 모르면(장부를 못 받았으면) 아무것도 안 그린다. */
+function paintFxBox(){
+  var host = document.getElementById('fxBox');
+  if (!host) return;
+  var r = LED.fx && Number(LED.fx.krw_per_php);
+  host.innerHTML = (r >= 10 && r <= 60) ? ledFxHtml({ fx: LED.fx }) : '';
+}
 function ledFxHtml(d){
   var fx = d && d.fx, r = fx && Number(fx.krw_per_php);
   if (!fx || !(r >= 10 && r <= 60)) {
@@ -2510,7 +2544,7 @@ function itemHtml(r, decidable, ackable){
     h += '<span class="chip sg-' + (r.signal === 'green' ? 'g' : r.signal === 'red' ? 'r' : 'y') + '">' + esc(sgL) + '</span>';
   }
   h += '<span class="ititle">' + esc(r.title) + '</span>';
-  if (r.amount != null) h += '<span class="iamt">' + esc(money(r.amount, r.currency)) + '</span>';
+  if (r.amount != null) h += '<span class="iamt">' + cardAmtHtml(r.amount, r.currency) + '</span>';
   h += '</div>';
 
   h += '<div class="imeta">' + esc(r.requester_name || r.requester_username) +
