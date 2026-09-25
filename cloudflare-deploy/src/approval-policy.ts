@@ -1731,6 +1731,29 @@ export function monthlyRepeats(rows: { title: string; amount?: number | null; cu
   return out;
 }
 
+/**
+ * 🤖 자동 반려를 «켜도 되는가» — 경영진 화면의 판단 패널이 쓰는 한 줄 판정.
+ *   not_yet = AI 가 🔴 로 본 건을 사람이 «승인» 한 적이 있다(켜면 멀쩡한 건을 되돌렸을 것)
+ *   too_few = 표본이 모자라다(🔴 5건 미만 또는 연습 기간 14일 미만)
+ *   ready   = 14일 넘게 🔴 5건 이상이 전부 사람도 반려 — 켜 볼 만하다
+ *   ⚠️ 켜는 것은 «사람» 이다. 이 함수는 권할 뿐 스위치를 바꾸지 않는다.
+ */
+export const AUTOREJECT_MIN_RED = 5;
+export const AUTOREJECT_MIN_DAYS = 14;
+export function autoRejectReadiness(t: { red: number; agreed: number; disagreed: number },
+                                    days: number): 'ready' | 'not_yet' | 'too_few' {
+  const red = Number(t && t.red) || 0, dis = Number(t && t.disagreed) || 0;
+  if (dis > 0) return 'not_yet';
+  if (red < AUTOREJECT_MIN_RED || !(Number(days) >= AUTOREJECT_MIN_DAYS)) return 'too_few';
+  return 'ready';
+}
+
+/** 스위치 «쓰기» 입력 — 읽기(autoRejectMode)와 달리 모르는 값은 null(= 거절). 조용히 shadow 로 바꾸지 않는다. */
+export function autoRejectModeInput(v: unknown): AutoRejectMode | null {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return (s === 'on' || s === 'off' || s === 'shadow') ? s : null;
+}
+
 /** 자동 반려 방식 — KV 'approval_autoreject'. 모르는 값·못 읽음 = 'shadow'(표시만). */
 export type AutoRejectMode = 'off' | 'shadow' | 'on';
 export function autoRejectMode(v: unknown): AutoRejectMode {
@@ -1789,6 +1812,20 @@ export function nudgeLevel(plan: NudgePlan, now: number): 0 | 1 | 2 | 3 {
   if (now >= plan.smsAt) return 2;
   if (now >= plan.pushAt) return 1;
   return 0;
+}
+
+/**
+ * 📱 이번 회차에 «문자» 를 보낼 단계인가 (2026-09-25 사장님 「ARS 음성 메시지는 하지 말고 문자로만」).
+ *   8시간(2) 과 12시간 사이렌(3) 에 «처음 닿을 때» 한 번씩만. 전화(ARS)는 쓰지 않는다.
+ *   한 번에 여러 단계를 건너뛰면(0→3) 문자는 하나만 — 가장 높은 단계의 것.
+ *   반환: 'siren' | 'late' | null
+ */
+export function nudgeSmsKind(target: number, cur: number): 'siren' | 'late' | null {
+  const t = Number(target) || 0, c = Number(cur) || 0;
+  if (t <= c) return null;
+  if (t >= 3 && c < 3) return 'siren';
+  if (t >= 2 && c < 2) return 'late';
+  return null;
 }
 
 /** 한국 시각 밤 22시~아침 8시 — 문자·사이렌을 쉬는 시간(긴급은 예외, 호출하는 쪽이 정한다). */
