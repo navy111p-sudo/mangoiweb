@@ -18,6 +18,31 @@
   var _meta = null;
   var _seq = 0;         // 늦게 온 옛 응답이 최신 결과를 덮지 않게
   var _timer = null;
+  var _sort = { key: '', dir: 0 };   // 2026-09-25 머리글 오르기/내리기 — dir 1=오름 −1=내림, 0=서버 순서(최근 사용순)
+
+  // 칸마다 «무엇으로 줄 세우나». 빈 값은 방향과 무관하게 언제나 맨 아래(«—» 가 맨 위로 몰리지 않게).
+  var SORTS = {
+    name:      { text: true, get: function (s) { return s.name; } },
+    uid:       { text: true, get: function (s) { return s.uid; } },
+    tools:     { get: function (s) { var t = s.tools || {}; return TOOLS.filter(function (x) { return t[x.key]; }).length || null; } },
+    total:     { get: function (s) { return Number(s.total) || 0; } },
+    last:      { get: function (s) { return Number(s.last_ts) || null; } },
+    shop:      { text: true, get: function (s) { return s.shop_name; } },
+    franchise: { text: true, get: function (s) { return s.franchise; } },
+    level:     { get: function (s) { var m = String(s.level == null ? '' : s.level).match(/\d+/); return m ? Number(m[0]) : null; } }
+  };
+  function blank(v) { return v == null || v === '' || (typeof v === 'number' && isNaN(v)); }
+  function sortedRows() {
+    var def = SORTS[_sort.key];
+    if (!def || !_sort.dir) return _rows.slice();
+    var dir = _sort.dir;
+    return _rows.map(function (s, i) { return { s: s, i: i, v: def.get(s) }; }).sort(function (a, b) {
+      var ab = blank(a.v), bb = blank(b.v);
+      if (ab || bb) return ab === bb ? a.i - b.i : (ab ? 1 : -1);
+      var c = def.text ? String(a.v).localeCompare(String(b.v), 'ko') : (a.v - b.v);
+      return c ? c * dir : a.i - b.i;                // 같으면 서버 순서 유지(안정 정렬)
+    }).map(function (x) { return x.s; });
+  }
 
   // 서버 TOOL_DEFS 와 같은 key·순서(src/api-admin.ts 「AI 학습도구 사용 학생」 정본 참고)
   var TOOLS = [
@@ -85,7 +110,16 @@
     _rows = d.students || [];
     _meta = d;
     renderSummary(d, en);
-    renderTable(_rows, en);
+    renderTable(sortedRows(), en);
+  };
+
+  /* 머리글 클릭 → 오름·내림 전환. 같은 칸을 세 번째 누르면 원래(최근 사용순)로 돌아간다. */
+  window.aiuSort = function (key) {
+    if (!SORTS[key]) return;
+    if (_sort.key !== key) _sort = { key: key, dir: SORTS[key].text ? 1 : -1 };   // 숫자·날짜는 큰 것부터
+    else if (_sort.dir === (SORTS[key].text ? 1 : -1)) _sort.dir = -_sort.dir;
+    else _sort = { key: '', dir: 0 };
+    renderTable(sortedRows(), _isEn());
   };
 
   function renderSummary(d, en) {
@@ -125,18 +159,23 @@
         (en ? 'No students match.' : '해당하는 학생이 없습니다.') + '</div>';
       return;
     }
-    var H = function (ko, enTxt, extra) {
-      return '<th style="text-align:left;padding:9px 10px;white-space:nowrap' + (extra || '') + '">' + (en ? enTxt : ko) + '</th>';
+    var H = function (ko, enTxt, key, extra) {
+      var on = _sort.key === key && _sort.dir;
+      var ar = on ? (_sort.dir > 0 ? '▲' : '▼') : '↕';
+      var tip = en ? 'Click to sort (asc/desc)' : '눌러서 정렬 (오르기/내리기)';
+      return '<th data-aiu-sort="' + key + '" title="' + tip + '" style="text-align:left;padding:9px 10px;white-space:nowrap;cursor:pointer;user-select:none' +
+        (on ? ';background:#e0e7ff' : '') + (extra || '') + '">' + (en ? enTxt : ko) +
+        ' <span style="font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
     };
     box.innerHTML =
       '<div style="overflow-x:auto">' +
       '<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">' +
         '<thead style="background:#f3f4f6"><tr>' +
-          H('학생명', 'Student') + H('아이디', 'ID') +
-          H('사용 도구', 'Tools used') +
-          H('총 사용', 'Total', ';text-align:right') +
-          H('마지막 사용', 'Last used') +
-          H('대리점(학원)', 'Center') + H('지사', 'Branch') + H('레벨', 'Level') +
+          H('학생명', 'Student', 'name') + H('아이디', 'ID', 'uid') +
+          H('사용 도구', 'Tools used', 'tools') +
+          H('총 사용', 'Total', 'total', ';text-align:right') +
+          H('마지막 사용', 'Last used', 'last') +
+          H('대리점(학원)', 'Center', 'shop') + H('지사', 'Branch', 'franchise') + H('레벨', 'Level', 'level') +
         '</tr></thead><tbody>' +
         rows.map(function (s) {
           var ago = daysAgo(s.last_ts);
@@ -177,7 +216,7 @@
       return /[",\r\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x;
     };
     var out = [cols.map(function (c) { return cell(c[0]); }).join(',')];
-    _rows.forEach(function (s) { out.push(cols.map(function (c) { return cell(c[1](s)); }).join(',')); });
+    sortedRows().forEach(function (s) { out.push(cols.map(function (c) { return cell(c[1](s)); }).join(',')); });
     var csv = '﻿' + out.join('\r\n');          // BOM — 엑셀에서 한글 안 깨짐
     var stamp = (_meta && _meta.days ? String(_meta.days) + 'd' : '');
     var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
@@ -189,6 +228,14 @@
 
   /* 조건이 바뀌면 다시 부른다. 검색만 디바운스(타자 중간에 요청이 줄줄이 나가지 않게). */
   function bind() {
+    var list = document.getElementById('aiu-list');
+    if (list && !list.__aiuSortBound) {
+      list.__aiuSortBound = true;
+      list.addEventListener('click', function (e) {
+        var th = e.target && e.target.closest && e.target.closest('th[data-aiu-sort]');
+        if (th) window.aiuSort(th.getAttribute('data-aiu-sort'));
+      });
+    }
     ['aiu-tool', 'aiu-days'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el && !el.__aiuBound) { el.__aiuBound = true; el.addEventListener('change', function () { window.aiuLoad(); }); }
