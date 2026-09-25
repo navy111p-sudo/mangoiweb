@@ -66,6 +66,7 @@ import {
   fileKind, fileDisposition,                           // 📷 카드 안 영수증 사진(12단계)
   ledgerFrom, ledgerRange,                             // 📒 간단 회계장부(12단계) · 📅 장부 기간(13단계)
   spendAnalysis, ledgerPrevRange, compareSpend,        // 📊 지출 분석(15단계)
+  ledgerChecks,                                        // 🔎 빠진 것 점검(17단계)
   misfileGuess, MISFILE_FROM,                          // 🔀 잘못 고른 분류(14단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
@@ -2132,6 +2133,7 @@ export async function handleApprovalApi(
            비교는 «바로 앞 기간» 을 **같은 조건·같은 거르기** 로 한 번 더 읽는다.
            ⚠️ 못 읽으면 compare 는 null — 화면이 «비교 못 함» 이라고 말한다(0원으로 그리지 않는다). */
         let compare: any = null, prev: any = null;
+        let prevItems: any[] | null = null;                 // 🔎 17단계 «지난달엔 있었는데» — 못 읽으면 null(«없음» 으로 안 그림)
         const pr = ledgerPrevRange(url.searchParams.get('period'), todayKst);
         if (pr) {
           try {
@@ -2149,13 +2151,15 @@ export async function handleApprovalApi(
               items2.push(rowOf(r, st2, true));
             }
             compare = compareSpend(L, ledgerFrom(items2));
+            prevItems = items2;
             prev = { from: pr.from, to: pr.to, truncated: more2, steps_missing: page2.length > 0 && Object.keys(stepMap2).length === 0 };
-          } catch { compare = null; prev = null; }
+          } catch { compare = null; prev = null; prevItems = null; }
         }
         return json({
           ok: true, ledger: L.rows, totals: L.totals, by_category: L.by_category, pending: L.pending, no_amount: L.no_amount,
           truncated: hasMore, max: REPORT_MAX, steps_missing: stepsMissing, scope, from, to,
           analysis: spendAnalysis(items), compare, prev,
+          checks: ledgerChecks(items, prevItems, url.searchParams.get('period'), { truncated: hasMore, statusFiltered: !!fStat }),
           fx: await getTodayFx(env).catch(() => null),      // ⛔ 보기용 — 합계·판정은 원래 통화(환율을 지어내지 않는다)
         });
       }
