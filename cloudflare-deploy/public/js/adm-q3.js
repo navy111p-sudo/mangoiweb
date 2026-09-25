@@ -19,6 +19,75 @@
   let _prRules = [];
   let _prDetailTid = 0, _prDetailName = '';   // 📋 상세표 재로딩(지각분 저장 후)용
   let _prLevels = [];   // 🎖 강사 등급(요율) 목록
+  /* 🔃 급여표 정렬·필터 (2026-09-25) — «보여 주는 순서·줄» 만 바꾼다. _prRows 자체는 그대로라
+     조정 금액 입력(prRowAdjust(i))·저장·CSV 는 원래 번호(i)를 계속 쓴다. 다시 계산해도 상태는 남는다. */
+  let _prSort = { key: '', dir: 1 };               // dir 1=오름차순 · -1=내림차순
+  let _prFilt = { q: '', teacher: '', level: '', status: '', flag: '', src: '' };
+  let _prBodyRender = null;                        // 표 몸통만 다시 그리기(입력 포커스 유지)
+  const _prSortVal = {
+    teacher: r => String(r.korean_name || r.english_name || ''),
+    level:   r => r.unlinked_profile ? null : (Number(r.rate_per_20min) || (Number(r.fee_per_10min)||0)*2),
+    classes: r => Number(r.lesson_count) || 0,
+    mins:    r => Number(r.total_minutes) || 0,
+    rate:    r => Number(r.fee_per_10min) || 0,
+    calc:    r => Number(r.calculated_amount) || 0,
+    ded:     r => Number(r.deduction_total) || 0,
+    fin:     r => Number(r.final_amount ?? r.calculated_amount) || 0,
+    adj:     r => (r.adjusted_amount == null || r.adjusted_amount === '' || isNaN(r.adjusted_amount)) ? null : Number(r.adjusted_amount),
+    status:  r => r.status === 'paid' ? 1 : 0
+  };
+  function prViewRows(){
+    const q = _prFilt.q.trim().toLowerCase();
+    let v = _prRows.map((r, i) => ({ r, i })).filter(({ r }) => {
+      if (q && !(String(r.korean_name||'') + ' ' + String(r.english_name||'')).toLowerCase().includes(q)) return false;
+      if (_prFilt.teacher && String(r.teacher_id) !== _prFilt.teacher) return false;
+      if (_prFilt.level === '__none' && r.level_code) return false;
+      if (_prFilt.level && _prFilt.level !== '__none' && r.level_code !== _prFilt.level) return false;
+      if (_prFilt.src === 'cafe24' && r.amount_source !== 'cafe24') return false;
+      if (_prFilt.src === 'sys' && r.amount_source === 'cafe24') return false;
+      if (_prFilt.status === 'paid' && r.status !== 'paid') return false;
+      if (_prFilt.status === 'pending' && r.status === 'paid') return false;
+      if (_prFilt.status === 'unsaved' && r.payroll_id) return false;
+      if (_prFilt.flag === 'ded' && !((r.deduction_total||0) > 0)) return false;
+      if (_prFilt.flag === 'norate' && !(r.rate_missing && (r.lesson_count||0) > 0)) return false;
+      if (_prFilt.flag === 'unlinked' && !r.unlinked_profile) return false;
+      if (_prFilt.flag === 'adj' && _prSortVal.adj(r) == null) return false;
+      if (_prFilt.flag === 'nolesson' && (r.lesson_count||0) > 0) return false;
+      return true;
+    });
+    const f = _prSortVal[_prSort.key];
+    if (f) {
+      const d = _prSort.dir;
+      v.sort((A, B) => {
+        const a = f(A.r), b = f(B.r);
+        if (a == null && b == null) return A.i - B.i;
+        if (a == null) return 1;            // 값 없음은 방향과 무관하게 맨 아래
+        if (b == null) return -1;
+        const c = (typeof a === 'string') ? a.localeCompare(b, 'ko') : (a - b);
+        return c ? c * d : A.i - B.i;       // 같으면 원래 순서
+      });
+    }
+    return v;
+  }
+  window.prSortBy = function(key){
+    if (!_prSortVal[key]) return;
+    if (_prSort.key === key) {
+      if (_prSort.dir === 1) _prSort.dir = -1;
+      else _prSort = { key: '', dir: 1 };   // 세 번째 클릭 = 정렬 해제(원래 순서)
+    } else _prSort = { key, dir: 1 };
+    if (_prBodyRender) _prBodyRender();
+  };
+  window.prFilter = function(field, val){
+    if (!(field in _prFilt)) return;
+    _prFilt[field] = String(val == null ? '' : val);
+    if (_prBodyRender) _prBodyRender();
+  };
+  window.prFilterReset = function(){
+    _prFilt = { q: '', teacher: '', level: '', status: '', flag: '', src: '' };
+    _prSort = { key: '', dir: 1 };
+    ['pr-f-q','pr-f-teacher','pr-f-level','pr-f-status','pr-f-flag','pr-f-src'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    if (_prBodyRender) _prBodyRender();
+  };
 
   function initYearSelect() {
     const sel = document.getElementById('pr-year');
@@ -410,21 +479,52 @@
           : '';
         return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="${selStyle}">${opts}</select><br>${rateTxt}${warn}`;
       };
-      tbody.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+      /* 🔃 정렬 머리글 — 누를 때마다 오름차순 ▲ → 내림차순 ▼ → 해제 */
+      const thS = (key, label, align) => `<th onclick="prSortBy('${key}')" data-prs="${key}" title="${isEn?'Click: ascending → descending → off':'클릭: 오름차순 → 내림차순 → 해제'}" style="text-align:${align};padding:10px 12px;color:#78350f;cursor:pointer;user-select:none;white-space:nowrap">${label}<span class="pr-s-arrow" style="margin-left:4px;font-size:10px;color:#b45309">↕</span></th>`;
+      const flagOpts = isEn
+        ? [['','All'],['ded','Has deduction'],['norate','No rate set'],['unlinked','No linked profile'],['adj','Adjusted'],['nolesson','0 classes']]
+        : [['','전체'],['ded','공제 있음'],['norate','단가 미지정'],['unlinked','프로필 미연결'],['adj','조정 금액 입력'],['nolesson','수업 0회']];
+      const statusOpts = isEn
+        ? [['','All status'],['pending','Pending'],['paid','Paid'],['unsaved','Not saved yet']]
+        : [['','상태 전체'],['pending','대기'],['paid','지급'],['unsaved','미저장']];
+      // 🧑‍🏫 강사 드롭다운 — 이 달 계산에 나온 강사만(이름순). 값은 teacher_id(이름은 동명이인이 있을 수 있다)
+      if (_prFilt.teacher && !_prRows.some(r => String(r.teacher_id) === _prFilt.teacher)) _prFilt.teacher = '';
+      const teacherOpts = [['', isEn ? 'All teachers' : '강사 전체']].concat(
+        _prRows.slice().sort((a,b) => String(a.korean_name||'').localeCompare(String(b.korean_name||''), 'ko'))
+          .map(r => [String(r.teacher_id), (r.korean_name||'-') + (r.english_name ? ' (' + r.english_name + ')' : '')]));
+      const levelOpts = [['', isEn ? 'All levels' : '등급 전체'], ['__none', isEn ? '— none —' : '— 미지정 —']].concat(
+        _prLevels.map(v => [String(v.code), (isEn ? v.label_en : v.label_ko) + ' (₱' + fmt(v.rate_per_20min) + ')']));
+      const srcOpts = isEn
+        ? [['','All sources'],['sys','This system'],['cafe24','Cafe24 sync']]
+        : [['','출처 전체'],['sys','이 시스템 수업기록'],['cafe24','카페24 동기화']];
+      const optHtml = (arr, cur) => arr.map(([v,t]) => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('');
+      const filterBar = _prTeacherView ? '' : `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px">
+          <input id="pr-f-q" type="search" value="${esc(_prFilt.q)}" oninput="prFilter('q', this.value)" placeholder="${isEn?'🔍 Search teacher name':'🔍 강사 이름 검색'}" style="flex:1 1 180px;min-width:150px;padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828" />
+          <select id="pr-f-teacher" onchange="prFilter('teacher', this.value)" title="${isEn?'Teacher':'강사'}" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828;max-width:220px">${optHtml(teacherOpts, _prFilt.teacher)}</select>
+          <select id="pr-f-level" onchange="prFilter('level', this.value)" title="${isEn?'Level':'등급'}" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828;max-width:200px">${optHtml(levelOpts, _prFilt.level)}</select>
+          <select id="pr-f-status" onchange="prFilter('status', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(statusOpts, _prFilt.status)}</select>
+          <select id="pr-f-flag" onchange="prFilter('flag', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(flagOpts, _prFilt.flag)}</select>
+          <select id="pr-f-src" onchange="prFilter('src', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(srcOpts, _prFilt.src)}</select>
+          <button type="button" onclick="prFilterReset()" style="padding:6px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#344054;cursor:pointer">${isEn?'Reset':'초기화'}</button>
+          <span id="pr-f-count" style="font-size:12px;color:#475467"></span>
+        </div>`;
+      tbody.innerHTML = filterBar + `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
-          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
-          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.level}</th>
-          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.classes}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.mins}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.rate}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.calc}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.ded}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.fin}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.adj}</th>
-          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.status}</th>
+          ${thS('teacher', H.teacher, 'left')}
+          ${thS('level', H.level, 'left')}
+          ${thS('classes', H.classes, 'center')}
+          ${thS('mins', H.mins, 'right')}
+          ${thS('rate', H.rate, 'right')}
+          ${thS('calc', H.calc, 'right')}
+          ${thS('ded', H.ded, 'right')}
+          ${thS('fin', H.fin, 'right')}
+          ${thS('adj', H.adj, 'right')}
+          ${thS('status', H.status, 'center')}
           <th style="text-align:center;padding:10px 12px;color:#78350f">${H.actions}</th>
         </tr></thead>
-        <tbody>${_prRows.map((r, i) => {
+        <tbody id="pr-tbody"></tbody>
+      </table>`;
+      const rowHtml = (r, i) => {
           const fin = r.final_amount ?? r.calculated_amount;
           // 단가가 없어서 0 이 된 금액은 «0원 지급» 이 아니라 «아직 계산할 수 없음» 이다
           const finCell = (r.rate_missing && (r.lesson_count||0) > 0)
@@ -461,8 +561,24 @@
                     : `<button onclick="prMarkPaid(${r.payroll_id},${fin})" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">${H.markPaid}</button>`)
                 : `<span style="font-size:10.5px;color:#9ca3af">${H.saveFirst}</span>`}
             </td>
-          </tr>`;}).join('')}</tbody>
-      </table>`;
+          </tr>`;};
+      _prBodyRender = function(){
+        const tb = document.getElementById('pr-tbody');
+        if (!tb) return;
+        const view = prViewRows();
+        tb.innerHTML = view.length
+          ? view.map(({ r, i }) => rowHtml(r, i)).join('')
+          : `<tr><td colspan="11" style="padding:26px;text-align:center;color:#6b7280">${isEn?'No teachers match the filter.':'조건에 맞는 강사가 없습니다.'}</td></tr>`;
+        document.querySelectorAll('#pr-table th[data-prs]').forEach(th => {
+          const on = th.getAttribute('data-prs') === _prSort.key;
+          const a = th.querySelector('.pr-s-arrow');
+          if (a) { a.textContent = on ? (_prSort.dir === 1 ? '▲' : '▼') : '↕'; a.style.color = on ? '#b45309' : '#c2a36b'; }
+          th.style.background = on ? '#fde68a' : '';
+        });
+        const cnt = document.getElementById('pr-f-count');
+        if (cnt) cnt.textContent = isEn ? `Showing ${view.length} / ${_prRows.length}` : `${_prRows.length}명 중 ${view.length}명 표시`;
+      };
+      _prBodyRender();
     } catch(e) {
       tbody.innerHTML = '<div style="padding:20px;color:#ef4444">계산 실패: '+esc(e.message)+'</div>';
     }
