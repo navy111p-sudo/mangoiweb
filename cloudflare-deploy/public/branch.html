@@ -1657,6 +1657,52 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(e){ failBox(el, e); });
   };
   function val(id, dflt){ var e = document.getElementById(id); return e ? e.value : dflt; }
+  // ↕ (2026-09-25) 오르기/내리기 정렬 — 관리자 표(js/adm-ai-usage.js SORTS)와 같은 기준.
+  //    숫자·날짜는 큰 것부터, 글자는 가나다순부터 · 같은 버튼 세 번째는 원래(최근 사용순) ·
+  //    빈 값은 방향과 무관하게 맨 아래. 80줄로 자르기 «전» 에 정렬한다(안 그러면 앞 80줄끼리만 섞임).
+  var AIU_SORT = { key: '', dir: 0 };
+  var AIU_SORTS = [
+    { key: 'last',      en: 'Last used', ko: '최근 사용', get: function(s){ return Number(s.last_ts) || null; } },
+    { key: 'total',     en: 'Total',     ko: '총 사용',   get: function(s){ return Number(s.total) || 0; } },
+    { key: 'tools',     en: 'Tools',     ko: '도구 수',   get: function(s){ return Object.keys(s.tools || {}).length || null; } },
+    { key: 'name',      en: 'Name',      ko: '이름',      text: true, get: function(s){ return s.name; } },
+    { key: 'uid',       en: 'ID',        ko: '아이디',    text: true, get: function(s){ return s.uid; } },
+    { key: 'shop',      en: 'Center',    ko: '대리점',    text: true, get: function(s){ return s.shop_name; } },
+    { key: 'franchise', en: 'Branch',    ko: '지사',      text: true, get: function(s){ return s.franchise; } },
+    { key: 'level',     en: 'Level',     ko: '레벨',      get: function(s){ var m = String(s.level == null ? '' : s.level).match(/\d+/); return m ? Number(m[0]) : null; } }
+  ];
+  function aiuSortDef(key){ for (var i = 0; i < AIU_SORTS.length; i++) { if (AIU_SORTS[i].key === key) return AIU_SORTS[i]; } return null; }
+  function aiuSorted(rows){
+    var def = aiuSortDef(AIU_SORT.key), dir = AIU_SORT.dir;
+    if (!def || !dir) return rows;
+    var blank = function(v){ return v == null || v === '' || (typeof v === 'number' && isNaN(v)); };
+    return rows.map(function(s, i){ return { s: s, i: i, v: def.get(s) }; }).sort(function(a, b){
+      var ab = blank(a.v), bb = blank(b.v);
+      if (ab || bb) return ab === bb ? a.i - b.i : (ab ? 1 : -1);
+      var c = def.text ? String(a.v).localeCompare(String(b.v), 'ko') : (a.v - b.v);
+      return c ? c * dir : a.i - b.i;
+    }).map(function(x){ return x.s; });
+  }
+  window.aiuSortBy = function(key){
+    var def = aiuSortDef(key); if (!def) return;
+    var first = def.text ? 1 : -1;
+    if (AIU_SORT.key !== key) AIU_SORT = { key: key, dir: first };
+    else if (AIU_SORT.dir === first) AIU_SORT.dir = -first;
+    else AIU_SORT = { key: '', dir: 0 };
+    window.paintAiUsage();
+  };
+  function aiuSortBar(){
+    return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-bottom:8px">'
+      + '<span class="muted" style="font-size:12px">' + esc(T('Sort', '정렬')) + '</span>'
+      + AIU_SORTS.map(function(d){
+          var on = AIU_SORT.key === d.key && AIU_SORT.dir;
+          var ar = on ? (AIU_SORT.dir > 0 ? '▲' : '▼') : '↕';
+          return '<button type="button" onclick="aiuSortBy(\'' + d.key + '\')" aria-pressed="' + (on ? 'true' : 'false') + '"'
+            + ' style="min-height:34px;padding:5px 10px;border-radius:99px;font-size:12.5px;font-family:inherit;cursor:pointer;'
+            + (on ? 'background:#e0e7ff;border:1px solid #6366f1;color:#312e81;font-weight:700' : 'background:#fff;border:1px solid #d7dee6;color:#16202c') + '">'
+            + esc(T(d.en, d.ko)) + ' <span style="font-size:10px;opacity:' + (on ? '1' : '.45') + '">' + ar + '</span></button>';
+        }).join('') + '</div>';
+  }
   window.paintAiUsage = function(){
     var j = D.aiusage; if (!j) return;
     var el = document.getElementById('aiuBody');
@@ -1671,7 +1717,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .map(function(s){ return '<span class="tag">' + esc(aiuLabel(s.key)) + ' ' + n0(s.students) + '</span>'; }).join(' ');
     var head = '<div class="muted" style="padding-bottom:8px">'
       + esc(T(n0(j.count) + ' students · last ' + j.days + ' days', n0(j.count) + '명 · 최근 ' + j.days + '일')) + '</div>'
-      + (summary ? '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px">' + summary + '</div>' : '');
+      + (summary ? '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px">' + summary + '</div>' : '')
+      + aiuSortBar();
+    rows = aiuSorted(rows);
     if (!rows.length) { el.innerHTML = head + '<div class="empty">' + esc(T('No students match.', '해당하는 학생이 없습니다.')) + '</div>'; return; }
     el.innerHTML = head + rows.slice(0, 80).map(function(s){
       var tools = Object.keys(s.tools || {}).map(function(k){ return aiuLabel(k) + ' ' + s.tools[k].n; }).join(' · ');
