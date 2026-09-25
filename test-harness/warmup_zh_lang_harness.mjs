@@ -814,7 +814,7 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       /playbackRate\.value = P/.test(deepBody) && /buf\.length \/ P/.test(deepBody),
       '한쪽만 P 면 길이가 어긋나 뒷부분이 잘리거나 무음이 붙습니다');
     check('굽기가 실패하면 원본 그대로 읽는다',
-      /_zhDeepen\([\s\S]{0,200}play0\(u, false\)/.test(HTMLC),
+      /_zhDeepen\([\s\S]{0,220}play0\(u, false\b/.test(HTMLC),
       '소리가 아예 안 나는 것이 최악입니다');
     /* 🔴 ── 배선 — «그 판정을 실제로 부르고 그 결과로 굽는가» ──
        ⛔ 「판정 함수가 옳은가」만 보면 **아무것도 안 지켜집니다.**

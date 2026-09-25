@@ -424,7 +424,7 @@ else {
     '안 읽으면 진짜 성우인지 폴백인지 구별할 방법이 없습니다');
 
   /* «굽는가» 판정을 오려 내 실제로 돌린다 — 글자로 물으면 조건 뒤집기를 못 본다 */
-  const gm = wc.match(/if\s*\(([^{};\n]*indexOf\('azure'\)[^{};\n]*)\)\s*\{\s*play0\(u,\s*false\)/);
+  const gm = wc.match(/if\s*\(([^{};\n]*indexOf\('azure'\)[^{};\n]*)\)\s*\{\s*play0\(u,\s*false\b/);   // ⚡ 2026-09-25: 셋째 인자(onEnd, 문장 나눠 읽기)가 붙어도 같은 뜻 — «false» 까지만 본다
   check('전제: 웜업의 굽기 판정을 오려 냈다', !!gm, '못 찾으면 아래가 조용히 통과합니다');
   let w0 = null;
   try { w0 = gm ? new Function('eng', 'return (' + gm[1] + ');') : null; } catch { w0 = null; }
