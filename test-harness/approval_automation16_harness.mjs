@@ -9,7 +9,7 @@
  *   ② getTodayFx(fx-rate.ts) — 오늘 캐시 → 공개 API → 지난 값 → 급여 화면 저장값 → null.
  *      ⛔ 기본값(24원)을 지어내지 않는다 · ⛔ 던지지 않는다 · 어디서 왔는지(source)와 날짜를 준다.
  *   ③ 서버 배선 — 장부 JSON 에만 fx(엑셀은 원래 통화) · 실패해도 장부는 뜬다.
- *   ④ 화면 — 환산은 «≈» · 같은 통화는 그대로 · 환율이 없으면 바꿔 보기를 끄고 말한다 ·
+ *   ④ 화면 — 환산은 물결 없이(굵게) · 같은 통화는 그대로 · 환율이 없으면 바꿔 보기를 끄고 말한다 ·
  *      ₩1,000 = ₱… 을 적는다 · 합계 «모두 합쳐» 는 통화가 둘 이상이고 전부 바꿀 수 있을 때만 · 화면 계산 == 정본 계산.
  */
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -156,6 +156,7 @@ try {
     esc: s => String(s == null ? '' : s),
     money: (v, cur) => (v == null || v === '') ? '' : ((String(cur).toUpperCase() === 'KRW' ? '₩' : '₱') + Math.round(Number(v) || 0).toLocaleString('en-US')),
     paintLed: () => { S.painted++; },
+    fxRepaintAll: () => { S.fxRepainted = (S.fxRepainted || 0) + 1; },   // 💱 목록·맨 위 금액·지출 정리를 다시 그리는 정본(2026-09-25) — 여기선 불렸는지만 센다
     localStorage: { setItem: (k, v) => { S.LS[k] = v; } },
     window: {},
   };
@@ -173,10 +174,10 @@ try {
   S.LED.show = '';
   ok('원래 통화 보기: 그대로(≈ 없음)', F.lm(3500, 'PHP') === '₱3,500' && F.lm(30000, 'KRW') === '₩30,000');
   S.LED.show = 'KRW';
-  ok('₩ 로 보기: 페소는 ≈₩ 환산', F.lm(3500, 'PHP') === '≈₩85,225', F.lm(3500, 'PHP'));
+  ok('₩ 로 보기: 페소는 ₩ 환산(물결 없음)', F.lm(3500, 'PHP') === '₩85,225', F.lm(3500, 'PHP'));
   ok('₩ 로 보기: 원은 그대로(≈ 없음)', F.lm(30000, 'KRW') === '₩30,000');
   S.LED.show = 'PHP';
-  ok('₱ 로 보기: 원은 ≈₱ 환산', F.lm(30000, 'KRW') === '≈₱1,232', F.lm(30000, 'KRW'));
+  ok('₱ 로 보기: 원은 ₱ 환산(물결 없음)', F.lm(30000, 'KRW') === '₱1,232', F.lm(30000, 'KRW'));
   ok('모두 합쳐(₱) = 3,500 + 1,232.03', Math.abs(F.ledAllIn(D.totals) - (3500 + 1232.03)) < 0.001, String(F.ledAllIn(D.totals)));
   S.LED.show = '';
   ok('원래 통화 보기에서는 «모두 합쳐» 없음', F.ledAllIn(D.totals) === null);
@@ -195,9 +196,9 @@ try {
   ok('환율 날짜를 적는다', h.includes('2026-09-25'));
   ok('버튼 셋: 원래 통화 · ₩ 원으로 · ₱ 페소로', /ledShow\(''\)/.test(h) && /ledShow\('KRW'\)/.test(h) && /ledShow\('PHP'\)/.test(h) && /원래 통화/.test(h) && /₩ 원으로/.test(h) && /₱ 페소로/.test(h));
   ok('누른 버튼이 켜짐 표시(aria-pressed)', /class="ledvtab on" aria-pressed="true" onclick="ledShow\(''\)"/.test(h));
-  ok('원래 통화 보기에서는 «≈ 안내» 없음', !/≈ 는 이 환율로/.test(h));
+  ok('원래 통화 보기에서는 «환산 안내» 없음', !/굵은 금액은 이 환율로/.test(h));
   S.LED.show = 'KRW'; h = F.ledFxHtml(D);
-  ok('바꿔 보기 중에는 «≈ = 환산 · 엑셀·판정은 원래 통화» 안내', /≈ 는 이 환율로 바꾼 금액/.test(h) && /엑셀·경고·합계 판정은 원래 통화/.test(h));
+  ok('바꿔 보기 중에는 «굵은 금액 = 환산 · 엑셀·판정은 원래 통화» 안내', /굵은 금액은 이 환율로 바꾼 금액/.test(h) && /엑셀·경고·합계 판정은 원래 통화/.test(h));
   ok('지난 값·급여 저장값이면 출처를 그대로 말한다',
      /오늘 것을 못 받음/.test(F.ledFxHtml({ fx: { ...FX, source: 'last' } })) && /급여 화면에 저장된 환율/.test(F.ledFxHtml({ fx: { ...FX, source: 'payroll' } })));
   S.EN = true;

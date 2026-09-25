@@ -152,8 +152,11 @@ html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
 html.dark .chip.late{background:#3a1a16;color:#f0907c}
 .ititle{font-weight:650;font-size:17px;flex:1;min-width:140px;word-break:break-word}
 .iamt{font-weight:700;font-size:17.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.iamtfx{display:block;font-weight:600;font-size:13px;color:#475467;text-align:right}
-html.dark .iamtfx{color:#d0d5dd}
+.iamtfx{display:block;font-weight:800;font-size:13px;color:#101828;text-align:right}
+html.dark .iamtfx{color:#ffffff}
+/* 💱 환산 금액(원·페소로 바꿔 본 값) — 물결 없이 «굵고 진하게» (2026-09-25 사장님 지시) */
+.fxamt{font-weight:800;color:#101828}
+html.dark .fxamt{color:#ffffff}
 .imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
 html.dark .imeta{color:#8b98a8}
 .isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
@@ -1890,7 +1893,7 @@ function runLed(per){
       else { LED.data[per] = d; if (d.fx) LED.fx = d.fx; }
       paintLed();
       // 💱 환율이 처음 도착했으면 목록 카드·위 환율 줄도 다시 그린다(장부만 바뀌면 «여기는 왜 안 바뀌어» 가 된다)
-      if (typeof D !== 'undefined' && D) { paintFxBox(); paintCardLists(); }
+      fxRepaintAll();
     })
     .catch(function(){ LED.busy = false; LED.data[per] = { err: 2 }; paintLed(); });
 }
@@ -1915,7 +1918,7 @@ function paintLed(){
     return lm(t.sum, t.cur) + ' (' + t.n + T(' items', '건') + ')';
   }).join('  ·  ') || '—';
   var all = ledAllIn(d.totals);
-  if (all != null) tot += '  =  ' + T('all together ', '모두 합쳐 ') + '\u2248' + money(all, LED.show);
+  if (all != null) tot += '  =  ' + T('all together ', '모두 합쳐 ') + money(all, LED.show);
   var h = '<div class="ledsum"><b>' + esc(T('Approved spending: ', '승인된 지출 합계: ')) + '</b>' + esc(tot) + '</div>';
   /* 기간은 서버가 정한 값을 그대로 보여 준다 — 「지난달」이 정확히 며칠부터 며칠인지 사람이 확인할 수 있게. */
   if (d.from || d.to) h += '<div class="ledrange">' + esc((d.from || '…') + ' ~ ' + (d.to || '…')) + '</div>';
@@ -2135,25 +2138,35 @@ function ledConv(v, from, to, rate){
   return f === 'PHP' ? Math.round(a * r) : Math.round(a / r * 100) / 100;
 }
 function ledRate(){ var d = LED.data[LED.per]; return (d && d.fx && d.fx.krw_per_php) || (LED.fx && LED.fx.krw_per_php); }
-/** 장부 금액 — 바꿔 보기가 켜져 있고 통화가 다르면 «≈ 환산» 으로. */
+/** 장부 금액 — 바꿔 보기가 켜져 있고 통화가 다르면 환산 금액으로(물결 없이 — 2026-09-25). */
 function lm(v, cur){
   if (!LED.show || String(cur || '').toUpperCase() === LED.show) return money(v, cur);
   var c = ledConv(v, cur, LED.show, ledRate());
-  return c == null ? money(v, cur) : '≈' + money(c, LED.show);
+  return c == null ? money(v, cur) : money(c, LED.show);
 }
 window.ledShow = function(v){
   LED.show = (v === 'KRW' || v === 'PHP') ? v : '';
   try { localStorage.setItem('mangoi_led_show', LED.show); } catch (e) {}
   paintLed();
-  if (typeof D !== 'undefined' && D) { paintFxBox(); paintCardLists(); }   // 💱 목록 카드도 같은 선택을 따른다
+  fxRepaintAll();
 };
-/* 💱 목록 카드 금액 — 원래 금액은 «그대로» 두고 옆에 ≈ 환산을 덧붙인다.
+/* 💱 원·페소 선택·환율 도착 때 «금액을 그리는 곳 전부» 를 다시 그린다 — 한 곳 정본.
+   (장부만 바꿔 그리면 「여기는 왜 안 바뀌어」 가 된다: 2026-09-25 카드 → 맨 위 금액·지출 정리 순으로 두 번 밟음)
+   ⚠️ 금액을 그리는 곳을 새로 만들면 여기에 한 줄 더한다. */
+function fxRepaintAll(){
+  if (typeof D === 'undefined' || !D) return;
+  paintFxBox(); paintCardLists();
+  try { paintTop(); } catch (e) { console.warn('[fx] top repaint failed', e); }
+  var rp = document.getElementById('repPanel');
+  if (rp && !rp.hidden && REP) { try { paintRep(); } catch (e) { console.warn('[fx] report repaint failed', e); } }
+}
+/* 💱 목록 카드 금액 — 원래 금액은 «그대로» 두고 옆에 환산 금액을 굵게 덧붙인다(물결 없음).
    ⚠️ 결재 판정(₱5,000 기준 등)은 원래 통화라 원래 금액을 지우면 안 된다. 환율을 모르면 원래 금액만. */
 function cardAmtHtml(v, cur){
   var base = esc(money(v, cur));
   if (!LED.show || String(cur || '').toUpperCase() === LED.show) return base;
   var c = ledConv(v, cur, LED.show, ledRate());
-  return c == null ? base : base + ' <span class="iamtfx">\u2248' + esc(money(c, LED.show)) + '</span>';
+  return c == null ? base : base + ' <span class="iamtfx">' + esc(money(c, LED.show)) + '</span>';
 }
 function paintCardLists(){
   if (typeof D === 'undefined' || !D) return;
@@ -2189,8 +2202,8 @@ function ledFxHtml(d){
            '" onclick="ledShow(\'' + v + '\')">' + esc(T(en, ko)) + '</button>';
   };
   h += '<span class="ledfxb">' + bt('', 'As recorded', '원래 통화') + bt('KRW', '₩ Won', '₩ 원으로') + bt('PHP', '₱ Peso', '₱ 페소로') + '</span></div>';
-  if (LED.show) h += '<div class="ledsub">' + esc(T('≈ = converted at this rate. Excel, alerts and totals are counted in the original currency.',
-                                                    '≈ 는 이 환율로 바꾼 금액입니다. 엑셀·경고·합계 판정은 원래 통화 그대로입니다.')) + '</div>';
+  if (LED.show) h += '<div class="ledsub">' + esc(T('Bold amounts are converted at this rate. Excel, alerts and totals are counted in the original currency.',
+                                                    '굵은 금액은 이 환율로 바꾼 금액입니다. 엑셀·경고·합계 판정은 원래 통화 그대로입니다.')) + '</div>';
   return h;
 }
 /** 통화를 모두 합친 환산 합계(바꿔 보기가 켜졌을 때만). 하나라도 못 바꾸면 null. */
@@ -2217,6 +2230,27 @@ function repMoney(list){
   }
   return out.length ? out.join('  ·  ') : '—';
 }
+/** 💱 바꿔 보기(원·페소)가 켜져 있으면 «한 통화로 환산한 합» 한 조각(글자) — 아니면 ''.
+    ⚠️ 원래 금액(repMoney)은 그대로 두고 옆에 덧붙이기만 한다(판정·엑셀은 원래 통화).
+    ⛔ 환율을 모르거나 하나라도 못 바꾸면 '' — 지어내지 않는다. 이미 그 통화뿐이면 ''. */
+function repMoneyFx(list){
+  if (!LED.show || !list || !list.length) return '';
+  var sum = 0, other = false;
+  for (var i = 0; i < list.length; i++) {
+    if (!list[i].total) continue;
+    if (String(list[i].currency || '').toUpperCase() !== LED.show) other = true;
+    var c = ledConv(list[i].total, list[i].currency, LED.show, ledRate());
+    if (c == null) return '';
+    sum += c;
+  }
+  return other ? money(sum, LED.show) : '';
+}
+/** 원래 금액 + (굵은 환산 금액) — «HTML» 을 돌려준다(이미 esc 됨). ⛔ 다시 esc 하지 말 것. */
+function fxAmtHtml(txt){ return '<b class="fxamt">' + esc(txt) + '</b>'; }
+function repMoneyWithFxHtml(list){
+  var fx = repMoneyFx(list);
+  return esc(repMoney(list)) + (fx ? '  (' + fxAmtHtml(fx) + ')' : '');
+}
 
 function paintRep(){
   var host = document.getElementById('repResult');
@@ -2235,11 +2269,11 @@ function paintRep(){
   h += '<div class="repcards">';
   h += '<div class="repcard"><div class="rl">' +
        esc(T('Approved', '승인 — 쓰기로 확정')) + '</div><div class="rv">' +
-       esc(repMoney(s.approved_money)) + '</div><div class="rn">' +
+       repMoneyWithFxHtml(s.approved_money) + '</div><div class="rn">' +
        esc(EN() ? (s.by_status.approved + ' requests') : (s.by_status.approved + '건')) + '</div></div>';
   h += '<div class="repcard"><div class="rl">' +
        esc(T('Waiting', '대기 — 아직 아닌 돈')) + '</div><div class="rv">' +
-       esc(repMoney(s.pending_money)) + '</div><div class="rn">' +
+       repMoneyWithFxHtml(s.pending_money) + '</div><div class="rn">' +
        esc(EN() ? (s.by_status.pending + ' requests') : (s.by_status.pending + '건')) + '</div></div>';
   h += '</div>';
 
@@ -2256,7 +2290,7 @@ function paintRep(){
       h += '<tr' + (c.key ? '' : ' class="dim"') + '><td class="rc">' + esc(nm) +
            (c.account ? '<span class="racct">' + esc(c.account) + '</span>' : '') + '</td>' +
            '<td class="rq">' + esc(EN() ? (c.count + '') : (c.count + '건')) + '</td>' +
-           '<td class="rm">' + esc(repMoney(c.money)) + '</td></tr>';
+           '<td class="rm">' + repMoneyWithFxHtml(c.money) + '</td></tr>';
     }
     h += '</tbody></table>';
   }
@@ -2269,7 +2303,7 @@ function paintRep(){
       var m = s.by_month[j];
       h += '<tr><td class="rc">' + esc(m.month) + '</td>' +
            '<td class="rq">' + esc(EN() ? (m.count + '') : (m.count + '건')) + '</td>' +
-           '<td class="rm">' + esc(repMoney(m.money)) + '</td></tr>';
+           '<td class="rm">' + repMoneyWithFxHtml(m.money) + '</td></tr>';
     }
     h += '</tbody></table>';
     /* 🔴 기간은 «올린 날» 로 자르는데 달 묶음은 «지출일» 을 먼저 봅니다 — 두 축이 다릅니다.
@@ -2407,12 +2441,13 @@ function paintTop(){
 
   /* ── ② 타일 넷 ──────────────────────────────────────────────────────── */
   var t = '';
-  var tile = function(cls, label, value, note, onclick){
+  /* fx: 설명 줄 맨 앞에 굵게 붙일 환산 금액(글자) — 없으면 생략 */
+  var tile = function(cls, label, value, note, onclick, fx){
     return '<button type="button" class="tile' + (cls ? ' ' + cls : '') + '"' +
            (onclick ? (' onclick="' + onclick + '"') : ' disabled') + '>' +
            '<span class="tl">' + esc(label) + '</span>' +
            '<span class="tv">' + esc(value) + '</span>' +
-           (note ? '<span class="tn">' + esc(note) + '</span>' : '') + '</button>';
+           ((note || fx) ? '<span class="tn">' + (fx ? fxAmtHtml(fx) + (note ? ' · ' : '') : '') + esc(note || '') + '</span>' : '') + '</button>';
   };
 
   var inboxN = (D.inbox || []).length;
@@ -2457,8 +2492,10 @@ function paintTop(){
       yNote += ' · ' + (EN() ? (sm.money.year_no_amount + ' with no amount')
                              : ('금액 없음 ' + sm.money.year_no_amount + '건'));
     }
-    t += tile('', T('Approved this month', '이번 달 승인'), mm, mNote, 'topSpending()');
-    t += tile('', T('Approved this year', '올해 누적'), yy, yNote, 'topSpending()');
+    /* 💱 바꿔 보기가 켜져 있으면 큰 숫자(원래 통화) 아래 설명 줄 맨 앞에 환산 금액을 굵게 */
+    var mFx = repMoneyFx(sm.money.month), yFx = repMoneyFx(sm.money.year);
+    t += tile('', T('Approved this month', '이번 달 승인'), mm, mNote, 'topSpending()', mFx);
+    t += tile('', T('Approved this year', '올해 누적'), yy, yNote, 'topSpending()', yFx);
   }
 
   /* 🗂 결재 보관함(시안 A) — 다섯째 카드. 「올해 몇 건 · 마지막 결재가 언제·누구」.

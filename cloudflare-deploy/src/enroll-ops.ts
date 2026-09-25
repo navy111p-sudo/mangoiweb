@@ -832,7 +832,17 @@ async function endingSoonList(env: any, days: number): Promise<any> {
    ⚠️ 국가 칸이 빈(수동 등록) 공휴일은 후보에 «넣되» 국가를 모름으로 표시한다 — 사람이 보고 고른다.
    ⚠️ 표가 없거나(캘린더를 한 번도 안 연 환경) 조회가 실패하면 ok:false 로 «모름» 을 돌려준다.
       빈 배열을 «없다» 로 돌려주면 «못 물어봤다» 가 «다 옮겼다» 로 읽힌다. */
-export async function calendarHolidaysMissing(env: any, today: string): Promise<{ ok: boolean; items: { day: string; name: string; country: string }[]; error?: string }> {
+/* 📌 (2026-09-25 후속) 세 번째 표 holidays(운영 인프라 모듈 — Nager.Date 에서 받아 오는 «국가 공식»
+   공휴일)도 후보에 합친다. 캘린더에 사람이 안 적었어도 «공식 공휴일인데 수업이 안 밀리는» 날을 보여 준다.
+   · 두 원천을 «따로» 묻는다 — 한쪽 표가 없거나 실패해도 다른 쪽 결과는 보여 준다.
+   · 둘 다 실패하면 ok:false(«모름»). 하나만 실패하면 ok:true + failed:[그 원천] — 화면이 «일부만 대조» 라 말한다.
+   · src: 'calendar'(캘린더) · 'official'(공식 공휴일) · 'both'. 같은 날은 한 줄로 합친다(이름은 캘린더 우선 — 사람이 적은 말). */
+export type HolidayMissing = { day: string; name: string; country: string; src: 'calendar' | 'official' | 'both' };
+export async function calendarHolidaysMissing(env: any, today: string): Promise<{ ok: boolean; items: HolidayMissing[]; failed?: string[]; error?: string }> {
+  const byDay = new Map<string, HolidayMissing>();
+  const failed: string[] = [];
+  const errs: string[] = [];
+  const dayOk = (d: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
   try {
     const rs: any = await env.DB.prepare(
       `SELECT c.date AS day, MIN(c.title) AS name, MIN(COALESCE(c.country, '')) AS country
@@ -844,13 +854,32 @@ export async function calendarHolidaysMissing(env: any, today: string): Promise<
         GROUP BY c.date
         ORDER BY c.date ASC LIMIT 60`
     ).bind(today).all();
-    const items = ((rs?.results as any[]) || []).map((r) => ({
-      day: String(r.day || ''), name: String(r.name || ''), country: String(r.country || ''),
-    })).filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day));
-    return { ok: true, items };
-  } catch (e) {
-    return { ok: false, items: [], error: String((e as any)?.message || e).slice(0, 120) };
-  }
+    for (const r of ((rs?.results as any[]) || [])) {
+      if (!dayOk(r.day)) continue;
+      byDay.set(String(r.day), { day: String(r.day), name: String(r.name || ''), country: String(r.country || ''), src: 'calendar' });
+    }
+  } catch (e) { failed.push('calendar'); errs.push(String((e as any)?.message || e).slice(0, 80)); }
+  try {
+    const rs: any = await env.DB.prepare(
+      `SELECT o.date AS day, MIN(o.name) AS name
+         FROM holidays o
+        WHERE o.country = 'KR'
+          AND o.date >= ?
+          AND NOT EXISTS (SELECT 1 FROM enroll_holidays h WHERE h.day = o.date)
+        GROUP BY o.date
+        ORDER BY o.date ASC LIMIT 60`
+    ).bind(today).all();
+    for (const r of ((rs?.results as any[]) || [])) {
+      if (!dayOk(r.day)) continue;
+      const d = String(r.day);
+      const had = byDay.get(d);
+      if (had) { had.src = 'both'; if (!had.country) had.country = 'KR'; }
+      else byDay.set(d, { day: d, name: String(r.name || ''), country: 'KR', src: 'official' });
+    }
+  } catch (e) { failed.push('official'); errs.push(String((e as any)?.message || e).slice(0, 80)); }
+  if (failed.length >= 2) return { ok: false, items: [], failed, error: errs.join(' / ').slice(0, 120) };
+  const items = [...byDay.values()].sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : 0)).slice(0, 60);
+  return failed.length ? { ok: true, items, failed } : { ok: true, items };
 }
 
 /* ═══════════════ 📋 오늘 할 일 요약 (2026-09-25 — 제안서 C안) ═══════════════
@@ -903,7 +932,7 @@ async function enrollTodoSummary(env: any): Promise<any> {
   } catch (e) { out.holidays = { error: String((e as any)?.message || e).slice(0, 120) }; }
 
   const miss = await calendarHolidaysMissing(env, today);
-  out.calendar_missing = miss.ok ? { count: miss.items.length, top: miss.items.slice(0, 3) } : { error: miss.error || 'failed' };
+  out.calendar_missing = miss.ok ? { count: miss.items.length, top: miss.items.slice(0, 3), failed: miss.failed || [] } : { error: miss.error || 'failed' };
 
   try {
     const vs: any = await env.DB.prepare(
@@ -1397,7 +1426,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const miss = await calendarHolidaysMissing(env, kstToday());
     return json({
       ok: true, holidays: (rs?.results as any[]) || [],
-      calendar_missing: miss.items, calendar_ok: miss.ok,
+      calendar_missing: miss.items, calendar_ok: miss.ok, calendar_failed: miss.failed || [],
     });
   }
 
