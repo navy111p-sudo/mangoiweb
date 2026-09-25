@@ -2623,14 +2623,14 @@ function _speakChunks(chunks, spk, btn, done, play){
     if(seq!==_speakSeq) return;
     var c=chunks[i], k=spk+'|'+c;
     var next=(i===chunks.length-1) ? done : function(){ step(i+1); };
-    var viaTts=function(){ _ttsSpeak(c, spk, k, btn, seq, next, function(u, eng){ play(u, eng, next); }, 0); };
-    if(_ttsCache[k]){ play(_ttsCache[k], _ttsEng[k], next); return; }
+    var viaTts=function(){ _ttsSpeak(c, spk, k, btn, seq, next, function(u, eng){ play(u, eng, next, c); }, 0); };
+    if(_ttsCache[k]){ play(_ttsCache[k], _ttsEng[k], next, c); return; }
     if(pend[i]){
       pend[i].then(function(o){
         if(seq!==_speakSeq) return;
         if(!o){ viaTts(); return; }
         if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }   // 남의 목소리는 캐시 안 함(_ttsSpeak 과 같은 규칙)
-        play(o.u, o.eng, next);
+        play(o.u, o.eng, next, c);
       });
       return;
     }
@@ -2654,6 +2654,7 @@ function _latOn(){
 function _latMark(){
   var L=_latCur; if(!L) return; _latCur=null;
   var now=Date.now();
+  if(now-L.t1>15000) return;   // 15초 넘게 걸렸으면 사람이 탭해 다시 읽힌 것(자동재생 차단) — 잰 값이 아니다
   var row={ wait:L.wait, finish:(L.tStop ? L.t0-L.tStop : null), ai:L.t1-L.t0, voice:now-L.t1,
             total:(L.tStop ? (L.wait||0)+(now-L.tStop) : null), chunks:L.chunk||1 };
   try{ var a=(window.__warmLat=window.__warmLat||[]); a.push(row); if(a.length>30) a.shift(); }catch(e){}
@@ -2666,6 +2667,7 @@ function _latMark(){
 }
 function speak(text, btn){
   if(_warmPaused || !_speechOn || !text){
+    _latCur=null;   // ⏱ 소리를 안 내는 차례는 재지 않는다(나중 재생에 엉뚱한 시간이 붙지 않게)
     if(!btn && !_warmPaused && !_speechOn && text) _autoHook('aiDone');   // ✨ 소리를 꺼 두었으면 «말이 끝난 것» 과 같다
     return;
   }
@@ -2673,6 +2675,7 @@ function speak(text, btn){
   text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
   _lastAiSpeak=text;
   _stopSpeak();
+  if(btn) _latCur=null;   // ⏱ 다시 듣기는 «대화 차례» 가 아니다 — 재지 않는다
   var _atSeq=_speakSeq; _autoHook('aiStart');   // ✨ AI 가 말하는 동안에는 자동으로 듣지 않는다
   if(btn) btn.classList.add('playing');
   /* 🐛→✅ (2026-07-27) 예전엔 여기서 바로 plainStart() 를 불러 그리기 루프를 켰다.
@@ -2687,8 +2690,10 @@ function speak(text, btn){
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
     if(!btn && _atSeq===_speakSeq) _autoHook('aiDone'); };
   /* ⚡ onEnd — 문장 나눠 읽기(아래 _speakChunks)에서 «이 조각이 끝나면 다음 조각» 을 넘긴다. 없으면 예전 done. */
-  var play0=function(u, deep, onEnd){
-    var fin=onEnd||done;
+  /* ⚡ say — 그 조각의 글자(기기 목소리 폴백이 «답장 전체» 가 아니라 «그 조각» 만 읽게).
+     ⚠️ fin 은 «한 번만» — onerror 와 play().catch 가 둘 다 오면 다음 조각이 두 번 불리고 done 도 두 번이 된다. */
+  var play0=function(u, deep, onEnd, say){
+    var fired=false, fin=function(){ if(fired) return; fired=true; (onEnd||done)(); };
     try{
       if(!_ttsAudio){ _ttsAudio=new Audio(); try{ window.MangoAvatar && MangoAvatar.attach && MangoAvatar.attach(_ttsAudio); }catch(e){} }  // 👩‍🏫 음량 립싱크 바인딩
       _ttsAudio.onended=fin; _ttsAudio.onerror=fin;
@@ -2701,22 +2706,25 @@ function speak(text, btn){
       try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(e2){}
       try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 재생 시작 직전에 아바타 입 움직임 개시
       _ttsAudio.play().then(function(){ _speechEverStarted=true; _latMark(); })
-        .catch(function(){ fin(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
-    }catch(e){ fin(); _synthSpeak(text, btn, done); }
+        /* 자동재생 차단 — 첫 터치(unlockAudio)에서 «답장 전체» 를 다시 읽는다.
+           ⚠️ 조각 모드에서도 다음 조각으로 넘어가지 않고 여기서 끝낸다 — 넘어가면 사람이 탭한 순간
+              뒷조각만 재생돼 unlockAudio 의 재낭독이 취소되고 앞문장이 사라진다. */
+        .catch(function(){ if(onEnd){ if(!fired){ fired=true; done(); } } else fin(); });
+    }catch(e){ if(onEnd){ fired=true; _synthSpeak(say||text, btn, onEnd); } else { fin(); _synthSpeak(text, btn, done); } }
   };
   /* 🀄 중국어 남자면 «굵게 굽는» 한 단계를 먼저 거친다(비동기).
      ⚠️ 그 사이 학생이 다음 말을 보낼 수 있으므로 _speakSeq 로 스스로 물러난다 —
         안 그러면 옛 문장이 새 문장 위로 겹쳐 재생됩니다(_stopSpeak 이 있어도 늦게 도착합니다).
      ⚠️ 굽기가 실패하면 원본 그대로 재생합니다 — 소리가 아예 안 나는 것이 최악입니다. */
-  var play=function(u, eng, onEnd){
+  var play=function(u, eng, onEnd, say){
     /* 🔴 진짜 남성 성우(Azure)가 왔으면 그대로 읽는다 — 또 낮추면 두 번 낮아진다.
        ⛔ 판정을 «성우를 달라고 했나» 로 바꾸지 마세요. 서버가 못 만들면 여성 음성이
           그대로 내려오는데, 그때는 «굵게 굽기» 가 있어야 남자 목소리가 납니다. */
-    if(String(eng||'').indexOf('azure')>=0){ play0(u, false, onEnd); return; }
-    if(!_zhMaleWanted()){ play0(u, false, onEnd); return; }
+    if(String(eng||'').indexOf('azure')>=0){ play0(u, false, onEnd, say); return; }
+    if(!_zhMaleWanted()){ play0(u, false, onEnd, say); return; }
     var mySeq=_speakSeq;
-    _zhDeepen(u).then(function(bu){ if(mySeq===_speakSeq) play0(bu, true, onEnd); },
-                      function(){ if(mySeq!==_speakSeq) return; play0(u, false, onEnd); _zhDeepFailedOnce(); });
+    _zhDeepen(u).then(function(bu){ if(mySeq===_speakSeq) play0(bu, true, onEnd, say); },
+                      function(){ if(mySeq!==_speakSeq) return; play0(u, false, onEnd, say); _zhDeepFailedOnce(); });
   };
   var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
   /* 🀄 중국어 «남자» 는 서버로 낼 수 없다 — 서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고
@@ -2731,7 +2739,9 @@ function speak(text, btn){
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key], _ttsEng[key]); return; }
   /* ⚡ 첫 문장부터 먼저 읽기(2026-09-25) — 아래 _speakChunks 머리말. 한 조각이면 예전 그대로. */
-  var chunks=_speechChunks(text);
+  /* ⚠️ 중국어 남자(Azure 진짜 성우)는 나누지 않는다 — Azure 는 IP 하루 «호출 횟수» 상한이라(voice-tts-cap.ts)
+     두 조각이면 두 배로 닳고, 상한에 걸리면 한 답장 안에서 진짜 성우 ↔ 굵게 구운 여성 목소리로 갈린다. */
+  var chunks=_zhMaleWanted() ? [text] : _speechChunks(text);
   if(chunks.length>1){ _speakChunks(chunks, spk, btn, done, play); return; }
   // _stopSpeak() 이 방금 올려 둔 번호 — 늦게 온 응답이 새 발화를 덮지 않게 함께 넘긴다
   _ttsSpeak(text, spk, key, btn, _speakSeq, done, play, 0);
@@ -3681,9 +3691,9 @@ async function sendMsg(){
   var text = (inp.value||'').trim();
   if(!text || sending) return;
   _stopSpeak();
-  /* ⏱ 이번 턴 재기 시작 — 침묵 타이머가 4초 안에 끊은 것만 «말로 보낸 것» 으로 본다(글로 친 것·옛 기록 제외) */
+  /* ⏱ 이번 턴 재기 시작 — 침묵 타이머가 2.5초 안에 끊은 것만 «말로 보낸 것» 으로 본다(글로 친 것·옛 기록 제외) */
   var _lt0=Date.now(), _ls=_latSilence; _latSilence=null; _latCur=null;
-  if(_ls && _lt0-_ls.at>4000) _ls=null;
+  if(_ls && _lt0-_ls.at>2500) _ls=null;
   /* 🎤 (2026-07-27) 마이크가 아직 듣는 중인데 사용자가 보내기/엔터로 먼저 전송하면(급한 마음에
      흔함), 마이크는 계속 인식을 이어가다 나중에 "지금까지 들은 말 전체"를 또 자동전송해서
      같은 대답이 두 번 가고, 그 사이 AI 답변이 서로 끊고 겹치는 사고가 났다. 수동 전송 = 말이
