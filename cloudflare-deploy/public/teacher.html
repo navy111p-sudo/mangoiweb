@@ -221,7 +221,7 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 /* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
 .cls.cls-cancel{opacity:.55}
 /* ⏸ 연속 결석 보류(2026-09-25) — 흐리게 하지 않는다: «기다리지 말라» 는 꼭 읽혀야 한다 */
-.cls.cls-hold{background:#fdf1ee;box-shadow:inset 3px 0 0 #b8321f}
+.cls.cls-hold{background:#fdf1ee;box-shadow:inset 3px 0 0 #b8321f;padding-left:12px;padding-right:8px}
 .p-hold{background:#fce9e5;color:#9b2a1a;font-weight:700}
 .p-soon{background:#fff2cc;color:#7a5c00}
 .p-info{background:#eef1f5;color:#6b7783;font-weight:600}
@@ -3621,6 +3621,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     for (var i = 0; i < (list || []).length; i++){
       var c = list[i];
       if (c.kind && c.kind !== 'class') continue;
+      if (c.absence_hold) continue;   // ⏸ 보류 수업은 «기다리지 말라» 는 수업 — 다음 수업으로 올리지 않는다
       if (t > c.close_at_ts) continue;
       if (!pick || c.start_ts < pick.start_ts) pick = c;
     }

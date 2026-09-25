@@ -255,6 +255,10 @@ const iHoldCard = th.indexOf('if (c.absence_hold){');
 const holdCard = iHoldCard > 0 ? th.slice(iHoldCard, th.indexOf('continue;', iHoldCard)) : '';
 ok(holdCard.length > 0 && holdCard.length < 1800, '강사 화면: 보류 카드를 따로 그린다');
 ok(/data-join="' \+ i \+ '"/.test(holdCard) && /btn-gray/.test(holdCard), '강사 화면: 학생이 돌아오면 들어갈 수 있게 회색 보조 입장 버튼을 남긴다');
+{
+  const i0 = th.indexOf('function renderNextUp('); const body = i0 > 0 ? th.slice(i0, th.indexOf('if (!pick){', i0)) : '';
+  ok(/if \(c\.absence_hold\) continue;/.test(body) && /pick = c;/.test(body), '강사 화면: 보류 수업은 «다음 수업» 카운트다운에 올리지 않는다(다른 수업은 그대로)');
+}
 ok(/Do NOT wait in the room/.test(th) && /필리핀 매니저에게/.test(th), '강사 화면: «기다리지 말고 매니저에게 문의» 를 영·한으로');
 const rep = strip(rd(resolve(SRC, 'accounting-reports.ts')));
 ok(/absenceHoldRouter\(env as any, request, url, p,/.test(rep), '매니저 API 가 /api/admin/reports/ 라우터에 연결됐다(index.ts 무변경)');
