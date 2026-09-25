@@ -90,8 +90,15 @@ const canonSrc = [
   cut('function mgsSchedTime(sch)'),
   cut('var MGS_AI_COLORS = {') + ';',
   cut('function mgsAiColors(sch)'),
-  cut('function mgsSrcLabel(sch)')   // 🏷 2026-09-24 카드 이름표(source 별)
+  cut('function mgsSrcLabel(sch)'),  // 🏷 2026-09-24 카드 이름표(source 별)
+  /* 🎌 2026-09-25 공휴일 표시 도우미 — 두 렌더가 부른다. 소스에서 그 구간을 통째로 오려 낸다
+     (fetch 가 없는 이 샌드박스에서는 조용히 «공휴일 없음» 으로 그려진다 — 그것이 정본의 실패 방향). */
+  holSrc()
 ].join('\n');
+function holSrc() {
+  const a = html.indexOf('const _mgsHol = {'), b = html.indexOf('function renderDSchedule() {');
+  return (a > 0 && b > a) ? html.slice(a, b) + '\nfunction esc(s){ return String(s); }\nvar fetch = function(){ return Promise.reject(new Error("no fetch")); };' : '';
+}
 ok('[전제] 예약 판정 정본을 오려 냈다', canonSrc.length > 700, canonSrc.length + '자');
 
 ok('[전제] 판정 함수를 오려 냈다', fnSrc.length > 120, fnSrc.length + '자');
