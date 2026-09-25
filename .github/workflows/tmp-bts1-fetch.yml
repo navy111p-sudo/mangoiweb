@@ -1,0 +1,51 @@
+# ⛔ 임시 워크플로 — main 에 올리지 않습니다. 작업 브랜치에서만 한 번 돌고 지웁니다.
+# 목적: 사이트(mangoi.ai)에 올라가 있는 BTS 1 교재 JPG 를 받아 이 브랜치의 tmp-bts1/ 에 커밋.
+# (작업 컨테이너는 프록시가 mangoi.ai 를 막아 직접 못 받습니다 — CLAUDE.md 2장)
+name: tmp-bts1-fetch
+on:
+  push:
+    branches: [claude/bold-lovelace-dy58q5]
+    paths: ['.github/workflows/tmp-bts1-fetch.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: download BTS 1 pages
+        run: |
+          cat > /tmp/f.mjs <<'EOF'
+          import fs from 'node:fs';
+          const B = 'https://mangoi.ai';
+          const g = await (await fetch(B + '/api/textbook-files?group=1')).json();
+          const books = (g.groups || []).map(x => x.book).filter(b => /^BTS 1(\s|$)/.test(b));
+          console.log('books', books);
+          const index = [];
+          for (const book of books) {
+            const r = await (await fetch(B + '/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=5000')).json();
+            const items = r.items || [];
+            const dir = 'tmp-bts1/' + book.replace(/[^\w.\- ()]+/g, '_').trim();
+            fs.mkdirSync(dir, { recursive: true });
+            for (const it of items) {
+              const res = await fetch(B + it.url);
+              if (!res.ok) { console.log('FAIL', it.id, res.status); continue; }
+              const buf = Buffer.from(await res.arrayBuffer());
+              const fn = String(it.id) + '__' + String(it.name).replace(/^\[[^\]]*\]\s*/, '').replace(/[^\w.\- ()]+/g, '_');
+              fs.writeFileSync(dir + '/' + fn, buf);
+              index.push({ book, id: it.id, name: it.name, file: dir + '/' + fn, bytes: buf.length });
+            }
+            console.log(book, items.length);
+          }
+          fs.writeFileSync('tmp-bts1/index.json', JSON.stringify(index, null, 1) + '\n');
+          console.log('total', index.length);
+          EOF
+          node /tmp/f.mjs
+          du -sh tmp-bts1
+      - name: commit
+        run: |
+          git config user.name "tmp-bot"
+          git config user.email "tmp-bot@users.noreply.github.com"
+          git add tmp-bts1
+          git commit -m "tmp: BTS 1 교재 JPG 받아오기 (임시, main 금지)"
+          git push
