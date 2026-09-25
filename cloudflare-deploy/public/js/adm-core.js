@@ -3446,11 +3446,102 @@ async function loadTeacherProfiles() {
     '</tr>';
   }).join('');
 
+  // ↕ (2026-09-25) 고른 정렬이 있으면 다시 그린 뒤에도 그대로 — 아래 _TP_SORT 절
+  _tpApplySort();
   // 📊 인사평가 점수·순위 채우기 — 실제 수업기록 기반. 표 렌더를 막지 않도록 비동기.
-  if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores();
+  //   그 칸으로 정렬 중이면 값이 «나중에» 오므로, 채운 뒤 한 번만 다시 정렬한다.
+  if (typeof window.hrFillTeacherScores === 'function') {
+    Promise.resolve(window.hrFillTeacherScores()).then(function () { _tpApplySort('hr rank'); }, function () {});
+  }
   // 🟢 «지금 수업 중» 신호등 채우기 — 아래 _TP_LIVE 절. 마찬가지로 표 렌더를 막지 않는다.
-  if (typeof window.tpLoadLiveNow === 'function') window.tpLoadLiveNow();
+  if (typeof window.tpLoadLiveNow === 'function') {
+    Promise.resolve(window.tpLoadLiveNow()).then(function () { _tpApplySort('now'); }, function () {});
+  }
 }
+
+/* ↕ 강사 명부 오름차순·내림차순 (2026-09-25 사장님 요청)
+   머리글을 누르면 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다(녹화 목록 recSortBy 와 같은 방식).
+   ⚠️ 표를 다시 그리지 않고 «행을 옮기기만» 한다 — 인사평가·지금 칸은 표를 그린 «뒤» 에
+      비동기로 채워지므로, 다시 그리면 그 값이 사라진다. 원래 순서는 data-ord 로 기억한다.
+   ⚠️ 45초마다 도는 «지금» 갱신에는 다시 정렬하지 않는다 — 누르려던 줄이 마우스 밑에서 움직인다.
+   ⚠️ 화살표는 data-ar 속성 + CSS ::after 로 그린다(i18n 이 [data-ko] 의 textContent 를 갈아끼운다).
+   빈 값(—·…)은 방향과 무관하게 언제나 맨 아래. */
+var _tpSort = { key: '', dir: 0 };
+
+function _tpSortVal(tr, key) {
+  var tid = tr.getAttribute('data-tid');
+  var t = (window._tpRowById || {})[tid] || {};
+  var s = function (v) { v = (v == null ? '' : String(v)).trim(); return v ? v.toLowerCase() : null; };
+  var num = function (v) { var m = String(v == null ? '' : v).replace(/,/g, '').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null; };
+  var cellNum = function (id) { var c = document.getElementById(id); return c ? num(c.textContent) : null; };
+  switch (key) {
+    case 'name':      return s(t.korean_name || t.english_name);
+    case 'status':    return s(t.status);
+    case 'now': {
+      if (_TP_LIVE.off || !_TP_LIVE.loaded) return null;
+      var names = [t.korean_name, t.english_name].map(_tpNormName).filter(Boolean), hit = null;
+      for (var j = 0; j < names.length && !hit; j++) hit = _TP_LIVE.byName[names[j]] || null;
+      return hit ? (_TP_LIVE_RANK[hit.state] || 0) : null;
+    }
+    case 'region':    { var rc = document.getElementById('tprgc-' + tid); return s(rc ? rc.textContent : t.region); }
+    case 'group':     return s(t.group_name);
+    case 'workplace': { var cells = tr.children; return s(cells[6] ? cells[6].textContent : ''); }
+    case 'area':      return s(t.active_region);
+    case 'fee':       return t.fee_per_10min ? Number(t.fee_per_10min) : null;
+    case 'phone':     return s(t.phone);
+    case 'kakao':     return s(t.kakao_id);
+    case 'join':      return s(t.join_date);
+    case 'hr':        return cellNum('hrv-' + tid);
+    case 'rank':      return cellNum('hrr-' + tid);
+    case 'video':     return t.intro_video_url ? 1 : null;
+  }
+  return null;
+}
+
+/* only 를 주면 «그 칸들로 정렬 중일 때만» 다시 정렬한다(비동기로 값이 늦게 온 칸). */
+function _tpApplySort(only) {
+  var body = document.getElementById('tp-list-body');
+  if (!body) return;
+  var rows = Array.prototype.slice.call(body.querySelectorAll('tr[data-tid]'));
+  if (!rows.length) return;
+  if (only && (!_tpSort.dir || (' ' + only + ' ').indexOf(' ' + _tpSort.key + ' ') < 0)) return;
+  rows.forEach(function (tr, i) { if (!tr.hasAttribute('data-ord')) tr.setAttribute('data-ord', String(i)); });
+  var key = _tpSort.key, dir = _tpSort.dir;
+  var ord = function (tr) { return Number(tr.getAttribute('data-ord')) || 0; };
+  var keyed = rows.map(function (tr) { return { tr: tr, v: dir ? _tpSortVal(tr, key) : null, o: ord(tr) }; });
+  keyed.sort(function (a, b) {
+    if (!dir) return a.o - b.o;
+    if (a.v === null && b.v === null) return a.o - b.o;
+    if (a.v === null) return 1;
+    if (b.v === null) return -1;
+    var c = (typeof a.v === 'number' && typeof b.v === 'number')
+      ? (a.v - b.v)
+      : String(a.v).localeCompare(String(b.v), 'ko', { numeric: true });
+    return c ? c * dir : a.o - b.o;
+  });
+  var frag = document.createDocumentFragment();
+  keyed.forEach(function (k) { frag.appendChild(k.tr); });
+  body.appendChild(frag);
+}
+
+function _tpSyncSortHead() {
+  var ths = document.querySelectorAll('#tp-list-table th.tp-sort-th');
+  for (var i = 0; i < ths.length; i++) {
+    var th = ths[i], on = (th.getAttribute('data-sk') === _tpSort.key && _tpSort.dir !== 0);
+    th.setAttribute('data-ar', on ? (_tpSort.dir > 0 ? '▲' : '▼') : '⇅');
+    // ⚠️ classList 는 «바뀔 때만» 쓴다(무의미한 class 쓰기로 홈이 두 번 멎은 전력)
+    if (on !== th.classList.contains('tp-sort-on')) th.classList.toggle('tp-sort-on', on);
+  }
+}
+
+window.tpSortBy = function (key) {
+  if (_tpSort.key !== key) { _tpSort.key = key; _tpSort.dir = 1; }
+  else if (_tpSort.dir === 1)  { _tpSort.dir = -1; }
+  else if (_tpSort.dir === -1) { _tpSort.dir = 0; _tpSort.key = ''; }
+  else { _tpSort.dir = 1; }
+  _tpSyncSortHead();
+  _tpApplySort();
+};
 
 
 /* 🟢 «지금 수업 중» 신호등 — 강사 명부 (2026-08-31, 사장님 「하나하나 눌러볼 수 없고 바로 전체에서」)
