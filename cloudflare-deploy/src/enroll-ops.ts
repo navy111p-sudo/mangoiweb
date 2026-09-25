@@ -817,6 +817,110 @@ async function endingSoonList(env: any, days: number): Promise<any> {
   };
 }
 
+/* ═══════════════ 🎌 공휴일 한 곳으로 (2026-09-25 사장님 «D → 공휴일 한 곳 → C») ═══════════════
+   [무엇이 문제였나] 공휴일을 적는 곳이 세 군데이고 **표가 셋**이다 —
+     · 수강 운영 › 공휴일            → enroll_holidays   ← 새벽 6시 «공휴일 수업 뒤로 밀기»가 읽는 «유일한» 표
+     · 강사 › 시간표·근무 › 캘린더   → calendar_events (event_type='holiday')
+     · 운영 인프라 모듈 ③            → holidays (modules-ext.ts)
+   ⟹ 캘린더에만 넣은 공휴일은 **수업이 안 밀린다**(에러 없음).
+   [무엇을 했나] «수업 밀기» 의 정본은 enroll_holidays 하나로 정하고, 캘린더에만 있는 한국 공휴일을
+     찾아 **사람이 눌러서** 그 표에 옮기게 한다(아래 함수 + 화면의 «옮기기» 버튼).
+   ⛔ 캘린더 공휴일을 cron 이 «자동으로» 읽게 하지 말 것 — 캘린더에는 필리핀 공휴일도 있고
+      «2026 공휴일 자동 채우기» 한 번에 20여 일이 한꺼번에 «수업 밀기» 대상이 된다(되돌리기 어려운
+      수업 이동이 사람 확인 없이 일어난다). 사람이 고른 날만 옮긴다.
+   ⛔ 필리핀(PH) 공휴일은 후보에서 뺀다 — 학생 수업을 미는 날이 아니라 강사 쪽 사정이다.
+   ⚠️ 국가 칸이 빈(수동 등록) 공휴일은 후보에 «넣되» 국가를 모름으로 표시한다 — 사람이 보고 고른다.
+   ⚠️ 표가 없거나(캘린더를 한 번도 안 연 환경) 조회가 실패하면 ok:false 로 «모름» 을 돌려준다.
+      빈 배열을 «없다» 로 돌려주면 «못 물어봤다» 가 «다 옮겼다» 로 읽힌다. */
+export async function calendarHolidaysMissing(env: any, today: string): Promise<{ ok: boolean; items: { day: string; name: string; country: string }[]; error?: string }> {
+  try {
+    const rs: any = await env.DB.prepare(
+      `SELECT c.date AS day, MIN(c.title) AS name, MIN(COALESCE(c.country, '')) AS country
+         FROM calendar_events c
+        WHERE c.event_type = 'holiday'
+          AND (c.country = 'KR' OR c.country IS NULL OR c.country = '')
+          AND c.date >= ?
+          AND NOT EXISTS (SELECT 1 FROM enroll_holidays h WHERE h.day = c.date)
+        GROUP BY c.date
+        ORDER BY c.date ASC LIMIT 60`
+    ).bind(today).all();
+    const items = ((rs?.results as any[]) || []).map((r) => ({
+      day: String(r.day || ''), name: String(r.name || ''), country: String(r.country || ''),
+    })).filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day));
+    return { ok: true, items };
+  } catch (e) {
+    return { ok: false, items: [], error: String((e as any)?.message || e).slice(0, 120) };
+  }
+}
+
+/* ═══════════════ 📋 오늘 할 일 요약 (2026-09-25 — 제안서 C안) ═══════════════
+   수강 운영 화면의 첫 탭. «무엇을 먼저 해야 하나» 를 한 번의 요청으로 돌려준다.
+   ✅ 새 판정을 만들지 않는다 — 이미 있는 함수(endingSoonList · runEnrollExpirySweep(dry))를
+      그대로 부르고 «건수» 만 모은다. 각 칸은 따로 try — 한 칸이 실패해도 나머지는 보인다.
+   ⛔ 실패한 칸을 0 으로 채우지 말 것 — { error } 로 돌려 화면이 «확인 못 함» 이라고 말하게 한다
+      (0 은 «오늘 할 일 없음» 으로 읽힌다).
+   ⛔ 공휴일 이동은 runHolidayShiftSweep(dry) 를 부르지 않는다 — 공휴일마다 수업 300건×충돌검사라
+      첫 화면에 무겁다. 여기서는 «그날 걸린 수업 수» 만 센다(이동 미리보기는 자동 문자 탭에 그대로).
+   ⚠️ 강사 휴가는 캘린더(calendar_events.vacation)에 «적힌 것» 만 보여준다. 그 휴가에 걸린 수업을
+      찾으려면 teacher_name 으로 수업표를 이어야 하는데, 강사 이름이 세 벌이라 남의 수업이 붙을 수
+      있다(CLAUDE.md 「남의 이름이 뜸」). 그래서 «비는 수업 N건» 을 지어내지 않고 «휴가 N건 — 넘겼는지
+      확인» 까지만 말한다. */
+async function enrollTodoSummary(env: any): Promise<any> {
+  const today = kstToday();
+  const out: any = { ok: true, today };
+  try {
+    const l = await endingSoonList(env, ENROLL_END_DAYS);
+    out.ending = {
+      days: ENROLL_END_DAYS,
+      count: l.students.length,
+      top: l.students.slice(0, 3).map((s: any) => ({ name: s.name || s.user_id, days: s.days_since })),
+    };
+  } catch (e) { out.ending = { error: String((e as any)?.message || e).slice(0, 120) }; }
+
+  try {
+    const r = await runEnrollExpirySweep(env, { dry: true });
+    if (r && r.ok) {
+      const due = (r.due || []) as any[];
+      out.expiry = { count: due.length, exp7: due.filter((d) => d.kind === 'exp7').length, exp3: due.filter((d) => d.kind === 'exp3').length };
+    } else out.expiry = { error: String(r?.error || 'failed').slice(0, 120) };
+  } catch (e) { out.expiry = { error: String((e as any)?.message || e).slice(0, 120) }; }
+
+  try {
+    const hs: any = await env.DB.prepare(
+      `SELECT day, name FROM enroll_holidays WHERE day >= ? AND day <= ? ORDER BY day ASC LIMIT 20`
+    ).bind(today, addDays(today, 30)).all();
+    const days = ((hs?.results as any[]) || []).map((r) => ({ day: String(r.day), name: String(r.name || '') }));
+    let classes = 0;
+    if (days.length) {
+      /* 날짜 목록은 «콤마 문자열 한 개» 로 바인딩한다(D1 바인드 100개 한도 — 자리표시자를 날짜 수만큼 만들지 않는다) */
+      const csv = ',' + days.map((d) => d.day).join(',') + ',';
+      const c: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM class_schedules WHERE status='active' AND scheduled_date IS NOT NULL AND instr(?, ',' || scheduled_date || ',') > 0`
+      ).bind(csv).first();
+      classes = Number(c?.n || 0);
+    }
+    out.holidays = { next: days.slice(0, 3), count: days.length, classes };
+  } catch (e) { out.holidays = { error: String((e as any)?.message || e).slice(0, 120) }; }
+
+  const miss = await calendarHolidaysMissing(env, today);
+  out.calendar_missing = miss.ok ? { count: miss.items.length, top: miss.items.slice(0, 3) } : { error: miss.error || 'failed' };
+
+  try {
+    const vs: any = await env.DB.prepare(
+      `SELECT date, end_date, teacher_name, title FROM calendar_events
+        WHERE event_type = 'vacation' AND date <= ? AND COALESCE(end_date, date) >= ?
+        ORDER BY date ASC LIMIT 20`
+    ).bind(addDays(today, 14), today).all();
+    const items = ((vs?.results as any[]) || []).map((r) => ({
+      date: String(r.date || ''), end_date: String(r.end_date || ''),
+      teacher: String(r.teacher_name || ''), title: String(r.title || ''),
+    }));
+    out.vacations = { count: items.length, items: items.slice(0, 5) };
+  } catch (e) { out.vacations = { error: String((e as any)?.message || e).slice(0, 120) }; }
+
+  return out;
+}
+
 /* ═══════════════ 3단계: 공휴일 자동 연기 ═══════════════ */
 
 /**
@@ -1289,7 +1393,19 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const rs: any = await env.DB.prepare(
       `SELECT day, name, created_by AS by_who, created_at FROM enroll_holidays ORDER BY day ASC LIMIT 400`
     ).all();
-    return json({ ok: true, holidays: (rs?.results as any[]) || [] });
+    /* 🎌 (2026-09-25) 캘린더에만 있고 «수업 밀기» 표에는 없는 한국 공휴일 — 화면이 «옮기기» 로 보여준다 */
+    const miss = await calendarHolidaysMissing(env, kstToday());
+    return json({
+      ok: true, holidays: (rs?.results as any[]) || [],
+      calendar_missing: miss.items, calendar_ok: miss.ok,
+    });
+  }
+
+  /* ── (i-2) 📋 오늘 할 일 요약 (본사 관리자, 2026-09-25) ── */
+  if (path === '/api/pay/enroll/admin/todo' && method === 'GET') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    return json(await enrollTodoSummary(env));
   }
   if (path === '/api/pay/enroll/admin/holidays' && method === 'POST') {
     const sess = await checkAdminSession(request, env);
