@@ -104,7 +104,24 @@
          «낭독 제외» 만 안 걸리는 것입니다. Chromium 141 에서만 쟀습니다.
          ⛔ 윗줄을 지우고 이 줄만 두지 마세요(옛 사파리에서 화살표가 통째로 사라집니다). */
       'content:"\\203A" / "";' +
-      'margin-left:.28em;font-size:.95em;opacity:.85;font-weight:800;color:#b45309}';
+      'margin-left:.28em;font-size:.95em;opacity:.85;font-weight:800;color:#b45309}' +
+      /* 🔎 [2026-09-25 사장님 「안에 잘 안보이니 두 카드를 좀더 크게」] PC·태블릿(≥600px)에서만 키운다.
+         ⚠️ 자리가 index.html 이 아니라 여기인 이유 — 그 파일은 공동 금지구역·첫 화면 예산이라
+            defer 인 이 파일이 «위에 얹는다». 특이성으로 이긴다: [role="button"] 이 붙어 (0,3,0) >
+            index.html 의 .home-tracks .ht-track (0,2,0) · 그릇은 body .home-tracks (0,1,1) > (0,1,0).
+         ⛔ 폰(<600px)에는 안 건다 — 390px 에서 이미 글자가 잘릴 만큼 빠듯하다(index.html 주석 실측).
+         ⛔ 크기는 «고정값» 으로만 — hover 확대(transform) 금지 취지는 그대로. */
+      '@media (min-width:600px){' +
+        'body .home-tracks{max-width:640px;gap:14px}' +
+        '.home-tracks .ht-track[role="button"]{flex:1 1 auto;column-gap:14px;padding:16px 20px 16px 16px;border-radius:18px}' +
+        '.home-tracks .ht-track[role="button"]::before{width:56px;height:56px;border-radius:14px}' +
+        '.home-tracks .ht-track[role="button"] .ht-when{font-size:14px;margin-bottom:3px}' +
+        '.home-tracks .ht-track[role="button"] .ht-what{font-size:19px}' +
+        '.home-tracks .ht-track[role="button"] .ht-what b{padding:1px 8px;border-radius:7px}' +
+      '}' +
+      /* 폭을 «글자 길이만큼» 나눈다 — 반반이면 「1:1 원어민 화상수업›」 쪽만 화살표가 잘렸다
+         (2026-09-25 실측: 599px 에서 5px · 750px 에서 크게 키운 뒤 반반이면 잘림 → 이 한 줄로 0). */
+      '@media (min-width:421px) and (max-width:599px){.home-tracks .ht-track[role="button"]{flex:1 1 auto}}';
     document.head.appendChild(st);
   }
 
