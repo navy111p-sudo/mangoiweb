@@ -58,6 +58,10 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
         if (u.indexOf('/api/approval/home') === 0) return Promise.resolve(new Response(JSON.stringify(h), { status: 200 }));
         if (u.indexOf('/api/push/vapid-public-key') === 0) return Promise.resolve(new Response('{"ok":true,"key":""}', { status: 200 }));
         if (u.indexOf('view=ledger') >= 0) return Promise.resolve(new Response(JSON.stringify(lg), { status: 200 }));
+        if (u.indexOf('view=report') >= 0) return Promise.resolve(new Response(JSON.stringify({ ok: true, summary: {
+          counted: 3, by_status: { approved: 2, pending: 1 }, approved_money: [{ currency: 'PHP', total: 9900 }], pending_money: [{ currency: 'KRW', total: 30000 }],
+          by_category: [{ key: 'office', ko: '사무용품', en: 'Office', count: 2, money: [{ currency: 'PHP', total: 7100 }] }],
+          by_month: [{ month: '2026-09', count: 2, money: [{ currency: 'PHP', total: 9900 }] }] } }), { status: 200 }));
         if (u.indexOf('/api/approval/requests') === 0) return Promise.resolve(new Response('{"ok":true,"items":[],"has_more":false,"offset":0,"facets":{}}', { status: 200 }));
         return rf(u, o);
       };
@@ -115,6 +119,34 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
   a = await amts(page, '#inbox');
   check('(짝) 카드는 원래 금액만', a[0] === '₱2,500' && !/≈/.test(a.join('')), a.join(' / '));
   check('페이지 오류 0', errors.length === 0, errors.join(' | '));
+  await ctx.close();
+
+  console.log('\n[6] 맨 위 금액 카드·「얼마나 썼나」 표도 따른다 (2026-09-25 사장님 「이건 왜 아직도 안돼??」)');
+  const HS = home({ summary: { money_scope: 'all', money: { month: [{ currency: 'PHP', total: 9900 }], year: [{ currency: 'PHP', total: 9901 }], month_count: 7, year_count: 8 } } });
+  ({ ctx, page, errors } = await open(HS, LEDGER, ''));
+  const tiles = () => page.evaluate(() => Array.from(document.querySelectorAll('#topTiles .tile')).map((t) => t.textContent.replace(/\s+/g, ' ').trim()));
+  let tl = await tiles();
+  check('처음엔 금액 카드에 ≈ 없음', tl.length >= 4 && !/≈/.test(tl.join('|')), tl.join(' | '));
+  await page.click('#fxBox button >> nth=1'); await page.waitForTimeout(200);
+  tl = await tiles();
+  const month = tl.find((x) => /이번 달 승인/.test(x)) || '', year = tl.find((x) => /올해 누적/.test(x)) || '';
+  check('이번 달 승인: ₱9,900 그대로 + ≈₩236,115', /₱9,900/.test(month) && /≈₩236,115/.test(month), month);
+  check('올해 누적: ≈₩236,139', /≈₩236,139/.test(year), year);
+  await page.evaluate(() => window.toggleRep()); await page.waitForTimeout(400);
+  const rep = await page.evaluate(() => document.getElementById('repResult').textContent.replace(/\s+/g, ' '));
+  check('지출 정리 — 항목별 ₱7,100 (≈₩169,335)', /₱7,100 \(≈₩169,335\)/.test(rep), rep.slice(0, 300));
+  check('지출 정리 — 승인 합계 ₱9,900 (≈₩236,115)', /₱9,900 \(≈₩236,115\)/.test(rep), rep.slice(0, 300));
+  check('(짝) 이미 원화인 대기 ₩30,000 은 ≈ 없음', /₩30,000(?! \()/.test(rep), rep.slice(0, 300));
+  await page.click('#fxBox button >> nth=0'); await page.waitForTimeout(200);
+  const rep0 = await page.evaluate(() => document.getElementById('repResult').textContent);
+  tl = await tiles();
+  check('원래 통화로 돌리면 카드·표 모두 ≈ 사라짐', !/≈/.test(rep0) && !/≈/.test(tl.join('|')), rep0.slice(0, 120));
+  check('페이지 오류 0', errors.length === 0, errors.join(' | '));
+  await ctx.close();
+
+  ({ ctx, page, errors } = await open(HS, LEDGER_NOFX, 'KRW'));
+  tl = await tiles();
+  check('(짝) 환율이 없으면 금액 카드에 ≈ 를 지어내지 않는다', !/≈/.test(tl.join('|')) && /₱9,900/.test(tl.join('|')), tl.join(' | '));
   await ctx.close();
 
   await browser.close();
