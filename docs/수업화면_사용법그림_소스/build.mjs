@@ -158,20 +158,12 @@ async function capture(browser, role, lang) {
     face(document.getElementById('vc-local-box'), role === 'teacher' ? T : S, '50% 22%');
     const lab = document.getElementById('vc-local-label'); if (lab) lab.style.zIndex = 3;
     document.querySelectorAll('#vc-video-peer1 .video-label').forEach(l => { l.style.zIndex = 3; });
-    // 교재 한 쪽(예시)
+    // 교재 칸은 검정으로 비워 둔다(2026-09-25 사장님 «교재는 없애고 그냥 교재화면을 검정색으로»)
     const wait = document.getElementById('vc-wait-card'); if (wait) wait.style.display = 'none';
-    const pane = document.getElementById('vc-content-pane');
-    if (pane) {
-      const r = pane.getBoundingClientRect();
-      const pg = document.createElement('div');
-      pg.id = 'guide-fake-page';
-      pg.style.cssText = 'position:fixed;left:' + (r.left + 70) + 'px;top:' + (r.top + 175) + 'px;width:' + (r.width - 140) + 'px;height:' + (r.height - 330) +
-        'px;background:#fffdf7;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:60;display:flex;flex-direction:column;align-items:center;padding:14px 18px;box-sizing:border-box;font-family:inherit;';
-      pg.innerHTML = '<div style="font-size:22px;font-weight:800;color:#b45309;margin:4px 0 10px">Unit 3 · At School</div>' +
-        '<img src="/img/escape-school-classroom.jpg" style="width:92%;flex:1 1 auto;min-height:0;object-fit:cover;border-radius:6px">' +
-        '<div style="font-size:18px;color:#334155;margin-top:10px">This is my classroom. I have a pencil.</div>' +
-        '<div style="font-size:12px;color:#94a3b8;margin-top:4px">p.12</div>';
-      document.body.appendChild(pg);
+    const tp = document.getElementById('tab-pdf');
+    if (tp) {
+      tp.style.setProperty('background', '#000', 'important');
+      Array.from(tp.children).forEach(c => c.style.setProperty('visibility', 'hidden', 'important'));
     }
   }, { role, lang });
   await p.waitForTimeout(1500);
@@ -255,8 +247,8 @@ function composeHtml(role, lang, rects) {
   const legendT = lang === 'en' ? 'What the numbers mean' : '번호 설명';
   const tip = lang === 'en' ? 'Left: the real screen · Right: what each number does' : '왼쪽 화면 · 오른쪽 설명';
   const foot = lang === 'en'
-    ? 'Captured from the real class screen (PC 1280×800). Faces and textbook are examples.'
-    : '실제 수업 화면(PC 1280×800)을 그대로 찍은 그림입니다. 얼굴·교재는 안내용 예시입니다.';
+    ? 'Captured from the real class screen (PC 1280×800). Faces are examples.'
+    : '실제 수업 화면(PC 1280×800)을 그대로 찍은 그림입니다. 얼굴은 안내용 예시입니다.';
   return `<!doctype html><html><head><meta charset="utf-8"><style>
   *{box-sizing:border-box} body{margin:0;width:2000px;height:1006px;overflow:hidden;background:#fff7ed;
    font-family:'WenQuanYi Zen Hei','Noto Color Emoji',sans-serif;color:#101828;position:relative}

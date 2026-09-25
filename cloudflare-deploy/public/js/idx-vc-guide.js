@@ -54,21 +54,20 @@
    * 만드는 곳: docs/수업화면_사용법그림_소스/build.mjs (화면이 바뀌면 그것을 다시 돌린다).
    * 기본 언어: 선생님 = 영어(필리핀·중국 선생님), 학생 = 한국어. 창 안에서 바꿀 수 있다.
    * ⛔ 그림 주소를 바꾸지 말 것 — 같은 이름으로 갈아끼우면 이 파일의 ?v= 와 IMG_V 를 함께 올린다. */
-  var IMG_V = '1';
+  var IMG_V = '2';
   function imgSrc(who, lang) { return '/img/vc-guide/' + who + '-' + lang + '.webp?v=' + IMG_V; }
   function defLang(who) { return who === 'teacher' ? 'en' : 'ko'; }
-  /* 선생님용을 띄울지 — 역할 정본(vcIsStaffNow) + 관리자 세션.
-   * 관리자 세션을 함께 보는 이유: 사장님 계정은 학생 세션으로 입장해 역할이 학생으로 잡히는 일이 있다.
+  /* 선생님용을 띄울지 — 역할 정본만 본다(vcIsStudentNow → vcIsStaffNow).
+   * ⛔ 관리자 세션(mangoi_admin_session)으로 «선생님용» 을 띄우지 말 것 — 2026-09-24 첫 판이 그렇게 했다가
+   *    사장님이 «학생으로» 입장했는데 선생님용이 떴다(사장님 제보). 학생으로 들어왔으면 학생용이 맞다.
    * ⚠️ 이 판정은 «어느 그림을 먼저 보여 주나» 에만 쓴다. 권한 판정에 쓰지 말 것. */
   function wantsTeacher() {
-    if (isStaff()) return true;
+    try { if (typeof window.vcIsStudentNow === 'function' && window.vcIsStudentNow()) return false; } catch (e) {}
     var r = window.vcMyRole;
-    if (r === 'teacher' || r === 'admin') return true;
-    if (r === 'student' || r === 'observer') {
-      try { return !!localStorage.getItem('mangoi_admin_session'); } catch (e) { return false; }
-    }
-    return false;
+    if (r === 'student' || r === 'observer') return false;
+    return isStaff();
   }
+  function myWho() { return wantsTeacher() ? 'teacher' : 'student'; }
 
   var styled = false;
   function injectStyle() {
@@ -76,10 +75,10 @@
     var s = document.createElement('style');
     s.id = 'vc-guide-style';
     s.textContent = [
-      '#' + OV_ID + '{position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.72);display:flex;',
-      '  align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}',
-      '#' + OV_ID + ' .vg-card{background:#ffffff;color:#101828;border-radius:16px;width:100%;max-width:1400px;',
-      '  max-height:calc(100svh - 24px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.45);',
+      /* 화면 전체를 덮는다(2026-09-25 사장님 «글자가 잘 안 보여 화면 전체 커버하게») */
+      '#' + OV_ID + '{position:fixed;inset:0;z-index:2147483001;background:#0f172a;display:flex;box-sizing:border-box;}',
+      '#' + OV_ID + ' .vg-card{background:#ffffff;color:#101828;width:100%;height:100%;height:100dvh;',
+      '  display:flex;flex-direction:column;',
       '  font-family:inherit;line-height:1.4;overflow:hidden;}',
       '#' + OV_ID + ' .vg-head{display:flex;align-items:center;gap:8px;padding:10px 12px;flex:0 0 auto;flex-wrap:wrap;',
       '  border-bottom:1px solid #eef2f6;}',
@@ -91,8 +90,8 @@
       '#' + OV_ID + ' .vg-x{border:0;background:#f1f5f9;color:#101828;width:34px;height:34px;border-radius:999px;',
       '  font-size:17px;cursor:pointer;flex:0 0 auto;}',
       '#' + OV_ID + ' .vg-body{overflow:auto;min-height:0;flex:1 1 auto;background:#0f172a;}',
-      '#' + OV_ID + ' .vg-img{display:block;width:100%;height:auto;cursor:zoom-in;}',
-      '#' + OV_ID + ' .vg-body.zoom .vg-img{width:2000px;max-width:none;cursor:zoom-out;}',
+      '#' + OV_ID + ' .vg-img{display:block;width:100%;height:100%;object-fit:contain;cursor:zoom-in;}',
+      '#' + OV_ID + ' .vg-body.zoom .vg-img{width:2000px;height:auto;max-width:none;cursor:zoom-out;}',
       '#' + OV_ID + ' .vg-foot{display:flex;align-items:center;gap:10px;padding:8px 12px 10px;border-top:1px solid #eef2f6;',
       '  flex:0 0 auto;flex-wrap:wrap;}',
       '#' + OV_ID + ' .vg-off{font-size:13px;color:#475467;display:flex;align-items:center;gap:6px;flex:1 1 auto;cursor:pointer;}',
@@ -175,6 +174,7 @@
       var tab = t.closest && t.closest('.vg-tab');
       if (!tab) return;
       var w = tab.getAttribute('data-who'), l = tab.getAttribute('data-lang');
+      ov.__touched = true;
       if (w) render(ov, w, ov.__lang);          // 역할을 바꿔도 지금 고른 언어는 그대로
       else if (l) render(ov, ov.__who, l);
     });
@@ -182,7 +182,7 @@
     document.body.appendChild(ov);
     render(ov, who, lang);
   }
-  function openForMe() { open(wantsTeacher() ? 'teacher' : 'student'); }
+  function openForMe() { open(myWho()); }
   window.mgOpenVcGuide = openForMe;
 
   function btnLabel(b, mobile) {
@@ -225,14 +225,18 @@
       n++;
       if (!inCall()) { if (n > 16) clearInterval(t); return; }
       mountButtons();
+      /* 자동으로 연 뒤 역할이 늦게 바로잡히면(학생 ↔ 선생님) 사람이 탭을 누르기 전까지 따라간다 */
+      var ov = document.getElementById(OV_ID);
+      if (ov && ov.__auto && !ov.__touched && ov.__who !== myWho()) { var w2 = myWho(); render(ov, w2, defLang(w2)); }
       if (shownThisEntry || isObserver() || autoOff()) {
-        if (document.getElementById(BTN_PC) && document.getElementById(BTN_M)) clearInterval(t);
+        if (document.getElementById(BTN_PC) && document.getElementById(BTN_M) && !(ov && ov.__auto && !ov.__touched)) clearInterval(t);
         if (n > 16) clearInterval(t);
         return;
       }
       if (roleKnown() || n >= 12) {           // 역할이 정해졌거나 약 6초가 지났으면
         shownThisEntry = true;
         openForMe();
+        var ov2 = document.getElementById(OV_ID); if (ov2) ov2.__auto = true;
       }
       if (n > 16) clearInterval(t);
     }, 500);
