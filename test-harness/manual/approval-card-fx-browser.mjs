@@ -70,6 +70,7 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
     await page.waitForTimeout(900);
     return { ctx, page, errors };
   }
+  const fxEls = (page, sel) => page.evaluate((sel) => Array.from(document.querySelectorAll(sel + ' .iamtfx, ' + sel + ' .fxamt')).map((e) => ({ t: e.textContent.trim(), w: +getComputedStyle(e).fontWeight })), sel);
   const amts = (page, sel) => page.evaluate((sel) => Array.from(document.querySelectorAll(sel + ' .iamt')).map((e) => e.textContent.replace(/\s+/g, ' ').trim()), sel);
   const H = home({ inbox: [it(11, { amount: 2500 }), it(12, { amount: 4600, file_kind: 'pdf', file_name: 'r.pdf' }), it(14, { amount: 30000, currency: 'KRW' })],
                    mine: [it(13, { amount: 2800, requester_username: 'mgr_jjw' })] });
@@ -80,36 +81,39 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
   check('목록 위에 환율 줄이 보인다(₱1 = ₩23.85)', box.h > 10 && /₱1 = ₩23\.85/.test(box.txt), JSON.stringify(box));
   check('버튼 셋(원래 통화·₩ 원으로·₱ 페소로)', box.btns.join('|') === '원래 통화|₩ 원으로|₱ 페소로', box.btns.join('|'));
   let a = await amts(page, '#inbox');
-  check('처음엔 원래 금액만(₱2,500)', a[0] === '₱2,500' && !/≈/.test(a.join('')), a.join(' / '));
+  check('처음엔 원래 금액만(₱2,500)', a[0] === '₱2,500' && (await fxEls(page, '#inbox')).length === 0, a.join(' / '));
 
   console.log('\n[2] 「₩ 원으로」 — 카드가 바뀐다');
   await page.click('#fxBox button >> nth=1'); await page.waitForTimeout(200);
   a = await amts(page, '#inbox');
-  check('결재할 카드: ₱2,500 옆에 ≈₩59,625', a[0] === '₱2,500 ≈₩59,625', a[0]);
-  check('₱4,600 → ≈₩109,710', a[1] === '₱4,600 ≈₩109,710', a[1]);
+  check('결재할 카드: ₱2,500 옆에 ₩59,625', a[0] === '₱2,500 ₩59,625', a[0]);
+  check('₱4,600 → ₩109,710', a[1] === '₱4,600 ₩109,710', a[1]);
+  const fe = await fxEls(page, '#inbox');
+  check('환산 금액에 물결(≈)이 없다', fe.length === 2 && fe.every((x) => !/\u2248/.test(x.t)), JSON.stringify(fe));
+  check('환산 금액은 굵게(font-weight ≥ 700)', fe.length === 2 && fe.every((x) => x.w >= 700), JSON.stringify(fe));
   check('(짝) 이미 원화인 건은 그대로(≈ 없음)', a[2] === '₩30,000', a[2]);
   const m = await amts(page, '#mine');
-  check('내가 올린 카드도 바뀐다(₱2,800 ≈₩66,780)', m[0] === '₱2,800 ≈₩66,780', m[0]);
+  check('내가 올린 카드도 바뀐다(₱2,800 ₩66,780)', m[0] === '₱2,800 ₩66,780', m[0]);
   const led = await page.evaluate(() => document.getElementById('ledResult').textContent);
-  check('회계장부도 같은 선택을 따른다(≈₩)', /≈₩/.test(led));
+  check('회계장부도 같은 선택을 따른다(₩)', /₩/.test(led));
   const fxOn = await page.evaluate(() => document.querySelector('#fxBox button.on').textContent);
   check('눌린 버튼 표시가 「₩ 원으로」', fxOn === '₩ 원으로', fxOn);
 
   console.log('\n[3] 「₱ 페소로」·「원래 통화」');
   await page.click('#fxBox button >> nth=2'); await page.waitForTimeout(200);
   a = await amts(page, '#inbox');
-  check('원화 건이 ≈₱ 로(₩30,000 ≈₱1,258)', a[2] === '₩30,000 ≈₱1,258', a[2]);
+  check('원화 건이 ₱ 로(₩30,000 ₱1,258)', a[2] === '₩30,000 ₱1,258', a[2]);
   check('(짝) 페소 건은 그대로', a[0] === '₱2,500', a[0]);
   await page.click('#fxBox button >> nth=0'); await page.waitForTimeout(200);
   a = await amts(page, '#inbox');
-  check('원래 통화로 돌아온다', !/≈/.test(a.join('')), a.join(' / '));
+  check('원래 통화로 돌아온다', (await fxEls(page, '#inbox')).length === 0 && a[0] === '₱2,500', a.join(' / '));
   check('페이지 오류 0', errors.length === 0, errors.join(' | '));
   await ctx.close();
 
   console.log('\n[4] 저장된 선택(₩)으로 다시 열어도 카드가 바뀐다');
   ({ ctx, page, errors } = await open(H, LEDGER, 'KRW'));
   a = await amts(page, '#inbox');
-  check('다시 열면 ≈₩ 가 붙어 있다', a[0] === '₱2,500 ≈₩59,625', a[0]);
+  check('다시 열면 ₩ 가 붙어 있다', a[0] === '₱2,500 ₩59,625', a[0]);
   await ctx.close();
 
   console.log('\n[5] 환율을 못 받으면 — 지어내지 않는다');
@@ -117,7 +121,7 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
   const b2 = await page.evaluate(() => document.getElementById('fxBox').innerHTML);
   check('목록 위 환율 줄을 안 그린다', b2 === '', b2.slice(0, 80));
   a = await amts(page, '#inbox');
-  check('(짝) 카드는 원래 금액만', a[0] === '₱2,500' && !/≈/.test(a.join('')), a.join(' / '));
+  check('(짝) 카드는 원래 금액만', a[0] === '₱2,500' && (await fxEls(page, '#inbox')).length === 0, a.join(' / '));
   check('페이지 오류 0', errors.length === 0, errors.join(' | '));
   await ctx.close();
 
@@ -126,27 +130,31 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
   ({ ctx, page, errors } = await open(HS, LEDGER, ''));
   const tiles = () => page.evaluate(() => Array.from(document.querySelectorAll('#topTiles .tile')).map((t) => t.textContent.replace(/\s+/g, ' ').trim()));
   let tl = await tiles();
-  check('처음엔 금액 카드에 ≈ 없음', tl.length >= 4 && !/≈/.test(tl.join('|')), tl.join(' | '));
+  check('처음엔 금액 카드에 환산 없음', tl.length >= 4 && (await fxEls(page, '#topTiles')).length === 0, tl.join(' | '));
   await page.click('#fxBox button >> nth=1'); await page.waitForTimeout(200);
   tl = await tiles();
   const month = tl.find((x) => /이번 달 승인/.test(x)) || '', year = tl.find((x) => /올해 누적/.test(x)) || '';
-  check('이번 달 승인: ₱9,900 그대로 + ≈₩236,115', /₱9,900/.test(month) && /≈₩236,115/.test(month), month);
-  check('올해 누적: ≈₩236,139', /≈₩236,139/.test(year), year);
+  check('이번 달 승인: ₱9,900 그대로 + ₩236,115', /₱9,900/.test(month) && /₩236,115/.test(month), month);
+  check('올해 누적: ₩236,139', /₩236,139/.test(year), year);
+  const tfe = await fxEls(page, '#topTiles');
+  check('맨 위 카드 환산도 물결 없이 굵게', tfe.length === 2 && tfe.every((x) => x.w >= 700 && !/\u2248/.test(x.t)), JSON.stringify(tfe));
   await page.evaluate(() => window.toggleRep()); await page.waitForTimeout(400);
   const rep = await page.evaluate(() => document.getElementById('repResult').textContent.replace(/\s+/g, ' '));
-  check('지출 정리 — 항목별 ₱7,100 (≈₩169,335)', /₱7,100 \(≈₩169,335\)/.test(rep), rep.slice(0, 300));
-  check('지출 정리 — 승인 합계 ₱9,900 (≈₩236,115)', /₱9,900 \(≈₩236,115\)/.test(rep), rep.slice(0, 300));
-  check('(짝) 이미 원화인 대기 ₩30,000 은 ≈ 없음', /₩30,000(?! \()/.test(rep), rep.slice(0, 300));
+  check('지출 정리 — 항목별 ₱7,100 (₩169,335)', /₱7,100 \(₩169,335\)/.test(rep), rep.slice(0, 300));
+  check('지출 정리 — 승인 합계 ₱9,900 (₩236,115)', /₱9,900 \(₩236,115\)/.test(rep), rep.slice(0, 300));
+  check('(짝) 이미 원화인 대기 ₩30,000 은 환산 없음', /₩30,000(?! \()/.test(rep), rep.slice(0, 300));
+  const rfe = await fxEls(page, '#repResult');
+  check('지출 정리 환산도 물결 없이 굵게', rfe.length >= 2 && rfe.every((x) => x.w >= 700 && !/\u2248/.test(x.t)), JSON.stringify(rfe));
   await page.click('#fxBox button >> nth=0'); await page.waitForTimeout(200);
   const rep0 = await page.evaluate(() => document.getElementById('repResult').textContent);
   tl = await tiles();
-  check('원래 통화로 돌리면 카드·표 모두 ≈ 사라짐', !/≈/.test(rep0) && !/≈/.test(tl.join('|')), rep0.slice(0, 120));
+  check('원래 통화로 돌리면 카드·표 모두 환산 사라짐', (await fxEls(page, '#repResult')).length === 0 && (await fxEls(page, '#topTiles')).length === 0, rep0.slice(0, 120));
   check('페이지 오류 0', errors.length === 0, errors.join(' | '));
   await ctx.close();
 
   ({ ctx, page, errors } = await open(HS, LEDGER_NOFX, 'KRW'));
   tl = await tiles();
-  check('(짝) 환율이 없으면 금액 카드에 ≈ 를 지어내지 않는다', !/≈/.test(tl.join('|')) && /₱9,900/.test(tl.join('|')), tl.join(' | '));
+  check('(짝) 환율이 없으면 금액 카드에 환산을 지어내지 않는다', (await fxEls(page, '#topTiles')).length === 0 && /₱9,900/.test(tl.join('|')), tl.join(' | '));
   await ctx.close();
 
   await browser.close();
