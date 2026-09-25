@@ -204,5 +204,18 @@ if (migExpr && afList) {
     '항상 최저칸으로 떨어뜨리면 빠르게를 고른 학생이 아주 느리게가 된다');
 }
 
+/* ── ⑨ 웜업이 «1배» 로 시작하는가 (2026-09-25 사장님 «1배로 해줘») ─────────────
+   📜 옛 경계: 2026-09-24 «보통(0.8)» 으로 시작 → 이날 «원음 그대로 1.0배» 로 바꿨다.
+   ⛔ 칸 번호(4)를 못 박지 않는다 — «시작 칸의 배속이 1.0 인가» 로 묻는다(계단이 또 바뀌어도 뜻이 남는다).
+   짝 — 슬라이더 초기값도 같은 칸이어야 첫 화면 표시와 실제 배속이 어긋나지 않는다. */
+const wuStart = (() => { const m = WU.match(/var WARMUP_START_RATE\s*=\s*(\d+)\s*;/); return m ? Number(m[1]) : null; })();
+ok(wuStart !== null && !!STEPS && Math.abs(STEPS[wuStart] - 1.0) < 1e-9,
+  `웜업 시작 칸(${wuStart})의 배속이 1.0 이다 (${STEPS && wuStart ? STEPS[wuStart] : '?'}배)`,
+  '1.0 이 아니면 2026-09-25 «1배로 해줘» 가 되돌아간 것이다');
+const slv = (() => { const m = WU.match(/id="rateSlider"[^>]*\svalue="(\d+)"/); return m ? Number(m[1]) : null; })();
+ok(slv !== null && slv === wuStart,
+  `슬라이더 초기값(${slv})이 시작 칸(${wuStart})과 같다`,
+  '다르면 스크립트가 돌기 전 잠깐, 또는 스크립트가 죽었을 때 표시가 실제 배속과 어긋난다');
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
