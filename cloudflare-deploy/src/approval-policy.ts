@@ -1115,6 +1115,60 @@ export function contentTypeFor(kind: string): string {
   return 'image/jpeg';
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📒 간단 회계장부 (12단계, 2026-09-25 사장님 「간단한 회계장부도 자동으로 … 이번달것과 일년치것,
+ *    결제액수·날짜 오름차순 내림차순」)
+ *   «승인된 지출» 한 건 = 장부 한 줄. 날짜는 결재를 올린 날(KST) — 기간 거르기(from/to)와 같은 기준이라
+ *   «이번 달 장부» 에 지난달 날짜가 섞이지 않는다.
+ *   ⛔ 대기 건은 넣지 않는다(아직 안 나간 돈) — 건수만 따로 말한다.
+ *   ⛔ 통화를 합치지 않는다 — 환율을 모른다(지출 정리와 같은 규칙).
+ *   ⛔ 취소 결재(reverses_id)는 지출이 아니다(isSpendRow).
+ * ═════════════════════════════════════════════════════════════════════════ */
+export interface LedgerRow {
+  id: number; ymd: string; title: string; who: string;
+  category_ko: string | null; category_en: string | null;
+  amount: number; currency: string;
+}
+export function ledgerFrom(items: any[]): { rows: LedgerRow[]; totals: { cur: string; sum: number; n: number }[]; pending: number; no_amount: number } {
+  const rows: LedgerRow[] = [];
+  const tot: Record<string, { cur: string; sum: number; n: number }> = {};
+  let pending = 0, noAmount = 0;
+  for (const r of (Array.isArray(items) ? items : [])) {
+    if (!r || !isSpendRow(r)) continue;
+    if (String(r.status || '').trim().toLowerCase() !== 'approved') { pending++; continue; }
+    const amt = Number(r.amount);
+    if (r.amount == null || !isFinite(amt) || amt <= 0) { noAmount++; continue; }
+    const cur = normCurrency(r.currency);
+    const at = Number(r.created_at);
+    rows.push({
+      id: Number(r.id), ymd: isFinite(at) && at > 0 ? kstYmd(at) : '',
+      title: String(r.title || ''), who: String(r.requester_name || r.requester_username || ''),
+      category_ko: r.category_ko || null, category_en: r.category_en || null,
+      amount: amt, currency: cur,
+    });
+    const t = tot[cur] || (tot[cur] = { cur, sum: 0, n: 0 });
+    t.sum = Math.round((t.sum + amt) * 100) / 100; t.n++;
+  }
+  // 기본 순서: 최근 날짜 먼저(같은 날이면 번호 큰 것 먼저). 화면이 사람이 고른 순서로 다시 정렬한다.
+  rows.sort((a, b) => (a.ymd < b.ymd ? 1 : a.ymd > b.ymd ? -1 : b.id - a.id));
+  return { rows, totals: Object.keys(tot).sort().map(k => tot[k]), pending, no_amount: noAmount };
+}
+
+/* 📷 결재 카드의 영수증 미리보기 (12단계, 2026-09-25 — 제안서 ② «카드 맨 위에 요약 + 신호등 + 영수증 사진»)
+ *   휴대폰에서 «첨부 보기» 가 내려받기라 파일을 열고 돌아와야 했다. 사진은 카드 안에서 바로 보이게 한다.
+ *   ⚠️ 화면 안에 띄우는(inline) 것은 **사진만** — 올릴 때 바이트로 형식을 확인한 jpg·png·webp.
+ *      PDF 는 예전처럼 내려받기(브라우저 PDF 뷰어에 문서를 띄우는 길은 열지 않는다). 모르면 내려받기. */
+export function fileKind(ext: unknown): 'image' | 'pdf' | null {
+  const e = normExt(String(ext == null ? '' : ext));
+  if (e === 'jpg' || e === 'png' || e === 'webp') return 'image';
+  if (e === 'pdf') return 'pdf';
+  return null;
+}
+/** 내려줄 때의 Content-Disposition 종류 — 사진이고 화면이 «inline» 을 달라고 했을 때만 inline. */
+export function fileDisposition(ext: unknown, wantInline: boolean): 'inline' | 'attachment' {
+  return (wantInline === true && fileKind(ext) === 'image') ? 'inline' : 'attachment';
+}
+
 /** 금액 표기. 화면과 점검 문구가 같은 형식을 쓰도록 여기 하나만 둔다. */
 export function fmt(v: number, currency: string): string {
   const cur = normCurrency(currency);

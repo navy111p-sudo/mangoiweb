@@ -178,6 +178,28 @@ html.dark h2 .findtoggle[aria-expanded="true"]{background:#102b22;color:#6fd3ad}
 .findpanel{
   background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:11px 12px;margin-bottom:9px
 }
+/* 📒 간단 회계장부(12단계) */
+.ledbar{gap:6px}
+.ledtab{font-size:13.5px;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid #bcc6d2;background:#fff;color:#2f3d4d;cursor:pointer}
+.ledtab.on{border-color:#0f6b4f;background:#eaf6f1;color:#0f6b4f}
+html.dark .ledtab{background:#16202c;border-color:#33414f;color:#c3cfdb}
+html.dark .ledtab.on{background:#102b22;color:#6fd3ad;border-color:#2c7a5c}
+.ledsum{font-size:14px;color:#1f2a37;margin:8px 2px 4px}
+html.dark .ledsum{color:#dbe4ee}
+.ledwrap{overflow-x:auto;margin-top:6px}
+.ledtbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.ledtbl th,.ledtbl td{padding:7px 8px;border-bottom:1px solid #e3e8ee;text-align:left;vertical-align:top}
+html.dark .ledtbl th,html.dark .ledtbl td{border-color:#26313f}
+.ledtbl th{font-size:12.5px;color:#4b5a6a;font-weight:700;white-space:nowrap}
+html.dark .ledtbl th{color:#a9b6c4}
+.ledtbl .ledamt{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ledtbl .leddate{white-space:nowrap;font-variant-numeric:tabular-nums}
+.ledcat{font-size:12px;color:#6b7785}
+html.dark .ledcat{color:#95a3b2}
+.ledsort{font:inherit;font-weight:700;color:inherit;background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px}
+.ledsort.on{color:#0f6b4f}
+html.dark .ledsort.on{color:#6fd3ad}
+@media (max-width:560px){ .ledtbl .ledwho{display:none} }
 html.dark .findpanel{background:#16202c;border-color:#26313f}
 /* 결재 보관함(시안 A, 2026-09-08) — 왼쪽 함 트리 + 오른쪽 표.
    그룹웨어(카카오워크·다우오피스)처럼 함이 곧 «보는 방식» 이다. 폰(720px 아래)에서는
@@ -384,6 +406,9 @@ html.dark .no{background:#1d2836;border-color:#5a3129;color:#f0907c}
 .no:hover{background:#f9ecea}
 html.dark .no:hover{background:#3a1a16}
 .lnk{font-size:13.5px;color:#0b6e63;text-decoration:underline;text-underline-offset:2px}
+.rthumb{display:block;margin:6px 0 2px;max-width:100%}
+.rthumb img{display:block;max-width:100%;max-height:220px;border-radius:8px;border:1px solid #cbd5d2;background:#f4f6f5;object-fit:contain}
+html.dark .rthumb img{border-color:#2f3d39;background:#1a2421}
 html.dark .lnk{color:#4fc0b0}
 
 /* 반려 사유 — 버튼으로. 타이핑은 필요할 때만 */
@@ -575,6 +600,17 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <span data-en="My requests" data-ko="내가 올린 것">My requests</span>
   </h2>
   <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+
+  <!-- 📒 간단 회계장부(12단계, 2026-09-25 사장님 «자동으로 적당한 위치에 바로») — 처음부터 펼쳐 둔다.
+       ⚠️ 첫 화면 그리기는 그대로 /api/approval/home 한 번이다 — 홈을 «시도한 뒤» ledAutoOpen() 이
+          한 번 부른다(문서함 findAutoOpen 과 같은 방식). 여기서 바로 부르지 말 것. -->
+  <h2>
+    <span data-en="Ledger" data-ko="회계장부">Ledger</span>
+  </h2>
+  <div id="ledPanel" class="findpanel">
+    <div class="findrow ledbar" id="ledBar"></div>
+    <div id="ledResult"><div class="findnote" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+  </div>
 
   <h2>
     <span data-en="Spending" data-ko="지출 정리">Spending</span>
@@ -878,6 +914,8 @@ function repaint(){
   if (fp && !fp.hidden) { paintFindChrome(); paintFindBox(); paintFind(); }
   paintFindBtn();
   findAutoOpen();       // 펼쳐진 채로 시작하므로 홈을 다 그린 뒤 한 번 찾아 둔다
+  ledAutoOpen();        // 📒 회계장부도 같은 방식으로 한 번 불러 둔다(12단계)
+  paintLed();
   var rp = document.getElementById('repPanel');
   if (rp && !rp.hidden) { paintRepChrome(); paintRep(); }
   paintOutbox();
@@ -1549,6 +1587,136 @@ window.runRep = function(){
     });
 };
 
+/* ══════════════════════════════════════════════════════════════════════════
+   📒 간단 회계장부 (12단계) — 승인된 지출만, 이번 달 / 최근 1년, 날짜·금액 오름·내림차순.
+   ⛔ 서버가 거른 것(canView)만 그린다 — 화면에서 다시 거르거나 합치지 않는다.
+   ⛔ 통화를 섞지 않는다 — 금액 순서는 «같은 통화 안에서» 매긴다(₱1,000 과 ₩1,000 은 다른 돈).
+   ══════════════════════════════════════════════════════════════════════════ */
+var LED = { per: 'month', key: 'date', dir: 'desc', data: { month: null, year: null }, busy: false, auto: false };
+var LED_SHOW_MAX = 300;
+
+function ledFrom(per){
+  var n = new Date(Date.now() + 9 * 3600000);   // KST
+  if (per === 'year') {
+    var y = new Date(Date.UTC(n.getUTCFullYear() - 1, n.getUTCMonth(), n.getUTCDate() + 1));
+    return y.toISOString().slice(0, 10);
+  }
+  return n.getUTCFullYear() + '-' + String(n.getUTCMonth() + 1).padStart(2, '0') + '-01';
+}
+
+/** 정렬 — key 'date'|'amount', dir 'asc'|'desc'. 금액은 통화끼리 묶은 뒤 그 안에서 센다. */
+function ledgerSort(rows, key, dir){
+  var a = (rows || []).slice();
+  var s = dir === 'asc' ? 1 : -1;
+  a.sort(function(x, y){
+    var c;
+    if (key === 'amount') {
+      if (x.currency !== y.currency) return x.currency < y.currency ? -1 : 1;   // 통화 묶음 순서는 고정
+      c = Number(x.amount) - Number(y.amount);
+    } else {
+      c = x.ymd < y.ymd ? -1 : (x.ymd > y.ymd ? 1 : 0);
+    }
+    if (c === 0) c = Number(x.id) - Number(y.id);
+    return c * s;
+  });
+  return a;
+}
+
+function ledAutoOpen(){
+  if (!HOME_TRIED || LED.auto) return;
+  LED.auto = true;
+  runLed(LED.per);
+}
+
+window.ledPer = function(per){
+  LED.per = (per === 'year') ? 'year' : 'month';
+  var have = LED.data[LED.per];
+  if (have && !have.err) paintLed(); else runLed(LED.per);   // 실패했던 기간은 다시 부른다
+};
+window.ledSortBy = function(key){
+  if (LED.key === key) LED.dir = (LED.dir === 'asc') ? 'desc' : 'asc';
+  else { LED.key = key; LED.dir = 'desc'; }
+  paintLed();
+};
+
+function runLed(per){
+  if (LED.busy) return;
+  var host = document.getElementById('ledResult');
+  if (!host) return;
+  LED.busy = true;
+  paintLed();
+  var scope = (D && D.can_approve) ? 'all' : 'mine';
+  var q = 'view=ledger&scope=' + scope + '&from=' + encodeURIComponent(ledFrom(per));
+  fetch('/api/approval/requests?' + q, { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      LED.busy = false;
+      // 「성공이라고 말했는가」로 판정 — 종단 404 본문에는 ok 칸이 없다(CLAUDE.md 2장).
+      if (!d || d.ok !== true || !Array.isArray(d.ledger)) { LED.data[per] = { err: 1 }; }
+      else LED.data[per] = d;
+      paintLed();
+    })
+    .catch(function(){ LED.busy = false; LED.data[per] = { err: 2 }; paintLed(); });
+}
+
+function paintLed(){
+  var bar = document.getElementById('ledBar'), host = document.getElementById('ledResult');
+  if (!bar || !host) return;
+  var tab = function(per, en, ko){
+    return '<button type="button" class="ledtab' + (LED.per === per ? ' on' : '') + '" aria-pressed="' +
+           (LED.per === per ? 'true' : 'false') + '" onclick="ledPer(\'' + per + '\')">' + esc(T(en, ko)) + '</button>';
+  };
+  bar.innerHTML = tab('month', 'This month', '이번 달') + tab('year', 'Last 12 months', '최근 1년');
+  var d = LED.data[LED.per];
+  if (LED.busy && !d) { host.innerHTML = '<div class="findnote">' + esc(T('Loading...', '불러오는 중...')) + '</div>'; return; }
+  if (!d) { host.innerHTML = ''; return; }
+  if (d.err) {
+    host.innerHTML = '<div class="findnote">' + esc(d.err === 2 ? T('Network problem. Tap the tab again.', '연결이 좋지 않습니다. 탭을 다시 눌러 주세요.')
+                                                             : T('Could not load the ledger.', '장부를 불러오지 못했습니다.')) + '</div>';
+    return;                     // 탭을 다시 누르면 ledPer 가 다시 부른다(err 가 남아 있으므로)
+  }
+  var tot = (d.totals || []).map(function(t){
+    return money(t.sum, t.cur) + ' (' + t.n + T(' items', '건') + ')';
+  }).join('  ·  ') || '—';
+  var h = '<div class="ledsum"><b>' + esc(T('Approved spending: ', '승인된 지출 합계: ')) + '</b>' + esc(tot) + '</div>';
+  var notes = [];
+  if (d.pending) notes.push(T(d.pending + ' still waiting (not counted)', '결재 대기 ' + d.pending + '건은 빠져 있습니다(아직 안 나간 돈)'));
+  if (d.no_amount) notes.push(T(d.no_amount + ' without an amount', '금액이 없는 ' + d.no_amount + '건은 빠져 있습니다'));
+  if (d.truncated) notes.push(T('Too many rows — only the first ' + d.max + ' were read.', '건수가 많아 앞 ' + d.max + '건만 읽었습니다.'));
+  if (d.steps_missing) notes.push(T('Some approval lines could not be read — totals may be short.', '결재선을 다 읽지 못해 합계가 모자랄 수 있습니다.'));
+  if (notes.length) h += '<div class="findnote">' + esc(notes.join(' · ')) + '</div>';
+  var rows = ledgerSort(d.ledger, LED.key, LED.dir);
+  if (!rows.length) {
+    host.innerHTML = h + '<div class="findnote">' + esc(LED.per === 'year' ? T('No approved spending in the last 12 months.', '최근 1년 동안 승인된 지출이 없습니다.')
+                                                                          : T('No approved spending this month yet.', '이번 달 승인된 지출이 아직 없습니다.')) + '</div>';
+    return;
+  }
+  // 누를 수 있다는 표시 — 지금 정렬 기준이면 ▲/▼, 아니면 ↕
+  var arrow = function(k){ return LED.key === k ? (LED.dir === 'asc' ? ' ▲' : ' ▼') : ' ↕'; };
+  var sortBtn = function(k, en, ko){
+    return '<button type="button" class="ledsort' + (LED.key === k ? ' on' : '') + '" onclick="ledSortBy(\'' + k + '\')">' +
+           esc(T(en, ko) + arrow(k)) + '</button>';
+  };
+  h += '<div class="ledwrap"><table class="ledtbl"><thead><tr>' +
+       '<th>' + sortBtn('date', 'Date', '날짜') + '</th>' +
+       '<th>' + esc(T('What', '내용')) + '</th>' +
+       '<th class="ledwho">' + esc(T('By', '올린 사람')) + '</th>' +
+       '<th class="ledamt">' + sortBtn('amount', 'Amount', '금액') + '</th></tr></thead><tbody>';
+  var n = Math.min(rows.length, LED_SHOW_MAX);
+  for (var i = 0; i < n; i++) {
+    var r = rows[i];
+    var cat = EN() ? r.category_en : r.category_ko;
+    h += '<tr><td class="leddate">' + esc(r.ymd) + '</td>' +
+         '<td><a class="lnk" href="/work?id=' + Number(r.id) + '">' + esc(r.title || ('#' + r.id)) + '</a>' +
+         (cat ? '<div class="ledcat">' + esc(cat) + '</div>' : '') + '</td>' +
+         '<td class="ledwho">' + esc(r.who) + '</td>' +
+         '<td class="ledamt">' + esc(money(r.amount, r.currency)) + '</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  if (rows.length > n) h += '<div class="findnote">' + esc(T('Showing ' + n + ' of ' + rows.length + '.', rows.length + '건 중 ' + n + '건만 보여 줍니다.')) + '</div>';
+  host.innerHTML = h;
+}
+
 /** 통화별 금액을 «한 줄» 로. ⛔ 절대 더해서 하나로 만들지 않는다. */
 function repMoney(list){
   if (!list || !list.length) return '—';
@@ -1947,6 +2115,14 @@ function itemHtml(r, decidable, ackable){
          esc(T('Past requests like this', '지난 기록 보기')) + '</button></div>';
   }
 
+  /* 📷 영수증 사진 미리보기(12단계) — 결재할 건에서만, 사진일 때만. 휴대폰에서 파일을 열고 돌아오지 않게.
+     loading=lazy 라 화면에 들어올 때만 받는다. 못 불러오면 사진 칸만 숨기고 «첨부 보기» 링크는 남는다. */
+  if (r.has_file && decidable && r.file_kind === 'image') {
+    var src = '/api/approval/requests/' + r.id + '/file?inline=1';
+    h += '<a class="rthumb" href="' + src + '" target="_blank" rel="noopener">' +
+         '<img loading="lazy" alt="' + esc(T('Receipt photo', '영수증 사진')) + '" src="' + src + '"' +
+         ' onerror="this.parentNode.style.display=\'none\'"></a>';
+  }
   if (r.has_file) {
     h += '<div><a class="lnk" href="/api/approval/requests/' + r.id + '/file">' +
          esc(T('Receipt', '첨부 보기')) + (r.file_name ? ' (' + esc(r.file_name) + ')' : '') + '</a></div>';
