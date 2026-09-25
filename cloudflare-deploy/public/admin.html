@@ -7873,12 +7873,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button onclick="prToggleRules()" style="padding:7px 14px;font-size:12.5px;background:#fff;border:1px solid #f59e0b;color:#b45309;font-weight:700;border-radius:6px;cursor:pointer" data-ko="⚙️ 공제 규칙" data-en="⚙️ Deduction Rules">⚙️ 공제 규칙</button>
       <span id="pr-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
+    <div id="pr-fx-wrap" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin:-4px 0 12px;padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px">
+      <span id="pr-fx" style="font-size:12.5px;color:#1e3a8a"></span>
+      <button id="pr-krw-btn" onclick="prToggleKrw()" style="margin-left:auto;padding:6px 14px;font-size:12.5px;font-weight:800;background:#fff;color:#1e40af;border:1px solid #1e40af;border-radius:6px;cursor:pointer" data-ko="₩ 원화로 보기" data-en="₩ Show in KRW">₩ 원화로 보기</button>
+    </div>
     <div data-gc="⚙ 공제 규칙" data-gc-en="Deduction Rules" id="pr-rules" style="display:none;margin-bottom:12px"></div>
     <div data-gc="🧮 계산 결과표" data-gc-en="Calculation Table" id="pr-table" style="overflow-x:auto"></div>
     <div data-gc="👤 강사별 상세" data-gc-en="Teacher Detail" id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=6" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=7" data-card="card-payroll-auto" data-globals="prToggleKrw,prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
