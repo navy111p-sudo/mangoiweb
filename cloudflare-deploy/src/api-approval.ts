@@ -64,7 +64,7 @@ import {
   digestUrl, weeklySpend, fmt,                         // 📬 요약→묶음 승인 · 📊 주간 지출 합계(10단계)
   isNewVendor, EXEC_WATCH_CODES,
   fileKind, fileDisposition,                           // 📷 카드 안 영수증 사진(12단계)
-  ledgerFrom,                                          // 📒 간단 회계장부(12단계)                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
+  ledgerFrom, ledgerRange,                             // 📒 간단 회계장부(12단계) · 📅 장부 기간(13단계)                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -916,6 +916,42 @@ function csvResponse(items: any[]): Response {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': 'attachment; filename="approvals-' + stamp + '.csv"',
       // 결재 내용에는 급여·거래처가 들어간다. 중간 캐시에 절대 남기지 않는다.
+      'Cache-Control': 'private, no-store',
+    },
+  });
+}
+
+/* 📤 회계장부 엑셀(13단계) — 승인된 지출 줄 + 통화별 합계 + 분류별 소계.
+ *   ⚠️ csvCell 을 지난다(BOM·수식 차단은 위 csvResponse 와 같은 규칙).
+ *   ⛔ 통화를 합치지 않는다 — 합계 줄도 통화마다 따로.
+ *   ⛔ «빠진 것» 을 숨기지 않는다 — 대기·금액없음·잘림을 맨 아래에 적는다(안 적으면 파일이 화면보다 «완전해 보인다»). */
+function ledgerCsvResponse(L: ReturnType<typeof ledgerFrom>,
+                           o: { from: string; to: string; truncated: boolean; max: number; stepsMissing: boolean }): Response {
+  const lines: string[] = [];
+  const row = (a: any[]) => lines.push(a.map(csvCell).join(','));
+  row(['날짜', '번호', '내용', '분류', '올린 사람', '통화', '금액']);
+  for (const r of L.rows) row([r.ymd, r.id, r.title, (r.category_ko || ''), r.who, r.currency, r.amount]);
+  row([]);
+  for (const t of L.totals) row(['합계', '', t.n + '건', '', '', t.cur, t.sum]);
+  if (L.by_category.length) {
+    row([]);
+    row(['분류별 소계', '', '', '분류', '', '통화', '금액']);
+    for (const c of L.by_category) row(['', '', c.n + '건', (c.ko || '분류 없음'), '', c.cur, c.sum]);
+  }
+  const notes: string[] = [];
+  if (L.pending) notes.push('결재 대기 ' + L.pending + '건은 빠져 있습니다(아직 안 나간 돈)');
+  if (L.no_amount) notes.push('금액이 없는 ' + L.no_amount + '건은 빠져 있습니다');
+  if (o.truncated) notes.push('건수가 많아 앞 ' + o.max + '건만 읽었습니다 — 합계가 모자랍니다');
+  if (o.stepsMissing) notes.push('결재선을 다 읽지 못해 합계가 모자랄 수 있습니다');
+  row([]);
+  row(['기간', (o.from || '처음') + ' ~ ' + (o.to || '오늘')]);
+  for (const n of notes) row(['참고', n]);
+  const name = 'ledger-' + (/^\d{4}-\d{2}-\d{2}$/.test(o.from) ? o.from : 'all') + '_' +
+               (/^\d{4}-\d{2}-\d{2}$/.test(o.to) ? o.to : csvWhen(Date.now()).slice(0, 10)) + '.csv';
+  return new Response('\uFEFF' + lines.join('\r\n'), {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="' + name + '"',
       'Cache-Control': 'private, no-store',
     },
   });
@@ -1954,14 +1990,20 @@ export async function handleApprovalApi(
     // 형제인 q 와 같이 길이를 자른다 — 정본 목록 대조라 주입은 안 되지만, 아주 긴 값이
     // 조건 조립까지 흘러가지 않게 입구에서 막는다(항목 key 는 길어야 열 몇 자다).
     const fCat   = String(url.searchParams.get('category') || '').trim().slice(0, 60);
-    const from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
-    const to     = String(url.searchParams.get('to') || '').trim();
+    let   from   = String(url.searchParams.get('from') || '').trim();   // YYYY-MM-DD (KST)
+    let   to     = String(url.searchParams.get('to') || '').trim();
     const csv    = url.searchParams.get('format') === 'csv';
     /* 📊 지출 정리 — 목록 대신 «합계» 를 돌려준다.
        ⚠️ 새 경로를 만들지 않는다(A안과 같은 이유 — 관문 셋 중 둘이 공동 금지구역). */
     /* 📒 간단 회계장부(12단계) — report 와 «같은» 읽기·거르기(canView)를 지나고 줄 목록만 다르게 낸다. */
     const ledger = url.searchParams.get('view') === 'ledger';
     const report = url.searchParams.get('view') === 'report' || ledger;
+    /* 📅 장부 기간(13단계) — 화면은 «이름»(month·last_month·year)만 보내고 날짜는 서버가 KST 로 정한다.
+       모르는 이름이면 ledgerRange 가 null 이라 주소의 from/to 를 그대로 쓴다. */
+    if (ledger) {
+      const rg = ledgerRange(url.searchParams.get('period'), new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10));
+      if (rg) { from = rg.from; to = rg.to; }
+    }
     /* 🗂 결재 보관함(시안 A) — 함 옆 건수. 새 경로를 만들지 않는다(같은 이유). */
     const facets = url.searchParams.get('view') === 'facets';
     /* 🗂 결재자별 함 — «그 사람이 결재한 건». all 과 같은 등급(결재 권한자만). */
@@ -2077,8 +2119,10 @@ export async function handleApprovalApi(
       const stepsMissing = page.length > 0 && Object.keys(stepMap).length === 0;
       if (ledger) {
         const L = ledgerFrom(items);
+        /* 📤 장부 그대로 엑셀(13단계) — 화면과 «같은 줄·같은 합계». 빠진 것(대기·금액없음·잘림)도 파일에 적는다. */
+        if (csv) return ledgerCsvResponse(L, { from, to, truncated: hasMore, max: REPORT_MAX, stepsMissing });
         return json({
-          ok: true, ledger: L.rows, totals: L.totals, pending: L.pending, no_amount: L.no_amount,
+          ok: true, ledger: L.rows, totals: L.totals, by_category: L.by_category, pending: L.pending, no_amount: L.no_amount,
           truncated: hasMore, max: REPORT_MAX, steps_missing: stepsMissing, scope, from, to,
         });
       }
