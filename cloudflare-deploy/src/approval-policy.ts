@@ -827,6 +827,11 @@ export interface CheckInput {
   receiptReusedCount?: number;
   /** 📷 휴대폰이 잰 사진 상태 — 'blurry' | 'dark' 만 뜻이 있다(normPhotoQuality). 7단계 */
   photoQuality?: string | null;
+  /** 🔁 같은 사람이 최근 7일 안에 올린 같은 분류 건수(이 건 제외). 11단계 */
+  weekCount?: number;
+  /** 🏪 영수증 가게 이름 — 처음 보는 가게면 newVendor 가 true. 11단계 */
+  vendor?: string | null;
+  newVendor?: boolean;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -903,6 +908,34 @@ export function guessCategory(vendor: string | null | undefined, items: ReceiptI
   }
   return (bestN > 0 && !tie) ? best : null;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🏪 처음 보는 가게 · 🔁 일주일에 여러 번 (11단계, 2026-09-25)
+ *   제안서 🟡 «처음 보는 거래처» · «같은 사람이 일주일에 여러 번» — 둘 다 «확인 필요» 참고일 뿐
+ *   🔴(되돌림)로 올리지 않는다. 멀쩡한 새 가게·바쁜 주는 흔하다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+/** 이 건 말고 최근 7일에 같은 분류를 이만큼 이상 올렸으면 «이번이 N번째» 로 알린다. */
+export const FREQUENT_WEEK_MIN = 3;
+/** 아는 가게가 이만큼 쌓이기 전에는 «처음 보는 가게» 를 말하지 않는다 — 기록이 적으면 전부 «처음» 이다. */
+export const VENDOR_HISTORY_MIN = 10;
+
+/** 처음 보는 가게인가. 모르면(이름이 짧음·기록 부족) false — 지어내지 않는다.
+ *  비교 열쇠는 6단계 정본 vendorKey(대소문자·공백·기호 무시) 그대로. */
+export function isNewVendor(vendor: unknown, known: unknown[], minHistory: number = VENDOR_HISTORY_MIN): boolean {
+  const k = vendorKey(vendor == null ? '' : String(vendor));
+  if (k.length < 3) return false;
+  const keys = new Set((Array.isArray(known) ? known : []).map(x => vendorKey(x == null ? '' : String(x))).filter(x => x.length >= 3));
+  if (keys.size < minHistory) return false;
+  return !keys.has(k);
+}
+
+/** 👀 대표님께 즉시 알리는 신호 — 결재권자 혼자 확정하는 소액 건에서 이것이 있을 때만.
+ *  ⚠️ ocr_unread 는 넣지 않는다(PDF 마다 울려 소음). */
+export const EXEC_WATCH_CODES: readonly string[] = [
+  'unusual_amount', 'over_budget', 'duplicate', 'duplicate_recent', 'spent_old',
+  'date_mismatch', 'ai_review', 'no_file', 'no_reason', 'spent_future', 'amount_mismatch_big',
+  'new_vendor', 'frequent',
+];
 
 /** 📷 사진 상태 값 정리 — 화면이 보낸 값 중 아는 것만. 모르면 null(점검 안 함). */
 export function normPhotoQuality(v: unknown): 'blurry' | 'dark' | null {
@@ -1014,6 +1047,22 @@ export function runChecks(inp: CheckInput): Flag[] {
       en: pq === 'dark' ? 'The receipt photo is very dark — please check it can be read'
                         : 'The receipt photo looks blurry — please check it can be read',
     });
+  }
+
+  // 🔁 일주일에 여러 번 · 🏪 처음 보는 가게 (11단계) — 돈 나가는 분류만, «참고» 로만.
+  if (spec.needsAmount) {
+    const wk = Number(inp.weekCount) || 0;
+    if (wk >= FREQUENT_WEEK_MIN) {
+      out.push({ code: 'frequent', level: 'info',
+        ko: '이번 주에 같은 분류로 ' + (wk + 1) + '번째 올린 건입니다',
+        en: 'This is request #' + (wk + 1) + ' of this kind in the last 7 days' });
+    }
+    const vn = String(inp.vendor || '').trim();
+    if (inp.newVendor === true && vn) {
+      out.push({ code: 'new_vendor', level: 'info',
+        ko: '처음 보는 가게입니다(' + vn.slice(0, 40) + ')',
+        en: 'First time we see this shop (' + vn.slice(0, 40) + ')' });
+    }
   }
 
   // ⑤ 평소보다 큰 금액 — 정상일 수도 있으니 «참고»로만

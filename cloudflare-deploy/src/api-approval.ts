@@ -62,6 +62,7 @@ import {
   rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   autoRejectReadiness, autoRejectModeInput, nudgeSmsKind,   // 🤖 켜기 판단 패널 · 📱 문자로만(9단계)
   digestUrl, weeklySpend, fmt,                         // 📬 요약→묶음 승인 · 📊 주간 지출 합계(10단계)
+  isNewVendor, EXEC_WATCH_CODES,                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -701,8 +702,10 @@ async function receiptReuseCount(env: ApprovalEnv, hash: string | null): Promise
 }
 
 async function gatherCheckFacts(
-  env: ApprovalEnv, requester: string, reqType: string, amount: number | null, currency: string
-): Promise<{ duplicateCount: number; duplicateRecentCount: number; monthTotal: number | null; medianAmount: number | null }> {
+  env: ApprovalEnv, requester: string, reqType: string, amount: number | null, currency: string,
+  vendor: string | null = null,
+): Promise<{ duplicateCount: number; duplicateRecentCount: number; monthTotal: number | null; medianAmount: number | null;
+             weekCount: number; newVendor: boolean }> {
   const now = Date.now();
   const since30 = now - 30 * 86400_000;
   const since7 = now - 7 * 86400_000;
@@ -748,7 +751,28 @@ async function gatherCheckFacts(
   const nums = (rs.results || []).map((x: any) => Number(x.amount)).filter((n: number) => isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
   const medianAmount = nums.length ? nums[Math.floor(nums.length / 2)] : null;
 
-  return { duplicateCount, duplicateRecentCount, monthTotal, medianAmount };
+  // ④ 🔁 같은 사람이 최근 7일 안에 올린 같은 분류 건수(11단계). 못 읽으면 0 — 아무것도 안 붙인다.
+  const wk: any = await safe(async () => await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM approval_requests
+      WHERE requester_username = ? AND req_type = ? AND created_at >= ?
+        AND status NOT IN ('rejected','withdrawn','cancelled')
+        AND reverses_id IS NULL`
+  ).bind(requester, reqType, since7).first(), null);
+  const weekCount = Number(wk?.c || 0);
+
+  // ⑤ 🏪 처음 보는 가게(11단계) — 승인된 결재의 가게 이름과 대조. 칸이 없거나 못 읽으면 기록 부족으로
+  //    보고 «처음» 이라 말하지 않는다(isNewVendor 가 VENDOR_HISTORY_MIN 을 본다).
+  let newVendor = false;
+  if (vendor) {
+    const vr = await safe(async () => await env.DB.prepare(
+      `SELECT DISTINCT vendor FROM approval_requests
+        WHERE vendor IS NOT NULL AND status = 'approved' AND reverses_id IS NULL
+        ORDER BY created_at DESC LIMIT 500`
+    ).all<{ vendor: string }>(), { results: [] as any[] } as any);
+    newVendor = isNewVendor(vendor, (vr.results || []).map((x: any) => x.vendor));
+  }
+
+  return { duplicateCount, duplicateRecentCount, monthTotal, medianAmount, weekCount, newVendor };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1742,7 +1766,7 @@ export async function handleApprovalApi(
       const stageDue = stageDeadlineMs(reqType, now);
 
       // 자동 점검 — 계산만. 여기서 나온 표시가 결재자의 판단 재료가 된다.
-      const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+      const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency, ocrVendor);
       const receiptReusedCount = fileKey ? await receiptReuseCount(env, fileHash) : 0;
       const flags = runChecks({
         reqType, amount, currency, hasFile: !!fileKey, ocrAmount,
@@ -1750,6 +1774,7 @@ export async function handleApprovalApi(
         monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
         body, spentAt, ocrSpentAt, now, receiptReusedCount,
         photoQuality: normPhotoQuality(form.get('photo_quality')),
+        weekCount: facts.weekCount, vendor: ocrVendor, newVendor: facts.newVendor,
       });
       /* 🔎 필리핀에서 올라온 돈 나가는 건은 AI 가 내용을 한 번 더 읽는다 — 🟡 표시만 붙인다. */
       if (ph && spec.needsAmount && !hrSnap) {
@@ -1873,10 +1898,8 @@ export async function handleApprovalApi(
       /* 👀 대표님께 «이상한 것만» 즉시 — 결재권자 혼자 확정하는 소액 건(1단계 mgr)에서
          평소와 다른 신호가 있을 때만. 푸시만(문자 안 씀). 결재권자 본인·기안자는 빼고.
          ⚠️ «AI 가 영수증을 못 읽음»(ocr_unread) 은 알리지 않는다 — PDF 마다 울려 소음이 된다. */
-      const WATCH = ['unusual_amount', 'over_budget', 'duplicate', 'duplicate_recent', 'spent_old',
-                     'date_mismatch', 'ai_review', 'no_file', 'no_reason', 'spent_future', 'amount_mismatch_big'];
       if (stages.length === 1 && stages[0].role === 'mgr' &&
-          sig.reasons.some(x => WATCH.indexOf(x.code) >= 0)) {
+          sig.reasons.some(x => EXEC_WATCH_CODES.indexOf(x.code) >= 0)) {
         const watchers = EXEC_USERNAMES.filter(u =>
           MONEY_APPROVERS.indexOf(u) < 0 && u !== String(actor.username));
         if (watchers.length) {
@@ -2770,7 +2793,8 @@ export async function handleApprovalApi(
     const body = String(b?.body || '').slice(0, 4000);
     const title = String(b?.title || '').slice(0, 200);
     const category = spec.wantsCategory ? normCategory(String(b?.category || '')) : null;
-    const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+    const preVendor = String(b?.ocr_vendor || '').trim().slice(0, 60) || null;
+    const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency, preVendor);
     // 🧾 화면이 영수증 해시를 보냈으면 올리기 «전» 에 재사용을 알려 준다(모양이 아니면 버린다).
     const receiptReusedCount = (b?.has_file && isSha256Hex(b?.file_hash)) ? await receiptReuseCount(env, b.file_hash) : 0;
     const flags = runChecks({
@@ -2780,6 +2804,7 @@ export async function handleApprovalApi(
       body, spentAt: ymd(b?.spent_at), ocrSpentAt: ymd(b?.ocr_spent_at), now: Date.now(),
       receiptReusedCount,
       photoQuality: normPhotoQuality(b?.photo_quality),
+      weekCount: facts.weekCount, vendor: preVendor, newVendor: facts.newVendor,
     });
     if (ph && spec.needsAmount) {
       const concerns = await aiReview(env, {
