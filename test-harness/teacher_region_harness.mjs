@@ -86,7 +86,7 @@ console.log('\n[ ③-2 칸을 늘렸으면 빈 표의 colspan 도 함께 늘어�
 {
   const ths = (htmlSrc.match(/<table id="tp-list-table"[\s\S]*?<\/thead>/) || [''])[0];
   const n = (ths.match(/<th[\s>]/g) || []).length;
-  check('머리 칸 수 = ' + n + ' 개', n === 16);
+  check('머리 칸 수 = ' + n + ' 개', n === 17);   // 2026-09-25 «가동률» 칸 추가로 16→17
   const spans = [...htmlSrc.matchAll(/id="tp-list-body"><tr><td colspan="(\d+)"/g)].map(m => Number(m[1]));
   check('admin.html 빈 표 colspan 이 머리 칸 수와 같다 (' + spans.join(',') + ')',
     spans.length > 0 && spans.every(x => x === n));
