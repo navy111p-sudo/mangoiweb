@@ -25,6 +25,7 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
 import { sendEmail, emailLayout } from './email';
 import { pushToTeacher } from './teacher-push';   // 🔔 강사 웹푸시(정본) — 카카오는 필리핀 번호에 안 닿는다(2026-09-14)
 import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
+import { loadHoldRanges, heldOnFor, maybeHoldStudent, autoResumeReturning } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
 function escapeHtmlAbs(s: any): string {
@@ -186,8 +187,16 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   try { ownerMode = (await env.SESSION_STATE?.get('absent_alert_owner_send')) === 'on'; } catch {}
   result.owner_mode = ownerMode;
 
+  /* ⏸ (2026-09-25) 연속 결석 «보류» — 정본 src/absence-hold.ts.
+     ① 보류 중인 학생이 스스로 다시 들어왔으면 먼저 풀어 준다.
+     ② 보류 기간 수업은 결석 알림·기록을 만들지 않는다 — 강사는 기다리지 않고 매니저에게 확인한다.
+     ⚠️ 둘 다 던지지 않는다(표가 없거나 조회가 실패하면 «보류 없음» = 예전 그대로). */
+  if (!dry) { try { await autoResumeReturning(env, now); } catch { /* 무시 */ } }
+  const holdRanges = await loadHoldRanges(env);
+
   const newlyAbsent: any[] = [];
   for (const c of candidates) {
+    if (heldOnFor(holdRanges, c.user_id, todayStr)) { result.details.push({ room_id: c.room_id, status: 'absence_hold' }); continue; }
     // ① 학생이 이미 입장했으면 정상 — attendance 는 /api/attendance/join 이 기록
     try {
       const att = await env.DB.prepare(
@@ -316,6 +325,22 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     ownerLines.push(`· ${name} ${hhmm} 수업 (+${c.late_min}분 미입장)`);
     result.alerted++;
     result.details.push(detail);
+  }
+
+  /* ⏸ 방금 결석이 기록된 학생 — 연속 2회면 다음 수업부터 보류하고 알린다(학생 문자·강사·매니저).
+     학생마다 한 번만 본다(같은 날 수업이 둘이어도). dry 는 «걸 것인가» 만 본다. */
+  {
+    const seenUid = new Set<string>();
+    for (const c of newlyAbsent) {
+      const u = String(c.user_id || '').toLowerCase();
+      if (!u || seenUid.has(u)) continue;
+      seenUid.add(u);
+      let tname: string | null = null;
+      try { const r: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ?`).bind(c.teacher_id).first(); tname = r && r.name ? String(r.name) : null; } catch { /* 이름 없이 */ }
+      const h = await maybeHoldStudent(env, { user_id: c.user_id, student_name: c.student_name, teacher_id: c.teacher_id, teacher_name: tname }, now, { dry });
+      (result as any).holds = (result as any).holds || [];
+      (result as any).holds.push({ student: c.student_name || c.user_id, status: h.status, streak: h.streak });
+    }
   }
 
   // 운영자 요약 문자 1통 (dry 는 발송 안 함 · 기본 OFF — 위 ownerMode 참고)
