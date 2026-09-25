@@ -59,7 +59,9 @@ import {
   type Stage, type Flag, type ActorLike, type ReceiptItem,
   signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
-  rejectTipsFrom, shadowTally, monthlyRepeats, autoRejectReadiness, autoRejectModeInput, nudgeSmsKind,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
+  rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
+  autoRejectReadiness, autoRejectModeInput, nudgeSmsKind,   // 🤖 켜기 판단 패널 · 📱 문자로만(9단계)
+  digestUrl, weeklySpend, fmt,                         // 📬 요약→묶음 승인 · 📊 주간 지출 합계(10단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -339,7 +341,7 @@ async function delegatesOf(env: ApprovalEnv, usernames: string[]): Promise<strin
 
 async function notify(
   env: ApprovalEnv, usernames: string[], title: string, body: string, reqId: number, tag: string,
-  quickSeq = 0,
+  quickSeq = 0, urlOverride = '',
 ): Promise<{ push: number; missed: string[] }> {
   const missed: string[] = [];
   if (!usernames.length) return { push: 0, missed };
@@ -348,7 +350,9 @@ async function notify(
      [승인] 버튼을 단다. 새 칸(push_queue.actions)을 만들지 않은 이유: /api/push/pending 이
      칸 이름을 적어 SELECT 하므로, 칸이 없는 DB 에서는 모든 푸시가 함께 죽는다.
      ⚠️ 버튼은 편의일 뿐 — 누르면 서버가 🟢·같은 단계인지 **다시** 잰다(pushApproveDenyReason). */
-  const url = '/work?id=' + reqId + (quickSeq > 0 ? '&qa=' + quickSeq : '');
+  // 📬 요약 알림처럼 «건 하나» 가 아닌 알림은 부르는 쪽이 갈 곳을 정한다(urlOverride, '/work…' 만).
+  const url = (urlOverride && urlOverride.indexOf('/work') === 0) ? urlOverride
+            : '/work?id=' + reqId + (quickSeq > 0 ? '&qa=' + quickSeq : '');
   for (const u of usernames) {
     const rs = await safe(async () => await env.DB.prepare(
       `SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1 LIMIT 10`
@@ -2991,7 +2995,8 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
             }
             if (!n) continue;
             await notify(env, [u], '결재 대기 ' + n + '건',
-              '가장 오래된 것 ' + oldestH + '시간 · 🟢 바로 승인 가능 ' + green + '건', 0, 'approval-digest');
+              '가장 오래된 것 ' + oldestH + '시간 · 🟢 바로 승인 가능 ' + green + '건', 0, 'approval-digest',
+              0, digestUrl(green));   // 🟢 가 있으면 누르자마자 «한 번에 승인» 자리로(10단계)
           }
         }
       }
@@ -3181,6 +3186,23 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
     ];
     if (slow.length) {
       lines.push('알림이 나간 건: ' + slow.map((s: any) => s.u + ' ' + s.c).join(', '));
+    }
+
+    /* 📊 이번 주 승인된 지출 합계(통화별) · 그중 🟡/🔴 였던 건 — 판정 정본 weeklySpend(10단계).
+         «이상한 것만» 보시려는 대표님이 숫자 한 줄로 이번 주 돈의 크기와 걸린 건을 보게. */
+    const spRows = await safe(async () => (await env.DB.prepare(
+      `SELECT status, reverses_id, amount, currency, req_type, ocr_amount, file_key, flags FROM approval_requests
+        WHERE created_at >= ? AND status = 'approved' LIMIT 500`
+    ).bind(from).all<any>()).results || [], [] as any[]);
+    const sp = weeklySpend((spRows as any[]).map((r: any) => {
+      let fl: Flag[] = [];
+      try { if (r.flags) fl = JSON.parse(r.flags); } catch { fl = []; }
+      return { ...r, signal: signalOf({ reqType: r.req_type, amount: r.amount, ocrAmount: r.ocr_amount,
+        hasFile: !!r.file_key, flags: fl }).signal };
+    }));
+    if (sp.count) {
+      lines.push('승인된 지출: ' + sp.byCur.map(c => fmt(c.sum, c.cur) + ' (' + c.n + '건)').join(' · ') +
+                 (sp.flagged ? ' — 그중 🟡/🔴 였던 건 ' + sp.flagged + '건' : ' — 전부 🟢'));
     }
 
     /* 🤖 자동 반려 «켤지 말지» 판단 자료 — 지난 14일, AI 가 🔴(되돌렸을 것)로 본 건을
