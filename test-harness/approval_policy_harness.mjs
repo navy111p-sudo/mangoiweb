@@ -517,8 +517,10 @@ check('실행 — 마감을 넘긴 건도 빠진다',
   (() => { try { return JSON.stringify(runClean([{ id: 1 }, { id: 2, __overdue: true }])) === '[1]'; }
            catch { return false; } })());
 
-check('화면 — 두 건 이상일 때만 묶음 버튼을 보여 준다',
-  /list\.length < 2/.test(WORK_SRC));
+/* (2026-09-25, 10단계) 요약 알림(?bulk=1)으로 들어온 사람에게만 1건부터 보여 준다.
+   묻는 것은 그대로: «평소» 기준은 2건. 자세한 동작은 approval_automation10_harness ④. */
+check('화면 — 평소엔 두 건 이상일 때만 묶음 버튼을 보여 준다',
+  /list\.length < \(\(BULK_WANT \|\| BULK_KEEP1\) \? 1 : 2\)/.test(WORK_SRC));
 
 check('화면 — 묶음 승인도 한 건씩 순서대로 보낸다',
   /step\(\);\s*\/\/ 하나씩/.test(WORK_SRC),

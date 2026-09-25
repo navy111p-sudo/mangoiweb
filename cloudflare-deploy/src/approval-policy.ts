@@ -1828,6 +1828,39 @@ export function nudgeSmsKind(target: number, cur: number): 'siren' | 'late' | nu
   return null;
 }
 
+/**
+ * 📬 하루 두 번 요약 알림을 누르면 어디로 가나 (2026-09-25, 10단계).
+ *   🟢(바로 승인 가능) 건이 있으면 결재함의 «한 번에 승인» 자리로 바로 연다(?bulk=1).
+ *   없으면 결재함 첫 화면. ⛔ 여기서 승인까지 하지는 않는다 — 누르는 것은 사람이다(확인 1회).
+ */
+export function digestUrl(green: number): string {
+  return (Number(green) || 0) > 0 ? '/work?bulk=1' : '/work';
+}
+
+/**
+ * 📊 대표님 주간 요약 — 이번 주 «승인된 지출» 합계(통화별)와 그중 🟡/🔴 였던 건 수.
+ *   ⚠️ 지출 판정은 정본 isSpendRow(취소 결재·끝나지 않은 건 제외)를 그대로 쓴다.
+ *   ⚠️ 통화는 섞어 더하지 않는다(₱ 와 ₩ 는 따로). 금액이 없거나 0 이하인 줄은 건너뛴다.
+ */
+export function weeklySpend(rows: { status?: string | null; reverses_id?: number | null;
+  amount?: number | null; currency?: string | null; signal?: string | null }[]):
+  { byCur: { cur: string; sum: number; n: number }[]; flagged: number; count: number } {
+  const acc: Record<string, { sum: number; n: number }> = {};
+  let flagged = 0, count = 0;
+  for (const r of rows || []) {
+    if (!r || String(r.status || '') !== 'approved' || !isSpendRow(r)) continue;
+    const a = Number(r.amount);
+    if (!isFinite(a) || a <= 0) continue;
+    const cur = normCurrency(r.currency || 'PHP');
+    (acc[cur] = acc[cur] || { sum: 0, n: 0 });
+    acc[cur].sum += a; acc[cur].n++;
+    count++;
+    if (r.signal === 'yellow' || r.signal === 'red') flagged++;
+  }
+  const byCur = Object.keys(acc).sort().map(c => ({ cur: c, sum: Math.round(acc[c].sum * 100) / 100, n: acc[c].n }));
+  return { byCur, flagged, count };
+}
+
 /** 한국 시각 밤 22시~아침 8시 — 문자·사이렌을 쉬는 시간(긴급은 예외, 호출하는 쪽이 정한다). */
 export function isQuietKst(ms: number): boolean {
   const h = new Date(Number(ms) + 9 * 3600_000).getUTCHours();

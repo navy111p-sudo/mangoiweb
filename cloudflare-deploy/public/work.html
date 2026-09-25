@@ -393,6 +393,8 @@ html.dark .why{border-color:#33404f}
 .why .muted{font-size:12px;color:#5b6775}
 html.dark .why .muted{color:#9aa7b5}
 .why ul{margin:4px 0 8px 18px;padding:0}
+#bulkBox.bulk-hl .why{border:2px solid #1f7a45;background:#e5f4ea}
+html.dark #bulkBox.bulk-hl .why{border-color:#6ad08f;background:#17311f}
 html.dark .why b{color:#9fb0c2}
 .whybtns{display:flex;gap:6px;flex-wrap:wrap}
 .whybtns button{font:inherit;font-size:13.5px;padding:9px 12px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:42px;color:#16202c}
@@ -741,12 +743,15 @@ var PHOTO_SEQ = 0;
 var PHOTO_Q = '';                   // 📷 사진 상태 'ok'|'blurry'|'dark'|''(못 잼) — 7단계
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
+var BULK_KEEP1 = 0;                 // 📬 한 번 데려왔으면 이 페이지 동안은 1건이어도 계속 보여 준다(60초 다시 그리기에 사라지지 않게)
+var BULK_WANT = 0;                  // 📬 요약 알림(?bulk=1)으로 들어왔다 — «한 번에 승인» 자리로 데려간다(10단계)
 var WANT_TYPE = '';                 // 🔗 /work?type=leave — 열자마자 그 분류 폼을 편다
 try {
   var q = location.search.match(/[?&]id=(\d+)/);
   if (q) FOCUS_ID = Number(q[1]);
   var qt = location.search.match(/[?&]type=([a-zA-Z_]+)/);
   if (qt) WANT_TYPE = String(qt[1]).toLowerCase();
+  if (/[?&]bulk=1(&|$)/.test(location.search)) BULK_WANT = 1;
 } catch (e) {}
 
 /* ── 첫 화면 — API 1회 ────────────────────────────────────────────────────── */
@@ -862,6 +867,7 @@ function repaint(){
   paintArBtn();
   paintSchedule();
   paintBulk();
+  bulkLanding();
   paintAck();
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
@@ -2118,13 +2124,34 @@ function paintBulk(){
   var host = document.getElementById('bulkBox');
   if (!host) return;
   var list = cleanOnes();
-  if (list.length < 2) { host.innerHTML = ''; return; }
+  /* 📬 요약 알림으로 들어온 사람은 «그 🟢 건» 을 보러 왔다 — 1건이어도 보여 준다.
+     평소에는 2건 이상일 때만(1건이면 그 건의 승인 버튼과 같은 일이다). */
+  if (list.length < ((BULK_WANT || BULK_KEEP1) ? 1 : 2)) { host.innerHTML = ''; return; }
   host.innerHTML =
     '<div class="why"><b>' +
     esc(T(list.length + ' requests passed every check.', '점검을 모두 통과한 ' + list.length + '건이 있습니다.')) +
     '</b><div class="whybtns"><button onclick="bulkApprove()">' +
     esc(T('Approve all ' + list.length, list.length + '건 한 번에 승인')) +
     '</button></div></div>';
+}
+/* 📬 ?bulk=1 로 왔을 때 딱 한 번 — 묶음 승인 자리로 스크롤하고 눈에 띄게.
+   ⛔ 여기서 승인하지 않는다. 사람이 버튼을 누르고 확인창에서 한 번 더 누른다.
+   그사이 다른 기기에서 처리돼 남은 🟢 가 없으면 «없다» 고 말한다(빈 화면으로 두지 않는다). */
+function bulkLanding(){
+  if (!BULK_WANT || !D) return;
+  BULK_WANT = 0;
+  var host = document.getElementById('bulkBox');
+  if (!cleanOnes().length) {
+    toast(T('Nothing left to approve at once — it may have been handled already.',
+            '지금 한 번에 승인할 건이 없습니다 — 이미 처리됐을 수 있습니다.'));
+    if (host) host.innerHTML = '';
+    return;
+  }
+  BULK_KEEP1 = 1;
+  if (host) {
+    host.classList.add('bulk-hl');
+    try { host.scrollIntoView({ block: 'center' }); } catch (e) { host.scrollIntoView(); }
+  }
 }
 var bulkBusy = false;
 window.bulkApprove = function(){
