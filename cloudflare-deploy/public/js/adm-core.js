@@ -17946,6 +17946,18 @@ window.rebuildGlobalSearchIndex = function() {
      헤더 클릭 = 내림→오름→해제 토글, Shift+클릭 = 2차·3차 키 추가.
      비어 있으면 기본값(일시 최신순) — 예전 동작 그대로다. */
   let _cardSort = [];
+  /* 📅 (2026-09-25) 일시에 요일 — 「2026-09-11 (금) 10:57」. 날짜 부분만 UTC 로 읽는다
+     (new Date('2026-09-11') 은 UTC 자정이라 로컬로 읽으면 하루 밀린다). 모르면 원문 그대로. */
+  function _cardDowLabel(dt) {
+    const s = String(dt || '');
+    const m = /^(\d{4})-(\d{2})-(\d{2})(.*)$/.exec(s);
+    if (!m) return s;
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay();
+    if (isNaN(d)) return s;
+    const en = window.adminLang === 'en';
+    const w = (en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[d];
+    return m[1] + '-' + m[2] + '-' + m[3] + ' (' + w + ')' + m[4];
+  }
   const _CARD_SORT_LABELS_KO = { datetime: '일시', merchant: '가맹점', category: '카테고리', amount: '금액', vs: '평균 대비' };
   const _CARD_SORT_LABELS_EN = { datetime: 'Date', merchant: 'Merchant', category: 'Category', amount: 'Amount', vs: 'vs Avg' };
 
@@ -18079,7 +18091,7 @@ window.rebuildGlobalSearchIndex = function() {
       const flags = (t.overseas ? '<span title="해외 결제 — 세금계산서 없음, 부가세 매입세액 불공제 가능" style="margin-left:6px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">🌐 해외</span>' : '')
         + (t.entertain ? '<span title="건당 3만원 초과 식대 — 외부인 동석이면 기업업무추진비(접대비)입니다. 확인해 주세요" style="margin-left:4px;background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">⚠️ 접대비?</span>' : '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
+        <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px;white-space:nowrap">${_cardDowLabel(t.datetime)}</td>
         <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}${flags}</td>
         <td style="padding:8px 10px"><span style="background:${meta.color}22;color:${meta.color};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${meta.icon} ${t.category}</span></td>
         <td style="padding:8px 10px;text-align:right;font-weight:800;color:${color};font-family:MangoiHanSC,Consolas,monospace">₩${t.amount.toLocaleString('ko-KR')}</td>
