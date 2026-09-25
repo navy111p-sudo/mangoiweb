@@ -181,7 +181,7 @@ try {
   ok('[전제] 렌더가 가짜 DOM 에서 돈다', false, String(e && e.message || e));
 }
 
-/* ⚠️ 주간 카드는 border-left 3px 실선, AI 오버레이는 border 2px dashed 라 서로 다르다.
+/* ⚠️ 수강신청 카드는 인라인 background + border-left 3px 실선, 예약 수업 카드는 인라인 색 없이 .mgs-ev 클래스(2026-09-25)라 서로 다르다.
    그래서 이 모양은 «수강신청 카드» 만 가리킨다(AI 카드에 걸려 헛돌지 않는다). */
 if (R.dead) {
   ok('판정: 살아 있는 수업이 0건이면 «없음»', R.dead.live === false);
