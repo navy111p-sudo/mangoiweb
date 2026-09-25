@@ -75,6 +75,7 @@ import {
   normReceiptItems, receiptBody, guessCategory,        // 🧾 영수증 품목 → 내용·항목(8단계)
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
+import { getTodayFx } from './fx-rate';                // 💱 원·페소 바꿔 보기(16단계) — 못 구하면 null
 import { broadcastWebPush } from './web-push';                // 🔔 대기열에 넣은 뒤 «기기를 깨운다»
 
 interface ApprovalEnv {
@@ -2155,6 +2156,7 @@ export async function handleApprovalApi(
           ok: true, ledger: L.rows, totals: L.totals, by_category: L.by_category, pending: L.pending, no_amount: L.no_amount,
           truncated: hasMore, max: REPORT_MAX, steps_missing: stepsMissing, scope, from, to,
           analysis: spendAnalysis(items), compare, prev,
+          fx: await getTodayFx(env).catch(() => null),      // ⛔ 보기용 — 합계·판정은 원래 통화(환율을 지어내지 않는다)
         });
       }
       return json({

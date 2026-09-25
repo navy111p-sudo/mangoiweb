@@ -213,6 +213,9 @@ html.dark .ledcats li{border-bottom-color:#243241}
 .ledsort{font:inherit;font-weight:700;color:inherit;background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px}
 .ledsort.on{color:#0f6b4f}
 html.dark .ledsort.on{color:#6fd3ad}
+.ledfx{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:6px 0 4px;font-size:13px;color:#344054}
+.ledfxb{display:inline-flex;gap:4px;flex-wrap:wrap}
+html.dark .ledfx{color:#d0d5dd}
 /* 📊 지출 분석 보기(15단계) */
 .ledviews{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
 .ledvtab{font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid #cfd7e0;background:#fff;color:#2f3d4d;cursor:pointer;min-height:32px}
@@ -1816,6 +1819,9 @@ window.runRep = function(){
 var LED = { per: 'month', key: 'date', dir: 'desc', view: 'sum', data: { month: null, last_month: null, year: null }, busy: false, auto: false };
 /* 📊 보기(15단계) — 요약 · 사람별 · 지난 기간과 비교 · 가게·큰 지출 · 장부(줄 목록). 모두 같은 응답 하나로 그린다. */
 var LED_VIEWS = ['sum', 'people', 'cmp', 'shop', 'list'];
+/* 💱 원·페소 바꿔 보기(16단계) — '' = 원래 통화 · 'KRW' · 'PHP'. «보기» 만 바꾼다(합계·엑셀·경고는 원래 통화).
+   고른 값은 이 기기에만 기억한다(저장이 막힌 기기에서도 화면은 그대로 돈다). */
+LED.show = (function(){ try { var v = localStorage.getItem('mangoi_led_show'); return v === 'KRW' || v === 'PHP' ? v : ''; } catch (e) { return ''; } })();
 var LED_SHOW_MAX = 300;
 /* 📅 기간은 «이름» 만 보낸다(13단계) — 날짜는 서버가 KST 로 정한다(ledgerRange). 화면이 시계로 따로 세면 월말에 어긋난다. */
 var LED_PERS = ['month', 'last_month', 'year'];
@@ -1898,11 +1904,14 @@ function paintLed(){
     return;                     // 탭을 다시 누르면 ledPer 가 다시 부른다(err 가 남아 있으므로)
   }
   var tot = (d.totals || []).map(function(t){
-    return money(t.sum, t.cur) + ' (' + t.n + T(' items', '건') + ')';
+    return lm(t.sum, t.cur) + ' (' + t.n + T(' items', '건') + ')';
   }).join('  ·  ') || '—';
+  var all = ledAllIn(d.totals);
+  if (all != null) tot += '  =  ' + T('all together ', '모두 합쳐 ') + '\u2248' + money(all, LED.show);
   var h = '<div class="ledsum"><b>' + esc(T('Approved spending: ', '승인된 지출 합계: ')) + '</b>' + esc(tot) + '</div>';
   /* 기간은 서버가 정한 값을 그대로 보여 준다 — 「지난달」이 정확히 며칠부터 며칠인지 사람이 확인할 수 있게. */
   if (d.from || d.to) h += '<div class="ledrange">' + esc((d.from || '…') + ' ~ ' + (d.to || '…')) + '</div>';
+  h += ledFxHtml(d);                         // 💱 오늘 환율 + 원·페소 바꿔 보기(16단계)
   /* 🧾 분류별 소계(13단계) — 접어 둔다(장부 줄을 밀어내지 않게). 통화마다 따로. */
   var cats = d.by_category || [];
   if (cats.length && LED.view === 'list') {        // 📊 요약 보기에는 항목별 막대가 있어 겹친다(15단계)
@@ -1910,7 +1919,7 @@ function paintLed(){
     for (var ci = 0; ci < cats.length; ci++) {
       var c = cats[ci];
       var cn = c.key ? (EN() ? (c.en || c.ko) : (c.ko || c.en)) : T('No category', '분류 없음');
-      h += '<li><span>' + esc(cn) + ' · ' + esc(c.n + T(' items', '건')) + '</span><b>' + esc(money(c.sum, c.cur)) + '</b></li>';
+      h += '<li><span>' + esc(cn) + ' · ' + esc(c.n + T(' items', '건')) + '</span><b>' + esc(lm(c.sum, c.cur)) + '</b></li>';
     }
     h += '</ul></details>';
   }
@@ -1965,7 +1974,7 @@ function paintLed(){
          '<td><a class="lnk" href="/work?id=' + Number(r.id) + '">' + esc(r.title || ('#' + r.id)) + '</a>' +
          (cat ? '<div class="ledcat">' + esc(cat) + '</div>' : '') + '</td>' +
          '<td class="ledwho">' + esc(r.who) + '</td>' +
-         '<td class="ledamt">' + esc(money(r.amount, r.currency)) + '</td></tr>';
+         '<td class="ledamt">' + esc(lm(r.amount, r.currency)) + '</td></tr>';
   }
   h += '</tbody></table></div>';
   if (rows.length > n) h += '<div class="findnote">' + esc(T('Showing ' + n + ' of ' + rows.length + '.', rows.length + '건 중 ' + n + '건만 보여 줍니다.')) + '</div>';
@@ -1982,7 +1991,7 @@ function ledBars(list, nameOf, max){
     var x = list[i], w = max > 0 ? Math.max(2, Math.round(x.sum / max * 1000) / 10) : 0;
     h += '<div class="ledbrow"><span class="ledbn">' + esc(nameOf(x)) + '</span>' +
          '<span class="ledtrack"><span class="ledfill" style="width:' + w + '%"></span></span>' +
-         '<span class="ledbv">' + esc(money(x.sum, x.cur)) + '</span></div>';
+         '<span class="ledbv">' + esc(lm(x.sum, x.cur)) + '</span></div>';
   }
   return h + '</div>';
 }
@@ -1999,11 +2008,11 @@ function ledSumHtml(d, A){
     var ct = (d.compare && d.compare.totals) || [];
     for (var j = 0; j < ct.length; j++) if (ct[j].cur === t.cur) c = ct[j];
     h += '<div class="ledtile"><span class="k">' + esc(T('Approved spending', '승인된 지출') + ' (' + t.cur + ')') + '</span>' +
-         '<span class="v">' + esc(money(t.sum, t.cur)) + '</span>' +
+         '<span class="v">' + esc(lm(t.sum, t.cur)) + '</span>' +
          '<span class="s' + (c && c.diff > 0 ? ' up' : c && c.diff < 0 ? ' down' : '') + '">' +
-         esc(c ? (ledPct(c.pct) + ' · ' + ledPrevName() + ' ' + money(c.prev, t.cur)) : (d.compare ? '' : T('No comparison', '비교 못 함'))) + '</span></div>';
+         esc(c ? (ledPct(c.pct) + ' · ' + ledPrevName() + ' ' + lm(c.prev, t.cur)) : (d.compare ? '' : T('No comparison', '비교 못 함'))) + '</span></div>';
     h += '<div class="ledtile"><span class="k">' + esc(T('Items', '건수') + ' (' + t.cur + ')') + '</span><span class="v">' + esc(t.n + T('', '건')) + '</span>' +
-         '<span class="s">' + esc(T('avg ', '한 건 평균 ') + money(Math.round(t.sum / Math.max(1, t.n)), t.cur)) + '</span></div>';
+         '<span class="s">' + esc(T('avg ', '한 건 평균 ') + lm(Math.round(t.sum / Math.max(1, t.n)), t.cur)) + '</span></div>';
   }
   h += '<div class="ledtile"><span class="k">' + esc(T('Still waiting', '아직 대기 중')) + '</span><span class="v">' + esc((d.pending || 0) + T('', '건')) + '</span>' +
        '<span class="s">' + esc(T('not counted', '합계에 안 넣음')) + '</span></div></div>';
@@ -2040,13 +2049,13 @@ function ledPeopleHtml(d, A){
       h += '<tr><td>' + esc(p.who || p.user || '—') + '</td>';
       for (var c2 = 0; c2 < cats.length; c2++) {
         var v = p.cats ? p.cats[cats[c2].key] : null;
-        h += '<td class="ledamt' + (v ? '' : ' ledz') + '">' + (v ? esc(money(v, cur)) : '—') + '</td>';
+        h += '<td class="ledamt' + (v ? '' : ' ledz') + '">' + (v ? esc(lm(v, cur)) : '—') + '</td>';
       }
-      h += '<td class="ledamt"><b>' + esc(money(p.sum, cur)) + '</b></td><td class="ledamt">' + p.n + '</td></tr>';
+      h += '<td class="ledamt"><b>' + esc(lm(p.sum, cur)) + '</b></td><td class="ledamt">' + p.n + '</td></tr>';
     }
     h += '</tbody><tfoot><tr><td>' + esc(T('Total', '합계')) + '</td>';
-    for (var c3 = 0; c3 < cats.length; c3++) h += '<td class="ledamt">' + esc(money(cats[c3].sum, cur)) + '</td>';
-    h += '<td class="ledamt">' + esc(tot ? money(tot.sum, cur) : '—') + '</td><td class="ledamt">' + (tot ? tot.n : '—') + '</td></tr></tfoot></table></div>';
+    for (var c3 = 0; c3 < cats.length; c3++) h += '<td class="ledamt">' + esc(lm(cats[c3].sum, cur)) + '</td>';
+    h += '<td class="ledamt">' + esc(tot ? lm(tot.sum, cur) : '—') + '</td><td class="ledamt">' + (tot ? tot.n : '—') + '</td></tr></tfoot></table></div>';
   }
   return h;
 }
@@ -2063,7 +2072,7 @@ function ledCmpHtml(d){
   var flags = (C.rows || []).filter(function(r){ return r.flag; });
   for (var f = 0; f < flags.length; f++) {
     var x = flags[f];
-    h += '<div class="ledflag">' + esc(ledCatName(x.key, x.ko, x.en) + ': ' + money(x.prev, x.cur) + ' → ' + money(x.now, x.cur) +
+    h += '<div class="ledflag">' + esc(ledCatName(x.key, x.ko, x.en) + ': ' + lm(x.prev, x.cur) + ' → ' + lm(x.now, x.cur) +
          ' (' + ledPct(x.pct) + ')' + T(' — much more than ' + ledPrevName(), ' — ' + ledPrevName() + '보다 크게 늘었습니다')) + '</div>';
   }
   var curs = ledCurs(C.rows);
@@ -2073,10 +2082,10 @@ function ledCmpHtml(d){
          '</th><th class="ledamt">' + esc(T('This period', '이번 기간')) + '</th><th class="ledamt">' + esc(T('Change', '차이')) + '</th></tr></thead><tbody>';
     for (var r = 0; r < rows.length; r++) {
       var y = rows[r];
-      h += '<tr><td>' + esc(ledCatName(y.key, y.ko, y.en)) + '</td><td class="ledamt">' + esc(money(y.prev, cur)) + '</td><td class="ledamt">' + esc(money(y.now, cur)) +
+      h += '<tr><td>' + esc(ledCatName(y.key, y.ko, y.en)) + '</td><td class="ledamt">' + esc(lm(y.prev, cur)) + '</td><td class="ledamt">' + esc(lm(y.now, cur)) +
            '</td><td class="ledamt ' + (y.diff > 0 ? 'ledup' : y.diff < 0 ? 'leddown' : '') + '">' + esc(y.diff === 0 ? T('same', '같음') : ledPct(y.pct)) + '</td></tr>';
     }
-    if (tt) h += '</tbody><tfoot><tr><td>' + esc(T('Total', '합계')) + '</td><td class="ledamt">' + esc(money(tt.prev, cur)) + '</td><td class="ledamt">' + esc(money(tt.now, cur)) +
+    if (tt) h += '</tbody><tfoot><tr><td>' + esc(T('Total', '합계')) + '</td><td class="ledamt">' + esc(lm(tt.prev, cur)) + '</td><td class="ledamt">' + esc(lm(tt.now, cur)) +
                  '</td><td class="ledamt ' + (tt.diff > 0 ? 'ledup' : tt.diff < 0 ? 'leddown' : '') + '">' + esc(tt.diff === 0 ? T('same', '같음') : ledPct(tt.pct)) + '</td></tr></tfoot>';
     else h += '</tbody>';
     h += '</table></div>';
@@ -2091,7 +2100,7 @@ function ledShopHtml(A){
     var list = ledOf(vs, curs[k]).slice(0, 8), no = ledOf(nv, curs[k])[0];
     h += '<div class="ledsub">' + esc(T('By shop', '가게별') + ' · ' + curs[k]) + '</div>';
     if (list.length) h += ledBars(list, function(x){ return x.name + ' · ' + x.n + T('', '건'); }, list[0].sum);
-    if (no) h += '<div class="findnote">' + esc(T('No shop name: ', '가게 모름: ') + money(no.sum, no.cur) + ' (' + no.n + T(' items', '건') + ')') + '</div>';
+    if (no) h += '<div class="findnote">' + esc(T('No shop name: ', '가게 모름: ') + lm(no.sum, no.cur) + ' (' + no.n + T(' items', '건') + ')') + '</div>';
   }
   var tc = ledCurs(top);
   for (var t = 0; t < tc.length; t++) {
@@ -2100,11 +2109,66 @@ function ledShopHtml(A){
     for (var i = 0; i < tl.length; i++) {
       var r = tl[i], cat = EN() ? r.category_en : r.category_ko;
       h += '<div class="ledtopr"><a class="lnk" href="/work?id=' + Number(r.id) + '">' + esc(r.title || ('#' + r.id)) + '</a>' +
-           '<b>' + esc(money(r.amount, r.cur)) + '</b><span class="ledcat">' + esc([r.who, r.vendor, cat, r.ymd].filter(function(x){ return !!x; }).join(' · ')) + '</span></div>';
+           '<b>' + esc(lm(r.amount, r.cur)) + '</b><span class="ledcat">' + esc([r.who, r.vendor, cat, r.ymd].filter(function(x){ return !!x; }).join(' · ')) + '</span></div>';
     }
     h += '</div>';
   }
   return h || ('<div class="findnote">' + esc(T('Nothing to show.', '보여 줄 것이 없습니다.')) + '</div>');
+}
+
+/* 💱 환산(16단계) — 서버 정본 fxConvert(approval-policy.ts)와 같은 계산. 하니스가 둘을 나란히 돌려 대조한다.
+   ⛔ 환율이 없으면 null — 지어내지 않는다(그때는 원래 금액을 그린다). */
+function ledConv(v, from, to, rate){
+  var a = Number(v), f = String(from || '').toUpperCase() === 'KRW' ? 'KRW' : 'PHP', t = String(to || '').toUpperCase() === 'KRW' ? 'KRW' : 'PHP';
+  if (v == null || !isFinite(a)) return null;
+  if (f === t) return a;
+  var r = Number(rate);
+  if (rate == null || !isFinite(r) || r < 10 || r > 60) return null;
+  return f === 'PHP' ? Math.round(a * r) : Math.round(a / r * 100) / 100;
+}
+function ledRate(){ var d = LED.data[LED.per]; return d && d.fx && d.fx.krw_per_php; }
+/** 장부 금액 — 바꿔 보기가 켜져 있고 통화가 다르면 «≈ 환산» 으로. */
+function lm(v, cur){
+  if (!LED.show || String(cur || '').toUpperCase() === LED.show) return money(v, cur);
+  var c = ledConv(v, cur, LED.show, ledRate());
+  return c == null ? money(v, cur) : '≈' + money(c, LED.show);
+}
+window.ledShow = function(v){
+  LED.show = (v === 'KRW' || v === 'PHP') ? v : '';
+  try { localStorage.setItem('mangoi_led_show', LED.show); } catch (e) {}
+  paintLed();
+};
+function ledFxHtml(d){
+  var fx = d && d.fx, r = fx && Number(fx.krw_per_php);
+  if (!fx || !(r >= 10 && r <= 60)) {
+    return '<div class="findnote">' + esc(T('Could not get today’s exchange rate, so won/peso switching is off. Amounts stay in their own currency.',
+                                              '오늘 환율을 불러오지 못해 원·페소 바꿔 보기를 쓸 수 없습니다. 금액은 원래 통화로 보여 드립니다.')) + '</div>';
+  }
+  var src = fx.source === 'live' ? T('exchange rate', '환율')
+          : fx.source === 'last' ? T('last rate we got (today’s could not be loaded)', '지난번에 받은 환율 — 오늘 것을 못 받음')
+          : T('rate saved in payroll settings', '급여 화면에 저장된 환율');
+  var per1000 = Math.round(1000 / r * 100) / 100;
+  var h = '<div class="ledfx"><span class="ledfxr">💱 ' + esc(src + (fx.date ? ' · ' + fx.date : '') + ': ') +
+          '<b>' + esc('₩1,000 = ₱' + per1000.toFixed(2)) + '</b> · ' + esc('₱1 = ₩' + r.toFixed(2)) + '</span>';
+  var bt = function(v, en, ko){
+    return '<button type="button" class="ledvtab' + (LED.show === v ? ' on' : '') + '" aria-pressed="' + (LED.show === v ? 'true' : 'false') +
+           '" onclick="ledShow(\'' + v + '\')">' + esc(T(en, ko)) + '</button>';
+  };
+  h += '<span class="ledfxb">' + bt('', 'As recorded', '원래 통화') + bt('KRW', '₩ Won', '₩ 원으로') + bt('PHP', '₱ Peso', '₱ 페소로') + '</span></div>';
+  if (LED.show) h += '<div class="ledsub">' + esc(T('≈ = converted at this rate. Excel, alerts and totals are counted in the original currency.',
+                                                    '≈ 는 이 환율로 바꾼 금액입니다. 엑셀·경고·합계 판정은 원래 통화 그대로입니다.')) + '</div>';
+  return h;
+}
+/** 통화를 모두 합친 환산 합계(바꿔 보기가 켜졌을 때만). 하나라도 못 바꾸면 null. */
+function ledAllIn(totals){
+  if (!LED.show) return null;
+  var sum = 0;
+  for (var i = 0; i < (totals || []).length; i++) {
+    var c = ledConv(totals[i].sum, totals[i].cur, LED.show, ledRate());
+    if (c == null) return null;
+    sum += c;
+  }
+  return (totals || []).length > 1 ? sum : null;
 }
 
 window.ledCsv = function(){ location.href = '/api/approval/requests?' + ledQuery(LED.per) + '&format=csv'; };

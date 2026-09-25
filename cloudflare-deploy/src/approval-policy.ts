@@ -1408,6 +1408,47 @@ export function compareSpend(
   };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 💱 원·페소 바꿔 보기 (16단계, 2026-09-25 — 사장님 「페소와 원화가 서로 환전되게 보이게 · 당일 환율도 명시 · 원과 페소 누르면 바뀌게」)
+ *
+ *   ⚠️ «보기» 만 바꾼다 — 장부·합계·엑셀·경고 판정은 **원래 통화 그대로** 센다(환산 값으로 판정하지 않는다).
+ *      환산 금액에는 화면이 언제나 «≈» 와 환율·날짜를 함께 적는다.
+ *   ⛔ 환율을 지어내지 않는다 — 못 구하면 null 이고, 화면은 바꿔 보기를 끄고 그 사실을 말한다.
+ *      (급여 화면의 getPhpKrwRate 는 행이 없으면 24 를 돌려주므로 여기서는 쓰지 않는다 — 지어낸 값이다.)
+ *   판정 범위: 1페소 = 10 ~ 60원 밖이면 «이상한 응답» 으로 버린다(실제 값은 20원대).
+ * ═════════════════════════════════════════════════════════════════════════ */
+export const FX_KRW_PER_PHP_MIN = 10;
+export const FX_KRW_PER_PHP_MAX = 60;
+
+export interface FxRate { krw_per_php: number; date: string; source: 'live' | 'last' | 'payroll' }
+
+/** 1페소가 몇 원인가 — 범위 밖·숫자 아님이면 null. 소수 넷째 자리까지. */
+export function fxSane(v: unknown): number | null {
+  const n = Number(v);
+  if (v == null || v === '' || !isFinite(n) || n < FX_KRW_PER_PHP_MIN || n > FX_KRW_PER_PHP_MAX) return null;
+  return Math.round(n * 10000) / 10000;
+}
+
+/** open.er-api.com `/v6/latest/PHP` 응답 → { krw_per_php, date(KST) } · 모양이 다르면 null. */
+export function parseFxResponse(j: any): { krw_per_php: number; date: string } | null {
+  if (!j || j.result !== 'success' || String(j.base_code || '').toUpperCase() !== 'PHP' || !j.rates) return null;
+  const v = fxSane(j.rates.KRW);
+  const t = Number(j.time_last_update_unix);
+  if (v == null || !isFinite(t) || t <= 0) return null;
+  return { krw_per_php: v, date: kstYmd(t * 1000) };
+}
+
+/** 금액을 다른 통화로 — 같은 통화면 그대로, 환율이 없으면 null(지어내지 않는다). 통화는 normCurrency(KRW 아니면 PHP). */
+export function fxConvert(amount: unknown, from: unknown, to: unknown, krwPerPhp: unknown): number | null {
+  const a = Number(amount), f = normCurrency(String(from ?? '')), t = normCurrency(String(to ?? ''));
+  if (amount == null || !isFinite(a)) return null;
+  if (f === t) return a;
+  const r = fxSane(krwPerPhp);
+  if (r == null) return null;
+  if (f === 'PHP' && t === 'KRW') return Math.round(a * r);
+  return Math.round(a / r * 100) / 100;          // KRW → PHP
+}
+
 /* 📷 결재 카드의 영수증 미리보기 (12단계, 2026-09-25 — 제안서 ② «카드 맨 위에 요약 + 신호등 + 영수증 사진»)
  *   휴대폰에서 «첨부 보기» 가 내려받기라 파일을 열고 돌아와야 했다. 사진은 카드 안에서 바로 보이게 한다.
  *   ⚠️ 화면 안에 띄우는(inline) 것은 **사진만** — 올릴 때 바이트로 형식을 확인한 jpg·png·webp.
