@@ -220,6 +220,9 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .p-noshow{background:#b45309;color:#fff}
 /* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
 .cls.cls-cancel{opacity:.55}
+/* ⏸ 연속 결석 보류(2026-09-25) — 흐리게 하지 않는다: «기다리지 말라» 는 꼭 읽혀야 한다 */
+.cls.cls-hold{background:#fdf1ee;box-shadow:inset 3px 0 0 #b8321f;padding-left:12px;padding-right:8px}
+.p-hold{background:#fce9e5;color:#9b2a1a;font-weight:700}
 .p-soon{background:#fff2cc;color:#7a5c00}
 .p-info{background:#eef1f5;color:#6b7783;font-weight:600}
 /* 망고아이 수업이 아닌 줄 — 눈에 띄되 '내 수업'과 헷갈리지 않게 한 단계 죽인다 */
@@ -387,6 +390,8 @@ html[data-t="dark"] .btn-early{background:#1d2630;color:#5fcf90;border-color:#2f
 html[data-t="dark"] .btn-skip{background:#252f3a;color:#dbe4ed}
 html[data-t="dark"] .p-done{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .p-plan{background:#212b35;color:#8a96a3}
+html[data-t="dark"] .cls.cls-hold{background:#3a1a15}
+html[data-t="dark"] .p-hold{background:#5a241b;color:#ffd2c8}
 html[data-t="dark"] .p-cancel{background:#252f3a;color:#7b8896;text-decoration:line-through}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
 html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
@@ -1607,6 +1612,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
+           + ':' + (sc.absence_hold ? 'H' : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
            + ':' + (sc.attendance ? sc.attendance.state + (sc.attendance.at || '') : '')
            + ':' + (sc.teacher_entry ? sc.teacher_entry.state + (sc.teacher_entry.at || '') : '')
@@ -1741,6 +1747,28 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           +     '<div class="cls-meta">' + esc(T('This class was cancelled.','취소된 수업입니다.'))
           +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
+          + '</div>';
+        continue;
+      }
+
+      /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 보류된 학생 — 방에서 기다리지 않는다.
+         보류 기간 강사비는 0% 이고, 계속 다니는지는 필리핀 매니저가 학생·학원에 확인한다.
+         기다리지 말라는 안내가 «주» 이고 입장은 회색 보조 버튼으로 남긴다 — 학생이 돌아왔는데
+         강사가 못 들어가면 그 수업이 통째로 날아가고 «강사 미입장» 까지 찍힌다(2026-09-25 함정 대조).
+         학생이 실제로 들어온 회차는 급여에서도 보류로 보지 않는다(src/absence-hold.ts). */
+      if (c.absence_hold){
+        h += '<div class="cls cls-hold">'
+          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-main">'
+          +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
+          +       ' <span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>'
+          +     '</div>'
+          +     '<div class="cls-meta">' + esc(T('Absent 2 times in a row. Do NOT wait in the room — ask the Philippine manager whether the student continues or has quit. (No pay while on hold.)',
+                                              '2회 연속 결석으로 보류된 수업입니다. 방에서 기다리지 말고 필리핀 매니저에게 계속 다니는지 문의하세요. (보류 기간 강사비 0%)'))
+          +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
+          +   '</div>'
+          +   '<div class="cls-act"><button class="btn btn-gray btn-sm" type="button" data-join="' + i + '">'
+          +     esc(T('Student came? Enter','학생이 왔으면 입장')) + '</button></div>'
           + '</div>';
         continue;
       }
@@ -2905,6 +2933,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var stL = function(l){
         if (l.status === 'finish')          return '<span class="pill p-done">'   + esc(T('Done','완료')) + '</span>';
         if (l.status === 'student_absent')  return '<span class="pill p-plan">'   + esc(T('Student absent','학생 결석')) + '</span>';
+        if (l.status === 'absence_hold')    return '<span class="pill p-hold">'   + esc(T('On hold (no pay)','보류 (지급 0)')) + '</span>';
         if (l.status === 'teacher_no_show') return '<span class="pill p-noshow">' + esc(T('No-show','미입장')) + '</span>';
         if (l.status === 'postponed')
           //  왜 이 금액인지 — 30분 이내 연기는 전액, 사전 연기는 0 (2026-08-13 사장님 결정)
@@ -3592,6 +3621,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     for (var i = 0; i < (list || []).length; i++){
       var c = list[i];
       if (c.kind && c.kind !== 'class') continue;
+      if (c.absence_hold) continue;   // ⏸ 보류 수업은 «기다리지 말라» 는 수업 — 다음 수업으로 올리지 않는다
       if (t > c.close_at_ts) continue;
       if (!pick || c.start_ts < pick.start_ts) pick = c;
     }
