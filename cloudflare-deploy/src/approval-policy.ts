@@ -1226,10 +1226,11 @@ export function ledgerFrom(items: any[]): { rows: LedgerRow[]; totals: { cur: st
   const cat: Record<string, LedgerCat> = {};
   let pending = 0, noAmount = 0;
   for (const r of (Array.isArray(items) ? items : [])) {
-    if (!r || !isSpendRow(r)) continue;
-    if (String(r.status || '').trim().toLowerCase() !== 'approved') { pending++; continue; }
+    const st = ledgerSpendState(r);                      // ⛔ 분석(spendAnalysis)과 같은 판정 — 복제하지 않는다
+    if (st === null) continue;
+    if (st === 'pending') { pending++; continue; }
+    if (st === 'no_amount') { noAmount++; continue; }
     const amt = Number(r.amount);
-    if (r.amount == null || !isFinite(amt) || amt <= 0) { noAmount++; continue; }
     const cur = normCurrency(r.currency);
     const at = Number(r.created_at);
     rows.push({
@@ -1269,6 +1270,142 @@ export function ledgerRange(period: unknown, today: string): { from: string; to:
     return { from, to: today };
   }
   return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📊 지출 분석 (15단계, 2026-09-25 사장님 「결재함에 올라온 것들을 전체·사람별·기간별로 분석한
+ *    간단 장부 — 손익은 아니고 그냥 지출, 비용 분석」 → 샘플 4가지 중 «A 요약 + B 사람별 · C 비교 · D 가게» 추천안)
+ *
+ *   [⛔ 장부와 «같은 돈» 만 센다]  ledgerSpendState 한 곳 — 승인 · 돈 결재(취소 결재 아님) · 금액 > 0.
+ *     장부 총계와 분석 합계가 한 푼이라도 다르면 화면이 두 가지 답을 한다. 그래서 판정을 복제하지 않는다.
+ *   [⛔ 통화를 섞지 않는다]  사람·가게·달 모두 «통화 + 열쇠» 가 한 칸이다(₱1,000 과 ₩1,000 은 다른 돈).
+ *   [⛔ 모르는 것을 지어내지 않는다]  가게 이름이 없는 결재는 «가게 모름» 으로 따로 센다.
+ *     지난 기간을 못 읽었으면 비교는 null — «0원이었다» 로 그리지 않는다(서버가 null 을 준다).
+ *   [손익이 아니다]  신한 계좌의 메트로은행 송금이 이미 손익에 잡혀 있어, 여기 합계를 손익에 더하면
+ *     같은 돈이 두 번 들어갈 수 있다. 이 분석은 «어디에 썼나» 만 본다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 장부가 세는 행인가 — 'ok'(센다) · 'pending'(대기 → «대기 N건») · 'no_amount'(금액 없음) · null(돈 결재 아님). */
+export function ledgerSpendState(r: any): 'ok' | 'pending' | 'no_amount' | null {
+  if (!r || !isSpendRow(r)) return null;
+  if (String(r.status || '').trim().toLowerCase() !== 'approved') return 'pending';
+  const amt = Number(r.amount);
+  if (r.amount == null || !isFinite(amt) || amt <= 0) return 'no_amount';
+  return 'ok';
+}
+
+const add2 = (a: number, b: number) => Math.round((a + b) * 100) / 100;
+
+export interface SpendPerson { cur: string; user: string; who: string; sum: number; n: number; cats: Record<string, number> }
+export interface SpendVendor { cur: string; key: string; name: string; sum: number; n: number }
+export interface SpendTop { id: number; ymd: string; title: string; who: string; vendor: string | null; category_ko: string | null; category_en: string | null; amount: number; cur: string }
+export interface SpendAnalysis {
+  by_person: SpendPerson[];
+  by_vendor: SpendVendor[];
+  no_vendor: { cur: string; sum: number; n: number }[];
+  top: SpendTop[];                                   // 통화마다 큰 돈 5건
+  by_month: { cur: string; month: string; sum: number; n: number }[];
+}
+export const SPEND_TOP_N = 5;
+
+export function spendAnalysis(items: any[]): SpendAnalysis {
+  const person: Record<string, SpendPerson> = {};
+  const vend: Record<string, SpendVendor> = {};
+  const noV: Record<string, { cur: string; sum: number; n: number }> = {};
+  const month: Record<string, { cur: string; month: string; sum: number; n: number }> = {};
+  const all: SpendTop[] = [];
+  for (const r of (Array.isArray(items) ? items : [])) {
+    if (ledgerSpendState(r) !== 'ok') continue;
+    const amt = Number(r.amount);
+    const cur = normCurrency(r.currency);
+    const at = Number(r.created_at);
+    const ymd = isFinite(at) && at > 0 ? kstYmd(at) : '';
+    const user = String(r.requester_username || r.requester_name || '').trim();
+    const who = String(r.requester_name || r.requester_username || '').trim();
+    const ck = String(r.category || r.category_ko || '').trim();
+    // 사람 — 아이디로 묶고(동명이인), 보이는 이름은 이름
+    const pk = cur + '|' + user;
+    const p = person[pk] || (person[pk] = { cur, user, who, sum: 0, n: 0, cats: {} });
+    p.sum = add2(p.sum, amt); p.n++;
+    p.cats[ck] = add2(p.cats[ck] || 0, amt);
+    // 가게 — 열쇠는 vendorKey(대소문자·공백·기호 무시). 이름은 처음 본 표기.
+    const vName = String(r.vendor || '').trim();
+    const vk = vendorKey(vName);
+    if (vk.length >= 2) {
+      const v = vend[cur + '|' + vk] || (vend[cur + '|' + vk] = { cur, key: vk, name: vName, sum: 0, n: 0 });
+      v.sum = add2(v.sum, amt); v.n++;
+    } else {
+      const nv = noV[cur] || (noV[cur] = { cur, sum: 0, n: 0 });
+      nv.sum = add2(nv.sum, amt); nv.n++;
+    }
+    // 달
+    if (ymd) {
+      const mk = ymd.slice(0, 7);
+      const m = month[cur + '|' + mk] || (month[cur + '|' + mk] = { cur, month: mk, sum: 0, n: 0 });
+      m.sum = add2(m.sum, amt); m.n++;
+    }
+    all.push({ id: Number(r.id), ymd, title: String(r.title || ''), who, vendor: vName || null,
+               category_ko: r.category_ko || null, category_en: r.category_en || null, amount: amt, cur });
+  }
+  const byCurSum = (a: { cur: string; sum: number }, b: { cur: string; sum: number }) =>
+    a.cur !== b.cur ? (a.cur < b.cur ? -1 : 1) : b.sum - a.sum;
+  const top: SpendTop[] = [];
+  const curs = Array.from(new Set(all.map(t => t.cur))).sort();
+  for (const c of curs) {
+    top.push(...all.filter(t => t.cur === c).sort((a, b) => b.amount - a.amount || b.id - a.id).slice(0, SPEND_TOP_N));
+  }
+  return {
+    by_person: Object.keys(person).map(k => person[k]).sort((a, b) => byCurSum(a, b) || (a.who < b.who ? -1 : 1)),
+    by_vendor: Object.keys(vend).map(k => vend[k]).sort((a, b) => byCurSum(a, b) || (a.name < b.name ? -1 : 1)),
+    no_vendor: Object.keys(noV).sort().map(k => noV[k]),
+    top,
+    by_month: Object.keys(month).map(k => month[k]).sort((a, b) => a.cur !== b.cur ? (a.cur < b.cur ? -1 : 1) : (a.month < b.month ? -1 : 1)),
+  };
+}
+
+/** 비교할 «바로 앞 기간» — 이번 달 → 지난달 · 지난달 → 그 전달 · 최근 1년 → 그 앞 1년. 모르면 null. */
+export function ledgerPrevRange(period: unknown, today: string): { from: string; to: string } | null {
+  const p = String(period == null ? '' : period).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) return null;
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)), d = Number(today.slice(8, 10));
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  if (p === 'month') return archivePeriods(today).last_month;
+  if (p === 'last_month') return { from: iso(Date.UTC(y, m - 3, 1)), to: iso(Date.UTC(y, m - 2, 0)) };
+  if (p === 'year') return { from: iso(Date.UTC(y - 2, m - 1, d + 1)), to: iso(Date.UTC(y - 1, m - 1, d)) };
+  return null;
+}
+
+/** 경고를 띄우는 최소 금액 차이 — 금액이 작은 항목의 %는 흔들리기 쉽다. 모르는 통화는 경고 안 함. */
+export const SPEND_FLAG_MIN: Record<string, number> = { PHP: 1000, KRW: 50000 };
+export const SPEND_FLAG_PCT = 50;
+
+export interface SpendCmpRow { cur: string; key: string; ko: string | null; en: string | null; now: number; prev: number; diff: number; pct: number | null; flag: boolean }
+export function compareSpend(
+  now: { totals: { cur: string; sum: number }[]; by_category: LedgerCat[] },
+  prev: { totals: { cur: string; sum: number }[]; by_category: LedgerCat[] },
+): { totals: SpendCmpRow[]; rows: SpendCmpRow[] } {
+  const mk = (cur: string, key: string, ko: string | null, en: string | null, a: number, b: number): SpendCmpRow => {
+    const diff = Math.round((a - b) * 100) / 100;
+    const pct = b > 0 ? Math.round(diff / b * 100) : null;
+    const min = SPEND_FLAG_MIN[cur];
+    const flag = !!min && diff >= min && (b === 0 || (pct != null && pct >= SPEND_FLAG_PCT));
+    return { cur, key, ko, en, now: a, prev: b, diff, pct, flag };
+  };
+  const rows: Record<string, SpendCmpRow> = {};
+  for (const c of (now?.by_category || [])) rows[c.cur + '|' + c.key] = mk(c.cur, c.key, c.ko, c.en, c.sum, 0);
+  for (const c of (prev?.by_category || [])) {
+    const k = c.cur + '|' + c.key, r = rows[k];
+    rows[k] = r ? mk(c.cur, c.key, r.ko || c.ko, r.en || c.en, r.now, c.sum) : mk(c.cur, c.key, c.ko, c.en, 0, c.sum);
+  }
+  const tot: Record<string, SpendCmpRow> = {};
+  for (const t of (now?.totals || [])) tot[t.cur] = mk(t.cur, '', null, null, t.sum, 0);
+  for (const t of (prev?.totals || [])) { const r = tot[t.cur]; tot[t.cur] = mk(t.cur, '', null, null, r ? r.now : 0, t.sum); }
+  return {
+    totals: Object.keys(tot).sort().map(k => tot[k]),
+    // 통화 → 경고 먼저 → 차이가 큰 순
+    rows: Object.keys(rows).map(k => rows[k]).sort((a, b) =>
+      a.cur !== b.cur ? (a.cur < b.cur ? -1 : 1) : (a.flag !== b.flag ? (a.flag ? -1 : 1) : (Math.abs(b.diff) - Math.abs(a.diff)))),
+  };
 }
 
 /* 📷 결재 카드의 영수증 미리보기 (12단계, 2026-09-25 — 제안서 ② «카드 맨 위에 요약 + 신호등 + 영수증 사진»)

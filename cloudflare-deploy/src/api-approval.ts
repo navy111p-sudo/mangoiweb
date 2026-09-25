@@ -65,6 +65,7 @@ import {
   isNewVendor, EXEC_WATCH_CODES,
   fileKind, fileDisposition,                           // 📷 카드 안 영수증 사진(12단계)
   ledgerFrom, ledgerRange,                             // 📒 간단 회계장부(12단계) · 📅 장부 기간(13단계)
+  spendAnalysis, ledgerPrevRange, compareSpend,        // 📊 지출 분석(15단계)
   misfileGuess, MISFILE_FROM,                          // 🔀 잘못 고른 분류(14단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
@@ -822,6 +823,7 @@ function rowOf(r: any, steps?: any[], brief = false) {
     category_en: catSpec ? catSpec.en : null,
     category_account: catSpec ? catSpec.account : null,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
+    vendor: r.vendor || null,                            // 🏪 가게(영수증 판독·사람 입력) — 📊 지출 분석 가게별(15단계)
     date_from: r.date_from || null, date_to: r.date_to || null,
     hr_kind: r.hr_kind || null, period: r.period || null,
     requester_username: r.requester_username, requester_name: r.requester_name,
@@ -2003,8 +2005,9 @@ export async function handleApprovalApi(
     const report = url.searchParams.get('view') === 'report' || ledger;
     /* 📅 장부 기간(13단계) — 화면은 «이름»(month·last_month·year)만 보내고 날짜는 서버가 KST 로 정한다.
        모르는 이름이면 ledgerRange 가 null 이라 주소의 from/to 를 그대로 쓴다. */
+    const todayKst = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
     if (ledger) {
-      const rg = ledgerRange(url.searchParams.get('period'), new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10));
+      const rg = ledgerRange(url.searchParams.get('period'), todayKst);
       if (rg) { from = rg.from; to = rg.to; }
     }
     /* 🗂 결재 보관함(시안 A) — 함 옆 건수. 새 경로를 만들지 않는다(같은 이유). */
@@ -2124,9 +2127,34 @@ export async function handleApprovalApi(
         const L = ledgerFrom(items);
         /* 📤 장부 그대로 엑셀(13단계) — 화면과 «같은 줄·같은 합계». 빠진 것(대기·금액없음·잘림)도 파일에 적는다. */
         if (csv) return ledgerCsvResponse(L, { from, to, truncated: hasMore, max: REPORT_MAX, stepsMissing });
+        /* 📊 지출 분석(15단계) — 같은 items(canView 를 지난 것)로 사람·가게·달·큰 지출을 센다.
+           비교는 «바로 앞 기간» 을 **같은 조건·같은 거르기** 로 한 번 더 읽는다.
+           ⚠️ 못 읽으면 compare 는 null — 화면이 «비교 못 함» 이라고 말한다(0원으로 그리지 않는다). */
+        let compare: any = null, prev: any = null;
+        const pr = ledgerPrevRange(url.searchParams.get('period'), todayKst);
+        if (pr) {
+          try {
+            const Q2 = buildFindQuery({ scope, me, q, type: fType, status: fStat, category: fCat, from: pr.from, to: pr.to, decidedBy: fBy });
+            const rs2 = await env.DB.prepare('SELECT * FROM approval_requests' + Q2.cond + Q2.order + ' LIMIT ?')
+              .bind(...Q2.binds, limit + 1).all<any>();
+            const rows2 = rs2.results || [];
+            const more2 = rows2.length > limit;
+            const page2 = more2 ? rows2.slice(0, limit) : rows2;
+            const stepMap2 = await stepsByRequest(env, page2.map((r: any) => Number(r.id)));
+            const items2: any[] = [];
+            for (const r of page2) {
+              const st2 = stepMap2[Number(r.id)] || [];
+              if (!canView(actor, r.req_type, r.requester_username, chainUsers(st2), ph)) continue;   // ⛔ 인사·급여가 섞이지 않게(위와 같은 거르기)
+              items2.push(rowOf(r, st2, true));
+            }
+            compare = compareSpend(L, ledgerFrom(items2));
+            prev = { from: pr.from, to: pr.to, truncated: more2, steps_missing: page2.length > 0 && Object.keys(stepMap2).length === 0 };
+          } catch { compare = null; prev = null; }
+        }
         return json({
           ok: true, ledger: L.rows, totals: L.totals, by_category: L.by_category, pending: L.pending, no_amount: L.no_amount,
           truncated: hasMore, max: REPORT_MAX, steps_missing: stepsMissing, scope, from, to,
+          analysis: spendAnalysis(items), compare, prev,
         });
       }
       return json({
