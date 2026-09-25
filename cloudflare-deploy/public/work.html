@@ -420,6 +420,29 @@ html.dark .no:hover{background:#3a1a16}
 html.dark .rthumb img{border-color:#2f3d39;background:#1a2421}
 html.dark .lnk{color:#4fc0b0}
 
+/* 📎 첨부 미리보기 창 (2026-09-25 사장님 «첨부보기를 누르면 바로 여기서 보이게 · 다운로드 버튼도»)
+   ⚠️ z-index 는 긴급 사이렌(#siren 100050) «아래» — 긴급 알림이 미리보기에 가리면 안 된다. */
+#attov{position:fixed;inset:0;z-index:100040;background:rgba(10,16,24,.72);display:none;
+  align-items:center;justify-content:center;padding:14px}
+#attov.on{display:flex}
+#attov .attbox{background:#fff;color:#101828;border-radius:12px;width:min(960px,100%);height:min(92vh,100%);
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+html.dark #attov .attbox{background:#16202c;color:#e8eef5}
+#attov .atthead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #e3e9ef}
+html.dark #attov .atthead{border-bottom-color:#2f3d39}
+#attov .attname{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#attov .attbtn{font:inherit;font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;min-height:40px;
+  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap;border:1px solid transparent}
+#attov .attdl{background:#0b6e63;color:#fff}
+#attov .attx{background:#fff;color:#344054;border-color:#cbd5d2}
+html.dark #attov .attx{background:#1d2836;color:#e8eef5;border-color:#33404f}
+#attov .attbody{flex:1;min-height:0;overflow:auto;background:#eef2f1;padding:10px;text-align:center}
+html.dark #attov .attbody{background:#0f1720}
+#attov .attbody img,#attov .attbody canvas{display:block;margin:0 auto 10px;max-width:100%;height:auto;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+#attov .attmsg{padding:28px 12px;font-size:14px;color:#475467}
+html.dark #attov .attmsg{color:#a9b6c4}
+
 /* 반려 사유 — 버튼으로. 타이핑은 필요할 때만 */
 .why{margin-top:9px;padding:10px;border:1px dashed #ccd4de;border-radius:8px}
 html.dark .why{border-color:#33404f}
@@ -770,6 +793,146 @@ function when(ms){
 }
 function offline(on){ document.body.classList.toggle('is-off', !!on); }
 var toastT = null;
+/* ══════════════════════════════════════════════════════════════════════════
+   📎 첨부 미리보기 (2026-09-25 사장님 「첨부보기를 누르면 꼭 다운을 받아서 봐야 해서 불편 —
+      바로 여기서 보이게, 거기서 다운로드 버튼」)
+   · 사진 = 서버가 이미 주는 ?inline=1 을 <img> 로.
+   · PDF  = 브라우저 PDF 뷰어에 띄우지 않는다(approval-policy.ts fileDisposition 의 결정 그대로 —
+            서버는 PDF 를 계속 «내려받기» 로 준다). 대신 pdf.js 가 fetch 로 받아 <canvas> 에 그린다.
+            안드로이드 크롬은 iframe 에 PDF 를 못 띄우므로 이 방식이라야 폰에서도 보인다.
+            ⚠️ isEvalSupported:false — pdf.js 3.11.174 의 CVE-2024-4367(글꼴로 JS 실행) 차단.
+   · 다운로드 = 예전 주소(attachment) 를 같은 창 링크로. ⛔ window.open 금지(인앱 브라우저는 null 만 돌려줌).
+   · 모르는 형식(file_kind 없음)은 가로채지 않는다 — 예전처럼 내려받기.
+   ══════════════════════════════════════════════════════════════════════════ */
+function attData(r){
+  var k = r.file_kind === 'image' || r.file_kind === 'pdf' ? r.file_kind : '';
+  if (!k) return '';
+  return ' data-att="' + esc(r.id) + '" data-kind="' + k + '" data-name="' + esc(r.file_name || '') + '"';
+}
+var ATT_SEQ = 0, PDFJS_P = null;
+function loadScript(u){
+  return new Promise(function(ok, no){
+    var s = document.createElement('script'); s.src = u; s.onload = ok; s.onerror = no;
+    document.head.appendChild(s);
+  });
+}
+function loadPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (PDFJS_P) return PDFJS_P;
+  var V = '3.11.174';
+  PDFJS_P = loadScript('/js/pdf.min.js?v=' + V).then(function(){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=' + V;
+    return window.pdfjsLib;
+  }).catch(function(){
+    return loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + V + '/pdf.min.js').then(function(){
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + V + '/pdf.worker.min.js';
+      return window.pdfjsLib;
+    });
+  });
+  PDFJS_P.catch(function(){ PDFJS_P = null; });   // 실패하면 다음 번에 다시 시도
+  return PDFJS_P;
+}
+function attEl(){
+  var ov = document.getElementById('attov');
+  if (ov) return ov;
+  ov = document.createElement('div');
+  ov.id = 'attov';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML = '<div class="attbox"><div class="atthead"><div class="attname" id="attName"></div>' +
+    '<a class="attbtn attdl" id="attDl" href="#"></a>' +
+    '<button type="button" class="attbtn attx" id="attX"></button></div>' +
+    '<div class="attbody" id="attBody"></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if (e.target === ov) closeAtt(); });
+  document.getElementById('attX').addEventListener('click', closeAtt);
+  return ov;
+}
+function closeAtt(){
+  ATT_SEQ++;                                   // 그리는 중이던 PDF 는 스스로 멈춘다
+  var ov = document.getElementById('attov');
+  if (!ov || !ov.classList.contains('on')) return;
+  ov.classList.remove('on');
+  document.getElementById('attBody').innerHTML = '';
+  document.documentElement.style.overflow = '';
+}
+function attFail(body, seq){
+  if (seq !== ATT_SEQ) return;
+  body.innerHTML = '<div class="attmsg">' + esc(T(
+    'Could not show the file here. Use the Download button above.',
+    '여기서 파일을 보여 드리지 못했습니다. 위의 «다운로드» 버튼으로 받아 보세요.')) + '</div>';
+}
+function openAtt(id, kind, name){
+  var ov = attEl(), seq = ++ATT_SEQ;
+  var base = '/api/approval/requests/' + encodeURIComponent(id) + '/file';
+  document.getElementById('attName').textContent = name || T('Attachment', '첨부 파일');
+  var dl = document.getElementById('attDl');
+  dl.href = base;
+  dl.textContent = T('Download', '다운로드');
+  document.getElementById('attX').textContent = T('Close', '닫기');
+  var body = document.getElementById('attBody');
+  body.innerHTML = '<div class="attmsg">' + esc(T('Loading…', '불러오는 중…')) + '</div>';
+  ov.classList.add('on');
+  document.documentElement.style.overflow = 'hidden';
+
+  if (kind === 'image') {
+    var img = new Image();
+    img.alt = name || '';
+    img.onload = function(){ if (seq === ATT_SEQ) { body.innerHTML = ''; body.appendChild(img); } };
+    img.onerror = function(){ attFail(body, seq); };
+    img.src = base + '?inline=1';
+    return;
+  }
+  loadPdfJs().then(function(lib){
+    if (seq !== ATT_SEQ) return null;
+    return lib.getDocument({ url: base, isEvalSupported: false, withCredentials: true }).promise;
+  }).then(function(pdf){
+    if (!pdf || seq !== ATT_SEQ) return;
+    body.innerHTML = '';
+    var MAXP = 40, n = Math.min(pdf.numPages, MAXP);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var p = Promise.resolve();
+    for (var i = 1; i <= n; i++) (function(no){
+      p = p.then(function(){
+        if (seq !== ATT_SEQ) return;
+        return pdf.getPage(no).then(function(pg){
+          if (seq !== ATT_SEQ) return;
+          var w = Math.max(200, body.clientWidth - 20);
+          var vp1 = pg.getViewport({ scale: 1 });
+          var cssScale = Math.min(w / vp1.width, 2);
+          var vp = pg.getViewport({ scale: cssScale * dpr });
+          var c = document.createElement('canvas');
+          c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+          c.style.width = Math.floor(vp.width / dpr) + 'px';
+          body.appendChild(c);
+          return pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        });
+      });
+    })(i);
+    return p.then(function(){
+      if (seq === ATT_SEQ && pdf.numPages > MAXP) {
+        var m = document.createElement('div');
+        m.className = 'attmsg';
+        m.textContent = T('Showing the first ' + MAXP + ' of ' + pdf.numPages + ' pages — download to see all.',
+                          '전체 ' + pdf.numPages + '쪽 중 앞 ' + MAXP + '쪽만 보여 드립니다 — 전부 보려면 다운로드하세요.');
+        body.appendChild(m);
+      }
+    });
+  }).catch(function(e){
+    try { console.warn('[att] preview failed', e); } catch (x) {}
+    attFail(body, seq);
+  });
+}
+document.addEventListener('click', function(e){
+  var a = e.target && e.target.closest ? e.target.closest('a[data-att]') : null;
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) return;
+  var kind = a.getAttribute('data-kind');
+  if (kind !== 'image' && kind !== 'pdf') return;
+  e.preventDefault();
+  openAtt(a.getAttribute('data-att'), kind, a.getAttribute('data-name'));
+});
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeAtt(); });
+
 function toast(msg){
   var t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show';
@@ -2142,12 +2305,13 @@ function itemHtml(r, decidable, ackable){
      loading=lazy 라 화면에 들어올 때만 받는다. 못 불러오면 사진 칸만 숨기고 «첨부 보기» 링크는 남는다. */
   if (r.has_file && decidable && r.file_kind === 'image') {
     var src = '/api/approval/requests/' + r.id + '/file?inline=1';
-    h += '<a class="rthumb" href="' + src + '" target="_blank" rel="noopener">' +
+    h += '<a class="rthumb" href="' + src + '" target="_blank" rel="noopener"' + attData(r) + '>' +
          '<img loading="lazy" alt="' + esc(T('Receipt photo', '영수증 사진')) + '" src="' + src + '"' +
          ' onerror="this.parentNode.style.display=\'none\'"></a>';
   }
   if (r.has_file) {
-    h += '<div><a class="lnk" href="/api/approval/requests/' + r.id + '/file">' +
+    // 📎 누르면 이 화면 안에서 연다(openAtt). href 는 그대로 «내려받기» — JS 가 죽으면 예전처럼 받는다.
+    h += '<div><a class="lnk" href="/api/approval/requests/' + r.id + '/file"' + attData(r) + '>' +
          esc(T('Receipt', '첨부 보기')) + (r.file_name ? ' (' + esc(r.file_name) + ')' : '') + '</a></div>';
   }
 
