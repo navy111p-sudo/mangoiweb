@@ -31,7 +31,8 @@
   }
   var TRK = {
     live_ai: { c: 'stk-live', en: 'Video + AI', ko: '화상+AI' },
-    ai_only: { c: 'stk-ai', en: 'AI only', ko: 'AI만' },
+    ai_only: { c: 'stk-ai', en: 'A.i-only sign-up', ko: 'A.i 단독 신청' },
+    idle: { c: 'stk-none', en: 'No class record', ko: '수업 기록 없음' },   // (2026-09-25) 재원 · 화상 기록·A.i 신청 없음 — 청구 안 함
     none: { c: 'stk-none', en: 'Not enrolled', ko: '재원 아님' },
     unknown: { c: 'stk-unk', en: 'Unknown', ko: '확인 못 함' }
   };
@@ -115,10 +116,12 @@
     var h = '<div class="stk-kpis">'
       + '<div class="stk-kpi l"><b>' + ts.live + '</b><small>🎥 ' + esc(T('Video + AI', '화상+AI')) + '</small>'
       + '<small>' + esc(T('AI included in video tuition', 'A.i 는 화상 수강료에 포함')) + '</small></div>'
-      + '<div class="stk-kpi a"><b>' + ts.ai_only + '</b><small>🤖 ' + esc(T('AI only', 'AI만')) + '</small>'
-      + '<small>' + esc(T('Enrolled · AI usage fee applies', '재원 중 · A.i 사용료 대상')) + '</small></div></div>';
-    h += '<div class="stk-note">' + esc(T('By branch — video + AI / AI only. Open a branch, then pick an academy to see its students.',
-      '지사별 — 화상+AI / AI만. 지사를 펼친 뒤 대리점을 누르면 그 학생들이 나옵니다.')) + '</div>';
+      + '<div class="stk-kpi a"><b>' + ts.ai_only + '</b><small>🤖 ' + esc(T('A.i-only sign-up', 'A.i 단독 신청')) + '</small>'
+      + '<small>' + esc(T('Signed up · AI usage fee applies', '신청한 학생 · A.i 사용료 대상')) + '</small></div>'
+      + '<div class="stk-kpi"><b>' + (ts.idle || 0) + '</b><small>' + esc(T('No class record', '수업 기록 없음')) + '</small>'
+      + '<small>' + esc(T('Enrolled · no video class, not signed up · not billed', '재원 · 화상 기록·A.i 신청 없음 · 청구 안 함')) + '</small></div></div>';
+    h += '<div class="stk-note">' + esc(T('By branch — video + AI / A.i-only sign-ups. Open a branch, then pick an academy to see its students.',
+      '지사별 — 화상+AI / A.i 단독 신청. 지사를 펼친 뒤 대리점을 누르면 그 학생들이 나옵니다.')) + '</div>';
     order.forEach(function (f) {
       var g = byF[f], open = !!S.openF[f];
       h += '<a class="stk-row fr" role="button" tabindex="0" data-stk="fr" data-f="' + esc(f) + '">'
@@ -142,9 +145,10 @@
     if (S.listErr) { el.innerHTML = back + title + '<div class="stk-note">' + esc(T('Could not load. (', '불러오지 못했습니다. (') + S.listErr + ')') + '</div>'; return; }
     if (!S.list) { el.innerHTML = back + title + '<div class="stk-note">' + esc(T('Loading...', '불러오는 중...')) + '</div>'; return; }
     var all = S.list.students || [];
-    var cnt = { all: all.length, live_ai: 0, ai_only: 0, none: 0, unknown: 0 };
+    var cnt = { all: all.length, live_ai: 0, ai_only: 0, idle: 0, none: 0, unknown: 0 };
     all.forEach(function (s) { cnt[trkOf(s)]++; });
-    var tabs = [['all', T('All', '전체')], ['live_ai', '🎥 ' + T('Video + AI', '화상+AI')], ['ai_only', '🤖 ' + T('AI only', 'AI만')]];
+    var tabs = [['all', T('All', '전체')], ['live_ai', '🎥 ' + T('Video + AI', '화상+AI')], ['ai_only', '🤖 ' + T('A.i-only sign-up', 'A.i 단독 신청')]];
+    if (cnt.idle) tabs.push(['idle', T('No class record', '수업 기록 없음')]);
     if (cnt.none) tabs.push(['none', T('Not enrolled', '재원 아님')]);
     if (cnt.unknown) tabs.push(['unknown', '❓ ' + T('Unknown', '확인 못 함')]);
     if (!tabs.some(function (t) { return t[0] === S.tab; })) S.tab = 'all';

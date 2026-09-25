@@ -257,40 +257,50 @@ if (DatabaseSync && sqlM) {
 }
 
 /* ══ ⑧ currentRoster — 화상반 제외 · 조회 실패면 아무도 청구 안 함 ═══════ */
-sec('[⑧] currentRoster() — 재원 − 화상반 · 실패하면 청구 0명');
+sec('[⑧] currentRoster() — 재원 ∩ 신청 − 화상반 · 실패하면 청구 0명');
 {
   const decl = fnDecl(billSrc, 'currentRoster');
   check('currentRoster 를 오려 냈다 (전제)', decl.length > 50);
   let roster = null;
   try {
     const js = stripTypeScriptTypes(decl);
-    roster = new Function('enrolledCond', 'hiddenExcludeCond', 'loadLiveUids', js + '\nreturn currentRoster;')(
-      () => '1=1', async () => '', async () => null);
+    roster = new Function('enrolledCond', 'hiddenExcludeCond', 'loadLiveUids', 'loadAiOptIns', js + '\nreturn currentRoster;')(
+      () => '1=1', async () => '', async () => null, async () => null);
   } catch (e) { check('currentRoster 실행 준비', false, e.message); }
   if (roster && DatabaseSync && sqlM) {
     const db = makeDb();
     const envOf = (d) => ({ DB: { prepare: (sql) => ({ bind: (...a) => ({ all: async () => ({ results: d.prepare(sql).all(...a) }) }) }) } });
-    const run = async (live, d = db) => { try { return await roster(envOf(d), '망고학원', live); } catch (e) { return { ok: 'threw', rows: [], err: e.message }; } };
+    // 신청 명단 — ai_only1·c24_old 만 신청, sched_live 는 신청했지만 화상반(화상반이 이긴다)
+    const OPT = new Set(['ai_only1', 'c24_old', 'sched_live']);
+    const ALL_OPT = new Set(['sched_live', 'c24_recent', 'c24_future', 'c24_old', 'class_acct', 'device_only', 'ai_only1', 'ai_only2', 'sched_cancel', 'mixed01']);
+    const run = async (live, d = db, opt = OPT) => { try { return await roster(envOf(d), '망고학원', live, opt); } catch (e) { return { ok: 'threw', rows: [], err: e.message }; } };
     const r = await run(liveSet(db));
     const ids = (r.rows || []).map(x => x.user_id).sort();
+    const idle = (r.idle_rows || []).map(x => x.user_id).sort();
     check('화상반 4명(예약·카페24 둘·수업방 계정) 빠짐', r.ok === true && r.live_excluded === 4, JSON.stringify({ ok: r.ok, ex: r.live_excluded }));
-    check('A.i반만 남는다 (c24_old · device_only · ai_only1·2 · sched_cancel)',
-      JSON.stringify(ids) === JSON.stringify(['ai_only1', 'ai_only2', 'c24_old', 'device_only', 'sched_cancel']), JSON.stringify(ids));
+    check('청구 = 신청한 학생만 (ai_only1 · c24_old)', JSON.stringify(ids) === JSON.stringify(['ai_only1', 'c24_old']), JSON.stringify(ids));
+    check('(짝) 신청 안 한 학원생은 «신청 안 함» 으로 따로 (청구 안 함)',
+      JSON.stringify(idle) === JSON.stringify(['ai_only2', 'device_only', 'sched_cancel']), JSON.stringify(idle));
+    check('(짝) 신청했어도 화상반이면 청구 안 함 — 화상반이 이긴다 (sched_live)', !ids.includes('sched_live') && !idle.includes('sched_live'));
+    const none = await run(liveSet(db), db, new Set());
+    check('신청이 한 명도 없으면 청구 0명 (테스트 기간 실측 상태)', none.ok === true && none.rows.length === 0 && (none.idle_rows || []).length === 5, JSON.stringify({ n: none.rows.length, i: (none.idle_rows || []).length }));
+    const of = await run(liveSet(db), db, null);
+    check('신청 명단 조회 실패(null) → ok=false · 0명', of.ok === false && (of.rows || []).length === 0, JSON.stringify(of));
     {
       const db2 = makeDb();
       db2.prepare('INSERT INTO attendance (user_id,account_uid,room_id,joined_at) VALUES (?,?,?,?)').run('AI_ONLY1', null, 'c24-2001', NOW - DAY);
       // 명부 쪽이 대문자인 경우도 — 씨앗 'mixed01' ↔ 명부 'Mixed01' (양쪽을 다 소문자로 맞춰야 잡힌다)
       db2.prepare('INSERT INTO students_erp (user_id,korean_name,username,shop_name) VALUES (?,?,?,?)').run('Mixed01', '학생 M', 'Mixed01', '망고학원');
       db2.prepare('INSERT INTO attendance (user_id,account_uid,room_id,joined_at) VALUES (?,?,?,?)').run('mixed01', null, 'c24-2002', NOW - DAY);
-      const r2 = await run(liveSet(db2), db2);
-      check('(전제) db2 명부에 Mixed01 이 있다 — 화상반이 아니면 남았을 학생', (await run(new Set(), db2)).rows.some(x => x.user_id === 'Mixed01'));
+      const r2 = await run(liveSet(db2), db2, ALL_OPT);
+      check('(전제) db2 명부에 Mixed01 이 있다 — 화상반이 아니면 남았을 학생', (await run(new Set(), db2, ALL_OPT)).rows.some(x => x.user_id === 'Mixed01'));
       check('대소문자만 다른 카페24 씨앗(AI_ONLY1)도 화상반으로 뺀다', r2.ok === true && !(r2.rows || []).some(x => x.user_id === 'ai_only1'));
       check('명부가 대문자(Mixed01)·씨앗이 소문자여도 화상반으로 뺀다', r2.ok === true && !(r2.rows || []).some(x => x.user_id === 'Mixed01'));
     }
     const f = await run(null);
     check('화상반 조회 실패(null) → ok=false · 0명 (이중 청구보다 안 받는다)', f.ok === false && (f.rows || []).length === 0, JSON.stringify(f));
-    const all = await run(new Set());
-    check('(짝) 화상반이 없으면 재원 전원', all.ok === true && all.rows.length === 9);
+    const all = await run(new Set(), db, ALL_OPT);
+    check('(짝) 화상반이 없고 전원 신청하면 재원 전원', all.ok === true && all.rows.length === 9);
   }
 }
 
@@ -311,9 +321,11 @@ sec('[⑨] 배선 — 청구서·이력·결제·미리보기가 같은 정본�
   check('생성: 화상반 조회는 청구서 머리 INSERT «앞» (실패 시 빈 청구서가 안 남는다)', /if \(!live\) return/.test(gen) && gen.indexOf('if (!live) return') < gen.indexOf('INSERT INTO ai_billing_invoices'));
   for (const f of ['branch.html', 'manager.html']) check(`${f}: 옛 형식 캐시 키(aibill)를 안 쓴다`, !/'aibill'/.test(readFileSync(join(PUB, f), 'utf8')));
   const mon = fnDecl(billCode, 'generateMonthlyAiInvoices');
-  check('월 cron: 화상반을 «한 번» 읽고 실패하면 청구서 0장', /loadLiveUids\(env\)/.test(mon) && /if \(!live\) \{/.test(mon) && mon.indexOf('if (!live) {') < mon.indexOf('for (const s of shops)') && /generateOrRefreshInvoice\([^)]*live\)/.test(mon));
+  check('월 cron: 화상반·신청 명단을 «한 번» 읽고 실패하면 청구서 0장', /loadLiveUids\(env\)/.test(mon) && /loadAiOptIns\(env\)/.test(mon) && /if \(!live \|\| !optIn\) \{/.test(mon) && mon.indexOf('if (!live || !optIn) {') < mon.indexOf('for (const s of shops)') && /generateOrRefreshInvoice\([^)]*live, optIn, true\)/.test(mon));
+  check('월 cron: 자동 청구 스위치를 대리점 목록보다 «먼저» 본다', /billingEnabled\(env\)/.test(mon) && mon.indexOf('billingEnabled(env)') < mon.indexOf('FROM students_erp'));
   const rateGet = billCode.slice(billCode.indexOf("p === 'rate' && method === 'GET'"), billCode.indexOf("p === 'rate' && method === 'POST'"));
-  check('/rate: 화상반을 빼고(aiCount) 정본 aiPrice 로 계산', /live\.has\(/.test(rateGet) && /aiPrice\(aiCount/.test(rateGet));
+  check('/rate: 화상반을 빼고 «신청한» 학생만(aiCount) 정본 aiPrice 로 계산', /live\.has\(/.test(rateGet) && /optIn\.has\(/.test(rateGet) && /aiPrice\(aiCount/.test(rateGet));
+  check('/rate: «재원 − 화상반» 옛 식으로 되돌리지 않았다', !/aiCount = g\.enrolled - g\.live/.test(rateGet));
 
   const adm = stripComments(readFileSync(join(PUB, 'js/adm-ai-billing.js'), 'utf8'));
   check('관리자 화면: 인원 × 단가를 다시 계산하지 않는다', !/enrolled_count\)\s*\*|aibRecalc/.test(adm));
@@ -339,12 +351,18 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     plan = new Function(stripTypeScriptTypes(fnDecl(billSrc, 'planItemTrackSync').replace(/^export\s+/, '')) + '\nreturn planItemTrackSync;')();
   } catch (e) { check('planItemTrackSync 실행 준비', false, e.message); }
   check('planItemTrackSync 를 오려 냈다 (전제)', typeof plan === 'function');
-  const P2 = (items, live, roster) => { try { return plan(items, new Set(live), new Set(roster)); } catch (e) { return [{ err: e.message }]; } };
+  const P2 = (items, live, roster, opt = roster) => { try { return plan(items, new Set(live), new Set(roster), new Set(opt)); } catch (e) { return [{ err: e.message }]; } };
   if (plan) {
     const r1 = P2([{ id: 1, student_user_id: 'A', included: 1, user_set: 0, track: 'ai' }], ['a'], ['a']);
     check('A.i반이던 학생이 화상반이 되면 자동으로 뺀다 (대소문자 무시)', r1.length === 1 && r1[0].included === 0 && r1[0].track === 'live', JSON.stringify(r1));
     const r2 = P2([{ id: 2, student_user_id: 'b', included: 0, user_set: 0, track: 'live' }], [], ['b']);
-    check('화상반이던 학생이 A.i반이 되면 자동으로 다시 넣는다', r2.length === 1 && r2[0].included === 1 && r2[0].track === 'ai', JSON.stringify(r2));
+    check('화상반이던 학생이 «신청한» A.i 단독이 되면 자동으로 다시 넣는다', r2.length === 1 && r2[0].included === 1 && r2[0].track === 'ai', JSON.stringify(r2));
+    const r2b = P2([{ id: 21, student_user_id: 'b2', included: 0, user_set: 0, track: 'live' }], [], ['b2'], []);
+    check('(짝) 화상반이 끝나도 신청 안 했으면 «신청 안 함» — 넣지 않는다', r2b.length === 1 && r2b[0].included === 0 && r2b[0].track === 'none', JSON.stringify(r2b));
+    const r2c = P2([{ id: 22, student_user_id: 'b3', included: 1, user_set: 0, track: 'ai' }], [], ['b3'], []);
+    check('신청 명단에서 빠진 학생은 자동으로 청구에서 뺀다', r2c.length === 1 && r2c[0].included === 0 && r2c[0].track === 'none', JSON.stringify(r2c));
+    const r2d = P2([{ id: 23, student_user_id: 'b4', included: 1, user_set: 1, track: 'ai' }], [], ['b4'], []);
+    check('(짝) 학원이 확인한 줄은 신청이 없어도 포함 여부를 안 바꾼다 (표시만)', r2d.length === 1 && r2d[0].included === 1 && r2d[0].track === 'none', JSON.stringify(r2d));
     const r3 = P2([{ id: 3, student_user_id: 'c', included: 1, user_set: 1, track: 'live' }], ['c'], ['c']);
     check('(짝) 학원이 확인한 줄(user_set=1)은 포함 여부를 안 바꾼다', r3.length === 0, JSON.stringify(r3));
     const r3b = P2([{ id: 4, student_user_id: 'd', included: 0, user_set: 1, track: 'ai' }], [], ['d']);
@@ -370,6 +388,7 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     ins.run('turnlive', 'T', 1, 'ai', 0);    // A.i반 → 화상반이 됨 → 자동 제외
     ins.run('confirmed', 'C', 1, 'live', 1); // 학원이 «화상반 아님» 으로 확인해 넣음 → 그대로
     ins.run('left', 'L', 1, 'ai', 0);        // 명부에서 사라짐 → 그대로
+    ins.run('wasai', 'W', 1, 'ai', 0);       // 옛 규칙으로 포함됐지만 신청 안 함 → 자동 제외
     const mk = (sql) => { const st = d.prepare(sql); const bound = (a) => ({ _st: st, _a: a,
       all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { meta: { changes: Number(r.changes) } }; } });
       return { bind: (...a) => bound(a) }; };
@@ -377,17 +396,20 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     const aiRows = [{ user_id: 'ai1', name: 'A1' }];
     const liveRows = [{ user_id: 'turnlive', name: 'T' }, { user_id: 'confirmed', name: 'C' }, { user_id: 'newlive', name: 'N' }];
     const live = new Set(['turnlive', 'confirmed', 'newlive']);
+    const idleRows = [{ user_id: 'wasai', name: 'W' }, { user_id: 'idle1', name: 'I' }];
     let res = null;
-    try { res = await syncFn(env, 1, liveRows, aiRows, live, 0, 0); } catch (e) { res = { err: e.message }; }
+    try { res = await syncFn(env, 1, liveRows, aiRows, live, 0, 0, idleRows); } catch (e) { res = { err: e.message }; }
     const row = (u) => d.prepare('SELECT included, track, user_set FROM ai_billing_invoice_items WHERE student_user_id=?').get(u) || {};
     check('새 화상반 학생은 «체크 해제된 줄» 로 명세에 보인다', row('newlive').included === 0 && row('newlive').track === 'live', JSON.stringify(row('newlive')));
     check('A.i반→화상반 학생은 자동 제외된다', row('turnlive').included === 0 && row('turnlive').track === 'live', JSON.stringify(row('turnlive')));
     check('(짝) 학원이 확인해 넣은 학생은 그대로 포함', row('confirmed').included === 1 && row('confirmed').user_set === 1, JSON.stringify(row('confirmed')));
     check('(짝) A.i반 학생은 그대로 포함', row('ai1').included === 1 && row('ai1').track === 'ai');
     check('(짝) 명부에서 사라진 학생은 손대지 않는다', row('left').included === 1);
-    check('결과 숫자: 새로 보인 화상반 1 · 자동 제외 1', res && res.live_listed === 1 && res.auto_excluded === 1, JSON.stringify(res));
+    check('신청 안 한 학원생은 «체크 해제된 줄»(none) 로 보인다', row('idle1').included === 0 && row('idle1').track === 'none', JSON.stringify(row('idle1')));
+    check('옛 규칙으로 들어간 미신청 학생은 자동 제외된다', row('wasai').included === 0 && row('wasai').track === 'none', JSON.stringify(row('wasai')));
+    check('결과 숫자: 새로 보인 화상반 1 · 신청 안 함 1 · 자동 제외 2', res && res.live_listed === 1 && res.idle_listed === 1 && res.auto_excluded === 2, JSON.stringify(res));
     const bad = { DB: { prepare: () => { throw new Error('no such column: track'); }, batch: async () => [] } };
-    let r7; try { r7 = await syncFn(bad, 1, liveRows, aiRows, live, 0, 0); } catch (e) { r7 = 'threw'; }
+    let r7; try { r7 = await syncFn(bad, 1, liveRows, aiRows, live, 0, 0, idleRows); } catch (e) { r7 = 'threw'; }
     check('칸이 없는 DB 에서도 던지지 않는다 (옛 동작으로 남음)', r7 !== 'threw' && r7.auto_excluded === 0, JSON.stringify(r7));
   }
   const gen = fnDecl(billCode, 'generateOrRefreshInvoice');
@@ -414,7 +436,7 @@ sec('[⑪] 월 자동 청구 결과 기록 — 실패가 보이는가');
   try {
     const src = [fnDecl(billSrc, 'generateMonthlyAiInvoices'), fnDecl(billSrc, 'recordCronRun'), fnDecl(billSrc, 'readCronRun')]
       .map(d => stripTypeScriptTypes(d.replace(/^export\s+/, ''))).join('\n');
-    mk = new Function('ensureSchema', 'safe', 'enrolledCond', 'monthAdd', 'currentMonthKST', 'loadLiveUids', 'generateOrRefreshInvoice',
+    mk = new Function('ensureSchema', 'safe', 'enrolledCond', 'monthAdd', 'currentMonthKST', 'loadLiveUids', 'generateOrRefreshInvoice', 'billingEnabled', 'loadAiOptIns',
       src + '\nreturn { gen: generateMonthlyAiInvoices, read: readCronRun };');
   } catch (e) { check('월 cron 함수 실행 준비', false, e.message); }
   check('월 cron 세 함수를 오려 냈다 (전제)', typeof mk === 'function');
@@ -433,14 +455,25 @@ sec('[⑪] 월 자동 청구 결과 기록 — 실패가 보이는가');
     };
     const run = async (shops, live, genImpl, opts) => {
       const { d, env } = mkEnv(shops, opts);
-      const f = mk(async () => {}, safeF, () => '1=1', (m) => '2026-10', () => '2026-09', async () => live, genImpl);
+      const o = opts || {};
+      const f = mk(async () => {}, safeF, () => '1=1', (m) => '2026-10', () => '2026-09', async () => live, genImpl,
+        async () => o.enabled !== false, async () => (o.optIn === undefined ? new Set(['x']) : o.optIn));
       let r; try { r = await f.gen(env); } catch (e) { r = { threw: e.message }; }
       let last; try { last = await f.read(env); } catch (e) { last = { threw: e.message }; }
       return { r, last };
     };
-    const okGen = async (_e, shop) => ({ invoice_id: 1, added: 2, created: true });
+    let genCalls = 0;
+    const okGen = async (_e, shop) => { genCalls++; return { invoice_id: 1, added: 2, created: true }; };
+    genCalls = 0;
+    const off = await run(['A', 'B'], new Set(), okGen, { enabled: false });
+    check('자동 청구가 꺼져 있으면(기본·테스트 기간) 청구서 0장 + «disabled» 기록', off.last && off.last.status === 'disabled' && off.r.invoices === 0 && genCalls === 0, JSON.stringify({ last: off.last, genCalls }));
+    const noOpt = await run(['A', 'B'], new Set(), okGen, { optIn: null });
+    check('신청 명단 조회 실패 → «live_check_failed» (청구서 0장)', noOpt.last && noOpt.last.status === 'live_check_failed' && noOpt.r.invoices === 0, JSON.stringify(noOpt.last));
+    const skGen = async (_e, shop) => shop === 'B' ? { invoice_id: 0, added: 0, created: false, skipped: true } : { invoice_id: 1, added: 1, created: true };
+    const sk = await run(['A', 'B'], new Set(), skGen);
+    check('신청이 없는 학원은 건너뛴 것으로 센다 (실패 아님 · 빈 청구서 없음)', sk.last && sk.last.status === 'ok' && sk.last.skipped === 1 && sk.last.invoices === 1 && sk.last.failed === 0, JSON.stringify(sk.last));
     const a = await run(['A', 'B'], new Set(), okGen);
-    check('성공하면 «ok» 와 숫자를 남긴다', a.last && a.last.status === 'ok' && a.last.invoices === 2 && a.last.added === 4 && a.last.month === '2026-10' && a.last.at > 0, JSON.stringify(a.last));
+    check('(짝) 켜져 있으면 성공하면 «ok» 와 숫자를 남긴다', a.last && a.last.status === 'ok' && a.last.invoices === 2 && a.last.added === 4 && a.last.month === '2026-10' && a.last.at > 0, JSON.stringify(a.last));
     const b = await run(['A', 'B'], null, okGen);
     check('화상반 조회 실패 → «live_check_failed» 가 남는다 (청구서 0장)', b.last && b.last.status === 'live_check_failed' && b.r.invoices === 0, JSON.stringify(b.last));
     const c = await run(['A'], new Set(), okGen, { shopsThrow: true });

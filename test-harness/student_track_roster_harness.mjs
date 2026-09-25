@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════
-// 🎥🤖 student_track_roster_harness — 학생 구분(화상+AI / AI만) 명부·요약 (2026-09-24)
+// 🎥🤖 student_track_roster_harness — 학생 구분(화상+AI / A.i 단독 신청 / 수업 기록 없음) 명부·요약 (2026-09-24 · 09-25 «신청 기반» 개정)
 //
 // 무엇을 지키나
 //   ① 판정 함수 rosterTrackOf 를 «소스에서 오려 내» 실제로 돌린다 — 모르면 unknown(AI만 아님)
 //   ② 요약 SQL(loadTrackSummary)을 «소스에서 오려 내» 진짜 SQLite 에 돌린다
 //      — 화상반 근거 셋(활성 예약·카페24 씨앗·수업방 접속)·자리표시 제외·30일·대소문자·스코프
 //   ③ 명부 칸(행마다 track)과 요약 숫자가 «같은 말» 을 하는가 — 한쪽만 바뀌면 FAIL
-//   ④ 요약의 AI만 인원 == A.i 사용료 청구(재원 − 화상반) 인원
+//   ④ 요약의 A.i 단독(학원 신청분) == A.i 사용료 청구 인원(재원 ∩ 신청 명단 − 화상반) — 개인 결제분은 학원에 청구하지 않는다
+//   (2026-09-25) «재원 − 화상반 = AI만» 이던 것을 «신청해야 AI 단독» 으로 바꿨다 — 나머지는 'idle'(수업 기록 없음)
 //   ⑤ 서버 배선 — summary_only 는 명부 쿼리 «앞» 에서 돌아간다 · 행에 enrolled_now 가 실린다
 //   ⑥ /branch 화면 — 첫 화면 두 요청 계약(boot 에 안 넣음) · 이름 칸을 서버가 주는 name 으로
 //      · 모름을 0 으로 그리지 않음 · 탭 필터를 가짜 DOM 으로 실제로 돌림
@@ -47,6 +48,8 @@ const br = rd('public/branch.html');
 // ── 정본 조각 읽기 ─────────────────────────────────────────────────────
 const LIVE_UIDS_SQL = (bill.match(/export const LIVE_UIDS_SQL = `([\s\S]*?)`;/) || [])[1] || '';
 const LOOKBACK = Number((bill.match(/export const LIVE_LOOKBACK_DAYS = (\d+);/) || [])[1]);
+const PAID_AI_UIDS_SQL = (st.match(/export const PAID_AI_UIDS_SQL = `([\s\S]*?)`;/) || [])[1] || '';
+ok('전제: 개인 결제 A.i 명단 SQL(PAID_AI_UIDS_SQL)을 소스에서 읽었다', /AI 콘텐츠 전용/.test(PAID_AI_UIDS_SQL));
 ok('전제: 청구 정본 LIVE_UIDS_SQL·30일을 소스에서 읽었다', LIVE_UIDS_SQL.length > 50 && LOOKBACK > 0);
 const activeSrc = blockFrom(exec, exec.indexOf('export function activeCond'));
 const enrolledSrc = blockFrom(exec, exec.indexOf('export function enrolledCond'));
@@ -61,24 +64,28 @@ console.log('\n① rosterTrackOf — 한 줄의 트랙');
 const rtSrc = blockFrom(st, st.indexOf('export function rosterTrackOf'));
 let rosterTrackOf = null;
 try {
-  rosterTrackOf = new Function(rtSrc.replace(/export function rosterTrackOf\([^)]*\)\s*:\s*\w+\s*\{/, 'function rosterTrackOf(uid, enrolledNow, live){') + '\nreturn rosterTrackOf;')();
+  rosterTrackOf = new Function(rtSrc.replace(/export function rosterTrackOf\([^)]*\)\s*:\s*\w+\s*\{/, 'function rosterTrackOf(uid, enrolledNow, live, aiUids){') + '\nreturn rosterTrackOf;')();
 } catch (e) { console.log('   (오려 내기 실패: ' + e.message + ')'); }
 ok('전제: rosterTrackOf 를 오려 냈다', typeof rosterTrackOf === 'function');
 const run = (...a) => { try { return rosterTrackOf(...a); } catch (e) { return 'THROW:' + e.message; } };
 const LS = new Set(['kim', 'abc']);
-ok('화상반 목록에 있으면 live_ai', run('abc', 1, LS) === 'live_ai');
-ok('대소문자만 달라도 live_ai(청구 쪽과 같은 규칙)', run('Kim', 0, LS) === 'live_ai');
-ok('재원 중인데 화상반 아니면 ai_only', run('zz', 1, LS) === 'ai_only');
-ok('재원도 화상도 아니면 none(AI만으로 세지 않는다)', run('zz', 0, LS) === 'none');
-ok('화상반 목록을 못 읽으면 unknown — ⛔ ai_only 로 떨어뜨리지 않는다', run('zz', 1, null) === 'unknown');
-ok('아이디가 비면 unknown', run('', 1, LS) === 'unknown');
+const AS = new Set(['yy', 'abc']);
+ok('화상반 목록에 있으면 live_ai', run('abc', 1, LS, AS) === 'live_ai');
+ok('(짝) 화상반이면 신청했어도 live_ai — A.i 는 무료 포함', run('abc', 1, LS, AS) === 'live_ai');
+ok('대소문자만 달라도 live_ai(청구 쪽과 같은 규칙)', run('Kim', 0, LS, AS) === 'live_ai');
+ok('재원 · 화상반 아님 · A.i 단독 신청 → ai_only (대소문자 무시)', run('YY', 1, LS, AS) === 'ai_only');
+ok('⛔ 재원 · 화상반 아님 · 신청 안 함 → idle (ai_only 로 세지 않는다 — 09-24 판의 «AI만 7,294명» 원인)', run('zz', 1, LS, AS) === 'idle');
+ok('재원도 화상도 아니면 none(신청했어도 AI 단독으로 세지 않는다)', run('yy', 0, LS, AS) === 'none');
+ok('화상반 목록을 못 읽으면 unknown — ⛔ ai_only 로 떨어뜨리지 않는다', run('zz', 1, null, AS) === 'unknown');
+ok('신청 명단을 못 읽으면 unknown — ⛔ ai_only·idle 로 떨어뜨리지 않는다', run('yy', 1, LS, null) === 'unknown');
+ok('아이디가 비면 unknown', run('', 1, LS, AS) === 'unknown');
 
 // ② 요약 SQL — 진짜 SQLite ───────────────────────────────────────────
 console.log('\n② loadTrackSummary SQL — 진짜 SQLite');
 let DatabaseSync = null;
 try { ({ DatabaseSync } = await import('node:sqlite')); } catch (_) {}
 const sumFn = blockFrom(st, st.indexOf('export async function loadTrackSummary'));
-const sqlTpl = (sumFn.match(/const sql = (`[\s\S]*?`);/) || [])[1] || '';
+const sqlTpl = (sumFn.match(/const build = \(withPaid(?:: boolean)?\) => (`[\s\S]*?`);/) || [])[1] || '';
 ok('전제: 요약 SQL 을 소스에서 오려 냈다', sqlTpl.length > 50);
 if (!DatabaseSync) {
   console.log('   ⏭ node:sqlite 없음 — ②~④ 건너뜀');
@@ -87,7 +94,9 @@ if (!DatabaseSync) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, franchise TEXT, shop_name TEXT, status TEXT, end_date TEXT);
            CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, status TEXT);
-           CREATE TABLE attendance (id INTEGER PRIMARY KEY, user_id TEXT, account_uid TEXT, room_id TEXT, joined_at INTEGER);`);
+           CREATE TABLE attendance (id INTEGER PRIMARY KEY, user_id TEXT, account_uid TEXT, room_id TEXT, joined_at INTEGER);
+           CREATE TABLE ai_billing_optin (uid_lc TEXT PRIMARY KEY, user_id TEXT NOT NULL, shop_name TEXT, created_at INTEGER NOT NULL, created_by TEXT);
+           CREATE TABLE enrollments (id INTEGER PRIMARY KEY, student_user_id TEXT, package TEXT, status TEXT);`);
   const insS = db.prepare('INSERT INTO students_erp VALUES (?,?,?,?,?)');
   // [아이디, 지사, 대리점, 상태, 종료일]
   [
@@ -109,26 +118,37 @@ if (!DatabaseSync) {
   insA.run('b_live_c24', null, 'c24-1', NOW - 3 * DAY);
   insA.run('f_old_c24', null, 'c24-2', NOW - 40 * DAY);
   insA.run('u_x81', 'g_class', 'class-9-20260920', NOW - 2 * DAY);
+  // ✋ 신청 명단: c_ai·h_other 는 학원 신청 · a_live_sched 는 화상반인데 신청(→ 화상이 이긴다) · d_gone 은 재원 아님
+  const insO = db.prepare('INSERT INTO ai_billing_optin (uid_lc,user_id,shop_name,created_at) VALUES (?,?,?,0)');
+  ['c_ai', 'h_other', 'a_live_sched', 'd_gone'].forEach(u => insO.run(u, u, ''));
+  // 개인 결제: f_old_c24 는 A.i 콘텐츠 상품을 직접 결제(active) · j_cancel 은 만료된 결제(→ 신청 아님)
+  const insE = db.prepare('INSERT INTO enrollments (student_user_id,package,status) VALUES (?,?,?)');
+  insE.run('F_OLD_C24', 'AI 콘텐츠 전용 (1개월)', 'active');
+  insE.run('j_cancel', 'AI 콘텐츠 전용 (1개월)', 'expired');
+  insE.run('j_cancel', '화상영어 주2회', 'active');
 
-  const buildSql = (where) => new Function('LIVE_UIDS_SQL', 'enrolledCond', 'where', 'return ' + sqlTpl)(LIVE_UIDS_SQL, enrolledCond, where);
+  const buildSql = (where, withPaid = true) => new Function('LIVE_UIDS_SQL', 'PAID_AI_UIDS_SQL', 'enrolledCond', 'where', 'withPaid', 'return ' + sqlTpl)(LIVE_UIDS_SQL, PAID_AI_UIDS_SQL, enrolledCond, where, withPaid);
   const since = NOW - LOOKBACK * DAY;
-  const summ = (cond, binds) => {
-    const rows = db.prepare(buildSql(cond)).all(since, since, ...binds);
-    let live = 0, ai = 0; const orgs = {};
-    for (const x of rows) { live += Number(x.live_n); ai += Number(x.ai_n); orgs[x.shop_name] = [Number(x.live_n), Number(x.ai_n)]; }
-    return { live, ai, orgs };
+  const summ = (cond, binds, withPaid = true) => {
+    const rows = db.prepare(buildSql(cond, withPaid)).all(since, since, ...binds);
+    let live = 0, ai = 0, idle = 0; const orgs = {};
+    for (const x of rows) { live += Number(x.live_n); ai += Number(x.ai_n); idle += Number(x.idle_n); orgs[x.shop_name] = [Number(x.live_n), Number(x.ai_n), Number(x.idle_n)]; }
+    return { live, ai, idle, orgs };
   };
   let all = null;
   try { all = summ('', []); } catch (e) { console.log('   (SQL 실행 실패: ' + e.message + ')'); }
   ok('SQL 이 실제로 돈다', !!all);
   if (all) {
     ok('화상 = 활성예약·카페24 최근·대소문자·수업방 접속 = 4명', all.live === 4, all);
-    ok('AI만 = 재원 − 화상 = c_ai·f_old_c24·h_other·j_cancel = 4명', all.ai === 4, all);
-    ok('해운대: 화상 2 · AI만 1(재원 아님·종료일 지남은 안 셈)', JSON.stringify(all.orgs['해운대']) === '[2,1]', all.orgs);
-    ok('서면: 화상 2 · AI만 2(40일 전 카페24·취소된 예약은 화상 아님)', JSON.stringify(all.orgs['서면']) === '[2,2]', all.orgs);
+    ok('A.i 단독 = 재원 ∩ (학원 신청 ∪ 개인 결제) − 화상 = c_ai·h_other·f_old_c24 = 3명', all.ai === 3, all);
+    ok('⛔ 신청 안 한 재원(j_cancel)은 idle — AI 단독으로 세지 않는다', all.idle === 1, all);
+    ok('해운대: 화상 2 · A.i 1 · 기록없음 0 (재원 아님·종료일 지남·화상반의 신청은 안 셈)', JSON.stringify(all.orgs['해운대']) === '[2,1,0]', all.orgs);
+    ok('서면: 화상 2 · A.i 1(개인 결제) · 기록없음 1(만료 결제·취소 예약)', JSON.stringify(all.orgs['서면']) === '[2,1,1]', all.orgs);
     ok('자리표시(lms·type_seed) 예약은 아무도 화상으로 만들지 않는다', !all.orgs['']);
     const bs = summ(`s.franchise LIKE ?`, ['부산%']);
-    ok('스코프(부산 지사)로 자르면 서울 학생이 빠진다', bs.ai === 3 && !bs.orgs['강남'], bs);
+    ok('스코프(부산 지사)로 자르면 서울 학생이 빠진다', bs.ai === 2 && !bs.orgs['강남'], bs);
+    const np = summ('', [], false);
+    ok('개인 결제 표 없이 돌리는 폴백(withPaid=false)도 돈다 — 개인 결제분만 idle 로 옮겨 간다', np.ai === 2 && np.idle === 2, np);
 
     // ③ 명부 칸과 요약이 같은 말을 하는가 ─────────────────────────
     console.log('\n③ 명부 칸(행마다 track) ↔ 요약 숫자');
@@ -136,17 +156,22 @@ if (!DatabaseSync) {
     const exprSrc = blockFrom(st, st.indexOf('export function enrolledNowExpr'));
     const enrolledNowExpr = new Function('enrolledCond', exprSrc.replace(/export function enrolledNowExpr\([^)]*\)\s*:\s*\w+\s*\{/, 'function enrolledNowExpr(alias){') + '\nreturn enrolledNowExpr;')(enrolledCond);
     const rows = db.prepare(`SELECT s.user_id, ${enrolledNowExpr('s')} AS enrolled_now FROM students_erp s`).all();
-    const cnt = { live_ai: 0, ai_only: 0, none: 0, unknown: 0 };
-    rows.forEach(r => { cnt[rosterTrackOf(r.user_id, r.enrolled_now, liveSet)]++; });
+    const aiSet = new Set([...db.prepare('SELECT uid_lc AS u FROM ai_billing_optin').all(), ...db.prepare(PAID_AI_UIDS_SQL).all().map(r => ({ u: r.student_user_id }))]
+      .map(r => String(r.u).toLowerCase()));
+    const cnt = { live_ai: 0, ai_only: 0, idle: 0, none: 0, unknown: 0 };
+    rows.forEach(r => { cnt[rosterTrackOf(r.user_id, r.enrolled_now, liveSet, aiSet)]++; });
     ok('명부의 화상+AI 수 == 요약의 화상 수', cnt.live_ai === all.live, cnt);
-    ok('명부의 AI만 수 == 요약의 AI만 수', cnt.ai_only === all.ai, cnt);
+    ok('명부의 A.i 단독 수 == 요약의 A.i 단독 수', cnt.ai_only === all.ai, cnt);
+    ok('명부의 수업 기록 없음 수 == 요약의 idle 수', cnt.idle === all.idle, cnt);
     ok('재원 아님(d_gone·i_ended)은 none 으로 따로 보인다', cnt.none === 2, cnt);
 
     // ④ 청구 인원과 같은가 ─────────────────────────────────────────
-    console.log('\n④ A.i 사용료 청구(재원 − 화상반)와 같은 인원인가');
-    const roster = db.prepare(`SELECT user_id FROM students_erp WHERE shop_name = ? AND ${enrolledCond('')}`).all('서면')
-      .filter(r => !liveSet.has(String(r.user_id).toLowerCase()));
-    ok('서면 청구 인원 == 요약 AI만(서면)', roster.length === all.orgs['서면'][1], roster.length);
+    console.log('\n④ A.i 사용료 청구(재원 ∩ 학원 신청 − 화상반)와 같은 인원인가');
+    const optSet = new Set(db.prepare('SELECT uid_lc AS u FROM ai_billing_optin').all().map(r => String(r.u)));
+    const billOf = (shop) => db.prepare(`SELECT user_id FROM students_erp WHERE shop_name = ? AND ${enrolledCond('')}`).all(shop)
+      .filter(r => !liveSet.has(String(r.user_id).toLowerCase()) && optSet.has(String(r.user_id).toLowerCase()));
+    ok('해운대 청구 인원 == 요약 A.i 단독(해운대) — 학원 신청분만 있는 곳', billOf('해운대').length === all.orgs['해운대'][1], billOf('해운대').length);
+    ok('(짝) 서면: 개인 결제분(f_old_c24)은 학원에 청구하지 않는다 — 청구 0명', billOf('서면').length === 0, billOf('서면').length);
   }
 }
 
@@ -203,12 +228,14 @@ if (paint) {
     { user_id: 'cyn7', name: 'cyn7', shop_name: '해운대', track: 'ai_only', status: 'active' },
     { user_id: 'jmj', name: '정민재', shop_name: '서면', track: 'ai_only', status: 'active' },
     { user_id: 'old1', name: '박옛날', shop_name: '서면', track: 'none', status: 'inactive' },
+    { user_id: 'idl', name: '윤쉬는', shop_name: '해운대', track: 'idle', status: 'active' },
     { user_id: 'q9', name: '한지우', shop_name: '서면' },   // track 없음(옛 캐시) → 확인 못 함
   ] };
   const safe = (f) => { try { f(); return true; } catch (e) { console.log('   (' + e.message + ')'); return false; } };
   ok('전체 탭이 그려진다', safe(() => paint()) && els.stuSeg.hidden === false);
-  ok('탭 숫자: 전체 5 · 화상+AI 1 · AI만 2 · 재원 아님 1 · 확인 못 함 1',
-    /전체 5/.test(els.stuSeg.innerHTML) && /화상\+AI 1/.test(els.stuSeg.innerHTML) && /AI만 2/.test(els.stuSeg.innerHTML)
+  ok('탭 숫자: 전체 6 · 화상+AI 1 · A.i 단독 신청 2 · 수업 기록 없음 1 · 재원 아님 1 · 확인 못 함 1',
+    /전체 6/.test(els.stuSeg.innerHTML) && /화상\+AI 1/.test(els.stuSeg.innerHTML) && /A\.i 단독 신청 2/.test(els.stuSeg.innerHTML)
+    && /수업 기록 없음 1/.test(els.stuSeg.innerHTML)
     && /재원 아님 1/.test(els.stuSeg.innerHTML) && /확인 못 함 1/.test(els.stuSeg.innerHTML), els.stuSeg.innerHTML);
   ok('이름이 아이디와 같으면 «이름 미등록»(예전 «(no name)» 대신)', /이름 미등록/.test(els.stuBody.innerHTML) && !/\(no name\)/.test(els.stuBody.innerHTML));
   ok('track 이 없는 행은 «확인 못 함» — AI만으로 그리지 않는다', (els.stuBody.innerHTML.match(/trk-unk/g) || []).length === 1);
@@ -222,7 +249,9 @@ if (paint) {
   const r2 = (els.stuBody.innerHTML.match(/class="row"/g) || []).length;
   ok('대리점 줄을 누르면 그 대리점 학생만(서면 3명) + 📍 표시', r2 === 3 && /📍 서면/.test(els.stuBody.innerHTML), r2);
   safe(() => win.stuShopClear());
-  ok('📍 ✕ 로 모든 대리점으로 돌아온다', (els.stuBody.innerHTML.match(/class="row"/g) || []).length === 5);
+  ok('📍 ✕ 로 모든 대리점으로 돌아온다', (els.stuBody.innerHTML.match(/class="row"/g) || []).length === 6);
+  safe(() => win.stuTabSet('idle'));
+  ok('수업 기록 없음 탭 → 그 학생만', /윤쉬는/.test(els.stuBody.innerHTML) && !/정민재/.test(els.stuBody.innerHTML));
   D.students.track_ok = false; safe(() => paint());
   ok('서버가 track_ok:false 면 그 사실을 글로 말한다', /확인하지 못해/.test(els.stuBody.innerHTML));
 }
