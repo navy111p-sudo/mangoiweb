@@ -613,7 +613,7 @@
           <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">3 · 보통 (0.8배)</span></div>
           <div class="rate-row">
             <span class="rate-side">🐢</span>
-            <input id="rateSlider" type="range" min="1" max="5" step="1" value="3" list="rateTicks"
+            <input id="rateSlider" type="range" min="1" max="5" step="1" value="4" list="rateTicks"
               oninput="setRate(this.value)" title="선생님 음성 속도 (1 아주 느리게 ~ 5 아주 빠르게)" />
             <datalist id="rateTicks"><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option></datalist>
             <span class="rate-side">🐇</span>
@@ -1269,8 +1269,10 @@ var RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게
 /* 🐢 (2026-07-23) 들어올 때는 항상 같은 칸에서 시작한다 — 지난번 속도를 이어받지 않는다.
    (수업 중 슬라이더로 바꾸는 건 그대로 되고, 다음에 다시 들어오면 또 이 칸부터.)
    📜 2026-09-24 사장님 «음성을 보통으로 기본값» → 2단계(느리게 0.65) 에서 3단계(보통 0.8) 로.
-      2026-09-10 에 계단을 한 칸씩 내렸으므로 지금 «보통» 이 옛 «느리게»(0.8)와 같은 속도다. */
-var WARMUP_START_RATE = 3;
+      2026-09-10 에 계단을 한 칸씩 내렸으므로 지금 «보통» 이 옛 «느리게»(0.8)와 같은 속도다.
+   📜 2026-09-25 사장님 «1배로 해줘» → 4단계(1.0배 = 원음 그대로). 칸 이름은 «빠르게» 로
+      남는다(계단·이름은 AI 영어친구와 짝이라 안 건드림) — 바꾼 것은 «어느 칸에서 시작하나» 뿐. */
+var WARMUP_START_RATE = 4;
 var _rateLevel = WARMUP_START_RATE;
 function setRate(lv){
   lv = parseInt(lv,10); if(!(lv>=1 && lv<=5)) lv = WARMUP_START_RATE;
@@ -1281,7 +1283,7 @@ function setRate(lv){
   var v=document.getElementById('rateVal');
   if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv] + ' (' + RATE_STEPS[lv].toFixed(2).replace(/0$/,'') + '배)';
 }
-setRate(_rateLevel);   // 시작 속도(3단계 · 보통)로 슬라이더/표시 초기화
+setRate(_rateLevel);   // 시작 속도(4단계 · 1.0배)로 슬라이더/표시 초기화
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
    그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
 function maybeAdjustRate(text){
@@ -2370,8 +2372,8 @@ var _ttsCache={}, _ttsEng={}, _ttsAudio=null;
    ⚙️ 두 단계입니다 — 한 단계만 하면 둘 다 틀립니다:
       ① OfflineAudioContext 에서 playbackRate=P 로 다시 그린다 → 음높이 P 배·길이 1/P 배
       ② 재생할 때 preservesPitch=true 로 playbackRate=S/P → 길이는 원래대로, 음높이는 P 유지
-   ⛔ «preservesPitch=false 한 줄» 로 풀지 마세요 — 이 화면은 들어올 때 항상 2단계(0.65)
-      에서 시작하므로(WARMUP_START_RATE) 0.65×P ≈ 0.51 이 되어 «귀신 목소리» 가 됩니다.
+   ⛔ «preservesPitch=false 한 줄» 로 풀지 마세요 — 속도 칸(배속 S)이 그대로 음높이에
+      곱해져 S×P 가 됩니다 — 느린 칸(0.65)이면 ≈0.51 «귀신 목소리», 올리면 여자 목소리로 되돌아갑니다.
    ⛔ ②를 빼고 ①만 하면 «느리고 낮은» 소리입니다(속도까지 함께 내려감).
    ⚠️ 실패하면 원본 그대로 재생합니다(여자 목소리) — 소리가 아예 안 나는 것이 최악입니다.
    ⚠️ 기기에 진짜 중국어 남자 음성이 있으면 그쪽(_synthSpeak)이 먼저입니다 — 더 자연스럽습니다. */
