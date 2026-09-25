@@ -64,7 +64,8 @@ import {
   digestUrl, weeklySpend, fmt,                         // 📬 요약→묶음 승인 · 📊 주간 지출 합계(10단계)
   isNewVendor, EXEC_WATCH_CODES,
   fileKind, fileDisposition,                           // 📷 카드 안 영수증 사진(12단계)
-  ledgerFrom, ledgerRange,                             // 📒 간단 회계장부(12단계) · 📅 장부 기간(13단계)                       // 🏪 처음 보는 가게 · 👀 대표님 즉시 알림 신호(11단계)
+  ledgerFrom, ledgerRange,                             // 📒 간단 회계장부(12단계) · 📅 장부 기간(13단계)
+  misfileGuess, MISFILE_FROM,                          // 🔀 잘못 고른 분류(14단계)
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -1596,6 +1597,8 @@ export async function handleApprovalApi(
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
                                wants_file: t.wantsFile, requires_file: !!t.requiresFile, wants_dates: !!t.wantsDates,
                                wants_category: !!t.wantsCategory,
+                               // 🔀 올리기 전에 «분류가 맞나» 를 서버에 물어볼 분류(14단계) — 목록은 정본 하나(MISFILE_FROM)
+                               misfile_check: (MISFILE_FROM as readonly string[]).indexOf(t.key) >= 0,
                                // 💼 인사·급여는 «달을 고르는» 분류다. 화면이 폼 대신 월 버튼을 그린다.
                                picks_period: t.key === 'hr' })),
       /* 🏷️ 지출 항목 목록은 **서버가 내려준다** — 화면에 같은 목록을 또 적으면
@@ -2846,6 +2849,15 @@ export async function handleApprovalApi(
     const currency = normCurrency(String(b?.currency || 'PHP'));
     const num = (v: any) => { const n = Number(String(v ?? '').replace(/[,\s]/g, '')); return (String(v ?? '').trim() && isFinite(n) && n >= 0) ? n : null; };
     const amount = num(b?.amount);
+    /* 🔀 잘못 고른 분류(14단계) — 제안만 한다. 올리는 사람이 «그 분류로 올릴 수 있는» 경우에만 알린다
+       (강사는 물품 구입을 못 올린다 — 못 누르는 버튼을 권하지 않는다). */
+    const misRaw = misfileGuess({ reqType, title: String(b?.title || '').slice(0, 200), body: String(b?.body || '').slice(0, 4000),
+                                  amount, hasFile: !!b?.has_file });
+    const misTo = misRaw && canSubmit(actor, misRaw.to, ph) ? typeSpec(misRaw.to) : null;
+    const misfile = misRaw && misTo ? { to: misRaw.to, to_ko: misTo.ko, to_en: misTo.en, why_ko: misRaw.why_ko, why_en: misRaw.why_en,
+                                        amount_hint: misRaw.amount_hint } : null;
+    // 돈이 안 나가는 분류(휴가·일반 문서)는 «분류 확인» 만 한다 — 금액 점검·AI 검토는 돌리지 않는다.
+    if (!spec.needsAmount) return json({ ok: true, signal: 'green', reasons: [], flags: [], misfile });
     const ocrAmount = (() => { const n = num(b?.ocr_amount); return n != null && n > 0 ? n : null; })();
     const ymd = (v: any) => { const t = String(v || '').trim().slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null; };
     const body = String(b?.body || '').slice(0, 4000);
@@ -2864,7 +2876,7 @@ export async function handleApprovalApi(
       photoQuality: normPhotoQuality(b?.photo_quality),
       weekCount: facts.weekCount, vendor: preVendor, newVendor: facts.newVendor,
     });
-    if (ph && spec.needsAmount) {
+    if (ph && spec.needsAmount && amount != null) {    // 금액이 없으면(분류 확인만 하러 온 것) AI 를 부르지 않는다
       const concerns = await aiReview(env, {
         req_type: reqType, category, title, body, amount, currency,
         vendor: String(b?.ocr_vendor || '').slice(0, 60) || null,
@@ -2872,7 +2884,7 @@ export async function handleApprovalApi(
       for (const c of concerns) flags.push(c);
     }
     const sig = signalOf({ reqType, amount, ocrAmount, hasFile: !!b?.has_file, flags });
-    return json({ ok: true, signal: sig.signal, reasons: sig.reasons, flags });
+    return json({ ok: true, signal: sig.signal, reasons: sig.reasons, flags, misfile });
   }
 
   /* 🤖 자동 반려 «켤지 말지» 판단 패널 (2026-09-25, 9단계) — 경영진만.

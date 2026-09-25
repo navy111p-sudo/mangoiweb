@@ -23,7 +23,7 @@ const SRC = join(__dir, '..', 'cloudflare-deploy', 'src');
 const PUB = join(__dir, '..', 'cloudflare-deploy', 'public');
 const P = await import(pathToFileURL(join(SRC, 'approval-policy.ts')).href);
 const API = readFileSync(join(SRC, 'api-approval.ts'), 'utf8');
-const WORK = readFileSync(join(PUB, 'work.html'), 'utf8');
+const WORK = readFileSync(process.env.WORK_SRC || join(PUB, 'work.html'), 'utf8');
 
 let pass = 0, fail = 0;
 function ok(name, cond, why) {
@@ -132,7 +132,11 @@ console.log('\n⑤ 배선');
   ok('밤에는 알림 단계를 올리지 않는다', /if \(r\.req_type !== 'urgent' && isQuietKst\(now\)\) target = Math\.min\(target, Math\.max\(cur, 1\)\)/.test(API));
   ok('요약은 KV 로 한 번만(못 쓰면 안 보냄)', /if \(slot && kv\)/.test(API) && /approval_digest:/.test(API));
   ok('화면: 올리기 전에 precheck 를 부른다', /fetch\('\/api\/approval\/precheck'/.test(WORK));
-  ok('화면: 점검이 실패하면 막지 않는다', /\.catch\(function\(\)\{\s*if \(btn\) btn\.disabled = false;\s*if \(pbox\) pbox\.innerHTML = '';\s*PRE_OK = true; submitReq\(\);/.test(WORK));
+  // 2026-09-25 14단계: 실패 처리가 afterCheck(null) 로 모였다 — «식 모양» 이 아니라 «뜻» 으로 본다.
+  //   catch 가 afterCheck(null) 을 부르고, afterCheck 는 점검 결과가 없으면(!j) 그대로 올린다.
+  ok('화면: 점검이 실패하면 막지 않는다',
+     /\.catch\(function\(\)\{\s*if \(btn\) btn\.disabled = false;\s*if \(pbox\) pbox\.innerHTML = '';\s*(PRE_OK = true; submitReq\(\);|afterCheck\(null\);)/.test(WORK) &&
+     (!/afterCheck\(null\)/.test(WORK) || /if \(!j \|\| [^)]*\) \{[^}]*PRE_OK = true; submitReq\(\);/.test(WORK)));
   ok('화면: 사이렌은 304 에도 매 회차 본다', /load\(\)\.then\(sirenCheck, sirenCheck\)/.test(WORK));
   ok('화면: 사이렌은 대신 결재·같은 결재자 건으로 안 운다', /if \(r\.by_proxy \|\| r\.same_decider\) continue;/.test(WORK));
   ok('화면: 반려 버튼 사유는 영/한 둘 다 보낸다', /var wm = WHYS\[i\]\.en \+ ' \/ ' \+ WHYS\[i\]\.ko;/.test(WORK));
