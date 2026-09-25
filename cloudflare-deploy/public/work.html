@@ -63,6 +63,11 @@ body{
   -webkit-text-size-adjust:100%;
 }
 html.dark body{color:#e6edf3;background:#0f1620}
+/* 🖥 PC 확대 (2026-09-25 사장님 「PC 에선 결재창이 더 크게」) — 1920px 에서 본문 1100px 이
+   화면의 57% 뿐이라 글자·표가 작게 보였다. 관리자 화면 관례대로 «이 페이지에서» zoom 1.3
+   (CLAUDE.md 1-4: 공용 CSS 로 묶지 말 것). 마우스가 있는 넓은 화면만 — 폰·태블릿은 그대로.
+   1280px 에서도 레이아웃 폭이 985px 라 .wrap(1100)이 줄어들 뿐 가로로 넘치지 않는다. */
+@media (min-width:1280px) and (hover:hover) and (pointer:fine){ body{zoom:1.3} }
 
 /* ── 머리말 ─────────────────────────────────────────────── */
 .top{background:#fff;border-bottom:1px solid #dde3ea;padding:10px 14px}
@@ -208,6 +213,45 @@ html.dark .ledcats li{border-bottom-color:#243241}
 .ledsort{font:inherit;font-weight:700;color:inherit;background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px}
 .ledsort.on{color:#0f6b4f}
 html.dark .ledsort.on{color:#6fd3ad}
+/* 📊 지출 분석 보기(15단계) */
+.ledviews{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.ledvtab{font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid #cfd7e0;background:#fff;color:#2f3d4d;cursor:pointer;min-height:32px}
+.ledvtab.on{background:#0f6b4f;border-color:#0f6b4f;color:#fff}
+html.dark .ledvtab{background:#16202c;border-color:#33414f;color:#c3cfdb}
+html.dark .ledvtab.on{background:#2c7a5c;border-color:#2c7a5c;color:#fff}
+.ledtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px;margin:8px 0}
+.ledtile{border:1px solid #e3e8ee;border-radius:8px;padding:8px 10px;display:grid;gap:1px}
+html.dark .ledtile{border-color:#26313f}
+.ledtile .k{font-size:12px;color:#5b6978}
+.ledtile .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:#16202c}
+.ledtile .s{font-size:12px;color:#5b6978}
+html.dark .ledtile .k,html.dark .ledtile .s{color:#a9b6c4}
+html.dark .ledtile .v{color:#e6edf3}
+.ledtile .s.up,.ledup{color:#b4441f}
+.ledtile .s.down,.leddown{color:#1d6fa5}
+html.dark .ledtile .s.up,html.dark .ledup{color:#f0906f}
+html.dark .ledtile .s.down,html.dark .leddown{color:#7bbcea}
+.ledsub{font-size:12.5px;font-weight:700;color:#4b5a6a;margin:12px 2px 6px}
+html.dark .ledsub{color:#a9b6c4}
+.ledbars{display:grid;gap:6px}
+.ledbrow{display:grid;grid-template-columns:minmax(0,9em) 1fr auto;align-items:center;gap:8px;font-size:13px}
+.ledbn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledbv{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ledtrack{height:11px;background:#e7ecf1;border-radius:3px;overflow:hidden}
+html.dark .ledtrack{background:#243241}
+.ledfill{display:block;height:100%;background:#2f8f63}
+html.dark .ledfill{background:#43c28a}
+.ledpv td,.ledpv th{white-space:nowrap}
+.ledz{color:#b7c0ca}
+html.dark .ledz{color:#4a5766}
+.ledtbl tfoot td{font-weight:700;border-bottom:0}
+.ledflag{background:#fbeed2;color:#5a3e07;border-radius:8px;padding:8px 11px;font-size:13px;margin:6px 0}
+html.dark .ledflag{background:#3a2c10;color:#f0cf8a}
+.ledtop{display:grid}
+.ledtopr{display:grid;grid-template-columns:1fr auto;gap:1px 10px;padding:7px 2px;border-bottom:1px solid #eef1f5;font-size:13.5px}
+.ledtopr b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ledtopr .ledcat{grid-column:1 / -1}
+html.dark .ledtopr{border-bottom-color:#243241}
 @media (max-width:560px){ .ledtbl .ledwho{display:none} }
 html.dark .findpanel{background:#16202c;border-color:#26313f}
 /* 결재 보관함(시안 A, 2026-09-08) — 왼쪽 함 트리 + 오른쪽 표.
@@ -1769,7 +1813,9 @@ window.runRep = function(){
    ⛔ 서버가 거른 것(canView)만 그린다 — 화면에서 다시 거르거나 합치지 않는다.
    ⛔ 통화를 섞지 않는다 — 금액 순서는 «같은 통화 안에서» 매긴다(₱1,000 과 ₩1,000 은 다른 돈).
    ══════════════════════════════════════════════════════════════════════════ */
-var LED = { per: 'month', key: 'date', dir: 'desc', data: { month: null, last_month: null, year: null }, busy: false, auto: false };
+var LED = { per: 'month', key: 'date', dir: 'desc', view: 'sum', data: { month: null, last_month: null, year: null }, busy: false, auto: false };
+/* 📊 보기(15단계) — 요약 · 사람별 · 지난 기간과 비교 · 가게·큰 지출 · 장부(줄 목록). 모두 같은 응답 하나로 그린다. */
+var LED_VIEWS = ['sum', 'people', 'cmp', 'shop', 'list'];
 var LED_SHOW_MAX = 300;
 /* 📅 기간은 «이름» 만 보낸다(13단계) — 날짜는 서버가 KST 로 정한다(ledgerRange). 화면이 시계로 따로 세면 월말에 어긋난다. */
 var LED_PERS = ['month', 'last_month', 'year'];
@@ -1806,6 +1852,10 @@ window.ledPer = function(per){
   LED.per = LED_PERS.indexOf(per) >= 0 ? per : 'month';
   var have = LED.data[LED.per];
   if (have && !have.err) paintLed(); else runLed(LED.per);   // 실패했던 기간은 다시 부른다
+};
+window.ledView = function(v){
+  LED.view = LED_VIEWS.indexOf(v) >= 0 ? v : 'sum';
+  paintLed();
 };
 window.ledSortBy = function(key){
   if (LED.key === key) LED.dir = (LED.dir === 'asc') ? 'desc' : 'asc';
@@ -1855,7 +1905,7 @@ function paintLed(){
   if (d.from || d.to) h += '<div class="ledrange">' + esc((d.from || '…') + ' ~ ' + (d.to || '…')) + '</div>';
   /* 🧾 분류별 소계(13단계) — 접어 둔다(장부 줄을 밀어내지 않게). 통화마다 따로. */
   var cats = d.by_category || [];
-  if (cats.length) {
+  if (cats.length && LED.view === 'list') {        // 📊 요약 보기에는 항목별 막대가 있어 겹친다(15단계)
     h += '<details class="ledcats"><summary>' + esc(T('By category', '분류별 소계') + ' (' + cats.length + ')') + '</summary><ul>';
     for (var ci = 0; ci < cats.length; ci++) {
       var c = cats[ci];
@@ -1877,9 +1927,25 @@ function paintLed(){
                                                                           : T('No approved spending this month yet.', '이번 달 승인된 지출이 아직 없습니다.')) + '</div>';
     return;
   }
+  /* 📊 보기 탭(15단계) */
+  var vt = function(v, en, ko){
+    return '<button type="button" class="ledvtab' + (LED.view === v ? ' on' : '') + '" aria-pressed="' + (LED.view === v ? 'true' : 'false') +
+           '" onclick="ledView(\'' + v + '\')">' + esc(T(en, ko)) + '</button>';
+  };
+  h += '<div class="ledviews">' + vt('sum', 'Summary', '요약') + vt('people', 'By person', '사람별') +
+       vt('cmp', 'Compare', '지난 기간과 비교') + vt('shop', 'Shops · big items', '가게·큰 지출') + vt('list', 'All rows', '장부 목록') + '</div>';
   /* 📤 이 장부 그대로 엑셀 — 같은 기간·같은 범위(서버가 같은 식으로 만든다). */
   h += '<div class="findrow"><button type="button" class="findcsv" onclick="ledCsv()">' +
        esc(T('Excel (this ledger)', '엑셀 내려받기 (이 장부)')) + '</button></div>';
+  var A = d.analysis || null;
+  if (LED.view !== 'list') {
+    h += (LED.view === 'people') ? ledPeopleHtml(d, A)
+       : (LED.view === 'cmp')    ? ledCmpHtml(d)
+       : (LED.view === 'shop')   ? ledShopHtml(A)
+       :                           ledSumHtml(d, A);
+    host.innerHTML = h;
+    return;
+  }
   // 누를 수 있다는 표시 — 지금 정렬 기준이면 ▲/▼, 아니면 ↕
   var arrow = function(k){ return LED.key === k ? (LED.dir === 'asc' ? ' ▲' : ' ▼') : ' ↕'; };
   var sortBtn = function(k, en, ko){
@@ -1904,6 +1970,141 @@ function paintLed(){
   h += '</tbody></table></div>';
   if (rows.length > n) h += '<div class="findnote">' + esc(T('Showing ' + n + ' of ' + rows.length + '.', rows.length + '건 중 ' + n + '건만 보여 줍니다.')) + '</div>';
   host.innerHTML = h;
+}
+
+
+/* ── 📊 지출 분석 보기(15단계) — 서버가 센 것(analysis·compare)을 «그리기만» 한다.
+   ⛔ 화면에서 다시 합치거나 거르지 않는다 · ⛔ 통화를 섞지 않는다(막대 길이도 같은 통화 안에서만 잰다). */
+function ledCatName(key, ko, en){ return key ? (EN() ? (en || ko || key) : (ko || en || key)) : T('No category', '분류 없음'); }
+function ledBars(list, nameOf, max){
+  var h = '<div class="ledbars">';
+  for (var i = 0; i < list.length; i++) {
+    var x = list[i], w = max > 0 ? Math.max(2, Math.round(x.sum / max * 1000) / 10) : 0;
+    h += '<div class="ledbrow"><span class="ledbn">' + esc(nameOf(x)) + '</span>' +
+         '<span class="ledtrack"><span class="ledfill" style="width:' + w + '%"></span></span>' +
+         '<span class="ledbv">' + esc(money(x.sum, x.cur)) + '</span></div>';
+  }
+  return h + '</div>';
+}
+function ledCurs(list){ var o = []; for (var i = 0; i < (list || []).length; i++) if (o.indexOf(list[i].cur) < 0) o.push(list[i].cur); return o; }
+function ledOf(list, cur){ return (list || []).filter(function(x){ return x.cur === cur; }); }
+function ledPct(p){ return p == null ? T('new', '새로') : ((p > 0 ? '▲ ' : p < 0 ? '▼ ' : '') + Math.abs(p) + '%'); }
+function ledPrevName(){ return LED.per === 'year' ? T('the year before', '그 앞 1년') : LED.per === 'last_month' ? T('the month before', '그 전달') : T('last month', '지난달'); }
+
+function ledSumHtml(d, A){
+  var h = '<div class="ledtiles">';
+  var tots = d.totals || [];
+  for (var i = 0; i < tots.length; i++) {
+    var t = tots[i], c = null;
+    var ct = (d.compare && d.compare.totals) || [];
+    for (var j = 0; j < ct.length; j++) if (ct[j].cur === t.cur) c = ct[j];
+    h += '<div class="ledtile"><span class="k">' + esc(T('Approved spending', '승인된 지출') + ' (' + t.cur + ')') + '</span>' +
+         '<span class="v">' + esc(money(t.sum, t.cur)) + '</span>' +
+         '<span class="s' + (c && c.diff > 0 ? ' up' : c && c.diff < 0 ? ' down' : '') + '">' +
+         esc(c ? (ledPct(c.pct) + ' · ' + ledPrevName() + ' ' + money(c.prev, t.cur)) : (d.compare ? '' : T('No comparison', '비교 못 함'))) + '</span></div>';
+    h += '<div class="ledtile"><span class="k">' + esc(T('Items', '건수') + ' (' + t.cur + ')') + '</span><span class="v">' + esc(t.n + T('', '건')) + '</span>' +
+         '<span class="s">' + esc(T('avg ', '한 건 평균 ') + money(Math.round(t.sum / Math.max(1, t.n)), t.cur)) + '</span></div>';
+  }
+  h += '<div class="ledtile"><span class="k">' + esc(T('Still waiting', '아직 대기 중')) + '</span><span class="v">' + esc((d.pending || 0) + T('', '건')) + '</span>' +
+       '<span class="s">' + esc(T('not counted', '합계에 안 넣음')) + '</span></div></div>';
+  var curs = ledCurs(d.by_category);
+  for (var k = 0; k < curs.length; k++) {
+    var cats = ledOf(d.by_category, curs[k]);
+    h += '<div class="ledsub">' + esc(T('By category', '항목별') + ' · ' + curs[k]) + '</div>' +
+         ledBars(cats, function(x){ return ledCatName(x.key, x.ko, x.en) + ' · ' + x.n + T('', '건'); }, cats.length ? Math.max.apply(null, cats.map(function(x){ return x.sum; })) : 0);
+  }
+  var ms = (A && A.by_month) || [];
+  var mc = ledCurs(ms);
+  for (var m = 0; m < mc.length; m++) {
+    var mm = ledOf(ms, mc[m]);
+    if (mm.length < 2) continue;                 // 한 달뿐이면 추이가 아니다
+    h += '<div class="ledsub">' + esc(T('By month', '달별') + ' · ' + mc[m]) + '</div>' +
+         ledBars(mm, function(x){ return x.month; }, Math.max.apply(null, mm.map(function(x){ return x.sum; })));
+  }
+  return h;
+}
+
+function ledPeopleHtml(d, A){
+  var ps = (A && A.by_person) || [];
+  if (!ps.length) return '<div class="findnote">' + esc(T('Nothing to show.', '보여 줄 것이 없습니다.')) + '</div>';
+  var h = '', curs = ledCurs(ps);
+  for (var k = 0; k < curs.length; k++) {
+    var cur = curs[k], rows = ledOf(ps, cur), cats = ledOf(d.by_category, cur), tot = null;
+    for (var t = 0; t < (d.totals || []).length; t++) if (d.totals[t].cur === cur) tot = d.totals[t];
+    h += '<div class="ledsub">' + esc(T('By person', '사람별') + ' · ' + cur) + '</div><div class="ledwrap"><table class="ledtbl ledpv"><thead><tr><th>' +
+         esc(T('Person', '올린 사람')) + '</th>';
+    for (var c = 0; c < cats.length; c++) h += '<th class="ledamt">' + esc(ledCatName(cats[c].key, cats[c].ko, cats[c].en)) + '</th>';
+    h += '<th class="ledamt">' + esc(T('Total', '합계')) + '</th><th class="ledamt">' + esc(T('Items', '건수')) + '</th></tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      var p = rows[r];
+      h += '<tr><td>' + esc(p.who || p.user || '—') + '</td>';
+      for (var c2 = 0; c2 < cats.length; c2++) {
+        var v = p.cats ? p.cats[cats[c2].key] : null;
+        h += '<td class="ledamt' + (v ? '' : ' ledz') + '">' + (v ? esc(money(v, cur)) : '—') + '</td>';
+      }
+      h += '<td class="ledamt"><b>' + esc(money(p.sum, cur)) + '</b></td><td class="ledamt">' + p.n + '</td></tr>';
+    }
+    h += '</tbody><tfoot><tr><td>' + esc(T('Total', '합계')) + '</td>';
+    for (var c3 = 0; c3 < cats.length; c3++) h += '<td class="ledamt">' + esc(money(cats[c3].sum, cur)) + '</td>';
+    h += '<td class="ledamt">' + esc(tot ? money(tot.sum, cur) : '—') + '</td><td class="ledamt">' + (tot ? tot.n : '—') + '</td></tr></tfoot></table></div>';
+  }
+  return h;
+}
+
+function ledCmpHtml(d){
+  var C = d.compare;
+  if (!C) return '<div class="findnote">' + esc(T('Could not load the previous period to compare.', '비교할 앞 기간을 불러오지 못했습니다.')) + '</div>';
+  var h = '';
+  if (d.prev) h += '<div class="ledrange">' + esc(T('Compared with ', '비교 기간: ') + ledPrevName() + ' ' + d.prev.from + ' ~ ' + d.prev.to) + '</div>';
+  var notes = [];
+  if (d.prev && d.prev.truncated) notes.push(T('The earlier period has too many rows — only part was read.', '앞 기간은 건수가 많아 일부만 읽었습니다.'));
+  if (d.prev && d.prev.steps_missing) notes.push(T('Some approval lines of the earlier period could not be read.', '앞 기간 결재선을 다 읽지 못했습니다.'));
+  if (notes.length) h += '<div class="findnote">' + esc(notes.join(' · ')) + '</div>';
+  var flags = (C.rows || []).filter(function(r){ return r.flag; });
+  for (var f = 0; f < flags.length; f++) {
+    var x = flags[f];
+    h += '<div class="ledflag">' + esc(ledCatName(x.key, x.ko, x.en) + ': ' + money(x.prev, x.cur) + ' → ' + money(x.now, x.cur) +
+         ' (' + ledPct(x.pct) + ')' + T(' — much more than ' + ledPrevName(), ' — ' + ledPrevName() + '보다 크게 늘었습니다')) + '</div>';
+  }
+  var curs = ledCurs(C.rows);
+  for (var k = 0; k < curs.length; k++) {
+    var cur = curs[k], rows = ledOf(C.rows, cur), tt = ledOf(C.totals, cur)[0];
+    h += '<div class="ledwrap"><table class="ledtbl"><thead><tr><th>' + esc(T('Category', '항목') + ' · ' + cur) + '</th><th class="ledamt">' + esc(ledPrevName()) +
+         '</th><th class="ledamt">' + esc(T('This period', '이번 기간')) + '</th><th class="ledamt">' + esc(T('Change', '차이')) + '</th></tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      var y = rows[r];
+      h += '<tr><td>' + esc(ledCatName(y.key, y.ko, y.en)) + '</td><td class="ledamt">' + esc(money(y.prev, cur)) + '</td><td class="ledamt">' + esc(money(y.now, cur)) +
+           '</td><td class="ledamt ' + (y.diff > 0 ? 'ledup' : y.diff < 0 ? 'leddown' : '') + '">' + esc(y.diff === 0 ? T('same', '같음') : ledPct(y.pct)) + '</td></tr>';
+    }
+    if (tt) h += '</tbody><tfoot><tr><td>' + esc(T('Total', '합계')) + '</td><td class="ledamt">' + esc(money(tt.prev, cur)) + '</td><td class="ledamt">' + esc(money(tt.now, cur)) +
+                 '</td><td class="ledamt ' + (tt.diff > 0 ? 'ledup' : tt.diff < 0 ? 'leddown' : '') + '">' + esc(tt.diff === 0 ? T('same', '같음') : ledPct(tt.pct)) + '</td></tr></tfoot>';
+    else h += '</tbody>';
+    h += '</table></div>';
+  }
+  return h;
+}
+
+function ledShopHtml(A){
+  var vs = (A && A.by_vendor) || [], nv = (A && A.no_vendor) || [], top = (A && A.top) || [];
+  var h = '', curs = ledCurs(vs.concat(nv));
+  for (var k = 0; k < curs.length; k++) {
+    var list = ledOf(vs, curs[k]).slice(0, 8), no = ledOf(nv, curs[k])[0];
+    h += '<div class="ledsub">' + esc(T('By shop', '가게별') + ' · ' + curs[k]) + '</div>';
+    if (list.length) h += ledBars(list, function(x){ return x.name + ' · ' + x.n + T('', '건'); }, list[0].sum);
+    if (no) h += '<div class="findnote">' + esc(T('No shop name: ', '가게 모름: ') + money(no.sum, no.cur) + ' (' + no.n + T(' items', '건') + ')') + '</div>';
+  }
+  var tc = ledCurs(top);
+  for (var t = 0; t < tc.length; t++) {
+    var tl = ledOf(top, tc[t]);
+    h += '<div class="ledsub">' + esc(T('Biggest items', '큰 지출') + ' · ' + tc[t]) + '</div><div class="ledtop">';
+    for (var i = 0; i < tl.length; i++) {
+      var r = tl[i], cat = EN() ? r.category_en : r.category_ko;
+      h += '<div class="ledtopr"><a class="lnk" href="/work?id=' + Number(r.id) + '">' + esc(r.title || ('#' + r.id)) + '</a>' +
+           '<b>' + esc(money(r.amount, r.cur)) + '</b><span class="ledcat">' + esc([r.who, r.vendor, cat, r.ymd].filter(function(x){ return !!x; }).join(' · ')) + '</span></div>';
+    }
+    h += '</div>';
+  }
+  return h || ('<div class="findnote">' + esc(T('Nothing to show.', '보여 줄 것이 없습니다.')) + '</div>');
 }
 
 window.ledCsv = function(){ location.href = '/api/approval/requests?' + ledQuery(LED.per) + '&format=csv'; };
