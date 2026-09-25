@@ -390,6 +390,9 @@ html.dark .lnk{color:#4fc0b0}
 .why{margin-top:9px;padding:10px;border:1px dashed #ccd4de;border-radius:8px}
 html.dark .why{border-color:#33404f}
 .why b{display:block;font-size:13px;margin-bottom:7px;color:#4a5765}
+.why .muted{font-size:12px;color:#5b6775}
+html.dark .why .muted{color:#9aa7b5}
+.why ul{margin:4px 0 8px 18px;padding:0}
 html.dark .why b{color:#9fb0c2}
 .whybtns{display:flex;gap:6px;flex-wrap:wrap}
 .whybtns button{font:inherit;font-size:13.5px;padding:9px 12px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:42px;color:#16202c}
@@ -526,6 +529,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
     <button class="tbtn" id="soundBtn" onclick="toggleSound()"><span data-en="Sound: on" data-ko="소리 켬">Sound: on</span></button>
     <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
+    <button class="tbtn" id="arBtn" onclick="openAr()" hidden><span data-en="🤖 AI reject" data-ko="🤖 AI 반려">🤖 AI reject</span></button>
     <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
     <button class="tbtn tbtn-out" id="logoutBtn"><span data-en="Log out" data-ko="로그아웃">Log out</span></button>
   </div>
@@ -555,6 +559,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
   <div id="awayBox"></div>
   <div id="schedBox"></div>
+  <div id="arBox"></div>
   <div id="bulkBox"></div>
   <div id="inbox"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
 
@@ -854,6 +859,7 @@ function repaint(){
 
   paintTop();
   paintAway();
+  paintArBtn();
   paintSchedule();
   paintBulk();
   paintAck();
@@ -2223,6 +2229,97 @@ window.clearAway = function(){
   .catch(function(){ toast(T('Could not clear it.', '해제하지 못했습니다.')); });
 };
 
+/* ══════════════════════════════════════════════════════════════════════════
+   🤖 자동 반려 «켤지 말지» 판단 패널 (2026-09-25, 9단계) — 경영진만.
+   ⚠️ 판정은 서버(shadowTally · autoRejectReadiness)가 한다. 화면은 «그리기만».
+   ⛔ 켜기는 확인을 한 번 받는다 — 켜면 🔴 건이 사람 손을 거치지 않고 되돌아간다.
+   ══════════════════════════════════════════════════════════════════════════ */
+var AR = null;          // 마지막으로 받은 보고서(열려 있을 때만)
+function paintArBtn(){
+  var b = document.getElementById('arBtn');
+  if (b) b.hidden = !(D && D.me && D.me.is_exec);
+  if (AR) paintAr();    // 열려 있으면 언어를 바꿔도 따라오게
+}
+function arModeLabel(m){
+  return m === 'on' ? T('ON — red requests are returned automatically', '켜짐 — 🔴 건을 AI 가 바로 되돌립니다')
+       : m === 'off' ? T('OFF — AI does not judge', '꺼짐 — AI 가 판정하지 않습니다')
+       : T('Practice — AI only marks, people decide', '연습 — AI 는 표시만, 결재는 사람이');
+}
+function arReadyText(r){
+  return r === 'ready' ? T('Ready: every red request in 14 days was also rejected by you. You may try turning it on.',
+                           '켜 볼 만합니다 — 14일 동안 🔴 건을 두 분도 전부 반려하셨습니다.')
+       : r === 'not_yet' ? T('Not yet: you approved some requests the AI marked red (see below).',
+                             '아직 이릅니다 — AI 가 🔴 로 본 건을 승인하신 적이 있습니다(아래).')
+       : T('Too few cases yet — keep practising (need 5+ red in 14 days).',
+           '아직 자료가 적습니다 — 연습을 더 지켜봐 주세요(14일 · 🔴 5건 이상 필요).');
+}
+function arRowHtml(x){
+  var amt = (x.amount == null) ? '' : (' · ' + (x.currency || '') + ' ' + Number(x.amount).toLocaleString());
+  var why = (x.reasons || []).map(function(r){ return T(r.en, r.ko); }).join(' / ');
+  return '<li><a href="/work?id=' + Number(x.id) + '">' + esc(x.title || ('#' + x.id)) + '</a>' +
+         ' <span class="muted">' + esc(x.who || '') + esc(amt) + '</span>' +
+         (why ? '<div class="muted">' + esc(why) + '</div>' : '') + '</li>';
+}
+function paintAr(){
+  var box = document.getElementById('arBox');
+  if (!box) return;
+  if (!AR) { box.innerHTML = ''; return; }
+  var t = AR.tally || { red: 0, agreed: 0, disagreed: 0 };
+  var h = '<div class="why"><b>' + esc(T('🤖 AI auto-reject — should it be on?', '🤖 AI 자동 반려 — 켤까요?')) + '</b>' +
+    '<div>' + esc(T('Now: ', '지금: ') + arModeLabel(AR.mode)) + '</div>' +
+    '<div>' + esc(T('Last ' + AR.days + ' days: AI marked red ' + t.red + ' · you also rejected ' + t.agreed + ' · you approved ' + t.disagreed,
+                    '지난 ' + AR.days + '일: AI 🔴 ' + t.red + '건 · 두 분도 반려 ' + t.agreed + '건 · 승인하신 건 ' + t.disagreed + '건')) + '</div>' +
+    '<div><b>' + esc(arReadyText(AR.readiness)) + '</b></div>';
+  if (AR.changed && AR.changed.by) {
+    h += '<div class="muted">' + esc(T('Last changed by ', '마지막 변경: ') + AR.changed.by +
+         (AR.changed.at ? ' · ' + new Date(AR.changed.at).toLocaleString() : '')) + '</div>';
+  }
+  if ((AR.disagreed || []).length) {
+    h += '<div>' + esc(T('AI said red, but you approved:', 'AI 는 🔴, 두 분은 승인한 건:')) + '</div><ul>' +
+         AR.disagreed.map(arRowHtml).join('') + '</ul>';
+  }
+  if ((AR.agreed || []).length) {
+    h += '<div>' + esc(T('AI said red and you rejected too:', 'AI 도 두 분도 반려한 건:')) + '</div><ul>' +
+         AR.agreed.map(arRowHtml).join('') + '</ul>';
+  }
+  h += '<div class="whybtns">';
+  ['shadow', 'on', 'off'].forEach(function(m){
+    if (m === AR.mode) return;
+    var lbl = m === 'on' ? T('Turn ON', '켜기') : m === 'off' ? T('Turn OFF', '끄기') : T('Back to practice', '연습으로');
+    h += '<button onclick="setArMode(\'' + m + '\')">' + esc(lbl) + '</button>';
+  });
+  h += '<button onclick="openAr()">' + esc(T('Close', '닫기')) + '</button></div></div>';
+  box.innerHTML = h;
+}
+window.openAr = function(){
+  if (AR) { AR = null; paintAr(); return; }
+  fetch('/api/approval/autoreject/report', { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (j && j.ok === true && j.tally) { AR = j; paintAr(); }
+      else toast(T('Could not load the AI report.', 'AI 판단 자료를 불러오지 못했습니다.'));
+    })
+    .catch(function(){ toast(T('Could not load — check your connection.', '불러오지 못했습니다 — 연결을 확인해 주세요.')); });
+};
+window.setArMode = function(m){
+  if (m === 'on' && !window.confirm(T('Turn ON? Red requests will be returned automatically without you seeing them first.',
+                                      '켤까요? 🔴 건은 두 분이 보기 전에 AI 가 바로 되돌립니다.'))) return;
+  fetch('/api/approval/autoreject/mode', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: m })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(j){
+    // ⛔ «성공이라고 말했을 때만» 바뀐 것으로 그린다 — 못 썼는데 화면만 바뀌면 사고다.
+    if (j && j.ok === true) {
+      toast(T('Saved: ', '바꿨습니다: ') + arModeLabel(j.requested || m));
+      AR = null; window.openAr();
+    } else {
+      toast(T('Could not change it.', '바꾸지 못했습니다.'));
+    }
+  })
+  .catch(function(){ toast(T('Could not change — check your connection.', '바꾸지 못했습니다 — 연결을 확인해 주세요.')); });
+};
 /* ── 반려 사유 — 버튼 3개. 타이핑은 필요할 때만. ──────────────────────────── */
 var WHYS = [
   { en: 'Receipt needed', ko: '영수증 첨부 필요' },

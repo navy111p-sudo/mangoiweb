@@ -386,7 +386,10 @@ const smsTargetsAt = [...API_SRC.matchAll(/smsFallback\(env, targets/g)].map(m =
 check('문자는 긴급·지연·승격에만 (돈이 든다)',
   /reqType === 'urgent' && n1\.missed/.test(API_SRC) &&
   smsTargetsAt.length >= 1 &&
-  smsTargetsAt.every(i => /if \(target >= 2 && cur < 2\) \{\s*(await\s+)?$/.test(API_SRC.slice(Math.max(0, i - 120), i))),
+  /* (2026-09-25) 사이렌(12시간)에도 문자 — 「ARS 는 하지 말고 문자로만」. 가드가 «8시간만» 에서
+     nudgeSmsKind(단계마다 한 번) 로 바뀌었다. 묻는 것은 그대로: targets 문자는 «알림 단계 가드 안» 에만. */
+  /const smsKind = nudgeSmsKind\(target, cur\);/.test(API_SRC) &&
+  smsTargetsAt.every(i => /if \(smsKind\) \{\s*(await\s+)?$/.test(API_SRC.slice(Math.max(0, i - 120), i))),
   '모든 결재에 문자를 보내면 비용이 새어 나간다');
 
 check('문자를 끄는 스위치가 있다',

@@ -59,7 +59,7 @@ import {
   type Stage, type Flag, type ActorLike, type ReceiptItem,
   signalOf, autoRejectMode, autoRejectable,                  // 🚦 신호등 · 자동 반려(2026-09-24)
   pushApproveDenyReason, quickApprovable,                    // 📲 알림에서 바로 승인
-  rejectTipsFrom, shadowTally, monthlyRepeats,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
+  rejectTipsFrom, shadowTally, monthlyRepeats, autoRejectReadiness, autoRejectModeInput, nudgeSmsKind,               // 📋 반려 줄이기 · 🤖 켜기 판단 · 🔁 매달 반복
   isSha256Hex, historyCard, firstPassRates,                 // 🤖 4단계 — 영수증 재사용 · 결재 전 이력 · 첫 통과율
   nudgePlan, stageStartOf, nudgeLevel, isQuietKst, digestSlotKst,   // ⏰ 알림 단계 · 하루 두 번 요약
   monthlySlotKst, kstMonthRange, monthlyReportLines,   // 📅 월초 요약(5단계)
@@ -637,6 +637,27 @@ async function toEnglish(env: ApprovalEnv, text: string): Promise<string | null>
 async function readAutoRejectMode(env: ApprovalEnv) {
   const v = await safe(async () => await (env as any).SESSION_STATE?.get('approval_autoreject'), null);
   return autoRejectMode(v);
+}
+
+/**
+ * 🤖 자동 반려 «연습 성적» — 지난 14일, AI 가 🔴 로 본 건을 사람이 실제로 어떻게 처리했나.
+ *   주간 요약 문자와 경영진 판단 패널이 **같은 함수**를 쓴다(두 곳이 다른 숫자를 말하지 않게).
+ *   AI 가 스스로 되돌린 건(decided_by='ai-auto')·취소 결재는 세지 않는다.
+ */
+async function loadShadowRows(env: ApprovalEnv, now: number) {
+  const rows = await safe(async () => (await env.DB.prepare(
+    `SELECT id, title, requester_name, requester_username, amount, currency, req_type, ocr_amount,
+            file_key, flags, status, decided_by, created_at FROM approval_requests
+      WHERE created_at >= ? AND status IN ('approved','rejected') AND reverses_id IS NULL
+        AND IFNULL(decided_by,'') <> 'ai-auto' ORDER BY created_at DESC LIMIT 500`
+  ).bind(now - 14 * 86400_000).all<any>()).results || [], [] as any[]);
+  return (rows as any[]).map((r: any) => {
+    let fl: Flag[] = [];
+    try { if (r.flags) fl = JSON.parse(r.flags); } catch { fl = []; }
+    const sg = signalOf({ reqType: r.req_type, amount: r.amount, ocrAmount: r.ocr_amount,
+      hasFile: !!r.file_key, flags: fl });
+    return { row: r, status: String(r.status || ''), signal: sg.signal, reasons: sg.reasons };
+  });
 }
 
 /** Workers AI 응답은 객체일 때도, JSON 문자열일 때도, 앞뒤에 말이 붙을 때도 있다. 셋 다 받는다. */
@@ -2767,6 +2788,47 @@ export async function handleApprovalApi(
     return json({ ok: true, signal: sig.signal, reasons: sig.reasons, flags });
   }
 
+  /* 🤖 자동 반려 «켤지 말지» 판단 패널 (2026-09-25, 9단계) — 경영진만.
+       연습(shadow) 기간 동안 AI 가 🔴 로 본 건을 두 분이 실제로 어떻게 처리했는지 보여 주고,
+       켜기·끄기는 **사람이 누른다.** 판정 정본 shadowTally · autoRejectReadiness. */
+  if (method === 'GET' && path === '/api/approval/autoreject/report') {
+    if (!iAmExec) return json({ ok: false, error: 'forbidden_exec_only' }, 403);
+    const now = Date.now();
+    const mode = await readAutoRejectMode(env);
+    const rows = await loadShadowRows(env, now);
+    const tally = shadowTally(rows);
+    // 몇 일치 자료가 있나 — 결재 기록이 14일보다 짧으면 그만큼만(지어내지 않는다).
+    const first: any = await safe(async () => await env.DB.prepare(
+      `SELECT MIN(created_at) AS t FROM approval_requests`).first(), null);
+    const firstAt = Number(first?.t || 0);
+    const days = firstAt > 0 ? Math.min(14, Math.floor((now - firstAt) / 86400_000)) : 0;
+    const pick = (st: string) => rows.filter(x => x.signal === 'red' && x.status === st).slice(0, 20)
+      .map(x => ({ id: x.row.id, title: String(x.row.title || '').slice(0, 80),
+        who: x.row.requester_name || x.row.requester_username || '',
+        amount: x.row.amount == null ? null : Number(x.row.amount), currency: x.row.currency || null,
+        reasons: x.reasons.map(rr => ({ ko: rr.ko, en: rr.en })) }));
+    const byRaw = await safe(async () => await (env as any).SESSION_STATE?.get('approval_autoreject_by'), null);
+    let changed: any = null;
+    try { if (byRaw) { const o = JSON.parse(String(byRaw)); changed = { by: String(o.by || ''), at: Number(o.at) || null, mode: String(o.mode || '') }; } } catch { changed = null; }
+    return json({ ok: true, mode, days, tally, readiness: autoRejectReadiness(tally, days),
+      disagreed: pick('approved'), agreed: pick('rejected'), changed });
+  }
+  if (method === 'POST' && path === '/api/approval/autoreject/mode') {
+    if (!iAmExec) return json({ ok: false, error: 'forbidden_exec_only' }, 403);
+    const b: any = await request.json().catch(() => ({}));
+    const mode = autoRejectModeInput(b?.mode);
+    if (!mode) return json({ ok: false, error: 'bad_mode' }, 400);
+    const kv: any = (env as any).SESSION_STATE;
+    if (!kv) return json({ ok: false, error: 'kv_unavailable' }, 503);
+    // ⛔ 못 썼으면 «바꿨다» 고 답하지 않는다 — 스위치가 그대로인데 화면만 바뀌면 사고다.
+    const okPut = await safe(async () => { await kv.put('approval_autoreject', mode); return true; }, false);
+    if (!okPut) return json({ ok: false, error: 'kv_write_failed' }, 503);
+    await safe(async () => { await kv.put('approval_autoreject_by',
+      JSON.stringify({ by: String(actor.username || ''), at: Date.now(), mode })); return true; }, false);
+    const now2 = await readAutoRejectMode(env);
+    return json({ ok: true, mode: now2, requested: mode });
+  }
+
   if (method === 'POST' && path === '/api/approval/ocr') {
     const buf = await request.arrayBuffer().catch(() => null);
     if (!buf || buf.byteLength === 0) return json({ ok: false, error: 'empty' }, 400);
@@ -2873,10 +2935,16 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
           await notify(env, targets,
             (target >= 3 ? '🚨 ' : '') + '결재 대기 ' + hours + '시간 · Pending ' + hours + 'h',
             t60, r.id, target >= 3 ? 'approval-siren' : 'approval-nudge', quickSeqOf(r, seq));
-          // 8시간이 되면 푸시와 상관없이 문자 — 푸시는 «켠 기기» 에만 가고 잠긴 폰은 놓친다.
-          if (target >= 2 && cur < 2) {
+          // 8시간·12시간(사이렌)이 되면 푸시와 상관없이 문자 — 푸시는 «켠 기기» 에만 가고 잠긴 폰은 놓친다.
+          // 📱 (2026-09-25 사장님 「ARS 음성 메시지는 하지 말고 문자로만」) 전화(ARS)는 쓰지 않는다.
+          //    판정 정본 nudgeSmsKind — 단계마다 한 번, 건너뛰면 가장 높은 단계의 문자 하나만.
+          const smsKind = nudgeSmsKind(target, cur);
+          if (smsKind) {
             await smsFallback(env, targets,
-              '[망고아이] 결재 대기 ' + hours + '시간째\n' + t60 + '\n' + siteUrl('/work?id=' + r.id));
+              (smsKind === 'siren'
+                ? '[망고아이] 🚨 결재 ' + hours + '시간째 멈춤 — 지금 확인해 주세요\n'
+                : '[망고아이] 결재 대기 ' + hours + '시간째\n') +
+              t60 + '\n' + siteUrl('/work?id=' + r.id));
           }
         }
         await safe(async () => {
@@ -3117,17 +3185,7 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
 
     /* 🤖 자동 반려 «켤지 말지» 판단 자료 — 지난 14일, AI 가 🔴(되돌렸을 것)로 본 건을
        두 분이 실제로 어떻게 처리했나. 판정 정본 shadowTally. 스위치가 이미 'on' 이어도 같이 센다. */
-    const shRows = await safe(async () => (await env.DB.prepare(
-      `SELECT req_type, amount, ocr_amount, file_key, flags, status FROM approval_requests
-        WHERE created_at >= ? AND status IN ('approved','rejected') AND reverses_id IS NULL
-          AND IFNULL(decided_by,'') <> 'ai-auto' LIMIT 500`
-    ).bind(now - 14 * 86400_000).all<any>()).results || [], [] as any[]);
-    const sh = shadowTally((shRows as any[]).map((r: any) => {
-      let fl: Flag[] = [];
-      try { if (r.flags) fl = JSON.parse(r.flags); } catch { fl = []; }
-      return { status: r.status, signal: signalOf({ reqType: r.req_type, amount: r.amount,
-        ocrAmount: r.ocr_amount, hasFile: !!r.file_key, flags: fl }).signal };
-    }));
+    const sh = shadowTally(await loadShadowRows(env, now));
     if (sh.red) {
       lines.push('AI 자동 반려(연습) 14일: 🔴 ' + sh.red + '건 중 두 분도 반려 ' + sh.agreed +
                  '건 · 승인하신 건 ' + sh.disagreed + '건' +
