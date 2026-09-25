@@ -276,6 +276,17 @@ async function notifyStudent(env: any, uid: string, name: string): Promise<any> 
   return out;
 }
 
+/** 필리핀 매니저 계정의 이메일(비어 있으면 빈 배열). ⛔ 던지지 않는다. */
+async function managerEmails(env: any): Promise<string[]> {
+  const out: string[] = [];
+  try {
+    const rows = await selectInChunks<any>(env.DB, PH_MANAGERS,
+      (ph) => `SELECT email FROM admin_account WHERE username IN (${ph}) AND email IS NOT NULL AND TRIM(email) <> ''`);
+    for (const x of rows) { const e = String((x as any).email).trim(); if (e && out.indexOf(e) < 0) out.push(e); }
+  } catch { /* 무시 */ }
+  return out;
+}
+
 /** 강사·필리핀 매니저 — 이메일 + 웹푸시. */
 async function notifyStaff(env: any, h: { student_name: string; teacher_id: any; teacher_name: string | null; streak: number }): Promise<any> {
   const out: any = {};
@@ -309,11 +320,7 @@ async function notifyStaff(env: any, h: { student_name: string; teacher_id: any;
       if (rows.length === 1) emails.push(String(rows[0].email).trim());   // 두 명 이상이면 붙이지 않는다(남의 강사)
     }
   } catch { /* 무시 */ }
-  try {
-    const rows = await selectInChunks<any>(env.DB, PH_MANAGERS,
-      (ph) => `SELECT email FROM admin_account WHERE username IN (${ph}) AND email IS NOT NULL AND TRIM(email) <> ''`);
-    for (const x of rows) { const e = String((x as any).email).trim(); if (e && emails.indexOf(e) < 0) emails.push(e); }
-  } catch { /* 무시 */ }
+  for (const e of await managerEmails(env)) if (emails.indexOf(e) < 0) emails.push(e);
   if (emails.length) {
     try {
       const esc = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
@@ -405,6 +412,108 @@ export async function autoResumeReturning(env: any, now: number): Promise<number
     }
   } catch (e: any) { console.warn('[absence-hold] 자동 재개 확인 실패:', e?.message || e); }
   return n;
+}
+
+/* ③ 아침 보류 요약 (2026-09-25 사장님 «교사와 매니저가 더 쉽게 볼 수 있게»).
+   보류가 걸리는 순간의 알림은 한 번뿐이라, 놓치면 매니저가 모른 채 며칠이 갑니다.
+   그래서 매일 아침 «아직 결정 안 한 보류» 를 한 번 더 모아 매니저에게 푸시·이메일로 보냅니다.
+   · 시각: KST 10:00~11:59(= 필리핀 09:00~10:59) — 15분 감시 작업이 부른다(⛔ 새 cron 없음 · 계정 한도 5/5).
+   · 하루 한 번: 표 `class_absence_hold_digest(ymd PRIMARY KEY)` 에 먼저 «선점» 하고, 선점에 성공한 호출만 보낸다
+     (두 워커·동시 호출이 겹쳐도 한 통).
+   · 보류가 0건이면 보내지 않는다(빈 요약은 소음).
+   · 끄기: KV(SESSION_STATE) `absence_hold_digest` = 'off'.
+   ⛔ 던지지 않는다 — 부르는 쪽이 15분 감시 작업이다. */
+export const HOLD_DIGEST_KST_FROM = 10;   // KST 시(포함)
+export const HOLD_DIGEST_KST_UNTIL = 12;  // KST 시(미포함)
+
+/** 순수 — 지금이 요약 창인가, 그렇다면 그날 KST 날짜('YYYY-MM-DD'). 아니면 null. */
+export function holdDigestSlot(now: number): string | null {
+  const k = new Date(now + 9 * 3600 * 1000);
+  const h = k.getUTCHours();
+  if (h < HOLD_DIGEST_KST_FROM || h >= HOLD_DIGEST_KST_UNTIL) return null;
+  return k.toISOString().slice(0, 10);
+}
+
+/** 순수 — 보류가 며칠째인가(held_after 다음 날이 1일째). 모르면 null. */
+export function holdDays(heldAfter: string, todayYmd: string): number | null {
+  const a = Date.parse(String(heldAfter || '') + 'T00:00:00Z');
+  const b = Date.parse(String(todayYmd || '') + 'T00:00:00Z');
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  const d = Math.round((b - a) / 86400000);
+  return d >= 1 ? d : null;
+}
+
+export async function maybeSendHoldDigest(env: any, now: number, opts: { dry?: boolean } = {}): Promise<any> {
+  const out: any = { sent: false };
+  try {
+    const ymd = holdDigestSlot(now);
+    if (!ymd) { out.why = 'outside_window'; return out; }
+    if (await kvOff(env, 'absence_hold_digest')) { out.why = 'switch_off'; return out; }
+    await ensureAbsenceHoldTable(env);
+    const rs = await env.DB.prepare(
+      `SELECT student_uid, student_name, teacher_name, held_after, streak FROM class_absence_hold WHERE state = 'held' ORDER BY held_after ASC LIMIT 100`
+    ).all();
+    const rows: any[] = rs?.results || [];
+    out.count = rows.length;
+    if (!rows.length) { out.why = 'no_holds'; return out; }
+    if (opts.dry) { out.why = 'dry'; return out; }
+
+    // 하루 한 번 — 선점에 성공한 호출만 보낸다.
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_absence_hold_digest (ymd TEXT PRIMARY KEY, sent_at INTEGER NOT NULL, count INTEGER, result TEXT)`);
+    const claim = await env.DB.prepare(`INSERT OR IGNORE INTO class_absence_hold_digest (ymd, sent_at, count) VALUES (?, ?, ?)`)
+      .bind(ymd, now, rows.length).run();
+    if (!(claim?.meta?.changes > 0)) { out.why = 'already_sent'; return out; }
+
+    const lineEn = (r: any) => {
+      const d = holdDays(r.held_after, ymd);
+      return `• ${r.student_name || r.student_uid} — teacher ${r.teacher_name || '-'} · on hold since ${r.held_after}${d ? ` (day ${d})` : ''}`;
+    };
+    const lineKo = (r: any) => {
+      const d = holdDays(r.held_after, ymd);
+      return `• ${r.student_name || r.student_uid} — ${r.teacher_name || '-'} 선생님 · ${r.held_after} 부터 보류${d ? ` (${d}일째)` : ''}`;
+    };
+    const n = rows.length;
+    const title = `⏸ 보류 학생 ${n}명 — 오늘 확인해 주세요 · ${n} student(s) on hold`;
+    const bodyEn = `${n} student(s) are still ON HOLD (no teacher pay). Please ask each student/academy and press [Continues] or [Quit] on the manager page.\n`
+      + rows.slice(0, 20).map(lineEn).join('\n') + (n > 20 ? `\n… +${n - 20} more` : '');
+    const bodyKo = `아직 결정하지 않은 보류 학생이 ${n}명 있습니다(강사비 0%). 학생·학원에 확인한 뒤 매니저 화면에서 [계속 다님] 또는 [그만둠]을 눌러 주세요.\n`
+      + rows.slice(0, 20).map(lineKo).join('\n') + (n > 20 ? `\n… 외 ${n - 20}명` : '');
+
+    try {
+      // 푸시는 짧게 — 알림 한 칸에 긴 목록은 잘린다. 목록은 화면·이메일에서 본다.
+      const pm = await pushToTeacher(env, '', title,
+        `Open the manager page to decide. · 매니저 화면에서 결정해 주세요.`, '/manager#ah-panel', 'absence-hold-digest', PH_MANAGERS);
+      out.manager_push = pm.sent > 0 ? 'sent' : (pm.why || 'failed');
+    } catch { out.manager_push = 'error'; }
+
+    const emails = await managerEmails(env);
+    if (emails.length) {
+      try {
+        const esc = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+        const r = await sendEmail(env, {
+          to: emails,
+          subject: `[Mangoi] ${n} student(s) on hold — please decide today / 보류 학생 ${n}명`,
+          html: emailLayout({
+            title: '⏸ Students on hold · 보류 학생 요약',
+            bodyHtml: `<p style="white-space:pre-line">${esc(bodyEn)}</p><p style="white-space:pre-line;color:#475569">${esc(bodyKo)}</p>`
+                    + `<p><a href="${siteUrl('/manager')}">${siteUrl('/manager')}</a></p>`,
+          }),
+        });
+        out.email = r.ok ? `sent:${emails.length}` : (r.error || r.message || 'failed');
+      } catch { out.email = 'error'; }
+    } else out.email = 'no_email';
+
+    out.sent = out.manager_push === 'sent' || String(out.email || '').startsWith('sent');
+    try {
+      await env.DB.prepare(`UPDATE class_absence_hold_digest SET result = ? WHERE ymd = ?`)
+        .bind(JSON.stringify({ push: out.manager_push, email: out.email }), ymd).run();
+    } catch { /* 기록 실패는 무시 */ }
+    return out;
+  } catch (e: any) {
+    console.warn('[absence-hold] 아침 요약 실패:', e?.message || e);
+    out.why = 'error';
+    return out;
+  }
 }
 
 /** 목록 — state=open(보류·미결) · all */

@@ -272,5 +272,94 @@ ok(/<script defer src="\/js\/absence-hold-panel\.js\?v=\d+"><\/script>/.test(rd(
   ok(!/<script[^>]+src="\/js\/absence-hold-panel/.test(mg), '(짝) manager.html: 외부 script 태그를 늘리지 않는다');
 }
 
+console.log('\n⑤ 아침 보류 요약(매니저) — 창·하루 1통·0건이면 안 보냄');
+{
+  ok(M.holdDigestSlot(at('2026-09-25', '10:00')) === '2026-09-25', 'KST 10:00 은 요약 창(=PH 09:00)');
+  ok(M.holdDigestSlot(at('2026-09-25', '11:59')) === '2026-09-25', 'KST 11:59 도 창 안');
+  ok(M.holdDigestSlot(at('2026-09-25', '09:59')) === null && M.holdDigestSlot(at('2026-09-25', '12:00')) === null, '(짝) 창 밖(09:59·12:00)은 안 보낸다');
+  ok(M.holdDays('2026-09-22', '2026-09-25') === 3 && M.holdDays('2026-09-25', '2026-09-25') === null, '보류 며칠째(당일은 셈하지 않음)');
+  const T = at('2026-09-25', '10:15');
+  const { db, env } = mkEnv();
+  db.prepare(`INSERT INTO admin_account VALUES ('mgr_karl','karl@x.ph')`).run();
+  calls.push.length = 0; calls.email.length = 0;
+  let r = await M.maybeSendHoldDigest(env, T);
+  ok(r.sent === false && r.why === 'no_holds' && calls.push.length === 0, '보류가 0건이면 요약을 보내지 않는다(소음)');
+  await M.ensureAbsenceHoldTable(env);
+  db.prepare(`INSERT INTO class_absence_hold (student_uid,student_name,teacher_name,held_after,streak,state,created_at,updated_at) VALUES ('kim01','김서윤','ANA','2026-09-22',2,'held',1,1),('lee02','이도윤','KAYE','2026-09-23',2,'resumed',1,1)`).run();
+  r = await M.maybeSendHoldDigest(env, T);
+  ok(r.sent === true && r.count === 1, '결정 안 한 보류(held)만 센다 — 재개된 학생은 빼고');
+  ok(calls.push.length === 1 && JSON.stringify(calls.push[0].extra) === JSON.stringify(['mgr_melca', 'mgr_maimai', 'mgr_karl']) && /\/manager/.test(calls.push[0].url), '필리핀 매니저 세 명에게 푸시(매니저 화면으로)');
+  ok(calls.email.length === 1 && calls.email[0].to.indexOf('karl@x.ph') >= 0 && /김서윤/.test(calls.email[0].html) && /day 3/.test(calls.email[0].html) && /3일째/.test(calls.email[0].html), '이메일에 학생·며칠째를 영·한으로');
+  ok(!/이도윤/.test(calls.email[0].html), '(짝) 재개된 학생은 요약에 없다');
+  r = await M.maybeSendHoldDigest(env, at('2026-09-25', '10:30'));
+  ok(r.sent === false && r.why === 'already_sent' && calls.push.length === 1, '같은 날 두 번째 호출은 보내지 않는다(하루 1통)');
+  r = await M.maybeSendHoldDigest(env, at('2026-09-26', '10:00'));
+  ok(r.sent === true && calls.push.length === 2, '(짝) 다음 날에는 다시 보낸다');
+  const { env: env2 } = mkEnv({ absence_hold_digest: 'off' });
+  ok((await M.maybeSendHoldDigest(env2, T)).why === 'switch_off', 'KV absence_hold_digest=off 로 끈다');
+  const { db: db3, env: env3 } = mkEnv();
+  await M.ensureAbsenceHoldTable(env3);
+  db3.prepare(`INSERT INTO class_absence_hold (student_uid,student_name,held_after,state,created_at,updated_at) VALUES ('kim01','김서윤','2026-09-22','held',1,1)`).run();
+  const before = calls.push.length;
+  r = await M.maybeSendHoldDigest(env3, T, { dry: true });
+  ok(r.why === 'dry' && calls.push.length === before, 'dry 는 보내지도 선점하지도 않는다');
+  const envBoom = { DB: { exec: async () => { throw new Error('boom'); }, prepare: () => { throw new Error('boom'); } }, SESSION_STATE: { get: async () => null } };
+  let threw = false; try { r = await M.maybeSendHoldDigest(envBoom, T); } catch { threw = true; }
+  ok(!threw && r.why === 'error', 'DB 가 죽어도 던지지 않는다(15분 감시 작업 보호)');
+}
+{
+  const sw2 = strip(rd(resolve(SRC, 'absent-sweep.ts')));
+  const iDig = sw2.indexOf('maybeSendHoldDigest(env, now, { dry })');
+  const iRes = sw2.indexOf('await autoResumeReturning(env, now)');
+  const iEarly = sw2.indexOf('if (!candidates.length) return result;');
+  ok(iDig > 0 && iDig < iEarly, '결석 감지: 아침 요약은 «오늘 감지할 수업이 없어도» 돈다(조기 반환 앞)');
+  ok(iRes > 0 && iRes < iEarly, '결석 감지: 자동 재개도 조기 반환 앞');
+}
+
+console.log('\n⑥ 매니저 상단바 배지·탭 제목');
+{
+  const pj = rd(resolve(PUB, 'js/absence-hold-panel.js'));
+  // 가짜 DOM 으로 syncBadge 를 실제로 돌린다
+  const i0 = pj.indexOf('var baseTitle = null;');
+  const i1 = pj.indexOf('var items = [];');
+  const src = i0 > 0 && i1 > i0 ? pj.slice(i0, i1) : '';
+  ok(src.length > 0, '전제: 배지 함수를 오려 냈다');
+  const mkDoc = (withTop) => {
+    const els = {};
+    const parent = { kids: [], insertBefore(n, ref) { this.kids.splice(this.kids.indexOf(ref), 0, n); els[n.id] = n; } };
+    const doc = {
+      title: '매니저', els,
+      getElementById: (id) => els[id] || null,
+      createElement: () => { const n = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, remove() { delete els[this.id]; parent.kids.splice(parent.kids.indexOf(this), 1); } }; return n; },
+    };
+    if (withTop) { const tw = { id: 'toWork', parentNode: parent }; parent.kids.push(tw); els.toWork = tw; }
+    return { doc, parent };
+  };
+  let run = null;
+  try { run = new Function('document', src + '\nreturn syncBadge;'); } catch (e) { console.log('  ' + e.message); }
+  if (run) {
+    const { doc, parent } = mkDoc(true);
+    const sync = run(doc);
+    try { sync(3); } catch (e) { console.log('  ' + e.message); }
+    const b = doc.els['ah-badge'];
+    ok(!!b && /보류/.test(b.innerHTML) && /Hold/.test(b.innerHTML) && />3</.test(b.innerHTML), '보류 3명 → 상단바에 «⏸ Hold · 보류 3»');
+    ok(b && parent.kids.indexOf(b) === parent.kids.indexOf(doc.els.toWork) - 1, '배지는 결재함 바로 앞');
+    ok(b && b.href === '#ah-panel', '누르면 알림판으로 간다');
+    ok(doc.title === '(3) 매니저', '탭 제목에 «(3)»');
+    try { sync(3); sync(1); } catch (e) {}
+    ok(doc.title === '(1) 매니저' && parent.kids.filter(k => k.id === 'ah-badge').length === 1, '(짝) 다시 불러도 배지는 하나, 제목은 겹치지 않는다');
+    try { sync(0); } catch (e) {}
+    ok(!doc.els['ah-badge'] && doc.title === '매니저', '(짝) 0명이면 배지를 지우고 제목을 되돌린다');
+    const d2 = mkDoc(false); const sync2 = run(d2.doc);
+    try { sync2(2); } catch (e) {}
+    ok(!d2.doc.els['ah-badge'] && d2.doc.title === '(2) 매니저', '상단바가 없는 화면(관리자)은 탭 제목만');
+    const d3 = mkDoc(true); d3.doc.title = '(5) 매니저'; const sync3 = run(d3.doc);
+    try { sync3(2); } catch (e) {}
+    ok(d3.doc.title === '(2) 매니저', '(짝) 이미 «(N)» 이 붙은 제목에 또 붙이지 않는다');
+  } else ok(false, '배지 함수를 실행하지 못했다');
+  const iR = pj.indexOf('function render() {');
+  ok(iR > 0 && /syncBadge\(items\.length\)/.test(pj.slice(iR, iR + 120)), '그릴 때마다(불러오기·결정 뒤) 배지를 맞춘다');
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);

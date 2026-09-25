@@ -3073,7 +3073,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
    보류된 학생이 «있을 때만» 알림판 파일을 불러온다(없으면 요청 1건으로 끝). 정본 /js/absence-hold-panel.js */
 (function(){try{fetch('/api/admin/reports/absence-holds?state=open',{credentials:'include',cache:'no-store'})
 .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||d.ok!==true||!d.items||!d.items.length)return;
-var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-panel.js?v=1';document.body.appendChild(s);}).catch(function(){});}catch(e){}})();
+var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-panel.js?v=2';document.body.appendChild(s);}).catch(function(){});}catch(e){}})();
 </script>
 </body>
 </html>

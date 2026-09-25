@@ -32,7 +32,9 @@
     + '#ah-panel button.ah-b.ah-r{background:#b8321f;border-color:#b8321f;color:#ffffff}'
     + '#ah-panel button.ah-b:focus-visible{outline:2px solid #0e6e6a;outline-offset:2px}'
     + '#ah-panel .ah-msg{font-size:12.5px;color:#475467}'
-    + '#ah-panel .ah-toggle{font-size:12.5px}';
+    + '#ah-panel .ah-toggle{font-size:12.5px}'
+    + '#ah-badge{display:inline-flex;align-items:center;gap:4px;background:#b8321f;border-color:#b8321f;color:#ffffff;font-weight:800;text-decoration:none}'
+    + '#ah-badge .ah-bn{display:inline-block;background:#ffffff;color:#b8321f;border-radius:999px;padding:0 6px;min-width:18px;text-align:center;font-size:11.5px;line-height:1.6}';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -69,10 +71,35 @@
       : '<span class="ah-tag ah-no">Send failed · 보내지 못함 — 직접 연락</span>';
   }
 
+  /* ① 상단바 배지 «⏸ 보류 N» + 탭 제목 «(N)» (2026-09-25 사장님 «더 쉽게 보이게»).
+     알림판은 화면 «안» 이라 스크롤하면 안 보인다 → 늘 보이는 상단바·탭 제목에 숫자를 둔다.
+     상단바(#toWork 결재함)가 있는 화면(/manager)에만 배지를 붙이고, 없으면 탭 제목만 바꾼다.
+     ⚠️ 0명이면 배지를 지우고 제목을 원래대로 되돌린다(«(0)» 을 남기지 않음). */
+  var baseTitle = null;
+  function syncBadge(n) {
+    if (baseTitle === null) baseTitle = String(document.title || '').replace(/^\(\d+\)\s*/, '');
+    document.title = n > 0 ? '(' + n + ') ' + baseTitle : baseTitle;
+    var b = document.getElementById('ah-badge');
+    if (!(n > 0)) { if (b) b.remove(); return; }
+    var anchor = document.getElementById('toWork');
+    if (!anchor || !anchor.parentNode) return;
+    if (!b) {
+      b = document.createElement('a');
+      b.id = 'ah-badge';
+      b.className = 'tbtn';
+      b.href = '#ah-panel';
+      anchor.parentNode.insertBefore(b, anchor);
+    }
+    b.title = n + ' student(s) on hold — tap to see · 연속 결석 보류 학생 ' + n + '명 — 눌러서 보기';
+    b.setAttribute('aria-label', b.title);
+    b.innerHTML = '⏸ Hold · 보류 <span class="ah-bn">' + n + '</span>';
+  }
+
   var items = [];
   var armed = {};   // id → 'resume' | 'end' (한 번 더 눌러야 확정 — confirm() 대신)
 
   function render() {
+    syncBadge(items.length);
     if (!items.length) { var old = document.getElementById('ah-panel'); if (old) old.remove(); return; }
     var p = panel();
     var h = '<div class="ah-h"><span>⏸ ' + items.length + ' student(s) on hold · 연속 결석으로 보류된 학생 ' + items.length + '명</span></div>'
@@ -112,6 +139,12 @@
   }
 
   document.addEventListener('click', function (e) {
+    var bdg = e.target && e.target.closest ? e.target.closest('#ah-badge') : null;
+    if (bdg) {
+      var pn = document.getElementById('ah-panel');
+      if (pn) { e.preventDefault(); pn.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      return;
+    }
     var t = e.target && e.target.closest ? e.target.closest('#ah-panel button') : null;
     if (!t) return;
     if (t.hasAttribute('data-ah-arm')) { armed[t.getAttribute('data-ah-id')] = t.getAttribute('data-ah-arm'); render(); return; }
