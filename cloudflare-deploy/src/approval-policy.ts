@@ -1129,9 +1129,13 @@ export interface LedgerRow {
   category_ko: string | null; category_en: string | null;
   amount: number; currency: string;
 }
-export function ledgerFrom(items: any[]): { rows: LedgerRow[]; totals: { cur: string; sum: number; n: number }[]; pending: number; no_amount: number } {
+export interface LedgerCat { cur: string; key: string; ko: string | null; en: string | null; sum: number; n: number }
+export function ledgerFrom(items: any[]): { rows: LedgerRow[]; totals: { cur: string; sum: number; n: number }[]; by_category: LedgerCat[]; pending: number; no_amount: number } {
   const rows: LedgerRow[] = [];
   const tot: Record<string, { cur: string; sum: number; n: number }> = {};
+  /* 🧾 분류별 소계(13단계) — «통화 + 분류» 가 한 칸. ⛔ 통화를 넘어 합치지 않는다.
+     분류가 없는 건은 key '' 로 모아 «분류 없음» 으로 보여 준다(빼면 소계 합이 총계와 어긋난다). */
+  const cat: Record<string, LedgerCat> = {};
   let pending = 0, noAmount = 0;
   for (const r of (Array.isArray(items) ? items : [])) {
     if (!r || !isSpendRow(r)) continue;
@@ -1148,10 +1152,35 @@ export function ledgerFrom(items: any[]): { rows: LedgerRow[]; totals: { cur: st
     });
     const t = tot[cur] || (tot[cur] = { cur, sum: 0, n: 0 });
     t.sum = Math.round((t.sum + amt) * 100) / 100; t.n++;
+    const ck = String(r.category || r.category_ko || '').trim();
+    const cid = cur + '|' + ck;
+    const c = cat[cid] || (cat[cid] = { cur, key: ck, ko: ck ? (r.category_ko || ck) : null, en: ck ? (r.category_en || r.category_ko || ck) : null, sum: 0, n: 0 });
+    c.sum = Math.round((c.sum + amt) * 100) / 100; c.n++;
   }
   // 기본 순서: 최근 날짜 먼저(같은 날이면 번호 큰 것 먼저). 화면이 사람이 고른 순서로 다시 정렬한다.
   rows.sort((a, b) => (a.ymd < b.ymd ? 1 : a.ymd > b.ymd ? -1 : b.id - a.id));
-  return { rows, totals: Object.keys(tot).sort().map(k => tot[k]), pending, no_amount: noAmount };
+  // 소계 순서: 통화(총계와 같은 순서) → 큰 돈 먼저 → «분류 없음» 은 맨 뒤.
+  const by_category = Object.keys(cat).map(k => cat[k]).sort((a, b) =>
+    a.cur !== b.cur ? (a.cur < b.cur ? -1 : 1)
+    : (!a.key !== !b.key ? (a.key ? -1 : 1)
+    : (b.sum - a.sum || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))));
+  return { rows, totals: Object.keys(tot).sort().map(k => tot[k]), by_category, pending, no_amount: noAmount };
+}
+
+/* 📅 장부 기간(13단계) — 화면이 날짜를 계산하지 않고 «이름» 만 보낸다.
+ *   화면이 브라우저 시계로, 서버가 KST 로 세면 두 벌이 되어 월말·연말에 하루씩 어긋난다(문서함 함 경계와 같은 이유).
+ *   month = 이번 달 1일~말일 · last_month = 지난달 1일~말일 · year = 최근 12개월(1년 전 다음날 ~ 오늘).
+ *   ⚠️ 모르는 이름이면 null — 부르는 쪽이 원래 from/to 를 그대로 쓴다(지어내지 않는다). */
+export function ledgerRange(period: unknown, today: string): { from: string; to: string } | null {
+  const p = String(period == null ? '' : period).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(today || ''))) return null;
+  if (p === 'month' || p === 'last_month') return archivePeriods(today)[p];
+  if (p === 'year') {
+    const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)), d = Number(today.slice(8, 10));
+    const from = new Date(Date.UTC(y - 1, m - 1, d + 1)).toISOString().slice(0, 10);
+    return { from, to: today };
+  }
+  return null;
 }
 
 /* 📷 결재 카드의 영수증 미리보기 (12단계, 2026-09-25 — 제안서 ② «카드 맨 위에 요약 + 신호등 + 영수증 사진»)

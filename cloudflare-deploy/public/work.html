@@ -196,6 +196,15 @@ html.dark .ledtbl th{color:#a9b6c4}
 .ledtbl .leddate{white-space:nowrap;font-variant-numeric:tabular-nums}
 .ledcat{font-size:12px;color:#6b7785}
 html.dark .ledcat{color:#95a3b2}
+.ledrange{font-size:12px;color:#6b7785;margin:0 2px 6px}
+html.dark .ledrange{color:#95a3b2}
+.ledcats{margin:4px 0 8px;font-size:13px;color:#1f2a37}
+.ledcats summary{cursor:pointer;padding:6px 2px;font-weight:600}
+.ledcats ul{list-style:none;margin:0;padding:0 2px}
+.ledcats li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #eef1f5}
+.ledcats li b{white-space:nowrap}
+html.dark .ledcats{color:#dbe4ee}
+html.dark .ledcats li{border-bottom-color:#243241}
 .ledsort{font:inherit;font-weight:700;color:inherit;background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px}
 .ledsort.on{color:#0f6b4f}
 html.dark .ledsort.on{color:#6fd3ad}
@@ -1592,16 +1601,13 @@ window.runRep = function(){
    ⛔ 서버가 거른 것(canView)만 그린다 — 화면에서 다시 거르거나 합치지 않는다.
    ⛔ 통화를 섞지 않는다 — 금액 순서는 «같은 통화 안에서» 매긴다(₱1,000 과 ₩1,000 은 다른 돈).
    ══════════════════════════════════════════════════════════════════════════ */
-var LED = { per: 'month', key: 'date', dir: 'desc', data: { month: null, year: null }, busy: false, auto: false };
+var LED = { per: 'month', key: 'date', dir: 'desc', data: { month: null, last_month: null, year: null }, busy: false, auto: false };
 var LED_SHOW_MAX = 300;
-
-function ledFrom(per){
-  var n = new Date(Date.now() + 9 * 3600000);   // KST
-  if (per === 'year') {
-    var y = new Date(Date.UTC(n.getUTCFullYear() - 1, n.getUTCMonth(), n.getUTCDate() + 1));
-    return y.toISOString().slice(0, 10);
-  }
-  return n.getUTCFullYear() + '-' + String(n.getUTCMonth() + 1).padStart(2, '0') + '-01';
+/* 📅 기간은 «이름» 만 보낸다(13단계) — 날짜는 서버가 KST 로 정한다(ledgerRange). 화면이 시계로 따로 세면 월말에 어긋난다. */
+var LED_PERS = ['month', 'last_month', 'year'];
+function ledQuery(per){
+  var scope = (D && D.can_approve) ? 'all' : 'mine';
+  return 'view=ledger&scope=' + scope + '&period=' + encodeURIComponent(per);
 }
 
 /** 정렬 — key 'date'|'amount', dir 'asc'|'desc'. 금액은 통화끼리 묶은 뒤 그 안에서 센다. */
@@ -1629,7 +1635,7 @@ function ledAutoOpen(){
 }
 
 window.ledPer = function(per){
-  LED.per = (per === 'year') ? 'year' : 'month';
+  LED.per = LED_PERS.indexOf(per) >= 0 ? per : 'month';
   var have = LED.data[LED.per];
   if (have && !have.err) paintLed(); else runLed(LED.per);   // 실패했던 기간은 다시 부른다
 };
@@ -1645,9 +1651,7 @@ function runLed(per){
   if (!host) return;
   LED.busy = true;
   paintLed();
-  var scope = (D && D.can_approve) ? 'all' : 'mine';
-  var q = 'view=ledger&scope=' + scope + '&from=' + encodeURIComponent(ledFrom(per));
-  fetch('/api/approval/requests?' + q, { credentials: 'same-origin' })
+  fetch('/api/approval/requests?' + ledQuery(per), { credentials: 'same-origin' })
     .then(function(r){ return r.json(); })
     .then(function(d){
       LED.busy = false;
@@ -1666,7 +1670,7 @@ function paintLed(){
     return '<button type="button" class="ledtab' + (LED.per === per ? ' on' : '') + '" aria-pressed="' +
            (LED.per === per ? 'true' : 'false') + '" onclick="ledPer(\'' + per + '\')">' + esc(T(en, ko)) + '</button>';
   };
-  bar.innerHTML = tab('month', 'This month', '이번 달') + tab('year', 'Last 12 months', '최근 1년');
+  bar.innerHTML = tab('month', 'This month', '이번 달') + tab('last_month', 'Last month', '지난달') + tab('year', 'Last 12 months', '최근 1년');
   var d = LED.data[LED.per];
   if (LED.busy && !d) { host.innerHTML = '<div class="findnote">' + esc(T('Loading...', '불러오는 중...')) + '</div>'; return; }
   if (!d) { host.innerHTML = ''; return; }
@@ -1679,6 +1683,19 @@ function paintLed(){
     return money(t.sum, t.cur) + ' (' + t.n + T(' items', '건') + ')';
   }).join('  ·  ') || '—';
   var h = '<div class="ledsum"><b>' + esc(T('Approved spending: ', '승인된 지출 합계: ')) + '</b>' + esc(tot) + '</div>';
+  /* 기간은 서버가 정한 값을 그대로 보여 준다 — 「지난달」이 정확히 며칠부터 며칠인지 사람이 확인할 수 있게. */
+  if (d.from || d.to) h += '<div class="ledrange">' + esc((d.from || '…') + ' ~ ' + (d.to || '…')) + '</div>';
+  /* 🧾 분류별 소계(13단계) — 접어 둔다(장부 줄을 밀어내지 않게). 통화마다 따로. */
+  var cats = d.by_category || [];
+  if (cats.length) {
+    h += '<details class="ledcats"><summary>' + esc(T('By category', '분류별 소계') + ' (' + cats.length + ')') + '</summary><ul>';
+    for (var ci = 0; ci < cats.length; ci++) {
+      var c = cats[ci];
+      var cn = c.key ? (EN() ? (c.en || c.ko) : (c.ko || c.en)) : T('No category', '분류 없음');
+      h += '<li><span>' + esc(cn) + ' · ' + esc(c.n + T(' items', '건')) + '</span><b>' + esc(money(c.sum, c.cur)) + '</b></li>';
+    }
+    h += '</ul></details>';
+  }
   var notes = [];
   if (d.pending) notes.push(T(d.pending + ' still waiting (not counted)', '결재 대기 ' + d.pending + '건은 빠져 있습니다(아직 안 나간 돈)'));
   if (d.no_amount) notes.push(T(d.no_amount + ' without an amount', '금액이 없는 ' + d.no_amount + '건은 빠져 있습니다'));
@@ -1688,9 +1705,13 @@ function paintLed(){
   var rows = ledgerSort(d.ledger, LED.key, LED.dir);
   if (!rows.length) {
     host.innerHTML = h + '<div class="findnote">' + esc(LED.per === 'year' ? T('No approved spending in the last 12 months.', '최근 1년 동안 승인된 지출이 없습니다.')
+                                                   : LED.per === 'last_month' ? T('No approved spending last month.', '지난달 승인된 지출이 없습니다.')
                                                                           : T('No approved spending this month yet.', '이번 달 승인된 지출이 아직 없습니다.')) + '</div>';
     return;
   }
+  /* 📤 이 장부 그대로 엑셀 — 같은 기간·같은 범위(서버가 같은 식으로 만든다). */
+  h += '<div class="findrow"><button type="button" class="findcsv" onclick="ledCsv()">' +
+       esc(T('Excel (this ledger)', '엑셀 내려받기 (이 장부)')) + '</button></div>';
   // 누를 수 있다는 표시 — 지금 정렬 기준이면 ▲/▼, 아니면 ↕
   var arrow = function(k){ return LED.key === k ? (LED.dir === 'asc' ? ' ▲' : ' ▼') : ' ↕'; };
   var sortBtn = function(k, en, ko){
@@ -1716,6 +1737,8 @@ function paintLed(){
   if (rows.length > n) h += '<div class="findnote">' + esc(T('Showing ' + n + ' of ' + rows.length + '.', rows.length + '건 중 ' + n + '건만 보여 줍니다.')) + '</div>';
   host.innerHTML = h;
 }
+
+window.ledCsv = function(){ location.href = '/api/approval/requests?' + ledQuery(LED.per) + '&format=csv'; };
 
 /** 통화별 금액을 «한 줄» 로. ⛔ 절대 더해서 하나로 만들지 않는다. */
 function repMoney(list){

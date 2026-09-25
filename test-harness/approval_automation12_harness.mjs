@@ -76,7 +76,8 @@ console.log('\n③ 서버 배선');
 try {
   const code = strip(API);
   ok('view=ledger 가 report 와 같은 읽기(상한·offset 0)를 탄다', /const report = url\.searchParams\.get\('view'\) === 'report' \|\| ledger;/.test(code));
-  const i = code.indexOf('if (ledger) {');
+  // 13단계(2026-09-25)에 기간을 정하는 `if (ledger) {` 가 앞에 생겼다 — 장부를 «만드는» 갈래로 찾는다.
+  const i = code.indexOf('const L = ledgerFrom(') > 0 ? code.lastIndexOf('if (ledger) {', code.indexOf('const L = ledgerFrom(')) : -1;
   ok('전제: ledger 갈래를 찾았다', i > 0);
   const blk = bodyAt(code, i);
   ok('canView 를 지난 items 로 장부를 만든다(거르기 전 page 가 아님)', /ledgerFrom\(items\)/.test(blk) && !/ledgerFrom\(page\)/.test(blk), blk.slice(0, 120));
@@ -121,7 +122,9 @@ try {
   sb('amount'); ok('다른 머리글을 누르면 그 기준 + 큰 순부터', globalThis.__L.key === 'amount' && globalThis.__L.dir === 'desc');
   const ri = W.indexOf('function runLed(');
   const rb = fnAt(W, ri);
-  ok('결재 권한자만 scope=all', /var scope = \(D && D\.can_approve\) \? 'all' : 'mine';/.test(rb));
+  // 13단계(2026-09-25): 조회 주소 조립이 ledQuery 로 옮겨 갔다(엑셀과 같은 주소를 쓰려고). runLed 는 그것을 부른다.
+  const qb = fnAt(W, W.indexOf('function ledQuery('));
+  ok('결재 권한자만 scope=all', /var scope = \(D && D\.can_approve\) \? 'all' : 'mine';/.test(qb) && /ledQuery\(per\)/.test(rb));
   ok('«성공이라고 말했는가» 로 판정(ok===true + 배열)', /d\.ok !== true \|\| !Array\.isArray\(d\.ledger\)/.test(rb));
   const ti = W.indexOf("if (r.has_file && decidable && r.file_kind === 'image')");
   ok('영수증 미리보기는 결재할 사진 건에서만', ti > 0 && /\/file\?inline=1/.test(W.slice(ti, ti + 300)));

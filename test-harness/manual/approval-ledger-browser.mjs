@@ -41,7 +41,7 @@ const RAW = [
   { id: 5, status: 'pending',  amount: 999,   currency: 'PHP', created_at: Date.parse('2026-09-21T10:00:00+09:00'), title: '대기' },
 ];
 const L = P.ledgerFrom(RAW);
-const LEDGER = { ok: true, ledger: L.rows, totals: L.totals, pending: L.pending, no_amount: L.no_amount, truncated: false, max: 2000, steps_missing: false };
+const LEDGER = { ok: true, ledger: L.rows, totals: L.totals, by_category: L.by_category, pending: L.pending, no_amount: L.no_amount, truncated: false, max: 2000, steps_missing: false, from: '2026-09-01', to: '2026-09-30' };
 
 let PASS = 0, FAIL = 0;
 const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else { FAIL++; console.log('  FAIL ' + n + (x ? ' — ' + x : '')); } };
@@ -78,9 +78,9 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
   const calls = await page.evaluate(() => window.__CALLS.filter((u) => u.indexOf('view=ledger') >= 0));
   check('홈을 부른 뒤 장부를 한 번 부른다', calls.length === 1, JSON.stringify(calls));
   check('결재 권한자라 scope=all', /scope=all/.test(calls[0] || ''));
-  const n = new Date(Date.now() + 9 * 3600000);
-  const m1 = n.getUTCFullYear() + '-' + String(n.getUTCMonth() + 1).padStart(2, '0') + '-01';
-  check('이번 달은 그달 1일부터', (calls[0] || '').indexOf('from=' + m1) >= 0, calls[0]);
+  // 13단계(2026-09-25): 화면은 날짜를 세지 않고 기간 «이름» 만 보낸다 — 날짜는 서버(ledgerRange)가 KST 로 정한다.
+  check('이번 달은 period=month 로 부른다(화면이 from 을 만들지 않는다)', /period=month(&|$)/.test(calls[0] || '') && !/from=/.test(calls[0] || ''), calls[0]);
+  check('서버가 정한 기간을 그대로 보여 준다', /2026-09-01 ~ 2026-09-30/.test(await page.evaluate(() => document.getElementById('ledResult').textContent)));
   const sum = await page.evaluate(() => (document.querySelector('#ledResult .ledsum') || {}).textContent || '');
   check('통화별 합계 — ₱ 와 ₩ 를 섞지 않는다', /15,300/.test(sum) && /30,000/.test(sum) && /3건/.test(sum), sum);
   const notes = await page.evaluate(() => document.getElementById('ledResult').textContent);
@@ -107,16 +107,32 @@ const check = (n, c, x) => { if (c) { PASS++; console.log('  OK   ' + n); } else
         && /12,000.*2,800.*500/.test(descSeq) && /500.*2,800.*12,000/.test(ascSeq), ascSeq + ' / ' + descSeq);
   check('통화 묶음은 섞이지 않는다(₩ 줄이 ₱ 줄 사이에 끼지 않는다)', /^[^|]*30,000/.test(descSeq) && /^[^|]*30,000/.test(ascSeq), descSeq);
 
-  console.log('\n[3] 최근 1년 탭');
+  console.log('\n[3] 지난달 · 최근 1년 탭');
+  check('탭이 셋(이번 달·지난달·최근 1년)', (await page.evaluate(() => Array.from(document.querySelectorAll('#ledBar .ledtab')).map((b) => b.textContent).join('|'))) === '이번 달|지난달|최근 1년');
   await page.evaluate(() => (window.__CALLS.length = 0));
   await page.click('#ledBar .ledtab >> nth=1'); await page.waitForTimeout(200);
+  const lc = await page.evaluate(() => window.__CALLS.filter((u) => u.indexOf('view=ledger') >= 0));
+  check('지난달을 누르면 period=last_month 로 다시 부른다', lc.length === 1 && /period=last_month/.test(lc[0]), JSON.stringify(lc));
+  await page.evaluate(() => (window.__CALLS.length = 0));
+  await page.click('#ledBar .ledtab >> nth=2'); await page.waitForTimeout(200);
   const yc = await page.evaluate(() => window.__CALLS.filter((u) => u.indexOf('view=ledger') >= 0));
-  check('최근 1년을 누르면 다른 from 으로 다시 부른다', yc.length === 1 && yc[0].indexOf('from=' + m1) < 0, JSON.stringify(yc));
-  const yfrom = (yc[0] || '').match(/from=(\d{4}-\d{2}-\d{2})/);
-  check('from 이 약 1년 전', !!yfrom && (Date.now() - Date.parse(yfrom[1])) / DAY > 360 && (Date.now() - Date.parse(yfrom[1])) / DAY < 368, yfrom && yfrom[1]);
+  check('최근 1년을 누르면 period=year 로 다시 부른다', yc.length === 1 && /period=year/.test(yc[0]), JSON.stringify(yc));
   await page.evaluate(() => (window.__CALLS.length = 0));
   await page.click('#ledBar .ledtab >> nth=0'); await page.waitForTimeout(150);
   check('(짝) 이번 달로 돌아가면 다시 부르지 않는다(이미 받음)', (await page.evaluate(() => window.__CALLS.filter((u) => u.indexOf('view=ledger') >= 0).length)) === 0);
+
+  console.log('\n[3b] 분류별 소계 · 엑셀');
+  const cats = await page.evaluate(() => { const d = document.querySelector('#ledResult details.ledcats'); return d ? { open: d.open, items: Array.from(d.querySelectorAll('li')).map((l) => l.textContent) } : null; });
+  check('분류별 소계가 있고 처음엔 접혀 있다', !!cats && cats.open === false && cats.items.length === 3, JSON.stringify(cats));
+  check('«분류 없음» 이 적혀 있고 통화가 섞이지 않는다', !!cats && cats.items.some((t) => /분류 없음/.test(t) && /₩30,000/.test(t)) && cats.items.some((t) => /사무용품/.test(t) && /₱500/.test(t)), JSON.stringify(cats));
+  check('엑셀 버튼이 보인다', await page.evaluate(() => !!document.querySelector('#ledResult .findcsv')));
+  // 실제로 눌러 «어디로 가는가» 를 잰다(함수를 다시 부르지 않는다 — 버튼이 그 함수를 쓰는지가 질문이다).
+  const navP = page.waitForRequest((r) => /format=csv/.test(r.url()), { timeout: 3000 }).catch(() => null);
+  await page.click('#ledResult .findcsv');
+  const nav = await navP;
+  const csvUrl = nav ? nav.url() : '';
+  check('엑셀 주소 = 지금 탭(이번 달로 돌아온 뒤)의 장부 주소 + format=csv', /\/api\/approval\/requests\?view=ledger&scope=all&period=month&format=csv$/.test(csvUrl), csvUrl);
+  await page.goto(FILE, { waitUntil: 'load' }).catch(() => {}); await page.waitForTimeout(700);
 
   console.log('\n[4] 카드 영수증 미리보기');
   const th = await page.evaluate(() => Array.from(document.querySelectorAll('#inbox .rthumb img')).map((i) => i.getAttribute('src')));
