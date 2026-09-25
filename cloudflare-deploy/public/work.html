@@ -63,6 +63,11 @@ body{
   -webkit-text-size-adjust:100%;
 }
 html.dark body{color:#e6edf3;background:#0f1620}
+/* 🖥 PC 확대 (2026-09-25 사장님 「PC 에선 결재창이 더 크게」) — 1920px 에서 본문 1100px 이
+   화면의 57% 뿐이라 글자·표가 작게 보였다. 관리자 화면 관례대로 «이 페이지에서» zoom 1.3
+   (CLAUDE.md 1-4: 공용 CSS 로 묶지 말 것). 마우스가 있는 넓은 화면만 — 폰·태블릿은 그대로.
+   1280px 에서도 레이아웃 폭이 985px 라 .wrap(1100)이 줄어들 뿐 가로로 넘치지 않는다. */
+@media (min-width:1280px) and (hover:hover) and (pointer:fine){ body{zoom:1.3} }
 
 /* ── 머리말 ─────────────────────────────────────────────── */
 .top{background:#fff;border-bottom:1px solid #dde3ea;padding:10px 14px}
