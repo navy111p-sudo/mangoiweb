@@ -23,6 +23,7 @@
  * try/catch 로 0 으로 graceful degradation (api-mango.ts 패턴 동일).
  */
 
+import { getTodayFx } from './fx-rate';   // 💱 원·페소 환율 정본(결재함과 같은 것 — 복제 금지)
 import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
@@ -634,6 +635,20 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
       if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
       const s = await buildScheduleSummary(env as any);
       return new Response(JSON.stringify({ ok: true, ...s }), {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' },
+      });
+    }
+    // 💱 페소→원화 환율 (급여 화면 «원화로 보기» 버튼용, 2026-09-25) — 정본은 src/fx-rate.ts 의 getTodayFx
+    //    (결재함 회계장부와 «같은» 함수 — 두 화면이 다른 환율을 말하지 않게). 보기용: 급여 계산·저장·CSV 는 ₱ 그대로.
+    //    source: live(오늘 받음) · last(지난 값) · payroll(급여 화면 저장값) — 화면이 그대로 말한다. 못 구하면 ok:false.
+    if (p === 'fx-rate') {
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
+      const fx = await getTodayFx(env as any);
+      const body = fx
+        ? { ok: true, rate: fx.krw_per_php, date: fx.date, source: fx.source }
+        : { ok: false, error: 'fx_unavailable' };
+      return new Response(JSON.stringify(body), {
+        status: fx ? 200 : 502,
         headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' },
       });
     }

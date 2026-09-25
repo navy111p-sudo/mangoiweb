@@ -4,7 +4,14 @@
 // ═══════════════════════════════════════════════════════════════
 (function(){
   const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
-  const fmtP = (n) => '₱ ' + fmt(n);   // 강사 수업료 단위: 필리핀 페소
+  /* 강사 수업료 단위: 필리핀 페소. 💱 「원화로 보기」(2026-09-25)를 켜면 최신 환율로 바꿔 «보여 주기만» 한다
+     — 계산·저장·CSV·지급 처리는 전부 ₱ 그대로다(조정 금액 입력칸도 ₱). 환율 정본은 src/fx-rate.ts. */
+  let _prKrw = false;      // 원화로 보는 중인가
+  let _prFx = null;        // { rate, source, rate_time, stale } — 서버가 준 것만(지어내지 않음)
+  let _prLastD = null;     // 마지막 계산 응답 — 원화 전환 때 다시 계산하지 않고 다시 그리기만
+  const fmtP = (n) => (_prKrw && _prFx && _prFx.rate > 0)
+    ? '₩ ' + fmt(Math.round((Number(n)||0) * _prFx.rate))
+    : '₱ ' + fmt(n);
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR') : '-';
   const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   let _prRows = [];
@@ -278,9 +285,16 @@
     const tbody = document.getElementById('pr-table');
     tbody.innerHTML = `<div style="padding:20px;color:#6b7280;text-align:center">${isEn?'Calculating…':'계산 중…'}</div>`;
     try {
-      const r = await fetch(`/api/admin/payroll/calculate?year=${year}&month=${month}`);
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
+      let d;
+      if (window.__prReuse && _prLastD && _prLastD.__y === year && _prLastD.__m === month) {
+        d = _prLastD;   // 💱 통화만 바꿀 때 — 다시 계산하지 않는다(입력한 조정 금액도 그대로 남는다)
+      } else {
+        const r = await fetch(`/api/admin/payroll/calculate?year=${year}&month=${month}`);
+        d = await r.json();
+        if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
+        d.__y = year; d.__m = month; _prLastD = d;
+      }
+      window.__prReuse = false;
       _prRows = d.rows || [];
       _prLevels = d.levels || [];
       // 🎭🔐 유효 역할(실제 로그인 또는 미리보기) 반영 — 강사=본인 급여만, 지사/대리점/학부모/학생=차단.
@@ -297,6 +311,7 @@
         return;
       }
       const _prTeacherView = _prEffRole === 'hq_teacher';
+      prFxBar(_prTeacherView);
       if (_prTeacherView) {
         const _prOwnNm = (typeof window._effectiveOwnName === 'function') ? window._effectiveOwnName() : '';
         _prRows = _prRows.filter(r => window._payrollIsOwnRow(r, { name: _prOwnNm }));
@@ -343,12 +358,12 @@
       // 컬럼 헤더 + 셀 라벨 i18n
       const H = isEn ? {
         teacher:'Teacher', level:'Level (rate)', classes:'Classes', mins:'Total Min', rate:'Rate/10m',
-        calc:'Lesson Fee', ded:'Deduction', fin:'Final Pay', adj:'Adjusted', status:'Status', actions:'Actions',
+        calc:'Lesson Fee', ded:'Deduction', fin:'Final Pay', adj:(_prKrw?'Adjusted (₱)':'Adjusted'), status:'Status', actions:'Actions',
         paid:'Paid', pending:'Pending', cancel:'Cancel', markPaid:'✅ Mark Paid', detail:'📋 Detail',
         saveFirst:'Save first', minutes:' min', absent:' absent'
       } : {
         teacher:'강사', level:'등급(요율)', classes:'수업', mins:'총 분', rate:'10분 단가',
-        calc:'수업료', ded:'공제', fin:'실지급액', adj:'조정 금액', status:'상태', actions:'조작',
+        calc:'수업료', ded:'공제', fin:'실지급액', adj:(_prKrw?'조정 금액 (₱)':'조정 금액'), status:'상태', actions:'조작',
         paid:'지급', pending:'대기', cancel:'취소', markPaid:'✅ 지급 완료', detail:'📋 상세',
         saveFirst:'먼저 저장', minutes:'분', absent:'결석'
       };
@@ -451,6 +466,63 @@
     } catch(e) {
       tbody.innerHTML = '<div style="padding:20px;color:#ef4444">계산 실패: '+esc(e.message)+'</div>';
     }
+  };
+
+  /* 💱 환율 줄 + 원화 전환 버튼 — 강사 화면에는 안 그린다(강사는 이 API 가 막혀 있고 급여는 ₱ 로 받는다) */
+  function prFxText(isEn){
+    if (!_prFx) return isEn ? '💱 Loading exchange rate…' : '💱 환율 불러오는 중…';
+    if (_prFx.error) return isEn ? '💱 Could not load the exchange rate — amounts stay in ₱' : '💱 환율을 불러오지 못했습니다 — 금액은 ₱ 그대로 보여 드려요';
+    const r = Number(_prFx.rate).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+    // source 는 서버 정본(getTodayFx)이 준 그대로 — 오늘 받은 값인지 옛 값인지 화면이 말한다
+    const SRC = isEn
+      ? { live: 'today’s rate', last: '⚠ last fetched rate (live lookup failed)', payroll: '⚠ rate saved on the payroll screen (live lookup failed)' }
+      : { live: '오늘 환율', last: '⚠ 지난번에 받은 환율(지금은 못 받음)', payroll: '⚠ 급여 화면에 저장된 환율(지금은 못 받음)' };
+    const why = SRC[_prFx.source] || esc(_prFx.source || '');
+    const d = _prFx.date ? ' · ' + esc(_prFx.date) : '';
+    return (isEn ? `💱 1 PHP = <b>${r}</b> KRW` : `💱 1페소 = <b>${r}</b>원`)
+      + `<span style="color:#667085"> · ${why}${d}${_prFx.source === 'payroll' ? '' : ' · open.er-api.com'}</span>`;
+  }
+  function prFxPaint(){
+    const isEn = (window.adminLang === 'en');
+    const el = document.getElementById('pr-fx');
+    if (el) el.innerHTML = prFxText(isEn);
+    const b = document.getElementById('pr-krw-btn');
+    if (b) {
+      const ko = _prKrw ? '₱ 페소로 보기' : '₩ 원화로 보기';
+      const en = _prKrw ? '₱ Show in Peso' : '₩ Show in KRW';
+      b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+      b.textContent = isEn ? en : ko;
+      b.style.background = _prKrw ? '#1e40af' : '#fff';
+      b.style.color = _prKrw ? '#fff' : '#1e40af';
+    }
+  }
+  async function prFxLoad(){
+    try {
+      const r = await fetch('/api/admin/reports/fx-rate', { cache: 'no-store' });
+      const d = await r.json().catch(() => null);
+      _prFx = (d && d.ok === true && Number(d.rate) > 0) ? d : { error: (d && d.error) || ('http-' + r.status) };
+    } catch (e) { _prFx = { error: String(e && e.message || e) }; }
+    prFxPaint();
+    return !_prFx.error;
+  }
+  function prFxBar(teacherView){
+    const wrap = document.getElementById('pr-fx-wrap');
+    if (!wrap) return;
+    if (teacherView) { wrap.style.display = 'none'; if (_prKrw) _prKrw = false; return; }
+    wrap.style.display = 'flex';
+    if (!_prFx || _prFx.error) prFxLoad(); else prFxPaint();
+  }
+  window.prToggleKrw = async function(){
+    const isEn = (window.adminLang === 'en');
+    if (!_prKrw && (!_prFx || _prFx.error)) {
+      const ok = await prFxLoad();
+      if (!ok) { alert(isEn ? 'Could not load the exchange rate. Please try again shortly.' : '환율을 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+    }
+    _prKrw = !_prKrw;
+    prFxPaint();
+    if (_prLastD) { window.__prReuse = true; window.prCalculate(); }
+    const dt = document.getElementById('pr-detail');
+    if (dt && dt.innerHTML && _prDetailTid) window.prShowDetail(_prDetailTid, _prDetailName);
   };
 
   window.prRowAdjust = function(idx, val){
