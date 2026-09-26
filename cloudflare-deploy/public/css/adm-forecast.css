@@ -1,0 +1,20 @@
+#forecast-overview{margin:0 0 20px;padding:20px;border:1px solid #cbd5e1;border-radius:16px;background:#f8fafc;color:#172033;font-family:inherit}
+#forecast-overview[hidden]{display:none!important}
+.af-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.af-heading h2,.af-heading h3{margin:0;color:inherit;font-size:18px}.af-heading h3{font-size:15px}
+.af-heading p{margin:5px 0 0;font-size:12px;color:#475569}
+.af-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#forecast-overview .af-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:9px;min-width:0;padding:16px;background:#fff;color:#172033;border:1px solid #dbe3ee;border-radius:12px;cursor:pointer;font:inherit;white-space:normal}
+#forecast-overview .af-card strong{font-size:clamp(19px,2vw,27px);line-height:1.25;color:inherit;overflow-wrap:anywhere}
+#forecast-overview .af-card span{font-size:12px;font-weight:700}.af-card small{font-size:11px;color:#53627a}
+#forecast-overview .af-warn{background:#fff4ed;border-color:#fed7aa}
+#forecast-overview button:not(.af-card),.af-actions select,.af-detail button,.af-dialog button{font:inherit;font-size:12px;color:#24364b;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;cursor:pointer}
+#forecast-overview button:hover{background:#eef2ff}#forecast-overview button[aria-pressed=true]{background:#e0e7ff;border-color:#818cf8}
+#forecast-overview :focus-visible,.af-dialog :focus-visible{outline:3px solid #6366f1;outline-offset:2px}
+.af-note,.af-muted{font-size:11px;line-height:1.7;color:#53627a;margin:10px 0}.af-notice{padding:10px;border-radius:8px;background:#fff3cc;color:#713f12;font-size:12px}
+.af-student{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #dbe3ee}.af-student>div{min-width:0}.af-student strong{font-size:14px;overflow-wrap:anywhere}.af-student p{font-size:12px;margin:6px 0}.af-student small{font-size:11px;color:#53627a}
+.af-tag{display:inline-block;margin-left:8px;font-size:10px;border-radius:10px;background:#e2e8f0;padding:3px 7px}.af-actions,.af-filters{display:flex;flex-wrap:wrap;gap:6px}.af-actions{flex-shrink:0}
+#af-status{font-size:12px;margin-top:8px}.af-detail{padding:16px;background:#f8fafc;color:#172033;border:1px solid #cbd5e1;border-radius:12px;font-size:13px;line-height:1.7;min-width:0}.af-detail h3{margin:0 0 10px}.af-detail svg{width:100%;height:auto}
+.af-dialog{width:min(560px,90vw);box-sizing:border-box;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033}.af-dialog::backdrop{background:#17203380}.af-dialog textarea{box-sizing:border-box;width:100%;font:inherit;line-height:1.6;margin-bottom:12px;color:#172033;background:#fff;border:1px solid #94a3b8;padding:10px}
+@media(max-width:850px){.af-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.af-student{align-items:flex-start;flex-direction:column}.af-actions{width:100%}}
+@media(max-width:520px){#forecast-overview{padding:12px}.af-grid{gap:8px}#forecast-overview .af-card{padding:12px}.af-heading h2{font-size:16px}#fc-result{grid-template-columns:1fr!important}.af-actions button,.af-actions select{flex:1}.af-card small{line-height:1.5}}

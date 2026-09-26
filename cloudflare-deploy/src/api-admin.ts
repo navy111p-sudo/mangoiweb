@@ -12,6 +12,7 @@ import { loadHoldRanges, heldOnFor, attendedStudentRooms } from './absence-hold'
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
+import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
@@ -13429,125 +13430,28 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     // 📈 Phase RCF — AI 매출/이탈 예측 (Revenue & Churn Forecast)
     // ═══════════════════════════════════════════════════════════════
-    if (method === 'GET' && path === '/api/admin/forecast/revenue') {
+    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn') {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher) return json({ ok: false, error: 'forbidden' }, 403);
+      const denied = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, actor.username), actor.role));
+      if (denied) return denied;
+      const reply = (body: any, status = 200) => new Response(JSON.stringify(body), {
+        status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+      });
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
-        const now = Date.now();
-        const since = now - 90 * 86400000;
-        // 일자별 매출 집계
-        const rs: any = await env.DB.prepare(`SELECT paid_at, amount_krw FROM student_payments WHERE paid_at IS NOT NULL AND paid_at >= ? AND (status IS NULL OR status = 'paid') ORDER BY paid_at ASC`).bind(since).all();
-        const byDate: Record<string, number> = {};
-        for (const r of (rs.results || []) as any[]) {
-          const d = new Date(r.paid_at).toISOString().slice(0, 10);
-          byDate[d] = (byDate[d] || 0) + (r.amount_krw || 0);
+        if (method === 'GET') return reply(path.endsWith('/revenue')
+          ? await loadRevenue(env.DB, notSeedSql()) : await loadCare(env.DB, notSeedSql()));
+        // Churn care is saved explicitly; no message delivery or AI generation on page load.
+        if (method === 'POST' && path.endsWith('/churn')) {
+          if (request.headers.get('Origin') !== url.origin) return reply({ ok: false, error: 'invalid_origin' }, 403);
+          const result = await saveCare(env.DB, await parseJsonBody(request), actor.username);
+          return reply(result.body, result.status);
         }
-        const history: Array<{ date: string; amount: number }> = [];
-        for (let i = 89; i >= 0; i--) {
-          const d = new Date(now - i * 86400000).toISOString().slice(0, 10);
-          history.push({ date: d, amount: byDate[d] || 0 });
-        }
-        // 3개월 이동평균
-        const n = history.length;
-        const avg = n ? history.reduce((s, x) => s + x.amount, 0) / n : 0;
-        // 단순 선형회귀 (x = day index)
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        history.forEach((h, i) => { sumX += i; sumY += h.amount; sumXY += i * h.amount; sumXX += i * i; });
-        const denom = n * sumXX - sumX * sumX;
-        const slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
-        const intercept = n ? (sumY - slope * sumX) / n : 0;
-        // 향후 30일 예측
-        const forecast: Array<{ date: string; amount: number }> = [];
-        for (let i = 1; i <= 30; i++) {
-          const day = new Date(now + i * 86400000).toISOString().slice(0, 10);
-          const predicted = Math.max(0, Math.round(intercept + slope * (n + i)));
-          forecast.push({ date: day, amount: predicted });
-        }
-        const trend = slope > avg * 0.005 ? 'up' : slope < -avg * 0.005 ? 'down' : 'flat';
-
-        // AI 코멘트
-        let commentary = '';
-        try {
-          if (env.AI) {
-            const totalHist = history.reduce((s, x) => s + x.amount, 0);
-            const totalForecast = forecast.reduce((s, x) => s + x.amount, 0);
-            const prompt = `최근 90일 학원 매출 합계: ${(totalHist / 10000).toFixed(0)}만원, 일평균 ${(avg / 10000).toFixed(1)}만원. 추세: ${trend} (slope=${slope.toFixed(0)}). 다음 30일 예측 합계: ${(totalForecast / 10000).toFixed(0)}만원. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안)를 작성하세요.`;
-            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-              messages: [
-                { role: 'system', content: 'You are a friendly Korean business analyst for an English academy.' },
-                { role: 'user', content: prompt }
-              ],
-              max_tokens: 256,
-            });
-            commentary = (ai?.response || '').trim();
-          }
-        } catch {}
-        if (!commentary) commentary = trend === 'up' ? '📈 매출이 상승 추세입니다. 신규 등록 모멘텀을 유지해 주세요.' : trend === 'down' ? '📉 매출이 둔화되고 있어 재등록 캠페인을 추천드립니다.' : '📊 매출이 안정적으로 유지되고 있습니다.';
-
-        return json({ ok: true, history, forecast, commentary, trend, daily_avg: Math.round(avg), slope });
+        return reply({ ok: false, error: 'method_not_allowed' }, 405);
       } catch (e: any) {
-        return json({ ok: false, error: e?.message || 'forecast_revenue_failed' }, 500);
-      }
-    }
-
-    if (method === 'GET' && path === '/api/admin/forecast/churn') {
-      try {
-        const now = Date.now();
-        const since90 = now - 90 * 86400000;
-        // 신규 등록(in) — students_erp.created_at
-        let enrollments90 = 0, leavers90 = 0;
-        try {
-          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?`).bind(since90).first();
-          enrollments90 = r?.n || 0;
-        } catch {}
-        try {
-          // leavers: status = '이탈' or leave_date >= since90
-          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '이탈' OR status = '탈퇴' OR status = '퇴원'`).first();
-          leavers90 = r?.n || 0;
-        } catch {}
-
-        const monthlyEnroll = Math.round(enrollments90 / 3);
-        const monthlyLeavers = Math.round(leavers90 / 3);
-        // 월별 시리즈 (지난 3개월)
-        const monthly: Array<{ month: string; enroll: number; leave: number }> = [];
-        for (let i = 2; i >= 0; i--) {
-          const ms = now - (i + 1) * 30 * 86400000;
-          const me = now - i * 30 * 86400000;
-          let en = 0, lv = 0;
-          try { const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`).bind(ms, me).first(); en = r?.n || 0; } catch {}
-          monthly.push({ month: new Date(me).toISOString().slice(0, 7), enroll: en, leave: 0 });
-        }
-        // 분배: leavers90 을 3개월에 균등
-        for (const m of monthly) m.leave = Math.round(leavers90 / 3);
-
-        // 다음 달 예상 이탈: 최근 추세 단순 평균
-        const projected_next_month_churn = Math.round(monthlyLeavers * 1.05); // 약간 보수적
-
-        let commentary = '';
-        try {
-          if (env.AI) {
-            const prompt = `최근 90일 신규 등록 ${enrollments90}명, 이탈 ${leavers90}명. 월평균 이탈 ${monthlyLeavers}명. 다음 달 예상 이탈 ${projected_next_month_churn}명. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안).`;
-            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-              messages: [
-                { role: 'system', content: 'You are a friendly Korean retention analyst for an English academy.' },
-                { role: 'user', content: prompt }
-              ],
-              max_tokens: 256,
-            });
-            commentary = (ai?.response || '').trim();
-          }
-        } catch {}
-        if (!commentary) commentary = monthlyLeavers > monthlyEnroll ? '⚠️ 이탈이 신규를 초과합니다. 위험학생 케어 액션을 가동해 주세요.' : '✅ 이탈률이 안정적입니다. 재등록 시점 사전 안내를 권장드립니다.';
-
-        return json({
-          ok: true,
-          enrollments_90d: enrollments90,
-          leavers_90d: leavers90,
-          monthly,
-          projected_next_month_churn,
-          commentary,
-        });
-      } catch (e: any) {
-        return json({ ok: false, error: e?.message || 'forecast_churn_failed' }, 500);
+        console.warn('[forecast]', e?.message);
+        return reply({ ok: false, error: 'forecast_unavailable' }, 503);
       }
     }
 
@@ -16363,3 +16267,4 @@ LIMIT $limit`;
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+
