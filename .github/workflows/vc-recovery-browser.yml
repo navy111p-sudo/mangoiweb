@@ -1,7 +1,7 @@
 name: Video recovery browser verification
 on:
   push:
-    branches: [fix/webrtc-fast-video-recovery]
+    branches: [fix/webrtc-fast-video-recovery, fix/video-recovery-retry-20260926]
   workflow_dispatch:
 env:
   TZ: Asia/Seoul

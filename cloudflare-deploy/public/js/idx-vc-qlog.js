@@ -250,11 +250,12 @@ function vcRecoveryRecovered(id, pc, R) {
     }
     vcRecoveryCancel(R);
     R.bad = 0; R.dead = 0; R.started = 0; R.level = -1; R.done = {}; R.rebuilding = false;
+    R.negoPending = null; R.negoRetryAt = 0;
 }
 function vcRecoveryElement(id, pc, R) {
     var tr = R.video && R.video.track;
     var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
-    if (!tr || tr.readyState !== 'live' || !v || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+    if (!tr || tr.readyState !== 'live' || !v || (window.vcRemoteCamOff || {})[id]) return false;
     var s = v.srcObject;
     if (!s || !s.getVideoTracks || !s.getVideoTracks().some(function (t) { return t === tr; })) {
         if (typeof MediaStream === 'undefined') return false;
@@ -346,9 +347,20 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
             vcRecoveryLog('video-stalled', id, pc, R);
             vcRecoveryElement(id, pc, R);
             vcRecoveryWatchFrame(id, pc, R);
-        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
-            R.level = 2; R.done[2] = Date.now();
-            vcRecoveryNegotiate(id, pc, false, R);
+        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && !R.negoPending
+            && (!R.negoRetryAt || Date.now() >= R.negoRetryAt)
+            && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            // A closed signaling socket, cooldown or rejected offer is not a sent offer.
+            // Retry on the existing tick, bounded to 12s; successful stages still run once.
+            var attempt = { token: R.token };
+            R.level = 2; R.negoPending = attempt; R.negoRetryAt = Date.now() + 12000;
+            vcRecoveryNegotiate(id, pc, false, R).then(function (sent) {
+                if (R.negoPending !== attempt) return;
+                R.negoPending = null;
+                if (sent && R.started && R.token === attempt.token
+                    && (window.__vcRxRecovery || {})[id] === R
+                    && (window.vcPeerConnections || {})[id] === pc) R.done[2] = Date.now();
+            });
         }
         if (R.dead >= 2 && !R.done[3] && !R.icePending && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
             R.path = 'media-path-dead'; R.level = 3; R.icePending = true;
