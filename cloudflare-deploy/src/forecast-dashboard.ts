@@ -114,7 +114,7 @@ export async function loadCare(db: any, notSeed: string, now = Date.now()) {
     updated_at: all.length ? Math.min(...all.map((r: any) => r.updated_at)) : null,
     renewals_14d: usable ? fresh.filter((r: any) => r.renewal).length : null,
     risk_count: usable ? risks.length : null,
-    renewal_reference: usable && known.length ? known.reduce((s: number, r: any) => s + r.reference, 0) : null,
+    renewal_reference: usable && (known.length || monetary.length === 0) ? known.reduce((s: number, r: any) => s + r.reference, 0) : null,
     reference_known: known.length, reference_total: monetary.length,
     pending_count: targets.filter((r: any) => r.status !== 'done').length,
     rows: targets.slice(0, 100), total: targets.length,
@@ -134,5 +134,7 @@ export async function saveCare(db: any, input: any, owner: string, now = Date.no
     ON CONFLICT(user_id,case_key) DO UPDATE SET status=excluded.status,owner=excluded.owner,
     updated_at=excluded.updated_at,contacted_at=COALESCE(excluded.contacted_at,forecast_care.contacted_at)`)
     .bind(input.user_id, input.case_key, input.status, owner, now, input.contacted ? now : null).run();
+  // Keep the existing retention auto-contact exclusion in sync with an explicit contact record.
+  if (input.contacted) await db.prepare(`UPDATE student_retention SET contacted=1,contacted_at=? WHERE user_id=?`).bind(now, input.user_id).run();
   return { status: 200, body: { ok: true, owner, updated_at: now } };
 }

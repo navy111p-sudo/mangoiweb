@@ -20,7 +20,7 @@ assert.equal(falling.forecast[0].amount,14000);
 assert.equal(revenueEstimate([{date:'2026-09-26',amount:1000000}],now).quality,'insufficient','single payment is not a forecast');
 const raw = new DatabaseSync(':memory:');
 raw.exec(`CREATE TABLE student_payments(id INTEGER PRIMARY KEY,user_id TEXT,paid_at INTEGER,amount_krw INTEGER,status TEXT,memo TEXT,period_end TEXT);
-  CREATE TABLE student_retention(user_id TEXT PRIMARY KEY,category TEXT,end_date TEXT,last_class TEXT,days_inactive INTEGER,updated_at INTEGER,contacted_at INTEGER);
+  CREATE TABLE student_retention(user_id TEXT PRIMARY KEY,category TEXT,end_date TEXT,last_class TEXT,days_inactive INTEGER,updated_at INTEGER,contacted_at INTEGER,contacted INTEGER DEFAULT 0);
   CREATE TABLE students_erp(user_id TEXT PRIMARY KEY,korean_name TEXT);`);
 // D1 adapter backed by real SQLite: exercises SQL joins, ordering and upserts.
 const db = {prepare(sql){let args=[];return {bind(...values){args=values;return this;},async all(){return {results:raw.prepare(sql).all(...args)};},async first(){return raw.prepare(sql).get(...args)||null;},async run(){return raw.prepare(sql).run(...args);}};}};
@@ -33,7 +33,7 @@ insert.run(++id,'future',now+DAY,999999999,'paid','','2026-09-30');
 const notSeed = "COALESCE(memo,'') != 'demo-seed'";
 assert.equal((await loadRevenue(db,notSeed,now)).actual_month,260000,'exclude seed/refunded/future payments and honor KST');
 const addStudent=(uid,end,inactive=0,category='expiring',updated=now)=>{
- raw.prepare('INSERT INTO student_retention VALUES(?,?,?,?,?,?,?)').run(uid,category,end,'2026-09-26',inactive,updated,null);
+ raw.prepare('INSERT INTO student_retention(user_id,category,end_date,last_class,days_inactive,updated_at,contacted_at) VALUES(?,?,?,?,?,?,?)').run(uid,category,end,'2026-09-26',inactive,updated,null);
  raw.prepare('INSERT INTO students_erp VALUES(?,?)').run(uid,uid);
 };
 addStudent('due','2026-09-30');
@@ -54,6 +54,7 @@ let due=care.rows.find(r=>r.user_id==='due');
 assert.equal((await saveCare(db,{user_id:'due',case_key:due.case_key,status:'in_progress',contacted:true},'manager',now)).status,200);
 care=await loadCare(db,notSeed,now);
 due=care.rows.find(r=>r.user_id==='due');
+assert.equal(raw.prepare("SELECT contacted FROM student_retention WHERE user_id='due'").get().contacted,1,'contact action also suppresses duplicate legacy auto-contact');
 assert.equal(due.status,'in_progress');assert.equal(due.owner,'manager');assert.equal(due.contacted_at,now);
 await saveCare(db,{user_id:'due',case_key:due.case_key,status:'done',contacted:false},'manager2',now+1000);
 assert.equal((await loadCare(db,notSeed,now+1000)).rows.find(r=>r.user_id==='due').contacted_at,now,'status change preserves contact time');
