@@ -1,0 +1,202 @@
+<title>말하기 연습 단순화 시안</title>
+<style>
+  :root{
+    --paper:#f3f4f7; --card:#ffffff; --ink:#131a2a; --ink2:#45516b; --mute:#6a7488; --line:#dde2ea;
+    --brand:#1d6fb8; --good:#0f6b4f; --good-bg:#dcf5ea; --warn:#8a5200; --warn-bg:#fdf0da; --bad:#a32020;
+    /* 앱 화면 색 — 앱은 테마와 무관하게 늘 남색 */
+    --a1:#2a4d9e; --a2:#172a60; --abar:#16264f; --acard:#18264d; --aline:#2d4585;
+    --at:#eef2ff; --at2:#a9b8d8; --sky:#4aa8ec; --red:#d9433c; --green:#22a45a; --gold:#f2b53a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+      --paper:#14171d; --card:#1d2129; --ink:#eef1f6; --ink2:#b9c2d0; --mute:#8d97a8; --line:#2d323d;
+      --brand:#6fb6f0; --good:#6ee7b7; --good-bg:#11312a; --warn:#fbbf24; --warn-bg:#382a11; --bad:#fca5a5; }
+  }
+  :root[data-theme="dark"]{ color-scheme:dark;
+      --paper:#14171d; --card:#1d2129; --ink:#eef1f6; --ink2:#b9c2d0; --mute:#8d97a8; --line:#2d323d;
+      --brand:#6fb6f0; --good:#6ee7b7; --good-bg:#11312a; --warn:#fbbf24; --warn-bg:#382a11; --bad:#fca5a5; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+    font-size:15px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto;padding-block:26px 70px;padding-left:16px;padding-right:16px}
+  h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:0 0 8px;text-wrap:balance}
+  .sub{margin:0 0 16px;color:var(--ink2);max-width:74ch}
+  .note{background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:0 10px 10px 0;padding:12px 16px;margin:0 0 20px}
+  .note b{color:var(--warn)}
+  .common{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:0 0 8px}
+  .common h2{margin:0 0 6px;font-size:16px}
+  .common ul{margin:0;padding-left:20px;color:var(--ink2)}
+  .common li{margin:3px 0}
+  section.opt{margin-top:34px;padding-top:18px;border-top:2px solid var(--line)}
+  .opt h2{margin:0 0 6px;font-size:21px;font-weight:900;letter-spacing:-.01em;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .opt h2 .no{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;font-size:16px}
+  .opt p.d{margin:0 0 10px;color:var(--ink2);max-width:76ch}
+  .pros{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .pros span{font-size:13px;font-weight:700;border-radius:8px;padding:4px 10px}
+  .pros .p{background:var(--good-bg);color:var(--good)}
+  .pros .c{background:var(--warn-bg);color:var(--warn)}
+  .phones{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .fig{display:flex;flex-direction:column;gap:6px;max-width:100%}
+  .fig figcaption{font-size:13px;font-weight:800;color:var(--mute)}
+  .scroller{max-width:100%;overflow-x:auto}
+
+  /* ── 휴대폰 틀: 실제 CSS 크기로 그리고 0.8 로 줄여 보여 준다 ── */
+  .box{position:relative;overflow:hidden;border-radius:26px;background:#0b1120;box-shadow:0 8px 24px rgba(10,20,50,.22)}
+  .box.p{width:296px;height:606px}
+  .box.l{width:606px;height:296px}
+  .scale{position:absolute;left:6px;top:6px;transform:scale(.8);transform-origin:0 0;border-radius:24px;overflow:hidden}
+  .p .scale{width:355px;height:742px}
+  .l .scale{width:742px;height:355px}
+  .scr{width:100%;height:100%;display:flex;flex-direction:column;color:var(--at);
+    background:linear-gradient(180deg,var(--a1),var(--a2));font-size:14px;line-height:1.4}
+  .top{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:8px 10px;background:var(--abar);border-bottom:1px solid var(--aline)}
+  .ib{width:36px;height:36px;border-radius:11px;border:1px solid var(--aline);display:grid;place-items:center;font-size:16px;background:rgba(255,255,255,.04);flex:0 0 auto}
+  .ttl{flex:1;min-width:0;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .face{flex:0 0 auto;border-radius:12px;background:linear-gradient(135deg,#7fb7d9,#e7c562);display:grid;place-items:center;border:2px solid #8aa4e6}
+  .who{display:flex;align-items:center;gap:9px;padding:8px 12px;flex:0 0 auto}
+  .who b{font-size:15px}
+  .who small{color:var(--at2);font-size:12px}
+  .chip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--aline);color:#b9d4ff;background:rgba(74,168,236,.12);white-space:nowrap}
+  .chat{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;padding:8px 12px;overflow:hidden}
+  .b{max-width:84%;padding:8px 11px;border-radius:15px;font-size:15.5px}
+  .b small{display:block;color:var(--at2);font-size:12.5px;margin-top:3px}
+  .b.ai{background:rgba(255,255,255,.09);border:1px solid var(--aline);align-self:flex-start;border-bottom-left-radius:4px}
+  .b.me{background:#2f6fd0;align-self:flex-end;border-bottom-right-radius:4px}
+  .b.dim{opacity:.55}
+  .tools{display:flex;gap:6px;margin-top:6px}
+  .tools i{font-style:normal;font-size:12px;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(74,168,236,.16);color:#cfe6ff}
+  .row{display:flex;gap:7px;align-items:center}
+  .dot{width:9px;height:9px;border-radius:50%;background:#ff5b52;flex:0 0 auto;box-shadow:0 0 0 4px rgba(255,91,82,.22)}
+  .links{display:flex;gap:14px;padding:4px 14px 2px;font-size:13px;font-weight:800;color:#bcd4ff}
+  /* 1 메신저형 */
+  .bar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px 10px;background:var(--acard);border-top:1px solid var(--aline)}
+  .mic{flex:0 0 auto;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--red);box-shadow:0 0 0 5px rgba(217,67,60,.22);position:relative}
+  .mic .tag{position:absolute;bottom:-5px;right:-8px;font-size:9.5px;font-weight:900;background:var(--gold);color:#3b2600;border-radius:6px;padding:0 4px}
+  .field{flex:1;min-width:0;height:44px;border-radius:22px;border:1.5px solid #b8534e;background:rgba(0,0,0,.2);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:14.5px;font-weight:700;color:#ffd0cc;white-space:nowrap;overflow:hidden}
+  .send{flex:0 0 auto;width:44px;height:44px;border-radius:50%;background:var(--sky);display:grid;place-items:center;font-size:18px;color:#071a33;font-weight:900}
+  /* 2 큰 마이크 */
+  .dock{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px 12px;background:var(--acard);border-top:1px solid var(--aline)}
+  .bigmic{width:78px;height:78px;border-radius:50%;background:var(--red);display:grid;place-items:center;font-size:30px;box-shadow:0 0 0 8px rgba(217,67,60,.22)}
+  .side{width:48px;height:48px;border-radius:15px;border:1px solid var(--aline);display:grid;place-items:center;font-size:20px;background:rgba(255,255,255,.05)}
+  .cap{font-size:14px;font-weight:800;color:#ffd0cc;display:flex;align-items:center;gap:7px}
+  .mini{font-size:11.5px;color:var(--at2)}
+  /* 3 질문 카드 */
+  .qcard{margin:6px 12px;padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.1);border:1px solid #4d68ad}
+  .qcard .lbl{font-size:12px;font-weight:800;color:#ffd48a}
+  .qcard .q{font-size:22px;font-weight:800;margin:4px 0 2px;line-height:1.35}
+  .qcard small{color:var(--at2);font-size:13px}
+  .wide{flex:0 0 auto;margin:0 12px 12px;height:54px;border-radius:16px;background:var(--red);display:flex;align-items:center;justify-content:center;gap:9px;font-size:16px;font-weight:900;box-shadow:0 0 0 5px rgba(217,67,60,.2)}
+  /* 4 아래 3칸 */
+  .tabs{flex:0 0 auto;display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:7px;padding:8px 10px 10px;background:var(--acard);border-top:1px solid var(--aline)}
+  .tab{height:58px;border-radius:15px;border:1px solid var(--aline);background:rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;gap:1px}
+  .tab .ic{font-size:19px;line-height:1}
+  .tab.on{background:var(--red);border-color:var(--red);box-shadow:0 0 0 4px rgba(217,67,60,.2)}
+  .tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12.5px;color:var(--mute)}
+  tr:last-child td{border-bottom:0}
+</style>
+
+<div class="wrap">
+  <h1>A.i 말하기 연습 — 단순한 화면 시안 4종</h1>
+  <p class="sub">사장님 의견: 어제 배포한 화면도 <b>1번(아래 말하기 칸)</b>과 <b>2번(그 위 버튼·안내 줄)</b>이 아직 복잡하고 헷갈립니다. 그래서 네 시안 모두 «학생이 할 일은 하나: 말하기» 에 맞춰 버튼 개수를 확 줄였습니다. 각 시안 아래에 휴대폰 <b>세로</b>와 <b>가로</b> 화면을 함께 그렸습니다.</p>
+  <div class="note"><b>지금 화면에 한꺼번에 떠 있는 것 (세로 기준 10개):</b> 그림 고르기 카드 · 이전 대화 보기 · 대답할 때 도움이 필요해요 · 말하는 방법(버튼/자동) · «듣는 중» 안내 · 입력칸 · ⏹ · 보내기 · 새 질문 추천 · 끝내고 요약 보기. 시안은 이것을 <b>3~4개</b>로 줄입니다.</div>
+
+  <div class="common">
+    <h2>네 시안 공통으로 옮기는 것</h2>
+    <ul>
+      <li><b>그림 고르기 · 이전 대화 · 새 질문 추천 · 대답 도움</b> → 「💡 도움」 한 곳에 묶습니다(누르면 아래에서 올라오는 메뉴).</li>
+      <li><b>말하는 방법(버튼/자동)</b> → ⋮ 메뉴 안으로. 마이크 옆에는 지금 방식만 작은 글자(「자동」)로 표시합니다. ⚠️ 9/24 「잘 보이는 곳에」 지시와 다른 방향이라 결정이 필요합니다.</li>
+      <li><b>끝내고 요약 보기</b> → ⋮ 메뉴 맨 위(대화가 5번 넘으면 대화창 안에 한 번 안내).</li>
+      <li><b>«듣는 중» 안내</b> → 마이크 버튼 «자체» 가 빨갛게 바뀌고 한 줄만 말합니다. 세 번 겹쳐 나오던 문구는 없앱니다.</li>
+      <li>기능은 하나도 지우지 않습니다. 자리만 옮깁니다. PC 화면은 그대로입니다.</li>
+    </ul>
+  </div>
+
+  <div id="opts"></div>
+
+  <section class="opt">
+    <h2>한눈에 비교</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>시안</th><th>화면에 늘 보이는 버튼</th><th>글로 쓰기</th><th>잘 맞는 학생</th></tr></thead>
+      <tbody>
+        <tr><td><b>1 메신저형</b></td><td>🎤 · 입력칸 · ➤ · 💡 · ⋮</td><td>바로 가능</td><td>카톡에 익숙한 초등 고학년 이상</td></tr>
+        <tr><td><b>2 큰 마이크</b></td><td>큰 🎤 · ⌨ · 💡 · ⋮</td><td>⌨ 를 눌러서</td><td>글을 거의 안 쓰는 어린 학생</td></tr>
+        <tr><td><b>3 질문 카드</b></td><td>큰 말하기 버튼 · ⌨ · 💡 · ⋮</td><td>⌨ 를 눌러서</td><td>「지금 뭘 대답해야 하지?」를 자주 놓치는 학생</td></tr>
+        <tr><td><b>4 아래 3칸 바</b></td><td>💡 도움 · 🎤 말하기 · ⌨ 글쓰기 · ⋮</td><td>바로 옆 칸</td><td>버튼 위치를 외워 쓰는 학생(게임처럼 늘 같은 자리)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var TOP='<div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib">⋮</div></div>';
+  function face(n){return '<div class="face" style="width:'+n+'px;height:'+Math.round(n*1.12)+'px;font-size:'+Math.round(n*.55)+'px">👩</div>';}
+  function who(n,small){return '<div class="who">'+face(n)+'<div style="flex:1;min-width:0"><b>메이 선생님</b>'+(small?'':'<br><small>함께 말해 봐요</small>')+'</div><span class="chip">자유 대화</span><span class="chip" style="color:#ffc27a;border-color:#6b4430;background:rgba(242,120,58,.14)">🔥 7</span></div>';}
+  var AI1='<div class="b ai">在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>';
+  var ME1='<div class="b me">我喜欢看动画片。</div>';
+  var ME0='<div class="b me">我喜欢在家看电影。</div>';
+  var AI2='<div class="b ai">你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small><div class="tools"><i>🔊 다시 듣기</i><i>뜻</i></div></div>';
+  function chat(extra){return '<div class="chat">'+(extra||'')+ME0+AI1+ME1+AI2+'</div>';}
+
+  /* ── 1 메신저형 ── */
+  var bar1='<div class="bar"><div class="mic">⏹<span class="tag">자동</span></div><div class="field"><span class="dot"></span>듣는 중… 말해 보세요</div><div class="send">➤</div></div>';
+  var s1p='<div class="scr">'+TOP+who(44,true)+chat()+'<div class="links"><span>💡 도움</span><span>🕘 지난 대화</span></div>'+bar1+'</div>';
+  var s1l='<div class="scr"><div class="top"><div class="ib">←</div><div class="ib">🏠</div>'+face(30)+'<div class="ttl">메이 선생님</div><span class="chip">자유 대화</span><div class="ib">💡</div><div class="ib">🔊</div><div class="ib">⋮</div></div>'
+    +'<div class="chat" style="padding-left:40px;padding-right:40px">'+ME1+AI2+'</div>'+bar1.replace('class="bar"','class="bar" style="padding-left:40px;padding-right:40px"')+'</div>';
+
+  /* ── 2 큰 마이크 ── */
+  var dock2='<div class="dock"><div class="row" style="gap:26px"><div class="side">⌨</div><div class="bigmic">⏹</div><div class="side">💡</div></div><div class="cap"><span class="dot"></span>듣는 중… 말해 보세요</div><div class="mini">자동으로 말하기 · 바꾸려면 ⋮</div></div>';
+  var s2p='<div class="scr">'+TOP+who(44,true)+chat()+dock2+'</div>';
+  var s2l='<div class="scr"><div class="top"><div class="ib">←</div><div class="ib">🏠</div>'+face(30)+'<div class="ttl">메이 선생님</div><span class="chip">자유 대화</span><div class="ib">🔊</div><div class="ib">⋮</div></div>'
+    +'<div style="flex:1;min-height:0;display:flex">'
+    +'<div class="chat" style="flex:1">'+ME1+AI2+'</div>'
+    +'<div style="flex:0 0 190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--acard);border-left:1px solid var(--aline)"><div class="bigmic">⏹</div><div class="cap" style="font-size:13px"><span class="dot"></span>듣는 중…</div><div class="row" style="gap:10px"><div class="side">⌨</div><div class="side">💡</div></div></div>'
+    +'</div></div>';
+
+  /* ── 3 질문 카드 ── */
+  var q3='<div class="qcard"><div class="lbl">메이 선생님의 질문</div><div class="q">你觉得看电影最好是在哪里看？</div><small>영화는 어디서 보는 게 제일 좋아요?</small><div class="tools" style="margin-top:9px"><i>🔊 다시 듣기</i><i>뜻</i></div></div>';
+  var s3p='<div class="scr">'+TOP+who(56,false)
+    +'<div class="links" style="padding-top:0"><span>🕘 지난 대화 4개 ▾</span></div>'
+    +q3
+    +'<div class="chat" style="justify-content:center;align-items:center;color:var(--at2);font-size:14px">내 대답이 여기에 나와요</div>'
+    +'<div class="row" style="padding:0 12px 8px;justify-content:space-between"><div class="side" style="width:44px;height:44px">⌨</div><span class="mini">자동으로 말하기</span><div class="side" style="width:44px;height:44px">💡</div></div>'
+    +'<div class="wide"><span class="dot" style="background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.25)"></span>듣는 중… 말해 보세요 · ⏹</div></div>';
+  var s3l='<div class="scr"><div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib">⋮</div></div>'
+    +'<div style="flex:1;min-height:0;display:flex;gap:4px">'
+    +'<div style="flex:1.2;min-width:0;display:flex;flex-direction:column;justify-content:center"><div class="row" style="padding:0 12px">'+face(36)+'<b>메이 선생님</b></div>'+q3+'</div>'
+    +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end"><div class="chat" style="justify-content:center;align-items:center;color:var(--at2)">내 대답이 여기에 나와요</div>'
+    +'<div class="row" style="padding:0 12px 8px;gap:10px"><div class="side" style="width:42px;height:42px">⌨</div><div class="side" style="width:42px;height:42px">💡</div><span class="mini">🕘 지난 대화 ▾</span></div>'
+    +'<div class="wide" style="font-size:15px">⏹ 듣는 중… 말해 보세요</div></div></div></div>';
+
+  /* ── 4 아래 3칸 바 ── */
+  var tabs4='<div class="tabs"><div class="tab"><span class="ic">💡</span>도움</div><div class="tab on"><span class="ic">⏹</span>듣는 중… 말해요</div><div class="tab"><span class="ic">⌨</span>글쓰기</div></div>';
+  var s4p='<div class="scr">'+TOP+who(44,true)+chat()+tabs4+'</div>';
+  var s4l='<div class="scr"><div class="top"><div class="ib">←</div><div class="ib">🏠</div>'+face(30)+'<div class="ttl">메이 선생님</div><span class="chip">자유 대화</span><div class="ib">🔊</div><div class="ib">⋮</div></div>'
+    +'<div class="chat" style="padding-left:40px;padding-right:40px">'+ME1+AI2+'</div>'
+    +tabs4.replace('class="tabs"','class="tabs" style="padding-left:120px;padding-right:120px"').replace(/height:58px/,'')+'</div>';
+
+  var OPTS=[
+    {n:1,t:'메신저형 — 카톡처럼 한 줄',d:'아래는 🎤 · 입력칸 · ➤ 한 줄뿐입니다. 듣는 중에는 입력칸 자체가 빨갛게 바뀌어 「듣는 중… 말해 보세요」라고 말합니다. 그 위에는 「💡 도움 · 🕘 지난 대화」 글자 링크 한 줄만 둡니다.',
+      p:['가장 익숙한 모양','글로 바로 쓸 수 있음'],c:['마이크가 작아 어린 학생은 놓칠 수 있음'],sp:s1p,sl:s1l},
+    {n:2,t:'큰 마이크 하나',d:'가운데 큰 둥근 마이크 하나가 전부입니다. 왼쪽 ⌨ 를 누르면 입력칸이 올라오고, 오른쪽 💡 는 도움입니다. 눕히면 마이크가 오른쪽 기둥으로 갑니다.',
+      p:['말하기가 가장 분명함','버튼이 가장 적음'],c:['글로 쓰려면 한 번 더 눌러야 함'],sp:s2p,sl:s2l},
+    {n:3,t:'질문 카드 — 지금 대답할 것만 크게',d:'대화 목록 대신 «선생님이 지금 묻는 질문» 한 장을 크게 보여 주고, 아래 넓은 말하기 버튼으로 대답합니다. 지난 대화는 「🕘 지난 대화 ▾」 를 눌러 펼칩니다. 눕히면 왼쪽 질문 · 오른쪽 대답으로 나뉩니다.',
+      p:['무엇에 대답할지 절대 안 헷갈림','중국어 글자가 가장 큼'],c:['대화가 «흐르는» 느낌은 줄어듦'],sp:s3p,sl:s3l},
+    {n:4,t:'아래 3칸 바 — 늘 같은 자리',d:'맨 아래를 「💡 도움 · 🎤 말하기 · ⌨ 글쓰기」 세 칸으로 고정합니다. 가운데 칸이 가장 크고, 듣는 중에는 빨갛게 바뀌며 그 안에 상태를 씁니다. 세로·가로 모두 같은 자리라 외우기 쉽습니다.',
+      p:['세로·가로 모양이 같음','손가락이 닿기 쉬움'],c:['화면 아래가 조금 더 두꺼움(약 76px)'],sp:s4p,sl:s4l}
+  ];
+  var html='';
+  OPTS.forEach(function(o){
+    html+='<section class="opt"><h2><span class="no">'+o.n+'</span>'+o.t+'</h2><p class="d">'+o.d+'</p><div class="pros">'
+      +o.p.map(function(x){return '<span class="p">＋ '+x+'</span>';}).join('')
+      +o.c.map(function(x){return '<span class="c">－ '+x+'</span>';}).join('')+'</div>'
+      +'<div class="phones"><figure class="fig" style="margin:0"><figcaption>휴대폰 세로</figcaption><div class="box p"><div class="scale">'+o.sp+'</div></div></figure>'
+      +'<figure class="fig" style="margin:0"><figcaption>휴대폰 가로</figcaption><div class="scroller"><div class="box l"><div class="scale">'+o.sl+'</div></div></div></figure></div></section>';
+  });
+  document.getElementById('opts').innerHTML=html;
+})();
+</script>
