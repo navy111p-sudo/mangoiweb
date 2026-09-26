@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// 📱 A.i 말하기 연습 — 휴대폰·태블릿(터치)에서 입력 묶음이 대화창을 가리지 않는가 (2026-09-25 · A+C 중간안)
+// 📱 A.i 말하기 연습 — 휴대폰·태블릿(터치) «아래 3칸 바» (2026-09-26 · 시안 4, 2026-09-25 A+C 중간안을 대체)
 //   사장님 「1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말)이 안 보여」 → 시안 A+C 로 결정,
 //   「휴대폰과 테블릿에서만 적용해줘. 가로 세로 모두」.
 //   자동으로 안 돕니다 — 사람이 부릅니다:
@@ -53,38 +53,85 @@ for(const [w,h,touch,name] of SIZES){
   await page.waitForTimeout(400);
   const m=await page.evaluate((last)=>{
     const R=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom,w:r.width,h:r.height};};
-    const comp=R(document.querySelector('.wg-composer')), ws=R(document.getElementById('wgWorkspace')), ring=R(document.getElementById('tavatar-ring'));
-    const msgs=[...document.querySelectorAll('#log .msg.ai')]; const lm=msgs.find(x=>x.textContent.includes(last))||msgs[msgs.length-1];
-    const lr=R(lm);
-    // 마지막 선생님 말의 «글자» 가 보이는가 — 그 줄 가운데의 맨 위 요소가 그 말풍선인가
-    const cx=lr?lr.l+Math.min(lr.w/2,120):0, cy=lr?Math.min(lr.t+lr.h/2,lr.b-4):0;
-    const top=lr?document.elementFromPoint(cx,cy):null;
     const vis=el=>!!el&&getComputedStyle(el).display!=='none'&&el.getBoundingClientRect().height>0;
-    const touch=matchMedia('(hover:none) and (pointer:coarse)').matches;
-    const stopBtn=document.getElementById('micBtn'); const sr=R(stopBtn);
-    const stopTop=sr?document.elementFromPoint(sr.l+sr.w/2,sr.t+sr.h/2):null;
-    const sw=document.getElementById('talkSwitch'), swr=R(sw);
-    return {touch,comp,ws,ring,lr,lastSeen:!!(top&&lm&&lm.contains(top)),innerH:innerHeight,innerW:innerWidth,
-      stVis:vis(document.getElementById('wgState')),listenVis:vis(document.getElementById('listening')),
-      pillVis:vis(document.getElementById('autoTalkPill')),hintVis:vis(document.querySelector('.hint')),
-      swVis:vis(sw), swH:swr?swr.h:0, stopOk:!!(stopTop&&stopBtn.contains(stopTop)),
-      docW:document.documentElement.scrollWidth};
+    const onTop=el=>{if(!vis(el))return false;const r=el.getBoundingClientRect();const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!t&&el.contains(t);};
+    const msgs=[...document.querySelectorAll('#log .msg.ai')]; const lm=msgs.find(x=>x.textContent.includes(last))||msgs[msgs.length-1];
+    const lr=R(lm); const cx=lr?lr.l+Math.min(lr.w/2,120):0, cy=lr?Math.min(lr.t+lr.h/2,lr.b-4):0;
+    const top=lr?document.elementFromPoint(cx,cy):null;
+    const bar=document.getElementById('tbBar'), sw=document.getElementById('talkSwitch');
+    const swBtns=sw?[...sw.querySelectorAll('button')]:[];
+    return {touch:matchMedia('(hover:none) and (pointer:coarse)').matches, innerH:innerHeight, innerW:innerWidth,
+      docW:document.documentElement.scrollWidth, lr, lastSeen:!!(top&&lm&&lm.contains(top)),
+      comp:R(document.querySelector('.wg-composer')), ring:R(document.getElementById('tavatar-ring')), bar:R(bar), hasBar:!!bar,
+      swInBar:!!(bar&&sw&&bar.contains(sw)), swVis:vis(sw), swBtnH:Math.min(...swBtns.map(b=>b.getBoundingClientRect().height),999),
+      swBtnsTop:swBtns.length===2&&swBtns.every(onTop), swLbl:vis(sw&&sw.querySelector('.ts-lbl')),
+      tabsTop:['tbHelp','tbMic','tbType'].map(id=>onTop(document.getElementById(id))),
+      micTxt:(document.getElementById('tbMic')||{}).textContent||'', micCls:(document.getElementById('tbMic')||{}).className||'',
+      histBarVis:vis(document.querySelector('.wg-history-bar')), qsVis:vis(document.querySelector('.qs-row')),
+      stVis:vis(document.getElementById('wgState')), hintVis:vis(document.querySelector('.hint')), compVis:vis(document.querySelector('.wg-composer')),
+      stopOk:onTop(document.getElementById('micBtn'))};
   },ZH[2]);
-  console.log(`▶ ${name} ${w}x${h} — 터치=${m.touch} · 입력묶음 ${Math.round(m.comp.h)}px · 대화칸 ${Math.round(m.ws.h)}px · 얼굴 ${Math.round(m.ring.w)}px`);
+  console.log(`▶ ${name} ${w}x${h} — 터치=${m.touch} · 바 ${m.bar?Math.round(m.bar.h):'-'}px · 얼굴 ${Math.round(m.ring.w)}px`);
   ok(name+': 미디어 흉내가 먹었다(전제)', m.touch===touch);
   ok(name+': 가로로 안 넘친다', m.docW<=m.innerW+1, m.docW+' / '+m.innerW);
-  ok(name+': ⏹ 멈추기 버튼이 보이고 눌린다', m.stopOk);
   ok(name+': 「말하는 방법」 스위치가 보인다', m.swVis);
   if(touch){
-    ok(name+': 방금 선생님이 한 말이 보인다', m.lastSeen && m.lr.b<=m.comp.t+1, m.lr?`말 아래 ${Math.round(m.lr.b)} · 입력 위 ${Math.round(m.comp.t)}`:'없음');
-    ok(name+': 입력 묶음이 화면의 35% 이하', m.comp.h<=m.innerH*0.35, Math.round(m.comp.h)+' / '+m.innerH);
-    ok(name+': 같은 «듣는 중» 안내가 한 번만(wgState·자동 알약 감춤)', m.listenVis && !m.stVis && !m.pillVis);
-    ok(name+': 대화 뒤에는 사용법 줄을 감춘다', !m.hintVis);
-    ok(name+': 얼굴이 56px(눕힌 폰 40px) 로 줄었다', Math.abs(m.ring.w-(h<=520?40:56))<=2, Math.round(m.ring.w)+'px');
-    ok(name+': 스위치가 한 줄(≤ 40px)', m.swH<=40, Math.round(m.swH)+'px');
+    ok(name+': 아래 3칸 바가 있다', m.hasBar);
+    ok(name+': 스위치가 바 안에 있다', m.swInBar);
+    ok(name+': 스위치 두 버튼이 크고(≥38px) 눌린다', m.swBtnH>=(h<=520?36:40) && m.swBtnsTop, Math.round(m.swBtnH)+'px');
+    ok(name+': 세로 화면이면 「말하는 방법」 글자가 보인다', h<=520 || m.swLbl);
+    ok(name+': 도움·말하기·글쓰기 3칸이 모두 보이고 눌린다', m.tabsTop.every(Boolean), JSON.stringify(m.tabsTop));
+    ok(name+': 듣는 동안 가운데 칸이 ⏹ 멈추기', m.micCls==='rec' && m.micTxt.includes('⏹'), m.micTxt);
+    ok(name+': 방금 선생님이 한 말이 보이고 바 위에 있다', m.lastSeen && m.lr.b<=m.bar.t+1, m.lr?`말 아래 ${Math.round(m.lr.b)} · 바 위 ${Math.round(m.bar.t)}`:'없음');
+    ok(name+': 바가 화면의 30% 이하', m.bar.h<=m.innerH*0.30, Math.round(m.bar.h)+' / '+m.innerH);
+    ok(name+': 흩어진 줄(이전대화·새질문·안내·입력칸)은 감췄다', !m.histBarVis && !m.qsVis && !m.stVis && !m.hintVis && !m.compVis);
+    ok(name+': 얼굴이 56px(눕힌 폰 40px)', Math.abs(m.ring.w-(h<=520?40:56))<=2, Math.round(m.ring.w)+'px');
+    await page.screenshot({path:`${process.env.SHOT_DIR||'/tmp'}/touch-${w}x${h}-pre.png`});
+    // ── 누르면 원래 기능이 도는가 ──
+    const a=await page.evaluate(async()=>{
+      const cnt={}; ['wgHistory','wgHelpOpen','qsBtn','wgFinish'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('click',()=>{cnt[id]=(cnt[id]||0)+1;},true);});
+      let mic=0; window.toggleMic=()=>{mic++;};
+      const tap=id=>document.getElementById(id).click(); const sl=ms=>new Promise(r=>setTimeout(r,ms));
+      const out={};
+      tap('tbMic'); out.mic=mic;
+      const sw=document.getElementById('talkSwitch');
+      sw.querySelector('[data-talk="button"]').click(); await sl(50);
+      out.btnMode=localStorage.getItem('mangoi_warmup_talk_mode'); out.btnOn=!!document.querySelector('#talkSwitch [data-talk="button"].on');
+      document.getElementById('talkSwitch').querySelector('[data-talk="auto"]').click(); await sl(50);
+      out.autoOn=!!document.querySelector('#talkSwitch [data-talk="auto"].on');
+      tap('tbType'); await sl(80);
+      const comp=document.querySelector('.wg-composer'), inbar=comp.querySelector('.inbar');
+      out.typeVis=getComputedStyle(comp).display!=='none'&&getComputedStyle(inbar).display!=='none';
+      out.typeFocus=document.activeElement===document.getElementById('inp');
+      out.micHidden=getComputedStyle(document.getElementById('micBtn')).display==='none';
+      out.typeOn=document.getElementById('tbType').classList.contains('on');
+      tap('tbType'); await sl(50); out.typeOff=getComputedStyle(comp).display==='none';
+      const items=['tbScenes','tbHist','tbAns','tbQs'];  // 끝내기는 마지막에 따로
+      out.sheetItems=0;
+      for(const k of items){ tap('tbHelp'); await sl(30);
+        const sh=document.getElementById('tbSheet'); out.sheetOpen=(out.sheetOpen===undefined?true:out.sheetOpen)&&!sh.hidden;
+        out.sheetItems=Math.max(out.sheetItems,sh.querySelectorAll('[data-tb]').length);
+        const b=sh.querySelector('[data-tb="'+k+'"]'); if(b)b.click(); await sl(60);
+        out.sheetClosed=(out.sheetClosed===undefined?true:out.sheetClosed)&&sh.hidden; }
+      out.scenesVis=getComputedStyle(document.getElementById('wgScenes')).display!=='none';
+      tap('tbHelp'); await sl(30); document.getElementById('tbSheetBg').click(); await sl(30); out.bgClose=document.getElementById('tbSheet').hidden;
+      tap('tbHelp'); await sl(30); document.querySelector('#tbSheet [data-tb="tbFin"]').click(); await sl(60);
+      out.cnt=cnt; return out;
+    });
+    ok(name+': 가운데 칸 → 원래 🎤(toggleMic)', a.mic===1);
+    ok(name+': 스위치 「버튼으로」 → 저장·표시', a.btnMode==='button' && a.btnOn);
+    ok(name+': 스위치 「자동으로」 → 표시', a.autoOn);
+    ok(name+': ⌨ 글쓰기 → 입력칸이 열리고 포커스, 그 안 🎤 는 감춤', a.typeVis && a.typeFocus && a.micHidden && a.typeOn);
+    ok(name+': ⌨ 한 번 더 → 입력칸 닫힘', a.typeOff);
+    ok(name+': 💡 도움 시트가 열리고 5칸', a.sheetOpen && a.sheetItems===5, a.sheetItems);
+    ok(name+': 시트 항목을 누르면 시트가 닫힌다', a.sheetClosed && a.bgClose);
+    ok(name+': 시트 → 그림·이전대화·대답도움·새질문·끝내기가 원래 버튼을 누른다',
+      a.scenesVis && a.cnt.wgHistory===1 && a.cnt.wgHelpOpen===1 && a.cnt.qsBtn===1 && a.cnt.wgFinish===1, JSON.stringify(a.cnt));
   }else{
+    ok(name+': 마우스 PC 는 바를 안 만든다', !m.hasBar);
+    ok(name+': 마우스 PC 는 예전 그대로 — ⏹ 버튼이 보이고 눌린다', m.stopOk);
     ok(name+': 마우스 PC 는 예전 그대로 — 얼굴을 안 줄인다', m.ring.w>60, Math.round(m.ring.w)+'px');
-    ok(name+': 마우스 PC 는 예전 그대로 — 안내 줄을 안 감춘다', m.stVis && m.hintVis);
+    ok(name+': 마우스 PC 는 예전 그대로 — 안내 줄·이전대화 줄이 보인다', m.stVis && m.hintVis && m.histBarVis);
   }
   await page.screenshot({path:`${process.env.SHOT_DIR||'/tmp'}/touch-${w}x${h}-${touch?'t':'m'}.png`});
   await ctx.close();
