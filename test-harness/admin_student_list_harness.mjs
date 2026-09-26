@@ -89,7 +89,7 @@ check('첫 렌더는 청크만 그린다', /arr\.slice\(0, _smShown\)/.test(core
 check('이어붙이기 함수가 노출돼 있다', /window\.smAppendRows\s*=\s*smAppendRows/.test(core));
 check('스크롤로 이어붙인다', /addEventListener\('scroll'[\s\S]{0,200}smAppendRows/.test(core));
 check('스크롤 위치를 보존한다', /wrap\.scrollLeft = keepLeft/.test(core));
-check('CSV·정렬은 전체(_smStudents)를 그대로 쓴다', /_pre = _smStudents/.test(core));
+check('CSV·정렬은 전체(_smStudents)를 그대로 쓴다', /let _pre = smLearningRows\(\)/.test(core) && /function smLearningRows\(\)[\s\S]{0,400}return _smStudents\.filter/.test(core));
 /* 🕸️❌ (2026-08-13) 이 화면은 그래프DB(/api/admin/students/graph-list)를 이제 «안 부른다».
    왜 뺐는지 (adm-core.js 의 loadStudentList 주석에 근거를 적어 두었다) —
      ① 지금 아무것도 안 준다. 라벨이 «D1» 이고 콘솔 로그가 없다 = ok:true + students:[] 다
