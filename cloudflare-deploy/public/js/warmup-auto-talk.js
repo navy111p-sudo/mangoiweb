@@ -301,6 +301,7 @@
 
   window.WarmupAutoTalk = {
     on: on, isOn: isOn, setMode: setMode, mode: readMode,
+    arm: arm,   // 😊 얼굴 대화(js/warmup-facetalk.js)가 «못 들음» 뒤 다시 열 때 — 못 들은 횟수(misses)는 그대로 세어 두 번이면 쉰다
     _state: S, _cfg: { ARM_DELAY_MS: ARM_DELAY_MS, MISS_LIMIT: MISS_LIMIT, EMBEDDED: EMBEDDED, ANDROID: ANDROID }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountUi);

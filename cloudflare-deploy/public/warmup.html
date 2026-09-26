@@ -2847,6 +2847,7 @@ async function micViaWhisper(){
   }
   if(_whisperOn){ MangoiVoice.stop(); return; }      // ⏹ — 지금까지 녹음분으로 전사
   _whisperOn=true; setMicState(true);
+  var heard=false;                // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var said = await MangoiVoice.record({
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     silenceMs: 1800,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
@@ -2854,7 +2855,7 @@ async function micViaWhisper(){
       if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
       else if(s==='waiting')  _setListenLabel('🎙️ 지금 말해보세요! 천천히 해도 괜찮아요');
-      else if(s==='speaking'){ _setListenLabel('🎙️ 듣는 중…'); _autoHook('phase','speak'); }
+      else if(s==='speaking'){ heard=true; _setListenLabel('🎙️ 듣는 중…'); _autoHook('phase','speak'); }
       else if(s==='thinking'){ _setListenLabel('🎧 말한 내용을 받아적는 중…'); _autoHook('phase','check'); }
       else if(s==='error'){
         var r = info && info.reason;
@@ -2866,6 +2867,9 @@ async function micViaWhisper(){
   });
   if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
   _whisperOn=false; setMicState(false);
+  /* 🔇 (2026-09-26) 말소리가 한 번도 안 들린 녹음의 전사는 버린다 — 학생이 하지도 않은 말로 대화가 이어진다.
+     자동 말하기·얼굴 대화는 조용한 순간에도 마이크를 열어서 이 일이 잦다(A.i 친구하기 얼굴 대화와 같은 규칙). */
+  if(said && !heard){ said=''; addMsg('🎤 소리가 잘 안 들렸어요. 조금 더 크게 다시 말해 주세요.', 'sys'); }
   if(said){ document.getElementById('inp').value=said; sendMsg(); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
@@ -3924,7 +3928,8 @@ async function sendMsg(){
 <script defer src="/js/flow.js?v=22"></script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
-<script src="/js/warmup-auto-talk.js?v=4" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/warmup-auto-talk.js?v=5" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/warmup-facetalk.js?v=1" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=1" defer></script><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
