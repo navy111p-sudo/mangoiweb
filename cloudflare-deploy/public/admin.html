@@ -1015,6 +1015,9 @@
 </script>
 <div class="legacy-cards" id="legacy-cards">
 
+<section id="forecast-overview" aria-label="AI 매출·이탈 요약" hidden></section>
+<link rel="stylesheet" href="/css/adm-forecast.css?v=1">
+<script src="/js/adm-forecast.js?v=1" defer></script>
 <div class="grid" id="kpi"></div>
 
 <!-- 🥭 Phase 20 — 오늘의 KPI 4박스 (매출·학생수·결석률·신규등록)
@@ -5998,9 +6001,9 @@ window.__admSettleRun = function(fn){
   <summary><span data-ko="📈 AI 매출·이탈 예측" data-en="📈 Revenue & Churn Forecast">📈 AI 매출·이탈 예측</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(14,165,233,0.10),rgba(2,132,199,0.05));border:1px solid rgba(14,165,233,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#7dd3fc;line-height:1.65"
-         data-ko="💡 최근 90일 매출·등록·이탈 데이터로 30일 매출과 다음 달 이탈을 예측하고, AI가 한국어로 코멘트해 드립니다."
-         data-en="💡 Forecasts next 30 days revenue and next month churn from past 90 days, with Korean AI commentary.">
-      💡 최근 90일 데이터 → 다음 30일 매출 + 다음 달 이탈 AI 예측
+         data-ko="최근 결제 기록으로 매출을 추정하고, 만료·장기 미수강 학생의 상담 우선순위를 보여드립니다."
+         data-en="Revenue estimates from payments and care priorities from expiry and inactivity records.">
+      최근 결제 기반 매출 추정 · 만료·미수강 관리 대상
     </div>
     <button onclick="fcLoad()" class="primary" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:14px">
       <span data-ko="🔄 예측 갱신" data-en="🔄 Refresh Forecast">🔄 예측 갱신</span>
@@ -6008,73 +6011,7 @@ window.__admSettleRun = function(fn){
     <div data-gc="🔮 예측 결과" data-gc-en="Forecast Result" id="fc-result" style="display:grid;grid-template-columns:1fr 1fr;gap:14px"></div>
   </div>
 </details>
-<script>
-(function(){
-  const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-  function isEn(){ return window.adminLang === 'en'; }
-  function sparkline(points, color, w, h){
-    if (!points || !points.length) return '';
-    const max = Math.max(...points, 1);
-    const min = Math.min(...points, 0);
-    const range = max - min || 1;
-    const step = w / Math.max(points.length - 1, 1);
-    const coords = points.map((v,i) => `${(i*step).toFixed(1)},${(h - ((v-min)/range)*h).toFixed(1)}`).join(' ');
-    return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px"><polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2" /></svg>`;
-  }
-  function bars(points, color, w, h){
-    if (!points || !points.length) return '';
-    const max = Math.max(...points, 1);
-    const bw = w / points.length;
-    return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">${points.map((v,i) => `<rect x="${(i*bw+1).toFixed(1)}" y="${(h - (v/max)*h).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${((v/max)*h).toFixed(1)}" fill="${color}" />`).join('')}</svg>`;
-  }
-  window.fcLoad = async function(){
-    const box = document.getElementById('fc-result');
-    const en = isEn();
-    box.innerHTML = `<div style="color:#7dd3fc;padding:14px;grid-column:1/-1">⏳ ${en?'Loading forecasts...':'예측 불러오는 중...'}</div>`;
-    try {
-      const [rev, chn] = await Promise.all([
-        fetch('/api/admin/forecast/revenue').then(x=>x.json()),
-        fetch('/api/admin/forecast/churn').then(x=>x.json()),
-      ]);
-      const revPanel = (() => {
-        if (!rev.ok) return `<div style="color:#fca5a5">❌ ${esc(rev.error||'revenue_failed')}</div>`;
-        const histAmts = (rev.history||[]).map(h => h.amount);
-        const fcAmts = (rev.forecast||[]).map(f => f.amount);
-        const total = histAmts.reduce((s,x)=>s+x,0);
-        const fcTotal = fcAmts.reduce((s,x)=>s+x,0);
-        const trendIcon = rev.trend==='up'?'📈':rev.trend==='down'?'📉':'📊';
-        return `<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px">
-          <div style="font-size:13px;color:#7dd3fc;font-weight:700;margin-bottom:10px">💰 ${en?'Revenue':'매출'} ${trendIcon} <span style="color:#cbd5e1;font-size:11px">(${rev.trend})</span></div>
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${en?'Past 90d':'지난 90일'}: <b style="color:#cbd5e1">${(total/10000).toFixed(0)}${en?'M KRW':'만원'}</b></div>
-          ${sparkline(histAmts, '#0ea5e9', 300, 60)}
-          <div style="font-size:11px;color:#94a3b8;margin-top:8px;margin-bottom:4px">${en?'Forecast 30d':'예측 30일'}: <b style="color:#7dd3fc">${(fcTotal/10000).toFixed(0)}${en?'M KRW':'만원'}</b></div>
-          ${sparkline(fcAmts, '#a5b4fc', 300, 50)}
-          <div style="margin-top:10px;padding:10px;background:rgba(14,165,233,0.08);border-radius:8px;color:#bae6fd;font-size:12px;line-height:1.6">${esc(rev.commentary||'')}</div>
-        </div>`;
-      })();
-      const chnPanel = (() => {
-        if (!chn.ok) return `<div style="color:#fca5a5">❌ ${esc(chn.error||'churn_failed')}</div>`;
-        const enrolls = (chn.monthly||[]).map(m=>m.enroll);
-        const leaves = (chn.monthly||[]).map(m=>m.leave);
-        return `<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px">
-          <div style="font-size:13px;color:#fca5a5;font-weight:700;margin-bottom:10px">⚠️ ${en?'Churn':'이탈'}</div>
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${en?'90d Enroll':'90일 등록'}: <b style="color:#bbf7d0">${chn.enrollments_90d}</b> / ${en?'Leavers':'이탈'}: <b style="color:#fecaca">${chn.leavers_90d}</b></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-            <div><div style="font-size:10px;color:#94a3b8">${en?'Enrollment':'신규'}</div>${bars(enrolls,'#22c55e',150,60)}</div>
-            <div><div style="font-size:10px;color:#94a3b8">${en?'Leavers':'이탈'}</div>${bars(leaves,'#ef4444',150,60)}</div>
-          </div>
-          <div style="margin-top:10px;font-size:11px;color:#94a3b8">${en?'Projected next month churn':'다음 달 예상 이탈'}: <b style="color:#fecaca;font-size:18px">${chn.projected_next_month_churn}</b>${en?' people':'명'}</div>
-          <div style="margin-top:10px;padding:10px;background:rgba(239,68,68,0.08);border-radius:8px;color:#fecaca;font-size:12px;line-height:1.6">${esc(chn.commentary||'')}</div>
-        </div>`;
-      })();
-      box.innerHTML = revPanel + chnPanel;
-    } catch(e){
-      box.innerHTML = `<div style="color:#fca5a5;padding:14px;grid-column:1/-1">❌ ${esc(e.message)}</div>`;
-    }
-  };
-  document.getElementById('card-ai-forecast')?.addEventListener('toggle', function(){ if (this.open) fcLoad(); });
-})();
-</script>
+
 
 <!-- 💳 Phase RB — 정기결제 자동화 -->
 <details class="table-card menu-card" id="card-recurring-billing">
@@ -14181,4 +14118,5 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-approval-siren.js?v=1" defer></script><!-- 🚨 결재 사이렌 — 결재함과 같은 siren_at 으로 관리자 화면에서도 울림 (2026-09-24) -->
 </body>
 </html>
+
 
