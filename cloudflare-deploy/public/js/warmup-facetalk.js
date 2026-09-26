@@ -87,7 +87,16 @@
     /* 들어가는 입구 — 얼굴 카드 모서리의 작은 표시 */
     + '#tavatar-ring.ftk-door{cursor:pointer}'
     + '#tavatar-ring .ftk-badge{position:absolute;right:-4px;bottom:-4px;z-index:5;width:22px;height:22px;border-radius:50%;'
-    + ' background:#22c55e;color:#fff;font-size:12px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.4);pointer-events:none}'
+    + ' background:#22c55e;color:#fff;font-size:12px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer}'
+    /* 🖱 마우스를 ▶ 에 올리면 «무엇을 하는 버튼인가» 말풍선(2026-09-26 사장님). 글자는 data-tip — 언어가 바뀌면 JS 가 갈아 넣는다 */
+    + '#tavatar-ring .ftk-badge::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);'
+    + ' white-space:nowrap;background:#0f172a;color:#fff;font-size:13px;font-weight:700;line-height:1.3;padding:6px 10px;border-radius:8px;'
+    + ' box-shadow:0 4px 12px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);opacity:0;visibility:hidden;transition:opacity .15s;pointer-events:none}'
+    + '#tavatar-ring .ftk-badge:hover::after,#tavatar-ring.ftk-door:focus-visible .ftk-badge::after{opacity:1;visibility:visible}'
+    /* 📱 폰에는 «마우스 올리기» 가 없다 — 처음 몇 번은 ▶ 옆에 말풍선을 잠깐 띄워 알려 준다(아래 hintOnce) */
+    + '.ftk-hint{position:fixed;z-index:2147483040;background:#0f172a;color:#fff;font-size:13px;font-weight:700;line-height:1.35;'
+    + ' padding:7px 11px;border-radius:10px;border:1px solid #22c55e;box-shadow:0 6px 16px rgba(0,0,0,.4);transform:translateY(-50%);pointer-events:none}'
+    + '.ftk-hint::before{content:"";position:absolute;left:-6px;top:50%;margin-top:-6px;border:6px solid transparent;border-left:0;border-right-color:#22c55e}'
     + '#ftk .ftk-badge{display:none}';
 
   var root, glass, teacherEl, meEl, noteEl, chipsEl;
@@ -285,6 +294,7 @@
   /* ── 켜기·끄기 ── */
   function enter() {
     if (active) return;
+    hideHint();
     var ring = document.getElementById('tavatar-ring');
     var su = document.getElementById('wuSetup');
     if (!ring || !AT() || embedded() || (su && !su.hidden)) return;
@@ -345,19 +355,64 @@
   }
 
   /* ── 입구: 선생님 얼굴 카드 ── */
+  /* 📱 폰 안내 — 터치 기기에는 «마우스 올리기» 가 없어 말풍선이 원리상 안 뜬다(CLAUDE.md 2장 «title 은 폰에서 안 뜸»).
+     그래서 이 기기에서 처음 3번까지만, ▶ 옆에 «무엇을 하는 버튼인가» 를 5초 보여 준다. 화면 아무 데나 누르면 바로 걷힌다.
+     ⛔ 상주 타이머 없음 — 설정 화면이 떠 있으면 1초 간격으로 최대 60번만 다시 본다(끝이 있는 확인). */
+  var HINT_KEY = 'mangoi_ftk_hint_n', hintEl = null;
+  function hideHint() { if (hintEl) { hintEl.remove(); hintEl = null; } }
+  function hintOnce(badge) {
+    var fine = false;
+    try { fine = window.matchMedia('(hover:hover) and (pointer:fine)').matches; } catch (e) {}
+    if (fine) return;                                        // 마우스가 있으면 말풍선으로 충분하다
+    var n = 0; try { n = +localStorage.getItem(HINT_KEY) || 0; } catch (e) { return; }
+    if (n >= 3) return;
+    var tries = 0;
+    setTimeout(function tryShow() {
+      if (active || hintEl) return;
+      var su = document.getElementById('wuSetup');
+      var r = badge.getBoundingClientRect();
+      if ((su && !su.hidden) || !r.width || r.bottom < 0 || r.top > innerHeight) {
+        if (++tries < 60) setTimeout(tryShow, 1000);
+        return;
+      }
+      try { localStorage.setItem(HINT_KEY, String(n + 1)); } catch (e) {}
+      hintEl = document.createElement('div');
+      hintEl.className = 'ftk-hint'; hintEl.setAttribute('role', 'status');
+      hintEl.textContent = t('누르면 선생님 얼굴만 보며 대화해요', 'Tap for face-only chat with the teacher');
+      /* ▶ 자리는 화면이 자리잡는 동안 움직인다(첫 인사 카드가 접히는 등) — 붙인 뒤 한 번 더 맞춘다 */
+      var place = function () {
+        if (!hintEl) return;
+        var q = badge.getBoundingClientRect();
+        hintEl.style.left = Math.round(q.right + 10) + 'px';
+        hintEl.style.top = Math.round(q.top + q.height / 2) + 'px';
+        hintEl.style.maxWidth = Math.max(140, innerWidth - q.right - 22) + 'px';
+      };
+      document.body.appendChild(hintEl); place(); setTimeout(place, 400);
+      var off = function () { hideHint(); document.removeEventListener('pointerdown', off, true); window.removeEventListener('scroll', off, true); };
+      document.addEventListener('pointerdown', off, true);
+      window.addEventListener('scroll', off, true);
+      setTimeout(off, 5000);
+    }, 1500);                                   // 첫 화면이 자리잡은 뒤에 붙인다
+  }
+
   function arm() {
     var ring = document.getElementById('tavatar-ring');
     if (!ring || ring.__ftkArmed || embedded()) return;
     ring.__ftkArmed = true;
     ring.classList.add('ftk-door');
     ring.setAttribute('role', 'button'); ring.setAttribute('tabindex', '0');
-    var setLbl = function () { var l = t('선생님 얼굴과만 대화하기', 'Talk face to face'); ring.setAttribute('aria-label', l); ring.title = l; };
+    var badge = document.createElement('span'); badge.className = 'ftk-badge'; badge.setAttribute('aria-hidden', 'true');
+    /* 말풍선 글자는 data-tip 한 곳 — 브라우저 기본 title 은 안 단다(말풍선이 두 개 겹쳐 뜬다) */
+    var setLbl = function () {
+      var l = t('선생님 얼굴만 보며 대화', 'Face-only chat with the teacher');
+      ring.setAttribute('aria-label', l); ring.removeAttribute('title'); badge.setAttribute('data-tip', l);
+    };
     setLbl();
     if (!document.getElementById('ftk-style')) {
       var st = document.createElement('style'); st.id = 'ftk-style'; st.textContent = CSS; document.head.appendChild(st);
     }
-    var badge = document.createElement('span'); badge.className = 'ftk-badge'; badge.setAttribute('aria-hidden', 'true');
     badge.textContent = '▶'; ring.appendChild(badge);
+    hintOnce(badge);
     ring.addEventListener('click', function () { if (!active) enter(); });
     ring.addEventListener('keydown', function (e) { if (!active && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); enter(); } });
     var onLang = function () { setLbl(); labels(); if (active) { lastMe = null; fillText(); } };
