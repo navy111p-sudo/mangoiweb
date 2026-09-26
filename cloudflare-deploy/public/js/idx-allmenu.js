@@ -468,6 +468,173 @@
     }
   } catch (_e1) {}
 
+  /* 💡 「A.i말하기와 A.i친구하기 차이」 — 학생 안내 (2026-09-26 사장님 지시)
+     [왜] 「AI와 친구하기」 목록에 비슷해 보이는 두 카드(A.i 말하기 연습 · AI 친구)가 나란히 있는데
+          무엇이 다른지 화면 어디에도 없었다. 두 카드 안에 작은 «차이 보기» 칩을 달고,
+          누르면 10대 눈높이의 비교 안내가 뜬다.
+     [어디] 그 목록은 index.html 인라인(공동 금지구역)이 «처음 열 때» 만든다 → 여기(defer)에서
+          body «childList» 로 붙는 순간을 한 번 보고 칩을 단다(class 감시는 금지 — CLAUDE.md 2장).
+     ⛔ 칩을 <button> 으로 만들지 말 것 — 카드가 이미 <button> 이라 파서가 바깥 버튼을 닫아
+        카드가 무너진다. span[role=button] + 이벤트 전파 차단으로 «카드 이동» 을 막는다.
+     ⛔ 칩에 달린 data-ko/data-en 은 «글자만 든» span 에만 — 아이콘·자식이 있으면 사라진다.
+     ⚠️ 내용(사실)은 warmup.html · ai-friend.html 기준 — 기능이 바뀌면 이 문구도 함께. */
+  var AIDIFF_ID = 'aidiff-ov';
+  var AIDIFF_TXT = {
+    ko: {
+      chip: '💡 A.i말하기와 A.i친구하기 차이',
+      title: 'A.i말하기와 A.i친구하기 차이',
+      lead: '둘 다 AI랑 영어로 말하는 건 똑같아요. 다른 점은 딱 하나, <b>누가 대화를 이끄느냐</b>예요!',
+      aName: '🗣️ A.i 말하기', aOne: 'AI가 먼저 말을 걸어요',
+      a: ['오늘 배울 <b>교재 내용</b>으로 대화해요 — 수업 전 입 풀기에 딱!',
+          '뭐라고 할지 막히면 <b>「대답 보기」</b>로 힌트를 볼 수 있어요',
+          '말하는 동안 <b>자막이 바로바로</b> 떠요',
+          '<b>영어·중국어</b> 둘 다 할 수 있어요'],
+      bName: '🤖 A.i 친구하기', bOne: '내가 주제를 골라요',
+      b: ['동물·영화·음식처럼 <b>좋아하는 얘기</b>로 수다 떨어요',
+          '문장은 <b>내가 직접</b> 만들어요 — 그래서 실력이 더 늘어요',
+          '말이 끝나면 글자가 떠요. 대신 <b>발음을 더 정확히</b> 알아들어요',
+          '<b>영어</b>로 대화해요'],
+      same: '<b>둘 다 똑같은 점</b> · 틀린 문장은 교정 카드로 고쳐 줘요 · 레벨이 서로 이어져요',
+      whenT: '언제 뭘 하면 좋을까?',
+      whenA: '수업 바로 전이거나, 영어로 말하는 게 아직 어색하다면',
+      whenB: '수업이 없는 날, 좋아하는 주제로 자유롭게 떠들고 싶다면',
+      goA: 'A.i 말하기 시작', goB: 'A.i 친구하기 시작', close: '닫기'
+    },
+    en: {
+      chip: '💡 Speaking vs. Friend: what\'s different?',
+      title: 'A.i Speaking vs. A.i Friend',
+      lead: 'Both let you talk with AI in English. The one big difference: <b>who leads the chat</b>!',
+      aName: '🗣️ A.i Speaking', aOne: 'The AI talks to you first',
+      a: ['You talk about <b>today\'s textbook</b> — perfect warm-up before class!',
+          'Stuck? Tap <b>“Show answers”</b> for a hint',
+          '<b>Subtitles appear right away</b> while you speak',
+          'Works in <b>English and Chinese</b>'],
+      bName: '🤖 A.i Friend', bOne: 'You pick the topic',
+      b: ['Chat about <b>things you like</b> — animals, movies, food…',
+          'You build <b>your own sentences</b> — so you improve faster',
+          'Text shows up after you finish, but it <b>hears your pronunciation better</b>',
+          'Chat in <b>English</b>'],
+      same: '<b>Both</b> · fix your mistakes with a correction card · share the same level',
+      whenT: 'Which one should I do?',
+      whenA: 'Right before class, or if speaking English still feels awkward',
+      whenB: 'On days without class, when you just want to chat about fun stuff',
+      goA: 'Start A.i Speaking', goB: 'Start A.i Friend', close: 'Close'
+    }
+  };
+  function aidiffT(){ return allmenuIsEn() ? AIDIFF_TXT.en : AIDIFF_TXT.ko; }
+  function aidiffStyle(){
+    if (document.getElementById('aidiff-style')) return;
+    var st = document.createElement('style'); st.id = 'aidiff-style';
+    st.textContent =
+      '#ai-friends-ov .aif-tx>span.aif-diff{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:99px;'
+     +'background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.55);color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.35;cursor:pointer}'
+     +'#ai-friends-ov .aif-tx>span.aif-diff:hover,#ai-friends-ov .aif-tx>span.aif-diff:focus-visible{background:rgba(251,191,36,.3);outline:none}'
+     +'#'+AIDIFF_ID+'{position:fixed;inset:0;z-index:100002;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(2,6,16,.8)}'
+     +'#'+AIDIFF_ID+'[hidden]{display:none!important}'
+     +'#'+AIDIFF_ID+' .ad-box{position:relative;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;background:#131c33;border:1px solid rgba(251,191,36,.45);border-radius:22px;padding:26px 22px 20px;color:#f1f5f9;font-size:15px;line-height:1.55}'
+     +'#'+AIDIFF_ID+' .ad-x{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fde68a;font-size:17px;cursor:pointer}'
+     +'#'+AIDIFF_ID+' h3{margin:0 40px 6px 0;font-size:21px;font-weight:900;color:#fdf6e3}'
+     +'#'+AIDIFF_ID+' .ad-lead{margin:0 0 14px;color:#e2e8f0}'
+     +'#'+AIDIFF_ID+' .ad-lead b{color:#fbbf24}'
+     +'#'+AIDIFF_ID+' .ad-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}'
+     +'#'+AIDIFF_ID+' .ad-col{border-radius:16px;padding:14px 14px 10px;border:1px solid}'
+     +'#'+AIDIFF_ID+' .ad-a{background:rgba(234,88,12,.14);border-color:rgba(251,146,60,.6)}'
+     +'#'+AIDIFF_ID+' .ad-b{background:rgba(37,99,235,.16);border-color:rgba(96,165,250,.6)}'
+     +'#'+AIDIFF_ID+' .ad-name{font-size:17px;font-weight:900;color:#fff}'
+     +'#'+AIDIFF_ID+' .ad-one{display:inline-block;margin:4px 0 8px;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:800;color:#111827}'
+     +'#'+AIDIFF_ID+' .ad-a .ad-one{background:#fdba74}#'+AIDIFF_ID+' .ad-b .ad-one{background:#93c5fd}'
+     +'#'+AIDIFF_ID+' ul{margin:0;padding-left:18px}#'+AIDIFF_ID+' li{margin:4px 0;color:#e2e8f0}'
+     +'#'+AIDIFF_ID+' li b{color:#fff}'
+     +'#'+AIDIFF_ID+' .ad-same{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.07);color:#e2e8f0;font-size:14px}'
+     +'#'+AIDIFF_ID+' .ad-same b{color:#fbbf24}'
+     +'#'+AIDIFF_ID+' .ad-when{margin:12px 0 0}'
+     +'#'+AIDIFF_ID+' .ad-when h4{margin:0 0 6px;font-size:15px;font-weight:900;color:#fdf6e3}'
+     +'#'+AIDIFF_ID+' .ad-go{display:grid;grid-template-columns:1fr 1fr;gap:10px}'
+     +'#'+AIDIFF_ID+' .ad-go a{display:block;text-decoration:none;border-radius:14px;padding:10px 12px;font-size:13.5px;color:#e2e8f0;border:1px solid}'
+     +'#'+AIDIFF_ID+' .ad-go a b{display:block;font-size:15px;color:#fff;margin-top:4px}'
+     +'#'+AIDIFF_ID+' .ad-go .ad-a{border-color:rgba(251,146,60,.6)}#'+AIDIFF_ID+' .ad-go .ad-b{border-color:rgba(96,165,250,.6)}'
+     +'@media(max-width:560px){#'+AIDIFF_ID+' .ad-cols,#'+AIDIFF_ID+' .ad-go{grid-template-columns:1fr}#'+AIDIFF_ID+' h3{font-size:18px}#'+AIDIFF_ID+' .ad-box{padding-bottom:96px}}';
+    document.head.appendChild(st);
+  }
+  function aidiffHtml(){
+    var t = aidiffT();
+    function li(arr){ return arr.map(function(x){ return '<li>'+x+'</li>'; }).join(''); }
+    return '<div class="ad-box" role="dialog" aria-modal="true" aria-labelledby="aidiff-title">'
+      + '<button type="button" class="ad-x" aria-label="'+t.close+'">✕</button>'
+      + '<h3 id="aidiff-title">'+t.title+'</h3>'
+      + '<p class="ad-lead">'+t.lead+'</p>'
+      + '<div class="ad-cols">'
+      +   '<div class="ad-col ad-a"><div class="ad-name">'+t.aName+'</div><span class="ad-one">'+t.aOne+'</span><ul>'+li(t.a)+'</ul></div>'
+      +   '<div class="ad-col ad-b"><div class="ad-name">'+t.bName+'</div><span class="ad-one">'+t.bOne+'</span><ul>'+li(t.b)+'</ul></div>'
+      + '</div>'
+      + '<p class="ad-same">'+t.same+'</p>'
+      + '<div class="ad-when"><h4>'+t.whenT+'</h4><div class="ad-go">'
+      +   '<a class="ad-a" href="/warmup.html">'+t.whenA+'<b>👉 '+t.goA+'</b></a>'
+      +   '<a class="ad-b" href="/ai-friend.html">'+t.whenB+'<b>👉 '+t.goB+'</b></a>'
+      + '</div></div>'
+      + '</div>';
+  }
+  function aidiffClose(){ var o = document.getElementById(AIDIFF_ID); if (o) o.hidden = true; }
+  function aidiffOpen(){
+    aidiffStyle();
+    var o = document.getElementById(AIDIFF_ID);
+    if (!o) {
+      o = document.createElement('div'); o.id = AIDIFF_ID;
+      o.addEventListener('click', function(e){
+        if (e.target === o || (e.target.closest && e.target.closest('.ad-x'))) aidiffClose();
+      });
+      document.body.appendChild(o);
+    }
+    o.innerHTML = aidiffHtml();   /* 여는 순간의 언어로 그린다 */
+    o.hidden = false;
+    try { o.querySelector('.ad-x').focus(); } catch(e){}
+  }
+  window.mgOpenAiDiff = aidiffOpen;
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') { var o = document.getElementById(AIDIFF_ID); if (o && !o.hidden) aidiffClose(); }
+  });
+  function aidiffRelang(){ var o = document.getElementById(AIDIFF_ID); if (o && !o.hidden) o.innerHTML = aidiffHtml(); }
+  /* 관리자 쪽은 document, 공용 엔진은 window 에서 쏜다 — 양쪽 다 듣는다(CLAUDE.md 2장) */
+  window.addEventListener('mangoi:lang-changed', aidiffRelang);
+  document.addEventListener('mangoi:lang-changed', aidiffRelang);
+
+  function aidiffDecorate(ov){
+    if (!ov || ov.__aidiff) return;
+    ov.__aidiff = true;
+    aidiffStyle();
+    var items = ov.querySelectorAll('.aif-item');
+    for (var i = 0; i < items.length; i++) {
+      var oc = items[i].getAttribute('onclick') || '';
+      if (oc.indexOf('/warmup.html') < 0 && oc.indexOf('/ai-friend.html') < 0) continue;
+      var tx = items[i].querySelector('.aif-tx');
+      if (!tx || tx.querySelector('.aif-diff')) continue;
+      var chip = document.createElement('span');
+      chip.className = 'aif-diff';
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('data-ko', AIDIFF_TXT.ko.chip);
+      chip.setAttribute('data-en', AIDIFF_TXT.en.chip);
+      chip.textContent = aidiffT().chip;
+      /* 카드(<button onclick=이동>)까지 올라가지 않게 — 여기서 끊는다 */
+      chip.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); aidiffOpen(); });
+      chip.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); aidiffOpen(); }
+      });
+      tx.appendChild(chip);
+    }
+  }
+  var _adNow = document.getElementById('ai-friends-ov');
+  if (_adNow) aidiffDecorate(_adNow);
+  else {
+    try {
+      var _adMo = new MutationObserver(function(){
+        var ov = document.getElementById('ai-friends-ov');
+        if (ov) { aidiffDecorate(ov); _adMo.disconnect(); }
+      });
+      _adMo.observe(document.body, { childList: true });
+    } catch(e){}
+  }
+
   console.log('[v22] 전체메뉴 capture-phase 핸들러 + 패널 즉시 생성 활성');
 })();
 
