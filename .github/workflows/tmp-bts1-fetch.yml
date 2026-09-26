@@ -1,6 +1,5 @@
 # ⛔ 임시 워크플로 — main 에 올리지 않습니다. 작업 브랜치에서만 돌고 지웁니다.
-# 목적: 사이트(mangoi.ai)의 BTS 2~34 교재 JPG 를 받아 작게 줄여 tmp-bts/ 에 커밋(원고 읽기용).
-# (작업 컨테이너는 프록시가 mangoi.ai 를 막아 직접 못 받습니다 — CLAUDE.md 2장)
+# 목적: 사이트(mangoi.ai)의 BTS 2~34 교재 JPG 를 권마다 동시에 받아(줄여서) tmp-bts/ 에 커밋.
 name: tmp-bts-fetch
 on:
   push:
@@ -11,53 +10,63 @@ permissions:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        n: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]
     steps:
-      - uses: actions/checkout@v4
       - name: install imagemagick
         run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick >/dev/null
-      - name: download BTS 2-34 pages
+      - name: download BTS ${{ matrix.n }}
+        env: { N: '${{ matrix.n }}' }
         run: |
           cat > /tmp/f.mjs <<'JS'
           import fs from 'node:fs';
-          import { execFileSync } from 'node:child_process';
-          const B = 'https://mangoi.ai';
-          const get = async (u, tries = 4) => { for (let i = 0; i < tries; i++) { try { const r = await fetch(u); if (r.ok) return r; } catch (e) {} await new Promise(r => setTimeout(r, 1500 * (i + 1))); } return null; };
+          import { execFile } from 'node:child_process';
+          import { promisify } from 'node:util';
+          const ex = promisify(execFile);
+          const B = 'https://mangoi.ai', N = process.env.N;
+          const get = async (u, tries = 5) => { for (let i = 0; i < tries; i++) { try { const r = await fetch(u); if (r.ok) return r; } catch (e) {} await new Promise(r => setTimeout(r, 1500 * (i + 1))); } return null; };
           const g = await (await get(B + '/api/textbook-files?group=1')).json();
-          const all = (g.groups || []).map(x => ({ book: x.book, n: x.count || x.n || null }));
-          fs.mkdirSync('tmp-bts', { recursive: true });
-          fs.writeFileSync('tmp-bts/groups.json', JSON.stringify(all, null, 1) + '\n');
-          const books = all.map(x => x.book).filter(b => /^BTS\s*0*([2-9]|[12]\d|3[0-4])(\s|$)/.test(b));
-          console.log('books', books.length);
+          const re = new RegExp('^BTS\\s*0*' + N + '(\\s|$)');
+          const books = (g.groups || []).map(x => x.book).filter(b => re.test(b));
+          console.log('books', books);
           const index = [];
           for (const book of books) {
             const r = await (await get(B + '/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=5000')).json();
             const items = r.items || [];
-            const dir = 'tmp-bts/' + book.replace(/[^\w.\- ()]+/g, '_').trim();
+            const dir = 'out/tmp-bts/' + book.replace(/[^\w.\- ()]+/g, '_').trim();
             fs.mkdirSync(dir, { recursive: true });
-            let ok = 0;
-            for (const it of items) {
-              const res = await get(B + it.url);
-              if (!res) { console.log('FAIL', book, it.id); continue; }
-              const buf = Buffer.from(await res.arrayBuffer());
+            let i = 0, ok = 0;
+            const work = async () => { while (i < items.length) { const it = items[i++]; const res = await get(B + it.url); if (!res) { console.log('FAIL', it.id); continue; }
+              const raw = '/tmp/r' + it.id; fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
               const base = String(it.id) + '__' + String(it.name).replace(/^\[[^\]]*\]\s*/, '').replace(/[^\w.\- ()]+/g, '_').replace(/\.(jpe?g|png|webp)$/i, '');
-              const raw = '/tmp/raw.bin'; fs.writeFileSync(raw, buf);
               const out = dir + '/' + base + '.jpg';
-              try { execFileSync('convert', [raw + '[0]', '-resize', '800x800>', '-quality', '62', '-strip', out]); ok++; }
-              catch (e) { console.log('CONVERT FAIL', book, it.id, it.name); continue; }
-              index.push({ book, id: it.id, name: it.name, file: out });
-            }
+              try { await ex('convert', [raw + '[0]', '-resize', '800x800>', '-quality', '62', '-strip', out]); ok++; index.push({ book, id: it.id, name: it.name, file: out.slice(4) }); } catch (e) { console.log('CONVERT FAIL', it.id); } } };
+            await Promise.all(Array.from({ length: 10 }, work));
             console.log(book, items.length, ok);
           }
-          fs.writeFileSync('tmp-bts/index.json', JSON.stringify(index, null, 1) + '\n');
-          console.log('total', index.length);
+          fs.mkdirSync('out/tmp-bts/_idx', { recursive: true });
+          fs.writeFileSync('out/tmp-bts/_idx/bts-' + String(N).padStart(2, '0') + '.json', JSON.stringify(index) + '\n');
           JS
           node /tmp/f.mjs
-          du -sh tmp-bts
+      - uses: actions/upload-artifact@v4
+        with: { name: 'bts-${{ matrix.n }}', path: out, retention-days: 3 }
+  commit:
+    needs: fetch
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: /tmp/arts, merge-multiple: true }
       - name: commit
         run: |
-          git config user.name "tmp-bot"
-          git config user.email "tmp-bot@users.noreply.github.com"
-          git add tmp-bts
-          git commit -m "tmp: BTS 2-34 교재 JPG 받아오기 (임시, main 금지)"
-          for i in 1 2 3 4; do git pull --rebase origin claude/bold-lovelace-dy58q5 && git push && break; sleep 5; done
+          mkdir -p tmp-bts && cp -r /tmp/arts/tmp-bts/. tmp-bts/
+          node -e "const fs=require('fs');const d='tmp-bts/_idx';let a=[];for(const f of fs.readdirSync(d))a=a.concat(JSON.parse(fs.readFileSync(d+'/'+f)));fs.writeFileSync('tmp-bts/index.json',JSON.stringify(a,null,1)+'\n');console.log('total',a.length)"
+          du -sh tmp-bts
+          git config user.name "tmp-bot"; git config user.email "tmp-bot@users.noreply.github.com"
+          git add tmp-bts && git commit -qm "tmp: BTS 2-34 교재 JPG 받아오기 (임시, main 금지)"
+          for i in 1 2 3 4; do git pull --rebase -q origin claude/bold-lovelace-dy58q5 && git push && break; sleep 5; done
