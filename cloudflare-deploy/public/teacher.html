@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no" class="notranslate">
 <head>
 <meta charset="utf-8">
+<meta name="google" content="notranslate">
 <style>/* 📐 화면 비율 통일 (2026-08-14 피드백 ①) — 이 화면은 «외부 리소스 0개» 계약이라
    공용 /css/mangoi-layout.css 를 링크하지 않고 같은 규칙만 인라인으로 둔다.
    스크롤바 자리를 항상 비워 두면 페이지를 옮길 때 본문 폭이 15px 튀지 않는다. */
@@ -426,6 +427,24 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 html[data-t="dark"] .qlbl{color:#9dabb9}
 .qbar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 8px;margin:0 0 4px}
 .qbar .tbtn{flex:0 0 auto}
+
+/* Desktop readability; preserve the compact phone layout without scaling controls. */
+.wk-none,.empty{color:#526171}
+html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
+@media(min-width:900px){
+ .wrap{max-width:1180px;padding:24px 28px 64px}
+ body{font-size:18px;line-height:1.65}
+ .top{gap:18px;flex-wrap:wrap}.top h1{font-size:28px}
+ .top h1 span,.qlbl,.card>h2 small{font-size:16px}
+ .card{padding:22px;margin-bottom:18px}
+ .card>h2,details.mycard>summary{font-size:21px}
+ .tbtn,.qbar .tbtn,.wk-nav button,.wk-jump label,.wk-jump button{font-size:17px}
+ .qbar{flex-wrap:wrap;overflow:visible;gap:10px}
+ .wk-d{font-size:18px}.wk-i{font-size:19px;padding:7px 0}
+ .wk-none,.cls-meta,.stu-id,.empty,.row span,.mini,.draft-txt,.warnline,.kpi span{font-size:16px}
+ .cls-name,.row b{font-size:19px}.cls-time{font-size:25px}
+ .btn,.btn-sm{font-size:18px}.kpi b{font-size:32px}
+}
 </style>
 <!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
      흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
@@ -481,6 +500,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <a class="tbtn" href="/teacher-training.html" data-en="📖 Manual" data-ko="📖 수업 매뉴얼">📖 Manual</a>
   </nav>
 
+  <div id="translation-status" class="warn" role="status" hidden>
+    <span data-en="Some notices or resource titles could not be translated. Original text is shown." data-ko="일부 공지·자료명을 번역하지 못해 원문을 표시합니다.">Some notices or resource titles could not be translated. Original text is shown.</span>
+    <button id="translation-retry" type="button" class="tbtn" data-en="Retry translation" data-ko="번역 다시 시도">Retry translation</button>
+  </div>
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
 
   <!-- 👥 (2026-08-09) 계정이 두 개인 사람에게만 뜬다(서버 SAME_PERSON_ACCOUNTS 가 정한다).
@@ -814,7 +837,9 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     document.documentElement.lang = LANG;
     var n = document.querySelectorAll('[data-en]');
     for (var i=0;i<n.length;i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
-    document.getElementById('lang').textContent = EN() ? '한국어' : 'English';
+    document.getElementById('lang').textContent = EN() ? 'English ✓ / 한국어' : '한국어 ✓ / English';
+    document.getElementById('lang').setAttribute('aria-label', EN() ? 'Current language: English. Switch to Korean' : '현재 한국어. 영어로 변경');
+    if (!EN()) document.getElementById('translation-status').hidden = true;
     // 상태에 따라 글자가 바뀌는 것들(data-en 방식으로는 못 다룬다)도 여기서 다시 그린다
     applyTheme(themeOn());
     paintNewBadge();
@@ -1070,6 +1095,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     }
     (DATA.notices || []).forEach(function(n){ add(n.title); add(n.excerpt); });
     (DATA.resources || []).forEach(function(f){ add(f.name); });
+    document.getElementById('translation-status').hidden = true;
     if (!want.length) return;                 // 번역할 게 없으면 요청 자체를 안 한다
 
     // 🏷️ 고유명사 보호 — 번역기에 넘기기 **전에** 영문으로 바꿔 둔다.
@@ -1092,20 +1118,22 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     })
     .then(function(r){ return r.json(); })
     .then(function(j){
-      if (!j || !j.ok || !j.map) return;
+      if (!j || !j.ok || !j.map) throw new Error('translation_unavailable');
       var got = 0;
       // 응답은 '보낸 문장' 기준이므로 원문 키로 되돌려 저장한다(화면은 원문으로 조회한다).
       pairs.forEach(function(p){
         var out = j.map[p.src];
-        if (out && out !== p.orig){ TR[p.orig] = out; got++; }
+        if (out && out !== p.orig && !hasKo(out)){ TR[p.orig] = out; got++; }
       });
+      if (EN()) document.getElementById('translation-status').hidden = got === pairs.length;
       if (!got) return;
       try { localStorage.setItem(TRK, JSON.stringify(TR)); } catch (e) { /* 용량 초과는 무시 */ }
       renderNotices(DATA.notices || []);
       renderResources(DATA.resources || []);
     })
-    .catch(function(){ /* 번역 실패 = 한국어 원문이 보일 뿐, 화면은 멀쩡하다 */ });
+    .catch(function(){ if (EN()) document.getElementById('translation-status').hidden = false; });
   }
+  document.getElementById('translation-retry').onclick = function(){ translateContent(); };
   var draftsLoaded = false;   // AI 초안 목록을 이미 불렀는가 (중복 요청 방지)
 
   function esc(s){
