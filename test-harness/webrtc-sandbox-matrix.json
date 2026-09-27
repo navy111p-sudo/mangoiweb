@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "purpose": "Non-production MANGOI WebRTC reliability test matrix. A runner must refuse production rooms and production credentials.",
+  "teacher_profiles": ["HOME", "OFFICE"],
+  "scenarios": [
+    {"id":"baseline","latency_ms":0,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-100","latency_ms":100,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-200","latency_ms":200,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-300","latency_ms":300,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-1","latency_ms":0,"jitter_ms":0,"packet_loss_pct":1,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-3","latency_ms":0,"jitter_ms":0,"packet_loss_pct":3,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-5","latency_ms":0,"jitter_ms":0,"packet_loss_pct":5,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-10","latency_ms":0,"jitter_ms":0,"packet_loss_pct":10,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"jitter-80","latency_ms":80,"jitter_ms":80,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"bandwidth-500","latency_ms":0,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":500,"disconnect_ms":0},
+    {"id":"disconnect-3000","latency_ms":0,"jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":3000}
+  ],
+  "required_metrics": [
+    "connect_success",
+    "rtt_ms",
+    "jitter_ms",
+    "packet_loss_pct",
+    "audio_conceal_pct",
+    "video_freeze_count",
+    "video_freeze_duration_ms",
+    "recovery_success",
+    "recovery_duration_ms",
+    "restart_ice_count",
+    "renegotiation_count",
+    "peer_rebuild_count",
+    "path",
+    "turn"
+  ],
+  "hard_guards": {
+    "require_explicit_sandbox_flag": true,
+    "forbid_production_room": true,
+    "forbid_production_credentials": true,
+    "forbid_impairment_in_live_class": true
+  }
+}
