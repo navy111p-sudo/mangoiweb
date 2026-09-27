@@ -17,16 +17,16 @@ function boot({ uid = 'admin', role = 'hq', scope = 'hq', storage = new Map(), n
     if (sel === 'h1') return { focus() { focus = 'title'; } };
   } };
   const document = { readyState: 'complete', hidden: false, activeElement: { isConnected: true, focus() { focus = 'previous'; } },
-    body: { appendChild(el) { nodes[el.id] = el; } },
-    createElement() { return { attachShadow() { this.shadowRoot = root; return root; } }; },
+    body: { parentElement: null, appendChild(el) { nodes[el.id] = el; el.parentElement = this; } },
+    createElement() { return { style: {}, attachShadow() { this.shadowRoot = root; return root; } }; },
     addEventListener(n, fn) { listeners[n] = fn; } };
   const window = { addEventListener(n, fn) { winListeners[n] = fn; } };
   class Clock extends Date { static now() { return nowMs; } }
-  const context = vm.createContext({ window, document, Date: Clock, AbortController, setTimeout, clearTimeout,
+  const context = vm.createContext({ window, document, getComputedStyle: () => ({ zoom: '1.3' }), Date: Clock, AbortController, setTimeout, clearTimeout,
     localStorage: { getItem(k) { if (blocked) throw Error('blocked'); return storage.get(k) || null; }, setItem(k, v) { if (blocked) throw Error('blocked'); storage.set(k, v); } },
     fetch: async (url, options) => { requests++; assert.equal(url, '/api/admin/me'); assert.equal(options.credentials, 'include'); assert.equal(options.cache, 'no-store'); if (fail) throw Error('offline'); return { ok: true, json: async () => response }; } });
   vm.runInContext(src, context);
-  return { dlg, storage, listeners, winListeners, get html() { return html; }, get requests() { return requests; }, get focus() { return focus; }, setTime(s) { nowMs = Date.parse(s); }, recover() { fail = false; }, rerun() { vm.runInContext(src, context); } };
+  return { nodes, dlg, storage, listeners, winListeners, get html() { return html; }, get requests() { return requests; }, get focus() { return focus; }, setTime(s) { nowMs = Date.parse(s); }, recover() { fail = false; }, rerun() { vm.runInContext(src, context); } };
 }
 const flush = () => new Promise(r => setImmediate(r));
 for (const uid of targets) { const b = boot({ uid }); await flush(); assert.ok(b.dlg.open, uid); assert.equal(b.focus, 'title'); }
@@ -34,6 +34,7 @@ for (const [uid, role, scope] of [['mgr_lby','hq','hq'], ['mangoi_033','teacher'
   const b = boot({ uid, role, scope }); await flush(); assert.equal(b.dlg.open, false, uid);
 }
 const b = boot(); await flush();
+assert.equal(Number(b.nodes['admin-daily-manual'].style.zoom), 1 / 1.3, 'portal cancels admin body zoom');
 assert.equal(b.storage.size, 0, 'opening alone must not mark read');
 assert.match(b.html, /카카오 문의와 평가 확인/);
 assert.match(b.html, /Review Kakao inquiries &amp; feedback/);
@@ -49,5 +50,5 @@ assert.equal(same.storage.get('mangoi_admin_manual_closed_v1:admin'), '2026-09-2
 const restricted = boot({ blocked: true }); await flush(); restricted.listeners.close(); restricted.winListeners.focus(); await flush(); assert.equal(restricted.dlg.open, false);
 const offline = boot({ fail: true }); await flush(); assert.equal(offline.dlg.open, false); offline.recover(); offline.winListeners.online(); await flush(); assert.ok(offline.dlg.open);
 offline.rerun(); await flush(); assert.equal(offline.requests, 2, 'duplicate script does not issue another request');
-for (const page of ['admin','manager']) assert.match(readFileSync(`cloudflare-deploy/public/${page}.html`, 'utf8'), /<script src="\/js\/admin-daily-manual.js\?v=1" defer><\/script>/);
+for (const page of ['admin','manager']) assert.match(readFileSync(`cloudflare-deploy/public/${page}.html`, 'utf8'), /<script src="\/js\/admin-daily-manual.js\?v=2" defer><\/script>/);
 console.log('PASS: five recipients, excluded roles/accounts, fresh identity, content, close/Escape, reload, KST rollover, shared browser, blocked storage, offline retry, both landing pages');

@@ -41,7 +41,7 @@
     var root = host.attachShadow({ mode: 'open' });
     root.innerHTML = '<style>'
       + ':host{all:initial}*{box-sizing:border-box}dialog{color:#19324b;background:#fff;border:0;border-radius:20px;padding:0;width:min(1120px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;box-shadow:0 20px 70px #0006;font:16px/1.55 system-ui,-apple-system,"Noto Sans KR",sans-serif;overflow:hidden}dialog[open]{display:flex;flex-direction:column}dialog::backdrop{background:rgba(10,25,45,.72)}'
-      + 'header{padding:22px 26px 14px;border-bottom:1px solid #dde5ed;flex:none}h1{font-size:25px;line-height:1.3;margin:0 0 5px}header p{margin:3px 0;font-size:14px;color:#4a6074}.subtitle{font-weight:650}.content{padding:20px 26px;overflow:auto;overscroll-behavior:contain;min-height:0}.columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.team{--accent:#087c87;--tint:#f0fafa;--line:#b5dcdc}.team.kr{--accent:#2555a5;--tint:#f2f6ff;--line:#c4d3ed}h2{font-size:20px;line-height:1.4;margin:0;padding:12px 16px;background:var(--accent);color:#fff;border-radius:10px}.names{display:block;font-size:14px;font-weight:500;margin-top:3px}ol{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:10px}li{display:flex;align-items:flex-start;gap:12px;background:var(--tint);border:1px solid var(--line);border-radius:12px;padding:14px;break-inside:avoid}.number{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;font-weight:750}li>div{min-width:0}h3{font-size:17px;margin:0;color:var(--accent);line-height:1.4}.en-title{font-size:15px;font-weight:650;color:var(--accent)}p{margin:7px 0 0;overflow-wrap:anywhere}.en{color:#40576d;font-size:15px;margin-top:4px}.shared{--accent:#88550a;--tint:#fff8e9;--line:#e9d29b;margin-top:22px}.shared h2{background:#fff1cc;color:#775007}.report{margin-top:18px;background:#f3f5f8;border:1px solid #d5dde5;border-radius:12px;padding:15px}.report h2{background:none;color:#19324b;padding:0;font-size:18px}.timezone{font-size:13px;color:#4a6074}footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 26px;background:#fff;border-top:1px solid #d6e0e9}footer p{font-size:13px;color:#526779;margin:0}button{font:700 17px/1.4 inherit;font-family:inherit;font-size:17px;font-weight:700;flex:none;min-height:48px;padding:11px 26px;border:0;border-radius:10px;background:#193b63;color:#fff;cursor:pointer}button:hover{background:#0f2949}button:focus-visible{outline:3px solid #d48800;outline-offset:3px}h1:focus{outline:none}'
+      + 'header{padding:22px 26px 14px;border-bottom:1px solid #dde5ed;flex:none}h1{font-size:25px;line-height:1.3;margin:0 0 5px}header p{margin:3px 0;font-size:14px;color:#4a6074}.subtitle{font-weight:650}.content{padding:20px 26px;overflow:auto;overscroll-behavior:contain;min-height:0}.columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.team{--accent:#087c87;--tint:#f0fafa;--line:#b5dcdc}.team.kr{--accent:#2555a5;--tint:#f2f6ff;--line:#c4d3ed}h2{font-size:20px;line-height:1.4;margin:0;padding:12px 16px;background:var(--accent);color:#fff;border-radius:10px}.names{display:block;font-size:14px;font-weight:500;margin-top:3px}ol{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:10px}li{display:flex;align-items:flex-start;gap:12px;background:var(--tint);border:1px solid var(--line);border-radius:12px;padding:14px;break-inside:avoid}.number{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;font-weight:750}li>div{min-width:0}h3{font-size:17px;margin:0;color:var(--accent);line-height:1.4}.en-title{font-size:15px;font-weight:650;color:var(--accent)}p{margin:7px 0 0;overflow-wrap:anywhere}.en{color:#40576d;font-size:15px;margin-top:4px}.shared{--accent:#88550a;--tint:#fff8e9;--line:#e9d29b;margin-top:22px}.shared h2{background:#fff1cc;color:#775007}.report{margin-top:18px;background:#f3f5f8;border:1px solid #d5dde5;border-radius:12px;padding:15px}.report h2{background:none;color:#19324b;padding:0;font-size:18px}.timezone{font-size:13px;color:#4a6074}footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 26px;background:#fff;border-top:1px solid #d6e0e9}footer p{font-size:13px;color:#526779;margin:0}button{font:inherit;font-family:inherit;font-size:17px;font-weight:700;flex:none;min-height:48px;padding:11px 26px;border:0;border-radius:10px;background:#193b63;color:#fff;cursor:pointer}button:hover{background:#0f2949}button:focus-visible{outline:3px solid #d48800;outline-offset:3px}h1:focus{outline:none}'
       + '@media(max-width:700px){dialog{border-radius:14px}header{padding:16px}h1{font-size:21px}.content{padding:16px}.columns{grid-template-columns:1fr;gap:20px}footer{padding:12px 16px}footer p{font-size:12px}button{padding:11px 18px}h2{font-size:19px}li{padding:12px}}'
       + '@media(max-height:500px){header{padding:10px 16px}header .intro{display:none}h1{font-size:20px}footer{padding:8px 16px}}'
       + '</style><dialog aria-labelledby="daily-manual-title" aria-describedby="daily-manual-description">'
@@ -59,12 +59,25 @@
     root.querySelector('button').addEventListener('click', dismiss);
     dialog.addEventListener('cancel', function (e) { e.preventDefault(); dismiss(); });
   }
+  function fitViewport() {
+    if (!host) return;
+    // admin.html applies body zoom:1.3. Native top-layer dialogs still inherit it,
+    // making 100dvh taller than the visible viewport unless the portal cancels it.
+    var zoom = 1;
+    for (var el = host.parentElement; el; el = el.parentElement) {
+      var value = parseFloat(getComputedStyle(el).zoom);
+      if (value > 0) zoom *= value;
+    }
+    host.style.zoom = String(1 / zoom);
+  }
+  window.addEventListener('resize', function () { requestAnimationFrame(fitViewport); });
   function show(uid, day) {
     if (!dialog) build();
     if (dialog.open) return;
     currentUser = uid;
     openedDay = day;
     priorFocus = document.activeElement;
+    fitViewport();
     dialog.showModal();
     host.shadowRoot.querySelector('.content').scrollTop = 0;
     host.shadowRoot.querySelector('h1').focus({ preventScroll: true });
