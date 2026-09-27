@@ -351,6 +351,17 @@
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/mango-avatar.js?v=19" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
+
+<style>
+.friend-talk-switch{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;margin:0 auto 7px;color:#cbd5e1;font-size:13px;font-weight:700}
+.friend-talk-switch[hidden]{display:none}
+.friend-talk-switch button{min-height:36px;padding:6px 12px;border:1px solid #64748b;border-radius:999px;background:#1e293b;color:#e2e8f0;font:inherit;cursor:pointer}
+.friend-talk-switch button[aria-pressed="true"]{background:#0ea5e9;border-color:#38bdf8;color:white;box-shadow:0 0 0 2px #38bdf833}
+.friend-talk-switch button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+.friend-talk-switch small{background:#fbbf24;color:#172554;padding:1px 5px;border-radius:6px;font-size:10px}
+.friend-talk-status{max-width:820px;margin:0 auto 7px;font-size:13px;line-height:1.4;color:#bae6fd;text-align:center}
+</style>
+
 </head>
 <body>
   <div class="top">
@@ -474,6 +485,8 @@
   <div id="wodCard" hidden></div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
+    <div id="friendTalkSwitch" class="friend-talk-switch" role="group" aria-label="말하는 방법"></div>
+    <div id="friendTalkStatus" class="friend-talk-status" role="status" aria-live="polite"></div>
     <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
     <div class="help-row" id="helpRow" style="display:none"></div>
     <form onsubmit="sendMsg(event)">
@@ -1127,6 +1140,7 @@
     }
     function toggleSound() {
       const on = isSoundOn();
+      if (on && window.FriendAutoTalk) { FriendAutoTalk.pause(); stopSpeakingNow(); }
       try { localStorage.setItem('mangoi_aifriend_sound', on ? '0' : '1'); } catch(e){}
       if (on) { // 껐음 — 재생 중인 음성 중단
         try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
@@ -1247,6 +1261,7 @@
        ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
           재생해, 멈춘 것처럼 보였다가 곧 다시 말합니다. 정지는 반드시 이 한 곳으로. */
     function stopSpeakingNow() {
+      if (window.FriendAutoTalk) FriendAutoTalk.stop();
       stmReset();                                   // 큐·미리보기·세대 번호
       try { window.MangoiTTS && MangoiTTS.stop && MangoiTTS.stop(); } catch(e){}
       try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
@@ -1304,10 +1319,11 @@
     }
 
     function speakText(text, btn, row, onDone) {
-      if (!window.MangoiTTS) return;
+      if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
       const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
-      if (!clean || /^⚠️/.test(text)) return;   // 시스템/오류 메시지는 읽지 않음
+      if (!clean || /^⚠️/.test(text)) { if (onDone) onDone(); return; }   // 시스템/오류 메시지는 읽지 않음
+      const autoSpeech = window.FriendAutoTalk ? FriendAutoTalk.aiStart() : 0;
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
       document.querySelectorAll('.ai-row.speaking').forEach(x => x.classList.remove('speaking'));
       if (btn) btn.classList.add('playing');
@@ -1332,6 +1348,7 @@
         }
       } catch(e){}
       const done = function(){
+        if (window.FriendAutoTalk) FriendAutoTalk.aiDone(autoSpeech);
         if (btn) btn.classList.remove('playing');
         if (row) row.classList.remove('speaking');
         try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}
@@ -1383,19 +1400,33 @@
     }
 
     /* 🎤 녹음 → 서버 Whisper 전사(mangoi-voice-input.js). 모든 환경에서 이 방식 하나만 쓴다. */
-    let _whisperOn = false;
-    async function micViaWhisper() {
+    let _whisperOn = false, _friendMicSeq = 0;
+    function cancelFriendMic() {
+      if (!_whisperOn) return;
+      _friendMicSeq++;
+      if (window.MangoiVoice) MangoiVoice.cancel();
+      _whisperOn = false; _recognizing = false; updateMicUI(); micHint(null);
+    }
+    async function micViaWhisper(auto) {
       if (!window.MangoiVoice || !MangoiVoice.supported()) {
+        if (window.FriendAutoTalk) FriendAutoTalk.pause();
         micHint(isEn() ? 'This browser cannot use the microphone. Please type instead.'
                        : '이 브라우저는 마이크를 쓸 수 없어요. 아래에 글로 입력해 주세요. 😢', 5000);
         return;
       }
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
+      const micSeq = ++_friendMicSeq;
+      let heard = false, voiceError = '';
       _whisperOn = true; _recognizing = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
-      const said = await MangoiVoice.record({
+      let said = '';
+      try { said = await MangoiVoice.record({
         lang: 'en',
         onState: (s, info) => {
+          if (micSeq !== _friendMicSeq) return;
+          if (s === 'speaking') heard = true;
+          if (s === 'error') voiceError = info && info.reason || 'server';
+          if (window.FriendAutoTalk) FriendAutoTalk.micState(s);
           if (s === 'ready')         micHint(isEn() ? 'Getting the mic ready…' : '마이크를 준비하고 있어요…', 0);
           else if (s === 'waiting')  micHint(isEn() ? '🎤 Speak now! Take your time.' : '🎤 지금 말해보세요! 천천히 해도 괜찮아요.', 0);
           else if (s === 'speaking') micHint(isEn() ? '🎤 Listening…' : '🎤 듣고 있어요…', 0);
@@ -1410,17 +1441,23 @@
               : (isEn() ? 'Voice input failed. Please type instead.' : '🎤 음성 입력에 실패했어요. 글로 입력해 주세요.'), 5000);
           }
         }
-      });
+      }); } catch(e) { voiceError = 'server'; }
+      if (micSeq !== _friendMicSeq) return;
       _whisperOn = false; _recognizing = false; updateMicUI();
+      // Automatic listening must never submit Whisper hallucinations from silence.
+      if (auto && !heard) said = '';
       if (said) {
         micHint(null);
         const input = document.getElementById('msgInput');
         if (input) input.value = said;
         _pendingVoice = true; sendMsg();
-      }
+      } else if (auto && window.FriendAutoTalk) { micHint(null); FriendAutoTalk.empty(voiceError); }
     }
 
     function toggleMic() {
+      const sendButton = document.getElementById('sendBtn');
+      if (sendButton && sendButton.disabled) return;
+      if (window.FriendAutoTalk) FriendAutoTalk.press();
       /* 시작 전에 입력창을 비운다 — 이전 내용이 새 녹음에 섞이지 않게. 멈춤(⏹)은
          micViaWhisper() 내부의 _whisperOn 검사가 처리(누르면 지금까지 녹음분으로 전사). */
       if (!_whisperOn) {
@@ -1562,7 +1599,11 @@
       if (e) e.preventDefault();
       const input = document.getElementById('msgInput');
       const msg = (input.value || '').trim();
-      if (!msg) return;
+      if (!msg || document.getElementById('sendBtn').disabled) return;
+      document.getElementById('sendBtn').disabled = true;
+      const autoTurn = window.FriendAutoTalk ? FriendAutoTalk.begin() : 0;
+      let autoReplyOK = false;
+      try {
       maybeAdjustRate(msg);                 // 🐢 "천천히 말해줘" → 실제로 음성 속도를 낮춤
       const wasVoice = _pendingVoice; _pendingVoice = false;
       const auth = await getAuth();
@@ -1628,6 +1669,7 @@
             : '⚠️ 지금은 답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요.');
           applyGam(d.gam, wasVoice);
         } else if (d && d.ok && d.reply) {
+          autoReplyOK = true;
           appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
           /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
              ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
@@ -1655,8 +1697,14 @@
         removeTyping();
         appendMsg('ai', '⚠️ 네트워크가 불안정합니다. Wi-Fi 를 확인해주세요. (' + (e && e.message ? e.message : 'unknown') + ')');
       }
-      document.getElementById('sendBtn').disabled = false;
-      input.focus();
+      } finally {
+        document.getElementById('sendBtn').disabled = false;
+        if (window.FriendAutoTalk) {
+          // Do not arm between streamed sentences or before a delayed final sentence.
+          _stmChain.then(() => FriendAutoTalk.settled(autoReplyOK, autoTurn));
+        }
+        if (!window.FriendAutoTalk || !FriendAutoTalk.on()) input.focus();
+      }
     }
     /* ⏹ B — 글로 말을 걸 때도 멈춥니다(마이크가 없거나 조용한 곳에서 쓰는 학생).
        ⚠️ «한 번만» 멈춥니다 — 매 글자마다 부르면 발화 순번만 계속 오릅니다.
@@ -1798,6 +1846,8 @@
     }
     async function clearChat() {
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
+      if (window.FriendAutoTalk) FriendAutoTalk.pause();
+      stopSpeakingNow();
       const auth = await getAuth();
       if (auth) {
         try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
@@ -1925,7 +1975,8 @@
 </style>
 <script defer src="/js/game-tts.js?v=6"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/aifriend-facetalk.js?v=2"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
+<script defer src="/js/aifriend-auto-talk.js?v=1"></script>
+<script defer src="/js/aifriend-facetalk.js?v=3"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>

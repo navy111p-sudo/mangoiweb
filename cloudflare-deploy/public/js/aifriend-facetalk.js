@@ -364,6 +364,7 @@
     var ring = document.getElementById('tavatar-ring');
     if (!ring) return;
     build();
+    if (window.FriendAutoTalk) FriendAutoTalk.pause();
     active = true;
     homeParent = ring.parentNode; homeNext = ring.nextSibling;
     root.querySelector('#ftkStage').appendChild(ring);
