@@ -18,3 +18,5 @@
 .af-dialog{width:min(560px,90vw);box-sizing:border-box;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033}.af-dialog::backdrop{background:#17203380}.af-dialog textarea{box-sizing:border-box;width:100%;font:inherit;line-height:1.6;margin-bottom:12px;color:#172033;background:#fff;border:1px solid #94a3b8;padding:10px}
 @media(max-width:850px){.af-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.af-student{align-items:flex-start;flex-direction:column}.af-actions{width:100%}}
 @media(max-width:520px){#forecast-overview{padding:12px}.af-grid{gap:8px}#forecast-overview .af-card{padding:12px}.af-heading h2{font-size:16px}#fc-result{grid-template-columns:1fr!important}.af-actions button,.af-actions select{flex:1}.af-card small{line-height:1.5}}
+
+.af-student-id{display:inline-block;max-width:100%;margin-left:8px;font-size:12px;color:#475569;overflow-wrap:anywhere;vertical-align:baseline}
