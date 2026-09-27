@@ -1,7 +1,7 @@
 /* ⏸ absence-hold-panel.js — 연속 결석 «보류» 학생 알림판 (2026-09-25 사장님 결정)
  *
  * 관리자(/admin.html)·매니저(/manager) 화면을 열면 **자동으로** 맨 위에 뜬다.
- *   · 보류된 학생이 없으면 아무것도 그리지 않는다(빈 상자를 남기지 않음).
+ *   · 관리자 기본 첫 화면에서는 0명도 표시한다. 매니저는 기존대로 빈 목록을 숨긴다.
  *   · 매니저가 학생·학원에 확인한 뒤 [계속 다님 · 재개] 또는 [그만둠]을 누른다.
  * 서버 정본: src/absence-hold.ts (GET/POST /api/admin/reports/absence-holds…)
  *
@@ -100,12 +100,13 @@
 
   function render() {
     syncBadge(items.length);
-    if (!items.length) { var old = document.getElementById('ah-panel'); if (old) old.remove(); return; }
+    if (!items.length && !window.__adminHoldLanding) { var old = document.getElementById('ah-panel'); if (old) old.remove(); return; }
     var p = panel();
     var h = '<div class="ah-h"><span>⏸ ' + items.length + ' student(s) on hold · 연속 결석으로 보류된 학생 ' + items.length + '명</span></div>'
       + '<div class="ah-sub">Absent 2 times in a row. No teacher pay while on hold. Ask the student/academy, then choose. '
       + '· 2회 연속 결석 → 다음 수업부터 보류(강사비 0%). 학생·학원에 확인한 뒤 골라 주세요. 학생이 스스로 다시 들어오면 자동으로 풀립니다.</div>'
       + '<div class="ah-list">';
+    if (!items.length) h += '<div class="ah-row">No students on hold · 현재 연속 결석으로 보류된 학생이 없습니다.</div>';
     items.forEach(function (it) {
       var a = armed[it.id];
       h += '<div class="ah-row"><div>'
@@ -128,12 +129,17 @@
 
   function say(t) { var m = document.getElementById('ah-msg'); if (m) m.textContent = t; }
 
+  var firstLoad = true;
   function load() {
     fetch(API + '?state=open', { credentials: 'include', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || d.ok !== true || !Array.isArray(d.items)) return;   // 권한 없음·실패 → 그리지 않는다
         items = d.items; render();
+        if (firstLoad) {
+          firstLoad = false;
+          if (window.__adminHoldScroll) window.__adminHoldScroll();
+        }
       })
       .catch(function () { /* 조용히 — 다음 주기에 다시 */ });
   }

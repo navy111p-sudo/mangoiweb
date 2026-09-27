@@ -1345,7 +1345,7 @@
 
     // 마지막으로 보던 항목으로 복귀. 처음이면 「오늘」의 첫 항목.
     var want = null;
-    try { want = localStorage.getItem(LS_KEY); } catch (e) { /* 무시 */ }
+    try { want = window.__adminHoldLanding ? '__home' : localStorage.getItem(LS_KEY); } catch (e) { /* 무시 */ }
     /* 🔁 (2026-08-13) 항목 이름이 키다(`그룹키:한글이름`). 이름을 바꾸면 저장된 «마지막으로
        보던 항목» 이 미아가 되고, 아래에서 조용히 「오늘의 수업」으로 튄다. 쓰는 사람에게는
        어제 보던 화면이 아침에 딴 데 가 있는 것이라 «메뉴가 없어졌다» 로 신고가 들어온다.
