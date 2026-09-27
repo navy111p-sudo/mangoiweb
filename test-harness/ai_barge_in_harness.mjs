@@ -54,7 +54,7 @@ ok('정지가 문장 큐(stmReset)를 «함께» 끊는다', /stmReset\(\)/.test
 ok('정지가 TTS 를 멈춘다', /MangoiTTS\.stop\(\)/.test(stopBody));
 ok('정지가 아바타 입도 멈춘다', /MangoAvatar\.plainStop\(\)/.test(stopBody));
 /* 마이크로 말을 걸면 그 정본을 지나야 합니다 — 따로 멈추면 큐가 남습니다. */
-const micIdx = A.indexOf('async function micViaWhisper()');
+const micIdx = A.indexOf('async function micViaWhisper(');
 const micHead = micIdx > 0 ? A.slice(micIdx, micIdx + 900) : '';
 ok('마이크를 열 때 그 정본을 부른다', /stopSpeakingNow\(\)/.test(micHead));
 ok('마이크 경로가 «따로» 멈추지 않는다 (큐가 남지 않게)',
