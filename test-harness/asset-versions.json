@@ -1,5 +1,6 @@
 {
   "/css/adm-forecast.css?v=1": "1e7a421d9ee46be3",
+  "/css/adm-forecast.css?v=2": "bff18eba9b7acc5c",
   "/css/adm-light-theme.css?v=1": "765f5be99b527fbd",
   "/css/adm-light-theme.css?v=2": "6456594b2fbeb49d",
   "/css/admin-inline-a.css?v=1": "560421d56c135442",
@@ -359,6 +360,7 @@
   "/js/adm-crumb.js?v=4": "cac4200df15d7a37",
   "/js/adm-enroll-guide.js?v=1": "2fc64d67a34e3e2c",
   "/js/adm-forecast.js?v=1": "6055a52cc9218398",
+  "/js/adm-forecast.js?v=3": "d211d0377cc736f2",
   "/js/adm-hr-analysis.js?v=1": "5f02125c3e31370f",
   "/js/adm-ia6.js?v=1": "c5fcb1ec6290e996",
   "/js/adm-ia6.js?v=10": "5e5b3dc328a5c781",
@@ -1038,6 +1040,7 @@
   "/js/idx-tb-preview.js?v=1": "a0847c53cd5bc45c",
   "/js/idx-theme-mobile.js?v=1": "05fb609f432ec1b9",
   "/js/idx-theme-mobile.js?v=2": "5cf38d7e1e248caf",
+  "/js/idx-theme-mobile.js?v=4": "fd5a7848c03e1028",
   "/js/idx-user-session.js?v=1": "5f7c037d8cf065dd",
   "/js/idx-user-session.js?v=2": "b3180d5b7fdf2ff9",
   "/js/idx-user-session.js?v=3": "5fcf99c34ce14726",
