@@ -518,7 +518,7 @@
 
     <label for="text" class="draft-label" data-ko="✍️ 내 영작 — 여기에 쓰세요" data-en="✍️ My writing — write here">✍️ 내 영작 — 여기에 쓰세요</label>
     <p id="draftHelp" class="go-sub" data-ko="AI 첨삭은 이 칸의 글로 받아요. ‘말로 쓰기’도 여기에 입력돼요. 위 메모는 참고용이에요." data-en="AI corrects this box. Speak to write also adds text here. The notes above are for reference.">AI 첨삭은 이 칸의 글로 받아요. ‘말로 쓰기’도 여기에 입력돼요. 위 메모는 참고용이에요.</p>
-    <textarea aria-describedby="draftHelp" id="text" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
+    <textarea id="text" aria-describedby="draftHelp" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
     <div class="char-count" id="charCount">0 / 2000</div>
     <div class="mic-row" id="dictationBar" role="region" aria-label="말로 쓰기 / Speak to write">
       <button type="button" class="mic-btn" id="micBtn" aria-pressed="false" onclick="toggleDictation()">🎤 말로 쓰기</button>
@@ -974,6 +974,7 @@
     document.getElementById('text').addEventListener('input', stopDictation);
     window.addEventListener('pagehide', stopDictation);
     window.addEventListener('mangoi:langchange', () => renderMicState(_micState));
+    document.addEventListener('DOMContentLoaded', () => renderMicState(_micState), { once: true });
     renderMicState('off');
     window.toggleDictation = function(){
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
