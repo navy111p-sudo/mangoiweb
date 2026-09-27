@@ -78,3 +78,13 @@
     }, { passive: true });
   } catch (e) {}
 })();
+
+/* 2026-09-27: Keep bright clouds recognizable; no blur or full-screen veil.
+ * Lite mode retains zero image requests with a small vector cloud background. */
+(function () {
+  if (document.getElementById("mg-home-cloud-clarity")) return;
+  var style = document.createElement("style");
+  style.id = "mg-home-cloud-clarity";
+  style.textContent = "body.home-bright #view-home::before{filter:brightness(1) saturate(1.03);transform:none;}body.home-bright #view-home::after{background:radial-gradient(ellipse 48% 40% at 50% 44%,rgba(8,16,38,.28),rgba(8,16,38,.12) 45%,transparent 75%);}html.mg-lite body.home-bright #view-home{background:#badef4 url(\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201440%20900%22%20preserveAspectRatio%3D%22xMidYMid%20slice%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22s%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%2379bdf0%22%2F%3E%3Cstop%20offset%3D%22.74%22%20stop-color%3D%22%23dceefa%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23fff0d7%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22c%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23fffaf0%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23c4dcef%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20fill%3D%22url(%23s)%22%20d%3D%22M0%200h1440v900H0z%22%2F%3E%3Cpath%20fill%3D%22%23eef5fc%22%20d%3D%22M0%20720Q45%20655%20100%20690Q150%20610%20230%20665Q290%20620%20360%20686Q435%20640%20510%20700Q565%20655%20625%20700Q715%20636%20790%20690Q860%20613%20940%20680Q1020%20628%201085%20686Q1150%20620%201220%20675Q1330%20609%201440%20685V900H0Z%22%2F%3E%3Cpath%20fill%3D%22url(%23c)%22%20d%3D%22M0%20820Q30%20737%20108%20764Q150%20689%20226%20745Q305%20710%20345%20796Q400%20742%20472%20794Q535%20728%20600%20781Q670%20737%20735%20807Q780%20721%20860%20760Q925%20681%201000%20742Q1078%20700%201130%20786Q1200%20733%201260%20784Q1310%20699%201380%20753Q1420%20732%201440%20741V900H0Z%22%2F%3E%3C%2Fsvg%3E\") center 42%/cover no-repeat;}";
+  (document.body || document.documentElement).appendChild(style);
+})();
