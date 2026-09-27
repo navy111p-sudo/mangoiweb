@@ -10,7 +10,7 @@ permissions:
 jobs:
   ocr:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       max-parallel: 20
@@ -30,9 +30,9 @@ jobs:
             const L=ix.filter(x=>re.test(x.book)).map((x,i)=>[i, x.book, x.file, ((x.name||"").match(/Slide\s*(\d+)/i)||[])[1]||""].join("\t"));
             require("fs").writeFileSync("/tmp/list.txt", L.join("\n")+"\n");'
           wc -l /tmp/list.txt
-          ocr1() { IFS=$'\t' read -r i book file slide <<< "$1"; convert "$file" -resize 200% -colorspace Gray /tmp/o/$i.png && tesseract /tmp/o/$i.png /tmp/o/$i -l eng+kor --psm 3 >/dev/null 2>&1; rm -f /tmp/o/$i.png; }
+          ocr1() { IFS=$'\t' read -r i book file slide <<< "$1"; OMP_THREAD_LIMIT=1 tesseract "$file" /tmp/o/$i -l eng --psm 3 >/dev/null 2>&1; }
           export -f ocr1
-          parallel -j 4 ocr1 :::: /tmp/list.txt
+          parallel -j 8 ocr1 :::: /tmp/list.txt
           node -e '
             const fs=require("fs"); const out={};
             for (const l of fs.readFileSync("/tmp/list.txt","utf8").trim().split("\n")) { const [i,book,file,slide]=l.split("\t");
@@ -55,5 +55,5 @@ jobs:
       - run: |
           mkdir -p tmp-bts-ocr && cp art/*/*.json tmp-bts-ocr/ && ls tmp-bts-ocr | wc -l
           git config user.name "github-actions" && git config user.email "actions@github.com"
-          git add tmp-bts-ocr && git commit -m "tmp: BTS 2-34 OCR 글자 (임시, main 금지)"
+          git add tmp-bts-ocr && git commit -m "tmp: BTS 2-34 OCR 영어판 (임시, main 금지)"
           for i in 1 2 3 4 5; do git pull --rebase -q origin claude/bold-lovelace-dy58q5 && git push origin HEAD:claude/bold-lovelace-dy58q5 && break; sleep 5; done
