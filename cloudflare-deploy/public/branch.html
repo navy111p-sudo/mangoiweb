@@ -527,6 +527,276 @@ html.dark #side .sgrp button.on{background:#123b37;color:#5eead4}
    전환 자체는 아래 본문 스크립트의 toggleMode() 가 담당한다. */
 try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
 </script>
+<script>
+/* 🎬 (2026-09-27 사장님) 시연용 예시 데이터 — 지사장 세미나 시연 계정(testbranch) 전용.
+   이 계정은 실제 학생·매출이 거의 없어 화면을 보여 주기 어려웠다.
+   ⛔ D1 에는 한 줄도 쓰지 않는다 — 가짜 결제를 DB 에 넣으면 본사 매출·월간 리포트·
+      가맹점 정산서에 그대로 섞여 되돌리기 어렵다(개발·운영이 같은 DB).
+   ✅ 대신 이 화면이 부르는 조회 API 를 «그 계정일 때만» 가로채 예시 숫자를 돌려준다.
+      판정은 두 겹: ① 저장된 로그인이 testbranch 일 때만 깨어나고(다른 계정은 요청이 하나도
+      늘지 않는다) ② 서버 /api/admin/me 가 그 계정이라고 «확인해 줄 때만» 예시를 쓴다.
+      확인이 실패하면 진짜 API 로 그대로 보낸다(모르면 진짜 숫자).
+   ⚠️ 화면 구석에 「시연용 예시 데이터」 표시를 둔다 — 실제 숫자로 오해하지 않게.
+   ⚠️ 이름·숫자는 전부 지어낸 것이다. 실제 학생·강사·대리점과 무관하다.
+   되돌리기: DEMO_USERS 에서 이름을 빼면 끝(이 블록 전체를 지워도 화면은 예전 그대로). */
+(function(){
+  'use strict';
+  var DEMO_USERS = { testbranch: 1 };
+  var who = '';
+  try { var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); who = s && s.uid ? String(s.uid).toLowerCase() : ''; } catch (e) {}
+  if (!DEMO_USERS[who] || typeof window.fetch !== 'function') return;
+
+  var realFetch = window.fetch.bind(window);
+  var meP = null;
+  function confirmed(){
+    if (!meP) meP = realFetch('/api/admin/me', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var u = j && (j.user || j);
+        var ok = !!(u && DEMO_USERS[String(u.username || '').toLowerCase()]);
+        if (ok) badge();
+        return ok;
+      })
+      .catch(function(){ return false; });
+    return meP;
+  }
+
+  function badge(){
+    function put(){
+      if (document.getElementById('demoBadge') || !document.body) return;
+      var b = document.createElement('div');
+      b.id = 'demoBadge';
+      b.setAttribute('role', 'note');
+      b.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:50;pointer-events:none;'
+        + 'background:#fffbeb;color:#92400e;border:1px solid #f59e0b;border-radius:999px;'
+        + 'padding:4px 10px;font-size:12px;font-weight:700;line-height:1.3;white-space:nowrap';
+      var en = false; try { en = localStorage.getItem('mangoi_lang') === 'en'; } catch (e) {}
+      b.textContent = en ? 'Sample data (demo)' : '시연용 예시 데이터';
+      document.body.appendChild(b);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+
+  // ── 결정론적 난수(새로고침해도 같은 숫자) ─────────────────────────────
+  var seed = 20260927;
+  function rnd(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+  function ri(a, b){ return a + Math.floor(rnd() * (b - a + 1)); }
+  function pick(a){ return a[Math.floor(rnd() * a.length)]; }
+
+  // KST 날짜
+  function kst(offsetDays){ var d = new Date(Date.now() + 9 * 3600e3 + (offsetDays || 0) * 86400e3); return d.toISOString().slice(0, 10); }
+  var TODAY = kst(0), MONTH = TODAY.slice(0, 7);
+
+  var BRANCH = '테스트브런치 지사';
+  var SHOPS = [
+    { name: '강남 영어교실', manager: '김지현 원장', n: 42 },
+    { name: '분당 키즈센터', manager: '박서준 원장', n: 36 },
+    { name: '일산 어학원',   manager: '이하은 원장', n: 28 },
+    { name: '수원 러닝센터', manager: '최민재 원장', n: 22 }
+  ];
+  var TEACHERS = ['Teacher Anna', 'Teacher Joy', 'Teacher Mark', 'Teacher Bella', 'Teacher Ken', 'Teacher Lia'];
+  var SUR = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권'];
+  var GIV = ['서연','민준','하윤','도윤','지우','서준','하은','시우','지아','예준','수아','주원','윤서','건우','채원','유준','다은','이준','소율','지호'];
+  var ENG = ['Olivia','Liam','Emma','Noah','Ava','Leo','Mia','Ethan','Chloe','Ryan','Grace','Daniel','Lily','Jason','Sophie','Eric'];
+
+  // 학생 128명
+  var STUDENTS = [];
+  (function(){
+    var k = 0;
+    SHOPS.forEach(function(sh){
+      for (var i = 0; i < sh.n; i++) {
+        k++;
+        var r = rnd();
+        STUDENTS.push({
+          user_id: 'demo' + ('00' + k).slice(-3),
+          name: pick(SUR) + pick(GIV),
+          english_name: pick(ENG),
+          shop_name: sh.name,
+          franchise: BRANCH,
+          status: '재원',
+          track: r < 0.75 ? 'live_ai' : (r < 0.92 ? 'ai_only' : 'idle')
+        });
+      }
+    });
+  })();
+
+  // 30일 추이
+  var SERIES = [];
+  (function(){
+    var cum = 114;
+    for (var i = 29; i >= 0; i--) {
+      if (i < 29 && rnd() < 0.5) cum += 1;
+      if (cum > 128) cum = 128;
+      var dt = kst(-i);
+      var wd = new Date(dt + 'T00:00:00Z').getUTCDay();
+      var inc = (wd === 0 || wd === 6) ? ri(2, 6) * 110000 : ri(7, 14) * 110000;
+      SERIES.push({ date: dt, income: inc, cum_students: i === 0 ? 128 : cum });
+    }
+  })();
+  var MONTH_INCOME = 0, MONTH_PAYS = 0;
+  SERIES.forEach(function(s){ if (s.date.slice(0, 7) === MONTH) { MONTH_INCOME += s.income; MONTH_PAYS += Math.round(s.income / 110000 / 3); } });
+  if (MONTH_INCOME < 3000000) { MONTH_INCOME = 32400000; MONTH_PAYS = 86; }   // 달 첫날 근처엔 비어 보이지 않게
+  var TODAY_INCOME = SERIES[SERIES.length - 1].income;
+
+  function feeOf(rate){ return (typeof rate === 'number' && rate >= 0 && rate < 1) ? rate : 0.15; }
+  var FEE = 0.15;
+
+  function sessions(){
+    var out = [], times = ['14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','19:00','19:30','20:00'];
+    var nowHM = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16);
+    var base = Date.parse(TODAY + 'T00:00:00+09:00');
+    times.forEach(function(t, i){
+      var st = STUDENTS[(i * 7) % STUDENTS.length];
+      var ts = base + (+t.slice(0, 2) * 60 + +t.slice(3)) * 60000;
+      var past = t < nowHM;
+      var att = past ? (i === 4 ? { state: 'absent' } : (i === 2 ? { state: 'late', late_min: 4, at: ts + 240000 } : { state: 'attended', at: ts - 60000 })) : { state: 'not_yet' };
+      var te = past ? { state: 'on_time', at: ts - 120000 } : { state: 'pending' };
+      out.push({
+        schedule_id: 900000 + i, class_date: TODAY, start_time: t, start_ts: ts,
+        join_open: false, student_name: st.name, student_uid: st.user_id,
+        teacher_name: TEACHERS[i % TEACHERS.length], source: 'mangoi',
+        textbook_assigned: true, textbook: pick(['BTS 3', 'BTS 5', 'SIU BASIC 004', 'BTS 8']),
+        room_id: 'demo-room-' + i, contact_phone: '', academy: st.shop_name,
+        can_move: false, pay_type: i % 3 ? 'B2C' : 'B2B',
+        sched_label_ko: '주 2회', sched_label_en: '2× a week',
+        teacher_entry: te, attendance: att, eval_hidden: false,
+        last_eval: { date: kst(-7), score: ri(4, 5), max: 5, text: '발음이 좋아졌어요' },
+        today_eval: past && att.state !== 'absent' ? { date: TODAY, score: ri(4, 5), max: 5, text: '오늘 문장 말하기를 잘했어요' } : null
+      });
+    });
+    return out;
+  }
+
+  var REQS = [
+    { id: 990001, status: 'pending', request_type: 'change', teacher_name: 'Teacher Joy', student_name: STUDENTS[3].name, orig_date: kst(1), orig_time: '17:00', new_date: kst(1), new_time: '18:00', reason: '학원 행사로 시간 변경 요청' },
+    { id: 990002, status: 'pending', request_type: 'postpone', teacher_name: 'Teacher Mark', student_name: STUDENTS[50].name, orig_date: kst(2), orig_time: '16:30', new_date: kst(4), new_time: '16:30', reason: '학생 가족 여행' },
+    { id: 990003, status: 'approved', request_type: 'change', teacher_name: 'Teacher Anna', student_name: STUDENTS[90].name, orig_date: kst(-2), orig_time: '15:00', new_date: kst(-1), new_time: '15:00', reason: '감기' }
+  ];
+
+  var AI_TOOLS = ['judgment','warmup','friend','write','speech','review','vocab','micro'];
+
+  function handler(path, method, init){
+    var q = path.split('?'), p = q[0], qs = q[1] || '';
+    method = String(method || 'GET').toUpperCase();
+    if (method === 'POST') {
+      if (p === '/api/admin/schedule-requests/decide') {
+        var body = {}; try { body = JSON.parse(init && init.body || '{}'); } catch (e) {}
+        return function(){
+          REQS.forEach(function(r){ if (r.id === Number(body.id)) r.status = body.action === 'approve' ? 'approved' : 'rejected'; });
+          return { ok: true, applied: body.action === 'approve' ? 'moved' : undefined, status: body.action === 'approve' ? 'approved' : 'rejected' };
+        };
+      }
+      return null;
+    }
+    switch (p) {
+      case '/api/admin/stats/today': return function(){ return {
+        ok: true, date: TODAY,
+        revenue: { amount_krw: TODAY_INCOME, pay_count: Math.max(1, Math.round(TODAY_INCOME / 330000)) },
+        students: { attended: 41, active: 128 },
+        absence: { booked_today: 46, done_today: 41, prev_rate_pct: 6.3, weekday_avg_pct: 7.1, prev_date: kst(-1) },
+        signups: { count: 1 }
+      }; };
+      case '/api/admin/exec/summary': return 'summary';
+      case '/api/admin/exec/series': return function(){ return { ok: true, series: SERIES }; };
+      case '/api/admin/stats/student-flow': return function(){ return { ok: true, total_new: 14, total_dropped: 4, net_growth: 10, active: 128 }; };
+      case '/api/admin/students/unified':
+        if (/summary_only=1/.test(qs)) return function(){
+          var orgs = SHOPS.map(function(sh){
+            var l = 0, a = 0; STUDENTS.forEach(function(s){ if (s.shop_name === sh.name) { if (s.track === 'live_ai') l++; else if (s.track === 'ai_only') a++; } });
+            return { franchise: BRANCH, shop_name: sh.name, live: l, ai_only: a };
+          });
+          var L = 0, A = 0, I = 0; STUDENTS.forEach(function(s){ if (s.track === 'live_ai') L++; else if (s.track === 'ai_only') A++; else I++; });
+          return { ok: true, track_summary: { ok: true, live: L, ai_only: A, idle: I, lookback_days: 30, orgs: orgs } };
+        };
+        return function(){ return { ok: true, students: STUDENTS, can_view_pii: true, track_ok: true }; };
+      case '/api/admin/stats/teacher-utilization': return function(){
+        return { ok: true, teachers: TEACHERS.map(function(t, i){ return { teacher_name: t, utilization_pct: [92, 88, 81, 76, 69, 63][i] }; }) };
+      };
+      case '/api/admin/stats/waitlist': return function(){ return { ok: true, items: [
+        { student_name: '윤지아', wish_time: '평일 17:00', status: 'waiting' },
+        { student_name: '장도윤', wish_time: '화·목 19:30', status: 'waiting' },
+        { student_name: '한소율', wish_time: '토 10:00', status: 'waiting' }
+      ] }; };
+      case '/api/admin/franchises': return function(){ return { ok: true, items: [{ name: BRANCH, master_branch_name: '망고아이 본사' }] }; };
+      case '/api/admin/centers': return function(){ return { ok: true, items: SHOPS.map(function(s){ return { name: s.name, manager: s.manager }; }) }; };
+      case '/api/admin/attendance/school-stats': return function(){
+        var rates = [94.2, 91.8, 89.5, 83.1];
+        return { ok: true, kpi: { rate: 91.4, schools: SHOPS.length, risk: 1 },
+          items: SHOPS.map(function(s, i){ var tot = s.n * 8; return { shop_name: s.name, franchise: BRANCH, attended_n: Math.round(tot * rates[i] / 100), total_n: tot, rate: rates[i] }; }) };
+      };
+      case '/api/admin/ai-usage/students': return function(){
+        var m = /days=(\d+)/.exec(qs), days = m ? +m[1] : 30;
+        var tm = /tool=([a-z]+)/.exec(qs), tool = tm ? tm[1] : 'all';
+        var sum = {}; AI_TOOLS.forEach(function(k){ sum[k] = 0; });
+        var list = [];
+        STUDENTS.forEach(function(s, i){
+          if (s.track === 'idle' || i % 3 === 2) return;
+          var tools = {}, total = 0;
+          AI_TOOLS.forEach(function(k, j){ if ((i + j) % 3 === 0) { var n = 1 + ((i * 7 + j * 3) % 9) * Math.ceil(days / 30); tools[k] = { n: n }; total += n; } });
+          if (tool !== 'all' && !tools[tool]) return;
+          Object.keys(tools).forEach(function(k){ sum[k]++; });
+          list.push({ uid: s.user_id, name: s.name, shop_name: s.shop_name, franchise: BRANCH, total: tool === 'all' ? total : tools[tool].n,
+            level: 'Lv ' + (1 + i % 8), last_ts: Date.now() - (i % 5) * 86400e3 - 3600e3, tools: tools });
+        });
+        return { ok: true, count: list.length, days: days, summary: AI_TOOLS.map(function(k){ return { key: k, students: sum[k] }; }), students: list };
+      };
+      case '/api/admin/settlement/branch-summary': return 'settle';
+      case '/api/admin/schedule-requests': return function(){
+        return { ok: true, items: REQS, pending_count: REQS.filter(function(r){ return r.status === 'pending'; }).length };
+      };
+      case '/api/admin/classes/today': return function(){
+        var ss = sessions();
+        return { ok: true, date: TODAY, sessions: ss, counts: { cafe24: 0, joinable: 0 }, contact_source: 'restricted' };
+      };
+      case '/api/admin/omnisearch': return function(){
+        var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
+        var res = !w ? [] : STUDENTS.filter(function(s){ return s.name.indexOf(w) >= 0 || s.english_name.toLowerCase().indexOf(w.toLowerCase()) >= 0; })
+          .slice(0, 20).map(function(s){ return { title: s.name + ' (' + s.english_name + ') · ' + s.shop_name, kind: '학생' }; });
+        return { ok: true, results: res };
+      };
+    }
+    return null;
+  }
+
+  function reply(obj){
+    return new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  window.fetch = function(input, init){
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var path = url.indexOf(location.origin) === 0 ? url.slice(location.origin.length) : url;
+    var method = (init && init.method) || (input && typeof input !== 'string' && input.method) || 'GET';
+    var h = path.charAt(0) === '/' ? handler(path, method, init) : null;
+    if (!h) return realFetch(input, init);
+    return confirmed().then(function(ok){
+      if (!ok) return realFetch(input, init);
+      if (h === 'summary' || h === 'settle') {
+        // 범위(scope)·수수료율은 서버의 진짜 값을 쓰고 숫자만 바꾼다
+        return realFetch(input, init).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(j){
+          j = j || {};
+          if (h === 'summary') FEE = feeOf(j.fee_rate);
+          var settle = Math.round(MONTH_INCOME * (1 - FEE));
+          if (h === 'summary') {
+            var sc = j.scope && j.scope.type ? j.scope : { type: 'branch', label: BRANCH, value: BRANCH };
+            return reply({ ok: true, scope: sc,
+              this_month: { period: (j.this_month && j.this_month.period) || MONTH, income: MONTH_INCOME, pay_count: MONTH_PAYS, settle: settle },
+              students: { active: 128, new_this_month: 9, new_today: 1 },
+              cost_hq_only: true, fee_rate: FEE });
+          }
+          var gross = MONTH_INCOME, fee = gross - settle;
+          var totalN = 0; SHOPS.forEach(function(s){ totalN += s.n; });
+          var ag = SHOPS.map(function(s){ return { agency_name: s.name, net_settlement: Math.round(settle * s.n / totalN) }; });
+          var pm = /period=([0-9-]+)/.exec(path);
+          return reply({ ok: true, period: pm ? pm[1] : MONTH, label: (pm ? pm[1] : MONTH) + ' 정산',
+            totals: { gross: gross, fee: fee, net: settle },
+            rows: [{ franchise_name: BRANCH, gross_revenue: gross, net_settlement: settle, agencies: ag }] });
+        });
+      }
+      return reply(h());
+    });
+  };
+})();
+</script>
 
 <!-- ☰ 좌측 그룹 메뉴 — 옛 LMS·admin.html 과 같은 «누르면 왼쪽에서 나오는 서랍» 방식.
      ⚠️ 설계 계약을 그대로 지킨다: 외부 리소스 0개(전부 이 파일 안), 애니메이션·transition
@@ -1082,8 +1352,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function won(v){
     var x = Number(v) || 0;
     // 매니저 화면은 폰에서 본다. 억/만 단위로 접어야 한 줄에 들어간다.
-    if (Math.abs(x) >= 100000000) return (x / 100000000).toFixed(1) + T('00M', '억');
-    if (Math.abs(x) >= 10000)     return Math.round(x / 10000).toLocaleString() + T('0k', '만');
+    // ⚠️ (2026-09-27) 영어는 «만» 단위 숫자에 '0k' 를 붙이면 안 된다 — 25,520,000 이 «2,5520k» 가 됐다.
+    //    영어는 천(k)·백만(M) 단위로 따로 접는다(한국어 표기는 그대로).
+    if (EN()) {
+      if (Math.abs(x) >= 1000000) return (x / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (Math.abs(x) >= 10000)   return Math.round(x / 1000).toLocaleString() + 'k';
+      return n0(x);
+    }
+    if (Math.abs(x) >= 100000000) return (x / 100000000).toFixed(1) + '억';
+    if (Math.abs(x) >= 10000)     return Math.round(x / 10000).toLocaleString() + '만';
     return n0(x);
   }
   function esc(s){
