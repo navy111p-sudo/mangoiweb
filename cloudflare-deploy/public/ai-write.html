@@ -56,6 +56,20 @@
       color: #bfdbfe; border-radius: 99px; cursor: pointer; font-size: 15.5px; font-weight: 700;
       transition: transform .12s; }
     .topic-chip:hover { transform: translateY(-2px); background: rgba(59,130,246,0.25); }
+    /* Keep native scene menus legible in both light and dark OS themes. */
+    .scene-picker { align-items: center; gap: 10px 14px; }
+    .scene-picker label { color: #e6ecff; font-size: 16px; font-weight: 700; }
+    #picChoice {
+      color-scheme: light;
+      width: 100%; max-width: 640px; min-width: 0; min-height: 48px;
+      padding: 12px 14px; border: 2px solid #93c5fd; border-radius: 14px;
+      background-color: #fff; color: #17213b;
+      font-family: inherit; font-size: 17px; font-weight: 600; line-height: 1.5;
+      cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.14);
+    }
+    #picChoice:hover { border-color: #60a5fa; }
+    #picChoice:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+    #picChoice option { background-color: #fff; color: #17213b; font-weight: 600; }
     textarea { width: 100%; padding: 20px 22px; background: var(--card); color: var(--text);
       border: 1.5px solid var(--border); border-radius: 18px; font-size: 19px;
       font-family: inherit; min-height: 280px; line-height: 1.75; resize: vertical; }
@@ -449,9 +463,9 @@
       <div class="mission-words" id="missionWords"></div>
     </div>
 
-    <div class="topic-row">
+    <div class="topic-row scene-picker">
       <label for="picChoice" data-ko="🎬 장면 선택" data-en="🎬 Choose a scene">🎬 장면 선택</label>
-      <select id="picChoice" class="topic-chip" onchange="choosePic(Number(this.value))" style="max-width:100%"></select>
+      <select id="picChoice" onchange="choosePic(Number(this.value))"></select>
     </div>
     <div class="pic-card" id="picCard">
       <div class="pic-scene" id="picScene">
