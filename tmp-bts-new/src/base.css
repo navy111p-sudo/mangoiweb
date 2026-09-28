@@ -1,0 +1,64 @@
+
+:root{--bg:#f4f1ea;--paper:#fff;--ink:#1d2433;--sub:#4b5565;--line:#e3ddd0;--warn:#b45309;--warnbg:#fff4e0;--ok:#146c43;--okbg:#e7f6ee;--new:#6d28d9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171c;--paper:#1f232b;--ink:#eceef2;--sub:#a9b0bd;--line:#333a46;--warn:#fbbf24;--warnbg:#3a2c10;--ok:#6ee7a8;--okbg:#123224;--new:#c4b5fd}}
+:root[data-theme="dark"]{--bg:#15171c;--paper:#1f232b;--ink:#eceef2;--sub:#a9b0bd;--line:#333a46;--warn:#fbbf24;--warnbg:#3a2c10;--ok:#6ee7a8;--okbg:#123224;--new:#c4b5fd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:clamp(24px,4vw,36px);line-height:1.25;margin:0 0 8px}
+h2{font-size:22px;margin:44px 0 12px;padding-top:10px;border-top:2px solid var(--line)}
+.lead{color:var(--sub);margin:0 0 18px}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:12px 0}
+.box.warn{background:var(--warnbg);border-color:transparent}
+.box.ok{background:var(--okbg);border-color:transparent}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:13px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--sub);font-weight:500}
+.tw{overflow-x:auto}
+.pg{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;margin:18px 0 26px}
+@media(max-width:900px){.pg{grid-template-columns:1fr}}
+.notes{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:14px}
+.notes b.t{display:block;font-size:15px;margin-bottom:4px}
+.notes ul{margin:4px 0 0;padding-left:18px}
+.notes li{margin:3px 0}
+.fix{color:var(--warn);font-weight:700}
+del{color:var(--sub)}
+.tag{font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:4px}
+.tag.o{background:var(--warnbg);color:var(--warn)}.tag.n{background:var(--okbg);color:var(--ok)}
+
+/* ====== 교재 슬라이드(16:9, 1600×900 기준) ====== */
+.slide{container-type:inline-size;position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;
+ background:#fffaf0;color:#14213d;font-family:"Andika","Noto Sans KR",sans-serif;box-shadow:0 2px 14px rgba(0,0,0,.14)}
+.slide *{box-sizing:border-box}
+.s-bg{position:absolute;inset:0;background:
+ radial-gradient(60cqw 40cqw at 100% 0,#ffe7b8 0,transparent 70%),
+ radial-gradient(40cqw 30cqw at 0 100%,#e3f4ef 0,transparent 70%),#fffaf0}
+.s-top{position:absolute;left:3cqw;top:2.2cqw;display:flex;align-items:center;gap:1cqw;font:700 1.55cqw/1 "Andika",sans-serif;color:#5b6477}
+.s-top img{width:3.6cqw;height:auto}
+.s-pn{position:absolute;right:3cqw;top:2.2cqw;font:700 1.55cqw/1 "Andika";color:#5b6477;background:#fff;border:.12cqw solid #e6dcc6;border-radius:9cqw;padding:.5cqw 1.2cqw}
+.s-title{position:absolute;left:0;right:0;top:4.6cqw;text-align:center;font:700 5.5cqw/1.05 "Andika";letter-spacing:-.05cqw;color:#14213d}
+.s-title small{display:block;font:700 1.9cqw/1.3 "Andika";color:#e07a00;letter-spacing:.15cqw;text-transform:uppercase;margin-bottom:.6cqw}
+.s-dock{position:absolute;left:0;right:0;bottom:0;height:10%;
+ background:repeating-linear-gradient(135deg,rgba(20,33,61,.05) 0 .6cqw,transparent .6cqw 1.2cqw)}
+.s-dock span{position:absolute;right:3cqw;bottom:1.2cqw;font:400 1.1cqw/1 "Andika";color:#8b93a3}
+.s-body{position:absolute;left:7cqw;right:7cqw;top:15cqw;bottom:6.2cqw}
+.ko{font-family:"Noto Sans KR",sans-serif;font-weight:500}
+.ph{position:relative;border-radius:1.6cqw;overflow:hidden;background:#dfe5ee}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .tmp{position:absolute;left:.8cqw;top:.8cqw;background:rgba(20,33,61,.78);color:#fff;font:700 1.05cqw/1 "Noto Sans KR";padding:.45cqw .7cqw;border-radius:.5cqw}
+.need{display:flex;align-items:center;justify-content:center;flex-direction:column;border:.25cqw dashed #b9c2d0;background:#f2f4f8;color:#5b6477;text-align:center;font:700 1.35cqw/1.4 "Noto Sans KR"}
+.need .e{font-size:4cqw;line-height:1.1}
+/* 말풍선 */
+.say{position:absolute;background:#2a9d8f;color:#fff;font:700 3.4cqw/1.1 "Andika";padding:1.2cqw 2.2cqw;border-radius:2cqw;box-shadow:0 .4cqw 0 rgba(0,0,0,.12)}
+.say:after{content:"";position:absolute;left:3cqw;bottom:-1.6cqw;border:1cqw solid transparent;border-top:1.6cqw solid #2a9d8f;border-bottom:0}
+.ask{position:absolute;background:#fff;color:#14213d;border:.3cqw solid #14213d;font:700 2.9cqw/1.1 "Andika";padding:1cqw 1.8cqw;border-radius:3cqw}
+.ans{position:absolute;background:#7b5ea7;color:#fff;font:700 3.4cqw/1.1 "Andika";padding:1.2cqw 2.4cqw;border-radius:1.4cqw}
+.blank{display:inline-block;min-width:13cqw;border-bottom:.35cqw solid #fff;margin-left:.6cqw}
+.mango{position:absolute;width:9cqw}
+/* 공통 카드 */
+.card{background:#fff;border-radius:1.8cqw;box-shadow:0 .5cqw 1.6cqw rgba(20,33,61,.10);border:.14cqw solid #efe6d3}
+.kk{font-family:"Noto Sans KR";font-weight:700}
+.hide{background:repeating-linear-gradient(135deg,#ffd9a0 0 .5cqw,#ffe8c2 .5cqw 1cqw);color:transparent!important;border-radius:.8cqw}

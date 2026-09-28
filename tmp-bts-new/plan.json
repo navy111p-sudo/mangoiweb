@@ -1,0 +1,3655 @@
+{
+ "2": {
+  "books": [
+   {
+    "book": "BTS 2 001 (Shapes and colors)",
+    "dir": "tmp-bts/BTS 2 001 (Shapes and colors)",
+    "p": 19
+   },
+   {
+    "book": "BTS 2 002 (Shapes and colors)",
+    "dir": "tmp-bts/BTS 2 002 (Shapes and colors)",
+    "p": 20
+   },
+   {
+    "book": "BTS 2 003 (Shapes and colors)",
+    "dir": "tmp-bts/BTS 2 003 (Shapes and colors)",
+    "p": 16
+   },
+   {
+    "book": "BTS 2 004 (Adjectives)",
+    "dir": "tmp-bts/BTS 2 004 (Adjectives)",
+    "p": 36
+   },
+   {
+    "book": "BTS 2 005 (Adjectives)",
+    "dir": "tmp-bts/BTS 2 005 (Adjectives)",
+    "p": 19
+   },
+   {
+    "book": "BTS 2 006 (Adjectives)",
+    "dir": "tmp-bts/BTS 2 006 (Adjectives)",
+    "p": 27
+   },
+   {
+    "book": "BTS 2 007 (People and Adjectives)",
+    "dir": "tmp-bts/BTS 2 007 (People and Adjectives)",
+    "p": 28
+   },
+   {
+    "book": "BTS 2 008 (People and Adjectives)",
+    "dir": "tmp-bts/BTS 2 008 (People and Adjectives)",
+    "p": 24
+   },
+   {
+    "book": "BTS 2 009 (People and Adjectives)",
+    "dir": "tmp-bts/BTS 2 009 (People and Adjectives)",
+    "p": 26
+   },
+   {
+    "book": "BTS 2 REVIEW",
+    "dir": "tmp-bts/BTS 2 REVIEW",
+    "p": 24
+   },
+   {
+    "book": "BTS 2 TEST",
+    "dir": "tmp-bts/BTS 2 TEST",
+    "p": 17
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 2 001 (Shapes and colors)",
+     "dir": "tmp-bts/BTS 2 001 (Shapes and colors)",
+     "p": 19
+    },
+    {
+     "book": "BTS 2 002 (Shapes and colors)",
+     "dir": "tmp-bts/BTS 2 002 (Shapes and colors)",
+     "p": 20
+    },
+    {
+     "book": "BTS 2 003 (Shapes and colors)",
+     "dir": "tmp-bts/BTS 2 003 (Shapes and colors)",
+     "p": 16
+    },
+    {
+     "book": "BTS 2 004 (Adjectives)",
+     "dir": "tmp-bts/BTS 2 004 (Adjectives)",
+     "p": 36
+    },
+    {
+     "book": "BTS 2 005 (Adjectives)",
+     "dir": "tmp-bts/BTS 2 005 (Adjectives)",
+     "p": 19
+    },
+    {
+     "book": "BTS 2 006 (Adjectives)",
+     "dir": "tmp-bts/BTS 2 006 (Adjectives)",
+     "p": 27
+    }
+   ],
+   [
+    {
+     "book": "BTS 2 007 (People and Adjectives)",
+     "dir": "tmp-bts/BTS 2 007 (People and Adjectives)",
+     "p": 28
+    },
+    {
+     "book": "BTS 2 008 (People and Adjectives)",
+     "dir": "tmp-bts/BTS 2 008 (People and Adjectives)",
+     "p": 24
+    },
+    {
+     "book": "BTS 2 009 (People and Adjectives)",
+     "dir": "tmp-bts/BTS 2 009 (People and Adjectives)",
+     "p": 26
+    },
+    {
+     "book": "BTS 2 REVIEW",
+     "dir": "tmp-bts/BTS 2 REVIEW",
+     "p": 24
+    },
+    {
+     "book": "BTS 2 TEST",
+     "dir": "tmp-bts/BTS 2 TEST",
+     "p": 17
+    }
+   ]
+  ]
+ },
+ "3": {
+  "books": [
+   {
+    "book": "BTS 3 001 (My family)",
+    "dir": "tmp-bts/BTS 3 001 (My family)",
+    "p": 27
+   },
+   {
+    "book": "BTS 3 002 (My family)",
+    "dir": "tmp-bts/BTS 3 002 (My family)",
+    "p": 23
+   },
+   {
+    "book": "BTS 3 003 (My family)",
+    "dir": "tmp-bts/BTS 3 003 (My family)",
+    "p": 23
+   },
+   {
+    "book": "BTS 3 004 (How old are you)",
+    "dir": "tmp-bts/BTS 3 004 (How old are you)",
+    "p": 20
+   },
+   {
+    "book": "BTS 3 005 (How old are you)",
+    "dir": "tmp-bts/BTS 3 005 (How old are you)",
+    "p": 22
+   },
+   {
+    "book": "BTS 3 006 (How old are you)",
+    "dir": "tmp-bts/BTS 3 006 (How old are you)",
+    "p": 16
+   },
+   {
+    "book": "BTS 3 007 (Who is in your family)",
+    "dir": "tmp-bts/BTS 3 007 (Who is in your family)",
+    "p": 24
+   },
+   {
+    "book": "BTS 3 008 (Who is in your family)",
+    "dir": "tmp-bts/BTS 3 008 (Who is in your family)",
+    "p": 15
+   },
+   {
+    "book": "BTS 3 009 (Who is in your family)",
+    "dir": "tmp-bts/BTS 3 009 (Who is in your family)",
+    "p": 17
+   },
+   {
+    "book": "BTS 3 REVIEW",
+    "dir": "tmp-bts/BTS 3 REVIEW",
+    "p": 22
+   },
+   {
+    "book": "BTS 3 TEST",
+    "dir": "tmp-bts/BTS 3 TEST",
+    "p": 17
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 3 001 (My family)",
+     "dir": "tmp-bts/BTS 3 001 (My family)",
+     "p": 27
+    },
+    {
+     "book": "BTS 3 002 (My family)",
+     "dir": "tmp-bts/BTS 3 002 (My family)",
+     "p": 23
+    },
+    {
+     "book": "BTS 3 003 (My family)",
+     "dir": "tmp-bts/BTS 3 003 (My family)",
+     "p": 23
+    },
+    {
+     "book": "BTS 3 004 (How old are you)",
+     "dir": "tmp-bts/BTS 3 004 (How old are you)",
+     "p": 20
+    },
+    {
+     "book": "BTS 3 005 (How old are you)",
+     "dir": "tmp-bts/BTS 3 005 (How old are you)",
+     "p": 22
+    }
+   ],
+   [
+    {
+     "book": "BTS 3 006 (How old are you)",
+     "dir": "tmp-bts/BTS 3 006 (How old are you)",
+     "p": 16
+    },
+    {
+     "book": "BTS 3 007 (Who is in your family)",
+     "dir": "tmp-bts/BTS 3 007 (Who is in your family)",
+     "p": 24
+    },
+    {
+     "book": "BTS 3 008 (Who is in your family)",
+     "dir": "tmp-bts/BTS 3 008 (Who is in your family)",
+     "p": 15
+    },
+    {
+     "book": "BTS 3 009 (Who is in your family)",
+     "dir": "tmp-bts/BTS 3 009 (Who is in your family)",
+     "p": 17
+    },
+    {
+     "book": "BTS 3 REVIEW",
+     "dir": "tmp-bts/BTS 3 REVIEW",
+     "p": 22
+    },
+    {
+     "book": "BTS 3 TEST",
+     "dir": "tmp-bts/BTS 3 TEST",
+     "p": 17
+    }
+   ]
+  ]
+ },
+ "4": {
+  "books": [
+   {
+    "book": "BTS 4 001 (Food)",
+    "dir": "tmp-bts/BTS 4 001 (Food)",
+    "p": 31
+   },
+   {
+    "book": "BTS 4 002 (Food)",
+    "dir": "tmp-bts/BTS 4 002 (Food)",
+    "p": 20
+   },
+   {
+    "book": "BTS 4 003 (Food)",
+    "dir": "tmp-bts/BTS 4 003 (Food)",
+    "p": 22
+   },
+   {
+    "book": "BTS 4 004 (I like food)",
+    "dir": "tmp-bts/BTS 4 004 (I like food)",
+    "p": 28
+   },
+   {
+    "book": "BTS 4 005 (I like food)",
+    "dir": "tmp-bts/BTS 4 005 (I like food)",
+    "p": 22
+   },
+   {
+    "book": "BTS 4 006 (I like food)",
+    "dir": "tmp-bts/BTS 4 006 (I like food)",
+    "p": 23
+   },
+   {
+    "book": "BTS 4 007 (Meals)",
+    "dir": "tmp-bts/BTS 4 007 (Meals)",
+    "p": 35
+   },
+   {
+    "book": "BTS 4 008 (Meals)",
+    "dir": "tmp-bts/BTS 4 008 (Meals)",
+    "p": 22
+   },
+   {
+    "book": "BTS 4 009 (Meals)",
+    "dir": "tmp-bts/BTS 4 009 (Meals)",
+    "p": 23
+   },
+   {
+    "book": "BTS 4 Review",
+    "dir": "tmp-bts/BTS 4 Review",
+    "p": 16
+   },
+   {
+    "book": "BTS 4 Test",
+    "dir": "tmp-bts/BTS 4 Test",
+    "p": 19
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 4 001 (Food)",
+     "dir": "tmp-bts/BTS 4 001 (Food)",
+     "p": 31
+    },
+    {
+     "book": "BTS 4 002 (Food)",
+     "dir": "tmp-bts/BTS 4 002 (Food)",
+     "p": 20
+    },
+    {
+     "book": "BTS 4 003 (Food)",
+     "dir": "tmp-bts/BTS 4 003 (Food)",
+     "p": 22
+    },
+    {
+     "book": "BTS 4 004 (I like food)",
+     "dir": "tmp-bts/BTS 4 004 (I like food)",
+     "p": 28
+    },
+    {
+     "book": "BTS 4 005 (I like food)",
+     "dir": "tmp-bts/BTS 4 005 (I like food)",
+     "p": 22
+    },
+    {
+     "book": "BTS 4 006 (I like food)",
+     "dir": "tmp-bts/BTS 4 006 (I like food)",
+     "p": 23
+    }
+   ],
+   [
+    {
+     "book": "BTS 4 007 (Meals)",
+     "dir": "tmp-bts/BTS 4 007 (Meals)",
+     "p": 35
+    },
+    {
+     "book": "BTS 4 008 (Meals)",
+     "dir": "tmp-bts/BTS 4 008 (Meals)",
+     "p": 22
+    },
+    {
+     "book": "BTS 4 009 (Meals)",
+     "dir": "tmp-bts/BTS 4 009 (Meals)",
+     "p": 23
+    },
+    {
+     "book": "BTS 4 Review",
+     "dir": "tmp-bts/BTS 4 Review",
+     "p": 16
+    },
+    {
+     "book": "BTS 4 Test",
+     "dir": "tmp-bts/BTS 4 Test",
+     "p": 19
+    }
+   ]
+  ]
+ },
+ "5": {
+  "books": [
+   {
+    "book": "BTS 5 001 (Days of the Week)",
+    "dir": "tmp-bts/BTS 5 001 (Days of the Week)",
+    "p": 29
+   },
+   {
+    "book": "BTS 5 002 (Days of the Week)",
+    "dir": "tmp-bts/BTS 5 002 (Days of the Week)",
+    "p": 21
+   },
+   {
+    "book": "BTS 5 003 (Days of the Week)",
+    "dir": "tmp-bts/BTS 5 003 (Days of the Week)",
+    "p": 17
+   },
+   {
+    "book": "BTS 5 004 (Seasons)",
+    "dir": "tmp-bts/BTS 5 004 (Seasons)",
+    "p": 29
+   },
+   {
+    "book": "BTS 5 005 (Seasons)",
+    "dir": "tmp-bts/BTS 5 005 (Seasons)",
+    "p": 24
+   },
+   {
+    "book": "BTS 5 006 (Seasons)",
+    "dir": "tmp-bts/BTS 5 006 (Seasons)",
+    "p": 22
+   },
+   {
+    "book": "BTS 5 007 (Telling Time)",
+    "dir": "tmp-bts/BTS 5 007 (Telling Time)",
+    "p": 32
+   },
+   {
+    "book": "BTS 5 008 (Telling Time)",
+    "dir": "tmp-bts/BTS 5 008 (Telling Time)",
+    "p": 26
+   },
+   {
+    "book": "BTS 5 009 (Telling Time)",
+    "dir": "tmp-bts/BTS 5 009 (Telling Time)",
+    "p": 22
+   },
+   {
+    "book": "BTS 5 Review",
+    "dir": "tmp-bts/BTS 5 Review",
+    "p": 23
+   },
+   {
+    "book": "BTS 5 TEST",
+    "dir": "tmp-bts/BTS 5 TEST",
+    "p": 18
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 5 001 (Days of the Week)",
+     "dir": "tmp-bts/BTS 5 001 (Days of the Week)",
+     "p": 29
+    },
+    {
+     "book": "BTS 5 002 (Days of the Week)",
+     "dir": "tmp-bts/BTS 5 002 (Days of the Week)",
+     "p": 21
+    },
+    {
+     "book": "BTS 5 003 (Days of the Week)",
+     "dir": "tmp-bts/BTS 5 003 (Days of the Week)",
+     "p": 17
+    },
+    {
+     "book": "BTS 5 004 (Seasons)",
+     "dir": "tmp-bts/BTS 5 004 (Seasons)",
+     "p": 29
+    },
+    {
+     "book": "BTS 5 005 (Seasons)",
+     "dir": "tmp-bts/BTS 5 005 (Seasons)",
+     "p": 24
+    },
+    {
+     "book": "BTS 5 006 (Seasons)",
+     "dir": "tmp-bts/BTS 5 006 (Seasons)",
+     "p": 22
+    }
+   ],
+   [
+    {
+     "book": "BTS 5 007 (Telling Time)",
+     "dir": "tmp-bts/BTS 5 007 (Telling Time)",
+     "p": 32
+    },
+    {
+     "book": "BTS 5 008 (Telling Time)",
+     "dir": "tmp-bts/BTS 5 008 (Telling Time)",
+     "p": 26
+    },
+    {
+     "book": "BTS 5 009 (Telling Time)",
+     "dir": "tmp-bts/BTS 5 009 (Telling Time)",
+     "p": 22
+    },
+    {
+     "book": "BTS 5 Review",
+     "dir": "tmp-bts/BTS 5 Review",
+     "p": 23
+    },
+    {
+     "book": "BTS 5 TEST",
+     "dir": "tmp-bts/BTS 5 TEST",
+     "p": 18
+    }
+   ]
+  ]
+ },
+ "6": {
+  "books": [
+   {
+    "book": "BTS 6 001 (Bedroom)",
+    "dir": "tmp-bts/BTS 6 001 (Bedroom)",
+    "p": 27
+   },
+   {
+    "book": "BTS 6 002 (Bedroom)",
+    "dir": "tmp-bts/BTS 6 002 (Bedroom)",
+    "p": 19
+   },
+   {
+    "book": "BTS 6 003 (Bedroom)",
+    "dir": "tmp-bts/BTS 6 003 (Bedroom)",
+    "p": 24
+   },
+   {
+    "book": "BTS 6 004 (Living Room)",
+    "dir": "tmp-bts/BTS 6 004 (Living Room)",
+    "p": 23
+   },
+   {
+    "book": "BTS 6 005 (Living Room)",
+    "dir": "tmp-bts/BTS 6 005 (Living Room)",
+    "p": 18
+   },
+   {
+    "book": "BTS 6 006 (Living Room)",
+    "dir": "tmp-bts/BTS 6 006 (Living Room)",
+    "p": 20
+   },
+   {
+    "book": "BTS 6 007 (Kitchen)",
+    "dir": "tmp-bts/BTS 6 007 (Kitchen)",
+    "p": 22
+   },
+   {
+    "book": "BTS 6 008 (Bathroom)",
+    "dir": "tmp-bts/BTS 6 008 (Bathroom)",
+    "p": 20
+   },
+   {
+    "book": "BTS 6 009 (Kitchen and Bathroom)",
+    "dir": "tmp-bts/BTS 6 009 (Kitchen and Bathroom)",
+    "p": 22
+   },
+   {
+    "book": "BTS 6 REVIEW",
+    "dir": "tmp-bts/BTS 6 REVIEW",
+    "p": 28
+   },
+   {
+    "book": "BTS 6 TEST",
+    "dir": "tmp-bts/BTS 6 TEST",
+    "p": 17
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 6 001 (Bedroom)",
+     "dir": "tmp-bts/BTS 6 001 (Bedroom)",
+     "p": 27
+    },
+    {
+     "book": "BTS 6 002 (Bedroom)",
+     "dir": "tmp-bts/BTS 6 002 (Bedroom)",
+     "p": 19
+    },
+    {
+     "book": "BTS 6 003 (Bedroom)",
+     "dir": "tmp-bts/BTS 6 003 (Bedroom)",
+     "p": 24
+    },
+    {
+     "book": "BTS 6 004 (Living Room)",
+     "dir": "tmp-bts/BTS 6 004 (Living Room)",
+     "p": 23
+    },
+    {
+     "book": "BTS 6 005 (Living Room)",
+     "dir": "tmp-bts/BTS 6 005 (Living Room)",
+     "p": 18
+    },
+    {
+     "book": "BTS 6 006 (Living Room)",
+     "dir": "tmp-bts/BTS 6 006 (Living Room)",
+     "p": 20
+    }
+   ],
+   [
+    {
+     "book": "BTS 6 007 (Kitchen)",
+     "dir": "tmp-bts/BTS 6 007 (Kitchen)",
+     "p": 22
+    },
+    {
+     "book": "BTS 6 008 (Bathroom)",
+     "dir": "tmp-bts/BTS 6 008 (Bathroom)",
+     "p": 20
+    },
+    {
+     "book": "BTS 6 009 (Kitchen and Bathroom)",
+     "dir": "tmp-bts/BTS 6 009 (Kitchen and Bathroom)",
+     "p": 22
+    },
+    {
+     "book": "BTS 6 REVIEW",
+     "dir": "tmp-bts/BTS 6 REVIEW",
+     "p": 28
+    },
+    {
+     "book": "BTS 6 TEST",
+     "dir": "tmp-bts/BTS 6 TEST",
+     "p": 17
+    }
+   ]
+  ]
+ },
+ "7": {
+  "books": [
+   {
+    "book": "BTS 7 001 (Head and face)",
+    "dir": "tmp-bts/BTS 7 001 (Head and face)",
+    "p": 31
+   },
+   {
+    "book": "BTS 7 002 (Head and face)",
+    "dir": "tmp-bts/BTS 7 002 (Head and face)",
+    "p": 30
+   },
+   {
+    "book": "BTS 7 003 (Head and face)",
+    "dir": "tmp-bts/BTS 7 003 (Head and face)",
+    "p": 19
+   },
+   {
+    "book": "BTS 7 004 (Parts of the body)",
+    "dir": "tmp-bts/BTS 7 004 (Parts of the body)",
+    "p": 31
+   },
+   {
+    "book": "BTS 7 005 (Parts of the body)",
+    "dir": "tmp-bts/BTS 7 005 (Parts of the body)",
+    "p": 18
+   },
+   {
+    "book": "BTS 7 006 (Parts of the body)",
+    "dir": "tmp-bts/BTS 7 006 (Parts of the body)",
+    "p": 22
+   },
+   {
+    "book": "BTS 7 007 (Monsters)",
+    "dir": "tmp-bts/BTS 7 007 (Monsters)",
+    "p": 31
+   },
+   {
+    "book": "BTS 7 008 (Monsters)",
+    "dir": "tmp-bts/BTS 7 008 (Monsters)",
+    "p": 26
+   },
+   {
+    "book": "BTS 7 009 (Monsters)",
+    "dir": "tmp-bts/BTS 7 009 (Monsters)",
+    "p": 25
+   },
+   {
+    "book": "BTS 7 Review",
+    "dir": "tmp-bts/BTS 7 Review",
+    "p": 21
+   },
+   {
+    "book": "BTS 7 TEST",
+    "dir": "tmp-bts/BTS 7 TEST",
+    "p": 21
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 7 001 (Head and face)",
+     "dir": "tmp-bts/BTS 7 001 (Head and face)",
+     "p": 31
+    },
+    {
+     "book": "BTS 7 002 (Head and face)",
+     "dir": "tmp-bts/BTS 7 002 (Head and face)",
+     "p": 30
+    },
+    {
+     "book": "BTS 7 003 (Head and face)",
+     "dir": "tmp-bts/BTS 7 003 (Head and face)",
+     "p": 19
+    },
+    {
+     "book": "BTS 7 004 (Parts of the body)",
+     "dir": "tmp-bts/BTS 7 004 (Parts of the body)",
+     "p": 31
+    },
+    {
+     "book": "BTS 7 005 (Parts of the body)",
+     "dir": "tmp-bts/BTS 7 005 (Parts of the body)",
+     "p": 18
+    },
+    {
+     "book": "BTS 7 006 (Parts of the body)",
+     "dir": "tmp-bts/BTS 7 006 (Parts of the body)",
+     "p": 22
+    }
+   ],
+   [
+    {
+     "book": "BTS 7 007 (Monsters)",
+     "dir": "tmp-bts/BTS 7 007 (Monsters)",
+     "p": 31
+    },
+    {
+     "book": "BTS 7 008 (Monsters)",
+     "dir": "tmp-bts/BTS 7 008 (Monsters)",
+     "p": 26
+    },
+    {
+     "book": "BTS 7 009 (Monsters)",
+     "dir": "tmp-bts/BTS 7 009 (Monsters)",
+     "p": 25
+    },
+    {
+     "book": "BTS 7 Review",
+     "dir": "tmp-bts/BTS 7 Review",
+     "p": 21
+    },
+    {
+     "book": "BTS 7 TEST",
+     "dir": "tmp-bts/BTS 7 TEST",
+     "p": 21
+    }
+   ]
+  ]
+ },
+ "8": {
+  "books": [
+   {
+    "book": "BTS 8 001 (I'm kicking the ball)",
+    "dir": "tmp-bts/BTS 8 001 (I_m kicking the ball)",
+    "p": 31
+   },
+   {
+    "book": "BTS 8 002 (I'm kicking the ball)",
+    "dir": "tmp-bts/BTS 8 002 (I_m kicking the ball)",
+    "p": 21
+   },
+   {
+    "book": "BTS 8 003 (I'm kicking the ball)",
+    "dir": "tmp-bts/BTS 8 003 (I_m kicking the ball)",
+    "p": 22
+   },
+   {
+    "book": "BTS 8 004 (What are you doing now)",
+    "dir": "tmp-bts/BTS 8 004 (What are you doing now)",
+    "p": 28
+   },
+   {
+    "book": "BTS 8 005 (What are you doing now)",
+    "dir": "tmp-bts/BTS 8 005 (What are you doing now)",
+    "p": 26
+   },
+   {
+    "book": "BTS 8 006 (What are you doing now)",
+    "dir": "tmp-bts/BTS 8 006 (What are you doing now)",
+    "p": 26
+   },
+   {
+    "book": "BTS 8 007 (When do you study English)",
+    "dir": "tmp-bts/BTS 8 007 (When do you study English)",
+    "p": 23
+   },
+   {
+    "book": "BTS 8 008 (When do you study English)",
+    "dir": "tmp-bts/BTS 8 008 (When do you study English)",
+    "p": 25
+   },
+   {
+    "book": "BTS 8 009 (When do you study English)",
+    "dir": "tmp-bts/BTS 8 009 (When do you study English)",
+    "p": 25
+   },
+   {
+    "book": "BTS 8 REVIEW",
+    "dir": "tmp-bts/BTS 8 REVIEW",
+    "p": 25
+   },
+   {
+    "book": "BTS 8 TEST",
+    "dir": "tmp-bts/BTS 8 TEST",
+    "p": 15
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 8 001 (I'm kicking the ball)",
+     "dir": "tmp-bts/BTS 8 001 (I_m kicking the ball)",
+     "p": 31
+    },
+    {
+     "book": "BTS 8 002 (I'm kicking the ball)",
+     "dir": "tmp-bts/BTS 8 002 (I_m kicking the ball)",
+     "p": 21
+    },
+    {
+     "book": "BTS 8 003 (I'm kicking the ball)",
+     "dir": "tmp-bts/BTS 8 003 (I_m kicking the ball)",
+     "p": 22
+    },
+    {
+     "book": "BTS 8 004 (What are you doing now)",
+     "dir": "tmp-bts/BTS 8 004 (What are you doing now)",
+     "p": 28
+    },
+    {
+     "book": "BTS 8 005 (What are you doing now)",
+     "dir": "tmp-bts/BTS 8 005 (What are you doing now)",
+     "p": 26
+    },
+    {
+     "book": "BTS 8 006 (What are you doing now)",
+     "dir": "tmp-bts/BTS 8 006 (What are you doing now)",
+     "p": 26
+    }
+   ],
+   [
+    {
+     "book": "BTS 8 007 (When do you study English)",
+     "dir": "tmp-bts/BTS 8 007 (When do you study English)",
+     "p": 23
+    },
+    {
+     "book": "BTS 8 008 (When do you study English)",
+     "dir": "tmp-bts/BTS 8 008 (When do you study English)",
+     "p": 25
+    },
+    {
+     "book": "BTS 8 009 (When do you study English)",
+     "dir": "tmp-bts/BTS 8 009 (When do you study English)",
+     "p": 25
+    },
+    {
+     "book": "BTS 8 REVIEW",
+     "dir": "tmp-bts/BTS 8 REVIEW",
+     "p": 25
+    },
+    {
+     "book": "BTS 8 TEST",
+     "dir": "tmp-bts/BTS 8 TEST",
+     "p": 15
+    }
+   ]
+  ]
+ },
+ "9": {
+  "books": [
+   {
+    "book": "BTS 9 001 (Night and Day)",
+    "dir": "tmp-bts/BTS 9 001 (Night and Day)",
+    "p": 24
+   },
+   {
+    "book": "BTS 9 002 (Night and Day)",
+    "dir": "tmp-bts/BTS 9 002 (Night and Day)",
+    "p": 26
+   },
+   {
+    "book": "BTS 9 003 (Night and Day)",
+    "dir": "tmp-bts/BTS 9 003 (Night and Day)",
+    "p": 25
+   },
+   {
+    "book": "BTS 9 004 (What time is it)",
+    "dir": "tmp-bts/BTS 9 004 (What time is it)",
+    "p": 21
+   },
+   {
+    "book": "BTS 9 005 (What time is it)",
+    "dir": "tmp-bts/BTS 9 005 (What time is it)",
+    "p": 25
+   },
+   {
+    "book": "BTS 9 006 (What time is it)",
+    "dir": "tmp-bts/BTS 9 006 (What time is it)",
+    "p": 23
+   },
+   {
+    "book": "BTS 9 007 (How long does it take)",
+    "dir": "tmp-bts/BTS 9 007 (How long does it take)",
+    "p": 22
+   },
+   {
+    "book": "BTS 9 008 (How long does it take)",
+    "dir": "tmp-bts/BTS 9 008 (How long does it take)",
+    "p": 23
+   },
+   {
+    "book": "BTS 9 009 (How long does it take)",
+    "dir": "tmp-bts/BTS 9 009 (How long does it take)",
+    "p": 22
+   },
+   {
+    "book": "BTS 9 REVIEW",
+    "dir": "tmp-bts/BTS 9 REVIEW",
+    "p": 23
+   },
+   {
+    "book": "BTS 9 TEST",
+    "dir": "tmp-bts/BTS 9 TEST",
+    "p": 18
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 9 001 (Night and Day)",
+     "dir": "tmp-bts/BTS 9 001 (Night and Day)",
+     "p": 24
+    },
+    {
+     "book": "BTS 9 002 (Night and Day)",
+     "dir": "tmp-bts/BTS 9 002 (Night and Day)",
+     "p": 26
+    },
+    {
+     "book": "BTS 9 003 (Night and Day)",
+     "dir": "tmp-bts/BTS 9 003 (Night and Day)",
+     "p": 25
+    },
+    {
+     "book": "BTS 9 004 (What time is it)",
+     "dir": "tmp-bts/BTS 9 004 (What time is it)",
+     "p": 21
+    },
+    {
+     "book": "BTS 9 005 (What time is it)",
+     "dir": "tmp-bts/BTS 9 005 (What time is it)",
+     "p": 25
+    },
+    {
+     "book": "BTS 9 006 (What time is it)",
+     "dir": "tmp-bts/BTS 9 006 (What time is it)",
+     "p": 23
+    }
+   ],
+   [
+    {
+     "book": "BTS 9 007 (How long does it take)",
+     "dir": "tmp-bts/BTS 9 007 (How long does it take)",
+     "p": 22
+    },
+    {
+     "book": "BTS 9 008 (How long does it take)",
+     "dir": "tmp-bts/BTS 9 008 (How long does it take)",
+     "p": 23
+    },
+    {
+     "book": "BTS 9 009 (How long does it take)",
+     "dir": "tmp-bts/BTS 9 009 (How long does it take)",
+     "p": 22
+    },
+    {
+     "book": "BTS 9 REVIEW",
+     "dir": "tmp-bts/BTS 9 REVIEW",
+     "p": 23
+    },
+    {
+     "book": "BTS 9 TEST",
+     "dir": "tmp-bts/BTS 9 TEST",
+     "p": 18
+    }
+   ]
+  ]
+ },
+ "10": {
+  "books": [
+   {
+    "book": "BTS 10 001 ( Weather)",
+    "dir": "tmp-bts/BTS 10 001 ( Weather)",
+    "p": 32
+   },
+   {
+    "book": "BTS 10 002 ( Weather)",
+    "dir": "tmp-bts/BTS 10 002 ( Weather)",
+    "p": 23
+   },
+   {
+    "book": "BTS 10 003 ( Weather)",
+    "dir": "tmp-bts/BTS 10 003 ( Weather)",
+    "p": 18
+   },
+   {
+    "book": "BTS 10 004 (Hot and Cold)",
+    "dir": "tmp-bts/BTS 10 004 (Hot and Cold)",
+    "p": 33
+   },
+   {
+    "book": "BTS 10 005 (Hot and Cold)",
+    "dir": "tmp-bts/BTS 10 005 (Hot and Cold)",
+    "p": 28
+   },
+   {
+    "book": "BTS 10 006 (Hot and Cold)",
+    "dir": "tmp-bts/BTS 10 006 (Hot and Cold)",
+    "p": 20
+   },
+   {
+    "book": "BTS 10 007 (The Weatherman)",
+    "dir": "tmp-bts/BTS 10 007 (The Weatherman)",
+    "p": 35
+   },
+   {
+    "book": "BTS 10 008 (The Weatherman)",
+    "dir": "tmp-bts/BTS 10 008 (The Weatherman)",
+    "p": 26
+   },
+   {
+    "book": "BTS 10 009 (The Weatherman)",
+    "dir": "tmp-bts/BTS 10 009 (The Weatherman)",
+    "p": 24
+   },
+   {
+    "book": "BTS 10 REVIEW",
+    "dir": "tmp-bts/BTS 10 REVIEW",
+    "p": 38
+   },
+   {
+    "book": "BTS 10 TEST",
+    "dir": "tmp-bts/BTS 10 TEST",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 10 001 ( Weather)",
+     "dir": "tmp-bts/BTS 10 001 ( Weather)",
+     "p": 32
+    },
+    {
+     "book": "BTS 10 002 ( Weather)",
+     "dir": "tmp-bts/BTS 10 002 ( Weather)",
+     "p": 23
+    },
+    {
+     "book": "BTS 10 003 ( Weather)",
+     "dir": "tmp-bts/BTS 10 003 ( Weather)",
+     "p": 18
+    },
+    {
+     "book": "BTS 10 004 (Hot and Cold)",
+     "dir": "tmp-bts/BTS 10 004 (Hot and Cold)",
+     "p": 33
+    },
+    {
+     "book": "BTS 10 005 (Hot and Cold)",
+     "dir": "tmp-bts/BTS 10 005 (Hot and Cold)",
+     "p": 28
+    },
+    {
+     "book": "BTS 10 006 (Hot and Cold)",
+     "dir": "tmp-bts/BTS 10 006 (Hot and Cold)",
+     "p": 20
+    }
+   ],
+   [
+    {
+     "book": "BTS 10 007 (The Weatherman)",
+     "dir": "tmp-bts/BTS 10 007 (The Weatherman)",
+     "p": 35
+    },
+    {
+     "book": "BTS 10 008 (The Weatherman)",
+     "dir": "tmp-bts/BTS 10 008 (The Weatherman)",
+     "p": 26
+    },
+    {
+     "book": "BTS 10 009 (The Weatherman)",
+     "dir": "tmp-bts/BTS 10 009 (The Weatherman)",
+     "p": 24
+    },
+    {
+     "book": "BTS 10 REVIEW",
+     "dir": "tmp-bts/BTS 10 REVIEW",
+     "p": 38
+    },
+    {
+     "book": "BTS 10 TEST",
+     "dir": "tmp-bts/BTS 10 TEST",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "11": {
+  "books": [
+   {
+    "book": "BTS 11 001 (The Clothing Store)",
+    "dir": "tmp-bts/BTS 11 001 (The Clothing Store)",
+    "p": 36
+   },
+   {
+    "book": "BTS 11 002 (The Clothing Store)",
+    "dir": "tmp-bts/BTS 11 002 (The Clothing Store)",
+    "p": 29
+   },
+   {
+    "book": "BTS 11 003 (The Clothing Store)",
+    "dir": "tmp-bts/BTS 11 003 (The Clothing Store)",
+    "p": 30
+   },
+   {
+    "book": "BTS 11 004 (Stores and Items)",
+    "dir": "tmp-bts/BTS 11 004 (Stores and Items)",
+    "p": 35
+   },
+   {
+    "book": "BTS 11 005 (Stores and Items)",
+    "dir": "tmp-bts/BTS 11 005 (Stores and Items)",
+    "p": 23
+   },
+   {
+    "book": "BTS 11 006 (Stores and Items)",
+    "dir": "tmp-bts/BTS 11 006 (Stores and Items)",
+    "p": 21
+   },
+   {
+    "book": "BTS 11 007 ( The Stationery Store)",
+    "dir": "tmp-bts/BTS 11 007 ( The Stationery Store)",
+    "p": 29
+   },
+   {
+    "book": "BTS 11 008 ( The Stationery Store)",
+    "dir": "tmp-bts/BTS 11 008 ( The Stationery Store)",
+    "p": 24
+   },
+   {
+    "book": "BTS 11 009 ( The Stationery Store)",
+    "dir": "tmp-bts/BTS 11 009 ( The Stationery Store)",
+    "p": 24
+   },
+   {
+    "book": "BTS 11 Review",
+    "dir": "tmp-bts/BTS 11 Review",
+    "p": 20
+   },
+   {
+    "book": "BTS 11 TEST",
+    "dir": "tmp-bts/BTS 11 TEST",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 11 001 (The Clothing Store)",
+     "dir": "tmp-bts/BTS 11 001 (The Clothing Store)",
+     "p": 36
+    },
+    {
+     "book": "BTS 11 002 (The Clothing Store)",
+     "dir": "tmp-bts/BTS 11 002 (The Clothing Store)",
+     "p": 29
+    },
+    {
+     "book": "BTS 11 003 (The Clothing Store)",
+     "dir": "tmp-bts/BTS 11 003 (The Clothing Store)",
+     "p": 30
+    },
+    {
+     "book": "BTS 11 004 (Stores and Items)",
+     "dir": "tmp-bts/BTS 11 004 (Stores and Items)",
+     "p": 35
+    },
+    {
+     "book": "BTS 11 005 (Stores and Items)",
+     "dir": "tmp-bts/BTS 11 005 (Stores and Items)",
+     "p": 23
+    }
+   ],
+   [
+    {
+     "book": "BTS 11 006 (Stores and Items)",
+     "dir": "tmp-bts/BTS 11 006 (Stores and Items)",
+     "p": 21
+    },
+    {
+     "book": "BTS 11 007 ( The Stationery Store)",
+     "dir": "tmp-bts/BTS 11 007 ( The Stationery Store)",
+     "p": 29
+    },
+    {
+     "book": "BTS 11 008 ( The Stationery Store)",
+     "dir": "tmp-bts/BTS 11 008 ( The Stationery Store)",
+     "p": 24
+    },
+    {
+     "book": "BTS 11 009 ( The Stationery Store)",
+     "dir": "tmp-bts/BTS 11 009 ( The Stationery Store)",
+     "p": 24
+    },
+    {
+     "book": "BTS 11 Review",
+     "dir": "tmp-bts/BTS 11 Review",
+     "p": 20
+    },
+    {
+     "book": "BTS 11 TEST",
+     "dir": "tmp-bts/BTS 11 TEST",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "12": {
+  "books": [
+   {
+    "book": "BTS 12 001 (Jobs)",
+    "dir": "tmp-bts/BTS 12 001 (Jobs)",
+    "p": 27
+   },
+   {
+    "book": "BTS 12 002 (Jobs)",
+    "dir": "tmp-bts/BTS 12 002 (Jobs)",
+    "p": 27
+   },
+   {
+    "book": "BTS 12 003 (Jobs)",
+    "dir": "tmp-bts/BTS 12 003 (Jobs)",
+    "p": 21
+   },
+   {
+    "book": "BTS 12 004 (Going to Work)",
+    "dir": "tmp-bts/BTS 12 004 (Going to Work)",
+    "p": 23
+   },
+   {
+    "book": "BTS 12 005 (Going to Work)",
+    "dir": "tmp-bts/BTS 12 005 (Going to Work)",
+    "p": 23
+   },
+   {
+    "book": "BTS 12 006 (Going to Work)",
+    "dir": "tmp-bts/BTS 12 006 (Going to Work)",
+    "p": 15
+   },
+   {
+    "book": "BTS 12 007 (I want to be)",
+    "dir": "tmp-bts/BTS 12 007 (I want to be)",
+    "p": 23
+   },
+   {
+    "book": "BTS 12 008 (I want to be)",
+    "dir": "tmp-bts/BTS 12 008 (I want to be)",
+    "p": 22
+   },
+   {
+    "book": "BTS 12 009 (I want to be)",
+    "dir": "tmp-bts/BTS 12 009 (I want to be)",
+    "p": 23
+   },
+   {
+    "book": "BTS 12 REVIEW",
+    "dir": "tmp-bts/BTS 12 REVIEW",
+    "p": 33
+   },
+   {
+    "book": "BTS 12 TEST",
+    "dir": "tmp-bts/BTS 12 TEST",
+    "p": 15
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 12 001 (Jobs)",
+     "dir": "tmp-bts/BTS 12 001 (Jobs)",
+     "p": 27
+    },
+    {
+     "book": "BTS 12 002 (Jobs)",
+     "dir": "tmp-bts/BTS 12 002 (Jobs)",
+     "p": 27
+    },
+    {
+     "book": "BTS 12 003 (Jobs)",
+     "dir": "tmp-bts/BTS 12 003 (Jobs)",
+     "p": 21
+    },
+    {
+     "book": "BTS 12 004 (Going to Work)",
+     "dir": "tmp-bts/BTS 12 004 (Going to Work)",
+     "p": 23
+    },
+    {
+     "book": "BTS 12 005 (Going to Work)",
+     "dir": "tmp-bts/BTS 12 005 (Going to Work)",
+     "p": 23
+    },
+    {
+     "book": "BTS 12 006 (Going to Work)",
+     "dir": "tmp-bts/BTS 12 006 (Going to Work)",
+     "p": 15
+    }
+   ],
+   [
+    {
+     "book": "BTS 12 007 (I want to be)",
+     "dir": "tmp-bts/BTS 12 007 (I want to be)",
+     "p": 23
+    },
+    {
+     "book": "BTS 12 008 (I want to be)",
+     "dir": "tmp-bts/BTS 12 008 (I want to be)",
+     "p": 22
+    },
+    {
+     "book": "BTS 12 009 (I want to be)",
+     "dir": "tmp-bts/BTS 12 009 (I want to be)",
+     "p": 23
+    },
+    {
+     "book": "BTS 12 REVIEW",
+     "dir": "tmp-bts/BTS 12 REVIEW",
+     "p": 33
+    },
+    {
+     "book": "BTS 12 TEST",
+     "dir": "tmp-bts/BTS 12 TEST",
+     "p": 15
+    }
+   ]
+  ]
+ },
+ "13": {
+  "books": [
+   {
+    "book": "BTS 13 001 (Yesterday and Today)",
+    "dir": "tmp-bts/BTS 13 001 (Yesterday and Today)",
+    "p": 30
+   },
+   {
+    "book": "BTS 13 002 (Yesterday and Today)",
+    "dir": "tmp-bts/BTS 13 002 (Yesterday and Today)",
+    "p": 21
+   },
+   {
+    "book": "BTS 13 003 (Yesterday and Today)",
+    "dir": "tmp-bts/BTS 13 003 (Yesterday and Today)",
+    "p": 20
+   },
+   {
+    "book": "BTS 13 004 (I visited my grandparents)",
+    "dir": "tmp-bts/BTS 13 004 (I visited my grandparents)",
+    "p": 34
+   },
+   {
+    "book": "BTS 13 005 (I visited my grandparents)",
+    "dir": "tmp-bts/BTS 13 005 (I visited my grandparents)",
+    "p": 24
+   },
+   {
+    "book": "BTS 13 006 (I visited my grandparents)",
+    "dir": "tmp-bts/BTS 13 006 (I visited my grandparents)",
+    "p": 25
+   },
+   {
+    "book": "BTS 13 007 (I went there)",
+    "dir": "tmp-bts/BTS 13 007 (I went there)",
+    "p": 30
+   },
+   {
+    "book": "BTS 13 008 (I went there)",
+    "dir": "tmp-bts/BTS 13 008 (I went there)",
+    "p": 22
+   },
+   {
+    "book": "BTS 13 009 (I went there)",
+    "dir": "tmp-bts/BTS 13 009 (I went there)",
+    "p": 22
+   },
+   {
+    "book": "BTS 13 REVIEW",
+    "dir": "tmp-bts/BTS 13 REVIEW",
+    "p": 34
+   },
+   {
+    "book": "BTS 13 TEST",
+    "dir": "tmp-bts/BTS 13 TEST",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 13 001 (Yesterday and Today)",
+     "dir": "tmp-bts/BTS 13 001 (Yesterday and Today)",
+     "p": 30
+    },
+    {
+     "book": "BTS 13 002 (Yesterday and Today)",
+     "dir": "tmp-bts/BTS 13 002 (Yesterday and Today)",
+     "p": 21
+    },
+    {
+     "book": "BTS 13 003 (Yesterday and Today)",
+     "dir": "tmp-bts/BTS 13 003 (Yesterday and Today)",
+     "p": 20
+    },
+    {
+     "book": "BTS 13 004 (I visited my grandparents)",
+     "dir": "tmp-bts/BTS 13 004 (I visited my grandparents)",
+     "p": 34
+    },
+    {
+     "book": "BTS 13 005 (I visited my grandparents)",
+     "dir": "tmp-bts/BTS 13 005 (I visited my grandparents)",
+     "p": 24
+    },
+    {
+     "book": "BTS 13 006 (I visited my grandparents)",
+     "dir": "tmp-bts/BTS 13 006 (I visited my grandparents)",
+     "p": 25
+    }
+   ],
+   [
+    {
+     "book": "BTS 13 007 (I went there)",
+     "dir": "tmp-bts/BTS 13 007 (I went there)",
+     "p": 30
+    },
+    {
+     "book": "BTS 13 008 (I went there)",
+     "dir": "tmp-bts/BTS 13 008 (I went there)",
+     "p": 22
+    },
+    {
+     "book": "BTS 13 009 (I went there)",
+     "dir": "tmp-bts/BTS 13 009 (I went there)",
+     "p": 22
+    },
+    {
+     "book": "BTS 13 REVIEW",
+     "dir": "tmp-bts/BTS 13 REVIEW",
+     "p": 34
+    },
+    {
+     "book": "BTS 13 TEST",
+     "dir": "tmp-bts/BTS 13 TEST",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "14": {
+  "books": [
+   {
+    "book": "BTS 14 001 (What will you do tomorrow)",
+    "dir": "tmp-bts/BTS 14 001 (What will you do tomorrow)",
+    "p": 31
+   },
+   {
+    "book": "BTS 14 002 (What will you do tomorrow)",
+    "dir": "tmp-bts/BTS 14 002 (What will you do tomorrow)",
+    "p": 22
+   },
+   {
+    "book": "BTS 14 003 (What will you do tomorrow)",
+    "dir": "tmp-bts/BTS 14 003 (What will you do tomorrow)",
+    "p": 22
+   },
+   {
+    "book": "BTS 14 004 (Where are you going to go)",
+    "dir": "tmp-bts/BTS 14 004 (Where are you going to go)",
+    "p": 26
+   },
+   {
+    "book": "BTS 14 005 (Where are you going to go)",
+    "dir": "tmp-bts/BTS 14 005 (Where are you going to go)",
+    "p": 22
+   },
+   {
+    "book": "BTS 14 006 (Where are you going to go)",
+    "dir": "tmp-bts/BTS 14 006 (Where are you going to go)",
+    "p": 21
+   },
+   {
+    "book": "BTS 14 007 (I am going to be rich)",
+    "dir": "tmp-bts/BTS 14 007 (I am going to be rich)",
+    "p": 23
+   },
+   {
+    "book": "BTS 14 008  (I am going to be rich)",
+    "dir": "tmp-bts/BTS 14 008  (I am going to be rich)",
+    "p": 22
+   },
+   {
+    "book": "BTS 14 009  (I am going to be rich)",
+    "dir": "tmp-bts/BTS 14 009  (I am going to be rich)",
+    "p": 17
+   },
+   {
+    "book": "BTS 14 REVIEW",
+    "dir": "tmp-bts/BTS 14 REVIEW",
+    "p": 35
+   },
+   {
+    "book": "BTS 14 TEST",
+    "dir": "tmp-bts/BTS 14 TEST",
+    "p": 15
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 14 001 (What will you do tomorrow)",
+     "dir": "tmp-bts/BTS 14 001 (What will you do tomorrow)",
+     "p": 31
+    },
+    {
+     "book": "BTS 14 002 (What will you do tomorrow)",
+     "dir": "tmp-bts/BTS 14 002 (What will you do tomorrow)",
+     "p": 22
+    },
+    {
+     "book": "BTS 14 003 (What will you do tomorrow)",
+     "dir": "tmp-bts/BTS 14 003 (What will you do tomorrow)",
+     "p": 22
+    },
+    {
+     "book": "BTS 14 004 (Where are you going to go)",
+     "dir": "tmp-bts/BTS 14 004 (Where are you going to go)",
+     "p": 26
+    },
+    {
+     "book": "BTS 14 005 (Where are you going to go)",
+     "dir": "tmp-bts/BTS 14 005 (Where are you going to go)",
+     "p": 22
+    },
+    {
+     "book": "BTS 14 006 (Where are you going to go)",
+     "dir": "tmp-bts/BTS 14 006 (Where are you going to go)",
+     "p": 21
+    }
+   ],
+   [
+    {
+     "book": "BTS 14 007 (I am going to be rich)",
+     "dir": "tmp-bts/BTS 14 007 (I am going to be rich)",
+     "p": 23
+    },
+    {
+     "book": "BTS 14 008  (I am going to be rich)",
+     "dir": "tmp-bts/BTS 14 008  (I am going to be rich)",
+     "p": 22
+    },
+    {
+     "book": "BTS 14 009  (I am going to be rich)",
+     "dir": "tmp-bts/BTS 14 009  (I am going to be rich)",
+     "p": 17
+    },
+    {
+     "book": "BTS 14 REVIEW",
+     "dir": "tmp-bts/BTS 14 REVIEW",
+     "p": 35
+    },
+    {
+     "book": "BTS 14 TEST",
+     "dir": "tmp-bts/BTS 14 TEST",
+     "p": 15
+    }
+   ]
+  ]
+ },
+ "15": {
+  "books": [
+   {
+    "book": "BTS 15 001 (True Stories)",
+    "dir": "tmp-bts/BTS 15 001 (True Stories)",
+    "p": 27
+   },
+   {
+    "book": "BTS 15 002 (True Stories)",
+    "dir": "tmp-bts/BTS 15 002 (True Stories)",
+    "p": 18
+   },
+   {
+    "book": "BTS 15 003 (True Stories)",
+    "dir": "tmp-bts/BTS 15 003 (True Stories)",
+    "p": 13
+   },
+   {
+    "book": "BTS 15 004 (Fiction Stories)",
+    "dir": "tmp-bts/BTS 15 004 (Fiction Stories)",
+    "p": 26
+   },
+   {
+    "book": "BTS 15 005 (Fiction Stories)",
+    "dir": "tmp-bts/BTS 15 005 (Fiction Stories)",
+    "p": 21
+   },
+   {
+    "book": "BTS 15 006 (Fiction Stories)",
+    "dir": "tmp-bts/BTS 15 006 (Fiction Stories)",
+    "p": 18
+   },
+   {
+    "book": "BTS 15 007 (Story Genres)",
+    "dir": "tmp-bts/BTS 15 007 (Story Genres)",
+    "p": 30
+   },
+   {
+    "book": "BTS 15 008 (Story Genres)",
+    "dir": "tmp-bts/BTS 15 008 (Story Genres)",
+    "p": 23
+   },
+   {
+    "book": "BTS 15 009 (Story Genres)",
+    "dir": "tmp-bts/BTS 15 009 (Story Genres)",
+    "p": 15
+   },
+   {
+    "book": "BTS 15 REVIEW",
+    "dir": "tmp-bts/BTS 15 REVIEW",
+    "p": 19
+   },
+   {
+    "book": "BTS 15 TEST",
+    "dir": "tmp-bts/BTS 15 TEST",
+    "p": 17
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 15 001 (True Stories)",
+     "dir": "tmp-bts/BTS 15 001 (True Stories)",
+     "p": 27
+    },
+    {
+     "book": "BTS 15 002 (True Stories)",
+     "dir": "tmp-bts/BTS 15 002 (True Stories)",
+     "p": 18
+    },
+    {
+     "book": "BTS 15 003 (True Stories)",
+     "dir": "tmp-bts/BTS 15 003 (True Stories)",
+     "p": 13
+    },
+    {
+     "book": "BTS 15 004 (Fiction Stories)",
+     "dir": "tmp-bts/BTS 15 004 (Fiction Stories)",
+     "p": 26
+    },
+    {
+     "book": "BTS 15 005 (Fiction Stories)",
+     "dir": "tmp-bts/BTS 15 005 (Fiction Stories)",
+     "p": 21
+    },
+    {
+     "book": "BTS 15 006 (Fiction Stories)",
+     "dir": "tmp-bts/BTS 15 006 (Fiction Stories)",
+     "p": 18
+    }
+   ],
+   [
+    {
+     "book": "BTS 15 007 (Story Genres)",
+     "dir": "tmp-bts/BTS 15 007 (Story Genres)",
+     "p": 30
+    },
+    {
+     "book": "BTS 15 008 (Story Genres)",
+     "dir": "tmp-bts/BTS 15 008 (Story Genres)",
+     "p": 23
+    },
+    {
+     "book": "BTS 15 009 (Story Genres)",
+     "dir": "tmp-bts/BTS 15 009 (Story Genres)",
+     "p": 15
+    },
+    {
+     "book": "BTS 15 REVIEW",
+     "dir": "tmp-bts/BTS 15 REVIEW",
+     "p": 19
+    },
+    {
+     "book": "BTS 15 TEST",
+     "dir": "tmp-bts/BTS 15 TEST",
+     "p": 17
+    }
+   ]
+  ],
+  "skipped": [
+   "BTS 15 Korea (True Stories, Fiction) — 217쪽, 001~009 전체를 한 묶음으로 합친 것으로 보여 따로 읽지 않음"
+  ]
+ },
+ "16": {
+  "books": [
+   {
+    "book": "BTS 16 001 (Choices)",
+    "dir": "tmp-bts/BTS 16 001 (Choices)",
+    "p": 27
+   },
+   {
+    "book": "BTS 16 002 (Choices)",
+    "dir": "tmp-bts/BTS 16 002 (Choices)",
+    "p": 30
+   },
+   {
+    "book": "BTS 16 003 (Choices)",
+    "dir": "tmp-bts/BTS 16 003 (Choices)",
+    "p": 22
+   },
+   {
+    "book": "BTS 16 004 (Inventions)",
+    "dir": "tmp-bts/BTS 16 004 (Inventions)",
+    "p": 39
+   },
+   {
+    "book": "BTS 16 005 (Inventions)",
+    "dir": "tmp-bts/BTS 16 005 (Inventions)",
+    "p": 23
+   },
+   {
+    "book": "BTS 16 006 (Inventions)",
+    "dir": "tmp-bts/BTS 16 006 (Inventions)",
+    "p": 20
+   },
+   {
+    "book": "BTS 16 007 (I promise, I predict, I plan)",
+    "dir": "tmp-bts/BTS 16 007 (I promise_ I predict_ I plan)",
+    "p": 30
+   },
+   {
+    "book": "BTS 16 008 (I promise, I predict, I plan)",
+    "dir": "tmp-bts/BTS 16 008 (I promise_ I predict_ I plan)",
+    "p": 20
+   },
+   {
+    "book": "BTS 16 009 (I promise, I predict, I plan)",
+    "dir": "tmp-bts/BTS 16 009 (I promise_ I predict_ I plan)",
+    "p": 22
+   },
+   {
+    "book": "BTS 16 Review",
+    "dir": "tmp-bts/BTS 16 Review",
+    "p": 32
+   },
+   {
+    "book": "BTS 16 TEST",
+    "dir": "tmp-bts/BTS 16 TEST",
+    "p": 20
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 16 001 (Choices)",
+     "dir": "tmp-bts/BTS 16 001 (Choices)",
+     "p": 27
+    },
+    {
+     "book": "BTS 16 002 (Choices)",
+     "dir": "tmp-bts/BTS 16 002 (Choices)",
+     "p": 30
+    },
+    {
+     "book": "BTS 16 003 (Choices)",
+     "dir": "tmp-bts/BTS 16 003 (Choices)",
+     "p": 22
+    },
+    {
+     "book": "BTS 16 004 (Inventions)",
+     "dir": "tmp-bts/BTS 16 004 (Inventions)",
+     "p": 39
+    },
+    {
+     "book": "BTS 16 005 (Inventions)",
+     "dir": "tmp-bts/BTS 16 005 (Inventions)",
+     "p": 23
+    },
+    {
+     "book": "BTS 16 006 (Inventions)",
+     "dir": "tmp-bts/BTS 16 006 (Inventions)",
+     "p": 20
+    }
+   ],
+   [
+    {
+     "book": "BTS 16 007 (I promise, I predict, I plan)",
+     "dir": "tmp-bts/BTS 16 007 (I promise_ I predict_ I plan)",
+     "p": 30
+    },
+    {
+     "book": "BTS 16 008 (I promise, I predict, I plan)",
+     "dir": "tmp-bts/BTS 16 008 (I promise_ I predict_ I plan)",
+     "p": 20
+    },
+    {
+     "book": "BTS 16 009 (I promise, I predict, I plan)",
+     "dir": "tmp-bts/BTS 16 009 (I promise_ I predict_ I plan)",
+     "p": 22
+    },
+    {
+     "book": "BTS 16 Review",
+     "dir": "tmp-bts/BTS 16 Review",
+     "p": 32
+    },
+    {
+     "book": "BTS 16 TEST",
+     "dir": "tmp-bts/BTS 16 TEST",
+     "p": 20
+    }
+   ]
+  ]
+ },
+ "17": {
+  "books": [
+   {
+    "book": "BTS 17 001 (Hobbies and Activities)",
+    "dir": "tmp-bts/BTS 17 001 (Hobbies and Activities)",
+    "p": 25
+   },
+   {
+    "book": "BTS 17 002 (Hobbies and Activities)",
+    "dir": "tmp-bts/BTS 17 002 (Hobbies and Activities)",
+    "p": 27
+   },
+   {
+    "book": "BTS 17 003 (Hobbies and Activities)",
+    "dir": "tmp-bts/BTS 17 003 (Hobbies and Activities)",
+    "p": 19
+   },
+   {
+    "book": "BTS 17 004 (Follow Directions)",
+    "dir": "tmp-bts/BTS 17 004 (Follow Directions)",
+    "p": 28
+   },
+   {
+    "book": "BTS 17 005 (Follow Directions)",
+    "dir": "tmp-bts/BTS 17 005 (Follow Directions)",
+    "p": 21
+   },
+   {
+    "book": "BTS 17 006 (Follow Directions)",
+    "dir": "tmp-bts/BTS 17 006 (Follow Directions)",
+    "p": 18
+   },
+   {
+    "book": "BTS 17 007 (Comparative Adjectives)",
+    "dir": "tmp-bts/BTS 17 007 (Comparative Adjectives)",
+    "p": 29
+   },
+   {
+    "book": "BTS 17 008 (Comparative Adjectives)",
+    "dir": "tmp-bts/BTS 17 008 (Comparative Adjectives)",
+    "p": 25
+   },
+   {
+    "book": "BTS 17 009 (Comparative Adjectives)",
+    "dir": "tmp-bts/BTS 17 009 (Comparative Adjectives)",
+    "p": 19
+   },
+   {
+    "book": "BTS 17 REVIEW",
+    "dir": "tmp-bts/BTS 17 REVIEW",
+    "p": 36
+   },
+   {
+    "book": "BTS 17 TEST",
+    "dir": "tmp-bts/BTS 17 TEST",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 17 001 (Hobbies and Activities)",
+     "dir": "tmp-bts/BTS 17 001 (Hobbies and Activities)",
+     "p": 25
+    },
+    {
+     "book": "BTS 17 002 (Hobbies and Activities)",
+     "dir": "tmp-bts/BTS 17 002 (Hobbies and Activities)",
+     "p": 27
+    },
+    {
+     "book": "BTS 17 003 (Hobbies and Activities)",
+     "dir": "tmp-bts/BTS 17 003 (Hobbies and Activities)",
+     "p": 19
+    },
+    {
+     "book": "BTS 17 004 (Follow Directions)",
+     "dir": "tmp-bts/BTS 17 004 (Follow Directions)",
+     "p": 28
+    },
+    {
+     "book": "BTS 17 005 (Follow Directions)",
+     "dir": "tmp-bts/BTS 17 005 (Follow Directions)",
+     "p": 21
+    },
+    {
+     "book": "BTS 17 006 (Follow Directions)",
+     "dir": "tmp-bts/BTS 17 006 (Follow Directions)",
+     "p": 18
+    }
+   ],
+   [
+    {
+     "book": "BTS 17 007 (Comparative Adjectives)",
+     "dir": "tmp-bts/BTS 17 007 (Comparative Adjectives)",
+     "p": 29
+    },
+    {
+     "book": "BTS 17 008 (Comparative Adjectives)",
+     "dir": "tmp-bts/BTS 17 008 (Comparative Adjectives)",
+     "p": 25
+    },
+    {
+     "book": "BTS 17 009 (Comparative Adjectives)",
+     "dir": "tmp-bts/BTS 17 009 (Comparative Adjectives)",
+     "p": 19
+    },
+    {
+     "book": "BTS 17 REVIEW",
+     "dir": "tmp-bts/BTS 17 REVIEW",
+     "p": 36
+    },
+    {
+     "book": "BTS 17 TEST",
+     "dir": "tmp-bts/BTS 17 TEST",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "18": {
+  "books": [
+   {
+    "book": "BTS 18 001 (Animals)",
+    "dir": "tmp-bts/BTS 18 001 (Animals)",
+    "p": 27
+   },
+   {
+    "book": "BTS 18 002 (Animals)",
+    "dir": "tmp-bts/BTS 18 002 (Animals)",
+    "p": 18
+   },
+   {
+    "book": "BTS 18 003 (Animals)",
+    "dir": "tmp-bts/BTS 18 003 (Animals)",
+    "p": 16
+   },
+   {
+    "book": "BTS 18 004 (A World Of Differences)",
+    "dir": "tmp-bts/BTS 18 004 (A World Of Differences)",
+    "p": 24
+   },
+   {
+    "book": "BTS 18 005 (A World Of Differences)",
+    "dir": "tmp-bts/BTS 18 005 (A World Of Differences)",
+    "p": 24
+   },
+   {
+    "book": "BTS 18 006 (A World Of Differences)",
+    "dir": "tmp-bts/BTS 18 006 (A World Of Differences)",
+    "p": 23
+   },
+   {
+    "book": "BTS 18 007 (The Strangest Pet)",
+    "dir": "tmp-bts/BTS 18 007 (The Strangest Pet)",
+    "p": 26
+   },
+   {
+    "book": "BTS 18 008 (The Strangest Pet)",
+    "dir": "tmp-bts/BTS 18 008 (The Strangest Pet)",
+    "p": 18
+   },
+   {
+    "book": "BTS 18 009 (The Strangest Pet)",
+    "dir": "tmp-bts/BTS 18 009 (The Strangest Pet)",
+    "p": 18
+   },
+   {
+    "book": "BTS 18 REVIEW",
+    "dir": "tmp-bts/BTS 18 REVIEW",
+    "p": 26
+   },
+   {
+    "book": "BTS 18 TEST",
+    "dir": "tmp-bts/BTS 18 TEST",
+    "p": 18
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 18 001 (Animals)",
+     "dir": "tmp-bts/BTS 18 001 (Animals)",
+     "p": 27
+    },
+    {
+     "book": "BTS 18 002 (Animals)",
+     "dir": "tmp-bts/BTS 18 002 (Animals)",
+     "p": 18
+    },
+    {
+     "book": "BTS 18 003 (Animals)",
+     "dir": "tmp-bts/BTS 18 003 (Animals)",
+     "p": 16
+    },
+    {
+     "book": "BTS 18 004 (A World Of Differences)",
+     "dir": "tmp-bts/BTS 18 004 (A World Of Differences)",
+     "p": 24
+    },
+    {
+     "book": "BTS 18 005 (A World Of Differences)",
+     "dir": "tmp-bts/BTS 18 005 (A World Of Differences)",
+     "p": 24
+    },
+    {
+     "book": "BTS 18 006 (A World Of Differences)",
+     "dir": "tmp-bts/BTS 18 006 (A World Of Differences)",
+     "p": 23
+    }
+   ],
+   [
+    {
+     "book": "BTS 18 007 (The Strangest Pet)",
+     "dir": "tmp-bts/BTS 18 007 (The Strangest Pet)",
+     "p": 26
+    },
+    {
+     "book": "BTS 18 008 (The Strangest Pet)",
+     "dir": "tmp-bts/BTS 18 008 (The Strangest Pet)",
+     "p": 18
+    },
+    {
+     "book": "BTS 18 009 (The Strangest Pet)",
+     "dir": "tmp-bts/BTS 18 009 (The Strangest Pet)",
+     "p": 18
+    },
+    {
+     "book": "BTS 18 REVIEW",
+     "dir": "tmp-bts/BTS 18 REVIEW",
+     "p": 26
+    },
+    {
+     "book": "BTS 18 TEST",
+     "dir": "tmp-bts/BTS 18 TEST",
+     "p": 18
+    }
+   ]
+  ]
+ },
+ "19": {
+  "books": [
+   {
+    "book": "BTS 19 001 (Jobs)",
+    "dir": "tmp-bts/BTS 19 001 (Jobs)",
+    "p": 29
+   },
+   {
+    "book": "BTS 19 002 (Jobs)",
+    "dir": "tmp-bts/BTS 19 002 (Jobs)",
+    "p": 29
+   },
+   {
+    "book": "BTS 19 003 (Jobs)",
+    "dir": "tmp-bts/BTS 19 003 (Jobs)",
+    "p": 18
+   },
+   {
+    "book": "BTS 19 004 (Skills and Training)",
+    "dir": "tmp-bts/BTS 19 004 (Skills and Training)",
+    "p": 33
+   },
+   {
+    "book": "BTS 19 005 (Skills and Training)",
+    "dir": "tmp-bts/BTS 19 005 (Skills and Training)",
+    "p": 21
+   },
+   {
+    "book": "BTS 19 006 (Skills and Training)",
+    "dir": "tmp-bts/BTS 19 006 (Skills and Training)",
+    "p": 19
+   },
+   {
+    "book": "BTS 19 007 (I Want to be)",
+    "dir": "tmp-bts/BTS 19 007 (I Want to be)",
+    "p": 28
+   },
+   {
+    "book": "BTS 19 008 (I Want to be)",
+    "dir": "tmp-bts/BTS 19 008 (I Want to be)",
+    "p": 25
+   },
+   {
+    "book": "BTS 19 009 (I Want to be)",
+    "dir": "tmp-bts/BTS 19 009 (I Want to be)",
+    "p": 20
+   },
+   {
+    "book": "BTS 19 REVIEW",
+    "dir": "tmp-bts/BTS 19 REVIEW",
+    "p": 25
+   },
+   {
+    "book": "BTS 19 TEST",
+    "dir": "tmp-bts/BTS 19 TEST",
+    "p": 19
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 19 001 (Jobs)",
+     "dir": "tmp-bts/BTS 19 001 (Jobs)",
+     "p": 29
+    },
+    {
+     "book": "BTS 19 002 (Jobs)",
+     "dir": "tmp-bts/BTS 19 002 (Jobs)",
+     "p": 29
+    },
+    {
+     "book": "BTS 19 003 (Jobs)",
+     "dir": "tmp-bts/BTS 19 003 (Jobs)",
+     "p": 18
+    },
+    {
+     "book": "BTS 19 004 (Skills and Training)",
+     "dir": "tmp-bts/BTS 19 004 (Skills and Training)",
+     "p": 33
+    },
+    {
+     "book": "BTS 19 005 (Skills and Training)",
+     "dir": "tmp-bts/BTS 19 005 (Skills and Training)",
+     "p": 21
+    },
+    {
+     "book": "BTS 19 006 (Skills and Training)",
+     "dir": "tmp-bts/BTS 19 006 (Skills and Training)",
+     "p": 19
+    }
+   ],
+   [
+    {
+     "book": "BTS 19 007 (I Want to be)",
+     "dir": "tmp-bts/BTS 19 007 (I Want to be)",
+     "p": 28
+    },
+    {
+     "book": "BTS 19 008 (I Want to be)",
+     "dir": "tmp-bts/BTS 19 008 (I Want to be)",
+     "p": 25
+    },
+    {
+     "book": "BTS 19 009 (I Want to be)",
+     "dir": "tmp-bts/BTS 19 009 (I Want to be)",
+     "p": 20
+    },
+    {
+     "book": "BTS 19 REVIEW",
+     "dir": "tmp-bts/BTS 19 REVIEW",
+     "p": 25
+    },
+    {
+     "book": "BTS 19 TEST",
+     "dir": "tmp-bts/BTS 19 TEST",
+     "p": 19
+    }
+   ]
+  ]
+ },
+ "20": {
+  "books": [
+   {
+    "book": "BTS 20 001 (Food and Restaurants)",
+    "dir": "tmp-bts/BTS 20 001 (Food and Restaurants)",
+    "p": 24
+   },
+   {
+    "book": "BTS 20 002 (Food and Restaurants)",
+    "dir": "tmp-bts/BTS 20 002 (Food and Restaurants)",
+    "p": 26
+   },
+   {
+    "book": "BTS 20 003 (Food and Restaurants)",
+    "dir": "tmp-bts/BTS 20 003 (Food and Restaurants)",
+    "p": 17
+   },
+   {
+    "book": "BTS 20 004 (Taste)",
+    "dir": "tmp-bts/BTS 20 004 (Taste)",
+    "p": 27
+   },
+   {
+    "book": "BTS 20 005 (Taste)",
+    "dir": "tmp-bts/BTS 20 005 (Taste)",
+    "p": 23
+   },
+   {
+    "book": "BTS 20 006 (Taste)",
+    "dir": "tmp-bts/BTS 20 006 (Taste)",
+    "p": 17
+   },
+   {
+    "book": "BTS 20 007 (Special Orders)",
+    "dir": "tmp-bts/BTS 20 007 (Special Orders)",
+    "p": 20
+   },
+   {
+    "book": "BTS 20 008 (Special Orders)",
+    "dir": "tmp-bts/BTS 20 008 (Special Orders)",
+    "p": 23
+   },
+   {
+    "book": "BTS 20 009 (Special Orders)",
+    "dir": "tmp-bts/BTS 20 009 (Special Orders)",
+    "p": 20
+   },
+   {
+    "book": "BTS 20 REVIEW",
+    "dir": "tmp-bts/BTS 20 REVIEW",
+    "p": 40
+   },
+   {
+    "book": "BTS 20 TEST",
+    "dir": "tmp-bts/BTS 20 TEST",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 20 001 (Food and Restaurants)",
+     "dir": "tmp-bts/BTS 20 001 (Food and Restaurants)",
+     "p": 24
+    },
+    {
+     "book": "BTS 20 002 (Food and Restaurants)",
+     "dir": "tmp-bts/BTS 20 002 (Food and Restaurants)",
+     "p": 26
+    },
+    {
+     "book": "BTS 20 003 (Food and Restaurants)",
+     "dir": "tmp-bts/BTS 20 003 (Food and Restaurants)",
+     "p": 17
+    },
+    {
+     "book": "BTS 20 004 (Taste)",
+     "dir": "tmp-bts/BTS 20 004 (Taste)",
+     "p": 27
+    },
+    {
+     "book": "BTS 20 005 (Taste)",
+     "dir": "tmp-bts/BTS 20 005 (Taste)",
+     "p": 23
+    },
+    {
+     "book": "BTS 20 006 (Taste)",
+     "dir": "tmp-bts/BTS 20 006 (Taste)",
+     "p": 17
+    }
+   ],
+   [
+    {
+     "book": "BTS 20 007 (Special Orders)",
+     "dir": "tmp-bts/BTS 20 007 (Special Orders)",
+     "p": 20
+    },
+    {
+     "book": "BTS 20 008 (Special Orders)",
+     "dir": "tmp-bts/BTS 20 008 (Special Orders)",
+     "p": 23
+    },
+    {
+     "book": "BTS 20 009 (Special Orders)",
+     "dir": "tmp-bts/BTS 20 009 (Special Orders)",
+     "p": 20
+    },
+    {
+     "book": "BTS 20 REVIEW",
+     "dir": "tmp-bts/BTS 20 REVIEW",
+     "p": 40
+    },
+    {
+     "book": "BTS 20 TEST",
+     "dir": "tmp-bts/BTS 20 TEST",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "21": {
+  "books": [
+   {
+    "book": "BTS 21 001 (Asian Holidays)",
+    "dir": "tmp-bts/BTS 21 001 (Asian Holidays)",
+    "p": 26
+   },
+   {
+    "book": "BTS 21 002  (Asian Holidays)",
+    "dir": "tmp-bts/BTS 21 002  (Asian Holidays)",
+    "p": 26
+   },
+   {
+    "book": "BTS 21 003  (Asian Holidays)",
+    "dir": "tmp-bts/BTS 21 003  (Asian Holidays)",
+    "p": 20
+   },
+   {
+    "book": "BTS 21 004 (Holidays Around the World)",
+    "dir": "tmp-bts/BTS 21 004 (Holidays Around the World)",
+    "p": 25
+   },
+   {
+    "book": "BTS 21 005 (Holidays Around the World)",
+    "dir": "tmp-bts/BTS 21 005 (Holidays Around the World)",
+    "p": 22
+   },
+   {
+    "book": "BTS 21 006 (Holidays Around the World)",
+    "dir": "tmp-bts/BTS 21 006 (Holidays Around the World)",
+    "p": 21
+   },
+   {
+    "book": "BTS 21 007 (Planning for a celebration)",
+    "dir": "tmp-bts/BTS 21 007 (Planning for a celebration)",
+    "p": 25
+   },
+   {
+    "book": "BTS 21 008 (Planning for a celebration)",
+    "dir": "tmp-bts/BTS 21 008 (Planning for a celebration)",
+    "p": 23
+   },
+   {
+    "book": "BTS 21 009 (Planning for a celebration)",
+    "dir": "tmp-bts/BTS 21 009 (Planning for a celebration)",
+    "p": 19
+   },
+   {
+    "book": "BTS 21 Review",
+    "dir": "tmp-bts/BTS 21 Review",
+    "p": 29
+   },
+   {
+    "book": "BTS 21 Test",
+    "dir": "tmp-bts/BTS 21 Test",
+    "p": 14
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 21 001 (Asian Holidays)",
+     "dir": "tmp-bts/BTS 21 001 (Asian Holidays)",
+     "p": 26
+    },
+    {
+     "book": "BTS 21 002  (Asian Holidays)",
+     "dir": "tmp-bts/BTS 21 002  (Asian Holidays)",
+     "p": 26
+    },
+    {
+     "book": "BTS 21 003  (Asian Holidays)",
+     "dir": "tmp-bts/BTS 21 003  (Asian Holidays)",
+     "p": 20
+    },
+    {
+     "book": "BTS 21 004 (Holidays Around the World)",
+     "dir": "tmp-bts/BTS 21 004 (Holidays Around the World)",
+     "p": 25
+    },
+    {
+     "book": "BTS 21 005 (Holidays Around the World)",
+     "dir": "tmp-bts/BTS 21 005 (Holidays Around the World)",
+     "p": 22
+    },
+    {
+     "book": "BTS 21 006 (Holidays Around the World)",
+     "dir": "tmp-bts/BTS 21 006 (Holidays Around the World)",
+     "p": 21
+    }
+   ],
+   [
+    {
+     "book": "BTS 21 007 (Planning for a celebration)",
+     "dir": "tmp-bts/BTS 21 007 (Planning for a celebration)",
+     "p": 25
+    },
+    {
+     "book": "BTS 21 008 (Planning for a celebration)",
+     "dir": "tmp-bts/BTS 21 008 (Planning for a celebration)",
+     "p": 23
+    },
+    {
+     "book": "BTS 21 009 (Planning for a celebration)",
+     "dir": "tmp-bts/BTS 21 009 (Planning for a celebration)",
+     "p": 19
+    },
+    {
+     "book": "BTS 21 Review",
+     "dir": "tmp-bts/BTS 21 Review",
+     "p": 29
+    },
+    {
+     "book": "BTS 21 Test",
+     "dir": "tmp-bts/BTS 21 Test",
+     "p": 14
+    }
+   ]
+  ]
+ },
+ "22": {
+  "books": [
+   {
+    "book": "BTS 22 001 (The Human Body)",
+    "dir": "tmp-bts/BTS 22 001 (The Human Body)",
+    "p": 37
+   },
+   {
+    "book": "BTS 22 002 (The Human Body)",
+    "dir": "tmp-bts/BTS 22 002 (The Human Body)",
+    "p": 26
+   },
+   {
+    "book": "BTS 22 003 (The Human Body)",
+    "dir": "tmp-bts/BTS 22 003 (The Human Body)",
+    "p": 20
+   },
+   {
+    "book": "BTS 22 004 (I am sick)",
+    "dir": "tmp-bts/BTS 22 004 (I am sick)",
+    "p": 33
+   },
+   {
+    "book": "BTS 22 005 (I am sick)",
+    "dir": "tmp-bts/BTS 22 005 (I am sick)",
+    "p": 30
+   },
+   {
+    "book": "BTS 22 006 (I am sick)",
+    "dir": "tmp-bts/BTS 22 006 (I am sick)",
+    "p": 18
+   },
+   {
+    "book": "BTS 22 007 (Staying Healthy)",
+    "dir": "tmp-bts/BTS 22 007 (Staying Healthy)",
+    "p": 33
+   },
+   {
+    "book": "BTS 22 008 (Staying Healthy)",
+    "dir": "tmp-bts/BTS 22 008 (Staying Healthy)",
+    "p": 30
+   },
+   {
+    "book": "BTS 22 009 (Staying Healthy)",
+    "dir": "tmp-bts/BTS 22 009 (Staying Healthy)",
+    "p": 20
+   },
+   {
+    "book": "BTS 22 Review",
+    "dir": "tmp-bts/BTS 22 Review",
+    "p": 39
+   },
+   {
+    "book": "BTS 22 Test",
+    "dir": "tmp-bts/BTS 22 Test",
+    "p": 17
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 22 001 (The Human Body)",
+     "dir": "tmp-bts/BTS 22 001 (The Human Body)",
+     "p": 37
+    },
+    {
+     "book": "BTS 22 002 (The Human Body)",
+     "dir": "tmp-bts/BTS 22 002 (The Human Body)",
+     "p": 26
+    },
+    {
+     "book": "BTS 22 003 (The Human Body)",
+     "dir": "tmp-bts/BTS 22 003 (The Human Body)",
+     "p": 20
+    },
+    {
+     "book": "BTS 22 004 (I am sick)",
+     "dir": "tmp-bts/BTS 22 004 (I am sick)",
+     "p": 33
+    },
+    {
+     "book": "BTS 22 005 (I am sick)",
+     "dir": "tmp-bts/BTS 22 005 (I am sick)",
+     "p": 30
+    },
+    {
+     "book": "BTS 22 006 (I am sick)",
+     "dir": "tmp-bts/BTS 22 006 (I am sick)",
+     "p": 18
+    }
+   ],
+   [
+    {
+     "book": "BTS 22 007 (Staying Healthy)",
+     "dir": "tmp-bts/BTS 22 007 (Staying Healthy)",
+     "p": 33
+    },
+    {
+     "book": "BTS 22 008 (Staying Healthy)",
+     "dir": "tmp-bts/BTS 22 008 (Staying Healthy)",
+     "p": 30
+    },
+    {
+     "book": "BTS 22 009 (Staying Healthy)",
+     "dir": "tmp-bts/BTS 22 009 (Staying Healthy)",
+     "p": 20
+    },
+    {
+     "book": "BTS 22 Review",
+     "dir": "tmp-bts/BTS 22 Review",
+     "p": 39
+    },
+    {
+     "book": "BTS 22 Test",
+     "dir": "tmp-bts/BTS 22 Test",
+     "p": 17
+    }
+   ]
+  ]
+ },
+ "23": {
+  "books": [
+   {
+    "book": "BTS 23 001-What's on the TV",
+    "dir": "tmp-bts/BTS 23 001-What_s on the TV",
+    "p": 28
+   },
+   {
+    "book": "BTS 23 002-What's on the TV",
+    "dir": "tmp-bts/BTS 23 002-What_s on the TV",
+    "p": 26
+   },
+   {
+    "book": "BTS 23 003-What's on the TV",
+    "dir": "tmp-bts/BTS 23 003-What_s on the TV",
+    "p": 19
+   },
+   {
+    "book": "BTS 23 004-The News",
+    "dir": "tmp-bts/BTS 23 004-The News",
+    "p": 26
+   },
+   {
+    "book": "BTS 23 005-The News",
+    "dir": "tmp-bts/BTS 23 005-The News",
+    "p": 22
+   },
+   {
+    "book": "BTS 23 006-The News",
+    "dir": "tmp-bts/BTS 23 006-The News",
+    "p": 17
+   },
+   {
+    "book": "BTS 23 007-Commercials",
+    "dir": "tmp-bts/BTS 23 007-Commercials",
+    "p": 30
+   },
+   {
+    "book": "BTS 23 008-Commercials",
+    "dir": "tmp-bts/BTS 23 008-Commercials",
+    "p": 18
+   },
+   {
+    "book": "BTS 23 009-Commercials",
+    "dir": "tmp-bts/BTS 23 009-Commercials",
+    "p": 19
+   },
+   {
+    "book": "BTS 23 Review",
+    "dir": "tmp-bts/BTS 23 Review",
+    "p": 35
+   },
+   {
+    "book": "BTS 23 Test",
+    "dir": "tmp-bts/BTS 23 Test",
+    "p": 16
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 23 001-What's on the TV",
+     "dir": "tmp-bts/BTS 23 001-What_s on the TV",
+     "p": 28
+    },
+    {
+     "book": "BTS 23 002-What's on the TV",
+     "dir": "tmp-bts/BTS 23 002-What_s on the TV",
+     "p": 26
+    },
+    {
+     "book": "BTS 23 003-What's on the TV",
+     "dir": "tmp-bts/BTS 23 003-What_s on the TV",
+     "p": 19
+    },
+    {
+     "book": "BTS 23 004-The News",
+     "dir": "tmp-bts/BTS 23 004-The News",
+     "p": 26
+    },
+    {
+     "book": "BTS 23 005-The News",
+     "dir": "tmp-bts/BTS 23 005-The News",
+     "p": 22
+    },
+    {
+     "book": "BTS 23 006-The News",
+     "dir": "tmp-bts/BTS 23 006-The News",
+     "p": 17
+    }
+   ],
+   [
+    {
+     "book": "BTS 23 007-Commercials",
+     "dir": "tmp-bts/BTS 23 007-Commercials",
+     "p": 30
+    },
+    {
+     "book": "BTS 23 008-Commercials",
+     "dir": "tmp-bts/BTS 23 008-Commercials",
+     "p": 18
+    },
+    {
+     "book": "BTS 23 009-Commercials",
+     "dir": "tmp-bts/BTS 23 009-Commercials",
+     "p": 19
+    },
+    {
+     "book": "BTS 23 Review",
+     "dir": "tmp-bts/BTS 23 Review",
+     "p": 35
+    },
+    {
+     "book": "BTS 23 Test",
+     "dir": "tmp-bts/BTS 23 Test",
+     "p": 16
+    }
+   ]
+  ]
+ },
+ "24": {
+  "books": [
+   {
+    "book": "BTS 24 001 (Fantasy Worlds)",
+    "dir": "tmp-bts/BTS 24 001 (Fantasy Worlds)",
+    "p": 29
+   },
+   {
+    "book": "BTS 24 002 (Fantasy Worlds)",
+    "dir": "tmp-bts/BTS 24 002 (Fantasy Worlds)",
+    "p": 22
+   },
+   {
+    "book": "BTS 24 003 (Fantasy Worlds)",
+    "dir": "tmp-bts/BTS 24 003 (Fantasy Worlds)",
+    "p": 20
+   },
+   {
+    "book": "BTS 24 004 ( If I were a millionaire)",
+    "dir": "tmp-bts/BTS 24 004 ( If I were a millionaire)",
+    "p": 28
+   },
+   {
+    "book": "BTS 24 005 ( If I were a millionaire)",
+    "dir": "tmp-bts/BTS 24 005 ( If I were a millionaire)",
+    "p": 21
+   },
+   {
+    "book": "BTS 24 006 ( If I were a millionaire)",
+    "dir": "tmp-bts/BTS 24 006 ( If I were a millionaire)",
+    "p": 18
+   },
+   {
+    "book": "BTS 24 007 (Advantages and Disadvantages)",
+    "dir": "tmp-bts/BTS 24 007 (Advantages and Disadvantages)",
+    "p": 28
+   },
+   {
+    "book": "BTS 24 008 (Advantages and Disadvantages)",
+    "dir": "tmp-bts/BTS 24 008 (Advantages and Disadvantages)",
+    "p": 22
+   },
+   {
+    "book": "BTS 24 009 (Advantages and Disadvantages)",
+    "dir": "tmp-bts/BTS 24 009 (Advantages and Disadvantages)",
+    "p": 20
+   },
+   {
+    "book": "BTS 24 Review",
+    "dir": "tmp-bts/BTS 24 Review",
+    "p": 24
+   },
+   {
+    "book": "BTS 24 Test",
+    "dir": "tmp-bts/BTS 24 Test",
+    "p": 15
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 24 001 (Fantasy Worlds)",
+     "dir": "tmp-bts/BTS 24 001 (Fantasy Worlds)",
+     "p": 29
+    },
+    {
+     "book": "BTS 24 002 (Fantasy Worlds)",
+     "dir": "tmp-bts/BTS 24 002 (Fantasy Worlds)",
+     "p": 22
+    },
+    {
+     "book": "BTS 24 003 (Fantasy Worlds)",
+     "dir": "tmp-bts/BTS 24 003 (Fantasy Worlds)",
+     "p": 20
+    },
+    {
+     "book": "BTS 24 004 ( If I were a millionaire)",
+     "dir": "tmp-bts/BTS 24 004 ( If I were a millionaire)",
+     "p": 28
+    },
+    {
+     "book": "BTS 24 005 ( If I were a millionaire)",
+     "dir": "tmp-bts/BTS 24 005 ( If I were a millionaire)",
+     "p": 21
+    },
+    {
+     "book": "BTS 24 006 ( If I were a millionaire)",
+     "dir": "tmp-bts/BTS 24 006 ( If I were a millionaire)",
+     "p": 18
+    }
+   ],
+   [
+    {
+     "book": "BTS 24 007 (Advantages and Disadvantages)",
+     "dir": "tmp-bts/BTS 24 007 (Advantages and Disadvantages)",
+     "p": 28
+    },
+    {
+     "book": "BTS 24 008 (Advantages and Disadvantages)",
+     "dir": "tmp-bts/BTS 24 008 (Advantages and Disadvantages)",
+     "p": 22
+    },
+    {
+     "book": "BTS 24 009 (Advantages and Disadvantages)",
+     "dir": "tmp-bts/BTS 24 009 (Advantages and Disadvantages)",
+     "p": 20
+    },
+    {
+     "book": "BTS 24 Review",
+     "dir": "tmp-bts/BTS 24 Review",
+     "p": 24
+    },
+    {
+     "book": "BTS 24 Test",
+     "dir": "tmp-bts/BTS 24 Test",
+     "p": 15
+    }
+   ]
+  ]
+ },
+ "25": {
+  "books": [
+   {
+    "book": "BTS 25 001 (Great Inventions)",
+    "dir": "tmp-bts/BTS 25 001 (Great Inventions)",
+    "p": 25
+   },
+   {
+    "book": "BTS 25 002 (Great Inventions)",
+    "dir": "tmp-bts/BTS 25 002 (Great Inventions)",
+    "p": 25
+   },
+   {
+    "book": "BTS 25 003 (Great Inventions)",
+    "dir": "tmp-bts/BTS 25 003 (Great Inventions)",
+    "p": 23
+   },
+   {
+    "book": "BTS 25 004 (Making life easier)",
+    "dir": "tmp-bts/BTS 25 004 (Making life easier)",
+    "p": 30
+   },
+   {
+    "book": "BTS 25 005 (Making life easier)",
+    "dir": "tmp-bts/BTS 25 005 (Making life easier)",
+    "p": 22
+   },
+   {
+    "book": "BTS 25 006 (Making life easier)",
+    "dir": "tmp-bts/BTS 25 006 (Making life easier)",
+    "p": 18
+   },
+   {
+    "book": "BTS 25 007 (Minds and Ideas)",
+    "dir": "tmp-bts/BTS 25 007 (Minds and Ideas)",
+    "p": 25
+   },
+   {
+    "book": "BTS 25 008 (Minds and Ideas)",
+    "dir": "tmp-bts/BTS 25 008 (Minds and Ideas)",
+    "p": 22
+   },
+   {
+    "book": "BTS 25 009 (Minds and Ideas)",
+    "dir": "tmp-bts/BTS 25 009 (Minds and Ideas)",
+    "p": 23
+   },
+   {
+    "book": "BTS 25 REVIEW",
+    "dir": "tmp-bts/BTS 25 REVIEW",
+    "p": 26
+   },
+   {
+    "book": "BTS 25 TEST",
+    "dir": "tmp-bts/BTS 25 TEST",
+    "p": 9
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 25 001 (Great Inventions)",
+     "dir": "tmp-bts/BTS 25 001 (Great Inventions)",
+     "p": 25
+    },
+    {
+     "book": "BTS 25 002 (Great Inventions)",
+     "dir": "tmp-bts/BTS 25 002 (Great Inventions)",
+     "p": 25
+    },
+    {
+     "book": "BTS 25 003 (Great Inventions)",
+     "dir": "tmp-bts/BTS 25 003 (Great Inventions)",
+     "p": 23
+    },
+    {
+     "book": "BTS 25 004 (Making life easier)",
+     "dir": "tmp-bts/BTS 25 004 (Making life easier)",
+     "p": 30
+    },
+    {
+     "book": "BTS 25 005 (Making life easier)",
+     "dir": "tmp-bts/BTS 25 005 (Making life easier)",
+     "p": 22
+    }
+   ],
+   [
+    {
+     "book": "BTS 25 006 (Making life easier)",
+     "dir": "tmp-bts/BTS 25 006 (Making life easier)",
+     "p": 18
+    },
+    {
+     "book": "BTS 25 007 (Minds and Ideas)",
+     "dir": "tmp-bts/BTS 25 007 (Minds and Ideas)",
+     "p": 25
+    },
+    {
+     "book": "BTS 25 008 (Minds and Ideas)",
+     "dir": "tmp-bts/BTS 25 008 (Minds and Ideas)",
+     "p": 22
+    },
+    {
+     "book": "BTS 25 009 (Minds and Ideas)",
+     "dir": "tmp-bts/BTS 25 009 (Minds and Ideas)",
+     "p": 23
+    },
+    {
+     "book": "BTS 25 REVIEW",
+     "dir": "tmp-bts/BTS 25 REVIEW",
+     "p": 26
+    },
+    {
+     "book": "BTS 25 TEST",
+     "dir": "tmp-bts/BTS 25 TEST",
+     "p": 9
+    }
+   ]
+  ]
+ },
+ "26": {
+  "books": [
+   {
+    "book": "BTS 26 001 - Animals in their habitats",
+    "dir": "tmp-bts/BTS 26 001 - Animals in their habitats",
+    "p": 26
+   },
+   {
+    "book": "BTS 26 002 - Animals in their habitats",
+    "dir": "tmp-bts/BTS 26 002 - Animals in their habitats",
+    "p": 22
+   },
+   {
+    "book": "BTS 26 003 - Animals in their habitats",
+    "dir": "tmp-bts/BTS 26 003 - Animals in their habitats",
+    "p": 20
+   },
+   {
+    "book": "BTS 26 004 -Natural Resources",
+    "dir": "tmp-bts/BTS 26 004 -Natural Resources",
+    "p": 30
+   },
+   {
+    "book": "BTS 26 005--Natural Resources",
+    "dir": "tmp-bts/BTS 26 005--Natural Resources",
+    "p": 21
+   },
+   {
+    "book": "BTS 26 006-Natural Resources",
+    "dir": "tmp-bts/BTS 26 006-Natural Resources",
+    "p": 19
+   },
+   {
+    "book": "BTS 26 007-Planet in trouble",
+    "dir": "tmp-bts/BTS 26 007-Planet in trouble",
+    "p": 27
+   },
+   {
+    "book": "BTS 26 008-Planet in trouble",
+    "dir": "tmp-bts/BTS 26 008-Planet in trouble",
+    "p": 22
+   },
+   {
+    "book": "BTS 26 009-Planet in trouble",
+    "dir": "tmp-bts/BTS 26 009-Planet in trouble",
+    "p": 19
+   },
+   {
+    "book": "BTS 26 REVIEW",
+    "dir": "tmp-bts/BTS 26 REVIEW",
+    "p": 32
+   },
+   {
+    "book": "BTS 26 TEST",
+    "dir": "tmp-bts/BTS 26 TEST",
+    "p": 15
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 26 001 - Animals in their habitats",
+     "dir": "tmp-bts/BTS 26 001 - Animals in their habitats",
+     "p": 26
+    },
+    {
+     "book": "BTS 26 002 - Animals in their habitats",
+     "dir": "tmp-bts/BTS 26 002 - Animals in their habitats",
+     "p": 22
+    },
+    {
+     "book": "BTS 26 003 - Animals in their habitats",
+     "dir": "tmp-bts/BTS 26 003 - Animals in their habitats",
+     "p": 20
+    },
+    {
+     "book": "BTS 26 004 -Natural Resources",
+     "dir": "tmp-bts/BTS 26 004 -Natural Resources",
+     "p": 30
+    },
+    {
+     "book": "BTS 26 005--Natural Resources",
+     "dir": "tmp-bts/BTS 26 005--Natural Resources",
+     "p": 21
+    },
+    {
+     "book": "BTS 26 006-Natural Resources",
+     "dir": "tmp-bts/BTS 26 006-Natural Resources",
+     "p": 19
+    }
+   ],
+   [
+    {
+     "book": "BTS 26 007-Planet in trouble",
+     "dir": "tmp-bts/BTS 26 007-Planet in trouble",
+     "p": 27
+    },
+    {
+     "book": "BTS 26 008-Planet in trouble",
+     "dir": "tmp-bts/BTS 26 008-Planet in trouble",
+     "p": 22
+    },
+    {
+     "book": "BTS 26 009-Planet in trouble",
+     "dir": "tmp-bts/BTS 26 009-Planet in trouble",
+     "p": 19
+    },
+    {
+     "book": "BTS 26 REVIEW",
+     "dir": "tmp-bts/BTS 26 REVIEW",
+     "p": 32
+    },
+    {
+     "book": "BTS 26 TEST",
+     "dir": "tmp-bts/BTS 26 TEST",
+     "p": 15
+    }
+   ]
+  ]
+ },
+ "27": {
+  "books": [
+   {
+    "book": "BTS 27 001 (fashion)",
+    "dir": "tmp-bts/BTS 27 001 (fashion)",
+    "p": 30
+   },
+   {
+    "book": "BTS 27 002(fashion)",
+    "dir": "tmp-bts/BTS 27 002(fashion)",
+    "p": 24
+   },
+   {
+    "book": "BTS 27 003(fashion)",
+    "dir": "tmp-bts/BTS 27 003(fashion)",
+    "p": 20
+   },
+   {
+    "book": "BTS 27 004 (My Dream outfit)",
+    "dir": "tmp-bts/BTS 27 004 (My Dream outfit)",
+    "p": 26
+   },
+   {
+    "book": "BTS 27 005 (My Dream outfit)",
+    "dir": "tmp-bts/BTS 27 005 (My Dream outfit)",
+    "p": 21
+   },
+   {
+    "book": "BTS 27 006 (My Dream outfit)",
+    "dir": "tmp-bts/BTS 27 006 (My Dream outfit)",
+    "p": 17
+   },
+   {
+    "book": "BTS 27 007 (Fads Come and Go)",
+    "dir": "tmp-bts/BTS 27 007 (Fads Come and Go)",
+    "p": 28
+   },
+   {
+    "book": "BTS 27 008 (Fads Come and Go)",
+    "dir": "tmp-bts/BTS 27 008 (Fads Come and Go)",
+    "p": 22
+   },
+   {
+    "book": "BTS 27 009 (Fads Come and Go)",
+    "dir": "tmp-bts/BTS 27 009 (Fads Come and Go)",
+    "p": 21
+   },
+   {
+    "book": "BTS 27 REVIEW",
+    "dir": "tmp-bts/BTS 27 REVIEW",
+    "p": 24
+   },
+   {
+    "book": "BTS 27 TEST",
+    "dir": "tmp-bts/BTS 27 TEST",
+    "p": 9
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 27 001 (fashion)",
+     "dir": "tmp-bts/BTS 27 001 (fashion)",
+     "p": 30
+    },
+    {
+     "book": "BTS 27 002(fashion)",
+     "dir": "tmp-bts/BTS 27 002(fashion)",
+     "p": 24
+    },
+    {
+     "book": "BTS 27 003(fashion)",
+     "dir": "tmp-bts/BTS 27 003(fashion)",
+     "p": 20
+    },
+    {
+     "book": "BTS 27 004 (My Dream outfit)",
+     "dir": "tmp-bts/BTS 27 004 (My Dream outfit)",
+     "p": 26
+    },
+    {
+     "book": "BTS 27 005 (My Dream outfit)",
+     "dir": "tmp-bts/BTS 27 005 (My Dream outfit)",
+     "p": 21
+    }
+   ],
+   [
+    {
+     "book": "BTS 27 006 (My Dream outfit)",
+     "dir": "tmp-bts/BTS 27 006 (My Dream outfit)",
+     "p": 17
+    },
+    {
+     "book": "BTS 27 007 (Fads Come and Go)",
+     "dir": "tmp-bts/BTS 27 007 (Fads Come and Go)",
+     "p": 28
+    },
+    {
+     "book": "BTS 27 008 (Fads Come and Go)",
+     "dir": "tmp-bts/BTS 27 008 (Fads Come and Go)",
+     "p": 22
+    },
+    {
+     "book": "BTS 27 009 (Fads Come and Go)",
+     "dir": "tmp-bts/BTS 27 009 (Fads Come and Go)",
+     "p": 21
+    },
+    {
+     "book": "BTS 27 REVIEW",
+     "dir": "tmp-bts/BTS 27 REVIEW",
+     "p": 24
+    },
+    {
+     "book": "BTS 27 TEST",
+     "dir": "tmp-bts/BTS 27 TEST",
+     "p": 9
+    }
+   ]
+  ]
+ },
+ "28": {
+  "books": [
+   {
+    "book": "BTS 28 001 (Travel in Asia)",
+    "dir": "tmp-bts/BTS 28 001 (Travel in Asia)",
+    "p": 34
+   },
+   {
+    "book": "BTS 28 002 (Travel in Asia)",
+    "dir": "tmp-bts/BTS 28 002 (Travel in Asia)",
+    "p": 31
+   },
+   {
+    "book": "BTS 28 003 (Travel in Asia)",
+    "dir": "tmp-bts/BTS 28 003 (Travel in Asia)",
+    "p": 20
+   },
+   {
+    "book": "BTS 28 004 (World Tour)",
+    "dir": "tmp-bts/BTS 28 004 (World Tour)",
+    "p": 31
+   },
+   {
+    "book": "BTS 28 005 (World Tour)",
+    "dir": "tmp-bts/BTS 28 005 (World Tour)",
+    "p": 30
+   },
+   {
+    "book": "BTS 28 006 (World Tour)",
+    "dir": "tmp-bts/BTS 28 006 (World Tour)",
+    "p": 17
+   },
+   {
+    "book": "BTS 28 007 ( Dream Vacation)",
+    "dir": "tmp-bts/BTS 28 007 ( Dream Vacation)",
+    "p": 31
+   },
+   {
+    "book": "BTS 28 008 ( Dream Vacation)",
+    "dir": "tmp-bts/BTS 28 008 ( Dream Vacation)",
+    "p": 26
+   },
+   {
+    "book": "BTS 28 009 ( Dream Vacation)",
+    "dir": "tmp-bts/BTS 28 009 ( Dream Vacation)",
+    "p": 24
+   },
+   {
+    "book": "BTS 28 REVIEW",
+    "dir": "tmp-bts/BTS 28 REVIEW",
+    "p": 24
+   },
+   {
+    "book": "BTS 28 TEST",
+    "dir": "tmp-bts/BTS 28 TEST",
+    "p": 9
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 28 001 (Travel in Asia)",
+     "dir": "tmp-bts/BTS 28 001 (Travel in Asia)",
+     "p": 34
+    },
+    {
+     "book": "BTS 28 002 (Travel in Asia)",
+     "dir": "tmp-bts/BTS 28 002 (Travel in Asia)",
+     "p": 31
+    },
+    {
+     "book": "BTS 28 003 (Travel in Asia)",
+     "dir": "tmp-bts/BTS 28 003 (Travel in Asia)",
+     "p": 20
+    },
+    {
+     "book": "BTS 28 004 (World Tour)",
+     "dir": "tmp-bts/BTS 28 004 (World Tour)",
+     "p": 31
+    },
+    {
+     "book": "BTS 28 005 (World Tour)",
+     "dir": "tmp-bts/BTS 28 005 (World Tour)",
+     "p": 30
+    }
+   ],
+   [
+    {
+     "book": "BTS 28 006 (World Tour)",
+     "dir": "tmp-bts/BTS 28 006 (World Tour)",
+     "p": 17
+    },
+    {
+     "book": "BTS 28 007 ( Dream Vacation)",
+     "dir": "tmp-bts/BTS 28 007 ( Dream Vacation)",
+     "p": 31
+    },
+    {
+     "book": "BTS 28 008 ( Dream Vacation)",
+     "dir": "tmp-bts/BTS 28 008 ( Dream Vacation)",
+     "p": 26
+    },
+    {
+     "book": "BTS 28 009 ( Dream Vacation)",
+     "dir": "tmp-bts/BTS 28 009 ( Dream Vacation)",
+     "p": 24
+    },
+    {
+     "book": "BTS 28 REVIEW",
+     "dir": "tmp-bts/BTS 28 REVIEW",
+     "p": 24
+    },
+    {
+     "book": "BTS 28 TEST",
+     "dir": "tmp-bts/BTS 28 TEST",
+     "p": 9
+    }
+   ]
+  ]
+ },
+ "29": {
+  "books": [
+   {
+    "book": "BTS 29 (001 - 003) unit1 Heroes",
+    "dir": "tmp-bts/BTS 29 (001 - 003) unit1 Heroes",
+    "p": 25
+   },
+   {
+    "book": "BTS 29 (004 - 006) unit2 Money",
+    "dir": "tmp-bts/BTS 29 (004 - 006) unit2 Money",
+    "p": 21
+   },
+   {
+    "book": "BTS 29 (007 - 009) unit3 Friends",
+    "dir": "tmp-bts/BTS 29 (007 - 009) unit3 Friends",
+    "p": 18
+   },
+   {
+    "book": "BTS 29 (010 - 012) unit4 Lying",
+    "dir": "tmp-bts/BTS 29 (010 - 012) unit4 Lying",
+    "p": 19
+   },
+   {
+    "book": "BTS 29 Review",
+    "dir": "tmp-bts/BTS 29 Review",
+    "p": 22
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 29 (001 - 003) unit1 Heroes",
+     "dir": "tmp-bts/BTS 29 (001 - 003) unit1 Heroes",
+     "p": 25
+    },
+    {
+     "book": "BTS 29 (004 - 006) unit2 Money",
+     "dir": "tmp-bts/BTS 29 (004 - 006) unit2 Money",
+     "p": 21
+    },
+    {
+     "book": "BTS 29 (007 - 009) unit3 Friends",
+     "dir": "tmp-bts/BTS 29 (007 - 009) unit3 Friends",
+     "p": 18
+    }
+   ],
+   [
+    {
+     "book": "BTS 29 (010 - 012) unit4 Lying",
+     "dir": "tmp-bts/BTS 29 (010 - 012) unit4 Lying",
+     "p": 19
+    },
+    {
+     "book": "BTS 29 Review",
+     "dir": "tmp-bts/BTS 29 Review",
+     "p": 22
+    }
+   ]
+  ]
+ },
+ "30": {
+  "books": [
+   {
+    "book": "BTS 30 (001 - 003) unit1 Living Abroad",
+    "dir": "tmp-bts/BTS 30 (001 - 003) unit1 Living Abroad",
+    "p": 27
+   },
+   {
+    "book": "BTS 30 (004 - 006) unit2 My Free Time",
+    "dir": "tmp-bts/BTS 30 (004 - 006) unit2 My Free Time",
+    "p": 23
+   },
+   {
+    "book": "BTS 30 (007 - 009) unit3 My Career",
+    "dir": "tmp-bts/BTS 30 (007 - 009) unit3 My Career",
+    "p": 26
+   },
+   {
+    "book": "BTS 30 (010 - 012) unit4 Exploring Space",
+    "dir": "tmp-bts/BTS 30 (010 - 012) unit4 Exploring Space",
+    "p": 27
+   },
+   {
+    "book": "BTS 30 Review",
+    "dir": "tmp-bts/BTS 30 Review",
+    "p": 23
+   },
+   {
+    "book": "BTS 30 Test",
+    "dir": "tmp-bts/BTS 30 Test",
+    "p": 11
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 30 (001 - 003) unit1 Living Abroad",
+     "dir": "tmp-bts/BTS 30 (001 - 003) unit1 Living Abroad",
+     "p": 27
+    },
+    {
+     "book": "BTS 30 (004 - 006) unit2 My Free Time",
+     "dir": "tmp-bts/BTS 30 (004 - 006) unit2 My Free Time",
+     "p": 23
+    },
+    {
+     "book": "BTS 30 (007 - 009) unit3 My Career",
+     "dir": "tmp-bts/BTS 30 (007 - 009) unit3 My Career",
+     "p": 26
+    }
+   ],
+   [
+    {
+     "book": "BTS 30 (010 - 012) unit4 Exploring Space",
+     "dir": "tmp-bts/BTS 30 (010 - 012) unit4 Exploring Space",
+     "p": 27
+    },
+    {
+     "book": "BTS 30 Review",
+     "dir": "tmp-bts/BTS 30 Review",
+     "p": 23
+    },
+    {
+     "book": "BTS 30 Test",
+     "dir": "tmp-bts/BTS 30 Test",
+     "p": 11
+    }
+   ]
+  ]
+ },
+ "31": {
+  "books": [
+   {
+    "book": "BTS 31 (001 - 003)  At the Movies",
+    "dir": "tmp-bts/BTS 31 (001 - 003)  At the Movies",
+    "p": 30
+   },
+   {
+    "book": "BTS 31 (004 - 006)  Animals",
+    "dir": "tmp-bts/BTS 31 (004 - 006)  Animals",
+    "p": 38
+   },
+   {
+    "book": "BTS 31 (007 - 009)  School Uniforms",
+    "dir": "tmp-bts/BTS 31 (007 - 009)  School Uniforms",
+    "p": 32
+   },
+   {
+    "book": "BTS 31 (010 - 012) Class President",
+    "dir": "tmp-bts/BTS 31 (010 - 012) Class President",
+    "p": 31
+   },
+   {
+    "book": "BTS 31 Review",
+    "dir": "tmp-bts/BTS 31 Review",
+    "p": 23
+   },
+   {
+    "book": "BTS 31 Test",
+    "dir": "tmp-bts/BTS 31 Test",
+    "p": 11
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 31 (001 - 003)  At the Movies",
+     "dir": "tmp-bts/BTS 31 (001 - 003)  At the Movies",
+     "p": 30
+    },
+    {
+     "book": "BTS 31 (004 - 006)  Animals",
+     "dir": "tmp-bts/BTS 31 (004 - 006)  Animals",
+     "p": 38
+    },
+    {
+     "book": "BTS 31 (007 - 009)  School Uniforms",
+     "dir": "tmp-bts/BTS 31 (007 - 009)  School Uniforms",
+     "p": 32
+    }
+   ],
+   [
+    {
+     "book": "BTS 31 (010 - 012) Class President",
+     "dir": "tmp-bts/BTS 31 (010 - 012) Class President",
+     "p": 31
+    },
+    {
+     "book": "BTS 31 Review",
+     "dir": "tmp-bts/BTS 31 Review",
+     "p": 23
+    },
+    {
+     "book": "BTS 31 Test",
+     "dir": "tmp-bts/BTS 31 Test",
+     "p": 11
+    }
+   ]
+  ]
+ },
+ "32": {
+  "books": [
+   {
+    "book": "BTS 32 (001 - 003) Bad habits",
+    "dir": "tmp-bts/BTS 32 (001 - 003) Bad habits",
+    "p": 28
+   },
+   {
+    "book": "BTS 32 (004 - 006)  Being Different",
+    "dir": "tmp-bts/BTS 32 (004 - 006)  Being Different",
+    "p": 24
+   },
+   {
+    "book": "BTS 32 (007 - 009)  Holidays",
+    "dir": "tmp-bts/BTS 32 (007 - 009)  Holidays",
+    "p": 23
+   },
+   {
+    "book": "BTS 32 (010 - 012)  Stress",
+    "dir": "tmp-bts/BTS 32 (010 - 012)  Stress",
+    "p": 29
+   },
+   {
+    "book": "BTS 32 Review",
+    "dir": "tmp-bts/BTS 32 Review",
+    "p": 18
+   },
+   {
+    "book": "BTS 32 Test",
+    "dir": "tmp-bts/BTS 32 Test",
+    "p": 10
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 32 (001 - 003) Bad habits",
+     "dir": "tmp-bts/BTS 32 (001 - 003) Bad habits",
+     "p": 28
+    },
+    {
+     "book": "BTS 32 (004 - 006)  Being Different",
+     "dir": "tmp-bts/BTS 32 (004 - 006)  Being Different",
+     "p": 24
+    },
+    {
+     "book": "BTS 32 (007 - 009)  Holidays",
+     "dir": "tmp-bts/BTS 32 (007 - 009)  Holidays",
+     "p": 23
+    }
+   ],
+   [
+    {
+     "book": "BTS 32 (010 - 012)  Stress",
+     "dir": "tmp-bts/BTS 32 (010 - 012)  Stress",
+     "p": 29
+    },
+    {
+     "book": "BTS 32 Review",
+     "dir": "tmp-bts/BTS 32 Review",
+     "p": 18
+    },
+    {
+     "book": "BTS 32 Test",
+     "dir": "tmp-bts/BTS 32 Test",
+     "p": 10
+    }
+   ]
+  ]
+ },
+ "33": {
+  "books": [
+   {
+    "book": "BTS 33 (001 - 003)  Computer Games",
+    "dir": "tmp-bts/BTS 33 (001 - 003)  Computer Games",
+    "p": 28
+   },
+   {
+    "book": "BTS 33 (004 - 006)  Popular Music",
+    "dir": "tmp-bts/BTS 33 (004 - 006)  Popular Music",
+    "p": 31
+   },
+   {
+    "book": "BTS 33 (007 - 009)  Professional Sports",
+    "dir": "tmp-bts/BTS 33 (007 - 009)  Professional Sports",
+    "p": 30
+   },
+   {
+    "book": "BTS 33 (010 - 012)  Public Transportation",
+    "dir": "tmp-bts/BTS 33 (010 - 012)  Public Transportation",
+    "p": 32
+   },
+   {
+    "book": "BTS 33 Review",
+    "dir": "tmp-bts/BTS 33 Review",
+    "p": 23
+   },
+   {
+    "book": "BTS 33 Test",
+    "dir": "tmp-bts/BTS 33 Test",
+    "p": 11
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 33 (001 - 003)  Computer Games",
+     "dir": "tmp-bts/BTS 33 (001 - 003)  Computer Games",
+     "p": 28
+    },
+    {
+     "book": "BTS 33 (004 - 006)  Popular Music",
+     "dir": "tmp-bts/BTS 33 (004 - 006)  Popular Music",
+     "p": 31
+    },
+    {
+     "book": "BTS 33 (007 - 009)  Professional Sports",
+     "dir": "tmp-bts/BTS 33 (007 - 009)  Professional Sports",
+     "p": 30
+    }
+   ],
+   [
+    {
+     "book": "BTS 33 (010 - 012)  Public Transportation",
+     "dir": "tmp-bts/BTS 33 (010 - 012)  Public Transportation",
+     "p": 32
+    },
+    {
+     "book": "BTS 33 Review",
+     "dir": "tmp-bts/BTS 33 Review",
+     "p": 23
+    },
+    {
+     "book": "BTS 33 Test",
+     "dir": "tmp-bts/BTS 33 Test",
+     "p": 11
+    }
+   ]
+  ]
+ },
+ "34": {
+  "books": [
+   {
+    "book": "BTS 34 (001 - 003)  Taking Risks",
+    "dir": "tmp-bts/BTS 34 (001 - 003)  Taking Risks",
+    "p": 32
+   },
+   {
+    "book": "BTS 34 (004 - 006)  Possibilities",
+    "dir": "tmp-bts/BTS 34 (004 - 006)  Possibilities",
+    "p": 28
+   },
+   {
+    "book": "BTS 34 (007 - 009)  Music",
+    "dir": "tmp-bts/BTS 34 (007 - 009)  Music",
+    "p": 29
+   },
+   {
+    "book": "BTS 34 (010 - 012) Hopes and Dreams",
+    "dir": "tmp-bts/BTS 34 (010 - 012) Hopes and Dreams",
+    "p": 29
+   },
+   {
+    "book": "BTS 34 Review",
+    "dir": "tmp-bts/BTS 34 Review",
+    "p": 23
+   },
+   {
+    "book": "BTS 34 Test",
+    "dir": "tmp-bts/BTS 34 Test",
+    "p": 11
+   }
+  ],
+  "parts": [
+   [
+    {
+     "book": "BTS 34 (001 - 003)  Taking Risks",
+     "dir": "tmp-bts/BTS 34 (001 - 003)  Taking Risks",
+     "p": 32
+    },
+    {
+     "book": "BTS 34 (004 - 006)  Possibilities",
+     "dir": "tmp-bts/BTS 34 (004 - 006)  Possibilities",
+     "p": 28
+    },
+    {
+     "book": "BTS 34 (007 - 009)  Music",
+     "dir": "tmp-bts/BTS 34 (007 - 009)  Music",
+     "p": 29
+    }
+   ],
+   [
+    {
+     "book": "BTS 34 (010 - 012) Hopes and Dreams",
+     "dir": "tmp-bts/BTS 34 (010 - 012) Hopes and Dreams",
+     "p": 29
+    },
+    {
+     "book": "BTS 34 Review",
+     "dir": "tmp-bts/BTS 34 Review",
+     "p": 23
+    },
+    {
+     "book": "BTS 34 Test",
+     "dir": "tmp-bts/BTS 34 Test",
+     "p": 11
+    }
+   ]
+  ]
+ }
+}
