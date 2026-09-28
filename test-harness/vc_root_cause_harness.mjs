@@ -6,17 +6,27 @@ const eq=(a,b,m)=>{assert.equal(a,b,m);pass++;};
 
 eq(classifyRootCause([
   {role:'teacher',teacher_network_type:'HOME',avg_loss:5},
+  {role:'teacher',teacher_network_type:'HOME',rx_conceal:8},
+  {role:'teacher',teacher_network_type:'OFFICE',avg_loss:0},
+  {role:'student',avg_loss:0}
+]).category,'HOME_TEACHER_NETWORK','HOME degraded with healthy comparison coverage');
+eq(classifyRootCause([
+  {role:'teacher',teacher_network_type:'HOME',avg_loss:5},
   {role:'teacher',teacher_network_type:'HOME',rx_conceal:8}
-]).category,'HOME_TEACHER_NETWORK','HOME only');
+]).category,'UNKNOWN','HOME-only sparse sample is not enough to attribute cause');
 
 eq(classifyRootCause([
   {role:'teacher',teacher_network_type:'OFFICE',avg_loss:5},
-  {role:'teacher',teacher_network_type:'OFFICE',rx_freeze:1}
-]).category,'OFFICE_TEACHER_NETWORK','OFFICE only');
+  {role:'teacher',teacher_network_type:'OFFICE',rx_freeze:1},
+  {role:'teacher',teacher_network_type:'HOME',avg_loss:0},
+  {role:'student',avg_loss:0}
+]).category,'OFFICE_TEACHER_NETWORK','OFFICE degraded with healthy comparison coverage');
 
 eq(classifyRootCause([
-  {role:'student',avg_loss:5},{role:'student',rx_aloss:5}
-]).category,'STUDENT_NETWORK','student only');
+  {role:'student',avg_loss:5},{role:'student',rx_aloss:5},
+  {role:'teacher',teacher_network_type:'HOME',avg_loss:0},
+  {role:'teacher',teacher_network_type:'OFFICE',avg_loss:0}
+]).category,'STUDENT_NETWORK','student degraded with healthy teacher comparison coverage');
 
 eq(classifyRootCause([
   {role:'teacher',teacher_network_type:'HOME',avg_loss:5,path:'relay'},
