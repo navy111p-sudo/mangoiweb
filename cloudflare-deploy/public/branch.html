@@ -175,6 +175,9 @@ html.dark .kpi-arrow{color:#7c8899}
 .tkpis .kpi.t-ai{background:#f4f0fd;border-color:#ddd3f5}
 .tkpis .kpi.t-live b{color:#17614f}
 .tkpis .kpi.t-ai b{color:#5b3fa8}
+.stushop{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px;color:#4b5663}
+.stushop select{flex:1;min-width:0;min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#16202c}
+.row .shop{font-size:12.5px;color:#4b5663;background:#eef1f5;border-radius:6px;padding:2px 7px}
 .tchip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:4px 6px 4px 10px;border-radius:999px;background:#eef1f5;font-size:13px}
 .tchip button{border:0;background:#dfe5ec;border-radius:999px;width:26px;height:26px;cursor:pointer;font:inherit;color:#2c3a48}
 .orgs{margin-top:10px}
@@ -200,6 +203,9 @@ html.dark .tkpis .kpi.t-ai{background:#241f38;border-color:#3a3160}
 html.dark .tkpis .kpi.t-live b{color:#7fd9bd}
 html.dark .tkpis .kpi.t-ai b{color:#c3b1f5}
 html.dark .tchip{background:#20272f}
+html.dark .stushop{color:#aeb9c4}
+html.dark .stushop select{background:#20272f;border-color:#39434f;color:#dbe3ea}
+html.dark .row .shop{background:#20272f;color:#c7d0da}
 html.dark .tchip button{background:#2f3944;color:#d3dbe4}
 html.dark .orgrow{border-top-color:#242d37}
 html.dark .orgrow .n{color:#95a2b0}
@@ -1010,6 +1016,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div>
       <input type="search" id="stuQ" oninput="paintStudents()" placeholder="이름 · 아이디로 찾기"
              data-en-ph="Search by name or ID" data-ko-ph="이름 · 아이디로 찾기">
+      <!-- 🏫 (2026-09-28 사장님) 대리점 고르기 — «전체» 또는 한 대리점. 아래 구분 탭(전체/화상+AI/…)은 그 안에서 그대로 거른다. -->
+      <label id="stuShopWrap" class="stushop" hidden><span data-en="Academy" data-ko="대리점">Academy</span>
+        <select id="stuShopSel" onchange="stuShopPick(this.value)"></select></label>
       <div id="stuSeg" class="tseg" role="tablist" hidden></div>
       <div id="stuBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </div>
@@ -1644,11 +1653,28 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.stuTabSet = function(tab){ D.stuTab = tab || 'all'; window.paintStudents(); };
   window.stuShopClear = function(){ D.stuShop = null; window.paintStudents(); };
+  // 🏫 드롭다운 값: '*' = 전체, 그 밖은 대리점 이름('' = 대리점 미지정). ⛔ 빈 문자열을 «전체» 로 쓰지 말 것 — 미지정과 겹친다.
+  window.stuShopPick = function(v){ D.stuShop = (v === '*') ? null : String(v); window.paintStudents(); };
+  function paintShopSel(all){
+    var wrap = document.getElementById('stuShopWrap'), sel = document.getElementById('stuShopSel');
+    if (!wrap || !sel) return;
+    var byShop = {};
+    all.forEach(function(s){ var k = String(s.shop_name || '').trim(); byShop[k] = (byShop[k] || 0) + 1; });
+    var names = Object.keys(byShop).filter(function(k){ return k; }).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    if (D.stuShop !== null && !Object.prototype.hasOwnProperty.call(byShop, D.stuShop)) byShop[D.stuShop] = 0, names.push(D.stuShop);
+    var opts = ['<option value="*">' + esc(T('All academies', '전체 대리점')) + ' (' + all.length + ')</option>'];
+    names.forEach(function(k){ opts.push('<option value="' + esc(k) + '">' + esc(k) + ' (' + byShop[k] + ')</option>'); });
+    if (byShop['']) opts.push('<option value="">' + esc(T('No academy', '대리점 미지정')) + ' (' + byShop[''] + ')</option>');
+    sel.innerHTML = opts.join('');
+    sel.value = D.stuShop === null ? '*' : D.stuShop;
+    wrap.hidden = false;
+  }
   window.paintStudents = function(){
     var j = D.students; if (!j) return;
     var el = document.getElementById('stuBody');
     var seg = document.getElementById('stuSeg');
     var q = (document.getElementById('stuQ').value || '').trim().toLowerCase();
+    paintShopSel(j.students || []);
     var base = (j.students || []).filter(function(s){
       if (D.stuShop !== null && String(s.shop_name || '').trim() !== D.stuShop) return false;   // 요약(서버 TRIM)과 같게
       if (!q) return true;
@@ -1670,10 +1696,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            + ' onclick="stuTabSet(\'' + t[0] + '\')">' + esc(t[1]) + ' ' + cnt[t[0]] + '</button>';
     }).join('');
     var list = D.stuTab === 'all' ? base : base.filter(function(s){ return trkOf(s) === D.stuTab; });
-    var chip = D.stuShop !== null
-      ? '<div class="tchip">📍 ' + esc(D.stuShop || T('No academy', '대리점 미지정'))
-        + ' <button type="button" onclick="stuShopClear()" aria-label="' + esc(T('Show all academies', '모든 대리점 보기')) + '">✕</button></div>'
-      : '';
+    var chip = '';   // (2026-09-28) 고른 대리점은 위 드롭다운이 보여 준다 — 칩을 따로 그리지 않는다.
     if (!list.length) {
       el.className = '';
       el.innerHTML = chip + '<div class="empty">' + esc(T('No students found.', '해당하는 학생이 없습니다.')) + '</div>';
@@ -1687,7 +1710,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var nm = (s.name && String(s.name) !== String(id)) ? s.name : T('(no name on file)', '이름 미등록');
       var tk = TRK[trkOf(s)];
       var st = s.status || '';
-      return '<div class="row"><b>' + esc(nm) + '</b><span class="muted">' + esc(id) + '</span>'
+      var shop = String(s.shop_name || '').trim();
+      return '<div class="row"><b>' + esc(nm) + '</b>'
+           + '<span class="shop">' + esc(shop || T('No academy', '대리점 미지정')) + '</span>'
+           + '<span class="muted">' + esc(id) + '</span>'
            + '<span class="trk ' + tk.cls + '">' + esc(T(tk.en, tk.ko)) + '</span>'
            + (st ? '<span class="muted">' + esc(st) + '</span>' : '') + '</div>';
     }).join('')

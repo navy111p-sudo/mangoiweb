@@ -210,6 +210,8 @@ const els = {
   stuBody: { className: '', innerHTML: '', textContent: '' },
   stuSeg: { hidden: true, innerHTML: '' },
   stuQ: { value: '' },
+  stuShopWrap: { hidden: true },
+  stuShopSel: { innerHTML: '', value: '' },
 };
 const D = { students: null };
 const win = {};
@@ -247,9 +249,20 @@ if (paint) {
   ok('짝: 화상+AI 탭에는 김서윤만', /김서윤/.test(els.stuBody.innerHTML) && !/정민재/.test(els.stuBody.innerHTML));
   safe(() => win.stuGo('all', '서면'));
   const r2 = (els.stuBody.innerHTML.match(/class="row"/g) || []).length;
-  ok('대리점 줄을 누르면 그 대리점 학생만(서면 3명) + 📍 표시', r2 === 3 && /📍 서면/.test(els.stuBody.innerHTML), r2);
-  safe(() => win.stuShopClear());
-  ok('📍 ✕ 로 모든 대리점으로 돌아온다', (els.stuBody.innerHTML.match(/class="row"/g) || []).length === 6);
+  // (2026-09-28) 고른 대리점은 목록 속 📍 칩이 아니라 «대리점» 드롭다운이 보여 준다.
+  ok('대리점 줄을 누르면 그 대리점 학생만(서면 3명) + 드롭다운이 «서면» 을 가리킨다',
+    r2 === 3 && els.stuShopSel.value === '서면' && els.stuShopWrap.hidden === false, r2 + ' / ' + els.stuShopSel.value);
+  ok('드롭다운에 전체와 대리점별 인원이 나온다',
+    /전체 대리점 \(6\)/.test(els.stuShopSel.innerHTML) && /서면 \(3\)/.test(els.stuShopSel.innerHTML) && /해운대 \(3\)/.test(els.stuShopSel.innerHTML),
+    els.stuShopSel.innerHTML);
+  ok('대리점을 골라도 구분 탭 숫자는 그 대리점 안에서 센다(서면: 전체 3)', /전체 3/.test(els.stuSeg.innerHTML), els.stuSeg.innerHTML);
+  ok('각 줄에 소속 대리점이 보인다', /class="shop">서면</.test(els.stuBody.innerHTML) && !/class="shop">해운대</.test(els.stuBody.innerHTML));
+  safe(() => win.stuShopPick('해운대'));
+  ok('드롭다운에서 다른 대리점 → 그 대리점만(해운대 3명)', (els.stuBody.innerHTML.match(/class="row"/g) || []).length === 3 && /김서윤/.test(els.stuBody.innerHTML) && !/정민재/.test(els.stuBody.innerHTML));
+  safe(() => win.stuShopPick(''));
+  ok('짝: 빈 값은 «전체» 가 아니라 «대리점 미지정» 이다(여기선 0명)', !/class="row"/.test(els.stuBody.innerHTML));
+  safe(() => win.stuShopPick('*'));
+  ok('«전체 대리점» 으로 모든 대리점으로 돌아온다', (els.stuBody.innerHTML.match(/class="row"/g) || []).length === 6 && els.stuShopSel.value === '*');
   safe(() => win.stuTabSet('idle'));
   ok('수업 기록 없음 탭 → 그 학생만', /윤쉬는/.test(els.stuBody.innerHTML) && !/정민재/.test(els.stuBody.innerHTML));
   D.students.track_ok = false; safe(() => paint());
