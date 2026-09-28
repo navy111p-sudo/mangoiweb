@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>NewSIU BASIC Library</title>
+<title>NewSIU Library</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Lexend:wght@400;600;800&family=Noto+Sans+KR:wght@400;700&display=swap">
 <style>
 :root{--bg:#F4F1F8;--ink:#16131F;--sub:#5B5566;--card:#fff;--line:#DCD5E6;--pink:#E0206F;--mint:#008C7C;--violet:#6A3DF0;--sun:#FFD23F}
@@ -74,10 +74,11 @@ h2{font-size:16px;margin:6px 0 0}
 var U=0, mode='easy', cur=0, manual=false, seq=0, audio=new Audio();
 var $=function(i){return document.getElementById(i);};
 // 자동 선택 규칙(제안) — 수준이 있으면 수준이 먼저, 없으면 나이. 둘 다 모르면 쉬운 판(더 안전한 쪽).
+// ADVANCE 는 한 단계 위라 기준을 올립니다(수준 6 이하·17세 이하 = EASY).
 function decide(){
-  var a=+$('age').value||0, l=+$('lv').value||0;
-  if(l) return [l<=4?'easy':'hard','수준 '+l+'단계 → '+(l<=4?'1~4단계는 <b>EASY</b>':'5~8단계는 <b>HARD</b>')];
-  if(a) return [a<=12?'easy':'hard','나이 '+a+'세 → '+(a<=12?'12세 이하는 <b>EASY</b>':'13세 이상은 <b>HARD</b>')+' (수준 기록이 없을 때만 나이로 정합니다)'];
+  var a=+$('age').value||0, l=+$('lv').value||0, adv=D[U].series==='ADVANCE', LC=adv?6:4, AC=adv?17:12;
+  if(l) return [l<=LC?'easy':'hard','수준 '+l+'단계 → '+(l<=LC?'1~'+LC+'단계는 <b>EASY</b>':(LC+1)+'~8단계는 <b>HARD</b>')+(adv?' (ADVANCE 기준)':'')];
+  if(a) return [a<=AC?'easy':'hard','나이 '+a+'세 → '+(a<=AC?AC+'세 이하는 <b>EASY</b>':(AC+1)+'세 이상은 <b>HARD</b>')+(adv?' (ADVANCE 기준)':'')+' (수준 기록이 없을 때만 나이로 정합니다)'];
   return ['easy','나이·수준을 모르면 <b>EASY</b> 로 시작합니다(어려워서 막히는 쪽이 더 나쁩니다).'];
 }
 function applyAuto(){ if(manual) return; var d=decide(); setMode(d[0]); $('why').innerHTML='🤖 자동 선택: '+d[1]; }
@@ -111,8 +112,9 @@ $('prev').onclick=function(){show(cur-1);}; $('next').onclick=function(){show(cu
 $('all').onclick=function(){ playList(D[U][mode].pages[cur].lines,0); }; $('stop').onclick=stopAll;
 addEventListener('keydown',function(e){ if(e.target.tagName==='SELECT') return; if(e.key==='ArrowRight')show(cur+1); if(e.key==='ArrowLeft')show(cur-1); });
 function pos(el,sp,k,n){ el.style.backgroundImage='url('+sp+')'; el.style.backgroundPosition='0 '+(n>1?k*100/(n-1):0)+'%'; }
-function setUnit(k){ U=(k+D.length)%D.length; $('unit').value=U; try{localStorage.setItem('nsiu_u',U);}catch(e){} cur=0; buildThumbs(); show(0,true); }
-D.forEach(function(u,k){ $('unit').add(new Option(u.no+' · '+u.title+'  (🗣 '+u.easy.turns+' / '+u.hard.turns+')',k)); });
+function setUnit(k){ U=(k+D.length)%D.length; $('unit').value=U; try{localStorage.setItem('nsiu_u',U);}catch(e){} cur=0; if(!manual){ applyAuto(); return; } buildThumbs(); show(0,true); }
+var groups={}; D.forEach(function(u,k){ var g=groups[u.series]; if(!g){ g=groups[u.series]=document.createElement('optgroup'); g.label='SIU '+u.series; $('unit').append(g); }
+  g.append(new Option(u.no+' · '+u.title+'  (🗣 '+u.easy.turns+' / '+u.hard.turns+')',k)); });
 $('unit').onchange=function(){ setUnit(+this.value); };
 $('uprev').onclick=function(){ setUnit(U-1); }; $('unext').onclick=function(){ setUnit(U+1); };
 try{ var s=+localStorage.getItem('nsiu_u'); if(s>0&&s<D.length) U=s; }catch(e){}

@@ -5,7 +5,10 @@
 // 8판 = 7판 구조 그대로, 단원 내용만 units/NNN.mjs 에서 읽음(001~030 공용).
 // 사용: node build8.mjs 002 easy|hard → u/002/slides-easy.html · say-easy.json · ko-chars-easy.txt · turns-easy.json
 import fs from 'fs';
-const NO = String(process.argv[2]||'001').padStart(3,'0');
+// 권 종류: 'a001' 처럼 a 로 시작하면 SIU ADVANCE(units/a001.mjs · u/a001/), 숫자만이면 SIU BASIC.
+const ARG = String(process.argv[2]||'001'), ADV = /^a/i.test(ARG);
+const NUM = ARG.replace(/\D/g,'').padStart(3,'0'), NO = ADV ? 'a'+NUM : NUM;
+const SERIES = ADV ? 'SIU ADVANCE' : 'SIU BASIC';
 const U = (await import(`./units/${NO}.mjs`)).default;
 const { KW, QS, IMG_E, IMG_H, PICS } = U;
 const MODE = process.argv[3] === 'hard' ? 'hard' : 'easy';
@@ -14,7 +17,7 @@ const OUT = new URL(`./u/${NO}/`, import.meta.url); fs.mkdirSync(OUT, {recursive
 const R = '/home/user/mangoiweb/';
 const IMG = p => p.startsWith('gen/') ? `file://${R}docs/newsiu-sample/${p}.webp` : `file://${R}cloudflare-deploy/public/img/${p}.webp`;
 const LOGO = `file://${R}cloudflare-deploy/public/img/mango-char.png`;
-const BOOK = U.book, UNITN = Number(NO);
+const BOOK = U.book, UNITN = Number(NUM);
 const sayOf = s => String(s).replace(/<[^>]+>/g,'');
 const e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 const blank = s => e(s).replace(/___/g,'<u class="bl"></u>').replace(/…/g,'<u class="bl bs"></u>');
@@ -23,12 +26,12 @@ const S = []; let TRACK = 0; const T = () => `<span class="trk">🎧 ${String(++
 // 쪽 하나: 부분(sec) 번호·이름, I can 목표, 내가 말하는 횟수, 본문, 읽을 문장
 const page = (o) => S.push(o);
 const HEAD = (o) => o.sec ? `<header class="hd7" style="--c:${o.c}"><b>${o.sec}</b><span>${o.name}</span>${o.can?`<em class="can">I can ${e(o.can)}</em>`:''}</header>` : '';
-const FOOT = (o, n) => `<footer class="ft7 ${o.dark?'dk':''}">${o.ko?`<span class="kfn7">💡 ${o.ko}</span>`:'<span></span>'}${o.turns?`<span class="turns">🗣 My turns ×${o.turns}</span>`:''}<span class="fo">SIU BASIC ${NO} · ${e(U.title)} <b>${n}</b></span></footer><div class="lvtag ${MODE}">${MODE==='hard'?'HARD':'EASY'}</div>`;
+const FOOT = (o, n) => `<footer class="ft7 ${o.dark?'dk':''}">${o.ko?`<span class="kfn7">💡 ${o.ko}</span>`:'<span></span>'}${o.turns?`<span class="turns">🗣 My turns ×${o.turns}</span>`:''}<span class="fo">${SERIES} ${NUM} · ${e(U.title)} <b>${n}</b></span></footer><div class="lvtag ${MODE}">${MODE==='hard'?'HARD':'EASY'}</div>`;
 const PAIR = (a,b) => `<div class="who7"><span class="t">T</span>${a}<i>↔</i><span class="st">S</span>${b}</div>`;
 
 // 1 표지
 page({cls:'cover', dark:1, html:`<img class="full" src="${IMG(PICS.cover)}"><div class="cvg7"></div>
-<div class="cvbox"><small>SIU BASIC · UNIT ${UNITN}</small><h1>${e(U.cover.h1)}<br><em>${e(U.cover.em)}</em></h1>
+<div class="cvbox"><small>${SERIES} · UNIT ${UNITN}</small><h1>${e(U.cover.h1)}<br><em>${e(U.cover.em)}</em></h1>
 <ul>${U.cover.goals.map(t=>`<li>${e(t)}</li>`).join('')}</ul></div>
 <div class="cvturn"><b>%%TOTAL%%</b>times you speak<br>in this unit</div><img class="logo7" src="${LOGO}">`, say:[`Unit ${UNITN}. ${U.title}.`]});
 
@@ -118,7 +121,7 @@ page({cls:'rev', sec:'★', name:'Review', c:COL[4], html:`<div class="rv7"><div
 <div class="tally"><small>This unit, you spoke about</small><b>${TOTAL}</b><span>times!</span><p>Next time, try to beat your number!</p></div></div>`, say:V.review});
 
 // 20 뒤표지
-page({cls:'back', dark:1, html:`<img class="full" src="${IMG(PICS.back)}"><div class="cvg7 r"></div><div class="bk7"><h2>Great talking <em>with you!</em></h2><p>${U.next?`Next unit · <b>${e(U.next)}</b>`:'You finished <b>SIU BASIC</b>!'}</p></div><img class="logo7" src="${LOGO}">`, say:['Great talking with you!']});
+page({cls:'back', dark:1, html:`<img class="full" src="${IMG(PICS.back)}"><div class="cvg7 r"></div><div class="bk7"><h2>Great talking <em>with you!</em></h2><p>${U.next?`Next unit · <b>${e(U.next)}</b>`:`You finished <b>${SERIES}</b>!`}</p></div><img class="logo7" src="${LOGO}">`, say:['Great talking with you!']});
 
 const css = fs.readFileSync(new URL('./style7.css', import.meta.url),'utf8');
 const fonts = fs.existsSync(new URL('./fonts6.css', import.meta.url)) ? fs.readFileSync(new URL('./fonts6.css', import.meta.url),'utf8') : '';
