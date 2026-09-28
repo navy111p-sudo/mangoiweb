@@ -11,7 +11,7 @@ export function teacherNetworkTypeFromGroup(groupName: unknown): TeacherNetworkT
   // Existing teacher roster groups include labels such as Home-based / Office.
   // Keep matching deliberately narrow. Unknown/new labels stay UNKNOWN rather than being guessed.
   if (/^(home[- _]?based|home|재택)$/.test(raw)) return 'HOME';
-  if (/^(office|office[- _]?based|사무실)$/.test(raw)) return 'OFFICE';
+  if (/^(office|office[- _]?based|office[- _]?teacher|사무실)$/.test(raw)) return 'OFFICE';
   return 'UNKNOWN';
 }
 
