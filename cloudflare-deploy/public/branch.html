@@ -2530,13 +2530,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             취소하면 그 주만이 아니라 **모든 주가 죽는다.** 판정은 서버가 준 can_move 하나다
             (⛔ schedule_kind 로 추측하지 말 것 — 실측 값이 one_off·dated·recurring 셋이다).
          ⚠️ 그래서 문구를 «보이는 글자» 로 쓴다 — 폰에는 hover 가 없어 title 로는 안 전해진다. */
+      /* ⛔ (2026-09-28 사장님) 지사장 화면에서는 이 줄 버튼(📅 연기·변경 / 매주 반복 — 시간표에서)을 뺐다 —
+         「지사장은 연기·변경을 다루지 않는다. 학생이 신청하면 처리된다」. 연기·변경·취소는
+         본사 화면(admin.html 「오늘 수업」·manager.html)에 그대로 있다. 되살리지 말 것. */
       var resch = '';
-      if (r.schedule_id && r.can_move === false) {
-        resch = '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
-      } else if (r.schedule_id) {
-        resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
-              + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
-      }
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
