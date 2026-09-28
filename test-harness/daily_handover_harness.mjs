@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 const require=createRequire(import.meta.url);
 const ts=require('../cloudflare-deploy/node_modules/typescript');
+assert.ok(readFileSync('cloudflare-deploy/public/work.html','utf8').includes(readFileSync('cloudflare-deploy/public/js/handover-inbox-banner.js','utf8').trim()),'self-contained work banner must match the shared script');
 const source=readFileSync('cloudflare-deploy/src/daily-handover.ts','utf8');
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const db=new DatabaseSync(':memory:');
@@ -19,7 +20,8 @@ const env={DB:{prepare:statement,async batch(items){db.exec('BEGIN');try{const o
 let now=Date.parse('2026-09-28T10:00:00Z');
 class TestDate extends Date{static now(){return now;}}
 const module={exports:{}};
-const context={module,exports:module.exports,console,Date:TestDate,Request,Response,URL,setTimeout,clearTimeout,require:(name)=>{
+const context={module,exports:module.exports,console,crypto,Date:TestDate,Request,Response,URL,setTimeout,clearTimeout,require:(name)=>{
+ if(name==='./d1-chunk'){const m={exports:{}};vm.runInNewContext(ts.transpileModule(readFileSync('cloudflare-deploy/src/d1-chunk.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{module:m,exports:m.exports});return m.exports;}
  if(name==='./approval-policy')return{isHqStaff:a=>!!a.ok&&!a.isTeacher&&['hq','staff'].includes(a.role),isExec:a=>a.username==='admin'};
  if(name==='./once-per-isolate')return{oncePerIsolate:f=>f};
  if(name==='./web-push')return{broadcastWebPush:async eps=>({sent:eps.length})};
@@ -66,5 +68,47 @@ for(const user of ['alice','carol'])assert.equal((await api('/schedule',{enabled
 await runDailyHandoverSweep(env);await runDailyHandoverSweep(env);
 assert.equal(db.prepare('SELECT count(*) AS n FROM daily_handover_notices').get().n,1,'no duplicates and submitted report suppresses alert');
 assert.equal(db.prepare('SELECT username FROM daily_handover_notices').get().username,'carol');
+
+// Attachments use private R2 objects; test actual route authorization and signatures.
+const objects=new Map();env.RECORDINGS={put:async(k,b)=>objects.set(k,b),get:async k=>objects.has(k)?{body:objects.get(k)}:null,delete:async k=>objects.delete(k)};
+async function upload(name,content,user='alice') {const u=new URL('https://mangoi.ai/api/approval/handover/attachment?date=2026-09-28');const req=new Request(u,{method:'POST',headers:{'X-File-Name':encodeURIComponent(name)},body:content});const r=await handle(req,u,env,actor(user));return {status:r.status,...await r.json()};}
+async function getFile(id,user){const u=new URL('https://mangoi.ai/api/approval/handover/attachment?id='+id);return handle(new Request(u),u,env,actor(user));}
+assert.equal((await upload('bad.pdf','<html>bad</html>')).status,400);
+assert.equal((await upload('bad.html','%PDF-1.7 sample')).status,400);
+const pdf=await upload('보고서.pdf','%PDF-1.7 test');assert.equal(pdf.ok,true);
+assert.equal((await getFile(pdf.file.id,'alice')).status,200);
+assert.equal((await getFile(pdf.file.id,'admin')).status,404,'staged files private even to exec');
+assert.equal((await getFile(pdf.file.id,'bob')).status,404);
+const foreign=await upload('foreign.pdf','%PDF-1.7 other','carol');
+let current=(await api('/home')).own;
+assert.equal((await api('/save',{...draft,version:current.version,request_key:'foreign_file_test_0000',payload:{...draft.payload,attachments:[foreign.file.id]},submit:true,confirmed:true})).status,400);
+const withFile=await api('/save',{...draft,version:current.version,request_key:'attached_file_test_000',payload:{...draft.payload,attachments:[pdf.file.id]},submit:true,confirmed:true});assert.equal(withFile.ok,true);
+assert.equal((await getFile(pdf.file.id,'bob')).status,200);
+assert.match((await getFile(pdf.file.id,'bob')).headers.get('Content-Disposition'),/^inline/);
+assert.match((await getFile(pdf.file.id,'bob')).headers.get('Content-Security-Policy'),/sandbox/);
+assert.equal((await getFile(pdf.file.id,'carol')).status,404);
+assert.equal((await api('/home',null,'bob')).files[0].name,'보고서.pdf');
+assert.equal((await api('/inbox',null,'bob')).total,1);
+assert.equal((await api('/inbox',null,'carol')).total,0);
+// After-hours normal reports wait; urgent reports do not. No queue duplication across retries.
+db.exec("INSERT INTO push_subscriptions VALUES('bob-device','bob',1)");
+const beforeQueue=()=>db.prepare('SELECT count(*) n FROM push_queue').get().n;
+await runDailyHandoverSweep(env);assert.equal(beforeQueue(),0,'normal quiet hours');
+now=Date.parse('2026-09-29T00:00:00Z');await runDailyHandoverSweep(env);assert.equal(beforeQueue(),1,'next workday delivers unread previous-day report');
+const alert=()=>db.prepare('SELECT * FROM daily_handover_read_alerts WHERE report_id=? AND version=?').get(withFile.row.id,withFile.row.version);
+assert.equal(alert().attempts,1);await runDailyHandoverSweep(env);assert.equal(alert().attempts,1);
+now+=59*60000;await runDailyHandoverSweep(env);assert.equal(alert().attempts,1);
+now+=60000;await runDailyHandoverSweep(env);assert.equal(alert().attempts,2);assert.equal(beforeQueue(),1,'one pending notification per report/version/device');
+assert.equal((await api('/ack',{id:withFile.row.id,version:withFile.row.version},'bob')).ok,true);assert.equal(beforeQueue(),0);assert.equal((await api('/inbox',null,'bob')).total,0);
+now+=3600000;await runDailyHandoverSweep(env);assert.equal(beforeQueue(),0,'ack stops wakeups');
+now=Date.parse('2026-09-29T14:00:00Z');
+const urgent=await api('/save',{...draft,report_date:'2026-09-29',version:0,request_key:'urgent_handover_00001',payload:{...draft.payload,priority:'urgent'},submit:true,confirmed:true});assert.equal(urgent.push,'sent','urgent even off-hours');
+const attempts=()=>db.prepare('SELECT attempts FROM daily_handover_read_alerts WHERE report_id=?').get(urgent.row.id).attempts;
+now+=14*60000;await runDailyHandoverSweep(env);assert.equal(attempts(),1);
+now+=60000;await runDailyHandoverSweep(env);assert.equal(attempts(),2);
+assert.equal((await api('/read-schedule',{weekdays:[1,2],start_time:'10:00',end_time:'18:00'},'bob')).ok,true);
+assert.equal((await api('/read-schedule',{weekdays:[],start_time:'10:00',end_time:'18:00'},'bob')).status,400);
+assert.equal((await api('/read-schedule',{weekdays:[1],start_time:'20:00',end_time:'09:00'},'bob')).status,400);
+console.log('PASS handover files/read reminders: real route uploads, signature checks, private drafts, cross-user denial, authenticated downloads, previous-day inbox, quiet hours, hourly/15-min reminders, deduplication and acknowledgement cancellation');
 db.close();
 console.log('PASS daily handover: authorization, real SQLite saves/history, retries/conflicts, review/ack/return, AI fallback, deadlines, workday/leave/duplicate reminder handling');

@@ -12,6 +12,7 @@ const page=await browser.newPage({viewport:{width:1100,height:1000}});const erro
 await page.route('**/api/approval/handover/**',async route=>{
 const req=route.request(),b=req.method()==='POST'?req.postDataJSON():null;let data;
 if(req.url().includes('/home'))data={ok:true,day:'2026-09-28',me:{username:'mgr_maimai',name:'Maimai'},members:[{username:'mgr_maimai',name:'Maimai'},{username:'mgr_jjw',name:'장지웅'}],default_recipient:'mgr_jjw',reports:own?[own]:[],own,schedule:null,required:[],ai_available:true,can_review_all:false};
+else if(req.url().endsWith('/inbox'))data={ok:true,reports:[],total:0,files:[]};
 else if(req.url().endsWith('/review'))data={ok:true,check:{ready:!!b.payload.work,missing:b.payload.work?[]:['work']},ai_state:b.use_ai?'ready':'unavailable',suggestion:b.use_ai?{work:b.payload.work,issue:b.payload.issue,open:b.payload.open,tips:['내용을 확인해 주세요.']}:null};
 else if(req.url().endsWith('/save')){saves++;own={id:1,payload:b.payload,staff_name:'Maimai',username:'mgr_maimai',recipient:b.recipient,report_date:b.report_date,version:b.version+1,status:b.submit?'submitted':'draft',submitted_at:b.submit?1:null};data={ok:true,row:own,push:'no_subscription'};}
 else data={ok:true};await route.fulfill({json:data});
