@@ -3,7 +3,8 @@
 //  - 문법 예문 "Bill refuses to eat peas, nor will he touch carrots." 는 그대로 쓰기 어려워 nor 예문을 짧게 새로 씀
 //  - Q1 "What are advantage and disadvantage of a big family?" → "What are the advantages and disadvantages of a big family?"
 //  - Q4 "If you will become a parent, would be strict?" → "If you became a parent, would you be strict?"
-//  - Q10 "…or should they have the liberty to choose another?" 는 그대로, 앞부분 쉼표만 정리
+//  - Q10 "Should people follow the religion of their parents, or should they have the liberty to choose another?" → "Should people follow their parents' religion, or have the liberty to choose another?" (쪽 넘침 때문에 짧게)
+//  - Q6 "create curfews" → "set curfews"
 //  - Keyword Single(adj) 뜻 "is alone or having only one" → "only one, with no brothers or sisters"
 //  - 대답 틀 "The advantages and disadvantages of a big family is" → "One advantage … is …, but one disadvantage is …" (수 일치)
 //  - 쉬운 판(중고생): 체벌(Q7)은 «대화·규칙이 더 낫다» 로, 때리는 장면 묘사 없음
@@ -101,8 +102,8 @@ export default {
    ["Yes, I think so.", "Parents worry, so teens should come home on time."],
    ["No, I don't think so.", "Talking and clear rules work better."],
    ["Yes, they should.", "Everyone lives there, so everyone should help."],
-   ["Sometimes I am.", "My sister gets a bigger allowance, but she's older."],
-   ["I think they should have the liberty to choose.", "But they can learn about their parents' beliefs, too."]
+   ["Sometimes I am.", "My sister gets more pocket money, but she's older."],
+   ["I think they should be free to choose.", "But they can learn their parents' beliefs, too."]
   ],
   frame: [
    "A big family is ___, but it can be ___.",
@@ -160,13 +161,13 @@ export default {
    think: ["Look at the photo. Who is in this family?", "Who do you live with?", "What do you do with your family on weekends?"]
   },
   convo: [
-   ["A", "How many people are in your family?"],
-   ["B", "Five. My parents, {two brothers} and me."],
-   ["A", "Wow, that's a big family! Is it noisy?"],
-   ["B", "Very! But it's fun, and we {play games} every night."],
-   ["A", "Do you help with the housework?"],
-   ["B", "Yes. I {wash the dishes}, and my brothers clean."],
-   ["A", "That's fair. I'm {a single child}, so I help a lot too."]
+   ["A", "How big is your family?"],
+   ["B", "Five: my parents, {two brothers} and me."],
+   ["A", "Wow! Is it noisy?"],
+   ["B", "Very! But we {play games} at night."],
+   ["A", "Do you help at home?"],
+   ["B", "Yes. I {wash the dishes}."],
+   ["A", "I'm {a single child}, so I help a lot too."]
   ],
   swap: [["your siblings", "two brothers"], ["a family activity", "play games"], ["a chore", "wash the dishes"], ["your partner's family", "a single child"]],
   lang: [
@@ -200,7 +201,7 @@ export default {
   },
   speech: {
    time: "1 min",
-   model: ["Hello! Let me tell you about my family.", "There are four people: my parents, my sister and me.", "My dad is funny, and my mom is kind.", "My sister is sometimes noisy, but I love her.", "We visit my grandparents every month, so I see them often.", "My family is small, but it's warm. Thank you!"],
+   model: ["Hello! Let me tell you about my family.", "There are four of us.", "My dad is funny, and my mom is kind.", "My sister is noisy, but I love her.", "We visit Grandma monthly, so I see her often.", "We're small, but warm. Thank you!"],
    outline: ["Hello", "Who is in your family", "and …", "but …", "so …", "Thank you!"],
    check: ["Loud voice", "Look at teacher", "and / but / so"]
   },
@@ -214,8 +215,8 @@ export default {
  H: {
   steps: ["Answer", "Reason", "Example", "Ask back"],
   model: [
-   ["A big family gives support, but it's expensive and crowded.", "You're never alone, yet privacy is rare.", "My mother grew up with six siblings and shared a room with three.", "Would you like a big family?"],
-   ["It has both good and bad sides.", "You get attention, but you may feel pressure.", "My only-child friend says holidays feel quiet and lonely.", "Did you grow up with siblings?"],
+   ["A big family gives support, but it's crowded.", "You're never alone, yet privacy is rare.", "My mom shared a room with three siblings.", "Would you like a big family?"],
+   ["It has good and bad sides.", "You get attention, but also pressure.", "My only-child friend says holidays feel lonely.", "Did you have siblings?"],
    ["I wouldn't mind either, but I'd slightly prefer a daughter.", "I feel closer to my mom than my dad.", "My friend's daughter calls her mom every day.", "What about you?"],
    ["I'd be strict about safety, but relaxed about small things.", "Kids need clear limits and some freedom.", "My parents were strict about homework, yet they let me choose my hobbies.", "Were your parents strict?"],
    ["Not as often as I'd like, but we call weekly.", "They live three hours away, so visits take planning.", "We always visit on Chuseok and eat songpyeon together.", "How often do you see yours?"],

@@ -1,3 +1,13 @@
+# NewSIU ADVANCE 20권 (8판, 2026-09-28)
+
+- 미리보기는 BASIC 과 같은 주소(단원 목록 아래 «SIU ADVANCE» 묶음): https://claude.ai/artifact/3AHU6SANvdFNGAjaSHeidQ
+- 파일 이름 `units/a001.mjs` ~ `a020.mjs`, 만들기 `node build8.mjs a001 easy|hard` → `u/a001/` (a 로 시작하면 표지·꼬리말이 «SIU ADVANCE»).
+- 원본: 구글 드라이브 `SIU -Advance(PDF)/NNN - …(Korean).pdf`. 20쪽 · 말하기 168 / 211번 구조는 BASIC 과 같음.
+- 수준: 쉬운 판 = 중고등(2~3문장 + 빈칸 틀), 어려운 판 = 성인(4단 대답 + 생각 질문 3개). 판 자동 선택 기준도 한 단계 위(수준 6 이하·17세 이하 = EASY).
+- 민감 주제(Crime·Punishment·Politics·Relationship and Love·Beauty·Education Q4)는 쉬운 판에서 규칙·공정·친구·가족·건강으로 돌려 말하게 했고, 어려운 판에서만 직접 다룸.
+  ⚠️ 질문 10개는 원본이라 두 판이 같습니다 — 쉬운 판에도 질문 자체(사형·낙태·데이트 나이 등)는 그대로 보입니다.
+- a003 원본 PDF 에는 2번 질문 쪽이 없어(10번이 두 번) 퍼즐 낱말 Slim 으로 새로 만들었습니다 — 실제 책과 대조 필요.
+
 # NewSIU BASIC 30권 (8판, 2026-09-28)
 
 - 미리보기(30권): https://claude.ai/artifact/3AHU6SANvdFNGAjaSHeidQ — 단원 고르기 · 판 자동 선택 · 쪽 넘기기 · 문장 듣기(001 녹음, 나머지 브라우저 목소리)
