@@ -19,6 +19,7 @@ eq(ctx.teacherNetworkTypeFromGroup('home based'),'HOME','home based');
 eq(ctx.teacherNetworkTypeFromGroup('HOME'),'HOME','HOME');
 eq(ctx.teacherNetworkTypeFromGroup('재택'),'HOME','재택');
 eq(ctx.teacherNetworkTypeFromGroup('Office'),'OFFICE','Office');
+eq(ctx.teacherNetworkTypeFromGroup('Office Teacher'),'OFFICE','deployed Office Teacher roster label');
 eq(ctx.teacherNetworkTypeFromGroup('office-based'),'OFFICE','office-based');
 eq(ctx.teacherNetworkTypeFromGroup('사무실'),'OFFICE','사무실');
 eq(ctx.teacherNetworkTypeFromGroup('Head Teacher'),'UNKNOWN','manager group is not guessed');
