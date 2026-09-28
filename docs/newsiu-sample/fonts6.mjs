@@ -3,7 +3,10 @@ import fs from 'fs';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 const fams = ['Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,800','Caveat:wght@700','Bungee','Bricolage Grotesque:wght@800','Lexend:wght@400;600;700'];
 // 한글: build6 이 남긴 ko-chars-*.txt 의 글자만 받습니다(text= 부분집합).
-const ko = [...new Set(fs.readdirSync(new URL('.', import.meta.url)).filter(f=>/^ko-chars-.*\.txt$/.test(f)).map(f=>fs.readFileSync(new URL('./'+f, import.meta.url),'utf8')).join('')+'💡뜻확인정답')].join('');
+const HERE = new URL('.', import.meta.url).pathname;
+const KOFILES = () => [...fs.readdirSync(HERE).filter(f=>/^ko-chars-.*\.txt$/.test(f)).map(f=>HERE+f),
+  ...(fs.existsSync(HERE+'u') ? fs.readdirSync(HERE+'u').flatMap(d=>['easy','hard'].map(m=>`${HERE}u/${d}/ko-chars-${m}.txt`)).filter(f=>fs.existsSync(f)) : [])];
+const ko = [...new Set(KOFILES().map(f=>fs.readFileSync(f,'utf8')).join('')+'💡뜻확인정답')].join('');
 let out = '';
 for (const w of [400,700]) {
   const css = await (await fetch('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@'+w+'&text='+encodeURIComponent(ko),{headers:{'User-Agent':UA}})).text();
