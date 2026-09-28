@@ -142,13 +142,13 @@ export default {
   },
   gram2: {
    a: {
-    title: "Ask 5 times",
-    items: ["Will you watch TV tonight?", "Will you go to bed early?", "Will you eat pizza this week?", "Will you visit your grandma?", "Will you sing a song for me?"],
+    title: "Will you…",
+    items: ["…watch TV tonight?", "…go to bed early?", "…eat pizza this week?", "…visit your grandma?", "…sing a song for me?"],
     ans: "Yes, I will. / No, I won't. <b>+ one more sentence</b>"
    },
    b: {
     title: "This weekend",
-    big: "I'm going to ___ on Saturday. I'm not going to ___.",
+    big: "On Saturday, I'm going to ___.",
     ans: "Then ask: <b>What are you going to do?</b>"
    }
   },

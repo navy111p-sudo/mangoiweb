@@ -39,7 +39,7 @@ page({cls:'open', sec:'1', name:'Warm-up', c:COL[1], can:'share ideas with a par
 <div class="hint7">${MODE==='hard'?'Start with: <i>I think… because…</i>':'Start with: <i>I think… / Yes! / No.</i>'}</div></div></div>`, say:V.opener.think});
 
 // 3 낱말 (Speak Now — 모든 활동에 말하기)
-page({cls:'words', sec:'2', name:'Words', c:COL[0], can:'use 10 new words', turns:10, ko:'뜻 확인 · '+KW.map(k=>k[0]+' '+k[2]).join(' · '), html:`<div class="wd7">${KW.map((k,i)=>`<div class="wc" style="--c:${COL[i%6]}"><img src="${IMG(IMGS[i])}"><b>${k[0]}</b><small>${e(k[3])}</small></div>`).join('')}</div>
+page({cls:'words', sec:'2', name:'Words', c:COL[0], can:'use 10 new words', turns:10, ko:'뜻 확인 · '+KW.map(k=>k[0]+' '+k[2]).join(' · '), html:`<div class="wd7">${KW.map((k,i)=>`<div class="wc" style="--c:${COL[i%6]}"><img src="${IMG(IMGS[i])}"><b class="${k[0].length>12?'lw':''}">${k[0]}</b><small>${e(k[3])}</small></div>`).join('')}</div>
 ${PAIR('points to a picture','says the word + one sentence')}`, say:KW.map(k=>k[0]+'. '+k[3].charAt(0).toUpperCase()+k[3].slice(1)+'.')});
 
 // 4 문법 1 현재시제 (원본 2쪽)

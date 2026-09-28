@@ -154,7 +154,7 @@ export default {
    outline: ['Name', 'Your "What if"', 'What you would see', 'Who you would take', 'What you would do'],
    check: ['Loud voice', 'Use "I would"', 'Say 5 things'],
   },
-  pron: { cols: [['I\'d', ['I\'d run', 'I\'d hide', 'I\'d call']], ['wouldn\'t', ['I wouldn\'t', 'he wouldn\'t', 'we wouldn\'t']], ['was / were', ['was going', 'were singing', 'was eating']]], up: 'Would you report it?', down: 'What would you do?' },
+  pron: { cols: [['I\'d', ['I\'d run', 'I\'d hide', 'I\'d call']], ['wouldn\'t', ['I wouldn\'t', 'he wouldn\'t', 'we wouldn\'t']], ['was', ['was going', 'was eating', 'was hiding']]], up: 'Would you report it?', down: 'What would you do?' },
   review: ['I can talk about "What if".', 'I can use was / were + -ing.', 'I can say I\'d and I wouldn\'t.', 'I can say one more sentence.'],
  },
  H: {
@@ -239,7 +239,7 @@ export default {
    outline: ['Hook — "Let me tell you…"', 'When + where you were', 'What was happening', 'What interrupted you', 'How you felt', 'What you learned'],
    check: ['Clear voice', 'was / were + -ing', 'Past simple for events', 'Answer 1 question'],
   },
-  pron: { cols: [['I\'d', ['I\'d choose', 'I\'d report', 'I\'d hide']], ['wouldn\'t', ['wouldn\'t go', 'wouldn\'t run', 'wouldn\'t say']], ['was / were', ['was walking', 'were sinking', 'was driving']]], up: 'Were you listening?', down: 'Where would you go?' },
+  pron: { cols: [['I\'d', ['I\'d choose', 'I\'d report', 'I\'d hide']], ['wouldn\'t', ['wouldn\'t go', 'wouldn\'t run', 'wouldn\'t say']], ['were', ['we were', 'they were', 'you were']]], up: 'Were you listening?', down: 'Where would you go?' },
   review: ['I can answer in 4 parts.', 'I can use was / were + -ing.', 'I can talk about imaginary situations.', 'I can give a short presentation.'],
  },
 };
