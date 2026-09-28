@@ -15,7 +15,7 @@ await send('Page.enable');
 await send('Page.navigate',{url:'file://'+process.cwd()+'/'+HTML});
 await new Promise(r=>setTimeout(r,3500));
 const n = (await send('Runtime.evaluate',{expression:'document.querySelectorAll("section.s").length',returnByValue:true})).result.value;
-const overflow = (await send('Runtime.evaluate',{returnByValue:true,expression:`[...document.querySelectorAll('section.s')].map((s,i)=>{const r=s.getBoundingClientRect();const bad=[...s.querySelectorAll('*')].filter(e=>{const q=e.getBoundingClientRect();return q.width&&(q.bottom>r.bottom+1||q.right>r.right+1)}).length;return bad?('s'+(i+1)+':'+bad):''}).filter(Boolean).join(' ')`})).result.value;
+const overflow = (await send('Runtime.evaluate',{returnByValue:true,expression:`[...document.querySelectorAll('section.s')].map((s,i)=>{const b=s.querySelector('.bd7');const r=b&&!s.classList.contains('dark')?b.getBoundingClientRect():s.getBoundingClientRect();const bad=[...(b||s).querySelectorAll('*')].filter(e=>{const q=e.getBoundingClientRect();return q.width&&(q.bottom>r.bottom+1||q.right>r.right+1)}).length;return bad?('s'+(i+1)+':'+bad):''}).filter(Boolean).join(' ')`})).result.value;
 console.log('overflow:', overflow||'none');
 for(let i=1;i<=n;i++){
   const y=(await send('Runtime.evaluate',{expression:`document.getElementById('s${i}').getBoundingClientRect().top+scrollY`,returnByValue:true})).result.value;
