@@ -44,10 +44,10 @@ export default {
   talk: "scene-clips/7373",
   group: "scene-words/19052",
   speech: "scene-words/12053",
-  reporter: "scene-words/12914",
+  reporter: "scene-words/12835",
   survey: "scene-words/18031",
   pron: "scene-words/16318",
-  roleB: "scene-words/12835",
+  roleB: "scene-words/18460",
   cover: "scene-words/15836",
   back: "scene-words/18368"
  },
@@ -216,8 +216,8 @@ export default {
  H: {
   steps: ["Answer", "Reason", "Example", "Ask back"],
   model: [
-   ["Yes, I grew up with two cats.", "My parents thought pets teach kids responsibility.", "I had to clean the litter box every day, which I hated.", "Did you have pets as a child?"],
-   ["I'd use treats and a lot of patience.", "Animals learn fastest when they're rewarded right away.", "I taught my dog to sit in about a week, a little each day.", "Have you ever trained an animal?"],
+   ["Yes, I grew up with two cats.", "My parents said pets teach responsibility.", "I cleaned the litter box daily, which I hated.", "Did you have pets as a child?"],
+   ["I'd use treats and a lot of patience.", "Animals learn fastest with quick rewards.", "I taught my dog to sit in about a week.", "Have you ever trained an animal?"],
    ["I'm terribly scared of spiders.", "I know most are harmless, but they move so unpredictably.", "Once I screamed when one dropped onto my desk.", "Is there an animal you can't stand?"],
    ["Tigers, snow leopards and sea turtles are endangered.", "Habitat loss and pollution are the main reasons.", "Sea turtles often mistake plastic bags for jellyfish.", "Which species do you think we should save first?"],
    ["Scientifically, I'd say the egg came first.", "Birds evolved from earlier animals that already laid eggs.", "So the first chicken must have hatched from an egg.", "Does that answer satisfy you?"],

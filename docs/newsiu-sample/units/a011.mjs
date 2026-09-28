@@ -205,7 +205,7 @@ export default {
    check: ["Loud voice", "Look at teacher", "Pair words"]
   },
   pron: {
-   cols: [["both … and", ["both", "and"]], ["either … or", ["either", "or"]], ["neither … nor", ["neither", "nor"]]],
+   cols: [["both … and", ["both of us", "both sides"]], ["either … or", ["either one", "either way"]], ["neither … nor", ["neither one", "neither of us"]]],
    up: "Is graffiti art?",
    down: "Why do we need rules?"
   },

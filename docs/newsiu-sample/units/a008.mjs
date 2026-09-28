@@ -40,7 +40,7 @@ export default {
   "If you were a politician, what would you do first for your country?",
   "What should the government do to fight terrorism?"
  ],
- IMG_E: ["scene-words/18239", "scene-words/16425", "scene-words/14344", "scene-words/15652", "scene-words/17251", "scene-words/19412", "scene-words/12253", "scene-words/15065", "scene-words/19759", "scene-words/18020"],
+ IMG_E: ["scene-words/18239", "scene-words/16425", "scene-words/14344", "scene-words/15652", "scene-words/17251", "scene-words/20224", "scene-words/12253", "scene-words/15065", "scene-words/19759", "scene-words/18020"],
  IMG_H: ["scene-words/14402", "scene-words/16687", "scene-words/16886", "scene-words/14344", "scene-words/13076", "scene-words/18797", "scene-words/18633", "scene-words/18958", "scene-words/19759", "scene-words/16045"],
  PICS: {
   opener: "scene-words/18647",
