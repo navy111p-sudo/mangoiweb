@@ -17,6 +17,9 @@ await new Promise(r=>setTimeout(r,3500));
 const n = (await send('Runtime.evaluate',{expression:'document.querySelectorAll("section.s").length',returnByValue:true})).result.value;
 const overflow = (await send('Runtime.evaluate',{returnByValue:true,expression:`[...document.querySelectorAll('section.s')].map((s,i)=>{const b=s.querySelector('.bd7');const r=b&&!s.classList.contains('dark')?b.getBoundingClientRect():s.getBoundingClientRect();const bad=[...(b||s).querySelectorAll('*')].filter(e=>{const q=e.getBoundingClientRect();return q.width&&(q.bottom>r.bottom+1||q.right>r.right+1)}).length;return bad?('s'+(i+1)+':'+bad):''}).filter(Boolean).join(' ')`})).result.value;
 console.log('overflow:', overflow||'none');
+// 칸 안에서 잘린 글(넘침 검사로는 안 보임): 스스로 잘라 내는 상자(overflow hidden)의 내용이 상자보다 큰가
+const clipped = (await send('Runtime.evaluate',{returnByValue:true,expression:`[...document.querySelectorAll('section.s')].map((s,i)=>{const bad=[...s.querySelectorAll('.bd7 *')].filter(e=>{const c=getComputedStyle(e);return c.overflow!=='visible'&&e.tagName!=='IMG'&&(e.scrollHeight>e.clientHeight+2||e.scrollWidth>e.clientWidth+2)}).length;return bad?('s'+(i+1)+':'+bad):''}).filter(Boolean).join(' ')`})).result.value;
+console.log('clipped:', clipped||'none');
 for(let i=1;i<=n;i++){
   const y=(await send('Runtime.evaluate',{expression:`document.getElementById('s${i}').getBoundingClientRect().top+scrollY`,returnByValue:true})).result.value;
   const r=await send('Page.captureScreenshot',{format:'jpeg',quality:88,clip:{x:0,y,width:1280,height:720,scale:1},captureBeyondViewport:true});
