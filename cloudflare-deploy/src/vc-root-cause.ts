@@ -49,6 +49,7 @@ export function classifyRootCause(rows: QualityWindow[]): Diagnosis {
     `home_bad=${bad.filter(x => x.role === 'teacher' && x.teacher_network_type === 'HOME').length}`,
     `office_bad=${bad.filter(x => x.role === 'teacher' && x.teacher_network_type === 'OFFICE').length}`,
     `student_bad=${bad.filter(x => x.role === 'student').length}`,
+    `unknown_bad=${bad.filter(x => x.role !== 'student' && x.teacher_network_type !== 'HOME' && x.teacher_network_type !== 'OFFICE').length}`,
     `relay_bad=${bad.filter(x => x.path === 'relay').length}`
   ];
   if (!bad.length) return {
@@ -61,6 +62,7 @@ export function classifyRootCause(rows: QualityWindow[]): Diagnosis {
   const home = bad.filter(x => x.role === 'teacher' && x.teacher_network_type === 'HOME').length;
   const office = bad.filter(x => x.role === 'teacher' && x.teacher_network_type === 'OFFICE').length;
   const student = bad.filter(x => x.role === 'student').length;
+  const unknown = bad.filter(x => x.role !== 'student' && x.teacher_network_type !== 'HOME' && x.teacher_network_type !== 'OFFICE').length;
   const relay = bad.filter(x => x.path === 'relay').length;
   const directBad = bad.filter(x => x.path === 'direct').length;
 
@@ -71,21 +73,21 @@ export function classifyRootCause(rows: QualityWindow[]): Diagnosis {
     required_verification: ['Compare the same endpoints on a direct path.', 'Compare TURN region/protocol and RTT before changing TURN configuration.'],
     proposed_fix: ['Inspect TURN capacity, region selection and routing; do not force a production change without the comparison test.']
   };
-  if (home >= 2 && office === 0 && student === 0) return {
+  if (home >= 2 && office === 0 && student === 0 && unknown === 0) return {
     category: 'HOME_TEACHER_NETWORK', observed_facts: facts,
     hypothesis: 'Degradation is concentrated in Home Teacher sessions.',
     evidence: ['Multiple degraded HOME teacher windows and no degraded OFFICE/student windows in this sample.'],
     required_verification: ['Compare teacher ISP/Wi-Fi/LAN/device and time-of-day.', 'Reproduce the profile in Sandbox.'],
     proposed_fix: ['Prefer wired LAN where possible; verify home ISP/router before changing MANGOI WebRTC code.']
   };
-  if (office >= 2 && home === 0 && student === 0) return {
+  if (office >= 2 && home === 0 && student === 0 && unknown === 0) return {
     category: 'OFFICE_TEACHER_NETWORK', observed_facts: facts,
     hypothesis: 'Degradation is concentrated in Office Teacher sessions.',
     evidence: ['Multiple degraded OFFICE teacher windows and no degraded HOME/student windows in this sample.'],
     required_verification: ['Check whether multiple office teachers degrade in the same time window.', 'Compare shared line/router/firewall utilization.'],
     proposed_fix: ['Investigate the shared business line/router/firewall and capacity before changing client recovery.']
   };
-  if (student >= 2 && home === 0 && office === 0) return {
+  if (student >= 2 && home === 0 && office === 0 && unknown === 0) return {
     category: 'STUDENT_NETWORK', observed_facts: facts,
     hypothesis: 'Degradation is concentrated on student-side samples.',
     evidence: ['Multiple degraded student windows without matching teacher-group degradation in this sample.'],
