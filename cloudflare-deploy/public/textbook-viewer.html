@@ -15,6 +15,8 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 
 /* 상단 툴바 */
 .topbar{position:fixed;top:0;left:0;right:0;height:56px;z-index:100;background:rgba(11,18,36,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px}
+.topbar .back{padding:7px 14px;background:var(--bg-card);border:1px solid var(--gold);color:var(--gold);text-decoration:none;border-radius:99px;font-size:12.5px;font-weight:800;white-space:nowrap}
+.topbar .back:hover{background:var(--bg-soft)}
 .topbar .home{padding:7px 14px;background:linear-gradient(135deg,var(--gold),#D97706);color:#1a1a1a;text-decoration:none;border-radius:99px;font-size:12.5px;font-weight:800}
 .topbar .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:800;color:#fff}
 .topbar .title .sub{font-size:11px;color:var(--text-dim);font-weight:600;margin-left:8px}
@@ -169,6 +171,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
   .topbar .title{font-size:12.5px}
   .topbar .title .sub{display:none}
   .topbar .btn{padding:6px 10px;font-size:11px}
+  .topbar .back,.topbar .home{padding:6px 10px;font-size:11px}
   .viewer iframe{height:calc(100vh - 100px)}
 }
 </style>
@@ -176,6 +179,10 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 <body>
 
 <div class="topbar">
+  <!-- ← 목록: 교재 목차에서 새 탭으로 열려 history 가 비어 있으므로, 공용 back-nav.js 의 판정
+       (history → 같은 오리진 referrer → 폴백)을 그대로 쓰고 폴백은 교재 목차로 둔다.
+       ⚠️ 공용 back-nav.js 는 아래 페이지 넘김 ‹ 버튼을 «뒤로가기» 로 오인해 자기 ← 를 안 넣는다 — 그래서 여기 직접 둔다. -->
+  <a class="back" id="tv-back" href="/textbook-index.html" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack('/textbook-index.html');}" data-ko="← 목록" data-en="← List" title="교재 목록으로 돌아가기" data-ko-title="교재 목록으로 돌아가기" data-en-title="Back to the textbook list">← 목록</a>
   <a class="home" href="/" data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</a>
   <div class="title" id="title" data-ko="교재 로딩 중…" data-en="Loading textbook…">교재 로딩 중…</div>
   <button class="btn" id="btn-lang" onclick="tvToggleLang()" title="한국어 / English" data-ko-title="한국어 / English" data-en-title="Korean / English" aria-label="언어 전환" data-ko-aria="언어 전환" data-en-aria="Switch language"><span aria-hidden="true">🌐</span> <span class="lang-label-sync" id="tv-lang-cap">EN</span></button>
