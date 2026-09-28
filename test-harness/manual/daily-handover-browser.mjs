@@ -17,9 +17,15 @@ else if(req.url().endsWith('/review'))data={ok:true,check:{ready:!!b.payload.wor
 else if(req.url().endsWith('/save')){saves++;own={id:1,payload:b.payload,staff_name:'Maimai',username:'mgr_maimai',recipient:b.recipient,report_date:b.report_date,version:b.version+1,status:b.submit?'submitted':'draft',submitted_at:b.submit?1:null};data={ok:true,row:own,push:'no_subscription'};}
 else data={ok:true};await route.fulfill({json:data});
 });
+await page.addInitScript(()=>{window.SpeechRecognition=class{constructor(){window.__handoverTestSpeech=this;}start(){this.onstart();}stop(){this.onend();}abort(){}};});
 await page.goto('http://127.0.0.1:'+server.address().port+'/daily-handover.html');
 await page.waitForFunction(()=>!document.querySelector('#mh-work').disabled);
 assert.equal(await page.locator('#mh-staff').inputValue(),'Maimai');
+await page.locator('#mh-voice').click();
+await page.evaluate(()=>{const result=[{transcript:'오늘 카카오 문의에 답변했습니다'}];result.isFinal=false;window.__handoverTestSpeech.onresult({resultIndex:0,results:[result]});});
+assert.match(await page.locator('#mh-voice-interim').innerText(),/카카오 문의/);assert.equal(await page.locator('#mh-review').isDisabled(),true);
+await page.locator('#mh-voice').click();assert.equal(await page.locator('#mh-work').inputValue(),'오늘 카카오 문의에 답변했습니다');assert.equal(await page.locator('#mh-review').isEnabled(),true);
+await page.locator('#mh-work').fill('');
 await page.locator('#mh-review').click();await page.locator('#mh-errors').waitFor({state:'visible'});assert.match(await page.locator('#mh-errors').innerText(),/오늘 한 일/);
 await page.locator('#mh-work').fill('카카오 문의 3건 답변, 내일 수업 일정 확인');
 await page.locator('#mh-review').click();await page.locator('#mh-ai').waitFor({state:'visible'});
